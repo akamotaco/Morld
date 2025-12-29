@@ -11,7 +11,7 @@ using System.Text.Json.Serialization;
 public class WorldJsonData
 {
     [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 
     [JsonPropertyName("regions")]
     public List<RegionJsonData> Regions { get; set; } = new();
@@ -29,7 +29,7 @@ public class RegionJsonData
     public int Id { get; set; }
 
     [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 
     [JsonPropertyName("locations")]
     public List<LocationJsonData> Locations { get; set; } = new();
@@ -47,7 +47,7 @@ public class LocationJsonData
     public int Id { get; set; }
 
     [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 }
 
 /// <summary>
@@ -86,7 +86,7 @@ public class RegionEdgeJsonData
     public int Id { get; set; }
 
     [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 
     [JsonPropertyName("regionA")]
     public int RegionA { get; set; }

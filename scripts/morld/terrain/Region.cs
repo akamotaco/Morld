@@ -22,7 +22,7 @@ public class Region
     /// <summary>
     /// Region 이름
     /// </summary>
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 
     /// <summary>
     /// 소속 World (변경 추적용)
@@ -54,7 +54,7 @@ public class Region
     /// </summary>
     public int EdgeCount => _allEdges.Count;
 
-    public Region(int id, string? name = null)
+    public Region(int id, string name = "unknown")
     {
         Id = id;
         Name = name;
@@ -90,9 +90,9 @@ public class Region
     /// Location 추가
     /// </summary>
     /// <param name="localId">Location 로컬 ID</param>
-    /// <param name="name">Location 이름 (선택)</param>
+    /// <param name="name">Location 이름</param>
     /// <param name="throwOnDuplicate">중복 시 예외 발생 여부 (기본: false)</param>
-    public Location AddLocation(int localId, string? name = null, bool throwOnDuplicate = false)
+    public Location AddLocation(int localId, string name = "unknown", bool throwOnDuplicate = false)
     {
         if (localId < 0)
             throw new ArgumentException("Local ID cannot be negative", nameof(localId));
@@ -212,13 +212,13 @@ public class Region
         if (exactMatch)
         {
             return _locations.Values
-                .Where(loc => loc.Name != null && loc.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                .Where(loc => loc.Name != "unknown" && loc.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
         else
         {
             return _locations.Values
-                .Where(loc => loc.Name != null && loc.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+                .Where(loc => loc.Name != "unknown" && loc.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
     }
@@ -375,5 +375,5 @@ public class Region
         return _locations.Keys.Max() + 1;
     }
 
-    public override string ToString() => Name ?? $"Region[{Id}]";
+    public override string ToString() => Name != "unknown" ? Name : $"Region[{Id}]";
 }

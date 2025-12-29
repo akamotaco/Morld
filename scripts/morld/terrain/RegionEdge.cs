@@ -93,7 +93,7 @@ public class RegionEdge
     /// <summary>
     /// 연결 이름/설명
     /// </summary>
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 
     /// <summary>
     /// 추가 데이터
@@ -244,6 +244,6 @@ public class RegionEdge
     {
         var aToB = TravelTimeAtoB >= 0 ? TravelTimeAtoB.ToString("F1") : "X";
         var bToA = TravelTimeBtoA >= 0 ? TravelTimeBtoA.ToString("F1") : "X";
-        return $"RegionEdge[{Name ?? Id.ToString()}]: {LocationA} <--({bToA})--({aToB})--> {LocationB}";
+        return $"RegionEdge[{(Name != "unknown" ? Name : Id.ToString())}]: {LocationA} <--({bToA})--({aToB})--> {LocationB}";
     }
 }

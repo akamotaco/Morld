@@ -18,9 +18,9 @@ public class Location : IEquatable<Location>
     public int RegionId { get; }
 
     /// <summary>
-    /// 위치 이름 (선택)
+    /// 위치 이름
     /// </summary>
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 
     /// <summary>
     /// 추가 데이터
@@ -32,7 +32,7 @@ public class Location : IEquatable<Location>
     /// </summary>
     public string GlobalId => $"{RegionId}:{LocalId}";
 
-    public Location(int localId, int regionId, string? name = null)
+    public Location(int localId, int regionId, string name = "unknown")
     {
         LocalId = localId;
         RegionId = regionId;
@@ -49,7 +49,7 @@ public class Location : IEquatable<Location>
     
     public override int GetHashCode() => HashCode.Combine(RegionId, LocalId);
     
-    public override string ToString() => Name ?? $"[{GlobalId}]";
+    public override string ToString() => Name != "unknown" ? Name : $"[{GlobalId}]";
 }
 
 /// <summary>
@@ -112,5 +112,5 @@ public class LocationSearchResult
     /// </summary>
     public required int LocalId { get; init; }
 
-    public override string ToString() => $"{Location.Name ?? "Unnamed"} ({RegionId}:{LocalId})";
+    public override string ToString() => $"{(Location.Name != "unknown" ? Location.Name : "Unnamed")} ({RegionId}:{LocalId})";
 }

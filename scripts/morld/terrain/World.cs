@@ -29,7 +29,7 @@ public class World
     /// <summary>
     /// World 이름
     /// </summary>
-    public string? Name { get; set; }
+    public string Name { get; set; } = "unknown";
 
     /// <summary>
     /// 모든 Region
@@ -51,7 +51,7 @@ public class World
     /// </summary>
     public int RegionEdgeCount => _regionEdges.Count;
 
-    public World(string? name = null)
+    public World(string name = "unknown")
     {
         Name = name;
     }
@@ -124,9 +124,9 @@ public class World
     /// Region 추가
     /// </summary>
     /// <param name="regionId">Region 고유 ID</param>
-    /// <param name="name">Region 이름 (선택)</param>
+    /// <param name="name">Region 이름</param>
     /// <param name="throwOnDuplicate">중복 시 예외 발생 여부 (기본: false)</param>
-    public Region AddRegion(int regionId, string? name = null, bool throwOnDuplicate = false)
+    public Region AddRegion(int regionId, string name = "unknown", bool throwOnDuplicate = false)
     {
         if (_regions.ContainsKey(regionId))
         {
