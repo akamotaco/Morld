@@ -1,34 +1,57 @@
-# PathFinding Library
+# PathFinding Library (Godot C# Integration)
 
 .NET 8.0 기반의 계층적 월드 구조와 NPC 시뮬레이션을 위한 경로 탐색 라이브러리.
+**Godot 4 C# 환경으로 포팅 완료.**
 
 ## 프로젝트 구조
 
 ```
-PathFinding/
-├── Models/           # 핵심 데이터 모델
-│   ├── World.cs      # 최상위 월드 컨테이너
-│   ├── Region.cs     # 지역 (Location 그룹)
-│   ├── Location.cs   # 개별 위치
-│   ├── Edge.cs       # Region 내부 연결
-│   ├── RegionEdge.cs # Region 간 연결
-│   ├── RegionBuilder.cs
-│   └── ValidationResult.cs
-├── Core/
-│   └── PathFinder.cs # Dijkstra 경로 탐색
-├── Game/             # 게임 시뮬레이션
-│   ├── GameWorld.cs  # 시뮬레이션 컨트롤러
-│   ├── GameTime.cs   # 게임 내 시간
-│   ├── NPC.cs        # NPC 엔티티
-│   └── Schedule.cs   # 일일 스케줄
-├── Serialization/
-│   ├── WorldSerializer.cs  # JSON 직렬화
-│   └── DebugPrinter.cs     # 디버그 출력
-├── Data/
-│   ├── world_data.json     # 월드 데이터
-│   └── npc_data.json       # NPC 데이터
-└── Program.cs        # 시뮬레이션 데모
+morld/
+├── scripts/
+│   ├── morld/
+│   │   └── terrain/        # 핵심 데이터 모델 (Morld namespace)
+│   │       ├── World.cs                  # 최상위 월드 컨테이너
+│   │       ├── WorldJsonFormat.cs        # JSON 데이터 클래스
+│   │       ├── TestWorldSerialization.cs # JSON 직렬화 테스트
+│   │       ├── Region.cs                 # 지역 (Location 그룹)
+│   │       ├── Location.cs               # 개별 위치
+│   │       ├── Edge.cs                   # Region 내부 연결
+│   │       ├── RegionEdge.cs             # Region 간 연결
+│   │       ├── RegionBuilder.cs
+│   │       ├── ValidationResult.cs
+│   │       ├── location_data.json        # 월드 지형 데이터
+│   │       └── world_data.json           # 전체 게임 데이터
+│   └── sample/          # PathFinding namespace (샘플/참고용)
+│       ├── Core/
+│       │   └── PathFinder.cs      # Dijkstra 경로 탐색
+│       ├── Game/                  # 게임 시뮬레이션
+│       │   ├── GameWorld.cs       # 시뮬레이션 컨트롤러
+│       │   ├── GameTime.cs        # 게임 내 시간
+│       │   ├── NPC.cs             # NPC 엔티티
+│       │   └── Schedule.cs        # 일일 스케줄
+│       ├── Serialization/
+│       │   ├── WorldSerializer.cs # JSON 직렬화 (레거시)
+│       │   └── DebugPrinter.cs    # 디버그 출력
+│       └── Program.cs             # (주석 처리됨)
 ```
+
+## 주요 변경사항 (Godot 포팅)
+
+### Namespace 분리
+- **Morld**: 핵심 terrain 데이터 모델 (`morld/terrain/`)
+- **PathFinding**: 샘플 및 시뮬레이션 코드 (`sample/`)
+
+### 파일 I/O
+- `System.IO` → `Godot.FileAccess`로 변경
+- 모든 파일 읽기/쓰기가 Godot API 사용
+
+### World 클래스 개선
+- **독립적인 JSON 직렬화**: World 자체에 JSON import/export 기능 내장
+- **디버그 출력**: `DebugPrint()`, `DebugPrintSummary()` 메서드 추가
+- **UpdateFromJson**: 기존 World 객체를 JSON으로 업데이트하는 기능
+
+### 예외 처리
+- `InvalidDataException` → `InvalidOperationException` (System.IO 의존성 제거)
 
 ## 핵심 개념
 
@@ -154,6 +177,28 @@ gameWorld.OnNPCArrival += (gw, e) =>
 
 ### JSON 직렬화
 
+#### World 직접 사용 (권장 - Godot용)
+
+```csharp
+// World 파일에서 로드
+var world = World.LoadFromFile("res://scripts/morld/terrain/location_data.json");
+
+// World 파일로 저장
+world.SaveToFile("res://scripts/morld/terrain/location_data_output.json");
+
+// JSON 문자열로 변환
+string json = world.ToJson();
+
+// JSON 문자열에서 로드
+var world2 = World.LoadFromJson(json);
+
+// 기존 World 업데이트 (객체 유지)
+world.UpdateFromFile("res://scripts/morld/terrain/location_data.json");
+world.UpdateFromJson(jsonString);
+```
+
+#### WorldSerializer 사용 (레거시 - GameWorld용)
+
 ```csharp
 // 분리 로드
 var gameWorld = WorldSerializer.LoadWorldFromFile("world_data.json");
@@ -173,6 +218,21 @@ var loaded = WorldSerializer.LoadFromFile("game_save.json");
 ```
 
 ### 디버그 출력
+
+#### World 내장 디버그 (권장 - Godot용)
+
+```csharp
+// Godot 콘솔에 출력
+world.DebugPrint();                    // 전체 상세 정보
+world.DebugPrint(includeEdges: false); // Edge 제외
+world.DebugPrintSummary();             // 요약만
+
+// 문자열로 받기
+string detail = world.GetDebugString();
+string summary = world.GetDebugSummary();
+```
+
+#### DebugPrinter 사용 (레거시)
 
 ```csharp
 // 콘솔 출력

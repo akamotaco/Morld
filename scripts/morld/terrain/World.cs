@@ -3,6 +3,9 @@ namespace Morld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Godot;
 
 /// <summary>
 /// World - 여러 Region과 Region 간 연결을 관리
@@ -653,4 +656,505 @@ public class World
     {
         return $"World[{Name ?? "Unnamed"}]: {RegionCount} regions, {RegionEdgeCount} connections";
     }
+
+    #region JSON Serialization
+
+    /// <summary>
+    /// JSON 파일에서 World 로드
+    /// </summary>
+    public static World LoadFromFile(string filePath)
+    {
+        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
+        if (file == null)
+        {
+            throw new InvalidOperationException($"Failed to open file for reading: {filePath}");
+        }
+        var json = file.GetAsText();
+        return LoadFromJson(json);
+    }
+
+    /// <summary>
+    /// JSON 문자열에서 World 로드
+    /// </summary>
+    public static World LoadFromJson(string json)
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
+        var data = JsonSerializer.Deserialize<WorldJsonData>(json, options);
+        if (data == null)
+            throw new InvalidOperationException("Failed to parse World JSON data");
+
+        return ImportFromData(data);
+    }
+
+    /// <summary>
+    /// WorldJsonData에서 World 객체 생성
+    /// </summary>
+    private static World ImportFromData(WorldJsonData data)
+    {
+        var world = new World(data.Name);
+
+        // Region 추가
+        foreach (var regionData in data.Regions)
+        {
+            var region = new Region(regionData.Id, regionData.Name);
+
+            // Location 추가
+            foreach (var locData in regionData.Locations)
+            {
+                region.AddLocation(locData.Id, locData.Name);
+            }
+
+            // Edge 추가
+            foreach (var edgeData in regionData.Edges)
+            {
+                var edge = region.AddEdge(
+                    edgeData.A,
+                    edgeData.B,
+                    edgeData.TimeAtoB,
+                    edgeData.TimeBtoA);
+
+                if (edgeData.ConditionsAtoB != null)
+                {
+                    foreach (var (tag, value) in edgeData.ConditionsAtoB)
+                        edge.AddConditionAtoB(tag, value);
+                }
+                if (edgeData.ConditionsBtoA != null)
+                {
+                    foreach (var (tag, value) in edgeData.ConditionsBtoA)
+                        edge.AddConditionBtoA(tag, value);
+                }
+
+                edge.IsBlocked = edgeData.IsBlocked;
+            }
+
+            world.AddRegion(region);
+        }
+
+        // RegionEdge 추가
+        foreach (var edgeData in data.RegionEdges)
+        {
+            var edge = world.AddRegionEdge(
+                edgeData.Id,
+                edgeData.RegionA, edgeData.LocalA,
+                edgeData.RegionB, edgeData.LocalB,
+                edgeData.TimeAtoB,
+                edgeData.TimeBtoA);
+
+            edge.Name = edgeData.Name;
+            edge.IsBlocked = edgeData.IsBlocked;
+
+            if (edgeData.ConditionsAtoB != null)
+            {
+                foreach (var (tag, value) in edgeData.ConditionsAtoB)
+                    edge.AddConditionAtoB(tag, value);
+            }
+            if (edgeData.ConditionsBtoA != null)
+            {
+                foreach (var (tag, value) in edgeData.ConditionsBtoA)
+                    edge.AddConditionBtoA(tag, value);
+            }
+        }
+
+        return world;
+    }
+
+    /// <summary>
+    /// JSON 파일에서 현재 World 업데이트
+    /// </summary>
+    public void UpdateFromFile(string filePath)
+    {
+        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
+        if (file == null)
+        {
+            throw new InvalidOperationException($"Failed to open file for reading: {filePath}");
+        }
+        var json = file.GetAsText();
+        UpdateFromJson(json);
+    }
+
+    /// <summary>
+    /// JSON 문자열에서 현재 World 업데이트
+    /// </summary>
+    public void UpdateFromJson(string json)
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
+        var data = JsonSerializer.Deserialize<WorldJsonData>(json, options);
+        if (data == null)
+            throw new InvalidOperationException("Failed to parse World JSON data");
+
+        UpdateFromData(data);
+    }
+
+    /// <summary>
+    /// WorldJsonData로 현재 World 업데이트
+    /// </summary>
+    private void UpdateFromData(WorldJsonData data)
+    {
+        // 기존 데이터 모두 제거
+        var regionIds = _regions.Keys.ToList();
+        foreach (var regionId in regionIds)
+        {
+            RemoveRegion(regionId);
+        }
+
+        // 새 이름 설정
+        Name = data.Name;
+
+        // Region 추가
+        foreach (var regionData in data.Regions)
+        {
+            var region = new Region(regionData.Id, regionData.Name);
+
+            // Location 추가
+            foreach (var locData in regionData.Locations)
+            {
+                region.AddLocation(locData.Id, locData.Name);
+            }
+
+            // Edge 추가
+            foreach (var edgeData in regionData.Edges)
+            {
+                var edge = region.AddEdge(
+                    edgeData.A,
+                    edgeData.B,
+                    edgeData.TimeAtoB,
+                    edgeData.TimeBtoA);
+
+                if (edgeData.ConditionsAtoB != null)
+                {
+                    foreach (var (tag, value) in edgeData.ConditionsAtoB)
+                        edge.AddConditionAtoB(tag, value);
+                }
+                if (edgeData.ConditionsBtoA != null)
+                {
+                    foreach (var (tag, value) in edgeData.ConditionsBtoA)
+                        edge.AddConditionBtoA(tag, value);
+                }
+
+                edge.IsBlocked = edgeData.IsBlocked;
+            }
+
+            AddRegion(region);
+        }
+
+        // RegionEdge 추가
+        foreach (var edgeData in data.RegionEdges)
+        {
+            var edge = AddRegionEdge(
+                edgeData.Id,
+                edgeData.RegionA, edgeData.LocalA,
+                edgeData.RegionB, edgeData.LocalB,
+                edgeData.TimeAtoB,
+                edgeData.TimeBtoA);
+
+            edge.Name = edgeData.Name;
+            edge.IsBlocked = edgeData.IsBlocked;
+
+            if (edgeData.ConditionsAtoB != null)
+            {
+                foreach (var (tag, value) in edgeData.ConditionsAtoB)
+                    edge.AddConditionAtoB(tag, value);
+            }
+            if (edgeData.ConditionsBtoA != null)
+            {
+                foreach (var (tag, value) in edgeData.ConditionsBtoA)
+                    edge.AddConditionBtoA(tag, value);
+            }
+        }
+
+        // 변경 플래그 초기화
+        ClearAllChangedFlags();
+    }
+
+    /// <summary>
+    /// World를 JSON 파일로 저장
+    /// </summary>
+    public void SaveToFile(string filePath)
+    {
+        var json = ToJson();
+
+        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Write);
+        if (file == null)
+        {
+            throw new InvalidOperationException($"Failed to open file for writing: {filePath}");
+        }
+        file.StoreString(json);
+    }
+
+    /// <summary>
+    /// World를 JSON 문자열로 변환
+    /// </summary>
+    public string ToJson()
+    {
+        var data = ExportToData();
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
+        return JsonSerializer.Serialize(data, options);
+    }
+
+    /// <summary>
+    /// World를 WorldJsonData로 변환
+    /// </summary>
+    private WorldJsonData ExportToData()
+    {
+        var data = new WorldJsonData
+        {
+            Name = Name
+        };
+
+        // Region 내보내기
+        foreach (var region in _regions.Values.OrderBy(r => r.Id))
+        {
+            var regionData = new RegionJsonData
+            {
+                Id = region.Id,
+                Name = region.Name
+            };
+
+            // Location 내보내기
+            foreach (var location in region.Locations.OrderBy(l => l.LocalId))
+            {
+                regionData.Locations.Add(new LocationJsonData
+                {
+                    Id = location.LocalId,
+                    Name = location.Name
+                });
+            }
+
+            // Edge 내보내기
+            foreach (var edge in region.Edges)
+            {
+                var edgeData = new EdgeJsonData
+                {
+                    A = edge.LocationA.LocalId,
+                    B = edge.LocationB.LocalId,
+                    TimeAtoB = edge.TravelTimeAtoB,
+                    TimeBtoA = edge.TravelTimeBtoA,
+                    IsBlocked = edge.IsBlocked
+                };
+
+                if (edge.ConditionsAtoB.Count > 0)
+                    edgeData.ConditionsAtoB = new Dictionary<string, int>(edge.ConditionsAtoB);
+                if (edge.ConditionsBtoA.Count > 0)
+                    edgeData.ConditionsBtoA = new Dictionary<string, int>(edge.ConditionsBtoA);
+
+                regionData.Edges.Add(edgeData);
+            }
+
+            data.Regions.Add(regionData);
+        }
+
+        // RegionEdge 내보내기
+        foreach (var edge in _regionEdges.Values.OrderBy(e => e.Id))
+        {
+            var edgeData = new RegionEdgeJsonData
+            {
+                Id = edge.Id,
+                Name = edge.Name,
+                RegionA = edge.LocationA.RegionId,
+                LocalA = edge.LocationA.LocalId,
+                RegionB = edge.LocationB.RegionId,
+                LocalB = edge.LocationB.LocalId,
+                TimeAtoB = edge.TravelTimeAtoB,
+                TimeBtoA = edge.TravelTimeBtoA,
+                IsBlocked = edge.IsBlocked
+            };
+
+            if (edge.ConditionsAtoB.Count > 0)
+                edgeData.ConditionsAtoB = new Dictionary<string, int>(edge.ConditionsAtoB);
+            if (edge.ConditionsBtoA.Count > 0)
+                edgeData.ConditionsBtoA = new Dictionary<string, int>(edge.ConditionsBtoA);
+
+            data.RegionEdges.Add(edgeData);
+        }
+
+        return data;
+    }
+
+    #endregion
+
+    #region Debug Output
+
+    /// <summary>
+    /// World 전체 정보를 콘솔에 출력 (디버그용)
+    /// </summary>
+    public void DebugPrint(bool includeEdges = true, bool includeRegionEdges = true)
+    {
+        var output = GetDebugString(includeEdges, includeRegionEdges);
+        GD.Print(output);
+    }
+
+    /// <summary>
+    /// World 전체 정보를 문자열로 반환 (디버그용)
+    /// </summary>
+    public string GetDebugString(bool includeEdges = true, bool includeRegionEdges = true)
+    {
+        var lines = new List<string>();
+
+        // 헤더
+        lines.Add("╔════════════════════════════════════════════════════════════╗");
+        lines.Add($"║  WORLD: {Name ?? "Unnamed",-50} ║");
+        lines.Add("╠════════════════════════════════════════════════════════════╣");
+        lines.Add($"║  Regions: {RegionCount,-6}  RegionEdges: {RegionEdgeCount,-27} ║");
+        lines.Add("╚════════════════════════════════════════════════════════════╝");
+        lines.Add("");
+
+        // 각 Region 출력
+        foreach (var region in _regions.Values.OrderBy(r => r.Id))
+        {
+            lines.Add($"┌─────────────────────────────────────────────────────────────┐");
+            lines.Add($"│ Region [{region.Id}]: {region.Name ?? "Unnamed",-45} │");
+            lines.Add($"├─────────────────────────────────────────────────────────────┤");
+            lines.Add($"│ Locations: {region.LocationCount,-6}  Edges: {region.EdgeCount,-35} │");
+            lines.Add($"└─────────────────────────────────────────────────────────────┘");
+            lines.Add("");
+
+            // Locations 테이블
+            lines.Add("  Locations:");
+            lines.Add("  ┌────────┬────────────────────────────────────────────────┐");
+            lines.Add("  │   ID   │ Name                                           │");
+            lines.Add("  ├────────┼────────────────────────────────────────────────┤");
+
+            foreach (var location in region.Locations.OrderBy(l => l.LocalId))
+            {
+                var name = (location.Name ?? "").PadRight(46);
+                if (name.Length > 46) name = name.Substring(0, 46);
+                lines.Add($"  │ {location.LocalId,6} │ {name} │");
+            }
+
+            lines.Add("  └────────┴────────────────────────────────────────────────┘");
+            lines.Add("");
+
+            // Edges 테이블 (옵션)
+            if (includeEdges && region.EdgeCount > 0)
+            {
+                lines.Add("  Edges:");
+                lines.Add("  ┌────────┬────────┬──────────┬──────────┬─────────┐");
+                lines.Add("  │  From  │   To   │  A → B   │  B → A   │ Blocked │");
+                lines.Add("  ├────────┼────────┼──────────┼──────────┼─────────┤");
+
+                foreach (var edge in region.Edges)
+                {
+                    var timeAtoB = edge.TravelTimeAtoB?.ToString("F1").PadLeft(8) ?? "     N/A";
+                    var timeBtoA = edge.TravelTimeBtoA?.ToString("F1").PadLeft(8) ?? "     N/A";
+                    var blocked = edge.IsBlocked ? "   Yes" : "    -";
+
+                    lines.Add($"  │ {edge.LocationA.LocalId,6} │ {edge.LocationB.LocalId,6} │ {timeAtoB} │ {timeBtoA} │ {blocked,7} │");
+
+                    // Conditions 표시
+                    if (edge.ConditionsAtoB.Count > 0)
+                    {
+                        var conditions = string.Join(", ", edge.ConditionsAtoB.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                        lines.Add($"  │        │        │ A→B Conditions: {conditions,-26} │");
+                    }
+                    if (edge.ConditionsBtoA.Count > 0)
+                    {
+                        var conditions = string.Join(", ", edge.ConditionsBtoA.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                        lines.Add($"  │        │        │ B→A Conditions: {conditions,-26} │");
+                    }
+                }
+
+                lines.Add("  └────────┴────────┴──────────┴──────────┴─────────┘");
+                lines.Add("");
+            }
+        }
+
+        // RegionEdges 테이블 (옵션)
+        if (includeRegionEdges && RegionEdgeCount > 0)
+        {
+            lines.Add("┌─────────────────────────────────────────────────────────────┐");
+            lines.Add($"│ Region Edges ({RegionEdgeCount})                                         │");
+            lines.Add("├─────────────────────────────────────────────────────────────┤");
+            lines.Add("│  ID  │ Name                 │ From        │ To          │TT │");
+            lines.Add("├──────┼──────────────────────┼─────────────┼─────────────┼───┤");
+
+            foreach (var edge in _regionEdges.Values.OrderBy(e => e.Id))
+            {
+                var name = (edge.Name ?? edge.Id.ToString()).PadRight(20);
+                if (name.Length > 20) name = name.Substring(0, 20);
+
+                var from = $"R{edge.LocationA.RegionId}:L{edge.LocationA.LocalId}".PadRight(11);
+                var to = $"R{edge.LocationB.RegionId}:L{edge.LocationB.LocalId}".PadRight(11);
+                var tt = edge.TravelTimeAtoB?.ToString("F0") ?? edge.TravelTimeBtoA?.ToString("F0") ?? "?";
+
+                lines.Add($"│ {edge.Id,4} │ {name} │ {from} │ {to} │{tt,2} │");
+
+                // 상세 정보
+                if (edge.TravelTimeAtoB != edge.TravelTimeBtoA)
+                {
+                    var timeAtoB = edge.TravelTimeAtoB?.ToString("F1") ?? "N/A";
+                    var timeBtoA = edge.TravelTimeBtoA?.ToString("F1") ?? "N/A";
+                    lines.Add($"│      │                      │ A→B: {timeAtoB,-6} B→A: {timeBtoA,-6}           │");
+                }
+
+                if (edge.IsBlocked)
+                {
+                    lines.Add($"│      │                      │ [BLOCKED]                           │");
+                }
+
+                if (edge.ConditionsAtoB.Count > 0)
+                {
+                    var conditions = string.Join(", ", edge.ConditionsAtoB.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                    lines.Add($"│      │ A→B Conditions: {conditions,-36} │");
+                }
+                if (edge.ConditionsBtoA.Count > 0)
+                {
+                    var conditions = string.Join(", ", edge.ConditionsBtoA.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                    lines.Add($"│      │ B→A Conditions: {conditions,-36} │");
+                }
+            }
+
+            lines.Add("└──────┴──────────────────────┴─────────────┴─────────────┴───┘");
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// World 요약 정보를 콘솔에 출력 (간단 버전)
+    /// </summary>
+    public void DebugPrintSummary()
+    {
+        var output = GetDebugSummary();
+        GD.Print(output);
+    }
+
+    /// <summary>
+    /// World 요약 정보를 문자열로 반환 (간단 버전)
+    /// </summary>
+    public string GetDebugSummary()
+    {
+        var lines = new List<string>();
+
+        lines.Add("═══════════════════════════════════════════════════════════");
+        lines.Add($"  WORLD: {Name ?? "Unnamed"}");
+        lines.Add("═══════════════════════════════════════════════════════════");
+        lines.Add($"  Regions: {RegionCount}");
+        lines.Add($"  RegionEdges: {RegionEdgeCount}");
+        lines.Add("");
+
+        foreach (var region in _regions.Values.OrderBy(r => r.Id))
+        {
+            lines.Add($"  [{region.Id}] {region.Name ?? "Unnamed"}: {region.LocationCount} locations, {region.EdgeCount} edges");
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    #endregion
 }

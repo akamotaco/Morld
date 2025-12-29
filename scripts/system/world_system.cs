@@ -7,8 +7,12 @@ namespace SE
     public class WorldSystem : ECS.System
     {
         /// <summary>
-        /// 로그 출력 시스템. 일단은 eneity를 개수하기 위해 임시로 구현
-        /// 향후 텍스트 로그 출력 시스템으로 개조할 예정 있음
+        /// graph world 데이터 저장하는 곳
+        /// json 파일로 import/export 하는 기능을 제공하며, 다음의 것을 제공함
+        /// [morld]
+        /// - world
+        /// - region (+ region edge)
+        /// - location (+ edge)
         /// </summary>
         private Morld.World _world;
 

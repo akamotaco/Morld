@@ -14,7 +14,9 @@ public partial class GameEngine : Node
 	{
 		this._world = new SE.World(this);
 
-		this._world.AddSystem(new WorldSystem("aka"), "worldSystem");
+		(this._world.AddSystem(new WorldSystem("aka"), "worldSystem") as WorldSystem).GetWorld().UpdateFromFile("res://scripts/morld/terrain/location_data.json");
+
+		(this._world.FindSystem("worldSystem") as WorldSystem).GetWorld().DebugPrint();
 
 #if DEBUG_LOG
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");
