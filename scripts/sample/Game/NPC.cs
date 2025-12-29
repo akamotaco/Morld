@@ -2,7 +2,7 @@ namespace PathFinding.Game;
 
 using System;
 using System.Collections.Generic;
-using PathFinding.Models;
+using Morld;
 
 /// <summary>
 /// NPC 상태

@@ -3,7 +3,7 @@ namespace PathFinding.Game;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using PathFinding.Models;
+using Morld;
 
 /// <summary>
 /// 개별 스케줄 항목

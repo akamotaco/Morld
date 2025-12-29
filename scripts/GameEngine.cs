@@ -4,6 +4,7 @@ using Godot;
 using System;
 using Mysix;
 using System.Diagnostics;
+using SE;
 
 public partial class GameEngine : Node
 {
@@ -12,6 +13,8 @@ public partial class GameEngine : Node
 	public override void _Ready()
 	{
 		this._world = new SE.World(this);
+
+		this._world.AddSystem(new WorldSystem("aka"), "worldSystem");
 
 #if DEBUG_LOG
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");

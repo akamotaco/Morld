@@ -1,4 +1,4 @@
-namespace PathFinding.Models;
+namespace Morld;
 
 using System;
 using System.Collections.Generic;
