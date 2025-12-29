@@ -62,10 +62,10 @@ public class EdgeJsonData
     public int B { get; set; }
 
     [JsonPropertyName("timeAtoB")]
-    public float? TimeAtoB { get; set; }
+    public float TimeAtoB { get; set; } = -1;
 
     [JsonPropertyName("timeBtoA")]
-    public float? TimeBtoA { get; set; }
+    public float TimeBtoA { get; set; } = -1;
 
     [JsonPropertyName("conditionsAtoB")]
     public Dictionary<string, int>? ConditionsAtoB { get; set; }
@@ -101,10 +101,10 @@ public class RegionEdgeJsonData
     public int LocalB { get; set; }
 
     [JsonPropertyName("timeAtoB")]
-    public float? TimeAtoB { get; set; }
+    public float TimeAtoB { get; set; } = -1;
 
     [JsonPropertyName("timeBtoA")]
-    public float? TimeBtoA { get; set; }
+    public float TimeBtoA { get; set; } = -1;
 
     [JsonPropertyName("conditionsAtoB")]
     public Dictionary<string, int>? ConditionsAtoB { get; set; }

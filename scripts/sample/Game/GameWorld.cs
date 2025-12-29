@@ -376,8 +376,8 @@ public class GameWorld
             
             if (edge != null)
             {
-                var travelTime = edge.GetTravelTime(current) ?? 1;
-                npc.SetSegmentTravelTime(travelTime);
+                var travelTime = edge.GetTravelTime(current);
+                npc.SetSegmentTravelTime(travelTime >= 0 ? travelTime : 1);
                 return;
             }
         }
@@ -392,14 +392,14 @@ public class GameWorld
                 if ((locA.RegionId == current.RegionId && locA.LocalId == current.LocalId &&
                      locB.RegionId == next.RegionId && locB.LocalId == next.LocalId))
                 {
-                    var travelTime = regionEdge.TravelTimeAtoB ?? 1;
+                    var travelTime = regionEdge.TravelTimeAtoB >= 0 ? regionEdge.TravelTimeAtoB : 1;
                     npc.SetSegmentTravelTime(travelTime);
                     return;
                 }
                 else if ((locB.RegionId == current.RegionId && locB.LocalId == current.LocalId &&
                           locA.RegionId == next.RegionId && locA.LocalId == next.LocalId))
                 {
-                    var travelTime = regionEdge.TravelTimeBtoA ?? 1;
+                    var travelTime = regionEdge.TravelTimeBtoA >= 0 ? regionEdge.TravelTimeBtoA : 1;
                     npc.SetSegmentTravelTime(travelTime);
                     return;
                 }

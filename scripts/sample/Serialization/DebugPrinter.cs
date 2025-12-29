@@ -89,8 +89,8 @@ public static class DebugPrinter
                 if (printed.Contains(key)) continue;
                 printed.Add(key);
 
-                var timeAB = edge.TravelTimeAtoB?.ToString("F1") ?? "X";
-                var timeBA = edge.TravelTimeBtoA?.ToString("F1") ?? "X";
+                var timeAB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F1") : "X";
+                var timeBA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString("F1") : "X";
                 var blocked = edge.IsBlocked ? "Yes" : "-";
 
                 sb.AppendLine($"  │ {edge.LocationA.LocalId,6} │ {edge.LocationB.LocalId,6} │ {timeAB,8} │ {timeBA,8} │ {blocked,7} │");
@@ -148,7 +148,7 @@ public static class DebugPrinter
 
             var from = $"R{edge.LocationA.RegionId}:L{edge.LocationA.LocalId}";
             var to = $"R{edge.LocationB.RegionId}:L{edge.LocationB.LocalId}";
-            var tt = edge.TravelTimeAtoB?.ToString("F0") ?? "X";
+            var tt = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F0") : "X";
 
             sb.AppendLine($"│ {edge.Id,4} │ {name,-20} │ {from,-11} │ {to,-11} │{tt,3}│");
         }

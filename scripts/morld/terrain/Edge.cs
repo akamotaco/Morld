@@ -9,8 +9,8 @@ using System.Linq;
 /// </summary>
 public class Edge
 {
-    private float? _travelTimeAtoB;
-    private float? _travelTimeBtoA;
+    private float _travelTimeAtoB;
+    private float _travelTimeBtoA;
     private bool _isBlocked;
 
     /// <summary>
@@ -29,9 +29,9 @@ public class Edge
     internal Region? OwnerRegion { get; set; }
 
     /// <summary>
-    /// A → B 방향 이동 시간 (null이면 이동 불가)
+    /// A → B 방향 이동 시간 (0 미만이면 이동 불가)
     /// </summary>
-    public float? TravelTimeAtoB
+    public float TravelTimeAtoB
     {
         get => _travelTimeAtoB;
         set
@@ -45,9 +45,9 @@ public class Edge
     }
 
     /// <summary>
-    /// B → A 방향 이동 시간 (null이면 이동 불가)
+    /// B → A 방향 이동 시간 (0 미만이면 이동 불가)
     /// </summary>
-    public float? TravelTimeBtoA
+    public float TravelTimeBtoA
     {
         get => _travelTimeBtoA;
         set
@@ -111,7 +111,7 @@ public class Edge
     /// <summary>
     /// 방향별 이동 시간 설정
     /// </summary>
-    public Edge SetTravelTime(float? aToB, float? bToA)
+    public Edge SetTravelTime(float aToB, float bToA)
     {
         _travelTimeAtoB = aToB;
         _travelTimeBtoA = bToA;
@@ -200,20 +200,20 @@ public class Edge
         if (IsBlocked) return false;
 
         var travelTime = GetTravelTime(from);
-        if (travelTime == null) return false;
+        if (travelTime < 0) return false;
 
         var conditions = GetConditions(from);
         return CheckConditions(conditions, context);
     }
 
     /// <summary>
-    /// 주어진 방향의 이동 시간 반환
+    /// 주어진 방향의 이동 시간 반환 (0 미만이면 이동 불가, -1이면 유효하지 않은 위치)
     /// </summary>
-    public float? GetTravelTime(Location from)
+    public float GetTravelTime(Location from)
     {
         if (from.Equals(LocationA)) return TravelTimeAtoB;
         if (from.Equals(LocationB)) return TravelTimeBtoA;
-        return null;
+        return -1;
     }
 
     /// <summary>
@@ -241,8 +241,8 @@ public class Edge
 
     public override string ToString()
     {
-        var aToB = TravelTimeAtoB.HasValue ? TravelTimeAtoB.Value.ToString("F1") : "X";
-        var bToA = TravelTimeBtoA.HasValue ? TravelTimeBtoA.Value.ToString("F1") : "X";
+        var aToB = TravelTimeAtoB >= 0 ? TravelTimeAtoB.ToString("F1") : "X";
+        var bToA = TravelTimeBtoA >= 0 ? TravelTimeBtoA.ToString("F1") : "X";
         return $"Edge[{LocationA} <--({bToA})--({aToB})--> {LocationB}]";
     }
 }

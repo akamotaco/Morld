@@ -155,7 +155,7 @@ public class Region
     /// <summary>
     /// 양방향 엣지 추가 (방향별 다른 이동 시간)
     /// </summary>
-    public Edge AddEdge(int localIdA, int localIdB, float? travelTimeAtoB, float? travelTimeBtoA)
+    public Edge AddEdge(int localIdA, int localIdB, float travelTimeAtoB, float travelTimeBtoA)
     {
         var locationA = GetOrCreateLocation(localIdA);
         var locationB = GetOrCreateLocation(localIdB);
@@ -269,7 +269,7 @@ public class Region
             if (edge.CanTraverse(location, context))
             {
                 var neighbor = edge.GetOtherLocation(location);
-                var travelTime = edge.GetTravelTime(location)!.Value;
+                var travelTime = edge.GetTravelTime(location);
                 yield return (neighbor, edge, travelTime);
             }
         }

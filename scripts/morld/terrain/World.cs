@@ -14,9 +14,16 @@ public class World
 {
     private readonly Dictionary<int, Region> _regions = new();
     private readonly Dictionary<int, RegionEdge> _regionEdges = new();
+    /// <summary>
+    /// Region ID별 연결된 RegionEdge 목록 (O(1) 조회를 위한 인덱스)
+    /// Key: Region ID, Value: 해당 Region에 연결된 모든 RegionEdge
+    /// </summary>
     private readonly Dictionary<int, List<RegionEdge>> _regionEdgeIndex = new();
     private readonly HashSet<int> _changedRegions = new();
     private bool _isRegionEdgeChanged;
+    /// <summary>
+    /// RegionEdge ID 자동 생성을 위한 카운터 (중복 방지)
+    /// </summary>
     private int _nextRegionEdgeId = 0;
 
     /// <summary>
@@ -305,7 +312,7 @@ public class World
         int edgeId,
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
-        float? travelTimeAtoB, float? travelTimeBtoA,
+        float travelTimeAtoB, float travelTimeBtoA,
         bool throwOnDuplicate = false)
     {
         if (_regionEdges.ContainsKey(edgeId))
@@ -426,7 +433,7 @@ public class World
             if (edge.CanTraverse(from, context))
             {
                 var destination = edge.GetOtherLocation(from);
-                var travelTime = edge.GetTravelTime(from)!.Value;
+                var travelTime = edge.GetTravelTime(from);
                 yield return (edge, destination, travelTime);
             }
         }
@@ -1050,8 +1057,8 @@ public class World
 
                 foreach (var edge in region.Edges)
                 {
-                    var timeAtoB = edge.TravelTimeAtoB?.ToString("F1").PadLeft(8) ?? "     N/A";
-                    var timeBtoA = edge.TravelTimeBtoA?.ToString("F1").PadLeft(8) ?? "     N/A";
+                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F1").PadLeft(8) : "     N/A";
+                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString("F1").PadLeft(8) : "     N/A";
                     var blocked = edge.IsBlocked ? "   Yes" : "    -";
 
                     lines.Add($"  │ {edge.LocationA.LocalId,6} │ {edge.LocationB.LocalId,6} │ {timeAtoB} │ {timeBtoA} │ {blocked,7} │");
@@ -1090,15 +1097,15 @@ public class World
 
                 var from = $"R{edge.LocationA.RegionId}:L{edge.LocationA.LocalId}".PadRight(11);
                 var to = $"R{edge.LocationB.RegionId}:L{edge.LocationB.LocalId}".PadRight(11);
-                var tt = edge.TravelTimeAtoB?.ToString("F0") ?? edge.TravelTimeBtoA?.ToString("F0") ?? "?";
+                var tt = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F0") : (edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString("F0") : "?");
 
                 lines.Add($"│ {edge.Id,4} │ {name} │ {from} │ {to} │{tt,2} │");
 
                 // 상세 정보
                 if (edge.TravelTimeAtoB != edge.TravelTimeBtoA)
                 {
-                    var timeAtoB = edge.TravelTimeAtoB?.ToString("F1") ?? "N/A";
-                    var timeBtoA = edge.TravelTimeBtoA?.ToString("F1") ?? "N/A";
+                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F1") : "N/A";
+                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString("F1") : "N/A";
                     lines.Add($"│      │                      │ A→B: {timeAtoB,-6} B→A: {timeBtoA,-6}           │");
                 }
 

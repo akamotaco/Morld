@@ -10,7 +10,7 @@ public class RegionBuilder
 {
     private readonly int _regionId;
     private readonly int _size;
-    private readonly float?[,] _matrix;
+    private readonly float[,] _matrix;
     private readonly Dictionary<(int, int), Dictionary<string, int>> _conditionsAtoB = new();
     private readonly string?[] _locationNames;
     private string? _regionName;
@@ -37,8 +37,13 @@ public class RegionBuilder
 
         _regionId = regionId;
         _size = size;
-        _matrix = new float?[size, size];
+        _matrix = new float[size, size];
         _locationNames = new string?[size];
+
+        // 초기화: 모든 연결을 -1로 (이동 불가)
+        for (int i = 0; i < size; i++)
+            for (int j = 0; j < size; j++)
+                _matrix[i, j] = -1;
     }
 
     /// <summary>
@@ -53,15 +58,15 @@ public class RegionBuilder
 
         _regionId = regionId;
         _size = matrix.GetLength(0);
-        _matrix = new float?[_size, _size];
+        _matrix = new float[_size, _size];
         _locationNames = new string?[_size];
 
+        // 행렬 복사 (양수만 복사, 나머지는 -1)
         for (int i = 0; i < _size; i++)
         {
             for (int j = 0; j < _size; j++)
             {
-                if (matrix[i, j] > 0)
-                    _matrix[i, j] = matrix[i, j];
+                _matrix[i, j] = matrix[i, j] > 0 ? matrix[i, j] : -1;
             }
         }
     }
@@ -101,7 +106,7 @@ public class RegionBuilder
     /// <summary>
     /// 방향별 다른 이동 시간 설정
     /// </summary>
-    public RegionBuilder SetTravelTime(int localIdA, int localIdB, float? travelTimeAtoB, float? travelTimeBtoA)
+    public RegionBuilder SetTravelTime(int localIdA, int localIdB, float travelTimeAtoB, float travelTimeBtoA)
     {
         ValidateLocalId(localIdA);
         ValidateLocalId(localIdB);
@@ -131,8 +136,8 @@ public class RegionBuilder
         ValidateLocalId(localIdA);
         ValidateLocalId(localIdB);
 
-        _matrix[localIdA, localIdB] = null;
-        _matrix[localIdB, localIdA] = null;
+        _matrix[localIdA, localIdB] = -1;
+        _matrix[localIdB, localIdA] = -1;
         return this;
     }
 
@@ -183,8 +188,8 @@ public class RegionBuilder
                 var timeAtoB = _matrix[i, j];
                 var timeBtoA = _matrix[j, i];
 
-                // 양방향 모두 연결이 없으면 스킵
-                if (timeAtoB == null && timeBtoA == null)
+                // 양방향 모두 연결이 없으면 스킵 (둘 다 0 미만)
+                if (timeAtoB < 0 && timeBtoA < 0)
                     continue;
 
                 var edge = region.AddEdge(i, j, timeAtoB, timeBtoA);
@@ -210,9 +215,9 @@ public class RegionBuilder
     /// <summary>
     /// 현재 인접 행렬 반환 (디버깅용)
     /// </summary>
-    public float?[,] GetMatrix()
+    public float[,] GetMatrix()
     {
-        var copy = new float?[_size, _size];
+        var copy = new float[_size, _size];
         Array.Copy(_matrix, copy, _matrix.Length);
         return copy;
     }
