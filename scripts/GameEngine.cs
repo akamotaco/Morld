@@ -14,12 +14,15 @@ public partial class GameEngine : Node
 	{
 		this._world = new SE.World(this);
 
-		(this._world.AddSystem(new WorldSystem("aka"), "worldSystem") as WorldSystem).GetWorld().UpdateFromFile("res://scripts/morld/terrain/location_data.json");
-		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().UpdateFromFile("res://scripts/morld/terrain/time_data.json");
+		(this._world.AddSystem(new WorldSystem("aka"), "worldSystem") as WorldSystem).GetWorld().UpdateFromFile("res://scripts/morld/json_data/location_data.json");
+		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().UpdateFromFile("res://scripts/morld/json_data/time_data.json");
+
+		(this._world.AddSystem(new CharacterSystem(), "characterSystem") as CharacterSystem).UpdateFromFile("res://scripts/morld/json_data/character_data.json");
 
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetWorld().DebugPrint();
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().DebugPrint();
+		(this._world.FindSystem("characterSystem") as CharacterSystem).DebugPrint();
 
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");
 #endif

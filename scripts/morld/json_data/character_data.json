@@ -1,0 +1,52 @@
+[
+    {
+      "id": "npc_001",
+      "name": "철수",
+      "regionId": 0,
+      "locationId": 0,
+      "schedule": [
+        { "name": "기상/준비", "regionId": 0, "locationId": 0, "start": 360, "end": 420 },
+        { "name": "아침식사", "regionId": 1, "locationId": 0, "start": 420, "end": 480 },
+        { "name": "상점 방문", "regionId": 1, "locationId": 1, "start": 540, "end": 720 },
+        { "name": "점심식사", "regionId": 1, "locationId": 0, "start": 720, "end": 780 },
+        { "name": "공원 산책", "regionId": 0, "locationId": 3, "start": 840, "end": 1020 },
+        { "name": "저녁식사", "regionId": 1, "locationId": 0, "start": 1080, "end": 1140 },
+        { "name": "귀가/휴식", "regionId": 0, "locationId": 0, "start": 1200, "end": 1320 },
+        { "name": "수면", "regionId": 0, "locationId": 0, "start": 1320, "end": 360 }
+      ]
+    },
+    {
+      "id": "npc_002",
+      "name": "영희",
+      "regionId": 1,
+      "locationId": 1,
+      "schedule": [
+        { "name": "기상", "regionId": 1, "locationId": 1, "start": 300, "end": 360 },
+        { "name": "상점 오픈 준비", "regionId": 1, "locationId": 2, "start": 360, "end": 420 },
+        { "name": "상점 근무 (오전)", "regionId": 1, "locationId": 1, "start": 420, "end": 720 },
+        { "name": "점심시간", "regionId": 1, "locationId": 0, "start": 720, "end": 780 },
+        { "name": "상점 근무 (오후)", "regionId": 1, "locationId": 1, "start": 780, "end": 1140 },
+        { "name": "정리/마감", "regionId": 1, "locationId": 2, "start": 1140, "end": 1200 },
+        { "name": "저녁식사", "regionId": 1, "locationId": 0, "start": 1200, "end": 1260 },
+        { "name": "수면", "regionId": 1, "locationId": 1, "start": 1320, "end": 300 }
+      ]
+    },
+    {
+      "id": "npc_003",
+      "name": "민수",
+      "regionId": 0,
+      "locationId": 2,
+      "tags": {
+        "열쇠": 1
+      },
+      "schedule": [
+        { "name": "수면", "regionId": 0, "locationId": 2, "start": 1380, "end": 480 },
+        { "name": "아침식사", "regionId": 1, "locationId": 0, "start": 480, "end": 540 },
+        { "name": "우물에서 물긷기", "regionId": 0, "locationId": 4, "start": 600, "end": 660 },
+        { "name": "점심식사", "regionId": 1, "locationId": 0, "start": 720, "end": 780 },
+        { "name": "광장에서 휴식", "regionId": 0, "locationId": 1, "start": 840, "end": 1020 },
+        { "name": "저녁식사", "regionId": 1, "locationId": 0, "start": 1080, "end": 1140 },
+        { "name": "귀가", "regionId": 0, "locationId": 2, "start": 1200, "end": 1380 }
+      ]
+    }
+]
