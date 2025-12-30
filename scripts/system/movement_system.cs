@@ -24,18 +24,23 @@ namespace SE
 				return;
 
 			var terrain = worldSystem.GetTerrain();
+			var deltaMinutes = worldSystem.GetDeltaGameMinutes();
+
+			// 게임 시간이 흐르지 않았으면 스킵
+			if (deltaMinutes <= 0)
+				return;
 
 			// 모든 캐릭터 처리
 			foreach (var character in characterSystem.Characters.Values)
 			{
-				ProcessCharacter(character, step, terrain);
+				ProcessCharacter(character, deltaMinutes, terrain);
 			}
 		}
 
 		/// <summary>
 		/// 개별 캐릭터 처리
 		/// </summary>
-		private void ProcessCharacter(Character character, int deltaTime, Morld.Terrain terrain)
+		private void ProcessCharacter(Character character, int deltaMinutes, Morld.Terrain terrain)
 		{
 			// 이동 중인 캐릭터만 처리
 			if (character.State != CharacterState.Moving)
@@ -47,11 +52,7 @@ namespace SE
 				return;
 			}
 
-			// 이동 시간 경과 (deltaTime은 밀리초 단위, 분 단위로 변환)
-			int deltaMinutes = deltaTime / 1000 / 60;
-			if (deltaMinutes <= 0)
-				deltaMinutes = 1; // 최소 1분
-
+			// 이동 시간 경과 (WorldSystem에서 전달받은 게임 시간)
 			character.AddTravelTime(deltaMinutes);
 
 			// 현재 구간 완료 확인

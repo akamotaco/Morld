@@ -23,19 +23,25 @@ public class ScheduleEntry
 	public TimeRange TimeRange { get; set; }
 
 	/// <summary>
+	/// 활동 상태 (예: "수면", "영업", "휴식", "식사" 등)
+	/// </summary>
+	public string Activity { get; set; }
+
+	/// <summary>
 	/// 추가 데이터
 	/// </summary>
 	public object? Tag { get; set; }
 
-	public ScheduleEntry(string name, LocationRef location, TimeRange timeRange)
+	public ScheduleEntry(string name, LocationRef location, TimeRange timeRange, string activity = "")
 	{
 		Name = name ?? throw new ArgumentNullException(nameof(name));
 		Location = location;
 		TimeRange = timeRange;
+		Activity = activity;
 	}
 
-	public ScheduleEntry(string name, int regionId, int locationId, int startMinute, int endMinute)
-		: this(name, new LocationRef(regionId, locationId), new TimeRange(startMinute, endMinute))
+	public ScheduleEntry(string name, int regionId, int locationId, int startMinute, int endMinute, string activity = "")
+		: this(name, new LocationRef(regionId, locationId), new TimeRange(startMinute, endMinute), activity)
 	{
 	}
 

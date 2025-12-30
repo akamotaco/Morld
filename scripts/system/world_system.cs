@@ -24,6 +24,9 @@ namespace SE
         private const int TimeUpdateInterval = 1000; // 1초마다 업데이트
         private const int MinutesPerUpdate = 15; // 1초당 15분씩 증가
 
+        // 지난 프레임 이후 흐른 게임 시간 (분 단위)
+        private int _deltaGameMinutes = 0;
+
         public WorldSystem(string TerrainName)
         {
             _terrain = new Morld.Terrain(TerrainName);
@@ -40,15 +43,27 @@ namespace SE
             return this._currentTime;
         }
 
+        /// <summary>
+        /// 지난 프레임 이후 흐른 게임 시간(분) 반환
+        /// </summary>
+        public int GetDeltaGameMinutes()
+        {
+            return _deltaGameMinutes;
+        }
+
         protected override void Proc(int step, Span<Component[]> allComponents)
         {
             // 시간 누적
             _accumulatedTime += step;
 
+            // 매 프레임 초기화
+            _deltaGameMinutes = 0;
+
             // 1초(1000ms)마다 게임 시간 15분씩 증가
             if (_accumulatedTime >= TimeUpdateInterval)
             {
                 _accumulatedTime -= TimeUpdateInterval;
+                _deltaGameMinutes = MinutesPerUpdate;
                 _currentTime.AddMinutes(MinutesPerUpdate);
 
 #if DEBUG_LOG

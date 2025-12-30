@@ -46,4 +46,7 @@ internal class ScheduleEntryJsonData
 
 	[JsonPropertyName("end")]
 	public int End { get; set; }
+
+	[JsonPropertyName("activity")]
+	public string? Activity { get; set; }
 }

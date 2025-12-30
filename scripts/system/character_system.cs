@@ -116,7 +116,8 @@ namespace SE
 						scheduleData.RegionId,
 						scheduleData.LocationId,
 						scheduleData.Start,
-						scheduleData.End
+						scheduleData.End,
+						scheduleData.Activity ?? ""
 					);
 				}
 
@@ -175,7 +176,8 @@ namespace SE
 					RegionId = entry.Location.RegionId,
 					LocationId = entry.Location.LocalId,
 					Start = entry.TimeRange.StartMinute,
-					End = entry.TimeRange.EndMinute
+					End = entry.TimeRange.EndMinute,
+					Activity = string.IsNullOrEmpty(entry.Activity) ? null : entry.Activity
 				}).ToArray()
 			}).ToArray();
 		}

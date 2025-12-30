@@ -76,7 +76,13 @@ namespace SE
 				var regionName = region?.Name ?? "Unknown";
 				var stateStr = character.State == CharacterState.Moving ? "Moving" : "Idle";
 
-				GD.Print($"  • {character.Name}: {regionName}/{locationName} [{stateStr}]");
+				// 현재 활동 정보
+				var currentSchedule = character.CurrentSchedule;
+				var activityStr = currentSchedule != null && !string.IsNullOrEmpty(currentSchedule.Activity)
+					? $" - {currentSchedule.Activity}"
+					: "";
+
+				GD.Print($"  • {character.Name}: {regionName}/{locationName} [{stateStr}]{activityStr}");
 
 				// 이동 중이면 목적지 정보도 출력
 				if (character.State == CharacterState.Moving && character.Movement != null)

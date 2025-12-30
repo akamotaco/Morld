@@ -28,9 +28,9 @@ public class DailySchedule
 	/// <summary>
 	/// 스케줄 항목 추가 (편의 메서드)
 	/// </summary>
-	public DailySchedule AddEntry(string name, int regionId, int locationId, int startMinute, int endMinute)
+	public DailySchedule AddEntry(string name, int regionId, int locationId, int startMinute, int endMinute, string activity = "")
 	{
-		_entries.Add(new ScheduleEntry(name, regionId, locationId, startMinute, endMinute));
+		_entries.Add(new ScheduleEntry(name, regionId, locationId, startMinute, endMinute, activity));
 		return this;
 	}
 
