@@ -2,7 +2,6 @@ using ECS;
 using Godot;
 using Morld;
 using System;
-using World = Morld.World;
 
 namespace SE
 {
@@ -24,19 +23,19 @@ namespace SE
 			if (worldSystem == null || characterSystem == null)
 				return;
 
-			var world = worldSystem.GetWorld();
+			var terrain = worldSystem.GetTerrain();
 
 			// 모든 캐릭터 처리
 			foreach (var character in characterSystem.Characters.Values)
 			{
-				ProcessCharacter(character, step, world);
+				ProcessCharacter(character, step, terrain);
 			}
 		}
 
 		/// <summary>
 		/// 개별 캐릭터 처리
 		/// </summary>
-		private void ProcessCharacter(Character character, int deltaTime, Morld.World world)
+		private void ProcessCharacter(Character character, int deltaTime, Morld.Terrain terrain)
 		{
 			// 이동 중인 캐릭터만 처리
 			if (character.State != CharacterState.Moving)
@@ -72,7 +71,7 @@ namespace SE
 					if (character.MoveToNextSegment())
 					{
 						// 다음 구간 이동 시간 계산
-						SetupNextSegment(character, world);
+						SetupNextSegment(character, terrain);
 					}
 				}
 			}
@@ -81,7 +80,7 @@ namespace SE
 		/// <summary>
 		/// 캐릭터의 다음 이동 구간 설정
 		/// </summary>
-		private void SetupNextSegment(Character character, Morld.World world)
+		private void SetupNextSegment(Character character, Morld.Terrain terrain)
 		{
 			if (character.Movement == null)
 				return;
@@ -98,7 +97,7 @@ namespace SE
 			// 같은 Region 내 이동인지 확인
 			if (current.RegionId == next.RegionId)
 			{
-				var region = world.GetRegion(current.RegionId);
+				var region = terrain.GetRegion(current.RegionId);
 				var edge = region?.GetEdgeBetween(current.LocalId, next.LocalId);
 
 				if (edge != null)
@@ -111,7 +110,7 @@ namespace SE
 			else
 			{
 				// Region 간 이동 - RegionEdge 찾기
-				foreach (var regionEdge in world.RegionEdges)
+				foreach (var regionEdge in terrain.RegionEdges)
 				{
 					var locA = regionEdge.LocationA;
 					var locB = regionEdge.LocationB;

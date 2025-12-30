@@ -18,7 +18,7 @@ public static class TestWorldSerialization
         {
             // 1. location_data.json 로드
             Console.WriteLine("1. Loading location_data.json...");
-            var world = World.LoadFromFile("res://scripts/morld/terrain/location_data.json");
+            var world = Terrain.LoadFromFile("res://scripts/morld/terrain/location_data.json");
             Console.WriteLine($"   Loaded: {world}");
             Console.WriteLine($"   Regions: {world.RegionCount}");
             Console.WriteLine($"   RegionEdges: {world.RegionEdgeCount}");
@@ -29,7 +29,7 @@ public static class TestWorldSerialization
 
             // 3. 직렬화된 JSON을 다시 로드
             Console.WriteLine("\n3. Re-importing from exported JSON...");
-            var world2 = World.LoadFromJson(exportedJson);
+            var world2 = Terrain.LoadFromJson(exportedJson);
             Console.WriteLine($"   Re-loaded: {world2}");
             Console.WriteLine($"   Regions: {world2.RegionCount}");
             Console.WriteLine($"   RegionEdges: {world2.RegionEdgeCount}");
@@ -64,7 +64,7 @@ public static class TestWorldSerialization
     /// <summary>
     /// 두 World 객체 비교
     /// </summary>
-    private static bool CompareWorlds(World w1, World w2)
+    private static bool CompareWorlds(Terrain w1, Terrain w2)
     {
         bool identical = true;
 

@@ -6,9 +6,9 @@ using System.Text.Json.Serialization;
 #region JSON Data Classes
 
 /// <summary>
-/// World JSON 데이터
+/// Terrain JSON 데이터
 /// </summary>
-public class WorldJsonData
+public class TerrainJsonData
 {
     [JsonPropertyName("name")]
     public string Name { get; set; } = "unknown";

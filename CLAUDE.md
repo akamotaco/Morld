@@ -28,7 +28,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - 게임 데이터의 원천(Source of Truth)
 
 **구현 시스템:**
-- `WorldSystem` - 월드 지형 데이터 (Region, Location, Edge)
+- `WorldSystem` - 지형(Terrain) 데이터 및 시간 관리
 - `CharacterSystem` - 캐릭터 데이터 (위치, 스케줄, 상태)
 
 #### 2. Logic/Behavior Systems (로직 시스템)
@@ -38,9 +38,10 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - ❌ JSON Import/Export 없음
 - ✅ Step 함수 구현 (`Proc(int step, Span<Component[]> allComponents)`)
 - Data Systems의 데이터를 읽고 수정
-- Stateless - 자체 상태를 저장하지 않음
+- Stateless - 자체 상태를 저장하지 않음 (디버그용 누적 시간 제외)
 
 **구현 시스템:**
+- `WorldSystem` - 시간 진행 로직 (Proc 구현)
 - `PlanningSystem` - 캐릭터 스케줄 기반 경로 계획
 - `MovementSystem` - 캐릭터 실시간 이동 처리
 
@@ -53,6 +54,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 └──────────┬──────────┘
            │
            ├─> WorldSystem.UpdateFromFile("location_data.json")
+           ├─> WorldSystem.GetTime().UpdateFromFile("time_data.json")
            ├─> CharacterSystem.UpdateFromFile("character_data.json")
            │
            ├─> PlanningSystem 등록
@@ -63,7 +65,10 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 │  _Process(delta)    │
 └──────────┬──────────┘
            │
-           └─> World.Step(deltaTime)
+           └─> ECS.World.Step(deltaTime)
+                 │
+                 ├─> WorldSystem.Proc()
+                 │     └─> 시간 누적 → 1초마다 GameTime 15분 증가
                  │
                  ├─> PlanningSystem.Proc()
                  │     └─> 스케줄 확인 → 경로 계획 → Character 상태 업데이트
@@ -77,31 +82,38 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 ## 시스템 상세
 
 ### WorldSystem
-**역할:** 게임 월드의 지형 데이터 관리
+**역할:** 게임의 지형(Terrain) 데이터 및 시간 관리
 
 **주요 기능:**
 - Region 및 Location 그래프 관리
 - Edge를 통한 이동 시간 정보
 - RegionEdge를 통한 Region 간 연결
+- GameTime을 통한 게임 시간 진행 (1초 = 15분)
 - JSON 기반 Import/Export
 
 **데이터 구조:**
 ```csharp
-World
+Terrain
 ├─ Region[] (여러 지역)
 │  └─ Location[] (각 지역의 장소들)
 │     └─ Edge[] (장소 간 연결 및 이동 시간)
 └─ RegionEdge[] (지역 간 연결)
 
 GameTime (시간 관리)
+├─ _year, _month, _day (날짜)
+├─ _minuteOfDay (0~1439, hour/minute 통합)
 ├─ Calendar (달력 설정)
-├─ CurrentTime (현재 시각)
 └─ Holidays (휴일 정보)
 ```
 
+**시간 진행:**
+- WorldSystem.Proc()에서 1초(1000ms)마다 게임 시간 15분씩 증가
+- 실제 시간 1초 = 게임 시간 15분
+- DEBUG_LOG 활성화 시 시간 업데이트 로그 출력
+
 **파일 위치:**
 - `scripts/system/world_system.cs`
-- `scripts/morld/terrain/` (World, Region, Location, Edge, RegionEdge)
+- `scripts/morld/terrain/` (Terrain, Region, Location, Edge, RegionEdge)
 - `scripts/morld/schedule/GameTime.cs`
 
 ### CharacterSystem
@@ -150,6 +162,10 @@ Character
 - `ProcessCharacter()` - 개별 캐릭터 처리
 - `TryPlanMovement()` - 경로 탐색 및 이동 시작
 - `SetupNextSegment()` - 이동 구간별 시간 설정
+
+**디버그 출력:**
+- DEBUG_LOG 활성화 시 1초마다 캐릭터 상태 출력
+- 각 캐릭터의 현재 위치, 상태(Idle/Moving), 목적지 표시
 
 **PathFinding:**
 - Dijkstra 알고리즘 기반
@@ -293,7 +309,7 @@ public override void _Ready()
 
     // 1. Data Systems 초기화 및 데이터 로드
     (this._world.AddSystem(new WorldSystem("worldName"), "worldSystem") as WorldSystem)
-        .GetWorld().UpdateFromFile("res://scripts/morld/json_data/location_data.json");
+        .GetTerrain().UpdateFromFile("res://scripts/morld/json_data/location_data.json");
 
     (this._world.FindSystem("worldSystem") as WorldSystem)
         .GetTime().UpdateFromFile("res://scripts/morld/json_data/time_data.json");
@@ -315,29 +331,6 @@ public override void _Process(double delta)
 
 ---
 
-## 주요 변경 이력
-
-### NPC → Character 마이그레이션
-- **이전:** sample 폴더의 NPC 클래스
-- **이후:** morld/character/Character.cs
-- **목적:** ECS 아키텍처에 맞춘 재설계
-
-### float → int 시간 단위 변경
-- **이전:** float (초 단위)
-- **이후:** int (분 단위)
-- **목적:** 게임 시간 정밀도 개선, 정수 연산
-
-### 센티널 값 도입
-- 이동 불가능: `travelTime = -1`
-- 기본 문자열: `"unknown"`
-
-### System 분리
-- **데이터 관리:** WorldSystem, CharacterSystem
-- **로직 실행:** PlanningSystem, MovementSystem
-- **목적:** 관심사의 분리, 명확한 책임 분담
-
----
-
 ## 빌드 및 실행
 
 ### 빌드
@@ -346,11 +339,14 @@ dotnet build
 ```
 
 ### 디버그 로그
-`GameEngine.cs`의 `#define DEBUG_LOG` 활성화 시:
-- World 구조 출력
-- GameTime 정보 출력
-- Character 목록 및 스케줄 출력
-- System 개수 출력
+`#define DEBUG_LOG` 활성화 시:
+- **초기화:** World 구조, GameTime 정보, Character 목록 및 스케줄, System 개수 출력
+- **런타임:** 1초마다 WorldSystem 시간 업데이트 로그 출력
+- **런타임:** 1초마다 PlanningSystem 캐릭터 상태 출력
+
+**디버그 출력 제어:**
+- WorldSystem, PlanningSystem은 시간 누적 방식으로 1초마다만 출력
+- 콘솔 스팸 방지 및 성능 최적화
 
 ### 실행
 Godot 에디터에서 프로젝트 실행
@@ -372,7 +368,7 @@ public class CombatSystem : ECS.System
     protected override void Proc(int step, Span<Component[]> allComponents)
     {
         var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
-        var world = (_hub.FindSystem("worldSystem") as WorldSystem).GetWorld();
+        var terrain = (_hub.FindSystem("worldSystem") as WorldSystem).GetTerrain();
 
         // 전투 로직 구현
     }
@@ -457,7 +453,11 @@ scripts/
 ### 시간 처리
 - **Real Time:** 엔진 deltaTime (밀리초)
 - **Game Time:** GameTime (년/월/일/시/분)
+- **Time Scale:** 1 실제 초 = 15 게임 분 (900배속)
 - **Travel Time:** Edge 및 RegionEdge의 이동 시간 (분)
+- **GameTime 구조:**
+  - `_year`, `_month`, `_day`: 명시적 필드
+  - `_minuteOfDay`: 0~1439, Hour/Minute 통합 (O(1) 계산)
 
 ### Pathfinding
 - **Dijkstra 알고리즘:** 최단 경로 탐색

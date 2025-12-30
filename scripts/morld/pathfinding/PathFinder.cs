@@ -50,11 +50,11 @@ public class PathResult
 /// </summary>
 public class PathFinder
 {
-    private readonly World _world;
+    private readonly Terrain _terrain;
 
-    public PathFinder(World world)
+    public PathFinder(Terrain terrain)
     {
-        _world = world ?? throw new ArgumentNullException(nameof(world));
+        _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
     }
 
     /// <summary>
@@ -62,8 +62,8 @@ public class PathFinder
     /// </summary>
     public PathResult FindPath(LocationRef start, LocationRef goal, TraversalContext? context = null)
     {
-        var startLocation = _world.GetLocation(start);
-        var goalLocation = _world.GetLocation(goal);
+        var startLocation = _terrain.GetLocation(start);
+        var goalLocation = _terrain.GetLocation(goal);
 
         if (startLocation == null)
             throw new ArgumentException($"Start location {start} not found");
@@ -99,7 +99,7 @@ public class PathFinder
     /// </summary>
     private PathResult FindPathInRegion(Location start, Location goal, TraversalContext? context)
     {
-        var region = _world.GetRegion(start.RegionId)!;
+        var region = _terrain.GetRegion(start.RegionId)!;
 
         if (start.Equals(goal))
         {
@@ -195,7 +195,7 @@ public class PathFinder
 
             closedSet.Add(current.Id);
 
-            var currentRegion = _world.GetRegion(current.Location.RegionId)!;
+            var currentRegion = _terrain.GetRegion(current.Location.RegionId)!;
 
             // 1. 같은 Region 내 이동
             foreach ((Location neighbor, Edge edge, float edgeTravelTime) in currentRegion.GetTraversableNeighbors(current.Location, context))
@@ -216,9 +216,9 @@ public class PathFinder
 
             // 2. 다른 Region으로 이동 (RegionEdge)
             var currentRef = new LocationRef(current.Location);
-            foreach ((RegionEdge regionEdge, LocationRef destRef, float edgeTravelTime) in _world.GetRegionExits(currentRef, context))
+            foreach ((RegionEdge regionEdge, LocationRef destRef, float edgeTravelTime) in _terrain.GetRegionExits(currentRef, context))
             {
-                var destLocation = _world.GetLocation(destRef);
+                var destLocation = _terrain.GetLocation(destRef);
                 if (destLocation == null)
                     continue;
 

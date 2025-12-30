@@ -28,9 +28,9 @@ public class RegionEdge
     public LocationRef LocationB { get; }
 
     /// <summary>
-    /// 소속 World (변경 추적용)
+    /// 소속 Terrain (변경 추적용)
     /// </summary>
-    internal World? OwnerWorld { get; set; }
+    internal Terrain? OwnerWorld { get; set; }
 
     /// <summary>
     /// A → B 방향 이동 시간 (0 미만이면 이동 불가, 단위: 분)

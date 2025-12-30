@@ -8,9 +8,9 @@ using System.Text.Json.Serialization;
 using Godot;
 
 /// <summary>
-/// World - 여러 Region과 Region 간 연결을 관리
+/// Terrain - 여러 Region과 Region 간 연결을 관리
 /// </summary>
-public class World
+public class Terrain
 {
     private readonly Dictionary<int, Region> _regions = new();
     private readonly Dictionary<int, RegionEdge> _regionEdges = new();
@@ -27,7 +27,7 @@ public class World
     private int _nextRegionEdgeId = 0;
 
     /// <summary>
-    /// World 이름
+    /// Terrain 이름
     /// </summary>
     public string Name { get; set; } = "unknown";
 
@@ -51,7 +51,7 @@ public class World
     /// </summary>
     public int RegionEdgeCount => _regionEdges.Count;
 
-    public World(string name = "unknown")
+    public Terrain(string name = "unknown")
     {
         Name = name;
     }
@@ -661,15 +661,15 @@ public class World
 
     public override string ToString()
     {
-        return $"World[{Name ?? "Unnamed"}]: {RegionCount} regions, {RegionEdgeCount} connections";
+        return $"Terrain[{Name ?? "Unnamed"}]: {RegionCount} regions, {RegionEdgeCount} connections";
     }
 
     #region JSON Serialization
 
     /// <summary>
-    /// JSON 파일에서 World 로드
+    /// JSON 파일에서 Terrain 로드
     /// </summary>
-    public static World LoadFromFile(string filePath)
+    public static Terrain LoadFromFile(string filePath)
     {
         using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
         if (file == null)
@@ -681,9 +681,9 @@ public class World
     }
 
     /// <summary>
-    /// JSON 문자열에서 World 로드
+    /// JSON 문자열에서 Terrain 로드
     /// </summary>
-    public static World LoadFromJson(string json)
+    public static Terrain LoadFromJson(string json)
     {
         var options = new JsonSerializerOptions
         {
@@ -691,19 +691,19 @@ public class World
             WriteIndented = true
         };
 
-        var data = JsonSerializer.Deserialize<WorldJsonData>(json, options);
+        var data = JsonSerializer.Deserialize<TerrainJsonData>(json, options);
         if (data == null)
-            throw new InvalidOperationException("Failed to parse World JSON data");
+            throw new InvalidOperationException("Failed to parse Terrain JSON data");
 
         return ImportFromData(data);
     }
 
     /// <summary>
-    /// WorldJsonData에서 World 객체 생성
+    /// TerrainJsonData에서 Terrain 객체 생성
     /// </summary>
-    private static World ImportFromData(WorldJsonData data)
+    private static Terrain ImportFromData(TerrainJsonData data)
     {
-        var world = new World(data.Name);
+        var terrain = new Terrain(data.Name);
 
         // Region 추가
         foreach (var regionData in data.Regions)
@@ -739,13 +739,13 @@ public class World
                 edge.IsBlocked = edgeData.IsBlocked;
             }
 
-            world.AddRegion(region);
+            terrain.AddRegion(region);
         }
 
         // RegionEdge 추가
         foreach (var edgeData in data.RegionEdges)
         {
-            var edge = world.AddRegionEdge(
+            var edge = terrain.AddRegionEdge(
                 edgeData.Id,
                 edgeData.RegionA, edgeData.LocalA,
                 edgeData.RegionB, edgeData.LocalB,
@@ -767,11 +767,11 @@ public class World
             }
         }
 
-        return world;
+        return terrain;
     }
 
     /// <summary>
-    /// JSON 파일에서 현재 World 업데이트
+    /// JSON 파일에서 현재 Terrain 업데이트
     /// </summary>
     public void UpdateFromFile(string filePath)
     {
@@ -785,7 +785,7 @@ public class World
     }
 
     /// <summary>
-    /// JSON 문자열에서 현재 World 업데이트
+    /// JSON 문자열에서 현재 Terrain 업데이트
     /// </summary>
     public void UpdateFromJson(string json)
     {
@@ -795,17 +795,17 @@ public class World
             WriteIndented = true
         };
 
-        var data = JsonSerializer.Deserialize<WorldJsonData>(json, options);
+        var data = JsonSerializer.Deserialize<TerrainJsonData>(json, options);
         if (data == null)
-            throw new InvalidOperationException("Failed to parse World JSON data");
+            throw new InvalidOperationException("Failed to parse Terrain JSON data");
 
         UpdateFromData(data);
     }
 
     /// <summary>
-    /// WorldJsonData로 현재 World 업데이트
+    /// TerrainJsonData로 현재 Terrain 업데이트
     /// </summary>
-    private void UpdateFromData(WorldJsonData data)
+    private void UpdateFromData(TerrainJsonData data)
     {
         // 기존 데이터 모두 제거
         var regionIds = _regions.Keys.ToList();
@@ -884,7 +884,7 @@ public class World
     }
 
     /// <summary>
-    /// World를 JSON 파일로 저장
+    /// Terrain을 JSON 파일로 저장
     /// </summary>
     public void SaveToFile(string filePath)
     {
@@ -899,7 +899,7 @@ public class World
     }
 
     /// <summary>
-    /// World를 JSON 문자열로 변환
+    /// Terrain을 JSON 문자열로 변환
     /// </summary>
     public string ToJson()
     {
@@ -915,11 +915,11 @@ public class World
     }
 
     /// <summary>
-    /// World를 WorldJsonData로 변환
+    /// Terrain을 TerrainJsonData로 변환
     /// </summary>
-    private WorldJsonData ExportToData()
+    private TerrainJsonData ExportToData()
     {
-        var data = new WorldJsonData
+        var data = new TerrainJsonData
         {
             Name = Name
         };
@@ -998,7 +998,7 @@ public class World
     #region Debug Output
 
     /// <summary>
-    /// World 전체 정보를 콘솔에 출력 (디버그용)
+    /// Terrain 전체 정보를 콘솔에 출력 (디버그용)
     /// </summary>
     public void DebugPrint(bool includeEdges = true, bool includeRegionEdges = true)
     {
@@ -1007,7 +1007,7 @@ public class World
     }
 
     /// <summary>
-    /// World 전체 정보를 문자열로 반환 (디버그용)
+    /// Terrain 전체 정보를 문자열로 반환 (디버그용)
     /// </summary>
     public string GetDebugString(bool includeEdges = true, bool includeRegionEdges = true)
     {
@@ -1015,7 +1015,7 @@ public class World
 
         // 헤더
         lines.Add("╔════════════════════════════════════════════════════════════╗");
-        lines.Add($"║  WORLD: {Name ?? "Unnamed",-50} ║");
+        lines.Add($"║  TERRAIN: {Name ?? "Unnamed",-48} ║");
         lines.Add("╠════════════════════════════════════════════════════════════╣");
         lines.Add($"║  Regions: {RegionCount,-6}  RegionEdges: {RegionEdgeCount,-27} ║");
         lines.Add("╚════════════════════════════════════════════════════════════╝");
@@ -1133,7 +1133,7 @@ public class World
     }
 
     /// <summary>
-    /// World 요약 정보를 콘솔에 출력 (간단 버전)
+    /// Terrain 요약 정보를 콘솔에 출력 (간단 버전)
     /// </summary>
     public void DebugPrintSummary()
     {
@@ -1142,14 +1142,14 @@ public class World
     }
 
     /// <summary>
-    /// World 요약 정보를 문자열로 반환 (간단 버전)
+    /// Terrain 요약 정보를 문자열로 반환 (간단 버전)
     /// </summary>
     public string GetDebugSummary()
     {
         var lines = new List<string>();
 
         lines.Add("═══════════════════════════════════════════════════════════");
-        lines.Add($"  WORLD: {Name ?? "Unnamed"}");
+        lines.Add($"  TERRAIN: {Name ?? "Unnamed"}");
         lines.Add("═══════════════════════════════════════════════════════════");
         lines.Add($"  Regions: {RegionCount}");
         lines.Add($"  RegionEdges: {RegionEdgeCount}");

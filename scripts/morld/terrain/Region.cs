@@ -25,9 +25,9 @@ public class Region
     public string Name { get; set; } = "unknown";
 
     /// <summary>
-    /// 소속 World (변경 추적용)
+    /// 소속 Terrain (변경 추적용)
     /// </summary>
-    internal World? OwnerWorld { get; set; }
+    internal Terrain? OwnerWorld { get; set; }
 
     /// <summary>
     /// 추가 데이터

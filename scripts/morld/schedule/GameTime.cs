@@ -27,8 +27,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     private int _year;
     private int _month;
     private int _day;
-    private int _hour;
-    private int _minute;
+    private int _minuteOfDay;  // 하루 중 경과 분 (0~1439), hour/minute 통합
 
     /// <summary>
     /// 년 (1부터 시작)
@@ -46,14 +45,14 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     public int Day => _day;
 
     /// <summary>
-    /// 시간 (0~23)
+    /// 시간 (0~23, _minuteOfDay로부터 계산)
     /// </summary>
-    public int Hour => _hour;
+    public int Hour => _minuteOfDay / MinutesPerHour;
 
     /// <summary>
-    /// 분 (0~59)
+    /// 분 (0~59, _minuteOfDay로부터 계산)
     /// </summary>
-    public int Minute => _minute;
+    public int Minute => _minuteOfDay % MinutesPerHour;
 
     /// <summary>
     /// 요일 인덱스 (0 = 첫 번째 요일)
@@ -63,7 +62,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         get
         {
             // 1년 1월 1일을 기준 요일로 계산
-            int totalDays = GetTotalDays(_year, _month, _day);
+            int totalDays = GetTotalDays(_year, _month, Day);
             return totalDays % _weekdayNames.Length;
         }
     }
@@ -76,7 +75,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     /// <summary>
     /// 하루 중 경과 분 (0~1439)
     /// </summary>
-    public int MinuteOfDay => _hour * MinutesPerHour + _minute;
+    public int MinuteOfDay => _minuteOfDay;
 
     /// <summary>
     /// 1년의 개월 수
@@ -101,8 +100,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         _year = 1;
         _month = 1;
         _day = 1;
-        _hour = 0;
-        _minute = 0;
+        _minuteOfDay = 0;  // 00:00
     }
 
     /// <summary>
@@ -129,41 +127,33 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         _year = year;
         _month = month;
         _day = day;
-        _hour = hour;
-        _minute = minute;
+        _minuteOfDay = hour * MinutesPerHour + minute;
     }
 
     /// <summary>
-    /// 분 추가
+    /// 분 추가 (O(1) 구현 - _minuteOfDay 기반)
     /// </summary>
     public void AddMinutes(int minutes)
     {
         if (minutes == 0) return;
 
-        _minute += minutes;
+        _minuteOfDay += minutes;
 
-        // 시간 정규화
-        while (_minute >= MinutesPerHour)
+        // 날짜 경계 처리 (하루 이상 증가)
+        if (_minuteOfDay >= MinutesPerDay)
         {
-            _minute -= MinutesPerHour;
-            _hour++;
+            int days = _minuteOfDay / MinutesPerDay;
+            _minuteOfDay = _minuteOfDay % MinutesPerDay;
+            AddDays(days);
         }
-        while (_minute < 0)
+        // 날짜 역행 (음수)
+        else if (_minuteOfDay < 0)
         {
-            _minute += MinutesPerHour;
-            _hour--;
-        }
-
-        // 날짜 정규화
-        while (_hour >= HoursPerDay)
-        {
-            _hour -= HoursPerDay;
-            AddDays(1);
-        }
-        while (_hour < 0)
-        {
-            _hour += HoursPerDay;
-            AddDays(-1);
+            int days = (_minuteOfDay / MinutesPerDay) - 1;  // 음수 나누기는 내림이 아니므로 -1
+            _minuteOfDay = _minuteOfDay % MinutesPerDay;
+            if (_minuteOfDay < 0)
+                _minuteOfDay += MinutesPerDay;
+            AddDays(days);
         }
     }
 
@@ -260,7 +250,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     /// </summary>
     public GameTime Clone()
     {
-        return new GameTime(_year, _month, _day, _hour, _minute);
+        return new GameTime(_year, _month, _day, Hour, Minute);
     }
 
     /// <summary>
@@ -285,8 +275,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         if (_year != other._year) return _year > other._year;
         if (_month != other._month) return _month > other._month;
         if (_day != other._day) return _day > other._day;
-        if (_hour != other._hour) return _hour > other._hour;
-        return _minute > other._minute;
+        return _minuteOfDay > other._minuteOfDay;
     }
 
     /// <summary>
@@ -297,8 +286,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         if (_year != other._year) return _year < other._year;
         if (_month != other._month) return _month < other._month;
         if (_day != other._day) return _day < other._day;
-        if (_hour != other._hour) return _hour < other._hour;
-        return _minute < other._minute;
+        return _minuteOfDay < other._minuteOfDay;
     }
 
     /// <summary>
@@ -314,7 +302,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     /// </summary>
     public bool IsTimeOfDay(int hour, int minute)
     {
-        return _hour == hour && _minute == minute;
+        return _minuteOfDay == (hour * MinutesPerHour + minute);
     }
 
     /// <summary>
@@ -361,22 +349,21 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         if (_year != other._year) return _year.CompareTo(other._year);
         if (_month != other._month) return _month.CompareTo(other._month);
         if (_day != other._day) return _day.CompareTo(other._day);
-        if (_hour != other._hour) return _hour.CompareTo(other._hour);
-        return _minute.CompareTo(other._minute);
+        return _minuteOfDay.CompareTo(other._minuteOfDay);
     }
 
     public bool Equals(GameTime? other)
     {
         if (other == null) return false;
         return _year == other._year && _month == other._month && _day == other._day &&
-               _hour == other._hour && _minute == other._minute;
+               _minuteOfDay == other._minuteOfDay;
     }
 
     public override bool Equals(object? obj) => Equals(obj as GameTime);
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(_year, _month, _day, _hour, _minute);
+        return HashCode.Combine(_year, _month, _day, _minuteOfDay);
     }
 
     public static bool operator ==(GameTime? a, GameTime? b)
@@ -394,7 +381,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
 
     public override string ToString()
     {
-        return $"{_year}년 {_month}월 {_day}일 ({WeekdayName}) {_hour:D2}:{_minute:D2}";
+        return $"{_year}년 {_month}월 {_day}일 ({WeekdayName}) {Hour:D2}:{Minute:D2}";
     }
 
     /// <summary>
@@ -402,7 +389,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     /// </summary>
     public string ToTimeString()
     {
-        return $"{_hour:D2}:{_minute:D2}";
+        return $"{Hour:D2}:{Minute:D2}";
     }
 
     /// <summary>
@@ -424,7 +411,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
             : "없음";
 
         GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        GD.Print($"  현재 시간: {_year}년 {_month}월 {_day}일 ({WeekdayName}) {_hour:D2}:{_minute:D2}");
+        GD.Print($"  현재 시간: {_year}년 {_month}월 {_day}일 ({WeekdayName}) {Hour:D2}:{Minute:D2}");
         GD.Print($"  기념일: {holidayStr}");
         GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
@@ -588,8 +575,8 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
                 Year = _year,
                 Month = _month,
                 Day = _day,
-                Hour = _hour,
-                Minute = _minute
+                Hour = Hour,
+                Minute = Minute
             },
             Holidays = _holidays.Select(h => new HolidayData
             {

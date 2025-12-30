@@ -1,9 +1,10 @@
+#define DEBUG_LOG
+
 using ECS;
 using Godot;
 using Morld;
 using System;
 using System.Collections.Generic;
-using World = Morld.World;
 
 namespace SE
 {
@@ -13,6 +14,10 @@ namespace SE
 	public class PlanningSystem : ECS.System
 	{
 		private PathFinder? _pathFinder;
+
+		// 디버그 출력용 누적 시간 (밀리초)
+		private int _accumulatedTime = 0;
+		private const int DebugPrintInterval = 1000; // 1초마다 출력
 
 		public PlanningSystem()
 		{
@@ -27,26 +32,70 @@ namespace SE
 			if (worldSystem == null || characterSystem == null)
 				return;
 
-			var world = worldSystem.GetWorld();
+			var terrain = worldSystem.GetTerrain();
 			var time = worldSystem.GetTime();
 
 			// PathFinder 초기화 (첫 실행 시)
 			if (_pathFinder == null)
 			{
-				_pathFinder = new PathFinder(world);
+				_pathFinder = new PathFinder(terrain);
 			}
 
 			// 모든 캐릭터 처리
 			foreach (var character in characterSystem.Characters.Values)
 			{
-				ProcessCharacter(character, time, world);
+				ProcessCharacter(character, time, terrain);
 			}
+
+#if DEBUG_LOG
+			// 시간 누적
+			_accumulatedTime += step;
+
+			// 1초(1000ms)마다 캐릭터 상태 출력
+			if (_accumulatedTime >= DebugPrintInterval)
+			{
+				_accumulatedTime -= DebugPrintInterval;
+				PrintCharacterStates(characterSystem, terrain);
+			}
+#endif
+		}
+
+		/// <summary>
+		/// 모든 캐릭터의 현재 상태 출력 (디버그용)
+		/// </summary>
+		private void PrintCharacterStates(CharacterSystem characterSystem, Terrain terrain)
+		{
+			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+			GD.Print("[PlanningSystem] Character Status:");
+
+			foreach (var character in characterSystem.Characters.Values)
+			{
+				var location = terrain.GetLocation(character.CurrentLocation);
+				var locationName = location?.Name ?? "Unknown";
+				var region = location != null ? terrain.GetRegion(location.RegionId) : null;
+				var regionName = region?.Name ?? "Unknown";
+				var stateStr = character.State == CharacterState.Moving ? "Moving" : "Idle";
+
+				GD.Print($"  • {character.Name}: {regionName}/{locationName} [{stateStr}]");
+
+				// 이동 중이면 목적지 정보도 출력
+				if (character.State == CharacterState.Moving && character.Movement != null)
+				{
+					var destination = terrain.GetLocation(character.Movement.FinalDestination);
+					var destName = destination?.Name ?? "Unknown";
+					var destRegion = destination != null ? terrain.GetRegion(destination.RegionId) : null;
+					var destRegionName = destRegion?.Name ?? "Unknown";
+					GD.Print($"    → Destination: {destRegionName}/{destName}");
+				}
+			}
+
+			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		}
 
 		/// <summary>
 		/// 개별 캐릭터 처리
 		/// </summary>
-		private void ProcessCharacter(Character character, GameTime time, Morld.World world)
+		private void ProcessCharacter(Character character, GameTime time, Morld.Terrain terrain)
 		{
 			// 이미 이동 중이면 스킵
 			if (character.State == CharacterState.Moving)
@@ -65,7 +114,7 @@ namespace SE
 				}
 
 				// 목적지로 이동 필요
-				if (TryPlanMovement(character, currentEntry.Location, world))
+				if (TryPlanMovement(character, currentEntry.Location, terrain))
 				{
 					character.SetCurrentSchedule(currentEntry);
 				}
@@ -80,7 +129,7 @@ namespace SE
 					// 스케줄 시작 시간 - 목적지로 이동
 					if (character.CurrentLocation != startingEntry.Location)
 					{
-						if (TryPlanMovement(character, startingEntry.Location, world))
+						if (TryPlanMovement(character, startingEntry.Location, terrain))
 						{
 							character.SetCurrentSchedule(startingEntry);
 						}
@@ -100,7 +149,7 @@ namespace SE
 		/// <summary>
 		/// 이동 경로 계획 시도
 		/// </summary>
-		private bool TryPlanMovement(Character character, LocationRef destination, Morld.World world)
+		private bool TryPlanMovement(Character character, LocationRef destination, Morld.Terrain terrain)
 		{
 			if (_pathFinder == null)
 				return false;
@@ -123,7 +172,7 @@ namespace SE
 			if (character.StartMovement(pathResult.Path, destination))
 			{
 				// 첫 구간 이동 시간 설정
-				SetupNextSegment(character, world);
+				SetupNextSegment(character, terrain);
 				return true;
 			}
 
@@ -133,7 +182,7 @@ namespace SE
 		/// <summary>
 		/// 캐릭터의 다음 이동 구간 설정
 		/// </summary>
-		private void SetupNextSegment(Character character, Morld.World world)
+		private void SetupNextSegment(Character character, Morld.Terrain terrain)
 		{
 			if (character.Movement == null)
 				return;
@@ -150,7 +199,7 @@ namespace SE
 			// 같은 Region 내 이동인지 확인
 			if (current.RegionId == next.RegionId)
 			{
-				var region = world.GetRegion(current.RegionId);
+				var region = terrain.GetRegion(current.RegionId);
 				var edge = region?.GetEdgeBetween(current.LocalId, next.LocalId);
 
 				if (edge != null)
@@ -163,7 +212,7 @@ namespace SE
 			else
 			{
 				// Region 간 이동 - RegionEdge 찾기
-				foreach (var regionEdge in world.RegionEdges)
+				foreach (var regionEdge in terrain.RegionEdges)
 				{
 					var locA = regionEdge.LocationA;
 					var locB = regionEdge.LocationB;
