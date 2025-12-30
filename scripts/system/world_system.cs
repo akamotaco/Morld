@@ -30,6 +30,7 @@ namespace SE
 
         internal Morld.GameTime GetTime()
         {
+            
             return this._currentTime;
         }
     }

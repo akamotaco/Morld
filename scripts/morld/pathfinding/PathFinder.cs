@@ -1,8 +1,8 @@
-namespace PathFinding.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Morld;
+
+namespace Morld;
 
 /// <summary>
 /// 경로 탐색 결과

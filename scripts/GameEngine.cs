@@ -19,6 +19,9 @@ public partial class GameEngine : Node
 
 		(this._world.AddSystem(new CharacterSystem(), "characterSystem") as CharacterSystem).UpdateFromFile("res://scripts/morld/json_data/character_data.json");
 
+		this._world.AddSystem(new PlanningSystem(), "planningSystem");
+		this._world.AddSystem(new MovementSystem(), "movementSystem");
+
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetWorld().DebugPrint();
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().DebugPrint();
