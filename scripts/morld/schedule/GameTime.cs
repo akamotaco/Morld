@@ -537,6 +537,71 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     }
 
     #endregion
+
+    #region JSON Saving
+
+    /// <summary>
+    /// 현재 시간 및 달력 설정을 JSON 파일로 저장
+    /// </summary>
+    public void SaveToFile(string filePath)
+    {
+        var json = ToJson();
+
+        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Write);
+        if (file == null)
+        {
+            throw new InvalidOperationException($"Failed to open file for writing: {filePath}");
+        }
+        file.StoreString(json);
+    }
+
+    /// <summary>
+    /// 현재 시간 및 달력 설정을 JSON 문자열로 변환
+    /// </summary>
+    public string ToJson()
+    {
+        var data = ExportToData();
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
+        };
+
+        return JsonSerializer.Serialize(data, options);
+    }
+
+    /// <summary>
+    /// GameTimeJsonData로 변환
+    /// </summary>
+    private GameTimeJsonData ExportToData()
+    {
+        return new GameTimeJsonData
+        {
+            Calendar = new CalendarConfig
+            {
+                DaysPerMonth = _daysPerMonth,
+                WeekdayNames = _weekdayNames
+            },
+            CurrentTime = new CurrentTimeData
+            {
+                Year = _year,
+                Month = _month,
+                Day = _day,
+                Hour = _hour,
+                Minute = _minute
+            },
+            Holidays = _holidays.Select(h => new HolidayData
+            {
+                Name = h.Name,
+                Month = h.Month,
+                StartDay = h.StartDay,
+                EndDay = h.EndDay
+            }).ToArray()
+        };
+    }
+
+    #endregion
 }
 
 /// <summary>

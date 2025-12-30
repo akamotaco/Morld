@@ -125,6 +125,62 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 현재 캐릭터 데이터를 JSON 파일로 저장
+		/// </summary>
+		public void SaveToFile(string filePath)
+		{
+			var json = ToJson();
+
+			using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Write);
+			if (file == null)
+			{
+				throw new InvalidOperationException($"Failed to open file for writing: {filePath}");
+			}
+			file.StoreString(json);
+		}
+
+		/// <summary>
+		/// 현재 캐릭터 데이터를 JSON 문자열로 변환
+		/// </summary>
+		public string ToJson()
+		{
+			var data = ExportToData();
+
+			var options = new JsonSerializerOptions
+			{
+				PropertyNameCaseInsensitive = true,
+				WriteIndented = true
+			};
+
+			return JsonSerializer.Serialize(data, options);
+		}
+
+		/// <summary>
+		/// CharacterJsonData 배열로 변환
+		/// </summary>
+		private CharacterJsonData[] ExportToData()
+		{
+			return _characters.Values.Select(character => new CharacterJsonData
+			{
+				Id = character.Id,
+				Name = character.Name,
+				RegionId = character.CurrentLocation.RegionId,
+				LocationId = character.CurrentLocation.LocalId,
+				Tags = character.TraversalContext.Tags.Count > 0
+					? new Dictionary<string, int>(character.TraversalContext.Tags)
+					: null,
+				Schedule = character.Schedule.Entries.Select(entry => new ScheduleEntryJsonData
+				{
+					Name = entry.Name,
+					RegionId = entry.Location.RegionId,
+					LocationId = entry.Location.LocalId,
+					Start = entry.TimeRange.StartMinute,
+					End = entry.TimeRange.EndMinute
+				}).ToArray()
+			}).ToArray();
+		}
+
+		/// <summary>
 		/// 디버그용 캐릭터 정보 출력
 		/// </summary>
 		public void DebugPrint()
