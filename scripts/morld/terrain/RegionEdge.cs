@@ -8,8 +8,8 @@ using System.Collections.Generic;
 /// </summary>
 public class RegionEdge
 {
-    private float _travelTimeAtoB;
-    private float _travelTimeBtoA;
+    private int _travelTimeAtoB;
+    private int _travelTimeBtoA;
     private bool _isBlocked;
 
     /// <summary>
@@ -33,9 +33,9 @@ public class RegionEdge
     internal World? OwnerWorld { get; set; }
 
     /// <summary>
-    /// A → B 방향 이동 시간 (0 미만이면 이동 불가)
+    /// A → B 방향 이동 시간 (0 미만이면 이동 불가, 단위: 분)
     /// </summary>
-    public float TravelTimeAtoB
+    public int TravelTimeAtoB
     {
         get => _travelTimeAtoB;
         set
@@ -49,9 +49,9 @@ public class RegionEdge
     }
 
     /// <summary>
-    /// B → A 방향 이동 시간 (0 미만이면 이동 불가)
+    /// B → A 방향 이동 시간 (0 미만이면 이동 불가, 단위: 분)
     /// </summary>
-    public float TravelTimeBtoA
+    public int TravelTimeBtoA
     {
         get => _travelTimeBtoA;
         set
@@ -115,7 +115,7 @@ public class RegionEdge
     /// <summary>
     /// 양방향 동일한 이동 시간 설정
     /// </summary>
-    public RegionEdge SetTravelTime(float time)
+    public RegionEdge SetTravelTime(int time)
     {
         _travelTimeAtoB = time;
         _travelTimeBtoA = time;
@@ -126,7 +126,7 @@ public class RegionEdge
     /// <summary>
     /// 방향별 이동 시간 설정
     /// </summary>
-    public RegionEdge SetTravelTime(float aToB, float bToA)
+    public RegionEdge SetTravelTime(int aToB, int bToA)
     {
         _travelTimeAtoB = aToB;
         _travelTimeBtoA = bToA;
@@ -192,7 +192,7 @@ public class RegionEdge
     /// <summary>
     /// 주어진 방향의 이동 시간 반환 (0 미만이면 이동 불가, -1이면 유효하지 않은 위치)
     /// </summary>
-    public float GetTravelTime(LocationRef from)
+    public int GetTravelTime(LocationRef from)
     {
         if (from == LocationA) return TravelTimeAtoB;
         if (from == LocationB) return TravelTimeBtoA;
@@ -242,8 +242,8 @@ public class RegionEdge
 
     public override string ToString()
     {
-        var aToB = TravelTimeAtoB >= 0 ? TravelTimeAtoB.ToString("F1") : "X";
-        var bToA = TravelTimeBtoA >= 0 ? TravelTimeBtoA.ToString("F1") : "X";
+        var aToB = TravelTimeAtoB >= 0 ? TravelTimeAtoB.ToString() : "X";
+        var bToA = TravelTimeBtoA >= 0 ? TravelTimeBtoA.ToString() : "X";
         return $"RegionEdge[{(Name != "unknown" ? Name : Id.ToString())}]: {LocationA} <--({bToA})--({aToB})--> {LocationB}";
     }
 }

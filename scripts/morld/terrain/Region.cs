@@ -135,7 +135,7 @@ public class Region
     /// <summary>
     /// 양방향 엣지 추가 (동일한 이동 시간)
     /// </summary>
-    public Edge AddEdge(int localIdA, int localIdB, float travelTime)
+    public Edge AddEdge(int localIdA, int localIdB, int travelTime)
     {
         var locationA = GetOrCreateLocation(localIdA);
         var locationB = GetOrCreateLocation(localIdB);
@@ -155,7 +155,7 @@ public class Region
     /// <summary>
     /// 양방향 엣지 추가 (방향별 다른 이동 시간)
     /// </summary>
-    public Edge AddEdge(int localIdA, int localIdB, float travelTimeAtoB, float travelTimeBtoA)
+    public Edge AddEdge(int localIdA, int localIdB, int travelTimeAtoB, int travelTimeBtoA)
     {
         var locationA = GetOrCreateLocation(localIdA);
         var locationB = GetOrCreateLocation(localIdB);
@@ -258,7 +258,7 @@ public class Region
     /// <summary>
     /// 특정 Location에서 이동 가능한 이웃들 가져오기
     /// </summary>
-    public IEnumerable<(Location neighbor, Edge edge, float travelTime)> GetTraversableNeighbors(
+    public IEnumerable<(Location neighbor, Edge edge, int travelTime)> GetTraversableNeighbors(
         Location location,
         TraversalContext? context = null)
     {

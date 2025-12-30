@@ -10,7 +10,7 @@ public class RegionBuilder
 {
     private readonly int _regionId;
     private readonly int _size;
-    private readonly float[,] _matrix;
+    private readonly int[,] _matrix;
     private readonly Dictionary<(int, int), Dictionary<string, int>> _conditionsAtoB = new();
     private readonly string?[] _locationNames;
     private string? _regionName;
@@ -37,7 +37,7 @@ public class RegionBuilder
 
         _regionId = regionId;
         _size = size;
-        _matrix = new float[size, size];
+        _matrix = new int[size, size];
         _locationNames = new string?[size];
 
         // 초기화: 모든 연결을 -1로 (이동 불가)
@@ -51,14 +51,14 @@ public class RegionBuilder
     /// </summary>
     /// <param name="regionId">Region 고유 ID</param>
     /// <param name="matrix">인접 행렬 (0 이하: 이동 불가, 양수: 이동 시간)</param>
-    public RegionBuilder(int regionId, float[,] matrix)
+    public RegionBuilder(int regionId, int[,] matrix)
     {
         if (matrix.GetLength(0) != matrix.GetLength(1))
             throw new ArgumentException("Matrix must be square (NxN)");
 
         _regionId = regionId;
         _size = matrix.GetLength(0);
-        _matrix = new float[_size, _size];
+        _matrix = new int[_size, _size];
         _locationNames = new string?[_size];
 
         // 행렬 복사 (양수만 복사, 나머지는 -1)
@@ -93,7 +93,7 @@ public class RegionBuilder
     /// <summary>
     /// 양방향 동일한 이동 시간 설정
     /// </summary>
-    public RegionBuilder SetTravelTime(int localIdA, int localIdB, float travelTime)
+    public RegionBuilder SetTravelTime(int localIdA, int localIdB, int travelTime)
     {
         ValidateLocalId(localIdA);
         ValidateLocalId(localIdB);
@@ -106,7 +106,7 @@ public class RegionBuilder
     /// <summary>
     /// 방향별 다른 이동 시간 설정
     /// </summary>
-    public RegionBuilder SetTravelTime(int localIdA, int localIdB, float travelTimeAtoB, float travelTimeBtoA)
+    public RegionBuilder SetTravelTime(int localIdA, int localIdB, int travelTimeAtoB, int travelTimeBtoA)
     {
         ValidateLocalId(localIdA);
         ValidateLocalId(localIdB);
@@ -119,7 +119,7 @@ public class RegionBuilder
     /// <summary>
     /// 단방향 이동 시간 설정
     /// </summary>
-    public RegionBuilder SetOneWayTravelTime(int fromId, int toId, float travelTime)
+    public RegionBuilder SetOneWayTravelTime(int fromId, int toId, int travelTime)
     {
         ValidateLocalId(fromId);
         ValidateLocalId(toId);
@@ -215,9 +215,9 @@ public class RegionBuilder
     /// <summary>
     /// 현재 인접 행렬 반환 (디버깅용)
     /// </summary>
-    public float[,] GetMatrix()
+    public int[,] GetMatrix()
     {
-        var copy = new float[_size, _size];
+        var copy = new int[_size, _size];
         Array.Copy(_matrix, copy, _matrix.Length);
         return copy;
     }

@@ -53,23 +53,23 @@ public class MovementInfo
     /// <summary>
     /// 현재 구간 총 이동 시간 (분)
     /// </summary>
-    public float TotalTravelTime { get; set; }
+    public int TotalTravelTime { get; set; }
 
     /// <summary>
     /// 현재 구간 경과 시간 (분)
     /// </summary>
-    public float ElapsedTime { get; set; }
+    public int ElapsedTime { get; set; }
 
     /// <summary>
     /// 현재 구간 남은 시간 (분)
     /// </summary>
-    public float RemainingTime => Math.Max(0, TotalTravelTime - ElapsedTime);
+    public int RemainingTime => Math.Max(0, TotalTravelTime - ElapsedTime);
 
     /// <summary>
     /// 현재 구간 진행도 (0~100%)
     /// </summary>
-    public float ProgressPercent => TotalTravelTime > 0 
-        ? Math.Min(100, (ElapsedTime / TotalTravelTime) * 100) 
+    public float ProgressPercent => TotalTravelTime > 0
+        ? Math.Min(100, ((float)ElapsedTime / TotalTravelTime) * 100)
         : 100;
 
     /// <summary>
@@ -195,7 +195,7 @@ public class NPC
     /// <summary>
     /// 현재 구간 이동 시간 설정
     /// </summary>
-    internal void SetSegmentTravelTime(float travelTime)
+    internal void SetSegmentTravelTime(int travelTime)
     {
         if (_movement != null)
         {
@@ -207,7 +207,7 @@ public class NPC
     /// <summary>
     /// 이동 시간 경과
     /// </summary>
-    internal void AddTravelTime(float minutes)
+    internal void AddTravelTime(int minutes)
     {
         if (_movement != null)
         {

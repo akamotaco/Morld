@@ -276,7 +276,7 @@ public class World
         int edgeId,
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
-        float travelTime,
+        int travelTime,
         bool throwOnDuplicate = false)
     {
         if (_regionEdges.ContainsKey(edgeId))
@@ -312,7 +312,7 @@ public class World
         int edgeId,
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
-        float travelTimeAtoB, float travelTimeBtoA,
+        int travelTimeAtoB, int travelTimeBtoA,
         bool throwOnDuplicate = false)
     {
         if (_regionEdges.ContainsKey(edgeId))
@@ -346,7 +346,7 @@ public class World
     public RegionEdge AddRegionEdge(
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
-        float travelTime)
+        int travelTime)
     {
         return AddRegionEdge(_nextRegionEdgeId, regionIdA, localIdA, regionIdB, localIdB, travelTime);
     }
@@ -1057,8 +1057,8 @@ public class World
 
                 foreach (var edge in region.Edges)
                 {
-                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F1").PadLeft(8) : "     N/A";
-                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString("F1").PadLeft(8) : "     N/A";
+                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString().PadLeft(8) : "     N/A";
+                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString().PadLeft(8) : "     N/A";
                     var blocked = edge.IsBlocked ? "   Yes" : "    -";
 
                     lines.Add($"  │ {edge.LocationA.LocalId,6} │ {edge.LocationB.LocalId,6} │ {timeAtoB} │ {timeBtoA} │ {blocked,7} │");
@@ -1097,15 +1097,15 @@ public class World
 
                 var from = $"R{edge.LocationA.RegionId}:L{edge.LocationA.LocalId}".PadRight(11);
                 var to = $"R{edge.LocationB.RegionId}:L{edge.LocationB.LocalId}".PadRight(11);
-                var tt = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F0") : (edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString("F0") : "?");
+                var tt = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString() : (edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString() : "?");
 
                 lines.Add($"│ {edge.Id,4} │ {name} │ {from} │ {to} │{tt,2} │");
 
                 // 상세 정보
                 if (edge.TravelTimeAtoB != edge.TravelTimeBtoA)
                 {
-                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString("F1") : "N/A";
-                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString("F1") : "N/A";
+                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString() : "N/A";
+                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString() : "N/A";
                     lines.Add($"│      │                      │ A→B: {timeAtoB,-6} B→A: {timeBtoA,-6}           │");
                 }
 

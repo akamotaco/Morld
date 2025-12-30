@@ -15,15 +15,22 @@ namespace SE
         /// - location (+ edge)
         /// </summary>
         private Morld.World _world;
+        private Morld.GameTime _currentTime;
 
         public WorldSystem(string WorldName)
         {
             _world = new Morld.World(WorldName);
+            _currentTime = new Morld.GameTime();
         }
 
         public Morld.World GetWorld()
         {
             return this._world;
+        }
+
+        internal Morld.GameTime GetTime()
+        {
+            return this._currentTime;
         }
     }
 }
