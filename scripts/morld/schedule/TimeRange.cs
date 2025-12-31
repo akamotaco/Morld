@@ -74,16 +74,22 @@ public readonly struct TimeRange
     /// </summary>
     public bool Contains(GameTime time)
     {
-        int currentMinute = time.MinuteOfDay;
+        return Contains(time.MinuteOfDay);
+    }
 
+    /// <summary>
+    /// 현재 시간(분)이 범위 내인지 확인
+    /// </summary>
+    public bool Contains(int minuteOfDay)
+    {
         if (SpansMidnight)
         {
             // 자정 넘는 경우: 시작 시간 이후이거나, 자정 이후~종료 전
-            return currentMinute >= StartMinute || currentMinute < EndMinute;
+            return minuteOfDay >= StartMinute || minuteOfDay < EndMinute;
         }
         else
         {
-            return currentMinute >= StartMinute && currentMinute < EndMinute;
+            return minuteOfDay >= StartMinute && minuteOfDay < EndMinute;
         }
     }
 

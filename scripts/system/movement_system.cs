@@ -1,3 +1,5 @@
+#define DEBUG_LOG
+
 using ECS;
 using Godot;
 using Morld;
@@ -6,7 +8,8 @@ using System;
 namespace SE
 {
 	/// <summary>
-	/// 캐릭터의 실제 이동을 처리하는 시스템
+	/// PlanningSystem의 ActionQueue를 소비하여 캐릭터 이동을 처리하는 시스템
+	/// Step 실행 순서: MovementSystem → PlanningSystem
 	/// </summary>
 	public class MovementSystem : ECS.System
 	{
@@ -19,122 +22,153 @@ namespace SE
 			// 필요한 시스템 가져오기
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var planningSystem = _hub.FindSystem("planningSystem") as PlanningSystem;
 
-			if (worldSystem == null || characterSystem == null)
+			if (worldSystem == null || characterSystem == null || planningSystem == null)
 				return;
 
 			var terrain = worldSystem.GetTerrain();
-			var deltaMinutes = worldSystem.GetDeltaGameMinutes();
+			var time = worldSystem.GetTime();
 
-			// 게임 시간이 흐르지 않았으면 스킵
-			if (deltaMinutes <= 0)
+			// PlanningSystem에서 진행할 시간 가져오기
+			var duration = planningSystem.NextStepDuration;
+
+			// 첫 Step에서는 Queue가 비어있으므로 스킵
+			if (duration <= 0)
 				return;
 
 			// 모든 캐릭터 처리
 			foreach (var character in characterSystem.Characters.Values)
 			{
-				ProcessCharacter(character, deltaMinutes, terrain);
+				ProcessCharacter(character, duration, planningSystem, terrain);
 			}
+
+			// GameTime 업데이트
+			time.AddMinutes(duration);
+
+#if DEBUG_LOG
+			GD.Print($"[MovementSystem] Time advanced: {duration}분 → {time}");
+#endif
 		}
 
 		/// <summary>
-		/// 개별 캐릭터 처리
+		/// 개별 캐릭터 처리 - ActionQueue 소비
 		/// </summary>
-		private void ProcessCharacter(Character character, int deltaMinutes, Morld.Terrain terrain)
+		private void ProcessCharacter(
+			Character character,
+			int duration,
+			PlanningSystem planningSystem,
+			Terrain terrain)
 		{
-			// 이동 중인 캐릭터만 처리
-			if (character.State != CharacterState.Moving)
+			var queue = planningSystem.GetActionQueue(character.Id);
+			if (queue == null || queue.Count == 0)
 				return;
 
-			if (character.Movement == null)
-			{
-				character.ArriveAtDestination();
-				return;
-			}
+			var currentIndex = planningSystem.GetCurrentActionIndex(character.Id);
+			int elapsedTime = 0;
 
-			// 이동 시간 경과 (WorldSystem에서 전달받은 게임 시간)
-			character.AddTravelTime(deltaMinutes);
-
-			// 현재 구간 완료 확인
-			if (character.Movement.IsSegmentComplete)
+			// duration 분량만큼 Action 소비
+			while (currentIndex < queue.Count && elapsedTime < duration)
 			{
-				if (character.Movement.IsPathComplete)
+				var action = queue[currentIndex];
+
+				// 현재 Action의 남은 시간 계산
+				var actionRemaining = action.EndTime - Math.Max(action.StartTime, elapsedTime);
+
+				if (actionRemaining <= 0)
 				{
-					// 최종 목적지 도착
-#if DEBUG_LOG
-					GD.Print($"[MovementSystem] {character.Name} arrived at {character.Movement.FinalDestination}");
-#endif
-					character.ArriveAtDestination();
+					// 이미 완료된 Action - 다음으로
+					currentIndex++;
+					continue;
+				}
+
+				// 이번 Step에서 소비할 시간
+				var timeToConsume = Math.Min(actionRemaining, duration - elapsedTime);
+
+				if (action.IsMoving)
+				{
+					// 이동 Action 처리
+					ProcessMovingAction(character, action, elapsedTime, timeToConsume, duration);
 				}
 				else
 				{
-					// 다음 구간으로
-					if (character.MoveToNextSegment())
+					// 활동/대기 Action 처리
+					ProcessIdleAction(character, action);
+				}
+
+				elapsedTime += timeToConsume;
+
+				// Action 완료 여부 확인
+				if (elapsedTime >= action.EndTime)
+				{
+					// 이동 완료 시 위치 업데이트
+					if (action.IsMoving && action.Destination.HasValue)
 					{
-						// 다음 구간 이동 시간 계산
-						SetupNextSegment(character, terrain);
+						character.SetCurrentLocation(action.Destination.Value);
+						character.CurrentEdge = null;
+
+#if DEBUG_LOG
+						var destLocation = terrain.GetLocation(action.Destination.Value);
+						GD.Print($"[MovementSystem] {character.Name} arrived at {destLocation?.Name ?? "Unknown"}");
+#endif
 					}
+
+					currentIndex++;
+				}
+				else if (action.IsMoving)
+				{
+					// 이동 중 Step 종료 - CurrentEdge에 진행 상태 저장
+					var totalTime = action.EndTime - action.StartTime;
+					var elapsed = elapsedTime - action.StartTime;
+
+					character.CurrentEdge = new EdgeProgress
+					{
+						From = action.Location,
+						To = action.Destination!.Value,
+						TotalTime = totalTime,
+						ElapsedTime = elapsed
+					};
+				}
+			}
+
+			// 현재 Action 인덱스 업데이트
+			planningSystem.SetCurrentActionIndex(character.Id, currentIndex);
+		}
+
+		/// <summary>
+		/// 이동 Action 처리
+		/// </summary>
+		private void ProcessMovingAction(
+			Character character,
+			ActionLog action,
+			int elapsedTime,
+			int timeToConsume,
+			int duration)
+		{
+			// 이동 시작 시 출발지 확인
+			if (elapsedTime <= action.StartTime)
+			{
+				// 이동 시작 - CurrentLocation은 출발지여야 함
+				if (character.CurrentLocation != action.Location)
+				{
+					character.SetCurrentLocation(action.Location);
 				}
 			}
 		}
 
 		/// <summary>
-		/// 캐릭터의 다음 이동 구간 설정
+		/// 활동/대기 Action 처리
 		/// </summary>
-		private void SetupNextSegment(Character character, Morld.Terrain terrain)
+		private void ProcessIdleAction(Character character, ActionLog action)
 		{
-			if (character.Movement == null)
-				return;
-
-			var path = character.Movement.FullPath;
-			var idx = character.Movement.CurrentPathIndex;
-
-			if (idx >= path.Count - 1)
-				return;
-
-			var current = path[idx];
-			var next = path[idx + 1];
-
-			// 같은 Region 내 이동인지 확인
-			if (current.RegionId == next.RegionId)
+			// 해당 위치에서 활동 중
+			if (character.CurrentLocation != action.Location)
 			{
-				var region = terrain.GetRegion(current.RegionId);
-				var edge = region?.GetEdgeBetween(current.LocalId, next.LocalId);
-
-				if (edge != null)
-				{
-					var travelTime = edge.GetTravelTime(current);
-					character.SetSegmentTravelTime(travelTime >= 0 ? travelTime : 1);
-					return;
-				}
-			}
-			else
-			{
-				// Region 간 이동 - RegionEdge 찾기
-				foreach (var regionEdge in terrain.RegionEdges)
-				{
-					var locA = regionEdge.LocationA;
-					var locB = regionEdge.LocationB;
-
-					if ((locA.RegionId == current.RegionId && locA.LocalId == current.LocalId &&
-						 locB.RegionId == next.RegionId && locB.LocalId == next.LocalId))
-					{
-						var travelTime = regionEdge.TravelTimeAtoB >= 0 ? regionEdge.TravelTimeAtoB : 1;
-						character.SetSegmentTravelTime(travelTime);
-						return;
-					}
-					else if ((locB.RegionId == current.RegionId && locB.LocalId == current.LocalId &&
-							  locA.RegionId == next.RegionId && locA.LocalId == next.LocalId))
-					{
-						var travelTime = regionEdge.TravelTimeBtoA >= 0 ? regionEdge.TravelTimeBtoA : 1;
-						character.SetSegmentTravelTime(travelTime);
-						return;
-					}
-				}
+				character.SetCurrentLocation(action.Location);
 			}
 
-			// 기본값
-			character.SetSegmentTravelTime(1);
+			// CurrentEdge는 null이어야 함 (이동 중이 아님)
+			character.CurrentEdge = null;
 		}
 	}
 }

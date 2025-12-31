@@ -59,6 +59,14 @@ public class DailySchedule
 	}
 
 	/// <summary>
+	/// 특정 시간(분)에 활성화된 스케줄 항목 찾기
+	/// </summary>
+	public ScheduleEntry? GetEntryAt(int minuteOfDay)
+	{
+		return _entries.FirstOrDefault(e => e.TimeRange.Contains(minuteOfDay));
+	}
+
+	/// <summary>
 	/// 현재 시간에 시작하는 스케줄 항목 찾기
 	/// </summary>
 	public ScheduleEntry? GetStartingEntry(GameTime time)

@@ -1,91 +1,6 @@
 namespace Morld;
 
 using System;
-using System.Collections.Generic;
-
-/// <summary>
-/// Character 상태
-/// </summary>
-public enum CharacterState
-{
-	/// <summary>
-	/// Location에서 대기/활동 중
-	/// </summary>
-	Idle,
-
-	/// <summary>
-	/// 이동 중
-	/// </summary>
-	Moving
-}
-
-/// <summary>
-/// 이동 정보
-/// </summary>
-public class MovementInfo
-{
-	/// <summary>
-	/// 출발 Location
-	/// </summary>
-	public LocationRef From { get; set; }
-
-	/// <summary>
-	/// 최종 목적지 Location
-	/// </summary>
-	public LocationRef FinalDestination { get; set; }
-
-	/// <summary>
-	/// 현재 이동 중인 다음 Location
-	/// </summary>
-	public LocationRef NextLocation { get; set; }
-
-	/// <summary>
-	/// 전체 경로
-	/// </summary>
-	public List<Location> FullPath { get; set; } = new();
-
-	/// <summary>
-	/// 현재 경로 인덱스
-	/// </summary>
-	public int CurrentPathIndex { get; set; }
-
-	/// <summary>
-	/// 현재 구간 총 이동 시간 (분)
-	/// </summary>
-	public int TotalTravelTime { get; set; }
-
-	/// <summary>
-	/// 현재 구간 경과 시간 (분)
-	/// </summary>
-	public int ElapsedTime { get; set; }
-
-	/// <summary>
-	/// 현재 구간 남은 시간 (분)
-	/// </summary>
-	public int RemainingTime => Math.Max(0, TotalTravelTime - ElapsedTime);
-
-	/// <summary>
-	/// 현재 구간 진행도 (0~100%)
-	/// </summary>
-	public float ProgressPercent => TotalTravelTime > 0
-		? Math.Min(100, ((float)ElapsedTime / TotalTravelTime) * 100)
-		: 100;
-
-	/// <summary>
-	/// 현재 구간 이동 완료 여부
-	/// </summary>
-	public bool IsSegmentComplete => ElapsedTime >= TotalTravelTime;
-
-	/// <summary>
-	/// 전체 경로 이동 완료 여부
-	/// </summary>
-	public bool IsPathComplete => CurrentPathIndex >= FullPath.Count - 1 && IsSegmentComplete;
-
-	public override string ToString()
-	{
-		return $"Moving: {From} → {NextLocation} ({ProgressPercent:F1}%, {RemainingTime:F0}분 남음)";
-	}
-}
 
 /// <summary>
 /// Character (캐릭터)
@@ -94,8 +9,7 @@ public class Character
 {
 	private readonly string _id;
 	private LocationRef _currentLocation;
-	private CharacterState _state;
-	private MovementInfo? _movement;
+	private EdgeProgress? _currentEdge;
 	private ScheduleEntry? _currentSchedule;
 
 	/// <summary>
@@ -109,19 +23,19 @@ public class Character
 	public string Name { get; set; }
 
 	/// <summary>
-	/// 현재 상태
-	/// </summary>
-	public CharacterState State => _state;
-
-	/// <summary>
 	/// 현재 Location (이동 중이면 출발지)
 	/// </summary>
 	public LocationRef CurrentLocation => _currentLocation;
 
 	/// <summary>
-	/// 이동 정보 (이동 중일 때만 유효)
+	/// 이동 중 Edge 위에 있는 경우의 정보 (저장 대상)
+	/// null이면 Location에 있음, 값이 있으면 Edge 위에서 이동 중
 	/// </summary>
-	public MovementInfo? Movement => _movement;
+	public EdgeProgress? CurrentEdge
+	{
+		get => _currentEdge;
+		set => _currentEdge = value;
+	}
 
 	/// <summary>
 	/// 현재 수행 중인 스케줄
@@ -144,21 +58,21 @@ public class Character
 	public object? Tag { get; set; }
 
 	/// <summary>
-	/// 이동 중인지 여부
+	/// 이동 중인지 여부 (CurrentEdge 기반)
 	/// </summary>
-	public bool IsMoving => _state == CharacterState.Moving;
+	public bool IsMoving => _currentEdge != null;
 
 	/// <summary>
-	/// 대기 중인지 여부
+	/// 대기 중인지 여부 (CurrentEdge 기반)
 	/// </summary>
-	public bool IsIdle => _state == CharacterState.Idle;
+	public bool IsIdle => _currentEdge == null;
 
 	public Character(string id, string name, LocationRef startLocation)
 	{
 		_id = id ?? throw new ArgumentNullException(nameof(id));
 		Name = name ?? throw new ArgumentNullException(nameof(name));
 		_currentLocation = startLocation;
-		_state = CharacterState.Idle;
+		_currentEdge = null;
 		Schedule = new DailySchedule();
 		TraversalContext = new TraversalContext();
 	}
@@ -169,91 +83,11 @@ public class Character
 	}
 
 	/// <summary>
-	/// 이동 시작
+	/// 현재 위치 설정 (MovementSystem에서 사용)
 	/// </summary>
-	internal bool StartMovement(List<Location> path, LocationRef finalDestination)
+	public void SetCurrentLocation(LocationRef location)
 	{
-		if (path == null || path.Count < 2)
-			return false;
-
-		_movement = new MovementInfo
-		{
-			From = _currentLocation,
-			FinalDestination = finalDestination,
-			FullPath = path,
-			CurrentPathIndex = 0,
-			NextLocation = new LocationRef(path[1]),
-			TotalTravelTime = 0,
-			ElapsedTime = 0
-		};
-
-		_state = CharacterState.Moving;
-		return true;
-	}
-
-	/// <summary>
-	/// 현재 구간 이동 시간 설정
-	/// </summary>
-	internal void SetSegmentTravelTime(int travelTime)
-	{
-		if (_movement != null)
-		{
-			_movement.TotalTravelTime = travelTime;
-			_movement.ElapsedTime = 0;
-		}
-	}
-
-	/// <summary>
-	/// 이동 시간 경과
-	/// </summary>
-	internal void AddTravelTime(int minutes)
-	{
-		if (_movement != null)
-		{
-			_movement.ElapsedTime += minutes;
-		}
-	}
-
-	/// <summary>
-	/// 다음 구간으로 이동
-	/// </summary>
-	internal bool MoveToNextSegment()
-	{
-		if (_movement == null || _movement.IsPathComplete)
-			return false;
-
-		_movement.CurrentPathIndex++;
-
-		if (_movement.CurrentPathIndex >= _movement.FullPath.Count - 1)
-		{
-			// 최종 목적지 도착
-			return false;
-		}
-
-		var current = _movement.FullPath[_movement.CurrentPathIndex];
-		var next = _movement.FullPath[_movement.CurrentPathIndex + 1];
-
-		_currentLocation = new LocationRef(current);
-		_movement.From = _currentLocation;
-		_movement.NextLocation = new LocationRef(next);
-		_movement.ElapsedTime = 0;
-		_movement.TotalTravelTime = 0; // CharacterSystem에서 설정
-
-		return true;
-	}
-
-	/// <summary>
-	/// 목적지 도착 처리
-	/// </summary>
-	internal void ArriveAtDestination()
-	{
-		if (_movement != null)
-		{
-			_currentLocation = _movement.FinalDestination;
-		}
-
-		_movement = null;
-		_state = CharacterState.Idle;
+		_currentLocation = location;
 	}
 
 	/// <summary>
@@ -262,8 +96,7 @@ public class Character
 	public void SetLocation(LocationRef location)
 	{
 		_currentLocation = location;
-		_movement = null;
-		_state = CharacterState.Idle;
+		_currentEdge = null;
 	}
 
 	/// <summary>
@@ -279,22 +112,22 @@ public class Character
 	/// </summary>
 	public string GetStatusSummary()
 	{
-		if (_state == CharacterState.Idle)
+		if (_currentEdge != null)
+		{
+			return $"{Name}: {_currentEdge}";
+		}
+		else
 		{
 			var scheduleInfo = _currentSchedule != null
 				? $" ({_currentSchedule.Name})"
 				: "";
 			return $"{Name}: {_currentLocation}에서 대기 중{scheduleInfo}";
 		}
-		else if (_movement != null)
-		{
-			return $"{Name}: {_movement}";
-		}
-		return $"{Name}: 알 수 없는 상태";
 	}
 
 	public override string ToString()
 	{
-		return $"Character[{Id}] {Name} @ {_currentLocation} ({_state})";
+		var state = _currentEdge != null ? "Moving" : "Idle";
+		return $"Character[{Id}] {Name} @ {_currentLocation} ({state})";
 	}
 }

@@ -121,6 +121,18 @@ namespace SE
 					);
 				}
 
+				// CurrentEdge 설정 (이동 중 상태 복원)
+				if (data.CurrentEdge != null)
+				{
+					character.CurrentEdge = new EdgeProgress
+					{
+						From = new LocationRef(data.CurrentEdge.FromRegionId, data.CurrentEdge.FromLocalId),
+						To = new LocationRef(data.CurrentEdge.ToRegionId, data.CurrentEdge.ToLocalId),
+						TotalTime = data.CurrentEdge.TotalTime,
+						ElapsedTime = data.CurrentEdge.ElapsedTime
+					};
+				}
+
 				AddCharacter(character);
 			}
 		}
@@ -178,7 +190,18 @@ namespace SE
 					Start = entry.TimeRange.StartMinute,
 					End = entry.TimeRange.EndMinute,
 					Activity = string.IsNullOrEmpty(entry.Activity) ? null : entry.Activity
-				}).ToArray()
+				}).ToArray(),
+				CurrentEdge = character.CurrentEdge != null
+					? new EdgeProgressJsonData
+					{
+						FromRegionId = character.CurrentEdge.From.RegionId,
+						FromLocalId = character.CurrentEdge.From.LocalId,
+						ToRegionId = character.CurrentEdge.To.RegionId,
+						ToLocalId = character.CurrentEdge.To.LocalId,
+						TotalTime = character.CurrentEdge.TotalTime,
+						ElapsedTime = character.CurrentEdge.ElapsedTime
+					}
+					: null
 			}).ToArray();
 		}
 
