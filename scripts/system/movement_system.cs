@@ -47,9 +47,47 @@ namespace SE
 			time.AddMinutes(duration);
 
 #if DEBUG_LOG
+			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 			GD.Print($"[MovementSystem] Time advanced: {duration}분 → {time}");
+			PrintCharacterStates(characterSystem, terrain);
+			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 #endif
 		}
+
+#if DEBUG_LOG
+		/// <summary>
+		/// 모든 캐릭터의 현재 상태 출력 (디버그용)
+		/// </summary>
+		private void PrintCharacterStates(CharacterSystem characterSystem, Terrain terrain)
+		{
+			foreach (var character in characterSystem.Characters.Values)
+			{
+				var location = terrain.GetLocation(character.CurrentLocation);
+				var locationName = location?.Name ?? "Unknown";
+				var region = location != null ? terrain.GetRegion(location.RegionId) : null;
+				var regionName = region?.Name ?? "Unknown";
+				var stateStr = character.IsMoving ? "Moving" : "Idle";
+
+				// 현재 활동 정보
+				var currentSchedule = character.CurrentSchedule;
+				var activityStr = currentSchedule != null && !string.IsNullOrEmpty(currentSchedule.Activity)
+					? $" - {currentSchedule.Activity}"
+					: "";
+
+				GD.Print($"  • {character.Name}: {regionName}/{locationName} [{stateStr}]{activityStr}");
+
+				// 이동 중이면 목적지 정보도 출력
+				if (character.IsMoving && character.CurrentEdge != null)
+				{
+					var destination = terrain.GetLocation(character.CurrentEdge.To);
+					var destName = destination?.Name ?? "Unknown";
+					var destRegion = destination != null ? terrain.GetRegion(destination.RegionId) : null;
+					var destRegionName = destRegion?.Name ?? "Unknown";
+					GD.Print($"    → Destination: {destRegionName}/{destName}");
+				}
+			}
+		}
+#endif
 
 		/// <summary>
 		/// 개별 캐릭터 처리 - ActionQueue 소비

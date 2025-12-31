@@ -31,10 +31,6 @@ namespace SE
 		/// </summary>
 		private Dictionary<string, int> _currentActionIndices = new();
 
-		// 디버그 출력용 누적 시간 (밀리초)
-		private int _accumulatedTime = 0;
-		private const int DebugPrintInterval = 1000; // 1초마다 출력
-
 		public PlanningSystem()
 		{
 		}
@@ -57,6 +53,18 @@ namespace SE
 		public void SetCurrentActionIndex(string characterId, int index) =>
 			_currentActionIndices[characterId] = index;
 
+		/// <summary>
+		/// 현재 자정까지 남은 시간 (ActionQueue의 최대 길이)
+		/// </summary>
+		public int MinutesToMidnight { get; private set; } = GameTime.MinutesPerDay;
+
+		/// <summary>
+		/// NextStepDuration 설정 (PlayerSystem에서 사용)
+		/// 자정을 넘지 않도록 자동 제한됨
+		/// </summary>
+		public void SetNextStepDuration(int duration) =>
+			NextStepDuration = Math.Min(duration, MinutesToMidnight);
+
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
 			// 필요한 시스템 가져오기
@@ -75,40 +83,32 @@ namespace SE
 				_pathFinder = new PathFinder(terrain);
 			}
 
+			// 자정까지 남은 시간 계산 (planDuration 제한)
+			MinutesToMidnight = GameTime.MinutesPerDay - time.MinuteOfDay;
+			if (MinutesToMidnight <= 0) MinutesToMidnight = GameTime.MinutesPerDay;
+
 			// 매 Step마다 Queue 초기화 (새로 생성)
 			_actionQueues.Clear();
 			_currentActionIndices.Clear();
 
-			// 모든 캐릭터에 대해 ActionQueue 생성
+			// 모든 캐릭터에 대해 ActionQueue 생성 (자정까지만)
 			foreach (var character in characterSystem.Characters.Values)
 			{
-				BuildActionQueue(character, time, terrain);
+				BuildActionQueue(character, time, terrain, MinutesToMidnight);
 			}
 
-			// 기본 1시간 (향후 이벤트 탐색으로 조정)
-			NextStepDuration = 60;
-
-#if DEBUG_LOG
-			// 시간 누적
-			_accumulatedTime += step;
-
-			// 1초(1000ms)마다 캐릭터 상태 출력
-			if (_accumulatedTime >= DebugPrintInterval)
-			{
-				_accumulatedTime -= DebugPrintInterval;
-				PrintCharacterStates(characterSystem, terrain);
-			}
-#endif
+			// 기본값: 자정까지 남은 시간 (PlayerSystem에서 덮어쓸 수 있음)
+			NextStepDuration = MinutesToMidnight;
 		}
 
 		/// <summary>
 		/// 캐릭터의 ActionQueue 생성
 		/// </summary>
-		private void BuildActionQueue(Character character, GameTime time, Terrain terrain)
+		/// <param name="planDuration">계획할 시간 (분) - 자정까지 남은 시간으로 제한</param>
+		private void BuildActionQueue(Character character, GameTime time, Terrain terrain, int planDuration)
 		{
 			var queue = new List<ActionLog>();
 			int currentTime = 0; // 상대 시간 (Step 시작 기준 0분)
-			int planDuration = 60; // 1시간 분량 계획
 
 			// 1. CurrentEdge 처리 - 이동 중이었으면 남은 이동을 첫 Action으로 추가
 			if (character.CurrentEdge != null)
@@ -310,50 +310,5 @@ namespace SE
 			return 1;
 		}
 
-		/// <summary>
-		/// 모든 캐릭터의 현재 상태 출력 (디버그용)
-		/// </summary>
-		private void PrintCharacterStates(CharacterSystem characterSystem, Terrain terrain)
-		{
-			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-			GD.Print("[PlanningSystem] Character Status:");
-
-			foreach (var character in characterSystem.Characters.Values)
-			{
-				var location = terrain.GetLocation(character.CurrentLocation);
-				var locationName = location?.Name ?? "Unknown";
-				var region = location != null ? terrain.GetRegion(location.RegionId) : null;
-				var regionName = region?.Name ?? "Unknown";
-				var stateStr = character.IsMoving ? "Moving" : "Idle";
-
-				// 현재 활동 정보
-				var currentSchedule = character.CurrentSchedule;
-				var activityStr = currentSchedule != null && !string.IsNullOrEmpty(currentSchedule.Activity)
-					? $" - {currentSchedule.Activity}"
-					: "";
-
-				GD.Print($"  • {character.Name}: {regionName}/{locationName} [{stateStr}]{activityStr}");
-
-				// 이동 중이면 목적지 정보도 출력
-				if (character.IsMoving && character.CurrentEdge != null)
-				{
-					var destination = terrain.GetLocation(character.CurrentEdge.To);
-					var destName = destination?.Name ?? "Unknown";
-					var destRegion = destination != null ? terrain.GetRegion(destination.RegionId) : null;
-					var destRegionName = destRegion?.Name ?? "Unknown";
-					GD.Print($"    → Destination: {destRegionName}/{destName}");
-				}
-
-				// ActionQueue 정보
-				var queue = GetActionQueue(character.Id);
-				if (queue != null && queue.Count > 0)
-				{
-					GD.Print($"    Queue: {queue.Count} actions");
-				}
-			}
-
-			GD.Print($"  NextStepDuration: {NextStepDuration}분");
-			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-		}
 	}
 }
