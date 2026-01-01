@@ -77,6 +77,11 @@ public class Character
 	public List<int> EquippedItems { get; set; } = new();
 
 	/// <summary>
+	/// 오브젝트 여부 (true면 이동/스케줄 없는 오브젝트)
+	/// </summary>
+	public bool IsObject { get; set; } = false;
+
+	/// <summary>
 	/// 이동 중인지 여부 (CurrentEdge 기반)
 	/// </summary>
 	public bool IsMoving => _currentEdge != null;

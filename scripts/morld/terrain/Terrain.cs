@@ -871,6 +871,15 @@ public class Terrain
                         location.Description[key] = value;
                     }
                 }
+
+                // Location Inventory 복사 (바닥 아이템)
+                if (locData.Inventory != null)
+                {
+                    foreach (var (itemId, count) in locData.Inventory)
+                    {
+                        location.Inventory[itemId] = count;
+                    }
+                }
             }
 
             // Edge 추가
@@ -981,11 +990,21 @@ public class Terrain
             // Location 내보내기
             foreach (var location in region.Locations.OrderBy(l => l.LocalId))
             {
-                regionData.Locations.Add(new LocationJsonData
+                var locationData = new LocationJsonData
                 {
                     Id = location.LocalId,
                     Name = location.Name
-                });
+                };
+
+                // Description 내보내기
+                if (location.Description.Count > 0)
+                    locationData.Description = new Dictionary<string, string>(location.Description);
+
+                // Inventory 내보내기 (바닥 아이템)
+                if (location.Inventory.Count > 0)
+                    locationData.Inventory = new Dictionary<int, int>(location.Inventory);
+
+                regionData.Locations.Add(locationData);
             }
 
             // Edge 내보내기

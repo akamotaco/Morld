@@ -135,6 +135,21 @@ public partial class GameEngine : Node
 			case "back":
 				HandleBackAction();
 				break;
+			case "pickup":
+				HandlePickupAction(parts);
+				break;
+			case "drop":
+				HandleDropAction(parts);
+				break;
+			case "look_object":
+				HandleLookObjectAction(parts);
+				break;
+			case "take":
+				HandleTakeAction(parts);
+				break;
+			case "put":
+				HandlePutAction(parts);
+				break;
 			default:
 				GD.PrintErr($"[GameEngine] Unknown action: {action}");
 				break;
@@ -206,5 +221,98 @@ public partial class GameEngine : Node
 	{
 		// 상황 설명 다시 표시 (원래 상태로 복원)
 		UpdateSituationText();
+	}
+
+	/// <summary>
+	/// 아이템 줍기 처리: pickup:itemId
+	/// </summary>
+	private void HandlePickupAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		{
+			GD.PrintErr("[GameEngine] Invalid pickup format. Expected: pickup:itemId");
+			return;
+		}
+
+		_playerSystem?.PickupItem(itemId);
+		UpdateSituationText();
+	}
+
+	/// <summary>
+	/// 아이템 놓기 처리: drop:itemId
+	/// </summary>
+	private void HandleDropAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		{
+			GD.PrintErr("[GameEngine] Invalid drop format. Expected: drop:itemId");
+			return;
+		}
+
+		_playerSystem?.DropItem(itemId);
+		UpdateSituationText();
+	}
+
+	/// <summary>
+	/// 오브젝트 살펴보기 처리: look_object:objectId
+	/// </summary>
+	private void HandleLookObjectAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int objectId))
+		{
+			GD.PrintErr("[GameEngine] Invalid look_object format. Expected: look_object:objectId");
+			return;
+		}
+
+		var objectLook = _playerSystem?.LookObject(objectId);
+		if (objectLook != null && _describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetObjectLookText(objectLook);
+			_textUi.Text = text;
+		}
+	}
+
+	/// <summary>
+	/// 오브젝트에서 아이템 가져오기 처리: take:objectId:itemId
+	/// </summary>
+	private void HandleTakeAction(string[] parts)
+	{
+		if (parts.Length < 3 || !int.TryParse(parts[1], out int objectId) || !int.TryParse(parts[2], out int itemId))
+		{
+			GD.PrintErr("[GameEngine] Invalid take format. Expected: take:objectId:itemId");
+			return;
+		}
+
+		_playerSystem?.TakeFromObject(objectId, itemId);
+
+		// 오브젝트 살펴보기 화면 새로고침
+		var objectLook = _playerSystem?.LookObject(objectId);
+		if (objectLook != null && _describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetObjectLookText(objectLook);
+			_textUi.Text = text;
+		}
+	}
+
+	/// <summary>
+	/// 오브젝트에 아이템 넣기 처리: put:objectId:itemId
+	/// </summary>
+	private void HandlePutAction(string[] parts)
+	{
+		if (parts.Length < 3 || !int.TryParse(parts[1], out int objectId) || !int.TryParse(parts[2], out int itemId))
+		{
+			GD.PrintErr("[GameEngine] Invalid put format. Expected: put:objectId:itemId");
+			return;
+		}
+
+		_playerSystem?.PutToObject(objectId, itemId);
+
+		// 오브젝트 살펴보기 화면 새로고침
+		var objectLook = _playerSystem?.LookObject(objectId);
+		if (objectLook != null && _describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetObjectLookText(objectLook);
+			_textUi.Text = text;
+		}
 	}
 }

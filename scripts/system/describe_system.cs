@@ -131,7 +131,46 @@ namespace SE
 				}
 			}
 
-			// 5. 이동 가능 경로 (BBCode 링크)
+			// 5. 오브젝트
+			if (lookResult.ObjectIds.Count > 0)
+			{
+				var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+				if (characterSystem != null)
+				{
+					lines.Add("[color=orange]오브젝트:[/color]");
+					foreach (var id in lookResult.ObjectIds)
+					{
+						var obj = characterSystem.GetCharacter(id);
+						if (obj != null)
+						{
+							lines.Add($"  [url=look_object:{id}]{obj.Name}[/url]");
+						}
+					}
+					lines.Add("");
+				}
+			}
+
+			// 6. 바닥 아이템
+			if (lookResult.GroundItems.Count > 0)
+			{
+				var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+				if (itemSystem != null)
+				{
+					lines.Add("[color=lime]바닥에 떨어진 아이템:[/color]");
+					foreach (var (itemId, count) in lookResult.GroundItems)
+					{
+						var item = itemSystem.GetItem(itemId);
+						if (item != null)
+						{
+							var countText = count > 1 ? $" x{count}" : "";
+							lines.Add($"  [url=pickup:{itemId}]{item.Name}{countText}[/url]");
+						}
+					}
+					lines.Add("");
+				}
+			}
+
+			// 7. 이동 가능 경로 (BBCode 링크)
 			if (lookResult.Routes.Count > 0)
 			{
 				lines.Add("[color=cyan]이동 가능:[/color]");
@@ -154,6 +193,67 @@ namespace SE
 			lines.Add("");
 			lines.Add("[color=yellow]행동:[/color]");
 			lines.Add("  [url=idle]멍때리기[/url]");
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 오브젝트 살펴보기 결과 텍스트 생성
+		/// </summary>
+		public string GetObjectLookText(ObjectLookResult objectLook)
+		{
+			var lines = new List<string>();
+
+			lines.Add($"[b]{objectLook.Name}[/b]");
+			lines.Add("");
+
+			if (objectLook.Inventory.Count > 0)
+			{
+				var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+				if (itemSystem != null)
+				{
+					lines.Add("[color=lime]보관된 아이템:[/color]");
+					foreach (var (itemId, count) in objectLook.Inventory)
+					{
+						var item = itemSystem.GetItem(itemId);
+						if (item != null)
+						{
+							var countText = count > 1 ? $" x{count}" : "";
+							lines.Add($"  [url=take:{objectLook.ObjectId}:{itemId}]{item.Name}{countText} 가져가기[/url]");
+						}
+					}
+					lines.Add("");
+				}
+			}
+			else
+			{
+				lines.Add("[color=gray]비어 있다.[/color]");
+				lines.Add("");
+			}
+
+			// 플레이어 인벤토리에서 넣기 옵션 추가 (PlayerSystem에서 인벤토리 조회)
+			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+			var player = playerSystem?.GetPlayerCharacter();
+			if (player != null && player.Inventory.Count > 0)
+			{
+				var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+				if (itemSystem != null)
+				{
+					lines.Add("[color=cyan]넣기:[/color]");
+					foreach (var kvp in player.Inventory)
+					{
+						var item = itemSystem.GetItem(kvp.Key);
+						if (item != null)
+						{
+							var countText = kvp.Value > 1 ? $" x{kvp.Value}" : "";
+							lines.Add($"  [url=put:{objectLook.ObjectId}:{kvp.Key}]{item.Name}{countText}[/url]");
+						}
+					}
+					lines.Add("");
+				}
+			}
+
+			lines.Add("[url=back]뒤로[/url]");
 
 			return string.Join("\n", lines);
 		}

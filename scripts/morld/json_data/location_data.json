@@ -6,10 +6,10 @@
       "name": "주거지역",
       "locations": [
         { "id": 0, "name": "주민1의 집" },
-        { "id": 1, "name": "마을 광장" },
+        { "id": 1, "name": "마을 광장", "inventory": { "0": 1 } },
         { "id": 2, "name": "주민2의 집" },
         { "id": 3, "name": "공원" },
-        { "id": 4, "name": "우물" }
+        { "id": 4, "name": "우물", "inventory": { "1": 1 } }
       ],
       "edges": [
         { "a": 0, "b": 1, "timeAtoB": 10, "timeBtoA": 10 },

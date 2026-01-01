@@ -22,7 +22,15 @@ public class LookResult
 	/// </summary>
 	public List<RouteInfo> Routes { get; set; } = new();
 
-	// public List<int> ItemIds { get; set; } = new();  // 같은 위치의 아이템들 (향후)
+	/// <summary>
+	/// 같은 위치의 오브젝트 ID들
+	/// </summary>
+	public List<int> ObjectIds { get; set; } = new();
+
+	/// <summary>
+	/// 바닥에 떨어진 아이템 (아이템ID -> 개수)
+	/// </summary>
+	public Dictionary<int, int> GroundItems { get; set; } = new();
 }
 
 /// <summary>
@@ -90,4 +98,25 @@ public class RouteInfo
 	/// 불가 사유 (아이템 미보유 시)
 	/// </summary>
 	public string? BlockedReason { get; set; }
+}
+
+/// <summary>
+/// 오브젝트 살펴보기 결과
+/// </summary>
+public class ObjectLookResult
+{
+	/// <summary>
+	/// 오브젝트 ID
+	/// </summary>
+	public int ObjectId { get; set; }
+
+	/// <summary>
+	/// 오브젝트 이름
+	/// </summary>
+	public string Name { get; set; } = "";
+
+	/// <summary>
+	/// 오브젝트 인벤토리 (아이템ID -> 개수)
+	/// </summary>
+	public Dictionary<int, int> Inventory { get; set; } = new();
 }

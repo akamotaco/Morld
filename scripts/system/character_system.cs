@@ -123,6 +123,9 @@ namespace SE
 					character.EquippedItems.AddRange(data.EquippedItems);
 				}
 
+				// 오브젝트 여부 설정
+				character.IsObject = data.IsObject;
+
 				// 스케줄 스택 설정 (배열 순서대로 push - 첫 요소가 스택 바닥)
 				foreach (var layerData in data.ScheduleStack)
 				{
@@ -221,6 +224,7 @@ namespace SE
 				EquippedItems = character.EquippedItems.Count > 0
 					? new List<int>(character.EquippedItems)
 					: null,
+				IsObject = character.IsObject,
 				ScheduleStack = character.ScheduleStack.Reverse().Select(layer => new ScheduleLayerJsonData
 				{
 					Name = layer.Name,
@@ -255,9 +259,12 @@ namespace SE
 		/// </summary>
 		public void DebugPrint()
 		{
+			var characters = _characters.Values.Where(c => !c.IsObject).ToList();
+			var objects = _characters.Values.Where(c => c.IsObject).ToList();
+
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-			GD.Print($"  캐릭터 수: {_characters.Count}");
-			foreach (var character in _characters.Values)
+			GD.Print($"  캐릭터 수: {characters.Count}, 오브젝트 수: {objects.Count}");
+			foreach (var character in characters)
 			{
 				GD.Print($"  - {character}");
 				GD.Print($"    스케줄 스택: {character.ScheduleStack.Count}개 레이어");
@@ -271,6 +278,15 @@ namespace SE
 				{
 					var tags = string.Join(", ", character.TraversalContext.Tags.Select(t => $"{t.Key}:{t.Value}"));
 					GD.Print($"    태그: {tags}");
+				}
+			}
+			foreach (var obj in objects)
+			{
+				GD.Print($"  - [Object] {obj.Name} @ {obj.CurrentLocation}");
+				if (obj.Inventory.Count > 0)
+				{
+					var items = string.Join(", ", obj.Inventory.Select(i => $"아이템{i.Key}x{i.Value}"));
+					GD.Print($"    인벤토리: {items}");
 				}
 			}
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

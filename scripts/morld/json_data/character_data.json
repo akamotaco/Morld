@@ -96,5 +96,29 @@
           "endConditionParam": null
         }
       ]
+    },
+    {
+      "id": 10,
+      "name": "나무 상자",
+      "comment": "object_wooden_box",
+      "isObject": true,
+      "regionId": 0,
+      "locationId": 1,
+      "inventory": {
+        "1": 2
+      },
+      "scheduleStack": []
+    },
+    {
+      "id": 11,
+      "name": "오래된 책상",
+      "comment": "object_old_desk",
+      "isObject": true,
+      "regionId": 1,
+      "locationId": 2,
+      "inventory": {
+        "0": 1
+      },
+      "scheduleStack": []
     }
 ]
