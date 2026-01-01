@@ -80,6 +80,85 @@ namespace SE
 		}
 
 		/// <summary>
+		/// LookResult를 기반으로 전체 상황 설명 텍스트 생성
+		/// </summary>
+		public string GetSituationText(LookResult lookResult, GameTime? time)
+		{
+			var lines = new List<string>();
+
+			// 1. 위치 정보
+			var loc = lookResult.Location;
+			if (!string.IsNullOrEmpty(loc.RegionName))
+			{
+				lines.Add($"[b]{loc.RegionName} - {loc.LocationName}[/b]");
+			}
+			else if (!string.IsNullOrEmpty(loc.LocationName))
+			{
+				lines.Add($"[b]{loc.LocationName}[/b]");
+			}
+
+			// 2. 시간 정보
+			if (time != null)
+			{
+				lines.Add($"{time}");
+			}
+
+			lines.Add("");
+
+			// 3. 위치 묘사
+			if (!string.IsNullOrEmpty(loc.DescriptionText))
+			{
+				lines.Add(loc.DescriptionText);
+				lines.Add("");
+			}
+
+			// 4. 주변 캐릭터
+			if (lookResult.CharacterIds.Count > 0)
+			{
+				var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+				if (characterSystem != null)
+				{
+					lines.Add("[color=yellow]주변 인물:[/color]");
+					foreach (var id in lookResult.CharacterIds)
+					{
+						var character = characterSystem.GetCharacter(id);
+						if (character != null)
+						{
+							lines.Add($"  - {character.Name}");
+						}
+					}
+					lines.Add("");
+				}
+			}
+
+			// 5. 이동 가능 경로 (BBCode 링크)
+			if (lookResult.Routes.Count > 0)
+			{
+				lines.Add("[color=cyan]이동 가능:[/color]");
+				foreach (var route in lookResult.Routes)
+				{
+					if (route.IsBlocked)
+					{
+						lines.Add($"  [color=gray]- {route.LocationName} ({route.BlockedReason})[/color]");
+					}
+					else
+					{
+						var regionTag = route.IsRegionEdge ? $" [{route.RegionName}]" : "";
+						var meta = $"move:{route.Destination.RegionId}:{route.Destination.LocalId}";
+						lines.Add($"  [url={meta}]{route.LocationName}{regionTag} ({route.TravelTime}분)[/url]");
+					}
+				}
+			}
+
+			// 6. 멍때리기 옵션
+			lines.Add("");
+			lines.Add("[color=yellow]행동:[/color]");
+			lines.Add("  [url=idle]멍때리기[/url]");
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
 		/// Proc은 비어있음 (호출 기반 시스템)
 		/// </summary>
 		protected override void Proc(int step, Span<Component[]> allComponents)

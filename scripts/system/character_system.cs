@@ -123,17 +123,35 @@ namespace SE
 					character.EquippedItems.AddRange(data.EquippedItems);
 				}
 
-				// 스케줄 설정
-				foreach (var scheduleData in data.Schedule)
+				// 스케줄 스택 설정 (배열 순서대로 push - 첫 요소가 스택 바닥)
+				foreach (var layerData in data.ScheduleStack)
 				{
-					character.Schedule.AddEntry(
-						scheduleData.Name,
-						scheduleData.RegionId,
-						scheduleData.LocationId,
-						scheduleData.Start,
-						scheduleData.End,
-						scheduleData.Activity ?? ""
-					);
+					DailySchedule? schedule = null;
+
+					// 시간 기반 스케줄이 있으면 생성
+					if (layerData.Schedule != null && layerData.Schedule.Length > 0)
+					{
+						schedule = new DailySchedule();
+						foreach (var entry in layerData.Schedule)
+						{
+							schedule.AddEntry(
+								entry.Name,
+								entry.RegionId,
+								entry.LocationId,
+								entry.Start,
+								entry.End,
+								entry.Activity ?? ""
+							);
+						}
+					}
+
+					character.PushSchedule(new ScheduleLayer
+					{
+						Name = layerData.Name,
+						Schedule = schedule,
+						EndConditionType = layerData.EndConditionType,
+						EndConditionParam = layerData.EndConditionParam
+					});
 				}
 
 				// CurrentEdge 설정 (이동 중 상태 복원)
@@ -203,14 +221,20 @@ namespace SE
 				EquippedItems = character.EquippedItems.Count > 0
 					? new List<int>(character.EquippedItems)
 					: null,
-				Schedule = character.Schedule.Entries.Select(entry => new ScheduleEntryJsonData
+				ScheduleStack = character.ScheduleStack.Reverse().Select(layer => new ScheduleLayerJsonData
 				{
-					Name = entry.Name,
-					RegionId = entry.Location.RegionId,
-					LocationId = entry.Location.LocalId,
-					Start = entry.TimeRange.StartMinute,
-					End = entry.TimeRange.EndMinute,
-					Activity = string.IsNullOrEmpty(entry.Activity) ? null : entry.Activity
+					Name = layer.Name,
+					Schedule = layer.Schedule?.Entries.Select(entry => new ScheduleEntryJsonData
+					{
+						Name = entry.Name,
+						RegionId = entry.Location.RegionId,
+						LocationId = entry.Location.LocalId,
+						Start = entry.TimeRange.StartMinute,
+						End = entry.TimeRange.EndMinute,
+						Activity = string.IsNullOrEmpty(entry.Activity) ? null : entry.Activity
+					}).ToArray(),
+					EndConditionType = layer.EndConditionType,
+					EndConditionParam = layer.EndConditionParam
 				}).ToArray(),
 				CurrentEdge = character.CurrentEdge != null
 					? new EdgeProgressJsonData
@@ -236,7 +260,13 @@ namespace SE
 			foreach (var character in _characters.Values)
 			{
 				GD.Print($"  - {character}");
-				GD.Print($"    스케줄: {character.Schedule.Entries.Count}개 항목");
+				GD.Print($"    스케줄 스택: {character.ScheduleStack.Count}개 레이어");
+				if (character.CurrentScheduleLayer != null)
+				{
+					var layer = character.CurrentScheduleLayer;
+					var scheduleInfo = layer.Schedule != null ? $"{layer.Schedule.Entries.Count}개 엔트리" : "없음";
+					GD.Print($"    현재 레이어: {layer.Name} (스케줄: {scheduleInfo})");
+				}
 				if (character.TraversalContext.Tags.Count > 0)
 				{
 					var tags = string.Join(", ", character.TraversalContext.Tags.Select(t => $"{t.Key}:{t.Value}"));

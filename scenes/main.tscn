@@ -22,7 +22,9 @@ grow_vertical = 2
 layout_mode = 0
 offset_right = 1026.0
 offset_bottom = 517.0
+bbcode_enabled = true
 text = "hello world"
 
 [node name="GameEngine" type="Node" parent="."]
 script = ExtResource("1_o5qli")
+metadata/TextUI = NodePath("../Control/RichTextLabel")

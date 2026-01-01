@@ -40,14 +40,21 @@ public class Character
 	}
 
 	/// <summary>
-	/// 현재 수행 중인 스케줄
+	/// 현재 수행 중인 스케줄 엔트리 (시간 기반 스케줄에서)
 	/// </summary>
 	public ScheduleEntry? CurrentSchedule => _currentSchedule;
 
 	/// <summary>
-	/// 하루 스케줄
+	/// 스케줄 스택 (LIFO)
+	/// 최상위 레이어가 현재 활성 스케줄
 	/// </summary>
-	public DailySchedule Schedule { get; }
+	public Stack<ScheduleLayer> ScheduleStack { get; private set; } = new();
+
+	/// <summary>
+	/// 현재 활성 스케줄 레이어 (스택 최상위)
+	/// </summary>
+	public ScheduleLayer? CurrentScheduleLayer =>
+		ScheduleStack.Count > 0 ? ScheduleStack.Peek() : null;
 
 	/// <summary>
 	/// 이동 조건 (태그)
@@ -85,7 +92,6 @@ public class Character
 		Name = name ?? throw new ArgumentNullException(nameof(name));
 		_currentLocation = startLocation;
 		_currentEdge = null;
-		Schedule = new DailySchedule();
 		TraversalContext = new TraversalContext();
 	}
 
@@ -112,11 +118,35 @@ public class Character
 	}
 
 	/// <summary>
-	/// 현재 스케줄 설정
+	/// 현재 스케줄 엔트리 설정 (시간 기반 스케줄에서)
 	/// </summary>
 	internal void SetCurrentSchedule(ScheduleEntry? schedule)
 	{
 		_currentSchedule = schedule;
+	}
+
+	/// <summary>
+	/// 스케줄 레이어 push
+	/// </summary>
+	public void PushSchedule(ScheduleLayer layer)
+	{
+		ScheduleStack.Push(layer);
+	}
+
+	/// <summary>
+	/// 스케줄 레이어 pop (스택이 비어있으면 null 반환)
+	/// </summary>
+	public ScheduleLayer? PopSchedule()
+	{
+		return ScheduleStack.Count > 0 ? ScheduleStack.Pop() : null;
+	}
+
+	/// <summary>
+	/// 스케줄 스택 초기화
+	/// </summary>
+	public void ClearScheduleStack()
+	{
+		ScheduleStack.Clear();
 	}
 
 	/// <summary>

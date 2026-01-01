@@ -32,11 +32,29 @@ internal class CharacterJsonData
 	[JsonPropertyName("equippedItems")]
 	public List<int>? EquippedItems { get; set; }
 
-	[JsonPropertyName("schedule")]
-	public ScheduleEntryJsonData[] Schedule { get; set; } = [];
+	[JsonPropertyName("scheduleStack")]
+	public ScheduleLayerJsonData[] ScheduleStack { get; set; } = [];
 
 	[JsonPropertyName("currentEdge")]
 	public EdgeProgressJsonData? CurrentEdge { get; set; }
+}
+
+/// <summary>
+/// ScheduleLayer JSON 데이터
+/// </summary>
+internal class ScheduleLayerJsonData
+{
+	[JsonPropertyName("name")]
+	public string Name { get; set; } = string.Empty;
+
+	[JsonPropertyName("schedule")]
+	public ScheduleEntryJsonData[]? Schedule { get; set; }
+
+	[JsonPropertyName("endConditionType")]
+	public string? EndConditionType { get; set; }
+
+	[JsonPropertyName("endConditionParam")]
+	public string? EndConditionParam { get; set; }
 }
 
 /// <summary>

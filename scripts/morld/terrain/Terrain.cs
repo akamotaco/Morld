@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Godot;
+using SE;
 
 /// <summary>
 /// Terrain - 여러 Region과 Region 간 연결을 관리
@@ -502,6 +503,15 @@ public class Terrain
         }
 
         return invalidEdges;
+    }
+
+    /// <summary>
+    /// 경로 탐색 (PathFinder 래퍼)
+    /// </summary>
+    public PathResult FindPath(LocationRef from, LocationRef to, Character? character = null, ItemSystem? itemSystem = null)
+    {
+        var pathFinder = new PathFinder(this);
+        return pathFinder.FindPath(from, to, character, itemSystem);
     }
 
     /// <summary>

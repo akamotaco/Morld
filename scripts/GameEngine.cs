@@ -11,9 +11,22 @@ public partial class GameEngine : Node
 	// Called when the node enters the scene tree for the first time.
 	private SE.World _world;
 	private PlayerSystem _playerSystem;
+	private DescribeSystem _describeSystem;
+	private RichTextLabel _textUi;
 
 	public override void _Ready()
 	{
+		var text_ui_path = GetMeta("TextUI").As<string>(); //../Control/RichTextLabel
+		this._textUi = GetNode<RichTextLabel>(text_ui_path);
+		if (this._textUi == null) {
+			GD.PrintErr($"TextUi 메타가 null이거나 유효하지 않습니다.({GetMeta("TextUI")})");
+			throw new InvalidOperationException("TextUi 메타가 null이거나 유효하지 않습니다.");
+		}
+
+		// BBCode 활성화 및 meta_clicked 시그널 연결
+		this._textUi.BbcodeEnabled = true;
+		this._textUi.MetaClicked += OnMetaClicked;
+
 		this._world = new SE.World(this);
 
 		(this._world.AddSystem(new WorldSystem("aka"), "worldSystem") as WorldSystem).GetTerrain().UpdateFromFile("res://scripts/morld/json_data/location_data.json");
@@ -21,10 +34,14 @@ public partial class GameEngine : Node
 
 		(this._world.AddSystem(new CharacterSystem(), "characterSystem") as CharacterSystem).UpdateFromFile("res://scripts/morld/json_data/character_data.json");
 
-		// Logic Systems - 실행 순서: MovementSystem → PlanningSystem → PlayerSystem
+		// Logic Systems - 실행 순서: MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
 		this._world.AddSystem(new MovementSystem(), "movementSystem");
-		this._world.AddSystem(new PlanningSystem(), "planningSystem");
+		this._world.AddSystem(new BehaviorSystem(), "behaviorSystem");
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
+		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
+
+		// 초기 상황 설명 표시
+		UpdateSituationText();
 
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
@@ -40,22 +57,22 @@ public partial class GameEngine : Node
 #endif
 	}
 
-	public override void _Input(InputEvent @event)
-	{
-		if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
-		{
-			if (mouseEvent.ButtonIndex == MouseButton.Left)
-			{
-				// 왼쪽 클릭: 4시간 진행
-				_playerSystem?.RequestTimeAdvance(240, "수면 (4시간)");
-			}
-			else if (mouseEvent.ButtonIndex == MouseButton.Right)
-			{
-				// 오른쪽 클릭: 15분 진행
-				_playerSystem?.RequestTimeAdvance(15, "휴식 (15분)");
-			}
-		}
-	}
+	// public override void _Input(InputEvent @event)
+	// {
+	// 	if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
+	// 	{
+	// 		if (mouseEvent.ButtonIndex == MouseButton.Left)
+	// 		{
+	// 			// 왼쪽 클릭: 4시간 진행
+	// 			_playerSystem?.RequestTimeAdvance(240, "수면 (4시간)");
+	// 		}
+	// 		else if (mouseEvent.ButtonIndex == MouseButton.Right)
+	// 		{
+	// 			// 오른쪽 클릭: 15분 진행
+	// 			_playerSystem?.RequestTimeAdvance(15, "휴식 (15분)");
+	// 		}
+	// 	}
+	// }
 
 	// Called every frame. 'delta' is the elapsed time since the previous frame.
 	public override void _Process(double delta)
@@ -66,5 +83,128 @@ public partial class GameEngine : Node
 
 		int delta_int = (int)(delta * 1000);
 		this._world.Step(delta_int);
+
+		// 시간 진행 완료 후 상황 설명 업데이트
+		if (!_playerSystem.HasPendingTime)
+		{
+			UpdateSituationText();
+		}
+	}
+
+	/// <summary>
+	/// 현재 상황 설명을 TextUI에 표시
+	/// </summary>
+	private void UpdateSituationText()
+	{
+		if (_playerSystem == null || _describeSystem == null || _textUi == null)
+			return;
+
+		var worldSystem = _world.FindSystem("worldSystem") as WorldSystem;
+		var lookResult = _playerSystem.Look();
+		var time = worldSystem?.GetTime();
+
+		var text = _describeSystem.GetSituationText(lookResult, time);
+		_textUi.Text = text;
+	}
+
+	/// <summary>
+	/// BBCode 링크 클릭 핸들러
+	/// meta 포맷: move:regionId:localId, idle, idle:minutes, back
+	/// </summary>
+	private void OnMetaClicked(Variant meta)
+	{
+		var metaString = meta.AsString();
+		if (string.IsNullOrEmpty(metaString))
+			return;
+
+		var parts = metaString.Split(':');
+		var action = parts[0];
+
+#if DEBUG_LOG
+		GD.Print($"[GameEngine] Meta clicked: {metaString}");
+#endif
+
+		switch (action)
+		{
+			case "move":
+				HandleMoveAction(parts);
+				break;
+			case "idle":
+				HandleIdleAction(parts);
+				break;
+			case "back":
+				HandleBackAction();
+				break;
+			default:
+				GD.PrintErr($"[GameEngine] Unknown action: {action}");
+				break;
+		}
+	}
+
+	/// <summary>
+	/// 이동 액션 처리: move:regionId:localId
+	/// </summary>
+	private void HandleMoveAction(string[] parts)
+	{
+		if (parts.Length < 3)
+		{
+			GD.PrintErr("[GameEngine] Invalid move format. Expected: move:regionId:localId");
+			return;
+		}
+
+		// meta를 PlayerSystem 명령으로 변환: move:0:1 → 이동:0:1
+		_playerSystem?.RequestCommand($"이동:{parts[1]}:{parts[2]}");
+	}
+
+	/// <summary>
+	/// 휴식 액션 처리: idle 또는 idle:minutes
+	/// </summary>
+	private void HandleIdleAction(string[] parts)
+	{
+		if (parts.Length == 1)
+		{
+			// idle - 시간 선택 UI로 전환
+			ShowIdleTimeSelection();
+		}
+		else if (parts.Length >= 2)
+		{
+			// idle:minutes - 실제 휴식 실행
+			_playerSystem?.RequestCommand($"휴식:{parts[1]}");
+		}
+		else
+		{
+			GD.PrintErr("[GameEngine] Invalid idle format");
+		}
+	}
+
+	/// <summary>
+	/// 멍때리기 시간 선택 UI 표시 (2단계)
+	/// </summary>
+	private void ShowIdleTimeSelection()
+	{
+		if (_textUi == null) return;
+
+		// 기존 idle 링크를 시간 선택지로 교체
+		var currentText = _textUi.Text;
+		var idlePattern = "[url=idle]멍때리기[/url]";
+		var idleOptions = @"[url=idle:15]멍때리기 (15분)[/url]
+  [url=idle:30]멍때리기 (30분)[/url]
+  [url=idle:60]멍때리기 (1시간)[/url]
+  [url=idle:240]멍때리기 (4시간)[/url]
+  [url=back]뒤로[/url]";
+
+		if (currentText.Contains(idlePattern))
+		{
+			_textUi.Text = currentText.Replace(idlePattern, idleOptions);
+		}
+	}
+
+	/// <summary>
+	/// 뒤로 가기 처리 - 원래 UI로 복원
+	/// </summary>
+	private void HandleBackAction()
+	{
+		// 상황 설명 다시 표시 (원래 상태로 복원)
+		UpdateSituationText();
 	}
 }

@@ -14,15 +14,15 @@ namespace SE
 	/// 플레이어 입력 기반 시간 진행 시스템
 	/// - 입력이 없으면 시간 정지 (duration = 0)
 	/// - RequestTimeAdvance()로 시간 진행 요청
-	/// - 자정 제한 자동 적용, 남은 시간은 다음 Step에서 계속
-	///
-	/// 시간 처리 흐름:
-	/// 1. PlayerSystem이 NextStepDuration 설정 (다음 Step에서 사용될 값)
-	/// 2. 다음 Step에서 MovementSystem이 해당 시간만큼 진행
-	/// 3. PlayerSystem이 실제 소비된 시간을 _remainingDuration에서 차감
+	/// - 플레이어 명령 = 스케줄 스택에 push
 	/// </summary>
 	public class PlayerSystem : ECS.System
 	{
+		/// <summary>
+		/// 다음 Step에서 진행할 시간 (분)
+		/// </summary>
+		public int NextStepDuration { get; private set; } = 0;
+
 		/// <summary>
 		/// 아직 처리해야 할 남은 시간 (분)
 		/// </summary>
@@ -81,12 +81,175 @@ namespace SE
 		/// </summary>
 		public bool HasPendingTime => _remainingDuration > 0;
 
+		#region 플레이어 액션 요청
+
+		/// <summary>
+		/// 통합 명령 처리
+		/// 포맷: "이동:regionId:localId" 또는 "휴식:minutes"
+		/// </summary>
+		public void RequestCommand(string cmd)
+		{
+			if (string.IsNullOrEmpty(cmd))
+				return;
+
+			var parts = cmd.Split(':');
+			var action = parts[0];
+
+			switch (action)
+			{
+				case "이동":
+					if (parts.Length >= 3 &&
+						int.TryParse(parts[1], out int regionId) &&
+						int.TryParse(parts[2], out int localId))
+					{
+						ExecuteMove(new LocationRef(regionId, localId));
+					}
+					break;
+				case "휴식":
+					if (parts.Length >= 2 && int.TryParse(parts[1], out int minutes))
+					{
+						ExecuteIdle(minutes);
+					}
+					break;
+				default:
+#if DEBUG_LOG
+					GD.Print($"[PlayerSystem] 알 수 없는 명령: {action}");
+#endif
+					break;
+			}
+		}
+
+		/// <summary>
+		/// 이동 실행 (스케줄 스택에 이동 레이어 push)
+		/// </summary>
+		private void ExecuteMove(LocationRef destination)
+		{
+			var player = GetPlayerCharacter();
+			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
+			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+
+			if (player == null || worldSystem == null)
+				return;
+
+			var terrain = worldSystem.GetTerrain();
+
+			// 이미 목적지에 있으면 무시
+			if (player.CurrentLocation == destination)
+				return;
+
+			// 경로 탐색 (총 이동 시간 계산용)
+			var pathResult = terrain.FindPath(player.CurrentLocation, destination, player, itemSystem);
+
+			if (!pathResult.Found || pathResult.Path.Count < 2)
+			{
+#if DEBUG_LOG
+				GD.Print($"[PlayerSystem] 경로를 찾을 수 없음: {player.CurrentLocation} → {destination}");
+#endif
+				return;
+			}
+
+			// 총 이동 시간 계산
+			var totalTime = CalculateTotalTravelTime(pathResult, terrain);
+
+			// 이동 스케줄 push
+			player.PushSchedule(new ScheduleLayer
+			{
+				Name = "이동",
+				Schedule = null,
+				EndConditionType = "이동",
+				EndConditionParam = $"{destination.RegionId}:{destination.LocalId}"
+			});
+
+			// 시간 진행 요청
+			var destLocation = terrain.GetLocation(destination);
+			RequestTimeAdvance(totalTime, $"{destLocation?.Name ?? destination.ToString()}(으)로 이동");
+
+#if DEBUG_LOG
+			GD.Print($"[PlayerSystem] 이동 요청: {player.CurrentLocation} → {destination} ({totalTime}분)");
+#endif
+		}
+
+		/// <summary>
+		/// 휴식 실행 (스택 변화 없이 시간만 진행)
+		/// </summary>
+		private void ExecuteIdle(int minutes)
+		{
+			// 시간 진행 요청 (스택 변화 없음)
+			RequestTimeAdvance(minutes, $"휴식 ({minutes}분)");
+
+#if DEBUG_LOG
+			GD.Print($"[PlayerSystem] 휴식 요청: {minutes}분");
+#endif
+		}
+
+		/// <summary>
+		/// 경로의 총 이동 시간 계산
+		/// </summary>
+		private int CalculateTotalTravelTime(PathResult pathResult, Terrain terrain)
+		{
+			if (!pathResult.Found || pathResult.Path.Count < 2)
+				return 0;
+
+			int totalTime = 0;
+			for (int i = 0; i < pathResult.Path.Count - 1; i++)
+			{
+				var from = new LocationRef(pathResult.Path[i]);
+				var to = new LocationRef(pathResult.Path[i + 1]);
+				totalTime += GetTravelTime(from, to, terrain);
+			}
+			return totalTime;
+		}
+
+		/// <summary>
+		/// 두 Location 간 이동 시간 계산
+		/// </summary>
+		private int GetTravelTime(LocationRef from, LocationRef to, Terrain terrain)
+		{
+			// 같은 Region 내 이동
+			if (from.RegionId == to.RegionId)
+			{
+				var region = terrain.GetRegion(from.RegionId);
+				var edge = region?.GetEdgeBetween(from.LocalId, to.LocalId);
+
+				if (edge != null)
+				{
+					var travelTime = edge.LocationA.LocalId == from.LocalId
+						? edge.TravelTimeAtoB
+						: edge.TravelTimeBtoA;
+					return travelTime >= 0 ? travelTime : 1;
+				}
+			}
+			else
+			{
+				// Region 간 이동
+				foreach (var regionEdge in terrain.RegionEdges)
+				{
+					var locA = regionEdge.LocationA;
+					var locB = regionEdge.LocationB;
+
+					if (locA.RegionId == from.RegionId && locA.LocalId == from.LocalId &&
+						locB.RegionId == to.RegionId && locB.LocalId == to.LocalId)
+					{
+						return regionEdge.TravelTimeAtoB >= 0 ? regionEdge.TravelTimeAtoB : 1;
+					}
+					else if (locB.RegionId == from.RegionId && locB.LocalId == from.LocalId &&
+							 locA.RegionId == to.RegionId && locA.LocalId == to.LocalId)
+					{
+						return regionEdge.TravelTimeBtoA >= 0 ? regionEdge.TravelTimeBtoA : 1;
+					}
+				}
+			}
+
+			return 1;
+		}
+
+		#endregion
+
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
-			var planningSystem = _hub.FindSystem("planningSystem") as PlanningSystem;
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 
-			if (planningSystem == null || worldSystem == null)
+			if (worldSystem == null)
 				return;
 
 			var time = worldSystem.GetTime();
@@ -119,19 +282,21 @@ namespace SE
 			// 2. 대기 중인 시간이 없으면 시간 정지
 			if (_remainingDuration <= 0)
 			{
-				planningSystem.SetNextStepDuration(0);
+				NextStepDuration = 0;
 				_lastSetDuration = 0;
 				return;
 			}
 
-			// 3. 다음 Step에서 진행할 시간 설정
-			planningSystem.SetNextStepDuration(_remainingDuration);
+			// 3. 자정까지 남은 시간 계산 (1440분 = 24시간)
+			var minutesToMidnight = 1440 - time.MinuteOfDay;
+			if (minutesToMidnight <= 0) minutesToMidnight = 1440;
 
-			// 실제 적용될 시간 (자정 제한 적용됨) - 다음 Step에서 차감
-			_lastSetDuration = planningSystem.NextStepDuration;
+			// 4. 다음 Step에서 진행할 시간 설정 (자정 제한)
+			NextStepDuration = Math.Min(_remainingDuration, minutesToMidnight);
+			_lastSetDuration = NextStepDuration;
 
 #if DEBUG_LOG
-			GD.Print($"[PlayerSystem] 다음 Step 예약: {_lastSetDuration}분");
+			GD.Print($"[PlayerSystem] 다음 Step 예약: {NextStepDuration}분");
 #endif
 		}
 
