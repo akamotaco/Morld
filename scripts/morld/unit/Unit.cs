@@ -77,9 +77,14 @@ public class Unit
 	public List<int> EquippedItems { get; set; } = new();
 
 	/// <summary>
-	/// 오브젝트 여부 (true면 이동/스케줄 없는 오브젝트)
+	/// Unit 타입 (Male, Female, Object)
 	/// </summary>
-	public bool IsObject { get; set; } = false;
+	public UnitType Type { get; set; } = UnitType.Male;
+
+	/// <summary>
+	/// 오브젝트 여부 (Type == Object)
+	/// </summary>
+	public bool IsObject => Type == UnitType.Object;
 
 	/// <summary>
 	/// 가능한 액션 (통합: "talk", "trade", "use", "open" 등)
@@ -245,7 +250,6 @@ public class Unit
 	public override string ToString()
 	{
 		var state = _currentEdge != null ? "Moving" : "Idle";
-		var type = IsObject ? "Object" : "Character";
-		return $"Unit[{Id}] {Name} ({type}) @ {_currentLocation} ({state})";
+		return $"Unit[{Id}] {Name} ({Type}) @ {_currentLocation} ({state})";
 	}
 }

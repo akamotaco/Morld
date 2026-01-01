@@ -32,8 +32,8 @@ internal class UnitJsonData
 	[JsonPropertyName("equippedItems")]
 	public List<int>? EquippedItems { get; set; }
 
-	[JsonPropertyName("isObject")]
-	public bool IsObject { get; set; } = false;
+	[JsonPropertyName("type")]
+	public string Type { get; set; } = "male";
 
 	[JsonPropertyName("actions")]
 	public List<string>? Actions { get; set; }

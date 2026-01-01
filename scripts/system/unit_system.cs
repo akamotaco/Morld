@@ -123,8 +123,8 @@ namespace SE
 					unit.EquippedItems.AddRange(data.EquippedItems);
 				}
 
-				// 오브젝트 여부 설정
-				unit.IsObject = data.IsObject;
+				// 타입 설정
+				unit.Type = ParseUnitType(data.Type);
 
 				// 액션 설정
 				if (data.Actions != null)
@@ -230,7 +230,7 @@ namespace SE
 				EquippedItems = unit.EquippedItems.Count > 0
 					? new List<int>(unit.EquippedItems)
 					: null,
-				IsObject = unit.IsObject,
+				Type = unit.Type.ToString().ToLower(),
 				Actions = unit.Actions.Count > 0
 					? new List<string>(unit.Actions)
 					: null,
@@ -261,6 +261,20 @@ namespace SE
 					}
 					: null
 			}).ToArray();
+		}
+
+		/// <summary>
+		/// 문자열을 UnitType으로 변환
+		/// </summary>
+		private static UnitType ParseUnitType(string type)
+		{
+			return type?.ToLower() switch
+			{
+				"male" => UnitType.Male,
+				"female" => UnitType.Female,
+				"object" => UnitType.Object,
+				_ => UnitType.Male // 기본값
+			};
 		}
 
 		/// <summary>
