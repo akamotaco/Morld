@@ -82,6 +82,16 @@ public class Character
 	public bool IsObject { get; set; } = false;
 
 	/// <summary>
+	/// 가능한 상호작용 (캐릭터: "talk", "trade" 등)
+	/// </summary>
+	public List<string> Interactions { get; set; } = new();
+
+	/// <summary>
+	/// 가능한 행동 (오브젝트: "use", "open" 등)
+	/// </summary>
+	public List<string> Actions { get; set; } = new();
+
+	/// <summary>
 	/// 이동 중인지 여부 (CurrentEdge 기반)
 	/// </summary>
 	public bool IsMoving => _currentEdge != null;

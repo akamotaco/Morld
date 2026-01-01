@@ -120,6 +120,9 @@ namespace SE
 					}
 				}
 
+				// Value 설정
+				item.Value = data.Value;
+
 				AddItem(item);
 			}
 		}
@@ -169,7 +172,8 @@ namespace SE
 					: null,
 				EquipTags = item.EquipTags.Count > 0
 					? new Dictionary<string, int>(item.EquipTags)
-					: null
+					: null,
+				Value = item.Value
 			}).ToArray();
 		}
 

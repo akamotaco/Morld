@@ -35,6 +35,12 @@ internal class CharacterJsonData
 	[JsonPropertyName("isObject")]
 	public bool IsObject { get; set; } = false;
 
+	[JsonPropertyName("interactions")]
+	public List<string>? Interactions { get; set; }
+
+	[JsonPropertyName("actions")]
+	public List<string>? Actions { get; set; }
+
 	[JsonPropertyName("scheduleStack")]
 	public ScheduleLayerJsonData[] ScheduleStack { get; set; } = [];
 

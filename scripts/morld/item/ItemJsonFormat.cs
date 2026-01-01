@@ -22,4 +22,7 @@ internal class ItemJsonData
 
 	[JsonPropertyName("equipTags")]
 	public Dictionary<string, int>? EquipTags { get; set; }
+
+	[JsonPropertyName("value")]
+	public int Value { get; set; } = 0;
 }

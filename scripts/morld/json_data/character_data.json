@@ -11,7 +11,8 @@
       },
       "inventory": {
         "0": 1,
-        "1": 3
+        "1": 3,
+        "4": 1
       },
       "equippedItems": [2, 3],
       "scheduleStack": [
@@ -29,6 +30,7 @@
       "comment": "npc_001",
       "regionId": 0,
       "locationId": 0,
+      "interactions": ["talk"],
       "scheduleStack": [
         {
           "name": "일상",
@@ -53,6 +55,7 @@
       "comment": "npc_002",
       "regionId": 1,
       "locationId": 1,
+      "interactions": ["talk", "trade"],
       "scheduleStack": [
         {
           "name": "일상",
@@ -80,6 +83,7 @@
       "tags": {
         "열쇠": 1
       },
+      "interactions": ["talk"],
       "scheduleStack": [
         {
           "name": "일상",
@@ -107,6 +111,7 @@
       "inventory": {
         "1": 2
       },
+      "actions": ["open"],
       "scheduleStack": []
     },
     {
@@ -119,6 +124,7 @@
       "inventory": {
         "0": 1
       },
+      "actions": ["open", "examine"],
       "scheduleStack": []
     }
 ]

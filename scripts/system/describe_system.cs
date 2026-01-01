@@ -124,7 +124,7 @@ namespace SE
 						var character = characterSystem.GetCharacter(id);
 						if (character != null)
 						{
-							lines.Add($"  - {character.Name}");
+							lines.Add($"  [url=look_character:{id}]{character.Name}[/url]");
 						}
 					}
 					lines.Add("");
@@ -163,7 +163,7 @@ namespace SE
 						if (item != null)
 						{
 							var countText = count > 1 ? $" x{count}" : "";
-							lines.Add($"  [url=pickup:{itemId}]{item.Name}{countText}[/url]");
+							lines.Add($"  [url=item_ground_menu:{itemId}:{count}]{item.Name}{countText}[/url]");
 						}
 					}
 					lines.Add("");
@@ -189,9 +189,10 @@ namespace SE
 				}
 			}
 
-			// 6. 멍때리기 옵션
+			// 6. 행동 옵션
 			lines.Add("");
 			lines.Add("[color=yellow]행동:[/color]");
+			lines.Add("  [url=inventory]소지품 확인[/url]");
 			lines.Add("  [url=idle]멍때리기[/url]");
 
 			return string.Join("\n", lines);
@@ -253,9 +254,210 @@ namespace SE
 				}
 			}
 
+			// 오브젝트 행동 표시
+			if (objectLook.Actions.Count > 0)
+			{
+				lines.Add("[color=yellow]행동:[/color]");
+				foreach (var action in objectLook.Actions)
+				{
+					var actionName = GetActionDisplayName(action);
+					lines.Add($"  [url=action:{objectLook.ObjectId}:{action}]{actionName}[/url]");
+				}
+				lines.Add("");
+			}
+
 			lines.Add("[url=back]뒤로[/url]");
 
 			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 캐릭터 살펴보기 결과 텍스트 생성
+		/// </summary>
+		public string GetCharacterLookText(CharacterLookResult characterLook)
+		{
+			var lines = new List<string>();
+
+			lines.Add($"[b]{characterLook.Name}[/b]");
+			lines.Add("");
+
+			// 상호작용 옵션 표시
+			if (characterLook.Interactions.Count > 0)
+			{
+				lines.Add("[color=yellow]상호작용:[/color]");
+				foreach (var interaction in characterLook.Interactions)
+				{
+					var interactionName = GetInteractionDisplayName(interaction);
+					lines.Add($"  [url=interact:{characterLook.CharacterId}:{interaction}]{interactionName}[/url]");
+				}
+				lines.Add("");
+			}
+			else
+			{
+				lines.Add("[color=gray]특별한 상호작용이 없다.[/color]");
+				lines.Add("");
+			}
+
+			lines.Add("[url=back]뒤로[/url]");
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 플레이어 인벤토리 텍스트 생성
+		/// </summary>
+		public string GetInventoryText()
+		{
+			var lines = new List<string>();
+
+			lines.Add("[b]소지품[/b]");
+			lines.Add("");
+
+			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var player = playerSystem?.GetPlayerCharacter();
+
+			if (player == null || itemSystem == null)
+			{
+				lines.Add("[color=gray]인벤토리를 확인할 수 없습니다.[/color]");
+				lines.Add("");
+				lines.Add("[url=back]뒤로[/url]");
+				return string.Join("\n", lines);
+			}
+
+			if (player.Inventory.Count == 0)
+			{
+				lines.Add("[color=gray]소지품이 없다.[/color]");
+			}
+			else
+			{
+				int totalValue = 0;
+				foreach (var (itemId, count) in player.Inventory)
+				{
+					var item = itemSystem.GetItem(itemId);
+					if (item != null)
+					{
+						var countText = count > 1 ? $" x{count}" : "";
+						var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
+						lines.Add($"  [url=item_inv_menu:{itemId}:{count}]{item.Name}{countText}[/url]{valueText}");
+						totalValue += item.Value * count;
+					}
+				}
+				lines.Add("");
+				lines.Add($"[color=yellow]총 가치: {totalValue}G[/color]");
+			}
+
+			// 장착 아이템 표시
+			if (player.EquippedItems.Count > 0)
+			{
+				lines.Add("");
+				lines.Add("[color=cyan]장착 중:[/color]");
+				foreach (var itemId in player.EquippedItems)
+				{
+					var item = itemSystem.GetItem(itemId);
+					if (item != null)
+					{
+						lines.Add($"  {item.Name}");
+					}
+				}
+			}
+
+			lines.Add("");
+			lines.Add("[url=back]뒤로[/url]");
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 바닥 아이템 상세 메뉴 텍스트 생성
+		/// </summary>
+		public string GetGroundItemMenuText(int itemId, int count)
+		{
+			var lines = new List<string>();
+			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var item = itemSystem?.GetItem(itemId);
+
+			if (item == null)
+			{
+				lines.Add("[color=gray]아이템을 찾을 수 없습니다.[/color]");
+				lines.Add("");
+				lines.Add("[url=back]뒤로[/url]");
+				return string.Join("\n", lines);
+			}
+
+			var countText = count > 1 ? $" x{count}" : "";
+			lines.Add($"[b]{item.Name}{countText}[/b]");
+			lines.Add("");
+
+			lines.Add("[color=yellow]행동:[/color]");
+			lines.Add($"  [url=pickup:{itemId}]줍기[/url]");
+			lines.Add("");
+			lines.Add("[url=back]뒤로[/url]");
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 인벤토리 아이템 상세 메뉴 텍스트 생성
+		/// </summary>
+		public string GetInventoryItemMenuText(int itemId, int count)
+		{
+			var lines = new List<string>();
+			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var item = itemSystem?.GetItem(itemId);
+
+			if (item == null)
+			{
+				lines.Add("[color=gray]아이템을 찾을 수 없습니다.[/color]");
+				lines.Add("");
+				lines.Add("[url=back]뒤로[/url]");
+				return string.Join("\n", lines);
+			}
+
+			var countText = count > 1 ? $" x{count}" : "";
+			var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
+			lines.Add($"[b]{item.Name}{countText}[/b]{valueText}");
+			lines.Add("");
+
+			lines.Add("[color=yellow]행동:[/color]");
+			lines.Add($"  [url=item_use:{itemId}]사용[/url]");
+			lines.Add($"  [url=item_combine:{itemId}]조합[/url]");
+			lines.Add($"  [url=drop:{itemId}]버리기[/url]");
+			lines.Add("");
+			lines.Add("[url=back_inventory]뒤로[/url]");
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 행동 코드를 표시 이름으로 변환
+		/// </summary>
+		private static string GetActionDisplayName(string action)
+		{
+			return action switch
+			{
+				"use" => "사용하기",
+				"open" => "열기",
+				"close" => "닫기",
+				"read" => "읽기",
+				"examine" => "자세히 보기",
+				_ => action
+			};
+		}
+
+		/// <summary>
+		/// 상호작용 코드를 표시 이름으로 변환
+		/// </summary>
+		private static string GetInteractionDisplayName(string interaction)
+		{
+			return interaction switch
+			{
+				"talk" => "대화하기",
+				"trade" => "거래하기",
+				"give" => "주기",
+				"ask" => "물어보기",
+				_ => interaction
+			};
 		}
 
 		/// <summary>

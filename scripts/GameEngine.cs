@@ -34,6 +34,8 @@ public partial class GameEngine : Node
 
 		(this._world.AddSystem(new CharacterSystem(), "characterSystem") as CharacterSystem).UpdateFromFile("res://scripts/morld/json_data/character_data.json");
 
+		(this._world.AddSystem(new ItemSystem(), "itemSystem") as ItemSystem).UpdateFromFile("res://scripts/morld/json_data/item_data.json");
+
 		// Logic Systems - 실행 순서: MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
 		this._world.AddSystem(new MovementSystem(), "movementSystem");
 		this._world.AddSystem(new BehaviorSystem(), "behaviorSystem");
@@ -135,6 +137,9 @@ public partial class GameEngine : Node
 			case "back":
 				HandleBackAction();
 				break;
+			case "inventory":
+				HandleInventoryAction();
+				break;
 			case "pickup":
 				HandlePickupAction(parts);
 				break;
@@ -149,6 +154,30 @@ public partial class GameEngine : Node
 				break;
 			case "put":
 				HandlePutAction(parts);
+				break;
+			case "look_character":
+				HandleLookCharacterAction(parts);
+				break;
+			case "interact":
+				HandleInteractAction(parts);
+				break;
+			case "action":
+				HandleObjectAction(parts);
+				break;
+			case "item_ground_menu":
+				HandleItemGroundMenuAction(parts);
+				break;
+			case "item_inv_menu":
+				HandleItemInvMenuAction(parts);
+				break;
+			case "back_inventory":
+				HandleInventoryAction();
+				break;
+			case "item_use":
+				HandleItemUseAction(parts);
+				break;
+			case "item_combine":
+				HandleItemCombineAction(parts);
 				break;
 			default:
 				GD.PrintErr($"[GameEngine] Unknown action: {action}");
@@ -221,6 +250,18 @@ public partial class GameEngine : Node
 	{
 		// 상황 설명 다시 표시 (원래 상태로 복원)
 		UpdateSituationText();
+	}
+
+	/// <summary>
+	/// 인벤토리 확인 처리
+	/// </summary>
+	private void HandleInventoryAction()
+	{
+		if (_describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetInventoryText();
+			_textUi.Text = text;
+		}
 	}
 
 	/// <summary>
@@ -313,6 +354,180 @@ public partial class GameEngine : Node
 		{
 			var text = _describeSystem.GetObjectLookText(objectLook);
 			_textUi.Text = text;
+		}
+	}
+
+	/// <summary>
+	/// 캐릭터 살펴보기 처리: look_character:characterId
+	/// </summary>
+	private void HandleLookCharacterAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int characterId))
+		{
+			GD.PrintErr("[GameEngine] Invalid look_character format. Expected: look_character:characterId");
+			return;
+		}
+
+		var characterLook = _playerSystem?.LookCharacter(characterId);
+		if (characterLook != null && _describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetCharacterLookText(characterLook);
+			_textUi.Text = text;
+		}
+	}
+
+	/// <summary>
+	/// 캐릭터 상호작용 처리: interact:characterId:interactionType
+	/// </summary>
+	private void HandleInteractAction(string[] parts)
+	{
+		if (parts.Length < 3)
+		{
+			GD.PrintErr("[GameEngine] Invalid interact format. Expected: interact:characterId:interactionType");
+			return;
+		}
+
+		if (!int.TryParse(parts[1], out int characterId))
+		{
+			GD.PrintErr("[GameEngine] Invalid characterId in interact");
+			return;
+		}
+
+		var interactionType = parts[2];
+
+#if DEBUG_LOG
+		GD.Print($"[GameEngine] 캐릭터 상호작용: characterId={characterId}, type={interactionType}");
+#endif
+
+		// TODO: 실제 상호작용 처리 (대화, 거래 등)
+		// 현재는 메시지만 표시
+		if (_textUi != null)
+		{
+			var message = interactionType switch
+			{
+				"talk" => "대화 시스템은 아직 구현되지 않았습니다.",
+				"trade" => "거래 시스템은 아직 구현되지 않았습니다.",
+				_ => $"알 수 없는 상호작용: {interactionType}"
+			};
+			_textUi.Text = $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
+		}
+	}
+
+	/// <summary>
+	/// 오브젝트 행동 처리: action:objectId:actionType
+	/// </summary>
+	private void HandleObjectAction(string[] parts)
+	{
+		if (parts.Length < 3)
+		{
+			GD.PrintErr("[GameEngine] Invalid action format. Expected: action:objectId:actionType");
+			return;
+		}
+
+		if (!int.TryParse(parts[1], out int objectId))
+		{
+			GD.PrintErr("[GameEngine] Invalid objectId in action");
+			return;
+		}
+
+		var actionType = parts[2];
+
+#if DEBUG_LOG
+		GD.Print($"[GameEngine] 오브젝트 행동: objectId={objectId}, type={actionType}");
+#endif
+
+		// TODO: 실제 행동 처리 (사용, 열기 등)
+		// 현재는 메시지만 표시
+		if (_textUi != null)
+		{
+			var message = actionType switch
+			{
+				"use" => "사용 기능은 아직 구현되지 않았습니다.",
+				"open" => "열기 기능은 아직 구현되지 않았습니다.",
+				"read" => "읽기 기능은 아직 구현되지 않았습니다.",
+				_ => $"알 수 없는 행동: {actionType}"
+			};
+			_textUi.Text = $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
+		}
+	}
+
+	/// <summary>
+	/// 바닥 아이템 메뉴 표시: item_ground_menu:itemId:count
+	/// </summary>
+	private void HandleItemGroundMenuAction(string[] parts)
+	{
+		if (parts.Length < 3 || !int.TryParse(parts[1], out int itemId) || !int.TryParse(parts[2], out int count))
+		{
+			GD.PrintErr("[GameEngine] Invalid item_ground_menu format. Expected: item_ground_menu:itemId:count");
+			return;
+		}
+
+		if (_describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetGroundItemMenuText(itemId, count);
+			_textUi.Text = text;
+		}
+	}
+
+	/// <summary>
+	/// 인벤토리 아이템 메뉴 표시: item_inv_menu:itemId:count
+	/// </summary>
+	private void HandleItemInvMenuAction(string[] parts)
+	{
+		if (parts.Length < 3 || !int.TryParse(parts[1], out int itemId) || !int.TryParse(parts[2], out int count))
+		{
+			GD.PrintErr("[GameEngine] Invalid item_inv_menu format. Expected: item_inv_menu:itemId:count");
+			return;
+		}
+
+		if (_describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetInventoryItemMenuText(itemId, count);
+			_textUi.Text = text;
+		}
+	}
+
+	/// <summary>
+	/// 아이템 사용: item_use:itemId
+	/// </summary>
+	private void HandleItemUseAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		{
+			GD.PrintErr("[GameEngine] Invalid item_use format. Expected: item_use:itemId");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[GameEngine] 아이템 사용: itemId={itemId}");
+#endif
+
+		// TODO: 실제 사용 처리
+		if (_textUi != null)
+		{
+			_textUi.Text = "[b]사용 기능은 아직 구현되지 않았습니다.[/b]\n\n[url=back_inventory]뒤로[/url]";
+		}
+	}
+
+	/// <summary>
+	/// 아이템 조합: item_combine:itemId
+	/// </summary>
+	private void HandleItemCombineAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		{
+			GD.PrintErr("[GameEngine] Invalid item_combine format. Expected: item_combine:itemId");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[GameEngine] 아이템 조합: itemId={itemId}");
+#endif
+
+		// TODO: 실제 조합 처리
+		if (_textUi != null)
+		{
+			_textUi.Text = "[b]조합 기능은 아직 구현되지 않았습니다.[/b]\n\n[url=back_inventory]뒤로[/url]";
 		}
 	}
 }

@@ -434,7 +434,35 @@ namespace SE
 			{
 				ObjectId = obj.Id,
 				Name = obj.Name,
-				Inventory = new Dictionary<int, int>(obj.Inventory)
+				Inventory = new Dictionary<int, int>(obj.Inventory),
+				Actions = new List<string>(obj.Actions)
+			};
+		}
+
+		/// <summary>
+		/// 캐릭터 살펴보기
+		/// </summary>
+		public CharacterLookResult? LookCharacter(int characterId)
+		{
+			var player = GetPlayerCharacter();
+			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+
+			if (player == null || characterSystem == null)
+				return null;
+
+			var character = characterSystem.GetCharacter(characterId);
+			if (character == null || character.IsObject)
+				return null;
+
+			// 캐릭터가 같은 위치에 있는지 확인
+			if (character.CurrentLocation != player.CurrentLocation)
+				return null;
+
+			return new CharacterLookResult
+			{
+				CharacterId = character.Id,
+				Name = character.Name,
+				Interactions = new List<string>(character.Interactions)
 			};
 		}
 

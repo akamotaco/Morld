@@ -6,14 +6,16 @@
     "passiveTags": {
       "열쇠": 1
     },
-    "equipTags": {}
+    "equipTags": {},
+    "value": 5
   },
   {
     "id": 1,
     "name": "체력 포션",
     "comment": "health_potion",
     "passiveTags": {},
-    "equipTags": {}
+    "equipTags": {},
+    "value": 50
   },
   {
     "id": 2,
@@ -22,7 +24,8 @@
     "passiveTags": {},
     "equipTags": {
       "관찰": 2
-    }
+    },
+    "value": 200
   },
   {
     "id": 3,
@@ -31,6 +34,15 @@
     "passiveTags": {},
     "equipTags": {
       "방어": 1
-    }
+    },
+    "value": 30
+  },
+  {
+    "id": 4,
+    "name": "돌멩이",
+    "comment": "stone",
+    "passiveTags": {},
+    "equipTags": {},
+    "value": 1
   }
 ]

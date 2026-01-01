@@ -29,6 +29,11 @@ public class Item
 	/// </summary>
 	public Dictionary<string, int> EquipTags { get; set; } = new();
 
+	/// <summary>
+	/// 아이템 가치 (거래용)
+	/// </summary>
+	public int Value { get; set; } = 0;
+
 	public Item(int id, string name)
 	{
 		_id = id;

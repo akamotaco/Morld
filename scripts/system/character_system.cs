@@ -126,6 +126,16 @@ namespace SE
 				// 오브젝트 여부 설정
 				character.IsObject = data.IsObject;
 
+				// 상호작용/행동 설정
+				if (data.Interactions != null)
+				{
+					character.Interactions.AddRange(data.Interactions);
+				}
+				if (data.Actions != null)
+				{
+					character.Actions.AddRange(data.Actions);
+				}
+
 				// 스케줄 스택 설정 (배열 순서대로 push - 첫 요소가 스택 바닥)
 				foreach (var layerData in data.ScheduleStack)
 				{
@@ -225,6 +235,12 @@ namespace SE
 					? new List<int>(character.EquippedItems)
 					: null,
 				IsObject = character.IsObject,
+				Interactions = character.Interactions.Count > 0
+					? new List<string>(character.Interactions)
+					: null,
+				Actions = character.Actions.Count > 0
+					? new List<string>(character.Actions)
+					: null,
 				ScheduleStack = character.ScheduleStack.Reverse().Select(layer => new ScheduleLayerJsonData
 				{
 					Name = layer.Name,

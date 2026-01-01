@@ -119,4 +119,30 @@ public class ObjectLookResult
 	/// 오브젝트 인벤토리 (아이템ID -> 개수)
 	/// </summary>
 	public Dictionary<int, int> Inventory { get; set; } = new();
+
+	/// <summary>
+	/// 가능한 행동들 (예: "use", "open")
+	/// </summary>
+	public List<string> Actions { get; set; } = new();
+}
+
+/// <summary>
+/// 캐릭터 살펴보기 결과
+/// </summary>
+public class CharacterLookResult
+{
+	/// <summary>
+	/// 캐릭터 ID
+	/// </summary>
+	public int CharacterId { get; set; }
+
+	/// <summary>
+	/// 캐릭터 이름
+	/// </summary>
+	public string Name { get; set; } = "";
+
+	/// <summary>
+	/// 가능한 상호작용 (예: "talk", "trade")
+	/// </summary>
+	public List<string> Interactions { get; set; } = new();
 }
