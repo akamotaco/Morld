@@ -1,13 +1,15 @@
 namespace Morld;
 
 using System;
+using System.Collections.Generic;
+using SE;
 
 /// <summary>
 /// Character (캐릭터)
 /// </summary>
 public class Character
 {
-	private readonly string _id;
+	private readonly int _id;
 	private LocationRef _currentLocation;
 	private EdgeProgress? _currentEdge;
 	private ScheduleEntry? _currentSchedule;
@@ -15,7 +17,7 @@ public class Character
 	/// <summary>
 	/// Character 고유 ID
 	/// </summary>
-	public string Id => _id;
+	public int Id => _id;
 
 	/// <summary>
 	/// Character 이름
@@ -58,6 +60,16 @@ public class Character
 	public object? Tag { get; set; }
 
 	/// <summary>
+	/// 인벤토리 (아이템ID -> 개수)
+	/// </summary>
+	public Dictionary<int, int> Inventory { get; set; } = new();
+
+	/// <summary>
+	/// 장착된 아이템 ID 목록
+	/// </summary>
+	public List<int> EquippedItems { get; set; } = new();
+
+	/// <summary>
 	/// 이동 중인지 여부 (CurrentEdge 기반)
 	/// </summary>
 	public bool IsMoving => _currentEdge != null;
@@ -67,9 +79,9 @@ public class Character
 	/// </summary>
 	public bool IsIdle => _currentEdge == null;
 
-	public Character(string id, string name, LocationRef startLocation)
+	public Character(int id, string name, LocationRef startLocation)
 	{
-		_id = id ?? throw new ArgumentNullException(nameof(id));
+		_id = id;
 		Name = name ?? throw new ArgumentNullException(nameof(name));
 		_currentLocation = startLocation;
 		_currentEdge = null;
@@ -77,7 +89,7 @@ public class Character
 		TraversalContext = new TraversalContext();
 	}
 
-	public Character(string id, string name, int regionId, int localId)
+	public Character(int id, string name, int regionId, int localId)
 		: this(id, name, new LocationRef(regionId, localId))
 	{
 	}
@@ -105,6 +117,71 @@ public class Character
 	internal void SetCurrentSchedule(ScheduleEntry? schedule)
 	{
 		_currentSchedule = schedule;
+	}
+
+	/// <summary>
+	/// 아이템 효과가 반영된 최종 태그 계산 (매 호출 시 계산)
+	/// </summary>
+	public TraversalContext GetActualTags(ItemSystem? itemSystem)
+	{
+		var result = new TraversalContext();
+
+		// 1. 기본 태그 복사
+		foreach (var (tag, value) in TraversalContext.Tags)
+		{
+			result.SetTag(tag, value);
+		}
+
+		if (itemSystem == null)
+			return result;
+
+		// 2. 인벤토리 아이템의 PassiveTags 합산 (소유 효과)
+		foreach (var (itemId, count) in Inventory)
+		{
+			if (count <= 0) continue;
+			var item = itemSystem.GetItem(itemId);
+			if (item == null) continue;
+
+			foreach (var (tag, bonus) in item.PassiveTags)
+			{
+				var current = result.GetTagValue(tag);
+				result.SetTag(tag, current + bonus);
+			}
+		}
+
+		// 3. 장착 아이템의 EquipTags 합산 (장착 효과)
+		foreach (var itemId in EquippedItems)
+		{
+			var item = itemSystem.GetItem(itemId);
+			if (item == null) continue;
+
+			foreach (var (tag, bonus) in item.EquipTags)
+			{
+				var current = result.GetTagValue(tag);
+				result.SetTag(tag, current + bonus);
+			}
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	/// 주어진 조건들을 모두 충족하는지 확인
+	/// </summary>
+	public bool CanPass(Dictionary<string, int>? conditions, ItemSystem? itemSystem)
+	{
+		if (conditions == null || conditions.Count == 0)
+			return true;
+
+		var actualTags = GetActualTags(itemSystem);
+
+		foreach (var (tag, requiredValue) in conditions)
+		{
+			if (actualTags.GetTagValue(tag) < requiredValue)
+				return false;
+		}
+
+		return true;
 	}
 
 	/// <summary>

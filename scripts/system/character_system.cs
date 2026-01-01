@@ -10,7 +10,7 @@ namespace SE
 {
 	public class CharacterSystem : ECS.System
 	{
-		private readonly Dictionary<string, Character> _characters = new();
+		private readonly Dictionary<int, Character> _characters = new();
 
 		public CharacterSystem()
 		{
@@ -19,7 +19,7 @@ namespace SE
 		/// <summary>
 		/// 모든 캐릭터 (읽기 전용)
 		/// </summary>
-		public IReadOnlyDictionary<string, Character> Characters => _characters;
+		public IReadOnlyDictionary<int, Character> Characters => _characters;
 
 		/// <summary>
 		/// 캐릭터 추가
@@ -35,7 +35,7 @@ namespace SE
 		/// <summary>
 		/// 캐릭터 제거
 		/// </summary>
-		public bool RemoveCharacter(string id)
+		public bool RemoveCharacter(int id)
 		{
 			return _characters.Remove(id);
 		}
@@ -43,7 +43,7 @@ namespace SE
 		/// <summary>
 		/// 캐릭터 찾기
 		/// </summary>
-		public Character? GetCharacter(string id)
+		public Character? GetCharacter(int id)
 		{
 			return _characters.TryGetValue(id, out var character) ? character : null;
 		}
@@ -106,6 +106,21 @@ namespace SE
 				if (data.Tags != null)
 				{
 					character.TraversalContext.SetTags(data.Tags);
+				}
+
+				// 인벤토리 설정
+				if (data.Inventory != null)
+				{
+					foreach (var (itemId, count) in data.Inventory)
+					{
+						character.Inventory[itemId] = count;
+					}
+				}
+
+				// 장착 아이템 설정
+				if (data.EquippedItems != null)
+				{
+					character.EquippedItems.AddRange(data.EquippedItems);
 				}
 
 				// 스케줄 설정
@@ -181,6 +196,12 @@ namespace SE
 				LocationId = character.CurrentLocation.LocalId,
 				Tags = character.TraversalContext.Tags.Count > 0
 					? new Dictionary<string, int>(character.TraversalContext.Tags)
+					: null,
+				Inventory = character.Inventory.Count > 0
+					? new Dictionary<int, int>(character.Inventory)
+					: null,
+				EquippedItems = character.EquippedItems.Count > 0
+					? new List<int>(character.EquippedItems)
 					: null,
 				Schedule = character.Schedule.Entries.Select(entry => new ScheduleEntryJsonData
 				{

@@ -7,7 +7,7 @@ using System.Linq;
 /// <summary>
 /// Region - Location들의 그래프를 포함하는 영역
 /// </summary>
-public class Region
+public class Region : IDescribable
 {
     private readonly Dictionary<int, Location> _locations = new();
     private readonly Dictionary<int, List<Edge>> _adjacencyList = new();
@@ -33,6 +33,11 @@ public class Region
     /// 추가 데이터
     /// </summary>
     public object? Tag { get; set; }
+
+    /// <summary>
+    /// 상황별 묘사 텍스트 (IDescribable)
+    /// </summary>
+    public Dictionary<string, string> Description { get; set; } = new();
 
     /// <summary>
     /// Region 내 모든 Location

@@ -9,10 +9,13 @@ using System.Text.Json.Serialization;
 internal class CharacterJsonData
 {
 	[JsonPropertyName("id")]
-	public string Id { get; set; } = string.Empty;
+	public int Id { get; set; }
 
 	[JsonPropertyName("name")]
 	public string Name { get; set; } = string.Empty;
+
+	[JsonPropertyName("comment")]
+	public string? Comment { get; set; }
 
 	[JsonPropertyName("regionId")]
 	public int RegionId { get; set; }
@@ -22,6 +25,12 @@ internal class CharacterJsonData
 
 	[JsonPropertyName("tags")]
 	public Dictionary<string, int>? Tags { get; set; }
+
+	[JsonPropertyName("inventory")]
+	public Dictionary<int, int>? Inventory { get; set; }
+
+	[JsonPropertyName("equippedItems")]
+	public List<int>? EquippedItems { get; set; }
 
 	[JsonPropertyName("schedule")]
 	public ScheduleEntryJsonData[] Schedule { get; set; } = [];

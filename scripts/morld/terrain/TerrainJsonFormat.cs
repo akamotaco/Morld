@@ -31,6 +31,9 @@ public class RegionJsonData
     [JsonPropertyName("name")]
     public string Name { get; set; } = "unknown";
 
+    [JsonPropertyName("description")]
+    public Dictionary<string, string>? Description { get; set; }
+
     [JsonPropertyName("locations")]
     public List<LocationJsonData> Locations { get; set; } = new();
 
@@ -48,6 +51,9 @@ public class LocationJsonData
 
     [JsonPropertyName("name")]
     public string Name { get; set; } = "unknown";
+
+    [JsonPropertyName("description")]
+    public Dictionary<string, string>? Description { get; set; }
 }
 
 /// <summary>

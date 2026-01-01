@@ -1,11 +1,12 @@
 namespace Morld;
 
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Region에 속한 위치 (기존 Node 개념)
 /// </summary>
-public class Location : IEquatable<Location>
+public class Location : IEquatable<Location>, IDescribable
 {
     /// <summary>
     /// Region 내에서의 로컬 ID
@@ -26,6 +27,11 @@ public class Location : IEquatable<Location>
     /// 추가 데이터
     /// </summary>
     public object? Tag { get; set; }
+
+    /// <summary>
+    /// 상황별 묘사 텍스트 (IDescribable)
+    /// </summary>
+    public Dictionary<string, string> Description { get; set; } = new();
 
     /// <summary>
     /// 전역 고유 식별자 (RegionId:LocalId)

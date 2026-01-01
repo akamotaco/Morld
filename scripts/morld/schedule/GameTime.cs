@@ -335,6 +335,34 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     }
 
     /// <summary>
+    /// 현재 시간에 해당하는 모든 태그 반환 (Description 키 선택용)
+    /// </summary>
+    public HashSet<string> GetCurrentTags()
+    {
+        var tags = new HashSet<string>();
+
+        // 시간대
+        if (Hour >= 6 && Hour < 12) tags.Add("아침");
+        else if (Hour >= 12 && Hour < 18) tags.Add("낮");
+        else if (Hour >= 18 && Hour < 21) tags.Add("저녁");
+        else tags.Add("밤");
+
+        // 계절 (월 기반)
+        if (_month >= 3 && _month <= 5) tags.Add("봄");
+        else if (_month >= 6 && _month <= 8) tags.Add("여름");
+        else if (_month >= 9 && _month <= 11) tags.Add("가을");
+        else tags.Add("겨울");
+
+        // 현재 활성화된 기념일들
+        foreach (var holiday in GetHolidays())
+        {
+            tags.Add(holiday.Name);
+        }
+
+        return tags;
+    }
+
+    /// <summary>
     /// 현재 날짜가 기념일인지 확인
     /// </summary>
     public bool IsHoliday()

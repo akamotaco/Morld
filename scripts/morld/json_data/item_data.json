@@ -1,0 +1,36 @@
+[
+  {
+    "id": 0,
+    "name": "녹슨 열쇠",
+    "comment": "rusty_key",
+    "passiveTags": {
+      "열쇠": 1
+    },
+    "equipTags": {}
+  },
+  {
+    "id": 1,
+    "name": "체력 포션",
+    "comment": "health_potion",
+    "passiveTags": {},
+    "equipTags": {}
+  },
+  {
+    "id": 2,
+    "name": "망원경",
+    "comment": "telescope",
+    "passiveTags": {},
+    "equipTags": {
+      "관찰": 2
+    }
+  },
+  {
+    "id": 3,
+    "name": "가죽 장갑",
+    "comment": "leather_gloves",
+    "passiveTags": {},
+    "equipTags": {
+      "방어": 1
+    }
+  }
+]

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SE;
 
 namespace Morld;
 
@@ -59,8 +60,35 @@ public class PathFinder
 
     /// <summary>
     /// 경로 탐색 (같은 Region 또는 다른 Region)
+    /// Character + ItemSystem 기반으로 GetActualTags()를 통해 조건 체크
     /// </summary>
-    public PathResult FindPath(LocationRef start, LocationRef goal, TraversalContext? context = null)
+    public PathResult FindPath(LocationRef start, LocationRef goal, Character? character = null, ItemSystem? itemSystem = null)
+    {
+        var startLocation = _terrain.GetLocation(start);
+        var goalLocation = _terrain.GetLocation(goal);
+
+        if (startLocation == null)
+            throw new ArgumentException($"Start location {start} not found");
+        if (goalLocation == null)
+            throw new ArgumentException($"Goal location {goal} not found");
+
+        // Character가 있으면 아이템 효과가 반영된 ActualTags 사용
+        var context = character?.GetActualTags(itemSystem);
+
+        // 같은 Region 내 탐색
+        if (start.RegionId == goal.RegionId)
+        {
+            return FindPathInRegion(startLocation, goalLocation, context);
+        }
+
+        // 다른 Region 간 탐색
+        return FindPathAcrossRegions(startLocation, goalLocation, context);
+    }
+
+    /// <summary>
+    /// 경로 탐색 (TraversalContext 직접 전달 - 하위 호환용)
+    /// </summary>
+    public PathResult FindPath(LocationRef start, LocationRef goal, TraversalContext? context)
     {
         var startLocation = _terrain.GetLocation(start);
         var goalLocation = _terrain.GetLocation(goal);
@@ -81,12 +109,26 @@ public class PathFinder
     }
 
     /// <summary>
-    /// 경로 탐색 (직접 Location 지정)
+    /// 경로 탐색 (직접 Location 지정, Character + ItemSystem)
     /// </summary>
     public PathResult FindPath(
         int startRegionId, int startLocalId,
         int goalRegionId, int goalLocalId,
-        TraversalContext? context = null)
+        Character? character = null, ItemSystem? itemSystem = null)
+    {
+        return FindPath(
+            new LocationRef(startRegionId, startLocalId),
+            new LocationRef(goalRegionId, goalLocalId),
+            character, itemSystem);
+    }
+
+    /// <summary>
+    /// 경로 탐색 (직접 Location 지정, TraversalContext - 하위 호환용)
+    /// </summary>
+    public PathResult FindPath(
+        int startRegionId, int startLocalId,
+        int goalRegionId, int goalLocalId,
+        TraversalContext? context)
     {
         return FindPath(
             new LocationRef(startRegionId, startLocalId),

@@ -1,7 +1,25 @@
 [
     {
-      "id": "npc_001",
+      "id": 0,
+      "name": "플레이어",
+      "comment": "player",
+      "regionId": 0,
+      "locationId": 0,
+      "tags": {
+        "관찰": 3,
+        "힘": 5
+      },
+      "inventory": {
+        "0": 1,
+        "1": 3
+      },
+      "equippedItems": [2, 3],
+      "schedule": []
+    },
+    {
+      "id": 1,
       "name": "철수",
+      "comment": "npc_001",
       "regionId": 0,
       "locationId": 0,
       "schedule": [
@@ -16,8 +34,9 @@
       ]
     },
     {
-      "id": "npc_002",
+      "id": 2,
       "name": "영희",
+      "comment": "npc_002",
       "regionId": 1,
       "locationId": 1,
       "schedule": [
@@ -32,8 +51,9 @@
       ]
     },
     {
-      "id": "npc_003",
+      "id": 3,
       "name": "민수",
+      "comment": "npc_003",
       "regionId": 0,
       "locationId": 2,
       "tags": {

@@ -24,12 +24,12 @@ namespace SE
 		/// <summary>
 		/// 캐릭터별 행동 Queue (런타임만, 저장 안 함)
 		/// </summary>
-		private Dictionary<string, List<ActionLog>> _actionQueues = new();
+		private Dictionary<int, List<ActionLog>> _actionQueues = new();
 
 		/// <summary>
 		/// 캐릭터별 현재 Action 인덱스 (런타임만, 저장 안 함)
 		/// </summary>
-		private Dictionary<string, int> _currentActionIndices = new();
+		private Dictionary<int, int> _currentActionIndices = new();
 
 		public PlanningSystem()
 		{
@@ -38,19 +38,19 @@ namespace SE
 		/// <summary>
 		/// Queue 접근 메서드 - 캐릭터의 ActionQueue 가져오기
 		/// </summary>
-		public List<ActionLog>? GetActionQueue(string characterId) =>
+		public List<ActionLog>? GetActionQueue(int characterId) =>
 			_actionQueues.TryGetValue(characterId, out var queue) ? queue : null;
 
 		/// <summary>
 		/// Queue 접근 메서드 - 현재 Action 인덱스 가져오기
 		/// </summary>
-		public int GetCurrentActionIndex(string characterId) =>
+		public int GetCurrentActionIndex(int characterId) =>
 			_currentActionIndices.TryGetValue(characterId, out var idx) ? idx : 0;
 
 		/// <summary>
 		/// Queue 접근 메서드 - 현재 Action 인덱스 설정
 		/// </summary>
-		public void SetCurrentActionIndex(string characterId, int index) =>
+		public void SetCurrentActionIndex(int characterId, int index) =>
 			_currentActionIndices[characterId] = index;
 
 		/// <summary>
@@ -70,6 +70,7 @@ namespace SE
 			// 필요한 시스템 가져오기
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
 
 			if (worldSystem == null || characterSystem == null)
 				return;
@@ -94,7 +95,7 @@ namespace SE
 			// 모든 캐릭터에 대해 ActionQueue 생성 (자정까지만)
 			foreach (var character in characterSystem.Characters.Values)
 			{
-				BuildActionQueue(character, time, terrain, MinutesToMidnight);
+				BuildActionQueue(character, time, terrain, itemSystem, MinutesToMidnight);
 			}
 
 			// 기본값: 자정까지 남은 시간 (PlayerSystem에서 덮어쓸 수 있음)
@@ -105,7 +106,7 @@ namespace SE
 		/// 캐릭터의 ActionQueue 생성
 		/// </summary>
 		/// <param name="planDuration">계획할 시간 (분) - 자정까지 남은 시간으로 제한</param>
-		private void BuildActionQueue(Character character, GameTime time, Terrain terrain, int planDuration)
+		private void BuildActionQueue(Character character, GameTime time, Terrain terrain, ItemSystem? itemSystem, int planDuration)
 		{
 			var queue = new List<ActionLog>();
 			int currentTime = 0; // 상대 시간 (Step 시작 기준 0분)
@@ -199,7 +200,8 @@ namespace SE
 				var pathResult = _pathFinder.FindPath(
 					startLocation,
 					currentEntry.Location,
-					character.TraversalContext
+					character,
+					itemSystem
 				);
 
 				if (!pathResult.Found || pathResult.Path.Count < 2)

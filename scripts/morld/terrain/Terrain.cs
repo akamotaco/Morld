@@ -416,6 +416,23 @@ public class Terrain
     }
 
     /// <summary>
+    /// 특정 Location에서 연결된 RegionEdge 목록 가져오기
+    /// </summary>
+    public IEnumerable<RegionEdge> GetRegionEdgesFrom(LocationRef from)
+    {
+        var edges = GetRegionEdges(from.RegionId);
+
+        foreach (var edge in edges)
+        {
+            var locInRegion = edge.GetLocationInRegion(from.RegionId);
+            if (locInRegion == null || locInRegion.Value != from)
+                continue;
+
+            yield return edge;
+        }
+    }
+
+    /// <summary>
     /// 특정 Location에서 다른 Region으로 이동 가능한 연결들 가져오기
     /// </summary>
     public IEnumerable<(RegionEdge edge, LocationRef destination, float travelTime)> GetRegionExits(
@@ -822,10 +839,28 @@ public class Terrain
         {
             var region = new Region(regionData.Id, regionData.Name);
 
+            // Region Description 복사
+            if (regionData.Description != null)
+            {
+                foreach (var (key, value) in regionData.Description)
+                {
+                    region.Description[key] = value;
+                }
+            }
+
             // Location 추가
             foreach (var locData in regionData.Locations)
             {
-                region.AddLocation(locData.Id, locData.Name);
+                var location = region.AddLocation(locData.Id, locData.Name);
+
+                // Location Description 복사
+                if (locData.Description != null)
+                {
+                    foreach (var (key, value) in locData.Description)
+                    {
+                        location.Description[key] = value;
+                    }
+                }
             }
 
             // Edge 추가
