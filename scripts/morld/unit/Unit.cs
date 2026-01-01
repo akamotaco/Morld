@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using SE;
 
 /// <summary>
-/// Character (캐릭터)
+/// Unit (유닛) - 캐릭터와 오브젝트 통합
 /// </summary>
-public class Character
+public class Unit
 {
 	private readonly int _id;
 	private LocationRef _currentLocation;
@@ -15,12 +15,12 @@ public class Character
 	private ScheduleEntry? _currentSchedule;
 
 	/// <summary>
-	/// Character 고유 ID
+	/// Unit 고유 ID
 	/// </summary>
 	public int Id => _id;
 
 	/// <summary>
-	/// Character 이름
+	/// Unit 이름
 	/// </summary>
 	public string Name { get; set; }
 
@@ -82,12 +82,7 @@ public class Character
 	public bool IsObject { get; set; } = false;
 
 	/// <summary>
-	/// 가능한 상호작용 (캐릭터: "talk", "trade" 등)
-	/// </summary>
-	public List<string> Interactions { get; set; } = new();
-
-	/// <summary>
-	/// 가능한 행동 (오브젝트: "use", "open" 등)
+	/// 가능한 액션 (통합: "talk", "trade", "use", "open" 등)
 	/// </summary>
 	public List<string> Actions { get; set; } = new();
 
@@ -101,7 +96,7 @@ public class Character
 	/// </summary>
 	public bool IsIdle => _currentEdge == null;
 
-	public Character(int id, string name, LocationRef startLocation)
+	public Unit(int id, string name, LocationRef startLocation)
 	{
 		_id = id;
 		Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -110,7 +105,7 @@ public class Character
 		TraversalContext = new TraversalContext();
 	}
 
-	public Character(int id, string name, int regionId, int localId)
+	public Unit(int id, string name, int regionId, int localId)
 		: this(id, name, new LocationRef(regionId, localId))
 	{
 	}
@@ -250,6 +245,7 @@ public class Character
 	public override string ToString()
 	{
 		var state = _currentEdge != null ? "Moving" : "Idle";
-		return $"Character[{Id}] {Name} @ {_currentLocation} ({state})";
+		var type = IsObject ? "Object" : "Character";
+		return $"Unit[{Id}] {Name} ({type}) @ {_currentLocation} ({state})";
 	}
 }

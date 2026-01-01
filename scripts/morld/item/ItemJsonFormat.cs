@@ -25,4 +25,7 @@ internal class ItemJsonData
 
 	[JsonPropertyName("value")]
 	public int Value { get; set; } = 0;
+
+	[JsonPropertyName("actions")]
+	public List<string>? Actions { get; set; }
 }

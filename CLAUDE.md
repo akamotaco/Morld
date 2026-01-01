@@ -1,9 +1,9 @@
-# Morld - ECS 기반 캐릭터 시뮬레이션 시스템
+# Morld - ECS 기반 유닛 시뮬레이션 시스템
 
 ## 프로젝트 개요
 
 Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 월드 시뮬레이션 시스템입니다.
-캐릭터의 스케줄 스택에 따라 자동으로 경로를 계획하고 이동하는 시스템을 제공합니다.
+유닛(캐릭터/오브젝트)의 스케줄 스택에 따라 자동으로 경로를 계획하고 이동하는 시스템을 제공합니다.
 
 **핵심 기술:**
 - Godot 4 엔진
@@ -12,6 +12,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - JSON 기반 데이터 관리
 - Dijkstra Pathfinding
 - 스택 기반 스케줄 시스템
+- 통합 Unit 시스템 (캐릭터/오브젝트)
 
 ---
 
@@ -30,8 +31,8 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 
 **구현 시스템:**
 - `WorldSystem` - 지형(Terrain) 데이터 및 GameTime 보관
-- `CharacterSystem` - 캐릭터 데이터 (위치, 스케줄 스택, CurrentEdge, Inventory)
-- `ItemSystem` - 아이템 정의 데이터 (PassiveTags, EquipTags)
+- `UnitSystem` - 유닛 데이터 (캐릭터/오브젝트 통합, 위치, 스케줄 스택, CurrentEdge, Inventory)
+- `ItemSystem` - 아이템 정의 데이터 (PassiveTags, EquipTags, Actions)
 
 #### 2. Logic/Behavior Systems (로직 시스템)
 매 Step마다 게임 로직을 실행하는 시스템
@@ -43,10 +44,11 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - Stateless - 자체 상태를 저장하지 않음
 
 **구현 시스템:**
-- `MovementSystem` - 스케줄 스택 기반 경로 계산, 캐릭터 이동 처리, GameTime 업데이트
+- `MovementSystem` - 스케줄 스택 기반 경로 계산, 유닛 이동 처리, GameTime 업데이트
 - `BehaviorSystem` - 스케줄 종료 조건 체크 및 스택 pop
 - `PlayerSystem` - 플레이어 입력 기반 시간 진행 제어, 스케줄 push, Look 기능
 - `DescribeSystem` - 묘사 텍스트 생성 (시간 기반 키 선택)
+- `ActionSystem` - 유닛 행동 실행 (talk, trade, use 등)
 
 ### 시스템 실행 순서
 
@@ -64,8 +66,9 @@ MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
            │
            ├─> WorldSystem.UpdateFromFile("location_data.json")
            ├─> WorldSystem.GetTime().UpdateFromFile("time_data.json")
-           ├─> CharacterSystem.UpdateFromFile("character_data.json")
+           ├─> UnitSystem.UpdateFromFile("unit_data.json")
            ├─> ItemSystem.UpdateFromFile("item_data.json")
+           ├─> ActionSystem 등록
            │
            ├─> MovementSystem 등록
            ├─> BehaviorSystem 등록
@@ -99,6 +102,12 @@ MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
 ├─────────────────────────────┤
 │ 빈 스케줄 (종료 조건 없음)    │ ← 기본 (대기 상태)
 └─────────────────────────────┘
+
+오브젝트 (스케줄 없음):
+- IsObject = true
+- 스케줄 스택 비어있음
+- 이동하지 않음
+- 인벤토리 보유 가능
 ```
 
 ### ScheduleLayer 구조
@@ -109,14 +118,14 @@ ScheduleLayer
 ├─ Schedule (DailySchedule? - 시간 기반 스케줄, null = 단일 목표)
 ├─ EndConditionType (string? - "이동", "따라가기", "순찰" 등)
 ├─ EndConditionParam (string? - "0:1", "3", "0:1,0:2,0:3")
-└─ IsComplete(character, characterSystem) (종료 조건 체크)
+└─ IsComplete(unit, unitSystem) (종료 조건 체크)
 ```
 
 **종료 조건 타입:**
 | EndConditionType | EndConditionParam | 설명 |
 |------------------|-------------------|------|
 | `"이동"` | `"0:1"` | 위치 0:1 도달 시 pop |
-| `"따라가기"` | `"3"` | 캐릭터 3과 같은 위치 시 pop |
+| `"따라가기"` | `"3"` | 유닛 3과 같은 위치 시 pop |
 | `"순찰"` | `"0:1,0:2,0:3"` | 순환 순찰 (영구) |
 | `null` | `null` | 종료 없음 (일상 스케줄) |
 
@@ -158,20 +167,21 @@ GameTime (시간 관리)
 - `scripts/morld/terrain/` (Terrain, Region, Location, Edge, RegionEdge)
 - `scripts/morld/schedule/GameTime.cs`
 
-### CharacterSystem (Data System)
-**역할:** 게임 내 모든 캐릭터의 데이터 관리
+### UnitSystem (Data System)
+**역할:** 게임 내 모든 유닛(캐릭터/오브젝트)의 데이터 관리
 
 **주요 기능:**
-- 캐릭터 생성/삭제/조회
-- Dictionary<int, Character> 기반 O(1) 조회
-- 캐릭터 위치, 스케줄 스택, CurrentEdge, Inventory 관리
+- 유닛 생성/삭제/조회
+- Dictionary<int, Unit> 기반 O(1) 조회
+- 유닛 위치, 스케줄 스택, CurrentEdge, Inventory 관리
 - JSON 기반 Import/Export (ScheduleStack, CurrentEdge, Inventory 포함)
 
 **데이터 구조:**
 ```csharp
-Character
+Unit
 ├─ Id (int - 고유 식별자)
 ├─ Name (이름)
+├─ IsObject (bool - true: 오브젝트, false: 캐릭터)
 ├─ CurrentLocation (현재 위치 - LocationRef)
 ├─ CurrentEdge (이동 중 Edge 진행 상태 - EdgeProgress?)
 ├─ CurrentSchedule (현재 수행 중인 스케줄 엔트리)
@@ -181,16 +191,25 @@ Character
 ├─ TraversalContext (기본 태그/스탯)
 ├─ Inventory (Dictionary<int, int> - 아이템ID → 개수)
 ├─ EquippedItems (List<int> - 장착된 아이템 ID)
+├─ Actions (List<string> - 가능한 행동: "talk", "trade", "use" 등)
 ├─ GetActualTags(ItemSystem) (아이템 효과 반영된 최종 태그)
 ├─ CanPass(conditions, ItemSystem) (조건 충족 여부)
 ├─ IsMoving (CurrentEdge != null)
 └─ IsIdle (CurrentEdge == null)
 ```
 
+**캐릭터 vs 오브젝트:**
+| 구분 | 캐릭터 (IsObject=false) | 오브젝트 (IsObject=true) |
+|------|-------------------------|--------------------------|
+| 이동 | 스케줄에 따라 이동 | 이동 없음 |
+| 스케줄 | 스케줄 스택 보유 | 스택 비어있음 |
+| 인벤토리 | 가능 | 가능 |
+| 행동 | talk, trade 등 | use, open 등 |
+
 **파일 위치:**
-- `scripts/system/character_system.cs`
-- `scripts/morld/character/Character.cs`
-- `scripts/morld/character/ActionLog.cs` (EdgeProgress)
+- `scripts/system/unit_system.cs`
+- `scripts/morld/unit/Unit.cs`
+- `scripts/morld/unit/UnitJsonFormat.cs`
 - `scripts/morld/schedule/` (DailySchedule, ScheduleEntry, ScheduleLayer)
 
 ### ItemSystem (Data System)
@@ -207,7 +226,9 @@ Item
 ├─ Id (int - 고유 식별자)
 ├─ Name (이름)
 ├─ PassiveTags (Dictionary<string, int> - 소유만으로 효과)
-└─ EquipTags (Dictionary<string, int> - 장착 시 효과)
+├─ EquipTags (Dictionary<string, int> - 장착 시 효과)
+├─ Value (int - 거래 가치)
+└─ Actions (List<string> - 가능한 액션: "use", "combine" 등)
 ```
 
 **파일 위치:**
@@ -216,24 +237,24 @@ Item
 - `scripts/morld/item/ItemJsonFormat.cs`
 
 ### MovementSystem (Logic System)
-**역할:** 스케줄 스택 기반 경로 계산 및 캐릭터 이동 처리
+**역할:** 스케줄 스택 기반 경로 계산 및 유닛 이동 처리
 
 **실행 로직:**
 1. PlayerSystem에서 `NextStepDuration` 읽기
 2. 시간 진행이 없으면 스킵
-3. 각 캐릭터에 대해:
+3. 각 유닛에 대해 (IsObject=true는 스킵):
    - 스케줄 스택 최상위에서 목표 위치 추출
    - 목표가 있으면 경로 계산 (`terrain.FindPath()`)
    - 경로를 따라 이동 처리
    - 도착 시 CurrentLocation 업데이트
    - 이동 중단 시 CurrentEdge에 진행 상태 저장
 4. GameTime을 NextStepDuration만큼 증가
-5. (디버그) 충돌 감지 - 경로가 겹치는 캐릭터 출력
+5. (디버그) 충돌 감지 - 경로가 겹치는 유닛 출력
 
 **목표 위치 추출 (`GetGoalLocation`):**
 - 시간 기반 스케줄 → 현재 시간의 ScheduleEntry.Location
 - 단일 목표 이동 → EndConditionParam 파싱
-- 따라가기 → 대상 캐릭터의 CurrentLocation
+- 따라가기 → 대상 유닛의 CurrentLocation
 
 **파일 위치:**
 - `scripts/system/movement_system.cs`
@@ -243,13 +264,37 @@ Item
 **역할:** 스케줄 종료 조건 체크 및 스택 pop
 
 **실행 로직:**
-1. 모든 캐릭터 순회
+1. 모든 유닛 순회 (IsObject=true는 스킵)
 2. 현재 스케줄 레이어의 `IsComplete()` 체크
-3. 완료 시 `character.PopSchedule()`
+3. 완료 시 `unit.PopSchedule()`
 4. 다음 Step에서 MovementSystem이 새 스케줄로 동작
 
 **파일 위치:**
 - `scripts/system/behavior_system.cs`
+
+### ActionSystem (Logic System)
+**역할:** 유닛 행동 실행 (대화, 거래, 사용 등)
+
+**주요 메서드:**
+```csharp
+ApplyAction(Unit user, string action, List<Unit> targets)
+// 유닛 대상 행동 실행 (talk, trade 등)
+
+ApplyItemAction(Unit user, string action, Item item, List<Unit>? targets)
+// 아이템 사용 행동 실행 (use, combine 등)
+```
+
+**행동 결과:**
+```csharp
+ActionResult
+├─ Success (bool - 성공 여부)
+├─ Message (string - 결과 메시지)
+└─ TimeConsumed (int - 소요 시간, 분)
+```
+
+**파일 위치:**
+- `scripts/system/action_system.cs`
+- `scripts/morld/action/ActionResult.cs`
 
 ### PlayerSystem (Logic System)
 **역할:** 플레이어 입력 기반 시간 진행 제어, 스케줄 push, Look 기능
@@ -276,8 +321,15 @@ RequestTimeAdvance(int minutes, string reason)  // 시간 진행 요청
 public LookResult Look()
 // 반환:
 // - Location: 현재 위치 정보 (묘사 포함)
-// - CharacterIds: 같은 위치의 캐릭터 ID 목록
+// - UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트 통합)
 // - Routes: 이동 가능한 경로 목록 (조건 필터링 적용)
+// - GroundItems: 바닥에 떨어진 아이템 (아이템ID → 개수)
+
+public UnitLookResult LookUnit(int unitId)
+// 반환:
+// - UnitId, Name, IsObject
+// - Inventory: 유닛의 인벤토리
+// - Actions: 가능한 행동 목록
 ```
 
 **파일 위치:**
@@ -337,7 +389,7 @@ public LookResult Look()
 }
 ```
 
-### character_data.json (CharacterSystem)
+### unit_data.json (UnitSystem)
 ```json
 [
   {
@@ -346,6 +398,7 @@ public LookResult Look()
     "comment": "player",
     "regionId": 0,
     "locationId": 0,
+    "isObject": false,
     "tags": {
       "관찰": 3,
       "힘": 5
@@ -355,6 +408,7 @@ public LookResult Look()
       "1": 3
     },
     "equippedItems": [2, 3],
+    "actions": ["rest", "sleep", "wait"],
     "scheduleStack": [
       {
         "name": "대기",
@@ -370,6 +424,8 @@ public LookResult Look()
     "comment": "npc_001",
     "regionId": 0,
     "locationId": 0,
+    "isObject": false,
+    "actions": ["talk", "trade"],
     "scheduleStack": [
       {
         "name": "일상",
@@ -380,6 +436,17 @@ public LookResult Look()
         "endConditionParam": null
       }
     ]
+  },
+  {
+    "id": 10,
+    "name": "나무 상자",
+    "comment": "wooden_chest",
+    "regionId": 0,
+    "locationId": 1,
+    "isObject": true,
+    "inventory": { "1": 5 },
+    "actions": ["open"],
+    "scheduleStack": []
   }
 ]
 ```
@@ -394,14 +461,18 @@ public LookResult Look()
     "name": "녹슨 열쇠",
     "comment": "rusty_key",
     "passiveTags": { "열쇠": 1 },
-    "equipTags": {}
+    "equipTags": {},
+    "value": 10,
+    "actions": ["use"]
   },
   {
     "id": 2,
     "name": "망원경",
     "comment": "telescope",
     "passiveTags": {},
-    "equipTags": { "관찰": 2 }
+    "equipTags": { "관찰": 2 },
+    "value": 100,
+    "actions": ["use", "equip"]
   }
 ]
 ```
@@ -415,8 +486,9 @@ scripts/
 ├─ GameEngine.cs (진입점)
 ├─ system/ (ECS Systems)
 │  ├─ world_system.cs (WorldSystem - Data)
-│  ├─ character_system.cs (CharacterSystem - Data)
+│  ├─ unit_system.cs (UnitSystem - Data)
 │  ├─ item_system.cs (ItemSystem - Data)
+│  ├─ action_system.cs (ActionSystem - Logic)
 │  ├─ movement_system.cs (MovementSystem - Logic)
 │  ├─ behavior_system.cs (BehaviorSystem - Logic)
 │  ├─ player_system.cs (PlayerSystem - Logic)
@@ -429,19 +501,19 @@ scripts/
 │  │  ├─ Location.cs (IDescribable)
 │  │  ├─ Edge.cs
 │  │  └─ RegionEdge.cs
-│  ├─ character/
-│  │  ├─ Character.cs (ScheduleStack, Inventory, GetActualTags)
-│  │  ├─ ActionLog.cs (EdgeProgress)
-│  │  ├─ MovementPlan.cs (충돌 감지용)
-│  │  └─ CharacterJsonFormat.cs
+│  ├─ unit/
+│  │  ├─ Unit.cs (ScheduleStack, Inventory, Actions, GetActualTags)
+│  │  └─ UnitJsonFormat.cs
 │  ├─ item/
-│  │  ├─ Item.cs (PassiveTags, EquipTags)
+│  │  ├─ Item.cs (PassiveTags, EquipTags, Actions)
 │  │  └─ ItemJsonFormat.cs
+│  ├─ action/
+│  │  └─ ActionResult.cs (행동 결과)
 │  ├─ player/
-│  │  ├─ LookResult.cs (LookResult, LocationInfo, RouteInfo)
+│  │  ├─ LookResult.cs (LookResult, UnitLookResult, LocationInfo, RouteInfo)
 │  │  └─ PlayerJsonFormat.cs
 │  ├─ pathfinding/
-│  │  └─ PathFinder.cs (Character + ItemSystem 기반)
+│  │  └─ PathFinder.cs (Unit + ItemSystem 기반)
 │  └─ schedule/
 │     ├─ GameTime.cs (GetCurrentTags)
 │     ├─ DailySchedule.cs
@@ -454,7 +526,7 @@ scripts/
 └─ json_data/ (게임 데이터)
    ├─ location_data.json
    ├─ time_data.json
-   ├─ character_data.json
+   ├─ unit_data.json
    ├─ item_data.json
    └─ player_data.json
 ```
@@ -465,12 +537,12 @@ scripts/
 
 ### GetActualTags() - 아이템 효과 통합
 ```csharp
-// Character.GetActualTags(itemSystem)
+// Unit.GetActualTags(itemSystem)
 // 1. 기본 Tags 복사
 // 2. + Inventory 아이템의 PassiveTags (소유 효과)
 // 3. + EquippedItems의 EquipTags (장착 효과)
 
-var actualTags = character.GetActualTags(itemSystem);
+var actualTags = unit.GetActualTags(itemSystem);
 // 열쇠(PassiveTags: 열쇠:1) 소유 → actualTags["열쇠"] = 1
 // 망원경(EquipTags: 관찰:2) 장착 + 기본 관찰:3 → actualTags["관찰"] = 5
 ```
@@ -494,8 +566,18 @@ player.PushSchedule(new ScheduleLayer
 ```csharp
 var result = playerSystem.Look();
 // result.Location: 현재 위치 정보 (DescribeSystem으로 묘사 생성)
-// result.CharacterIds: 같은 위치의 NPC ID 목록
+// result.UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트)
 // result.Routes: 이동 가능한 경로 (IsBlocked, BlockedReason 포함)
+// result.GroundItems: 바닥 아이템 (아이템ID → 개수)
+```
+
+### 행동 실행
+```csharp
+// ActionSystem을 통한 행동 실행
+var result = actionSystem.ApplyAction(player, "talk", [targetUnit]);
+// result.Success: 성공 여부
+// result.Message: "대화를 시작합니다."
+// result.TimeConsumed: 소요 시간 (분)
 ```
 
 ---
@@ -509,8 +591,8 @@ dotnet build
 
 ### 디버그 로그
 `#define DEBUG_LOG` 활성화 시:
-- **초기화:** World 구조, GameTime 정보, Character 목록 및 스케줄 스택, System 개수 출력
-- **런타임:** MovementSystem에서 시간 진행, 캐릭터 상태, 충돌 감지 출력
+- **초기화:** World 구조, GameTime 정보, Unit 목록 및 스케줄 스택, System 개수 출력
+- **런타임:** MovementSystem에서 시간 진행, 유닛 상태, 충돌 감지 출력
 - **런타임:** BehaviorSystem에서 스케줄 레이어 완료/pop 출력
 - **런타임:** PlayerSystem에서 시간 요청/완료 로그
 
@@ -523,10 +605,10 @@ Godot 에디터에서 프로젝트 실행
 
 저장 대상:
 - `WorldSystem` → location_data.json, time_data.json
-- `CharacterSystem` → character_data.json (CurrentLocation, CurrentEdge, ScheduleStack, Inventory 포함)
+- `UnitSystem` → unit_data.json (CurrentLocation, CurrentEdge, ScheduleStack, Inventory, Actions 포함)
 - `ItemSystem` → item_data.json
 - `PlayerSystem` → player_data.json
 
 저장 불필요:
 - `MovementSystem`, `BehaviorSystem` → Stateless
-- `DescribeSystem` → Stateless
+- `ActionSystem`, `DescribeSystem` → Stateless

@@ -39,7 +39,7 @@ namespace SE
 		private string _currentAction = "";
 
 		/// <summary>
-		/// 플레이어 캐릭터 ID
+		/// 플레이어 유닛 ID
 		/// </summary>
 		public int PlayerId { get; set; } = 0;
 
@@ -48,12 +48,12 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 플레이어 캐릭터 접근 헬퍼
+		/// 플레이어 유닛 접근 헬퍼
 		/// </summary>
-		public Character? GetPlayerCharacter()
+		public Unit? GetPlayerUnit()
 		{
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
-			return characterSystem?.GetCharacter(PlayerId);
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+			return unitSystem?.GetUnit(PlayerId);
 		}
 
 		/// <summary>
@@ -124,7 +124,7 @@ namespace SE
 		/// </summary>
 		private void ExecuteMove(LocationRef destination)
 		{
-			var player = GetPlayerCharacter();
+			var player = GetPlayerUnit();
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
 
@@ -252,7 +252,7 @@ namespace SE
 		/// </summary>
 		public bool PickupItem(int itemId, int count = 1)
 		{
-			var player = GetPlayerCharacter();
+			var player = GetPlayerUnit();
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 
 			if (player == null || worldSystem == null)
@@ -292,7 +292,7 @@ namespace SE
 		/// </summary>
 		public bool DropItem(int itemId, int count = 1)
 		{
-			var player = GetPlayerCharacter();
+			var player = GetPlayerUnit();
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 
 			if (player == null || worldSystem == null)
@@ -328,32 +328,32 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 오브젝트에서 아이템 가져오기
+		/// 유닛(오브젝트)에서 아이템 가져오기
 		/// </summary>
-		public bool TakeFromObject(int objectId, int itemId, int count = 1)
+		public bool TakeFromUnit(int unitId, int itemId, int count = 1)
 		{
-			var player = GetPlayerCharacter();
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var player = GetPlayerUnit();
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 
-			if (player == null || characterSystem == null)
+			if (player == null || unitSystem == null)
 				return false;
 
-			var obj = characterSystem.GetCharacter(objectId);
-			if (obj == null || !obj.IsObject)
+			var targetUnit = unitSystem.GetUnit(unitId);
+			if (targetUnit == null || !targetUnit.IsObject)
 				return false;
 
-			// 오브젝트가 같은 위치에 있는지 확인
-			if (obj.CurrentLocation != player.CurrentLocation)
+			// 유닛이 같은 위치에 있는지 확인
+			if (targetUnit.CurrentLocation != player.CurrentLocation)
 				return false;
 
-			// 오브젝트에 아이템이 있는지 확인
-			if (!obj.Inventory.TryGetValue(itemId, out int available) || available < count)
+			// 유닛에 아이템이 있는지 확인
+			if (!targetUnit.Inventory.TryGetValue(itemId, out int available) || available < count)
 				return false;
 
-			// 오브젝트에서 제거
-			obj.Inventory[itemId] -= count;
-			if (obj.Inventory[itemId] <= 0)
-				obj.Inventory.Remove(itemId);
+			// 유닛에서 제거
+			targetUnit.Inventory[itemId] -= count;
+			if (targetUnit.Inventory[itemId] <= 0)
+				targetUnit.Inventory.Remove(itemId);
 
 			// 플레이어에게 추가
 			if (!player.Inventory.ContainsKey(itemId))
@@ -363,29 +363,29 @@ namespace SE
 #if DEBUG_LOG
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
 			var itemName = itemSystem?.GetItem(itemId)?.Name ?? $"아이템{itemId}";
-			GD.Print($"[PlayerSystem] {obj.Name}에서 가져오기: {itemName} x{count}");
+			GD.Print($"[PlayerSystem] {targetUnit.Name}에서 가져오기: {itemName} x{count}");
 #endif
 
 			return true;
 		}
 
 		/// <summary>
-		/// 오브젝트에 아이템 넣기
+		/// 유닛(오브젝트)에 아이템 넣기
 		/// </summary>
-		public bool PutToObject(int objectId, int itemId, int count = 1)
+		public bool PutToUnit(int unitId, int itemId, int count = 1)
 		{
-			var player = GetPlayerCharacter();
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var player = GetPlayerUnit();
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 
-			if (player == null || characterSystem == null)
+			if (player == null || unitSystem == null)
 				return false;
 
-			var obj = characterSystem.GetCharacter(objectId);
-			if (obj == null || !obj.IsObject)
+			var targetUnit = unitSystem.GetUnit(unitId);
+			if (targetUnit == null || !targetUnit.IsObject)
 				return false;
 
-			// 오브젝트가 같은 위치에 있는지 확인
-			if (obj.CurrentLocation != player.CurrentLocation)
+			// 유닛이 같은 위치에 있는지 확인
+			if (targetUnit.CurrentLocation != player.CurrentLocation)
 				return false;
 
 			// 플레이어가 아이템을 가지고 있는지 확인
@@ -397,72 +397,46 @@ namespace SE
 			if (player.Inventory[itemId] <= 0)
 				player.Inventory.Remove(itemId);
 
-			// 오브젝트에 추가
-			if (!obj.Inventory.ContainsKey(itemId))
-				obj.Inventory[itemId] = 0;
-			obj.Inventory[itemId] += count;
+			// 유닛에 추가
+			if (!targetUnit.Inventory.ContainsKey(itemId))
+				targetUnit.Inventory[itemId] = 0;
+			targetUnit.Inventory[itemId] += count;
 
 #if DEBUG_LOG
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
 			var itemName = itemSystem?.GetItem(itemId)?.Name ?? $"아이템{itemId}";
-			GD.Print($"[PlayerSystem] {obj.Name}에 넣기: {itemName} x{count}");
+			GD.Print($"[PlayerSystem] {targetUnit.Name}에 넣기: {itemName} x{count}");
 #endif
 
 			return true;
 		}
 
 		/// <summary>
-		/// 오브젝트 살펴보기
+		/// 유닛 살펴보기 (캐릭터/오브젝트 통합)
 		/// </summary>
-		public ObjectLookResult? LookObject(int objectId)
+		public UnitLookResult? LookUnit(int unitId)
 		{
-			var player = GetPlayerCharacter();
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var player = GetPlayerUnit();
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 
-			if (player == null || characterSystem == null)
+			if (player == null || unitSystem == null)
 				return null;
 
-			var obj = characterSystem.GetCharacter(objectId);
-			if (obj == null || !obj.IsObject)
+			var unit = unitSystem.GetUnit(unitId);
+			if (unit == null)
 				return null;
 
-			// 오브젝트가 같은 위치에 있는지 확인
-			if (obj.CurrentLocation != player.CurrentLocation)
+			// 유닛이 같은 위치에 있는지 확인
+			if (unit.CurrentLocation != player.CurrentLocation)
 				return null;
 
-			return new ObjectLookResult
+			return new UnitLookResult
 			{
-				ObjectId = obj.Id,
-				Name = obj.Name,
-				Inventory = new Dictionary<int, int>(obj.Inventory),
-				Actions = new List<string>(obj.Actions)
-			};
-		}
-
-		/// <summary>
-		/// 캐릭터 살펴보기
-		/// </summary>
-		public CharacterLookResult? LookCharacter(int characterId)
-		{
-			var player = GetPlayerCharacter();
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
-
-			if (player == null || characterSystem == null)
-				return null;
-
-			var character = characterSystem.GetCharacter(characterId);
-			if (character == null || character.IsObject)
-				return null;
-
-			// 캐릭터가 같은 위치에 있는지 확인
-			if (character.CurrentLocation != player.CurrentLocation)
-				return null;
-
-			return new CharacterLookResult
-			{
-				CharacterId = character.Id,
-				Name = character.Name,
-				Interactions = new List<string>(character.Interactions)
+				UnitId = unit.Id,
+				Name = unit.Name,
+				IsObject = unit.IsObject,
+				Inventory = unit.IsObject ? new Dictionary<int, int>(unit.Inventory) : new Dictionary<int, int>(),
+				Actions = new List<string>(unit.Actions)
 			};
 		}
 
@@ -530,7 +504,7 @@ namespace SE
 		/// </summary>
 		public LookResult Look()
 		{
-			var player = GetPlayerCharacter();
+			var player = GetPlayerUnit();
 			if (player == null)
 				return new LookResult();
 
@@ -546,10 +520,10 @@ namespace SE
 		/// <summary>
 		/// Location에서 Look
 		/// </summary>
-		private LookResult LookFromLocation(Character player)
+		private LookResult LookFromLocation(Unit player)
 		{
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 			var describeSystem = _hub.FindSystem("describeSystem") as DescribeSystem;
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
 			var terrain = worldSystem?.GetTerrain();
@@ -567,22 +541,18 @@ namespace SE
 				LocationRef = player.CurrentLocation
 			};
 
-			// 2. 같은 위치에 있는 캐릭터/오브젝트 (플레이어 제외)
-			var characterIds = new List<int>();
-			var objectIds = new List<int>();
-			if (characterSystem != null)
+			// 2. 같은 위치에 있는 유닛들 (플레이어 제외)
+			var unitIds = new List<int>();
+			if (unitSystem != null)
 			{
-				foreach (var c in characterSystem.Characters.Values)
+				foreach (var u in unitSystem.Units.Values)
 				{
-					if (c.Id == PlayerId) continue;
+					if (u.Id == PlayerId) continue;
 
-					// 같은 위치에 있는 캐릭터/오브젝트 (이동 중이 아닌)
-					if (c.CurrentLocation == player.CurrentLocation && c.CurrentEdge == null)
+					// 같은 위치에 있는 유닛 (이동 중이 아닌)
+					if (u.CurrentLocation == player.CurrentLocation && u.CurrentEdge == null)
 					{
-						if (c.IsObject)
-							objectIds.Add(c.Id);
-						else
-							characterIds.Add(c.Id);
+						unitIds.Add(u.Id);
 					}
 				}
 			}
@@ -603,8 +573,7 @@ namespace SE
 			return new LookResult
 			{
 				Location = locationInfo,
-				CharacterIds = characterIds,
-				ObjectIds = objectIds,
+				UnitIds = unitIds,
 				GroundItems = groundItems,
 				Routes = routes
 			};
@@ -613,10 +582,10 @@ namespace SE
 		/// <summary>
 		/// Edge에서 Look (이동 중)
 		/// </summary>
-		private LookResult LookFromEdge(Character player)
+		private LookResult LookFromEdge(Unit player)
 		{
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 			var terrain = worldSystem?.GetTerrain();
 
 			// Edge 정보
@@ -631,24 +600,24 @@ namespace SE
 				LocationRef = player.CurrentLocation
 			};
 
-			// 같은 Edge에 있는 캐릭터들
-			var characterIds = new List<int>();
-			if (characterSystem != null)
+			// 같은 Edge에 있는 유닛들
+			var unitIds = new List<int>();
+			if (unitSystem != null)
 			{
-				foreach (var c in characterSystem.Characters.Values)
+				foreach (var u in unitSystem.Units.Values)
 				{
-					if (c.Id == PlayerId) continue;
+					if (u.Id == PlayerId) continue;
 
-					if (c.CurrentEdge != null)
+					if (u.CurrentEdge != null)
 					{
 						// 같은 Edge = From-To 쌍이 같거나 반대
-						bool sameEdge = (c.CurrentEdge.From == player.CurrentEdge!.From &&
-										c.CurrentEdge.To == player.CurrentEdge!.To) ||
-									   (c.CurrentEdge.From == player.CurrentEdge!.To &&
-										c.CurrentEdge.To == player.CurrentEdge!.From);
+						bool sameEdge = (u.CurrentEdge.From == player.CurrentEdge!.From &&
+										u.CurrentEdge.To == player.CurrentEdge!.To) ||
+									   (u.CurrentEdge.From == player.CurrentEdge!.To &&
+										u.CurrentEdge.To == player.CurrentEdge!.From);
 						if (sameEdge)
 						{
-							characterIds.Add(c.Id);
+							unitIds.Add(u.Id);
 						}
 					}
 				}
@@ -657,7 +626,7 @@ namespace SE
 			return new LookResult
 			{
 				Location = locationInfo,
-				CharacterIds = characterIds,
+				UnitIds = unitIds,
 				Routes = new List<RouteInfo>()  // Edge에서는 경로 없음
 			};
 		}
@@ -665,7 +634,7 @@ namespace SE
 		/// <summary>
 		/// 경로 정보 생성 (조건 필터링 적용)
 		/// </summary>
-		private List<RouteInfo> BuildRoutes(Character player, Terrain? terrain, Region? region, Location? location, ItemSystem? itemSystem)
+		private List<RouteInfo> BuildRoutes(Unit player, Terrain? terrain, Region? region, Location? location, ItemSystem? itemSystem)
 		{
 			var routes = new List<RouteInfo>();
 			if (region == null || location == null || terrain == null) return routes;

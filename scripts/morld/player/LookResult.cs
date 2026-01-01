@@ -13,19 +13,14 @@ public class LookResult
 	public LocationInfo Location { get; set; } = new();
 
 	/// <summary>
-	/// 같은 위치/엣지의 캐릭터 ID들
+	/// 같은 위치/엣지의 유닛 ID들 (캐릭터 + 오브젝트 통합)
 	/// </summary>
-	public List<int> CharacterIds { get; set; } = new();
+	public List<int> UnitIds { get; set; } = new();
 
 	/// <summary>
 	/// 이동 가능한 경로들
 	/// </summary>
 	public List<RouteInfo> Routes { get; set; } = new();
-
-	/// <summary>
-	/// 같은 위치의 오브젝트 ID들
-	/// </summary>
-	public List<int> ObjectIds { get; set; } = new();
 
 	/// <summary>
 	/// 바닥에 떨어진 아이템 (아이템ID -> 개수)
@@ -101,48 +96,32 @@ public class RouteInfo
 }
 
 /// <summary>
-/// 오브젝트 살펴보기 결과
+/// 유닛 살펴보기 결과 (캐릭터/오브젝트 통합)
 /// </summary>
-public class ObjectLookResult
+public class UnitLookResult
 {
 	/// <summary>
-	/// 오브젝트 ID
+	/// 유닛 ID
 	/// </summary>
-	public int ObjectId { get; set; }
+	public int UnitId { get; set; }
 
 	/// <summary>
-	/// 오브젝트 이름
+	/// 유닛 이름
 	/// </summary>
 	public string Name { get; set; } = "";
 
 	/// <summary>
-	/// 오브젝트 인벤토리 (아이템ID -> 개수)
+	/// 오브젝트 여부
+	/// </summary>
+	public bool IsObject { get; set; }
+
+	/// <summary>
+	/// 인벤토리 (오브젝트일 경우, 아이템ID -> 개수)
 	/// </summary>
 	public Dictionary<int, int> Inventory { get; set; } = new();
 
 	/// <summary>
-	/// 가능한 행동들 (예: "use", "open")
+	/// 가능한 액션들 (예: "talk", "trade", "open", "examine")
 	/// </summary>
 	public List<string> Actions { get; set; } = new();
-}
-
-/// <summary>
-/// 캐릭터 살펴보기 결과
-/// </summary>
-public class CharacterLookResult
-{
-	/// <summary>
-	/// 캐릭터 ID
-	/// </summary>
-	public int CharacterId { get; set; }
-
-	/// <summary>
-	/// 캐릭터 이름
-	/// </summary>
-	public string Name { get; set; } = "";
-
-	/// <summary>
-	/// 가능한 상호작용 (예: "talk", "trade")
-	/// </summary>
-	public List<string> Interactions { get; set; } = new();
 }

@@ -1,7 +1,7 @@
 namespace Morld;
 
 /// <summary>
-/// 캐릭터의 단일 행동 기록 (Edge 단위로 분리)
+/// 유닛의 단일 행동 기록 (Edge 단위로 분리)
 /// </summary>
 public class ActionLog
 {

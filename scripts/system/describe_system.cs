@@ -34,13 +34,13 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Character 묘사 반환 (향후 확장)
+		/// Unit 묘사 반환 (향후 확장)
 		/// </summary>
-		public string GetCharacterDescription(Character? character, GameTime? time)
+		public string GetUnitDescription(Unit? unit, GameTime? time)
 		{
 			// 기본: 이름 + 활동
 			// 향후: LLM으로 풍성한 묘사 생성
-			return character?.Name ?? "";
+			return unit?.Name ?? "";
 		}
 
 		/// <summary>
@@ -112,45 +112,53 @@ namespace SE
 				lines.Add("");
 			}
 
-			// 4. 주변 캐릭터
-			if (lookResult.CharacterIds.Count > 0)
+			// 4. 주변 유닛 (캐릭터와 오브젝트 통합)
+			if (lookResult.UnitIds.Count > 0)
 			{
-				var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
-				if (characterSystem != null)
+				var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+				if (unitSystem != null)
 				{
-					lines.Add("[color=yellow]주변 인물:[/color]");
-					foreach (var id in lookResult.CharacterIds)
+					// 캐릭터와 오브젝트 분리
+					var characters = new List<Unit>();
+					var objects = new List<Unit>();
+
+					foreach (var id in lookResult.UnitIds)
 					{
-						var character = characterSystem.GetCharacter(id);
-						if (character != null)
+						var unit = unitSystem.GetUnit(id);
+						if (unit != null)
 						{
-							lines.Add($"  [url=look_character:{id}]{character.Name}[/url]");
+							if (unit.IsObject)
+								objects.Add(unit);
+							else
+								characters.Add(unit);
 						}
 					}
-					lines.Add("");
+
+					// 캐릭터 표시
+					if (characters.Count > 0)
+					{
+						lines.Add("[color=yellow]주변 인물:[/color]");
+						foreach (var character in characters)
+						{
+							lines.Add($"  [url=look_unit:{character.Id}]{character.Name}[/url]");
+						}
+						lines.Add("");
+					}
+
+					// 오브젝트 표시
+					if (objects.Count > 0)
+					{
+						lines.Add("[color=orange]오브젝트:[/color]");
+						foreach (var obj in objects)
+						{
+							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]");
+						}
+						lines.Add("");
+					}
 				}
 			}
 
-			// 5. 오브젝트
-			if (lookResult.ObjectIds.Count > 0)
-			{
-				var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
-				if (characterSystem != null)
-				{
-					lines.Add("[color=orange]오브젝트:[/color]");
-					foreach (var id in lookResult.ObjectIds)
-					{
-						var obj = characterSystem.GetCharacter(id);
-						if (obj != null)
-						{
-							lines.Add($"  [url=look_object:{id}]{obj.Name}[/url]");
-						}
-					}
-					lines.Add("");
-				}
-			}
-
-			// 6. 바닥 아이템
+			// 5. 바닥 아이템
 			if (lookResult.GroundItems.Count > 0)
 			{
 				var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
@@ -170,7 +178,7 @@ namespace SE
 				}
 			}
 
-			// 7. 이동 가능 경로 (BBCode 링크)
+			// 6. 이동 가능 경로 (BBCode 링크)
 			if (lookResult.Routes.Count > 0)
 			{
 				lines.Add("[color=cyan]이동 가능:[/color]");
@@ -189,7 +197,7 @@ namespace SE
 				}
 			}
 
-			// 6. 행동 옵션
+			// 7. 행동 옵션
 			lines.Add("");
 			lines.Add("[color=yellow]행동:[/color]");
 			lines.Add("  [url=inventory]소지품 확인[/url]");
@@ -199,103 +207,83 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 오브젝트 살펴보기 결과 텍스트 생성
+		/// 유닛 살펴보기 결과 텍스트 생성 (캐릭터/오브젝트 통합)
 		/// </summary>
-		public string GetObjectLookText(ObjectLookResult objectLook)
+		public string GetUnitLookText(UnitLookResult unitLook)
 		{
 			var lines = new List<string>();
 
-			lines.Add($"[b]{objectLook.Name}[/b]");
+			lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
 
-			if (objectLook.Inventory.Count > 0)
+			// 오브젝트일 경우 인벤토리 표시
+			if (unitLook.IsObject)
 			{
-				var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-				if (itemSystem != null)
+				if (unitLook.Inventory.Count > 0)
 				{
-					lines.Add("[color=lime]보관된 아이템:[/color]");
-					foreach (var (itemId, count) in objectLook.Inventory)
+					var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+					if (itemSystem != null)
 					{
-						var item = itemSystem.GetItem(itemId);
-						if (item != null)
+						lines.Add("[color=lime]보관된 아이템:[/color]");
+						foreach (var (itemId, count) in unitLook.Inventory)
 						{
-							var countText = count > 1 ? $" x{count}" : "";
-							lines.Add($"  [url=take:{objectLook.ObjectId}:{itemId}]{item.Name}{countText} 가져가기[/url]");
+							var item = itemSystem.GetItem(itemId);
+							if (item != null)
+							{
+								var countText = count > 1 ? $" x{count}" : "";
+								lines.Add($"  [url=take:{unitLook.UnitId}:{itemId}]{item.Name}{countText} 가져가기[/url]");
+							}
 						}
+						lines.Add("");
 					}
+				}
+				else
+				{
+					lines.Add("[color=gray]비어 있다.[/color]");
 					lines.Add("");
 				}
-			}
-			else
-			{
-				lines.Add("[color=gray]비어 있다.[/color]");
-				lines.Add("");
-			}
 
-			// 플레이어 인벤토리에서 넣기 옵션 추가 (PlayerSystem에서 인벤토리 조회)
-			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
-			var player = playerSystem?.GetPlayerCharacter();
-			if (player != null && player.Inventory.Count > 0)
-			{
-				var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-				if (itemSystem != null)
+				// 플레이어 인벤토리에서 넣기 옵션 추가
+				var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+				var player = playerSystem?.GetPlayerUnit();
+				if (player != null && player.Inventory.Count > 0)
 				{
-					lines.Add("[color=cyan]넣기:[/color]");
-					foreach (var kvp in player.Inventory)
+					var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+					if (itemSystem != null)
 					{
-						var item = itemSystem.GetItem(kvp.Key);
-						if (item != null)
+						lines.Add("[color=cyan]넣기:[/color]");
+						foreach (var kvp in player.Inventory)
 						{
-							var countText = kvp.Value > 1 ? $" x{kvp.Value}" : "";
-							lines.Add($"  [url=put:{objectLook.ObjectId}:{kvp.Key}]{item.Name}{countText}[/url]");
+							var item = itemSystem.GetItem(kvp.Key);
+							if (item != null)
+							{
+								var countText = kvp.Value > 1 ? $" x{kvp.Value}" : "";
+								lines.Add($"  [url=put:{unitLook.UnitId}:{kvp.Key}]{item.Name}{countText}[/url]");
+							}
 						}
+						lines.Add("");
 					}
-					lines.Add("");
 				}
 			}
 
-			// 오브젝트 행동 표시
-			if (objectLook.Actions.Count > 0)
+			// 액션 표시
+			if (unitLook.Actions.Count > 0)
 			{
 				lines.Add("[color=yellow]행동:[/color]");
-				foreach (var action in objectLook.Actions)
+				foreach (var action in unitLook.Actions)
 				{
-					var actionName = GetActionDisplayName(action);
-					lines.Add($"  [url=action:{objectLook.ObjectId}:{action}]{actionName}[/url]");
-				}
-				lines.Add("");
-			}
-
-			lines.Add("[url=back]뒤로[/url]");
-
-			return string.Join("\n", lines);
-		}
-
-		/// <summary>
-		/// 캐릭터 살펴보기 결과 텍스트 생성
-		/// </summary>
-		public string GetCharacterLookText(CharacterLookResult characterLook)
-		{
-			var lines = new List<string>();
-
-			lines.Add($"[b]{characterLook.Name}[/b]");
-			lines.Add("");
-
-			// 상호작용 옵션 표시
-			if (characterLook.Interactions.Count > 0)
-			{
-				lines.Add("[color=yellow]상호작용:[/color]");
-				foreach (var interaction in characterLook.Interactions)
-				{
-					var interactionName = GetInteractionDisplayName(interaction);
-					lines.Add($"  [url=interact:{characterLook.CharacterId}:{interaction}]{interactionName}[/url]");
+					// 액션 ID를 그대로 표시 (plan.md Q3 결정)
+					lines.Add($"  [url=action:{action}:{unitLook.UnitId}]{action}[/url]");
 				}
 				lines.Add("");
 			}
 			else
 			{
-				lines.Add("[color=gray]특별한 상호작용이 없다.[/color]");
-				lines.Add("");
+				if (!unitLook.IsObject)
+				{
+					lines.Add("[color=gray]특별한 상호작용이 없다.[/color]");
+					lines.Add("");
+				}
 			}
 
 			lines.Add("[url=back]뒤로[/url]");
@@ -315,7 +303,7 @@ namespace SE
 
 			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var player = playerSystem?.GetPlayerCharacter();
+			var player = playerSystem?.GetPlayerUnit();
 
 			if (player == null || itemSystem == null)
 			{
@@ -427,37 +415,6 @@ namespace SE
 			lines.Add("[url=back_inventory]뒤로[/url]");
 
 			return string.Join("\n", lines);
-		}
-
-		/// <summary>
-		/// 행동 코드를 표시 이름으로 변환
-		/// </summary>
-		private static string GetActionDisplayName(string action)
-		{
-			return action switch
-			{
-				"use" => "사용하기",
-				"open" => "열기",
-				"close" => "닫기",
-				"read" => "읽기",
-				"examine" => "자세히 보기",
-				_ => action
-			};
-		}
-
-		/// <summary>
-		/// 상호작용 코드를 표시 이름으로 변환
-		/// </summary>
-		private static string GetInteractionDisplayName(string interaction)
-		{
-			return interaction switch
-			{
-				"talk" => "대화하기",
-				"trade" => "거래하기",
-				"give" => "주기",
-				"ask" => "물어보기",
-				_ => interaction
-			};
 		}
 
 		/// <summary>

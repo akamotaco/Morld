@@ -123,6 +123,12 @@ namespace SE
 				// Value 설정
 				item.Value = data.Value;
 
+				// Actions 설정
+				if (data.Actions != null)
+				{
+					item.Actions.AddRange(data.Actions);
+				}
+
 				AddItem(item);
 			}
 		}
@@ -173,7 +179,10 @@ namespace SE
 				EquipTags = item.EquipTags.Count > 0
 					? new Dictionary<string, int>(item.EquipTags)
 					: null,
-				Value = item.Value
+				Value = item.Value,
+				Actions = item.Actions.Count > 0
+					? new List<string>(item.Actions)
+					: null
 			}).ToArray();
 		}
 

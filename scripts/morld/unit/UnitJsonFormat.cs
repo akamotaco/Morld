@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 /// <summary>
-/// Character JSON 데이터
+/// Unit JSON 데이터
 /// </summary>
-internal class CharacterJsonData
+internal class UnitJsonData
 {
 	[JsonPropertyName("id")]
 	public int Id { get; set; }
@@ -34,9 +34,6 @@ internal class CharacterJsonData
 
 	[JsonPropertyName("isObject")]
 	public bool IsObject { get; set; } = false;
-
-	[JsonPropertyName("interactions")]
-	public List<string>? Interactions { get; set; }
 
 	[JsonPropertyName("actions")]
 	public List<string>? Actions { get; set; }

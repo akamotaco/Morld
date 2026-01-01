@@ -10,7 +10,7 @@ using System.Linq;
 namespace SE
 {
 	/// <summary>
-	/// MovementSystem - 스케줄 스택 기반 캐릭터 이동 처리
+	/// MovementSystem - 스케줄 스택 기반 유닛 이동 처리
 	/// - 스케줄 레이어에서 목표 위치 추출
 	/// - 경로 계산 및 이동 처리
 	/// - 충돌 감지 (디버그 출력)
@@ -24,10 +24,10 @@ namespace SE
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
 
-			if (worldSystem == null || characterSystem == null || playerSystem == null)
+			if (worldSystem == null || unitSystem == null || playerSystem == null)
 				return;
 
 			var terrain = worldSystem.GetTerrain();
@@ -39,23 +39,29 @@ namespace SE
 				return;
 
 #if DEBUG_LOG
-			// 모든 캐릭터의 이동 경로 계산 (충돌 감지용)
+			// 모든 유닛의 이동 경로 계산 (충돌 감지용)
 			var movements = new Dictionary<int, MovementPlan>();
-			foreach (var character in characterSystem.Characters.Values)
+			foreach (var unit in unitSystem.Units.Values)
 			{
-				var plan = CalculateMovementPlan(character, duration, terrain, time);
+				// 오브젝트는 이동하지 않음
+				if (unit.IsObject) continue;
+
+				var plan = CalculateMovementPlan(unit, duration, terrain, time);
 				if (plan != null)
-					movements[character.Id] = plan;
+					movements[unit.Id] = plan;
 			}
 
 			// 충돌 감지 (디버그 출력)
-			DetectCollisions(movements, characterSystem, terrain);
+			DetectCollisions(movements, unitSystem, terrain);
 #endif
 
 			// 이동 처리
-			foreach (var character in characterSystem.Characters.Values)
+			foreach (var unit in unitSystem.Units.Values)
 			{
-				ProcessMovement(character, duration, terrain, time);
+				// 오브젝트는 이동하지 않음
+				if (unit.IsObject) continue;
+
+				ProcessMovement(unit, duration, terrain, time);
 			}
 
 			// GameTime 업데이트
@@ -64,32 +70,32 @@ namespace SE
 #if DEBUG_LOG
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 			GD.Print($"[MovementSystem] Time advanced: {duration}분 → {time}");
-			PrintCharacterStates(characterSystem, terrain);
+			PrintUnitStates(unitSystem, terrain);
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 #endif
 		}
 
 		/// <summary>
-		/// 캐릭터의 이동 계획 계산 (충돌 감지용)
+		/// 유닛의 이동 계획 계산 (충돌 감지용)
 		/// </summary>
-		private MovementPlan? CalculateMovementPlan(Character character, int duration, Terrain terrain, GameTime time)
+		private MovementPlan? CalculateMovementPlan(Unit unit, int duration, Terrain terrain, GameTime time)
 		{
-			var layer = character.CurrentScheduleLayer;
+			var layer = unit.CurrentScheduleLayer;
 			if (layer == null) return null;
 
-			LocationRef? goalLocation = GetGoalLocation(character, layer, time);
-			if (!goalLocation.HasValue || character.CurrentLocation == goalLocation.Value)
+			LocationRef? goalLocation = GetGoalLocation(unit, layer, time);
+			if (!goalLocation.HasValue || unit.CurrentLocation == goalLocation.Value)
 				return null;
 
 			// 경로 계산
-			var pathResult = terrain.FindPath(character.CurrentLocation, goalLocation.Value, character);
+			var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation.Value, unit);
 			if (!pathResult.Found || pathResult.Path.Count < 2)
 				return null;
 
 			// 도착 시간 계산
 			var plan = new MovementPlan
 			{
-				CharacterId = character.Id,
+				UnitId = unit.Id,
 				Path = pathResult.Path,
 				StartTime = 0
 			};
@@ -113,7 +119,7 @@ namespace SE
 		/// <summary>
 		/// 충돌 감지 (디버그 출력)
 		/// </summary>
-		private void DetectCollisions(Dictionary<int, MovementPlan> movements, CharacterSystem characterSystem, Terrain terrain)
+		private void DetectCollisions(Dictionary<int, MovementPlan> movements, UnitSystem unitSystem, Terrain terrain)
 		{
 			// 모든 쌍 비교
 			var ids = movements.Keys.ToList();
@@ -134,9 +140,9 @@ namespace SE
 						// 시간이 겹치면 충돌 (5분 이내)
 						if (Math.Abs(timeA - timeB) < 5)
 						{
-							var charA = characterSystem.GetCharacter(ids[i]);
-							var charB = characterSystem.GetCharacter(ids[j]);
-							GD.Print($"[Collision] {charA?.Name} & {charB?.Name} @ {loc.Name} (t={timeA}~{timeB})");
+							var unitA = unitSystem.GetUnit(ids[i]);
+							var unitB = unitSystem.GetUnit(ids[j]);
+							GD.Print($"[Collision] {unitA?.Name} & {unitB?.Name} @ {loc.Name} (t={timeA}~{timeB})");
 						}
 					}
 				}
@@ -144,33 +150,36 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 모든 캐릭터의 현재 상태 출력 (디버그용)
+		/// 모든 유닛의 현재 상태 출력 (디버그용)
 		/// </summary>
-		private void PrintCharacterStates(CharacterSystem characterSystem, Terrain terrain)
+		private void PrintUnitStates(UnitSystem unitSystem, Terrain terrain)
 		{
-			foreach (var character in characterSystem.Characters.Values)
+			foreach (var unit in unitSystem.Units.Values)
 			{
-				var location = terrain.GetLocation(character.CurrentLocation);
+				// 오브젝트는 스킵
+				if (unit.IsObject) continue;
+
+				var location = terrain.GetLocation(unit.CurrentLocation);
 				var locationName = location?.Name ?? "Unknown";
 				var region = location != null ? terrain.GetRegion(location.RegionId) : null;
 				var regionName = region?.Name ?? "Unknown";
-				var stateStr = character.IsMoving ? "Moving" : "Idle";
+				var stateStr = unit.IsMoving ? "Moving" : "Idle";
 
 				// 현재 활동 정보
-				var currentSchedule = character.CurrentSchedule;
+				var currentSchedule = unit.CurrentSchedule;
 				var activityStr = currentSchedule != null && !string.IsNullOrEmpty(currentSchedule.Activity)
 					? $" - {currentSchedule.Activity}"
 					: "";
 
 				// 현재 스케줄 레이어 정보
-				var layerName = character.CurrentScheduleLayer?.Name ?? "없음";
+				var layerName = unit.CurrentScheduleLayer?.Name ?? "없음";
 
-				GD.Print($"  • {character.Name}: {regionName}/{locationName} [{stateStr}]{activityStr} (레이어: {layerName})");
+				GD.Print($"  • {unit.Name}: {regionName}/{locationName} [{stateStr}]{activityStr} (레이어: {layerName})");
 
 				// 이동 중이면 목적지 정보도 출력
-				if (character.IsMoving && character.CurrentEdge != null)
+				if (unit.IsMoving && unit.CurrentEdge != null)
 				{
-					var destination = terrain.GetLocation(character.CurrentEdge.To);
+					var destination = terrain.GetLocation(unit.CurrentEdge.To);
 					var destName = destination?.Name ?? "Unknown";
 					var destRegion = destination != null ? terrain.GetRegion(destination.RegionId) : null;
 					var destRegionName = destRegion?.Name ?? "Unknown";
@@ -183,27 +192,27 @@ namespace SE
 		/// <summary>
 		/// 실제 이동 처리
 		/// </summary>
-		private void ProcessMovement(Character character, int duration, Terrain terrain, GameTime time)
+		private void ProcessMovement(Unit unit, int duration, Terrain terrain, GameTime time)
 		{
 			int remainingTime = duration;
 
 			while (remainingTime > 0)
 			{
 				// 이동 중이면 계속 진행
-				if (character.CurrentEdge != null)
+				if (unit.CurrentEdge != null)
 				{
-					var edge = character.CurrentEdge;
+					var edge = unit.CurrentEdge;
 					var timeToComplete = edge.TotalTime - edge.ElapsedTime;
 
 					if (remainingTime >= timeToComplete)
 					{
 						// 도착
-						character.SetCurrentLocation(edge.To);
-						character.CurrentEdge = null;
+						unit.SetCurrentLocation(edge.To);
+						unit.CurrentEdge = null;
 						remainingTime -= timeToComplete;
 #if DEBUG_LOG
 						var destLocation = terrain.GetLocation(edge.To);
-						GD.Print($"[MovementSystem] {character.Name} arrived at {destLocation?.Name ?? "Unknown"}");
+						GD.Print($"[MovementSystem] {unit.Name} arrived at {destLocation?.Name ?? "Unknown"}");
 #endif
 					}
 					else
@@ -216,32 +225,32 @@ namespace SE
 				}
 
 				// 새 이동 시작
-				var layer = character.CurrentScheduleLayer;
+				var layer = unit.CurrentScheduleLayer;
 				if (layer == null)
 				{
 					break;
 				}
 
-				LocationRef? goalLocation = GetGoalLocation(character, layer, time);
-				if (!goalLocation.HasValue || character.CurrentLocation == goalLocation.Value)
+				LocationRef? goalLocation = GetGoalLocation(unit, layer, time);
+				if (!goalLocation.HasValue || unit.CurrentLocation == goalLocation.Value)
 				{
 					// 목표 없거나 이미 도착 - 스케줄 엔트리 업데이트만
-					UpdateCurrentScheduleEntry(character, layer, time);
+					UpdateCurrentScheduleEntry(unit, layer, time);
 					break;
 				}
 
-				var pathResult = terrain.FindPath(character.CurrentLocation, goalLocation.Value, character);
+				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation.Value, unit);
 				if (!pathResult.Found || pathResult.Path.Count < 2)
 				{
 					break;
 				}
 
 				// 첫 Edge로 이동 시작
-				var from = character.CurrentLocation;
+				var from = unit.CurrentLocation;
 				var to = new LocationRef(pathResult.Path[1]);
 				var travelTime = GetTravelTime(from, to, terrain);
 
-				character.CurrentEdge = new EdgeProgress
+				unit.CurrentEdge = new EdgeProgress
 				{
 					From = from,
 					To = to,
@@ -250,30 +259,30 @@ namespace SE
 				};
 
 				// 스케줄 엔트리 업데이트
-				UpdateCurrentScheduleEntry(character, layer, time);
+				UpdateCurrentScheduleEntry(unit, layer, time);
 			}
 		}
 
 		/// <summary>
 		/// 현재 스케줄 엔트리 업데이트
 		/// </summary>
-		private void UpdateCurrentScheduleEntry(Character character, ScheduleLayer layer, GameTime time)
+		private void UpdateCurrentScheduleEntry(Unit unit, ScheduleLayer layer, GameTime time)
 		{
 			if (layer.Schedule != null && layer.Schedule.Entries.Count > 0)
 			{
 				var entry = layer.Schedule.GetEntryAt(time.MinuteOfDay);
-				character.SetCurrentSchedule(entry);
+				unit.SetCurrentSchedule(entry);
 			}
 			else
 			{
-				character.SetCurrentSchedule(null);
+				unit.SetCurrentSchedule(null);
 			}
 		}
 
 		/// <summary>
 		/// 스케줄 레이어에서 목표 위치 추출
 		/// </summary>
-		private LocationRef? GetGoalLocation(Character character, ScheduleLayer layer, GameTime time)
+		private LocationRef? GetGoalLocation(Unit unit, ScheduleLayer layer, GameTime time)
 		{
 			if (layer.Schedule != null && layer.Schedule.Entries.Count > 0)
 			{
@@ -289,11 +298,11 @@ namespace SE
 			}
 			else if (layer.EndConditionType == "따라가기")
 			{
-				// 다른 캐릭터 따라가기
+				// 다른 유닛 따라가기
 				if (int.TryParse(layer.EndConditionParam, out int targetId))
 				{
-					var characterSystem = _hub.FindSystem("characterSystem") as CharacterSystem;
-					var target = characterSystem?.GetCharacter(targetId);
+					var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+					var target = unitSystem?.GetUnit(targetId);
 					if (target != null)
 						return target.CurrentLocation;
 				}

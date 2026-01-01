@@ -8,58 +8,58 @@ using System.Text.Json;
 
 namespace SE
 {
-	public class CharacterSystem : ECS.System
+	public class UnitSystem : ECS.System
 	{
-		private readonly Dictionary<int, Character> _characters = new();
+		private readonly Dictionary<int, Unit> _units = new();
 
-		public CharacterSystem()
+		public UnitSystem()
 		{
 		}
 
 		/// <summary>
-		/// 모든 캐릭터 (읽기 전용)
+		/// 모든 유닛 (읽기 전용)
 		/// </summary>
-		public IReadOnlyDictionary<int, Character> Characters => _characters;
+		public IReadOnlyDictionary<int, Unit> Units => _units;
 
 		/// <summary>
-		/// 캐릭터 추가
+		/// 유닛 추가
 		/// </summary>
-		public void AddCharacter(Character character)
+		public void AddUnit(Unit unit)
 		{
-			if (character == null)
-				throw new ArgumentNullException(nameof(character));
+			if (unit == null)
+				throw new ArgumentNullException(nameof(unit));
 
-			_characters[character.Id] = character;
+			_units[unit.Id] = unit;
 		}
 
 		/// <summary>
-		/// 캐릭터 제거
+		/// 유닛 제거
 		/// </summary>
-		public bool RemoveCharacter(int id)
+		public bool RemoveUnit(int id)
 		{
-			return _characters.Remove(id);
+			return _units.Remove(id);
 		}
 
 		/// <summary>
-		/// 캐릭터 찾기
+		/// 유닛 찾기
 		/// </summary>
-		public Character? GetCharacter(int id)
+		public Unit? GetUnit(int id)
 		{
-			return _characters.TryGetValue(id, out var character) ? character : null;
+			return _units.TryGetValue(id, out var unit) ? unit : null;
 		}
 
 		/// <summary>
-		/// 모든 캐릭터 제거
+		/// 모든 유닛 제거
 		/// </summary>
-		public void ClearCharacters()
+		public void ClearUnits()
 		{
-			_characters.Clear();
+			_units.Clear();
 		}
 
 		/// <summary>
-		/// JSON 파일에서 캐릭터 데이터 로드
+		/// JSON 파일에서 유닛 데이터 로드
 		/// </summary>
-		public CharacterSystem UpdateFromFile(string filePath)
+		public UnitSystem UpdateFromFile(string filePath)
 		{
 			using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
 			if (file == null)
@@ -72,7 +72,7 @@ namespace SE
 		}
 
 		/// <summary>
-		/// JSON 문자열에서 캐릭터 데이터 로드
+		/// JSON 문자열에서 유닛 데이터 로드
 		/// </summary>
 		public void UpdateFromJson(string json)
 		{
@@ -82,30 +82,30 @@ namespace SE
 				WriteIndented = true
 			};
 
-			var dataList = JsonSerializer.Deserialize<CharacterJsonData[]>(json, options);
+			var dataList = JsonSerializer.Deserialize<UnitJsonData[]>(json, options);
 			if (dataList == null)
-				throw new InvalidOperationException("Failed to parse Character JSON data");
+				throw new InvalidOperationException("Failed to parse Unit JSON data");
 
 			UpdateFromData(dataList);
 		}
 
 		/// <summary>
-		/// CharacterJsonData 배열로 캐릭터 데이터 로드
+		/// UnitJsonData 배열로 유닛 데이터 로드
 		/// </summary>
-		private void UpdateFromData(CharacterJsonData[] dataList)
+		private void UpdateFromData(UnitJsonData[] dataList)
 		{
-			// 기존 캐릭터 모두 제거
-			ClearCharacters();
+			// 기존 유닛 모두 제거
+			ClearUnits();
 
-			// 새 캐릭터 생성 및 추가
+			// 새 유닛 생성 및 추가
 			foreach (var data in dataList)
 			{
-				var character = new Character(data.Id, data.Name, data.RegionId, data.LocationId);
+				var unit = new Unit(data.Id, data.Name, data.RegionId, data.LocationId);
 
 				// 태그 설정
 				if (data.Tags != null)
 				{
-					character.TraversalContext.SetTags(data.Tags);
+					unit.TraversalContext.SetTags(data.Tags);
 				}
 
 				// 인벤토리 설정
@@ -113,27 +113,23 @@ namespace SE
 				{
 					foreach (var (itemId, count) in data.Inventory)
 					{
-						character.Inventory[itemId] = count;
+						unit.Inventory[itemId] = count;
 					}
 				}
 
 				// 장착 아이템 설정
 				if (data.EquippedItems != null)
 				{
-					character.EquippedItems.AddRange(data.EquippedItems);
+					unit.EquippedItems.AddRange(data.EquippedItems);
 				}
 
 				// 오브젝트 여부 설정
-				character.IsObject = data.IsObject;
+				unit.IsObject = data.IsObject;
 
-				// 상호작용/행동 설정
-				if (data.Interactions != null)
-				{
-					character.Interactions.AddRange(data.Interactions);
-				}
+				// 액션 설정
 				if (data.Actions != null)
 				{
-					character.Actions.AddRange(data.Actions);
+					unit.Actions.AddRange(data.Actions);
 				}
 
 				// 스케줄 스택 설정 (배열 순서대로 push - 첫 요소가 스택 바닥)
@@ -158,7 +154,7 @@ namespace SE
 						}
 					}
 
-					character.PushSchedule(new ScheduleLayer
+					unit.PushSchedule(new ScheduleLayer
 					{
 						Name = layerData.Name,
 						Schedule = schedule,
@@ -170,7 +166,7 @@ namespace SE
 				// CurrentEdge 설정 (이동 중 상태 복원)
 				if (data.CurrentEdge != null)
 				{
-					character.CurrentEdge = new EdgeProgress
+					unit.CurrentEdge = new EdgeProgress
 					{
 						From = new LocationRef(data.CurrentEdge.FromRegionId, data.CurrentEdge.FromLocalId),
 						To = new LocationRef(data.CurrentEdge.ToRegionId, data.CurrentEdge.ToLocalId),
@@ -179,12 +175,12 @@ namespace SE
 					};
 				}
 
-				AddCharacter(character);
+				AddUnit(unit);
 			}
 		}
 
 		/// <summary>
-		/// 현재 캐릭터 데이터를 JSON 파일로 저장
+		/// 현재 유닛 데이터를 JSON 파일로 저장
 		/// </summary>
 		public void SaveToFile(string filePath)
 		{
@@ -199,7 +195,7 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 현재 캐릭터 데이터를 JSON 문자열로 변환
+		/// 현재 유닛 데이터를 JSON 문자열로 변환
 		/// </summary>
 		public string ToJson()
 		{
@@ -215,33 +211,30 @@ namespace SE
 		}
 
 		/// <summary>
-		/// CharacterJsonData 배열로 변환
+		/// UnitJsonData 배열로 변환
 		/// </summary>
-		private CharacterJsonData[] ExportToData()
+		private UnitJsonData[] ExportToData()
 		{
-			return _characters.Values.Select(character => new CharacterJsonData
+			return _units.Values.Select(unit => new UnitJsonData
 			{
-				Id = character.Id,
-				Name = character.Name,
-				RegionId = character.CurrentLocation.RegionId,
-				LocationId = character.CurrentLocation.LocalId,
-				Tags = character.TraversalContext.Tags.Count > 0
-					? new Dictionary<string, int>(character.TraversalContext.Tags)
+				Id = unit.Id,
+				Name = unit.Name,
+				RegionId = unit.CurrentLocation.RegionId,
+				LocationId = unit.CurrentLocation.LocalId,
+				Tags = unit.TraversalContext.Tags.Count > 0
+					? new Dictionary<string, int>(unit.TraversalContext.Tags)
 					: null,
-				Inventory = character.Inventory.Count > 0
-					? new Dictionary<int, int>(character.Inventory)
+				Inventory = unit.Inventory.Count > 0
+					? new Dictionary<int, int>(unit.Inventory)
 					: null,
-				EquippedItems = character.EquippedItems.Count > 0
-					? new List<int>(character.EquippedItems)
+				EquippedItems = unit.EquippedItems.Count > 0
+					? new List<int>(unit.EquippedItems)
 					: null,
-				IsObject = character.IsObject,
-				Interactions = character.Interactions.Count > 0
-					? new List<string>(character.Interactions)
+				IsObject = unit.IsObject,
+				Actions = unit.Actions.Count > 0
+					? new List<string>(unit.Actions)
 					: null,
-				Actions = character.Actions.Count > 0
-					? new List<string>(character.Actions)
-					: null,
-				ScheduleStack = character.ScheduleStack.Reverse().Select(layer => new ScheduleLayerJsonData
+				ScheduleStack = unit.ScheduleStack.Reverse().Select(layer => new ScheduleLayerJsonData
 				{
 					Name = layer.Name,
 					Schedule = layer.Schedule?.Entries.Select(entry => new ScheduleEntryJsonData
@@ -256,44 +249,48 @@ namespace SE
 					EndConditionType = layer.EndConditionType,
 					EndConditionParam = layer.EndConditionParam
 				}).ToArray(),
-				CurrentEdge = character.CurrentEdge != null
+				CurrentEdge = unit.CurrentEdge != null
 					? new EdgeProgressJsonData
 					{
-						FromRegionId = character.CurrentEdge.From.RegionId,
-						FromLocalId = character.CurrentEdge.From.LocalId,
-						ToRegionId = character.CurrentEdge.To.RegionId,
-						ToLocalId = character.CurrentEdge.To.LocalId,
-						TotalTime = character.CurrentEdge.TotalTime,
-						ElapsedTime = character.CurrentEdge.ElapsedTime
+						FromRegionId = unit.CurrentEdge.From.RegionId,
+						FromLocalId = unit.CurrentEdge.From.LocalId,
+						ToRegionId = unit.CurrentEdge.To.RegionId,
+						ToLocalId = unit.CurrentEdge.To.LocalId,
+						TotalTime = unit.CurrentEdge.TotalTime,
+						ElapsedTime = unit.CurrentEdge.ElapsedTime
 					}
 					: null
 			}).ToArray();
 		}
 
 		/// <summary>
-		/// 디버그용 캐릭터 정보 출력
+		/// 디버그용 유닛 정보 출력
 		/// </summary>
 		public void DebugPrint()
 		{
-			var characters = _characters.Values.Where(c => !c.IsObject).ToList();
-			var objects = _characters.Values.Where(c => c.IsObject).ToList();
+			var characters = _units.Values.Where(u => !u.IsObject).ToList();
+			var objects = _units.Values.Where(u => u.IsObject).ToList();
 
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 			GD.Print($"  캐릭터 수: {characters.Count}, 오브젝트 수: {objects.Count}");
-			foreach (var character in characters)
+			foreach (var unit in characters)
 			{
-				GD.Print($"  - {character}");
-				GD.Print($"    스케줄 스택: {character.ScheduleStack.Count}개 레이어");
-				if (character.CurrentScheduleLayer != null)
+				GD.Print($"  - {unit}");
+				GD.Print($"    스케줄 스택: {unit.ScheduleStack.Count}개 레이어");
+				if (unit.CurrentScheduleLayer != null)
 				{
-					var layer = character.CurrentScheduleLayer;
+					var layer = unit.CurrentScheduleLayer;
 					var scheduleInfo = layer.Schedule != null ? $"{layer.Schedule.Entries.Count}개 엔트리" : "없음";
 					GD.Print($"    현재 레이어: {layer.Name} (스케줄: {scheduleInfo})");
 				}
-				if (character.TraversalContext.Tags.Count > 0)
+				if (unit.TraversalContext.Tags.Count > 0)
 				{
-					var tags = string.Join(", ", character.TraversalContext.Tags.Select(t => $"{t.Key}:{t.Value}"));
+					var tags = string.Join(", ", unit.TraversalContext.Tags.Select(t => $"{t.Key}:{t.Value}"));
 					GD.Print($"    태그: {tags}");
+				}
+				if (unit.Actions.Count > 0)
+				{
+					GD.Print($"    액션: {string.Join(", ", unit.Actions)}");
 				}
 			}
 			foreach (var obj in objects)
@@ -303,6 +300,10 @@ namespace SE
 				{
 					var items = string.Join(", ", obj.Inventory.Select(i => $"아이템{i.Key}x{i.Value}"));
 					GD.Print($"    인벤토리: {items}");
+				}
+				if (obj.Actions.Count > 0)
+				{
+					GD.Print($"    액션: {string.Join(", ", obj.Actions)}");
 				}
 			}
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

@@ -508,10 +508,10 @@ public class Terrain
     /// <summary>
     /// 경로 탐색 (PathFinder 래퍼)
     /// </summary>
-    public PathResult FindPath(LocationRef from, LocationRef to, Character? character = null, ItemSystem? itemSystem = null)
+    public PathResult FindPath(LocationRef from, LocationRef to, Unit? unit = null, ItemSystem? itemSystem = null)
     {
         var pathFinder = new PathFinder(this);
-        return pathFinder.FindPath(from, to, character, itemSystem);
+        return pathFinder.FindPath(from, to, unit, itemSystem);
     }
 
     /// <summary>

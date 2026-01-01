@@ -32,9 +32,11 @@ public partial class GameEngine : Node
 		(this._world.AddSystem(new WorldSystem("aka"), "worldSystem") as WorldSystem).GetTerrain().UpdateFromFile("res://scripts/morld/json_data/location_data.json");
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().UpdateFromFile("res://scripts/morld/json_data/time_data.json");
 
-		(this._world.AddSystem(new CharacterSystem(), "characterSystem") as CharacterSystem).UpdateFromFile("res://scripts/morld/json_data/character_data.json");
+		(this._world.AddSystem(new UnitSystem(), "unitSystem") as UnitSystem).UpdateFromFile("res://scripts/morld/json_data/unit_data.json");
 
 		(this._world.AddSystem(new ItemSystem(), "itemSystem") as ItemSystem).UpdateFromFile("res://scripts/morld/json_data/item_data.json");
+
+		this._world.AddSystem(new ActionSystem(), "actionSystem");
 
 		// Logic Systems - 실행 순서: MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
 		this._world.AddSystem(new MovementSystem(), "movementSystem");
@@ -48,7 +50,7 @@ public partial class GameEngine : Node
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().DebugPrint();
-		(this._world.FindSystem("characterSystem") as CharacterSystem).DebugPrint();
+		(this._world.FindSystem("unitSystem") as UnitSystem).DebugPrint();
 
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");
 		GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -146,8 +148,8 @@ public partial class GameEngine : Node
 			case "drop":
 				HandleDropAction(parts);
 				break;
-			case "look_object":
-				HandleLookObjectAction(parts);
+			case "look_unit":
+				HandleLookUnitAction(parts);
 				break;
 			case "take":
 				HandleTakeAction(parts);
@@ -155,14 +157,8 @@ public partial class GameEngine : Node
 			case "put":
 				HandlePutAction(parts);
 				break;
-			case "look_character":
-				HandleLookCharacterAction(parts);
-				break;
-			case "interact":
-				HandleInteractAction(parts);
-				break;
 			case "action":
-				HandleObjectAction(parts);
+				HandleUnitAction(parts);
 				break;
 			case "item_ground_menu":
 				HandleItemGroundMenuAction(parts);
@@ -295,159 +291,115 @@ public partial class GameEngine : Node
 	}
 
 	/// <summary>
-	/// 오브젝트 살펴보기 처리: look_object:objectId
+	/// 유닛 살펴보기 처리: look_unit:unitId
 	/// </summary>
-	private void HandleLookObjectAction(string[] parts)
+	private void HandleLookUnitAction(string[] parts)
 	{
-		if (parts.Length < 2 || !int.TryParse(parts[1], out int objectId))
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int unitId))
 		{
-			GD.PrintErr("[GameEngine] Invalid look_object format. Expected: look_object:objectId");
+			GD.PrintErr("[GameEngine] Invalid look_unit format. Expected: look_unit:unitId");
 			return;
 		}
 
-		var objectLook = _playerSystem?.LookObject(objectId);
-		if (objectLook != null && _describeSystem != null && _textUi != null)
+		var unitLook = _playerSystem?.LookUnit(unitId);
+		if (unitLook != null && _describeSystem != null && _textUi != null)
 		{
-			var text = _describeSystem.GetObjectLookText(objectLook);
+			var text = _describeSystem.GetUnitLookText(unitLook);
 			_textUi.Text = text;
 		}
 	}
 
 	/// <summary>
-	/// 오브젝트에서 아이템 가져오기 처리: take:objectId:itemId
+	/// 유닛에서 아이템 가져오기 처리: take:unitId:itemId
 	/// </summary>
 	private void HandleTakeAction(string[] parts)
 	{
-		if (parts.Length < 3 || !int.TryParse(parts[1], out int objectId) || !int.TryParse(parts[2], out int itemId))
+		if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
 		{
-			GD.PrintErr("[GameEngine] Invalid take format. Expected: take:objectId:itemId");
+			GD.PrintErr("[GameEngine] Invalid take format. Expected: take:unitId:itemId");
 			return;
 		}
 
-		_playerSystem?.TakeFromObject(objectId, itemId);
+		_playerSystem?.TakeFromUnit(unitId, itemId);
 
-		// 오브젝트 살펴보기 화면 새로고침
-		var objectLook = _playerSystem?.LookObject(objectId);
-		if (objectLook != null && _describeSystem != null && _textUi != null)
+		// 유닛 살펴보기 화면 새로고침
+		var unitLook = _playerSystem?.LookUnit(unitId);
+		if (unitLook != null && _describeSystem != null && _textUi != null)
 		{
-			var text = _describeSystem.GetObjectLookText(objectLook);
+			var text = _describeSystem.GetUnitLookText(unitLook);
 			_textUi.Text = text;
 		}
 	}
 
 	/// <summary>
-	/// 오브젝트에 아이템 넣기 처리: put:objectId:itemId
+	/// 유닛에 아이템 넣기 처리: put:unitId:itemId
 	/// </summary>
 	private void HandlePutAction(string[] parts)
 	{
-		if (parts.Length < 3 || !int.TryParse(parts[1], out int objectId) || !int.TryParse(parts[2], out int itemId))
+		if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
 		{
-			GD.PrintErr("[GameEngine] Invalid put format. Expected: put:objectId:itemId");
+			GD.PrintErr("[GameEngine] Invalid put format. Expected: put:unitId:itemId");
 			return;
 		}
 
-		_playerSystem?.PutToObject(objectId, itemId);
+		_playerSystem?.PutToUnit(unitId, itemId);
 
-		// 오브젝트 살펴보기 화면 새로고침
-		var objectLook = _playerSystem?.LookObject(objectId);
-		if (objectLook != null && _describeSystem != null && _textUi != null)
+		// 유닛 살펴보기 화면 새로고침
+		var unitLook = _playerSystem?.LookUnit(unitId);
+		if (unitLook != null && _describeSystem != null && _textUi != null)
 		{
-			var text = _describeSystem.GetObjectLookText(objectLook);
+			var text = _describeSystem.GetUnitLookText(unitLook);
 			_textUi.Text = text;
 		}
 	}
 
 	/// <summary>
-	/// 캐릭터 살펴보기 처리: look_character:characterId
+	/// 유닛 행동 처리: action:actionType:unitId
 	/// </summary>
-	private void HandleLookCharacterAction(string[] parts)
-	{
-		if (parts.Length < 2 || !int.TryParse(parts[1], out int characterId))
-		{
-			GD.PrintErr("[GameEngine] Invalid look_character format. Expected: look_character:characterId");
-			return;
-		}
-
-		var characterLook = _playerSystem?.LookCharacter(characterId);
-		if (characterLook != null && _describeSystem != null && _textUi != null)
-		{
-			var text = _describeSystem.GetCharacterLookText(characterLook);
-			_textUi.Text = text;
-		}
-	}
-
-	/// <summary>
-	/// 캐릭터 상호작용 처리: interact:characterId:interactionType
-	/// </summary>
-	private void HandleInteractAction(string[] parts)
+	private void HandleUnitAction(string[] parts)
 	{
 		if (parts.Length < 3)
 		{
-			GD.PrintErr("[GameEngine] Invalid interact format. Expected: interact:characterId:interactionType");
+			GD.PrintErr("[GameEngine] Invalid action format. Expected: action:actionType:unitId");
 			return;
 		}
 
-		if (!int.TryParse(parts[1], out int characterId))
+		var actionType = parts[1];
+
+		if (!int.TryParse(parts[2], out int unitId))
 		{
-			GD.PrintErr("[GameEngine] Invalid characterId in interact");
+			GD.PrintErr("[GameEngine] Invalid unitId in action");
 			return;
 		}
-
-		var interactionType = parts[2];
 
 #if DEBUG_LOG
-		GD.Print($"[GameEngine] 캐릭터 상호작용: characterId={characterId}, type={interactionType}");
+		GD.Print($"[GameEngine] 유닛 행동: unitId={unitId}, type={actionType}");
 #endif
 
-		// TODO: 실제 상호작용 처리 (대화, 거래 등)
-		// 현재는 메시지만 표시
-		if (_textUi != null)
+		// ActionSystem을 통해 행동 실행
+		var actionSystem = _world.FindSystem("actionSystem") as ActionSystem;
+		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+
+		if (actionSystem != null && unitSystem != null && _playerSystem != null)
 		{
-			var message = interactionType switch
+			var player = _playerSystem.GetPlayerUnit();
+			var target = unitSystem.GetUnit(unitId);
+
+			if (player != null && target != null)
 			{
-				"talk" => "대화 시스템은 아직 구현되지 않았습니다.",
-				"trade" => "거래 시스템은 아직 구현되지 않았습니다.",
-				_ => $"알 수 없는 상호작용: {interactionType}"
-			};
-			_textUi.Text = $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
-		}
-	}
+				var result = actionSystem.ApplyAction(player, actionType, new System.Collections.Generic.List<Morld.Unit> { target });
 
-	/// <summary>
-	/// 오브젝트 행동 처리: action:objectId:actionType
-	/// </summary>
-	private void HandleObjectAction(string[] parts)
-	{
-		if (parts.Length < 3)
-		{
-			GD.PrintErr("[GameEngine] Invalid action format. Expected: action:objectId:actionType");
-			return;
-		}
+				if (_textUi != null)
+				{
+					_textUi.Text = $"[b]{result.Message}[/b]\n\n[url=back]뒤로[/url]";
+				}
 
-		if (!int.TryParse(parts[1], out int objectId))
-		{
-			GD.PrintErr("[GameEngine] Invalid objectId in action");
-			return;
-		}
-
-		var actionType = parts[2];
-
-#if DEBUG_LOG
-		GD.Print($"[GameEngine] 오브젝트 행동: objectId={objectId}, type={actionType}");
-#endif
-
-		// TODO: 실제 행동 처리 (사용, 열기 등)
-		// 현재는 메시지만 표시
-		if (_textUi != null)
-		{
-			var message = actionType switch
-			{
-				"use" => "사용 기능은 아직 구현되지 않았습니다.",
-				"open" => "열기 기능은 아직 구현되지 않았습니다.",
-				"read" => "읽기 기능은 아직 구현되지 않았습니다.",
-				_ => $"알 수 없는 행동: {actionType}"
-			};
-			_textUi.Text = $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
+				// 시간이 소모되었으면 상황 업데이트
+				if (result.TimeConsumed > 0)
+				{
+					_playerSystem.RequestTimeAdvance(result.TimeConsumed, actionType);
+				}
+			}
 		}
 	}
 

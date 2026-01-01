@@ -60,9 +60,9 @@ public class PathFinder
 
     /// <summary>
     /// 경로 탐색 (같은 Region 또는 다른 Region)
-    /// Character + ItemSystem 기반으로 GetActualTags()를 통해 조건 체크
+    /// Unit + ItemSystem 기반으로 GetActualTags()를 통해 조건 체크
     /// </summary>
-    public PathResult FindPath(LocationRef start, LocationRef goal, Character? character = null, ItemSystem? itemSystem = null)
+    public PathResult FindPath(LocationRef start, LocationRef goal, Unit? unit = null, ItemSystem? itemSystem = null)
     {
         var startLocation = _terrain.GetLocation(start);
         var goalLocation = _terrain.GetLocation(goal);
@@ -72,8 +72,8 @@ public class PathFinder
         if (goalLocation == null)
             throw new ArgumentException($"Goal location {goal} not found");
 
-        // Character가 있으면 아이템 효과가 반영된 ActualTags 사용
-        var context = character?.GetActualTags(itemSystem);
+        // Unit이 있으면 아이템 효과가 반영된 ActualTags 사용
+        var context = unit?.GetActualTags(itemSystem);
 
         // 같은 Region 내 탐색
         if (start.RegionId == goal.RegionId)
@@ -109,17 +109,17 @@ public class PathFinder
     }
 
     /// <summary>
-    /// 경로 탐색 (직접 Location 지정, Character + ItemSystem)
+    /// 경로 탐색 (직접 Location 지정, Unit + ItemSystem)
     /// </summary>
     public PathResult FindPath(
         int startRegionId, int startLocalId,
         int goalRegionId, int goalLocalId,
-        Character? character = null, ItemSystem? itemSystem = null)
+        Unit? unit = null, ItemSystem? itemSystem = null)
     {
         return FindPath(
             new LocationRef(startRegionId, startLocalId),
             new LocationRef(goalRegionId, goalLocalId),
-            character, itemSystem);
+            unit, itemSystem);
     }
 
     /// <summary>

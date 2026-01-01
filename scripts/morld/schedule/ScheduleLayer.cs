@@ -6,7 +6,7 @@ using SE;
 /// 스케줄 스택의 한 레이어
 /// - 일상 스케줄 (시간 기반)
 /// - 이동 명령 (목표 위치)
-/// - 따라가기 (목표 캐릭터)
+/// - 따라가기 (목표 유닛)
 /// </summary>
 public class ScheduleLayer
 {
@@ -30,7 +30,7 @@ public class ScheduleLayer
 	/// <summary>
 	/// 종료 조건 파라미터
 	/// "이동": "regionId:localId" (예: "0:1")
-	/// "따라가기": "characterId" (예: "3")
+	/// "따라가기": "unitId" (예: "3")
 	/// "순찰": "0:1,0:2,0:3" (순환 경로)
 	/// </summary>
 	public string? EndConditionParam { get; set; }
@@ -38,7 +38,7 @@ public class ScheduleLayer
 	/// <summary>
 	/// 종료 조건 충족 여부 확인
 	/// </summary>
-	public bool IsComplete(Character character, CharacterSystem? characterSystem)
+	public bool IsComplete(Unit unit, UnitSystem? unitSystem)
 	{
 		if (string.IsNullOrEmpty(EndConditionType))
 			return false; // 종료 조건 없음 = 영구 스케줄
@@ -48,14 +48,14 @@ public class ScheduleLayer
 			case "이동":
 				// param = "regionId:localId"
 				var loc = ParseLocationRef(EndConditionParam);
-				return loc.HasValue && character.CurrentLocation == loc.Value;
+				return loc.HasValue && unit.CurrentLocation == loc.Value;
 
 			case "따라가기":
-				// param = "characterId"
-				if (int.TryParse(EndConditionParam, out int targetId) && characterSystem != null)
+				// param = "unitId"
+				if (int.TryParse(EndConditionParam, out int targetId) && unitSystem != null)
 				{
-					var target = characterSystem.GetCharacter(targetId);
-					return target != null && character.CurrentLocation == target.CurrentLocation;
+					var target = unitSystem.GetUnit(targetId);
+					return target != null && unit.CurrentLocation == target.CurrentLocation;
 				}
 				return false;
 

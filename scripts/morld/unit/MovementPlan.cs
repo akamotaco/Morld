@@ -3,14 +3,14 @@ namespace Morld;
 using System.Collections.Generic;
 
 /// <summary>
-/// 캐릭터의 이동 계획 (충돌 감지용)
+/// 유닛의 이동 계획 (충돌 감지용)
 /// </summary>
 public class MovementPlan
 {
 	/// <summary>
-	/// 캐릭터 ID
+	/// 유닛 ID
 	/// </summary>
-	public int CharacterId { get; set; }
+	public int UnitId { get; set; }
 
 	/// <summary>
 	/// 이동 경로 (Location 리스트)
@@ -35,6 +35,6 @@ public class MovementPlan
 
 	public override string ToString()
 	{
-		return $"MovementPlan[{CharacterId}] {Path.Count}개 위치, 시작={StartTime}분";
+		return $"MovementPlan[{UnitId}] {Path.Count}개 위치, 시작={StartTime}분";
 	}
 }

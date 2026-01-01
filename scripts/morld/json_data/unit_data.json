@@ -15,6 +15,7 @@
         "4": 1
       },
       "equippedItems": [2, 3],
+      "actions": ["rest", "sleep", "wait"],
       "scheduleStack": [
         {
           "name": "대기",
@@ -30,7 +31,7 @@
       "comment": "npc_001",
       "regionId": 0,
       "locationId": 0,
-      "interactions": ["talk"],
+      "actions": ["talk"],
       "scheduleStack": [
         {
           "name": "일상",
@@ -55,7 +56,7 @@
       "comment": "npc_002",
       "regionId": 1,
       "locationId": 1,
-      "interactions": ["talk", "trade"],
+      "actions": ["talk", "trade"],
       "scheduleStack": [
         {
           "name": "일상",
@@ -83,7 +84,7 @@
       "tags": {
         "열쇠": 1
       },
-      "interactions": ["talk"],
+      "actions": ["talk"],
       "scheduleStack": [
         {
           "name": "일상",

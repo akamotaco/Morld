@@ -34,6 +34,11 @@ public class Item
 	/// </summary>
 	public int Value { get; set; } = 0;
 
+	/// <summary>
+	/// 가능한 액션 (예: "pickup", "drop", "use", "combine")
+	/// </summary>
+	public List<string> Actions { get; set; } = new();
+
 	public Item(int id, string name)
 	{
 		_id = id;
