@@ -142,9 +142,6 @@ public partial class GameEngine : Node
 			case "inventory":
 				HandleInventoryAction();
 				break;
-			case "pickup":
-				HandlePickupAction(parts);
-				break;
 			case "drop":
 				HandleDropAction(parts);
 				break;
@@ -174,6 +171,12 @@ public partial class GameEngine : Node
 				break;
 			case "item_combine":
 				HandleItemCombineAction(parts);
+				break;
+			case "item_unit_menu":
+				HandleItemUnitMenuAction(parts);
+				break;
+			case "back_unit":
+				HandleBackUnitAction(parts);
 				break;
 			default:
 				GD.PrintErr($"[GameEngine] Unknown action: {action}");
@@ -261,21 +264,6 @@ public partial class GameEngine : Node
 	}
 
 	/// <summary>
-	/// 아이템 줍기 처리: pickup:itemId
-	/// </summary>
-	private void HandlePickupAction(string[] parts)
-	{
-		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
-		{
-			GD.PrintErr("[GameEngine] Invalid pickup format. Expected: pickup:itemId");
-			return;
-		}
-
-		_playerSystem?.PickupItem(itemId);
-		UpdateSituationText();
-	}
-
-	/// <summary>
 	/// 아이템 놓기 처리: drop:itemId
 	/// </summary>
 	private void HandleDropAction(string[] parts)
@@ -310,17 +298,37 @@ public partial class GameEngine : Node
 	}
 
 	/// <summary>
-	/// 유닛에서 아이템 가져오기 처리: take:unitId:itemId
+	/// 아이템 가져오기 처리: take:ground:itemId 또는 take:unitId:itemId
 	/// </summary>
 	private void HandleTakeAction(string[] parts)
 	{
-		if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
+		if (parts.Length < 3)
+		{
+			GD.PrintErr("[GameEngine] Invalid take format. Expected: take:ground:itemId or take:unitId:itemId");
+			return;
+		}
+
+		// 바닥에서 줍기: take:ground:itemId
+		if (parts[1] == "ground")
+		{
+			if (!int.TryParse(parts[2], out int itemId))
+			{
+				GD.PrintErr("[GameEngine] Invalid take:ground format. Expected: take:ground:itemId");
+				return;
+			}
+			_playerSystem?.PickupItem(itemId);
+			UpdateSituationText();
+			return;
+		}
+
+		// 유닛에서 가져오기: take:unitId:itemId
+		if (!int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId2))
 		{
 			GD.PrintErr("[GameEngine] Invalid take format. Expected: take:unitId:itemId");
 			return;
 		}
 
-		_playerSystem?.TakeFromUnit(unitId, itemId);
+		_playerSystem?.TakeFromUnit(unitId, itemId2);
 
 		// 유닛 살펴보기 화면 새로고침
 		var unitLook = _playerSystem?.LookUnit(unitId);
@@ -480,6 +488,46 @@ public partial class GameEngine : Node
 		if (_textUi != null)
 		{
 			_textUi.Text = "[b]조합 기능은 아직 구현되지 않았습니다.[/b]\n\n[url=back_inventory]뒤로[/url]";
+		}
+	}
+
+	/// <summary>
+	/// 오브젝트 인벤토리 아이템 메뉴 표시: item_unit_menu:unitId:itemId:count
+	/// </summary>
+	private void HandleItemUnitMenuAction(string[] parts)
+	{
+		if (parts.Length < 4 ||
+			!int.TryParse(parts[1], out int unitId) ||
+			!int.TryParse(parts[2], out int itemId) ||
+			!int.TryParse(parts[3], out int count))
+		{
+			GD.PrintErr("[GameEngine] Invalid item_unit_menu format. Expected: item_unit_menu:unitId:itemId:count");
+			return;
+		}
+
+		if (_describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetUnitItemMenuText(unitId, itemId, count);
+			_textUi.Text = text;
+		}
+	}
+
+	/// <summary>
+	/// 유닛 화면으로 돌아가기: back_unit:unitId
+	/// </summary>
+	private void HandleBackUnitAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int unitId))
+		{
+			GD.PrintErr("[GameEngine] Invalid back_unit format. Expected: back_unit:unitId");
+			return;
+		}
+
+		var unitLook = _playerSystem?.LookUnit(unitId);
+		if (unitLook != null && _describeSystem != null && _textUi != null)
+		{
+			var text = _describeSystem.GetUnitLookText(unitLook);
+			_textUi.Text = text;
 		}
 	}
 }

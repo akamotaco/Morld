@@ -231,7 +231,8 @@ namespace SE
 							if (item != null)
 							{
 								var countText = count > 1 ? $" x{count}" : "";
-								lines.Add($"  [url=take:{unitLook.UnitId}:{itemId}]{item.Name}{countText} 가져가기[/url]");
+								// 2차 메뉴로 연결
+								lines.Add($"  [url=item_unit_menu:{unitLook.UnitId}:{itemId}:{count}]{item.Name}{countText}[/url]");
 							}
 						}
 						lines.Add("");
@@ -357,9 +358,10 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 바닥 아이템 상세 메뉴 텍스트 생성
+		/// 아이템 상세 메뉴 텍스트 생성 (통합 함수)
+		/// context: "ground" (바닥), "inventory" (플레이어 인벤토리), "container" (오브젝트/컨테이너)
 		/// </summary>
-		public string GetGroundItemMenuText(int itemId, int count)
+		public string GetItemMenuText(string context, int itemId, int count, int? unitId = null)
 		{
 			var lines = new List<string>();
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
@@ -373,48 +375,105 @@ namespace SE
 				return string.Join("\n", lines);
 			}
 
+			// 헤더 생성
 			var countText = count > 1 ? $" x{count}" : "";
-			lines.Add($"[b]{item.Name}{countText}[/b]");
+			var valueText = (context == "inventory" && item.Value > 0) ? $" ({item.Value * count}G)" : "";
+			lines.Add($"[b]{item.Name}{countText}[/b]{valueText}");
+
+			// container 컨텍스트일 경우 유닛 이름 표시
+			if (context == "container" && unitId.HasValue)
+			{
+				var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+				var unit = unitSystem?.GetUnit(unitId.Value);
+				if (unit != null)
+				{
+					lines.Add($"[color=gray]{unit.Name}에서[/color]");
+				}
+			}
 			lines.Add("");
 
-			lines.Add("[color=yellow]행동:[/color]");
-			lines.Add($"  [url=pickup:{itemId}]줍기[/url]");
-			lines.Add("");
-			lines.Add("[url=back]뒤로[/url]");
+			// 액션 필터링 및 표시
+			var filteredActions = GetFilteredActions(item.Actions, context);
+			if (filteredActions.Count > 0)
+			{
+				lines.Add("[color=yellow]행동:[/color]");
+				foreach (var action in filteredActions)
+				{
+					var (url, label) = GetActionUrlAndLabel(action, itemId, unitId, context);
+					lines.Add($"  [url={url}]{label}[/url]");
+				}
+				lines.Add("");
+			}
+
+			// 뒤로 버튼
+			var backUrl = context switch
+			{
+				"inventory" => "back_inventory",
+				"container" when unitId.HasValue => $"back_unit:{unitId.Value}",
+				_ => "back"
+			};
+			lines.Add($"[url={backUrl}]뒤로[/url]");
 
 			return string.Join("\n", lines);
 		}
 
 		/// <summary>
-		/// 인벤토리 아이템 상세 메뉴 텍스트 생성
+		/// 액션 리스트에서 현재 context에 해당하는 액션만 필터링
+		/// </summary>
+		private List<string> GetFilteredActions(List<string> actions, string context)
+		{
+			var result = new List<string>();
+			foreach (var action in actions)
+			{
+				var parts = action.Split('@');
+				if (parts.Length == 2 && parts[1] == context)
+				{
+					result.Add(parts[0]); // 액션 이름만 추출
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 액션 이름을 URL과 표시 라벨로 변환
+		/// </summary>
+		private (string url, string label) GetActionUrlAndLabel(string action, int itemId, int? unitId, string context)
+		{
+			return action switch
+			{
+				// take는 context에 따라 다른 URL 생성
+				"take" when context == "ground" => ($"take:ground:{itemId}", "줍기"),
+				"take" when context == "container" => ($"take:{unitId}:{itemId}", "가져가기"),
+				"use" => ($"item_use:{itemId}", "사용"),
+				"drop" => ($"drop:{itemId}", "버리기"),
+				"equip" => ($"equip:{itemId}", "장착"),
+				"throw" => ($"throw:{itemId}", "던지기"),
+				_ => ($"action:{action}:{itemId}", action) // 알 수 없는 액션은 그대로
+			};
+		}
+
+		/// <summary>
+		/// 바닥 아이템 상세 메뉴 텍스트 생성 (통합 함수 래퍼)
+		/// </summary>
+		public string GetGroundItemMenuText(int itemId, int count)
+		{
+			return GetItemMenuText("ground", itemId, count);
+		}
+
+		/// <summary>
+		/// 인벤토리 아이템 상세 메뉴 텍스트 생성 (통합 함수 래퍼)
 		/// </summary>
 		public string GetInventoryItemMenuText(int itemId, int count)
 		{
-			var lines = new List<string>();
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var item = itemSystem?.GetItem(itemId);
+			return GetItemMenuText("inventory", itemId, count);
+		}
 
-			if (item == null)
-			{
-				lines.Add("[color=gray]아이템을 찾을 수 없습니다.[/color]");
-				lines.Add("");
-				lines.Add("[url=back]뒤로[/url]");
-				return string.Join("\n", lines);
-			}
-
-			var countText = count > 1 ? $" x{count}" : "";
-			var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
-			lines.Add($"[b]{item.Name}{countText}[/b]{valueText}");
-			lines.Add("");
-
-			lines.Add("[color=yellow]행동:[/color]");
-			lines.Add($"  [url=item_use:{itemId}]사용[/url]");
-			lines.Add($"  [url=item_combine:{itemId}]조합[/url]");
-			lines.Add($"  [url=drop:{itemId}]버리기[/url]");
-			lines.Add("");
-			lines.Add("[url=back_inventory]뒤로[/url]");
-
-			return string.Join("\n", lines);
+		/// <summary>
+		/// 오브젝트 인벤토리 아이템 상세 메뉴 텍스트 생성 (통합 함수 래퍼)
+		/// </summary>
+		public string GetUnitItemMenuText(int unitId, int itemId, int count)
+		{
+			return GetItemMenuText("container", itemId, count, unitId);
 		}
 
 		/// <summary>

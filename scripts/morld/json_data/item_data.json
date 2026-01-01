@@ -7,7 +7,8 @@
       "열쇠": 1
     },
     "equipTags": {},
-    "value": 5
+    "value": 5,
+    "actions": ["take@ground", "take@container", "use@inventory", "drop@inventory"]
   },
   {
     "id": 1,
@@ -15,7 +16,8 @@
     "comment": "health_potion",
     "passiveTags": {},
     "equipTags": {},
-    "value": 50
+    "value": 50,
+    "actions": ["take@ground", "take@container", "use@inventory", "drop@inventory"]
   },
   {
     "id": 2,
@@ -25,7 +27,8 @@
     "equipTags": {
       "관찰": 2
     },
-    "value": 200
+    "value": 200,
+    "actions": ["take@ground", "take@container", "use@inventory", "equip@inventory", "drop@inventory"]
   },
   {
     "id": 3,
@@ -35,7 +38,8 @@
     "equipTags": {
       "방어": 1
     },
-    "value": 30
+    "value": 30,
+    "actions": ["take@ground", "take@container", "use@inventory", "equip@inventory", "drop@inventory"]
   },
   {
     "id": 4,
@@ -43,6 +47,7 @@
     "comment": "stone",
     "passiveTags": {},
     "equipTags": {},
-    "value": 1
+    "value": 1,
+    "actions": ["take@ground", "take@container", "throw@inventory", "drop@inventory"]
   }
 ]
