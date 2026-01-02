@@ -185,18 +185,41 @@ namespace SE
 
 			var pageText = pages[currentPage];
 			var isLastPage = currentPage >= pages.Count - 1;
+			var buttonType = focus.MonologueButtonType;
+
+			// 페이지에 script: 링크가 있으면 선택형 페이지 - None 타입으로 자동 전환
+			bool hasScriptLink = pageText.Contains("[url=script:");
+			if (hasScriptLink)
+			{
+				buttonType = MonologueButtonType.None;
+			}
 
 			var lines = new List<string>();
 			lines.Add(pageText);
-			lines.Add("");
 
-			if (isLastPage)
+			// 버튼 타입에 따라 다른 버튼 렌더링
+			switch (buttonType)
 			{
-				lines.Add("[url=monologue_done]확인[/url]");
-			}
-			else
-			{
-				lines.Add("[url=monologue_next]계속[/url]");
+				case MonologueButtonType.Ok:
+					lines.Add("");
+					if (isLastPage)
+					{
+						lines.Add("[url=monologue_done]확인[/url]");
+					}
+					else
+					{
+						lines.Add("[url=monologue_next]계속[/url]");
+					}
+					break;
+
+				case MonologueButtonType.None:
+					// 버튼 없음 (선택지가 페이지 내에 포함된 경우)
+					break;
+
+				case MonologueButtonType.YesNo:
+					lines.Add("");
+					lines.Add("[url=monologue_yes]승낙[/url]  [url=monologue_no]거절[/url]");
+					break;
 			}
 
 			return string.Join("\n", lines);
@@ -258,10 +281,10 @@ namespace SE
 		/// <summary>
 		/// 모놀로그 표시 (Push) - 페이지 데이터 직접 전달
 		/// </summary>
-		public void ShowMonologue(List<string> pages, int timeConsumed)
+		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok)
 		{
 			ClearActionMessage();
-			_stack.Push(Focus.Monologue(pages, timeConsumed));
+			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType));
 			UpdateDisplay();
 		}
 

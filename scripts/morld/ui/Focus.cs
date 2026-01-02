@@ -16,6 +16,16 @@ public enum FocusType
 }
 
 /// <summary>
+/// 모놀로그 버튼 타입 (Win32 MessageBox 스타일)
+/// </summary>
+public enum MonologueButtonType
+{
+	Ok,          // [확인] - 기본값
+	None,        // 버튼 없음 (선택지가 페이지에 포함된 경우)
+	YesNo        // [승낙] [거절]
+}
+
+/// <summary>
 /// UI 포커스 정보 (스택의 각 요소)
 /// </summary>
 public class Focus
@@ -61,6 +71,11 @@ public class Focus
 	public int CurrentPage { get; set; } = 0;
 
 	/// <summary>
+	/// 모놀로그 버튼 타입 (Monologue 타입에서 사용)
+	/// </summary>
+	public MonologueButtonType MonologueButtonType { get; set; } = MonologueButtonType.Ok;
+
+	/// <summary>
 	/// 펼쳐진 토글 ID 목록
 	/// </summary>
 	public HashSet<string> ExpandedToggles { get; set; } = new();
@@ -72,6 +87,6 @@ public class Focus
 	public static Focus Item(int itemId, string context, int? unitId = null)
 		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, UnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
-	public static Focus Monologue(List<string> pages, int timeConsumed)
-		=> new() { Type = FocusType.Monologue, MonologuePages = pages, MonologueTimeConsumed = timeConsumed, CurrentPage = 0 };
+	public static Focus Monologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok)
+		=> new() { Type = FocusType.Monologue, MonologuePages = pages, MonologueTimeConsumed = timeConsumed, CurrentPage = 0, MonologueButtonType = buttonType };
 }

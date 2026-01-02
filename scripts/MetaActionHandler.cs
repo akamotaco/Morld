@@ -472,12 +472,46 @@ public class MetaActionHandler
 			return;
 		}
 
-		var result = scriptSystem.CallFunction(functionName, args);
+		var result = scriptSystem.CallFunctionEx(functionName, args);
 
-		// 결과가 있으면 Result 화면에 표시
-		if (!string.IsNullOrEmpty(result))
+		// 결과 타입에 따른 처리
+		if (result == null)
 		{
-			_textUISystem?.ShowResult(result);
+			return;
+		}
+
+		switch (result.Type)
+		{
+			case "monologue":
+				if (result is SE.MonologueScriptResult monoResult)
+				{
+					// 모놀로그 표시 (현재 화면 대체)
+					_textUISystem?.Pop();  // 현재 모놀로그 제거
+					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType);
+#if DEBUG_LOG
+					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType})");
+#endif
+				}
+				break;
+
+			case "message":
+				if (!string.IsNullOrEmpty(result.Message))
+				{
+					_textUISystem?.ShowResult(result.Message);
+				}
+				break;
+
+			case "error":
+				GD.PrintErr($"[MetaActionHandler] Script error: {result.Message}");
+				_textUISystem?.ShowResult($"스크립트 오류: {result.Message}");
+				break;
+
+			default:
+				if (!string.IsNullOrEmpty(result.Message))
+				{
+					_textUISystem?.ShowResult(result.Message);
+				}
+				break;
 		}
 	}
 

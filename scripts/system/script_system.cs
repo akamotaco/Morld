@@ -11,9 +11,131 @@ namespace SE
     {
         private IntegratedPythonInterpreter _interpreter;
 
+        // 게임 시스템 참조 (morld 모듈에서 사용)
+        private InventorySystem _inventorySystem;
+        private PlayerSystem _playerSystem;
+
         public ScriptSystem()
         {
             _interpreter = new IntegratedPythonInterpreter();
+        }
+
+        /// <summary>
+        /// 게임 시스템 참조 설정 및 morld 모듈 등록
+        /// </summary>
+        public void SetSystemReferences(InventorySystem inventorySystem, PlayerSystem playerSystem)
+        {
+            _inventorySystem = inventorySystem;
+            _playerSystem = playerSystem;
+
+            RegisterMorldModule();
+        }
+
+        /// <summary>
+        /// morld Python 모듈 등록 - 게임 데이터 조작 API
+        /// </summary>
+        private void RegisterMorldModule()
+        {
+            Godot.GD.Print("[ScriptSystem] Registering morld module...");
+
+            try
+            {
+                // morld 모듈 생성
+                var morldModule = new PyModule("morld", "<morld module>");
+
+                // === 플레이어 API ===
+                morldModule.ModuleDict["get_player_id"] = new PyBuiltinFunction("get_player_id", args =>
+                {
+                    if (_playerSystem == null) return new PyInt(-1);
+                    return new PyInt(_playerSystem.PlayerId);
+                });
+
+                // === 인벤토리 API ===
+                morldModule.ModuleDict["give_item"] = new PyBuiltinFunction("give_item", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("give_item(unit_id, item_id, count=1) requires at least 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int itemId = args[1].ToInt();
+                    int count = args.Length >= 3 ? args[2].ToInt() : 1;
+
+                    if (_inventorySystem != null)
+                    {
+                        _inventorySystem.AddItemToUnit(unitId, itemId, count);
+                        Godot.GD.Print($"[morld] give_item: unit={unitId}, item={itemId}, count={count}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["remove_item"] = new PyBuiltinFunction("remove_item", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("remove_item(unit_id, item_id, count=1) requires at least 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int itemId = args[1].ToInt();
+                    int count = args.Length >= 3 ? args[2].ToInt() : 1;
+
+                    if (_inventorySystem != null)
+                    {
+                        bool success = _inventorySystem.RemoveItemFromUnit(unitId, itemId, count);
+                        Godot.GD.Print($"[morld] remove_item: unit={unitId}, item={itemId}, count={count}, success={success}");
+                        return PyBool.FromBool(success);
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["get_inventory"] = new PyBuiltinFunction("get_inventory", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_inventory(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_inventorySystem != null)
+                    {
+                        var inventory = _inventorySystem.GetUnitInventory(unitId);
+                        var pyDict = new PyDict();
+                        foreach (var kvp in inventory)
+                        {
+                            pyDict.SetItem(new PyInt(kvp.Key), new PyInt(kvp.Value));
+                        }
+                        return pyDict;
+                    }
+                    return new PyDict();
+                });
+
+                morldModule.ModuleDict["has_item"] = new PyBuiltinFunction("has_item", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("has_item(unit_id, item_id, count=1) requires at least 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int itemId = args[1].ToInt();
+                    int count = args.Length >= 3 ? args[2].ToInt() : 1;
+
+                    if (_inventorySystem != null)
+                    {
+                        var inventory = _inventorySystem.GetUnitInventory(unitId);
+                        if (inventory.TryGetValue(itemId, out int owned))
+                        {
+                            return PyBool.FromBool(owned >= count);
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // sys.modules에 등록
+                PyImportSystem.SetModule("morld", morldModule);
+
+                Godot.GD.Print("[ScriptSystem] morld module registered successfully.");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] RegisterMorldModule error: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -129,14 +251,14 @@ namespace SE
         }
 
         /// <summary>
-        /// Python 함수 호출 (BBCode script: prefix용)
+        /// Python 함수 호출 (BBCode script: prefix용) - 구조화된 결과 반환
         /// </summary>
         /// <param name="functionName">호출할 함수 이름</param>
         /// <param name="args">콜론으로 구분된 인자들</param>
-        /// <returns>함수 실행 결과 (문자열 변환)</returns>
-        public string CallFunction(string functionName, string[] args)
+        /// <returns>함수 실행 결과 (ScriptResult)</returns>
+        public ScriptResult CallFunctionEx(string functionName, string[] args)
         {
-            Godot.GD.Print($"[ScriptSystem] CallFunction: {functionName}({string.Join(", ", args)})");
+            Godot.GD.Print($"[ScriptSystem] CallFunctionEx: {functionName}({string.Join(", ", args)})");
 
             try
             {
@@ -164,33 +286,109 @@ namespace SE
 
                 Godot.GD.Print($"[ScriptSystem] Result type: {result?.GetType().Name ?? "null"}, value: {result}");
 
-                // 결과를 문자열로 변환
-                if (result is PyString pyStr)
+                // PyDict인 경우 구조화된 결과로 파싱
+                if (result is PyDict dict)
                 {
-                    Godot.GD.Print($"[ScriptSystem] Returning PyString: {pyStr.Value}");
-                    return pyStr.Value;
+                    return ParseDictResult(dict);
+                }
+                // 문자열 결과
+                else if (result is PyString pyStr)
+                {
+                    return new ScriptResult { Type = "message", Message = pyStr.Value };
                 }
                 else if (result is PyInt pyInt)
                 {
-                    Godot.GD.Print($"[ScriptSystem] Returning PyInt: {pyInt.Value}");
-                    return pyInt.Value.ToString();
+                    return new ScriptResult { Type = "message", Message = pyInt.Value.ToString() };
                 }
-                else if (result is PyNone)
+                else if (result is PyNone || result == null)
                 {
-                    Godot.GD.Print($"[ScriptSystem] Returning PyNone (null)");
                     return null;
                 }
                 else
                 {
-                    Godot.GD.Print($"[ScriptSystem] Returning other: {result?.ToString() ?? "null"}");
-                    return result?.ToString() ?? "";
+                    return new ScriptResult { Type = "message", Message = result?.ToString() ?? "" };
                 }
             }
             catch (System.Exception ex)
             {
-                Godot.GD.PrintErr($"[ScriptSystem] CallFunction error: {ex.Message}");
-                return $"Error: {ex.Message}";
+                Godot.GD.PrintErr($"[ScriptSystem] CallFunctionEx error: {ex.Message}");
+                return new ScriptResult { Type = "error", Message = ex.Message };
             }
+        }
+
+        /// <summary>
+        /// PyDict 결과를 ScriptResult로 파싱
+        /// </summary>
+        private ScriptResult ParseDictResult(PyDict dict)
+        {
+            var typeObj = dict.GetItem(new PyString("type"));
+            var type = (typeObj as PyString)?.Value;
+
+            if (type == "monologue")
+            {
+                var pagesObj = dict.GetItem(new PyString("pages"));
+                var timeObj = dict.GetItem(new PyString("time_consumed"));
+                // button_type은 선택적 필드 - Get()은 키가 없으면 None 반환
+                var buttonTypeObj = dict.Get(new PyString("button_type"));
+
+                var pages = new System.Collections.Generic.List<string>();
+                if (pagesObj is PyList pagesList)
+                {
+                    for (int i = 0; i < pagesList.Length(); i++)
+                    {
+                        var page = pagesList.GetItem(i);
+                        if (page is PyString pageStr)
+                        {
+                            pages.Add(pageStr.Value);
+                        }
+                    }
+                }
+
+                int timeConsumed = 0;
+                if (timeObj is PyInt timeInt)
+                {
+                    timeConsumed = (int)timeInt.Value;
+                }
+
+                // button_type 파싱 ("ok", "none", "yesno")
+                var buttonType = Morld.MonologueButtonType.Ok;
+                if (buttonTypeObj is PyString buttonTypeStr)
+                {
+                    buttonType = buttonTypeStr.Value.ToLower() switch
+                    {
+                        "none" => Morld.MonologueButtonType.None,
+                        "yesno" => Morld.MonologueButtonType.YesNo,
+                        _ => Morld.MonologueButtonType.Ok
+                    };
+                }
+
+                Godot.GD.Print($"[ScriptSystem] Parsed monologue result: {pages.Count} pages, {timeConsumed}min, button={buttonType}");
+                return new MonologueScriptResult
+                {
+                    Type = "monologue",
+                    Pages = pages,
+                    TimeConsumed = timeConsumed,
+                    ButtonType = buttonType
+                };
+            }
+
+            // 기본 메시지 결과
+            var messageObj = dict.GetItem(new PyString("message"));
+            var message = (messageObj as PyString)?.Value ?? "";
+            return new ScriptResult { Type = type ?? "unknown", Message = message };
+        }
+
+        /// <summary>
+        /// Python 함수 호출 (BBCode script: prefix용) - 문자열 결과 반환 (레거시)
+        /// </summary>
+        /// <param name="functionName">호출할 함수 이름</param>
+        /// <param name="args">콜론으로 구분된 인자들</param>
+        /// <returns>함수 실행 결과 (문자열 변환)</returns>
+        public string CallFunction(string functionName, string[] args)
+        {
+            var result = CallFunctionEx(functionName, args);
+            if (result == null) return null;
+            return result.Message;
         }
 
         /// <summary>
@@ -310,5 +508,24 @@ def calculate(a, b):
     {
         public System.Collections.Generic.List<string> Pages { get; set; } = new();
         public int TimeConsumed { get; set; }
+    }
+
+    /// <summary>
+    /// 스크립트 함수 호출 결과 기본 클래스
+    /// </summary>
+    public class ScriptResult
+    {
+        public string Type { get; set; }  // "message", "monologue", "error" 등
+        public string Message { get; set; }
+    }
+
+    /// <summary>
+    /// 모놀로그 스크립트 결과 - 페이지 데이터 포함
+    /// </summary>
+    public class MonologueScriptResult : ScriptResult
+    {
+        public System.Collections.Generic.List<string> Pages { get; set; } = new();
+        public int TimeConsumed { get; set; }
+        public Morld.MonologueButtonType ButtonType { get; set; } = Morld.MonologueButtonType.Ok;
     }
 }
