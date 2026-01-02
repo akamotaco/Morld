@@ -98,8 +98,8 @@ public partial class GameEngine : Node
 		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
 		_actionHandler.OnUpdateSituation += UpdateSituationText;
 
-		// 게임 시작 모놀로그 트리거
-		TriggerStartMonologue();
+		// 게임 시작 이벤트 트리거
+		TriggerEvent("ready");
 
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
@@ -144,17 +144,32 @@ public partial class GameEngine : Node
 	}
 
 	/// <summary>
-	/// 게임 시작 시 모놀로그 트리거
+	/// 이벤트 트리거 및 결과 처리
 	/// </summary>
-	private void TriggerStartMonologue()
+	private void TriggerEvent(string eventName)
 	{
-		// 게임 시작 시 intro_001 모놀로그 표시
-		// (플래그 없이 무한 반복 - 테스트용)
-		_textUISystem?.ShowMonologue("intro_001");
+		if (_scriptSystem == null) return;
 
+		var result = _scriptSystem.TriggerEvent(eventName);
+		if (result == null) return;
+
+		// 이벤트 결과에 따른 처리
+		switch (result.Type)
+		{
+			case "monologue":
+				if (result is SE.MonologueEventResult monoResult)
+				{
+					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed);
 #if DEBUG_LOG
-		GD.Print("[GameEngine] 시작 모놀로그 트리거: intro_001");
+					GD.Print($"[GameEngine] 이벤트 '{eventName}' → 모놀로그 ({monoResult.Pages.Count} pages)");
 #endif
+				}
+				break;
+
+			default:
+				GD.PrintErr($"[GameEngine] 알 수 없는 이벤트 결과 타입: {result.Type}");
+				break;
+		}
 	}
 
 	/// <summary>

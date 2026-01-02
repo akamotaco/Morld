@@ -224,5 +224,91 @@ def calculate(a, b):
                 Godot.GD.PrintErr($"[ScriptSystem] RegisterTestFunctions error: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// 이벤트 트리거 - Python on_event() 호출
+        /// </summary>
+        /// <param name="eventName">이벤트 이름 (예: "ready", "enter_forest")</param>
+        /// <returns>이벤트 결과 (EventResult)</returns>
+        public EventResult TriggerEvent(string eventName)
+        {
+            Godot.GD.Print($"[ScriptSystem] TriggerEvent: {eventName}");
+
+            try
+            {
+                var result = Eval($"on_event('{eventName}')");
+
+                if (result is PyNone || result == null)
+                {
+                    return null;
+                }
+
+                // PyDict에서 결과 파싱
+                if (result is PyDict dict)
+                {
+                    var typeObj = dict.GetItem(new PyString("type"));
+                    var type = (typeObj as PyString)?.Value;
+
+                    if (type == "monologue")
+                    {
+                        // pages 배열과 time_consumed 직접 파싱
+                        var pagesObj = dict.GetItem(new PyString("pages"));
+                        var timeObj = dict.GetItem(new PyString("time_consumed"));
+
+                        var pages = new System.Collections.Generic.List<string>();
+                        if (pagesObj is PyList pagesList)
+                        {
+                            for (int i = 0; i < pagesList.Length(); i++)
+                            {
+                                var page = pagesList.GetItem(i);
+                                if (page is PyString pageStr)
+                                {
+                                    pages.Add(pageStr.Value);
+                                }
+                            }
+                        }
+
+                        int timeConsumed = 0;
+                        if (timeObj is PyInt timeInt)
+                        {
+                            timeConsumed = (int)timeInt.Value;
+                        }
+
+                        Godot.GD.Print($"[ScriptSystem] Event result: monologue ({pages.Count} pages, {timeConsumed}min)");
+                        return new MonologueEventResult
+                        {
+                            Type = "monologue",
+                            Pages = pages,
+                            TimeConsumed = timeConsumed
+                        };
+                    }
+                }
+
+                Godot.GD.Print($"[ScriptSystem] Unknown event result: {result}");
+                return null;
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] TriggerEvent error: {ex.Message}");
+                return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 이벤트 결과 기본 클래스
+    /// </summary>
+    public class EventResult
+    {
+        public string Type { get; set; }  // "monologue", "dialogue" 등
+    }
+
+    /// <summary>
+    /// 모놀로그 이벤트 결과 - 페이지 데이터 포함
+    /// </summary>
+    public class MonologueEventResult : EventResult
+    {
+        public System.Collections.Generic.List<string> Pages { get; set; } = new();
+        public int TimeConsumed { get; set; }
     }
 }

@@ -46,9 +46,14 @@ public class Focus
 	public string? Message { get; set; }
 
 	/// <summary>
-	/// 모놀로그 ID (Monologue 타입에서 사용)
+	/// 모놀로그 페이지 목록 (Monologue 타입에서 사용)
 	/// </summary>
-	public string? MonologueId { get; set; }
+	public List<string>? MonologuePages { get; set; }
+
+	/// <summary>
+	/// 모놀로그 완료 시 소요 시간 (Monologue 타입에서 사용)
+	/// </summary>
+	public int MonologueTimeConsumed { get; set; } = 0;
 
 	/// <summary>
 	/// 현재 페이지 인덱스 (Monologue 타입에서 사용)
@@ -67,5 +72,6 @@ public class Focus
 	public static Focus Item(int itemId, string context, int? unitId = null)
 		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, UnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
-	public static Focus Monologue(string monologueId) => new() { Type = FocusType.Monologue, MonologueId = monologueId, CurrentPage = 0 };
+	public static Focus Monologue(List<string> pages, int timeConsumed)
+		=> new() { Type = FocusType.Monologue, MonologuePages = pages, MonologueTimeConsumed = timeConsumed, CurrentPage = 0 };
 }

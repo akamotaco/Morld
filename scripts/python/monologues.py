@@ -1,7 +1,6 @@
 # monologues.py - 모놀로그 데이터 및 함수
 # Pure Python으로 모놀로그 콘텐츠 관리
-
-# 전역 변수 대신 함수 내부에서 데이터 정의 (sharpPy 전역 스코프 테스트)
+# 이벤트 기반 스크립트 시스템
 
 def _get_monologues():
     """모놀로그 데이터 반환 (sharpPy 전역 변수 우회)"""
@@ -47,3 +46,23 @@ def get_monologue_time_consumed(monologue_id):
         if "time_consumed" in mono:
             return mono["time_consumed"]
     return 0
+
+
+# === 이벤트 핸들러 ===
+
+def on_event(ev_msg):
+    """
+    이벤트 핸들러 - C#에서 이벤트 발생 시 호출
+    반환값: {"type": "monologue", "pages": [...], "time_consumed": N} 또는 None
+    """
+    if ev_msg == "ready":
+        # 게임 시작 시 인트로 모놀로그 - 데이터 직접 반환
+        mono = get_monologue("intro_001")
+        if mono:
+            return {
+                "type": "monologue",
+                "pages": mono["pages"],
+                "time_consumed": mono.get("time_consumed", 0)
+            }
+
+    return None

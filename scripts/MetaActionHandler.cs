@@ -493,17 +493,15 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 모놀로그 완료: monologue_done:monologueId
+	/// 모놀로그 완료: monologue_done
 	/// </summary>
 	private void HandleMonologueDoneAction(string[] parts)
 	{
-		var monologueId = parts.Length > 1 ? parts[1] : "";
-
 #if DEBUG_LOG
-		GD.Print($"[MetaActionHandler] Monologue done: {monologueId}");
+		GD.Print("[MetaActionHandler] Monologue done");
 #endif
 
-		var timeConsumed = _textUISystem?.MonologueDone(monologueId) ?? 0;
+		var timeConsumed = _textUISystem?.MonologueDone() ?? 0;
 
 		if (timeConsumed > 0)
 		{

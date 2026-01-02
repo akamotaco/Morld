@@ -171,25 +171,20 @@ namespace SE
 
 		private string RenderMonologue(Focus focus)
 		{
-			if (_scriptSystem == null || string.IsNullOrEmpty(focus.MonologueId))
+			var pages = focus.MonologuePages;
+			if (pages == null || pages.Count == 0)
 			{
 				return "[color=gray]모놀로그를 불러올 수 없습니다.[/color]\n\n[url=monologue_done]확인[/url]";
 			}
 
-			var monologueId = focus.MonologueId;
 			var currentPage = focus.CurrentPage;
-
-			// Python에서 페이지 텍스트와 총 페이지 수 가져오기
-			var pageText = _scriptSystem.CallFunction("get_monologue_page", new[] { monologueId, currentPage.ToString() });
-			var pageCountStr = _scriptSystem.CallFunction("get_monologue_page_count", new[] { monologueId });
-
-			if (string.IsNullOrEmpty(pageText))
+			if (currentPage < 0 || currentPage >= pages.Count)
 			{
 				return "[color=gray]모놀로그 페이지를 찾을 수 없습니다.[/color]\n\n[url=monologue_done]확인[/url]";
 			}
 
-			int.TryParse(pageCountStr, out int pageCount);
-			var isLastPage = currentPage >= pageCount - 1;
+			var pageText = pages[currentPage];
+			var isLastPage = currentPage >= pages.Count - 1;
 
 			var lines = new List<string>();
 			lines.Add(pageText);
@@ -197,7 +192,7 @@ namespace SE
 
 			if (isLastPage)
 			{
-				lines.Add($"[url=monologue_done:{monologueId}]확인[/url]");
+				lines.Add("[url=monologue_done]확인[/url]");
 			}
 			else
 			{
@@ -261,12 +256,12 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 모놀로그 표시 (Push)
+		/// 모놀로그 표시 (Push) - 페이지 데이터 직접 전달
 		/// </summary>
-		public void ShowMonologue(string monologueId)
+		public void ShowMonologue(List<string> pages, int timeConsumed)
 		{
 			ClearActionMessage();
-			_stack.Push(Focus.Monologue(monologueId));
+			_stack.Push(Focus.Monologue(pages, timeConsumed));
 			UpdateDisplay();
 		}
 
@@ -285,14 +280,14 @@ namespace SE
 		/// 모놀로그 완료 처리 (Pop + 시간 소요)
 		/// </summary>
 		/// <returns>소요 시간 (분)</returns>
-		public int MonologueDone(string monologueId)
+		public int MonologueDone()
 		{
 			int timeConsumed = 0;
 
-			if (_scriptSystem != null)
+			// Focus에 저장된 시간 사용
+			if (_stack.Current?.Type == FocusType.Monologue)
 			{
-				var timeStr = _scriptSystem.CallFunction("get_monologue_time_consumed", new[] { monologueId });
-				int.TryParse(timeStr, out timeConsumed);
+				timeConsumed = _stack.Current.MonologueTimeConsumed;
 			}
 
 			Pop();
