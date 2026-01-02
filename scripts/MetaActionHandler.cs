@@ -102,6 +102,15 @@ public class MetaActionHandler
 			case "put_select":
 				HandlePutSelectAction(parts);
 				break;
+			case "script":
+				HandleScriptAction(parts);
+				break;
+			case "monologue_next":
+				HandleMonologueNextAction();
+				break;
+			case "monologue_done":
+				HandleMonologueDoneAction(parts);
+				break;
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
 				break;
@@ -434,5 +443,74 @@ public class MetaActionHandler
 
 		// 인벤토리 화면으로 전환 (현재 Unit Focus 위에 Push)
 		_textUISystem?.ShowInventory();
+	}
+
+	/// <summary>
+	/// Python 스크립트 함수 호출: script:functionName:arg1:arg2:...
+	/// </summary>
+	private void HandleScriptAction(string[] parts)
+	{
+		if (parts.Length < 2)
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid script format. Expected: script:functionName[:arg1:arg2:...]");
+			return;
+		}
+
+		var functionName = parts[1];
+		var args = parts.Length > 2
+			? parts[2..]  // C# 8.0 range operator
+			: System.Array.Empty<string>();
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] Script call: {functionName}({string.Join(", ", args)})");
+#endif
+
+		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] ScriptSystem not found");
+			return;
+		}
+
+		var result = scriptSystem.CallFunction(functionName, args);
+
+		// 결과가 있으면 Result 화면에 표시
+		if (!string.IsNullOrEmpty(result))
+		{
+			_textUISystem?.ShowResult(result);
+		}
+	}
+
+	/// <summary>
+	/// 모놀로그 다음 페이지: monologue_next
+	/// </summary>
+	private void HandleMonologueNextAction()
+	{
+#if DEBUG_LOG
+		GD.Print("[MetaActionHandler] Monologue next page");
+#endif
+		_textUISystem?.MonologueNextPage();
+	}
+
+	/// <summary>
+	/// 모놀로그 완료: monologue_done:monologueId
+	/// </summary>
+	private void HandleMonologueDoneAction(string[] parts)
+	{
+		var monologueId = parts.Length > 1 ? parts[1] : "";
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] Monologue done: {monologueId}");
+#endif
+
+		var timeConsumed = _textUISystem?.MonologueDone(monologueId) ?? 0;
+
+		if (timeConsumed > 0)
+		{
+			_playerSystem?.RequestTimeAdvance(timeConsumed, "모놀로그");
+		}
+
+		// 모놀로그가 끝나면 상황 업데이트
+		RequestUpdateSituation();
 	}
 }

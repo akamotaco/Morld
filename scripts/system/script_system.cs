@@ -17,7 +17,7 @@ namespace SE
         }
 
         /// <summary>
-        /// Python 코드 실행
+        /// Python 코드 실행 (File 모드 - 함수 정의, import 등)
         /// </summary>
         public PyObject Execute(string code)
         {
@@ -25,18 +25,89 @@ namespace SE
         }
 
         /// <summary>
+        /// Python 표현식 평가 (Eval 모드)
+        /// CompileMode.Eval로 표현식을 컴파일하여 결과 반환
+        /// </summary>
+        public PyObject Eval(string expression)
+        {
+            return _interpreter.ExecuteEval(expression);
+        }
+
+        /// <summary>
         /// Python 파일 실행
         /// </summary>
         public PyObject ExecuteFile(string filePath)
         {
-            if (!System.IO.File.Exists(filePath))
+            string code;
+
+            // res:// 경로는 Godot FileAccess로 읽기
+            if (filePath.StartsWith("res://"))
             {
-                Godot.GD.PrintErr($"[ScriptSystem] File not found: {filePath}");
-                return PyNone.Instance;
+                using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
+                if (file == null)
+                {
+                    var error = Godot.FileAccess.GetOpenError();
+                    Godot.GD.PrintErr($"[ScriptSystem] Failed to open file: {filePath} (Error: {error})");
+                    return PyNone.Instance;
+                }
+                code = file.GetAsText();
+            }
+            else
+            {
+                // 일반 파일 시스템 경로
+                if (!System.IO.File.Exists(filePath))
+                {
+                    Godot.GD.PrintErr($"[ScriptSystem] File not found: {filePath}");
+                    return PyNone.Instance;
+                }
+                code = System.IO.File.ReadAllText(filePath);
             }
 
-            var code = System.IO.File.ReadAllText(filePath);
             return _interpreter.Execute(code, filePath, false, false, false);
+        }
+
+        /// <summary>
+        /// 모놀로그 스크립트 로드
+        /// </summary>
+        public void LoadMonologueScripts()
+        {
+            Godot.GD.Print("[ScriptSystem] Loading monologue scripts...");
+            try
+            {
+                // 파일 내용을 읽어서 Execute로 직접 실행 (ExecuteFile 대신)
+                string code;
+                var filePath = "res://scripts/python/monologues.py";
+
+                using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
+                if (file == null)
+                {
+                    var error = Godot.FileAccess.GetOpenError();
+                    Godot.GD.PrintErr($"[ScriptSystem] Failed to open monologue file: {filePath} (Error: {error})");
+                    return;
+                }
+                code = file.GetAsText();
+
+                Godot.GD.Print($"[ScriptSystem] Monologue file loaded, {code.Length} chars");
+                Godot.GD.Print($"[ScriptSystem] First 200 chars: {code.Substring(0, System.Math.Min(200, code.Length))}");
+
+                // Execute로 직접 실행 (전역 스코프에 함수 등록)
+                var execResult = Execute(code);
+                Godot.GD.Print($"[ScriptSystem] Execute result: {execResult?.GetType().Name} = {execResult}");
+
+                Godot.GD.Print("[ScriptSystem] Monologue scripts loaded successfully.");
+
+                // 테스트: 함수가 정의되었는지 확인 (Eval 모드로 호출)
+                var testResult = Eval("get_monologue_page_count('intro_001')");
+                Godot.GD.Print($"[ScriptSystem] Test get_monologue_page_count: {testResult?.GetType().Name} = {testResult}");
+
+                // 비교 테스트: RegisterTestFunctions에서 등록한 함수 호출
+                var testDialogueResult = Eval("test_dialogue('테스트')");
+                Godot.GD.Print($"[ScriptSystem] test_dialogue result: {testDialogueResult?.GetType().Name} = {testDialogueResult}");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] LoadMonologueScripts error: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -54,6 +125,103 @@ namespace SE
             catch (System.Exception ex)
             {
                 Godot.GD.PrintErr($"[ScriptSystem] Error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Python 함수 호출 (BBCode script: prefix용)
+        /// </summary>
+        /// <param name="functionName">호출할 함수 이름</param>
+        /// <param name="args">콜론으로 구분된 인자들</param>
+        /// <returns>함수 실행 결과 (문자열 변환)</returns>
+        public string CallFunction(string functionName, string[] args)
+        {
+            Godot.GD.Print($"[ScriptSystem] CallFunction: {functionName}({string.Join(", ", args)})");
+
+            try
+            {
+                // 인자를 Python 형태로 변환
+                var pyArgs = new System.Collections.Generic.List<string>();
+                foreach (var arg in args)
+                {
+                    // 숫자인지 확인
+                    if (int.TryParse(arg, out _) || double.TryParse(arg, out _))
+                    {
+                        pyArgs.Add(arg);
+                    }
+                    else
+                    {
+                        // 문자열로 처리
+                        pyArgs.Add($"'{arg}'");
+                    }
+                }
+
+                var code = $"{functionName}({string.Join(", ", pyArgs)})";
+                Godot.GD.Print($"[ScriptSystem] Evaluating: {code}");
+
+                // Eval 모드로 실행해야 함수 호출 결과를 반환받을 수 있음
+                var result = Eval(code);
+
+                Godot.GD.Print($"[ScriptSystem] Result type: {result?.GetType().Name ?? "null"}, value: {result}");
+
+                // 결과를 문자열로 변환
+                if (result is PyString pyStr)
+                {
+                    Godot.GD.Print($"[ScriptSystem] Returning PyString: {pyStr.Value}");
+                    return pyStr.Value;
+                }
+                else if (result is PyInt pyInt)
+                {
+                    Godot.GD.Print($"[ScriptSystem] Returning PyInt: {pyInt.Value}");
+                    return pyInt.Value.ToString();
+                }
+                else if (result is PyNone)
+                {
+                    Godot.GD.Print($"[ScriptSystem] Returning PyNone (null)");
+                    return null;
+                }
+                else
+                {
+                    Godot.GD.Print($"[ScriptSystem] Returning other: {result?.ToString() ?? "null"}");
+                    return result?.ToString() ?? "";
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallFunction error: {ex.Message}");
+                return $"Error: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// 테스트용 Python 함수 등록
+        /// </summary>
+        public void RegisterTestFunctions()
+        {
+            Godot.GD.Print("[ScriptSystem] Registering test functions...");
+
+            var testCode = @"
+def test_dialogue(character_name):
+    print(f'[Python] test_dialogue called with: {character_name}')
+    return f'{character_name}와(과)의 대화를 시작합니다.'
+
+def get_greeting(name):
+    print(f'[Python] get_greeting called with: {name}')
+    return f'안녕하세요, {name}님!'
+
+def calculate(a, b):
+    print(f'[Python] calculate called with: {a}, {b}')
+    return a + b
+";
+
+            try
+            {
+                Execute(testCode);
+                Godot.GD.Print("[ScriptSystem] Test functions registered successfully.");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] RegisterTestFunctions error: {ex.Message}");
             }
         }
     }

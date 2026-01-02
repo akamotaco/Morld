@@ -23,6 +23,7 @@ namespace SE
 		// 데이터 조회용 참조 (UpdateDisplay에서 사용)
 		private PlayerSystem? _playerSystem;
 		private InventorySystem? _inventorySystem;
+		private ScriptSystem? _scriptSystem;
 
 		public TextUISystem(RichTextLabel textUi, DescribeSystem describeSystem)
 		{
@@ -33,10 +34,11 @@ namespace SE
 		/// <summary>
 		/// 시스템 참조 설정 (GameEngine에서 호출)
 		/// </summary>
-		public void SetSystemReferences(PlayerSystem playerSystem, InventorySystem inventorySystem)
+		public void SetSystemReferences(PlayerSystem playerSystem, InventorySystem inventorySystem, ScriptSystem? scriptSystem = null)
 		{
 			_playerSystem = playerSystem;
 			_inventorySystem = inventorySystem;
+			_scriptSystem = scriptSystem;
 		}
 
 		/// <summary>
@@ -104,6 +106,7 @@ namespace SE
 				FocusType.Inventory => RenderInventory(),
 				FocusType.Item => RenderItem(focus.ItemId ?? 0, focus.Context ?? "inventory", focus.UnitId),
 				FocusType.Result => RenderResult(focus.Message ?? ""),
+				FocusType.Monologue => RenderMonologue(focus),
 				_ => ""
 			};
 		}
@@ -166,6 +169,44 @@ namespace SE
 			return $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
 		}
 
+		private string RenderMonologue(Focus focus)
+		{
+			if (_scriptSystem == null || string.IsNullOrEmpty(focus.MonologueId))
+			{
+				return "[color=gray]모놀로그를 불러올 수 없습니다.[/color]\n\n[url=monologue_done]확인[/url]";
+			}
+
+			var monologueId = focus.MonologueId;
+			var currentPage = focus.CurrentPage;
+
+			// Python에서 페이지 텍스트와 총 페이지 수 가져오기
+			var pageText = _scriptSystem.CallFunction("get_monologue_page", new[] { monologueId, currentPage.ToString() });
+			var pageCountStr = _scriptSystem.CallFunction("get_monologue_page_count", new[] { monologueId });
+
+			if (string.IsNullOrEmpty(pageText))
+			{
+				return "[color=gray]모놀로그 페이지를 찾을 수 없습니다.[/color]\n\n[url=monologue_done]확인[/url]";
+			}
+
+			int.TryParse(pageCountStr, out int pageCount);
+			var isLastPage = currentPage >= pageCount - 1;
+
+			var lines = new List<string>();
+			lines.Add(pageText);
+			lines.Add("");
+
+			if (isLastPage)
+			{
+				lines.Add($"[url=monologue_done:{monologueId}]확인[/url]");
+			}
+			else
+			{
+				lines.Add("[url=monologue_next]계속[/url]");
+			}
+
+			return string.Join("\n", lines);
+		}
+
 		// === 화면 전환 API (Focus Push) ===
 
 		/// <summary>
@@ -217,6 +258,45 @@ namespace SE
 			ClearActionMessage();
 			_stack.Push(Focus.Result(message));
 			UpdateDisplay();
+		}
+
+		/// <summary>
+		/// 모놀로그 표시 (Push)
+		/// </summary>
+		public void ShowMonologue(string monologueId)
+		{
+			ClearActionMessage();
+			_stack.Push(Focus.Monologue(monologueId));
+			UpdateDisplay();
+		}
+
+		/// <summary>
+		/// 모놀로그 다음 페이지로 이동
+		/// </summary>
+		public void MonologueNextPage()
+		{
+			if (_stack.Current?.Type != FocusType.Monologue) return;
+
+			_stack.Current.CurrentPage++;
+			UpdateDisplay();
+		}
+
+		/// <summary>
+		/// 모놀로그 완료 처리 (Pop + 시간 소요)
+		/// </summary>
+		/// <returns>소요 시간 (분)</returns>
+		public int MonologueDone(string monologueId)
+		{
+			int timeConsumed = 0;
+
+			if (_scriptSystem != null)
+			{
+				var timeStr = _scriptSystem.CallFunction("get_monologue_time_consumed", new[] { monologueId });
+				int.TryParse(timeStr, out timeConsumed);
+			}
+
+			Pop();
+			return timeConsumed;
 		}
 
 		// === 스택 조작 API ===

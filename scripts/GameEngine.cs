@@ -78,12 +78,18 @@ public partial class GameEngine : Node
 		var singSystem = this._world.AddSystem(new SingASongSystem(), "singASongSystem") as SingASongSystem;
 		singSystem?.RegisterToDescribeSystem();
 
+		// ScriptSystem 초기화 (TextUISystem보다 먼저)
+		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
+		_scriptSystem?.TestHelloWorld();
+		_scriptSystem?.RegisterTestFunctions();
+		_scriptSystem?.LoadMonologueScripts();
+
 		// TextUISystem 초기화
 		_textUISystem = new TextUISystem(_textUi, _describeSystem);
 		this._world.AddSystem(_textUISystem, "textUISystem");
 
-		// TextUISystem에 시스템 참조 설정
-		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem);
+		// TextUISystem에 시스템 참조 설정 (ScriptSystem 포함)
+		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
 
 		// 초기 상황 표시
 		_textUISystem.ShowSituation();
@@ -92,9 +98,8 @@ public partial class GameEngine : Node
 		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
 		_actionHandler.OnUpdateSituation += UpdateSituationText;
 
-		// ScriptSystem 초기화 및 Python Hello World 테스트
-		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
-		_scriptSystem?.TestHelloWorld();
+		// 게임 시작 모놀로그 트리거
+		TriggerStartMonologue();
 
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
@@ -136,6 +141,20 @@ public partial class GameEngine : Node
 			return;
 
 		_textUISystem.ShowSituation();
+	}
+
+	/// <summary>
+	/// 게임 시작 시 모놀로그 트리거
+	/// </summary>
+	private void TriggerStartMonologue()
+	{
+		// 게임 시작 시 intro_001 모놀로그 표시
+		// (플래그 없이 무한 반복 - 테스트용)
+		_textUISystem?.ShowMonologue("intro_001");
+
+#if DEBUG_LOG
+		GD.Print("[GameEngine] 시작 모놀로그 트리거: intro_001");
+#endif
 	}
 
 	/// <summary>

@@ -11,7 +11,8 @@ public enum FocusType
 	Unit,        // 유닛/오브젝트 화면
 	Inventory,   // 플레이어 인벤토리
 	Item,        // 아이템 메뉴
-	Result       // 결과 메시지
+	Result,      // 결과 메시지
+	Monologue    // 모놀로그 (독백/나레이션)
 }
 
 /// <summary>
@@ -45,6 +46,16 @@ public class Focus
 	public string? Message { get; set; }
 
 	/// <summary>
+	/// 모놀로그 ID (Monologue 타입에서 사용)
+	/// </summary>
+	public string? MonologueId { get; set; }
+
+	/// <summary>
+	/// 현재 페이지 인덱스 (Monologue 타입에서 사용)
+	/// </summary>
+	public int CurrentPage { get; set; } = 0;
+
+	/// <summary>
 	/// 펼쳐진 토글 ID 목록
 	/// </summary>
 	public HashSet<string> ExpandedToggles { get; set; } = new();
@@ -56,4 +67,5 @@ public class Focus
 	public static Focus Item(int itemId, string context, int? unitId = null)
 		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, UnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
+	public static Focus Monologue(string monologueId) => new() { Type = FocusType.Monologue, MonologueId = monologueId, CurrentPage = 0 };
 }
