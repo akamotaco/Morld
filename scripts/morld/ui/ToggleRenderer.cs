@@ -13,16 +13,20 @@ public static class ToggleRenderer
 	private const string HiddenClosePrefix = "[/hidden=";
 	private const char TagEnd = ']';
 	private const string ToggleUrlPrefix = "[url=toggle:";
+	private const string UrlPrefix = "[url=";
+	private const string UrlClose = "[/url]";
 	private const string CollapsedIcon = "▶";
 	private const string ExpandedIcon = "▼";
+	private const string HoverColor = "#ffff00"; // 노란색
 
 	/// <summary>
 	/// 토글 마크업 렌더링
 	/// </summary>
 	/// <param name="text">원본 BBCode 텍스트</param>
 	/// <param name="expanded">펼쳐진 토글 ID 목록</param>
+	/// <param name="hoveredMeta">현재 hover 중인 메타 (null = 없음)</param>
 	/// <returns>렌더링된 BBCode 텍스트</returns>
-	public static string Render(string text, HashSet<string> expanded)
+	public static string Render(string text, HashSet<string> expanded, string? hoveredMeta = null)
 	{
 		if (string.IsNullOrEmpty(text))
 			return "";
@@ -64,7 +68,10 @@ public static class ToggleRenderer
 		}
 
 		// ▶/▼ 아이콘 교체
-		return ReplaceToggleIcons(result.ToString(), expanded);
+		var withIcons = ReplaceToggleIcons(result.ToString(), expanded);
+
+		// hover 링크 색상 적용
+		return ApplyHoverColor(withIcons, hoveredMeta);
 	}
 
 	/// <summary>
@@ -156,6 +163,58 @@ public static class ToggleRenderer
 						i += ExpandedIcon.Length;
 					}
 					continue;
+				}
+			}
+
+			result.Append(text[i]);
+			i++;
+		}
+
+		return result.ToString();
+	}
+
+	/// <summary>
+	/// hover 중인 링크에 색상 적용
+	/// </summary>
+	private static string ApplyHoverColor(string text, string? hoveredMeta)
+	{
+		if (string.IsNullOrEmpty(hoveredMeta))
+			return text;
+
+		var result = new StringBuilder();
+		int i = 0;
+
+		while (i < text.Length)
+		{
+			// [url=X] 패턴 찾기
+			if (i + UrlPrefix.Length < text.Length && text.Substring(i).StartsWith(UrlPrefix))
+			{
+				int metaStart = i + UrlPrefix.Length;
+				int metaEnd = text.IndexOf(TagEnd, metaStart);
+
+				if (metaEnd > metaStart)
+				{
+					string meta = text.Substring(metaStart, metaEnd - metaStart);
+
+					// hover 중인 링크인지 확인
+					if (meta == hoveredMeta)
+					{
+						// [url=X] 복사
+						result.Append(text.Substring(i, metaEnd + 1 - i));
+						i = metaEnd + 1;
+
+						// [/url] 찾기
+						int closePos = text.IndexOf(UrlClose, i);
+						if (closePos > i)
+						{
+							// 링크 텍스트를 색상 태그로 감싸기
+							string linkText = text.Substring(i, closePos - i);
+							result.Append($"[color={HoverColor}]{linkText}[/color]");
+							result.Append(UrlClose);
+							i = closePos + UrlClose.Length;
+							continue;
+						}
+					}
 				}
 			}
 

@@ -49,6 +49,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - `PlayerSystem` - 플레이어 입력 기반 시간 진행 제어, 스케줄 push, Look 기능
 - `DescribeSystem` - 묘사 텍스트 생성 (시간 기반 키 선택)
 - `ActionSystem` - 유닛 행동 실행 (talk, trade, use 등)
+- `TextUISystem` - RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
 
 ### 시스템 실행 순서
 
@@ -73,7 +74,8 @@ MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
            ├─> MovementSystem 등록
            ├─> BehaviorSystem 등록
            ├─> PlayerSystem 등록
-           └─> DescribeSystem 등록
+           ├─> DescribeSystem 등록
+           └─> TextUISystem 등록 (text_ui_data.json 로드)
 ```
 
 ---
@@ -150,7 +152,7 @@ Terrain
 ├─ Region[] (여러 지역)
 │  └─ Location[] (각 지역의 장소들)
 │     ├─ Edge[] (장소 간 연결 및 이동 시간)
-│     └─ Description (Dictionary<string, string> - 상황별 묘사)
+│     └─ Appearance (Dictionary<string, string> - 시간 태그 기반 외관 묘사)
 ├─ RegionEdge[] (지역 간 연결)
 └─ FindPath(from, to, character?, itemSystem?) (경로 탐색)
 
@@ -173,8 +175,8 @@ GameTime (시간 관리)
 **주요 기능:**
 - 유닛 생성/삭제/조회
 - Dictionary<int, Unit> 기반 O(1) 조회
-- 유닛 위치, 스케줄 스택, CurrentEdge, Inventory 관리
-- JSON 기반 Import/Export (ScheduleStack, CurrentEdge, Inventory 포함)
+- 유닛 위치, 스케줄 스택, CurrentEdge, Inventory, Appearance 관리
+- JSON 기반 Import/Export (ScheduleStack, CurrentEdge, Inventory, Appearance, Mood 포함)
 
 **데이터 구조:**
 ```csharp
@@ -192,6 +194,8 @@ Unit
 ├─ Inventory (Dictionary<int, int> - 아이템ID → 개수)
 ├─ EquippedItems (List<int> - 장착된 아이템 ID)
 ├─ Actions (List<string> - 가능한 행동: "talk", "trade", "use" 등)
+├─ Appearance (Dictionary<string, string> - 상황별 외관 묘사)
+├─ Mood (HashSet<string> - 현재 감정 상태: "기쁨", "슬픔" 등)
 ├─ GetActualTags(ItemSystem) (아이템 효과 반영된 최종 태그)
 ├─ CanPass(conditions, ItemSystem) (조건 충족 여부)
 ├─ IsMoving (CurrentEdge != null)
@@ -205,6 +209,7 @@ Unit
 | 스케줄 | 스케줄 스택 보유 | 스택 비어있음 |
 | 인벤토리 | 가능 | 가능 |
 | 행동 | talk, trade 등 | use, open 등 |
+| 외관 묘사 | Mood + Activity 기반 | 고정 또는 없음 |
 
 **파일 위치:**
 - `scripts/system/unit_system.cs`
@@ -320,7 +325,7 @@ RequestTimeAdvance(int minutes, string reason)  // 시간 진행 요청
 ```csharp
 public LookResult Look()
 // 반환:
-// - Location: 현재 위치 정보 (묘사 포함)
+// - Location: 현재 위치 정보 (AppearanceText 포함)
 // - UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트 통합)
 // - Routes: 이동 가능한 경로 목록 (조건 필터링 적용)
 // - GroundItems: 바닥에 떨어진 아이템 (아이템ID → 개수)
@@ -330,6 +335,7 @@ public UnitLookResult LookUnit(int unitId)
 // - UnitId, Name, IsObject
 // - Inventory: 유닛의 인벤토리
 // - Actions: 가능한 행동 목록
+// - AppearanceText: 현재 상태 기반 외관 묘사 (Mood + Activity)
 ```
 
 **파일 위치:**
@@ -337,16 +343,63 @@ public UnitLookResult LookUnit(int unitId)
 - `scripts/morld/player/LookResult.cs`
 
 ### DescribeSystem (Logic System)
-**역할:** 묘사 텍스트 생성 (시간 기반 키 선택)
+**역할:** 묘사 텍스트 생성 (시간/상태 기반 키 선택)
 
 **주요 기능:**
-- `GetLocationDescription(location, time)` - Location 묘사 반환
-- `GetRegionDescription(region, time)` - Region 묘사 반환
+- `GetLocationAppearance(location, time)` - Location 외관 묘사 반환 (시간 태그 기반)
+- `GetRegionAppearance(region, time)` - Region 외관 묘사 반환 (시간 태그 기반)
+- `GetUnitAppearance(unit)` - Unit 외관 묘사 반환 (Mood + Activity 기반)
 - `GetSituationText(lookResult, time)` - BBCode 포함 상황 텍스트 생성
-- GameTime.GetCurrentTags()로 시간대/계절/기념일 태그 확인
+- `GetUnitLookText(unitLook, unit)` - 유닛 살펴보기 텍스트 생성
+
+**외관 묘사 선택 알고리즘:**
+- Appearance 딕셔너리에서 키를 쉼표로 분리하여 태그 집합으로 처리
+- 현재 태그와 가장 많이 일치하는 키 선택 (best-match)
+- 일치하는 키가 없으면 "default" 사용
 
 **파일 위치:**
 - `scripts/system/describe_system.cs`
+
+### TextUISystem (Logic System)
+**역할:** RichTextLabel.Text 관리의 단일 수정 지점, 스택 기반 화면 전환
+
+**주요 기능:**
+- `ShowSituation(lookResult, time)` - 상황 화면 표시 (Clear → Push)
+- `ShowUnitLook(unitLook)` - 유닛 상세 화면 표시 (Push)
+- `ShowInventory()` - 인벤토리 화면 표시 (Push)
+- `ShowResult(message)` - 결과 메시지 표시 (Push)
+- `Push(text)` / `Pop()` / `Clear()` - 스택 조작
+- `ToggleExpand(toggleId)` - 토글 펼침/접힘 전환
+- `SetHoveredMeta(meta)` - hover 중인 링크 설정 (색상 변경)
+- JSON Import/Export - `LoadFromFile()`, `SaveToFile()`
+
+**토글 마크업:**
+```bbcode
+[url=toggle:idle]▶ 멍때리기[/url][hidden=idle]
+  [url=idle:15]15분[/url]
+  [url=idle:30]30분[/url]
+[/hidden=idle]
+```
+
+**링크 hover 색상:**
+- `MetaHoverStarted` / `MetaHoverEnded` 시그널 사용
+- hover 중인 링크에 `[color=#ffff00]` (노란색) 적용
+- `ToggleRenderer.ApplyHoverColor()`에서 처리
+
+**스택 동작 규칙:**
+| 이벤트 | 동작 |
+|--------|------|
+| 위치 이동 완료 | Clear → Push |
+| 유닛/인벤토리/아이템 메뉴 | Push |
+| back/confirm/done 클릭 | Pop |
+| toggle 클릭 | ExpandedToggles 토글 |
+
+**파일 위치:**
+- `scripts/system/text_ui_system.cs`
+- `scripts/morld/ui/ScreenLayer.cs`
+- `scripts/morld/ui/ScreenStack.cs`
+- `scripts/morld/ui/ToggleRenderer.cs`
+- `scripts/morld/ui/UIStateJsonFormat.cs`
 
 ---
 
@@ -359,16 +412,17 @@ public UnitLookResult LookUnit(int unitId)
     {
       "id": 0,
       "name": "마을",
-      "description": {
+      "appearance": {
         "default": "평화로운 마을입니다."
       },
       "locations": [
         {
           "id": 0,
           "name": "광장",
-          "description": {
+          "appearance": {
             "default": "마을 중심의 광장입니다.",
-            "아침": "상인들이 가판대를 펼치고 있습니다."
+            "아침": "상인들이 가판대를 펼치고 있습니다.",
+            "저녁": "노을빛에 물든 광장이 아름답다."
           }
         }
       ],
@@ -389,6 +443,10 @@ public UnitLookResult LookUnit(int unitId)
 }
 ```
 
+**Location/Region appearance 키 규칙:**
+- `"default"`: 기본 묘사
+- `"아침"`, `"저녁"` 등: 시간대 태그 (GameTime.GetCurrentTags())
+
 ### unit_data.json (UnitSystem)
 ```json
 [
@@ -396,9 +454,9 @@ public UnitLookResult LookUnit(int unitId)
     "id": 0,
     "name": "플레이어",
     "comment": "player",
+    "type": "male",
     "regionId": 0,
     "locationId": 0,
-    "isObject": false,
     "tags": {
       "관찰": 3,
       "힘": 5
@@ -422,10 +480,19 @@ public UnitLookResult LookUnit(int unitId)
     "id": 1,
     "name": "철수",
     "comment": "npc_001",
+    "type": "male",
     "regionId": 0,
     "locationId": 0,
-    "isObject": false,
-    "actions": ["talk", "trade"],
+    "actions": ["talk"],
+    "appearance": {
+      "default": "평범한 청년이다. 차분한 표정을 짓고 있다.",
+      "기쁨": "환하게 웃고 있다. 기분이 좋아 보인다.",
+      "슬픔": "어깨가 축 처져 있고 눈가가 촉촉하다.",
+      "기쁨,긴장": "들뜬 표정이지만 어딘가 불안해 보인다.",
+      "식사": "맛있게 음식을 먹고 있다.",
+      "수면": "편안하게 잠들어 있다."
+    },
+    "mood": ["기쁨"],
     "scheduleStack": [
       {
         "name": "일상",
@@ -440,16 +507,22 @@ public UnitLookResult LookUnit(int unitId)
   {
     "id": 10,
     "name": "나무 상자",
-    "comment": "wooden_chest",
+    "comment": "object_wooden_box",
+    "type": "object",
     "regionId": 0,
     "locationId": 1,
-    "isObject": true,
     "inventory": { "1": 5 },
     "actions": ["open"],
     "scheduleStack": []
   }
 ]
 ```
+
+**Unit appearance 키 규칙:**
+- `"default"`: 기본 묘사 (일치하는 태그가 없을 때)
+- `"기쁨"`, `"슬픔"` 등: 단일 Mood 태그
+- `"식사"`, `"수면"` 등: Activity 태그 (CurrentSchedule.Activity)
+- `"기쁨,긴장"`: 복합 태그 (쉼표로 구분, 순서 무관)
 
 **참고:** 스택은 배열의 마지막 요소가 최상위 (Peek)
 
@@ -484,6 +557,7 @@ public UnitLookResult LookUnit(int unitId)
 ```
 scripts/
 ├─ GameEngine.cs (진입점)
+├─ MetaActionHandler.cs (BBCode URL 클릭 핸들러)
 ├─ system/ (ECS Systems)
 │  ├─ world_system.cs (WorldSystem - Data)
 │  ├─ unit_system.cs (UnitSystem - Data)
@@ -492,7 +566,8 @@ scripts/
 │  ├─ movement_system.cs (MovementSystem - Logic)
 │  ├─ behavior_system.cs (BehaviorSystem - Logic)
 │  ├─ player_system.cs (PlayerSystem - Logic)
-│  └─ describe_system.cs (DescribeSystem - Logic)
+│  ├─ describe_system.cs (DescribeSystem - Logic)
+│  └─ text_ui_system.cs (TextUISystem - Logic)
 ├─ morld/ (Core Data Structures)
 │  ├─ IDescribable.cs (묘사 인터페이스)
 │  ├─ terrain/
@@ -514,12 +589,17 @@ scripts/
 │  │  └─ PlayerJsonFormat.cs
 │  ├─ pathfinding/
 │  │  └─ PathFinder.cs (Unit + ItemSystem 기반)
-│  └─ schedule/
-│     ├─ GameTime.cs (GetCurrentTags)
-│     ├─ DailySchedule.cs
-│     ├─ ScheduleEntry.cs
-│     ├─ ScheduleLayer.cs (스케줄 스택 레이어)
-│     └─ TimeRange.cs
+│  ├─ schedule/
+│  │  ├─ GameTime.cs (GetCurrentTags)
+│  │  ├─ DailySchedule.cs
+│  │  ├─ ScheduleEntry.cs
+│  │  ├─ ScheduleLayer.cs (스케줄 스택 레이어)
+│  │  └─ TimeRange.cs
+│  └─ ui/
+│     ├─ ScreenLayer.cs (화면 레이어)
+│     ├─ ScreenStack.cs (화면 스택)
+│     ├─ ToggleRenderer.cs (토글 마크업 렌더러)
+│     └─ UIStateJsonFormat.cs (JSON 직렬화)
 ├─ simple_engine/
 │  ├─ ecs.cs (ECS 기반 클래스)
 │  └─ world.cs (SE.World, ECS 허브)
@@ -528,7 +608,8 @@ scripts/
    ├─ time_data.json
    ├─ unit_data.json
    ├─ item_data.json
-   └─ player_data.json
+   ├─ player_data.json
+   └─ text_ui_data.json
 ```
 
 ---
@@ -565,10 +646,15 @@ player.PushSchedule(new ScheduleLayer
 ### Look 기능
 ```csharp
 var result = playerSystem.Look();
-// result.Location: 현재 위치 정보 (DescribeSystem으로 묘사 생성)
+// result.Location.AppearanceText: 시간 기반 위치 외관 묘사
 // result.UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트)
 // result.Routes: 이동 가능한 경로 (IsBlocked, BlockedReason 포함)
 // result.GroundItems: 바닥 아이템 (아이템ID → 개수)
+
+var unitResult = playerSystem.LookUnit(unitId);
+// unitResult.AppearanceText: Mood + Activity 기반 유닛 외관 묘사
+// unitResult.Actions: 가능한 행동 목록
+// unitResult.Inventory: 유닛의 인벤토리 (오브젝트만)
 ```
 
 ### 행동 실행
@@ -608,6 +694,7 @@ Godot 에디터에서 프로젝트 실행
 - `UnitSystem` → unit_data.json (CurrentLocation, CurrentEdge, ScheduleStack, Inventory, Actions 포함)
 - `ItemSystem` → item_data.json
 - `PlayerSystem` → player_data.json
+- `TextUISystem` → text_ui_data.json (ScreenStack, ExpandedToggles 포함)
 
 저장 불필요:
 - `MovementSystem`, `BehaviorSystem` → Stateless

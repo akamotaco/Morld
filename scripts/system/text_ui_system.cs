@@ -17,11 +17,22 @@ namespace SE
 		private readonly RichTextLabel _textUi;
 		private readonly ScreenStack _stack = new();
 		private readonly DescribeSystem _describeSystem;
+		private string? _hoveredMeta = null;
 
 		public TextUISystem(RichTextLabel textUi, DescribeSystem describeSystem)
 		{
 			_textUi = textUi;
 			_describeSystem = describeSystem;
+		}
+
+		/// <summary>
+		/// 현재 hover 중인 메타 설정 (null = hover 없음)
+		/// </summary>
+		public void SetHoveredMeta(string? meta)
+		{
+			if (_hoveredMeta == meta) return;
+			_hoveredMeta = meta;
+			UpdateDisplay();
 		}
 
 		/// <summary>
@@ -36,7 +47,8 @@ namespace SE
 			}
 			_textUi.Text = ToggleRenderer.Render(
 				_stack.Current.Text,
-				_stack.Current.ExpandedToggles
+				_stack.Current.ExpandedToggles,
+				_hoveredMeta
 			);
 		}
 

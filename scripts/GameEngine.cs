@@ -24,9 +24,11 @@ public partial class GameEngine : Node
 			throw new InvalidOperationException("TextUi 메타가 null이거나 유효하지 않습니다.");
 		}
 
-		// BBCode 활성화 및 meta_clicked 시그널 연결
+		// BBCode 활성화 및 시그널 연결
 		this._textUi.BbcodeEnabled = true;
 		this._textUi.MetaClicked += OnMetaClicked;
+		this._textUi.MetaHoverStarted += OnMetaHoverStarted;
+		this._textUi.MetaHoverEnded += OnMetaHoverEnded;
 
 		this._world = new SE.World(this);
 
@@ -121,5 +123,21 @@ public partial class GameEngine : Node
 	private void OnMetaClicked(Variant meta)
 	{
 		_actionHandler?.HandleAction(meta.AsString());
+	}
+
+	/// <summary>
+	/// BBCode 링크 hover 시작 핸들러
+	/// </summary>
+	private void OnMetaHoverStarted(Variant meta)
+	{
+		_textUISystem?.SetHoveredMeta(meta.AsString());
+	}
+
+	/// <summary>
+	/// BBCode 링크 hover 종료 핸들러
+	/// </summary>
+	private void OnMetaHoverEnded(Variant meta)
+	{
+		_textUISystem?.SetHoveredMeta(null);
 	}
 }

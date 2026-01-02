@@ -128,39 +128,18 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 휴식 액션 처리: idle 또는 idle:minutes
+	/// 휴식 액션 처리: idle:minutes
 	/// </summary>
 	private void HandleIdleAction(string[] parts)
 	{
-		if (parts.Length == 1)
-		{
-			ShowIdleTimeSelection();
-		}
-		else if (parts.Length >= 2)
+		if (parts.Length >= 2)
 		{
 			_playerSystem?.RequestCommand($"휴식:{parts[1]}");
 		}
 		else
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid idle format");
+			GD.PrintErr("[MetaActionHandler] Invalid idle format. Expected: idle:minutes");
 		}
-	}
-
-	/// <summary>
-	/// 멍때리기 시간 선택 UI 표시
-	/// </summary>
-	private void ShowIdleTimeSelection()
-	{
-		var idleOptions = @"[b]멍때리기 시간 선택[/b]
-
-  [url=idle:15]15분[/url]
-  [url=idle:30]30분[/url]
-  [url=idle:60]1시간[/url]
-  [url=idle:240]4시간[/url]
-
-[url=back]뒤로[/url]";
-
-		_textUISystem?.Push(idleOptions);
 	}
 
 	/// <summary>
