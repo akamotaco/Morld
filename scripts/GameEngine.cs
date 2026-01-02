@@ -10,6 +10,7 @@ public partial class GameEngine : Node
 	private SE.World _world;
 	private PlayerSystem _playerSystem;
 	private DescribeSystem _describeSystem;
+	private TextUISystem _textUISystem;
 	private RichTextLabel _textUi;
 	private MetaActionHandler _actionHandler;
 
@@ -49,12 +50,25 @@ public partial class GameEngine : Node
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
 
-		// MetaActionHandler 초기화
-		_actionHandler = new MetaActionHandler(_world, _playerSystem, _describeSystem, _textUi);
-		_actionHandler.OnUpdateSituation += UpdateSituationText;
+		// TextUISystem 초기화
+		_textUISystem = new TextUISystem(_textUi, _describeSystem);
+		this._world.AddSystem(_textUISystem, "textUISystem");
 
-		// 초기 상황 설명 표시
-		UpdateSituationText();
+		// text_ui_data.json 로드 (게임 시작 시 빈 스택)
+		_textUISystem.LoadFromFile("res://scripts/morld/json_data/text_ui_data.json");
+
+		// 스택이 비어있으면 초기 상황 표시
+		if (_textUISystem.IsEmpty)
+		{
+			var worldSystem = _world.FindSystem("worldSystem") as WorldSystem;
+			var lookResult = _playerSystem.Look();
+			var time = worldSystem?.GetTime();
+			_textUISystem.ShowSituation(lookResult, time);
+		}
+
+		// MetaActionHandler 초기화
+		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
+		_actionHandler.OnUpdateSituation += UpdateSituationText;
 
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
@@ -91,15 +105,14 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void UpdateSituationText()
 	{
-		if (_playerSystem == null || _describeSystem == null || _textUi == null)
+		if (_playerSystem == null || _textUISystem == null)
 			return;
 
 		var worldSystem = _world.FindSystem("worldSystem") as WorldSystem;
 		var lookResult = _playerSystem.Look();
 		var time = worldSystem?.GetTime();
 
-		var text = _describeSystem.GetSituationText(lookResult, time);
-		_textUi.Text = text;
+		_textUISystem.ShowSituation(lookResult, time);
 	}
 
 	/// <summary>

@@ -245,7 +245,12 @@ namespace SE
 			lines.Add("");
 			lines.Add("[color=yellow]행동:[/color]");
 			lines.Add("  [url=inventory]소지품 확인[/url]");
-			lines.Add("  [url=idle]멍때리기[/url]");
+			lines.Add("  [url=toggle:idle]▶ 멍때리기[/url][hidden=idle]");
+			lines.Add("    [url=idle:15]15분[/url]");
+			lines.Add("    [url=idle:30]30분[/url]");
+			lines.Add("    [url=idle:60]1시간[/url]");
+			lines.Add("    [url=idle:240]4시간[/url]");
+			lines.Add("  [/hidden=idle]");
 
 			return string.Join("\n", lines);
 		}

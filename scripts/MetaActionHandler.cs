@@ -8,13 +8,13 @@ using System.Collections.Generic;
 /// <summary>
 /// BBCode 메타 액션 핸들러
 /// URL 클릭 시 발생하는 모든 액션을 처리
+/// TextUISystem을 통해 화면 관리
 /// </summary>
 public class MetaActionHandler
 {
 	private readonly SE.World _world;
 	private readonly PlayerSystem _playerSystem;
-	private readonly DescribeSystem _describeSystem;
-	private readonly RichTextLabel _textUi;
+	private readonly TextUISystem _textUISystem;
 
 	/// <summary>
 	/// UI 텍스트 업데이트 요청 델리게이트
@@ -22,12 +22,11 @@ public class MetaActionHandler
 	public delegate void UpdateSituationHandler();
 	public event UpdateSituationHandler OnUpdateSituation;
 
-	public MetaActionHandler(SE.World world, PlayerSystem playerSystem, DescribeSystem describeSystem, RichTextLabel textUi)
+	public MetaActionHandler(SE.World world, PlayerSystem playerSystem, TextUISystem textUISystem)
 	{
 		_world = world;
 		_playerSystem = playerSystem;
-		_describeSystem = describeSystem;
-		_textUi = textUi;
+		_textUISystem = textUISystem;
 	}
 
 	/// <summary>
@@ -54,7 +53,12 @@ public class MetaActionHandler
 				HandleIdleAction(parts);
 				break;
 			case "back":
+			case "confirm":
+			case "done":
 				HandleBackAction();
+				break;
+			case "toggle":
+				HandleToggleAction(parts);
 				break;
 			case "inventory":
 				HandleInventoryAction();
@@ -147,28 +151,38 @@ public class MetaActionHandler
 	/// </summary>
 	private void ShowIdleTimeSelection()
 	{
-		if (_textUi == null) return;
+		var idleOptions = @"[b]멍때리기 시간 선택[/b]
 
-		var currentText = _textUi.Text;
-		var idlePattern = "[url=idle]멍때리기[/url]";
-		var idleOptions = @"[url=idle:15]멍때리기 (15분)[/url]
-  [url=idle:30]멍때리기 (30분)[/url]
-  [url=idle:60]멍때리기 (1시간)[/url]
-  [url=idle:240]멍때리기 (4시간)[/url]
-  [url=back]뒤로[/url]";
+  [url=idle:15]15분[/url]
+  [url=idle:30]30분[/url]
+  [url=idle:60]1시간[/url]
+  [url=idle:240]4시간[/url]
 
-		if (currentText.Contains(idlePattern))
-		{
-			_textUi.Text = currentText.Replace(idlePattern, idleOptions);
-		}
+[url=back]뒤로[/url]";
+
+		_textUISystem?.Push(idleOptions);
 	}
 
 	/// <summary>
-	/// 뒤로 가기 처리
+	/// 뒤로 가기 처리 (back, confirm, done)
 	/// </summary>
 	private void HandleBackAction()
 	{
-		RequestUpdateSituation();
+		_textUISystem?.Pop();
+	}
+
+	/// <summary>
+	/// 토글 처리: toggle:toggleId
+	/// </summary>
+	private void HandleToggleAction(string[] parts)
+	{
+		if (parts.Length < 2)
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid toggle format. Expected: toggle:toggleId");
+			return;
+		}
+
+		_textUISystem?.ToggleExpand(parts[1]);
 	}
 
 	/// <summary>
@@ -176,11 +190,7 @@ public class MetaActionHandler
 	/// </summary>
 	private void HandleInventoryAction()
 	{
-		if (_describeSystem != null && _textUi != null)
-		{
-			var text = _describeSystem.GetInventoryText();
-			_textUi.Text = text;
-		}
+		_textUISystem?.ShowInventory();
 	}
 
 	/// <summary>
@@ -210,10 +220,9 @@ public class MetaActionHandler
 		}
 
 		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _describeSystem != null && _textUi != null)
+		if (unitLook != null && _textUISystem != null)
 		{
-			var text = _describeSystem.GetUnitLookText(unitLook);
-			_textUi.Text = text;
+			_textUISystem.ShowUnitLook(unitLook);
 		}
 	}
 
@@ -252,10 +261,9 @@ public class MetaActionHandler
 
 		// 유닛 살펴보기 화면 새로고침
 		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _describeSystem != null && _textUi != null)
+		if (unitLook != null && _textUISystem != null)
 		{
-			var text = _describeSystem.GetUnitLookText(unitLook);
-			_textUi.Text = text;
+			_textUISystem.ShowUnitLook(unitLook);
 		}
 	}
 
@@ -274,10 +282,9 @@ public class MetaActionHandler
 
 		// 유닛 살펴보기 화면 새로고침
 		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _describeSystem != null && _textUi != null)
+		if (unitLook != null && _textUISystem != null)
 		{
-			var text = _describeSystem.GetUnitLookText(unitLook);
-			_textUi.Text = text;
+			_textUISystem.ShowUnitLook(unitLook);
 		}
 	}
 
@@ -316,10 +323,7 @@ public class MetaActionHandler
 			{
 				var result = actionSystem.ApplyAction(player, actionType, new List<Unit> { target });
 
-				if (_textUi != null)
-				{
-					_textUi.Text = $"[b]{result.Message}[/b]\n\n[url=back]뒤로[/url]";
-				}
+				_textUISystem?.ShowResult(result.Message);
 
 				if (result.TimeConsumed > 0)
 				{
@@ -340,11 +344,7 @@ public class MetaActionHandler
 			return;
 		}
 
-		if (_describeSystem != null && _textUi != null)
-		{
-			var text = _describeSystem.GetGroundItemMenuText(itemId, count);
-			_textUi.Text = text;
-		}
+		_textUISystem?.ShowItemMenu(itemId, count, "ground");
 	}
 
 	/// <summary>
@@ -358,11 +358,7 @@ public class MetaActionHandler
 			return;
 		}
 
-		if (_describeSystem != null && _textUi != null)
-		{
-			var text = _describeSystem.GetInventoryItemMenuText(itemId, count);
-			_textUi.Text = text;
-		}
+		_textUISystem?.ShowItemMenu(itemId, count, "inventory");
 	}
 
 	/// <summary>
@@ -381,10 +377,7 @@ public class MetaActionHandler
 #endif
 
 		// TODO: 실제 사용 처리
-		if (_textUi != null)
-		{
-			_textUi.Text = "[b]사용 기능은 아직 구현되지 않았습니다.[/b]\n\n[url=back_inventory]뒤로[/url]";
-		}
+		_textUISystem?.ShowResult("사용 기능은 아직 구현되지 않았습니다.");
 	}
 
 	/// <summary>
@@ -403,10 +396,7 @@ public class MetaActionHandler
 #endif
 
 		// TODO: 실제 조합 처리
-		if (_textUi != null)
-		{
-			_textUi.Text = "[b]조합 기능은 아직 구현되지 않았습니다.[/b]\n\n[url=back_inventory]뒤로[/url]";
-		}
+		_textUISystem?.ShowResult("조합 기능은 아직 구현되지 않았습니다.");
 	}
 
 	/// <summary>
@@ -423,11 +413,7 @@ public class MetaActionHandler
 			return;
 		}
 
-		if (_describeSystem != null && _textUi != null)
-		{
-			var text = _describeSystem.GetUnitItemMenuText(unitId, itemId, count);
-			_textUi.Text = text;
-		}
+		_textUISystem?.ShowItemMenu(itemId, count, "container");
 	}
 
 	/// <summary>
@@ -442,10 +428,9 @@ public class MetaActionHandler
 		}
 
 		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _describeSystem != null && _textUi != null)
+		if (unitLook != null && _textUISystem != null)
 		{
-			var text = _describeSystem.GetUnitLookText(unitLook);
-			_textUi.Text = text;
+			_textUISystem.ShowUnitLook(unitLook);
 		}
 	}
 }
