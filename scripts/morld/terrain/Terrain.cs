@@ -849,12 +849,12 @@ public class Terrain
         {
             var region = new Region(regionData.Id, regionData.Name);
 
-            // Region Description 복사
-            if (regionData.Description != null)
+            // Region Appearance 복사
+            if (regionData.Appearance != null)
             {
-                foreach (var (key, value) in regionData.Description)
+                foreach (var (key, value) in regionData.Appearance)
                 {
-                    region.Description[key] = value;
+                    region.Appearance[key] = value;
                 }
             }
 
@@ -863,12 +863,12 @@ public class Terrain
             {
                 var location = region.AddLocation(locData.Id, locData.Name);
 
-                // Location Description 복사
-                if (locData.Description != null)
+                // Location Appearance 복사
+                if (locData.Appearance != null)
                 {
-                    foreach (var (key, value) in locData.Description)
+                    foreach (var (key, value) in locData.Appearance)
                     {
-                        location.Description[key] = value;
+                        location.Appearance[key] = value;
                     }
                 }
 
@@ -987,6 +987,10 @@ public class Terrain
                 Name = region.Name
             };
 
+            // Region Appearance 내보내기
+            if (region.Appearance.Count > 0)
+                regionData.Appearance = new Dictionary<string, string>(region.Appearance);
+
             // Location 내보내기
             foreach (var location in region.Locations.OrderBy(l => l.LocalId))
             {
@@ -996,9 +1000,9 @@ public class Terrain
                     Name = location.Name
                 };
 
-                // Description 내보내기
-                if (location.Description.Count > 0)
-                    locationData.Description = new Dictionary<string, string>(location.Description);
+                // Appearance 내보내기
+                if (location.Appearance.Count > 0)
+                    locationData.Appearance = new Dictionary<string, string>(location.Appearance);
 
                 // Inventory 내보내기 (바닥 아이템)
                 if (location.Inventory.Count > 0)

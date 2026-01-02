@@ -29,9 +29,9 @@ public class Location : IEquatable<Location>, IDescribable
     public object? Tag { get; set; }
 
     /// <summary>
-    /// 상황별 묘사 텍스트 (IDescribable)
+    /// 상황별 외관 묘사 텍스트 (IDescribable)
     /// </summary>
-    public Dictionary<string, string> Description { get; set; } = new();
+    public Dictionary<string, string> Appearance { get; set; } = new();
 
     /// <summary>
     /// 바닥에 떨어진 아이템 (아이템ID -> 개수)

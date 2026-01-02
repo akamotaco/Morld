@@ -537,7 +537,7 @@ namespace SE
 			{
 				RegionName = region?.Name ?? "",
 				LocationName = location?.Name ?? "",
-				DescriptionText = describeSystem?.GetLocationDescription(location, gameTime) ?? "",
+				AppearanceText = describeSystem?.GetLocationAppearance(location, gameTime) ?? "",
 				LocationRef = player.CurrentLocation
 			};
 
@@ -596,7 +596,7 @@ namespace SE
 			{
 				RegionName = "",  // Edge에서는 Region 정보 생략
 				LocationName = $"{fromLocation?.Name} → {toLocation?.Name}",
-				DescriptionText = "이동 중입니다.",
+				AppearanceText = "이동 중입니다.",
 				LocationRef = player.CurrentLocation
 			};
 

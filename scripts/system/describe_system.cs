@@ -16,21 +16,21 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Location 묘사 반환
+		/// Location 외관 묘사 반환
 		/// </summary>
-		public string GetLocationDescription(Location? location, GameTime? time)
+		public string GetLocationAppearance(Location? location, GameTime? time)
 		{
 			if (location == null) return "";
-			return SelectDescription(location.Description, time);
+			return SelectAppearance(location.Appearance, time);
 		}
 
 		/// <summary>
-		/// Region 묘사 반환
+		/// Region 외관 묘사 반환
 		/// </summary>
-		public string GetRegionDescription(Region? region, GameTime? time)
+		public string GetRegionAppearance(Region? region, GameTime? time)
 		{
 			if (region == null) return "";
-			return SelectDescription(region.Description, time);
+			return SelectAppearance(region.Appearance, time);
 		}
 
 		/// <summary>
@@ -44,16 +44,16 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Description Dictionary에서 적절한 키 선택
+		/// Appearance Dictionary에서 적절한 키 선택 (태그 순서 무관)
 		/// </summary>
-		private string SelectDescription(Dictionary<string, string>? descriptions, GameTime? time)
+		private string SelectAppearance(Dictionary<string, string>? appearances, GameTime? time)
 		{
-			if (descriptions == null || descriptions.Count == 0)
+			if (appearances == null || appearances.Count == 0)
 				return "";
 
 			if (time == null)
 			{
-				return descriptions.TryGetValue("default", out var defaultDesc) ? defaultDesc : "";
+				return appearances.TryGetValue("default", out var defaultAppearance) ? defaultAppearance : "";
 			}
 
 			var currentTags = time.GetCurrentTags();
@@ -61,10 +61,11 @@ namespace SE
 			string bestKey = "default";
 			int bestMatchCount = 0;
 
-			foreach (var (key, _) in descriptions)
+			foreach (var (key, _) in appearances)
 			{
 				if (key == "default") continue;
 
+				// 콤마로 구분된 태그를 HashSet으로 변환 (순서 무관)
 				var keyTags = key.Split(',').Select(t => t.Trim()).ToHashSet();
 				var matchCount = keyTags.Intersect(currentTags).Count();
 
@@ -76,7 +77,7 @@ namespace SE
 				}
 			}
 
-			return descriptions.TryGetValue(bestKey, out var desc) ? desc : "";
+			return appearances.TryGetValue(bestKey, out var appearance) ? appearance : "";
 		}
 
 		/// <summary>
@@ -105,10 +106,10 @@ namespace SE
 
 			lines.Add("");
 
-			// 3. 위치 묘사
-			if (!string.IsNullOrEmpty(loc.DescriptionText))
+			// 3. 위치 외관 묘사
+			if (!string.IsNullOrEmpty(loc.AppearanceText))
 			{
-				lines.Add(loc.DescriptionText);
+				lines.Add(loc.AppearanceText);
 				lines.Add("");
 			}
 

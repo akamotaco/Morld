@@ -44,9 +44,9 @@ public class LocationInfo
 	public string LocationName { get; set; } = "";
 
 	/// <summary>
-	/// DescribeSystem에서 선택된 묘사 텍스트
+	/// DescribeSystem에서 선택된 외관 묘사 텍스트
 	/// </summary>
-	public string DescriptionText { get; set; } = "";
+	public string AppearanceText { get; set; } = "";
 
 	/// <summary>
 	/// 위치 참조
