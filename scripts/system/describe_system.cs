@@ -376,6 +376,29 @@ namespace SE
 					{
 						lines.Add($"  [url=put_select:{unitLook.UnitId}]넣기[/url]");
 					}
+					// script:함수명:표시명 형식 - Python 스크립트 직접 호출
+					else if (action.StartsWith("script:"))
+					{
+						var parts = action.Split(':');
+						if (parts.Length >= 3)
+						{
+							var funcName = parts[1];
+							var displayName = parts[2];
+							lines.Add($"  [url=script:{funcName}]{displayName}[/url]");
+						}
+						else if (parts.Length == 2)
+						{
+							// script:함수명 (표시명 없음 → 함수명 그대로 표시)
+							var funcName = parts[1];
+							lines.Add($"  [url=script:{funcName}]{funcName}[/url]");
+						}
+						else
+						{
+							// 형식 오류 - 디버그 정보와 함께 표시
+							Godot.GD.PrintErr($"[DescribeSystem] Invalid script action format: '{action}' (expected 'script:funcName:displayName')");
+							lines.Add($"  [color=red][오류: {action}][/color]");
+						}
+					}
 					else
 					{
 						// 다른 액션은 그대로 표시

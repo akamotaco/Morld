@@ -130,10 +130,12 @@ def get_job_select_monologue():
         "button_type": "none"  # 선택지가 있는 페이지는 버튼 없음
     }
 
-def job_select(job_type):
+def job_select(context_unit_id, job_type):
     """
     직업 선택 처리 - BBCode script:job_select:xxx 로 호출됨
     확인 질문을 표시하고, 승낙 시 job_confirm 호출
+    context_unit_id: 자동 전달됨 (사용하지 않음)
+    job_type: warrior, mage, thief
     """
     if job_type not in JOB_EQUIPMENT:
         return f"알 수 없는 직업: {job_type}"
@@ -154,9 +156,11 @@ def job_select(job_type):
     }
 
 
-def job_confirm(job_type):
+def job_confirm(context_unit_id, job_type):
     """
     직업 최종 확정 - 아이템 지급 및 축복 메시지 표시
+    context_unit_id: 자동 전달됨 (사용하지 않음)
+    job_type: warrior, mage, thief
     """
     if job_type not in JOB_EQUIPMENT:
         return f"알 수 없는 직업: {job_type}"
@@ -204,3 +208,185 @@ def get_job_blessing(job_type):
         "행운을 빈다.",
         "이제 일어나서 움직여야겠다."
     ]
+
+
+# === NPC 대화 ===
+
+# 공통 activity별 대사 (기본값)
+NPC_DIALOGUES_DEFAULT = {
+    "default": {
+        "pages": [
+            "......",
+            "별 말이 없다."
+        ]
+    },
+    "식사": {
+        "pages": [
+            "(음식을 먹고 있다)",
+            "...지금은 식사 중이야."
+        ]
+    },
+    "수면": {
+        "pages": [
+            "(자고 있다)",
+            "...zzZ"
+        ]
+    },
+    "휴식": {
+        "pages": [
+            "(쉬고 있다)",
+            "...잠시 쉬는 중이야."
+        ]
+    },
+    "준비": {
+        "pages": [
+            "(준비 중이다)",
+            "...좀 바빠."
+        ]
+    },
+    "영업": {
+        "pages": [
+            "어서오세요.",
+            "천천히 둘러보세요."
+        ]
+    },
+    "쇼핑": {
+        "pages": [
+            "(물건을 구경하고 있다)",
+            "...좋은 물건이 있나 보고 있어."
+        ]
+    },
+    "산책": {
+        "pages": [
+            "(산책 중이다)",
+            "...날씨가 좋네."
+        ]
+    },
+    "작업": {
+        "pages": [
+            "(작업 중이다)",
+            "...지금 좀 바빠."
+        ]
+    }
+}
+
+# 캐릭터별 대사 오버라이드 (unit_id 기준)
+# 특정 activity만 오버라이드하면 나머지는 공통 대사 사용
+NPC_DIALOGUES_OVERRIDE = {
+    # 철수 (id: 1)
+    1: {
+        "default": {
+            "pages": [
+                "안녕, 나는 철수야.",
+                "오늘 날씨가 좋네."
+            ]
+        },
+        "휴식": {
+            "pages": [
+                "(편하게 쉬고 있다)",
+                "...오늘은 좀 피곤하네."
+            ]
+        }
+    },
+    # 영희 (id: 2)
+    2: {
+        "default": {
+            "pages": [
+                "어서오세요, 손님.",
+                "필요한 물건이 있으시면 말씀해주세요."
+            ]
+        },
+        "영업": {
+            "pages": [
+                "환영합니다!",
+                "오늘 신상품이 들어왔어요.",
+                "천천히 구경하세요."
+            ]
+        }
+    },
+    # 민수 (id: 3)
+    3: {
+        "default": {
+            "pages": [
+                "....",
+                "(말이 없다)"
+            ]
+        }
+    }
+}
+
+
+def get_npc_dialogue(unit_id, activity):
+    """
+    캐릭터별 대사 조회 (오버라이드 우선)
+    1. NPC_DIALOGUES_OVERRIDE[unit_id][activity] 체크
+    2. 없으면 NPC_DIALOGUES_DEFAULT[activity] 체크
+    3. 없으면 NPC_DIALOGUES_DEFAULT["default"] 반환
+    """
+    # 1. 캐릭터별 오버라이드 체크
+    if unit_id in NPC_DIALOGUES_OVERRIDE:
+        char_dialogues = NPC_DIALOGUES_OVERRIDE[unit_id]
+        if activity and activity in char_dialogues:
+            return char_dialogues[activity]
+        if "default" in char_dialogues:
+            return char_dialogues["default"]
+
+    # 2. 공통 대사에서 activity 체크
+    if activity and activity in NPC_DIALOGUES_DEFAULT:
+        return NPC_DIALOGUES_DEFAULT[activity]
+
+    # 3. 공통 기본값
+    return NPC_DIALOGUES_DEFAULT["default"]
+
+
+def npc_talk(context_unit_id):
+    """
+    NPC 대화 - 대상의 activity에 따라 다른 대사를 반환
+    context_unit_id: 대화 대상 NPC의 unit_id (자동 전달됨)
+    """
+    # 유닛 정보 조회
+    unit_info = morld.get_unit_info(context_unit_id)
+
+    if unit_info is None:
+        # 유닛 정보가 없으면 기본 대사
+        return {
+            "type": "monologue",
+            "pages": ["...?"],
+            "time_consumed": 1,
+            "button_type": "ok"
+        }
+
+    # 캐릭터별 + activity 기반 대사 선택
+    unit_id = unit_info.get("id")
+    activity = unit_info.get("activity")
+    dialogue = get_npc_dialogue(unit_id, activity)
+
+    # NPC 이름 추가 (첫 페이지 앞에)
+    name = unit_info.get("name", "???")
+    pages = [f"[{name}]"] + dialogue["pages"]
+
+    return {
+        "type": "monologue",
+        "pages": pages,
+        "time_consumed": 1,
+        "button_type": "ok"
+    }
+
+
+# === 오브젝트 상호작용 ===
+
+def mirror_look(context_unit_id):
+    """
+    거울 보기 - 자신의 얼굴을 살펴보는 모놀로그
+    확인 후 이전 화면(거울 Focus)으로 복귀
+    context_unit_id: 거울 오브젝트의 unit_id (사용하지 않음)
+    """
+    return {
+        "type": "monologue",
+        "pages": [
+            "거울 속에 내 얼굴이 비친다.\n익숙하면서도 낯선 느낌이다.",
+            "...그래, 이게 나다.\n잠시 멍하니 자신을 바라본다."
+        ],
+        "time_consumed": 1,
+        "button_type": "ok"
+    }

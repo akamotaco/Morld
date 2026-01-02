@@ -80,7 +80,8 @@ public partial class GameEngine : Node
 
 		// ScriptSystem 초기화 (TextUISystem보다 먼저)
 		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
-		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem);
+		var unitSys = this._world.FindSystem("unitSystem") as UnitSystem;
+		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem, unitSys);
 		_scriptSystem?.TestHelloWorld();
 		_scriptSystem?.RegisterTestFunctions();
 		_scriptSystem?.LoadMonologueScripts();

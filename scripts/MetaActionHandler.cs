@@ -453,6 +453,7 @@ public class MetaActionHandler
 
 	/// <summary>
 	/// Python 스크립트 함수 호출: script:functionName:arg1:arg2:...
+	/// 현재 Focus의 UnitId를 context로 자동 전달
 	/// </summary>
 	private void HandleScriptAction(string[] parts)
 	{
@@ -467,8 +468,12 @@ public class MetaActionHandler
 			? parts[2..]  // C# 8.0 range operator
 			: System.Array.Empty<string>();
 
+		// 현재 Focus에서 context 정보 추출
+		var currentFocus = _textUISystem?.CurrentFocus;
+		int? contextUnitId = currentFocus?.UnitId;
+
 #if DEBUG_LOG
-		GD.Print($"[MetaActionHandler] Script call: {functionName}({string.Join(", ", args)})");
+		GD.Print($"[MetaActionHandler] Script call: {functionName}({string.Join(", ", args)}) [context unitId={contextUnitId?.ToString() ?? "null"}]");
 #endif
 
 		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
@@ -478,7 +483,7 @@ public class MetaActionHandler
 			return;
 		}
 
-		var result = scriptSystem.CallFunctionEx(functionName, args);
+		var result = scriptSystem.CallFunctionEx(functionName, args, contextUnitId);
 
 		// 결과 타입에 따른 처리
 		if (result == null)

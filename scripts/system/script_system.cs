@@ -14,6 +14,7 @@ namespace SE
         // 게임 시스템 참조 (morld 모듈에서 사용)
         private InventorySystem _inventorySystem;
         private PlayerSystem _playerSystem;
+        private UnitSystem _unitSystem;
 
         public ScriptSystem()
         {
@@ -49,10 +50,11 @@ namespace SE
         /// <summary>
         /// 게임 시스템 참조 설정 및 morld 모듈 등록
         /// </summary>
-        public void SetSystemReferences(InventorySystem inventorySystem, PlayerSystem playerSystem)
+        public void SetSystemReferences(InventorySystem inventorySystem, PlayerSystem playerSystem, UnitSystem unitSystem = null)
         {
             _inventorySystem = inventorySystem;
             _playerSystem = playerSystem;
+            _unitSystem = unitSystem;
 
             RegisterMorldModule();
         }
@@ -151,6 +153,54 @@ namespace SE
                         }
                     }
                     return PyBool.False;
+                });
+
+                // === 유닛 API ===
+                morldModule.ModuleDict["get_unit_info"] = new PyBuiltinFunction("get_unit_info", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_unit_info(unit_id) requires 1 argument");
+
+                    // None 체크
+                    if (args[0] is PyNone)
+                        return PyNone.Instance;
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyNone.Instance;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyNone.Instance;
+
+                    // 유닛 정보를 PyDict로 반환
+                    var result = new PyDict();
+                    result.SetItem(new PyString("id"), new PyInt(unit.Id));
+                    result.SetItem(new PyString("name"), new PyString(unit.Name ?? ""));
+                    result.SetItem(new PyString("is_object"), PyBool.FromBool(unit.IsObject));
+
+                    // 현재 위치
+                    result.SetItem(new PyString("region_id"), new PyInt(unit.CurrentLocation.RegionId));
+                    result.SetItem(new PyString("location_id"), new PyInt(unit.CurrentLocation.LocalId));
+
+                    // 현재 스케줄/활동 정보
+                    var currentSchedule = unit.CurrentSchedule;
+                    if (currentSchedule != null)
+                    {
+                        result.SetItem(new PyString("activity"), new PyString(currentSchedule.Activity ?? ""));
+                        result.SetItem(new PyString("schedule_name"), new PyString(currentSchedule.Name ?? ""));
+                    }
+                    else
+                    {
+                        result.SetItem(new PyString("activity"), PyNone.Instance);
+                        result.SetItem(new PyString("schedule_name"), PyNone.Instance);
+                    }
+
+                    // 이동 중인지 여부
+                    result.SetItem(new PyString("is_moving"), PyBool.FromBool(unit.IsMoving));
+
+                    return result;
                 });
 
                 // sys.modules에 등록
@@ -281,15 +331,20 @@ namespace SE
         /// </summary>
         /// <param name="functionName">호출할 함수 이름</param>
         /// <param name="args">콜론으로 구분된 인자들</param>
+        /// <param name="contextUnitId">현재 Focus의 UnitId (없으면 null)</param>
         /// <returns>함수 실행 결과 (ScriptResult)</returns>
-        public ScriptResult CallFunctionEx(string functionName, string[] args)
+        public ScriptResult CallFunctionEx(string functionName, string[] args, int? contextUnitId = null)
         {
-            Godot.GD.Print($"[ScriptSystem] CallFunctionEx: {functionName}({string.Join(", ", args)})");
+            Godot.GD.Print($"[ScriptSystem] CallFunctionEx: {functionName}({string.Join(", ", args)}) [contextUnitId={contextUnitId?.ToString() ?? "null"}]");
 
             try
             {
                 // 인자를 Python 형태로 변환
                 var pyArgs = new System.Collections.Generic.List<string>();
+
+                // 첫 번째 인자로 context_unit_id 추가 (None 또는 정수)
+                pyArgs.Add(contextUnitId.HasValue ? contextUnitId.Value.ToString() : "None");
+
                 foreach (var arg in args)
                 {
                     // 숫자인지 확인
