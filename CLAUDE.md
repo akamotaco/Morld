@@ -31,9 +31,9 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 
 **구현 시스템:**
 - `WorldSystem` - 지형(Terrain) 데이터 및 GameTime 보관
-- `UnitSystem` - 유닛 데이터 (캐릭터/오브젝트 통합, 위치, 스케줄 스택, CurrentEdge)
+- `UnitSystem` - 유닛 데이터 (캐릭터/오브젝트 통합, 위치, 스케줄 스택, CurrentEdge, "바닥" 오브젝트 포함)
 - `ItemSystem` - 아이템 정의 데이터 (PassiveTags, EquipTags, Actions)
-- `InventorySystem` - 인벤토리 데이터 (유닛별 아이템 소유, 바닥 아이템)
+- `InventorySystem` - 인벤토리 데이터 (유닛별 아이템 소유, 장착, 가시성)
 
 #### 2. Logic/Behavior Systems (로직 시스템)
 매 Step마다 게임 로직을 실행하는 시스템
@@ -111,6 +111,12 @@ MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
 - 스케줄 스택 비어있음
 - 이동하지 않음
 - 인벤토리 보유 가능
+
+"바닥" 오브젝트 (특수 오브젝트):
+- 각 Location마다 하나씩 존재 (ID: 100+)
+- actions: ["putinobject"]
+- IsVisible: true (아이템이 외부에서 보임)
+- 바닥에 아이템 버리기 = 바닥 유닛에 "넣기"
 ```
 
 ### ScheduleLayer 구조
@@ -242,27 +248,33 @@ Item
 - `scripts/morld/item/ItemJsonFormat.cs`
 
 ### InventorySystem (Data System)
-**역할:** 유닛별 인벤토리 및 바닥 아이템 관리
+**역할:** 유닛별 인벤토리, 장착 아이템, 가시성 관리
 
 **주요 기능:**
 - 유닛별 인벤토리 관리 (아이템 추가/제거/조회)
-- 바닥 아이템 관리 (위치별)
 - 장착 아이템 관리
+- 인벤토리 가시성 관리 (열린 상자, 바닥 등)
 - JSON 기반 Import/Export
 
 **데이터 구조:**
 ```csharp
 InventorySystem
+├─ UnitKey(unitId) → string (단순 숫자 문자열)
 ├─ GetUnitInventory(unitId) → Dictionary<int, int>
-├─ AddItem(unitId, itemId, count)
-├─ RemoveItem(unitId, itemId, count) → bool
-├─ GetEquippedItems(unitId) → List<int>
-├─ EquipItem(unitId, itemId)
-├─ UnequipItem(unitId, itemId)
-├─ GetGroundItems(locationRef) → Dictionary<int, int>
-├─ DropItem(locationRef, itemId, count)
-└─ PickupItem(locationRef, itemId, count) → bool
+├─ AddToUnit(unitId, itemId, count)
+├─ RemoveFromUnit(unitId, itemId, count) → bool
+├─ TransferBetweenUnits(fromId, toId, itemId, count) → bool
+├─ GetUnitEquippedItems(unitId) → List<int>
+├─ EquipItem(ownerKey, itemId) → bool
+├─ UnequipItem(ownerKey, itemId) → bool
+├─ IsUnitInventoryVisible(unitId) → bool
+└─ SetUnitInventoryVisible(unitId, isVisible)
 ```
+
+**가시성 규칙:**
+- `IsVisible = true`: 아이템이 외부에서 보임 (바닥, 열린 상자 등)
+- 바닥 오브젝트는 항상 visible
+- 일반 오브젝트는 "open" 액션 시 visible 전환
 
 **파일 위치:**
 - `scripts/system/inventory_system.cs`
@@ -390,16 +402,21 @@ RequestTimeAdvance(int minutes, string reason)  // 시간 진행 요청
 public LookResult Look()
 // 반환:
 // - Location: 현재 위치 정보 (AppearanceText 포함)
-// - UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트 통합)
+// - UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트+"바닥" 통합)
 // - Routes: 이동 가능한 경로 목록 (조건 필터링 적용)
-// - GroundItems: 바닥에 떨어진 아이템 (아이템ID → 개수)
 
 public UnitLookResult LookUnit(int unitId)
 // 반환:
 // - UnitId, Name, IsObject
-// - Inventory: 유닛의 인벤토리
+// - Inventory: 유닛의 인벤토리 (IsVisible이면 표시)
 // - Actions: 가능한 행동 목록
 // - AppearanceText: 현재 상태 기반 외관 묘사 (Mood + Activity)
+```
+
+**아이템 조작:**
+```csharp
+TakeFromUnit(unitId, itemId, count)  // 유닛에서 아이템 가져오기 (바닥 포함)
+PutToUnit(unitId, itemId, count)     // 유닛에 아이템 넣기 (바닥 포함)
 ```
 
 **파일 위치:**
@@ -647,23 +664,30 @@ public class Focus
 ### inventory_data.json (InventorySystem)
 ```json
 {
-  "unitInventories": {
+  "inventories": {
     "0": { "0": 1, "1": 3 },
-    "10": { "1": 5 }
+    "10": { "1": 2 },
+    "101": { "0": 1 }
   },
   "equippedItems": {
     "0": [2, 3]
   },
-  "groundItems": {
-    "0:1": { "0": 2 }
+  "visibility": {
+    "10": true,
+    "100": true,
+    "101": true
   }
 }
 ```
 
 **키 규칙:**
-- `unitInventories`: 유닛ID(문자열) → 아이템ID → 개수
+- `inventories`: 유닛ID(문자열) → 아이템ID → 개수
 - `equippedItems`: 유닛ID(문자열) → 장착된 아이템ID 배열
-- `groundItems`: "regionId:locationId" → 아이템ID → 개수
+- `visibility`: 유닛ID(문자열) → 가시성 (true면 아이템이 외부에서 보임)
+
+**바닥 아이템:**
+- 바닥도 유닛이므로 `inventories`에 바닥 유닛 ID로 저장
+- 예: `"101": { "0": 1 }` = 바닥(ID:101)에 아이템0이 1개
 
 ---
 
@@ -770,14 +794,26 @@ player.PushSchedule(new ScheduleLayer
 ```csharp
 var result = playerSystem.Look();
 // result.Location.AppearanceText: 시간 기반 위치 외관 묘사
-// result.UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트)
+// result.UnitIds: 같은 위치의 유닛 ID 목록 (캐릭터+오브젝트+"바닥")
 // result.Routes: 이동 가능한 경로 (IsBlocked, BlockedReason 포함)
-// result.GroundItems: 바닥 아이템 (아이템ID → 개수)
 
 var unitResult = playerSystem.LookUnit(unitId);
 // unitResult.AppearanceText: Mood + Activity 기반 유닛 외관 묘사
 // unitResult.Actions: 가능한 행동 목록
-// unitResult.Inventory: 유닛의 인벤토리 (오브젝트만)
+// unitResult.Inventory: 유닛의 인벤토리 (IsVisible이면 표시)
+```
+
+### 아이템 조작 (통일된 시스템)
+```csharp
+// 모든 아이템 이동은 유닛 간 이동으로 통일
+playerSystem.TakeFromUnit(unitId, itemId);  // 유닛 → 플레이어
+playerSystem.PutToUnit(unitId, itemId);     // 플레이어 → 유닛
+
+// 바닥에 버리기 = 바닥 유닛에 넣기
+playerSystem.PutToUnit(groundUnitId, itemId);
+
+// 바닥에서 줍기 = 바닥 유닛에서 가져오기
+playerSystem.TakeFromUnit(groundUnitId, itemId);
 ```
 
 ### 행동 실행

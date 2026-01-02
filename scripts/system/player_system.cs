@@ -248,54 +248,6 @@ namespace SE
 		#region 아이템 조작 (시간 소모 없음)
 
 		/// <summary>
-		/// 바닥에서 아이템 줍기
-		/// </summary>
-		public bool PickupItem(int itemId, int count = 1)
-		{
-			var player = GetPlayerUnit();
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
-
-			if (player == null || inventorySystem == null)
-				return false;
-
-			var loc = player.CurrentLocation;
-			if (!inventorySystem.PickupItem(player.Id, loc.RegionId, loc.LocalId, itemId, count))
-				return false;
-
-#if DEBUG_LOG
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var itemName = itemSystem?.GetItem(itemId)?.Name ?? $"아이템{itemId}";
-			GD.Print($"[PlayerSystem] 아이템 줍기: {itemName} x{count}");
-#endif
-
-			return true;
-		}
-
-		/// <summary>
-		/// 아이템 바닥에 놓기
-		/// </summary>
-		public bool DropItem(int itemId, int count = 1)
-		{
-			var player = GetPlayerUnit();
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
-
-			if (player == null || inventorySystem == null)
-				return false;
-
-			var loc = player.CurrentLocation;
-			if (!inventorySystem.DropItem(player.Id, loc.RegionId, loc.LocalId, itemId, count))
-				return false;
-
-#if DEBUG_LOG
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var itemName = itemSystem?.GetItem(itemId)?.Name ?? $"아이템{itemId}";
-			GD.Print($"[PlayerSystem] 아이템 놓기: {itemName} x{count}");
-#endif
-
-			return true;
-		}
-
-		/// <summary>
 		/// 유닛(오브젝트)에서 아이템 가져오기
 		/// </summary>
 		public bool TakeFromUnit(int unitId, int itemId, int count = 1)
@@ -515,25 +467,13 @@ namespace SE
 				}
 			}
 
-			// 3. 바닥에 떨어진 아이템 (InventorySystem에서 가져옴)
-			var groundItems = new Dictionary<int, int>();
-			if (inventorySystem != null)
-			{
-				var loc = player.CurrentLocation;
-				foreach (var (itemId, count) in inventorySystem.GetGroundItems(loc.RegionId, loc.LocalId))
-				{
-					groundItems[itemId] = count;
-				}
-			}
-
-			// 4. 이동 가능한 경로들 (조건 필터링 적용)
+			// 3. 이동 가능한 경로들 (조건 필터링 적용)
 			var routes = BuildRoutes(player, terrain, region, location, itemSystem, inventorySystem);
 
 			return new LookResult
 			{
 				Location = locationInfo,
 				UnitIds = unitIds,
-				GroundItems = groundItems,
 				Routes = routes
 			};
 		}

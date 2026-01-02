@@ -21,11 +21,6 @@ public class LookResult
 	/// 이동 가능한 경로들
 	/// </summary>
 	public List<RouteInfo> Routes { get; set; } = new();
-
-	/// <summary>
-	/// 바닥에 떨어진 아이템 (아이템ID -> 개수)
-	/// </summary>
-	public Dictionary<int, int> GroundItems { get; set; } = new();
 }
 
 /// <summary>

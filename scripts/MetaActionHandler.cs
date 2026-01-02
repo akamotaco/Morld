@@ -99,6 +99,9 @@ public class MetaActionHandler
 			case "back_unit":
 				HandleBackUnitAction();
 				break;
+			case "put_select":
+				HandlePutSelectAction(parts);
+				break;
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
 				break;
@@ -173,41 +176,12 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 아이템 놓기 처리: drop:context:itemId 또는 drop:context:unitId:itemId
-	/// 데이터 변경 → PopIfInvalid (아이템 0개면 Pop, 아니면 UpdateDisplay)
+	/// 아이템 버리기 처리 (레거시 - 현재 사용 안함)
+	/// 바닥에 버리기는 put:바닥unitId:itemId 로 처리됨
 	/// </summary>
 	private void HandleDropAction(string[] parts)
 	{
-		if (parts.Length < 3)
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid drop format");
-			return;
-		}
-
-		var context = parts[1];
-
-		if (context == "inventory")
-		{
-			if (!int.TryParse(parts[2], out int itemId))
-			{
-				GD.PrintErr("[MetaActionHandler] Invalid drop:inventory format");
-				return;
-			}
-			_playerSystem?.DropItem(itemId);
-			_textUISystem?.PopIfInvalid();
-		}
-		else if (context == "container")
-		{
-			if (parts.Length < 4 ||
-				!int.TryParse(parts[2], out int _) ||
-				!int.TryParse(parts[3], out int itemId))
-			{
-				GD.PrintErr("[MetaActionHandler] Invalid drop:container format");
-				return;
-			}
-			_playerSystem?.DropItem(itemId);
-			_textUISystem?.PopIfInvalid();
-		}
+		GD.PrintErr("[MetaActionHandler] drop action is deprecated. Use put:unitId:itemId instead.");
 	}
 
 	/// <summary>
@@ -225,7 +199,7 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 아이템 가져오기 처리: take:ground:itemId 또는 take:unitId:itemId
+	/// 아이템 가져오기 처리: take:unitId:itemId
 	/// 데이터 변경 → PopIfInvalid (아이템 0개면 Pop, 아니면 UpdateDisplay)
 	/// </summary>
 	private void HandleTakeAction(string[] parts)
@@ -236,18 +210,8 @@ public class MetaActionHandler
 			return;
 		}
 
-		// 바닥에서 줍기: take:ground:itemId
-		if (parts[1] == "ground")
-		{
-			if (!int.TryParse(parts[2], out int itemId))
-			{
-				GD.PrintErr("[MetaActionHandler] Invalid take:ground format");
-				return;
-			}
-			_playerSystem?.PickupItem(itemId);
-			RequestUpdateSituation(); // 상황 화면은 Clear + Push (장소 화면)
-			return;
-		}
+		var itemSystem = _world.FindSystem("itemSystem") as ItemSystem;
+		var describeSystem = _world.FindSystem("describeSystem") as DescribeSystem;
 
 		// 유닛에서 가져오기: take:unitId:itemId
 		if (!int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId2))
@@ -256,13 +220,27 @@ public class MetaActionHandler
 			return;
 		}
 
+		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+		var item2 = itemSystem?.GetItem(itemId2);
+		var unit = unitSystem?.GetUnit(unitId);
+		var itemName2 = item2?.Name ?? "아이템";
+		var unitName = unit?.Name ?? "대상";
+
 		_playerSystem?.TakeFromUnit(unitId, itemId2);
+
+		// 액션 메시지 설정
+		if (describeSystem != null)
+		{
+			var message = describeSystem.FormatItemActionMessage("take_unit", itemName2, unitName);
+			_textUISystem?.SetActionMessage(message);
+		}
+
 		_textUISystem?.PopIfInvalid();
 	}
 
 	/// <summary>
 	/// 유닛에 아이템 넣기 처리: put:unitId:itemId
-	/// 데이터 변경 → UpdateDisplay (유닛 화면 갱신)
+	/// 데이터 변경 → PopIfInvalid (아이템 메뉴에서 아이템 0개면 Pop)
 	/// </summary>
 	private void HandlePutAction(string[] parts)
 	{
@@ -272,8 +250,25 @@ public class MetaActionHandler
 			return;
 		}
 
+		// 아이템 및 유닛 이름 조회
+		var itemSystem = _world.FindSystem("itemSystem") as ItemSystem;
+		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+		var item = itemSystem?.GetItem(itemId);
+		var unit = unitSystem?.GetUnit(unitId);
+		var itemName = item?.Name ?? "아이템";
+		var unitName = unit?.Name ?? "대상";
+
 		_playerSystem?.PutToUnit(unitId, itemId);
-		_textUISystem?.UpdateDisplay();
+
+		// 액션 메시지 설정
+		var describeSystem = _world.FindSystem("describeSystem") as DescribeSystem;
+		if (describeSystem != null)
+		{
+			var message = describeSystem.FormatItemActionMessage("put", itemName, unitName);
+			_textUISystem?.SetActionMessage(message);
+		}
+
+		_textUISystem?.PopIfInvalid();
 	}
 
 	/// <summary>
@@ -419,5 +414,25 @@ public class MetaActionHandler
 	private void HandleBackUnitAction()
 	{
 		_textUISystem?.Pop();
+	}
+
+	/// <summary>
+	/// 넣기 대상 선택 (인벤토리 표시): put_select:unitId
+	/// Unit에서 '넣기' 클릭 → Inventory Focus로 전환
+	/// </summary>
+	private void HandlePutSelectAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int unitId))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid put_select format. Expected: put_select:unitId");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] 넣기 대상 선택: unitId={unitId}");
+#endif
+
+		// 인벤토리 화면으로 전환 (현재 Unit Focus 위에 Push)
+		_textUISystem?.ShowInventory();
 	}
 }

@@ -42,6 +42,12 @@ namespace SE
 		/// </summary>
 		private readonly Dictionary<string, List<int>> _equippedItems = new();
 
+		/// <summary>
+		/// 인벤토리 가시성 (ownerKey → isVisible)
+		/// true면 아이템이 외부에서 보임 (열린 상자, 바닥 등)
+		/// </summary>
+		private readonly Dictionary<string, bool> _visibility = new();
+
 		public InventorySystem()
 		{
 		}
@@ -49,19 +55,9 @@ namespace SE
 		// ===== 키 생성 헬퍼 =====
 
 		/// <summary>
-		/// 유닛 키 생성
+		/// 유닛 키 생성 (unitId를 문자열로 변환)
 		/// </summary>
-		public static string UnitKey(int unitId) => $"unit:{unitId}";
-
-		/// <summary>
-		/// 위치 키 생성
-		/// </summary>
-		public static string LocationKey(int regionId, int localId) => $"location:{regionId}:{localId}";
-
-		/// <summary>
-		/// 아이템 키 생성 (가방 등 컨테이너 아이템)
-		/// </summary>
-		public static string ItemKey(int itemId) => $"item:{itemId}";
+		public static string UnitKey(int unitId) => unitId.ToString();
 
 		// ===== 범용 인벤토리 조회 API =====
 
@@ -112,23 +108,6 @@ namespace SE
 		/// </summary>
 		public IReadOnlyList<int> GetUnitEquippedItems(int unitId)
 			=> GetEquippedItems(UnitKey(unitId));
-
-		// ===== 위치 전용 편의 메서드 =====
-
-		/// <summary>
-		/// 위치의 바닥 아이템 가져오기
-		/// </summary>
-		public IReadOnlyDictionary<int, int> GetGroundItems(int regionId, int localId)
-			=> GetInventory(LocationKey(regionId, localId));
-
-		/// <summary>
-		/// 위치에 바닥 아이템이 있는지 확인
-		/// </summary>
-		public bool HasGroundItems(int regionId, int localId)
-		{
-			var inv = GetInventory(LocationKey(regionId, localId));
-			return inv.Count > 0;
-		}
 
 		// ===== 범용 인벤토리 조작 API =====
 
@@ -238,31 +217,35 @@ namespace SE
 		public bool TransferBetweenUnits(int fromUnitId, int toUnitId, int itemId, int count = 1)
 			=> TransferItem(UnitKey(fromUnitId), UnitKey(toUnitId), itemId, count);
 
-		// ===== 바닥 아이템 조작 편의 메서드 =====
+		// ===== 가시성 API =====
 
 		/// <summary>
-		/// 바닥에 아이템 놓기
+		/// 인벤토리 가시성 설정
 		/// </summary>
-		public bool DropToGround(int regionId, int localId, int itemId, int count = 1)
-			=> AddItem(LocationKey(regionId, localId), itemId, count);
+		public void SetVisible(string ownerKey, bool isVisible)
+		{
+			_visibility[ownerKey] = isVisible;
+		}
 
 		/// <summary>
-		/// 바닥에서 아이템 제거
+		/// 인벤토리가 외부에서 보이는지 확인
 		/// </summary>
-		public bool PickupFromGround(int regionId, int localId, int itemId, int count = 1)
-			=> RemoveItem(LocationKey(regionId, localId), itemId, count);
+		public bool IsVisible(string ownerKey)
+		{
+			return _visibility.TryGetValue(ownerKey, out var visible) && visible;
+		}
 
 		/// <summary>
-		/// 유닛이 바닥에서 아이템 줍기
+		/// 유닛 인벤토리가 외부에서 보이는지 확인
 		/// </summary>
-		public bool PickupItem(int unitId, int regionId, int localId, int itemId, int count = 1)
-			=> TransferItem(LocationKey(regionId, localId), UnitKey(unitId), itemId, count);
+		public bool IsUnitInventoryVisible(int unitId)
+			=> IsVisible(UnitKey(unitId));
 
 		/// <summary>
-		/// 유닛이 아이템을 바닥에 버리기
+		/// 유닛 인벤토리 가시성 설정
 		/// </summary>
-		public bool DropItem(int unitId, int regionId, int localId, int itemId, int count = 1)
-			=> TransferItem(UnitKey(unitId), LocationKey(regionId, localId), itemId, count);
+		public void SetUnitInventoryVisible(int unitId, bool isVisible)
+			=> SetVisible(UnitKey(unitId), isVisible);
 
 		// ===== 장착 API =====
 
@@ -352,7 +335,8 @@ namespace SE
 			var data = new InventoryDataJson
 			{
 				Inventories = new Dictionary<string, Dictionary<int, int>>(),
-				EquippedItems = new Dictionary<string, List<int>>()
+				EquippedItems = new Dictionary<string, List<int>>(),
+				Visibility = new Dictionary<string, bool>()
 			};
 
 			// 인벤토리 복사 (빈 것 제외)
@@ -367,6 +351,13 @@ namespace SE
 			{
 				if (items.Count > 0)
 					data.EquippedItems[key] = new List<int>(items);
+			}
+
+			// 가시성 복사 (true인 것만)
+			foreach (var (key, visible) in _visibility)
+			{
+				if (visible)
+					data.Visibility[key] = true;
 			}
 
 			var options = new JsonSerializerOptions
@@ -446,8 +437,17 @@ namespace SE
 					}
 				}
 
+				// 가시성 로드
+				if (data.Visibility != null)
+				{
+					foreach (var (key, visible) in data.Visibility)
+					{
+						_visibility[key] = visible;
+					}
+				}
+
 #if DEBUG_LOG
-				GD.Print($"[InventorySystem] 로드됨: 인벤토리 {_inventories.Count}개, 장착 {_equippedItems.Count}개");
+				GD.Print($"[InventorySystem] 로드됨: 인벤토리 {_inventories.Count}개, 장착 {_equippedItems.Count}개, 가시성 {_visibility.Count}개");
 #endif
 				return true;
 			}
@@ -465,6 +465,7 @@ namespace SE
 		{
 			_inventories.Clear();
 			_equippedItems.Clear();
+			_visibility.Clear();
 		}
 
 		/// <summary>
@@ -545,5 +546,12 @@ namespace SE
 		/// </summary>
 		[JsonPropertyName("equippedItems")]
 		public Dictionary<string, List<int>>? EquippedItems { get; set; }
+
+		/// <summary>
+		/// 인벤토리 가시성 (ownerKey → isVisible)
+		/// true면 아이템이 외부에서 보임
+		/// </summary>
+		[JsonPropertyName("visibility")]
+		public Dictionary<string, bool>? Visibility { get; set; }
 	}
 }

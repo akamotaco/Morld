@@ -41,7 +41,9 @@ public class FocusStack
 		{
 			throw new InvalidOperationException($"FocusStack exceeded maximum depth ({_maxDepth})");
 		}
+		var before = _layers.Count;
 		_layers.Push(focus);
+		GD.Print($"[FocusStack] {before} -> {_layers.Count} (push {focus.Type})");
 	}
 
 	/// <summary>
@@ -57,7 +59,9 @@ public class FocusStack
 		{
 			GD.PrintErr("[FocusStack] Warning: Pop called on stack with only 1 layer. This indicates a content or logic bug.");
 		}
-		_layers.Pop();
+		var before = _layers.Count;
+		var popped = _layers.Pop();
+		GD.Print($"[FocusStack] {before} -> {_layers.Count} (pop {popped.Type})");
 	}
 
 	/// <summary>
@@ -88,5 +92,23 @@ public class FocusStack
 		{
 			_layers.Push(layer);
 		}
+	}
+
+	/// <summary>
+	/// 스택에서 최상위 Unit 또는 Situation Focus를 찾아 반환 (현재 포커스 제외, 위→아래 순회)
+	/// </summary>
+	/// <returns>찾은 Focus (Unit 또는 Situation), 없으면 null</returns>
+	public Focus? FindParentContainer()
+	{
+		var list = ToList(); // 바닥→최상위 순서
+		// 최상위(마지막)는 현재 포커스이므로 제외하고 역순 탐색
+		for (int i = list.Count - 2; i >= 0; i--)
+		{
+			if (list[i].Type == FocusType.Unit || list[i].Type == FocusType.Situation)
+			{
+				return list[i];
+			}
+		}
+		return null;
 	}
 }

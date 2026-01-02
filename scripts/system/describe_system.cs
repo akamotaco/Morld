@@ -2,7 +2,9 @@ using ECS;
 using Morld;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace SE
 {
@@ -12,11 +14,59 @@ namespace SE
 	public class DescribeSystem : ECS.System
 	{
 		private readonly ActionProviderRegistry _actionRegistry = new();
+		private Dictionary<string, string> _actionMessages = new();
 
 		public DescribeSystem()
 		{
 			// 핵심 기본 액션 프로바이더 등록
 			_actionRegistry.Register(new CoreActionProvider());
+		}
+
+		/// <summary>
+		/// 액션 메시지 템플릿 파일 로드
+		/// </summary>
+		public void LoadActionMessages(string filePath)
+		{
+			if (!File.Exists(filePath))
+			{
+				Godot.GD.PrintErr($"[DescribeSystem] Action messages file not found: {filePath}");
+				return;
+			}
+
+			var json = File.ReadAllText(filePath);
+			_actionMessages = JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+			Godot.GD.Print($"[DescribeSystem] Loaded {_actionMessages.Count} action messages");
+		}
+
+		/// <summary>
+		/// 액션 결과 메시지 생성
+		/// </summary>
+		public string FormatActionMessage(string actionKey, Dictionary<string, string> parameters)
+		{
+			if (!_actionMessages.TryGetValue(actionKey, out var template))
+			{
+				return $"{actionKey} 완료";
+			}
+
+			var result = template;
+			foreach (var (key, value) in parameters)
+			{
+				result = result.Replace($"{{{key}}}", value);
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 아이템 관련 액션 메시지 생성 (편의 메서드)
+		/// </summary>
+		public string FormatItemActionMessage(string actionKey, string itemName, string? unitName = null)
+		{
+			var parameters = new Dictionary<string, string> { { "itemName", itemName } };
+			if (unitName != null)
+			{
+				parameters["unitName"] = unitName;
+			}
+			return FormatActionMessage(actionKey, parameters);
 		}
 
 		/// <summary>
@@ -202,37 +252,26 @@ namespace SE
 					// 오브젝트 표시
 					if (objects.Count > 0)
 					{
+						var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 						lines.Add("[color=orange]오브젝트:[/color]");
 						foreach (var obj in objects)
 						{
-							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]");
+							// IsVisible이고 인벤토리가 비어있지 않으면 "(아이템이 보임)" 표시
+							var visibleSuffix = "";
+							if (inventorySystem != null &&
+								inventorySystem.IsUnitInventoryVisible(obj.Id) &&
+								inventorySystem.GetUnitInventory(obj.Id).Count > 0)
+							{
+								visibleSuffix = " [color=lime](아이템이 보임)[/color]";
+							}
+							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]{visibleSuffix}");
 						}
 						lines.Add("");
 					}
 				}
 			}
 
-			// 5. 바닥 아이템
-			if (lookResult.GroundItems.Count > 0)
-			{
-				var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-				if (itemSystem != null)
-				{
-					lines.Add("[color=lime]바닥에 떨어진 아이템:[/color]");
-					foreach (var (itemId, count) in lookResult.GroundItems)
-					{
-						var item = itemSystem.GetItem(itemId);
-						if (item != null)
-						{
-							var countText = count > 1 ? $" x{count}" : "";
-							lines.Add($"  [url=item_ground_menu:{itemId}]{item.Name}{countText}[/url]");
-						}
-					}
-					lines.Add("");
-				}
-			}
-
-			// 6. 이동 가능 경로 (BBCode 링크)
+			// 5. 이동 가능 경로 (BBCode 링크)
 			if (lookResult.Routes.Count > 0)
 			{
 				lines.Add("[color=cyan]이동 가능:[/color]");
@@ -251,7 +290,7 @@ namespace SE
 				}
 			}
 
-			// 7. 행동 옵션 (ActionProviderRegistry 사용)
+			// 6. 행동 옵션 (ActionProviderRegistry 사용)
 			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
 			var player = playerSystem?.GetPlayerUnit();
 
@@ -317,32 +356,6 @@ namespace SE
 					lines.Add("");
 				}
 
-				// 플레이어 인벤토리에서 넣기 옵션 추가
-				var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
-				var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
-				var player = playerSystem?.GetPlayerUnit();
-				var playerInventory = player != null && inventorySystem != null
-					? inventorySystem.GetUnitInventory(player.Id)
-					: null;
-
-				if (playerInventory != null && playerInventory.Count > 0)
-				{
-					var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-					if (itemSystem != null)
-					{
-						lines.Add("[color=cyan]넣기:[/color]");
-						foreach (var (itemId, count) in playerInventory)
-						{
-							var item = itemSystem.GetItem(itemId);
-							if (item != null)
-							{
-								var countText = count > 1 ? $" x{count}" : "";
-								lines.Add($"  [url=put:{unitLook.UnitId}:{itemId}]{item.Name}{countText}[/url]");
-							}
-						}
-						lines.Add("");
-					}
-				}
 			}
 
 			// 액션 표시
@@ -351,8 +364,16 @@ namespace SE
 				lines.Add("[color=yellow]행동:[/color]");
 				foreach (var action in unitLook.Actions)
 				{
-					// 액션 ID를 그대로 표시 (plan.md Q3 결정)
-					lines.Add($"  [url=action:{action}:{unitLook.UnitId}]{action}[/url]");
+					// putinobject 액션은 '넣기'로 표시
+					if (action == "putinobject")
+					{
+						lines.Add($"  [url=put_select:{unitLook.UnitId}]넣기[/url]");
+					}
+					else
+					{
+						// 다른 액션은 그대로 표시
+						lines.Add($"  [url=action:{action}:{unitLook.UnitId}]{action}[/url]");
+					}
 				}
 				lines.Add("");
 			}
@@ -443,8 +464,9 @@ namespace SE
 		/// <summary>
 		/// 아이템 상세 메뉴 텍스트 생성 (통합 함수)
 		/// context: "ground" (바닥), "inventory" (플레이어 인벤토리), "container" (오브젝트/컨테이너)
+		/// parentContainer: 인벤토리 컨텍스트에서 넣기/버리기 대상 (Unit 또는 Situation Focus)
 		/// </summary>
-		public string GetItemMenuText(string context, int itemId, int count, int? unitId = null)
+		public string GetItemMenuText(string context, int itemId, int count, int? unitId = null, Focus? parentContainer = null)
 		{
 			var lines = new List<string>();
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
@@ -485,6 +507,23 @@ namespace SE
 					var (url, label) = GetActionUrlAndLabel(action, itemId, unitId, context);
 					lines.Add($"  [url={url}]{label}[/url]");
 				}
+			}
+
+			// 인벤토리 컨텍스트에서 넣기 옵션 추가 (상위가 Unit인 경우만)
+			if (context == "inventory" && parentContainer != null &&
+				parentContainer.Type == FocusType.Unit && parentContainer.UnitId.HasValue)
+			{
+				var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+				var targetUnit = unitSystem?.GetUnit(parentContainer.UnitId.Value);
+				if (targetUnit != null)
+				{
+					var putLabel = $"넣기: {targetUnit.Name}";
+					lines.Add($"  [url=put:{parentContainer.UnitId.Value}:{itemId}]{putLabel}[/url]");
+				}
+			}
+
+			if (filteredActions.Count > 0 || (context == "inventory" && parentContainer != null))
+			{
 				lines.Add("");
 			}
 
@@ -524,14 +563,9 @@ namespace SE
 		{
 			return action switch
 			{
-				// take는 context에 따라 다른 URL 생성
-				"take" when context == "ground" => ($"take:ground:{itemId}", "줍기"),
+				// take는 container에서 가져가기
 				"take" when context == "container" => ($"take:{unitId}:{itemId}", "가져가기"),
 				"use" => ($"item_use:{itemId}", "사용"),
-				// drop도 context에 따라 다른 URL 생성
-				"drop" when context == "inventory" => ($"drop:inventory:{itemId}", "버리기"),
-				"drop" when context == "container" => ($"drop:container:{unitId}:{itemId}", "버리기"),
-				"drop" => ($"drop:inventory:{itemId}", "버리기"), // 기본값
 				"equip" => ($"equip:{itemId}", "장착"),
 				"throw" => ($"throw:{itemId}", "던지기"),
 				_ => ($"action:{action}:{itemId}", action) // 알 수 없는 액션은 그대로

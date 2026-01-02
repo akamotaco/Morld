@@ -131,7 +131,7 @@
       "type": "object",
       "regionId": 0,
       "locationId": 1,
-      "actions": ["open"],
+      "actions": ["open", "putinobject"],
       "scheduleStack": []
     },
     {
@@ -142,6 +142,86 @@
       "regionId": 1,
       "locationId": 2,
       "actions": ["open", "examine"],
+      "scheduleStack": []
+    },
+    {
+      "id": 100,
+      "name": "바닥",
+      "comment": "ground_0_0",
+      "type": "object",
+      "regionId": 0,
+      "locationId": 0,
+      "actions": ["putinobject"],
+      "scheduleStack": []
+    },
+    {
+      "id": 101,
+      "name": "바닥",
+      "comment": "ground_0_1",
+      "type": "object",
+      "regionId": 0,
+      "locationId": 1,
+      "actions": ["putinobject"],
+      "scheduleStack": []
+    },
+    {
+      "id": 102,
+      "name": "바닥",
+      "comment": "ground_0_2",
+      "type": "object",
+      "regionId": 0,
+      "locationId": 2,
+      "actions": ["putinobject"],
+      "scheduleStack": []
+    },
+    {
+      "id": 103,
+      "name": "바닥",
+      "comment": "ground_0_3",
+      "type": "object",
+      "regionId": 0,
+      "locationId": 3,
+      "actions": ["putinobject"],
+      "scheduleStack": []
+    },
+    {
+      "id": 104,
+      "name": "바닥",
+      "comment": "ground_0_4",
+      "type": "object",
+      "regionId": 0,
+      "locationId": 4,
+      "actions": ["putinobject"],
+      "scheduleStack": []
+    },
+    {
+      "id": 105,
+      "name": "바닥",
+      "comment": "ground_1_0",
+      "type": "object",
+      "regionId": 1,
+      "locationId": 0,
+      "actions": ["putinobject"],
+      "scheduleStack": []
+    },
+    {
+      "id": 106,
+      "name": "바닥",
+      "comment": "ground_1_1",
+      "type": "object",
+      "regionId": 1,
+      "locationId": 1,
+      "actions": ["putinobject"],
+      "scheduleStack": []
+    },
+    {
+      "id": 107,
+      "name": "바닥",
+      "comment": "ground_1_2",
+      "type": "object",
+      "regionId": 1,
+      "locationId": 2,
+      "actions": ["putinobject"],
       "scheduleStack": []
     }
 ]

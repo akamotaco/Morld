@@ -65,6 +65,9 @@ public partial class GameEngine : Node
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
 
+		// 액션 메시지 템플릿 로드
+		_describeSystem?.LoadActionMessages("res://scripts/morld/json_data/action_messages.json");
+
 		// InventorySystem을 ActionProvider로 등록
 		_inventorySystem?.RegisterToDescribeSystem();
 

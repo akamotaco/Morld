@@ -18,6 +18,7 @@ namespace SE
 		private readonly FocusStack _stack = new();
 		private readonly DescribeSystem _describeSystem;
 		private string? _hoveredMeta = null;
+		private string? _lastActionMessage = null;  // 휘발성 행동 결과 메시지
 
 		// 데이터 조회용 참조 (UpdateDisplay에서 사용)
 		private PlayerSystem? _playerSystem;
@@ -53,7 +54,6 @@ namespace SE
 		/// </summary>
 		public void UpdateDisplay()
 		{
-			GD.Print($"[TextUISystem] Stack depth: {_stack.Count}");
 
 			if (_stack.Current == null)
 			{
@@ -62,11 +62,34 @@ namespace SE
 			}
 
 			var text = RenderFocus(_stack.Current);
+
+			// 행동 결과 메시지 추가 (있으면)
+			if (!string.IsNullOrEmpty(_lastActionMessage))
+			{
+				text += $"\n\n[color=yellow]*{_lastActionMessage}[/color]";
+			}
+
 			_textUi.Text = ToggleRenderer.Render(
 				text,
 				_stack.Current.ExpandedToggles,
 				_hoveredMeta
 			);
+		}
+
+		/// <summary>
+		/// 행동 결과 메시지 설정 (휘발성, 화면 전환 시 초기화)
+		/// </summary>
+		public void SetActionMessage(string message)
+		{
+			_lastActionMessage = message;
+		}
+
+		/// <summary>
+		/// 행동 결과 메시지 초기화
+		/// </summary>
+		private void ClearActionMessage()
+		{
+			_lastActionMessage = null;
 		}
 
 		/// <summary>
@@ -126,14 +149,16 @@ namespace SE
 					var inv = _inventorySystem.GetUnitInventory(unitId.Value);
 					inv.TryGetValue(itemId, out count);
 				}
-				else if (context == "ground" && _playerSystem != null)
-				{
-					var lookResult = _playerSystem.Look();
-					lookResult.GroundItems.TryGetValue(itemId, out count);
-				}
 			}
 
-			return _describeSystem.GetItemMenuText(context, itemId, count, unitId);
+			// 인벤토리 컨텍스트에서 상위 컨테이너(Unit 또는 Situation) 찾기
+			Focus? parentContainer = null;
+			if (context == "inventory")
+			{
+				parentContainer = FindParentContainer();
+			}
+
+			return _describeSystem.GetItemMenuText(context, itemId, count, unitId, parentContainer);
 		}
 
 		private string RenderResult(string message)
@@ -148,6 +173,7 @@ namespace SE
 		/// </summary>
 		public void ShowSituation()
 		{
+			ClearActionMessage();
 			Clear();
 			_stack.Push(Focus.Situation());
 			UpdateDisplay();
@@ -158,6 +184,7 @@ namespace SE
 		/// </summary>
 		public void ShowUnitLook(int unitId)
 		{
+			ClearActionMessage();
 			_stack.Push(Focus.Unit(unitId));
 			UpdateDisplay();
 		}
@@ -167,6 +194,7 @@ namespace SE
 		/// </summary>
 		public void ShowInventory()
 		{
+			ClearActionMessage();
 			_stack.Push(Focus.Inventory());
 			UpdateDisplay();
 		}
@@ -176,6 +204,7 @@ namespace SE
 		/// </summary>
 		public void ShowItemMenu(int itemId, string context, int? unitId = null)
 		{
+			ClearActionMessage();
 			_stack.Push(Focus.Item(itemId, context, unitId));
 			UpdateDisplay();
 		}
@@ -185,6 +214,7 @@ namespace SE
 		/// </summary>
 		public void ShowResult(string message)
 		{
+			ClearActionMessage();
 			_stack.Push(Focus.Result(message));
 			UpdateDisplay();
 		}
@@ -196,6 +226,7 @@ namespace SE
 		/// </summary>
 		public void Pop()
 		{
+			ClearActionMessage();
 			_stack.Pop();
 			UpdateDisplay();
 		}
@@ -247,12 +278,6 @@ namespace SE
 				inv.TryGetValue(itemId, out int count);
 				return count;
 			}
-			else if (context == "ground" && _playerSystem != null)
-			{
-				var lookResult = _playerSystem.Look();
-				lookResult.GroundItems.TryGetValue(itemId, out int count);
-				return count;
-			}
 
 			return 0;
 		}
@@ -262,7 +287,17 @@ namespace SE
 		/// </summary>
 		public void Clear()
 		{
+			ClearActionMessage();
 			_stack.Clear();
+		}
+
+		/// <summary>
+		/// 스택에서 최상위 컨테이너(Unit 또는 Situation) 찾기
+		/// </summary>
+		/// <returns>Unit이면 unitId, Situation이면 null, 없으면 예외</returns>
+		public Focus? FindParentContainer()
+		{
+			return _stack.FindParentContainer();
 		}
 
 		/// <summary>

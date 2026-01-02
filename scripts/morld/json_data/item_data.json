@@ -8,7 +8,7 @@
     },
     "equipTags": {},
     "value": 5,
-    "actions": ["take@ground", "take@container", "use@inventory", "drop@inventory"]
+    "actions": ["take@container", "use@inventory"]
   },
   {
     "id": 1,
@@ -17,7 +17,7 @@
     "passiveTags": {},
     "equipTags": {},
     "value": 50,
-    "actions": ["take@ground", "take@container", "use@inventory", "drop@inventory"]
+    "actions": ["take@container", "use@inventory"]
   },
   {
     "id": 2,
@@ -28,7 +28,7 @@
       "관찰": 2
     },
     "value": 200,
-    "actions": ["take@ground", "take@container", "use@inventory", "equip@inventory", "drop@inventory"]
+    "actions": ["take@container", "use@inventory", "equip@inventory"]
   },
   {
     "id": 3,
@@ -39,7 +39,7 @@
       "방어": 1
     },
     "value": 30,
-    "actions": ["take@ground", "take@container", "use@inventory", "equip@inventory", "drop@inventory"]
+    "actions": ["take@container", "use@inventory", "equip@inventory"]
   },
   {
     "id": 4,
@@ -48,6 +48,6 @@
     "passiveTags": {},
     "equipTags": {},
     "value": 1,
-    "actions": ["take@ground", "take@container", "throw@inventory", "drop@inventory"]
+    "actions": ["take@container", "throw@inventory"]
   }
 ]
