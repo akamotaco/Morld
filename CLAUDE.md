@@ -13,6 +13,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - Dijkstra Pathfinding
 - 스택 기반 스케줄 시스템
 - 통합 Unit 시스템 (캐릭터/오브젝트)
+- sharpPy (Python 인터프리터) 기반 스크립트 시스템
 
 ---
 
@@ -51,6 +52,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - `DescribeSystem` - 묘사 텍스트 생성 (시간 기반 키 선택)
 - `ActionSystem` - 유닛 행동 실행 (talk, trade, use 등)
 - `TextUISystem` - RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
+- `ScriptSystem` - Python 스크립트 실행 (sharpPy 기반), 모놀로그/이벤트 처리
 
 ### 시스템 실행 순서
 
@@ -469,7 +471,8 @@ public enum FocusType
     Unit,        // 유닛/오브젝트 화면
     Inventory,   // 플레이어 인벤토리
     Item,        // 아이템 메뉴
-    Result       // 결과 메시지
+    Result,      // 결과 메시지
+    Monologue    // 모놀로그/대화 (페이지, YesNo 포함)
 }
 ```
 
@@ -484,12 +487,21 @@ public class Focus
     public string? Message { get; set; }   // Result 타입에서 사용
     public HashSet<string> ExpandedToggles { get; set; }
 
+    // Monologue 타입 전용
+    public List<string>? MonologuePages { get; set; }
+    public int MonologueTimeConsumed { get; set; }
+    public int CurrentPage { get; set; }
+    public MonologueButtonType MonologueButtonType { get; set; }  // Ok, None, YesNo
+    public string? YesCallback { get; set; }  // "함수명:인자1:인자2" 형식
+    public string? NoCallback { get; set; }
+
     // 팩토리 메서드
     public static Focus Situation();
     public static Focus Unit(int unitId);
     public static Focus Inventory();
     public static Focus Item(int itemId, string context, int? unitId = null);
     public static Focus Result(string message);
+    public static Focus Monologue(pages, timeConsumed, buttonType, yesCallback?, noCallback?);
 }
 ```
 
@@ -513,10 +525,71 @@ public class Focus
 
 **파일 위치:**
 - `scripts/system/text_ui_system.cs`
-- `scripts/morld/ui/Focus.cs` (Focus, FocusType)
+- `scripts/morld/ui/Focus.cs` (Focus, FocusType, MonologueButtonType)
 - `scripts/morld/ui/FocusStack.cs`
 - `scripts/morld/ui/ToggleRenderer.cs`
 - `scripts/morld/ui/UIStateJsonFormat.cs`
+
+### ScriptSystem (Logic System)
+**역할:** Python 스크립트 실행 (sharpPy 인터프리터), 모놀로그/이벤트 처리
+
+**주요 기능:**
+- sharpPy 기반 Python 인터프리터 통합
+- Godot `res://` 경로를 sys.path에 추가
+- `morld` 모듈을 통해 게임 시스템과 Python 연동
+- 스크립트 함수 호출 및 결과 처리
+
+**Python 스크립트 결과 타입:**
+```python
+# 모놀로그 결과 (여러 페이지, 버튼 타입 지정)
+{
+    "type": "monologue",
+    "pages": ["첫 번째 페이지", "두 번째 페이지"],
+    "time_consumed": 5,  # 소요 시간 (분)
+    "button_type": "ok"  # "ok", "none", "yesno"
+}
+
+# YesNo 다이얼로그 (콜백 지정)
+{
+    "type": "monologue",
+    "pages": ["선택하시겠습니까?"],
+    "time_consumed": 0,
+    "button_type": "yesno",
+    "yes_callback": "confirm_action:param1",  # 승낙 시 호출
+    "no_callback": None  # None이면 단순 Pop (이전 화면으로)
+}
+
+# 메시지 결과
+{
+    "type": "message",
+    "message": "결과 텍스트"
+}
+```
+
+**BBCode에서 스크립트 호출:**
+```bbcode
+[url=script:function_name:arg1:arg2]클릭[/url]
+```
+
+**morld 모듈 (Python → C# 연동):**
+```python
+import morld
+
+player_id = morld.get_player_id()
+morld.give_item(player_id, item_id, count)
+```
+
+**YesNo 다이얼로그 흐름:**
+1. 선택지 모놀로그 표시 (`button_type: "none"`, 선택지는 script: 링크)
+2. 선택 클릭 → `job_select(type)` 호출 → YesNo 다이얼로그 Push
+3. "승낙" → Pop → `yes_callback` 실행 → 결과 모놀로그 Push
+4. "거절" → Pop → 이전 선택 화면으로 복귀
+
+**파일 위치:**
+- `scripts/system/script_system.cs`
+- `scripts/python/monologues.py` (모놀로그 스크립트)
+- `scripts/python/job_blessings.json` (데이터 파일)
+- `util/sharpPy/` (Python 인터프리터)
 
 ---
 
@@ -708,6 +781,7 @@ scripts/
 │  ├─ describe_system.cs (DescribeSystem - Logic)
 │  ├─ text_ui_system.cs (TextUISystem - Logic)
 │  ├─ inventory_system.cs (InventorySystem - Data)
+│  ├─ script_system.cs (ScriptSystem - Logic, sharpPy 통합)
 │  └─ sing_a_song_system.cs (SingASongSystem - ActionProvider 예제)
 ├─ morld/ (Core Data Structures)
 │  ├─ IDescribable.cs (묘사 인터페이스)
@@ -746,17 +820,21 @@ scripts/
 │  │  └─ UIStateJsonFormat.cs (JSON 직렬화)
 │  └─ data/
 │     └─ IDataProvider.cs (데이터 제공자 인터페이스)
+├─ python/ (Python 스크립트)
+│  ├─ monologues.py (모놀로그/이벤트 함수)
+│  └─ job_blessings.json (직업별 축복 메시지)
 ├─ simple_engine/
 │  ├─ ecs.cs (ECS 기반 클래스)
 │  └─ world.cs (SE.World, ECS 허브)
-└─ json_data/ (게임 데이터)
-   ├─ location_data.json
-   ├─ time_data.json
-   ├─ unit_data.json
-   ├─ item_data.json
-   ├─ inventory_data.json
-   ├─ player_data.json
-   └─ text_ui_data.json
+├─ json_data/ (게임 데이터)
+│  ├─ location_data.json
+│  ├─ time_data.json
+│  ├─ unit_data.json
+│  ├─ item_data.json
+│  ├─ inventory_data.json
+│  ├─ player_data.json
+│  └─ text_ui_data.json
+└─ util/sharpPy/ (Python 인터프리터 - 서브모듈)
 ```
 
 ---

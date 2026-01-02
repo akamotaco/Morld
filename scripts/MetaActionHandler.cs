@@ -491,8 +491,7 @@ public class MetaActionHandler
 			case "monologue":
 				if (result is SE.MonologueScriptResult monoResult)
 				{
-					// 모놀로그 표시 (현재 화면 대체)
-					_textUISystem?.Pop();  // 현재 모놀로그 제거
+					// 모놀로그 표시 (스택에 Push - 거절 시 이전 화면으로 돌아갈 수 있도록)
 					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType, monoResult.YesCallback, monoResult.NoCallback);
 #if DEBUG_LOG
 					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType}, yes={monoResult.YesCallback}, no={monoResult.NoCallback})");
@@ -571,6 +570,10 @@ public class MetaActionHandler
 			return;
 		}
 
+		// 승낙 시: 현재 YesNo 다이얼로그 Pop 후 콜백 실행
+		// (콜백 결과가 새 모놀로그면 그 위에 Push됨)
+		_textUISystem?.Pop();
+
 		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
 		var callbackParts = currentFocus.YesCallback.Split(':');
 		var parts = new string[callbackParts.Length + 1];
@@ -596,6 +599,9 @@ public class MetaActionHandler
 			_textUISystem?.Pop();
 			return;
 		}
+
+		// 거절 시: 현재 YesNo 다이얼로그 Pop 후 콜백 실행
+		_textUISystem?.Pop();
 
 		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
 		var callbackParts = currentFocus.NoCallback.Split(':');
