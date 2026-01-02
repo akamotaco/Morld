@@ -132,6 +132,24 @@ namespace SE
 					unit.Actions.AddRange(data.Actions);
 				}
 
+				// Appearance 설정
+				if (data.Appearance != null)
+				{
+					foreach (var (key, value) in data.Appearance)
+					{
+						unit.Appearance[key] = value;
+					}
+				}
+
+				// Mood 설정
+				if (data.Mood != null)
+				{
+					foreach (var mood in data.Mood)
+					{
+						unit.Mood.Add(mood);
+					}
+				}
+
 				// 스케줄 스택 설정 (배열 순서대로 push - 첫 요소가 스택 바닥)
 				foreach (var layerData in data.ScheduleStack)
 				{
@@ -233,6 +251,12 @@ namespace SE
 				Type = unit.Type.ToString().ToLower(),
 				Actions = unit.Actions.Count > 0
 					? new List<string>(unit.Actions)
+					: null,
+				Appearance = unit.Appearance.Count > 0
+					? new Dictionary<string, string>(unit.Appearance)
+					: null,
+				Mood = unit.Mood.Count > 0
+					? new List<string>(unit.Mood)
 					: null,
 				ScheduleStack = unit.ScheduleStack.Reverse().Select(layer => new ScheduleLayerJsonData
 				{

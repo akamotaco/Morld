@@ -34,13 +34,56 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Unit 묘사 반환 (향후 확장)
+		/// Unit 외관 묘사 반환 (감정/표정 + Activity 기반)
 		/// </summary>
-		public string GetUnitDescription(Unit? unit, GameTime? time)
+		public string GetUnitAppearance(Unit? unit)
 		{
-			// 기본: 이름 + 활동
-			// 향후: LLM으로 풍성한 묘사 생성
-			return unit?.Name ?? "";
+			if (unit == null) return "";
+
+			// Mood와 현재 Activity를 합쳐서 태그 생성
+			var tags = new HashSet<string>(unit.Mood);
+			var activity = unit.CurrentSchedule?.Activity;
+			if (!string.IsNullOrEmpty(activity))
+			{
+				tags.Add(activity);
+			}
+
+			return SelectAppearanceByMood(unit.Appearance, tags);
+		}
+
+		/// <summary>
+		/// Appearance Dictionary에서 Mood 기반 적절한 키 선택 (태그 순서 무관)
+		/// </summary>
+		private string SelectAppearanceByMood(Dictionary<string, string>? appearances, HashSet<string>? mood)
+		{
+			if (appearances == null || appearances.Count == 0)
+				return "";
+
+			if (mood == null || mood.Count == 0)
+			{
+				return appearances.TryGetValue("default", out var defaultAppearance) ? defaultAppearance : "";
+			}
+
+			string bestKey = "default";
+			int bestMatchCount = 0;
+
+			foreach (var (key, _) in appearances)
+			{
+				if (key == "default") continue;
+
+				// 콤마로 구분된 태그를 HashSet으로 변환 (순서 무관)
+				var keyTags = key.Split(',').Select(t => t.Trim()).ToHashSet();
+				var matchCount = keyTags.Intersect(mood).Count();
+
+				// 모든 키 태그가 현재 Mood에 포함되어야 함
+				if (matchCount == keyTags.Count && matchCount > bestMatchCount)
+				{
+					bestMatchCount = matchCount;
+					bestKey = key;
+				}
+			}
+
+			return appearances.TryGetValue(bestKey, out var appearance) ? appearance : "";
 		}
 
 		/// <summary>
@@ -216,6 +259,13 @@ namespace SE
 
 			lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
+
+			// 외관 묘사
+			if (!string.IsNullOrEmpty(unitLook.AppearanceText))
+			{
+				lines.Add(unitLook.AppearanceText);
+				lines.Add("");
+			}
 
 			// 오브젝트일 경우 인벤토리 표시
 			if (unitLook.IsObject)

@@ -38,6 +38,12 @@ internal class UnitJsonData
 	[JsonPropertyName("actions")]
 	public List<string>? Actions { get; set; }
 
+	[JsonPropertyName("appearance")]
+	public Dictionary<string, string>? Appearance { get; set; }
+
+	[JsonPropertyName("mood")]
+	public List<string>? Mood { get; set; }
+
 	[JsonPropertyName("scheduleStack")]
 	public ScheduleLayerJsonData[] ScheduleStack { get; set; } = [];
 

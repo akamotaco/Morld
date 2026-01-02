@@ -124,4 +124,9 @@ public class UnitLookResult
 	/// 가능한 액션들 (예: "talk", "trade", "open", "examine")
 	/// </summary>
 	public List<string> Actions { get; set; } = new();
+
+	/// <summary>
+	/// DescribeSystem에서 선택된 외관 묘사 텍스트
+	/// </summary>
+	public string AppearanceText { get; set; } = "";
 }

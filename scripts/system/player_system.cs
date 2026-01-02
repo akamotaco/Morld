@@ -430,13 +430,16 @@ namespace SE
 			if (unit.CurrentLocation != player.CurrentLocation)
 				return null;
 
+			var describeSystem = _hub.FindSystem("describeSystem") as DescribeSystem;
+
 			return new UnitLookResult
 			{
 				UnitId = unit.Id,
 				Name = unit.Name,
 				IsObject = unit.IsObject,
 				Inventory = unit.IsObject ? new Dictionary<int, int>(unit.Inventory) : new Dictionary<int, int>(),
-				Actions = new List<string>(unit.Actions)
+				Actions = new List<string>(unit.Actions),
+				AppearanceText = describeSystem?.GetUnitAppearance(unit) ?? ""
 			};
 		}
 

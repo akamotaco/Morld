@@ -7,7 +7,7 @@ using SE;
 /// <summary>
 /// Unit (유닛) - 캐릭터와 오브젝트 통합
 /// </summary>
-public class Unit
+public class Unit : IDescribable
 {
 	private readonly int _id;
 	private LocationRef _currentLocation;
@@ -90,6 +90,17 @@ public class Unit
 	/// 가능한 액션 (통합: "talk", "trade", "use", "open" 등)
 	/// </summary>
 	public List<string> Actions { get; set; } = new();
+
+	/// <summary>
+	/// 상황별 외관 묘사 텍스트 (IDescribable)
+	/// 감정/표정 태그 기반: "default", "기쁨", "슬픔", "분노", "긴장" 등
+	/// </summary>
+	public Dictionary<string, string> Appearance { get; set; } = new();
+
+	/// <summary>
+	/// 현재 감정/표정 상태 (Appearance 매칭용)
+	/// </summary>
+	public HashSet<string> Mood { get; set; } = new();
 
 	/// <summary>
 	/// 이동 중인지 여부 (CurrentEdge 기반)
