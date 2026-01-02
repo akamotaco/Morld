@@ -4,4 +4,14 @@
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
+
+  <!-- sharpPy 소스 파일 제외 (util 폴더는 기본 포함되지 않음 확인 필요) -->
+  <ItemGroup>
+    <!-- sharpPy 테스트/obj/bin 폴더 제외 -->
+    <Compile Remove="util\sharpPy\tests\**" />
+    <Compile Remove="util\sharpPy\obj\**" />
+    <Compile Remove="util\sharpPy\bin\**" />
+    <!-- dotnet 전용 helper 제외 (GODOT 모드에서는 helper_godot.cs 사용) -->
+    <Compile Remove="util\sharpPy\platform\helper_dotnet.cs" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,4 @@
+[submodule "util/sharpPy"]
+	path = util/sharpPy
+	url = https://github.com/akamotaco/sharpPy.git
+	branch = godot

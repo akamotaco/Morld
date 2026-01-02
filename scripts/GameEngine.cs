@@ -14,6 +14,7 @@ public partial class GameEngine : Node
 	private TextUISystem _textUISystem;
 	private RichTextLabel _textUi;
 	private MetaActionHandler _actionHandler;
+	private ScriptSystem _scriptSystem;
 
 	public override void _Ready()
 	{
@@ -90,6 +91,10 @@ public partial class GameEngine : Node
 		// MetaActionHandler 초기화
 		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
 		_actionHandler.OnUpdateSituation += UpdateSituationText;
+
+		// ScriptSystem 초기화 및 Python Hello World 테스트
+		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
+		_scriptSystem?.TestHelloWorld();
 
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
