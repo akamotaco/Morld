@@ -491,7 +491,7 @@ public class Focus
     public List<string>? MonologuePages { get; set; }
     public int MonologueTimeConsumed { get; set; }
     public int CurrentPage { get; set; }
-    public MonologueButtonType MonologueButtonType { get; set; }  // Ok, None, YesNo
+    public MonologueButtonType MonologueButtonType { get; set; }  // Ok, None, YesNo, NoneOnLast
     public string? YesCallback { get; set; }  // "함수명:인자1:인자2" 형식
     public string? NoCallback { get; set; }
 
@@ -546,8 +546,13 @@ public class Focus
     "type": "monologue",
     "pages": ["첫 번째 페이지", "두 번째 페이지"],
     "time_consumed": 5,  # 소요 시간 (분)
-    "button_type": "ok"  # "ok", "none", "yesno"
+    "button_type": "ok"  # "ok", "none", "yesno", "none_on_last"
 }
+# button_type 설명:
+# - "ok": 마지막 페이지는 [확인], 중간 페이지는 [계속]
+# - "none": 모든 페이지에 버튼 없음 (선택지가 페이지 내에 있는 경우)
+# - "yesno": [승낙] [거절] 버튼
+# - "none_on_last": 중간 페이지는 [계속], 마지막 페이지만 버튼 없음 (게임 종료 등)
 
 # YesNo 다이얼로그 (콜백 지정)
 {

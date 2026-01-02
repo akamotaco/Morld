@@ -288,6 +288,7 @@ public class MetaActionHandler
 
 	/// <summary>
 	/// 유닛 행동 처리: action:actionType:unitId
+	/// script 액션인 경우: action:script:functionName:displayName[:args...]
 	/// </summary>
 	private void HandleUnitAction(string[] parts)
 	{
@@ -298,6 +299,24 @@ public class MetaActionHandler
 		}
 
 		var actionType = parts[1];
+
+		// script 액션인 경우 HandleScriptAction으로 위임
+		// action:script:functionName:displayName[:args...] → script:functionName[:args...]
+		if (actionType == "script")
+		{
+			// parts[0]="action", parts[1]="script", parts[2]=functionName, parts[3]=displayName, parts[4...]=args
+			// displayName은 표시용이므로 스킵하고 functionName과 args만 전달
+			var scriptParts = new string[parts.Length - 2];  // "script", functionName, args...
+			scriptParts[0] = "script";
+			scriptParts[1] = parts[2];  // functionName
+			// displayName(parts[3]) 스킵하고 나머지 args 복사
+			for (int i = 4; i < parts.Length; i++)
+			{
+				scriptParts[i - 2] = parts[i];
+			}
+			HandleScriptAction(scriptParts);
+			return;
+		}
 
 		if (!int.TryParse(parts[2], out int unitId))
 		{
@@ -500,6 +519,17 @@ public class MetaActionHandler
 					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType, monoResult.YesCallback, monoResult.NoCallback);
 #if DEBUG_LOG
 					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType}, yes={monoResult.YesCallback}, no={monoResult.NoCallback})");
+#endif
+				}
+				break;
+
+			case "update":
+				// 현재 모놀로그 내용만 교체 (Push 없이 in-place 갱신)
+				if (result is SE.MonologueScriptResult updateResult)
+				{
+					_textUISystem?.UpdateMonologueContent(updateResult.Pages, updateResult.ButtonType);
+#if DEBUG_LOG
+					GD.Print($"[MetaActionHandler] Script result: update ({updateResult.Pages.Count} pages, button={updateResult.ButtonType})");
 #endif
 				}
 				break;

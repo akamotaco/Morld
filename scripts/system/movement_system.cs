@@ -26,6 +26,8 @@ namespace SE
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 
 			if (worldSystem == null || unitSystem == null || playerSystem == null)
 				return;
@@ -61,7 +63,7 @@ namespace SE
 				// 오브젝트는 이동하지 않음
 				if (unit.IsObject) continue;
 
-				ProcessMovement(unit, duration, terrain, time);
+				ProcessMovement(unit, duration, terrain, time, itemSystem, inventorySystem);
 			}
 
 			// GameTime 업데이트
@@ -192,7 +194,7 @@ namespace SE
 		/// <summary>
 		/// 실제 이동 처리
 		/// </summary>
-		private void ProcessMovement(Unit unit, int duration, Terrain terrain, GameTime time)
+		private void ProcessMovement(Unit unit, int duration, Terrain terrain, GameTime time, ItemSystem? itemSystem, InventorySystem? inventorySystem)
 		{
 			int remainingTime = duration;
 
@@ -239,7 +241,11 @@ namespace SE
 					break;
 				}
 
-				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation.Value, unit);
+				// 아이템 효과가 반영된 태그로 경로 탐색
+				var inventory = inventorySystem?.GetUnitInventory(unit.Id);
+				var equippedItems = inventorySystem?.GetUnitEquippedItems(unit.Id);
+				var actualTags = unit.GetActualTags(itemSystem, inventory, equippedItems);
+				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation.Value, actualTags);
 				if (!pathResult.Found || pathResult.Path.Count < 2)
 				{
 					break;

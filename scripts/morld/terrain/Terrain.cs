@@ -506,12 +506,21 @@ public class Terrain
     }
 
     /// <summary>
-    /// 경로 탐색 (PathFinder 래퍼)
+    /// 경로 탐색 (PathFinder 래퍼) - TraversalContext 직접 전달
     /// </summary>
-    public PathResult FindPath(LocationRef from, LocationRef to, Unit? unit = null, ItemSystem? itemSystem = null)
+    public PathResult FindPath(LocationRef from, LocationRef to, TraversalContext? context)
     {
         var pathFinder = new PathFinder(this);
-        return pathFinder.FindPath(from, to, unit, itemSystem);
+        return pathFinder.FindPath(from, to, context);
+    }
+
+    /// <summary>
+    /// 경로 탐색 (PathFinder 래퍼) - Unit 기반 (하위 호환용)
+    /// </summary>
+    public PathResult FindPath(LocationRef from, LocationRef to, Unit? unit = null, ItemSystem? itemSystem = null, InventorySystem? inventorySystem = null)
+    {
+        var pathFinder = new PathFinder(this);
+        return pathFinder.FindPath(from, to, unit, itemSystem, inventorySystem);
     }
 
     /// <summary>

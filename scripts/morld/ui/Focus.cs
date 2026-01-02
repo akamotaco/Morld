@@ -22,7 +22,8 @@ public enum MonologueButtonType
 {
 	Ok,          // [확인] - 기본값
 	None,        // 버튼 없음 (선택지가 페이지에 포함된 경우)
-	YesNo        // [승낙] [거절]
+	YesNo,       // [승낙] [거절]
+	NoneOnLast   // 마지막 페이지만 버튼 없음 (중간 페이지는 [계속])
 }
 
 /// <summary>

@@ -243,6 +243,64 @@ namespace SE
                     return result;
                 });
 
+                // === 태그/플래그 API (플레이어 태그 기반) ===
+                morldModule.ModuleDict["set_flag"] = new PyBuiltinFunction("set_flag", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("set_flag(flag_name, value=1) requires at least 1 argument");
+
+                    string flagName = args[0].AsString();
+                    int value = args.Length >= 2 ? args[1].ToInt() : 1;
+
+                    if (_playerSystem == null || _unitSystem == null)
+                        return PyBool.False;
+
+                    var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
+                    if (player == null)
+                        return PyBool.False;
+
+                    player.TraversalContext.SetTag(flagName, value);
+                    Godot.GD.Print($"[morld] set_flag: {flagName} = {value}");
+                    return new PyInt(value);
+                });
+
+                morldModule.ModuleDict["get_flag"] = new PyBuiltinFunction("get_flag", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_flag(flag_name) requires 1 argument");
+
+                    string flagName = args[0].AsString();
+
+                    if (_playerSystem == null || _unitSystem == null)
+                        return new PyInt(0);
+
+                    var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
+                    if (player == null)
+                        return new PyInt(0);
+
+                    int value = player.TraversalContext.GetTagValue(flagName);
+                    return new PyInt(value);
+                });
+
+                morldModule.ModuleDict["clear_flag"] = new PyBuiltinFunction("clear_flag", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("clear_flag(flag_name) requires 1 argument");
+
+                    string flagName = args[0].AsString();
+
+                    if (_playerSystem == null || _unitSystem == null)
+                        return PyBool.False;
+
+                    var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
+                    if (player == null)
+                        return PyBool.False;
+
+                    player.TraversalContext.SetTag(flagName, 0);
+                    Godot.GD.Print($"[morld] clear_flag: {flagName}");
+                    return PyBool.True;
+                });
+
                 // === 시나리오 API ===
                 morldModule.ModuleDict["get_scenario_path"] = new PyBuiltinFunction("get_scenario_path", args =>
                 {
@@ -472,10 +530,10 @@ namespace SE
             var typeObj = dict.GetItem(new PyString("type"));
             var type = (typeObj as PyString)?.Value;
 
-            if (type == "monologue")
+            if (type == "monologue" || type == "update")
             {
                 var pagesObj = dict.GetItem(new PyString("pages"));
-                var timeObj = dict.GetItem(new PyString("time_consumed"));
+                var timeObj = dict.Get(new PyString("time_consumed"));  // Get()으로 변경 (없으면 None)
                 // button_type은 선택적 필드 - Get()은 키가 없으면 None 반환
                 var buttonTypeObj = dict.Get(new PyString("button_type"));
 
@@ -498,7 +556,7 @@ namespace SE
                     timeConsumed = (int)timeInt.Value;
                 }
 
-                // button_type 파싱 ("ok", "none", "yesno")
+                // button_type 파싱 ("ok", "none", "yesno", "none_on_last")
                 var buttonType = Morld.MonologueButtonType.Ok;
                 if (buttonTypeObj is PyString buttonTypeStr)
                 {
@@ -506,6 +564,7 @@ namespace SE
                     {
                         "none" => Morld.MonologueButtonType.None,
                         "yesno" => Morld.MonologueButtonType.YesNo,
+                        "none_on_last" => Morld.MonologueButtonType.NoneOnLast,
                         _ => Morld.MonologueButtonType.Ok
                     };
                 }
@@ -516,10 +575,10 @@ namespace SE
                 string yesCallback = (yesCallbackObj as PyString)?.Value;
                 string noCallback = (noCallbackObj as PyString)?.Value;
 
-                Godot.GD.Print($"[ScriptSystem] Parsed monologue result: {pages.Count} pages, {timeConsumed}min, button={buttonType}");
+                Godot.GD.Print($"[ScriptSystem] Parsed {type} result: {pages.Count} pages, {timeConsumed}min, button={buttonType}");
                 return new MonologueScriptResult
                 {
-                    Type = "monologue",
+                    Type = type,  // "monologue" 또는 "update"
                     Pages = pages,
                     TimeConsumed = timeConsumed,
                     ButtonType = buttonType,
@@ -528,8 +587,8 @@ namespace SE
                 };
             }
 
-            // 기본 메시지 결과
-            var messageObj = dict.GetItem(new PyString("message"));
+            // 기본 메시지 결과 - Get()으로 안전하게 조회
+            var messageObj = dict.Get(new PyString("message"));
             var message = (messageObj as PyString)?.Value ?? "";
             return new ScriptResult { Type = type ?? "unknown", Message = message };
         }

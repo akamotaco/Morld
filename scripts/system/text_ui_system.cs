@@ -216,6 +216,16 @@ namespace SE
 					// 버튼 없음 (선택지가 페이지 내에 포함된 경우)
 					break;
 
+				case MonologueButtonType.NoneOnLast:
+					// 마지막 페이지만 버튼 없음 (중간 페이지는 계속)
+					if (!isLastPage)
+					{
+						lines.Add("");
+						lines.Add("[url=monologue_next]계속[/url]");
+					}
+					// 마지막 페이지는 버튼 없음 (게임 종료 등)
+					break;
+
 				case MonologueButtonType.YesNo:
 					lines.Add("");
 					lines.Add("[url=monologue_yes]승낙[/url]  [url=monologue_no]거절[/url]");
@@ -296,6 +306,20 @@ namespace SE
 			if (_stack.Current?.Type != FocusType.Monologue) return;
 
 			_stack.Current.CurrentPage++;
+			UpdateDisplay();
+		}
+
+		/// <summary>
+		/// 현재 모놀로그 내용 교체 (Push 없이 in-place 갱신)
+		/// 비밀번호 입력 등 상태 변경 시 사용
+		/// </summary>
+		public void UpdateMonologueContent(List<string> pages, MonologueButtonType buttonType = MonologueButtonType.None)
+		{
+			if (_stack.Current?.Type != FocusType.Monologue) return;
+
+			_stack.Current.MonologuePages = pages;
+			_stack.Current.CurrentPage = 0;
+			_stack.Current.MonologueButtonType = buttonType;
 			UpdateDisplay();
 		}
 

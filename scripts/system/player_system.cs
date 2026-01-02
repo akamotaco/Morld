@@ -127,6 +127,7 @@ namespace SE
 			var player = GetPlayerUnit();
 			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 
 			if (player == null || worldSystem == null)
 				return;
@@ -137,8 +138,11 @@ namespace SE
 			if (player.CurrentLocation == destination)
 				return;
 
-			// 경로 탐색 (총 이동 시간 계산용)
-			var pathResult = terrain.FindPath(player.CurrentLocation, destination, player, itemSystem);
+			// 아이템 효과가 반영된 태그로 경로 탐색
+			var inventory = inventorySystem?.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+			var actualTags = player.GetActualTags(itemSystem, inventory, equippedItems);
+			var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualTags);
 
 			if (!pathResult.Found || pathResult.Path.Count < 2)
 			{
