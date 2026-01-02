@@ -16,6 +16,11 @@ public partial class GameEngine : Node
 	private MetaActionHandler _actionHandler;
 	private ScriptSystem _scriptSystem;
 
+	// 시나리오 경로 (res:// 기준)
+	private string _scenarioPath = "res://scenarios/scenario01/";
+	private string DataPath => _scenarioPath + "data/";
+	private string PythonPath => _scenarioPath + "python/";
+
 	public override void _Ready()
 	{
 		var text_ui_path = GetMeta("TextUI").As<string>();
@@ -34,28 +39,27 @@ public partial class GameEngine : Node
 
 		this._world = new SE.World(this);
 
-		// Data Systems 초기화
+		// Data Systems 초기화 (시나리오 경로 기반)
 		(this._world.AddSystem(new WorldSystem("aka"), "worldSystem") as WorldSystem)
-			.GetTerrain().UpdateFromFile("res://scripts/morld/json_data/location_data.json");
+			.GetTerrain().UpdateFromFile(DataPath + "location_data.json");
 		(this._world.FindSystem("worldSystem") as WorldSystem)
-			.GetTime().UpdateFromFile("res://scripts/morld/json_data/time_data.json");
+			.GetTime().UpdateFromFile(DataPath + "time_data.json");
 
 		(this._world.AddSystem(new UnitSystem(), "unitSystem") as UnitSystem)
-			.UpdateFromFile("res://scripts/morld/json_data/unit_data.json");
+			.UpdateFromFile(DataPath + "unit_data.json");
 
 		(this._world.AddSystem(new ItemSystem(), "itemSystem") as ItemSystem)
-			.UpdateFromFile("res://scripts/morld/json_data/item_data.json");
+			.UpdateFromFile(DataPath + "item_data.json");
 
 		// InventorySystem 초기화 (IDataProvider + IActionProvider)
 		_inventorySystem = this._world.AddSystem(new InventorySystem(), "inventorySystem") as InventorySystem;
 
 		// InventorySystem 데이터 로드 시도 (없으면 unit_data.json에서 마이그레이션)
-		var inventoryDataPath = "res://scripts/morld/json_data/";
-		if (!_inventorySystem.LoadData(inventoryDataPath))
+		if (!_inventorySystem.LoadData(DataPath))
 		{
 			// inventory_data.json이 없으면 unit_data.json에서 마이그레이션
 			var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
-			unitSystem?.MigrateInventoryData("res://scripts/morld/json_data/unit_data.json", _inventorySystem);
+			unitSystem?.MigrateInventoryData(DataPath + "unit_data.json", _inventorySystem);
 		}
 
 		this._world.AddSystem(new ActionSystem(), "actionSystem");
@@ -67,7 +71,7 @@ public partial class GameEngine : Node
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
 
 		// 액션 메시지 템플릿 로드
-		_describeSystem?.LoadActionMessages("res://scripts/morld/json_data/action_messages.json");
+		_describeSystem?.LoadActionMessages(DataPath + "action_messages.json");
 
 		// InventorySystem을 ActionProvider로 등록
 		_inventorySystem?.RegisterToDescribeSystem();
@@ -81,6 +85,10 @@ public partial class GameEngine : Node
 		// ScriptSystem 초기화 (TextUISystem보다 먼저)
 		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
 		var unitSys = this._world.FindSystem("unitSystem") as UnitSystem;
+
+		// 시나리오 경로 설정 (시스템 참조 설정 전에 호출)
+		_scriptSystem?.SetScenarioPath(_scenarioPath);
+
 		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem, unitSys);
 		_scriptSystem?.TestHelloWorld();
 		_scriptSystem?.RegisterTestFunctions();

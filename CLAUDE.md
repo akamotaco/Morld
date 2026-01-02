@@ -571,12 +571,46 @@ public class Focus
 [url=script:function_name:arg1:arg2]클릭[/url]
 ```
 
-**morld 모듈 (Python → C# 연동):**
+**context_unit_id 자동 전달:**
+- 모든 Python 함수 호출 시 `context_unit_id`가 첫 번째 인자로 자동 전달됨
+- 현재 Focus가 Unit 타입일 경우 해당 UnitId 전달, 아니면 None
+- 따라서 모든 script: 함수는 `context_unit_id`를 첫 번째 파라미터로 선언해야 함
+
+```python
+# 올바른 함수 시그니처
+def npc_talk(context_unit_id):
+    """대화 대상 NPC의 ID가 자동으로 전달됨"""
+    unit_info = morld.get_unit_info(context_unit_id)
+    ...
+
+def job_select(context_unit_id, job_type):
+    """context_unit_id는 자동 전달 (사용하지 않음), job_type이 실제 인자"""
+    ...
+```
+
+**morld 모듈 API (Python → C# 연동):**
 ```python
 import morld
 
+# 플레이어 ID 조회
 player_id = morld.get_player_id()
-morld.give_item(player_id, item_id, count)
+
+# 아이템 지급
+morld.give_item(unit_id, item_id, count)
+
+# 유닛 정보 조회 (전체 데이터 반환)
+unit_info = morld.get_unit_info(unit_id)
+# 반환값:
+# {
+#     "id": 1,
+#     "name": "철수",
+#     "is_object": False,
+#     "region_id": 0,
+#     "location_id": 1,
+#     "activity": "식사",       # CurrentSchedule.Activity (없으면 None)
+#     "schedule_name": "일상",  # CurrentScheduleLayer.Name
+#     "is_moving": False
+# }
 ```
 
 **YesNo 다이얼로그 흐름:**
@@ -585,9 +619,56 @@ morld.give_item(player_id, item_id, count)
 3. "승낙" → Pop → `yes_callback` 실행 → 결과 모놀로그 Push
 4. "거절" → Pop → 이전 선택 화면으로 복귀
 
+**NPC 대화 시스템 (오버라이드 패턴):**
+
+NPC 대화는 activity 기반 대사에 캐릭터별 오버라이드를 지원합니다.
+
+```python
+# 공통 activity별 대사 (기본값)
+NPC_DIALOGUES_DEFAULT = {
+    "default": {"pages": ["......", "별 말이 없다."]},
+    "식사": {"pages": ["(음식을 먹고 있다)", "...지금은 식사 중이야."]},
+    "수면": {"pages": ["(자고 있다)", "...zzZ"]},
+    "영업": {"pages": ["어서오세요.", "천천히 둘러보세요."]},
+    ...
+}
+
+# 캐릭터별 대사 오버라이드 (unit_id 기준)
+NPC_DIALOGUES_OVERRIDE = {
+    1: {  # 철수
+        "default": {"pages": ["안녕, 나는 철수야.", "오늘 날씨가 좋네."]},
+        "휴식": {"pages": ["(편하게 쉬고 있다)", "...오늘은 좀 피곤하네."]}
+    },
+    2: {  # 영희
+        "영업": {"pages": ["환영합니다!", "오늘 신상품이 들어왔어요."]}
+    }
+}
+
+def get_npc_dialogue(unit_id, activity):
+    """
+    우선순위:
+    1. OVERRIDE[unit_id][activity]
+    2. OVERRIDE[unit_id]["default"]
+    3. DEFAULT[activity]
+    4. DEFAULT["default"]
+    """
+```
+
+**unit_data.json에서 script: 액션 정의:**
+```json
+{
+    "id": 1,
+    "name": "철수",
+    "actions": ["script:npc_talk:대화"]
+}
+```
+
+- `script:함수명:표시명` 형식
+- Focus가 Unit일 때 해당 UnitId가 context_unit_id로 전달됨
+
 **파일 위치:**
 - `scripts/system/script_system.cs`
-- `scripts/python/monologues.py` (모놀로그 스크립트)
+- `scripts/python/monologues.py` (모놀로그 스크립트, NPC 대화 시스템)
 - `scripts/python/job_blessings.json` (데이터 파일)
 - `util/sharpPy/` (Python 인터프리터)
 

@@ -1,0 +1,21 @@
+{
+    "calendar": {
+        "daysPerMonth": [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
+        "weekdayNames": ["일", "월", "화", "수", "목", "금", "토"]
+    },
+    "currentTime": {
+        "year": 1,
+        "month": 1,
+        "day": 1,
+        "hour": 6,
+        "minute": 0
+    },
+    "holidays": [
+        {
+            "name": "신년",
+            "month": 1,
+            "startDay": 1,
+            "endDay": 3
+        }
+    ]
+}

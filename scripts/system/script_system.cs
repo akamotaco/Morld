@@ -16,16 +16,57 @@ namespace SE
         private PlayerSystem _playerSystem;
         private UnitSystem _unitSystem;
 
+        // 시나리오 경로
+        private string _scenarioPath = "";
+        public string ScenarioPath => _scenarioPath;
+        public string ScenarioPythonPath => _scenarioPath + "python/";
+
         public ScriptSystem()
         {
             _interpreter = new IntegratedPythonInterpreter();
 
-            // Godot res:// 경로를 sys.path에 추가
+            // 기본 Godot res:// 경로를 sys.path에 추가
             AddGodotPathsToSysPath();
         }
 
         /// <summary>
-        /// Godot 환경용 경로를 sys.path에 추가
+        /// 시나리오 경로 설정 및 sys.path에 추가
+        /// </summary>
+        public void SetScenarioPath(string scenarioPath)
+        {
+            _scenarioPath = scenarioPath;
+            Godot.GD.Print($"[ScriptSystem] Scenario path set to: {scenarioPath}");
+
+            // 시나리오 Python 폴더를 sys.path에 추가
+            AddScenarioPathToSysPath();
+        }
+
+        /// <summary>
+        /// 시나리오 Python 폴더를 sys.path에 추가
+        /// </summary>
+        private void AddScenarioPathToSysPath()
+        {
+            if (string.IsNullOrEmpty(_scenarioPath)) return;
+
+            try
+            {
+                var sysModule = PyImportSystem.Import("sys");
+                if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
+                {
+                    // 시나리오 Python 경로를 맨 앞에 추가 (최우선)
+                    pathList.Insert(0, new PyString(ScenarioPythonPath));
+                    Godot.GD.Print($"[ScriptSystem] Added scenario Python path to sys.path: {ScenarioPythonPath}");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] Failed to add scenario path to sys.path: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Godot 환경용 기본 경로를 sys.path에 추가 (sharpPy Lib만)
+        /// 시나리오별 Python 경로는 SetScenarioPath에서 추가됨
         /// </summary>
         private void AddGodotPathsToSysPath()
         {
@@ -35,10 +76,9 @@ namespace SE
                 var sysModule = PyImportSystem.Import("sys");
                 if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
                 {
-                    // res:// 경로들을 맨 앞에 추가 (우선순위 높음)
-                    pathList.Insert(0, new PyString("res://scripts/python"));
+                    // sharpPy Lib 경로만 추가 (Python 표준 라이브러리)
                     pathList.Insert(0, new PyString("res://util/sharpPy/Lib"));
-                    Godot.GD.Print("[ScriptSystem] Added Godot paths to sys.path");
+                    Godot.GD.Print("[ScriptSystem] Added sharpPy Lib to sys.path");
                 }
             }
             catch (System.Exception ex)
@@ -203,6 +243,25 @@ namespace SE
                     return result;
                 });
 
+                // === 시나리오 API ===
+                morldModule.ModuleDict["get_scenario_path"] = new PyBuiltinFunction("get_scenario_path", args =>
+                {
+                    // 시나리오 기본 경로 반환 (res://scenarios/scenario01/)
+                    return new PyString(_scenarioPath);
+                });
+
+                morldModule.ModuleDict["get_scenario_data_path"] = new PyBuiltinFunction("get_scenario_data_path", args =>
+                {
+                    // 시나리오 데이터 폴더 경로 반환 (res://scenarios/scenario01/data/)
+                    return new PyString(_scenarioPath + "data/");
+                });
+
+                morldModule.ModuleDict["get_scenario_python_path"] = new PyBuiltinFunction("get_scenario_python_path", args =>
+                {
+                    // 시나리오 Python 폴더 경로 반환 (res://scenarios/scenario01/python/)
+                    return new PyString(ScenarioPythonPath);
+                });
+
                 // sys.modules에 등록
                 PyImportSystem.SetModule("morld", morldModule);
 
@@ -265,16 +324,24 @@ namespace SE
         }
 
         /// <summary>
-        /// 모놀로그 스크립트 로드
+        /// 모놀로그 스크립트 로드 (시나리오 경로 기반)
         /// </summary>
         public void LoadMonologueScripts()
         {
             Godot.GD.Print("[ScriptSystem] Loading monologue scripts...");
+
+            // 시나리오 경로가 설정되지 않은 경우 경고
+            if (string.IsNullOrEmpty(_scenarioPath))
+            {
+                Godot.GD.PrintErr("[ScriptSystem] Scenario path not set! Call SetScenarioPath() first.");
+                return;
+            }
+
             try
             {
                 // 파일 내용을 읽어서 Execute로 직접 실행 (ExecuteFile 대신)
                 string code;
-                var filePath = "res://scripts/python/monologues.py";
+                var filePath = ScenarioPythonPath + "monologues.py";
 
                 using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
                 if (file == null)
@@ -285,7 +352,7 @@ namespace SE
                 }
                 code = file.GetAsText();
 
-                Godot.GD.Print($"[ScriptSystem] Monologue file loaded, {code.Length} chars");
+                Godot.GD.Print($"[ScriptSystem] Monologue file loaded from: {filePath} ({code.Length} chars)");
                 Godot.GD.Print($"[ScriptSystem] First 200 chars: {code.Substring(0, System.Math.Min(200, code.Length))}");
 
                 // Execute로 직접 실행 (전역 스코프에 함수 등록)
