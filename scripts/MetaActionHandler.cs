@@ -111,6 +111,12 @@ public class MetaActionHandler
 			case "monologue_done":
 				HandleMonologueDoneAction(parts);
 				break;
+			case "monologue_yes":
+				HandleMonologueYesAction();
+				break;
+			case "monologue_no":
+				HandleMonologueNoAction();
+				break;
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
 				break;
@@ -487,9 +493,9 @@ public class MetaActionHandler
 				{
 					// 모놀로그 표시 (현재 화면 대체)
 					_textUISystem?.Pop();  // 현재 모놀로그 제거
-					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType);
+					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType, monoResult.YesCallback, monoResult.NoCallback);
 #if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType})");
+					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType}, yes={monoResult.YesCallback}, no={monoResult.NoCallback})");
 #endif
 				}
 				break;
@@ -544,5 +550,58 @@ public class MetaActionHandler
 
 		// 모놀로그가 끝나면 상황 업데이트
 		RequestUpdateSituation();
+	}
+
+	/// <summary>
+	/// 모놀로그 승낙: monologue_yes
+	/// Focus에 저장된 YesCallback 스크립트 호출
+	/// </summary>
+	private void HandleMonologueYesAction()
+	{
+#if DEBUG_LOG
+		GD.Print("[MetaActionHandler] Monologue yes");
+#endif
+
+		var currentFocus = _textUISystem?.CurrentFocus;
+		if (currentFocus?.YesCallback == null)
+		{
+			// 콜백이 없으면 단순 Pop
+			_textUISystem?.Pop();
+			RequestUpdateSituation();
+			return;
+		}
+
+		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
+		var callbackParts = currentFocus.YesCallback.Split(':');
+		var parts = new string[callbackParts.Length + 1];
+		parts[0] = "script";
+		callbackParts.CopyTo(parts, 1);
+		HandleScriptAction(parts);
+	}
+
+	/// <summary>
+	/// 모놀로그 거절: monologue_no
+	/// Focus에 저장된 NoCallback 스크립트 호출 또는 단순 Pop
+	/// </summary>
+	private void HandleMonologueNoAction()
+	{
+#if DEBUG_LOG
+		GD.Print("[MetaActionHandler] Monologue no");
+#endif
+
+		var currentFocus = _textUISystem?.CurrentFocus;
+		if (currentFocus?.NoCallback == null)
+		{
+			// 콜백이 없으면 현재 YesNo 다이얼로그만 Pop (이전 선택 화면으로)
+			_textUISystem?.Pop();
+			return;
+		}
+
+		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
+		var callbackParts = currentFocus.NoCallback.Split(':');
+		var parts = new string[callbackParts.Length + 1];
+		parts[0] = "script";
+		callbackParts.CopyTo(parts, 1);
+		HandleScriptAction(parts);
 	}
 }

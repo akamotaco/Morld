@@ -18,6 +18,32 @@ namespace SE
         public ScriptSystem()
         {
             _interpreter = new IntegratedPythonInterpreter();
+
+            // Godot res:// 경로를 sys.path에 추가
+            AddGodotPathsToSysPath();
+        }
+
+        /// <summary>
+        /// Godot 환경용 경로를 sys.path에 추가
+        /// </summary>
+        private void AddGodotPathsToSysPath()
+        {
+            try
+            {
+                // sys 모듈 가져오기
+                var sysModule = PyImportSystem.Import("sys");
+                if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
+                {
+                    // res:// 경로들을 맨 앞에 추가 (우선순위 높음)
+                    pathList.Insert(0, new PyString("res://scripts/python"));
+                    pathList.Insert(0, new PyString("res://util/sharpPy/Lib"));
+                    Godot.GD.Print("[ScriptSystem] Added Godot paths to sys.path");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] Failed to add Godot paths to sys.path: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -362,13 +388,21 @@ namespace SE
                     };
                 }
 
+                // YesNo 콜백 파싱 (선택적)
+                var yesCallbackObj = dict.Get(new PyString("yes_callback"));
+                var noCallbackObj = dict.Get(new PyString("no_callback"));
+                string yesCallback = (yesCallbackObj as PyString)?.Value;
+                string noCallback = (noCallbackObj as PyString)?.Value;
+
                 Godot.GD.Print($"[ScriptSystem] Parsed monologue result: {pages.Count} pages, {timeConsumed}min, button={buttonType}");
                 return new MonologueScriptResult
                 {
                     Type = "monologue",
                     Pages = pages,
                     TimeConsumed = timeConsumed,
-                    ButtonType = buttonType
+                    ButtonType = buttonType,
+                    YesCallback = yesCallback,
+                    NoCallback = noCallback
                 };
             }
 
@@ -527,5 +561,7 @@ def calculate(a, b):
         public System.Collections.Generic.List<string> Pages { get; set; } = new();
         public int TimeConsumed { get; set; }
         public Morld.MonologueButtonType ButtonType { get; set; } = Morld.MonologueButtonType.Ok;
+        public string YesCallback { get; set; }
+        public string NoCallback { get; set; }
     }
 }

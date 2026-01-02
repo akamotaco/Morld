@@ -76,6 +76,12 @@ public class Focus
 	public MonologueButtonType MonologueButtonType { get; set; } = MonologueButtonType.Ok;
 
 	/// <summary>
+	/// YesNo 버튼 콜백 (YesNo 타입에서 사용, 형식: "함수명:인자1:인자2")
+	/// </summary>
+	public string? YesCallback { get; set; }
+	public string? NoCallback { get; set; }
+
+	/// <summary>
 	/// 펼쳐진 토글 ID 목록
 	/// </summary>
 	public HashSet<string> ExpandedToggles { get; set; } = new();
@@ -87,6 +93,6 @@ public class Focus
 	public static Focus Item(int itemId, string context, int? unitId = null)
 		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, UnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
-	public static Focus Monologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok)
-		=> new() { Type = FocusType.Monologue, MonologuePages = pages, MonologueTimeConsumed = timeConsumed, CurrentPage = 0, MonologueButtonType = buttonType };
+	public static Focus Monologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string? yesCallback = null, string? noCallback = null)
+		=> new() { Type = FocusType.Monologue, MonologuePages = pages, MonologueTimeConsumed = timeConsumed, CurrentPage = 0, MonologueButtonType = buttonType, YesCallback = yesCallback, NoCallback = noCallback };
 }

@@ -27,13 +27,20 @@ namespace SE
 		/// </summary>
 		public void LoadActionMessages(string filePath)
 		{
-			if (!File.Exists(filePath))
+			// Godot FileAccess를 사용해서 res:// 경로 지원
+			if (!Godot.FileAccess.FileExists(filePath))
 			{
 				Godot.GD.PrintErr($"[DescribeSystem] Action messages file not found: {filePath}");
 				return;
 			}
 
-			var json = File.ReadAllText(filePath);
+			using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
+			if (file == null)
+			{
+				Godot.GD.PrintErr($"[DescribeSystem] Failed to open action messages file: {filePath}");
+				return;
+			}
+			var json = file.GetAsText();
 			_actionMessages = JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
 			Godot.GD.Print($"[DescribeSystem] Loaded {_actionMessages.Count} action messages");
 		}

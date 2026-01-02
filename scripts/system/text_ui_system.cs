@@ -281,10 +281,10 @@ namespace SE
 		/// <summary>
 		/// 모놀로그 표시 (Push) - 페이지 데이터 직접 전달
 		/// </summary>
-		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok)
+		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string yesCallback = null, string noCallback = null)
 		{
 			ClearActionMessage();
-			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType));
+			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType, yesCallback, noCallback));
 			UpdateDisplay();
 		}
 

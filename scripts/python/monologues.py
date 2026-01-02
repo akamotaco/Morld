@@ -133,7 +133,30 @@ def get_job_select_monologue():
 def job_select(job_type):
     """
     직업 선택 처리 - BBCode script:job_select:xxx 로 호출됨
-    플레이어에게 해당 직업의 초기 장비 지급
+    확인 질문을 표시하고, 승낙 시 job_confirm 호출
+    """
+    if job_type not in JOB_EQUIPMENT:
+        return f"알 수 없는 직업: {job_type}"
+
+    job = JOB_EQUIPMENT[job_type]
+    job_name = job["name"]
+
+    # YesNo 확인 다이얼로그 반환
+    return {
+        "type": "monologue",
+        "pages": [
+            f"{job_name}의 길을 선택하시겠습니까?"
+        ],
+        "time_consumed": 0,
+        "button_type": "yesno",
+        "yes_callback": f"job_confirm:{job_type}",  # 승낙 시 호출
+        "no_callback": None  # 거절 시 단순 Pop (이전 선택 화면으로)
+    }
+
+
+def job_confirm(job_type):
+    """
+    직업 최종 확정 - 아이템 지급 및 축복 메시지 표시
     """
     if job_type not in JOB_EQUIPMENT:
         return f"알 수 없는 직업: {job_type}"
@@ -146,11 +169,41 @@ def job_select(job_type):
         morld.give_item(player_id, item_id, count)
 
     job_name = job["name"]
+
+    # 축복 메시지 로드 (JSON에서)
+    blessing_pages = get_job_blessing(job_type)
+
+    # 확정 메시지 + 축복 메시지
+    confirm_pages = [
+        f"그래, 나는 {job_name}였다.\n손에 익은 감각이 돌아오는 것 같다."
+    ]
+
     return {
         "type": "monologue",
-        "pages": [
-            f"그래, 나는 {job_name}였다.\n손에 익은 감각이 돌아오는 것 같다.",
-            "이제 일어나서 움직여야겠다."
-        ],
+        "pages": confirm_pages + blessing_pages,
         "time_consumed": 5
     }
+
+
+def get_job_blessing(job_type):
+    """
+    직업별 축복 메시지를 JSON 파일에서 로드
+    """
+    import json
+
+    try:
+        # Godot res:// 경로로 파일 읽기
+        with open("res://scripts/python/job_blessings.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if job_type in data:
+            return data[job_type]["pages"]
+    except Exception as e:
+        print(f"[monologues] Failed to load job_blessings.json: {e}")
+
+    # 기본값 반환
+    return [
+        "새로운 여정이 시작된다.",
+        "행운을 빈다.",
+        "이제 일어나서 움직여야겠다."
+    ]
