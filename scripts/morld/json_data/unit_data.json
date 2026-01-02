@@ -10,12 +10,6 @@
         "관찰": 3,
         "힘": 5
       },
-      "inventory": {
-        "0": 1,
-        "1": 3,
-        "4": 1
-      },
-      "equippedItems": [2, 3],
       "actions": ["rest", "sleep", "wait"],
       "scheduleStack": [
         {
@@ -137,9 +131,6 @@
       "type": "object",
       "regionId": 0,
       "locationId": 1,
-      "inventory": {
-        "1": 2
-      },
       "actions": ["open"],
       "scheduleStack": []
     },
@@ -150,9 +141,6 @@
       "type": "object",
       "regionId": 1,
       "locationId": 2,
-      "inventory": {
-        "0": 1
-      },
       "actions": ["open", "examine"],
       "scheduleStack": []
     }

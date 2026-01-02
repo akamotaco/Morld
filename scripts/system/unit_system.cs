@@ -108,21 +108,6 @@ namespace SE
 					unit.TraversalContext.SetTags(data.Tags);
 				}
 
-				// 인벤토리 설정
-				if (data.Inventory != null)
-				{
-					foreach (var (itemId, count) in data.Inventory)
-					{
-						unit.Inventory[itemId] = count;
-					}
-				}
-
-				// 장착 아이템 설정
-				if (data.EquippedItems != null)
-				{
-					unit.EquippedItems.AddRange(data.EquippedItems);
-				}
-
 				// 타입 설정
 				unit.Type = ParseUnitType(data.Type);
 
@@ -230,6 +215,7 @@ namespace SE
 
 		/// <summary>
 		/// UnitJsonData 배열로 변환
+		/// 주의: Inventory와 EquippedItems는 InventorySystem에서 저장됨
 		/// </summary>
 		private UnitJsonData[] ExportToData()
 		{
@@ -241,12 +227,6 @@ namespace SE
 				LocationId = unit.CurrentLocation.LocalId,
 				Tags = unit.TraversalContext.Tags.Count > 0
 					? new Dictionary<string, int>(unit.TraversalContext.Tags)
-					: null,
-				Inventory = unit.Inventory.Count > 0
-					? new Dictionary<int, int>(unit.Inventory)
-					: null,
-				EquippedItems = unit.EquippedItems.Count > 0
-					? new List<int>(unit.EquippedItems)
 					: null,
 				Type = unit.Type.ToString().ToLower(),
 				Actions = unit.Actions.Count > 0
@@ -302,6 +282,50 @@ namespace SE
 		}
 
 		/// <summary>
+		/// JSON에서 읽은 인벤토리 데이터를 InventorySystem으로 마이그레이션
+		/// (초기 로드 시 한번만 호출)
+		/// </summary>
+		public void MigrateInventoryData(string jsonFilePath, InventorySystem inventorySystem)
+		{
+			using var file = FileAccess.Open(jsonFilePath, FileAccess.ModeFlags.Read);
+			if (file == null) return;
+
+			var json = file.GetAsText();
+			var options = new JsonSerializerOptions
+			{
+				PropertyNameCaseInsensitive = true
+			};
+
+			var dataList = JsonSerializer.Deserialize<UnitJsonData[]>(json, options);
+			if (dataList == null) return;
+
+			foreach (var data in dataList)
+			{
+				// 인벤토리 마이그레이션
+				if (data.Inventory != null)
+				{
+					foreach (var (itemId, count) in data.Inventory)
+					{
+						inventorySystem.AddItemToUnit(data.Id, itemId, count);
+					}
+				}
+
+				// 장착 아이템 마이그레이션
+				if (data.EquippedItems != null)
+				{
+					foreach (var itemId in data.EquippedItems)
+					{
+						inventorySystem.EquipItemOnUnit(data.Id, itemId);
+					}
+				}
+			}
+
+#if DEBUG_LOG
+			GD.Print($"[UnitSystem] 인벤토리 데이터 마이그레이션 완료");
+#endif
+		}
+
+		/// <summary>
 		/// 디버그용 유닛 정보 출력
 		/// </summary>
 		public void DebugPrint()
@@ -334,11 +358,6 @@ namespace SE
 			foreach (var obj in objects)
 			{
 				GD.Print($"  - [Object] {obj.Name} @ {obj.CurrentLocation}");
-				if (obj.Inventory.Count > 0)
-				{
-					var items = string.Join(", ", obj.Inventory.Select(i => $"아이템{i.Key}x{i.Value}"));
-					GD.Print($"    인벤토리: {items}");
-				}
 				if (obj.Actions.Count > 0)
 				{
 					GD.Print($"    액션: {string.Join(", ", obj.Actions)}");

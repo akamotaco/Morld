@@ -34,11 +34,6 @@ public class Location : IEquatable<Location>, IDescribable
     public Dictionary<string, string> Appearance { get; set; } = new();
 
     /// <summary>
-    /// 바닥에 떨어진 아이템 (아이템ID -> 개수)
-    /// </summary>
-    public Dictionary<int, int> Inventory { get; set; } = new();
-
-    /// <summary>
     /// 전역 고유 식별자 (RegionId:LocalId)
     /// </summary>
     public string GlobalId => $"{RegionId}:{LocalId}";

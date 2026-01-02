@@ -872,14 +872,7 @@ public class Terrain
                     }
                 }
 
-                // Location Inventory 복사 (바닥 아이템)
-                if (locData.Inventory != null)
-                {
-                    foreach (var (itemId, count) in locData.Inventory)
-                    {
-                        location.Inventory[itemId] = count;
-                    }
-                }
+                // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
             }
 
             // Edge 추가
@@ -1004,9 +997,7 @@ public class Terrain
                 if (location.Appearance.Count > 0)
                     locationData.Appearance = new Dictionary<string, string>(location.Appearance);
 
-                // Inventory 내보내기 (바닥 아이템)
-                if (location.Inventory.Count > 0)
-                    locationData.Inventory = new Dictionary<int, int>(location.Inventory);
+                // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
 
                 regionData.Locations.Add(locationData);
             }

@@ -253,30 +253,14 @@ namespace SE
 		public bool PickupItem(int itemId, int count = 1)
 		{
 			var player = GetPlayerUnit();
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 
-			if (player == null || worldSystem == null)
+			if (player == null || inventorySystem == null)
 				return false;
 
-			var terrain = worldSystem.GetTerrain();
-			var location = terrain.GetLocation(player.CurrentLocation);
-
-			if (location == null)
+			var loc = player.CurrentLocation;
+			if (!inventorySystem.PickupItem(player.Id, loc.RegionId, loc.LocalId, itemId, count))
 				return false;
-
-			// 바닥에 아이템이 있는지 확인
-			if (!location.Inventory.TryGetValue(itemId, out int available) || available < count)
-				return false;
-
-			// 바닥에서 제거
-			location.Inventory[itemId] -= count;
-			if (location.Inventory[itemId] <= 0)
-				location.Inventory.Remove(itemId);
-
-			// 플레이어 인벤토리에 추가
-			if (!player.Inventory.ContainsKey(itemId))
-				player.Inventory[itemId] = 0;
-			player.Inventory[itemId] += count;
 
 #if DEBUG_LOG
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
@@ -293,30 +277,14 @@ namespace SE
 		public bool DropItem(int itemId, int count = 1)
 		{
 			var player = GetPlayerUnit();
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 
-			if (player == null || worldSystem == null)
+			if (player == null || inventorySystem == null)
 				return false;
 
-			// 플레이어가 아이템을 가지고 있는지 확인
-			if (!player.Inventory.TryGetValue(itemId, out int available) || available < count)
+			var loc = player.CurrentLocation;
+			if (!inventorySystem.DropItem(player.Id, loc.RegionId, loc.LocalId, itemId, count))
 				return false;
-
-			var terrain = worldSystem.GetTerrain();
-			var location = terrain.GetLocation(player.CurrentLocation);
-
-			if (location == null)
-				return false;
-
-			// 플레이어 인벤토리에서 제거
-			player.Inventory[itemId] -= count;
-			if (player.Inventory[itemId] <= 0)
-				player.Inventory.Remove(itemId);
-
-			// 바닥에 추가
-			if (!location.Inventory.ContainsKey(itemId))
-				location.Inventory[itemId] = 0;
-			location.Inventory[itemId] += count;
 
 #if DEBUG_LOG
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
@@ -334,8 +302,9 @@ namespace SE
 		{
 			var player = GetPlayerUnit();
 			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 
-			if (player == null || unitSystem == null)
+			if (player == null || unitSystem == null || inventorySystem == null)
 				return false;
 
 			var targetUnit = unitSystem.GetUnit(unitId);
@@ -346,19 +315,8 @@ namespace SE
 			if (targetUnit.CurrentLocation != player.CurrentLocation)
 				return false;
 
-			// 유닛에 아이템이 있는지 확인
-			if (!targetUnit.Inventory.TryGetValue(itemId, out int available) || available < count)
+			if (!inventorySystem.TransferBetweenUnits(unitId, player.Id, itemId, count))
 				return false;
-
-			// 유닛에서 제거
-			targetUnit.Inventory[itemId] -= count;
-			if (targetUnit.Inventory[itemId] <= 0)
-				targetUnit.Inventory.Remove(itemId);
-
-			// 플레이어에게 추가
-			if (!player.Inventory.ContainsKey(itemId))
-				player.Inventory[itemId] = 0;
-			player.Inventory[itemId] += count;
 
 #if DEBUG_LOG
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
@@ -376,8 +334,9 @@ namespace SE
 		{
 			var player = GetPlayerUnit();
 			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 
-			if (player == null || unitSystem == null)
+			if (player == null || unitSystem == null || inventorySystem == null)
 				return false;
 
 			var targetUnit = unitSystem.GetUnit(unitId);
@@ -388,19 +347,8 @@ namespace SE
 			if (targetUnit.CurrentLocation != player.CurrentLocation)
 				return false;
 
-			// 플레이어가 아이템을 가지고 있는지 확인
-			if (!player.Inventory.TryGetValue(itemId, out int available) || available < count)
+			if (!inventorySystem.TransferBetweenUnits(player.Id, unitId, itemId, count))
 				return false;
-
-			// 플레이어에서 제거
-			player.Inventory[itemId] -= count;
-			if (player.Inventory[itemId] <= 0)
-				player.Inventory.Remove(itemId);
-
-			// 유닛에 추가
-			if (!targetUnit.Inventory.ContainsKey(itemId))
-				targetUnit.Inventory[itemId] = 0;
-			targetUnit.Inventory[itemId] += count;
 
 #if DEBUG_LOG
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
@@ -418,6 +366,7 @@ namespace SE
 		{
 			var player = GetPlayerUnit();
 			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 
 			if (player == null || unitSystem == null)
 				return null;
@@ -432,12 +381,17 @@ namespace SE
 
 			var describeSystem = _hub.FindSystem("describeSystem") as DescribeSystem;
 
+			// InventorySystem에서 인벤토리 가져오기
+			var inventory = unit.IsObject && inventorySystem != null
+				? new Dictionary<int, int>(inventorySystem.GetUnitInventory(unit.Id))
+				: new Dictionary<int, int>();
+
 			return new UnitLookResult
 			{
 				UnitId = unit.Id,
 				Name = unit.Name,
 				IsObject = unit.IsObject,
-				Inventory = unit.IsObject ? new Dictionary<int, int>(unit.Inventory) : new Dictionary<int, int>(),
+				Inventory = inventory,
 				Actions = new List<string>(unit.Actions),
 				AppearanceText = describeSystem?.GetUnitAppearance(unit) ?? ""
 			};
@@ -529,6 +483,7 @@ namespace SE
 			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 			var describeSystem = _hub.FindSystem("describeSystem") as DescribeSystem;
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 			var terrain = worldSystem?.GetTerrain();
 			var gameTime = worldSystem?.GetTime();
 
@@ -560,18 +515,19 @@ namespace SE
 				}
 			}
 
-			// 3. 바닥에 떨어진 아이템
+			// 3. 바닥에 떨어진 아이템 (InventorySystem에서 가져옴)
 			var groundItems = new Dictionary<int, int>();
-			if (location != null && location.Inventory.Count > 0)
+			if (inventorySystem != null)
 			{
-				foreach (var (itemId, count) in location.Inventory)
+				var loc = player.CurrentLocation;
+				foreach (var (itemId, count) in inventorySystem.GetGroundItems(loc.RegionId, loc.LocalId))
 				{
 					groundItems[itemId] = count;
 				}
 			}
 
 			// 4. 이동 가능한 경로들 (조건 필터링 적용)
-			var routes = BuildRoutes(player, terrain, region, location, itemSystem);
+			var routes = BuildRoutes(player, terrain, region, location, itemSystem, inventorySystem);
 
 			return new LookResult
 			{
@@ -637,12 +593,15 @@ namespace SE
 		/// <summary>
 		/// 경로 정보 생성 (조건 필터링 적용)
 		/// </summary>
-		private List<RouteInfo> BuildRoutes(Unit player, Terrain? terrain, Region? region, Location? location, ItemSystem? itemSystem)
+		private List<RouteInfo> BuildRoutes(Unit player, Terrain? terrain, Region? region, Location? location, ItemSystem? itemSystem, InventorySystem? inventorySystem)
 		{
 			var routes = new List<RouteInfo>();
 			if (region == null || location == null || terrain == null) return routes;
 
-			var actualTags = player.GetActualTags(itemSystem);
+			// InventorySystem에서 인벤토리 데이터 가져오기
+			var inventory = inventorySystem?.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+			var actualTags = player.GetActualTags(itemSystem, inventory, equippedItems);
 
 			// Region 내부 Edge
 			var edges = region.GetEdges(location);

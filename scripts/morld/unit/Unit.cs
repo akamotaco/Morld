@@ -66,15 +66,6 @@ public class Unit : IDescribable
 	/// </summary>
 	public object? Tag { get; set; }
 
-	/// <summary>
-	/// 인벤토리 (아이템ID -> 개수)
-	/// </summary>
-	public Dictionary<int, int> Inventory { get; set; } = new();
-
-	/// <summary>
-	/// 장착된 아이템 ID 목록
-	/// </summary>
-	public List<int> EquippedItems { get; set; } = new();
 
 	/// <summary>
 	/// Unit 타입 (Male, Female, Object)
@@ -177,8 +168,12 @@ public class Unit : IDescribable
 
 	/// <summary>
 	/// 아이템 효과가 반영된 최종 태그 계산 (매 호출 시 계산)
+	/// inventoryData: (inventory, equippedItems) 튜플
 	/// </summary>
-	public TraversalContext GetActualTags(ItemSystem? itemSystem)
+	public TraversalContext GetActualTags(
+		ItemSystem? itemSystem,
+		IReadOnlyDictionary<int, int>? inventory = null,
+		IReadOnlyList<int>? equippedItems = null)
 	{
 		var result = new TraversalContext();
 
@@ -192,29 +187,35 @@ public class Unit : IDescribable
 			return result;
 
 		// 2. 인벤토리 아이템의 PassiveTags 합산 (소유 효과)
-		foreach (var (itemId, count) in Inventory)
+		if (inventory != null)
 		{
-			if (count <= 0) continue;
-			var item = itemSystem.GetItem(itemId);
-			if (item == null) continue;
-
-			foreach (var (tag, bonus) in item.PassiveTags)
+			foreach (var (itemId, count) in inventory)
 			{
-				var current = result.GetTagValue(tag);
-				result.SetTag(tag, current + bonus);
+				if (count <= 0) continue;
+				var item = itemSystem.GetItem(itemId);
+				if (item == null) continue;
+
+				foreach (var (tag, bonus) in item.PassiveTags)
+				{
+					var current = result.GetTagValue(tag);
+					result.SetTag(tag, current + bonus);
+				}
 			}
 		}
 
 		// 3. 장착 아이템의 EquipTags 합산 (장착 효과)
-		foreach (var itemId in EquippedItems)
+		if (equippedItems != null)
 		{
-			var item = itemSystem.GetItem(itemId);
-			if (item == null) continue;
-
-			foreach (var (tag, bonus) in item.EquipTags)
+			foreach (var itemId in equippedItems)
 			{
-				var current = result.GetTagValue(tag);
-				result.SetTag(tag, current + bonus);
+				var item = itemSystem.GetItem(itemId);
+				if (item == null) continue;
+
+				foreach (var (tag, bonus) in item.EquipTags)
+				{
+					var current = result.GetTagValue(tag);
+					result.SetTag(tag, current + bonus);
+				}
 			}
 		}
 
@@ -224,12 +225,16 @@ public class Unit : IDescribable
 	/// <summary>
 	/// 주어진 조건들을 모두 충족하는지 확인
 	/// </summary>
-	public bool CanPass(Dictionary<string, int>? conditions, ItemSystem? itemSystem)
+	public bool CanPass(
+		Dictionary<string, int>? conditions,
+		ItemSystem? itemSystem,
+		IReadOnlyDictionary<int, int>? inventory = null,
+		IReadOnlyList<int>? equippedItems = null)
 	{
 		if (conditions == null || conditions.Count == 0)
 			return true;
 
-		var actualTags = GetActualTags(itemSystem);
+		var actualTags = GetActualTags(itemSystem, inventory, equippedItems);
 
 		foreach (var (tag, requiredValue) in conditions)
 		{
