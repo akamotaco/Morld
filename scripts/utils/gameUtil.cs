@@ -11,7 +11,7 @@ namespace SE
             try
             {
                 var res = new List<string[]>();
-                var f = FileAccess.Open(filename, FileAccess.ModeFlags.Read);
+                var f = Godot.FileAccess.Open(filename, Godot.FileAccess.ModeFlags.Read);
 
                 if(f == null)
                     throw new Exception($"[Err:readCsvLines] read failed ({filename})");
@@ -34,7 +34,7 @@ namespace SE
         {
             try
             {
-                var f = FileAccess.Open(filename, FileAccess.ModeFlags.Read);
+                var f = Godot.FileAccess.Open(filename, Godot.FileAccess.ModeFlags.Read);
                 if(f == null)
                     throw new Exception($"[Err:readCsvLines] read failed ({filename})");
                     

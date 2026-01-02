@@ -504,7 +504,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     /// </summary>
     public void UpdateFromFile(string filePath)
     {
-        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read)
+        using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read)
             ?? throw new InvalidOperationException($"Failed to open file for reading: {filePath}");
         var json = file.GetAsText();
         UpdateFromJson(json);
@@ -562,7 +562,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     {
         var json = ToJson();
 
-        using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Write);
+        using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Write);
         if (file == null)
         {
             throw new InvalidOperationException($"Failed to open file for writing: {filePath}");

@@ -369,7 +369,7 @@ namespace SE
 			var json = JsonSerializer.Serialize(data, options);
 			var path = $"{basePath}{DataId}_data.json";
 
-			using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+			using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write);
 			if (file != null)
 			{
 				file.StoreString(json);
@@ -390,7 +390,7 @@ namespace SE
 		{
 			var path = $"{basePath}{DataId}_data.json";
 
-			if (!FileAccess.FileExists(path))
+			if (!Godot.FileAccess.FileExists(path))
 			{
 #if DEBUG_LOG
 				GD.Print($"[InventorySystem] 파일 없음, 빈 상태로 시작: {path}");
@@ -398,7 +398,7 @@ namespace SE
 				return false;
 			}
 
-			using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+			using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read);
 			if (file == null)
 			{
 				GD.PrintErr($"[InventorySystem] 파일 열기 실패: {path}");

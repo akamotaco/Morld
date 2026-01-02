@@ -624,7 +624,7 @@ namespace SE
 		/// </summary>
 		public PlayerSystem UpdateFromFile(string filePath)
 		{
-			using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Read);
+			using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
 			if (file == null)
 			{
 				throw new InvalidOperationException($"Failed to open file for reading: {filePath}");
@@ -659,7 +659,7 @@ namespace SE
 		{
 			var json = ToJson();
 
-			using var file = FileAccess.Open(filePath, FileAccess.ModeFlags.Write);
+			using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Write);
 			if (file == null)
 			{
 				throw new InvalidOperationException($"Failed to open file for writing: {filePath}");
