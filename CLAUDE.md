@@ -31,8 +31,9 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 
 **구현 시스템:**
 - `WorldSystem` - 지형(Terrain) 데이터 및 GameTime 보관
-- `UnitSystem` - 유닛 데이터 (캐릭터/오브젝트 통합, 위치, 스케줄 스택, CurrentEdge, Inventory)
+- `UnitSystem` - 유닛 데이터 (캐릭터/오브젝트 통합, 위치, 스케줄 스택, CurrentEdge)
 - `ItemSystem` - 아이템 정의 데이터 (PassiveTags, EquipTags, Actions)
+- `InventorySystem` - 인벤토리 데이터 (유닛별 아이템 소유, 바닥 아이템)
 
 #### 2. Logic/Behavior Systems (로직 시스템)
 매 Step마다 게임 로직을 실행하는 시스템
@@ -175,8 +176,9 @@ GameTime (시간 관리)
 **주요 기능:**
 - 유닛 생성/삭제/조회
 - Dictionary<int, Unit> 기반 O(1) 조회
-- 유닛 위치, 스케줄 스택, CurrentEdge, Inventory, Appearance 관리
-- JSON 기반 Import/Export (ScheduleStack, CurrentEdge, Inventory, Appearance, Mood 포함)
+- 유닛 위치, 스케줄 스택, CurrentEdge, Appearance 관리
+- JSON 기반 Import/Export (ScheduleStack, CurrentEdge, Appearance, Mood 포함)
+- 인벤토리는 InventorySystem에서 별도 관리
 
 **데이터 구조:**
 ```csharp
@@ -191,8 +193,6 @@ Unit
 │  └─ CurrentScheduleLayer (스택 최상위 레이어)
 ├─ PushSchedule(layer) / PopSchedule() (스케줄 스택 조작)
 ├─ TraversalContext (기본 태그/스탯)
-├─ Inventory (Dictionary<int, int> - 아이템ID → 개수)
-├─ EquippedItems (List<int> - 장착된 아이템 ID)
 ├─ Actions (List<string> - 가능한 행동: "talk", "trade", "use" 등)
 ├─ Appearance (Dictionary<string, string> - 상황별 외관 묘사)
 ├─ Mood (HashSet<string> - 현재 감정 상태: "기쁨", "슬픔" 등)
@@ -240,6 +240,33 @@ Item
 - `scripts/system/item_system.cs`
 - `scripts/morld/item/Item.cs`
 - `scripts/morld/item/ItemJsonFormat.cs`
+
+### InventorySystem (Data System)
+**역할:** 유닛별 인벤토리 및 바닥 아이템 관리
+
+**주요 기능:**
+- 유닛별 인벤토리 관리 (아이템 추가/제거/조회)
+- 바닥 아이템 관리 (위치별)
+- 장착 아이템 관리
+- JSON 기반 Import/Export
+
+**데이터 구조:**
+```csharp
+InventorySystem
+├─ GetUnitInventory(unitId) → Dictionary<int, int>
+├─ AddItem(unitId, itemId, count)
+├─ RemoveItem(unitId, itemId, count) → bool
+├─ GetEquippedItems(unitId) → List<int>
+├─ EquipItem(unitId, itemId)
+├─ UnequipItem(unitId, itemId)
+├─ GetGroundItems(locationRef) → Dictionary<int, int>
+├─ DropItem(locationRef, itemId, count)
+└─ PickupItem(locationRef, itemId, count) → bool
+```
+
+**파일 위치:**
+- `scripts/system/inventory_system.cs`
+- `scripts/morld/json_data/inventory_data.json`
 
 ### MovementSystem (Logic System)
 **역할:** 스케줄 스택 기반 경로 계산 및 유닛 이동 처리
@@ -300,6 +327,43 @@ ActionResult
 **파일 위치:**
 - `scripts/system/action_system.cs`
 - `scripts/morld/action/ActionResult.cs`
+
+### ActionProvider 시스템
+**역할:** 플러그인 방식으로 액션 확장 가능
+
+**구조:**
+```csharp
+IActionProvider
+├─ ActionId (string - 고유 액션 ID)
+├─ GetMenuItems(context) → List<ActionMenuItem>
+└─ Execute(context) → ActionResult
+
+ActionProviderRegistry
+├─ Register(provider)
+├─ Unregister(actionId)
+├─ GetProvider(actionId) → IActionProvider?
+└─ GetAllMenuItems(context) → List<ActionMenuItem>
+```
+
+**사용 예시:**
+```csharp
+// SingASongSystem - 노래 부르기 액션 추가
+public class SingASongSystem : ECS.System, IActionProvider
+{
+    public string ActionId => "sing";
+
+    public void RegisterToDescribeSystem()
+    {
+        // DescribeSystem에 액션 등록
+    }
+}
+```
+
+**파일 위치:**
+- `scripts/morld/action/IActionProvider.cs`
+- `scripts/morld/action/ActionProviderRegistry.cs`
+- `scripts/morld/action/CoreActionProvider.cs`
+- `scripts/system/sing_a_song_system.cs` (예제)
 
 ### PlayerSystem (Logic System)
 **역할:** 플레이어 입력 기반 시간 진행 제어, 스케줄 push, Look 기능
@@ -497,11 +561,6 @@ public class Focus
       "관찰": 3,
       "힘": 5
     },
-    "inventory": {
-      "0": 1,
-      "1": 3
-    },
-    "equippedItems": [2, 3],
     "actions": ["rest", "sleep", "wait"],
     "scheduleStack": [
       {
@@ -547,7 +606,6 @@ public class Focus
     "type": "object",
     "regionId": 0,
     "locationId": 1,
-    "inventory": { "1": 5 },
     "actions": ["open"],
     "scheduleStack": []
   }
@@ -586,6 +644,27 @@ public class Focus
 ]
 ```
 
+### inventory_data.json (InventorySystem)
+```json
+{
+  "unitInventories": {
+    "0": { "0": 1, "1": 3 },
+    "10": { "1": 5 }
+  },
+  "equippedItems": {
+    "0": [2, 3]
+  },
+  "groundItems": {
+    "0:1": { "0": 2 }
+  }
+}
+```
+
+**키 규칙:**
+- `unitInventories`: 유닛ID(문자열) → 아이템ID → 개수
+- `equippedItems`: 유닛ID(문자열) → 장착된 아이템ID 배열
+- `groundItems`: "regionId:locationId" → 아이템ID → 개수
+
 ---
 
 ## 프로젝트 구조
@@ -603,7 +682,9 @@ scripts/
 │  ├─ behavior_system.cs (BehaviorSystem - Logic)
 │  ├─ player_system.cs (PlayerSystem - Logic)
 │  ├─ describe_system.cs (DescribeSystem - Logic)
-│  └─ text_ui_system.cs (TextUISystem - Logic)
+│  ├─ text_ui_system.cs (TextUISystem - Logic)
+│  ├─ inventory_system.cs (InventorySystem - Data)
+│  └─ sing_a_song_system.cs (SingASongSystem - ActionProvider 예제)
 ├─ morld/ (Core Data Structures)
 │  ├─ IDescribable.cs (묘사 인터페이스)
 │  ├─ terrain/
@@ -619,7 +700,10 @@ scripts/
 │  │  ├─ Item.cs (PassiveTags, EquipTags, Actions)
 │  │  └─ ItemJsonFormat.cs
 │  ├─ action/
-│  │  └─ ActionResult.cs (행동 결과)
+│  │  ├─ ActionResult.cs (행동 결과)
+│  │  ├─ IActionProvider.cs (액션 제공자 인터페이스)
+│  │  ├─ ActionProviderRegistry.cs (액션 제공자 레지스트리)
+│  │  └─ CoreActionProvider.cs (기본 액션 구현)
 │  ├─ player/
 │  │  ├─ LookResult.cs (LookResult, UnitLookResult, LocationInfo, RouteInfo)
 │  │  └─ PlayerJsonFormat.cs
@@ -631,11 +715,13 @@ scripts/
 │  │  ├─ ScheduleEntry.cs
 │  │  ├─ ScheduleLayer.cs (스케줄 스택 레이어)
 │  │  └─ TimeRange.cs
-│  └─ ui/
-│     ├─ ScreenLayer.cs (화면 레이어)
-│     ├─ ScreenStack.cs (화면 스택)
-│     ├─ ToggleRenderer.cs (토글 마크업 렌더러)
-│     └─ UIStateJsonFormat.cs (JSON 직렬화)
+│  ├─ ui/
+│  │  ├─ Focus.cs (Focus, FocusType)
+│  │  ├─ FocusStack.cs (포커스 스택)
+│  │  ├─ ToggleRenderer.cs (토글 마크업 렌더러)
+│  │  └─ UIStateJsonFormat.cs (JSON 직렬화)
+│  └─ data/
+│     └─ IDataProvider.cs (데이터 제공자 인터페이스)
 ├─ simple_engine/
 │  ├─ ecs.cs (ECS 기반 클래스)
 │  └─ world.cs (SE.World, ECS 허브)
@@ -644,6 +730,7 @@ scripts/
    ├─ time_data.json
    ├─ unit_data.json
    ├─ item_data.json
+   ├─ inventory_data.json
    ├─ player_data.json
    └─ text_ui_data.json
 ```
@@ -727,11 +814,13 @@ Godot 에디터에서 프로젝트 실행
 
 저장 대상:
 - `WorldSystem` → location_data.json, time_data.json
-- `UnitSystem` → unit_data.json (CurrentLocation, CurrentEdge, ScheduleStack, Inventory, Actions 포함)
+- `UnitSystem` → unit_data.json (CurrentLocation, CurrentEdge, ScheduleStack, Actions 포함)
 - `ItemSystem` → item_data.json
+- `InventorySystem` → inventory_data.json (유닛별 인벤토리, 장착 아이템, 바닥 아이템)
 - `PlayerSystem` → player_data.json
-- `TextUISystem` → text_ui_data.json (ScreenStack, ExpandedToggles 포함)
+- `TextUISystem` → text_ui_data.json (FocusStack, ExpandedToggles 포함)
 
 저장 불필요:
 - `MovementSystem`, `BehaviorSystem` → Stateless
 - `ActionSystem`, `DescribeSystem` → Stateless
+- `SingASongSystem` 등 ActionProvider → Stateless
