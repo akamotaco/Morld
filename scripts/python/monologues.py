@@ -187,19 +187,16 @@ def job_confirm(job_type):
 
 def get_job_blessing(job_type):
     """
-    직업별 축복 메시지를 JSON 파일에서 로드
+    직업별 축복 메시지 반환 (JSON 파일에서 로드)
     """
     import json
-
     try:
-        # Godot res:// 경로로 파일 읽기
         with open("res://scripts/python/job_blessings.json", "r", encoding="utf-8") as f:
             data = json.load(f)
-
         if job_type in data:
             return data[job_type]["pages"]
     except Exception as e:
-        print(f"[monologues] Failed to load job_blessings.json: {e}")
+        pass  # 파일 로드 실패 시 기본값 반환
 
     # 기본값 반환
     return [
