@@ -4,37 +4,67 @@ using System.Text.Json.Serialization;
 namespace Morld;
 
 /// <summary>
-/// 화면 레이어 JSON 직렬화 포맷
+/// Focus JSON 직렬화 포맷
 /// </summary>
-public class ScreenLayerJsonData
+public class FocusJsonData
 {
-	[JsonPropertyName("text")]
-	public string Text { get; set; } = "";
+	[JsonPropertyName("type")]
+	public string Type { get; set; } = "Situation";
+
+	[JsonPropertyName("unitId")]
+	public int? UnitId { get; set; }
+
+	[JsonPropertyName("itemId")]
+	public int? ItemId { get; set; }
+
+	[JsonPropertyName("context")]
+	public string? Context { get; set; }
+
+	[JsonPropertyName("message")]
+	public string? Message { get; set; }
 
 	[JsonPropertyName("expandedToggles")]
 	public List<string> ExpandedToggles { get; set; } = new();
 
 	/// <summary>
-	/// ScreenLayer로 변환
+	/// Focus로 변환
 	/// </summary>
-	public ScreenLayer ToScreenLayer()
+	public Focus ToFocus()
 	{
-		return new ScreenLayer
+		var focusType = Type switch
 		{
-			Text = Text,
+			"Situation" => FocusType.Situation,
+			"Unit" => FocusType.Unit,
+			"Inventory" => FocusType.Inventory,
+			"Item" => FocusType.Item,
+			"Result" => FocusType.Result,
+			_ => FocusType.Situation
+		};
+
+		return new Focus
+		{
+			Type = focusType,
+			UnitId = UnitId,
+			ItemId = ItemId,
+			Context = Context,
+			Message = Message,
 			ExpandedToggles = new HashSet<string>(ExpandedToggles)
 		};
 	}
 
 	/// <summary>
-	/// ScreenLayer에서 생성
+	/// Focus에서 생성
 	/// </summary>
-	public static ScreenLayerJsonData FromScreenLayer(ScreenLayer layer)
+	public static FocusJsonData FromFocus(Focus focus)
 	{
-		return new ScreenLayerJsonData
+		return new FocusJsonData
 		{
-			Text = layer.Text,
-			ExpandedToggles = new List<string>(layer.ExpandedToggles)
+			Type = focus.Type.ToString(),
+			UnitId = focus.UnitId,
+			ItemId = focus.ItemId,
+			Context = focus.Context,
+			Message = focus.Message,
+			ExpandedToggles = new List<string>(focus.ExpandedToggles)
 		};
 	}
 }
@@ -44,6 +74,6 @@ public class ScreenLayerJsonData
 /// </summary>
 public class UIStateJsonData
 {
-	[JsonPropertyName("screenStack")]
-	public List<ScreenLayerJsonData> ScreenStack { get; set; } = new();
+	[JsonPropertyName("focusStack")]
+	public List<FocusJsonData> FocusStack { get; set; } = new();
 }

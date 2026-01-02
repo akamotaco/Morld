@@ -9,20 +9,33 @@ using Morld;
 namespace SE
 {
 	/// <summary>
-	/// UI 텍스트 시스템 (RichTextLabel.Text 수정의 단일 지점)
-	/// ECS System으로 등록되어 GameEngine에서 관리
+	/// UI 텍스트 시스템 (Focus 스택 기반)
+	/// 스택에는 Focus 정보만 저장하고, 표시 시 항상 최신 데이터로 렌더링
 	/// </summary>
 	public class TextUISystem : ECS.System
 	{
 		private readonly RichTextLabel _textUi;
-		private readonly ScreenStack _stack = new();
+		private readonly FocusStack _stack = new();
 		private readonly DescribeSystem _describeSystem;
 		private string? _hoveredMeta = null;
+
+		// 데이터 조회용 참조 (UpdateDisplay에서 사용)
+		private PlayerSystem? _playerSystem;
+		private InventorySystem? _inventorySystem;
 
 		public TextUISystem(RichTextLabel textUi, DescribeSystem describeSystem)
 		{
 			_textUi = textUi;
 			_describeSystem = describeSystem;
+		}
+
+		/// <summary>
+		/// 시스템 참조 설정 (GameEngine에서 호출)
+		/// </summary>
+		public void SetSystemReferences(PlayerSystem playerSystem, InventorySystem inventorySystem)
+		{
+			_playerSystem = playerSystem;
+			_inventorySystem = inventorySystem;
 		}
 
 		/// <summary>
@@ -36,41 +49,117 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 현재 화면을 렌더링하여 RichTextLabel에 반영
+		/// 현재 Focus를 기반으로 텍스트 생성 및 표시
 		/// </summary>
 		public void UpdateDisplay()
 		{
+			GD.Print($"[TextUISystem] Stack depth: {_stack.Count}");
+
 			if (_stack.Current == null)
 			{
 				_textUi.Text = "";
 				return;
 			}
+
+			var text = RenderFocus(_stack.Current);
 			_textUi.Text = ToggleRenderer.Render(
-				_stack.Current.Text,
+				text,
 				_stack.Current.ExpandedToggles,
 				_hoveredMeta
 			);
 		}
 
-		// === 화면 전환 API ===
+		/// <summary>
+		/// Focus 정보를 기반으로 텍스트 생성
+		/// </summary>
+		private string RenderFocus(Focus focus)
+		{
+			return focus.Type switch
+			{
+				FocusType.Situation => RenderSituation(),
+				FocusType.Unit => RenderUnit(focus.UnitId ?? 0),
+				FocusType.Inventory => RenderInventory(),
+				FocusType.Item => RenderItem(focus.ItemId ?? 0, focus.Context ?? "inventory", focus.UnitId),
+				FocusType.Result => RenderResult(focus.Message ?? ""),
+				_ => ""
+			};
+		}
+
+		private string RenderSituation()
+		{
+			if (_playerSystem == null) return "";
+			var lookResult = _playerSystem.Look();
+			var time = (_hub?.FindSystem("worldSystem") as WorldSystem)?.GetTime();
+			return _describeSystem.GetSituationText(lookResult, time);
+		}
+
+		private string RenderUnit(int unitId)
+		{
+			if (_playerSystem == null) return "";
+			var unitLook = _playerSystem.LookUnit(unitId);
+			if (unitLook == null) return "[color=gray]유닛을 찾을 수 없습니다.[/color]\n\n[url=back]뒤로[/url]";
+			return _describeSystem.GetUnitLookText(unitLook);
+		}
+
+		private string RenderInventory()
+		{
+			return _describeSystem.GetInventoryText();
+		}
+
+		private string RenderItem(int itemId, string context, int? unitId)
+		{
+			// 아이템 개수 조회
+			int count = 0;
+			if (_inventorySystem != null)
+			{
+				if (context == "inventory" && _playerSystem != null)
+				{
+					var player = _playerSystem.GetPlayerUnit();
+					if (player != null)
+					{
+						var inv = _inventorySystem.GetUnitInventory(player.Id);
+						inv.TryGetValue(itemId, out count);
+					}
+				}
+				else if (context == "container" && unitId.HasValue)
+				{
+					var inv = _inventorySystem.GetUnitInventory(unitId.Value);
+					inv.TryGetValue(itemId, out count);
+				}
+				else if (context == "ground" && _playerSystem != null)
+				{
+					var lookResult = _playerSystem.Look();
+					lookResult.GroundItems.TryGetValue(itemId, out count);
+				}
+			}
+
+			return _describeSystem.GetItemMenuText(context, itemId, count, unitId);
+		}
+
+		private string RenderResult(string message)
+		{
+			return $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
+		}
+
+		// === 화면 전환 API (Focus Push) ===
 
 		/// <summary>
 		/// 상황 화면 표시 (스택 초기화 후 Push)
 		/// </summary>
-		public void ShowSituation(LookResult lookResult, GameTime? time)
+		public void ShowSituation()
 		{
-			var text = _describeSystem.GetSituationText(lookResult, time);
 			Clear();
-			Push(text);
+			_stack.Push(Focus.Situation());
+			UpdateDisplay();
 		}
 
 		/// <summary>
 		/// 유닛 상세 화면 표시 (Push)
 		/// </summary>
-		public void ShowUnitLook(UnitLookResult unitLook)
+		public void ShowUnitLook(int unitId)
 		{
-			var text = _describeSystem.GetUnitLookText(unitLook);
-			Push(text);
+			_stack.Push(Focus.Unit(unitId));
+			UpdateDisplay();
 		}
 
 		/// <summary>
@@ -78,46 +167,94 @@ namespace SE
 		/// </summary>
 		public void ShowInventory()
 		{
-			var text = _describeSystem.GetInventoryText();
-			Push(text);
+			_stack.Push(Focus.Inventory());
+			UpdateDisplay();
 		}
 
 		/// <summary>
 		/// 아이템 메뉴 표시 (Push)
 		/// </summary>
-		public void ShowItemMenu(int itemId, int count, string context)
+		public void ShowItemMenu(int itemId, string context, int? unitId = null)
 		{
-			var text = _describeSystem.GetItemMenuText(context, itemId, count);
-			Push(text);
+			_stack.Push(Focus.Item(itemId, context, unitId));
+			UpdateDisplay();
 		}
 
 		/// <summary>
-		/// 결과 메시지 표시 (Push - 뒤로 가면 이전 화면 복귀)
+		/// 결과 메시지 표시 (Push)
 		/// </summary>
 		public void ShowResult(string message)
 		{
-			var text = $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
-			Push(text);
+			_stack.Push(Focus.Result(message));
+			UpdateDisplay();
 		}
 
 		// === 스택 조작 API ===
 
 		/// <summary>
-		/// 텍스트로 새 레이어 Push
-		/// </summary>
-		public void Push(string text)
-		{
-			_stack.Push(new ScreenLayer { Text = text });
-			UpdateDisplay();
-		}
-
-		/// <summary>
-		/// 최상위 레이어 Pop
+		/// 최상위 레이어 Pop (자동으로 상위 화면 갱신)
 		/// </summary>
 		public void Pop()
 		{
 			_stack.Pop();
 			UpdateDisplay();
+		}
+
+		/// <summary>
+		/// 현재 포커스가 유효하지 않으면 Pop (아이템 0개 등)
+		/// </summary>
+		public void PopIfInvalid()
+		{
+			if (_stack.Current == null) return;
+
+			if (_stack.Current.Type == FocusType.Item)
+			{
+				var itemId = _stack.Current.ItemId ?? 0;
+				var context = _stack.Current.Context ?? "inventory";
+				var unitId = _stack.Current.UnitId;
+
+				int count = GetItemCount(itemId, context, unitId);
+				if (count <= 0)
+				{
+					Pop();
+					return;
+				}
+			}
+
+			UpdateDisplay();
+		}
+
+		/// <summary>
+		/// 아이템 개수 조회
+		/// </summary>
+		private int GetItemCount(int itemId, string context, int? unitId)
+		{
+			if (_inventorySystem == null) return 0;
+
+			if (context == "inventory" && _playerSystem != null)
+			{
+				var player = _playerSystem.GetPlayerUnit();
+				if (player != null)
+				{
+					var inv = _inventorySystem.GetUnitInventory(player.Id);
+					inv.TryGetValue(itemId, out int count);
+					return count;
+				}
+			}
+			else if (context == "container" && unitId.HasValue)
+			{
+				var inv = _inventorySystem.GetUnitInventory(unitId.Value);
+				inv.TryGetValue(itemId, out int count);
+				return count;
+			}
+			else if (context == "ground" && _playerSystem != null)
+			{
+				var lookResult = _playerSystem.Look();
+				lookResult.GroundItems.TryGetValue(itemId, out int count);
+				return count;
+			}
+
+			return 0;
 		}
 
 		/// <summary>
@@ -149,78 +286,10 @@ namespace SE
 		/// </summary>
 		public bool IsEmpty => _stack.Count == 0;
 
-		// === JSON 저장/복원 ===
-
 		/// <summary>
-		/// 현재 상태를 JSON 데이터로 내보내기
+		/// 현재 Focus 정보 반환
 		/// </summary>
-		public UIStateJsonData ExportState()
-		{
-			var data = new UIStateJsonData();
-			foreach (var layer in _stack.ToList())
-			{
-				data.ScreenStack.Add(ScreenLayerJsonData.FromScreenLayer(layer));
-			}
-			return data;
-		}
-
-		/// <summary>
-		/// JSON 데이터에서 상태 복원
-		/// </summary>
-		public void ImportState(UIStateJsonData data)
-		{
-			var layers = new List<ScreenLayer>();
-			foreach (var layerData in data.ScreenStack)
-			{
-				layers.Add(layerData.ToScreenLayer());
-			}
-			_stack.FromList(layers);
-			UpdateDisplay();
-		}
-
-		/// <summary>
-		/// 파일에서 상태 로드
-		/// </summary>
-		public void LoadFromFile(string filePath)
-		{
-			try
-			{
-				if (!File.Exists(filePath))
-				{
-					GD.PrintErr($"[TextUISystem] File not found: {filePath}");
-					return;
-				}
-
-				var json = File.ReadAllText(filePath);
-				var data = JsonSerializer.Deserialize<UIStateJsonData>(json);
-				if (data != null)
-				{
-					ImportState(data);
-				}
-			}
-			catch (Exception ex)
-			{
-				GD.PrintErr($"[TextUISystem] Failed to load from file: {ex.Message}");
-			}
-		}
-
-		/// <summary>
-		/// 파일에 상태 저장
-		/// </summary>
-		public void SaveToFile(string filePath)
-		{
-			try
-			{
-				var data = ExportState();
-				var options = new JsonSerializerOptions { WriteIndented = true };
-				var json = JsonSerializer.Serialize(data, options);
-				File.WriteAllText(filePath, json);
-			}
-			catch (Exception ex)
-			{
-				GD.PrintErr($"[TextUISystem] Failed to save to file: {ex.Message}");
-			}
-		}
+		public Focus? CurrentFocus => _stack.Current;
 
 		/// <summary>
 		/// Proc은 빈 구현 (호출 기반 시스템)

@@ -11,9 +11,19 @@ namespace SE
 	/// </summary>
 	public class DescribeSystem : ECS.System
 	{
+		private readonly ActionProviderRegistry _actionRegistry = new();
+
 		public DescribeSystem()
 		{
+			// 핵심 기본 액션 프로바이더 등록
+			_actionRegistry.Register(new CoreActionProvider());
 		}
+
+		/// <summary>
+		/// 액션 프로바이더 레지스트리 접근
+		/// 외부 시스템에서 프로바이더를 등록/해제할 수 있음
+		/// </summary>
+		public ActionProviderRegistry ActionRegistry => _actionRegistry;
 
 		/// <summary>
 		/// Location 외관 묘사 반환
@@ -215,7 +225,7 @@ namespace SE
 						if (item != null)
 						{
 							var countText = count > 1 ? $" x{count}" : "";
-							lines.Add($"  [url=item_ground_menu:{itemId}:{count}]{item.Name}{countText}[/url]");
+							lines.Add($"  [url=item_ground_menu:{itemId}]{item.Name}{countText}[/url]");
 						}
 					}
 					lines.Add("");
@@ -241,16 +251,23 @@ namespace SE
 				}
 			}
 
-			// 7. 행동 옵션
-			lines.Add("");
-			lines.Add("[color=yellow]행동:[/color]");
-			lines.Add("  [url=inventory]소지품 확인[/url]");
-			lines.Add("  [url=toggle:idle]▶ 멍때리기[/url][hidden=idle]");
-			lines.Add("    [url=idle:15]15분[/url]");
-			lines.Add("    [url=idle:30]30분[/url]");
-			lines.Add("    [url=idle:60]1시간[/url]");
-			lines.Add("    [url=idle:240]4시간[/url]");
-			lines.Add("  [/hidden=idle]");
+			// 7. 행동 옵션 (ActionProviderRegistry 사용)
+			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+			var player = playerSystem?.GetPlayerUnit();
+
+			if (player != null)
+			{
+				var providedActions = _actionRegistry.GetAllActionsFor(player);
+				if (providedActions.Count > 0)
+				{
+					lines.Add("");
+					lines.Add("[color=yellow]행동:[/color]");
+					foreach (var action in providedActions)
+					{
+						lines.Add(action.ToBBCode());
+					}
+				}
+			}
 
 			return string.Join("\n", lines);
 		}
@@ -287,8 +304,8 @@ namespace SE
 							if (item != null)
 							{
 								var countText = count > 1 ? $" x{count}" : "";
-								// 2차 메뉴로 연결
-								lines.Add($"  [url=item_unit_menu:{unitLook.UnitId}:{itemId}:{count}]{item.Name}{countText}[/url]");
+								// 아이템 메뉴로 연결
+								lines.Add($"  [url=item_unit_menu:{unitLook.UnitId}:{itemId}]{item.Name}{countText}[/url]");
 							}
 						}
 						lines.Add("");
@@ -302,20 +319,25 @@ namespace SE
 
 				// 플레이어 인벤토리에서 넣기 옵션 추가
 				var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+				var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 				var player = playerSystem?.GetPlayerUnit();
-				if (player != null && player.Inventory.Count > 0)
+				var playerInventory = player != null && inventorySystem != null
+					? inventorySystem.GetUnitInventory(player.Id)
+					: null;
+
+				if (playerInventory != null && playerInventory.Count > 0)
 				{
 					var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
 					if (itemSystem != null)
 					{
 						lines.Add("[color=cyan]넣기:[/color]");
-						foreach (var kvp in player.Inventory)
+						foreach (var (itemId, count) in playerInventory)
 						{
-							var item = itemSystem.GetItem(kvp.Key);
+							var item = itemSystem.GetItem(itemId);
 							if (item != null)
 							{
-								var countText = kvp.Value > 1 ? $" x{kvp.Value}" : "";
-								lines.Add($"  [url=put:{unitLook.UnitId}:{kvp.Key}]{item.Name}{countText}[/url]");
+								var countText = count > 1 ? $" x{count}" : "";
+								lines.Add($"  [url=put:{unitLook.UnitId}:{itemId}]{item.Name}{countText}[/url]");
 							}
 						}
 						lines.Add("");
@@ -360,9 +382,10 @@ namespace SE
 
 			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
 			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
 			var player = playerSystem?.GetPlayerUnit();
 
-			if (player == null || itemSystem == null)
+			if (player == null || itemSystem == null || inventorySystem == null)
 			{
 				lines.Add("[color=gray]인벤토리를 확인할 수 없습니다.[/color]");
 				lines.Add("");
@@ -370,21 +393,25 @@ namespace SE
 				return string.Join("\n", lines);
 			}
 
-			if (player.Inventory.Count == 0)
+			var inventory = inventorySystem.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
+
+			if (inventory.Count == 0)
 			{
 				lines.Add("[color=gray]소지품이 없다.[/color]");
 			}
 			else
 			{
 				int totalValue = 0;
-				foreach (var (itemId, count) in player.Inventory)
+				foreach (var (itemId, count) in inventory)
 				{
 					var item = itemSystem.GetItem(itemId);
 					if (item != null)
 					{
 						var countText = count > 1 ? $" x{count}" : "";
 						var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
-						lines.Add($"  [url=item_inv_menu:{itemId}:{count}]{item.Name}{countText}[/url]{valueText}");
+						// 아이템 메뉴로 연결
+						lines.Add($"  [url=item_inv_menu:{itemId}]{item.Name}{countText}[/url]{valueText}");
 						totalValue += item.Value * count;
 					}
 				}
@@ -393,11 +420,11 @@ namespace SE
 			}
 
 			// 장착 아이템 표시
-			if (player.EquippedItems.Count > 0)
+			if (equippedItems.Count > 0)
 			{
 				lines.Add("");
 				lines.Add("[color=cyan]장착 중:[/color]");
-				foreach (var itemId in player.EquippedItems)
+				foreach (var itemId in equippedItems)
 				{
 					var item = itemSystem.GetItem(itemId);
 					if (item != null)
@@ -501,7 +528,10 @@ namespace SE
 				"take" when context == "ground" => ($"take:ground:{itemId}", "줍기"),
 				"take" when context == "container" => ($"take:{unitId}:{itemId}", "가져가기"),
 				"use" => ($"item_use:{itemId}", "사용"),
-				"drop" => ($"drop:{itemId}", "버리기"),
+				// drop도 context에 따라 다른 URL 생성
+				"drop" when context == "inventory" => ($"drop:inventory:{itemId}", "버리기"),
+				"drop" when context == "container" => ($"drop:container:{unitId}:{itemId}", "버리기"),
+				"drop" => ($"drop:inventory:{itemId}", "버리기"), // 기본값
 				"equip" => ($"equip:{itemId}", "장착"),
 				"throw" => ($"throw:{itemId}", "던지기"),
 				_ => ($"action:{action}:{itemId}", action) // 알 수 없는 액션은 그대로

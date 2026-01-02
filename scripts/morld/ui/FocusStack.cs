@@ -5,11 +5,11 @@ using Godot;
 namespace Morld;
 
 /// <summary>
-/// 화면 스택
+/// 포커스 스택
 /// </summary>
-public class ScreenStack
+public class FocusStack
 {
-	private readonly Stack<ScreenLayer> _layers = new();
+	private readonly Stack<Focus> _layers = new();
 	private int _maxDepth = 10;
 
 	/// <summary>
@@ -22,9 +22,9 @@ public class ScreenStack
 	}
 
 	/// <summary>
-	/// 현재 활성 레이어 (스택 최상위)
+	/// 현재 활성 포커스 (스택 최상위)
 	/// </summary>
-	public ScreenLayer? Current => _layers.Count > 0 ? _layers.Peek() : null;
+	public Focus? Current => _layers.Count > 0 ? _layers.Peek() : null;
 
 	/// <summary>
 	/// 스택 크기
@@ -32,20 +32,20 @@ public class ScreenStack
 	public int Count => _layers.Count;
 
 	/// <summary>
-	/// 새 레이어 추가
+	/// 새 포커스 추가
 	/// </summary>
 	/// <exception cref="InvalidOperationException">MaxDepth 초과 시</exception>
-	public void Push(ScreenLayer layer)
+	public void Push(Focus focus)
 	{
 		if (_layers.Count >= _maxDepth)
 		{
-			throw new InvalidOperationException($"ScreenStack exceeded maximum depth ({_maxDepth})");
+			throw new InvalidOperationException($"FocusStack exceeded maximum depth ({_maxDepth})");
 		}
-		_layers.Push(layer);
+		_layers.Push(focus);
 	}
 
 	/// <summary>
-	/// 최상위 레이어 제거
+	/// 최상위 포커스 제거
 	/// </summary>
 	public void Pop()
 	{
@@ -55,7 +55,7 @@ public class ScreenStack
 		}
 		if (_layers.Count == 1)
 		{
-			GD.PrintErr("[ScreenStack] Warning: Pop called on stack with only 1 layer. This indicates a content or logic bug.");
+			GD.PrintErr("[FocusStack] Warning: Pop called on stack with only 1 layer. This indicates a content or logic bug.");
 		}
 		_layers.Pop();
 	}
@@ -71,9 +71,9 @@ public class ScreenStack
 	/// <summary>
 	/// JSON 직렬화용 리스트 반환 (스택 순서: 바닥→최상위)
 	/// </summary>
-	public List<ScreenLayer> ToList()
+	public List<Focus> ToList()
 	{
-		var list = new List<ScreenLayer>(_layers);
+		var list = new List<Focus>(_layers);
 		list.Reverse();
 		return list;
 	}
@@ -81,7 +81,7 @@ public class ScreenStack
 	/// <summary>
 	/// JSON 역직렬화용 리스트에서 복원 (리스트 순서: 바닥→최상위)
 	/// </summary>
-	public void FromList(List<ScreenLayer> layers)
+	public void FromList(List<Focus> layers)
 	{
 		_layers.Clear();
 		foreach (var layer in layers)

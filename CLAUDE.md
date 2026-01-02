@@ -361,17 +361,56 @@ public UnitLookResult LookUnit(int unitId)
 - `scripts/system/describe_system.cs`
 
 ### TextUISystem (Logic System)
-**역할:** RichTextLabel.Text 관리의 단일 수정 지점, 스택 기반 화면 전환
+**역할:** RichTextLabel.Text 관리의 단일 수정 지점, Focus 스택 기반 화면 전환
+
+**핵심 설계:**
+- **Focus 기반 스택**: 스택에는 텍스트가 아닌 Focus 정보(타입, ID)만 저장
+- **On-demand 렌더링**: 표시 시 항상 최신 게임 데이터에서 텍스트 생성
+- **Stale Data 방지**: Pop 시 자동으로 상위 화면이 최신 데이터로 렌더링
 
 **주요 기능:**
-- `ShowSituation(lookResult, time)` - 상황 화면 표시 (Clear → Push)
-- `ShowUnitLook(unitLook)` - 유닛 상세 화면 표시 (Push)
-- `ShowInventory()` - 인벤토리 화면 표시 (Push)
-- `ShowResult(message)` - 결과 메시지 표시 (Push)
-- `Push(text)` / `Pop()` / `Clear()` - 스택 조작
+- `ShowSituation()` - 상황 화면 표시 (Clear → Push Situation Focus)
+- `ShowUnitLook(unitId)` - 유닛 상세 화면 표시 (Push Unit Focus)
+- `ShowInventory()` - 인벤토리 화면 표시 (Push Inventory Focus)
+- `ShowItemMenu(itemId, context, unitId?)` - 아이템 메뉴 표시 (Push Item Focus)
+- `ShowResult(message)` - 결과 메시지 표시 (Push Result Focus)
+- `Pop()` - 최상위 포커스 제거 후 자동 갱신
+- `PopIfInvalid()` - 아이템 개수가 0이면 Pop, 아니면 UpdateDisplay
+- `UpdateDisplay()` - 현재 Focus 기반으로 텍스트 재생성
 - `ToggleExpand(toggleId)` - 토글 펼침/접힘 전환
 - `SetHoveredMeta(meta)` - hover 중인 링크 설정 (색상 변경)
-- JSON Import/Export - `LoadFromFile()`, `SaveToFile()`
+
+**Focus 타입:**
+```csharp
+public enum FocusType
+{
+    Situation,   // 상황 화면 (location)
+    Unit,        // 유닛/오브젝트 화면
+    Inventory,   // 플레이어 인벤토리
+    Item,        // 아이템 메뉴
+    Result       // 결과 메시지
+}
+```
+
+**Focus 클래스:**
+```csharp
+public class Focus
+{
+    public FocusType Type { get; set; }
+    public int? UnitId { get; set; }      // Unit, Item 타입에서 사용
+    public int? ItemId { get; set; }      // Item 타입에서 사용
+    public string? Context { get; set; }   // "ground", "inventory", "container"
+    public string? Message { get; set; }   // Result 타입에서 사용
+    public HashSet<string> ExpandedToggles { get; set; }
+
+    // 팩토리 메서드
+    public static Focus Situation();
+    public static Focus Unit(int unitId);
+    public static Focus Inventory();
+    public static Focus Item(int itemId, string context, int? unitId = null);
+    public static Focus Result(string message);
+}
+```
 
 **토글 마크업:**
 ```bbcode
@@ -381,23 +420,20 @@ public UnitLookResult LookUnit(int unitId)
 [/hidden=idle]
 ```
 
-**링크 hover 색상:**
-- `MetaHoverStarted` / `MetaHoverEnded` 시그널 사용
-- hover 중인 링크에 `[color=#ffff00]` (노란색) 적용
-- `ToggleRenderer.ApplyHoverColor()`에서 처리
-
 **스택 동작 규칙:**
 | 이벤트 | 동작 |
 |--------|------|
-| 위치 이동 완료 | Clear → Push |
-| 유닛/인벤토리/아이템 메뉴 | Push |
-| back/confirm/done 클릭 | Pop |
+| 위치 이동 완료 | `ShowSituation()` (Clear → Push) |
+| 유닛/인벤토리/아이템 클릭 | Push (해당 Focus) |
+| back/confirm/done 클릭 | `Pop()` |
+| 데이터 변경 (아이템 남음) | `UpdateDisplay()` |
+| 데이터 변경 (아이템 0개) | `PopIfInvalid()` → Pop |
 | toggle 클릭 | ExpandedToggles 토글 |
 
 **파일 위치:**
 - `scripts/system/text_ui_system.cs`
-- `scripts/morld/ui/ScreenLayer.cs`
-- `scripts/morld/ui/ScreenStack.cs`
+- `scripts/morld/ui/Focus.cs` (Focus, FocusType)
+- `scripts/morld/ui/FocusStack.cs`
 - `scripts/morld/ui/ToggleRenderer.cs`
 - `scripts/morld/ui/UIStateJsonFormat.cs`
 

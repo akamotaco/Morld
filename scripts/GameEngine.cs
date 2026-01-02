@@ -10,6 +10,7 @@ public partial class GameEngine : Node
 	private SE.World _world;
 	private PlayerSystem _playerSystem;
 	private DescribeSystem _describeSystem;
+	private InventorySystem _inventorySystem;
 	private TextUISystem _textUISystem;
 	private RichTextLabel _textUi;
 	private MetaActionHandler _actionHandler;
@@ -44,6 +45,18 @@ public partial class GameEngine : Node
 		(this._world.AddSystem(new ItemSystem(), "itemSystem") as ItemSystem)
 			.UpdateFromFile("res://scripts/morld/json_data/item_data.json");
 
+		// InventorySystem 초기화 (IDataProvider + IActionProvider)
+		_inventorySystem = this._world.AddSystem(new InventorySystem(), "inventorySystem") as InventorySystem;
+
+		// InventorySystem 데이터 로드 시도 (없으면 unit_data.json에서 마이그레이션)
+		var inventoryDataPath = "res://scripts/morld/json_data/";
+		if (!_inventorySystem.LoadData(inventoryDataPath))
+		{
+			// inventory_data.json이 없으면 unit_data.json에서 마이그레이션
+			var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
+			unitSystem?.MigrateInventoryData("res://scripts/morld/json_data/unit_data.json", _inventorySystem);
+		}
+
 		this._world.AddSystem(new ActionSystem(), "actionSystem");
 
 		// Logic Systems
@@ -52,21 +65,24 @@ public partial class GameEngine : Node
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
 
+		// InventorySystem을 ActionProvider로 등록
+		_inventorySystem?.RegisterToDescribeSystem();
+
+		// 확장 시스템 등록 예시: SingASongSystem
+		// 이 시스템을 등록하면 '노래 부르기' 행동이 추가됨
+		// 시스템을 제거하면 해당 행동도 사라짐
+		var singSystem = this._world.AddSystem(new SingASongSystem(), "singASongSystem") as SingASongSystem;
+		singSystem?.RegisterToDescribeSystem();
+
 		// TextUISystem 초기화
 		_textUISystem = new TextUISystem(_textUi, _describeSystem);
 		this._world.AddSystem(_textUISystem, "textUISystem");
 
-		// text_ui_data.json 로드 (게임 시작 시 빈 스택)
-		_textUISystem.LoadFromFile("res://scripts/morld/json_data/text_ui_data.json");
+		// TextUISystem에 시스템 참조 설정
+		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem);
 
-		// 스택이 비어있으면 초기 상황 표시
-		if (_textUISystem.IsEmpty)
-		{
-			var worldSystem = _world.FindSystem("worldSystem") as WorldSystem;
-			var lookResult = _playerSystem.Look();
-			var time = worldSystem?.GetTime();
-			_textUISystem.ShowSituation(lookResult, time);
-		}
+		// 초기 상황 표시
+		_textUISystem.ShowSituation();
 
 		// MetaActionHandler 초기화
 		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
@@ -76,6 +92,7 @@ public partial class GameEngine : Node
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().DebugPrint();
 		(this._world.FindSystem("unitSystem") as UnitSystem).DebugPrint();
+		_inventorySystem?.DebugPrint();
 
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");
 		GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -110,11 +127,7 @@ public partial class GameEngine : Node
 		if (_playerSystem == null || _textUISystem == null)
 			return;
 
-		var worldSystem = _world.FindSystem("worldSystem") as WorldSystem;
-		var lookResult = _playerSystem.Look();
-		var time = worldSystem?.GetTime();
-
-		_textUISystem.ShowSituation(lookResult, time);
+		_textUISystem.ShowSituation();
 	}
 
 	/// <summary>

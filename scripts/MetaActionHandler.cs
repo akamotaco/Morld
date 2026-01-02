@@ -85,7 +85,7 @@ public class MetaActionHandler
 				HandleItemInvMenuAction(parts);
 				break;
 			case "back_inventory":
-				HandleInventoryAction();
+				HandleBackInventoryAction();
 				break;
 			case "item_use":
 				HandleItemUseAction(parts);
@@ -97,7 +97,7 @@ public class MetaActionHandler
 				HandleItemUnitMenuAction(parts);
 				break;
 			case "back_unit":
-				HandleBackUnitAction(parts);
+				HandleBackUnitAction();
 				break;
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
@@ -173,18 +173,41 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 아이템 놓기 처리: drop:itemId
+	/// 아이템 놓기 처리: drop:context:itemId 또는 drop:context:unitId:itemId
+	/// 데이터 변경 → PopIfInvalid (아이템 0개면 Pop, 아니면 UpdateDisplay)
 	/// </summary>
 	private void HandleDropAction(string[] parts)
 	{
-		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		if (parts.Length < 3)
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid drop format. Expected: drop:itemId");
+			GD.PrintErr("[MetaActionHandler] Invalid drop format");
 			return;
 		}
 
-		_playerSystem?.DropItem(itemId);
-		RequestUpdateSituation();
+		var context = parts[1];
+
+		if (context == "inventory")
+		{
+			if (!int.TryParse(parts[2], out int itemId))
+			{
+				GD.PrintErr("[MetaActionHandler] Invalid drop:inventory format");
+				return;
+			}
+			_playerSystem?.DropItem(itemId);
+			_textUISystem?.PopIfInvalid();
+		}
+		else if (context == "container")
+		{
+			if (parts.Length < 4 ||
+				!int.TryParse(parts[2], out int _) ||
+				!int.TryParse(parts[3], out int itemId))
+			{
+				GD.PrintErr("[MetaActionHandler] Invalid drop:container format");
+				return;
+			}
+			_playerSystem?.DropItem(itemId);
+			_textUISystem?.PopIfInvalid();
+		}
 	}
 
 	/// <summary>
@@ -198,21 +221,18 @@ public class MetaActionHandler
 			return;
 		}
 
-		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _textUISystem != null)
-		{
-			_textUISystem.ShowUnitLook(unitLook);
-		}
+		_textUISystem?.ShowUnitLook(unitId);
 	}
 
 	/// <summary>
 	/// 아이템 가져오기 처리: take:ground:itemId 또는 take:unitId:itemId
+	/// 데이터 변경 → PopIfInvalid (아이템 0개면 Pop, 아니면 UpdateDisplay)
 	/// </summary>
 	private void HandleTakeAction(string[] parts)
 	{
 		if (parts.Length < 3)
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid take format. Expected: take:ground:itemId or take:unitId:itemId");
+			GD.PrintErr("[MetaActionHandler] Invalid take format");
 			return;
 		}
 
@@ -221,50 +241,39 @@ public class MetaActionHandler
 		{
 			if (!int.TryParse(parts[2], out int itemId))
 			{
-				GD.PrintErr("[MetaActionHandler] Invalid take:ground format. Expected: take:ground:itemId");
+				GD.PrintErr("[MetaActionHandler] Invalid take:ground format");
 				return;
 			}
 			_playerSystem?.PickupItem(itemId);
-			RequestUpdateSituation();
+			RequestUpdateSituation(); // 상황 화면은 Clear + Push (장소 화면)
 			return;
 		}
 
 		// 유닛에서 가져오기: take:unitId:itemId
 		if (!int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId2))
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid take format. Expected: take:unitId:itemId");
+			GD.PrintErr("[MetaActionHandler] Invalid take format");
 			return;
 		}
 
 		_playerSystem?.TakeFromUnit(unitId, itemId2);
-
-		// 유닛 살펴보기 화면 새로고침
-		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _textUISystem != null)
-		{
-			_textUISystem.ShowUnitLook(unitLook);
-		}
+		_textUISystem?.PopIfInvalid();
 	}
 
 	/// <summary>
 	/// 유닛에 아이템 넣기 처리: put:unitId:itemId
+	/// 데이터 변경 → UpdateDisplay (유닛 화면 갱신)
 	/// </summary>
 	private void HandlePutAction(string[] parts)
 	{
 		if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid put format. Expected: put:unitId:itemId");
+			GD.PrintErr("[MetaActionHandler] Invalid put format");
 			return;
 		}
 
 		_playerSystem?.PutToUnit(unitId, itemId);
-
-		// 유닛 살펴보기 화면 새로고침
-		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _textUISystem != null)
-		{
-			_textUISystem.ShowUnitLook(unitLook);
-		}
+		_textUISystem?.UpdateDisplay();
 	}
 
 	/// <summary>
@@ -313,31 +322,31 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 바닥 아이템 메뉴 표시: item_ground_menu:itemId:count
+	/// 바닥 아이템 메뉴 표시: item_ground_menu:itemId
 	/// </summary>
 	private void HandleItemGroundMenuAction(string[] parts)
 	{
-		if (parts.Length < 3 || !int.TryParse(parts[1], out int itemId) || !int.TryParse(parts[2], out int count))
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid item_ground_menu format. Expected: item_ground_menu:itemId:count");
+			GD.PrintErr("[MetaActionHandler] Invalid item_ground_menu format. Expected: item_ground_menu:itemId");
 			return;
 		}
 
-		_textUISystem?.ShowItemMenu(itemId, count, "ground");
+		_textUISystem?.ShowItemMenu(itemId, "ground");
 	}
 
 	/// <summary>
-	/// 인벤토리 아이템 메뉴 표시: item_inv_menu:itemId:count
+	/// 인벤토리 아이템 메뉴 표시: item_inv_menu:itemId
 	/// </summary>
 	private void HandleItemInvMenuAction(string[] parts)
 	{
-		if (parts.Length < 3 || !int.TryParse(parts[1], out int itemId) || !int.TryParse(parts[2], out int count))
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid item_inv_menu format. Expected: item_inv_menu:itemId:count");
+			GD.PrintErr("[MetaActionHandler] Invalid item_inv_menu format. Expected: item_inv_menu:itemId");
 			return;
 		}
 
-		_textUISystem?.ShowItemMenu(itemId, count, "inventory");
+		_textUISystem?.ShowItemMenu(itemId, "inventory");
 	}
 
 	/// <summary>
@@ -379,37 +388,36 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 오브젝트 인벤토리 아이템 메뉴 표시: item_unit_menu:unitId:itemId:count
+	/// 오브젝트 인벤토리 아이템 메뉴 표시: item_unit_menu:unitId:itemId
 	/// </summary>
 	private void HandleItemUnitMenuAction(string[] parts)
 	{
-		if (parts.Length < 4 ||
+		if (parts.Length < 3 ||
 			!int.TryParse(parts[1], out int unitId) ||
-			!int.TryParse(parts[2], out int itemId) ||
-			!int.TryParse(parts[3], out int count))
+			!int.TryParse(parts[2], out int itemId))
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid item_unit_menu format. Expected: item_unit_menu:unitId:itemId:count");
+			GD.PrintErr("[MetaActionHandler] Invalid item_unit_menu format. Expected: item_unit_menu:unitId:itemId");
 			return;
 		}
 
-		_textUISystem?.ShowItemMenu(itemId, count, "container");
+		_textUISystem?.ShowItemMenu(itemId, "container", unitId);
+	}
+
+	/// <summary>
+	/// 인벤토리 화면으로 돌아가기: back_inventory
+	/// 뒤로 → Pop
+	/// </summary>
+	private void HandleBackInventoryAction()
+	{
+		_textUISystem?.Pop();
 	}
 
 	/// <summary>
 	/// 유닛 화면으로 돌아가기: back_unit:unitId
+	/// 뒤로 → Pop
 	/// </summary>
-	private void HandleBackUnitAction(string[] parts)
+	private void HandleBackUnitAction()
 	{
-		if (parts.Length < 2 || !int.TryParse(parts[1], out int unitId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid back_unit format. Expected: back_unit:unitId");
-			return;
-		}
-
-		var unitLook = _playerSystem?.LookUnit(unitId);
-		if (unitLook != null && _textUISystem != null)
-		{
-			_textUISystem.ShowUnitLook(unitLook);
-		}
+		_textUISystem?.Pop();
 	}
 }
