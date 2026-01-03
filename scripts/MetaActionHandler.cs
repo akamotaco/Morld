@@ -37,6 +37,9 @@ public class MetaActionHandler
 		if (string.IsNullOrEmpty(metaString))
 			return;
 
+		// 콘텐츠 변경 전 정리 작업 (로그 읽음 처리 등)
+		_textUISystem?.OnContentChange();
+
 		var parts = metaString.Split(':');
 		var action = parts[0];
 

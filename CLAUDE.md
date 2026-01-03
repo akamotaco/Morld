@@ -481,9 +481,15 @@ PutToUnit(unitId, itemId, count)     // 유닛에 아이템 넣기 (바닥 포�
 **액션 로그 시스템:**
 - 게임 내 행동 결과를 화면에 표시 (예: "녹슨 열쇠를 사용했다", "자물쇠를 열었다")
 - 최대 20개 보관, 최근 5개만 화면에 표시
-- 표시된 로그는 자동으로 "[읽음]" 처리
+- 표시된 로그는 플레이어 다음 액션 시 "[읽음]" 처리 (`OnContentChange()`)
 - appearance 다음, 유닛/액션 목록 전에 노란색으로 렌더링
 - `morld.add_action_log()` 또는 `morld.lost_item()` 호출 시 자동 추가
+
+**OnContentChange 훅:**
+- 플레이어 액션(클릭) 시 `MetaActionHandler`에서 호출
+- 화면 전환 전 현재 상태 정리 역할
+- 현재 기능: Situation/Unit 화면의 액션 로그 읽음 처리
+- 향후 확장 가능한 구조로 설계
 
 **Focus 타입:**
 ```csharp

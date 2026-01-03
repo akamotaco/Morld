@@ -155,17 +155,20 @@ public partial class GameEngine : Node
 	public override void _Process(double delta)
 	{
 		// 대기 중인 시간이 있을 때만 Step 실행
-		if (_playerSystem == null || !_playerSystem.HasPendingTime)
-			return;
-
-		int delta_int = (int)(delta * 1000);
-		this._world.Step(delta_int);
-
-		// 시간 진행 완료 후 상황 설명 업데이트
-		if (!_playerSystem.HasPendingTime)
+		if (_playerSystem != null && _playerSystem.HasPendingTime)
 		{
-			UpdateSituationText();
+			int delta_int = (int)(delta * 1000);
+			this._world.Step(delta_int);
+
+			// 시간 진행 완료 후 상황 설명 업데이트
+			if (!_playerSystem.HasPendingTime)
+			{
+				UpdateSituationText();
+			}
 		}
+
+		// 프레임 끝에서 한 번만 UI 렌더링 (lazy update 플러시)
+		_textUISystem?.FlushDisplay();
 	}
 
 	/// <summary>

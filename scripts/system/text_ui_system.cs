@@ -104,8 +104,27 @@ namespace SE
 				_hoveredMeta
 			);
 
-			// 로그 렌더링 후 읽음 처리
-			MarkPrintedLogsAsRead();
+			// 읽음 처리는 FlushDisplay에서 하지 않음
+			// OnPlayerAction()에서 플레이어 액션 시점에 처리
+		}
+
+		/// <summary>
+		/// 화면 콘텐츠가 변경될 때 호출 (플레이어 액션 시)
+		/// 새로운 화면으로 전환되기 전에 현재 상태를 정리하는 역할
+		///
+		/// 포함 기능:
+		/// - 현재 표시된 로그 읽음 처리
+		/// - (향후) 기타 정리 작업 추가 가능
+		/// </summary>
+		public void OnContentChange()
+		{
+			// 1. 로그 읽음 처리 (Situation, Unit 화면에서만)
+			if (_stack.Current?.Type == FocusType.Situation || _stack.Current?.Type == FocusType.Unit)
+			{
+				MarkPrintedLogsAsRead();
+			}
+
+			// 2. (향후 추가 기능을 여기에)
 		}
 
 		/// <summary>
@@ -341,7 +360,7 @@ namespace SE
 		{
 			Clear();
 			_stack.Push(Focus.Situation());
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -350,7 +369,7 @@ namespace SE
 		public void ShowUnitLook(int unitId)
 		{
 			_stack.Push(Focus.Unit(unitId));
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -359,7 +378,7 @@ namespace SE
 		public void ShowInventory()
 		{
 			_stack.Push(Focus.Inventory());
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -368,7 +387,7 @@ namespace SE
 		public void ShowItemMenu(int itemId, string context, int? unitId = null)
 		{
 			_stack.Push(Focus.Item(itemId, context, unitId));
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -377,7 +396,7 @@ namespace SE
 		public void ShowResult(string message)
 		{
 			_stack.Push(Focus.Result(message));
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -386,7 +405,7 @@ namespace SE
 		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string yesCallback = null, string noCallback = null)
 		{
 			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType, yesCallback, noCallback));
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -397,7 +416,7 @@ namespace SE
 			if (_stack.Current?.Type != FocusType.Monologue) return;
 
 			_stack.Current.CurrentPage++;
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -411,7 +430,7 @@ namespace SE
 			_stack.Current.MonologuePages = pages;
 			_stack.Current.CurrentPage = 0;
 			_stack.Current.MonologueButtonType = buttonType;
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -440,7 +459,7 @@ namespace SE
 		public void Pop()
 		{
 			_stack.Pop();
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -464,7 +483,7 @@ namespace SE
 				}
 			}
 
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
@@ -524,7 +543,7 @@ namespace SE
 			else
 				toggles.Add(toggleId);
 
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
