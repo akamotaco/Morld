@@ -256,6 +256,7 @@ Item
 - 유닛별 인벤토리 관리 (아이템 추가/제거/조회)
 - 장착 아이템 관리
 - 인벤토리 가시성 관리 (열린 상자, 바닥 등)
+- 인벤토리 변경 이벤트 콜백
 - JSON 기반 Import/Export
 
 **데이터 구조:**
@@ -265,13 +266,25 @@ InventorySystem
 ├─ GetUnitInventory(unitId) → Dictionary<int, int>
 ├─ AddToUnit(unitId, itemId, count)
 ├─ RemoveFromUnit(unitId, itemId, count) → bool
+├─ LostItemFromUnit(unitId, itemId, count) → bool  // 아이템 소모 (ItemLost 이벤트 발생)
 ├─ TransferBetweenUnits(fromId, toId, itemId, count) → bool
 ├─ GetUnitEquippedItems(unitId) → List<int>
 ├─ EquipItem(ownerKey, itemId) → bool
 ├─ UnequipItem(ownerKey, itemId) → bool
 ├─ IsUnitInventoryVisible(unitId) → bool
-└─ SetUnitInventoryVisible(unitId, isVisible)
+├─ SetUnitInventoryVisible(unitId, isVisible)
+└─ OnInventoryChanged → Action<InventoryEvent>  // 이벤트 콜백
 ```
+
+**인벤토리 이벤트 타입:**
+| 타입 | 설명 | 용도 |
+|------|------|------|
+| `ItemAdded` | 아이템 추가 | - |
+| `ItemRemoved` | 아이템 제거 | - |
+| `ItemTransferred` | 아이템 이동 | - |
+| `ItemEquipped` | 장착 | - |
+| `ItemUnequipped` | 장착 해제 | - |
+| `ItemLost` | 아이템 소모 | 액션 로그 자동 생성 ("XX을(를) 사용했다") |
 
 **가시성 규칙:**
 - `IsVisible = true`: 아이템이 외부에서 보임 (바닥, 열린 상자 등)
@@ -444,12 +457,13 @@ PutToUnit(unitId, itemId, count)     // 유닛에 아이템 넣기 (바닥 포�
 - `scripts/system/describe_system.cs`
 
 ### TextUISystem (Logic System)
-**역할:** RichTextLabel.Text 관리의 단일 수정 지점, Focus 스택 기반 화면 전환
+**역할:** RichTextLabel.Text 관리의 단일 수정 지점, Focus 스택 기반 화면 전환, 액션 로그 관리
 
 **핵심 설계:**
 - **Focus 기반 스택**: 스택에는 텍스트가 아닌 Focus 정보(타입, ID)만 저장
 - **On-demand 렌더링**: 표시 시 항상 최신 게임 데이터에서 텍스트 생성
 - **Stale Data 방지**: Pop 시 자동으로 상위 화면이 최신 데이터로 렌더링
+- **Lazy Update**: `RequestUpdateDisplay()` → `FlushDisplay()` 패턴으로 불필요한 렌더링 방지
 
 **주요 기능:**
 - `ShowSituation()` - 상황 화면 표시 (Clear → Push Situation Focus)
@@ -462,6 +476,14 @@ PutToUnit(unitId, itemId, count)     // 유닛에 아이템 넣기 (바닥 포�
 - `UpdateDisplay()` - 현재 Focus 기반으로 텍스트 재생성
 - `ToggleExpand(toggleId)` - 토글 펼침/접힘 전환
 - `SetHoveredMeta(meta)` - hover 중인 링크 설정 (색상 변경)
+- `AddActionLog(message)` - 행동 로그 추가 (화면에 노란색으로 표시)
+
+**액션 로그 시스템:**
+- 게임 내 행동 결과를 화면에 표시 (예: "녹슨 열쇠를 사용했다", "자물쇠를 열었다")
+- 최대 20개 보관, 최근 5개만 화면에 표시
+- 표시된 로그는 자동으로 "[읽음]" 처리
+- appearance 다음, 유닛/액션 목록 전에 노란색으로 렌더링
+- `morld.add_action_log()` 또는 `morld.lost_item()` 호출 시 자동 추가
 
 **Focus 타입:**
 ```csharp
@@ -600,8 +622,18 @@ import morld
 # 플레이어 ID 조회
 player_id = morld.get_player_id()
 
-# 아이템 지급
-morld.give_item(unit_id, item_id, count)
+# 아이템 관련
+morld.give_item(unit_id, item_id, count)      # 아이템 지급
+morld.has_item(unit_id, item_id)              # 아이템 보유 확인 → bool
+morld.lost_item(unit_id, item_id, count)      # 아이템 소모 (사용/소비로 인한 삭제, 액션 로그 자동 생성)
+morld.remove_item(unit_id, item_id, count)    # 아이템 제거 (단순 삭제)
+
+# 플래그 관련
+morld.get_flag(flag_name)                     # 플래그 조회 → int (기본값 0)
+morld.set_flag(flag_name, value)              # 플래그 설정
+
+# 액션 로그
+morld.add_action_log(message)                 # 화면에 표시되는 행동 로그 추가
 
 # 유닛 정보 조회 (전체 데이터 반환)
 unit_info = morld.get_unit_info(unit_id)
@@ -816,9 +848,30 @@ def get_npc_dialogue(unit_id, activity):
     "equipTags": { "관찰": 2 },
     "value": 100,
     "actions": ["use", "equip"]
+  },
+  {
+    "id": 4,
+    "name": "쪽지 1",
+    "comment": "note_1",
+    "passiveTags": {},
+    "equipTags": {},
+    "value": 0,
+    "actions": ["take@container", "script:read_note:읽기@inventory"]
   }
 ]
 ```
+
+**아이템 액션 형식:**
+| 형식 | 설명 | 예시 |
+|------|------|------|
+| `action` | 기본 액션 | `"use"`, `"equip"` |
+| `action@context` | 특정 컨텍스트에서만 표시 | `"take@container"` |
+| `script:함수명:표시명` | Python 스크립트 호출 | `"script:read_note:읽기"` |
+| `script:함수명:표시명@context` | 특정 컨텍스트에서 스크립트 호출 | `"script:read_note:읽기@inventory"` |
+
+**context 종류:**
+- `container`: 오브젝트/바닥에서 아이템을 볼 때
+- `inventory`: 플레이어 인벤토리에서 아이템을 볼 때
 
 ### inventory_data.json (InventorySystem)
 ```json

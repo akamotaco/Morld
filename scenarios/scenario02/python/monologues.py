@@ -126,6 +126,8 @@ def toggle_switch(context_unit_id):
         }
     else:
         morld.set_flag("power", 1)
+        # 액션 로그에 문 열림 소리 추가
+        morld.add_action_log("문이 열리는 소리가 들렸다")
         return {
             "type": "monologue",
             "pages": [
@@ -165,8 +167,12 @@ def unlock_object(context_unit_id):
                 "time_consumed": 0
             }
 
+        # 열쇠 소모 (액션 로그 자동 생성)
+        morld.lost_item(player_id, lock["key_item"], 1)
+
         # 잠금 해제
         morld.set_flag(flag_name, 1)
+        morld.add_action_log("자물쇠를 열었다")
 
         # 숨겨진 아이템 지급
         hidden_item = HIDDEN_ITEMS.get(object_id)
@@ -307,6 +313,7 @@ def verify_password(context_unit_id):
 
         # 서재 문 특수 처리
         if object_id == 109:
+            morld.add_action_log("서랍을 열었다")
             # 화장대 서랍 -> 서재 메모 획득만
             hidden_item = HIDDEN_ITEMS.get(object_id)
             if hidden_item:
@@ -321,6 +328,7 @@ def verify_password(context_unit_id):
                 "time_consumed": 1
             }
         elif object_id == 111:
+            morld.add_action_log("금고를 열었다")
             # 금고 -> 황금열쇠 몸통 획득
             hidden_item = HIDDEN_ITEMS.get(object_id)
             if hidden_item:
@@ -429,6 +437,7 @@ def verify_study_password(context_unit_id):
 
     if input_password == "2847":
         morld.set_flag("study_unlocked", 1)
+        morld.add_action_log("서재 문이 열렸다")
         return {
             "type": "monologue",
             "pages": [
@@ -460,8 +469,9 @@ def escape(context_unit_id):
             "time_consumed": 0
         }
 
-    # 황금열쇠 소모
-    morld.remove_item(player_id, 3, 1)
+    # 황금열쇠 소모 (액션 로그 자동 생성)
+    morld.lost_item(player_id, 3, 1)
+    morld.add_action_log("정문이 열렸다")
 
     # 탈출 성공!
     # 일반 페이지는 "계속" 버튼으로 넘기고, 마지막 페이지만 버튼 없음
@@ -599,10 +609,11 @@ def combine_key(context_unit_id, item_id=None):
                 "time_consumed": 0
             }
 
-    # 두 파츠 모두 있음 -> 조합 진행
-    morld.remove_item(player_id, 10, 1)  # 머리 제거
-    morld.remove_item(player_id, 11, 1)  # 몸통 제거
-    morld.give_item(player_id, 3, 1)     # 황금열쇠 지급
+    # 두 파츠 모두 있음 -> 조합 진행 (액션 로그 자동 생성)
+    morld.lost_item(player_id, 10, 1)  # 머리 제거
+    morld.lost_item(player_id, 11, 1)  # 몸통 제거
+    morld.give_item(player_id, 3, 1)   # 황금열쇠 지급
+    morld.add_action_log("황금열쇠를 완성했다")
 
     return {
         "type": "monologue",

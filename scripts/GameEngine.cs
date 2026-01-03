@@ -90,17 +90,42 @@ public partial class GameEngine : Node
 		// 시나리오 경로 설정 (시스템 참조 설정 전에 호출)
 		_scriptSystem?.SetScenarioPath(_scenarioPath);
 
-		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem, unitSys);
+		// TextUISystem 초기화 (ScriptSystem보다 먼저 생성해야 morld 모듈에서 참조 가능)
+		_textUISystem = new TextUISystem(_textUi, _describeSystem);
+		this._world.AddSystem(_textUISystem, "textUISystem");
+
+		// ScriptSystem에 시스템 참조 설정 (TextUISystem 포함)
+		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem, unitSys, _textUISystem);
 		_scriptSystem?.TestHelloWorld();
 		_scriptSystem?.RegisterTestFunctions();
 		_scriptSystem?.LoadMonologueScripts();
 
-		// TextUISystem 초기화
-		_textUISystem = new TextUISystem(_textUi, _describeSystem);
-		this._world.AddSystem(_textUISystem, "textUISystem");
-
 		// TextUISystem에 시스템 참조 설정 (ScriptSystem 포함)
 		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
+
+		// InventorySystem 이벤트 콜백 등록 (행동 로그 자동 생성)
+		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
+		_inventorySystem.OnInventoryChanged += (evt) =>
+		{
+			var itemName = itemSystem?.GetItem(evt.ItemId)?.Name ?? "아이템";
+			var countText = evt.Count > 1 ? $" x{evt.Count}" : "";
+
+			string? message = evt.Type switch
+			{
+				InventoryEventType.ItemAdded => $"{itemName}{countText}을(를) 획득했습니다",
+				InventoryEventType.ItemRemoved => $"{itemName}{countText}을(를) 잃었습니다",
+				InventoryEventType.ItemTransferred => $"{itemName}{countText}을(를) 옮겼습니다",
+				InventoryEventType.ItemEquipped => $"{itemName}을(를) 장착했습니다",
+				InventoryEventType.ItemUnequipped => $"{itemName}을(를) 장착 해제했습니다",
+				InventoryEventType.ItemLost => $"{itemName}{countText}을(를) 사용했습니다",
+				_ => null
+			};
+
+			if (message != null)
+			{
+				_textUISystem.AddActionLog(message);
+			}
+		};
 
 		// 초기 상황 표시
 		_textUISystem.ShowSituation();

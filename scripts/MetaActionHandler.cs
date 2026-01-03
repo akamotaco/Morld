@@ -219,36 +219,14 @@ public class MetaActionHandler
 	/// </summary>
 	private void HandleTakeAction(string[] parts)
 	{
-		if (parts.Length < 3)
+		if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
 		{
 			GD.PrintErr("[MetaActionHandler] Invalid take format");
 			return;
 		}
 
-		var itemSystem = _world.FindSystem("itemSystem") as ItemSystem;
-		var describeSystem = _world.FindSystem("describeSystem") as DescribeSystem;
-
-		// 유닛에서 가져오기: take:unitId:itemId
-		if (!int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId2))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid take format");
-			return;
-		}
-
-		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
-		var item2 = itemSystem?.GetItem(itemId2);
-		var unit = unitSystem?.GetUnit(unitId);
-		var itemName2 = item2?.Name ?? "아이템";
-		var unitName = unit?.Name ?? "대상";
-
-		_playerSystem?.TakeFromUnit(unitId, itemId2);
-
-		// 액션 메시지 설정
-		if (describeSystem != null)
-		{
-			var message = describeSystem.FormatItemActionMessage("take_unit", itemName2, unitName);
-			_textUISystem?.SetActionMessage(message);
-		}
+		_playerSystem?.TakeFromUnit(unitId, itemId);
+		// 로그는 InventorySystem.OnInventoryChanged 콜백에서 자동 생성
 
 		_textUISystem?.PopIfInvalid();
 	}
@@ -265,23 +243,8 @@ public class MetaActionHandler
 			return;
 		}
 
-		// 아이템 및 유닛 이름 조회
-		var itemSystem = _world.FindSystem("itemSystem") as ItemSystem;
-		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
-		var item = itemSystem?.GetItem(itemId);
-		var unit = unitSystem?.GetUnit(unitId);
-		var itemName = item?.Name ?? "아이템";
-		var unitName = unit?.Name ?? "대상";
-
 		_playerSystem?.PutToUnit(unitId, itemId);
-
-		// 액션 메시지 설정
-		var describeSystem = _world.FindSystem("describeSystem") as DescribeSystem;
-		if (describeSystem != null)
-		{
-			var message = describeSystem.FormatItemActionMessage("put", itemName, unitName);
-			_textUISystem?.SetActionMessage(message);
-		}
+		// 로그는 InventorySystem.OnInventoryChanged 콜백에서 자동 생성
 
 		_textUISystem?.PopIfInvalid();
 	}

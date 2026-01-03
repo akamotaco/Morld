@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using ECS;
 using Godot;
@@ -8,6 +9,20 @@ using Morld;
 
 namespace SE
 {
+	/// <summary>
+	/// 행동 로그 항목
+	/// </summary>
+	public class ActionLogEntry
+	{
+		public string Message { get; set; } = "";
+		public bool IsRead { get; set; } = false;
+
+		public ActionLogEntry(string message)
+		{
+			Message = message;
+		}
+	}
+
 	/// <summary>
 	/// UI 텍스트 시스템 (Focus 스택 기반)
 	/// 스택에는 Focus 정보만 저장하고, 표시 시 항상 최신 데이터로 렌더링
@@ -18,7 +33,14 @@ namespace SE
 		private readonly FocusStack _stack = new();
 		private readonly DescribeSystem _describeSystem;
 		private string? _hoveredMeta = null;
-		private string? _lastActionMessage = null;  // 휘발성 행동 결과 메시지
+
+		// 행동 로그 시스템
+		private readonly List<ActionLogEntry> _actionLogs = new();
+		private const int MaxLogLength = 20;   // 최대 로그 보관 개수
+		private const int PrintCount = 5;      // 화면에 표시할 최근 로그 개수
+
+		// Lazy update 플래그
+		private bool _needsUpdateDisplay = false;
 
 		// 데이터 조회용 참조 (UpdateDisplay에서 사용)
 		private PlayerSystem? _playerSystem;
@@ -48,14 +70,25 @@ namespace SE
 		{
 			if (_hoveredMeta == meta) return;
 			_hoveredMeta = meta;
-			UpdateDisplay();
+			RequestUpdateDisplay();
 		}
 
 		/// <summary>
-		/// 현재 Focus를 기반으로 텍스트 생성 및 표시
+		/// UI 업데이트 요청 (lazy update)
+		/// 실제 렌더링은 FlushDisplay()에서 수행
 		/// </summary>
-		public void UpdateDisplay()
+		public void RequestUpdateDisplay()
 		{
+			_needsUpdateDisplay = true;
+		}
+
+		/// <summary>
+		/// 대기 중인 UI 업데이트 수행 (lazy update 적용)
+		/// </summary>
+		public void FlushDisplay()
+		{
+			if (!_needsUpdateDisplay) return;
+			_needsUpdateDisplay = false;
 
 			if (_stack.Current == null)
 			{
@@ -65,33 +98,96 @@ namespace SE
 
 			var text = RenderFocus(_stack.Current);
 
-			// 행동 결과 메시지 추가 (있으면)
-			if (!string.IsNullOrEmpty(_lastActionMessage))
-			{
-				text += $"\n\n[color=yellow]*{_lastActionMessage}[/color]";
-			}
-
 			_textUi.Text = ToggleRenderer.Render(
 				text,
 				_stack.Current.ExpandedToggles,
 				_hoveredMeta
 			);
+
+			// 로그 렌더링 후 읽음 처리
+			MarkPrintedLogsAsRead();
 		}
 
 		/// <summary>
-		/// 행동 결과 메시지 설정 (휘발성, 화면 전환 시 초기화)
+		/// 현재 Focus를 기반으로 텍스트 생성 및 표시 (즉시 실행)
 		/// </summary>
-		public void SetActionMessage(string message)
+		public void UpdateDisplay()
 		{
-			_lastActionMessage = message;
+			RequestUpdateDisplay();
+			FlushDisplay();
 		}
 
 		/// <summary>
-		/// 행동 결과 메시지 초기화
+		/// 행동 로그 추가 (appearance 다음, 액션 전에 표시)
+		/// 자동으로 UI 업데이트 요청
 		/// </summary>
-		private void ClearActionMessage()
+		public void AddActionLog(string message)
 		{
-			_lastActionMessage = null;
+			_actionLogs.Add(new ActionLogEntry(message));
+
+			// MaxLogLength 초과 시 오래된 로그 삭제
+			while (_actionLogs.Count > MaxLogLength)
+			{
+				_actionLogs.RemoveAt(0);
+			}
+
+			// UI 업데이트 요청 (lazy)
+			RequestUpdateDisplay();
+		}
+
+		/// <summary>
+		/// 출력용 로그 엔트리 반환 (최근 PrintCount개)
+		/// </summary>
+		public IReadOnlyList<ActionLogEntry> GetPrintableLogs()
+		{
+			// 최근 PrintCount개만 반환
+			return _actionLogs
+				.TakeLast(PrintCount)
+				.ToList();
+		}
+
+		/// <summary>
+		/// 모든 로그를 읽음 처리
+		/// </summary>
+		public void MarkAllLogsAsRead()
+		{
+			foreach (var log in _actionLogs)
+			{
+				log.IsRead = true;
+			}
+		}
+
+		/// <summary>
+		/// 출력된 로그만 읽음 처리 (최근 PrintCount개)
+		/// </summary>
+		private void MarkPrintedLogsAsRead()
+		{
+			// 최근 PrintCount개만 읽음 처리
+			var printedLogs = _actionLogs.TakeLast(PrintCount);
+			foreach (var log in printedLogs)
+			{
+				log.IsRead = true;
+			}
+		}
+
+		/// <summary>
+		/// 읽지 않은 로그 개수
+		/// </summary>
+		public int UnreadLogCount => _actionLogs.Count(e => !e.IsRead);
+
+		/// <summary>
+		/// 디버그용: 전체 로그 상태 출력
+		/// </summary>
+		public void DebugPrintLogs()
+		{
+#if DEBUG_LOG
+			GD.Print($"[ActionLogs] Total: {_actionLogs.Count}, Unread: {UnreadLogCount}");
+			foreach (var log in _actionLogs)
+			{
+				var readMark = log.IsRead ? "[R]" : "[U]";
+				GD.Print($"  {readMark} {log.Message}");
+			}
+#endif
 		}
 
 		/// <summary>
@@ -116,7 +212,7 @@ namespace SE
 			if (_playerSystem == null) return "";
 			var lookResult = _playerSystem.Look();
 			var time = (_hub?.FindSystem("worldSystem") as WorldSystem)?.GetTime();
-			return _describeSystem.GetSituationText(lookResult, time);
+			return _describeSystem.GetSituationText(lookResult, time, GetPrintableLogs());
 		}
 
 		private string RenderUnit(int unitId)
@@ -124,7 +220,7 @@ namespace SE
 			if (_playerSystem == null) return "";
 			var unitLook = _playerSystem.LookUnit(unitId);
 			if (unitLook == null) return "[color=gray]유닛을 찾을 수 없습니다.[/color]\n\n[url=back]뒤로[/url]";
-			return _describeSystem.GetUnitLookText(unitLook);
+			return _describeSystem.GetUnitLookText(unitLook, GetPrintableLogs());
 		}
 
 		private string RenderInventory()
@@ -239,10 +335,10 @@ namespace SE
 
 		/// <summary>
 		/// 상황 화면 표시 (스택 초기화 후 Push)
+		/// 로그는 유지됨 (MaxLogLength 초과 시에만 자동 삭제)
 		/// </summary>
 		public void ShowSituation()
 		{
-			ClearActionMessage();
 			Clear();
 			_stack.Push(Focus.Situation());
 			UpdateDisplay();
@@ -253,7 +349,6 @@ namespace SE
 		/// </summary>
 		public void ShowUnitLook(int unitId)
 		{
-			ClearActionMessage();
 			_stack.Push(Focus.Unit(unitId));
 			UpdateDisplay();
 		}
@@ -263,7 +358,6 @@ namespace SE
 		/// </summary>
 		public void ShowInventory()
 		{
-			ClearActionMessage();
 			_stack.Push(Focus.Inventory());
 			UpdateDisplay();
 		}
@@ -273,7 +367,6 @@ namespace SE
 		/// </summary>
 		public void ShowItemMenu(int itemId, string context, int? unitId = null)
 		{
-			ClearActionMessage();
 			_stack.Push(Focus.Item(itemId, context, unitId));
 			UpdateDisplay();
 		}
@@ -283,7 +376,6 @@ namespace SE
 		/// </summary>
 		public void ShowResult(string message)
 		{
-			ClearActionMessage();
 			_stack.Push(Focus.Result(message));
 			UpdateDisplay();
 		}
@@ -293,7 +385,6 @@ namespace SE
 		/// </summary>
 		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string yesCallback = null, string noCallback = null)
 		{
-			ClearActionMessage();
 			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType, yesCallback, noCallback));
 			UpdateDisplay();
 		}
@@ -348,7 +439,6 @@ namespace SE
 		/// </summary>
 		public void Pop()
 		{
-			ClearActionMessage();
 			_stack.Pop();
 			UpdateDisplay();
 		}
@@ -409,7 +499,6 @@ namespace SE
 		/// </summary>
 		public void Clear()
 		{
-			ClearActionMessage();
 			_stack.Clear();
 		}
 

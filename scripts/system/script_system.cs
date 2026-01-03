@@ -15,6 +15,7 @@ namespace SE
         private InventorySystem _inventorySystem;
         private PlayerSystem _playerSystem;
         private UnitSystem _unitSystem;
+        private TextUISystem _textUISystem;
 
         // 시나리오 경로
         private string _scenarioPath = "";
@@ -90,11 +91,12 @@ namespace SE
         /// <summary>
         /// 게임 시스템 참조 설정 및 morld 모듈 등록
         /// </summary>
-        public void SetSystemReferences(InventorySystem inventorySystem, PlayerSystem playerSystem, UnitSystem unitSystem = null)
+        public void SetSystemReferences(InventorySystem inventorySystem, PlayerSystem playerSystem, UnitSystem unitSystem = null, TextUISystem textUISystem = null)
         {
             _inventorySystem = inventorySystem;
             _playerSystem = playerSystem;
             _unitSystem = unitSystem;
+            _textUISystem = textUISystem;
 
             RegisterMorldModule();
         }
@@ -150,6 +152,24 @@ namespace SE
                     {
                         bool success = _inventorySystem.RemoveItemFromUnit(unitId, itemId, count);
                         Godot.GD.Print($"[morld] remove_item: unit={unitId}, item={itemId}, count={count}, success={success}");
+                        return PyBool.FromBool(success);
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["lost_item"] = new PyBuiltinFunction("lost_item", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("lost_item(unit_id, item_id, count=1) requires at least 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int itemId = args[1].ToInt();
+                    int count = args.Length >= 3 ? args[2].ToInt() : 1;
+
+                    if (_inventorySystem != null)
+                    {
+                        bool success = _inventorySystem.LostItemFromUnit(unitId, itemId, count);
+                        Godot.GD.Print($"[morld] lost_item: unit={unitId}, item={itemId}, count={count}, success={success}");
                         return PyBool.FromBool(success);
                     }
                     return PyBool.False;
@@ -318,6 +338,23 @@ namespace SE
                 {
                     // 시나리오 Python 폴더 경로 반환 (res://scenarios/scenario01/python/)
                     return new PyString(ScenarioPythonPath);
+                });
+
+                // === 액션 로그 API ===
+                morldModule.ModuleDict["add_action_log"] = new PyBuiltinFunction("add_action_log", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("add_action_log(message) requires 1 argument");
+
+                    string message = args[0].AsString();
+
+                    if (_textUISystem != null)
+                    {
+                        _textUISystem.AddActionLog(message);
+                        Godot.GD.Print($"[morld] add_action_log: {message}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
                 });
 
                 // sys.modules에 등록

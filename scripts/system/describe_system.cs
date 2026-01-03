@@ -193,7 +193,7 @@ namespace SE
 		/// <summary>
 		/// LookResult를 기반으로 전체 상황 설명 텍스트 생성
 		/// </summary>
-		public string GetSituationText(LookResult lookResult, GameTime? time)
+		public string GetSituationText(LookResult lookResult, GameTime? time, IReadOnlyList<ActionLogEntry>? actionLogs = null)
 		{
 			var lines = new List<string>();
 
@@ -220,6 +220,17 @@ namespace SE
 			if (!string.IsNullOrEmpty(loc.AppearanceText))
 			{
 				lines.Add(loc.AppearanceText);
+				lines.Add("");
+			}
+
+			// 3.5. 행동 로그 (appearance 다음, 유닛/액션 전)
+			if (actionLogs != null && actionLogs.Count > 0)
+			{
+				foreach (var log in actionLogs)
+				{
+					var readMark = log.IsRead ? " [읽음]" : "";
+					lines.Add($"[color=yellow]*{log.Message}{readMark}[/color]");
+				}
 				lines.Add("");
 			}
 
@@ -286,7 +297,9 @@ namespace SE
 				{
 					if (route.IsBlocked)
 					{
-						lines.Add($"  [color=gray]- {route.LocationName} ({route.BlockedReason})[/color]");
+						// BlockedReason 표시 제거 - 회색 처리만으로 충분
+						// lines.Add($"  [color=gray]- {route.LocationName} ({route.BlockedReason})[/color]");
+						lines.Add($"  [color=gray]- {route.LocationName}[/color]");
 					}
 					else
 					{
@@ -321,7 +334,7 @@ namespace SE
 		/// <summary>
 		/// 유닛 살펴보기 결과 텍스트 생성 (캐릭터/오브젝트 통합)
 		/// </summary>
-		public string GetUnitLookText(UnitLookResult unitLook)
+		public string GetUnitLookText(UnitLookResult unitLook, IReadOnlyList<ActionLogEntry>? actionLogs = null)
 		{
 			var lines = new List<string>();
 
@@ -332,6 +345,17 @@ namespace SE
 			if (!string.IsNullOrEmpty(unitLook.AppearanceText))
 			{
 				lines.Add(unitLook.AppearanceText);
+				lines.Add("");
+			}
+
+			// 행동 로그 (appearance 다음, 인벤토리/액션 전)
+			if (actionLogs != null && actionLogs.Count > 0)
+			{
+				foreach (var log in actionLogs)
+				{
+					var readMark = log.IsRead ? " [읽음]" : "";
+					lines.Add($"[color=yellow]*{log.Message}{readMark}[/color]");
+				}
 				lines.Add("");
 			}
 
@@ -591,6 +615,22 @@ namespace SE
 		/// </summary>
 		private (string url, string label) GetActionUrlAndLabel(string action, int itemId, int? unitId, string context)
 		{
+			// script:함수명:표시명 형식 처리
+			if (action.StartsWith("script:"))
+			{
+				var parts = action.Split(':');
+				if (parts.Length >= 3)
+				{
+					// script:함수명:표시명 → URL: script:함수명:itemId, Label: 표시명
+					return ($"script:{parts[1]}:{itemId}", parts[2]);
+				}
+				else if (parts.Length == 2)
+				{
+					// script:함수명 (표시명 없음) → URL: script:함수명:itemId, Label: 함수명
+					return ($"script:{parts[1]}:{itemId}", parts[1]);
+				}
+			}
+
 			return action switch
 			{
 				// take는 container에서 가져가기
