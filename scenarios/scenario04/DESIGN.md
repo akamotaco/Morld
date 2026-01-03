@@ -542,3 +542,122 @@ PRESENCE_TEXT = {
 | 65 | 우물 | 앞마당 | 들여다보기, 물 길어올리기 |
 | 66 | 텃밭 | 뒷마당 | 살펴보기 |
 | 67 | 빨래 건조대 | 뒷마당 | 살펴보기 |
+
+---
+
+## NPC 상호작용 시스템 (설계 중)
+
+NPC가 오브젝트와 자연스럽게 상호작용하는 시스템.
+단순 스케줄 자동화가 아닌, NPC가 실제로 위치에 있을 때만 동작해야 함.
+
+### 목표
+
+- NPC가 아침에 전등을 켜고, 자기 전에 끄는 행동
+- NPC가 잠을 잘 때 문을 안에서 잠그는 행동
+- 플러그인 형태로 확장 가능한 구조
+
+### 핵심 제약
+
+1. **NPC 존재 필수**: 해당 위치에 NPC가 실제로 있을 때만 동작
+2. **스케줄 자동화 아님**: 시간만 맞으면 자동 실행되는 방식 X
+3. **Activity 기반 트리거**: activity 변경 시점에 행동 실행
+
+### 문 잠금 시스템
+
+**현재 Edge 조건 시스템:**
+```csharp
+// Dictionary<string, int> - 모든 조건이 AND로 체크됨
+ConditionsAtoB: { "열쇠": 1, "힘": 5 }  // 열쇠 AND 힘>=5 필요
+```
+
+**한계점:**
+- AND만 지원, OR 불가 ("열쇠 OR lockpick" 표현 불가)
+- 동적 조건 불가 ("잠김" 상태 기반 조건 없음)
+
+**확장 방안 (단계적):**
+
+1단계: 동적 조건 추가/제거
+```csharp
+// NPC가 잠글 때
+edge.AddConditionBtoA("문:세라방:잠김", 1);
+// NPC가 열 때
+edge.RemoveConditionBtoA("문:세라방:잠김");
+```
+
+2단계: OR 조건 지원
+```csharp
+// "열쇠 OR (lockpick AND 손재주>=3)"
+condition.OrGroups = [
+    { "열쇠:세라방": 1 },
+    { "lockpick": 1, "손재주": 3 }
+];
+```
+
+### Activity Behavior Hook (설계안)
+
+```csharp
+interface IActivityBehavior
+{
+    string ActivityName { get; }  // "수면", "식사" 등
+    void OnActivityStart(Unit unit, Location location);
+    void OnActivityEnd(Unit unit, Location location);
+}
+
+// 예시: 수면 행동
+class SleepBehavior : IActivityBehavior
+{
+    public string ActivityName => "수면";
+
+    public void OnActivityStart(Unit unit, Location location)
+    {
+        // 같은 위치의 문 Edge 찾아서 잠금
+        var doorEdge = FindDoorEdge(unit, location);
+        doorEdge?.AddCondition($"문:{unit.Name}방:잠김", 1);
+
+        // 전등 끄기 (오브젝트 상태 변경)
+        var light = FindLightAt(location);
+        light?.SetState("켜짐", false);
+    }
+
+    public void OnActivityEnd(Unit unit, Location location)
+    {
+        // 문 열기
+        var doorEdge = FindDoorEdge(unit, location);
+        doorEdge?.RemoveCondition($"문:{unit.Name}방:잠김");
+    }
+}
+```
+
+### Python 이벤트 확장 (대안)
+
+```python
+def on_event_list(ev_list):
+    for event in ev_list:
+        if event[0] == "on_activity_change":
+            unit_id, old_activity, new_activity, location = event[1:]
+            handle_activity_change(unit_id, old_activity, new_activity, location)
+
+def handle_activity_change(unit_id, old_activity, new_activity, location):
+    if new_activity == "수면":
+        # 문 잠그기
+        door_edge_id = get_door_edge_at(location)
+        if door_edge_id:
+            morld.add_edge_condition(door_edge_id, f"문:{unit_id}:잠김", 1)
+        # 전등 끄기
+        light_id = get_light_at(location)
+        if light_id:
+            morld.set_object_state(light_id, "켜짐", False)
+```
+
+### 구현 우선순위
+
+1. **Edge 동적 조건 API** - `morld.add_edge_condition()`, `morld.remove_edge_condition()`
+2. **Activity 변경 이벤트** - `on_activity_change` 이벤트 추가
+3. **오브젝트 상태 시스템** - `morld.set_object_state()`, `morld.get_object_state()`
+4. **OR 조건 지원** - EdgeConditionGroup 클래스
+
+### 향후 확장
+
+- 전등 상태에 따른 Location appearance 변경 ("불꺼진 방은 어둡다")
+- 잠긴 문 노크/대화 시스템
+- NPC가 능동적으로 문 열어주기 (호감도 기반)
