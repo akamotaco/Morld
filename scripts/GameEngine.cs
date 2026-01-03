@@ -15,6 +15,7 @@ public partial class GameEngine : Node
 	private RichTextLabel _textUi;
 	private MetaActionHandler _actionHandler;
 	private ScriptSystem _scriptSystem;
+	private EventSystem _eventSystem;
 
 	// 시나리오 경로 (res:// 기준)
 	// private string _scenarioPath = "res://scenarios/scenario01/";
@@ -103,6 +104,14 @@ public partial class GameEngine : Node
 		// TextUISystem에 시스템 참조 설정 (ScriptSystem 포함)
 		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
 
+		// EventSystem 초기화
+		_eventSystem = this._world.AddSystem(new EventSystem(), "eventSystem") as EventSystem;
+		_eventSystem?.SetSystemReferences(_scriptSystem, _textUISystem, unitSys, _playerSystem);
+		_eventSystem?.InitializeLocations();
+
+		// 게임 시작 이벤트 등록
+		_eventSystem?.Enqueue(Morld.GameEvent.GameStart());
+
 		// InventorySystem 이벤트 콜백 등록 (행동 로그 자동 생성)
 		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
 		_inventorySystem.OnInventoryChanged += (evt) =>
@@ -127,15 +136,16 @@ public partial class GameEngine : Node
 			}
 		};
 
-		// 초기 상황 표시
-		_textUISystem.ShowSituation();
-
 		// MetaActionHandler 초기화
 		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
 		_actionHandler.OnUpdateSituation += UpdateSituationText;
 
-		// 게임 시작 이벤트 트리거
-		TriggerEvent("ready");
+		// 게임 시작 이벤트 처리 후 초기 상황 표시
+		var eventHandled = _eventSystem?.FlushEvents() ?? false;
+		if (!eventHandled)
+		{
+			_textUISystem.ShowSituation();
+		}
 
 #if DEBUG_LOG
 		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
@@ -160,10 +170,19 @@ public partial class GameEngine : Node
 			int delta_int = (int)(delta * 1000);
 			this._world.Step(delta_int);
 
-			// 시간 진행 완료 후 상황 설명 업데이트
+			// 시간 진행 완료 후 이벤트 감지 및 상황 업데이트
 			if (!_playerSystem.HasPendingTime)
 			{
-				UpdateSituationText();
+				// 위치 변경 및 만남 이벤트 감지
+				_eventSystem?.DetectLocationChanges();
+				_eventSystem?.DetectMeetings();
+
+				// 이벤트 처리 (모놀로그 표시 시 상황 업데이트 스킵)
+				var eventHandled = _eventSystem?.FlushEvents() ?? false;
+				if (!eventHandled)
+				{
+					UpdateSituationText();
+				}
 			}
 		}
 
@@ -180,35 +199,6 @@ public partial class GameEngine : Node
 			return;
 
 		_textUISystem.ShowSituation();
-	}
-
-	/// <summary>
-	/// 이벤트 트리거 및 결과 처리
-	/// </summary>
-	private void TriggerEvent(string eventName)
-	{
-		if (_scriptSystem == null) return;
-
-		var result = _scriptSystem.TriggerEvent(eventName);
-		if (result == null) return;
-
-		// 이벤트 결과에 따른 처리
-		switch (result.Type)
-		{
-			case "monologue":
-				if (result is SE.MonologueEventResult monoResult)
-				{
-					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed);
-#if DEBUG_LOG
-					GD.Print($"[GameEngine] 이벤트 '{eventName}' → 모놀로그 ({monoResult.Pages.Count} pages)");
-#endif
-				}
-				break;
-
-			default:
-				GD.PrintErr($"[GameEngine] 알 수 없는 이벤트 결과 타입: {result.Type}");
-				break;
-		}
 	}
 
 	/// <summary>

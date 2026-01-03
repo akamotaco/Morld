@@ -20,10 +20,9 @@ public enum FocusType
 /// </summary>
 public enum MonologueButtonType
 {
-	Ok,          // [확인] - 기본값
+	Ok,          // [확인] - 기본값, 마지막 페이지에서 DoneCallback 호출
 	None,        // 버튼 없음 (선택지가 페이지에 포함된 경우)
-	YesNo,       // [승낙] [거절]
-	NoneOnLast   // 마지막 페이지만 버튼 없음 (중간 페이지는 [계속])
+	YesNo        // [승낙] [거절] - DoneCallback/CancelCallback 호출
 }
 
 /// <summary>
@@ -77,10 +76,16 @@ public class Focus
 	public MonologueButtonType MonologueButtonType { get; set; } = MonologueButtonType.Ok;
 
 	/// <summary>
-	/// YesNo 버튼 콜백 (YesNo 타입에서 사용, 형식: "함수명:인자1:인자2")
+	/// 완료 콜백 (Ok/YesNo 타입에서 사용, 형식: "함수명:인자1:인자2")
+	/// Ok: [확인] 클릭 시, YesNo: [승낙] 클릭 시 호출
 	/// </summary>
-	public string? YesCallback { get; set; }
-	public string? NoCallback { get; set; }
+	public string? DoneCallback { get; set; }
+
+	/// <summary>
+	/// 취소 콜백 (YesNo 타입에서 사용, 형식: "함수명:인자1:인자2")
+	/// [거절] 클릭 시 호출 (없으면 단순 Pop)
+	/// </summary>
+	public string? CancelCallback { get; set; }
 
 	/// <summary>
 	/// 펼쳐진 토글 ID 목록
@@ -94,6 +99,6 @@ public class Focus
 	public static Focus Item(int itemId, string context, int? unitId = null)
 		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, UnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
-	public static Focus Monologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string? yesCallback = null, string? noCallback = null)
-		=> new() { Type = FocusType.Monologue, MonologuePages = pages, MonologueTimeConsumed = timeConsumed, CurrentPage = 0, MonologueButtonType = buttonType, YesCallback = yesCallback, NoCallback = noCallback };
+	public static Focus Monologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string? doneCallback = null, string? cancelCallback = null)
+		=> new() { Type = FocusType.Monologue, MonologuePages = pages, MonologueTimeConsumed = timeConsumed, CurrentPage = 0, MonologueButtonType = buttonType, DoneCallback = doneCallback, CancelCallback = cancelCallback };
 }

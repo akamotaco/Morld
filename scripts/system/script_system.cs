@@ -456,6 +456,9 @@ namespace SE
 
                 Godot.GD.Print("[ScriptSystem] Monologue scripts loaded successfully.");
 
+                // events.py 로드 (EventSystem용)
+                LoadEventsScript();
+
                 // 테스트: 함수가 정의되었는지 확인 (Eval 모드로 호출)
                 var testResult = Eval("get_monologue_page_count('intro_001')");
                 Godot.GD.Print($"[ScriptSystem] Test get_monologue_page_count: {testResult?.GetType().Name} = {testResult}");
@@ -467,6 +470,37 @@ namespace SE
             catch (System.Exception ex)
             {
                 Godot.GD.PrintErr($"[ScriptSystem] LoadMonologueScripts error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 이벤트 스크립트 로드 (EventSystem용)
+        /// </summary>
+        private void LoadEventsScript()
+        {
+            try
+            {
+                var filePath = ScenarioPythonPath + "events.py";
+
+                using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
+                if (file == null)
+                {
+                    // events.py는 선택적이므로 경고만 출력
+                    Godot.GD.Print($"[ScriptSystem] events.py not found (optional): {filePath}");
+                    return;
+                }
+                var code = file.GetAsText();
+
+                Godot.GD.Print($"[ScriptSystem] Events file loaded from: {filePath} ({code.Length} chars)");
+
+                // Execute로 직접 실행 (전역 스코프에 함수 등록)
+                Execute(code);
+
+                Godot.GD.Print("[ScriptSystem] Events script loaded successfully.");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] LoadEventsScript error: {ex.Message}");
             }
         }
 
@@ -593,7 +627,7 @@ namespace SE
                     timeConsumed = (int)timeInt.Value;
                 }
 
-                // button_type 파싱 ("ok", "none", "yesno", "none_on_last")
+                // button_type 파싱 ("ok", "none", "yesno")
                 var buttonType = Morld.MonologueButtonType.Ok;
                 if (buttonTypeObj is PyString buttonTypeStr)
                 {
@@ -601,16 +635,15 @@ namespace SE
                     {
                         "none" => Morld.MonologueButtonType.None,
                         "yesno" => Morld.MonologueButtonType.YesNo,
-                        "none_on_last" => Morld.MonologueButtonType.NoneOnLast,
                         _ => Morld.MonologueButtonType.Ok
                     };
                 }
 
-                // YesNo 콜백 파싱 (선택적)
-                var yesCallbackObj = dict.Get(new PyString("yes_callback"));
-                var noCallbackObj = dict.Get(new PyString("no_callback"));
-                string yesCallback = (yesCallbackObj as PyString)?.Value;
-                string noCallback = (noCallbackObj as PyString)?.Value;
+                // 콜백 파싱 (선택적)
+                var doneCallbackObj = dict.Get(new PyString("done_callback"));
+                var cancelCallbackObj = dict.Get(new PyString("cancel_callback"));
+                string doneCallback = (doneCallbackObj as PyString)?.Value;
+                string cancelCallback = (cancelCallbackObj as PyString)?.Value;
 
                 Godot.GD.Print($"[ScriptSystem] Parsed {type} result: {pages.Count} pages, {timeConsumed}min, button={buttonType}");
                 return new MonologueScriptResult
@@ -619,8 +652,8 @@ namespace SE
                     Pages = pages,
                     TimeConsumed = timeConsumed,
                     ButtonType = buttonType,
-                    YesCallback = yesCallback,
-                    NoCallback = noCallback
+                    DoneCallback = doneCallback,
+                    CancelCallback = cancelCallback
                 };
             }
 
@@ -676,7 +709,66 @@ def calculate(a, b):
         }
 
         /// <summary>
-        /// 이벤트 트리거 - Python on_event() 호출
+        /// EventSystem용 이벤트 핸들러 호출 - Python on_event_list() 호출
+        /// </summary>
+        /// <param name="events">이벤트 목록</param>
+        /// <returns>스크립트 결과 (모놀로그 등)</returns>
+        public ScriptResult CallEventHandler(System.Collections.Generic.List<Morld.GameEvent> events)
+        {
+            if (events == null || events.Count == 0) return null;
+
+            Godot.GD.Print($"[ScriptSystem] CallEventHandler: {events.Count} events");
+
+            try
+            {
+                // 이벤트 목록을 Python 리스트 리터럴로 변환
+                var eventStrings = new System.Collections.Generic.List<string>();
+                foreach (var evt in events)
+                {
+                    var tuple = evt.ToPythonTuple();
+                    var items = new System.Collections.Generic.List<string>();
+                    foreach (var item in tuple)
+                    {
+                        if (item is string s)
+                            items.Add($"'{s}'");
+                        else if (item is int i)
+                            items.Add(i.ToString());
+                        else
+                            items.Add($"'{item?.ToString() ?? ""}'");
+                    }
+                    eventStrings.Add($"[{string.Join(", ", items)}]");
+                }
+
+                var listLiteral = $"[{string.Join(", ", eventStrings)}]";
+                var code = $"on_event_list({listLiteral})";
+                Godot.GD.Print($"[ScriptSystem] Evaluating: {code}");
+
+                // on_event_list() 호출
+                var result = Eval(code);
+
+                if (result is PyNone || result == null)
+                {
+                    return null;
+                }
+
+                // PyDict에서 결과 파싱
+                if (result is PyDict dict)
+                {
+                    return ParseDictResult(dict);
+                }
+
+                Godot.GD.Print($"[ScriptSystem] Unknown event result: {result}");
+                return null;
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallEventHandler error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 이벤트 트리거 - Python on_event() 호출 (레거시, 호환용)
         /// </summary>
         /// <param name="eventName">이벤트 이름 (예: "ready", "enter_forest")</param>
         /// <returns>이벤트 결과 (EventResult)</returns>
@@ -779,7 +871,7 @@ def calculate(a, b):
         public System.Collections.Generic.List<string> Pages { get; set; } = new();
         public int TimeConsumed { get; set; }
         public Morld.MonologueButtonType ButtonType { get; set; } = Morld.MonologueButtonType.Ok;
-        public string YesCallback { get; set; }
-        public string NoCallback { get; set; }
+        public string DoneCallback { get; set; }
+        public string CancelCallback { get; set; }
     }
 }

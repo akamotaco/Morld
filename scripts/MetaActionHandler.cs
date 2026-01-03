@@ -482,9 +482,9 @@ public class MetaActionHandler
 				if (result is SE.MonologueScriptResult monoResult)
 				{
 					// 모놀로그 표시 (스택에 Push - 거절 시 이전 화면으로 돌아갈 수 있도록)
-					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType, monoResult.YesCallback, monoResult.NoCallback);
+					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType, monoResult.DoneCallback, monoResult.CancelCallback);
 #if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType}, yes={monoResult.YesCallback}, no={monoResult.NoCallback})");
+					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType}, done={monoResult.DoneCallback}, cancel={monoResult.CancelCallback})");
 #endif
 				}
 				break;
@@ -534,6 +534,8 @@ public class MetaActionHandler
 
 	/// <summary>
 	/// 모놀로그 완료: monologue_done
+	/// Ok 타입의 [확인] 버튼 클릭 시 호출
+	/// DoneCallback이 있으면 실행, 없으면 단순 Pop
 	/// </summary>
 	private void HandleMonologueDoneAction(string[] parts)
 	{
@@ -541,6 +543,7 @@ public class MetaActionHandler
 		GD.Print("[MetaActionHandler] Monologue done");
 #endif
 
+		var currentFocus = _textUISystem?.CurrentFocus;
 		var timeConsumed = _textUISystem?.MonologueDone() ?? 0;
 
 		if (timeConsumed > 0)
@@ -548,13 +551,25 @@ public class MetaActionHandler
 			_playerSystem?.RequestTimeAdvance(timeConsumed, "모놀로그");
 		}
 
-		// 모놀로그가 끝나면 상황 업데이트
+		// DoneCallback이 있으면 실행
+		if (currentFocus?.DoneCallback != null)
+		{
+			var callbackParts = currentFocus.DoneCallback.Split(':');
+			var scriptParts = new string[callbackParts.Length + 1];
+			scriptParts[0] = "script";
+			callbackParts.CopyTo(scriptParts, 1);
+			HandleScriptAction(scriptParts);
+			return;
+		}
+
+		// 콜백이 없으면 상황 업데이트
 		RequestUpdateSituation();
 	}
 
 	/// <summary>
 	/// 모놀로그 승낙: monologue_yes
-	/// Focus에 저장된 YesCallback 스크립트 호출
+	/// YesNo 타입의 [승낙] 버튼 클릭 시 호출
+	/// DoneCallback 스크립트 호출
 	/// </summary>
 	private void HandleMonologueYesAction()
 	{
@@ -563,7 +578,7 @@ public class MetaActionHandler
 #endif
 
 		var currentFocus = _textUISystem?.CurrentFocus;
-		if (currentFocus?.YesCallback == null)
+		if (currentFocus?.DoneCallback == null)
 		{
 			// 콜백이 없으면 단순 Pop
 			_textUISystem?.Pop();
@@ -576,7 +591,7 @@ public class MetaActionHandler
 		_textUISystem?.Pop();
 
 		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
-		var callbackParts = currentFocus.YesCallback.Split(':');
+		var callbackParts = currentFocus.DoneCallback.Split(':');
 		var parts = new string[callbackParts.Length + 1];
 		parts[0] = "script";
 		callbackParts.CopyTo(parts, 1);
@@ -585,7 +600,8 @@ public class MetaActionHandler
 
 	/// <summary>
 	/// 모놀로그 거절: monologue_no
-	/// Focus에 저장된 NoCallback 스크립트 호출 또는 단순 Pop
+	/// YesNo 타입의 [거절] 버튼 클릭 시 호출
+	/// CancelCallback 스크립트 호출 또는 단순 Pop
 	/// </summary>
 	private void HandleMonologueNoAction()
 	{
@@ -594,7 +610,7 @@ public class MetaActionHandler
 #endif
 
 		var currentFocus = _textUISystem?.CurrentFocus;
-		if (currentFocus?.NoCallback == null)
+		if (currentFocus?.CancelCallback == null)
 		{
 			// 콜백이 없으면 현재 YesNo 다이얼로그만 Pop (이전 선택 화면으로)
 			_textUISystem?.Pop();
@@ -605,7 +621,7 @@ public class MetaActionHandler
 		_textUISystem?.Pop();
 
 		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
-		var callbackParts = currentFocus.NoCallback.Split(':');
+		var callbackParts = currentFocus.CancelCallback.Split(':');
 		var parts = new string[callbackParts.Length + 1];
 		parts[0] = "script";
 		callbackParts.CopyTo(parts, 1);

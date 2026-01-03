@@ -78,6 +78,19 @@ public class Unit : IDescribable
 	public bool IsObject => Type == UnitType.Object;
 
 	/// <summary>
+	/// 이벤트 추적 활성화 (오브젝트용 수동 활성화)
+	/// 캐릭터는 자동으로 이벤트 생성, 오브젝트는 이 값이 true일 때만 생성
+	/// </summary>
+	public bool EventTracking { get; set; } = false;
+
+	/// <summary>
+	/// 이벤트 생성 여부
+	/// 캐릭터: 자동으로 true
+	/// 오브젝트: EventTracking이 true일 때만 true
+	/// </summary>
+	public bool GeneratesEvents => !IsObject || EventTracking;
+
+	/// <summary>
 	/// 가능한 액션 (통합: "talk", "trade", "use", "open" 등)
 	/// </summary>
 	public List<string> Actions { get; set; } = new();

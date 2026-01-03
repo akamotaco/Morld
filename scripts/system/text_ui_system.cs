@@ -83,6 +83,11 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 스택이 비어있는지 확인
+		/// </summary>
+		public bool IsStackEmpty() => _stack.Count == 0;
+
+		/// <summary>
 		/// 대기 중인 UI 업데이트 수행 (lazy update 적용)
 		/// </summary>
 		public void FlushDisplay()
@@ -331,16 +336,6 @@ namespace SE
 					// 버튼 없음 (선택지가 페이지 내에 포함된 경우)
 					break;
 
-				case MonologueButtonType.NoneOnLast:
-					// 마지막 페이지만 버튼 없음 (중간 페이지는 계속)
-					if (!isLastPage)
-					{
-						lines.Add("");
-						lines.Add("[url=monologue_next]계속[/url]");
-					}
-					// 마지막 페이지는 버튼 없음 (게임 종료 등)
-					break;
-
 				case MonologueButtonType.YesNo:
 					lines.Add("");
 					lines.Add("[url=monologue_yes]승낙[/url]  [url=monologue_no]거절[/url]");
@@ -402,9 +397,9 @@ namespace SE
 		/// <summary>
 		/// 모놀로그 표시 (Push) - 페이지 데이터 직접 전달
 		/// </summary>
-		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string yesCallback = null, string noCallback = null)
+		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string doneCallback = null, string cancelCallback = null)
 		{
-			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType, yesCallback, noCallback));
+			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType, doneCallback, cancelCallback));
 			RequestUpdateDisplay();
 		}
 

@@ -56,26 +56,6 @@ ITEM_CONTENTS = {
 }
 
 # ============================================================
-# 이벤트 핸들러
-# ============================================================
-
-def on_event(event_name):
-    """이벤트 핸들러"""
-    if event_name == "ready":
-        return {
-            "type": "monologue",
-            "pages": [
-                "......?",
-                "여기는... 어디지?",
-                "어둡고 축축한 공간이다. 지하실인 것 같다.",
-                "기억이... 잘 나지 않는다.",
-                "일단 여기서 나가야 한다."
-            ],
-            "time_consumed": 0
-        }
-    return None
-
-# ============================================================
 # 오브젝트 상호작용 함수
 # ============================================================
 
@@ -473,19 +453,29 @@ def escape(context_unit_id):
     morld.lost_item(player_id, 3, 1)
     morld.add_action_log("정문이 열렸다")
 
-    # 탈출 성공!
-    # 일반 페이지는 "계속" 버튼으로 넘기고, 마지막 페이지만 버튼 없음
+    # 탈출 성공! - 스토리 페이지 후 엔딩 화면으로 전환
     return {
         "type": "monologue",
         "pages": [
             "황금열쇠를 자물쇠에 꽂았다.",
             "철커덕-!",
             "마침내... 문이 열렸다!",
-            "차가운 바깥 공기가 느껴진다.",
-            "자유다. 드디어 이 저택에서 벗어났다.\n\n[탈출 성공]\n\n플레이해주셔서 감사합니다."
+            "차가운 바깥 공기가 느껴진다."
         ],
         "time_consumed": 0,
-        "button_type": "none_on_last"
+        "button_type": "ok",
+        "done_callback": "show_ending"
+    }
+
+def show_ending(context_unit_id):
+    """엔딩 화면 표시 (버튼 없음)"""
+    return {
+        "type": "monologue",
+        "pages": [
+            "자유다. 드디어 이 저택에서 벗어났다.\n\n━━━━━━━━━━━━━━━━━━━━\n\n[b]탈출 성공![/b]\n\n플레이해주셔서 감사합니다."
+        ],
+        "time_consumed": 0,
+        "button_type": "none"
     }
 
 def read_note(context_unit_id, item_id=None):

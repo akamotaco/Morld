@@ -53,6 +53,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - `ActionSystem` - 유닛 행동 실행 (talk, trade, use 등)
 - `TextUISystem` - RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
 - `ScriptSystem` - Python 스크립트 실행 (sharpPy 기반), 모놀로그/이벤트 처리
+- `EventSystem` - 게임 이벤트 수집 및 Python 전달 (OnReach, OnMeet 감지)
 
 ### 시스템 실행 순서
 
@@ -78,7 +79,9 @@ MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
            ├─> BehaviorSystem 등록
            ├─> PlayerSystem 등록
            ├─> DescribeSystem 등록
-           └─> TextUISystem 등록 (text_ui_data.json 로드)
+           ├─> TextUISystem 등록 (text_ui_data.json 로드)
+           ├─> ScriptSystem 등록 (시나리오별 Python 스크립트 로드)
+           └─> EventSystem 등록 (InitializeLocations, GameStart 이벤트)
 ```
 
 ---
@@ -519,9 +522,9 @@ public class Focus
     public List<string>? MonologuePages { get; set; }
     public int MonologueTimeConsumed { get; set; }
     public int CurrentPage { get; set; }
-    public MonologueButtonType MonologueButtonType { get; set; }  // Ok, None, YesNo, NoneOnLast
-    public string? YesCallback { get; set; }  // "함수명:인자1:인자2" 형식
-    public string? NoCallback { get; set; }
+    public MonologueButtonType MonologueButtonType { get; set; }  // Ok, None, YesNo
+    public string? DoneCallback { get; set; }    // "함수명:인자1:인자2" 형식 - [확인]/[승낙] 시 호출
+    public string? CancelCallback { get; set; }  // [거절] 시 호출 (없으면 단순 Pop)
 
     // 팩토리 메서드
     public static Focus Situation();
@@ -529,7 +532,7 @@ public class Focus
     public static Focus Inventory();
     public static Focus Item(int itemId, string context, int? unitId = null);
     public static Focus Result(string message);
-    public static Focus Monologue(pages, timeConsumed, buttonType, yesCallback?, noCallback?);
+    public static Focus Monologue(pages, timeConsumed, buttonType, doneCallback?, cancelCallback?);
 }
 ```
 
@@ -574,13 +577,21 @@ public class Focus
     "type": "monologue",
     "pages": ["첫 번째 페이지", "두 번째 페이지"],
     "time_consumed": 5,  # 소요 시간 (분)
-    "button_type": "ok"  # "ok", "none", "yesno", "none_on_last"
+    "button_type": "ok"  # "ok", "none", "yesno"
 }
 # button_type 설명:
-# - "ok": 마지막 페이지는 [확인], 중간 페이지는 [계속]
-# - "none": 모든 페이지에 버튼 없음 (선택지가 페이지 내에 있는 경우)
-# - "yesno": [승낙] [거절] 버튼
-# - "none_on_last": 중간 페이지는 [계속], 마지막 페이지만 버튼 없음 (게임 종료 등)
+# - "ok": 마지막 페이지는 [확인], 중간 페이지는 [계속]. done_callback 지원
+# - "none": 모든 페이지에 버튼 없음 (선택지가 페이지 내에 있거나 엔딩 화면)
+# - "yesno": [승낙] [거절] 버튼 - done_callback/cancel_callback 사용
+
+# Ok + DoneCallback (연속 모놀로그)
+{
+    "type": "monologue",
+    "pages": ["스토리 진행..."],
+    "time_consumed": 0,
+    "button_type": "ok",
+    "done_callback": "next_scene"  # [확인] 시 다음 함수 호출
+}
 
 # YesNo 다이얼로그 (콜백 지정)
 {
@@ -588,8 +599,8 @@ public class Focus
     "pages": ["선택하시겠습니까?"],
     "time_consumed": 0,
     "button_type": "yesno",
-    "yes_callback": "confirm_action:param1",  # 승낙 시 호출
-    "no_callback": None  # None이면 단순 Pop (이전 화면으로)
+    "done_callback": "confirm_action:param1",  # [승낙] 시 호출
+    "cancel_callback": None  # None이면 단순 Pop (이전 화면으로)
 }
 
 # 메시지 결과
@@ -659,8 +670,8 @@ unit_info = morld.get_unit_info(unit_id)
 **YesNo 다이얼로그 흐름:**
 1. 선택지 모놀로그 표시 (`button_type: "none"`, 선택지는 script: 링크)
 2. 선택 클릭 → `job_select(type)` 호출 → YesNo 다이얼로그 Push
-3. "승낙" → Pop → `yes_callback` 실행 → 결과 모놀로그 Push
-4. "거절" → Pop → 이전 선택 화면으로 복귀
+3. "승낙" → Pop → `done_callback` 실행 → 결과 모놀로그 Push
+4. "거절" → Pop → `cancel_callback` 실행 (없으면 이전 화면으로 복귀)
 
 **NPC 대화 시스템 (오버라이드 패턴):**
 
@@ -714,6 +725,137 @@ def get_npc_dialogue(unit_id, activity):
 - `scripts/python/monologues.py` (모놀로그 스크립트, NPC 대화 시스템)
 - `scripts/python/job_blessings.json` (데이터 파일)
 - `util/sharpPy/` (Python 인터프리터)
+
+### EventSystem (Logic System)
+**역할:** 게임 이벤트 수집, 감지 및 Python 전달
+
+**핵심 설계:**
+- **이벤트 배치 처리**: 이벤트를 수집해서 한 번에 Python으로 전달
+- **위치 변경 감지**: OnReach 이벤트 자동 생성
+- **만남 감지**: OnMeet 이벤트 자동 생성 (중복 방지 포함)
+- **Python 제어**: 이벤트 처리 순서/우선순위를 Python에서 결정
+
+**이벤트 타입:**
+```csharp
+public enum EventType
+{
+    GameStart,      // 게임 시작
+    OnReach,        // 위치 도착
+    OnMeet,         // 유닛들이 같은 위치에 있음
+}
+
+public class GameEvent
+{
+    public EventType Type { get; set; }
+    public List<object> Args { get; set; } = new();
+
+    // 팩토리 메서드
+    public static GameEvent GameStart();
+    public static GameEvent OnReach(int unitId, int regionId, int locationId);
+    public static GameEvent OnMeet(params int[] unitIds);
+
+    // Python 튜플 변환
+    public object[] ToPythonTuple();
+}
+```
+
+**주요 기능:**
+- `Enqueue(GameEvent)` - 이벤트 큐에 등록
+- `DetectLocationChanges()` - 위치 변경 감지 및 OnReach 이벤트 생성
+- `DetectMeetings()` - 같은 위치 유닛 감지 및 OnMeet 이벤트 생성
+- `FlushEvents()` - 이벤트 큐 플러시 및 Python 호출
+- `InitializeLocations()` - 초기 위치 기록 (첫 Step에서 OnReach 방지)
+
+**이벤트 추적 대상 필터링:**
+```csharp
+// Unit.cs
+public bool EventTracking { get; set; } = false;  // 오브젝트용 수동 활성화
+public bool GeneratesEvents => !IsObject || EventTracking;
+```
+
+| 유닛 타입 | IsObject | EventTracking | GeneratesEvents |
+|-----------|----------|---------------|-----------------|
+| 캐릭터 | false | (무시) | **true** (자동) |
+| 일반 오브젝트 | true | false | false |
+| 이벤트 오브젝트 | true | true | **true** (수동) |
+
+**OnMeet 중복 방지:**
+- HashSet으로 발생한 만남 키 관리 (예: "0,1,2")
+- 유닛 이동 시 관련 만남 상태 자동 리셋
+- 역방향 인덱스로 O(1) 조회
+
+**호출 흐름:**
+```
+GameEngine._Ready()
+├─ EventSystem 초기화
+├─ InitializeLocations() (현재 위치 기록)
+└─ Enqueue(GameEvent.GameStart())
+
+GameEngine._Process()
+├─ while (HasPendingTime): world.Step()
+└─ if (!HasPendingTime):
+    ├─ DetectLocationChanges()
+    ├─ DetectMeetings()
+    ├─ FlushEvents()  // Python on_event_list() 호출
+    │   └─ 결과가 모놀로그면 ShowMonologue()
+    └─ if (모놀로그 없으면) UpdateSituationText()
+```
+
+**Python 이벤트 핸들러 (events.py):**
+```python
+def on_event_list(ev_list):
+    """
+    이벤트 리스트를 받아서 순차 처리
+
+    Args:
+        ev_list: [["game_start"], ["on_reach", 0, 0, 6], ["on_meet", 0, 1], ...]
+
+    Returns:
+        첫 번째 모놀로그 결과 또는 None
+    """
+    player_id = morld.get_player_id()
+
+    for event in ev_list:
+        event_type = event[0]
+
+        if event_type == "game_start":
+            result = handle_game_start()
+            if result:
+                return result
+
+        elif event_type == "on_reach":
+            unit_id, region_id, location_id = event[1], event[2], event[3]
+            if unit_id == player_id:
+                result = handle_player_reach(region_id, location_id)
+                if result:
+                    return result
+
+        elif event_type == "on_meet":
+            unit_ids = event[1:]
+            if player_id in unit_ids:
+                result = handle_player_meet(unit_ids)
+                if result:
+                    return result
+
+    return None
+```
+
+**플래그 관리 (Python):**
+```python
+_flags = {}                    # 범용 플래그
+_triggered_events = set()      # 발생한 이벤트 ID 집합
+
+# 일회성 이벤트 체크
+event_id = f"reach:{region_id}:{location_id}"
+if event_id in _triggered_events:
+    return None
+_triggered_events.add(event_id)
+```
+
+**파일 위치:**
+- `scripts/system/event_system.cs`
+- `scripts/morld/event/GameEvent.cs`
+- `scenarios/scenario02/python/events.py` (시나리오별 이벤트 핸들러)
 
 ---
 
@@ -927,6 +1069,7 @@ scripts/
 │  ├─ text_ui_system.cs (TextUISystem - Logic)
 │  ├─ inventory_system.cs (InventorySystem - Data)
 │  ├─ script_system.cs (ScriptSystem - Logic, sharpPy 통합)
+│  ├─ event_system.cs (EventSystem - Logic, 이벤트 수집 및 Python 전달)
 │  └─ sing_a_song_system.cs (SingASongSystem - ActionProvider 예제)
 ├─ morld/ (Core Data Structures)
 │  ├─ IDescribable.cs (묘사 인터페이스)
@@ -963,11 +1106,21 @@ scripts/
 │  │  ├─ FocusStack.cs (포커스 스택)
 │  │  ├─ ToggleRenderer.cs (토글 마크업 렌더러)
 │  │  └─ UIStateJsonFormat.cs (JSON 직렬화)
+│  ├─ event/
+│  │  └─ GameEvent.cs (이벤트 타입 및 팩토리)
 │  └─ data/
 │     └─ IDataProvider.cs (데이터 제공자 인터페이스)
-├─ python/ (Python 스크립트)
+├─ python/ (Python 스크립트 - 시나리오 공통)
 │  ├─ monologues.py (모놀로그/이벤트 함수)
 │  └─ job_blessings.json (직업별 축복 메시지)
+scenarios/ (시나리오별 폴더)
+├─ scenario01/
+│  ├─ data/ (location_data.json, unit_data.json, ...)
+│  └─ python/ (monologues.py 등)
+├─ scenario02/
+│  ├─ data/
+│  └─ python/
+│     └─ events.py (이벤트 핸들러 - on_event_list)
 ├─ simple_engine/
 │  ├─ ecs.cs (ECS 기반 클래스)
 │  └─ world.cs (SE.World, ECS 허브)
