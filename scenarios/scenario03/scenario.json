@@ -1,0 +1,6 @@
+{
+  "name": "시나리오03 - Python 기반 콘텐츠",
+  "version": "1.0.0",
+  "description": "캐릭터별 폴더 분리 구조 테스트",
+  "dataSource": "python"
+}

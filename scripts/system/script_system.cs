@@ -88,6 +88,10 @@ namespace SE
             }
         }
 
+        // 추가 시스템 참조 (데이터 조작용)
+        private WorldSystem _worldSystem;
+        private ItemSystem _itemSystem;
+
         /// <summary>
         /// 게임 시스템 참조 설정 및 morld 모듈 등록
         /// </summary>
@@ -99,6 +103,20 @@ namespace SE
             _textUISystem = textUISystem;
 
             RegisterMorldModule();
+        }
+
+        /// <summary>
+        /// 데이터 시스템 참조 설정 (Python에서 데이터 조작용)
+        /// </summary>
+        public void SetDataSystemReferences(WorldSystem worldSystem, UnitSystem unitSystem, ItemSystem itemSystem, InventorySystem inventorySystem)
+        {
+            _worldSystem = worldSystem;
+            _unitSystem = unitSystem;
+            _itemSystem = itemSystem;
+            _inventorySystem = inventorySystem;
+
+            // morld 모듈에 데이터 조작 API 추가
+            RegisterDataManipulationAPI();
         }
 
         /// <summary>
@@ -369,6 +387,381 @@ namespace SE
         }
 
         /// <summary>
+        /// morld 모듈에 데이터 조작 API 추가 (Python에서 직접 게임 데이터 생성)
+        /// </summary>
+        private void RegisterDataManipulationAPI()
+        {
+            Godot.GD.Print("[ScriptSystem] Registering data manipulation API...");
+
+            try
+            {
+                // 기존 morld 모듈 가져오기
+                var morldModule = PyImportSystem.Import("morld");
+
+                // === Region/Location API (WorldSystem) ===
+                morldModule.ModuleDict["add_region"] = new PyBuiltinFunction("add_region", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("add_region(id, name, appearance=None) requires at least 2 arguments");
+
+                    int id = args[0].ToInt();
+                    string name = args[1].AsString();
+                    var appearance = args.Length >= 3 && args[2] is PyDict appDict
+                        ? PyDictToStringDict(appDict)
+                        : null;
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var region = new Morld.Region(id, name);
+                        if (appearance != null)
+                        {
+                            foreach (var (key, value) in appearance)
+                                region.Appearance[key] = value;
+                        }
+                        terrain.AddRegion(region);
+                        Godot.GD.Print($"[morld] add_region: id={id}, name={name}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("add_location(region_id, local_id, name, appearance=None) requires at least 3 arguments");
+
+                    int regionId = args[0].ToInt();
+                    int localId = args[1].ToInt();
+                    string name = args[2].AsString();
+                    var appearance = args.Length >= 4 && args[3] is PyDict appDict
+                        ? PyDictToStringDict(appDict)
+                        : null;
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var region = terrain.GetRegion(regionId);
+                        if (region != null)
+                        {
+                            // Region.AddLocation(localId, name)을 사용
+                            var location = region.AddLocation(localId, name);
+                            if (appearance != null)
+                            {
+                                foreach (var (key, value) in appearance)
+                                    location.Appearance[key] = value;
+                            }
+                            Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["add_edge"] = new PyBuiltinFunction("add_edge", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("add_edge(region_id, from_id, to_id, travel_time=5, conditions=None) requires at least 3 arguments");
+
+                    int regionId = args[0].ToInt();
+                    int fromId = args[1].ToInt();
+                    int toId = args[2].ToInt();
+                    int travelTime = args.Length >= 4 ? args[3].ToInt() : 5;
+                    var conditions = args.Length >= 5 && args[4] is PyDict condDict
+                        ? PyDictToIntDict(condDict)
+                        : null;
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var region = terrain.GetRegion(regionId);
+                        if (region != null)
+                        {
+                            // Region.AddEdge(localIdA, localIdB, travelTime)을 사용
+                            var edge = region.AddEdge(fromId, toId, travelTime);
+                            if (conditions != null)
+                            {
+                                foreach (var (key, value) in conditions)
+                                    edge.AddCondition(key, value);
+                            }
+                            Godot.GD.Print($"[morld] add_edge: region={regionId}, {fromId}<->{toId}, time={travelTime}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["add_region_edge"] = new PyBuiltinFunction("add_region_edge", args =>
+                {
+                    if (args.Length < 4)
+                        throw PyTypeError.Create("add_region_edge(from_region, from_local, to_region, to_local, time_ab=30, time_ba=30) requires at least 4 arguments");
+
+                    int fromRegion = args[0].ToInt();
+                    int fromLocal = args[1].ToInt();
+                    int toRegion = args[2].ToInt();
+                    int toLocal = args[3].ToInt();
+                    int timeAB = args.Length >= 5 ? args[4].ToInt() : 30;
+                    int timeBA = args.Length >= 6 ? args[5].ToInt() : timeAB;
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        // RegionEdge(id, regionIdA, localIdA, regionIdB, localIdB) 생성자 사용
+                        var regionEdge = new Morld.RegionEdge(
+                            terrain.RegionEdges.Count,
+                            fromRegion, fromLocal,
+                            toRegion, toLocal
+                        );
+                        regionEdge.SetTravelTime(timeAB, timeBA);
+                        terrain.AddRegionEdge(regionEdge);
+                        Godot.GD.Print($"[morld] add_region_edge: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                // === Time API (GameTime) ===
+                morldModule.ModuleDict["set_time"] = new PyBuiltinFunction("set_time", args =>
+                {
+                    if (args.Length < 4)
+                        throw PyTypeError.Create("set_time(year, month, day, hour, minute=0) requires at least 4 arguments");
+
+                    int year = args[0].ToInt();
+                    int month = args[1].ToInt();
+                    int day = args[2].ToInt();
+                    int hour = args[3].ToInt();
+                    int minute = args.Length >= 5 ? args[4].ToInt() : 0;
+
+                    if (_worldSystem != null)
+                    {
+                        var time = _worldSystem.GetTime();
+                        // SetTime(year, month, day, hour, minute)
+                        time.SetTime(year, month, day, hour, minute);
+                        Godot.GD.Print($"[morld] set_time: {year}/{month}/{day} {hour}:{minute:D2}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                // === Item API (ItemSystem) ===
+                morldModule.ModuleDict["add_item_def"] = new PyBuiltinFunction("add_item_def", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("add_item_def(id, name, passive_tags=None, equip_tags=None, value=0, actions=None) requires at least 2 arguments");
+
+                    int id = args[0].ToInt();
+                    string name = args[1].AsString();
+                    var passiveTags = args.Length >= 3 && args[2] is PyDict ptDict ? PyDictToIntDict(ptDict) : null;
+                    var equipTags = args.Length >= 4 && args[3] is PyDict etDict ? PyDictToIntDict(etDict) : null;
+                    int value = args.Length >= 5 ? args[4].ToInt() : 0;
+                    var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
+
+                    if (_itemSystem != null)
+                    {
+                        var item = new Morld.Item(id, name);
+                        item.Value = value;
+                        if (passiveTags != null)
+                            foreach (var (k, v) in passiveTags) item.PassiveTags[k] = v;
+                        if (equipTags != null)
+                            foreach (var (k, v) in equipTags) item.EquipTags[k] = v;
+                        if (actions != null)
+                            item.Actions.AddRange(actions);
+
+                        _itemSystem.AddItem(item);
+                        Godot.GD.Print($"[morld] add_item_def: id={id}, name={name}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                // === Unit API (UnitSystem) ===
+                morldModule.ModuleDict["add_unit"] = new PyBuiltinFunction("add_unit", args =>
+                {
+                    if (args.Length < 4)
+                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, appearance=None, mood=None) requires at least 4 arguments");
+
+                    int id = args[0].ToInt();
+                    string name = args[1].AsString();
+                    int regionId = args[2].ToInt();
+                    int locationId = args[3].ToInt();
+                    string type = args.Length >= 5 ? args[4].AsString() : "male";
+                    var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
+                    var appearance = args.Length >= 7 && args[6] is PyDict appDict ? PyDictToStringDict(appDict) : null;
+                    var mood = args.Length >= 8 && args[7] is PyList moodList ? PyListToStringList(moodList) : null;
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = new Morld.Unit(id, name, regionId, locationId);
+                        unit.Type = type.ToLower() switch
+                        {
+                            "female" => Morld.UnitType.Female,
+                            "object" => Morld.UnitType.Object,
+                            _ => Morld.UnitType.Male
+                        };
+                        if (actions != null)
+                            unit.Actions.AddRange(actions);
+                        if (appearance != null)
+                            foreach (var (k, v) in appearance) unit.Appearance[k] = v;
+                        if (mood != null)
+                            foreach (var m in mood) unit.Mood.Add(m);
+
+                        _unitSystem.AddUnit(unit);
+                        Godot.GD.Print($"[morld] add_unit: id={id}, name={name}, type={type}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["set_unit_tags"] = new PyBuiltinFunction("set_unit_tags", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("set_unit_tags(unit_id, tags) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    var tags = args[1] is PyDict tagDict ? PyDictToIntDict(tagDict) : null;
+
+                    if (_unitSystem != null && tags != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            unit.TraversalContext.SetTags(tags);
+                            Godot.GD.Print($"[morld] set_unit_tags: unit={unitId}, tags={tags.Count}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["push_schedule"] = new PyBuiltinFunction("push_schedule", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("push_schedule(unit_id, name, end_type=None, end_param=None, schedule=None) requires at least 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string name = args[1].AsString();
+                    string endType = args.Length >= 3 && args[2] is not PyNone ? args[2].AsString() : null;
+                    string endParam = args.Length >= 4 && args[3] is not PyNone ? args[3].AsString() : null;
+                    var scheduleData = args.Length >= 5 && args[4] is PyList schedList ? schedList : null;
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            Morld.DailySchedule schedule = null;
+                            if (scheduleData != null && scheduleData.Length() > 0)
+                            {
+                                schedule = new Morld.DailySchedule();
+                                for (int i = 0; i < scheduleData.Length(); i++)
+                                {
+                                    if (scheduleData.GetItem(i) is PyDict entry)
+                                    {
+                                        var entryName = GetPyDictString(entry, "name", "");
+                                        var entryRegion = GetPyDictInt(entry, "region_id", 0);
+                                        var entryLocation = GetPyDictInt(entry, "location_id", 0);
+                                        var start = GetPyDictInt(entry, "start", 0);
+                                        var end = GetPyDictInt(entry, "end", 0);
+                                        var activity = GetPyDictString(entry, "activity", "");
+                                        schedule.AddEntry(entryName, entryRegion, entryLocation, start, end, activity);
+                                    }
+                                }
+                            }
+
+                            unit.PushSchedule(new Morld.ScheduleLayer
+                            {
+                                Name = name,
+                                Schedule = schedule,
+                                EndConditionType = endType,
+                                EndConditionParam = endParam
+                            });
+                            Godot.GD.Print($"[morld] push_schedule: unit={unitId}, name={name}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // === 초기화 완료 플래그 ===
+                morldModule.ModuleDict["data_api_ready"] = PyBool.True;
+
+                Godot.GD.Print("[ScriptSystem] Data manipulation API registered successfully.");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] RegisterDataManipulationAPI error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// PyDict를 Dictionary<string, string>으로 변환
+        /// </summary>
+        private System.Collections.Generic.Dictionary<string, string> PyDictToStringDict(PyDict dict)
+        {
+            var result = new System.Collections.Generic.Dictionary<string, string>();
+            var keys = dict.Keys();  // PyList 반환
+            for (int i = 0; i < keys.Length(); i++)
+            {
+                var key = keys.GetItem(i);
+                var keyStr = key is PyString ks ? ks.Value : key.ToString();
+                var value = dict.GetItem(key);
+                var valueStr = value is PyString vs ? vs.Value : value?.ToString() ?? "";
+                result[keyStr] = valueStr;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// PyDict를 Dictionary<string, int>으로 변환
+        /// </summary>
+        private System.Collections.Generic.Dictionary<string, int> PyDictToIntDict(PyDict dict)
+        {
+            var result = new System.Collections.Generic.Dictionary<string, int>();
+            var keys = dict.Keys();  // PyList 반환
+            for (int i = 0; i < keys.Length(); i++)
+            {
+                var key = keys.GetItem(i);
+                var keyStr = key is PyString ks ? ks.Value : key.ToString();
+                var value = dict.GetItem(key);
+                var valueInt = value is PyInt vi ? (int)vi.Value : 0;
+                result[keyStr] = valueInt;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// PyList를 List<string>으로 변환
+        /// </summary>
+        private System.Collections.Generic.List<string> PyListToStringList(PyList list)
+        {
+            var result = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < list.Length(); i++)
+            {
+                var item = list.GetItem(i);
+                result.Add(item is PyString ps ? ps.Value : item?.ToString() ?? "");
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// PyDict에서 문자열 값 추출
+        /// </summary>
+        private string GetPyDictString(PyDict dict, string key, string defaultValue)
+        {
+            var value = dict.Get(new PyString(key));
+            return value is PyString ps ? ps.Value : defaultValue;
+        }
+
+        /// <summary>
+        /// PyDict에서 정수 값 추출
+        /// </summary>
+        private int GetPyDictInt(PyDict dict, string key, int defaultValue)
+        {
+            var value = dict.Get(new PyString(key));
+            return value is PyInt pi ? (int)pi.Value : defaultValue;
+        }
+
+        /// <summary>
         /// Python 코드 실행 (File 모드 - 함수 정의, import 등)
         /// </summary>
         public PyObject Execute(string code)
@@ -501,6 +894,156 @@ namespace SE
             catch (System.Exception ex)
             {
                 Godot.GD.PrintErr($"[ScriptSystem] LoadEventsScript error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Python 패키지 스타일 시나리오 로드 (scenario03+)
+        /// __init__.py가 있는 시나리오는 import로 로드
+        /// </summary>
+        public bool LoadScenarioPackage()
+        {
+            var initPath = ScenarioPythonPath + "__init__.py";
+
+            using var file = Godot.FileAccess.Open(initPath, Godot.FileAccess.ModeFlags.Read);
+            if (file == null)
+            {
+                Godot.GD.Print($"[ScriptSystem] Not a package-style scenario (no __init__.py)");
+                return false;
+            }
+
+            Godot.GD.Print($"[ScriptSystem] Loading package-style scenario...");
+
+            try
+            {
+                // 패키지의 모든 모듈을 전역 네임스페이스에 import
+                var importCode = @"
+from world import *
+from items import *
+from events import *
+from characters import get_character_event_handler
+from objects import get_all_objects
+from objects.furniture import mirror_look
+from characters.player.events import job_select, job_confirm
+";
+                Execute(importCode);
+
+                Godot.GD.Print("[ScriptSystem] Package-style scenario loaded successfully.");
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] LoadScenarioPackage error: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Python에서 world 데이터 로드
+        /// </summary>
+        public PyObject LoadWorldDataFromPython()
+        {
+            try
+            {
+                return Eval("get_world_data()");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] LoadWorldDataFromPython error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Python에서 time 데이터 로드
+        /// </summary>
+        public PyObject LoadTimeDataFromPython()
+        {
+            try
+            {
+                return Eval("get_time_data()");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] LoadTimeDataFromPython error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Python에서 item 데이터 로드
+        /// </summary>
+        public PyObject LoadItemDataFromPython()
+        {
+            try
+            {
+                return Eval("get_item_data()");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] LoadItemDataFromPython error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Python에서 unit 데이터 로드 (캐릭터 + 오브젝트)
+        /// </summary>
+        public PyObject LoadUnitDataFromPython()
+        {
+            try
+            {
+                return Eval("get_all_unit_data()");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] LoadUnitDataFromPython error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 시나리오가 Python 데이터 소스인지 확인
+        /// </summary>
+        public bool IsPythonDataSource()
+        {
+            var initPath = ScenarioPythonPath + "__init__.py";
+            return Godot.FileAccess.FileExists(initPath);
+        }
+
+        /// <summary>
+        /// Python 시나리오의 initialize_scenario() 함수 호출
+        /// morld API를 통해 게임 데이터를 직접 등록
+        /// </summary>
+        public void CallInitializeScenario()
+        {
+            Godot.GD.Print("[ScriptSystem] Calling initialize_scenario()...");
+
+            try
+            {
+                // 현재 sys.path에 시나리오 python 폴더가 있으므로 직접 모듈 import
+                // __init__.py의 initialize_scenario() 내용을 직접 실행
+                var code = @"
+import world
+import items
+from characters import initialize_characters
+from objects import initialize_objects
+
+print('[scenario] Initializing scenario data via morld API...')
+world.initialize_world()
+world.initialize_time()
+items.initialize_items()
+initialize_characters()
+initialize_objects()
+print('[scenario] Scenario data initialization complete!')
+";
+                Execute(code);
+
+                Godot.GD.Print("[ScriptSystem] initialize_scenario() completed.");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallInitializeScenario error: {ex.Message}");
             }
         }
 

@@ -18,12 +18,50 @@ public partial class GameEngine : Node
 	private EventSystem _eventSystem;
 
 	// 시나리오 경로 (res:// 기준)
-	private string _scenarioPath = "res://scenarios/scenario01/";
+	// private string _scenarioPath = "res://scenarios/scenario01/";
 	// private string _scenarioPath = "res://scenarios/scenario02/";
+	private string _scenarioPath = "res://scenarios/scenario03/";
 	private string DataPath => _scenarioPath + "data/";
-	private string PythonPath => _scenarioPath + "python/";
 
 	public override void _Ready()
+	{
+		// 1. UI 초기화
+		InitializeUI();
+
+		// 2. World 초기화
+		this._world = new SE.World(this);
+
+		// 3. 모든 시스템 등록
+		RegisterAllSystems();
+
+		// 4. 데이터 로드 (Python 또는 JSON)
+		if (_scriptSystem?.IsPythonDataSource() ?? false)
+		{
+			LoadDataFromPython();
+		}
+		else
+		{
+			LoadDataFromJson();
+		}
+
+		// 5. 시스템 간 참조 설정 및 후처리
+		SetupSystemReferences();
+
+		// 6. 이벤트 콜백 및 핸들러 등록
+		RegisterEventHandlers();
+
+		// 7. 게임 시작
+		StartGame();
+
+#if DEBUG_LOG
+		DebugPrintGameState();
+#endif
+	}
+
+	/// <summary>
+	/// UI 초기화
+	/// </summary>
+	private void InitializeUI()
 	{
 		var text_ui_path = GetMeta("TextUI").As<string>();
 		this._textUi = GetNode<RichTextLabel>(text_ui_path);
@@ -33,87 +71,137 @@ public partial class GameEngine : Node
 			throw new InvalidOperationException("TextUi 메타가 null이거나 유효하지 않습니다.");
 		}
 
-		// BBCode 활성화 및 시그널 연결
 		this._textUi.BbcodeEnabled = true;
 		this._textUi.MetaClicked += OnMetaClicked;
 		this._textUi.MetaHoverStarted += OnMetaHoverStarted;
 		this._textUi.MetaHoverEnded += OnMetaHoverEnded;
+	}
 
-		this._world = new SE.World(this);
+	/// <summary>
+	/// 모든 시스템 등록 (Data Systems + Logic Systems)
+	/// </summary>
+	private void RegisterAllSystems()
+	{
+		// Script System (시나리오 경로 설정 필요)
+		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
+		_scriptSystem?.SetScenarioPath(_scenarioPath);
 
-		// Data Systems 초기화 (시나리오 경로 기반)
-		(this._world.AddSystem(new WorldSystem("aka"), "worldSystem") as WorldSystem)
-			.GetTerrain().UpdateFromFile(DataPath + "location_data.json");
-		(this._world.FindSystem("worldSystem") as WorldSystem)
-			.GetTime().UpdateFromFile(DataPath + "time_data.json");
-
-		(this._world.AddSystem(new UnitSystem(), "unitSystem") as UnitSystem)
-			.UpdateFromFile(DataPath + "unit_data.json");
-
-		(this._world.AddSystem(new ItemSystem(), "itemSystem") as ItemSystem)
-			.UpdateFromFile(DataPath + "item_data.json");
-
-		// InventorySystem 초기화 (IDataProvider + IActionProvider)
+		// Data Systems
+		this._world.AddSystem(new WorldSystem("aka"), "worldSystem");
+		this._world.AddSystem(new UnitSystem(), "unitSystem");
+		this._world.AddSystem(new ItemSystem(), "itemSystem");
 		_inventorySystem = this._world.AddSystem(new InventorySystem(), "inventorySystem") as InventorySystem;
 
-		// InventorySystem 데이터 로드 시도 (없으면 unit_data.json에서 마이그레이션)
-		if (!_inventorySystem.LoadData(DataPath))
-		{
-			// inventory_data.json이 없으면 unit_data.json에서 마이그레이션
-			var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
-			unitSystem?.MigrateInventoryData(DataPath + "unit_data.json", _inventorySystem);
-		}
-
-		this._world.AddSystem(new ActionSystem(), "actionSystem");
-
 		// Logic Systems
+		this._world.AddSystem(new ActionSystem(), "actionSystem");
 		this._world.AddSystem(new MovementSystem(), "movementSystem");
 		this._world.AddSystem(new BehaviorSystem(), "behaviorSystem");
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
 
-		// 액션 메시지 템플릿 로드
-		_describeSystem?.LoadActionMessages(DataPath + "action_messages.json");
-
-		// InventorySystem을 ActionProvider로 등록
-		_inventorySystem?.RegisterToDescribeSystem();
-
-		// 확장 시스템 등록 예시: SingASongSystem
-		// 이 시스템을 등록하면 '노래 부르기' 행동이 추가됨
-		// 시스템을 제거하면 해당 행동도 사라짐
-		var singSystem = this._world.AddSystem(new SingASongSystem(), "singASongSystem") as SingASongSystem;
-		singSystem?.RegisterToDescribeSystem();
-
-		// ScriptSystem 초기화 (TextUISystem보다 먼저)
-		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
-		var unitSys = this._world.FindSystem("unitSystem") as UnitSystem;
-
-		// 시나리오 경로 설정 (시스템 참조 설정 전에 호출)
-		_scriptSystem?.SetScenarioPath(_scenarioPath);
-
-		// TextUISystem 초기화 (ScriptSystem보다 먼저 생성해야 morld 모듈에서 참조 가능)
+		// UI System
 		_textUISystem = new TextUISystem(_textUi, _describeSystem);
 		this._world.AddSystem(_textUISystem, "textUISystem");
 
-		// ScriptSystem에 시스템 참조 설정 (TextUISystem 포함)
-		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem, unitSys, _textUISystem);
-		_scriptSystem?.TestHelloWorld();
-		_scriptSystem?.RegisterTestFunctions();
+		// Event System
+		_eventSystem = this._world.AddSystem(new EventSystem(), "eventSystem") as EventSystem;
+
+		// 확장 시스템 (ActionProvider)
+		var singSystem = this._world.AddSystem(new SingASongSystem(), "singASongSystem") as SingASongSystem;
+		singSystem?.RegisterToDescribeSystem();
+		_inventorySystem?.RegisterToDescribeSystem();
+
+		// ScriptSystem에 morld 모듈 등록 (Python에서 import morld 가능하게)
+		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
+		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem, unitSystem, _textUISystem);
+	}
+
+	/// <summary>
+	/// JSON 파일에서 데이터 로드
+	/// </summary>
+	private void LoadDataFromJson()
+	{
+		GD.Print("[GameEngine] Loading data from JSON files...");
+
+		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
+		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
+		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
+
+		// JSON 파일에서 데이터 로드
+		worldSystem?.GetTerrain().UpdateFromFile(DataPath + "location_data.json");
+		worldSystem?.GetTime().UpdateFromFile(DataPath + "time_data.json");
+		unitSystem?.UpdateFromFile(DataPath + "unit_data.json");
+		itemSystem?.UpdateFromFile(DataPath + "item_data.json");
+
+		// InventorySystem 데이터 로드 (없으면 unit_data.json에서 마이그레이션)
+		if (!_inventorySystem.LoadData(DataPath))
+		{
+			unitSystem?.MigrateInventoryData(DataPath + "unit_data.json", _inventorySystem);
+		}
+
+		// monologue 스크립트 로드
 		_scriptSystem?.LoadMonologueScripts();
 
-		// TextUISystem에 시스템 참조 설정 (ScriptSystem 포함)
-		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
+		GD.Print("[GameEngine] JSON data loaded.");
+	}
 
-		// EventSystem 초기화
-		_eventSystem = this._world.AddSystem(new EventSystem(), "eventSystem") as EventSystem;
-		_eventSystem?.SetSystemReferences(_scriptSystem, _textUISystem, unitSys, _playerSystem);
+	/// <summary>
+	/// Python에서 데이터 로드 (morld API 사용)
+	/// </summary>
+	private void LoadDataFromPython()
+	{
+		GD.Print("[GameEngine] Data source: Python");
+		GD.Print("[GameEngine] Loading data from Python via morld API...");
+
+		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
+		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
+		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
+
+		// Data System 참조 설정 (morld.add_unit 등 데이터 API 등록)
+		_scriptSystem?.SetDataSystemReferences(worldSystem, unitSystem, itemSystem, _inventorySystem);
+
+		// Python의 initialize_scenario() 호출 - morld API로 데이터 등록
+		_scriptSystem?.CallInitializeScenario();
+
+		// Python 패키지의 나머지 모듈 로드 (이벤트 핸들러 등)
+		_scriptSystem?.LoadScenarioPackage();
+
+		GD.Print("[GameEngine] Python data loaded.");
+	}
+
+	/// <summary>
+	/// 시스템 간 참조 설정
+	/// </summary>
+	private void SetupSystemReferences()
+	{
+		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
+
+		// ScriptSystem 테스트 함수 등록
+		_scriptSystem?.TestHelloWorld();
+		_scriptSystem?.RegisterTestFunctions();
+
+		// TextUISystem 설정
+		_textUISystem?.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
+
+		// EventSystem 설정
+		_eventSystem?.SetSystemReferences(_scriptSystem, _textUISystem, unitSystem, _playerSystem);
 		_eventSystem?.InitializeLocations();
 
-		// 게임 시작 이벤트 등록
-		_eventSystem?.Enqueue(Morld.GameEvent.GameStart());
+		// DescribeSystem 설정 (Python 모드에서는 data 폴더가 없을 수 있음)
+		if (!(_scriptSystem?.IsPythonDataSource() ?? false))
+		{
+			_describeSystem?.LoadActionMessages(DataPath + "action_messages.json");
+		}
+	}
 
-		// InventorySystem 이벤트 콜백 등록 (행동 로그 자동 생성)
+	/// <summary>
+	/// 이벤트 핸들러 및 콜백 등록
+	/// </summary>
+	private void RegisterEventHandlers()
+	{
 		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
+
+		// InventorySystem 이벤트 콜백 (행동 로그 자동 생성)
 		_inventorySystem.OnInventoryChanged += (evt) =>
 		{
 			var itemName = itemSystem?.GetItem(evt.ItemId)?.Name ?? "아이템";
@@ -132,25 +220,40 @@ public partial class GameEngine : Node
 
 			if (message != null)
 			{
-				_textUISystem.AddActionLog(message);
+				_textUISystem?.AddActionLog(message);
 			}
 		};
 
 		// MetaActionHandler 초기화
 		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
 		_actionHandler.OnUpdateSituation += UpdateSituationText;
+	}
+
+	/// <summary>
+	/// 게임 시작
+	/// </summary>
+	private void StartGame()
+	{
+		// 게임 시작 이벤트 등록
+		_eventSystem?.Enqueue(Morld.GameEvent.GameStart());
 
 		// 게임 시작 이벤트 처리 후 초기 상황 표시
 		var eventHandled = _eventSystem?.FlushEvents() ?? false;
 		if (!eventHandled)
 		{
-			_textUISystem.ShowSituation();
+			_textUISystem?.ShowSituation();
 		}
+	}
 
 #if DEBUG_LOG
-		(this._world.FindSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
-		(this._world.FindSystem("worldSystem") as WorldSystem).GetTime().DebugPrint();
-		(this._world.FindSystem("unitSystem") as UnitSystem).DebugPrint();
+	/// <summary>
+	/// 디버그 정보 출력
+	/// </summary>
+	private void DebugPrintGameState()
+	{
+		(this._world.FindSystem("worldSystem") as WorldSystem)?.GetTerrain().DebugPrint();
+		(this._world.FindSystem("worldSystem") as WorldSystem)?.GetTime().DebugPrint();
+		(this._world.FindSystem("unitSystem") as UnitSystem)?.DebugPrint();
 		_inventorySystem?.DebugPrint();
 
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");
@@ -159,8 +262,8 @@ public partial class GameEngine : Node
 		GD.Print("  마우스 왼쪽 클릭: 4시간 (240분) 진행");
 		GD.Print("  마우스 오른쪽 클릭: 15분 진행");
 		GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-#endif
 	}
+#endif
 
 	public override void _Process(double delta)
 	{

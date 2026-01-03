@@ -69,20 +69,32 @@ MovementSystem → BehaviorSystem → PlayerSystem → DescribeSystem
 │  _Ready()           │
 └──────────┬──────────┘
            │
-           ├─> WorldSystem.UpdateFromFile("location_data.json")
-           ├─> WorldSystem.GetTime().UpdateFromFile("time_data.json")
-           ├─> UnitSystem.UpdateFromFile("unit_data.json")
-           ├─> ItemSystem.UpdateFromFile("item_data.json")
-           ├─> ActionSystem 등록
+           ├─> RegisterAllSystems() (모든 시스템 등록)
+           │   └─> ScriptSystem 등록 + SetScenarioPath()
            │
-           ├─> MovementSystem 등록
-           ├─> BehaviorSystem 등록
-           ├─> PlayerSystem 등록
-           ├─> DescribeSystem 등록
-           ├─> TextUISystem 등록 (text_ui_data.json 로드)
-           ├─> ScriptSystem 등록 (시나리오별 Python 스크립트 로드)
-           └─> EventSystem 등록 (InitializeLocations, GameStart 이벤트)
+           ├─> IsPythonDataSource() 체크
+           │
+           ├─[JSON 모드]──────────────────────────────────────────
+           │   ├─> WorldSystem.UpdateFromFile("location_data.json")
+           │   ├─> WorldSystem.GetTime().UpdateFromFile("time_data.json")
+           │   ├─> UnitSystem.UpdateFromFile("unit_data.json")
+           │   ├─> ItemSystem.UpdateFromFile("item_data.json")
+           │   └─> InventorySystem.LoadData()
+           │
+           └─[Python 모드]────────────────────────────────────────
+               ├─> SetDataSystemReferences() (morld API 등록)
+               ├─> CallInitializeScenario()
+               │   ├─> import world → world.initialize_world()
+               │   ├─> import items → items.initialize_items()
+               │   ├─> from characters import initialize_characters()
+               │   └─> from objects import initialize_objects()
+               └─> LoadScenarioPackage() (이벤트 핸들러 로드)
 ```
+
+**시나리오 타입 감지:**
+- `IsPythonDataSource()`: `scenarios/{scenario}/python/__init__.py` 존재 여부로 판단
+- Python 모드: morld API를 통해 데이터 직접 등록
+- JSON 모드: 기존 JSON 파일 로드 방식
 
 ---
 
