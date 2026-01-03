@@ -18,8 +18,8 @@ public partial class GameEngine : Node
 	private EventSystem _eventSystem;
 
 	// 시나리오 경로 (res:// 기준)
-	// private string _scenarioPath = "res://scenarios/scenario01/";
-	private string _scenarioPath = "res://scenarios/scenario02/";
+	private string _scenarioPath = "res://scenarios/scenario01/";
+	// private string _scenarioPath = "res://scenarios/scenario02/";
 	private string DataPath => _scenarioPath + "data/";
 	private string PythonPath => _scenarioPath + "python/";
 

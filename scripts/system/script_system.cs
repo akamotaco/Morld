@@ -640,6 +640,8 @@ namespace SE
                 }
 
                 // 콜백 파싱 (선택적)
+                // done_callback: 확인(Ok) 또는 승낙(YesNo) 시 호출
+                // cancel_callback: 거절(YesNo) 시 호출
                 var doneCallbackObj = dict.Get(new PyString("done_callback"));
                 var cancelCallbackObj = dict.Get(new PyString("cancel_callback"));
                 string doneCallback = (doneCallbackObj as PyString)?.Value;

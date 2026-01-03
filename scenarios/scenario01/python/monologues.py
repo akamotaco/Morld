@@ -151,8 +151,8 @@ def job_select(context_unit_id, job_type):
         ],
         "time_consumed": 0,
         "button_type": "yesno",
-        "yes_callback": f"job_confirm:{job_type}",  # 승낙 시 호출
-        "no_callback": None  # 거절 시 단순 Pop (이전 선택 화면으로)
+        "done_callback": f"job_confirm:{job_type}",  # 승낙 시 호출
+        "cancel_callback": None  # 거절 시 단순 Pop (이전 선택 화면으로)
     }
 
 
