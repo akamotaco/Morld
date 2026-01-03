@@ -4,14 +4,16 @@
     {
       "id": 0,
       "name": "주거지역",
+      "weather": "맑음",
       "appearance": {
         "default": "조용한 주거지역이다."
       },
       "locations": [
-        { "id": 0, "name": "주민1의 집" },
+        { "id": 0, "name": "주민1의 집", "indoor": true },
         {
           "id": 1,
           "name": "마을 광장",
+          "indoor": false,
           "appearance": {
             "default": "돌로 포장된 광장에 분수대가 서 있다.",
             "아침": "이른 아침 안개가 광장을 감싸고 있다.",
@@ -21,10 +23,11 @@
             "봄,아침": "따스한 봄 햇살이 광장을 부드럽게 비춘다."
           }
         },
-        { "id": 2, "name": "주민2의 집" },
+        { "id": 2, "name": "주민2의 집", "indoor": true },
         {
           "id": 3,
           "name": "공원",
+          "indoor": false,
           "appearance": {
             "default": "푸른 잔디밭이 펼쳐진 공원이다.",
             "봄": "벚꽃이 흩날리는 아름다운 공원이다.",
@@ -33,7 +36,7 @@
             "겨울": "앙상한 나뭇가지에 눈이 소복이 쌓여 있다."
           }
         },
-        { "id": 4, "name": "우물" }
+        { "id": 4, "name": "우물", "indoor": false }
       ],
       "edges": [
         { "a": 0, "b": 1, "timeAtoB": 10, "timeBtoA": 10 },
@@ -45,6 +48,7 @@
     {
       "id": 1,
       "name": "상업지역",
+      "weather": "맑음",
       "appearance": {
         "default": "활기찬 상업지역이다.",
         "아침": "상인들이 가게를 열 준비를 하고 있다.",
@@ -54,6 +58,7 @@
         {
           "id": 0,
           "name": "식당",
+          "indoor": true,
           "appearance": {
             "default": "맛있는 냄새가 솔솔 풍긴다.",
             "아침": "아침 식사를 준비하는 냄새가 난다.",
@@ -61,8 +66,8 @@
             "저녁": "저녁 식사를 즐기는 사람들이 많다."
           }
         },
-        { "id": 1, "name": "잡화상점" },
-        { "id": 2, "name": "창고" }
+        { "id": 1, "name": "잡화상점", "indoor": true },
+        { "id": 2, "name": "창고", "indoor": true }
       ],
       "edges": [
         { "a": 0, "b": 1, "timeAtoB": 5, "timeBtoA": 5 },

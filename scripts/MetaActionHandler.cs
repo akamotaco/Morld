@@ -42,7 +42,10 @@ public class MetaActionHandler
 
 		// 콘텐츠 변경 전 정리 작업
 		// - 토글은 UI 상태만 변경하므로 로그 읽음 처리 제외
-		bool markLogsAsRead = action != "toggle";
+		// - script/monologue 계열은 대화 중이므로 로그 읽음 처리 제외
+		bool markLogsAsRead = action != "toggle"
+			&& action != "script"
+			&& !action.StartsWith("monologue");
 		_textUISystem?.OnContentChange(markLogsAsRead);
 
 #if DEBUG_LOG

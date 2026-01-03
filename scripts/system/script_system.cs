@@ -402,13 +402,14 @@ namespace SE
                 morldModule.ModuleDict["add_region"] = new PyBuiltinFunction("add_region", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("add_region(id, name, appearance=None) requires at least 2 arguments");
+                        throw PyTypeError.Create("add_region(id, name, appearance=None, weather='맑음') requires at least 2 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
                     var appearance = args.Length >= 3 && args[2] is PyDict appDict
                         ? PyDictToStringDict(appDict)
                         : null;
+                    string weather = args.Length >= 4 ? args[3].AsString() : "맑음";
 
                     if (_worldSystem != null)
                     {
@@ -419,8 +420,9 @@ namespace SE
                             foreach (var (key, value) in appearance)
                                 region.Appearance[key] = value;
                         }
+                        region.CurrentWeather = weather;
                         terrain.AddRegion(region);
-                        Godot.GD.Print($"[morld] add_region: id={id}, name={name}");
+                        Godot.GD.Print($"[morld] add_region: id={id}, name={name}, weather={weather}");
                         return PyBool.True;
                     }
                     return PyBool.False;
@@ -429,7 +431,7 @@ namespace SE
                 morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
                 {
                     if (args.Length < 3)
-                        throw PyTypeError.Create("add_location(region_id, local_id, name, appearance=None, stay_duration=0) requires at least 3 arguments");
+                        throw PyTypeError.Create("add_location(region_id, local_id, name, appearance=None, stay_duration=0, indoor=True) requires at least 3 arguments");
 
                     int regionId = args[0].ToInt();
                     int localId = args[1].ToInt();
@@ -438,6 +440,7 @@ namespace SE
                         ? PyDictToStringDict(appDict)
                         : null;
                     int stayDuration = args.Length >= 5 ? args[4].ToInt() : 0;
+                    bool isIndoor = args.Length >= 6 ? args[5].IsTrue() : true;
 
                     if (_worldSystem != null)
                     {
@@ -453,7 +456,8 @@ namespace SE
                                     location.Appearance[key] = value;
                             }
                             location.StayDuration = stayDuration;
-                            Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, stayDuration={stayDuration}");
+                            location.IsIndoor = isIndoor;
+                            Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}");
                             return PyBool.True;
                         }
                     }
@@ -560,6 +564,48 @@ namespace SE
                         return PyBool.True;
                     }
                     return PyBool.False;
+                });
+
+                // === Weather API ===
+                morldModule.ModuleDict["set_weather"] = new PyBuiltinFunction("set_weather", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("set_weather(region_id, weather) requires 2 arguments");
+
+                    int regionId = args[0].ToInt();
+                    string weather = args[1].AsString();
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var region = terrain.GetRegion(regionId);
+                        if (region != null)
+                        {
+                            region.CurrentWeather = weather;
+                            Godot.GD.Print($"[morld] set_weather: region={regionId}, weather={weather}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["get_weather"] = new PyBuiltinFunction("get_weather", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_weather(region_id) requires 1 argument");
+
+                    int regionId = args[0].ToInt();
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var region = terrain.GetRegion(regionId);
+                        if (region != null)
+                        {
+                            return new PyString(region.CurrentWeather);
+                        }
+                    }
+                    return PyNone.Instance;
                 });
 
                 // === Item API (ItemSystem) ===
@@ -971,14 +1017,6 @@ namespace SE
 
                 // events.py 로드 (EventSystem용)
                 LoadEventsScript();
-
-                // 테스트: 함수가 정의되었는지 확인 (Eval 모드로 호출)
-                var testResult = Eval("get_monologue_page_count('intro_001')");
-                Godot.GD.Print($"[ScriptSystem] Test get_monologue_page_count: {testResult?.GetType().Name} = {testResult}");
-
-                // 비교 테스트: RegisterTestFunctions에서 등록한 함수 호출
-                var testDialogueResult = Eval("test_dialogue('테스트')");
-                Godot.GD.Print($"[ScriptSystem] test_dialogue result: {testDialogueResult?.GetType().Name} = {testDialogueResult}");
             }
             catch (System.Exception ex)
             {

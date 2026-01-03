@@ -880,6 +880,9 @@ public class Terrain
                 }
             }
 
+            // Region 날씨 복사
+            region.CurrentWeather = regionData.Weather;
+
             // Location 추가
             foreach (var locData in regionData.Locations)
             {
@@ -896,6 +899,9 @@ public class Terrain
 
                 // StayDuration 복사
                 location.StayDuration = locData.StayDuration;
+
+                // Indoor 복사
+                location.IsIndoor = locData.Indoor;
 
                 // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
             }
@@ -1002,7 +1008,8 @@ public class Terrain
             var regionData = new RegionJsonData
             {
                 Id = region.Id,
-                Name = region.Name
+                Name = region.Name,
+                Weather = region.CurrentWeather
             };
 
             // Region Appearance 내보내기
@@ -1016,7 +1023,8 @@ public class Terrain
                 {
                     Id = location.LocalId,
                     Name = location.Name,
-                    StayDuration = location.StayDuration
+                    StayDuration = location.StayDuration,
+                    Indoor = location.IsIndoor
                 };
 
                 // Appearance 내보내기

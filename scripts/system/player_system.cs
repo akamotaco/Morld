@@ -451,7 +451,7 @@ namespace SE
 			{
 				RegionName = region?.Name ?? "",
 				LocationName = location?.Name ?? "",
-				AppearanceText = describeSystem?.GetLocationAppearance(location, gameTime) ?? "",
+				AppearanceText = describeSystem?.GetLocationAppearance(location, gameTime, region) ?? "",
 				LocationRef = player.CurrentLocation
 			};
 

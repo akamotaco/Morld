@@ -5,14 +5,16 @@ import morld
 WORLD_NAME = "숲속 저택"
 
 REGIONS = [
-    # Region 0: 저택
+    # Region 0: 숲속 저택 (저택 + 야외 통합)
     {
         "id": 0,
-        "name": "저택",
+        "name": "숲속 저택",
+        "weather": "맑음",
         "appearance": {
-            "default": "오래되었지만 잘 관리된 저택이다."
+            "default": "깊은 숲 속에 자리한 저택과 그 주변이다."
         },
         "locations": [
+            # === 저택 1층 (실내) ===
             {
                 "id": 0,
                 "name": "현관",
@@ -119,155 +121,141 @@ REGIONS = [
                     "밤": "복도 양쪽에 걸린 촛불이 희미하게 길을 밝힌다."
                 }
             },
+
+            # === 마당 (실외) ===
             {
                 "id": 12,
                 "name": "앞마당",
+                "indoor": False,
                 "appearance": {
                     "default": "저택 앞에 펼쳐진 넓은 마당. 잘 가꿔진 정원이 있다.",
                     "아침": "아침 이슬이 풀잎에 맺혀 반짝인다.",
                     "낮": "햇살이 정원을 환하게 비춘다.",
                     "저녁": "석양빛이 정원을 황금빛으로 물들인다.",
-                    "밤": "달빛 아래 정원이 고요하다."
+                    "밤": "달빛 아래 정원이 고요하다.",
+                    "날씨:비": "빗줄기가 정원을 적시고 있다.",
+                    "날씨:눈": "눈이 정원을 하얗게 덮고 있다."
                 }
             },
             {
                 "id": 13,
                 "name": "뒷마당",
+                "indoor": False,
                 "appearance": {
                     "default": "저택 뒤편의 넓은 공터. 텃밭을 가꿀 수 있을 것 같다.",
                     "아침": "아침 안개가 뒷마당을 감싸고 있다.",
                     "낮": "햇살이 따스하게 내리쬔다.",
                     "저녁": "저녁 노을이 아름답다.",
-                    "밤": "고요한 밤. 풀벌레 소리가 들린다."
+                    "밤": "고요한 밤. 풀벌레 소리가 들린다.",
+                    "날씨:비": "빗방울이 텃밭을 적시고 있다.",
+                    "날씨:눈": "눈이 소복이 쌓여 있다."
                 }
-            }
-        ],
-        "edges": [
-            # 현관 - 거실
-            {"a": 0, "b": 1, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 주방
-            {"a": 1, "b": 2, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 식당
-            {"a": 1, "b": 3, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 욕실
-            {"a": 1, "b": 4, "timeAtoB": 2, "timeBtoA": 2},
-            # 거실 - 창고
-            {"a": 1, "b": 5, "timeAtoB": 2, "timeBtoA": 2},
-            # 거실 - 주인공 방 (1층)
-            {"a": 1, "b": 6, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 리나 방 (1층)
-            {"a": 1, "b": 7, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 밀라 방 (1층)
-            {"a": 1, "b": 9, "timeAtoB": 1, "timeBtoA": 1},
-            # 주방 - 식당
-            {"a": 2, "b": 3, "timeAtoB": 1, "timeBtoA": 1},
-            # 현관 - 앞마당
-            {"a": 0, "b": 12, "timeAtoB": 1, "timeBtoA": 1},
-            # 현관 - 뒷마당
-            {"a": 0, "b": 13, "timeAtoB": 2, "timeBtoA": 2},
-            # 거실 - 2층 복도 (계단)
-            {"a": 1, "b": 14, "timeAtoB": 1, "timeBtoA": 1},
-            # 2층 복도 - 세라 방 (2층)
-            {"a": 14, "b": 8, "timeAtoB": 1, "timeBtoA": 1},
-            # 2층 복도 - 유키 방 (2층)
-            {"a": 14, "b": 10, "timeAtoB": 1, "timeBtoA": 1},
-            # 2층 복도 - 엘라 방 (2층)
-            {"a": 14, "b": 11, "timeAtoB": 1, "timeBtoA": 1},
-        ]
-    },
-    # Region 1: 야외
-    {
-        "id": 1,
-        "name": "야외",
-        "appearance": {
-            "default": "저택을 둘러싼 깊은 숲이다.",
-            "날씨:맑음": "맑은 하늘 아래 숲이 펼쳐져 있다.",
-            "날씨:흐림": "흐린 하늘 아래 숲이 어둑하다.",
-            "날씨:비": "비가 내리고 있다. 나뭇잎에서 빗방울이 떨어진다.",
-            "날씨:눈": "눈이 소복이 쌓여 있다. 발자국 소리가 뽀드득 난다."
-        },
-        "locations": [
+            },
+
+            # === 야외/숲 (실외) ===
             {
-                "id": 0,
+                "id": 20,
                 "name": "숲 입구",
-                "stayDuration": 5,  # 경유지 지체: 넓은 숲 입구를 통과하는데 시간 소요
+                "indoor": False,
+                "stayDuration": 5,
                 "appearance": {
                     "default": "저택으로 이어지는 숲길. 오래된 나무들이 늘어서 있다.",
                     "아침": "아침 안개가 숲 입구를 감싸고 있다.",
                     "낮": "햇살이 나뭇잎 사이로 쏟아진다.",
                     "저녁": "석양빛이 나무 사이로 비친다.",
-                    "밤": "어둠 속에 나무들의 실루엣만 보인다."
+                    "밤": "어둠 속에 나무들의 실루엣만 보인다.",
+                    "날씨:비": "빗방울이 나뭇잎을 두드린다.",
+                    "날씨:눈": "눈이 소복이 쌓여 발자국이 선명하다."
                 }
             },
             {
-                "id": 1,
+                "id": 21,
                 "name": "숲 깊은 곳",
+                "indoor": False,
                 "appearance": {
                     "default": "울창한 나무들 사이. 낮에도 어둑하고 길을 잃기 쉽다.",
                     "낮": "나뭇잎 사이로 간간이 빛이 스며든다.",
-                    "밤": "칠흑같이 어둡다. 부엉이 소리가 들린다."
+                    "밤": "칠흑같이 어둡다. 부엉이 소리가 들린다.",
+                    "날씨:비": "빗물이 나뭇잎을 타고 흘러내린다.",
+                    "날씨:눈": "눈이 쌓여 숲이 고요하다."
                 }
             },
             {
-                "id": 2,
+                "id": 22,
                 "name": "강가",
+                "indoor": False,
                 "appearance": {
                     "default": "맑은 물이 흐르는 작은 강. 물소리가 청량하게 들린다.",
                     "아침": "아침 햇살에 수면이 반짝인다.",
                     "낮": "햇빛에 물이 눈부시게 빛난다.",
-                    "저녁": "노을빛이 수면에 비친다."
+                    "저녁": "노을빛이 수면에 비친다.",
+                    "날씨:비": "빗방울이 수면에 파문을 만든다.",
+                    "날씨:눈": "강가에 눈이 쌓여 있다."
                 }
             },
             {
-                "id": 3,
+                "id": 23,
                 "name": "채집터",
+                "indoor": False,
                 "appearance": {
                     "default": "야생 열매와 약초가 자라는 곳. 숲의 은혜를 느낄 수 있다.",
                     "봄": "새싹이 돋아나고 있다.",
                     "여름": "무성한 풀과 열매가 가득하다.",
                     "가을": "익은 열매가 주렁주렁 달려 있다.",
-                    "겨울": "말라버린 풀만 남아 있다."
+                    "겨울": "말라버린 풀만 남아 있다.",
+                    "날씨:비": "비에 젖은 풀잎이 반짝인다.",
+                    "날씨:눈": "눈 아래 겨울잠을 자는 듯하다."
                 }
             },
             {
-                "id": 4,
+                "id": 24,
                 "name": "사냥터",
+                "indoor": False,
                 "appearance": {
                     "default": "야생 동물의 흔적이 보이는 곳. 조심스럽게 움직여야 한다.",
                     "아침": "이슬 맺힌 풀 위에 동물 발자국이 보인다.",
                     "낮": "숲 속에서 동물 울음소리가 들린다.",
-                    "밤": "어둠 속에서 눈빛이 반짝인다."
+                    "밤": "어둠 속에서 눈빛이 반짝인다.",
+                    "날씨:비": "비 오는 날은 사냥하기 어렵다.",
+                    "날씨:눈": "눈 위에 선명한 발자국이 보인다."
                 }
             }
         ],
         "edges": [
-            # 숲 입구 - 숲 깊은 곳
-            {"a": 0, "b": 1, "timeAtoB": 15, "timeBtoA": 15},
-            # 숲 입구 - 강가
-            {"a": 0, "b": 2, "timeAtoB": 10, "timeBtoA": 10},
-            # 숲 입구 - 채집터
-            {"a": 0, "b": 3, "timeAtoB": 10, "timeBtoA": 10},
-            # 숲 깊은 곳 - 사냥터
-            {"a": 1, "b": 4, "timeAtoB": 10, "timeBtoA": 10},
-            # 채집터 - 강가
-            {"a": 3, "b": 2, "timeAtoB": 5, "timeBtoA": 5},
+            # === 저택 1층 연결 ===
+            {"a": 0, "b": 1, "timeAtoB": 1, "timeBtoA": 1},   # 현관 - 거실
+            {"a": 1, "b": 2, "timeAtoB": 1, "timeBtoA": 1},   # 거실 - 주방
+            {"a": 1, "b": 3, "timeAtoB": 1, "timeBtoA": 1},   # 거실 - 식당
+            {"a": 1, "b": 4, "timeAtoB": 2, "timeBtoA": 2},   # 거실 - 욕실
+            {"a": 1, "b": 5, "timeAtoB": 2, "timeBtoA": 2},   # 거실 - 창고
+            {"a": 1, "b": 6, "timeAtoB": 1, "timeBtoA": 1},   # 거실 - 주인공 방 (1층)
+            {"a": 1, "b": 7, "timeAtoB": 1, "timeBtoA": 1},   # 거실 - 리나 방 (1층)
+            {"a": 1, "b": 9, "timeAtoB": 1, "timeBtoA": 1},   # 거실 - 밀라 방 (1층)
+            {"a": 2, "b": 3, "timeAtoB": 1, "timeBtoA": 1},   # 주방 - 식당
+
+            # === 저택 2층 연결 ===
+            {"a": 1, "b": 14, "timeAtoB": 1, "timeBtoA": 1},  # 거실 - 2층 복도 (계단)
+            {"a": 14, "b": 8, "timeAtoB": 1, "timeBtoA": 1},  # 2층 복도 - 세라 방
+            {"a": 14, "b": 10, "timeAtoB": 1, "timeBtoA": 1}, # 2층 복도 - 유키 방
+            {"a": 14, "b": 11, "timeAtoB": 1, "timeBtoA": 1}, # 2층 복도 - 엘라 방
+
+            # === 마당 연결 ===
+            {"a": 0, "b": 12, "timeAtoB": 1, "timeBtoA": 1},  # 현관 - 앞마당
+            {"a": 0, "b": 13, "timeAtoB": 2, "timeBtoA": 2},  # 현관 - 뒷마당
+
+            # === 야외/숲 연결 ===
+            {"a": 12, "b": 20, "timeAtoB": 3, "timeBtoA": 3}, # 앞마당 - 숲 입구
+            {"a": 20, "b": 21, "timeAtoB": 15, "timeBtoA": 15}, # 숲 입구 - 숲 깊은 곳
+            {"a": 20, "b": 22, "timeAtoB": 10, "timeBtoA": 10}, # 숲 입구 - 강가
+            {"a": 20, "b": 23, "timeAtoB": 10, "timeBtoA": 10}, # 숲 입구 - 채집터
+            {"a": 21, "b": 24, "timeAtoB": 10, "timeBtoA": 10}, # 숲 깊은 곳 - 사냥터
+            {"a": 23, "b": 22, "timeAtoB": 5, "timeBtoA": 5},  # 채집터 - 강가
         ]
     }
 ]
 
-# 저택 앞마당 <-> 숲 입구 연결
-REGION_EDGES = [
-    {
-        "id": 0,
-        "name": "저택-숲",
-        "regionA": 0,
-        "localA": 12,  # 앞마당
-        "regionB": 1,
-        "localB": 0,   # 숲 입구
-        "timeAtoB": 3,
-        "timeBtoA": 3
-    }
-]
+# RegionEdge는 더 이상 필요 없음 (단일 Region)
+REGION_EDGES = []
 
 TIME_SETTINGS = {
     "year": 1,
@@ -284,15 +272,17 @@ def initialize_world():
         region_id = region_data["id"]
         region_name = region_data["name"]
         region_appearance = region_data.get("appearance")
+        region_weather = region_data.get("weather", "맑음")
 
-        morld.add_region(region_id, region_name, region_appearance)
+        morld.add_region(region_id, region_name, region_appearance, region_weather)
 
         for loc_data in region_data["locations"]:
             loc_id = loc_data["id"]
             loc_name = loc_data["name"]
             loc_appearance = loc_data.get("appearance")
             loc_stay_duration = loc_data.get("stayDuration", 0)
-            morld.add_location(region_id, loc_id, loc_name, loc_appearance, loc_stay_duration)
+            loc_indoor = loc_data.get("indoor", True)  # 기본값 실내
+            morld.add_location(region_id, loc_id, loc_name, loc_appearance, loc_stay_duration, loc_indoor)
 
         for edge_data in region_data.get("edges", []):
             from_id = edge_data["a"]

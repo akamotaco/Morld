@@ -40,6 +40,17 @@ public class Region : IDescribable
     public Dictionary<string, string> Appearance { get; set; } = new();
 
     /// <summary>
+    /// 현재 날씨 (맑음, 흐림, 비, 눈)
+    /// Region 내 모든 실외 Location에 적용됨
+    /// </summary>
+    public string CurrentWeather { get; set; } = "맑음";
+
+    /// <summary>
+    /// 사용 가능한 날씨 종류
+    /// </summary>
+    public static readonly string[] WeatherTypes = ["맑음", "흐림", "비", "눈"];
+
+    /// <summary>
     /// Region 내 모든 Location
     /// </summary>
     public IReadOnlyCollection<Location> Locations => _locations.Values;
@@ -110,6 +121,7 @@ public class Region : IDescribable
         }
 
         var location = new Location(localId, Id, name);
+        location.ParentRegion = this;
         _locations[localId] = location;
         _adjacencyList[localId] = new List<Edge>();
         return location;
@@ -133,6 +145,7 @@ public class Region : IDescribable
             return;
         }
 
+        location.ParentRegion = this;
         _locations[location.LocalId] = location;
         _adjacencyList[location.LocalId] = new List<Edge>();
     }

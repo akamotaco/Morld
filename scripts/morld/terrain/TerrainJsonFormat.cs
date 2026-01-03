@@ -34,6 +34,9 @@ public class RegionJsonData
     [JsonPropertyName("appearance")]
     public Dictionary<string, string>? Appearance { get; set; }
 
+    [JsonPropertyName("weather")]
+    public string Weather { get; set; } = "맑음";
+
     [JsonPropertyName("locations")]
     public List<LocationJsonData> Locations { get; set; } = new();
 
@@ -60,6 +63,9 @@ public class LocationJsonData
 
     [JsonPropertyName("stayDuration")]
     public int StayDuration { get; set; } = 0;
+
+    [JsonPropertyName("indoor")]
+    public bool Indoor { get; set; } = true;
 }
 
 /// <summary>

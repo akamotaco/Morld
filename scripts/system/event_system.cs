@@ -29,6 +29,9 @@ namespace SE
 		// 이전 상태 추적 (OnReach 감지용)
 		private readonly Dictionary<int, LocationRef> _lastLocations = new();
 
+		// 이동 시작 감지용 (이전 Step에서 이동 중이었는지)
+		private readonly HashSet<int> _wasMoving = new();
+
 		// OnMeet 중복 방지
 		private readonly HashSet<string> _lastMeetings = new();
 		// 역방향 인덱스: 유닛 ID → 해당 유닛이 포함된 만남 키 집합
@@ -93,6 +96,7 @@ namespace SE
 		/// <summary>
 		/// 위치 변경 감지 및 OnReach 이벤트 생성
 		/// 플레이어 위치를 떠난 NPC는 액션 로그로 알림
+		/// 이동 시작한 NPC도 "떠났다" 알림 (화면에서 사라지므로)
 		/// </summary>
 		public void DetectLocationChanges()
 		{
@@ -115,6 +119,8 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 
 				var currentLoc = unit.CurrentLocation;
+				var isMoving = unit.CurrentEdge != null;
+				var wasMovingBefore = _wasMoving.Contains(unit.Id);
 
 				if (_lastLocations.TryGetValue(unit.Id, out var lastLoc))
 				{
@@ -129,22 +135,50 @@ namespace SE
 						// 플레이어 위치를 떠난 NPC → 액션 로그
 						if (unit.Id != playerId && playerLocation.HasValue && lastLoc == playerLocation.Value)
 						{
-							NotifyNpcDeparture(unit, currentLoc);
+							NotifyNpcDeparture(unit);
+						}
+					}
+					// 위치는 같지만 이동을 시작한 경우 (화면에서 사라짐)
+					else if (isMoving && !wasMovingBefore)
+					{
+						// 플레이어와 같은 위치에서 이동 시작 → "떠났다" 알림
+						if (unit.Id != playerId && playerLocation.HasValue && currentLoc == playerLocation.Value)
+						{
+							NotifyNpcDeparture(unit);
 						}
 					}
 				}
 
 				_lastLocations[unit.Id] = currentLoc;
+
+				// 이동 상태 갱신
+				if (isMoving)
+					_wasMoving.Add(unit.Id);
+				else
+					_wasMoving.Remove(unit.Id);
 			}
 		}
 
 		/// <summary>
 		/// NPC가 플레이어 위치를 떠났음을 액션 로그로 알림
+		/// 이동 중인 경우 Edge의 목적지, 아니면 현재 위치를 사용
 		/// </summary>
-		private void NotifyNpcDeparture(Unit unit, LocationRef destination)
+		private void NotifyNpcDeparture(Unit unit)
 		{
 			var worldSystem = _hub?.FindSystem("worldSystem") as WorldSystem;
 			var terrain = worldSystem?.GetTerrain();
+
+			// 이동 중이면 Edge의 목적지, 아니면 현재 위치
+			LocationRef destination;
+			if (unit.CurrentEdge != null)
+			{
+				destination = unit.CurrentEdge.To;
+			}
+			else
+			{
+				destination = unit.CurrentLocation;
+			}
+
 			var destLocation = terrain?.GetLocation(destination);
 			var destRegion = destLocation != null ? terrain?.GetRegion(destLocation.RegionId) : null;
 

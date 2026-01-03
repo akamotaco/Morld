@@ -41,6 +41,22 @@ public class Location : IEquatable<Location>, IDescribable
     public int StayDuration { get; set; } = 0;
 
     /// <summary>
+    /// 실내 여부 (true: 실내, false: 실외)
+    /// 날씨 효과는 실외에서만 표시됨
+    /// </summary>
+    public bool IsIndoor { get; set; } = true;
+
+    /// <summary>
+    /// 부모 Region 참조 (Terrain에서 설정)
+    /// </summary>
+    public Region? ParentRegion { get; internal set; }
+
+    /// <summary>
+    /// 현재 날씨 (실외일 때만 유효, 부모 Region에서 가져옴)
+    /// </summary>
+    public string? CurrentWeather => IsIndoor ? null : ParentRegion?.CurrentWeather;
+
+    /// <summary>
     /// 전역 고유 식별자 (RegionId:LocalId)
     /// </summary>
     public string GlobalId => $"{RegionId}:{LocalId}";

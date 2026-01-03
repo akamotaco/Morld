@@ -83,12 +83,12 @@ namespace SE
 		public ActionProviderRegistry ActionRegistry => _actionRegistry;
 
 		/// <summary>
-		/// Location 외관 묘사 반환
+		/// Location 외관 묘사 반환 (실내/날씨 태그 포함)
 		/// </summary>
-		public string GetLocationAppearance(Location? location, GameTime? time)
+		public string GetLocationAppearance(Location? location, GameTime? time, Region? region = null)
 		{
 			if (location == null) return "";
-			return SelectAppearance(location.Appearance, time);
+			return SelectAppearance(location.Appearance, time, location.IsIndoor, region?.CurrentWeather);
 		}
 
 		/// <summary>
@@ -97,7 +97,8 @@ namespace SE
 		public string GetRegionAppearance(Region? region, GameTime? time)
 		{
 			if (region == null) return "";
-			return SelectAppearance(region.Appearance, time);
+			// isIndoor=false, weather=null → 실내/날씨 태그 없이 시간 태그만 사용
+			return SelectAppearance(region.Appearance, time, false, null);
 		}
 
 		/// <summary>
@@ -154,6 +155,18 @@ namespace SE
 		}
 
 		/// <summary>
+		/// LookResult에서 현재 Location 객체 가져오기
+		/// </summary>
+		private Location? GetLocationFromLookResult(LookResult lookResult)
+		{
+			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
+			if (worldSystem == null) return null;
+
+			var locRef = lookResult.Location.LocationRef;
+			return worldSystem.GetTerrain()?.GetLocation(locRef.RegionId, locRef.LocalId);
+		}
+
+		/// <summary>
 		/// Appearance Dictionary에서 Mood 기반 적절한 키 선택 (태그 순서 무관)
 		/// </summary>
 		private string SelectAppearanceByMood(Dictionary<string, string>? appearances, HashSet<string>? mood)
@@ -190,8 +203,11 @@ namespace SE
 
 		/// <summary>
 		/// Appearance Dictionary에서 적절한 키 선택 (태그 순서 무관)
+		/// isIndoor=true → "실내" 태그 추가
+		/// isIndoor=false + weather → "날씨:{weather}" 태그 추가
+		/// isIndoor=false + weather=null → 실내/날씨 태그 없음 (Region용)
 		/// </summary>
-		private string SelectAppearance(Dictionary<string, string>? appearances, GameTime? time)
+		private string SelectAppearance(Dictionary<string, string>? appearances, GameTime? time, bool isIndoor = true, string? weather = null)
 		{
 			if (appearances == null || appearances.Count == 0)
 				return "";
@@ -202,6 +218,16 @@ namespace SE
 			}
 
 			var currentTags = time.GetCurrentTags();
+
+			// 실내/날씨 태그 추가
+			if (isIndoor)
+			{
+				currentTags.Add("실내");
+			}
+			else if (!string.IsNullOrEmpty(weather))
+			{
+				currentTags.Add($"날씨:{weather}");
+			}
 
 			string bestKey = "default";
 			int bestMatchCount = 0;
@@ -243,13 +269,21 @@ namespace SE
 				lines.Add($"[b]{loc.LocationName}[/b]");
 			}
 
-			// 2. 시간 정보
+			// 2. 시간 + 날씨 정보
 			if (time != null)
 			{
-				lines.Add($"{time}");
+				var location = GetLocationFromLookResult(lookResult);
+				var weatherText = "";
+				// Location.CurrentWeather는 실외일 때만 부모 Region의 날씨 반환
+				if (location != null && !string.IsNullOrEmpty(location.CurrentWeather))
+				{
+					weatherText = $" / {location.CurrentWeather}";
+				}
+				lines.Add($"{time}{weatherText}");
 			}
 
-			lines.Add("");
+			// === 구분선 ===
+			lines.Add("[color=gray]────────────────────[/color]");
 
 			// 3. 위치 외관 묘사
 			if (!string.IsNullOrEmpty(loc.AppearanceText))
@@ -334,6 +368,9 @@ namespace SE
 					}
 				}
 			}
+
+			// === 구분선 (행동 옵션 영역) ===
+			lines.Add("[color=gray]────────────────────[/color]");
 
 			// 5. 이동 가능 경로 (BBCode 링크)
 			if (lookResult.Routes.Count > 0)

@@ -16,7 +16,7 @@ PRESENCE_TEXT = {
     "애정:최고": "{name}가 자연스럽게 옆에 딱 붙어 선다.",
 
     # 장소 기반
-    "1:3": "{name}가 열매를 따고 있다.",  # 채집터
+    "0:23": "{name}가 열매를 따고 있다.",  # 채집터
     "0:1": "{name}가 소파에 앉아 발을 흔들고 있다.",  # 거실
 
     # 기본값
@@ -62,9 +62,9 @@ CHARACTER_DATA = {
             "schedule": [
                 {"name": "기상", "regionId": 0, "locationId": 7, "start": 360, "end": 390, "activity": "준비"},
                 {"name": "아침식사", "regionId": 0, "locationId": 3, "start": 420, "end": 480, "activity": "식사"},
-                {"name": "채집", "regionId": 1, "locationId": 3, "start": 540, "end": 720, "activity": "채집"},
+                {"name": "채집", "regionId": 0, "locationId": 23, "start": 540, "end": 720, "activity": "채집"},
                 {"name": "점심식사", "regionId": 0, "locationId": 3, "start": 720, "end": 780, "activity": "식사"},
-                {"name": "채집", "regionId": 1, "locationId": 3, "start": 840, "end": 1020, "activity": "채집"},
+                {"name": "채집", "regionId": 0, "locationId": 23, "start": 840, "end": 1020, "activity": "채집"},
                 {"name": "귀가", "regionId": 0, "locationId": 1, "start": 1080, "end": 1110, "activity": "휴식"},
                 {"name": "저녁식사", "regionId": 0, "locationId": 3, "start": 1110, "end": 1170, "activity": "식사"},
                 {"name": "자유시간", "regionId": 0, "locationId": 1, "start": 1170, "end": 1320, "activity": "휴식"},

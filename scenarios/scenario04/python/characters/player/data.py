@@ -8,8 +8,8 @@ CHARACTER_DATA = {
     "name": "???",
     "comment": "player",
     "type": "male",
-    "regionId": 1,
-    "locationId": 1,  # 숲 깊은 곳에서 시작
+    "regionId": 0,
+    "locationId": 21,  # 숲 깊은 곳에서 시작 (통합 리전)
     "tags": {
         # 기본 스탯
         "힘": 5,

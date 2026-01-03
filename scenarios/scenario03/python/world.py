@@ -9,6 +9,7 @@ REGIONS = [
     {
         "id": 0,
         "name": "주거지역",
+        "weather": "맑음",
         "appearance": {
             "default": "조용한 주거지역이다."
         },
@@ -16,6 +17,7 @@ REGIONS = [
             {
                 "id": 0,
                 "name": "주민1의 집",
+                "indoor": True,
                 "appearance": {
                     "default": "소박하지만 정갈한 분위기의 작은 집이다. 나무 냄새가 은은하게 풍긴다.",
                     "아침": "창문으로 아침 햇살이 비스듬히 들어온다.",
@@ -27,6 +29,7 @@ REGIONS = [
             {
                 "id": 1,
                 "name": "마을 광장",
+                "indoor": False,
                 "appearance": {
                     "default": "돌로 포장된 광장에 분수대가 서 있다.",
                     "아침": "이른 아침 안개가 광장을 감싸고 있다. 분수대에서 물소리가 청아하게 울린다.",
@@ -39,6 +42,7 @@ REGIONS = [
             {
                 "id": 2,
                 "name": "주민2의 집",
+                "indoor": True,
                 "appearance": {
                     "default": "수수한 외관의 조용한 집이다. 창문에 두꺼운 커튼이 쳐져 있다.",
                     "아침": "커튼 사이로 희미한 빛이 새어 나온다.",
@@ -50,6 +54,7 @@ REGIONS = [
             {
                 "id": 3,
                 "name": "공원",
+                "indoor": False,
                 "appearance": {
                     "default": "푸른 잔디밭이 펼쳐진 공원이다. 나무 벤치가 군데군데 놓여 있다.",
                     "아침": "아침 이슬이 잔디 위에 맺혀 반짝인다.",
@@ -65,6 +70,7 @@ REGIONS = [
             {
                 "id": 4,
                 "name": "우물",
+                "indoor": False,
                 "appearance": {
                     "default": "오래된 돌우물이다. 두레박이 걸려 있고, 물소리가 희미하게 들린다.",
                     "아침": "아침 안개가 우물 주변을 감싸고 있다.",
@@ -84,6 +90,7 @@ REGIONS = [
     {
         "id": 1,
         "name": "상업지역",
+        "weather": "맑음",
         "appearance": {
             "default": "활기찬 상업지역이다.",
             "아침": "상인들이 가게를 열 준비를 하고 있다.",
@@ -93,6 +100,7 @@ REGIONS = [
             {
                 "id": 0,
                 "name": "식당",
+                "indoor": True,
                 "appearance": {
                     "default": "맛있는 냄새가 솔솔 풍긴다. 나무 테이블이 정갈하게 놓여 있다.",
                     "아침": "아침 식사를 준비하는 냄새가 난다. 주방에서 부산한 소리가 들린다.",
@@ -104,6 +112,7 @@ REGIONS = [
             {
                 "id": 1,
                 "name": "잡화상점",
+                "indoor": True,
                 "appearance": {
                     "default": "다양한 물건이 진열대에 가득하다. 살짝 먼지 냄새가 난다.",
                     "아침": "아침 햇살이 진열대의 물건들을 비춘다. 상점 문이 막 열렸다.",
@@ -115,6 +124,7 @@ REGIONS = [
             {
                 "id": 2,
                 "name": "창고",
+                "indoor": True,
                 "appearance": {
                     "default": "각종 물건이 쌓여 있는 어수선한 창고다. 먼지가 떠다닌다.",
                     "아침": "창문 틈으로 들어온 빛이 먼지 입자를 비춘다.",
@@ -160,16 +170,19 @@ def initialize_world():
         region_id = region_data["id"]
         region_name = region_data["name"]
         region_appearance = region_data.get("appearance")
+        region_weather = region_data.get("weather", "맑음")
 
-        # Region 추가
-        morld.add_region(region_id, region_name, region_appearance)
+        # Region 추가 (weather 포함)
+        morld.add_region(region_id, region_name, region_appearance, region_weather)
 
         # Location 추가
         for loc_data in region_data["locations"]:
             loc_id = loc_data["id"]
             loc_name = loc_data["name"]
             loc_appearance = loc_data.get("appearance")
-            morld.add_location(region_id, loc_id, loc_name, loc_appearance)
+            loc_stay_duration = loc_data.get("stayDuration", 0)
+            loc_indoor = loc_data.get("indoor", True)  # 기본값: 실내
+            morld.add_location(region_id, loc_id, loc_name, loc_appearance, loc_stay_duration, loc_indoor)
 
         # Edge 추가
         for edge_data in region_data.get("edges", []):

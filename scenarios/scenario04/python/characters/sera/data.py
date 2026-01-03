@@ -16,7 +16,7 @@ PRESENCE_TEXT = {
     "애정:최고": "{name}가 희미하게 미소 짓는다.",
 
     # 장소 기반
-    "1:4": "{name}가 사냥감을 추적하고 있다.",  # 사냥터
+    "0:24": "{name}가 사냥감을 추적하고 있다.",  # 사냥터
     "0:1": "{name}가 창가에 서서 밖을 바라본다.",  # 거실
 
     # 기본값
@@ -62,9 +62,9 @@ CHARACTER_DATA = {
             "schedule": [
                 {"name": "기상", "regionId": 0, "locationId": 8, "start": 300, "end": 360, "activity": "준비"},
                 {"name": "아침식사", "regionId": 0, "locationId": 3, "start": 420, "end": 450, "activity": "식사"},
-                {"name": "사냥", "regionId": 1, "locationId": 4, "start": 480, "end": 720, "activity": "사냥"},
+                {"name": "사냥", "regionId": 0, "locationId": 24, "start": 480, "end": 720, "activity": "사냥"},
                 {"name": "점심식사", "regionId": 0, "locationId": 3, "start": 720, "end": 780, "activity": "식사"},
-                {"name": "사냥", "regionId": 1, "locationId": 4, "start": 840, "end": 1080, "activity": "사냥"},
+                {"name": "사냥", "regionId": 0, "locationId": 24, "start": 840, "end": 1080, "activity": "사냥"},
                 {"name": "저녁식사", "regionId": 0, "locationId": 3, "start": 1110, "end": 1170, "activity": "식사"},
                 {"name": "장비정비", "regionId": 0, "locationId": 8, "start": 1200, "end": 1290, "activity": "정비"},
                 {"name": "수면", "regionId": 0, "locationId": 8, "start": 1290, "end": 300, "activity": "수면"}

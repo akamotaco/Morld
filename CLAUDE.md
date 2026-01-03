@@ -186,9 +186,12 @@ ScheduleLayer
 ```csharp
 Terrain
 ├─ Region[] (여러 지역)
+│  ├─ CurrentWeather (string - "맑음", "비", "눈" 등)
 │  └─ Location[] (각 지역의 장소들)
+│     ├─ IsIndoor (bool - 실내 여부, 기본값 true)
+│     ├─ StayDuration (int - 경유 시 지체 시간, 분)
 │     ├─ Edge[] (장소 간 연결 및 이동 시간)
-│     └─ Appearance (Dictionary<string, string> - 시간 태그 기반 외관 묘사)
+│     └─ Appearance (Dictionary<string, string> - 시간/날씨/실내 태그 기반 외관 묘사)
 ├─ RegionEdge[] (지역 간 연결)
 └─ FindPath(from, to, character?, itemSystem?) (경로 탐색)
 
@@ -475,10 +478,38 @@ PutToUnit(unitId, itemId, count)     // 유닛에 아이템 넣기 (바닥 포�
 - `GetSituationText(lookResult, time)` - BBCode 포함 상황 텍스트 생성 (캐릭터 presence text 포함)
 - `GetUnitLookText(unitLook, unit)` - 유닛 살펴보기 텍스트 생성
 
-**외관 묘사 선택 알고리즘:**
+**외관 묘사 선택 알고리즘 (SelectAppearance):**
 - Appearance 딕셔너리에서 키를 쉼표로 분리하여 태그 집합으로 처리
 - 현재 태그와 가장 많이 일치하는 키 선택 (best-match)
 - 일치하는 키가 없으면 "default" 사용
+
+**Location/Region 외관 태그 시스템:**
+- 시간 태그: GameTime.GetCurrentTags() 반환값 (예: "아침", "저녁", "밤")
+- 날씨 태그: 실외일 때만 `날씨:{Region.CurrentWeather}` 추가 (예: "날씨:비", "날씨:눈")
+- 실내 태그: Location.IsIndoor가 true면 "실내" 태그 추가, false면 "실외" 태그 추가
+
+```csharp
+// GetLocationAppearance 태그 구성
+var tags = new HashSet<string>(time.GetCurrentTags());
+if (location.IsIndoor)
+    tags.Add("실내");
+else
+{
+    tags.Add("실외");
+    if (!string.IsNullOrEmpty(region.CurrentWeather))
+        tags.Add($"날씨:{region.CurrentWeather}");
+}
+```
+
+**Location Appearance 키 예시:**
+```json
+{
+    "default": "숲 속 오솔길이다.",
+    "아침": "아침 햇살이 나뭇잎 사이로 비친다.",
+    "밤": "어두운 숲길이다. 조심해야 할 것 같다.",
+    "실외,날씨:비": "빗방울이 나뭇잎을 두드린다.",
+    "실내": "비바람을 피할 수 있는 안전한 곳이다."
+}
 
 **캐릭터 Presence Text:**
 - 플레이어와 같은 위치에 있는 NPC의 상황 묘사 텍스트
@@ -877,7 +908,10 @@ DetectMeetings() - Step 종료 후 호출
 **NPC 이동 알림:**
 - 플레이어 위치를 떠난 NPC는 액션 로그로 알림
 - 예: "세라(이)가 숲 사냥터(으)로 이동했다."
-- DetectLocationChanges()에서 감지 및 알림
+- DetectLocationChanges()에서 두 가지 경우 감지:
+  1. **위치 변경**: CurrentLocation이 바뀐 경우 (도착)
+  2. **이동 시작**: CurrentEdge가 null → not null로 전환 (출발)
+- 이동 시작 감지가 필요한 이유: Look 결과에서 이동 중인 유닛(CurrentEdge != null)은 제외되어 화면에서 사라지므로
 
 **freeze_others 옵션:**
 모놀로그의 `freeze_others: True`로 같은 위치의 NPC를 `time_consumed` 동안 고정:
@@ -998,6 +1032,7 @@ def handle_player_meet(player_id, unit_ids):
     {
       "id": 0,
       "name": "마을",
+      "currentWeather": "맑음",
       "appearance": {
         "default": "평화로운 마을입니다."
       },
@@ -1005,11 +1040,22 @@ def handle_player_meet(player_id, unit_ids):
         {
           "id": 0,
           "name": "광장",
+          "isIndoor": false,
           "stayDuration": 5,
           "appearance": {
             "default": "마을 중심의 광장입니다.",
             "아침": "상인들이 가판대를 펼치고 있습니다.",
-            "저녁": "노을빛에 물든 광장이 아름답다."
+            "저녁": "노을빛에 물든 광장이 아름답다.",
+            "실외,날씨:비": "광장에 빗방울이 떨어진다."
+          }
+        },
+        {
+          "id": 1,
+          "name": "여관",
+          "isIndoor": true,
+          "appearance": {
+            "default": "아늑한 여관 내부다.",
+            "실내": "따뜻한 난로 불빛이 반긴다."
           }
         }
       ],
@@ -1030,12 +1076,19 @@ def handle_player_meet(player_id, unit_ids):
 }
 ```
 
+**Region 필드:**
+- `currentWeather`: 현재 날씨 (예: "맑음", "비", "눈"), 실외 장소의 appearance 선택에 영향
+
 **Location 필드:**
+- `isIndoor`: 실내 여부 (기본값 true). false면 날씨 태그가 appearance 선택에 반영됨
 - `stayDuration`: 경유 시 지체 시간 (분), 기본값 0. 지역이 험하거나 넓어서 통과하는데 시간 소요
 
 **Location/Region appearance 키 규칙:**
 - `"default"`: 기본 묘사
 - `"아침"`, `"저녁"` 등: 시간대 태그 (GameTime.GetCurrentTags())
+- `"실내"`, `"실외"`: Location.IsIndoor 기반 태그
+- `"날씨:비"`, `"날씨:눈"` 등: 실외일 때 Region.CurrentWeather 기반 태그
+- 복합 키: 쉼표로 구분 (예: `"실외,날씨:비"` → 실외이고 비가 올 때)
 
 ### unit_data.json (UnitSystem)
 ```json
