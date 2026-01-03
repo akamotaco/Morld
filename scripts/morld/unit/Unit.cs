@@ -116,6 +116,13 @@ public class Unit : IDescribable
 	/// </summary>
 	public bool IsIdle => _currentEdge == null;
 
+	/// <summary>
+	/// 경유지 지체 남은 시간 (분)
+	/// Location.StayDuration만큼 설정되어 지체 후 이동
+	/// 0이면 지체 중이 아님
+	/// </summary>
+	public int RemainingStayTime { get; set; } = 0;
+
 	public Unit(int id, string name, LocationRef startLocation)
 	{
 		_id = id;

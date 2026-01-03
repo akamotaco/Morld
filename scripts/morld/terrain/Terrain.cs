@@ -894,6 +894,9 @@ public class Terrain
                     }
                 }
 
+                // StayDuration 복사
+                location.StayDuration = locData.StayDuration;
+
                 // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
             }
 
@@ -1012,7 +1015,8 @@ public class Terrain
                 var locationData = new LocationJsonData
                 {
                     Id = location.LocalId,
-                    Name = location.Name
+                    Name = location.Name,
+                    StayDuration = location.StayDuration
                 };
 
                 // Appearance 내보내기

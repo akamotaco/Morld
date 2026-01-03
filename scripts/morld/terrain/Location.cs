@@ -34,6 +34,13 @@ public class Location : IEquatable<Location>, IDescribable
     public Dictionary<string, string> Appearance { get; set; } = new();
 
     /// <summary>
+    /// 경유 시 지체 시간 (분)
+    /// 지역이 험하거나 넓어서 통과하는데 시간이 소요됨
+    /// 0이면 즉시 통과, 기본값 0
+    /// </summary>
+    public int StayDuration { get; set; } = 0;
+
+    /// <summary>
     /// 전역 고유 식별자 (RegionId:LocalId)
     /// </summary>
     public string GlobalId => $"{RegionId}:{LocalId}";

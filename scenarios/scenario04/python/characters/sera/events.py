@@ -26,7 +26,8 @@ def on_meet_player(player_id):
             "...무리하지 마라."
         ],
         "time_consumed": 2,
-        "button_type": "ok"
+        "button_type": "ok",
+        "freeze_others": True  # 대화 중 NPC들이 떠나지 않도록
     }
 
 

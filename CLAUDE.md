@@ -632,6 +632,19 @@ public class Focus
     "cancel_callback": None  # None이면 단순 Pop (이전 화면으로)
 }
 
+# freeze_others (선택적) - NPC 이동 중단
+{
+    "type": "monologue",
+    "pages": ["30분 동안 대화를 나눴다."],
+    "time_consumed": 30,
+    "button_type": "ok",
+    "freeze_others": True  # 같은 위치의 NPC들 이동 중단 (CurrentEdge = null)
+}
+# freeze_others 설명:
+# - True: 이벤트 발생 시 플레이어와 같은 위치의 NPC들이 떠나지 않음
+# - 이동 계획(CurrentEdge)만 초기화, 다음 플레이어 행동 시 다시 경로 계산
+# - 긴 대화 이벤트에서 NPC가 눈앞에서 사라지는 것을 방지
+
 # 메시지 결과
 {
     "type": "message",
@@ -832,6 +845,47 @@ public bool GeneratesEvents => !IsObject || EventTracking;
 - 유닛 이동 시 관련 만남 상태 자동 리셋
 - 역방향 인덱스로 O(1) 조회
 
+**OnMeet 감지 로직:**
+```
+DetectMeetings() - Step 종료 후 호출
+└─ 플레이어와 같은 위치에 있는 유닛 감지
+   └─ u.CurrentLocation == playerLocation
+```
+- Location.StayDuration으로 경유지에서 체류하므로 현재 위치만 체크하면 됨
+- NPC가 경유지에서 체류 중이면 해당 위치에 CurrentLocation이 설정됨
+
+**Location.StayDuration 시스템:**
+- `Location.StayDuration`: 경유 시 지체 시간 (분), 기본값 0
+- 개념적 의미: 해당 지역이 험하거나 넓어서 통과하는데 시간이 지체됨
+- MovementSystem.ProcessMovement()에서 적용:
+  - 경유지 도착 시 StayDuration만큼 지체 후 다음 이동
+  - 목적지(스케줄 목표 위치)에서는 적용하지 않음
+- `Unit.RemainingStayTime`: 현재 지체 남은 시간
+
+**NPC 이동 알림:**
+- 플레이어 위치를 떠난 NPC는 액션 로그로 알림
+- 예: "세라(이)가 숲 사냥터(으)로 이동했다."
+- DetectLocationChanges()에서 감지 및 알림
+
+**freeze_others 옵션:**
+모놀로그의 `freeze_others: True`로 같은 위치의 NPC 이동 중단:
+
+```python
+# on_meet_player에서 freeze_others 사용
+return {
+    "type": "monologue",
+    "pages": ["대화 내용..."],
+    "time_consumed": 2,
+    "button_type": "ok",
+    "freeze_others": True  # 대화 중 NPC들이 떠나지 않도록
+}
+```
+
+**FreezeUnitsAtPlayerLocation 동작:**
+- 같은 위치의 모든 NPC에 대해:
+  - CurrentEdge = null (이동 중단)
+  - RemainingStayTime = 0 (체류 시간 초기화)
+
 **호출 흐름:**
 ```
 GameEngine._Ready()
@@ -923,6 +977,7 @@ _triggered_events.add(event_id)
         {
           "id": 0,
           "name": "광장",
+          "stayDuration": 5,
           "appearance": {
             "default": "마을 중심의 광장입니다.",
             "아침": "상인들이 가판대를 펼치고 있습니다.",
@@ -946,6 +1001,9 @@ _triggered_events.add(event_id)
   ]
 }
 ```
+
+**Location 필드:**
+- `stayDuration`: 경유 시 지체 시간 (분), 기본값 0. 지역이 험하거나 넓어서 통과하는데 시간 소요
 
 **Location/Region appearance 키 규칙:**
 - `"default"`: 기본 묘사

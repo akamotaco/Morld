@@ -57,6 +57,9 @@ public class LocationJsonData
 
     [JsonPropertyName("inventory")]
     public Dictionary<int, int>? Inventory { get; set; }
+
+    [JsonPropertyName("stayDuration")]
+    public int StayDuration { get; set; } = 0;
 }
 
 /// <summary>

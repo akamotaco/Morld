@@ -200,6 +200,24 @@ namespace SE
 
 			while (remainingTime > 0)
 			{
+				// 지체 시간 처리 (경유지 통과 중)
+				if (unit.RemainingStayTime > 0)
+				{
+					if (remainingTime >= unit.RemainingStayTime)
+					{
+						remainingTime -= unit.RemainingStayTime;
+						unit.RemainingStayTime = 0;
+						// 지체 완료, 다음 이동 진행
+					}
+					else
+					{
+						// 지체 중
+						unit.RemainingStayTime -= remainingTime;
+						remainingTime = 0;
+					}
+					continue;
+				}
+
 				// 이동 중이면 계속 진행
 				if (unit.CurrentEdge != null)
 				{
@@ -212,9 +230,25 @@ namespace SE
 						unit.SetCurrentLocation(edge.To);
 						unit.CurrentEdge = null;
 						remainingTime -= timeToComplete;
+
+						// 경유지 지체 시간 설정 (목적지가 아닌 경우만)
+						var arrivedLocation = terrain.GetLocation(edge.To);
+						if (arrivedLocation != null && arrivedLocation.StayDuration > 0)
+						{
+							// 목적지인지 확인
+							var scheduleLayer = unit.CurrentScheduleLayer;
+							var finalGoal = scheduleLayer != null ? GetGoalLocation(unit, scheduleLayer, time) : null;
+							if (!finalGoal.HasValue || edge.To != finalGoal.Value)
+							{
+								// 경유지이므로 지체 시간 적용
+								unit.RemainingStayTime = arrivedLocation.StayDuration;
 #if DEBUG_LOG
-						var destLocation = terrain.GetLocation(edge.To);
-						GD.Print($"[MovementSystem] {unit.Name} arrived at {destLocation?.Name ?? "Unknown"}");
+								GD.Print($"[MovementSystem] {unit.Name} delayed at {arrivedLocation.Name} for {arrivedLocation.StayDuration}분");
+#endif
+							}
+						}
+#if DEBUG_LOG
+						GD.Print($"[MovementSystem] {unit.Name} arrived at {arrivedLocation?.Name ?? "Unknown"}");
 #endif
 					}
 					else
@@ -227,17 +261,17 @@ namespace SE
 				}
 
 				// 새 이동 시작
-				var layer = unit.CurrentScheduleLayer;
-				if (layer == null)
+				var currentLayer = unit.CurrentScheduleLayer;
+				if (currentLayer == null)
 				{
 					break;
 				}
 
-				LocationRef? goalLocation = GetGoalLocation(unit, layer, time);
+				LocationRef? goalLocation = GetGoalLocation(unit, currentLayer, time);
 				if (!goalLocation.HasValue || unit.CurrentLocation == goalLocation.Value)
 				{
 					// 목표 없거나 이미 도착 - 스케줄 엔트리 업데이트만
-					UpdateCurrentScheduleEntry(unit, layer, time);
+					UpdateCurrentScheduleEntry(unit, currentLayer, time);
 					break;
 				}
 
@@ -265,7 +299,7 @@ namespace SE
 				};
 
 				// 스케줄 엔트리 업데이트
-				UpdateCurrentScheduleEntry(unit, layer, time);
+				UpdateCurrentScheduleEntry(unit, currentLayer, time);
 			}
 		}
 

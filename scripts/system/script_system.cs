@@ -1298,7 +1298,11 @@ __init__.initialize_scenario()
                 string doneCallback = (doneCallbackObj as PyString)?.Value;
                 string cancelCallback = (cancelCallbackObj as PyString)?.Value;
 
-                Godot.GD.Print($"[ScriptSystem] Parsed {type} result: {pages.Count} pages, {timeConsumed}min, button={buttonType}");
+                // freeze_others 파싱 (선택적) - 같은 위치 유닛들 이동 중단
+                var freezeOthersObj = dict.Get(new PyString("freeze_others"));
+                bool freezeOthers = freezeOthersObj is PyBool freezeBool && freezeBool.Value;
+
+                Godot.GD.Print($"[ScriptSystem] Parsed {type} result: {pages.Count} pages, {timeConsumed}min, button={buttonType}, freeze={freezeOthers}");
                 return new MonologueScriptResult
                 {
                     Type = type,  // "monologue" 또는 "update"
@@ -1306,7 +1310,8 @@ __init__.initialize_scenario()
                     TimeConsumed = timeConsumed,
                     ButtonType = buttonType,
                     DoneCallback = doneCallback,
-                    CancelCallback = cancelCallback
+                    CancelCallback = cancelCallback,
+                    FreezeOthers = freezeOthers
                 };
             }
 
@@ -1568,5 +1573,10 @@ def calculate(a, b):
         public Morld.MonologueButtonType ButtonType { get; set; } = Morld.MonologueButtonType.Ok;
         public string DoneCallback { get; set; }
         public string CancelCallback { get; set; }
+        /// <summary>
+        /// true면 플레이어와 같은 위치의 다른 유닛들 이동 중단 (CurrentEdge = null)
+        /// 이벤트 중 시간이 흘러도 NPC가 바로 떠나지 않게 함
+        /// </summary>
+        public bool FreezeOthers { get; set; } = false;
     }
 }

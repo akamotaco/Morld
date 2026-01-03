@@ -92,6 +92,7 @@ namespace SE
 
 		/// <summary>
 		/// 위치 변경 감지 및 OnReach 이벤트 생성
+		/// 플레이어 위치를 떠난 NPC는 액션 로그로 알림
 		/// </summary>
 		public void DetectLocationChanges()
 		{
@@ -103,6 +104,10 @@ namespace SE
 				InitializeLocations();
 				return;
 			}
+
+			var playerId = _playerSystem?.PlayerId ?? -1;
+			var player = playerId >= 0 ? _unitSystem.GetUnit(playerId) : null;
+			var playerLocation = player?.CurrentLocation;
 
 			foreach (var unit in _unitSystem.Units.Values)
 			{
@@ -120,6 +125,12 @@ namespace SE
 
 						// 해당 유닛의 만남 상태 리셋
 						ClearMeetingsForUnit(unit.Id);
+
+						// 플레이어 위치를 떠난 NPC → 액션 로그
+						if (unit.Id != playerId && playerLocation.HasValue && lastLoc == playerLocation.Value)
+						{
+							NotifyNpcDeparture(unit, currentLoc);
+						}
 					}
 				}
 
@@ -128,7 +139,27 @@ namespace SE
 		}
 
 		/// <summary>
+		/// NPC가 플레이어 위치를 떠났음을 액션 로그로 알림
+		/// </summary>
+		private void NotifyNpcDeparture(Unit unit, LocationRef destination)
+		{
+			var worldSystem = _hub?.FindSystem("worldSystem") as WorldSystem;
+			var terrain = worldSystem?.GetTerrain();
+			var destLocation = terrain?.GetLocation(destination);
+			var destRegion = destLocation != null ? terrain?.GetRegion(destLocation.RegionId) : null;
+
+			string destName = destLocation?.Name ?? "어딘가";
+			if (destRegion != null && destRegion.Name != "unknown")
+			{
+				destName = $"{destRegion.Name} {destLocation?.Name}";
+			}
+
+			_textUISystem?.AddActionLog($"{unit.Name}(이)가 {destName}(으)로 이동했다.");
+		}
+
+		/// <summary>
 		/// 같은 위치에 있는 유닛들의 OnMeet 이벤트 생성
+		/// StayDuration으로 경유지에서 체류하므로, 현재 위치만 체크하면 됨
 		/// </summary>
 		public void DetectMeetings()
 		{
@@ -138,20 +169,23 @@ namespace SE
 			var player = _unitSystem.GetUnit(playerId);
 			if (player == null) return;
 
-			// 플레이어와 같은 위치에 있는 이벤트 활성 유닛 수집
-			var unitsAtSameLocation = _unitSystem.Units.Values
+			var playerLocation = player.CurrentLocation;
+
+			// 플레이어와 같은 위치에 있는 유닛 수집
+			// StayDuration 체류로 인해 경유지에서도 만남 가능
+			var unitsToMeet = _unitSystem.Units.Values
 				.Where(u => u.Id != playerId
-						 && u.CurrentLocation == player.CurrentLocation
-						 && u.GeneratesEvents)
+						 && u.GeneratesEvents
+						 && u.CurrentLocation == playerLocation)
 				.Select(u => u.Id)
 				.OrderBy(id => id)  // 정렬하여 키 정규화
 				.ToList();
 
-			if (unitsAtSameLocation.Count == 0) return;
+			if (unitsToMeet.Count == 0) return;
 
 			// 만남 키 생성 (플레이어 + 다른 유닛들, 정렬됨)
 			var allIds = new List<int> { playerId };
-			allIds.AddRange(unitsAtSameLocation);
+			allIds.AddRange(unitsToMeet);
 			allIds.Sort();
 			var meetingKey = string.Join(",", allIds);
 
@@ -195,6 +229,12 @@ namespace SE
 				case "monologue":
 					if (result is MonologueScriptResult monoResult)
 					{
+						// freeze_others: 플레이어와 같은 위치의 유닛들 이동 중단
+						if (monoResult.FreezeOthers)
+						{
+							FreezeUnitsAtPlayerLocation();
+						}
+
 						// 모놀로그 아래에 Situation이 있어야 Pop 후 정상 동작
 						// 스택이 비어있으면 먼저 Situation Push
 						if (_textUISystem != null && _textUISystem.IsStackEmpty())
@@ -209,7 +249,7 @@ namespace SE
 							monoResult.DoneCallback,
 							monoResult.CancelCallback);
 #if DEBUG_LOG
-						GD.Print($"[EventSystem] Showing monologue ({monoResult.Pages.Count} pages)");
+						GD.Print($"[EventSystem] Showing monologue ({monoResult.Pages.Count} pages, freeze={monoResult.FreezeOthers})");
 #endif
 						return true;
 					}
@@ -217,6 +257,45 @@ namespace SE
 			}
 
 			return false;
+		}
+
+		/// <summary>
+		/// 플레이어와 같은 위치에 있는 유닛들의 이동을 중단
+		/// CurrentEdge와 RemainingStayTime을 null/0으로 설정
+		/// </summary>
+		private void FreezeUnitsAtPlayerLocation()
+		{
+			if (_unitSystem == null || _playerSystem == null) return;
+
+			var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
+			if (player == null) return;
+
+			var playerLocation = player.CurrentLocation;
+			int frozenCount = 0;
+
+			foreach (var unit in _unitSystem.Units.Values)
+			{
+				// 플레이어 자신과 오브젝트는 스킵
+				if (unit.Id == _playerSystem.PlayerId || unit.IsObject) continue;
+
+				// 같은 위치의 유닛 → 이동 중단
+				if (unit.CurrentLocation == playerLocation)
+				{
+					unit.CurrentEdge = null;
+					unit.RemainingStayTime = 0;
+					frozenCount++;
+#if DEBUG_LOG
+					GD.Print($"[EventSystem] Frozen: {unit.Name} at {playerLocation}");
+#endif
+				}
+			}
+
+#if DEBUG_LOG
+			if (frozenCount > 0)
+			{
+				GD.Print($"[EventSystem] Froze {frozenCount} units at player location");
+			}
+#endif
 		}
 
 		/// <summary>
