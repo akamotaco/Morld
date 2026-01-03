@@ -153,7 +153,19 @@ ScheduleLayer
 | `"이동"` | `"0:1"` | 위치 0:1 도달 시 pop |
 | `"따라가기"` | `"3"` | 유닛 3과 같은 위치 시 pop |
 | `"순찰"` | `"0:1,0:2,0:3"` | 순환 순찰 (영구) |
+| `"대기"` | `null` | RemainingLifetime만료 시 pop |
 | `null` | `null` | 종료 없음 (일상 스케줄) |
+
+**RemainingLifetime (수명 기반 자동 pop):**
+```csharp
+ScheduleLayer
+├─ RemainingLifetime (int - 남은 수명, 분)
+│  - 0 이하: 무제한 (기본값)
+│  - 양수: 시간 경과에 따라 감소, 0이 되면 자동 pop
+└─ EndConditionType == "대기" 일 때만 Lifetime pop 대상
+```
+- MovementSystem에서 시간 진행 시 각 유닛의 RemainingLifetime 감소
+- BehaviorSystem에서 EndConditionType=="대기" && RemainingLifetime==0 체크 시 pop
 
 ---
 
@@ -868,7 +880,7 @@ DetectMeetings() - Step 종료 후 호출
 - DetectLocationChanges()에서 감지 및 알림
 
 **freeze_others 옵션:**
-모놀로그의 `freeze_others: True`로 같은 위치의 NPC 이동 중단:
+모놀로그의 `freeze_others: True`로 같은 위치의 NPC를 `time_consumed` 동안 고정:
 
 ```python
 # on_meet_player에서 freeze_others 사용
@@ -885,6 +897,8 @@ return {
 - 같은 위치의 모든 NPC에 대해:
   - CurrentEdge = null (이동 중단)
   - RemainingStayTime = 0 (체류 시간 초기화)
+  - "대기" 스케줄 push (RemainingLifetime = time_consumed)
+- time_consumed 분이 경과하면 "대기" 스케줄 자동 pop → 원래 스케줄로 복귀
 
 **호출 흐름:**
 ```
@@ -952,6 +966,20 @@ event_id = f"reach:{region_id}:{location_id}"
 if event_id in _triggered_events:
     return None
 _triggered_events.add(event_id)
+```
+
+**플레이어 상태 기반 이벤트 필터링 (Python):**
+```python
+def handle_player_meet(player_id, unit_ids):
+    """플레이어-NPC 만남 이벤트"""
+    # 플레이어가 수면 중이면 만남 이벤트 무시
+    # - 수면 중 NPC가 방에 들어와도 대화 이벤트가 발생하지 않음
+    # - 수면이 끝난 후에야 만남 이벤트 정상 발생
+    player_info = morld.get_unit_info(player_id)
+    if player_info and player_info.get("activity") == "수면":
+        return None
+
+    # ... 이하 정상 처리
 ```
 
 **파일 위치:**

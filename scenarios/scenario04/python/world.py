@@ -179,6 +179,7 @@ REGIONS = [
             {
                 "id": 0,
                 "name": "숲 입구",
+                "stayDuration": 5,  # 경유지 지체: 넓은 숲 입구를 통과하는데 시간 소요
                 "appearance": {
                     "default": "저택으로 이어지는 숲길. 오래된 나무들이 늘어서 있다.",
                     "아침": "아침 안개가 숲 입구를 감싸고 있다.",
@@ -279,7 +280,8 @@ def initialize_world():
             loc_id = loc_data["id"]
             loc_name = loc_data["name"]
             loc_appearance = loc_data.get("appearance")
-            morld.add_location(region_id, loc_id, loc_name, loc_appearance)
+            loc_stay_duration = loc_data.get("stayDuration", 0)
+            morld.add_location(region_id, loc_id, loc_name, loc_appearance, loc_stay_duration)
 
         for edge_data in region_data.get("edges", []):
             from_id = edge_data["a"]

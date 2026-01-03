@@ -79,6 +79,13 @@ def handle_player_reach(region_id, location_id):
 
 def handle_player_meet(player_id, unit_ids):
     """플레이어-NPC 만남 이벤트"""
+    # 플레이어가 수면 중이면 만남 이벤트 무시
+    # - 수면 중 NPC가 방에 들어와도 대화 이벤트가 발생하지 않음
+    # - 수면이 끝난 후에야 만남 이벤트 정상 발생
+    player_info = morld.get_unit_info(player_id)
+    if player_info and player_info.get("activity") == "수면":
+        return None
+
     other_ids = [uid for uid in unit_ids if uid != player_id]
 
     for other_id in other_ids:

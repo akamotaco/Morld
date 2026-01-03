@@ -66,6 +66,23 @@ namespace SE
 				ProcessMovement(unit, duration, terrain, time, itemSystem, inventorySystem);
 			}
 
+			// 스케줄 Lifetime 감소 (시간 경과에 따른 스케줄 수명 처리)
+			foreach (var unit in unitSystem.Units.Values)
+			{
+				if (unit.IsObject) continue;
+
+				var layer = unit.CurrentScheduleLayer;
+				if (layer != null && layer.RemainingLifetime > 0)
+				{
+					layer.RemainingLifetime -= duration;
+					if (layer.RemainingLifetime < 0)
+						layer.RemainingLifetime = 0;
+#if DEBUG_LOG
+					GD.Print($"[MovementSystem] {unit.Name} schedule '{layer.Name}' lifetime: {layer.RemainingLifetime}분 remaining");
+#endif
+				}
+			}
+
 			// GameTime 업데이트
 			time.AddMinutes(duration);
 

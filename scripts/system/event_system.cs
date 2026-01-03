@@ -229,10 +229,10 @@ namespace SE
 				case "monologue":
 					if (result is MonologueScriptResult monoResult)
 					{
-						// freeze_others: 플레이어와 같은 위치의 유닛들 이동 중단
-						if (monoResult.FreezeOthers)
+						// freeze_others: 플레이어와 같은 위치의 유닛들에게 대기 스케줄 push
+						if (monoResult.FreezeOthers && monoResult.TimeConsumed > 0)
 						{
-							FreezeUnitsAtPlayerLocation();
+							FreezeUnitsAtPlayerLocation(monoResult.TimeConsumed);
 						}
 
 						// 모놀로그 아래에 Situation이 있어야 Pop 후 정상 동작
@@ -260,10 +260,11 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 플레이어와 같은 위치에 있는 유닛들의 이동을 중단
-		/// CurrentEdge와 RemainingStayTime을 null/0으로 설정
+		/// 플레이어와 같은 위치에 있는 유닛들에게 대기 스케줄 push
+		/// time_consumed 동안 이동하지 않고 해당 위치에 머무름
 		/// </summary>
-		private void FreezeUnitsAtPlayerLocation()
+		/// <param name="duration">대기 시간 (분)</param>
+		private void FreezeUnitsAtPlayerLocation(int duration)
 		{
 			if (_unitSystem == null || _playerSystem == null) return;
 
@@ -278,14 +279,26 @@ namespace SE
 				// 플레이어 자신과 오브젝트는 스킵
 				if (unit.Id == _playerSystem.PlayerId || unit.IsObject) continue;
 
-				// 같은 위치의 유닛 → 이동 중단
+				// 같은 위치의 유닛 → 대기 스케줄 push
 				if (unit.CurrentLocation == playerLocation)
 				{
+					// 이동 중이었다면 중단
 					unit.CurrentEdge = null;
 					unit.RemainingStayTime = 0;
+
+					// 대기 스케줄 push (duration 분 후 자동 pop)
+					var staySchedule = new Morld.ScheduleLayer
+					{
+						Name = "대기",
+						Schedule = null,
+						EndConditionType = "대기",
+						EndConditionParam = null,
+						RemainingLifetime = duration
+					};
+					unit.PushSchedule(staySchedule);
 					frozenCount++;
 #if DEBUG_LOG
-					GD.Print($"[EventSystem] Frozen: {unit.Name} at {playerLocation}");
+					GD.Print($"[EventSystem] Frozen: {unit.Name} at {playerLocation} for {duration}분");
 #endif
 				}
 			}
@@ -293,7 +306,7 @@ namespace SE
 #if DEBUG_LOG
 			if (frozenCount > 0)
 			{
-				GD.Print($"[EventSystem] Froze {frozenCount} units at player location");
+				GD.Print($"[EventSystem] Froze {frozenCount} units with stay schedule ({duration}분)");
 			}
 #endif
 		}

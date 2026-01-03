@@ -36,6 +36,13 @@ public class ScheduleLayer
 	public string? EndConditionParam { get; set; }
 
 	/// <summary>
+	/// 스케줄 레이어의 남은 수명 (분)
+	/// 0 이하면 무제한 (기본값)
+	/// 양수이면 시간 경과에 따라 감소하고, 0이 되면 자동 pop
+	/// </summary>
+	public int RemainingLifetime { get; set; } = 0;
+
+	/// <summary>
 	/// 종료 조건 충족 여부 확인
 	/// </summary>
 	public bool IsComplete(Unit unit, UnitSystem? unitSystem)

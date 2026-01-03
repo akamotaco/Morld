@@ -429,7 +429,7 @@ namespace SE
                 morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
                 {
                     if (args.Length < 3)
-                        throw PyTypeError.Create("add_location(region_id, local_id, name, appearance=None) requires at least 3 arguments");
+                        throw PyTypeError.Create("add_location(region_id, local_id, name, appearance=None, stay_duration=0) requires at least 3 arguments");
 
                     int regionId = args[0].ToInt();
                     int localId = args[1].ToInt();
@@ -437,6 +437,7 @@ namespace SE
                     var appearance = args.Length >= 4 && args[3] is PyDict appDict
                         ? PyDictToStringDict(appDict)
                         : null;
+                    int stayDuration = args.Length >= 5 ? args[4].ToInt() : 0;
 
                     if (_worldSystem != null)
                     {
@@ -451,7 +452,8 @@ namespace SE
                                 foreach (var (key, value) in appearance)
                                     location.Appearance[key] = value;
                             }
-                            Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}");
+                            location.StayDuration = stayDuration;
+                            Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, stayDuration={stayDuration}");
                             return PyBool.True;
                         }
                     }

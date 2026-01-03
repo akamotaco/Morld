@@ -2,6 +2,29 @@
 
 ---
 
+## 완료된 작업
+
+### Phase 7: 스케줄 수명 시스템 (완료)
+
+1. **ScheduleLayer.RemainingLifetime**
+   - [x] 스케줄 레이어의 남은 수명 (분) 필드 추가
+   - [x] 0 이하면 무제한, 양수면 시간 경과에 따라 감소
+
+2. **MovementSystem에서 Lifetime 감소**
+   - [x] 시간 진행 시 각 유닛의 스케줄 RemainingLifetime 감소
+
+3. **BehaviorSystem에서 Lifetime 만료 체크**
+   - [x] EndConditionType == "대기" && RemainingLifetime == 0 시 자동 pop
+
+4. **freeze_others 개선**
+   - [x] "대기" 스케줄을 RemainingLifetime = time_consumed로 push
+   - [x] time_consumed 분 경과 후 자동 pop → 원래 스케줄 복귀
+
+5. **Python 이벤트 필터링 예시**
+   - [x] 수면 중 meet 이벤트 무시 패턴 추가 (scenario04)
+
+---
+
 ## 남은 작업
 
 ### Phase 5: 확장 기능 (기본)
