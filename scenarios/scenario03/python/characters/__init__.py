@@ -76,3 +76,86 @@ def get_character_event_handler(unit_id):
 def get_all_character_data():
     """캐릭터 데이터만 반환 (Python 내부용)"""
     return ALL_CHARACTERS
+
+
+# 캐릭터별 PRESENCE_TEXT 매핑
+CHARACTER_PRESENCE = {
+    cheolsu_data.CHARACTER_ID: cheolsu_data.PRESENCE_TEXT,
+    younghee_data.CHARACTER_ID: younghee_data.PRESENCE_TEXT,
+    minsu_data.CHARACTER_ID: minsu_data.PRESENCE_TEXT,
+}
+
+
+def get_presence_text(unit_id, region_id, location_id):
+    """
+    특정 캐릭터의 현재 상태에 맞는 presence text 반환
+
+    우선순위:
+    1. activity 기반 (activity:식사 등)
+    2. 장소 기반 (0:1 등)
+    3. mood 기반 (mood:기쁨 등)
+    4. default
+
+    Args:
+        unit_id: 캐릭터 ID
+        region_id: 현재 위치 region
+        location_id: 현재 위치 location
+
+    Returns:
+        presence text 문자열 또는 None
+    """
+    presence_dict = CHARACTER_PRESENCE.get(unit_id)
+    if not presence_dict:
+        return None
+
+    unit_info = morld.get_unit_info(unit_id)
+    if not unit_info:
+        return None
+
+    name = unit_info.get("name", "???")
+    activity = unit_info.get("activity")
+    moods = unit_info.get("mood", [])
+
+    # 우선순위 1: activity
+    if activity:
+        key = f"activity:{activity}"
+        if key in presence_dict:
+            return presence_dict[key].format(name=name)
+
+    # 우선순위 2: 장소
+    loc_key = f"{region_id}:{location_id}"
+    if loc_key in presence_dict:
+        return presence_dict[loc_key].format(name=name)
+
+    # 우선순위 3: mood
+    if moods:
+        for mood in moods:
+            key = f"mood:{mood}"
+            if key in presence_dict:
+                return presence_dict[key].format(name=name)
+
+    # 우선순위 4: 기본값
+    if "default" in presence_dict:
+        return presence_dict["default"].format(name=name)
+
+    return None
+
+
+def get_all_presence_texts(unit_ids, region_id, location_id):
+    """
+    여러 캐릭터의 presence text를 한 번에 반환 (C#에서 호출)
+
+    Args:
+        unit_ids: 캐릭터 ID 리스트
+        region_id: 현재 위치 region
+        location_id: 현재 위치 location
+
+    Returns:
+        presence text 리스트 (None인 항목은 제외)
+    """
+    result = []
+    for unit_id in unit_ids:
+        text = get_presence_text(unit_id, region_id, location_id)
+        if text:
+            result.append(text)
+    return result

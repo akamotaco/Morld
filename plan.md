@@ -422,6 +422,32 @@ initialize_objects()
 - 오브젝트 폴더 분리: containers.py, furniture.py, grounds.py
 - 상세 문서: [ARCHITECTURE.md](scenarios/scenario03/ARCHITECTURE.md)
 
+### Phase 7.1: 캐릭터 Presence Text 시스템 (2026-01-03)
+
+플레이어와 같은 위치에 있는 NPC의 상황을 묘사하는 텍스트 시스템 추가.
+
+**구현 내용:**
+- 각 캐릭터 `data.py`에 `PRESENCE_TEXT` 딕셔너리 추가
+- `characters/__init__.py`에 `get_presence_text()`, `get_all_presence_texts()` 함수 추가
+- `ScriptSystem.GetCharacterPresenceTexts()` C# API 추가
+- `DescribeSystem.GetSituationText()`에서 위치 묘사 다음에 presence text 표시
+- `world.py` 각 장소에 시간대별 appearance 텍스트 보강
+
+**우선순위 규칙:**
+1. `activity:X` - 현재 activity 기반 (예: "activity:식사")
+2. `region:location` - 장소 기반 (예: "0:1")
+3. `mood:X` - 감정 상태 기반 (예: "mood:기쁨")
+4. `default` - 기본값
+
+**Python 사용 예:**
+```python
+PRESENCE_TEXT = {
+    "activity:식사": "{name}가 맛있게 밥을 먹고 있다.",
+    "0:0": "{name}가 집에서 느긋하게 앉아 있다.",
+    "default": "{name}가 주변에 있다."
+}
+```
+
 ---
 
 ## 남은 작업

@@ -921,7 +921,7 @@ namespace SE
 from world import *
 from items import *
 from events import *
-from characters import get_character_event_handler
+from characters import get_character_event_handler, get_all_presence_texts
 from objects import get_all_objects
 from objects.furniture import mirror_look
 from characters.player.events import job_select, job_confirm
@@ -1310,6 +1310,48 @@ def calculate(a, b):
                 Godot.GD.PrintErr($"[ScriptSystem] CallEventHandler error: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 캐릭터 presence text 조회 - Python get_all_presence_texts() 호출
+        /// 플레이어와 같은 위치에 있는 캐릭터들의 상황 묘사 텍스트 반환
+        /// </summary>
+        /// <param name="unitIds">캐릭터 ID 목록</param>
+        /// <param name="regionId">현재 위치 region</param>
+        /// <param name="locationId">현재 위치 location</param>
+        /// <returns>presence text 리스트</returns>
+        public System.Collections.Generic.List<string> GetCharacterPresenceTexts(
+            System.Collections.Generic.List<int> unitIds, int regionId, int locationId)
+        {
+            var result = new System.Collections.Generic.List<string>();
+            if (unitIds == null || unitIds.Count == 0) return result;
+
+            try
+            {
+                // Python 리스트 리터럴 생성
+                var idsLiteral = $"[{string.Join(", ", unitIds)}]";
+                var code = $"get_all_presence_texts({idsLiteral}, {regionId}, {locationId})";
+
+                var pyResult = Eval(code);
+
+                if (pyResult is PyList pyList)
+                {
+                    for (int i = 0; i < pyList.Length(); i++)
+                    {
+                        var item = pyList.GetItem(i);
+                        if (item is PyString pyStr)
+                        {
+                            result.Add(pyStr.Value);
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] GetCharacterPresenceTexts error: {ex.Message}");
+            }
+
+            return result;
         }
 
         /// <summary>

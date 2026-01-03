@@ -119,6 +119,41 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 캐릭터 presence text 가져오기 (ScriptSystem을 통해 Python 호출)
+		/// </summary>
+		private List<string> GetCharacterPresenceTexts(LookResult lookResult, LocationInfo loc)
+		{
+			var result = new List<string>();
+
+			// 플레이어 제외한 캐릭터 ID 목록
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+			var scriptSystem = _hub.FindSystem("scriptSystem") as ScriptSystem;
+
+			if (unitSystem == null || playerSystem == null || scriptSystem == null)
+				return result;
+
+			var playerId = playerSystem.PlayerId;
+			var characterIds = new List<int>();
+
+			foreach (var unitId in lookResult.UnitIds)
+			{
+				if (unitId == playerId) continue;
+				var unit = unitSystem.GetUnit(unitId);
+				if (unit != null && !unit.IsObject)
+				{
+					characterIds.Add(unitId);
+				}
+			}
+
+			if (characterIds.Count == 0)
+				return result;
+
+			// ScriptSystem을 통해 Python에서 presence text 가져오기
+			return scriptSystem.GetCharacterPresenceTexts(characterIds, loc.LocationRef.RegionId, loc.LocationRef.LocalId);
+		}
+
+		/// <summary>
 		/// Appearance Dictionary에서 Mood 기반 적절한 키 선택 (태그 순서 무관)
 		/// </summary>
 		private string SelectAppearanceByMood(Dictionary<string, string>? appearances, HashSet<string>? mood)
@@ -220,6 +255,17 @@ namespace SE
 			if (!string.IsNullOrEmpty(loc.AppearanceText))
 			{
 				lines.Add(loc.AppearanceText);
+			}
+
+			// 3.1. 캐릭터 presence text (위치 외관 묘사 바로 다음)
+			var presenceTexts = GetCharacterPresenceTexts(lookResult, loc);
+			foreach (var presenceText in presenceTexts)
+			{
+				lines.Add(presenceText);
+			}
+
+			if (!string.IsNullOrEmpty(loc.AppearanceText) || presenceTexts.Count > 0)
+			{
 				lines.Add("");
 			}
 

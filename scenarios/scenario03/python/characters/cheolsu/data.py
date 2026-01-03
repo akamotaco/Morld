@@ -2,6 +2,32 @@
 
 CHARACTER_ID = 1  # 고유 ID
 
+# 플레이어와 같은 장소에 있을 때 표시되는 텍스트
+# 우선순위: activity > location > mood > default
+PRESENCE_TEXT = {
+    # activity 기반
+    "activity:식사": "{name}가 맛있게 밥을 먹고 있다.",
+    "activity:수면": "{name}가 깊이 잠들어 있다.",
+    "activity:쇼핑": "{name}가 물건을 구경하고 있다.",
+    "activity:산책": "{name}가 여유롭게 산책하고 있다.",
+    "activity:휴식": "{name}가 편하게 쉬고 있다.",
+    "activity:준비": "{name}가 무언가 준비하고 있다.",
+
+    # 장소 기반
+    "0:0": "{name}가 집에서 느긋하게 앉아 있다.",
+    "0:1": "{name}가 분수대 옆에 서 있다.",
+    "0:3": "{name}가 공원 벤치에 앉아 쉬고 있다.",
+    "1:0": "{name}가 식당 테이블에 앉아 있다.",
+    "1:1": "{name}가 진열대를 구경하고 있다.",
+
+    # mood 기반
+    "mood:기쁨": "{name}가 밝은 표정으로 주변을 둘러본다.",
+    "mood:슬픔": "{name}가 고개를 숙이고 있다.",
+
+    # 기본값
+    "default": "{name}가 주변에 있다."
+}
+
 CHARACTER_DATA = {
     "id": CHARACTER_ID,
     "name": "철수",

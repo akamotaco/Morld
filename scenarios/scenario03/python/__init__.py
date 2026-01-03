@@ -4,7 +4,7 @@
 from . import world
 from . import items
 from . import events
-from .characters import initialize_characters, get_character_event_handler
+from .characters import initialize_characters, get_character_event_handler, get_all_presence_texts
 from .objects import initialize_objects
 
 

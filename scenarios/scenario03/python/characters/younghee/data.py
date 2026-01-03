@@ -2,6 +2,29 @@
 
 CHARACTER_ID = 2  # 고유 ID
 
+# 플레이어와 같은 장소에 있을 때 표시되는 텍스트
+# 우선순위: activity > location > mood > default
+PRESENCE_TEXT = {
+    # activity 기반
+    "activity:영업": "{name}가 손님을 맞이하며 상냥하게 인사한다.",
+    "activity:준비": "{name}가 분주하게 준비하고 있다.",
+    "activity:정리": "{name}가 물건을 정리하고 있다.",
+    "activity:식사": "{name}가 조용히 식사 중이다.",
+    "activity:수면": "{name}가 고요히 잠들어 있다.",
+
+    # 장소 기반
+    "1:1": "{name}가 카운터 뒤에서 미소 짓고 있다.",  # 잡화상점 (본인 가게)
+    "1:0": "{name}가 식당에서 식사를 즐기고 있다.",    # 식당
+    "1:2": "{name}가 창고에서 물건을 찾고 있다.",      # 창고
+
+    # mood 기반
+    "mood:기쁨": "{name}가 활짝 웃으며 손님을 맞이한다.",
+    "mood:피곤": "{name}가 살짝 지친 표정이다.",
+
+    # 기본값
+    "default": "{name}가 주변에 있다."
+}
+
 CHARACTER_DATA = {
     "id": CHARACTER_ID,
     "name": "영희",

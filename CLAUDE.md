@@ -460,13 +460,30 @@ PutToUnit(unitId, itemId, count)     // 유닛에 아이템 넣기 (바닥 포�
 - `GetLocationAppearance(location, time)` - Location 외관 묘사 반환 (시간 태그 기반)
 - `GetRegionAppearance(region, time)` - Region 외관 묘사 반환 (시간 태그 기반)
 - `GetUnitAppearance(unit)` - Unit 외관 묘사 반환 (Mood + Activity 기반)
-- `GetSituationText(lookResult, time)` - BBCode 포함 상황 텍스트 생성
+- `GetSituationText(lookResult, time)` - BBCode 포함 상황 텍스트 생성 (캐릭터 presence text 포함)
 - `GetUnitLookText(unitLook, unit)` - 유닛 살펴보기 텍스트 생성
 
 **외관 묘사 선택 알고리즘:**
 - Appearance 딕셔너리에서 키를 쉼표로 분리하여 태그 집합으로 처리
 - 현재 태그와 가장 많이 일치하는 키 선택 (best-match)
 - 일치하는 키가 없으면 "default" 사용
+
+**캐릭터 Presence Text:**
+- 플레이어와 같은 위치에 있는 NPC의 상황 묘사 텍스트
+- Python `get_all_presence_texts()` 함수를 통해 반환
+- 위치 외관 묘사 바로 다음에 표시
+- 우선순위: `activity:X` > `region:location` > `mood:X` > `default`
+
+```python
+# characters/cheolsu/data.py
+PRESENCE_TEXT = {
+    "activity:식사": "{name}가 맛있게 밥을 먹고 있다.",
+    "activity:수면": "{name}가 깊이 잠들어 있다.",
+    "0:0": "{name}가 집에서 느긋하게 앉아 있다.",  # 장소 기반
+    "mood:기쁨": "{name}가 밝은 표정으로 주변을 둘러본다.",
+    "default": "{name}가 주변에 있다."
+}
+```
 
 **파일 위치:**
 - `scripts/system/describe_system.cs`
