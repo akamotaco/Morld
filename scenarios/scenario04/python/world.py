@@ -111,6 +111,15 @@ REGIONS = [
                 }
             },
             {
+                "id": 14,
+                "name": "2층 복도",
+                "appearance": {
+                    "default": "2층으로 올라오면 나오는 넓은 복도. 창문으로 저택 앞마당이 내려다보인다.",
+                    "아침": "아침 햇살이 창문을 통해 복도를 비춘다.",
+                    "밤": "복도 양쪽에 걸린 촛불이 희미하게 길을 밝힌다."
+                }
+            },
+            {
                 "id": 12,
                 "name": "앞마당",
                 "appearance": {
@@ -144,24 +153,26 @@ REGIONS = [
             {"a": 1, "b": 4, "timeAtoB": 2, "timeBtoA": 2},
             # 거실 - 창고
             {"a": 1, "b": 5, "timeAtoB": 2, "timeBtoA": 2},
-            # 거실 - 주인공 방
+            # 거실 - 주인공 방 (1층)
             {"a": 1, "b": 6, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 리나 방
+            # 거실 - 리나 방 (1층)
             {"a": 1, "b": 7, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 세라 방
-            {"a": 1, "b": 8, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 밀라 방
+            # 거실 - 밀라 방 (1층)
             {"a": 1, "b": 9, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 유키 방
-            {"a": 1, "b": 10, "timeAtoB": 1, "timeBtoA": 1},
-            # 거실 - 엘라 방
-            {"a": 1, "b": 11, "timeAtoB": 1, "timeBtoA": 1},
             # 주방 - 식당
             {"a": 2, "b": 3, "timeAtoB": 1, "timeBtoA": 1},
             # 현관 - 앞마당
             {"a": 0, "b": 12, "timeAtoB": 1, "timeBtoA": 1},
             # 현관 - 뒷마당
             {"a": 0, "b": 13, "timeAtoB": 2, "timeBtoA": 2},
+            # 거실 - 2층 복도 (계단)
+            {"a": 1, "b": 14, "timeAtoB": 1, "timeBtoA": 1},
+            # 2층 복도 - 세라 방 (2층)
+            {"a": 14, "b": 8, "timeAtoB": 1, "timeBtoA": 1},
+            # 2층 복도 - 유키 방 (2층)
+            {"a": 14, "b": 10, "timeAtoB": 1, "timeBtoA": 1},
+            # 2층 복도 - 엘라 방 (2층)
+            {"a": 14, "b": 11, "timeAtoB": 1, "timeBtoA": 1},
         ]
     },
     # Region 1: 야외

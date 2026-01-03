@@ -37,11 +37,13 @@ public class MetaActionHandler
 		if (string.IsNullOrEmpty(metaString))
 			return;
 
-		// 콘텐츠 변경 전 정리 작업 (로그 읽음 처리 등)
-		_textUISystem?.OnContentChange();
-
 		var parts = metaString.Split(':');
 		var action = parts[0];
+
+		// 콘텐츠 변경 전 정리 작업
+		// - 토글은 UI 상태만 변경하므로 로그 읽음 처리 제외
+		bool markLogsAsRead = action != "toggle";
+		_textUISystem?.OnContentChange(markLogsAsRead);
 
 #if DEBUG_LOG
 		GD.Print($"[MetaActionHandler] Meta clicked: {metaString}");

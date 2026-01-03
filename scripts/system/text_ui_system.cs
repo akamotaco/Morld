@@ -36,8 +36,7 @@ namespace SE
 
 		// 행동 로그 시스템
 		private readonly List<ActionLogEntry> _actionLogs = new();
-		private const int MaxLogLength = 20;   // 최대 로그 보관 개수
-		private const int PrintCount = 5;      // 화면에 표시할 최근 로그 개수
+		private const int MaxLogLength = 50;   // 최대 로그 보관 개수
 
 		// Lazy update 플래그
 		private bool _needsUpdateDisplay = false;
@@ -118,13 +117,15 @@ namespace SE
 		/// 새로운 화면으로 전환되기 전에 현재 상태를 정리하는 역할
 		///
 		/// 포함 기능:
-		/// - 현재 표시된 로그 읽음 처리
+		/// - 현재 표시된 로그 읽음 처리 (markLogsAsRead=true일 때만)
 		/// - (향후) 기타 정리 작업 추가 가능
 		/// </summary>
-		public void OnContentChange()
+		/// <param name="markLogsAsRead">true면 로그 읽음 처리, false면 건너뜀 (토글 등 UI 상태만 변경 시)</param>
+		public void OnContentChange(bool markLogsAsRead = true)
 		{
-			// 1. 로그 읽음 처리 (Situation, Unit 화면에서만)
-			if (_stack.Current?.Type == FocusType.Situation || _stack.Current?.Type == FocusType.Unit)
+			// 1. 로그 읽음 처리 (Situation, Unit 화면에서만, markLogsAsRead=true일 때)
+			if (markLogsAsRead &&
+				(_stack.Current?.Type == FocusType.Situation || _stack.Current?.Type == FocusType.Unit))
 			{
 				MarkPrintedLogsAsRead();
 			}
@@ -160,13 +161,13 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 출력용 로그 엔트리 반환 (최근 PrintCount개)
+		/// 출력용 로그 엔트리 반환 (읽지 않은 것만)
 		/// </summary>
 		public IReadOnlyList<ActionLogEntry> GetPrintableLogs()
 		{
-			// 최근 PrintCount개만 반환
+			// 읽지 않은 로그만 반환
 			return _actionLogs
-				.TakeLast(PrintCount)
+				.Where(e => !e.IsRead)
 				.ToList();
 		}
 
@@ -182,13 +183,11 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 출력된 로그만 읽음 처리 (최근 PrintCount개)
+		/// 출력된 로그를 읽음 처리 (읽지 않은 것만)
 		/// </summary>
 		private void MarkPrintedLogsAsRead()
 		{
-			// 최근 PrintCount개만 읽음 처리
-			var printedLogs = _actionLogs.TakeLast(PrintCount);
-			foreach (var log in printedLogs)
+			foreach (var log in _actionLogs.Where(e => !e.IsRead))
 			{
 				log.IsRead = true;
 			}
