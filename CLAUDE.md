@@ -692,8 +692,27 @@ unit_info = morld.get_unit_info(unit_id)
 #     "location_id": 1,
 #     "activity": "식사",       # CurrentSchedule.Activity (없으면 None)
 #     "schedule_name": "일상",  # CurrentScheduleLayer.Name
-#     "is_moving": False
+#     "is_moving": False,
+#     "mood": ["기쁨"]          # 현재 감정 상태 리스트
 # }
+
+# 유닛 위치/상태 변경
+morld.set_unit_location(unit_id, region_id, location_id)  # 유닛 즉시 이동
+morld.set_unit_tags(unit_id, tags_dict)                   # 유닛 태그(스탯) 설정
+
+# 시간 관련
+morld.set_time(year, month, day, hour, minute=0)  # 게임 시간 설정
+morld.advance_time(minutes)                        # 시간 경과
+
+# 스케줄 관련
+morld.push_schedule(unit_id, name, end_type=None, end_param=None, schedule=None)
+
+# 데이터 초기화 (챕터 전환용)
+morld.clear_units()      # 모든 유닛 삭제
+morld.clear_items()      # 모든 아이템 정의 삭제
+morld.clear_inventory()  # 모든 인벤토리 데이터 삭제
+morld.clear_world()      # 지형(Terrain) 데이터 삭제
+morld.clear_all()        # 위 4개 모두 삭제
 ```
 
 **YesNo 다이얼로그 흐름:**

@@ -20,7 +20,8 @@ public partial class GameEngine : Node
 	// 시나리오 경로 (res:// 기준)
 	// private string _scenarioPath = "res://scenarios/scenario01/";
 	// private string _scenarioPath = "res://scenarios/scenario02/";
-	private string _scenarioPath = "res://scenarios/scenario03/";
+	// private string _scenarioPath = "res://scenarios/scenario03/";
+	private string _scenarioPath = "res://scenarios/scenario04/";
 	private string DataPath => _scenarioPath + "data/";
 
 	public override void _Ready()

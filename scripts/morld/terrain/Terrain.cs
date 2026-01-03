@@ -122,6 +122,19 @@ public class Terrain
     #endregion
 
     /// <summary>
+    /// Terrain 전체 초기화 (모든 Region, RegionEdge 제거)
+    /// </summary>
+    public void Clear()
+    {
+        _regions.Clear();
+        _regionEdges.Clear();
+        _regionEdgeIndex.Clear();
+        _changedRegions.Clear();
+        _isRegionEdgeChanged = false;
+        _nextRegionEdgeId = 0;
+    }
+
+    /// <summary>
     /// Region 추가
     /// </summary>
     /// <param name="regionId">Region 고유 ID</param>

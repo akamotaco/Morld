@@ -543,6 +543,23 @@ namespace SE
                     return PyBool.False;
                 });
 
+                morldModule.ModuleDict["advance_time"] = new PyBuiltinFunction("advance_time", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("advance_time(minutes) requires 1 argument");
+
+                    int minutes = args[0].ToInt();
+
+                    if (_worldSystem != null)
+                    {
+                        var time = _worldSystem.GetTime();
+                        time.AddMinutes(minutes);
+                        Godot.GD.Print($"[morld] advance_time: +{minutes} minutes");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
                 // === Item API (ItemSystem) ===
                 morldModule.ModuleDict["add_item_def"] = new PyBuiltinFunction("add_item_def", args =>
                 {
@@ -633,6 +650,29 @@ namespace SE
                     return PyBool.False;
                 });
 
+                morldModule.ModuleDict["set_unit_location"] = new PyBuiltinFunction("set_unit_location", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_unit_location(unit_id, region_id, location_id) requires 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int regionId = args[1].ToInt();
+                    int locationId = args[2].ToInt();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            unit.SetCurrentLocation(new Morld.LocationRef(regionId, locationId));
+                            unit.CurrentEdge = null;  // 이동 중이었다면 취소
+                            Godot.GD.Print($"[morld] set_unit_location: unit={unitId} -> {regionId}:{locationId}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
                 morldModule.ModuleDict["push_schedule"] = new PyBuiltinFunction("push_schedule", args =>
                 {
                     if (args.Length < 2)
@@ -680,6 +720,84 @@ namespace SE
                         }
                     }
                     return PyBool.False;
+                });
+
+                // === Clear API (챕터 전환용) ===
+                morldModule.ModuleDict["clear_units"] = new PyBuiltinFunction("clear_units", args =>
+                {
+                    if (_unitSystem != null)
+                    {
+                        _unitSystem.ClearUnits();
+                        Godot.GD.Print("[morld] clear_units: All units cleared");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["clear_items"] = new PyBuiltinFunction("clear_items", args =>
+                {
+                    if (_itemSystem != null)
+                    {
+                        _itemSystem.ClearItems();
+                        Godot.GD.Print("[morld] clear_items: All items cleared");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["clear_inventory"] = new PyBuiltinFunction("clear_inventory", args =>
+                {
+                    if (_inventorySystem != null)
+                    {
+                        _inventorySystem.ClearData();
+                        Godot.GD.Print("[morld] clear_inventory: All inventory data cleared");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["clear_world"] = new PyBuiltinFunction("clear_world", args =>
+                {
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        terrain.Clear();
+                        Godot.GD.Print("[morld] clear_world: Terrain cleared");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                morldModule.ModuleDict["clear_all"] = new PyBuiltinFunction("clear_all", args =>
+                {
+                    bool success = true;
+
+                    if (_worldSystem != null)
+                    {
+                        _worldSystem.GetTerrain().Clear();
+                    }
+                    else success = false;
+
+                    if (_unitSystem != null)
+                    {
+                        _unitSystem.ClearUnits();
+                    }
+                    else success = false;
+
+                    if (_itemSystem != null)
+                    {
+                        _itemSystem.ClearItems();
+                    }
+                    else success = false;
+
+                    if (_inventorySystem != null)
+                    {
+                        _inventorySystem.ClearData();
+                    }
+                    else success = false;
+
+                    Godot.GD.Print("[morld] clear_all: All game data cleared");
+                    return PyBool.FromBool(success);
                 });
 
                 // === 초기화 완료 플래그 ===
@@ -1013,7 +1131,7 @@ from characters.player.events import job_select, job_confirm
 
         /// <summary>
         /// Python 시나리오의 initialize_scenario() 함수 호출
-        /// morld API를 통해 게임 데이터를 직접 등록
+        /// __init__.py를 import하고 initialize_scenario() 실행
         /// </summary>
         public void CallInitializeScenario()
         {
@@ -1021,21 +1139,11 @@ from characters.player.events import job_select, job_confirm
 
             try
             {
-                // 현재 sys.path에 시나리오 python 폴더가 있으므로 직접 모듈 import
-                // __init__.py의 initialize_scenario() 내용을 직접 실행
+                // 시나리오 패키지를 import하고 initialize_scenario() 호출
+                // sys.path에 이미 시나리오 python 폴더가 추가되어 있음
                 var code = @"
-import world
-import items
-from characters import initialize_characters
-from objects import initialize_objects
-
-print('[scenario] Initializing scenario data via morld API...')
-world.initialize_world()
-world.initialize_time()
-items.initialize_items()
-initialize_characters()
-initialize_objects()
-print('[scenario] Scenario data initialization complete!')
+import __init__
+__init__.initialize_scenario()
 ";
                 Execute(code);
 
