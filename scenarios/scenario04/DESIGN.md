@@ -656,8 +656,62 @@ def handle_activity_change(unit_id, old_activity, new_activity, location):
 3. **오브젝트 상태 시스템** - `morld.set_object_state()`, `morld.get_object_state()`
 4. **OR 조건 지원** - EdgeConditionGroup 클래스
 
+### Behavior 기반 스케줄 (대안 설계)
+
+스케줄을 "어디서 뭘 한다"가 아니라 "언제 어떤 behavior를 실행한다"로 변경하는 방식.
+
+**현재 스케줄:**
+```python
+{"name": "수면", "regionId": 0, "locationId": 8, "start": 1290, "end": 300, "activity": "수면"}
+# 문제: 위치가 고정됨, 행동이 단순함
+```
+
+**Behavior 기반 스케줄:**
+```python
+{"name": "수면", "behavior": "sleep", "start": 1290, "end": 300}
+# behavior "sleep"이 알아서:
+# 1. 자기 방 찾기 (유닛별 정의)
+# 2. 이동
+# 3. 문 잠그기
+# 4. 전등 끄기
+# 5. 잠자기
+```
+
+**Behavior 구현 예시:**
+```python
+# behaviors/sleep.py
+def execute(unit):
+    """수면 behavior - 순차 실행"""
+    my_room = get_my_room(unit)  # 유닛별 "자기 방" 정의
+
+    if unit.current_location != my_room:
+        return move_to(unit, my_room)  # 이동 중이면 여기서 대기
+
+    door = get_door_at(my_room)
+    if door and not door.is_locked:
+        lock_door(door, unit)
+
+    light = get_light_at(my_room)
+    if light and light.is_on:
+        turn_off(light)
+
+    return "sleeping"  # 행동 완료, 대기 상태
+```
+
+**장점:**
+- **위치 유연성**: behavior가 상황에 맞게 위치 결정
+- **조건부 행동**: 문이 있으면 잠그고, 없으면 안 잠그고
+- **재사용성**: "sleep" behavior를 모든 NPC가 공유
+- **Behavior Tree 확장**: 복잡한 조건 분기 가능
+
+**고려사항:**
+- 기존 스케줄 시스템과 호환성
+- Behavior 실행 타이밍 (Step 단위? 실시간?)
+- 중단/재개 처리
+
 ### 향후 확장
 
 - 전등 상태에 따른 Location appearance 변경 ("불꺼진 방은 어둡다")
 - 잠긴 문 노크/대화 시스템
 - NPC가 능동적으로 문 열어주기 (호감도 기반)
+- Behavior Tree 시스템 (복잡한 NPC AI)
