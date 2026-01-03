@@ -709,9 +709,134 @@ def execute(unit):
 - Behavior 실행 타이밍 (Step 단위? 실시간?)
 - 중단/재개 처리
 
+### Python 기반 Agent 시스템 (대안 설계)
+
+AI(두뇌)와 Body(시뮬레이터)를 완전히 분리하는 설계.
+
+**핵심 아이디어:**
+- **Python**: NPC의 "생각" 담당 - 뭘 할지, 어디 갈지 결정
+- **C# (morld)**: NPC의 "몸" 담당 - 경로 계산, 이동 실행, 시간 진행
+
+**현재 구조 (C# 중심):**
+```
+[C# MovementSystem]
+    ↓ 스케줄에서 목표 추출
+    ↓ FindPath() 경로 계산
+    ↓ 이동 실행
+    ↓ 도착 시 다음 스케줄
+```
+
+**제안 구조 (Python Agent):**
+```
+[Python Agent]                    [C# Simulator]
+    │                                   │
+    ├─ "지금 뭘 할지 결정"               │
+    │   └─ 잠 잘 시간 → 방으로 가야지     │
+    │                                   │
+    ├─ morld.find_path(from, to) ──────→│ 경로 계산
+    │   ← 경로 반환                      │
+    │                                   │
+    ├─ morld.move_to(target) ──────────→│ 이동 명령
+    │                                   │ (스케줄 push)
+    │                                   │
+    │                                   ↓ 시뮬레이션 진행
+    │                                   │
+    │←── on_reach 이벤트 ───────────────│ 도착 알림
+    │                                   │
+    ├─ "도착했으니 문 잠그자"            │
+    │   └─ morld.lock_door(edge_id) ───→│ 문 잠금
+    │                                   │
+    └─ "이제 자자"                       │
+        └─ morld.wait(duration) ───────→│ 대기
+```
+
+**Python Agent 예시:**
+```python
+# agents/sera_agent.py
+class SeraAgent:
+    def __init__(self, unit_id):
+        self.unit_id = unit_id
+        self.state = "idle"
+        self.my_room = (0, 8)  # 세라 방
+
+    def think(self, current_time, current_location):
+        """매 Step마다 호출 - 다음 행동 결정"""
+        hour = current_time // 60
+
+        if 21 <= hour or hour < 6:  # 밤
+            if self.state != "sleeping":
+                return self.go_to_sleep(current_location)
+        elif 6 <= hour < 8:  # 아침
+            if self.state == "sleeping":
+                return self.wake_up(current_location)
+        # ... 더 많은 상황 처리
+
+    def go_to_sleep(self, current_location):
+        if current_location != self.my_room:
+            # 방으로 이동
+            path = morld.find_path(current_location, self.my_room, self.unit_id)
+            if path:
+                morld.move_unit(self.unit_id, self.my_room)
+                return "moving_to_room"
+        else:
+            # 방에 도착 → 문 잠그고 자기
+            door_edge = morld.get_door_edge(self.my_room)
+            if door_edge:
+                morld.lock_edge(door_edge)
+            morld.set_unit_activity(self.unit_id, "수면")
+            self.state = "sleeping"
+            return "sleeping"
+```
+
+**필요한 morld API 확장:**
+```python
+# 경로/이동
+morld.find_path(from_loc, to_loc, unit_id)  # 경로 반환
+morld.move_unit(unit_id, target_loc)         # 이동 명령 (스케줄 push)
+morld.get_unit_location(unit_id)             # 현재 위치
+
+# Edge/문
+morld.get_door_edge(location)               # 해당 위치의 문 Edge
+morld.lock_edge(edge_id)                    # 문 잠금
+morld.unlock_edge(edge_id)                  # 문 열기
+
+# 유닛 상태
+morld.set_unit_activity(unit_id, activity)  # 활동 설정
+morld.get_game_time()                       # 현재 시간
+
+# 대기
+morld.wait_unit(unit_id, duration)          # 대기 (시간만 진행)
+```
+
+**호출 시점:**
+```python
+# events.py
+def on_step(step_number):
+    """매 Step마다 호출"""
+    for agent in agents:
+        agent.think(morld.get_game_time(), morld.get_unit_location(agent.unit_id))
+```
+
+**장점:**
+- **로직 분리**: C#은 순수 시뮬레이터, Python이 모든 결정
+- **유연성**: 스케줄 없이도 동적 행동 가능
+- **디버깅**: Python 쪽에서 로그/테스트 용이
+- **확장성**: LLM 연동, 복잡한 AI 로직 구현 용이
+
+**단점:**
+- **성능**: Python ↔ C# 호출 오버헤드
+- **복잡성**: 기존 스케줄 시스템과 공존 필요
+- **동기화**: 여러 Agent 간 상호작용 처리
+
+**점진적 도입:**
+1. 특정 NPC만 Agent 방식 적용 (나머지는 기존 스케줄)
+2. 간단한 behavior부터 시작 (수면 → 식사 → 일과)
+3. 성공하면 점차 확대
+
 ### 향후 확장
 
 - 전등 상태에 따른 Location appearance 변경 ("불꺼진 방은 어둡다")
 - 잠긴 문 노크/대화 시스템
 - NPC가 능동적으로 문 열어주기 (호감도 기반)
 - Behavior Tree 시스템 (복잡한 NPC AI)
+- LLM 기반 NPC 대화/판단 (Python Agent와 연동)
