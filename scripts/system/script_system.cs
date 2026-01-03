@@ -658,8 +658,8 @@ namespace SE
                                     if (scheduleData.GetItem(i) is PyDict entry)
                                     {
                                         var entryName = GetPyDictString(entry, "name", "");
-                                        var entryRegion = GetPyDictInt(entry, "region_id", 0);
-                                        var entryLocation = GetPyDictInt(entry, "location_id", 0);
+                                        var entryRegion = GetPyDictInt(entry, "regionId", 0);
+                                        var entryLocation = GetPyDictInt(entry, "locationId", 0);
                                         var start = GetPyDictInt(entry, "start", 0);
                                         var end = GetPyDictInt(entry, "end", 0);
                                         var activity = GetPyDictString(entry, "activity", "");

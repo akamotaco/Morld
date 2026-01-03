@@ -13,6 +13,11 @@ def on_meet_player(player_id):
     if _flags.get("first_meet"):
         return None
 
+    # 수면 중이면 이벤트 발생하지 않음 (플래그도 설정 안함)
+    unit_info = morld.get_unit_info(CHARACTER_ID)
+    if unit_info and unit_info.get("activity") == "수면":
+        return None
+
     _flags["first_meet"] = True
     return {
         "type": "monologue",
