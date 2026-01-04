@@ -9,7 +9,7 @@ class FrontYard(Location):
     name = "앞마당"
     is_indoor = False
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "저택 앞에 펼쳐진 넓은 마당. 잘 가꿔진 정원이 있다.",
         "아침": "아침 이슬이 풀잎에 맺혀 반짝인다.",
         "낮": "햇살이 정원을 환하게 비춘다.",

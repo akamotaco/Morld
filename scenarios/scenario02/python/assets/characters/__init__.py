@@ -1,9 +1,9 @@
 # assets/characters/__init__.py - 캐릭터 Asset 모듈
 #
-# describe_text 시스템:
-#   - 각 캐릭터 클래스의 describe_text 속성 사용
-#   - get_describe_text(unit_id) 함수로 호출
-#   - C#에서 get_all_describe_texts() 호출
+# describe_text/focus_text 시스템:
+#   - describe_text: 장소에 있을 때 묘사 (get_describe_text)
+#   - focus_text: Focus 상태일 때 묘사 (get_focus_text)
+#   - C#에서 get_all_describe_texts() / get_focus_text() 호출
 
 from .player import Player
 from .lina import Lina
@@ -54,27 +54,28 @@ def get_all_describe_texts(unit_ids: list) -> list:
     return result
 
 
-# 이벤트 핸들러 (기존 호환성)
-def get_character_event_handler(unit_id: int):
-    """특정 캐릭터의 이벤트 핸들러 모듈 반환"""
-    from . import lina, sera, mila, yuki, ella
+def get_focus_text(unit_id: int) -> str:
+    """특정 캐릭터의 현재 상태에 맞는 focus text 반환 (C#에서 호출)"""
+    instance = _instances.get(unit_id)
+    if instance is None:
+        return ""
+    return instance.get_focus_text()
 
-    # unique_id로 매핑
+
+# 이벤트 핸들러 (인스턴스 메서드 방식)
+def get_character_event_handler(unit_id: int):
+    """특정 캐릭터의 이벤트 핸들러 (인스턴스) 반환
+
+    이제 캐릭터 인스턴스 자체가 이벤트 핸들러 역할을 함.
+    - on_meet_player(player_id) → 인스턴스 메서드
+    - npc_talk(player_id) → 인스턴스 메서드
+    """
     instance = _instances.get(unit_id)
     if instance is None:
         return None
 
-    unique_id = instance.unique_id
-    module_map = {
-        "lina": lina,
-        "sera": sera,
-        "mila": mila,
-        "yuki": yuki,
-        "ella": ella,
-    }
+    # Player는 이벤트 핸들러 없음
+    if instance.unique_id == "player":
+        return None
 
-    module = module_map.get(unique_id)
-    if module and hasattr(module, 'events'):
-        return module.events
-
-    return None
+    return instance

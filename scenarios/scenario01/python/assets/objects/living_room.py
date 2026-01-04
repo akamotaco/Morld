@@ -11,7 +11,7 @@ FIREPLACE = {
     "unique_id": "fireplace",
     "name": "벽난로",
     "actions": ["script:examine_fireplace:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "대리석 장식이 달린 오래된 벽난로다. 불을 피운 지 오래됐는지 재와 타다 남은 장작이 가득하다. 안쪽을 자세히 살펴보면 뭔가 있을지도..."
     },
     # 힌트만 제공 (숫자 3)
@@ -22,7 +22,7 @@ SOFA_CUSHION = {
     "unique_id": "sofa_cushion",
     "name": "소파 쿠션",
     "actions": ["script:examine_sofa:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "한때 고급스러웠을 붉은 벨벳 소파다. 쿠션 사이가 벌어져 있어 무언가가 끼어있을 것 같다."
     },
     "hidden_item": "note2",

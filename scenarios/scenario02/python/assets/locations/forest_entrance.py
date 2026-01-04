@@ -9,7 +9,7 @@ class ForestEntrance(Location):
     name = "숲 입구"
     is_indoor = False
     stay_duration = 5  # 숲 진입 시 지체 시간
-    appearance = {
+    describe_text = {
         "default": "저택으로 이어지는 숲길. 오래된 나무들이 늘어서 있다.",
         "아침": "아침 안개가 숲 입구를 감싸고 있다.",
         "낮": "햇살이 나뭇잎 사이로 쏟아진다.",

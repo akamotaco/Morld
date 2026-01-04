@@ -9,7 +9,7 @@ class GatheringSpot(Location):
     name = "채집터"
     is_indoor = False
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "야생 열매와 약초가 자라는 곳. 숲의 은혜를 느낄 수 있다.",
         "봄": "새싹이 돋아나고 있다.",
         "여름": "무성한 풀과 열매가 가득하다.",

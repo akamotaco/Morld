@@ -51,14 +51,20 @@ class BaseAgent:
             return None
         return morld.find_path(loc[0], loc[1], to_region, to_location, self.unit_id)
 
-    def set_route(self, path):
-        """경로 설정"""
-        if path:
-            morld.set_route(self.unit_id, path)
+    def fill_schedule_jobs_from(self, schedule):
+        """
+        Python에서 전달한 스케줄로 JobList 채우기
 
-    def clear_route(self):
-        """경로 초기화"""
-        morld.clear_route(self.unit_id)
+        Args:
+            schedule: 스케줄 리스트
+                [{"name": str, "region_id": int, "location_id": int,
+                  "start": int, "end": int, "activity": str}, ...]
+
+        Returns:
+            True 성공, False 실패
+        """
+        result = morld.fill_schedule_jobs_from(self.unit_id, schedule)
+        return result
 
     def think(self):
         """
@@ -67,31 +73,13 @@ class BaseAgent:
         Returns:
             None 또는 계획된 경로
         """
-        # 기본 구현: 스케줄 기반 이동
-        entry = self.get_schedule_entry()
-        if entry is None:
-            return None
-
-        loc = self.get_location()
-        if loc is None:
-            return None
-
-        # 이미 목적지에 있으면 스킵
-        if loc[0] == entry["region_id"] and loc[1] == entry["location_id"]:
-            return None
-
-        # 경로 탐색 및 설정
-        path = self.find_path(entry["region_id"], entry["location_id"])
-        if path:
-            self.set_route(path)
-
-        return path
+        # 서브클래스에서 fill_schedule_jobs_from(SCHEDULE) 호출
+        return None
 
 
 def register_agent(unit_id, agent):
     """Agent 등록"""
     _agents[unit_id] = agent
-    print(f"[think] Agent registered: unit_id={unit_id}, type={type(agent).__name__}")
 
 
 def unregister_agent(unit_id):

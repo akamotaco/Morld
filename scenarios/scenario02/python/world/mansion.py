@@ -27,7 +27,7 @@ REGION_ID = 0
 REGION = {
     "id": REGION_ID,
     "name": "숲속 저택",
-    "appearance": {"default": "깊은 숲 속에 자리한 저택과 그 주변이다."},
+    "describe_text": {"default": "깊은 숲 속에 자리한 저택과 그 주변이다."},
     "weather": "맑음"
 }
 
@@ -116,7 +116,7 @@ def initialize_terrain():
     r = REGION
 
     # Region 등록
-    morld.add_region(r["id"], r["name"], r["appearance"], r["weather"])
+    morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])
 
     # Location 인스턴스 생성 및 등록
     locations = {

@@ -1,12 +1,27 @@
-# events/player_creation.py - 캐릭터 생성 이벤트
+# events/scripts/player_creation.py - 캐릭터 생성 스크립트 함수
 #
-# 게임 시작 시 플레이어 이름/나이/체격/장비 선택 흐름
+# 게임 시작 시 플레이어 이름/나이/체격/장비 선택
 
 import morld
 from assets.characters.player import (
     NAME_OPTIONS, AGE_OPTIONS, BODY_OPTIONS, EQUIPMENT_OPTIONS
 )
 from assets import registry
+from assets.items.equipment import (
+    OldKnife, LeatherPouch, WritingTool, OldBook, SmallToolbox
+)
+
+# unique_id → 아이템 클래스 매핑
+_ITEM_CLASSES = {
+    "old_knife": OldKnife,
+    "leather_pouch": LeatherPouch,
+    "writing_tool": WritingTool,
+    "old_book": OldBook,
+    "small_toolbox": SmallToolbox,
+}
+
+# 아이템 ID 카운터 (동적 할당)
+_next_item_id = 100
 
 # 캐릭터 생성 임시 저장소
 _creation_data = {
@@ -22,6 +37,7 @@ def get_player_name():
     return _creation_data.get("name") or "???"
 
 
+@morld.register_script
 def set_name(context_unit_id, name):
     """이름 설정"""
     _creation_data["name"] = name
@@ -41,6 +57,7 @@ def set_name(context_unit_id, name):
     }
 
 
+@morld.register_script
 def set_age(context_unit_id, age_str):
     """나이 설정"""
     age = int(age_str)
@@ -61,6 +78,7 @@ def set_age(context_unit_id, age_str):
     }
 
 
+@morld.register_script
 def set_body(context_unit_id, body_type):
     """신체 설정"""
     _creation_data["body"] = body_type
@@ -80,6 +98,7 @@ def set_body(context_unit_id, body_type):
     }
 
 
+@morld.register_script
 def set_equipment(context_unit_id, equip_id):
     """장비 설정 및 캐릭터 생성 완료"""
     _creation_data["equipment"] = equip_id
@@ -98,11 +117,21 @@ def set_equipment(context_unit_id, equip_id):
     name_index = NAME_OPTIONS.index(_creation_data["name"]) if _creation_data["name"] in NAME_OPTIONS else 0
     morld.set_flag("player_name_index", name_index)
 
-    # 장비 지급 (unique_id 기반)
+    # 장비 지급 (선택한 아이템만 동적 생성)
+    global _next_item_id
     for opt in EQUIPMENT_OPTIONS:
         if opt["id"] == equip_id:
             for unique_id, count in opt["items"]:
+                # 아이템이 아직 instantiate 안되었으면 생성
                 item_id = registry.get_instance_id(unique_id)
+                if item_id is None:
+                    item_cls = _ITEM_CLASSES.get(unique_id)
+                    if item_cls:
+                        item = item_cls()
+                        item.instantiate(_next_item_id)
+                        item_id = _next_item_id
+                        _next_item_id += 1
+
                 if item_id is not None:
                     morld.give_item(player_id, item_id, count)
             break

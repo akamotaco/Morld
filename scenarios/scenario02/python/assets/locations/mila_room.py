@@ -9,7 +9,7 @@ class MilaRoom(Location):
     name = "밀라의 방"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "따뜻한 느낌의 방. 손수 만든 쿠션과 담요가 곳곳에 있다."
     }
 

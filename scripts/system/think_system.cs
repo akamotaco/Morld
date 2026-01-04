@@ -1,5 +1,3 @@
-#define DEBUG_LOG
-
 using System;
 using ECS;
 using Godot;
@@ -7,14 +5,15 @@ using Godot;
 namespace SE
 {
     /// <summary>
-    /// ThinkSystem - NPC AI 경로 계획
+    /// ThinkSystem - Python Agent 전용 AI 시스템
     ///
     /// 역할:
     /// - Python think.think_all() 함수 호출
-    /// - 각 NPC Agent가 경로를 계획 (PlannedRoute 설정)
-    /// - MovementSystem이 계획된 경로를 실행
+    /// - 각 NPC Agent가 JobList에 Job을 삽입
+    /// - JobBehaviorSystem이 Job을 실행
     ///
-    /// 실행 순서: ThinkSystem → MovementSystem → BehaviorSystem
+    /// 실행 순서: ThinkSystem → JobBehaviorSystem → EventSystem
+    /// (ThinkSystem이 먼저 JobList를 채우고, JobBehaviorSystem이 실행)
     /// </summary>
     public class ThinkSystem : ECS.System
     {
@@ -42,8 +41,8 @@ namespace SE
         /// </summary>
         protected override void Proc(int step, Span<Component[]> allComponents)
         {
-            // 시간 진행이 없으면 스킵
-            if (_playerSystem == null || _playerSystem.NextStepDuration <= 0)
+            // 시간 진행 대기 중이 아니면 스킵
+            if (_playerSystem == null || !_playerSystem.HasPendingTime)
                 return;
 
             // ScriptSystem이 없으면 스킵
@@ -55,16 +54,11 @@ namespace SE
             {
                 _checkedModule = true;
                 _thinkModuleAvailable = _scriptSystem.IsThinkModuleAvailable();
-#if DEBUG_LOG
-                if (_thinkModuleAvailable)
-                    GD.Print("[ThinkSystem] think module available");
-                else
-                    GD.Print("[ThinkSystem] think module not available, using schedule-based movement");
-#endif
             }
 
-            // think 모듈이 없으면 스킵 (스케줄 기반 이동으로 폴백)
-            if (!_thinkModuleAvailable) return;
+            // think 모듈이 없으면 스킵
+            if (!_thinkModuleAvailable)
+                return;
 
             // Python think_all() 호출
             try
@@ -75,19 +69,6 @@ namespace SE
             {
                 GD.PrintErr($"[ThinkSystem] Error calling think_all(): {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// 특정 유닛이 "대기" 스케줄 상태인지 확인
-        /// freeze된 유닛은 think() 스킵 대상
-        /// </summary>
-        public bool IsUnitFrozen(int unitId)
-        {
-            var unit = _unitSystem?.GetUnit(unitId);
-            if (unit == null) return false;
-
-            var layer = unit.CurrentScheduleLayer;
-            return layer?.EndConditionType == "대기";
         }
     }
 }

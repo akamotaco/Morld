@@ -11,7 +11,7 @@ FRONT_DOOR = {
     "unique_id": "front_door",
     "name": "정문",
     "actions": ["script:escape:열기"],
-    "appearance": {
+    "focus_text": {
         "default": "저택의 거대한 정문이다. 황금빛 자물쇠가 빛나고 있다. 이 문만 열면 자유다!"
     },
     "lock_key": "golden_key"

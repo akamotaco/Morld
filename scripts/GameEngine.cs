@@ -17,6 +17,7 @@ public partial class GameEngine : Node
 	private ScriptSystem _scriptSystem;
 	private EventSystem _eventSystem;
 	private ThinkSystem _thinkSystem;
+	private JobBehaviorSystem _jobBehaviorSystem;
 
 	// 시나리오 경로 (res:// 기준)11111
 	// private string _scenarioPath = "res://scenarios/scenario01/";
@@ -85,12 +86,13 @@ public partial class GameEngine : Node
 		this._world.AddSystem(new ItemSystem(), "itemSystem");
 		_inventorySystem = this._world.AddSystem(new InventorySystem(), "inventorySystem") as InventorySystem;
 
-		// Logic Systems (실행 순서: Think → Movement → Behavior)
+		// Logic Systems (실행 순서: Think → JobBehavior → Event)
 		this._world.AddSystem(new ActionSystem(), "actionSystem");
+
+		// ThinkSystem (JobBehaviorSystem 전에 실행: JobList 채우기)
 		_thinkSystem = this._world.AddSystem(new ThinkSystem(), "thinkSystem") as ThinkSystem;
-		this._world.AddSystem(new MovementSystem(), "movementSystem");
-		// EventSystem은 아래에서 별도 등록 (UI 시스템 이후)
-		this._world.AddSystem(new BehaviorSystem(), "behaviorSystem");
+
+		_jobBehaviorSystem = this._world.AddSystem(new JobBehaviorSystem(), "jobBehaviorSystem") as JobBehaviorSystem;
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
 

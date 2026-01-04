@@ -9,7 +9,7 @@
 import world
 import events
 
-from assets.characters import get_character_event_handler, get_all_presence_texts
+from assets.characters import get_character_event_handler
 
 
 def initialize_scenario():

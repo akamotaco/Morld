@@ -6,8 +6,9 @@ using SE;
 
 /// <summary>
 /// Unit (유닛) - 캐릭터와 오브젝트 통합
+/// Note: Unit은 Appearance를 사용하고, IDescribable(DescribeText)은 Region/Location용
 /// </summary>
-public class Unit : IDescribable
+public class Unit
 {
 	private readonly int _id;
 	private LocationRef _currentLocation;
@@ -45,16 +46,31 @@ public class Unit : IDescribable
 	public ScheduleEntry? CurrentSchedule => _currentSchedule;
 
 	/// <summary>
-	/// 스케줄 스택 (LIFO)
+	/// 스케줄 스택 (LIFO) - Legacy, JobList로 대체 예정
 	/// 최상위 레이어가 현재 활성 스케줄
 	/// </summary>
 	public Stack<ScheduleLayer> ScheduleStack { get; private set; } = new();
 
 	/// <summary>
-	/// 현재 활성 스케줄 레이어 (스택 최상위)
+	/// 현재 활성 스케줄 레이어 (스택 최상위) - Legacy
 	/// </summary>
 	public ScheduleLayer? CurrentScheduleLayer =>
 		ScheduleStack.Count > 0 ? ScheduleStack.Peek() : null;
+
+	/// <summary>
+	/// 기본 스케줄 (DailySchedule) - JobList 채우기용
+	/// </summary>
+	public DailySchedule? BaseSchedule { get; set; }
+
+	/// <summary>
+	/// Job 목록 (시간 기반 선형 리스트)
+	/// </summary>
+	public JobList JobList { get; private set; } = new();
+
+	/// <summary>
+	/// 현재 Job
+	/// </summary>
+	public Job? CurrentJob => JobList.Current;
 
 	/// <summary>
 	/// 이동 조건 (태그)
@@ -96,8 +112,9 @@ public class Unit : IDescribable
 	public List<string> Actions { get; set; } = new();
 
 	/// <summary>
-	/// 상황별 외관 묘사 텍스트 (IDescribable)
+	/// 상황별 외관 묘사 텍스트 (감정/Activity 기반)
 	/// 감정/표정 태그 기반: "default", "기쁨", "슬픔", "분노", "긴장" 등
+	/// Python에서는 focus_text로 대체됨
 	/// </summary>
 	public Dictionary<string, string> Appearance { get; set; } = new();
 
@@ -125,7 +142,7 @@ public class Unit : IDescribable
 
 	/// <summary>
 	/// Python Agent가 계획한 이동 경로
-	/// ThinkSystem에서 설정, MovementSystem에서 실행
+	/// ThinkSystem에서 설정, JobBehaviorSystem에서 실행
 	/// </summary>
 	public List<LocationRef> PlannedRoute { get; set; } = new();
 
@@ -187,7 +204,7 @@ public class Unit : IDescribable
 	}
 
 	/// <summary>
-	/// 현재 위치 설정 (MovementSystem에서 사용)
+	/// 현재 위치 설정 (JobBehaviorSystem에서 사용)
 	/// </summary>
 	public void SetCurrentLocation(LocationRef location)
 	{
@@ -233,6 +250,47 @@ public class Unit : IDescribable
 	public void ClearScheduleStack()
 	{
 		ScheduleStack.Clear();
+	}
+
+	/// <summary>
+	/// JobList Clear 후 삽입 (기존 job 모두 제거 후 새 job 추가)
+	/// 플레이어처럼 스케줄이 없는 유닛용
+	/// </summary>
+	public void InsertJobWithClear(Job job)
+	{
+		JobList.InsertWithClear(job);
+	}
+
+	/// <summary>
+	/// JobList에 Override Job 삽입 (기존 job 잘라내고 끼워넣기)
+	/// </summary>
+	public void InsertJobOverride(Job job)
+	{
+		JobList.InsertOverride(job);
+	}
+
+	/// <summary>
+	/// JobList에 Merge Job 삽입 (기존 job 우선, 빈 공간에 끼워넣기)
+	/// </summary>
+	public void InsertJobMerge(Job job)
+	{
+		JobList.InsertMerge(job);
+	}
+
+	/// <summary>
+	/// JobList 시간 경과 처리
+	/// </summary>
+	public void AdvanceJobs(int minutes)
+	{
+		JobList.Advance(minutes);
+	}
+
+	/// <summary>
+	/// BaseSchedule로부터 JobList 채우기
+	/// </summary>
+	public void FillJobsFromSchedule(int currentTimeOfDay, int lookAheadMinutes = 1440)
+	{
+		JobList.FillFromSchedule(BaseSchedule, currentTimeOfDay, lookAheadMinutes);
 	}
 
 	/// <summary>

@@ -29,9 +29,9 @@ public class Location : IEquatable<Location>, IDescribable
     public object? Tag { get; set; }
 
     /// <summary>
-    /// 상황별 외관 묘사 텍스트 (IDescribable)
+    /// 장소 묘사 텍스트 (IDescribable)
     /// </summary>
-    public Dictionary<string, string> Appearance { get; set; } = new();
+    public Dictionary<string, string> DescribeText { get; set; } = new();
 
     /// <summary>
     /// 경유 시 지체 시간 (분)

@@ -11,7 +11,7 @@ BROKEN_STEP = {
     "unique_id": "broken_step",
     "name": "부서진 계단",
     "actions": ["script:examine_step:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "계단 중간에 부서진 단이 있다. 틈새로 무언가가 보이는 것 같기도 하다..."
     }
 }
@@ -20,7 +20,7 @@ STAIR_WINDOW = {
     "unique_id": "stair_window",
     "name": "창문",
     "actions": ["script:examine_window:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "계단 옆에 달린 창문이다. 두꺼운 커튼으로 가려져 있다. 밖으로 나갈 수 있을까?"
     }
 }

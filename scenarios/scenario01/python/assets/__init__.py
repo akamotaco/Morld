@@ -132,7 +132,6 @@ class AssetRegistry:
             location_id,
             "object",
             asset.get("actions", []),
-            asset.get("appearance", {}),
             []  # mood
         )
 
@@ -157,7 +156,6 @@ class AssetRegistry:
             location_id,
             asset.get("type", "male"),
             asset.get("actions", []),
-            asset.get("appearance", {}),
             asset.get("mood", [])
         )
 

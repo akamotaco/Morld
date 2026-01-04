@@ -12,7 +12,7 @@ namespace SE
     /// - 각 Region이 시간에 따라 날씨를 변경하도록 함
     ///
     /// 실행 순서:
-    /// MovementSystem → EventSystem → WeatherSystem → ThinkSystem → BehaviorSystem
+    /// JobBehaviorSystem → EventSystem → WeatherSystem → ThinkSystem
     /// </summary>
     public class WeatherSystem : ECS.System
     {

@@ -9,7 +9,7 @@ class LinaRoom(Location):
     name = "리나의 방"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "밝고 활기찬 분위기의 방. 창가에 작은 화분이 놓여 있다."
     }
 

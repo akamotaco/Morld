@@ -13,7 +13,7 @@ PLAYER = {
     "type": "male",
     "tags": {},
     "actions": [],
-    "appearance": {},
+    "focus_text": {},
     "mood": []
 }
 

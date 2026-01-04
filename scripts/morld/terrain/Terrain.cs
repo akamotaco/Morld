@@ -871,12 +871,12 @@ public class Terrain
         {
             var region = new Region(regionData.Id, regionData.Name);
 
-            // Region Appearance 복사
-            if (regionData.Appearance != null)
+            // Region DescribeText 복사
+            if (regionData.DescribeText != null)
             {
-                foreach (var (key, value) in regionData.Appearance)
+                foreach (var (key, value) in regionData.DescribeText)
                 {
-                    region.Appearance[key] = value;
+                    region.DescribeText[key] = value;
                 }
             }
 
@@ -888,12 +888,12 @@ public class Terrain
             {
                 var location = region.AddLocation(locData.Id, locData.Name);
 
-                // Location Appearance 복사
-                if (locData.Appearance != null)
+                // Location DescribeText 복사
+                if (locData.DescribeText != null)
                 {
-                    foreach (var (key, value) in locData.Appearance)
+                    foreach (var (key, value) in locData.DescribeText)
                     {
-                        location.Appearance[key] = value;
+                        location.DescribeText[key] = value;
                     }
                 }
 
@@ -1012,9 +1012,9 @@ public class Terrain
                 Weather = region.CurrentWeather
             };
 
-            // Region Appearance 내보내기
-            if (region.Appearance.Count > 0)
-                regionData.Appearance = new Dictionary<string, string>(region.Appearance);
+            // Region DescribeText 내보내기
+            if (region.DescribeText.Count > 0)
+                regionData.DescribeText = new Dictionary<string, string>(region.DescribeText);
 
             // Location 내보내기
             foreach (var location in region.Locations.OrderBy(l => l.LocalId))
@@ -1027,9 +1027,9 @@ public class Terrain
                     Indoor = location.IsIndoor
                 };
 
-                // Appearance 내보내기
-                if (location.Appearance.Count > 0)
-                    locationData.Appearance = new Dictionary<string, string>(location.Appearance);
+                // DescribeText 내보내기
+                if (location.DescribeText.Count > 0)
+                    locationData.DescribeText = new Dictionary<string, string>(location.DescribeText);
 
                 // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
 

@@ -191,7 +191,7 @@ Terrain
 │     ├─ IsIndoor (bool - 실내 여부, 기본값 true)
 │     ├─ StayDuration (int - 경유 시 지체 시간, 분)
 │     ├─ Edge[] (장소 간 연결 및 이동 시간)
-│     └─ Appearance (Dictionary<string, string> - 시간/날씨/실내 태그 기반 외관 묘사)
+│     └─ DescribeText (Dictionary<string, string> - 시간/날씨/실내 태그 기반 장소 묘사)
 ├─ RegionEdge[] (지역 간 연결)
 └─ FindPath(from, to, character?, itemSystem?) (경로 탐색)
 
@@ -214,8 +214,8 @@ GameTime (시간 관리)
 **주요 기능:**
 - 유닛 생성/삭제/조회
 - Dictionary<int, Unit> 기반 O(1) 조회
-- 유닛 위치, 스케줄 스택, CurrentEdge, Appearance 관리
-- JSON 기반 Import/Export (ScheduleStack, CurrentEdge, Appearance, Mood 포함)
+- 유닛 위치, 스케줄 스택, CurrentEdge 관리
+- JSON 기반 Import/Export (ScheduleStack, CurrentEdge, Mood 포함)
 - 인벤토리는 InventorySystem에서 별도 관리
 
 **데이터 구조:**
@@ -232,7 +232,7 @@ Unit
 ├─ PushSchedule(layer) / PopSchedule() (스케줄 스택 조작)
 ├─ TraversalContext (기본 태그/스탯)
 ├─ Actions (List<string> - 가능한 행동: "talk", "trade", "use" 등)
-├─ Appearance (Dictionary<string, string> - 상황별 외관 묘사)
+├─ Appearance (Dictionary<string, string> - 상황별 외관 묘사, Python에서는 focus_text로 대체)
 ├─ Mood (HashSet<string> - 현재 감정 상태: "기쁨", "슬픔" 등)
 ├─ GetActualTags(ItemSystem) (아이템 효과 반영된 최종 태그)
 ├─ CanPass(conditions, ItemSystem) (조건 충족 여부)
@@ -472,24 +472,24 @@ PutToUnit(unitId, itemId, count)     // 유닛에 아이템 넣기 (바닥 포�
 **역할:** 묘사 텍스트 생성 (시간/상태 기반 키 선택)
 
 **주요 기능:**
-- `GetLocationAppearance(location, time)` - Location 외관 묘사 반환 (시간 태그 기반)
-- `GetRegionAppearance(region, time)` - Region 외관 묘사 반환 (시간 태그 기반)
-- `GetUnitAppearance(unit)` - Unit 외관 묘사 반환 (Mood + Activity 기반)
+- `GetLocationDescribeText(location, time)` - Location 묘사 텍스트 반환 (시간 태그 기반)
+- `GetRegionDescribeText(region, time)` - Region 묘사 텍스트 반환 (시간 태그 기반)
+- `GetUnitAppearance(unit)` - Unit 외관 묘사 반환 (Mood + Activity 기반, Python에서는 focus_text)
 - `GetSituationText(lookResult, time)` - BBCode 포함 상황 텍스트 생성 (캐릭터 presence text 포함)
 - `GetUnitLookText(unitLook, unit)` - 유닛 살펴보기 텍스트 생성
 
-**외관 묘사 선택 알고리즘 (SelectAppearance):**
-- Appearance 딕셔너리에서 키를 쉼표로 분리하여 태그 집합으로 처리
+**묘사 텍스트 선택 알고리즘 (SelectDescribeText):**
+- DescribeText 딕셔너리에서 키를 쉼표로 분리하여 태그 집합으로 처리
 - 현재 태그와 가장 많이 일치하는 키 선택 (best-match)
 - 일치하는 키가 없으면 "default" 사용
 
-**Location/Region 외관 태그 시스템:**
+**Location/Region 묘사 태그 시스템:**
 - 시간 태그: GameTime.GetCurrentTags() 반환값 (예: "아침", "저녁", "밤")
 - 날씨 태그: 실외일 때만 `날씨:{Region.CurrentWeather}` 추가 (예: "날씨:비", "날씨:눈")
 - 실내 태그: Location.IsIndoor가 true면 "실내" 태그 추가, false면 "실외" 태그 추가
 
 ```csharp
-// GetLocationAppearance 태그 구성
+// GetLocationDescribeText 태그 구성
 var tags = new HashSet<string>(time.GetCurrentTags());
 if (location.IsIndoor)
     tags.Add("실내");
@@ -501,7 +501,7 @@ else
 }
 ```
 
-**Location Appearance 키 예시:**
+**Location DescribeText 키 예시:**
 ```json
 {
     "default": "숲 속 오솔길이다.",
@@ -557,7 +557,7 @@ PRESENCE_TEXT = {
 - 게임 내 행동 결과를 화면에 표시 (예: "녹슨 열쇠를 사용했다", "자물쇠를 열었다")
 - 최대 20개 보관, 최근 5개만 화면에 표시
 - 표시된 로그는 플레이어 다음 액션 시 "[읽음]" 처리 (`OnContentChange()`)
-- appearance 다음, 유닛/액션 목록 전에 노란색으로 렌더링
+- 장소 묘사 다음, 유닛/액션 목록 전에 노란색으로 렌더링
 - `morld.add_action_log()` 또는 `morld.lost_item()` 호출 시 자동 추가
 
 **OnContentChange 훅:**
@@ -675,18 +675,19 @@ public class Focus
     "cancel_callback": None  # None이면 단순 Pop (이전 화면으로)
 }
 
-# freeze_others (선택적) - NPC 이동 중단
+# party (선택적) - 지정된 NPC가 플레이어를 따라다님
 {
     "type": "monologue",
     "pages": ["30분 동안 대화를 나눴다."],
     "time_consumed": 30,
     "button_type": "ok",
-    "freeze_others": True  # 같은 위치의 NPC들 이동 중단 (CurrentEdge = null)
+    "party": [2]  # 유닛 ID 2번이 time_consumed 동안 플레이어를 따라다님
 }
-# freeze_others 설명:
-# - True: 이벤트 발생 시 플레이어와 같은 위치의 NPC들이 떠나지 않음
-# - 이동 계획(CurrentEdge)만 초기화, 다음 플레이어 행동 시 다시 경로 계산
+# party 설명:
+# - 지정된 유닛들에게 "따라가기" 스케줄 push
+# - time_consumed 동안 플레이어를 따라다니다가 자동으로 원래 스케줄로 복귀
 # - 긴 대화 이벤트에서 NPC가 눈앞에서 사라지는 것을 방지
+# - 향후 데이트/전투 파티 등 확장 가능
 
 # 메시지 결과
 {
@@ -919,26 +920,27 @@ DetectMeetings() - Step 종료 후 호출
   2. **이동 시작**: CurrentEdge가 null → not null로 전환 (출발)
 - 이동 시작 감지가 필요한 이유: Look 결과에서 이동 중인 유닛(CurrentEdge != null)은 제외되어 화면에서 사라지므로
 
-**freeze_others 옵션:**
-모놀로그의 `freeze_others: True`로 같은 위치의 NPC를 `time_consumed` 동안 고정:
+**party 옵션:**
+모놀로그의 `party: [unit_id]`로 지정된 NPC가 `time_consumed` 동안 플레이어를 따라다님:
 
 ```python
-# on_meet_player에서 freeze_others 사용
+# on_meet_player에서 party 사용
 return {
     "type": "monologue",
     "pages": ["대화 내용..."],
     "time_consumed": 2,
     "button_type": "ok",
-    "freeze_others": True  # 대화 중 NPC들이 떠나지 않도록
+    "party": [self.instance_id]  # 대화 중 해당 NPC가 플레이어를 따라다님
 }
 ```
 
-**FreezeUnitsAtPlayerLocation 동작:**
-- 같은 위치의 모든 NPC에 대해:
+**AddUnitsToParty 동작:**
+- 지정된 유닛들에 대해:
   - CurrentEdge = null (이동 중단)
   - RemainingStayTime = 0 (체류 시간 초기화)
-  - "대기" 스케줄 push (RemainingLifetime = time_consumed)
-- time_consumed 분이 경과하면 "대기" 스케줄 자동 pop → 원래 스케줄로 복귀
+  - 플레이어 위치로 즉시 이동
+  - "따라가기" 스케줄 push (EndConditionType="따라가기", RemainingLifetime = time_consumed)
+- time_consumed 분이 경과하면 자동 pop → 원래 스케줄로 복귀
 
 **호출 흐름:**
 ```
@@ -1039,7 +1041,7 @@ def handle_player_meet(player_id, unit_ids):
       "id": 0,
       "name": "마을",
       "currentWeather": "맑음",
-      "appearance": {
+      "describeText": {
         "default": "평화로운 마을입니다."
       },
       "locations": [
@@ -1048,7 +1050,7 @@ def handle_player_meet(player_id, unit_ids):
           "name": "광장",
           "isIndoor": false,
           "stayDuration": 5,
-          "appearance": {
+          "describeText": {
             "default": "마을 중심의 광장입니다.",
             "아침": "상인들이 가판대를 펼치고 있습니다.",
             "저녁": "노을빛에 물든 광장이 아름답다.",
@@ -1059,7 +1061,7 @@ def handle_player_meet(player_id, unit_ids):
           "id": 1,
           "name": "여관",
           "isIndoor": true,
-          "appearance": {
+          "describeText": {
             "default": "아늑한 여관 내부다.",
             "실내": "따뜻한 난로 불빛이 반긴다."
           }
@@ -1083,13 +1085,13 @@ def handle_player_meet(player_id, unit_ids):
 ```
 
 **Region 필드:**
-- `currentWeather`: 현재 날씨 (예: "맑음", "비", "눈"), 실외 장소의 appearance 선택에 영향
+- `currentWeather`: 현재 날씨 (예: "맑음", "비", "눈"), 실외 장소의 describeText 선택에 영향
 
 **Location 필드:**
-- `isIndoor`: 실내 여부 (기본값 true). false면 날씨 태그가 appearance 선택에 반영됨
+- `isIndoor`: 실내 여부 (기본값 true). false면 날씨 태그가 describeText 선택에 반영됨
 - `stayDuration`: 경유 시 지체 시간 (분), 기본값 0. 지역이 험하거나 넓어서 통과하는데 시간 소요
 
-**Location/Region appearance 키 규칙:**
+**Location/Region describeText 키 규칙:**
 - `"default"`: 기본 묘사
 - `"아침"`, `"저녁"` 등: 시간대 태그 (GameTime.GetCurrentTags())
 - `"실내"`, `"실외"`: Location.IsIndoor 기반 태그
@@ -1161,11 +1163,12 @@ def handle_player_meet(player_id, unit_ids):
 ]
 ```
 
-**Unit appearance 키 규칙:**
+**Unit appearance 키 규칙 (JSON 모드):**
 - `"default"`: 기본 묘사 (일치하는 태그가 없을 때)
 - `"기쁨"`, `"슬픔"` 등: 단일 Mood 태그
 - `"식사"`, `"수면"` 등: Activity 태그 (CurrentSchedule.Activity)
 - `"기쁨,긴장"`: 복합 태그 (쉼표로 구분, 순서 무관)
+- **Python 모드:** Unit의 appearance는 focus_text로 대체됨 (Python Asset 클래스에서 처리)
 
 **참고:** 스택은 배열의 마지막 요소가 최상위 (Peek)
 

@@ -9,6 +9,27 @@ from assets.base import Character
 from think import BaseAgent, register_agent_class
 
 
+# ========================================
+# 대화 데이터
+# ========================================
+
+DIALOGUES = {
+    "default": {"pages": ["......", "...할 말이 있으면 빨리."]},
+    "식사": {"pages": ["(조용히 먹고 있다)", "...뭔가?"]},
+    "수면": {"pages": ["(자고 있다)", "...zzZ"]},
+    "사냥": {"pages": ["...조용히 해.", "사냥감이 달아나잖아."]},
+    "정비": {"pages": ["...활을 손보는 중이다.", "나중에 와라."]},
+    "준비": {"pages": ["...지금 준비 중이다.", "..."]},
+}
+
+
+def _get_dialogue(activity):
+    """activity에 맞는 대화 반환"""
+    if activity and activity in DIALOGUES:
+        return DIALOGUES[activity]
+    return DIALOGUES["default"]
+
+
 class Sera(Character):
     unique_id = "sera"
     name = "세라"
@@ -20,35 +41,17 @@ class Sera(Character):
         "피로": 0, "기분": 5,
     }
     actions = ["script:npc_talk:대화"]
-    appearance = {
-        "default": "긴 흑발을 묶은 과묵한 여성. 날카로운 갈색 눈이 인상적이다.",
-        "기쁨": "표정 변화는 적지만, 눈가가 부드러워졌다.",
-        "슬픔": "평소보다 더 말이 없다. 어딘가 먼 곳을 보고 있다.",
-        "식사": "조용히 음식을 먹고 있다.",
-        "수면": "경계심 없이 잠들어 있다.",
-        "사냥": "활을 들고 날카로운 눈으로 주변을 살핀다."
-    }
     mood = []
-    schedule_stack = [
-        {
-            "name": "일상",
-            "schedule": [
-                {"name": "기상", "regionId": 0, "locationId": 8, "start": 300, "end": 360, "activity": "준비"},
-                {"name": "아침식사", "regionId": 0, "locationId": 3, "start": 420, "end": 450, "activity": "식사"},
-                {"name": "사냥", "regionId": 0, "locationId": 24, "start": 480, "end": 720, "activity": "사냥"},
-                {"name": "점심식사", "regionId": 0, "locationId": 3, "start": 720, "end": 780, "activity": "식사"},
-                {"name": "사냥", "regionId": 0, "locationId": 24, "start": 840, "end": 1080, "activity": "사냥"},
-                {"name": "저녁식사", "regionId": 0, "locationId": 3, "start": 1110, "end": 1170, "activity": "식사"},
-                {"name": "장비정비", "regionId": 0, "locationId": 8, "start": 1200, "end": 1290, "activity": "정비"},
-                {"name": "수면", "regionId": 0, "locationId": 8, "start": 1290, "end": 300, "activity": "수면"}
-            ],
-            "endConditionType": None,
-            "endConditionParam": None
-        }
-    ]
+
+    # 이벤트 플래그 (인스턴스별)
+    _event_flags: dict
+
+    def __init__(self):
+        super().__init__()
+        self._event_flags = {}
 
     def get_describe_text(self) -> str:
-        """세라의 현재 상태에 맞는 묘사 텍스트 반환"""
+        """세라의 현재 상태에 맞는 묘사 텍스트 반환 (장소에 있을 때)"""
         import morld
 
         info = morld.get_unit_info(self.instance_id)
@@ -79,53 +82,50 @@ class Sera(Character):
         # 기본
         return f"{name}가 과묵하게 서 있다."
 
+    def get_focus_text(self) -> str:
+        """세라의 현재 상태에 맞는 묘사 텍스트 반환 (클릭했을 때)"""
+        import morld
 
-# ========================================
-# 대화 데이터
-# ========================================
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return ""
 
-DIALOGUES = {
-    "default": {"pages": ["......", "...할 말이 있으면 빨리."]},
-    "식사": {"pages": ["(조용히 먹고 있다)", "...뭔가?"]},
-    "수면": {"pages": ["(자고 있다)", "...zzZ"]},
-    "사냥": {"pages": ["...조용히 해.", "사냥감이 달아나잖아."]},
-    "정비": {"pages": ["...활을 손보는 중이다.", "나중에 와라."]},
-    "준비": {"pages": ["...지금 준비 중이다.", "..."]},
-}
+        activity = info.get("activity")
+        mood_list = info.get("mood", [])
 
+        # activity 기반
+        if activity == "사냥":
+            return "활을 들고 날카로운 눈으로 주변을 살핀다."
+        if activity == "식사":
+            return "조용히 음식을 먹고 있다."
+        if activity == "수면":
+            return "경계심 없이 잠들어 있다."
 
-def _get_dialogue(activity):
-    """activity에 맞는 대화 반환"""
-    if activity and activity in DIALOGUES:
-        return DIALOGUES[activity]
-    return DIALOGUES["default"]
+        # mood 기반
+        if "기쁨" in mood_list:
+            return "표정 변화는 적지만, 눈가가 부드러워졌다."
+        if "슬픔" in mood_list:
+            return "평소보다 더 말이 없다. 어딘가 먼 곳을 보고 있다."
 
+        # 기본
+        return "긴 흑발을 묶은 과묵한 여성. 날카로운 갈색 눈이 인상적이다."
 
-# ========================================
-# 이벤트 모듈
-# ========================================
+    # ========================================
+    # 이벤트 핸들러
+    # ========================================
 
-class events:
-    _flags = {}
-
-    @staticmethod
-    def on_meet_player(player_id):
+    def on_meet_player(self, player_id):
         """플레이어와 처음 만났을 때"""
         import morld
-        from assets import get_instance_id
 
-        if events._flags.get("first_meet"):
+        if self._event_flags.get("first_meet"):
             return None
 
-        unit_id = get_instance_id("sera")
-        if unit_id is None:
-            return None
-
-        unit_info = morld.get_unit_info(unit_id)
+        unit_info = morld.get_unit_info(self.instance_id)
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
-        events._flags["first_meet"] = True
+        self._event_flags["first_meet"] = True
         return {
             "type": "monologue",
             "pages": [
@@ -136,22 +136,21 @@ class events:
             ],
             "time_consumed": 2,
             "button_type": "ok",
-            "freeze_others": True
+            "npc_jobs": {self.instance_id: {"action": "follow", "duration": 2}}
         }
 
-    @staticmethod
-    def npc_talk(context_unit_id):
+    def npc_talk(self, player_id):
         """대화"""
         import morld
 
-        unit_info = morld.get_unit_info(context_unit_id)
+        unit_info = morld.get_unit_info(self.instance_id)
         if unit_info is None:
             return None
 
         activity = unit_info.get("activity")
         dialogue = _get_dialogue(activity)
 
-        name = unit_info.get("name", "세라")
+        name = unit_info.get("name", self.name)
         pages = [f"[{name}]"] + dialogue["pages"]
 
         return {
@@ -177,27 +176,22 @@ class SeraAgent(BaseAgent):
     - 플레이어에게 무관심하지만 위험시 보호
     """
 
+    SCHEDULE = [
+        {"name": "기상", "region_id": 0, "location_id": 8, "start": 300, "end": 360, "activity": "준비"},
+        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 450, "activity": "식사"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 480, "end": 720, "activity": "사냥"},
+        {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 840, "end": 1080, "activity": "사냥"},
+        {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
+        {"name": "장비정비", "region_id": 0, "location_id": 8, "start": 1200, "end": 1290, "activity": "정비"},
+        {"name": "수면", "region_id": 0, "location_id": 8, "start": 1290, "end": 300, "activity": "수면"},
+    ]
+
     def think(self):
-        """세라의 행동 결정"""
-        info = self.get_info()
-        if info is None:
-            return None
+        """세라의 행동 결정 - 스케줄 기반 Job 채우기"""
+        # 커스텀 로직이 필요하면 여기에 추가
+        # 예: 플레이어가 위험하면 보호하러 가기
 
-        entry = self.get_schedule_entry()
-        if entry is None:
-            return None
-
-        loc = self.get_location()
-        if loc is None:
-            return None
-
-        target_region = entry["region_id"]
-        target_loc = entry["location_id"]
-        if loc[0] == target_region and loc[1] == target_loc:
-            return None
-
-        path = self.find_path(target_region, target_loc)
-        if path:
-            self.set_route(path)
-
-        return path
+        # 스케줄 기반으로 JobList 채우기
+        self.fill_schedule_jobs_from(self.SCHEDULE)
+        return None

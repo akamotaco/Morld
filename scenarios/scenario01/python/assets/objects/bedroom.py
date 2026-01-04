@@ -11,7 +11,7 @@ BED_UNDER = {
     "unique_id": "bed_under",
     "name": "침대 밑",
     "actions": ["script:examine_bed:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "헤진 시트가 덮인 낡은 침대다. 침대 밑 어둠 속에 무언가가 있는 것 같다. 손을 넣어봐야 할 것 같다."
     },
     "hidden_items": ["diary", "old_letter"],
@@ -22,7 +22,7 @@ VANITY_DRAWER = {
     "unique_id": "vanity_drawer",
     "name": "화장대 서랍",
     "actions": ["script:open_vanity_drawer:열기"],
-    "appearance": {
+    "focus_text": {
         "default": "화장대에 달린 작은 서랍이다. 4자리 숫자 잠금장치가 달려있다. 누군가 소중한 것을 숨겨둔 것 같다.",
         "unlocked": "열린 서랍이다. 화장품과 먼지만 남아있다."
     },

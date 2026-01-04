@@ -263,10 +263,10 @@ namespace SE
 				case "monologue":
 					if (result is MonologueScriptResult monoResult)
 					{
-						// freeze_others: 플레이어와 같은 위치의 유닛들에게 대기 스케줄 push
-						if (monoResult.FreezeOthers && monoResult.TimeConsumed > 0)
+						// npc_jobs: 지정된 유닛들에게 Job 적용
+						if (monoResult.NpcJobs.Count > 0)
 						{
-							FreezeUnitsAtPlayerLocation(monoResult.TimeConsumed);
+							ApplyNpcJobs(monoResult.NpcJobs);
 						}
 
 						// 모놀로그 아래에 Situation이 있어야 Pop 후 정상 동작
@@ -282,9 +282,6 @@ namespace SE
 							monoResult.ButtonType,
 							monoResult.DoneCallback,
 							monoResult.CancelCallback);
-#if DEBUG_LOG
-						GD.Print($"[EventSystem] Showing monologue ({monoResult.Pages.Count} pages, freeze={monoResult.FreezeOthers})");
-#endif
 						return true;
 					}
 					break;
@@ -294,55 +291,36 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 플레이어와 같은 위치에 있는 유닛들에게 대기 스케줄 push
-		/// time_consumed 동안 이동하지 않고 해당 위치에 머무름
+		/// 지정된 유닛들에게 Job 적용
+		/// JobList 맨 앞에 Job을 삽입하여 즉시 실행되도록 함
 		/// </summary>
-		/// <param name="duration">대기 시간 (분)</param>
-		private void FreezeUnitsAtPlayerLocation(int duration)
+		/// <param name="npcJobs">unit_id → NpcJobInfo 매핑</param>
+		private void ApplyNpcJobs(System.Collections.Generic.Dictionary<int, SE.NpcJobInfo> npcJobs)
 		{
 			if (_unitSystem == null || _playerSystem == null) return;
 
-			var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
-			if (player == null) return;
-
-			var playerLocation = player.CurrentLocation;
-			int frozenCount = 0;
-
-			foreach (var unit in _unitSystem.Units.Values)
+			foreach (var kvp in npcJobs)
 			{
-				// 플레이어 자신과 오브젝트는 스킵
-				if (unit.Id == _playerSystem.PlayerId || unit.IsObject) continue;
+				var unitId = kvp.Key;
+				var jobInfo = kvp.Value;
 
-				// 같은 위치의 유닛 → 대기 스케줄 push
-				if (unit.CurrentLocation == playerLocation)
+				var unit = _unitSystem.GetUnit(unitId);
+				if (unit == null || unit.IsObject) continue;
+
+				// 이동 중이었다면 중단
+				unit.CurrentEdge = null;
+				unit.RemainingStayTime = 0;
+
+				// JobList 클리어 후 새 Job 삽입
+				var job = new Morld.Job
 				{
-					// 이동 중이었다면 중단
-					unit.CurrentEdge = null;
-					unit.RemainingStayTime = 0;
-
-					// 대기 스케줄 push (duration 분 후 자동 pop)
-					var staySchedule = new Morld.ScheduleLayer
-					{
-						Name = "대기",
-						Schedule = null,
-						EndConditionType = "대기",
-						EndConditionParam = null,
-						RemainingLifetime = duration
-					};
-					unit.PushSchedule(staySchedule);
-					frozenCount++;
-#if DEBUG_LOG
-					GD.Print($"[EventSystem] Frozen: {unit.Name} at {playerLocation} for {duration}분");
-#endif
-				}
+					Name = jobInfo.Action == "follow" ? "따라가기" : "대기",
+					Action = jobInfo.Action,  // "follow", "stay" 등
+					Duration = jobInfo.Duration,
+					TargetId = jobInfo.Action == "follow" ? _playerSystem.PlayerId : null
+				};
+				unit.JobList.InsertWithClear(job);
 			}
-
-#if DEBUG_LOG
-			if (frozenCount > 0)
-			{
-				GD.Print($"[EventSystem] Froze {frozenCount} units with stay schedule ({duration}분)");
-			}
-#endif
 		}
 
 		/// <summary>

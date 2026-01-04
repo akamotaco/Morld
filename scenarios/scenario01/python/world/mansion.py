@@ -28,42 +28,21 @@ REGION_ID = 0
 REGION = {
     "id": REGION_ID,
     "name": "저택",
-    "appearance": {"default": "으스스한 분위기의 오래된 저택이다."},
     "weather": "흐림"
 }
 
+# (location_id, name)
 LOCATIONS = [
-    (0, "지하실", {
-        "default": "어둡고 습한 지하실이다. 먼지 냄새가 코를 찌른다.",
-        "불켜짐": "희미한 전등불이 지하실을 비추고 있다."
-    }),
-    (1, "창고", {
-        "default": "오래된 물건들이 여기저기 쌓여 있는 창고다. 거미줄이 가득하다."
-    }),
-    (2, "거실", {
-        "default": "낡은 소파와 먼지 쌓인 벽난로가 있다. 한때 화려했을 흔적이 보인다."
-    }),
-    (3, "주방", {
-        "default": "먼지 쌓인 주방이다. 녹슨 조리도구들이 선반에 놓여 있다."
-    }),
-    (4, "복도 1층", {
-        "default": "긴 복도가 여러 방으로 연결되어 있다. 바닥이 삐걱거린다."
-    }),
-    (5, "계단", {
-        "default": "2층으로 올라가는 나무 계단이다. 일부 계단이 부서져 있다."
-    }),
-    (6, "침실", {
-        "default": "먼지 덮인 침대와 낡은 화장대가 있다. 커튼이 찢어져 있다."
-    }),
-    (7, "서재", {
-        "default": "책장에 오래된 책들이 가득하다. 책상 위에 촛대가 놓여 있다."
-    }),
-    (8, "복도 2층", {
-        "default": "2층 복도다. 벽에 낡은 그림들이 걸려 있다."
-    }),
-    (9, "정문 홀", {
-        "default": "저택의 정문이 있는 넓은 홀이다. 탈출구가 바로 눈앞에 있다!"
-    }),
+    (0, "지하실"),
+    (1, "창고"),
+    (2, "거실"),
+    (3, "주방"),
+    (4, "복도 1층"),
+    (5, "계단"),
+    (6, "침실"),
+    (7, "서재"),
+    (8, "복도 2층"),
+    (9, "정문 홀"),
 ]
 
 
@@ -158,15 +137,14 @@ def initialize_terrain():
     r = REGION
 
     # Region 등록
-    morld.add_region(r["id"], r["name"], r["appearance"], r["weather"])
+    morld.add_region(r["id"], r["name"], r["weather"])
 
     # Location 등록
-    for loc_id, name, appearance in LOCATIONS:
+    for loc_id, name in LOCATIONS:
         morld.add_location(
             REGION_ID,    # region_id
             loc_id,       # local_id
             name,         # name
-            appearance,   # appearance
             0,            # stay_duration
             True          # is_indoor
         )

@@ -1,32 +1,9 @@
-# events/location_events.py - 위치 도착 이벤트
-#
-# 플레이어가 특정 위치에 도착했을 때 발생하는 이벤트
+# events/scripts/location_callbacks.py - 위치 이벤트 콜백 함수
 
 import morld
-from .player_creation import get_player_name
 
 
-def on_reach_front_yard():
-    """앞마당 도착 이벤트 - 쓰러짐"""
-    collapse_pages = [
-        "저 앞에... 건물이 보인다.",
-        "저택인가? 드디어 사람이 사는 곳을 찾았다.",
-        "하지만... 몸이 말을 듣지 않는다.",
-        "배가 고프고... 너무 지쳤다.",
-        "눈앞이... 흐려진다...",
-        "......",
-        "(의식을 잃었다)"
-    ]
-
-    return {
-        "type": "monologue",
-        "pages": collapse_pages,
-        "time_consumed": 0,
-        "button_type": "ok",
-        "done_callback": "after_collapse"
-    }
-
-
+@morld.register_script
 def after_collapse(context_unit_id):
     """쓰러진 후 - 구조되어 방에서 깨어남"""
     player_id = morld.get_player_id()

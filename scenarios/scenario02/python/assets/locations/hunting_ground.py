@@ -9,7 +9,7 @@ class HuntingGround(Location):
     name = "사냥터"
     is_indoor = False
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "야생 동물의 흔적이 보이는 곳. 조심스럽게 움직여야 한다.",
         "아침": "이슬 맺힌 풀 위에 동물 발자국이 보인다.",
         "낮": "숲 속에서 동물 울음소리가 들린다.",

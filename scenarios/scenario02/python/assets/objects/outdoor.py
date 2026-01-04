@@ -16,14 +16,14 @@ class GardenBench(Object):
     unique_id = "garden_bench"
     name = "정원 벤치"
     actions = ["script:bench_sit:앉기"]
-    appearance = {"default": "정원에 놓인 나무 벤치. 앉아서 쉴 수 있다."}
+    focus_text = {"default": "정원에 놓인 나무 벤치. 앉아서 쉴 수 있다."}
 
 
 class Well(Object):
     unique_id = "well"
     name = "우물"
     actions = ["script:well_look:들여다보기", "script:well_draw:물 길어올리기"]
-    appearance = {"default": "돌로 쌓아 만든 우물. 맑은 물이 고여 있다."}
+    focus_text = {"default": "돌로 쌓아 만든 우물. 맑은 물이 고여 있다."}
 
 
 # ========================================
@@ -34,7 +34,7 @@ class GardenPlot(Object):
     unique_id = "garden_plot"
     name = "텃밭"
     actions = ["script:garden_look:살펴보기"]
-    appearance = {
+    focus_text = {
         "default": "작은 텃밭. 간단한 채소를 기를 수 있을 것 같다.",
         "봄": "새싹이 돋아나고 있다.",
         "여름": "채소들이 무성하게 자라고 있다.",
@@ -47,7 +47,7 @@ class DryingRack(Object):
     unique_id = "drying_rack"
     name = "빨래 건조대"
     actions = ["script:drying_rack_look:살펴보기"]
-    appearance = {"default": "뒷마당에 놓인 빨래 건조대. 가끔 빨래가 널려 있다."}
+    focus_text = {"default": "뒷마당에 놓인 빨래 건조대. 가끔 빨래가 널려 있다."}
 
 
 # ========================================

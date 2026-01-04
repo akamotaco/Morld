@@ -262,6 +262,111 @@ events/
 
 ---
 
+## JobList 시스템 (리팩토링 예정)
+
+### 배경
+
+기존 ScheduleStack (레이어 기반) 구조의 문제점:
+- 레이어 전환 시점 관리 복잡 (lifetime, 조건 기반 pop)
+- 중첩된 레이어 간 상호작용 어려움
+- Think/Movement/Behavior 시스템 간 책임 분산
+
+### 새로운 구조: JobList (시간 기반 선형 리스트)
+
+**핵심 아이디어:**
+- 스케줄 스택(Stack) → JobList(선형 리스트)로 전환
+- Override = 레이어 push가 아닌, 기존 job을 **잘라서** 새 job 삽입
+- 시간 경과 = 앞에서부터 duration 잘라냄
+
+### Job 구조
+
+```csharp
+class Job {
+    string Activity;      // "따라가기", "피하기", "식사", "수면" 등
+    int RegionId;
+    int LocationId;
+    int Duration;         // 분 단위 (시간 경과 시 감소)
+    int? TargetId;        // 대상 ID (Activity에 따라 해석)
+}
+```
+
+**Activity별 TargetId 해석:**
+
+| Activity | TargetId 의미 |
+|----------|---------------|
+| 따라가기 | 따라갈 유닛 ID |
+| 피하기 | 피할 유닛 ID |
+| 사용 | 사용할 아이템 ID |
+| 일반 (식사, 수면 등) | null |
+
+### JobList 동작 예시
+
+```
+초기 상태 (스케줄 기반):
+[마당 30분] → [방 30분] → [식당 60분]
+
+"따라가기 20분" 삽입:
+[따라가기 20분] → [마당 10분] → [방 30분] → [식당 60분]
+                    ↑
+            기존 30분에서 20분 잘림
+
+시간 경과 (8분):
+[따라가기 12분] → [마당 10분] → [방 30분] → [식당 60분]
+     ↑
+  앞에서 8분 잘림
+
+"따라가기 48시간" 삽입:
+[따라가기 2880분] → ... (기존 job들 밀림)
+
+8시간(480분) 경과:
+[따라가기 2400분] → ...
+```
+
+### JobList 핵심 메서드
+
+```csharp
+class JobList {
+    LinkedList<Job> Jobs;  // 앞에서 자르기 용이
+
+    // 시간 경과 - 앞에서 duration만큼 잘라냄
+    void Advance(int minutes);
+
+    // Override 삽입 - 현재 시점에 새 job 끼워넣기 (기존 job 잘림)
+    void InsertOverride(Job newJob);
+
+    // 빈 시간 채우기 (Think용) - 스케줄 기반으로 뒤쪽 채움
+    void FillFromSchedule(DailySchedule schedule, int currentTimeOfDay);
+
+    // 현재 job 조회
+    Job? Current { get; }
+}
+```
+
+### 시스템 통합
+
+**Before (현재):**
+```
+ThinkSystem → MovementSystem → BehaviorSystem
+   (경로)        (이동)          (조건 pop)
+```
+
+**After (리팩토링 후):**
+```
+BehaviorSystem (통합)
+├─ Think: JobList 빈 슬롯 채우기 (스케줄 기반)
+├─ Move: 현재 Job 기반 이동
+└─ Advance: 시간 경과 시 JobList 앞에서 잘라냄
+```
+
+### 장점
+
+1. **단순한 모델**: 레이어 개념 제거, 시간순 선형 리스트
+2. **명확한 시간 관리**: duration 기반으로 직관적
+3. **유연한 Override**: 잘라내고 끼워넣기로 모든 케이스 처리
+4. **Unit 클래스 통합**: think/do 로직을 Unit에 위임 가능 (상속 활용)
+
+---
+
 ## 초기화 흐름
 
 ```python

@@ -9,7 +9,7 @@ class Kitchen(Location):
     name = "주방"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "각종 조리도구가 걸려 있는 주방. 아궁이에서 연기가 피어오른다.",
         "아침": "아침 식사를 준비하는 냄새가 난다.",
         "낮": "점심 준비로 분주하다.",

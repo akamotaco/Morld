@@ -120,7 +120,7 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 이동 실행 (스케줄 스택에 이동 레이어 push)
+		/// 이동 실행 (JobList에 이동 Job 삽입)
 		/// </summary>
 		private void ExecuteMove(LocationRef destination)
 		{
@@ -155,18 +155,21 @@ namespace SE
 			// 총 이동 시간 계산
 			var totalTime = CalculateTotalTravelTime(pathResult, terrain);
 
-			// 이동 스케줄 push
-			player.PushSchedule(new ScheduleLayer
+			// JobList에 이동 Job 삽입 (플레이어는 스케줄 없음 → 단순 Insert)
+			var destLocation = terrain.GetLocation(destination);
+			var moveJob = new Job
 			{
-				Name = "이동",
-				Schedule = null,
-				EndConditionType = "이동",
-				EndConditionParam = $"{destination.RegionId}:{destination.LocalId}"
-			});
+				Name = $"{destLocation?.Name ?? destination.ToString()}(으)로 이동",
+				Action = "move",
+				RegionId = destination.RegionId,
+				LocationId = destination.LocalId,
+				Duration = totalTime,
+				TargetId = null
+			};
+			player.InsertJobWithClear(moveJob);
 
 			// 시간 진행 요청
-			var destLocation = terrain.GetLocation(destination);
-			RequestTimeAdvance(totalTime, $"{destLocation?.Name ?? destination.ToString()}(으)로 이동");
+			RequestTimeAdvance(totalTime, moveJob.Name);
 
 #if DEBUG_LOG
 			GD.Print($"[PlayerSystem] 이동 요청: {player.CurrentLocation} → {destination} ({totalTime}분)");
@@ -451,7 +454,7 @@ namespace SE
 			{
 				RegionName = region?.Name ?? "",
 				LocationName = location?.Name ?? "",
-				AppearanceText = describeSystem?.GetLocationAppearance(location, gameTime, region) ?? "",
+				AppearanceText = describeSystem?.GetLocationDescribeText(location, gameTime, region) ?? "",
 				LocationRef = player.CurrentLocation
 			};
 

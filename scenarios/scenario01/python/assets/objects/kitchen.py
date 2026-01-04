@@ -11,7 +11,7 @@ REFRIGERATOR = {
     "unique_id": "refrigerator",
     "name": "냉장고",
     "actions": ["script:examine_refrigerator:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "1950년대 스타일의 오래된 냉장고다. 녹이 슬어 문이 삐걱거린다. 문에 무언가 붙어있다."
     },
     # 힌트만 제공 (숫자 7)
@@ -22,7 +22,7 @@ CUPBOARD = {
     "unique_id": "cupboard",
     "name": "찬장",
     "actions": ["script:unlock_cupboard:열기"],
-    "appearance": {
+    "focus_text": {
         "default": "주방 구석에 놓인 큼지막한 찬장이다. 은색 자물쇠로 잠겨있다. 유리창 너머로 안에 뭔가 반짝이는 게 보인다.",
         "unlocked": "열린 찬장이다. 먼지 쌓인 접시들만 남아있다."
     },

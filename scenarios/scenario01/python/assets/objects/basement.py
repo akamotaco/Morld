@@ -11,7 +11,7 @@ OLD_BOX = {
     "unique_id": "old_box",
     "name": "낡은 상자",
     "actions": ["script:examine_old_box:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "구석에 먼지가 수북이 쌓인 낡은 나무 상자가 있다. 뚜껑이 살짝 들려 있어 안을 확인할 수 있을 것 같다."
     },
     # 숨겨진 아이템 정보
@@ -23,7 +23,7 @@ POWER_PANEL = {
     "unique_id": "power_panel",
     "name": "배전함",
     "actions": ["script:toggle_switch:조작"],
-    "appearance": {
+    "focus_text": {
         "default": "벽에 녹슨 금속 배전함이 설치되어 있다. 커다란 레버 스위치가 내려가 있다. '주의: 고압 전류'라고 적힌 경고문이 희미하게 보인다."
     }
 }

@@ -11,7 +11,7 @@ PICTURE_FRAME = {
     "unique_id": "picture_frame",
     "name": "그림 액자",
     "actions": ["script:examine_picture:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "벽에 비스듬히 걸린 오래된 풍경화다. 금박 액자 테두리가 벗겨져 있다. 그림 뒤에 뭔가 숨겨져 있을 것 같은 느낌이 든다."
     },
     # 힌트만 제공 (숫자 4, 9)
@@ -22,7 +22,7 @@ GRANDFATHER_CLOCK = {
     "unique_id": "grandfather_clock",
     "name": "괘종시계",
     "actions": ["script:examine_clock:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "복도 끝에 서있는 커다란 괘종시계다. 시계는 멈춰있고, 시각은 18:42를 가리키고 있다. 문양이 새겨진 장식이 눈에 띈다."
     }
 }
@@ -31,7 +31,7 @@ UMBRELLA_STAND = {
     "unique_id": "umbrella_stand",
     "name": "우산꽂이",
     "actions": ["script:examine_umbrella:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "구리 재질의 우산꽂이다. 낡은 우산 몇 개와 지팡이가 꽂혀 있다. 바닥에 뭔가 떨어져 있는 것 같다."
     }
 }
@@ -40,7 +40,7 @@ STUDY_DOOR = {
     "unique_id": "study_door",
     "name": "서재 문",
     "actions": ["script:unlock_study_door:열기"],
-    "appearance": {
+    "focus_text": {
         "default": "두꺼운 참나무 문이다. 전자식 4자리 비밀번호 잠금장치가 설치되어 있다.",
         "unlocked": "열린 서재 문이다. 안에서 오래된 책 냄새가 풍겨온다."
     },

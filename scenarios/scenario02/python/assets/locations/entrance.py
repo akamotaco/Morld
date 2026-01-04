@@ -9,7 +9,7 @@ class Entrance(Location):
     name = "현관"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "저택의 입구. 무거운 나무 문이 달려 있다.",
         "아침": "아침 햇살이 문틈으로 스며든다.",
         "밤": "어둠 속에 문의 윤곽만 희미하게 보인다."

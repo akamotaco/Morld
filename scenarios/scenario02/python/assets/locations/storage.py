@@ -9,7 +9,7 @@ class Storage(Location):
     name = "창고"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "선반에 식량과 도구가 정리되어 있다. 약간 먼지 냄새가 난다."
     }
 

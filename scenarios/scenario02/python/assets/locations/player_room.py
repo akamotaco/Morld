@@ -9,7 +9,7 @@ class PlayerRoom(Location):
     name = "주인공 방"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "작지만 아늑한 방. 침대와 작은 책상이 놓여 있다.",
         "아침": "창문으로 아침 햇살이 들어온다.",
         "밤": "촛불 하나가 방을 희미하게 밝힌다."

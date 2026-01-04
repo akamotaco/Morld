@@ -11,7 +11,7 @@ SAFE = {
     "unique_id": "safe",
     "name": "금고",
     "actions": ["script:open_safe:열기"],
-    "appearance": {
+    "focus_text": {
         "default": "책상 옆에 놓인 묵직한 철제 금고다. 4자리 다이얼 자물쇠가 달려있다. 안에 중요한 것이 들어있을 것 같다.",
         "unlocked": "열린 금고다. 먼지와 오래된 서류 조각들만 남아있다."
     },
@@ -23,7 +23,7 @@ DESK_DRAWER = {
     "unique_id": "desk_drawer",
     "name": "책상 서랍",
     "actions": ["script:examine_desk:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "낡은 오크나무 책상의 서랍이다. 손잡이가 녹슬었지만 열 수 있을 것 같다."
     },
     "hidden_item": "note3",

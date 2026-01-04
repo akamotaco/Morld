@@ -379,6 +379,135 @@ namespace SE
                     return PyBool.False;
                 });
 
+                // === Job API ===
+                // insert_job_override(unit_id, name, action, duration, region_id=0, location_id=0, target_id=None)
+                morldModule.ModuleDict["insert_job_override"] = new PyBuiltinFunction("insert_job_override", args =>
+                {
+                    if (args.Length < 4)
+                        throw PyTypeError.Create("insert_job_override(unit_id, name, action, duration, region_id=0, location_id=0, target_id=None) requires at least 4 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string name = args[1].AsString();
+                    string action = args[2].AsString();
+                    int duration = args[3].ToInt();
+                    int regionId = args.Length >= 5 ? args[4].ToInt() : 0;
+                    int locationId = args.Length >= 6 ? args[5].ToInt() : 0;
+                    int? targetId = args.Length >= 7 && args[6] is not PyNone ? args[6].ToInt() : null;
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    var job = new Morld.Job
+                    {
+                        Name = name,
+                        Action = action,
+                        Duration = duration,
+                        RegionId = regionId,
+                        LocationId = locationId,
+                        TargetId = targetId,
+                        StartOffset = 0
+                    };
+
+                    unit.InsertJobOverride(job);
+                    Godot.GD.Print($"[morld] insert_job_override: unit={unitId}, {job}");
+                    return PyBool.True;
+                });
+
+                // insert_job_merge(unit_id, name, action, duration, start_offset=0, region_id=0, location_id=0, target_id=None)
+                morldModule.ModuleDict["insert_job_merge"] = new PyBuiltinFunction("insert_job_merge", args =>
+                {
+                    if (args.Length < 4)
+                        throw PyTypeError.Create("insert_job_merge(unit_id, name, action, duration, start_offset=0, region_id=0, location_id=0, target_id=None) requires at least 4 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string name = args[1].AsString();
+                    string action = args[2].AsString();
+                    int duration = args[3].ToInt();
+                    int startOffset = args.Length >= 5 ? args[4].ToInt() : 0;
+                    int regionId = args.Length >= 6 ? args[5].ToInt() : 0;
+                    int locationId = args.Length >= 7 ? args[6].ToInt() : 0;
+                    int? targetId = args.Length >= 8 && args[7] is not PyNone ? args[7].ToInt() : null;
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    var job = new Morld.Job
+                    {
+                        Name = name,
+                        Action = action,
+                        Duration = duration,
+                        RegionId = regionId,
+                        LocationId = locationId,
+                        TargetId = targetId,
+                        StartOffset = startOffset
+                    };
+
+                    unit.InsertJobMerge(job);
+                    Godot.GD.Print($"[morld] insert_job_merge: unit={unitId}, offset={startOffset}, {job}");
+                    return PyBool.True;
+                });
+
+                // get_current_job(unit_id) - 현재 Job 정보 반환
+                morldModule.ModuleDict["get_current_job"] = new PyBuiltinFunction("get_current_job", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_current_job(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyNone.Instance;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyNone.Instance;
+
+                    var job = unit.CurrentJob;
+                    if (job == null)
+                        return PyNone.Instance;
+
+                    var result = new PyDict();
+                    result.SetItem(new PyString("name"), new PyString(job.Name ?? ""));
+                    result.SetItem(new PyString("action"), new PyString(job.Action ?? "stay"));
+                    result.SetItem(new PyString("duration"), new PyInt(job.Duration));
+                    result.SetItem(new PyString("region_id"), new PyInt(job.RegionId));
+                    result.SetItem(new PyString("location_id"), new PyInt(job.LocationId));
+                    if (job.TargetId.HasValue)
+                        result.SetItem(new PyString("target_id"), new PyInt(job.TargetId.Value));
+                    else
+                        result.SetItem(new PyString("target_id"), PyNone.Instance);
+
+                    return result;
+                });
+
+                // clear_jobs(unit_id) - JobList 초기화
+                morldModule.ModuleDict["clear_jobs"] = new PyBuiltinFunction("clear_jobs", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("clear_jobs(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    unit.JobList.Clear();
+                    Godot.GD.Print($"[morld] clear_jobs: unit={unitId}");
+                    return PyBool.True;
+                });
+
                 // === 스크립트 함수 등록 API ===
                 // morld.register_script(func) - Python 함수를 전역 스코프에 등록
                 // done_callback 등에서 함수 이름만으로 호출 가능하게 함
@@ -430,11 +559,11 @@ namespace SE
                 morldModule.ModuleDict["add_region"] = new PyBuiltinFunction("add_region", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("add_region(id, name, appearance=None, weather='맑음') requires at least 2 arguments");
+                        throw PyTypeError.Create("add_region(id, name, describe_text=None, weather='맑음') requires at least 2 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
-                    var appearance = args.Length >= 3 && args[2] is PyDict appDict
+                    var describeText = args.Length >= 3 && args[2] is PyDict appDict
                         ? PyDictToStringDict(appDict)
                         : null;
                     string weather = args.Length >= 4 ? args[3].AsString() : "맑음";
@@ -443,10 +572,10 @@ namespace SE
                     {
                         var terrain = _worldSystem.GetTerrain();
                         var region = new Morld.Region(id, name);
-                        if (appearance != null)
+                        if (describeText != null)
                         {
-                            foreach (var (key, value) in appearance)
-                                region.Appearance[key] = value;
+                            foreach (var (key, value) in describeText)
+                                region.DescribeText[key] = value;
                         }
                         region.CurrentWeather = weather;
                         terrain.AddRegion(region);
@@ -459,16 +588,13 @@ namespace SE
                 morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
                 {
                     if (args.Length < 3)
-                        throw PyTypeError.Create("add_location(region_id, local_id, name, appearance=None, stay_duration=0, indoor=True) requires at least 3 arguments");
+                        throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True) requires at least 3 arguments");
 
                     int regionId = args[0].ToInt();
                     int localId = args[1].ToInt();
                     string name = args[2].AsString();
-                    var appearance = args.Length >= 4 && args[3] is PyDict appDict
-                        ? PyDictToStringDict(appDict)
-                        : null;
-                    int stayDuration = args.Length >= 5 ? args[4].ToInt() : 0;
-                    bool isIndoor = args.Length >= 6 ? args[5].IsTrue() : true;
+                    int stayDuration = args.Length >= 4 ? args[3].ToInt() : 0;
+                    bool isIndoor = args.Length >= 5 ? args[4].IsTrue() : true;
 
                     if (_worldSystem != null)
                     {
@@ -478,11 +604,6 @@ namespace SE
                         {
                             // Region.AddLocation(localId, name)을 사용
                             var location = region.AddLocation(localId, name);
-                            if (appearance != null)
-                            {
-                                foreach (var (key, value) in appearance)
-                                    location.Appearance[key] = value;
-                            }
                             location.StayDuration = stayDuration;
                             location.IsIndoor = isIndoor;
                             Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}");
@@ -717,7 +838,7 @@ namespace SE
                 morldModule.ModuleDict["add_unit"] = new PyBuiltinFunction("add_unit", args =>
                 {
                     if (args.Length < 4)
-                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, appearance=None, mood=None) requires at least 4 arguments");
+                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None) requires at least 4 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -725,8 +846,7 @@ namespace SE
                     int locationId = args[3].ToInt();
                     string type = args.Length >= 5 ? args[4].AsString() : "male";
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
-                    var appearance = args.Length >= 7 && args[6] is PyDict appDict ? PyDictToStringDict(appDict) : null;
-                    var mood = args.Length >= 8 && args[7] is PyList moodList ? PyListToStringList(moodList) : null;
+                    var mood = args.Length >= 7 && args[6] is PyList moodList ? PyListToStringList(moodList) : null;
 
                     if (_unitSystem != null)
                     {
@@ -739,8 +859,6 @@ namespace SE
                         };
                         if (actions != null)
                             unit.Actions.AddRange(actions);
-                        if (appearance != null)
-                            foreach (var (k, v) in appearance) unit.Appearance[k] = v;
                         if (mood != null)
                             foreach (var m in mood) unit.Mood.Add(m);
 
@@ -1142,75 +1260,6 @@ namespace SE
                     return pyList;
                 });
 
-                // set_route(unit_id, path) - Unit.PlannedRoute 설정
-                // path: [(region_id, location_id), ...] 리스트
-                morldModule.ModuleDict["set_route"] = new PyBuiltinFunction("set_route", args =>
-                {
-                    if (args.Length < 2)
-                        throw PyTypeError.Create("set_route(unit_id, path) requires 2 arguments");
-
-                    int unitId = args[0].ToInt();
-                    var pathArg = args[1];
-
-                    if (_unitSystem == null)
-                        return PyBool.False;
-
-                    var unit = _unitSystem.GetUnit(unitId);
-                    if (unit == null)
-                        return PyBool.False;
-
-                    var route = new System.Collections.Generic.List<Morld.LocationRef>();
-
-                    if (pathArg is PyList pyList)
-                    {
-                        for (int i = 0; i < pyList.Length(); i++)
-                        {
-                            var item = pyList.GetItem(i);
-                            if (item is PyTuple tuple && tuple.Length() >= 2)
-                            {
-                                int regionId = tuple.GetItem(0).ToInt();
-                                int locationId = tuple.GetItem(1).ToInt();
-                                route.Add(new Morld.LocationRef(regionId, locationId));
-                            }
-                        }
-                    }
-
-                    unit.SetRoute(route);
-                    return PyBool.True;
-                });
-
-                // get_route(unit_id) - 현재 경로 조회
-                // 반환: {"path": [...], "index": N} 또는 None
-                morldModule.ModuleDict["get_route"] = new PyBuiltinFunction("get_route", args =>
-                {
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("get_route(unit_id) requires 1 argument");
-
-                    int unitId = args[0].ToInt();
-
-                    if (_unitSystem == null)
-                        return PyNone.Instance;
-
-                    var unit = _unitSystem.GetUnit(unitId);
-                    if (unit == null || !unit.HasPlannedRoute)
-                        return PyNone.Instance;
-
-                    var pathList = new PyList();
-                    foreach (var loc in unit.PlannedRoute)
-                    {
-                        var tuple = new PyTuple(new PyObject[] {
-                            new PyInt(loc.RegionId),
-                            new PyInt(loc.LocalId)
-                        });
-                        pathList.Append(tuple);
-                    }
-
-                    var result = new PyDict();
-                    result.SetItem(new PyString("path"), pathList);
-                    result.SetItem(new PyString("index"), new PyInt(unit.RouteIndex));
-                    return result;
-                });
-
                 // get_unit_location(unit_id) - 유닛 현재 위치 조회
                 // 반환: (region_id, location_id) 또는 None
                 morldModule.ModuleDict["get_unit_location"] = new PyBuiltinFunction("get_unit_location", args =>
@@ -1287,6 +1336,152 @@ namespace SE
                     return PyBool.True;
                 });
 
+                // ========================================
+                // JobList API
+                // ========================================
+
+                // fill_schedule_jobs_from(unit_id, schedule_list) - Python에서 전달한 스케줄로 JobList 채우기
+                // schedule_list: [{"name": str, "region_id": int, "location_id": int, "start": int, "end": int, "activity": str}, ...]
+                morldModule.ModuleDict["fill_schedule_jobs_from"] = new PyBuiltinFunction("fill_schedule_jobs_from", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("fill_schedule_jobs_from(unit_id, schedule_list) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    var scheduleArg = args[1];
+
+                    if (_unitSystem == null || _worldSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    // Python 리스트를 DailySchedule로 변환
+                    var schedule = PyListToDailySchedule(scheduleArg);
+                    if (schedule == null)
+                        return PyBool.False;
+
+                    var time = _worldSystem.GetTime();
+                    unit.JobList.FillFromSchedule(schedule, time.MinuteOfDay);
+                    return PyBool.True;
+                });
+
+                // insert_job(unit_id, job_dict) - Job 삽입 (기존 Job 제거 후)
+                // job_dict: {"name": str, "action": str, "region_id": int, "location_id": int, "duration": int, "target_id": int?}
+                morldModule.ModuleDict["insert_job"] = new PyBuiltinFunction("insert_job", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("insert_job(unit_id, job_dict) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    var jobArg = args[1];
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    var job = PyDictToJob(jobArg);
+                    if (job == null)
+                        return PyBool.False;
+
+                    unit.InsertJobWithClear(job);
+                    return PyBool.True;
+                });
+
+                // insert_job_override(unit_id, job_dict) - Job Override 삽입 (기존 Job 잘라내고 끼워넣기)
+                morldModule.ModuleDict["insert_job_override"] = new PyBuiltinFunction("insert_job_override", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("insert_job_override(unit_id, job_dict) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    var jobArg = args[1];
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    var job = PyDictToJob(jobArg);
+                    if (job == null)
+                        return PyBool.False;
+
+                    unit.InsertJobOverride(job);
+                    return PyBool.True;
+                });
+
+                // insert_job_merge(unit_id, job_dict) - Job Merge 삽입 (기존 Job 우선, 빈 공간에 끼워넣기)
+                morldModule.ModuleDict["insert_job_merge"] = new PyBuiltinFunction("insert_job_merge", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("insert_job_merge(unit_id, job_dict) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    var jobArg = args[1];
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    var job = PyDictToJob(jobArg);
+                    if (job == null)
+                        return PyBool.False;
+
+                    unit.InsertJobMerge(job);
+                    return PyBool.True;
+                });
+
+                // clear_jobs(unit_id) - JobList 초기화
+                morldModule.ModuleDict["clear_jobs"] = new PyBuiltinFunction("clear_jobs", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("clear_jobs(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    unit.JobList.Clear();
+                    return PyBool.True;
+                });
+
+                // get_current_job(unit_id) - 현재 Job 조회
+                // 반환: {"name": str, "action": str, "region_id": int, "location_id": int, "duration": int, "target_id": int?} 또는 None
+                morldModule.ModuleDict["get_current_job"] = new PyBuiltinFunction("get_current_job", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_current_job(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyNone.Instance;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyNone.Instance;
+
+                    var job = unit.CurrentJob;
+                    if (job == null)
+                        return PyNone.Instance;
+
+                    return JobToPyDict(job);
+                });
+
                 // === 초기화 완료 플래그 ===
                 morldModule.ModuleDict["data_api_ready"] = PyBool.True;
 
@@ -1332,6 +1527,161 @@ namespace SE
                 result[keyStr] = valueInt;
             }
             return result;
+        }
+
+        /// <summary>
+        /// PyObject(Dict)를 Job으로 변환
+        /// job_dict: {"name": str, "action": str, "region_id": int, "location_id": int, "duration": int, "target_id": int?}
+        /// </summary>
+        private Morld.Job? PyDictToJob(PyObject obj)
+        {
+            if (obj is not PyDict dict)
+                return null;
+
+            var job = new Morld.Job();
+
+            // name (필수)
+            if (dict.Contains(new PyString("name")).Value)
+            {
+                var nameObj = dict.GetItem(new PyString("name"));
+                job.Name = nameObj is PyString ps ? ps.Value : nameObj?.ToString() ?? "";
+            }
+
+            // action (기본값 "stay")
+            if (dict.Contains(new PyString("action")).Value)
+            {
+                var actionObj = dict.GetItem(new PyString("action"));
+                job.Action = actionObj is PyString ps ? ps.Value : actionObj?.ToString() ?? "stay";
+            }
+
+            // region_id
+            if (dict.Contains(new PyString("region_id")).Value)
+            {
+                job.RegionId = dict.GetItem(new PyString("region_id")).ToInt();
+            }
+
+            // location_id
+            if (dict.Contains(new PyString("location_id")).Value)
+            {
+                job.LocationId = dict.GetItem(new PyString("location_id")).ToInt();
+            }
+
+            // duration (필수)
+            if (dict.Contains(new PyString("duration")).Value)
+            {
+                job.Duration = dict.GetItem(new PyString("duration")).ToInt();
+            }
+
+            // target_id (optional)
+            if (dict.Contains(new PyString("target_id")).Value)
+            {
+                var targetObj = dict.GetItem(new PyString("target_id"));
+                if (targetObj != null && targetObj is not PyNone)
+                {
+                    job.TargetId = targetObj.ToInt();
+                }
+            }
+
+            // start_offset (optional, Merge용)
+            if (dict.Contains(new PyString("start_offset")).Value)
+            {
+                job.StartOffset = dict.GetItem(new PyString("start_offset")).ToInt();
+            }
+
+            return job;
+        }
+
+        /// <summary>
+        /// Python 리스트를 DailySchedule로 변환
+        /// schedule_list: [{"name": str, "region_id": int, "location_id": int, "start": int, "end": int, "activity": str}, ...]
+        /// </summary>
+        private Morld.DailySchedule? PyListToDailySchedule(PyObject obj)
+        {
+            if (obj is not PyList list)
+                return null;
+
+            var schedule = new Morld.DailySchedule();
+
+            for (int i = 0; i < list.Length(); i++)
+            {
+                var item = list.GetItem(i);
+                if (item is not PyDict dict)
+                    continue;
+
+                // name
+                string name = "";
+                if (dict.Contains(new PyString("name")).Value)
+                {
+                    var nameObj = dict.GetItem(new PyString("name"));
+                    name = nameObj is PyString ps ? ps.Value : nameObj?.ToString() ?? "";
+                }
+
+                // region_id
+                int regionId = 0;
+                if (dict.Contains(new PyString("region_id")).Value)
+                {
+                    regionId = dict.GetItem(new PyString("region_id")).ToInt();
+                }
+                // regionId 대체 키
+                if (dict.Contains(new PyString("regionId")).Value)
+                {
+                    regionId = dict.GetItem(new PyString("regionId")).ToInt();
+                }
+
+                // location_id
+                int locationId = 0;
+                if (dict.Contains(new PyString("location_id")).Value)
+                {
+                    locationId = dict.GetItem(new PyString("location_id")).ToInt();
+                }
+                // locationId 대체 키
+                if (dict.Contains(new PyString("locationId")).Value)
+                {
+                    locationId = dict.GetItem(new PyString("locationId")).ToInt();
+                }
+
+                // start
+                int start = 0;
+                if (dict.Contains(new PyString("start")).Value)
+                {
+                    start = dict.GetItem(new PyString("start")).ToInt();
+                }
+
+                // end
+                int end = 0;
+                if (dict.Contains(new PyString("end")).Value)
+                {
+                    end = dict.GetItem(new PyString("end")).ToInt();
+                }
+
+                // activity
+                string activity = "";
+                if (dict.Contains(new PyString("activity")).Value)
+                {
+                    var actObj = dict.GetItem(new PyString("activity"));
+                    activity = actObj is PyString ps ? ps.Value : actObj?.ToString() ?? "";
+                }
+
+                var entry = new Morld.ScheduleEntry(name, regionId, locationId, start, end, activity);
+                schedule.AddEntry(entry);
+            }
+
+            return schedule.Entries.Count > 0 ? schedule : null;
+        }
+
+        /// <summary>
+        /// Job을 PyDict로 변환
+        /// </summary>
+        private PyDict JobToPyDict(Morld.Job job)
+        {
+            var dict = new PyDict();
+            dict.SetItem(new PyString("name"), new PyString(job.Name ?? ""));
+            dict.SetItem(new PyString("action"), new PyString(job.Action ?? "stay"));
+            dict.SetItem(new PyString("region_id"), new PyInt(job.RegionId));
+            dict.SetItem(new PyString("location_id"), new PyInt(job.LocationId));
+            dict.SetItem(new PyString("duration"), new PyInt(job.Duration));
+            dict.SetItem(new PyString("target_id"), job.TargetId.HasValue ? new PyInt(job.TargetId.Value) : PyNone.Instance);
+            return dict;
         }
 
         /// <summary>
@@ -1840,11 +2190,42 @@ __init__.initialize_scenario()
                 string doneCallback = (doneCallbackObj as PyString)?.Value;
                 string cancelCallback = (cancelCallbackObj as PyString)?.Value;
 
-                // freeze_others 파싱 (선택적) - 같은 위치 유닛들 이동 중단
-                var freezeOthersObj = dict.Get(new PyString("freeze_others"));
-                bool freezeOthers = freezeOthersObj is PyBool freezeBool && freezeBool.Value;
+                // npc_jobs 파싱 (선택적) - 지정된 유닛들에게 Job 적용
+                // 형식 1: {2: "follow"} - duration은 timeConsumed 사용
+                // 형식 2: {2: {"action": "follow", "duration": 5}} - duration 명시
+                var npcJobsObj = dict.Get(new PyString("npc_jobs"));
+                var npcJobs = new System.Collections.Generic.Dictionary<int, NpcJobInfo>();
+                if (npcJobsObj is PyDict pyNpcJobsDict)
+                {
+                    var keys = pyNpcJobsDict.Keys();
+                    for (int i = 0; i < keys.Length(); i++)
+                    {
+                        var key = keys.GetItem(i);
+                        if (key is PyInt pyKey)
+                        {
+                            var value = pyNpcJobsDict.GetItem(key);
+                            int unitId = (int)pyKey.Value;
 
-                Godot.GD.Print($"[ScriptSystem] Parsed {type} result: {pages.Count} pages, {timeConsumed}min, button={buttonType}, freeze={freezeOthers}");
+                            if (value is PyString pyStrValue)
+                            {
+                                // 형식 1: 문자열 (action만, duration은 timeConsumed)
+                                npcJobs[unitId] = new NpcJobInfo(pyStrValue.Value, timeConsumed);
+                            }
+                            else if (value is PyDict pyJobDict)
+                            {
+                                // 형식 2: 딕셔너리 {"action": str, "duration": int}
+                                var actionObj = pyJobDict.Get(new PyString("action"));
+                                var durationObj = pyJobDict.Get(new PyString("duration"));
+
+                                string action = (actionObj as PyString)?.Value ?? "stay";
+                                int duration = durationObj is PyInt pyDur ? (int)pyDur.Value : timeConsumed;
+
+                                npcJobs[unitId] = new NpcJobInfo(action, duration);
+                            }
+                        }
+                    }
+                }
+
                 return new MonologueScriptResult
                 {
                     Type = type,  // "monologue" 또는 "update"
@@ -1853,7 +2234,7 @@ __init__.initialize_scenario()
                     ButtonType = buttonType,
                     DoneCallback = doneCallback,
                     CancelCallback = cancelCallback,
-                    FreezeOthers = freezeOthers
+                    NpcJobs = npcJobs
                 };
             }
 
@@ -2146,6 +2527,21 @@ def calculate(a, b):
     }
 
     /// <summary>
+    /// NPC Job 정보 (action + duration)
+    /// </summary>
+    public struct NpcJobInfo
+    {
+        public string Action { get; set; }  // "follow", "stay" 등
+        public int Duration { get; set; }    // 지속 시간 (분)
+
+        public NpcJobInfo(string action, int duration)
+        {
+            Action = action;
+            Duration = duration;
+        }
+    }
+
+    /// <summary>
     /// 모놀로그 스크립트 결과 - 페이지 데이터 포함
     /// </summary>
     public class MonologueScriptResult : ScriptResult
@@ -2156,9 +2552,10 @@ def calculate(a, b):
         public string DoneCallback { get; set; }
         public string CancelCallback { get; set; }
         /// <summary>
-        /// true면 플레이어와 같은 위치의 다른 유닛들 이동 중단 (CurrentEdge = null)
-        /// 이벤트 중 시간이 흘러도 NPC가 바로 떠나지 않게 함
+        /// NPC Job 지정: unit_id → NpcJobInfo
+        /// 예: {2: {"action": "follow", "duration": 5}} → 세라가 5분간 플레이어를 따라감
+        /// duration 생략 시 TimeConsumed 사용
         /// </summary>
-        public bool FreezeOthers { get; set; } = false;
+        public System.Collections.Generic.Dictionary<int, NpcJobInfo> NpcJobs { get; set; } = new();
     }
 }

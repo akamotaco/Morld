@@ -11,7 +11,7 @@ SHELF = {
     "unique_id": "shelf",
     "name": "선반",
     "actions": ["script:examine_shelf:조사"],
-    "appearance": {
+    "focus_text": {
         "default": "벽에 붙은 나무 선반이다. 먼지와 거미줄 사이로 오래된 공구들과 깨진 유리병들이 흩어져 있다."
     },
     "hidden_item": "note1",
@@ -22,7 +22,7 @@ OLD_CABINET = {
     "unique_id": "old_cabinet",
     "name": "낡은 캐비닛",
     "actions": ["script:unlock_cabinet:열기"],
-    "appearance": {
+    "focus_text": {
         "default": "바닥에 세워진 낡은 철제 캐비닛이다. 녹슨 자물쇠가 달려 있다. 안에 뭔가 들어있는 것 같다.",
         "unlocked": "열린 캐비닛이다. 안에는 먼지만 남아있다."
     },

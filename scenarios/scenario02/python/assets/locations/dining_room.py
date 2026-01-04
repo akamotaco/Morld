@@ -9,7 +9,7 @@ class DiningRoom(Location):
     name = "식당"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "긴 나무 테이블이 놓인 식당. 여섯 개의 의자가 가지런히 놓여 있다.",
         "아침": "아침 식사 시간. 테이블에 음식이 차려져 있다.",
         "낮": "점심 시간. 따뜻한 음식 냄새가 풍긴다.",

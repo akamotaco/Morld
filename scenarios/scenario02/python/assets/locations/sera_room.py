@@ -9,7 +9,7 @@ class SeraRoom(Location):
     name = "세라의 방"
     is_indoor = True
     stay_duration = 0
-    appearance = {
+    describe_text = {
         "default": "검소하고 정돈된 방. 벽에 활과 화살통이 걸려 있다."
     }
 

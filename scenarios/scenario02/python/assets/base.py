@@ -13,18 +13,13 @@
 #   loc.instantiate(12, REGION_ID)      # morld에 등록
 #   loc.ground.add_item(herb)           # 바닥에 아이템 추가
 #
-# describe_text 시스템:
-#   - 모든 Asset은 describe_text() 메서드를 가짐
-#   - Unit/Location은 현재 상태에 맞는 묘사 텍스트 반환
-#   - describe_text 딕셔너리의 키 우선순위:
-#     - Unit: activity:{활동} > {region}:{location} > mood:{감정} > default
-#     - Location: appearance 딕셔너리 기반 (C# DescribeSystem에서 처리)
+# 텍스트 시스템:
+#   - get_describe_text(): 장소에 있을 때 보이는 묘사 (Character, Location)
+#   - get_focus_text(): Focus 상태(클릭)일 때 보이는 묘사 (Character, Object, Item)
+#   - 각 클래스에서 메서드를 오버라이드하여 구현
 
 import morld
-from typing import Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Optional
 
 
 def _select_text(text_dict: dict, tags: list, name: str = None) -> str:
@@ -33,7 +28,7 @@ def _select_text(text_dict: dict, tags: list, name: str = None) -> str:
 
     Args:
         text_dict: {"tag1,tag2": "텍스트", "default": "기본"} 형식
-        tags: 현재 활성 태그 리스트 ["activity:식사", "0:3", "mood:기쁨"]
+        tags: 현재 활성 태그 리스트 ["아침", "실외", "날씨:비"]
         name: {name} 포맷 치환용 이름
 
     Returns:
@@ -78,7 +73,6 @@ class Asset:
     클래스 속성 (Asset 정의):
     - unique_id: Asset 식별자
     - name: 표시 이름
-    - describe_text: 상황별 묘사 텍스트 딕셔너리
 
     인스턴스 속성 (생성 후):
     - instance_id: 시스템에서 사용하는 고유 ID
@@ -88,9 +82,7 @@ class Asset:
     # 클래스 속성 (서브클래스에서 정의)
     unique_id: str = None
     name: str = None
-    appearance: dict = None
     actions: list = None
-    describe_text: dict = None  # 상황별 묘사 텍스트
 
     def __init__(self):
         """인스턴스 생성 (아직 morld에 등록되지 않음)"""
@@ -114,7 +106,16 @@ class Asset:
 
     def get_describe_text(self) -> str:
         """
-        현재 상태에 맞는 묘사 텍스트 반환
+        장소에 있을 때 묘사 텍스트 반환
+
+        기본 구현은 빈 문자열 반환.
+        서브클래스에서 오버라이드하여 구체적인 묘사 반환.
+        """
+        return ""
+
+    def get_focus_text(self) -> str:
+        """
+        Focus 상태일 때 묘사 텍스트 반환
 
         기본 구현은 빈 문자열 반환.
         서브클래스에서 오버라이드하여 구체적인 묘사 반환.
@@ -157,7 +158,10 @@ class Character(Unit):
 
     클래스 속성:
     - schedule_stack: 스케줄 스택 정의
-    - describe_text: 상황별 묘사 (presence text 역할)
+
+    메서드 오버라이드:
+    - get_describe_text(): 장소에 있을 때 묘사 (플레이어와 같은 위치)
+    - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
     """
 
     type: str = "male"
@@ -177,7 +181,6 @@ class Character(Unit):
             location_id,
             self.type,
             self.actions or [],
-            self.appearance or {},
             self.mood or []
         )
 
@@ -195,7 +198,7 @@ class Character(Unit):
                 layer.get("schedule")
             )
 
-        # 인스턴스 캐시 등록 (describe_text 조회용)
+        # 인스턴스 캐시 등록 (describe_text/focus_text 조회용)
         from assets.characters import register_instance
         register_instance(instance_id, self)
 
@@ -204,13 +207,11 @@ class Object(Unit):
     """
     오브젝트 클래스 (가구, 바닥 등)
 
-    클래스 속성:
-    - is_visible: 인벤토리 가시성 (바닥은 True)
-    - describe_text: 상황별 묘사 (선택적)
+    메서드 오버라이드:
+    - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
     """
 
     type: str = "object"
-    is_visible: bool = False
 
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """오브젝트를 morld에 등록"""
@@ -225,13 +226,8 @@ class Object(Unit):
             location_id,
             "object",
             self.actions or [],
-            self.appearance or {},
             []  # mood
         )
-
-        # 가시성 설정
-        if self.is_visible:
-            morld.set_unit_visibility(instance_id, True)
 
 
 class Item(Asset):
@@ -269,15 +265,19 @@ class Location(Asset):
     클래스 속성:
     - is_indoor: 실내 여부
     - stay_duration: 경유 시 지체 시간
-    - describe_text: 상황별 추가 묘사 (appearance와 별도)
+    - describe_text: 장소 묘사 텍스트 딕셔너리 (태그 기반 선택용)
 
     인스턴스 속성:
     - location_id, region_id: 위치 정보
     - ground: 바닥 오브젝트 인스턴스 (instantiate에서 생성)
+
+    메서드 오버라이드:
+    - get_describe_text(): 시간/날씨 태그 기반 장소 묘사
     """
 
     is_indoor: bool = True
     stay_duration: int = 0
+    describe_text: dict = None  # 태그 기반 묘사 텍스트
 
     def __init__(self):
         super().__init__()
@@ -301,17 +301,16 @@ class Location(Asset):
             region_id,
             location_id,
             self.name,
-            self.appearance or {},
             self.stay_duration,
             self.is_indoor
         )
 
     def get_describe_text(self) -> str:
         """
-        Location의 추가 묘사 텍스트 반환
+        Location의 묘사 텍스트 반환
 
-        appearance와는 별개로, describe_text가 정의되어 있으면
-        현재 시간/날씨 태그를 기반으로 추가 묘사 반환.
+        describe_text가 정의되어 있으면
+        현재 시간/날씨 태그를 기반으로 묘사 반환.
         """
         if not self.describe_text:
             return ""

@@ -31,8 +31,8 @@ public class RegionJsonData
     [JsonPropertyName("name")]
     public string Name { get; set; } = "unknown";
 
-    [JsonPropertyName("appearance")]
-    public Dictionary<string, string>? Appearance { get; set; }
+    [JsonPropertyName("describeText")]
+    public Dictionary<string, string>? DescribeText { get; set; }
 
     [JsonPropertyName("weather")]
     public string Weather { get; set; } = "맑음";
@@ -55,8 +55,8 @@ public class LocationJsonData
     [JsonPropertyName("name")]
     public string Name { get; set; } = "unknown";
 
-    [JsonPropertyName("appearance")]
-    public Dictionary<string, string>? Appearance { get; set; }
+    [JsonPropertyName("describeText")]
+    public Dictionary<string, string>? DescribeText { get; set; }
 
     [JsonPropertyName("inventory")]
     public Dictionary<int, int>? Inventory { get; set; }

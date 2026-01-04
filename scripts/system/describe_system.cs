@@ -83,22 +83,22 @@ namespace SE
 		public ActionProviderRegistry ActionRegistry => _actionRegistry;
 
 		/// <summary>
-		/// Location 외관 묘사 반환 (실내/날씨 태그 포함)
+		/// Location 묘사 텍스트 반환 (실내/날씨 태그 포함)
 		/// </summary>
-		public string GetLocationAppearance(Location? location, GameTime? time, Region? region = null)
+		public string GetLocationDescribeText(Location? location, GameTime? time, Region? region = null)
 		{
 			if (location == null) return "";
-			return SelectAppearance(location.Appearance, time, location.IsIndoor, region?.CurrentWeather);
+			return SelectDescribeText(location.DescribeText, time, location.IsIndoor, region?.CurrentWeather);
 		}
 
 		/// <summary>
-		/// Region 외관 묘사 반환
+		/// Region 묘사 텍스트 반환
 		/// </summary>
-		public string GetRegionAppearance(Region? region, GameTime? time)
+		public string GetRegionDescribeText(Region? region, GameTime? time)
 		{
 			if (region == null) return "";
 			// isIndoor=false, weather=null → 실내/날씨 태그 없이 시간 태그만 사용
-			return SelectAppearance(region.Appearance, time, false, null);
+			return SelectDescribeText(region.DescribeText, time, false, null);
 		}
 
 		/// <summary>
@@ -202,19 +202,19 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Appearance Dictionary에서 적절한 키 선택 (태그 순서 무관)
+		/// DescribeText Dictionary에서 적절한 키 선택 (태그 순서 무관)
 		/// isIndoor=true → "실내" 태그 추가
 		/// isIndoor=false + weather → "날씨:{weather}" 태그 추가
 		/// isIndoor=false + weather=null → 실내/날씨 태그 없음 (Region용)
 		/// </summary>
-		private string SelectAppearance(Dictionary<string, string>? appearances, GameTime? time, bool isIndoor = true, string? weather = null)
+		private string SelectDescribeText(Dictionary<string, string>? describeText, GameTime? time, bool isIndoor = true, string? weather = null)
 		{
-			if (appearances == null || appearances.Count == 0)
+			if (describeText == null || describeText.Count == 0)
 				return "";
 
 			if (time == null)
 			{
-				return appearances.TryGetValue("default", out var defaultAppearance) ? defaultAppearance : "";
+				return describeText.TryGetValue("default", out var defaultText) ? defaultText : "";
 			}
 
 			var currentTags = time.GetCurrentTags();
@@ -232,7 +232,7 @@ namespace SE
 			string bestKey = "default";
 			int bestMatchCount = 0;
 
-			foreach (var (key, _) in appearances)
+			foreach (var (key, _) in describeText)
 			{
 				if (key == "default") continue;
 
@@ -248,7 +248,7 @@ namespace SE
 				}
 			}
 
-			return appearances.TryGetValue(bestKey, out var appearance) ? appearance : "";
+			return describeText.TryGetValue(bestKey, out var text) ? text : "";
 		}
 
 		/// <summary>
