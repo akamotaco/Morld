@@ -36,41 +36,41 @@ NPC 스케줄 시스템과 AI 기반 자율 행동이 핵심.
 # 캐릭터 파일 하나 = 완전한 에셋
 # assets/characters/lina.py
 
-from assets import registry
+from assets.base import Character
 from think import BaseAgent, register_agent_class
 
-# 1. AI Agent (데코레이터로 자동 등록)
+# 1. 캐릭터 Asset 클래스 정의
+class Lina(Character):
+    unique_id = "lina"
+    name = "리나"
+    type = "female"
+    tags = {"외모:금발": 1, "성격:명랑함": 1, ...}
+    actions = ["script:npc_talk:대화"]
+    mood = []
+
+    # 묘사 텍스트 (메서드 오버라이드)
+    def get_describe_text(self) -> str:
+        """장소에서 보이는 묘사"""
+        ...
+
+    def get_focus_text(self) -> str:
+        """클릭했을 때 묘사"""
+        ...
+
+    # 이벤트 핸들러 (인스턴스 메서드)
+    def on_meet_player(self, player_id):
+        ...
+
+    def npc_talk(self, player_id):
+        ...
+
+# 2. AI Agent (데코레이터로 자동 등록)
 @register_agent_class("lina")
 class LinaAgent(BaseAgent):
+    SCHEDULE = [...]
+
     def think(self):
-        ...
-
-# 2. Presence Text (캐릭터 존재감 묘사)
-PRESENCE_TEXT = {
-    "activity:채집": "{name}가 채집 준비를 하고 있다.",
-    "default": "{name}가 밝은 표정으로 주변을 둘러본다."
-}
-
-# 3. 캐릭터 데이터 정의
-LINA = {
-    "unique_id": "lina",
-    "name": "리나",
-    ...
-}
-
-# 4. Asset 등록
-def register():
-    registry.register_character(LINA)
-
-# 5. 이벤트 핸들러
-class events:
-    @staticmethod
-    def on_meet_player(player_id):
-        ...
-
-    @staticmethod
-    def npc_talk(context_unit_id):
-        ...
+        self.fill_schedule_jobs_from(self.SCHEDULE)
 ```
 
 **이점:**
@@ -109,41 +109,55 @@ scenario02/
 ├── python/
 │   ├── __init__.py           # 시나리오 진입점
 │   │
-│   ├── assets/               # Asset 정의 (템플릿)
-│   │   ├── __init__.py       # AssetRegistry + load_all_assets()
+│   ├── assets/               # Asset 정의 (클래스 기반)
+│   │   ├── __init__.py       # load_all_assets()
+│   │   ├── base.py           # Character, Object, Item, Location 베이스 클래스
+│   │   ├── registry.py       # AssetRegistry
+│   │   │
+│   │   ├── characters/       # 캐릭터 Asset (★ 자급자족 구조)
+│   │   │   ├── __init__.py
+│   │   │   ├── player.py     # 플레이어 정의
+│   │   │   ├── lina.py       # 리나 + Agent + Events
+│   │   │   ├── sera.py       # 세라 + Agent + Events
+│   │   │   ├── mila.py       # 밀라 + Agent + Events
+│   │   │   ├── yuki.py       # 유키 + Agent + Events
+│   │   │   └── ella.py       # 엘라 + Agent + Events
 │   │   │
 │   │   ├── items/            # 아이템 Asset
-│   │   │   ├── __init__.py
-│   │   │   ├── resources.py  # 자원류 (밀가루, 쌀, 물 등)
-│   │   │   └── tools.py      # 도구류 (칼, 주머니 등)
+│   │   │   ├── equipment.py  # 장비류
+│   │   │   ├── resources.py  # 자원류
+│   │   │   └── tools.py      # 도구류
 │   │   │
-│   │   ├── objects/          # 오브젝트 Asset
-│   │   │   ├── __init__.py
-│   │   │   ├── furniture.py  # 가구류
-│   │   │   └── outdoor.py    # 야외 오브젝트
+│   │   ├── locations/        # 장소 Asset (Location별 파일)
+│   │   │   ├── living_room.py
+│   │   │   ├── dining_room.py
+│   │   │   └── ...
 │   │   │
-│   │   └── characters/       # 캐릭터 Asset (★ 자급자족 구조)
-│   │       ├── __init__.py   # get_character_event_handler()
-│   │       ├── player.py     # 플레이어 정의
-│   │       ├── lina.py       # 리나 (채집 담당) + Agent + Events
-│   │       ├── sera.py       # 세라 (사냥 담당) + Agent + Events
-│   │       ├── mila.py       # 밀라 (요리 담당) + Agent + Events
-│   │       ├── yuki.py       # 유키 (청소 담당) + Agent + Events
-│   │       └── ella.py       # 엘라 (관리자) + Agent + Events
+│   │   └── objects/          # 오브젝트 Asset
+│   │       ├── furniture.py  # 가구류
+│   │       ├── grounds.py    # 바닥 오브젝트
+│   │       └── outdoor.py    # 야외 오브젝트
 │   │
-│   ├── world/                # 지형 + 인스턴스화 (Region별)
+│   ├── world/                # 지형 + 인스턴스화
 │   │   ├── __init__.py       # initialize_terrain(), instantiate_all()
-│   │   └── mansion.py        # 저택 Region (지형 + 배치)
+│   │   └── mansion.py        # 저택 Region 정의
 │   │
 │   ├── think/                # NPC AI 시스템
 │   │   └── __init__.py       # BaseAgent, @register_agent_class
 │   │
 │   └── events/               # 이벤트 핸들러
 │       ├── __init__.py       # on_event_list export
-│       ├── handlers.py       # 이벤트 라우팅 + 스크립트 등록
-│       ├── game_events.py    # 게임 시작/챕터 관리
-│       ├── player_creation.py # 캐릭터 생성 흐름
-│       └── location_events.py # 위치 도착 이벤트
+│       ├── base.py           # EventHandler 베이스
+│       ├── registry.py       # 이벤트 핸들러 레지스트리
+│       ├── game_start/       # 게임 시작 이벤트
+│       │   └── prologue.py
+│       ├── meet/             # OnMeet 이벤트 (캐릭터별)
+│       ├── reach/            # OnReach 이벤트 (장소별)
+│       │   └── front_yard.py
+│       └── scripts/          # 스크립트 함수 (@morld.register_script)
+│           ├── npc_talk.py
+│           ├── player_creation.py
+│           └── location_callbacks.py
 │
 └── design.md                 # 이 문서
 ```
@@ -177,43 +191,70 @@ NPC: 1 ~ 99
 
 ## NPC AI 시스템
 
-### Think 시스템 흐름
+### 시스템 실행 순서
 
 ```
-1. ThinkSystem.Proc() (C#)
-   └─> Python think.think_all() 호출
-
-2. think_all() (Python)
-   └─> 각 Agent의 think() 호출
-       └─> 스케줄 확인, 경로 계산, set_route() 호출
-
-3. MovementSystem.Proc() (C#)
-   └─> PlannedRoute 기반으로 이동 실행
+[GameEngine._Process]
+├─ while (HasPendingTime): world.Step()
+│   ├─ ThinkSystem.Proc()      # JobList가 비어있으면 스케줄로 채움
+│   └─ JobBehaviorSystem.Proc() # 현재 Job 실행 (이동/활동)
+│
+└─ if (!HasPendingTime):  # 시간 진행 완료 후
+    ├─ DetectMeetings()        # 만남 감지 → OnMeet 이벤트
+    ├─ FlushEvents()           # Python 이벤트 핸들러 호출 (npc_jobs 적용)
+    ├─ DetectLocationChanges() # 위치 변경 감지 → OnReach 이벤트
+    └─ FlushEvents()           # 추가 이벤트 처리
 ```
 
-### Agent 구현 패턴
+### JobList 기반 AI
 
 ```python
 @register_agent_class("lina")
 class LinaAgent(BaseAgent):
     def think(self):
-        # 1. 스케줄 확인
-        entry = self.get_schedule_entry()
-        if entry is None:
-            return None
-
-        # 2. 현재 위치 확인
-        loc = self.get_location()
-        if loc[0] == entry["region_id"] and loc[1] == entry["location_id"]:
-            return None  # 이미 목적지
-
-        # 3. 경로 계산 및 설정
-        path = self.find_path(entry["region_id"], entry["location_id"])
-        if path:
-            self.set_route(path)
-
-        return path
+        # JobList가 비어있으면 스케줄 기반으로 채움
+        self.fill_schedule_jobs_from(SCHEDULE)
 ```
+
+### npc_jobs 시스템 (이벤트 기반 행동 오버라이드)
+
+```python
+# 이벤트 핸들러에서 NPC 행동 오버라이드
+def on_meet_player(context_unit_id):
+    return {
+        "type": "monologue",
+        "pages": ["대화 내용..."],
+        "time_consumed": 5,
+        "button_type": "ok",
+        "npc_jobs": {
+            2: {"action": "follow", "duration": 120}  # 세라가 2시간 따라옴
+        }
+    }
+```
+
+**npc_jobs 동작:**
+- 모놀로그 결과에 `npc_jobs` 필드 포함 시 EventSystem.ApplyNpcJobs() 호출
+- 지정된 NPC의 JobList를 클리어하고 새 Job 삽입
+- 이동 중이었다면 중단 (CurrentEdge = null)
+
+### npc_jobs + fill_schedule_jobs_from 동작 흐름
+
+```
+1. 이벤트 발생 → npc_jobs: {2: {"action": "follow", "duration": 30}}
+   └─ InsertWithClear() → JobList: [따라가기 30분]
+
+2. 시간 진행 중 ThinkSystem 호출
+   └─ fill_schedule_jobs_from() → JobList: [따라가기 30분 → 스케줄A → 스케줄B...]
+   └─ (기존 Job 보존, 뒤에 스케줄 Merge)
+
+3. 30분 경과 → 따라가기 완료
+   └─ JobList: [스케줄A → 스케줄B...]  (자연스럽게 스케줄 복귀)
+```
+
+**핵심:**
+- `npc_jobs`는 Override (기존 클리어 후 새 Job)
+- `fill_schedule_jobs_from`은 Merge (기존 보존, 뒤에 채움)
+- 두 시스템이 조합되어 "일시적 행동 → 스케줄 복귀" 자연스럽게 동작
 
 ---
 
@@ -231,9 +272,14 @@ class LinaAgent(BaseAgent):
 
 ```
 events/
-├── game_events.py      # 게임 시작, 챕터 관리
-├── player_creation.py  # 이름/나이/체격/장비 선택
-└── location_events.py  # 위치 도착 이벤트 (앞마당 쓰러짐 등)
+├── game_start/         # 게임 시작 이벤트
+│   └── prologue.py     # 프롤로그 이벤트
+├── meet/               # OnMeet 이벤트 (캐릭터 Asset에서 직접 처리)
+├── reach/              # OnReach 이벤트 (장소별)
+│   └── front_yard.py   # 앞마당 쓰러짐 등
+└── scripts/            # 스크립트 함수
+    ├── npc_talk.py     # NPC 대화 라우팅
+    └── player_creation.py  # 캐릭터 생성 흐름
 ```
 
 ---
@@ -244,126 +290,99 @@ events/
 
 1. `assets/characters/newchar.py` 파일 생성
 2. 파일 내 필수 요소:
+   - `Character` 상속 클래스 (unique_id, name, tags, actions 등)
+   - `get_describe_text()`, `get_focus_text()` 메서드
+   - `on_meet_player()`, `npc_talk()` 이벤트 핸들러
    - `@register_agent_class("newchar")` 데코레이터가 붙은 Agent 클래스
-   - `NEWCHAR` 데이터 딕셔너리
-   - `register()` 함수
-   - `events` 클래스 (on_meet_player, npc_talk 등)
 3. `world/mansion.py`의 `NPC_SPAWNS`에 배치 정보 추가
 
 ### 새 아이템 추가
 
-1. `assets/items/`에 정의 추가
+1. `assets/items/`에 Item 클래스 정의 추가
 2. `world/mansion.py`의 `ITEMS`에 배치
 
 ### 새 이벤트 추가
 
-1. 관련 이벤트 파일에 함수 추가 (`game_events.py`, `location_events.py` 등)
-2. `handlers.py`에서 라우팅 추가
+1. 관련 이벤트 폴더에 핸들러 추가:
+   - `events/reach/` - 위치 도착 이벤트
+   - `events/meet/` - 만남 이벤트 (또는 캐릭터 Asset의 on_meet_player)
+   - `events/game_start/` - 게임 시작 이벤트
+2. `events/registry.py`에 핸들러 등록
 
 ---
 
-## JobList 시스템 (리팩토링 예정)
-
-### 배경
-
-기존 ScheduleStack (레이어 기반) 구조의 문제점:
-- 레이어 전환 시점 관리 복잡 (lifetime, 조건 기반 pop)
-- 중첩된 레이어 간 상호작용 어려움
-- Think/Movement/Behavior 시스템 간 책임 분산
-
-### 새로운 구조: JobList (시간 기반 선형 리스트)
-
-**핵심 아이디어:**
-- 스케줄 스택(Stack) → JobList(선형 리스트)로 전환
-- Override = 레이어 push가 아닌, 기존 job을 **잘라서** 새 job 삽입
-- 시간 경과 = 앞에서부터 duration 잘라냄
+## JobList 시스템 (구현 완료)
 
 ### Job 구조
 
 ```csharp
 class Job {
-    string Activity;      // "따라가기", "피하기", "식사", "수면" 등
-    int RegionId;
-    int LocationId;
-    int Duration;         // 분 단위 (시간 경과 시 감소)
-    int? TargetId;        // 대상 ID (Activity에 따라 해석)
+    string Name;          // "이동", "따라가기", "대기" 등
+    string Action;        // "move", "follow", "stay" 등
+    int? RegionId;
+    int? LocationId;
+    int Duration;         // 분 단위
+    int? TargetId;        // 따라갈 유닛 ID (follow 시)
 }
-```
-
-**Activity별 TargetId 해석:**
-
-| Activity | TargetId 의미 |
-|----------|---------------|
-| 따라가기 | 따라갈 유닛 ID |
-| 피하기 | 피할 유닛 ID |
-| 사용 | 사용할 아이템 ID |
-| 일반 (식사, 수면 등) | null |
-
-### JobList 동작 예시
-
-```
-초기 상태 (스케줄 기반):
-[마당 30분] → [방 30분] → [식당 60분]
-
-"따라가기 20분" 삽입:
-[따라가기 20분] → [마당 10분] → [방 30분] → [식당 60분]
-                    ↑
-            기존 30분에서 20분 잘림
-
-시간 경과 (8분):
-[따라가기 12분] → [마당 10분] → [방 30분] → [식당 60분]
-     ↑
-  앞에서 8분 잘림
-
-"따라가기 48시간" 삽입:
-[따라가기 2880분] → ... (기존 job들 밀림)
-
-8시간(480분) 경과:
-[따라가기 2400분] → ...
 ```
 
 ### JobList 핵심 메서드
 
 ```csharp
 class JobList {
-    LinkedList<Job> Jobs;  // 앞에서 자르기 용이
+    List<Job> Jobs;
 
-    // 시간 경과 - 앞에서 duration만큼 잘라냄
-    void Advance(int minutes);
-
-    // Override 삽입 - 현재 시점에 새 job 끼워넣기 (기존 job 잘림)
-    void InsertOverride(Job newJob);
-
-    // 빈 시간 채우기 (Think용) - 스케줄 기반으로 뒤쪽 채움
-    void FillFromSchedule(DailySchedule schedule, int currentTimeOfDay);
-
-    // 현재 job 조회
-    Job? Current { get; }
+    Job? Current { get; }           // 첫 번째 Job
+    bool IsEmpty { get; }
+    void Add(Job job);              // 뒤에 추가
+    void InsertWithClear(Job job);  // 클리어 후 삽입 (Override용)
+    void RemoveFirst();             // 완료된 Job 제거
+    void Clear();
 }
 ```
 
-### 시스템 통합
+### 시스템 구성
 
-**Before (현재):**
 ```
-ThinkSystem → MovementSystem → BehaviorSystem
-   (경로)        (이동)          (조건 pop)
+ThinkSystem.Proc()
+├─ JobList가 비어있으면 Python think_all() 호출
+└─ 각 Agent가 fill_schedule_jobs_from(SCHEDULE)로 JobList 채움
+
+JobBehaviorSystem.Proc()
+├─ 현재 Job 조회 (JobList.Current)
+├─ Action별 처리:
+│   ├─ "move": 목적지로 이동
+│   ├─ "follow": 대상 유닛 따라가기
+│   └─ "stay": 제자리 대기
+└─ Job 완료 시 RemoveFirst()
 ```
 
-**After (리팩토링 후):**
-```
-BehaviorSystem (통합)
-├─ Think: JobList 빈 슬롯 채우기 (스케줄 기반)
-├─ Move: 현재 Job 기반 이동
-└─ Advance: 시간 경과 시 JobList 앞에서 잘라냄
+### 이벤트 기반 Override (npc_jobs)
+
+```python
+# 모놀로그 결과에서 NPC 행동 오버라이드
+return {
+    "type": "monologue",
+    "npc_jobs": {
+        2: {"action": "follow", "duration": 120}
+    }
+}
 ```
 
-### 장점
+**EventSystem.ApplyNpcJobs() 동작:**
+1. 이동 중단 (CurrentEdge = null, RemainingStayTime = 0)
+2. 추적 상태 동기화 (_wasMoving, _lastLocations)
+3. JobList.InsertWithClear()로 새 Job 삽입
 
-1. **단순한 모델**: 레이어 개념 제거, 시간순 선형 리스트
-2. **명확한 시간 관리**: duration 기반으로 직관적
-3. **유연한 Override**: 잘라내고 끼워넣기로 모든 케이스 처리
-4. **Unit 클래스 통합**: think/do 로직을 Unit에 위임 가능 (상속 활용)
+### Job 삽입 방식 비교
+
+| API | 동작 | 사용 시점 |
+|-----|------|----------|
+| `fill_schedule_jobs_from(schedule)` | 스케줄 기반으로 JobList **뒤에 Merge** (기존 유지) | Think에서 스케줄 채울 때 |
+| `InsertWithClear(job)` | JobList **클리어 후** 삽입 (Override) | npc_jobs로 행동 교체 |
+| `Prepend(job)` | JobList **앞에 삽입** (기존 유지) | 기존 Job 보존하며 앞에 추가 |
+| `InsertOverride(job)` | 기존 시간 **잘라서 덮어쓰기** | duration만큼 기존 Job 잘라냄 |
+| `InsertMerge(job)` | **빈 공간에 끼워넣기** (기존 우선) | 기존 Job과 겹치지 않게 삽입 |
 
 ---
 

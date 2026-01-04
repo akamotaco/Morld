@@ -321,7 +321,7 @@ namespace SE
 				_wasMoving.Remove(unitId);
 				_lastLocations[unitId] = unit.CurrentLocation;
 
-				// JobList 클리어 후 새 Job 삽입
+				// JobList 클리어 후 새 Job 삽입 (유저 입력이므로 기존 Job 대체)
 				var job = new Morld.Job
 				{
 					Name = jobInfo.Action == "follow" ? "따라가기" : "대기",

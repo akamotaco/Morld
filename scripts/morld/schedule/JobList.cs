@@ -61,6 +61,17 @@ public class JobList
 	}
 
 	/// <summary>
+	/// Prepend 삽입 - 새 Job을 맨 앞에 삽입 (기존 Job들 보존)
+	/// 새 Job 완료 후 기존 Job들이 순서대로 실행됨
+	/// </summary>
+	/// <param name="newJob">삽입할 새 Job</param>
+	public void Prepend(Job newJob)
+	{
+		if (newJob == null || newJob.Duration <= 0) return;
+		_jobs.AddFirst(newJob);
+	}
+
+	/// <summary>
 	/// Override 삽입 - 현재 시점에 새 job 끼워넣기
 	/// 기존 job들은 뒤로 밀리며, 새 job duration만큼 잘림
 	/// </summary>
