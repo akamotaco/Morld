@@ -16,12 +16,12 @@ public partial class GameEngine : Node
 	private MetaActionHandler _actionHandler;
 	private ScriptSystem _scriptSystem;
 	private EventSystem _eventSystem;
+	private ThinkSystem _thinkSystem;
+	private WeatherSystem _weatherSystem;
 
 	// 시나리오 경로 (res:// 기준)
 	// private string _scenarioPath = "res://scenarios/scenario01/";
-	// private string _scenarioPath = "res://scenarios/scenario02/";
-	// private string _scenarioPath = "res://scenarios/scenario03/";
-	private string _scenarioPath = "res://scenarios/scenario04/";
+	private string _scenarioPath = "res://scenarios/scenario02/";
 	private string DataPath => _scenarioPath + "data/";
 
 	public override void _Ready()
@@ -93,9 +93,12 @@ public partial class GameEngine : Node
 		this._world.AddSystem(new ItemSystem(), "itemSystem");
 		_inventorySystem = this._world.AddSystem(new InventorySystem(), "inventorySystem") as InventorySystem;
 
-		// Logic Systems
+		// Logic Systems (실행 순서: Movement → Event → Weather → Think → Behavior)
 		this._world.AddSystem(new ActionSystem(), "actionSystem");
 		this._world.AddSystem(new MovementSystem(), "movementSystem");
+		// EventSystem은 아래에서 별도 등록 (UI 시스템 이후)
+		_weatherSystem = this._world.AddSystem(new WeatherSystem(), "weatherSystem") as WeatherSystem;
+		_thinkSystem = this._world.AddSystem(new ThinkSystem(), "thinkSystem") as ThinkSystem;
 		this._world.AddSystem(new BehaviorSystem(), "behaviorSystem");
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
@@ -187,6 +190,11 @@ public partial class GameEngine : Node
 		// EventSystem 설정
 		_eventSystem?.SetSystemReferences(_scriptSystem, _textUISystem, unitSystem, _playerSystem);
 		_eventSystem?.InitializeLocations();
+
+		// ThinkSystem / WeatherSystem 설정 (Python 모드 전용)
+		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
+		_weatherSystem?.SetSystemReferences(worldSystem, _scriptSystem);
+		_thinkSystem?.SetSystemReferences(worldSystem, unitSystem, _playerSystem, _scriptSystem);
 
 		// DescribeSystem 설정 (Python 모드에서는 data 폴더가 없을 수 있음)
 		if (!(_scriptSystem?.IsPythonDataSource() ?? false))

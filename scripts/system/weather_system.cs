@@ -1,3 +1,4 @@
+using System;
 using ECS;
 using SharpPy;
 
@@ -32,7 +33,7 @@ namespace SE
         /// <summary>
         /// 매 Step마다 호출
         /// </summary>
-        public void Proc(int step)
+        protected override void Proc(int step, Span<Component[]> allComponents)
         {
             if (_worldSystem == null || _scriptSystem == null)
             {

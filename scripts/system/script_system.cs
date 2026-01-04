@@ -1261,6 +1261,9 @@ from characters.player.events import job_select, job_confirm
 ";
                 Execute(importCode);
 
+                // entities 모듈 로드 시도 (새로운 Python Entity System)
+                TryLoadEntitiesModule();
+
                 Godot.GD.Print("[ScriptSystem] Package-style scenario loaded successfully.");
                 return true;
             }
@@ -1268,6 +1271,44 @@ from characters.player.events import job_select, job_confirm
             {
                 Godot.GD.PrintErr($"[ScriptSystem] LoadScenarioPackage error: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// entities 모듈 로드 시도 (새로운 Python Entity System)
+        /// entities/__init__.py가 있으면 로드
+        /// </summary>
+        private void TryLoadEntitiesModule()
+        {
+            try
+            {
+                // entities 폴더 존재 여부 확인 (Python 측에서)
+                var checkCode = @"
+try:
+    import entities
+    entities.load_all_entities()
+    _entities_loaded = True
+except ImportError:
+    _entities_loaded = False
+except Exception as e:
+    print(f'[entities] Load error: {e}')
+    _entities_loaded = False
+_entities_loaded
+";
+                var result = Eval(checkCode);
+
+                if (result is PyBool pyBool && pyBool.Value)
+                {
+                    Godot.GD.Print("[ScriptSystem] Python Entity System loaded successfully.");
+                }
+                else
+                {
+                    Godot.GD.Print("[ScriptSystem] Python Entity System not found (using classic mode).");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.Print($"[ScriptSystem] Entity System check skipped: {ex.Message}");
             }
         }
 
