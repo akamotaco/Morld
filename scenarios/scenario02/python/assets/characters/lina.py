@@ -1,41 +1,35 @@
 # assets/characters/lina.py - 리나 캐릭터 Asset
+#
+# 사용법:
+#   from assets.characters.lina import Lina
+#   lina = Lina()
+#   lina.instantiate(1, REGION_ID, location_id)
 
-from assets import registry
+from assets.base import Character
 from think import BaseAgent, register_agent_class
 
-CHARACTER_ID = 1
 
-PRESENCE_TEXT = {
-    "activity:채집": "{name}가 채집 준비를 하고 있다.",
-    "activity:식사": "{name}가 맛있게 밥을 먹고 있다.",
-    "activity:수면": "{name}가 새근새근 잠들어 있다.",
-    "activity:휴식": "{name}가 기지개를 켜며 쉬고 있다.",
-    "0:23": "{name}가 열매를 따고 있다.",
-    "0:1": "{name}가 소파에 앉아 발을 흔들고 있다.",
-    "default": "{name}가 밝은 표정으로 주변을 둘러본다."
-}
-
-LINA = {
-    "unique_id": "lina",
-    "name": "리나",
-    "type": "female",
-    "tags": {
+class Lina(Character):
+    unique_id = "lina"
+    name = "리나"
+    type = "female"
+    tags = {
         "외모:금발": 1, "외모:단발": 1, "외모:녹색눈": 1,
         "성격:명랑함": 1, "성격:활발함": 1,
         "애정": 0, "성욕": 0, "질투": 0,
         "피로": 0, "기분": 7,
-    },
-    "actions": ["script:npc_talk:대화"],
-    "appearance": {
+    }
+    actions = ["script:npc_talk:대화"]
+    appearance = {
         "default": "밝은 금발 단발머리의 활기찬 소녀. 녹색 눈이 반짝인다.",
         "기쁨": "환하게 웃고 있다. 에너지가 넘쳐 보인다.",
         "슬픔": "평소와 달리 기운이 없어 보인다.",
         "식사": "맛있게 음식을 먹고 있다.",
         "수면": "새근새근 잠들어 있다. 평화로운 얼굴이다.",
         "채집": "바구니를 들고 열심히 열매를 따고 있다."
-    },
-    "mood": [],
-    "scheduleStack": [
+    }
+    mood = []
+    schedule_stack = [
         {
             "name": "일상",
             "schedule": [
@@ -53,12 +47,21 @@ LINA = {
             "endConditionParam": None
         }
     ]
+
+
+# ========================================
+# Presence Text (위치 기반 묘사)
+# ========================================
+
+PRESENCE_TEXT = {
+    "activity:채집": "{name}가 채집 준비를 하고 있다.",
+    "activity:식사": "{name}가 맛있게 밥을 먹고 있다.",
+    "activity:수면": "{name}가 새근새근 잠들어 있다.",
+    "activity:휴식": "{name}가 기지개를 켜며 쉬고 있다.",
+    "0:23": "{name}가 열매를 따고 있다.",
+    "0:1": "{name}가 소파에 앉아 발을 흔들고 있다.",
+    "default": "{name}가 밝은 표정으로 주변을 둘러본다."
 }
-
-
-def register():
-    """리나 Asset 등록"""
-    registry.register_character(LINA)
 
 
 # ========================================

@@ -1,105 +1,97 @@
 # assets/items/resources.py - 기본 자원 아이템
+#
+# 사용법:
+#   from assets.items.resources import Flour, Bread
+#   flour = Flour()
+#   flour.instantiate(item_id)
 
-from assets import registry
+from assets.base import Item
+
 
 # ========================================
 # 식량 자원
 # ========================================
 
-FLOUR = {
-    "unique_id": "flour",
-    "name": "밀가루",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 5,
-    "actions": ["take@container"]
-}
+class Flour(Item):
+    unique_id = "flour"
+    name = "밀가루"
+    passive_tags = {}
+    equip_tags = {}
+    value = 5
+    actions = ["take@container"]
 
-RICE = {
-    "unique_id": "rice",
-    "name": "쌀",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 5,
-    "actions": ["take@container"]
-}
 
-WATER = {
-    "unique_id": "water",
-    "name": "물",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 1,
-    "actions": ["take@container", "use@inventory"]
-}
+class Rice(Item):
+    unique_id = "rice"
+    name = "쌀"
+    passive_tags = {}
+    equip_tags = {}
+    value = 5
+    actions = ["take@container"]
 
-BREAD = {
-    "unique_id": "bread",
-    "name": "빵",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 10,
-    "actions": ["take@container", "use@inventory"]
-}
 
-BERRY = {
-    "unique_id": "berry",
-    "name": "열매",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 3,
-    "actions": ["take@container", "use@inventory"]
-}
+class Water(Item):
+    unique_id = "water"
+    name = "물"
+    passive_tags = {}
+    equip_tags = {}
+    value = 1
+    actions = ["take@container", "use@inventory"]
 
-MEAT = {
-    "unique_id": "meat",
-    "name": "고기",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 15,
-    "actions": ["take@container"]
-}
+
+class Bread(Item):
+    unique_id = "bread"
+    name = "빵"
+    passive_tags = {}
+    equip_tags = {}
+    value = 10
+    actions = ["take@container", "use@inventory"]
+
+
+class Berry(Item):
+    unique_id = "berry"
+    name = "열매"
+    passive_tags = {}
+    equip_tags = {}
+    value = 3
+    actions = ["take@container", "use@inventory"]
+
+
+class Meat(Item):
+    unique_id = "meat"
+    name = "고기"
+    passive_tags = {}
+    equip_tags = {}
+    value = 15
+    actions = ["take@container"]
+
 
 # ========================================
 # 기타 자원
 # ========================================
 
-WOOD = {
-    "unique_id": "wood",
-    "name": "나무",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 3,
-    "actions": ["take@container"]
-}
-
-HERB = {
-    "unique_id": "herb",
-    "name": "약초",
-    "passiveTags": {"치료": 1},
-    "equipTags": {},
-    "value": 8,
-    "actions": ["take@container", "use@inventory"]
-}
-
-CLOTH = {
-    "unique_id": "cloth",
-    "name": "천 조각",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 2,
-    "actions": ["take@container"]
-}
+class Wood(Item):
+    unique_id = "wood"
+    name = "나무"
+    passive_tags = {}
+    equip_tags = {}
+    value = 3
+    actions = ["take@container"]
 
 
-def register():
-    """자원 아이템 Asset 등록"""
-    registry.register_item(FLOUR)
-    registry.register_item(RICE)
-    registry.register_item(WATER)
-    registry.register_item(BREAD)
-    registry.register_item(BERRY)
-    registry.register_item(MEAT)
-    registry.register_item(WOOD)
-    registry.register_item(HERB)
-    registry.register_item(CLOTH)
+class Herb(Item):
+    unique_id = "herb"
+    name = "약초"
+    passive_tags = {"치료": 1}
+    equip_tags = {}
+    value = 8
+    actions = ["take@container", "use@inventory"]
+
+
+class Cloth(Item):
+    unique_id = "cloth"
+    name = "천 조각"
+    passive_tags = {}
+    equip_tags = {}
+    value = 2
+    actions = ["take@container"]

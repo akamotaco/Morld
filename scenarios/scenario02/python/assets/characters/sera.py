@@ -1,87 +1,35 @@
 # assets/characters/sera.py - 세라 캐릭터 Asset
+#
+# 사용법:
+#   from assets.characters.sera import Sera
+#   sera = Sera()
+#   sera.instantiate(2, REGION_ID, location_id)
 
-from assets import registry
+from assets.base import Character
 from think import BaseAgent, register_agent_class
 
-CHARACTER_ID = 2
 
-# ========================================
-# AI Agent
-# ========================================
-
-@register_agent_class("sera")
-class SeraAgent(BaseAgent):
-    """
-    세라 AI - 사냥 담당
-
-    특징:
-    - 과묵하고 듬직함
-    - 사냥에 집중, 스케줄을 철저히 따름
-    - 플레이어에게 무관심하지만 위험시 보호
-    """
-
-    def think(self):
-        """세라의 행동 결정"""
-        info = self.get_info()
-        if info is None:
-            return None
-
-        # 기본: 스케줄 기반 이동
-        entry = self.get_schedule_entry()
-        if entry is None:
-            return None
-
-        loc = self.get_location()
-        if loc is None:
-            return None
-
-        # 이미 목적지에 있으면 스킵
-        target_region = entry["region_id"]
-        target_loc = entry["location_id"]
-        if loc[0] == target_region and loc[1] == target_loc:
-            return None
-
-        # 경로 탐색 및 설정
-        path = self.find_path(target_region, target_loc)
-        if path:
-            self.set_route(path)
-
-        return path
-
-PRESENCE_TEXT = {
-    # activity 기반
-    "activity:사냥": "{name}가 활을 점검하고 있다.",
-    "activity:식사": "{name}가 조용히 식사 중이다.",
-    "activity:수면": "{name}가 조용히 잠들어 있다.",
-    "activity:휴식": "{name}가 벽에 기대어 쉬고 있다.",
-    # 장소 기반
-    "0:24": "{name}가 사냥감을 추적하고 있다.",
-    "0:1": "{name}가 창가에 서서 밖을 바라본다.",
-    # 기본값
-    "default": "{name}가 과묵하게 서 있다."
-}
-
-SERA = {
-    "unique_id": "sera",
-    "name": "세라",
-    "type": "female",
-    "tags": {
+class Sera(Character):
+    unique_id = "sera"
+    name = "세라"
+    type = "female"
+    tags = {
         "외모:흑발": 1, "외모:장발": 1, "외모:갈색눈": 1,
         "성격:과묵함": 1, "성격:듬직함": 1,
         "애정": 0, "성욕": 0, "질투": 0,
         "피로": 0, "기분": 5,
-    },
-    "actions": ["script:npc_talk:대화"],
-    "appearance": {
+    }
+    actions = ["script:npc_talk:대화"]
+    appearance = {
         "default": "긴 흑발을 묶은 과묵한 여성. 날카로운 갈색 눈이 인상적이다.",
         "기쁨": "표정 변화는 적지만, 눈가가 부드러워졌다.",
         "슬픔": "평소보다 더 말이 없다. 어딘가 먼 곳을 보고 있다.",
         "식사": "조용히 음식을 먹고 있다.",
         "수면": "경계심 없이 잠들어 있다.",
         "사냥": "활을 들고 날카로운 눈으로 주변을 살핀다."
-    },
-    "mood": [],
-    "scheduleStack": [
+    }
+    mood = []
+    schedule_stack = [
         {
             "name": "일상",
             "schedule": [
@@ -98,12 +46,42 @@ SERA = {
             "endConditionParam": None
         }
     ]
+
+
+# ========================================
+# Presence Text (위치 기반 묘사)
+# ========================================
+
+PRESENCE_TEXT = {
+    "activity:사냥": "{name}가 활을 점검하고 있다.",
+    "activity:식사": "{name}가 조용히 식사 중이다.",
+    "activity:수면": "{name}가 조용히 잠들어 있다.",
+    "activity:휴식": "{name}가 벽에 기대어 쉬고 있다.",
+    "0:24": "{name}가 사냥감을 추적하고 있다.",
+    "0:1": "{name}가 창가에 서서 밖을 바라본다.",
+    "default": "{name}가 과묵하게 서 있다."
 }
 
 
-def register():
-    """세라 Asset 등록"""
-    registry.register_character(SERA)
+# ========================================
+# 대화 데이터
+# ========================================
+
+DIALOGUES = {
+    "default": {"pages": ["......", "...할 말이 있으면 빨리."]},
+    "식사": {"pages": ["(조용히 먹고 있다)", "...뭔가?"]},
+    "수면": {"pages": ["(자고 있다)", "...zzZ"]},
+    "사냥": {"pages": ["...조용히 해.", "사냥감이 달아나잖아."]},
+    "정비": {"pages": ["...활을 손보는 중이다.", "나중에 와라."]},
+    "준비": {"pages": ["...지금 준비 중이다.", "..."]},
+}
+
+
+def _get_dialogue(activity):
+    """activity에 맞는 대화 반환"""
+    if activity and activity in DIALOGUES:
+        return DIALOGUES[activity]
+    return DIALOGUES["default"]
 
 
 # ========================================
@@ -117,11 +95,12 @@ class events:
     def on_meet_player(player_id):
         """플레이어와 처음 만났을 때"""
         import morld
+        from assets import get_instance_id
 
         if events._flags.get("first_meet"):
             return None
 
-        unit_id = registry.get_instance_id("sera")
+        unit_id = get_instance_id("sera")
         if unit_id is None:
             return None
 
@@ -167,21 +146,41 @@ class events:
 
 
 # ========================================
-# 대화 데이터
+# AI Agent
 # ========================================
 
-DIALOGUES = {
-    "default": {"pages": ["......", "...할 말이 있으면 빨리."]},
-    "식사": {"pages": ["(조용히 먹고 있다)", "...뭔가?"]},
-    "수면": {"pages": ["(자고 있다)", "...zzZ"]},
-    "사냥": {"pages": ["...조용히 해.", "사냥감이 달아나잖아."]},
-    "정비": {"pages": ["...활을 손보는 중이다.", "나중에 와라."]},
-    "준비": {"pages": ["...지금 준비 중이다.", "..."]},
-}
+@register_agent_class("sera")
+class SeraAgent(BaseAgent):
+    """
+    세라 AI - 사냥 담당
 
+    특징:
+    - 과묵하고 듬직함
+    - 사냥에 집중, 스케줄을 철저히 따름
+    - 플레이어에게 무관심하지만 위험시 보호
+    """
 
-def _get_dialogue(activity):
-    """activity에 맞는 대화 반환"""
-    if activity and activity in DIALOGUES:
-        return DIALOGUES[activity]
-    return DIALOGUES["default"]
+    def think(self):
+        """세라의 행동 결정"""
+        info = self.get_info()
+        if info is None:
+            return None
+
+        entry = self.get_schedule_entry()
+        if entry is None:
+            return None
+
+        loc = self.get_location()
+        if loc is None:
+            return None
+
+        target_region = entry["region_id"]
+        target_loc = entry["location_id"]
+        if loc[0] == target_region and loc[1] == target_loc:
+            return None
+
+        path = self.find_path(target_region, target_loc)
+        if path:
+            self.set_route(path)
+
+        return path

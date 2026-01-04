@@ -1,31 +1,30 @@
 # assets/items/tools.py - 도구 아이템
+#
+# 사용법:
+#   from assets.items.tools import Torch, Rope
+#   torch = Torch()
+#   torch.instantiate(item_id)
 
-from assets import registry
+from assets.base import Item
+
 
 # ========================================
 # 기타 도구
 # ========================================
 
-TORCH = {
-    "unique_id": "torch",
-    "name": "횃불",
-    "passiveTags": {},
-    "equipTags": {"밝기": 3},
-    "value": 5,
-    "actions": ["take@container", "use@inventory", "equip@inventory"]
-}
-
-ROPE = {
-    "unique_id": "rope",
-    "name": "밧줄",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 8,
-    "actions": ["take@container", "use@inventory"]
-}
+class Torch(Item):
+    unique_id = "torch"
+    name = "횃불"
+    passive_tags = {}
+    equip_tags = {"밝기": 3}
+    value = 5
+    actions = ["take@container", "use@inventory", "equip@inventory"]
 
 
-def register():
-    """도구 아이템 Asset 등록"""
-    registry.register_item(TORCH)
-    registry.register_item(ROPE)
+class Rope(Item):
+    unique_id = "rope"
+    name = "밧줄"
+    passive_tags = {}
+    equip_tags = {}
+    value = 8
+    actions = ["take@container", "use@inventory"]

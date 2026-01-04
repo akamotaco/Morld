@@ -1,58 +1,53 @@
 # assets/objects/outdoor.py - 실외 오브젝트
+#
+# 사용법:
+#   from assets.objects.outdoor import GardenBench
+#   bench = GardenBench()
+#   loc.add_object(bench, instance_id)
 
-from assets import registry
+from assets.base import Object
+
 
 # ========================================
 # 앞마당 오브젝트
 # ========================================
 
-GARDEN_BENCH = {
-    "unique_id": "garden_bench",
-    "name": "정원 벤치",
-    "actions": ["script:bench_sit:앉기"],
-    "appearance": {"default": "정원에 놓인 나무 벤치. 앉아서 쉴 수 있다."}
-}
+class GardenBench(Object):
+    unique_id = "garden_bench"
+    name = "정원 벤치"
+    actions = ["script:bench_sit:앉기"]
+    appearance = {"default": "정원에 놓인 나무 벤치. 앉아서 쉴 수 있다."}
 
-WELL = {
-    "unique_id": "well",
-    "name": "우물",
-    "actions": ["script:well_look:들여다보기", "script:well_draw:물 길어올리기"],
-    "appearance": {"default": "돌로 쌓아 만든 우물. 맑은 물이 고여 있다."}
-}
+
+class Well(Object):
+    unique_id = "well"
+    name = "우물"
+    actions = ["script:well_look:들여다보기", "script:well_draw:물 길어올리기"]
+    appearance = {"default": "돌로 쌓아 만든 우물. 맑은 물이 고여 있다."}
+
 
 # ========================================
 # 뒷마당 오브젝트
 # ========================================
 
-GARDEN_PLOT = {
-    "unique_id": "garden_plot",
-    "name": "텃밭",
-    "actions": ["script:garden_look:살펴보기"],
-    "appearance": {
+class GardenPlot(Object):
+    unique_id = "garden_plot"
+    name = "텃밭"
+    actions = ["script:garden_look:살펴보기"]
+    appearance = {
         "default": "작은 텃밭. 간단한 채소를 기를 수 있을 것 같다.",
         "봄": "새싹이 돋아나고 있다.",
         "여름": "채소들이 무성하게 자라고 있다.",
         "가을": "수확할 채소가 익어가고 있다.",
         "겨울": "텅 빈 텃밭. 봄을 기다리고 있다."
     }
-}
-
-DRYING_RACK = {
-    "unique_id": "drying_rack",
-    "name": "빨래 건조대",
-    "actions": ["script:drying_rack_look:살펴보기"],
-    "appearance": {"default": "뒷마당에 놓인 빨래 건조대. 가끔 빨래가 널려 있다."}
-}
 
 
-def register():
-    """실외 오브젝트 Asset 등록"""
-    # 앞마당
-    registry.register_object(GARDEN_BENCH)
-    registry.register_object(WELL)
-    # 뒷마당
-    registry.register_object(GARDEN_PLOT)
-    registry.register_object(DRYING_RACK)
+class DryingRack(Object):
+    unique_id = "drying_rack"
+    name = "빨래 건조대"
+    actions = ["script:drying_rack_look:살펴보기"]
+    appearance = {"default": "뒷마당에 놓인 빨래 건조대. 가끔 빨래가 널려 있다."}
 
 
 # ========================================

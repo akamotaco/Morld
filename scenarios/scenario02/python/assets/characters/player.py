@@ -1,18 +1,18 @@
 # assets/characters/player.py - 플레이어 캐릭터 Asset
+#
+# 사용법:
+#   from assets.characters.player import Player
+#   player = Player()
+#   player.instantiate(0, REGION_ID, location_id)
 
-from assets import registry
+from assets.base import Character
 
-CHARACTER_ID = 0
 
-# ========================================
-# Asset 정의
-# ========================================
-
-PLAYER = {
-    "unique_id": "player",
-    "name": "???",
-    "type": "male",
-    "tags": {
+class Player(Character):
+    unique_id = "player"
+    name = "???"
+    type = "male"
+    tags = {
         "힘": 5,
         "지능": 5,
         "손재주": 5,
@@ -20,11 +20,11 @@ PLAYER = {
         "신체:보통": 1,
         "나이": 22,
         "신뢰도": 0,
-    },
-    "actions": ["rest", "sleep", "wait"],
-    "appearance": {},
-    "mood": [],
-    "scheduleStack": [
+    }
+    actions = ["rest", "sleep", "wait"]
+    appearance = {}
+    mood = []
+    schedule_stack = [
         {
             "name": "대기",
             "schedule": [],
@@ -32,9 +32,12 @@ PLAYER = {
             "endConditionParam": None
         }
     ]
-}
 
-# 캐릭터 생성 옵션
+
+# ========================================
+# 캐릭터 생성 옵션 (이벤트에서 사용)
+# ========================================
+
 NAME_OPTIONS = ["카이", "레온", "아론", "유진"]
 
 AGE_OPTIONS = [
@@ -76,15 +79,3 @@ EQUIPMENT_OPTIONS = [
         "items": []
     },
 ]
-
-
-def register():
-    """플레이어 Asset 등록"""
-    registry.register_character(PLAYER)
-
-
-# ========================================
-# 이벤트 모듈 (events.py에서 참조)
-# ========================================
-
-from . import player_events as events
