@@ -1,7 +1,0 @@
-{
-  "take": "{itemName}을(를) {unitName}에서 가져왔습니다.",
-  "put": "{itemName}을(를) {unitName}에 넣었습니다.",
-  "use": "{itemName}을(를) 사용했습니다.",
-  "equip": "{itemName}을(를) 장착했습니다.",
-  "unequip": "{itemName}을(를) 해제했습니다."
-}
