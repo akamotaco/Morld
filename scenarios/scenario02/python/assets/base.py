@@ -12,12 +12,63 @@
 #   loc = BackYard()                    # 인스턴스 생성
 #   loc.instantiate(12, REGION_ID)      # morld에 등록
 #   loc.ground.add_item(herb)           # 바닥에 아이템 추가
+#
+# describe_text 시스템:
+#   - 모든 Asset은 describe_text() 메서드를 가짐
+#   - Unit/Location은 현재 상태에 맞는 묘사 텍스트 반환
+#   - describe_text 딕셔너리의 키 우선순위:
+#     - Unit: activity:{활동} > {region}:{location} > mood:{감정} > default
+#     - Location: appearance 딕셔너리 기반 (C# DescribeSystem에서 처리)
 
 import morld
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
+
+
+def _select_text(text_dict: dict, tags: list, name: str = None) -> str:
+    """
+    태그 리스트와 가장 잘 매칭되는 텍스트 선택
+
+    Args:
+        text_dict: {"tag1,tag2": "텍스트", "default": "기본"} 형식
+        tags: 현재 활성 태그 리스트 ["activity:식사", "0:3", "mood:기쁨"]
+        name: {name} 포맷 치환용 이름
+
+    Returns:
+        매칭된 텍스트 (없으면 빈 문자열)
+    """
+    if not text_dict:
+        return ""
+
+    tag_set = set(tags)
+    best_match = None
+    best_count = 0
+
+    for key, text in text_dict.items():
+        if key == "default":
+            continue
+
+        # 키를 쉼표로 분리하여 태그 집합으로
+        key_tags = set(k.strip() for k in key.split(","))
+
+        # 모든 키 태그가 현재 태그에 포함되어야 함
+        if key_tags <= tag_set:
+            match_count = len(key_tags)
+            if match_count > best_count:
+                best_count = match_count
+                best_match = text
+
+    # 매칭된 것이 없으면 default 사용
+    if best_match is None:
+        best_match = text_dict.get("default", "")
+
+    # {name} 치환
+    if name and best_match:
+        best_match = best_match.format(name=name)
+
+    return best_match
 
 
 class Asset:
@@ -27,6 +78,7 @@ class Asset:
     클래스 속성 (Asset 정의):
     - unique_id: Asset 식별자
     - name: 표시 이름
+    - describe_text: 상황별 묘사 텍스트 딕셔너리
 
     인스턴스 속성 (생성 후):
     - instance_id: 시스템에서 사용하는 고유 ID
@@ -38,6 +90,7 @@ class Asset:
     name: str = None
     appearance: dict = None
     actions: list = None
+    describe_text: dict = None  # 상황별 묘사 텍스트
 
     def __init__(self):
         """인스턴스 생성 (아직 morld에 등록되지 않음)"""
@@ -58,6 +111,15 @@ class Asset:
         """instantiate() 호출 여부 확인"""
         if not self._instantiated:
             raise RuntimeError(f"{self.__class__.__name__} is not instantiated yet. Call instantiate() first.")
+
+    def get_describe_text(self) -> str:
+        """
+        현재 상태에 맞는 묘사 텍스트 반환
+
+        기본 구현은 빈 문자열 반환.
+        서브클래스에서 오버라이드하여 구체적인 묘사 반환.
+        """
+        return ""
 
 
 class Unit(Asset):
@@ -95,6 +157,7 @@ class Character(Unit):
 
     클래스 속성:
     - schedule_stack: 스케줄 스택 정의
+    - describe_text: 상황별 묘사 (presence text 역할)
     """
 
     type: str = "male"
@@ -132,6 +195,10 @@ class Character(Unit):
                 layer.get("schedule")
             )
 
+        # 인스턴스 캐시 등록 (describe_text 조회용)
+        from assets.characters import register_instance
+        register_instance(instance_id, self)
+
 
 class Object(Unit):
     """
@@ -139,6 +206,7 @@ class Object(Unit):
 
     클래스 속성:
     - is_visible: 인벤토리 가시성 (바닥은 True)
+    - describe_text: 상황별 묘사 (선택적)
     """
 
     type: str = "object"
@@ -201,6 +269,7 @@ class Location(Asset):
     클래스 속성:
     - is_indoor: 실내 여부
     - stay_duration: 경유 시 지체 시간
+    - describe_text: 상황별 추가 묘사 (appearance와 별도)
 
     인스턴스 속성:
     - location_id, region_id: 위치 정보
@@ -236,6 +305,23 @@ class Location(Asset):
             self.stay_duration,
             self.is_indoor
         )
+
+    def get_describe_text(self) -> str:
+        """
+        Location의 추가 묘사 텍스트 반환
+
+        appearance와는 별개로, describe_text가 정의되어 있으면
+        현재 시간/날씨 태그를 기반으로 추가 묘사 반환.
+        """
+        if not self.describe_text:
+            return ""
+
+        self._check_instantiated()
+
+        # morld API로 현재 시간/날씨 태그 조회
+        time_tags = morld.get_time_tags() if hasattr(morld, 'get_time_tags') else []
+
+        return _select_text(self.describe_text, time_tags)
 
     def add_ground(self, ground: Object, ground_instance_id: int = None):
         """

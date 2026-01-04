@@ -47,20 +47,37 @@ class Sera(Character):
         }
     ]
 
+    def get_describe_text(self) -> str:
+        """세라의 현재 상태에 맞는 묘사 텍스트 반환"""
+        import morld
 
-# ========================================
-# Presence Text (위치 기반 묘사)
-# ========================================
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return ""
 
-PRESENCE_TEXT = {
-    "activity:사냥": "{name}가 활을 점검하고 있다.",
-    "activity:식사": "{name}가 조용히 식사 중이다.",
-    "activity:수면": "{name}가 조용히 잠들어 있다.",
-    "activity:휴식": "{name}가 벽에 기대어 쉬고 있다.",
-    "0:24": "{name}가 사냥감을 추적하고 있다.",
-    "0:1": "{name}가 창가에 서서 밖을 바라본다.",
-    "default": "{name}가 과묵하게 서 있다."
-}
+        name = info.get("name", self.name)
+        activity = info.get("activity")
+        region_id = info.get("region_id")
+        location_id = info.get("location_id")
+
+        # activity 기반
+        if activity == "사냥":
+            return f"{name}가 활을 점검하고 있다."
+        if activity == "식사":
+            return f"{name}가 조용히 식사 중이다."
+        if activity == "수면":
+            return f"{name}가 조용히 잠들어 있다."
+        if activity == "휴식":
+            return f"{name}가 벽에 기대어 쉬고 있다."
+
+        # 위치 기반
+        if (region_id, location_id) == (0, 24):
+            return f"{name}가 사냥감을 추적하고 있다."
+        if (region_id, location_id) == (0, 1):
+            return f"{name}가 창가에 서서 밖을 바라본다."
+
+        # 기본
+        return f"{name}가 과묵하게 서 있다."
 
 
 # ========================================

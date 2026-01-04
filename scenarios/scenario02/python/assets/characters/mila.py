@@ -50,20 +50,37 @@ class Mila(Character):
         }
     ]
 
+    def get_describe_text(self) -> str:
+        """밀라의 현재 상태에 맞는 묘사 텍스트 반환"""
+        import morld
 
-# ========================================
-# Presence Text (위치 기반 묘사)
-# ========================================
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return ""
 
-PRESENCE_TEXT = {
-    "activity:요리": "{name}가 분주하게 요리하고 있다.",
-    "activity:식사": "{name}가 다른 사람들이 먹는 모습을 흐뭇하게 바라본다.",
-    "activity:수면": "{name}가 포근하게 잠들어 있다.",
-    "activity:휴식": "{name}가 따뜻한 차를 마시고 있다.",
-    "0:2": "{name}가 요리에 열중하고 있다.",
-    "0:3": "{name}가 식탁을 정리하고 있다.",
-    "default": "{name}가 다정한 눈으로 주변을 살핀다."
-}
+        name = info.get("name", self.name)
+        activity = info.get("activity")
+        region_id = info.get("region_id")
+        location_id = info.get("location_id")
+
+        # activity 기반
+        if activity == "요리":
+            return f"{name}가 분주하게 요리하고 있다."
+        if activity == "식사":
+            return f"{name}가 다른 사람들이 먹는 모습을 흐뭇하게 바라본다."
+        if activity == "수면":
+            return f"{name}가 포근하게 잠들어 있다."
+        if activity == "휴식":
+            return f"{name}가 따뜻한 차를 마시고 있다."
+
+        # 위치 기반
+        if (region_id, location_id) == (0, 2):
+            return f"{name}가 요리에 열중하고 있다."
+        if (region_id, location_id) == (0, 3):
+            return f"{name}가 식탁을 정리하고 있다."
+
+        # 기본
+        return f"{name}가 다정한 눈으로 주변을 살핀다."
 
 
 # ========================================
