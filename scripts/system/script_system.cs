@@ -1424,15 +1424,6 @@ _entities_loaded
         }
 
         /// <summary>
-        /// 시나리오가 Python 데이터 소스인지 확인
-        /// </summary>
-        public bool IsPythonDataSource()
-        {
-            var initPath = ScenarioPythonPath + "__init__.py";
-            return Godot.FileAccess.FileExists(initPath);
-        }
-
-        /// <summary>
         /// Python 시나리오의 initialize_scenario() 함수 호출
         /// __init__.py를 import하고 initialize_scenario() 실행
         /// </summary>

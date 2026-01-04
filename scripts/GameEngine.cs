@@ -19,7 +19,7 @@ public partial class GameEngine : Node
 	private ThinkSystem _thinkSystem;
 	private WeatherSystem _weatherSystem;
 
-	// 시나리오 경로 (res:// 기준)
+	// 시나리오 경로 (res:// 기준)11111
 	// private string _scenarioPath = "res://scenarios/scenario01/";
 	private string _scenarioPath = "res://scenarios/scenario02/";
 	private string DataPath => _scenarioPath + "data/";
@@ -35,15 +35,8 @@ public partial class GameEngine : Node
 		// 3. 모든 시스템 등록
 		RegisterAllSystems();
 
-		// 4. 데이터 로드 (Python 또는 JSON)
-		if (_scriptSystem?.IsPythonDataSource() ?? false)
-		{
-			LoadDataFromPython();
-		}
-		else
-		{
-			LoadDataFromJson();
-		}
+		// 4. 데이터 로드 (Python)
+		LoadDataFromPython();
 
 		// 5. 시스템 간 참조 설정 및 후처리
 		SetupSystemReferences();
@@ -121,35 +114,6 @@ public partial class GameEngine : Node
 	}
 
 	/// <summary>
-	/// JSON 파일에서 데이터 로드
-	/// </summary>
-	private void LoadDataFromJson()
-	{
-		GD.Print("[GameEngine] Loading data from JSON files...");
-
-		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
-		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
-		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
-
-		// JSON 파일에서 데이터 로드
-		worldSystem?.GetTerrain().UpdateFromFile(DataPath + "location_data.json");
-		worldSystem?.GetTime().UpdateFromFile(DataPath + "time_data.json");
-		unitSystem?.UpdateFromFile(DataPath + "unit_data.json");
-		itemSystem?.UpdateFromFile(DataPath + "item_data.json");
-
-		// InventorySystem 데이터 로드 (없으면 unit_data.json에서 마이그레이션)
-		if (!_inventorySystem.LoadData(DataPath))
-		{
-			unitSystem?.MigrateInventoryData(DataPath + "unit_data.json", _inventorySystem);
-		}
-
-		// monologue 스크립트 로드
-		_scriptSystem?.LoadMonologueScripts();
-
-		GD.Print("[GameEngine] JSON data loaded.");
-	}
-
-	/// <summary>
 	/// Python에서 데이터 로드 (morld API 사용)
 	/// </summary>
 	private void LoadDataFromPython()
@@ -196,11 +160,8 @@ public partial class GameEngine : Node
 		_weatherSystem?.SetSystemReferences(worldSystem, _scriptSystem);
 		_thinkSystem?.SetSystemReferences(worldSystem, unitSystem, _playerSystem, _scriptSystem);
 
-		// DescribeSystem 설정 (Python 모드에서는 data 폴더가 없을 수 있음)
-		if (!(_scriptSystem?.IsPythonDataSource() ?? false))
-		{
-			_describeSystem?.LoadActionMessages(DataPath + "action_messages.json");
-		}
+		// DescribeSystem 설정 (action_messages.json이 있으면 로드)
+		_describeSystem?.LoadActionMessages(DataPath + "action_messages.json");
 	}
 
 	/// <summary>
