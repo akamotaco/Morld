@@ -848,6 +848,181 @@ namespace SE
                     return PyBool.FromBool(success);
                 });
 
+                // === 신규 API: 캐릭터 행동 명령 ===
+
+                // move_unit: 이동 스케줄 push
+                morldModule.ModuleDict["move_unit"] = new PyBuiltinFunction("move_unit", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("move_unit(unit_id, region_id, location_id) requires 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int regionId = args[1].ToInt();
+                    int locationId = args[2].ToInt();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            // 이동 스케줄 push
+                            unit.PushSchedule(new Morld.ScheduleLayer
+                            {
+                                Name = "이동",
+                                Schedule = null,
+                                EndConditionType = "이동",
+                                EndConditionParam = $"{regionId}:{locationId}"
+                            });
+                            Godot.GD.Print($"[morld] move_unit: unit={unitId} -> {regionId}:{locationId}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // wait_unit: 대기 스케줄 push
+                morldModule.ModuleDict["wait_unit"] = new PyBuiltinFunction("wait_unit", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("wait_unit(unit_id, duration) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int duration = args[1].ToInt();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            // 대기 스케줄 push (RemainingLifetime 사용)
+                            unit.PushSchedule(new Morld.ScheduleLayer
+                            {
+                                Name = "대기",
+                                Schedule = null,
+                                EndConditionType = "대기",
+                                RemainingLifetime = duration
+                            });
+                            Godot.GD.Print($"[morld] wait_unit: unit={unitId}, duration={duration}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // set_unit_tag: 단일 태그 설정
+                morldModule.ModuleDict["set_unit_tag"] = new PyBuiltinFunction("set_unit_tag", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_unit_tag(unit_id, tag_name, value) requires 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string tagName = args[1].AsString();
+                    int value = args[2].ToInt();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            unit.TraversalContext.SetTag(tagName, value);
+                            Godot.GD.Print($"[morld] set_unit_tag: unit={unitId}, {tagName}={value}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // set_unit_mood: 감정 상태 설정
+                morldModule.ModuleDict["set_unit_mood"] = new PyBuiltinFunction("set_unit_mood", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("set_unit_mood(unit_id, moods) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    var moods = args[1] is PyList moodList ? PyListToStringList(moodList) : null;
+
+                    if (_unitSystem != null && moods != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            unit.Mood.Clear();
+                            foreach (var m in moods) unit.Mood.Add(m);
+                            Godot.GD.Print($"[morld] set_unit_mood: unit={unitId}, moods=[{string.Join(", ", moods)}]");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // set_unit_activity: 활동 상태 설정 (CurrentSchedule.Activity)
+                morldModule.ModuleDict["set_unit_activity"] = new PyBuiltinFunction("set_unit_activity", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("set_unit_activity(unit_id, activity) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string activity = args[1] is PyNone ? null : args[1].AsString();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            // CurrentSchedule의 Activity 설정 (CurrentSchedule이 없으면 임시 생성)
+                            var currentSchedule = unit.CurrentSchedule;
+                            if (currentSchedule != null)
+                            {
+                                currentSchedule.Activity = activity;
+                            }
+                            else if (!string.IsNullOrEmpty(activity))
+                            {
+                                // 현재 스케줄이 없으면 Activity만 설정할 수 있는 임시 항목 생성 불가
+                                // 대신 unit에 직접 Activity 저장 필드가 필요 (현재 설계상 CurrentSchedule 경유)
+                                Godot.GD.PrintErr($"[morld] set_unit_activity: unit={unitId} has no CurrentSchedule");
+                                return PyBool.False;
+                            }
+                            Godot.GD.Print($"[morld] set_unit_activity: unit={unitId}, activity={activity ?? "null"}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // get_game_time: 현재 게임 시간 (분 단위) 반환
+                morldModule.ModuleDict["get_game_time"] = new PyBuiltinFunction("get_game_time", args =>
+                {
+                    if (_worldSystem != null)
+                    {
+                        var time = _worldSystem.GetTime();
+                        return new PyInt(time.MinuteOfDay);
+                    }
+                    return new PyInt(0);
+                });
+
+                // set_region_weather: 지역 날씨 설정 (기존 set_weather와 동일하지만 명확한 이름)
+                morldModule.ModuleDict["set_region_weather"] = new PyBuiltinFunction("set_region_weather", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("set_region_weather(region_id, weather) requires 2 arguments");
+
+                    int regionId = args[0].ToInt();
+                    string weather = args[1].AsString();
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var region = terrain.GetRegion(regionId);
+                        if (region != null)
+                        {
+                            region.CurrentWeather = weather;
+                            Godot.GD.Print($"[morld] set_region_weather: region={regionId}, weather={weather}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
                 // === 초기화 완료 플래그 ===
                 morldModule.ModuleDict["data_api_ready"] = PyBool.True;
 
