@@ -885,6 +885,169 @@ def on_step(step_number):
 2. 간단한 behavior부터 시작 (수면 → 식사 → 일과)
 3. 성공하면 점차 확대
 
+---
+
+## 시스템 분리 설계 (구현 계획)
+
+### 핵심 원칙
+
+**"구조는 미래적으로, 데이터는 현재 기준으로"**
+
+- **구조**: Python Agent 기반 (ThinkSystem → Python → 경로 계획)
+- **데이터**: 현재 스케줄 형식 유지 (regionId/locationId 하드코딩)
+
+### 시스템 역할 분리
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ThinkSystem (C#) - 매 Step 시작 시                              │
+│  └─ Python think_all(game_time) 호출                            │
+│     └─ 각 NPC Agent.think() 실행                                │
+│        └─ 스케줄 읽기 → 경로 계산 → morld.set_route()           │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  MovementSystem (C#) - 순수 실행                                 │
+│  - Unit.PlannedRoute만 읽기 (Python이 설정한 경로)               │
+│  - duration만큼 이동 실행                                        │
+│  - 스케줄 읽기/경로 계산 로직 없음!                              │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  EventSystem (C#) - NPC 이벤트                                   │
+│  - NPC 간 만남/충돌 이벤트                                       │
+│  - 플레이어 액션과 무관한 자동 이벤트                            │
+│  - 체력 감소, 디버프 등                                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 실행 순서
+
+```
+[Pending 종료] ─────────────────────────────────────────────────────
+      ↓
+┌─ SE.World.Step() ────────────────────────────────────────────────┐
+│                                                                   │
+│  [이전 Think의 계획] → Unit.PlannedRoute에 경로가 있음           │
+│        ↓                                                          │
+│  [MovementSystem] → PlannedRoute를 따라 duration만큼 이동         │
+│        │            └─ 실제 이동 + 시간 흐름 (GameTime 증가)      │
+│        ↓                                                          │
+│  [EventSystem] → 캐릭터 간 이벤트 처리                            │
+│        │         └─ NPC 만남, 충돌, 디버프 등                     │
+│        ↓                                                          │
+│  [ThinkSystem] → 현재 시간 기준으로 다음 경로 계획               │
+│        │         └─ Python think_all(game_time)                   │
+│        │         └─ 각 NPC: 스케줄 확인 → 경로 계획 → set_route() │
+│        ↓                                                          │
+│  [Pending] → 다음 입력 대기                                       │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+      ↓
+[SE.World 외부] ────────────────────────────────────────────────────
+      ↓
+[플레이어 액션] → 시간의 흐름 변조 (4시간 → 15분)
+      │          └─ 액션에 따른 캐릭터 스케줄 변동
+      ↓
+[다음 Step] ────────────────────────────────────────────────────────
+```
+
+**핵심 포인트:**
+- **Think가 Step 마지막**: 현재 시간 기준으로 "다음" 이동 경로를 계획
+- **Movement가 Step 처음**: 이전 Think에서 계획한 경로를 실행
+- **플레이어 액션은 Step 외부**: duration 변경, 스케줄 override 가능
+
+### 데이터 구조
+
+**Unit 확장:**
+```csharp
+class Unit {
+    // 기존 필드
+    LocationRef CurrentLocation;
+    EdgeProgress? CurrentEdge;
+
+    // 신규: Python Agent가 설정하는 경로
+    List<LocationRef> PlannedRoute;  // 이동할 경로 (목적지까지)
+    int RouteIndex;                   // 현재 경로 진행 위치
+}
+```
+
+**스케줄 데이터 (현재 유지):**
+```python
+"scheduleStack": [{
+    "name": "일상",
+    "schedule": [
+        {"name": "아침식사", "regionId": 0, "locationId": 3, "start": 420, "end": 450},
+        {"name": "사냥", "regionId": 0, "locationId": 24, "start": 480, "end": 720},
+    ]
+}]
+```
+
+**향후 확장 (High-level 스케줄):**
+```python
+"scheduleStack": [{
+    "name": "일상",
+    "schedule": [
+        {"name": "아침식사", "activity": "식사", "start": 420, "end": 450},
+        {"name": "사냥", "activity": "사냥", "start": 480, "end": 720},
+        # locationId 없음 - Agent가 동적으로 결정
+    ]
+}]
+```
+
+### 필요한 morld API
+
+```python
+# 경로 관련
+morld.find_path(from_loc, to_loc, unit_id)  # 경로 계산 → [(r,l), ...]
+morld.set_route(unit_id, path)               # Unit.PlannedRoute 설정
+morld.get_route(unit_id)                     # 현재 경로 조회
+
+# 시간/위치
+morld.get_game_time()                        # 현재 시간 (분)
+morld.get_unit_location(unit_id)             # 현재 위치
+
+# 스케줄 (현재 버전용)
+morld.get_schedule_entry(unit_id, time)      # 현재 시간의 스케줄 엔트리
+```
+
+### Python Agent 구현 (현재 버전)
+
+```python
+# agents/base_agent.py
+class BaseAgent:
+    def __init__(self, unit_id):
+        self.unit_id = unit_id
+
+    def think(self, game_time):
+        """매 Step 시작 시 호출 - 경로 계획"""
+        # 현재 스케줄 엔트리 확인
+        entry = morld.get_schedule_entry(self.unit_id, game_time)
+        if not entry:
+            return
+
+        target = (entry["regionId"], entry["locationId"])
+        current = morld.get_unit_location(self.unit_id)
+
+        if current != target:
+            path = morld.find_path(current, target, self.unit_id)
+            if path:
+                morld.set_route(self.unit_id, path)
+
+# think_all() - ThinkSystem에서 호출
+def think_all(game_time):
+    for agent in all_agents:
+        agent.think(game_time)
+```
+
+### 구현 단계
+
+1. **Unit 확장**: `PlannedRoute`, `RouteIndex` 필드 추가
+2. **morld API**: `find_path()`, `set_route()`, `get_schedule_entry()` 등 추가
+3. **MovementSystem 리팩토링**: 스케줄 로직 제거, `PlannedRoute`만 실행
+4. **ThinkSystem 연결**: Python `think_all()` 호출
+5. **Python Agent**: 기본 Agent 클래스 구현
+
 ### 향후 확장
 
 - 전등 상태에 따른 Location appearance 변경 ("불꺼진 방은 어둡다")
