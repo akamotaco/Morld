@@ -159,9 +159,6 @@ public partial class GameEngine : Node
 		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
 		_weatherSystem?.SetSystemReferences(worldSystem, _scriptSystem);
 		_thinkSystem?.SetSystemReferences(worldSystem, unitSystem, _playerSystem, _scriptSystem);
-
-		// DescribeSystem 설정 (action_messages.json이 있으면 로드)
-		_describeSystem?.LoadActionMessages(DataPath + "action_messages.json");
 	}
 
 	/// <summary>

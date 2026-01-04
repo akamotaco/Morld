@@ -379,6 +379,30 @@ namespace SE
                     return PyBool.False;
                 });
 
+                // === 스크립트 함수 등록 API ===
+                // morld.register_script(func) - Python 함수를 전역 스코프에 등록
+                // done_callback 등에서 함수 이름만으로 호출 가능하게 함
+                // CPython 3.12: 전역 스코프 = sys.modules['__main__'].__dict__
+                morldModule.ModuleDict["register_script"] = new PyBuiltinFunction("register_script", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("register_script(func) requires 1 argument");
+
+                    var func = args[0];
+                    if (func is not PyFunction pyFunc)
+                        throw PyTypeError.Create("register_script() argument must be a function");
+
+                    var funcName = pyFunc.Name;
+
+                    // CPython 3.12: Python/ceval.c - globals() == sys.modules['__main__'].__dict__
+                    if (PyImportSystem.TryGetModule("__main__", out var mainModule))
+                    {
+                        mainModule.ModuleDict[funcName] = func;
+                        Godot.GD.Print($"[morld] register_script: {funcName}");
+                    }
+                    return func;  // 데코레이터로 사용할 수 있도록 함수 반환
+                });
+
                 // sys.modules에 등록
                 PyImportSystem.SetModule("morld", morldModule);
 

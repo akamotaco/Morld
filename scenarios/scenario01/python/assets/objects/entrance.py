@@ -58,8 +58,9 @@ def escape(context_unit_id):
     }
 
 
+@morld.register_script
 def show_ending(context_unit_id):
-    """엔딩 화면 표시"""
+    """엔딩 화면 표시 - 1단계 (스토리)"""
     return {
         "type": "monologue",
         "pages": [
@@ -79,8 +80,20 @@ def show_ending(context_unit_id):
 
             "바깥세상.\n\n익숙한 듯, 낯선 듯한 풍경이 눈앞에 펼쳐진다.",
 
-            "차가운 아침 공기를 깊이 들이마신다.\n\n살아있음을 온몸으로 느끼며.",
+            "차가운 아침 공기를 깊이 들이마신다.\n\n살아있음을 온몸으로 느끼며."
+        ],
+        "time_consumed": 0,
+        "button_type": "ok",
+        "done_callback": "show_ending_credits"
+    }
 
+
+@morld.register_script
+def show_ending_credits(context_unit_id):
+    """엔딩 화면 표시 - 2단계 (크레딧)"""
+    return {
+        "type": "monologue",
+        "pages": [
             "━━━━━━━━━━━━━━━━━━━━\n\n[b]탈출 성공![/b]\n\n당신은 미스터리한 저택에서\n무사히 빠져나왔습니다.\n\n━━━━━━━━━━━━━━━━━━━━\n\n플레이해주셔서 감사합니다."
         ],
         "time_consumed": 0,

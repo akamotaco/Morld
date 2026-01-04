@@ -28,9 +28,9 @@ namespace SE
 		public void LoadActionMessages(string filePath)
 		{
 			// Godot FileAccess를 사용해서 res:// 경로 지원
+			// Python 모드에서는 이 파일이 없을 수 있으므로 조용히 스킵
 			if (!Godot.FileAccess.FileExists(filePath))
 			{
-				Godot.GD.PrintErr($"[DescribeSystem] Action messages file not found: {filePath}");
 				return;
 			}
 

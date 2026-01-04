@@ -737,6 +737,12 @@ morld.set_flag(flag_name, value)              # 플래그 설정
 # 액션 로그
 morld.add_action_log(message)                 # 화면에 표시되는 행동 로그 추가
 
+# 스크립트 함수 등록 (데코레이터)
+@morld.register_script
+def my_callback(context_unit_id):
+    """done_callback에서 함수 이름만으로 호출 가능"""
+    return {"type": "monologue", "pages": ["..."], "time_consumed": 0}
+
 # 유닛 정보 조회 (전체 데이터 반환)
 unit_info = morld.get_unit_info(unit_id)
 # 반환값:

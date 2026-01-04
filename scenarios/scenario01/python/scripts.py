@@ -7,6 +7,30 @@ Asset 기반 구조에서 스크립트 함수들을 export
 import morld
 
 # ============================================================
+# Export 목록 (from scripts import * 에서 사용)
+# - @morld.register_script 데코레이터로 대체됨
+# ============================================================
+# __all__ = [
+#     # 아이템 스크립트
+#     'read_note1', 'read_note2', 'read_note3',
+#     'read_diary', 'read_old_letter', 'read_study_memo',
+#     'combine_golden_key', 'combine_key',
+#     # 오브젝트 스크립트
+#     'examine_old_box', 'toggle_switch',
+#     'examine_shelf', 'unlock_cabinet',
+#     'examine_fireplace', 'examine_sofa',
+#     'examine_refrigerator', 'unlock_cupboard',
+#     'examine_bed', 'open_vanity_drawer',
+#     'open_safe', 'examine_desk',
+#     'examine_picture', 'examine_clock', 'examine_umbrella',
+#     'unlock_study_door', 'input_study_digit', 'verify_study_password',
+#     'examine_step', 'examine_window',
+#     'escape', 'show_ending',
+#     # 비밀번호 시스템
+#     'input_digit', 'verify_password', 'cancel_password',
+# ]
+
+# ============================================================
 # 아이템 스크립트 함수들 import (assets에서)
 # ============================================================
 from assets.items.notes import read_note1, read_note2, read_note3
