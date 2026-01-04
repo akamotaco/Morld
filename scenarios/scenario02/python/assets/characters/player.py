@@ -67,11 +67,3 @@ class Player(Character):
     }
     actions = ["rest", "sleep", "wait"]
     mood = []
-    schedule_stack = [
-        {
-            "name": "대기",
-            "schedule": [],
-            "endConditionType": None,
-            "endConditionParam": None
-        }
-    ]

@@ -36,10 +36,6 @@ class BaseAgent:
         """현재 위치 (region_id, location_id) 튜플"""
         return morld.get_unit_location(self.unit_id)
 
-    def get_schedule_entry(self):
-        """현재 시간의 스케줄 엔트리"""
-        return morld.get_schedule_entry(self.unit_id)
-
     def get_time(self):
         """현재 게임 시간"""
         return morld.get_game_time()

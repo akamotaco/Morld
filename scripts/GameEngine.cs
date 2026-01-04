@@ -241,13 +241,19 @@ public partial class GameEngine : Node
 			// 시간 진행 완료 후 이벤트 감지 및 상황 업데이트
 			if (!_playerSystem.HasPendingTime)
 			{
-				// 위치 변경 및 만남 이벤트 감지
-				_eventSystem?.DetectLocationChanges();
+				// 1. 만남 감지 → 이벤트 처리 (ApplyNpcJobs로 이동 상태 변경)
+				//    DetectMeetings가 먼저여야 ApplyNpcJobs가 DetectLocationChanges 전에 실행됨
 				_eventSystem?.DetectMeetings();
-
-				// 이벤트 처리 (모놀로그 표시 시 상황 업데이트 스킵)
 				var eventHandled = _eventSystem?.FlushEvents() ?? false;
-				if (!eventHandled)
+
+				// 2. 위치 변경 감지 (ApplyNpcJobs 후이므로 오버라이드된 상태 반영)
+				_eventSystem?.DetectLocationChanges();
+
+				// 3. 위치 변경으로 인한 추가 이벤트 처리
+				var newEventHandled = _eventSystem?.FlushEvents() ?? false;
+
+				// 4. 모놀로그가 없으면 상황 업데이트
+				if (!eventHandled && !newEventHandled)
 				{
 					UpdateSituationText();
 				}

@@ -156,16 +156,12 @@ class Character(Unit):
     """
     캐릭터 클래스 (NPC, 플레이어)
 
-    클래스 속성:
-    - schedule_stack: 스케줄 스택 정의
-
     메서드 오버라이드:
     - get_describe_text(): 장소에 있을 때 묘사 (플레이어와 같은 위치)
     - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
     """
 
     type: str = "male"
-    schedule_stack: list = None
 
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """캐릭터를 morld에 등록"""
@@ -187,16 +183,6 @@ class Character(Unit):
         # 태그 설정
         if self.tags:
             morld.set_unit_tags(instance_id, self.tags)
-
-        # 스케줄 스택 설정
-        for layer in (self.schedule_stack or []):
-            morld.push_schedule(
-                instance_id,
-                layer.get("name", ""),
-                layer.get("endConditionType"),
-                layer.get("endConditionParam"),
-                layer.get("schedule")
-            )
 
         # 인스턴스 캐시 등록 (describe_text/focus_text 조회용)
         from assets.characters import register_instance

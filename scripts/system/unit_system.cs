@@ -135,37 +135,6 @@ namespace SE
 					}
 				}
 
-				// 스케줄 스택 설정 (배열 순서대로 push - 첫 요소가 스택 바닥)
-				foreach (var layerData in data.ScheduleStack)
-				{
-					DailySchedule? schedule = null;
-
-					// 시간 기반 스케줄이 있으면 생성
-					if (layerData.Schedule != null && layerData.Schedule.Length > 0)
-					{
-						schedule = new DailySchedule();
-						foreach (var entry in layerData.Schedule)
-						{
-							schedule.AddEntry(
-								entry.Name,
-								entry.RegionId,
-								entry.LocationId,
-								entry.Start,
-								entry.End,
-								entry.Activity ?? ""
-							);
-						}
-					}
-
-					unit.PushSchedule(new ScheduleLayer
-					{
-						Name = layerData.Name,
-						Schedule = schedule,
-						EndConditionType = layerData.EndConditionType,
-						EndConditionParam = layerData.EndConditionParam
-					});
-				}
-
 				// CurrentEdge 설정 (이동 중 상태 복원)
 				if (data.CurrentEdge != null)
 				{
@@ -238,21 +207,6 @@ namespace SE
 				Mood = unit.Mood.Count > 0
 					? new List<string>(unit.Mood)
 					: null,
-				ScheduleStack = unit.ScheduleStack.Reverse().Select(layer => new ScheduleLayerJsonData
-				{
-					Name = layer.Name,
-					Schedule = layer.Schedule?.Entries.Select(entry => new ScheduleEntryJsonData
-					{
-						Name = entry.Name,
-						RegionId = entry.Location.RegionId,
-						LocationId = entry.Location.LocalId,
-						Start = entry.TimeRange.StartMinute,
-						End = entry.TimeRange.EndMinute,
-						Activity = string.IsNullOrEmpty(entry.Activity) ? null : entry.Activity
-					}).ToArray(),
-					EndConditionType = layer.EndConditionType,
-					EndConditionParam = layer.EndConditionParam
-				}).ToArray(),
 				CurrentEdge = unit.CurrentEdge != null
 					? new EdgeProgressJsonData
 					{
@@ -338,12 +292,10 @@ namespace SE
 			foreach (var unit in characters)
 			{
 				GD.Print($"  - {unit}");
-				GD.Print($"    스케줄 스택: {unit.ScheduleStack.Count}개 레이어");
-				if (unit.CurrentScheduleLayer != null)
+				GD.Print($"    JobList: {unit.JobList.Count}개 Job");
+				if (unit.CurrentJob != null)
 				{
-					var layer = unit.CurrentScheduleLayer;
-					var scheduleInfo = layer.Schedule != null ? $"{layer.Schedule.Entries.Count}개 엔트리" : "없음";
-					GD.Print($"    현재 레이어: {layer.Name} (스케줄: {scheduleInfo})");
+					GD.Print($"    현재 Job: {unit.CurrentJob.Name} ({unit.CurrentJob.Action}, {unit.CurrentJob.Duration}분)");
 				}
 				if (unit.TraversalContext.Tags.Count > 0)
 				{

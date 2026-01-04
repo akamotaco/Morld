@@ -913,55 +913,6 @@ namespace SE
                     return PyBool.False;
                 });
 
-                morldModule.ModuleDict["push_schedule"] = new PyBuiltinFunction("push_schedule", args =>
-                {
-                    if (args.Length < 2)
-                        throw PyTypeError.Create("push_schedule(unit_id, name, end_type=None, end_param=None, schedule=None) requires at least 2 arguments");
-
-                    int unitId = args[0].ToInt();
-                    string name = args[1].AsString();
-                    string endType = args.Length >= 3 && args[2] is not PyNone ? args[2].AsString() : null;
-                    string endParam = args.Length >= 4 && args[3] is not PyNone ? args[3].AsString() : null;
-                    var scheduleData = args.Length >= 5 && args[4] is PyList schedList ? schedList : null;
-
-                    if (_unitSystem != null)
-                    {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
-                        {
-                            Morld.DailySchedule schedule = null;
-                            if (scheduleData != null && scheduleData.Length() > 0)
-                            {
-                                schedule = new Morld.DailySchedule();
-                                for (int i = 0; i < scheduleData.Length(); i++)
-                                {
-                                    if (scheduleData.GetItem(i) is PyDict entry)
-                                    {
-                                        var entryName = GetPyDictString(entry, "name", "");
-                                        var entryRegion = GetPyDictInt(entry, "regionId", 0);
-                                        var entryLocation = GetPyDictInt(entry, "locationId", 0);
-                                        var start = GetPyDictInt(entry, "start", 0);
-                                        var end = GetPyDictInt(entry, "end", 0);
-                                        var activity = GetPyDictString(entry, "activity", "");
-                                        schedule.AddEntry(entryName, entryRegion, entryLocation, start, end, activity);
-                                    }
-                                }
-                            }
-
-                            unit.PushSchedule(new Morld.ScheduleLayer
-                            {
-                                Name = name,
-                                Schedule = schedule,
-                                EndConditionType = endType,
-                                EndConditionParam = endParam
-                            });
-                            Godot.GD.Print($"[morld] push_schedule: unit={unitId}, name={name}");
-                            return PyBool.True;
-                        }
-                    }
-                    return PyBool.False;
-                });
-
                 // === Clear API (챕터 전환용) ===
                 morldModule.ModuleDict["clear_units"] = new PyBuiltinFunction("clear_units", args =>
                 {
@@ -1057,14 +1008,16 @@ namespace SE
                         var unit = _unitSystem.GetUnit(unitId);
                         if (unit != null)
                         {
-                            // 이동 스케줄 push
-                            unit.PushSchedule(new Morld.ScheduleLayer
+                            // JobList에 이동 Job 삽입
+                            var job = new Morld.Job
                             {
                                 Name = "이동",
-                                Schedule = null,
-                                EndConditionType = "이동",
-                                EndConditionParam = $"{regionId}:{locationId}"
-                            });
+                                Action = "move",
+                                RegionId = regionId,
+                                LocationId = locationId,
+                                Duration = 1440  // 목적지 도착까지 (하루)
+                            };
+                            unit.InsertJobWithClear(job);
                             Godot.GD.Print($"[morld] move_unit: unit={unitId} -> {regionId}:{locationId}");
                             return PyBool.True;
                         }
@@ -1072,7 +1025,7 @@ namespace SE
                     return PyBool.False;
                 });
 
-                // wait_unit: 대기 스케줄 push
+                // wait_unit: 대기 Job 삽입
                 morldModule.ModuleDict["wait_unit"] = new PyBuiltinFunction("wait_unit", args =>
                 {
                     if (args.Length < 2)
@@ -1086,14 +1039,14 @@ namespace SE
                         var unit = _unitSystem.GetUnit(unitId);
                         if (unit != null)
                         {
-                            // 대기 스케줄 push (RemainingLifetime 사용)
-                            unit.PushSchedule(new Morld.ScheduleLayer
+                            // JobList에 대기 Job 삽입
+                            var job = new Morld.Job
                             {
                                 Name = "대기",
-                                Schedule = null,
-                                EndConditionType = "대기",
-                                RemainingLifetime = duration
-                            });
+                                Action = "stay",
+                                Duration = duration
+                            };
+                            unit.InsertJobWithClear(job);
                             Godot.GD.Print($"[morld] wait_unit: unit={unitId}, duration={duration}");
                             return PyBool.True;
                         }
@@ -1280,41 +1233,6 @@ namespace SE
                         new PyInt(unit.CurrentLocation.RegionId),
                         new PyInt(unit.CurrentLocation.LocalId)
                     });
-                });
-
-                // get_schedule_entry(unit_id, minute_of_day=None) - 스케줄 엔트리 조회
-                // 반환: {"name": str, "region_id": int, "location_id": int, "activity": str|None} 또는 None
-                morldModule.ModuleDict["get_schedule_entry"] = new PyBuiltinFunction("get_schedule_entry", args =>
-                {
-                    if (args.Length < 1)
-                        throw PyTypeError.Create("get_schedule_entry(unit_id, minute_of_day=None) requires at least 1 argument");
-
-                    int unitId = args[0].ToInt();
-
-                    if (_unitSystem == null || _worldSystem == null)
-                        return PyNone.Instance;
-
-                    var unit = _unitSystem.GetUnit(unitId);
-                    if (unit == null)
-                        return PyNone.Instance;
-
-                    // 현재 스케줄 레이어의 DailySchedule에서 엔트리 찾기
-                    var layer = unit.CurrentScheduleLayer;
-                    if (layer == null || layer.Schedule == null)
-                        return PyNone.Instance;
-
-                    // minute_of_day로 GameTime을 사용해서 조회
-                    var currentTime = _worldSystem.GetTime();
-                    var entry = layer.Schedule.GetCurrentEntry(currentTime);
-                    if (entry == null)
-                        return PyNone.Instance;
-
-                    var result = new PyDict();
-                    result.SetItem(new PyString("name"), new PyString(entry.Name ?? ""));
-                    result.SetItem(new PyString("region_id"), new PyInt(entry.Location.RegionId));
-                    result.SetItem(new PyString("location_id"), new PyInt(entry.Location.LocalId));
-                    result.SetItem(new PyString("activity"), entry.Activity != null ? new PyString(entry.Activity) : PyNone.Instance);
-                    return result;
                 });
 
                 // clear_route(unit_id) - 경로 초기화

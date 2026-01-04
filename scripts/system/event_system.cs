@@ -141,6 +141,9 @@ namespace SE
 					// 위치는 같지만 이동을 시작한 경우 (화면에서 사라짐)
 					else if (isMoving && !wasMovingBefore)
 					{
+						// 이동 시작 시 만남 상태 리셋 (다음에 다시 만나면 OnMeet 발생)
+						ClearMeetingsForUnit(unit.Id);
+
 						// 플레이어와 같은 위치에서 이동 시작 → "떠났다" 알림
 						if (unit.Id != playerId && playerLocation.HasValue && currentLoc == playerLocation.Value)
 						{
@@ -206,11 +209,12 @@ namespace SE
 			var playerLocation = player.CurrentLocation;
 
 			// 플레이어와 같은 위치에 있는 유닛 수집
-			// StayDuration 체류로 인해 경유지에서도 만남 가능
+			// 이동 중인 유닛(CurrentEdge != null)은 제외 (화면에 표시되지 않음)
 			var unitsToMeet = _unitSystem.Units.Values
 				.Where(u => u.Id != playerId
 						 && u.GeneratesEvents
-						 && u.CurrentLocation == playerLocation)
+						 && u.CurrentLocation == playerLocation
+						 && u.CurrentEdge == null)  // 이동 중이 아닌 유닛만
 				.Select(u => u.Id)
 				.OrderBy(id => id)  // 정렬하여 키 정규화
 				.ToList();
@@ -310,6 +314,12 @@ namespace SE
 				// 이동 중이었다면 중단
 				unit.CurrentEdge = null;
 				unit.RemainingStayTime = 0;
+
+				// 이동 추적 상태 동기화 (DetectLocationChanges에서 "이동했다" 로그 방지)
+				// NPC Job이 적용되면 현재 위치에서 새 행동을 시작하므로
+				// 이전 이동 상태를 무효화
+				_wasMoving.Remove(unitId);
+				_lastLocations[unitId] = unit.CurrentLocation;
 
 				// JobList 클리어 후 새 Job 삽입
 				var job = new Morld.Job
