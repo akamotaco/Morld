@@ -501,6 +501,49 @@ namespace SE
                     return PyBool.False;
                 });
 
+                // 양방향 조건을 지원하는 edge 추가
+                morldModule.ModuleDict["add_edge_with_conditions"] = new PyBuiltinFunction("add_edge_with_conditions", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("add_edge_with_conditions(region_id, from_id, to_id, time_ab=1, time_ba=1, conditions_ab={}, conditions_ba={}) requires at least 3 arguments");
+
+                    int regionId = args[0].ToInt();
+                    int fromId = args[1].ToInt();
+                    int toId = args[2].ToInt();
+                    int timeAB = args.Length >= 4 ? args[3].ToInt() : 1;
+                    int timeBA = args.Length >= 5 ? args[4].ToInt() : timeAB;
+                    var conditionsAB = args.Length >= 6 && args[5] is PyDict condDictAB
+                        ? PyDictToIntDict(condDictAB)
+                        : null;
+                    var conditionsBA = args.Length >= 7 && args[6] is PyDict condDictBA
+                        ? PyDictToIntDict(condDictBA)
+                        : null;
+
+                    if (_worldSystem != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var region = terrain.GetRegion(regionId);
+                        if (region != null)
+                        {
+                            var edge = region.AddEdge(fromId, toId, timeAB);
+                            edge.SetTravelTime(timeAB, timeBA);
+                            if (conditionsAB != null)
+                            {
+                                foreach (var (key, value) in conditionsAB)
+                                    edge.AddConditionAtoB(key, value);
+                            }
+                            if (conditionsBA != null)
+                            {
+                                foreach (var (key, value) in conditionsBA)
+                                    edge.AddConditionBtoA(key, value);
+                            }
+                            Godot.GD.Print($"[morld] add_edge_with_conditions: region={regionId}, {fromId}<->{toId}, time={timeAB}/{timeBA}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
                 morldModule.ModuleDict["add_region_edge"] = new PyBuiltinFunction("add_region_edge", args =>
                 {
                     if (args.Length < 4)
