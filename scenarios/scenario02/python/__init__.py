@@ -17,7 +17,7 @@ def initialize_scenario():
     print("[scenario02] Initializing scenario data via morld API...")
 
     # 1. Asset 등록
-    assets.register_all()
+    assets.load_all_assets()
 
     # 2. 월드 초기화 (지형 + 시간)
     world.initialize_world()

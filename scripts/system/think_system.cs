@@ -21,6 +21,8 @@ namespace SE
         private UnitSystem _unitSystem;
         private PlayerSystem _playerSystem;
         private ScriptSystem _scriptSystem;
+        private bool _entitiesAvailable = false;
+        private bool _checkedEntities = false;
 
         /// <summary>
         /// 시스템 참조 설정
@@ -48,6 +50,24 @@ namespace SE
                 return;
             }
 
+            // entities 모듈 존재 여부 한 번만 체크
+            if (!_checkedEntities)
+            {
+                _checkedEntities = true;
+                try
+                {
+                    var checkResult = _scriptSystem.Eval("'entities' in dir()");
+                    _entitiesAvailable = checkResult is PyBool pyBool && pyBool.Value;
+                }
+                catch
+                {
+                    _entitiesAvailable = false;
+                }
+            }
+
+            // entities 모듈이 없으면 스킵
+            if (!_entitiesAvailable) return;
+
             // 현재 게임 시간 (분 단위)
             int gameTime = _worldSystem.GetTime().MinuteOfDay;
 
@@ -67,12 +87,7 @@ namespace SE
             }
             catch (System.Exception ex)
             {
-                // entities 모듈이 아직 로드되지 않은 경우 무시
-                // (기존 JSON 모드에서는 entities 모듈이 없음)
-                if (!ex.Message.Contains("entities"))
-                {
-                    Godot.GD.PrintErr($"[ThinkSystem] Error: {ex.Message}");
-                }
+                Godot.GD.PrintErr($"[ThinkSystem] Error: {ex.Message}");
             }
         }
 

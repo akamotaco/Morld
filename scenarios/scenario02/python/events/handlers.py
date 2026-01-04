@@ -124,6 +124,7 @@ def _handle_npc_meet(unit_ids):
 # 스크립트 함수 라우터
 # ============================================================
 
+@morld.register_script
 def npc_talk(context_unit_id):
     """NPC 대화"""
     unit_info = morld.get_unit_info(context_unit_id)
@@ -154,26 +155,31 @@ def npc_talk(context_unit_id):
 # 캐릭터 생성 함수들 (player/events.py로 위임)
 # ============================================================
 
+@morld.register_script
 def set_name(context_unit_id, name):
     """이름 설정"""
     return player_events.set_name(context_unit_id, name)
 
 
+@morld.register_script
 def set_age(context_unit_id, age):
     """나이 설정"""
     return player_events.set_age(context_unit_id, age)
 
 
+@morld.register_script
 def set_body(context_unit_id, body_type):
     """신체 설정"""
     return player_events.set_body(context_unit_id, body_type)
 
 
+@morld.register_script
 def set_equipment(context_unit_id, equip_id):
     """장비 설정"""
     return player_events.set_equipment(context_unit_id, equip_id)
 
 
+@morld.register_script
 def after_collapse(context_unit_id):
     """쓰러진 후 콜백"""
     return player_events.after_collapse(context_unit_id)

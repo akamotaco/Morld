@@ -5,24 +5,9 @@
 # - 스크립트 함수 라우팅 (npc_talk 등)
 # - 캐릭터 생성 함수 위임
 
-from .handlers import (
-    on_event_list,
-    # 스크립트 함수들
-    npc_talk,
-    set_name,
-    set_age,
-    set_body,
-    set_equipment,
-    after_collapse,
-)
+from .handlers import on_event_list
 
 # C#에서 호출하는 메인 진입점
-__all__ = [
-    'on_event_list',
-    'npc_talk',
-    'set_name',
-    'set_age',
-    'set_body',
-    'set_equipment',
-    'after_collapse',
-]
+# - on_event_list: 이벤트 시스템용 (직접 import)
+# - 스크립트 함수들: @morld.register_script 데코레이터로 자동 등록
+__all__ = ['on_event_list']
