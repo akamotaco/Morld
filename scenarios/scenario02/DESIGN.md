@@ -340,6 +340,58 @@ PRESENCE_TEXT = {
 
 ---
 
+## 폴더 구조 (Asset 기반)
+
+```
+scenarios/scenario02/python/
+├─ __init__.py          # 시나리오 진입점
+│   ├─ initialize_scenario()  # 초기화 (챕터 0)
+│   └─ initialize_chapter1()  # NPC 로드 (챕터 1 전환)
+│
+├─ assets/              # Asset 정의 (unique_id 기반)
+│   ├─ __init__.py      # AssetRegistry
+│   ├─ items/
+│   │   ├─ resources.py   # 밀가루, 쌀, 물, 열매 등
+│   │   ├─ equipment.py   # 칼, 주머니, 필기구 등
+│   │   └─ tools.py       # 도구류
+│   ├─ objects/
+│   │   ├─ furniture.py   # 벽난로, 소파, 책장 등
+│   │   └─ outdoor.py     # 벤치, 우물, 텃밭 등
+│   └─ characters/
+│       ├─ __init__.py    # PRESENCE_TEXT 시스템
+│       ├─ player.py      # 플레이어 Asset + 생성 옵션
+│       ├─ player_events.py
+│       ├─ lina.py        # 리나 (채집 담당)
+│       ├─ sera.py        # 세라 (사냥 담당)
+│       ├─ mila.py        # 밀라 (요리 담당)
+│       ├─ yuki.py        # 유키 (청소/빨래)
+│       └─ ella.py        # 엘라 (저택 관리자)
+│
+├─ world/               # 지형 + 인스턴스화
+│   ├─ __init__.py
+│   └─ mansion.py       # 저택 Region 정의
+│       ├─ LOCATIONS, EDGES
+│       ├─ PLAYER_SPAWN, NPC_SPAWNS
+│       ├─ ITEMS, OBJECTS
+│       └─ instantiate()
+│
+└─ events/              # 이벤트 핸들러
+    ├─ __init__.py      # on_event_list 등 export
+    └─ handlers.py      # 이벤트 처리 + 스크립트 함수
+```
+
+### Instance ID 할당 규칙
+
+| 범위 | 용도 |
+|------|------|
+| 0 | 플레이어 |
+| 1 ~ 99 | NPC |
+| 100 ~ 199 | 아이템 |
+| 200 ~ 299 | 오브젝트 |
+| 1000+ | 바닥 유닛 (1000 + location_id) |
+
+---
+
 ## 구현 우선순위
 
 ### 1단계 - 기본 (현재)

@@ -656,10 +656,11 @@ namespace SE
                 });
 
                 // === Item API (ItemSystem) ===
-                morldModule.ModuleDict["add_item_def"] = new PyBuiltinFunction("add_item_def", args =>
+                // add_item 함수 정의 (람다로 재사용)
+                PyBuiltinFunction addItemFunc = new PyBuiltinFunction("add_item", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("add_item_def(id, name, passive_tags=None, equip_tags=None, value=0, actions=None) requires at least 2 arguments");
+                        throw PyTypeError.Create("add_item(id, name, passive_tags=None, equip_tags=None, value=0, actions=None) requires at least 2 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -680,11 +681,13 @@ namespace SE
                             item.Actions.AddRange(actions);
 
                         _itemSystem.AddItem(item);
-                        Godot.GD.Print($"[morld] add_item_def: id={id}, name={name}");
+                        Godot.GD.Print($"[morld] add_item: id={id}, name={name}");
                         return PyBool.True;
                     }
                     return PyBool.False;
                 });
+                morldModule.ModuleDict["add_item"] = addItemFunc;
+                morldModule.ModuleDict["add_item_def"] = addItemFunc;  // 레거시 별칭
 
                 // === Unit API (UnitSystem) ===
                 morldModule.ModuleDict["add_unit"] = new PyBuiltinFunction("add_unit", args =>
@@ -1204,7 +1207,7 @@ namespace SE
         /// </summary>
         public void LoadMonologueScripts()
         {
-            Godot.GD.Print("[ScriptSystem] Loading monologue scripts...");
+            Godot.GD.Print("[ScriptSystem] Loading scenario scripts...");
 
             // 시나리오 경로가 설정되지 않은 경우 경고
             if (string.IsNullOrEmpty(_scenarioPath))
@@ -1217,25 +1220,25 @@ namespace SE
             {
                 // 파일 내용을 읽어서 Execute로 직접 실행 (ExecuteFile 대신)
                 string code;
-                var filePath = ScenarioPythonPath + "monologues.py";
+                var filePath = ScenarioPythonPath + "scripts.py";
 
                 using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
                 if (file == null)
                 {
                     var error = Godot.FileAccess.GetOpenError();
-                    Godot.GD.PrintErr($"[ScriptSystem] Failed to open monologue file: {filePath} (Error: {error})");
+                    Godot.GD.PrintErr($"[ScriptSystem] Failed to open scripts file: {filePath} (Error: {error})");
                     return;
                 }
                 code = file.GetAsText();
 
-                Godot.GD.Print($"[ScriptSystem] Monologue file loaded from: {filePath} ({code.Length} chars)");
+                Godot.GD.Print($"[ScriptSystem] Scripts file loaded from: {filePath} ({code.Length} chars)");
                 Godot.GD.Print($"[ScriptSystem] First 200 chars: {code.Substring(0, System.Math.Min(200, code.Length))}");
 
                 // Execute로 직접 실행 (전역 스코프에 함수 등록)
                 var execResult = Execute(code);
                 Godot.GD.Print($"[ScriptSystem] Execute result: {execResult?.GetType().Name} = {execResult}");
 
-                Godot.GD.Print("[ScriptSystem] Monologue scripts loaded successfully.");
+                Godot.GD.Print("[ScriptSystem] Scenario scripts loaded successfully.");
 
                 // events.py 로드 (EventSystem용)
                 LoadEventsScript();
@@ -1296,17 +1299,48 @@ namespace SE
 
             try
             {
-                // 패키지의 모든 모듈을 전역 네임스페이스에 import
-                var importCode = @"
-from world import *
-from items import *
+                // 필수 모듈 import (모든 시나리오에 있어야 함)
+                var coreImportCode = @"
 from events import *
-from characters import get_character_event_handler, get_all_presence_texts
-from objects import get_all_objects
-from objects.furniture import mirror_look
-from characters.player.events import job_select, job_confirm
 ";
-                Execute(importCode);
+                Execute(coreImportCode);
+
+                // 선택적 모듈 import (시나리오에 따라 없을 수 있음)
+                var optionalImportCode = @"
+# world, items는 initialize_scenario에서 이미 로드됨
+
+# scripts 모듈 (오브젝트 상호작용 스크립트)
+try:
+    from scripts import *
+except ImportError:
+    pass  # 없으면 무시
+
+# characters 모듈 (NPC가 있는 시나리오)
+try:
+    from characters import get_character_event_handler, get_all_presence_texts
+except ImportError:
+    get_character_event_handler = lambda unit_id: None
+    get_all_presence_texts = lambda region_id, location_id: []
+
+# objects 모듈 (오브젝트가 있는 시나리오)
+try:
+    from objects import get_all_objects
+except (ImportError, AttributeError):
+    get_all_objects = lambda: []
+
+# 시나리오별 선택적 함수들
+try:
+    from objects.furniture import mirror_look
+except (ImportError, AttributeError):
+    mirror_look = lambda ctx: None
+
+try:
+    from characters.player.events import job_select, job_confirm
+except (ImportError, AttributeError):
+    job_select = lambda ctx, job: None
+    job_confirm = lambda ctx, job: None
+";
+                Execute(optionalImportCode);
 
                 // entities 모듈 로드 시도 (새로운 Python Entity System)
                 TryLoadEntitiesModule();

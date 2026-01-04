@@ -20,8 +20,8 @@ public partial class GameEngine : Node
 	private WeatherSystem _weatherSystem;
 
 	// 시나리오 경로 (res:// 기준)11111
-	// private string _scenarioPath = "res://scenarios/scenario01/";
-	private string _scenarioPath = "res://scenarios/scenario02/";
+	private string _scenarioPath = "res://scenarios/scenario01/";
+	// private string _scenarioPath = "res://scenarios/scenario02/";
 	private string DataPath => _scenarioPath + "data/";
 
 	public override void _Ready()
