@@ -1,6 +1,7 @@
 # assets/characters/lina.py - 리나 캐릭터 Asset
 
 from assets import registry
+from think import BaseAgent, register_agent_class
 
 CHARACTER_ID = 1
 
@@ -85,3 +86,47 @@ class events:
             "time_consumed": 3,
             "button_type": "ok"
         }
+
+
+# ========================================
+# AI Agent
+# ========================================
+
+@register_agent_class("lina")
+class LinaAgent(BaseAgent):
+    """
+    리나 AI - 채집 담당
+
+    특징:
+    - 활발하고 명랑함
+    - 날씨가 좋으면 일찍 채집터로
+    - 플레이어 호감도 높으면 근처에 머무름
+    """
+
+    def think(self):
+        """리나의 행동 결정"""
+        info = self.get_info()
+        if info is None:
+            return None
+
+        # 기본: 스케줄 기반 이동
+        entry = self.get_schedule_entry()
+        if entry is None:
+            return None
+
+        loc = self.get_location()
+        if loc is None:
+            return None
+
+        # 이미 목적지에 있으면 스킵
+        target_region = entry["region_id"]
+        target_loc = entry["location_id"]
+        if loc[0] == target_region and loc[1] == target_loc:
+            return None
+
+        # 경로 탐색 및 설정
+        path = self.find_path(target_region, target_loc)
+        if path:
+            self.set_route(path)
+
+        return path

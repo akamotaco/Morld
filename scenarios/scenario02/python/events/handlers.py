@@ -5,7 +5,7 @@
 import morld
 
 from assets.characters import get_character_event_handler
-from assets.characters.player import events as player_events
+from . import game_events, player_creation, location_events
 
 # 발생한 이벤트 ID 집합 (중복 방지)
 _triggered_events = set()
@@ -71,11 +71,7 @@ def _handle_game_start():
         return None
 
     _triggered_events.add(event_id)
-
-    if hasattr(player_events, "on_game_start"):
-        return player_events.on_game_start()
-
-    return None
+    return game_events.on_game_start()
 
 
 def _handle_player_reach(region_id, location_id):
@@ -85,7 +81,7 @@ def _handle_player_reach(region_id, location_id):
         event_id = "reach:front_yard"
         if event_id not in _triggered_events:
             _triggered_events.add(event_id)
-            return player_events.on_reach_front_yard()
+            return location_events.on_reach_front_yard()
 
     return None
 
@@ -152,34 +148,38 @@ def npc_talk(context_unit_id):
 
 
 # ============================================================
-# 캐릭터 생성 함수들 (player/events.py로 위임)
+# 캐릭터 생성 함수들 (player_creation 모듈로 위임)
 # ============================================================
 
 @morld.register_script
 def set_name(context_unit_id, name):
     """이름 설정"""
-    return player_events.set_name(context_unit_id, name)
+    return player_creation.set_name(context_unit_id, name)
 
 
 @morld.register_script
 def set_age(context_unit_id, age):
     """나이 설정"""
-    return player_events.set_age(context_unit_id, age)
+    return player_creation.set_age(context_unit_id, age)
 
 
 @morld.register_script
 def set_body(context_unit_id, body_type):
     """신체 설정"""
-    return player_events.set_body(context_unit_id, body_type)
+    return player_creation.set_body(context_unit_id, body_type)
 
 
 @morld.register_script
 def set_equipment(context_unit_id, equip_id):
     """장비 설정"""
-    return player_events.set_equipment(context_unit_id, equip_id)
+    return player_creation.set_equipment(context_unit_id, equip_id)
 
+
+# ============================================================
+# 위치 이벤트 콜백 (location_events 모듈로 위임)
+# ============================================================
 
 @morld.register_script
 def after_collapse(context_unit_id):
     """쓰러진 후 콜백"""
-    return player_events.after_collapse(context_unit_id)
+    return location_events.after_collapse(context_unit_id)

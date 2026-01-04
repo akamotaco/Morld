@@ -1097,6 +1097,196 @@ namespace SE
                     return PyBool.False;
                 });
 
+                // === ThinkSystem용 API (경로 계획) ===
+
+                // find_path(from_region, from_location, to_region, to_location, unit_id=None)
+                // 경로 탐색 - [(region_id, location_id), ...] 리스트 반환
+                morldModule.ModuleDict["find_path"] = new PyBuiltinFunction("find_path", args =>
+                {
+                    if (args.Length < 4)
+                        throw PyTypeError.Create("find_path(from_region, from_loc, to_region, to_loc, unit_id=None) requires at least 4 arguments");
+
+                    int fromRegion = args[0].ToInt();
+                    int fromLoc = args[1].ToInt();
+                    int toRegion = args[2].ToInt();
+                    int toLoc = args[3].ToInt();
+                    int? unitId = args.Length > 4 && args[4] != PyNone.Instance ? args[4].ToInt() : null;
+
+                    if (_worldSystem == null)
+                        return PyNone.Instance;
+
+                    var terrain = _worldSystem.GetTerrain();
+                    var from = new Morld.LocationRef(fromRegion, fromLoc);
+                    var to = new Morld.LocationRef(toRegion, toLoc);
+
+                    // 유닛 기반 경로 탐색 (조건 체크용)
+                    Morld.Unit unit = null;
+                    if (unitId.HasValue && _unitSystem != null)
+                        unit = _unitSystem.GetUnit(unitId.Value);
+
+                    var pathResult = terrain.FindPath(from, to, unit, _itemSystem);
+
+                    if (pathResult == null || !pathResult.Found || pathResult.Path.Count == 0)
+                        return PyNone.Instance;
+
+                    // Python 리스트로 변환: [(region_id, location_id), ...]
+                    var pyList = new PyList();
+                    foreach (var loc in pathResult.Path)
+                    {
+                        var tuple = new PyTuple(new PyObject[] {
+                            new PyInt(loc.RegionId),
+                            new PyInt(loc.LocalId)
+                        });
+                        pyList.Append(tuple);
+                    }
+                    return pyList;
+                });
+
+                // set_route(unit_id, path) - Unit.PlannedRoute 설정
+                // path: [(region_id, location_id), ...] 리스트
+                morldModule.ModuleDict["set_route"] = new PyBuiltinFunction("set_route", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("set_route(unit_id, path) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    var pathArg = args[1];
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    var route = new System.Collections.Generic.List<Morld.LocationRef>();
+
+                    if (pathArg is PyList pyList)
+                    {
+                        for (int i = 0; i < pyList.Length(); i++)
+                        {
+                            var item = pyList.GetItem(i);
+                            if (item is PyTuple tuple && tuple.Length() >= 2)
+                            {
+                                int regionId = tuple.GetItem(0).ToInt();
+                                int locationId = tuple.GetItem(1).ToInt();
+                                route.Add(new Morld.LocationRef(regionId, locationId));
+                            }
+                        }
+                    }
+
+                    unit.SetRoute(route);
+                    return PyBool.True;
+                });
+
+                // get_route(unit_id) - 현재 경로 조회
+                // 반환: {"path": [...], "index": N} 또는 None
+                morldModule.ModuleDict["get_route"] = new PyBuiltinFunction("get_route", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_route(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyNone.Instance;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null || !unit.HasPlannedRoute)
+                        return PyNone.Instance;
+
+                    var pathList = new PyList();
+                    foreach (var loc in unit.PlannedRoute)
+                    {
+                        var tuple = new PyTuple(new PyObject[] {
+                            new PyInt(loc.RegionId),
+                            new PyInt(loc.LocalId)
+                        });
+                        pathList.Append(tuple);
+                    }
+
+                    var result = new PyDict();
+                    result.SetItem(new PyString("path"), pathList);
+                    result.SetItem(new PyString("index"), new PyInt(unit.RouteIndex));
+                    return result;
+                });
+
+                // get_unit_location(unit_id) - 유닛 현재 위치 조회
+                // 반환: (region_id, location_id) 또는 None
+                morldModule.ModuleDict["get_unit_location"] = new PyBuiltinFunction("get_unit_location", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_unit_location(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyNone.Instance;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyNone.Instance;
+
+                    return new PyTuple(new PyObject[] {
+                        new PyInt(unit.CurrentLocation.RegionId),
+                        new PyInt(unit.CurrentLocation.LocalId)
+                    });
+                });
+
+                // get_schedule_entry(unit_id, minute_of_day=None) - 스케줄 엔트리 조회
+                // 반환: {"name": str, "region_id": int, "location_id": int, "activity": str|None} 또는 None
+                morldModule.ModuleDict["get_schedule_entry"] = new PyBuiltinFunction("get_schedule_entry", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_schedule_entry(unit_id, minute_of_day=None) requires at least 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null || _worldSystem == null)
+                        return PyNone.Instance;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyNone.Instance;
+
+                    // 현재 스케줄 레이어의 DailySchedule에서 엔트리 찾기
+                    var layer = unit.CurrentScheduleLayer;
+                    if (layer == null || layer.Schedule == null)
+                        return PyNone.Instance;
+
+                    // minute_of_day로 GameTime을 사용해서 조회
+                    var currentTime = _worldSystem.GetTime();
+                    var entry = layer.Schedule.GetCurrentEntry(currentTime);
+                    if (entry == null)
+                        return PyNone.Instance;
+
+                    var result = new PyDict();
+                    result.SetItem(new PyString("name"), new PyString(entry.Name ?? ""));
+                    result.SetItem(new PyString("region_id"), new PyInt(entry.Location.RegionId));
+                    result.SetItem(new PyString("location_id"), new PyInt(entry.Location.LocalId));
+                    result.SetItem(new PyString("activity"), entry.Activity != null ? new PyString(entry.Activity) : PyNone.Instance);
+                    return result;
+                });
+
+                // clear_route(unit_id) - 경로 초기화
+                morldModule.ModuleDict["clear_route"] = new PyBuiltinFunction("clear_route", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("clear_route(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null)
+                        return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    unit.ClearRoute();
+                    return PyBool.True;
+                });
+
                 // === 초기화 완료 플래그 ===
                 morldModule.ModuleDict["data_api_ready"] = PyBool.True;
 
@@ -1885,6 +2075,46 @@ def calculate(a, b):
             {
                 Godot.GD.PrintErr($"[ScriptSystem] TriggerEvent error: {ex.Message}");
                 return null;
+            }
+        }
+
+        // ========================================
+        // ThinkSystem 지원
+        // ========================================
+
+        /// <summary>
+        /// think 모듈이 사용 가능한지 확인
+        /// </summary>
+        public bool IsThinkModuleAvailable()
+        {
+            try
+            {
+                var result = Eval("'think' in dir() or 'think_all' in dir()");
+                if (result is PyBool pyBool && pyBool.Value)
+                    return true;
+
+                // think 모듈 import 시도
+                Execute("import think");
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Python think.think_all() 호출 - 모든 NPC Agent의 경로 계획
+        /// </summary>
+        public void CallThinkAll()
+        {
+            try
+            {
+                Execute("import think; think.think_all()");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallThinkAll error: {ex.Message}");
             }
         }
     }

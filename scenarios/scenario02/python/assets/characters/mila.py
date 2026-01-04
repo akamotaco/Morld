@@ -1,8 +1,52 @@
 # assets/characters/mila.py - 밀라 캐릭터 Asset
 
 from assets import registry
+from think import BaseAgent, register_agent_class
 
 CHARACTER_ID = 3
+
+# ========================================
+# AI Agent
+# ========================================
+
+@register_agent_class("mila")
+class MilaAgent(BaseAgent):
+    """
+    밀라 AI - 요리 담당
+
+    특징:
+    - 다정하고 걱정 많음
+    - 식사 시간 근처에는 주방에 반드시 있음
+    - 플레이어가 아프면 걱정하며 지켜봄
+    """
+
+    def think(self):
+        """밀라의 행동 결정"""
+        info = self.get_info()
+        if info is None:
+            return None
+
+        # 기본: 스케줄 기반 이동
+        entry = self.get_schedule_entry()
+        if entry is None:
+            return None
+
+        loc = self.get_location()
+        if loc is None:
+            return None
+
+        # 이미 목적지에 있으면 스킵
+        target_region = entry["region_id"]
+        target_loc = entry["location_id"]
+        if loc[0] == target_region and loc[1] == target_loc:
+            return None
+
+        # 경로 탐색 및 설정
+        path = self.find_path(target_region, target_loc)
+        if path:
+            self.set_route(path)
+
+        return path
 
 PRESENCE_TEXT = {
     # activity 기반

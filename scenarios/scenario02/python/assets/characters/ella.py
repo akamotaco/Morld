@@ -1,8 +1,52 @@
 # assets/characters/ella.py - 엘라 캐릭터 Asset
 
 from assets import registry
+from think import BaseAgent, register_agent_class
 
 CHARACTER_ID = 5
+
+# ========================================
+# AI Agent
+# ========================================
+
+@register_agent_class("ella")
+class EllaAgent(BaseAgent):
+    """
+    엘라 AI - 관리자
+
+    특징:
+    - 냉정하고 리더십 있음
+    - 스케줄을 엄격히 준수
+    - 저택 전체를 관리하며 순찰
+    """
+
+    def think(self):
+        """엘라의 행동 결정"""
+        info = self.get_info()
+        if info is None:
+            return None
+
+        # 기본: 스케줄 기반 이동
+        entry = self.get_schedule_entry()
+        if entry is None:
+            return None
+
+        loc = self.get_location()
+        if loc is None:
+            return None
+
+        # 이미 목적지에 있으면 스킵
+        target_region = entry["region_id"]
+        target_loc = entry["location_id"]
+        if loc[0] == target_region and loc[1] == target_loc:
+            return None
+
+        # 경로 탐색 및 설정
+        path = self.find_path(target_region, target_loc)
+        if path:
+            self.set_route(path)
+
+        return path
 
 PRESENCE_TEXT = {
     # activity 기반

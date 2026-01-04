@@ -123,6 +123,55 @@ public class Unit : IDescribable
 	/// </summary>
 	public int RemainingStayTime { get; set; } = 0;
 
+	/// <summary>
+	/// Python Agent가 계획한 이동 경로
+	/// ThinkSystem에서 설정, MovementSystem에서 실행
+	/// </summary>
+	public List<LocationRef> PlannedRoute { get; set; } = new();
+
+	/// <summary>
+	/// 현재 경로 진행 위치 (PlannedRoute 인덱스)
+	/// </summary>
+	public int RouteIndex { get; set; } = 0;
+
+	/// <summary>
+	/// 계획된 경로가 있는지 여부
+	/// </summary>
+	public bool HasPlannedRoute => PlannedRoute.Count > 0 && RouteIndex < PlannedRoute.Count;
+
+	/// <summary>
+	/// 다음 이동 목적지 (PlannedRoute[RouteIndex])
+	/// </summary>
+	public LocationRef? NextRouteDestination =>
+		HasPlannedRoute ? PlannedRoute[RouteIndex] : null;
+
+	/// <summary>
+	/// 경로 설정 (Python Agent에서 호출)
+	/// </summary>
+	public void SetRoute(List<LocationRef> route)
+	{
+		PlannedRoute = route ?? new List<LocationRef>();
+		RouteIndex = 0;
+	}
+
+	/// <summary>
+	/// 경로 진행 (다음 위치로)
+	/// </summary>
+	public void AdvanceRoute()
+	{
+		if (RouteIndex < PlannedRoute.Count)
+			RouteIndex++;
+	}
+
+	/// <summary>
+	/// 경로 초기화
+	/// </summary>
+	public void ClearRoute()
+	{
+		PlannedRoute.Clear();
+		RouteIndex = 0;
+	}
+
 	public Unit(int id, string name, LocationRef startLocation)
 	{
 		_id = id;

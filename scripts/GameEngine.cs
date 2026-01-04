@@ -16,6 +16,7 @@ public partial class GameEngine : Node
 	private MetaActionHandler _actionHandler;
 	private ScriptSystem _scriptSystem;
 	private EventSystem _eventSystem;
+	private ThinkSystem _thinkSystem;
 
 	// 시나리오 경로 (res:// 기준)11111
 	// private string _scenarioPath = "res://scenarios/scenario01/";
@@ -84,8 +85,9 @@ public partial class GameEngine : Node
 		this._world.AddSystem(new ItemSystem(), "itemSystem");
 		_inventorySystem = this._world.AddSystem(new InventorySystem(), "inventorySystem") as InventorySystem;
 
-		// Logic Systems (실행 순서: Movement → Event → Behavior)
+		// Logic Systems (실행 순서: Think → Movement → Behavior)
 		this._world.AddSystem(new ActionSystem(), "actionSystem");
+		_thinkSystem = this._world.AddSystem(new ThinkSystem(), "thinkSystem") as ThinkSystem;
 		this._world.AddSystem(new MovementSystem(), "movementSystem");
 		// EventSystem은 아래에서 별도 등록 (UI 시스템 이후)
 		this._world.AddSystem(new BehaviorSystem(), "behaviorSystem");
@@ -143,6 +145,9 @@ public partial class GameEngine : Node
 		// ScriptSystem 테스트 함수 등록
 		_scriptSystem?.TestHelloWorld();
 		_scriptSystem?.RegisterTestFunctions();
+
+		// ThinkSystem 설정
+		_thinkSystem?.SetSystemReferences(_scriptSystem, _playerSystem, unitSystem);
 
 		// TextUISystem 설정
 		_textUISystem?.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);

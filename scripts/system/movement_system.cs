@@ -278,33 +278,62 @@ namespace SE
 				}
 
 				// 새 이동 시작
-				var currentLayer = unit.CurrentScheduleLayer;
-				if (currentLayer == null)
+				LocationRef? nextDestination = null;
+
+				// 1순위: PlannedRoute (Python Agent가 설정)
+				if (unit.HasPlannedRoute)
 				{
-					break;
+					nextDestination = unit.NextRouteDestination;
+					if (nextDestination.HasValue && unit.CurrentLocation == nextDestination.Value)
+					{
+						// 현재 경로 지점 도착 - 다음으로 진행
+						unit.AdvanceRoute();
+						nextDestination = unit.NextRouteDestination;
+					}
 				}
 
-				LocationRef? goalLocation = GetGoalLocation(unit, currentLayer, time);
-				if (!goalLocation.HasValue || unit.CurrentLocation == goalLocation.Value)
+				// 2순위: 스케줄 기반 목표 (기존 방식, PlannedRoute가 없을 때)
+				if (!nextDestination.HasValue)
 				{
-					// 목표 없거나 이미 도착 - 스케줄 엔트리 업데이트만
+					var currentLayer = unit.CurrentScheduleLayer;
+					if (currentLayer == null)
+					{
+						break;
+					}
+
+					LocationRef? goalLocation = GetGoalLocation(unit, currentLayer, time);
+					if (!goalLocation.HasValue || unit.CurrentLocation == goalLocation.Value)
+					{
+						// 목표 없거나 이미 도착 - 스케줄 엔트리 업데이트만
+						UpdateCurrentScheduleEntry(unit, currentLayer, time);
+						break;
+					}
+
+					// 아이템 효과가 반영된 태그로 경로 탐색
+					var inventory = inventorySystem?.GetUnitInventory(unit.Id);
+					var equippedItems = inventorySystem?.GetUnitEquippedItems(unit.Id);
+					var actualTags = unit.GetActualTags(itemSystem, inventory, equippedItems);
+					var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation.Value, actualTags);
+					if (!pathResult.Found || pathResult.Path.Count < 2)
+					{
+						break;
+					}
+
+					// 경로의 다음 위치로 이동
+					nextDestination = new LocationRef(pathResult.Path[1]);
+
+					// 스케줄 엔트리 업데이트
 					UpdateCurrentScheduleEntry(unit, currentLayer, time);
-					break;
 				}
 
-				// 아이템 효과가 반영된 태그로 경로 탐색
-				var inventory = inventorySystem?.GetUnitInventory(unit.Id);
-				var equippedItems = inventorySystem?.GetUnitEquippedItems(unit.Id);
-				var actualTags = unit.GetActualTags(itemSystem, inventory, equippedItems);
-				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation.Value, actualTags);
-				if (!pathResult.Found || pathResult.Path.Count < 2)
+				if (!nextDestination.HasValue || unit.CurrentLocation == nextDestination.Value)
 				{
 					break;
 				}
 
-				// 첫 Edge로 이동 시작
+				// 다음 Edge로 이동 시작
 				var from = unit.CurrentLocation;
-				var to = new LocationRef(pathResult.Path[1]);
+				var to = nextDestination.Value;
 				var travelTime = GetTravelTime(from, to, terrain);
 
 				unit.CurrentEdge = new EdgeProgress
@@ -314,9 +343,6 @@ namespace SE
 					TotalTime = travelTime,
 					ElapsedTime = 0
 				};
-
-				// 스케줄 엔트리 업데이트
-				UpdateCurrentScheduleEntry(unit, currentLayer, time);
 			}
 		}
 

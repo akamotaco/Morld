@@ -1,42 +1,40 @@
+#define DEBUG_LOG
+
 using System;
 using ECS;
-using SharpPy;
+using Godot;
 
 namespace SE
 {
     /// <summary>
-    /// ThinkSystem - 모든 캐릭터의 Python think() 호출
+    /// ThinkSystem - NPC AI 경로 계획
     ///
     /// 역할:
-    /// - 매 Step마다 Python entities.proc_all("BaseCharacter", "think", game_time) 호출
-    /// - 각 캐릭터가 다음 행동을 결정하도록 함
-    /// - PlayerSystem과 연동하여 플레이어 명령 override
+    /// - Python think.think_all() 함수 호출
+    /// - 각 NPC Agent가 경로를 계획 (PlannedRoute 설정)
+    /// - MovementSystem이 계획된 경로를 실행
     ///
-    /// 실행 순서:
-    /// MovementSystem → EventSystem → WeatherSystem → ThinkSystem → BehaviorSystem
+    /// 실행 순서: ThinkSystem → MovementSystem → BehaviorSystem
     /// </summary>
     public class ThinkSystem : ECS.System
     {
-        private WorldSystem _worldSystem;
-        private UnitSystem _unitSystem;
-        private PlayerSystem _playerSystem;
-        private ScriptSystem _scriptSystem;
-        private bool _entitiesAvailable = false;
-        private bool _checkedEntities = false;
+        private ScriptSystem? _scriptSystem;
+        private PlayerSystem? _playerSystem;
+        private UnitSystem? _unitSystem;
+        private bool _thinkModuleAvailable = false;
+        private bool _checkedModule = false;
 
         /// <summary>
         /// 시스템 참조 설정
         /// </summary>
         public void SetSystemReferences(
-            WorldSystem worldSystem,
-            UnitSystem unitSystem,
-            PlayerSystem playerSystem,
-            ScriptSystem scriptSystem)
+            ScriptSystem? scriptSystem,
+            PlayerSystem? playerSystem,
+            UnitSystem? unitSystem)
         {
-            _worldSystem = worldSystem;
-            _unitSystem = unitSystem;
-            _playerSystem = playerSystem;
             _scriptSystem = scriptSystem;
+            _playerSystem = playerSystem;
+            _unitSystem = unitSystem;
         }
 
         /// <summary>
@@ -44,86 +42,38 @@ namespace SE
         /// </summary>
         protected override void Proc(int step, Span<Component[]> allComponents)
         {
-            if (_worldSystem == null || _unitSystem == null || _scriptSystem == null)
-            {
-                Godot.GD.PrintErr("[ThinkSystem] System references not set");
+            // 시간 진행이 없으면 스킵
+            if (_playerSystem == null || _playerSystem.NextStepDuration <= 0)
                 return;
-            }
 
-            // entities 모듈 존재 여부 한 번만 체크
-            if (!_checkedEntities)
+            // ScriptSystem이 없으면 스킵
+            if (_scriptSystem == null)
+                return;
+
+            // think 모듈 존재 여부 한 번만 체크
+            if (!_checkedModule)
             {
-                _checkedEntities = true;
-                try
-                {
-                    var checkResult = _scriptSystem.Eval("'entities' in dir()");
-                    _entitiesAvailable = checkResult is PyBool pyBool && pyBool.Value;
-                }
-                catch
-                {
-                    _entitiesAvailable = false;
-                }
+                _checkedModule = true;
+                _thinkModuleAvailable = _scriptSystem.IsThinkModuleAvailable();
+#if DEBUG_LOG
+                if (_thinkModuleAvailable)
+                    GD.Print("[ThinkSystem] think module available");
+                else
+                    GD.Print("[ThinkSystem] think module not available, using schedule-based movement");
+#endif
             }
 
-            // entities 모듈이 없으면 스킵
-            if (!_entitiesAvailable) return;
+            // think 모듈이 없으면 스킵 (스케줄 기반 이동으로 폴백)
+            if (!_thinkModuleAvailable) return;
 
-            // 현재 게임 시간 (분 단위)
-            int gameTime = _worldSystem.GetTime().MinuteOfDay;
-
-            // Python proc_all 호출
+            // Python think_all() 호출
             try
             {
-                // entities.proc_all("BaseCharacter", "think", game_time) 호출
-                var code = $"entities.proc_all('BaseCharacter', 'think', {gameTime})";
-                var result = _scriptSystem.Eval(code);
-
-                // 결과 처리 (현재는 각 캐릭터가 morld API를 직접 호출하므로 별도 처리 불필요)
-                // 향후 명령 수집 및 일괄 적용 방식으로 변경 가능
-                if (result is PyDict resultDict)
-                {
-                    ProcessThinkResults(resultDict);
-                }
+                _scriptSystem.CallThinkAll();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                Godot.GD.PrintErr($"[ThinkSystem] Error: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// think() 결과 처리
-        /// 각 캐릭터의 명령을 수집하고 적용
-        /// </summary>
-        private void ProcessThinkResults(PyDict results)
-        {
-            // 현재 구현에서는 각 캐릭터가 think() 내에서 morld API를 직접 호출
-            // 향후 명령 수집 방식:
-            // - results: { unit_id: { "action": "move", "target": (0, 1) }, ... }
-            // - PlayerSystem override 체크
-            // - 각 유닛에 명령 적용
-
-            int playerId = _playerSystem?.PlayerId ?? 0;
-
-            var keys = results.Keys();
-            for (int i = 0; i < keys.Length(); i++)
-            {
-                var key = keys.GetItem(i);
-                int unitId = key is PyInt pyInt ? (int)pyInt.Value : 0;
-                var command = results.GetItem(key) as PyDict;
-
-                if (command == null) continue;
-
-                // 플레이어인 경우 PlayerSystem에서 override 체크
-                if (unitId == playerId && _playerSystem != null)
-                {
-                    // PlayerSystem에 pending 명령이 있으면 Python 결과 무시
-                    // (PlayerSystem이 별도로 처리)
-                    continue;
-                }
-
-                // NPC는 Python 결과 그대로 적용
-                // 현재는 think() 내에서 morld API를 직접 호출하므로 추가 처리 불필요
+                GD.PrintErr($"[ThinkSystem] Error calling think_all(): {ex.Message}");
             }
         }
 

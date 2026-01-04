@@ -1,8 +1,52 @@
 # assets/characters/yuki.py - 유키 캐릭터 Asset
 
 from assets import registry
+from think import BaseAgent, register_agent_class
 
 CHARACTER_ID = 4
+
+# ========================================
+# AI Agent
+# ========================================
+
+@register_agent_class("yuki")
+class YukiAgent(BaseAgent):
+    """
+    유키 AI - 청소/빨래 담당
+
+    특징:
+    - 수줍고 얌전함
+    - 스케줄을 묵묵히 따름
+    - 플레이어와 마주치면 수줍어함
+    """
+
+    def think(self):
+        """유키의 행동 결정"""
+        info = self.get_info()
+        if info is None:
+            return None
+
+        # 기본: 스케줄 기반 이동
+        entry = self.get_schedule_entry()
+        if entry is None:
+            return None
+
+        loc = self.get_location()
+        if loc is None:
+            return None
+
+        # 이미 목적지에 있으면 스킵
+        target_region = entry["region_id"]
+        target_loc = entry["location_id"]
+        if loc[0] == target_region and loc[1] == target_loc:
+            return None
+
+        # 경로 탐색 및 설정
+        path = self.find_path(target_region, target_loc)
+        if path:
+            self.set_route(path)
+
+        return path
 
 PRESENCE_TEXT = {
     # activity 기반
