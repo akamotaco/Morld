@@ -137,6 +137,39 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 이동 시간 계산 (확인 다이얼로그용)
+		/// </summary>
+		/// <returns>이동 시간 (분), 경로가 없으면 -1</returns>
+		public int CalculateTravelTime(int regionId, int localId)
+		{
+			var destination = new LocationRef(regionId, localId);
+			var player = GetPlayerUnit();
+			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
+			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
+
+			if (player == null || worldSystem == null)
+				return -1;
+
+			var terrain = worldSystem.GetTerrain();
+
+			// 이미 목적지에 있으면 0
+			if (player.CurrentLocation == destination)
+				return 0;
+
+			// 아이템 효과가 반영된 Prop으로 경로 탐색
+			var inventory = inventorySystem?.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
+			var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualProps);
+
+			if (!pathResult.Found || pathResult.Path.Count < 2)
+				return -1;
+
+			return CalculateTotalTravelTime(pathResult, terrain);
+		}
+
+		/// <summary>
 		/// 이동 실행 (JobList에 이동 Job 삽입)
 		/// </summary>
 		private void ExecuteMove(LocationRef destination)

@@ -397,3 +397,122 @@ return {
 4. instantiate_player()    # 플레이어만 먼저 생성 (프롤로그)
 # NPC는 챕터 1 진입 시 instantiate_npcs() 호출
 ```
+
+---
+
+## 자세(Posture) 시스템
+
+### 개념
+- 캐릭터 상태: `standing` (서기), `sitting` (앉기)
+- 기본 상태: `standing`
+- 이동 시 자동으로 `standing`으로 변경
+
+### 구현 (Prop 기반)
+**Prop 시스템을 활용한 양방향 참조**
+
+캐릭터 측:
+- `seated_on:{object_id}` → 좌석 이름 (예: `seated_on:230` → `"front"`)
+- 값이 없으면 서있는 상태
+
+오브젝트 측:
+- `seated_by:{seat_name}` → 앉은 캐릭터 ID (예: `seated_by:front` → `0`)
+- 값이 -1이면 빈 좌석
+
+```
+자전거 (ID: 230) - 초기 상태
+├── seated_by:front  → -1  (빈 좌석, 운전석)
+└── seated_by:rear   → -1  (빈 좌석)
+
+[플레이어(0)가 앞좌석에 앉음]
+├── seated_by:front  → 0   (플레이어)
+└── seated_by:rear   → -1  (빈 좌석)
+
+플레이어 (ID: 0)
+└── seated_on:230    → "front"  (자전거 앞좌석에 앉음)
+```
+
+### 앉은 상태의 액션 표시
+**앉으면 캐릭터에 액션이 추가됨** (오브젝트가 아닌 캐릭터)
+
+describe text에서 자세와 함께 표시:
+```
+[앉음: 의자] - 일어나기
+[앉음: 운전석] - 일어나기, 운전
+[앉음: 자전거] - 일어나기, 운전
+```
+
+- 기본: "일어나기" 액션 항상 추가
+- 운전석(`driver_seat: 1`): "운전" 액션 추가
+
+---
+
+## 탈것(Vehicle) 시스템
+
+### 탈것 분류: 밀폐형 vs 개방형
+
+#### 밀폐형 (Location 타입)
+- **자동차**: 자체 Location, 외부 정보 차단
+- 항상 "실내" 취급
+- 연결된 외부 Location의 날씨/묘사 영향 없음
+
+#### 개방형 (Object 타입)
+- **의자, 자전거**: 배치된 Location의 정보 유지
+- 날씨, 묘사, 시간대 등 외부 환경 그대로 적용
+- 같은 Location의 다른 캐릭터와 상호작용 가능
+
+### 자동차형 (밀폐형)
+
+**자동차 = 하나의 Location**
+
+```
+자동차 Location (예: "내 자동차")
+├── 운전석 (Object) - passive_props: {driver_seat: 1}, 앉으면 운전 가능
+├── 조수석 (Object) - 앉기만 가능
+├── 뒷좌석 (Object) - 앉기만 가능
+└── 트렁크 (Object) - 인벤토리 보유, 아이템 보관
+```
+
+#### 자동차 이동 메커니즘
+**핵심: 자동차 이동 = RegionEdge 변경 (Location 변경 아님)**
+
+```
+[이동 전]
+Region 0: 주차장(29) ←RegionEdge→ Region 1: 자동차(0)
+
+[운전 이동 후 - RegionEdge의 LocationA만 변경]
+Region 0: 도시 입구(25) ←RegionEdge→ Region 1: 자동차(0)
+```
+
+- 자동차는 별도 Region (Region 1)에 속함
+- **RegionEdge의 LocationA (외부 Region 쪽)**가 변경됨
+- 탑승자들은 자동차 Location에 계속 머무름
+
+### 의자형 (정적 탈것)
+
+- 오브젝트 타입
+- 앉은 상태에서 이동 불가
+- Location의 describe 정보는 그대로 유지
+
+**핵심 규칙:**
+1. **앉은 상태에서 이동 차단** - "일어나기" 후에만 이동 가능
+2. **Location 변경 시 자동 일어남** - 버그 방지
+
+---
+
+## Region 구조
+
+| Region ID | 이름 | 파일 | 설명 |
+|-----------|------|------|------|
+| 0 | 숲속 저택 | `world/mansion.py` | 저택, 마당, 숲 |
+| 1 | 차량 | `world/vehicle.py` | 차량 전용 Region |
+| 2 | 황폐화된 도시 | `world/city.py` | 도시 지역 |
+
+### 오브젝트 ID 할당
+```
+의자 (DiningChair): 220
+소파 (LivingSofa): 221
+자전거 (Bicycle): 230
+운전석 (CarDriverSeat): 231
+조수석 (CarPassengerSeat): 232
+트렁크 (CarTrunk): 233
+```

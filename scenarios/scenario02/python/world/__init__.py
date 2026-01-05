@@ -18,8 +18,8 @@ from . import city      # Region 2: 황폐화된 도시
 # (edge_id, region_a, location_a, region_b, location_b, travel_time)
 
 REGION_EDGES = [
-    # 숲 입구(R0:20) ↔ 도시 입구(R2:0) - 30분 도보
-    (0, mansion.REGION_ID, 20, city.REGION_ID, 0, 30),
+    # 숲 입구(R0:20) ↔ 도시 입구(R2:0) - 2시간 도보
+    (0, mansion.REGION_ID, 20, city.REGION_ID, 0, 120),
 
     # 주차장(R2:4) ↔ 낡은 자동차(R1:0) - 1분 탑승
     (1, city.REGION_ID, 4, vehicle.REGION_ID, 0, 1),
@@ -41,8 +41,9 @@ def initialize_world():
     mansion.initialize_time()
 
     # Region 간 연결 (RegionEdge)
+    # add_region_edge(from_region, from_local, to_region, to_local, travel_time)
     for edge_id, region_a, loc_a, region_b, loc_b, travel_time in REGION_EDGES:
-        morld.add_region_edge(edge_id, region_a, loc_a, region_b, loc_b, travel_time)
+        morld.add_region_edge(region_a, loc_a, region_b, loc_b, travel_time)
 
     print(f"[world] RegionEdges initialized: {len(REGION_EDGES)} edges")
 

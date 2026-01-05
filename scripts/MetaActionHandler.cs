@@ -3,6 +3,7 @@
 using Godot;
 using SE;
 using Morld;
+using SharpPy;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -16,6 +17,18 @@ public class MetaActionHandler
 	private readonly SE.World _world;
 	private readonly PlayerSystem _playerSystem;
 	private readonly TextUISystem _textUISystem;
+
+	/// <summary>
+	/// YesNo 다이얼로그에서 Yes 클릭 시 실행할 pending 작업
+	/// 다이얼로그 표시 시 설정, Yes 클릭 시 실행 후 null로 초기화
+	/// </summary>
+	private Action _pendingAction;
+
+	/// <summary>
+	/// MessageBox 다이얼로그 대기 중인 제너레이터
+	/// 다이얼로그 결과를 generator.Send()로 전달하여 스크립트 재개
+	/// </summary>
+	private PyGenerator _pendingGenerator;
 
 	/// <summary>
 	/// UI 텍스트 업데이트 요청 델리게이트
@@ -56,7 +69,7 @@ public class MetaActionHandler
 		switch (action)
 		{
 			case "move":
-				HandleMoveAction(parts);
+				HandleMoveAction(parts, _moveConfirmThreshold);
 				break;
 			case "idle":
 				HandleIdleAction(parts);
@@ -147,9 +160,18 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 이동 액션 처리: move:regionId:localId
+	/// 이동 확인 다이얼로그 threshold (분)
+	/// 이 시간 이상 이동 시 확인 다이얼로그 표시
+	/// int.MaxValue면 다이얼로그 없이 항상 즉시 이동
 	/// </summary>
-	private void HandleMoveAction(string[] parts)
+	private int _moveConfirmThreshold = 60;
+
+	/// <summary>
+	/// 이동 액션 처리: move:regionId:localId 또는 confirm_move:regionId:localId
+	/// </summary>
+	/// <param name="parts">move:regionId:localId 또는 confirm_move:regionId:localId</param>
+	/// <param name="thresholdMinutes">이 시간(분) 이상이면 확인 다이얼로그, 0이면 즉시 이동</param>
+	private void HandleMoveAction(string[] parts, int thresholdMinutes)
 	{
 		if (parts.Length < 3)
 		{
@@ -157,7 +179,94 @@ public class MetaActionHandler
 			return;
 		}
 
-		_playerSystem?.RequestCommand($"이동:{parts[1]}:{parts[2]}");
+		if (!int.TryParse(parts[1], out int regionId) || !int.TryParse(parts[2], out int localId))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid regionId or localId");
+			return;
+		}
+
+		// threshold가 0이면 무한대로 처리 (다이얼로그 없이 즉시 이동)
+		int effectiveThreshold = thresholdMinutes == 0 ? int.MaxValue : thresholdMinutes;
+		ExecuteMoveWithConfirm(regionId, localId, effectiveThreshold);
+	}
+
+	/// <summary>
+	/// 통합 이동 함수 - threshold 기반 확인 다이얼로그
+	/// </summary>
+	/// <param name="regionId">목적지 Region ID</param>
+	/// <param name="localId">목적지 Location ID</param>
+	/// <param name="thresholdMinutes">이 시간(분) 이상이면 확인 다이얼로그 표시</param>
+	private void ExecuteMoveWithConfirm(int regionId, int localId, int thresholdMinutes)
+	{
+		// 이동 시간 계산
+		int travelTime = _playerSystem?.CalculateTravelTime(regionId, localId) ?? -1;
+		if (travelTime < 0)
+		{
+			_textUISystem?.ShowResult("이동할 수 없습니다.");
+			return;
+		}
+
+		// threshold 이상이면 확인 다이얼로그
+		if (travelTime >= thresholdMinutes)
+		{
+			// Python에서 메시지 가져오기 시도
+			string message = GetMoveConfirmMessage(travelTime);
+			if (string.IsNullOrEmpty(message))
+			{
+				// 기본 메시지 (Python 실패 시 fallback)
+				message = FormatTravelTimeMessage(travelTime);
+			}
+
+			// Yes 클릭 시 실행할 작업 저장
+			_pendingAction = () => _playerSystem?.RequestCommand($"이동:{regionId}:{localId}");
+
+			var pages = new List<string> { message };
+			_textUISystem?.ShowMonologue(
+				pages,
+				timeConsumed: 0,
+				MonologueButtonType.YesNo,
+				doneCallback: null,  // pendingAction으로 처리
+				cancelCallback: null
+			);
+			return;
+		}
+
+		// threshold 미만이면 즉시 이동
+		_playerSystem?.RequestCommand($"이동:{regionId}:{localId}");
+	}
+
+	/// <summary>
+	/// Python에서 이동 확인 메시지 가져오기
+	/// </summary>
+	private string? GetMoveConfirmMessage(int travelTimeMinutes)
+	{
+		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem == null) return null;
+
+		try
+		{
+			var result = scriptSystem.CallFunctionEx(
+				"ui_get_move_confirm_message",
+				new string[] { travelTimeMinutes.ToString() },
+				null
+			);
+			return result?.Message;
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// 이동 시간 포맷팅 (기본 fallback)
+	/// </summary>
+	private string FormatTravelTimeMessage(int travelTimeMinutes)
+	{
+		int hours = travelTimeMinutes / 60;
+		int minutes = travelTimeMinutes % 60;
+		string timeText = minutes > 0 ? $"{hours}시간 {minutes}분" : $"{hours}시간";
+		return $"이동하는 데 {timeText}이 걸립니다. 이동하시겠습니까?";
 	}
 
 	/// <summary>
@@ -636,8 +745,45 @@ public class MetaActionHandler
 			return;
 		}
 
+		ProcessScriptResult(result, scriptSystem);
+	}
+
+	/// <summary>
+	/// ScriptResult 처리 (HandleScriptAction과 ResumeGenerator에서 공통 사용)
+	/// </summary>
+	private void ProcessScriptResult(SE.ScriptResult result, ScriptSystem scriptSystem)
+	{
+		if (result == null)
+		{
+			return;
+		}
+
 		switch (result.Type)
 		{
+			case "generator_messagebox":
+				// 제너레이터가 MessageBox를 yield한 경우
+				if (result is SE.GeneratorScriptResult genResult)
+				{
+					var msgBox = genResult.MessageBoxRequest;
+					_pendingGenerator = genResult.Generator;
+
+					// MessageBox 표시 (모놀로그 UI 재활용)
+					var pages = new List<string> { msgBox.Text };
+					var buttonType = msgBox.ToMonologueButtonType();
+
+					// Caption을 제목으로 표시 (선택적)
+					if (!string.IsNullOrEmpty(msgBox.Caption))
+					{
+						pages.Insert(0, $"[b]{msgBox.Caption}[/b]");
+					}
+
+					_textUISystem?.ShowMonologue(pages, 0, buttonType, doneCallback: null, cancelCallback: null);
+#if DEBUG_LOG
+					GD.Print($"[MetaActionHandler] MessageBox: {msgBox.Caption} - {msgBox.Text} ({msgBox.Type})");
+#endif
+				}
+				break;
+
 			case "monologue":
 				if (result is SE.MonologueScriptResult monoResult)
 				{
@@ -729,7 +875,7 @@ public class MetaActionHandler
 	/// <summary>
 	/// 모놀로그 승낙: monologue_yes
 	/// YesNo 타입의 [승낙] 버튼 클릭 시 호출
-	/// DoneCallback 스크립트 호출
+	/// pendingAction 실행 또는 DoneCallback 스크립트 호출
 	/// </summary>
 	private void HandleMonologueYesAction()
 	{
@@ -738,30 +884,41 @@ public class MetaActionHandler
 #endif
 
 		var currentFocus = _textUISystem?.CurrentFocus;
-		if (currentFocus?.DoneCallback == null)
+		_textUISystem?.Pop();
+
+		// 1. pendingGenerator가 있으면 "YES" 또는 "OK" 결과 전달
+		if (_pendingGenerator != null)
 		{
-			// 콜백이 없으면 단순 Pop
-			_textUISystem?.Pop();
-			RequestUpdateSituation();
+			var generator = _pendingGenerator;
+			_pendingGenerator = null;
+			ResumeGeneratorWithResult(generator, "YES");
 			return;
 		}
 
-		// 승낙 시: 현재 YesNo 다이얼로그 Pop 후 콜백 실행
-		// (콜백 결과가 새 모놀로그면 그 위에 Push됨)
-		_textUISystem?.Pop();
+		// 2. pendingAction이 있으면 실행 (이동 확인 등)
+		if (_pendingAction != null)
+		{
+			var action = _pendingAction;
+			_pendingAction = null;
+			action.Invoke();
+			return;
+		}
 
-		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
-		var callbackParts = currentFocus.DoneCallback.Split(':');
-		var parts = new string[callbackParts.Length + 1];
-		parts[0] = "script";
-		callbackParts.CopyTo(parts, 1);
-		HandleScriptAction(parts);
+		// 3. DoneCallback이 있으면 액션으로 처리
+		if (currentFocus?.DoneCallback != null)
+		{
+			HandleAction(currentFocus.DoneCallback);
+			return;
+		}
+
+		// 4. 모두 없으면 상황 업데이트
+		RequestUpdateSituation();
 	}
 
 	/// <summary>
 	/// 모놀로그 거절: monologue_no
 	/// YesNo 타입의 [거절] 버튼 클릭 시 호출
-	/// CancelCallback 스크립트 호출 또는 단순 Pop
+	/// pendingAction 취소 또는 CancelCallback 스크립트 호출
 	/// </summary>
 	private void HandleMonologueNoAction()
 	{
@@ -770,21 +927,49 @@ public class MetaActionHandler
 #endif
 
 		var currentFocus = _textUISystem?.CurrentFocus;
-		if (currentFocus?.CancelCallback == null)
+		_textUISystem?.Pop();
+
+		// 1. pendingGenerator가 있으면 "NO" 또는 "CANCEL" 결과 전달
+		if (_pendingGenerator != null)
 		{
-			// 콜백이 없으면 현재 YesNo 다이얼로그만 Pop (이전 선택 화면으로)
-			_textUISystem?.Pop();
+			var generator = _pendingGenerator;
+			_pendingGenerator = null;
+			ResumeGeneratorWithResult(generator, "NO");
 			return;
 		}
 
-		// 거절 시: 현재 YesNo 다이얼로그 Pop 후 콜백 실행
-		_textUISystem?.Pop();
+		// 2. pendingAction 취소
+		_pendingAction = null;
 
-		// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
-		var callbackParts = currentFocus.CancelCallback.Split(':');
-		var parts = new string[callbackParts.Length + 1];
-		parts[0] = "script";
-		callbackParts.CopyTo(parts, 1);
-		HandleScriptAction(parts);
+		// 3. CancelCallback이 있으면 스크립트 호출
+		if (currentFocus?.CancelCallback != null)
+		{
+			// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
+			var callbackParts = currentFocus.CancelCallback.Split(':');
+			var parts = new string[callbackParts.Length + 1];
+			parts[0] = "script";
+			callbackParts.CopyTo(parts, 1);
+			HandleScriptAction(parts);
+		}
+	}
+
+	/// <summary>
+	/// 대기 중인 제너레이터에 결과를 전달하고 계속 실행
+	/// </summary>
+	private void ResumeGeneratorWithResult(PyGenerator generator, string result)
+	{
+		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] ScriptSystem not found for generator resume");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] Resuming generator with result: {result}");
+#endif
+
+		var nextResult = scriptSystem.ResumeGenerator(generator, result);
+		ProcessScriptResult(nextResult, scriptSystem);
 	}
 }

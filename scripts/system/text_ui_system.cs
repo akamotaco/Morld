@@ -235,7 +235,48 @@ namespace SE
 			if (_playerSystem == null) return "";
 			var lookResult = _playerSystem.Look();
 			var time = (_hub?.FindSystem("worldSystem") as WorldSystem)?.GetTime();
-			return _describeSystem.GetSituationText(lookResult, time, GetPrintableLogs());
+
+			// 1. 묘사 텍스트 (행동 옵션 제외)
+			var describeText = _describeSystem.GetDescribeText(lookResult, time, GetPrintableLogs());
+
+			// 2. 행동 텍스트 (Python 훅 또는 C# 폴백)
+			var actionText = GetActionTextFromPython();
+			if (string.IsNullOrEmpty(actionText))
+			{
+				// Python 훅 실패 시 C# 폴백
+				actionText = _describeSystem.GetActionText(lookResult);
+			}
+
+			return describeText + "\n" + actionText;
+		}
+
+		/// <summary>
+		/// Python ui.get_action_text() 훅 호출
+		/// </summary>
+		private string? GetActionTextFromPython()
+		{
+			if (_scriptSystem == null) return null;
+
+			try
+			{
+				// ui 모듈의 get_action_text() 호출
+				var result = _scriptSystem.CallModuleFunction("ui", "get_action_text");
+				if (result != null && result is not SharpPy.PyNone)
+				{
+					var text = result.AsString();
+					if (!string.IsNullOrEmpty(text))
+					{
+						// 구분선 추가
+						return "[color=gray]────────────────────[/color]\n" + text;
+					}
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python get_action_text() error: {ex.Message}");
+			}
+
+			return null;
 		}
 
 		private string RenderUnit(int unitId)

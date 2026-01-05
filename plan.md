@@ -1,494 +1,321 @@
-# Plan: 탈것(Vehicle) 시스템
+# Plan: EventPredictionSystem
 
 ## 목표
-캐릭터의 자세(Posture) 시스템과 다양한 탈것(Vehicle) 기능 추가
-
-## 난이도 분석
-1. **의자** (쉬움) - 정적 오브젝트, 앉으면 이동 불가
-2. **자동차** (중간) - Location + 오브젝트들, 동적 Edge
-3. **자전거** (어려움) - 앉은 상태에서 특수 이동, Location describe 유지
+시간 흐름 중 발생할 이벤트를 예측하고, 시간 중단이 필요한 이벤트가 있으면 `NextStepDuration`을 조정하는 시스템.
 
 ---
 
-## 1. 자세(Posture) 시스템
+## 1. 핵심 개념
 
-### 개념
-- 캐릭터 상태: `standing` (서기), `sitting` (앉기)
-- 기본 상태: `standing`
-- 이동 시 자동으로 `standing`으로 변경
+EventPredictionSystem은 **두 가지 소스**에서 이벤트를 예측:
+1. **이동 경로 충돌** - 플레이어/NPC 경로가 교차하여 만남 발생
+2. **JobList 액션** - 유닛의 스케줄/액션에 의한 이벤트 (종울림, 텔레파시 등)
 
-### 구현 (Prop 기반)
-**Prop 시스템을 활용한 양방향 참조**
-
-캐릭터 측:
-- `seated_on:{object_id}` → 좌석 이름 (예: `seated_on:230` → `"front"`)
-- 값이 없으면 서있는 상태
-
-오브젝트 측:
-- `seated_by:{seat_name}` → 앉은 캐릭터 ID (예: `seated_by:front` → `0`)
-- 값이 -1이면 빈 좌석
-
-```
-자전거 (ID: 230) - 초기 상태
-├── seated_by:front  → -1  (빈 좌석, 운전석)
-└── seated_by:rear   → -1  (빈 좌석)
-
-[플레이어(0)가 앞좌석에 앉음]
-├── seated_by:front  → 0   (플레이어)
-└── seated_by:rear   → -1  (빈 좌석)
-
-플레이어 (ID: 0)
-└── seated_on:230    → "front"  (자전거 앞좌석에 앉음)
-```
-
-### 앉기 액션 처리
-```csharp
-// 1. 캐릭터가 이미 앉아있는지 확인
-if (character.Props.HasType("seated_on")) return fail;
-
-// 2. 좌석이 비어있는지 확인
-int seatOccupant = object.Props.Get($"seated_by:{seatName}", -1);
-if (seatOccupant != -1) return fail;
-
-// 3. 양방향 설정
-character.Props.Set($"seated_on:{objectId}", seatName);
-object.Props.Set($"seated_by:{seatName}", characterId);
-```
-
-### 일어나기 액션 처리
-```csharp
-// 1. seated_on에서 오브젝트 ID와 좌석 이름 추출
-var (objectId, seatName) = character.Props.GetSeatedInfo();
-
-// 2. 양방향 해제
-character.Props.Remove($"seated_on:{objectId}");
-object.Props.Set($"seated_by:{seatName}", -1);
-```
-
-### 앉은 상태의 액션 표시
-**앉으면 캐릭터에 액션이 추가됨** (오브젝트가 아닌 캐릭터)
-
-describe text에서 자세와 함께 표시:
-```
-[앉음: 의자] - 일어나기
-[앉음: 운전석] - 일어나기, 운전
-[앉음: 자전거] - 일어나기, 운전
-```
-
-- 기본: "일어나기" 액션 항상 추가
-- 운전석(`driver_seat: 1`): "운전" 액션 추가
+**핵심 포인트:**
+- C#에서 예측 로직 전체 처리, Python은 `event_log`만 활용
+- 시간 중단이 필요한 이벤트를 미리 감지하여 `NextStepDuration` 조정
+- 조정 시점 이후의 예측 이벤트는 삭제 (다음 시간 진행 시 다시 예측)
 
 ---
 
-## 2. 자동차형
+## 2. 시스템 순서
 
-### 핵심 개념
-**자동차 = 하나의 Location**
-
-```
-자동차 Location (예: "내 자동차")
-├── 운전석 (Object) - passive_props: {driver_seat: 1}, 앉으면 운전 가능
-├── 조수석 (Object) - 앉기만 가능
-├── 뒷좌석 (Object) - 앉기만 가능
-└── 트렁크 (Object) - 인벤토리 보유, 아이템 보관
-```
-
-### 플레이어 흐름 (혼자 운전)
-```
-1. 이동 → 자동차 Location 진입 (탑승)
-2. 운전석(Object)에 앉기 → SittingOn: 운전석 ID
-3. 앉은 상태에서 이동 가능한 외부 지역 표시 (실내 제외)
-4. 지역 선택 → 자동차와 함께 이동 (Edge 변경, 빠른 이동)
-5. 일어나기 → SittingOn: null
-6. 이동 → 외부 Location으로 하차
-```
-
-### 운전석 판별
-- 오브젝트 Prop: `driver_seat: 1`
-- 앉은 오브젝트가 이 Prop을 가지면 → 운전 가능 상태
-
-### 자동차 이동 메커니즘
-**핵심: 자동차 이동 = RegionEdge 변경 (Location 변경 아님)**
-
-```
-[이동 전]
-Region 0: 주차장(29) ←RegionEdge→ Region 1: 자동차(0)
-
-[운전 이동 후 - RegionEdge의 LocationA만 변경]
-Region 0: 도시 입구(25) ←RegionEdge→ Region 1: 자동차(0)
-```
-
-- 자동차는 별도 Region (Region 1)에 속함
-- 자동차 Location 자체는 변하지 않음
-- **RegionEdge의 LocationA (외부 Region 쪽)**가 변경됨
-- 탑승자들은 자동차 Location에 계속 머무름
-- 이동 시간: RegionEdge travelTime 적용 (도보보다 빠름)
-
-### 이동 제한
-- 실내(indoor) Location으로는 자동차 이동 불가
-- Edge 또는 Location에 `indoor: true` 속성으로 판별
-
-### 탑승자 처리
-- 자동차 Location에 있는 모든 캐릭터가 함께 이동
-- 운전자만 이동 명령 가능
-
-### 트렁크/좌석
-- 기존 오브젝트 시스템 그대로 활용
-- 트렁크: 인벤토리 보유, `take@container`, `put@inventory`
-- 좌석: `seats: 1` Prop으로 좌석 수 제한 가능
-
----
-
-## 3. 의자형 (정적 탈것)
-
-### 개념
-- 오브젝트 타입
-- 오브젝트 클릭 → "앉기" 액션 → SittingOn 설정
-- 앉은 상태에서 이동 불가
-- Location의 describe 정보는 그대로 유지
-
-### 핵심 규칙
-1. **앉은 상태에서 이동 차단**
-   - SittingOn이 설정된 상태에서 move 불가
-   - "일어나기" 후에만 이동 가능
-
-2. **Location 변경 시 자동 일어남**
-   - 이벤트 등으로 Location이 강제 변경되면 → SittingOn = null
-   - 버그 방지 (다른 장소의 의자에 앉아있는 상태 방지)
-
-### 좌석 제한 (추후)
-- 오브젝트 Prop: `seats: 2` (최대 좌석 수)
-- 해당 오브젝트에 앉은 캐릭터 수를 카운트
-- 만석이면 앉기 액션 비활성화
-
----
-
-## 4. 탈것 분류: 밀폐형 vs 개방형
-
-### 밀폐형 (Location 타입)
-- **자동차**: 자체 Location, 외부 정보 차단
-- 항상 "실내" 취급
-- 연결된 외부 Location의 날씨/묘사 영향 없음
-
-### 개방형 (Object 타입)
-- **의자, 자전거**: 배치된 Location의 정보 유지
-- 날씨, 묘사, 시간대 등 외부 환경 그대로 적용
-- 같은 Location의 다른 캐릭터와 상호작용 가능
-
----
-
-## 5. 자전거형 (이동 가능 탈것) - 검토 중
-
-### 기본 구조
-- 오브젝트 타입 (개방형)
-- Location의 describe 정보 그대로 유지
-- 같은 장소 캐릭터와 대화 가능
-
-### 핵심 문제들
-
-**1. 탑승자 동시 이동**
-- 자전거 운전자 이동 시 → 뒷자석 탑승자도 함께 이동
-- 오브젝트는 Edge가 없음 → 새로운 "동반 이동" 로직 필요?
-
-**2. 이동 속도**
-- 자전거는 도보보다 빠름
-- Edge travelTime에 비율 적용? (예: 0.5배)
-- "따라가기"로는 속도 차이 표현 불가
-
-**3. 이동 제한**
-- 실내 진입 불가 (자동차와 동일)
-- "도로" 개념 필요한가? → 추후 검토
-
-### 구현 방안
-**자동차와 동일하게 "운전" 액션 사용**
-
-1. 자전거 = 오브젝트 (운전석/뒷자석 구분 가능)
-2. 운전석에 앉으면 → "운전" 액션 활성화
-3. 운전 액션 실행 시:
-   - 자전거 오브젝트 Location 변경
-   - 탑승자들(SittingOn == 자전거) 강제 Location 변경
-4. 이동 속도: travelTime 비율 감소 (예: 0.5배)
-
----
-
-## 6. 구현 우선순위
-
-### Phase 1: 자세 시스템 (Prop 기반) ✅
-- [x] 앉기 액션 구현: `seated_on:{object_id}` + `seated_by:{seat_name}` 양방향 설정
-- [x] 일어나기 액션 구현: 양방향 Prop 해제
-- [x] `Props.GetByType("seated_on")` 활용 중복 앉기 방지
-- [x] Python morld API: `sit_on(unit_id, object_id, seat_name)`, `stand_up(unit_id)`, `is_seated(unit_id)`
-
-### Phase 2: 의자 ✅
-- [x] 의자 오브젝트 정의 (seats Prop) - Python 데이터로 정의됨
-- [x] 앉은 상태에서 이동 차단 (JobBehaviorSystem)
-- [x] Location 변경 시 자동 일어남 (ClearSeatedState)
-
-### Phase 3: 자동차 ✅
-- [x] 자동차 Location 구조 정의 (Region 1)
-- [x] 운전석 오브젝트 (`driver_seat` Prop)
-- [x] 운전 상태에서 이동 가능 지역 표시 (GetDrivableDestinations)
-- [x] 자동차 이동 시 RegionEdge 변경 로직 (ExecuteDrive)
-- [x] Python morld API: `can_drive`, `get_drivable_destinations`, `drive_to`
-- [ ] 탑승자 동시 이동 (Future: 자동차 내 모든 유닛 동시 처리)
-
-### Phase 4: 자전거
-- [ ] 추후 구체화
-
----
-
-## 7. 이벤트 예측 시스템 (EventPredictionSystem)
-
-### 문제 상황
-현재 시스템은 **이동 후 이벤트 감지** 구조로, 시간 조정이 필요한 경우를 처리할 수 없음.
-
-**예시: NPC 텔레파시**
-```
-플레이어: 4시간 수면 요청
-NPC A: 2시간 후 텔레파시 대화 예정
-
-현재 동작:
-1. JobBehaviorSystem이 4시간 진행
-2. EventSystem이 만남 감지 → 이미 4시간 지남
-3. 텔레파시는 4시간 후에 발생 (의도: 2시간 후)
-
-원하는 동작:
-1. 2시간 후 텔레파시 이벤트 예측
-2. 시간을 2시간으로 조정
-3. 2시간만 진행 후 텔레파시 처리
-```
-
-### 현재 시스템 순서
-```
-ThinkSystem → JobBehaviorSystem → EventSystem
-     ↓              ↓                  ↓
-  JobList 채움   이동 실행 +        이벤트 감지
-               GameTime 업데이트   (이동 완료 후)
-```
-
-**문제점:**
-- JobBehaviorSystem에서 이동과 시간 업데이트가 **동시에** 발생
-- EventSystem은 이동 **완료 후** 이벤트 감지
-- 시간 조정 타이밍 없음
-
-### 제안 시스템 순서
 ```
 ThinkSystem → EventPredictionSystem → JobBehaviorSystem → EventSystem
      ↓              ↓                        ↓                ↓
   JobList 채움   1. 경로 충돌 예측        조정된 시간만큼    즉시 이벤트
-               2. NPC 액션 예측         이동 실행         처리
+               2. 액션 이벤트 예측       이동 실행         처리
                3. 최소 시간 계산
                4. NextStepDuration 조정
 ```
 
-### EventPredictionSystem 역할
+---
 
-**1. 이동 경로 충돌 예측**
-- 각 유닛의 이동 예정 경로 분석
-- 같은 Edge 또는 같은 Location 도착 시점 계산
-- 충돌 시 이벤트 등록 (OnMeet 예정)
+## 3. 대표 예시: 종 오브젝트
 
-**2. NPC 액션 예측 (JobList 기반)**
-- NPC JobList에서 특정 시간 내 액션 확인
-- 시간 중단 필요 액션 감지 (텔레파시, 습격 등)
-- 이벤트 등록 (OnAction 예정)
+**설정:**
+1. 뒷마당에 종(Bell) 오브젝트 설치
+2. 종은 스케줄을 통해 매일 점심(12:00)마다 "종울림" 이벤트 발생
+3. 이 이벤트는 플레이어의 시간 흐름을 중단 (`InterruptsTime = true`)
 
-**3. 최소 시간 계산**
-- 등록된 이벤트 중 가장 빠른 시간 확인
-- `PlayerSystem.NextStepDuration`을 해당 시간으로 조정
-
-**4. 이벤트 유형**
-| 유형 | 설명 | 시간 중단 |
-|------|------|----------|
-| OnMeet | 캐릭터 만남 예정 | 조건부 |
-| OnReach | 위치 도착 예정 | No |
-| OnAction | NPC 액션 예정 | Yes |
-| OnCollision | 경로 충돌 예정 | Yes |
-
-### 구현 방안
-
-**Option A: 새 시스템 추가**
-```csharp
-// 새 시스템: EventPredictionSystem
-public class EventPredictionSystem : LogicSystem {
-    public void Proc(int step) {
-        var pendingDuration = _playerSystem.NextStepDuration;
-        var events = PredictEvents(pendingDuration);
-        var earliestInterrupt = FindEarliestInterrupt(events);
-
-        if (earliestInterrupt != null) {
-            _playerSystem.AdjustDuration(earliestInterrupt.Time);
-        }
-    }
-}
+**시나리오:**
 ```
+플레이어: 10:00에 숲에서 열매 채집 후 피곤해서 6시간 취침 요청
 
-**Option B: JobBehaviorSystem 분리**
+[예측 단계 - EventPredictionSystem]
+1. 플레이어 요청: 6시간 (360분) 취침
+2. 종 오브젝트 스케줄 확인: 12:00에 종울림 이벤트 예정
+3. 종울림 이벤트가 InterruptsTime = true
+4. 10:00 + 2시간 = 12:00에 이벤트 발생 예측
+5. NextStepDuration을 6시간 → 2시간으로 조정
+
+[실행 단계]
+1. 2시간만 시간 진행 (10:00 → 12:00)
+2. 종울림 이벤트 발생
+3. 다이얼로그: "마을 쪽으로 부터 종소리가 들렸다. 점심인가 보다. [확인]"
+4. 플레이어는 12:00부터 다시 조작 시작
 ```
-MovementPlanSystem (경로 계산만)
-    ↓
-EventPredictionSystem (충돌/이벤트 예측)
-    ↓
-MovementExecuteSystem (실제 이동)
-```
-
-### 관련 데이터 구조
-
-```csharp
-// 예측된 이벤트
-public class PredictedEvent {
-    public GameEventType Type;
-    public int TriggerTime;     // GameTime 기준
-    public int[] InvolvedUnits;
-    public bool InterruptsTime; // 시간 중단 여부
-}
-
-// Unit에 이동 예정 정보 추가
-public class Unit {
-    // 기존 필드...
-    public PlannedMovement? NextMovement; // 예정된 이동 (경로, 도착 시간)
-}
-```
-
-### 설계 결정
-- **시간 중단 이벤트 정의**: Python에서 지정 (dialog의 button_type처럼), C#에서 로직 구현
-- **구현 우선순위**: Vehicle 시스템 완료 후 진행 (스케줄/JobList/Activity와 연계됨)
-
-### 열린 질문 (Section 9 참조)
-- 예측 범위, NPC 행동 예측 정확도 등
 
 ---
 
-## 8. 차량 전용 Region
+## 4. 이벤트 소스 분류
 
-### 설계 결정
-차량(자동차)은 별도의 Region으로 관리한다.
+| 소스 | 설명 | 예시 |
+|------|------|------|
+| **이동 충돌** | 플레이어/NPC 경로가 교차 | 플레이어가 이동 중 NPC와 만남 |
+| **오브젝트 스케줄** | 오브젝트의 시간 기반 이벤트 | 종 울림, 폭탄 폭발 |
+| **NPC 스케줄** | NPC의 시간 기반 액션 | 텔레파시, 습격, 방문 |
+| **환경 이벤트** | 시간대별 환경 변화 | 해질녘, 폭풍 시작 |
+
+---
+
+## 5. 이벤트 로그 시점 기록
+
+**핵심 원칙:** 예측된 이벤트에는 발생 시점(`TriggerMinutes`)이 기록되어야 하며, 시간 조정 시 조정 시점 이후의 이벤트는 삭제해야 함.
+
+```
+예시: 플레이어가 10:00에 6시간 취침 요청
+
+[예측된 이벤트들]
+- +120분 종울림 (InterruptsTime = true)
+- +150분 NPC 만남 (InterruptsTime = true) ← 이동 충돌
+- +240분 폭풍 시작 (InterruptsTime = true)
+
+[처리]
+1. 가장 빠른 +120분 종울림에서 break
+2. 시간을 120분만 진행
+3. TriggerMinutes > 120인 이벤트들 삭제 (NPC 만남, 폭풍 시작)
+4. NPC 만남은 다음 시간 진행 시 다시 예측됨 (상황 변경 가능)
+```
 
 **이유:**
-- RegionEdge를 활용하면 차량 이동 시 연결 위치만 변경하면 됨
-- Region 간 연결은 별도의 Edge 데이터(RegionEdge)로 관리되므로 유연함
-
-### 구조
-```
-Region 2 (황폐화된 도시)           Region 1 (차량)
-┌─────────────────┐              ┌─────────────────┐
-│  주차장(4)      │◄─ RegionEdge ─│  낡은 자동차(0) │
-└─────────────────┘              └─────────────────┘
-
-[운전 후 - RegionEdge의 LocationA만 변경]
-Region 2 (황폐화된 도시)           Region 1 (차량)
-┌─────────────────┐              ┌─────────────────┐
-│  도시 입구(0)   │◄─ RegionEdge ─│  낡은 자동차(0) │
-└─────────────────┘              └─────────────────┘
-```
-
-### 차량 Region 초기화
-- Region ID: 1 (차량 전용)
-- 각 차량은 해당 Region 내의 Location
-- RegionEdge로 외부 Location과 연결
+- 예측된 이벤트 ≠ 발생한 이벤트
+- 시간이 조정되면 조정 시점 이후의 예측 이벤트들은 무효화
+- 다음 시간 진행 시 다시 예측해야 함 (상황이 변했을 수 있음)
 
 ---
 
-## 9. 열린 질문들
+## 6. 스케줄 기반 이벤트 구조 (미구현)
 
-### 해결됨
-1. ~~자동차 Location의 초기 Edge 설정 방법?~~ → 차량 전용 Region + RegionEdge로 해결
-2. ~~탑승 인원 제한?~~ → Prop 기반 좌석 시스템으로 해결 (seated_by:-1로 좌석 정의)
-3. ~~시간 중단 이벤트 정의 위치?~~ → Python에서 지정 (dialog의 button_type처럼), C#에서 로직 구현
+```python
+# 오브젝트 스케줄 예시
+class Bell(Object):
+    SCHEDULE = [
+        {
+            "time": "12:00",           # 매일 12:00
+            "event": "bell_ring",      # 이벤트 타입
+            "interrupts_time": True,   # 시간 중단 여부
+            "range": "region",         # 영향 범위 (same_location, region, global)
+            "dialog": {
+                "type": "monologue",
+                "pages": ["마을 쪽으로 부터 종소리가 들렸다. 점심인가 보다."],
+                "button_type": "ok"
+            }
+        }
+    ]
+```
+
+---
+
+## 7. 구현 상태
+
+**완료:**
+- [x] EventPredictionSystem 기본 구조 (C# 로직)
+- [x] 이동 경로 충돌 예측 (PredictMeetings)
+- [x] 도착 이벤트 예측 (PredictArrivals)
+- [x] 시간 조정 로직 (AdjustNextStepDuration)
+
+**미구현:**
+- [ ] JobList 액션 기반 이벤트 예측 (PredictActions)
+- [ ] 시간 조정 시 이후 이벤트 삭제 로직
+- [ ] 이벤트 범위(range) 시스템
+- [ ] 다이얼로그 연동
+
+---
+
+## 8. 열린 질문들
+
+### 자전거 (Future)
+- 탑승자 동시 이동 로직
+- 이동 속도 (travelTime 비율)
+
+### EventPredictionSystem
+- 예측 범위는 얼마로 할 것인가? (요청된 시간 전체? 최대 N분?)
+- NPC 행동 예측의 정확도는? (확정적 vs 확률적)
 
 ### Vehicle 시스템 관련
-4. 자동차 소유권/열쇠 시스템?
-5. 연료/내구도 시스템 필요?
-
-### Future Work (NPC 운전)
-6. NPC도 자동차 운전 가능하게 할 것인가? (스케줄/JobList/Activity 연계)
-7. MovementPlanSystem/MovementExecuteSystem 분리 시 다른 시스템에 미치는 영향?
-
-### EventPredictionSystem 관련
-8. 예측 범위는 얼마로 할 것인가? (요청된 시간 전체? 최대 N분?)
-9. NPC 행동 예측의 정확도는? (확정적 vs 확률적)
+- 자동차 소유권/열쇠 시스템?
+- 연료/내구도 시스템 필요?
+- NPC도 자동차 운전 가능하게 할 것인가?
 
 ---
 
-## 10. 테스트 데이터 추가 (시나리오2)
+# Plan: yield 기반 모놀로그/다이얼로그 시스템
 
-### Region 구조 (파일별 분리)
+## 목표
+기존 콜백 기반 모놀로그 시스템을 **yield 기반 제너레이터 패턴**으로 통합하여 Python에서 전체 흐름을 제어할 수 있도록 개선
 
-| Region ID | 이름 | 파일 | 설명 |
-|-----------|------|------|------|
-| 0 | 숲속 저택 | `world/mansion.py` | 저택, 마당, 숲 |
-| 1 | 차량 | `world/vehicle.py` | 차량 전용 Region |
-| 2 | 황폐화된 도시 | `world/city.py` | 도시 지역 |
+## 현재 문제점
 
-### Region 0: 숲속 저택 (mansion.py)
+### 1. 복잡한 콜백 구조
+```python
+# 현재 방식 - 콜백 문자열 기반
+return {
+    "type": "monologue",
+    "pages": ["대화..."],
+    "button_type": "yesno",
+    "done_callback": "on_accept:param1",    # 문자열 파싱 필요
+    "cancel_callback": "on_reject"
+}
 
-**Location:**
-| ID | unique_id | 한글명 | is_indoor |
-|----|-----------|--------|-----------|
-| 0~14 | (저택 내부) | 현관, 거실, 주방, 식당, 욕실, 창고, 각 방 | true |
-| 12~13 | (마당) | 앞마당, 뒷마당 | false |
-| 20~24 | (야외/숲) | 숲 입구, 깊은 숲, 강가, 채집터, 사냥터 | false |
-
-### Region 1: 차량 (vehicle.py)
-
-| ID | unique_id | 한글명 | 내부 오브젝트 |
-|----|-----------|--------|--------------|
-| 0 | old_car | 낡은 자동차 | 운전석(231), 조수석(232), 트렁크(233) |
-
-### Region 2: 황폐화된 도시 (city.py)
-
-| ID | unique_id | 한글명 | is_indoor |
-|----|-----------|--------|-----------|
-| 0 | city_entrance | 도시 입구 | false |
-| 1 | gas_station | 주유소 | false |
-| 2 | convenience_store | 편의점 | true |
-| 3 | pharmacy | 약국 | true |
-| 4 | parking_lot | 주차장 | false |
-
-### RegionEdge 연결 (__init__.py)
-
-| Edge ID | Region A | Location A | Region B | Location B | Travel Time |
-|---------|----------|------------|----------|------------|-------------|
-| 0 | 0 (저택) | 20 (숲 입구) | 2 (도시) | 0 (도시 입구) | 30분 |
-| 1 | 2 (도시) | 4 (주차장) | 1 (차량) | 0 (자동차) | 1분 |
-
-### 오브젝트 배치
-
-#### 실내 가구 (앉을 수 있는 오브젝트)
-| 오브젝트 | 배치 위치 | props |
-|---------|----------|-------|
-| 의자 (DiningChair) | 식당 (R0:3) | seated_by:1~4=-1 (4개 좌석) |
-| 소파 (LivingSofa) | 거실 (R0:1) | seated_by:left/center/right=-1 (3개 좌석) |
-
-#### 자전거 (Object 타입)
-| 오브젝트 | 배치 위치 | props |
-|---------|----------|-------|
-| 자전거 (Bicycle) | 뒷마당 (R0:13) | seated_by:front=-1, seated_by:rear=-1 |
-
-### Unit ID 할당
-```
-플레이어: 0
-NPC: 1~99
-아이템: 100~199
-오브젝트: 200~299
-바닥: 1000 + location_id
+# on_accept, on_reject 함수를 별도로 정의해야 함
 ```
 
-새 오브젝트 ID:
-- 의자 (DiningChair): 220
-- 소파 (LivingSofa): 221
-- 자전거 (Bicycle): 230
-- 운전석 (CarDriverSeat): 231
-- 조수석 (CarPassengerSeat): 232
-- 트렁크 (CarTrunk): 233
+### 2. 분산된 상태 관리
+- `_pendingAction` - C# Action 델리게이트
+- `_pendingGenerator` - Python 제너레이터
+- `DoneCallback` / `CancelCallback` - 문자열 콜백
+- 우선순위 관리 복잡 (3가지 경로)
 
-### 파일 작업 (완료)
-1. `world/mansion.py` - Region 0 (숲속 저택)
-2. `world/vehicle.py` - Region 1 (차량 전용)
-3. `world/city.py` - Region 2 (황폐화된 도시)
-4. `world/__init__.py` - 통합 초기화 + RegionEdge
-5. `assets/objects/furniture.py` - Chair, Sofa (seated_by props)
-6. `assets/objects/vehicles.py` - Bicycle, CarSeat, Trunk (seated_by props)
-7. `assets/locations/city.py` - 도시 Location 클래스들
-8. `assets/locations/vehicles.py` - OldCar Location
+### 3. Python-C# 경계 넘나들기
+- Python → C# (ScriptResult) → 사용자 선택 → C# (콜백 파싱) → Python
+- 흐름 추적 어려움, 디버깅 복잡
 
+## 제안: yield 기반 통합 패턴
+
+### 새로운 API
+```python
+# 제안 방식 - yield 기반
+def on_meet_player(player_id):
+    # 모놀로그 표시 후 사용자 응답 대기
+    result = yield morld.monologue(
+        pages=["대화 내용...", "계속..."],
+        button_type="YESNO",
+        time_consumed=2
+    )
+
+    if result == "YES":
+        morld.add_action_log("승낙했습니다.")
+        # 후속 처리...
+    else:
+        morld.add_action_log("거절했습니다.")
+        # 거절 처리...
+
+    # 연속 다이얼로그도 자연스럽게
+    result2 = yield morld.messagebox("확인", "정말로?", "YESNO")
+```
+
+### 장점
+1. **단일 함수에서 전체 흐름** - 콜백 분산 없음
+2. **직관적인 코드** - 위에서 아래로 읽으면 됨
+3. **상태 관리 단순화** - `_pendingGenerator` 하나로 통합
+4. **디버깅 용이** - Python 코드만 보면 흐름 파악
+
+## 구현 계획
+
+### Phase 1: morld.monologue() API 추가
+1. `PyMonologueRequest` 클래스 생성 (MessageBox.cs 확장)
+   - pages, button_type, time_consumed 포함
+
+2. `morld.monologue()` 함수 등록 (script_system.cs)
+   ```csharp
+   morldModule.ModuleDict["monologue"] = new PyBuiltinFunction("monologue", args => {
+       // pages, button_type, time_consumed 파싱
+       return new PyMonologueRequest(pages, buttonType, timeConsumed);
+   });
+   ```
+
+3. `ProcessGenerator()`에서 PyMonologueRequest 감지 추가
+   ```csharp
+   if (yieldedValue is PyMonologueRequest monoRequest)
+   {
+       return new GeneratorScriptResult
+       {
+           Type = "generator_monologue",
+           Generator = generator,
+           MonologueRequest = monoRequest.Request
+       };
+   }
+   ```
+
+### Phase 2: MetaActionHandler 처리
+1. `ProcessScriptResult()`에 `"generator_monologue"` 케이스 추가
+   ```csharp
+   case "generator_monologue":
+       _pendingGenerator = genResult.Generator;
+       _textUISystem?.ShowMonologue(
+           monoRequest.Pages,
+           monoRequest.TimeConsumed,
+           monoRequest.ButtonType,
+           doneCallback: null,  // 콜백 불필요
+           cancelCallback: null
+       );
+       break;
+   ```
+
+2. `HandleMonologueDoneAction()` 수정
+   - pendingGenerator 체크 추가 (Yes와 동일하게)
+   ```csharp
+   if (_pendingGenerator != null)
+   {
+       ResumeGeneratorWithResult(generator, "OK");
+       return;
+   }
+   ```
+
+### Phase 3: 기존 시스템과 호환성 유지
+- 기존 `return {"type": "monologue", ...}` 방식 계속 지원
+- 새로운 `yield morld.monologue(...)` 방식 추가
+- 점진적 마이그레이션 가능
+
+### Phase 4: 이벤트 핸들러 통합 (선택적)
+GameStartEvent, ReachEvent, MeetEvent의 handle() 메서드도 제너레이터로 변환 가능
+```python
+class PrologueStart(GameStartEvent):
+    def handle(self, **ctx):
+        # 첫 번째 다이얼로그
+        yield morld.monologue(pages=["...", "..."], button_type="OK")
+
+        # 이름 선택
+        name = yield morld.select(options=["이름1", "이름2", "이름3"])
+
+        # 나이 선택
+        age = yield morld.select(options=["청년", "중년", "노년"])
+
+        # 완료
+        morld.set_prop("player_name", name)
+```
+
+## 파일 변경 목록
+
+### 수정
+- `scripts/morld/ui/MessageBox.cs` - PyMonologueRequest 추가
+- `scripts/system/script_system.cs` - morld.monologue() 함수 + ProcessGenerator 확장
+- `scripts/MetaActionHandler.cs` - generator_monologue 처리 + HandleMonologueDoneAction 수정
+
+### 신규 (선택적)
+- `scripts/morld/ui/MonologueRequest.cs` - 별도 파일로 분리 가능
+
+## 마이그레이션 전략
+
+### 단계별 적용
+1. 새 API 구현 (기존 코드 영향 없음)
+2. 새로운 이벤트/스크립트부터 yield 방식 사용
+3. 기존 콜백 방식 코드는 필요 시 점진적 변환
+
+### 호환성
+- `done_callback`, `cancel_callback` 필드는 deprecated 표시 후 유지
+- 기존 `return {"type": "monologue", ...}` 방식 계속 동작
+
+## 현재 버그 (우선 수정 필요)
+
+### YES 버튼 클릭 후 화면 진행 안됨
+**증상**: MessageBox 테스트에서 YES 클릭 시 다음으로 넘어가지 않음 (NO는 정상)
+
+**원인 추정**:
+- `ResumeGenerator`에서 StopIteration 발생 시 반환값 처리 문제
+- 또는 `ProcessScriptResult`에서 `"message"` 타입 처리 후 화면 갱신 누락
+
+**디버깅 포인트**:
+1. `ResumeGenerator` 로그 확인 - StopIteration.value가 제대로 파싱되는지
+2. `ProcessScriptResult`에서 `"message"` 타입 처리 후 `RequestUpdateSituation()` 호출 필요 여부

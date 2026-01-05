@@ -1,5 +1,6 @@
 using ECS;
 using SharpPy;
+using Morld;
 
 namespace SE
 {
@@ -382,6 +383,31 @@ namespace SE
                     return PyBool.False;
                 });
 
+                // === Action Text API ===
+                // get_actions_list() - 현재 상황의 행동 옵션 BBCode 리스트 반환
+                morldModule.ModuleDict["get_actions_list"] = new PyBuiltinFunction("get_actions_list", args =>
+                {
+                    var describeSystem = _hub?.FindSystem("describeSystem") as DescribeSystem;
+                    if (describeSystem == null || _playerSystem == null)
+                        return new PyList();
+
+                    // PlayerSystem에서 현재 LookResult 가져오기
+                    var lookResult = _playerSystem.Look();
+                    if (lookResult == null)
+                        return new PyList();
+
+                    // DescribeSystem에서 행동 아이템 리스트 가져오기
+                    var actionItems = describeSystem.GetActionItems(lookResult);
+
+                    // PyList로 변환
+                    var pyList = new PyList();
+                    foreach (var item in actionItems)
+                    {
+                        pyList.Append(new PyString(item));
+                    }
+                    return pyList;
+                });
+
                 // === Job API ===
                 // insert_job_override(unit_id, name, action, duration, region_id=0, location_id=0, target_id=None)
                 morldModule.ModuleDict["insert_job_override"] = new PyBuiltinFunction("insert_job_override", args =>
@@ -533,6 +559,32 @@ namespace SE
                         Godot.GD.Print($"[morld] register_script: {funcName}");
                     }
                     return func;  // 데코레이터로 사용할 수 있도록 함수 반환
+                });
+
+                // === MessageBox API ===
+                // morld.messagebox(caption, text, type) - Win32 스타일 MessageBox
+                // Python에서 yield로 사용: result = yield morld.messagebox("확인", "진행?", "YESNO")
+                // type: "OK", "YESNO", "OKCANCEL"
+                // 반환값: "OK", "YES", "NO", "CANCEL"
+                morldModule.ModuleDict["messagebox"] = new PyBuiltinFunction("messagebox", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("messagebox(caption, text, type='OK') requires at least 2 arguments");
+
+                    string caption = args[0].AsString();
+                    string text = args[1].AsString();
+                    string typeStr = args.Length >= 3 ? args[2].AsString().ToUpperInvariant() : "OK";
+
+                    var msgType = typeStr switch
+                    {
+                        "YESNO" => Morld.MessageBoxType.YesNo,
+                        "OKCANCEL" => Morld.MessageBoxType.OkCancel,
+                        _ => Morld.MessageBoxType.Ok
+                    };
+
+                    // MessageBoxRequest를 래핑한 PyObject 반환
+                    // 제너레이터에서 yield로 이 객체가 반환되면 C#에서 다이얼로그 표시
+                    return new PyMessageBoxRequest(caption, text, msgType);
                 });
 
                 // sys.modules에 등록
@@ -2376,6 +2428,12 @@ __init__.initialize_scenario()
 
                 Godot.GD.Print($"[ScriptSystem] Result type: {result?.GetType().Name ?? "null"}, value: {result}");
 
+                // 제너레이터인 경우 - yield morld.messagebox(...) 지원
+                if (result is PyGenerator generator)
+                {
+                    return ProcessGenerator(generator);
+                }
+
                 // PyDict인 경우 구조화된 결과로 파싱
                 if (result is PyDict dict)
                 {
@@ -2402,6 +2460,114 @@ __init__.initialize_scenario()
             catch (System.Exception ex)
             {
                 Godot.GD.PrintErr($"[ScriptSystem] CallFunctionEx error: {ex.Message}");
+                return new ScriptResult { Type = "error", Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// 제너레이터 처리 - MessageBox yield 감지
+        /// </summary>
+        private ScriptResult ProcessGenerator(PyGenerator generator)
+        {
+            try
+            {
+                // 제너레이터의 첫 번째 yield 값 가져오기
+                var yieldedValue = generator.Next();
+
+                Godot.GD.Print($"[ScriptSystem] Generator yielded: {yieldedValue?.GetType().Name ?? "null"}");
+
+                // PyMessageBoxRequest yield인 경우
+                if (yieldedValue is PyMessageBoxRequest msgBoxRequest)
+                {
+                    Godot.GD.Print($"[ScriptSystem] MessageBox request: {msgBoxRequest.Request.Caption} - {msgBoxRequest.Request.Text}");
+                    return new GeneratorScriptResult
+                    {
+                        Type = "generator_messagebox",
+                        Generator = generator,
+                        MessageBoxRequest = msgBoxRequest.Request
+                    };
+                }
+
+                // 다른 값이 yield된 경우 (추후 확장 가능)
+                Godot.GD.Print($"[ScriptSystem] Generator yielded unknown type: {yieldedValue?.GetType().Name}");
+                return new ScriptResult { Type = "message", Message = yieldedValue?.ToString() ?? "" };
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration stopIter)
+            {
+                // 제너레이터가 완료됨 (yield 없이 return)
+                Godot.GD.Print($"[ScriptSystem] Generator completed with value: {stopIter.Value}");
+
+                // StopIteration.value가 결과
+                var returnValue = stopIter.Value;
+                if (returnValue is PyDict dict)
+                {
+                    return ParseDictResult(dict);
+                }
+                else if (returnValue is PyString pyStr)
+                {
+                    return new ScriptResult { Type = "message", Message = pyStr.Value };
+                }
+                else if (returnValue is PyNone || returnValue == null)
+                {
+                    return null;
+                }
+                return new ScriptResult { Type = "message", Message = returnValue?.ToString() ?? "" };
+            }
+        }
+
+        /// <summary>
+        /// 제너레이터에 결과를 전달하고 계속 실행
+        /// MetaActionHandler에서 다이얼로그 결과 전달 시 호출
+        /// </summary>
+        public ScriptResult ResumeGenerator(PyGenerator generator, string result)
+        {
+            try
+            {
+                Godot.GD.Print($"[ScriptSystem] Resuming generator with result: {result}");
+
+                // 결과를 Python 문자열로 변환하여 send()
+                var pyResult = new PyString(result);
+                var yieldedValue = generator.Send(pyResult);
+
+                Godot.GD.Print($"[ScriptSystem] Generator resumed, yielded: {yieldedValue?.GetType().Name ?? "null"}");
+
+                // 또 다른 MessageBox yield인 경우
+                if (yieldedValue is PyMessageBoxRequest msgBoxRequest)
+                {
+                    return new GeneratorScriptResult
+                    {
+                        Type = "generator_messagebox",
+                        Generator = generator,
+                        MessageBoxRequest = msgBoxRequest.Request
+                    };
+                }
+
+                // 다른 값이 yield된 경우
+                return new ScriptResult { Type = "message", Message = yieldedValue?.ToString() ?? "" };
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration stopIter)
+            {
+                // 제너레이터가 완료됨
+                Godot.GD.Print($"[ScriptSystem] Generator completed after resume with value: {stopIter.Value}");
+
+                var returnValue = stopIter.Value;
+                if (returnValue is PyDict dict)
+                {
+                    return ParseDictResult(dict);
+                }
+                else if (returnValue is PyString pyStr)
+                {
+                    return new ScriptResult { Type = "message", Message = pyStr.Value };
+                }
+                else if (returnValue is PyNone || returnValue == null)
+                {
+                    return null;
+                }
+                return new ScriptResult { Type = "message", Message = returnValue?.ToString() ?? "" };
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] ResumeGenerator error: {ex.Message}");
                 return new ScriptResult { Type = "error", Message = ex.Message };
             }
         }
@@ -2525,6 +2691,24 @@ __init__.initialize_scenario()
             var result = CallFunctionEx(functionName, args);
             if (result == null) return null;
             return result.Message;
+        }
+
+        /// <summary>
+        /// 모듈 함수 호출 (인자 없음)
+        /// 예: CallModuleFunction("ui", "get_action_text") → ui.get_action_text()
+        /// </summary>
+        public PyObject CallModuleFunction(string moduleName, string functionName)
+        {
+            try
+            {
+                var code = $"import {moduleName}; {moduleName}.{functionName}()";
+                return Eval(code);
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallModuleFunction error ({moduleName}.{functionName}): {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -2769,132 +2953,6 @@ def calculate(a, b):
             }
         }
 
-        // ========================================
-        // EventPredictionSystem 지원
-        // ========================================
-
-        /// <summary>
-        /// predict 모듈이 사용 가능한지 확인
-        /// </summary>
-        public bool IsPredictModuleAvailable()
-        {
-            try
-            {
-                var result = Eval("'predict' in dir() or 'predict_events' in dir()");
-                if (result is PyBool pyBool && pyBool.Value)
-                    return true;
-
-                // predict 모듈 import 시도 (events.predict 또는 predict)
-                try
-                {
-                    Execute("from events import predict");
-                    return true;
-                }
-                catch
-                {
-                    try
-                    {
-                        Execute("import predict");
-                        return true;
-                    }
-                    catch
-                    {
-                        return false;
-                    }
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Python predict_events(duration) 호출 - 이벤트 예측
-        /// </summary>
-        /// <param name="duration">예측할 시간 범위 (분)</param>
-        /// <returns>예측된 이벤트 목록</returns>
-        public List<PredictedEvent> CallPredictEvents(int duration)
-        {
-            var result = new List<PredictedEvent>();
-
-            try
-            {
-                // predict.predict_events(duration) 호출
-                var pyResult = Eval($"predict.predict_events({duration})");
-
-                if (pyResult is PyList pyList)
-                {
-                    for (int i = 0; i < pyList.Length(); i++)
-                    {
-                        var item = pyList.GetItem(i);
-                        if (item is PyDict dict)
-                        {
-                            var evt = new PredictedEvent();
-
-                            // type
-                            var typeVal = dict.Get(new PyString("type"));
-                            if (typeVal is PyString typeStr)
-                                evt.Type = typeStr.Value;
-
-                            // trigger_minutes
-                            var triggerVal = dict.Get(new PyString("trigger_minutes"));
-                            if (triggerVal is PyInt triggerInt)
-                                evt.TriggerMinutes = (int)triggerInt.Value;
-
-                            // interrupts_time
-                            var interruptVal = dict.Get(new PyString("interrupts_time"));
-                            if (interruptVal is PyBool interruptBool)
-                                evt.InterruptsTime = interruptBool.Value;
-
-                            // unit_ids
-                            var unitsVal = dict.Get(new PyString("unit_ids"));
-                            if (unitsVal is PyList unitList)
-                            {
-                                for (int j = 0; j < unitList.Length(); j++)
-                                {
-                                    var uid = unitList.GetItem(j);
-                                    if (uid is PyInt uidInt)
-                                        evt.InvolvedUnitIds.Add((int)uidInt.Value);
-                                }
-                            }
-
-                            // data (optional)
-                            var dataVal = dict.Get(new PyString("data"));
-                            if (dataVal is PyDict dataDict)
-                            {
-                                var keys = dataDict.Keys();
-                                for (int k = 0; k < keys.Length(); k++)
-                                {
-                                    var keyObj = keys.GetItem(k);
-                                    if (keyObj is PyString keyStr)
-                                    {
-                                        var val = dataDict.GetItem(keyObj);
-                                        object value = val switch
-                                        {
-                                            PyInt pi => pi.Value,
-                                            PyString ps => ps.Value,
-                                            PyBool pb => pb.Value,
-                                            PyFloat pf => pf.Value,
-                                            _ => val?.ToString() ?? ""
-                                        };
-                                        evt.Data[keyStr.Value] = value;
-                                    }
-                                }
-                            }
-
-                            result.Add(evt);
-                        }
-                    }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Godot.GD.PrintErr($"[ScriptSystem] CallPredictEvents error: {ex.Message}");
-            }
-
-            return result;
-        }
     }
 
     /// <summary>
@@ -2954,5 +3012,22 @@ def calculate(a, b):
         /// duration 생략 시 TimeConsumed 사용
         /// </summary>
         public System.Collections.Generic.Dictionary<int, NpcJobInfo> NpcJobs { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 제너레이터 스크립트 결과 - MessageBox yield 시 반환
+    /// 다이얼로그 결과를 generator.Send()로 전달하여 스크립트 재개
+    /// </summary>
+    public class GeneratorScriptResult : ScriptResult
+    {
+        /// <summary>
+        /// 일시 정지된 제너레이터 (결과 전달 후 재개용)
+        /// </summary>
+        public PyGenerator Generator { get; set; }
+
+        /// <summary>
+        /// yield된 MessageBox 요청 정보
+        /// </summary>
+        public MessageBoxRequest MessageBoxRequest { get; set; }
     }
 }

@@ -13,7 +13,7 @@ namespace SE
 	/// EventPredictionSystem - 이벤트 예측 및 시간 조정 시스템
 	///
 	/// 역할:
-	/// 1. Python의 predict_events() 호출하여 예측 이벤트 수집
+	/// 1. 플레이어/NPC 이동 경로 분석하여 만남 예측
 	/// 2. 시간 중단 이벤트 중 가장 빠른 것 찾기
 	/// 3. PlayerSystem.NextStepDuration 조정
 	///
@@ -21,16 +21,12 @@ namespace SE
 	/// </summary>
 	public class EventPredictionSystem : ECS.System
 	{
-		private ScriptSystem? _scriptSystem;
 		private PlayerSystem? _playerSystem;
 		private UnitSystem? _unitSystem;
 		private WorldSystem? _worldSystem;
 
-		private bool _predictModuleAvailable = false;
-		private bool _checkedModule = false;
-
 		/// <summary>
-		/// 예측된 이벤트 목록 (Python에서 받아옴)
+		/// 예측된 이벤트 목록
 		/// </summary>
 		private List<PredictedEvent> _predictedEvents = new();
 
@@ -43,12 +39,10 @@ namespace SE
 		/// 시스템 참조 설정
 		/// </summary>
 		public void SetSystemReferences(
-			ScriptSystem? scriptSystem,
 			PlayerSystem? playerSystem,
 			UnitSystem? unitSystem,
 			WorldSystem? worldSystem)
 		{
-			_scriptSystem = scriptSystem;
 			_playerSystem = playerSystem;
 			_unitSystem = unitSystem;
 			_worldSystem = worldSystem;
@@ -63,35 +57,17 @@ namespace SE
 			if (_playerSystem == null || !_playerSystem.HasPendingTime)
 				return;
 
-			// ScriptSystem이 없으면 스킵
-			if (_scriptSystem == null)
-				return;
-
-			// predict 모듈 존재 여부 한 번만 체크
-			if (!_checkedModule)
-			{
-				_checkedModule = true;
-				_predictModuleAvailable = _scriptSystem.IsPredictModuleAvailable();
-			}
-
-			// predict 모듈이 없으면 스킵
-			if (!_predictModuleAvailable)
+			if (_unitSystem == null || _worldSystem == null)
 				return;
 
 			int pendingDuration = _playerSystem.NextStepDuration;
 			if (pendingDuration <= 0)
 				return;
 
-			// Python predict_events() 호출
-			try
-			{
-				_predictedEvents = _scriptSystem.CallPredictEvents(pendingDuration);
-			}
-			catch (Exception ex)
-			{
-				GD.PrintErr($"[EventPredictionSystem] Error calling predict_events(): {ex.Message}");
-				return;
-			}
+			// C#에서 직접 이벤트 예측
+			_predictedEvents.Clear();
+			PredictMeetings(pendingDuration);
+			PredictArrivals(pendingDuration);
 
 			// 시간 중단 이벤트 중 가장 빠른 것 찾기
 			var earliestInterrupt = FindEarliestInterrupt();
@@ -118,6 +94,150 @@ namespace SE
 			{
 				LastAdjustedDuration = 0;
 			}
+		}
+
+		/// <summary>
+		/// 만남 이벤트 예측
+		/// 플레이어와 NPC가 같은 위치에 도달하는 시점 계산
+		/// </summary>
+		private void PredictMeetings(int duration)
+		{
+			var player = _playerSystem?.GetPlayerUnit();
+			if (player == null) return;
+
+			var terrain = _worldSystem?.GetTerrain();
+			if (terrain == null) return;
+
+			// 플레이어 경로 계산
+			var playerRoute = GetMovementRoute(player, duration, terrain);
+			if (playerRoute == null || playerRoute.Count == 0) return;
+
+			// 모든 NPC 체크
+			foreach (var unit in _unitSystem!.Units.Values)
+			{
+				if (unit.Id == player.Id) continue;
+				if (unit.IsObject) continue;
+				if (!unit.GeneratesEvents) continue;
+
+				// NPC 경로 계산
+				var npcRoute = GetMovementRoute(unit, duration, terrain);
+				if (npcRoute == null || npcRoute.Count == 0) continue;
+
+				// 만남 시점 계산
+				int? meetingTime = FindMeetingTime(playerRoute, npcRoute, duration);
+				if (meetingTime.HasValue && meetingTime.Value < duration)
+				{
+					_predictedEvents.Add(new PredictedEvent
+					{
+						Type = "on_meet",
+						TriggerMinutes = meetingTime.Value,
+						InvolvedUnitIds = new List<int> { player.Id, unit.Id },
+						InterruptsTime = true,
+						Data = new Dictionary<string, object>
+						{
+							["npc_name"] = unit.Name ?? "Unknown"
+						}
+					});
+				}
+			}
+		}
+
+		/// <summary>
+		/// 도착 이벤트 예측
+		/// 플레이어가 새 위치에 도착하는 시점
+		/// </summary>
+		private void PredictArrivals(int duration)
+		{
+			var player = _playerSystem?.GetPlayerUnit();
+			if (player == null) return;
+
+			// 현재 이동 중이 아니면 스킵
+			if (player.CurrentEdge == null) return;
+
+			var terrain = _worldSystem?.GetTerrain();
+			if (terrain == null) return;
+
+			// 플레이어 경로 계산
+			var playerRoute = GetMovementRoute(player, duration, terrain);
+			if (playerRoute == null) return;
+
+			foreach (var waypoint in playerRoute)
+			{
+				if (waypoint.ArrivalTime <= 0 || waypoint.ArrivalTime >= duration)
+					continue;
+
+				// 도착 이벤트 추가 (중요 위치 체크는 EventSystem에서 처리)
+				_predictedEvents.Add(new PredictedEvent
+				{
+					Type = "on_reach",
+					TriggerMinutes = waypoint.ArrivalTime,
+					InvolvedUnitIds = new List<int> { player.Id },
+					InterruptsTime = false, // 기본적으로 도착은 중단하지 않음
+					Data = new Dictionary<string, object>
+					{
+						["region_id"] = waypoint.Location.RegionId,
+						["location_id"] = waypoint.Location.LocalId
+					}
+				});
+			}
+		}
+
+		/// <summary>
+		/// 유닛의 이동 경로 계산
+		/// </summary>
+		private List<RouteWaypoint>? GetMovementRoute(Unit unit, int duration, Terrain terrain)
+		{
+			var route = new List<RouteWaypoint>();
+
+			// 현재 위치 추가
+			route.Add(new RouteWaypoint
+			{
+				Location = unit.CurrentLocation,
+				ArrivalTime = 0
+			});
+
+			// 이동 중이 아니면 현재 위치만 반환
+			if (unit.CurrentEdge == null) return route;
+
+			// 현재 이동 중인 엣지의 도착 예정 시간
+			int remainingTime = unit.CurrentEdge.RemainingTime;
+			var destLocation = unit.CurrentEdge.To;
+
+			if (remainingTime > 0 && remainingTime <= duration)
+			{
+				route.Add(new RouteWaypoint
+				{
+					Location = destLocation,
+					ArrivalTime = remainingTime
+				});
+			}
+
+			return route;
+		}
+
+		/// <summary>
+		/// 두 경로가 만나는 시점 계산
+		/// </summary>
+		private int? FindMeetingTime(List<RouteWaypoint> playerRoute, List<RouteWaypoint> npcRoute, int duration)
+		{
+			foreach (var playerWp in playerRoute)
+			{
+				foreach (var npcWp in npcRoute)
+				{
+					// 같은 위치인지 확인
+					if (playerWp.Location.RegionId != npcWp.Location.RegionId) continue;
+					if (playerWp.Location.LocalId != npcWp.Location.LocalId) continue;
+
+					// 도착 시간 차이가 작으면 만남으로 판정 (5분 이내)
+					int timeDiff = Math.Abs(playerWp.ArrivalTime - npcWp.ArrivalTime);
+					if (timeDiff <= 5)
+					{
+						return Math.Max(playerWp.ArrivalTime, npcWp.ArrivalTime);
+					}
+				}
+			}
+
+			return null;
 		}
 
 		/// <summary>
@@ -189,5 +309,14 @@ namespace SE
 		{
 			return $"PredictedEvent[{Type}] at +{TriggerMinutes}min, interrupts={InterruptsTime}, units=[{string.Join(",", InvolvedUnitIds)}]";
 		}
+	}
+
+	/// <summary>
+	/// 이동 경로 경유지
+	/// </summary>
+	public struct RouteWaypoint
+	{
+		public LocationRef Location { get; set; }
+		public int ArrivalTime { get; set; }
 	}
 }

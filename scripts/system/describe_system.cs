@@ -369,75 +369,106 @@ namespace SE
 				}
 			}
 
-			// === 구분선 (행동 옵션 영역) ===
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 묘사 텍스트만 생성 (행동 옵션 제외)
+		/// TextUISystem에서 Python 훅과 함께 사용
+		/// </summary>
+		public string GetDescribeText(LookResult lookResult, GameTime? time, IReadOnlyList<ActionLogEntry>? actionLogs = null)
+		{
+			return GetSituationText(lookResult, time, actionLogs);
+		}
+
+		/// <summary>
+		/// 행동 옵션 텍스트만 생성 (구분선 포함)
+		/// TextUISystem에서 Python 훅 폴백으로 사용
+		/// </summary>
+		public string GetActionText(LookResult lookResult)
+		{
+			var lines = new List<string>();
+
+			// 구분선
 			lines.Add("[color=gray]────────────────────[/color]");
 
-			// 5. 이동 가능 경로 (BBCode 링크)
+			// GetActionItems에서 행동 옵션 가져오기
+			var actionItems = GetActionItems(lookResult);
+			lines.AddRange(actionItems);
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 행동 옵션 BBCode 리스트 생성 (Python에서 사용)
+		/// 이동 경로, 앉은 상태 행동, ActionProviderRegistry 행동 포함
+		/// </summary>
+		public List<string> GetActionItems(LookResult lookResult)
+		{
+			var items = new List<string>();
+
+			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
+			var player = playerSystem?.GetPlayerUnit();
+			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+
+			// 1. 이동 가능 경로
 			if (lookResult.Routes.Count > 0)
 			{
-				lines.Add("[color=cyan]이동 가능:[/color]");
+				items.Add("[color=cyan]이동 가능:[/color]");
 				foreach (var route in lookResult.Routes)
 				{
 					if (route.IsBlocked)
 					{
-						// BlockedReason 표시 제거 - 회색 처리만으로 충분
-						// lines.Add($"  [color=gray]- {route.LocationName} ({route.BlockedReason})[/color]");
-						lines.Add($"  [color=gray]- {route.LocationName}[/color]");
+						items.Add($"  [color=gray]- {route.LocationName}[/color]");
 					}
 					else
 					{
 						var regionTag = route.IsRegionEdge ? $" [{route.RegionName}]" : "";
 						var meta = $"move:{route.Destination.RegionId}:{route.Destination.LocalId}";
-						lines.Add($"  [url={meta}]{route.LocationName}{regionTag} ({route.TravelTime}분)[/url]");
+						items.Add($"  [url={meta}]{route.LocationName}{regionTag} ({route.TravelTime}분)[/url]");
 					}
 				}
 			}
 
-			// 6. 앉은 상태 표시 및 행동 옵션
-			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
-			var player = playerSystem?.GetPlayerUnit();
-
+			// 2. 앉은 상태 행동
 			if (player != null)
 			{
-				// 앉아있는 상태 체크 및 표시
 				var seatedOnProp = player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
 				if (seatedOnProp.Prop.IsValid)
 				{
-					// seated_on:{objectId}에서 objectId 추출
 					var propName = seatedOnProp.Prop.Name;
 					var colonIdx = propName.IndexOf(':');
 					if (colonIdx >= 0 && int.TryParse(propName.Substring(colonIdx + 1), out int objectId))
 					{
-						var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
 						var seatObject = unitSystem?.GetUnit(objectId);
 						var seatName = seatObject?.Name ?? "오브젝트";
 
-						lines.Add("");
-						lines.Add($"[color=lime][앉음: {seatName}][/color]");
-						lines.Add($"  [url=stand_up]일어나기[/url]");
+						items.Add("");
+						items.Add($"[color=lime][앉음: {seatName}][/color]");
+						items.Add($"  [url=stand_up]일어나기[/url]");
 
 						// 운전석이면 운전 액션도 표시
 						if (seatObject != null && seatObject.TraversalContext.HasProp("driver_seat"))
 						{
-							lines.Add($"  [url=script:drive_menu]운전[/url]");
+							items.Add($"  [url=script:drive_menu]운전[/url]");
 						}
 					}
 				}
 
-				// 행동 옵션 (ActionProviderRegistry 사용)
+				// 3. ActionProviderRegistry 행동
 				var providedActions = _actionRegistry.GetAllActionsFor(player);
 				if (providedActions.Count > 0)
 				{
-					lines.Add("");
-					lines.Add("[color=yellow]행동:[/color]");
+					items.Add("");
+					items.Add("[color=yellow]행동:[/color]");
 					foreach (var action in providedActions)
 					{
-						lines.Add(action.ToBBCode());
+						items.Add(action.ToBBCode());
 					}
 				}
 			}
 
-			return string.Join("\n", lines);
+			return items;
 		}
 
 		/// <summary>

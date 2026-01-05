@@ -157,7 +157,7 @@ public partial class GameEngine : Node
 
 		// EventPredictionSystem 설정
 		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
-		_eventPredictionSystem?.SetSystemReferences(_scriptSystem, _playerSystem, unitSystem, worldSystem);
+		_eventPredictionSystem?.SetSystemReferences(_playerSystem, unitSystem, worldSystem);
 
 		// TextUISystem 설정
 		_textUISystem?.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
