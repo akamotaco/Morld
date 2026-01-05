@@ -56,14 +56,15 @@ from assets.objects.corridor import (
 from assets.objects.stairs import examine_step, examine_window
 from assets.objects.entrance import escape, show_ending
 
-# 비밀번호 시스템용 모듈 참조
-from assets.objects import bedroom as vanity_module
-from assets.objects import study as safe_module
+# 비밀번호 시스템용 클래스 참조
+from assets.objects.bedroom import VanityDrawer, on_password_success as vanity_on_success
+from assets.objects.study import Safe, on_password_success as safe_on_success
 
 # PASSWORD_OBJECTS 매핑 (password_target_uid 값으로 조회)
+# (비밀번호, 성공 콜백)
 PASSWORD_OBJECTS = {
-    0: vanity_module,  # vanity_drawer
-    1: safe_module,    # safe
+    0: (VanityDrawer.password, vanity_on_success),  # vanity_drawer
+    1: (Safe.password, safe_on_success),            # safe
 }
 
 
@@ -114,15 +115,15 @@ def verify_password(context_unit_id):
     input_password = str(morld.get_flag("password_input")).zfill(4)
 
     # 오브젝트별 비밀번호 정보 가져오기
-    obj_module = PASSWORD_OBJECTS.get(target_uid)
-    if not obj_module:
+    password_info = PASSWORD_OBJECTS.get(target_uid)
+    if not password_info:
         return {"type": "monologue", "pages": ["오류가 발생했다."], "time_consumed": 0}
 
-    correct_password = obj_module.PASSWORD
+    correct_password, on_success = password_info
 
     if input_password == correct_password:
         # 성공 시 해당 오브젝트의 콜백 호출
-        return obj_module.on_password_success()
+        return on_success()
     else:
         # 실패
         return {

@@ -1,51 +1,50 @@
 # assets/objects/corridor.py - 복도 오브젝트 (그림 액자, 괘종시계, 우산꽂이, 서재 문)
 
 import morld
-from assets import registry
+from assets.base import Object
 
-# ========================================
-# Asset 정의
-# ========================================
 
-PICTURE_FRAME = {
-    "unique_id": "picture_frame",
-    "name": "그림 액자",
-    "actions": ["script:examine_picture:조사"],
-    "focus_text": {
+class PictureFrame(Object):
+    """그림 액자"""
+    unique_id = "picture_frame"
+    name = "그림 액자"
+    actions = ["script:examine_picture:조사"]
+    focus_text = {
         "default": "벽에 비스듬히 걸린 오래된 풍경화다. 금박 액자 테두리가 벗겨져 있다. 그림 뒤에 뭔가 숨겨져 있을 것 같은 느낌이 든다."
-    },
-    # 힌트만 제공 (숫자 4, 9)
-    "examine_message": "그림 뒤쪽을 살펴보니 '4'와 '9'라는 숫자가 적혀 있다."
-}
+    }
+    examine_message = "그림 뒤쪽을 살펴보니 '4'와 '9'라는 숫자가 적혀 있다."
 
-GRANDFATHER_CLOCK = {
-    "unique_id": "grandfather_clock",
-    "name": "괘종시계",
-    "actions": ["script:examine_clock:조사"],
-    "focus_text": {
+
+class GrandfatherClock(Object):
+    """괘종시계"""
+    unique_id = "grandfather_clock"
+    name = "괘종시계"
+    actions = ["script:examine_clock:조사"]
+    focus_text = {
         "default": "복도 끝에 서있는 커다란 괘종시계다. 시계는 멈춰있고, 시각은 18:42를 가리키고 있다. 문양이 새겨진 장식이 눈에 띈다."
     }
-}
 
-UMBRELLA_STAND = {
-    "unique_id": "umbrella_stand",
-    "name": "우산꽂이",
-    "actions": ["script:examine_umbrella:조사"],
-    "focus_text": {
+
+class UmbrellaStand(Object):
+    """우산꽂이"""
+    unique_id = "umbrella_stand"
+    name = "우산꽂이"
+    actions = ["script:examine_umbrella:조사"]
+    focus_text = {
         "default": "구리 재질의 우산꽂이다. 낡은 우산 몇 개와 지팡이가 꽂혀 있다. 바닥에 뭔가 떨어져 있는 것 같다."
     }
-}
 
-STUDY_DOOR = {
-    "unique_id": "study_door",
-    "name": "서재 문",
-    "actions": ["script:unlock_study_door:열기"],
-    "focus_text": {
+
+class StudyDoor(Object):
+    """서재 문"""
+    unique_id = "study_door"
+    name = "서재 문"
+    actions = ["script:unlock_study_door:열기"]
+    focus_text = {
         "default": "두꺼운 참나무 문이다. 전자식 4자리 비밀번호 잠금장치가 설치되어 있다.",
         "unlocked": "열린 서재 문이다. 안에서 오래된 책 냄새가 풍겨온다."
-    },
-    "password": "2847"
-}
+    }
+    password = "2847"
 
 
 # ========================================
@@ -54,9 +53,7 @@ STUDY_DOOR = {
 
 def examine_picture(context_unit_id):
     """그림 액자 조사 - 숫자 힌트"""
-    uid = PICTURE_FRAME["unique_id"]
-
-    flag_name = f"examined_{uid}"
+    flag_name = f"examined_{PictureFrame.unique_id}"
     if morld.get_flag(flag_name) > 0:
         return {
             "type": "monologue",
@@ -68,7 +65,7 @@ def examine_picture(context_unit_id):
 
     return {
         "type": "monologue",
-        "pages": [PICTURE_FRAME["examine_message"]],
+        "pages": [PictureFrame.examine_message],
         "time_consumed": 1
     }
 
@@ -168,7 +165,7 @@ def verify_study_password(context_unit_id):
     """서재 문 비밀번호 검증"""
     input_password = str(morld.get_flag("password_input")).zfill(4)
 
-    if input_password == STUDY_DOOR["password"]:
+    if input_password == StudyDoor.password:
         morld.set_flag("study_unlocked", 1)
         morld.add_action_log("서재 문이 열렸다")
         return {
@@ -186,11 +183,3 @@ def verify_study_password(context_unit_id):
             "pages": ["삐빅- 비밀번호가 틀렸다."],
             "time_consumed": 0
         }
-
-
-def register():
-    """복도 오브젝트 Asset 등록"""
-    registry.register_object(PICTURE_FRAME)
-    registry.register_object(GRANDFATHER_CLOCK)
-    registry.register_object(UMBRELLA_STAND)
-    registry.register_object(STUDY_DOOR)

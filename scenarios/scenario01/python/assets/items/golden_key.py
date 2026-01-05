@@ -1,47 +1,54 @@
 # assets/items/golden_key.py - 황금열쇠 (머리 + 몸통 + 완성품 + 조합)
 
 import morld
-from assets import registry
+from assets.base import Item
+
+
+class GoldenKeyHead(Item):
+    """황금열쇠 머리"""
+    unique_id = "golden_key_head"
+    name = "황금열쇠 머리"
+    passive_tags = {}
+    equip_tags = {}
+    value = 0
+    actions = ["take@container", "script:combine_golden_key:조합@inventory"]
+
+
+class GoldenKeyBody(Item):
+    """황금열쇠 몸통"""
+    unique_id = "golden_key_body"
+    name = "황금열쇠 몸통"
+    passive_tags = {}
+    equip_tags = {}
+    value = 0
+    actions = ["take@container", "script:combine_golden_key:조합@inventory"]
+
+
+class GoldenKey(Item):
+    """황금열쇠 (완성품)"""
+    unique_id = "golden_key"
+    name = "황금열쇠"
+    passive_tags = {"황금열쇠": 1}
+    equip_tags = {}
+    value = 0
+    actions = ["take@container"]
+
 
 # ========================================
-# Asset 정의
+# 인스턴스 레지스트리 (world/mansion.py에서 등록)
 # ========================================
 
-# 조합 부품: 머리
-GOLDEN_KEY_HEAD = {
-    "unique_id": "golden_key_head",
-    "name": "황금열쇠 머리",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 0,
-    "actions": ["take@container", "script:combine_golden_key:조합@inventory"]
-}
+_instances = {}
 
-# 조합 부품: 몸통
-GOLDEN_KEY_BODY = {
-    "unique_id": "golden_key_body",
-    "name": "황금열쇠 몸통",
-    "passiveTags": {},
-    "equipTags": {},
-    "value": 0,
-    "actions": ["take@container", "script:combine_golden_key:조합@inventory"]
-}
 
-# 완성품
-GOLDEN_KEY = {
-    "unique_id": "golden_key",
-    "name": "황금열쇠",
-    "passiveTags": {"황금열쇠": 1},
-    "equipTags": {},
-    "value": 0,
-    "actions": ["take@container"]
-}
+def register_item_instance(unique_id: str, instance):
+    """아이템 인스턴스 등록"""
+    _instances[unique_id] = instance
 
-# 조합 레시피
-RECIPE = {
-    "ingredients": ["golden_key_head", "golden_key_body"],
-    "result": "golden_key"
-}
+
+def get_item_instance(unique_id: str):
+    """아이템 인스턴스 조회"""
+    return _instances.get(unique_id)
 
 
 # ========================================
@@ -52,14 +59,21 @@ def combine_golden_key(context_unit_id):
     """황금열쇠 조합"""
     player_id = morld.get_player_id()
 
-    # instance_id 조회
-    head_id = registry.get_instance_id("golden_key_head")
-    body_id = registry.get_instance_id("golden_key_body")
-    result_id = registry.get_instance_id("golden_key")
+    # 인스턴스 조회
+    head = get_item_instance("golden_key_head")
+    body = get_item_instance("golden_key_body")
+    result = get_item_instance("golden_key")
+
+    if not all([head, body, result]):
+        return {
+            "type": "monologue",
+            "pages": ["조합할 수 없다."],
+            "time_consumed": 0
+        }
 
     # 재료 확인
-    has_head = head_id is not None and morld.has_item(player_id, head_id)
-    has_body = body_id is not None and morld.has_item(player_id, body_id)
+    has_head = morld.has_item(player_id, head.instance_id)
+    has_body = morld.has_item(player_id, body.instance_id)
 
     if not has_head or not has_body:
         if has_head:
@@ -88,9 +102,9 @@ def combine_golden_key(context_unit_id):
             }
 
     # 조합 진행
-    morld.lost_item(player_id, head_id, 1)
-    morld.lost_item(player_id, body_id, 1)
-    morld.give_item(player_id, result_id, 1)
+    morld.lost_item(player_id, head.instance_id, 1)
+    morld.lost_item(player_id, body.instance_id, 1)
+    morld.give_item(player_id, result.instance_id, 1)
     morld.add_action_log("황금열쇠를 완성했다")
 
     return {
@@ -104,10 +118,3 @@ def combine_golden_key(context_unit_id):
         ],
         "time_consumed": 1
     }
-
-
-def register():
-    """황금열쇠 관련 Asset 등록"""
-    registry.register_item(GOLDEN_KEY_HEAD)
-    registry.register_item(GOLDEN_KEY_BODY)
-    registry.register_item(GOLDEN_KEY)

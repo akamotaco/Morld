@@ -1,18 +1,17 @@
 # assets/items/__init__.py - 아이템 Asset 모듈
 
-from assets import registry
+from assets.base import Item
 
-# 개별 아이템 모듈
-from . import keys
-from . import golden_key
-from . import notes
-from . import documents
+# 아이템 클래스 import
+from .keys import RustyKey, SilverKey
+from .golden_key import GoldenKeyHead, GoldenKeyBody, GoldenKey
+from .notes import Note1, Note2, Note3
+from .documents import Diary, OldLetter, StudyMemo
 
-
-def register_all():
-    """모든 아이템 Asset 등록"""
-    keys.register()
-    golden_key.register()
-    notes.register()
-    documents.register()
-    print("[assets.items] All item assets registered")
+# 모든 아이템 클래스 export
+__all__ = [
+    'RustyKey', 'SilverKey',
+    'GoldenKeyHead', 'GoldenKeyBody', 'GoldenKey',
+    'Note1', 'Note2', 'Note3',
+    'Diary', 'OldLetter', 'StudyMemo',
+]

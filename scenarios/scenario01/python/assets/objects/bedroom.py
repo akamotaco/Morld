@@ -1,37 +1,33 @@
 # assets/objects/bedroom.py - 침실 오브젝트 (침대 밑, 화장대 서랍)
 
 import morld
-from assets import registry
+from assets.base import Object
+from assets.items.golden_key import get_item_instance
 
-# ========================================
-# Asset 정의
-# ========================================
 
-BED_UNDER = {
-    "unique_id": "bed_under",
-    "name": "침대 밑",
-    "actions": ["script:examine_bed:조사"],
-    "focus_text": {
+class BedUnder(Object):
+    """침대 밑"""
+    unique_id = "bed_under"
+    name = "침대 밑"
+    actions = ["script:examine_bed:조사"]
+    focus_text = {
         "default": "헤진 시트가 덮인 낡은 침대다. 침대 밑 어둠 속에 무언가가 있는 것 같다. 손을 넣어봐야 할 것 같다."
-    },
-    "hidden_items": ["diary", "old_letter"],
-    "examine_message": "침대 밑에 손을 넣어보니... 오래된 일기장과 봉투에 담긴 편지가 있다!"
-}
+    }
+    hidden_items = ["diary", "old_letter"]
+    examine_message = "침대 밑에 손을 넣어보니... 오래된 일기장과 봉투에 담긴 편지가 있다!"
 
-VANITY_DRAWER = {
-    "unique_id": "vanity_drawer",
-    "name": "화장대 서랍",
-    "actions": ["script:open_vanity_drawer:열기"],
-    "focus_text": {
+
+class VanityDrawer(Object):
+    """화장대 서랍"""
+    unique_id = "vanity_drawer"
+    name = "화장대 서랍"
+    actions = ["script:open_vanity_drawer:열기"]
+    focus_text = {
         "default": "화장대에 달린 작은 서랍이다. 4자리 숫자 잠금장치가 달려있다. 누군가 소중한 것을 숨겨둔 것 같다.",
         "unlocked": "열린 서랍이다. 화장품과 먼지만 남아있다."
-    },
-    "password": "3749",
-    "hidden_item": "study_memo"
-}
-
-# 비밀번호 시스템용
-PASSWORD = VANITY_DRAWER["password"]
+    }
+    password = "3749"
+    hidden_item = "study_memo"
 
 
 # ========================================
@@ -41,9 +37,8 @@ PASSWORD = VANITY_DRAWER["password"]
 def examine_bed(context_unit_id):
     """침대 밑 조사"""
     player_id = morld.get_player_id()
-    uid = BED_UNDER["unique_id"]
 
-    flag_name = f"examined_{uid}"
+    flag_name = f"examined_{BedUnder.unique_id}"
     if morld.get_flag(flag_name) > 0:
         return {
             "type": "monologue",
@@ -54,23 +49,21 @@ def examine_bed(context_unit_id):
     morld.set_flag(flag_name, 1)
 
     # 다중 아이템 지급
-    for item_uid in BED_UNDER["hidden_items"]:
-        item_iid = registry.get_instance_id(item_uid)
-        if item_iid is not None:
-            morld.give_item(player_id, item_iid, 1)
+    for item_uid in BedUnder.hidden_items:
+        item = get_item_instance(item_uid)
+        if item:
+            morld.give_item(player_id, item.instance_id, 1)
 
     return {
         "type": "monologue",
-        "pages": [BED_UNDER["examine_message"]],
+        "pages": [BedUnder.examine_message],
         "time_consumed": 1
     }
 
 
 def open_vanity_drawer(context_unit_id):
     """화장대 서랍 열기 - 비밀번호 잠금"""
-    uid = VANITY_DRAWER["unique_id"]
-
-    flag_name = f"unlocked_{uid}"
+    flag_name = f"unlocked_{VanityDrawer.unique_id}"
     if morld.get_flag(flag_name) > 0:
         return {
             "type": "monologue",
@@ -101,14 +94,13 @@ def open_vanity_drawer(context_unit_id):
 def on_password_success():
     """비밀번호 성공 시 호출 (scripts.py에서 호출)"""
     player_id = morld.get_player_id()
-    uid = VANITY_DRAWER["unique_id"]
 
-    morld.set_flag(f"unlocked_{uid}", 1)
+    morld.set_flag(f"unlocked_{VanityDrawer.unique_id}", 1)
     morld.add_action_log("서랍을 열었다")
 
-    item_iid = registry.get_instance_id(VANITY_DRAWER["hidden_item"])
-    if item_iid is not None:
-        morld.give_item(player_id, item_iid, 1)
+    item = get_item_instance(VanityDrawer.hidden_item)
+    if item:
+        morld.give_item(player_id, item.instance_id, 1)
 
     return {
         "type": "monologue",
@@ -119,9 +111,3 @@ def on_password_success():
         ],
         "time_consumed": 1
     }
-
-
-def register():
-    """침실 오브젝트 Asset 등록"""
-    registry.register_object(BED_UNDER)
-    registry.register_object(VANITY_DRAWER)

@@ -1,37 +1,33 @@
 # assets/objects/study.py - 서재 오브젝트 (금고, 책상 서랍)
 
 import morld
-from assets import registry
+from assets.base import Object
+from assets.items.golden_key import get_item_instance
 
-# ========================================
-# Asset 정의
-# ========================================
 
-SAFE = {
-    "unique_id": "safe",
-    "name": "금고",
-    "actions": ["script:open_safe:열기"],
-    "focus_text": {
+class Safe(Object):
+    """금고"""
+    unique_id = "safe"
+    name = "금고"
+    actions = ["script:open_safe:열기"]
+    focus_text = {
         "default": "책상 옆에 놓인 묵직한 철제 금고다. 4자리 다이얼 자물쇠가 달려있다. 안에 중요한 것이 들어있을 것 같다.",
         "unlocked": "열린 금고다. 먼지와 오래된 서류 조각들만 남아있다."
-    },
-    "password": "1842",
-    "hidden_item": "golden_key_body"
-}
+    }
+    password = "1842"
+    hidden_item = "golden_key_body"
 
-DESK_DRAWER = {
-    "unique_id": "desk_drawer",
-    "name": "책상 서랍",
-    "actions": ["script:examine_desk:조사"],
-    "focus_text": {
+
+class DeskDrawer(Object):
+    """책상 서랍"""
+    unique_id = "desk_drawer"
+    name = "책상 서랍"
+    actions = ["script:examine_desk:조사"]
+    focus_text = {
         "default": "낡은 오크나무 책상의 서랍이다. 손잡이가 녹슬었지만 열 수 있을 것 같다."
-    },
-    "hidden_item": "note3",
-    "examine_message": "책상 서랍을 열어보니 쪽지가 있다."
-}
-
-# 비밀번호 시스템용
-PASSWORD = SAFE["password"]
+    }
+    hidden_item = "note3"
+    examine_message = "책상 서랍을 열어보니 쪽지가 있다."
 
 
 # ========================================
@@ -40,9 +36,7 @@ PASSWORD = SAFE["password"]
 
 def open_safe(context_unit_id):
     """금고 열기 - 비밀번호 잠금"""
-    uid = SAFE["unique_id"]
-
-    flag_name = f"unlocked_{uid}"
+    flag_name = f"unlocked_{Safe.unique_id}"
     if morld.get_flag(flag_name) > 0:
         return {
             "type": "monologue",
@@ -73,14 +67,13 @@ def open_safe(context_unit_id):
 def on_password_success():
     """비밀번호 성공 시 호출 (scripts.py에서 호출)"""
     player_id = morld.get_player_id()
-    uid = SAFE["unique_id"]
 
-    morld.set_flag(f"unlocked_{uid}", 1)
+    morld.set_flag(f"unlocked_{Safe.unique_id}", 1)
     morld.add_action_log("금고를 열었다")
 
-    item_iid = registry.get_instance_id(SAFE["hidden_item"])
-    if item_iid is not None:
-        morld.give_item(player_id, item_iid, 1)
+    item = get_item_instance(Safe.hidden_item)
+    if item:
+        morld.give_item(player_id, item.instance_id, 1)
 
     return {
         "type": "monologue",
@@ -97,9 +90,8 @@ def on_password_success():
 def examine_desk(context_unit_id):
     """책상 서랍 조사"""
     player_id = morld.get_player_id()
-    uid = DESK_DRAWER["unique_id"]
 
-    flag_name = f"examined_{uid}"
+    flag_name = f"examined_{DeskDrawer.unique_id}"
     if morld.get_flag(flag_name) > 0:
         return {
             "type": "monologue",
@@ -109,18 +101,12 @@ def examine_desk(context_unit_id):
 
     morld.set_flag(flag_name, 1)
 
-    item_iid = registry.get_instance_id(DESK_DRAWER["hidden_item"])
-    if item_iid is not None:
-        morld.give_item(player_id, item_iid, 1)
+    item = get_item_instance(DeskDrawer.hidden_item)
+    if item:
+        morld.give_item(player_id, item.instance_id, 1)
 
     return {
         "type": "monologue",
-        "pages": [DESK_DRAWER["examine_message"]],
+        "pages": [DeskDrawer.examine_message],
         "time_consumed": 1
     }
-
-
-def register():
-    """서재 오브젝트 Asset 등록"""
-    registry.register_object(SAFE)
-    registry.register_object(DESK_DRAWER)

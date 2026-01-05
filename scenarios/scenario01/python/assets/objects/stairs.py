@@ -1,29 +1,27 @@
 # assets/objects/stairs.py - 계단 오브젝트 (부서진 계단, 창문)
 
 import morld
-from assets import registry
+from assets.base import Object
 
-# ========================================
-# Asset 정의
-# ========================================
 
-BROKEN_STEP = {
-    "unique_id": "broken_step",
-    "name": "부서진 계단",
-    "actions": ["script:examine_step:조사"],
-    "focus_text": {
+class BrokenStep(Object):
+    """부서진 계단"""
+    unique_id = "broken_step"
+    name = "부서진 계단"
+    actions = ["script:examine_step:조사"]
+    focus_text = {
         "default": "계단 중간에 부서진 단이 있다. 틈새로 무언가가 보이는 것 같기도 하다..."
     }
-}
 
-STAIR_WINDOW = {
-    "unique_id": "stair_window",
-    "name": "창문",
-    "actions": ["script:examine_window:조사"],
-    "focus_text": {
+
+class StairWindow(Object):
+    """창문"""
+    unique_id = "stair_window"
+    name = "창문"
+    actions = ["script:examine_window:조사"]
+    focus_text = {
         "default": "계단 옆에 달린 창문이다. 두꺼운 커튼으로 가려져 있다. 밖으로 나갈 수 있을까?"
     }
-}
 
 
 # ========================================
@@ -45,8 +43,7 @@ def examine_step(context_unit_id):
 
 def examine_window(context_unit_id):
     """계단 창문 조사"""
-    uid = STAIR_WINDOW["unique_id"]
-    flag_name = f"examined_{uid}"
+    flag_name = f"examined_{StairWindow.unique_id}"
 
     if morld.get_flag(flag_name) > 0:
         return {
@@ -67,9 +64,3 @@ def examine_window(context_unit_id):
         ],
         "time_consumed": 1
     }
-
-
-def register():
-    """계단 오브젝트 Asset 등록"""
-    registry.register_object(BROKEN_STEP)
-    registry.register_object(STAIR_WINDOW)

@@ -6,7 +6,6 @@
 # - 캐릭터/오브젝트/아이템 인스턴스화
 
 import morld
-from assets import registry
 
 # ========================================
 # Instance ID 할당 규칙
@@ -190,21 +189,90 @@ def initialize_time():
 
 def instantiate():
     """저택 Region의 모든 인스턴스 생성"""
+    # 클래스 import
+    from assets.characters.player import Player
+    from assets.items.keys import RustyKey, SilverKey
+    from assets.items.golden_key import GoldenKeyHead, GoldenKeyBody, GoldenKey
+    from assets.items.notes import Note1, Note2, Note3
+    from assets.items.documents import Diary, OldLetter, StudyMemo
+    from assets.objects.basement import OldBox, PowerPanel
+    from assets.objects.storage import Shelf, OldCabinet
+    from assets.objects.living_room import Fireplace, SofaCushion
+    from assets.objects.kitchen import Refrigerator, Cupboard
+    from assets.objects.bedroom import BedUnder, VanityDrawer
+    from assets.objects.study import Safe, DeskDrawer
+    from assets.objects.corridor import PictureFrame, GrandfatherClock, UmbrellaStand, StudyDoor
+    from assets.objects.stairs import BrokenStep, StairWindow
+    from assets.objects.entrance import FrontDoor
+
+    # 아이템 레지스트리 등록 (스크립트에서 조회용)
+    from assets.items import golden_key as gk_module
+
+    # 아이템 클래스 매핑 (unique_id → class)
+    item_classes = {
+        "rusty_key": RustyKey,
+        "silver_key": SilverKey,
+        "golden_key": GoldenKey,
+        "golden_key_head": GoldenKeyHead,
+        "golden_key_body": GoldenKeyBody,
+        "note1": Note1,
+        "note2": Note2,
+        "note3": Note3,
+        "diary": Diary,
+        "old_letter": OldLetter,
+        "study_memo": StudyMemo,
+    }
+
+    # 오브젝트 클래스 매핑 (unique_id → class)
+    object_classes = {
+        "old_box": OldBox,
+        "power_panel": PowerPanel,
+        "shelf": Shelf,
+        "old_cabinet": OldCabinet,
+        "fireplace": Fireplace,
+        "sofa_cushion": SofaCushion,
+        "refrigerator": Refrigerator,
+        "cupboard": Cupboard,
+        "bed_under": BedUnder,
+        "vanity_drawer": VanityDrawer,
+        "safe": Safe,
+        "desk_drawer": DeskDrawer,
+        "picture_frame": PictureFrame,
+        "grandfather_clock": GrandfatherClock,
+        "umbrella_stand": UmbrellaStand,
+        "study_door": StudyDoor,
+        "broken_step": BrokenStep,
+        "stair_window": StairWindow,
+        "front_door": FrontDoor,
+    }
 
     # 캐릭터 인스턴스화
     for instance_id, unique_id, region_id, location_id in CHARACTERS:
-        registry.instantiate_character(unique_id, instance_id, region_id, location_id)
+        if unique_id == "player":
+            player = Player()
+            player.instantiate(instance_id, region_id, location_id)
 
     print(f"[world.mansion] Instantiated {len(CHARACTERS)} characters")
 
     # 아이템 인스턴스화
     for instance_id, unique_id in ITEMS.items():
-        registry.instantiate_item(unique_id, instance_id)
+        if unique_id in item_classes:
+            item_cls = item_classes[unique_id]
+            item = item_cls()
+            item.instantiate(instance_id)
+            # 스크립트 조회용 레지스트리 등록
+            gk_module.register_item_instance(unique_id, item)
 
     print(f"[world.mansion] Instantiated {len(ITEMS)} items")
 
     # 오브젝트 인스턴스화
+    from assets import objects as obj_registry
     for instance_id, region_id, location_id, unique_id in OBJECTS:
-        registry.instantiate_object(unique_id, instance_id, region_id, location_id)
+        if unique_id in object_classes:
+            obj_cls = object_classes[unique_id]
+            obj = obj_cls()
+            obj.instantiate(instance_id, region_id, location_id)
+            # 스크립트 조회용 레지스트리 등록
+            obj_registry.register_instance(unique_id, obj)
 
     print(f"[world.mansion] Instantiated {len(OBJECTS)} objects")

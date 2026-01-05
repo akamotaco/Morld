@@ -1,31 +1,23 @@
 # assets/items/keys.py - 열쇠류 (녹슨 열쇠, 은열쇠)
 
-from assets import registry
-
-# ========================================
-# Asset 정의
-# ========================================
-
-RUSTY_KEY = {
-    "unique_id": "rusty_key",
-    "name": "녹슨 열쇠",
-    "passiveTags": {"녹슨열쇠": 1},
-    "equipTags": {},
-    "value": 0,
-    "actions": ["take@container"]
-}
-
-SILVER_KEY = {
-    "unique_id": "silver_key",
-    "name": "은열쇠",
-    "passiveTags": {"은열쇠": 1},
-    "equipTags": {},
-    "value": 0,
-    "actions": ["take@container"]
-}
+from assets.base import Item
 
 
-def register():
-    """열쇠류 Asset 등록"""
-    registry.register_item(RUSTY_KEY)
-    registry.register_item(SILVER_KEY)
+class RustyKey(Item):
+    """녹슨 열쇠"""
+    unique_id = "rusty_key"
+    name = "녹슨 열쇠"
+    passive_tags = {"녹슨열쇠": 1}
+    equip_tags = {}
+    value = 0
+    actions = ["take@container"]
+
+
+class SilverKey(Item):
+    """은열쇠"""
+    unique_id = "silver_key"
+    name = "은열쇠"
+    passive_tags = {"은열쇠": 1}
+    equip_tags = {}
+    value = 0
+    actions = ["take@container"]

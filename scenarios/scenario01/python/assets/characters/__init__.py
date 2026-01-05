@@ -1,15 +1,12 @@
 # assets/characters/__init__.py - 캐릭터 Asset 모듈
 
-from assets import registry
+from assets.base import Character
 
-# 개별 캐릭터 모듈
-from . import player
+# 캐릭터 클래스 import
+from .player import Player
 
-
-def register_all():
-    """모든 캐릭터 Asset 등록"""
-    player.register()
-    print("[assets.characters] All character assets registered")
+# 모든 캐릭터 클래스 export
+__all__ = ['Player']
 
 
 # === 시나리오02 호환 인터페이스 ===

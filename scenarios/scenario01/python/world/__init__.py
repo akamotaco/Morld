@@ -5,8 +5,6 @@
 # 2. 시간 설정
 # 3. 캐릭터/오브젝트/아이템 인스턴스화
 
-from assets import registry
-
 # Region별 배치 모듈
 from . import mansion
 

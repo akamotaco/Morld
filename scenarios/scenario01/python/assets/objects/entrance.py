@@ -1,21 +1,19 @@
 # assets/objects/entrance.py - 정문 홀 오브젝트 (정문)
 
 import morld
-from assets import registry
+from assets.base import Object
+from assets.items.golden_key import get_item_instance
 
-# ========================================
-# Asset 정의
-# ========================================
 
-FRONT_DOOR = {
-    "unique_id": "front_door",
-    "name": "정문",
-    "actions": ["script:escape:열기"],
-    "focus_text": {
+class FrontDoor(Object):
+    """정문"""
+    unique_id = "front_door"
+    name = "정문"
+    actions = ["script:escape:열기"]
+    focus_text = {
         "default": "저택의 거대한 정문이다. 황금빛 자물쇠가 빛나고 있다. 이 문만 열면 자유다!"
-    },
-    "lock_key": "golden_key"
-}
+    }
+    lock_key = "golden_key"
 
 
 # ========================================
@@ -27,8 +25,8 @@ def escape(context_unit_id):
     player_id = morld.get_player_id()
 
     # 황금열쇠 확인
-    key_iid = registry.get_instance_id(FRONT_DOOR["lock_key"])
-    if key_iid is None or not morld.has_item(player_id, key_iid):
+    key = get_item_instance(FrontDoor.lock_key)
+    if not key or not morld.has_item(player_id, key.instance_id):
         return {
             "type": "monologue",
             "pages": [
@@ -39,7 +37,7 @@ def escape(context_unit_id):
         }
 
     # 황금열쇠 소모
-    morld.lost_item(player_id, key_iid, 1)
+    morld.lost_item(player_id, key.instance_id, 1)
     morld.add_action_log("정문이 열렸다")
 
     # 탈출 성공!
@@ -99,8 +97,3 @@ def show_ending_credits(context_unit_id):
         "time_consumed": 0,
         "button_type": "none"
     }
-
-
-def register():
-    """정문 홀 오브젝트 Asset 등록"""
-    registry.register_object(FRONT_DOOR)
