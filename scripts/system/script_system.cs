@@ -285,13 +285,14 @@ namespace SE
                     return result;
                 });
 
-                // === 태그/플래그 API (플레이어 태그 기반) ===
-                morldModule.ModuleDict["set_flag"] = new PyBuiltinFunction("set_flag", args =>
+                // === Prop API (플레이어 Prop 기반) ===
+                // set_prop: 플레이어 Prop 설정 ("타입:이름" 형식)
+                morldModule.ModuleDict["set_prop"] = new PyBuiltinFunction("set_prop", args =>
                 {
                     if (args.Length < 1)
-                        throw PyTypeError.Create("set_flag(flag_name, value=1) requires at least 1 argument");
+                        throw PyTypeError.Create("set_prop(prop_name, value=1) requires at least 1 argument");
 
-                    string flagName = args[0].AsString();
+                    string propName = args[0].AsString();
                     int value = args.Length >= 2 ? args[1].ToInt() : 1;
 
                     if (_playerSystem == null || _unitSystem == null)
@@ -301,17 +302,18 @@ namespace SE
                     if (player == null)
                         return PyBool.False;
 
-                    player.TraversalContext.SetTag(flagName, value);
-                    Godot.GD.Print($"[morld] set_flag: {flagName} = {value}");
+                    player.TraversalContext.SetProp(propName, value);
+                    Godot.GD.Print($"[morld] set_prop: {propName} = {value}");
                     return new PyInt(value);
                 });
 
-                morldModule.ModuleDict["get_flag"] = new PyBuiltinFunction("get_flag", args =>
+                // get_prop: 플레이어 Prop 값 조회 ("타입:이름" 형식)
+                morldModule.ModuleDict["get_prop"] = new PyBuiltinFunction("get_prop", args =>
                 {
                     if (args.Length < 1)
-                        throw PyTypeError.Create("get_flag(flag_name) requires 1 argument");
+                        throw PyTypeError.Create("get_prop(prop_name) requires 1 argument");
 
-                    string flagName = args[0].AsString();
+                    string propName = args[0].AsString();
 
                     if (_playerSystem == null || _unitSystem == null)
                         return new PyInt(0);
@@ -320,16 +322,17 @@ namespace SE
                     if (player == null)
                         return new PyInt(0);
 
-                    int value = player.TraversalContext.GetTagValue(flagName);
+                    int value = player.TraversalContext.GetProp(propName);
                     return new PyInt(value);
                 });
 
-                morldModule.ModuleDict["clear_flag"] = new PyBuiltinFunction("clear_flag", args =>
+                // clear_prop: 플레이어 Prop 제거 ("타입:이름" 형식)
+                morldModule.ModuleDict["clear_prop"] = new PyBuiltinFunction("clear_prop", args =>
                 {
                     if (args.Length < 1)
-                        throw PyTypeError.Create("clear_flag(flag_name) requires 1 argument");
+                        throw PyTypeError.Create("clear_prop(prop_name) requires 1 argument");
 
-                    string flagName = args[0].AsString();
+                    string propName = args[0].AsString();
 
                     if (_playerSystem == null || _unitSystem == null)
                         return PyBool.False;
@@ -338,8 +341,8 @@ namespace SE
                     if (player == null)
                         return PyBool.False;
 
-                    player.TraversalContext.SetTag(flagName, 0);
-                    Godot.GD.Print($"[morld] clear_flag: {flagName}");
+                    player.TraversalContext.SetProp(propName, 0);
+                    Godot.GD.Print($"[morld] clear_prop: {propName}");
                     return PyBool.True;
                 });
 
@@ -805,12 +808,12 @@ namespace SE
                 PyBuiltinFunction addItemFunc = new PyBuiltinFunction("add_item", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("add_item(id, name, passive_tags=None, equip_tags=None, value=0, actions=None) requires at least 2 arguments");
+                        throw PyTypeError.Create("add_item(id, name, passive_props=None, equip_props=None, value=0, actions=None) requires at least 2 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
-                    var passiveTags = args.Length >= 3 && args[2] is PyDict ptDict ? PyDictToIntDict(ptDict) : null;
-                    var equipTags = args.Length >= 4 && args[3] is PyDict etDict ? PyDictToIntDict(etDict) : null;
+                    var passiveProps = args.Length >= 3 && args[2] is PyDict ptDict ? PyDictToIntDict(ptDict) : null;
+                    var equipProps = args.Length >= 4 && args[3] is PyDict etDict ? PyDictToIntDict(etDict) : null;
                     int value = args.Length >= 5 ? args[4].ToInt() : 0;
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
 
@@ -818,10 +821,10 @@ namespace SE
                     {
                         var item = new Morld.Item(id, name);
                         item.Value = value;
-                        if (passiveTags != null)
-                            foreach (var (k, v) in passiveTags) item.PassiveTags[k] = v;
-                        if (equipTags != null)
-                            foreach (var (k, v) in equipTags) item.EquipTags[k] = v;
+                        if (passiveProps != null)
+                            foreach (var (k, v) in passiveProps) item.PassiveProps[k] = v;
+                        if (equipProps != null)
+                            foreach (var (k, v) in equipProps) item.EquipProps[k] = v;
                         if (actions != null)
                             item.Actions.AddRange(actions);
 
@@ -869,21 +872,22 @@ namespace SE
                     return PyBool.False;
                 });
 
-                morldModule.ModuleDict["set_unit_tags"] = new PyBuiltinFunction("set_unit_tags", args =>
+                // set_unit_props: 유닛 Props 일괄 설정
+                morldModule.ModuleDict["set_unit_props"] = new PyBuiltinFunction("set_unit_props", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("set_unit_tags(unit_id, tags) requires 2 arguments");
+                        throw PyTypeError.Create("set_unit_props(unit_id, props) requires 2 arguments");
 
                     int unitId = args[0].ToInt();
-                    var tags = args[1] is PyDict tagDict ? PyDictToIntDict(tagDict) : null;
+                    var props = args[1] is PyDict propDict ? PyDictToIntDict(propDict) : null;
 
-                    if (_unitSystem != null && tags != null)
+                    if (_unitSystem != null && props != null)
                     {
                         var unit = _unitSystem.GetUnit(unitId);
                         if (unit != null)
                         {
-                            unit.TraversalContext.SetTags(tags);
-                            Godot.GD.Print($"[morld] set_unit_tags: unit={unitId}, tags={tags.Count}");
+                            unit.TraversalContext.SetProps(props);
+                            Godot.GD.Print($"[morld] set_unit_props: unit={unitId}, props={props.Count}");
                             return PyBool.True;
                         }
                     }
@@ -1054,14 +1058,14 @@ namespace SE
                     return PyBool.False;
                 });
 
-                // set_unit_tag: 단일 태그 설정
-                morldModule.ModuleDict["set_unit_tag"] = new PyBuiltinFunction("set_unit_tag", args =>
+                // set_unit_prop: 단일 Prop 설정 ("타입:이름" 형식)
+                morldModule.ModuleDict["set_unit_prop"] = new PyBuiltinFunction("set_unit_prop", args =>
                 {
                     if (args.Length < 3)
-                        throw PyTypeError.Create("set_unit_tag(unit_id, tag_name, value) requires 3 arguments");
+                        throw PyTypeError.Create("set_unit_prop(unit_id, prop_name, value) requires 3 arguments");
 
                     int unitId = args[0].ToInt();
-                    string tagName = args[1].AsString();
+                    string propName = args[1].AsString();
                     int value = args[2].ToInt();
 
                     if (_unitSystem != null)
@@ -1069,12 +1073,32 @@ namespace SE
                         var unit = _unitSystem.GetUnit(unitId);
                         if (unit != null)
                         {
-                            unit.TraversalContext.SetTag(tagName, value);
-                            Godot.GD.Print($"[morld] set_unit_tag: unit={unitId}, {tagName}={value}");
+                            unit.TraversalContext.SetProp(propName, value);
+                            Godot.GD.Print($"[morld] set_unit_prop: unit={unitId}, {propName}={value}");
                             return PyBool.True;
                         }
                     }
                     return PyBool.False;
+                });
+
+                // get_unit_prop: Prop 값 조회 ("타입:이름" 형식)
+                morldModule.ModuleDict["get_unit_prop"] = new PyBuiltinFunction("get_unit_prop", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("get_unit_prop(unit_id, prop_name) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string propName = args[1].AsString();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            return new PyInt(unit.TraversalContext.GetProp(propName));
+                        }
+                    }
+                    return new PyInt(0);
                 });
 
                 // set_unit_mood: 감정 상태 설정
@@ -1098,6 +1122,103 @@ namespace SE
                         }
                     }
                     return PyBool.False;
+                });
+
+                // get_unit_props_by_type: 특정 타입의 Prop만 조회
+                // 예: get_unit_props_by_type(unit_id, "스탯") → {"힘": 10, "민첩": 8}
+                morldModule.ModuleDict["get_unit_props_by_type"] = new PyBuiltinFunction("get_unit_props_by_type", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("get_unit_props_by_type(unit_id, type) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string type = args[1].AsString();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            var result = new PyDict();
+                            foreach (var (name, value) in unit.TraversalContext.Props.GetNamesByType(type))
+                            {
+                                result.SetItem(new PyString(name), new PyInt(value));
+                            }
+                            return result;
+                        }
+                    }
+                    return new PyDict();
+                });
+
+                // get_unit_prop_types: 유닛이 가진 모든 Prop 타입 조회
+                // 예: get_unit_prop_types(unit_id) → ["스탯", "상태", "스킬"]
+                morldModule.ModuleDict["get_unit_prop_types"] = new PyBuiltinFunction("get_unit_prop_types", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_unit_prop_types(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            var result = new PyList();
+                            foreach (var type in unit.TraversalContext.Props.GetTypes())
+                            {
+                                result.Append(new PyString(type));
+                            }
+                            return result;
+                        }
+                    }
+                    return new PyList();
+                });
+
+                // get_unit_actual_props: 아이템 효과가 반영된 최종 Prop (특정 타입만 필터링 가능)
+                // 예: get_unit_actual_props(unit_id, ["스탯", "상태"]) → {"스탯:힘": 15, "상태:피로": 3}
+                morldModule.ModuleDict["get_unit_actual_props"] = new PyBuiltinFunction("get_unit_actual_props", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_unit_actual_props(unit_id, types=None) requires at least 1 argument");
+
+                    int unitId = args[0].ToInt();
+                    List<string>? types = null;
+
+                    // types 파라미터 파싱
+                    if (args.Length >= 2 && args[1] is PyList typeList)
+                    {
+                        types = new List<string>();
+                        for (int i = 0; i < typeList.Length(); i++)
+                        {
+                            var item = typeList.GetItem(i);
+                            types.Add(item.AsString());
+                        }
+                    }
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            var inventory = _inventorySystem?.GetUnitInventory(unitId);
+                            var equippedItems = _inventorySystem?.GetUnitEquippedItems(unitId);
+
+                            Morld.TraversalContext actualProps;
+                            if (types != null)
+                                actualProps = unit.GetActualPropsEx(types, _itemSystem, inventory, equippedItems);
+                            else
+                                actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
+
+                            var result = new PyDict();
+                            foreach (var kv in actualProps.Props)
+                            {
+                                result.SetItem(new PyString(kv.Key.FullName), new PyInt(kv.Value));
+                            }
+                            return result;
+                        }
+                    }
+                    return new PyDict();
                 });
 
                 // set_unit_activity: 활동 상태 설정 (CurrentSchedule.Activity)
@@ -1281,7 +1402,8 @@ namespace SE
                         return PyBool.False;
 
                     var time = _worldSystem.GetTime();
-                    unit.JobList.FillFromSchedule(schedule, time.MinuteOfDay);
+                    var currentLoc = unit.CurrentLocation;
+                    unit.JobList.FillFromSchedule(schedule, time.MinuteOfDay, 1440, currentLoc.RegionId, currentLoc.LocalId);
                     return PyBool.True;
                 });
 

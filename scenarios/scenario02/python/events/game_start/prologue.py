@@ -1,4 +1,4 @@
-# events/game_start/prologue.py - 프롤로그 시작 이벤트
+﻿# events/game_start/prologue.py - 프롤로그 시작 이벤트
 #
 # 게임 시작 시 캐릭터 생성 흐름
 
@@ -16,7 +16,7 @@ class PrologueStart(GameStartEvent):
         from assets.characters.player import NAME_OPTIONS
 
         # 챕터 0: 프롤로그 (숲 방황)
-        morld.set_flag("chapter", 0)
+        morld.set_prop("chapter", 0)
 
         intro_pages = [
             "......",

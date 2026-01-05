@@ -1,4 +1,4 @@
-# assets/items/documents.py - 문서류 (일기장, 오래된 편지, 서재 메모)
+﻿# assets/items/documents.py - 문서류 (일기장, 오래된 편지, 서재 메모)
 
 from assets.base import Item
 
@@ -7,8 +7,8 @@ class Diary(Item):
     """일기장"""
     unique_id = "diary"
     name = "일기장"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:read_diary:읽기@inventory"]
 
@@ -37,8 +37,8 @@ class OldLetter(Item):
     """오래된 편지"""
     unique_id = "old_letter"
     name = "오래된 편지"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:read_old_letter:읽기@inventory"]
 
@@ -63,8 +63,8 @@ class StudyMemo(Item):
     """서재 메모"""
     unique_id = "study_memo"
     name = "서재 메모"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:read_study_memo:읽기@inventory"]
 

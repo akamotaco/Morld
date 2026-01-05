@@ -183,8 +183,8 @@ namespace SE
 				// 새 이동 시작 - 경로 계산
 				var inventory = _inventorySystem?.GetUnitInventory(unit.Id);
 				var equippedItems = _inventorySystem?.GetUnitEquippedItems(unit.Id);
-				var actualTags = unit.GetActualTags(_itemSystem, inventory, equippedItems);
-				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation, actualTags);
+				var actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
+				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation, actualProps);
 
 				if (!pathResult.Found || pathResult.Path.Count < 2)
 					break;

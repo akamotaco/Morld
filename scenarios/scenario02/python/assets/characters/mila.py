@@ -36,7 +36,7 @@ class Mila(Character):
     unique_id = "mila"
     name = "밀라"
     type = "female"
-    tags = {
+    props = {
         "외모:갈색머리": 1, "외모:중간머리": 1, "외모:갈색눈": 1,
         "성격:다정함": 1, "성격:걱정많음": 1,
         "애정": 0, "성욕": 0, "질투": 0,

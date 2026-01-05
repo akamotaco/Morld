@@ -1,4 +1,4 @@
-# assets/objects/bedroom.py - 침실 오브젝트 (침대 밑, 화장대 서랍)
+﻿# assets/objects/bedroom.py - 침실 오브젝트 (침대 밑, 화장대 서랍)
 
 import morld
 from assets.base import Object
@@ -39,14 +39,14 @@ def examine_bed(context_unit_id):
     player_id = morld.get_player_id()
 
     flag_name = f"examined_{BedUnder.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     # 다중 아이템 지급
     for item_uid in BedUnder.hidden_items:
@@ -64,7 +64,7 @@ def examine_bed(context_unit_id):
 def open_vanity_drawer(context_unit_id):
     """화장대 서랍 열기 - 비밀번호 잠금"""
     flag_name = f"unlocked_{VanityDrawer.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 열려 있다. 안은 비어 있다."],
@@ -72,9 +72,9 @@ def open_vanity_drawer(context_unit_id):
         }
 
     # 비밀번호 입력 UI
-    morld.set_flag("password_target_uid", 0)  # vanity_drawer marker
-    morld.set_flag("password_input", 0)
-    morld.set_flag("password_digits", 0)
+    morld.set_prop("password_target_uid", 0)  # vanity_drawer marker
+    morld.set_prop("password_input", 0)
+    morld.set_prop("password_digits", 0)
 
     return {
         "type": "monologue",
@@ -95,7 +95,7 @@ def on_password_success():
     """비밀번호 성공 시 호출 (scripts.py에서 호출)"""
     player_id = morld.get_player_id()
 
-    morld.set_flag(f"unlocked_{VanityDrawer.unique_id}", 1)
+    morld.set_prop(f"unlocked_{VanityDrawer.unique_id}", 1)
     morld.add_action_log("서랍을 열었다")
 
     item = get_item_instance(VanityDrawer.hidden_item)

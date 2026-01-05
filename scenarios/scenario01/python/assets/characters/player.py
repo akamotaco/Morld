@@ -9,6 +9,6 @@ class Player(Character):
     unique_id = "player"
     name = "플레이어"
     type = "male"
-    tags = {}
+    props = {}
     actions = []
     mood = []

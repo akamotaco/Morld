@@ -60,7 +60,7 @@ public class PathFinder
 
 	/// <summary>
 	/// 경로 탐색 (같은 Region 또는 다른 Region)
-	/// Unit + ItemSystem + InventorySystem 기반으로 GetActualTags()를 통해 조건 체크
+	/// Unit + ItemSystem + InventorySystem 기반으로 GetActualProps()를 통해 조건 체크
 	/// </summary>
 	public PathResult FindPath(LocationRef start, LocationRef goal, Unit? unit = null, ItemSystem? itemSystem = null, InventorySystem? inventorySystem = null)
 	{
@@ -72,13 +72,13 @@ public class PathFinder
 		if (goalLocation == null)
 			throw new ArgumentException($"Goal location {goal} not found");
 
-		// Unit이 있으면 아이템 효과가 반영된 ActualTags 사용
+		// Unit이 있으면 아이템 효과가 반영된 ActualProps 사용
 		TraversalContext? context = null;
 		if (unit != null)
 		{
 			var inventory = inventorySystem?.GetUnitInventory(unit.Id);
 			var equippedItems = inventorySystem?.GetUnitEquippedItems(unit.Id);
-			context = unit.GetActualTags(itemSystem, inventory, equippedItems);
+			context = unit.GetActualProps(itemSystem, inventory, equippedItems);
 		}
 
 		// 같은 Region 내 탐색

@@ -102,21 +102,21 @@ namespace SE
 			{
 				var item = new Item(data.Id, data.Name);
 
-				// PassiveTags 설정
-				if (data.PassiveTags != null)
+				// PassiveProps 설정
+				if (data.PassiveProps != null)
 				{
-					foreach (var (tag, value) in data.PassiveTags)
+					foreach (var (prop, value) in data.PassiveProps)
 					{
-						item.PassiveTags[tag] = value;
+						item.PassiveProps[prop] = value;
 					}
 				}
 
-				// EquipTags 설정
-				if (data.EquipTags != null)
+				// EquipProps 설정
+				if (data.EquipProps != null)
 				{
-					foreach (var (tag, value) in data.EquipTags)
+					foreach (var (prop, value) in data.EquipProps)
 					{
-						item.EquipTags[tag] = value;
+						item.EquipProps[prop] = value;
 					}
 				}
 
@@ -173,11 +173,11 @@ namespace SE
 			{
 				Id = item.Id,
 				Name = item.Name,
-				PassiveTags = item.PassiveTags.Count > 0
-					? new Dictionary<string, int>(item.PassiveTags)
+				PassiveProps = item.PassiveProps.Count > 0
+					? new Dictionary<string, int>(item.PassiveProps)
 					: null,
-				EquipTags = item.EquipTags.Count > 0
-					? new Dictionary<string, int>(item.EquipTags)
+				EquipProps = item.EquipProps.Count > 0
+					? new Dictionary<string, int>(item.EquipProps)
 					: null,
 				Value = item.Value,
 				Actions = item.Actions.Count > 0
@@ -196,15 +196,15 @@ namespace SE
 			foreach (var item in _items.Values)
 			{
 				GD.Print($"  - {item}");
-				if (item.PassiveTags.Count > 0)
+				if (item.PassiveProps.Count > 0)
 				{
-					var tags = string.Join(", ", item.PassiveTags.Select(t => $"{t.Key}:{t.Value}"));
-					GD.Print($"    PassiveTags: {tags}");
+					var props = string.Join(", ", item.PassiveProps.Select(p => $"{p.Key}:{p.Value}"));
+					GD.Print($"    PassiveProps: {props}");
 				}
-				if (item.EquipTags.Count > 0)
+				if (item.EquipProps.Count > 0)
 				{
-					var tags = string.Join(", ", item.EquipTags.Select(t => $"{t.Key}:{t.Value}"));
-					GD.Print($"    EquipTags: {tags}");
+					var props = string.Join(", ", item.EquipProps.Select(p => $"{p.Key}:{p.Value}"));
+					GD.Print($"    EquipProps: {props}");
 				}
 			}
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

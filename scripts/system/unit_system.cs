@@ -102,10 +102,10 @@ namespace SE
 			{
 				var unit = new Unit(data.Id, data.Name, data.RegionId, data.LocationId);
 
-				// 태그 설정
+				// Props 설정
 				if (data.Tags != null)
 				{
-					unit.TraversalContext.SetTags(data.Tags);
+					unit.TraversalContext.SetProps(data.Tags);
 				}
 
 				// 타입 설정
@@ -194,8 +194,8 @@ namespace SE
 				Name = unit.Name,
 				RegionId = unit.CurrentLocation.RegionId,
 				LocationId = unit.CurrentLocation.LocalId,
-				Tags = unit.TraversalContext.Tags.Count > 0
-					? new Dictionary<string, int>(unit.TraversalContext.Tags)
+				Tags = unit.TraversalContext.Props.Count > 0
+					? unit.TraversalContext.Props.ToDictionary()
 					: null,
 				Type = unit.Type.ToString().ToLower(),
 				Actions = unit.Actions.Count > 0
@@ -297,10 +297,10 @@ namespace SE
 				{
 					GD.Print($"    현재 Job: {unit.CurrentJob.Name} ({unit.CurrentJob.Action}, {unit.CurrentJob.Duration}분)");
 				}
-				if (unit.TraversalContext.Tags.Count > 0)
+				if (unit.TraversalContext.Props.Count > 0)
 				{
-					var tags = string.Join(", ", unit.TraversalContext.Tags.Select(t => $"{t.Key}:{t.Value}"));
-					GD.Print($"    태그: {tags}");
+					var props = string.Join(", ", unit.TraversalContext.Props.ToDictionary().Select(t => $"{t.Key}={t.Value}"));
+					GD.Print($"    Props: {props}");
 				}
 				if (unit.Actions.Count > 0)
 				{

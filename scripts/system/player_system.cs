@@ -138,11 +138,11 @@ namespace SE
 			if (player.CurrentLocation == destination)
 				return;
 
-			// 아이템 효과가 반영된 태그로 경로 탐색
+			// 아이템 효과가 반영된 Prop으로 경로 탐색
 			var inventory = inventorySystem?.GetUnitInventory(player.Id);
 			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
-			var actualTags = player.GetActualTags(itemSystem, inventory, equippedItems);
-			var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualTags);
+			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
+			var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualProps);
 
 			if (!pathResult.Found || pathResult.Path.Count < 2)
 			{
@@ -548,7 +548,7 @@ namespace SE
 			// InventorySystem에서 인벤토리 데이터 가져오기
 			var inventory = inventorySystem?.GetUnitInventory(player.Id);
 			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
-			var actualTags = player.GetActualTags(itemSystem, inventory, equippedItems);
+			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
 
 			// Region 내부 Edge
 			var edges = region.GetEdges(location);
@@ -561,12 +561,12 @@ namespace SE
 				bool canPass = true;
 				string? blockedReason = null;
 
-				foreach (var (tag, requiredValue) in conditions)
+				foreach (var (propName, requiredValue) in conditions)
 				{
-					if (actualTags.GetTagValue(tag) < requiredValue)
+					if (actualProps.GetProp(propName) < requiredValue)
 					{
 						canPass = false;
-						blockedReason = $"{tag}이(가) 필요합니다";
+						blockedReason = $"{propName}이(가) 필요합니다";
 						break;
 					}
 				}
@@ -593,12 +593,12 @@ namespace SE
 				bool canPass = true;
 				string? blockedReason = null;
 
-				foreach (var (tag, requiredValue) in conditions)
+				foreach (var (propName, requiredValue) in conditions)
 				{
-					if (actualTags.GetTagValue(tag) < requiredValue)
+					if (actualProps.GetProp(propName) < requiredValue)
 					{
 						canPass = false;
-						blockedReason = $"{tag}이(가) 필요합니다";
+						blockedReason = $"{propName}이(가) 필요합니다";
 						break;
 					}
 				}

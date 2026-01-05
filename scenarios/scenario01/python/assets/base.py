@@ -74,7 +74,7 @@ class Unit(Asset):
     클래스 속성:
     - type: "male", "female", "object" 등
     - mood: 감정 상태 리스트
-    - tags: 기본 태그/스탯
+    - props: 기본 Prop (스탯/상태 등)
 
     인스턴스 속성:
     - region_id, location_id: 배치 위치
@@ -82,7 +82,7 @@ class Unit(Asset):
 
     type: str = "object"
     mood: list = None
-    tags: dict = None
+    props: dict = None
 
     def __init__(self):
         super().__init__()
@@ -121,9 +121,9 @@ class Character(Unit):
             self.mood or []
         )
 
-        # 태그 설정
-        if self.tags:
-            morld.set_unit_tags(instance_id, self.tags)
+        # Prop 설정
+        if self.props:
+            morld.set_unit_props(instance_id, self.props)
 
 
 class Object(Unit):
@@ -170,13 +170,13 @@ class Item(Asset):
     아이템 클래스
 
     클래스 속성:
-    - passive_tags: 소유 효과
-    - equip_tags: 장착 효과
+    - passive_props: 소유 효과
+    - equip_props: 장착 효과
     - value: 거래 가치
     """
 
-    passive_tags: dict = None
-    equip_tags: dict = None
+    passive_props: dict = None
+    equip_props: dict = None
     value: int = 0
 
     def instantiate(self, instance_id: int):
@@ -186,8 +186,8 @@ class Item(Asset):
         morld.add_item(
             instance_id,
             self.name,
-            self.passive_tags or {},
-            self.equip_tags or {},
+            self.passive_props or {},
+            self.equip_props or {},
             self.value,
             self.actions or []
         )

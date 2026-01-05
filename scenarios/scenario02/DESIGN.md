@@ -44,7 +44,7 @@ class Lina(Character):
     unique_id = "lina"
     name = "리나"
     type = "female"
-    tags = {"외모:금발": 1, "성격:명랑함": 1, ...}
+    props = {"외모:금발": 1, "성격:명랑함": 1, ...}
     actions = ["script:npc_talk:대화"]
     mood = []
 
@@ -290,7 +290,7 @@ events/
 
 1. `assets/characters/newchar.py` 파일 생성
 2. 파일 내 필수 요소:
-   - `Character` 상속 클래스 (unique_id, name, tags, actions 등)
+   - `Character` 상속 클래스 (unique_id, name, props, actions 등)
    - `get_describe_text()`, `get_focus_text()` 메서드
    - `on_meet_player()`, `npc_talk()` 이벤트 핸들러
    - `@register_agent_class("newchar")` 데코레이터가 붙은 Agent 클래스

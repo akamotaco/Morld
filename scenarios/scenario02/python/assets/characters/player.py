@@ -56,7 +56,7 @@ class Player(Character):
     unique_id = "player"
     name = "???"
     type = "male"
-    tags = {
+    props = {
         "힘": 5,
         "지능": 5,
         "손재주": 5,

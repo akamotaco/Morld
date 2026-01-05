@@ -34,7 +34,7 @@ class Lina(Character):
     unique_id = "lina"
     name = "리나"
     type = "female"
-    tags = {
+    props = {
         "외모:금발": 1, "외모:단발": 1, "외모:녹색눈": 1,
         "성격:명랑함": 1, "성격:활발함": 1,
         "애정": 0, "성욕": 0, "질투": 0,

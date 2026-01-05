@@ -20,14 +20,14 @@ public class Item
 	public string Name { get; set; }
 
 	/// <summary>
-	/// 소유만으로 효과가 있는 태그 (예: 열쇠)
+	/// 소유만으로 효과가 있는 Prop (예: 열쇠)
 	/// </summary>
-	public Dictionary<string, int> PassiveTags { get; set; } = new();
+	public Dictionary<string, int> PassiveProps { get; set; } = new();
 
 	/// <summary>
-	/// 장착해야 효과가 있는 태그 (예: 망원경 +관찰)
+	/// 장착해야 효과가 있는 Prop (예: 망원경 +관찰)
 	/// </summary>
-	public Dictionary<string, int> EquipTags { get; set; } = new();
+	public Dictionary<string, int> EquipProps { get; set; } = new();
 
 	/// <summary>
 	/// 아이템 가치 (거래용)

@@ -197,11 +197,14 @@ public class JobList
 
 	/// <summary>
 	/// 빈 시간 채우기 (Think용) - 스케줄 기반으로 Job 생성
+	/// 스케줄에 빈 시간이 있으면 idle Job으로 채움
 	/// </summary>
 	/// <param name="schedule">DailySchedule</param>
 	/// <param name="currentTimeOfDay">현재 시간 (분, 0~1439)</param>
 	/// <param name="lookAheadMinutes">미리 채울 시간 (분, 기본 1440 = 하루)</param>
-	public void FillFromSchedule(DailySchedule? schedule, int currentTimeOfDay, int lookAheadMinutes = 1440)
+	/// <param name="currentRegionId">현재 위치 Region ID (idle Job용)</param>
+	/// <param name="currentLocationId">현재 위치 Location ID (idle Job용)</param>
+	public void FillFromSchedule(DailySchedule? schedule, int currentTimeOfDay, int lookAheadMinutes = 1440, int currentRegionId = 0, int currentLocationId = 0)
 	{
 		if (schedule == null || schedule.Entries.Count == 0) return;
 
@@ -221,9 +224,10 @@ public class JobList
 
 		// 스케줄 엔트리들을 순회하며 Job 생성
 		int filled = 0;
-		int safetyCounter = 0; // 무한 루프 방지
+		int idleAccumulated = 0;  // 연속된 idle 시간 누적
+		int safetyCounter = 0;    // 무한 루프 방지
 
-		while (filled < needToFill && safetyCounter < 100)
+		while (filled < needToFill && safetyCounter < 1500)
 		{
 			safetyCounter++;
 
@@ -233,9 +237,26 @@ public class JobList
 
 			if (entry == null)
 			{
-				// 스케줄 빈 시간 - 다음 분으로 스킵
+				// 스케줄 빈 시간 - idle 누적
+				idleAccumulated++;
 				filled++;
 				continue;
+			}
+
+			// 스케줄 엔트리 발견 - 먼저 누적된 idle Job 추가
+			if (idleAccumulated > 0)
+			{
+				var idleJob = new Job
+				{
+					Name = "휴식",
+					Action = "stay",
+					RegionId = currentRegionId,
+					LocationId = currentLocationId,
+					Duration = idleAccumulated,
+					TargetId = null
+				};
+				_jobs.AddLast(idleJob);
+				idleAccumulated = 0;
 			}
 
 			// 이 엔트리에서 남은 시간 계산
@@ -256,7 +277,26 @@ public class JobList
 
 				_jobs.AddLast(job);
 				filled += jobDuration;
+
+				// idle Job의 위치를 마지막 스케줄 위치로 업데이트
+				currentRegionId = entry.Location.RegionId;
+				currentLocationId = entry.Location.LocalId;
 			}
+		}
+
+		// 루프 끝나고 남은 idle 시간 추가
+		if (idleAccumulated > 0)
+		{
+			var idleJob = new Job
+			{
+				Name = "휴식",
+				Action = "stay",
+				RegionId = currentRegionId,
+				LocationId = currentLocationId,
+				Duration = idleAccumulated,
+				TargetId = null
+			};
+			_jobs.AddLast(idleJob);
 		}
 	}
 

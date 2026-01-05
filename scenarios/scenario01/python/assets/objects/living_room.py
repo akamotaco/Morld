@@ -1,4 +1,4 @@
-# assets/objects/living_room.py - 거실 오브젝트 (벽난로, 소파 쿠션)
+﻿# assets/objects/living_room.py - 거실 오브젝트 (벽난로, 소파 쿠션)
 
 import morld
 from assets.base import Object
@@ -35,14 +35,14 @@ class SofaCushion(Object):
 def examine_fireplace(context_unit_id):
     """벽난로 조사 - 숫자 힌트"""
     flag_name = f"examined_{Fireplace.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     return {
         "type": "monologue",
@@ -56,14 +56,14 @@ def examine_sofa(context_unit_id):
     player_id = morld.get_player_id()
 
     flag_name = f"examined_{SofaCushion.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     item = get_item_instance(SofaCushion.hidden_item)
     if item:

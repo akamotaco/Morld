@@ -1,4 +1,4 @@
-# assets/objects/kitchen.py - 주방 오브젝트 (냉장고, 찬장)
+﻿# assets/objects/kitchen.py - 주방 오브젝트 (냉장고, 찬장)
 
 import morld
 from assets.base import Object
@@ -37,14 +37,14 @@ class Cupboard(Object):
 def examine_refrigerator(context_unit_id):
     """냉장고 조사 - 숫자 힌트"""
     flag_name = f"examined_{Refrigerator.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     return {
         "type": "monologue",
@@ -58,7 +58,7 @@ def unlock_cupboard(context_unit_id):
     player_id = morld.get_player_id()
 
     flag_name = f"unlocked_{Cupboard.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 열려 있다. 안은 비어 있다."],
@@ -78,7 +78,7 @@ def unlock_cupboard(context_unit_id):
     morld.lost_item(player_id, key.instance_id, 1)
 
     # 잠금 해제
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
     morld.add_action_log("자물쇠를 열었다")
 
     # 아이템 지급

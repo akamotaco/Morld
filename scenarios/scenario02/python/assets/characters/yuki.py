@@ -35,7 +35,7 @@ class Yuki(Character):
     unique_id = "yuki"
     name = "유키"
     type = "female"
-    tags = {
+    props = {
         "외모:은발": 1, "외모:장발": 1, "외모:붉은눈": 1,
         "성격:수줍음": 1, "성격:얌전함": 1,
         "애정": 0, "성욕": 0, "질투": 0,

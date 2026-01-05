@@ -1,4 +1,4 @@
-# assets/objects/basement.py - 지하실 오브젝트 (낡은 상자, 배전함)
+﻿# assets/objects/basement.py - 지하실 오브젝트 (낡은 상자, 배전함)
 
 import morld
 from assets.base import Object
@@ -36,14 +36,14 @@ def examine_old_box(context_unit_id):
     player_id = morld.get_player_id()
 
     flag_name = f"examined_{OldBox.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     # 아이템 지급
     item = get_item_instance(OldBox.hidden_item)
@@ -59,17 +59,17 @@ def examine_old_box(context_unit_id):
 
 def toggle_switch(context_unit_id):
     """배전함 스위치 조작"""
-    current = morld.get_flag("power")
+    current = morld.get_prop("power")
 
     if current > 0:
-        morld.clear_flag("power")
+        morld.clear_prop("power")
         return {
             "type": "monologue",
             "pages": ["스위치를 내렸다.", "주변이 다시 어두워졌다."],
             "time_consumed": 1
         }
     else:
-        morld.set_flag("power", 1)
+        morld.set_prop("power", 1)
         morld.add_action_log("문이 열리는 소리가 들렸다")
         return {
             "type": "monologue",

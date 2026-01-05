@@ -1,4 +1,4 @@
-# assets/objects/storage.py - 창고 오브젝트 (선반, 낡은 캐비닛)
+﻿# assets/objects/storage.py - 창고 오브젝트 (선반, 낡은 캐비닛)
 
 import morld
 from assets.base import Object
@@ -40,14 +40,14 @@ def examine_shelf(context_unit_id):
     player_id = morld.get_player_id()
 
     flag_name = f"examined_{Shelf.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     item = get_item_instance(Shelf.hidden_item)
     if item:
@@ -65,7 +65,7 @@ def unlock_cabinet(context_unit_id):
     player_id = morld.get_player_id()
 
     flag_name = f"unlocked_{OldCabinet.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 열려 있다. 안은 비어 있다."],
@@ -85,7 +85,7 @@ def unlock_cabinet(context_unit_id):
     morld.lost_item(player_id, key.instance_id, 1)
 
     # 잠금 해제
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
     morld.add_action_log("자물쇠를 열었다")
 
     # 아이템 지급

@@ -17,11 +17,11 @@ internal class ItemJsonData
 	[JsonPropertyName("comment")]
 	public string? Comment { get; set; }
 
-	[JsonPropertyName("passiveTags")]
-	public Dictionary<string, int>? PassiveTags { get; set; }
+	[JsonPropertyName("passiveProps")]
+	public Dictionary<string, int>? PassiveProps { get; set; }
 
-	[JsonPropertyName("equipTags")]
-	public Dictionary<string, int>? EquipTags { get; set; }
+	[JsonPropertyName("equipProps")]
+	public Dictionary<string, int>? EquipProps { get; set; }
 
 	[JsonPropertyName("value")]
 	public int Value { get; set; } = 0;

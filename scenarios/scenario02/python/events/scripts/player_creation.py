@@ -1,4 +1,4 @@
-# events/scripts/player_creation.py - 캐릭터 생성 스크립트 함수
+﻿# events/scripts/player_creation.py - 캐릭터 생성 스크립트 함수
 #
 # 게임 시작 시 플레이어 이름/나이/체격/장비 선택
 
@@ -107,15 +107,15 @@ def set_equipment(context_unit_id, equip_id):
     player_id = morld.get_player_id()
 
     # 나이는 정수로 저장 가능
-    morld.set_flag("player_age", _creation_data["age"])
+    morld.set_prop("player_age", _creation_data["age"])
 
     # 신체 타입을 인덱스로 저장 (0=왜소, 1=보통, 2=장신, 3=거구)
     body_index = {"왜소": 0, "보통": 1, "장신": 2, "거구": 3}.get(_creation_data["body"], 1)
-    morld.set_flag("player_body", body_index)
+    morld.set_prop("player_body", body_index)
 
     # 이름을 인덱스로 저장 (NAME_OPTIONS 인덱스)
     name_index = NAME_OPTIONS.index(_creation_data["name"]) if _creation_data["name"] in NAME_OPTIONS else 0
-    morld.set_flag("player_name_index", name_index)
+    morld.set_prop("player_name_index", name_index)
 
     # 장비 지급 (선택한 아이템만 동적 생성)
     global _next_item_id

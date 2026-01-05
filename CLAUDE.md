@@ -34,7 +34,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 **구현 시스템:**
 - `WorldSystem` - 지형(Terrain) 데이터 및 GameTime 보관
 - `UnitSystem` - 유닛 데이터 (캐릭터/오브젝트 통합, 위치, JobList, CurrentEdge, "바닥" 오브젝트 포함)
-- `ItemSystem` - 아이템 정의 데이터 (PassiveTags, EquipTags, Actions)
+- `ItemSystem` - 아이템 정의 데이터 (PassiveProps, EquipProps, Actions)
 - `InventorySystem` - 인벤토리 데이터 (유닛별 아이템 소유, 장착, 가시성)
 
 #### 2. Logic/Behavior Systems (로직 시스템)
@@ -165,7 +165,7 @@ class Unit:
     """유닛 기본 클래스"""
     unique_id: str = ""      # 고유 식별자 (예: "sera", "player")
     name: str = "Unknown"
-    tags: dict = {}          # 스탯/태그
+    props: dict = {}         # 스탯/속성
     actions: list = []       # 가능한 액션
 
 class Character(Unit):
@@ -193,7 +193,7 @@ class Sera(Character):
     unique_id = "sera"
     name = "세라"
     type = "female"
-    tags = {"힘": 7, "민첩": 8}
+    props = {"힘": 7, "민첩": 8}
     actions = ["script:npc_talk:대화"]
 
     # 스케줄 정의
@@ -398,9 +398,10 @@ morld.give_item(unit_id, item_id, count)
 morld.has_item(unit_id, item_id)
 morld.lost_item(unit_id, item_id, count)
 
-# 플래그/로그
-morld.get_flag(flag_name)
-morld.set_flag(flag_name, value)
+# Prop/로그
+morld.get_prop(prop_name)
+morld.set_prop(prop_name, value)
+morld.clear_prop(prop_name)
 morld.add_action_log(message)
 
 # 시간 관련

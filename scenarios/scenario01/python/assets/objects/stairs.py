@@ -1,4 +1,4 @@
-# assets/objects/stairs.py - 계단 오브젝트 (부서진 계단, 창문)
+﻿# assets/objects/stairs.py - 계단 오브젝트 (부서진 계단, 창문)
 
 import morld
 from assets.base import Object
@@ -45,14 +45,14 @@ def examine_window(context_unit_id):
     """계단 창문 조사"""
     flag_name = f"examined_{StairWindow.unique_id}"
 
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["창문은 여전히 굳게 잠겨있다. 밖은 어둡다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     return {
         "type": "monologue",

@@ -1,4 +1,4 @@
-# assets/objects/corridor.py - 복도 오브젝트 (그림 액자, 괘종시계, 우산꽂이, 서재 문)
+﻿# assets/objects/corridor.py - 복도 오브젝트 (그림 액자, 괘종시계, 우산꽂이, 서재 문)
 
 import morld
 from assets.base import Object
@@ -54,14 +54,14 @@ class StudyDoor(Object):
 def examine_picture(context_unit_id):
     """그림 액자 조사 - 숫자 힌트"""
     flag_name = f"examined_{PictureFrame.unique_id}"
-    if morld.get_flag(flag_name) > 0:
+    if morld.get_prop(flag_name) > 0:
         return {
             "type": "monologue",
             "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
             "time_consumed": 0
         }
 
-    morld.set_flag(flag_name, 1)
+    morld.set_prop(flag_name, 1)
 
     return {
         "type": "monologue",
@@ -99,7 +99,7 @@ def examine_umbrella(context_unit_id):
 
 def unlock_study_door(context_unit_id):
     """서재 문 비밀번호 입력"""
-    if morld.get_flag("study_unlocked") > 0:
+    if morld.get_prop("study_unlocked") > 0:
         return {
             "type": "monologue",
             "pages": ["서재 문은 이미 열려 있다."],
@@ -107,9 +107,9 @@ def unlock_study_door(context_unit_id):
         }
 
     # 비밀번호 입력 UI (서재 문 전용)
-    morld.set_flag("password_target_uid", -1)  # 특수: 서재 문
-    morld.set_flag("password_input", 0)
-    morld.set_flag("password_digits", 0)
+    morld.set_prop("password_target_uid", -1)  # 특수: 서재 문
+    morld.set_prop("password_input", 0)
+    morld.set_prop("password_digits", 0)
 
     return {
         "type": "monologue",
@@ -130,14 +130,14 @@ def input_study_digit(context_unit_id, digit):
     """서재 문 비밀번호 숫자 입력"""
     digit = int(digit)
 
-    current_input = morld.get_flag("password_input")
-    current_digits = morld.get_flag("password_digits")
+    current_input = morld.get_prop("password_input")
+    current_digits = morld.get_prop("password_digits")
 
     new_input = current_input * 10 + digit
     new_digits = current_digits + 1
 
-    morld.set_flag("password_input", new_input)
-    morld.set_flag("password_digits", new_digits)
+    morld.set_prop("password_input", new_input)
+    morld.set_prop("password_digits", new_digits)
 
     if new_digits >= 4:
         return verify_study_password(context_unit_id)
@@ -163,10 +163,10 @@ def input_study_digit(context_unit_id, digit):
 
 def verify_study_password(context_unit_id):
     """서재 문 비밀번호 검증"""
-    input_password = str(morld.get_flag("password_input")).zfill(4)
+    input_password = str(morld.get_prop("password_input")).zfill(4)
 
     if input_password == StudyDoor.password:
-        morld.set_flag("study_unlocked", 1)
+        morld.set_prop("study_unlocked", 1)
         morld.add_action_log("서재 문이 열렸다")
         return {
             "type": "monologue",

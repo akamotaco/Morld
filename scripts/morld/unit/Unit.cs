@@ -258,26 +258,26 @@ public class Unit
 	}
 
 	/// <summary>
-	/// 아이템 효과가 반영된 최종 태그 계산 (매 호출 시 계산)
+	/// 아이템 효과가 반영된 최종 Prop 계산 (매 호출 시 계산)
 	/// inventoryData: (inventory, equippedItems) 튜플
 	/// </summary>
-	public TraversalContext GetActualTags(
+	public TraversalContext GetActualProps(
 		ItemSystem? itemSystem,
 		IReadOnlyDictionary<int, int>? inventory = null,
 		IReadOnlyList<int>? equippedItems = null)
 	{
 		var result = new TraversalContext();
 
-		// 1. 기본 태그 복사
-		foreach (var (tag, value) in TraversalContext.Tags)
+		// 1. 기본 Prop 복사
+		foreach (var (prop, value) in TraversalContext.Props)
 		{
-			result.SetTag(tag, value);
+			result.SetProp(prop, value);
 		}
 
 		if (itemSystem == null)
 			return result;
 
-		// 2. 인벤토리 아이템의 PassiveTags 합산 (소유 효과)
+		// 2. 인벤토리 아이템의 PassiveProps 합산 (소유 효과)
 		if (inventory != null)
 		{
 			foreach (var (itemId, count) in inventory)
@@ -286,15 +286,15 @@ public class Unit
 				var item = itemSystem.GetItem(itemId);
 				if (item == null) continue;
 
-				foreach (var (tag, bonus) in item.PassiveTags)
+				foreach (var (propName, bonus) in item.PassiveProps)
 				{
-					var current = result.GetTagValue(tag);
-					result.SetTag(tag, current + bonus);
+					var current = result.GetProp(propName);
+					result.SetProp(propName, current + bonus);
 				}
 			}
 		}
 
-		// 3. 장착 아이템의 EquipTags 합산 (장착 효과)
+		// 3. 장착 아이템의 EquipProps 합산 (장착 효과)
 		if (equippedItems != null)
 		{
 			foreach (var itemId in equippedItems)
@@ -302,10 +302,84 @@ public class Unit
 				var item = itemSystem.GetItem(itemId);
 				if (item == null) continue;
 
-				foreach (var (tag, bonus) in item.EquipTags)
+				foreach (var (propName, bonus) in item.EquipProps)
 				{
-					var current = result.GetTagValue(tag);
-					result.SetTag(tag, current + bonus);
+					var current = result.GetProp(propName);
+					result.SetProp(propName, current + bonus);
+				}
+			}
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	/// 아이템 효과가 반영된 최종 Prop 계산 (특정 타입만 필터링)
+	/// </summary>
+	/// <param name="types">가져올 Prop 타입들 (예: ["스탯", "상태"]). null이면 모든 타입</param>
+	public TraversalContext GetActualPropsEx(
+		IEnumerable<string>? types,
+		ItemSystem? itemSystem,
+		IReadOnlyDictionary<int, int>? inventory = null,
+		IReadOnlyList<int>? equippedItems = null)
+	{
+		// 타입 필터가 없으면 전체 반환
+		if (types == null)
+			return GetActualProps(itemSystem, inventory, equippedItems);
+
+		var typeSet = new HashSet<string>(types);
+		if (typeSet.Count == 0)
+			return new TraversalContext();
+
+		var result = new TraversalContext();
+
+		// 1. 기본 Prop 중 해당 타입만 복사
+		foreach (var (prop, value) in TraversalContext.Props)
+		{
+			if (typeSet.Contains(prop.Type))
+				result.SetProp(prop, value);
+		}
+
+		if (itemSystem == null)
+			return result;
+
+		// 2. 인벤토리 아이템의 PassiveProps 중 해당 타입만 합산
+		if (inventory != null)
+		{
+			foreach (var (itemId, count) in inventory)
+			{
+				if (count <= 0) continue;
+				var item = itemSystem.GetItem(itemId);
+				if (item == null) continue;
+
+				foreach (var (propName, bonus) in item.PassiveProps)
+				{
+					var prop = Prop.Parse(propName);
+					if (prop.IsValid && typeSet.Contains(prop.Type))
+					{
+						var current = result.GetProp(prop);
+						result.SetProp(prop, current + bonus);
+					}
+				}
+			}
+		}
+
+		// 3. 장착 아이템의 EquipProps 중 해당 타입만 합산
+		if (equippedItems != null)
+		{
+			foreach (var itemId in equippedItems)
+			{
+				var item = itemSystem.GetItem(itemId);
+				if (item == null) continue;
+
+				foreach (var (propName, bonus) in item.EquipProps)
+				{
+					var prop = Prop.Parse(propName);
+					if (prop.IsValid && typeSet.Contains(prop.Type))
+					{
+						var current = result.GetProp(prop);
+						result.SetProp(prop, current + bonus);
+					}
 				}
 			}
 		}
@@ -325,11 +399,11 @@ public class Unit
 		if (conditions == null || conditions.Count == 0)
 			return true;
 
-		var actualTags = GetActualTags(itemSystem, inventory, equippedItems);
+		var actualProps = GetActualProps(itemSystem, inventory, equippedItems);
 
-		foreach (var (tag, requiredValue) in conditions)
+		foreach (var (propName, requiredValue) in conditions)
 		{
-			if (actualTags.GetTagValue(tag) < requiredValue)
+			if (actualProps.GetProp(propName) < requiredValue)
 				return false;
 		}
 

@@ -1,4 +1,4 @@
-# assets/items/golden_key.py - 황금열쇠 (머리 + 몸통 + 완성품 + 조합)
+﻿# assets/items/golden_key.py - 황금열쇠 (머리 + 몸통 + 완성품 + 조합)
 
 import morld
 from assets.base import Item
@@ -8,8 +8,8 @@ class GoldenKeyHead(Item):
     """황금열쇠 머리"""
     unique_id = "golden_key_head"
     name = "황금열쇠 머리"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:combine_golden_key:조합@inventory"]
 
@@ -18,8 +18,8 @@ class GoldenKeyBody(Item):
     """황금열쇠 몸통"""
     unique_id = "golden_key_body"
     name = "황금열쇠 몸통"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:combine_golden_key:조합@inventory"]
 
@@ -28,8 +28,8 @@ class GoldenKey(Item):
     """황금열쇠 (완성품)"""
     unique_id = "golden_key"
     name = "황금열쇠"
-    passive_tags = {"황금열쇠": 1}
-    equip_tags = {}
+    passive_props = {"황금열쇠": 1}
+    equip_props = {}
     value = 0
     actions = ["take@container"]
 

@@ -313,8 +313,8 @@ registry = AssetRegistry()
 ITEM_NAME = {
     "unique_id": "item_name",
     "name": "아이템 이름",
-    "passiveTags": {},
-    "equipTags": {},
+    "passiveProps": {},
+    "equipProps": {},
     "value": 0,
     "actions": ["take@container", "script:함수명:표시명@context"]
 }

@@ -1,4 +1,4 @@
-# assets/items/notes.py - 쪽지류 (쪽지1, 쪽지2, 쪽지3)
+﻿# assets/items/notes.py - 쪽지류 (쪽지1, 쪽지2, 쪽지3)
 
 from assets.base import Item
 
@@ -7,8 +7,8 @@ class Note1(Item):
     """쪽지 1"""
     unique_id = "note1"
     name = "쪽지 1"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:read_note1:읽기@inventory"]
 
@@ -23,8 +23,8 @@ class Note2(Item):
     """쪽지 2"""
     unique_id = "note2"
     name = "쪽지 2"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:read_note2:읽기@inventory"]
 
@@ -40,8 +40,8 @@ class Note3(Item):
     """쪽지 3"""
     unique_id = "note3"
     name = "쪽지 3"
-    passive_tags = {}
-    equip_tags = {}
+    passive_props = {}
+    equip_props = {}
     value = 0
     actions = ["take@container", "script:read_note3:읽기@inventory"]
 

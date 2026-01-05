@@ -1,4 +1,4 @@
-# events/scripts/location_callbacks.py - 위치 이벤트 콜백 함수
+﻿# events/scripts/location_callbacks.py - 위치 이벤트 콜백 함수
 
 import morld
 
@@ -27,7 +27,7 @@ def after_collapse(context_unit_id):
     ]
 
     # 챕터 1: 저택 생활 시작 - NPC 로드
-    morld.set_flag("chapter", 1)
+    morld.set_prop("chapter", 1)
     _load_chapter_1_npcs()
 
     return {

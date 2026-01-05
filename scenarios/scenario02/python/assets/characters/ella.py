@@ -36,7 +36,7 @@ class Ella(Character):
     unique_id = "ella"
     name = "엘라"
     type = "female"
-    tags = {
+    props = {
         "외모:흑발": 1, "외모:올림머리": 1, "외모:보라색눈": 1,
         "성격:냉정함": 1, "성격:리더십": 1,
         "애정": 0, "성욕": 0, "질투": 0,

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 시나리오01: 방탈출 - 공통 스크립트 함수
 Asset 기반 구조에서 스크립트 함수들을 export
@@ -76,15 +76,15 @@ def input_digit(context_unit_id, digit):
     """비밀번호 숫자 입력 (공통)"""
     digit = int(digit)
 
-    current_input = morld.get_flag("password_input")
-    current_digits = morld.get_flag("password_digits")
+    current_input = morld.get_prop("password_input")
+    current_digits = morld.get_prop("password_digits")
 
     # 새 숫자 추가
     new_input = current_input * 10 + digit
     new_digits = current_digits + 1
 
-    morld.set_flag("password_input", new_input)
-    morld.set_flag("password_digits", new_digits)
+    morld.set_prop("password_input", new_input)
+    morld.set_prop("password_digits", new_digits)
 
     # 4자리 완성되면 검증
     if new_digits >= 4:
@@ -111,8 +111,8 @@ def input_digit(context_unit_id, digit):
 
 def verify_password(context_unit_id):
     """비밀번호 검증 (공통)"""
-    target_uid = morld.get_flag("password_target_uid")
-    input_password = str(morld.get_flag("password_input")).zfill(4)
+    target_uid = morld.get_prop("password_target_uid")
+    input_password = str(morld.get_prop("password_input")).zfill(4)
 
     # 오브젝트별 비밀번호 정보 가져오기
     password_info = PASSWORD_OBJECTS.get(target_uid)
@@ -135,9 +135,9 @@ def verify_password(context_unit_id):
 
 def cancel_password(context_unit_id):
     """비밀번호 입력 취소"""
-    morld.clear_flag("password_target_uid")
-    morld.clear_flag("password_input")
-    morld.clear_flag("password_digits")
+    morld.clear_prop("password_target_uid")
+    morld.clear_prop("password_input")
+    morld.clear_prop("password_digits")
     return {
         "type": "monologue",
         "pages": ["입력을 취소했다."],

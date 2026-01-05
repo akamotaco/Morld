@@ -214,9 +214,9 @@ public class RegionEdge
         if (conditions.Count == 0) return true;
         if (context == null) return false;
 
-        foreach (var (tag, requiredValue) in conditions)
+        foreach (var (propName, requiredValue) in conditions)
         {
-            if (!context.HasTag(tag, requiredValue))
+            if (!context.HasProp(propName, requiredValue))
                 return false;
         }
         return true;
