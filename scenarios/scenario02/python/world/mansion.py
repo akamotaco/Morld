@@ -1,9 +1,9 @@
 # world/mansion.py - 숲속 저택 Region
 #
-# 이 파일에서 저택 Region의 모든 데이터를 정의합니다:
-# - 지형 (Region, Location, Edge)
-# - 시간 설정
-# - 캐릭터/오브젝트/아이템 인스턴스화
+# Region 0: 숲속 저택
+# - 저택 내부 (1층, 2층)
+# - 마당 (앞마당, 뒷마당)
+# - 야외/숲 (숲 입구, 깊은 숲, 강가, 채집터, 사냥터)
 
 import morld
 
@@ -17,12 +17,11 @@ import morld
 # 오브젝트: 200 ~ 299
 # 바닥 유닛: 1000 + location_id (예: location_id=3 → ground_id=1003)
 
+# ========================================
+# Region 설정
+# ========================================
+
 REGION_ID = 0
-
-
-# ========================================
-# 지형 데이터
-# ========================================
 
 REGION = {
     "id": REGION_ID,
@@ -31,6 +30,7 @@ REGION = {
     "weather": "맑음"
 }
 
+# Region 내 Edge
 EDGES = [
     # === 저택 1층 연결 ===
     (0, 1, 1),   # 현관 - 거실
@@ -90,7 +90,7 @@ NPC_SPAWNS = [
 # ========================================
 
 def initialize_terrain():
-    """지형 데이터 초기화 (Location 클래스 인스턴스 사용)"""
+    """저택 Region 초기화"""
     # Location 클래스 import
     from assets.locations.entrance import Entrance
     from assets.locations.living_room import LivingRoom
@@ -113,9 +113,8 @@ def initialize_terrain():
     from assets.locations.gathering_spot import GatheringSpot
     from assets.locations.hunting_ground import HuntingGround
 
-    r = REGION
-
     # Region 등록
+    r = REGION
     morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])
 
     # Location 인스턴스 생성 및 등록
@@ -148,13 +147,11 @@ def initialize_terrain():
     for location_id, loc in locations.items():
         loc.instantiate(location_id, REGION_ID)
 
-    # Edge 등록 (연결성 정보는 World에서 관리)
+    # Edge 등록 (Region 내 연결)
     for from_id, to_id, travel_time in EDGES:
         morld.add_edge(REGION_ID, from_id, to_id, travel_time)
 
-    print(f"[world.mansion] Terrain initialized: {len(locations)} locations")
-
-    # 인스턴스 반환 (이후 아이템 배치 등에 사용 가능)
+    print(f"[world.mansion] Region {REGION_ID} initialized: {len(locations)} locations")
     return locations
 
 

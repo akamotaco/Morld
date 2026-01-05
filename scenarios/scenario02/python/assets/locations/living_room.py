@@ -2,6 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
+from assets.objects.furniture import LivingSofa
 
 
 class LivingRoom(Location):
@@ -17,6 +18,9 @@ class LivingRoom(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """거실 생성 + 나무 바닥 추가"""
+        """거실 생성 + 나무 바닥 + 소파 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
+
+        # 거실 소파 배치 (Unit ID: 221)
+        self.add_object(LivingSofa(), 221)

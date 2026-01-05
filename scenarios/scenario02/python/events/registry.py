@@ -103,3 +103,13 @@ def handle_meet(player_id, unit_ids):
 def reset_triggered():
     """트리거 기록 초기화 (새 게임 시 호출)"""
     _triggered.clear()
+
+
+def get_reach_events():
+    """등록된 ReachEvent 목록 반환 (EventPredictionSystem용)"""
+    return _reach_events
+
+
+def get_meet_events():
+    """등록된 MeetEvent 목록 반환 (EventPredictionSystem용)"""
+    return _meet_events

@@ -215,6 +215,10 @@ class Object(Unit):
             []  # mood
         )
 
+        # Prop 설정 (좌석 정보 등)
+        if self.props:
+            morld.set_unit_props(instance_id, self.props)
+
 
 class Item(Asset):
     """

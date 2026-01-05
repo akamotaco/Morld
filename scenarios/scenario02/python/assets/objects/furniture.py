@@ -30,6 +30,30 @@ class OldSofa(Object):
     focus_text = {"default": "오래 사용해서 닳았지만 여전히 푹신한 소파."}
 
 
+class LivingSofa(Object):
+    """
+    앉을 수 있는 거실 소파 (Vehicle 시스템 테스트용)
+
+    좌석 Prop 시스템:
+    - seated_by:left → 왼쪽 좌석 (-1이면 빈 좌석)
+    - seated_by:center → 중앙 좌석 (-1이면 빈 좌석)
+    - seated_by:right → 오른쪽 좌석 (-1이면 빈 좌석)
+    """
+    unique_id = "living_sofa"
+    name = "거실 소파"
+    actions = [
+        "sit@left:왼쪽에 앉기",
+        "sit@center:가운데 앉기",
+        "sit@right:오른쪽에 앉기"
+    ]
+    props = {
+        "seated_by:left": -1,    # 왼쪽 좌석 (빈 좌석)
+        "seated_by:center": -1,  # 중앙 좌석 (빈 좌석)
+        "seated_by:right": -1    # 오른쪽 좌석 (빈 좌석)
+    }
+    focus_text = {"default": "푹신하고 넓은 거실 소파. 편하게 앉아 쉴 수 있다."}
+
+
 class Bookshelf(Object):
     unique_id = "bookshelf"
     name = "책장"
@@ -46,6 +70,30 @@ class DiningTable(Object):
     name = "긴 식탁"
     actions = ["script:table_look:살펴보기"]
     focus_text = {"default": "여섯 명이 앉을 수 있는 긴 나무 식탁. 잘 닦여 있다."}
+
+
+class DiningChair(Object):
+    """
+    앉을 수 있는 식탁 의자 (Vehicle 시스템 테스트용)
+
+    좌석 Prop 시스템:
+    - seated_by:1~4 → 각 의자 좌석 (-1이면 빈 좌석)
+    """
+    unique_id = "dining_chair"
+    name = "식탁 의자"
+    actions = [
+        "sit@1:1번 의자에 앉기",
+        "sit@2:2번 의자에 앉기",
+        "sit@3:3번 의자에 앉기",
+        "sit@4:4번 의자에 앉기"
+    ]
+    props = {
+        "seated_by:1": -1,  # 1번 의자 (빈 좌석)
+        "seated_by:2": -1,  # 2번 의자 (빈 좌석)
+        "seated_by:3": -1,  # 3번 의자 (빈 좌석)
+        "seated_by:4": -1   # 4번 의자 (빈 좌석)
+    }
+    focus_text = {"default": "식탁 주변에 놓인 나무 의자들. 앉아서 식사할 수 있다."}
 
 
 # ========================================

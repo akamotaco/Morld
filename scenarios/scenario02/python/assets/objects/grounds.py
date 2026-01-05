@@ -80,3 +80,23 @@ class GroundRocky(Object):
     actions = ["putinobject"]
     focus_text = {"default": "울퉁불퉁한 바위와 자갈이 깔려 있다."}
     is_visible = True
+
+
+# ========================================
+# 도시 바닥 (황폐화된 도시)
+# ========================================
+
+class GroundAsphalt(Object):
+    unique_id = "ground_asphalt"
+    name = "아스팔트 바닥"
+    actions = ["putinobject"]
+    focus_text = {"default": "금이 간 아스팔트. 잡초가 틈새로 자라나 있다."}
+    is_visible = True
+
+
+class GroundConcrete(Object):
+    unique_id = "ground_concrete"
+    name = "콘크리트 바닥"
+    actions = ["putinobject"]
+    focus_text = {"default": "버려진 건물의 콘크리트 바닥. 먼지가 쌓여 있다."}
+    is_visible = True

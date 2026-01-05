@@ -193,19 +193,46 @@ public class Unit
 
 	/// <summary>
 	/// 현재 위치 설정 (JobBehaviorSystem에서 사용)
+	/// 다른 위치로 이동 시 앉은 상태 자동 해제
 	/// </summary>
 	public void SetCurrentLocation(LocationRef location)
 	{
+		// 위치가 변경되면 앉은 상태 해제 (다른 장소의 의자에 앉아있는 버그 방지)
+		if (_currentLocation != location)
+		{
+			ClearSeatedState();
+		}
 		_currentLocation = location;
 	}
 
 	/// <summary>
 	/// 현재 위치로 즉시 이동 (디버그/초기화용)
+	/// 다른 위치로 이동 시 앉은 상태 자동 해제
 	/// </summary>
 	public void SetLocation(LocationRef location)
 	{
+		// 위치가 변경되면 앉은 상태 해제
+		if (_currentLocation != location)
+		{
+			ClearSeatedState();
+		}
 		_currentLocation = location;
 		_currentEdge = null;
+	}
+
+	/// <summary>
+	/// 앉은 상태 해제 (위치 변경 시 자동 호출)
+	/// </summary>
+	private void ClearSeatedState()
+	{
+		// seated_on 타입의 Prop이 있으면 제거
+		var seatedOn = TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+		if (seatedOn.Prop.IsValid)
+		{
+			TraversalContext.Props.Remove(seatedOn.Prop);
+			// Note: 오브젝트 측 seated_by는 UnitSystem을 통해 접근해야 하므로
+			// 여기서는 캐릭터 측만 해제 (오브젝트 측은 다음 앉기 시도 시 덮어쓰임)
+		}
 	}
 
 	/// <summary>

@@ -4,6 +4,7 @@ using Godot;
 using SE;
 using Morld;
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// BBCode 메타 액션 핸들러
@@ -112,6 +113,12 @@ public class MetaActionHandler
 				break;
 			case "script":
 				HandleScriptAction(parts);
+				break;
+			case "sit":
+				HandleSitAction(parts);
+				break;
+			case "stand_up":
+				HandleStandUpAction();
 				break;
 			case "monologue_next":
 				HandleMonologueNextAction();
@@ -270,6 +277,16 @@ public class MetaActionHandler
 		}
 
 		var actionType = parts[1];
+
+		// sit@seatName 액션인 경우 HandleSitAction으로 위임
+		// action:sit@seatName:unitId → sit:unitId:seatName
+		if (actionType.StartsWith("sit@"))
+		{
+			var seatName = actionType.Substring(4);  // "sit@" 이후 부분
+			var sitParts = new string[] { "sit", parts[2], seatName };
+			HandleSitAction(sitParts);
+			return;
+		}
 
 		// script 액션인 경우 HandleScriptAction으로 위임
 		// action:script:functionName:displayName[:args...] → script:functionName[:args...]
@@ -439,6 +456,144 @@ public class MetaActionHandler
 
 		// 인벤토리 화면으로 전환 (현재 Unit Focus 위에 Push)
 		_textUISystem?.ShowInventory();
+	}
+
+	/// <summary>
+	/// 앉기 액션 처리: sit:objectId:seatName
+	/// 오브젝트의 특정 좌석에 앉기
+	/// </summary>
+	private void HandleSitAction(string[] parts)
+	{
+		if (parts.Length < 3 ||
+			!int.TryParse(parts[1], out int objectId))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid sit format. Expected: sit:objectId:seatName");
+			return;
+		}
+
+		var seatName = parts[2];
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] Sit action: objectId={objectId}, seatName={seatName}");
+#endif
+
+		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+		if (unitSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] UnitSystem not found");
+			return;
+		}
+
+		var player = _playerSystem?.GetPlayerUnit();
+		if (player == null)
+		{
+			GD.PrintErr("[MetaActionHandler] Player not found");
+			return;
+		}
+
+		var obj = unitSystem.GetUnit(objectId);
+		if (obj == null)
+		{
+			_textUISystem?.ShowResult("앉을 수 없습니다: 오브젝트를 찾을 수 없습니다.");
+			return;
+		}
+
+		// 1. 이미 앉아있는지 확인
+		var seatedOn = player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+		if (seatedOn.Prop.IsValid)
+		{
+			_textUISystem?.ShowResult("앉을 수 없습니다: 이미 앉아있습니다.");
+			return;
+		}
+
+		// 2. 좌석이 비어있는지 확인
+		var seatPropName = $"seated_by:{seatName}";
+		int seatOccupant = obj.TraversalContext.Props.Get(seatPropName);
+		if (seatOccupant != -1)
+		{
+			_textUISystem?.ShowResult("앉을 수 없습니다: 좌석이 이미 차있습니다.");
+			return;
+		}
+
+		// 3. 양방향 Prop 설정
+		player.TraversalContext.Props.Set($"seated_on:{objectId}", seatName.GetHashCode());
+		obj.TraversalContext.Props.Set(seatPropName, player.Id);
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] Sit success: player={player.Id} sat on object={objectId}, seat={seatName}");
+#endif
+
+		// 앉기 성공 - 화면 갱신
+		_textUISystem?.Pop();  // Focus 닫기
+		RequestUpdateSituation();
+	}
+
+	/// <summary>
+	/// 일어나기 액션 처리: stand_up
+	/// 현재 앉아있는 상태에서 일어나기
+	/// </summary>
+	private void HandleStandUpAction()
+	{
+#if DEBUG_LOG
+		GD.Print("[MetaActionHandler] Stand up action");
+#endif
+
+		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+		if (unitSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] UnitSystem not found");
+			return;
+		}
+
+		var player = _playerSystem?.GetPlayerUnit();
+		if (player == null)
+		{
+			GD.PrintErr("[MetaActionHandler] Player not found");
+			return;
+		}
+
+		// 1. seated_on prop 확인
+		var seatedOn = player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+		if (!seatedOn.Prop.IsValid)
+		{
+			_textUISystem?.ShowResult("일어날 수 없습니다: 앉아있지 않습니다.");
+			return;
+		}
+
+		// 2. seated_on:{objectId}에서 objectId 추출
+		var propName = seatedOn.Prop.Name;  // "seated_on:123"
+		var colonIdx = propName.IndexOf(':');
+		if (colonIdx < 0 || !int.TryParse(propName.Substring(colonIdx + 1), out int objectId))
+		{
+			GD.PrintErr($"[MetaActionHandler] Invalid seated_on prop format: {propName}");
+			return;
+		}
+
+		// 3. 오브젝트의 seated_by prop 해제
+		var obj = unitSystem.GetUnit(objectId);
+		if (obj != null)
+		{
+			// seated_by에서 이 플레이어를 찾아서 해제
+			var seatedByProps = obj.TraversalContext.Props.GetByType("seated_by");
+			foreach (var sbProp in seatedByProps)
+			{
+				if (sbProp.Value == player.Id)
+				{
+					obj.TraversalContext.Props.Set(sbProp.Prop.Name, -1);
+					break;
+				}
+			}
+		}
+
+		// 4. 플레이어의 seated_on prop 제거
+		player.TraversalContext.Props.Remove(seatedOn.Prop);
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] Stand up success: player={player.Id}");
+#endif
+
+		// 일어나기 성공 - 화면 갱신
+		RequestUpdateSituation();
 	}
 
 	/// <summary>

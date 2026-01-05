@@ -393,12 +393,38 @@ namespace SE
 				}
 			}
 
-			// 6. 행동 옵션 (ActionProviderRegistry 사용)
+			// 6. 앉은 상태 표시 및 행동 옵션
 			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
 			var player = playerSystem?.GetPlayerUnit();
 
 			if (player != null)
 			{
+				// 앉아있는 상태 체크 및 표시
+				var seatedOnProp = player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+				if (seatedOnProp.Prop.IsValid)
+				{
+					// seated_on:{objectId}에서 objectId 추출
+					var propName = seatedOnProp.Prop.Name;
+					var colonIdx = propName.IndexOf(':');
+					if (colonIdx >= 0 && int.TryParse(propName.Substring(colonIdx + 1), out int objectId))
+					{
+						var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+						var seatObject = unitSystem?.GetUnit(objectId);
+						var seatName = seatObject?.Name ?? "오브젝트";
+
+						lines.Add("");
+						lines.Add($"[color=lime][앉음: {seatName}][/color]");
+						lines.Add($"  [url=stand_up]일어나기[/url]");
+
+						// 운전석이면 운전 액션도 표시
+						if (seatObject != null && seatObject.TraversalContext.HasProp("driver_seat"))
+						{
+							lines.Add($"  [url=script:drive_menu]운전[/url]");
+						}
+					}
+				}
+
+				// 행동 옵션 (ActionProviderRegistry 사용)
 				var providedActions = _actionRegistry.GetAllActionsFor(player);
 				if (providedActions.Count > 0)
 				{

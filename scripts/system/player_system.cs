@@ -81,6 +81,23 @@ namespace SE
 		/// </summary>
 		public bool HasPendingTime => _remainingDuration > 0;
 
+		/// <summary>
+		/// 다음 Step 시간 조정 (EventPredictionSystem에서 호출)
+		/// </summary>
+		/// <param name="adjustedMinutes">조정할 시간 (분)</param>
+		public void AdjustNextStepDuration(int adjustedMinutes)
+		{
+			if (adjustedMinutes <= 0 || adjustedMinutes >= NextStepDuration)
+				return;
+
+#if DEBUG_LOG
+			GD.Print($"[PlayerSystem] NextStepDuration 조정: {NextStepDuration} → {adjustedMinutes}분");
+#endif
+
+			NextStepDuration = adjustedMinutes;
+			_lastSetDuration = adjustedMinutes;
+		}
+
 		#region 플레이어 액션 요청
 
 		/// <summary>

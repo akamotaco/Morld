@@ -1221,6 +1221,236 @@ namespace SE
                     return new PyDict();
                 });
 
+                // sit_on: 캐릭터를 오브젝트의 좌석에 앉히기
+                // sit_on(unit_id, object_id, seat_name) → True/False
+                morldModule.ModuleDict["sit_on"] = new PyBuiltinFunction("sit_on", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("sit_on(unit_id, object_id, seat_name) requires 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int objectId = args[1].ToInt();
+                    string seatName = args[2].AsString();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        var obj = _unitSystem.GetUnit(objectId);
+
+                        if (unit != null && obj != null && obj.IsObject)
+                        {
+                            // 1. 캐릭터가 이미 앉아있는지 확인
+                            var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                            if (seatedOn.Prop.IsValid)
+                            {
+                                Godot.GD.PrintErr($"[morld] sit_on: unit={unitId} is already seated");
+                                return PyBool.False;
+                            }
+
+                            // 2. 좌석이 비어있는지 확인
+                            var seatPropName = $"seated_by:{seatName}";
+                            int seatOccupant = obj.TraversalContext.Props.Get(seatPropName);
+                            if (seatOccupant != -1)
+                            {
+                                Godot.GD.PrintErr($"[morld] sit_on: seat {seatName} is occupied");
+                                return PyBool.False;
+                            }
+
+                            // 3. 양방향 설정
+                            unit.TraversalContext.Props.Set($"seated_on:{objectId}", seatName.GetHashCode());
+                            obj.TraversalContext.Props.Set(seatPropName, unitId);
+
+                            Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // stand_up: 캐릭터를 일어나게 하기
+                // stand_up(unit_id) → True/False
+                morldModule.ModuleDict["stand_up"] = new PyBuiltinFunction("stand_up", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("stand_up(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            // 1. seated_on에서 오브젝트 ID 추출
+                            var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                            if (!seatedOn.Prop.IsValid)
+                            {
+                                Godot.GD.PrintErr($"[morld] stand_up: unit={unitId} is not seated");
+                                return PyBool.False;
+                            }
+
+                            // Prop 이름에서 오브젝트 ID 추출
+                            if (int.TryParse(seatedOn.Prop.Name, out int objectId))
+                            {
+                                var obj = _unitSystem.GetUnit(objectId);
+                                if (obj != null)
+                                {
+                                    // 2. 오브젝트에서 해당 좌석 찾기
+                                    var seatProps = obj.TraversalContext.Props.GetByType("seated_by");
+                                    foreach (var (prop, value) in seatProps)
+                                    {
+                                        if (value == unitId)
+                                        {
+                                            obj.TraversalContext.Props.Set(prop, -1);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 3. 캐릭터 seated_on 제거
+                            unit.TraversalContext.Props.Remove(seatedOn.Prop);
+
+                            Godot.GD.Print($"[morld] stand_up: unit={unitId} stood up");
+                            return PyBool.True;
+                        }
+                    }
+                    return PyBool.False;
+                });
+
+                // is_seated: 캐릭터가 앉아있는지 확인
+                // is_seated(unit_id) → object_id or -1
+                morldModule.ModuleDict["is_seated"] = new PyBuiltinFunction("is_seated", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("is_seated(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem != null)
+                    {
+                        var unit = _unitSystem.GetUnit(unitId);
+                        if (unit != null)
+                        {
+                            var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                            if (seatedOn.Prop.IsValid && int.TryParse(seatedOn.Prop.Name, out int objectId))
+                            {
+                                return new PyInt(objectId);
+                            }
+                        }
+                    }
+                    return new PyInt(-1);
+                });
+
+                // ===== Vehicle APIs (운전 시스템) =====
+
+                // can_drive: 유닛이 현재 운전 가능한 상태인지 확인
+                // can_drive(unit_id) → True/False
+                morldModule.ModuleDict["can_drive"] = new PyBuiltinFunction("can_drive", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("can_drive(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    if (_unitSystem == null) return PyBool.False;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null) return PyBool.False;
+
+                    var actionSystem = _hub?.FindSystem("actionSystem") as ActionSystem;
+                    if (actionSystem == null) return PyBool.False;
+
+                    return actionSystem.CanDrive(unit) ? PyBool.True : PyBool.False;
+                });
+
+                // get_drivable_destinations: 운전 가능한 목적지 목록 가져오기
+                // get_drivable_destinations(unit_id) → [{region_id, location_id, name, travel_time}, ...]
+                morldModule.ModuleDict["get_drivable_destinations"] = new PyBuiltinFunction("get_drivable_destinations", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_drivable_destinations(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    var result = new PyList();
+
+                    if (_unitSystem == null) return result;
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null) return result;
+
+                    var actionSystem = _hub?.FindSystem("actionSystem") as ActionSystem;
+                    if (actionSystem == null) return result;
+
+                    var destinations = actionSystem.GetDrivableDestinations(unit);
+                    foreach (var (regionId, locationId, name, travelTime) in destinations)
+                    {
+                        var dict = new PyDict();
+                        dict.SetItem(new PyString("region_id"), new PyInt(regionId));
+                        dict.SetItem(new PyString("location_id"), new PyInt(locationId));
+                        dict.SetItem(new PyString("name"), new PyString(name));
+                        dict.SetItem(new PyString("travel_time"), new PyInt(travelTime));
+                        result.Append(dict);
+                    }
+
+                    return result;
+                });
+
+                // drive_to: 차량 운전하여 목적지로 이동
+                // drive_to(unit_id, region_id, location_id) → {success, message, time_consumed}
+                morldModule.ModuleDict["drive_to"] = new PyBuiltinFunction("drive_to", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("drive_to(unit_id, region_id, location_id) requires 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    int regionId = args[1].ToInt();
+                    int locationId = args[2].ToInt();
+
+                    var resultDict = new PyDict();
+                    resultDict.SetItem(new PyString("success"), PyBool.False);
+                    resultDict.SetItem(new PyString("message"), new PyString("Unknown error"));
+                    resultDict.SetItem(new PyString("time_consumed"), new PyInt(0));
+
+                    if (_unitSystem == null)
+                    {
+                        resultDict.SetItem(new PyString("message"), new PyString("UnitSystem not found"));
+                        return resultDict;
+                    }
+
+                    var unit = _unitSystem.GetUnit(unitId);
+                    if (unit == null)
+                    {
+                        resultDict.SetItem(new PyString("message"), new PyString($"Unit {unitId} not found"));
+                        return resultDict;
+                    }
+
+                    var actionSystem = _hub?.FindSystem("actionSystem") as ActionSystem;
+                    if (actionSystem == null)
+                    {
+                        resultDict.SetItem(new PyString("message"), new PyString("ActionSystem not found"));
+                        return resultDict;
+                    }
+
+                    var result = actionSystem.ApplyDriveAction(unit, regionId, locationId);
+
+                    resultDict.SetItem(new PyString("success"), result.Success ? PyBool.True : PyBool.False);
+                    resultDict.SetItem(new PyString("message"), new PyString(result.Message));
+                    resultDict.SetItem(new PyString("time_consumed"), new PyInt(result.TimeConsumed));
+
+                    if (result.Success)
+                    {
+                        Godot.GD.Print($"[morld] drive_to: unit={unitId} drove to region={regionId}, location={locationId}");
+                    }
+                    else
+                    {
+                        Godot.GD.PrintErr($"[morld] drive_to: failed - {result.Message}");
+                    }
+
+                    return resultDict;
+                });
+
                 // set_unit_activity: 활동 상태 설정 (CurrentSchedule.Activity)
                 morldModule.ModuleDict["set_unit_activity"] = new PyBuiltinFunction("set_unit_activity", args =>
                 {
@@ -2537,6 +2767,133 @@ def calculate(a, b):
             {
                 Godot.GD.PrintErr($"[ScriptSystem] CallThinkAll error: {ex.Message}");
             }
+        }
+
+        // ========================================
+        // EventPredictionSystem 지원
+        // ========================================
+
+        /// <summary>
+        /// predict 모듈이 사용 가능한지 확인
+        /// </summary>
+        public bool IsPredictModuleAvailable()
+        {
+            try
+            {
+                var result = Eval("'predict' in dir() or 'predict_events' in dir()");
+                if (result is PyBool pyBool && pyBool.Value)
+                    return true;
+
+                // predict 모듈 import 시도 (events.predict 또는 predict)
+                try
+                {
+                    Execute("from events import predict");
+                    return true;
+                }
+                catch
+                {
+                    try
+                    {
+                        Execute("import predict");
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Python predict_events(duration) 호출 - 이벤트 예측
+        /// </summary>
+        /// <param name="duration">예측할 시간 범위 (분)</param>
+        /// <returns>예측된 이벤트 목록</returns>
+        public List<PredictedEvent> CallPredictEvents(int duration)
+        {
+            var result = new List<PredictedEvent>();
+
+            try
+            {
+                // predict.predict_events(duration) 호출
+                var pyResult = Eval($"predict.predict_events({duration})");
+
+                if (pyResult is PyList pyList)
+                {
+                    for (int i = 0; i < pyList.Length(); i++)
+                    {
+                        var item = pyList.GetItem(i);
+                        if (item is PyDict dict)
+                        {
+                            var evt = new PredictedEvent();
+
+                            // type
+                            var typeVal = dict.Get(new PyString("type"));
+                            if (typeVal is PyString typeStr)
+                                evt.Type = typeStr.Value;
+
+                            // trigger_minutes
+                            var triggerVal = dict.Get(new PyString("trigger_minutes"));
+                            if (triggerVal is PyInt triggerInt)
+                                evt.TriggerMinutes = (int)triggerInt.Value;
+
+                            // interrupts_time
+                            var interruptVal = dict.Get(new PyString("interrupts_time"));
+                            if (interruptVal is PyBool interruptBool)
+                                evt.InterruptsTime = interruptBool.Value;
+
+                            // unit_ids
+                            var unitsVal = dict.Get(new PyString("unit_ids"));
+                            if (unitsVal is PyList unitList)
+                            {
+                                for (int j = 0; j < unitList.Length(); j++)
+                                {
+                                    var uid = unitList.GetItem(j);
+                                    if (uid is PyInt uidInt)
+                                        evt.InvolvedUnitIds.Add((int)uidInt.Value);
+                                }
+                            }
+
+                            // data (optional)
+                            var dataVal = dict.Get(new PyString("data"));
+                            if (dataVal is PyDict dataDict)
+                            {
+                                var keys = dataDict.Keys();
+                                for (int k = 0; k < keys.Length(); k++)
+                                {
+                                    var keyObj = keys.GetItem(k);
+                                    if (keyObj is PyString keyStr)
+                                    {
+                                        var val = dataDict.GetItem(keyObj);
+                                        object value = val switch
+                                        {
+                                            PyInt pi => pi.Value,
+                                            PyString ps => ps.Value,
+                                            PyBool pb => pb.Value,
+                                            PyFloat pf => pf.Value,
+                                            _ => val?.ToString() ?? ""
+                                        };
+                                        evt.Data[keyStr.Value] = value;
+                                    }
+                                }
+                            }
+
+                            result.Add(evt);
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallPredictEvents error: {ex.Message}");
+            }
+
+            return result;
         }
     }
 

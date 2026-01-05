@@ -17,15 +17,40 @@ public class RegionEdge
     /// </summary>
     public int Id { get; }
 
-    /// <summary>
-    /// Region A의 연결 Location
-    /// </summary>
-    public LocationRef LocationA { get; }
+    private LocationRef _locationA;
+    private LocationRef _locationB;
 
     /// <summary>
-    /// Region B의 연결 Location
+    /// Region A의 연결 Location (운전 시 변경 가능)
     /// </summary>
-    public LocationRef LocationB { get; }
+    public LocationRef LocationA
+    {
+        get => _locationA;
+        set
+        {
+            if (_locationA != value)
+            {
+                _locationA = value;
+                OwnerWorld?.MarkRegionEdgeAsChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Region B의 연결 Location (운전 시 변경 가능)
+    /// </summary>
+    public LocationRef LocationB
+    {
+        get => _locationB;
+        set
+        {
+            if (_locationB != value)
+            {
+                _locationB = value;
+                OwnerWorld?.MarkRegionEdgeAsChanged();
+            }
+        }
+    }
 
     /// <summary>
     /// 소속 Terrain (변경 추적용)
@@ -103,8 +128,8 @@ public class RegionEdge
     public RegionEdge(int id, LocationRef locationA, LocationRef locationB)
     {
         Id = id;
-        LocationA = locationA;
-        LocationB = locationB;
+        _locationA = locationA;
+        _locationB = locationB;
     }
 
     public RegionEdge(int id, int regionIdA, int localIdA, int regionIdB, int localIdB)

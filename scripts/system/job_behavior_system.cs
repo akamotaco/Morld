@@ -128,6 +128,16 @@ namespace SE
 		/// </summary>
 		private void ProcessMoveAction(Unit unit, LocationRef goalLocation, int duration, Terrain terrain)
 		{
+			// 앉은 상태에서는 이동 불가
+			var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+			if (seatedOn.Prop.IsValid)
+			{
+#if DEBUG_LOG
+				GD.Print($"[JobBehaviorSystem] {unit.Name} is seated, cannot move");
+#endif
+				return;
+			}
+
 			// 이미 목표에 도착
 			if (unit.CurrentLocation == goalLocation)
 				return;

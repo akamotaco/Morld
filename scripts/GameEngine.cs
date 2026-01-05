@@ -17,6 +17,7 @@ public partial class GameEngine : Node
 	private ScriptSystem _scriptSystem;
 	private EventSystem _eventSystem;
 	private ThinkSystem _thinkSystem;
+	private EventPredictionSystem _eventPredictionSystem;
 	private JobBehaviorSystem _jobBehaviorSystem;
 
 	// 시나리오 경로 (res:// 기준)11111
@@ -92,6 +93,9 @@ public partial class GameEngine : Node
 		// ThinkSystem (JobBehaviorSystem 전에 실행: JobList 채우기)
 		_thinkSystem = this._world.AddSystem(new ThinkSystem(), "thinkSystem") as ThinkSystem;
 
+		// EventPredictionSystem (ThinkSystem 후, JobBehaviorSystem 전: 이벤트 예측 및 시간 조정)
+		_eventPredictionSystem = this._world.AddSystem(new EventPredictionSystem(), "eventPredictionSystem") as EventPredictionSystem;
+
 		_jobBehaviorSystem = this._world.AddSystem(new JobBehaviorSystem(), "jobBehaviorSystem") as JobBehaviorSystem;
 		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
 		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
@@ -150,6 +154,10 @@ public partial class GameEngine : Node
 
 		// ThinkSystem 설정
 		_thinkSystem?.SetSystemReferences(_scriptSystem, _playerSystem, unitSystem);
+
+		// EventPredictionSystem 설정
+		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
+		_eventPredictionSystem?.SetSystemReferences(_scriptSystem, _playerSystem, unitSystem, worldSystem);
 
 		// TextUISystem 설정
 		_textUISystem?.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);

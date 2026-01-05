@@ -1,0 +1,61 @@
+# world/city.py - 황폐화된 도시 Region
+#
+# Region 2: 황폐화된 도시
+# - 도시 입구, 주유소, 편의점, 약국, 주차장
+
+import morld
+
+# ========================================
+# Region 설정
+# ========================================
+
+REGION_ID = 2
+
+REGION = {
+    "id": REGION_ID,
+    "name": "황폐화된 도시",
+    "describe_text": {"default": "문명이 붕괴된 후 버려진 도시. 건물들이 황폐해져 있다."},
+    "weather": "맑음"
+}
+
+# Region 내 Edge
+EDGES = [
+    # (from_id, to_id, travel_time)
+    (0, 1, 10),  # 도시 입구 - 주유소
+    (0, 2, 5),   # 도시 입구 - 편의점
+    (0, 3, 8),   # 도시 입구 - 약국
+    (1, 4, 3),   # 주유소 - 주차장
+]
+
+# ========================================
+# 초기화 함수
+# ========================================
+
+def initialize_terrain():
+    """도시 Region 초기화"""
+    from assets.locations.city import (
+        CityEntrance, GasStation, ConvenienceStore, Pharmacy, ParkingLot
+    )
+
+    # Region 등록
+    r = REGION
+    morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])
+
+    # Location 인스턴스
+    locations = {
+        0: CityEntrance(),    # 도시 입구
+        1: GasStation(),      # 주유소
+        2: ConvenienceStore(),# 편의점
+        3: Pharmacy(),        # 약국
+        4: ParkingLot(),      # 주차장
+    }
+
+    for location_id, loc in locations.items():
+        loc.instantiate(location_id, REGION_ID)
+
+    # Edge 등록
+    for from_id, to_id, travel_time in EDGES:
+        morld.add_edge(REGION_ID, from_id, to_id, travel_time)
+
+    print(f"[world.city] Region {REGION_ID} initialized: {len(locations)} locations")
+    return locations
