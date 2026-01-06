@@ -561,30 +561,23 @@ namespace SE
                     return func;  // 데코레이터로 사용할 수 있도록 함수 반환
                 });
 
-                // === MessageBox API ===
-                // morld.messagebox(caption, text, type) - Win32 스타일 MessageBox
-                // Python에서 yield로 사용: result = yield morld.messagebox("확인", "진행?", "YESNO")
-                // type: "OK", "YESNO", "OKCANCEL"
-                // 반환값: "OK", "YES", "NO", "CANCEL"
-                morldModule.ModuleDict["messagebox"] = new PyBuiltinFunction("messagebox", args =>
+                // === Dialog API ===
+                // morld.dialog(text) - BBCode 기반 다이얼로그
+                // Python에서 yield로 사용: result = yield morld.dialog("텍스트\n\n[url=@ret:yes]예[/url]")
+                // URL 패턴:
+                //   @ret:값 - 다이얼로그 종료, yield에 값 반환
+                //   @proc:값 - generator에 값 전달, 다이얼로그 유지
+                // 반환값: URL에서 @ret:값 또는 @proc:값의 "값" 부분 (prefix 제외)
+                morldModule.ModuleDict["dialog"] = new PyBuiltinFunction("dialog", args =>
                 {
-                    if (args.Length < 2)
-                        throw PyTypeError.Create("messagebox(caption, text, type='OK') requires at least 2 arguments");
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("dialog(text) requires 1 argument");
 
-                    string caption = args[0].AsString();
-                    string text = args[1].AsString();
-                    string typeStr = args.Length >= 3 ? args[2].AsString().ToUpperInvariant() : "OK";
+                    string text = args[0].AsString();
 
-                    var msgType = typeStr switch
-                    {
-                        "YESNO" => Morld.MessageBoxType.YesNo,
-                        "OKCANCEL" => Morld.MessageBoxType.OkCancel,
-                        _ => Morld.MessageBoxType.Ok
-                    };
-
-                    // MessageBoxRequest를 래핑한 PyObject 반환
+                    // PyDialogRequest 반환
                     // 제너레이터에서 yield로 이 객체가 반환되면 C#에서 다이얼로그 표시
-                    return new PyMessageBoxRequest(caption, text, msgType);
+                    return new PyDialogRequest(text);
                 });
 
                 // sys.modules에 등록
@@ -2465,7 +2458,7 @@ __init__.initialize_scenario()
         }
 
         /// <summary>
-        /// 제너레이터 처리 - MessageBox yield 감지
+        /// 제너레이터 처리 - MessageBox/Dialog yield 감지
         /// </summary>
         private ScriptResult ProcessGenerator(PyGenerator generator)
         {
@@ -2476,15 +2469,15 @@ __init__.initialize_scenario()
 
                 Godot.GD.Print($"[ScriptSystem] Generator yielded: {yieldedValue?.GetType().Name ?? "null"}");
 
-                // PyMessageBoxRequest yield인 경우
-                if (yieldedValue is PyMessageBoxRequest msgBoxRequest)
+                // PyDialogRequest yield인 경우 (새 통합 API)
+                if (yieldedValue is PyDialogRequest dialogRequest)
                 {
-                    Godot.GD.Print($"[ScriptSystem] MessageBox request: {msgBoxRequest.Request.Caption} - {msgBoxRequest.Request.Text}");
+                    Godot.GD.Print($"[ScriptSystem] Dialog request: {dialogRequest.Text.Substring(0, System.Math.Min(50, dialogRequest.Text.Length))}...");
                     return new GeneratorScriptResult
                     {
-                        Type = "generator_messagebox",
+                        Type = "generator_dialog",
                         Generator = generator,
-                        MessageBoxRequest = msgBoxRequest.Request
+                        DialogText = dialogRequest.Text
                     };
                 }
 
@@ -2531,14 +2524,14 @@ __init__.initialize_scenario()
 
                 Godot.GD.Print($"[ScriptSystem] Generator resumed, yielded: {yieldedValue?.GetType().Name ?? "null"}");
 
-                // 또 다른 MessageBox yield인 경우
-                if (yieldedValue is PyMessageBoxRequest msgBoxRequest)
+                // 또 다른 Dialog yield인 경우 (새 통합 API)
+                if (yieldedValue is PyDialogRequest dialogRequest)
                 {
                     return new GeneratorScriptResult
                     {
-                        Type = "generator_messagebox",
+                        Type = "generator_dialog",
                         Generator = generator,
-                        MessageBoxRequest = msgBoxRequest.Request
+                        DialogText = dialogRequest.Text
                     };
                 }
 
@@ -2606,16 +2599,12 @@ __init__.initialize_scenario()
                     timeConsumed = (int)timeInt.Value;
                 }
 
-                // button_type 파싱 ("ok", "none", "yesno")
-                var buttonType = Morld.MonologueButtonType.Ok;
+                // button_type 파싱 ("ok", "none", "yesno", "none_on_last")
+                // 문자열로 저장하여 Dialog 변환 시 사용
+                string buttonType = "ok";
                 if (buttonTypeObj is PyString buttonTypeStr)
                 {
-                    buttonType = buttonTypeStr.Value.ToLower() switch
-                    {
-                        "none" => Morld.MonologueButtonType.None,
-                        "yesno" => Morld.MonologueButtonType.YesNo,
-                        _ => Morld.MonologueButtonType.Ok
-                    };
+                    buttonType = buttonTypeStr.Value.ToLower();
                 }
 
                 // 콜백 파싱 (선택적)
@@ -2998,12 +2987,16 @@ def calculate(a, b):
 
     /// <summary>
     /// 모놀로그 스크립트 결과 - 페이지 데이터 포함
+    /// 레거시 타입 (Dialog로 변환되어 표시됨)
     /// </summary>
     public class MonologueScriptResult : ScriptResult
     {
         public System.Collections.Generic.List<string> Pages { get; set; } = new();
         public int TimeConsumed { get; set; }
-        public Morld.MonologueButtonType ButtonType { get; set; } = Morld.MonologueButtonType.Ok;
+        /// <summary>
+        /// 버튼 타입: "ok", "none", "yesno", "none_on_last"
+        /// </summary>
+        public string ButtonType { get; set; } = "ok";
         public string DoneCallback { get; set; }
         public string CancelCallback { get; set; }
         /// <summary>
@@ -3015,7 +3008,7 @@ def calculate(a, b):
     }
 
     /// <summary>
-    /// 제너레이터 스크립트 결과 - MessageBox yield 시 반환
+    /// 제너레이터 스크립트 결과 - MessageBox/Dialog yield 시 반환
     /// 다이얼로그 결과를 generator.Send()로 전달하여 스크립트 재개
     /// </summary>
     public class GeneratorScriptResult : ScriptResult
@@ -3026,8 +3019,9 @@ def calculate(a, b):
         public PyGenerator Generator { get; set; }
 
         /// <summary>
-        /// yield된 MessageBox 요청 정보
+        /// yield된 Dialog 텍스트
+        /// BBCode URL 포함 (@ret:값, @proc:값 패턴)
         /// </summary>
-        public MessageBoxRequest MessageBoxRequest { get; set; }
+        public string DialogText { get; set; }
     }
 }

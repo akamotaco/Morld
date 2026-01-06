@@ -24,6 +24,21 @@ namespace SE
 	}
 
 	/// <summary>
+	/// 다이얼로그 큐 항목 (연쇄 다이얼로그용)
+	/// </summary>
+	public class DialogQueueItem
+	{
+		public string Text { get; set; } = "";
+		public int TimeConsumed { get; set; } = 0;
+
+		public DialogQueueItem(string text, int timeConsumed = 0)
+		{
+			Text = text;
+			TimeConsumed = timeConsumed;
+		}
+	}
+
+	/// <summary>
 	/// UI 텍스트 시스템 (Focus 스택 기반)
 	/// 스택에는 Focus 정보만 저장하고, 표시 시 항상 최신 데이터로 렌더링
 	/// </summary>
@@ -40,6 +55,9 @@ namespace SE
 
 		// Lazy update 플래그
 		private bool _needsUpdateDisplay = false;
+
+		// 다이얼로그 큐 (연쇄 다이얼로그용)
+		private readonly Queue<DialogQueueItem> _dialogQueue = new();
 
 		// 데이터 조회용 참조 (UpdateDisplay에서 사용)
 		private PlayerSystem? _playerSystem;
@@ -225,9 +243,18 @@ namespace SE
 				FocusType.Inventory => RenderInventory(),
 				FocusType.Item => RenderItem(focus.ItemId ?? 0, focus.Context ?? "inventory", focus.UnitId),
 				FocusType.Result => RenderResult(focus.Message ?? ""),
-				FocusType.Monologue => RenderMonologue(focus),
+				FocusType.Dialog => RenderDialog(focus),
 				_ => ""
 			};
+		}
+
+		/// <summary>
+		/// 다이얼로그 렌더링 (morld.dialog() API)
+		/// BBCode URL을 그대로 표시 (@ret:값, @proc:값 패턴은 MetaActionHandler에서 처리)
+		/// </summary>
+		private string RenderDialog(Focus focus)
+		{
+			return focus.DialogText ?? "";
 		}
 
 		private string RenderSituation()
@@ -329,62 +356,6 @@ namespace SE
 			return $"[b]{message}[/b]\n\n[url=back]뒤로[/url]";
 		}
 
-		private string RenderMonologue(Focus focus)
-		{
-			var pages = focus.MonologuePages;
-			if (pages == null || pages.Count == 0)
-			{
-				return "[color=gray]모놀로그를 불러올 수 없습니다.[/color]\n\n[url=monologue_done]확인[/url]";
-			}
-
-			var currentPage = focus.CurrentPage;
-			if (currentPage < 0 || currentPage >= pages.Count)
-			{
-				return "[color=gray]모놀로그 페이지를 찾을 수 없습니다.[/color]\n\n[url=monologue_done]확인[/url]";
-			}
-
-			var pageText = pages[currentPage];
-			var isLastPage = currentPage >= pages.Count - 1;
-			var buttonType = focus.MonologueButtonType;
-
-			// 페이지에 script: 링크가 있으면 선택형 페이지 - None 타입으로 자동 전환
-			bool hasScriptLink = pageText.Contains("[url=script:");
-			if (hasScriptLink)
-			{
-				buttonType = MonologueButtonType.None;
-			}
-
-			var lines = new List<string>();
-			lines.Add(pageText);
-
-			// 버튼 타입에 따라 다른 버튼 렌더링
-			switch (buttonType)
-			{
-				case MonologueButtonType.Ok:
-					lines.Add("");
-					if (isLastPage)
-					{
-						lines.Add("[url=monologue_done]확인[/url]");
-					}
-					else
-					{
-						lines.Add("[url=monologue_next]계속[/url]");
-					}
-					break;
-
-				case MonologueButtonType.None:
-					// 버튼 없음 (선택지가 페이지 내에 포함된 경우)
-					break;
-
-				case MonologueButtonType.YesNo:
-					lines.Add("");
-					lines.Add("[url=monologue_yes]승낙[/url]  [url=monologue_no]거절[/url]");
-					break;
-			}
-
-			return string.Join("\n", lines);
-		}
-
 		// === 화면 전환 API (Focus Push) ===
 
 		/// <summary>
@@ -435,55 +406,83 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 모놀로그 표시 (Push) - 페이지 데이터 직접 전달
+		/// 다이얼로그 Push (첫 yield morld.dialog() 호출 시)
+		/// 이미 다이얼로그가 열려있으면 큐에 추가 (연쇄 다이얼로그)
 		/// </summary>
-		public void ShowMonologue(List<string> pages, int timeConsumed, MonologueButtonType buttonType = MonologueButtonType.Ok, string doneCallback = null, string cancelCallback = null)
+		public void PushDialog(string text, int timeConsumed = 0)
 		{
-			_stack.Push(Focus.Monologue(pages, timeConsumed, buttonType, doneCallback, cancelCallback));
+			// 이미 다이얼로그가 열려있으면 큐에 추가
+			if (_stack.Current?.Type == FocusType.Dialog)
+			{
+				_dialogQueue.Enqueue(new DialogQueueItem(text, timeConsumed));
+#if DEBUG_LOG
+				GD.Print($"[TextUISystem] Dialog queued (queue size: {_dialogQueue.Count})");
+#endif
+				return;
+			}
+
+			_stack.Push(Focus.Dialog(text, timeConsumed));
 			RequestUpdateDisplay();
 		}
 
 		/// <summary>
-		/// 모놀로그 다음 페이지로 이동
+		/// 다이얼로그 텍스트 갱신 (@proc: 후 다음 yield 호출 시)
+		/// 즉시 RichTextLabel 텍스트 갱신 (lazy 아님)
 		/// </summary>
-		public void MonologueNextPage()
+		public void UpdateDialogText(string text)
 		{
-			if (_stack.Current?.Type != FocusType.Monologue) return;
+			if (_stack.Current?.Type != FocusType.Dialog)
+			{
+				Godot.GD.PrintErr("[TextUISystem] UpdateDialogText called but no dialog is open - this is a bug!");
+				return;
+			}
 
-			_stack.Current.CurrentPage++;
-			RequestUpdateDisplay();
+			_stack.Current.DialogText = text;
+			// 즉시 RichTextLabel 텍스트 갱신 (lazy 아님)
+			_textUi.Text = text;
 		}
 
 		/// <summary>
-		/// 현재 모놀로그 내용 교체 (Push 없이 in-place 갱신)
-		/// 비밀번호 입력 등 상태 변경 시 사용
-		/// </summary>
-		public void UpdateMonologueContent(List<string> pages, MonologueButtonType buttonType = MonologueButtonType.None)
-		{
-			if (_stack.Current?.Type != FocusType.Monologue) return;
-
-			_stack.Current.MonologuePages = pages;
-			_stack.Current.CurrentPage = 0;
-			_stack.Current.MonologueButtonType = buttonType;
-			RequestUpdateDisplay();
-		}
-
-		/// <summary>
-		/// 모놀로그 완료 처리 (Pop + 시간 소요)
+		/// 다이얼로그 완료 처리 (Pop + 시간 소요 + 큐에서 다음 다이얼로그 표시)
 		/// </summary>
 		/// <returns>소요 시간 (분)</returns>
-		public int MonologueDone()
+		public int DialogDone()
 		{
 			int timeConsumed = 0;
 
 			// Focus에 저장된 시간 사용
-			if (_stack.Current?.Type == FocusType.Monologue)
+			if (_stack.Current?.Type == FocusType.Dialog)
 			{
-				timeConsumed = _stack.Current.MonologueTimeConsumed;
+				timeConsumed = _stack.Current.TimeConsumed;
 			}
 
 			Pop();
+
+			// 큐에 다음 다이얼로그가 있으면 표시
+			if (_dialogQueue.Count > 0)
+			{
+				var next = _dialogQueue.Dequeue();
+#if DEBUG_LOG
+				GD.Print($"[TextUISystem] Showing next dialog from queue (remaining: {_dialogQueue.Count})");
+#endif
+				_stack.Push(Focus.Dialog(next.Text, next.TimeConsumed));
+				RequestUpdateDisplay();
+			}
+
 			return timeConsumed;
+		}
+
+		/// <summary>
+		/// 다이얼로그 큐에 대기 중인 항목이 있는지 확인
+		/// </summary>
+		public bool HasQueuedDialogs => _dialogQueue.Count > 0;
+
+		/// <summary>
+		/// 다이얼로그 큐 비우기
+		/// </summary>
+		public void ClearDialogQueue()
+		{
+			_dialogQueue.Clear();
 		}
 
 		// === 스택 조작 API ===

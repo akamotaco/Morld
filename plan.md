@@ -150,172 +150,317 @@ class Bell(Object):
 
 ---
 
-# Plan: yield 기반 모놀로그/다이얼로그 시스템
+# Plan: morld.dialog() - 통합 다이얼로그 시스템
 
 ## 목표
-기존 콜백 기반 모놀로그 시스템을 **yield 기반 제너레이터 패턴**으로 통합하여 Python에서 전체 흐름을 제어할 수 있도록 개선
+기존의 복잡한 모놀로그/메시지박스 시스템을 **단일 `morld.dialog()` API**로 통합.
+C#은 최소한의 메시지 전달만, Python이 모든 UI 로직을 제어.
 
-## 현재 문제점
+---
 
-### 1. 복잡한 콜백 구조
+## 1. 설계 원칙
+
+### Python에게 자유를, C#은 견고하게
+- **C# 역할**: URL 파싱 + 메시지 전달 (로직 없음)
+- **Python 역할**: 상태 관리, 페이지 전환, 조건 검사 등 모든 로직
+
+### 제거 대상 (기존 시스템)
+- `morld.messagebox()` - 별도 API 불필요
+- `button_type: ok/yesno/none/none_on_last` - 복잡한 버튼 타입 분기
+- `done_callback/cancel_callback` - 콜백 문자열 시스템
+- `_pendingAction` - C# Action 델리게이트
+
+---
+
+## 2. API 설계
+
+### 기본 사용법
 ```python
-# 현재 방식 - 콜백 문자열 기반
-return {
-    "type": "monologue",
-    "pages": ["대화..."],
-    "button_type": "yesno",
-    "done_callback": "on_accept:param1",    # 문자열 파싱 필요
-    "cancel_callback": "on_reject"
+# 단일 API: morld.dialog(text)
+result = yield morld.dialog("텍스트 내용")
+```
+
+### URL 패턴
+| 패턴 | 동작 | 설명 |
+|------|------|------|
+| `@ret:값` | 다이얼로그 종료, yield에 값 반환 | 최종 선택 |
+| `@proc:값` | generator에 값 전달, 다이얼로그 유지 | 상태 변경 |
+
+### 사용 예시
+
+#### 단순 확인 (기존 button_type: ok)
+```python
+yield morld.dialog("메시지입니다.\n\n[url=@ret:ok]확인[/url]")
+```
+
+#### Yes/No 선택 (기존 button_type: yesno)
+```python
+result = yield morld.dialog(
+    "진행하시겠습니까?\n\n"
+    "[url=@ret:yes]예[/url] [url=@ret:no]아니오[/url]"
+)
+if result == "yes":
+    # 승낙 처리
+```
+
+#### 다중 선택지 (기존 script:xxx 패턴)
+```python
+name = yield morld.dialog(
+    "이름을 선택하세요.\n\n"
+    "[url=@ret:kim]김[/url]\n"
+    "[url=@ret:lee]이[/url]\n"
+    "[url=@ret:park]박[/url]"
+)
+```
+
+#### 상호작용 다이얼로그 (새 기능)
+```python
+state = {"str": 5, "agi": 5, "points": 10}
+
+while True:
+    result = yield morld.dialog(
+        f"스탯 배분\n\n"
+        f"힘: {state['str']} [url=@proc:str+]+[/url] [url=@proc:str-]−[/url]\n"
+        f"민첩: {state['agi']} [url=@proc:agi+]+[/url] [url=@proc:agi-]−[/url]\n"
+        f"남은 포인트: {state['points']}\n\n"
+        f"[url=@ret:confirm]확인[/url] [url=@ret:cancel]취소[/url]"
+    )
+    # result = "str+", "str-", "confirm", "cancel" 등 (prefix 없이 값만)
+
+    if result in ("confirm", "cancel"):
+        break
+
+    # @proc: 값 처리
+    if result == "str+" and state["points"] > 0:
+        state["str"] += 1
+        state["points"] -= 1
+    elif result == "str-" and state["str"] > 1:
+        state["str"] -= 1
+        state["points"] += 1
+    # ... 등등
+```
+
+#### 다중 페이지 (새 기능)
+```python
+pages = [
+    "첫 번째 페이지입니다.\n\n[url=@proc:next]다음[/url]",
+    "두 번째 페이지입니다.\n\n[url=@proc:prev]이전[/url] [url=@proc:next]다음[/url]",
+    "마지막 페이지입니다.\n\n[url=@proc:prev]이전[/url] [url=@ret:done]완료[/url]"
+]
+page = 0
+
+while True:
+    result = yield morld.dialog(pages[page])
+    # result = "next", "prev", "done" (prefix 없이 값만)
+
+    if result == "done":
+        break
+    elif result == "next":
+        page = min(page + 1, len(pages) - 1)
+    elif result == "prev":
+        page = max(page - 1, 0)
+```
+
+---
+
+## 3. C# 구현
+
+### PyDialogRequest 클래스
+```csharp
+// scripts/morld/ui/Dialog.cs
+public class PyDialogRequest : PyObject
+{
+    public string Text { get; }
+
+    public PyDialogRequest(string text)
+    {
+        Text = text;
+    }
+
+    public override string GetTypeName() => "DialogRequest";
+}
+```
+
+### ScriptSystem - morld.dialog() 등록
+```csharp
+// script_system.cs
+morldModule.ModuleDict["dialog"] = new PyBuiltinFunction("dialog", args => {
+    string text = args[0].AsString();
+    return new PyDialogRequest(text);
+});
+```
+
+### ScriptSystem - ProcessGenerator 확장
+```csharp
+if (yieldedValue is PyDialogRequest dialogRequest)
+{
+    return new GeneratorScriptResult
+    {
+        Type = "generator_dialog",
+        Generator = generator,
+        DialogText = dialogRequest.Text
+    };
+}
+```
+
+### MetaActionHandler - URL 핸들러
+```csharp
+// @ret:xxx - 다이얼로그 종료, 값 반환
+if (url.StartsWith("@ret:"))
+{
+    var value = url.Substring(5);  // "@ret:yes" → "yes"
+    _textUISystem.Pop();
+    ResumeGeneratorWithResult(generator, value);
+    return;
 }
 
-# on_accept, on_reject 함수를 별도로 정의해야 함
+// @proc:xxx - 다이얼로그 유지, 값 전달
+if (url.StartsWith("@proc:"))
+{
+    // pendingGenerator가 없으면 에러 (버그)
+    if (_pendingGenerator == null)
+    {
+        GD.PrintErr("[MetaActionHandler] @proc: called without pending generator - this is a bug!");
+        return;
+    }
+
+    var value = url.Substring(6);  // "@proc:next" → "next"
+    // Pop 안함 - 다이얼로그 유지, 텍스트는 다음 yield에서 갱신됨
+    ResumeGeneratorWithResult(generator, value);
+    return;
+}
 ```
 
-### 2. 분산된 상태 관리
-- `_pendingAction` - C# Action 델리게이트
-- `_pendingGenerator` - Python 제너레이터
-- `DoneCallback` / `CancelCallback` - 문자열 콜백
-- 우선순위 관리 복잡 (3가지 경로)
+### MetaActionHandler - ProcessScriptResult (다이얼로그 생명주기)
+```csharp
+case "generator_dialog":
+    if (result is GeneratorScriptResult genResult)
+    {
+        _pendingGenerator = genResult.Generator;
 
-### 3. Python-C# 경계 넘나들기
-- Python → C# (ScriptResult) → 사용자 선택 → C# (콜백 파싱) → Python
-- 흐름 추적 어려움, 디버깅 복잡
-
-## 제안: yield 기반 통합 패턴
-
-### 새로운 API
-```python
-# 제안 방식 - yield 기반
-def on_meet_player(player_id):
-    # 모놀로그 표시 후 사용자 응답 대기
-    result = yield morld.monologue(
-        pages=["대화 내용...", "계속..."],
-        button_type="YESNO",
-        time_consumed=2
-    )
-
-    if result == "YES":
-        morld.add_action_log("승낙했습니다.")
-        # 후속 처리...
-    else:
-        morld.add_action_log("거절했습니다.")
-        # 거절 처리...
-
-    # 연속 다이얼로그도 자연스럽게
-    result2 = yield morld.messagebox("확인", "정말로?", "YESNO")
+        // Win32 DialogBox 스타일: Push → Update → Pop
+        // 현재 다이얼로그가 열려있으면 텍스트만 갱신 (lazy 아님, 즉시 갱신)
+        // 없으면 새로 Push
+        if (_textUISystem?.CurrentFocus?.Type == FocusType.Dialog)
+        {
+            _textUISystem.UpdateDialogText(genResult.DialogText);  // 즉시 텍스트 갱신
+        }
+        else
+        {
+            _textUISystem?.PushDialog(genResult.DialogText);  // 새 다이얼로그 Push
+        }
+    }
+    break;
 ```
 
-### 장점
-1. **단일 함수에서 전체 흐름** - 콜백 분산 없음
-2. **직관적인 코드** - 위에서 아래로 읽으면 됨
-3. **상태 관리 단순화** - `_pendingGenerator` 하나로 통합
-4. **디버깅 용이** - Python 코드만 보면 흐름 파악
+### TextUISystem - 새 메서드
+```csharp
+/// <summary>
+/// 다이얼로그 Push (첫 yield morld.dialog() 호출 시)
+/// </summary>
+public void PushDialog(string text)
+{
+    var focus = new FocusState
+    {
+        Type = FocusType.Dialog,
+        Text = text,
+        ButtonType = MonologueButtonType.None  // 버튼 없음, BBCode URL로 제어
+    };
+    _focusStack.Push(focus);
+    RequestRender();  // 즉시 렌더링
+}
 
-## 구현 계획
+/// <summary>
+/// 다이얼로그 텍스트 갱신 (@proc: 후 다음 yield 호출 시)
+/// lazy 방식 아님 - 즉시 RichTextLabel 텍스트 갱신
+/// </summary>
+public void UpdateDialogText(string text)
+{
+    if (CurrentFocus?.Type != FocusType.Dialog)
+    {
+        GD.PrintErr("[TextUISystem] UpdateDialogText called but no dialog is open - this is a bug!");
+        return;
+    }
 
-### Phase 1: morld.monologue() API 추가
-1. `PyMonologueRequest` 클래스 생성 (MessageBox.cs 확장)
-   - pages, button_type, time_consumed 포함
-
-2. `morld.monologue()` 함수 등록 (script_system.cs)
-   ```csharp
-   morldModule.ModuleDict["monologue"] = new PyBuiltinFunction("monologue", args => {
-       // pages, button_type, time_consumed 파싱
-       return new PyMonologueRequest(pages, buttonType, timeConsumed);
-   });
-   ```
-
-3. `ProcessGenerator()`에서 PyMonologueRequest 감지 추가
-   ```csharp
-   if (yieldedValue is PyMonologueRequest monoRequest)
-   {
-       return new GeneratorScriptResult
-       {
-           Type = "generator_monologue",
-           Generator = generator,
-           MonologueRequest = monoRequest.Request
-       };
-   }
-   ```
-
-### Phase 2: MetaActionHandler 처리
-1. `ProcessScriptResult()`에 `"generator_monologue"` 케이스 추가
-   ```csharp
-   case "generator_monologue":
-       _pendingGenerator = genResult.Generator;
-       _textUISystem?.ShowMonologue(
-           monoRequest.Pages,
-           monoRequest.TimeConsumed,
-           monoRequest.ButtonType,
-           doneCallback: null,  // 콜백 불필요
-           cancelCallback: null
-       );
-       break;
-   ```
-
-2. `HandleMonologueDoneAction()` 수정
-   - pendingGenerator 체크 추가 (Yes와 동일하게)
-   ```csharp
-   if (_pendingGenerator != null)
-   {
-       ResumeGeneratorWithResult(generator, "OK");
-       return;
-   }
-   ```
-
-### Phase 3: 기존 시스템과 호환성 유지
-- 기존 `return {"type": "monologue", ...}` 방식 계속 지원
-- 새로운 `yield morld.monologue(...)` 방식 추가
-- 점진적 마이그레이션 가능
-
-### Phase 4: 이벤트 핸들러 통합 (선택적)
-GameStartEvent, ReachEvent, MeetEvent의 handle() 메서드도 제너레이터로 변환 가능
-```python
-class PrologueStart(GameStartEvent):
-    def handle(self, **ctx):
-        # 첫 번째 다이얼로그
-        yield morld.monologue(pages=["...", "..."], button_type="OK")
-
-        # 이름 선택
-        name = yield morld.select(options=["이름1", "이름2", "이름3"])
-
-        # 나이 선택
-        age = yield morld.select(options=["청년", "중년", "노년"])
-
-        # 완료
-        morld.set_prop("player_name", name)
+    CurrentFocus.Text = text;
+    // 즉시 RichTextLabel 텍스트 갱신 (lazy 아님)
+    _richTextLabel.Text = text;
+}
 ```
 
-## 파일 변경 목록
+---
+
+## 4. 구현 단계
+
+### Phase 1: 기본 구조 ✅ 완료
+1. [x] `PyDialogRequest` 클래스 생성 (`Dialog.cs`)
+2. [x] `morld.dialog()` 함수 등록 (`script_system.cs`)
+3. [x] `ProcessGenerator()`에서 `PyDialogRequest` 감지
+4. [x] `GeneratorScriptResult`에 `DialogText` 필드 추가
+5. [x] `FocusType.Dialog` enum 값 추가
+6. [x] `TextUISystem.PushDialog()` 메서드 추가
+7. [x] `TextUISystem.UpdateDialogText()` 메서드 추가
+
+### Phase 2: URL 핸들러 ✅ 완료
+1. [x] `@ret:` 패턴 처리 (Pop + 값 반환)
+2. [x] `@proc:` 패턴 처리 (값만 반환, 다이얼로그 유지)
+3. [x] `ProcessScriptResult`에서 `generator_dialog` 케이스 추가 (Push/Update 분기)
+
+### Phase 3: 기존 시스템 정리 ✅ 완료
+1. [x] `morld.messagebox()` 제거
+2. [x] `MessageBox.cs` 삭제
+3. [x] `FocusType.Monologue` 제거
+4. [x] `MonologueButtonType` enum 제거
+5. [x] Dialog 큐 시스템 구현 (연쇄 다이얼로그 지원)
+
+### Phase 4: 레거시 호환성 ✅ 완료
+레거시 `{"type": "monologue", ...}` 형식은 C#에서 자동으로 Dialog로 변환됨:
+- `ProcessScriptResult()` - MetaActionHandler에서 변환
+- `ProcessEventResult()` - EventSystem에서 변환
+- 이벤트 핸들러는 제너레이터가 아니므로 레거시 형식 유지 필수
+- 스크립트 함수는 `yield morld.dialog()` 또는 레거시 형식 모두 사용 가능
+
+---
+
+## 5. 파일 변경 목록
+
+### 신규
+- `scripts/morld/ui/Dialog.cs` - PyDialogRequest 클래스
 
 ### 수정
-- `scripts/morld/ui/MessageBox.cs` - PyMonologueRequest 추가
-- `scripts/system/script_system.cs` - morld.monologue() 함수 + ProcessGenerator 확장
-- `scripts/MetaActionHandler.cs` - generator_monologue 처리 + HandleMonologueDoneAction 수정
+- `scripts/system/script_system.cs`
+  - `morld.dialog()` 함수 등록
+  - `ProcessGenerator()`에서 `PyDialogRequest` 감지
+  - `GeneratorScriptResult`에 `DialogText` 필드 추가
+- `scripts/MetaActionHandler.cs`
+  - `@ret:` / `@proc:` URL 핸들러 추가
+  - `ProcessScriptResult`에 `generator_dialog` 케이스 추가
+- `scripts/system/text_ui_system.cs`
+  - `FocusType.Dialog` enum 값 추가
+  - `PushDialog()` 메서드 추가
+  - `UpdateDialogText()` 메서드 추가 (즉시 갱신, lazy 아님)
+- `scripts/morld/ui/FocusState.cs` (있다면)
+  - `FocusType` enum에 `Dialog` 추가
 
-### 신규 (선택적)
-- `scripts/morld/ui/MonologueRequest.cs` - 별도 파일로 분리 가능
+### 삭제 완료 (Phase 3)
+- `scripts/morld/ui/MessageBox.cs` - 삭제됨
+- `FocusType.Monologue` - 제거됨
+- `MonologueButtonType` enum - 제거됨
 
-## 마이그레이션 전략
+---
 
-### 단계별 적용
-1. 새 API 구현 (기존 코드 영향 없음)
-2. 새로운 이벤트/스크립트부터 yield 방식 사용
-3. 기존 콜백 방식 코드는 필요 시 점진적 변환
+## 6. 장점
 
-### 호환성
-- `done_callback`, `cancel_callback` 필드는 deprecated 표시 후 유지
-- 기존 `return {"type": "monologue", ...}` 방식 계속 동작
+1. **단일 API** - `morld.dialog()` 하나로 모든 UI 상호작용
+2. **Python 제어** - 버튼, 페이지, 선택지 모두 BBCode로 통일
+3. **C# 단순화** - URL 파싱만, 로직 없음
+4. **확장성** - 새 기능 추가 시 Python만 수정
+5. **디버깅 용이** - Python 코드만 보면 흐름 파악
 
-## 현재 버그 (우선 수정 필요)
+---
 
-### YES 버튼 클릭 후 화면 진행 안됨
-**증상**: MessageBox 테스트에서 YES 클릭 시 다음으로 넘어가지 않음 (NO는 정상)
+## 7. 해결된 이슈
 
-**원인 추정**:
-- `ResumeGenerator`에서 StopIteration 발생 시 반환값 처리 문제
-- 또는 `ProcessScriptResult`에서 `"message"` 타입 처리 후 화면 갱신 누락
-
-**디버깅 포인트**:
-1. `ResumeGenerator` 로그 확인 - StopIteration.value가 제대로 파싱되는지
-2. `ProcessScriptResult`에서 `"message"` 타입 처리 후 `RequestUpdateSituation()` 호출 필요 여부
+### 기존 버그: YES 버튼 클릭 후 화면 진행 안됨
+- ✅ 새 Dialog 시스템으로 해결됨
+- `@ret:` 패턴으로 통일되어 버튼 타입별 분기 불필요

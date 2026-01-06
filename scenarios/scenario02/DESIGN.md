@@ -220,6 +220,7 @@ class LinaAgent(BaseAgent):
 
 ```python
 # 이벤트 핸들러에서 NPC 행동 오버라이드
+# 이벤트 핸들러는 제너레이터가 아니므로 레거시 형식 사용 (C#에서 Dialog로 자동 변환)
 def on_meet_player(context_unit_id):
     return {
         "type": "monologue",
@@ -233,7 +234,7 @@ def on_meet_player(context_unit_id):
 ```
 
 **npc_jobs 동작:**
-- 모놀로그 결과에 `npc_jobs` 필드 포함 시 EventSystem.ApplyNpcJobs() 호출
+- monologue 결과에 `npc_jobs` 필드 포함 시 EventSystem.ApplyNpcJobs() 호출
 - 지정된 NPC의 JobList를 클리어하고 새 Job 삽입
 - 이동 중이었다면 중단 (CurrentEdge = null)
 
@@ -281,6 +282,50 @@ events/
     ├── npc_talk.py     # NPC 대화 라우팅
     └── player_creation.py  # 캐릭터 생성 흐름
 ```
+
+---
+
+## Dialog 시스템
+
+### morld.dialog() API
+
+스크립트 함수에서 상호작용 다이얼로그를 표시하는 제너레이터 기반 API.
+
+```python
+@morld.register_script
+def my_dialog(context_unit_id):
+    # 단순 Yes/No
+    result = yield morld.dialog(
+        "진행하시겠습니까?\n\n"
+        "[url=@ret:yes]예[/url] [url=@ret:no]아니오[/url]"
+    )
+
+    if result == "yes":
+        # 승낙 처리
+        pass
+```
+
+### URL 패턴
+
+| 패턴 | 동작 | 설명 |
+|------|------|------|
+| `@ret:값` | 다이얼로그 종료, yield에 값 반환 | 최종 선택 |
+| `@proc:값` | generator에 값 전달, 다이얼로그 유지 | 상태 변경 (스탯 배분 등) |
+
+### 레거시 호환
+
+이벤트 핸들러(`handle()`, `on_meet_player()` 등)는 제너레이터가 아니므로 레거시 형식 사용:
+
+```python
+return {
+    "type": "monologue",
+    "pages": ["페이지1", "페이지2"],
+    "time_consumed": 5,
+    "button_type": "ok"  # "ok", "yesno", "none", "none_on_last"
+}
+```
+
+C#에서 자동으로 Dialog로 변환됨.
 
 ---
 

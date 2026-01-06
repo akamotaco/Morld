@@ -51,15 +51,28 @@ public class MetaActionHandler
 		if (string.IsNullOrEmpty(metaString))
 			return;
 
+		// @ret:값 - 다이얼로그 종료, yield에 값 반환
+		if (metaString.StartsWith("@ret:"))
+		{
+			HandleRetAction(metaString.Substring(5));  // "@ret:yes" → "yes"
+			return;
+		}
+
+		// @proc:값 - generator에 값 전달, 다이얼로그 유지
+		if (metaString.StartsWith("@proc:"))
+		{
+			HandleProcAction(metaString.Substring(6));  // "@proc:next" → "next"
+			return;
+		}
+
 		var parts = metaString.Split(':');
 		var action = parts[0];
 
 		// 콘텐츠 변경 전 정리 작업
 		// - 토글은 UI 상태만 변경하므로 로그 읽음 처리 제외
-		// - script/monologue 계열은 대화 중이므로 로그 읽음 처리 제외
+		// - script 계열은 대화 중이므로 로그 읽음 처리 제외
 		bool markLogsAsRead = action != "toggle"
-			&& action != "script"
-			&& !action.StartsWith("monologue");
+			&& action != "script";
 		_textUISystem?.OnContentChange(markLogsAsRead);
 
 #if DEBUG_LOG
@@ -132,18 +145,6 @@ public class MetaActionHandler
 				break;
 			case "stand_up":
 				HandleStandUpAction();
-				break;
-			case "monologue_next":
-				HandleMonologueNextAction();
-				break;
-			case "monologue_done":
-				HandleMonologueDoneAction(parts);
-				break;
-			case "monologue_yes":
-				HandleMonologueYesAction();
-				break;
-			case "monologue_no":
-				HandleMonologueNoAction();
 				break;
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
@@ -220,14 +221,9 @@ public class MetaActionHandler
 			// Yes 클릭 시 실행할 작업 저장
 			_pendingAction = () => _playerSystem?.RequestCommand($"이동:{regionId}:{localId}");
 
-			var pages = new List<string> { message };
-			_textUISystem?.ShowMonologue(
-				pages,
-				timeConsumed: 0,
-				MonologueButtonType.YesNo,
-				doneCallback: null,  // pendingAction으로 처리
-				cancelCallback: null
-			);
+			// Dialog 형식으로 YesNo 표시
+			var dialogText = $"{message}\n\n[url=@ret:yes]예[/url]  [url=@ret:no]아니오[/url]";
+			_textUISystem?.PushDialog(dialogText, 0);
 			return;
 		}
 
@@ -706,6 +702,107 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
+	/// @ret:값 처리 - 다이얼로그 종료, yield에 값 반환
+	/// pendingGenerator가 있으면 generator 재개, 없으면 pendingAction 처리 (yes/no)
+	/// </summary>
+	private void HandleRetAction(string value)
+	{
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] @ret: action with value: {value}");
+#endif
+
+		// 다이얼로그가 열려있는지 확인
+		if (_textUISystem?.CurrentFocus?.Type != FocusType.Dialog)
+		{
+			GD.PrintErr("[MetaActionHandler] @ret: called but no dialog is open - this is a bug!");
+			return;
+		}
+
+		// Case 1: pendingGenerator가 있으면 generator 재개
+		if (_pendingGenerator != null)
+		{
+			var generator = _pendingGenerator;
+			_pendingGenerator = null;
+
+			// 다이얼로그 Pop
+			_textUISystem?.Pop();
+
+			// generator에 값 전달하고 계속 실행
+			var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+			if (scriptSystem != null)
+			{
+				var nextResult = scriptSystem.ResumeGenerator(generator, value);
+				ProcessScriptResult(nextResult, scriptSystem);
+			}
+
+			// generator가 완료되면 상황 업데이트
+			if (_pendingGenerator == null)
+			{
+				RequestUpdateSituation();
+			}
+			return;
+		}
+
+		// Case 2: pendingAction이 있으면 yes/no 처리 (이동 확인 등)
+		if (_pendingAction != null)
+		{
+			var action = _pendingAction;
+			_pendingAction = null;
+
+			// 다이얼로그 Pop
+			_textUISystem?.Pop();
+
+			// yes면 액션 실행, no면 취소
+			if (value == "yes")
+			{
+				action.Invoke();
+			}
+
+			RequestUpdateSituation();
+			return;
+		}
+
+		// Case 3: 둘 다 없으면 단순 다이얼로그 종료
+		_textUISystem?.Pop();
+		RequestUpdateSituation();
+	}
+
+	/// <summary>
+	/// @proc:값 처리 - generator에 값 전달, 다이얼로그 유지
+	/// </summary>
+	private void HandleProcAction(string value)
+	{
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] @proc: action with value: {value}");
+#endif
+
+		// pendingGenerator가 없으면 에러
+		if (_pendingGenerator == null)
+		{
+			GD.PrintErr("[MetaActionHandler] @proc: called without pending generator - this is a bug!");
+			return;
+		}
+
+		// 다이얼로그가 열려있는지 확인
+		if (_textUISystem?.CurrentFocus?.Type != FocusType.Dialog)
+		{
+			GD.PrintErr("[MetaActionHandler] @proc: called but no dialog is open - this is a bug!");
+			return;
+		}
+
+		var generator = _pendingGenerator;
+		_pendingGenerator = null;  // 일시적으로 null (ResumeGenerator에서 다시 설정됨)
+
+		// generator에 값 전달하고 계속 실행 (Pop 안함 - 다이얼로그 유지)
+		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem != null)
+		{
+			var nextResult = scriptSystem.ResumeGenerator(generator, value);
+			ProcessScriptResult(nextResult, scriptSystem);
+		}
+	}
+
+	/// <summary>
 	/// Python 스크립트 함수 호출: script:functionName:arg1:arg2:...
 	/// 현재 Focus의 UnitId를 context로 자동 전달
 	/// </summary>
@@ -760,48 +857,78 @@ public class MetaActionHandler
 
 		switch (result.Type)
 		{
-			case "generator_messagebox":
-				// 제너레이터가 MessageBox를 yield한 경우
-				if (result is SE.GeneratorScriptResult genResult)
+			case "generator_dialog":
+				// 제너레이터가 Dialog를 yield한 경우 (새 통합 API)
+				if (result is SE.GeneratorScriptResult dialogResult)
 				{
-					var msgBox = genResult.MessageBoxRequest;
-					_pendingGenerator = genResult.Generator;
+					_pendingGenerator = dialogResult.Generator;
 
-					// MessageBox 표시 (모놀로그 UI 재활용)
-					var pages = new List<string> { msgBox.Text };
-					var buttonType = msgBox.ToMonologueButtonType();
-
-					// Caption을 제목으로 표시 (선택적)
-					if (!string.IsNullOrEmpty(msgBox.Caption))
+					// Win32 DialogBox 스타일: Push → Update → Pop
+					// 현재 다이얼로그가 열려있으면 텍스트만 갱신, 없으면 새로 Push
+					if (_textUISystem?.CurrentFocus?.Type == FocusType.Dialog)
 					{
-						pages.Insert(0, $"[b]{msgBox.Caption}[/b]");
-					}
-
-					_textUISystem?.ShowMonologue(pages, 0, buttonType, doneCallback: null, cancelCallback: null);
+						_textUISystem.UpdateDialogText(dialogResult.DialogText);
 #if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] MessageBox: {msgBox.Caption} - {msgBox.Text} ({msgBox.Type})");
+						GD.Print($"[MetaActionHandler] Dialog update: {dialogResult.DialogText.Substring(0, System.Math.Min(50, dialogResult.DialogText.Length))}...");
 #endif
+					}
+					else
+					{
+						_textUISystem?.PushDialog(dialogResult.DialogText);
+#if DEBUG_LOG
+						GD.Print($"[MetaActionHandler] Dialog push: {dialogResult.DialogText.Substring(0, System.Math.Min(50, dialogResult.DialogText.Length))}...");
+#endif
+					}
 				}
 				break;
 
 			case "monologue":
+				// 레거시 monologue 타입 → Dialog로 변환
 				if (result is SE.MonologueScriptResult monoResult)
 				{
-					// 모놀로그 표시 (스택에 Push - 거절 시 이전 화면으로 돌아갈 수 있도록)
-					_textUISystem?.ShowMonologue(monoResult.Pages, monoResult.TimeConsumed, monoResult.ButtonType, monoResult.DoneCallback, monoResult.CancelCallback);
-#if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] Script result: monologue ({monoResult.Pages.Count} pages, button={monoResult.ButtonType}, done={monoResult.DoneCallback}, cancel={monoResult.CancelCallback})");
-#endif
-				}
-				break;
+					// 페이지들을 하나의 Dialog 텍스트로 결합 (첫 페이지만 표시, 나머지는 큐)
+					for (int i = 0; i < monoResult.Pages.Count; i++)
+					{
+						var page = monoResult.Pages[i];
+						var isLast = i == monoResult.Pages.Count - 1;
+						var timeForPage = isLast ? monoResult.TimeConsumed : 0;
 
-			case "update":
-				// 현재 모놀로그 내용만 교체 (Push 없이 in-place 갱신)
-				if (result is SE.MonologueScriptResult updateResult)
-				{
-					_textUISystem?.UpdateMonologueContent(updateResult.Pages, updateResult.ButtonType);
+						// 마지막 페이지가 아니면 [다음] 버튼, 마지막이면 버튼 타입에 따라
+						string dialogText;
+						if (!isLast)
+						{
+							dialogText = page + "\n\n[url=@ret:next]다음[/url]";
+						}
+						else
+						{
+							// 마지막 페이지 - button_type에 따른 버튼
+							// none_on_last인 경우 버튼 없음 (script URL 사용)
+							if (monoResult.ButtonType == "none_on_last" || monoResult.ButtonType == "none")
+							{
+								dialogText = page;
+							}
+							else if (monoResult.ButtonType == "yesno")
+							{
+								dialogText = page + "\n\n[url=@ret:yes]예[/url]  [url=@ret:no]아니오[/url]";
+							}
+							else
+							{
+								dialogText = page + "\n\n[url=@ret:ok]확인[/url]";
+							}
+						}
+
+						if (i == 0)
+						{
+							_textUISystem?.PushDialog(dialogText, timeForPage);
+						}
+						else
+						{
+							// 큐에 추가 (PushDialog가 내부적으로 처리)
+							_textUISystem?.PushDialog(dialogText, timeForPage);
+						}
+					}
 #if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] Script result: update ({updateResult.Pages.Count} pages, button={updateResult.ButtonType})");
+					GD.Print($"[MetaActionHandler] Script result: monologue → dialog ({monoResult.Pages.Count} pages queued)");
 #endif
 				}
 				break;
@@ -824,132 +951,6 @@ public class MetaActionHandler
 					_textUISystem?.ShowResult(result.Message);
 				}
 				break;
-		}
-	}
-
-	/// <summary>
-	/// 모놀로그 다음 페이지: monologue_next
-	/// </summary>
-	private void HandleMonologueNextAction()
-	{
-#if DEBUG_LOG
-		GD.Print("[MetaActionHandler] Monologue next page");
-#endif
-		_textUISystem?.MonologueNextPage();
-	}
-
-	/// <summary>
-	/// 모놀로그 완료: monologue_done
-	/// Ok 타입의 [확인] 버튼 클릭 시 호출
-	/// DoneCallback이 있으면 실행, 없으면 단순 Pop
-	/// </summary>
-	private void HandleMonologueDoneAction(string[] parts)
-	{
-#if DEBUG_LOG
-		GD.Print("[MetaActionHandler] Monologue done");
-#endif
-
-		var currentFocus = _textUISystem?.CurrentFocus;
-		var timeConsumed = _textUISystem?.MonologueDone() ?? 0;
-
-		if (timeConsumed > 0)
-		{
-			_playerSystem?.RequestTimeAdvance(timeConsumed, "모놀로그");
-		}
-
-		// DoneCallback이 있으면 실행
-		if (currentFocus?.DoneCallback != null)
-		{
-			var callbackParts = currentFocus.DoneCallback.Split(':');
-			var scriptParts = new string[callbackParts.Length + 1];
-			scriptParts[0] = "script";
-			callbackParts.CopyTo(scriptParts, 1);
-			HandleScriptAction(scriptParts);
-			return;
-		}
-
-		// 콜백이 없으면 상황 업데이트
-		RequestUpdateSituation();
-	}
-
-	/// <summary>
-	/// 모놀로그 승낙: monologue_yes
-	/// YesNo 타입의 [승낙] 버튼 클릭 시 호출
-	/// pendingAction 실행 또는 DoneCallback 스크립트 호출
-	/// </summary>
-	private void HandleMonologueYesAction()
-	{
-#if DEBUG_LOG
-		GD.Print("[MetaActionHandler] Monologue yes");
-#endif
-
-		var currentFocus = _textUISystem?.CurrentFocus;
-		_textUISystem?.Pop();
-
-		// 1. pendingGenerator가 있으면 "YES" 또는 "OK" 결과 전달
-		if (_pendingGenerator != null)
-		{
-			var generator = _pendingGenerator;
-			_pendingGenerator = null;
-			ResumeGeneratorWithResult(generator, "YES");
-			return;
-		}
-
-		// 2. pendingAction이 있으면 실행 (이동 확인 등)
-		if (_pendingAction != null)
-		{
-			var action = _pendingAction;
-			_pendingAction = null;
-			action.Invoke();
-			return;
-		}
-
-		// 3. DoneCallback이 있으면 액션으로 처리
-		if (currentFocus?.DoneCallback != null)
-		{
-			HandleAction(currentFocus.DoneCallback);
-			return;
-		}
-
-		// 4. 모두 없으면 상황 업데이트
-		RequestUpdateSituation();
-	}
-
-	/// <summary>
-	/// 모놀로그 거절: monologue_no
-	/// YesNo 타입의 [거절] 버튼 클릭 시 호출
-	/// pendingAction 취소 또는 CancelCallback 스크립트 호출
-	/// </summary>
-	private void HandleMonologueNoAction()
-	{
-#if DEBUG_LOG
-		GD.Print("[MetaActionHandler] Monologue no");
-#endif
-
-		var currentFocus = _textUISystem?.CurrentFocus;
-		_textUISystem?.Pop();
-
-		// 1. pendingGenerator가 있으면 "NO" 또는 "CANCEL" 결과 전달
-		if (_pendingGenerator != null)
-		{
-			var generator = _pendingGenerator;
-			_pendingGenerator = null;
-			ResumeGeneratorWithResult(generator, "NO");
-			return;
-		}
-
-		// 2. pendingAction 취소
-		_pendingAction = null;
-
-		// 3. CancelCallback이 있으면 스크립트 호출
-		if (currentFocus?.CancelCallback != null)
-		{
-			// 콜백 파싱: "함수명:인자1:인자2" 형식 → "script:함수명:인자1:인자2" 형식으로 변환
-			var callbackParts = currentFocus.CancelCallback.Split(':');
-			var parts = new string[callbackParts.Length + 1];
-			parts[0] = "script";
-			callbackParts.CopyTo(parts, 1);
-			HandleScriptAction(parts);
 		}
 	}
 

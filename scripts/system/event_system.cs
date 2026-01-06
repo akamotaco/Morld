@@ -273,19 +273,45 @@ namespace SE
 							ApplyNpcJobs(monoResult.NpcJobs);
 						}
 
-						// 모놀로그 아래에 Situation이 있어야 Pop 후 정상 동작
+						// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
 						// 스택이 비어있으면 먼저 Situation Push
 						if (_textUISystem != null && _textUISystem.IsStackEmpty())
 						{
 							_textUISystem.ShowSituation();
 						}
 
-						_textUISystem?.ShowMonologue(
-							monoResult.Pages,
-							monoResult.TimeConsumed,
-							monoResult.ButtonType,
-							monoResult.DoneCallback,
-							monoResult.CancelCallback);
+						// 레거시 monologue → Dialog 변환
+						// 각 페이지를 Dialog로 큐잉
+						for (int i = 0; i < monoResult.Pages.Count; i++)
+						{
+							var page = monoResult.Pages[i];
+							var isLast = i == monoResult.Pages.Count - 1;
+							var timeForPage = isLast ? monoResult.TimeConsumed : 0;
+
+							string dialogText;
+							if (!isLast)
+							{
+								dialogText = page + "\n\n[url=@ret:next]다음[/url]";
+							}
+							else
+							{
+								// 마지막 페이지 - button_type에 따른 버튼
+								if (monoResult.ButtonType == "none_on_last" || monoResult.ButtonType == "none")
+								{
+									dialogText = page;
+								}
+								else if (monoResult.ButtonType == "yesno")
+								{
+									dialogText = page + "\n\n[url=@ret:yes]예[/url]  [url=@ret:no]아니오[/url]";
+								}
+								else
+								{
+									dialogText = page + "\n\n[url=@ret:ok]확인[/url]";
+								}
+							}
+
+							_textUISystem?.PushDialog(dialogText, timeForPage);
+						}
 						return true;
 					}
 					break;

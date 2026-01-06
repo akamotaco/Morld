@@ -44,21 +44,21 @@ class PrologueStart(GameStartEvent):
 
 
 @registry.register
-class MessageBoxDemo(GameStartEvent):
-    """MessageBox API 시범 - 게임 시작 전 알림"""
+class DialogDemo(GameStartEvent):
+    """Dialog API 시범 - 게임 시작 전 알림"""
     once = True
     priority = 100  # PrologueStart보다 먼저 실행
 
     def handle(self, **ctx):
         # 일반 모놀로그 반환 (제너레이터가 아님)
-        # MessageBox 시범은 별도 스크립트 함수로 테스트
+        # Dialog 시범은 별도 스크립트 함수로 테스트
         return {
             "type": "monologue",
             "pages": [
-                "[b]Morld - MessageBox API 시범[/b]",
-                "이 게임에는 새로운 MessageBox API가 구현되었습니다.",
-                "Python에서 yield morld.messagebox()를 사용하여\n다이얼로그 결과를 받을 수 있습니다.",
-                "[url=script:intro_with_messagebox]MessageBox 테스트하기[/url]\n\n또는 [확인]을 눌러 게임을 시작하세요."
+                "[b]Morld - Dialog API 시범[/b]",
+                "이 게임에는 새로운 morld.dialog() API가 구현되었습니다.",
+                "Python에서 yield morld.dialog()를 사용하여\nBBCode 기반 다이얼로그를 표시할 수 있습니다.",
+                "[url=script:intro_with_dialog]Dialog 테스트하기[/url]\n\n또는 [확인]을 눌러 게임을 시작하세요."
             ],
             "time_consumed": 0,
             "button_type": "ok"
@@ -66,33 +66,68 @@ class MessageBoxDemo(GameStartEvent):
 
 
 # ========================================
-# MessageBox API 시범 - 게임 시작 전 알림
+# Dialog API 시범 - morld.dialog() 테스트
 # ========================================
 @morld.register_script
-def intro_with_messagebox(context_unit_id):
+def intro_with_dialog(context_unit_id):
     """
-    MessageBox API 시범 함수
+    Dialog API 시범 함수
 
-    사용법: script:intro_with_messagebox
+    사용법: script:intro_with_dialog
 
-    yield를 사용하여 다이얼로그 결과를 받음
+    yield morld.dialog()를 사용하여 BBCode 기반 다이얼로그 표시
+    @ret:값 - 다이얼로그 종료, yield에 값 반환
+    @proc:값 - generator에 값 전달, 다이얼로그 유지
     """
-    # MessageBox 표시 (YESNO 타입)
-    result = yield morld.messagebox(
-        "Morld",
-        "MessageBox API 시범입니다.\n\n게임을 시작하시겠습니까?",
-        "YESNO"
+    # 1. 단순 Yes/No 다이얼로그
+    result = yield morld.dialog(
+        "[b]Morld - Dialog API 시범[/b]\n\n"
+        "게임을 시작하시겠습니까?\n\n"
+        "[url=@ret:yes]예[/url]  [url=@ret:no]아니오[/url]"
     )
 
-    if result == "YES":
-        morld.add_action_log("[시스템] 게임을 시작합니다.")
-        return {
-            "type": "message",
-            "message": "게임이 시작되었습니다!"
-        }
+    if result == "yes":
+        # 2. 스탯 배분 다이얼로그 (@proc: 사용)
+        state = {"str": 5, "agi": 5, "points": 10}
+
+        while True:
+            result = yield morld.dialog(
+                f"[b]스탯 배분[/b]\n\n"
+                f"힘: {state['str']}  [url=@proc:str+]+[/url] [url=@proc:str-]−[/url]\n"
+                f"민첩: {state['agi']}  [url=@proc:agi+]+[/url] [url=@proc:agi-]−[/url]\n\n"
+                f"남은 포인트: {state['points']}\n\n"
+                f"[url=@ret:confirm]확인[/url]  [url=@ret:cancel]취소[/url]"
+            )
+
+            if result == "confirm":
+                morld.add_action_log(f"[시스템] 스탯 배분 완료: 힘={state['str']}, 민첩={state['agi']}")
+                return {
+                    "type": "message",
+                    "message": f"스탯이 설정되었습니다!\n힘: {state['str']}, 민첩: {state['agi']}"
+                }
+            elif result == "cancel":
+                morld.add_action_log("[시스템] 스탯 배분이 취소되었습니다.")
+                return {
+                    "type": "message",
+                    "message": "스탯 배분이 취소되었습니다."
+                }
+            elif result == "str+" and state["points"] > 0:
+                state["str"] += 1
+                state["points"] -= 1
+            elif result == "str-" and state["str"] > 1:
+                state["str"] -= 1
+                state["points"] += 1
+            elif result == "agi+" and state["points"] > 0:
+                state["agi"] += 1
+                state["points"] -= 1
+            elif result == "agi-" and state["agi"] > 1:
+                state["agi"] -= 1
+                state["points"] += 1
     else:
         morld.add_action_log("[시스템] 게임 시작이 취소되었습니다.")
         return {
             "type": "message",
             "message": "게임 시작이 취소되었습니다."
         }
+
+

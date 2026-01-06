@@ -413,6 +413,50 @@ morld.advance_time(minutes)
 - `scripts/system/script_system.cs`
 - `util/sharpPy/` (Python 인터프리터)
 
+### Dialog 시스템
+**역할:** Python 제너레이터 기반 대화형 UI
+
+**morld.dialog() API:**
+```python
+# 기본 사용법 - yield로 사용자 입력 대기
+result = yield morld.dialog("텍스트\n\n[url=@ret:yes]예[/url] [url=@ret:no]아니오[/url]")
+# result = "yes" 또는 "no"
+```
+
+**URL 패턴:**
+| 패턴 | 동작 | 설명 |
+|------|------|------|
+| `@ret:값` | 다이얼로그 종료, yield에 값 반환 | 최종 선택 |
+| `@proc:값` | generator에 값 전달, 다이얼로그 유지 | 상태 변경 (스탯 배분 등) |
+
+**예시 - 상호작용 다이얼로그:**
+```python
+@morld.register_script
+def stat_allocation(context_unit_id):
+    state = {"str": 5, "agi": 5, "points": 10}
+
+    while True:
+        result = yield morld.dialog(
+            f"힘: {state['str']} [url=@proc:str+]+[/url]\n"
+            f"민첩: {state['agi']} [url=@proc:agi+]+[/url]\n\n"
+            f"[url=@ret:confirm]확인[/url]"
+        )
+
+        if result == "confirm":
+            break
+        elif result == "str+" and state["points"] > 0:
+            state["str"] += 1
+            state["points"] -= 1
+        # ... 등
+```
+
+**레거시 호환:**
+`{"type": "monologue", "pages": [...], "button_type": "ok"}` 형식도 지원 (C#에서 Dialog로 자동 변환)
+
+**파일 위치:**
+- `scripts/morld/ui/Dialog.cs` - PyDialogRequest 클래스
+- `scripts/morld/ui/Focus.cs` - FocusType.Dialog
+
 ---
 
 ## 프로젝트 구조
