@@ -88,7 +88,7 @@ namespace SE
 		public string GetLocationDescribeText(Location? location, GameTime? time, Region? region = null)
 		{
 			if (location == null) return "";
-			return SelectDescribeText(location.DescribeText, time, location.IsIndoor, region?.CurrentWeather);
+			return SelectDescribeText(location.DescribeText, time, location.IsIndoor, region.CurrentWeather);
 		}
 
 		/// <summary>
@@ -110,7 +110,7 @@ namespace SE
 
 			// Mood와 현재 Activity를 합쳐서 태그 생성
 			var tags = new HashSet<string>(unit.Mood);
-			var activity = unit.CurrentSchedule?.Activity;
+			var activity = unit.CurrentSchedule.Activity;
 			if (!string.IsNullOrEmpty(activity))
 			{
 				tags.Add(activity);
@@ -127,9 +127,9 @@ namespace SE
 			var result = new List<string>();
 
 			// 플레이어 제외한 캐릭터 ID 목록
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
-			var scriptSystem = _hub.FindSystem("scriptSystem") as ScriptSystem;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
 
 			if (unitSystem == null || playerSystem == null || scriptSystem == null)
 				return result;
@@ -140,7 +140,7 @@ namespace SE
 			foreach (var unitId in lookResult.UnitIds)
 			{
 				if (unitId == playerId) continue;
-				var unit = unitSystem.GetUnit(unitId);
+				var unit = unitSystem.FindUnit(unitId);
 				if (unit != null && !unit.IsObject)
 				{
 					characterIds.Add(unitId);
@@ -159,11 +159,11 @@ namespace SE
 		/// </summary>
 		private Location? GetLocationFromLookResult(LookResult lookResult)
 		{
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
 			if (worldSystem == null) return null;
 
 			var locRef = lookResult.Location.LocationRef;
-			return worldSystem.GetTerrain()?.GetLocation(locRef.RegionId, locRef.LocalId);
+			return worldSystem.GetTerrain().GetLocation(locRef.RegionId, locRef.LocalId);
 		}
 
 		/// <summary>
@@ -317,7 +317,7 @@ namespace SE
 			// 4. 주변 유닛 (캐릭터와 오브젝트 통합)
 			if (lookResult.UnitIds.Count > 0)
 			{
-				var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 				if (unitSystem != null)
 				{
 					// 캐릭터와 오브젝트 분리
@@ -326,7 +326,7 @@ namespace SE
 
 					foreach (var id in lookResult.UnitIds)
 					{
-						var unit = unitSystem.GetUnit(id);
+						var unit = unitSystem.FindUnit(id);
 						if (unit != null)
 						{
 							if (unit.IsObject)
@@ -350,7 +350,7 @@ namespace SE
 					// 오브젝트 표시
 					if (objects.Count > 0)
 					{
-						var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
+						var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 						lines.Add("[color=orange]오브젝트:[/color]");
 						foreach (var obj in objects)
 						{
@@ -407,9 +407,9 @@ namespace SE
 		{
 			var items = new List<string>();
 
-			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
-			var player = playerSystem?.GetPlayerUnit();
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
+			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+			var player = playerSystem.GetPlayerUnit();
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 
 			// 1. 이동 가능 경로
 			if (lookResult.Routes.Count > 0)
@@ -440,8 +440,8 @@ namespace SE
 					var colonIdx = propName.IndexOf(':');
 					if (colonIdx >= 0 && int.TryParse(propName.Substring(colonIdx + 1), out int objectId))
 					{
-						var seatObject = unitSystem?.GetUnit(objectId);
-						var seatName = seatObject?.Name ?? "오브젝트";
+						var seatObject = unitSystem.FindUnit(objectId);
+						var seatName = seatObject.Name ?? "오브젝트";
 
 						items.Add("");
 						items.Add($"[color=lime][앉음: {seatName}][/color]");
@@ -504,7 +504,7 @@ namespace SE
 			{
 				if (unitLook.Inventory.Count > 0)
 				{
-					var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
+					var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
 					if (itemSystem != null)
 					{
 						lines.Add("[color=lime]보관된 아이템:[/color]");
@@ -595,10 +595,10 @@ namespace SE
 			lines.Add("[b]소지품[/b]");
 			lines.Add("");
 
-			var playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
-			var player = playerSystem?.GetPlayerUnit();
+			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+			var player = playerSystem.GetPlayerUnit();
 
 			if (player == null || itemSystem == null || inventorySystem == null)
 			{
@@ -663,8 +663,8 @@ namespace SE
 		public string GetItemMenuText(string context, int itemId, int count, int? unitId = null, Focus? parentContainer = null)
 		{
 			var lines = new List<string>();
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var item = itemSystem?.GetItem(itemId);
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var item = itemSystem.GetItem(itemId);
 
 			if (item == null)
 			{
@@ -682,8 +682,8 @@ namespace SE
 			// container 컨텍스트일 경우 유닛 이름 표시
 			if (context == "container" && unitId.HasValue)
 			{
-				var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-				var unit = unitSystem?.GetUnit(unitId.Value);
+				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+				var unit = unitSystem.FindUnit(unitId.Value);
 				if (unit != null)
 				{
 					lines.Add($"[color=gray]{unit.Name}에서[/color]");
@@ -707,8 +707,8 @@ namespace SE
 			if (context == "inventory" && parentContainer != null &&
 				parentContainer.Type == FocusType.Unit && parentContainer.UnitId.HasValue)
 			{
-				var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-				var targetUnit = unitSystem?.GetUnit(parentContainer.UnitId.Value);
+				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+				var targetUnit = unitSystem.FindUnit(parentContainer.UnitId.Value);
 				if (targetUnit != null)
 				{
 					var putLabel = $"넣기: {targetUnit.Name}";

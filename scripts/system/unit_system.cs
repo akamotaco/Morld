@@ -43,7 +43,7 @@ namespace SE
 		/// <summary>
 		/// 유닛 찾기
 		/// </summary>
-		public Unit? GetUnit(int id)
+		public Unit? FindUnit(int id)
 		{
 			return _units.TryGetValue(id, out var unit) ? unit : null;
 		}
@@ -226,7 +226,7 @@ namespace SE
 		/// </summary>
 		private static UnitType ParseUnitType(string type)
 		{
-			return type?.ToLower() switch
+			return type.ToLower() switch
 			{
 				"male" => UnitType.Male,
 				"female" => UnitType.Female,

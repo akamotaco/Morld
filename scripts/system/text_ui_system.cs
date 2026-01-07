@@ -143,7 +143,7 @@ namespace SE
 		{
 			// 1. 로그 읽음 처리 (Situation, Unit 화면에서만, markLogsAsRead=true일 때)
 			if (markLogsAsRead &&
-				(_stack.Current?.Type == FocusType.Situation || _stack.Current?.Type == FocusType.Unit))
+				(_stack.Current.Type == FocusType.Situation || _stack.Current.Type == FocusType.Unit))
 			{
 				MarkPrintedLogsAsRead();
 			}
@@ -261,7 +261,7 @@ namespace SE
 		{
 			if (_playerSystem == null) return "";
 			var lookResult = _playerSystem.Look();
-			var time = (_hub?.FindSystem("worldSystem") as WorldSystem)?.GetTime();
+			var time = (_hub.GetSystem("worldSystem") as WorldSystem).GetTime();
 
 			// 1. 묘사 텍스트 (행동 옵션 제외)
 			var describeText = _describeSystem.GetDescribeText(lookResult, time, GetPrintableLogs());
@@ -412,7 +412,7 @@ namespace SE
 		public void PushDialog(string text, int timeConsumed = 0)
 		{
 			// 이미 다이얼로그가 열려있으면 큐에 추가
-			if (_stack.Current?.Type == FocusType.Dialog)
+			if (_stack.Current.Type == FocusType.Dialog)
 			{
 				_dialogQueue.Enqueue(new DialogQueueItem(text, timeConsumed));
 #if DEBUG_LOG
@@ -431,7 +431,7 @@ namespace SE
 		/// </summary>
 		public void UpdateDialogText(string text)
 		{
-			if (_stack.Current?.Type != FocusType.Dialog)
+			if (_stack.Current.Type != FocusType.Dialog)
 			{
 				Godot.GD.PrintErr("[TextUISystem] UpdateDialogText called but no dialog is open - this is a bug!");
 				return;
@@ -451,7 +451,7 @@ namespace SE
 			int timeConsumed = 0;
 
 			// Focus에 저장된 시간 사용
-			if (_stack.Current?.Type == FocusType.Dialog)
+			if (_stack.Current.Type == FocusType.Dialog)
 			{
 				timeConsumed = _stack.Current.TimeConsumed;
 			}

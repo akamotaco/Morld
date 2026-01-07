@@ -58,7 +58,7 @@ namespace SE
 				"drop" => ExecuteDrop(user, item),
 				"use" => ExecuteUse(user, item),
 				"combine" => ExecuteCombine(user, item),
-				"give" => ExecuteGive(user, item, targets?.FirstOrDefault()),
+				"give" => ExecuteGive(user, item, targets.FirstOrDefault()),
 
 				_ => ActionResult.Fail($"Unknown item action: {action}")
 			};
@@ -182,9 +182,9 @@ namespace SE
 			if (seatedOnValue <= 0) return false;
 
 			// 앉아있는 오브젝트가 driver_seat인지 확인
-			if (_hub?.FindSystem("unitSystem") is not UnitSystem unitSystem) return false;
+			if (_hub.GetSystem("unitSystem") is not UnitSystem unitSystem) return false;
 
-			var seat = unitSystem.GetUnit(seatedOnValue);
+			var seat = unitSystem.FindUnit(seatedOnValue);
 			if (seat == null) return false;
 
 			// driver_seat prop 확인
@@ -199,7 +199,7 @@ namespace SE
 		{
 			var destinations = new List<(int, int, string, int)>();
 
-			if (_hub?.FindSystem("worldSystem") is not WorldSystem worldSystem) return destinations;
+			if (_hub.GetSystem("worldSystem") is not WorldSystem worldSystem) return destinations;
 
 			var terrain = worldSystem.GetTerrain();
 			var currentLoc = unit.CurrentLocation;
@@ -250,14 +250,14 @@ namespace SE
 		/// </summary>
 		private ActionResult ExecuteDrive(Unit driver, int destRegionId, int destLocationId, int travelTime)
 		{
-			if (_hub?.FindSystem("worldSystem") is not WorldSystem worldSystem)
+			if (_hub.GetSystem("worldSystem") is not WorldSystem worldSystem)
 				return ActionResult.Fail("WorldSystem을 찾을 수 없습니다.");
 
 			// 목적지 이름 가져오기
 			var terrain = worldSystem.GetTerrain();
 			var destRegion = terrain.GetRegion(destRegionId);
-			var destLocation = destRegion?.GetLocation(destLocationId);
-			var destName = destLocation?.Name ?? $"Location {destLocationId}";
+			var destLocation = destRegion.GetLocation(destLocationId);
+			var destName = destLocation.Name ?? $"Location {destLocationId}";
 
 			// 현재 위치 (차량 Location)
 			var currentLoc = driver.CurrentLocation;

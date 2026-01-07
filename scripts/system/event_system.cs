@@ -20,11 +20,7 @@ namespace SE
 		// 이번 Step에서 발생한 이벤트 큐
 		private readonly List<GameEvent> _pendingEvents = new();
 
-		// 시스템 참조
-		private ScriptSystem? _scriptSystem;
-		private TextUISystem? _textUISystem;
-		private UnitSystem? _unitSystem;
-		private PlayerSystem? _playerSystem;
+		private MetaActionHandler? _metaActionHandler;
 
 		// 이전 상태 추적 (OnReach 감지용)
 		private readonly Dictionary<int, LocationRef> _lastLocations = new();
@@ -40,23 +36,24 @@ namespace SE
 		// 초기화 완료 여부 (첫 Step에서 위치 초기화용)
 		private bool _initialized = false;
 
+		// 다이얼로그 시간 경과 (set_npc_time_consume에서 누적)
+		private int _dialogTimeConsumed = 0;
+
+		// ExcessTime: 다이얼로그가 NextStepDuration을 초과한 시간
+		// PlayerSystem에서 ConsumeExcessTime()으로 가져가서 적용
+		private int _excessTime = 0;
+
 		public EventSystem()
 		{
 		}
 
 		/// <summary>
-		/// 시스템 참조 설정
+		/// MetaActionHandler 참조 설정 (Generator 처리용)
+		/// GameEngine._Ready에서 MetaActionHandler 생성 후 호출
 		/// </summary>
-		public void SetSystemReferences(
-			ScriptSystem? scriptSystem,
-			TextUISystem? textUISystem,
-			UnitSystem? unitSystem,
-			PlayerSystem? playerSystem)
+		public void SetMetaActionHandler(MetaActionHandler metaActionHandler)
 		{
-			_scriptSystem = scriptSystem;
-			_textUISystem = textUISystem;
-			_unitSystem = unitSystem;
-			_playerSystem = playerSystem;
+			_metaActionHandler = metaActionHandler;
 		}
 
 		/// <summary>
@@ -76,8 +73,7 @@ namespace SE
 		/// </summary>
 		public void InitializeLocations()
 		{
-			if (_unitSystem == null) return;
-
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 			_lastLocations.Clear();
 			foreach (var unit in _unitSystem.Units.Values)
 			{
@@ -94,14 +90,91 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 다이얼로그 시간 경과 추가 (set_npc_time_consume에서 호출)
+		/// </summary>
+		/// <param name="duration">경과할 시간 (분)</param>
+		public void AddDialogTimeConsumed(int duration)
+		{
+			_dialogTimeConsumed += duration;
+#if DEBUG_LOG
+			GD.Print($"[EventSystem] AddDialogTimeConsumed: +{duration} (total: {_dialogTimeConsumed})");
+#endif
+		}
+
+		/// <summary>
+		/// 누적된 다이얼로그 시간 경과 반환 및 리셋
+		/// </summary>
+		/// <returns>누적된 시간 (분)</returns>
+		public int ConsumeDialogTime()
+		{
+			var consumed = _dialogTimeConsumed;
+			_dialogTimeConsumed = 0;
+#if DEBUG_LOG
+			if (consumed > 0)
+				GD.Print($"[EventSystem] ConsumeDialogTime: {consumed}");
+#endif
+			return consumed;
+		}
+
+		/// <summary>
+		/// 현재 누적된 다이얼로그 시간 조회 (리셋 없음)
+		/// </summary>
+		public int DialogTimeConsumed => _dialogTimeConsumed;
+
+		/// <summary>
+		/// ExcessTime 계산 (Proc 끝에서 호출)
+		/// lastDialogTime이 NextStepDuration을 초과하면 초과분 저장
+		/// </summary>
+		/// <param name="lastDialogTime">마지막 다이얼로그 종료 시점 (상대 시간)</param>
+		public void CalculateExcessTime(int lastDialogTime)
+		{
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+
+			var nextStepDuration = _playerSystem.NextStepDuration;
+			_excessTime = Math.Max(0, lastDialogTime - nextStepDuration);
+
+#if DEBUG_LOG
+			if (_excessTime > 0)
+				GD.Print($"[EventSystem] ExcessTime 계산: {lastDialogTime} - {nextStepDuration} = {_excessTime}분");
+#endif
+		}
+
+		/// <summary>
+		/// ExcessTime 반환 및 리셋
+		/// PlayerSystem에서 호출하여 _remainingDuration에 추가
+		/// </summary>
+		/// <returns>초과 시간 (분)</returns>
+		public int ConsumeExcessTime()
+		{
+			var result = _excessTime;
+			_excessTime = 0;
+#if DEBUG_LOG
+			if (result > 0)
+				GD.Print($"[EventSystem] ConsumeExcessTime: {result}분");
+#endif
+			return result;
+		}
+
+		/// <summary>
+		/// 이벤트 처리 완료 후 호출 - ExcessTime 계산 및 DialogTimeConsumed 리셋
+		/// _dialogTimeConsumed를 lastDialogTime으로 사용하여 ExcessTime 계산
+		/// </summary>
+		public void FinalizeDialogTime()
+		{
+			// _dialogTimeConsumed가 이번 Step의 lastDialogTime 역할
+			CalculateExcessTime(_dialogTimeConsumed);
+
+			// 다음 Step을 위해 리셋
+			_dialogTimeConsumed = 0;
+		}
+
+		/// <summary>
 		/// 위치 변경 감지 및 OnReach 이벤트 생성
 		/// 플레이어 위치를 떠난 NPC는 액션 로그로 알림
 		/// 이동 시작한 NPC도 "떠났다" 알림 (화면에서 사라지므로)
 		/// </summary>
 		public void DetectLocationChanges()
 		{
-			if (_unitSystem == null) return;
-
 			// 초기화 안 됐으면 먼저 초기화
 			if (!_initialized)
 			{
@@ -109,9 +182,12 @@ namespace SE
 				return;
 			}
 
-			var playerId = _playerSystem?.PlayerId ?? -1;
-			var player = playerId >= 0 ? _unitSystem.GetUnit(playerId) : null;
-			var playerLocation = player?.CurrentLocation;
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+			var playerId = _playerSystem.PlayerId;
+			var player = playerId >= 0 ? _unitSystem.FindUnit(playerId) : null;
+			var playerLocation = player.CurrentLocation;
 
 			foreach (var unit in _unitSystem.Units.Values)
 			{
@@ -133,7 +209,7 @@ namespace SE
 						ClearMeetingsForUnit(unit.Id);
 
 						// 플레이어 위치를 떠난 NPC → 액션 로그
-						if (unit.Id != playerId && playerLocation.HasValue && lastLoc == playerLocation.Value)
+						if (unit.Id != playerId && lastLoc == playerLocation)
 						{
 							NotifyNpcDeparture(unit);
 						}
@@ -145,7 +221,7 @@ namespace SE
 						ClearMeetingsForUnit(unit.Id);
 
 						// 플레이어와 같은 위치에서 이동 시작 → "떠났다" 알림
-						if (unit.Id != playerId && playerLocation.HasValue && currentLoc == playerLocation.Value)
+						if (unit.Id != playerId && currentLoc == playerLocation)
 						{
 							NotifyNpcDeparture(unit);
 						}
@@ -168,8 +244,8 @@ namespace SE
 		/// </summary>
 		private void NotifyNpcDeparture(Unit unit)
 		{
-			var worldSystem = _hub?.FindSystem("worldSystem") as WorldSystem;
-			var terrain = worldSystem?.GetTerrain();
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var terrain = worldSystem.GetTerrain();
 
 			// 이동 중이면 Edge의 목적지, 아니면 현재 위치
 			LocationRef destination;
@@ -182,16 +258,17 @@ namespace SE
 				destination = unit.CurrentLocation;
 			}
 
-			var destLocation = terrain?.GetLocation(destination);
-			var destRegion = destLocation != null ? terrain?.GetRegion(destLocation.RegionId) : null;
+			var destLocation = terrain.GetLocation(destination);
+			var destRegion = destLocation != null ? terrain.GetRegion(destLocation.RegionId) : null;
 
-			string destName = destLocation?.Name ?? "어딘가";
+			string destName = destLocation.Name ?? "어딘가";
 			if (destRegion != null && destRegion.Name != "unknown")
 			{
-				destName = $"{destRegion.Name} {destLocation?.Name}";
+				destName = $"{destRegion.Name} {destLocation.Name}";
 			}
 
-			_textUISystem?.AddActionLog($"{unit.Name}(이)가 {destName}(으)로 이동했다.");
+			var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+			_textUISystem.AddActionLog($"{unit.Name}(이)가 {destName}(으)로 이동했다.");
 		}
 
 		/// <summary>
@@ -200,10 +277,11 @@ namespace SE
 		/// </summary>
 		public void DetectMeetings()
 		{
-			if (_unitSystem == null || _playerSystem == null) return;
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
 			var playerId = _playerSystem.PlayerId;
-			var player = _unitSystem.GetUnit(playerId);
+			var player = _unitSystem.FindUnit(playerId);
 			if (player == null) return;
 
 			var playerLocation = player.CurrentLocation;
@@ -247,8 +325,9 @@ namespace SE
 			GD.Print($"[EventSystem] Flushing {_pendingEvents.Count} events");
 #endif
 
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
 			// Python에 이벤트 리스트 전달
-			var result = _scriptSystem?.CallEventHandler(_pendingEvents);
+			var result = _scriptSystem.CallEventHandler(_pendingEvents);
 			_pendingEvents.Clear();
 
 			// 결과 처리 (모놀로그 등)
@@ -262,8 +341,32 @@ namespace SE
 		{
 			if (result == null) return false;
 
+			var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+
 			switch (result.Type)
 			{
+				case "generator_dialog":
+					// Generator가 Dialog를 yield한 경우
+					if (result is GeneratorScriptResult genResult)
+					{
+						// MetaActionHandler에 Generator 설정
+						_metaActionHandler.SetPendingGenerator(genResult.Generator);
+
+						// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
+						if (_textUISystem != null && _textUISystem.IsStackEmpty())
+						{
+							_textUISystem.ShowSituation();
+						}
+
+						// Dialog 표시
+						_textUISystem.PushDialog(genResult.DialogText);
+#if DEBUG_LOG
+						GD.Print($"[EventSystem] Generator dialog: {genResult.DialogText.Substring(0, System.Math.Min(50, genResult.DialogText.Length))}...");
+#endif
+						return true;
+					}
+					break;
+
 				case "monologue":
 					if (result is MonologueScriptResult monoResult)
 					{
@@ -310,7 +413,7 @@ namespace SE
 								}
 							}
 
-							_textUISystem?.PushDialog(dialogText, timeForPage);
+							_textUISystem.PushDialog(dialogText, timeForPage);
 						}
 						return true;
 					}
@@ -327,14 +430,15 @@ namespace SE
 		/// <param name="npcJobs">unit_id → NpcJobInfo 매핑</param>
 		private void ApplyNpcJobs(System.Collections.Generic.Dictionary<int, SE.NpcJobInfo> npcJobs)
 		{
-			if (_unitSystem == null || _playerSystem == null) return;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
 			foreach (var kvp in npcJobs)
 			{
 				var unitId = kvp.Key;
 				var jobInfo = kvp.Value;
 
-				var unit = _unitSystem.GetUnit(unitId);
+				var unit = _unitSystem.FindUnit(unitId);
 				if (unit == null || unit.IsObject) continue;
 
 				// 이동 중이었다면 중단

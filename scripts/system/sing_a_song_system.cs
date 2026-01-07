@@ -54,8 +54,8 @@ namespace SE
 		/// </summary>
 		public void RegisterToDescribeSystem()
 		{
-			var describeSystem = _hub?.FindSystem("describeSystem") as DescribeSystem;
-			describeSystem?.ActionRegistry.Register(this);
+			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
+			describeSystem.ActionRegistry.Register(this);
 
 #if DEBUG_LOG
 			GD.Print("[SingASongSystem] 노래 부르기 시스템 활성화됨");
@@ -67,8 +67,8 @@ namespace SE
 		/// </summary>
 		public override void Destroy()
 		{
-			var describeSystem = _hub?.FindSystem("describeSystem") as DescribeSystem;
-			describeSystem?.ActionRegistry.Unregister(this);
+			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
+			describeSystem.ActionRegistry.Unregister(this);
 
 #if DEBUG_LOG
 			GD.Print("[SingASongSystem] 노래 부르기 시스템 비활성화됨");

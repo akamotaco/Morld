@@ -44,6 +44,14 @@ public class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 외부에서 Generator 설정 (EventSystem에서 호출)
+	/// </summary>
+	public void SetPendingGenerator(PyGenerator generator)
+	{
+		_pendingGenerator = generator;
+	}
+
+	/// <summary>
 	/// 메타 액션 처리 진입점
 	/// </summary>
 	public void HandleAction(string metaString)
@@ -236,7 +244,7 @@ public class MetaActionHandler
 	/// </summary>
 	private string? GetMoveConfirmMessage(int travelTimeMinutes)
 	{
-		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 		if (scriptSystem == null) return null;
 
 		try
@@ -421,13 +429,13 @@ public class MetaActionHandler
 		GD.Print($"[MetaActionHandler] 유닛 행동: unitId={unitId}, type={actionType}");
 #endif
 
-		var actionSystem = _world.FindSystem("actionSystem") as ActionSystem;
-		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+		var actionSystem = _world.GetSystem("actionSystem") as ActionSystem;
+		var unitSystem = _world.GetSystem("unitSystem") as UnitSystem;
 
 		if (actionSystem != null && unitSystem != null && _playerSystem != null)
 		{
 			var player = _playerSystem.GetPlayerUnit();
-			var target = unitSystem.GetUnit(unitId);
+			var target = unitSystem.FindUnit(unitId);
 
 			if (player != null && target != null)
 			{
@@ -582,7 +590,7 @@ public class MetaActionHandler
 		GD.Print($"[MetaActionHandler] Sit action: objectId={objectId}, seatName={seatName}");
 #endif
 
-		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+		var unitSystem = _world.GetSystem("unitSystem") as UnitSystem;
 		if (unitSystem == null)
 		{
 			GD.PrintErr("[MetaActionHandler] UnitSystem not found");
@@ -596,7 +604,7 @@ public class MetaActionHandler
 			return;
 		}
 
-		var obj = unitSystem.GetUnit(objectId);
+		var obj = unitSystem.FindUnit(objectId);
 		if (obj == null)
 		{
 			_textUISystem?.ShowResult("앉을 수 없습니다: 오브젝트를 찾을 수 없습니다.");
@@ -643,7 +651,7 @@ public class MetaActionHandler
 		GD.Print("[MetaActionHandler] Stand up action");
 #endif
 
-		var unitSystem = _world.FindSystem("unitSystem") as UnitSystem;
+		var unitSystem = _world.GetSystem("unitSystem") as UnitSystem;
 		if (unitSystem == null)
 		{
 			GD.PrintErr("[MetaActionHandler] UnitSystem not found");
@@ -675,7 +683,7 @@ public class MetaActionHandler
 		}
 
 		// 3. 오브젝트의 seated_by prop 해제
-		var obj = unitSystem.GetUnit(objectId);
+		var obj = unitSystem.FindUnit(objectId);
 		if (obj != null)
 		{
 			// seated_by에서 이 플레이어를 찾아서 해제
@@ -728,7 +736,7 @@ public class MetaActionHandler
 			_textUISystem?.Pop();
 
 			// generator에 값 전달하고 계속 실행
-			var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+			var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 			if (scriptSystem != null)
 			{
 				var nextResult = scriptSystem.ResumeGenerator(generator, value);
@@ -794,7 +802,7 @@ public class MetaActionHandler
 		_pendingGenerator = null;  // 일시적으로 null (ResumeGenerator에서 다시 설정됨)
 
 		// generator에 값 전달하고 계속 실행 (Pop 안함 - 다이얼로그 유지)
-		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 		if (scriptSystem != null)
 		{
 			var nextResult = scriptSystem.ResumeGenerator(generator, value);
@@ -827,7 +835,7 @@ public class MetaActionHandler
 		GD.Print($"[MetaActionHandler] Script call: {functionName}({string.Join(", ", args)}) [context unitId={contextUnitId?.ToString() ?? "null"}]");
 #endif
 
-		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 		if (scriptSystem == null)
 		{
 			GD.PrintErr("[MetaActionHandler] ScriptSystem not found");
@@ -959,7 +967,7 @@ public class MetaActionHandler
 	/// </summary>
 	private void ResumeGeneratorWithResult(PyGenerator generator, string result)
 	{
-		var scriptSystem = _world.FindSystem("scriptSystem") as ScriptSystem;
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 		if (scriptSystem == null)
 		{
 			GD.PrintErr("[MetaActionHandler] ScriptSystem not found for generator resume");

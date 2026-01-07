@@ -402,6 +402,14 @@ namespace ECS
         //     return true;
         // }
 
+        internal System GetSystem(string name)
+        {
+            System sys;
+            if(_named.TryGetValue(name, out sys) == false)
+                throw new NullReferenceException();
+            return sys;
+        }
+
         internal System FindSystem(string name)
         {
             System sys;

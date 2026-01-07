@@ -21,10 +21,6 @@ namespace SE
 	/// </summary>
 	public class EventPredictionSystem : ECS.System
 	{
-		private PlayerSystem? _playerSystem;
-		private UnitSystem? _unitSystem;
-		private WorldSystem? _worldSystem;
-
 		/// <summary>
 		/// 예측된 이벤트 목록
 		/// </summary>
@@ -36,28 +32,14 @@ namespace SE
 		public int LastAdjustedDuration { get; private set; } = 0;
 
 		/// <summary>
-		/// 시스템 참조 설정
-		/// </summary>
-		public void SetSystemReferences(
-			PlayerSystem? playerSystem,
-			UnitSystem? unitSystem,
-			WorldSystem? worldSystem)
-		{
-			_playerSystem = playerSystem;
-			_unitSystem = unitSystem;
-			_worldSystem = worldSystem;
-		}
-
-		/// <summary>
 		/// 매 Step마다 호출
 		/// </summary>
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			
 			// 시간 진행 대기 중이 아니면 스킵
-			if (_playerSystem == null || !_playerSystem.HasPendingTime)
-				return;
-
-			if (_unitSystem == null || _worldSystem == null)
+			if (!_playerSystem.HasPendingTime)
 				return;
 
 			int pendingDuration = _playerSystem.NextStepDuration;
@@ -102,11 +84,12 @@ namespace SE
 		/// </summary>
 		private void PredictMeetings(int duration)
 		{
-			var player = _playerSystem?.GetPlayerUnit();
-			if (player == null) return;
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-			var terrain = _worldSystem?.GetTerrain();
-			if (terrain == null) return;
+			var player = _playerSystem.GetPlayerUnit();
+			var terrain = _worldSystem.GetTerrain();
 
 			// 플레이어 경로 계산
 			var playerRoute = GetMovementRoute(player, duration, terrain);
@@ -148,13 +131,16 @@ namespace SE
 		/// </summary>
 		private void PredictArrivals(int duration)
 		{
-			var player = _playerSystem?.GetPlayerUnit();
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+			var player = _playerSystem.GetPlayerUnit();
 			if (player == null) return;
 
 			// 현재 이동 중이 아니면 스킵
 			if (player.CurrentEdge == null) return;
 
-			var terrain = _worldSystem?.GetTerrain();
+			var terrain = _worldSystem.GetTerrain();
 			if (terrain == null) return;
 
 			// 플레이어 경로 계산

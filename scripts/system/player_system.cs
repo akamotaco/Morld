@@ -48,12 +48,24 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 초과 시간 추가 (다이얼로그에서 NextStepDuration 초과 시)
+		/// 플레이어가 이미 소비한 시간이므로 입력 없이 자동 처리됨
+		/// </summary>
+		public void AddExcessTime(int minutes)
+		{
+			_remainingDuration += minutes;
+#if DEBUG_LOG
+			GD.Print($"[PlayerSystem] ExcessTime 추가: +{minutes}분 (총 대기: {_remainingDuration}분)");
+#endif
+		}
+
+		/// <summary>
 		/// 플레이어 유닛 접근 헬퍼
 		/// </summary>
 		public Unit? GetPlayerUnit()
 		{
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			return unitSystem?.GetUnit(PlayerId);
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			return unitSystem.FindUnit(PlayerId);
 		}
 
 		/// <summary>
@@ -144,9 +156,9 @@ namespace SE
 		{
 			var destination = new LocationRef(regionId, localId);
 			var player = GetPlayerUnit();
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 
 			if (player == null || worldSystem == null)
 				return -1;
@@ -158,8 +170,8 @@ namespace SE
 				return 0;
 
 			// 아이템 효과가 반영된 Prop으로 경로 탐색
-			var inventory = inventorySystem?.GetUnitInventory(player.Id);
-			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+			var inventory = inventorySystem.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
 			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
 			var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualProps);
 
@@ -175,9 +187,9 @@ namespace SE
 		private void ExecuteMove(LocationRef destination)
 		{
 			var player = GetPlayerUnit();
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 
 			if (player == null || worldSystem == null)
 				return;
@@ -189,8 +201,8 @@ namespace SE
 				return;
 
 			// 아이템 효과가 반영된 Prop으로 경로 탐색
-			var inventory = inventorySystem?.GetUnitInventory(player.Id);
-			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+			var inventory = inventorySystem.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
 			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
 			var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualProps);
 
@@ -209,7 +221,7 @@ namespace SE
 			var destLocation = terrain.GetLocation(destination);
 			var moveJob = new Job
 			{
-				Name = $"{destLocation?.Name ?? destination.ToString()}(으)로 이동",
+				Name = $"{destLocation.Name ?? destination.ToString()}(으)로 이동",
 				Action = "move",
 				RegionId = destination.RegionId,
 				LocationId = destination.LocalId,
@@ -266,7 +278,7 @@ namespace SE
 			if (from.RegionId == to.RegionId)
 			{
 				var region = terrain.GetRegion(from.RegionId);
-				var edge = region?.GetEdgeBetween(from.LocalId, to.LocalId);
+				var edge = region.GetEdgeBetween(from.LocalId, to.LocalId);
 
 				if (edge != null)
 				{
@@ -310,13 +322,13 @@ namespace SE
 		public bool TakeFromUnit(int unitId, int itemId, int count = 1)
 		{
 			var player = GetPlayerUnit();
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 
 			if (player == null || unitSystem == null || inventorySystem == null)
 				return false;
 
-			var targetUnit = unitSystem.GetUnit(unitId);
+			var targetUnit = unitSystem.FindUnit(unitId);
 			if (targetUnit == null || !targetUnit.IsObject)
 				return false;
 
@@ -328,8 +340,8 @@ namespace SE
 				return false;
 
 #if DEBUG_LOG
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var itemName = itemSystem?.GetItem(itemId)?.Name ?? $"아이템{itemId}";
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var itemName = itemSystem.GetItem(itemId).Name ?? $"아이템{itemId}";
 			GD.Print($"[PlayerSystem] {targetUnit.Name}에서 가져오기: {itemName} x{count}");
 #endif
 
@@ -342,13 +354,13 @@ namespace SE
 		public bool PutToUnit(int unitId, int itemId, int count = 1)
 		{
 			var player = GetPlayerUnit();
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 
 			if (player == null || unitSystem == null || inventorySystem == null)
 				return false;
 
-			var targetUnit = unitSystem.GetUnit(unitId);
+			var targetUnit = unitSystem.FindUnit(unitId);
 			if (targetUnit == null || !targetUnit.IsObject)
 				return false;
 
@@ -360,8 +372,8 @@ namespace SE
 				return false;
 
 #if DEBUG_LOG
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var itemName = itemSystem?.GetItem(itemId)?.Name ?? $"아이템{itemId}";
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var itemName = itemSystem.GetItem(itemId).Name ?? $"아이템{itemId}";
 			GD.Print($"[PlayerSystem] {targetUnit.Name}에 넣기: {itemName} x{count}");
 #endif
 
@@ -374,13 +386,13 @@ namespace SE
 		public UnitLookResult? LookUnit(int unitId)
 		{
 			var player = GetPlayerUnit();
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 
 			if (player == null || unitSystem == null)
 				return null;
 
-			var unit = unitSystem.GetUnit(unitId);
+			var unit = unitSystem.FindUnit(unitId);
 			if (unit == null)
 				return null;
 
@@ -388,7 +400,7 @@ namespace SE
 			if (unit.CurrentLocation != player.CurrentLocation)
 				return null;
 
-			var describeSystem = _hub.FindSystem("describeSystem") as DescribeSystem;
+			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
 
 			// InventorySystem에서 인벤토리 가져오기
 			var inventory = unit.IsObject && inventorySystem != null
@@ -402,7 +414,7 @@ namespace SE
 				IsObject = unit.IsObject,
 				Inventory = inventory,
 				Actions = new List<string>(unit.Actions),
-				AppearanceText = describeSystem?.GetUnitAppearance(unit) ?? ""
+				AppearanceText = describeSystem.GetUnitAppearance(unit) ?? ""
 			};
 		}
 
@@ -410,7 +422,7 @@ namespace SE
 
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
 
 			if (worldSystem == null)
 				return;
@@ -442,7 +454,17 @@ namespace SE
 #endif
 			}
 
-			// 2. 대기 중인 시간이 없으면 시간 정지
+			// 2. EventSystem에서 ExcessTime 가져와서 적용
+			{
+				var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+				var excessTime = _eventSystem.ConsumeExcessTime();
+				if (excessTime > 0)
+				{
+					AddExcessTime(excessTime);
+				}
+			}
+
+			// 3. 대기 중인 시간이 없으면 시간 정지
 			if (_remainingDuration <= 0)
 			{
 				NextStepDuration = 0;
@@ -450,11 +472,11 @@ namespace SE
 				return;
 			}
 
-			// 3. 자정까지 남은 시간 계산 (1440분 = 24시간)
+			// 4. 자정까지 남은 시간 계산 (1440분 = 24시간)
 			var minutesToMidnight = 1440 - time.MinuteOfDay;
 			if (minutesToMidnight <= 0) minutesToMidnight = 1440;
 
-			// 4. 다음 Step에서 진행할 시간 설정 (자정 제한)
+			// 5. 다음 Step에서 진행할 시간 설정 (자정 제한)
 			NextStepDuration = Math.Min(_remainingDuration, minutesToMidnight);
 			_lastSetDuration = NextStepDuration;
 
@@ -488,23 +510,23 @@ namespace SE
 		/// </summary>
 		private LookResult LookFromLocation(Unit player)
 		{
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			var describeSystem = _hub.FindSystem("describeSystem") as DescribeSystem;
-			var itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			var inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
-			var terrain = worldSystem?.GetTerrain();
-			var gameTime = worldSystem?.GetTime();
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+			var terrain = worldSystem.GetTerrain();
+			var gameTime = worldSystem.GetTime();
 
 			// 1. 현재 위치 정보
-			var location = terrain?.GetLocation(player.CurrentLocation);
-			var region = location != null ? terrain?.GetRegion(location.RegionId) : null;
+			var location = terrain.GetLocation(player.CurrentLocation);
+			var region = location != null ? terrain.GetRegion(location.RegionId) : null;
 
 			var locationInfo = new LocationInfo
 			{
-				RegionName = region?.Name ?? "",
-				LocationName = location?.Name ?? "",
-				AppearanceText = describeSystem?.GetLocationDescribeText(location, gameTime, region) ?? "",
+				RegionName = region.Name ?? "",
+				LocationName = location.Name ?? "",
+				AppearanceText = describeSystem.GetLocationDescribeText(location, gameTime, region) ?? "",
 				LocationRef = player.CurrentLocation
 			};
 
@@ -540,18 +562,18 @@ namespace SE
 		/// </summary>
 		private LookResult LookFromEdge(Unit player)
 		{
-			var worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			var unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			var terrain = worldSystem?.GetTerrain();
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var terrain = worldSystem.GetTerrain();
 
 			// Edge 정보
-			var fromLocation = terrain?.GetLocation(player.CurrentEdge!.From);
-			var toLocation = terrain?.GetLocation(player.CurrentEdge!.To);
+			var fromLocation = terrain.GetLocation(player.CurrentEdge!.From);
+			var toLocation = terrain.GetLocation(player.CurrentEdge!.To);
 
 			var locationInfo = new LocationInfo
 			{
 				RegionName = "",  // Edge에서는 Region 정보 생략
-				LocationName = $"{fromLocation?.Name} → {toLocation?.Name}",
+				LocationName = $"{fromLocation.Name} → {toLocation.Name}",
 				AppearanceText = "이동 중입니다.",
 				LocationRef = player.CurrentLocation
 			};
@@ -596,8 +618,8 @@ namespace SE
 			if (region == null || location == null || terrain == null) return routes;
 
 			// InventorySystem에서 인벤토리 데이터 가져오기
-			var inventory = inventorySystem?.GetUnitInventory(player.Id);
-			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+			var inventory = inventorySystem.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
 			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
 
 			// Region 내부 Edge
@@ -659,8 +681,8 @@ namespace SE
 
 				routes.Add(new RouteInfo
 				{
-					LocationName = destLocation?.Name ?? "",
-					RegionName = destRegion?.Name ?? "",
+					LocationName = destLocation.Name ?? "",
+					RegionName = destRegion.Name ?? "",
 					Destination = destination,
 					TravelTime = regionEdge.GetTravelTime(player.CurrentLocation),
 					IsRegionEdge = true,

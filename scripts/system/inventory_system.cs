@@ -170,7 +170,7 @@ namespace SE
 			inv[itemId] += count;
 
 			// 이벤트 발생
-			OnInventoryChanged?.Invoke(new InventoryEvent
+			OnInventoryChanged.Invoke(new InventoryEvent
 			{
 				Type = InventoryEventType.ItemAdded,
 				ItemId = itemId,
@@ -199,7 +199,7 @@ namespace SE
 				inv.Remove(itemId);
 
 			// 이벤트 발생
-			OnInventoryChanged?.Invoke(new InventoryEvent
+			OnInventoryChanged.Invoke(new InventoryEvent
 			{
 				Type = InventoryEventType.ItemRemoved,
 				ItemId = itemId,
@@ -229,7 +229,7 @@ namespace SE
 				inv.Remove(itemId);
 
 			// ItemLost 이벤트 발생 (액션 로그에 사용)
-			OnInventoryChanged?.Invoke(new InventoryEvent
+			OnInventoryChanged.Invoke(new InventoryEvent
 			{
 				Type = InventoryEventType.ItemLost,
 				ItemId = itemId,
@@ -291,7 +291,7 @@ namespace SE
 				return false;
 
 			// 이벤트 발생
-			OnInventoryChanged?.Invoke(new InventoryEvent
+			OnInventoryChanged.Invoke(new InventoryEvent
 			{
 				Type = InventoryEventType.ItemTransferred,
 				ItemId = itemId,
@@ -392,7 +392,7 @@ namespace SE
 				equipped.Add(itemId);
 
 				// 이벤트 발생
-				OnInventoryChanged?.Invoke(new InventoryEvent
+				OnInventoryChanged.Invoke(new InventoryEvent
 				{
 					Type = InventoryEventType.ItemEquipped,
 					ItemId = itemId,
@@ -415,7 +415,7 @@ namespace SE
 			if (equipped.Remove(itemId))
 			{
 				// 이벤트 발생
-				OnInventoryChanged?.Invoke(new InventoryEvent
+				OnInventoryChanged.Invoke(new InventoryEvent
 				{
 					Type = InventoryEventType.ItemUnequipped,
 					ItemId = itemId,
@@ -621,8 +621,8 @@ namespace SE
 		/// </summary>
 		public void RegisterToDescribeSystem()
 		{
-			var describeSystem = _hub?.FindSystem("describeSystem") as DescribeSystem;
-			describeSystem?.ActionRegistry.Register(this);
+			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
+			describeSystem.ActionRegistry.Register(this);
 
 #if DEBUG_LOG
 			GD.Print("[InventorySystem] 액션 프로바이더 등록됨");
@@ -634,8 +634,8 @@ namespace SE
 		/// </summary>
 		public override void Destroy()
 		{
-			var describeSystem = _hub?.FindSystem("describeSystem") as DescribeSystem;
-			describeSystem?.ActionRegistry.Unregister(this);
+			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
+			describeSystem.ActionRegistry.Unregister(this);
 
 #if DEBUG_LOG
 			GD.Print("[InventorySystem] 액션 프로바이더 해제됨");

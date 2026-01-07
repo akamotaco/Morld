@@ -22,39 +22,15 @@ namespace SE
 	/// </summary>
 	public class JobBehaviorSystem : ECS.System
 	{
-		private WorldSystem? _worldSystem;
-		private UnitSystem? _unitSystem;
-		private PlayerSystem? _playerSystem;
-		private ItemSystem? _itemSystem;
-		private InventorySystem? _inventorySystem;
-
 		public JobBehaviorSystem()
 		{
 		}
 
-		/// <summary>
-		/// 시스템 참조 캐시 (매 Step마다 조회 방지)
-		/// </summary>
-		private void CacheSystemReferences()
-		{
-			if (_worldSystem == null)
-				_worldSystem = _hub.FindSystem("worldSystem") as WorldSystem;
-			if (_unitSystem == null)
-				_unitSystem = _hub.FindSystem("unitSystem") as UnitSystem;
-			if (_playerSystem == null)
-				_playerSystem = _hub.FindSystem("playerSystem") as PlayerSystem;
-			if (_itemSystem == null)
-				_itemSystem = _hub.FindSystem("itemSystem") as ItemSystem;
-			if (_inventorySystem == null)
-				_inventorySystem = _hub.FindSystem("inventorySystem") as InventorySystem;
-		}
-
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
-			CacheSystemReferences();
-
-			if (_worldSystem == null || _unitSystem == null || _playerSystem == null)
-				return;
+			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
 			var terrain = _worldSystem.GetTerrain();
 			var time = _worldSystem.GetTime();
@@ -93,6 +69,8 @@ namespace SE
 			var currentJob = unit.CurrentJob;
 			if (currentJob == null) return;
 
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
 			// Action에 따라 처리
 			switch (currentJob.Action)
 			{
@@ -109,7 +87,7 @@ namespace SE
 					// 대상 따라가기
 					if (currentJob.TargetId.HasValue && _unitSystem != null)
 					{
-						var target = _unitSystem.GetUnit(currentJob.TargetId.Value);
+						var target = _unitSystem.FindUnit(currentJob.TargetId.Value);
 						if (target != null)
 						{
 							ProcessMoveAction(unit, target.CurrentLocation, duration, terrain);
@@ -190,9 +168,12 @@ namespace SE
 				if (unit.CurrentLocation == goalLocation)
 					break;
 
+				var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+				var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+
 				// 새 이동 시작 - 경로 계산
-				var inventory = _inventorySystem?.GetUnitInventory(unit.Id);
-				var equippedItems = _inventorySystem?.GetUnitEquippedItems(unit.Id);
+				var inventory = _inventorySystem.GetUnitInventory(unit.Id);
+				var equippedItems = _inventorySystem.GetUnitEquippedItems(unit.Id);
 				var actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
 				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation, actualProps);
 
@@ -228,7 +209,7 @@ namespace SE
 			{
 				// 같은 Region 내 이동
 				var region = terrain.GetRegion(from.RegionId);
-				var edge = region?.GetEdgeBetween(from.LocalId, to.LocalId);
+				var edge = region.GetEdgeBetween(from.LocalId, to.LocalId);
 				if (edge != null)
 				{
 					return edge.GetTravelTime(fromLocation);

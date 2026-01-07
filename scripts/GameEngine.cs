@@ -8,17 +8,8 @@ using SE;
 public partial class GameEngine : Node
 {
 	private SE.World _world;
-	private PlayerSystem _playerSystem;
-	private DescribeSystem _describeSystem;
-	private InventorySystem _inventorySystem;
-	private TextUISystem _textUISystem;
 	private RichTextLabel _textUi;
 	private MetaActionHandler _actionHandler;
-	private ScriptSystem _scriptSystem;
-	private EventSystem _eventSystem;
-	private ThinkSystem _thinkSystem;
-	private EventPredictionSystem _eventPredictionSystem;
-	private JobBehaviorSystem _jobBehaviorSystem;
 
 	// 시나리오 경로 (res:// 기준)11111
 	// private string _scenarioPath = "res://scenarios/scenario01/";
@@ -78,43 +69,35 @@ public partial class GameEngine : Node
 	private void RegisterAllSystems()
 	{
 		// Script System (시나리오 경로 설정 필요)
-		_scriptSystem = this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem;
-		_scriptSystem?.SetScenarioPath(_scenarioPath);
-
+		(this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem).SetScenarioPath(_scenarioPath);
 		// Data Systems
 		this._world.AddSystem(new WorldSystem("aka"), "worldSystem");
 		this._world.AddSystem(new UnitSystem(), "unitSystem");
 		this._world.AddSystem(new ItemSystem(), "itemSystem");
-		_inventorySystem = this._world.AddSystem(new InventorySystem(), "inventorySystem") as InventorySystem;
+		this._world.AddSystem(new InventorySystem(), "inventorySystem");
 
 		// Logic Systems (실행 순서: Think → JobBehavior → Event)
 		this._world.AddSystem(new ActionSystem(), "actionSystem");
 
 		// ThinkSystem (JobBehaviorSystem 전에 실행: JobList 채우기)
-		_thinkSystem = this._world.AddSystem(new ThinkSystem(), "thinkSystem") as ThinkSystem;
+		this._world.AddSystem(new ThinkSystem(), "thinkSystem");
 
-		// EventPredictionSystem (ThinkSystem 후, JobBehaviorSystem 전: 이벤트 예측 및 시간 조정)
-		_eventPredictionSystem = this._world.AddSystem(new EventPredictionSystem(), "eventPredictionSystem") as EventPredictionSystem;
+		// EventPredictionSystem (ThinkSystem 후, EventSystem 전: 이벤트 예측 및 시간 조정)
+		this._world.AddSystem(new EventPredictionSystem(), "eventPredictionSystem");
 
-		_jobBehaviorSystem = this._world.AddSystem(new JobBehaviorSystem(), "jobBehaviorSystem") as JobBehaviorSystem;
-		_playerSystem = this._world.AddSystem(new PlayerSystem(), "playerSystem") as PlayerSystem;
-		_describeSystem = this._world.AddSystem(new DescribeSystem(), "describeSystem") as DescribeSystem;
+		// EventSystem (EventPredictionSystem 후, JobBehaviorSystem 전: 이벤트 감지 및 처리)
+		this._world.AddSystem(new EventSystem(), "eventSystem");
+
+		this._world.AddSystem(new JobBehaviorSystem(), "jobBehaviorSystem");
+		this._world.AddSystem(new PlayerSystem(), "playerSystem");
+		this._world.AddSystem(new DescribeSystem(), "describeSystem");
 
 		// UI System
-		_textUISystem = new TextUISystem(_textUi, _describeSystem);
-		this._world.AddSystem(_textUISystem, "textUISystem");
-
-		// Event System
-		_eventSystem = this._world.AddSystem(new EventSystem(), "eventSystem") as EventSystem;
+		this._world.AddSystem(new TextUISystem(_textUi, this._world.GetSystem("describeSystem") as DescribeSystem), "textUISystem");
 
 		// 확장 시스템 (ActionProvider)
-		var singSystem = this._world.AddSystem(new SingASongSystem(), "singASongSystem") as SingASongSystem;
-		singSystem?.RegisterToDescribeSystem();
-		_inventorySystem?.RegisterToDescribeSystem();
-
-		// ScriptSystem에 morld 모듈 등록 (Python에서 import morld 가능하게)
-		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
-		_scriptSystem?.SetSystemReferences(_inventorySystem, _playerSystem, unitSystem, _textUISystem);
+		(this._world.AddSystem(new SingASongSystem(), "singASongSystem") as SingASongSystem).RegisterToDescribeSystem();
+		(this._world.GetSystem("inventorySystem") as InventorySystem).RegisterToDescribeSystem();
 	}
 
 	/// <summary>
@@ -125,18 +108,15 @@ public partial class GameEngine : Node
 		GD.Print("[GameEngine] Data source: Python");
 		GD.Print("[GameEngine] Loading data from Python via morld API...");
 
-		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
-		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
-		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
+		var _scriptSystem = this._world.GetSystem("scriptSystem") as ScriptSystem;
 
-		// Data System 참조 설정 (morld.add_unit 등 데이터 API 등록)
-		_scriptSystem?.SetDataSystemReferences(worldSystem, unitSystem, itemSystem, _inventorySystem);
+		_scriptSystem.RegisterDataManipulationAPI();
 
 		// Python의 initialize_scenario() 호출 - morld API로 데이터 등록
-		_scriptSystem?.CallInitializeScenario();
+		_scriptSystem.CallInitializeScenario();
 
 		// Python 패키지의 나머지 모듈 로드 (이벤트 핸들러 등)
-		_scriptSystem?.LoadScenarioPackage();
+		_scriptSystem.LoadScenarioPackage();
 
 		GD.Print("[GameEngine] Python data loaded.");
 	}
@@ -146,25 +126,29 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void SetupSystemReferences()
 	{
-		var unitSystem = this._world.FindSystem("unitSystem") as UnitSystem;
+		var unitSystem = this._world.GetSystem("unitSystem") as UnitSystem;
+		var _scriptSystem = this._world.GetSystem("scriptSystem") as ScriptSystem;
+		var _thinkSystem = this._world.GetSystem("thinkSystem") as ThinkSystem;
+		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+		var _inventorySystem = this._world.GetSystem("inventorySystem") as InventorySystem;
+		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
 
 		// ScriptSystem 테스트 함수 등록
-		_scriptSystem?.TestHelloWorld();
-		_scriptSystem?.RegisterTestFunctions();
+		_scriptSystem.TestHelloWorld();
+		_scriptSystem.RegisterTestFunctions();
 
 		// ThinkSystem 설정
-		_thinkSystem?.SetSystemReferences(_scriptSystem, _playerSystem, unitSystem);
-
-		// EventPredictionSystem 설정
-		var worldSystem = this._world.FindSystem("worldSystem") as WorldSystem;
-		_eventPredictionSystem?.SetSystemReferences(_playerSystem, unitSystem, worldSystem);
+		_thinkSystem.SetSystemReferences(_scriptSystem, _playerSystem, unitSystem);
 
 		// TextUISystem 설정
-		_textUISystem?.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
+		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
 
-		// EventSystem 설정
-		_eventSystem?.SetSystemReferences(_scriptSystem, _textUISystem, unitSystem, _playerSystem);
-		_eventSystem?.InitializeLocations();
+		// EventSystem 설정 (MetaActionHandler는 _Ready에서 나중에 설정)
+		_eventSystem.InitializeLocations();
+
+		// ScriptSystem에 EventSystem 참조 설정 (set_npc_time_consume API용)
+		_scriptSystem.RegisterNpcJobAPI();
 	}
 
 	/// <summary>
@@ -172,7 +156,11 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void RegisterEventHandlers()
 	{
-		var itemSystem = this._world.FindSystem("itemSystem") as ItemSystem;
+		var _inventorySystem = this._world.GetSystem("inventorySystem") as InventorySystem;
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
+		var itemSystem = this._world.GetSystem("itemSystem") as ItemSystem;
+		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
 
 		// InventorySystem 이벤트 콜백 (행동 로그 자동 생성)
 		_inventorySystem.OnInventoryChanged += (evt) =>
@@ -198,8 +186,11 @@ public partial class GameEngine : Node
 		};
 
 		// MetaActionHandler 초기화
-		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
+		var _actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
 		_actionHandler.OnUpdateSituation += UpdateSituationText;
+
+		// EventSystem에 MetaActionHandler 참조 설정 (Generator 처리용)
+		_eventSystem?.SetMetaActionHandler(_actionHandler);
 	}
 
 	/// <summary>
@@ -207,14 +198,17 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void StartGame()
 	{
+		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+
 		// 게임 시작 이벤트 등록
-		_eventSystem?.Enqueue(Morld.GameEvent.GameStart());
+		_eventSystem.Enqueue(Morld.GameEvent.GameStart());
 
 		// 게임 시작 이벤트 처리 후 초기 상황 표시
-		var eventHandled = _eventSystem?.FlushEvents() ?? false;
+		var eventHandled = _eventSystem.FlushEvents();
 		if (!eventHandled)
 		{
-			_textUISystem?.ShowSituation();
+			_textUISystem.ShowSituation();
 		}
 	}
 
@@ -224,10 +218,12 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void DebugPrintGameState()
 	{
-		(this._world.FindSystem("worldSystem") as WorldSystem)?.GetTerrain().DebugPrint();
-		(this._world.FindSystem("worldSystem") as WorldSystem)?.GetTime().DebugPrint();
-		(this._world.FindSystem("unitSystem") as UnitSystem)?.DebugPrint();
-		_inventorySystem?.DebugPrint();
+		(this._world.GetSystem("worldSystem") as WorldSystem).GetTerrain().DebugPrint();
+		(this._world.GetSystem("worldSystem") as WorldSystem).GetTime().DebugPrint();
+		(this._world.GetSystem("unitSystem") as UnitSystem).DebugPrint();
+		var _inventorySystem = this._world.GetSystem("inventorySystem") as InventorySystem;
+
+		_inventorySystem.DebugPrint();
 
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");
 		GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -240,6 +236,10 @@ public partial class GameEngine : Node
 
 	public override void _Process(double delta)
 	{
+		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
+		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+
 		// 대기 중인 시간이 있을 때만 Step 실행
 		if (_playerSystem != null && _playerSystem.HasPendingTime)
 		{
@@ -260,7 +260,10 @@ public partial class GameEngine : Node
 				// 3. 위치 변경으로 인한 추가 이벤트 처리
 				var newEventHandled = _eventSystem?.FlushEvents() ?? false;
 
-				// 4. 모놀로그가 없으면 상황 업데이트
+				// 4. ExcessTime 계산 (이벤트 처리에서 누적된 다이얼로그 시간 기준)
+				_eventSystem?.FinalizeDialogTime();
+
+				// 5. 모놀로그가 없으면 상황 업데이트
 				if (!eventHandled && !newEventHandled)
 				{
 					UpdateSituationText();
@@ -269,7 +272,7 @@ public partial class GameEngine : Node
 		}
 
 		// 프레임 끝에서 한 번만 UI 렌더링 (lazy update 플러시)
-		_textUISystem?.FlushDisplay();
+		_textUISystem.FlushDisplay();
 	}
 
 	/// <summary>
@@ -277,6 +280,9 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void UpdateSituationText()
 	{
+		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+
 		if (_playerSystem == null || _textUISystem == null)
 			return;
 
@@ -288,7 +294,7 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void OnMetaClicked(Variant meta)
 	{
-		_actionHandler?.HandleAction(meta.AsString());
+		_actionHandler.HandleAction(meta.AsString());
 	}
 
 	/// <summary>
@@ -296,7 +302,8 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void OnMetaHoverStarted(Variant meta)
 	{
-		_textUISystem?.SetHoveredMeta(meta.AsString());
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+		_textUISystem.SetHoveredMeta(meta.AsString());
 	}
 
 	/// <summary>
@@ -304,6 +311,7 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void OnMetaHoverEnded(Variant meta)
 	{
-		_textUISystem?.SetHoveredMeta(null);
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+		_textUISystem.SetHoveredMeta(null);
 	}
 }
