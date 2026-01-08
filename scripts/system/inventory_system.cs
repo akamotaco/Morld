@@ -18,10 +18,8 @@ namespace SE
 	{
 		ItemAdded,      // 아이템 추가
 		ItemRemoved,    // 아이템 제거
-		ItemTransferred, // 아이템 이동
 		ItemEquipped,   // 장착
-		ItemUnequipped, // 장착 해제
-		ItemLost        // 아이템 잃음 (사용/소모 등으로 인한 삭제)
+		ItemUnequipped  // 장착 해제
 	}
 
 	/// <summary>
@@ -211,36 +209,6 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 아이템 잃음 처리 (사용/소모로 인한 삭제)
-		/// RemoveItem과 동일하지만 ItemLost 이벤트 발생
-		/// </summary>
-		public bool LostItem(string ownerKey, int itemId, int count = 1)
-		{
-			if (count <= 0) return false;
-
-			if (!_inventories.TryGetValue(ownerKey, out var inv))
-				return false;
-
-			if (!inv.TryGetValue(itemId, out int available) || available < count)
-				return false;
-
-			inv[itemId] -= count;
-			if (inv[itemId] <= 0)
-				inv.Remove(itemId);
-
-			// ItemLost 이벤트 발생 (액션 로그에 사용)
-			OnInventoryChanged.Invoke(new InventoryEvent
-			{
-				Type = InventoryEventType.ItemLost,
-				ItemId = itemId,
-				Count = count,
-				FromOwner = ownerKey
-			});
-
-			return true;
-		}
-
-		/// <summary>
 		/// 특정 아이템을 가지고 있는지 확인
 		/// </summary>
 		public bool HasItem(string ownerKey, int itemId, int count = 1)
@@ -252,54 +220,16 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 인벤토리 간 아이템 이동 (내부용 - 이벤트 없이)
-		/// </summary>
-		private bool TransferItemInternal(string fromKey, string toKey, int itemId, int count = 1)
-		{
-			if (count <= 0) return false;
-
-			if (!_inventories.TryGetValue(fromKey, out var fromInv))
-				return false;
-
-			if (!fromInv.TryGetValue(itemId, out int available) || available < count)
-				return false;
-
-			// 제거
-			fromInv[itemId] -= count;
-			if (fromInv[itemId] <= 0)
-				fromInv.Remove(itemId);
-
-			// 추가
-			if (!_inventories.TryGetValue(toKey, out var toInv))
-			{
-				toInv = new Dictionary<int, int>();
-				_inventories[toKey] = toInv;
-			}
-			if (!toInv.ContainsKey(itemId))
-				toInv[itemId] = 0;
-			toInv[itemId] += count;
-
-			return true;
-		}
-
-		/// <summary>
-		/// 인벤토리 간 아이템 이동
+		/// 인벤토리 간 아이템 이동 (Remove + Add 이벤트 발생)
 		/// </summary>
 		public bool TransferItem(string fromKey, string toKey, int itemId, int count = 1)
 		{
-			if (!TransferItemInternal(fromKey, toKey, itemId, count))
+			// RemoveItem으로 제거 (ItemRemoved 이벤트 발생)
+			if (!RemoveItem(fromKey, itemId, count))
 				return false;
 
-			// 이벤트 발생
-			OnInventoryChanged.Invoke(new InventoryEvent
-			{
-				Type = InventoryEventType.ItemTransferred,
-				ItemId = itemId,
-				Count = count,
-				FromOwner = fromKey,
-				ToOwner = toKey
-			});
-
+			// AddItem으로 추가 (ItemAdded 이벤트 발생)
+			AddItem(toKey, itemId, count);
 			return true;
 		}
 
@@ -322,12 +252,6 @@ namespace SE
 		/// </summary>
 		public bool RemoveItemFromUnit(int unitId, int itemId, int count = 1)
 			=> RemoveItem(UnitKey(unitId), itemId, count);
-
-		/// <summary>
-		/// 유닛 인벤토리에서 아이템 잃음 처리 (사용/소모)
-		/// </summary>
-		public bool LostItemFromUnit(int unitId, int itemId, int count = 1)
-			=> LostItem(UnitKey(unitId), itemId, count);
 
 		/// <summary>
 		/// 유닛이 특정 아이템을 가지고 있는지 확인

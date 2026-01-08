@@ -33,5 +33,6 @@ def put_to_object(context_unit_id):
     if result and result != "cancel":
         item_id = int(result)
         print(f"[DEBUG] put_to_object: player_id={player_id}, context_unit_id={context_unit_id}, item_id={item_id}")
-        morld.transfer_item(player_id, context_unit_id, item_id)
-        # 로그는 InventorySystem이 자동 생성 ("사용했습니다")
+        morld.lost_item(player_id, item_id)
+        morld.give_item(context_unit_id, item_id)
+        # 로그는 InventorySystem이 자동 생성

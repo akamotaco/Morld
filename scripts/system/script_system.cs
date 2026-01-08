@@ -154,7 +154,7 @@ namespace SE
                     int count = args.Length >= 3 ? args[2].ToInt() : 1;
 
                     var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
-                    bool success = _inventorySystem.LostItemFromUnit(unitId, itemId, count);
+                    bool success = _inventorySystem.RemoveItemFromUnit(unitId, itemId, count);
                     Godot.GD.Print($"[morld] lost_item: unit={unitId}, item={itemId}, count={count}, success={success}");
                     return PyBool.FromBool(success);
                 });
@@ -211,29 +211,6 @@ namespace SE
                         result.SetItem(new PyInt(itemId), new PyInt(count));
                     }
                     return result;
-                });
-
-                morldModule.ModuleDict["transfer_item"] = new PyBuiltinFunction("transfer_item", args =>
-                {
-                    if (args.Length < 3)
-                        throw PyTypeError.Create("transfer_item(from_unit_id, to_unit_id, item_id, count=1) requires at least 3 arguments");
-
-                    int fromUnitId = args[0].ToInt();
-                    int toUnitId = args[1].ToInt();
-                    int itemId = args[2].ToInt();
-                    int count = args.Length >= 4 ? args[3].ToInt() : 1;
-
-                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
-
-                    // from에서 제거
-                    bool success = _inventorySystem.LostItemFromUnit(fromUnitId, itemId, count);
-                    if (success)
-                    {
-                        // to에 추가
-                        _inventorySystem.AddItemToUnit(toUnitId, itemId, count);
-                        Godot.GD.Print($"[morld] transfer_item: from={fromUnitId}, to={toUnitId}, item={itemId}, count={count}");
-                    }
-                    return PyBool.FromBool(success);
                 });
 
                 // get_item_info: 아이템 정보 조회

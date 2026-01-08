@@ -169,6 +169,7 @@ public partial class GameEngine : Node
 		{
 			// 캐릭터(IsObject=false)의 인벤토리 변경만 로그 출력
 			// UnitKey는 unitId.ToString() 형식 (예: "0", "1021")
+			GD.Print($"[DEBUG] InventoryEvent: Type={evt.Type}, ToOwner='{evt.ToOwner}', FromOwner='{evt.FromOwner}'");
 			string? ownerKey = evt.ToOwner ?? evt.FromOwner;
 			if (!string.IsNullOrEmpty(ownerKey) && int.TryParse(ownerKey, out int unitId))
 			{
@@ -188,10 +189,8 @@ public partial class GameEngine : Node
 			{
 				InventoryEventType.ItemAdded => $"{itemName}{countText}을(를) 획득했습니다",
 				InventoryEventType.ItemRemoved => $"{itemName}{countText}을(를) 잃었습니다",
-				InventoryEventType.ItemTransferred => $"{itemName}{countText}을(를) 옮겼습니다",
 				InventoryEventType.ItemEquipped => $"{itemName}을(를) 장착했습니다",
 				InventoryEventType.ItemUnequipped => $"{itemName}을(를) 장착 해제했습니다",
-				InventoryEventType.ItemLost => $"{itemName}{countText}을(를) 사용했습니다",
 				_ => null
 			};
 
