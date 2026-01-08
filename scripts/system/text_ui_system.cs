@@ -407,6 +407,9 @@ namespace SE
 		/// </summary>
 		public void PushDialog(string text, int timeConsumed = 0)
 		{
+			// 다이얼로그 열기 전 현재 화면의 로그를 읽음 처리
+			OnContentChange();
+
 			// 이미 다이얼로그가 열려있으면 큐에 추가
 			if (_stack.Current.Type == FocusType.Dialog)
 			{

@@ -168,19 +168,21 @@ public partial class GameEngine : Node
 		_inventorySystem.OnInventoryChanged += (evt) =>
 		{
 			// 캐릭터(IsObject=false)의 인벤토리 변경만 로그 출력
-			// UnitKey는 unitId.ToString() 형식 (예: "0", "1021")
-			GD.Print($"[DEBUG] InventoryEvent: Type={evt.Type}, ToOwner='{evt.ToOwner}', FromOwner='{evt.FromOwner}'");
-			string? ownerKey = evt.ToOwner ?? evt.FromOwner;
-			if (!string.IsNullOrEmpty(ownerKey) && int.TryParse(ownerKey, out int unitId))
+			// ItemAdded: ToOwner가 캐릭터인지 확인
+			// ItemRemoved: FromOwner가 캐릭터인지 확인
+			string? ownerKey = evt.Type switch
 			{
-				var unit = unitSystem?.FindUnit(unitId);
-				if (unit?.IsObject != false)
-					return; // 캐릭터가 아니면 로그 생략
-			}
-			else
-			{
-				return; // 유닛 ID를 파싱할 수 없으면 로그 생략
-			}
+				InventoryEventType.ItemAdded => evt.ToOwner,
+				InventoryEventType.ItemRemoved => evt.FromOwner,
+				_ => evt.ToOwner ?? evt.FromOwner
+			};
+
+			if (string.IsNullOrEmpty(ownerKey) || !int.TryParse(ownerKey, out int unitId))
+				return;
+
+			var unit = unitSystem?.FindUnit(unitId);
+			if (unit == null || unit.IsObject)
+				return; // 캐릭터가 아니면 로그 생략
 
 			var itemName = itemSystem?.GetItem(evt.ItemId)?.Name ?? "아이템";
 			var countText = evt.Count > 1 ? $" x{evt.Count}" : "";

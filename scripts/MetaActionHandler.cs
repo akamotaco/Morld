@@ -785,11 +785,11 @@ public class MetaActionHandler
 				ProcessScriptResult(nextResult, scriptSystem);
 			}
 
-			// generator가 완료되면 현재 화면 갱신 및 로그 읽음 처리
+			// generator가 완료되면 현재 화면 갱신
 			// 다이얼로그는 이미 Pop되었으므로 이전 focus(Unit 등)가 유지됨
+			// 주의: OnContentChange()는 로그를 읽음 처리하므로 여기서 호출하면 안됨
 			if (_pendingGenerator == null)
 			{
-				_textUISystem?.OnContentChange();
 				_textUISystem?.UpdateDisplay();
 			}
 			return;
