@@ -12,12 +12,6 @@ namespace SE
     {
         private IntegratedPythonInterpreter _interpreter;
 
-        // 게임 시스템 참조 (morld 모듈에서 사용)
-        private InventorySystem _inventorySystem;
-        private PlayerSystem _playerSystem;
-        private UnitSystem _unitSystem;
-        private TextUISystem _textUISystem;
-
         // 시나리오 경로
         private string _scenarioPath = "";
         public string ScenarioPath => _scenarioPath;
@@ -29,6 +23,8 @@ namespace SE
 
             // 기본 Godot res:// 경로를 sys.path에 추가
             AddGodotPathsToSysPath();
+
+            RegisterMorldModule();
         }
 
         /// <summary>
@@ -93,37 +89,6 @@ namespace SE
             }
         }
 
-        // 추가 시스템 참조 (데이터 조작용)
-        private WorldSystem _worldSystem;
-        private ItemSystem _itemSystem;
-
-        /// <summary>
-        /// 게임 시스템 참조 설정 및 morld 모듈 등록
-        /// </summary>
-        public void SetSystemReferences(InventorySystem inventorySystem, PlayerSystem playerSystem, UnitSystem unitSystem = null, TextUISystem textUISystem = null)
-        {
-            _inventorySystem = inventorySystem;
-            _playerSystem = playerSystem;
-            _unitSystem = unitSystem;
-            _textUISystem = textUISystem;
-
-            RegisterMorldModule();
-        }
-
-        /// <summary>
-        /// 데이터 시스템 참조 설정 (Python에서 데이터 조작용)
-        /// </summary>
-        public void SetDataSystemReferences(WorldSystem worldSystem, UnitSystem unitSystem, ItemSystem itemSystem, InventorySystem inventorySystem)
-        {
-            _worldSystem = worldSystem;
-            _unitSystem = unitSystem;
-            _itemSystem = itemSystem;
-            _inventorySystem = inventorySystem;
-
-            // morld 모듈에 데이터 조작 API 추가
-            RegisterDataManipulationAPI();
-        }
-
         /// <summary>
         /// morld Python 모듈 등록 - 게임 데이터 조작 API
         /// </summary>
@@ -139,7 +104,12 @@ namespace SE
                 // === 플레이어 API ===
                 morldModule.ModuleDict["get_player_id"] = new PyBuiltinFunction("get_player_id", args =>
                 {
-                    if (_playerSystem == null) return new PyInt(-1);
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                    if (_playerSystem == null)
+                    {
+                        Godot.GD.PrintErr("[ScriptSystem] get_player_id: PlayerSystem is null");
+                        return PyNone.Instance;
+                    }
                     return new PyInt(_playerSystem.PlayerId);
                 });
 
@@ -153,13 +123,10 @@ namespace SE
                     int itemId = args[1].ToInt();
                     int count = args.Length >= 3 ? args[2].ToInt() : 1;
 
-                    if (_inventorySystem != null)
-                    {
-                        _inventorySystem.AddItemToUnit(unitId, itemId, count);
-                        Godot.GD.Print($"[morld] give_item: unit={unitId}, item={itemId}, count={count}");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    _inventorySystem.AddItemToUnit(unitId, itemId, count);
+                    Godot.GD.Print($"[morld] give_item: unit={unitId}, item={itemId}, count={count}");
+                    return PyBool.True;
                 });
 
                 morldModule.ModuleDict["remove_item"] = new PyBuiltinFunction("remove_item", args =>
@@ -171,13 +138,10 @@ namespace SE
                     int itemId = args[1].ToInt();
                     int count = args.Length >= 3 ? args[2].ToInt() : 1;
 
-                    if (_inventorySystem != null)
-                    {
-                        bool success = _inventorySystem.RemoveItemFromUnit(unitId, itemId, count);
-                        Godot.GD.Print($"[morld] remove_item: unit={unitId}, item={itemId}, count={count}, success={success}");
-                        return PyBool.FromBool(success);
-                    }
-                    return PyBool.False;
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    bool success = _inventorySystem.RemoveItemFromUnit(unitId, itemId, count);
+                    Godot.GD.Print($"[morld] remove_item: unit={unitId}, item={itemId}, count={count}, success={success}");
+                    return PyBool.FromBool(success);
                 });
 
                 morldModule.ModuleDict["lost_item"] = new PyBuiltinFunction("lost_item", args =>
@@ -189,13 +153,10 @@ namespace SE
                     int itemId = args[1].ToInt();
                     int count = args.Length >= 3 ? args[2].ToInt() : 1;
 
-                    if (_inventorySystem != null)
-                    {
-                        bool success = _inventorySystem.LostItemFromUnit(unitId, itemId, count);
-                        Godot.GD.Print($"[morld] lost_item: unit={unitId}, item={itemId}, count={count}, success={success}");
-                        return PyBool.FromBool(success);
-                    }
-                    return PyBool.False;
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    bool success = _inventorySystem.LostItemFromUnit(unitId, itemId, count);
+                    Godot.GD.Print($"[morld] lost_item: unit={unitId}, item={itemId}, count={count}, success={success}");
+                    return PyBool.FromBool(success);
                 });
 
                 morldModule.ModuleDict["get_inventory"] = new PyBuiltinFunction("get_inventory", args =>
@@ -205,17 +166,14 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_inventorySystem != null)
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    var inventory = _inventorySystem.GetUnitInventory(unitId);
+                    var pyDict = new PyDict();
+                    foreach (var kvp in inventory)
                     {
-                        var inventory = _inventorySystem.GetUnitInventory(unitId);
-                        var pyDict = new PyDict();
-                        foreach (var kvp in inventory)
-                        {
-                            pyDict.SetItem(new PyInt(kvp.Key), new PyInt(kvp.Value));
-                        }
-                        return pyDict;
+                        pyDict.SetItem(new PyInt(kvp.Key), new PyInt(kvp.Value));
                     }
-                    return new PyDict();
+                    return pyDict;
                 });
 
                 morldModule.ModuleDict["has_item"] = new PyBuiltinFunction("has_item", args =>
@@ -227,13 +185,11 @@ namespace SE
                     int itemId = args[1].ToInt();
                     int count = args.Length >= 3 ? args[2].ToInt() : 1;
 
-                    if (_inventorySystem != null)
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    var inventory = _inventorySystem.GetUnitInventory(unitId);
+                    if (inventory.TryGetValue(itemId, out int owned))
                     {
-                        var inventory = _inventorySystem.GetUnitInventory(unitId);
-                        if (inventory.TryGetValue(itemId, out int owned))
-                        {
-                            return PyBool.FromBool(owned >= count);
-                        }
+                        return PyBool.FromBool(owned >= count);
                     }
                     return PyBool.False;
                 });
@@ -250,10 +206,9 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null)
-                        return PyNone.Instance;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyNone.Instance;
 
@@ -296,10 +251,12 @@ namespace SE
                     string propName = args[0].AsString();
                     int value = args.Length >= 2 ? args[1].ToInt() : 1;
 
-                    if (_playerSystem == null || _unitSystem == null)
-                        return PyBool.False;
 
-                    var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                    
+
+                    var player = _unitSystem.FindUnit(_playerSystem.PlayerId);
                     if (player == null)
                         return PyBool.False;
 
@@ -316,10 +273,10 @@ namespace SE
 
                     string propName = args[0].AsString();
 
-                    if (_playerSystem == null || _unitSystem == null)
-                        return new PyInt(0);
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
-                    var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
+                    var player = _unitSystem.FindUnit(_playerSystem.PlayerId);
                     if (player == null)
                         return new PyInt(0);
 
@@ -335,10 +292,10 @@ namespace SE
 
                     string propName = args[0].AsString();
 
-                    if (_playerSystem == null || _unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
-                    var player = _unitSystem.GetUnit(_playerSystem.PlayerId);
+                    var player = _unitSystem.FindUnit(_playerSystem.PlayerId);
                     if (player == null)
                         return PyBool.False;
 
@@ -374,22 +331,19 @@ namespace SE
 
                     string message = args[0].AsString();
 
-                    if (_textUISystem != null)
-                    {
-                        _textUISystem.AddActionLog(message);
-                        Godot.GD.Print($"[morld] add_action_log: {message}");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+
+                    _textUISystem.AddActionLog(message);
+                    Godot.GD.Print($"[morld] add_action_log: {message}");
+                    return PyBool.True;
                 });
 
                 // === Action Text API ===
                 // get_actions_list() - 현재 상황의 행동 옵션 BBCode 리스트 반환
                 morldModule.ModuleDict["get_actions_list"] = new PyBuiltinFunction("get_actions_list", args =>
                 {
-                    var describeSystem = _hub?.FindSystem("describeSystem") as DescribeSystem;
-                    if (describeSystem == null || _playerSystem == null)
-                        return new PyList();
+                    var describeSystem = this._hub.GetSystem("describeSystem") as DescribeSystem;
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
                     // PlayerSystem에서 현재 LookResult 가져오기
                     var lookResult = _playerSystem.Look();
@@ -423,10 +377,9 @@ namespace SE
                     int locationId = args.Length >= 6 ? args[5].ToInt() : 0;
                     int? targetId = args.Length >= 7 && args[6] is not PyNone ? args[6].ToInt() : null;
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -461,10 +414,9 @@ namespace SE
                     int locationId = args.Length >= 7 ? args[6].ToInt() : 0;
                     int? targetId = args.Length >= 8 && args[7] is not PyNone ? args[7].ToInt() : null;
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -492,10 +444,9 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null)
-                        return PyNone.Instance;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyNone.Instance;
 
@@ -525,10 +476,9 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -594,7 +544,7 @@ namespace SE
         /// <summary>
         /// morld 모듈에 데이터 조작 API 추가 (Python에서 직접 게임 데이터 생성)
         /// </summary>
-        private void RegisterDataManipulationAPI()
+        public void RegisterDataManipulationAPI()
         {
             Godot.GD.Print("[ScriptSystem] Registering data manipulation API...");
 
@@ -616,21 +566,19 @@ namespace SE
                         : null;
                     string weather = args.Length >= 4 ? args[3].AsString() : "맑음";
 
-                    if (_worldSystem != null)
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+                    var terrain = _worldSystem.GetTerrain();
+                    var region = new Morld.Region(id, name);
+                    if (describeText != null)
                     {
-                        var terrain = _worldSystem.GetTerrain();
-                        var region = new Morld.Region(id, name);
-                        if (describeText != null)
-                        {
-                            foreach (var (key, value) in describeText)
-                                region.DescribeText[key] = value;
-                        }
-                        region.CurrentWeather = weather;
-                        terrain.AddRegion(region);
-                        Godot.GD.Print($"[morld] add_region: id={id}, name={name}, weather={weather}");
-                        return PyBool.True;
+                        foreach (var (key, value) in describeText)
+                            region.DescribeText[key] = value;
                     }
-                    return PyBool.False;
+                    region.CurrentWeather = weather;
+                    terrain.AddRegion(region);
+                    Godot.GD.Print($"[morld] add_region: id={id}, name={name}, weather={weather}");
+                    return PyBool.True;
                 });
 
                 morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
@@ -644,19 +592,18 @@ namespace SE
                     int stayDuration = args.Length >= 4 ? args[3].ToInt() : 0;
                     bool isIndoor = args.Length >= 5 ? args[4].IsTrue() : true;
 
-                    if (_worldSystem != null)
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    
+                    var terrain = _worldSystem.GetTerrain();
+                    var region = terrain.GetRegion(regionId);
+                    if (region != null)
                     {
-                        var terrain = _worldSystem.GetTerrain();
-                        var region = terrain.GetRegion(regionId);
-                        if (region != null)
-                        {
-                            // Region.AddLocation(localId, name)을 사용
-                            var location = region.AddLocation(localId, name);
-                            location.StayDuration = stayDuration;
-                            location.IsIndoor = isIndoor;
-                            Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}");
-                            return PyBool.True;
-                        }
+                        // Region.AddLocation(localId, name)을 사용
+                        var location = region.AddLocation(localId, name);
+                        location.StayDuration = stayDuration;
+                        location.IsIndoor = isIndoor;
+                        Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -674,22 +621,21 @@ namespace SE
                         ? PyDictToIntDict(condDict)
                         : null;
 
-                    if (_worldSystem != null)
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+                    var terrain = _worldSystem.GetTerrain();
+                    var region = terrain.GetRegion(regionId);
+                    if (region != null)
                     {
-                        var terrain = _worldSystem.GetTerrain();
-                        var region = terrain.GetRegion(regionId);
-                        if (region != null)
+                        // Region.AddEdge(localIdA, localIdB, travelTime)을 사용
+                        var edge = region.AddEdge(fromId, toId, travelTime);
+                        if (conditions != null)
                         {
-                            // Region.AddEdge(localIdA, localIdB, travelTime)을 사용
-                            var edge = region.AddEdge(fromId, toId, travelTime);
-                            if (conditions != null)
-                            {
-                                foreach (var (key, value) in conditions)
-                                    edge.AddCondition(key, value);
-                            }
-                            Godot.GD.Print($"[morld] add_edge: region={regionId}, {fromId}<->{toId}, time={travelTime}");
-                            return PyBool.True;
+                            foreach (var (key, value) in conditions)
+                                edge.AddCondition(key, value);
                         }
+                        Godot.GD.Print($"[morld] add_edge: region={regionId}, {fromId}<->{toId}, time={travelTime}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -712,27 +658,26 @@ namespace SE
                         ? PyDictToIntDict(condDictBA)
                         : null;
 
-                    if (_worldSystem != null)
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+                    var terrain = _worldSystem.GetTerrain();
+                    var region = terrain.GetRegion(regionId);
+                    if (region != null)
                     {
-                        var terrain = _worldSystem.GetTerrain();
-                        var region = terrain.GetRegion(regionId);
-                        if (region != null)
+                        var edge = region.AddEdge(fromId, toId, timeAB);
+                        edge.SetTravelTime(timeAB, timeBA);
+                        if (conditionsAB != null)
                         {
-                            var edge = region.AddEdge(fromId, toId, timeAB);
-                            edge.SetTravelTime(timeAB, timeBA);
-                            if (conditionsAB != null)
-                            {
-                                foreach (var (key, value) in conditionsAB)
-                                    edge.AddConditionAtoB(key, value);
-                            }
-                            if (conditionsBA != null)
-                            {
-                                foreach (var (key, value) in conditionsBA)
-                                    edge.AddConditionBtoA(key, value);
-                            }
-                            Godot.GD.Print($"[morld] add_edge_with_conditions: region={regionId}, {fromId}<->{toId}, time={timeAB}/{timeBA}");
-                            return PyBool.True;
+                            foreach (var (key, value) in conditionsAB)
+                                edge.AddConditionAtoB(key, value);
                         }
+                        if (conditionsBA != null)
+                        {
+                            foreach (var (key, value) in conditionsBA)
+                                edge.AddConditionBtoA(key, value);
+                        }
+                        Godot.GD.Print($"[morld] add_edge_with_conditions: region={regionId}, {fromId}<->{toId}, time={timeAB}/{timeBA}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -749,21 +694,19 @@ namespace SE
                     int timeAB = args.Length >= 5 ? args[4].ToInt() : 30;
                     int timeBA = args.Length >= 6 ? args[5].ToInt() : timeAB;
 
-                    if (_worldSystem != null)
-                    {
-                        var terrain = _worldSystem.GetTerrain();
-                        // RegionEdge(id, regionIdA, localIdA, regionIdB, localIdB) 생성자 사용
-                        var regionEdge = new Morld.RegionEdge(
-                            terrain.RegionEdges.Count,
-                            fromRegion, fromLocal,
-                            toRegion, toLocal
-                        );
-                        regionEdge.SetTravelTime(timeAB, timeBA);
-                        terrain.AddRegionEdge(regionEdge);
-                        Godot.GD.Print($"[morld] add_region_edge: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    
+                    var terrain = _worldSystem.GetTerrain();
+                    // RegionEdge(id, regionIdA, localIdA, regionIdB, localIdB) 생성자 사용
+                    var regionEdge = new Morld.RegionEdge(
+                        terrain.RegionEdges.Count,
+                        fromRegion, fromLocal,
+                        toRegion, toLocal
+                    );
+                    regionEdge.SetTravelTime(timeAB, timeBA);
+                    terrain.AddRegionEdge(regionEdge);
+                    Godot.GD.Print($"[morld] add_region_edge: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
+                    return PyBool.True;
                 });
 
                 // === Time API (GameTime) ===
@@ -778,15 +721,13 @@ namespace SE
                     int hour = args[3].ToInt();
                     int minute = args.Length >= 5 ? args[4].ToInt() : 0;
 
-                    if (_worldSystem != null)
-                    {
-                        var time = _worldSystem.GetTime();
-                        // SetTime(year, month, day, hour, minute)
-                        time.SetTime(year, month, day, hour, minute);
-                        Godot.GD.Print($"[morld] set_time: {year}/{month}/{day} {hour}:{minute:D2}");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+                    var time = _worldSystem.GetTime();
+                    // SetTime(year, month, day, hour, minute)
+                    time.SetTime(year, month, day, hour, minute);
+                    Godot.GD.Print($"[morld] set_time: {year}/{month}/{day} {hour}:{minute:D2}");
+                    return PyBool.True;
                 });
 
                 morldModule.ModuleDict["advance_time"] = new PyBuiltinFunction("advance_time", args =>
@@ -796,14 +737,12 @@ namespace SE
 
                     int minutes = args[0].ToInt();
 
-                    if (_worldSystem != null)
-                    {
-                        var time = _worldSystem.GetTime();
-                        time.AddMinutes(minutes);
-                        Godot.GD.Print($"[morld] advance_time: +{minutes} minutes");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    
+                    var time = _worldSystem.GetTime();
+                    time.AddMinutes(minutes);
+                    Godot.GD.Print($"[morld] advance_time: +{minutes} minutes");
+                    return PyBool.True;
                 });
 
                 // === Weather API ===
@@ -815,16 +754,15 @@ namespace SE
                     int regionId = args[0].ToInt();
                     string weather = args[1].AsString();
 
-                    if (_worldSystem != null)
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+                    var terrain = _worldSystem.GetTerrain();
+                    var region = terrain.GetRegion(regionId);
+                    if (region != null)
                     {
-                        var terrain = _worldSystem.GetTerrain();
-                        var region = terrain.GetRegion(regionId);
-                        if (region != null)
-                        {
-                            region.CurrentWeather = weather;
-                            Godot.GD.Print($"[morld] set_weather: region={regionId}, weather={weather}");
-                            return PyBool.True;
-                        }
+                        region.CurrentWeather = weather;
+                        Godot.GD.Print($"[morld] set_weather: region={regionId}, weather={weather}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -836,14 +774,13 @@ namespace SE
 
                     int regionId = args[0].ToInt();
 
-                    if (_worldSystem != null)
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+                    var terrain = _worldSystem.GetTerrain();
+                    var region = terrain.GetRegion(regionId);
+                    if (region != null)
                     {
-                        var terrain = _worldSystem.GetTerrain();
-                        var region = terrain.GetRegion(regionId);
-                        if (region != null)
-                        {
-                            return new PyString(region.CurrentWeather);
-                        }
+                        return new PyString(region.CurrentWeather);
                     }
                     return PyNone.Instance;
                 });
@@ -862,22 +799,20 @@ namespace SE
                     int value = args.Length >= 5 ? args[4].ToInt() : 0;
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
 
-                    if (_itemSystem != null)
-                    {
-                        var item = new Morld.Item(id, name);
-                        item.Value = value;
-                        if (passiveProps != null)
-                            foreach (var (k, v) in passiveProps) item.PassiveProps[k] = v;
-                        if (equipProps != null)
-                            foreach (var (k, v) in equipProps) item.EquipProps[k] = v;
-                        if (actions != null)
-                            item.Actions.AddRange(actions);
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
 
-                        _itemSystem.AddItem(item);
-                        Godot.GD.Print($"[morld] add_item: id={id}, name={name}");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var item = new Morld.Item(id, name);
+                    item.Value = value;
+                    if (passiveProps != null)
+                        foreach (var (k, v) in passiveProps) item.PassiveProps[k] = v;
+                    if (equipProps != null)
+                        foreach (var (k, v) in equipProps) item.EquipProps[k] = v;
+                    if (actions != null)
+                        item.Actions.AddRange(actions);
+
+                    _itemSystem.AddItem(item);
+                    Godot.GD.Print($"[morld] add_item: id={id}, name={name}");
+                    return PyBool.True;
                 });
                 morldModule.ModuleDict["add_item"] = addItemFunc;
                 morldModule.ModuleDict["add_item_def"] = addItemFunc;  // 레거시 별칭
@@ -896,25 +831,22 @@ namespace SE
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
                     var mood = args.Length >= 7 && args[6] is PyList moodList ? PyListToStringList(moodList) : null;
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var unit = new Morld.Unit(id, name, regionId, locationId);
+                    unit.Type = type.ToLower() switch
                     {
-                        var unit = new Morld.Unit(id, name, regionId, locationId);
-                        unit.Type = type.ToLower() switch
-                        {
-                            "female" => Morld.UnitType.Female,
-                            "object" => Morld.UnitType.Object,
-                            _ => Morld.UnitType.Male
-                        };
-                        if (actions != null)
-                            unit.Actions.AddRange(actions);
-                        if (mood != null)
-                            foreach (var m in mood) unit.Mood.Add(m);
+                        "female" => Morld.UnitType.Female,
+                        "object" => Morld.UnitType.Object,
+                        _ => Morld.UnitType.Male
+                    };
+                    if (actions != null)
+                        unit.Actions.AddRange(actions);
+                    if (mood != null)
+                        foreach (var m in mood) unit.Mood.Add(m);
 
-                        _unitSystem.AddUnit(unit);
-                        Godot.GD.Print($"[morld] add_unit: id={id}, name={name}, type={type}");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    _unitSystem.AddUnit(unit);
+                    Godot.GD.Print($"[morld] add_unit: id={id}, name={name}, type={type}");
+                    return PyBool.True;
                 });
 
                 // set_unit_props: 유닛 Props 일괄 설정
@@ -926,9 +858,11 @@ namespace SE
                     int unitId = args[0].ToInt();
                     var props = args[1] is PyDict propDict ? PyDictToIntDict(propDict) : null;
 
-                    if (_unitSystem != null && props != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    if (props != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
+                        var unit = _unitSystem.FindUnit(unitId);
                         if (unit != null)
                         {
                             unit.TraversalContext.SetProps(props);
@@ -948,16 +882,14 @@ namespace SE
                     int regionId = args[1].ToInt();
                     int locationId = args[2].ToInt();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
-                        {
-                            unit.SetCurrentLocation(new Morld.LocationRef(regionId, locationId));
-                            unit.CurrentEdge = null;  // 이동 중이었다면 취소
-                            Godot.GD.Print($"[morld] set_unit_location: unit={unitId} -> {regionId}:{locationId}");
-                            return PyBool.True;
-                        }
+                        unit.SetCurrentLocation(new Morld.LocationRef(regionId, locationId));
+                        unit.CurrentEdge = null;  // 이동 중이었다면 취소
+                        Godot.GD.Print($"[morld] set_unit_location: unit={unitId} -> {regionId}:{locationId}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -965,79 +897,46 @@ namespace SE
                 // === Clear API (챕터 전환용) ===
                 morldModule.ModuleDict["clear_units"] = new PyBuiltinFunction("clear_units", args =>
                 {
-                    if (_unitSystem != null)
-                    {
-                        _unitSystem.ClearUnits();
-                        Godot.GD.Print("[morld] clear_units: All units cleared");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    _unitSystem.ClearUnits();
+                    Godot.GD.Print("[morld] clear_units: All units cleared");
+                    return PyBool.True;
                 });
 
                 morldModule.ModuleDict["clear_items"] = new PyBuiltinFunction("clear_items", args =>
                 {
-                    if (_itemSystem != null)
-                    {
-                        _itemSystem.ClearItems();
-                        Godot.GD.Print("[morld] clear_items: All items cleared");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                    _itemSystem.ClearItems();
+                    Godot.GD.Print("[morld] clear_items: All items cleared");
+                    return PyBool.True;
                 });
 
                 morldModule.ModuleDict["clear_inventory"] = new PyBuiltinFunction("clear_inventory", args =>
                 {
-                    if (_inventorySystem != null)
-                    {
-                        _inventorySystem.ClearData();
-                        Godot.GD.Print("[morld] clear_inventory: All inventory data cleared");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    _inventorySystem.ClearData();
+                    Godot.GD.Print("[morld] clear_inventory: All inventory data cleared");
+                    return PyBool.True;
                 });
 
                 morldModule.ModuleDict["clear_world"] = new PyBuiltinFunction("clear_world", args =>
                 {
-                    if (_worldSystem != null)
-                    {
-                        var terrain = _worldSystem.GetTerrain();
-                        terrain.Clear();
-                        Godot.GD.Print("[morld] clear_world: Terrain cleared");
-                        return PyBool.True;
-                    }
-                    return PyBool.False;
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var terrain = _worldSystem.GetTerrain();
+                    terrain.Clear();
+                    Godot.GD.Print("[morld] clear_world: Terrain cleared");
+                    return PyBool.True;
                 });
 
                 morldModule.ModuleDict["clear_all"] = new PyBuiltinFunction("clear_all", args =>
                 {
-                    bool success = true;
-
-                    if (_worldSystem != null)
-                    {
-                        _worldSystem.GetTerrain().Clear();
-                    }
-                    else success = false;
-
-                    if (_unitSystem != null)
-                    {
-                        _unitSystem.ClearUnits();
-                    }
-                    else success = false;
-
-                    if (_itemSystem != null)
-                    {
-                        _itemSystem.ClearItems();
-                    }
-                    else success = false;
-
-                    if (_inventorySystem != null)
-                    {
-                        _inventorySystem.ClearData();
-                    }
-                    else success = false;
+                    (this._hub.GetSystem("worldSystem") as WorldSystem).GetTerrain().Clear();
+                    (this._hub.GetSystem("unitSystem") as UnitSystem).ClearUnits();
+                    (this._hub.GetSystem("itemSystem") as ItemSystem).ClearItems();
+                    (this._hub.GetSystem("inventorySystem") as InventorySystem).ClearData();
 
                     Godot.GD.Print("[morld] clear_all: All game data cleared");
-                    return PyBool.FromBool(success);
+                    return PyBool.True;
                 });
 
                 // === 신규 API: 캐릭터 행동 명령 ===
@@ -1052,24 +951,23 @@ namespace SE
                     int regionId = args[1].ToInt();
                     int locationId = args[2].ToInt();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
+                        // JobList에 이동 Job 삽입
+                        var job = new Morld.Job
                         {
-                            // JobList에 이동 Job 삽입
-                            var job = new Morld.Job
-                            {
-                                Name = "이동",
-                                Action = "move",
-                                RegionId = regionId,
-                                LocationId = locationId,
-                                Duration = 1440  // 목적지 도착까지 (하루)
-                            };
-                            unit.InsertJobWithClear(job);
-                            Godot.GD.Print($"[morld] move_unit: unit={unitId} -> {regionId}:{locationId}");
-                            return PyBool.True;
-                        }
+                            Name = "이동",
+                            Action = "move",
+                            RegionId = regionId,
+                            LocationId = locationId,
+                            Duration = 1440  // 목적지 도착까지 (하루)
+                        };
+                        unit.InsertJobWithClear(job);
+                        Godot.GD.Print($"[morld] move_unit: unit={unitId} -> {regionId}:{locationId}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -1083,22 +981,20 @@ namespace SE
                     int unitId = args[0].ToInt();
                     int duration = args[1].ToInt();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
+                        // JobList에 대기 Job 삽입
+                        var job = new Morld.Job
                         {
-                            // JobList에 대기 Job 삽입
-                            var job = new Morld.Job
-                            {
-                                Name = "대기",
-                                Action = "stay",
-                                Duration = duration
-                            };
-                            unit.InsertJobWithClear(job);
-                            Godot.GD.Print($"[morld] wait_unit: unit={unitId}, duration={duration}");
-                            return PyBool.True;
-                        }
+                            Name = "대기",
+                            Action = "stay",
+                            Duration = duration
+                        };
+                        unit.InsertJobWithClear(job);
+                        Godot.GD.Print($"[morld] wait_unit: unit={unitId}, duration={duration}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -1113,15 +1009,14 @@ namespace SE
                     string propName = args[1].AsString();
                     int value = args[2].ToInt();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
-                        {
-                            unit.TraversalContext.SetProp(propName, value);
-                            Godot.GD.Print($"[morld] set_unit_prop: unit={unitId}, {propName}={value}");
-                            return PyBool.True;
-                        }
+                        unit.TraversalContext.SetProp(propName, value);
+                        Godot.GD.Print($"[morld] set_unit_prop: unit={unitId}, {propName}={value}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -1135,13 +1030,12 @@ namespace SE
                     int unitId = args[0].ToInt();
                     string propName = args[1].AsString();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
-                        {
-                            return new PyInt(unit.TraversalContext.GetProp(propName));
-                        }
+                        return new PyInt(unit.TraversalContext.GetProp(propName));
                     }
                     return new PyInt(0);
                 });
@@ -1155,9 +1049,11 @@ namespace SE
                     int unitId = args[0].ToInt();
                     var moods = args[1] is PyList moodList ? PyListToStringList(moodList) : null;
 
-                    if (_unitSystem != null && moods != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    if (moods != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
+                        var unit = _unitSystem.FindUnit(unitId);
                         if (unit != null)
                         {
                             unit.Mood.Clear();
@@ -1179,18 +1075,17 @@ namespace SE
                     int unitId = args[0].ToInt();
                     string type = args[1].AsString();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
+                        var result = new PyDict();
+                        foreach (var (name, value) in unit.TraversalContext.Props.GetNamesByType(type))
                         {
-                            var result = new PyDict();
-                            foreach (var (name, value) in unit.TraversalContext.Props.GetNamesByType(type))
-                            {
-                                result.SetItem(new PyString(name), new PyInt(value));
-                            }
-                            return result;
+                            result.SetItem(new PyString(name), new PyInt(value));
                         }
+                        return result;
                     }
                     return new PyDict();
                 });
@@ -1202,22 +1097,20 @@ namespace SE
                     if (args.Length < 1)
                         throw PyTypeError.Create("get_unit_prop_types(unit_id) requires 1 argument");
 
+                    var result = new PyList();
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
+                        foreach (var type in unit.TraversalContext.Props.GetTypes())
                         {
-                            var result = new PyList();
-                            foreach (var type in unit.TraversalContext.Props.GetTypes())
-                            {
-                                result.Append(new PyString(type));
-                            }
-                            return result;
+                            result.Append(new PyString(type));
                         }
+                        return result;
                     }
-                    return new PyList();
+                    return result;
                 });
 
                 // get_unit_actual_props: 아이템 효과가 반영된 최종 Prop (특정 타입만 필터링 가능)
@@ -1241,27 +1134,28 @@ namespace SE
                         }
                     }
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
+                        var inventory = _inventorySystem.GetUnitInventory(unitId);
+                        var equippedItems = _inventorySystem.GetUnitEquippedItems(unitId);
+
+                        Morld.TraversalContext actualProps;
+                        if (types != null)
+                            actualProps = unit.GetActualPropsEx(types, _itemSystem, inventory, equippedItems);
+                        else
+                            actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
+
+                        var result = new PyDict();
+                        foreach (var kv in actualProps.Props)
                         {
-                            var inventory = _inventorySystem?.GetUnitInventory(unitId);
-                            var equippedItems = _inventorySystem?.GetUnitEquippedItems(unitId);
-
-                            Morld.TraversalContext actualProps;
-                            if (types != null)
-                                actualProps = unit.GetActualPropsEx(types, _itemSystem, inventory, equippedItems);
-                            else
-                                actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
-
-                            var result = new PyDict();
-                            foreach (var kv in actualProps.Props)
-                            {
-                                result.SetItem(new PyString(kv.Key.FullName), new PyInt(kv.Value));
-                            }
-                            return result;
+                            result.SetItem(new PyString(kv.Key.FullName), new PyInt(kv.Value));
                         }
+                        return result;
                     }
                     return new PyDict();
                 });
@@ -1277,37 +1171,36 @@ namespace SE
                     int objectId = args[1].ToInt();
                     string seatName = args[2].AsString();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    var obj = _unitSystem.FindUnit(objectId);
+
+                    if (unit != null && obj != null && obj.IsObject)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        var obj = _unitSystem.GetUnit(objectId);
-
-                        if (unit != null && obj != null && obj.IsObject)
+                        // 1. 캐릭터가 이미 앉아있는지 확인
+                        var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                        if (seatedOn.Prop.IsValid)
                         {
-                            // 1. 캐릭터가 이미 앉아있는지 확인
-                            var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
-                            if (seatedOn.Prop.IsValid)
-                            {
-                                Godot.GD.PrintErr($"[morld] sit_on: unit={unitId} is already seated");
-                                return PyBool.False;
-                            }
-
-                            // 2. 좌석이 비어있는지 확인
-                            var seatPropName = $"seated_by:{seatName}";
-                            int seatOccupant = obj.TraversalContext.Props.Get(seatPropName);
-                            if (seatOccupant != -1)
-                            {
-                                Godot.GD.PrintErr($"[morld] sit_on: seat {seatName} is occupied");
-                                return PyBool.False;
-                            }
-
-                            // 3. 양방향 설정
-                            unit.TraversalContext.Props.Set($"seated_on:{objectId}", seatName.GetHashCode());
-                            obj.TraversalContext.Props.Set(seatPropName, unitId);
-
-                            Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}");
-                            return PyBool.True;
+                            Godot.GD.PrintErr($"[morld] sit_on: unit={unitId} is already seated");
+                            return PyBool.False;
                         }
+
+                        // 2. 좌석이 비어있는지 확인
+                        var seatPropName = $"seated_by:{seatName}";
+                        int seatOccupant = obj.TraversalContext.Props.Get(seatPropName);
+                        if (seatOccupant != -1)
+                        {
+                            Godot.GD.PrintErr($"[morld] sit_on: seat {seatName} is occupied");
+                            return PyBool.False;
+                        }
+
+                        // 3. 양방향 설정
+                        unit.TraversalContext.Props.Set($"seated_on:{objectId}", seatName.GetHashCode());
+                        obj.TraversalContext.Props.Set(seatPropName, unitId);
+
+                        Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -1321,44 +1214,43 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem != null)
-                    {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
-                        {
-                            // 1. seated_on에서 오브젝트 ID 추출
-                            var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
-                            if (!seatedOn.Prop.IsValid)
-                            {
-                                Godot.GD.PrintErr($"[morld] stand_up: unit={unitId} is not seated");
-                                return PyBool.False;
-                            }
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                            // Prop 이름에서 오브젝트 ID 추출
-                            if (int.TryParse(seatedOn.Prop.Name, out int objectId))
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
+                    {
+                        // 1. seated_on에서 오브젝트 ID 추출
+                        var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                        if (!seatedOn.Prop.IsValid)
+                        {
+                            Godot.GD.PrintErr($"[morld] stand_up: unit={unitId} is not seated");
+                            return PyBool.False;
+                        }
+
+                        // Prop 이름에서 오브젝트 ID 추출
+                        if (int.TryParse(seatedOn.Prop.Name, out int objectId))
+                        {
+                            var obj = _unitSystem.FindUnit(objectId);
+                            if (obj != null)
                             {
-                                var obj = _unitSystem.GetUnit(objectId);
-                                if (obj != null)
+                                // 2. 오브젝트에서 해당 좌석 찾기
+                                var seatProps = obj.TraversalContext.Props.GetByType("seated_by");
+                                foreach (var (prop, value) in seatProps)
                                 {
-                                    // 2. 오브젝트에서 해당 좌석 찾기
-                                    var seatProps = obj.TraversalContext.Props.GetByType("seated_by");
-                                    foreach (var (prop, value) in seatProps)
+                                    if (value == unitId)
                                     {
-                                        if (value == unitId)
-                                        {
-                                            obj.TraversalContext.Props.Set(prop, -1);
-                                            break;
-                                        }
+                                        obj.TraversalContext.Props.Set(prop, -1);
+                                        break;
                                     }
                                 }
                             }
-
-                            // 3. 캐릭터 seated_on 제거
-                            unit.TraversalContext.Props.Remove(seatedOn.Prop);
-
-                            Godot.GD.Print($"[morld] stand_up: unit={unitId} stood up");
-                            return PyBool.True;
                         }
+
+                        // 3. 캐릭터 seated_on 제거
+                        unit.TraversalContext.Props.Remove(seatedOn.Prop);
+
+                        Godot.GD.Print($"[morld] stand_up: unit={unitId} stood up");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -1372,16 +1264,15 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
+                        var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                        if (seatedOn.Prop.IsValid && int.TryParse(seatedOn.Prop.Name, out int objectId))
                         {
-                            var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
-                            if (seatedOn.Prop.IsValid && int.TryParse(seatedOn.Prop.Name, out int objectId))
-                            {
-                                return new PyInt(objectId);
-                            }
+                            return new PyInt(objectId);
                         }
                     }
                     return new PyInt(-1);
@@ -1398,12 +1289,12 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null) return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null) return PyBool.False;
 
-                    var actionSystem = _hub?.FindSystem("actionSystem") as ActionSystem;
+                    var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
                     if (actionSystem == null) return PyBool.False;
 
                     return actionSystem.CanDrive(unit) ? PyBool.True : PyBool.False;
@@ -1420,12 +1311,12 @@ namespace SE
 
                     var result = new PyList();
 
-                    if (_unitSystem == null) return result;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null) return result;
 
-                    var actionSystem = _hub?.FindSystem("actionSystem") as ActionSystem;
+                    var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
                     if (actionSystem == null) return result;
 
                     var destinations = actionSystem.GetDrivableDestinations(unit);
@@ -1458,20 +1349,16 @@ namespace SE
                     resultDict.SetItem(new PyString("message"), new PyString("Unknown error"));
                     resultDict.SetItem(new PyString("time_consumed"), new PyInt(0));
 
-                    if (_unitSystem == null)
-                    {
-                        resultDict.SetItem(new PyString("message"), new PyString("UnitSystem not found"));
-                        return resultDict;
-                    }
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                     {
                         resultDict.SetItem(new PyString("message"), new PyString($"Unit {unitId} not found"));
                         return resultDict;
                     }
 
-                    var actionSystem = _hub?.FindSystem("actionSystem") as ActionSystem;
+                    var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
                     if (actionSystem == null)
                     {
                         resultDict.SetItem(new PyString("message"), new PyString("ActionSystem not found"));
@@ -1505,27 +1392,26 @@ namespace SE
                     int unitId = args[0].ToInt();
                     string activity = args[1] is PyNone ? null : args[1].AsString();
 
-                    if (_unitSystem != null)
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
                     {
-                        var unit = _unitSystem.GetUnit(unitId);
-                        if (unit != null)
+                        // CurrentSchedule의 Activity 설정 (CurrentSchedule이 없으면 임시 생성)
+                        var currentSchedule = unit.CurrentSchedule;
+                        if (currentSchedule != null)
                         {
-                            // CurrentSchedule의 Activity 설정 (CurrentSchedule이 없으면 임시 생성)
-                            var currentSchedule = unit.CurrentSchedule;
-                            if (currentSchedule != null)
-                            {
-                                currentSchedule.Activity = activity;
-                            }
-                            else if (!string.IsNullOrEmpty(activity))
-                            {
-                                // 현재 스케줄이 없으면 Activity만 설정할 수 있는 임시 항목 생성 불가
-                                // 대신 unit에 직접 Activity 저장 필드가 필요 (현재 설계상 CurrentSchedule 경유)
-                                Godot.GD.PrintErr($"[morld] set_unit_activity: unit={unitId} has no CurrentSchedule");
-                                return PyBool.False;
-                            }
-                            Godot.GD.Print($"[morld] set_unit_activity: unit={unitId}, activity={activity ?? "null"}");
-                            return PyBool.True;
+                            currentSchedule.Activity = activity;
                         }
+                        else if (!string.IsNullOrEmpty(activity))
+                        {
+                            // 현재 스케줄이 없으면 Activity만 설정할 수 있는 임시 항목 생성 불가
+                            // 대신 unit에 직접 Activity 저장 필드가 필요 (현재 설계상 CurrentSchedule 경유)
+                            Godot.GD.PrintErr($"[morld] set_unit_activity: unit={unitId} has no CurrentSchedule");
+                            return PyBool.False;
+                        }
+                        Godot.GD.Print($"[morld] set_unit_activity: unit={unitId}, activity={activity ?? "null"}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -1533,12 +1419,9 @@ namespace SE
                 // get_game_time: 현재 게임 시간 (분 단위) 반환
                 morldModule.ModuleDict["get_game_time"] = new PyBuiltinFunction("get_game_time", args =>
                 {
-                    if (_worldSystem != null)
-                    {
-                        var time = _worldSystem.GetTime();
-                        return new PyInt(time.MinuteOfDay);
-                    }
-                    return new PyInt(0);
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var time = _worldSystem.GetTime();
+                    return new PyInt(time.MinuteOfDay);
                 });
 
                 // set_region_weather: 지역 날씨 설정 (기존 set_weather와 동일하지만 명확한 이름)
@@ -1550,16 +1433,15 @@ namespace SE
                     int regionId = args[0].ToInt();
                     string weather = args[1].AsString();
 
-                    if (_worldSystem != null)
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+                    var terrain = _worldSystem.GetTerrain();
+                    var region = terrain.GetRegion(regionId);
+                    if (region != null)
                     {
-                        var terrain = _worldSystem.GetTerrain();
-                        var region = terrain.GetRegion(regionId);
-                        if (region != null)
-                        {
-                            region.CurrentWeather = weather;
-                            Godot.GD.Print($"[morld] set_region_weather: region={regionId}, weather={weather}");
-                            return PyBool.True;
-                        }
+                        region.CurrentWeather = weather;
+                        Godot.GD.Print($"[morld] set_region_weather: region={regionId}, weather={weather}");
+                        return PyBool.True;
                     }
                     return PyBool.False;
                 });
@@ -1579,8 +1461,9 @@ namespace SE
                     int toLoc = args[3].ToInt();
                     int? unitId = args.Length > 4 && args[4] != PyNone.Instance ? args[4].ToInt() : null;
 
-                    if (_worldSystem == null)
-                        return PyNone.Instance;
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
 
                     var terrain = _worldSystem.GetTerrain();
                     var from = new Morld.LocationRef(fromRegion, fromLoc);
@@ -1588,8 +1471,8 @@ namespace SE
 
                     // 유닛 기반 경로 탐색 (조건 체크용)
                     Morld.Unit unit = null;
-                    if (unitId.HasValue && _unitSystem != null)
-                        unit = _unitSystem.GetUnit(unitId.Value);
+                    if (unitId.HasValue)
+                        unit = _unitSystem.FindUnit(unitId.Value);
 
                     var pathResult = terrain.FindPath(from, to, unit, _itemSystem);
 
@@ -1618,10 +1501,9 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null)
-                        return PyNone.Instance;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyNone.Instance;
 
@@ -1639,10 +1521,9 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -1664,10 +1545,10 @@ namespace SE
                     int unitId = args[0].ToInt();
                     var scheduleArg = args[1];
 
-                    if (_unitSystem == null || _worldSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -1692,10 +1573,9 @@ namespace SE
                     int unitId = args[0].ToInt();
                     var jobArg = args[1];
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -1716,10 +1596,9 @@ namespace SE
                     int unitId = args[0].ToInt();
                     var jobArg = args[1];
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -1740,10 +1619,9 @@ namespace SE
                     int unitId = args[0].ToInt();
                     var jobArg = args[1];
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -1763,10 +1641,9 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null)
-                        return PyBool.False;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyBool.False;
 
@@ -1783,10 +1660,9 @@ namespace SE
 
                     int unitId = args[0].ToInt();
 
-                    if (_unitSystem == null)
-                        return PyNone.Instance;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                    var unit = _unitSystem.GetUnit(unitId);
+                    var unit = _unitSystem.FindUnit(unitId);
                     if (unit == null)
                         return PyNone.Instance;
 
@@ -1809,6 +1685,150 @@ namespace SE
         }
 
         /// <summary>
+        /// NPC Job 관련 API 등록 (set_npc_job, set_npc_time_consume)
+        /// EventSystem 참조가 필요하므로 별도 메서드로 분리
+        /// </summary>
+        public void RegisterNpcJobAPI()
+        {
+            Godot.GD.Print("[ScriptSystem] Registering NPC Job API...");
+
+            try
+            {
+                // 기존 morld 모듈 가져오기
+                var morldModule = PyImportSystem.Import("morld");
+
+                // === set_npc_job - NPC Job 설정 (시간 경과 없음) ===
+                // morld.set_npc_job(unit_id, action, duration, target_id=None)
+                morldModule.ModuleDict["set_npc_job"] = new PyBuiltinFunction("set_npc_job", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_npc_job(unit_id, action, duration, target_id=None) requires at least 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string action = args[1].AsString();
+                    int duration = args[2].ToInt();
+                    int? targetId = null;
+                    if (args.Length >= 4 && args[3] is not PyNone)
+                        targetId = args[3].ToInt();
+
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit == null || unit.IsObject)
+                    {
+                        Godot.GD.PrintErr($"[morld.set_npc_job] Unit {unitId} not found or is object");
+                        return PyBool.False;
+                    }
+
+                    // 이동 중단
+                    unit.CurrentEdge = null;
+                    unit.RemainingStayTime = 0;
+
+                    // Job 이름 결정
+                    string jobName = action switch
+                    {
+                        "follow" => "따라가기",
+                        "flee" => "도망",
+                        _ => "대기"
+                    };
+
+                    // follow/flee는 target_id 필요 (기본값: 플레이어)
+                    if ((action == "follow" || action == "flee") && !targetId.HasValue)
+                    {
+                        targetId = _playerSystem.PlayerId;
+                    }
+
+                    // JobList 클리어 후 새 Job 삽입
+                    var job = new Morld.Job
+                    {
+                        Name = jobName,
+                        Action = action,
+                        Duration = duration,
+                        TargetId = targetId
+                    };
+                    unit.JobList.InsertWithClear(job);
+
+#if DEBUG_LOG
+                    Godot.GD.Print($"[morld.set_npc_job] Unit {unitId}: action={action}, duration={duration}, target={targetId}");
+#endif
+
+                    return PyBool.True;
+                });
+
+                // === set_npc_time_consume - NPC Job 설정 + 다이얼로그 시간 경과 ===
+                // morld.set_npc_time_consume(unit_id, action, duration, target_id=None)
+                // 다이얼로그 이벤트 전용 - lastDialogTime += duration
+                morldModule.ModuleDict["set_npc_time_consume"] = new PyBuiltinFunction("set_npc_time_consume", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_npc_time_consume(unit_id, action, duration, target_id=None) requires at least 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string action = args[1].AsString();
+                    int duration = args[2].ToInt();
+                    int? targetId = null;
+                    if (args.Length >= 4 && args[3] is not PyNone)
+                        targetId = args[3].ToInt();
+
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit == null || unit.IsObject)
+                    {
+                        Godot.GD.PrintErr($"[morld.set_npc_time_consume] Unit {unitId} not found or is object");
+                        return PyBool.False;
+                    }
+
+                    // 이동 중단
+                    unit.CurrentEdge = null;
+                    unit.RemainingStayTime = 0;
+
+                    // Job 이름 결정
+                    string jobName = action switch
+                    {
+                        "follow" => "따라가기",
+                        "flee" => "도망",
+                        _ => "대기"
+                    };
+
+                    // follow/flee는 target_id 필요 (기본값: 플레이어)
+                    if ((action == "follow" || action == "flee") && !targetId.HasValue)
+                    {
+                        targetId = _playerSystem.PlayerId;
+                    }
+
+                    // JobList 클리어 후 새 Job 삽입
+                    var job = new Morld.Job
+                    {
+                        Name = jobName,
+                        Action = action,
+                        Duration = duration,
+                        TargetId = targetId
+                    };
+                    unit.JobList.InsertWithClear(job);
+
+                    // 다이얼로그 시간 경과 설정 (EventSystem에 누적)
+                    var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+
+                    _eventSystem.AddDialogTimeConsumed(duration);
+#if DEBUG_LOG
+                    Godot.GD.Print($"[morld.set_npc_time_consume] Unit {unitId}: action={action}, duration={duration}, target={targetId} (dialog time +{duration})");
+#endif
+
+                    return PyBool.True;
+                });
+
+                Godot.GD.Print("[ScriptSystem] NPC Job API registered successfully.");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] RegisterNpcJobAPI error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// PyDict를 Dictionary<string, string>으로 변환
         /// </summary>
         private System.Collections.Generic.Dictionary<string, string> PyDictToStringDict(PyDict dict)
@@ -1820,7 +1840,7 @@ namespace SE
                 var key = keys.GetItem(i);
                 var keyStr = key is PyString ks ? ks.Value : key.ToString();
                 var value = dict.GetItem(key);
-                var valueStr = value is PyString vs ? vs.Value : value?.ToString() ?? "";
+                var valueStr = value is PyString vs ? vs.Value : value.ToString() ?? "";
                 result[keyStr] = valueStr;
             }
             return result;
@@ -1859,14 +1879,14 @@ namespace SE
             if (dict.Contains(new PyString("name")).Value)
             {
                 var nameObj = dict.GetItem(new PyString("name"));
-                job.Name = nameObj is PyString ps ? ps.Value : nameObj?.ToString() ?? "";
+                job.Name = nameObj is PyString ps ? ps.Value : nameObj.ToString() ?? "";
             }
 
             // action (기본값 "stay")
             if (dict.Contains(new PyString("action")).Value)
             {
                 var actionObj = dict.GetItem(new PyString("action"));
-                job.Action = actionObj is PyString ps ? ps.Value : actionObj?.ToString() ?? "stay";
+                job.Action = actionObj is PyString ps ? ps.Value : actionObj.ToString() ?? "stay";
             }
 
             // region_id
@@ -1928,7 +1948,7 @@ namespace SE
                 if (dict.Contains(new PyString("name")).Value)
                 {
                     var nameObj = dict.GetItem(new PyString("name"));
-                    name = nameObj is PyString ps ? ps.Value : nameObj?.ToString() ?? "";
+                    name = nameObj is PyString ps ? ps.Value : nameObj.ToString() ?? "";
                 }
 
                 // region_id
@@ -1974,7 +1994,7 @@ namespace SE
                 if (dict.Contains(new PyString("activity")).Value)
                 {
                     var actObj = dict.GetItem(new PyString("activity"));
-                    activity = actObj is PyString ps ? ps.Value : actObj?.ToString() ?? "";
+                    activity = actObj is PyString ps ? ps.Value : actObj.ToString() ?? "";
                 }
 
                 var entry = new Morld.ScheduleEntry(name, regionId, locationId, start, end, activity);
@@ -2008,7 +2028,7 @@ namespace SE
             for (int i = 0; i < list.Length(); i++)
             {
                 var item = list.GetItem(i);
-                result.Add(item is PyString ps ? ps.Value : item?.ToString() ?? "");
+                result.Add(item is PyString ps ? ps.Value : item.ToString() ?? "");
             }
             return result;
         }
@@ -2115,7 +2135,7 @@ namespace SE
 
                 // Execute로 직접 실행 (전역 스코프에 함수 등록)
                 var execResult = Execute(code);
-                Godot.GD.Print($"[ScriptSystem] Execute result: {execResult?.GetType().Name} = {execResult}");
+                Godot.GD.Print($"[ScriptSystem] Execute result: {execResult.GetType().Name} = {execResult}");
 
                 Godot.GD.Print("[ScriptSystem] Scenario scripts loaded successfully.");
 
@@ -2389,7 +2409,7 @@ __init__.initialize_scenario()
         /// <returns>함수 실행 결과 (ScriptResult)</returns>
         public ScriptResult CallFunctionEx(string functionName, string[] args, int? contextUnitId = null)
         {
-            Godot.GD.Print($"[ScriptSystem] CallFunctionEx: {functionName}({string.Join(", ", args)}) [contextUnitId={contextUnitId?.ToString() ?? "null"}]");
+            Godot.GD.Print($"[ScriptSystem] CallFunctionEx: {functionName}({string.Join(", ", args)}) [contextUnitId={contextUnitId.ToString() ?? "null"}]");
 
             try
             {
@@ -2419,7 +2439,7 @@ __init__.initialize_scenario()
                 // Eval 모드로 실행해야 함수 호출 결과를 반환받을 수 있음
                 var result = Eval(code);
 
-                Godot.GD.Print($"[ScriptSystem] Result type: {result?.GetType().Name ?? "null"}, value: {result}");
+                Godot.GD.Print($"[ScriptSystem] Result type: {result.GetType().Name ?? "null"}, value: {result}");
 
                 // 제너레이터인 경우 - yield morld.messagebox(...) 지원
                 if (result is PyGenerator generator)
@@ -2447,7 +2467,7 @@ __init__.initialize_scenario()
                 }
                 else
                 {
-                    return new ScriptResult { Type = "message", Message = result?.ToString() ?? "" };
+                    return new ScriptResult { Type = "message", Message = result.ToString() ?? "" };
                 }
             }
             catch (System.Exception ex)
@@ -2467,7 +2487,7 @@ __init__.initialize_scenario()
                 // 제너레이터의 첫 번째 yield 값 가져오기
                 var yieldedValue = generator.Next();
 
-                Godot.GD.Print($"[ScriptSystem] Generator yielded: {yieldedValue?.GetType().Name ?? "null"}");
+                Godot.GD.Print($"[ScriptSystem] Generator yielded: {yieldedValue.GetType().Name ?? "null"}");
 
                 // PyDialogRequest yield인 경우 (새 통합 API)
                 if (yieldedValue is PyDialogRequest dialogRequest)
@@ -2482,8 +2502,8 @@ __init__.initialize_scenario()
                 }
 
                 // 다른 값이 yield된 경우 (추후 확장 가능)
-                Godot.GD.Print($"[ScriptSystem] Generator yielded unknown type: {yieldedValue?.GetType().Name}");
-                return new ScriptResult { Type = "message", Message = yieldedValue?.ToString() ?? "" };
+                Godot.GD.Print($"[ScriptSystem] Generator yielded unknown type: {yieldedValue.GetType().Name}");
+                return new ScriptResult { Type = "message", Message = yieldedValue.ToString() ?? "" };
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration stopIter)
             {
@@ -2504,7 +2524,7 @@ __init__.initialize_scenario()
                 {
                     return null;
                 }
-                return new ScriptResult { Type = "message", Message = returnValue?.ToString() ?? "" };
+                return new ScriptResult { Type = "message", Message = returnValue.ToString() ?? "" };
             }
         }
 
@@ -2522,7 +2542,7 @@ __init__.initialize_scenario()
                 var pyResult = new PyString(result);
                 var yieldedValue = generator.Send(pyResult);
 
-                Godot.GD.Print($"[ScriptSystem] Generator resumed, yielded: {yieldedValue?.GetType().Name ?? "null"}");
+                Godot.GD.Print($"[ScriptSystem] Generator resumed, yielded: {yieldedValue.GetType().Name ?? "null"}");
 
                 // 또 다른 Dialog yield인 경우 (새 통합 API)
                 if (yieldedValue is PyDialogRequest dialogRequest)
@@ -2536,7 +2556,7 @@ __init__.initialize_scenario()
                 }
 
                 // 다른 값이 yield된 경우
-                return new ScriptResult { Type = "message", Message = yieldedValue?.ToString() ?? "" };
+                return new ScriptResult { Type = "message", Message = yieldedValue.ToString() ?? "" };
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration stopIter)
             {
@@ -2556,7 +2576,7 @@ __init__.initialize_scenario()
                 {
                     return null;
                 }
-                return new ScriptResult { Type = "message", Message = returnValue?.ToString() ?? "" };
+                return new ScriptResult { Type = "message", Message = returnValue.ToString() ?? "" };
             }
             catch (System.Exception ex)
             {
@@ -2567,106 +2587,17 @@ __init__.initialize_scenario()
 
         /// <summary>
         /// PyDict 결과를 ScriptResult로 파싱
+        /// message 타입만 지원 (monologue 레거시 제거됨)
         /// </summary>
         private ScriptResult ParseDictResult(PyDict dict)
         {
-            var typeObj = dict.GetItem(new PyString("type"));
-            var type = (typeObj as PyString)?.Value;
+            var typeObj = dict.Get(new PyString("type"));
+            var type = (typeObj as PyString)?.Value ?? "message";
 
-            if (type == "monologue" || type == "update")
-            {
-                var pagesObj = dict.GetItem(new PyString("pages"));
-                var timeObj = dict.Get(new PyString("time_consumed"));  // Get()으로 변경 (없으면 None)
-                // button_type은 선택적 필드 - Get()은 키가 없으면 None 반환
-                var buttonTypeObj = dict.Get(new PyString("button_type"));
-
-                var pages = new System.Collections.Generic.List<string>();
-                if (pagesObj is PyList pagesList)
-                {
-                    for (int i = 0; i < pagesList.Length(); i++)
-                    {
-                        var page = pagesList.GetItem(i);
-                        if (page is PyString pageStr)
-                        {
-                            pages.Add(pageStr.Value);
-                        }
-                    }
-                }
-
-                int timeConsumed = 0;
-                if (timeObj is PyInt timeInt)
-                {
-                    timeConsumed = (int)timeInt.Value;
-                }
-
-                // button_type 파싱 ("ok", "none", "yesno", "none_on_last")
-                // 문자열로 저장하여 Dialog 변환 시 사용
-                string buttonType = "ok";
-                if (buttonTypeObj is PyString buttonTypeStr)
-                {
-                    buttonType = buttonTypeStr.Value.ToLower();
-                }
-
-                // 콜백 파싱 (선택적)
-                // done_callback: 확인(Ok) 또는 승낙(YesNo) 시 호출
-                // cancel_callback: 거절(YesNo) 시 호출
-                var doneCallbackObj = dict.Get(new PyString("done_callback"));
-                var cancelCallbackObj = dict.Get(new PyString("cancel_callback"));
-                string doneCallback = (doneCallbackObj as PyString)?.Value;
-                string cancelCallback = (cancelCallbackObj as PyString)?.Value;
-
-                // npc_jobs 파싱 (선택적) - 지정된 유닛들에게 Job 적용
-                // 형식 1: {2: "follow"} - duration은 timeConsumed 사용
-                // 형식 2: {2: {"action": "follow", "duration": 5}} - duration 명시
-                var npcJobsObj = dict.Get(new PyString("npc_jobs"));
-                var npcJobs = new System.Collections.Generic.Dictionary<int, NpcJobInfo>();
-                if (npcJobsObj is PyDict pyNpcJobsDict)
-                {
-                    var keys = pyNpcJobsDict.Keys();
-                    for (int i = 0; i < keys.Length(); i++)
-                    {
-                        var key = keys.GetItem(i);
-                        if (key is PyInt pyKey)
-                        {
-                            var value = pyNpcJobsDict.GetItem(key);
-                            int unitId = (int)pyKey.Value;
-
-                            if (value is PyString pyStrValue)
-                            {
-                                // 형식 1: 문자열 (action만, duration은 timeConsumed)
-                                npcJobs[unitId] = new NpcJobInfo(pyStrValue.Value, timeConsumed);
-                            }
-                            else if (value is PyDict pyJobDict)
-                            {
-                                // 형식 2: 딕셔너리 {"action": str, "duration": int}
-                                var actionObj = pyJobDict.Get(new PyString("action"));
-                                var durationObj = pyJobDict.Get(new PyString("duration"));
-
-                                string action = (actionObj as PyString)?.Value ?? "stay";
-                                int duration = durationObj is PyInt pyDur ? (int)pyDur.Value : timeConsumed;
-
-                                npcJobs[unitId] = new NpcJobInfo(action, duration);
-                            }
-                        }
-                    }
-                }
-
-                return new MonologueScriptResult
-                {
-                    Type = type,  // "monologue" 또는 "update"
-                    Pages = pages,
-                    TimeConsumed = timeConsumed,
-                    ButtonType = buttonType,
-                    DoneCallback = doneCallback,
-                    CancelCallback = cancelCallback,
-                    NpcJobs = npcJobs
-                };
-            }
-
-            // 기본 메시지 결과 - Get()으로 안전하게 조회
+            // 메시지 결과 - Get()으로 안전하게 조회
             var messageObj = dict.Get(new PyString("message"));
             var message = (messageObj as PyString)?.Value ?? "";
-            return new ScriptResult { Type = type ?? "unknown", Message = message };
+            return new ScriptResult { Type = type, Message = message };
         }
 
         /// <summary>
@@ -2758,7 +2689,7 @@ def calculate(a, b):
                         else if (item is int i)
                             items.Add(i.ToString());
                         else
-                            items.Add($"'{item?.ToString() ?? ""}'");
+                            items.Add($"'{item.ToString() ?? ""}'");
                     }
                     eventStrings.Add($"[{string.Join(", ", items)}]");
                 }
@@ -2775,18 +2706,20 @@ def calculate(a, b):
                     return null;
                 }
 
-                // PyDict에서 결과 파싱
-                if (result is PyDict dict)
+                // PyGenerator 반환 시 ProcessGenerator() 호출
+                if (result is PyGenerator generator)
                 {
-                    return ParseDictResult(dict);
+                    Godot.GD.Print($"[ScriptSystem] CallEventHandler: Generator returned, processing...");
+                    return ProcessGenerator(generator);
                 }
 
-                Godot.GD.Print($"[ScriptSystem] Unknown event result: {result}");
+                Godot.GD.Print($"[ScriptSystem] Unknown event result type: {result.GetType().Name}");
                 return null;
             }
             catch (System.Exception ex)
             {
                 Godot.GD.PrintErr($"[ScriptSystem] CallEventHandler error: {ex.Message}");
+                Godot.GD.PrintErr($"[ScriptSystem] Stack trace: {ex.StackTrace}");
                 return null;
             }
         }
@@ -2855,7 +2788,7 @@ def calculate(a, b):
                 if (result is PyDict dict)
                 {
                     var typeObj = dict.GetItem(new PyString("type"));
-                    var type = (typeObj as PyString)?.Value;
+                    var type = (typeObj as PyString).Value;
 
                     if (type == "monologue")
                     {
@@ -2966,49 +2899,12 @@ def calculate(a, b):
     /// </summary>
     public class ScriptResult
     {
-        public string Type { get; set; }  // "message", "monologue", "error" 등
+        public string Type { get; set; }  // "message", "generator_dialog", "error" 등
         public string Message { get; set; }
     }
 
     /// <summary>
-    /// NPC Job 정보 (action + duration)
-    /// </summary>
-    public struct NpcJobInfo
-    {
-        public string Action { get; set; }  // "follow", "stay" 등
-        public int Duration { get; set; }    // 지속 시간 (분)
-
-        public NpcJobInfo(string action, int duration)
-        {
-            Action = action;
-            Duration = duration;
-        }
-    }
-
-    /// <summary>
-    /// 모놀로그 스크립트 결과 - 페이지 데이터 포함
-    /// 레거시 타입 (Dialog로 변환되어 표시됨)
-    /// </summary>
-    public class MonologueScriptResult : ScriptResult
-    {
-        public System.Collections.Generic.List<string> Pages { get; set; } = new();
-        public int TimeConsumed { get; set; }
-        /// <summary>
-        /// 버튼 타입: "ok", "none", "yesno", "none_on_last"
-        /// </summary>
-        public string ButtonType { get; set; } = "ok";
-        public string DoneCallback { get; set; }
-        public string CancelCallback { get; set; }
-        /// <summary>
-        /// NPC Job 지정: unit_id → NpcJobInfo
-        /// 예: {2: {"action": "follow", "duration": 5}} → 세라가 5분간 플레이어를 따라감
-        /// duration 생략 시 TimeConsumed 사용
-        /// </summary>
-        public System.Collections.Generic.Dictionary<int, NpcJobInfo> NpcJobs { get; set; } = new();
-    }
-
-    /// <summary>
-    /// 제너레이터 스크립트 결과 - MessageBox/Dialog yield 시 반환
+    /// 제너레이터 스크립트 결과 - Dialog yield 시 반환
     /// 다이얼로그 결과를 generator.Send()로 전달하여 스크립트 재개
     /// </summary>
     public class GeneratorScriptResult : ScriptResult

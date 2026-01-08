@@ -53,7 +53,7 @@ def on_event_list(ev_list):
         elif event_type == "on_meet":
             unit_ids = event[1:]
             if player_id in unit_ids:
-                # 먼저 등록된 MeetEvent 체크
+                # 먼저 등록된 MeetEvent 체크 (플레이어 포함)
                 result = registry.handle_meet(player_id, unit_ids)
                 if result:
                     return result
@@ -62,6 +62,11 @@ def on_event_list(ev_list):
                 result = _handle_character_meet(player_id, unit_ids)
                 if result:
                     return result
+            else:
+                # NPC 간 만남 이벤트 (플레이어 미포함)
+                result = registry.handle_npc_meet(unit_ids)
+                # NPC 간 이벤트는 다이얼로그 없음 - 결과 반환 안 함
+                # (로그만 출력하고 계속 진행)
 
     return None
 

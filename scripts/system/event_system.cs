@@ -343,124 +343,27 @@ namespace SE
 
 			var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
 
-			switch (result.Type)
+			// Generator가 Dialog를 yield한 경우만 처리
+			if (result.Type == "generator_dialog" && result is GeneratorScriptResult genResult)
 			{
-				case "generator_dialog":
-					// Generator가 Dialog를 yield한 경우
-					if (result is GeneratorScriptResult genResult)
-					{
-						// MetaActionHandler에 Generator 설정
-						_metaActionHandler.SetPendingGenerator(genResult.Generator);
+				// MetaActionHandler에 Generator 설정
+				_metaActionHandler.SetPendingGenerator(genResult.Generator);
 
-						// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
-						if (_textUISystem != null && _textUISystem.IsStackEmpty())
-						{
-							_textUISystem.ShowSituation();
-						}
+				// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
+				if (_textUISystem != null && _textUISystem.IsStackEmpty())
+				{
+					_textUISystem.ShowSituation();
+				}
 
-						// Dialog 표시
-						_textUISystem.PushDialog(genResult.DialogText);
+				// Dialog 표시
+				_textUISystem.PushDialog(genResult.DialogText);
 #if DEBUG_LOG
-						GD.Print($"[EventSystem] Generator dialog: {genResult.DialogText.Substring(0, System.Math.Min(50, genResult.DialogText.Length))}...");
+				GD.Print($"[EventSystem] Generator dialog: {genResult.DialogText.Substring(0, System.Math.Min(50, genResult.DialogText.Length))}...");
 #endif
-						return true;
-					}
-					break;
-
-				case "monologue":
-					if (result is MonologueScriptResult monoResult)
-					{
-						// npc_jobs: 지정된 유닛들에게 Job 적용
-						if (monoResult.NpcJobs.Count > 0)
-						{
-							ApplyNpcJobs(monoResult.NpcJobs);
-						}
-
-						// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
-						// 스택이 비어있으면 먼저 Situation Push
-						if (_textUISystem != null && _textUISystem.IsStackEmpty())
-						{
-							_textUISystem.ShowSituation();
-						}
-
-						// 레거시 monologue → Dialog 변환
-						// 각 페이지를 Dialog로 큐잉
-						for (int i = 0; i < monoResult.Pages.Count; i++)
-						{
-							var page = monoResult.Pages[i];
-							var isLast = i == monoResult.Pages.Count - 1;
-							var timeForPage = isLast ? monoResult.TimeConsumed : 0;
-
-							string dialogText;
-							if (!isLast)
-							{
-								dialogText = page + "\n\n[url=@ret:next]다음[/url]";
-							}
-							else
-							{
-								// 마지막 페이지 - button_type에 따른 버튼
-								if (monoResult.ButtonType == "none_on_last" || monoResult.ButtonType == "none")
-								{
-									dialogText = page;
-								}
-								else if (monoResult.ButtonType == "yesno")
-								{
-									dialogText = page + "\n\n[url=@ret:yes]예[/url]  [url=@ret:no]아니오[/url]";
-								}
-								else
-								{
-									dialogText = page + "\n\n[url=@ret:ok]확인[/url]";
-								}
-							}
-
-							_textUISystem.PushDialog(dialogText, timeForPage);
-						}
-						return true;
-					}
-					break;
+				return true;
 			}
 
 			return false;
-		}
-
-		/// <summary>
-		/// 지정된 유닛들에게 Job 적용
-		/// JobList 맨 앞에 Job을 삽입하여 즉시 실행되도록 함
-		/// </summary>
-		/// <param name="npcJobs">unit_id → NpcJobInfo 매핑</param>
-		private void ApplyNpcJobs(System.Collections.Generic.Dictionary<int, SE.NpcJobInfo> npcJobs)
-		{
-			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
-			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
-
-			foreach (var kvp in npcJobs)
-			{
-				var unitId = kvp.Key;
-				var jobInfo = kvp.Value;
-
-				var unit = _unitSystem.FindUnit(unitId);
-				if (unit == null || unit.IsObject) continue;
-
-				// 이동 중이었다면 중단
-				unit.CurrentEdge = null;
-				unit.RemainingStayTime = 0;
-
-				// 이동 추적 상태 동기화 (DetectLocationChanges에서 "이동했다" 로그 방지)
-				// NPC Job이 적용되면 현재 위치에서 새 행동을 시작하므로
-				// 이전 이동 상태를 무효화
-				_wasMoving.Remove(unitId);
-				_lastLocations[unitId] = unit.CurrentLocation;
-
-				// JobList 클리어 후 새 Job 삽입 (유저 입력이므로 기존 Job 대체)
-				var job = new Morld.Job
-				{
-					Name = jobInfo.Action == "follow" ? "따라가기" : "대기",
-					Action = jobInfo.Action,  // "follow", "stay" 등
-					Duration = jobInfo.Duration,
-					TargetId = jobInfo.Action == "follow" ? _playerSystem.PlayerId : null
-				};
-				unit.JobList.InsertWithClear(job);
-			}
 		}
 
 		/// <summary>

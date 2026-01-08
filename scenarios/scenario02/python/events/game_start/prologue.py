@@ -1,4 +1,4 @@
-﻿# events/game_start/prologue.py - 프롤로그 시작 이벤트
+# events/game_start/prologue.py - 프롤로그 시작 이벤트
 #
 # 게임 시작 시 캐릭터 생성 흐름
 
@@ -18,51 +18,20 @@ class PrologueStart(GameStartEvent):
         # 챕터 0: 프롤로그 (숲 방황)
         morld.set_prop("chapter", 0)
 
-        intro_pages = [
-            "......",
-            "......의식이 희미하게 떠오른다.",
-            "머리가... 아프다.",
-            "여기는... 어디지?",
-            "기억이... 나지 않는다.",
-            "눈앞에 울창한 나무들이 보인다.\n숲 속인 것 같다.",
-            "...일단 나 자신에 대해 생각해보자."
-        ]
+        yield morld.dialog("......")
+        yield morld.dialog("......의식이 희미하게 떠오른다.")
+        yield morld.dialog("머리가... 아프다.")
+        yield morld.dialog("여기는... 어디지?")
+        yield morld.dialog("기억이... 나지 않는다.")
+        yield morld.dialog("눈앞에 울창한 나무들이 보인다.\n숲 속인 것 같다.")
+        yield morld.dialog("...일단 나 자신에 대해 생각해보자.")
 
-        # 이름 선택 페이지
+        # 이름 선택 페이지 (button_type: none - 링크로만 진행)
         name_options = "\n".join([
             f"[url=script:set_name:{name}]{name}[/url]"
             for name in NAME_OPTIONS
         ])
-        name_page = f"내 이름은...?\n\n{name_options}"
-
-        return {
-            "type": "monologue",
-            "pages": intro_pages + [name_page],
-            "time_consumed": 0,
-            "button_type": "none_on_last"
-        }
-
-
-@registry.register
-class DialogDemo(GameStartEvent):
-    """Dialog API 시범 - 게임 시작 전 알림"""
-    once = True
-    priority = 100  # PrologueStart보다 먼저 실행
-
-    def handle(self, **ctx):
-        # 일반 모놀로그 반환 (제너레이터가 아님)
-        # Dialog 시범은 별도 스크립트 함수로 테스트
-        return {
-            "type": "monologue",
-            "pages": [
-                "[b]Morld - Dialog API 시범[/b]",
-                "이 게임에는 새로운 morld.dialog() API가 구현되었습니다.",
-                "Python에서 yield morld.dialog()를 사용하여\nBBCode 기반 다이얼로그를 표시할 수 있습니다.",
-                "[url=script:intro_with_dialog]Dialog 테스트하기[/url]\n\n또는 [확인]을 눌러 게임을 시작하세요."
-            ],
-            "time_consumed": 0,
-            "button_type": "ok"
-        }
+        yield morld.dialog(f"내 이름은...?\n\n{name_options}")
 
 
 # ========================================

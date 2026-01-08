@@ -6,6 +6,15 @@
 
 from assets.base import Asset, Unit, Character, Object, Item
 
+# 레지스트리 함수 export (ID 조회용)
+from assets.registry import (
+    get_instance_id,
+    get_unique_id,
+    require_instance_id,
+    clear,
+    register_instance as register_id_mapping,
+)
+
 
 # ========================================
 # 인스턴스 레지스트리 (instance_id → Asset 인스턴스)
@@ -17,6 +26,9 @@ _instances = {}
 def register_instance(instance_id: int, instance: Asset):
     """인스턴스 등록 (get_focus_text 조회용)"""
     _instances[instance_id] = instance
+    # unique_id → instance_id 매핑도 등록
+    if hasattr(instance, 'unique_id') and instance.unique_id:
+        register_id_mapping(instance.unique_id, instance_id)
 
 
 def get_instance(instance_id: int) -> Asset:

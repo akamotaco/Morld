@@ -890,57 +890,6 @@ public class MetaActionHandler
 				}
 				break;
 
-			case "monologue":
-				// 레거시 monologue 타입 → Dialog로 변환
-				if (result is SE.MonologueScriptResult monoResult)
-				{
-					// 페이지들을 하나의 Dialog 텍스트로 결합 (첫 페이지만 표시, 나머지는 큐)
-					for (int i = 0; i < monoResult.Pages.Count; i++)
-					{
-						var page = monoResult.Pages[i];
-						var isLast = i == monoResult.Pages.Count - 1;
-						var timeForPage = isLast ? monoResult.TimeConsumed : 0;
-
-						// 마지막 페이지가 아니면 [다음] 버튼, 마지막이면 버튼 타입에 따라
-						string dialogText;
-						if (!isLast)
-						{
-							dialogText = page + "\n\n[url=@ret:next]다음[/url]";
-						}
-						else
-						{
-							// 마지막 페이지 - button_type에 따른 버튼
-							// none_on_last인 경우 버튼 없음 (script URL 사용)
-							if (monoResult.ButtonType == "none_on_last" || monoResult.ButtonType == "none")
-							{
-								dialogText = page;
-							}
-							else if (monoResult.ButtonType == "yesno")
-							{
-								dialogText = page + "\n\n[url=@ret:yes]예[/url]  [url=@ret:no]아니오[/url]";
-							}
-							else
-							{
-								dialogText = page + "\n\n[url=@ret:ok]확인[/url]";
-							}
-						}
-
-						if (i == 0)
-						{
-							_textUISystem?.PushDialog(dialogText, timeForPage);
-						}
-						else
-						{
-							// 큐에 추가 (PushDialog가 내부적으로 처리)
-							_textUISystem?.PushDialog(dialogText, timeForPage);
-						}
-					}
-#if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] Script result: monologue → dialog ({monoResult.Pages.Count} pages queued)");
-#endif
-				}
-				break;
-
 			case "message":
 				if (!string.IsNullOrEmpty(result.Message))
 				{

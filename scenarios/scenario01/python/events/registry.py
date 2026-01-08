@@ -1,4 +1,4 @@
-# events/registry.py - 이벤트 자동 수집 및 라우팅
+# events/registry.py - 이벤트 자동 수집 및 라우팅 (scenario01)
 #
 # 이벤트 클래스 등록 및 타입별 핸들링
 

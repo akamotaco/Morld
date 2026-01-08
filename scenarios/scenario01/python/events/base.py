@@ -1,4 +1,4 @@
-# events/base.py - 이벤트 기본 클래스
+# events/base.py - 이벤트 기본 클래스 (scenario01)
 #
 # 이벤트 타입별 기본 클래스 정의
 # 각 이벤트 파일에서 상속받아 사용

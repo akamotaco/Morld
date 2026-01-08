@@ -1,5 +1,9 @@
 # events/meet/__init__.py - 만남 이벤트 패키지
 #
-# 현재는 만남 이벤트 없음 (캐릭터별 on_meet_player는 캐릭터 클래스에서 처리)
+# 플레이어 만남 이벤트: MeetEvent, DialogEvent 상속
+# NPC 간 만남 이벤트: NpcMeetEvent 상속
 
-__all__ = []
+# NPC 간 만남 이벤트 테스트
+from . import npc_test
+
+__all__ = ['npc_test']
