@@ -163,8 +163,24 @@ public partial class GameEngine : Node
 		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
 
 		// InventorySystem 이벤트 콜백 (행동 로그 자동 생성)
+		// 오브젝트(IsObject=true)의 인벤토리 변경은 로그에서 제외
+		var unitSystem = this._world.GetSystem("unitSystem") as UnitSystem;
 		_inventorySystem.OnInventoryChanged += (evt) =>
 		{
+			// 캐릭터(IsObject=false)의 인벤토리 변경만 로그 출력
+			// UnitKey는 unitId.ToString() 형식 (예: "0", "1021")
+			string? ownerKey = evt.ToOwner ?? evt.FromOwner;
+			if (!string.IsNullOrEmpty(ownerKey) && int.TryParse(ownerKey, out int unitId))
+			{
+				var unit = unitSystem?.FindUnit(unitId);
+				if (unit?.IsObject != false)
+					return; // 캐릭터가 아니면 로그 생략
+			}
+			else
+			{
+				return; // 유닛 ID를 파싱할 수 없으면 로그 생략
+			}
+
 			var itemName = itemSystem?.GetItem(evt.ItemId)?.Name ?? "아이템";
 			var countText = evt.Count > 1 ? $" x{evt.Count}" : "";
 

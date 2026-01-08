@@ -194,6 +194,69 @@ namespace SE
                     return PyBool.False;
                 });
 
+                morldModule.ModuleDict["get_unit_inventory"] = new PyBuiltinFunction("get_unit_inventory", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_unit_inventory(unit_id) requires 1 argument");
+
+                    int unitId = args[0].ToInt();
+
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    var inventory = _inventorySystem.GetUnitInventory(unitId);
+
+                    // PyDict로 변환 {item_id: count, ...}
+                    var result = new PyDict();
+                    foreach (var (itemId, count) in inventory)
+                    {
+                        result.SetItem(new PyInt(itemId), new PyInt(count));
+                    }
+                    return result;
+                });
+
+                morldModule.ModuleDict["transfer_item"] = new PyBuiltinFunction("transfer_item", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("transfer_item(from_unit_id, to_unit_id, item_id, count=1) requires at least 3 arguments");
+
+                    int fromUnitId = args[0].ToInt();
+                    int toUnitId = args[1].ToInt();
+                    int itemId = args[2].ToInt();
+                    int count = args.Length >= 4 ? args[3].ToInt() : 1;
+
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+
+                    // from에서 제거
+                    bool success = _inventorySystem.LostItemFromUnit(fromUnitId, itemId, count);
+                    if (success)
+                    {
+                        // to에 추가
+                        _inventorySystem.AddItemToUnit(toUnitId, itemId, count);
+                        Godot.GD.Print($"[morld] transfer_item: from={fromUnitId}, to={toUnitId}, item={itemId}, count={count}");
+                    }
+                    return PyBool.FromBool(success);
+                });
+
+                // get_item_info: 아이템 정보 조회
+                morldModule.ModuleDict["get_item_info"] = new PyBuiltinFunction("get_item_info", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("get_item_info(item_id) requires 1 argument");
+
+                    int itemId = args[0].ToInt();
+
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                    var item = _itemSystem?.GetItem(itemId);
+
+                    if (item == null)
+                        return PyNone.Instance;
+
+                    var result = new PyDict();
+                    result.SetItem(new PyString("id"), new PyInt(item.Id));
+                    result.SetItem(new PyString("name"), new PyString(item.Name ?? ""));
+                    result.SetItem(new PyString("value"), new PyInt(item.Value));
+                    return result;
+                });
+
                 // === 유닛 API ===
                 morldModule.ModuleDict["get_unit_info"] = new PyBuiltinFunction("get_unit_info", args =>
                 {

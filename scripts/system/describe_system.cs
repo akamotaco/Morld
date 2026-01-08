@@ -536,10 +536,10 @@ namespace SE
 				lines.Add("[color=yellow]행동:[/color]");
 				foreach (var action in unitLook.Actions)
 				{
-					// putinobject 액션은 '넣기'로 표시
+					// putinobject 액션은 script:put_to_object로 변환 (가져가기는 기존 Item 메뉴 방식 유지)
 					if (action == "putinobject")
 					{
-						lines.Add($"  [url=put_select:{unitLook.UnitId}]넣기[/url]");
+						lines.Add($"  [url=script:put_to_object]넣기[/url]");
 					}
 					// script:함수명:표시명 형식 - Python 스크립트 직접 호출
 					else if (action.StartsWith("script:"))

@@ -5,5 +5,6 @@
 from . import player_creation
 from . import npc_talk
 from . import location_callbacks
+from . import container
 
-__all__ = ['player_creation', 'npc_talk', 'location_callbacks']
+__all__ = ['player_creation', 'npc_talk', 'location_callbacks', 'container']
