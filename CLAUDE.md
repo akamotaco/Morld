@@ -53,7 +53,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - `DescribeSystem` - 묘사 텍스트 생성 (시간 기반 키 선택)
 - `ActionSystem` - 유닛 행동 실행 (talk, trade, use 등)
 - `TextUISystem` - RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
-- `ScriptSystem` - Python 스크립트 실행 (sharpPy 기반), 모놀로그/이벤트 처리
+- `ScriptSystem` - Python 스크립트 실행 (sharpPy 기반), Dialog/이벤트 처리
 - `EventSystem` - 게임 이벤트 수집 및 Python 전달 (OnReach, OnMeet 감지)
 
 ### 시스템 실행 순서
@@ -211,14 +211,10 @@ class Sera(Character):
         return "날카로운 눈매의 여성 사냥꾼이다."
 
     def on_meet_player(self, player_id):
-        """플레이어와 만났을 때 이벤트"""
-        return {
-            "type": "monologue",
-            "pages": ["...일어났군.", "...세라다."],
-            "time_consumed": 2,
-            "button_type": "ok",
-            "npc_jobs": {self.instance_id: {"action": "follow", "duration": 2}}
-        }
+        """플레이어와 만났을 때 이벤트 (Generator 방식)"""
+        yield morld.dialog("...일어났군.")
+        yield morld.dialog("...세라다.")
+        morld.set_npc_job(self.instance_id, "follow", 2)
 
 @register_agent_class("sera")
 class SeraAgent(BaseAgent):
@@ -307,31 +303,24 @@ var unitsToMeet = _unitSystem.Units.Values
              && u.CurrentEdge == null)  // 이동 중이 아닌 유닛만
 ```
 
-**npc_jobs 시스템:**
-모놀로그 결과에서 `npc_jobs`로 NPC의 Job을 즉시 오버라이드:
+**NPC Job 제어 API:**
+Generator 기반 이벤트 핸들러에서 NPC Job을 직접 제어:
 
 ```python
-return {
-    "type": "monologue",
-    "pages": ["대화 내용..."],
-    "time_consumed": 2,
-    "button_type": "ok",
-    "npc_jobs": {
-        unit_id: {"action": "follow", "duration": 2}
-    }
-}
+# 이벤트 핸들러에서 NPC Job 설정
+def handle(self, player_id, unit_ids):
+    yield morld.dialog("대화 내용...")
+    # NPC Job 설정 (시간 경과 없음)
+    morld.set_npc_job(unit_id, "follow", duration=30)
+    # 또는 시간 경과 포함
+    morld.set_npc_time_consume(unit_id, "stay", duration=30)
 ```
-
-**ApplyNpcJobs 동작:**
-- 지정된 유닛의 CurrentEdge = null (이동 중단)
-- 이동 추적 상태 동기화 (`_wasMoving`, `_lastLocations`)
-- JobList.InsertWithClear()로 새 Job 삽입
 
 **이벤트 처리 순서 (_Process):**
 ```
 1. DetectMeetings() → OnMeet 이벤트 생성
-2. FlushEvents() → ApplyNpcJobs 실행 (이동 상태 변경)
-3. DetectLocationChanges() → 위치 변경 감지 (ApplyNpcJobs 후)
+2. FlushEvents() → Generator 실행, Dialog 표시
+3. DetectLocationChanges() → 위치 변경 감지
 4. FlushEvents() → 추가 이벤트 처리
 ```
 
@@ -378,7 +367,7 @@ Unit
 - `scripts/system/describe_system.cs`
 
 ### ScriptSystem (Logic System)
-**역할:** Python 스크립트 실행 (sharpPy 인터프리터), 모놀로그/이벤트 처리
+**역할:** Python 스크립트 실행 (sharpPy 인터프리터), Dialog/이벤트 처리
 
 **morld 모듈 API:**
 ```python
@@ -392,6 +381,8 @@ morld.set_unit_location(unit_id, region_id, location_id)
 
 # JobList 관련
 morld.fill_schedule_jobs_from(unit_id, schedule)
+morld.set_npc_job(unit_id, action, duration)  # NPC Job 즉시 설정
+morld.set_npc_time_consume(unit_id, action, duration)  # 시간 경과 포함
 
 # 아이템 관련
 morld.give_item(unit_id, item_id, count)
@@ -407,6 +398,9 @@ morld.add_action_log(message)
 # 시간 관련
 morld.get_game_time()
 morld.advance_time(minutes)
+
+# Dialog API (Generator 전용)
+morld.dialog(text)  # yield로 사용
 ```
 
 **파일 위치:**
@@ -449,9 +443,6 @@ def stat_allocation(context_unit_id):
             state["points"] -= 1
         # ... 등
 ```
-
-**레거시 호환:**
-`{"type": "monologue", "pages": [...], "button_type": "ok"}` 형식도 지원 (C#에서 Dialog로 자동 변환)
 
 **파일 위치:**
 - `scripts/morld/ui/Dialog.cs` - PyDialogRequest 클래스
