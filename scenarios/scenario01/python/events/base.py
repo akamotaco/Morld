@@ -55,7 +55,11 @@ class DialogEvent(MeetEvent):
 
     - is_dialog_event = True
     - handle()에서 yield morld.dialog() 사용 가능
-    - set_npc_time_consume()으로 시간 경과
+    - morld.dialog() 파라미터:
+      - text_or_pages: str 또는 list - 필수
+      - autofill: "next" (기본), "book", "scroll", "off"
+      - proc: @proc:값 클릭 시 호출될 콜백
+      - result: @finish 시 반환할 값
     """
     is_dialog_event = True
 

@@ -400,7 +400,10 @@ morld.get_game_time()
 morld.advance_time(minutes)
 
 # Dialog API (Generator 전용)
-morld.dialog(text)  # yield로 사용
+morld.dialog(text_or_pages, autofill="next", proc=None, result=None)  # yield로 사용
+
+# Unit 속성 설정
+morld.set_unit(unit_id, field, value)  # name, type 등
 ```
 
 **파일 위치:**
@@ -412,41 +415,97 @@ morld.dialog(text)  # yield로 사용
 
 **morld.dialog() API:**
 ```python
-# 기본 사용법 - yield로 사용자 입력 대기
-result = yield morld.dialog("텍스트\n\n[url=@ret:yes]예[/url] [url=@ret:no]아니오[/url]")
-# result = "yes" 또는 "no"
+result = yield morld.dialog(
+    text_or_pages,      # str 또는 list - 필수
+    autofill="next",    # "next", "book", "scroll", "off"
+    proc=None,          # @proc:값 클릭 시 호출될 콜백
+    result=None         # @finish 시 반환할 값 (dict/객체)
+)
 ```
+
+**autofill 타입:**
+| 타입 | 동작 | 용도 |
+|------|------|------|
+| `next` | [다음] 버튼만 (기본값) | 순차 모놀로그 |
+| `book` | [이전][다음] 왕복 가능 | 일기, 문서 열람 |
+| `scroll` | 텍스트 누적 + [다음] | 회상, 긴 독백 |
+| `off` | 자동 버튼 없음 | 커스텀 UI |
 
 **URL 패턴:**
 | 패턴 | 동작 | 설명 |
 |------|------|------|
-| `@ret:값` | 다이얼로그 종료, yield에 값 반환 | 최종 선택 |
-| `@proc:값` | generator에 값 전달, 다이얼로그 유지 | 상태 변경 (스탯 배분 등) |
+| `@ret:값` | 다이얼로그 종료, yield에 값 반환 | 최종 선택 (레거시) |
+| `@finish` | 다이얼로그 종료, result 파라미터 값 반환 | |
+| `@proc:값` | proc(값) 호출, 반환값에 따라 동작 | 상태 변경 |
+| `@next` | 다음 페이지로 이동 | autofill 전용 |
+| `@prev` | 이전 페이지로 이동 | book 전용 |
 
-**예시 - 상호작용 다이얼로그:**
+**proc 콜백 반환값:**
+| 반환값 | 동작 |
+|--------|------|
+| `문자열` | 해당 문자열로 텍스트 업데이트, 다이얼로그 유지 |
+| `True` | 다이얼로그 즉시 종료, result 반환 |
+| `None`/`False` | 변경 없음, 다이얼로그 유지 |
+
+**proc('init') 자동 호출:**
+- Dialog가 처음 표시될 때 `proc('init')` 자동 호출
+- 문자열 반환 시 초기 텍스트로 사용
+- `None` 반환 시 원래 텍스트 사용
+- 다이얼로그 복귀 시 상태 기반 텍스트 갱신에 활용
+
+**예시 - 멀티페이지 모놀로그:**
 ```python
-@morld.register_script
-def stat_allocation(context_unit_id):
-    state = {"str": 5, "agi": 5, "points": 10}
+@register
+class GameStart(GameStartEvent):
+    def handle(self, **ctx):
+        yield morld.dialog([
+            "...어디지, 여기는?",
+            "머리가 지끈거린다.\n기억이... 잘 나지 않는다.",
+            "일단 이 저택에서 나가야 할 것 같다."
+        ])  # autofill="next" 기본값
+```
 
-    while True:
-        result = yield morld.dialog(
-            f"힘: {state['str']} [url=@proc:str+]+[/url]\n"
-            f"민첩: {state['agi']} [url=@proc:agi+]+[/url]\n\n"
-            f"[url=@ret:confirm]확인[/url]"
-        )
+**예시 - proc + return True로 선택 후 즉시 종료:**
+```python
+state = {"choice": None}
 
-        if result == "confirm":
-            break
-        elif result == "str+" and state["points"] > 0:
-            state["str"] += 1
-            state["points"] -= 1
-        # ... 등
+def handle_choice(action):
+    if action == "init":
+        return None  # 초기 텍스트 유지
+    state["choice"] = action
+    return True  # 다이얼로그 종료
+
+result = yield morld.dialog(
+    "어디로 갈까?\n\n"
+    "[url=@proc:town]마을[/url]\n"
+    "[url=@proc:forest]숲[/url]",
+    autofill="off",
+    proc=handle_choice,
+    result=state
+)
+# result = state (state["choice"]에 선택값)
+```
+
+**예시 - 캐릭터 생성 (yield from 서브 제너레이터):**
+```python
+def handle(self, **ctx):
+    from events.scripts.player_creation import (
+        run_character_creation, apply_character_creation
+    )
+
+    yield morld.dialog(["도입 모놀로그..."])
+
+    # yield from으로 sub-generator의 모든 yield를 전달
+    state = yield from run_character_creation()
+    apply_character_creation(state)
+
+    yield morld.dialog([f"완료: {state['name']}"])
 ```
 
 **파일 위치:**
 - `scripts/morld/ui/Dialog.cs` - PyDialogRequest 클래스
 - `scripts/morld/ui/Focus.cs` - FocusType.Dialog
+- `scenarios/scenario02/python/events/scripts/player_creation.py` - 캐릭터 생성 예시
 
 ---
 

@@ -511,23 +511,88 @@ namespace SE
                     return func;  // 데코레이터로 사용할 수 있도록 함수 반환
                 });
 
-                // === Dialog API ===
-                // morld.dialog(text) - BBCode 기반 다이얼로그
-                // Python에서 yield로 사용: result = yield morld.dialog("텍스트\n\n[url=@ret:yes]예[/url]")
+                // === Dialog API (통합) ===
+                // morld.dialog(text_or_pages, autofill="next", proc=None, result=None)
+                // Python에서 yield로 사용:
+                //   yield morld.dialog("텍스트")  # 단일 페이지, 기본 autofill
+                //   yield morld.dialog(["페이지1", "페이지2"])  # 멀티 페이지
+                //   yield morld.dialog(["페이지1", "페이지2"], autofill="book")  # 이전/다음 왕복
+                //   result = yield morld.dialog("텍스트", autofill="off", proc=my_proc, result=state)
+                //
+                // autofill 타입:
+                //   "next" (기본값) - [다음] 버튼만, 마지막 페이지는 [종료]
+                //   "book" - [이전][다음] 왕복 가능
+                //   "scroll" - 텍스트 누적 + [다음]
+                //   "off" - 자동 버튼 없음 (커스텀 UI)
+                //
                 // URL 패턴:
-                //   @ret:값 - 다이얼로그 종료, yield에 값 반환
-                //   @proc:값 - generator에 값 전달, 다이얼로그 유지
-                // 반환값: URL에서 @ret:값 또는 @proc:값의 "값" 부분 (prefix 제외)
-                morldModule.ModuleDict["dialog"] = new PyBuiltinFunction("dialog", args =>
+                //   @next - 다음 페이지로 이동 (autofill 전용)
+                //   @prev - 이전 페이지로 이동 (book 전용)
+                //   @finish - 다이얼로그 종료, result 파라미터 값 반환
+                //   @proc:값 - proc 콜백 호출, 텍스트 업데이트
+                //   @proc_finish:값 - proc 콜백 호출 후 종료
+                //   @ret:값 - 다이얼로그 종료, 해당 값 반환 (레거시 호환)
+                morldModule.ModuleDict["dialog"] = new PyBuiltinFunction("dialog", (args, kwargs) =>
                 {
                     if (args.Length < 1)
-                        throw PyTypeError.Create("dialog(text) requires 1 argument");
+                        throw PyTypeError.Create("dialog(text_or_pages, autofill='next', proc=None, result=None) requires at least 1 argument");
 
-                    string text = args[0].AsString();
+                    var firstArg = args[0];
 
-                    // PyDialogRequest 반환
-                    // 제너레이터에서 yield로 이 객체가 반환되면 C#에서 다이얼로그 표시
-                    return new PyDialogRequest(text);
+                    // kwargs에서 파라미터 추출
+                    DialogAutofill autofill = DialogAutofill.Next;
+                    PyObject procCallback = null;
+                    PyObject resultObject = null;
+
+                    if (kwargs != null)
+                    {
+                        // autofill 파라미터
+                        var autofillKey = new PyString("autofill");
+                        var autofillValue = kwargs.Get(autofillKey);
+                        if (autofillValue != null && !(autofillValue is PyNone))
+                        {
+                            string autofillStr = autofillValue.AsString().ToLower();
+                            autofill = autofillStr switch
+                            {
+                                "next" => DialogAutofill.Next,
+                                "book" => DialogAutofill.Book,
+                                "scroll" => DialogAutofill.Scroll,
+                                "off" => DialogAutofill.Off,
+                                _ => DialogAutofill.Next
+                            };
+                        }
+
+                        // proc 파라미터
+                        var procKey = new PyString("proc");
+                        var procValue = kwargs.Get(procKey);
+                        if (procValue != null && !(procValue is PyNone))
+                        {
+                            procCallback = procValue;
+                        }
+
+                        // result 파라미터
+                        var resultKey = new PyString("result");
+                        var resultValue = kwargs.Get(resultKey);
+                        if (resultValue != null && !(resultValue is PyNone))
+                        {
+                            resultObject = resultValue;
+                        }
+                    }
+
+                    // 리스트인 경우 멀티페이지
+                    if (firstArg is PyList pageList)
+                    {
+                        var pages = new System.Collections.Generic.List<string>();
+                        foreach (var item in pageList.Items)
+                        {
+                            pages.Add(item.AsString());
+                        }
+                        return new PyDialogRequest(pages, null, procCallback, autofill, resultObject);
+                    }
+
+                    // 단일 텍스트
+                    string text = firstArg.AsString();
+                    return new PyDialogRequest(text, null, procCallback, autofill, resultObject);
                 });
 
                 // sys.modules에 등록
@@ -1063,6 +1128,35 @@ namespace SE
                         }
                     }
                     return PyBool.False;
+                });
+
+                // set_unit: 유닛 필드 설정
+                // set_unit(unit_id, field, value)
+                // 지원 필드: "name"
+                morldModule.ModuleDict["set_unit"] = new PyBuiltinFunction("set_unit", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_unit(unit_id, field, value) requires 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string field = args[1].AsString();
+                    var value = args[2];
+
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit == null)
+                        return PyBool.False;
+
+                    switch (field)
+                    {
+                        case "name":
+                            unit.Name = value.AsString();
+                            Godot.GD.Print($"[morld] set_unit: unit={unitId}, name={value.AsString()}");
+                            return PyBool.True;
+                        default:
+                            throw PyTypeError.Create($"set_unit: unknown field '{field}'");
+                    }
                 });
 
                 // get_unit_props_by_type: 특정 타입의 Prop만 조회
@@ -2492,12 +2586,16 @@ __init__.initialize_scenario()
                 // PyDialogRequest yield인 경우 (새 통합 API)
                 if (yieldedValue is PyDialogRequest dialogRequest)
                 {
-                    Godot.GD.Print($"[ScriptSystem] Dialog request: {dialogRequest.Text.Substring(0, System.Math.Min(50, dialogRequest.Text.Length))}...");
+                    var pageInfo = dialogRequest.Pages.Count > 1
+                        ? $" (page {dialogRequest.CurrentPageIndex + 1}/{dialogRequest.Pages.Count})"
+                        : "";
+                    Godot.GD.Print($"[ScriptSystem] Dialog request{pageInfo}: {dialogRequest.Text.Substring(0, System.Math.Min(50, dialogRequest.Text.Length))}...");
                     return new GeneratorScriptResult
                     {
                         Type = "generator_dialog",
                         Generator = generator,
-                        DialogText = dialogRequest.Text
+                        DialogText = dialogRequest.Text,
+                        DialogRequest = dialogRequest
                     };
                 }
 
@@ -2547,11 +2645,16 @@ __init__.initialize_scenario()
                 // 또 다른 Dialog yield인 경우 (새 통합 API)
                 if (yieldedValue is PyDialogRequest dialogRequest)
                 {
+                    var pageInfo = dialogRequest.Pages.Count > 1
+                        ? $" (page {dialogRequest.CurrentPageIndex + 1}/{dialogRequest.Pages.Count})"
+                        : "";
+                    Godot.GD.Print($"[ScriptSystem] Dialog request{pageInfo}: {dialogRequest.Text.Substring(0, System.Math.Min(50, dialogRequest.Text.Length))}...");
                     return new GeneratorScriptResult
                     {
                         Type = "generator_dialog",
                         Generator = generator,
-                        DialogText = dialogRequest.Text
+                        DialogText = dialogRequest.Text,
+                        DialogRequest = dialogRequest
                     };
                 }
 
@@ -2582,6 +2685,117 @@ __init__.initialize_scenario()
             {
                 Godot.GD.PrintErr($"[ScriptSystem] ResumeGenerator error: {ex.Message}");
                 return new ScriptResult { Type = "error", Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// 제너레이터에 PyObject 결과를 직접 전달하고 계속 실행
+        /// @finish 처리 시 result 파라미터(PyObject) 전달용
+        /// </summary>
+        public ScriptResult ResumeGeneratorWithPyObject(PyGenerator generator, PyObject result)
+        {
+            try
+            {
+                Godot.GD.Print($"[ScriptSystem] Resuming generator with PyObject: {result.GetTypeName()}");
+
+                // PyObject를 직접 send()
+                var yieldedValue = generator.Send(result);
+
+                Godot.GD.Print($"[ScriptSystem] Generator resumed, yielded: {yieldedValue.GetType().Name ?? "null"}");
+
+                // 또 다른 Dialog yield인 경우
+                if (yieldedValue is PyDialogRequest dialogRequest)
+                {
+                    var pageInfo = dialogRequest.Pages.Count > 1
+                        ? $" (page {dialogRequest.CurrentPageIndex + 1}/{dialogRequest.Pages.Count})"
+                        : "";
+                    Godot.GD.Print($"[ScriptSystem] Dialog request{pageInfo}: {dialogRequest.Text.Substring(0, System.Math.Min(50, dialogRequest.Text.Length))}...");
+                    return new GeneratorScriptResult
+                    {
+                        Type = "generator_dialog",
+                        Generator = generator,
+                        DialogText = dialogRequest.Text,
+                        DialogRequest = dialogRequest
+                    };
+                }
+
+                // 다른 값이 yield된 경우
+                return new ScriptResult { Type = "message", Message = yieldedValue.ToString() ?? "" };
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration stopIter)
+            {
+                // 제너레이터가 완료됨
+                Godot.GD.Print($"[ScriptSystem] Generator completed after resume with value: {stopIter.Value}");
+
+                var returnValue = stopIter.Value;
+                if (returnValue is PyDict dict)
+                {
+                    return ParseDictResult(dict);
+                }
+                else if (returnValue is PyString pyStr)
+                {
+                    return new ScriptResult { Type = "message", Message = pyStr.Value };
+                }
+                else if (returnValue is PyNone || returnValue == null)
+                {
+                    return null;
+                }
+                return new ScriptResult { Type = "message", Message = returnValue.ToString() ?? "" };
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] ResumeGeneratorWithPyObject error: {ex.Message}");
+                return new ScriptResult { Type = "error", Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// proc 콜백 함수 호출 (dialogEx의 proc 파라미터)
+        /// @proc:값 클릭 시 호출되어 새 텍스트 반환 또는 종료 신호
+        /// </summary>
+        /// <param name="procCallback">Python 콜백 함수</param>
+        /// <param name="value">@proc:값에서 추출한 값</param>
+        /// <returns>(새 텍스트, 종료 여부) - 텍스트가 null이고 shouldFinish가 false면 변경 없음</returns>
+        public (string newText, bool shouldFinish) CallProcCallback(PyObject procCallback, string value)
+        {
+            if (procCallback == null)
+            {
+                return (null, false);
+            }
+
+            try
+            {
+                Godot.GD.Print($"[ScriptSystem] Calling proc callback with value: {value}");
+
+                // Python 함수 호출
+                var pyValue = new PyString(value);
+                var result = procCallback.Call(new PyObject[] { pyValue }, null);
+
+                // 결과 처리:
+                // - None/null/False: 변경 없음, 다이얼로그 유지
+                // - True: 다이얼로그 종료
+                // - str: 텍스트 업데이트, 다이얼로그 유지
+                if (result is PyNone || result == null)
+                {
+                    Godot.GD.Print("[ScriptSystem] proc callback returned None");
+                    return (null, false);
+                }
+
+                if (result is PyBool pyBool)
+                {
+                    bool boolValue = pyBool.IsTrue();
+                    Godot.GD.Print($"[ScriptSystem] proc callback returned bool: {boolValue}");
+                    return (null, boolValue);  // True면 종료, False면 유지
+                }
+
+                var newText = result.AsString();
+                Godot.GD.Print($"[ScriptSystem] proc callback returned: {newText.Substring(0, System.Math.Min(50, newText.Length))}...");
+                return (newText, false);
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallProcCallback error: {ex.Message}");
+                return (null, false);
             }
         }
 
@@ -2915,9 +3129,14 @@ def calculate(a, b):
         public PyGenerator Generator { get; set; }
 
         /// <summary>
-        /// yield된 Dialog 텍스트
+        /// yield된 Dialog 텍스트 (현재 페이지)
         /// BBCode URL 포함 (@ret:값, @proc:값 패턴)
         /// </summary>
         public string DialogText { get; set; }
+
+        /// <summary>
+        /// 멀티페이지 다이얼로그 요청 객체 (페이지 진행용)
+        /// </summary>
+        public PyDialogRequest DialogRequest { get; set; }
     }
 }

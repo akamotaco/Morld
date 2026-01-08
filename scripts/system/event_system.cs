@@ -346,8 +346,8 @@ namespace SE
 			// Generator가 Dialog를 yield한 경우만 처리
 			if (result.Type == "generator_dialog" && result is GeneratorScriptResult genResult)
 			{
-				// MetaActionHandler에 Generator 설정
-				_metaActionHandler.SetPendingGenerator(genResult.Generator);
+				// MetaActionHandler에 Generator와 DialogRequest 설정
+				_metaActionHandler.SetPendingGenerator(genResult.Generator, genResult.DialogRequest);
 
 				// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
 				if (_textUISystem != null && _textUISystem.IsStackEmpty())

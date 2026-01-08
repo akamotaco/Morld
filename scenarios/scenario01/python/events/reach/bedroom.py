@@ -16,6 +16,9 @@ class BedroomFirstVisit(ReachEvent):
     priority = 10
 
     def handle(self, **ctx):
-        yield morld.dialog("...어디선가 희미한 소리가 들린다.")
-        yield morld.dialog("\"...나...가...\"")
-        yield morld.dialog("목소리가 사라졌다.\n환청이었을까?")
+        # autofill="next" (기본값) - 자동으로 [다음]/[종료] 버튼 추가
+        yield morld.dialog([
+            "...어디선가 희미한 소리가 들린다.",
+            "\"...나...가...\"",
+            "목소리가 사라졌다.\n환청이었을까?"
+        ])

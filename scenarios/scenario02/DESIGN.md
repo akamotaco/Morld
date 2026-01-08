@@ -292,40 +292,109 @@ events/
 스크립트 함수에서 상호작용 다이얼로그를 표시하는 제너레이터 기반 API.
 
 ```python
-@morld.register_script
-def my_dialog(context_unit_id):
-    # 단순 Yes/No
-    result = yield morld.dialog(
-        "진행하시겠습니까?\n\n"
-        "[url=@ret:yes]예[/url] [url=@ret:no]아니오[/url]"
-    )
-
-    if result == "yes":
-        # 승낙 처리
-        pass
+result = yield morld.dialog(
+    text_or_pages,      # str 또는 list - 필수
+    autofill="next",    # "next", "book", "scroll", "off"
+    proc=None,          # @proc:값 클릭 시 호출될 콜백
+    result=None         # @finish 시 반환할 값
+)
 ```
+
+### autofill 타입
+
+| 타입 | 동작 | 용도 |
+|------|------|------|
+| `next` | [다음] 버튼만 (기본값) | 순차 모놀로그 |
+| `book` | [이전][다음] 왕복 가능 | 일기, 문서 열람 |
+| `scroll` | 텍스트 누적 + [다음] | 회상, 긴 독백 |
+| `off` | 자동 버튼 없음 | 커스텀 UI |
 
 ### URL 패턴
 
 | 패턴 | 동작 | 설명 |
 |------|------|------|
-| `@ret:값` | 다이얼로그 종료, yield에 값 반환 | 최종 선택 |
-| `@proc:값` | generator에 값 전달, 다이얼로그 유지 | 상태 변경 (스탯 배분 등) |
+| `@next` | 다음 페이지로 이동 | autofill 전용 |
+| `@prev` | 이전 페이지로 이동 | book 전용 |
+| `@finish` | 다이얼로그 종료, result 반환 | 최종 확인 |
+| `@proc:값` | proc 콜백 호출 | 상태 변경/선택 |
+| `@ret:값` | 다이얼로그 종료, 해당 값 반환 | 레거시 호환 |
+
+### proc 콜백 반환값
+
+`@proc:값` 클릭 시 proc 콜백의 반환값에 따라 동작이 결정됩니다:
+
+| 반환값 | 동작 |
+|--------|------|
+| `True` | 다이얼로그 종료, result 반환 |
+| 문자열 | 텍스트 업데이트, 다이얼로그 유지 |
+| `None`/`False` | 변경 없음, 다이얼로그 유지 |
+
+### proc('init') 자동 호출
+
+Dialog가 처음 표시될 때 `proc('init')`이 자동 호출됩니다:
+- 반환값이 문자열이면 초기 텍스트로 사용
+- 반환값이 `None`이면 원래 텍스트 사용
+- 이를 통해 Dialog 복귀 시 상태 기반 텍스트 갱신 가능
+
+### 사용 예시
+
+```python
+# 1. 기본 멀티페이지 (autofill="next" 기본값)
+yield morld.dialog([
+    "페이지1",
+    "페이지2",
+    "페이지3"
+])
+# 자동 생성: [다음] → [다음] → [종료]
+
+# 2. 책 열람 (앞뒤 이동)
+yield morld.dialog([
+    "1장: 시작",
+    "2장: 전개",
+    "3장: 결말"
+], autofill="book")
+# 자동 생성: [이전][다음] 네비게이션
+
+# 3. 커스텀 UI (proc + result)
+state = {"str": 5, "points": 10}
+
+def handle_action(action):
+    if action == "str+" and state["points"] > 0:
+        state["str"] += 1
+        state["points"] -= 1
+    return build_text()  # 새 텍스트 반환
+
+result = yield morld.dialog(
+    build_text(),
+    autofill="off",
+    proc=handle_action,
+    result=state
+)
+# @finish 클릭 시 result = state
+
+# 4. 선택 후 즉시 종료 (proc + return True)
+state = {"choice": None}
+
+def handle_choice(action):
+    state["choice"] = action
+    return True  # 다이얼로그 종료
+
+result = yield morld.dialog(
+    "어디로 갈까?\n\n"
+    "[url=@proc:town]마을[/url]\n"
+    "[url=@proc:forest]숲[/url]",
+    autofill="off",
+    proc=handle_choice,
+    result=state
+)
+# result = state ({"choice": "town"} 또는 {"choice": "forest"})
+```
 
 ### 레거시 호환
 
-이벤트 핸들러(`handle()`, `on_meet_player()` 등)는 제너레이터가 아니므로 레거시 형식 사용:
-
-```python
-return {
-    "type": "monologue",
-    "pages": ["페이지1", "페이지2"],
-    "time_consumed": 5,
-    "button_type": "ok"  # "ok", "yesno", "none", "none_on_last"
-}
-```
-
-C#에서 자동으로 Dialog로 변환됨.
+`@ret:값` 패턴은 기존 코드와의 호환성을 위해 계속 지원됩니다.
+단, 다이얼로그 내에서 `script:` 패턴 사용은 정책적으로 금지됩니다.
+선택이 필요한 경우 `@proc:` 패턴을 사용하세요.
 
 ---
 
