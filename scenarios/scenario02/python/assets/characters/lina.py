@@ -115,7 +115,7 @@ class Lina(Character):
     # ========================================
 
     def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때"""
+        """플레이어와 처음 만났을 때 - Generator 기반"""
         import morld
 
         if self._event_flags.get("first_meet"):
@@ -126,18 +126,19 @@ class Lina(Character):
             return None
 
         self._event_flags["first_meet"] = True
-        return {
-            "type": "monologue",
-            "pages": [
+        instance_id = self.instance_id
+
+        def handler():
+            yield morld.dialog([
                 "안녕! 넌 누구야?",
                 "처음 보는 얼굴인데... 혹시 밖에서 온 거야?",
                 "나는 리나! 여기서 채집을 맡고 있어!",
                 "앞으로 잘 지내자~!"
-            ],
-            "time_consumed": 2,
-            "button_type": "ok",
-            "npc_jobs": {self.instance_id: "follow"}
-        }
+            ])
+            # 다이얼로그 후 플레이어 따라다니기
+            morld.set_npc_job(instance_id, "follow", 30, player_id)
+
+        return handler()
 
     def npc_talk(self, player_id):
         """대화 - Generator 기반"""

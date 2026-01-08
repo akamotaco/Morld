@@ -115,7 +115,7 @@ class Sera(Character):
     # ========================================
 
     def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때"""
+        """플레이어와 처음 만났을 때 - Generator 기반"""
         import morld
 
         if self._event_flags.get("first_meet"):
@@ -126,18 +126,19 @@ class Sera(Character):
             return None
 
         self._event_flags["first_meet"] = True
-        return {
-            "type": "monologue",
-            "pages": [
+        instance_id = self.instance_id
+
+        def handler():
+            yield morld.dialog([
                 "......",
                 "...일어났군.",
                 "...세라다. 사냥을 맡고 있다.",
                 "...무리하지 마라."
-            ],
-            "time_consumed": 2,
-            "button_type": "ok",
-            "npc_jobs": {self.instance_id: {"action": "follow", "duration": 2}}
-        }
+            ])
+            # 다이얼로그 후 플레이어 따라다니기 (2분)
+            morld.set_npc_job(instance_id, "follow", 2, player_id)
+
+        return handler()
 
     def npc_talk(self, player_id):
         """대화 - Generator 기반"""

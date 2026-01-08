@@ -297,6 +297,21 @@ namespace SE
 				.OrderBy(id => id)  // 정렬하여 키 정규화
 				.ToList();
 
+#if DEBUG_LOG
+			// 플레이어 위치에 있는 모든 NPC 확인 (이동 중 포함)
+			var allUnitsAtLocation = _unitSystem.Units.Values
+				.Where(u => u.Id != playerId && u.GeneratesEvents && u.CurrentLocation == playerLocation)
+				.ToList();
+			if (allUnitsAtLocation.Count > 0)
+			{
+				GD.Print($"[EventSystem] DetectMeetings at {playerLocation}: {allUnitsAtLocation.Count} units here");
+				foreach (var u in allUnitsAtLocation)
+				{
+					GD.Print($"  - Unit {u.Id} ({u.Name}): Edge={u.CurrentEdge != null}, toMeet={unitsToMeet.Contains(u.Id)}");
+				}
+			}
+#endif
+
 			if (unitsToMeet.Count == 0) return;
 
 			// 만남 키 생성 (플레이어 + 다른 유닛들, 정렬됨)
@@ -306,9 +321,18 @@ namespace SE
 			var meetingKey = string.Join(",", allIds);
 
 			// 이미 발생한 만남인지 확인
-			if (_lastMeetings.Contains(meetingKey)) return;
+			if (_lastMeetings.Contains(meetingKey))
+			{
+#if DEBUG_LOG
+				GD.Print($"[EventSystem] Meeting already happened: {meetingKey}");
+#endif
+				return;
+			}
 
 			// 새로운 만남 기록 및 이벤트 생성
+#if DEBUG_LOG
+			GD.Print($"[EventSystem] New meeting detected: {meetingKey}");
+#endif
 			AddMeetingKey(meetingKey, allIds.ToArray());
 			Enqueue(GameEvent.OnMeet(allIds.ToArray()));
 		}

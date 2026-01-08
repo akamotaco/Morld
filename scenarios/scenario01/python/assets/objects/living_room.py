@@ -33,35 +33,25 @@ class SofaCushion(Object):
 # ========================================
 
 def examine_fireplace(context_unit_id):
-    """벽난로 조사 - 숫자 힌트"""
+    """벽난로 조사 - 숫자 힌트 - Generator 기반"""
     flag_name = f"examined_{Fireplace.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 조사한 곳이다. 더 이상 볼 것이 없다."])
+        return
 
     morld.set_prop(flag_name, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [Fireplace.examine_message],
-        "time_consumed": 1
-    }
+    yield morld.dialog([Fireplace.examine_message])
 
 
 def examine_sofa(context_unit_id):
-    """소파 쿠션 조사"""
+    """소파 쿠션 조사 - Generator 기반"""
     player_id = morld.get_player_id()
 
     flag_name = f"examined_{SofaCushion.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 조사한 곳이다. 더 이상 볼 것이 없다."])
+        return
 
     morld.set_prop(flag_name, 1)
 
@@ -69,8 +59,4 @@ def examine_sofa(context_unit_id):
     if item:
         morld.give_item(player_id, item.instance_id, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [SofaCushion.examine_message],
-        "time_consumed": 1
-    }
+    yield morld.dialog([SofaCushion.examine_message])

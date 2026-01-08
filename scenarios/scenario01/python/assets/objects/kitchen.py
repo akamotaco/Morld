@@ -35,44 +35,31 @@ class Cupboard(Object):
 # ========================================
 
 def examine_refrigerator(context_unit_id):
-    """냉장고 조사 - 숫자 힌트"""
+    """냉장고 조사 - 숫자 힌트 - Generator 기반"""
     flag_name = f"examined_{Refrigerator.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 조사한 곳이다. 더 이상 볼 것이 없다."])
+        return
 
     morld.set_prop(flag_name, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [Refrigerator.examine_message],
-        "time_consumed": 1
-    }
+    yield morld.dialog([Refrigerator.examine_message])
 
 
 def unlock_cupboard(context_unit_id):
-    """찬장 열기"""
+    """찬장 열기 - Generator 기반"""
     player_id = morld.get_player_id()
 
     flag_name = f"unlocked_{Cupboard.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 열려 있다. 안은 비어 있다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 열려 있다. 안은 비어 있다."])
+        return
 
     # 열쇠 보유 확인
     key = get_item_instance(Cupboard.lock_key)
     if not key or not morld.has_item(player_id, key.instance_id):
-        return {
-            "type": "monologue",
-            "pages": [Cupboard.locked_msg],
-            "time_consumed": 0
-        }
+        yield morld.dialog([Cupboard.locked_msg])
+        return
 
     # 열쇠 소모
     morld.lost_item(player_id, key.instance_id, 1)
@@ -86,12 +73,8 @@ def unlock_cupboard(context_unit_id):
     if item:
         morld.give_item(player_id, item.instance_id, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [
-            "열쇠로 자물쇠를 열었다.",
-            "안쪽 깊숙한 곳에서 황금빛 열쇠의 머리 부분을 발견했다!",
-            "몸통 부분을 찾아서 조합해야 할 것 같다..."
-        ],
-        "time_consumed": 1
-    }
+    yield morld.dialog([
+        "열쇠로 자물쇠를 열었다.",
+        "안쪽 깊숙한 곳에서 황금빛 열쇠의 머리 부분을 발견했다!",
+        "몸통 부분을 찾아서 조합해야 할 것 같다..."
+    ])

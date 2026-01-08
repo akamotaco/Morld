@@ -36,16 +36,13 @@ class OldCabinet(Object):
 # ========================================
 
 def examine_shelf(context_unit_id):
-    """선반 조사"""
+    """선반 조사 - Generator 기반"""
     player_id = morld.get_player_id()
 
     flag_name = f"examined_{Shelf.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 조사한 곳이다. 더 이상 볼 것이 없다."])
+        return
 
     morld.set_prop(flag_name, 1)
 
@@ -53,33 +50,23 @@ def examine_shelf(context_unit_id):
     if item:
         morld.give_item(player_id, item.instance_id, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [Shelf.examine_message],
-        "time_consumed": 1
-    }
+    yield morld.dialog([Shelf.examine_message])
 
 
 def unlock_cabinet(context_unit_id):
-    """낡은 캐비닛 열기"""
+    """낡은 캐비닛 열기 - Generator 기반"""
     player_id = morld.get_player_id()
 
     flag_name = f"unlocked_{OldCabinet.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 열려 있다. 안은 비어 있다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 열려 있다. 안은 비어 있다."])
+        return
 
     # 열쇠 보유 확인
     key = get_item_instance(OldCabinet.lock_key)
     if not key or not morld.has_item(player_id, key.instance_id):
-        return {
-            "type": "monologue",
-            "pages": [OldCabinet.locked_msg],
-            "time_consumed": 0
-        }
+        yield morld.dialog([OldCabinet.locked_msg])
+        return
 
     # 열쇠 소모
     morld.lost_item(player_id, key.instance_id, 1)
@@ -93,11 +80,7 @@ def unlock_cabinet(context_unit_id):
     if item:
         morld.give_item(player_id, item.instance_id, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [
-            "열쇠로 자물쇠를 열었다.",
-            "안에서 은빛으로 빛나는 열쇠를 발견했다!"
-        ],
-        "time_consumed": 1
-    }
+    yield morld.dialog([
+        "열쇠로 자물쇠를 열었다.",
+        "안에서 은빛으로 빛나는 열쇠를 발견했다!"
+    ])

@@ -32,16 +32,13 @@ class PowerPanel(Object):
 # ========================================
 
 def examine_old_box(context_unit_id):
-    """낡은 상자 조사"""
+    """낡은 상자 조사 - Generator 기반"""
     player_id = morld.get_player_id()
 
     flag_name = f"examined_{OldBox.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 조사한 곳이다. 더 이상 볼 것이 없다."])
+        return
 
     morld.set_prop(flag_name, 1)
 
@@ -50,33 +47,21 @@ def examine_old_box(context_unit_id):
     if item:
         morld.give_item(player_id, item.instance_id, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [OldBox.examine_message],
-        "time_consumed": 1
-    }
+    yield morld.dialog([OldBox.examine_message])
 
 
 def toggle_switch(context_unit_id):
-    """배전함 스위치 조작"""
+    """배전함 스위치 조작 - Generator 기반"""
     current = morld.get_prop("power")
 
     if current > 0:
         morld.clear_prop("power")
-        return {
-            "type": "monologue",
-            "pages": ["스위치를 내렸다.", "주변이 다시 어두워졌다."],
-            "time_consumed": 1
-        }
+        yield morld.dialog(["스위치를 내렸다.", "주변이 다시 어두워졌다."])
     else:
         morld.set_prop("power", 1)
         morld.add_action_log("문이 열리는 소리가 들렸다")
-        return {
-            "type": "monologue",
-            "pages": [
-                "스위치를 올렸다.",
-                "철컥- 하는 소리와 함께 희미한 불빛이 들어온다.",
-                "어디선가 문이 열리는 소리가 들린다..."
-            ],
-            "time_consumed": 1
-        }
+        yield morld.dialog([
+            "스위치를 올렸다.",
+            "철컥- 하는 소리와 함께 희미한 불빛이 들어온다.",
+            "어디선가 문이 열리는 소리가 들린다..."
+        ])

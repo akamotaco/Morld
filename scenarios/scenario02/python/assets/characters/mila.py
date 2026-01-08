@@ -117,7 +117,7 @@ class Mila(Character):
     # ========================================
 
     def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때"""
+        """플레이어와 처음 만났을 때 - Generator 기반"""
         import morld
 
         if self._event_flags.get("first_meet"):
@@ -129,17 +129,16 @@ class Mila(Character):
             return None
 
         self._event_flags["first_meet"] = True
-        return {
-            "type": "monologue",
-            "pages": [
+
+        def handler():
+            yield morld.dialog([
                 "어머, 깨어나셨군요!",
                 "저는 밀라예요. 여기서 요리를 맡고 있어요.",
                 "많이 힘드셨죠? 기억은... 좀 나세요?",
                 "괜찮아요, 천천히 쉬세요. 필요한 게 있으면 말씀해 주세요."
-            ],
-            "time_consumed": 3,
-            "button_type": "ok"
-        }
+            ])
+
+        return handler()
 
     def npc_talk(self, player_id):
         """대화 - Generator 기반"""

@@ -29,38 +29,27 @@ class StairWindow(Object):
 # ========================================
 
 def examine_step(context_unit_id):
-    """부서진 계단 조사"""
-    return {
-        "type": "monologue",
-        "pages": [
-            "부서진 계단 틈새를 들여다본다.",
-            "먼지와 거미줄... 그리고 낡은 못 하나.",
-            "별다른 것은 없다."
-        ],
-        "time_consumed": 1
-    }
+    """부서진 계단 조사 - Generator 기반"""
+    yield morld.dialog([
+        "부서진 계단 틈새를 들여다본다.",
+        "먼지와 거미줄... 그리고 낡은 못 하나.",
+        "별다른 것은 없다."
+    ])
 
 
 def examine_window(context_unit_id):
-    """계단 창문 조사"""
+    """계단 창문 조사 - Generator 기반"""
     flag_name = f"examined_{StairWindow.unique_id}"
 
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["창문은 여전히 굳게 잠겨있다. 밖은 어둡다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["창문은 여전히 굳게 잠겨있다. 밖은 어둡다."])
+        return
 
     morld.set_prop(flag_name, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [
-            "두꺼운 커튼을 걷어본다.",
-            "창문 밖은 칠흑같이 어둡다. 달빛조차 보이지 않는다.",
-            "창문은 굳게 잠겨있고, 쇠창살이 설치되어 있다.",
-            "...이쪽으로는 나갈 수 없다."
-        ],
-        "time_consumed": 1
-    }
+    yield morld.dialog([
+        "두꺼운 커튼을 걷어본다.",
+        "창문 밖은 칠흑같이 어둡다. 달빛조차 보이지 않는다.",
+        "창문은 굳게 잠겨있고, 쇠창살이 설치되어 있다.",
+        "...이쪽으로는 나갈 수 없다."
+    ])

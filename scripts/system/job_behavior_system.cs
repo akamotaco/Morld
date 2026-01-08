@@ -67,7 +67,18 @@ namespace SE
 		private void ProcessJobMovement(Unit unit, int duration, Terrain terrain, GameTime time)
 		{
 			var currentJob = unit.CurrentJob;
-			if (currentJob == null) return;
+			if (currentJob == null)
+			{
+#if DEBUG_LOG
+				if (!unit.IsObject && unit.Id > 0)
+					GD.Print($"[JobBehaviorSystem] Unit {unit.Id} ({unit.Name}) has no current job");
+#endif
+				return;
+			}
+#if DEBUG_LOG
+			if (!unit.IsObject && unit.Id > 0)
+				GD.Print($"[JobBehaviorSystem] Unit {unit.Id} ({unit.Name}): Job={currentJob.Name}, Action={currentJob.Action}, Duration={currentJob.Duration}");
+#endif
 
 			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
@@ -80,7 +91,12 @@ namespace SE
 
 				case "move":
 					// 목표 위치로 이동
-					ProcessMoveAction(unit, currentJob.GetLocationRef(), duration, terrain);
+					var goalLoc = currentJob.GetLocationRef();
+#if DEBUG_LOG
+					if (!unit.IsObject && unit.Id > 0)
+						GD.Print($"[JobBehaviorSystem] Unit {unit.Id} move: current={unit.CurrentLocation} -> goal={goalLoc}");
+#endif
+					ProcessMoveAction(unit, goalLoc, duration, terrain);
 					break;
 
 				case "follow":

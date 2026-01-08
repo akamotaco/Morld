@@ -52,82 +52,60 @@ class StudyDoor(Object):
 # ========================================
 
 def examine_picture(context_unit_id):
-    """그림 액자 조사 - 숫자 힌트"""
+    """그림 액자 조사 - 숫자 힌트 - Generator 기반"""
     flag_name = f"examined_{PictureFrame.unique_id}"
     if morld.get_prop(flag_name) > 0:
-        return {
-            "type": "monologue",
-            "pages": ["이미 조사한 곳이다. 더 이상 볼 것이 없다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["이미 조사한 곳이다. 더 이상 볼 것이 없다."])
+        return
 
     morld.set_prop(flag_name, 1)
 
-    return {
-        "type": "monologue",
-        "pages": [PictureFrame.examine_message],
-        "time_consumed": 1
-    }
+    yield morld.dialog([PictureFrame.examine_message])
 
 
 def examine_clock(context_unit_id):
-    """괘종시계 조사"""
-    return {
-        "type": "monologue",
-        "pages": [
-            "오래된 괘종시계다.",
-            "시계는 18시 42분에 멈춰있다.",
-            "태엽을 감아도 움직이지 않는다.",
-            "시계 바닥에 '1842년 제작'이라고 새겨져 있다."
-        ],
-        "time_consumed": 1
-    }
+    """괘종시계 조사 - Generator 기반"""
+    yield morld.dialog([
+        "오래된 괘종시계다.",
+        "시계는 18시 42분에 멈춰있다.",
+        "태엽을 감아도 움직이지 않는다.",
+        "시계 바닥에 '1842년 제작'이라고 새겨져 있다."
+    ])
 
 
 def examine_umbrella(context_unit_id):
-    """우산꽂이 조사"""
-    return {
-        "type": "monologue",
-        "pages": [
-            "우산꽂이를 뒤적여본다.",
-            "낡은 우산들과 지팡이... 그리고 바닥에 동전 몇 개가 굴러다닌다.",
-            "특별히 쓸모있어 보이는 건 없다."
-        ],
-        "time_consumed": 1
-    }
+    """우산꽂이 조사 - Generator 기반"""
+    yield morld.dialog([
+        "우산꽂이를 뒤적여본다.",
+        "낡은 우산들과 지팡이... 그리고 바닥에 동전 몇 개가 굴러다닌다.",
+        "특별히 쓸모있어 보이는 건 없다."
+    ])
 
 
 def unlock_study_door(context_unit_id):
-    """서재 문 비밀번호 입력"""
+    """서재 문 비밀번호 입력 - Generator 기반"""
     if morld.get_prop("study_unlocked") > 0:
-        return {
-            "type": "monologue",
-            "pages": ["서재 문은 이미 열려 있다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["서재 문은 이미 열려 있다."])
+        return
 
     # 비밀번호 입력 UI (서재 문 전용)
     morld.set_prop("password_target_uid", -1)  # 특수: 서재 문
     morld.set_prop("password_input", 0)
     morld.set_prop("password_digits", 0)
 
-    return {
-        "type": "monologue",
-        "pages": [
-            "서재 문에 비밀번호 잠금장치가 있다.\n4자리 비밀번호를 입력하세요:\n\n[    ]\n\n" +
-            "[url=script:input_study_digit:1][ 1 ][/url] [url=script:input_study_digit:2][ 2 ][/url] [url=script:input_study_digit:3][ 3 ][/url]\n" +
-            "[url=script:input_study_digit:4][ 4 ][/url] [url=script:input_study_digit:5][ 5 ][/url] [url=script:input_study_digit:6][ 6 ][/url]\n" +
-            "[url=script:input_study_digit:7][ 7 ][/url] [url=script:input_study_digit:8][ 8 ][/url] [url=script:input_study_digit:9][ 9 ][/url]\n" +
-            "        [url=script:input_study_digit:0][ 0 ][/url]\n\n" +
-            "[url=script:cancel_password][ 취소 ][/url]"
-        ],
-        "time_consumed": 0,
-        "button_type": "none"
-    }
+    yield morld.dialog(
+        "서재 문에 비밀번호 잠금장치가 있다.\n4자리 비밀번호를 입력하세요:\n\n[    ]\n\n" +
+        "[url=script:input_study_digit:1][ 1 ][/url] [url=script:input_study_digit:2][ 2 ][/url] [url=script:input_study_digit:3][ 3 ][/url]\n" +
+        "[url=script:input_study_digit:4][ 4 ][/url] [url=script:input_study_digit:5][ 5 ][/url] [url=script:input_study_digit:6][ 6 ][/url]\n" +
+        "[url=script:input_study_digit:7][ 7 ][/url] [url=script:input_study_digit:8][ 8 ][/url] [url=script:input_study_digit:9][ 9 ][/url]\n" +
+        "        [url=script:input_study_digit:0][ 0 ][/url]\n\n" +
+        "[url=script:cancel_password][ 취소 ][/url]",
+        autofill="off"
+    )
 
 
 def input_study_digit(context_unit_id, digit):
-    """서재 문 비밀번호 숫자 입력"""
+    """서재 문 비밀번호 숫자 입력 - Generator 기반"""
     digit = int(digit)
 
     current_input = morld.get_prop("password_input")
@@ -140,46 +118,35 @@ def input_study_digit(context_unit_id, digit):
     morld.set_prop("password_digits", new_digits)
 
     if new_digits >= 4:
-        return verify_study_password(context_unit_id)
+        yield from verify_study_password(context_unit_id)
+        return
 
     # 현재 입력 상태 표시
     display = str(new_input).zfill(new_digits)
     display_padded = display + "_" * (4 - new_digits)
 
-    return {
-        "type": "update",
-        "pages": [
-            f"서재 문 비밀번호:\n\n[{display_padded}]\n\n" +
-            "[url=script:input_study_digit:1][ 1 ][/url] [url=script:input_study_digit:2][ 2 ][/url] [url=script:input_study_digit:3][ 3 ][/url]\n" +
-            "[url=script:input_study_digit:4][ 4 ][/url] [url=script:input_study_digit:5][ 5 ][/url] [url=script:input_study_digit:6][ 6 ][/url]\n" +
-            "[url=script:input_study_digit:7][ 7 ][/url] [url=script:input_study_digit:8][ 8 ][/url] [url=script:input_study_digit:9][ 9 ][/url]\n" +
-            "        [url=script:input_study_digit:0][ 0 ][/url]\n\n" +
-            "[url=script:cancel_password][ 취소 ][/url]"
-        ],
-        "time_consumed": 0,
-        "button_type": "none"
-    }
+    yield morld.dialog(
+        f"서재 문 비밀번호:\n\n[{display_padded}]\n\n" +
+        "[url=script:input_study_digit:1][ 1 ][/url] [url=script:input_study_digit:2][ 2 ][/url] [url=script:input_study_digit:3][ 3 ][/url]\n" +
+        "[url=script:input_study_digit:4][ 4 ][/url] [url=script:input_study_digit:5][ 5 ][/url] [url=script:input_study_digit:6][ 6 ][/url]\n" +
+        "[url=script:input_study_digit:7][ 7 ][/url] [url=script:input_study_digit:8][ 8 ][/url] [url=script:input_study_digit:9][ 9 ][/url]\n" +
+        "        [url=script:input_study_digit:0][ 0 ][/url]\n\n" +
+        "[url=script:cancel_password][ 취소 ][/url]",
+        autofill="off"
+    )
 
 
 def verify_study_password(context_unit_id):
-    """서재 문 비밀번호 검증"""
+    """서재 문 비밀번호 검증 - Generator 기반"""
     input_password = str(morld.get_prop("password_input")).zfill(4)
 
     if input_password == StudyDoor.password:
         morld.set_prop("study_unlocked", 1)
         morld.add_action_log("서재 문이 열렸다")
-        return {
-            "type": "monologue",
-            "pages": [
-                "딸깍!",
-                "비밀번호가 맞았다!",
-                "서재 문이 열렸다. 이제 들어갈 수 있다."
-            ],
-            "time_consumed": 1
-        }
+        yield morld.dialog([
+            "딸깍!",
+            "비밀번호가 맞았다!",
+            "서재 문이 열렸다. 이제 들어갈 수 있다."
+        ])
     else:
-        return {
-            "type": "monologue",
-            "pages": ["삐빅- 비밀번호가 틀렸다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["삐빅- 비밀번호가 틀렸다."])

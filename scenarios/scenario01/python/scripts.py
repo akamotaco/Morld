@@ -73,7 +73,7 @@ PASSWORD_OBJECTS = {
 # ============================================================
 
 def input_digit(context_unit_id, digit):
-    """비밀번호 숫자 입력 (공통)"""
+    """비밀번호 숫자 입력 (공통) - Generator 기반"""
     digit = int(digit)
 
     current_input = morld.get_prop("password_input")
@@ -88,58 +88,48 @@ def input_digit(context_unit_id, digit):
 
     # 4자리 완성되면 검증
     if new_digits >= 4:
-        return verify_password(context_unit_id)
+        yield from verify_password(context_unit_id)
+        return
 
     # 현재 입력 상태 표시
     display = str(new_input).zfill(new_digits)
     display_padded = display + "_" * (4 - new_digits)
 
-    return {
-        "type": "update",
-        "pages": [
-            f"4자리 비밀번호를 입력하세요:\n\n[{display_padded}]\n\n" +
-            "[url=script:input_digit:1][ 1 ][/url] [url=script:input_digit:2][ 2 ][/url] [url=script:input_digit:3][ 3 ][/url]\n" +
-            "[url=script:input_digit:4][ 4 ][/url] [url=script:input_digit:5][ 5 ][/url] [url=script:input_digit:6][ 6 ][/url]\n" +
-            "[url=script:input_digit:7][ 7 ][/url] [url=script:input_digit:8][ 8 ][/url] [url=script:input_digit:9][ 9 ][/url]\n" +
-            "        [url=script:input_digit:0][ 0 ][/url]\n\n" +
-            "[url=script:cancel_password][ 취소 ][/url]"
-        ],
-        "time_consumed": 0,
-        "button_type": "none"
-    }
+    yield morld.dialog(
+        f"4자리 비밀번호를 입력하세요:\n\n[{display_padded}]\n\n" +
+        "[url=script:input_digit:1][ 1 ][/url] [url=script:input_digit:2][ 2 ][/url] [url=script:input_digit:3][ 3 ][/url]\n" +
+        "[url=script:input_digit:4][ 4 ][/url] [url=script:input_digit:5][ 5 ][/url] [url=script:input_digit:6][ 6 ][/url]\n" +
+        "[url=script:input_digit:7][ 7 ][/url] [url=script:input_digit:8][ 8 ][/url] [url=script:input_digit:9][ 9 ][/url]\n" +
+        "        [url=script:input_digit:0][ 0 ][/url]\n\n" +
+        "[url=script:cancel_password][ 취소 ][/url]",
+        autofill="off"
+    )
 
 
 def verify_password(context_unit_id):
-    """비밀번호 검증 (공통)"""
+    """비밀번호 검증 (공통) - Generator 기반"""
     target_uid = morld.get_prop("password_target_uid")
     input_password = str(morld.get_prop("password_input")).zfill(4)
 
     # 오브젝트별 비밀번호 정보 가져오기
     password_info = PASSWORD_OBJECTS.get(target_uid)
     if not password_info:
-        return {"type": "monologue", "pages": ["오류가 발생했다."], "time_consumed": 0}
+        yield morld.dialog(["오류가 발생했다."])
+        return
 
     correct_password, on_success = password_info
 
     if input_password == correct_password:
-        # 성공 시 해당 오브젝트의 콜백 호출
-        return on_success()
+        # 성공 시 해당 오브젝트의 콜백 호출 (Generator 위임)
+        yield from on_success()
     else:
         # 실패
-        return {
-            "type": "monologue",
-            "pages": ["삐빅- 비밀번호가 틀렸다."],
-            "time_consumed": 0
-        }
+        yield morld.dialog(["삐빅- 비밀번호가 틀렸다."])
 
 
 def cancel_password(context_unit_id):
-    """비밀번호 입력 취소"""
+    """비밀번호 입력 취소 - Generator 기반"""
     morld.clear_prop("password_target_uid")
     morld.clear_prop("password_input")
     morld.clear_prop("password_digits")
-    return {
-        "type": "monologue",
-        "pages": ["입력을 취소했다."],
-        "time_consumed": 0
-    }
+    yield morld.dialog(["입력을 취소했다."])

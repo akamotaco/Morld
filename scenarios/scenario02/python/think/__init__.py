@@ -60,6 +60,7 @@ class BaseAgent:
             True 성공, False 실패
         """
         result = morld.fill_schedule_jobs_from(self.unit_id, schedule)
+        print(f"[think] fill_schedule unit={self.unit_id}, entries={len(schedule)}, result={result}")
         return result
 
     def think(self):
@@ -96,6 +97,8 @@ def think_all():
     C#의 ThinkSystem에서 호출됩니다.
     MovementSystem 실행 전에 호출되어 경로를 계획합니다.
     """
+    if len(_agents) > 0:
+        print(f"[think_all] Processing {len(_agents)} agents")
     for unit_id, agent in _agents.items():
         try:
             agent.think()

@@ -123,7 +123,7 @@ class Ella(Character):
     # ========================================
 
     def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때"""
+        """플레이어와 처음 만났을 때 - Generator 기반"""
         import morld
 
         if self._event_flags.get("first_meet"):
@@ -134,19 +134,18 @@ class Ella(Character):
             return None
 
         self._event_flags["first_meet"] = True
-        return {
-            "type": "monologue",
-            "pages": [
+
+        def handler():
+            yield morld.dialog([
                 "...깨어났군.",
                 "나는 엘라. 이 저택을 관리하고 있다.",
                 "네가 숲에서 쓰러져 있는 걸 발견한 건 이틀 전이다.",
                 "기억을 잃었다고 들었다. 불쌍하군.",
                 "당분간 여기서 지내도 좋다.",
                 "단, 규칙은 지켜라. 모두의 안전이 달려 있으니까."
-            ],
-            "time_consumed": 5,
-            "button_type": "ok"
-        }
+            ])
+
+        return handler()
 
     def npc_talk(self, player_id):
         """대화 - Generator 기반"""
