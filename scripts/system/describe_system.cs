@@ -775,8 +775,8 @@ namespace SE
 
 			return action switch
 			{
-				// take는 container에서 가져가기
-				"take" when context == "container" => ($"take:{unitId}:{itemId}", "가져가기"),
+				// take는 container에서 가져가기 - script:take_item으로 처리
+				"take" when context == "container" => ($"script:take_item:{itemId}", "가져가기"),
 				"use" => ($"item_use:{itemId}", "사용"),
 				"equip" => ($"equip:{itemId}", "장착"),
 				"throw" => ($"throw:{itemId}", "던지기"),

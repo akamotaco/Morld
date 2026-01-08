@@ -139,12 +139,14 @@ public class MetaActionHandler
 			case "look_unit":
 				HandleLookUnitAction(parts);
 				break;
-			case "take":
-				HandleTakeAction(parts);
-				break;
-			case "put":
-				HandlePutAction(parts);
-				break;
+			// [레거시] take/put 액션 - script:take_from_object / script:put_to_object로 대체됨
+			// 향후 문제 없으면 삭제 예정
+			// case "take":
+			// 	HandleTakeAction(parts);
+			// 	break;
+			// case "put":
+			// 	HandlePutAction(parts);
+			// 	break;
 			case "action":
 				HandleUnitAction(parts);
 				break;
@@ -368,41 +370,32 @@ public class MetaActionHandler
 		_textUISystem?.ShowUnitLook(unitId);
 	}
 
-	/// <summary>
-	/// 아이템 가져오기 처리: take:unitId:itemId
-	/// 데이터 변경 → PopIfInvalid (아이템 0개면 Pop, 아니면 UpdateDisplay)
-	/// </summary>
-	private void HandleTakeAction(string[] parts)
-	{
-		if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid take format");
-			return;
-		}
-
-		_playerSystem?.TakeFromUnit(unitId, itemId);
-		// 로그는 InventorySystem.OnInventoryChanged 콜백에서 자동 생성
-
-		_textUISystem?.PopIfInvalid();
-	}
-
-	/// <summary>
-	/// 유닛에 아이템 넣기 처리: put:unitId:itemId
-	/// 데이터 변경 → PopIfInvalid (아이템 메뉴에서 아이템 0개면 Pop)
-	/// </summary>
-	private void HandlePutAction(string[] parts)
-	{
-		if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid put format");
-			return;
-		}
-
-		_playerSystem?.PutToUnit(unitId, itemId);
-		// 로그는 InventorySystem.OnInventoryChanged 콜백에서 자동 생성
-
-		_textUISystem?.PopIfInvalid();
-	}
+	// [레거시] 아이템 가져오기/넣기 처리 - script:take_from_object / script:put_to_object로 대체됨
+	// 향후 문제 없으면 삭제 예정
+	//
+	// private void HandleTakeAction(string[] parts)
+	// {
+	// 	if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
+	// 	{
+	// 		GD.PrintErr("[MetaActionHandler] Invalid take format");
+	// 		return;
+	// 	}
+	//
+	// 	_playerSystem?.TakeFromUnit(unitId, itemId);
+	// 	_textUISystem?.PopIfInvalid();
+	// }
+	//
+	// private void HandlePutAction(string[] parts)
+	// {
+	// 	if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
+	// 	{
+	// 		GD.PrintErr("[MetaActionHandler] Invalid put format");
+	// 		return;
+	// 	}
+	//
+	// 	_playerSystem?.PutToUnit(unitId, itemId);
+	// 	_textUISystem?.PopIfInvalid();
+	// }
 
 	/// <summary>
 	/// 유닛 행동 처리: action:actionType:unitId
@@ -792,10 +785,12 @@ public class MetaActionHandler
 				ProcessScriptResult(nextResult, scriptSystem);
 			}
 
-			// generator가 완료되면 상황 업데이트
+			// generator가 완료되면 현재 화면 갱신 및 로그 읽음 처리
+			// 다이얼로그는 이미 Pop되었으므로 이전 focus(Unit 등)가 유지됨
 			if (_pendingGenerator == null)
 			{
-				RequestUpdateSituation();
+				_textUISystem?.OnContentChange();
+				_textUISystem?.UpdateDisplay();
 			}
 			return;
 		}
@@ -1087,7 +1082,10 @@ public class MetaActionHandler
 		// 결과 타입에 따른 처리
 		if (result == null)
 		{
-			RequestUpdateSituation();
+			// 스크립트가 반환값 없이 완료됨 - 현재 화면 갱신 및 invalid focus 처리
+			_textUISystem?.OnContentChange();
+			_textUISystem?.PopIfInvalid();
+			_textUISystem?.UpdateDisplay();
 			return;
 		}
 

@@ -316,69 +316,52 @@ namespace SE
 
 		#region 아이템 조작 (시간 소모 없음)
 
-		/// <summary>
-		/// 유닛(오브젝트)에서 아이템 가져오기
-		/// </summary>
-		public bool TakeFromUnit(int unitId, int itemId, int count = 1)
-		{
-			var player = GetPlayerUnit();
-			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-
-			if (player == null || unitSystem == null || inventorySystem == null)
-				return false;
-
-			var targetUnit = unitSystem.FindUnit(unitId);
-			if (targetUnit == null || !targetUnit.IsObject)
-				return false;
-
-			// 유닛이 같은 위치에 있는지 확인
-			if (targetUnit.CurrentLocation != player.CurrentLocation)
-				return false;
-
-			if (!inventorySystem.TransferBetweenUnits(unitId, player.Id, itemId, count))
-				return false;
-
-#if DEBUG_LOG
-			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
-			var itemName = itemSystem.GetItem(itemId).Name ?? $"아이템{itemId}";
-			GD.Print($"[PlayerSystem] {targetUnit.Name}에서 가져오기: {itemName} x{count}");
-#endif
-
-			return true;
-		}
-
-		/// <summary>
-		/// 유닛(오브젝트)에 아이템 넣기
-		/// </summary>
-		public bool PutToUnit(int unitId, int itemId, int count = 1)
-		{
-			var player = GetPlayerUnit();
-			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-
-			if (player == null || unitSystem == null || inventorySystem == null)
-				return false;
-
-			var targetUnit = unitSystem.FindUnit(unitId);
-			if (targetUnit == null || !targetUnit.IsObject)
-				return false;
-
-			// 유닛이 같은 위치에 있는지 확인
-			if (targetUnit.CurrentLocation != player.CurrentLocation)
-				return false;
-
-			if (!inventorySystem.TransferBetweenUnits(player.Id, unitId, itemId, count))
-				return false;
-
-#if DEBUG_LOG
-			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
-			var itemName = itemSystem.GetItem(itemId).Name ?? $"아이템{itemId}";
-			GD.Print($"[PlayerSystem] {targetUnit.Name}에 넣기: {itemName} x{count}");
-#endif
-
-			return true;
-		}
+		// [레거시] TakeFromUnit/PutToUnit - Python script:take_from_object / script:put_to_object로 대체됨
+		// 향후 문제 없으면 삭제 예정
+		//
+		// public bool TakeFromUnit(int unitId, int itemId, int count = 1)
+		// {
+		// 	var player = GetPlayerUnit();
+		// 	var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+		// 	var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+		//
+		// 	if (player == null || unitSystem == null || inventorySystem == null)
+		// 		return false;
+		//
+		// 	var targetUnit = unitSystem.FindUnit(unitId);
+		// 	if (targetUnit == null || !targetUnit.IsObject)
+		// 		return false;
+		//
+		// 	if (targetUnit.CurrentLocation != player.CurrentLocation)
+		// 		return false;
+		//
+		// 	if (!inventorySystem.TransferBetweenUnits(unitId, player.Id, itemId, count))
+		// 		return false;
+		//
+		// 	return true;
+		// }
+		//
+		// public bool PutToUnit(int unitId, int itemId, int count = 1)
+		// {
+		// 	var player = GetPlayerUnit();
+		// 	var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+		// 	var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+		//
+		// 	if (player == null || unitSystem == null || inventorySystem == null)
+		// 		return false;
+		//
+		// 	var targetUnit = unitSystem.FindUnit(unitId);
+		// 	if (targetUnit == null || !targetUnit.IsObject)
+		// 		return false;
+		//
+		// 	if (targetUnit.CurrentLocation != player.CurrentLocation)
+		// 		return false;
+		//
+		// 	if (!inventorySystem.TransferBetweenUnits(player.Id, unitId, itemId, count))
+		// 		return false;
+		//
+		// 	return true;
+		// }
 
 		/// <summary>
 		/// 유닛 살펴보기 (캐릭터/오브젝트 통합)
