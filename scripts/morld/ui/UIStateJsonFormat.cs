@@ -44,7 +44,7 @@ public class FocusJsonData
 		return new Focus
 		{
 			Type = focusType,
-			UnitId = UnitId,
+			TargetUnitId = UnitId,
 			ItemId = ItemId,
 			Context = Context,
 			Message = Message,
@@ -60,7 +60,7 @@ public class FocusJsonData
 		return new FocusJsonData
 		{
 			Type = focus.Type.ToString(),
-			UnitId = focus.UnitId,
+			UnitId = focus.TargetUnitId,
 			ItemId = focus.ItemId,
 			Context = focus.Context,
 			Message = focus.Message,

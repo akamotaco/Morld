@@ -222,12 +222,12 @@ namespace SE
                     result.SetItem(new PyString("region_id"), new PyInt(unit.CurrentLocation.RegionId));
                     result.SetItem(new PyString("location_id"), new PyInt(unit.CurrentLocation.LocalId));
 
-                    // 현재 스케줄/활동 정보
-                    var currentSchedule = unit.CurrentSchedule;
-                    if (currentSchedule != null)
+                    // 현재 Job 정보 (JobList 기반)
+                    var currentJob = unit.CurrentJob;
+                    if (currentJob != null)
                     {
-                        result.SetItem(new PyString("activity"), new PyString(currentSchedule.Activity ?? ""));
-                        result.SetItem(new PyString("schedule_name"), new PyString(currentSchedule.Name ?? ""));
+                        result.SetItem(new PyString("activity"), new PyString(currentJob.Name ?? ""));
+                        result.SetItem(new PyString("schedule_name"), new PyString(currentJob.Name ?? ""));
                     }
                     else
                     {
@@ -1477,36 +1477,11 @@ namespace SE
                     return resultDict;
                 });
 
-                // set_unit_activity: 활동 상태 설정 (CurrentSchedule.Activity)
+                // set_unit_activity: [DEPRECATED] JobList 기반에서는 activity가 CurrentJob.Name으로 자동 결정됨
+                // 스케줄의 activity 필드를 통해 설정하세요
                 morldModule.ModuleDict["set_unit_activity"] = new PyBuiltinFunction("set_unit_activity", args =>
                 {
-                    if (args.Length < 2)
-                        throw PyTypeError.Create("set_unit_activity(unit_id, activity) requires 2 arguments");
-
-                    int unitId = args[0].ToInt();
-                    string activity = args[1] is PyNone ? null : args[1].AsString();
-
-                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
-
-                    var unit = _unitSystem.FindUnit(unitId);
-                    if (unit != null)
-                    {
-                        // CurrentSchedule의 Activity 설정 (CurrentSchedule이 없으면 임시 생성)
-                        var currentSchedule = unit.CurrentSchedule;
-                        if (currentSchedule != null)
-                        {
-                            currentSchedule.Activity = activity;
-                        }
-                        else if (!string.IsNullOrEmpty(activity))
-                        {
-                            // 현재 스케줄이 없으면 Activity만 설정할 수 있는 임시 항목 생성 불가
-                            // 대신 unit에 직접 Activity 저장 필드가 필요 (현재 설계상 CurrentSchedule 경유)
-                            Godot.GD.PrintErr($"[morld] set_unit_activity: unit={unitId} has no CurrentSchedule");
-                            return PyBool.False;
-                        }
-                        Godot.GD.Print($"[morld] set_unit_activity: unit={unitId}, activity={activity ?? "null"}");
-                        return PyBool.True;
-                    }
+                    Godot.GD.PrintErr("[morld] set_unit_activity is DEPRECATED. Activity is now determined by CurrentJob.Name from schedule.");
                     return PyBool.False;
                 });
 

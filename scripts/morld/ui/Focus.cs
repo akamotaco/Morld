@@ -26,9 +26,12 @@ public class Focus
 	public FocusType Type { get; set; } = FocusType.Situation;
 
 	/// <summary>
-	/// 유닛 ID (Unit, Item 타입에서 사용)
+	/// 대상 유닛 ID
+	/// - Unit 타입: 살펴보는 유닛
+	/// - Item 타입: 아이템 이동 대상 (container에서 가져오기, inventory에서 넣기)
+	/// - Inventory 타입: 넣기 대상 유닛 (설정 시 아이템 클릭하면 바로 넣기)
 	/// </summary>
-	public int? UnitId { get; set; }
+	public int? TargetUnitId { get; set; }
 
 	/// <summary>
 	/// 아이템 ID (Item 타입에서 사용)
@@ -63,10 +66,10 @@ public class Focus
 
 	// 팩토리 메서드들
 	public static Focus Situation() => new() { Type = FocusType.Situation };
-	public static Focus Unit(int unitId) => new() { Type = FocusType.Unit, UnitId = unitId };
-	public static Focus Inventory() => new() { Type = FocusType.Inventory };
+	public static Focus Unit(int unitId) => new() { Type = FocusType.Unit, TargetUnitId = unitId };
+	public static Focus Inventory(int? targetUnitId = null) => new() { Type = FocusType.Inventory, TargetUnitId = targetUnitId };
 	public static Focus Item(int itemId, string context, int? unitId = null)
-		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, UnitId = unitId };
+		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, TargetUnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
 	public static Focus Dialog(string text, int timeConsumed = 0)
 		=> new() { Type = FocusType.Dialog, DialogText = text, TimeConsumed = timeConsumed };

@@ -13,7 +13,6 @@ public class Unit
 	private readonly int _id;
 	private LocationRef _currentLocation;
 	private EdgeProgress? _currentEdge;
-	private ScheduleEntry? _currentSchedule;
 
 	/// <summary>
 	/// Unit 고유 ID
@@ -39,11 +38,6 @@ public class Unit
 		get => _currentEdge;
 		set => _currentEdge = value;
 	}
-
-	/// <summary>
-	/// 현재 수행 중인 스케줄 엔트리 (시간 기반 스케줄에서)
-	/// </summary>
-	public ScheduleEntry? CurrentSchedule => _currentSchedule;
 
 	/// <summary>
 	/// 기본 스케줄 (DailySchedule) - JobList 채우기용
@@ -233,14 +227,6 @@ public class Unit
 			// Note: 오브젝트 측 seated_by는 UnitSystem을 통해 접근해야 하므로
 			// 여기서는 캐릭터 측만 해제 (오브젝트 측은 다음 앉기 시도 시 덮어쓰임)
 		}
-	}
-
-	/// <summary>
-	/// 현재 스케줄 엔트리 설정 (시간 기반 스케줄에서)
-	/// </summary>
-	internal void SetCurrentSchedule(ScheduleEntry? schedule)
-	{
-		_currentSchedule = schedule;
 	}
 
 	/// <summary>
@@ -448,10 +434,10 @@ public class Unit
 		}
 		else
 		{
-			var scheduleInfo = _currentSchedule != null
-				? $" ({_currentSchedule.Name})"
+			var jobInfo = CurrentJob != null
+				? $" ({CurrentJob.Name})"
 				: "";
-			return $"{Name}: {_currentLocation}에서 대기 중{scheduleInfo}";
+			return $"{Name}: {_currentLocation}에서 대기 중{jobInfo}";
 		}
 	}
 

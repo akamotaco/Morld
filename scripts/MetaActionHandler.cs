@@ -594,7 +594,7 @@ public class MetaActionHandler
 		GD.Print($"[MetaActionHandler] 넣기 대상 선택: unitId={unitId}");
 #endif
 
-		// 인벤토리 화면으로 전환 (현재 Unit Focus 위에 Push)
+		// 인벤토리 화면으로 전환 (현재 Unit Focus 위에 Push - 스택에서 targetUnitId 탐색)
 		_textUISystem?.ShowInventory();
 	}
 
@@ -1061,7 +1061,7 @@ public class MetaActionHandler
 
 		// 현재 Focus에서 context 정보 추출
 		var currentFocus = _textUISystem?.CurrentFocus;
-		int? contextUnitId = currentFocus?.UnitId;
+		int? contextUnitId = currentFocus?.TargetUnitId;
 
 #if DEBUG_LOG
 		GD.Print($"[MetaActionHandler] Script call: {functionName}({string.Join(", ", args)}) [context unitId={contextUnitId?.ToString() ?? "null"}]");

@@ -110,7 +110,8 @@ namespace SE
 
 			// Mood와 현재 Activity를 합쳐서 태그 생성
 			var tags = new HashSet<string>(unit.Mood);
-			var activity = unit.CurrentSchedule.Activity;
+			// JobList 기반: CurrentJob.Name이 activity 역할 ("사냥", "식사" 등)
+			var activity = unit.CurrentJob?.Name;
 			if (!string.IsNullOrEmpty(activity))
 			{
 				tags.Add(activity);
@@ -658,9 +659,11 @@ namespace SE
 		/// <summary>
 		/// 아이템 상세 메뉴 텍스트 생성 (통합 함수)
 		/// context: "ground" (바닥), "inventory" (플레이어 인벤토리), "container" (오브젝트/컨테이너)
-		/// parentContainer: 인벤토리 컨텍스트에서 넣기/버리기 대상 (Unit 또는 Situation Focus)
+		/// targetUnitId:
+		///   - container: 아이템이 있는 컨테이너 유닛 ID
+		///   - inventory: 넣기 대상 유닛 ID (있으면 넣기 옵션 표시)
 		/// </summary>
-		public string GetItemMenuText(string context, int itemId, int count, int? unitId = null, Focus? parentContainer = null)
+		public string GetItemMenuText(string context, int itemId, int count, int? targetUnitId = null)
 		{
 			var lines = new List<string>();
 			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
@@ -680,10 +683,10 @@ namespace SE
 			lines.Add($"[b]{item.Name}{countText}[/b]{valueText}");
 
 			// container 컨텍스트일 경우 유닛 이름 표시
-			if (context == "container" && unitId.HasValue)
+			if (context == "container" && targetUnitId.HasValue)
 			{
 				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-				var unit = unitSystem.FindUnit(unitId.Value);
+				var unit = unitSystem.FindUnit(targetUnitId.Value);
 				if (unit != null)
 				{
 					lines.Add($"[color=gray]{unit.Name}에서[/color]");
@@ -698,25 +701,24 @@ namespace SE
 				lines.Add("[color=yellow]행동:[/color]");
 				foreach (var action in filteredActions)
 				{
-					var (url, label) = GetActionUrlAndLabel(action, itemId, unitId, context);
+					var (url, label) = GetActionUrlAndLabel(action, itemId, targetUnitId, context);
 					lines.Add($"  [url={url}]{label}[/url]");
 				}
 			}
 
-			// 인벤토리 컨텍스트에서 넣기 옵션 추가 (상위가 Unit인 경우만)
-			if (context == "inventory" && parentContainer != null &&
-				parentContainer.Type == FocusType.Unit && parentContainer.UnitId.HasValue)
+			// 인벤토리 컨텍스트에서 넣기 옵션 추가 (targetUnitId가 있는 경우)
+			if (context == "inventory" && targetUnitId.HasValue)
 			{
 				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-				var targetUnit = unitSystem.FindUnit(parentContainer.UnitId.Value);
+				var targetUnit = unitSystem.FindUnit(targetUnitId.Value);
 				if (targetUnit != null)
 				{
 					var putLabel = $"넣기: {targetUnit.Name}";
-					lines.Add($"  [url=put:{parentContainer.UnitId.Value}:{itemId}]{putLabel}[/url]");
+					lines.Add($"  [url=put:{targetUnitId.Value}:{itemId}]{putLabel}[/url]");
 				}
 			}
 
-			if (filteredActions.Count > 0 || (context == "inventory" && parentContainer != null))
+			if (filteredActions.Count > 0 || (context == "inventory" && targetUnitId.HasValue))
 			{
 				lines.Add("");
 			}
@@ -725,7 +727,7 @@ namespace SE
 			var backUrl = context switch
 			{
 				"inventory" => "back_inventory",
-				"container" when unitId.HasValue => $"back_unit:{unitId.Value}",
+				"container" when targetUnitId.HasValue => $"back_unit:{targetUnitId.Value}",
 				_ => "back"
 			};
 			lines.Add($"[url={backUrl}]뒤로[/url]");

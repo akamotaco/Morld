@@ -239,9 +239,9 @@ namespace SE
 			return focus.Type switch
 			{
 				FocusType.Situation => RenderSituation(),
-				FocusType.Unit => RenderUnit(focus.UnitId ?? 0),
+				FocusType.Unit => RenderUnit(focus.TargetUnitId ?? 0),
 				FocusType.Inventory => RenderInventory(),
-				FocusType.Item => RenderItem(focus.ItemId ?? 0, focus.Context ?? "inventory", focus.UnitId),
+				FocusType.Item => RenderItem(focus.ItemId ?? 0, focus.Context ?? "inventory", focus.TargetUnitId),
 				FocusType.Result => RenderResult(focus.Message ?? ""),
 				FocusType.Dialog => RenderDialog(focus),
 				_ => ""
@@ -319,7 +319,7 @@ namespace SE
 			return _describeSystem.GetInventoryText();
 		}
 
-		private string RenderItem(int itemId, string context, int? unitId)
+		private string RenderItem(int itemId, string context, int? targetUnitId)
 		{
 			// 아이템 개수 조회
 			int count = 0;
@@ -334,21 +334,17 @@ namespace SE
 						inv.TryGetValue(itemId, out count);
 					}
 				}
-				else if (context == "container" && unitId.HasValue)
+				else if (context == "container" && targetUnitId.HasValue)
 				{
-					var inv = _inventorySystem.GetUnitInventory(unitId.Value);
+					var inv = _inventorySystem.GetUnitInventory(targetUnitId.Value);
 					inv.TryGetValue(itemId, out count);
 				}
 			}
 
-			// 인벤토리 컨텍스트에서 상위 컨테이너(Unit 또는 Situation) 찾기
-			Focus? parentContainer = null;
-			if (context == "inventory")
-			{
-				parentContainer = FindParentContainer();
-			}
+			// inventory 컨텍스트에서 targetUnitId가 없으면 스택에서 찾기
+			var effectiveTargetUnitId = targetUnitId ?? (context == "inventory" ? FindTargetUnitId() : null);
 
-			return _describeSystem.GetItemMenuText(context, itemId, count, unitId, parentContainer);
+			return _describeSystem.GetItemMenuText(context, itemId, count, effectiveTargetUnitId);
 		}
 
 		private string RenderResult(string message)
@@ -507,7 +503,7 @@ namespace SE
 			{
 				var itemId = _stack.Current.ItemId ?? 0;
 				var context = _stack.Current.Context ?? "inventory";
-				var unitId = _stack.Current.UnitId;
+				var unitId = _stack.Current.TargetUnitId;
 
 				int count = GetItemCount(itemId, context, unitId);
 				if (count <= 0)
@@ -556,12 +552,12 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 스택에서 최상위 컨테이너(Unit 또는 Situation) 찾기
+		/// 스택에서 가장 가까운 Unit의 TargetUnitId 찾기
+		/// 넣기/가져오기 대상 유닛 ID를 찾는 데 사용
 		/// </summary>
-		/// <returns>Unit이면 unitId, Situation이면 null, 없으면 예외</returns>
-		public Focus? FindParentContainer()
+		public int? FindTargetUnitId()
 		{
-			return _stack.FindParentContainer();
+			return _stack.FindTargetUnitId();
 		}
 
 		/// <summary>
