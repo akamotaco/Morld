@@ -140,12 +140,12 @@ class Sera(Character):
         }
 
     def npc_talk(self, player_id):
-        """대화"""
+        """대화 - Generator 기반"""
         import morld
 
         unit_info = morld.get_unit_info(self.instance_id)
         if unit_info is None:
-            return None
+            return
 
         activity = unit_info.get("activity")
         dialogue = _get_dialogue(activity)
@@ -153,12 +153,7 @@ class Sera(Character):
         name = unit_info.get("name", self.name)
         pages = [f"[{name}]"] + dialogue["pages"]
 
-        return {
-            "type": "monologue",
-            "pages": pages,
-            "time_consumed": 1,
-            "button_type": "ok"
-        }
+        yield morld.dialog(pages)
 
 
 # ========================================
