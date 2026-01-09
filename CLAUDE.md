@@ -616,6 +616,47 @@ def put_to_object(context_unit_id):
 - `scripts/MetaActionHandler.cs` - script: 액션 처리
 - `scenarios/scenario02/python/events/scripts/` - 스크립트 함수들
 
+### 액션 필터링 시스템 (can: prop 기반)
+**역할:** 캐릭터가 수행 가능한 액션만 UI에 표시
+
+**핵심 개념:**
+- **Whitelist 방식**: `can:액션명` prop이 있어야 해당 액션 버튼이 표시됨
+- **Actor 기준**: 플레이어의 캐릭터 props로 필터링 (NPC도 동일 로직)
+- **레벨 시스템**: `can:액션명` 값이 1 이상이면 수행 가능
+
+**액션 이름 추출 규칙:**
+| 액션 형식 | 추출되는 이름 | 예시 |
+|-----------|--------------|------|
+| `script:함수명:표시명` | 함수명 | `script:npc_talk:대화` → `npc_talk` |
+| `sit@좌석명:표시명` | sit | `sit@front:앞좌석` → `sit` |
+| `action@context` | action | `take@container` → `take` |
+| 단순 액션 | 그대로 | `rest` → `rest` |
+
+**필터링 적용 위치:**
+- `GetUnitLookText()` - 유닛/오브젝트 클릭 시 액션 버튼
+- `GetItemMenuText()` - 아이템 메뉴 액션 버튼
+
+**예시:**
+```python
+# Player props
+props = {
+    "can:npc_talk": 1,  # NPC 대화 가능
+    "can:sit": 1,       # 앉기 가능
+    "can:take": 1,      # 가져오기 가능
+    # ...
+}
+
+# Target NPC actions
+actions = ["script:npc_talk:대화", "trade:거래"]
+
+# 필터링 결과: ["script:npc_talk:대화"]
+# (can:trade가 없으므로 거래 버튼 숨김)
+```
+
+**파일 위치:**
+- `scripts/system/describe_system.cs` - `FilterActionsByActor()`, `CanPerformAction()`, `ExtractActionName()`
+- `scenarios/scenario02/python/assets/characters/player.py` - Player의 `can:` props 정의
+
 ---
 
 ## 프로젝트 구조

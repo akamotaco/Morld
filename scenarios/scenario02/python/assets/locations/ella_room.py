@@ -2,6 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
+from assets.objects.furniture import Mirror
 
 
 class EllaRoom(Location):
@@ -14,6 +15,7 @@ class EllaRoom(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """엘라의 방 생성 + 나무 바닥 추가"""
+        """엘라의 방 생성 + 나무 바닥 + 거울 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
+        self.add_object(Mirror(), 205)  # 엘라 방 거울

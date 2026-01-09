@@ -500,6 +500,65 @@ def put_to_object(context_unit_id):
 
 ---
 
+## 액션 필터링 시스템
+
+### can: prop 기반 액션 필터링
+
+캐릭터가 수행할 수 있는 액션만 UI에 표시됩니다.
+
+**Whitelist 방식:**
+- 캐릭터에 `can:액션명` prop이 있어야 해당 액션 버튼이 표시됨
+- 값이 1 이상이면 수행 가능 (추후 레벨별 분기 가능)
+
+**액션 이름 추출:**
+```
+script:npc_talk:대화    → npc_talk
+sit@front:앞좌석        → sit
+take@container         → take
+rest                   → rest
+```
+
+### Player의 can: props
+
+```python
+# assets/characters/player.py
+props = {
+    # NPC 상호작용
+    "can:npc_talk": 1,
+
+    # 이동/자세
+    "can:sit": 1,
+    "can:rest": 1,
+    "can:sleep": 1,
+    "can:wait": 1,
+
+    # 아이템 조작
+    "can:take": 1,
+    "can:use": 1,
+    "can:equip": 1,
+    "can:putinobject": 1,
+    "can:put_to_object": 1,
+    "can:take_item": 1,
+
+    # 오브젝트 상호작용 - 가구
+    "can:fireplace_look": 1,
+    "can:sofa_sit": 1,
+    "can:bookshelf_look": 1,
+    # ... (기타 가구/야외/차량 등)
+
+    # 아이템 사용
+    "can:read_book": 1,
+}
+```
+
+### 새 액션 추가 시 체크리스트
+
+1. 대상(유닛/오브젝트/아이템)의 `actions` 리스트에 액션 추가
+2. 수행자(플레이어 등)의 props에 `can:액션명` 추가
+3. 액션 핸들러 구현 (스크립트 함수 등)
+
+---
+
 ## 확장 포인트
 
 ### 새 캐릭터 추가

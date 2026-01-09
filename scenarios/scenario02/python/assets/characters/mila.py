@@ -42,7 +42,7 @@ class Mila(Character):
         "애정": 0, "성욕": 0, "질투": 0,
         "피로": 0, "기분": 6,
     }
-    actions = ["script:npc_talk:대화"]
+    actions = ["script:npc_talk:대화", "script:debug_props:속성 보기"]
     mood = []
 
     # 이벤트 플래그 (인스턴스별)

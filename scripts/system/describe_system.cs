@@ -479,6 +479,10 @@ namespace SE
 		{
 			var lines = new List<string>();
 
+			// 플레이어 정보 가져오기 (액션 필터링용)
+			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+			var player = playerSystem?.GetPlayerUnit();
+
 			lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
 
@@ -530,11 +534,12 @@ namespace SE
 
 			}
 
-			// 액션 표시
-			if (unitLook.Actions.Count > 0)
+			// 액션 표시 (플레이어의 can: prop으로 필터링)
+			var filteredUnitActions = FilterActionsByActor(unitLook.Actions, player);
+			if (filteredUnitActions.Count > 0)
 			{
 				lines.Add("[color=yellow]행동:[/color]");
-				foreach (var action in unitLook.Actions)
+				foreach (var action in filteredUnitActions)
 				{
 					// putinobject 액션은 script:put_to_object로 변환 (가져가기는 기존 Item 메뉴 방식 유지)
 					if (action == "putinobject")
@@ -667,6 +672,10 @@ namespace SE
 		{
 			var lines = new List<string>();
 			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+
+			// 플레이어 정보 가져오기 (액션 필터링용)
+			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+			var player = playerSystem?.GetPlayerUnit();
 			var item = itemSystem.GetItem(itemId);
 
 			if (item == null)
@@ -695,7 +704,10 @@ namespace SE
 			lines.Add("");
 
 			// 액션 필터링 및 표시
-			var filteredActions = GetFilteredActions(item.Actions, context);
+			// 1. context로 필터링 (take@container 등)
+			// 2. 플레이어의 can: prop으로 필터링
+			var contextFiltered = GetFilteredActions(item.Actions, context);
+			var filteredActions = FilterActionsByActor(contextFiltered, player);
 			if (filteredActions.Count > 0)
 			{
 				lines.Add("[color=yellow]행동:[/color]");
@@ -806,6 +818,86 @@ namespace SE
 		public string GetUnitItemMenuText(int unitId, int itemId, int count)
 		{
 			return GetItemMenuText("container", itemId, count, unitId);
+		}
+
+		// ========================================
+		// 액션 필터링 (can: prop 기반)
+		// ========================================
+
+		/// <summary>
+		/// 액션 문자열에서 액션 이름 추출 (can: prop 체크용)
+		/// </summary>
+		/// <remarks>
+		/// 지원 형식:
+		/// - "script:funcName:displayName" → "funcName"
+		/// - "script:funcName" → "funcName"
+		/// - "sit@seatName:displayName" → "sit"
+		/// - "action@context" → "action"
+		/// - "putinobject" → "putinobject"
+		/// - "rest", "sleep" 등 → 그대로
+		/// </remarks>
+		private string ExtractActionName(string action)
+		{
+			// script:함수명:표시명 또는 script:함수명
+			if (action.StartsWith("script:"))
+			{
+				var parts = action.Split(':');
+				return parts.Length >= 2 ? parts[1] : action;
+			}
+
+			// sit@좌석명:표시명 형식
+			if (action.StartsWith("sit@"))
+			{
+				return "sit";
+			}
+
+			// action@context 형식 (take@container, use@inventory 등)
+			var atIndex = action.IndexOf('@');
+			if (atIndex > 0)
+			{
+				return action.Substring(0, atIndex);
+			}
+
+			// 기본 액션 (rest, sleep, putinobject 등)
+			return action;
+		}
+
+		/// <summary>
+		/// Actor가 특정 액션을 수행할 수 있는지 확인 (can: prop 체크)
+		/// </summary>
+		/// <param name="actor">행위자 Unit (플레이어 등)</param>
+		/// <param name="action">액션 문자열</param>
+		/// <returns>can:액션명 prop이 1 이상이면 true</returns>
+		private bool CanPerformAction(Unit actor, string action)
+		{
+			if (actor == null) return false;
+
+			var actionName = ExtractActionName(action);
+			var canProp = $"can:{actionName}";
+
+			// can:액션명 prop이 존재하고 값이 1 이상이면 수행 가능
+			return actor.TraversalContext.Props.HasAtLeast(canProp, 1);
+		}
+
+		/// <summary>
+		/// 액션 리스트를 Actor의 can: prop으로 필터링
+		/// </summary>
+		/// <param name="actions">원본 액션 리스트</param>
+		/// <param name="actor">행위자 Unit</param>
+		/// <returns>수행 가능한 액션만 포함된 리스트</returns>
+		private List<string> FilterActionsByActor(List<string> actions, Unit actor)
+		{
+			if (actor == null) return new List<string>();
+
+			var result = new List<string>();
+			foreach (var action in actions)
+			{
+				if (CanPerformAction(actor, action))
+				{
+					result.Add(action);
+				}
+			}
+			return result;
 		}
 
 		/// <summary>

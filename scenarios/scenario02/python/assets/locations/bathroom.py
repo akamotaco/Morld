@@ -2,6 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundTile
+from assets.objects.furniture import Mirror
 
 
 class Bathroom(Location):
@@ -14,6 +15,7 @@ class Bathroom(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """욕실 생성 + 타일 바닥 추가"""
+        """욕실 생성 + 타일 바닥 + 거울 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundTile())
+        self.add_object(Mirror(), 200)  # 욕실 거울
