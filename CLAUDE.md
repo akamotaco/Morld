@@ -432,6 +432,7 @@ morld.get_prop(prop_name)
 morld.set_prop(prop_name, value)
 morld.clear_prop(prop_name)
 morld.add_action_log(message)
+morld.mark_all_logs_read()  # 모든 행동 로그를 읽음 처리
 
 # 시간 관련
 morld.get_game_time()
@@ -616,6 +617,54 @@ def put_to_object(context_unit_id):
 - `scripts/MetaActionHandler.cs` - script: 액션 처리
 - `scenarios/scenario02/python/events/scripts/` - 스크립트 함수들
 
+### 챕터 전환 시스템 (Chapter Transition)
+**역할:** 챕터 간 플레이어 데이터 저장/복원
+
+**핵심 설계:**
+- **위치 제외**: 플레이어 위치는 저장하지 않음 (챕터별로 다르게 배치)
+- **데이터 저장**: 이름, props, mood, 인벤토리
+- **행동 로그 처리**: 복원 후 `mark_all_logs_read()`로 로그 숨김
+
+**저장되는 데이터:**
+```python
+{
+    "name": str,                    # 플레이어 이름
+    "props": {"타입:이름": value},  # 모든 속성 (flat dict)
+    "mood": [str, ...],             # 감정 상태 (현재 미사용)
+    "inventory": {item_id: count}   # 소지품
+}
+```
+
+**API:**
+```python
+from chapters import load_chapter
+from chapters.persistence import save_player_data, restore_player_data
+
+# 챕터 로드 (플레이어 데이터 자동 유지)
+load_chapter("chapter_1")  # preserve_player=True 기본값
+
+# 새 게임 (플레이어 데이터 초기화)
+load_chapter("chapter_0", preserve_player=False)
+
+# 수동 저장/복원
+saved = save_player_data()
+restore_player_data(saved)
+```
+
+**load_chapter() 동작 흐름:**
+```
+1. 기존 플레이어 데이터 저장 (preserve_player=True면)
+2. morld.clear_world()로 월드 초기화
+3. 새 챕터 모듈 import 및 initialize() 호출
+4. 저장된 플레이어 데이터 복원
+5. morld.reinitialize_locations()
+6. 현재 챕터 기록
+```
+
+**파일 위치:**
+- `scenarios/scenario02/python/chapters/__init__.py` - load_chapter() 함수
+- `scenarios/scenario02/python/chapters/persistence.py` - save/restore 함수
+
 ### 액션 필터링 시스템 (can: prop 기반)
 **역할:** 캐릭터가 수행 가능한 액션만 UI에 표시
 
@@ -716,6 +765,10 @@ scenarios/
 │     │  │  └─ location_callbacks.py (위치 콜백)
 │     │  ├─ reach/ (OnReach 이벤트)
 │     │  └─ meet/ (OnMeet 이벤트)
+│     ├─ chapters/ (챕터 관리)
+│     │  ├─ __init__.py (load_chapter, get_current_chapter)
+│     │  ├─ persistence.py (플레이어 데이터 저장/복원)
+│     │  └─ chapter_*.py (각 챕터 정의)
 │     └─ think/
 │        └─ __init__.py (BaseAgent, register_agent_class)
 └─ util/sharpPy/ (Python 인터프리터 - 서브모듈)

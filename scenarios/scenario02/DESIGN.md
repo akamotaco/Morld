@@ -159,7 +159,12 @@ scenario02/
 │           ├── player_creation.py
 │           └── location_callbacks.py
 │
-└── design.md                 # 이 문서
+├── chapters/                 # 챕터 관리
+│   ├── __init__.py           # load_chapter(), get_current_chapter()
+│   ├── persistence.py        # 플레이어 데이터 저장/복원
+│   └── chapter_*.py          # 각 챕터 정의
+│
+└── DESIGN.md                 # 이 문서
 ```
 
 ---
@@ -556,6 +561,66 @@ props = {
 1. 대상(유닛/오브젝트/아이템)의 `actions` 리스트에 액션 추가
 2. 수행자(플레이어 등)의 props에 `can:액션명` 추가
 3. 액션 핸들러 구현 (스크립트 함수 등)
+
+---
+
+## 챕터 시스템
+
+### 챕터 전환
+
+챕터 간 플레이어 데이터를 유지하면서 새로운 챕터를 로드합니다.
+
+```python
+from chapters import load_chapter
+
+# 플레이어 데이터 유지하면서 챕터 로드 (기본값)
+load_chapter("chapter_1")
+
+# 새 게임 (플레이어 데이터 초기화)
+load_chapter("chapter_0", preserve_player=False)
+```
+
+### 저장되는 플레이어 데이터
+
+| 항목 | 설명 | 저장 여부 |
+|------|------|----------|
+| 이름 | 캐릭터 이름 | ✅ |
+| Props | 모든 속성 (`힘`, `can:*` 등) | ✅ |
+| Mood | 감정 상태 | ✅ |
+| Inventory | 소지품 | ✅ |
+| Location | 현재 위치 | ❌ (챕터별 배치) |
+
+### persistence.py API
+
+```python
+from chapters.persistence import (
+    save_player_data,      # 수동 저장
+    restore_player_data,   # 수동 복원
+    save_for_chapter_transition,     # 챕터 전환용 저장
+    restore_after_chapter_transition, # 챕터 전환용 복원
+    has_saved_data,        # 저장 데이터 존재 여부
+)
+```
+
+### 행동 로그 처리
+
+복원 시 생성되는 행동 로그(아이템 획득 등)는 자동으로 '읽음' 처리됩니다.
+
+```python
+# restore_player_data() 마지막에 자동 호출
+morld.mark_all_logs_read()
+```
+
+### 폴더 구조
+
+```
+chapters/
+├── __init__.py       # load_chapter(), get_current_chapter()
+├── persistence.py    # save_player_data(), restore_player_data()
+├── chapter_0.py      # 프롤로그 챕터
+├── chapter_1.py      # 첫 번째 챕터
+└── ...
+```
 
 ---
 

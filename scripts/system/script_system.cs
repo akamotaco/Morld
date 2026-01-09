@@ -378,6 +378,13 @@ namespace SE
                     return PyBool.True;
                 });
 
+                morldModule.ModuleDict["mark_all_logs_read"] = new PyBuiltinFunction("mark_all_logs_read", args =>
+                {
+                    var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+                    _textUISystem?.MarkAllLogsAsRead();
+                    return PyBool.True;
+                });
+
                 // === Action Text API ===
                 // get_actions_list() - 현재 상황의 행동 옵션 BBCode 리스트 반환
                 morldModule.ModuleDict["get_actions_list"] = new PyBuiltinFunction("get_actions_list", args =>
