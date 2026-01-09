@@ -45,7 +45,7 @@ class Lina(Character):
     name = "리나"
     type = "female"
     props = {"외모:금발": 1, "성격:명랑함": 1, ...}
-    actions = ["script:npc_talk:대화"]
+    actions = ["call:talk:대화", "call:debug_props:속성 보기"]
     mood = []
 
     # 묘사 텍스트 (메서드 오버라이드)
@@ -61,7 +61,8 @@ class Lina(Character):
     def on_meet_player(self, player_id):
         ...
 
-    def npc_talk(self, player_id):
+    def talk(self):
+        """대화 - OOP 메서드 (Generator 기반)"""
         ...
 
 # 2. AI Agent (데코레이터로 자동 등록)
@@ -452,64 +453,61 @@ result = yield morld.dialog(
 ### 레거시 호환
 
 `@ret:값` 패턴은 기존 코드와의 호환성을 위해 계속 지원됩니다.
-단, 다이얼로그 내에서 `script:` 패턴 사용은 정책적으로 금지됩니다.
 선택이 필요한 경우 `@proc:` 패턴을 사용하세요.
 
 ---
 
-## 스크립트 시스템
+## 액션 시스템 (OOP 패턴)
 
-### @morld.register_script 데코레이터
+### call: 액션 패턴
 
-스크립트 함수는 `@morld.register_script` 데코레이터로 등록되며, 액션으로 호출됩니다.
+액션은 `call:` 패턴을 통해 Asset 인스턴스의 메서드를 직접 호출합니다.
 
 ```python
-@morld.register_script
-def my_script(context_unit_id, *args):
-    """context_unit_id는 Focus 대상 유닛 ID"""
-    # Generator 반환 시 Dialog 지원
-    result = yield morld.dialog("선택\n\n[url=@ret:yes]예[/url]")
+# assets/base.py - 베이스 클래스
+class Character(Unit):
+    def talk(self):
+        """기본 대화 - 서브클래스에서 오버라이드"""
+        yield morld.dialog(f"[{self.name}]\n...")
+
+# assets/characters/lina.py - 개별 캐릭터
+class Lina(Character):
+    actions = ["call:talk:대화", "call:debug_props:속성 보기"]
+
+    def talk(self):
+        """리나 전용 대화"""
+        yield morld.dialog([f"[{self.name}]", "안녕! 뭐야뭐야?"])
 ```
 
 ### 액션 문자열 형식
 
 | 형식 | 설명 | 예시 |
 |------|------|------|
-| `script:함수명:표시명` | 인자 없음 | `script:npc_talk:대화` |
-| `script:함수명:인자:표시명` | 인자 있음 | `script:take_item:100:가져가기` |
+| `call:메서드명:표시명` | 메서드 호출 | `call:talk:대화` |
+| `call:메서드명:인자:표시명` | 인자 있는 메서드 | `call:sit:front:앉기` |
 
-### 컨테이너 스크립트
+### 컨테이너 메서드
 
-오브젝트에서 아이템을 가져오거나 넣는 기능은 Python 스크립트로 구현됩니다.
+오브젝트에서 아이템을 가져오거나 넣는 기능은 OOP 메서드로 구현됩니다.
 
 ```python
-# events/scripts/container.py
+# assets/base.py - Object 베이스 클래스
 
-@morld.register_script
-def take_item(context_unit_id, item_id):
-    """개별 아이템 가져오기 (인벤토리 메뉴에서 호출)"""
-    player_id = morld.get_player_id()
-    item_id = int(item_id)
-    morld.lost_item(context_unit_id, item_id)
-    morld.give_item(player_id, item_id)
-    # InventorySystem이 자동으로 행동 로그 생성
+class Object(Unit):
+    def take_from_object(self):
+        """다이얼로그 방식으로 아이템 가져오기"""
+        # ... 아이템 목록 다이얼로그 표시 ...
 
-@morld.register_script
-def take_from_object(context_unit_id):
-    """다이얼로그 방식으로 아이템 가져오기"""
-    # ... 아이템 목록 다이얼로그 표시 ...
-
-@morld.register_script
-def put_to_object(context_unit_id):
-    """다이얼로그 방식으로 아이템 넣기"""
-    # ... 플레이어 인벤토리에서 선택 ...
+    def put_to_object(self):
+        """다이얼로그 방식으로 아이템 넣기"""
+        # ... 플레이어 인벤토리에서 선택 ...
 ```
 
 **컨테이너 액션 사용:**
-- 오브젝트의 `actions`에 `script:take_from_object:가져오기` 추가
-- 인벤토리 내 개별 아이템은 `script:take_item:{item_id}:가져가기` 형식으로 자동 생성
+- 오브젝트의 `actions`에 `call:take_from_object:가져오기` 추가
+- 인벤토리 내 개별 아이템은 `call:take_item:{item_id}:가져가기` 형식
 
-**스크립트 완료 후 Focus 처리:**
+**메서드 완료 후 Focus 처리:**
 - Generator 완료 시 `PopIfInvalid()` 호출
 - 빈 인벤토리면 상위 Focus로 자동 복귀
 - 유효한 Focus면 현재 상태 유지
@@ -523,14 +521,13 @@ def put_to_object(context_unit_id):
 캐릭터가 수행할 수 있는 액션만 UI에 표시됩니다.
 
 **Whitelist 방식:**
-- 캐릭터에 `can:액션명` prop이 있어야 해당 액션 버튼이 표시됨
+- 캐릭터에 `can:메서드명` prop이 있어야 해당 액션 버튼이 표시됨
 - 값이 1 이상이면 수행 가능 (추후 레벨별 분기 가능)
 
 **액션 이름 추출:**
 ```
-script:npc_talk:대화    → npc_talk
-sit@front:앞좌석        → sit
-take@container         → take
+call:talk:대화          → talk
+call:sit:front:앉기     → sit
 rest                   → rest
 ```
 
@@ -540,7 +537,7 @@ rest                   → rest
 # assets/characters/player.py
 props = {
     # NPC 상호작용
-    "can:npc_talk": 1,
+    "can:talk": 1,
 
     # 이동/자세
     "can:sit": 1,
@@ -556,14 +553,17 @@ props = {
     "can:put_to_object": 1,
     "can:take_item": 1,
 
-    # 오브젝트 상호작용 - 가구
-    "can:fireplace_look": 1,
-    "can:sofa_sit": 1,
-    "can:bookshelf_look": 1,
-    # ... (기타 가구/야외/차량 등)
+    # 오브젝트 상호작용 - OOP 메서드명
+    "can:look": 1,
+    "can:draw": 1,
+    "can:drive": 1,
 
     # 아이템 사용
     "can:read_book": 1,
+
+    # 디버그
+    "can:debug_props": 1,
+    "can:debug_self_props": 1,
 }
 ```
 

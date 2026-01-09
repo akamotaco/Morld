@@ -53,6 +53,5 @@ def get_action_text():
         lines.append(action)
 
     # Python에서 추가 행동 삽입 가능
-    # 예: lines.append("[url=script:secret_action]비밀 행동[/url]")
 
     return "\n".join(lines)

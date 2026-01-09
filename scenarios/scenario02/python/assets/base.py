@@ -151,6 +151,18 @@ class Unit(Asset):
         item._check_instantiated()
         morld.give_item(self.instance_id, item.instance_id, count)
 
+    def debug_props(self):
+        """유닛의 속성(props) 디버그 출력"""
+        self._check_instantiated()
+        props = morld.get_unit_props(self.instance_id)
+        if not props:
+            yield morld.dialog(f"[b]{self.name}[/b]\n\n속성이 없습니다.")
+            return
+        lines = [f"[b]{self.name}[/b]\n"]
+        for key, value in props.items():
+            lines.append(f"  {key}: {value}")
+        yield morld.dialog("\n".join(lines))
+
 
 class Character(Unit):
     """
@@ -189,6 +201,31 @@ class Character(Unit):
         from assets.characters import register_instance
         register_instance(instance_id, self)
 
+    def talk(self):
+        """
+        NPC 대화 - 서브클래스에서 오버라이드
+
+        기본 구현은 간단한 인사.
+        각 캐릭터 클래스에서 오버라이드하여 고유 대화 구현.
+        """
+        yield morld.dialog(f"{self.name}: 안녕.")
+
+    def debug_self_props(self):
+        """플레이어 자신의 속성 확인 (거울 등에서 사용)"""
+        player_id = morld.get_player_id()
+        props = morld.get_unit_props(player_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "???") if player_info else "???"
+
+        if not props:
+            yield morld.dialog(f"[b]{player_name}[/b]\n\n아직 알 수 있는 것이 없다.")
+            return
+
+        lines = [f"[b]{player_name}[/b]\n"]
+        for key, value in props.items():
+            lines.append(f"  {key}: {value}")
+        yield morld.dialog("\n".join(lines))
+
 
 class Object(Unit):
     """
@@ -198,8 +235,10 @@ class Object(Unit):
     - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
 
     액션 패턴:
-    - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성 지원)
-    - script:함수명:표시명 → 전역 스크립트 함수 호출 (레거시)
+    - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성)
+
+    공통 메서드 (Unit에서 상속):
+    - debug_props(): 속성 디버그 출력
     """
 
     type: str = "object"
@@ -240,8 +279,7 @@ class Item(Asset):
     - owner: 소유자 unique_id (None이면 공용)
 
     액션 패턴:
-    - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성 지원)
-    - script:함수명:표시명 → 전역 스크립트 함수 호출 (레거시)
+    - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성)
     """
 
     passive_props: dict = None

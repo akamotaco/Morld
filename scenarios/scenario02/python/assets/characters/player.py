@@ -66,9 +66,9 @@ class Player(Character):
         "나이": 22,
         "신뢰도": 0,
 
-        # 기본 행동 능력 (can:액션명)
+        # 기본 행동 능력 (can:메서드명)
         # NPC 상호작용
-        "can:npc_talk": 1,
+        "can:talk": 1,
 
         # 이동/자세
         "can:sit": 1,
@@ -84,33 +84,10 @@ class Player(Character):
         "can:put_to_object": 1,
         "can:take_item": 1,
 
-        # 오브젝트 상호작용 - 가구
-        "can:fireplace_look": 1,
-        "can:sofa_sit": 1,
-        "can:bookshelf_look": 1,
-        "can:table_look": 1,
-        "can:stove_look": 1,
-        "can:cupboard_look": 1,
-        "can:bath_use": 1,
-        "can:washbasin_use": 1,
-        "can:shelf_look": 1,
-        "can:bed_sleep": 1,
-        "can:bed_rest": 1,
-        "can:desk_look": 1,
-        "can:mirror_look": 1,
-        "can:window_look": 1,
-        "can:vase_look": 1,
-
-        # 오브젝트 상호작용 - 야외
-        "can:bench_sit": 1,
-        "can:well_look": 1,
-        "can:well_draw": 1,
-        "can:garden_look": 1,
-        "can:drying_rack_look": 1,
-
-        # 오브젝트 상호작용 - 차량
-        "can:drive_menu": 1,
-        "can:trunk_look": 1,
+        # 오브젝트 상호작용 - OOP 메서드명
+        "can:look": 1,
+        "can:draw": 1,
+        "can:drive": 1,
 
         # 아이템 사용
         "can:read_book": 1,

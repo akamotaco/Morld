@@ -57,8 +57,6 @@ def intro_with_dialog_legacy(context_unit_id):
     """
     Dialog API 시범 - 레거시 방식 (while 루프)
 
-    사용법: script:intro_with_dialog_legacy
-
     @ret:값 - 다이얼로그 종료, yield에 값 반환
     """
     # 단순 Yes/No 다이얼로그
@@ -81,8 +79,6 @@ def intro_with_dialog_legacy(context_unit_id):
 def stat_allocation_new(context_unit_id):
     """
     Dialog API 시범 - 새 통합 API (proc 콜백 + result)
-
-    사용법: script:stat_allocation_new
 
     yield morld.dialog(text, autofill="off", proc=callback, result=state)
     - proc 콜백: @proc:값 클릭 시 호출되어 새 텍스트 반환
@@ -147,8 +143,6 @@ def destination_choice(context_unit_id):
     """
     Dialog API 시범 - @proc + return True 패턴
 
-    사용법: script:destination_choice
-
     @proc:값 클릭 시 proc 콜백 호출
     - return True: 다이얼로그 종료, result 반환
     - return 문자열: 텍스트 업데이트, 다이얼로그 유지
@@ -181,8 +175,6 @@ def destination_choice(context_unit_id):
 def read_diary(context_unit_id):
     """
     Dialog API 시범 - book 모드 (이전/다음 왕복)
-
-    사용법: script:read_diary
     """
     yield morld.dialog([
         "[b]일기장 - 1페이지[/b]\n\n오늘 숲에서 이상한 소리를 들었다.",
@@ -198,8 +190,6 @@ def read_diary(context_unit_id):
 def memory_flashback(context_unit_id):
     """
     Dialog API 시범 - scroll 모드 (텍스트 누적)
-
-    사용법: script:memory_flashback
     """
     yield morld.dialog([
         "...기억이 떠오른다...",

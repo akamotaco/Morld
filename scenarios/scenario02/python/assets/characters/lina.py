@@ -42,7 +42,7 @@ class Lina(Character):
         "애정": 0, "성욕": 0, "질투": 0,
         "피로": 0, "기분": 7,
     }
-    actions = ["script:npc_talk:대화", "script:debug_props:속성 보기"]
+    actions = ["call:talk:대화", "call:debug_props:속성 보기"]
     mood = []
 
     # 이벤트 플래그 (인스턴스별)
@@ -146,8 +146,8 @@ class Lina(Character):
 
         return handler()
 
-    def npc_talk(self, player_id):
-        """대화 - Generator 기반"""
+    def talk(self):
+        """대화 - Generator 기반 (Character.talk 오버라이드)"""
         import morld
 
         unit_info = morld.get_unit_info(self.instance_id)

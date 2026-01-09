@@ -194,7 +194,7 @@ class Sera(Character):
     name = "세라"
     type = "female"
     props = {"힘": 7, "민첩": 8}
-    actions = ["script:npc_talk:대화"]
+    actions = ["call:talk:대화"]
 
     # 스케줄 정의
     SCHEDULE = [
@@ -570,59 +570,35 @@ def my_script(context_unit_id, *args):
 **액션 문자열 형식:**
 | 형식 | 설명 | 예시 |
 |------|------|------|
-| `script:함수명:표시명` | 스크립트 호출 (인자 없음) | `script:npc_talk:대화` |
-| `script:함수명:인자:표시명` | 스크립트 호출 (인자 있음) | `script:take_item:100:가져가기` |
+| `call:메서드명:표시명` | Asset 인스턴스 메서드 호출 | `call:talk:대화` |
+| `call:메서드명:인자:표시명` | 인자 있는 메서드 호출 | `call:sit:front:앉기` |
 
-**컨테이너 스크립트 예시:**
+**OOP 메서드 호출 예시:**
 ```python
-# events/scripts/container.py
+# assets/base.py - Character 베이스 클래스
 
-@morld.register_script
-def take_item(context_unit_id, item_id):
-    """오브젝트에서 특정 아이템 하나 가져오기"""
-    player_id = morld.get_player_id()
-    item_id = int(item_id)
-    morld.lost_item(context_unit_id, item_id)
-    morld.give_item(player_id, item_id)
+class Character(Unit):
+    def talk(self):
+        """기본 대화 - 서브클래스에서 오버라이드"""
+        yield morld.dialog(f"[{self.name}]\n...")
 
-@morld.register_script
-def take_from_object(context_unit_id):
-    """오브젝트에서 아이템 가져오기 (다이얼로그 방식)"""
-    player_id = morld.get_player_id()
-    inventory = morld.get_unit_inventory(context_unit_id)
+# assets/characters/sera.py - 개별 캐릭터
+class Sera(Character):
+    actions = ["call:talk:대화", "call:debug_props:속성 보기"]
 
-    if not inventory:
-        yield morld.dialog("가져올 아이템이 없다.")
-        return
-
-    # 아이템 목록 다이얼로그 생성
-    lines = ["[b]가져오기[/b]\n"]
-    for item_id, count in inventory.items():
-        item = morld.get_item_info(item_id)
-        lines.append(f"[url=@ret:{item_id}]{item['name']}[/url]")
-    lines.append("\n[url=@ret:cancel]취소[/url]")
-
-    result = yield morld.dialog("\n".join(lines))
-
-    if result and result != "cancel":
-        item_id = int(result)
-        morld.lost_item(context_unit_id, item_id)
-        morld.give_item(player_id, item_id)
-
-@morld.register_script
-def put_to_object(context_unit_id):
-    """오브젝트에 아이템 넣기 (다이얼로그 방식)"""
-    # take_from_object와 유사한 구조
+    def talk(self):
+        """세라 전용 대화 - Generator 기반"""
+        yield morld.dialog([f"[{self.name}]", "...무슨 일이냐?"])
 ```
 
-**스크립트 완료 후 Focus 처리:**
+**OOP 메서드 완료 후 Focus 처리:**
 - Generator 완료 시 `PopIfInvalid()` 호출로 무효화된 Focus 제거
 - 아이템 이동 후 빈 인벤토리면 자동으로 상위 Focus로 복귀
 - 유효한 Focus면 현재 상태 유지 (UpdateDisplay)
 
 **파일 위치:**
-- `scripts/MetaActionHandler.cs` - script: 액션 처리
-- `scenarios/scenario02/python/events/scripts/` - 스크립트 함수들
+- `scripts/MetaActionHandler.cs` - call: 액션 처리
+- `scenarios/scenario02/python/assets/` - Asset 클래스 및 메서드
 
 ### 챕터 전환 시스템 (Chapter Transition)
 **역할:** 챕터 간 플레이어 데이터 저장/복원
@@ -683,9 +659,8 @@ restore_player_data(saved)
 **액션 이름 추출 규칙:**
 | 액션 형식 | 추출되는 이름 | 예시 |
 |-----------|--------------|------|
-| `script:함수명:표시명` | 함수명 | `script:npc_talk:대화` → `npc_talk` |
-| `sit@좌석명:표시명` | sit | `sit@front:앞좌석` → `sit` |
-| `action@context` | action | `take@container` → `take` |
+| `call:메서드명:표시명` | 메서드명 | `call:talk:대화` → `talk` |
+| `call:메서드명:인자:표시명` | 메서드명 | `call:sit:front:앉기` → `sit` |
 | 단순 액션 | 그대로 | `rest` → `rest` |
 
 **필터링 적용 위치:**
@@ -696,16 +671,17 @@ restore_player_data(saved)
 ```python
 # Player props
 props = {
-    "can:npc_talk": 1,  # NPC 대화 가능
+    "can:talk": 1,      # NPC 대화 가능
     "can:sit": 1,       # 앉기 가능
     "can:take": 1,      # 가져오기 가능
+    "can:look": 1,      # 살펴보기 가능
     # ...
 }
 
 # Target NPC actions
-actions = ["script:npc_talk:대화", "trade:거래"]
+actions = ["call:talk:대화", "call:trade:거래"]
 
-# 필터링 결과: ["script:npc_talk:대화"]
+# 필터링 결과: ["call:talk:대화"]
 # (can:trade가 없으므로 거래 버튼 숨김)
 ```
 
