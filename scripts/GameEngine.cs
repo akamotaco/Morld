@@ -267,12 +267,7 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void UpdateSituationText()
 	{
-		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
 		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
-
-		if (_playerSystem == null || _textUISystem == null)
-			return;
-
 		_textUISystem.ShowSituation();
 	}
 

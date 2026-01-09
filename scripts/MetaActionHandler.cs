@@ -198,23 +198,149 @@ public class MetaActionHandler
 			return;
 		}
 
-		// 모든 이벤트 처리 완료 - ExcessTime 계산 및 PlayerSystem에 적용
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
+
+		// ExcessTime 체크 (Python meet 이벤트 큐 처리 전에 확인)
+		// 다이얼로그에서 시간이 경과했으면 남은 meet 이벤트를 스킵해야 함
 		if (eventSystem != null)
 		{
 			eventSystem.FinalizeDialogTime();
 
-			// ExcessTime을 PlayerSystem의 _remainingDuration에 추가
-			// → HasPendingTime = true → _Process에서 파이프라인 실행 (NPC 스케줄 등)
 			var excessTime = eventSystem.ConsumeExcessTime();
 			if (excessTime > 0)
 			{
+#if DEBUG_LOG
+				GD.Print($"[MetaActionHandler] ExcessTime={excessTime}, clearing pending meet events");
+#endif
 				_playerSystem?.AddExcessTime(excessTime);
+
+				// ExcessTime > 0이면 대기 중인 meet 이벤트 모두 제거
+				// (시간이 흘렀으므로 남은 만남 이벤트는 스킵)
+				ClearPendingMeetEvents(scriptSystem);
+
 				// ExcessTime이 있으면 상황 업데이트 생략 - 파이프라인 완료 후 _Process에서 표시됨
 				return;
 			}
 		}
 
+		// ExcessTime == 0일 때만 Python meet 이벤트 큐 확인
+		if (scriptSystem != null && HasPendingMeetEvents(scriptSystem))
+		{
+			// Python 큐에 대기 중인 meet 이벤트가 있으면 다음 이벤트 처리
+			if (ProcessNextMeetEvent(scriptSystem))
+			{
+#if DEBUG_LOG
+				GD.Print("[MetaActionHandler] RequestUpdateSituation: Python meet event triggered dialog");
+#endif
+				return;
+			}
+		}
+
 		OnUpdateSituation?.Invoke();
+	}
+
+	/// <summary>
+	/// Python에 대기 중인 meet 이벤트가 있는지 확인
+	/// </summary>
+	private bool HasPendingMeetEvents(ScriptSystem scriptSystem)
+	{
+		try
+		{
+			var result = scriptSystem.Eval("has_pending_meet_events()");
+			return result is SharpPy.PyBool pyBool && pyBool.Value;
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] has_pending_meet_events error: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Python 큐에서 다음 meet 이벤트 처리
+	/// </summary>
+	/// <returns>다이얼로그가 표시되었으면 true</returns>
+	private bool ProcessNextMeetEvent(ScriptSystem scriptSystem)
+	{
+		try
+		{
+			// 더미 on_meet 이벤트로 Python 호출 - 큐에서 다음 이벤트 반환
+			// _pending_meet_events가 비어있지 않으면 큐에서 pop
+			var playerId = _playerSystem?.PlayerId ?? 0;
+			var result = scriptSystem.Eval($"on_single_event(['on_meet', {playerId}])");
+
+			if (result is SharpPy.PyNone || result == null)
+			{
+				return false;
+			}
+
+			// Generator인 경우 Dialog 처리
+			if (result is SharpPy.PyGenerator generator)
+			{
+#if DEBUG_LOG
+				GD.Print("[MetaActionHandler] ProcessNextMeetEvent: Generator returned, processing...");
+#endif
+				var genResult = scriptSystem.ProcessGenerator(generator);
+				if (genResult != null)
+				{
+					ProcessEventResultFromScript(genResult);
+					return genResult.Type == "generator_dialog";
+				}
+			}
+
+			return false;
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] ProcessNextMeetEvent error: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// 스크립트 결과를 이벤트로 처리 (EventSystem.ProcessEventResult와 유사)
+	/// </summary>
+	private void ProcessEventResultFromScript(SE.ScriptResult result)
+	{
+		if (result == null) return;
+
+		if (result.Type == "generator_dialog" && result is SE.GeneratorScriptResult genResult)
+		{
+			// MetaActionHandler에 Generator와 DialogRequest 설정
+			SetPendingGenerator(genResult.Generator, genResult.DialogRequest);
+
+			// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
+			if (_textUISystem != null && _textUISystem.IsStackEmpty())
+			{
+				_textUISystem.ShowSituation();
+			}
+
+			// Dialog 표시
+			_textUISystem?.PushDialog(genResult.DialogText);
+#if DEBUG_LOG
+			GD.Print($"[MetaActionHandler] ProcessEventResultFromScript: Dialog pushed");
+#endif
+		}
+	}
+
+	/// <summary>
+	/// Python의 대기 중인 meet 이벤트 모두 제거
+	/// </summary>
+	private void ClearPendingMeetEvents(ScriptSystem scriptSystem)
+	{
+		if (scriptSystem == null) return;
+
+		try
+		{
+			scriptSystem.Eval("clear_pending_meet_events()");
+#if DEBUG_LOG
+			GD.Print("[MetaActionHandler] Cleared pending meet events (ExcessTime > 0)");
+#endif
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] clear_pending_meet_events error: {ex.Message}");
+		}
 	}
 
 	/// <summary>

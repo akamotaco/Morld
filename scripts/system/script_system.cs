@@ -2626,7 +2626,7 @@ __init__.initialize_scenario()
         /// <summary>
         /// 제너레이터 처리 - MessageBox/Dialog yield 감지
         /// </summary>
-        private ScriptResult ProcessGenerator(PyGenerator generator)
+        public ScriptResult ProcessGenerator(PyGenerator generator)
         {
             try
             {

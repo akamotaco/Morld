@@ -324,9 +324,47 @@ def handle(self, player_id, unit_ids):
 4. FlushEvents() → 추가 이벤트 처리
 ```
 
+**순차적 on_meet 이벤트 처리:**
+한 위치에서 여러 NPC를 동시에 만났을 때, 이벤트가 우선순위별로 순차 처리됩니다.
+
+```python
+# Python 이벤트 큐 (events/__init__.py)
+_pending_meet_events = []  # 대기 중인 이벤트 목록
+
+def _collect_meet_events(player_id, unit_ids):
+    """조건에 맞는 모든 on_meet 이벤트 수집"""
+    events = []
+    # 1. registry MeetEvent (priority 기반)
+    # 2. character on_meet_player (priority -1)
+    events.sort(key=lambda e: -e["priority"])  # 높은 priority 먼저
+    return events
+
+# C#에서 호출하는 API
+def has_pending_meet_events():
+    """대기 중인 이벤트 존재 여부"""
+    return len(_pending_meet_events) > 0
+
+def clear_pending_meet_events():
+    """ExcessTime > 0일 때 대기 중인 이벤트 모두 제거"""
+    global _pending_meet_events
+    _pending_meet_events = []
+```
+
+**ExcessTime과 이벤트 큐 연동:**
+```
+1. 플레이어가 위치 도착 → 여러 NPC와 만남
+2. 이벤트 큐 생성 (우선순위 정렬)
+3. 첫 번째 이벤트 처리 (Dialog 표시)
+4. Dialog 종료 후 ExcessTime 확인:
+   - ExcessTime > 0: 남은 이벤트 모두 스킵 (시간 흐름)
+   - ExcessTime == 0: 다음 이벤트 처리 (순차 대화)
+5. 모든 이벤트 처리 완료 or ExcessTime 발생 시 종료
+```
+
 **파일 위치:**
 - `scripts/system/event_system.cs`
 - `scripts/morld/event/GameEvent.cs`
+- `scenarios/scenario02/python/events/__init__.py` - 이벤트 큐 관리
 
 ### UnitSystem (Data System)
 **역할:** 게임 내 모든 유닛(캐릭터/오브젝트)의 데이터 관리

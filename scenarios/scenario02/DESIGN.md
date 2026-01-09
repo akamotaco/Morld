@@ -269,6 +269,47 @@ def on_meet_player(context_unit_id):
 | on_reach | 위치 도착 | 위치별 이벤트 |
 | on_meet | 같은 위치 만남 | NPC별 첫 만남 이벤트 |
 
+### 순차적 on_meet 이벤트 처리
+
+한 위치에서 여러 NPC를 동시에 만났을 때, 이벤트가 순차적으로 처리됩니다.
+
+**동작 흐름:**
+```
+1. 플레이어가 위치 도착 → 리나, 밀라와 동시에 만남
+2. 이벤트 수집: [리나(priority -1), 밀라(priority -1)]
+3. 첫 번째 이벤트 처리: 리나 on_meet_player() Dialog
+4. Dialog 종료 → ExcessTime 확인:
+   - ExcessTime > 0: 밀라 이벤트 스킵 (시간 흘러감)
+   - ExcessTime == 0: 밀라 이벤트 처리 (순차 대화)
+5. 모든 이벤트 완료 or 시간 경과 시 종료
+```
+
+**우선순위:**
+- registry MeetEvent: priority 필드값 (높을수록 먼저)
+- character on_meet_player: priority -1 (registry 이벤트 후에 처리)
+
+**Python API:**
+```python
+# events/__init__.py
+def has_pending_meet_events():
+    """대기 중인 이벤트 존재 여부"""
+    return len(_pending_meet_events) > 0
+
+def clear_pending_meet_events():
+    """대기 중인 이벤트 모두 제거 (ExcessTime > 0일 때 호출)"""
+    global _pending_meet_events
+    _pending_meet_events = []
+```
+
+**ExcessTime 발생 예시:**
+```python
+# 리나 on_meet_player에서 시간 경과 추가
+def on_meet_player(self, player_id):
+    yield morld.dialog(["대화 내용..."])
+    morld.set_npc_time_consume(self.instance_id, "follow", 30, player_id)
+    # → ExcessTime = 30 → 다음 NPC 이벤트 스킵
+```
+
 ### 이벤트 파일 분리
 
 ```
