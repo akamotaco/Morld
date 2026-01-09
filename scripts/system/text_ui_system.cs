@@ -60,24 +60,11 @@ namespace SE
 		private readonly Queue<DialogQueueItem> _dialogQueue = new();
 
 		// 데이터 조회용 참조 (UpdateDisplay에서 사용)
-		private PlayerSystem? _playerSystem;
-		private InventorySystem? _inventorySystem;
-		private ScriptSystem? _scriptSystem;
 
 		public TextUISystem(RichTextLabel textUi, DescribeSystem describeSystem)
 		{
 			_textUi = textUi;
 			_describeSystem = describeSystem;
-		}
-
-		/// <summary>
-		/// 시스템 참조 설정 (GameEngine에서 호출)
-		/// </summary>
-		public void SetSystemReferences(PlayerSystem playerSystem, InventorySystem inventorySystem, ScriptSystem? scriptSystem = null)
-		{
-			_playerSystem = playerSystem;
-			_inventorySystem = inventorySystem;
-			_scriptSystem = scriptSystem;
 		}
 
 		/// <summary>
@@ -259,7 +246,8 @@ namespace SE
 
 		private string RenderSituation()
 		{
-			if (_playerSystem == null) return "";
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+
 			var lookResult = _playerSystem.Look();
 			var time = (_hub.GetSystem("worldSystem") as WorldSystem).GetTime();
 
@@ -282,7 +270,7 @@ namespace SE
 		/// </summary>
 		private string? GetActionTextFromPython()
 		{
-			if (_scriptSystem == null) return null;
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
 
 			try
 			{
@@ -308,7 +296,8 @@ namespace SE
 
 		private string RenderUnit(int unitId)
 		{
-			if (_playerSystem == null) return "";
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+
 			var unitLook = _playerSystem.LookUnit(unitId);
 			if (unitLook == null) return "[color=gray]유닛을 찾을 수 없습니다.[/color]\n\n[url=back]뒤로[/url]";
 			return _describeSystem.GetUnitLookText(unitLook, GetPrintableLogs());
@@ -321,6 +310,9 @@ namespace SE
 
 		private string RenderItem(int itemId, string context, int? targetUnitId)
 		{
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+
 			// 아이템 개수 조회
 			int count = 0;
 			if (_inventorySystem != null)
@@ -404,14 +396,14 @@ namespace SE
 		/// <summary>
 		/// 다이얼로그 Push (첫 yield morld.dialog() 호출 시)
 		/// 이미 다이얼로그가 열려있으면 큐에 추가 (연쇄 다이얼로그)
+		///
+		/// Note: 로그 읽음 처리는 액션 버튼 클릭 시점(HandleAction)에서만 수행
+		/// 이벤트 연쇄 처리 시 중간 다이얼로그에서 로그가 유실되지 않도록 함
 		/// </summary>
 		public void PushDialog(string text, int timeConsumed = 0)
 		{
-			// 다이얼로그 열기 전 현재 화면의 로그를 읽음 처리
-			OnContentChange();
-
 			// 이미 다이얼로그가 열려있으면 큐에 추가
-			if (_stack.Current.Type == FocusType.Dialog)
+			if (_stack.Current != null && _stack.Current.Type == FocusType.Dialog)
 			{
 				_dialogQueue.Enqueue(new DialogQueueItem(text, timeConsumed));
 #if DEBUG_LOG
@@ -524,9 +516,10 @@ namespace SE
 		/// </summary>
 		private int GetItemCount(int itemId, string context, int? unitId)
 		{
-			if (_inventorySystem == null) return 0;
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
 
-			if (context == "inventory" && _playerSystem != null)
+			if (context == "inventory")
 			{
 				var player = _playerSystem.GetPlayerUnit();
 				if (player != null)

@@ -278,9 +278,11 @@ events/
 ├── meet/               # OnMeet 이벤트 (캐릭터 Asset에서 직접 처리)
 ├── reach/              # OnReach 이벤트 (장소별)
 │   └── front_yard.py   # 앞마당 쓰러짐 등
-└── scripts/            # 스크립트 함수
+└── scripts/            # 스크립트 함수 (@morld.register_script)
     ├── npc_talk.py     # NPC 대화 라우팅
-    └── player_creation.py  # 캐릭터 생성 흐름
+    ├── player_creation.py  # 캐릭터 생성 흐름
+    ├── container.py    # 컨테이너 아이템 가져오기/넣기
+    └── location_callbacks.py  # 위치 콜백
 ```
 
 ---
@@ -395,6 +397,65 @@ result = yield morld.dialog(
 `@ret:값` 패턴은 기존 코드와의 호환성을 위해 계속 지원됩니다.
 단, 다이얼로그 내에서 `script:` 패턴 사용은 정책적으로 금지됩니다.
 선택이 필요한 경우 `@proc:` 패턴을 사용하세요.
+
+---
+
+## 스크립트 시스템
+
+### @morld.register_script 데코레이터
+
+스크립트 함수는 `@morld.register_script` 데코레이터로 등록되며, 액션으로 호출됩니다.
+
+```python
+@morld.register_script
+def my_script(context_unit_id, *args):
+    """context_unit_id는 Focus 대상 유닛 ID"""
+    # Generator 반환 시 Dialog 지원
+    result = yield morld.dialog("선택\n\n[url=@ret:yes]예[/url]")
+```
+
+### 액션 문자열 형식
+
+| 형식 | 설명 | 예시 |
+|------|------|------|
+| `script:함수명:표시명` | 인자 없음 | `script:npc_talk:대화` |
+| `script:함수명:인자:표시명` | 인자 있음 | `script:take_item:100:가져가기` |
+
+### 컨테이너 스크립트
+
+오브젝트에서 아이템을 가져오거나 넣는 기능은 Python 스크립트로 구현됩니다.
+
+```python
+# events/scripts/container.py
+
+@morld.register_script
+def take_item(context_unit_id, item_id):
+    """개별 아이템 가져오기 (인벤토리 메뉴에서 호출)"""
+    player_id = morld.get_player_id()
+    item_id = int(item_id)
+    morld.lost_item(context_unit_id, item_id)
+    morld.give_item(player_id, item_id)
+    # InventorySystem이 자동으로 행동 로그 생성
+
+@morld.register_script
+def take_from_object(context_unit_id):
+    """다이얼로그 방식으로 아이템 가져오기"""
+    # ... 아이템 목록 다이얼로그 표시 ...
+
+@morld.register_script
+def put_to_object(context_unit_id):
+    """다이얼로그 방식으로 아이템 넣기"""
+    # ... 플레이어 인벤토리에서 선택 ...
+```
+
+**컨테이너 액션 사용:**
+- 오브젝트의 `actions`에 `script:take_from_object:가져오기` 추가
+- 인벤토리 내 개별 아이템은 `script:take_item:{item_id}:가져가기` 형식으로 자동 생성
+
+**스크립트 완료 후 Focus 처리:**
+- Generator 완료 시 `PopIfInvalid()` 호출
+- 빈 인벤토리면 상위 Focus로 자동 복귀
+- 유효한 Focus면 현재 상태 유지
 
 ---
 

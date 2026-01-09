@@ -507,6 +507,77 @@ def handle(self, **ctx):
 - `scripts/morld/ui/Focus.cs` - FocusType.Dialog
 - `scenarios/scenario02/python/events/scripts/player_creation.py` - 캐릭터 생성 예시
 
+### 스크립트 시스템 (Script System)
+**역할:** Python 스크립트 함수 등록 및 실행, 액션 처리
+
+**@morld.register_script 데코레이터:**
+```python
+@morld.register_script
+def my_script(context_unit_id, *args):
+    """스크립트 함수 - context_unit_id는 Focus 대상 유닛"""
+    # Generator 반환 시 Dialog 지원
+    result = yield morld.dialog("선택하세요\n\n[url=@ret:yes]예[/url]")
+    if result == "yes":
+        morld.give_item(context_unit_id, item_id)
+```
+
+**액션 문자열 형식:**
+| 형식 | 설명 | 예시 |
+|------|------|------|
+| `script:함수명:표시명` | 스크립트 호출 (인자 없음) | `script:npc_talk:대화` |
+| `script:함수명:인자:표시명` | 스크립트 호출 (인자 있음) | `script:take_item:100:가져가기` |
+
+**컨테이너 스크립트 예시:**
+```python
+# events/scripts/container.py
+
+@morld.register_script
+def take_item(context_unit_id, item_id):
+    """오브젝트에서 특정 아이템 하나 가져오기"""
+    player_id = morld.get_player_id()
+    item_id = int(item_id)
+    morld.lost_item(context_unit_id, item_id)
+    morld.give_item(player_id, item_id)
+
+@morld.register_script
+def take_from_object(context_unit_id):
+    """오브젝트에서 아이템 가져오기 (다이얼로그 방식)"""
+    player_id = morld.get_player_id()
+    inventory = morld.get_unit_inventory(context_unit_id)
+
+    if not inventory:
+        yield morld.dialog("가져올 아이템이 없다.")
+        return
+
+    # 아이템 목록 다이얼로그 생성
+    lines = ["[b]가져오기[/b]\n"]
+    for item_id, count in inventory.items():
+        item = morld.get_item_info(item_id)
+        lines.append(f"[url=@ret:{item_id}]{item['name']}[/url]")
+    lines.append("\n[url=@ret:cancel]취소[/url]")
+
+    result = yield morld.dialog("\n".join(lines))
+
+    if result and result != "cancel":
+        item_id = int(result)
+        morld.lost_item(context_unit_id, item_id)
+        morld.give_item(player_id, item_id)
+
+@morld.register_script
+def put_to_object(context_unit_id):
+    """오브젝트에 아이템 넣기 (다이얼로그 방식)"""
+    # take_from_object와 유사한 구조
+```
+
+**스크립트 완료 후 Focus 처리:**
+- Generator 완료 시 `PopIfInvalid()` 호출로 무효화된 Focus 제거
+- 아이템 이동 후 빈 인벤토리면 자동으로 상위 Focus로 복귀
+- 유효한 Focus면 현재 상태 유지 (UpdateDisplay)
+
+**파일 위치:**
+- `scripts/MetaActionHandler.cs` - script: 액션 처리
+- `scenarios/scenario02/python/events/scripts/` - 스크립트 함수들
+
 ---
 
 ## 프로젝트 구조
@@ -558,6 +629,14 @@ scenarios/
 │     │  │  ├─ sera.py
 │     │  │  └─ lina.py
 │     │  └─ objects/ (오브젝트별 Python 파일)
+│     ├─ events/
+│     │  ├─ scripts/ (@morld.register_script 함수들)
+│     │  │  ├─ player_creation.py (캐릭터 생성 플로우)
+│     │  │  ├─ npc_talk.py (NPC 대화 라우팅)
+│     │  │  ├─ container.py (컨테이너 아이템 가져오기/넣기)
+│     │  │  └─ location_callbacks.py (위치 콜백)
+│     │  ├─ reach/ (OnReach 이벤트)
+│     │  └─ meet/ (OnMeet 이벤트)
 │     └─ think/
 │        └─ __init__.py (BaseAgent, register_agent_class)
 └─ util/sharpPy/ (Python 인터프리터 - 서브모듈)
