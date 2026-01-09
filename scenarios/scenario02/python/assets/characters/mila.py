@@ -19,6 +19,7 @@ DIALOGUES = {
     "수면": {"pages": ["(자고 있다)", "...zzZ"]},
     "요리": {"pages": ["(요리 중이다)", "잠시만요, 지금 손을 뗄 수가 없어요!"]},
     "설거지": {"pages": ["설거지 중이에요.", "금방 끝날 거예요~"]},
+    "청소": {"pages": ["청소 중이에요~", "깨끗한 집이 좋잖아요!"]},
     "정리": {"pages": ["지금 정리 중이에요.", "조금만 기다려 주세요."]},
     "휴식": {"pages": ["후~ 잠시 쉬고 있어요.", "오늘 뭐 드시고 싶은 거 있으세요?"]},
     "준비": {"pages": ["지금 준비 중이에요~", "조금만 기다려 주세요!"]},
@@ -39,6 +40,7 @@ class Mila(Character):
     props = {
         "외모:갈색머리": 1, "외모:중간머리": 1, "외모:갈색눈": 1,
         "성격:다정함": 1, "성격:걱정많음": 1,
+        "관계:세라:신뢰": 1,
         "애정": 0, "성욕": 0, "질투": 0,
         "피로": 0, "기분": 6,
     }
@@ -68,6 +70,8 @@ class Mila(Character):
         # activity 기반
         if activity == "요리":
             return f"{name}가 분주하게 요리하고 있다."
+        if activity == "청소":
+            return f"{name}가 열심히 청소하고 있다."
         if activity == "식사":
             return f"{name}가 다른 사람들이 먹는 모습을 흐뭇하게 바라본다."
         if activity == "수면":
@@ -98,6 +102,8 @@ class Mila(Character):
         # activity 기반
         if activity == "요리":
             return "앞치마를 두르고 열심히 요리하고 있다."
+        if activity == "청소":
+            return "걸레를 들고 구석구석 닦고 있다."
         if activity == "식사":
             return "다른 사람들이 맛있게 먹는지 살피고 있다."
         if activity == "수면":
@@ -164,11 +170,12 @@ class Mila(Character):
 @register_agent_class("mila")
 class MilaAgent(BaseAgent):
     """
-    밀라 AI - 요리 담당
+    밀라 AI - 요리 + 실내 관리 담당
 
     특징:
     - 다정하고 걱정 많음
-    - 식사 시간 근처에는 주방에 반드시 있음
+    - 식사 준비와 실내 청소를 담당
+    - 세라를 리더로 신뢰하고 따름
     - 플레이어가 아프면 걱정하며 지켜봄
     """
 
@@ -177,8 +184,10 @@ class MilaAgent(BaseAgent):
         {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 360, "end": 420, "activity": "요리"},
         {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
         {"name": "설거지", "region_id": 0, "location_id": 2, "start": 480, "end": 540, "activity": "설거지"},
+        {"name": "청소", "region_id": 0, "location_id": 1, "start": 540, "end": 660, "activity": "청소"},  # 거실 청소
         {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660, "end": 720, "activity": "요리"},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
+        {"name": "청소", "region_id": 0, "location_id": 4, "start": 780, "end": 840, "activity": "청소"},  # 욕실 청소
         {"name": "휴식", "region_id": 0, "location_id": 1, "start": 840, "end": 960, "activity": "휴식"},
         {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020, "end": 1110, "activity": "요리"},
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
@@ -188,9 +197,6 @@ class MilaAgent(BaseAgent):
 
     def think(self):
         """밀라의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 커스텀 로직이 필요하면 여기에 추가
-        # 예: 플레이어가 아프면 걱정하며 지켜봄
-
         # 스케줄 기반으로 JobList 채우기
         self.fill_schedule_jobs_from(self.SCHEDULE)
         return None

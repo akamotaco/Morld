@@ -49,6 +49,22 @@ namespace SE
 		}
 
 		/// <summary>
+		/// UniqueId로 유닛 찾기
+		/// </summary>
+		public Unit? FindByUniqueId(string uniqueId)
+		{
+			if (string.IsNullOrEmpty(uniqueId))
+				return null;
+
+			foreach (var unit in _units.Values)
+			{
+				if (unit.UniqueId == uniqueId)
+					return unit;
+			}
+			return null;
+		}
+
+		/// <summary>
 		/// 모든 유닛 제거
 		/// </summary>
 		public void ClearUnits()

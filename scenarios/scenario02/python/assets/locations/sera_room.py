@@ -6,7 +6,8 @@ from assets.objects.grounds import GroundWooden
 
 class SeraRoom(Location):
     unique_id = "sera_room"
-    name = "세라의 방"
+    name = "방3"
+    owner = "sera"
     is_indoor = True
     stay_duration = 0
     describe_text = {
@@ -14,6 +15,5 @@ class SeraRoom(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """세라의 방 생성 + 나무 바닥 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())

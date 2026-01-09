@@ -696,16 +696,17 @@ namespace SE
                 morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
                 {
                     if (args.Length < 3)
-                        throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True) requires at least 3 arguments");
+                        throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None) requires at least 3 arguments");
 
                     int regionId = args[0].ToInt();
                     int localId = args[1].ToInt();
                     string name = args[2].AsString();
                     int stayDuration = args.Length >= 4 ? args[3].ToInt() : 0;
                     bool isIndoor = args.Length >= 5 ? args[4].IsTrue() : true;
+                    string owner = args.Length >= 6 && args[5] is PyString ownerStr ? ownerStr.Value : null;
 
                     var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-                    
+
                     var terrain = _worldSystem.GetTerrain();
                     var region = terrain.GetRegion(regionId);
                     if (region != null)
@@ -714,6 +715,7 @@ namespace SE
                         var location = region.AddLocation(localId, name);
                         location.StayDuration = stayDuration;
                         location.IsIndoor = isIndoor;
+                        location.Owner = owner;
                         Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}");
                         return PyBool.True;
                     }
@@ -902,7 +904,7 @@ namespace SE
                 PyBuiltinFunction addItemFunc = new PyBuiltinFunction("add_item", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("add_item(id, name, passive_props=None, equip_props=None, value=0, actions=None) requires at least 2 arguments");
+                        throw PyTypeError.Create("add_item(id, name, passive_props=None, equip_props=None, value=0, actions=None, owner=None) requires at least 2 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -910,11 +912,13 @@ namespace SE
                     var equipProps = args.Length >= 4 && args[3] is PyDict etDict ? PyDictToIntDict(etDict) : null;
                     int value = args.Length >= 5 ? args[4].ToInt() : 0;
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
+                    string owner = args.Length >= 7 && args[6] is PyString ownerStr ? ownerStr.Value : null;
 
                     var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
 
                     var item = new Morld.Item(id, name);
                     item.Value = value;
+                    item.Owner = owner;
                     if (passiveProps != null)
                         foreach (var (k, v) in passiveProps) item.PassiveProps[k] = v;
                     if (equipProps != null)
@@ -933,7 +937,7 @@ namespace SE
                 morldModule.ModuleDict["add_unit"] = new PyBuiltinFunction("add_unit", args =>
                 {
                     if (args.Length < 4)
-                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None) requires at least 4 arguments");
+                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None, unique_id=None) requires at least 4 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -942,9 +946,11 @@ namespace SE
                     string type = args.Length >= 5 ? args[4].AsString() : "male";
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
                     var mood = args.Length >= 7 && args[6] is PyList moodList ? PyListToStringList(moodList) : null;
+                    string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
 
                     var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                     var unit = new Morld.Unit(id, name, regionId, locationId);
+                    unit.UniqueId = uniqueId;
                     unit.Type = type.ToLower() switch
                     {
                         "female" => Morld.UnitType.Female,

@@ -592,6 +592,47 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 아이템 소유자 이름 가져오기 (unique_id → 이름)
+		/// </summary>
+		private string GetOwnerName(string ownerUniqueId)
+		{
+			if (string.IsNullOrEmpty(ownerUniqueId))
+				return null;
+
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var owner = unitSystem?.FindByUniqueId(ownerUniqueId);
+			return owner?.Name;
+		}
+
+		/// <summary>
+		/// 아이템 이름에 소유자 표시 추가
+		/// </summary>
+		private string GetItemNameWithOwner(Morld.Item item)
+		{
+			if (item == null) return "";
+
+			var ownerName = GetOwnerName(item.Owner);
+			if (!string.IsNullOrEmpty(ownerName))
+				return $"{item.Name} [color=gray]({ownerName} 소유)[/color]";
+
+			return item.Name;
+		}
+
+		/// <summary>
+		/// Location 이름에 소유자 표시 추가
+		/// </summary>
+		public string GetLocationNameWithOwner(Morld.Location location)
+		{
+			if (location == null) return "";
+
+			var ownerName = GetOwnerName(location.Owner);
+			if (!string.IsNullOrEmpty(ownerName))
+				return $"{location.Name} [color=gray]({ownerName} 소유)[/color]";
+
+			return location.Name;
+		}
+
+		/// <summary>
 		/// 플레이어 인벤토리 텍스트 생성
 		/// </summary>
 		public string GetInventoryText()
@@ -631,8 +672,9 @@ namespace SE
 					{
 						var countText = count > 1 ? $" x{count}" : "";
 						var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
+						var ownerText = !string.IsNullOrEmpty(item.Owner) ? $" [color=gray]({GetOwnerName(item.Owner)} 소유)[/color]" : "";
 						// 아이템 메뉴로 연결
-						lines.Add($"  [url=item_inv_menu:{itemId}]{item.Name}{countText}[/url]{valueText}");
+						lines.Add($"  [url=item_inv_menu:{itemId}]{item.Name}{countText}[/url]{valueText}{ownerText}");
 						totalValue += item.Value * count;
 					}
 				}
@@ -650,7 +692,8 @@ namespace SE
 					var item = itemSystem.GetItem(itemId);
 					if (item != null)
 					{
-						lines.Add($"  {item.Name}");
+						var ownerText = !string.IsNullOrEmpty(item.Owner) ? $" [color=gray]({GetOwnerName(item.Owner)} 소유)[/color]" : "";
+						lines.Add($"  {item.Name}{ownerText}");
 					}
 				}
 			}

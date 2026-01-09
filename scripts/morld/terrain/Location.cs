@@ -47,6 +47,11 @@ public class Location : IEquatable<Location>, IDescribable
     public bool IsIndoor { get; set; } = true;
 
     /// <summary>
+    /// 소유자 unique_id (예: "sera", "mila") - null이면 공용 장소
+    /// </summary>
+    public string Owner { get; set; }
+
+    /// <summary>
     /// 부모 Region 참조 (Terrain에서 설정)
     /// </summary>
     public Region? ParentRegion { get; internal set; }

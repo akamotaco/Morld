@@ -18,6 +18,7 @@ DIALOGUES = {
     "식사": {"pages": ["(조용히 먹고 있다)", "...뭔가?"]},
     "수면": {"pages": ["(자고 있다)", "...zzZ"]},
     "사냥": {"pages": ["...조용히 해.", "사냥감이 달아나잖아."]},
+    "순찰": {"pages": ["...순찰 중이다.", "이상 없다."]},
     "정비": {"pages": ["...활을 손보는 중이다.", "나중에 와라."]},
     "준비": {"pages": ["...지금 준비 중이다.", "..."]},
 }
@@ -36,7 +37,7 @@ class Sera(Character):
     type = "female"
     props = {
         "외모:흑발": 1, "외모:장발": 1, "외모:갈색눈": 1,
-        "성격:과묵함": 1, "성격:듬직함": 1,
+        "성격:과묵함": 1, "성격:듬직함": 1, "성격:리더십": 1,
         "애정": 0, "성욕": 0, "질투": 0,
         "피로": 0, "기분": 5,
     }
@@ -66,6 +67,8 @@ class Sera(Character):
         # activity 기반
         if activity == "사냥":
             return f"{name}가 활을 점검하고 있다."
+        if activity == "순찰":
+            return f"{name}가 주변을 경계하고 있다."
         if activity == "식사":
             return f"{name}가 조용히 식사 중이다."
         if activity == "수면":
@@ -76,6 +79,8 @@ class Sera(Character):
         # 위치 기반
         if (region_id, location_id) == (0, 24):
             return f"{name}가 사냥감을 추적하고 있다."
+        if (region_id, location_id) == (0, 12):
+            return f"{name}가 앞마당을 순찰하고 있다."
         if (region_id, location_id) == (0, 1):
             return f"{name}가 창가에 서서 밖을 바라본다."
 
@@ -96,6 +101,8 @@ class Sera(Character):
         # activity 기반
         if activity == "사냥":
             return "활을 들고 날카로운 눈으로 주변을 살핀다."
+        if activity == "순찰":
+            return "날카로운 눈으로 주변을 경계하고 있다."
         if activity == "식사":
             return "조용히 음식을 먹고 있다."
         if activity == "수면":
@@ -108,7 +115,7 @@ class Sera(Character):
             return "평소보다 더 말이 없다. 어딘가 먼 곳을 보고 있다."
 
         # 기본
-        return "긴 흑발을 묶은 과묵한 여성. 날카로운 갈색 눈이 인상적이다."
+        return "긴 흑발을 묶은 과묵한 여성. 저택의 리더로서 날카로운 갈색 눈이 인상적이다."
 
     # ========================================
     # 이벤트 핸들러
@@ -164,20 +171,23 @@ class Sera(Character):
 @register_agent_class("sera")
 class SeraAgent(BaseAgent):
     """
-    세라 AI - 사냥 담당
+    세라 AI - 저택 리더 + 사냥 + 경비 담당
 
     특징:
     - 과묵하고 듬직함
-    - 사냥에 집중, 스케줄을 철저히 따름
+    - 저택 생존자들의 리더 (밀라, 리나가 신뢰함)
+    - 사냥과 저택 순찰을 담당
     - 플레이어에게 무관심하지만 위험시 보호
     """
 
     SCHEDULE = [
         {"name": "기상", "region_id": 0, "location_id": 8, "start": 300, "end": 360, "activity": "준비"},
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 450, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 480, "end": 720, "activity": "사냥"},
+        {"name": "아침순찰", "region_id": 0, "location_id": 12, "start": 360, "end": 420, "activity": "순찰"},  # 앞마당
+        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 540, "end": 720, "activity": "사냥"},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 840, "end": 1080, "activity": "사냥"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 840, "end": 1020, "activity": "사냥"},
+        {"name": "저녁순찰", "region_id": 0, "location_id": 20, "start": 1020, "end": 1080, "activity": "순찰"},  # 숲 입구
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
         {"name": "장비정비", "region_id": 0, "location_id": 8, "start": 1200, "end": 1290, "activity": "정비"},
         {"name": "수면", "region_id": 0, "location_id": 8, "start": 1290, "end": 300, "activity": "수면"},
@@ -185,9 +195,6 @@ class SeraAgent(BaseAgent):
 
     def think(self):
         """세라의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 커스텀 로직이 필요하면 여기에 추가
-        # 예: 플레이어가 위험하면 보호하러 가기
-
         # 스케줄 기반으로 JobList 채우기
         self.fill_schedule_jobs_from(self.SCHEDULE)
         return None

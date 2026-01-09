@@ -373,6 +373,7 @@ def clear_pending_meet_events():
 ```csharp
 Unit
 ├─ Id (int - 고유 식별자)
+├─ UniqueId (string - Python Asset의 unique_id, 예: "sera", "mila")
 ├─ Name (이름)
 ├─ IsObject (bool - true: 오브젝트, false: 캐릭터)
 ├─ CurrentLocation (현재 위치 - LocationRef)
@@ -384,6 +385,12 @@ Unit
 ├─ Mood (HashSet<string> - 현재 감정 상태)
 ├─ IsMoving (CurrentEdge != null)
 └─ IsIdle (CurrentEdge == null)
+```
+
+**UniqueId 조회:**
+```csharp
+// unique_id로 유닛 찾기
+Unit? unit = unitSystem.FindByUniqueId("sera");
 ```
 
 **파일 위치:**
@@ -705,6 +712,63 @@ actions = ["script:npc_talk:대화", "trade:거래"]
 **파일 위치:**
 - `scripts/system/describe_system.cs` - `FilterActionsByActor()`, `CanPerformAction()`, `ExtractActionName()`
 - `scenarios/scenario02/python/assets/characters/player.py` - Player의 `can:` props 정의
+
+### 소유자(Owner) 시스템
+**역할:** 아이템/장소의 원래 소유자를 추적하여 "훔치기" 등의 기능 지원
+
+**핵심 개념:**
+- `Owner`는 **원래 소유자**를 나타내며, 아이템을 획득해도 변경되지 않음
+- UI에서 `(XXX 소유)` 형태로 표시
+- 소유자가 없으면(null) 공용 아이템/장소
+
+**데이터 구조:**
+```csharp
+// Item.cs
+public string Owner { get; set; }  // 예: "sera", "mila", null
+
+// Location.cs
+public string Owner { get; set; }  // 예: "player", "lina", null
+```
+
+**Python Asset 정의:**
+```python
+# 아이템에 소유자 지정
+class KitchenKnife(Item):
+    unique_id = "kitchen_knife"
+    name = "부엌칼"
+    owner = "mila"  # 밀라 소유
+
+# 장소에 소유자 지정
+class LinaRoom(Location):
+    unique_id = "lina_room"
+    name = "방2"
+    owner = "lina"  # 리나 소유
+```
+
+**소유자 이름 조회:**
+```csharp
+// describe_system.cs
+string ownerName = GetOwnerName(ownerUniqueId);  // "sera" → "세라"
+string locationName = GetLocationNameWithOwner(location);  // "방2 (리나 소유)"
+```
+
+### 관계(Prop) 형식
+**역할:** NPC 간 관계를 표현하는 Prop 키 네이밍 컨벤션
+
+**형식:** `관계:{대상}:{유형}`
+- 콜론(`:`)으로 구분하여 파싱 용이
+- 예: `관계:세라:신뢰` → 세라를 신뢰함
+
+**사용 예시:**
+```python
+# NPC props
+props = {
+    "외모:금발": 1,
+    "성격:명랑함": 1,
+    "관계:세라:신뢰": 1,   # 세라를 신뢰
+    "관계:플레이어:호감": 3,  # 플레이어에게 호감 레벨 3
+}
+```
 
 ---
 

@@ -20,6 +20,11 @@ public class Unit
 	public int Id => _id;
 
 	/// <summary>
+	/// Python Asset의 unique_id (예: "sera", "mila")
+	/// </summary>
+	public string UniqueId { get; set; }
+
+	/// <summary>
 	/// Unit 이름
 	/// </summary>
 	public string Name { get; set; }

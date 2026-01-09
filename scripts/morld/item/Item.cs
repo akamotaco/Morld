@@ -39,6 +39,11 @@ public class Item
 	/// </summary>
 	public List<string> Actions { get; set; } = new();
 
+	/// <summary>
+	/// 소유자 unique_id (예: "sera", "mila") - null이면 공용 아이템
+	/// </summary>
+	public string Owner { get; set; }
+
 	public Item(int id, string name)
 	{
 		_id = id;

@@ -18,6 +18,7 @@ DIALOGUES = {
     "식사": {"pages": ["(맛있게 먹고 있다)", "냠냠... 뭐야?"]},
     "수면": {"pages": ["(자고 있다)", "...zzZ"]},
     "채집": {"pages": ["지금 채집 중이야!", "조금만 기다려~"]},
+    "빨래": {"pages": ["빨래 중이야~", "금방 끝나!"]},
     "휴식": {"pages": ["후아~ 오늘 피곤하다~", "...뭐야, 나도 놀아줄까?"]},
     "준비": {"pages": ["잠깐만! 준비 중이야!", "..."]},
 }
@@ -37,6 +38,7 @@ class Lina(Character):
     props = {
         "외모:금발": 1, "외모:단발": 1, "외모:녹색눈": 1,
         "성격:명랑함": 1, "성격:활발함": 1,
+        "관계:세라:신뢰": 1,
         "애정": 0, "성욕": 0, "질투": 0,
         "피로": 0, "기분": 7,
     }
@@ -66,6 +68,8 @@ class Lina(Character):
         # activity 기반
         if activity == "채집":
             return f"{name}가 채집 준비를 하고 있다."
+        if activity == "빨래":
+            return f"{name}가 빨래를 널고 있다."
         if activity == "식사":
             return f"{name}가 맛있게 밥을 먹고 있다."
         if activity == "수면":
@@ -96,6 +100,8 @@ class Lina(Character):
         # activity 기반
         if activity == "채집":
             return "바구니를 들고 열심히 열매를 따고 있다."
+        if activity == "빨래":
+            return "콧노래를 흥얼거리며 빨래를 널고 있다."
         if activity == "식사":
             return "맛있게 음식을 먹고 있다."
         if activity == "수면":
@@ -164,21 +170,23 @@ class Lina(Character):
 @register_agent_class("lina")
 class LinaAgent(BaseAgent):
     """
-    리나 AI - 채집 담당
+    리나 AI - 채집 + 빨래 담당
 
     특징:
     - 활발하고 명랑함
-    - 날씨가 좋으면 일찍 채집터로
+    - 채집과 빨래를 담당
+    - 세라를 리더로 신뢰하고 따름
     - 플레이어 호감도 높으면 근처에 머무름
     """
 
     SCHEDULE = [
-        {"name": "기상", "region_id": 0, "location_id": 7, "start": 360, "end": 390, "activity": "준비"},
+        {"name": "기상", "region_id": 0, "location_id": 7, "start": 360, "end": 420, "activity": "준비"},
         {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
+        {"name": "빨래", "region_id": 0, "location_id": 13, "start": 480, "end": 540, "activity": "빨래"},  # 뒷마당
         {"name": "채집", "region_id": 0, "location_id": 23, "start": 540, "end": 720, "activity": "채집"},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
         {"name": "채집", "region_id": 0, "location_id": 23, "start": 840, "end": 1020, "activity": "채집"},
-        {"name": "귀가", "region_id": 0, "location_id": 1, "start": 1080, "end": 1110, "activity": "휴식"},
+        {"name": "빨래걷기", "region_id": 0, "location_id": 13, "start": 1020, "end": 1080, "activity": "빨래"},  # 뒷마당
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
         {"name": "자유시간", "region_id": 0, "location_id": 1, "start": 1170, "end": 1320, "activity": "휴식"},
         {"name": "수면", "region_id": 0, "location_id": 7, "start": 1320, "end": 360, "activity": "수면"},
@@ -186,9 +194,6 @@ class LinaAgent(BaseAgent):
 
     def think(self):
         """리나의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 커스텀 로직이 필요하면 여기에 추가
-        # 예: 날씨가 좋으면 일찍 채집터로
-
         # 스케줄 기반으로 JobList 채우기
         self.fill_schedule_jobs_from(self.SCHEDULE)
         return None

@@ -7,7 +7,8 @@ from assets.objects.furniture import Mirror
 
 class LinaRoom(Location):
     unique_id = "lina_room"
-    name = "리나의 방"
+    name = "방2"
+    owner = "lina"
     is_indoor = True
     stay_duration = 0
     describe_text = {
@@ -15,7 +16,6 @@ class LinaRoom(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """리나의 방 생성 + 나무 바닥 + 거울 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Mirror(), 202)  # 리나 방 거울
+        self.add_object(Mirror(), 202)

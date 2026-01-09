@@ -1,21 +1,24 @@
-# assets/locations/yuki_room.py - 유키의 방
+# assets/locations/yuki_room.py - 빈 방 1 (guest_room1)
+#
+# 원래 유키의 방이었으나, 유키가 도심에 있으므로 빈 방으로 사용
+# 나중에 도심에서 데려온 캐릭터에게 배정될 예정
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import Mirror
 
 
-class YukiRoom(Location):
-    unique_id = "yuki_room"
-    name = "유키의 방"
+class GuestRoom1(Location):
+    unique_id = "guest_room1"
+    name = "방5"
+    owner = None  # 빈 방 (아직 소유자 없음)
     is_indoor = True
     stay_duration = 0
     describe_text = {
-        "default": "조용하고 깔끔한 방. 책이 가지런히 정리되어 있다."
+        "default": "정리되어 있지만 사람 냄새가 나지 않는 방. 아무도 사용하지 않는 듯하다."
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """유키의 방 생성 + 나무 바닥 + 거울 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Mirror(), 204)  # 유키 방 거울
+        self.add_object(Mirror(), 204)

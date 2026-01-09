@@ -46,8 +46,8 @@ EDGES = [
     # === 저택 2층 연결 ===
     (1, 14, 1),  # 거실 - 2층 복도 (계단)
     (14, 8, 1),  # 2층 복도 - 세라 방
-    (14, 10, 1), # 2층 복도 - 유키 방
-    (14, 11, 1), # 2층 복도 - 엘라 방
+    (14, 10, 1), # 2층 복도 - 빈 방 1 (guest_room1)
+    (14, 11, 1), # 2층 복도 - 빈 방 2 (guest_room2)
 
     # === 마당 연결 ===
     (0, 12, 1),  # 현관 - 앞마당
@@ -77,11 +77,10 @@ TIME_SETTINGS = {
 
 NPC_SPAWNS = [
     # (unique_id, instance_id, region_id, location_id)
-    ("lina", 1, REGION_ID, 7),   # 리나 - 리나의 방
-    ("sera", 2, REGION_ID, 8),   # 세라 - 세라의 방
-    ("mila", 3, REGION_ID, 9),   # 밀라 - 밀라의 방
-    ("yuki", 4, REGION_ID, 10),  # 유키 - 유키의 방
-    ("ella", 5, REGION_ID, 11),  # 엘라 - 엘라의 방
+    ("lina", 1, REGION_ID, 7),   # 리나 - 리나 방
+    ("sera", 2, REGION_ID, 8),   # 세라 - 세라 방
+    ("mila", 3, REGION_ID, 9),   # 밀라 - 밀라 방
+    # 유키(4)와 엘라(5)는 도심 Region에 배치됨 (world/city.py)
 ]
 
 
@@ -102,8 +101,8 @@ def initialize_terrain():
     from assets.locations.lina_room import LinaRoom
     from assets.locations.sera_room import SeraRoom
     from assets.locations.mila_room import MilaRoom
-    from assets.locations.yuki_room import YukiRoom
-    from assets.locations.ella_room import EllaRoom
+    from assets.locations.yuki_room import GuestRoom1
+    from assets.locations.ella_room import GuestRoom2
     from assets.locations.corridor_2f import Corridor2F
     from assets.locations.front_yard import FrontYard
     from assets.locations.back_yard import BackYard
@@ -130,8 +129,8 @@ def initialize_terrain():
         7: LinaRoom(),
         8: SeraRoom(),
         9: MilaRoom(),
-        10: YukiRoom(),
-        11: EllaRoom(),
+        10: GuestRoom1(),   # 빈 방 1 (나중에 도심에서 데려올 캐릭터용)
+        11: GuestRoom2(),   # 빈 방 2 (나중에 도심에서 데려올 캐릭터용)
         14: Corridor2F(),
         # === 마당 (실외) ===
         12: FrontYard(),
@@ -173,20 +172,16 @@ def instantiate_player():
 
 
 def instantiate_npcs():
-    """NPC들만 인스턴스화 + Agent 등록"""
+    """저택 NPC들만 인스턴스화 + Agent 등록 (유키/엘라는 도심에 배치)"""
     from think import register_agent, create_agent_for
     from assets.characters.lina import Lina
     from assets.characters.sera import Sera
     from assets.characters.mila import Mila
-    from assets.characters.yuki import Yuki
-    from assets.characters.ella import Ella
 
     npc_classes = {
         "lina": (Lina, 1, 7),
         "sera": (Sera, 2, 8),
         "mila": (Mila, 3, 9),
-        "yuki": (Yuki, 4, 10),
-        "ella": (Ella, 5, 11),
     }
 
     npcs = {}

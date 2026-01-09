@@ -177,7 +177,8 @@ class Character(Unit):
             location_id,
             self.type,
             self.actions or [],
-            self.mood or []
+            self.mood or [],
+            self.unique_id  # unique_id 전달
         )
 
         # Prop 설정
@@ -228,11 +229,13 @@ class Item(Asset):
     - passive_props: 소유 효과
     - equip_props: 장착 효과
     - value: 거래 가치
+    - owner: 소유자 unique_id (None이면 공용)
     """
 
     passive_props: dict = None
     equip_props: dict = None
     value: int = 0
+    owner: str = None  # 소유자 unique_id (예: "sera", "mila")
 
     def instantiate(self, instance_id: int):
         """아이템을 morld에 등록"""
@@ -244,7 +247,8 @@ class Item(Asset):
             self.passive_props or {},
             self.equip_props or {},
             self.value,
-            self.actions or []
+            self.actions or [],
+            self.owner  # 소유자 정보 전달
         )
 
 
@@ -256,6 +260,7 @@ class Location(Asset):
     - is_indoor: 실내 여부
     - stay_duration: 경유 시 지체 시간
     - describe_text: 장소 묘사 텍스트 딕셔너리 (태그 기반 선택용)
+    - owner: 소유자 unique_id (None이면 공용)
 
     인스턴스 속성:
     - location_id, region_id: 위치 정보
@@ -268,6 +273,7 @@ class Location(Asset):
     is_indoor: bool = True
     stay_duration: int = 0
     describe_text: dict = None  # 태그 기반 묘사 텍스트
+    owner: str = None  # 소유자 unique_id (예: "sera", "mila")
 
     def __init__(self):
         super().__init__()
@@ -292,7 +298,8 @@ class Location(Asset):
             location_id,
             self.name,
             self.stay_duration,
-            self.is_indoor
+            self.is_indoor,
+            self.owner  # 소유자 정보 전달
         )
 
     def get_describe_text(self) -> str:

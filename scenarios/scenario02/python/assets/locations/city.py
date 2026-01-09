@@ -1,11 +1,12 @@
 # assets/locations/city.py - 황폐화된 도시 지역
 #
-# Location ID 25~29 사용
-# - 25: 도시 입구 (city_entrance)
-# - 26: 주유소 (gas_station)
-# - 27: 편의점 (convenience_store)
-# - 28: 약국 (pharmacy)
-# - 29: 주차장 (parking_lot)
+# Location ID (Region 2 내부 ID)
+# - 0: 도시 입구 (city_entrance)
+# - 1: 주유소 (gas_station)
+# - 2: 편의점 (convenience_store)
+# - 3: 약국 (pharmacy)
+# - 4: 주차장 (parking_lot)
+# - 5: 은신처 (hideout) - 유키/엘라가 머무는 곳
 
 from assets.base import Location
 from assets.objects.grounds import GroundAsphalt, GroundConcrete
@@ -93,3 +94,19 @@ class ParkingLot(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundAsphalt())
+
+
+class Hideout(Location):
+    """은신처 - 도심 생존자들의 거처 (유키/엘라)"""
+    unique_id = "hideout"
+    name = "은신처"
+    is_indoor = True
+    stay_duration = 0
+    describe_text = {
+        "default": "건물 지하에 마련된 은신처. 좁지만 안전해 보인다.",
+        "밤": "희미한 촛불이 은신처를 비춘다."
+    }
+
+    def instantiate(self, location_id: int, region_id: int):
+        super().instantiate(location_id, region_id)
+        self.add_ground(GroundConcrete())

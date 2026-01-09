@@ -123,7 +123,7 @@ class Ella(Character):
     # ========================================
 
     def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때 - Generator 기반"""
+        """플레이어와 처음 만났을 때 - Generator 기반 (묘사 형식)"""
         import morld
 
         if self._event_flags.get("first_meet"):
@@ -137,12 +137,12 @@ class Ella(Character):
 
         def handler():
             yield morld.dialog([
-                "...깨어났군.",
-                "나는 엘라. 이 저택을 관리하고 있다.",
-                "네가 숲에서 쓰러져 있는 걸 발견한 건 이틀 전이다.",
-                "기억을 잃었다고 들었다. 불쌍하군.",
-                "당분간 여기서 지내도 좋다.",
-                "단, 규칙은 지켜라. 모두의 안전이 달려 있으니까."
+                "단정하게 올린 흑발의 여성이 있다.",
+                "보라색 눈동자가 차갑게 당신을 훑어본다.",
+                "본능적으로 유키를 등 뒤로 감싸며 한 걸음 앞으로 나선다.",
+                "외부인에 대한 경계와 불신이 온몸에서 느껴진다.",
+                "그녀의 눈빛은 '가까이 오지 마라'라고 말하고 있다.",
+                "유키를 지키려는 듯, 굳건히 그 자리에 서 있다."
             ])
 
         return handler()
@@ -171,32 +171,30 @@ class Ella(Character):
 @register_agent_class("ella")
 class EllaAgent(BaseAgent):
     """
-    엘라 AI - 관리자
+    엘라 AI - 도심 생존자 리더
 
     특징:
     - 냉정하고 리더십 있음
-    - 스케줄을 엄격히 준수
-    - 저택 전체를 관리하며 순찰
+    - 유키를 보호하고 돌봄
+    - 외부인에 대한 불신
     """
 
+    # 도심 은신처 스케줄 (region_id=2)
     SCHEDULE = [
-        {"name": "기상", "region_id": 0, "location_id": 11, "start": 330, "end": 390, "activity": "준비"},
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 450, "activity": "식사"},
-        {"name": "조회", "region_id": 0, "location_id": 1, "start": 450, "end": 510, "activity": "조회"},
-        {"name": "관리", "region_id": 0, "location_id": 11, "start": 540, "end": 720, "activity": "관리"},
-        {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
-        {"name": "순찰", "region_id": 0, "location_id": 1, "start": 840, "end": 900, "activity": "순찰"},
-        {"name": "관리", "region_id": 0, "location_id": 11, "start": 900, "end": 1080, "activity": "관리"},
-        {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
-        {"name": "휴식", "region_id": 0, "location_id": 11, "start": 1200, "end": 1350, "activity": "휴식"},
-        {"name": "수면", "region_id": 0, "location_id": 11, "start": 1380, "end": 330, "activity": "수면"},
+        {"name": "기상", "region_id": 2, "location_id": 5, "start": 360, "end": 420, "activity": "준비"},
+        {"name": "아침식사", "region_id": 2, "location_id": 5, "start": 420, "end": 480, "activity": "식사"},
+        {"name": "정찰", "region_id": 2, "location_id": 3, "start": 540, "end": 660, "activity": "순찰"},  # 약국
+        {"name": "물자수집", "region_id": 2, "location_id": 2, "start": 660, "end": 720, "activity": "탐색"},  # 편의점
+        {"name": "점심식사", "region_id": 2, "location_id": 5, "start": 720, "end": 780, "activity": "식사"},
+        {"name": "관리", "region_id": 2, "location_id": 5, "start": 780, "end": 960, "activity": "관리"},
+        {"name": "정찰", "region_id": 2, "location_id": 0, "start": 960, "end": 1020, "activity": "순찰"},  # 도시입구
+        {"name": "저녁식사", "region_id": 2, "location_id": 5, "start": 1080, "end": 1140, "activity": "식사"},
+        {"name": "휴식", "region_id": 2, "location_id": 5, "start": 1140, "end": 1320, "activity": "휴식"},
+        {"name": "수면", "region_id": 2, "location_id": 5, "start": 1320, "end": 360, "activity": "수면"},
     ]
 
     def think(self):
         """엘라의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 커스텀 로직이 필요하면 여기에 추가
-        # 예: 저택 전체를 관리하며 순찰
-
         # 스케줄 기반으로 JobList 채우기
         self.fill_schedule_jobs_from(self.SCHEDULE)
         return None

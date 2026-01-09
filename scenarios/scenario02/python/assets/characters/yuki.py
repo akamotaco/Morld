@@ -120,7 +120,7 @@ class Yuki(Character):
     # ========================================
 
     def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때 - Generator 기반"""
+        """플레이어와 처음 만났을 때 - Generator 기반 (묘사 형식)"""
         import morld
 
         if self._event_flags.get("first_meet"):
@@ -134,11 +134,11 @@ class Yuki(Character):
 
         def handler():
             yield morld.dialog([
-                "...!",
-                "...깨어나셨군요.",
-                "...유키... 라고 해요.",
-                "...필요한 게 있으면... 말해주세요...",
-                "(살짝 고개를 숙이고 물러난다)"
+                "은빛 머리카락의 소녀가 있다.",
+                "낯선 이의 등장에 경계하는 눈빛을 보낸다.",
+                "붉은 눈동자가 차갑게 빛난다.",
+                "입술을 굳게 다문 채 한 발짝 뒤로 물러선다.",
+                "엘라 뒤에 숨듯 서서, 여전히 경계를 풀지 않는다."
             ])
 
         return handler()
@@ -167,32 +167,29 @@ class Yuki(Character):
 @register_agent_class("yuki")
 class YukiAgent(BaseAgent):
     """
-    유키 AI - 청소/빨래 담당
+    유키 AI - 도심 은신처 생활
 
     특징:
     - 수줍고 얌전함
-    - 스케줄을 묵묵히 따름
-    - 플레이어와 마주치면 수줍어함
+    - 은신처에서 조용히 지냄
+    - 엘라를 의지함
     """
 
+    # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처)
     SCHEDULE = [
-        {"name": "기상", "region_id": 0, "location_id": 10, "start": 360, "end": 420, "activity": "준비"},
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
-        {"name": "청소", "region_id": 0, "location_id": 1, "start": 540, "end": 660, "activity": "청소"},
-        {"name": "빨래", "region_id": 0, "location_id": 4, "start": 660, "end": 720, "activity": "빨래"},
-        {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
-        {"name": "청소", "region_id": 0, "location_id": 5, "start": 840, "end": 960, "activity": "청소"},
-        {"name": "휴식", "region_id": 0, "location_id": 10, "start": 960, "end": 1080, "activity": "휴식"},
-        {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
-        {"name": "독서", "region_id": 0, "location_id": 1, "start": 1200, "end": 1320, "activity": "휴식"},
-        {"name": "수면", "region_id": 0, "location_id": 10, "start": 1320, "end": 360, "activity": "수면"},
+        {"name": "기상", "region_id": 2, "location_id": 5, "start": 420, "end": 480, "activity": "준비"},
+        {"name": "아침식사", "region_id": 2, "location_id": 5, "start": 480, "end": 540, "activity": "식사"},
+        {"name": "청소", "region_id": 2, "location_id": 5, "start": 540, "end": 660, "activity": "청소"},
+        {"name": "독서", "region_id": 2, "location_id": 5, "start": 660, "end": 720, "activity": "휴식"},
+        {"name": "점심식사", "region_id": 2, "location_id": 5, "start": 720, "end": 780, "activity": "식사"},
+        {"name": "휴식", "region_id": 2, "location_id": 5, "start": 780, "end": 1020, "activity": "휴식"},
+        {"name": "저녁식사", "region_id": 2, "location_id": 5, "start": 1080, "end": 1140, "activity": "식사"},
+        {"name": "독서", "region_id": 2, "location_id": 5, "start": 1140, "end": 1320, "activity": "휴식"},
+        {"name": "수면", "region_id": 2, "location_id": 5, "start": 1320, "end": 420, "activity": "수면"},
     ]
 
     def think(self):
         """유키의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 커스텀 로직이 필요하면 여기에 추가
-        # 예: 플레이어와 마주치면 수줍어함
-
         # 스케줄 기반으로 JobList 채우기
         self.fill_schedule_jobs_from(self.SCHEDULE)
         return None

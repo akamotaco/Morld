@@ -478,7 +478,7 @@ namespace SE
 			var locationInfo = new LocationInfo
 			{
 				RegionName = region.Name ?? "",
-				LocationName = location.Name ?? "",
+				LocationName = describeSystem.GetLocationNameWithOwner(location) ?? "",
 				AppearanceText = describeSystem.GetLocationDescribeText(location, gameTime, region) ?? "",
 				LocationRef = player.CurrentLocation
 			};
