@@ -1970,8 +1970,13 @@ namespace SE
 
                     // 다이얼로그 시간 경과 설정 (EventSystem에 누적)
                     var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
-
                     _eventSystem.AddDialogTimeConsumed(duration);
+
+                    // 행동 로그 추가: "XX와 대화했다. XX분이 흘렀다."
+                    var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+                    var npcName = unit.Name ?? "누군가";
+                    _textUISystem?.AddActionLog($"{npcName}와(과) 대화했다. {duration}분이 흘렀다.");
+
 #if DEBUG_LOG
                     Godot.GD.Print($"[morld.set_npc_time_consume] Unit {unitId}: action={action}, duration={duration}, target={targetId} (dialog time +{duration})");
 #endif
