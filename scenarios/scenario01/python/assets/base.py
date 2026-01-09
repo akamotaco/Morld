@@ -5,17 +5,64 @@
 #   ├── Unit
 #   │   ├── Character
 #   │   └── Object
-#   └── Item
+#   ├── Item
+#   └── Location
 #
 # 사용법:
-#   player = Player()
-#   player.instantiate(0, 0, 0)  # instance_id, region_id, location_id
+#   loc = Basement()                    # 인스턴스 생성
+#   loc.instantiate(0, REGION_ID)       # morld에 등록
+#   loc.add_object(OldBox(), 100)       # 오브젝트 배치
 #
 # 텍스트 시스템:
-#   - get_focus_text(): Focus 상태(클릭)일 때 보이는 묘사
+#   - get_describe_text(): 장소에 있을 때 보이는 묘사 (Location)
+#   - get_focus_text(): Focus 상태(클릭)일 때 보이는 묘사 (Object, Item)
 
 import morld
 from typing import Optional
+
+
+def _select_text(text_dict: dict, time_tags: list, name: str = None) -> str:
+    """
+    시간/날씨 태그 리스트와 가장 잘 매칭되는 텍스트 선택
+
+    Args:
+        text_dict: {"tag1,tag2": "텍스트", "default": "기본"} 형식
+        time_tags: 현재 활성 시간/날씨 태그 리스트 ["아침", "실외", "날씨:비"]
+        name: {name} 포맷 치환용 이름
+
+    Returns:
+        매칭된 텍스트 (없으면 빈 문자열)
+    """
+    if not text_dict:
+        return ""
+
+    tag_set = set(time_tags)
+    best_match = None
+    best_count = 0
+
+    for key, text in text_dict.items():
+        if key == "default":
+            continue
+
+        # 키를 쉼표로 분리하여 태그 집합으로
+        key_tags = set(k.strip() for k in key.split(","))
+
+        # 모든 키 태그가 현재 태그에 포함되어야 함
+        if key_tags <= tag_set:
+            match_count = len(key_tags)
+            if match_count > best_count:
+                best_count = match_count
+                best_match = text
+
+    # 매칭된 것이 없으면 default 사용
+    if best_match is None:
+        best_match = text_dict.get("default", "")
+
+    # {name} 치환
+    if name and best_match:
+        best_match = best_match.format(name=name)
+
+    return best_match
 
 
 class Asset:
@@ -56,6 +103,15 @@ class Asset:
         """instantiate() 호출 여부 확인"""
         if not self._instantiated:
             raise RuntimeError(f"{self.__class__.__name__} is not instantiated yet. Call instantiate() first.")
+
+    def get_describe_text(self) -> str:
+        """
+        장소에 있을 때 묘사 텍스트 반환
+
+        기본 구현은 빈 문자열 반환.
+        서브클래스에서 오버라이드하여 구체적인 묘사 반환.
+        """
+        return ""
 
     def get_focus_text(self) -> str:
         """
@@ -118,7 +174,8 @@ class Character(Unit):
             location_id,
             self.type,
             self.actions or [],
-            self.mood or []
+            self.mood or [],
+            self.unique_id  # unique_id 전달
         )
 
         # Prop 설정
@@ -156,13 +213,19 @@ class Object(Unit):
             []  # mood
         )
 
+        # Prop 설정
+        if self.props:
+            morld.set_unit_props(instance_id, self.props)
+
     def get_focus_text(self) -> str:
         """Focus 상태일 때 묘사"""
         if self.focus_text is None:
             return ""
         if isinstance(self.focus_text, str):
             return self.focus_text
-        return self.focus_text.get("default", "")
+        # 시간 태그 기반 선택
+        time_tags = morld.get_time_tags() if hasattr(morld, 'get_time_tags') else []
+        return _select_text(self.focus_text, time_tags)
 
 
 class Item(Asset):
@@ -173,11 +236,13 @@ class Item(Asset):
     - passive_props: 소유 효과
     - equip_props: 장착 효과
     - value: 거래 가치
+    - owner: 소유자 unique_id (None이면 공용)
     """
 
     passive_props: dict = None
     equip_props: dict = None
     value: int = 0
+    owner: str = None  # 소유자 unique_id
 
     def instantiate(self, instance_id: int):
         """아이템을 morld에 등록"""
@@ -189,5 +254,102 @@ class Item(Asset):
             self.passive_props or {},
             self.equip_props or {},
             self.value,
-            self.actions or []
+            self.actions or [],
+            self.owner  # 소유자 정보 전달
         )
+
+
+class Location(Asset):
+    """
+    Location 클래스
+
+    클래스 속성:
+    - is_indoor: 실내 여부
+    - stay_duration: 경유 시 지체 시간
+    - describe_text: 장소 묘사 텍스트 딕셔너리 (태그 기반 선택용)
+    - owner: 소유자 unique_id (None이면 공용)
+
+    인스턴스 속성:
+    - location_id, region_id: 위치 정보
+    - ground: 바닥 오브젝트 인스턴스 (instantiate에서 생성)
+
+    메서드 오버라이드:
+    - get_describe_text(): 시간/날씨 태그 기반 장소 묘사
+    """
+
+    is_indoor: bool = True
+    stay_duration: int = 0
+    describe_text: dict = None  # 태그 기반 묘사 텍스트
+    owner: str = None  # 소유자 unique_id
+
+    def __init__(self):
+        super().__init__()
+        self.location_id: Optional[int] = None
+        self.region_id: Optional[int] = None
+        self.ground: Optional[Object] = None
+
+    def instantiate(self, location_id: int, region_id: int):
+        """
+        Location을 morld에 등록
+
+        서브클래스에서 오버라이드하여 ground 생성 등 추가 로직 구현.
+        반드시 super().instantiate()를 먼저 호출.
+        """
+        super().instantiate(location_id)
+        self.location_id = location_id
+        self.region_id = region_id
+
+        # Location 등록
+        morld.add_location(
+            region_id,
+            location_id,
+            self.name,
+            self.stay_duration,
+            self.is_indoor,
+            self.owner  # 소유자 정보 전달
+        )
+
+    def get_describe_text(self) -> str:
+        """
+        Location의 묘사 텍스트 반환
+
+        describe_text가 정의되어 있으면
+        현재 시간/날씨 태그를 기반으로 묘사 반환.
+        """
+        if not self.describe_text:
+            return ""
+
+        self._check_instantiated()
+
+        # morld API로 현재 시간/날씨 태그 조회
+        time_tags = morld.get_time_tags() if hasattr(morld, 'get_time_tags') else []
+
+        return _select_text(self.describe_text, time_tags)
+
+    def add_ground(self, ground: Object, ground_instance_id: int = None):
+        """
+        바닥 오브젝트 추가
+
+        Args:
+            ground: 바닥 Object 인스턴스
+            ground_instance_id: 바닥 ID (None이면 1000 + location_id)
+        """
+        self._check_instantiated()
+
+        if ground_instance_id is None:
+            ground_instance_id = 1000 + self.location_id
+
+        ground.instantiate(ground_instance_id, self.region_id, self.location_id)
+        self.ground = ground
+
+    def add_object(self, obj: Object, instance_id: int):
+        """이 Location에 오브젝트 배치"""
+        self._check_instantiated()
+        obj.instantiate(instance_id, self.region_id, self.location_id)
+
+    def add_item_to_ground(self, item: Item, count: int = 1):
+        """바닥에 아이템 추가 (ground의 인벤토리에 추가)"""
+        self._check_instantiated()
+        if self.ground is None:
+            raise RuntimeError(f"Location {self.name} has no ground object")
+        self.ground.add_item(item, count)

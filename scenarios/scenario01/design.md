@@ -36,38 +36,51 @@ scenario01/
 │   ├── scripts.py            # 공통 스크립트 export (비밀번호 시스템 등)
 │   │
 │   ├── assets/               # Asset 정의 (템플릿)
-│   │   ├── __init__.py       # AssetRegistry + load_all_assets()
+│   │   ├── __init__.py       # Asset 클래스 export + load_all_assets()
+│   │   ├── base.py           # Asset, Unit, Character, Object, Item, Location 클래스
 │   │   │
 │   │   ├── items/            # 아이템 Asset
-│   │   │   ├── __init__.py   # register_all()
-│   │   │   ├── keys.py       # 열쇠류 (rusty_key, silver_key)
+│   │   │   ├── keys.py       # 열쇠류 (RustyKey, SilverKey)
 │   │   │   ├── golden_key.py # 황금열쇠 + 파츠 + 조합
 │   │   │   ├── notes.py      # 쪽지류
 │   │   │   └── documents.py  # 일기장, 편지, 메모
 │   │   │
 │   │   ├── objects/          # 오브젝트 Asset (위치별 분류)
-│   │   │   ├── __init__.py   # register_all()
-│   │   │   ├── basement.py   # 지하실 오브젝트
-│   │   │   ├── storage.py    # 창고 오브젝트
-│   │   │   ├── living_room.py # 거실 오브젝트
-│   │   │   ├── kitchen.py    # 주방 오브젝트
-│   │   │   ├── bedroom.py    # 침실 오브젝트
-│   │   │   ├── study.py      # 서재 오브젝트
-│   │   │   ├── corridor.py   # 복도 오브젝트
-│   │   │   ├── stairs.py     # 계단 오브젝트
-│   │   │   └── entrance.py   # 정문 홀 오브젝트
+│   │   │   ├── basement.py   # 지하실 오브젝트 (OldBox, PowerPanel)
+│   │   │   ├── storage.py    # 창고 오브젝트 (Shelf, OldCabinet)
+│   │   │   ├── living_room.py # 거실 오브젝트 (Fireplace, SofaCushion)
+│   │   │   ├── kitchen.py    # 주방 오브젝트 (Refrigerator, Cupboard)
+│   │   │   ├── bedroom.py    # 침실 오브젝트 (BedUnder, VanityDrawer)
+│   │   │   ├── study.py      # 서재 오브젝트 (Safe, DeskDrawer)
+│   │   │   ├── corridor.py   # 복도 오브젝트 (PictureFrame, StudyDoor 등)
+│   │   │   ├── stairs.py     # 계단 오브젝트 (BrokenStep, StairWindow)
+│   │   │   └── entrance.py   # 정문 홀 오브젝트 (FrontDoor)
+│   │   │
+│   │   ├── locations/        # Location 클래스 (NEW!)
+│   │   │   ├── __init__.py   # Location 클래스 export
+│   │   │   ├── basement.py   # 지하실 (Location 0)
+│   │   │   ├── storage.py    # 창고 (Location 1)
+│   │   │   ├── living_room.py # 거실 (Location 2)
+│   │   │   ├── kitchen.py    # 주방 (Location 3)
+│   │   │   ├── corridor_1f.py # 복도 1층 (Location 4)
+│   │   │   ├── stairs.py     # 계단 (Location 5)
+│   │   │   ├── bedroom.py    # 침실 (Location 6)
+│   │   │   ├── study.py      # 서재 (Location 7)
+│   │   │   ├── corridor_2f.py # 복도 2층 (Location 8)
+│   │   │   └── entrance_hall.py # 정문 홀 (Location 9)
 │   │   │
 │   │   └── characters/       # 캐릭터 Asset
-│   │       ├── __init__.py   # register_all()
 │   │       └── player.py     # 플레이어 정의
 │   │
 │   ├── world/                # 지형 + 인스턴스화 (Region별)
 │   │   ├── __init__.py       # initialize_terrain(), instantiate_all()
-│   │   └── mansion.py        # 저택 Region 전체 (지형 + 배치)
+│   │   └── mansion.py        # 저택 Region (Location 클래스 방식)
 │   │
 │   └── events/               # 이벤트 핸들러
 │       ├── __init__.py       # on_event_list export
-│       └── handlers.py       # game_start, on_reach 등
+│       └── reach/            # OnReach 이벤트
+│           ├── game_start.py # 게임 시작
+│           └── bedroom.py    # 침실 첫 방문
 │
 ├── design.md                 # 이 문서
 └── 시나리오.md               # 스토리/힌트 상세

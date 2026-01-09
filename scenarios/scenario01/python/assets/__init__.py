@@ -4,7 +4,7 @@
 # - 각 Asset은 클래스로 정의
 # - instantiate()로 morld에 등록
 
-from assets.base import Asset, Unit, Character, Object, Item
+from assets.base import Asset, Unit, Character, Object, Item, Location
 
 # 레지스트리 함수 export (ID 조회용)
 from assets.registry import (
@@ -51,5 +51,6 @@ def load_all_assets():
     from assets import items
     from assets import objects
     from assets import characters
+    from assets import locations
 
     print("[assets] All asset classes loaded")

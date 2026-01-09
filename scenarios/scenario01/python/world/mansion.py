@@ -19,30 +19,39 @@ import morld
 
 REGION_ID = 0
 
-
 # ========================================
-# 지형 데이터
+# Region 설정
 # ========================================
 
 REGION = {
     "id": REGION_ID,
     "name": "저택",
+    "describe_text": {"default": "미스터리한 저택이다. 어디선가 삐걱거리는 소리가 들린다."},
     "weather": "흐림"
 }
 
-# (location_id, name)
-LOCATIONS = [
-    (0, "지하실"),
-    (1, "창고"),
-    (2, "거실"),
-    (3, "주방"),
-    (4, "복도 1층"),
-    (5, "계단"),
-    (6, "침실"),
-    (7, "서재"),
-    (8, "복도 2층"),
-    (9, "정문 홀"),
+# Region 내 Edge
+EDGES = [
+    # (from_id, to_id, travel_time)
+    # 지하실-창고는 조건부이므로 별도 처리
+    (1, 4, 1),   # 창고-복도1층
+    (2, 4, 1),   # 거실-복도1층
+    (3, 4, 1),   # 주방-복도1층
+    (2, 3, 1),   # 거실-주방
+    (4, 5, 1),   # 복도1층-계단
+    (5, 8, 1),   # 계단-복도2층
+    (6, 8, 1),   # 침실-복도2층
+    (8, 9, 1),   # 복도2층-정문홀
+    # 서재-복도2층은 조건부이므로 별도 처리
 ]
+
+TIME_SETTINGS = {
+    "year": 1842,
+    "month": 10,
+    "day": 31,
+    "hour": 18,
+    "minute": 0
+}
 
 
 # ========================================
@@ -82,71 +91,43 @@ ITEMS = {
 
 
 # ========================================
-# 오브젝트 배치 (instance_id, region_id, location_id, unique_id)
-# ========================================
-
-OBJECTS = [
-    # 지하실 (location: 0)
-    (100, REGION_ID, 0, "old_box"),         # 낡은 상자
-    (101, REGION_ID, 0, "power_panel"),     # 배전함
-
-    # 창고 (location: 1)
-    (102, REGION_ID, 1, "shelf"),           # 선반
-    (103, REGION_ID, 1, "old_cabinet"),     # 낡은 캐비닛
-
-    # 거실 (location: 2)
-    (104, REGION_ID, 2, "fireplace"),       # 벽난로
-    (105, REGION_ID, 2, "sofa_cushion"),    # 소파 쿠션
-
-    # 주방 (location: 3)
-    (106, REGION_ID, 3, "refrigerator"),    # 냉장고
-    (107, REGION_ID, 3, "cupboard"),        # 찬장
-
-    # 복도 1층 (location: 4)
-    (115, REGION_ID, 4, "grandfather_clock"),  # 괘종시계
-    (116, REGION_ID, 4, "umbrella_stand"),     # 우산꽂이
-
-    # 계단 (location: 5)
-    (117, REGION_ID, 5, "broken_step"),     # 부서진 계단
-    (118, REGION_ID, 5, "stair_window"),    # 창문
-
-    # 침실 (location: 6)
-    (108, REGION_ID, 6, "bed_under"),       # 침대 밑
-    (109, REGION_ID, 6, "vanity_drawer"),   # 화장대 서랍
-
-    # 서재 (location: 7)
-    (111, REGION_ID, 7, "safe"),            # 금고
-    (112, REGION_ID, 7, "desk_drawer"),     # 책상 서랍
-
-    # 복도 2층 (location: 8)
-    (110, REGION_ID, 8, "picture_frame"),   # 그림 액자
-    (114, REGION_ID, 8, "study_door"),      # 서재 문
-
-    # 정문 홀 (location: 9)
-    (113, REGION_ID, 9, "front_door"),      # 정문
-]
-
-
-# ========================================
 # 초기화 함수들
 # ========================================
 
 def initialize_terrain():
-    """지형 데이터 초기화"""
-    r = REGION
+    """지형 데이터 초기화 - Location 클래스 방식"""
+    # Location 클래스 import
+    from assets.locations.basement import Basement
+    from assets.locations.storage import Storage
+    from assets.locations.living_room import LivingRoom
+    from assets.locations.kitchen import Kitchen
+    from assets.locations.corridor_1f import Corridor1F
+    from assets.locations.stairs import Stairs
+    from assets.locations.bedroom import Bedroom
+    from assets.locations.study import Study
+    from assets.locations.corridor_2f import Corridor2F
+    from assets.locations.entrance_hall import EntranceHall
 
     # Region 등록
-    morld.add_region(r["id"], r["name"], r["weather"])
+    r = REGION
+    morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])
 
-    # Location 등록
-    for loc_id, name in LOCATIONS:
-        morld.add_location(
-            REGION_ID,    # region_id
-            loc_id,       # local_id
-            name,         # name
-            0,            # stay_duration
-            True          # is_indoor
-        )
+    # Location 인스턴스 생성 및 등록 (오브젝트도 함께 배치됨)
+    locations = {
+        0: Basement(),
+        1: Storage(),
+        2: LivingRoom(),
+        3: Kitchen(),
+        4: Corridor1F(),
+        5: Stairs(),
+        6: Bedroom(),
+        7: Study(),
+        8: Corridor2F(),
+        9: EntranceHall(),
+    }
+
+    for location_id, loc in locations.items():
+        loc.instantiate(location_id, REGION_ID)
 
     # Edge 등록
 
@@ -159,12 +140,8 @@ def initialize_terrain():
     )
 
     # 일반 연결
-    morld.add_edge(REGION_ID, 1, 4, 1)  # 창고-복도1층
-    morld.add_edge(REGION_ID, 2, 4, 1)  # 거실-복도1층
-    morld.add_edge(REGION_ID, 3, 4, 1)  # 주방-복도1층
-    morld.add_edge(REGION_ID, 4, 5, 1)  # 복도1층-계단
-    morld.add_edge(REGION_ID, 5, 8, 1)  # 계단-복도2층
-    morld.add_edge(REGION_ID, 6, 8, 1)  # 침실-복도2층
+    for from_id, to_id, travel_time in EDGES:
+        morld.add_edge(REGION_ID, from_id, to_id, travel_time)
 
     # 서재-복도2층 (비밀번호로 잠금 해제 필요)
     morld.add_edge_with_conditions(
@@ -174,17 +151,15 @@ def initialize_terrain():
         {"study_unlocked": 1}      # conditions_b_to_a (복도2층→서재) - 잠금
     )
 
-    # 복도2층-정문홀
-    morld.add_edge(REGION_ID, 8, 9, 1)
-
-    print(f"[world.mansion] Terrain initialized: {len(LOCATIONS)} locations")
+    print(f"[world.mansion] Region {REGION_ID} initialized: {len(locations)} locations")
+    return locations
 
 
 def initialize_time():
     """게임 시간 초기화"""
-    # 방 탈출은 시간이 중요하지 않으므로 임의의 시간 설정
-    morld.set_time(1842, 10, 31, 18, 0)  # 저택이 지어진 해, 18시
-    print("[world.mansion] Time set to 1842-10-31 18:00")
+    t = TIME_SETTINGS
+    morld.set_time(t["year"], t["month"], t["day"], t["hour"], t.get("minute", 0))
+    print(f"[world.mansion] Time set to {t['year']}-{t['month']}-{t['day']} {t['hour']}:{t.get('minute', 0):02d}")
 
 
 def instantiate():
@@ -195,15 +170,6 @@ def instantiate():
     from assets.items.golden_key import GoldenKeyHead, GoldenKeyBody, GoldenKey
     from assets.items.notes import Note1, Note2, Note3
     from assets.items.documents import Diary, OldLetter, StudyMemo
-    from assets.objects.basement import OldBox, PowerPanel
-    from assets.objects.storage import Shelf, OldCabinet
-    from assets.objects.living_room import Fireplace, SofaCushion
-    from assets.objects.kitchen import Refrigerator, Cupboard
-    from assets.objects.bedroom import BedUnder, VanityDrawer
-    from assets.objects.study import Safe, DeskDrawer
-    from assets.objects.corridor import PictureFrame, GrandfatherClock, UmbrellaStand, StudyDoor
-    from assets.objects.stairs import BrokenStep, StairWindow
-    from assets.objects.entrance import FrontDoor
 
     # 아이템 레지스트리 등록 (스크립트에서 조회용)
     from assets.items import golden_key as gk_module
@@ -221,29 +187,6 @@ def instantiate():
         "diary": Diary,
         "old_letter": OldLetter,
         "study_memo": StudyMemo,
-    }
-
-    # 오브젝트 클래스 매핑 (unique_id → class)
-    object_classes = {
-        "old_box": OldBox,
-        "power_panel": PowerPanel,
-        "shelf": Shelf,
-        "old_cabinet": OldCabinet,
-        "fireplace": Fireplace,
-        "sofa_cushion": SofaCushion,
-        "refrigerator": Refrigerator,
-        "cupboard": Cupboard,
-        "bed_under": BedUnder,
-        "vanity_drawer": VanityDrawer,
-        "safe": Safe,
-        "desk_drawer": DeskDrawer,
-        "picture_frame": PictureFrame,
-        "grandfather_clock": GrandfatherClock,
-        "umbrella_stand": UmbrellaStand,
-        "study_door": StudyDoor,
-        "broken_step": BrokenStep,
-        "stair_window": StairWindow,
-        "front_door": FrontDoor,
     }
 
     # 캐릭터 인스턴스화
@@ -265,14 +208,5 @@ def instantiate():
 
     print(f"[world.mansion] Instantiated {len(ITEMS)} items")
 
-    # 오브젝트 인스턴스화
-    from assets import objects as obj_registry
-    for instance_id, region_id, location_id, unique_id in OBJECTS:
-        if unique_id in object_classes:
-            obj_cls = object_classes[unique_id]
-            obj = obj_cls()
-            obj.instantiate(instance_id, region_id, location_id)
-            # 스크립트 조회용 레지스트리 등록
-            obj_registry.register_instance(unique_id, obj)
-
-    print(f"[world.mansion] Instantiated {len(OBJECTS)} objects")
+    # 오브젝트는 Location.instantiate()에서 이미 배치됨
+    print("[world.mansion] Objects instantiated via Location classes")
