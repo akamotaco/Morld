@@ -34,5 +34,23 @@ namespace SE
 		{
 			return this._currentTime;
 		}
+
+		/// <summary>
+		/// Terrain 초기화 (챕터 전환 시 사용)
+		/// 모든 Region, Location, Edge 제거
+		/// </summary>
+		public void ClearTerrain()
+		{
+			_terrain = new Morld.Terrain(_terrain.Name);
+			Godot.GD.Print("[WorldSystem] Terrain cleared.");
+		}
+
+		/// <summary>
+		/// 시간 초기화
+		/// </summary>
+		public void ResetTime()
+		{
+			_currentTime = new Morld.GameTime();
+		}
 	}
 }

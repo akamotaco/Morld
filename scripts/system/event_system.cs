@@ -48,6 +48,22 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 모든 상태 초기화 (챕터 전환 시 사용)
+		/// </summary>
+		public void ClearState()
+		{
+			_pendingEvents.Clear();
+			_lastLocations.Clear();
+			_wasMoving.Clear();
+			_lastMeetings.Clear();
+			_unitToMeetings.Clear();
+			_initialized = false;
+			_dialogTimeConsumed = 0;
+			_excessTime = 0;
+			GD.Print("[EventSystem] State cleared.");
+		}
+
+		/// <summary>
 		/// MetaActionHandler 참조 설정 (Generator 처리용)
 		/// GameEngine._Ready에서 MetaActionHandler 생성 후 호출
 		/// </summary>
@@ -338,7 +354,8 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 이벤트 큐 플러시 및 Python 호출
+		/// 이벤트 큐 플러시 및 Python 호출 (순차 처리)
+		/// 각 이벤트를 하나씩 처리하고, 다이얼로그가 발생하면 나머지는 큐에 유지
 		/// </summary>
 		/// <returns>처리 결과 (모놀로그 표시 시 true)</returns>
 		public bool FlushEvents()
@@ -346,16 +363,34 @@ namespace SE
 			if (_pendingEvents.Count == 0) return false;
 
 #if DEBUG_LOG
-			GD.Print($"[EventSystem] Flushing {_pendingEvents.Count} events");
+			GD.Print($"[EventSystem] Flushing {_pendingEvents.Count} events (sequential)");
 #endif
 
 			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
-			// Python에 이벤트 리스트 전달
-			var result = _scriptSystem.CallEventHandler(_pendingEvents);
-			_pendingEvents.Clear();
 
-			// 결과 처리 (모놀로그 등)
-			return ProcessEventResult(result);
+			// 이벤트를 하나씩 순차 처리
+			while (_pendingEvents.Count > 0)
+			{
+				var evt = _pendingEvents[0];
+				_pendingEvents.RemoveAt(0);
+
+#if DEBUG_LOG
+				GD.Print($"[EventSystem] Processing event: {evt}");
+#endif
+
+				var result = _scriptSystem.CallSingleEventHandler(evt);
+
+				// 다이얼로그가 발생하면 처리하고 중단 (나머지 이벤트는 큐에 유지)
+				if (ProcessEventResult(result))
+				{
+#if DEBUG_LOG
+					GD.Print($"[EventSystem] Dialog triggered, {_pendingEvents.Count} events remaining in queue");
+#endif
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		/// <summary>

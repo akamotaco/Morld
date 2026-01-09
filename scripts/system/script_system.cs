@@ -1782,6 +1782,56 @@ namespace SE
                     return JobToPyDict(job);
                 });
 
+                // === 챕터 전환 API ===
+
+                // clear_world() - 모든 게임 데이터 초기화 (챕터 전환 시 사용)
+                morldModule.ModuleDict["clear_world"] = new PyBuiltinFunction("clear_world", args =>
+                {
+                    Godot.GD.Print("[morld] clear_world: Clearing all game data...");
+
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                    var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+
+                    // 1. Terrain 초기화 (Region, Location, Edge 모두 제거)
+                    _worldSystem?.ClearTerrain();
+
+                    // 2. Unit 초기화 (Player, NPC, Object 모두 제거)
+                    _unitSystem?.Clear();
+
+                    // 3. Inventory 초기화
+                    _inventorySystem?.Clear();
+
+                    // 4. EventSystem 상태 초기화
+                    _eventSystem?.ClearState();
+
+                    // 5. Python 측 캐시 초기화 (assets.characters._instances 등)
+                    try
+                    {
+                        Execute("from assets.characters import clear_instances; clear_instances()");
+                    }
+                    catch { /* 함수가 없으면 무시 */ }
+
+                    try
+                    {
+                        Execute("from think import clear_agents; clear_agents()");
+                    }
+                    catch { /* 함수가 없으면 무시 */ }
+
+                    Godot.GD.Print("[morld] clear_world: Done.");
+                    return PyBool.True;
+                });
+
+                // reinitialize_locations() - EventSystem 위치 재초기화 (챕터 로드 후 호출)
+                morldModule.ModuleDict["reinitialize_locations"] = new PyBuiltinFunction("reinitialize_locations", args =>
+                {
+                    var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+                    _eventSystem?.InitializeLocations();
+                    Godot.GD.Print("[morld] reinitialize_locations: Done.");
+                    return PyBool.True;
+                });
+
                 // === 초기화 완료 플래그 ===
                 morldModule.ModuleDict["data_api_ready"] = PyBool.True;
 
@@ -2492,24 +2542,6 @@ __init__.initialize_scenario()
         }
 
         /// <summary>
-        /// Hello World 테스트
-        /// </summary>
-        public void TestHelloWorld()
-        {
-            Godot.GD.Print("[ScriptSystem] Testing Python Hello World...");
-
-            try
-            {
-                var result = Execute("print('Hello, World from Python!')");
-                Godot.GD.Print($"[ScriptSystem] Execution completed. Result: {result}");
-            }
-            catch (System.Exception ex)
-            {
-                Godot.GD.PrintErr($"[ScriptSystem] Error: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// Python 함수 호출 (BBCode script: prefix용) - 구조화된 결과 반환
         /// </summary>
         /// <param name="functionName">호출할 함수 이름</param>
@@ -2893,7 +2925,68 @@ def calculate(a, b):
         }
 
         /// <summary>
+        /// EventSystem용 단일 이벤트 핸들러 호출 - Python on_single_event() 호출
+        /// </summary>
+        /// <param name="evt">단일 이벤트</param>
+        /// <returns>스크립트 결과 (모놀로그 등)</returns>
+        public ScriptResult CallSingleEventHandler(Morld.GameEvent evt)
+        {
+            if (evt == null) return null;
+
+            try
+            {
+                // 이벤트를 Python 리스트 리터럴로 변환
+                var tuple = evt.ToPythonTuple();
+                var items = new System.Collections.Generic.List<string>();
+                foreach (var item in tuple)
+                {
+                    if (item is string s)
+                        items.Add($"'{s}'");
+                    else if (item is int i)
+                        items.Add(i.ToString());
+                    else
+                        items.Add($"'{item.ToString() ?? ""}'");
+                }
+
+                var eventLiteral = $"[{string.Join(", ", items)}]";
+                var code = $"on_single_event({eventLiteral})";
+#if DEBUG_LOG
+                Godot.GD.Print($"[ScriptSystem] Evaluating: {code}");
+#endif
+
+                // on_single_event() 호출
+                var result = Eval(code);
+
+                if (result is PyNone || result == null)
+                {
+                    return null;
+                }
+
+                // PyGenerator 반환 시 ProcessGenerator() 호출
+                if (result is PyGenerator generator)
+                {
+#if DEBUG_LOG
+                    Godot.GD.Print($"[ScriptSystem] CallSingleEventHandler: Generator returned, processing...");
+#endif
+                    return ProcessGenerator(generator);
+                }
+
+#if DEBUG_LOG
+                Godot.GD.Print($"[ScriptSystem] Unknown event result type: {result.GetType().Name}");
+#endif
+                return null;
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallSingleEventHandler error: {ex.Message}");
+                Godot.GD.PrintErr($"[ScriptSystem] Stack trace: {ex.StackTrace}");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// EventSystem용 이벤트 핸들러 호출 - Python on_event_list() 호출
+        /// (레거시 - 하위 호환용, 새 코드는 CallSingleEventHandler 사용)
         /// </summary>
         /// <param name="events">이벤트 목록</param>
         /// <returns>스크립트 결과 (모놀로그 등)</returns>

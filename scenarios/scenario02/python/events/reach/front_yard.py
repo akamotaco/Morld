@@ -1,6 +1,6 @@
 # events/reach/front_yard.py - 앞마당 도착 이벤트
 #
-# 플레이어가 앞마당에 도착하면 쓰러짐
+# 플레이어가 앞마당에 도착하면 쓰러짐 → 챕터 1 전환
 
 import morld
 from events.base import ReachEvent
@@ -9,9 +9,9 @@ from events import registry
 
 @registry.register
 class FrontYardCollapse(ReachEvent):
-    """앞마당 도착 - 쓰러짐"""
+    """앞마당 도착 - 쓰러짐 → 챕터 1 전환"""
     region_id = 0
-    location_id = 20  # 앞마당 (저택 입구)
+    location_id = 12  # 앞마당
     once = True
 
     def handle(self, **ctx):
@@ -26,18 +26,15 @@ class FrontYardCollapse(ReachEvent):
             "(의식을 잃었다)"
         ])
 
-        # 구조되어 방에서 깨어남
-        player_id = morld.get_player_id()
+        # 챕터 1 로드 (전체 지형 + NPC)
+        # load_chapter가 플레이어 위치도 설정함 (현관에서 시작)
+        from chapters import load_chapter
+        load_chapter("chapter_1")
 
-        # 플레이어를 주인공 방으로 이동
-        morld.set_unit_location(player_id, 0, 6)  # 저택(0), 주인공 방(6)
+        morld.set_prop("chapter", 1)
 
         # 시간 경과 (저녁이 되었다고 가정)
         morld.advance_time(180)  # 3시간 경과
-
-        # 챕터 1: 저택 생활 시작 - NPC 로드
-        morld.set_prop("chapter", 1)
-        _load_chapter_1_npcs()
 
         # 깨어남 모놀로그
         yield morld.dialog([
@@ -51,9 +48,3 @@ class FrontYardCollapse(ReachEvent):
             "몸 상태가 많이 나아진 것 같다.\n잠시 쉬었던 것 같다.",
             "일단 일어나서 여기가 어딘지 알아봐야겠다."
         ])
-
-
-def _load_chapter_1_npcs():
-    """챕터 1에서 NPC들을 인스턴스화"""
-    from world import instantiate_npcs
-    instantiate_npcs()

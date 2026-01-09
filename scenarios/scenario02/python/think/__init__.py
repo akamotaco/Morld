@@ -111,6 +111,12 @@ def clear_all():
     _agents.clear()
 
 
+def clear_agents():
+    """모든 Agent 제거 (챕터 전환용 alias)"""
+    _agents.clear()
+    print("[think] All agents cleared.")
+
+
 # ========================================
 # 데코레이터 기반 자동 등록
 # ========================================

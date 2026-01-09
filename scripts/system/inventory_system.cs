@@ -80,6 +80,17 @@ namespace SE
 		{
 		}
 
+		/// <summary>
+		/// 모든 인벤토리 데이터 초기화 (챕터 전환 시 사용)
+		/// </summary>
+		public void Clear()
+		{
+			_inventories.Clear();
+			_equippedItems.Clear();
+			_visibility.Clear();
+			Godot.GD.Print("[InventorySystem] All inventories cleared.");
+		}
+
 		// ===== 키 생성 헬퍼 =====
 
 		/// <summary>

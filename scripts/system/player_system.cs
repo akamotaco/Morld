@@ -314,54 +314,7 @@ namespace SE
 
 		#endregion
 
-		#region 아이템 조작 (시간 소모 없음)
-
-		// [레거시] TakeFromUnit/PutToUnit - Python script:take_from_object / script:put_to_object로 대체됨
-		// 향후 문제 없으면 삭제 예정
-		//
-		// public bool TakeFromUnit(int unitId, int itemId, int count = 1)
-		// {
-		// 	var player = GetPlayerUnit();
-		// 	var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-		// 	var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-		//
-		// 	if (player == null || unitSystem == null || inventorySystem == null)
-		// 		return false;
-		//
-		// 	var targetUnit = unitSystem.FindUnit(unitId);
-		// 	if (targetUnit == null || !targetUnit.IsObject)
-		// 		return false;
-		//
-		// 	if (targetUnit.CurrentLocation != player.CurrentLocation)
-		// 		return false;
-		//
-		// 	if (!inventorySystem.TransferBetweenUnits(unitId, player.Id, itemId, count))
-		// 		return false;
-		//
-		// 	return true;
-		// }
-		//
-		// public bool PutToUnit(int unitId, int itemId, int count = 1)
-		// {
-		// 	var player = GetPlayerUnit();
-		// 	var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-		// 	var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-		//
-		// 	if (player == null || unitSystem == null || inventorySystem == null)
-		// 		return false;
-		//
-		// 	var targetUnit = unitSystem.FindUnit(unitId);
-		// 	if (targetUnit == null || !targetUnit.IsObject)
-		// 		return false;
-		//
-		// 	if (targetUnit.CurrentLocation != player.CurrentLocation)
-		// 		return false;
-		//
-		// 	if (!inventorySystem.TransferBetweenUnits(player.Id, unitId, itemId, count))
-		// 		return false;
-		//
-		// 	return true;
-		// }
+		#region 유닛 조회
 
 		/// <summary>
 		/// 유닛 살펴보기 (캐릭터/오브젝트 통합)
@@ -504,6 +457,23 @@ namespace SE
 			// 1. 현재 위치 정보
 			var location = terrain.GetLocation(player.CurrentLocation);
 			var region = location != null ? terrain.GetRegion(location.RegionId) : null;
+
+			// 챕터 전환 중 데이터가 없으면 빈 결과 반환
+			if (location == null || region == null)
+			{
+				return new LookResult
+				{
+					Location = new LocationInfo
+					{
+						RegionName = "",
+						LocationName = "로딩 중...",
+						AppearanceText = "",
+						LocationRef = player.CurrentLocation
+					},
+					UnitIds = new List<int>(),
+					Routes = new List<RouteInfo>()
+				};
+			}
 
 			var locationInfo = new LocationInfo
 			{

@@ -31,6 +31,13 @@ def register_instance(instance_id: int, instance):
     _instances[instance_id] = instance
 
 
+def clear_instances():
+    """모든 인스턴스 캐시 초기화 (챕터 전환 시 호출)"""
+    global _instances
+    _instances.clear()
+    print("[assets.characters] Instances cleared.")
+
+
 def get_instance(instance_id: int):
     """캐릭터 인스턴스 반환"""
     return _instances.get(instance_id)

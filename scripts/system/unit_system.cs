@@ -57,6 +57,15 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 모든 유닛 제거 (챕터 전환용 alias)
+		/// </summary>
+		public void Clear()
+		{
+			ClearUnits();
+			GD.Print("[UnitSystem] All units cleared.");
+		}
+
+		/// <summary>
 		/// JSON 파일에서 유닛 데이터 로드
 		/// </summary>
 		public UnitSystem UpdateFromFile(string filePath)
