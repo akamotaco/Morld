@@ -74,7 +74,6 @@ class Player(Character):
         "can:sit": 1,
         "can:rest": 1,
         "can:sleep": 1,
-        "can:wait": 1,
 
         # 아이템 조작
         "can:take": 1,
@@ -96,5 +95,17 @@ class Player(Character):
         "can:debug_props": 1,
         "can:debug_self_props": 1,
     }
-    actions = ["rest", "sleep", "wait"]
+    actions = ["call:rest:휴식", "call:sleep:노숙"]
     mood = []
+
+    def rest(self):
+        """휴식 (멍때리기) - 30분 경과"""
+        import morld
+        morld.add_action_log(f"{self.name}이(가) 잠시 쉬었다.")
+        morld.advance_time(30)
+
+    def sleep(self):
+        """야외 취침 (노숙) - 4시간 경과"""
+        import morld
+        morld.add_action_log(f"{self.name}이(가) 바닥에서 잠을 청했다.")
+        morld.advance_time(240)

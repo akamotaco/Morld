@@ -521,7 +521,7 @@ public class MetaActionHandler
 
 	/// <summary>
 	/// 유닛 행동 처리: action:actionType:unitId
-	/// script 액션인 경우: action:script:functionName:displayName[:args...]
+	/// 현재는 call: 패턴으로 위임만 수행
 	/// </summary>
 	private void HandleUnitAction(string[] parts)
 	{
@@ -540,24 +540,6 @@ public class MetaActionHandler
 			var seatName = actionType.Substring(4);  // "sit@" 이후 부분
 			var sitParts = new string[] { "sit", parts[2], seatName };
 			HandleSitAction(sitParts);
-			return;
-		}
-
-		// script 액션인 경우 HandleScriptAction으로 위임
-		// action:script:functionName:displayName[:args...] → script:functionName[:args...]
-		if (actionType == "script")
-		{
-			// parts[0]="action", parts[1]="script", parts[2]=functionName, parts[3]=displayName, parts[4...]=args
-			// displayName은 표시용이므로 스킵하고 functionName과 args만 전달
-			var scriptParts = new string[parts.Length - 2];  // "script", functionName, args...
-			scriptParts[0] = "script";
-			scriptParts[1] = parts[2];  // functionName
-			// displayName(parts[3]) 스킵하고 나머지 args 복사
-			for (int i = 4; i < parts.Length; i++)
-			{
-				scriptParts[i - 2] = parts[i];
-			}
-			HandleScriptAction(scriptParts);
 			return;
 		}
 
@@ -581,36 +563,8 @@ public class MetaActionHandler
 			return;
 		}
 
-		if (!int.TryParse(parts[2], out int unitId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid unitId in action");
-			return;
-		}
-
-#if DEBUG_LOG
-		GD.Print($"[MetaActionHandler] 유닛 행동: unitId={unitId}, type={actionType}");
-#endif
-
-		var actionSystem = _world.GetSystem("actionSystem") as ActionSystem;
-		var unitSystem = _world.GetSystem("unitSystem") as UnitSystem;
-
-		if (actionSystem != null && unitSystem != null && _playerSystem != null)
-		{
-			var player = _playerSystem.GetPlayerUnit();
-			var target = unitSystem.FindUnit(unitId);
-
-			if (player != null && target != null)
-			{
-				var result = actionSystem.ApplyAction(player, actionType, new List<Unit> { target });
-
-				_textUISystem?.ShowResult(result.Message);
-
-				if (result.TimeConsumed > 0)
-				{
-					_playerSystem.RequestTimeAdvance(result.TimeConsumed, actionType);
-				}
-			}
-		}
+		// 미지원 액션 타입
+		GD.PrintErr($"[MetaActionHandler] Unknown action type: {actionType}. Use call: pattern instead.");
 	}
 
 	/// <summary>

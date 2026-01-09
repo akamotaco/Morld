@@ -573,6 +573,44 @@ props = {
 2. 수행자(플레이어 등)의 props에 `can:액션명` 추가
 3. 액션 핸들러 구현 (스크립트 함수 등)
 
+### 조건부 액션
+
+시간, 위치, 상태 등 조건에 따라 액션을 활성화/비활성화할 수 있습니다.
+
+**구현 위치:** `ui.py`의 `get_action_text()`
+
+```python
+def get_action_text():
+    lines = []
+
+    # C# 기본 행동 가져오기
+    default_actions = morld.get_actions_list()
+    for action in default_actions:
+        lines.append(action)
+
+    # 시간 기반 조건부 행동
+    minute_of_day = morld.get_game_time()  # 분 단위 (0~1439)
+    hour = minute_of_day // 60
+
+    # 낮잠 (6시~18시만 가능)
+    if 6 <= hour < 18:
+        lines.append("  [url=idle:240]낮잠 (4시간)[/url]")
+    else:
+        lines.append("  [color=gray]낮잠 (4시간)[/color]")  # 비활성화
+
+    return "\n".join(lines)
+```
+
+**활성화/비활성화 표현:**
+- 활성화: `[url=action:param]표시명[/url]`
+- 비활성화: `[color=gray]표시명[/color]` (링크 없음, greyed out)
+
+**활용 가능한 조건:**
+- 시간: `morld.get_game_time()` (분 단위, 0~1439)
+- 위치: `morld.get_unit_location(player_id)`
+- 아이템: `morld.has_item(player_id, item_id)`
+- 상태: `morld.get_prop(prop_name)`
+
 ---
 
 ## 챕터 시스템

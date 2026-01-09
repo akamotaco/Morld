@@ -52,6 +52,14 @@ def get_action_text():
     for action in default_actions:
         lines.append(action)
 
-    # Python에서 추가 행동 삽입 가능
+    # 시간 기반 조건부 행동
+    minute_of_day = morld.get_game_time()  # 분 단위 (0~1439)
+    hour = minute_of_day // 60
+
+    # 낮잠 (6시~18시만 가능)
+    if 6 <= hour < 18:
+        lines.append("  [url=idle:240]낮잠 (4시간)[/url]")
+    else:
+        lines.append("  [color=gray]낮잠 (4시간)[/color]")
 
     return "\n".join(lines)

@@ -51,7 +51,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - `JobBehaviorSystem` - JobList 기반 이동/행동 처리, GameTime 업데이트
 - `PlayerSystem` - 플레이어 입력 기반 시간 진행 제어, Look 기능
 - `DescribeSystem` - 묘사 텍스트 생성 (시간 기반 키 선택)
-- `ActionSystem` - 유닛 행동 실행 (talk, trade, use 등)
+- `ActionSystem` - 차량 액션 전용 (CanDrive, GetDrivableDestinations, ApplyDriveAction)
 - `TextUISystem` - RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
 - `ScriptSystem` - Python 스크립트 실행 (sharpPy 기반), Dialog/이벤트 처리
 - `EventSystem` - 게임 이벤트 수집 및 Python 전달 (OnReach, OnMeet 감지)
@@ -688,6 +688,44 @@ actions = ["call:talk:대화", "call:trade:거래"]
 **파일 위치:**
 - `scripts/system/describe_system.cs` - `FilterActionsByActor()`, `CanPerformAction()`, `ExtractActionName()`
 - `scenarios/scenario02/python/assets/characters/player.py` - Player의 `can:` props 정의
+
+### 조건부 액션 (ui.py)
+**역할:** 시간, 위치, 상태 등 조건에 따라 액션 활성화/비활성화
+
+**구현 위치:** `scenarios/scenario02/python/ui.py`의 `get_action_text()`
+
+**패턴:**
+```python
+def get_action_text():
+    lines = []
+
+    # C# 기본 행동 가져오기
+    default_actions = morld.get_actions_list()
+    for action in default_actions:
+        lines.append(action)
+
+    # 시간 기반 조건부 행동
+    minute_of_day = morld.get_game_time()  # 분 단위 (0~1439)
+    hour = minute_of_day // 60
+
+    # 낮잠 (6시~18시만 가능)
+    if 6 <= hour < 18:
+        lines.append("  [url=idle:240]낮잠 (4시간)[/url]")
+    else:
+        lines.append("  [color=gray]낮잠 (4시간)[/color]")  # 비활성화
+
+    return "\n".join(lines)
+```
+
+**활성화/비활성화 표현:**
+- 활성화: `[url=action:param]표시명[/url]`
+- 비활성화: `[color=gray]표시명[/color]` (링크 없음)
+
+**활용 가능한 조건:**
+- 시간: `morld.get_game_time()` (분 단위)
+- 위치: `morld.get_unit_location(player_id)`
+- 아이템: `morld.has_item(player_id, item_id)`
+- 상태: `morld.get_prop(prop_name)`
 
 ### 소유자(Owner) 시스템
 **역할:** 아이템/장소의 원래 소유자를 추적하여 "훔치기" 등의 기능 지원
