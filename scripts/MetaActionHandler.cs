@@ -139,14 +139,6 @@ public class MetaActionHandler
 			case "look_unit":
 				HandleLookUnitAction(parts);
 				break;
-			// [레거시] take/put 액션 - script:take_from_object / script:put_to_object로 대체됨
-			// 향후 문제 없으면 삭제 예정
-			// case "take":
-			// 	HandleTakeAction(parts);
-			// 	break;
-			// case "put":
-			// 	HandlePutAction(parts);
-			// 	break;
 			case "action":
 				HandleUnitAction(parts);
 				break;
@@ -191,9 +183,21 @@ public class MetaActionHandler
 
 	/// <summary>
 	/// 상황 텍스트 업데이트 요청
+	/// 남은 이벤트가 있으면 먼저 처리하고, 없으면 상황 업데이트
 	/// </summary>
 	private void RequestUpdateSituation()
 	{
+		// 남은 이벤트 처리 (다이얼로그 완료 후 다음 이벤트 실행)
+		var eventSystem = _world.GetSystem("eventSystem") as EventSystem;
+		if (eventSystem != null && eventSystem.FlushEvents())
+		{
+			// 다이얼로그가 표시됨 - 상황 업데이트하지 않음
+#if DEBUG_LOG
+			GD.Print("[MetaActionHandler] RequestUpdateSituation: Next event triggered dialog");
+#endif
+			return;
+		}
+
 		OnUpdateSituation?.Invoke();
 	}
 
@@ -369,33 +373,6 @@ public class MetaActionHandler
 
 		_textUISystem?.ShowUnitLook(unitId);
 	}
-
-	// [레거시] 아이템 가져오기/넣기 처리 - script:take_from_object / script:put_to_object로 대체됨
-	// 향후 문제 없으면 삭제 예정
-	//
-	// private void HandleTakeAction(string[] parts)
-	// {
-	// 	if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
-	// 	{
-	// 		GD.PrintErr("[MetaActionHandler] Invalid take format");
-	// 		return;
-	// 	}
-	//
-	// 	_playerSystem?.TakeFromUnit(unitId, itemId);
-	// 	_textUISystem?.PopIfInvalid();
-	// }
-	//
-	// private void HandlePutAction(string[] parts)
-	// {
-	// 	if (parts.Length < 3 || !int.TryParse(parts[1], out int unitId) || !int.TryParse(parts[2], out int itemId))
-	// 	{
-	// 		GD.PrintErr("[MetaActionHandler] Invalid put format");
-	// 		return;
-	// 	}
-	//
-	// 	_playerSystem?.PutToUnit(unitId, itemId);
-	// 	_textUISystem?.PopIfInvalid();
-	// }
 
 	/// <summary>
 	/// 유닛 행동 처리: action:actionType:unitId
@@ -1082,8 +1059,8 @@ public class MetaActionHandler
 		// 결과 타입에 따른 처리
 		if (result == null)
 		{
-			// 스크립트가 반환값 없이 완료됨 - 현재 화면 갱신 및 invalid focus 처리
-			_textUISystem?.OnContentChange();
+			// 스크립트가 반환값 없이 완료됨 - invalid focus 처리 및 화면 갱신
+			// Note: 로그 읽음 처리는 HandleAction() 시작 시점에서 수행됨
 			_textUISystem?.PopIfInvalid();
 			_textUISystem?.UpdateDisplay();
 			return;

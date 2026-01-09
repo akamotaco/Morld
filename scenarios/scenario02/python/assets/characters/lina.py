@@ -135,8 +135,8 @@ class Lina(Character):
                 "나는 리나! 여기서 채집을 맡고 있어!",
                 "앞으로 잘 지내자~!"
             ])
-            # 다이얼로그 후 플레이어 따라다니기
-            morld.set_npc_job(instance_id, "follow", 30, player_id)
+            # 30분간 대화 (리나: follow + 플레이어: 30분 경과)
+            morld.set_npc_time_consume(instance_id, "follow", 30, player_id)
 
         return handler()
 
