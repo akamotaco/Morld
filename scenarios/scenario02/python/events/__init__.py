@@ -19,9 +19,56 @@ from . import scripts
 from assets.characters import get_character_event_handler
 
 
+def on_single_event(event):
+    """
+    단일 이벤트 처리 (C#에서 순차 호출)
+
+    Args:
+        event: ["game_start"] 또는 ["on_reach", unit_id, region_id, location_id] 등
+
+    Returns:
+        Generator 또는 None
+    """
+    import morld
+    player_id = morld.get_player_id()
+
+    event_type = event[0]
+
+    if event_type == "game_start":
+        return registry.handle_game_start()
+
+    elif event_type == "on_reach":
+        unit_id = event[1]
+        region_id = event[2]
+        location_id = event[3]
+
+        if unit_id == player_id:
+            return registry.handle_reach(player_id, region_id, location_id)
+
+    elif event_type == "on_meet":
+        unit_ids = event[1:]
+        if player_id in unit_ids:
+            # 먼저 등록된 MeetEvent 체크 (플레이어 포함)
+            result = registry.handle_meet(player_id, unit_ids)
+            if result:
+                return result
+
+            # 캐릭터별 on_meet_player 핸들러 체크
+            return _handle_character_meet(player_id, unit_ids)
+        else:
+            # NPC 간 만남 이벤트 (플레이어 미포함)
+            registry.handle_npc_meet(unit_ids)
+            # NPC 간 이벤트는 다이얼로그 없음
+
+    return None
+
+
 def on_event_list(ev_list):
     """
-    이벤트 리스트 처리 (C#에서 호출)
+    이벤트 리스트 처리 (C#에서 호출) - 레거시 호환용
+
+    Note: 새 코드는 on_single_event()를 사용하여 순차 처리해야 함
+    이 함수는 하위 호환을 위해 유지하며, 첫 번째 결과만 반환함
 
     Args:
         ev_list: [["game_start"], ["on_reach", 0, 0, 6], ["on_meet", 0, 1], ...]
@@ -29,44 +76,10 @@ def on_event_list(ev_list):
     Returns:
         첫 번째 모놀로그 결과 또는 None
     """
-    import morld
-    player_id = morld.get_player_id()
-
     for event in ev_list:
-        event_type = event[0]
-
-        if event_type == "game_start":
-            result = registry.handle_game_start()
-            if result:
-                return result
-
-        elif event_type == "on_reach":
-            unit_id = event[1]
-            region_id = event[2]
-            location_id = event[3]
-
-            if unit_id == player_id:
-                result = registry.handle_reach(player_id, region_id, location_id)
-                if result:
-                    return result
-
-        elif event_type == "on_meet":
-            unit_ids = event[1:]
-            if player_id in unit_ids:
-                # 먼저 등록된 MeetEvent 체크 (플레이어 포함)
-                result = registry.handle_meet(player_id, unit_ids)
-                if result:
-                    return result
-
-                # 캐릭터별 on_meet_player 핸들러 체크
-                result = _handle_character_meet(player_id, unit_ids)
-                if result:
-                    return result
-            else:
-                # NPC 간 만남 이벤트 (플레이어 미포함)
-                result = registry.handle_npc_meet(unit_ids)
-                # NPC 간 이벤트는 다이얼로그 없음 - 결과 반환 안 함
-                # (로그만 출력하고 계속 진행)
+        result = on_single_event(event)
+        if result:
+            return result
 
     return None
 
@@ -90,4 +103,4 @@ def _handle_character_meet(player_id, unit_ids):
 
 
 # C#에서 호출하는 메인 진입점
-__all__ = ['on_event_list']
+__all__ = ['on_event_list', 'on_single_event']

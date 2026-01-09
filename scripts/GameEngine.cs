@@ -27,16 +27,13 @@ public partial class GameEngine : Node
 		// 3. 모든 시스템 등록
 		RegisterAllSystems();
 
-		// 4. 데이터 로드 (Python)
+		// 4. 데이터 로드 (Python + morld API 등록)
 		LoadDataFromPython();
 
-		// 5. 시스템 간 참조 설정 및 후처리
-		SetupSystemReferences();
-
-		// 6. 이벤트 콜백 및 핸들러 등록
+		// 5. 이벤트 콜백 및 핸들러 등록
 		RegisterEventHandlers();
 
-		// 7. 게임 시작
+		// 6. 게임 시작
 		StartGame();
 
 #if DEBUG_LOG
@@ -110,45 +107,18 @@ public partial class GameEngine : Node
 
 		var _scriptSystem = this._world.GetSystem("scriptSystem") as ScriptSystem;
 
+		// morld API 등록
 		_scriptSystem.RegisterDataManipulationAPI();
+		_scriptSystem.RegisterNpcJobAPI();
 
 		// Python의 initialize_scenario() 호출 - morld API로 데이터 등록
+		// 챕터 로드 시 reinitialize_locations()도 호출됨
 		_scriptSystem.CallInitializeScenario();
 
 		// Python 패키지의 나머지 모듈 로드 (이벤트 핸들러 등)
 		_scriptSystem.LoadScenarioPackage();
 
 		GD.Print("[GameEngine] Python data loaded.");
-	}
-
-	/// <summary>
-	/// 시스템 간 참조 설정
-	/// </summary>
-	private void SetupSystemReferences()
-	{
-		var unitSystem = this._world.GetSystem("unitSystem") as UnitSystem;
-		var _scriptSystem = this._world.GetSystem("scriptSystem") as ScriptSystem;
-		var _thinkSystem = this._world.GetSystem("thinkSystem") as ThinkSystem;
-		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
-		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
-		var _inventorySystem = this._world.GetSystem("inventorySystem") as InventorySystem;
-		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
-
-		// ScriptSystem 테스트 함수 등록
-		_scriptSystem.TestHelloWorld();
-		_scriptSystem.RegisterTestFunctions();
-
-		// ThinkSystem 설정
-		_thinkSystem.SetSystemReferences(_scriptSystem, _playerSystem, unitSystem);
-
-		// TextUISystem 설정
-		_textUISystem.SetSystemReferences(_playerSystem, _inventorySystem, _scriptSystem);
-
-		// EventSystem 설정 (MetaActionHandler는 _Ready에서 나중에 설정)
-		_eventSystem.InitializeLocations();
-
-		// ScriptSystem에 EventSystem 참조 설정 (set_npc_time_consume API용)
-		_scriptSystem.RegisterNpcJobAPI();
 	}
 
 	/// <summary>
