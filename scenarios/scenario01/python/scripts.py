@@ -1,135 +1,66 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 시나리오01: 방탈출 - 공통 스크립트 함수
 Asset 기반 구조에서 스크립트 함수들을 export
+
+Note: 대부분의 오브젝트/아이템 스크립트는 call: 액션으로 전환되어
+인스턴스 메서드로 구현됨. 이 파일에는 공용 비밀번호 UI 함수와
+script: 액션을 사용하는 탈출/엔딩 스크립트만 남아 있음.
 """
 
 import morld
 
 # ============================================================
-# Export 목록 (from scripts import * 에서 사용)
-# - @morld.register_script 데코레이터로 대체됨
+# 오브젝트 스크립트 import (script: 액션 사용)
 # ============================================================
-# __all__ = [
-#     # 아이템 스크립트
-#     'read_note1', 'read_note2', 'read_note3',
-#     'read_diary', 'read_old_letter', 'read_study_memo',
-#     'combine_golden_key', 'combine_key',
-#     # 오브젝트 스크립트
-#     'examine_old_box', 'toggle_switch',
-#     'examine_shelf', 'unlock_cabinet',
-#     'examine_fireplace', 'examine_sofa',
-#     'examine_refrigerator', 'unlock_cupboard',
-#     'examine_bed', 'open_vanity_drawer',
-#     'open_safe', 'examine_desk',
-#     'examine_picture', 'examine_clock', 'examine_umbrella',
-#     'unlock_study_door', 'input_study_digit', 'verify_study_password',
-#     'examine_step', 'examine_window',
-#     'escape', 'show_ending',
-#     # 비밀번호 시스템
-#     'input_digit', 'verify_password', 'cancel_password',
-# ]
-
-# ============================================================
-# 아이템 스크립트 함수들 import (assets에서)
-# ============================================================
-from assets.items.notes import read_note1, read_note2, read_note3
-from assets.items.documents import read_diary, read_old_letter, read_study_memo
-from assets.items.golden_key import combine_golden_key
-
-# 호환성을 위한 alias
-combine_key = combine_golden_key
-
-# ============================================================
-# 오브젝트 스크립트 함수들 import (assets에서)
-# ============================================================
-from assets.objects.basement import examine_old_box, toggle_switch
-from assets.objects.storage import examine_shelf, unlock_cabinet
-from assets.objects.living_room import examine_fireplace, examine_sofa
-from assets.objects.kitchen import examine_refrigerator, unlock_cupboard
-from assets.objects.bedroom import examine_bed, open_vanity_drawer
-from assets.objects.study import open_safe, examine_desk
-from assets.objects.corridor import (
-    examine_picture, examine_clock, examine_umbrella,
-    unlock_study_door, input_study_digit, verify_study_password
-)
-from assets.objects.stairs import examine_step, examine_window
+# entrance.py - script: 액션 사용 (탈출/엔딩)
 from assets.objects.entrance import escape, show_ending
 
-# 비밀번호 시스템용 클래스 참조
-from assets.objects.bedroom import VanityDrawer, on_password_success as vanity_on_success
-from assets.objects.study import Safe, on_password_success as safe_on_success
-
-# PASSWORD_OBJECTS 매핑 (password_target_uid 값으로 조회)
-# (비밀번호, 성공 콜백)
-PASSWORD_OBJECTS = {
-    0: (VanityDrawer.password, vanity_on_success),  # vanity_drawer
-    1: (Safe.password, safe_on_success),            # safe
-}
-
 
 # ============================================================
-# 비밀번호 시스템 (공통)
+# 비밀번호 입력 UI (공통 - bedroom.py, study.py에서 import)
+# @proc: 패턴 기반 - 다이얼로그 내부에서 상태 변경
 # ============================================================
 
-def input_digit(context_unit_id, digit):
-    """비밀번호 숫자 입력 (공통) - Generator 기반"""
-    digit = int(digit)
+def _build_password_ui(current_input, current_digits):
+    """비밀번호 입력 UI 문자열 생성"""
+    display = str(current_input).zfill(current_digits) if current_digits > 0 else ""
+    display_padded = display + "_" * (4 - current_digits)
 
-    current_input = morld.get_prop("password_input")
-    current_digits = morld.get_prop("password_digits")
-
-    # 새 숫자 추가
-    new_input = current_input * 10 + digit
-    new_digits = current_digits + 1
-
-    morld.set_prop("password_input", new_input)
-    morld.set_prop("password_digits", new_digits)
-
-    # 4자리 완성되면 검증
-    if new_digits >= 4:
-        yield from verify_password(context_unit_id)
-        return
-
-    # 현재 입력 상태 표시
-    display = str(new_input).zfill(new_digits)
-    display_padded = display + "_" * (4 - new_digits)
-
-    yield morld.dialog(
-        f"4자리 비밀번호를 입력하세요:\n\n[{display_padded}]\n\n" +
-        "[url=script:input_digit:1][ 1 ][/url] [url=script:input_digit:2][ 2 ][/url] [url=script:input_digit:3][ 3 ][/url]\n" +
-        "[url=script:input_digit:4][ 4 ][/url] [url=script:input_digit:5][ 5 ][/url] [url=script:input_digit:6][ 6 ][/url]\n" +
-        "[url=script:input_digit:7][ 7 ][/url] [url=script:input_digit:8][ 8 ][/url] [url=script:input_digit:9][ 9 ][/url]\n" +
-        "        [url=script:input_digit:0][ 0 ][/url]\n\n" +
-        "[url=script:cancel_password][ 취소 ][/url]",
-        autofill="off"
+    return (
+        f"4자리 비밀번호를 입력하세요:\n\n[{display_padded}]\n\n"
+        "[url=@proc:1][ 1 ][/url] [url=@proc:2][ 2 ][/url] [url=@proc:3][ 3 ][/url]\n"
+        "[url=@proc:4][ 4 ][/url] [url=@proc:5][ 5 ][/url] [url=@proc:6][ 6 ][/url]\n"
+        "[url=@proc:7][ 7 ][/url] [url=@proc:8][ 8 ][/url] [url=@proc:9][ 9 ][/url]\n"
+        "        [url=@proc:0][ 0 ][/url]\n\n"
+        "[url=@proc:cancel][ 취소 ][/url]"
     )
 
 
-def verify_password(context_unit_id):
-    """비밀번호 검증 (공통) - Generator 기반"""
-    target_uid = morld.get_prop("password_target_uid")
-    input_password = str(morld.get_prop("password_input")).zfill(4)
+def _create_password_proc(state):
+    """비밀번호 입력 proc 콜백 생성"""
+    def proc(action):
+        if action == "init":
+            return _build_password_ui(state["input"], state["digits"])
 
-    # 오브젝트별 비밀번호 정보 가져오기
-    password_info = PASSWORD_OBJECTS.get(target_uid)
-    if not password_info:
-        yield morld.dialog(["오류가 발생했다."])
-        return
+        if action == "cancel":
+            state["cancelled"] = True
+            return True  # 다이얼로그 종료
 
-    correct_password, on_success = password_info
+        # 숫자 입력
+        try:
+            digit = int(action)
+        except ValueError:
+            return None
 
-    if input_password == correct_password:
-        # 성공 시 해당 오브젝트의 콜백 호출 (Generator 위임)
-        yield from on_success()
-    else:
-        # 실패
-        yield morld.dialog(["삐빅- 비밀번호가 틀렸다."])
+        state["input"] = state["input"] * 10 + digit
+        state["digits"] += 1
 
+        # 4자리 완성되면 종료
+        if state["digits"] >= 4:
+            return True  # 다이얼로그 종료, result로 state 반환
 
-def cancel_password(context_unit_id):
-    """비밀번호 입력 취소 - Generator 기반"""
-    morld.clear_prop("password_target_uid")
-    morld.clear_prop("password_input")
-    morld.clear_prop("password_digits")
-    yield morld.dialog(["입력을 취소했다."])
+        # UI 갱신
+        return _build_password_ui(state["input"], state["digits"])
+
+    return proc

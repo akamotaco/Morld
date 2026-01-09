@@ -569,6 +569,30 @@ namespace SE
 							lines.Add($"  [color=red][오류: {action}][/color]");
 						}
 					}
+					// call:메서드명:표시명 형식 - Python Asset 인스턴스 메서드 호출
+					// Focus.TargetUnitId에서 instanceId를 가져오므로 URL에 ID 포함 불필요
+					else if (action.StartsWith("call:"))
+					{
+						var parts = action.Split(':');
+						if (parts.Length >= 3)
+						{
+							var methodName = parts[1];
+							var displayName = parts[2];
+							lines.Add($"  [url=call:{methodName}:{displayName}]{displayName}[/url]");
+						}
+						else if (parts.Length == 2)
+						{
+							// call:메서드명 (표시명 없음 → 메서드명 그대로 표시)
+							var methodName = parts[1];
+							lines.Add($"  [url=call:{methodName}:{methodName}]{methodName}[/url]");
+						}
+						else
+						{
+							// 형식 오류 - 디버그 정보와 함께 표시
+							Godot.GD.PrintErr($"[DescribeSystem] Invalid call action format: '{action}' (expected 'call:methodName:displayName')");
+							lines.Add($"  [color=red][오류: {action}][/color]");
+						}
+					}
 					else
 					{
 						// 다른 액션은 그대로 표시
@@ -828,6 +852,23 @@ namespace SE
 				}
 			}
 
+			// call:메서드명:표시명 형식 처리
+			// Focus.ItemId/TargetUnitId에서 instanceId를 가져오므로 URL에 ID 포함 불필요
+			if (action.StartsWith("call:"))
+			{
+				var parts = action.Split(':');
+				if (parts.Length >= 3)
+				{
+					// call:메서드명:표시명 → URL: call:메서드명:표시명, Label: 표시명
+					return ($"call:{parts[1]}:{parts[2]}", parts[2]);
+				}
+				else if (parts.Length == 2)
+				{
+					// call:메서드명 (표시명 없음) → URL: call:메서드명:메서드명, Label: 메서드명
+					return ($"call:{parts[1]}:{parts[1]}", parts[1]);
+				}
+			}
+
 			return action switch
 			{
 				// take는 container에서 가져가기 - script:take_item으로 처리
@@ -874,6 +915,8 @@ namespace SE
 		/// 지원 형식:
 		/// - "script:funcName:displayName" → "funcName"
 		/// - "script:funcName" → "funcName"
+		/// - "call:methodName:displayName" → "methodName"
+		/// - "call:methodName" → "methodName"
 		/// - "sit@seatName:displayName" → "sit"
 		/// - "action@context" → "action"
 		/// - "putinobject" → "putinobject"
@@ -883,6 +926,13 @@ namespace SE
 		{
 			// script:함수명:표시명 또는 script:함수명
 			if (action.StartsWith("script:"))
+			{
+				var parts = action.Split(':');
+				return parts.Length >= 2 ? parts[1] : action;
+			}
+
+			// call:메서드명:표시명 또는 call:메서드명
+			if (action.StartsWith("call:"))
 			{
 				var parts = action.Split(':');
 				return parts.Length >= 2 ? parts[1] : action;

@@ -20,6 +20,7 @@ class FrontDoor(Object):
 # 스크립트 함수
 # ========================================
 
+@morld.register_script
 def escape(context_unit_id):
     """정문으로 탈출 - Generator 기반"""
     player_id = morld.get_player_id()

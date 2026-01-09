@@ -10,19 +10,19 @@ NPC 없이 오브젝트 상호작용과 퍼즐 풀이에 집중.
 ## 핵심 개념
 
 ### Asset vs Instance
-- **Asset**: 구조체 정의 (템플릿). `unique_id: str`로 식별
+- **Asset**: 클래스 정의 (템플릿). `unique_id: str`로 식별
 - **Instance**: 게임 내 실체. `instance_id: int`로 식별 (morld API에서 사용)
 
 ```python
-# Asset 정의 (assets/items/golden_key.py)
-GOLDEN_KEY = {
-    "unique_id": "golden_key",
-    "name": "황금열쇠",
-    ...
-}
+# Asset 클래스 정의 (assets/items/golden_key.py)
+class GoldenKey(Item):
+    unique_id = "golden_key"
+    name = "황금열쇠"
+    actions = ["take@container"]
 
 # Instance 생성 (world/mansion.py에서)
 registry.instantiate_item("golden_key", instance_id=3)
+# → GoldenKey 인스턴스 생성, instance_id=3 할당
 ```
 
 ---
@@ -317,51 +317,112 @@ registry = AssetRegistry()
 
 ---
 
+## 액션 시스템
+
+### 액션 타입
+
+| 타입 | 형식 | 용도 | 예시 |
+|------|------|------|------|
+| `call:` | `call:메서드명:표시명` | Asset 인스턴스 메서드 호출 | `call:examine:조사` |
+| `script:` | `script:함수명:표시명` | 전역 스크립트 함수 호출 | `script:escape:탈출` |
+| `take` | `take@container` | 컨테이너에서 아이템 가져오기 | - |
+
+### 컨텍스트 필터
+
+| 컨텍스트 | 의미 |
+|----------|------|
+| `@container` | 컨테이너(오브젝트) 인벤토리에서만 표시 |
+| `@inventory` | 플레이어 인벤토리에서만 표시 |
+| (없음) | 오브젝트 메뉴에서 표시 |
+
+### call: vs script:
+
+- **call:** - Asset 클래스의 인스턴스 메서드 호출. Focus에서 대상 ID 획득
+- **script:** - 전역 스크립트 함수 호출. 다이얼로그 중 호출 불가
+
+---
+
 ## 파일 작성 규칙
 
-### Item Asset
+### Item Asset (OOP 방식)
 ```python
 # assets/items/{name}.py
 
-ITEM_NAME = {
-    "unique_id": "item_name",
-    "name": "아이템 이름",
-    "passiveProps": {},
-    "equipProps": {},
-    "value": 0,
-    "actions": ["take@container", "script:함수명:표시명@context"]
-}
+import morld
+from assets.base import Item
 
-def register():
-    registry.register_item(ITEM_NAME)
+class MyItem(Item):
+    unique_id = "my_item"
+    name = "아이템 이름"
+    passive_props = {}
+    equip_props = {}
+    value = 0
+    actions = ["take@container", "call:read:읽기@inventory"]
 
-# 스크립트 함수 (선택적)
-def 함수명(context_unit_id):
-    return {
-        "type": "monologue",
-        "pages": [...],
-        "time_consumed": 0,
-        "button_type": "ok"
-    }
+    # 인스턴스 메서드 (call: 액션으로 호출)
+    def read(self):
+        """읽기 - Generator 기반"""
+        yield morld.dialog(["아이템 설명..."])
 ```
 
-### Object Asset
+### Object Asset (OOP 방식)
 ```python
 # assets/objects/{location}.py
 
-OBJECT_NAME = {
-    "unique_id": "object_name",
-    "name": "오브젝트 이름",
-    "actions": ["script:함수명:표시명"],
-    "appearance": {"default": "설명..."}
-}
+import morld
+from assets.base import Object
 
-def register():
-    registry.register_object(OBJECT_NAME)
+class MyObject(Object):
+    unique_id = "my_object"
+    name = "오브젝트 이름"
+    actions = ["call:examine:조사"]
+    focus_text = {
+        "default": "기본 설명...",
+        "unlocked": "상태 변경 후 설명..."
+    }
 
-def 함수명(context_unit_id):
-    # 플래그 체크, 아이템 지급 등
-    return {...}
+    # 인스턴스 메서드 (call: 액션으로 호출)
+    def examine(self):
+        """조사 - Generator 기반"""
+        flag_name = f"flag:examined_{self.unique_id}"
+        if morld.get_prop(flag_name) > 0:
+            yield morld.dialog(["이미 조사했다."])
+            return
+
+        morld.set_prop(flag_name, 1)
+        yield morld.dialog(["조사 결과..."])
+```
+
+### 비밀번호 오브젝트 (@proc: 패턴)
+```python
+# assets/objects/{location}.py
+
+class PasswordObject(Object):
+    password = "1234"
+
+    def open(self):
+        """비밀번호 입력 - @proc: 패턴"""
+        from scripts import _create_password_proc
+
+        state = {"input": 0, "digits": 0, "cancelled": False}
+
+        result = yield morld.dialog(
+            "",
+            autofill="off",
+            proc=_create_password_proc(state),
+            result=state
+        )
+
+        if result.get("cancelled"):
+            yield morld.dialog(["취소했다."])
+            return
+
+        input_password = str(result["input"]).zfill(4)
+        if input_password == self.password:
+            # 성공 처리
+            yield morld.dialog(["열렸다!"])
+        else:
+            yield morld.dialog(["틀렸다."])
 ```
 
 ### World 배치
@@ -407,16 +468,23 @@ def instantiate():
 ## 확장 포인트
 
 1. **새 오브젝트 추가**:
-   - `assets/objects/`에 정의 추가 → `world/mansion.py`의 OBJECTS에 배치
+   - `assets/objects/`에 클래스 정의 추가 (Object 상속)
+   - `world/mansion.py`의 OBJECTS에 배치
+   - `call:` 액션으로 인스턴스 메서드 연결
 
 2. **새 아이템 추가**:
-   - `assets/items/`에 정의 추가 → `world/mansion.py`의 ITEMS에 배치
+   - `assets/items/`에 클래스 정의 추가 (Item 상속)
+   - `world/mansion.py`의 ITEMS에 배치
+   - `call:` 액션으로 인스턴스 메서드 연결 (`@inventory` 컨텍스트)
 
 3. **새 이벤트 추가**:
-   - `events/handlers.py`의 `REACH_EVENTS` 딕셔너리에 추가
+   - `events/reach/`에 OnReach 이벤트 핸들러 추가
+   - `events/__init__.py`에서 import
 
 4. **새 비밀번호 오브젝트**:
-   - `scripts.py`의 `PASSWORD_OBJECTS` 딕셔너리에 등록
+   - 오브젝트 클래스에 `password` 속성 정의
+   - `@proc:` 패턴으로 비밀번호 입력 다이얼로그 구현
+   - `scripts.py`의 `_create_password_proc()` 재사용
 
 5. **새 Region 추가** (시나리오 확장 시):
    - `world/`에 새 파일 생성 → `world/__init__.py`에서 import

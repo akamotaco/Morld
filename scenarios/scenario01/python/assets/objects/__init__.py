@@ -46,17 +46,9 @@ def get_instance(unique_id: str) -> Object:
 
 # ========================================
 # 스크립트 함수 export (script: 액션에서 호출됨)
+# Note: 대부분의 오브젝트 스크립트는 call: 액션으로 전환되어
+#       인스턴스 메서드로 구현됨. 아래는 script: 액션 유지 항목만.
 # ========================================
 
-from .basement import examine_old_box, toggle_switch
-from .storage import examine_shelf, unlock_cabinet
-from .living_room import examine_fireplace, examine_sofa
-from .kitchen import examine_refrigerator, unlock_cupboard
-from .bedroom import examine_bed, open_vanity_drawer
-from .study import open_safe, examine_desk
-from .corridor import (
-    examine_picture, examine_clock, examine_umbrella,
-    unlock_study_door, input_study_digit, verify_study_password
-)
-from .stairs import examine_step, examine_window
+# entrance.py - 탈출/엔딩 (script: 액션 유지)
 from .entrance import escape, show_ending, show_ending_credits

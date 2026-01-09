@@ -36,6 +36,42 @@ def get_instance(instance_id: int) -> Asset:
     return _instances.get(instance_id)
 
 
+def clear_instances():
+    """모든 인스턴스 캐시 초기화"""
+    global _instances
+    _instances.clear()
+    print("[assets] Instances cleared.")
+
+
+def call_instance_method(instance_id: int, method_name: str, *args):
+    """
+    인스턴스 메서드 호출 (C#에서 call: 액션 처리 시 호출)
+
+    Args:
+        instance_id: 대상 인스턴스 ID
+        method_name: 호출할 메서드 이름
+        *args: 추가 인자
+
+    Returns:
+        메서드 반환값 (Generator, dict, None 등)
+    """
+    instance = _instances.get(instance_id)
+    if instance is None:
+        print(f"[assets] Instance not found: {instance_id}")
+        return None
+
+    method = getattr(instance, method_name, None)
+    if method is None:
+        print(f"[assets] Method not found: {instance.__class__.__name__}.{method_name}")
+        return None
+
+    if not callable(method):
+        print(f"[assets] Not callable: {instance.__class__.__name__}.{method_name}")
+        return None
+
+    return method(*args)
+
+
 # ========================================
 # Asset 로드 함수 (하위 호환용)
 # ========================================

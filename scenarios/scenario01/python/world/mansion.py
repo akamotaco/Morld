@@ -135,7 +135,7 @@ def initialize_terrain():
     morld.add_edge_with_conditions(
         REGION_ID, 0, 1,   # region_id, from_id, to_id
         1, 1,              # time_a_to_b, time_b_to_a
-        {"power": 1},      # conditions_a_to_b (지하실→창고)
+        {"flag:power": 1},      # conditions_a_to_b (지하실→창고)
         {}                 # conditions_b_to_a (창고→지하실) - 무조건
     )
 
@@ -148,7 +148,7 @@ def initialize_terrain():
         REGION_ID, 7, 8,           # region_id, from_id, to_id
         1, 1,                      # time_a_to_b, time_b_to_a
         {},                        # conditions_a_to_b (서재→복도2층) - 무조건
-        {"study_unlocked": 1}      # conditions_b_to_a (복도2층→서재) - 잠금
+        {"flag:study_unlocked": 1}      # conditions_b_to_a (복도2층→서재) - 잠금
     )
 
     print(f"[world.mansion] Region {REGION_ID} initialized: {len(locations)} locations")

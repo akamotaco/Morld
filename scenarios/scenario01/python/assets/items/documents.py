@@ -1,5 +1,6 @@
-﻿# assets/items/documents.py - 문서류 (일기장, 오래된 편지, 서재 메모)
+# assets/items/documents.py - 문서류 (일기장, 오래된 편지, 서재 메모)
 
+import morld
 from assets.base import Item
 
 
@@ -10,7 +11,7 @@ class Diary(Item):
     passive_props = {}
     equip_props = {}
     value = 0
-    actions = ["take@container", "script:read_diary:읽기@inventory"]
+    actions = ["take@container", "call:read:읽기@inventory"]
 
     pages = [
         # 표지
@@ -32,6 +33,10 @@ class Diary(Item):
         "...일기는 여기서 끝나 있다.\n\n이후의 페이지는 전부 찢겨 나갔다.\n\n저택 주인에게 무슨 일이 있었던 걸까.",
     ]
 
+    def read(self):
+        """일기장 읽기 - Generator 기반 멀티페이지"""
+        yield morld.dialog(self.pages, autofill="book")
+
 
 class OldLetter(Item):
     """오래된 편지"""
@@ -40,7 +45,7 @@ class OldLetter(Item):
     passive_props = {}
     equip_props = {}
     value = 0
-    actions = ["take@container", "script:read_old_letter:읽기@inventory"]
+    actions = ["take@container", "call:read:읽기@inventory"]
 
     pages = [
         "누렇게 바랜 봉투 안에 편지가 들어있다.\n\n봉투에는 '에밀리에게'라고 적혀있다.\n\n펼쳐본다...",
@@ -58,6 +63,10 @@ class OldLetter(Item):
         "...편지는 여기서 끝나 있다.\n\n서명은 없다.\n잉크가 번져 알아볼 수 없다.\n\n저택 주인은 결국 이 편지를\n보내지 못한 것 같다.",
     ]
 
+    def read(self):
+        """오래된 편지 읽기 - Generator 기반 멀티페이지"""
+        yield morld.dialog(self.pages, autofill="book")
+
 
 class StudyMemo(Item):
     """서재 메모"""
@@ -66,39 +75,10 @@ class StudyMemo(Item):
     passive_props = {}
     equip_props = {}
     value = 0
-    actions = ["take@container", "script:read_study_memo:읽기@inventory"]
+    actions = ["take@container", "call:read:읽기@inventory"]
 
     content = '"서재 문 비밀번호: 2847"'
 
-
-# ========================================
-# 스크립트 함수
-# ========================================
-
-def read_diary(context_unit_id):
-    """일기장 읽기 - 멀티페이지"""
-    return {
-        "type": "monologue",
-        "pages": Diary.pages,
-        "time_consumed": 2,
-        "button_type": "ok"
-    }
-
-
-def read_old_letter(context_unit_id):
-    """오래된 편지 읽기 - 멀티페이지"""
-    return {
-        "type": "monologue",
-        "pages": OldLetter.pages,
-        "time_consumed": 2,
-        "button_type": "ok"
-    }
-
-
-def read_study_memo(context_unit_id):
-    """서재 메모 읽기"""
-    return {
-        "type": "monologue",
-        "pages": [StudyMemo.content],
-        "time_consumed": 0
-    }
+    def read(self):
+        """서재 메모 읽기 - Generator 기반 인스턴스 메서드"""
+        yield morld.dialog([self.content])

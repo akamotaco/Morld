@@ -169,6 +169,9 @@ public class MetaActionHandler
 			case "script":
 				HandleScriptAction(parts);
 				break;
+			case "call":
+				HandleCallAction(parts);
+				break;
 			case "sit":
 				HandleSitAction(parts);
 				break;
@@ -555,6 +558,26 @@ public class MetaActionHandler
 				scriptParts[i - 2] = parts[i];
 			}
 			HandleScriptAction(scriptParts);
+			return;
+		}
+
+		// call 액션인 경우 HandleCallAction으로 위임
+		// action:call:methodName:displayName:unitId → call:methodName:unitId
+		if (actionType == "call")
+		{
+			// parts[0]="action", parts[1]="call", parts[2]=methodName, parts[3]=displayName, parts[4]=unitId
+			if (parts.Length >= 5)
+			{
+				// unitId가 명시된 경우 (아이템 인벤토리 등)
+				var callParts = new string[] { "call", parts[2], parts[4] };
+				HandleCallAction(callParts);
+			}
+			else
+			{
+				// unitId가 없는 경우 (Focus.TargetUnitId 사용)
+				var callParts = new string[] { "call", parts[2] };
+				HandleCallAction(callParts);
+			}
 			return;
 		}
 
@@ -1203,6 +1226,82 @@ public class MetaActionHandler
 		{
 			// 스크립트가 반환값 없이 완료됨 - invalid focus 처리 및 화면 갱신
 			// Note: 로그 읽음 처리는 HandleAction() 시작 시점에서 수행됨
+			_textUISystem?.PopIfInvalid();
+			_textUISystem?.UpdateDisplay();
+			return;
+		}
+
+		ProcessScriptResult(result, scriptSystem);
+	}
+
+	/// <summary>
+	/// Python 인스턴스 메서드 호출: call:methodName[:instanceId]
+	/// 현재 Focus의 UnitId 또는 ItemId의 Asset 인스턴스 메서드를 호출
+	/// script:와 유사하지만 전역 함수 대신 인스턴스 메서드 호출
+	/// </summary>
+	private void HandleCallAction(string[] parts)
+	{
+		if (parts.Length < 2)
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid call format. Expected: call:methodName");
+			return;
+		}
+
+		var methodName = parts[1];
+
+		// instance ID 결정 우선순위:
+		// 1. parts[2]에 명시된 경우 (URL에서 전달)
+		// 2. Focus.ItemId (아이템 메뉴에서 호출)
+		// 3. Focus.TargetUnitId (오브젝트/유닛에서 호출)
+		var currentFocus = _textUISystem?.CurrentFocus;
+		int? instanceId = null;
+
+		if (parts.Length >= 3 && int.TryParse(parts[2], out int explicitId))
+		{
+			instanceId = explicitId;
+		}
+		else if (currentFocus?.ItemId.HasValue == true)
+		{
+			instanceId = currentFocus.ItemId;
+		}
+		else if (currentFocus?.TargetUnitId.HasValue == true)
+		{
+			instanceId = currentFocus.TargetUnitId;
+		}
+
+		if (!instanceId.HasValue)
+		{
+			GD.PrintErr("[MetaActionHandler] call: requires a target (Focus.ItemId or TargetUnitId)");
+			_textUISystem?.ShowResult("대상을 찾을 수 없습니다.");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] Call action: {methodName} on instance {instanceId.Value}");
+#endif
+
+		// 다이얼로그 내에서 call: 호출은 금지 - pending generator가 있으면 에러
+		if (_pendingGenerator != null)
+		{
+			GD.PrintErr($"[MetaActionHandler] call: called while dialog is pending - use @proc: pattern instead! method={methodName}");
+			_textUISystem?.ShowResult("다이얼로그 중에는 call: 호출이 금지됩니다.\n@proc: 패턴을 사용하세요.");
+			return;
+		}
+
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] ScriptSystem not found");
+			return;
+		}
+
+		// Python의 assets.call_instance_method(instance_id, method_name) 호출
+		var result = scriptSystem.CallInstanceMethod(instanceId.Value, methodName);
+
+		// 결과 타입에 따른 처리
+		if (result == null)
+		{
+			// 스크립트가 반환값 없이 완료됨 - invalid focus 처리 및 화면 갱신
 			_textUISystem?.PopIfInvalid();
 			_textUISystem?.UpdateDisplay();
 			return;

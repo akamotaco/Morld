@@ -2560,6 +2560,66 @@ __init__.initialize_scenario()
         }
 
         /// <summary>
+        /// Python Asset 인스턴스 메서드 호출 (BBCode call: prefix용)
+        /// assets.call_instance_method(instance_id, method_name)을 통해 호출
+        /// </summary>
+        /// <param name="instanceId">인스턴스 ID (Focus의 TargetUnitId)</param>
+        /// <param name="methodName">호출할 메서드 이름</param>
+        /// <returns>메서드 실행 결과 (ScriptResult)</returns>
+        public ScriptResult CallInstanceMethod(int instanceId, string methodName)
+        {
+            Godot.GD.Print($"[ScriptSystem] CallInstanceMethod: {methodName} on instance {instanceId}");
+
+            try
+            {
+                // assets 모듈이 로드되어 있는지 확인하고 import
+                Execute("import assets");
+
+                // assets.call_instance_method(instance_id, method_name) 호출
+                var code = $"assets.call_instance_method({instanceId}, '{methodName}')";
+                Godot.GD.Print($"[ScriptSystem] Evaluating: {code}");
+
+                var result = Eval(code);
+
+                Godot.GD.Print($"[ScriptSystem] Result type: {result.GetType().Name ?? "null"}, value: {result}");
+
+                // 제너레이터인 경우 - yield morld.dialog(...) 지원
+                if (result is PyGenerator generator)
+                {
+                    return ProcessGenerator(generator);
+                }
+
+                // PyDict인 경우 구조화된 결과로 파싱
+                if (result is PyDict dict)
+                {
+                    return ParseDictResult(dict);
+                }
+                // 문자열 결과
+                else if (result is PyString pyStr)
+                {
+                    return new ScriptResult { Type = "message", Message = pyStr.Value };
+                }
+                else if (result is PyInt pyInt)
+                {
+                    return new ScriptResult { Type = "message", Message = pyInt.Value.ToString() };
+                }
+                else if (result is PyNone || result == null)
+                {
+                    return null;
+                }
+                else
+                {
+                    return new ScriptResult { Type = "message", Message = result.ToString() ?? "" };
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallInstanceMethod error: {ex.Message}");
+                return new ScriptResult { Type = "error", Message = ex.Message };
+            }
+        }
+
+        /// <summary>
         /// Python 함수 호출 (BBCode script: prefix용) - 구조화된 결과 반환
         /// </summary>
         /// <param name="functionName">호출할 함수 이름</param>

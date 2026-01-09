@@ -99,6 +99,10 @@ class Asset:
         self.instance_id = instance_id
         self._instantiated = True
 
+        # 인스턴스 캐시에 등록 (call: 액션용)
+        from assets import register_instance
+        register_instance(instance_id, self)
+
     def _check_instantiated(self):
         """instantiate() 호출 여부 확인"""
         if not self._instantiated:
