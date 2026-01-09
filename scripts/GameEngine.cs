@@ -27,11 +27,11 @@ public partial class GameEngine : Node
 		// 3. 모든 시스템 등록
 		RegisterAllSystems();
 
-		// 4. 데이터 로드 (Python + morld API 등록)
-		LoadDataFromPython();
-
-		// 5. 이벤트 콜백 및 핸들러 등록
+		// 4. 이벤트 콜백 및 핸들러 등록 (데이터 로드 전에 준비)
 		RegisterEventHandlers();
+
+		// 5. 데이터 로드 (Python + morld API 등록, 챕터 로드)
+		LoadDataFromPython();
 
 		// 6. 게임 시작
 		StartGame();

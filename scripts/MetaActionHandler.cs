@@ -198,6 +198,22 @@ public class MetaActionHandler
 			return;
 		}
 
+		// 모든 이벤트 처리 완료 - ExcessTime 계산 및 PlayerSystem에 적용
+		if (eventSystem != null)
+		{
+			eventSystem.FinalizeDialogTime();
+
+			// ExcessTime을 PlayerSystem의 _remainingDuration에 추가
+			// → HasPendingTime = true → _Process에서 파이프라인 실행 (NPC 스케줄 등)
+			var excessTime = eventSystem.ConsumeExcessTime();
+			if (excessTime > 0)
+			{
+				_playerSystem?.AddExcessTime(excessTime);
+				// ExcessTime이 있으면 상황 업데이트 생략 - 파이프라인 완료 후 _Process에서 표시됨
+				return;
+			}
+		}
+
 		OnUpdateSituation?.Invoke();
 	}
 
