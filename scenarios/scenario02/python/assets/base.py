@@ -196,6 +196,10 @@ class Object(Unit):
 
     메서드 오버라이드:
     - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
+
+    액션 패턴:
+    - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성 지원)
+    - script:함수명:표시명 → 전역 스크립트 함수 호출 (레거시)
     """
 
     type: str = "object"
@@ -220,6 +224,10 @@ class Object(Unit):
         if self.props:
             morld.set_unit_props(instance_id, self.props)
 
+        # 인스턴스 캐시 등록 (call: 액션, focus_text 조회용)
+        from assets.objects import register_instance
+        register_instance(instance_id, self)
+
 
 class Item(Asset):
     """
@@ -230,6 +238,10 @@ class Item(Asset):
     - equip_props: 장착 효과
     - value: 거래 가치
     - owner: 소유자 unique_id (None이면 공용)
+
+    액션 패턴:
+    - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성 지원)
+    - script:함수명:표시명 → 전역 스크립트 함수 호출 (레거시)
     """
 
     passive_props: dict = None
@@ -250,6 +262,10 @@ class Item(Asset):
             self.actions or [],
             self.owner  # 소유자 정보 전달
         )
+
+        # 인스턴스 캐시 등록 (call: 액션용)
+        from assets.items import register_instance
+        register_instance(instance_id, self)
 
 
 class Location(Asset):

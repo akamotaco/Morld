@@ -2,7 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Mirror
+from assets.objects.furniture import Mirror, Bed
 
 
 class MilaRoom(Location):
@@ -19,3 +19,4 @@ class MilaRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
         self.add_object(Mirror(), 203)
+        self.add_object(Bed(), 214)

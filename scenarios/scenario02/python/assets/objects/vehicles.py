@@ -94,25 +94,23 @@ class CarTrunk(Object):
     """
     unique_id = "car_trunk"
     name = "트렁크"
-    actions = ["script:trunk_look:살펴보기", "script:debug_props:속성 보기"]
+    actions = ["call:look:살펴보기", "script:debug_props:속성 보기"]
     focus_text = {"default": "넓은 트렁크 공간. 물건을 보관할 수 있다."}
+
+    def look(self):
+        """트렁크 살펴보기"""
+        yield morld.dialog([
+            "차 트렁크를 열어보았다.",
+            "물건을 넣거나 꺼낼 수 있겠다."
+        ])
+        morld.advance_time(1)
 
 
 # ========================================
-# 스크립트 함수
+# 스크립트 함수 (drive 관련은 유지)
 # ========================================
 
 import morld
-
-
-def trunk_look(context_unit_id):
-    """트렁크 살펴보기"""
-    return {
-        "type": "monologue",
-        "pages": ["차 트렁크를 열어보았다.", "물건을 넣거나 꺼낼 수 있겠다."],
-        "time_consumed": 1,
-        "button_type": "ok"
-    }
 
 
 def drive_menu(context_unit_id):

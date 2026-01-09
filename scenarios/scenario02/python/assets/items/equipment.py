@@ -1,10 +1,15 @@
-﻿# assets/items/equipment.py - 장비 아이템
+# assets/items/equipment.py - 장비 아이템
+#
+# OOP call: 패턴 적용
+# - actions: ["call:메서드명:표시명@context"] 형식
+# - 각 클래스가 인스턴스 메서드로 동작 구현
 #
 # 사용법:
 #   from assets.items.equipment import OldKnife, LeatherPouch
 #   knife = OldKnife()
 #   knife.instantiate(item_id)
 
+import morld
 from assets.base import Item
 
 
@@ -49,7 +54,16 @@ class OldBook(Item):
     passive_props = {"지식": 1}
     equip_props = {}
     value = 15
-    actions = ["take@container", "script:read_book:읽기@inventory"]
+    actions = ["take@container", "call:read:읽기@inventory"]
+
+    def read(self):
+        """낡은 책 읽기"""
+        yield morld.dialog([
+            "오래된 책을 펼쳐본다.",
+            "손때 묻은 페이지에는 이 저택의 역사가 적혀 있다.",
+            "흥미로운 내용이지만, 대부분의 글자는 바래져 읽기 어렵다."
+        ], autofill="book")
+        morld.advance_time(10)
 
 
 # ========================================

@@ -68,7 +68,11 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     # 6. EventSystem 위치 재초기화
     morld.reinitialize_locations()
 
-    # 7. 현재 챕터 기록
+    # 7. Instance ID 중복 검사
+    from assets import validate_instance_ids
+    validate_instance_ids()
+
+    # 8. 현재 챕터 기록
     _current_chapter = chapter_name
 
     print(f"[chapters] Chapter '{chapter_name}' loaded successfully.")
