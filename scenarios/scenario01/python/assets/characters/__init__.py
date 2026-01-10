@@ -19,9 +19,9 @@ def get_character_event_handler(unit_id: int):
     return None
 
 
-def get_all_presence_texts(region_id: int, location_id: int) -> list:
+def get_all_describe_texts(unit_ids: list) -> list:
     """
-    현재 위치의 모든 캐릭터 presence text 반환
+    캐릭터들의 describe text 반환
     시나리오01에는 NPC가 없으므로 빈 리스트 반환
     """
     return []

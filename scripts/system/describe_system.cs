@@ -94,7 +94,7 @@ namespace SE
 		/// <summary>
 		/// 캐릭터 describe text 가져오기 (ScriptSystem을 통해 Python 호출)
 		/// </summary>
-		private List<string> GetCharacterDescribeTexts(LookResult lookResult, LocationInfo loc)
+		private List<string> GetCharacterDescribeTexts(LookResult lookResult)
 		{
 			var result = new List<string>();
 
@@ -122,8 +122,8 @@ namespace SE
 			if (characterIds.Count == 0)
 				return result;
 
-			// ScriptSystem을 통해 Python에서 presence text 가져오기
-			return scriptSystem.GetCharacterPresenceTexts(characterIds, loc.LocationRef.RegionId, loc.LocationRef.LocalId);
+			// ScriptSystem을 통해 Python에서 describe text 가져오기
+			return scriptSystem.GetCharacterDescribeTexts(characterIds);
 		}
 
 		/// <summary>
@@ -228,7 +228,7 @@ namespace SE
 			}
 
 			// 3.1. 캐릭터 describe text (위치 외관 묘사 바로 다음)
-			var describeTexts = GetCharacterDescribeTexts(lookResult, loc);
+			var describeTexts = GetCharacterDescribeTexts(lookResult);
 			foreach (var describeText in describeTexts)
 			{
 				lines.Add(describeText);
@@ -285,19 +285,10 @@ namespace SE
 					// 오브젝트 표시
 					if (objects.Count > 0)
 					{
-						var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 						lines.Add("[color=orange]오브젝트:[/color]");
 						foreach (var obj in objects)
 						{
-							// IsVisible이고 인벤토리가 비어있지 않으면 "(아이템이 보임)" 표시
-							var visibleSuffix = "";
-							if (inventorySystem != null &&
-								inventorySystem.IsUnitInventoryVisible(obj.Id) &&
-								inventorySystem.GetUnitInventory(obj.Id).Count > 0)
-							{
-								visibleSuffix = " [color=lime](아이템이 보임)[/color]";
-							}
-							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]{visibleSuffix}");
+							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]");
 						}
 						lines.Add("");
 					}
@@ -802,6 +793,8 @@ namespace SE
 			}
 
 			// action@context 형식 (take@container, equip@inventory 등)
+			// @context는 아이템 위치에 따른 필터링용 (GetFilteredActions에서 처리)
+			// 여기서는 can: 체크를 위해 액션 이름만 추출
 			var atIndex = action.IndexOf('@');
 			if (atIndex > 0)
 			{
