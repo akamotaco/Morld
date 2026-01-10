@@ -196,10 +196,20 @@ class Object(Unit):
 
     메서드 오버라이드:
     - get_focus_text(): 클릭했을 때 묘사
+
+    컨테이너 메서드:
+    - take(item_id): 오브젝트에서 아이템 가져가기
     """
 
     type: str = "object"
     focus_text: dict = None  # {"default": "묘사"} 또는 단순 문자열
+
+    def take(self, item_id):
+        """오브젝트에서 특정 아이템 하나 가져가기"""
+        player_id = morld.get_player_id()
+        item_id = int(item_id)
+        morld.lost_item(self.instance_id, item_id)
+        morld.give_item(player_id, item_id)
 
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """오브젝트를 morld에 등록"""

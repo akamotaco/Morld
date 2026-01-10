@@ -241,20 +241,20 @@ class Object(Unit):
     - debug_props(): 속성 디버그 출력
 
     컨테이너 메서드 (인벤토리가 있는 오브젝트):
-    - take_item(item_id): 오브젝트에서 아이템 가져가기
-    - put_to_object(): 오브젝트에 아이템 넣기 (다이얼로그)
+    - take(item_id): 오브젝트에서 아이템 가져가기
+    - put(): 오브젝트에 아이템 넣기 (다이얼로그)
     """
 
     type: str = "object"
 
-    def take_item(self, item_id):
+    def take(self, item_id):
         """오브젝트에서 특정 아이템 하나 가져가기"""
         player_id = morld.get_player_id()
         item_id = int(item_id)
         morld.lost_item(self.instance_id, item_id)
         morld.give_item(player_id, item_id)
 
-    def put_to_object(self):
+    def put(self):
         """오브젝트에 아이템 넣기 (다이얼로그 방식)"""
         player_id = morld.get_player_id()
         inventory = morld.get_unit_inventory(player_id)

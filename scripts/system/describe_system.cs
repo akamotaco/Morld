@@ -476,10 +476,10 @@ namespace SE
 				lines.Add("[color=yellow]행동:[/color]");
 				foreach (var action in filteredUnitActions)
 				{
-					// putinobject 액션은 call:put_to_object로 변환 (가져가기는 기존 Item 메뉴 방식 유지)
+					// putinobject 액션은 call:put으로 변환 (가져가기는 기존 Item 메뉴 방식 유지)
 					if (action == "putinobject")
 					{
-						lines.Add($"  [url=call:put_to_object]넣기[/url]");
+						lines.Add($"  [url=call:put]넣기[/url]");
 					}
 					// call:메서드명:표시명 형식 - Python Asset 인스턴스 메서드 호출
 					// Focus.TargetUnitId에서 instanceId를 가져오므로 URL에 ID 포함 불필요
@@ -768,8 +768,8 @@ namespace SE
 
 			return action switch
 			{
-				// take는 container에서 가져가기 - call:take_item으로 처리
-				"take" when context == "container" => ($"call:take_item:{itemId}", "가져가기"),
+				// take는 container에서 가져가기 - call:take로 처리
+				"take" when context == "container" => ($"call:take:{itemId}", "가져가기"),
 				"use" => ($"item_use:{itemId}", "사용"),
 				"equip" => ($"equip:{itemId}", "장착"),
 				"throw" => ($"throw:{itemId}", "던지기"),
@@ -788,7 +788,6 @@ namespace SE
 		/// 지원 형식:
 		/// - "call:methodName:displayName" → "methodName"
 		/// - "call:methodName" → "methodName"
-		/// - "sit@seatName:displayName" → "sit"
 		/// - "action@context" → "action"
 		/// - "putinobject" → "putinobject"
 		/// - "rest", "sleep" 등 → 그대로
@@ -802,13 +801,7 @@ namespace SE
 				return parts.Length >= 2 ? parts[1] : action;
 			}
 
-			// sit@좌석명:표시명 형식
-			if (action.StartsWith("sit@"))
-			{
-				return "sit";
-			}
-
-			// action@context 형식 (take@container, use@inventory 등)
+			// action@context 형식 (take@container, equip@inventory 등)
 			var atIndex = action.IndexOf('@');
 			if (atIndex > 0)
 			{

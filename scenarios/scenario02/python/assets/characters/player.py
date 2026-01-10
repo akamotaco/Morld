@@ -80,8 +80,7 @@ class Player(Character):
         "can:use": 1,
         "can:equip": 1,
         "can:putinobject": 1,
-        "can:put_to_object": 1,
-        "can:take_item": 1,
+        "can:put": 1,
 
         # 오브젝트 상호작용 - OOP 메서드명
         "can:look": 1,
