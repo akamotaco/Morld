@@ -139,4 +139,86 @@ public partial class MetaActionHandler
 		// 인벤토리 화면으로 전환 (현재 Unit Focus 위에 Push - 스택에서 targetUnitId 탐색)
 		_textUISystem?.ShowInventory();
 	}
+
+	/// <summary>
+	/// 아이템 장착: equip:itemId
+	/// Python equipment.equip_item() 호출
+	/// </summary>
+	private void HandleEquipAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid equip format. Expected: equip:itemId");
+			return;
+		}
+
+		var player = _playerSystem?.FindPlayerUnit();
+		if (player == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleEquipAction: Player not found");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] 아이템 장착: itemId={itemId}, playerId={player.Id}");
+#endif
+
+		// Python equipment.equip_item() 호출
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem != null)
+		{
+			try
+			{
+				scriptSystem.Eval($"import equipment; equipment.equip_item({player.Id}, {itemId})");
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[MetaActionHandler] equip error: {ex.Message}");
+			}
+		}
+
+		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
+		_textUISystem?.Pop();
+	}
+
+	/// <summary>
+	/// 아이템 장착 해제: unequip:itemId
+	/// Python equipment.unequip_item() 호출
+	/// </summary>
+	private void HandleUnequipAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid unequip format. Expected: unequip:itemId");
+			return;
+		}
+
+		var player = _playerSystem?.FindPlayerUnit();
+		if (player == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleUnequipAction: Player not found");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] 아이템 장착 해제: itemId={itemId}, playerId={player.Id}");
+#endif
+
+		// Python equipment.unequip_item() 호출
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem != null)
+		{
+			try
+			{
+				scriptSystem.Eval($"import equipment; equipment.unequip_item({player.Id}, {itemId})");
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[MetaActionHandler] unequip error: {ex.Message}");
+			}
+		}
+
+		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
+		_textUISystem?.Pop();
+	}
 }

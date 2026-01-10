@@ -3,7 +3,8 @@
 # 사용법:
 #   from assets.characters.ella import Ella
 #   ella = Ella()
-#   ella.instantiate(5, REGION_ID, location_id)
+#   ella_id = morld.create_id("unit")
+#   ella.instantiate(ella_id, REGION_ID, location_id)
 
 from assets.base import Character
 from think import BaseAgent, register_agent_class

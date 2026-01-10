@@ -10,6 +10,7 @@ public enum FocusType
 	Situation,   // 상황 화면 (location)
 	Unit,        // 유닛/오브젝트 화면
 	Inventory,   // 플레이어 인벤토리
+	Equipment,   // 장착 아이템 목록
 	Item,        // 아이템 메뉴
 	Result,      // 결과 메시지
 	Dialog       // 다이얼로그 (morld.dialog() API, BBCode URL 기반)
@@ -68,6 +69,7 @@ public class Focus
 	public static Focus Situation() => new() { Type = FocusType.Situation };
 	public static Focus Unit(int unitId) => new() { Type = FocusType.Unit, TargetUnitId = unitId };
 	public static Focus Inventory(int? targetUnitId = null) => new() { Type = FocusType.Inventory, TargetUnitId = targetUnitId };
+	public static Focus Equipment() => new() { Type = FocusType.Equipment };
 	public static Focus Item(int itemId, string context, int? unitId = null)
 		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, TargetUnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };

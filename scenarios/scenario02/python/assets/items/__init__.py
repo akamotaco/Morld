@@ -18,7 +18,8 @@ from .resources import (
     Wood, Herb, Cloth
 )
 from .food import (
-    FoodItem, WildBerry, Apple, Mushroom, CookedMeat, CookedFish
+    FoodItem, WildBerry, Apple, Mushroom, CookedMeat, CookedFish,
+    HerbSalad, MeatStew
 )
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     'Wood', 'Herb', 'Cloth',
     # food
     'FoodItem', 'WildBerry', 'Apple', 'Mushroom', 'CookedMeat', 'CookedFish',
+    'HerbSalad', 'MeatStew',
 ]
 
 

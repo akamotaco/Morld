@@ -13,9 +13,6 @@
 
 import morld
 
-# 동적 아이템 생성용 ID 카운터 (충돌 방지를 위해 높은 번호부터 시작)
-_dynamic_item_id_counter = 500
-
 
 def _instantiate_item_by_unique(unique_id: str):
     """
@@ -26,8 +23,6 @@ def _instantiate_item_by_unique(unique_id: str):
     Returns:
         item_id 또는 None
     """
-    global _dynamic_item_id_counter
-
     # 아이템 클래스 모듈 import (데코레이터 실행을 위해)
     # 순서: equipment 먼저 (장비 아이템), 그 다음 food
     from assets.items import equipment, food
@@ -42,8 +37,7 @@ def _instantiate_item_by_unique(unique_id: str):
 
     # 동적으로 instantiate
     item = item_cls()
-    item_id = _dynamic_item_id_counter
-    _dynamic_item_id_counter += 1
+    item_id = morld.create_id()
 
     item.instantiate(item_id)
     print(f"[persistence] Dynamically instantiated item: {unique_id} (id={item_id})")

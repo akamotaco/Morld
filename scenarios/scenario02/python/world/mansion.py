@@ -8,13 +8,14 @@
 import morld
 
 # ========================================
-# Instance ID 할당 규칙
+# Instance ID 생성
 # ========================================
 #
-# 플레이어: 0
-# NPC: 1 ~ 99
-# 아이템: 100 ~ 199
-# 오브젝트: 200 ~ 299
+# morld.create_id(category)를 사용하여 동적 생성
+# - "unit": 캐릭터 + 오브젝트
+# - "item": 아이템
+# - "location": 장소 (필요 시)
+#
 # 바닥 유닛: 1000 + location_id (예: location_id=3 → ground_id=1003)
 
 # ========================================
@@ -166,8 +167,9 @@ def instantiate_player():
     from assets.characters.player import Player
 
     player = Player()
-    player.instantiate(0, REGION_ID, 21)  # 숲 깊은 곳에서 시작
-    print("[world.mansion] Player instantiated")
+    player_id = morld.create_id("unit")
+    player.instantiate(player_id, REGION_ID, 21)  # 숲 깊은 곳에서 시작
+    print(f"[world.mansion] Player instantiated (id={player_id})")
     return player
 
 
@@ -178,15 +180,17 @@ def instantiate_npcs():
     from assets.characters.sera import Sera
     from assets.characters.mila import Mila
 
+    # (cls, location_id)
     npc_classes = {
-        "lina": (Lina, 1, 7),
-        "sera": (Sera, 2, 8),
-        "mila": (Mila, 3, 9),
+        "lina": (Lina, 7),
+        "sera": (Sera, 8),
+        "mila": (Mila, 9),
     }
 
     npcs = {}
-    for unique_id, (cls, instance_id, location_id) in npc_classes.items():
+    for unique_id, (cls, location_id) in npc_classes.items():
         npc = cls()
+        instance_id = morld.create_id("unit")
         npc.instantiate(instance_id, REGION_ID, location_id)
         npcs[unique_id] = npc
 
@@ -215,28 +219,27 @@ def instantiate():
 # ========================================
 
 # 오브젝트 배치 정보
-# (unique_id, instance_id, region_id, location_id, initial_resources)
+# (unique_id, region_id, location_id, initial_resources)
 NATURE_OBJECTS = [
     # 채집터 (location 23)
-    ("berry_bush", 200, REGION_ID, 23, 3),      # 산딸기 덤불
-    ("mushroom_patch", 201, REGION_ID, 23, 2),  # 버섯 군락
+    ("berry_bush", REGION_ID, 23, 3),      # 산딸기 덤불
+    ("mushroom_patch", REGION_ID, 23, 2),  # 버섯 군락
 
     # 숲 깊은 곳 (location 21)
-    ("apple_tree", 202, REGION_ID, 21, 2),      # 사과나무
+    ("apple_tree", REGION_ID, 21, 2),      # 사과나무
 
     # 강가 (location 22)
-    ("berry_bush", 203, REGION_ID, 22, 2),      # 산딸기 덤불
+    ("berry_bush", REGION_ID, 22, 2),      # 산딸기 덤불
 ]
 
 
-# 음식 아이템 ID 할당
-# (unique_id, instance_id)
-FOOD_ITEMS = [
-    ("wild_berry", 100),
-    ("apple", 101),
-    ("mushroom", 102),
-    ("cooked_meat", 103),
-    ("cooked_fish", 104),
+# 음식 아이템 unique_id 목록
+FOOD_ITEM_UNIQUE_IDS = [
+    "wild_berry",
+    "apple",
+    "mushroom",
+    "cooked_meat",
+    "cooked_fish",
 ]
 
 
@@ -252,13 +255,16 @@ def instantiate_food_items():
         "cooked_fish": CookedFish,
     }
 
-    for unique_id, instance_id in FOOD_ITEMS:
+    count = 0
+    for unique_id in FOOD_ITEM_UNIQUE_IDS:
         cls = item_classes.get(unique_id)
         if cls:
             item = cls()
+            instance_id = morld.create_id("item")
             item.instantiate(instance_id)
+            count += 1
 
-    print(f"[world.mansion] {len(FOOD_ITEMS)} food items registered")
+    print(f"[world.mansion] {count} food items registered")
 
 
 def instantiate_nature_objects():
@@ -273,13 +279,14 @@ def instantiate_nature_objects():
     }
 
     objects = []
-    for unique_id, instance_id, region_id, location_id, initial_resources in NATURE_OBJECTS:
+    for unique_id, region_id, location_id, initial_resources in NATURE_OBJECTS:
         cls = object_classes.get(unique_id)
         if not cls:
             print(f"[world.mansion] Unknown object: {unique_id}")
             continue
 
         obj = cls()
+        instance_id = morld.create_id("unit")  # 오브젝트도 unit 카테고리
         obj.instantiate(instance_id, region_id, location_id)
         objects.append(obj)
 

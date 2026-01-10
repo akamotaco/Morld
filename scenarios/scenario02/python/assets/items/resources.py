@@ -14,12 +14,13 @@ from assets.base import Item
 
 
 # ========================================
-# 식량 자원
+# 식량 자원 (조리 재료)
 # ========================================
 
 class Flour(Item):
     unique_id = "flour"
     name = "밀가루"
+    category = "food_ingredient"  # 음식 재료
     passive_props = {}
     equip_props = {}
     value = 5
@@ -29,6 +30,7 @@ class Flour(Item):
 class Rice(Item):
     unique_id = "rice"
     name = "쌀"
+    category = "food_ingredient"
     passive_props = {}
     equip_props = {}
     value = 5
@@ -38,6 +40,7 @@ class Rice(Item):
 class Water(Item):
     unique_id = "water"
     name = "물"
+    category = "food_ingredient"
     passive_props = {}
     equip_props = {}
     value = 1
@@ -65,6 +68,7 @@ class Water(Item):
 class Bread(Item):
     unique_id = "bread"
     name = "빵"
+    category = "food"  # 완성된 음식
     passive_props = {}
     equip_props = {}
     value = 10
@@ -89,6 +93,7 @@ class Bread(Item):
 class Berry(Item):
     unique_id = "berry"
     name = "열매"
+    category = "food_ingredient"  # 음식 재료
     passive_props = {}
     equip_props = {}
     value = 3
@@ -113,6 +118,7 @@ class Berry(Item):
 class Meat(Item):
     unique_id = "meat"
     name = "고기"
+    category = "food_ingredient"  # 음식 재료
     passive_props = {}
     equip_props = {}
     value = 15
@@ -126,6 +132,7 @@ class Meat(Item):
 class Wood(Item):
     unique_id = "wood"
     name = "나무"
+    category = "material"  # 재료/자원
     passive_props = {}
     equip_props = {}
     value = 3
@@ -135,6 +142,7 @@ class Wood(Item):
 class Herb(Item):
     unique_id = "herb"
     name = "약초"
+    category = "food_ingredient"  # 음식 재료 (조리용)
     passive_props = {"치료": 1}
     equip_props = {}
     value = 8
@@ -152,6 +160,7 @@ class Herb(Item):
 class Cloth(Item):
     unique_id = "cloth"
     name = "천 조각"
+    category = "material"  # 재료/자원
     passive_props = {}
     equip_props = {}
     value = 2

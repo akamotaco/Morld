@@ -1,7 +1,12 @@
 # assets/locations/riverside.py - 강가
+#
+# 낚시 기능: can:fish가 있어야 낚시 가능 (낚시대 장착 필요)
 
+import random
+import morld
 from assets.base import Location
 from assets.objects.grounds import GroundRocky
+from assets.objects.outdoor import FishingSpot
 
 
 class Riverside(Location):
@@ -19,6 +24,7 @@ class Riverside(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """강가 생성 + 바위투성이 바닥 추가"""
+        """강가 생성 + 바위투성이 바닥 + 낚시터 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundRocky())
+        self.add_object(FishingSpot())

@@ -3,7 +3,8 @@
 # 사용법:
 #   from assets.characters.mila import Mila
 #   mila = Mila()
-#   mila.instantiate(3, REGION_ID, location_id)
+#   mila_id = morld.create_id("unit")
+#   mila.instantiate(mila_id, REGION_ID, location_id)
 
 from assets.base import Character
 from think import BaseAgent, register_agent_class

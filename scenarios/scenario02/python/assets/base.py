@@ -9,9 +9,13 @@
 #   └── Location
 #
 # 사용법:
-#   loc = BackYard()                    # 인스턴스 생성
-#   loc.instantiate(12, REGION_ID)      # morld에 등록
-#   loc.ground.add_item(herb)           # 바닥에 아이템 추가
+#   loc = BackYard()                           # 인스턴스 생성
+#   loc.instantiate(location_id, REGION_ID)    # morld에 등록 (location_id는 수동 지정)
+#   loc.ground.add_item(herb)                  # 바닥에 아이템 추가
+#
+#   npc = Sera()
+#   npc_id = morld.create_id("unit")           # ID 자동 생성
+#   npc.instantiate(npc_id, REGION_ID, loc_id)
 #
 # 텍스트 시스템:
 #   - get_describe_text(): 장소에 있을 때 보이는 묘사 (Character, Location)
@@ -250,9 +254,15 @@ class Object(Unit):
     컨테이너 메서드 (인벤토리가 있는 오브젝트):
     - take(item_id): 오브젝트에서 아이템 가져가기
     - put(): 오브젝트에 아이템 넣기 (다이얼로그)
+
+    필터링 속성:
+    - put_filter: 넣기 가능한 아이템 카테고리 리스트
+      예) ["food_ingredient"] → 음식 재료만 넣기 가능
+      None이면 제한 없음 (모든 아이템 넣기 가능)
     """
 
     type: str = "object"
+    put_filter: list = None  # 넣기 가능한 카테고리 리스트
 
     def take(self, item_id):
         """오브젝트에서 특정 아이템 하나 가져가기"""
@@ -261,8 +271,25 @@ class Object(Unit):
         morld.lost_item(self.instance_id, item_id)
         morld.give_item(player_id, item_id)
 
+    def _can_put_item(self, item_id: int) -> bool:
+        """아이템을 이 오브젝트에 넣을 수 있는지 확인"""
+        if self.put_filter is None:
+            return True  # 필터 없으면 모든 아이템 허용
+
+        # 아이템 인스턴스에서 category 확인
+        from assets.items import get_instance
+        item_instance = get_instance(item_id)
+        if item_instance is None:
+            return False
+
+        item_category = getattr(item_instance, 'category', None)
+        if item_category is None:
+            return False  # 카테고리 없는 아이템은 필터가 있으면 제외
+
+        return item_category in self.put_filter
+
     def put(self):
-        """오브젝트에 아이템 넣기 (다이얼로그 방식)"""
+        """오브젝트에 아이템 넣기 (다이얼로그 방식, 필터 적용)"""
         player_id = morld.get_player_id()
         inventory = morld.get_unit_inventory(player_id)
 
@@ -270,15 +297,26 @@ class Object(Unit):
             yield morld.dialog("넣을 아이템이 없다.")
             return
 
-        # 아이템 목록 다이얼로그 생성
+        # 필터 적용하여 아이템 목록 생성
         lines = [f"[b]{self.name}[/b]에 넣기\n"]
+        has_valid_item = False
 
         for item_id, count in inventory.items():
+            # 필터 확인
+            if not self._can_put_item(item_id):
+                continue
+
             item = morld.get_item_info(item_id)
             if item:
+                has_valid_item = True
                 item_name = item.get("name", f"아이템#{item_id}")
                 count_text = f" x{count}" if count > 1 else ""
                 lines.append(f"[url=@ret:{item_id}]{item_name}{count_text}[/url]")
+
+        if not has_valid_item:
+            filter_desc = ", ".join(self.put_filter) if self.put_filter else ""
+            yield morld.dialog(f"넣을 수 있는 아이템이 없다.")
+            return
 
         lines.append("\n[url=@ret:cancel]취소[/url]")
 
@@ -323,6 +361,8 @@ class Item(Asset):
     - equip_props: 장착 효과
     - value: 거래 가치
     - owner: 소유자 unique_id (None이면 공용)
+    - category: 아이템 카테고리 (필터링용)
+      예) "food_ingredient", "drink_ingredient", "equipment", "material"
 
     액션 패턴:
     - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성)
@@ -332,6 +372,7 @@ class Item(Asset):
     equip_props: dict = None
     value: int = 0
     owner: str = None  # 소유자 unique_id (예: "sera", "mila")
+    category: str = None  # 아이템 카테고리 (필터링용)
 
     def instantiate(self, instance_id: int):
         """아이템을 morld에 등록"""

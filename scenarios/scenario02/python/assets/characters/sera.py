@@ -3,7 +3,8 @@
 # 사용법:
 #   from assets.characters.sera import Sera
 #   sera = Sera()
-#   sera.instantiate(2, REGION_ID, location_id)
+#   sera_id = morld.create_id("unit")
+#   sera.instantiate(sera_id, REGION_ID, location_id)
 
 from assets.base import Character
 from think import BaseAgent, register_agent_class

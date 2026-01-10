@@ -327,6 +327,18 @@ namespace SE
                         foreach (var m in mood) unit.Mood.Add(m);
 
                     _unitSystem.AddUnit(unit);
+
+                    // unique_id가 "player"이면 PlayerSystem.PlayerId 자동 설정
+                    if (uniqueId == "player")
+                    {
+                        var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                        if (_playerSystem != null)
+                        {
+                            _playerSystem.PlayerId = id;
+                            Godot.GD.Print($"[morld] add_unit: Player registered with id={id}");
+                        }
+                    }
+
                     Godot.GD.Print($"[morld] add_unit: id={id}, name={name}, type={type}");
                     return PyBool.True;
                 });
@@ -1195,6 +1207,9 @@ namespace SE
                         Execute("from think import clear_agents; clear_agents()");
                     }
                     catch { /* 함수가 없으면 무시 */ }
+
+                    // 6. ID Generator 리셋
+                    IdGenerator.Reset();
 
                     Godot.GD.Print("[morld] clear_world: Done.");
                     return PyBool.True;

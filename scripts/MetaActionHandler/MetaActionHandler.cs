@@ -142,6 +142,9 @@ public partial class MetaActionHandler
 			case "inventory":
 				HandleInventoryAction();
 				break;
+			case "equipment":
+				HandleEquipmentAction();
+				break;
 			case "drop":
 				HandleDropAction(parts);
 				break;
@@ -174,6 +177,12 @@ public partial class MetaActionHandler
 				break;
 			case "put_select":
 				HandlePutSelectAction(parts);
+				break;
+			case "equip":
+				HandleEquipAction(parts);
+				break;
+			case "unequip":
+				HandleUnequipAction(parts);
 				break;
 			case "call":
 				HandleCallAction(parts);
@@ -300,7 +309,12 @@ public partial class MetaActionHandler
 		{
 			// 더미 on_meet 이벤트로 Python 호출 - 큐에서 다음 이벤트 반환
 			// _pending_meet_events가 비어있지 않으면 큐에서 pop
-			var playerId = _playerSystem?.PlayerId ?? 0;
+			var playerId = _playerSystem?.PlayerId;
+			if (playerId == null)
+			{
+				GD.PrintErr("[MetaActionHandler] ProcessNextMeetEvent: Player not found");
+				return false;
+			}
 			var result = scriptSystem.Eval($"on_single_event(['on_meet', {playerId}])");
 
 			if (result is SharpPy.PyNone || result == null)

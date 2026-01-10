@@ -50,4 +50,5 @@ def _instantiate_player():
     from assets.characters.player import Player
 
     player = Player()
-    player.instantiate(0, mansion.REGION_ID, 6)  # 주인공 방에서 시작
+    player_id = morld.create_id("unit")
+    player.instantiate(player_id, mansion.REGION_ID, 6)  # 주인공 방에서 시작

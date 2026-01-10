@@ -3,7 +3,8 @@
 # 사용법:
 #   from assets.characters.yuki import Yuki
 #   yuki = Yuki()
-#   yuki.instantiate(4, REGION_ID, location_id)
+#   yuki_id = morld.create_id("unit")
+#   yuki.instantiate(yuki_id, REGION_ID, location_id)
 
 from assets.base import Character
 from think import BaseAgent, register_agent_class

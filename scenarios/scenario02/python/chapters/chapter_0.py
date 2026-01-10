@@ -88,4 +88,28 @@ def _instantiate_player():
     from assets.characters.player import Player
 
     player = Player()
-    player.instantiate(0, REGION_ID, 21)  # 숲 깊은 곳에서 시작
+    player_id = morld.create_id("unit")
+    player.instantiate(player_id, REGION_ID, 21)  # 숲 깊은 곳에서 시작
+
+    # 장비는 player_creation.py에서 선택에 따라 지급됨
+
+
+def _give_test_items():
+    """테스트용 장비 아이템 지급"""
+    from assets.items.equipment import OldKnife, LeatherPouch
+
+    player_id = morld.get_player_id()
+
+    # 낡은 칼 (equip_props: 공격+2, 사냥+1)
+    knife = OldKnife()
+    knife_id = morld.create_id("item")
+    knife.instantiate(knife_id)
+    morld.give_item(player_id, knife_id, 1)
+
+    # 가죽 주머니 (passive_props: 수납+5)
+    pouch = LeatherPouch()
+    pouch_id = morld.create_id("item")
+    pouch.instantiate(pouch_id)
+    morld.give_item(player_id, pouch_id, 1)
+
+    print(f"[chapter_0] Test items given: OldKnife(id={knife_id}), LeatherPouch(id={pouch_id})")

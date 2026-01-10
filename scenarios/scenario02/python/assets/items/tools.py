@@ -92,21 +92,24 @@ class AlarmClock(Item):
 
 
 class FishingRod(Item):
-    """세라의 낚시대"""
+    """
+    세라의 낚시대
+
+    장착 시 can:fish 부여 → 물가에서 "낚시" 액션 활성화
+    """
     unique_id = "fishing_rod"
     name = "낚시대"
     owner = "sera"
     passive_props = {}
-    equip_props = {}
+    equip_props = {"can:fish": 1}  # 장착 시 낚시 가능
     value = 25
-    actions = ["take@container", "call:use:낚시하기@inventory"]
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 
-    def use(self):
-        """낚시대 사용 - 낚시하기"""
-        # 위치 확인 등의 조건 체크는 추후 구현
+    def look(self):
+        """낚시대 살펴보기"""
         yield morld.dialog([
-            "낚시대를 손에 들었다.",
-            "물가에서 사용하면 낚시를 할 수 있을 것 같다."
+            "세라의 낚시대다.",
+            "장착하면 물가에서 낚시를 할 수 있다."
         ])
 
 

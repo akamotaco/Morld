@@ -10,8 +10,11 @@
 #
 # 사용법:
 #   loc = BackYard()
-#   loc.instantiate(12, REGION_ID)
-#   loc.add_item_to_ground(herb)
+#   loc.instantiate(location_id, REGION_ID)  # location_id는 수동 지정
+#
+#   npc = Sera()
+#   npc_id = morld.create_id("unit")         # ID 자동 생성
+#   npc.instantiate(npc_id, REGION_ID, loc_id)
 
 # 베이스 클래스 export
 from assets.base import Asset, Unit, Character, Object, Item, Location

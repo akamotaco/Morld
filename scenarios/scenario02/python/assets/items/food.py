@@ -136,3 +136,33 @@ class CookedFish(FoodItem):
     ]
     eat_time = 4
     actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class HerbSalad(FoodItem):
+    """허브 샐러드 - 조리 필요"""
+    unique_id = "herb_salad"
+    name = "허브 샐러드"
+    value = 18
+    food_satiety = 20
+    eat_message = [
+        "허브 샐러드를 먹었다.",
+        "상쾌한 풀 향기가 입안에 퍼진다."
+    ]
+    eat_time = 3
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class MeatStew(FoodItem):
+    """고기 스튜 - 조리 필요"""
+    unique_id = "meat_stew"
+    name = "고기 스튜"
+    value = 30
+    food_satiety = 70
+    eat_message = [
+        "따끈한 고기 스튜를 먹었다.",
+        "든든하고 몸이 따뜻해진다."
+    ]
+    eat_time = 8
+    actions = ["take@container", "call:eat:먹기@inventory"]

@@ -69,9 +69,12 @@ public partial class GameEngine : Node
 		(this._world.AddSystem(new ScriptSystem(), "scriptSystem") as ScriptSystem).SetScenarioPath(_scenarioPath);
 		// Data Systems
 		this._world.AddSystem(new WorldSystem("aka"), "worldSystem");
-		this._world.AddSystem(new UnitSystem(), "unitSystem");
-		this._world.AddSystem(new ItemSystem(), "itemSystem");
+		var unitSystem = this._world.AddSystem(new UnitSystem(), "unitSystem") as UnitSystem;
+		var itemSystem = this._world.AddSystem(new ItemSystem(), "itemSystem") as ItemSystem;
 		this._world.AddSystem(new InventorySystem(), "inventorySystem");
+
+		// IdGenerator에 시스템 참조 설정 (overflow 시 ID 탐색용)
+		Morld.IdGenerator.SetSystems(unitSystem, itemSystem);
 
 		// Logic Systems (실행 순서: Think → JobBehavior → Event)
 		this._world.AddSystem(new ActionSystem(), "actionSystem");

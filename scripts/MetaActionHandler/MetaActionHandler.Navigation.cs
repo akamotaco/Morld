@@ -153,6 +153,14 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 장비 목록 확인 처리
+	/// </summary>
+	private void HandleEquipmentAction()
+	{
+		_textUISystem?.ShowEquipment();
+	}
+
+	/// <summary>
 	/// 유닛 살펴보기 처리: look_unit:unitId
 	/// </summary>
 	private void HandleLookUnitAction(string[] parts)

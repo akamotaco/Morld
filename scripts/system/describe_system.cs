@@ -613,6 +613,55 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 장착 아이템 목록 텍스트 생성
+		/// </summary>
+		public string GetEquipmentText()
+		{
+			var lines = new List<string>();
+
+			lines.Add("[b]장비[/b]");
+			lines.Add("");
+
+			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+			var player = playerSystem.FindPlayerUnit();
+
+			if (player == null)
+			{
+				lines.Add("[color=gray]장비 정보를 확인할 수 없습니다.[/color]");
+				lines.Add("");
+				lines.Add("[url=back]뒤로[/url]");
+				return string.Join("\n", lines);
+			}
+
+			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
+
+			if (equippedItems.Count == 0)
+			{
+				lines.Add("[color=gray]장착 중인 장비가 없다.[/color]");
+			}
+			else
+			{
+				foreach (var itemId in equippedItems)
+				{
+					var item = itemSystem.FindItem(itemId);
+					if (item != null)
+					{
+						var itemName = GetItemNameWithOwner(item);
+						// 아이템 메뉴로 연결 (장착 해제 가능)
+						lines.Add($"  [url=item_inv_menu:{itemId}]{itemName}[/url]");
+					}
+				}
+			}
+
+			lines.Add("");
+			lines.Add("[url=back]뒤로[/url]");
+
+			return string.Join("\n", lines);
+		}
+
+		/// <summary>
 		/// 아이템 상세 메뉴 텍스트 생성 (통합 함수)
 		/// context: "ground" (바닥), "inventory" (플레이어 인벤토리), "container" (오브젝트/컨테이너)
 		/// targetUnitId:
@@ -738,12 +787,28 @@ namespace SE
 				}
 			}
 
+			// equip 액션: 장착 상태에 따라 "장착" 또는 "장착 해제" 표시
+			if (action == "equip")
+			{
+				var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+				var _inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+				var player = playerSystem.FindPlayerUnit();
+				if (player == null)
+				{
+					throw new InvalidOperationException("[DescribeSystem] GetActionUrlAndLabel: Player not found for equip action");
+				}
+				bool isEquipped = _inventorySystem.IsEquippedOnUnit(player.Id, itemId);
+				if (isEquipped)
+					return ($"unequip:{itemId}", "장착 해제");
+				else
+					return ($"equip:{itemId}", "장착");
+			}
+
 			return action switch
 			{
 				// take는 container에서 가져가기 - call:take로 처리
 				"take" when context == "container" => ($"call:take:{itemId}", "가져가기"),
 				"use" => ($"item_use:{itemId}", "사용"),
-				"equip" => ($"equip:{itemId}", "장착"),
 				"throw" => ($"throw:{itemId}", "던지기"),
 				_ => ($"action:{action}:{itemId}", action) // 알 수 없는 액션은 그대로
 			};

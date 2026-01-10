@@ -3,7 +3,8 @@
 # 사용법:
 #   from assets.characters.player import Player, NAME_OPTIONS
 #   player = Player()
-#   player.instantiate(0, REGION_ID, location_id)
+#   player_id = morld.create_id("unit")
+#   player.instantiate(player_id, REGION_ID, location_id)
 
 from assets.base import Character
 

@@ -3,7 +3,8 @@
 # 사용법:
 #   from assets.characters.lina import Lina
 #   lina = Lina()
-#   lina.instantiate(1, REGION_ID, location_id)
+#   lina_id = morld.create_id("unit")
+#   lina.instantiate(lina_id, REGION_ID, location_id)
 
 from assets.base import Character
 from think import BaseAgent, register_agent_class

@@ -93,3 +93,67 @@ class DryingRack(Object):
             "빨래가 마르면 걷어야 할 것 같다."
         ])
         morld.advance_time(1)
+
+
+# ========================================
+# 강가 오브젝트
+# ========================================
+
+class FishingSpot(Object):
+    """
+    낚시터 - can:fish 필요 (낚시대 장착)
+
+    플레이어가 낚시대를 장착하면 can:fish가 부여되고,
+    이 오브젝트의 "낚시" 액션이 표시됨.
+    """
+    unique_id = "fishing_spot"
+    name = "낚시터"
+    actions = ["call:look:살펴보기", "call:fish:낚시", "call:debug_props:속성 보기"]
+    focus_text = {"default": "물이 깊고 잔잔한 곳. 물고기가 많을 것 같다."}
+
+    def look(self):
+        """낚시터 살펴보기"""
+        yield morld.dialog([
+            "물이 깊고 잔잔한 곳이다.",
+            "물고기가 많이 잡힐 것 같다.",
+            "낚시대를 장착하면 낚시를 할 수 있다."
+        ])
+        morld.advance_time(1)
+
+    def fish(self):
+        """
+        낚시하기 - can:fish가 있어야 실행 가능
+
+        랜덤으로 생선 획득 또는 실패
+        """
+        import random
+        from assets.registry import get_item_class
+        from assets.items.resources import Meat  # Fish가 없으므로 Meat 사용 (추후 Fish 추가)
+
+        yield morld.dialog("낚시를 시작한다...")
+        morld.advance_time(30)  # 30분 소요
+
+        # 70% 확률로 성공
+        if random.random() < 0.7:
+            # Fish 아이템 생성 (임시로 Meat 사용)
+            # TODO: Fish 아이템 추가 후 변경
+            player_id = morld.get_player_id()
+
+            # 생선 직접 생성 (Meat 대용)
+            meat_class = get_item_class("meat")
+            if meat_class:
+                fish = meat_class()
+                fish_id = morld.create_id("item")
+                fish.instantiate(fish_id)
+                morld.give_item(player_id, fish_id, 1)
+                yield morld.dialog([
+                    "물고기를 잡았다!",
+                    "신선한 생선이다."
+                ])
+            else:
+                yield morld.dialog("물고기를 잡았지만, 놓쳐버렸다.")
+        else:
+            yield morld.dialog([
+                "한참을 기다렸지만...",
+                "아무것도 잡히지 않았다."
+            ])

@@ -208,6 +208,7 @@ namespace SE
 				FocusType.Situation => RenderSituation(),
 				FocusType.Unit => RenderUnit(focus.TargetUnitId ?? 0),
 				FocusType.Inventory => RenderInventory(),
+				FocusType.Equipment => RenderEquipment(),
 				FocusType.Item => RenderItem(focus.ItemId ?? 0, focus.Context ?? "inventory", focus.TargetUnitId),
 				FocusType.Result => RenderResult(focus.Message ?? ""),
 				FocusType.Dialog => RenderDialog(focus),
@@ -288,6 +289,11 @@ namespace SE
 			return _describeSystem.GetInventoryText();
 		}
 
+		private string RenderEquipment()
+		{
+			return _describeSystem.GetEquipmentText();
+		}
+
 		private string RenderItem(int itemId, string context, int? targetUnitId)
 		{
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
@@ -349,6 +355,15 @@ namespace SE
 		public void ShowInventory()
 		{
 			_stack.Push(Focus.Inventory());
+			RequestUpdateDisplay();
+		}
+
+		/// <summary>
+		/// 장착 아이템 목록 표시 (Push)
+		/// </summary>
+		public void ShowEquipment()
+		{
+			_stack.Push(Focus.Equipment());
 			RequestUpdateDisplay();
 		}
 

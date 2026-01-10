@@ -69,6 +69,21 @@ namespace SE
                 }
                 return new PyInt(_playerSystem.PlayerId);
             });
+
+            // create_id() - 고유 인스턴스 ID 생성
+            morldModule.ModuleDict["create_id"] = new PyBuiltinFunction("create_id", args =>
+            {
+                return new PyInt(IdGenerator.NextId());
+            });
+
+            // reset_id_generator() - ID 생성기 리셋
+            morldModule.ModuleDict["reset_id_generator"] = new PyBuiltinFunction("reset_id_generator", args =>
+            {
+                int startId = args.Length >= 1 && args[0] is not PyNone ? args[0].ToInt() : 1;
+                IdGenerator.Reset(startId);
+                Godot.GD.Print($"[morld] reset_id_generator: reset to {startId}");
+                return PyBool.True;
+            });
         }
 
         /// <summary>
@@ -213,6 +228,71 @@ namespace SE
 
                 return new PyInt(item.Id);
             });
+
+            // === 장착 관련 API ===
+
+            // equip_item_internal(unit_id, item_id) - C# InventorySystem.EquipItem 호출
+            morldModule.ModuleDict["equip_item_internal"] = new PyBuiltinFunction("equip_item_internal", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("equip_item_internal(unit_id, item_id) requires 2 arguments");
+
+                int unitId = args[0].ToInt();
+                int itemId = args[1].ToInt();
+
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                bool success = _inventorySystem.EquipItemOnUnit(unitId, itemId);
+                Godot.GD.Print($"[morld] equip_item_internal: unit={unitId}, item={itemId}, success={success}");
+                return PyBool.FromBool(success);
+            });
+
+            // unequip_item_internal(unit_id, item_id) - C# InventorySystem.UnequipItem 호출
+            morldModule.ModuleDict["unequip_item_internal"] = new PyBuiltinFunction("unequip_item_internal", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("unequip_item_internal(unit_id, item_id) requires 2 arguments");
+
+                int unitId = args[0].ToInt();
+                int itemId = args[1].ToInt();
+
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                bool success = _inventorySystem.UnequipItemFromUnit(unitId, itemId);
+                Godot.GD.Print($"[morld] unequip_item_internal: unit={unitId}, item={itemId}, success={success}");
+                return PyBool.FromBool(success);
+            });
+
+            // is_equipped(unit_id, item_id) - 장착 여부 확인
+            morldModule.ModuleDict["is_equipped"] = new PyBuiltinFunction("is_equipped", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("is_equipped(unit_id, item_id) requires 2 arguments");
+
+                int unitId = args[0].ToInt();
+                int itemId = args[1].ToInt();
+
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                bool equipped = _inventorySystem.IsEquippedOnUnit(unitId, itemId);
+                return PyBool.FromBool(equipped);
+            });
+
+            // get_equipped_items(unit_id) - 장착 아이템 ID 리스트 반환
+            morldModule.ModuleDict["get_equipped_items"] = new PyBuiltinFunction("get_equipped_items", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("get_equipped_items(unit_id) requires 1 argument");
+
+                int unitId = args[0].ToInt();
+
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                var equipped = _inventorySystem.GetUnitEquippedItems(unitId);
+
+                var result = new PyList();
+                foreach (var itemId in equipped)
+                {
+                    result.Append(new PyInt(itemId));
+                }
+                return result;
+            });
         }
 
         /// <summary>
@@ -268,70 +348,138 @@ namespace SE
         }
 
         /// <summary>
-        /// Prop API 등록 (플레이어 Prop 기반)
+        /// Prop API 등록
+        ///
+        /// 확장된 시그니처:
+        /// - set_prop(unit_id, prop_name, value=1) - 유닛 지정
+        /// - set_prop(prop_name, value=1) - 플레이어 (하위 호환)
         /// </summary>
         private void RegisterPropAPI(PyModule morldModule)
         {
-            // set_prop: 플레이어 Prop 설정 ("타입:이름" 형식)
+            // set_prop: Prop 설정 ("타입:이름" 형식)
+            // set_prop(unit_id, prop_name, value=1) 또는 set_prop(prop_name, value=1)
             morldModule.ModuleDict["set_prop"] = new PyBuiltinFunction("set_prop", args =>
             {
                 if (args.Length < 1)
-                    throw PyTypeError.Create("set_prop(prop_name, value=1) requires at least 1 argument");
-
-                string propName = args[0].AsString();
-                int value = args.Length >= 2 ? args[1].ToInt() : 1;
-
+                    throw PyTypeError.Create("set_prop(unit_id, prop_name, value=1) or set_prop(prop_name, value=1)");
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                 var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
+                int unitId;
+                string propName;
+                int value;
 
-                var player = _unitSystem.FindUnit(_playerSystem.PlayerId);
-                if (player == null)
+                // 첫 번째 인자가 문자열이면 레거시 모드 (플레이어 대상)
+                if (args[0] is PyString)
+                {
+                    unitId = _playerSystem.PlayerId;
+                    propName = args[0].AsString();
+                    value = args.Length >= 2 ? args[1].ToInt() : 1;
+                }
+                else
+                {
+                    // 새 모드: unit_id 지정
+                    unitId = args[0].ToInt();
+                    propName = args[1].AsString();
+                    value = args.Length >= 3 ? args[2].ToInt() : 1;
+                }
+
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit == null)
                     return PyBool.False;
 
-                player.TraversalContext.SetProp(propName, value);
-                Godot.GD.Print($"[morld] set_prop: {propName} = {value}");
+                unit.TraversalContext.SetProp(propName, value);
+                Godot.GD.Print($"[morld] set_prop: unit={unitId}, {propName} = {value}");
                 return new PyInt(value);
             });
 
-            // get_prop: 플레이어 Prop 값 조회 ("타입:이름" 형식)
+            // get_prop: Prop 값 조회 ("타입:이름" 형식)
+            // get_prop(unit_id, prop_name) 또는 get_prop(prop_name)
             morldModule.ModuleDict["get_prop"] = new PyBuiltinFunction("get_prop", args =>
             {
                 if (args.Length < 1)
-                    throw PyTypeError.Create("get_prop(prop_name) requires 1 argument");
-
-                string propName = args[0].AsString();
+                    throw PyTypeError.Create("get_prop(unit_id, prop_name) or get_prop(prop_name)");
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                 var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
-                var player = _unitSystem.FindUnit(_playerSystem.PlayerId);
-                if (player == null)
+                int unitId;
+                string propName;
+
+                // 첫 번째 인자가 문자열이면 레거시 모드 (플레이어 대상)
+                if (args[0] is PyString)
+                {
+                    unitId = _playerSystem.PlayerId;
+                    propName = args[0].AsString();
+                }
+                else
+                {
+                    unitId = args[0].ToInt();
+                    propName = args[1].AsString();
+                }
+
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit == null)
                     return new PyInt(0);
 
-                int value = player.TraversalContext.GetProp(propName);
+                int value = unit.TraversalContext.GetProp(propName);
                 return new PyInt(value);
             });
 
-            // clear_prop: 플레이어 Prop 제거 ("타입:이름" 형식)
+            // clear_prop: Prop 제거 ("타입:이름" 형식)
+            // clear_prop(unit_id, prop_name) 또는 clear_prop(prop_name)
             morldModule.ModuleDict["clear_prop"] = new PyBuiltinFunction("clear_prop", args =>
             {
                 if (args.Length < 1)
-                    throw PyTypeError.Create("clear_prop(prop_name) requires 1 argument");
-
-                string propName = args[0].AsString();
+                    throw PyTypeError.Create("clear_prop(unit_id, prop_name) or clear_prop(prop_name)");
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                 var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
-                var player = _unitSystem.FindUnit(_playerSystem.PlayerId);
-                if (player == null)
+                int unitId;
+                string propName;
+
+                // 첫 번째 인자가 문자열이면 레거시 모드 (플레이어 대상)
+                if (args[0] is PyString)
+                {
+                    unitId = _playerSystem.PlayerId;
+                    propName = args[0].AsString();
+                }
+                else
+                {
+                    unitId = args[0].ToInt();
+                    propName = args[1].AsString();
+                }
+
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit == null)
                     return PyBool.False;
 
-                player.TraversalContext.SetProp(propName, 0);
-                Godot.GD.Print($"[morld] clear_prop: {propName}");
+                unit.TraversalContext.SetProp(propName, 0);
+                Godot.GD.Print($"[morld] clear_prop: unit={unitId}, {propName}");
                 return PyBool.True;
+            });
+
+            // get_unit_props: 유닛의 모든 Props 반환
+            morldModule.ModuleDict["get_unit_props"] = new PyBuiltinFunction("get_unit_props", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("get_unit_props(unit_id) requires 1 argument");
+
+                int unitId = args[0].ToInt();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit == null)
+                    return new PyDict();
+
+                var result = new PyDict();
+                foreach (var (key, value) in unit.TraversalContext.Props)
+                {
+                    result.SetItem(new PyString(key), new PyInt(value));
+                }
+                return result;
             });
         }
 

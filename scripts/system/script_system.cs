@@ -634,6 +634,9 @@ _entities_loaded
         {
             Godot.GD.Print("[ScriptSystem] Calling initialize_scenario()...");
 
+            // ID Generator 리셋 (첫 로드 시에도 1부터 시작하도록)
+            IdGenerator.Reset();
+
             try
             {
                 // 시나리오 패키지를 import하고 initialize_scenario() 호출

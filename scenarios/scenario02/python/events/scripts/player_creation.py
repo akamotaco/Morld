@@ -21,8 +21,6 @@ _ITEM_CLASSES = {
     "small_toolbox": SmallToolbox,
 }
 
-# 아이템 ID 카운터 (동적 할당)
-_next_item_id = 100
 
 
 def run_character_creation(state=None):
@@ -223,8 +221,6 @@ def apply_character_creation(state):
     Args:
         state: run_character_creation()의 결과
     """
-    global _next_item_id
-
     player_id = morld.get_player_id()
 
     # 이름 설정
@@ -252,9 +248,8 @@ def apply_character_creation(state):
                     item_cls = _ITEM_CLASSES.get(unique_id)
                     if item_cls:
                         item = item_cls()
-                        item.instantiate(_next_item_id)
-                        item_id = _next_item_id
-                        _next_item_id += 1
+                        item_id = morld.create_id()
+                        item.instantiate(item_id)
 
                 if item_id is not None:
                     morld.give_item(player_id, item_id, count)
