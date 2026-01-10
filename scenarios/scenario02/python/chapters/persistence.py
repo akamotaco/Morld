@@ -2,6 +2,11 @@
 #
 # 챕터 전환 시 플레이어 데이터를 유지하기 위한 모듈
 #
+# ID 할당 전략 (스택/힙 모델):
+#   - 정상 할당 (create_id): 1, 2, 3, ... (아래에서 위로)
+#   - 임시 할당 (저장용): MAX-1, MAX-2, ... (위에서 아래로)
+#   - 복원 시: 임시 ID → create_id()로 새 정상 ID 할당
+#
 # 사용법:
 #   from chapters.persistence import save_player_data, restore_player_data
 #
@@ -12,6 +17,24 @@
 #   restore_player_data(saved)
 
 import morld
+import sys
+
+# 임시 ID 할당용 상수 (int 최대값 - 1부터 거꾸로)
+_TEMP_ID_MAX = sys.maxsize
+_temp_id_counter = 0  # 다음 임시 ID 오프셋
+
+
+def _reset_temp_id_counter():
+    """임시 ID 카운터 리셋"""
+    global _temp_id_counter
+    _temp_id_counter = 0
+
+
+def _next_temp_id():
+    """다음 임시 ID 생성 (MAX에서 거꾸로)"""
+    global _temp_id_counter
+    _temp_id_counter += 1
+    return _TEMP_ID_MAX - _temp_id_counter
 
 
 def _instantiate_item_by_unique(unique_id: str):

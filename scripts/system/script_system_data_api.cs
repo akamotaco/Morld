@@ -1264,6 +1264,7 @@ namespace SE
 
                     var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                     var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
                     var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
                     var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
 
@@ -1273,16 +1274,31 @@ namespace SE
                     // 2. Unit 초기화 (Player, NPC, Object 모두 제거)
                     _unitSystem?.Clear();
 
-                    // 3. Inventory 초기화
+                    // 3. Item 초기화
+                    _itemSystem?.ClearItems();
+
+                    // 4. Inventory 초기화
                     _inventorySystem?.Clear();
 
-                    // 4. EventSystem 상태 초기화
+                    // 5. EventSystem 상태 초기화
                     _eventSystem?.ClearState();
 
-                    // 5. Python 측 캐시 초기화 (assets.characters._instances 등)
+                    // 6. Python 측 캐시 초기화 (assets._instances 등)
                     try
                     {
                         Execute("from assets.characters import clear_instances; clear_instances()");
+                    }
+                    catch { /* 함수가 없으면 무시 */ }
+
+                    try
+                    {
+                        Execute("from assets.items import clear_instances; clear_instances()");
+                    }
+                    catch { /* 함수가 없으면 무시 */ }
+
+                    try
+                    {
+                        Execute("from assets.objects import clear_instances; clear_instances()");
                     }
                     catch { /* 함수가 없으면 무시 */ }
 
@@ -1292,7 +1308,7 @@ namespace SE
                     }
                     catch { /* 함수가 없으면 무시 */ }
 
-                    // 6. ID Generator 리셋
+                    // 7. ID Generator 리셋
                     IdGenerator.Reset();
 
                     Godot.GD.Print("[morld] clear_world: Done.");
