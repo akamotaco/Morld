@@ -88,6 +88,48 @@ class LinaAgent(BaseAgent):
 - **Asset**: 구조체 정의 (템플릿). `unique_id: str`로 식별
 - **Instance**: 게임 내 실체. `instance_id: int`로 식별 (morld API에서 사용)
 
+### Asset.instantiate() 메서드
+
+Asset 클래스를 게임 내 Instance로 등록하는 핵심 메서드입니다.
+
+```python
+# assets/base.py
+class Asset:
+    unique_id = ""
+    instance_id = None
+
+    def instantiate(self, instance_id):
+        """
+        Asset을 게임 내 Instance로 등록
+
+        Args:
+            instance_id: 게임 내 고유 ID (morld API에서 사용)
+
+        동작:
+        1. instance_id 저장
+        2. 인스턴스 레지스트리에 등록
+        3. morld API로 C#에 데이터 전달
+        """
+        self.instance_id = instance_id
+        _register_instance(instance_id, self)
+        # C#에 데이터 등록 (캐릭터, 아이템, 오브젝트별로 다름)
+
+# 서브클래스에서 확장
+class Character(Asset):
+    def instantiate(self, instance_id, region_id, location_id):
+        super().instantiate(instance_id)
+        morld.create_unit(instance_id, self.unique_id, self.name, ...)
+        morld.set_unit_location(instance_id, region_id, location_id)
+
+class Object(Asset):
+    def instantiate(self, instance_id, region_id=None, location_id=None):
+        super().instantiate(instance_id)
+        # 자원 오브젝트는 resource_agent에 등록
+        if hasattr(self, 'resource_item_unique_id'):
+            from think.resource_agent import register_resource_object
+            register_resource_object(instance_id, self.unique_id)
+```
+
 ### Agent 자동 등록 시스템
 
 ```python
@@ -285,6 +327,72 @@ def on_meet_player(context_unit_id):
 | game_start | 게임 시작 | 캐릭터 생성 흐름 |
 | on_reach | 위치 도착 | 위치별 이벤트 |
 | on_meet | 같은 위치 만남 | NPC별 첫 만남 이벤트 |
+| on_time_elapsed | 시간 경과 | 생존/자원 시스템 처리 |
+
+### C#에서 Python 이벤트 호출
+
+C#의 `EventSystem`이 이벤트를 수집하고, `on_single_event()` API로 Python에 전달합니다.
+
+```python
+# events/__init__.py
+
+def on_single_event(event):
+    """
+    단일 이벤트 순차 처리 (C#에서 호출)
+
+    Args:
+        event: (type, *args) 튜플
+
+    Returns:
+        ScriptResult 또는 None
+    """
+    event_type = event[0]
+
+    if event_type == "on_time_elapsed":
+        minutes = event[1]
+        _handle_time_elapsed(minutes)
+        return None
+
+    elif event_type == "on_meet":
+        # 이벤트 큐 수집 후 첫 번째 처리
+        ...
+
+    elif event_type == "on_reach":
+        ...
+```
+
+### on_time_elapsed 구독 시스템
+
+시간 경과 이벤트를 구독하여 시스템별로 처리합니다.
+
+```python
+# events/__init__.py
+_time_elapsed_handlers = []
+
+def subscribe_time_elapsed(handler):
+    """
+    on_time_elapsed 이벤트 구독
+
+    Args:
+        handler: callback(minutes: int) 함수
+
+    Example:
+        def my_handler(minutes):
+            print(f"{minutes}분 경과")
+
+        subscribe_time_elapsed(my_handler)
+    """
+    _time_elapsed_handlers.append(handler)
+
+def _handle_time_elapsed(minutes):
+    """내부: 등록된 핸들러 순차 호출"""
+    for handler in _time_elapsed_handlers:
+        handler(minutes)
+```
+
+**구독하는 시스템:**
+- `survival.py` - 포만감 감소, 체력 증감
+- `think/resource_agent.py` - 자원 생성
 
 ### 순차적 on_meet 이벤트 처리
 
