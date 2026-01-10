@@ -42,11 +42,6 @@ public partial class MetaActionHandler
 	/// </summary>
 	private PyDialogRequest _pendingDialogRequest;
 
-	/// <summary>
-	/// UI 텍스트 업데이트 요청 델리게이트
-	/// </summary>
-	public delegate void UpdateSituationHandler();
-	public event UpdateSituationHandler OnUpdateSituation;
 
 	/// <summary>
 	/// 이동 확인 다이얼로그 threshold (분)
@@ -193,20 +188,21 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 상황 텍스트 업데이트 요청
-	/// 남은 이벤트가 있으면 먼저 처리하고, 없으면 상황 업데이트
+	/// 대기 중인 이벤트 및 ExcessTime 처리
+	/// 다이얼로그가 표시되었거나 ExcessTime으로 인해 시간이 흘렀으면 true 반환
 	/// </summary>
-	private void RequestUpdateSituation()
+	/// <returns>이벤트/시간 처리됨 (UI 업데이트 불필요)</returns>
+	private bool ProcessPendingEvents()
 	{
 		// 남은 이벤트 처리 (다이얼로그 완료 후 다음 이벤트 실행)
 		var eventSystem = _world.GetSystem("eventSystem") as EventSystem;
 		if (eventSystem != null && eventSystem.FlushEvents())
 		{
-			// 다이얼로그가 표시됨 - 상황 업데이트하지 않음
+			// 다이얼로그가 표시됨
 #if DEBUG_LOG
-			GD.Print("[MetaActionHandler] RequestUpdateSituation: Next event triggered dialog");
+			GD.Print("[MetaActionHandler] ProcessPendingEvents: Next event triggered dialog");
 #endif
-			return;
+			return true;
 		}
 
 		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
@@ -229,8 +225,8 @@ public partial class MetaActionHandler
 				// (시간이 흘렀으므로 남은 만남 이벤트는 스킵)
 				ClearPendingMeetEvents(scriptSystem);
 
-				// ExcessTime이 있으면 상황 업데이트 생략 - 파이프라인 완료 후 _Process에서 표시됨
-				return;
+				// ExcessTime이 있으면 _Process에서 시간 진행 후 UI 업데이트됨
+				return true;
 			}
 		}
 
@@ -241,13 +237,26 @@ public partial class MetaActionHandler
 			if (ProcessNextMeetEvent(scriptSystem))
 			{
 #if DEBUG_LOG
-				GD.Print("[MetaActionHandler] RequestUpdateSituation: Python meet event triggered dialog");
+				GD.Print("[MetaActionHandler] ProcessPendingEvents: Python meet event triggered dialog");
 #endif
-				return;
+				return true;
 			}
 		}
 
-		OnUpdateSituation?.Invoke();
+		return false;
+	}
+
+	/// <summary>
+	/// 이벤트 처리 후 상황 화면으로 전환
+	/// 시간이 흐르는 액션(이동, 휴식 등) 완료 후 호출
+	/// </summary>
+	private void ProcessEventsAndShowSituation()
+	{
+		if (!ProcessPendingEvents())
+		{
+			// 처리할 이벤트가 없으면 상황 화면 표시
+			_textUISystem?.ShowSituation();
+		}
 	}
 
 	/// <summary>

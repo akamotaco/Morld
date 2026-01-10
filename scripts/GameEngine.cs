@@ -171,7 +171,6 @@ public partial class GameEngine : Node
 
 		// MetaActionHandler 초기화
 		_actionHandler = new MetaActionHandler(_world, _playerSystem, _textUISystem);
-		_actionHandler.OnUpdateSituation += UpdateSituationText;
 
 		// EventSystem에 MetaActionHandler 참조 설정 (Generator 처리용)
 		_eventSystem?.SetMetaActionHandler(_actionHandler);

@@ -86,19 +86,23 @@ public partial class MetaActionHandler
 			// 다이얼로그 Pop
 			_textUISystem?.Pop();
 
-			// yes면 액션 실행, no면 취소
+			// yes면 액션 실행 후 이벤트 처리 및 상황 화면으로 전환 (시간이 흐름)
+			// no면 취소이므로 현재 화면만 갱신 (스택 유지)
 			if (value == "yes")
 			{
 				action.Invoke();
+				ProcessEventsAndShowSituation();
 			}
-
-			RequestUpdateSituation();
+			else
+			{
+				_textUISystem?.UpdateDisplay();
+			}
 			return;
 		}
 
-		// Case 3: 둘 다 없으면 단순 다이얼로그 종료
+		// Case 3: 둘 다 없으면 단순 다이얼로그 종료 (스택 유지)
 		_textUISystem?.Pop();
-		RequestUpdateSituation();
+		_textUISystem?.UpdateDisplay();
 	}
 
 	/// <summary>
@@ -154,9 +158,10 @@ public partial class MetaActionHandler
 					var nextResult = scriptSystem.ResumeGeneratorWithPyObject(generator, resultValue);
 					ProcessScriptResult(nextResult, scriptSystem);
 
+					// generator가 완료되면 현재 화면 갱신 (스택 유지)
 					if (_pendingGenerator == null)
 					{
-						RequestUpdateSituation();
+						_textUISystem?.UpdateDisplay();
 					}
 					return;
 				}
@@ -211,9 +216,9 @@ public partial class MetaActionHandler
 
 		if (_pendingGenerator == null)
 		{
-			// generator 없으면 단순 다이얼로그 종료
+			// generator 없으면 단순 다이얼로그 종료 (스택 유지)
 			_textUISystem?.Pop();
-			RequestUpdateSituation();
+			_textUISystem?.UpdateDisplay();
 			return;
 		}
 
@@ -238,10 +243,10 @@ public partial class MetaActionHandler
 			ProcessScriptResult(nextResult, scriptSystem);
 		}
 
-		// generator가 완료되면 상황 업데이트
+		// generator가 완료되면 현재 화면 갱신 (스택 유지)
 		if (_pendingGenerator == null)
 		{
-			RequestUpdateSituation();
+			_textUISystem?.UpdateDisplay();
 		}
 	}
 
