@@ -38,20 +38,16 @@ namespace SE
 	/// 인벤토리 시스템 (플러그인)
 	/// - 유닛/위치/아이템의 보관 기능 제공
 	/// - IDataProvider: 자체 데이터 저장/로드
-	/// - IActionProvider: "소지품 확인" 행동 제공
 	///
 	/// 키 형식:
 	/// - "unit:{id}" - 유닛 (캐릭터/오브젝트)
 	/// - "location:{regionId}:{localId}" - 위치 (바닥)
 	/// - "item:{id}" - 아이템 (가방 등)
 	/// </summary>
-	public class InventorySystem : ECS.System, IDataProvider, IActionProvider
+	public class InventorySystem : ECS.System, IDataProvider
 	{
 		// === IDataProvider ===
 		public string DataId => "inventory";
-
-		// === IActionProvider ===
-		public string ProviderId => "inventory";
 
 		/// <summary>
 		/// 통합 인벤토리 (ownerKey → {itemId → count})
@@ -64,12 +60,6 @@ namespace SE
 		/// 주로 유닛에서 사용
 		/// </summary>
 		private readonly Dictionary<string, List<int>> _equippedItems = new();
-
-		/// <summary>
-		/// 인벤토리 가시성 (ownerKey → isVisible)
-		/// true면 아이템이 외부에서 보임 (열린 상자, 바닥 등)
-		/// </summary>
-		private readonly Dictionary<string, bool> _visibility = new();
 
 		/// <summary>
 		/// 인벤토리 변경 이벤트 콜백
@@ -87,7 +77,6 @@ namespace SE
 		{
 			_inventories.Clear();
 			_equippedItems.Clear();
-			_visibility.Clear();
 			Godot.GD.Print("[InventorySystem] All inventories cleared.");
 		}
 
@@ -270,42 +259,6 @@ namespace SE
 		public bool UnitHasItem(int unitId, int itemId, int count = 1)
 			=> HasItem(UnitKey(unitId), itemId, count);
 
-		/// <summary>
-		/// 유닛 간 아이템 이동
-		/// </summary>
-		public bool TransferBetweenUnits(int fromUnitId, int toUnitId, int itemId, int count = 1)
-			=> TransferItem(UnitKey(fromUnitId), UnitKey(toUnitId), itemId, count);
-
-		// ===== 가시성 API =====
-
-		/// <summary>
-		/// 인벤토리 가시성 설정
-		/// </summary>
-		public void SetVisible(string ownerKey, bool isVisible)
-		{
-			_visibility[ownerKey] = isVisible;
-		}
-
-		/// <summary>
-		/// 인벤토리가 외부에서 보이는지 확인
-		/// </summary>
-		public bool IsVisible(string ownerKey)
-		{
-			return _visibility.TryGetValue(ownerKey, out var visible) && visible;
-		}
-
-		/// <summary>
-		/// 유닛 인벤토리가 외부에서 보이는지 확인
-		/// </summary>
-		public bool IsUnitInventoryVisible(int unitId)
-			=> IsVisible(UnitKey(unitId));
-
-		/// <summary>
-		/// 유닛 인벤토리 가시성 설정
-		/// </summary>
-		public void SetUnitInventoryVisible(int unitId, bool isVisible)
-			=> SetVisible(UnitKey(unitId), isVisible);
-
 		// ===== 장착 API =====
 
 		/// <summary>
@@ -385,29 +338,6 @@ namespace SE
 		public bool IsEquippedOnUnit(int unitId, int itemId)
 			=> IsEquipped(UnitKey(unitId), itemId);
 
-		// ===== IActionProvider 구현 =====
-
-		/// <summary>
-		/// 유닛에게 제공할 액션 목록
-		/// </summary>
-		public List<ProvidedAction> GetActionsFor(Unit unit)
-		{
-			var actions = new List<ProvidedAction>();
-
-			// 인벤토리가 있는 유닛에게만 "소지품 확인" 제공
-			if (HasUnitInventory(unit.Id))
-			{
-				actions.Add(new ProvidedAction
-				{
-					Type = "simple",
-					Name = "소지품 확인",
-					Action = "inventory"
-				});
-			}
-
-			return actions;
-		}
-
 		// ===== IDataProvider 구현 =====
 
 		/// <summary>
@@ -418,8 +348,7 @@ namespace SE
 			var data = new InventoryDataJson
 			{
 				Inventories = new Dictionary<string, Dictionary<int, int>>(),
-				EquippedItems = new Dictionary<string, List<int>>(),
-				Visibility = new Dictionary<string, bool>()
+				EquippedItems = new Dictionary<string, List<int>>()
 			};
 
 			// 인벤토리 복사 (빈 것 제외)
@@ -434,13 +363,6 @@ namespace SE
 			{
 				if (items.Count > 0)
 					data.EquippedItems[key] = new List<int>(items);
-			}
-
-			// 가시성 복사 (true인 것만)
-			foreach (var (key, visible) in _visibility)
-			{
-				if (visible)
-					data.Visibility[key] = true;
 			}
 
 			var options = new JsonSerializerOptions
@@ -520,17 +442,8 @@ namespace SE
 					}
 				}
 
-				// 가시성 로드
-				if (data.Visibility != null)
-				{
-					foreach (var (key, visible) in data.Visibility)
-					{
-						_visibility[key] = visible;
-					}
-				}
-
 #if DEBUG_LOG
-				GD.Print($"[InventorySystem] 로드됨: 인벤토리 {_inventories.Count}개, 장착 {_equippedItems.Count}개, 가시성 {_visibility.Count}개");
+				GD.Print($"[InventorySystem] 로드됨: 인벤토리 {_inventories.Count}개, 장착 {_equippedItems.Count}개");
 #endif
 				return true;
 			}
@@ -548,35 +461,6 @@ namespace SE
 		{
 			_inventories.Clear();
 			_equippedItems.Clear();
-			_visibility.Clear();
-		}
-
-		/// <summary>
-		/// DescribeSystem에 ActionProvider 등록
-		/// </summary>
-		public void RegisterToDescribeSystem()
-		{
-			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
-			describeSystem.ActionRegistry.Register(this);
-
-#if DEBUG_LOG
-			GD.Print("[InventorySystem] 액션 프로바이더 등록됨");
-#endif
-		}
-
-		/// <summary>
-		/// 시스템 종료 시 프로바이더 등록 해제
-		/// </summary>
-		public override void Destroy()
-		{
-			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
-			describeSystem.ActionRegistry.Unregister(this);
-
-#if DEBUG_LOG
-			GD.Print("[InventorySystem] 액션 프로바이더 해제됨");
-#endif
-
-			base.Destroy();
 		}
 
 		protected override void Proc(int step, Span<Component[]> allComponents)
@@ -629,12 +513,5 @@ namespace SE
 		/// </summary>
 		[JsonPropertyName("equippedItems")]
 		public Dictionary<string, List<int>>? EquippedItems { get; set; }
-
-		/// <summary>
-		/// 인벤토리 가시성 (ownerKey → isVisible)
-		/// true면 아이템이 외부에서 보임
-		/// </summary>
-		[JsonPropertyName("visibility")]
-		public Dictionary<string, bool>? Visibility { get; set; }
 	}
 }

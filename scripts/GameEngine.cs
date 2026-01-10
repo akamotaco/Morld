@@ -92,9 +92,6 @@ public partial class GameEngine : Node
 		// UI System
 		this._world.AddSystem(new TextUISystem(_textUi, this._world.GetSystem("describeSystem") as DescribeSystem), "textUISystem");
 
-		// 확장 시스템 (ActionProvider)
-		(this._world.AddSystem(new SingASongSystem(), "singASongSystem") as SingASongSystem).RegisterToDescribeSystem();
-		(this._world.GetSystem("inventorySystem") as InventorySystem).RegisterToDescribeSystem();
 	}
 
 	/// <summary>
