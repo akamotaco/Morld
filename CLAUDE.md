@@ -597,7 +597,12 @@ class Sera(Character):
 - 유효한 Focus면 현재 상태 유지 (UpdateDisplay)
 
 **파일 위치:**
-- `scripts/MetaActionHandler.cs` - call: 액션 처리
+- `scripts/MetaActionHandler/` - BBCode URL 클릭 핸들러 (partial class)
+  - `MetaActionHandler.cs` - 필드, 생성자, HandleAction 진입점, 이벤트 처리
+  - `MetaActionHandler.Dialog.cs` - @ret, @proc, @finish, @next, @prev 핸들러
+  - `MetaActionHandler.Navigation.cs` - move, back, toggle, idle 핸들러
+  - `MetaActionHandler.Item.cs` - 아이템 관련 핸들러
+  - `MetaActionHandler.Script.cs` - call:, ProcessScriptResult
 - `scenarios/scenario02/python/assets/` - Asset 클래스 및 메서드
 
 ### 챕터 전환 시스템 (Chapter Transition)
@@ -805,7 +810,12 @@ props = {
 ```
 scripts/
 ├─ GameEngine.cs (진입점)
-├─ MetaActionHandler.cs (BBCode URL 클릭 핸들러)
+├─ MetaActionHandler/ (BBCode URL 클릭 핸들러 - partial class)
+│  ├─ MetaActionHandler.cs (필드, 생성자, 진입점, 이벤트 처리)
+│  ├─ MetaActionHandler.Dialog.cs (@ret, @proc, @finish, @next, @prev)
+│  ├─ MetaActionHandler.Navigation.cs (move, back, toggle, idle)
+│  ├─ MetaActionHandler.Item.cs (아이템 관련)
+│  └─ MetaActionHandler.Script.cs (call:, ProcessScriptResult)
 ├─ system/ (ECS Systems)
 │  ├─ world_system.cs (WorldSystem - Data)
 │  ├─ unit_system.cs (UnitSystem - Data)
