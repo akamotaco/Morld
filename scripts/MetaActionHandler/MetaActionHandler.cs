@@ -260,6 +260,20 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 이벤트 처리 후 현재 화면 갱신 (스택 유지)
+	/// Generator 기반 다이얼로그 완료 후 호출
+	/// 남은 meet 이벤트가 있으면 처리하고, 없으면 현재 화면만 갱신
+	/// </summary>
+	private void ProcessEventsAndUpdateDisplay()
+	{
+		if (!ProcessPendingEvents())
+		{
+			// 처리할 이벤트가 없으면 현재 화면 갱신 (스택 유지)
+			_textUISystem?.UpdateDisplay();
+		}
+	}
+
+	/// <summary>
 	/// Python에 대기 중인 meet 이벤트가 있는지 확인
 	/// </summary>
 	private bool HasPendingMeetEvents(ScriptSystem scriptSystem)

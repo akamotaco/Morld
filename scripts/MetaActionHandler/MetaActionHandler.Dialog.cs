@@ -67,12 +67,12 @@ public partial class MetaActionHandler
 				ProcessScriptResult(nextResult, scriptSystem);
 			}
 
-			// generator가 완료되면 현재 화면 갱신
+			// generator가 완료되면 남은 이벤트 처리 후 화면 갱신
 			// 다이얼로그는 이미 Pop되었으므로 이전 focus(Unit 등)가 유지됨
-			// 주의: OnContentChange()는 로그를 읽음 처리하므로 여기서 호출하면 안됨
+			// 남은 meet 이벤트가 있으면 다음 다이얼로그 표시
 			if (_pendingGenerator == null)
 			{
-				_textUISystem?.UpdateDisplay();
+				ProcessEventsAndUpdateDisplay();
 			}
 			return;
 		}
@@ -101,8 +101,9 @@ public partial class MetaActionHandler
 		}
 
 		// Case 3: 둘 다 없으면 단순 다이얼로그 종료 (스택 유지)
+		// meet 이벤트 핸들러일 수 있으므로 남은 이벤트 처리
 		_textUISystem?.Pop();
-		_textUISystem?.UpdateDisplay();
+		ProcessEventsAndUpdateDisplay();
 	}
 
 	/// <summary>
@@ -158,10 +159,10 @@ public partial class MetaActionHandler
 					var nextResult = scriptSystem.ResumeGeneratorWithPyObject(generator, resultValue);
 					ProcessScriptResult(nextResult, scriptSystem);
 
-					// generator가 완료되면 현재 화면 갱신 (스택 유지)
+					// generator가 완료되면 남은 이벤트 처리 후 화면 갱신 (스택 유지)
 					if (_pendingGenerator == null)
 					{
-						_textUISystem?.UpdateDisplay();
+						ProcessEventsAndUpdateDisplay();
 					}
 					return;
 				}
@@ -217,8 +218,9 @@ public partial class MetaActionHandler
 		if (_pendingGenerator == null)
 		{
 			// generator 없으면 단순 다이얼로그 종료 (스택 유지)
+			// meet 이벤트 핸들러일 수 있으므로 남은 이벤트 처리
 			_textUISystem?.Pop();
-			_textUISystem?.UpdateDisplay();
+			ProcessEventsAndUpdateDisplay();
 			return;
 		}
 
@@ -243,10 +245,10 @@ public partial class MetaActionHandler
 			ProcessScriptResult(nextResult, scriptSystem);
 		}
 
-		// generator가 완료되면 현재 화면 갱신 (스택 유지)
+		// generator가 완료되면 남은 이벤트 처리 후 화면 갱신 (스택 유지)
 		if (_pendingGenerator == null)
 		{
-			_textUISystem?.UpdateDisplay();
+			ProcessEventsAndUpdateDisplay();
 		}
 	}
 

@@ -42,6 +42,10 @@ def get_action_text():
     C#의 morld.get_actions_list()로 기본 행동 리스트를 받아
     Python에서 최종 BBCode를 생성합니다.
 
+    구조:
+    - [이동 가능:] C#에서 생성 (경로 목록)
+    - [행동:] Python에서 생성 (멍때리기, 낮잠 등)
+
     토글 마크업 형식:
     - [url=toggle:ID]▶텍스트[/url] - 토글 버튼
     - [hidden=ID]...[/hidden=ID] - 펼침 시 표시되는 내용
@@ -51,10 +55,14 @@ def get_action_text():
     """
     lines = []
 
-    # C#에서 기본 행동 리스트 가져오기
+    # C#에서 기본 행동 리스트 가져오기 (이동 경로 등)
     default_actions = morld.get_actions_list()
     for action in default_actions:
         lines.append(action)
+
+    # 행동 섹션 헤더
+    lines.append("")
+    lines.append("[color=cyan]행동:[/color]")
 
     # 멍때리기 (시간 선택 토글)
     # ToggleRenderer가 [hidden=idle]...[/hidden=idle] 영역을 펼침/접힘 처리
