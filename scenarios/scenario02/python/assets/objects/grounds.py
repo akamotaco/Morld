@@ -19,7 +19,6 @@ class GroundWooden(Object):
     name = "나무 바닥"
     actions = ["putinobject"]
     focus_text = {"default": "잘 닦인 나무 바닥."}
-    is_visible = True
 
 
 class GroundStone(Object):
@@ -27,7 +26,6 @@ class GroundStone(Object):
     name = "돌 바닥"
     actions = ["putinobject"]
     focus_text = {"default": "차갑고 단단한 돌 바닥."}
-    is_visible = True
 
 
 class GroundMarble(Object):
@@ -35,7 +33,6 @@ class GroundMarble(Object):
     name = "대리석 바닥"
     actions = ["putinobject"]
     focus_text = {"default": "우아하게 빛나는 대리석 바닥."}
-    is_visible = True
 
 
 class GroundTile(Object):
@@ -43,7 +40,6 @@ class GroundTile(Object):
     name = "타일 바닥"
     actions = ["putinobject"]
     focus_text = {"default": "깨끗하게 관리된 타일 바닥."}
-    is_visible = True
 
 
 # ========================================
@@ -55,7 +51,6 @@ class GroundDirt(Object):
     name = "흙바닥"
     actions = ["putinobject"]
     focus_text = {"default": "부드러운 흙바닥."}
-    is_visible = True
 
 
 class GroundGrass(Object):
@@ -63,7 +58,6 @@ class GroundGrass(Object):
     name = "잔디"
     actions = ["putinobject"]
     focus_text = {"default": "푸른 잔디가 깔려 있다."}
-    is_visible = True
 
 
 class GroundForest(Object):
@@ -71,7 +65,6 @@ class GroundForest(Object):
     name = "숲 바닥"
     actions = ["putinobject"]
     focus_text = {"default": "낙엽과 이끼가 덮인 숲 바닥."}
-    is_visible = True
 
 
 class GroundRocky(Object):
@@ -79,7 +72,6 @@ class GroundRocky(Object):
     name = "바위투성이 땅"
     actions = ["putinobject"]
     focus_text = {"default": "울퉁불퉁한 바위와 자갈이 깔려 있다."}
-    is_visible = True
 
 
 # ========================================
@@ -91,7 +83,6 @@ class GroundAsphalt(Object):
     name = "아스팔트 바닥"
     actions = ["putinobject"]
     focus_text = {"default": "금이 간 아스팔트. 잡초가 틈새로 자라나 있다."}
-    is_visible = True
 
 
 class GroundConcrete(Object):
@@ -99,4 +90,3 @@ class GroundConcrete(Object):
     name = "콘크리트 바닥"
     actions = ["putinobject"]
     focus_text = {"default": "버려진 건물의 콘크리트 바닥. 먼지가 쌓여 있다."}
-    is_visible = True
