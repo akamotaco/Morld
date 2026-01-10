@@ -997,6 +997,133 @@ return {
 
 ---
 
+## 장비 시스템 (Equipment)
+
+### 개념
+아이템을 장착하여 캐릭터에 효과를 부여하는 시스템. 같은 슬롯의 아이템은 자동 교체됩니다.
+
+### 핵심 설계
+- **슬롯 직접 정의**: `equip_props`에 `"장착:{슬롯}": 1` 형식으로 정의
+- **슬롯 충돌 자동 처리**: 같은 슬롯 키를 가진 장비는 기존 것을 해제 후 장착
+- **장비 효과**: `equip_props`가 `Unit.GetActualProps()`에 자동 합산
+
+### 아이템 정의
+
+```python
+# assets/items/tools.py
+class FishingRod(Item):
+    unique_id = "fishing_rod"
+    name = "낚시대"
+    owner = "sera"
+    equip_props = {"can:fish": 1, "장착:손": 1}  # 장착 시 낚시 가능
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+class Torch(Item):
+    unique_id = "torch"
+    name = "횃불"
+    equip_props = {"밝기": 3, "장착:손": 1}  # 장착 시 밝기 +3
+    actions = ["take@container", "call:use:사용하기@inventory", "equip@inventory"]
+```
+
+### 슬롯 종류
+
+| 슬롯 | 키 형식 | 설명 | 예시 아이템 |
+|------|---------|------|------------|
+| 손 | `장착:손` | 무기, 도구 | 낚시대, 횃불, 부엌칼 |
+| 머리 | `장착:머리` | 헬멧, 모자 | (미구현) |
+| 몸통 | `장착:몸통` | 갑옷, 의류 | (미구현) |
+
+### 장착 동작 흐름
+
+```
+1. 플레이어가 인벤토리에서 아이템 클릭
+2. "장착" 버튼 표시 (equip@inventory 액션)
+3. 클릭 시 HandleEquipAction 호출:
+   a. 아이템의 슬롯 키 조회 (GetEquipPropKey("장착:"))
+   b. 장착 중인 아이템에서 같은 슬롯 키 검색
+   c. 충돌 시 기존 아이템 해제
+   d. 새 아이템 장착
+4. UI Pop → 인벤토리로 복귀
+```
+
+### 장비 효과 적용
+
+장착된 아이템의 `equip_props`는 `Unit.GetActualProps()`에서 자동 합산됩니다.
+
+```python
+# 낚시대 장착 전
+player_props = {"can:talk": 1, ...}
+
+# 낚시대 장착 후 (can:fish 추가)
+player_actual_props = {"can:talk": 1, "can:fish": 1, ...}
+
+# 결과: 낚시터에서 "낚시" 액션이 표시됨 (can:fish 필터링 통과)
+```
+
+### C# 구현
+
+```csharp
+// MetaActionHandler.Item.cs
+private void HandleEquipAction(string[] parts)
+{
+    // 슬롯 충돌 확인
+    var slotKey = item.GetEquipPropKey("장착:");
+    if (slotKey != null)
+    {
+        var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
+        foreach (var equippedId in equippedItems)
+        {
+            var equippedItem = itemSystem.FindItem(equippedId);
+            if (equippedItem?.EquipProps?.ContainsKey(slotKey) == true)
+            {
+                inventorySystem.UnequipItemFromUnit(player.Id, equippedId);
+                break;
+            }
+        }
+    }
+    // 새 아이템 장착
+    inventorySystem.EquipItemOnUnit(player.Id, itemId);
+}
+
+// Item.cs
+public string GetEquipPropKey(string prefix)
+{
+    // "장착:" prefix로 시작하는 키 반환
+    foreach (var key in EquipProps.Keys)
+    {
+        if (key.StartsWith(prefix))
+            return key;
+    }
+    return null;
+}
+```
+
+### 장착 가능 아이템 목록
+
+| 아이템 | unique_id | 슬롯 | 장비 효과 | 소유자 |
+|--------|-----------|------|----------|--------|
+| 낚시대 | fishing_rod | 손 | can:fish +1 | 세라 |
+| 횃불 | torch | 손 | 밝기 +3 | - |
+| 부엌칼 | kitchen_knife | 손 | 공격력 +2 | 밀라 |
+| 사냥용 활 | hunting_bow | 손 | 공격력 +5, 사거리 +3 | 세라 |
+| 랜턴 | lantern | 손 | 밝기 +2 | - |
+| 낡은 칼 | old_knife | 손 | 공격 +2, 사냥 +1 | - |
+
+### 파일 위치
+
+```
+scripts/
+├── MetaActionHandler/MetaActionHandler.Item.cs  # HandleEquipAction
+├── morld/item/Item.cs                           # GetEquipPropKey()
+└── system/inventory_system.cs                   # 장착 상태 관리
+
+scenarios/scenario02/python/assets/items/
+├── tools.py       # FishingRod, Torch, Lantern 등
+└── equipment.py   # OldKnife 등
+```
+
+---
+
 ## 생존 시스템 (Survival)
 
 ### 개념

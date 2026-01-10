@@ -139,24 +139,6 @@ class Wood(Item):
     actions = ["take@container"]
 
 
-class Herb(Item):
-    unique_id = "food_herb"
-    name = "약초"
-    category = "food_ingredient"  # 음식 재료 (조리용)
-    passive_props = {"치료": 1}
-    equip_props = {}
-    value = 8
-    actions = ["take@container", "call:use:사용하기@inventory"]
-
-    def use(self):
-        """약초 사용 - 치료"""
-        yield morld.dialog([
-            "약초를 사용했다.",
-            "상처가 조금 나아진 것 같다."
-        ])
-        morld.advance_time(5)
-
-
 class Cloth(Item):
     unique_id = "cloth"
     name = "천 조각"

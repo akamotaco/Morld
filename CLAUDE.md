@@ -808,6 +808,72 @@ props = {
 }
 ```
 
+### 장비 시스템 (Equipment System)
+**역할:** 아이템 장착/해제 및 장비 효과 적용
+
+**핵심 설계:**
+- `equip_props`에 `"장착:{슬롯}": 1` 형식으로 슬롯 직접 정의
+- 같은 슬롯 키를 가진 아이템은 자동 해제 후 장착
+- C# `HandleEquipAction`에서 슬롯 충돌 처리
+
+**장비 슬롯 정의:**
+```python
+# assets/items/tools.py
+class FishingRod(Item):
+    unique_id = "fishing_rod"
+    name = "낚시대"
+    equip_props = {"can:fish": 1, "장착:손": 1}  # 장착 슬롯: 손
+    actions = ["take@container", "equip@inventory"]
+```
+
+**슬롯 종류 (확장 가능):**
+| 슬롯 | 키 형식 | 설명 |
+|------|---------|------|
+| 손 | `장착:손` | 무기, 도구 등 |
+| 머리 | `장착:머리` | 헬멧, 모자 등 |
+| 몸통 | `장착:몸통` | 갑옷, 의류 등 |
+
+**C# 슬롯 키 조회:**
+```csharp
+// Item.cs
+public string GetEquipPropKey(string prefix)
+{
+    // "장착:" prefix로 시작하는 키 반환
+    // 예: "장착:손" 반환
+}
+
+// HandleEquipAction에서 사용
+var slotKey = item.GetEquipPropKey("장착:");
+if (slotKey != null)
+{
+    // 같은 슬롯의 기존 장비 해제
+    foreach (var equippedId in equippedItems)
+    {
+        var equippedItem = itemSystem.FindItem(equippedId);
+        if (equippedItem?.EquipProps?.ContainsKey(slotKey) == true)
+        {
+            inventorySystem.UnequipItemFromUnit(player.Id, equippedId);
+            break;
+        }
+    }
+}
+```
+
+**장착 상태 관리:**
+- `InventorySystem.GetUnitEquippedItems(unitId)` - 장착 아이템 ID 목록
+- `InventorySystem.EquipItemOnUnit(unitId, itemId)` - 아이템 장착
+- `InventorySystem.UnequipItemFromUnit(unitId, itemId)` - 아이템 해제
+
+**장비 효과 (equip_props):**
+- 장착 시 `Unit.GetActualProps()`에 자동 합산
+- 해제 시 자동 제거
+- 예: `{"can:fish": 1}` → 낚시 액션 활성화
+
+**파일 위치:**
+- `scripts/MetaActionHandler/MetaActionHandler.Item.cs` - HandleEquipAction, HandleUnequipAction
+- `scripts/morld/item/Item.cs` - GetEquipPropKey()
+- `scripts/system/inventory_system.cs` - 장착 상태 관리
+
 ### 생존 시스템 (Survival System)
 **역할:** 캐릭터의 체력과 포만감 관리
 

@@ -117,3 +117,22 @@ class MushroomPatch(ResourceObject):
             return f"버섯 군락. 버섯이 {count}개 있다."
         else:
             return "버섯 군락. 아직 버섯이 자라지 않았다."
+
+
+class HerbGarden(ResourceObject):
+    """약초밭 - 약초 생성 (뒷마당)"""
+    unique_id = "herb_garden"
+    name = "약초밭"
+    resource_item_unique_id = "food_herb"
+    max_resources = 4
+    actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
+
+    def get_focus_text(self):
+        """현재 상태에 따른 묘사"""
+        count = self.get_resource_count()
+        if count >= 3:
+            return "다양한 약초가 정성스럽게 가꿔진 밭. 허브 향기가 은은히 퍼진다."
+        elif count > 0:
+            return f"약초밭. 수확 가능한 약초가 {count}개 있다."
+        else:
+            return "약초밭. 아직 약초가 자라지 않았다."

@@ -15,11 +15,11 @@ from .tools import (
 )
 from .resources import (
     Flour, Rice, Water, Bread, Berry, Meat,
-    Wood, Herb, Cloth
+    Wood, Cloth
 )
 from .food import (
     FoodItem, WildBerry, Apple, Mushroom, CookedMeat, CookedFish,
-    HerbSalad, MeatStew
+    Fish, Herb, HerbTea, FruitSalad, MushroomStew
 )
 
 __all__ = [
@@ -32,10 +32,10 @@ __all__ = [
     'Lantern', 'WaterBottle',
     # resources
     'Flour', 'Rice', 'Water', 'Bread', 'Berry', 'Meat',
-    'Wood', 'Herb', 'Cloth',
+    'Wood', 'Cloth',
     # food
     'FoodItem', 'WildBerry', 'Apple', 'Mushroom', 'CookedMeat', 'CookedFish',
-    'HerbSalad', 'MeatStew',
+    'Fish', 'Herb', 'HerbTea', 'FruitSalad', 'MushroomStew',
 ]
 
 

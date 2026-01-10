@@ -231,6 +231,9 @@ NATURE_OBJECTS = [
 
     # 강가 (location 22)
     ("berry_bush", REGION_ID, 22, 2),      # 산딸기 덤불
+
+    # 뒷마당 (location 13)
+    ("herb_garden", REGION_ID, 13, 3),     # 약초밭
 ]
 
 
@@ -242,12 +245,19 @@ FOOD_ITEM_UNIQUE_IDS = [
     "food_cooked_meat",
     "food_cooked_fish",
     "food_fish",
+    "food_herb",
+    "drink_herb_tea",
+    "food_fruit_salad",
+    "food_mushroom_stew",
 ]
 
 
 def instantiate_food_items():
     """음식 아이템들을 ItemSystem에 등록"""
-    from assets.items.food import WildBerry, Apple, Mushroom, CookedMeat, CookedFish, Fish
+    from assets.items.food import (
+        WildBerry, Apple, Mushroom, CookedMeat, CookedFish, Fish,
+        Herb, HerbTea, FruitSalad, MushroomStew
+    )
 
     item_classes = {
         "food_wild_berry": WildBerry,
@@ -256,6 +266,10 @@ def instantiate_food_items():
         "food_cooked_meat": CookedMeat,
         "food_cooked_fish": CookedFish,
         "food_fish": Fish,
+        "food_herb": Herb,
+        "drink_herb_tea": HerbTea,
+        "food_fruit_salad": FruitSalad,
+        "food_mushroom_stew": MushroomStew,
     }
 
     count = 0
@@ -273,12 +287,13 @@ def instantiate_food_items():
 def instantiate_nature_objects():
     """자연 오브젝트 인스턴스화 + 이벤트 기반 자원 생성 등록 + 초기 자원 생성"""
     from think.resource_agent import register_resource_object
-    from assets.objects.nature import AppleTree, BerryBush, MushroomPatch
+    from assets.objects.nature import AppleTree, BerryBush, MushroomPatch, HerbGarden
 
     object_classes = {
         "apple_tree": AppleTree,
         "berry_bush": BerryBush,
         "mushroom_patch": MushroomPatch,
+        "herb_garden": HerbGarden,
     }
 
     objects = []

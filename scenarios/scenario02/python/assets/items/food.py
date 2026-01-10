@@ -56,6 +56,35 @@ class FoodItem(Item):
 
 
 # ========================================
+# 채집 가능한 재료
+# ========================================
+
+@register_item
+class Herb(FoodItem):
+    """
+    약초 - 뒷마당 약초밭에서 채집 (음료 재료)
+
+    사용법:
+    - 그냥 먹기: 포만감 5 + 치료 효과
+    - 주전자에 넣고 끓이기: 허브티로 제조
+    """
+    unique_id = "food_herb"
+    name = "약초"
+    category = "drink_ingredient"  # 음료 재료 (주전자용)
+    value = 8
+    food_satiety = 5
+    eat_message = [
+        "약초를 씹어 먹었다.",
+        "쓴맛이 입안에 퍼지지만, 몸에 좋은 느낌이다.",
+        "상처가 조금 나아진 것 같다.",
+        "(테스트 중으로 실제 치료 효과는 없습니다.)"
+    ]
+    eat_time = 1
+    # passive_props = {"치료": 1}  # 소지 시 치료 효과 # 섭취시에만 치료 효과 (미구현)
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+# ========================================
 # 자연에서 채집 가능한 음식
 # ========================================
 
@@ -64,6 +93,7 @@ class WildBerry(FoodItem):
     """산딸기 - 산딸기 덤불에서 채집"""
     unique_id = "food_wild_berry"
     name = "산딸기"
+    category = "food_ingredient"  # 음식 재료 (아궁이용)
     value = 2
     food_satiety = 10
     eat_message = [
@@ -79,6 +109,7 @@ class Apple(FoodItem):
     """사과 - 사과나무에서 채집"""
     unique_id = "food_apple"
     name = "사과"
+    category = "food_ingredient"  # 음식 재료 (아궁이용)
     value = 5
     food_satiety = 25
     eat_message = [
@@ -94,6 +125,7 @@ class Mushroom(FoodItem):
     """버섯 - 숲에서 채집"""
     unique_id = "food_mushroom"
     name = "버섯"
+    category = "food_ingredient"  # 음식 재료 (아궁이용)
     value = 4
     food_satiety = 15
     eat_message = [
@@ -128,6 +160,7 @@ class Fish(FoodItem):
     """생선 - 낚시로 획득"""
     unique_id = "food_fish"
     name = "생선"
+    category = "food_ingredient"  # 음식 재료 (아궁이용)
     value = 8
     food_satiety = 20
     eat_message = [
@@ -154,30 +187,45 @@ class CookedFish(FoodItem):
 
 
 @register_item
-class HerbSalad(FoodItem):
-    """허브 샐러드 - 조리 필요"""
-    unique_id = "food_herb_salad"
-    name = "허브 샐러드"
-    value = 18
-    food_satiety = 20
+class MushroomStew(FoodItem):
+    """버섯 스튜 - 조리 필요 (버섯 2개)"""
+    unique_id = "food_mushroom_stew"
+    name = "버섯 스튜"
+    value = 25
+    food_satiety = 45
     eat_message = [
-        "허브 샐러드를 먹었다.",
-        "상쾌한 풀 향기가 입안에 퍼진다."
+        "따끈한 버섯 스튜를 먹었다.",
+        "진한 버섯 향과 함께 몸이 따뜻해진다."
+    ]
+    eat_time = 6
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class FruitSalad(FoodItem):
+    """과일 샐러드 - 조리 필요 (사과 1 + 산딸기 2)"""
+    unique_id = "food_fruit_salad"
+    name = "과일 샐러드"
+    value = 18
+    food_satiety = 40
+    eat_message = [
+        "과일 샐러드를 먹었다.",
+        "달콤하고 상큼한 맛이 입안에 퍼진다."
     ]
     eat_time = 3
     actions = ["take@container", "call:eat:먹기@inventory"]
 
 
 @register_item
-class MeatStew(FoodItem):
-    """고기 스튜 - 조리 필요"""
-    unique_id = "food_meat_stew"
-    name = "고기 스튜"
-    value = 30
-    food_satiety = 70
+class HerbTea(FoodItem):
+    """허브티 - 조리 필요 (약초 1개)"""
+    unique_id = "drink_herb_tea"
+    name = "허브티"
+    value = 15
+    food_satiety = 15
     eat_message = [
-        "따끈한 고기 스튜를 먹었다.",
-        "든든하고 몸이 따뜻해진다."
+        "따뜻한 허브티를 마셨다.",
+        "은은한 허브 향이 마음을 편안하게 한다."
     ]
-    eat_time = 8
-    actions = ["take@container", "call:eat:먹기@inventory"]
+    eat_time = 3
+    actions = ["take@container", "call:eat:마시기@inventory"]

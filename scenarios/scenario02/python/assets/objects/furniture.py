@@ -153,7 +153,8 @@ class Stove(Object):
     put_filter = ["food_ingredient"]  # 음식 재료만 넣을 수 있음
     actions = [
         "call:look:살펴보기",
-        "call:open:재료 확인",
+        "container",  # C# 기본 컨테이너 UI 사용
+        "call:put:재료 넣기",
         "call:cook:조리하기",
         "call:debug_props:속성 보기"
     ]
@@ -167,14 +168,88 @@ class Stove(Object):
         ])
         morld.advance_time(1)
 
-    def open(self):
-        """재료 넣기/빼기 - 컨테이너 UI 표시"""
-        # container.py의 show_container_ui 호출
-        from events.scripts.container import show_container_ui
-        yield from show_container_ui(self.instance_id)
-
     def cook(self):
         """조리 실행"""
+        from recipes import find_matching_recipe, RECIPES
+        from assets.registry import get_item_class
+
+        # 현재 재료 확인
+        inventory = morld.get_unit_inventory(self.instance_id)
+        if not inventory:
+            yield morld.dialog("재료가 없다.")
+            return
+
+        # unique_id 기반으로 변환
+        inv_uniques = {}
+        for item_id, count in inventory.items():
+            info = morld.get_item_info(item_id)
+            unique_id = info.get("unique_id")
+            if unique_id:
+                inv_uniques[unique_id] = inv_uniques.get(unique_id, 0) + count
+
+        # 레시피 매칭
+        result = find_matching_recipe(inv_uniques)
+        if not result:
+            yield morld.dialog("이 재료로는 만들 수 있는 것이 없다.")
+            return
+
+        recipe_id, recipe, max_count = result
+
+        # 재료 소비 (item_id 찾아서 소비)
+        for unique_id, needed in recipe["ingredients"].items():
+            consumed = 0
+            for item_id, count in list(inventory.items()):
+                info = morld.get_item_info(item_id)
+                if info.get("unique_id") == unique_id and consumed < needed:
+                    to_consume = min(count, needed - consumed)
+                    morld.lost_item(self.instance_id, item_id, to_consume)
+                    consumed += to_consume
+
+        # 결과물 생성
+        result_unique, result_count = recipe["result"]
+        item_class = get_item_class(result_unique)
+        if item_class:
+            result_item = item_class()
+            result_id = morld.create_id("item")
+            result_item.instantiate(result_id)
+            morld.give_item(self.instance_id, result_id, result_count)
+
+        # 시간 경과 및 메시지
+        yield morld.dialog(f"{recipe['name']}을(를) 만들었다.")
+        morld.advance_time(recipe["cook_time"])
+
+
+class Kettle(Object):
+    """
+    음료 제조용 주전자
+
+    컨테이너 패턴 + 음료 제조 기능:
+    - open: 재료 넣기/빼기 (인벤토리 조회)
+    - brew: 레시피 매칭 후 음료 제조
+    - put_filter: drink_ingredient 카테고리 아이템만 넣을 수 있음
+    """
+    unique_id = "kettle"
+    name = "주전자"
+    put_filter = ["drink_ingredient"]  # 음료 재료만 넣을 수 있음
+    actions = [
+        "call:look:살펴보기",
+        "container",  # C# 기본 컨테이너 UI 사용
+        "call:put:재료 넣기",
+        "call:brew:끓이기",
+        "call:debug_props:속성 보기"
+    ]
+    focus_text = {"default": "물을 끓이거나 차를 우릴 수 있는 주전자."}
+
+    def look(self):
+        """주전자 살펴보기"""
+        yield morld.dialog([
+            "물을 끓이거나 차를 우릴 수 있는 주전자다.",
+            "아궁이 위에 올려두면 사용할 수 있다."
+        ])
+        morld.advance_time(1)
+
+    def brew(self):
+        """음료 제조"""
         from recipes import find_matching_recipe, RECIPES
         from assets.registry import get_item_class
 

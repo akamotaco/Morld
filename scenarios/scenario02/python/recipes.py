@@ -4,40 +4,48 @@
 # - ingredients: {unique_id: count} - 재료 종류가 정확히 일치해야 함
 # - result: (unique_id, count) - 결과물
 # - cook_time: 조리 시간 (분)
+#
+# 현재 채집 가능한 재료:
+# - food_wild_berry (산딸기) - 채집터, 강가
+# - food_apple (사과) - 숲 깊은 곳
+# - food_mushroom (버섯) - 채집터
+# - food_fish (생선) - 강가 낚시
+# - food_herb (약초) - 뒷마당 약초밭
 
 
 # 레시피 정의
 # ingredients의 키는 아이템 unique_id와 매칭
 RECIPES = {
-    "food_cooked_meat": {
-        "name": "구운 고기",
-        "ingredients": {"food_meat": 1},
-        "result": ("food_cooked_meat", 1),
-        "cook_time": 15,
-    },
+    # === 생선 요리 ===
     "food_cooked_fish": {
         "name": "구운 생선",
         "ingredients": {"food_fish": 1},
         "result": ("food_cooked_fish", 1),
         "cook_time": 10,
     },
-    "food_herb_salad": {
-        "name": "허브 샐러드",
-        "ingredients": {"food_herb": 2},
-        "result": ("food_herb_salad", 1),
+
+    # === 버섯 요리 ===
+    "food_mushroom_stew": {
+        "name": "버섯 스튜",
+        "ingredients": {"food_mushroom": 2},
+        "result": ("food_mushroom_stew", 1),
+        "cook_time": 20,
+    },
+
+    # === 과일/채소 요리 ===
+    "food_fruit_salad": {
+        "name": "과일 샐러드",
+        "ingredients": {"food_apple": 1, "food_wild_berry": 2},
+        "result": ("food_fruit_salad", 1),
         "cook_time": 5,
     },
-    "food_meat_stew": {
-        "name": "고기 스튜",
-        "ingredients": {"food_meat": 1, "food_herb": 1},
-        "result": ("food_meat_stew", 1),
-        "cook_time": 30,
-    },
-    "food_bread": {
-        "name": "빵",
-        "ingredients": {"food_flour": 1, "drink_water": 1},
-        "result": ("food_bread", 1),
-        "cook_time": 20,
+
+    # === 허브 음료 ===
+    "drink_herb_tea": {
+        "name": "허브티",
+        "ingredients": {"food_herb": 1},
+        "result": ("drink_herb_tea", 1),
+        "cook_time": 5,
     },
 }
 

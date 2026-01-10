@@ -2,7 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundStone
-from assets.objects.furniture import Stove, Cupboard
+from assets.objects.furniture import Stove, Kettle, Cupboard
 
 
 class Kitchen(Location):
@@ -18,8 +18,9 @@ class Kitchen(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """주방 생성 + 바닥 + 아궁이 + 찬장 추가"""
+        """주방 생성 + 바닥 + 아궁이 + 주전자 + 찬장 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundStone())
         self.add_object(Stove())
+        self.add_object(Kettle())
         self.add_object(Cupboard())
