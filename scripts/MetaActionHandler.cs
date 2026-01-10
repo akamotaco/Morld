@@ -169,12 +169,9 @@ public class MetaActionHandler
 			case "call":
 				HandleCallAction(parts);
 				break;
-			case "sit":
-				GD.PrintErr("[MetaActionHandler] sit@ action is not implemented. Use call: pattern instead.");
-				break;
-			case "stand_up":
-				GD.PrintErr("[MetaActionHandler] stand_up action is not implemented. Use call: pattern instead.");
-				break;
+			// TODO: sit, stand_up을 call: 패턴으로 전환 필요
+			// case "sit":
+			// case "stand_up":
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
 				break;

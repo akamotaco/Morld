@@ -363,7 +363,8 @@ namespace SE
 
 						items.Add("");
 						items.Add($"[color=lime][앉음: {seatName}][/color]");
-						items.Add($"  [url=stand_up]일어나기[/url]");
+						// TODO: stand_up을 call:stand_up으로 전환 필요
+						// items.Add($"  [url=stand_up]일어나기[/url]");
 
 						// 운전석이면 운전 액션도 표시 (TODO: drive 메서드 구현 필요)
 						if (seatObject != null && seatObject.TraversalContext.HasProp("driver_seat"))
