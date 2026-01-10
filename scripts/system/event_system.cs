@@ -118,26 +118,6 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 누적된 다이얼로그 시간 경과 반환 및 리셋
-		/// </summary>
-		/// <returns>누적된 시간 (분)</returns>
-		public int ConsumeDialogTime()
-		{
-			var consumed = _dialogTimeConsumed;
-			_dialogTimeConsumed = 0;
-#if DEBUG_LOG
-			if (consumed > 0)
-				GD.Print($"[EventSystem] ConsumeDialogTime: {consumed}");
-#endif
-			return consumed;
-		}
-
-		/// <summary>
-		/// 현재 누적된 다이얼로그 시간 조회 (리셋 없음)
-		/// </summary>
-		public int DialogTimeConsumed => _dialogTimeConsumed;
-
-		/// <summary>
 		/// ExcessTime 계산 (Proc 끝에서 호출)
 		/// lastDialogTime이 NextStepDuration을 초과하면 초과분 저장
 		/// </summary>
