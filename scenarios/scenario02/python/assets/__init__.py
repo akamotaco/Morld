@@ -29,7 +29,7 @@ from assets.registry import (
 # call: 액션 지원 - 인스턴스 메서드 호출 API
 # ========================================
 
-def call_instance_method(instance_id: int, method_name: str):
+def call_instance_method(instance_id: int, method_name: str, *args):
     """
     Asset 인스턴스의 메서드 호출 (call: 액션용)
 
@@ -39,6 +39,7 @@ def call_instance_method(instance_id: int, method_name: str):
     Args:
         instance_id: 인스턴스 ID (Unit ID 또는 Item ID)
         method_name: 호출할 메서드 이름
+        *args: 메서드에 전달할 인자들
 
     Returns:
         메서드 반환값 (Generator 또는 dict)
@@ -49,7 +50,7 @@ def call_instance_method(instance_id: int, method_name: str):
     if instance is not None:
         method = getattr(instance, method_name, None)
         if method is not None:
-            return method()
+            return method(*args)
         print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
         return None
 
@@ -59,7 +60,7 @@ def call_instance_method(instance_id: int, method_name: str):
     if instance is not None:
         method = getattr(instance, method_name, None)
         if method is not None:
-            return method()
+            return method(*args)
         print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
         return None
 
@@ -69,7 +70,7 @@ def call_instance_method(instance_id: int, method_name: str):
     if instance is not None:
         method = getattr(instance, method_name, None)
         if method is not None:
-            return method()
+            return method(*args)
         print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
         return None
 

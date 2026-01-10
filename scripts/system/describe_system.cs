@@ -92,38 +92,9 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Region 묘사 텍스트 반환
+		/// 캐릭터 describe text 가져오기 (ScriptSystem을 통해 Python 호출)
 		/// </summary>
-		public string GetRegionDescribeText(Region? region, GameTime? time)
-		{
-			if (region == null) return "";
-			// isIndoor=false, weather=null → 실내/날씨 태그 없이 시간 태그만 사용
-			return SelectDescribeText(region.DescribeText, time, false, null);
-		}
-
-		/// <summary>
-		/// Unit 외관 묘사 반환 (감정/표정 + Activity 기반)
-		/// </summary>
-		public string GetUnitAppearance(Unit? unit)
-		{
-			if (unit == null) return "";
-
-			// Mood와 현재 Activity를 합쳐서 태그 생성
-			var tags = new HashSet<string>(unit.Mood);
-			// JobList 기반: CurrentJob.Name이 activity 역할 ("사냥", "식사" 등)
-			var activity = unit.CurrentJob?.Name;
-			if (!string.IsNullOrEmpty(activity))
-			{
-				tags.Add(activity);
-			}
-
-			return SelectAppearanceByMood(unit.Appearance, tags);
-		}
-
-		/// <summary>
-		/// 캐릭터 presence text 가져오기 (ScriptSystem을 통해 Python 호출)
-		/// </summary>
-		private List<string> GetCharacterPresenceTexts(LookResult lookResult, LocationInfo loc)
+		private List<string> GetCharacterDescribeTexts(LookResult lookResult, LocationInfo loc)
 		{
 			var result = new List<string>();
 
@@ -161,45 +132,9 @@ namespace SE
 		private Location? GetLocationFromLookResult(LookResult lookResult)
 		{
 			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
-			if (worldSystem == null) return null;
 
 			var locRef = lookResult.Location.LocationRef;
 			return worldSystem.GetTerrain().GetLocation(locRef.RegionId, locRef.LocalId);
-		}
-
-		/// <summary>
-		/// Appearance Dictionary에서 Mood 기반 적절한 키 선택 (태그 순서 무관)
-		/// </summary>
-		private string SelectAppearanceByMood(Dictionary<string, string>? appearances, HashSet<string>? mood)
-		{
-			if (appearances == null || appearances.Count == 0)
-				return "";
-
-			if (mood == null || mood.Count == 0)
-			{
-				return appearances.TryGetValue("default", out var defaultAppearance) ? defaultAppearance : "";
-			}
-
-			string bestKey = "default";
-			int bestMatchCount = 0;
-
-			foreach (var (key, _) in appearances)
-			{
-				if (key == "default") continue;
-
-				// 콤마로 구분된 태그를 HashSet으로 변환 (순서 무관)
-				var keyTags = key.Split(',').Select(t => t.Trim()).ToHashSet();
-				var matchCount = keyTags.Intersect(mood).Count();
-
-				// 모든 키 태그가 현재 Mood에 포함되어야 함
-				if (matchCount == keyTags.Count && matchCount > bestMatchCount)
-				{
-					bestMatchCount = matchCount;
-					bestKey = key;
-				}
-			}
-
-			return appearances.TryGetValue(bestKey, out var appearance) ? appearance : "";
 		}
 
 		/// <summary>
@@ -292,14 +227,14 @@ namespace SE
 				lines.Add(loc.AppearanceText);
 			}
 
-			// 3.1. 캐릭터 presence text (위치 외관 묘사 바로 다음)
-			var presenceTexts = GetCharacterPresenceTexts(lookResult, loc);
-			foreach (var presenceText in presenceTexts)
+			// 3.1. 캐릭터 describe text (위치 외관 묘사 바로 다음)
+			var describeTexts = GetCharacterDescribeTexts(lookResult, loc);
+			foreach (var describeText in describeTexts)
 			{
-				lines.Add(presenceText);
+				lines.Add(describeText);
 			}
 
-			if (!string.IsNullOrEmpty(loc.AppearanceText) || presenceTexts.Count > 0)
+			if (!string.IsNullOrEmpty(loc.AppearanceText) || describeTexts.Count > 0)
 			{
 				lines.Add("");
 			}
@@ -319,7 +254,6 @@ namespace SE
 			if (lookResult.UnitIds.Count > 0)
 			{
 				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-				if (unitSystem != null)
 				{
 					// 캐릭터와 오브젝트 분리
 					var characters = new List<Unit>();
@@ -409,7 +343,7 @@ namespace SE
 			var items = new List<string>();
 
 			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
-			var player = playerSystem.GetPlayerUnit();
+			var player = playerSystem.FindPlayerUnit();
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 
 			// 1. 이동 가능 경로
@@ -448,10 +382,10 @@ namespace SE
 						items.Add($"[color=lime][앉음: {seatName}][/color]");
 						items.Add($"  [url=stand_up]일어나기[/url]");
 
-						// 운전석이면 운전 액션도 표시
+						// 운전석이면 운전 액션도 표시 (TODO: drive 메서드 구현 필요)
 						if (seatObject != null && seatObject.TraversalContext.HasProp("driver_seat"))
 						{
-							items.Add($"  [url=script:drive_menu]운전[/url]");
+							items.Add($"  [url=call:drive]운전[/url]");
 						}
 					}
 				}
@@ -481,7 +415,7 @@ namespace SE
 
 			// 플레이어 정보 가져오기 (액션 필터링용)
 			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
-			var player = playerSystem?.GetPlayerUnit();
+			var player = playerSystem?.FindPlayerUnit();
 
 			lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
@@ -515,12 +449,13 @@ namespace SE
 						lines.Add("[color=lime]보관된 아이템:[/color]");
 						foreach (var (itemId, count) in unitLook.Inventory)
 						{
-							var item = itemSystem.GetItem(itemId);
+							var item = itemSystem.FindItem(itemId);
 							if (item != null)
 							{
 								var countText = count > 1 ? $" x{count}" : "";
+								var itemName = GetItemNameWithOwner(item);
 								// 아이템 메뉴로 연결
-								lines.Add($"  [url=item_unit_menu:{unitLook.UnitId}:{itemId}]{item.Name}{countText}[/url]");
+								lines.Add($"  [url=item_unit_menu:{unitLook.UnitId}:{itemId}]{itemName}{countText}[/url]");
 							}
 						}
 						lines.Add("");
@@ -541,33 +476,10 @@ namespace SE
 				lines.Add("[color=yellow]행동:[/color]");
 				foreach (var action in filteredUnitActions)
 				{
-					// putinobject 액션은 script:put_to_object로 변환 (가져가기는 기존 Item 메뉴 방식 유지)
+					// putinobject 액션은 call:put_to_object로 변환 (가져가기는 기존 Item 메뉴 방식 유지)
 					if (action == "putinobject")
 					{
-						lines.Add($"  [url=script:put_to_object]넣기[/url]");
-					}
-					// script:함수명:표시명 형식 - Python 스크립트 직접 호출
-					else if (action.StartsWith("script:"))
-					{
-						var parts = action.Split(':');
-						if (parts.Length >= 3)
-						{
-							var funcName = parts[1];
-							var displayName = parts[2];
-							lines.Add($"  [url=script:{funcName}]{displayName}[/url]");
-						}
-						else if (parts.Length == 2)
-						{
-							// script:함수명 (표시명 없음 → 함수명 그대로 표시)
-							var funcName = parts[1];
-							lines.Add($"  [url=script:{funcName}]{funcName}[/url]");
-						}
-						else
-						{
-							// 형식 오류 - 디버그 정보와 함께 표시
-							Godot.GD.PrintErr($"[DescribeSystem] Invalid script action format: '{action}' (expected 'script:funcName:displayName')");
-							lines.Add($"  [color=red][오류: {action}][/color]");
-						}
+						lines.Add($"  [url=call:put_to_object]넣기[/url]");
 					}
 					// call:메서드명:표시명 형식 - Python Asset 인스턴스 메서드 호출
 					// Focus.TargetUnitId에서 instanceId를 가져오므로 URL에 ID 포함 불필요
@@ -631,7 +543,7 @@ namespace SE
 		/// <summary>
 		/// 아이템 이름에 소유자 표시 추가
 		/// </summary>
-		private string GetItemNameWithOwner(Morld.Item item)
+		public string GetItemNameWithOwner(Morld.Item item)
 		{
 			if (item == null) return "";
 
@@ -669,9 +581,9 @@ namespace SE
 			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
 			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
 			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-			var player = playerSystem.GetPlayerUnit();
+			var player = playerSystem.FindPlayerUnit();
 
-			if (player == null || itemSystem == null || inventorySystem == null)
+			if (player == null)
 			{
 				lines.Add("[color=gray]인벤토리를 확인할 수 없습니다.[/color]");
 				lines.Add("");
@@ -691,14 +603,14 @@ namespace SE
 				int totalValue = 0;
 				foreach (var (itemId, count) in inventory)
 				{
-					var item = itemSystem.GetItem(itemId);
+					var item = itemSystem.FindItem(itemId);
 					if (item != null)
 					{
 						var countText = count > 1 ? $" x{count}" : "";
 						var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
-						var ownerText = !string.IsNullOrEmpty(item.Owner) ? $" [color=gray]({GetOwnerName(item.Owner)} 소유)[/color]" : "";
+						var itemName = GetItemNameWithOwner(item);
 						// 아이템 메뉴로 연결
-						lines.Add($"  [url=item_inv_menu:{itemId}]{item.Name}{countText}[/url]{valueText}{ownerText}");
+						lines.Add($"  [url=item_inv_menu:{itemId}]{itemName}{countText}[/url]{valueText}");
 						totalValue += item.Value * count;
 					}
 				}
@@ -713,11 +625,11 @@ namespace SE
 				lines.Add("[color=cyan]장착 중:[/color]");
 				foreach (var itemId in equippedItems)
 				{
-					var item = itemSystem.GetItem(itemId);
+					var item = itemSystem.FindItem(itemId);
 					if (item != null)
 					{
-						var ownerText = !string.IsNullOrEmpty(item.Owner) ? $" [color=gray]({GetOwnerName(item.Owner)} 소유)[/color]" : "";
-						lines.Add($"  {item.Name}{ownerText}");
+						var itemName = GetItemNameWithOwner(item);
+						lines.Add($"  {itemName}");
 					}
 				}
 			}
@@ -742,8 +654,8 @@ namespace SE
 
 			// 플레이어 정보 가져오기 (액션 필터링용)
 			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
-			var player = playerSystem?.GetPlayerUnit();
-			var item = itemSystem.GetItem(itemId);
+			var player = playerSystem.FindPlayerUnit();
+			var item = itemSystem.FindItem(itemId);
 
 			if (item == null)
 			{
@@ -756,7 +668,8 @@ namespace SE
 			// 헤더 생성
 			var countText = count > 1 ? $" x{count}" : "";
 			var valueText = (context == "inventory" && item.Value > 0) ? $" ({item.Value * count}G)" : "";
-			lines.Add($"[b]{item.Name}{countText}[/b]{valueText}");
+			var itemName = GetItemNameWithOwner(item);
+			lines.Add($"[b]{itemName}{countText}[/b]{valueText}");
 
 			// container 컨텍스트일 경우 유닛 이름 표시
 			if (context == "container" && targetUnitId.HasValue)
@@ -836,22 +749,6 @@ namespace SE
 		/// </summary>
 		private (string url, string label) GetActionUrlAndLabel(string action, int itemId, int? unitId, string context)
 		{
-			// script:함수명:표시명 형식 처리
-			if (action.StartsWith("script:"))
-			{
-				var parts = action.Split(':');
-				if (parts.Length >= 3)
-				{
-					// script:함수명:표시명 → URL: script:함수명:itemId, Label: 표시명
-					return ($"script:{parts[1]}:{itemId}", parts[2]);
-				}
-				else if (parts.Length == 2)
-				{
-					// script:함수명 (표시명 없음) → URL: script:함수명:itemId, Label: 함수명
-					return ($"script:{parts[1]}:{itemId}", parts[1]);
-				}
-			}
-
 			// call:메서드명:표시명 형식 처리
 			// Focus.ItemId/TargetUnitId에서 instanceId를 가져오므로 URL에 ID 포함 불필요
 			if (action.StartsWith("call:"))
@@ -871,37 +768,13 @@ namespace SE
 
 			return action switch
 			{
-				// take는 container에서 가져가기 - script:take_item으로 처리
-				"take" when context == "container" => ($"script:take_item:{itemId}", "가져가기"),
+				// take는 container에서 가져가기 - call:take_item으로 처리
+				"take" when context == "container" => ($"call:take_item:{itemId}", "가져가기"),
 				"use" => ($"item_use:{itemId}", "사용"),
 				"equip" => ($"equip:{itemId}", "장착"),
 				"throw" => ($"throw:{itemId}", "던지기"),
 				_ => ($"action:{action}:{itemId}", action) // 알 수 없는 액션은 그대로
 			};
-		}
-
-		/// <summary>
-		/// 바닥 아이템 상세 메뉴 텍스트 생성 (통합 함수 래퍼)
-		/// </summary>
-		public string GetGroundItemMenuText(int itemId, int count)
-		{
-			return GetItemMenuText("ground", itemId, count);
-		}
-
-		/// <summary>
-		/// 인벤토리 아이템 상세 메뉴 텍스트 생성 (통합 함수 래퍼)
-		/// </summary>
-		public string GetInventoryItemMenuText(int itemId, int count)
-		{
-			return GetItemMenuText("inventory", itemId, count);
-		}
-
-		/// <summary>
-		/// 오브젝트 인벤토리 아이템 상세 메뉴 텍스트 생성 (통합 함수 래퍼)
-		/// </summary>
-		public string GetUnitItemMenuText(int unitId, int itemId, int count)
-		{
-			return GetItemMenuText("container", itemId, count, unitId);
 		}
 
 		// ========================================
@@ -913,8 +786,6 @@ namespace SE
 		/// </summary>
 		/// <remarks>
 		/// 지원 형식:
-		/// - "script:funcName:displayName" → "funcName"
-		/// - "script:funcName" → "funcName"
 		/// - "call:methodName:displayName" → "methodName"
 		/// - "call:methodName" → "methodName"
 		/// - "sit@seatName:displayName" → "sit"
@@ -924,13 +795,6 @@ namespace SE
 		/// </remarks>
 		private string ExtractActionName(string action)
 		{
-			// script:함수명:표시명 또는 script:함수명
-			if (action.StartsWith("script:"))
-			{
-				var parts = action.Split(':');
-				return parts.Length >= 2 ? parts[1] : action;
-			}
-
 			// call:메서드명:표시명 또는 call:메서드명
 			if (action.StartsWith("call:"))
 			{

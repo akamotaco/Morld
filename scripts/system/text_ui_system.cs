@@ -319,7 +319,7 @@ namespace SE
 			{
 				if (context == "inventory" && _playerSystem != null)
 				{
-					var player = _playerSystem.GetPlayerUnit();
+					var player = _playerSystem.FindPlayerUnit();
 					if (player != null)
 					{
 						var inv = _inventorySystem.GetUnitInventory(player.Id);
@@ -333,10 +333,7 @@ namespace SE
 				}
 			}
 
-			// inventory 컨텍스트에서 targetUnitId가 없으면 스택에서 찾기
-			var effectiveTargetUnitId = targetUnitId ?? (context == "inventory" ? FindTargetUnitId() : null);
-
-			return _describeSystem.GetItemMenuText(context, itemId, count, effectiveTargetUnitId);
+			return _describeSystem.GetItemMenuText(context, itemId, count, targetUnitId);
 		}
 
 		private string RenderResult(string message)
@@ -521,7 +518,7 @@ namespace SE
 
 			if (context == "inventory")
 			{
-				var player = _playerSystem.GetPlayerUnit();
+				var player = _playerSystem.FindPlayerUnit();
 				if (player != null)
 				{
 					var inv = _inventorySystem.GetUnitInventory(player.Id);
@@ -545,15 +542,6 @@ namespace SE
 		public void Clear()
 		{
 			_stack.Clear();
-		}
-
-		/// <summary>
-		/// 스택에서 가장 가까운 Unit의 TargetUnitId 찾기
-		/// 넣기/가져오기 대상 유닛 ID를 찾는 데 사용
-		/// </summary>
-		public int? FindTargetUnitId()
-		{
-			return _stack.FindTargetUnitId();
 		}
 
 		/// <summary>

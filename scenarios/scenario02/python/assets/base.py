@@ -239,9 +239,48 @@ class Object(Unit):
 
     공통 메서드 (Unit에서 상속):
     - debug_props(): 속성 디버그 출력
+
+    컨테이너 메서드 (인벤토리가 있는 오브젝트):
+    - take_item(item_id): 오브젝트에서 아이템 가져가기
+    - put_to_object(): 오브젝트에 아이템 넣기 (다이얼로그)
     """
 
     type: str = "object"
+
+    def take_item(self, item_id):
+        """오브젝트에서 특정 아이템 하나 가져가기"""
+        player_id = morld.get_player_id()
+        item_id = int(item_id)
+        morld.lost_item(self.instance_id, item_id)
+        morld.give_item(player_id, item_id)
+
+    def put_to_object(self):
+        """오브젝트에 아이템 넣기 (다이얼로그 방식)"""
+        player_id = morld.get_player_id()
+        inventory = morld.get_unit_inventory(player_id)
+
+        if not inventory:
+            yield morld.dialog("넣을 아이템이 없다.")
+            return
+
+        # 아이템 목록 다이얼로그 생성
+        lines = [f"[b]{self.name}[/b]에 넣기\n"]
+
+        for item_id, count in inventory.items():
+            item = morld.get_item_info(item_id)
+            if item:
+                item_name = item.get("name", f"아이템#{item_id}")
+                count_text = f" x{count}" if count > 1 else ""
+                lines.append(f"[url=@ret:{item_id}]{item_name}{count_text}[/url]")
+
+        lines.append("\n[url=@ret:cancel]취소[/url]")
+
+        result = yield morld.dialog("\n".join(lines))
+
+        if result and result != "cancel":
+            item_id = int(result)
+            morld.lost_item(player_id, item_id)
+            morld.give_item(self.instance_id, item_id)
 
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """오브젝트를 morld에 등록"""

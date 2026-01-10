@@ -19,7 +19,7 @@ class Player(Character):
         "can:unlock": 1,    # 열쇠로 잠금 해제
         "can:open": 1,      # 비밀번호로 열기
 
-        # 탈출 (script: 액션 - entrance.py)
+        # 탈출 (call: 액션 - entrance.py)
         "can:escape": 1,
 
         # 아이템 사용 (call: 액션용)

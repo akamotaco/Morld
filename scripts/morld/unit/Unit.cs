@@ -301,7 +301,7 @@ public class Unit
 			foreach (var (itemId, count) in inventory)
 			{
 				if (count <= 0) continue;
-				var item = itemSystem.GetItem(itemId);
+				var item = itemSystem.FindItem(itemId);
 				if (item == null) continue;
 
 				foreach (var (propName, bonus) in item.PassiveProps)
@@ -317,7 +317,7 @@ public class Unit
 		{
 			foreach (var itemId in equippedItems)
 			{
-				var item = itemSystem.GetItem(itemId);
+				var item = itemSystem.FindItem(itemId);
 				if (item == null) continue;
 
 				foreach (var (propName, bonus) in item.EquipProps)
@@ -367,7 +367,7 @@ public class Unit
 			foreach (var (itemId, count) in inventory)
 			{
 				if (count <= 0) continue;
-				var item = itemSystem.GetItem(itemId);
+				var item = itemSystem.FindItem(itemId);
 				if (item == null) continue;
 
 				foreach (var (propName, bonus) in item.PassiveProps)
@@ -387,7 +387,7 @@ public class Unit
 		{
 			foreach (var itemId in equippedItems)
 			{
-				var item = itemSystem.GetItem(itemId);
+				var item = itemSystem.FindItem(itemId);
 				if (item == null) continue;
 
 				foreach (var (propName, bonus) in item.EquipProps)

@@ -88,7 +88,7 @@ namespace SE
 			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-			var player = _playerSystem.GetPlayerUnit();
+			var player = _playerSystem.FindPlayerUnit();
 			var terrain = _worldSystem.GetTerrain();
 
 			// 플레이어 경로 계산
@@ -134,7 +134,7 @@ namespace SE
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
-			var player = _playerSystem.GetPlayerUnit();
+			var player = _playerSystem.FindPlayerUnit();
 			if (player == null) return;
 
 			// 현재 이동 중이 아니면 스킵

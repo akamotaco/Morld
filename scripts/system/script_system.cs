@@ -222,7 +222,7 @@ namespace SE
                     int itemId = args[0].ToInt();
 
                     var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
-                    var item = _itemSystem?.GetItem(itemId);
+                    var item = _itemSystem?.FindItem(itemId);
 
                     if (item == null)
                         return PyNone.Instance;
@@ -2565,18 +2565,21 @@ __init__.initialize_scenario()
         /// </summary>
         /// <param name="instanceId">인스턴스 ID (Focus의 TargetUnitId)</param>
         /// <param name="methodName">호출할 메서드 이름</param>
+        /// <param name="args">메서드 인자 (optional)</param>
         /// <returns>메서드 실행 결과 (ScriptResult)</returns>
-        public ScriptResult CallInstanceMethod(int instanceId, string methodName)
+        public ScriptResult CallInstanceMethod(int instanceId, string methodName, string[] args = null)
         {
-            Godot.GD.Print($"[ScriptSystem] CallInstanceMethod: {methodName} on instance {instanceId}");
+            var argsStr = args != null && args.Length > 0 ? string.Join(", ", args) : "";
+            Godot.GD.Print($"[ScriptSystem] CallInstanceMethod: {methodName}({argsStr}) on instance {instanceId}");
 
             try
             {
                 // assets 모듈이 로드되어 있는지 확인하고 import
                 Execute("import assets");
 
-                // assets.call_instance_method(instance_id, method_name) 호출
-                var code = $"assets.call_instance_method({instanceId}, '{methodName}')";
+                // assets.call_instance_method(instance_id, method_name, *args) 호출
+                var argsCode = args != null && args.Length > 0 ? ", " + string.Join(", ", args) : "";
+                var code = $"assets.call_instance_method({instanceId}, '{methodName}'{argsCode})";
                 Godot.GD.Print($"[ScriptSystem] Evaluating: {code}");
 
                 var result = Eval(code);
@@ -2620,7 +2623,7 @@ __init__.initialize_scenario()
         }
 
         /// <summary>
-        /// Python 함수 호출 (BBCode script: prefix용) - 구조화된 결과 반환
+        /// Python 함수 호출 - 구조화된 결과 반환
         /// </summary>
         /// <param name="functionName">호출할 함수 이름</param>
         /// <param name="args">콜론으로 구분된 인자들</param>
@@ -2940,7 +2943,7 @@ __init__.initialize_scenario()
         }
 
         /// <summary>
-        /// Python 함수 호출 (BBCode script: prefix용) - 문자열 결과 반환 (레거시)
+        /// Python 함수 호출 - 문자열 결과 반환 (레거시)
         /// </summary>
         /// <param name="functionName">호출할 함수 이름</param>
         /// <param name="args">콜론으로 구분된 인자들</param>

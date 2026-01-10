@@ -44,11 +44,3 @@ def get_instance(unique_id: str) -> Object:
     return _instances.get(unique_id)
 
 
-# ========================================
-# 스크립트 함수 export (script: 액션에서 호출됨)
-# Note: 대부분의 오브젝트 스크립트는 call: 액션으로 전환되어
-#       인스턴스 메서드로 구현됨. 아래는 script: 액션 유지 항목만.
-# ========================================
-
-# entrance.py - 탈출/엔딩 (script: 액션 유지)
-from .entrance import escape, show_ending, show_ending_credits

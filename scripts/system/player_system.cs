@@ -62,7 +62,7 @@ namespace SE
 		/// <summary>
 		/// 플레이어 유닛 접근 헬퍼
 		/// </summary>
-		public Unit? GetPlayerUnit()
+		public Unit? FindPlayerUnit()
 		{
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 			return unitSystem.FindUnit(PlayerId);
@@ -155,7 +155,7 @@ namespace SE
 		public int CalculateTravelTime(int regionId, int localId)
 		{
 			var destination = new LocationRef(regionId, localId);
-			var player = GetPlayerUnit();
+			var player = FindPlayerUnit();
 			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
 			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
 			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
@@ -186,7 +186,7 @@ namespace SE
 		/// </summary>
 		private void ExecuteMove(LocationRef destination)
 		{
-			var player = GetPlayerUnit();
+			var player = FindPlayerUnit();
 			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
 			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
 			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
@@ -321,7 +321,7 @@ namespace SE
 		/// </summary>
 		public UnitLookResult? LookUnit(int unitId)
 		{
-			var player = GetPlayerUnit();
+			var player = FindPlayerUnit();
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 
@@ -336,8 +336,6 @@ namespace SE
 			if (unit.CurrentLocation != player.CurrentLocation)
 				return null;
 
-			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
-
 			// InventorySystem에서 인벤토리 가져오기
 			var inventory = unit.IsObject && inventorySystem != null
 				? new Dictionary<int, int>(inventorySystem.GetUnitInventory(unit.Id))
@@ -350,7 +348,7 @@ namespace SE
 				IsObject = unit.IsObject,
 				Inventory = inventory,
 				Actions = new List<string>(unit.Actions),
-				AppearanceText = describeSystem.GetUnitAppearance(unit) ?? ""
+				AppearanceText = ""
 			};
 		}
 
@@ -428,7 +426,7 @@ namespace SE
 		/// </summary>
 		public LookResult Look()
 		{
-			var player = GetPlayerUnit();
+			var player = FindPlayerUnit();
 			if (player == null)
 				return new LookResult();
 

@@ -93,23 +93,4 @@ public class FocusStack
 			_layers.Push(layer);
 		}
 	}
-
-	/// <summary>
-	/// 스택에서 가장 가까운 Unit Focus의 TargetUnitId를 찾아 반환 (현재 포커스 제외)
-	/// 넣기/가져오기 대상 유닛 ID를 찾는 데 사용
-	/// </summary>
-	/// <returns>찾은 TargetUnitId, 없으면 null</returns>
-	public int? FindTargetUnitId()
-	{
-		var list = ToList(); // 바닥→최상위 순서
-		// 최상위(마지막)는 현재 포커스이므로 제외하고 역순 탐색
-		for (int i = list.Count - 2; i >= 0; i--)
-		{
-			if (list[i].Type == FocusType.Unit && list[i].TargetUnitId.HasValue)
-			{
-				return list[i].TargetUnitId;
-			}
-		}
-		return null;
-	}
 }

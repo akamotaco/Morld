@@ -43,7 +43,7 @@ namespace SE
 		/// <summary>
 		/// 아이템 찾기
 		/// </summary>
-		public Item? GetItem(int id)
+		public Item? FindItem(int id)
 		{
 			return _items.TryGetValue(id, out var item) ? item : null;
 		}

@@ -154,7 +154,7 @@ public partial class GameEngine : Node
 			if (unit == null || unit.IsObject)
 				return; // 캐릭터가 아니면 로그 생략
 
-			var itemName = itemSystem?.GetItem(evt.ItemId)?.Name ?? "아이템";
+			var itemName = itemSystem?.FindItem(evt.ItemId)?.Name ?? "아이템";
 			var countText = evt.Count > 1 ? $" x{evt.Count}" : "";
 
 			string? message = evt.Type switch
