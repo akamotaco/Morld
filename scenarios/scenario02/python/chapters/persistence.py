@@ -15,6 +15,24 @@
 #
 #   # 새 챕터 로드 후
 #   restore_player_data(saved)
+#
+# 향후 확장 (아이템 인스턴스 상태 저장):
+#   현재는 unique_id와 count만 저장하지만, 아이템별 상태가 필요하면 확장 가능
+#
+#   현재 구조:
+#     "inventory": {"old_knife": 1, "apple": 3}
+#
+#   확장 구조 (아이템 props 저장 시):
+#     "inventory": [
+#         {"unique_id": "old_knife", "props": {"강화": 3, "내구도": 85}},
+#         {"unique_id": "old_knife", "props": {"강화": 1}},  # 다른 인스턴스
+#         {"unique_id": "apple", "count": 3},  # 스택 가능 아이템
+#     ]
+#
+#   사용 예시:
+#     - 아이템 강화에 의한 스펙 변화
+#     - 아이템 사용에 의한 내구도 감소
+#     - 스택 불가 아이템의 개별 상태 관리
 
 import morld
 import sys
@@ -96,7 +114,8 @@ def save_player_data():
             "name": str,
             "props": {"타입:이름": value, ...},
             "mood": [str, ...],
-            "inventory": {item_id: count, ...}
+            "inventory": {unique_id: count, ...},
+            "equipped": [unique_id, ...]
         }
     """
     player_id = morld.get_player_id()
@@ -135,8 +154,19 @@ def save_player_data():
                 print(f"[persistence] WARNING: Item {item_id} has no unique_id, skipping")
     data["inventory"] = inventory_by_unique
 
+    # 5. 장착 아이템 - unique_id 기반으로 저장
+    equipped_items = morld.get_equipped_items(player_id)
+    equipped_by_unique = []
+    if equipped_items:
+        for item_id in equipped_items:
+            item_info = morld.get_item_info(int(item_id))
+            if item_info and item_info.get("unique_id"):
+                equipped_by_unique.append(item_info["unique_id"])
+    data["equipped"] = equipped_by_unique
+
     print(f"[persistence] Saved player data: name={data['name']}, "
-          f"props={len(data['props'])}, inventory={list(data['inventory'].keys())}")
+          f"props={len(data['props'])}, inventory={list(data['inventory'].keys())}, "
+          f"equipped={data['equipped']}")
 
     return data
 
@@ -178,6 +208,8 @@ def restore_player_data(data):
         print(f"[persistence] Restored mood: {data['mood']}")
 
     # 4. Inventory 복원 - unique_id 기반
+    # unique_id → 새 item_id 매핑 (장착 복원에 필요)
+    unique_to_new_id = {}
     if "inventory" in data and data["inventory"]:
         restored_count = 0
         for unique_id, count in data["inventory"].items():
@@ -185,18 +217,34 @@ def restore_player_data(data):
             item_id = morld.get_item_id_by_unique(unique_id)
             if item_id is not None:
                 morld.give_item(player_id, item_id, int(count))
+                unique_to_new_id[unique_id] = item_id
                 restored_count += 1
             else:
                 # 새 챕터에 해당 아이템이 없으면 동적 생성 시도
                 item_id = _instantiate_item_by_unique(unique_id)
                 if item_id is not None:
                     morld.give_item(player_id, item_id, int(count))
+                    unique_to_new_id[unique_id] = item_id
                     restored_count += 1
                 else:
                     print(f"[persistence] WARNING: Could not restore item '{unique_id}'")
         print(f"[persistence] Restored {restored_count} inventory items")
 
-    # 5. 복원 과정에서 생긴 행동 로그를 모두 읽음 처리
+    # 5. 장착 상태 복원 - unique_id 기반
+    # equipment.equip_item()을 사용하여 ActionProps(put=0)도 함께 설정
+    if "equipped" in data and data["equipped"]:
+        from equipment import equip_item
+        equipped_count = 0
+        for unique_id in data["equipped"]:
+            item_id = unique_to_new_id.get(unique_id)
+            if item_id is not None:
+                equip_item(player_id, item_id)
+                equipped_count += 1
+            else:
+                print(f"[persistence] WARNING: Could not restore equipped item '{unique_id}'")
+        print(f"[persistence] Restored {equipped_count} equipped items")
+
+    # 6. 복원 과정에서 생긴 행동 로그를 모두 읽음 처리
     morld.mark_all_logs_read()
 
     print("[persistence] Player data restored successfully")
