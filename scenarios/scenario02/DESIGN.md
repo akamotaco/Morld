@@ -631,13 +631,37 @@ load_chapter("chapter_0", preserve_player=False)
 
 ### 저장되는 플레이어 데이터
 
-| 항목 | 설명 | 저장 여부 |
-|------|------|----------|
-| 이름 | 캐릭터 이름 | ✅ |
-| Props | 모든 속성 (`힘`, `can:*` 등) | ✅ |
-| Mood | 감정 상태 | ✅ |
-| Inventory | 소지품 | ✅ |
-| Location | 현재 위치 | ❌ (챕터별 배치) |
+| 항목 | 설명 | 저장 여부 | 형식 |
+|------|------|----------|------|
+| 이름 | 캐릭터 이름 | ✅ | str |
+| Props | 모든 속성 (`힘`, `can:*` 등) | ✅ | {"prop_name": value} |
+| Mood | 감정 상태 | ✅ | [str, ...] |
+| Inventory | 소지품 | ✅ | **{"unique_id": count}** |
+| Location | 현재 위치 | ❌ | (챕터별 배치) |
+
+### 인벤토리 저장 방식 (unique_id 기반)
+
+챕터 간 item_id 충돌을 방지하기 위해 unique_id로 저장합니다.
+
+```python
+# 저장 시 (save_player_data)
+inventory = morld.get_unit_inventory(player_id)  # {item_id: count}
+inventory_by_unique = {}
+for item_id, count in inventory.items():
+    item_info = morld.get_item_info(item_id)
+    unique_id = item_info["unique_id"]  # "apple", "old_knife" 등
+    inventory_by_unique[unique_id] = count
+
+# 복원 시 (restore_player_data)
+for unique_id, count in saved_inventory.items():
+    item_id = morld.get_item_id_by_unique(unique_id)
+    if item_id:
+        morld.give_item(player_id, item_id, count)
+    else:
+        # 새 챕터에 없는 아이템 → 동적 생성
+        item_id = _instantiate_item_by_unique(unique_id)
+        morld.give_item(player_id, item_id, count)
+```
 
 ### persistence.py API
 
@@ -861,6 +885,180 @@ return {
 3. load_all_assets()       # Asset 정의 로드
 4. instantiate_player()    # 플레이어만 먼저 생성 (프롤로그)
 # NPC는 챕터 1 진입 시 instantiate_npcs() 호출
+```
+
+---
+
+## 생존 시스템 (Survival)
+
+### 개념
+캐릭터의 체력과 포만감을 관리하는 시스템. 시간 경과에 따라 포만감이 감소하고, 음식을 먹어 회복합니다.
+
+### 활성화 조건
+- `생존:활성화` prop이 1 이상이면 활성화
+- 챕터 0 (프롤로그): 비활성화
+- 챕터 1 이후: 활성화
+
+### 수치 설계
+
+| 상수 | 값 | 설명 |
+|------|-----|------|
+| SATIETY_DECAY_RATE | 1 | 1시간당 포만감 감소 |
+| HEALTH_REGEN_RATE | 1 | 포만감 50+일 때 1시간당 체력 회복 |
+| HEALTH_DECAY_RATE | 2 | 포만감 0일 때 1시간당 체력 감소 |
+| MAX_SATIETY | 100 | 최대 포만감 |
+| MAX_HEALTH | 100 | 최대 체력 |
+
+**생존 기간:** 최대 포만감(100) ÷ 시간당 감소(1) = 약 4일
+
+### 상태 경고
+
+| 상태 | 조건 | 메시지 |
+|------|------|--------|
+| 배고픔 | 포만감 ≤ 30 | 배가 고프다. |
+| 굶주림 | 포만감 ≤ 10 | 매우 배고프다. |
+| 공복 | 포만감 = 0 | 굶주리고 있다! (체력 감소 시작) |
+| 위험 | 체력 ≤ 20 | 몸이 너무 힘들다. |
+
+### Props (플레이어)
+
+```python
+# assets/characters/player.py - 챕터 1에서 설정
+props = {
+    "생존:활성화": 1,      # 생존 시스템 활성화
+    "생존:체력": 100,
+    "생존:최대체력": 100,
+    "생존:포만감": 100,
+    "생존:최대포만감": 100,
+}
+```
+
+### 음식 아이템
+
+| 아이템 | unique_id | 포만감 | 획득처 |
+|--------|-----------|--------|--------|
+| 산딸기 | wild_berry | 10 | 산딸기 덤불 |
+| 사과 | apple | 25 | 사과나무 |
+| 버섯 | mushroom | 15 | 버섯 군락 |
+| 구운 고기 | cooked_meat | 50 | 조리 |
+| 구운 생선 | cooked_fish | 35 | 조리 |
+
+### 음식 섭취
+
+```python
+# assets/items/food.py
+class FoodItem(Item):
+    food_satiety = 0      # 포만감 회복량
+    eat_time = 1          # 먹는 시간 (분)
+    eat_message = []      # 먹을 때 메시지
+
+    def eat(self):
+        # 포만감 최대치 확인
+        if stats["satiety"] >= stats["max_satiety"]:
+            yield morld.dialog("배가 불러서 더 먹을 수 없다.")
+            return
+
+        survival.add_satiety(player_id, self.food_satiety)
+        morld.lost_item(player_id, self.instance_id)
+        yield morld.dialog(self.eat_message)
+        morld.advance_time(self.eat_time)
+```
+
+### 파일 구조
+
+```
+scenarios/scenario02/python/
+├── survival.py              # 생존 시스템 메인
+├── assets/items/food.py     # 음식 아이템 정의
+└── ui.py                    # get_status_bar() - UI 표시
+```
+
+---
+
+## 자원 생성 시스템 (Resource Spawning)
+
+### 개념
+자연 오브젝트(사과나무, 산딸기 덤불 등)가 시간 경과에 따라 자원을 자동 생성합니다.
+
+### 핵심 설계
+- **이벤트 기반**: `on_time_elapsed` 이벤트 구독
+- **시간 누적**: 오브젝트별로 경과 시간 누적
+- **최대 개수 제한**: 최대치 도달 시 생성 중단, 시간 누적 없음
+
+### 자원 생성 설정
+
+```python
+# think/resource_agent.py
+RESOURCE_CONFIG = {
+    # unique_id: (spawn_interval분, max_resources)
+    "apple_tree": (720, 3),      # 12시간마다, 최대 3개
+    "berry_bush": (480, 5),      # 8시간마다, 최대 5개
+    "mushroom_patch": (600, 4),  # 10시간마다, 최대 4개
+}
+```
+
+### 자원 균형
+
+| 자원 | 생성 주기 | 최대 | 포만감 | 하루 최대 획득 |
+|------|-----------|------|--------|----------------|
+| 사과 | 12시간 | 3 | 25 | 2개 = 50 |
+| 산딸기 | 8시간 | 5 | 10 | 3개 = 30 |
+| 버섯 | 10시간 | 4 | 15 | 2.4개 ≈ 36 |
+
+**하루 소모 포만감:** 24 (1시간당 1)
+**자원으로 획득 가능:** 50 + 30 + 36 = 116 (여유 있음)
+
+### 자원 오브젝트 정의
+
+```python
+# assets/objects/nature.py
+class AppleTree(Object):
+    unique_id = "apple_tree"
+    name = "사과나무"
+    resource_item_unique_id = "apple"
+    initial_resources = 2
+
+    def instantiate(self, instance_id):
+        super().instantiate(instance_id)
+        # 자원 생성 시스템에 등록
+        from think.resource_agent import register_resource_object
+        register_resource_object(instance_id, self.unique_id)
+        # 초기 자원 생성
+        self._spawn_initial_resources()
+
+    def get_resource_count(self):
+        """현재 보유 자원 개수"""
+        return len(morld.get_unit_inventory(self.instance_id) or {})
+
+    def spawn_resource(self):
+        """자원 1개 생성"""
+        item_id = morld.get_item_id_by_unique(self.resource_item_unique_id)
+        if item_id:
+            morld.give_item(self.instance_id, item_id, 1)
+            return True
+        return False
+```
+
+### 동작 흐름
+
+```
+1. 오브젝트 instantiate 시 resource_agent에 등록
+2. on_time_elapsed 이벤트 발생
+3. 등록된 모든 자원 오브젝트에 대해:
+   a. 현재 자원 개수 확인
+   b. 최대치 미만이면 시간 누적
+   c. spawn_interval 이상이면 자원 생성
+4. 플레이어가 자원 획득 (take 액션)
+5. 다시 시간 누적 시작
+```
+
+### 파일 구조
+
+```
+scenarios/scenario02/python/
+├── think/resource_agent.py      # 자원 생성 로직
+├── assets/objects/nature.py     # 자원 오브젝트 정의
+└── assets/items/food.py         # 생성되는 음식 아이템
 ```
 
 ---

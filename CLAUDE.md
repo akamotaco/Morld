@@ -616,12 +616,17 @@ class Sera(Character):
 **저장되는 데이터:**
 ```python
 {
-    "name": str,                    # 플레이어 이름
-    "props": {"타입:이름": value},  # 모든 속성 (flat dict)
-    "mood": [str, ...],             # 감정 상태 (현재 미사용)
-    "inventory": {item_id: count}   # 소지품
+    "name": str,                        # 플레이어 이름
+    "props": {"타입:이름": value},      # 모든 속성 (flat dict)
+    "mood": [str, ...],                 # 감정 상태 (현재 미사용)
+    "inventory": {"unique_id": count}   # 소지품 (unique_id 기반)
 }
 ```
+
+**인벤토리 저장 방식 (unique_id 기반):**
+- 챕터 간 item_id 충돌 방지를 위해 unique_id로 저장
+- 복원 시 새 챕터의 item_id로 매핑
+- 새 챕터에 없는 아이템은 동적 생성 시도
 
 **API:**
 ```python
@@ -802,6 +807,131 @@ props = {
     "관계:플레이어:호감": 3,  # 플레이어에게 호감 레벨 3
 }
 ```
+
+### 생존 시스템 (Survival System)
+**역할:** 캐릭터의 체력과 포만감 관리
+
+**핵심 설계:**
+- 시간 경과에 따른 포만감 감소
+- 포만감 상태에 따른 체력 증감
+- 음식 섭취로 포만감 회복
+
+**수치 설계:**
+| 상수 | 값 | 설명 |
+|------|-----|------|
+| SATIETY_DECAY_RATE | 1 | 1시간당 포만감 감소 |
+| HEALTH_REGEN_RATE | 1 | 포만감 50+일 때 1시간당 체력 회복 |
+| HEALTH_DECAY_RATE | 2 | 포만감 0일 때 1시간당 체력 감소 |
+
+**활성화 조건:**
+- `생존:활성화` prop이 1 이상이면 활성화
+- 챕터 0에서는 비활성화, 챕터 1에서 활성화
+
+**Python API:**
+```python
+import survival
+
+# 스탯 조회
+stats = survival.get_survival_stats(unit_id)
+# {"health": 100, "max_health": 100, "satiety": 80, "max_satiety": 100}
+
+# 스탯 수정
+survival.add_satiety(unit_id, 25)  # 포만감 추가
+survival.add_health(unit_id, -10)  # 체력 감소
+
+# UI 표시
+bar = survival.get_status_bar(unit_id)
+# "체력: [color=lime]████████░░[/color] 80  포만감: [color=cyan]██████░░░░[/color] 60"
+```
+
+**파일 위치:**
+- `scenarios/scenario02/python/survival.py`
+- `scenarios/scenario02/python/assets/items/food.py` - 음식 아이템
+
+### 자원 생성 시스템 (Resource Spawning)
+**역할:** 이벤트 기반 자원 오브젝트의 아이템 자동 생성
+
+**핵심 설계:**
+- `on_time_elapsed` 이벤트 구독
+- 오브젝트별 시간 누적 후 자원 생성
+- 최대 개수 도달 시 생성 중단
+
+**자원 생성 설정:**
+```python
+# think/resource_agent.py
+RESOURCE_CONFIG = {
+    "apple_tree": (720, 3),      # 12시간마다, 최대 3개 (포만감 25)
+    "berry_bush": (480, 5),      # 8시간마다, 최대 5개 (포만감 10)
+    "mushroom_patch": (600, 4),  # 10시간마다, 최대 4개 (포만감 15)
+}
+```
+
+**자원 오브젝트 등록:**
+```python
+# assets/objects/nature.py
+class AppleTree(Object):
+    unique_id = "apple_tree"
+    resource_item_unique_id = "apple"  # 생성할 아이템
+    initial_resources = 2              # 초기 자원 개수
+
+    def instantiate(self, instance_id):
+        super().instantiate(instance_id)
+        # 자원 생성 시스템에 등록
+        from think.resource_agent import register_resource_object
+        register_resource_object(instance_id, self.unique_id)
+```
+
+**파일 위치:**
+- `scenarios/scenario02/python/think/resource_agent.py` - 자원 생성 로직
+- `scenarios/scenario02/python/assets/objects/nature.py` - 자원 오브젝트 정의
+
+### on_time_elapsed 이벤트
+**역할:** 시간 경과 시 Python 시스템에 알림
+
+**핵심 설계:**
+- `JobBehaviorSystem`에서 시간 진행 후 이벤트 Enqueue
+- `EventSystem`에서 누적 후 한 번에 Flush (중복 호출 방지)
+- Python에서 구독하여 시스템별 처리
+
+**이벤트 누적 처리:**
+```csharp
+// EventSystem.cs
+private int _accumulatedTimeElapsed = 0;
+
+public void Enqueue(GameEvent evt) {
+    if (evt.Type == EventType.OnTimeElapsed) {
+        _accumulatedTimeElapsed += (int)evt.Args[0];
+        return;  // 큐에 추가하지 않고 누적만
+    }
+    _pendingEvents.Add(evt);
+}
+
+public bool FlushEvents() {
+    if (_accumulatedTimeElapsed > 0) {
+        var timeEvent = GameEvent.OnTimeElapsed(_accumulatedTimeElapsed);
+        _accumulatedTimeElapsed = 0;
+        _scriptSystem.CallSingleEventHandler(timeEvent);
+    }
+    // ... 나머지 이벤트 처리
+}
+```
+
+**Python 구독:**
+```python
+# events/__init__.py
+_time_elapsed_handlers = []
+
+def subscribe_time_elapsed(handler):
+    """on_time_elapsed 이벤트 구독"""
+    _time_elapsed_handlers.append(handler)
+
+# survival.py, resource_agent.py에서 구독
+subscribe_time_elapsed(_on_time_elapsed)
+```
+
+**파일 위치:**
+- `scripts/system/event_system.cs` - 이벤트 누적 및 Flush
+- `scenarios/scenario02/python/events/__init__.py` - 구독 시스템
 
 ---
 
