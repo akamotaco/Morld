@@ -22,9 +22,22 @@ _reverse_map: Dict[int, str] = {}
 # ========================================
 
 def register_item(cls):
-    """아이템 클래스 등록 데코레이터"""
+    """
+    아이템 클래스 등록 데코레이터
+
+    equip_slot이 정의되어 있으면 equip_props에 "장착:{slot}:{unique_id}": 1 자동 추가
+    """
     if cls.unique_id:
         _item_classes[cls.unique_id] = cls
+
+        # equip_slot → equip_props 자동 추가
+        equip_slot = getattr(cls, 'equip_slot', None)
+        if equip_slot:
+            if cls.equip_props is None:
+                cls.equip_props = {}
+            slot_key = f"장착:{equip_slot}:{cls.unique_id}"
+            cls.equip_props[slot_key] = 1
+
     return cls
 
 

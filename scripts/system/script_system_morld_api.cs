@@ -293,6 +293,34 @@ namespace SE
                 }
                 return result;
             });
+
+            // get_actual_props(unit_id) - 장착 아이템의 EquipProps 포함한 전체 Props 반환
+            morldModule.ModuleDict["get_actual_props"] = new PyBuiltinFunction("get_actual_props", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("get_actual_props(unit_id) requires 1 argument");
+
+                int unitId = args[0].ToInt();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit == null)
+                    return new PyDict();
+
+                var inventory = _inventorySystem.GetUnitInventory(unitId);
+                var equippedItems = _inventorySystem.GetUnitEquippedItems(unitId);
+                var actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
+
+                var result = new PyDict();
+                foreach (var (key, value) in actualProps.Props)
+                {
+                    result.SetItem(new PyString(key), new PyInt(value));
+                }
+                return result;
+            });
         }
 
         /// <summary>

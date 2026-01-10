@@ -380,6 +380,11 @@ class Item(Asset):
 
     액션 패턴:
     - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성)
+
+    장비 슬롯 시스템:
+    - equip_props에 "장착:{슬롯}:{unique_id}" 형식으로 정의
+      예) "장착:손:old_knife": 1
+    - 같은 슬롯에 이미 장착된 아이템이 있으면 자동 해제 후 장착
     """
 
     passive_props: dict = None
@@ -388,6 +393,60 @@ class Item(Asset):
     value: int = 0
     owner: str = None  # 소유자 unique_id (예: "sera", "mila")
     category: str = None  # 아이템 카테고리 (필터링용)
+
+    def _get_equip_slot(self) -> str:
+        """
+        equip_props에서 장착 슬롯 추출
+
+        equip_props에 "장착:{슬롯}:{unique_id}" 형식의 키가 있으면
+        해당 슬롯 이름을 반환. 없으면 None.
+        """
+        if not self.equip_props:
+            return None
+
+        for key in self.equip_props:
+            if key.startswith("장착:"):
+                parts = key.split(":")
+                if len(parts) >= 3:
+                    return parts[1]  # 슬롯 이름 (예: "손")
+        return None
+
+    def equip(self):
+        """
+        아이템 장착
+
+        같은 슬롯에 이미 장착된 아이템이 있으면 자동 해제 후 장착.
+        슬롯 정보는 equip_props의 "장착:{슬롯}:{unique_id}" 키에서 추출.
+        """
+        player_id = morld.get_player_id()
+        slot = self._get_equip_slot()
+
+        if slot:
+            # 현재 장착 중인 아이템의 Props에서 같은 슬롯 검색
+            props = morld.get_actual_props(player_id)
+            slot_prefix = f"장착:{slot}:"
+
+            for key in props:
+                if key.startswith(slot_prefix):
+                    # "장착:손:old_knife" → "old_knife" 추출
+                    old_unique_id = key.split(":")[-1]
+
+                    # 장착 목록에서 해당 unique_id 아이템 찾기
+                    equipped = morld.get_equipped_items(player_id)
+                    for item_id in equipped:
+                        info = morld.get_item_info(item_id)
+                        if info and info.get("unique_id") == old_unique_id:
+                            morld.unequip_item_internal(player_id, item_id)
+                            break
+                    break
+
+        # 새 아이템 장착
+        morld.equip_item_internal(player_id, self.instance_id)
+
+    def unequip(self):
+        """아이템 장착 해제"""
+        player_id = morld.get_player_id()
+        morld.unequip_item_internal(player_id, self.instance_id)
 
     def instantiate(self, instance_id: int):
         """아이템을 morld에 등록"""

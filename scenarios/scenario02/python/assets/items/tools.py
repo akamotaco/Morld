@@ -21,10 +21,11 @@ from assets.base import Item
 class Torch(Item):
     unique_id = "torch"
     name = "횃불"
+    equip_slot = "손"
     passive_props = {}
     equip_props = {"밝기": 3}
     value = 5
-    actions = ["take@container", "call:use:사용하기@inventory", "equip@inventory"]
+    actions = ["take@container", "call:use:사용하기@inventory", "call:equip:장착@inventory"]
 
     def use(self):
         """횃불 사용 - 불 켜기"""
@@ -60,10 +61,11 @@ class KitchenKnife(Item):
     unique_id = "kitchen_knife"
     name = "부엌칼"
     owner = "mila"
+    equip_slot = "손"
     passive_props = {}
     equip_props = {"공격력": 2}
     value = 15
-    actions = ["take@container", "call:use:살펴보기@inventory", "equip@inventory"]
+    actions = ["take@container", "call:use:살펴보기@inventory", "call:equip:장착@inventory"]
 
     def use(self):
         """부엌칼 살펴보기"""
@@ -100,10 +102,11 @@ class FishingRod(Item):
     unique_id = "fishing_rod"
     name = "낚시대"
     owner = "sera"
+    equip_slot = "손"
     passive_props = {}
-    equip_props = {"can:fish": 1, "장착:손:fishing_rod": 1}
+    equip_props = {"can:fish": 1}
     value = 25
-    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+    actions = ["take@container", "call:equip:장착@inventory", "call:look:살펴보기@inventory"]
 
     def look(self):
         """낚시대 살펴보기"""
@@ -118,10 +121,11 @@ class HuntingBow(Item):
     unique_id = "hunting_bow"
     name = "사냥용 활"
     owner = "sera"
+    equip_slot = "손"
     passive_props = {}
     equip_props = {"공격력": 5, "사거리": 3}
     value = 50
-    actions = ["take@container", "equip@inventory"]
+    actions = ["take@container", "call:equip:장착@inventory"]
 
 
 class HerbPouch(Item):
@@ -203,11 +207,12 @@ class Lantern(Item):
     """랜턴 - 장착 시 밝기 제공"""
     unique_id = "lantern"
     name = "랜턴"
+    equip_slot = "손"
     passive_props = {}
     equip_props = {"밝기": 2}
     action_props = {"put": 1}
     value = 10
-    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+    actions = ["take@container", "call:equip:장착@inventory", "call:look:살펴보기@inventory"]
 
     def look(self):
         """랜턴 살펴보기"""

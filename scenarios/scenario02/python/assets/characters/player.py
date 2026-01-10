@@ -86,6 +86,7 @@ class Player(Character):
         "can:take": 1,
         "can:use": 1,
         "can:equip": 1,
+        "can:unequip": 1,
         "can:putinobject": 1,
         "can:put": 1,
 

@@ -22,11 +22,12 @@ from assets.registry import register_item
 class OldKnife(Item):
     unique_id = "old_knife"
     name = "낡은 칼"
+    equip_slot = "손"
     passive_props = {}
-    equip_props = {"공격": 2, "사냥": 1, "장착:손:old_knife": 1}
+    equip_props = {"공격": 2, "사냥": 1}
     action_props = {"put": 1}  # 장착 시 0으로 변경되어 놓기 비활성화
     value = 20
-    actions = ["take@container", "equip@inventory"]
+    actions = ["take@container", "call:equip:장착@inventory"]
 
 
 @register_item

@@ -178,12 +178,13 @@ public partial class MetaActionHandler
 			case "put_select":
 				HandlePutSelectAction(parts);
 				break;
-			case "equip":
-				HandleEquipAction(parts);
-				break;
-			case "unequip":
-				HandleUnequipAction(parts);
-				break;
+			// Python Item.equip()으로 대체됨 - call:equip:장착@inventory 사용
+			// case "equip":
+			// 	HandleEquipAction(parts);
+			// 	break;
+			// case "unequip":
+			// 	HandleUnequipAction(parts);
+			// 	break;
 			case "call":
 				HandleCallAction(parts);
 				break;
