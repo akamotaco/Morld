@@ -62,7 +62,7 @@ class FoodItem(Item):
 @register_item
 class WildBerry(FoodItem):
     """산딸기 - 산딸기 덤불에서 채집"""
-    unique_id = "wild_berry"
+    unique_id = "food_wild_berry"
     name = "산딸기"
     value = 2
     food_satiety = 10
@@ -77,7 +77,7 @@ class WildBerry(FoodItem):
 @register_item
 class Apple(FoodItem):
     """사과 - 사과나무에서 채집"""
-    unique_id = "apple"
+    unique_id = "food_apple"
     name = "사과"
     value = 5
     food_satiety = 25
@@ -92,7 +92,7 @@ class Apple(FoodItem):
 @register_item
 class Mushroom(FoodItem):
     """버섯 - 숲에서 채집"""
-    unique_id = "mushroom"
+    unique_id = "food_mushroom"
     name = "버섯"
     value = 4
     food_satiety = 15
@@ -111,7 +111,7 @@ class Mushroom(FoodItem):
 @register_item
 class CookedMeat(FoodItem):
     """구운 고기 - 조리 필요"""
-    unique_id = "cooked_meat"
+    unique_id = "food_cooked_meat"
     name = "구운 고기"
     value = 20
     food_satiety = 50
@@ -124,9 +124,24 @@ class CookedMeat(FoodItem):
 
 
 @register_item
+class Fish(FoodItem):
+    """생선 - 낚시로 획득"""
+    unique_id = "food_fish"
+    name = "생선"
+    value = 8
+    food_satiety = 20
+    eat_message = [
+        "날 생선을 먹었다.",
+        "비릿한 맛이 난다..."
+    ]
+    eat_time = 2
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
 class CookedFish(FoodItem):
     """구운 생선 - 조리 필요"""
-    unique_id = "cooked_fish"
+    unique_id = "food_cooked_fish"
     name = "구운 생선"
     value = 15
     food_satiety = 35
@@ -141,7 +156,7 @@ class CookedFish(FoodItem):
 @register_item
 class HerbSalad(FoodItem):
     """허브 샐러드 - 조리 필요"""
-    unique_id = "herb_salad"
+    unique_id = "food_herb_salad"
     name = "허브 샐러드"
     value = 18
     food_satiety = 20
@@ -156,7 +171,7 @@ class HerbSalad(FoodItem):
 @register_item
 class MeatStew(FoodItem):
     """고기 스튜 - 조리 필요"""
-    unique_id = "meat_stew"
+    unique_id = "food_meat_stew"
     name = "고기 스튜"
     value = 30
     food_satiety = 70

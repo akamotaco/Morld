@@ -101,7 +101,7 @@ class FishingRod(Item):
     name = "낚시대"
     owner = "sera"
     passive_props = {}
-    equip_props = {"can:fish": 1}  # 장착 시 낚시 가능
+    equip_props = {"can:fish": 1, "장착:손:fishing_rod": 1}
     value = 25
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 
@@ -199,22 +199,22 @@ class ManagementLedger(Item):
 # 공용 아이템 (소유자 없음)
 # ========================================
 
-class Candle(Item):
-    """촛불"""
-    unique_id = "candle"
-    name = "촛불"
+class Lantern(Item):
+    """랜턴 - 장착 시 밝기 제공"""
+    unique_id = "lantern"
+    name = "랜턴"
     passive_props = {}
-    equip_props = {"밝기": 1}
-    value = 3
-    actions = ["take@container", "call:use:불 켜기@inventory"]
+    equip_props = {"밝기": 2}
+    action_props = {"put": 1}
+    value = 10
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 
-    def use(self):
-        """촛불 사용 - 불 켜기"""
+    def look(self):
+        """랜턴 살펴보기"""
         yield morld.dialog([
-            "촛불에 불을 붙였다.",
-            "은은한 빛이 주변을 비춘다."
+            "손잡이가 달린 유리 랜턴이다.",
+            "장착하면 어두운 곳을 밝힐 수 있다."
         ])
-        morld.advance_time(1)
 
 
 class WaterBottle(Item):

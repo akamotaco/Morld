@@ -66,7 +66,7 @@ class AppleTree(ResourceObject):
     """사과나무 - 사과 생성"""
     unique_id = "apple_tree"
     name = "사과나무"
-    resource_item_unique_id = "apple"
+    resource_item_unique_id = "food_apple"
     max_resources = 3
     actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
 
@@ -85,7 +85,7 @@ class BerryBush(ResourceObject):
     """산딸기 덤불 - 산딸기 생성"""
     unique_id = "berry_bush"
     name = "산딸기 덤불"
-    resource_item_unique_id = "wild_berry"
+    resource_item_unique_id = "food_wild_berry"
     max_resources = 5
     actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
 
@@ -104,7 +104,7 @@ class MushroomPatch(ResourceObject):
     """버섯 군락 - 버섯 생성"""
     unique_id = "mushroom_patch"
     name = "버섯 군락"
-    resource_item_unique_id = "mushroom"
+    resource_item_unique_id = "food_mushroom"
     max_resources = 4
     actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
 

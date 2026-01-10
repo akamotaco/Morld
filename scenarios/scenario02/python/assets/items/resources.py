@@ -18,7 +18,7 @@ from assets.base import Item
 # ========================================
 
 class Flour(Item):
-    unique_id = "flour"
+    unique_id = "food_flour"
     name = "밀가루"
     category = "food_ingredient"  # 음식 재료
     passive_props = {}
@@ -28,7 +28,7 @@ class Flour(Item):
 
 
 class Rice(Item):
-    unique_id = "rice"
+    unique_id = "food_rice"
     name = "쌀"
     category = "food_ingredient"
     passive_props = {}
@@ -38,7 +38,7 @@ class Rice(Item):
 
 
 class Water(Item):
-    unique_id = "water"
+    unique_id = "drink_water"
     name = "물"
     category = "food_ingredient"
     passive_props = {}
@@ -66,7 +66,7 @@ class Water(Item):
 
 
 class Bread(Item):
-    unique_id = "bread"
+    unique_id = "food_bread"
     name = "빵"
     category = "food"  # 완성된 음식
     passive_props = {}
@@ -91,7 +91,7 @@ class Bread(Item):
 
 
 class Berry(Item):
-    unique_id = "berry"
+    unique_id = "food_berry"
     name = "열매"
     category = "food_ingredient"  # 음식 재료
     passive_props = {}
@@ -116,7 +116,7 @@ class Berry(Item):
 
 
 class Meat(Item):
-    unique_id = "meat"
+    unique_id = "food_meat"
     name = "고기"
     category = "food_ingredient"  # 음식 재료
     passive_props = {}
@@ -140,7 +140,7 @@ class Wood(Item):
 
 
 class Herb(Item):
-    unique_id = "herb"
+    unique_id = "food_herb"
     name = "약초"
     category = "food_ingredient"  # 음식 재료 (조리용)
     passive_props = {"치료": 1}

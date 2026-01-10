@@ -128,21 +128,18 @@ class FishingSpot(Object):
         """
         import random
         from assets.registry import get_item_class
-        from assets.items.resources import Meat  # Fish가 없으므로 Meat 사용 (추후 Fish 추가)
 
         yield morld.dialog("낚시를 시작한다...")
-        morld.advance_time(30)  # 30분 소요
+        morld.advance_time(15)  # 15분 소요
 
         # 70% 확률로 성공
         if random.random() < 0.7:
-            # Fish 아이템 생성 (임시로 Meat 사용)
-            # TODO: Fish 아이템 추가 후 변경
             player_id = morld.get_player_id()
 
-            # 생선 직접 생성 (Meat 대용)
-            meat_class = get_item_class("meat")
-            if meat_class:
-                fish = meat_class()
+            # Fish 아이템 생성
+            fish_class = get_item_class("food_fish")
+            if fish_class:
+                fish = fish_class()
                 fish_id = morld.create_id("item")
                 fish.instantiate(fish_id)
                 morld.give_item(player_id, fish_id, 1)

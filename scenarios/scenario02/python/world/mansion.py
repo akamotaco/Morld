@@ -38,7 +38,6 @@ EDGES = [
     (1, 2, 1),   # 거실 - 주방
     (1, 3, 1),   # 거실 - 식당
     (1, 4, 2),   # 거실 - 욕실
-    (1, 5, 2),   # 거실 - 창고
     (1, 6, 1),   # 거실 - 주인공 방 (1층)
     (1, 7, 1),   # 거실 - 리나 방 (1층)
     (1, 9, 1),   # 거실 - 밀라 방 (1층)
@@ -49,6 +48,7 @@ EDGES = [
     (14, 8, 1),  # 2층 복도 - 세라 방
     (14, 10, 1), # 2층 복도 - 빈 방 1 (guest_room1)
     (14, 11, 1), # 2층 복도 - 빈 방 2 (guest_room2)
+    (14, 5, 1),  # 2층 복도 - 창고
 
     # === 마당 연결 ===
     (0, 12, 1),  # 현관 - 앞마당
@@ -125,14 +125,15 @@ def initialize_terrain():
         2: Kitchen(),
         3: DiningRoom(),
         4: Bathroom(),
-        5: Storage(),
         6: PlayerRoom(),
         7: LinaRoom(),
         8: SeraRoom(),
         9: MilaRoom(),
         10: GuestRoom1(),   # 빈 방 1 (나중에 도심에서 데려올 캐릭터용)
         11: GuestRoom2(),   # 빈 방 2 (나중에 도심에서 데려올 캐릭터용)
+        # === 저택 2층 (실내) ===
         14: Corridor2F(),
+        5: Storage(),       # 창고 (2층)
         # === 마당 (실외) ===
         12: FrontYard(),
         13: BackYard(),
@@ -235,24 +236,26 @@ NATURE_OBJECTS = [
 
 # 음식 아이템 unique_id 목록
 FOOD_ITEM_UNIQUE_IDS = [
-    "wild_berry",
-    "apple",
-    "mushroom",
-    "cooked_meat",
-    "cooked_fish",
+    "food_wild_berry",
+    "food_apple",
+    "food_mushroom",
+    "food_cooked_meat",
+    "food_cooked_fish",
+    "food_fish",
 ]
 
 
 def instantiate_food_items():
     """음식 아이템들을 ItemSystem에 등록"""
-    from assets.items.food import WildBerry, Apple, Mushroom, CookedMeat, CookedFish
+    from assets.items.food import WildBerry, Apple, Mushroom, CookedMeat, CookedFish, Fish
 
     item_classes = {
-        "wild_berry": WildBerry,
-        "apple": Apple,
-        "mushroom": Mushroom,
-        "cooked_meat": CookedMeat,
-        "cooked_fish": CookedFish,
+        "food_wild_berry": WildBerry,
+        "food_apple": Apple,
+        "food_mushroom": Mushroom,
+        "food_cooked_meat": CookedMeat,
+        "food_cooked_fish": CookedFish,
+        "food_fish": Fish,
     }
 
     count = 0

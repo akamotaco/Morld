@@ -881,6 +881,7 @@ namespace SE
 
 		/// <summary>
 		/// Actor가 특정 액션을 수행할 수 있는지 확인 (can: prop 체크)
+		/// 장착 아이템의 EquipProps도 반영 (GetActualProps 사용)
 		/// </summary>
 		/// <param name="actor">행위자 Unit (플레이어 등)</param>
 		/// <param name="action">액션 문자열</param>
@@ -892,8 +893,23 @@ namespace SE
 			var actionName = ExtractActionName(action);
 			var canProp = $"can:{actionName}";
 
+			// 장착 아이템의 EquipProps도 반영하기 위해 GetActualProps 사용
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+
+			IReadOnlyDictionary<int, int> inventory = null;
+			IReadOnlyList<int> equippedItems = null;
+
+			if (inventorySystem != null)
+			{
+				inventory = inventorySystem.GetUnitInventory(actor.Id);
+				equippedItems = inventorySystem.GetUnitEquippedItems(actor.Id);
+			}
+
+			var actualProps = actor.GetActualProps(itemSystem, inventory, equippedItems);
+
 			// can:액션명 prop이 존재하고 값이 1 이상이면 수행 가능
-			return actor.TraversalContext.Props.HasAtLeast(canProp, 1);
+			return actualProps.Props.HasAtLeast(canProp, 1);
 		}
 
 		/// <summary>

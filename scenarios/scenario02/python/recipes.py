@@ -9,28 +9,34 @@
 # 레시피 정의
 # ingredients의 키는 아이템 unique_id와 매칭
 RECIPES = {
-    "cooked_meat": {
+    "food_cooked_meat": {
         "name": "구운 고기",
-        "ingredients": {"meat": 1},  # resources.py의 Meat
-        "result": ("cooked_meat", 1),
+        "ingredients": {"food_meat": 1},
+        "result": ("food_cooked_meat", 1),
         "cook_time": 15,
     },
-    "herb_salad": {
+    "food_cooked_fish": {
+        "name": "구운 생선",
+        "ingredients": {"food_fish": 1},
+        "result": ("food_cooked_fish", 1),
+        "cook_time": 10,
+    },
+    "food_herb_salad": {
         "name": "허브 샐러드",
-        "ingredients": {"herb": 2},  # resources.py의 Herb
-        "result": ("herb_salad", 1),
+        "ingredients": {"food_herb": 2},
+        "result": ("food_herb_salad", 1),
         "cook_time": 5,
     },
-    "meat_stew": {
+    "food_meat_stew": {
         "name": "고기 스튜",
-        "ingredients": {"meat": 1, "herb": 1},
-        "result": ("meat_stew", 1),
+        "ingredients": {"food_meat": 1, "food_herb": 1},
+        "result": ("food_meat_stew", 1),
         "cook_time": 30,
     },
-    "bread": {
+    "food_bread": {
         "name": "빵",
-        "ingredients": {"flour": 1, "water": 1},
-        "result": ("bread", 1),
+        "ingredients": {"food_flour": 1, "drink_water": 1},
+        "result": ("food_bread", 1),
         "cook_time": 20,
     },
 }
