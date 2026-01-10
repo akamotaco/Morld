@@ -16,6 +16,13 @@
 # 텍스트 시스템:
 #   - get_describe_text(): 장소에 있을 때 보이는 묘사 (Location)
 #   - get_focus_text(): Focus 상태(클릭)일 때 보이는 묘사 (Object, Item)
+#
+# 액션 시스템:
+#   - actions 리스트에 "액션@context" 형식으로 정의
+#   - @context: 아이템 위치에 따라 액션 표시 여부 결정 (필터링)
+#     예) "take@container" → 컨테이너에 있을 때만 "가져가기" 표시
+#         "call:use:마시기@inventory" → 인벤토리에 있을 때만 표시
+#   - call: 패턴과 조합 가능: "call:메서드명:표시명@context"
 
 import morld
 from typing import Optional
