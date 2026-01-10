@@ -24,21 +24,6 @@ namespace SE
 	}
 
 	/// <summary>
-	/// 다이얼로그 큐 항목 (연쇄 다이얼로그용)
-	/// </summary>
-	public class DialogQueueItem
-	{
-		public string Text { get; set; } = "";
-		public int TimeConsumed { get; set; } = 0;
-
-		public DialogQueueItem(string text, int timeConsumed = 0)
-		{
-			Text = text;
-			TimeConsumed = timeConsumed;
-		}
-	}
-
-	/// <summary>
 	/// UI 텍스트 시스템 (Focus 스택 기반)
 	/// 스택에는 Focus 정보만 저장하고, 표시 시 항상 최신 데이터로 렌더링
 	/// </summary>
@@ -55,11 +40,6 @@ namespace SE
 
 		// Lazy update 플래그
 		private bool _needsUpdateDisplay = false;
-
-		// 다이얼로그 큐 (연쇄 다이얼로그용)
-		private readonly Queue<DialogQueueItem> _dialogQueue = new();
-
-		// 데이터 조회용 참조 (UpdateDisplay에서 사용)
 
 		public TextUISystem(RichTextLabel textUi, DescribeSystem describeSystem)
 		{
@@ -392,23 +372,11 @@ namespace SE
 
 		/// <summary>
 		/// 다이얼로그 Push (첫 yield morld.dialog() 호출 시)
-		/// 이미 다이얼로그가 열려있으면 큐에 추가 (연쇄 다이얼로그)
-		///
 		/// Note: 로그 읽음 처리는 액션 버튼 클릭 시점(HandleAction)에서만 수행
 		/// 이벤트 연쇄 처리 시 중간 다이얼로그에서 로그가 유실되지 않도록 함
 		/// </summary>
 		public void PushDialog(string text, int timeConsumed = 0)
 		{
-			// 이미 다이얼로그가 열려있으면 큐에 추가
-			if (_stack.Current != null && _stack.Current.Type == FocusType.Dialog)
-			{
-				_dialogQueue.Enqueue(new DialogQueueItem(text, timeConsumed));
-#if DEBUG_LOG
-				GD.Print($"[TextUISystem] Dialog queued (queue size: {_dialogQueue.Count})");
-#endif
-				return;
-			}
-
 			_stack.Push(Focus.Dialog(text, timeConsumed));
 			RequestUpdateDisplay();
 		}
@@ -428,49 +396,6 @@ namespace SE
 			_stack.Current.DialogText = text;
 			// 즉시 RichTextLabel 텍스트 갱신 (lazy 아님)
 			_textUi.Text = text;
-		}
-
-		/// <summary>
-		/// 다이얼로그 완료 처리 (Pop + 시간 소요 + 큐에서 다음 다이얼로그 표시)
-		/// </summary>
-		/// <returns>소요 시간 (분)</returns>
-		public int DialogDone()
-		{
-			int timeConsumed = 0;
-
-			// Focus에 저장된 시간 사용
-			if (_stack.Current.Type == FocusType.Dialog)
-			{
-				timeConsumed = _stack.Current.TimeConsumed;
-			}
-
-			Pop();
-
-			// 큐에 다음 다이얼로그가 있으면 표시
-			if (_dialogQueue.Count > 0)
-			{
-				var next = _dialogQueue.Dequeue();
-#if DEBUG_LOG
-				GD.Print($"[TextUISystem] Showing next dialog from queue (remaining: {_dialogQueue.Count})");
-#endif
-				_stack.Push(Focus.Dialog(next.Text, next.TimeConsumed));
-				RequestUpdateDisplay();
-			}
-
-			return timeConsumed;
-		}
-
-		/// <summary>
-		/// 다이얼로그 큐에 대기 중인 항목이 있는지 확인
-		/// </summary>
-		public bool HasQueuedDialogs => _dialogQueue.Count > 0;
-
-		/// <summary>
-		/// 다이얼로그 큐 비우기
-		/// </summary>
-		public void ClearDialogQueue()
-		{
-			_dialogQueue.Clear();
 		}
 
 		// === 스택 조작 API ===
