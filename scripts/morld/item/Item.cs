@@ -66,4 +66,22 @@ public class Item
 	{
 		return $"Item[{Id}] {Name}";
 	}
+
+	/// <summary>
+	/// EquipProps에서 특정 prefix로 시작하는 키 반환
+	/// </summary>
+	/// <param name="prefix">검색할 prefix (예: "장착:")</param>
+	/// <returns>해당 키 (예: "장착:손") 또는 null</returns>
+	public string GetEquipPropKey(string prefix)
+	{
+		if (EquipProps == null || EquipProps.Count == 0)
+			return null;
+
+		foreach (var key in EquipProps.Keys)
+		{
+			if (key.StartsWith(prefix))
+				return key;
+		}
+		return null;
+	}
 }

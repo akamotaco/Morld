@@ -142,7 +142,7 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// 아이템 장착: equip:itemId
-	/// Python equipment.equip_item() 호출
+	/// 같은 슬롯 키("장착:X")를 가진 아이템이 있으면 자동 해제 후 장착
 	/// </summary>
 	private void HandleEquipAction(string[] parts)
 	{
@@ -159,23 +159,48 @@ public partial class MetaActionHandler
 			return;
 		}
 
+		var itemSystem = _world.GetSystem("itemSystem") as ItemSystem;
+		var inventorySystem = _world.GetSystem("inventorySystem") as InventorySystem;
+
+		if (itemSystem == null || inventorySystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleEquipAction: Systems not found");
+			return;
+		}
+
+		var item = itemSystem.FindItem(itemId);
+		if (item == null)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandleEquipAction: Item not found: {itemId}");
+			return;
+		}
+
 #if DEBUG_LOG
 		GD.Print($"[MetaActionHandler] 아이템 장착: itemId={itemId}, playerId={player.Id}");
 #endif
 
-		// Python equipment.equip_item() 호출
-		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
-		if (scriptSystem != null)
+		// 슬롯 충돌 확인 및 기존 장비 해제
+		// 새 아이템의 "장착:X" 키와 같은 키를 가진 장착 아이템 찾기
+		var slotKey = item.GetEquipPropKey("장착:");
+		if (slotKey != null)
 		{
-			try
+			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
+			foreach (var equippedId in equippedItems)
 			{
-				scriptSystem.Eval($"import equipment; equipment.equip_item({player.Id}, {itemId})");
-			}
-			catch (System.Exception ex)
-			{
-				GD.PrintErr($"[MetaActionHandler] equip error: {ex.Message}");
+				var equippedItem = itemSystem.FindItem(equippedId);
+				if (equippedItem?.EquipProps?.ContainsKey(slotKey) == true)
+				{
+#if DEBUG_LOG
+					GD.Print($"[MetaActionHandler] 슬롯 충돌 - 기존 장비 해제: {equippedId} (슬롯 키: {slotKey})");
+#endif
+					inventorySystem.UnequipItemFromUnit(player.Id, equippedId);
+					break;
+				}
 			}
 		}
+
+		// 새 아이템 장착
+		inventorySystem.EquipItemOnUnit(player.Id, itemId);
 
 		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
 		_textUISystem?.Pop();
@@ -183,7 +208,6 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// 아이템 장착 해제: unequip:itemId
-	/// Python equipment.unequip_item() 호출
 	/// </summary>
 	private void HandleUnequipAction(string[] parts)
 	{
@@ -200,23 +224,18 @@ public partial class MetaActionHandler
 			return;
 		}
 
+		var inventorySystem = _world.GetSystem("inventorySystem") as InventorySystem;
+		if (inventorySystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleUnequipAction: InventorySystem not found");
+			return;
+		}
+
 #if DEBUG_LOG
 		GD.Print($"[MetaActionHandler] 아이템 장착 해제: itemId={itemId}, playerId={player.Id}");
 #endif
 
-		// Python equipment.unequip_item() 호출
-		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
-		if (scriptSystem != null)
-		{
-			try
-			{
-				scriptSystem.Eval($"import equipment; equipment.unequip_item({player.Id}, {itemId})");
-			}
-			catch (System.Exception ex)
-			{
-				GD.PrintErr($"[MetaActionHandler] unequip error: {ex.Message}");
-			}
-		}
+		inventorySystem.UnequipItemFromUnit(player.Id, itemId);
 
 		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
 		_textUISystem?.Pop();

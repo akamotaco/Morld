@@ -815,8 +815,7 @@ namespace SE
 				}
 			}
 
-			// equip 액션: 장착 상태에 따라 call:equip 또는 call:unequip 반환
-			// Python Item.equip()/unequip() 메서드 호출
+			// equip 액션: 장착 상태에 따라 equip 또는 unequip URL 반환
 			if (action == "equip")
 			{
 				var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
@@ -828,9 +827,9 @@ namespace SE
 				}
 				bool isEquipped = _inventorySystem.IsEquippedOnUnit(player.Id, itemId);
 				if (isEquipped)
-					return ($"call:unequip:{itemId}", "장착 해제");
+					return ($"unequip:{itemId}", "장착 해제");
 				else
-					return ($"call:equip:{itemId}", "장착");
+					return ($"equip:{itemId}", "장착");
 			}
 
 			return action switch
