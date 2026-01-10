@@ -363,9 +363,17 @@ class Location(Asset):
         ground.instantiate(ground_instance_id, self.region_id, self.location_id)
         self.ground = ground
 
-    def add_object(self, obj: Object, instance_id: int):
-        """이 Location에 오브젝트 배치"""
+    def add_object(self, obj: Object, instance_id: int = None):
+        """
+        이 Location에 오브젝트 배치
+
+        Args:
+            obj: Object 인스턴스
+            instance_id: 유닛 ID (None이면 create_id로 자동 생성)
+        """
         self._check_instantiated()
+        if instance_id is None:
+            instance_id = morld.create_id("unit")
         obj.instantiate(instance_id, self.region_id, self.location_id)
 
     def add_item_to_ground(self, item: Item, count: int = 1):

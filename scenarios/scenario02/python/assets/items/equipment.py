@@ -24,6 +24,7 @@ class OldKnife(Item):
     name = "낡은 칼"
     passive_props = {}
     equip_props = {"공격": 2, "사냥": 1}
+    action_props = {"put": 1}  # 장착 시 0으로 변경되어 놓기 비활성화
     value = 20
     actions = ["take@container", "equip@inventory"]
 
@@ -34,6 +35,7 @@ class LeatherPouch(Item):
     name = "가죽 주머니"
     passive_props = {"수납": 5}
     equip_props = {}
+    action_props = {"put": 1}  # 장착 시 0으로 변경되어 놓기 비활성화
     value = 10
     actions = ["take@container", "equip@inventory"]
 

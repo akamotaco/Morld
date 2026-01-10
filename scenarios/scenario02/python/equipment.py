@@ -18,7 +18,11 @@ def equip_item(unit_id: int, item_id: int) -> bool:
     Returns:
         성공 여부
     """
-    return morld.equip_item_internal(unit_id, item_id)
+    result = morld.equip_item_internal(unit_id, item_id)
+    if result:
+        # 장착 시 put 액션 비활성화 (바닥에 놓기 방지)
+        morld.set_item_action_prop(item_id, "put", 0)
+    return result
 
 
 def unequip_item(unit_id: int, item_id: int) -> bool:
@@ -32,7 +36,11 @@ def unequip_item(unit_id: int, item_id: int) -> bool:
     Returns:
         성공 여부
     """
-    return morld.unequip_item_internal(unit_id, item_id)
+    result = morld.unequip_item_internal(unit_id, item_id)
+    if result:
+        # 장착 해제 시 put 액션 재활성화
+        morld.set_item_action_prop(item_id, "put", 1)
+    return result
 
 
 def is_equipped(unit_id: int, item_id: int) -> bool:

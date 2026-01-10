@@ -20,5 +20,5 @@ class Basement(Location):
         # 오브젝트 배치
         from assets.objects.basement import OldBox, PowerPanel
 
-        self.add_object(OldBox(), 100)
-        self.add_object(PowerPanel(), 101)
+        self.add_object(OldBox())
+        self.add_object(PowerPanel())

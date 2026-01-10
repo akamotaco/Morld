@@ -20,5 +20,5 @@ class Kitchen(Location):
         # 오브젝트 배치
         from assets.objects.kitchen import Refrigerator, Cupboard
 
-        self.add_object(Refrigerator(), 106)
-        self.add_object(Cupboard(), 107)
+        self.add_object(Refrigerator())
+        self.add_object(Cupboard())

@@ -20,5 +20,5 @@ class Corridor1F(Location):
         # 오브젝트 배치
         from assets.objects.corridor import GrandfatherClock, UmbrellaStand
 
-        self.add_object(GrandfatherClock(), 115)
-        self.add_object(UmbrellaStand(), 116)
+        self.add_object(GrandfatherClock())
+        self.add_object(UmbrellaStand())

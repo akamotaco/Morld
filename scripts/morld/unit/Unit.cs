@@ -99,6 +99,13 @@ public class Unit
 	public List<string> Actions { get; set; } = new();
 
 	/// <summary>
+	/// 액션별 활성화 상태 (액션명 = 값)
+	/// 값이 1 이상이면 활성화, 0 이하면 비활성화
+	/// 예: {"call:talk:대화": 1, "call:trade:거래": 1}
+	/// </summary>
+	public Dictionary<string, int> ActionProps { get; set; } = new();
+
+	/// <summary>
 	/// 상황별 외관 묘사 텍스트 (감정/Activity 기반)
 	/// 감정/표정 태그 기반: "default", "기쁨", "슬픔", "분노", "긴장" 등
 	/// Python에서는 focus_text로 대체됨

@@ -38,6 +38,9 @@ internal class UnitJsonData
 	[JsonPropertyName("actions")]
 	public List<string>? Actions { get; set; }
 
+	[JsonPropertyName("actionProps")]
+	public Dictionary<string, int>? ActionProps { get; set; }
+
 	[JsonPropertyName("appearance")]
 	public Dictionary<string, string>? Appearance { get; set; }
 

@@ -32,17 +32,10 @@ class OldCar(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """
-        자동차 생성 + 내부 오브젝트 배치
-
-        Unit ID 할당:
-        - 운전석: 231
-        - 조수석: 232
-        - 트렁크: 233
-        """
+        """자동차 생성 + 내부 오브젝트 배치"""
         super().instantiate(location_id, region_id)
 
         # 내부 오브젝트 배치 (바닥 대신)
-        self.add_object(CarDriverSeat(), 231)
-        self.add_object(CarPassengerSeat(), 232)
-        self.add_object(CarTrunk(), 233)
+        self.add_object(CarDriverSeat())
+        self.add_object(CarPassengerSeat())
+        self.add_object(CarTrunk())

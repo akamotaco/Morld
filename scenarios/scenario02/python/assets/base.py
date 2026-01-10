@@ -288,6 +288,14 @@ class Object(Unit):
 
         return item_category in self.put_filter
 
+    def _can_put_by_action_props(self, item_id):
+        """아이템의 ActionProps "put"이 활성화되어 있는지 확인"""
+        # ActionProps에 "put"이 정의되어 있고 0 이하면 비활성화
+        put_value = morld.get_item_action_prop(item_id, "put")
+        if put_value is not None and put_value <= 0:
+            return False
+        return True
+
     def put(self):
         """오브젝트에 아이템 넣기 (다이얼로그 방식, 필터 적용)"""
         player_id = morld.get_player_id()
@@ -302,8 +310,12 @@ class Object(Unit):
         has_valid_item = False
 
         for item_id, count in inventory.items():
-            # 필터 확인
+            # 카테고리 필터 확인
             if not self._can_put_item(item_id):
+                continue
+
+            # ActionProps "put" 필터 확인 (장착 중인 아이템 제외)
+            if not self._can_put_by_action_props(item_id):
                 continue
 
             item = morld.get_item_info(item_id)
@@ -363,6 +375,8 @@ class Item(Asset):
     - owner: 소유자 unique_id (None이면 공용)
     - category: 아이템 카테고리 (필터링용)
       예) "food_ingredient", "drink_ingredient", "equipment", "material"
+    - action_props: 액션별 활성화 상태 (0 이하면 비활성화)
+      예) {"put": 1, "equip": 1} → 장착 시 {"put": 0}으로 변경하여 놓기 비활성화
 
     액션 패턴:
     - call:메서드명:표시명 → 인스턴스 메서드 호출 (OOP 다형성)
@@ -370,6 +384,7 @@ class Item(Asset):
 
     passive_props: dict = None
     equip_props: dict = None
+    action_props: dict = None  # 액션별 활성화 상태
     value: int = 0
     owner: str = None  # 소유자 unique_id (예: "sera", "mila")
     category: str = None  # 아이템 카테고리 (필터링용)
@@ -386,7 +401,8 @@ class Item(Asset):
             self.value,
             self.actions or [],
             self.owner,  # 소유자 정보 전달
-            self.unique_id  # Python unique_id 전달
+            self.unique_id,  # Python unique_id 전달
+            self.action_props or {}  # 액션별 활성화 상태
         )
 
         # 인스턴스 캐시 등록 (call: 액션용)
@@ -477,9 +493,17 @@ class Location(Asset):
         ground.instantiate(ground_instance_id, self.region_id, self.location_id)
         self.ground = ground
 
-    def add_object(self, obj: Object, instance_id: int):
-        """이 Location에 오브젝트 배치"""
+    def add_object(self, obj: Object, instance_id: int = None):
+        """
+        이 Location에 오브젝트 배치
+
+        Args:
+            obj: Object 인스턴스
+            instance_id: 유닛 ID (None이면 create_id로 자동 생성)
+        """
         self._check_instantiated()
+        if instance_id is None:
+            instance_id = morld.create_id("unit")
         obj.instantiate(instance_id, self.region_id, self.location_id)
 
     def add_item_to_ground(self, item: Item, count: int = 1):

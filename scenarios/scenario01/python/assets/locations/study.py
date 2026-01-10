@@ -20,5 +20,5 @@ class Study(Location):
         # 오브젝트 배치
         from assets.objects.study import Safe, DeskDrawer
 
-        self.add_object(Safe(), 111)
-        self.add_object(DeskDrawer(), 112)
+        self.add_object(Safe())
+        self.add_object(DeskDrawer())

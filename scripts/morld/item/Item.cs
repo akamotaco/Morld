@@ -45,6 +45,13 @@ public class Item
 	public List<string> Actions { get; set; } = new();
 
 	/// <summary>
+	/// 액션별 활성화 상태 (action:액션명@컨텍스트 = 값)
+	/// 값이 1 이상이면 활성화, 0 이하면 비활성화
+	/// 예: {"take@container": 1, "equip@inventory": 1, "put": 1}
+	/// </summary>
+	public Dictionary<string, int> ActionProps { get; set; } = new();
+
+	/// <summary>
 	/// 소유자 unique_id (예: "sera", "mila") - null이면 공용 아이템
 	/// </summary>
 	public string Owner { get; set; }

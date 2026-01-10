@@ -20,5 +20,5 @@ class LivingRoom(Location):
         # 오브젝트 배치
         from assets.objects.living_room import Fireplace, SofaCushion
 
-        self.add_object(Fireplace(), 104)
-        self.add_object(SofaCushion(), 105)
+        self.add_object(Fireplace())
+        self.add_object(SofaCushion())

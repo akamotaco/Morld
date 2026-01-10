@@ -139,6 +139,15 @@ namespace SE
 					item.Actions.AddRange(data.Actions);
 				}
 
+				// ActionProps 설정
+				if (data.ActionProps != null)
+				{
+					foreach (var (action, value) in data.ActionProps)
+					{
+						item.ActionProps[action] = value;
+					}
+				}
+
 				AddItem(item);
 			}
 		}
@@ -192,6 +201,9 @@ namespace SE
 				Value = item.Value,
 				Actions = item.Actions.Count > 0
 					? new List<string>(item.Actions)
+					: null,
+				ActionProps = item.ActionProps.Count > 0
+					? new Dictionary<string, int>(item.ActionProps)
 					: null
 			}).ToArray();
 		}

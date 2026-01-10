@@ -20,5 +20,5 @@ class Stairs(Location):
         # 오브젝트 배치
         from assets.objects.stairs import BrokenStep, StairWindow
 
-        self.add_object(BrokenStep(), 117)
-        self.add_object(StairWindow(), 118)
+        self.add_object(BrokenStep())
+        self.add_object(StairWindow())

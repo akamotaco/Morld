@@ -21,5 +21,5 @@ class GuestRoom2(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Mirror(), 205)
-        self.add_object(Bed(), 216)
+        self.add_object(Mirror())
+        self.add_object(Bed())

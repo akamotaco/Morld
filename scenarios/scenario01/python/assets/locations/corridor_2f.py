@@ -20,5 +20,5 @@ class Corridor2F(Location):
         # 오브젝트 배치
         from assets.objects.corridor import PictureFrame, StudyDoor
 
-        self.add_object(PictureFrame(), 110)
-        self.add_object(StudyDoor(), 114)
+        self.add_object(PictureFrame())
+        self.add_object(StudyDoor())

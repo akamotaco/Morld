@@ -20,5 +20,5 @@ class Storage(Location):
         # 오브젝트 배치
         from assets.objects.storage import Shelf, OldCabinet
 
-        self.add_object(Shelf(), 102)
-        self.add_object(OldCabinet(), 103)
+        self.add_object(Shelf())
+        self.add_object(OldCabinet())

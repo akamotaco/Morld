@@ -22,5 +22,5 @@ class LivingRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
 
-        # 거실 소파 배치 (Unit ID: 221)
-        self.add_object(LivingSofa(), 221)
+        # 거실 소파 배치
+        self.add_object(LivingSofa())

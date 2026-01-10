@@ -20,5 +20,5 @@ class Bedroom(Location):
         # 오브젝트 배치
         from assets.objects.bedroom import BedUnder, VanityDrawer
 
-        self.add_object(BedUnder(), 108)
-        self.add_object(VanityDrawer(), 109)
+        self.add_object(BedUnder())
+        self.add_object(VanityDrawer())

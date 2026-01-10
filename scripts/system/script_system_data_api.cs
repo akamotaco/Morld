@@ -266,7 +266,7 @@ namespace SE
                 PyBuiltinFunction addItemFunc = new PyBuiltinFunction("add_item", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("add_item(id, name, passive_props=None, equip_props=None, value=0, actions=None, owner=None, unique_id=None) requires at least 2 arguments");
+                        throw PyTypeError.Create("add_item(id, name, passive_props=None, equip_props=None, value=0, actions=None, owner=None, unique_id=None, action_props=None) requires at least 2 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -276,6 +276,7 @@ namespace SE
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
                     string owner = args.Length >= 7 && args[6] is PyString ownerStr ? ownerStr.Value : null;
                     string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
+                    var actionProps = args.Length >= 9 && args[8] is PyDict apDict ? PyDictToIntDict(apDict) : null;
 
                     var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
 
@@ -289,6 +290,8 @@ namespace SE
                         foreach (var (k, v) in equipProps) item.EquipProps[k] = v;
                     if (actions != null)
                         item.Actions.AddRange(actions);
+                    if (actionProps != null)
+                        foreach (var (k, v) in actionProps) item.ActionProps[k] = v;
 
                     _itemSystem.AddItem(item);
                     Godot.GD.Print($"[morld] add_item: id={id}, name={name}, unique_id={uniqueId}");
@@ -301,7 +304,7 @@ namespace SE
                 morldModule.ModuleDict["add_unit"] = new PyBuiltinFunction("add_unit", args =>
                 {
                     if (args.Length < 4)
-                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None, unique_id=None) requires at least 4 arguments");
+                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None, unique_id=None, action_props=None) requires at least 4 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -311,6 +314,7 @@ namespace SE
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
                     var mood = args.Length >= 7 && args[6] is PyList moodList ? PyListToStringList(moodList) : null;
                     string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
+                    var actionProps = args.Length >= 9 && args[8] is PyDict apDict ? PyDictToIntDict(apDict) : null;
 
                     var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                     var unit = new Morld.Unit(id, name, regionId, locationId);
@@ -325,6 +329,8 @@ namespace SE
                         unit.Actions.AddRange(actions);
                     if (mood != null)
                         foreach (var m in mood) unit.Mood.Add(m);
+                    if (actionProps != null)
+                        foreach (var (k, v) in actionProps) unit.ActionProps[k] = v;
 
                     _unitSystem.AddUnit(unit);
 
@@ -431,6 +437,84 @@ namespace SE
 
                     Godot.GD.Print("[morld] clear_all: All game data cleared");
                     return PyBool.True;
+                });
+
+                // === ActionProps API ===
+
+                // set_item_action_prop: 아이템 ActionProps 설정
+                morldModule.ModuleDict["set_item_action_prop"] = new PyBuiltinFunction("set_item_action_prop", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_item_action_prop(item_id, action, value) requires 3 arguments");
+
+                    int itemId = args[0].ToInt();
+                    string action = args[1].AsString();
+                    int value = args[2].ToInt();
+
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                    var item = _itemSystem.FindItem(itemId);
+                    if (item != null)
+                    {
+                        item.ActionProps[action] = value;
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                // get_item_action_prop: 아이템 ActionProps 조회
+                morldModule.ModuleDict["get_item_action_prop"] = new PyBuiltinFunction("get_item_action_prop", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("get_item_action_prop(item_id, action) requires 2 arguments");
+
+                    int itemId = args[0].ToInt();
+                    string action = args[1].AsString();
+
+                    var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                    var item = _itemSystem.FindItem(itemId);
+                    if (item != null && item.ActionProps.TryGetValue(action, out int value))
+                    {
+                        return new PyInt(value);
+                    }
+                    return PyNone.Instance;
+                });
+
+                // set_unit_action_prop: 유닛 ActionProps 설정
+                morldModule.ModuleDict["set_unit_action_prop"] = new PyBuiltinFunction("set_unit_action_prop", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_unit_action_prop(unit_id, action, value) requires 3 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string action = args[1].AsString();
+                    int value = args[2].ToInt();
+
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null)
+                    {
+                        unit.ActionProps[action] = value;
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                // get_unit_action_prop: 유닛 ActionProps 조회
+                morldModule.ModuleDict["get_unit_action_prop"] = new PyBuiltinFunction("get_unit_action_prop", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("get_unit_action_prop(unit_id, action) requires 2 arguments");
+
+                    int unitId = args[0].ToInt();
+                    string action = args[1].AsString();
+
+                    var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                    var unit = _unitSystem.FindUnit(unitId);
+                    if (unit != null && unit.ActionProps.TryGetValue(action, out int value))
+                    {
+                        return new PyInt(value);
+                    }
+                    return PyNone.Instance;
                 });
 
                 // === 신규 API: 캐릭터 행동 명령 ===

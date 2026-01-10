@@ -22,5 +22,5 @@ class DiningRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
 
-        # 식탁 의자 배치 (Unit ID: 220)
-        self.add_object(DiningChair(), 220)
+        # 식탁 의자 배치
+        self.add_object(DiningChair())

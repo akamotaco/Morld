@@ -706,9 +706,11 @@ namespace SE
 
 			// 액션 필터링 및 표시
 			// 1. context로 필터링 (take@container 등)
-			// 2. 플레이어의 can: prop으로 필터링
+			// 2. 아이템의 ActionProps로 필터링 (값이 0 이하면 비활성화)
+			// 3. 플레이어의 can: prop으로 필터링
 			var contextFiltered = GetFilteredActions(item.Actions, context);
-			var filteredActions = FilterActionsByActor(contextFiltered, player);
+			var actionPropsFiltered = FilterActionsByItemActionProps(contextFiltered, item);
+			var filteredActions = FilterActionsByActor(actionPropsFiltered, player);
 			if (filteredActions.Count > 0)
 			{
 				lines.Add("[color=yellow]행동:[/color]");
@@ -761,6 +763,32 @@ namespace SE
 				{
 					result.Add(parts[0]); // 액션 이름만 추출
 				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// 아이템의 ActionProps를 기반으로 액션 필터링
+		/// ActionProps에 해당 액션이 있고 값이 0 이하면 필터링
+		/// </summary>
+		private List<string> FilterActionsByItemActionProps(List<string> actions, Item item)
+		{
+			if (item.ActionProps.Count == 0)
+				return actions; // ActionProps가 없으면 모든 액션 허용
+
+			var result = new List<string>();
+			foreach (var action in actions)
+			{
+				// 액션 이름 추출 (call:method:label → method, equip → equip)
+				var actionName = ExtractActionName(action);
+
+				// ActionProps에 해당 액션이 있고 값이 0 이하면 필터링
+				if (item.ActionProps.TryGetValue(actionName, out int value) && value <= 0)
+				{
+					continue; // 비활성화된 액션
+				}
+
+				result.Add(action);
 			}
 			return result;
 		}

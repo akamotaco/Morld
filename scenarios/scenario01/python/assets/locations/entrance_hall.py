@@ -20,4 +20,4 @@ class EntranceHall(Location):
         # 오브젝트 배치
         from assets.objects.entrance import FrontDoor
 
-        self.add_object(FrontDoor(), 113)
+        self.add_object(FrontDoor())

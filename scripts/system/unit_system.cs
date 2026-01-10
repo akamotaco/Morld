@@ -142,6 +142,15 @@ namespace SE
 					unit.Actions.AddRange(data.Actions);
 				}
 
+				// ActionProps 설정
+				if (data.ActionProps != null)
+				{
+					foreach (var (action, value) in data.ActionProps)
+					{
+						unit.ActionProps[action] = value;
+					}
+				}
+
 				// Appearance 설정
 				if (data.Appearance != null)
 				{
@@ -225,6 +234,9 @@ namespace SE
 				Type = unit.Type.ToString().ToLower(),
 				Actions = unit.Actions.Count > 0
 					? new List<string>(unit.Actions)
+					: null,
+				ActionProps = unit.ActionProps.Count > 0
+					? new Dictionary<string, int>(unit.ActionProps)
 					: null,
 				Appearance = unit.Appearance.Count > 0
 					? new Dictionary<string, string>(unit.Appearance)

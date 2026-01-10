@@ -27,5 +27,5 @@ class BackYard(Location):
         # 바닥 오브젝트 생성
         self.add_ground(GroundGrass())
 
-        # 자전거 배치 (Unit ID: 230)
-        self.add_object(Bicycle(), 230)
+        # 자전거 배치
+        self.add_object(Bicycle())
