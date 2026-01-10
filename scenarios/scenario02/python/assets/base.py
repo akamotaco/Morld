@@ -174,6 +174,22 @@ class Unit(Asset):
             lines.append(f"  {key}: {value}")
         yield morld.dialog("\n".join(lines))
 
+    def debug_self_props(self):
+        """플레이어 자신의 속성 확인 (거울 등에서 사용)"""
+        player_id = morld.get_player_id()
+        props = morld.get_unit_props(player_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "???") if player_info else "???"
+
+        if not props:
+            yield morld.dialog(f"[b]{player_name}[/b]\n\n아직 알 수 있는 것이 없다.")
+            return
+
+        lines = [f"[b]{player_name}[/b]\n"]
+        for key, value in props.items():
+            lines.append(f"  {key}: {value}")
+        yield morld.dialog("\n".join(lines))
+
 
 class Character(Unit):
     """
@@ -220,22 +236,6 @@ class Character(Unit):
         각 캐릭터 클래스에서 오버라이드하여 고유 대화 구현.
         """
         yield morld.dialog(f"{self.name}: 안녕.")
-
-    def debug_self_props(self):
-        """플레이어 자신의 속성 확인 (거울 등에서 사용)"""
-        player_id = morld.get_player_id()
-        props = morld.get_unit_props(player_id)
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "???") if player_info else "???"
-
-        if not props:
-            yield morld.dialog(f"[b]{player_name}[/b]\n\n아직 알 수 있는 것이 없다.")
-            return
-
-        lines = [f"[b]{player_name}[/b]\n"]
-        for key, value in props.items():
-            lines.append(f"  {key}: {value}")
-        yield morld.dialog("\n".join(lines))
 
 
 class Object(Unit):
@@ -332,7 +332,7 @@ class Object(Unit):
 
         lines.append("\n[url=@ret:cancel]취소[/url]")
 
-        result = yield morld.dialog("\n".join(lines))
+        result = yield morld.dialog("\n".join(lines), autofill="off")
 
         if result and result != "cancel":
             item_id = int(result)
