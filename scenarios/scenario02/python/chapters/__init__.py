@@ -65,6 +65,10 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
         print(f"[chapters] Restoring player data after chapter transition...")
         restore_after_chapter_transition()
 
+    # 5.1. 챕터별 후처리 (복원 후 추가 설정)
+    if hasattr(chapter_module, 'post_restore'):
+        chapter_module.post_restore()
+
     # 6. EventSystem 위치 재초기화
     morld.reinitialize_locations()
 

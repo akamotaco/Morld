@@ -24,7 +24,25 @@ def initialize():
     # 4. NPC 인스턴스화 + Agent 등록
     mansion.instantiate_npcs()
 
-    print("[chapter_1] Main chapter initialized: full map with NPCs")
+    # 5. 음식 아이템 등록 (자연 오브젝트보다 먼저)
+    mansion.instantiate_food_items()
+
+    # 6. 자연 오브젝트 인스턴스화 + Agent 등록
+    mansion.instantiate_nature_objects()
+
+    print("[chapter_1] Main chapter initialized: full map with NPCs and nature objects")
+
+
+def post_restore():
+    """
+    챕터 전환 후 플레이어 데이터 복원 후 호출
+
+    챕터 1부터 생존 시스템 활성화
+    """
+    player_id = morld.get_player_id()
+    if player_id is not None:
+        morld.set_unit_prop(player_id, "생존:활성화", 1)
+        print("[chapter_1] Survival system enabled")
 
 
 def _instantiate_player():

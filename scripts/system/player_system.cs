@@ -415,7 +415,7 @@ namespace SE
 			_lastSetDuration = NextStepDuration;
 
 #if DEBUG_LOG
-			GD.Print($"[PlayerSystem] 다음 Step 예약: {NextStepDuration}분");
+			GD.Print($"[PlayerSystem] 다음 Step 예약: {NextStepDuration}분 (남은시간: {_remainingDuration}분)");
 #endif
 		}
 

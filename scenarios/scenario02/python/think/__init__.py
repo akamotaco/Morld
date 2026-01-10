@@ -156,3 +156,8 @@ def create_agent_for(unique_id, unit_id):
 def get_registered_agent_ids():
     """등록된 Agent unique_id 목록 반환"""
     return list(_agent_classes.keys())
+
+
+# Note: 자원 생성은 이벤트 기반(resource_agent.py)으로 처리됨
+# think/__init__.py에서 import하지 않음 (순환 참조 방지)
+# mansion.py에서 register_resource_object()를 직접 호출

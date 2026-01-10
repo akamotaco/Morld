@@ -11,6 +11,7 @@ public enum EventType
 	GameStart,      // 게임 시작
 	OnReach,        // 위치 도착 (unit_id, region_id, location_id)
 	OnMeet,         // 유닛들이 같은 위치에 있음 (unit_id1, unit_id2, ...)
+	OnTimeElapsed,  // 시간 경과 (minutes)
 }
 
 /// <summary>
@@ -48,6 +49,7 @@ public class GameEvent
 		EventType.GameStart => "game_start",
 		EventType.OnReach => "on_reach",
 		EventType.OnMeet => "on_meet",
+		EventType.OnTimeElapsed => "on_time_elapsed",
 		_ => "unknown"
 	};
 
@@ -70,6 +72,13 @@ public class GameEvent
 	/// </summary>
 	public static GameEvent OnMeet(params int[] unitIds)
 		=> new() { Type = EventType.OnMeet, Args = unitIds.Cast<object>().ToList() };
+
+	/// <summary>
+	/// 시간 경과 이벤트
+	/// </summary>
+	/// <param name="minutes">경과 시간 (분)</param>
+	public static GameEvent OnTimeElapsed(int minutes)
+		=> new() { Type = EventType.OnTimeElapsed, Args = new List<object> { minutes } };
 
 	public override string ToString()
 		=> $"GameEvent({GetTypeName()}, [{string.Join(", ", Args)}])";

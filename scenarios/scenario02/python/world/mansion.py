@@ -208,3 +208,87 @@ def instantiate():
         "player": player,
         "npcs": npcs,
     }
+
+
+# ========================================
+# 자연 오브젝트 배치
+# ========================================
+
+# 오브젝트 배치 정보
+# (unique_id, instance_id, region_id, location_id, initial_resources)
+NATURE_OBJECTS = [
+    # 채집터 (location 23)
+    ("berry_bush", 200, REGION_ID, 23, 3),      # 산딸기 덤불
+    ("mushroom_patch", 201, REGION_ID, 23, 2),  # 버섯 군락
+
+    # 숲 깊은 곳 (location 21)
+    ("apple_tree", 202, REGION_ID, 21, 2),      # 사과나무
+
+    # 강가 (location 22)
+    ("berry_bush", 203, REGION_ID, 22, 2),      # 산딸기 덤불
+]
+
+
+# 음식 아이템 ID 할당
+# (unique_id, instance_id)
+FOOD_ITEMS = [
+    ("wild_berry", 100),
+    ("apple", 101),
+    ("mushroom", 102),
+    ("cooked_meat", 103),
+    ("cooked_fish", 104),
+]
+
+
+def instantiate_food_items():
+    """음식 아이템들을 ItemSystem에 등록"""
+    from assets.items.food import WildBerry, Apple, Mushroom, CookedMeat, CookedFish
+
+    item_classes = {
+        "wild_berry": WildBerry,
+        "apple": Apple,
+        "mushroom": Mushroom,
+        "cooked_meat": CookedMeat,
+        "cooked_fish": CookedFish,
+    }
+
+    for unique_id, instance_id in FOOD_ITEMS:
+        cls = item_classes.get(unique_id)
+        if cls:
+            item = cls()
+            item.instantiate(instance_id)
+
+    print(f"[world.mansion] {len(FOOD_ITEMS)} food items registered")
+
+
+def instantiate_nature_objects():
+    """자연 오브젝트 인스턴스화 + 이벤트 기반 자원 생성 등록 + 초기 자원 생성"""
+    from think.resource_agent import register_resource_object
+    from assets.objects.nature import AppleTree, BerryBush, MushroomPatch
+
+    object_classes = {
+        "apple_tree": AppleTree,
+        "berry_bush": BerryBush,
+        "mushroom_patch": MushroomPatch,
+    }
+
+    objects = []
+    for unique_id, instance_id, region_id, location_id, initial_resources in NATURE_OBJECTS:
+        cls = object_classes.get(unique_id)
+        if not cls:
+            print(f"[world.mansion] Unknown object: {unique_id}")
+            continue
+
+        obj = cls()
+        obj.instantiate(instance_id, region_id, location_id)
+        objects.append(obj)
+
+        # 이벤트 기반 자원 생성 등록
+        register_resource_object(instance_id, unique_id)
+
+        # 초기 자원 생성
+        for _ in range(initial_resources):
+            obj.spawn_resource()
+
+    print(f"[world.mansion] {len(objects)} nature objects instantiated")
+    return objects

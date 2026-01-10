@@ -13,6 +13,42 @@
 
 import morld
 
+# 동적 아이템 생성용 ID 카운터 (충돌 방지를 위해 높은 번호부터 시작)
+_dynamic_item_id_counter = 500
+
+
+def _instantiate_item_by_unique(unique_id: str):
+    """
+    unique_id로 아이템을 동적 생성
+
+    새 챕터에 해당 아이템이 등록되지 않았을 때 사용
+
+    Returns:
+        item_id 또는 None
+    """
+    global _dynamic_item_id_counter
+
+    # 아이템 클래스 모듈 import (데코레이터 실행을 위해)
+    # 순서: equipment 먼저 (장비 아이템), 그 다음 food
+    from assets.items import equipment, food
+
+    # 아이템 클래스 레지스트리에서 조회
+    from assets.registry import get_item_class
+
+    item_cls = get_item_class(unique_id)
+    if item_cls is None:
+        print(f"[persistence] Item class not found: {unique_id}")
+        return None
+
+    # 동적으로 instantiate
+    item = item_cls()
+    item_id = _dynamic_item_id_counter
+    _dynamic_item_id_counter += 1
+
+    item.instantiate(item_id)
+    print(f"[persistence] Dynamically instantiated item: {unique_id} (id={item_id})")
+    return item_id
+
 
 def _get_all_unit_props_flat(unit_id):
     """
@@ -69,13 +105,21 @@ def save_player_data():
     # 현재는 빈 리스트로 처리
     data["mood"] = []
 
-    # 4. Inventory (소지품)
+    # 4. Inventory (소지품) - unique_id 기반으로 저장 (챕터 간 item_id 충돌 방지)
     inventory = morld.get_unit_inventory(player_id)
-    # PyDict를 일반 dict로 변환
-    data["inventory"] = dict(inventory) if inventory else {}
+    inventory_by_unique = {}
+    if inventory:
+        for item_id, count in inventory.items():
+            item_info = morld.get_item_info(int(item_id))
+            if item_info and item_info.get("unique_id"):
+                unique_id = item_info["unique_id"]
+                inventory_by_unique[unique_id] = int(count)
+            else:
+                print(f"[persistence] WARNING: Item {item_id} has no unique_id, skipping")
+    data["inventory"] = inventory_by_unique
 
     print(f"[persistence] Saved player data: name={data['name']}, "
-          f"props={len(data['props'])}, inventory={len(data['inventory'])}")
+          f"props={len(data['props'])}, inventory={list(data['inventory'].keys())}")
 
     return data
 
@@ -116,12 +160,24 @@ def restore_player_data(data):
         morld.set_unit_mood(player_id, data["mood"])
         print(f"[persistence] Restored mood: {data['mood']}")
 
-    # 4. Inventory 복원
+    # 4. Inventory 복원 - unique_id 기반
     if "inventory" in data and data["inventory"]:
-        for item_id, count in data["inventory"].items():
-            # item_id가 문자열일 수 있으므로 int로 변환
-            morld.give_item(player_id, int(item_id), int(count))
-        print(f"[persistence] Restored {len(data['inventory'])} inventory items")
+        restored_count = 0
+        for unique_id, count in data["inventory"].items():
+            # unique_id로 item_id 조회
+            item_id = morld.get_item_id_by_unique(unique_id)
+            if item_id is not None:
+                morld.give_item(player_id, item_id, int(count))
+                restored_count += 1
+            else:
+                # 새 챕터에 해당 아이템이 없으면 동적 생성 시도
+                item_id = _instantiate_item_by_unique(unique_id)
+                if item_id is not None:
+                    morld.give_item(player_id, item_id, int(count))
+                    restored_count += 1
+                else:
+                    print(f"[persistence] WARNING: Could not restore item '{unique_id}'")
+        print(f"[persistence] Restored {restored_count} inventory items")
 
     # 5. 복원 과정에서 생긴 행동 로그를 모두 읽음 처리
     morld.mark_all_logs_read()

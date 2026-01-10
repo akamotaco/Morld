@@ -49,6 +49,16 @@ namespace SE
 		}
 
 		/// <summary>
+		/// UniqueId로 아이템 찾기
+		/// </summary>
+		public Item? FindByUniqueId(string uniqueId)
+		{
+			if (string.IsNullOrEmpty(uniqueId))
+				return null;
+			return _items.Values.FirstOrDefault(i => i.UniqueId == uniqueId);
+		}
+
+		/// <summary>
 		/// 모든 아이템 제거
 		/// </summary>
 		public void ClearItems()

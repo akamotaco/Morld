@@ -8,6 +8,7 @@
 # - chapters/: 챕터별 초기화 모듈
 
 import events
+import survival  # 시간 경과 이벤트 구독
 
 from assets.characters import get_character_event_handler
 from chapters import load_chapter

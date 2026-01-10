@@ -11,12 +11,14 @@
 
 import morld
 from assets.base import Item
+from assets.registry import register_item
 
 
 # ========================================
 # 사냥꾼 장비
 # ========================================
 
+@register_item
 class OldKnife(Item):
     unique_id = "old_knife"
     name = "낡은 칼"
@@ -26,6 +28,7 @@ class OldKnife(Item):
     actions = ["take@container", "equip@inventory"]
 
 
+@register_item
 class LeatherPouch(Item):
     unique_id = "leather_pouch"
     name = "가죽 주머니"
@@ -39,6 +42,7 @@ class LeatherPouch(Item):
 # 학자 장비
 # ========================================
 
+@register_item
 class WritingTool(Item):
     unique_id = "writing_tool"
     name = "필기구"
@@ -48,6 +52,7 @@ class WritingTool(Item):
     actions = ["take@container"]
 
 
+@register_item
 class OldBook(Item):
     unique_id = "old_book"
     name = "낡은 책"
@@ -70,6 +75,7 @@ class OldBook(Item):
 # 장인 장비
 # ========================================
 
+@register_item
 class SmallToolbox(Item):
     unique_id = "small_toolbox"
     name = "작은 도구함"

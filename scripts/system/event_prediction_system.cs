@@ -53,6 +53,11 @@ namespace SE
 
 			// 시간 중단 이벤트 중 가장 빠른 것 찾기
 			var earliestInterrupt = FindEarliestInterrupt();
+
+#if DEBUG_LOG
+			GD.Print($"[EventPredictionSystem] 예측: {_predictedEvents.Count}개, earliest={earliestInterrupt?.TriggerMinutes ?? -1}분, pending={pendingDuration}분");
+#endif
+
 			if (earliestInterrupt != null && earliestInterrupt.TriggerMinutes < pendingDuration)
 			{
 				// 시간 조정

@@ -1,10 +1,47 @@
 # ui.py - UI 훅 함수
 #
 # C#에서 호출하는 UI 관련 Python 훅
+# - get_status_header(): 상태바 헤더 (체력, 포만감)
 # - get_action_text(): 행동 옵션 BBCode 생성
 # - ui_get_move_confirm_message(): 이동 확인 다이얼로그 메시지
 
 import morld
+
+
+def get_status_header():
+    """
+    상태바 헤더 반환 (메인 화면 상단)
+
+    C#의 DescribeSystem에서 호출됩니다.
+    체력, 포만감 상태바와 상태 이상 메시지를 반환합니다.
+
+    Returns:
+        str: 상태바 BBCode 문자열 (빈 문자열이면 표시 안함)
+    """
+    try:
+        import survival
+        player_id = morld.get_player_id()
+        if player_id is None:
+            return ""
+
+        lines = []
+
+        # 상태바 (체력, 포만감)
+        status_bar = survival.get_status_bar(player_id)
+        if status_bar:
+            lines.append(status_bar)
+
+        # 상태 이상 메시지
+        status_msg = survival.get_status_message(player_id)
+        if status_msg:
+            lines.append(status_msg)
+
+        return "\n".join(lines)
+    except ImportError:
+        return ""  # survival 모듈이 없으면 빈 문자열
+    except Exception as e:
+        print(f"[ui] get_status_header error: {e}")
+        return ""
 
 
 def format_time(minutes):
@@ -64,6 +101,9 @@ def get_action_text():
     lines.append("")
     lines.append("[color=cyan]행동:[/color]")
 
+    # 인벤토리
+    lines.append("  [url=inventory]인벤토리[/url]")
+
     # 멍때리기 (시간 선택 토글)
     # ToggleRenderer가 [hidden=idle]...[/hidden=idle] 영역을 펼침/접힘 처리
     lines.append("  [url=toggle:idle]▶멍때리기[/url]")
@@ -83,5 +123,12 @@ def get_action_text():
         lines.append("  [url=idle:240]낮잠 (4시간)[/url]")
     else:
         lines.append("  [color=gray]낮잠 (4시간)[/color]")
+
+    # 상태바 (체력, 포만감) - 행동 섹션 아래에 표시
+    status_header = get_status_header()
+    if status_header:
+        lines.append("")
+        lines.append("[color=gray]────────────────────[/color]")
+        lines.append(status_header)
 
     return "\n".join(lines)

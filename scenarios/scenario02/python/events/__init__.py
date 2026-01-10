@@ -1,10 +1,11 @@
 # events/__init__.py - 이벤트 핸들러 패키지
 #
 # 역할:
-# - 게임 이벤트 처리 (game_start, on_reach, on_meet)
+# - 게임 이벤트 처리 (game_start, on_reach, on_meet, on_time_elapsed)
 # - 스크립트 함수 자동 등록 (@morld.register_script)
 # - 캐릭터별 이벤트 핸들러 위임
 # - 순차적 on_meet 이벤트 큐 관리
+# - 시간 경과 이벤트 구독 시스템
 
 from . import registry
 
@@ -18,6 +19,67 @@ from . import scripts
 
 # 캐릭터 이벤트 핸들러 (on_meet_player 등)
 from assets.characters import get_character_event_handler
+
+
+# ========================================
+# 시간 경과 이벤트 구독 시스템
+# ========================================
+
+# 시간 경과 이벤트 구독자 목록
+# 각 구독자는 (callback, min_interval) 튜플
+# callback: (minutes) -> None
+# min_interval: 최소 호출 간격 (분). None이면 매 호출마다 실행
+_time_elapsed_subscribers = []
+
+
+def subscribe_time_elapsed(callback, min_interval=None):
+    """
+    시간 경과 이벤트 구독
+
+    Args:
+        callback: 콜백 함수 (minutes) -> None
+        min_interval: 최소 호출 간격 (분). None이면 매 호출마다 실행
+
+    Example:
+        # 매번 호출
+        subscribe_time_elapsed(lambda m: print(f"{m}분 경과"))
+
+        # 60분마다 호출
+        subscribe_time_elapsed(my_hourly_callback, min_interval=60)
+    """
+    _time_elapsed_subscribers.append({
+        "callback": callback,
+        "min_interval": min_interval,
+        "accumulated": 0,
+    })
+
+
+def _handle_time_elapsed(minutes):
+    """
+    시간 경과 이벤트 처리 - 모든 구독자에게 알림
+
+    Args:
+        minutes: 경과 시간 (분)
+    """
+    for subscriber in _time_elapsed_subscribers:
+        callback = subscriber["callback"]
+        min_interval = subscriber["min_interval"]
+
+        if min_interval is None:
+            # 매번 호출
+            try:
+                callback(minutes)
+            except Exception as e:
+                print(f"[events] time_elapsed callback error: {e}")
+        else:
+            # 누적 시간 기반 호출
+            subscriber["accumulated"] += minutes
+            while subscriber["accumulated"] >= min_interval:
+                subscriber["accumulated"] -= min_interval
+                try:
+                    callback(min_interval)
+                except Exception as e:
+                    print(f"[events] time_elapsed callback error: {e}")
 
 
 # ========================================
@@ -155,6 +217,11 @@ def on_single_event(event):
         if unit_id == player_id:
             return registry.handle_reach(player_id, region_id, location_id)
 
+    elif event_type == "on_time_elapsed":
+        minutes = event[1]
+        _handle_time_elapsed(minutes)
+        return None  # 시간 이벤트는 다이얼로그 없음
+
     elif event_type == "on_meet":
         unit_ids = event[1:]
         if player_id in unit_ids:
@@ -217,4 +284,5 @@ __all__ = [
     'on_single_event',
     'clear_pending_meet_events',
     'has_pending_meet_events',
+    'subscribe_time_elapsed',
 ]

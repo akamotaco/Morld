@@ -66,6 +66,12 @@ class Player(Character):
         "나이": 22,
         "신뢰도": 0,
 
+        # 생존 스탯
+        "생존:체력": 100,
+        "생존:최대체력": 100,
+        "생존:포만감": 100,
+        "생존:최대포만감": 100,
+
         # 기본 행동 능력 (can:메서드명)
         # NPC 상호작용
         "can:talk": 1,
@@ -89,6 +95,8 @@ class Player(Character):
 
         # 아이템 사용
         "can:read_book": 1,
+        "can:eat": 1,
+        "can:harvest": 1,
 
         # 디버그
         "can:debug_props": 1,

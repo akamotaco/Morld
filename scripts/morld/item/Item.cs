@@ -20,6 +20,11 @@ public class Item
 	public string Name { get; set; }
 
 	/// <summary>
+	/// Python Asset의 unique_id (예: "apple", "bread")
+	/// </summary>
+	public string UniqueId { get; set; }
+
+	/// <summary>
 	/// 소유만으로 효과가 있는 Prop (예: 열쇠)
 	/// </summary>
 	public Dictionary<string, int> PassiveProps { get; set; } = new();

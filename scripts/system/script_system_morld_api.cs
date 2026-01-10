@@ -191,9 +191,27 @@ namespace SE
 
                 var result = new PyDict();
                 result.SetItem(new PyString("id"), new PyInt(item.Id));
+                result.SetItem(new PyString("unique_id"), new PyString(item.UniqueId ?? ""));
                 result.SetItem(new PyString("name"), new PyString(item.Name ?? ""));
                 result.SetItem(new PyString("value"), new PyInt(item.Value));
                 return result;
+            });
+
+            // get_item_id_by_unique: unique_id로 아이템 ID 조회
+            morldModule.ModuleDict["get_item_id_by_unique"] = new PyBuiltinFunction("get_item_id_by_unique", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("get_item_id_by_unique(unique_id) requires 1 argument");
+
+                string uniqueId = args[0].AsString();
+
+                var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                var item = _itemSystem?.FindByUniqueId(uniqueId);
+
+                if (item == null)
+                    return PyNone.Instance;
+
+                return new PyInt(item.Id);
             });
         }
 

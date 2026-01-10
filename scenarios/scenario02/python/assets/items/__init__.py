@@ -17,6 +17,9 @@ from .resources import (
     Flour, Rice, Water, Bread, Berry, Meat,
     Wood, Herb, Cloth
 )
+from .food import (
+    FoodItem, WildBerry, Apple, Mushroom, CookedMeat, CookedFish
+)
 
 __all__ = [
     # equipment
@@ -29,6 +32,8 @@ __all__ = [
     # resources
     'Flour', 'Rice', 'Water', 'Bread', 'Berry', 'Meat',
     'Wood', 'Herb', 'Cloth',
+    # food
+    'FoodItem', 'WildBerry', 'Apple', 'Mushroom', 'CookedMeat', 'CookedFish',
 ]
 
 

@@ -43,6 +43,9 @@ namespace SE
 		// PlayerSystem에서 ConsumeExcessTime()으로 가져가서 적용
 		private int _excessTime = 0;
 
+		// on_time_elapsed 이벤트 누적 (여러 Step의 시간을 합쳐서 한 번에 전달)
+		private int _accumulatedTimeElapsed = 0;
+
 		public EventSystem()
 		{
 		}
@@ -60,6 +63,7 @@ namespace SE
 			_initialized = false;
 			_dialogTimeConsumed = 0;
 			_excessTime = 0;
+			_accumulatedTimeElapsed = 0;
 			GD.Print("[EventSystem] State cleared.");
 		}
 
@@ -74,9 +78,20 @@ namespace SE
 
 		/// <summary>
 		/// 이벤트 등록 (외부에서 호출)
+		/// on_time_elapsed 이벤트는 누적하여 FlushEvents 시 한 번에 전달
 		/// </summary>
 		public void Enqueue(GameEvent evt)
 		{
+			// on_time_elapsed 이벤트는 누적 처리
+			if (evt.Type == EventType.OnTimeElapsed && evt.Args.Count > 0 && evt.Args[0] is int minutes)
+			{
+				_accumulatedTimeElapsed += minutes;
+#if DEBUG_LOG
+				GD.Print($"[EventSystem] TimeElapsed 누적: +{minutes}분 (총 {_accumulatedTimeElapsed}분)");
+#endif
+				return;
+			}
+
 			_pendingEvents.Add(evt);
 #if DEBUG_LOG
 			GD.Print($"[EventSystem] Enqueued: {evt}");
@@ -336,19 +351,33 @@ namespace SE
 		/// <summary>
 		/// 이벤트 큐 플러시 및 Python 호출 (순차 처리)
 		/// 각 이벤트를 하나씩 처리하고, 다이얼로그가 발생하면 나머지는 큐에 유지
+		/// 누적된 on_time_elapsed는 먼저 처리
 		/// </summary>
 		/// <returns>처리 결과 (모놀로그 표시 시 true)</returns>
 		public bool FlushEvents()
 		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			// 1. 누적된 on_time_elapsed 이벤트 먼저 처리
+			if (_accumulatedTimeElapsed > 0)
+			{
+				var timeEvent = GameEvent.OnTimeElapsed(_accumulatedTimeElapsed);
+#if DEBUG_LOG
+				GD.Print($"[EventSystem] TimeElapsed 플러시: {_accumulatedTimeElapsed}분");
+#endif
+				_accumulatedTimeElapsed = 0;
+
+				var timeResult = _scriptSystem.CallSingleEventHandler(timeEvent);
+				// on_time_elapsed는 다이얼로그를 발생시키지 않으므로 결과 무시
+			}
+
 			if (_pendingEvents.Count == 0) return false;
 
 #if DEBUG_LOG
 			GD.Print($"[EventSystem] Flushing {_pendingEvents.Count} events (sequential)");
 #endif
 
-			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
-
-			// 이벤트를 하나씩 순차 처리
+			// 2. 나머지 이벤트 순차 처리
 			while (_pendingEvents.Count > 0)
 			{
 				var evt = _pendingEvents[0];

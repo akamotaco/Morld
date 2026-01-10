@@ -344,7 +344,8 @@ class Item(Asset):
             self.equip_props or {},
             self.value,
             self.actions or [],
-            self.owner  # 소유자 정보 전달
+            self.owner,  # 소유자 정보 전달
+            self.unique_id  # Python unique_id 전달
         )
 
         # 인스턴스 캐시 등록 (call: 액션용)

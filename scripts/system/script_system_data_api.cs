@@ -210,10 +210,14 @@ namespace SE
                     int minutes = args[0].ToInt();
 
                     var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-                    
+
                     var time = _worldSystem.GetTime();
                     time.AddMinutes(minutes);
                     Godot.GD.Print($"[morld] advance_time: +{minutes} minutes");
+
+                    // 생존 시스템 처리 (플레이어만)
+                    ProcessSurvivalTimeElapsed(minutes);
+
                     return PyBool.True;
                 });
 
@@ -262,7 +266,7 @@ namespace SE
                 PyBuiltinFunction addItemFunc = new PyBuiltinFunction("add_item", args =>
                 {
                     if (args.Length < 2)
-                        throw PyTypeError.Create("add_item(id, name, passive_props=None, equip_props=None, value=0, actions=None, owner=None) requires at least 2 arguments");
+                        throw PyTypeError.Create("add_item(id, name, passive_props=None, equip_props=None, value=0, actions=None, owner=None, unique_id=None) requires at least 2 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -271,12 +275,14 @@ namespace SE
                     int value = args.Length >= 5 ? args[4].ToInt() : 0;
                     var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
                     string owner = args.Length >= 7 && args[6] is PyString ownerStr ? ownerStr.Value : null;
+                    string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
 
                     var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
 
                     var item = new Morld.Item(id, name);
                     item.Value = value;
                     item.Owner = owner;
+                    item.UniqueId = uniqueId;
                     if (passiveProps != null)
                         foreach (var (k, v) in passiveProps) item.PassiveProps[k] = v;
                     if (equipProps != null)
@@ -285,7 +291,7 @@ namespace SE
                         item.Actions.AddRange(actions);
 
                     _itemSystem.AddItem(item);
-                    Godot.GD.Print($"[morld] add_item: id={id}, name={name}");
+                    Godot.GD.Print($"[morld] add_item: id={id}, name={name}, unique_id={uniqueId}");
                     return PyBool.True;
                 });
                 morldModule.ModuleDict["add_item"] = addItemFunc;
@@ -1211,6 +1217,29 @@ namespace SE
             catch (System.Exception ex)
             {
                 Godot.GD.PrintErr($"[ScriptSystem] RegisterDataManipulationAPI error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 생존 시스템 시간 경과 처리 (advance_time에서 호출)
+        /// Python survival.process_time_elapsed(player_id, minutes) 호출
+        /// </summary>
+        private void ProcessSurvivalTimeElapsed(int minutes)
+        {
+            try
+            {
+                var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+                if (playerSystem == null)
+                    return;
+
+                int playerId = playerSystem.PlayerId;
+
+                // Python survival 모듈의 process_time_elapsed 호출
+                Execute($"import survival; survival.process_time_elapsed({playerId}, {minutes})");
+            }
+            catch (System.Exception)
+            {
+                // survival 모듈이 없거나 에러 시 무시 (아직 구현되지 않은 시나리오 호환)
             }
         }
     }

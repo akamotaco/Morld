@@ -56,6 +56,13 @@ namespace SE
 			// 4. GameTime 업데이트
 			time.AddMinutes(duration);
 
+			// 5. 시간 경과 이벤트 발생 (EventSystem으로 전달)
+			var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+			if (_eventSystem != null)
+			{
+				_eventSystem.Enqueue(GameEvent.OnTimeElapsed(duration));
+			}
+
 #if DEBUG_LOG
 			GD.Print($"[JobBehaviorSystem] Time: {time}, duration={duration}분, units={_unitSystem.Units.Count}");
 #endif

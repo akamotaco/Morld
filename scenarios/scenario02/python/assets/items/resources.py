@@ -41,10 +41,20 @@ class Water(Item):
     passive_props = {}
     equip_props = {}
     value = 1
+    food_satiety = 5  # 약간의 포만감
     actions = ["take@container", "call:use:마시기@inventory"]
 
     def use(self):
         """물 마시기"""
+        player_id = morld.get_player_id()
+
+        # 포만감 회복
+        import survival
+        survival.add_satiety(player_id, self.food_satiety)
+
+        # 아이템 소비
+        morld.lost_item(player_id, self.instance_id)
+
         yield morld.dialog([
             "시원한 물을 마셨다.",
             "목이 축축해졌다."
@@ -58,10 +68,17 @@ class Bread(Item):
     passive_props = {}
     equip_props = {}
     value = 10
-    actions = ["take@container", "call:use:먹기@inventory"]
+    food_satiety = 30
+    actions = ["take@container", "call:eat:먹기@inventory"]
 
-    def use(self):
+    def eat(self):
         """빵 먹기"""
+        player_id = morld.get_player_id()
+
+        import survival
+        survival.add_satiety(player_id, self.food_satiety)
+        morld.lost_item(player_id, self.instance_id)
+
         yield morld.dialog([
             "빵을 먹었다.",
             "배가 조금 불러졌다."
@@ -75,10 +92,17 @@ class Berry(Item):
     passive_props = {}
     equip_props = {}
     value = 3
-    actions = ["take@container", "call:use:먹기@inventory"]
+    food_satiety = 10
+    actions = ["take@container", "call:eat:먹기@inventory"]
 
-    def use(self):
+    def eat(self):
         """열매 먹기"""
+        player_id = morld.get_player_id()
+
+        import survival
+        survival.add_satiety(player_id, self.food_satiety)
+        morld.lost_item(player_id, self.instance_id)
+
         yield morld.dialog([
             "열매를 먹었다.",
             "새콤달콤한 맛이 난다."
