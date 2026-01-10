@@ -689,10 +689,15 @@ actions = ["call:talk:대화", "call:trade:거래"]
 - `scripts/system/describe_system.cs` - `FilterActionsByActor()`, `CanPerformAction()`, `ExtractActionName()`
 - `scenarios/scenario02/python/assets/characters/player.py` - Player의 `can:` props 정의
 
-### 조건부 액션 (ui.py)
-**역할:** 시간, 위치, 상태 등 조건에 따라 액션 활성화/비활성화
+### 조건부 액션 및 토글 메뉴 (ui.py)
+**역할:** 시간, 위치, 상태 등 조건에 따라 액션 활성화/비활성화, 토글 메뉴 제공
 
 **구현 위치:** `scenarios/scenario02/python/ui.py`의 `get_action_text()`
+
+**토글 마크업 형식:**
+- `[url=toggle:ID]▶텍스트[/url]` - 토글 버튼
+- `[hidden=ID]...[/hidden=ID]` - 펼침 시 표시되는 내용
+- C#의 `ToggleRenderer`가 펼침/접힘 상태에 따라 `[hidden]` 영역 표시/숨김 처리
 
 **패턴:**
 ```python
@@ -703,6 +708,15 @@ def get_action_text():
     default_actions = morld.get_actions_list()
     for action in default_actions:
         lines.append(action)
+
+    # 멍때리기 (토글 메뉴)
+    lines.append("  [url=toggle:idle]▶멍때리기[/url]")
+    lines.append("[hidden=idle]")
+    lines.append("    [url=idle:15]15분[/url]")
+    lines.append("    [url=idle:30]30분[/url]")
+    lines.append("    [url=idle:60]1시간[/url]")
+    lines.append("    [url=idle:240]4시간[/url]")
+    lines.append("[/hidden=idle]")
 
     # 시간 기반 조건부 행동
     minute_of_day = morld.get_game_time()  # 분 단위 (0~1439)

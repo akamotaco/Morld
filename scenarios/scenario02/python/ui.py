@@ -42,6 +42,10 @@ def get_action_text():
     C#의 morld.get_actions_list()로 기본 행동 리스트를 받아
     Python에서 최종 BBCode를 생성합니다.
 
+    토글 마크업 형식:
+    - [url=toggle:ID]▶텍스트[/url] - 토글 버튼
+    - [hidden=ID]...[/hidden=ID] - 펼침 시 표시되는 내용
+
     Returns:
         str: 행동 옵션 BBCode 문자열 (줄바꿈으로 구분)
     """
@@ -51,6 +55,16 @@ def get_action_text():
     default_actions = morld.get_actions_list()
     for action in default_actions:
         lines.append(action)
+
+    # 멍때리기 (시간 선택 토글)
+    # ToggleRenderer가 [hidden=idle]...[/hidden=idle] 영역을 펼침/접힘 처리
+    lines.append("  [url=toggle:idle]▶멍때리기[/url]")
+    lines.append("[hidden=idle]")
+    lines.append("    [url=idle:15]15분[/url]")
+    lines.append("    [url=idle:30]30분[/url]")
+    lines.append("    [url=idle:60]1시간[/url]")
+    lines.append("    [url=idle:240]4시간[/url]")
+    lines.append("[/hidden=idle]")
 
     # 시간 기반 조건부 행동
     minute_of_day = morld.get_game_time()  # 분 단위 (0~1439)

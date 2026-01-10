@@ -13,13 +13,10 @@ namespace SE
 	/// </summary>
 	public class DescribeSystem : ECS.System
 	{
-		private readonly ActionProviderRegistry _actionRegistry = new();
 		private Dictionary<string, string> _actionMessages = new();
 
 		public DescribeSystem()
 		{
-			// 핵심 기본 액션 프로바이더 등록
-			_actionRegistry.Register(new CoreActionProvider());
 		}
 
 		/// <summary>
@@ -75,12 +72,6 @@ namespace SE
 			}
 			return FormatActionMessage(actionKey, parameters);
 		}
-
-		/// <summary>
-		/// 액션 프로바이더 레지스트리 접근
-		/// 외부 시스템에서 프로바이더를 등록/해제할 수 있음
-		/// </summary>
-		public ActionProviderRegistry ActionRegistry => _actionRegistry;
 
 		/// <summary>
 		/// Location 묘사 텍스트 반환 (실내/날씨 태그 포함)
@@ -327,7 +318,8 @@ namespace SE
 
 		/// <summary>
 		/// 행동 옵션 BBCode 리스트 생성 (Python에서 사용)
-		/// 이동 경로, 앉은 상태 행동, ActionProviderRegistry 행동 포함
+		/// 이동 경로, 앉은 상태 행동 포함
+		/// 멍때리기 등의 일반 행동은 Python ui.py에서 처리
 		/// </summary>
 		public List<string> GetActionItems(LookResult lookResult)
 		{
@@ -378,18 +370,6 @@ namespace SE
 						{
 							items.Add($"  [url=call:drive]운전[/url]");
 						}
-					}
-				}
-
-				// 3. ActionProviderRegistry 행동
-				var providedActions = _actionRegistry.GetAllActionsFor(player);
-				if (providedActions.Count > 0)
-				{
-					items.Add("");
-					items.Add("[color=yellow]행동:[/color]");
-					foreach (var action in providedActions)
-					{
-						items.Add(action.ToBBCode());
 					}
 				}
 			}
