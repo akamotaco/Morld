@@ -6,6 +6,15 @@
 # - 착용:외투 - 외투 (코트, 자켓) - 상의/하의 위에 중복 가능
 # - 일체형 드레스: 착용:상의 + 착용:하의 둘 다 가짐
 #
+# 분위기 시스템 (equip_props):
+# - 분위기:깔끔함 - 깨끗하고 정돈된 느낌
+# - 분위기:단정함 - 반듯하고 예의바른 느낌
+# - 분위기:활동적 - 움직임이 편한 느낌
+# - 분위기:우아함 - 고급스럽고 세련된 느낌
+# - 분위기:더러움 - 지저분한 느낌
+# - 분위기:냄새남 - 악취가 나는 느낌
+# - 분위기:따뜻함 - 포근하고 따뜻한 느낌
+#
 # 액션:
 # - wear@inventory: 입기 (자기 인벤토리에서)
 # - unwear@inventory: 벗기 (자기가 착용 중일 때)
@@ -60,7 +69,10 @@ class RaggedClothes(Clothing):
     """
     unique_id = "ragged_clothes"
     name = "누더기"
-    equip_props = {"착용:상의": 1, "착용:하의": 1}  # 일체형
+    equip_props = {
+        "착용:상의": 1, "착용:하의": 1,  # 일체형
+        "분위기:더러움": 1, "분위기:냄새남": 1
+    }
     value = 1
     actions = [
         "take@container",
@@ -85,7 +97,7 @@ class SimpleShirt(Clothing):
     """단순한 셔츠"""
     unique_id = "simple_shirt"
     name = "셔츠"
-    equip_props = {"착용:상의": 1}
+    equip_props = {"착용:상의": 1, "분위기:깔끔함": 1}
     value = 15
 
     def look(self):
@@ -97,7 +109,7 @@ class LinenShirt(Clothing):
     """린넨 셔츠"""
     unique_id = "linen_shirt"
     name = "린넨 셔츠"
-    equip_props = {"착용:상의": 1}
+    equip_props = {"착용:상의": 1, "분위기:깔끔함": 1, "분위기:활동적": 1}
     value = 20
 
     def look(self):
@@ -109,7 +121,7 @@ class Blouse(Clothing):
     """블라우스 (여성용)"""
     unique_id = "blouse"
     name = "블라우스"
-    equip_props = {"착용:상의": 1}
+    equip_props = {"착용:상의": 1, "분위기:단정함": 1, "분위기:우아함": 1}
     value = 25
 
     def look(self):
@@ -121,7 +133,7 @@ class WhiteBlouse(Clothing):
     """흰 블라우스"""
     unique_id = "white_blouse"
     name = "흰 블라우스"
-    equip_props = {"착용:상의": 1}
+    equip_props = {"착용:상의": 1, "분위기:깔끔함": 1, "분위기:단정함": 1}
     value = 25
 
     def look(self):
@@ -137,7 +149,7 @@ class SimplePants(Clothing):
     """단순한 바지"""
     unique_id = "simple_pants"
     name = "바지"
-    equip_props = {"착용:하의": 1}
+    equip_props = {"착용:하의": 1, "분위기:깔끔함": 1}
     value = 15
 
     def look(self):
@@ -149,7 +161,7 @@ class LinenPants(Clothing):
     """린넨 바지"""
     unique_id = "linen_pants"
     name = "린넨 바지"
-    equip_props = {"착용:하의": 1}
+    equip_props = {"착용:하의": 1, "분위기:깔끔함": 1, "분위기:활동적": 1}
     value = 20
 
     def look(self):
@@ -161,7 +173,7 @@ class LongSkirt(Clothing):
     """긴 치마"""
     unique_id = "long_skirt"
     name = "긴 치마"
-    equip_props = {"착용:하의": 1}
+    equip_props = {"착용:하의": 1, "분위기:단정함": 1, "분위기:우아함": 1}
     value = 20
 
     def look(self):
@@ -173,7 +185,7 @@ class Shorts(Clothing):
     """반바지"""
     unique_id = "shorts"
     name = "반바지"
-    equip_props = {"착용:하의": 1}
+    equip_props = {"착용:하의": 1, "분위기:활동적": 1}
     value = 12
 
     def look(self):
@@ -189,7 +201,10 @@ class Sundress(Clothing):
     """선드레스 (일체형)"""
     unique_id = "sundress"
     name = "선드레스"
-    equip_props = {"착용:상의": 1, "착용:하의": 1}  # 일체형
+    equip_props = {
+        "착용:상의": 1, "착용:하의": 1,  # 일체형
+        "분위기:깔끔함": 1, "분위기:활동적": 1
+    }
     value = 35
 
     def look(self):
@@ -201,7 +216,10 @@ class MaidDress(Clothing):
     """메이드복 (일체형)"""
     unique_id = "maid_dress"
     name = "메이드복"
-    equip_props = {"착용:상의": 1, "착용:하의": 1}  # 일체형
+    equip_props = {
+        "착용:상의": 1, "착용:하의": 1,  # 일체형
+        "분위기:단정함": 1, "분위기:깔끔함": 1
+    }
     value = 40
 
     def look(self):
@@ -216,7 +234,10 @@ class WorkDress(Clothing):
     """작업복 원피스"""
     unique_id = "work_dress"
     name = "작업복"
-    equip_props = {"착용:상의": 1, "착용:하의": 1}
+    equip_props = {
+        "착용:상의": 1, "착용:하의": 1,
+        "분위기:활동적": 1
+    }
     value = 30
 
     def look(self):
@@ -232,7 +253,7 @@ class LightJacket(Clothing):
     """가벼운 재킷"""
     unique_id = "light_jacket"
     name = "재킷"
-    equip_props = {"착용:외투": 1}
+    equip_props = {"착용:외투": 1, "분위기:깔끔함": 1}
     value = 30
 
     def look(self):
@@ -244,7 +265,7 @@ class HuntingVest(Clothing):
     """사냥용 조끼"""
     unique_id = "hunting_vest"
     name = "사냥용 조끼"
-    equip_props = {"착용:외투": 1, "수납": 2}  # 추가 수납 공간
+    equip_props = {"착용:외투": 1, "수납": 2, "분위기:활동적": 1}  # 추가 수납 공간
     value = 35
 
     def look(self):
@@ -259,7 +280,7 @@ class Apron(Clothing):
     """앞치마"""
     unique_id = "apron"
     name = "앞치마"
-    equip_props = {"착용:외투": 1}
+    equip_props = {"착용:외투": 1, "분위기:단정함": 1}
     value = 10
 
     def look(self):
@@ -271,7 +292,7 @@ class WarmCoat(Clothing):
     """따뜻한 코트"""
     unique_id = "warm_coat"
     name = "코트"
-    equip_props = {"착용:외투": 1, "보온": 2}
+    equip_props = {"착용:외투": 1, "보온": 2, "분위기:따뜻함": 1, "분위기:우아함": 1}
     value = 50
 
     def look(self):
@@ -288,7 +309,10 @@ class SeraHuntingOutfit(Clothing):
     unique_id = "sera_hunting_outfit"
     name = "사냥복"
     owner = "sera"
-    equip_props = {"착용:상의": 1, "착용:하의": 1}
+    equip_props = {
+        "착용:상의": 1, "착용:하의": 1,
+        "분위기:활동적": 1, "분위기:단정함": 1
+    }
     value = 45
 
     def look(self):
@@ -304,7 +328,7 @@ class MilaApron(Clothing):
     unique_id = "mila_apron"
     name = "밀라의 앞치마"
     owner = "mila"
-    equip_props = {"착용:외투": 1}
+    equip_props = {"착용:외투": 1, "분위기:단정함": 1, "분위기:따뜻함": 1}
     value = 15
 
     def look(self):
