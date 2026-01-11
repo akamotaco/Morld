@@ -486,6 +486,8 @@ morld.mark_all_logs_read()  # 모든 행동 로그를 읽음 처리
 # 시간 관련
 morld.get_game_time()
 morld.advance_time(minutes)
+morld.set_time_frozen(frozen)  # 시간 정지 설정/해제
+morld.is_time_frozen()         # 시간 정지 상태 확인
 
 # Dialog API (Generator 전용)
 morld.dialog(text_or_pages, autofill="next", proc=None, result=None)  # yield로 사용
@@ -1015,6 +1017,136 @@ class AppleTree(Object):
 **파일 위치:**
 - `scenarios/scenario02/python/think/resource_agent.py` - 자원 생성 로직
 - `scenarios/scenario02/python/assets/objects/nature.py` - 자원 오브젝트 정의
+
+### 시간 정지 시스템 (Time Freeze)
+**역할:** 프롤로그 등에서 시간 흐름을 멈추고 플레이어만 이동 가능하게 함
+
+**핵심 설계:**
+- `WorldSystem`에서 `_timeFrozen` 플래그 관리
+- Python에서 `morld.set_time_frozen(True/False)`로 제어
+- 프롤로그(챕터 0)에서 활성화, 챕터 1 전환 시 해제
+
+**Freeze 상태에서 비활성화되는 것:**
+| 항목 | 담당 시스템 | 설명 |
+|------|-------------|------|
+| 시간 흐름 | JobBehaviorSystem | GameTime 업데이트 스킵 |
+| NPC 이동 | JobBehaviorSystem | NPC Job 처리 스킵 |
+| NPC AI | ThinkSystem | think_all() 호출 스킵 |
+| on_meet 이벤트 | EventSystem | DetectMeetings() 스킵 |
+| on_time_elapsed | JobBehaviorSystem | 이벤트 Enqueue 안 함 |
+| 생존 시스템 | survival.py | 시간 경과 없으므로 자동 스킵 |
+
+**Freeze 상태에서 활성화되는 것:**
+| 항목 | 담당 시스템 | 설명 |
+|------|-------------|------|
+| 플레이어 이동 | JobBehaviorSystem | 즉시 텔레포트 (시간 소모 없음) |
+| on_reach 이벤트 | EventSystem | 챕터 전환에 필요 |
+| 아이템 조작 | MetaActionHandler | 시간 소모 없이 가능 |
+
+**C# 구현:**
+```csharp
+// WorldSystem.cs
+private bool _timeFrozen = false;
+
+public void SetTimeFrozen(bool frozen) { _timeFrozen = frozen; }
+public bool IsTimeFrozen() { return _timeFrozen; }
+
+// JobBehaviorSystem.cs - Freeze 시 플레이어 즉시 이동
+if (isTimeFrozen)
+{
+    var player = _playerSystem.FindPlayerUnit();
+    if (player != null)
+        ProcessFrozenPlayerMove(player, terrain);  // 즉시 텔레포트
+    _playerSystem.ClearPendingTime();
+    return;  // NPC 처리, 시간 업데이트 모두 스킵
+}
+
+// ThinkSystem.cs - Freeze 시 NPC AI 스킵
+if (_worldSystem.IsTimeFrozen())
+    return;
+
+// EventSystem.cs - Freeze 시 on_meet 스킵
+public void DetectMeetings()
+{
+    if (_worldSystem.IsTimeFrozen())
+        return;  // on_meet 감지 스킵
+    // ...
+}
+```
+
+**Python API:**
+```python
+import morld
+
+# 시간 정지 설정/해제
+morld.set_time_frozen(True)   # 시간 정지
+morld.set_time_frozen(False)  # 시간 흐름 복원
+
+# 시간 정지 상태 확인
+if morld.is_time_frozen():
+    print("시간이 멈춰있음")
+```
+
+**챕터별 사용 예시:**
+```python
+# chapter_0.py - 프롤로그 초기화
+def initialize():
+    morld.set_time_frozen(True)  # 시간 정지
+    # ...
+
+# chapter_1.py - 본편 시작
+def post_restore():
+    morld.set_time_frozen(False)  # 시간 흐름 복원
+    # ...
+```
+
+**파일 위치:**
+- `scripts/system/world_system.cs` - 플래그 저장
+- `scripts/system/job_behavior_system.cs` - 플레이어 즉시 이동, NPC/시간 스킵
+- `scripts/system/think_system.cs` - NPC AI 스킵
+- `scripts/system/event_system.cs` - on_meet 스킵
+- `scripts/system/script_system_data_api.cs` - Python API
+
+### UI 표시 제어 시스템
+**역할:** 헤더/푸터 UI를 챕터별로 숨기거나 표시
+
+**핵심 설계:**
+- Python `ui.py`에서 전역 플래그로 관리
+- `get_header()`, `get_footer()`에서 플래그 체크 후 빈 문자열 반환
+- 프롤로그에서 숨김, 본편에서 표시
+
+**Python API:**
+```python
+import ui
+
+# 헤더/푸터 표시 설정
+ui.set_show_header(True)   # 헤더 표시
+ui.set_show_header(False)  # 헤더 숨김
+ui.set_show_footer(True)   # 푸터 표시
+ui.set_show_footer(False)  # 푸터 숨김
+
+# 표시 상태 확인
+if ui.is_header_visible():
+    print("헤더 표시 중")
+```
+
+**챕터별 사용 예시:**
+```python
+# chapter_0.py - 프롤로그
+def initialize():
+    import ui
+    ui.set_show_header(False)  # 헤더 숨김
+    ui.set_show_footer(False)  # 푸터 숨김
+
+# chapter_1.py - 본편
+def post_restore():
+    import ui
+    ui.set_show_header(True)   # 헤더 표시
+    ui.set_show_footer(True)   # 푸터 표시
+```
+
+**파일 위치:**
+- `scenarios/scenario02/python/ui.py` - 플래그 및 API
 
 ### on_time_elapsed 이벤트
 **역할:** 시간 경과 시 Python 시스템에 알림
