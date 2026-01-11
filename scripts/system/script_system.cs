@@ -897,6 +897,8 @@ def calculate(a, b):
                         items.Add($"'{s}'");
                     else if (item is int i)
                         items.Add(i.ToString());
+                    else if (item is bool b)
+                        items.Add(b ? "True" : "False");
                     else
                         items.Add($"'{item.ToString() ?? ""}'");
                 }

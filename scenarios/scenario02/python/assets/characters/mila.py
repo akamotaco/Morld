@@ -127,10 +127,10 @@ class Mila(Character):
         """플레이어와 처음 만났을 때 - Generator 기반"""
         import morld
 
+        # 첫 만남 이벤트
         if self._event_flags.get("first_meet"):
             return None
 
-        # self.instance_id 직접 사용
         unit_info = morld.get_unit_info(self.instance_id)
         if unit_info and unit_info.get("activity") == "수면":
             return None
@@ -146,6 +146,26 @@ class Mila(Character):
             ])
 
         return handler()
+
+    def on_equip_change(self, player_id, item_id, is_equip):
+        """플레이어 장비 변경 시 반응"""
+        import morld
+
+        # 무기(장착:손) 체크
+        item_info = morld.get_item_info(item_id)
+        if not item_info:
+            return None
+
+        equip_props = item_info.get("equip_props", {})
+        if not equip_props.get("장착:손"):
+            return None  # 무기가 아니면 무시
+
+        if is_equip:
+            morld.add_action_log("밀라가 걱정스러운 눈으로 무기를 바라본다.")
+        else:
+            morld.add_action_log("밀라가 안심한 듯 미소를 짓는다.")
+
+        return None
 
     def talk(self):
         """대화 - Generator 기반 (Character.talk 오버라이드)"""

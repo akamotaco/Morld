@@ -125,6 +125,7 @@ class Lina(Character):
         """플레이어와 처음 만났을 때 - Generator 기반"""
         import morld
 
+        # 첫 만남 이벤트
         if self._event_flags.get("first_meet"):
             return None
 
@@ -133,7 +134,6 @@ class Lina(Character):
             return None
 
         self._event_flags["first_meet"] = True
-        instance_id = self.instance_id
 
         def handler():
             yield morld.dialog([
@@ -142,10 +142,28 @@ class Lina(Character):
                 "나는 리나! 여기서 채집을 맡고 있어!",
                 "앞으로 잘 지내자~!"
             ])
-            # 테스트용 주석처리: ExcessTime 없이 밀라 이벤트도 발생해야 함
-            # morld.set_npc_time_consume(instance_id, "follow", 30, player_id)
 
         return handler()
+
+    def on_equip_change(self, player_id, item_id, is_equip):
+        """플레이어 장비 변경 시 반응"""
+        import morld
+
+        # 무기(장착:손) 체크
+        item_info = morld.get_item_info(item_id)
+        if not item_info:
+            return None
+
+        equip_props = item_info.get("equip_props", {})
+        if not equip_props.get("장착:손"):
+            return None  # 무기가 아니면 무시
+
+        if is_equip:
+            morld.add_action_log("리나가 눈을 반짝이며 무기를 구경한다.")
+        else:
+            morld.add_action_log("리나가 빈 손을 보고 고개를 갸웃거린다.")
+
+        return None
 
     def talk(self):
         """대화 - Generator 기반 (Character.talk 오버라이드)"""

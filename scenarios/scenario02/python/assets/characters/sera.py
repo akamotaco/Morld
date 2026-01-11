@@ -126,6 +126,7 @@ class Sera(Character):
         """플레이어와 처음 만났을 때 - Generator 기반"""
         import morld
 
+        # 첫 만남 이벤트
         if self._event_flags.get("first_meet"):
             return None
 
@@ -147,6 +148,26 @@ class Sera(Character):
             morld.set_npc_job(instance_id, "follow", 2, player_id)
 
         return handler()
+
+    def on_equip_change(self, player_id, item_id, is_equip):
+        """플레이어 장비 변경 시 반응"""
+        import morld
+
+        # 무기(장착:손) 체크
+        item_info = morld.get_item_info(item_id)
+        if not item_info:
+            return None
+
+        equip_props = item_info.get("equip_props", {})
+        if not equip_props.get("장착:손"):
+            return None  # 무기가 아니면 무시
+
+        if is_equip:
+            morld.add_action_log("세라가 무기를 힐끗 보더니 고개를 끄덕인다.")
+        else:
+            morld.add_action_log("세라가 빈 손을 보고 살짝 고개를 갸웃한다.")
+
+        return None
 
     def talk(self):
         """대화 - Generator 기반 (Character.talk 오버라이드)"""
