@@ -31,16 +31,23 @@ class LinaRoom(Location):
             SimpleBra, SimplePanties, ThighHighSocks, Sandals, Pajamas
         )
 
+        # 중첩 함수 패턴 - SharpPy v0.4.1 버그 수정 테스트
+        def add_to_wardrobe(item_class):
+            item = item_class()
+            item_id = morld.create_id("item")
+            item.instantiate(item_id)
+            morld.give_item(wardrobe_id, item_id, 1)
+
         # 겉옷
-        item = Sundress(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = WhiteBlouse(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = Shorts(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = PleatedSkirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = Pajamas(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(Sundress)
+        add_to_wardrobe(WhiteBlouse)
+        add_to_wardrobe(Shorts)
+        add_to_wardrobe(PleatedSkirt)
+        add_to_wardrobe(Pajamas)
         # 속옷
-        item = SimpleBra(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = SimplePanties(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(SimpleBra)
+        add_to_wardrobe(SimplePanties)
         # 악세서리
-        item = Ribbon(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = ThighHighSocks(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = Sandals(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(Ribbon)
+        add_to_wardrobe(ThighHighSocks)
+        add_to_wardrobe(Sandals)
