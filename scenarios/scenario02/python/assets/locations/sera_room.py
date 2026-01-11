@@ -25,19 +25,20 @@ class SeraRoom(Location):
         wardrobe = Wardrobe()
         wardrobe_id = self.add_object(wardrobe)
 
-        from assets.items.clothes import LinenShirt, LinenPants, HuntingVest
-        # 린넨 셔츠
-        shirt = LinenShirt()
-        shirt_id = morld.create_id("item")
-        shirt.instantiate(shirt_id)
-        morld.give_item(wardrobe_id, shirt_id, 1)
-        # 린넨 바지
-        pants = LinenPants()
-        pants_id = morld.create_id("item")
-        pants.instantiate(pants_id)
-        morld.give_item(wardrobe_id, pants_id, 1)
-        # 사냥용 조끼
-        vest = HuntingVest()
-        vest_id = morld.create_id("item")
-        vest.instantiate(vest_id)
-        morld.give_item(wardrobe_id, vest_id, 1)
+        from assets.items.clothes import (
+            LinenShirt, LinenPants, HuntingVest, HuntingCap, LeatherBoots,
+            SportsBra, CottonPanties, SimpleSocks, TankTop
+        )
+
+        # 겉옷
+        item = LinenShirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = LinenPants(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = TankTop(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = HuntingVest(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        # 속옷
+        item = SportsBra(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = CottonPanties(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        # 악세서리
+        item = HuntingCap(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = SimpleSocks(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = LeatherBoots(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)

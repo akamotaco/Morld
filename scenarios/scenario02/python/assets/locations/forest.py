@@ -131,5 +131,27 @@ class ForestCabin(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
+        import morld
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
+
+        # 낡은 옷장 추가 - 이전 주인이 남긴 옷들
+        from assets.objects.furniture import Wardrobe
+        wardrobe = Wardrobe()
+        wardrobe_id = self.add_object(wardrobe)
+
+        from assets.items.clothes import (
+            HoodedCloak, TravelCloak, WoolSocks, WarmBoots,
+            MensHoodie, MensCargoPants, WornOutJacket, DirtyShirt
+        )
+
+        # 숲에서 활동하기 좋은 옷들
+        item = HoodedCloak(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = TravelCloak(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = WoolSocks(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = WarmBoots(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = MensHoodie(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = MensCargoPants(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        # 낡은 옷들
+        item = WornOutJacket(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = DirtyShirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)

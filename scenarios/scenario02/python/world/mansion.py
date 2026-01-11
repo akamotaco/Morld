@@ -211,49 +211,58 @@ def instantiate_npcs():
 def _dress_npcs(npcs):
     """NPC들에게 기본 옷 착용"""
     from assets.items.clothes import (
-        SeraHuntingOutfit, HuntingVest,
-        MaidDress, MilaApron,
-        Sundress
+        # 세라용
+        SeraHuntingOutfit, HuntingVest, LeatherBoots, SportsBra, CottonPanties,
+        # 밀라용
+        MaidDress, MilaApron, MaidHeadband, SimpleShoes, Stockings, SimpleBra, SimplePanties,
+        # 리나용
+        Sundress, Sandals, Ribbon, ThighHighSocks, CuteBra, CutePanties
     )
 
-    # 세라: 사냥복 + 사냥용 조끼
+    def equip_clothes(unit_id, clothes_list):
+        """의류 리스트를 유닛에게 장착"""
+        for clothes_class in clothes_list:
+            item = clothes_class()
+            item_id = morld.create_id("item")
+            item.instantiate(item_id)
+            morld.give_item(unit_id, item_id, 1)
+            equipment.equip_item(unit_id, item_id)
+
+    # 세라: 사냥복 + 사냥용 조끼 + 가죽 부츠 + 스포츠 브라 + 면 팬티
     if "sera" in npcs:
         sera_id = npcs["sera"].instance_id
-        outfit = SeraHuntingOutfit()
-        outfit_id = morld.create_id("item")
-        outfit.instantiate(outfit_id)
-        morld.give_item(sera_id, outfit_id, 1)
-        equipment.equip_item(sera_id, outfit_id)
+        equip_clothes(sera_id, [
+            SeraHuntingOutfit,  # 상의+하의 일체형
+            HuntingVest,        # 외투
+            LeatherBoots,       # 신발
+            SportsBra,          # 속옷상의
+            CottonPanties,      # 속옷하의
+        ])
 
-        vest = HuntingVest()
-        vest_id = morld.create_id("item")
-        vest.instantiate(vest_id)
-        morld.give_item(sera_id, vest_id, 1)
-        equipment.equip_item(sera_id, vest_id)
-
-    # 밀라: 메이드복 + 앞치마
+    # 밀라: 메이드복 + 앞치마 + 머리띠 + 신발 + 스타킹 + 속옷
     if "mila" in npcs:
         mila_id = npcs["mila"].instance_id
-        dress = MaidDress()
-        dress_id = morld.create_id("item")
-        dress.instantiate(dress_id)
-        morld.give_item(mila_id, dress_id, 1)
-        equipment.equip_item(mila_id, dress_id)
+        equip_clothes(mila_id, [
+            MaidDress,          # 상의+하의 일체형
+            MilaApron,          # 외투
+            MaidHeadband,       # 모자
+            SimpleShoes,        # 신발
+            Stockings,          # 양말
+            SimpleBra,          # 속옷상의
+            SimplePanties,      # 속옷하의
+        ])
 
-        apron = MilaApron()
-        apron_id = morld.create_id("item")
-        apron.instantiate(apron_id)
-        morld.give_item(mila_id, apron_id, 1)
-        equipment.equip_item(mila_id, apron_id)
-
-    # 리나: 선드레스
+    # 리나: 선드레스 + 샌들 + 리본 + 사이하이삭스 + 귀여운 속옷
     if "lina" in npcs:
         lina_id = npcs["lina"].instance_id
-        sundress = Sundress()
-        sundress_id = morld.create_id("item")
-        sundress.instantiate(sundress_id)
-        morld.give_item(lina_id, sundress_id, 1)
-        equipment.equip_item(lina_id, sundress_id)
+        equip_clothes(lina_id, [
+            Sundress,           # 상의+하의 일체형
+            Sandals,            # 신발
+            Ribbon,             # 모자
+            ThighHighSocks,     # 양말
+            CuteBra,            # 속옷상의
+            CutePanties,        # 속옷하의
+        ])
 
 
 def instantiate():

@@ -26,19 +26,21 @@ class MilaRoom(Location):
         wardrobe = Wardrobe()
         wardrobe_id = self.add_object(wardrobe)
 
-        from assets.items.clothes import Blouse, LongSkirt, Apron
-        # 블라우스
-        blouse = Blouse()
-        blouse_id = morld.create_id("item")
-        blouse.instantiate(blouse_id)
-        morld.give_item(wardrobe_id, blouse_id, 1)
-        # 긴 치마
-        skirt = LongSkirt()
-        skirt_id = morld.create_id("item")
-        skirt.instantiate(skirt_id)
-        morld.give_item(wardrobe_id, skirt_id, 1)
-        # 앞치마
-        apron = Apron()
-        apron_id = morld.create_id("item")
-        apron.instantiate(apron_id)
-        morld.give_item(wardrobe_id, apron_id, 1)
+        from assets.items.clothes import (
+            Blouse, LongSkirt, Apron, MaidHeadband, SimpleShoes,
+            SimpleBra, SimplePanties, Stockings, Sweater, Pajamas
+        )
+
+        # 겉옷
+        item = Blouse(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = LongSkirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = Sweater(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = Apron(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = Pajamas(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        # 속옷
+        item = SimpleBra(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = SimplePanties(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        # 악세서리
+        item = MaidHeadband(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = Stockings(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = SimpleShoes(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
