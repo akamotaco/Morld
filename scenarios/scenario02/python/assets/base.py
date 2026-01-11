@@ -294,9 +294,10 @@ class Object(Unit):
 
     def _can_put_by_action_props(self, item_id):
         """아이템의 ActionProps "put"이 활성화되어 있는지 확인"""
-        # ActionProps에 "put"이 정의되어 있고 0 이하면 비활성화
+        # ActionProps에 "put"이 명시적으로 1 이상이어야 허용
+        # None이거나 0 이하면 비활성화
         put_value = morld.get_item_action_prop(item_id, "put")
-        if put_value is not None and put_value <= 0:
+        if put_value is None or put_value <= 0:
             return False
         return True
 

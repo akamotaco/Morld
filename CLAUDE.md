@@ -741,6 +741,29 @@ actions = ["call:talk:대화", "call:trade:거래"]
 - `scripts/system/describe_system.cs` - `FilterActionsByActor()`, `CanPerformAction()`, `ExtractActionName()`
 - `scenarios/scenario02/python/assets/characters/player.py` - Player의 `can:` props 정의
 
+**핵심 원칙: can과 action의 교집합**
+
+행동은 오직 `can:`(행위자의 능력)과 `action`(대상의 허용 액션)의 **교집합**만 허용해야 한다.
+
+| 검사 시점 | 위치 | 설명 |
+|-----------|------|------|
+| UI 표시 | `DescribeSystem.FilterActionsByActor()` | 액션 버튼 표시 여부 결정 |
+| 액션 실행 | `MetaActionHandler.HandleCallAction()` | `call:` 실행 전 `can:` 재검증 |
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 대상(Target)의 actions: ["call:talk:대화", "call:trade:거래"] │
+└─────────────────────────────────────────────────────────────┘
+                              ∩
+┌─────────────────────────────────────────────────────────────┐
+│ 행위자(Actor)의 can: props: {"can:talk": 1}                  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 허용되는 액션: ["call:talk:대화"]                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### 조건부 액션 및 토글 메뉴 (ui.py)
 **역할:** 시간, 위치, 상태 등 조건에 따라 액션 활성화/비활성화, 토글 메뉴 제공
 

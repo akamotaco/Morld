@@ -765,8 +765,8 @@ namespace SE
 		/// </summary>
 		private List<string> FilterActionsByItemActionProps(List<string> actions, Item item)
 		{
-			if (item.ActionProps.Count == 0)
-				return actions; // ActionProps가 없으면 모든 액션 허용
+			// if (item.ActionProps.Count == 0)
+			// 	return actions; // ActionProps가 없으면 모든 액션 허용
 
 			var result = new List<string>();
 			foreach (var action in actions)
@@ -896,7 +896,7 @@ namespace SE
 		/// <param name="actor">행위자 Unit (플레이어 등)</param>
 		/// <param name="action">액션 문자열</param>
 		/// <returns>can:액션명 prop이 1 이상이면 true</returns>
-		private bool CanPerformAction(Unit actor, string action)
+		public bool CanPerformAction(Unit actor, string action)
 		{
 			if (actor == null) return false;
 

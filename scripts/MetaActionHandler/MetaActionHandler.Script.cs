@@ -121,6 +121,20 @@ public partial class MetaActionHandler
 			return;
 		}
 
+		// can: 검사 - 플레이어가 해당 액션을 수행할 수 있는지 확인
+		var player = _playerSystem?.FindPlayerUnit();
+		var describeSystem = _world.GetSystem("describeSystem") as DescribeSystem;
+		if (player != null && describeSystem != null)
+		{
+			if (!describeSystem.CanPerformAction(player, methodName))
+			{
+#if DEBUG_LOG
+				GD.Print($"[MetaActionHandler] Player cannot perform action: {methodName}");
+#endif
+				return;
+			}
+		}
+
 		// Python의 assets.call_instance_method(instance_id, method_name, *args) 호출
 		var result = scriptSystem.CallInstanceMethod(instanceId.Value, methodName, methodArgs);
 
