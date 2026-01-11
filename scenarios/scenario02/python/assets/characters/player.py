@@ -104,12 +104,15 @@ class Player(Character):
         "can:cook": 1,
         "can:brew": 1,
 
+        # 제작
+        "can:craft": 1,
+
         # 디버그
         "can:debug_props": 1,
         "can:debug_self_props": 1,
         "can:debug_item_props": 1,
     }
-    actions = ["call:rest:휴식", "call:sleep:노숙"]
+    actions = ["call:rest:휴식", "call:sleep:노숙", "call:craft:제작"]
     mood = []
 
     def rest(self):
@@ -123,3 +126,8 @@ class Player(Character):
         import morld
         morld.add_action_log(f"{self.name}이(가) 바닥에서 잠을 청했다.")
         morld.advance_time(240)
+
+    def craft(self):
+        """제작 메뉴 열기"""
+        from crafting import open_craft_menu
+        yield from open_craft_menu()

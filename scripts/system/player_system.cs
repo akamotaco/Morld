@@ -428,11 +428,15 @@ namespace SE
 		{
 			var player = FindPlayerUnit();
 			if (player == null)
+			{
+				GD.Print("[PlayerSystem.Look] player is null");
 				return new LookResult();
+			}
 
 			// 이동 중인 경우도 처리 (런타임에서는 호출되지 않음)
 			if (player.IsMoving && player.CurrentEdge != null)
 			{
+				GD.Print($"[PlayerSystem.Look] player is moving, CurrentEdge={player.CurrentEdge}");
 				return LookFromEdge(player);
 			}
 
@@ -459,6 +463,7 @@ namespace SE
 			// 챕터 전환 중 데이터가 없으면 빈 결과 반환
 			if (location == null || region == null)
 			{
+				Godot.GD.Print($"[PlayerSystem.Look] returning 'loading' result - location={location != null}, region={region != null}, playerLoc={player.CurrentLocation}");
 				return new LookResult
 				{
 					Location = new LocationInfo

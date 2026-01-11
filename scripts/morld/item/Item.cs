@@ -84,4 +84,24 @@ public class Item : IOwnable
 		}
 		return null;
 	}
+
+	/// <summary>
+	/// EquipProps에서 특정 prefix로 시작하는 모든 키 반환
+	/// 일체형 의류(상의+하의)처럼 여러 슬롯을 가진 아이템용
+	/// </summary>
+	/// <param name="prefix">검색할 prefix (예: "착용:")</param>
+	/// <returns>해당 키 목록 (예: ["착용:상의", "착용:하의"])</returns>
+	public List<string> GetAllEquipPropKeys(string prefix)
+	{
+		var result = new List<string>();
+		if (EquipProps == null || EquipProps.Count == 0)
+			return result;
+
+		foreach (var key in EquipProps.Keys)
+		{
+			if (key.StartsWith(prefix))
+				result.Add(key);
+		}
+		return result;
+	}
 }

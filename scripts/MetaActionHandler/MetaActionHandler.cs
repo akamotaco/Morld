@@ -184,6 +184,18 @@ public partial class MetaActionHandler
 			case "unequip":
 				HandleUnequipAction(parts);
 				break;
+			case "wear":
+				HandleWearAction(parts);
+				break;
+			case "unwear":
+				HandleUnwearAction(parts);
+				break;
+			case "dress":
+				HandleDressAction(parts);
+				break;
+			case "undress":
+				HandleUndressAction(parts);
+				break;
 			case "call":
 				HandleCallAction(parts);
 				break;

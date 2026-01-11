@@ -169,9 +169,11 @@ class Stove(Object):
         morld.advance_time(1)
 
     def cook(self):
-        """조리 실행"""
+        """조리 실행 - 결과물은 플레이어 인벤토리로 바로 지급"""
         from recipes import find_matching_recipe, RECIPES
         from assets.registry import get_item_class
+
+        player_id = morld.get_player_id()
 
         # 현재 재료 확인
         inventory = morld.get_unit_inventory(self.instance_id)
@@ -205,17 +207,22 @@ class Stove(Object):
                     morld.lost_item(self.instance_id, item_id, to_consume)
                     consumed += to_consume
 
-        # 결과물 생성
+        # 결과물 생성 → 플레이어 인벤토리로 바로 지급
         result_unique, result_count = recipe["result"]
-        item_class = get_item_class(result_unique)
-        if item_class:
-            result_item = item_class()
-            result_id = morld.create_id("item")
-            result_item.instantiate(result_id)
-            morld.give_item(self.instance_id, result_id, result_count)
+        result_id = morld.get_item_id_by_unique(result_unique)
+
+        if result_id is None:
+            item_class = get_item_class(result_unique)
+            if item_class:
+                result_item = item_class()
+                result_id = morld.create_id("item")
+                result_item.instantiate(result_id)
+
+        if result_id:
+            morld.give_item(player_id, result_id, result_count)
 
         # 시간 경과 및 메시지
-        yield morld.dialog(f"{recipe['name']}을(를) 만들었다.")
+        yield morld.dialog(f"{recipe['name']}을(를) 만들었다!")
         morld.advance_time(recipe["cook_time"])
 
 
@@ -249,9 +256,11 @@ class Kettle(Object):
         morld.advance_time(1)
 
     def brew(self):
-        """음료 제조"""
+        """음료 제조 - 결과물은 플레이어 인벤토리로 바로 지급"""
         from recipes import find_matching_recipe, RECIPES
         from assets.registry import get_item_class
+
+        player_id = morld.get_player_id()
 
         # 현재 재료 확인
         inventory = morld.get_unit_inventory(self.instance_id)
@@ -285,17 +294,22 @@ class Kettle(Object):
                     morld.lost_item(self.instance_id, item_id, to_consume)
                     consumed += to_consume
 
-        # 결과물 생성
+        # 결과물 생성 → 플레이어 인벤토리로 바로 지급
         result_unique, result_count = recipe["result"]
-        item_class = get_item_class(result_unique)
-        if item_class:
-            result_item = item_class()
-            result_id = morld.create_id("item")
-            result_item.instantiate(result_id)
-            morld.give_item(self.instance_id, result_id, result_count)
+        result_id = morld.get_item_id_by_unique(result_unique)
+
+        if result_id is None:
+            item_class = get_item_class(result_unique)
+            if item_class:
+                result_item = item_class()
+                result_id = morld.create_id("item")
+                result_item.instantiate(result_id)
+
+        if result_id:
+            morld.give_item(player_id, result_id, result_count)
 
         # 시간 경과 및 메시지
-        yield morld.dialog(f"{recipe['name']}을(를) 만들었다.")
+        yield morld.dialog(f"{recipe['name']}을(를) 만들었다!")
         morld.advance_time(recipe["cook_time"])
 
 
@@ -349,19 +363,30 @@ class Washbasin(Object):
 # 창고 오브젝트
 # ========================================
 
-class StorageShelf(Object):
-    unique_id = "storage_shelf"
-    name = "선반"
-    actions = ["call:look:살펴보기", "call:debug_props:속성 보기"]
-    focus_text = {"default": "식량과 보존식품이 정리된 나무 선반."}
+class CraftingTable(Object):
+    """
+    제작대 - 복잡한 아이템 제작 가능
+
+    WORKBENCH_RECIPES에 정의된 레시피 사용:
+    - 사냥용 활: 나무판 2개 + 끈 1개
+    """
+    unique_id = "crafting_table"
+    name = "제작대"
+    actions = ["call:look:살펴보기", "call:craft:제작하기", "call:debug_props:속성 보기"]
+    focus_text = {"default": "도구와 재료를 다룰 수 있는 튼튼한 작업대."}
 
     def look(self):
-        """선반 살펴보기"""
+        """제작대 살펴보기"""
         yield morld.dialog([
-            "식량과 보존식품이 정리되어 있다.",
-            "장기 보관할 수 있는 것들이 많다."
+            "튼튼한 나무로 만든 작업대다.",
+            "복잡한 물건을 제작할 수 있다."
         ])
-        morld.advance_time(2)
+        morld.advance_time(1)
+
+    def craft(self):
+        """제작대에서 제작하기"""
+        from crafting import open_craft_menu, WORKBENCH_RECIPES
+        yield from open_craft_menu(WORKBENCH_RECIPES, "제작대")
 
 
 # ========================================
@@ -414,6 +439,37 @@ class Mirror(Object):
         yield morld.dialog([
             "거울 속에 내 얼굴이 비친다.",
             "...그래, 이게 나다."
+        ])
+        morld.advance_time(1)
+
+
+# ========================================
+# 옷장 오브젝트
+# ========================================
+
+class Wardrobe(Object):
+    """
+    옷장 - 의류 보관 및 관리
+
+    컨테이너 패턴:
+    - container: 옷 넣기/빼기 (인벤토리 조회)
+    - put_filter: clothing 카테고리 아이템만 넣을 수 있음
+    """
+    unique_id = "wardrobe"
+    name = "옷장"
+    put_filter = ["clothing"]  # 의류만 넣을 수 있음
+    actions = [
+        "call:look:살펴보기",
+        "container",  # C# 기본 컨테이너 UI 사용
+        "call:debug_props:속성 보기"
+    ]
+    focus_text = {"default": "옷을 보관할 수 있는 나무 옷장."}
+
+    def look(self):
+        """옷장 살펴보기"""
+        yield morld.dialog([
+            "큰 나무 옷장이다.",
+            "옷을 넣거나 꺼낼 수 있다."
         ])
         morld.advance_time(1)
 

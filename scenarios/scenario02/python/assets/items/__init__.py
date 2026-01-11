@@ -21,6 +21,13 @@ from .food import (
     FoodItem, WildBerry, Apple, Mushroom, CookedMeat, CookedFish,
     Fish, Herb, HerbTea, FruitSalad, MushroomStew
 )
+from .clothes import (
+    Clothing, RaggedClothes, SimpleShirt, LinenShirt, Blouse, WhiteBlouse,
+    SimplePants, LinenPants, LongSkirt, Shorts,
+    Sundress, MaidDress, WorkDress,
+    LightJacket, HuntingVest, Apron, WarmCoat,
+    SeraHuntingOutfit, MilaApron
+)
 
 __all__ = [
     # equipment
@@ -36,6 +43,12 @@ __all__ = [
     # food
     'FoodItem', 'WildBerry', 'Apple', 'Mushroom', 'CookedMeat', 'CookedFish',
     'Fish', 'Herb', 'HerbTea', 'FruitSalad', 'MushroomStew',
+    # clothes
+    'Clothing', 'RaggedClothes', 'SimpleShirt', 'LinenShirt', 'Blouse', 'WhiteBlouse',
+    'SimplePants', 'LinenPants', 'LongSkirt', 'Shorts',
+    'Sundress', 'MaidDress', 'WorkDress',
+    'LightJacket', 'HuntingVest', 'Apron', 'WarmCoat',
+    'SeraHuntingOutfit', 'MilaApron',
 ]
 
 

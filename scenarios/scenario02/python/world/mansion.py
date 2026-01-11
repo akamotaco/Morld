@@ -175,7 +175,7 @@ def instantiate_player():
 
 
 def instantiate_npcs():
-    """저택 NPC들만 인스턴스화 + Agent 등록 (유키/엘라는 도심에 배치)"""
+    """저택 NPC들만 인스턴스화 + Agent 등록 + 옷 장착 (유키/엘라는 도심에 배치)"""
     from think import register_agent, create_agent_for
     from assets.characters.lina import Lina
     from assets.characters.sera import Sera
@@ -200,8 +200,59 @@ def instantiate_npcs():
         if agent:
             register_agent(instance_id, agent)
 
+    # NPC들에게 옷 착용
+    _dress_npcs(npcs)
+
     print(f"[world.mansion] {len(npcs)} NPCs instantiated with agents")
     return npcs
+
+
+def _dress_npcs(npcs):
+    """NPC들에게 기본 옷 착용"""
+    from assets.items.clothes import (
+        SeraHuntingOutfit, HuntingVest,
+        MaidDress, MilaApron,
+        Sundress
+    )
+
+    # 세라: 사냥복 + 사냥용 조끼
+    if "sera" in npcs:
+        sera_id = npcs["sera"].instance_id
+        outfit = SeraHuntingOutfit()
+        outfit_id = morld.create_id("item")
+        outfit.instantiate(outfit_id)
+        morld.give_item(sera_id, outfit_id, 1)
+        morld.equip_item(sera_id, outfit_id)
+
+        vest = HuntingVest()
+        vest_id = morld.create_id("item")
+        vest.instantiate(vest_id)
+        morld.give_item(sera_id, vest_id, 1)
+        morld.equip_item(sera_id, vest_id)
+
+    # 밀라: 메이드복 + 앞치마
+    if "mila" in npcs:
+        mila_id = npcs["mila"].instance_id
+        dress = MaidDress()
+        dress_id = morld.create_id("item")
+        dress.instantiate(dress_id)
+        morld.give_item(mila_id, dress_id, 1)
+        morld.equip_item(mila_id, dress_id)
+
+        apron = MilaApron()
+        apron_id = morld.create_id("item")
+        apron.instantiate(apron_id)
+        morld.give_item(mila_id, apron_id, 1)
+        morld.equip_item(mila_id, apron_id)
+
+    # 리나: 선드레스
+    if "lina" in npcs:
+        lina_id = npcs["lina"].instance_id
+        sundress = Sundress()
+        sundress_id = morld.create_id("item")
+        sundress.instantiate(sundress_id)
+        morld.give_item(lina_id, sundress_id, 1)
+        morld.equip_item(lina_id, sundress_id)
 
 
 def instantiate():

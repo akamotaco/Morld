@@ -33,6 +33,157 @@
 #     - 아이템 강화에 의한 스펙 변화
 #     - 아이템 사용에 의한 내구도 감소
 #     - 스택 불가 아이템의 개별 상태 관리
+#
+# ========================================
+# 전체 게임 저장/로드 시스템 설계 (향후 구현)
+# ========================================
+#
+# ### 핵심 설계: C# + Python 이원화
+#
+# ┌─────────────────────────────────────────────────────────────┐
+# │                     게임 세이브 파일                          │
+# ├─────────────────────────────────────────────────────────────┤
+# │  system_save.json (C# 영역)                                 │
+# │  - 지형 데이터 (Region, Location, Edge)                      │
+# │  - 유닛 데이터 (캐릭터, 오브젝트) - 위치, 이름, props         │
+# │  - 아이템 데이터 (아이템 정의)                                │
+# │  - 인벤토리 데이터 (소유, 장착)                               │
+# │  - 게임 시간 (GameTime)                                      │
+# ├─────────────────────────────────────────────────────────────┤
+# │  script_save.json (Python 영역)                              │
+# │  - 이벤트 플래그 (first_meet 등)                             │
+# │  - 퀘스트 상태                                               │
+# │  - Python 전용 변수들 (글로벌 상태)                           │
+# │  - resource_agent 누적 시간                                   │
+# │  - 기타 스크립트 상태                                         │
+# └─────────────────────────────────────────────────────────────┘
+#
+# ### C# 저장 영역 (시스템)
+#
+# 이미 있는 기능 (IDataProvider):
+# - UnitSystem - UpdateFromJson, ExportToData
+# - ItemSystem - UpdateFromJson, ExportToData
+# - InventorySystem - SaveData, LoadData
+# - WorldSystem - Terrain (Region, Edge)
+#
+# 저장 대상:
+# | 대상       | 저장 필드                         | 비고                |
+# |------------|----------------------------------|---------------------|
+# | 플레이어   | name, location, props, mood      | NPC와 동일 구조     |
+# | NPC        | name, location, props, mood      | 위치 포함 저장      |
+# | 오브젝트   | name, location, props            | 나무 자원 개수 등   |
+# | 인벤토리   | {owner_key: {item_id: count}}    | 유닛/위치/컨테이너  |
+# | 장착 상태  | {unit_id: [item_id, ...]}        | InventorySystem     |
+# | GameTime   | year, month, day, hour, minute   | WorldSystem         |
+#
+# 저장하지 않는 것:
+# - JobList (스케줄 기반으로 재생성)
+# - PlannedRoute (경로 탐색으로 재계산)
+# - CurrentEdge (저장 시점에 이동 완료 처리)
+#
+# ### Python 저장 영역 (스크립트)
+#
+# _script_state = {
+#     # 이벤트 플래그
+#     "first_meet": {
+#         "sera": True,   # 세라 첫 만남 완료
+#         "lina": False,  # 리나 아직 안 만남
+#     },
+#
+#     # 퀘스트 상태 (향후 확장)
+#     "quests": {
+#         "tutorial": "completed",
+#     },
+#
+#     # 글로벌 변수
+#     "globals": {
+#         "player_name_index": 0,
+#         "player_body": 1,
+#     },
+#
+#     # resource_agent 누적 시간
+#     "resource_accumulated_time": {
+#         # instance_id: minutes (인벤토리 기반 자원)
+#         # instance_id: {"log": min, "branch": min} (나무 자원)
+#     },
+# }
+#
+# ### 필요한 morld API (향후 구현)
+#
+# C# 저장/로드 API:
+#   morld.save_system_state(filepath)   # JSON 파일로 저장
+#   morld.load_system_state(filepath)   # JSON 파일에서 로드
+#   # 또는:
+#   data = morld.export_system_state()  # dict 반환
+#   morld.import_system_state(data)     # dict로 복원
+#
+# GameTime API (추가 필요):
+#   morld.get_full_game_time()  # {"year": 1, "month": 4, ...}
+#   morld.set_full_game_time(year, month, day, hour, minute)
+#
+# NPC 조회 API (추가 필요):
+#   morld.get_all_npc_ids()           # 플레이어 제외 모든 캐릭터 ID
+#   morld.get_unit_id_by_unique(uid)  # unique_id → unit_id
+#   morld.get_unit_unique_id(unit_id) # unit_id → unique_id
+#
+# ### 통합 저장/로드 워크플로우 (설계)
+#
+# def save_game(slot_name: str):
+#     """전체 게임 저장"""
+#     save_dir = f"saves/{slot_name}/"
+#
+#     # 1. C# 시스템 상태 저장
+#     morld.save_system_state(f"{save_dir}/system_save.json")
+#
+#     # 2. Python 스크립트 상태 저장
+#     script_state = save_script_state()
+#     with open(f"{save_dir}/script_save.json", "w") as f:
+#         json.dump(script_state, f)
+#
+#     # 3. 메타데이터 저장 (챕터, 저장 시간 등)
+#     meta = {
+#         "chapter": get_current_chapter(),
+#         "saved_at": datetime.now().isoformat(),
+#         "game_time": morld.get_full_game_time(),
+#     }
+#     with open(f"{save_dir}/meta.json", "w") as f:
+#         json.dump(meta, f)
+#
+# def load_game(slot_name: str):
+#     """전체 게임 로드"""
+#     save_dir = f"saves/{slot_name}/"
+#
+#     # 1. 메타데이터 읽기
+#     with open(f"{save_dir}/meta.json", "r") as f:
+#         meta = json.load(f)
+#
+#     # 2. 월드 초기화 (챕터 기반)
+#     morld.clear_world()
+#     # 챕터 모듈 로드하여 지형만 초기화 (유닛 생성 X)
+#
+#     # 3. C# 시스템 상태 로드
+#     morld.load_system_state(f"{save_dir}/system_save.json")
+#
+#     # 4. Python 스크립트 상태 로드
+#     with open(f"{save_dir}/script_save.json", "r") as f:
+#         script_state = json.load(f)
+#     load_script_state(script_state)
+#
+# ### C# 작업 TODO (향후)
+#
+# [ ] GameTime 저장/로드 API (get_full_game_time, set_full_game_time)
+# [ ] NPC 조회 API (get_all_npc_ids, get_unit_id_by_unique, get_unit_unique_id)
+# [ ] 전체 시스템 상태 저장 API (save_system_state, load_system_state)
+# [ ] UnitSystem에 위치 저장 포함 확인
+#
+# ### Python 작업 TODO (향후)
+#
+# [ ] script_state 모듈 생성 (이벤트 플래그, 퀘스트 상태 관리)
+# [ ] resource_agent 누적 시간 저장/복원
+# [ ] save_game() / load_game() 통합 함수
+# [ ] 세이브 슬롯 UI 연동
+#
+# ========================================
 
 import morld
 import sys

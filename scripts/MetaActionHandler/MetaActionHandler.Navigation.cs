@@ -1,7 +1,6 @@
 #define DEBUG_LOG
 
 using Godot;
-using SE;
 
 /// <summary>
 /// MetaActionHandler - Navigation 핸들러
@@ -41,6 +40,16 @@ public partial class MetaActionHandler
 	/// <param name="thresholdMinutes">이 시간(분) 이상이면 확인 다이얼로그 표시</param>
 	private void ExecuteMoveWithConfirm(int regionId, int localId, int thresholdMinutes)
 	{
+		// TODO: 조건부 이동 체크 (locked 조건)
+		// var (canMove, blockMessage) = CheckMoveConditions(regionId, localId);
+		// if (!canMove)
+		// {
+		//     // 조건 미달 → 메시지 다이얼로그 + [확인] 버튼
+		//     var dialogText = $"{blockMessage}\n\n[url=back]확인[/url]";
+		//     _textUISystem?.PushDialog(dialogText, 0);
+		//     return;
+		// }
+
 		// 이동 시간 계산
 		int travelTime = _playerSystem?.CalculateTravelTime(regionId, localId) ?? -1;
 		if (travelTime < 0)
@@ -52,13 +61,8 @@ public partial class MetaActionHandler
 		// threshold 이상이면 확인 다이얼로그
 		if (travelTime >= thresholdMinutes)
 		{
-			// Python에서 메시지 가져오기 시도
-			string message = GetMoveConfirmMessage(travelTime);
-			if (string.IsNullOrEmpty(message))
-			{
-				// 기본 메시지 (Python 실패 시 fallback)
-				message = FormatTravelTimeMessage(travelTime);
-			}
+			// 이동 확인 메시지 생성
+			string message = FormatTravelTimeMessage(travelTime);
 
 			// Yes 클릭 시 실행할 작업 저장
 			_pendingAction = () => _playerSystem?.RequestCommand($"이동:{regionId}:{localId}");
@@ -74,30 +78,7 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// Python에서 이동 확인 메시지 가져오기
-	/// </summary>
-	private string? GetMoveConfirmMessage(int travelTimeMinutes)
-	{
-		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
-		if (scriptSystem == null) return null;
-
-		try
-		{
-			var result = scriptSystem.CallFunctionEx(
-				"ui_get_move_confirm_message",
-				new string[] { travelTimeMinutes.ToString() },
-				null
-			);
-			return result?.Message;
-		}
-		catch
-		{
-			return null;
-		}
-	}
-
-	/// <summary>
-	/// 이동 시간 포맷팅 (기본 fallback)
+	/// 이동 시간 포맷팅
 	/// </summary>
 	private string FormatTravelTimeMessage(int travelTimeMinutes)
 	{
@@ -173,4 +154,41 @@ public partial class MetaActionHandler
 
 		_textUISystem?.ShowUnitLook(unitId);
 	}
+
+	#region TODO: 조건부 이동 시스템
+
+	// === 이동 조건 체계 설계 ===
+	//
+	// | 상태                    | UI 표시    | 클릭 시                        |
+	// |------------------------|------------|-------------------------------|
+	// | 연결 없음               | 표시 안됨   | -                             |
+	// | 조건 미달 (hidden)      | 표시 안됨   | -                             |
+	// | 조건 미달 (locked)      | 정상 표시   | 메시지 다이얼로그 + [확인]      |
+	// | 조건 충족 (단거리)       | 정상 표시   | 즉시 이동                      |
+	// | 조건 충족 (장거리)       | 정상 표시   | 확인 다이얼로그 + [예/아니오]   |
+	//
+	// === Edge/RegionEdge 조건 타입 ===
+	//
+	// - hidden: 조건 미달 시 목록에서 숨김 (예: 관찰력 부족으로 숨겨진 문 못찾음)
+	// - locked: 조건 미달 시 표시는 되나 이동 시 메시지 (예: 잠긴 문)
+	//
+	// === Python Edge 정의 예시 ===
+	//
+	// EDGES = [
+	//     (0, 1, 1),  # 기본 연결
+	//     (1, 10, 1, {"hidden": {"관찰력": 5}}),  # 숨겨진 문
+	//     (1, 11, 1, {"locked": {"has:열쇠": 1}, "message": "문이 잠겨 있다."}),  # 잠긴 문
+	// ]
+	//
+	// === C# 구현 TODO ===
+	//
+	// private (bool canMove, string? blockMessage) CheckMoveConditions(int regionId, int localId)
+	// {
+	//     // 1. Edge/RegionEdge에서 locked 조건 가져오기
+	//     // 2. 플레이어 props와 비교
+	//     // 3. 미달 시 (false, message) 반환
+	//     // 4. 충족 시 (true, null) 반환
+	// }
+
+	#endregion
 }

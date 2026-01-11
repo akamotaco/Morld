@@ -86,10 +86,20 @@ def _initialize_locations():
 def _instantiate_player():
     """플레이어 인스턴스화"""
     from assets.characters.player import Player
+    from assets.items.clothes import RaggedClothes
 
     player = Player()
     player_id = morld.create_id("unit")
     player.instantiate(player_id, REGION_ID, 21)  # 숲 깊은 곳에서 시작
+
+    # 누더기 옷 착용 (프롤로그 시작 시)
+    ragged = RaggedClothes()
+    ragged_id = morld.create_id("item")
+    ragged.instantiate(ragged_id)
+    morld.give_item(player_id, ragged_id, 1)
+    morld.equip_item(player_id, ragged_id)  # 착용 상태로 시작
+
+    print(f"[chapter_0] Player wearing ragged clothes (id={ragged_id})")
 
     # 장비는 player_creation.py에서 선택에 따라 지급됨
 

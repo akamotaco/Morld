@@ -113,15 +113,50 @@ class FishingRod(Item):
         ])
 
 
+class Axe(Item):
+    """
+    세라의 도끼
+
+    장착 시 can:chop 부여 → 나무에서 "벌목" 액션 활성화
+    보유 시 can:process 부여 → 통나무 "나무판으로 가공" 액션 활성화
+    """
+    unique_id = "axe"
+    name = "도끼"
+    owner = "sera"
+    passive_props = {"can:process": 1}  # 보유만 해도 가공 가능
+    equip_props = {"can:chop": 1, "공격력": 3, "장착:손": 1}
+    value = 35
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """도끼 살펴보기"""
+        yield morld.dialog([
+            "세라의 도끼다.",
+            "장착하면 나무를 벨 수 있다."
+        ])
+
+
 class HuntingBow(Item):
-    """세라의 사냥용 활"""
+    """
+    사냥용 활
+
+    세라가 처음 소유하고 있지만, 크래프팅으로도 제작 가능
+    재료: 나무판 2개 + 끈 1개
+    """
     unique_id = "hunting_bow"
     name = "사냥용 활"
     owner = "sera"
     passive_props = {}
     equip_props = {"공격력": 5, "사거리": 3, "장착:손": 1}
     value = 50
-    actions = ["take@container", "equip@inventory"]
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """활 살펴보기"""
+        yield morld.dialog([
+            "잘 만들어진 사냥용 활이다.",
+            "화살과 함께 사용하면 사냥을 할 수 있다."
+        ])
 
 
 class HerbPouch(Item):
@@ -233,3 +268,25 @@ class WaterBottle(Item):
             "시원하고 상쾌하다."
         ])
         morld.advance_time(1)
+
+
+class Arrow(Item):
+    """
+    화살 - 사냥용
+
+    크래프팅으로 제작 가능
+    재료: 나무판 1개 + 깃털 1개
+    """
+    unique_id = "arrow"
+    name = "화살"
+    passive_props = {}
+    equip_props = {}
+    value = 5
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """화살 살펴보기"""
+        yield morld.dialog([
+            "나무와 깃털로 만든 화살이다.",
+            "활과 함께 사용하면 사냥을 할 수 있다."
+        ])

@@ -7,11 +7,12 @@
 from .furniture import (
     Fireplace, OldSofa, LivingSofa, Bookshelf,
     DiningTable, DiningChair,
-    Stove, Cupboard,
+    Stove, Cupboard, Kettle,
     Bathtub, Washbasin,
-    StorageShelf,
+    CraftingTable,
     Bed, SmallDesk, Mirror,
-    CorridorWindow, Vase
+    CorridorWindow, Vase,
+    Wardrobe
 )
 from .outdoor import (
     GardenBench, Well, GardenPlot, DryingRack, FishingSpot
@@ -32,11 +33,12 @@ __all__ = [
     # furniture
     'Fireplace', 'OldSofa', 'LivingSofa', 'Bookshelf',
     'DiningTable', 'DiningChair',
-    'Stove', 'Cupboard',
+    'Stove', 'Cupboard', 'Kettle',
     'Bathtub', 'Washbasin',
-    'StorageShelf',
+    'CraftingTable',
     'Bed', 'SmallDesk', 'Mirror',
     'CorridorWindow', 'Vase',
+    'Wardrobe',
     # outdoor
     'GardenBench', 'Well', 'GardenPlot', 'DryingRack', 'FishingSpot',
     # nature (자원 생성)

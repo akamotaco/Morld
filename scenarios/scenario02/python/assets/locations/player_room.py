@@ -2,7 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Mirror, Bed
+from assets.objects.furniture import Mirror, Bed, Wardrobe
 
 
 class PlayerRoom(Location):
@@ -22,3 +22,7 @@ class PlayerRoom(Location):
         self.add_ground(GroundWooden())
         self.add_object(Mirror())
         self.add_object(Bed())
+
+        # 옷장 추가 (비어있음 - 플레이어가 옷을 넣을 수 있음)
+        wardrobe = Wardrobe()
+        self.add_object(wardrobe)

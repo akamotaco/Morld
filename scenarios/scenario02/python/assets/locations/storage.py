@@ -3,7 +3,7 @@
 import morld
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import StorageShelf
+from assets.objects.furniture import CraftingTable
 
 
 class Toolbox(object):
@@ -44,18 +44,24 @@ class Storage(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """창고 생성 + 바닥 + 선반 + 도구함 추가"""
+        """창고 생성 + 바닥 + 제작대 + 도구함 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(StorageShelf())
+        self.add_object(CraftingTable())
 
-        # 도구함 추가 및 낚시대 배치
+        # 도구함 추가 및 도구 배치
         toolbox = Toolbox()
         toolbox_id = self.add_object(toolbox)
 
         # 낚시대를 도구함에 넣기
-        from assets.items.tools import FishingRod
+        from assets.items.tools import FishingRod, Axe
         fishing_rod = FishingRod()
         fishing_rod_id = morld.create_id("item")
         fishing_rod.instantiate(fishing_rod_id)
         morld.give_item(toolbox_id, fishing_rod_id, 1)
+
+        # 도끼를 도구함에 넣기
+        axe = Axe()
+        axe_id = morld.create_id("item")
+        axe.instantiate(axe_id)
+        morld.give_item(toolbox_id, axe_id, 1)

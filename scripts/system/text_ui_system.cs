@@ -79,8 +79,11 @@ namespace SE
 			if (!_needsUpdateDisplay) return;
 			_needsUpdateDisplay = false;
 
+			Godot.GD.Print($"[TextUISystem] FlushDisplay: stack={_stack.Current?.Type}, hoveredMeta={_hoveredMeta ?? "null"}");
+
 			if (_stack.Current == null)
 			{
+				Godot.GD.Print("[TextUISystem] FlushDisplay: stack is empty, clearing text");
 				_textUi.Text = "";
 				return;
 			}
@@ -92,6 +95,8 @@ namespace SE
 				_stack.Current.ExpandedToggles,
 				_hoveredMeta
 			);
+
+			Godot.GD.Print($"[TextUISystem] FlushDisplay: rendered {_stack.Current.Type}, textLen={_textUi.Text.Length}");
 
 			// 읽음 처리는 FlushDisplay에서 하지 않음
 			// OnPlayerAction()에서 플레이어 액션 시점에 처리
@@ -234,16 +239,21 @@ namespace SE
 
 			// 1. 묘사 텍스트 (행동 옵션 제외)
 			var describeText = _describeSystem.GetDescribeText(lookResult, time, GetPrintableLogs());
+			Godot.GD.Print($"[RenderSituation] describeText.Length={describeText?.Length ?? 0}");
 
 			// 2. 행동 텍스트 (Python 훅 또는 C# 폴백)
 			var actionText = GetActionTextFromPython();
+			Godot.GD.Print($"[RenderSituation] actionText from Python: {actionText?.Length ?? 0} chars");
 			if (string.IsNullOrEmpty(actionText))
 			{
 				// Python 훅 실패 시 C# 폴백
 				actionText = _describeSystem.GetActionText(lookResult);
+				Godot.GD.Print($"[RenderSituation] actionText from C# fallback: {actionText?.Length ?? 0} chars");
 			}
 
-			return describeText + "\n" + actionText;
+			var result = describeText + "\n" + actionText;
+			Godot.GD.Print($"[RenderSituation] total={result.Length} chars");
+			return result;
 		}
 
 		/// <summary>

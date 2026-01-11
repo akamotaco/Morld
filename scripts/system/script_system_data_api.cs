@@ -167,7 +167,7 @@ namespace SE
                     int timeBA = args.Length >= 6 ? args[5].ToInt() : timeAB;
 
                     var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-                    
+
                     var terrain = _worldSystem.GetTerrain();
                     // RegionEdge(id, regionIdA, localIdA, regionIdB, localIdB) 생성자 사용
                     var regionEdge = new Morld.RegionEdge(
@@ -179,6 +179,19 @@ namespace SE
                     terrain.AddRegionEdge(regionEdge);
                     Godot.GD.Print($"[morld] add_region_edge: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
                     return PyBool.True;
+                });
+
+                // region_exists: Region 존재 여부 확인 (챕터별 Region 선택적 로드용)
+                morldModule.ModuleDict["region_exists"] = new PyBuiltinFunction("region_exists", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("region_exists(region_id) requires 1 argument");
+
+                    int regionId = args[0].ToInt();
+
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var terrain = _worldSystem.GetTerrain();
+                    return terrain.GetRegion(regionId) != null ? PyBool.True : PyBool.False;
                 });
 
                 // === Time API (GameTime) ===
