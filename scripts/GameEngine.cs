@@ -275,7 +275,11 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void OnMetaClicked(Variant meta)
 	{
+		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+
 		_actionHandler.HandleAction(meta.AsString());
+		// lazy update 즉시 반영 (다음 프레임까지 기다리지 않음)
+		_textUISystem.FlushDisplay();
 	}
 
 	/// <summary>
@@ -284,7 +288,9 @@ public partial class GameEngine : Node
 	private void OnMetaHoverStarted(Variant meta)
 	{
 		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+
 		_textUISystem.SetHoveredMeta(meta.AsString());
+		// FlushDisplay()는 _Process에서 호출 - 즉시 flush 시 hover 이벤트 루프 발생
 	}
 
 	/// <summary>
@@ -293,6 +299,8 @@ public partial class GameEngine : Node
 	private void OnMetaHoverEnded(Variant meta)
 	{
 		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+
 		_textUISystem.SetHoveredMeta(null);
+		// FlushDisplay()는 _Process에서 호출 - 즉시 flush 시 hover 이벤트 루프 발생
 	}
 }

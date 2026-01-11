@@ -52,7 +52,7 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 - `PlayerSystem` - 플레이어 입력 기반 시간 진행 제어, Look 기능
 - `DescribeSystem` - 묘사 텍스트 생성 (시간 기반 키 선택)
 - `ActionSystem` - 차량 액션 전용 (CanDrive, GetDrivableDestinations, ApplyDriveAction)
-- `TextUISystem` - RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
+- `TextUISystem` - RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링, lazy update
 - `ScriptSystem` - Python 스크립트 실행 (sharpPy 기반), Dialog/이벤트 처리
 - `EventSystem` - 게임 이벤트 수집 및 Python 전달 (OnReach, OnMeet 감지)
 
@@ -410,6 +410,48 @@ Unit? unit = unitSystem.FindByUniqueId("sera");
 
 **파일 위치:**
 - `scripts/system/describe_system.cs`
+
+### TextUISystem (Logic System)
+**역할:** RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
+
+**Lazy Update 패턴:**
+- 모든 UI 변경은 `RequestUpdateDisplay()`로 플래그만 설정
+- 실제 렌더링은 `FlushDisplay()`에서 일괄 수행
+- `_Process` 프레임 끝에서 한 번만 렌더링하여 깜박임 방지
+
+**핵심 메서드:**
+```csharp
+// UI 업데이트 요청 (lazy)
+public void RequestUpdateDisplay()
+{
+    _needsUpdateDisplay = true;
+}
+
+// 대기 중인 업데이트 수행
+public void FlushDisplay()
+{
+    if (!_needsUpdateDisplay) return;
+    _needsUpdateDisplay = false;
+
+    var text = RenderFocus(_stack.Current);
+    _textUi.Text = ToggleRenderer.Render(text, toggles, hoveredMeta);
+}
+```
+
+**Hover 이벤트 처리:**
+- `SetHoveredMeta()`: hover 상태만 저장, `RequestUpdateDisplay()` 호출
+- `FlushDisplay()`는 `_Process`에서만 호출 (hover 핸들러에서 직접 호출 금지)
+- 이유: 즉시 flush 시 텍스트 변경 → Godot가 hover 이벤트 재발생 → 무한 루프
+
+**호출 위치:**
+- `GameEngine._Process()`: 프레임 끝에서 `FlushDisplay()` 호출
+- `GameEngine.OnMetaClicked()`: 클릭 후 즉시 `FlushDisplay()` (사용자 액션은 즉시 반영)
+- `GameEngine.OnMetaHoverStarted/Ended()`: `SetHoveredMeta()`만 호출 (FlushDisplay 호출 금지)
+
+**파일 위치:**
+- `scripts/system/text_ui_system.cs`
+- `scripts/morld/ui/FocusStack.cs`
+- `scripts/morld/ui/ToggleRenderer.cs`
 
 ### ScriptSystem (Logic System)
 **역할:** Python 스크립트 실행 (sharpPy 인터프리터), Dialog/이벤트 처리

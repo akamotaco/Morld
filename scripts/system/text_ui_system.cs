@@ -398,7 +398,7 @@ namespace SE
 
 		/// <summary>
 		/// 다이얼로그 텍스트 갱신 (@proc: 후 다음 yield 호출 시)
-		/// 즉시 RichTextLabel 텍스트 갱신 (lazy 아님)
+		/// lazy update로 변경 - FlushDisplay()에서 일괄 렌더링
 		/// </summary>
 		public void UpdateDialogText(string text)
 		{
@@ -409,8 +409,7 @@ namespace SE
 			}
 
 			_stack.Current.DialogText = text;
-			// 즉시 RichTextLabel 텍스트 갱신 (lazy 아님)
-			_textUi.Text = text;
+			RequestUpdateDisplay();
 		}
 
 		// === 스택 조작 API ===
