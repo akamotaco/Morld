@@ -5,6 +5,7 @@
 # world.initialize_world()로 전체 월드 초기화
 
 import morld
+import equipment
 from world import mansion, initialize_world
 
 
@@ -63,7 +64,7 @@ def _replace_ragged_clothes(player_id):
             item_info = morld.get_item_info(item_id)
             if item_info and item_info.get("unique_id") == "ragged_clothes":
                 # 장착 해제 후 제거
-                morld.unequip_item_internal(player_id, item_id)
+                equipment.unequip_item(player_id, item_id)
                 morld.lost_item(player_id, item_id, count)
                 print(f"[chapter_1] Removed ragged clothes (id={item_id})")
                 break
@@ -73,14 +74,14 @@ def _replace_ragged_clothes(player_id):
     shirt_id = morld.create_id("item")
     shirt.instantiate(shirt_id)
     morld.give_item(player_id, shirt_id, 1)
-    morld.equip_item_internal(player_id, shirt_id)
+    equipment.equip_item(player_id, shirt_id)
 
     # 일반 하의 지급 및 착용
     pants = SimplePants()
     pants_id = morld.create_id("item")
     pants.instantiate(pants_id)
     morld.give_item(player_id, pants_id, 1)
-    morld.equip_item_internal(player_id, pants_id)
+    equipment.equip_item(player_id, pants_id)
 
     print(f"[chapter_1] Player now wearing shirt (id={shirt_id}) and pants (id={pants_id})")
 

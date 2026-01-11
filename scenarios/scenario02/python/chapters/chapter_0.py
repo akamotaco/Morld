@@ -5,6 +5,7 @@
 # 저택 도착 후 chapter_1로 전환
 
 import morld
+import equipment
 
 REGION_ID = 0
 
@@ -97,7 +98,7 @@ def _instantiate_player():
     ragged_id = morld.create_id("item")
     ragged.instantiate(ragged_id)
     morld.give_item(player_id, ragged_id, 1)
-    morld.equip_item_internal(player_id, ragged_id)  # 착용 상태로 시작
+    equipment.equip_item(player_id, ragged_id)  # 착용 상태로 시작
 
     print(f"[chapter_0] Player wearing ragged clothes (id={ragged_id})")
 
