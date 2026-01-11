@@ -63,7 +63,7 @@ def _replace_ragged_clothes(player_id):
             item_info = morld.get_item_info(item_id)
             if item_info and item_info.get("unique_id") == "ragged_clothes":
                 # 장착 해제 후 제거
-                morld.unequip_item(player_id, item_id)
+                morld.unequip_item_internal(player_id, item_id)
                 morld.lost_item(player_id, item_id, count)
                 print(f"[chapter_1] Removed ragged clothes (id={item_id})")
                 break

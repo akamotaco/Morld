@@ -35,6 +35,7 @@ class LeatherPouch(Item):
     name = "가죽 주머니"
     passive_props = {"수납": 5}
     equip_props = {}
+    action_props = {"put": 1}
     value = 10
     actions = ["take@container"]
 
@@ -49,6 +50,7 @@ class WritingTool(Item):
     name = "필기구"
     passive_props = {}
     equip_props = {"지능": 1}
+    action_props = {"put": 1}
     value = 5
     actions = ["take@container"]
 
@@ -59,6 +61,7 @@ class OldBook(Item):
     name = "낡은 책"
     passive_props = {"지식": 1}
     equip_props = {}
+    action_props = {"put": 1}
     value = 15
     actions = ["take@container", "call:read:읽기@inventory"]
 
@@ -82,5 +85,6 @@ class SmallToolbox(Item):
     name = "작은 도구함"
     passive_props = {"수리": 1}
     equip_props = {"손재주": 2}
+    action_props = {"put": 1}
     value = 25
     actions = ["take@container"]

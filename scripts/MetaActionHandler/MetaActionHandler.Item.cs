@@ -217,15 +217,33 @@ public partial class MetaActionHandler
 				}
 			}
 
-			// 충돌하는 모든 아이템 해제
+			// 충돌하는 모든 아이템 해제 (Python equipment.unequip_item 호출)
+			var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 			foreach (var unequipId in itemsToUnequip)
 			{
-				inventorySystem.UnequipItemFromUnit(player.Id, unequipId);
+				try
+				{
+					scriptSystem.Eval($"import equipment; equipment.unequip_item({player.Id}, {unequipId})");
+				}
+				catch (Exception ex)
+				{
+					GD.PrintErr($"[MetaActionHandler] unequip error: {ex.Message}");
+					inventorySystem.UnequipItemFromUnit(player.Id, unequipId);
+				}
 			}
 		}
 
-		// 새 아이템 장착
-		inventorySystem.EquipItemOnUnit(player.Id, itemId);
+		// 새 아이템 장착 - Python equipment.equip_item() 호출
+		var scriptSys = _world.GetSystem("scriptSystem") as ScriptSystem;
+		try
+		{
+			scriptSys.Eval($"import equipment; equipment.equip_item({player.Id}, {itemId})");
+		}
+		catch (Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] equip error: {ex.Message}");
+			inventorySystem.EquipItemOnUnit(player.Id, itemId);
+		}
 
 		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
 		_textUISystem?.Pop();
@@ -260,161 +278,20 @@ public partial class MetaActionHandler
 		GD.Print($"[MetaActionHandler] 아이템 장착 해제: itemId={itemId}, playerId={player.Id}");
 #endif
 
-		inventorySystem.UnequipItemFromUnit(player.Id, itemId);
+		// Python equipment.unequip_item() 호출 (put ActionProp 재활성화)
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
+		try
+		{
+			scriptSystem.Eval($"import equipment; equipment.unequip_item({player.Id}, {itemId})");
+		}
+		catch (Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] unequip error: {ex.Message}");
+			inventorySystem.UnequipItemFromUnit(player.Id, itemId);
+		}
 
 		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
 		_textUISystem?.Pop();
 	}
 
-	/// <summary>
-	/// 의류 입기: wear:itemId
-	/// 같은 슬롯 키("착용:X")를 가진 아이템이 있으면 자동 해제 후 착용
-	/// </summary>
-	private void HandleWearAction(string[] parts)
-	{
-		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid wear format. Expected: wear:itemId");
-			return;
-		}
-
-		var player = _playerSystem?.FindPlayerUnit();
-		if (player == null)
-		{
-			GD.PrintErr("[MetaActionHandler] HandleWearAction: Player not found");
-			return;
-		}
-
-		WearClothingOnUnit(player.Id, itemId);
-		_textUISystem?.Pop();
-	}
-
-	/// <summary>
-	/// 의류 벗기: unwear:itemId
-	/// </summary>
-	private void HandleUnwearAction(string[] parts)
-	{
-		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid unwear format. Expected: unwear:itemId");
-			return;
-		}
-
-		var player = _playerSystem?.FindPlayerUnit();
-		if (player == null)
-		{
-			GD.PrintErr("[MetaActionHandler] HandleUnwearAction: Player not found");
-			return;
-		}
-
-		var inventorySystem = _world.GetSystem("inventorySystem") as InventorySystem;
-		if (inventorySystem == null)
-		{
-			GD.PrintErr("[MetaActionHandler] HandleUnwearAction: InventorySystem not found");
-			return;
-		}
-
-#if DEBUG_LOG
-		GD.Print($"[MetaActionHandler] 의류 벗기: itemId={itemId}, playerId={player.Id}");
-#endif
-
-		inventorySystem.UnequipItemFromUnit(player.Id, itemId);
-		_textUISystem?.Pop();
-	}
-
-	/// <summary>
-	/// NPC에게 의류 입히기 (테스트용): dress:npcId:itemId
-	/// </summary>
-	private void HandleDressAction(string[] parts)
-	{
-		if (parts.Length < 3 ||
-			!int.TryParse(parts[1], out int npcId) ||
-			!int.TryParse(parts[2], out int itemId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid dress format. Expected: dress:npcId:itemId");
-			return;
-		}
-
-		WearClothingOnUnit(npcId, itemId);
-		_textUISystem?.Pop();
-	}
-
-	/// <summary>
-	/// NPC에게서 의류 벗기기 (테스트용): undress:npcId:itemId
-	/// </summary>
-	private void HandleUndressAction(string[] parts)
-	{
-		if (parts.Length < 3 ||
-			!int.TryParse(parts[1], out int npcId) ||
-			!int.TryParse(parts[2], out int itemId))
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid undress format. Expected: undress:npcId:itemId");
-			return;
-		}
-
-		var inventorySystem = _world.GetSystem("inventorySystem") as InventorySystem;
-		if (inventorySystem == null)
-		{
-			GD.PrintErr("[MetaActionHandler] HandleUndressAction: InventorySystem not found");
-			return;
-		}
-
-#if DEBUG_LOG
-		GD.Print($"[MetaActionHandler] NPC 의류 벗기기: npcId={npcId}, itemId={itemId}");
-#endif
-
-		inventorySystem.UnequipItemFromUnit(npcId, itemId);
-		_textUISystem?.Pop();
-	}
-
-	/// <summary>
-	/// 지정 유닛에게 의류 착용 (슬롯 충돌 처리 포함)
-	/// </summary>
-	private void WearClothingOnUnit(int unitId, int itemId)
-	{
-		var itemSystem = _world.GetSystem("itemSystem") as ItemSystem;
-		var inventorySystem = _world.GetSystem("inventorySystem") as InventorySystem;
-
-		if (itemSystem == null || inventorySystem == null)
-		{
-			GD.PrintErr("[MetaActionHandler] WearClothingOnUnit: Systems not found");
-			return;
-		}
-
-		var item = itemSystem.FindItem(itemId);
-		if (item == null)
-		{
-			GD.PrintErr($"[MetaActionHandler] WearClothingOnUnit: Item not found: {itemId}");
-			return;
-		}
-
-#if DEBUG_LOG
-		GD.Print($"[MetaActionHandler] 의류 착용: unitId={unitId}, itemId={itemId}");
-#endif
-
-		// 슬롯 충돌 확인 및 기존 의류 해제
-		// 새 아이템의 "착용:X" 키들과 같은 키를 가진 착용 아이템 찾기
-		var equippedItems = inventorySystem.GetUnitEquippedItems(unitId);
-
-		// 일체형 의류(상의+하의)를 위해 모든 "착용:" 슬롯 확인
-		var slotKeys = item.GetAllEquipPropKeys("착용:");
-		foreach (var slotKey in slotKeys)
-		{
-			foreach (var equippedId in equippedItems)
-			{
-				var equippedItem = itemSystem.FindItem(equippedId);
-				if (equippedItem?.EquipProps?.ContainsKey(slotKey) == true)
-				{
-#if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] 슬롯 충돌 - 기존 의류 해제: {equippedId} (슬롯 키: {slotKey})");
-#endif
-					inventorySystem.UnequipItemFromUnit(unitId, equippedId);
-					break;
-				}
-			}
-		}
-
-		// 새 의류 착용
-		inventorySystem.EquipItemOnUnit(unitId, itemId);
-	}
 }
