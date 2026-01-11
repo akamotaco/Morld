@@ -144,6 +144,45 @@ def get_instance_id(unique_id: str) -> Optional[int]:
     return _instance_map.get(unique_id)
 
 
+def get_or_create_item_id(unique_id: str) -> Optional[int]:
+    """
+    아이템 싱글톤 ID 조회 또는 생성
+
+    같은 unique_id의 아이템은 항상 같은 instance_id를 반환하여
+    인벤토리에서 하나의 슬롯에 쌓이도록 보장합니다.
+
+    Args:
+        unique_id: 아이템 unique_id (예: "log", "plank")
+
+    Returns:
+        instance_id (int) 또는 None (클래스가 없는 경우)
+    """
+    import morld
+
+    # 1. registry에서 기존 인스턴스 확인
+    existing_id = _instance_map.get(unique_id)
+    if existing_id is not None:
+        return existing_id
+
+    # 2. 없으면 새로 생성
+    cls = get_item_class(unique_id)
+    if not cls:
+        print(f"[registry] Item class not found: {unique_id}")
+        return None
+
+    # 새 ID 생성 및 인스턴스화
+    new_id = morld.create_id("item")
+    item = cls()
+    item.instantiate(new_id)
+
+    # registry에 등록 (instantiate에서 안 했을 경우 대비)
+    _instance_map[unique_id] = new_id
+    _reverse_map[new_id] = unique_id
+
+    print(f"[registry] Created item singleton: {unique_id} (id={new_id})")
+    return new_id
+
+
 def get_unique_id(instance_id: int) -> Optional[str]:
     """instance_id → unique_id (없으면 None)"""
     return _reverse_map.get(instance_id)

@@ -10,6 +10,7 @@
 import morld
 from assets.base import Object
 from assets.objects.trees import Tree
+from assets.registry import get_or_create_item_id
 
 
 class ResourceObject(Object):
@@ -54,7 +55,8 @@ class ResourceObject(Object):
         if not self.can_spawn_resource():
             return False
 
-        item_id = morld.get_item_id_by_unique(self.resource_item_unique_id)
+        # registry를 통해 싱글톤 아이템 ID 조회/생성
+        item_id = get_or_create_item_id(self.resource_item_unique_id)
         if item_id is None:
             print(f"[ResourceObject] Item not found: {self.resource_item_unique_id}")
             return False

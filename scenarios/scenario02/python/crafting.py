@@ -16,7 +16,7 @@
 #   yield from open_craft_menu()
 
 import morld
-from assets.registry import get_item_class
+from assets.registry import get_item_class, get_or_create_item_id
 
 
 # ========================================
@@ -38,6 +38,26 @@ PLAYER_RECIPES = [
 
 # 제작대 전용 레시피 (복잡한 아이템)
 WORKBENCH_RECIPES = [
+    # 재료 가공
+    {
+        "unique_id": "plank",
+        "name": "나무판",
+        "category": "재료",
+        "materials": {"log": 1},
+        "result_count": 3,
+        "craft_time": 10,
+        "tool_required": None,
+    },
+    # 무기
+    {
+        "unique_id": "wooden_sword",
+        "name": "목검",
+        "category": "무기",
+        "materials": {"plank": 2},
+        "result_count": 1,
+        "craft_time": 20,
+        "tool_required": None,
+    },
     {
         "unique_id": "hunting_bow",
         "name": "사냥용 활",
@@ -53,7 +73,7 @@ WORKBENCH_RECIPES = [
 RECIPES = PLAYER_RECIPES + WORKBENCH_RECIPES
 
 # 카테고리 목록 (순서 유지)
-CATEGORIES = ["무기", "도구", "채집"]
+CATEGORIES = ["재료", "무기", "도구", "채집"]
 
 
 # ========================================
@@ -103,21 +123,21 @@ def check_materials(player_id: int, recipe: dict) -> tuple:
     missing = {}
     have = {}
 
-    for mat_unique_id, required in recipe["materials"].items():
-        # unique_id로 item_id 조회
-        item_id = morld.get_item_id_by_unique(mat_unique_id)
-        if item_id is None:
-            # 아이템 자체가 게임에 없음
-            missing[mat_unique_id] = required
-            have[mat_unique_id] = 0
-            continue
+    # 인벤토리를 unique_id 기준으로 변환 (같은 unique_id 아이템 합산)
+    inv_by_unique = {}
+    if inventory:
+        for item_id, count in inventory.items():
+            item_info = morld.get_item_info(item_id)
+            if item_info:
+                unique_id = item_info.get("unique_id")
+                if unique_id:
+                    if isinstance(count, str):
+                        count = int(count)
+                    inv_by_unique[unique_id] = inv_by_unique.get(unique_id, 0) + count
 
-        # 인벤토리에서 개수 확인
-        owned = 0
-        if inventory:
-            owned = inventory.get(str(item_id), 0)
-            if isinstance(owned, str):
-                owned = int(owned)
+    for mat_unique_id, required in recipe["materials"].items():
+        # unique_id 기준으로 보유량 확인
+        owned = inv_by_unique.get(mat_unique_id, 0)
 
         have[mat_unique_id] = owned
         if owned < required:
@@ -157,29 +177,32 @@ def craft_item(player_id: int, recipe: dict):
     Returns:
         Generator (morld.dialog)
     """
-    # 재료 소모
+    # 재료 소모 (unique_id 기준으로 인벤토리에서 찾아서 소모)
+    inventory = morld.get_unit_inventory(player_id)
     for mat_unique_id, required in recipe["materials"].items():
-        item_id = morld.get_item_id_by_unique(mat_unique_id)
-        if item_id is not None:
-            morld.lost_item(player_id, item_id, required)
+        remaining = required
+        if inventory:
+            for item_id, count in list(inventory.items()):
+                if remaining <= 0:
+                    break
+                item_info = morld.get_item_info(item_id)
+                if item_info and item_info.get("unique_id") == mat_unique_id:
+                    if isinstance(count, str):
+                        count = int(count)
+                    to_consume = min(count, remaining)
+                    morld.lost_item(player_id, int(item_id), to_consume)
+                    remaining -= to_consume
 
     # 시간 경과
     morld.advance_time(recipe["craft_time"])
 
-    # 결과물 생성
+    # 결과물 생성 (registry를 통해 싱글톤 ID 조회/생성)
     result_unique_id = recipe["unique_id"]
-    result_id = morld.get_item_id_by_unique(result_unique_id)
+    result_id = get_or_create_item_id(result_unique_id)
 
     if result_id is None:
-        # 아이템이 없으면 동적 생성
-        result_cls = get_item_class(result_unique_id)
-        if result_cls:
-            item = result_cls()
-            result_id = morld.create_id("item")
-            item.instantiate(result_id)
-        else:
-            yield morld.dialog("제작에 실패했다...")
-            return
+        yield morld.dialog("제작에 실패했다...")
+        return
 
     # 결과물 지급
     result_count = recipe.get("result_count", 1)

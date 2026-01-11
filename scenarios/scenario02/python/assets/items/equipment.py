@@ -24,7 +24,6 @@ class OldKnife(Item):
     name = "낡은 칼"
     passive_props = {}
     equip_props = {"공격": 2, "사냥": 1, "장착:손": 1}
-    action_props = {"put": 1}  # 장착 시 0으로 변경되어 놓기 비활성화
     value = 20
     actions = ["take@container", "equip@inventory"]
 
@@ -35,7 +34,6 @@ class LeatherPouch(Item):
     name = "가죽 주머니"
     passive_props = {"수납": 5}
     equip_props = {}
-    action_props = {"put": 1}
     value = 10
     actions = ["take@container"]
 
@@ -50,7 +48,6 @@ class WritingTool(Item):
     name = "필기구"
     passive_props = {}
     equip_props = {"지능": 1}
-    action_props = {"put": 1}
     value = 5
     actions = ["take@container"]
 
@@ -61,7 +58,6 @@ class OldBook(Item):
     name = "낡은 책"
     passive_props = {"지식": 1}
     equip_props = {}
-    action_props = {"put": 1}
     value = 15
     actions = ["take@container", "call:read:읽기@inventory"]
 
@@ -85,6 +81,27 @@ class SmallToolbox(Item):
     name = "작은 도구함"
     passive_props = {"수리": 1}
     equip_props = {"손재주": 2}
-    action_props = {"put": 1}
     value = 25
     actions = ["take@container"]
+
+
+# ========================================
+# 무기
+# ========================================
+
+@register_item
+class WoodenSword(Item):
+    """목검 - 나무판으로 제작하는 기본 무기"""
+    unique_id = "wooden_sword"
+    name = "목검"
+    passive_props = {}
+    equip_props = {"공격": 3, "장착:손": 1}
+    value = 15
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """목검 살펴보기"""
+        yield morld.dialog([
+            "나무를 깎아 만든 목검이다.",
+            "진짜 검보다는 약하지만, 없는 것보다는 낫다."
+        ])

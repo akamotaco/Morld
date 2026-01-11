@@ -5,7 +5,7 @@
 # - instance_id → Item 인스턴스 매핑
 
 from .equipment import (
-    OldKnife, LeatherPouch, WritingTool, OldBook, SmallToolbox
+    OldKnife, LeatherPouch, WritingTool, OldBook, SmallToolbox, WoodenSword
 )
 from .tools import (
     Torch, Rope,
@@ -28,10 +28,13 @@ from .clothes import (
     LightJacket, HuntingVest, Apron, WarmCoat,
     SeraHuntingOutfit, MilaApron
 )
+from .materials import (
+    Log, Branch, Plank, Cord, Feather
+)
 
 __all__ = [
     # equipment
-    'OldKnife', 'LeatherPouch', 'WritingTool', 'OldBook', 'SmallToolbox',
+    'OldKnife', 'LeatherPouch', 'WritingTool', 'OldBook', 'SmallToolbox', 'WoodenSword',
     # tools
     'Torch', 'Rope',
     'KitchenKnife', 'AlarmClock', 'FishingRod', 'HuntingBow', 'HerbPouch', 'CookingPot',
@@ -49,6 +52,8 @@ __all__ = [
     'Sundress', 'MaidDress', 'WorkDress',
     'LightJacket', 'HuntingVest', 'Apron', 'WarmCoat',
     'SeraHuntingOutfit', 'MilaApron',
+    # materials
+    'Log', 'Branch', 'Plank', 'Cord', 'Feather',
 ]
 
 

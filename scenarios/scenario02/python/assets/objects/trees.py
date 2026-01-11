@@ -14,7 +14,7 @@
 import random
 import morld
 from assets.base import Object
-from assets.registry import get_item_class
+from assets.registry import get_or_create_item_id
 
 
 class Tree(Object):
@@ -160,17 +160,11 @@ class Tree(Object):
         if random.random() < self.log_chance:
             player_id = morld.get_player_id()
 
-            # 통나무 아이템 ID 조회 또는 생성
-            log_id = morld.get_item_id_by_unique("log")
+            # registry를 통해 싱글톤 아이템 ID 조회/생성
+            log_id = get_or_create_item_id("log")
             if log_id is None:
-                log_class = get_item_class("log")
-                if log_class:
-                    log_item = log_class()
-                    log_id = morld.create_id("item")
-                    log_item.instantiate(log_id)
-                else:
-                    yield morld.dialog("통나무를 얻었지만, 놓쳐버렸다.")
-                    return
+                yield morld.dialog("통나무를 얻었지만, 놓쳐버렸다.")
+                return
 
             # 통나무 지급 및 자원 감소
             morld.give_item(player_id, log_id, 1)
@@ -207,17 +201,11 @@ class Tree(Object):
         if random.random() < self.branch_chance:
             player_id = morld.get_player_id()
 
-            # 나뭇가지 아이템 ID 조회 또는 생성
-            branch_id = morld.get_item_id_by_unique("branch")
+            # registry를 통해 싱글톤 아이템 ID 조회/생성
+            branch_id = get_or_create_item_id("branch")
             if branch_id is None:
-                branch_class = get_item_class("branch")
-                if branch_class:
-                    branch_item = branch_class()
-                    branch_id = morld.create_id("item")
-                    branch_item.instantiate(branch_id)
-                else:
-                    yield morld.dialog("나뭇가지를 주웠지만, 놓쳐버렸다.")
-                    return
+                yield morld.dialog("나뭇가지를 주웠지만, 놓쳐버렸다.")
+                return
 
             # 나뭇가지 지급 및 자원 감소
             morld.give_item(player_id, branch_id, 1)

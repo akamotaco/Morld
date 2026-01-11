@@ -9,9 +9,10 @@
 
 import morld
 from assets.base import Item
-from assets.registry import get_item_class
+from assets.registry import register_item, get_item_class
 
 
+@register_item
 class Log(Item):
     """
     통나무 - 크래프팅 재료
@@ -28,55 +29,17 @@ class Log(Item):
     actions = [
         "take@container",
         "call:look:살펴보기@inventory",
-        "call:process:나무판으로 가공@inventory"  # can:chop 필요 (도끼 보유)
     ]
-
-    # 가공 설정
-    PLANK_COUNT = 3  # 통나무 1개 → 나무판 3개
-    PROCESS_TIME = 10  # 가공 시간 10분
 
     def look(self):
         """통나무 살펴보기"""
         yield morld.dialog([
             "단단한 통나무다.",
-            "도끼가 있으면 나무판으로 가공할 수 있을 것 같다."
-        ])
-
-    def process(self):
-        """
-        통나무를 나무판으로 가공 (can:chop 필요)
-
-        도끼 보유 확인은 can:chop 액션 필터링으로 처리됨
-        """
-        player_id = morld.get_player_id()
-
-        yield morld.dialog("통나무를 나무판으로 가공한다...")
-        morld.advance_time(self.PROCESS_TIME)
-
-        # 나무판 아이템 ID 조회 또는 생성
-        plank_id = morld.get_item_id_by_unique("plank")
-        if plank_id is None:
-            plank_class = get_item_class("plank")
-            if plank_class:
-                plank_item = plank_class()
-                plank_id = morld.create_id("item")
-                plank_item.instantiate(plank_id)
-            else:
-                yield morld.dialog("나무판을 만들었지만, 무언가 잘못됐다.")
-                return
-
-        # 통나무 1개 소모
-        morld.lost_item(player_id, self.instance_id, 1)
-
-        # 나무판 지급
-        morld.give_item(player_id, plank_id, self.PLANK_COUNT)
-
-        yield morld.dialog([
-            f"나무판 {self.PLANK_COUNT}개를 만들었다!",
-            "다양한 제작에 쓸 수 있겠다."
+            "제작대에서 나무판으로 가공할 수 있을 것 같다."
         ])
 
 
+@register_item
 class Branch(Item):
     """나뭇가지 - 크래프팅 재료"""
     unique_id = "branch"
@@ -95,6 +58,7 @@ class Branch(Item):
         ])
 
 
+@register_item
 class Plank(Item):
     """나무판 - 크래프팅 재료 (통나무 가공)"""
     unique_id = "plank"
@@ -113,6 +77,7 @@ class Plank(Item):
         ])
 
 
+@register_item
 class Cord(Item):
     """끈 - 크래프팅 재료 (활, 덫 등 제작용)"""
     unique_id = "cord"
@@ -131,6 +96,7 @@ class Cord(Item):
         ])
 
 
+@register_item
 class Feather(Item):
     """깃털 - 크래프팅 재료 (화살 등 제작용)"""
     unique_id = "feather"

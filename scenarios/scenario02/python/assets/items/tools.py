@@ -118,12 +118,11 @@ class Axe(Item):
     세라의 도끼
 
     장착 시 can:chop 부여 → 나무에서 "벌목" 액션 활성화
-    보유 시 can:process 부여 → 통나무 "나무판으로 가공" 액션 활성화
     """
     unique_id = "axe"
     name = "도끼"
     owner = "sera"
-    passive_props = {"can:process": 1}  # 보유만 해도 가공 가능
+    passive_props = {}
     equip_props = {"can:chop": 1, "공격력": 3, "장착:손": 1}
     value = 35
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
@@ -239,8 +238,7 @@ class Lantern(Item):
     unique_id = "lantern"
     name = "랜턴"
     passive_props = {}
-    equip_props = {"밝기": 2, "장착:손": 1}
-    action_props = {"put": 1}
+    equip_props = {"밝기": 2, "장착:손": 1}    
     value = 10
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 
