@@ -97,7 +97,7 @@ def _instantiate_player():
     ragged_id = morld.create_id("item")
     ragged.instantiate(ragged_id)
     morld.give_item(player_id, ragged_id, 1)
-    morld.equip_item(player_id, ragged_id)  # 착용 상태로 시작
+    morld.equip_item_internal(player_id, ragged_id)  # 착용 상태로 시작
 
     print(f"[chapter_0] Player wearing ragged clothes (id={ragged_id})")
 

@@ -222,13 +222,13 @@ def _dress_npcs(npcs):
         outfit_id = morld.create_id("item")
         outfit.instantiate(outfit_id)
         morld.give_item(sera_id, outfit_id, 1)
-        morld.equip_item(sera_id, outfit_id)
+        morld.equip_item_internal(sera_id, outfit_id)
 
         vest = HuntingVest()
         vest_id = morld.create_id("item")
         vest.instantiate(vest_id)
         morld.give_item(sera_id, vest_id, 1)
-        morld.equip_item(sera_id, vest_id)
+        morld.equip_item_internal(sera_id, vest_id)
 
     # 밀라: 메이드복 + 앞치마
     if "mila" in npcs:
@@ -237,13 +237,13 @@ def _dress_npcs(npcs):
         dress_id = morld.create_id("item")
         dress.instantiate(dress_id)
         morld.give_item(mila_id, dress_id, 1)
-        morld.equip_item(mila_id, dress_id)
+        morld.equip_item_internal(mila_id, dress_id)
 
         apron = MilaApron()
         apron_id = morld.create_id("item")
         apron.instantiate(apron_id)
         morld.give_item(mila_id, apron_id, 1)
-        morld.equip_item(mila_id, apron_id)
+        morld.equip_item_internal(mila_id, apron_id)
 
     # 리나: 선드레스
     if "lina" in npcs:
@@ -252,7 +252,7 @@ def _dress_npcs(npcs):
         sundress_id = morld.create_id("item")
         sundress.instantiate(sundress_id)
         morld.give_item(lina_id, sundress_id, 1)
-        morld.equip_item(lina_id, sundress_id)
+        morld.equip_item_internal(lina_id, sundress_id)
 
 
 def instantiate():

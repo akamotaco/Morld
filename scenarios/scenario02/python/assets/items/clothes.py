@@ -16,10 +16,7 @@
 # - 분위기:따뜻함 - 포근하고 따뜻한 느낌
 #
 # 액션:
-# - wear@inventory: 입기 (자기 인벤토리에서)
-# - unwear@inventory: 벗기 (자기가 착용 중일 때)
-# - dress@npc: 입히기 (NPC에게 - 테스트용)
-# - undress@npc: 벗기기 (NPC에게서 - 테스트용)
+# - equip@inventory: 입기/벗기 (기존 equip 핸들러 사용, 라벨은 슬롯 타입으로 자동 결정)
 #
 # 사용법:
 #   from assets.items.clothes import Shirt, Pants
@@ -41,13 +38,10 @@ class Clothing(Item):
     passive_props = {}
     equip_props = {}  # 착용:상의, 착용:하의, 착용:외투 등
     value = 10
-    # 기본 액션: 입기/벗기 (자기), 입히기/벗기기 (NPC 테스트)
+    # 기본 액션: 입기/벗기 (equip 핸들러 재사용, 라벨은 C#에서 슬롯 타입으로 결정)
     actions = [
         "take@container",
-        "wear@inventory",
-        "unwear@equipped",
-        "dress@npc",
-        "undress@npc_equipped",
+        "equip@inventory",
         "call:look:살펴보기@inventory"
     ]
 
@@ -74,13 +68,6 @@ class RaggedClothes(Clothing):
         "분위기:더러움": 1, "분위기:냄새남": 1
     }
     value = 1
-    actions = [
-        "take@container",
-        "wear@inventory",
-        "unwear@equipped",
-        "call:look:살펴보기@inventory"
-    ]
-
     def look(self):
         yield morld.dialog([
             "낡고 해진 옷이다.",

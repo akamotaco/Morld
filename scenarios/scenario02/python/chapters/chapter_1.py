@@ -73,14 +73,14 @@ def _replace_ragged_clothes(player_id):
     shirt_id = morld.create_id("item")
     shirt.instantiate(shirt_id)
     morld.give_item(player_id, shirt_id, 1)
-    morld.equip_item(player_id, shirt_id)
+    morld.equip_item_internal(player_id, shirt_id)
 
     # 일반 하의 지급 및 착용
     pants = SimplePants()
     pants_id = morld.create_id("item")
     pants.instantiate(pants_id)
     morld.give_item(player_id, pants_id, 1)
-    morld.equip_item(player_id, pants_id)
+    morld.equip_item_internal(player_id, pants_id)
 
     print(f"[chapter_1] Player now wearing shirt (id={shirt_id}) and pants (id={pants_id})")
 

@@ -90,6 +90,12 @@ class Player(Character):
         "can:putinobject": 1,
         "can:put": 1,
 
+        # 의류
+        "can:wear": 1,
+        "can:unwear": 1,
+        "can:dress": 1,
+        "can:undress": 1,
+
         # 오브젝트 상호작용 - OOP 메서드명
         "can:look": 1,
         "can:draw": 1,

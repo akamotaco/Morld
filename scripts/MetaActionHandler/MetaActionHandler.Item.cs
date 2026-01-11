@@ -180,22 +180,47 @@ public partial class MetaActionHandler
 #endif
 
 		// 슬롯 충돌 확인 및 기존 장비 해제
-		// 새 아이템의 "장착:X" 키와 같은 키를 가진 장착 아이템 찾기
-		var slotKey = item.GetEquipPropKey("장착:");
-		if (slotKey != null)
+		// 새 아이템의 슬롯 키("장착:X" 또는 "착용:X")와 같은 키를 가진 장착 아이템 해제
+		var slotKeys = new List<string>();
+
+		// 장비 슬롯 (장착:손 등) - 단일 슬롯
+		var equipSlotKey = item.GetEquipPropKey("장착:");
+		if (equipSlotKey != null)
+			slotKeys.Add(equipSlotKey);
+
+		// 의류 슬롯 (착용:상의, 착용:하의 등) - 복수 슬롯 가능
+		var wearSlotKeys = item.GetAllEquipPropKeys("착용:");
+		slotKeys.AddRange(wearSlotKeys);
+
+		if (slotKeys.Count > 0)
 		{
 			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
+			var itemsToUnequip = new List<int>();
+
 			foreach (var equippedId in equippedItems)
 			{
 				var equippedItem = itemSystem.FindItem(equippedId);
-				if (equippedItem?.EquipProps?.ContainsKey(slotKey) == true)
+				if (equippedItem?.EquipProps == null) continue;
+
+				// 슬롯 키 중 하나라도 충돌하면 해제 대상
+				foreach (var slotKey in slotKeys)
 				{
+					if (equippedItem.EquipProps.ContainsKey(slotKey))
+					{
 #if DEBUG_LOG
-					GD.Print($"[MetaActionHandler] 슬롯 충돌 - 기존 장비 해제: {equippedId} (슬롯 키: {slotKey})");
+						GD.Print($"[MetaActionHandler] 슬롯 충돌 - 기존 장비 해제: {equippedId} (슬롯 키: {slotKey})");
 #endif
-					inventorySystem.UnequipItemFromUnit(player.Id, equippedId);
-					break;
+						if (!itemsToUnequip.Contains(equippedId))
+							itemsToUnequip.Add(equippedId);
+						break;
+					}
 				}
+			}
+
+			// 충돌하는 모든 아이템 해제
+			foreach (var unequipId in itemsToUnequip)
+			{
+				inventorySystem.UnequipItemFromUnit(player.Id, unequipId);
 			}
 		}
 

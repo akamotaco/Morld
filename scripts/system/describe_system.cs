@@ -808,20 +808,38 @@ namespace SE
 			}
 
 			// equip 액션: 장착 상태에 따라 equip 또는 unequip URL 반환
+			// 라벨은 아이템 슬롯 타입에 따라 결정: 착용: → 입기/벗기, 장착: → 장착/장착 해제
 			if (action == "equip")
 			{
 				var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
 				var _inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+				var _itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
 				var player = playerSystem.FindPlayerUnit();
 				if (player == null)
 				{
 					throw new InvalidOperationException("[DescribeSystem] GetActionUrlAndLabel: Player not found for equip action");
 				}
 				bool isEquipped = _inventorySystem.IsEquippedOnUnit(player.Id, itemId);
+
+				// 아이템의 슬롯 타입에 따라 라벨 결정
+				string equipLabel = "장착";
+				string unequipLabel = "장착 해제";
+				var item = _itemSystem?.FindItem(itemId);
+				if (item != null)
+				{
+					// 착용: 슬롯이 있으면 의류 → 입기/벗기
+					var wearSlotKeys = item.GetAllEquipPropKeys("착용:");
+					if (wearSlotKeys.Count > 0)
+					{
+						equipLabel = "입기";
+						unequipLabel = "벗기";
+					}
+				}
+
 				if (isEquipped)
-					return ($"unequip:{itemId}", "장착 해제");
+					return ($"unequip:{itemId}", unequipLabel);
 				else
-					return ($"equip:{itemId}", "장착");
+					return ($"equip:{itemId}", equipLabel);
 			}
 
 			return action switch
