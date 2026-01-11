@@ -1,19 +1,55 @@
 # ui.py - UI 훅 함수
 #
 # C#에서 호출하는 UI 관련 Python 훅
-# - get_status_header(): 상태바 헤더 (체력, 포만감)
+# - get_header(): 상단 정보 (시간/날씨)
+# - get_footer(): 하단 정보 (상태바)
 # - get_action_text(): 행동 옵션 BBCode 생성
 # - ui_get_move_confirm_message(): 이동 확인 다이얼로그 메시지
 
 import morld
 
 
-def get_status_header():
-    """
-    상태바 헤더 반환 (메인 화면 상단)
+# ========================================
+# Header / Footer 시스템
+# ========================================
 
-    C#의 DescribeSystem에서 호출됩니다.
-    체력, 포만감 상태바와 상태 이상 메시지를 반환합니다.
+def get_time_weather_text():
+    """
+    시간 + 날씨 정보 텍스트 반환
+
+    C# GameTime.ToString()과 동일한 포맷:
+    "{year}년 {month}월 {day}일 ({weekday}) {hour:02d}:{minute:02d} / {weather}"
+
+    Returns:
+        str: "1년 4월 1일 (수) 20:00 / 흐림" 형식 또는 빈 문자열
+    """
+    try:
+        time_info = morld.get_time_info()
+        if not time_info:
+            return ""
+
+        # 시간 포맷팅 (C# GameTime.ToString() 동일)
+        year = time_info.get("year", 1)
+        month = time_info.get("month", 1)
+        day = time_info.get("day", 1)
+        weekday = time_info.get("weekday", "")
+        hour = time_info.get("hour", 0)
+        minute = time_info.get("minute", 0)
+        time_str = f"{year}년 {month}월 {day}일 ({weekday}) {hour:02d}:{minute:02d}"
+
+        # 날씨 (실외일 때만)
+        weather = time_info.get("weather", "")
+        if weather:
+            return f"{time_str} / {weather}"
+        return time_str
+    except Exception as e:
+        print(f"[ui] get_time_weather_text error: {e}")
+        return ""
+
+
+def get_status_text():
+    """
+    캐릭터 상태 텍스트 반환 (체력/포만감 바 + 상태 이상)
 
     Returns:
         str: 상태바 BBCode 문자열 (빈 문자열이면 표시 안함)
@@ -40,8 +76,93 @@ def get_status_header():
     except ImportError:
         return ""  # survival 모듈이 없으면 빈 문자열
     except Exception as e:
-        print(f"[ui] get_status_header error: {e}")
+        print(f"[ui] get_status_text error: {e}")
         return ""
+
+
+def get_header():
+    """
+    상단 헤더 반환 (위치 + 시간/날씨 정보)
+
+    Focus 화면 최상단에 표시됩니다.
+    모든 Focus 화면에서 통일된 형식으로 사용됩니다.
+
+    Returns:
+        str: "[font_size=20][위치][/font_size]\n[시간/날씨]" 형식
+             또는 빈 문자열
+    """
+    try:
+        time_info = morld.get_time_info()
+        if not time_info:
+            return ""
+
+        lines = []
+
+        # 위치 정보 (백색, 큰 글씨)
+        region_name = time_info.get("region_name", "")
+        location_name = time_info.get("location_name", "")
+        if region_name and location_name:
+            location_text = f"{region_name} - {location_name}"
+        elif location_name:
+            location_text = location_name
+        elif region_name:
+            location_text = region_name
+        else:
+            location_text = ""
+
+        if location_text:
+            lines.append(f"[font_size=20]{location_text}[/font_size]")
+
+        # 시간/날씨 정보
+        time_text = get_time_weather_text()
+        if time_text:
+            lines.append(time_text)
+
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[ui] get_header error: {e}")
+        return ""
+
+
+def get_footer():
+    """
+    하단 푸터 반환 (상태바)
+
+    Focus 화면 최하단에 표시됩니다.
+    구분선 포함.
+
+    Returns:
+        str: 구분선 + 상태바 BBCode (빈 문자열이면 표시 안함)
+    """
+    status_text = get_status_text()
+    if not status_text:
+        return ""
+    return "[color=gray]────────────────────[/color]\n" + status_text
+
+
+def get_info_header(show_time=True, show_status=True):
+    """
+    통합 정보 헤더 반환 (레거시 - 하위 호환용)
+
+    Returns:
+        str: 포맷팅된 헤더 BBCode (빈 문자열이면 표시 안함)
+    """
+    lines = []
+
+    if show_time:
+        time_text = get_time_weather_text()
+        if time_text:
+            lines.append(f"[color=gray]{time_text}[/color]")
+
+    if show_status:
+        status_text = get_status_text()
+        if status_text:
+            lines.append(status_text)
+
+    if not lines:
+        return ""
+
+    return "[color=gray]────────────────────[/color]\n" + "\n".join(lines)
 
 
 def format_time(minutes):
@@ -124,11 +245,6 @@ def get_action_text():
     else:
         lines.append("  [color=gray]낮잠 (4시간)[/color]")
 
-    # 상태바 (체력, 포만감) - 행동 섹션 아래에 표시
-    status_header = get_status_header()
-    if status_header:
-        lines.append("")
-        lines.append("[color=gray]────────────────────[/color]")
-        lines.append(status_header)
+    # 상태바는 get_footer()로 분리됨 (C#에서 별도 호출)
 
     return "\n".join(lines)

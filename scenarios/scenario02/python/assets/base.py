@@ -397,7 +397,8 @@ class Item(Asset):
 
     passive_props: dict = None
     equip_props: dict = None
-    action_props: dict = None  # 액션별 활성화 상태
+    # action_props: dict = None  # 액션별 활성화 상태
+    action_props: dict = {"put": 1} # 기본적으로 아이템은 모두 콘테이너에 너허을 수 있음
     value: int = 0
     owner: str = None  # 소유자 unique_id (예: "sera", "mila")
     category: str = None  # 아이템 카테고리 (필터링용)

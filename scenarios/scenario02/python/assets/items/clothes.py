@@ -48,7 +48,6 @@ class Clothing(Item):
     category = "clothing"
     passive_props = {}
     equip_props = {}  # 착용:상의, 착용:하의, 착용:외투 등
-    action_props = {"put": 1}
     value = 10
     # 기본 액션: 입기/벗기 (equip 핸들러 재사용, 라벨은 C#에서 슬롯 타입으로 결정)
     actions = [

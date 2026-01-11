@@ -20,18 +20,6 @@ HEALTH_THRESHOLD_DANGER = 20      # 위험 체력
 _accumulated_minutes = 0
 
 
-def is_enabled(unit_id: int) -> bool:
-    """
-    생존 시스템 활성화 여부 확인
-
-    '생존:활성화' prop이 1 이상이면 활성화.
-    챕터 0에서는 이 prop을 설정하지 않아 비활성화 상태.
-    챕터 1에서 '생존:활성화': 1로 설정하면 활성화.
-    """
-    enabled = morld.get_unit_prop(unit_id, "생존:활성화")
-    return enabled is not None and enabled >= 1
-
-
 def get_survival_stats(unit_id: int) -> dict:
     """
     유닛의 생존 스탯 조회
@@ -101,10 +89,6 @@ def process_time_elapsed(unit_id: int, minutes: int):
     if minutes <= 0:
         return
 
-    # 생존 시스템 비활성화 시 무시
-    if not is_enabled(unit_id):
-        return
-
     # 생존 스탯이 없는 유닛은 무시
     stats = get_survival_stats(unit_id)
     if stats["max_satiety"] == 0:
@@ -149,10 +133,6 @@ def get_status_message(unit_id: int) -> str:
     Returns:
         상태 이상 메시지 (BBCode 포함) 또는 빈 문자열
     """
-    # 생존 시스템 비활성화 시 빈 문자열
-    if not is_enabled(unit_id):
-        return ""
-
     stats = get_survival_stats(unit_id)
     satiety = stats["satiety"]
     health = stats["health"]
@@ -203,10 +183,6 @@ def get_status_bar(unit_id: int) -> str:
     Returns:
         "체력: [color=green]████████░░[/color] 80  포만감: [color=cyan]██████░░░░[/color] 60"
     """
-    # 생존 시스템 비활성화 시 빈 문자열
-    if not is_enabled(unit_id):
-        return ""
-
     stats = get_survival_stats(unit_id)
 
     health = stats["health"]

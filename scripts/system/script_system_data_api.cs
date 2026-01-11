@@ -1021,6 +1021,55 @@ namespace SE
                     return new PyInt(time.MinuteOfDay);
                 });
 
+                // get_time_info: 현재 시간 정보 (year, month, day, weekday, hour, minute, weather, region_name, location_name) 반환
+                morldModule.ModuleDict["get_time_info"] = new PyBuiltinFunction("get_time_info", args =>
+                {
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+
+                    var time = _worldSystem.GetTime();
+                    if (time == null)
+                        return PyNone.Instance;
+
+                    var result = new PyDict();
+                    result.SetItem(new PyString("year"), new PyInt(time.Year));
+                    result.SetItem(new PyString("month"), new PyInt(time.Month));
+                    result.SetItem(new PyString("day"), new PyInt(time.Day));
+                    result.SetItem(new PyString("weekday"), new PyString(time.WeekdayName));
+                    result.SetItem(new PyString("hour"), new PyInt(time.Hour));
+                    result.SetItem(new PyString("minute"), new PyInt(time.Minute));
+
+                    // 날씨 및 위치 정보: 플레이어 위치 기준
+                    string weather = "";
+                    string regionName = "";
+                    string locationName = "";
+                    var player = _playerSystem?.FindPlayerUnit();
+                    if (player != null)
+                    {
+                        var terrain = _worldSystem.GetTerrain();
+                        var location = terrain.GetLocation(player.CurrentLocation);
+                        if (location != null)
+                        {
+                            locationName = location.Name ?? "";
+
+                            // 날씨는 실외일 때만
+                            if (!location.IsIndoor)
+                            {
+                                var region = terrain.GetRegion(player.CurrentLocation.RegionId);
+                                weather = region?.CurrentWeather ?? "";
+                            }
+                        }
+
+                        var playerRegion = terrain.GetRegion(player.CurrentLocation.RegionId);
+                        regionName = playerRegion?.Name ?? "";
+                    }
+                    result.SetItem(new PyString("weather"), new PyString(weather));
+                    result.SetItem(new PyString("region_name"), new PyString(regionName));
+                    result.SetItem(new PyString("location_name"), new PyString(locationName));
+
+                    return result;
+                });
+
                 // set_region_weather: 지역 날씨 설정 (기존 set_weather와 동일하지만 명확한 이름)
                 morldModule.ModuleDict["set_region_weather"] = new PyBuiltinFunction("set_region_weather", args =>
                 {

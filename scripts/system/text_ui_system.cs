@@ -227,7 +227,19 @@ namespace SE
 		/// </summary>
 		private string RenderDialog(Focus focus)
 		{
-			return focus.DialogText ?? "";
+			var lines = new List<string>();
+
+			// Header: 구분선
+			lines.Add("[color=gray]────────────────────[/color]");
+
+			// Body: 다이얼로그 텍스트
+			var body = focus.DialogText ?? "";
+			lines.Add(body);
+
+			// Footer: 구분선
+			lines.Add("[color=gray]────────────────────[/color]");
+
+			return string.Join("\n", lines);
 		}
 
 		private string RenderSituation()
@@ -237,11 +249,22 @@ namespace SE
 			var lookResult = _playerSystem.Look();
 			var time = (_hub.GetSystem("worldSystem") as WorldSystem).GetTime();
 
-			// 1. 묘사 텍스트 (행동 옵션 제외)
+			var lines = new List<string>();
+
+			// Header: 시간/날씨 (Python get_header())
+			var header = GetHeaderFromPython();
+			if (!string.IsNullOrEmpty(header))
+			{
+				lines.Add(header);
+				lines.Add("[color=gray]────────────────────[/color]");
+			}
+
+			// Body: 묘사 텍스트
 			var describeText = _describeSystem.GetDescribeText(lookResult, time, GetPrintableLogs());
 			Godot.GD.Print($"[RenderSituation] describeText.Length={describeText?.Length ?? 0}");
+			lines.Add(describeText);
 
-			// 2. 행동 텍스트 (Python 훅 또는 C# 폴백)
+			// 행동 텍스트 (Python 훅 또는 C# 폴백)
 			var actionText = GetActionTextFromPython();
 			Godot.GD.Print($"[RenderSituation] actionText from Python: {actionText?.Length ?? 0} chars");
 			if (string.IsNullOrEmpty(actionText))
@@ -250,8 +273,16 @@ namespace SE
 				actionText = _describeSystem.GetActionText(lookResult);
 				Godot.GD.Print($"[RenderSituation] actionText from C# fallback: {actionText?.Length ?? 0} chars");
 			}
+			lines.Add(actionText);
 
-			var result = describeText + "\n" + actionText;
+			// Footer: 상태바
+			var footer = GetFooterFromPython();
+			if (!string.IsNullOrEmpty(footer))
+			{
+				lines.Add(footer);
+			}
+
+			var result = string.Join("\n", lines);
 			Godot.GD.Print($"[RenderSituation] total={result.Length} chars");
 			return result;
 		}
@@ -285,23 +316,143 @@ namespace SE
 			return null;
 		}
 
+		/// <summary>
+		/// Python ui.get_header() 훅 호출
+		/// Focus 화면 상단에 시간/날씨 정보 표시
+		/// </summary>
+		private string? GetHeaderFromPython()
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var result = _scriptSystem.CallModuleFunction("ui", "get_header");
+				if (result != null && result is not SharpPy.PyNone)
+				{
+					var text = result.AsString();
+					if (!string.IsNullOrEmpty(text))
+					{
+						return text;
+					}
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python get_header() error: {ex.Message}");
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Python ui.get_footer() 훅 호출
+		/// Focus 화면 하단에 상태바 정보 표시
+		/// </summary>
+		private string? GetFooterFromPython()
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var result = _scriptSystem.CallModuleFunction("ui", "get_footer");
+				if (result != null && result is not SharpPy.PyNone)
+				{
+					var text = result.AsString();
+					if (!string.IsNullOrEmpty(text))
+					{
+						return text;
+					}
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python get_footer() error: {ex.Message}");
+			}
+
+			return null;
+		}
+
 		private string RenderUnit(int unitId)
 		{
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
 			var unitLook = _playerSystem.LookUnit(unitId);
 			if (unitLook == null) return "[color=gray]유닛을 찾을 수 없습니다.[/color]\n\n[url=back]뒤로[/url]";
-			return _describeSystem.GetUnitLookText(unitLook, GetPrintableLogs());
+
+			var lines = new List<string>();
+
+			// Header: 시간/날씨
+			var header = GetHeaderFromPython();
+			if (!string.IsNullOrEmpty(header))
+			{
+				lines.Add(header);
+				lines.Add("[color=gray]────────────────────[/color]");
+			}
+
+			// Body: 유닛 정보
+			var body = _describeSystem.GetUnitLookText(unitLook, GetPrintableLogs());
+			lines.Add(body);
+
+			// Footer: 상태바
+			var footer = GetFooterFromPython();
+			if (!string.IsNullOrEmpty(footer))
+			{
+				lines.Add(footer);
+			}
+
+			return string.Join("\n", lines);
 		}
 
 		private string RenderInventory()
 		{
-			return _describeSystem.GetInventoryText();
+			var lines = new List<string>();
+
+			// Header: 시간/날씨
+			var header = GetHeaderFromPython();
+			if (!string.IsNullOrEmpty(header))
+			{
+				lines.Add(header);
+				lines.Add("[color=gray]────────────────────[/color]");
+			}
+
+			// Body: 인벤토리
+			var body = _describeSystem.GetInventoryText();
+			lines.Add(body);
+
+			// Footer: 상태바
+			var footer = GetFooterFromPython();
+			if (!string.IsNullOrEmpty(footer))
+			{
+				lines.Add(footer);
+			}
+
+			return string.Join("\n", lines);
 		}
 
 		private string RenderEquipment()
 		{
-			return _describeSystem.GetEquipmentText();
+			var lines = new List<string>();
+
+			// Header: 시간/날씨
+			var header = GetHeaderFromPython();
+			if (!string.IsNullOrEmpty(header))
+			{
+				lines.Add(header);
+				lines.Add("[color=gray]────────────────────[/color]");
+			}
+
+			// Body: 장비
+			var body = _describeSystem.GetEquipmentText();
+			lines.Add(body);
+
+			// Footer: 상태바
+			var footer = GetFooterFromPython();
+			if (!string.IsNullOrEmpty(footer))
+			{
+				lines.Add(footer);
+			}
+
+			return string.Join("\n", lines);
 		}
 
 		private string RenderItem(int itemId, string context, int? targetUnitId)
@@ -329,7 +480,28 @@ namespace SE
 				}
 			}
 
-			return _describeSystem.GetItemMenuText(context, itemId, count, targetUnitId);
+			var lines = new List<string>();
+
+			// Header: 시간/날씨
+			var header = GetHeaderFromPython();
+			if (!string.IsNullOrEmpty(header))
+			{
+				lines.Add(header);
+				lines.Add("[color=gray]────────────────────[/color]");
+			}
+
+			// Body: 아이템 메뉴
+			var body = _describeSystem.GetItemMenuText(context, itemId, count, targetUnitId);
+			lines.Add(body);
+
+			// Footer: 상태바
+			var footer = GetFooterFromPython();
+			if (!string.IsNullOrEmpty(footer))
+			{
+				lines.Add(footer);
+			}
+
+			return string.Join("\n", lines);
 		}
 
 		private string RenderResult(string message)

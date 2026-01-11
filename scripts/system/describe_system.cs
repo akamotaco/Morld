@@ -180,39 +180,14 @@ namespace SE
 
 		/// <summary>
 		/// LookResult를 기반으로 전체 상황 설명 텍스트 생성
+		/// 위치/시간/날씨 정보는 TextUISystem에서 Python get_header()를 통해 별도로 렌더링
 		/// </summary>
 		public string GetSituationText(LookResult lookResult, GameTime? time, IReadOnlyList<ActionLogEntry>? actionLogs = null)
 		{
 			var lines = new List<string>();
-
-			// 1. 위치 정보
 			var loc = lookResult.Location;
-			if (!string.IsNullOrEmpty(loc.RegionName))
-			{
-				lines.Add($"[b]{loc.RegionName} - {loc.LocationName}[/b]");
-			}
-			else if (!string.IsNullOrEmpty(loc.LocationName))
-			{
-				lines.Add($"[b]{loc.LocationName}[/b]");
-			}
 
-			// 2. 시간 + 날씨 정보
-			if (time != null)
-			{
-				var location = GetLocationFromLookResult(lookResult);
-				var weatherText = "";
-				// Location.CurrentWeather는 실외일 때만 부모 Region의 날씨 반환
-				if (location != null && !string.IsNullOrEmpty(location.CurrentWeather))
-				{
-					weatherText = $" / {location.CurrentWeather}";
-				}
-				lines.Add($"{time}{weatherText}");
-			}
-
-			// === 구분선 ===
-			lines.Add("[color=gray]────────────────────[/color]");
-
-			// 3. 위치 외관 묘사
+			// 위치 외관 묘사
 			if (!string.IsNullOrEmpty(loc.AppearanceText))
 			{
 				lines.Add(loc.AppearanceText);
