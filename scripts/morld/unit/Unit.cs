@@ -8,7 +8,7 @@ using SE;
 /// Unit (유닛) - 캐릭터와 오브젝트 통합
 /// Note: Unit은 Appearance를 사용하고, IDescribable(DescribeText)은 Region/Location용
 /// </summary>
-public class Unit
+public class Unit : IOwnable
 {
 	private readonly int _id;
 	private LocationRef _currentLocation;
@@ -28,6 +28,11 @@ public class Unit
 	/// Unit 이름
 	/// </summary>
 	public string Name { get; set; }
+
+	/// <summary>
+	/// 소유자 unique_id (예: "sera", "mila") - null이면 공용
+	/// </summary>
+	public string? Owner { get; set; }
 
 	/// <summary>
 	/// 현재 Location (이동 중이면 출발지)

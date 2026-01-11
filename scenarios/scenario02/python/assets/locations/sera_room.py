@@ -7,7 +7,7 @@ from assets.objects.furniture import Bed
 
 class SeraRoom(Location):
     unique_id = "sera_room"
-    name = "방3"
+    name = "방"
     owner = "sera"
     is_indoor = True
     stay_duration = 0

@@ -7,7 +7,7 @@ from assets.objects.furniture import Mirror, Bed
 
 class MilaRoom(Location):
     unique_id = "mila_room"
-    name = "방4"
+    name = "방"
     owner = "mila"
     is_indoor = True
     stay_duration = 0

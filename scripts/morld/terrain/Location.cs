@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Region에 속한 위치 (기존 Node 개념)
 /// </summary>
-public class Location : IEquatable<Location>, IDescribable
+public class Location : IEquatable<Location>, IDescribable, IOwnable
 {
     /// <summary>
     /// Region 내에서의 로컬 ID

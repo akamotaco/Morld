@@ -5,7 +5,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Item (아이템)
 /// </summary>
-public class Item
+public class Item : IOwnable
 {
 	private readonly int _id;
 

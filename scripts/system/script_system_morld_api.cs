@@ -209,6 +209,25 @@ namespace SE
                 result.SetItem(new PyString("unique_id"), new PyString(item.UniqueId ?? ""));
                 result.SetItem(new PyString("name"), new PyString(item.Name ?? ""));
                 result.SetItem(new PyString("value"), new PyInt(item.Value));
+
+                // passive_props
+                var passiveProps = new PyDict();
+                foreach (var kv in item.PassiveProps)
+                    passiveProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
+                result.SetItem(new PyString("passive_props"), passiveProps);
+
+                // equip_props
+                var equipProps = new PyDict();
+                foreach (var kv in item.EquipProps)
+                    equipProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
+                result.SetItem(new PyString("equip_props"), equipProps);
+
+                // action_props
+                var actionProps = new PyDict();
+                foreach (var kv in item.ActionProps)
+                    actionProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
+                result.SetItem(new PyString("action_props"), actionProps);
+
                 return result;
             });
 

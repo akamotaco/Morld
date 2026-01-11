@@ -100,9 +100,14 @@ class Player(Character):
         "can:eat": 1,
         "can:harvest": 1,
 
+        # 조리
+        "can:cook": 1,
+        "can:brew": 1,
+
         # 디버그
         "can:debug_props": 1,
         "can:debug_self_props": 1,
+        "can:debug_item_props": 1,
     }
     actions = ["call:rest:휴식", "call:sleep:노숙"]
     mood = []

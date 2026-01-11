@@ -68,7 +68,7 @@ class AppleTree(ResourceObject):
     name = "사과나무"
     resource_item_unique_id = "food_apple"
     max_resources = 3
-    actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
+    actions = ["container", "call:debug_props:속성 보기"]
 
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""
@@ -87,7 +87,7 @@ class BerryBush(ResourceObject):
     name = "산딸기 덤불"
     resource_item_unique_id = "food_wild_berry"
     max_resources = 5
-    actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
+    actions = ["container", "call:debug_props:속성 보기"]
 
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""
@@ -106,7 +106,7 @@ class MushroomPatch(ResourceObject):
     name = "버섯 군락"
     resource_item_unique_id = "food_mushroom"
     max_resources = 4
-    actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
+    actions = ["container", "call:debug_props:속성 보기"]
 
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""
@@ -125,7 +125,7 @@ class HerbGarden(ResourceObject):
     name = "약초밭"
     resource_item_unique_id = "food_herb"
     max_resources = 4
-    actions = ["container"]  # 인벤토리 표시 (가져가기만, 넣기 불가)
+    actions = ["container", "call:debug_props:속성 보기"]
 
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""

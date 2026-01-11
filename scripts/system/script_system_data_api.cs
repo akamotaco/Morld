@@ -304,7 +304,7 @@ namespace SE
                 morldModule.ModuleDict["add_unit"] = new PyBuiltinFunction("add_unit", args =>
                 {
                     if (args.Length < 4)
-                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None, unique_id=None, action_props=None) requires at least 4 arguments");
+                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None, unique_id=None, action_props=None, owner=None) requires at least 4 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -315,10 +315,12 @@ namespace SE
                     var mood = args.Length >= 7 && args[6] is PyList moodList ? PyListToStringList(moodList) : null;
                     string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
                     var actionProps = args.Length >= 9 && args[8] is PyDict apDict ? PyDictToIntDict(apDict) : null;
+                    string owner = args.Length >= 10 && args[9] is PyString ownerStr ? ownerStr.Value : null;
 
                     var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                     var unit = new Morld.Unit(id, name, regionId, locationId);
                     unit.UniqueId = uniqueId;
+                    unit.Owner = owner;
                     unit.Type = type.ToLower() switch
                     {
                         "female" => Morld.UnitType.Female,

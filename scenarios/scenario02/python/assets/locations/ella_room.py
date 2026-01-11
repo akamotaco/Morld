@@ -10,7 +10,7 @@ from assets.objects.furniture import Mirror, Bed
 
 class GuestRoom2(Location):
     unique_id = "guest_room2"
-    name = "방6"
+    name = "방"
     owner = None  # 빈 방 (아직 소유자 없음)
     is_indoor = True
     stay_duration = 0

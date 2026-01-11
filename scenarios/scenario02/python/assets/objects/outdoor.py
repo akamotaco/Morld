@@ -136,19 +136,25 @@ class FishingSpot(Object):
         if random.random() < 0.7:
             player_id = morld.get_player_id()
 
-            # Fish 아이템 생성
-            fish_class = get_item_class("food_fish")
-            if fish_class:
-                fish = fish_class()
-                fish_id = morld.create_id("item")
-                fish.instantiate(fish_id)
-                morld.give_item(player_id, fish_id, 1)
-                yield morld.dialog([
-                    "물고기를 잡았다!",
-                    "신선한 생선이다."
-                ])
-            else:
-                yield morld.dialog("물고기를 잡았지만, 놓쳐버렸다.")
+            # 기존 생선 아이템 ID 조회 (스택을 위해)
+            fish_id = morld.get_item_id_by_unique("food_fish")
+
+            # 기존 아이템이 없으면 새로 생성
+            if fish_id is None:
+                fish_class = get_item_class("food_fish")
+                if fish_class:
+                    fish = fish_class()
+                    fish_id = morld.create_id("item")
+                    fish.instantiate(fish_id)
+                else:
+                    yield morld.dialog("물고기를 잡았지만, 놓쳐버렸다.")
+                    return
+
+            morld.give_item(player_id, fish_id, 1)
+            yield morld.dialog([
+                "물고기를 잡았다!",
+                "신선한 생선이다."
+            ])
         else:
             yield morld.dialog([
                 "한참을 기다렸지만...",

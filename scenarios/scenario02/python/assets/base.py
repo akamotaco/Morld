@@ -142,6 +142,7 @@ class Unit(Asset):
     - type: "male", "female", "object" 등
     - mood: 감정 상태 리스트
     - props: 기본 Prop (스탯/상태 등)
+    - owner: 소유자 unique_id (예: "sera") - None이면 공용
 
     인스턴스 속성:
     - region_id, location_id: 배치 위치
@@ -150,6 +151,7 @@ class Unit(Asset):
     type: str = "object"
     mood: list = None
     props: dict = None
+    owner: str = None
 
     def __init__(self):
         super().__init__()
@@ -217,7 +219,9 @@ class Character(Unit):
             self.type,
             self.actions or [],
             self.mood or [],
-            self.unique_id  # unique_id 전달
+            self.unique_id,  # unique_id 전달
+            None,            # action_props
+            self.owner       # owner 전달
         )
 
         # Prop 설정
@@ -352,7 +356,10 @@ class Object(Unit):
             location_id,
             "object",
             self.actions or [],
-            []  # mood
+            [],          # mood
+            self.unique_id,  # unique_id 전달
+            None,            # action_props
+            self.owner       # owner 전달
         )
 
         # Prop 설정 (좌석 정보 등)
@@ -413,6 +420,50 @@ class Item(Asset):
         # 인스턴스 캐시 등록 (call: 액션용)
         from assets.items import register_instance
         register_instance(instance_id, self)
+
+    def debug_item_props(self):
+        """아이템의 속성(props) 디버그 출력"""
+        self._check_instantiated()
+        item_info = morld.get_item_info(self.instance_id)
+        if not item_info:
+            yield morld.dialog("[debug_item_props] 아이템 정보를 찾을 수 없습니다.")
+            return
+
+        lines = [f"[b]{self.name}[/b] (id={self.instance_id})"]
+        lines.append("")
+
+        # Passive Props
+        passive_props = item_info.get("passive_props", {})
+        if passive_props:
+            lines.append("[color=cyan]Passive Props:[/color]")
+            for key, value in passive_props.items():
+                lines.append(f"  {key}: {value}")
+        else:
+            lines.append("[color=gray]Passive Props: 없음[/color]")
+
+        lines.append("")
+
+        # Equip Props
+        equip_props = item_info.get("equip_props", {})
+        if equip_props:
+            lines.append("[color=lime]Equip Props:[/color]")
+            for key, value in equip_props.items():
+                lines.append(f"  {key}: {value}")
+        else:
+            lines.append("[color=gray]Equip Props: 없음[/color]")
+
+        lines.append("")
+
+        # Action Props
+        action_props = item_info.get("action_props", {})
+        if action_props:
+            lines.append("[color=yellow]Action Props:[/color]")
+            for key, value in action_props.items():
+                lines.append(f"  {key}: {value}")
+        else:
+            lines.append("[color=gray]Action Props: 없음[/color]")
+
+        yield morld.dialog("\n".join(lines))
 
 
 class Location(Asset):

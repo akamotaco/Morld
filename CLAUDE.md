@@ -779,7 +779,7 @@ class KitchenKnife(Item):
 # 장소에 소유자 지정
 class LinaRoom(Location):
     unique_id = "lina_room"
-    name = "방2"
+    name = "방"
     owner = "lina"  # 리나 소유
 ```
 

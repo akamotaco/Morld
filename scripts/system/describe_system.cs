@@ -425,7 +425,7 @@ namespace SE
 							if (item != null)
 							{
 								var countText = count > 1 ? $" x{count}" : "";
-								var itemName = GetItemNameWithOwner(item);
+								var itemName = GetNameWithOwner(item);
 								// 아이템 메뉴로 연결
 								lines.Add($"  [url=item_unit_menu:{unitLook.UnitId}:{itemId}]{itemName}{countText}[/url]");
 							}
@@ -513,31 +513,17 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 아이템 이름에 소유자 표시 추가
+		/// IOwnable 객체 이름에 소유자 표시 추가 (Unit, Item, Location 공통)
 		/// </summary>
-		public string GetItemNameWithOwner(Morld.Item item)
+		public string GetNameWithOwner(Morld.IOwnable ownable)
 		{
-			if (item == null) return "";
+			if (ownable == null) return "";
 
-			var ownerName = GetOwnerName(item.Owner);
+			var ownerName = GetOwnerName(ownable.Owner);
 			if (!string.IsNullOrEmpty(ownerName))
-				return $"{item.Name} [color=gray]({ownerName} 소유)[/color]";
+				return $"{ownable.Name} [color=gray]({ownerName} 소유)[/color]";
 
-			return item.Name;
-		}
-
-		/// <summary>
-		/// Location 이름에 소유자 표시 추가
-		/// </summary>
-		public string GetLocationNameWithOwner(Morld.Location location)
-		{
-			if (location == null) return "";
-
-			var ownerName = GetOwnerName(location.Owner);
-			if (!string.IsNullOrEmpty(ownerName))
-				return $"{location.Name} [color=gray]({ownerName} 소유)[/color]";
-
-			return location.Name;
+			return ownable.Name;
 		}
 
 		/// <summary>
@@ -580,7 +566,7 @@ namespace SE
 					{
 						var countText = count > 1 ? $" x{count}" : "";
 						var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
-						var itemName = GetItemNameWithOwner(item);
+						var itemName = GetNameWithOwner(item);
 						// 아이템 메뉴로 연결
 						lines.Add($"  [url=item_inv_menu:{itemId}]{itemName}{countText}[/url]{valueText}");
 						totalValue += item.Value * count;
@@ -600,7 +586,7 @@ namespace SE
 					var item = itemSystem.FindItem(itemId);
 					if (item != null)
 					{
-						var itemName = GetItemNameWithOwner(item);
+						var itemName = GetNameWithOwner(item);
 						lines.Add($"  {itemName}");
 					}
 				}
@@ -648,7 +634,7 @@ namespace SE
 					var item = itemSystem.FindItem(itemId);
 					if (item != null)
 					{
-						var itemName = GetItemNameWithOwner(item);
+						var itemName = GetNameWithOwner(item);
 						// 아이템 메뉴로 연결 (장착 해제 가능)
 						lines.Add($"  [url=item_inv_menu:{itemId}]{itemName}[/url]");
 					}
@@ -689,7 +675,7 @@ namespace SE
 			// 헤더 생성
 			var countText = count > 1 ? $" x{count}" : "";
 			var valueText = (context == "inventory" && item.Value > 0) ? $" ({item.Value * count}G)" : "";
-			var itemName = GetItemNameWithOwner(item);
+			var itemName = GetNameWithOwner(item);
 			lines.Add($"[b]{itemName}{countText}[/b]{valueText}");
 
 			// container 컨텍스트일 경우 유닛 이름 표시
@@ -731,6 +717,12 @@ namespace SE
 					var putLabel = $"넣기: {targetUnit.Name}";
 					lines.Add($"  [url=put:{targetUnitId.Value}:{itemId}]{putLabel}[/url]");
 				}
+			}
+
+			// 디버그: 아이템 props 보기 (can:debug_item_props가 있으면 표시)
+			if (CanPerformAction(player, "debug_item_props"))
+			{
+				lines.Add($"  [url=call:debug_item_props:속성 보기]속성 보기[/url]");
 			}
 
 			if (filteredActions.Count > 0 || (context == "inventory" && targetUnitId.HasValue))

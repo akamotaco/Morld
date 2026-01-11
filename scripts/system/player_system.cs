@@ -476,7 +476,7 @@ namespace SE
 			var locationInfo = new LocationInfo
 			{
 				RegionName = region.Name ?? "",
-				LocationName = describeSystem.GetLocationNameWithOwner(location) ?? "",
+				LocationName = describeSystem.GetNameWithOwner(location) ?? "",
 				AppearanceText = describeSystem.GetLocationDescribeText(location, gameTime, region) ?? "",
 				LocationRef = player.CurrentLocation
 			};
@@ -573,6 +573,8 @@ namespace SE
 			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
 			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
 
+			var describeSystem = this._hub.GetSystem("describeSystem") as DescribeSystem;
+
 			// Region 내부 Edge
 			var edges = region.GetEdges(location);
 			foreach (var edge in edges)
@@ -597,7 +599,7 @@ namespace SE
 				var neighbor = edge.GetOtherLocation(location);
 				routes.Add(new RouteInfo
 				{
-					LocationName = neighbor.Name,
+					LocationName = describeSystem.GetNameWithOwner(neighbor) ?? neighbor.Name,
 					RegionName = region.Name,
 					Destination = new LocationRef(neighbor.RegionId, neighbor.LocalId),
 					TravelTime = edge.GetTravelTime(location),
@@ -632,7 +634,7 @@ namespace SE
 
 				routes.Add(new RouteInfo
 				{
-					LocationName = destLocation.Name ?? "",
+					LocationName = describeSystem.GetNameWithOwner(destLocation) ?? destLocation.Name ?? "",
 					RegionName = destRegion.Name ?? "",
 					Destination = destination,
 					TravelTime = regionEdge.GetTravelTime(player.CurrentLocation),
