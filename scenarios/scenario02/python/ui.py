@@ -10,6 +10,36 @@ import morld
 
 
 # ========================================
+# UI 표시 설정
+# ========================================
+
+_show_header = True
+_show_footer = True
+
+
+def set_show_header(show: bool):
+    """헤더 UI 표시 설정 (False면 숨김)"""
+    global _show_header
+    _show_header = show
+
+
+def set_show_footer(show: bool):
+    """푸터 UI 표시 설정 (False면 숨김)"""
+    global _show_footer
+    _show_footer = show
+
+
+def is_header_visible() -> bool:
+    """헤더 UI 표시 여부"""
+    return _show_header
+
+
+def is_footer_visible() -> bool:
+    """푸터 UI 표시 여부"""
+    return _show_footer
+
+
+# ========================================
 # Header / Footer 시스템
 # ========================================
 
@@ -91,6 +121,10 @@ def get_header():
         str: "[font_size=20][위치][/font_size]\n[시간/날씨]" 형식
              또는 빈 문자열
     """
+    # 헤더 숨김 상태면 빈 문자열
+    if not _show_header:
+        return ""
+
     try:
         time_info = morld.get_time_info()
         if not time_info:
@@ -134,6 +168,10 @@ def get_footer():
     Returns:
         str: 구분선 + 상태바 BBCode (빈 문자열이면 표시 안함)
     """
+    # 푸터 숨김 상태면 빈 문자열
+    if not _show_footer:
+        return ""
+
     status_text = get_status_text()
     if not status_text:
         return ""

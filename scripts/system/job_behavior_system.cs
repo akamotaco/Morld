@@ -35,10 +35,25 @@ namespace SE
 			var terrain = _worldSystem.GetTerrain();
 			var time = _worldSystem.GetTime();
 			var duration = _playerSystem.NextStepDuration;
+			var isTimeFrozen = _worldSystem.IsTimeFrozen();
 
 			// 시간 진행이 없으면 스킵
 			if (duration <= 0)
 				return;
+
+			// 시간 정지 상태: 플레이어만 즉시 이동 처리 (시간 소모 없음)
+			if (isTimeFrozen)
+			{
+				var player = _playerSystem.FindPlayerUnit();
+				if (player != null)
+				{
+					// 플레이어 즉시 이동 (목적지에 바로 도착)
+					ProcessFrozenPlayerMove(player, terrain);
+				}
+				// 시간 정지 중이므로 시간/이벤트 처리 스킵
+				_playerSystem.ClearPendingTime();
+				return;
+			}
 
 			// 각 유닛 처리
 			foreach (var unit in _unitSystem.Units.Values)
@@ -65,6 +80,31 @@ namespace SE
 
 #if DEBUG_LOG
 			GD.Print($"[JobBehaviorSystem] Time: {time}, duration={duration}분, units={_unitSystem.Units.Count}");
+#endif
+		}
+
+		/// <summary>
+		/// 시간 정지 상태에서 플레이어 즉시 이동 처리
+		/// 이동 시간 없이 목적지에 바로 도착
+		/// </summary>
+		private void ProcessFrozenPlayerMove(Unit player, Terrain terrain)
+		{
+			var currentJob = player.CurrentJob;
+			if (currentJob == null || currentJob.Action != "move")
+				return;
+
+			var goalLocation = currentJob.GetLocationRef();
+			if (player.CurrentLocation == goalLocation)
+				return;
+
+			// 즉시 목적지로 이동
+			player.CurrentEdge = null;
+			player.RemainingStayTime = 0;
+			player.SetCurrentLocation(goalLocation);
+			player.JobList.Clear();  // Job 완료
+
+#if DEBUG_LOG
+			GD.Print($"[JobBehaviorSystem] Frozen move: Player teleported to {goalLocation}");
 #endif
 		}
 

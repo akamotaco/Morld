@@ -234,6 +234,26 @@ namespace SE
                     return PyBool.True;
                 });
 
+                // === Time Freeze API ===
+                morldModule.ModuleDict["set_time_frozen"] = new PyBuiltinFunction("set_time_frozen", args =>
+                {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("set_time_frozen(frozen) requires 1 argument");
+
+                    bool frozen = args[0].IsTrue();
+
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    _worldSystem.SetTimeFrozen(frozen);
+
+                    return PyBool.True;
+                });
+
+                morldModule.ModuleDict["is_time_frozen"] = new PyBuiltinFunction("is_time_frozen", args =>
+                {
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    return _worldSystem.IsTimeFrozen() ? PyBool.True : PyBool.False;
+                });
+
                 // === Weather API ===
                 morldModule.ModuleDict["set_weather"] = new PyBuiltinFunction("set_weather", args =>
                 {

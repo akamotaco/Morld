@@ -27,9 +27,14 @@ namespace SE
         {
             var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
             var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+            var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
             // 시간 진행 대기 중이 아니면 스킵
             if (!_playerSystem.HasPendingTime)
+                return;
+
+            // 시간 정지 상태면 NPC AI 스킵
+            if (_worldSystem.IsTimeFrozen())
                 return;
 
             // think 모듈 존재 여부 한 번만 체크

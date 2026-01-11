@@ -19,6 +19,13 @@ namespace SE
 		private Morld.Terrain _terrain;
 		private Morld.GameTime _currentTime;
 
+		/// <summary>
+		/// 시간 정지 플래그
+		/// True일 때: 시간 흐름 없음, NPC 이동 없음, 이벤트 없음
+		/// 플레이어는 자유롭게 이동 가능 (시간 소모 없이)
+		/// </summary>
+		private bool _timeFrozen = false;
+
 		public WorldSystem(string TerrainName)
 		{
 			_terrain = new Morld.Terrain(TerrainName);
@@ -51,6 +58,24 @@ namespace SE
 		public void ResetTime()
 		{
 			_currentTime = new Morld.GameTime();
+		}
+
+		/// <summary>
+		/// 시간 정지 상태 설정
+		/// </summary>
+		/// <param name="frozen">True: 시간 정지, False: 정상 진행</param>
+		public void SetTimeFrozen(bool frozen)
+		{
+			_timeFrozen = frozen;
+			Godot.GD.Print($"[WorldSystem] Time frozen: {frozen}");
+		}
+
+		/// <summary>
+		/// 시간 정지 상태 조회
+		/// </summary>
+		public bool IsTimeFrozen()
+		{
+			return _timeFrozen;
 		}
 	}
 }

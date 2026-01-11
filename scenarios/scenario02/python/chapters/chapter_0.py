@@ -45,6 +45,12 @@ def initialize():
     """프롤로그 챕터 초기화"""
     print("[chapter_0] Initializing prologue chapter...")
 
+    # 0. 시간 정지 + UI 숨김 (프롤로그에서는 시간이 흐르지 않음)
+    morld.set_time_frozen(True)
+    import ui
+    ui.set_show_header(False)
+    ui.set_show_footer(False)
+
     # 1. Region 등록
     r = REGION
     morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])

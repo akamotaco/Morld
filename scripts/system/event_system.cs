@@ -285,11 +285,22 @@ namespace SE
 		/// <summary>
 		/// 같은 위치에 있는 유닛들의 OnMeet 이벤트 생성
 		/// StayDuration으로 경유지에서 체류하므로, 현재 위치만 체크하면 됨
+		/// 시간 정지 상태에서는 스킵 (NPC와 상호작용 불가)
 		/// </summary>
 		public void DetectMeetings()
 		{
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+			// 시간 정지 상태에서는 on_meet 이벤트 스킵
+			if (_worldSystem.IsTimeFrozen())
+			{
+#if DEBUG_LOG
+				GD.Print("[EventSystem] DetectMeetings skipped: time is frozen");
+#endif
+				return;
+			}
 
 			var playerId = _playerSystem.PlayerId;
 			var player = _unitSystem.FindUnit(playerId);

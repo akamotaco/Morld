@@ -60,6 +60,19 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 대기 중인 시간 모두 제거 (시간 정지 상태에서 즉시 이동 후 호출)
+		/// </summary>
+		public void ClearPendingTime()
+		{
+			_remainingDuration = 0;
+			NextStepDuration = 0;
+			_lastSetDuration = 0;
+#if DEBUG_LOG
+			GD.Print("[PlayerSystem] 대기 시간 초기화 (시간 정지 모드)");
+#endif
+		}
+
+		/// <summary>
 		/// 플레이어 유닛 접근 헬퍼
 		/// </summary>
 		public Unit? FindPlayerUnit()

@@ -38,9 +38,19 @@ def post_restore():
     """
     챕터 전환 후 플레이어 데이터 복원 후 호출
 
+    - 시간 정지 해제
+    - UI 표시 (헤더/푸터)
     - 누더기 제거 및 일반 옷 지급
     - 챕터 1부터 생존 시스템 활성화
     """
+    # 시간 정지 해제 (프롤로그에서 정지시켰던 시간 흐름 복원)
+    morld.set_time_frozen(False)
+
+    # UI 표시 (프롤로그에서 숨겼던 헤더/푸터 복원)
+    import ui
+    ui.set_show_header(True)
+    ui.set_show_footer(True)
+
     player_id = morld.get_player_id()
     if player_id is None:
         return
