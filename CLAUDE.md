@@ -287,84 +287,18 @@ class MyAgent(BaseAgent):
 ### EventSystem (Logic System)
 **역할:** 게임 이벤트 수집, 감지 및 Python 전달
 
-**핵심 설계:**
-- **이벤트 배치 처리**: 이벤트를 수집해서 한 번에 Python으로 전달
-- **위치 변경 감지**: OnReach 이벤트 자동 생성
-- **만남 감지**: OnMeet 이벤트 자동 생성 (이동 중인 유닛 제외)
-- **Python 제어**: 이벤트 처리 순서/우선순위를 Python에서 결정
-
-**OnMeet 감지 로직:**
-```csharp
-// 이동 중인 유닛(CurrentEdge != null)은 제외
-var unitsToMeet = _unitSystem.Units.Values
-    .Where(u => u.Id != playerId
-             && u.GeneratesEvents
-             && u.CurrentLocation == playerLocation
-             && u.CurrentEdge == null)  // 이동 중이 아닌 유닛만
-```
-
-**NPC Job 제어 API:**
-Generator 기반 이벤트 핸들러에서 NPC Job을 직접 제어:
-
-```python
-# 이벤트 핸들러에서 NPC Job 설정
-def handle(self, player_id, unit_ids):
-    yield morld.dialog("대화 내용...")
-    # NPC Job 설정 (시간 경과 없음)
-    morld.set_npc_job(unit_id, "follow", duration=30)
-    # 또는 시간 경과 포함
-    morld.set_npc_time_consume(unit_id, "stay", duration=30)
-```
-
-**이벤트 처리 순서 (_Process):**
-```
-1. DetectMeetings() → OnMeet 이벤트 생성
-2. FlushEvents() → Generator 실행, Dialog 표시
-3. DetectLocationChanges() → 위치 변경 감지
-4. FlushEvents() → 추가 이벤트 처리
-```
-
-**순차적 on_meet 이벤트 처리:**
-한 위치에서 여러 NPC를 동시에 만났을 때, 이벤트가 우선순위별로 순차 처리됩니다.
-
-```python
-# Python 이벤트 큐 (events/__init__.py)
-_pending_meet_events = []  # 대기 중인 이벤트 목록
-
-def _collect_meet_events(player_id, unit_ids):
-    """조건에 맞는 모든 on_meet 이벤트 수집"""
-    events = []
-    # 1. registry MeetEvent (priority 기반)
-    # 2. character on_meet_player (priority -1)
-    events.sort(key=lambda e: -e["priority"])  # 높은 priority 먼저
-    return events
-
-# C#에서 호출하는 API
-def has_pending_meet_events():
-    """대기 중인 이벤트 존재 여부"""
-    return len(_pending_meet_events) > 0
-
-def clear_pending_meet_events():
-    """ExcessTime > 0일 때 대기 중인 이벤트 모두 제거"""
-    global _pending_meet_events
-    _pending_meet_events = []
-```
-
-**ExcessTime과 이벤트 큐 연동:**
-```
-1. 플레이어가 위치 도착 → 여러 NPC와 만남
-2. 이벤트 큐 생성 (우선순위 정렬)
-3. 첫 번째 이벤트 처리 (Dialog 표시)
-4. Dialog 종료 후 ExcessTime 확인:
-   - ExcessTime > 0: 남은 이벤트 모두 스킵 (시간 흐름)
-   - ExcessTime == 0: 다음 이벤트 처리 (순차 대화)
-5. 모든 이벤트 처리 완료 or ExcessTime 발생 시 종료
-```
+**이벤트 타입:**
+- `on_reach` - 위치 도착
+- `on_meet` - 유닛 만남 (장비 변경 시 재발생)
+- `on_time_elapsed` - 시간 경과
+- `game_start` - 게임 시작
 
 **파일 위치:**
 - `scripts/system/event_system.cs`
 - `scripts/morld/event/GameEvent.cs`
-- `scenarios/scenario02/python/events/__init__.py` - 이벤트 큐 관리
+- `scenarios/scenario02/python/events/__init__.py`
+
+> 상세 내용은 [event.md](event.md) 참조
 
 ### UnitSystem (Data System)
 **역할:** 게임 내 모든 유닛(캐릭터/오브젝트)의 데이터 관리
@@ -878,6 +812,8 @@ props = {
 ### 장비 시스템 (Equipment System)
 **역할:** 아이템 장착/해제 및 장비 효과 적용
 
+> 의류 아이템 및 슬롯 테스트는 [scenarios/scenario02/clothes.md](scenarios/scenario02/clothes.md) 참조
+
 **핵심 설계:**
 - `equip_props`에 `"장착:{슬롯}": 1` 형식으로 슬롯 직접 정의
 - 같은 슬롯 키를 가진 아이템은 자동 해제 후 장착
@@ -944,6 +880,8 @@ if (slotKey != null)
 ### 생존 시스템 (Survival System)
 **역할:** 캐릭터의 체력과 포만감 관리
 
+> 음식 아이템 및 조리 테스트는 [scenarios/scenario02/food.md](scenarios/scenario02/food.md) 참조
+
 **핵심 설계:**
 - 시간 경과에 따른 포만감 감소
 - 포만감 상태에 따른 체력 증감
@@ -983,6 +921,8 @@ bar = survival.get_status_bar(unit_id)
 
 ### 자원 생성 시스템 (Resource Spawning)
 **역할:** 이벤트 기반 자원 오브젝트의 아이템 자동 생성
+
+> 크래프팅 레시피 및 테스트는 [scenarios/scenario02/craft.md](scenarios/scenario02/craft.md) 참조
 
 **핵심 설계:**
 - `on_time_elapsed` 이벤트 구독
@@ -1148,54 +1088,6 @@ def post_restore():
 **파일 위치:**
 - `scenarios/scenario02/python/ui.py` - 플래그 및 API
 
-### on_time_elapsed 이벤트
-**역할:** 시간 경과 시 Python 시스템에 알림
-
-**핵심 설계:**
-- `JobBehaviorSystem`에서 시간 진행 후 이벤트 Enqueue
-- `EventSystem`에서 누적 후 한 번에 Flush (중복 호출 방지)
-- Python에서 구독하여 시스템별 처리
-
-**이벤트 누적 처리:**
-```csharp
-// EventSystem.cs
-private int _accumulatedTimeElapsed = 0;
-
-public void Enqueue(GameEvent evt) {
-    if (evt.Type == EventType.OnTimeElapsed) {
-        _accumulatedTimeElapsed += (int)evt.Args[0];
-        return;  // 큐에 추가하지 않고 누적만
-    }
-    _pendingEvents.Add(evt);
-}
-
-public bool FlushEvents() {
-    if (_accumulatedTimeElapsed > 0) {
-        var timeEvent = GameEvent.OnTimeElapsed(_accumulatedTimeElapsed);
-        _accumulatedTimeElapsed = 0;
-        _scriptSystem.CallSingleEventHandler(timeEvent);
-    }
-    // ... 나머지 이벤트 처리
-}
-```
-
-**Python 구독:**
-```python
-# events/__init__.py
-_time_elapsed_handlers = []
-
-def subscribe_time_elapsed(handler):
-    """on_time_elapsed 이벤트 구독"""
-    _time_elapsed_handlers.append(handler)
-
-# survival.py, resource_agent.py에서 구독
-subscribe_time_elapsed(_on_time_elapsed)
-```
-
-**파일 위치:**
-- `scripts/system/event_system.cs` - 이벤트 누적 및 Flush
-- `scenarios/scenario02/python/events/__init__.py` - 구독 시스템
-
 ---
 
 ## 프로젝트 구조
@@ -1259,7 +1151,8 @@ scenarios/
 │     │  │  ├─ container.py (컨테이너 아이템 가져오기/넣기)
 │     │  │  └─ location_callbacks.py (위치 콜백)
 │     │  ├─ reach/ (OnReach 이벤트)
-│     │  └─ meet/ (OnMeet 이벤트)
+│     │  ├─ meet/ (OnMeet 이벤트)
+│     │  └─ game_start/ (GameStart 이벤트)
 │     ├─ chapters/ (챕터 관리)
 │     │  ├─ __init__.py (load_chapter, get_current_chapter)
 │     │  ├─ persistence.py (플레이어 데이터 저장/복원)
