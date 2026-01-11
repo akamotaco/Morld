@@ -461,6 +461,7 @@ class Wardrobe(Object):
     actions = [
         "call:look:살펴보기",
         "container",  # C# 기본 컨테이너 UI 사용
+        "call:put:옷 넣기",
         "call:debug_props:속성 보기"
     ]
     focus_text = {"default": "옷을 보관할 수 있는 나무 옷장."}

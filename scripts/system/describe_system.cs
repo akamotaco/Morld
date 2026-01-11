@@ -722,7 +722,7 @@ namespace SE
 			// 디버그: 아이템 props 보기 (can:debug_item_props가 있으면 표시)
 			if (CanPerformAction(player, "debug_item_props"))
 			{
-				lines.Add($"  [url=call:debug_item_props:속성 보기]속성 보기[/url]");
+				lines.Add($"  [url=call:debug_item_props]속성 보기[/url]");
 			}
 
 			if (filteredActions.Count > 0 || (context == "inventory" && targetUnitId.HasValue))

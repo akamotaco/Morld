@@ -674,7 +674,10 @@ __init__.initialize_scenario()
                 Execute("import assets");
 
                 // assets.call_instance_method(instance_id, method_name, *args) 호출
-                var argsCode = args != null && args.Length > 0 ? ", " + string.Join(", ", args) : "";
+                // args를 문자열 리터럴로 변환 (따옴표 추가)
+                var argsCode = args != null && args.Length > 0
+                    ? ", " + string.Join(", ", args.Select(a => $"'{a}'"))
+                    : "";
                 var code = $"assets.call_instance_method({instanceId}, '{methodName}'{argsCode})";
                 Godot.GD.Print($"[ScriptSystem] Evaluating: {code}");
 
