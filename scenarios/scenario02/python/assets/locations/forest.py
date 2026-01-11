@@ -145,13 +145,19 @@ class ForestCabin(Location):
             MensHoodie, MensCargoPants, WornOutJacket, DirtyShirt
         )
 
+        def add_to_wardrobe(item_class):
+            item = item_class()
+            item_id = morld.create_id("item")
+            item.instantiate(item_id)
+            morld.give_item(wardrobe_id, item_id, 1)
+
         # 숲에서 활동하기 좋은 옷들
-        item = HoodedCloak(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = TravelCloak(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = WoolSocks(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = WarmBoots(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = MensHoodie(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = MensCargoPants(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(HoodedCloak)
+        add_to_wardrobe(TravelCloak)
+        add_to_wardrobe(WoolSocks)
+        add_to_wardrobe(WarmBoots)
+        add_to_wardrobe(MensHoodie)
+        add_to_wardrobe(MensCargoPants)
         # 낡은 옷들
-        item = WornOutJacket(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = DirtyShirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(WornOutJacket)
+        add_to_wardrobe(DirtyShirt)

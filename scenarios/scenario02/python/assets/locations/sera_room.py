@@ -30,15 +30,21 @@ class SeraRoom(Location):
             SportsBra, CottonPanties, SimpleSocks, TankTop
         )
 
+        def add_to_wardrobe(item_class):
+            item = item_class()
+            item_id = morld.create_id("item")
+            item.instantiate(item_id)
+            morld.give_item(wardrobe_id, item_id, 1)
+
         # 겉옷
-        item = LinenShirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = LinenPants(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = TankTop(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = HuntingVest(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(LinenShirt)
+        add_to_wardrobe(LinenPants)
+        add_to_wardrobe(TankTop)
+        add_to_wardrobe(HuntingVest)
         # 속옷
-        item = SportsBra(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = CottonPanties(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(SportsBra)
+        add_to_wardrobe(CottonPanties)
         # 악세서리
-        item = HuntingCap(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = SimpleSocks(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = LeatherBoots(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(HuntingCap)
+        add_to_wardrobe(SimpleSocks)
+        add_to_wardrobe(LeatherBoots)

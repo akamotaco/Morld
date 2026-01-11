@@ -31,16 +31,22 @@ class MilaRoom(Location):
             SimpleBra, SimplePanties, Stockings, Sweater, Pajamas
         )
 
+        def add_to_wardrobe(item_class):
+            item = item_class()
+            item_id = morld.create_id("item")
+            item.instantiate(item_id)
+            morld.give_item(wardrobe_id, item_id, 1)
+
         # 겉옷
-        item = Blouse(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = LongSkirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = Sweater(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = Apron(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = Pajamas(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(Blouse)
+        add_to_wardrobe(LongSkirt)
+        add_to_wardrobe(Sweater)
+        add_to_wardrobe(Apron)
+        add_to_wardrobe(Pajamas)
         # 속옷
-        item = SimpleBra(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = SimplePanties(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(SimpleBra)
+        add_to_wardrobe(SimplePanties)
         # 악세서리
-        item = MaidHeadband(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = Stockings(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
-        item = SimpleShoes(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        add_to_wardrobe(MaidHeadband)
+        add_to_wardrobe(Stockings)
+        add_to_wardrobe(SimpleShoes)
