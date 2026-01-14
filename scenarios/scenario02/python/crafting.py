@@ -1,131 +1,28 @@
 # crafting.py - 크래프팅 시스템
 #
-# 제작 레시피 관리 및 제작 UI
-#
-# 레시피 구조:
-# - unique_id: 결과물 아이템 unique_id
-# - name: 표시 이름
-# - category: 카테고리 (무기, 도구, 채집 등)
-# - materials: {재료_unique_id: 개수, ...}
-# - result_count: 결과물 개수 (기본 1)
-# - craft_time: 제작 시간 (분)
-# - tool_required: 필요한 도구 (passive props 체크)
+# 제작 UI 및 제작 실행 로직
+# 레시피 데이터는 crafting_recipes.py에서 관리
 #
 # 사용법:
-#   from crafting import open_craft_menu
-#   yield from open_craft_menu()
+#   from crafting import open_craft_menu, craft_item
+#   yield from open_craft_menu(get_portable_recipes(), "휴대 제작")
 
 import morld
 from assets.registry import get_item_class, get_or_create_item_id
+from crafting_recipes import (
+    CRAFTING_RECIPES,
+    get_recipe,
+    get_portable_recipes,
+    get_workbench_recipes,
+    get_recipes_by_category,
+    get_available_categories,
+)
 
-
-# ========================================
-# 레시피 정의
-# ========================================
-
-# 휴대용 제작 도구 레시피 (간단한 아이템)
-# 휴대용 제작 도구 아이템을 Focus한 뒤 "제작" 액션으로 사용
-PORTABLE_RECIPES = [
-    {
-        "unique_id": "rabbit_trap",
-        "name": "토끼 덫",
-        "category": "도구",
-        "materials": {"branch": 3},  # 나뭇가지 3개
-        "result_count": 1,
-        "craft_time": 15,
-        "tool_required": None,
-    },
-    {
-        "unique_id": "rabbit_trap",
-        "name": "토끼 덫 (나무판)",
-        "category": "도구",
-        "materials": {"plank": 1},  # 또는 나무판 1개
-        "result_count": 1,
-        "craft_time": 10,
-        "tool_required": None,
-    },
-]
-
-# 제작대 전용 레시피 (복잡한 아이템)
-WORKBENCH_RECIPES = [
-    # 재료 가공
-    {
-        "unique_id": "plank",
-        "name": "나무판",
-        "category": "재료",
-        "materials": {"log": 1},
-        "result_count": 3,
-        "craft_time": 10,
-        "tool_required": None,
-    },
-    # 무기
-    {
-        "unique_id": "wooden_sword",
-        "name": "목검",
-        "category": "무기",
-        "materials": {"plank": 2},
-        "result_count": 1,
-        "craft_time": 20,
-        "tool_required": None,
-    },
-    # 도구
-    {
-        "unique_id": "rabbit_trap",
-        "name": "토끼 덫",
-        "category": "도구",
-        "materials": {"branch": 3},  # 나뭇가지 3개
-        "result_count": 1,
-        "craft_time": 15,
-        "tool_required": None,
-    },
-    {
-        "unique_id": "rabbit_trap",
-        "name": "토끼 덫 (나무판)",
-        "category": "도구",
-        "materials": {"plank": 1},  # 또는 나무판 1개
-        "result_count": 1,
-        "craft_time": 10,
-        "tool_required": None,
-    },
-]
-
-# 전체 레시피 (호환성 유지)
-RECIPES = PORTABLE_RECIPES + WORKBENCH_RECIPES
-
-# 레거시 호환성
+# 레거시 호환성을 위한 export
+PORTABLE_RECIPES = get_portable_recipes()
+WORKBENCH_RECIPES = get_workbench_recipes()
+RECIPES = list({"unique_id": uid, **r} for uid, r in CRAFTING_RECIPES.items())
 PLAYER_RECIPES = PORTABLE_RECIPES
-
-# 카테고리 목록 (순서 유지)
-CATEGORIES = ["재료", "무기", "도구", "채집"]
-
-
-# ========================================
-# 레시피 조회 함수
-# ========================================
-
-def get_recipes_by_category(category: str, recipe_source: list = None) -> list:
-    """카테고리별 레시피 목록 반환"""
-    recipes = recipe_source if recipe_source is not None else RECIPES
-    return [r for r in recipes if r["category"] == category]
-
-
-def get_available_categories(recipe_source: list = None) -> list:
-    """레시피가 존재하는 카테고리만 반환"""
-    recipes = recipe_source if recipe_source is not None else RECIPES
-    available = set()
-    for recipe in recipes:
-        available.add(recipe["category"])
-    # 순서 유지
-    return [c for c in CATEGORIES if c in available]
-
-
-def get_recipe(unique_id: str, recipe_source: list = None) -> dict:
-    """unique_id로 레시피 조회"""
-    recipes = recipe_source if recipe_source is not None else RECIPES
-    for recipe in recipes:
-        if recipe["unique_id"] == unique_id:
-            return recipe
-    return None
 
 
 # ========================================
@@ -220,7 +117,8 @@ def craft_item(player_id: int, recipe: dict):
     morld.advance_time(recipe["craft_time"])
 
     # 결과물 생성 (registry를 통해 싱글톤 ID 조회/생성)
-    result_unique_id = recipe["unique_id"]
+    # result_id가 있으면 그것을 사용, 없으면 unique_id를 사용
+    result_unique_id = recipe.get("result_id", recipe["unique_id"])
     result_id = get_or_create_item_id(result_unique_id)
 
     if result_id is None:
@@ -240,19 +138,20 @@ def craft_item(player_id: int, recipe: dict):
 
 
 # ========================================
-# 크래프팅 UI
+# 크래프팅 UI (카테고리 기반)
 # ========================================
 
-def open_craft_menu(recipe_source: list = None, title: str = "제작"):
+def open_craft_menu(recipe_source: list = None, title: str = "제작", preview: bool = True):
     """
-    제작 메뉴 열기 (Generator)
+    제작 메뉴 열기 (Generator) - 카테고리 기반 UI
 
     Args:
         recipe_source: 사용할 레시피 목록 (None이면 PLAYER_RECIPES 사용)
         title: 메뉴 제목 (기본: "제작")
+        preview: True면 재료 부족해도 grey out으로 표시, False면 제작 가능한 것만 표시
 
     UI 흐름:
-    1. 카테고리 선택 (토글 메뉴)
+    1. 카테고리 선택
     2. 레시피 선택
     3. 재료 확인 + 제작 여부
     4. 제작 실행
@@ -260,12 +159,16 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작"):
     사용법:
         yield from open_craft_menu()  # 플레이어 제작
         yield from open_craft_menu(WORKBENCH_RECIPES, "제작대")  # 제작대
+        yield from open_craft_menu(WORKBENCH_RECIPES, "제작대", preview=False)  # 제작 가능만 표시
     """
-    # 기본값: 플레이어 레시피
     recipes = recipe_source if recipe_source is not None else PLAYER_RECIPES
 
     player_id = morld.get_player_id()
     categories = get_available_categories(recipes)
+
+    print(f"[crafting] recipes count: {len(recipes)}, categories: {categories}")
+    if recipes:
+        print(f"[crafting] first recipe: {recipes[0]}")
 
     if not categories:
         yield morld.dialog("제작할 수 있는 것이 없다.")
@@ -277,6 +180,14 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작"):
         "recipe": None,
         "done": False,
     }
+
+    def _format_materials_short(materials):
+        """재료를 짧은 텍스트로 포맷"""
+        parts = []
+        for mat_uid, required in materials.items():
+            mat_name = get_material_name(mat_uid)
+            parts.append(f"{mat_name} {required}개")
+        return ", ".join(parts)
 
     def build_category_menu():
         """카테고리 선택 메뉴 생성"""
@@ -292,13 +203,22 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작"):
         return "\n".join(lines)
 
     def build_recipe_menu(category):
-        """레시피 목록 메뉴 생성"""
+        """레시피 목록 메뉴 생성 - 재료 부족해도 표시 (grey out)"""
         cat_recipes = get_recipes_by_category(category, recipes)
         lines = [f"[{title} - {category}]\n"]
 
         for recipe in cat_recipes:
             name = recipe["name"]
-            lines.append(f"[url=@proc:recipe:{recipe['unique_id']}]{name}[/url]")
+            craft_time = recipe.get("craft_time", 10)
+            can_craft, _, _ = check_materials(player_id, recipe)
+
+            if can_craft:
+                lines.append(f"[url=@proc:recipe:{recipe['unique_id']}]{name}[/url] [color=gray]({craft_time}분)[/color]")
+            elif preview:
+                # preview=True: 재료 부족해도 grey out으로 표시
+                mat_text = _format_materials_short(recipe["materials"])
+                lines.append(f"[color=gray]{name}[/color] [color=#666666]({mat_text})[/color]")
+            # preview=False: 제작 불가능하면 표시하지 않음
 
         lines.append("")
         lines.append("[url=@proc:back]◀ 뒤로[/url]")
@@ -364,7 +284,7 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작"):
 
         if action.startswith("recipe:"):
             unique_id = action[7:]
-            recipe = get_recipe(unique_id, recipes)
+            recipe = get_recipe(unique_id)
             if recipe:
                 state["recipe"] = recipe
                 return build_confirm_menu(recipe)

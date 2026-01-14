@@ -12,6 +12,7 @@
 
 import morld
 from assets.base import Item
+from assets.registry import register_item
 
 
 # ========================================
@@ -272,18 +273,20 @@ class WaterBottle(Item):
 # 사냥 도구
 # ========================================
 
+@register_item
 class RabbitTrap(Item):
     """
     토끼 덫 - 토끼 굴에 설치
 
     제작 방법:
-    - 나뭇가지 3개
-    - 또는 나무판 1개
+    - 나뭇가지 3개 (rabbit_trap_branch 레시피)
+    - 나무판 1개 (rabbit_trap_plank 레시피)
     """
     unique_id = "rabbit_trap"
     name = "토끼 덫"
     passive_props = {}
     equip_props = {}
+    action_props = {"put": 1}  # 토끼 굴에 넣기 가능
     value = 10
     actions = ["take@container", "call:look:살펴보기@inventory"]
 
@@ -340,19 +343,21 @@ class TrappedRabbit(Item):
         ])
 
 
+@register_item
 class RabbitCarcass(Item):
     """
     토끼 사체
 
     박피(skin) 시 토끼 생고기 + 토끼 가죽 획득
-    박피하려면 날붙이(can:skin) 장착 필요
+    날붙이(can:skin) 소지 필요 - 도구 선택 UI 표시
+    박피 소요 시간은 사용하는 도구(skin_time)에 따라 결정
     """
     unique_id = "rabbit_carcass"
     name = "토끼 사체"
     passive_props = {}
     equip_props = {}
     value = 20
-    actions = ["take@container", "call:skin:박피@inventory", "call:look:살펴보기@inventory"]
+    actions = ["take@container", "call:skin_menu:박피@inventory", "call:look:살펴보기@inventory"]
 
     def look(self):
         """토끼 사체 살펴보기"""
@@ -361,18 +366,71 @@ class RabbitCarcass(Item):
             "날붙이로 손질하면 고기와 가죽을 얻을 수 있다."
         ])
 
-    def skin(self):
+    def skin_menu(self):
         """
-        박피 - 토끼 생고기와 토끼 가죽 획득
+        박피 도구 선택 메뉴 (다이얼로그 기반)
 
-        can:skin 필요 (날붙이 장착 시 부여됨)
+        can:skin을 가진 아이템을 검색하여 선택지 제공
+        각 도구별 소요 시간 표시 (skin_time 속성)
+        """
+        from assets.registry import get_item_class
+
+        player_id = morld.get_player_id()
+
+        # can:skin 능력을 가진 아이템 검색
+        skin_tools = morld.find_items_with_passive(player_id, "can:skin")
+
+        if not skin_tools:
+            yield morld.dialog("박피에 필요한 도구가 없다.")
+            return
+
+        # 각 도구에 skin_time 추가
+        for tool in skin_tools:
+            item_class = get_item_class(tool["unique_id"])
+            tool["skin_time"] = getattr(item_class, "skin_time", 15) if item_class else 15
+
+        if len(skin_tools) == 1:
+            # 도구가 하나면 바로 사용
+            tool = skin_tools[0]
+            yield from self._do_skin(tool)
+        else:
+            # 여러 개면 선택 다이얼로그
+            state = {"selected_tool": None}
+
+            def on_select(action):
+                if action == "init":
+                    return None
+                # action = tool의 item_id
+                for t in skin_tools:
+                    if str(t["id"]) == action:
+                        state["selected_tool"] = t
+                        return True
+                return None
+
+            # 선택지 텍스트 생성 (도구별 소요 시간 표시)
+            lines = ["어떤 도구로 박피할까?", ""]
+            for tool in skin_tools:
+                lines.append(f"  [url=@proc:{tool['id']}]{tool['name']}[/url] [color=gray]({tool['skin_time']}분)[/color]")
+
+            yield morld.dialog("\n".join(lines), autofill="off", proc=on_select, result=state)
+
+            if state["selected_tool"]:
+                yield from self._do_skin(state["selected_tool"])
+
+    def _do_skin(self, tool):
+        """
+        실제 박피 실행
+
+        Args:
+            tool: {"id": int, "name": str, "skin_time": int, ...} 도구 정보
         """
         from assets.registry import get_or_create_item_id
 
         player_id = morld.get_player_id()
+        skin_time = tool.get("skin_time", 15)
 
-        yield morld.dialog("토끼를 손질한다...")
-        morld.advance_time(10)
+        yield morld.dialog(f"{tool['name']}(으)로 토끼를 손질한다...")
+        morld.advance_time(skin_time)
 
         # 토끼 생고기 지급
         raw_meat_id = get_or_create_item_id("raw_rabbit_meat")
@@ -393,6 +451,7 @@ class RabbitCarcass(Item):
         ])
 
 
+@register_item
 class RawRabbitMeat(Item):
     """
     토끼 생고기
@@ -415,6 +474,7 @@ class RawRabbitMeat(Item):
         ])
 
 
+@register_item
 class RabbitHide(Item):
     """
     토끼 가죽

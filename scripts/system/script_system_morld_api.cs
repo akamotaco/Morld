@@ -231,6 +231,55 @@ namespace SE
                 return result;
             });
 
+            // find_items_with_passive: 특정 passive_prop을 가진 아이템 검색
+            // 반환: [{id, unique_id, name, passive_props, equip_props}, ...]
+            morldModule.ModuleDict["find_items_with_passive"] = new PyBuiltinFunction("find_items_with_passive", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("find_items_with_passive(unit_id, prop_name) requires 2 arguments");
+
+                int unitId = args[0].ToInt();
+                string propName = args[1].AsString();
+
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+
+                var inventory = _inventorySystem.GetUnitInventory(unitId);
+                var result = new PyList();
+
+                foreach (var (itemId, count) in inventory)
+                {
+                    var item = _itemSystem?.FindItem(itemId);
+                    if (item == null) continue;
+
+                    // passive_props에서 해당 prop이 있는지 확인
+                    if (item.PassiveProps.TryGetValue(propName, out int propValue) && propValue > 0)
+                    {
+                        var itemInfo = new PyDict();
+                        itemInfo.SetItem(new PyString("id"), new PyInt(item.Id));
+                        itemInfo.SetItem(new PyString("unique_id"), new PyString(item.UniqueId ?? ""));
+                        itemInfo.SetItem(new PyString("name"), new PyString(item.Name ?? ""));
+                        itemInfo.SetItem(new PyString("count"), new PyInt(count));
+
+                        // passive_props
+                        var passiveProps = new PyDict();
+                        foreach (var kv in item.PassiveProps)
+                            passiveProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
+                        itemInfo.SetItem(new PyString("passive_props"), passiveProps);
+
+                        // equip_props
+                        var equipProps = new PyDict();
+                        foreach (var kv in item.EquipProps)
+                            equipProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
+                        itemInfo.SetItem(new PyString("equip_props"), equipProps);
+
+                        result.Append(itemInfo);
+                    }
+                }
+
+                return result;
+            });
+
             // get_item_id_by_unique: unique_id로 아이템 ID 조회
             morldModule.ModuleDict["get_item_id_by_unique"] = new PyBuiltinFunction("get_item_id_by_unique", args =>
             {

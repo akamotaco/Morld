@@ -203,7 +203,7 @@ class RabbitBurrow(Object):
     check_interval = 360  # 6시간마다 체크
     catch_chance = 0.4    # 40% 확률로 토끼 포획
 
-    actions = ["container", "call:look:살펴보기", "call:debug_props:속성 보기"]
+    actions = ["container", "putinobject", "call:look:살펴보기", "call:debug_props:속성 보기"]
 
     def instantiate(self, instance_id: int, region_id: int = None, location_id: int = None):
         """토끼 굴 인스턴스화 - trap_agent에 등록"""

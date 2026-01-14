@@ -22,11 +22,13 @@ class Blade(Item):
     """
     날붙이 기본 클래스
 
-    장착 시 can:skin(박피) 능력 부여
+    소지 시 can:skin(박피) 능력 부여
     - 토끼 사체 등에서 가죽/고기 획득 가능
+    - 장착 없이도 박피 가능 (도구 선택 UI 표시)
     """
-    passive_props = {}
-    equip_props = {"장착:손": 1, "can:skin": 1}
+    passive_props = {"can:skin": 1}
+    equip_props = {"장착:손": 1}
+    skin_time = 15  # 박피 소요 시간 (분) - 서브클래스에서 오버라이드
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 
     def look(self):
@@ -43,8 +45,9 @@ class OldKnife(Blade):
     """낡은 칼 - 플레이어 초기 장비 (사냥꾼 선택 시)"""
     unique_id = "old_knife"
     name = "낡은 칼"
-    passive_props = {}
-    equip_props = {"공격": 2, "사냥": 1, "장착:손": 1, "can:skin": 1}
+    passive_props = {"can:skin": 1}
+    equip_props = {"공격": 2, "사냥": 1, "장착:손": 1}
+    skin_time = 20  # 낡은 칼은 박피에 20분 소요
     value = 20
 
     def look(self):
@@ -61,8 +64,9 @@ class RusticDagger(Blade):
     unique_id = "rustic_dagger"
     name = "투박한 단검"
     owner = "sera"
-    passive_props = {}
-    equip_props = {"공격": 3, "사냥": 2, "장착:손": 1, "can:skin": 1}
+    passive_props = {"can:skin": 1}
+    equip_props = {"공격": 3, "사냥": 2, "장착:손": 1}
+    skin_time = 15  # 투박한 단검은 박피에 15분 소요
     value = 30
 
     def look(self):
@@ -136,9 +140,114 @@ class PortableCraftingKit(Item):
     actions = ["take@container", "call:craft:제작@inventory", "call:look:살펴보기@inventory"]
 
     def craft(self):
-        """휴대용 제작 메뉴 열기"""
-        from crafting import open_craft_menu, PORTABLE_RECIPES
-        yield from open_craft_menu(PORTABLE_RECIPES, "휴대 제작")
+        """
+        휴대용 제작 메뉴 열기 (다이얼로그 + 토글)
+
+        variants가 있는 레시피는 토글로 재료 옵션 표시
+        """
+        from crafting_recipes import get_portable_recipes
+        from crafting import check_materials, get_material_name, craft_item
+
+        player_id = morld.get_player_id()
+        portable_recipes = get_portable_recipes()
+
+        # 상태 관리
+        state = {"selected_variant": None, "recipe": None}
+
+        def build_menu():
+            """제작 메뉴 생성"""
+            lines = ["[휴대 제작]", ""]
+
+            for recipe in portable_recipes:
+                name = recipe["name"]
+
+                if "variants" in recipe:
+                    # variants가 있으면 토글 형태
+                    lines.append(f"▶ {name}")
+                    for i, variant in enumerate(recipe["variants"]):
+                        materials = variant["materials"]
+                        craft_time = variant["craft_time"]
+
+                        # 재료 보유 확인
+                        temp_recipe = {"materials": materials}
+                        can_craft, missing, have = check_materials(player_id, temp_recipe)
+
+                        # 재료 텍스트 생성
+                        mat_parts = []
+                        for mat_uid, required in materials.items():
+                            mat_name = get_material_name(mat_uid)
+                            owned = have.get(mat_uid, 0)
+                            if owned >= required:
+                                mat_parts.append(f"{mat_name} {owned}/{required}")
+                            else:
+                                mat_parts.append(f"{mat_name} [color=red]{owned}/{required}[/color]")
+                        mat_text = ", ".join(mat_parts)
+
+                        if can_craft:
+                            lines.append(f"    [url=@proc:{recipe['unique_id']}:{i}]{mat_text}[/url] [color=gray]({craft_time}분)[/color]")
+                        else:
+                            lines.append(f"    [color=gray]{mat_text} ({craft_time}분)[/color]")
+                else:
+                    # 단일 레시피
+                    can_craft, missing, have = check_materials(player_id, recipe)
+                    craft_time = recipe.get("craft_time", 10)
+
+                    if can_craft:
+                        lines.append(f"  [url=@proc:{recipe['unique_id']}]{name}[/url] [color=gray]({craft_time}분)[/color]")
+                    else:
+                        lines.append(f"  [color=gray]{name} ({craft_time}분)[/color]")
+
+            lines.append("")
+            lines.append("[url=@ret:cancel]돌아가기[/url]")
+            return "\n".join(lines)
+
+        def on_select(action):
+            if action == "init":
+                return None
+
+            # 선택 파싱: "unique_id:variant_index" 또는 "unique_id"
+            parts = action.split(":")
+            unique_id = parts[0]
+
+            for recipe in portable_recipes:
+                if recipe["unique_id"] == unique_id:
+                    state["recipe"] = recipe
+
+                    if "variants" in recipe and len(parts) > 1:
+                        variant_idx = int(parts[1])
+                        state["selected_variant"] = recipe["variants"][variant_idx]
+                    else:
+                        state["selected_variant"] = None
+
+                    return True  # 다이얼로그 종료
+
+            return None
+
+        result = yield morld.dialog(build_menu(), autofill="off", proc=on_select, result=state)
+
+        # 제작 실행
+        if result == "cancel" or not state["recipe"]:
+            return
+
+        recipe = state["recipe"]
+        variant = state["selected_variant"]
+
+        # variant가 있으면 재료와 시간을 오버라이드
+        if variant:
+            craft_recipe = {
+                "unique_id": recipe["unique_id"],
+                "name": recipe["name"],
+                "materials": variant["materials"],
+                "craft_time": variant["craft_time"],
+                "result_count": recipe.get("result_count", 1),
+            }
+        else:
+            craft_recipe = recipe
+
+        # 최종 재료 확인
+        can_craft, _, _ = check_materials(player_id, craft_recipe)
+        if can_craft:
+            yield from craft_item(player_id, craft_recipe)
 
     def look(self):
         """도구 살펴보기"""
@@ -146,6 +255,10 @@ class PortableCraftingKit(Item):
             "간단한 제작 도구가 담긴 작은 가방이다.",
             "이것만 있으면 어디서든 간단한 도구를 만들 수 있다."
         ])
+
+
+# 레거시 호환성을 위한 별칭
+SmallToolbox = PortableCraftingKit
 
 
 # ========================================

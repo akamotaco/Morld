@@ -367,8 +367,7 @@ class CraftingTable(Object):
     """
     제작대 - 복잡한 아이템 제작 가능
 
-    WORKBENCH_RECIPES에 정의된 레시피 사용:
-    - 사냥용 활: 나무판 2개 + 끈 1개
+    crafting_recipes.py의 workbench=True 레시피 사용
     """
     unique_id = "crafting_table"
     name = "제작대"
@@ -385,8 +384,9 @@ class CraftingTable(Object):
 
     def craft(self):
         """제작대에서 제작하기"""
-        from crafting import open_craft_menu, WORKBENCH_RECIPES
-        yield from open_craft_menu(WORKBENCH_RECIPES, "제작대")
+        from crafting_recipes import get_workbench_recipes
+        from crafting import open_craft_menu
+        yield from open_craft_menu(get_workbench_recipes(), "제작대")
 
 
 # ========================================
