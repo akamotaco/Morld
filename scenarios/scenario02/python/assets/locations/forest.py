@@ -4,7 +4,7 @@
 # - 0: 숲 입구 (저택과 연결)
 # - 1: 소나무 숲
 # - 2: 참나무 숲
-# - 3: 토끼굴
+# - 3: 숲속 (토끼 굴 오브젝트 배치)
 # - 4: 늑대굴
 # - 5: 오두막
 
@@ -80,23 +80,28 @@ class OakForest(Location):
         self.add_object(oak1)
 
 
-class RabbitBurrow(Location):
-    """토끼굴 - 토끼가 서식하는 곳 (빈 Location)"""
-    unique_id = "rabbit_burrow"
-    name = "토끼굴"
+class DeepForest(Location):
+    """숲속 - 숲 깊은 곳 (토끼 굴 오브젝트 배치)"""
+    unique_id = "deep_forest"
+    name = "숲속"
     is_indoor = False
     stay_duration = 5
     describe_text = {
-        "default": "땅에 여러 개의 구멍이 뚫려 있다. 토끼가 사는 것 같다.",
-        "아침": "토끼들이 풀을 뜯고 있다.",
-        "낮": "토끼들이 굴 근처에서 어슬렁거린다.",
-        "저녁": "토끼들이 하나둘 굴로 들어간다.",
-        "밤": "조용하다. 토끼들은 굴 안에 있는 것 같다."
+        "default": "나무가 우거진 숲속이다. 작은 동물들의 흔적이 보인다.",
+        "아침": "이슬에 젖은 풀잎이 발목을 적신다.",
+        "낮": "나뭇잎 사이로 햇빛이 비친다.",
+        "저녁": "숲속이 점점 어두워진다.",
+        "밤": "어둠 속에서 동물들의 소리가 들린다."
     }
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundForest())
+
+        # 토끼 굴 오브젝트 배치
+        from assets.objects.nature import RabbitBurrow
+        burrow = RabbitBurrow()
+        self.add_object(burrow)
 
 
 class WolfDen(Location):

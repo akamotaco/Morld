@@ -229,3 +229,19 @@ class HerbTea(FoodItem):
     ]
     eat_time = 3
     actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+@register_item
+class RoastedRabbit(FoodItem):
+    """토끼 구이 - 조리 필요 (토끼 생고기 1개)"""
+    unique_id = "food_roasted_rabbit"
+    name = "토끼 구이"
+    value = 30
+    food_satiety = 55
+    eat_message = [
+        "토끼 구이를 먹었다.",
+        "잘 익은 고기가 쫄깃하고 고소하다.",
+        "든든하게 배가 찬다."
+    ]
+    eat_time = 5
+    actions = ["take@container", "call:eat:먹기@inventory"]

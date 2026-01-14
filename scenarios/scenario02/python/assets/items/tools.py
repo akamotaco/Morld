@@ -268,23 +268,172 @@ class WaterBottle(Item):
         morld.advance_time(1)
 
 
-class Arrow(Item):
-    """
-    화살 - 사냥용
+# ========================================
+# 사냥 도구
+# ========================================
 
-    크래프팅으로 제작 가능
-    재료: 나무판 1개 + 깃털 1개
+class RabbitTrap(Item):
     """
-    unique_id = "arrow"
-    name = "화살"
+    토끼 덫 - 토끼 굴에 설치
+
+    제작 방법:
+    - 나뭇가지 3개
+    - 또는 나무판 1개
+    """
+    unique_id = "rabbit_trap"
+    name = "토끼 덫"
     passive_props = {}
     equip_props = {}
-    value = 5
+    value = 10
     actions = ["take@container", "call:look:살펴보기@inventory"]
 
     def look(self):
-        """화살 살펴보기"""
+        """토끼 덫 살펴보기"""
         yield morld.dialog([
-            "나무와 깃털로 만든 화살이다.",
-            "활과 함께 사용하면 사냥을 할 수 있다."
+            "간단히 만든 토끼 덫이다.",
+            "토끼 굴 근처에 설치하면 토끼를 잡을 수 있다."
         ])
+
+
+class TrappedRabbit(Item):
+    """
+    토끼가 붙잡힌 덫
+
+    분해하면 토끼 사체를 얻고, 덫은 부서짐
+    """
+    unique_id = "trapped_rabbit"
+    name = "토끼가 붙잡힌 덫"
+    passive_props = {}
+    equip_props = {}
+    value = 25
+    actions = ["take@container", "call:disassemble:분해@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """붙잡힌 덫 살펴보기"""
+        yield morld.dialog([
+            "덫에 토끼가 걸려 있다!",
+            "분해하면 토끼 사체를 얻을 수 있다."
+        ])
+
+    def disassemble(self):
+        """
+        덫 분해 - 토끼 사체 획득, 덫은 부서짐
+        """
+        from assets.registry import get_or_create_item_id
+
+        player_id = morld.get_player_id()
+
+        yield morld.dialog("덫을 분해해서 토끼를 꺼낸다...")
+        morld.advance_time(5)
+
+        # 토끼 사체 지급
+        rabbit_carcass_id = get_or_create_item_id("rabbit_carcass")
+        if rabbit_carcass_id:
+            morld.give_item(player_id, rabbit_carcass_id, 1)
+
+        # 붙잡힌 덫 제거 (부서짐)
+        morld.lost_item(player_id, self.instance_id, 1)
+
+        yield morld.dialog([
+            "토끼 사체를 얻었다!",
+            "덫은 부서져서 사용할 수 없게 되었다."
+        ])
+
+
+class RabbitCarcass(Item):
+    """
+    토끼 사체
+
+    박피(skin) 시 토끼 생고기 + 토끼 가죽 획득
+    박피하려면 날붙이(can:skin) 장착 필요
+    """
+    unique_id = "rabbit_carcass"
+    name = "토끼 사체"
+    passive_props = {}
+    equip_props = {}
+    value = 20
+    actions = ["take@container", "call:skin:박피@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """토끼 사체 살펴보기"""
+        yield morld.dialog([
+            "갓 잡은 토끼다.",
+            "날붙이로 손질하면 고기와 가죽을 얻을 수 있다."
+        ])
+
+    def skin(self):
+        """
+        박피 - 토끼 생고기와 토끼 가죽 획득
+
+        can:skin 필요 (날붙이 장착 시 부여됨)
+        """
+        from assets.registry import get_or_create_item_id
+
+        player_id = morld.get_player_id()
+
+        yield morld.dialog("토끼를 손질한다...")
+        morld.advance_time(10)
+
+        # 토끼 생고기 지급
+        raw_meat_id = get_or_create_item_id("raw_rabbit_meat")
+        if raw_meat_id:
+            morld.give_item(player_id, raw_meat_id, 1)
+
+        # 토끼 가죽 지급
+        hide_id = get_or_create_item_id("rabbit_hide")
+        if hide_id:
+            morld.give_item(player_id, hide_id, 1)
+
+        # 토끼 사체 제거
+        morld.lost_item(player_id, self.instance_id, 1)
+
+        yield morld.dialog([
+            "토끼 생고기를 얻었다!",
+            "토끼 가죽을 얻었다!"
+        ])
+
+
+class RawRabbitMeat(Item):
+    """
+    토끼 생고기
+
+    조리하면 토끼 구이가 됨
+    """
+    unique_id = "raw_rabbit_meat"
+    name = "토끼 생고기"
+    category = "food_ingredient"
+    passive_props = {}
+    equip_props = {}
+    value = 15
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """토끼 생고기 살펴보기"""
+        yield morld.dialog([
+            "신선한 토끼 고기다.",
+            "익혀서 먹으면 맛있을 것 같다."
+        ])
+
+
+class RabbitHide(Item):
+    """
+    토끼 가죽
+
+    가공하면 가죽 조각이 됨 (나중에 구현)
+    """
+    unique_id = "rabbit_hide"
+    name = "토끼 가죽"
+    category = "material"
+    passive_props = {}
+    equip_props = {}
+    value = 10
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """토끼 가죽 살펴보기"""
+        yield morld.dialog([
+            "부드러운 토끼 가죽이다.",
+            "가공하면 여러 가지에 쓸 수 있을 것 같다."
+        ])
+
+

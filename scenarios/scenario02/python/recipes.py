@@ -11,6 +11,7 @@
 # - food_mushroom (버섯) - 채집터
 # - food_fish (생선) - 강가 낚시
 # - food_herb (약초) - 뒷마당 약초밭
+# - raw_rabbit_meat (토끼 생고기) - 토끼 사체 박피
 
 
 # 레시피 정의
@@ -46,6 +47,14 @@ RECIPES = {
         "ingredients": {"food_herb": 1},
         "result": ("drink_herb_tea", 1),
         "cook_time": 5,
+    },
+
+    # === 토끼 요리 ===
+    "food_roasted_rabbit": {
+        "name": "토끼 구이",
+        "ingredients": {"raw_rabbit_meat": 1},
+        "result": ("food_roasted_rabbit", 1),
+        "cook_time": 15,
     },
 }
 

@@ -23,14 +23,24 @@ from assets.registry import get_item_class, get_or_create_item_id
 # 레시피 정의
 # ========================================
 
-# 플레이어 휴대 제작 (간단한 아이템)
-PLAYER_RECIPES = [
+# 휴대용 제작 도구 레시피 (간단한 아이템)
+# 휴대용 제작 도구 아이템을 Focus한 뒤 "제작" 액션으로 사용
+PORTABLE_RECIPES = [
     {
-        "unique_id": "arrow",
-        "name": "화살",
-        "category": "무기",
-        "materials": {"plank": 1, "feather": 1},
-        "result_count": 5,  # 한 번에 5개 생성
+        "unique_id": "rabbit_trap",
+        "name": "토끼 덫",
+        "category": "도구",
+        "materials": {"branch": 3},  # 나뭇가지 3개
+        "result_count": 1,
+        "craft_time": 15,
+        "tool_required": None,
+    },
+    {
+        "unique_id": "rabbit_trap",
+        "name": "토끼 덫 (나무판)",
+        "category": "도구",
+        "materials": {"plank": 1},  # 또는 나무판 1개
+        "result_count": 1,
         "craft_time": 10,
         "tool_required": None,
     },
@@ -58,19 +68,32 @@ WORKBENCH_RECIPES = [
         "craft_time": 20,
         "tool_required": None,
     },
+    # 도구
     {
-        "unique_id": "hunting_bow",
-        "name": "사냥용 활",
-        "category": "무기",
-        "materials": {"plank": 2, "cord": 1},
+        "unique_id": "rabbit_trap",
+        "name": "토끼 덫",
+        "category": "도구",
+        "materials": {"branch": 3},  # 나뭇가지 3개
         "result_count": 1,
-        "craft_time": 30,
+        "craft_time": 15,
+        "tool_required": None,
+    },
+    {
+        "unique_id": "rabbit_trap",
+        "name": "토끼 덫 (나무판)",
+        "category": "도구",
+        "materials": {"plank": 1},  # 또는 나무판 1개
+        "result_count": 1,
+        "craft_time": 10,
         "tool_required": None,
     },
 ]
 
 # 전체 레시피 (호환성 유지)
-RECIPES = PLAYER_RECIPES + WORKBENCH_RECIPES
+RECIPES = PORTABLE_RECIPES + WORKBENCH_RECIPES
+
+# 레거시 호환성
+PLAYER_RECIPES = PORTABLE_RECIPES
 
 # 카테고리 목록 (순서 유지)
 CATEGORIES = ["재료", "무기", "도구", "채집"]

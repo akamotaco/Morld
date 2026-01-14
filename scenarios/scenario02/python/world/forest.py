@@ -4,7 +4,7 @@
 # - 0: 숲 입구 (저택과 연결)
 # - 1: 소나무 숲
 # - 2: 참나무 숲
-# - 3: 토끼굴
+# - 3: 숲속 (토끼 굴 오브젝트 배치)
 # - 4: 늑대굴
 # - 5: 오두막
 
@@ -28,7 +28,7 @@ EDGES = [
     # (from_location, to_location, travel_time)
     (0, 1, 10),   # 숲 입구 - 소나무 숲
     (0, 2, 10),   # 숲 입구 - 참나무 숲
-    (1, 3, 15),   # 소나무 숲 - 토끼굴
+    (1, 3, 15),   # 소나무 숲 - 숲속
     (2, 4, 20),   # 참나무 숲 - 늑대굴
     (2, 5, 15),   # 참나무 숲 - 오두막
     (1, 2, 10),   # 소나무 숲 - 참나무 숲
@@ -43,7 +43,7 @@ def initialize_terrain():
     """숲 Region 초기화"""
     from assets.locations.forest import (
         ForestEntrance, PineForest, OakForest,
-        RabbitBurrow, WolfDen, ForestCabin
+        DeepForest, WolfDen, ForestCabin
     )
 
     # Region 등록
@@ -55,7 +55,7 @@ def initialize_terrain():
         0: ForestEntrance(),
         1: PineForest(),
         2: OakForest(),
-        3: RabbitBurrow(),
+        3: DeepForest(),
         4: WolfDen(),
         5: ForestCabin(),
     }

@@ -65,3 +65,10 @@ class Storage(Location):
         axe_id = morld.create_id("item")
         axe.instantiate(axe_id)
         morld.give_item(toolbox_id, axe_id, 1)
+
+        # 투박한 단검을 도구함에 넣기 (세라 소유)
+        from assets.items.equipment import RusticDagger
+        dagger = RusticDagger()
+        dagger_id = morld.create_id("item")
+        dagger.instantiate(dagger_id)
+        morld.give_item(toolbox_id, dagger_id, 1)

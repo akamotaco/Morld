@@ -40,7 +40,7 @@ EQUIPMENT_OPTIONS = [
     },
     {
         "id": "craftsman",
-        "label": "작은 도구함",
+        "label": "휴대용 제작 도구",
         "desc": "장인이나 기술자?",
         "items": [("small_toolbox", 1)]
     },
@@ -100,6 +100,10 @@ class Player(Character):
         "can:eat": 1,
         "can:harvest": 1,
 
+        # 자원 채집
+        "can:gather": 1,    # 나뭇가지 줍기 등 (도구 불필요)
+        "can:disassemble": 1,  # 분해 (붙잡힌 덫 등)
+
         # 조리
         "can:cook": 1,
         "can:brew": 1,
@@ -112,7 +116,7 @@ class Player(Character):
         "can:debug_self_props": 1,
         "can:debug_item_props": 1,
     }
-    actions = ["call:rest:휴식", "call:sleep:노숙", "call:craft:제작"]
+    actions = ["call:rest:휴식", "call:sleep:노숙"]
     mood = []
 
     def rest(self):
@@ -127,7 +131,3 @@ class Player(Character):
         morld.add_action_log(f"{self.name}이(가) 바닥에서 잠을 청했다.")
         morld.advance_time(240)
 
-    def craft(self):
-        """제작 메뉴 열기"""
-        from crafting import open_craft_menu
-        yield from open_craft_menu()

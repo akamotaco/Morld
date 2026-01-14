@@ -185,3 +185,89 @@ class HerbGarden(ResourceObject):
             return f"약초밭. 수확 가능한 약초가 {count}개 있다."
         else:
             return "약초밭. 아직 약초가 자라지 않았다."
+
+
+class RabbitBurrow(Object):
+    """
+    토끼 굴 - 토끼 덫 설치 장소
+
+    컨테이너에 토끼 덫(rabbit_trap)을 넣으면,
+    정기 이벤트에서 확률적으로 토끼가 붙잡힌 덫(trapped_rabbit)으로 교체됨
+
+    한 번에 하나의 덫만 체크 (여러 덫이 있어도 순차 처리)
+    """
+    unique_id = "rabbit_burrow"
+    name = "토끼 굴"
+
+    # 덫 체크 설정
+    check_interval = 360  # 6시간마다 체크
+    catch_chance = 0.4    # 40% 확률로 토끼 포획
+
+    actions = ["container", "call:look:살펴보기", "call:debug_props:속성 보기"]
+
+    def instantiate(self, instance_id: int, region_id: int = None, location_id: int = None):
+        """토끼 굴 인스턴스화 - trap_agent에 등록"""
+        super().instantiate(instance_id, region_id, location_id)
+
+        # trap_agent에 등록 (시간 이벤트 구독)
+        from think.trap_agent import register_rabbit_burrow
+        register_rabbit_burrow(instance_id, self.unique_id)
+
+    def get_focus_text(self):
+        """현재 상태에 따른 묘사"""
+        # 컨테이너에서 덫 개수 확인
+        trap_count = self._count_traps()
+        trapped_count = self._count_trapped()
+
+        if trapped_count > 0:
+            return f"토끼 굴. 토끼가 걸린 덫이 {trapped_count}개 있다!"
+        elif trap_count > 0:
+            return f"토끼 굴. 덫이 {trap_count}개 설치되어 있다."
+        else:
+            return "토끼 굴. 덫을 설치하면 토끼를 잡을 수 있을 것 같다."
+
+    def look(self):
+        """토끼 굴 살펴보기"""
+        trap_count = self._count_traps()
+        trapped_count = self._count_trapped()
+
+        lines = ["작은 굴이 땅에 파여 있다.", "토끼가 사는 것 같다."]
+
+        if trapped_count > 0:
+            lines.append(f"토끼가 걸린 덫이 {trapped_count}개 있다!")
+        elif trap_count > 0:
+            lines.append(f"덫이 {trap_count}개 설치되어 있다. 기다려 보자.")
+        else:
+            lines.append("덫을 설치하면 토끼를 잡을 수 있을 것 같다.")
+
+        yield morld.dialog(lines)
+
+    def _count_traps(self) -> int:
+        """설치된 토끼 덫 개수"""
+        if not self._instantiated:
+            return 0
+        inventory = morld.get_unit_inventory(self.instance_id)
+        if not inventory:
+            return 0
+
+        count = 0
+        for item_id, item_count in inventory.items():
+            item_info = morld.get_item_info(item_id)
+            if item_info and item_info.get("unique_id") == "rabbit_trap":
+                count += item_count
+        return count
+
+    def _count_trapped(self) -> int:
+        """토끼가 붙잡힌 덫 개수"""
+        if not self._instantiated:
+            return 0
+        inventory = morld.get_unit_inventory(self.instance_id)
+        if not inventory:
+            return 0
+
+        count = 0
+        for item_id, item_count in inventory.items():
+            item_info = morld.get_item_info(item_id)
+            if item_info and item_info.get("unique_id") == "trapped_rabbit":
+                count += item_count
+        return count

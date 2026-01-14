@@ -152,6 +152,10 @@ def get_header():
         if time_text:
             lines.append(time_text)
 
+        # 시간 정지 상태 표시
+        if morld.is_time_frozen():
+            lines.append("[color=cyan][시간 정지][/color]")
+
         return "\n".join(lines)
     except Exception as e:
         print(f"[ui] get_header error: {e}")

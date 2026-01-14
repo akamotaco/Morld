@@ -9,7 +9,7 @@ from assets.characters.player import (
 )
 from assets import registry
 from assets.items.equipment import (
-    OldKnife, LeatherPouch, WritingTool, OldBook, SmallToolbox
+    OldKnife, LeatherPouch, WritingTool, OldBook, PortableCraftingKit
 )
 
 # unique_id → 아이템 클래스 매핑
@@ -18,7 +18,7 @@ _ITEM_CLASSES = {
     "leather_pouch": LeatherPouch,
     "writing_tool": WritingTool,
     "old_book": OldBook,
-    "small_toolbox": SmallToolbox,
+    "small_toolbox": PortableCraftingKit,
 }
 
 
