@@ -20,7 +20,7 @@ class Toolbox(object):
         class ToolboxObject(Object):
             unique_id = "toolbox"
             name = "도구함"
-            actions = ["container", "call:look:살펴보기", "call:debug_props:속성 보기"]
+            actions = ["container#", "call:look:살펴보기", "call:debug_props:속성 보기"]
             focus_text = {"default": "여러 도구가 정리된 나무 상자. 열어서 도구를 꺼낼 수 있다."}
 
             def look(self):
@@ -54,7 +54,7 @@ class Storage(Location):
         toolbox_id = self.add_object(toolbox)
 
         # 낚시대를 도구함에 넣기
-        from assets.items.tools import FishingRod, Axe
+        from assets.items.tools import FishingRod, Axe, Saw
         fishing_rod = FishingRod()
         fishing_rod_id = morld.create_id("item")
         fishing_rod.instantiate(fishing_rod_id)
@@ -65,6 +65,12 @@ class Storage(Location):
         axe_id = morld.create_id("item")
         axe.instantiate(axe_id)
         morld.give_item(toolbox_id, axe_id, 1)
+
+        # 톱을 도구함에 넣기
+        saw = Saw()
+        saw_id = morld.create_id("item")
+        saw.instantiate(saw_id)
+        morld.give_item(toolbox_id, saw_id, 1)
 
         # 투박한 단검을 도구함에 넣기 (세라 소유)
         from assets.items.equipment import RusticDagger

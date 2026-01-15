@@ -515,7 +515,8 @@ class Location(Asset):
             self.name,
             self.stay_duration,
             self.is_indoor,
-            self.owner  # 소유자 정보 전달
+            self.owner,  # 소유자 정보 전달
+            self.describe_text  # 묘사 텍스트 전달
         )
 
     def get_describe_text(self) -> str:

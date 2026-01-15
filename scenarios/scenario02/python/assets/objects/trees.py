@@ -139,11 +139,15 @@ class Tree(Object):
         yield morld.dialog(lines)
         morld.advance_time(1)
 
-    def chop(self):
+    def chop(self, equipment=None):
         """
         벌목 - can:chop 필요 (도끼 장착)
 
         확률 기반 통나무 획득 (낚시 패턴 참고)
+
+        Args:
+            equipment: 벌목에 사용된 장비 정보 (위치 인자로 전달됨)
+                       {"item_id": int, "unique_id": str, "name": str, "equip_props": dict} 또는 None
         """
         # 통나무 남아있는지 확인
         if not self.can_chop():
@@ -153,7 +157,18 @@ class Tree(Object):
             ])
             return
 
-        yield morld.dialog(f"{self.name}를 벌목한다...")
+        # 장비의 equip_props에 따라 다른 벌목 메시지
+        if equipment:
+            equip_props = equipment.get("equip_props", {})
+            if equip_props.get("날붙이"):
+                yield morld.dialog(f"{self.name}를 뚝딱뚝딱 벌목한다...")
+            elif equip_props.get("톱날"):
+                yield morld.dialog(f"{self.name}를 슥삭슥삭 벌목한다...")
+            else:
+                yield morld.dialog(f"{equipment.get('name', '도구')}(으)로 {self.name}를 벌목한다...")
+        else:
+            # can:chop이 기본 능력인 경우 (장비 없이 가능할 때)
+            yield morld.dialog(f"{self.name}를 우지끈 벌목한다...")
         morld.advance_time(self.chop_time)
 
         # 확률 체크

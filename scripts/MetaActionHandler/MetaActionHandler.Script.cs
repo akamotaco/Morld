@@ -135,8 +135,22 @@ public partial class MetaActionHandler
 			}
 		}
 
-		// Python의 assets.call_instance_method(instance_id, method_name, *args) 호출
-		var result = scriptSystem.CallInstanceMethod(instanceId.Value, methodName, methodArgs);
+		// can: prop을 제공하는 장비 조회 (장비가 있으면 Python에 전달)
+		Item equipment = null;
+		if (player != null && describeSystem != null)
+		{
+			var canProp = $"can:{methodName}";
+			equipment = describeSystem.GetEquipmentSource(player, canProp);
+#if DEBUG_LOG
+			if (equipment != null)
+			{
+				GD.Print($"[MetaActionHandler] Equipment source for {canProp}: {equipment.Name} (id={equipment.Id})");
+			}
+#endif
+		}
+
+		// Python의 assets.call_instance_method(instance_id, method_name, *args, equipment) 호출
+		var result = scriptSystem.CallInstanceMethod(instanceId.Value, methodName, methodArgs, equipment);
 
 		// 결과 타입에 따른 처리
 		if (result == null)

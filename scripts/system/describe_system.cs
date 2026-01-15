@@ -430,47 +430,22 @@ namespace SE
 
 			}
 
-			// 액션 표시 (플레이어의 can: prop으로 필터링)
-			var filteredUnitActions = FilterActionsByActor(unitLook.Actions, player);
-			if (filteredUnitActions.Count > 0)
+			// 액션 표시 (플레이어의 can: prop으로 파티션)
+			var partition = PartitionActionsByActor(unitLook.Actions, player);
+			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0)
 			{
 				lines.Add("[color=yellow]행동:[/color]");
-				foreach (var action in filteredUnitActions)
+
+				// 활성화된 액션 (링크로 표시)
+				foreach (var action in partition.Enabled)
 				{
-					// putinobject 액션은 call:put으로 변환 (가져가기는 기존 Item 메뉴 방식 유지)
-					if (action == "putinobject")
-					{
-						lines.Add($"  [url=call:put]넣기[/url]");
-					}
-					// call:메서드명:표시명 형식 - Python Asset 인스턴스 메서드 호출
-					// Focus.TargetUnitId에서 instanceId를 가져오므로 URL에 ID 포함 불필요
-					else if (action.StartsWith("call:"))
-					{
-						var parts = action.Split(':');
-						if (parts.Length >= 3)
-						{
-							var methodName = parts[1];
-							var displayName = parts[2];
-							lines.Add($"  [url=call:{methodName}:{displayName}]{displayName}[/url]");
-						}
-						else if (parts.Length == 2)
-						{
-							// call:메서드명 (표시명 없음 → 메서드명 그대로 표시)
-							var methodName = parts[1];
-							lines.Add($"  [url=call:{methodName}:{methodName}]{methodName}[/url]");
-						}
-						else
-						{
-							// 형식 오류 - 디버그 정보와 함께 표시
-							Godot.GD.PrintErr($"[DescribeSystem] Invalid call action format: '{action}' (expected 'call:methodName:displayName')");
-							lines.Add($"  [color=red][오류: {action}][/color]");
-						}
-					}
-					else
-					{
-						// 다른 액션은 그대로 표시
-						lines.Add($"  [url=action:{action}:{unitLook.UnitId}]{action}[/url]");
-					}
+					lines.Add(FormatActionLine(action, unitLook.UnitId, enabled: true));
+				}
+
+				// 비활성화된 액션 (회색으로 표시)
+				foreach (var action in partition.Disabled)
+				{
+					lines.Add(FormatActionLine(action, unitLook.UnitId, enabled: false));
 				}
 				lines.Add("");
 			}
@@ -682,17 +657,24 @@ namespace SE
 			// 액션 필터링 및 표시
 			// 1. context로 필터링 (take@container 등)
 			// 2. 아이템의 ActionProps로 필터링 (값이 0 이하면 비활성화)
-			// 3. 플레이어의 can: prop으로 필터링
+			// 3. 플레이어의 can: prop으로 파티션 (가능/불가능 분리)
 			var contextFiltered = GetFilteredActions(item.Actions, context);
 			var actionPropsFiltered = FilterActionsByItemActionProps(contextFiltered, item);
-			var filteredActions = FilterActionsByActor(actionPropsFiltered, player);
-			if (filteredActions.Count > 0)
+			var partition = PartitionActionsByActor(actionPropsFiltered, player);
+			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0)
 			{
 				lines.Add("[color=yellow]행동:[/color]");
-				foreach (var action in filteredActions)
+				// 활성화된 액션 (링크)
+				foreach (var action in partition.Enabled)
 				{
 					var (url, label) = GetActionUrlAndLabel(action, itemId, targetUnitId, context);
 					lines.Add($"  [url={url}]{label}[/url]");
+				}
+				// 비활성화된 액션 (회색)
+				foreach (var action in partition.Disabled)
+				{
+					var (_, label) = GetActionUrlAndLabel(action, itemId, targetUnitId, context);
+					lines.Add($"  [color=gray]{label}[/color]");
 				}
 			}
 
@@ -714,7 +696,7 @@ namespace SE
 				lines.Add($"  [url=call:debug_item_props]속성 보기[/url]");
 			}
 
-			if (filteredActions.Count > 0 || (context == "inventory" && targetUnitId.HasValue))
+			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0 || (context == "inventory" && targetUnitId.HasValue))
 			{
 				lines.Add("");
 			}
@@ -930,6 +912,137 @@ namespace SE
 				}
 			}
 			return result;
+		}
+
+		/// <summary>
+		/// 액션 파티션 결과 (가능/불가능 분리)
+		/// </summary>
+		public struct ActionPartition
+		{
+			public List<string> Enabled;   // 수행 가능한 액션
+			public List<string> Disabled;  // 조건 불충족 액션 (회색 표시용)
+		}
+
+		/// <summary>
+		/// 액션 라인 포맷팅 (활성화/비활성화에 따라 링크 또는 회색 텍스트)
+		/// </summary>
+		/// <param name="action">액션 문자열</param>
+		/// <param name="unitId">대상 유닛 ID</param>
+		/// <param name="enabled">활성화 여부</param>
+		/// <returns>포맷된 BBCode 문자열</returns>
+		private string FormatActionLine(string action, int unitId, bool enabled)
+		{
+			// putinobject 액션은 call:put으로 변환
+			if (action == "putinobject")
+			{
+				return enabled
+					? "  [url=call:put]넣기[/url]"
+					: "  [color=gray]넣기[/color]";
+			}
+
+			// call:메서드명:표시명 형식
+			if (action.StartsWith("call:"))
+			{
+				var parts = action.Split(':');
+				if (parts.Length >= 3)
+				{
+					var methodName = parts[1];
+					var displayName = parts[2];
+					return enabled
+						? $"  [url=call:{methodName}:{displayName}]{displayName}[/url]"
+						: $"  [color=gray]{displayName}[/color]";
+				}
+				else if (parts.Length == 2)
+				{
+					var methodName = parts[1];
+					return enabled
+						? $"  [url=call:{methodName}:{methodName}]{methodName}[/url]"
+						: $"  [color=gray]{methodName}[/color]";
+				}
+				else
+				{
+					Godot.GD.PrintErr($"[DescribeSystem] Invalid call action format: '{action}'");
+					return $"  [color=red][오류: {action}][/color]";
+				}
+			}
+
+			// 다른 액션은 그대로 표시
+			return enabled
+				? $"  [url=action:{action}:{unitId}]{action}[/url]"
+				: $"  [color=gray]{action}[/color]";
+		}
+
+		/// <summary>
+		/// 액션 리스트를 Actor의 can: prop으로 가능/불가능으로 분리
+		/// </summary>
+		/// <param name="actions">원본 액션 리스트</param>
+		/// <param name="actor">행위자 Unit</param>
+		/// <returns>가능/불가능으로 분리된 액션 파티션</returns>
+		private ActionPartition PartitionActionsByActor(List<string> actions, Unit actor)
+		{
+			var partition = new ActionPartition
+			{
+				Enabled = new List<string>(),
+				Disabled = new List<string>()
+			};
+
+			if (actor == null || actions == null)
+				return partition;
+
+			foreach (var action in actions)
+			{
+				// '#'로 끝나는 액션: 조건 맞으면 표시, 안 맞으면 숨김
+				// '#'가 없는 액션: 조건 맞으면 표시, 안 맞으면 grey out
+				var isHiddenWhenDisabled = action.EndsWith("#");
+				var actionToCheck = isHiddenWhenDisabled ? action.Substring(0, action.Length - 1) : action;
+
+				if (CanPerformAction(actor, actionToCheck))
+				{
+					partition.Enabled.Add(actionToCheck);
+				}
+				else if (!isHiddenWhenDisabled)
+				{
+					partition.Disabled.Add(action);
+				}
+			}
+			return partition;
+		}
+
+		/// <summary>
+		/// 특정 can: prop을 제공하는 장착 장비 반환
+		/// </summary>
+		/// <param name="actor">행위자 Unit</param>
+		/// <param name="canProp">찾을 can: prop (예: "can:chop")</param>
+		/// <returns>해당 prop을 제공하는 장착 아이템, 없으면 null</returns>
+		public Item GetEquipmentSource(Unit actor, string canProp)
+		{
+			if (actor == null || string.IsNullOrEmpty(canProp))
+				return null;
+
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+
+			if (itemSystem == null || inventorySystem == null)
+				return null;
+
+			var equippedItems = inventorySystem.GetUnitEquippedItems(actor.Id);
+			if (equippedItems == null)
+				return null;
+
+			// 장착 아이템 중 해당 can: prop을 가진 아이템 찾기
+			foreach (var itemId in equippedItems)
+			{
+				var item = itemSystem.FindItem(itemId);
+				if (item == null) continue;
+
+				// EquipProps에 해당 canProp이 있고 값이 1 이상인지 확인
+				if (item.EquipProps.TryGetValue(canProp, out int value) && value >= 1)
+				{
+					return item;
+				}
+			}
+
+			return null;
 		}
 
 		/// <summary>

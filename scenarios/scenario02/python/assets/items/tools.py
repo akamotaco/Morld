@@ -119,12 +119,13 @@ class Axe(Item):
     세라의 도끼
 
     장착 시 can:chop 부여 → 나무에서 "벌목" 액션 활성화
+    equip_props의 "날붙이": 1 → chop() 메서드에서 "뚝딱뚝딱" 출력
     """
     unique_id = "axe"
     name = "도끼"
     owner = "sera"
     passive_props = {}
-    equip_props = {"can:chop": 1, "공격력": 3, "장착:손": 1}
+    equip_props = {"can:chop": 1, "공격력": 3, "장착:손": 1, "날붙이": 1}
     value = 35
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 
@@ -132,6 +133,28 @@ class Axe(Item):
         """도끼 살펴보기"""
         yield morld.dialog([
             "세라의 도끼다.",
+            "장착하면 나무를 벨 수 있다."
+        ])
+
+
+class Saw(Item):
+    """
+    톱
+
+    장착 시 can:chop 부여 → 나무에서 "벌목" 액션 활성화
+    equip_props의 "톱날": 1 → chop() 메서드에서 "슥삭슥삭" 출력
+    """
+    unique_id = "saw"
+    name = "톱"
+    passive_props = {}
+    equip_props = {"can:chop": 1, "장착:손": 1, "톱날": 1}
+    value = 30
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """톱 살펴보기"""
+        yield morld.dialog([
+            "나무를 자를 수 있는 톱이다.",
             "장착하면 나무를 벨 수 있다."
         ])
 

@@ -54,7 +54,7 @@ namespace SE
                 morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
                 {
                     if (args.Length < 3)
-                        throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None) requires at least 3 arguments");
+                        throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None) requires at least 3 arguments");
 
                     int regionId = args[0].ToInt();
                     int localId = args[1].ToInt();
@@ -62,6 +62,9 @@ namespace SE
                     int stayDuration = args.Length >= 4 ? args[3].ToInt() : 0;
                     bool isIndoor = args.Length >= 5 ? args[4].IsTrue() : true;
                     string owner = args.Length >= 6 && args[5] is PyString ownerStr ? ownerStr.Value : null;
+                    var describeText = args.Length >= 7 && args[6] is PyDict descDict
+                        ? PyDictToStringDict(descDict)
+                        : null;
 
                     var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -74,7 +77,17 @@ namespace SE
                         location.StayDuration = stayDuration;
                         location.IsIndoor = isIndoor;
                         location.Owner = owner;
-                        Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}");
+
+                        // describe_text 설정
+                        if (describeText != null)
+                        {
+                            foreach (var (key, value) in describeText)
+                            {
+                                location.DescribeText[key] = value;
+                            }
+                        }
+
+                        Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, describe_text={describeText?.Count ?? 0} entries");
                         return PyBool.True;
                     }
                     return PyBool.False;

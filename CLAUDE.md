@@ -872,10 +872,40 @@ if (slotKey != null)
 - 해제 시 자동 제거
 - 예: `{"can:fish": 1}` → 낚시 액션 활성화
 
+**장비 정보 전달 (equipment 파라미터):**
+- `call:` 액션 실행 시, `can:` prop을 제공한 장비 정보가 Python 메서드에 전달됨
+- 메서드가 `equipment` 파라미터를 선언하면 자동으로 전달
+
+```python
+# Python 메서드에서 장비 정보 활용
+def chop(self, equipment=None):
+    """
+    equipment: 장비 정보 dict 또는 None
+        {"item_id": int, "unique_id": str, "name": str, "equip_props": dict}
+    """
+    if equipment:
+        equip_props = equipment.get("equip_props", {})
+        if equip_props.get("날붙이"):
+            yield morld.dialog("뚝딱뚝딱 벌목한다...")
+        elif equip_props.get("톱날"):
+            yield morld.dialog("슥삭슥삭 벌목한다...")
+    else:
+        yield morld.dialog("맨손으로 벌목한다...")
+```
+
+**equip_props 활용 예시:**
+| equip_props 키 | 설명 | 활용 |
+|----------------|------|------|
+| `날붙이` | 도끼 등 날이 있는 도구 | 벌목 메시지 변경 |
+| `톱날` | 톱 종류 | 벌목 메시지 변경 |
+| `낚시` | 낚시 도구 | 낚시 메시지 변경 |
+
 **파일 위치:**
 - `scripts/MetaActionHandler/MetaActionHandler.Item.cs` - HandleEquipAction, HandleUnequipAction
+- `scripts/MetaActionHandler/MetaActionHandler.Script.cs` - equipment 정보 전달
 - `scripts/morld/item/Item.cs` - GetEquipPropKey()
 - `scripts/system/inventory_system.cs` - 장착 상태 관리
+- `scenarios/scenario02/python/assets/__init__.py` - call_instance_method()
 
 ### 생존 시스템 (Survival System)
 **역할:** 캐릭터의 체력과 포만감 관리

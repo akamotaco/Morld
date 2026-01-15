@@ -662,24 +662,49 @@ __init__.initialize_scenario()
         /// <param name="instanceId">인스턴스 ID (Focus의 TargetUnitId)</param>
         /// <param name="methodName">호출할 메서드 이름</param>
         /// <param name="args">메서드 인자 (optional)</param>
+        /// <param name="equipment">액션을 가능하게 한 장비 아이템 (can: prop 제공)</param>
         /// <returns>메서드 실행 결과 (ScriptResult)</returns>
-        public ScriptResult CallInstanceMethod(int instanceId, string methodName, string[] args = null)
+        public ScriptResult CallInstanceMethod(int instanceId, string methodName, string[] args = null, Item equipment = null)
         {
             var argsStr = args != null && args.Length > 0 ? string.Join(", ", args) : "";
-            Godot.GD.Print($"[ScriptSystem] CallInstanceMethod: {methodName}({argsStr}) on instance {instanceId}");
+            var equipStr = equipment != null ? $", equipment={equipment.Name}" : "";
+            Godot.GD.Print($"[ScriptSystem] CallInstanceMethod: {methodName}({argsStr}{equipStr}) on instance {instanceId}");
 
             try
             {
                 // assets 모듈이 로드되어 있는지 확인하고 import
                 Execute("import assets");
 
-                // assets.call_instance_method(instance_id, method_name, *args) 호출
-                // args를 문자열 리터럴로 변환 (따옴표 추가)
+                // assets.call_instance_method(instance_id, method_name, args, equipment) 호출
+                // args를 Python 리스트로 변환
                 var argsCode = args != null && args.Length > 0
-                    ? ", " + string.Join(", ", args.Select(a => $"'{a}'"))
-                    : "";
-                var code = $"assets.call_instance_method({instanceId}, '{methodName}'{argsCode})";
+                    ? "[" + string.Join(", ", args.Select(a => $"'{a}'")) + "]"
+                    : "None";
+
+                // equipment dict 생성 (None 또는 {"item_id": id, "unique_id": "xxx", "name": "yyy", "equip_props": {...}})
+                string equipmentCode = "None";
+                if (equipment != null)
+                {
+                    // equip_props를 Python dict 문자열로 변환
+                    var equipPropsStr = "{}";
+                    if (equipment.EquipProps != null && equipment.EquipProps.Count > 0)
+                    {
+                        var props = equipment.EquipProps.Select(kv => $"'{kv.Key}': {kv.Value}");
+                        equipPropsStr = "{" + string.Join(", ", props) + "}";
+                    }
+                    equipmentCode = $"{{'item_id': {equipment.Id}, 'unique_id': '{equipment.UniqueId ?? ""}', 'name': '{equipment.Name}', 'equip_props': {equipPropsStr}}}";
+                }
+
+                var code = $"assets.call_instance_method({instanceId}, '{methodName}', {argsCode}, {equipmentCode})";
                 Godot.GD.Print($"[ScriptSystem] Evaluating: {code}");
+
+                // SharpPy 디버그: 간단한 테스트로 인자 전달 확인
+                if (equipment != null)
+                {
+                    var testCode = $"_test_eq = {equipmentCode}; print('[SharpPy Debug] _test_eq=' + str(_test_eq) + ', type=' + str(type(_test_eq)))";
+                    Execute(testCode);
+                    Execute("print('[SharpPy Debug] equip_props=' + str(_test_eq.get('equip_props', 'NOT_FOUND')))");
+                }
 
                 var result = Eval(code);
 

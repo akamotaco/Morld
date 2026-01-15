@@ -120,16 +120,29 @@ class FishingSpot(Object):
         ])
         morld.advance_time(1)
 
-    def fish(self):
+    def fish(self, equipment=None):
         """
         낚시하기 - can:fish가 있어야 실행 가능
 
         랜덤으로 생선 획득 또는 실패
+
+        Args:
+            equipment: 낚시에 사용된 장비 정보
+                       {"item_id": int, "unique_id": str, "name": str} 또는 None
         """
         import random
         from assets.registry import get_item_class
 
-        yield morld.dialog("낚시를 시작한다...")
+        # 장비에 따라 다른 낚시 메시지
+        if equipment:
+            equip_id = equipment.get("unique_id", "")
+            if equip_id == "fishing_rod":
+                yield morld.dialog("낚싯줄을 드리운다...")
+            else:
+                yield morld.dialog(f"{equipment.get('name', '도구')}(으)로 낚시를 시작한다...")
+        else:
+            # can:fish가 기본 능력인 경우 (장비 없이 가능할 때)
+            yield morld.dialog("맨손으로 물고기를 잡아본다...")
         morld.advance_time(15)  # 15분 소요
 
         # 70% 확률로 성공

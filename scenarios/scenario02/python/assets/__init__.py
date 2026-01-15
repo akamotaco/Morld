@@ -32,7 +32,21 @@ from assets.registry import (
 # call: 액션 지원 - 인스턴스 메서드 호출 API
 # ========================================
 
-def call_instance_method(instance_id: int, method_name: str, *args):
+def _method_accepts_equipment(method) -> bool:
+    """메서드가 equipment 키워드 인자를 받는지 확인"""
+    # sharpPy는 inspect 모듈을 지원하지 않으므로 간단한 방법 사용
+    # method의 __code__ 속성으로 파라미터 이름 확인
+    try:
+        code = getattr(method, "__code__", None)
+        if code is None:
+            return False
+        varnames = code.co_varnames[:code.co_argcount]
+        return "equipment" in varnames
+    except Exception:
+        return False
+
+
+def call_instance_method(instance_id: int, method_name: str, args=None, equipment=None):
     """
     Asset 인스턴스의 메서드 호출 (call: 액션용)
 
@@ -42,18 +56,31 @@ def call_instance_method(instance_id: int, method_name: str, *args):
     Args:
         instance_id: 인스턴스 ID (Unit ID 또는 Item ID)
         method_name: 호출할 메서드 이름
-        *args: 메서드에 전달할 인자들
+        args: 메서드에 전달할 인자 리스트 (None이면 빈 리스트)
+        equipment: 장비 정보 dict (can: prop을 제공한 장비)
+                   {"item_id": int, "unique_id": str, "name": str} 또는 None
 
     Returns:
         메서드 반환값 (Generator 또는 dict)
     """
+    if args is None:
+        args = []
+
+    def _call_method(instance, method):
+        """equipment 파라미터 지원 여부에 따라 메서드 호출"""
+        accepts = _method_accepts_equipment(method)
+        if equipment is not None and accepts:
+            return method(*args, equipment=equipment)
+        else:
+            return method(*args)
+
     # 1. Objects 레지스트리에서 찾기
     from assets import objects
     instance = objects.get_instance(instance_id)
     if instance is not None:
         method = getattr(instance, method_name, None)
         if method is not None:
-            return method(*args)
+            return _call_method(instance, method)
         print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
         return None
 
@@ -63,7 +90,7 @@ def call_instance_method(instance_id: int, method_name: str, *args):
     if instance is not None:
         method = getattr(instance, method_name, None)
         if method is not None:
-            return method(*args)
+            return _call_method(instance, method)
         print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
         return None
 
@@ -73,7 +100,7 @@ def call_instance_method(instance_id: int, method_name: str, *args):
     if instance is not None:
         method = getattr(instance, method_name, None)
         if method is not None:
-            return method(*args)
+            return _call_method(instance, method)
         print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
         return None
 

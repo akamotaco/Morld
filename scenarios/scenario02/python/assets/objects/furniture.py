@@ -153,7 +153,7 @@ class Stove(Object):
     put_filter = ["food_ingredient"]  # 음식 재료만 넣을 수 있음
     actions = [
         "call:look:살펴보기",
-        "container",  # C# 기본 컨테이너 UI 사용
+        "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
         "call:put:재료 넣기",
         "call:cook:조리하기",
         "call:debug_props:속성 보기"
@@ -240,7 +240,7 @@ class Kettle(Object):
     put_filter = ["drink_ingredient"]  # 음료 재료만 넣을 수 있음
     actions = [
         "call:look:살펴보기",
-        "container",  # C# 기본 컨테이너 UI 사용
+        "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
         "call:put:재료 넣기",
         "call:brew:끓이기",
         "call:debug_props:속성 보기"
@@ -460,7 +460,7 @@ class Wardrobe(Object):
     put_filter = ["clothing"]  # 의류만 넣을 수 있음
     actions = [
         "call:look:살펴보기",
-        "container",  # C# 기본 컨테이너 UI 사용
+        "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
         "call:put:옷 넣기",
         "call:debug_props:속성 보기"
     ]
