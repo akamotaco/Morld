@@ -601,18 +601,7 @@ namespace SE
 				if (edge.IsBlocked) continue;
 
 				var conditions = edge.GetConditions(location);
-				bool canPass = true;
-				string? blockedReason = null;
-
-				foreach (var (propName, requiredValue) in conditions)
-				{
-					if (actualProps.GetProp(propName) < requiredValue)
-					{
-						canPass = false;
-						blockedReason = $"{propName}이(가) 필요합니다";
-						break;
-					}
-				}
+				var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
 
 				var neighbor = edge.GetOtherLocation(location);
 				routes.Add(new RouteInfo
@@ -623,7 +612,8 @@ namespace SE
 					TravelTime = edge.GetTravelTime(location),
 					IsRegionEdge = false,
 					IsBlocked = !canPass,
-					BlockedReason = blockedReason
+					BlockedReason = blockedReason,
+					IsHidden = isHidden
 				});
 			}
 
@@ -633,18 +623,7 @@ namespace SE
 				if (regionEdge.IsBlocked) continue;
 
 				var conditions = regionEdge.GetConditions(player.CurrentLocation);
-				bool canPass = true;
-				string? blockedReason = null;
-
-				foreach (var (propName, requiredValue) in conditions)
-				{
-					if (actualProps.GetProp(propName) < requiredValue)
-					{
-						canPass = false;
-						blockedReason = $"{propName}이(가) 필요합니다";
-						break;
-					}
-				}
+				var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
 
 				var destination = regionEdge.GetOtherLocation(player.CurrentLocation);
 				var destLocation = terrain.GetLocation(destination);
@@ -658,11 +637,50 @@ namespace SE
 					TravelTime = regionEdge.GetTravelTime(player.CurrentLocation),
 					IsRegionEdge = true,
 					IsBlocked = !canPass,
-					BlockedReason = blockedReason
+					BlockedReason = blockedReason,
+					IsHidden = isHidden
 				});
 			}
 
 			return routes;
+		}
+
+		/// <summary>
+		/// 조건 딕셔너리를 검사하여 통과 여부, 차단 사유, 숨김 여부를 반환
+		/// 조건 키가 '#'로 끝나면 조건 미충족 시 숨김 처리
+		/// </summary>
+		/// <param name="conditions">조건 딕셔너리 (키: prop 이름, 값: 필요 수치)</param>
+		/// <param name="actualProps">실제 플레이어 Props</param>
+		/// <returns>(통과 여부, 차단 사유, 숨김 여부)</returns>
+		private (bool canPass, string? blockedReason, bool isHidden) CheckConditionsWithHiddenMarker(
+			Dictionary<string, int> conditions, TraversalContext actualProps)
+		{
+			bool canPass = true;
+			string? blockedReason = null;
+			bool isHidden = false;
+
+			foreach (var (propName, requiredValue) in conditions)
+			{
+				// '#'로 끝나는 조건: 미충족 시 숨김
+				var isHiddenCondition = propName.EndsWith("#");
+				var actualPropName = isHiddenCondition ? propName.Substring(0, propName.Length - 1) : propName;
+
+				if (actualProps.GetProp(actualPropName) < requiredValue)
+				{
+					canPass = false;
+					if (isHiddenCondition)
+					{
+						isHidden = true;
+					}
+					else
+					{
+						blockedReason = $"{actualPropName}이(가) 필요합니다";
+					}
+					break;
+				}
+			}
+
+			return (canPass, blockedReason, isHidden);
 		}
 
 		#endregion

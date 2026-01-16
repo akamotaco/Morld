@@ -324,12 +324,18 @@ namespace SE
 				items.Add("[color=cyan]이동 가능:[/color]");
 				foreach (var route in lookResult.Routes)
 				{
+					// 숨김 처리 (조건 키에 # 마커가 있고 조건 미충족)
+					if (route.IsHidden)
+						continue;
+
 					if (route.IsBlocked)
 					{
+						// grey out 처리 (조건 미충족)
 						items.Add($"  [color=gray]- {route.LocationName}[/color]");
 					}
 					else
 					{
+						// 활성화 (이동 가능)
 						var regionTag = route.IsRegionEdge ? $" [{route.RegionName}]" : "";
 						var meta = $"move:{route.Destination.RegionId}:{route.Destination.LocalId}";
 						items.Add($"  [url={meta}]{route.LocationName}{regionTag} ({route.TravelTime}분)[/url]");

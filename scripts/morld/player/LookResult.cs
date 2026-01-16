@@ -80,7 +80,7 @@ public class RouteInfo
 	public bool IsRegionEdge { get; set; }
 
 	/// <summary>
-	/// Edge.IsBlocked 또는 조건 미충족
+	/// Edge.IsBlocked 또는 조건 미충족 (grey out 표시)
 	/// </summary>
 	public bool IsBlocked { get; set; }
 
@@ -88,6 +88,11 @@ public class RouteInfo
 	/// 불가 사유 (아이템 미보유 시)
 	/// </summary>
 	public string? BlockedReason { get; set; }
+
+	/// <summary>
+	/// 조건 미충족 시 숨김 처리 (조건 키에 # 마커가 있는 경우)
+	/// </summary>
+	public bool IsHidden { get; set; }
 }
 
 /// <summary>

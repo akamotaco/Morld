@@ -981,7 +981,8 @@ def calculate(a, b):
             {
                 // Python 리스트 리터럴 생성
                 var idsLiteral = $"[{string.Join(", ", unitIds)}]";
-                var code = $"get_all_describe_texts({idsLiteral})";
+                // assets.characters 모듈의 함수를 명시적으로 호출
+                var code = $"__import__('assets.characters').characters.get_all_describe_texts({idsLiteral})";
 
                 var pyResult = Eval(code);
 
