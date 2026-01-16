@@ -156,6 +156,8 @@ public partial class MetaActionHandler
 		if (result == null)
 		{
 			// 스크립트가 반환값 없이 완료됨 - invalid focus 처리 및 화면 갱신
+			// 주의: call: 직접 완료는 시간이 흐르지 않으므로 이벤트 처리 없이 UpdateDisplay만 호출
+			// (ProcessEventsAndUpdateDisplay 사용 시 대기 중인 meet 이벤트가 잘못 처리됨)
 			_textUISystem?.PopIfInvalid();
 			_textUISystem?.UpdateDisplay();
 			return;
@@ -166,11 +168,18 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// ScriptResult 처리 (HandleScriptAction과 ResumeGenerator에서 공통 사용)
+	/// processCompletion: true면 generator 완료 시 PopIfInvalid 및 이벤트 처리 수행
 	/// </summary>
-	private void ProcessScriptResult(SE.ScriptResult result, ScriptSystem scriptSystem)
+	private void ProcessScriptResult(SE.ScriptResult result, ScriptSystem scriptSystem, bool processCompletion = false)
 	{
 		if (result == null)
 		{
+			// generator 완료 시 후처리 (result가 null이어도 processCompletion이면 처리)
+			if (processCompletion && _pendingGenerator == null)
+			{
+				_textUISystem?.PopIfInvalid();
+				ProcessEventsAndUpdateDisplay();
+			}
 			return;
 		}
 
@@ -241,6 +250,13 @@ public partial class MetaActionHandler
 					_textUISystem?.ShowResult(result.Message);
 				}
 				break;
+		}
+
+		// generator 완료 시 후처리 (새로운 dialog가 없으면)
+		if (processCompletion && _pendingGenerator == null)
+		{
+			_textUISystem?.PopIfInvalid();
+			ProcessEventsAndUpdateDisplay();
 		}
 	}
 

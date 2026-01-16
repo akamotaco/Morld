@@ -57,6 +57,7 @@ public partial class MetaActionHandler
 			_textUISystem?.Pop();
 
 			// generator에 값 전달하고 계속 실행
+			// processCompletion=true: generator 완료 시 PopIfInvalid 및 이벤트 처리 수행
 			var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 			if (scriptSystem != null)
 			{
@@ -64,15 +65,7 @@ public partial class MetaActionHandler
 				GD.Print($"[MetaActionHandler] Resuming generator with final value: {finalValue}");
 #endif
 				var nextResult = scriptSystem.ResumeGenerator(generator, finalValue);
-				ProcessScriptResult(nextResult, scriptSystem);
-			}
-
-			// generator가 완료되면 남은 이벤트 처리 후 화면 갱신
-			// 다이얼로그는 이미 Pop되었으므로 이전 focus(Unit 등)가 유지됨
-			// 남은 meet 이벤트가 있으면 다음 다이얼로그 표시
-			if (_pendingGenerator == null)
-			{
-				ProcessEventsAndUpdateDisplay();
+				ProcessScriptResult(nextResult, scriptSystem, processCompletion: true);
 			}
 			return;
 		}
@@ -157,13 +150,7 @@ public partial class MetaActionHandler
 
 					PyObject resultValue = dialogRequest?.ResultObject ?? PyNone.Instance;
 					var nextResult = scriptSystem.ResumeGeneratorWithPyObject(generator, resultValue);
-					ProcessScriptResult(nextResult, scriptSystem);
-
-					// generator가 완료되면 남은 이벤트 처리 후 화면 갱신 (스택 유지)
-					if (_pendingGenerator == null)
-					{
-						ProcessEventsAndUpdateDisplay();
-					}
+					ProcessScriptResult(nextResult, scriptSystem, processCompletion: true);
 					return;
 				}
 
@@ -233,6 +220,7 @@ public partial class MetaActionHandler
 		_textUISystem?.Pop();
 
 		// generator에 ResultObject 전달하고 계속 실행
+		// processCompletion=true: generator 완료 시 PopIfInvalid 및 이벤트 처리 수행
 		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 		if (scriptSystem != null)
 		{
@@ -242,13 +230,7 @@ public partial class MetaActionHandler
 			GD.Print($"[MetaActionHandler] @finish: resuming generator with result={resultValue.GetTypeName()}");
 #endif
 			var nextResult = scriptSystem.ResumeGeneratorWithPyObject(generator, resultValue);
-			ProcessScriptResult(nextResult, scriptSystem);
-		}
-
-		// generator가 완료되면 남은 이벤트 처리 후 화면 갱신 (스택 유지)
-		if (_pendingGenerator == null)
-		{
-			ProcessEventsAndUpdateDisplay();
+			ProcessScriptResult(nextResult, scriptSystem, processCompletion: true);
 		}
 	}
 
