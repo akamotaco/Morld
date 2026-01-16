@@ -436,8 +436,11 @@ namespace SE
                     result.SetItem(new PyString("schedule_name"), PyNone.Instance);
                 }
 
-                // 이동 중인지 여부
-                result.SetItem(new PyString("is_moving"), PyBool.FromBool(unit.IsMoving));
+                // Edge 위에 있는지 여부 (물리적 위치)
+                result.SetItem(new PyString("is_on_edge"), PyBool.FromBool(unit.IsOnEdge));
+
+                // 목적지로 이동 중인지 여부 (논리적 상태)
+                result.SetItem(new PyString("is_traveling"), PyBool.FromBool(unit.IsTraveling));
 
                 return result;
             });

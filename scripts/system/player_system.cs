@@ -446,8 +446,8 @@ namespace SE
 				return new LookResult();
 			}
 
-			// 이동 중인 경우도 처리 (런타임에서는 호출되지 않음)
-			if (player.IsMoving && player.CurrentEdge != null)
+			// Edge 위에 있는 경우 처리 (런타임에서는 호출되지 않음)
+			if (player.IsOnEdge && player.CurrentEdge != null)
 			{
 				GD.Print($"[PlayerSystem.Look] player is moving, CurrentEdge={player.CurrentEdge}");
 				return LookFromEdge(player);

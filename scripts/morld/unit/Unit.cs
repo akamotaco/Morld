@@ -123,14 +123,33 @@ public class Unit : IOwnable
 	public HashSet<string> Mood { get; set; } = new();
 
 	/// <summary>
-	/// 이동 중인지 여부 (CurrentEdge 기반)
+	/// Edge 위에 있는지 여부 (물리적 위치: Location vs Edge)
+	/// true: Edge 위에서 이동 중, false: Location에 있음
 	/// </summary>
-	public bool IsMoving => _currentEdge != null;
+	public bool IsOnEdge => _currentEdge != null;
 
 	/// <summary>
-	/// 대기 중인지 여부 (CurrentEdge 기반)
+	/// 대기 중인지 여부 (Edge 위에 없음)
 	/// </summary>
 	public bool IsIdle => _currentEdge == null;
+
+	/// <summary>
+	/// 목적지로 이동 중인지 여부 (논리적 상태: Job 목적지와 현재 위치 비교)
+	/// true: 현재 위치 != Job 목적지, false: 도착했거나 Job이 없음
+	/// </summary>
+	public bool IsTraveling
+	{
+		get
+		{
+			var job = CurrentJob;
+			if (job == null)
+				return false;
+
+			var jobLoc = job.GetLocationRef();
+			return _currentLocation.RegionId != jobLoc.RegionId ||
+				   _currentLocation.LocalId != jobLoc.LocalId;
+		}
+	}
 
 	/// <summary>
 	/// 경유지 지체 남은 시간 (분)

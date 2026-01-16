@@ -55,14 +55,8 @@ class Mila(Character):
         super().__init__()
         self._event_flags = {}
 
-    def get_describe_text(self) -> str:
-        """밀라의 현재 상태에 맞는 묘사 텍스트 반환 (장소에 있을 때)"""
-        import morld
-
-        info = morld.get_unit_info(self.instance_id)
-        if not info:
-            return ""
-
+    def _get_activity_describe_text(self, info: dict) -> str:
+        """밀라의 activity 기반 묘사 (정지 상태일 때)"""
         name = info.get("name", self.name)
         activity = info.get("activity")
         region_id = info.get("region_id")

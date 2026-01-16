@@ -200,9 +200,48 @@ class Character(Unit):
     메서드 오버라이드:
     - get_describe_text(): 장소에 있을 때 묘사 (플레이어와 같은 위치)
     - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
+
+    이동/Activity 묘사 시스템:
+    - get_describe_text()가 is_traveling 체크 후 자동 분기
+    - 이동 중: _get_traveling_describe_text() 호출 (패턴화된 기본 구현)
+    - 정지 중: _get_activity_describe_text() 호출 (서브클래스에서 오버라이드)
     """
 
     type: str = "male"
+
+    def get_describe_text(self) -> str:
+        """
+        장소에 있을 때 묘사 텍스트 반환
+
+        이동 중이면 패턴화된 이동 묘사, 아니면 activity 기반 묘사.
+        """
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return ""
+
+        if info.get("is_traveling"):
+            return self._get_traveling_describe_text(info)
+        return self._get_activity_describe_text(info)
+
+    def _get_traveling_describe_text(self, info: dict) -> str:
+        """
+        이동 중 묘사 - 패턴화된 기본 구현
+
+        서브클래스에서 오버라이드하여 커스텀 이동 묘사 가능.
+        """
+        name = info.get("name", self.name)
+        activity = info.get("activity", "")
+        if activity:
+            return f"{name}(이)가 {activity}을 위해 이동 중이다."
+        return f"{name}(이)가 어딘가로 향하고 있다."
+
+    def _get_activity_describe_text(self, info: dict) -> str:
+        """
+        Activity 기반 묘사 - 서브클래스에서 오버라이드
+
+        기본 구현은 빈 문자열 반환.
+        """
+        return ""
 
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """캐릭터를 morld에 등록"""
