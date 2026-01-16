@@ -164,22 +164,27 @@ def get_header():
 
 def get_footer():
     """
-    하단 푸터 반환 (상태바)
+    하단 푸터 반환 (인벤토리 + 상태바)
 
     Focus 화면 최하단에 표시됩니다.
     구분선 포함.
 
     Returns:
-        str: 구분선 + 상태바 BBCode (빈 문자열이면 표시 안함)
+        str: 구분선 + 인벤토리 + 상태바 BBCode (빈 문자열이면 표시 안함)
     """
     # 푸터 숨김 상태면 빈 문자열
     if not _show_footer:
         return ""
 
+    lines = []
+    lines.append("[color=gray]────────────────────[/color]")
+    lines.append("[url=inventory]인벤토리[/url]")
+
     status_text = get_status_text()
-    if not status_text:
-        return ""
-    return "[color=gray]────────────────────[/color]\n" + status_text
+    if status_text:
+        lines.append(status_text)
+
+    return "\n".join(lines)
 
 
 def get_info_header(show_time=True, show_status=True):
@@ -263,9 +268,6 @@ def get_action_text():
     # 행동 섹션 헤더
     lines.append("")
     lines.append("[color=cyan]행동:[/color]")
-
-    # 인벤토리
-    lines.append("  [url=inventory]인벤토리[/url]")
 
     # 멍때리기 (시간 선택 토글)
     # ToggleRenderer가 [hidden=idle]...[/hidden=idle] 영역을 펼침/접힘 처리

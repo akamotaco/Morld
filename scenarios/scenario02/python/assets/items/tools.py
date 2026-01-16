@@ -299,14 +299,14 @@ class WaterBottle(Item):
 @register_item
 class RabbitTrap(Item):
     """
-    토끼 덫 - 토끼 굴에 설치
+    소형 동물 덫 - 토끼 굴에 설치
 
     제작 방법:
     - 나뭇가지 3개 (rabbit_trap_branch 레시피)
     - 나무판 1개 (rabbit_trap_plank 레시피)
     """
     unique_id = "rabbit_trap"
-    name = "토끼 덫"
+    name = "소형 동물 덫"
     passive_props = {}
     equip_props = {}
     action_props = {"put": 1}  # 토끼 굴에 넣기 가능
@@ -314,13 +314,14 @@ class RabbitTrap(Item):
     actions = ["take@container", "call:look:살펴보기@inventory"]
 
     def look(self):
-        """토끼 덫 살펴보기"""
+        """소형 동물 덫 살펴보기"""
         yield morld.dialog([
-            "간단히 만든 토끼 덫이다.",
+            "간단히 만든 소형 동물 덫이다.",
             "토끼 굴 근처에 설치하면 토끼를 잡을 수 있다."
         ])
 
 
+@register_item
 class TrappedRabbit(Item):
     """
     토끼가 붙잡힌 덫
@@ -380,7 +381,7 @@ class RabbitCarcass(Item):
     passive_props = {}
     equip_props = {}
     value = 20
-    actions = ["take@container", "call:skin_menu:박피@inventory", "call:look:살펴보기@inventory"]
+    actions = ["take@container", "call:skin:박피@inventory", "call:look:살펴보기@inventory"]
 
     def look(self):
         """토끼 사체 살펴보기"""
@@ -389,9 +390,9 @@ class RabbitCarcass(Item):
             "날붙이로 손질하면 고기와 가죽을 얻을 수 있다."
         ])
 
-    def skin_menu(self):
+    def skin(self):
         """
-        박피 도구 선택 메뉴 (다이얼로그 기반)
+        박피 - 도구 선택 후 실행
 
         can:skin을 가진 아이템을 검색하여 선택지 제공
         각 도구별 소요 시간 표시 (skin_time 속성)

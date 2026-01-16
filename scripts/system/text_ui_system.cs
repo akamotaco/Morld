@@ -393,7 +393,9 @@ namespace SE
 			var body = _describeSystem.GetUnitLookText(unitLook, GetPrintableLogs());
 			lines.Add(body);
 
-			// Footer: 상태바
+			// Footer: 인벤토리 + 상태바 (Python ui.get_footer()에서 통합 생성)
+			// 주의: Unit Focus에서 인벤토리 열고 장비 변경 시 on_equip_change 이벤트 관련 이슈 있음
+			// - 다중 NPC가 있을 때 첫 번째 NPC만 이벤트 처리됨 (events/__init__.py 참고)
 			var footer = GetFooterFromPython();
 			if (!string.IsNullOrEmpty(footer))
 			{
@@ -405,27 +407,11 @@ namespace SE
 
 		private string RenderInventory()
 		{
+			// 인벤토리는 header/footer 없이 구분선 + body + 구분선
 			var lines = new List<string>();
-
-			// Header: 시간/날씨
-			var header = GetHeaderFromPython();
-			if (!string.IsNullOrEmpty(header))
-			{
-				lines.Add(header);
-				lines.Add("[color=gray]────────────────────[/color]");
-			}
-
-			// Body: 인벤토리
-			var body = _describeSystem.GetInventoryText();
-			lines.Add(body);
-
-			// Footer: 상태바
-			var footer = GetFooterFromPython();
-			if (!string.IsNullOrEmpty(footer))
-			{
-				lines.Add(footer);
-			}
-
+			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(_describeSystem.GetInventoryText());
+			lines.Add("[color=gray]────────────────────[/color]");
 			return string.Join("\n", lines);
 		}
 
@@ -480,27 +466,14 @@ namespace SE
 				}
 			}
 
+			// 아이템은 header/footer 없이 구분선 + body + 구분선
 			var lines = new List<string>();
+			lines.Add("[color=gray]────────────────────[/color]");
 
-			// Header: 시간/날씨
-			var header = GetHeaderFromPython();
-			if (!string.IsNullOrEmpty(header))
-			{
-				lines.Add(header);
-				lines.Add("[color=gray]────────────────────[/color]");
-			}
-
-			// Body: 아이템 메뉴
 			var body = _describeSystem.GetItemMenuText(context, itemId, count, targetUnitId);
 			lines.Add(body);
 
-			// Footer: 상태바
-			var footer = GetFooterFromPython();
-			if (!string.IsNullOrEmpty(footer))
-			{
-				lines.Add(footer);
-			}
-
+			lines.Add("[color=gray]────────────────────[/color]");
 			return string.Join("\n", lines);
 		}
 

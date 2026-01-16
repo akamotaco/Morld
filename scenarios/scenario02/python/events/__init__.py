@@ -98,6 +98,13 @@ def _handle_equip_change(player_id, item_id, is_equip):
 
     Returns:
         Generator 또는 None
+
+    주의 (잠재적 이슈):
+    - 현재는 같은 위치의 모든 NPC를 순회하지만, 첫 번째 Generator 결과만 반환
+    - 여러 NPC가 on_equip_change를 구현한 경우, 첫 번째 NPC만 이벤트 처리되고 나머지는 소실됨
+    - on_meet과 달리 큐 시스템이 없어서 순차 처리 불가
+    - NPC Focus 상태에서 장비 변경 시 Focus 대상만 처리할지, 모든 NPC를 처리할지 정책 결정 필요
+    - 예: 리나 Focus 상태에서 장비 변경 → 리나만? 리나+밀라 둘 다?
     """
     import morld
 
@@ -110,6 +117,7 @@ def _handle_equip_change(player_id, item_id, is_equip):
     player_location = player_info.get("location_id")
 
     # 같은 위치의 NPC들에게 on_equip_change 호출
+    # TODO: 다중 NPC 이벤트 순차 처리 (on_meet 큐 시스템 참고)
     for handler in _get_nearby_character_handlers(player_id, player_region, player_location):
         if hasattr(handler, "on_equip_change"):
             try:

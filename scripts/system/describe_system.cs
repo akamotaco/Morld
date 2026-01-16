@@ -464,6 +464,7 @@ namespace SE
 				}
 			}
 
+			// 뒤로 버튼 (인벤토리 메뉴는 footer에서 표시)
 			lines.Add("[url=back]뒤로[/url]");
 
 			return string.Join("\n", lines);

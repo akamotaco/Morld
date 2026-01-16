@@ -174,8 +174,19 @@ class Character(Unit):
     mood: list = []          # 현재 감정 상태
 
     def get_describe_text(self) -> str:
-        """장소에 있을 때 묘사 (presence text)"""
-        return None
+        """장소에 있을 때 묘사 - is_traveling 기반 자동 분기"""
+        info = morld.get_unit_info(self.instance_id)
+        if info.get("is_traveling"):
+            return self._get_traveling_describe_text(info)
+        return self._get_activity_describe_text(info)
+
+    def _get_traveling_describe_text(self, info: dict) -> str:
+        """이동 중 묘사 - 패턴화된 기본 구현"""
+        return f"{info['name']}(이)가 {info['activity']}을 위해 이동 중이다."
+
+    def _get_activity_describe_text(self, info: dict) -> str:
+        """Activity 기반 묘사 - 서브클래스에서 오버라이드"""
+        return ""
 
     def get_focus_text(self) -> str:
         """Focus 상태일 때 묘사 (클릭했을 때)"""
@@ -202,9 +213,15 @@ class Sera(Character):
         {"name": "휴식", "region_id": 0, "location_id": 0, "start": 720, "end": 780, "activity": "휴식"},
     ]
 
-    def get_describe_text(self):
-        """장소 묘사에 표시되는 텍스트"""
-        return f"{self.name}(이)가 주변을 경계하고 있다."
+    def _get_activity_describe_text(self, info: dict) -> str:
+        """Activity 기반 묘사 (정지 상태일 때)"""
+        name = info.get("name", self.name)
+        activity = info.get("activity")
+        if activity == "사냥":
+            return f"{name}가 활을 점검하고 있다."
+        if activity == "순찰":
+            return f"{name}가 주변을 경계하고 있다."
+        return f"{name}가 과묵하게 서 있다."
 
     def get_focus_text(self):
         """클릭 시 표시되는 텍스트"""
@@ -317,9 +334,17 @@ Unit
 ├─ TraversalContext (기본 태그/스탯)
 ├─ Actions (List<string> - 가능한 행동)
 ├─ Mood (HashSet<string> - 현재 감정 상태)
-├─ IsMoving (CurrentEdge != null)
+├─ IsOnEdge (CurrentEdge != null - 물리적 위치)
+├─ IsTraveling (currentLoc != jobLoc - 논리적 이동 상태)
 └─ IsIdle (CurrentEdge == null)
 ```
+
+**이동 상태 필드:**
+| 필드 | 조건 | 의미 |
+|------|------|------|
+| `IsOnEdge` | `CurrentEdge != null` | Edge 위에서 물리적으로 이동 중 |
+| `IsTraveling` | `currentLoc != jobLoc` | Job 목적지에 아직 도착 안 함 |
+| `IsIdle` | `CurrentEdge == null` | Location에 정지 상태 |
 
 **UniqueId 조회:**
 ```csharp
@@ -396,7 +421,7 @@ import morld
 
 # 유닛 관련
 morld.get_player_id()
-morld.get_unit_info(unit_id)
+morld.get_unit_info(unit_id)  # {name, region_id, location_id, activity, is_on_edge, is_traveling, ...}
 morld.get_unit_location(unit_id)
 morld.set_unit_location(unit_id, region_id, location_id)
 
@@ -700,6 +725,47 @@ actions = ["call:talk:대화", "call:trade:거래"]
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 이동 경로 조건 필터링
+**역할:** Edge/RegionEdge의 이동 조건을 검사하여 grey out 또는 숨김 처리
+
+**핵심 설계:**
+- 기존 `Edge.Conditions` 시스템에 grey out 및 숨김 알고리즘 적용
+- 조건 키 끝에 `#` 마커가 있으면 조건 미충족 시 숨김
+- `#` 없으면 조건 미충족 시 grey out (비활성화)
+
+**RouteInfo 구조:**
+```csharp
+public class RouteInfo
+{
+    public string LocationName { get; set; }
+    public LocationRef Destination { get; set; }
+    public int TravelTime { get; set; }
+    public bool IsBlocked { get; set; }      // grey out 표시
+    public string? BlockedReason { get; set; }  // 불가 사유
+    public bool IsHidden { get; set; }       // 숨김 처리 (# 마커)
+}
+```
+
+**조건 키 형식:**
+| 형식 | 조건 미충족 시 | 예시 |
+|------|---------------|------|
+| `"조건명"` | grey out | `"열쇠:대문": 1` |
+| `"조건명#"` | 숨김 | `"비밀통로#": 1` |
+
+**Edge 정의 예시:**
+```python
+# 일반 조건 - grey out
+Edge(0, 1, conditions={"열쇠:대문": 1})  # 열쇠 없으면 비활성화
+
+# 숨김 조건 - 완전히 숨김
+Edge(0, 2, conditions={"비밀통로#": 1})  # 조건 미충족 시 안 보임
+```
+
+**파일 위치:**
+- `scripts/system/player_system.cs` - `CheckConditionsWithHiddenMarker()`, `BuildRoutes()`
+- `scripts/system/describe_system.cs` - `GetActionItems()` (숨김 route 스킵)
+- `scripts/morld/player/LookResult.cs` - `RouteInfo.IsHidden`
+
 ### 조건부 액션 및 토글 메뉴 (ui.py)
 **역할:** 시간, 위치, 상태 등 조건에 따라 액션 활성화/비활성화, 토글 메뉴 제공
 
@@ -987,6 +1053,53 @@ class AppleTree(Object):
 **파일 위치:**
 - `scenarios/scenario02/python/think/resource_agent.py` - 자원 생성 로직
 - `scenarios/scenario02/python/assets/objects/nature.py` - 자원 오브젝트 정의
+
+### 덫 시스템 (Trap System)
+**역할:** 토끼 굴 등에 덫을 설치하여 동물 포획
+
+**핵심 설계:**
+- `on_time_elapsed` 이벤트 구독
+- 설정된 간격마다 덫 체크 (확률 판정)
+- 성공 시 덫 아이템 → 포획된 덫 아이템으로 교체
+
+**토끼 굴 설정:**
+```python
+# think/trap_agent.py
+RABBIT_BURROW_CONFIG = {
+    "rabbit_burrow": (360, 0.4),  # 6시간마다 체크, 40% 확률
+}
+```
+
+**동작 흐름:**
+1. `RabbitBurrow.instantiate()` → `trap_agent.register_rabbit_burrow()` 호출
+2. `on_time_elapsed` 이벤트 발생 시 시간 누적
+3. `check_interval` 도달 시 확률 판정
+4. 성공 시 `rabbit_trap` 제거, `trapped_rabbit` 생성
+
+**아이템 정의:**
+```python
+# assets/items/tools.py
+@register_item
+class RabbitTrap(Item):
+    unique_id = "rabbit_trap"
+    name = "소형 동물 덫"
+    action_props = {"put": 1}  # 토끼 굴에 넣기 가능
+
+@register_item
+class TrappedRabbit(Item):
+    unique_id = "trapped_rabbit"
+    name = "토끼가 붙잡힌 덫"
+    actions = ["take@container", "call:disassemble:분해@inventory"]
+
+    def disassemble(self):
+        """덫 분해 - 토끼 사체 획득, 덫은 부서짐"""
+        # rabbit_carcass 지급, trapped_rabbit 제거
+```
+
+**파일 위치:**
+- `scenarios/scenario02/python/think/trap_agent.py` - 덫 체크 로직
+- `scenarios/scenario02/python/assets/objects/nature.py` - `RabbitBurrow` 클래스
+- `scenarios/scenario02/python/assets/items/tools.py` - 덫 아이템
 
 ### 시간 정지 시스템 (Time Freeze)
 **역할:** 프롤로그 등에서 시간 흐름을 멈추고 플레이어만 이동 가능하게 함
