@@ -148,6 +148,9 @@ public partial class MetaActionHandler
 			case "drop":
 				HandleDropAction(parts);
 				break;
+			case "drop_floor":
+				HandleDropFloorAction(parts);
+				break;
 			case "look_unit":
 				HandleLookUnitAction(parts);
 				break;

@@ -306,6 +306,7 @@ class Object(Unit):
 
     type: str = "object"
     put_filter: list = None  # 넣기 가능한 카테고리 리스트
+    item_visible: bool = False  # True면 오브젝트 리스트에서 아이템 개수 표시
 
     def take(self, item_id):
         """오브젝트에서 특정 아이템 하나 가져가기"""
@@ -399,7 +400,8 @@ class Object(Unit):
             [],          # mood
             self.unique_id,  # unique_id 전달
             None,            # action_props
-            self.owner       # owner 전달
+            self.owner,      # owner 전달
+            self.item_visible  # item_visible 전달
         )
 
         # Prop 설정 (좌석 정보 등)
@@ -581,15 +583,18 @@ class Location(Asset):
 
         Args:
             ground: 바닥 Object 인스턴스
-            ground_instance_id: 바닥 ID (None이면 1000 + location_id)
+            ground_instance_id: 바닥 ID (None이면 create_id로 자동 생성)
         """
         self._check_instantiated()
 
         if ground_instance_id is None:
-            ground_instance_id = 1000 + self.location_id
+            ground_instance_id = morld.create_id("unit")
 
         ground.instantiate(ground_instance_id, self.region_id, self.location_id)
         self.ground = ground
+
+        # Location에 ground_id 설정
+        morld.set_location_ground_id(self.region_id, self.location_id, ground_instance_id)
 
     def add_object(self, obj: Object, instance_id: int = None) -> int:
         """

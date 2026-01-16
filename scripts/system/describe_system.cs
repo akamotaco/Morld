@@ -262,13 +262,28 @@ namespace SE
 						lines.Add("");
 					}
 
-					// 오브젝트 표시
+					// 오브젝트 표시 (바닥 오브젝트도 포함 - 클릭해서 Container Focus로 조작)
 					if (objects.Count > 0)
 					{
+						var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 						lines.Add("[color=orange]오브젝트:[/color]");
 						foreach (var obj in objects)
 						{
-							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]");
+							// ItemVisible이 true면 아이템 개수 표시
+							var itemCountText = "";
+							if (obj.ItemVisible && inventorySystem != null)
+							{
+								var inventory = inventorySystem.GetUnitInventory(obj.Id);
+								if (inventory != null)
+								{
+									int totalCount = 0;
+									foreach (var kvp in inventory)
+										totalCount += kvp.Value;
+									if (totalCount > 0)
+										itemCountText = $" [color=gray](아이템 {totalCount}개)[/color]";
+								}
+							}
+							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]{itemCountText}");
 						}
 						lines.Add("");
 					}
@@ -695,6 +710,13 @@ namespace SE
 					var putLabel = $"넣기: {targetUnit.Name}";
 					lines.Add($"  [url=put:{targetUnitId.Value}:{itemId}]{putLabel}[/url]");
 				}
+			}
+
+			// 바닥에 버리기 (항상 표시, 클릭 시 조건 체크하여 다이얼로그로 이유 표시)
+			// - 바닥 없음, 저주 아이템, 장착 중 등의 경우 다이얼로그로 안내
+			if (context == "inventory")
+			{
+				lines.Add($"  [url=drop_floor:{itemId}]바닥에 버리기[/url]");
 			}
 
 			// 디버그: 아이템 props 보기 (can:debug_item_props가 있으면 표시)

@@ -86,6 +86,13 @@ public class Unit : IOwnable
 	public bool IsObject => Type == UnitType.Object;
 
 	/// <summary>
+	/// 인벤토리 아이템 개수를 이름 옆에 표시할지 여부 (오브젝트용)
+	/// true: "바닥 (아이템 3개)" 형식으로 표시
+	/// false: "서랍" 형식으로 이름만 표시 (기본값)
+	/// </summary>
+	public bool ItemVisible { get; set; } = false;
+
+	/// <summary>
 	/// 이벤트 추적 활성화 (오브젝트용 수동 활성화)
 	/// 캐릭터는 자동으로 이벤트 생성, 오브젝트는 이 값이 true일 때만 생성
 	/// </summary>

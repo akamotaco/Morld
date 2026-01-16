@@ -52,6 +52,12 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     public string Owner { get; set; }
 
     /// <summary>
+    /// 바닥 오브젝트의 Unit ID (null이면 바닥 없음)
+    /// 아이템을 버리거나 떨어뜨릴 때 사용
+    /// </summary>
+    public int? GroundUnitId { get; set; }
+
+    /// <summary>
     /// 부모 Region 참조 (Terrain에서 설정)
     /// </summary>
     public Region? ParentRegion { get; internal set; }

@@ -327,6 +327,7 @@ Unit
 ├─ UniqueId (string - Python Asset의 unique_id, 예: "sera", "mila")
 ├─ Name (이름)
 ├─ IsObject (bool - true: 오브젝트, false: 캐릭터)
+├─ ItemVisible (bool - true면 오브젝트 리스트에서 아이템 개수 표시)
 ├─ CurrentLocation (현재 위치 - LocationRef)
 ├─ CurrentEdge (이동 중 Edge 진행 상태 - EdgeProgress?)
 ├─ JobList (시간 기반 Job 리스트)
@@ -817,6 +818,67 @@ def get_action_text():
 - 위치: `morld.get_unit_location(player_id)`
 - 아이템: `morld.has_item(player_id, item_id)`
 - 상태: `morld.get_prop(prop_name)`
+
+### 바닥(Ground) 시스템
+**역할:** Location의 바닥 오브젝트를 통한 아이템 버리기/줍기 관리
+
+**핵심 설계:**
+- Location은 inventory를 갖지 않음
+- "바닥" Object가 떨어진 아이템을 저장 (인벤토리 보유)
+- `Location.GroundUnitId`로 바닥 오브젝트 참조
+
+**데이터 구조:**
+```csharp
+// Location.cs
+public int? GroundUnitId { get; set; }  // 바닥 오브젝트의 Unit ID
+
+// Unit.cs (오브젝트용)
+public bool ItemVisible { get; set; }  // true면 오브젝트 리스트에서 아이템 개수 표시
+```
+
+**Python Asset 정의:**
+```python
+# assets/objects/grounds.py
+class Ground(Object):
+    """바닥 오브젝트 베이스 클래스"""
+    item_visible = True  # 아이템 개수 항상 표시
+    actions = ["putinobject", "call:debug_props:속성 보기"]
+
+class GroundGrass(Ground):
+    unique_id = "ground_grass"
+    name = "잔디"
+    focus_text = {"default": "푸른 잔디가 깔려 있다."}
+
+# Location에서 바닥 추가
+class ForestEntrance(Location):
+    def instantiate(self, region_id, location_id):
+        super().instantiate(region_id, location_id)
+        self.add_ground(GroundGrass())
+```
+
+**UI 표시:**
+- `item_visible = True`인 오브젝트는 이름 옆에 아이템 개수 표시
+- 예: `잔디 (아이템 3개)`, `유리상자 (아이템 2개)`, `서랍` (item_visible=False)
+
+**바닥에 버리기 (drop_floor):**
+- URL 패턴: `drop_floor:itemId`
+- 제한 조건 (다이얼로그로 안내):
+  - 바닥 없음 → "여기에는 버릴 곳이 없다"
+  - 저주 아이템 (`action_props.drop_floor <= 0`) → "이 아이템은 버릴 수 없다"
+  - 장착 중 → "장착 중인 아이템은 버릴 수 없다"
+
+**morld API:**
+```python
+morld.set_location_ground_id(region_id, location_id, ground_unit_id)
+morld.get_location_ground_id(region_id, location_id)  # 없으면 None
+```
+
+**파일 위치:**
+- `scripts/morld/terrain/Location.cs` - GroundUnitId 필드
+- `scripts/morld/unit/Unit.cs` - ItemVisible 필드
+- `scripts/system/describe_system.cs` - 오브젝트 리스트에서 아이템 개수 표시
+- `scripts/MetaActionHandler/MetaActionHandler.Item.cs` - HandleDropFloorAction
+- `scenarios/scenario02/python/assets/objects/grounds.py` - 바닥 오브젝트 클래스
 
 ### 소유자(Owner) 시스템
 **역할:** 아이템/장소의 원래 소유자를 추적하여 "훔치기" 등의 기능 지원

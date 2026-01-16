@@ -54,7 +54,7 @@ namespace SE
                 morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
                 {
                     if (args.Length < 3)
-                        throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None) requires at least 3 arguments");
+                        throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None, ground_id=None) requires at least 3 arguments");
 
                     int regionId = args[0].ToInt();
                     int localId = args[1].ToInt();
@@ -65,6 +65,7 @@ namespace SE
                     var describeText = args.Length >= 7 && args[6] is PyDict descDict
                         ? PyDictToStringDict(descDict)
                         : null;
+                    int? groundId = args.Length >= 8 && args[7] != PyNone.Instance ? args[7].ToInt() : null;
 
                     var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -77,6 +78,7 @@ namespace SE
                         location.StayDuration = stayDuration;
                         location.IsIndoor = isIndoor;
                         location.Owner = owner;
+                        location.GroundUnitId = groundId;
 
                         // describe_text 설정
                         if (describeText != null)
@@ -87,7 +89,7 @@ namespace SE
                             }
                         }
 
-                        Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, describe_text={describeText?.Count ?? 0} entries");
+                        Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, ground_id={groundId?.ToString() ?? "null"}, describe_text={describeText?.Count ?? 0} entries");
                         return PyBool.True;
                     }
                     return PyBool.False;
@@ -205,6 +207,49 @@ namespace SE
                     var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                     var terrain = _worldSystem.GetTerrain();
                     return terrain.GetRegion(regionId) != null ? PyBool.True : PyBool.False;
+                });
+
+                // set_location_ground_id: Location의 바닥 오브젝트 ID 설정
+                morldModule.ModuleDict["set_location_ground_id"] = new PyBuiltinFunction("set_location_ground_id", args =>
+                {
+                    if (args.Length < 3)
+                        throw PyTypeError.Create("set_location_ground_id(region_id, location_id, ground_unit_id) requires 3 arguments");
+
+                    int regionId = args[0].ToInt();
+                    int locationId = args[1].ToInt();
+                    int? groundUnitId = args[2] != PyNone.Instance ? args[2].ToInt() : null;
+
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var terrain = _worldSystem.GetTerrain();
+                    var location = terrain.GetLocation(new Morld.LocationRef(regionId, locationId));
+
+                    if (location != null)
+                    {
+                        location.GroundUnitId = groundUnitId;
+                        Godot.GD.Print($"[morld] set_location_ground_id: {regionId}:{locationId} -> ground_id={groundUnitId?.ToString() ?? "null"}");
+                        return PyBool.True;
+                    }
+                    return PyBool.False;
+                });
+
+                // get_location_ground_id: Location의 바닥 오브젝트 ID 조회
+                morldModule.ModuleDict["get_location_ground_id"] = new PyBuiltinFunction("get_location_ground_id", args =>
+                {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("get_location_ground_id(region_id, location_id) requires 2 arguments");
+
+                    int regionId = args[0].ToInt();
+                    int locationId = args[1].ToInt();
+
+                    var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                    var terrain = _worldSystem.GetTerrain();
+                    var location = terrain.GetLocation(new Morld.LocationRef(regionId, locationId));
+
+                    if (location != null && location.GroundUnitId.HasValue)
+                    {
+                        return new PyInt(location.GroundUnitId.Value);
+                    }
+                    return PyNone.Instance;
                 });
 
                 // === Time API (GameTime) ===
@@ -350,7 +395,7 @@ namespace SE
                 morldModule.ModuleDict["add_unit"] = new PyBuiltinFunction("add_unit", args =>
                 {
                     if (args.Length < 4)
-                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None, unique_id=None, action_props=None, owner=None) requires at least 4 arguments");
+                        throw PyTypeError.Create("add_unit(id, name, region_id, location_id, type='male', actions=None, mood=None, unique_id=None, action_props=None, owner=None, item_visible=False) requires at least 4 arguments");
 
                     int id = args[0].ToInt();
                     string name = args[1].AsString();
@@ -362,11 +407,13 @@ namespace SE
                     string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
                     var actionProps = args.Length >= 9 && args[8] is PyDict apDict ? PyDictToIntDict(apDict) : null;
                     string owner = args.Length >= 10 && args[9] is PyString ownerStr ? ownerStr.Value : null;
+                    bool itemVisible = args.Length >= 11 && args[10].IsTrue();
 
                     var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                     var unit = new Morld.Unit(id, name, regionId, locationId);
                     unit.UniqueId = uniqueId;
                     unit.Owner = owner;
+                    unit.ItemVisible = itemVisible;
                     unit.Type = type.ToLower() switch
                     {
                         "female" => Morld.UnitType.Female,

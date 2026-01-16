@@ -20,6 +20,96 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 아이템 바닥에 버리기: drop_floor:itemId
+	/// 버리기 금지 조건 (다이얼로그로 안내):
+	/// - 바닥이 없는 경우
+	/// - 저주받은 아이템 (action_props의 drop_floor <= 0)
+	/// - 장착 중인 장비
+	/// </summary>
+	private void HandleDropFloorAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int itemId))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid drop_floor format. Expected: drop_floor:itemId");
+			return;
+		}
+
+		var player = _playerSystem?.FindPlayerUnit();
+		if (player == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleDropFloorAction: Player not found");
+			return;
+		}
+
+		var itemSystem = _world.GetSystem("itemSystem") as ItemSystem;
+		var inventorySystem = _world.GetSystem("inventorySystem") as InventorySystem;
+		var worldSystem = _world.GetSystem("worldSystem") as WorldSystem;
+
+		if (itemSystem == null || inventorySystem == null || worldSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleDropFloorAction: Systems not found");
+			return;
+		}
+
+		var item = itemSystem.FindItem(itemId);
+		if (item == null)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandleDropFloorAction: Item not found: {itemId}");
+			return;
+		}
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] 바닥에 버리기: itemId={itemId}, playerId={player.Id}");
+#endif
+
+		// 1. 현재 Location에 바닥이 있는지 체크
+		var terrain = worldSystem.GetTerrain();
+		var location = terrain.GetLocation(player.CurrentLocation);
+		if (location == null || !location.GroundUnitId.HasValue)
+		{
+			_textUISystem?.ShowResult("여기에는 버릴 곳이 없다.");
+			return;
+		}
+
+		// 2. 저주받은 아이템 체크 (action_props의 drop_floor <= 0)
+		if (item.ActionProps.TryGetValue("drop_floor", out int dropValue) && dropValue <= 0)
+		{
+			_textUISystem?.ShowResult("이 아이템은 버릴 수 없다.");
+			return;
+		}
+
+		// 3. 장착 중인 아이템 체크
+		var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
+		if (equippedItems.Contains(itemId))
+		{
+			_textUISystem?.ShowResult("장착 중인 아이템은 버릴 수 없다.\n먼저 장착을 해제해야 한다.");
+			return;
+		}
+
+		int groundUnitId = location.GroundUnitId.Value;
+
+		// 4. 바닥 유닛이 존재하는지 확인
+		var unitSystem = _world.GetSystem("unitSystem") as UnitSystem;
+		var groundUnit = unitSystem?.FindUnit(groundUnitId);
+		if (groundUnit == null)
+		{
+			_textUISystem?.ShowResult("바닥이 존재하지 않는다.");
+			return;
+		}
+
+		// 5. 아이템 이동: 플레이어 인벤토리 → 바닥 인벤토리
+		inventorySystem.RemoveItemFromUnit(player.Id, itemId);
+		inventorySystem.AddItemToUnit(groundUnitId, itemId);
+
+#if DEBUG_LOG
+		GD.Print($"[MetaActionHandler] 아이템 바닥에 버림: itemId={itemId} -> groundUnitId={groundUnitId}");
+#endif
+
+		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
+		_textUISystem?.Pop();
+	}
+
+	/// <summary>
 	/// 바닥 아이템 메뉴 표시: item_ground_menu:itemId
 	/// </summary>
 	private void HandleItemGroundMenuAction(string[] parts)

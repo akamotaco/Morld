@@ -10,35 +10,37 @@
 from assets.base import Object
 
 
+class Ground(Object):
+    """바닥 오브젝트 베이스 클래스 - 아이템 개수 항상 표시"""
+    item_visible = True
+    actions = ["putinobject", "call:debug_props:속성 보기"]
+
+
 # ========================================
 # 실내 바닥
 # ========================================
 
-class GroundWooden(Object):
+class GroundWooden(Ground):
     unique_id = "ground_wooden"
     name = "나무 바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "잘 닦인 나무 바닥."}
 
 
-class GroundStone(Object):
+class GroundStone(Ground):
     unique_id = "ground_stone"
     name = "돌 바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "차갑고 단단한 돌 바닥."}
 
 
-class GroundMarble(Object):
+class GroundMarble(Ground):
     unique_id = "ground_marble"
     name = "대리석 바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "우아하게 빛나는 대리석 바닥."}
 
 
-class GroundTile(Object):
+class GroundTile(Ground):
     unique_id = "ground_tile"
     name = "타일 바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "깨끗하게 관리된 타일 바닥."}
 
 
@@ -46,31 +48,27 @@ class GroundTile(Object):
 # 실외 바닥
 # ========================================
 
-class GroundDirt(Object):
+class GroundDirt(Ground):
     unique_id = "ground_dirt"
     name = "흙바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "부드러운 흙바닥."}
 
 
-class GroundGrass(Object):
+class GroundGrass(Ground):
     unique_id = "ground_grass"
     name = "잔디"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "푸른 잔디가 깔려 있다."}
 
 
-class GroundForest(Object):
+class GroundForest(Ground):
     unique_id = "ground_forest"
     name = "숲 바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "낙엽과 이끼가 덮인 숲 바닥."}
 
 
-class GroundRocky(Object):
+class GroundRocky(Ground):
     unique_id = "ground_rocky"
     name = "바위투성이 땅"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "울퉁불퉁한 바위와 자갈이 깔려 있다."}
 
 
@@ -78,15 +76,13 @@ class GroundRocky(Object):
 # 도시 바닥 (황폐화된 도시)
 # ========================================
 
-class GroundAsphalt(Object):
+class GroundAsphalt(Ground):
     unique_id = "ground_asphalt"
     name = "아스팔트 바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "금이 간 아스팔트. 잡초가 틈새로 자라나 있다."}
 
 
-class GroundConcrete(Object):
+class GroundConcrete(Ground):
     unique_id = "ground_concrete"
     name = "콘크리트 바닥"
-    actions = ["putinobject", "call:debug_props:속성 보기"]
     focus_text = {"default": "버려진 건물의 콘크리트 바닥. 먼지가 쌓여 있다."}
