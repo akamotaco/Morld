@@ -219,6 +219,13 @@ namespace SE
 					if (playerWp.Location.RegionId != npcWp.Location.RegionId) continue;
 					if (playerWp.Location.LocalId != npcWp.Location.LocalId) continue;
 
+					// 이미 같은 위치에 있는 경우는 "새로운 만남"이 아님 - 스킵
+					// (ArrivalTime == 0은 현재 위치를 의미)
+					// 실제 on_meet 이벤트는 EventSystem.DetectMeetings()에서 별도로 감지됨
+					// 여기서는 "미래에 발생할 만남"만 예측하여 시간 조정에 사용
+					if (playerWp.ArrivalTime == 0 && npcWp.ArrivalTime == 0)
+						continue;
+
 					// 도착 시간 차이가 작으면 만남으로 판정 (5분 이내)
 					int timeDiff = Math.Abs(playerWp.ArrivalTime - npcWp.ArrivalTime);
 					if (timeDiff <= 5)
