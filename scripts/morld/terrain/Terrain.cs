@@ -537,6 +537,67 @@ public class Terrain
     }
 
     /// <summary>
+    /// 두 인접 위치 간 이동 시간 계산
+    /// Edge 또는 RegionEdge를 통해 연결된 위치에 대한 이동 시간 반환
+    /// </summary>
+    /// <param name="from">출발 위치</param>
+    /// <param name="to">도착 위치</param>
+    /// <returns>이동 시간 (분), 연결이 없으면 -1</returns>
+    public int GetTravelTimeBetween(LocationRef from, LocationRef to)
+    {
+        // 같은 Region 내 이동
+        if (from.RegionId == to.RegionId)
+        {
+            var region = GetRegion(from.RegionId);
+            if (region == null) return -1;
+
+            var edge = region.GetEdgeBetween(from.LocalId, to.LocalId);
+            if (edge != null)
+            {
+                var fromLocation = region.GetLocation(from.LocalId);
+                if (fromLocation != null)
+                {
+                    return edge.GetTravelTime(fromLocation);
+                }
+            }
+            return -1;
+        }
+
+        // Region 간 이동 - RegionEdge 탐색
+        foreach (var regionEdge in GetRegionEdgesFrom(from))
+        {
+            var otherLoc = regionEdge.GetOtherLocation(from);
+            if (otherLoc == to)
+            {
+                return regionEdge.GetTravelTime(from);
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// 경로의 총 이동 시간 계산
+    /// </summary>
+    /// <param name="pathResult">FindPath 결과</param>
+    /// <returns>총 이동 시간 (분), 경로가 없으면 0</returns>
+    public int CalculatePathTravelTime(PathResult pathResult)
+    {
+        if (!pathResult.Found || pathResult.Path.Count < 2)
+            return 0;
+
+        int totalTime = 0;
+        for (int i = 0; i < pathResult.Path.Count - 1; i++)
+        {
+            var from = new LocationRef(pathResult.Path[i]);
+            var to = new LocationRef(pathResult.Path[i + 1]);
+            var travelTime = GetTravelTimeBetween(from, to);
+            totalTime += travelTime >= 0 ? travelTime : 1; // 연결이 없으면 기본값 1
+        }
+        return totalTime;
+    }
+
+    /// <summary>
     /// Region ID 존재 여부 확인
     /// </summary>
     public bool HasRegion(int regionId) => _regions.ContainsKey(regionId);
@@ -1084,6 +1145,48 @@ public class Terrain
         }
 
         return data;
+    }
+
+    #endregion
+
+    #region Condition Checking
+
+    /// <summary>
+    /// 조건 딕셔너리를 검사하여 통과 여부, 차단 사유, 숨김 여부를 반환
+    /// 조건 키가 '#'로 끝나면 조건 미충족 시 숨김 처리
+    /// </summary>
+    /// <param name="conditions">조건 딕셔너리 (키: prop 이름, 값: 필요 수치)</param>
+    /// <param name="actualProps">실제 유닛 Props</param>
+    /// <returns>(통과 여부, 차단 사유, 숨김 여부)</returns>
+    public (bool canPass, string? blockedReason, bool isHidden) CheckConditionsWithHiddenMarker(
+        Dictionary<string, int> conditions, TraversalContext actualProps)
+    {
+        bool canPass = true;
+        string? blockedReason = null;
+        bool isHidden = false;
+
+        foreach (var (propName, requiredValue) in conditions)
+        {
+            // '#'로 끝나는 조건: 미충족 시 숨김
+            var isHiddenCondition = propName.EndsWith("#");
+            var actualPropName = isHiddenCondition ? propName.Substring(0, propName.Length - 1) : propName;
+
+            if (actualProps.GetProp(actualPropName) < requiredValue)
+            {
+                canPass = false;
+                if (isHiddenCondition)
+                {
+                    isHidden = true;
+                }
+                else
+                {
+                    blockedReason = $"{actualPropName}이(가) 필요합니다";
+                }
+                break;
+            }
+        }
+
+        return (canPass, blockedReason, isHidden);
     }
 
     #endregion

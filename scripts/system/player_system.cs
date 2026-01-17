@@ -144,7 +144,7 @@ namespace SE
 						int.TryParse(parts[1], out int regionId) &&
 						int.TryParse(parts[2], out int localId))
 					{
-						ExecuteMove(new LocationRef(regionId, localId));
+						ExecuteMoveAndAdvanceTime(new LocationRef(regionId, localId));
 					}
 					break;
 				case "휴식":
@@ -162,42 +162,12 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 이동 시간 계산 (확인 다이얼로그용)
+		/// 플레이어 이동 스케줄링 및 시간 진행 요청
+		/// - JobList에 이동 Job 삽입
+		/// - RequestTimeAdvance 호출
+		/// PlayerSystem 전용: 시간 제어 + Job 스케줄링 책임
 		/// </summary>
-		/// <returns>이동 시간 (분), 경로가 없으면 -1</returns>
-		public int CalculateTravelTime(int regionId, int localId)
-		{
-			var destination = new LocationRef(regionId, localId);
-			var player = FindPlayerUnit();
-			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
-			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
-			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-
-			if (player == null || worldSystem == null)
-				return -1;
-
-			var terrain = worldSystem.GetTerrain();
-
-			// 이미 목적지에 있으면 0
-			if (player.CurrentLocation == destination)
-				return 0;
-
-			// 아이템 효과가 반영된 Prop으로 경로 탐색
-			var inventory = inventorySystem.GetUnitInventory(player.Id);
-			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
-			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
-			var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualProps);
-
-			if (!pathResult.Found || pathResult.Path.Count < 2)
-				return -1;
-
-			return CalculateTotalTravelTime(pathResult, terrain);
-		}
-
-		/// <summary>
-		/// 이동 실행 (JobList에 이동 Job 삽입)
-		/// </summary>
-		private void ExecuteMove(LocationRef destination)
+		private void ExecuteMoveAndAdvanceTime(LocationRef destination)
 		{
 			var player = FindPlayerUnit();
 			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
@@ -228,7 +198,7 @@ namespace SE
 			}
 
 			// 총 이동 시간 계산
-			var totalTime = CalculateTotalTravelTime(pathResult, terrain);
+			var totalTime = terrain.CalculatePathTravelTime(pathResult);
 
 			// JobList에 이동 Job 삽입 (플레이어는 스케줄 없음 → 단순 Insert)
 			var destLocation = terrain.GetLocation(destination);
@@ -264,108 +234,9 @@ namespace SE
 #endif
 		}
 
-		/// <summary>
-		/// 경로의 총 이동 시간 계산
-		/// </summary>
-		private int CalculateTotalTravelTime(PathResult pathResult, Terrain terrain)
-		{
-			if (!pathResult.Found || pathResult.Path.Count < 2)
-				return 0;
-
-			int totalTime = 0;
-			for (int i = 0; i < pathResult.Path.Count - 1; i++)
-			{
-				var from = new LocationRef(pathResult.Path[i]);
-				var to = new LocationRef(pathResult.Path[i + 1]);
-				totalTime += GetTravelTime(from, to, terrain);
-			}
-			return totalTime;
-		}
-
-		/// <summary>
-		/// 두 Location 간 이동 시간 계산
-		/// </summary>
-		private int GetTravelTime(LocationRef from, LocationRef to, Terrain terrain)
-		{
-			// 같은 Region 내 이동
-			if (from.RegionId == to.RegionId)
-			{
-				var region = terrain.GetRegion(from.RegionId);
-				var edge = region.GetEdgeBetween(from.LocalId, to.LocalId);
-
-				if (edge != null)
-				{
-					var travelTime = edge.LocationA.LocalId == from.LocalId
-						? edge.TravelTimeAtoB
-						: edge.TravelTimeBtoA;
-					return travelTime >= 0 ? travelTime : 1;
-				}
-			}
-			else
-			{
-				// Region 간 이동
-				foreach (var regionEdge in terrain.RegionEdges)
-				{
-					var locA = regionEdge.LocationA;
-					var locB = regionEdge.LocationB;
-
-					if (locA.RegionId == from.RegionId && locA.LocalId == from.LocalId &&
-						locB.RegionId == to.RegionId && locB.LocalId == to.LocalId)
-					{
-						return regionEdge.TravelTimeAtoB >= 0 ? regionEdge.TravelTimeAtoB : 1;
-					}
-					else if (locB.RegionId == from.RegionId && locB.LocalId == from.LocalId &&
-							 locA.RegionId == to.RegionId && locA.LocalId == to.LocalId)
-					{
-						return regionEdge.TravelTimeBtoA >= 0 ? regionEdge.TravelTimeBtoA : 1;
-					}
-				}
-			}
-
-			return 1;
-		}
-
 		#endregion
 
-		#region 유닛 조회
-
-		/// <summary>
-		/// 유닛 살펴보기 (캐릭터/오브젝트 통합)
-		/// </summary>
-		public UnitLookResult? LookUnit(int unitId)
-		{
-			var player = FindPlayerUnit();
-			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-
-			if (player == null || unitSystem == null)
-				return null;
-
-			var unit = unitSystem.FindUnit(unitId);
-			if (unit == null)
-				return null;
-
-			// 유닛이 같은 위치에 있는지 확인
-			if (unit.CurrentLocation != player.CurrentLocation)
-				return null;
-
-			// InventorySystem에서 인벤토리 가져오기
-			var inventory = unit.IsObject && inventorySystem != null
-				? new Dictionary<int, int>(inventorySystem.GetUnitInventory(unit.Id))
-				: new Dictionary<int, int>();
-
-			return new UnitLookResult
-			{
-				UnitId = unit.Id,
-				Name = unit.Name,
-				IsObject = unit.IsObject,
-				Inventory = inventory,
-				Actions = new List<string>(unit.Actions)
-			};
-		}
-
-		#endregion
-
+	
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
 			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
@@ -431,10 +302,11 @@ namespace SE
 #endif
 		}
 
-		#region Look 기능
+		#region Look 기능 (UnitSystem으로 위임)
 
 		/// <summary>
 		/// 현재 플레이어 위치의 정보 조회
+		/// UnitSystem.LookFromUnit으로 위임
 		/// </summary>
 		public LookResult Look()
 		{
@@ -445,238 +317,23 @@ namespace SE
 				return new LookResult();
 			}
 
-			// Edge 위에 있는 경우 처리 (런타임에서는 호출되지 않음)
-			if (player.IsOnEdge && player.CurrentEdge != null)
-			{
-				GD.Print($"[PlayerSystem.Look] player is moving, CurrentEdge={player.CurrentEdge}");
-				return LookFromEdge(player);
-			}
-
-			return LookFromLocation(player);
-		}
-
-		/// <summary>
-		/// Location에서 Look
-		/// </summary>
-		private LookResult LookFromLocation(Unit player)
-		{
-			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
-			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
-			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-			var terrain = worldSystem.GetTerrain();
-			var gameTime = worldSystem.GetTime();
-
-			// 1. 현재 위치 정보
-			var location = terrain.GetLocation(player.CurrentLocation);
-			var region = location != null ? terrain.GetRegion(location.RegionId) : null;
-
-			// 챕터 전환 중 데이터가 없으면 빈 결과 반환
-			if (location == null || region == null)
-			{
-				Godot.GD.Print($"[PlayerSystem.Look] returning 'loading' result - location={location != null}, region={region != null}, playerLoc={player.CurrentLocation}");
-				return new LookResult
-				{
-					Location = new LocationInfo
-					{
-						RegionName = "",
-						LocationName = "로딩 중...",
-						LocationRef = player.CurrentLocation
-					},
-					UnitIds = new List<int>(),
-					Routes = new List<RouteInfo>()
-				};
-			}
-
-			var locationInfo = new LocationInfo
-			{
-				RegionName = region.Name ?? "",
-				LocationName = describeSystem.GetNameWithOwner(location) ?? "",
-				LocationRef = player.CurrentLocation
-			};
-
-			// 2. 같은 위치에 있는 유닛들 (플레이어 제외)
-			var unitIds = new List<int>();
-			if (unitSystem != null)
-			{
-				foreach (var u in unitSystem.Units.Values)
-				{
-					if (u.Id == PlayerId) continue;
-
-					// 같은 위치에 있는 유닛 (이동 중이 아닌)
-					if (u.CurrentLocation == player.CurrentLocation && u.CurrentEdge == null)
-					{
-						unitIds.Add(u.Id);
-					}
-				}
-			}
-
-			// 3. 이동 가능한 경로들 (조건 필터링 적용)
-			var routes = BuildRoutes(player, terrain, region, location, itemSystem, inventorySystem);
-
-			return new LookResult
-			{
-				Location = locationInfo,
-				UnitIds = unitIds,
-				Routes = routes
-			};
+			return unitSystem.LookFromUnit(player, PlayerId);
 		}
 
 		/// <summary>
-		/// Edge에서 Look (이동 중)
+		/// 유닛 살펴보기 (캐릭터/오브젝트 통합)
+		/// UnitSystem.LookUnit으로 위임
 		/// </summary>
-		private LookResult LookFromEdge(Unit player)
+		public UnitLookResult? LookUnit(int unitId)
 		{
-			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var player = FindPlayerUnit();
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-			var terrain = worldSystem.GetTerrain();
 
-			// Edge 정보
-			var fromLocation = terrain.GetLocation(player.CurrentEdge!.From);
-			var toLocation = terrain.GetLocation(player.CurrentEdge!.To);
+			if (player == null || unitSystem == null)
+				return null;
 
-			var locationInfo = new LocationInfo
-			{
-				RegionName = "",  // Edge에서는 Region 정보 생략
-				LocationName = $"{fromLocation.Name} → {toLocation.Name}",
-				LocationRef = player.CurrentLocation
-			};
-
-			// 같은 Edge에 있는 유닛들
-			var unitIds = new List<int>();
-			if (unitSystem != null)
-			{
-				foreach (var u in unitSystem.Units.Values)
-				{
-					if (u.Id == PlayerId) continue;
-
-					if (u.CurrentEdge != null)
-					{
-						// 같은 Edge = From-To 쌍이 같거나 반대
-						bool sameEdge = (u.CurrentEdge.From == player.CurrentEdge!.From &&
-										u.CurrentEdge.To == player.CurrentEdge!.To) ||
-									   (u.CurrentEdge.From == player.CurrentEdge!.To &&
-										u.CurrentEdge.To == player.CurrentEdge!.From);
-						if (sameEdge)
-						{
-							unitIds.Add(u.Id);
-						}
-					}
-				}
-			}
-
-			return new LookResult
-			{
-				Location = locationInfo,
-				UnitIds = unitIds,
-				Routes = new List<RouteInfo>()  // Edge에서는 경로 없음
-			};
-		}
-
-		/// <summary>
-		/// 경로 정보 생성 (조건 필터링 적용)
-		/// </summary>
-		private List<RouteInfo> BuildRoutes(Unit player, Terrain? terrain, Region? region, Location? location, ItemSystem? itemSystem, InventorySystem? inventorySystem)
-		{
-			var routes = new List<RouteInfo>();
-			if (region == null || location == null || terrain == null) return routes;
-
-			// InventorySystem에서 인벤토리 데이터 가져오기
-			var inventory = inventorySystem.GetUnitInventory(player.Id);
-			var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
-			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
-
-			var describeSystem = this._hub.GetSystem("describeSystem") as DescribeSystem;
-
-			// Region 내부 Edge
-			var edges = region.GetEdges(location);
-			foreach (var edge in edges)
-			{
-				// Edge.IsBlocked 체크 - 완전 차단된 경로는 제외
-				if (edge.IsBlocked) continue;
-
-				var conditions = edge.GetConditions(location);
-				var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
-
-				var neighbor = edge.GetOtherLocation(location);
-				routes.Add(new RouteInfo
-				{
-					LocationName = describeSystem.GetNameWithOwner(neighbor) ?? neighbor.Name,
-					RegionName = region.Name,
-					Destination = new LocationRef(neighbor.RegionId, neighbor.LocalId),
-					TravelTime = edge.GetTravelTime(location),
-					IsRegionEdge = false,
-					IsBlocked = !canPass,
-					BlockedReason = blockedReason,
-					IsHidden = isHidden
-				});
-			}
-
-			// Region 간 Edge (RegionEdge)
-			foreach (var regionEdge in terrain.GetRegionEdgesFrom(player.CurrentLocation))
-			{
-				if (regionEdge.IsBlocked) continue;
-
-				var conditions = regionEdge.GetConditions(player.CurrentLocation);
-				var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
-
-				var destination = regionEdge.GetOtherLocation(player.CurrentLocation);
-				var destLocation = terrain.GetLocation(destination);
-				var destRegion = terrain.GetRegion(destination.RegionId);
-
-				routes.Add(new RouteInfo
-				{
-					LocationName = describeSystem.GetNameWithOwner(destLocation) ?? destLocation.Name ?? "",
-					RegionName = destRegion.Name ?? "",
-					Destination = destination,
-					TravelTime = regionEdge.GetTravelTime(player.CurrentLocation),
-					IsRegionEdge = true,
-					IsBlocked = !canPass,
-					BlockedReason = blockedReason,
-					IsHidden = isHidden
-				});
-			}
-
-			return routes;
-		}
-
-		/// <summary>
-		/// 조건 딕셔너리를 검사하여 통과 여부, 차단 사유, 숨김 여부를 반환
-		/// 조건 키가 '#'로 끝나면 조건 미충족 시 숨김 처리
-		/// </summary>
-		/// <param name="conditions">조건 딕셔너리 (키: prop 이름, 값: 필요 수치)</param>
-		/// <param name="actualProps">실제 플레이어 Props</param>
-		/// <returns>(통과 여부, 차단 사유, 숨김 여부)</returns>
-		private (bool canPass, string? blockedReason, bool isHidden) CheckConditionsWithHiddenMarker(
-			Dictionary<string, int> conditions, TraversalContext actualProps)
-		{
-			bool canPass = true;
-			string? blockedReason = null;
-			bool isHidden = false;
-
-			foreach (var (propName, requiredValue) in conditions)
-			{
-				// '#'로 끝나는 조건: 미충족 시 숨김
-				var isHiddenCondition = propName.EndsWith("#");
-				var actualPropName = isHiddenCondition ? propName.Substring(0, propName.Length - 1) : propName;
-
-				if (actualProps.GetProp(actualPropName) < requiredValue)
-				{
-					canPass = false;
-					if (isHiddenCondition)
-					{
-						isHidden = true;
-					}
-					else
-					{
-						blockedReason = $"{actualPropName}이(가) 필요합니다";
-					}
-					break;
-				}
-			}
-
-			return (canPass, blockedReason, isHidden);
+			return unitSystem.LookUnit(unitId, player);
 		}
 
 		#endregion

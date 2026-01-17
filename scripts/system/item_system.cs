@@ -33,7 +33,9 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 아이템 제거
+		/// 아이템 정의 제거 (현재 미사용)
+		/// - 인벤토리에서 아이템 수량 감소는 InventorySystem.RemoveItemFromUnit 사용
+		/// - 아이템 정의 자체를 삭제해야 할 시나리오가 생기면 사용
 		/// </summary>
 		public bool RemoveItem(int id)
 		{

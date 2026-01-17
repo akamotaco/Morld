@@ -219,27 +219,7 @@ namespace SE
 			return inv.TryGetValue(itemId, out int available) && available >= count;
 		}
 
-		/// <summary>
-		/// 인벤토리 간 아이템 이동 (Remove + Add 이벤트 발생)
-		/// </summary>
-		public bool TransferItem(string fromKey, string toKey, int itemId, int count = 1)
-		{
-			// RemoveItem으로 제거 (ItemRemoved 이벤트 발생)
-			if (!RemoveItem(fromKey, itemId, count))
-				return false;
-
-			// AddItem으로 추가 (ItemAdded 이벤트 발생)
-			AddItem(toKey, itemId, count);
-			return true;
-		}
-
 		// ===== 유닛 전용 조작 편의 메서드 =====
-
-		/// <summary>
-		/// 유닛에게 인벤토리 생성
-		/// </summary>
-		public void CreateUnitInventory(int unitId)
-			=> CreateInventory(UnitKey(unitId));
 
 		/// <summary>
 		/// 유닛 인벤토리에 아이템 추가

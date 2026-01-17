@@ -1,6 +1,7 @@
 #define DEBUG_LOG
 
 using Godot;
+using Morld;
 
 /// <summary>
 /// MetaActionHandler - Navigation 핸들러
@@ -50,8 +51,8 @@ public partial class MetaActionHandler
 		//     return;
 		// }
 
-		// 이동 시간 계산
-		int travelTime = _playerSystem?.CalculateTravelTime(regionId, localId) ?? -1;
+		// 이동 시간 계산 (경로 탐색 + 시간 계산)
+		int travelTime = CalculateTravelTimeToDestination(regionId, localId);
 		if (travelTime < 0)
 		{
 			_textUISystem?.ShowResult("이동할 수 없습니다.");
@@ -153,6 +154,39 @@ public partial class MetaActionHandler
 		}
 
 		_textUISystem?.ShowUnitLook(unitId);
+	}
+
+	/// <summary>
+	/// 목적지까지 이동 시간 계산
+	/// </summary>
+	/// <returns>이동 시간(분), 경로 없으면 -1</returns>
+	private int CalculateTravelTimeToDestination(int regionId, int localId)
+	{
+		var destination = new LocationRef(regionId, localId);
+		var player = _playerSystem?.FindPlayerUnit();
+		if (player == null) return -1;
+
+		var worldSystem = _world.GetSystem("worldSystem") as SE.WorldSystem;
+		var itemSystem = _world.GetSystem("itemSystem") as SE.ItemSystem;
+		var inventorySystem = _world.GetSystem("inventorySystem") as SE.InventorySystem;
+
+		var terrain = worldSystem?.GetTerrain();
+		if (terrain == null) return -1;
+
+		// 이미 목적지에 있으면 0
+		if (player.CurrentLocation == destination)
+			return 0;
+
+		// 아이템 효과가 반영된 Prop으로 경로 탐색
+		var inventory = inventorySystem?.GetUnitInventory(player.Id);
+		var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+		var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
+		var pathResult = terrain.FindPath(player.CurrentLocation, destination, actualProps);
+
+		if (!pathResult.Found || pathResult.Path.Count < 2)
+			return -1;
+
+		return terrain.CalculatePathTravelTime(pathResult);
 	}
 
 	#region TODO: 조건부 이동 시스템

@@ -163,12 +163,7 @@ namespace SE
                 int count = args.Length >= 3 ? args[2].ToInt() : 1;
 
                 var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
-                var inventory = _inventorySystem.GetUnitInventory(unitId);
-                if (inventory.TryGetValue(itemId, out int owned))
-                {
-                    return PyBool.FromBool(owned >= count);
-                }
-                return PyBool.False;
+                return PyBool.FromBool(_inventorySystem.UnitHasItem(unitId, itemId, count));
             });
 
             morldModule.ModuleDict["get_unit_inventory"] = new PyBuiltinFunction("get_unit_inventory", args =>

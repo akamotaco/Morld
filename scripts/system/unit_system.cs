@@ -354,5 +354,245 @@ namespace SE
 			}
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		}
+
+		#region Look 기능
+
+		/// <summary>
+		/// 유닛 시점에서 현재 위치 정보 조회
+		/// </summary>
+		/// <param name="unit">조회 주체 유닛</param>
+		/// <param name="viewerUnitId">조회하는 유닛의 ID (주변 유닛 목록에서 제외용)</param>
+		public LookResult LookFromUnit(Unit unit, int viewerUnitId)
+		{
+			if (unit == null)
+			{
+				GD.Print("[UnitSystem.LookFromUnit] unit is null");
+				return new LookResult();
+			}
+
+			// Edge 위에 있는 경우 처리
+			if (unit.IsOnEdge && unit.CurrentEdge != null)
+			{
+				GD.Print($"[UnitSystem.LookFromUnit] unit is moving, CurrentEdge={unit.CurrentEdge}");
+				return LookFromEdge(unit, viewerUnitId);
+			}
+
+			return LookFromLocation(unit, viewerUnitId);
+		}
+
+		/// <summary>
+		/// Location에서 Look
+		/// </summary>
+		private LookResult LookFromLocation(Unit unit, int viewerUnitId)
+		{
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var describeSystem = _hub.GetSystem("describeSystem") as DescribeSystem;
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+			var terrain = worldSystem.GetTerrain();
+			var gameTime = worldSystem.GetTime();
+
+			// 1. 현재 위치 정보
+			var location = terrain.GetLocation(unit.CurrentLocation);
+			var region = location != null ? terrain.GetRegion(location.RegionId) : null;
+
+			// 챕터 전환 중 데이터가 없으면 빈 결과 반환
+			if (location == null || region == null)
+			{
+				Godot.GD.Print($"[UnitSystem.LookFromLocation] returning 'loading' result - location={location != null}, region={region != null}, unitLoc={unit.CurrentLocation}");
+				return new LookResult
+				{
+					Location = new LocationInfo
+					{
+						RegionName = "",
+						LocationName = "로딩 중...",
+						LocationRef = unit.CurrentLocation
+					},
+					UnitIds = new List<int>(),
+					Routes = new List<RouteInfo>()
+				};
+			}
+
+			var locationInfo = new LocationInfo
+			{
+				RegionName = region.Name ?? "",
+				LocationName = describeSystem.GetNameWithOwner(location) ?? "",
+				LocationRef = unit.CurrentLocation
+			};
+
+			// 2. 같은 위치에 있는 유닛들 (viewer 제외)
+			var unitIds = new List<int>();
+			foreach (var u in _units.Values)
+			{
+				if (u.Id == viewerUnitId) continue;
+
+				// 같은 위치에 있는 유닛 (이동 중이 아닌)
+				if (u.CurrentLocation == unit.CurrentLocation && u.CurrentEdge == null)
+				{
+					unitIds.Add(u.Id);
+				}
+			}
+
+			// 3. 이동 가능한 경로들 (조건 필터링 적용)
+			var routes = BuildRoutes(unit, terrain, region, location, itemSystem, inventorySystem);
+
+			return new LookResult
+			{
+				Location = locationInfo,
+				UnitIds = unitIds,
+				Routes = routes
+			};
+		}
+
+		/// <summary>
+		/// Edge에서 Look (이동 중)
+		/// </summary>
+		private LookResult LookFromEdge(Unit unit, int viewerUnitId)
+		{
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var terrain = worldSystem.GetTerrain();
+
+			// Edge 정보
+			var fromLocation = terrain.GetLocation(unit.CurrentEdge!.From);
+			var toLocation = terrain.GetLocation(unit.CurrentEdge!.To);
+
+			var locationInfo = new LocationInfo
+			{
+				RegionName = "",  // Edge에서는 Region 정보 생략
+				LocationName = $"{fromLocation.Name} → {toLocation.Name}",
+				LocationRef = unit.CurrentLocation
+			};
+
+			// 같은 Edge에 있는 유닛들
+			var unitIds = new List<int>();
+			foreach (var u in _units.Values)
+			{
+				if (u.Id == viewerUnitId) continue;
+
+				if (u.CurrentEdge != null)
+				{
+					// 같은 Edge = From-To 쌍이 같거나 반대
+					bool sameEdge = (u.CurrentEdge.From == unit.CurrentEdge!.From &&
+									u.CurrentEdge.To == unit.CurrentEdge!.To) ||
+								   (u.CurrentEdge.From == unit.CurrentEdge!.To &&
+									u.CurrentEdge.To == unit.CurrentEdge!.From);
+					if (sameEdge)
+					{
+						unitIds.Add(u.Id);
+					}
+				}
+			}
+
+			return new LookResult
+			{
+				Location = locationInfo,
+				UnitIds = unitIds,
+				Routes = new List<RouteInfo>()  // Edge에서는 경로 없음
+			};
+		}
+
+		/// <summary>
+		/// 경로 정보 생성 (조건 필터링 적용)
+		/// </summary>
+		private List<RouteInfo> BuildRoutes(Unit unit, Terrain? terrain, Region? region, Location? location, ItemSystem? itemSystem, InventorySystem? inventorySystem)
+		{
+			var routes = new List<RouteInfo>();
+			if (region == null || location == null || terrain == null) return routes;
+
+			// InventorySystem에서 인벤토리 데이터 가져오기
+			var inventory = inventorySystem.GetUnitInventory(unit.Id);
+			var equippedItems = inventorySystem.GetUnitEquippedItems(unit.Id);
+			var actualProps = unit.GetActualProps(itemSystem, inventory, equippedItems);
+
+			var describeSystem = this._hub.GetSystem("describeSystem") as DescribeSystem;
+
+			// Region 내부 Edge
+			var edges = region.GetEdges(location);
+			foreach (var edge in edges)
+			{
+				// Edge.IsBlocked 체크 - 완전 차단된 경로는 제외
+				if (edge.IsBlocked) continue;
+
+				var conditions = edge.GetConditions(location);
+				var (canPass, blockedReason, isHidden) = terrain.CheckConditionsWithHiddenMarker(conditions, actualProps);
+
+				var neighbor = edge.GetOtherLocation(location);
+				routes.Add(new RouteInfo
+				{
+					LocationName = describeSystem.GetNameWithOwner(neighbor) ?? neighbor.Name,
+					RegionName = region.Name,
+					Destination = new LocationRef(neighbor.RegionId, neighbor.LocalId),
+					TravelTime = edge.GetTravelTime(location),
+					IsRegionEdge = false,
+					IsBlocked = !canPass,
+					BlockedReason = blockedReason,
+					IsHidden = isHidden
+				});
+			}
+
+			// Region 간 Edge (RegionEdge)
+			foreach (var regionEdge in terrain.GetRegionEdgesFrom(unit.CurrentLocation))
+			{
+				if (regionEdge.IsBlocked) continue;
+
+				var conditions = regionEdge.GetConditions(unit.CurrentLocation);
+				var (canPass, blockedReason, isHidden) = terrain.CheckConditionsWithHiddenMarker(conditions, actualProps);
+
+				var destination = regionEdge.GetOtherLocation(unit.CurrentLocation);
+				var destLocation = terrain.GetLocation(destination);
+				var destRegion = terrain.GetRegion(destination.RegionId);
+
+				routes.Add(new RouteInfo
+				{
+					LocationName = describeSystem.GetNameWithOwner(destLocation) ?? destLocation.Name ?? "",
+					RegionName = destRegion.Name ?? "",
+					Destination = destination,
+					TravelTime = regionEdge.GetTravelTime(unit.CurrentLocation),
+					IsRegionEdge = true,
+					IsBlocked = !canPass,
+					BlockedReason = blockedReason,
+					IsHidden = isHidden
+				});
+			}
+
+			return routes;
+		}
+
+		/// <summary>
+		/// 유닛 살펴보기 (캐릭터/오브젝트 통합)
+		/// </summary>
+		/// <param name="targetUnitId">살펴볼 대상 유닛 ID</param>
+		/// <param name="viewerUnit">조회하는 유닛</param>
+		public UnitLookResult? LookUnit(int targetUnitId, Unit viewerUnit)
+		{
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+
+			if (viewerUnit == null)
+				return null;
+
+			var unit = FindUnit(targetUnitId);
+			if (unit == null)
+				return null;
+
+			// 유닛이 같은 위치에 있는지 확인
+			if (unit.CurrentLocation != viewerUnit.CurrentLocation)
+				return null;
+
+			// InventorySystem에서 인벤토리 가져오기
+			var inventory = unit.IsObject && inventorySystem != null
+				? new Dictionary<int, int>(inventorySystem.GetUnitInventory(unit.Id))
+				: new Dictionary<int, int>();
+
+			return new UnitLookResult
+			{
+				UnitId = unit.Id,
+				Name = unit.Name,
+				IsObject = unit.IsObject,
+				Inventory = inventory,
+				Actions = new List<string>(unit.Actions)
+			};
+		}
+
+		#endregion
 	}
 }

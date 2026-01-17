@@ -246,7 +246,8 @@ namespace SE
 				// 다음 위치로 Edge 생성
 				var nextLocation = pathResult.Path[1];
 				var nextLocationRef = new LocationRef(nextLocation);
-				int travelTime = GetTravelTime(unit.CurrentLocation, nextLocationRef, pathResult.Path[0], nextLocation, terrain);
+				int travelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLocationRef);
+				if (travelTime < 0) travelTime = 10;  // 기본값
 
 				unit.CurrentEdge = new EdgeProgress
 				{
@@ -256,41 +257,6 @@ namespace SE
 					ElapsedTime = 0
 				};
 			}
-		}
-
-		/// <summary>
-		/// 두 위치 간 이동 시간 계산
-		/// </summary>
-		/// <param name="from">출발 LocationRef</param>
-		/// <param name="to">도착 LocationRef</param>
-		/// <param name="fromLocation">출발 Location 객체</param>
-		/// <param name="toLocation">도착 Location 객체</param>
-		/// <param name="terrain">지형</param>
-		private int GetTravelTime(LocationRef from, LocationRef to, Location fromLocation, Location toLocation, Terrain terrain)
-		{
-			if (from.RegionId == to.RegionId)
-			{
-				// 같은 Region 내 이동
-				var region = terrain.GetRegion(from.RegionId);
-				var edge = region.GetEdgeBetween(from.LocalId, to.LocalId);
-				if (edge != null)
-				{
-					return edge.GetTravelTime(fromLocation);
-				}
-			}
-			else
-			{
-				// Region 간 이동 - RegionEdge 탐색
-				foreach (var regionEdge in terrain.GetRegionEdgesFrom(from))
-				{
-					var otherLoc = regionEdge.GetOtherLocation(from);
-					if (otherLoc == to)
-					{
-						return regionEdge.GetTravelTime(from);
-					}
-				}
-			}
-			return 10; // 기본값
 		}
 	}
 }
