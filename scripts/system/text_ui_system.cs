@@ -528,8 +528,28 @@ namespace SE
 				var context = _stack.Current.Context ?? "inventory";
 				var unitId = _stack.Current.TargetUnitId;
 
-				int count = GetItemCount(itemId, context, unitId);
-				if (count <= 0)
+				var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+				var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+
+				// context에 따라 소유자 결정
+				int ownerId;
+				if (context == "inventory")
+				{
+					var player = _playerSystem?.FindPlayerUnit();
+					if (player == null) return;
+					ownerId = player.Id;
+				}
+				else if (context == "container" && unitId.HasValue)
+				{
+					ownerId = unitId.Value;
+				}
+				else
+				{
+					return;
+				}
+
+				// 아이템이 없으면 Pop
+				if (!_inventorySystem.UnitHasItem(ownerId, itemId))
 				{
 					Pop();
 					return;
@@ -537,34 +557,6 @@ namespace SE
 			}
 
 			RequestUpdateDisplay();
-		}
-
-		/// <summary>
-		/// 아이템 개수 조회
-		/// </summary>
-		private int GetItemCount(int itemId, string context, int? unitId)
-		{
-			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
-			var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
-
-			if (context == "inventory")
-			{
-				var player = _playerSystem.FindPlayerUnit();
-				if (player != null)
-				{
-					var inv = _inventorySystem.GetUnitInventory(player.Id);
-					inv.TryGetValue(itemId, out int count);
-					return count;
-				}
-			}
-			else if (context == "container" && unitId.HasValue)
-			{
-				var inv = _inventorySystem.GetUnitInventory(unitId.Value);
-				inv.TryGetValue(itemId, out int count);
-				return count;
-			}
-
-			return 0;
 		}
 
 		/// <summary>

@@ -1191,6 +1191,82 @@ public class Terrain
 
     #endregion
 
+    #region Route Building
+
+    /// <summary>
+    /// 원시 경로 정보 (표시 이름 없음)
+    /// </summary>
+    public struct RawRouteInfo
+    {
+        public LocationRef Destination;
+        public int TravelTime;
+        public bool IsRegionEdge;
+        public bool IsBlocked;
+        public string? BlockedReason;
+        public bool IsHidden;
+    }
+
+    /// <summary>
+    /// 특정 위치에서 이동 가능한 경로 목록 생성 (조건 필터링 적용)
+    /// </summary>
+    /// <param name="from">출발 위치</param>
+    /// <param name="actualProps">유닛의 실제 Props (장비 효과 포함)</param>
+    /// <returns>이동 가능한 경로 목록 (표시 이름 제외)</returns>
+    public List<RawRouteInfo> BuildRawRoutes(LocationRef from, TraversalContext actualProps)
+    {
+        var routes = new List<RawRouteInfo>();
+
+        var region = GetRegion(from.RegionId);
+        var location = GetLocation(from);
+        if (region == null || location == null) return routes;
+
+        // Region 내부 Edge
+        var edges = region.GetEdges(location);
+        foreach (var edge in edges)
+        {
+            // Edge.IsBlocked 체크 - 완전 차단된 경로는 제외
+            if (edge.IsBlocked) continue;
+
+            var conditions = edge.GetConditions(location);
+            var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
+
+            var neighbor = edge.GetOtherLocation(location);
+            routes.Add(new RawRouteInfo
+            {
+                Destination = new LocationRef(neighbor.RegionId, neighbor.LocalId),
+                TravelTime = edge.GetTravelTime(location),
+                IsRegionEdge = false,
+                IsBlocked = !canPass,
+                BlockedReason = blockedReason,
+                IsHidden = isHidden
+            });
+        }
+
+        // Region 간 Edge (RegionEdge)
+        foreach (var regionEdge in GetRegionEdgesFrom(from))
+        {
+            if (regionEdge.IsBlocked) continue;
+
+            var conditions = regionEdge.GetConditions(from);
+            var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
+
+            var destination = regionEdge.GetOtherLocation(from);
+            routes.Add(new RawRouteInfo
+            {
+                Destination = destination,
+                TravelTime = regionEdge.GetTravelTime(from),
+                IsRegionEdge = true,
+                IsBlocked = !canPass,
+                BlockedReason = blockedReason,
+                IsHidden = isHidden
+            });
+        }
+
+        return routes;
+    }
+
+    #endregion
+
     #region Debug Output
 
     /// <summary>

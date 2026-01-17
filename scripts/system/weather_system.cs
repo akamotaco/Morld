@@ -1,15 +1,15 @@
 using System;
 using ECS;
-using SharpPy;
+using Morld;
 
 namespace SE
 {
     /// <summary>
-    /// WeatherSystem - 모든 Region의 Python update_weather() 호출
+    /// WeatherSystem - 매일 자정에 랜덤으로 날씨 변경
     ///
     /// 역할:
-    /// - 매 Step마다 Python entities.proc_all("BaseRegion", "update_weather", game_time) 호출
-    /// - 각 Region이 시간에 따라 날씨를 변경하도록 함
+    /// - 자정(00:00)에 모든 Region의 날씨를 랜덤으로 변경
+    /// - Region.WeatherTypes 배열에서 랜덤 선택
     ///
     /// 실행 순서:
     /// JobBehaviorSystem → EventSystem → WeatherSystem → ThinkSystem
@@ -17,51 +17,62 @@ namespace SE
     public class WeatherSystem : ECS.System
     {
         private WorldSystem _worldSystem;
-        private ScriptSystem _scriptSystem;
+        private Random _random = new Random();
+
+        /// <summary>
+        /// 마지막으로 날씨를 변경한 날짜 (중복 변경 방지)
+        /// </summary>
+        private int _lastWeatherChangeDay = -1;
 
         /// <summary>
         /// 시스템 참조 설정
         /// </summary>
-        public void SetSystemReferences(
-            WorldSystem worldSystem,
-            ScriptSystem scriptSystem)
+        public void SetSystemReferences(WorldSystem worldSystem)
         {
             _worldSystem = worldSystem;
-            _scriptSystem = scriptSystem;
         }
 
         /// <summary>
-        /// 매 Step마다 호출
+        /// 매 Step마다 호출 - 자정에 날씨 변경
         /// </summary>
         protected override void Proc(int step, Span<Component[]> allComponents)
         {
-            if (_worldSystem == null || _scriptSystem == null)
-            {
-                Godot.GD.PrintErr("[WeatherSystem] System references not set");
+            if (_worldSystem == null)
                 return;
-            }
 
-            // 현재 게임 시간 (분 단위)
-            int gameTime = _worldSystem.GetTime().MinuteOfDay;
+            var time = _worldSystem.GetTime();
+            var currentDay = time.Day;
 
-            // Python proc_all 호출
-            try
+            // 이미 오늘 날씨를 변경했으면 스킵
+            if (currentDay == _lastWeatherChangeDay)
+                return;
+
+            // 자정(00:00~00:59) 또는 첫 실행 시 날씨 변경
+            if (time.Hour == 0 || _lastWeatherChangeDay == -1)
             {
-                // entities.proc_all("BaseRegion", "update_weather", game_time) 호출
-                var code = $"entities.proc_all('BaseRegion', 'update_weather', {gameTime})";
-                _scriptSystem.Eval(code);
-
-                // update_weather는 morld.set_region_weather()를 직접 호출하므로
-                // 별도의 결과 처리 불필요
+                ChangeAllRegionsWeather();
+                _lastWeatherChangeDay = currentDay;
             }
-            catch (System.Exception ex)
+        }
+
+        /// <summary>
+        /// 모든 Region의 날씨를 랜덤으로 변경
+        /// </summary>
+        private void ChangeAllRegionsWeather()
+        {
+            var terrain = _worldSystem.GetTerrain();
+            if (terrain == null)
+                return;
+
+            foreach (var region in terrain.Regions)
             {
-                // entities 모듈이 아직 로드되지 않은 경우 무시
-                // (기존 JSON 모드에서는 entities 모듈이 없음)
-                if (!ex.Message.Contains("entities"))
-                {
-                    Godot.GD.PrintErr($"[WeatherSystem] Error: {ex.Message}");
-                }
+                var weatherTypes = Region.WeatherTypes;
+                var newWeather = weatherTypes[_random.Next(weatherTypes.Length)];
+                region.CurrentWeather = newWeather;
+
+#if DEBUG_LOG
+                Godot.GD.Print($"[WeatherSystem] Region '{region.Name}' 날씨 변경: {newWeather}");
+#endif
             }
         }
     }

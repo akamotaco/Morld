@@ -92,6 +92,10 @@ public partial class GameEngine : Node
 		this._world.AddSystem(new PlayerSystem(), "playerSystem");
 		this._world.AddSystem(new DescribeSystem(), "describeSystem");
 
+		// WeatherSystem (매일 자정에 날씨 변경)
+		var weatherSystem = this._world.AddSystem(new WeatherSystem(), "weatherSystem") as WeatherSystem;
+		weatherSystem.SetSystemReferences(this._world.GetSystem("worldSystem") as WorldSystem);
+
 		// ActionLog System
 		var actionLogSystem = this._world.AddSystem(new ActionLogSystem(), "actionLogSystem") as ActionLogSystem;
 

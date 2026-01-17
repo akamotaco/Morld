@@ -304,24 +304,6 @@ namespace SE
         }
 
         /// <summary>
-        /// PyDict에서 문자열 값 추출
-        /// </summary>
-        private string GetPyDictString(PyDict dict, string key, string defaultValue)
-        {
-            var value = dict.Get(new PyString(key));
-            return value is PyString ps ? ps.Value : defaultValue;
-        }
-
-        /// <summary>
-        /// PyDict에서 정수 값 추출
-        /// </summary>
-        private int GetPyDictInt(PyDict dict, string key, int defaultValue)
-        {
-            var value = dict.Get(new PyString(key));
-            return value is PyInt pi ? (int)pi.Value : defaultValue;
-        }
-
-        /// <summary>
         /// Python 코드 실행 (File 모드 - 함수 정의, import 등)
         /// </summary>
         public PyObject Execute(string code)

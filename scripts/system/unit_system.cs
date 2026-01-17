@@ -434,7 +434,7 @@ namespace SE
 			}
 
 			// 3. 이동 가능한 경로들 (조건 필터링 적용)
-			var routes = BuildRoutes(unit, terrain, region, location, itemSystem, inventorySystem);
+			var routes = BuildRoutes(unit, terrain, itemSystem, inventorySystem);
 
 			return new LookResult
 			{
@@ -493,65 +493,39 @@ namespace SE
 
 		/// <summary>
 		/// 경로 정보 생성 (조건 필터링 적용)
+		/// Terrain.BuildRawRoutes로 원시 데이터를 얻고, 표시 이름을 추가
 		/// </summary>
-		private List<RouteInfo> BuildRoutes(Unit unit, Terrain? terrain, Region? region, Location? location, ItemSystem? itemSystem, InventorySystem? inventorySystem)
+		private List<RouteInfo> BuildRoutes(Unit unit, Terrain? terrain, ItemSystem? itemSystem, InventorySystem? inventorySystem)
 		{
 			var routes = new List<RouteInfo>();
-			if (region == null || location == null || terrain == null) return routes;
+			if (terrain == null) return routes;
 
 			// InventorySystem에서 인벤토리 데이터 가져오기
-			var inventory = inventorySystem.GetUnitInventory(unit.Id);
-			var equippedItems = inventorySystem.GetUnitEquippedItems(unit.Id);
+			var inventory = inventorySystem?.GetUnitInventory(unit.Id);
+			var equippedItems = inventorySystem?.GetUnitEquippedItems(unit.Id);
 			var actualProps = unit.GetActualProps(itemSystem, inventory, equippedItems);
 
 			var describeSystem = this._hub.GetSystem("describeSystem") as DescribeSystem;
 
-			// Region 내부 Edge
-			var edges = region.GetEdges(location);
-			foreach (var edge in edges)
+			// Terrain에서 원시 경로 데이터 가져오기
+			var rawRoutes = terrain.BuildRawRoutes(unit.CurrentLocation, actualProps);
+
+			// 표시 이름 추가하여 RouteInfo로 변환
+			foreach (var raw in rawRoutes)
 			{
-				// Edge.IsBlocked 체크 - 완전 차단된 경로는 제외
-				if (edge.IsBlocked) continue;
-
-				var conditions = edge.GetConditions(location);
-				var (canPass, blockedReason, isHidden) = terrain.CheckConditionsWithHiddenMarker(conditions, actualProps);
-
-				var neighbor = edge.GetOtherLocation(location);
-				routes.Add(new RouteInfo
-				{
-					LocationName = describeSystem.GetNameWithOwner(neighbor) ?? neighbor.Name,
-					RegionName = region.Name,
-					Destination = new LocationRef(neighbor.RegionId, neighbor.LocalId),
-					TravelTime = edge.GetTravelTime(location),
-					IsRegionEdge = false,
-					IsBlocked = !canPass,
-					BlockedReason = blockedReason,
-					IsHidden = isHidden
-				});
-			}
-
-			// Region 간 Edge (RegionEdge)
-			foreach (var regionEdge in terrain.GetRegionEdgesFrom(unit.CurrentLocation))
-			{
-				if (regionEdge.IsBlocked) continue;
-
-				var conditions = regionEdge.GetConditions(unit.CurrentLocation);
-				var (canPass, blockedReason, isHidden) = terrain.CheckConditionsWithHiddenMarker(conditions, actualProps);
-
-				var destination = regionEdge.GetOtherLocation(unit.CurrentLocation);
-				var destLocation = terrain.GetLocation(destination);
-				var destRegion = terrain.GetRegion(destination.RegionId);
+				var destLocation = terrain.GetLocation(raw.Destination);
+				var destRegion = terrain.GetRegion(raw.Destination.RegionId);
 
 				routes.Add(new RouteInfo
 				{
-					LocationName = describeSystem.GetNameWithOwner(destLocation) ?? destLocation.Name ?? "",
-					RegionName = destRegion.Name ?? "",
-					Destination = destination,
-					TravelTime = regionEdge.GetTravelTime(unit.CurrentLocation),
-					IsRegionEdge = true,
-					IsBlocked = !canPass,
-					BlockedReason = blockedReason,
-					IsHidden = isHidden
+					LocationName = describeSystem?.GetNameWithOwner(destLocation) ?? destLocation?.Name ?? "",
+					RegionName = destRegion?.Name ?? "",
+					Destination = raw.Destination,
+					TravelTime = raw.TravelTime,
+					IsRegionEdge = raw.IsRegionEdge,
+					IsBlocked = raw.IsBlocked,
+					BlockedReason = raw.BlockedReason,
+					IsHidden = raw.IsHidden
 				});
 			}
 
