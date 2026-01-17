@@ -1008,7 +1008,7 @@ namespace SE
             // 반환: True (항상 성공)
             morldModule.ModuleDict["pop_to_situation"] = new PyBuiltinFunction("pop_to_situation", args =>
             {
-                var _textUiSystem = this._hub.GetSystem("textUiSystem") as TextUISystem;
+                var _textUiSystem = this._hub.GetSystem("textUISystem") as TextUISystem;
                 if (_textUiSystem != null)
                 {
                     _textUiSystem.PopToSituation();

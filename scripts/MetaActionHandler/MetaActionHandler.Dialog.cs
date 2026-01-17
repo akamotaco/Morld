@@ -148,7 +148,10 @@ public partial class MetaActionHandler
 
 					_textUISystem?.Pop();
 
+					// ResultObject가 있으면 그것을, 없으면 None 반환
+					// 주의: dialogRequest?.ResultObject가 null일 수 있으므로 별도 처리 필요
 					PyObject resultValue = dialogRequest?.ResultObject ?? PyNone.Instance;
+					if (resultValue == null) resultValue = PyNone.Instance;
 					var nextResult = scriptSystem.ResumeGeneratorWithPyObject(generator, resultValue);
 					ProcessScriptResult(nextResult, scriptSystem, processCompletion: true);
 					return;
@@ -225,7 +228,9 @@ public partial class MetaActionHandler
 		if (scriptSystem != null)
 		{
 			// ResultObject가 있으면 그것을, 없으면 None 반환
+			// 주의: dialogRequest?.ResultObject가 null일 수 있으므로 별도 처리 필요
 			PyObject resultValue = dialogRequest?.ResultObject ?? PyNone.Instance;
+			if (resultValue == null) resultValue = PyNone.Instance;
 #if DEBUG_LOG
 			GD.Print($"[MetaActionHandler] @finish: resuming generator with result={resultValue.GetTypeName()}");
 #endif

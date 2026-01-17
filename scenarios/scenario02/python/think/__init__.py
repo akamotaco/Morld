@@ -23,10 +23,24 @@ class BaseAgent:
     NPC AI 기본 클래스
 
     각 캐릭터는 이 클래스를 상속받아 think() 메서드를 구현합니다.
+
+    스케줄 스택:
+        schedule_stack을 사용하여 임시 스케줄을 push/pop 할 수 있습니다.
+        스택이 비어있지 않으면 스택 최상단 스케줄을 사용하고,
+        비어있으면 서브클래스의 SCHEDULE을 사용합니다.
+
+    공용 스케줄:
+        STAY_SCHEDULE - 현재 위치에서 대기 (모든 NPC 공통)
     """
+
+    # 공용 스케줄: 현재 위치에서 대기 (24시간)
+    STAY_SCHEDULE = [
+        {"name": "대기", "action": "stay", "start": 0, "end": 1440, "activity": "대기"}
+    ]
 
     def __init__(self, unit_id):
         self.unit_id = unit_id
+        self.schedule_stack = []  # 스케줄 스택
 
     def get_info(self):
         """현재 유닛 정보 조회"""
@@ -63,14 +77,60 @@ class BaseAgent:
         print(f"[think] fill_schedule unit={self.unit_id}, entries={len(schedule)}, result={result}")
         return result
 
+    def push_schedule(self, schedule):
+        """
+        스케줄 스택에 push (임시 스케줄로 전환)
+
+        Args:
+            schedule: 사용할 스케줄 (예: BaseAgent.STAY_SCHEDULE)
+
+        사용 예:
+            agent.push_schedule(BaseAgent.STAY_SCHEDULE)
+        """
+        self.schedule_stack.append(schedule)
+        morld.clear_jobs(self.unit_id)
+        print(f"[think] push_schedule unit={self.unit_id}, stack_depth={len(self.schedule_stack)}")
+
+    def pop_schedule(self):
+        """
+        스케줄 스택에서 pop (이전 스케줄로 복원)
+
+        Returns:
+            pop된 스케줄 또는 None (스택이 비어있으면)
+        """
+        if self.schedule_stack:
+            popped = self.schedule_stack.pop()
+            morld.clear_jobs(self.unit_id)
+            print(f"[think] pop_schedule unit={self.unit_id}, stack_depth={len(self.schedule_stack)}")
+            return popped
+        print(f"[think] pop_schedule unit={self.unit_id}, stack was empty")
+        return None
+
+    def get_current_schedule(self):
+        """
+        현재 사용해야 할 스케줄 반환
+        스택이 있으면 스택 최상단, 없으면 SCHEDULE 클래스 변수
+
+        Returns:
+            스케줄 리스트
+        """
+        if self.schedule_stack:
+            return self.schedule_stack[-1]
+        # 서브클래스의 SCHEDULE 사용 (없으면 빈 리스트)
+        return getattr(self, 'SCHEDULE', [])
+
     def think(self):
         """
         AI 로직 실행 - 서브클래스에서 오버라이드
 
+        기본 구현: get_current_schedule()로 스케줄 가져와서 fill
+
         Returns:
             None 또는 계획된 경로
         """
-        # 서브클래스에서 fill_schedule_jobs_from(SCHEDULE) 호출
+        schedule = self.get_current_schedule()
+        if schedule:
+            self.fill_schedule_jobs_from(schedule)
         return None
 
 

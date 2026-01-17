@@ -297,6 +297,13 @@ def start_romance(player_id, partner_id):
         yield morld.dialog(reason)
         return
 
+    # 파트너 NPC를 현재 위치에 고정 (스킨십 동안 이동 방지)
+    # 스케줄 스택에 STAY_SCHEDULE push, 종료 시 pop으로 복원
+    import think
+    partner_agent = think.get_agent(partner_id)
+    if partner_agent:
+        partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
+
     # 플레이어 스태미나 조회 (연애 전용)
     player_props = morld.get_unit_props(player_id)
     initial_stamina = player_props.get(ROMANCE_STAMINA_KEY, DEFAULT_STAMINA)
@@ -449,16 +456,25 @@ def start_romance(player_id, partner_id):
         result=state
     )
 
-    # 종료 처리
+    # 종료 처리 - 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
+    partner_id = state["partner_id"]
+    partner_agent = think.get_agent(partner_id)
+
     if state["exhausted"]:
         # 비정상 종료: 체력 소진
+        if partner_agent:
+            partner_agent.pop_schedule()
         yield morld.dialog("지쳤다...")
         morld.pop_to_situation()
     elif state["interrupted"]:
-        # 비정상 종료: 방해 이벤트
+        # 비정상 종료: 방해 이벤트 (handle_interruption에서 flee job 설정)
+        # pop은 handle_interruption 내에서 처리
         yield from handle_interruption(state)
         morld.pop_to_situation()
-    # 정상 종료(exit 클릭): NPC focus로 복귀 (기본 동작)
+    else:
+        # 정상 종료(exit 클릭): NPC focus로 복귀
+        if partner_agent:
+            partner_agent.pop_schedule()
 
 
 def handle_interruption(state):
@@ -482,7 +498,12 @@ def handle_interruption(state):
         "...!"
     ])
 
-    # 파트너 상태 변경
+    # 파트너 상태 변경 - 스케줄 스택 pop 후 flee job 설정
+    import think
+    partner_agent = think.get_agent(partner_id)
+    if partner_agent:
+        partner_agent.pop_schedule()
+
     morld.add_unit_mood(partner_id, "부끄러움")
     morld.set_npc_job(partner_id, "flee", 30, morld.get_player_id())
 

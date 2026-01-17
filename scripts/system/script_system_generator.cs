@@ -137,14 +137,13 @@ namespace SE
         /// </summary>
         public ScriptResult ResumeGeneratorWithPyObject(PyGenerator generator, PyObject result)
         {
+            // null safety: result가 null이면 PyNone으로 대체
+            result ??= PyNone.Instance;
+
             try
             {
-                Godot.GD.Print($"[ScriptSystem] Resuming generator with PyObject: {result.GetTypeName()}");
-
                 // PyObject를 직접 send()
                 var yieldedValue = generator.Send(result);
-
-                Godot.GD.Print($"[ScriptSystem] Generator resumed, yielded: {yieldedValue.GetType().Name ?? "null"}");
 
                 // 또 다른 Dialog yield인 경우
                 if (yieldedValue is PyDialogRequest dialogRequest)
