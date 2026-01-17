@@ -278,8 +278,8 @@ namespace SE
 				destName = $"{destRegion.Name} {destLocation.Name}";
 			}
 
-			var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
-			_textUISystem.AddActionLog($"{unit.Name}(이)가 {destName}(으)로 이동했다.");
+			var _actionLogSystem = this._hub.GetSystem("actionLogSystem") as ActionLogSystem;
+			_actionLogSystem?.AddLog($"{unit.Name}(이)가 {destName}(으)로 이동했다.");
 		}
 
 		/// <summary>

@@ -618,17 +618,17 @@ namespace SE
 
                 string message = args[0].AsString();
 
-                var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+                var _actionLogSystem = this._hub.GetSystem("actionLogSystem") as ActionLogSystem;
 
-                _textUISystem.AddActionLog(message);
+                _actionLogSystem?.AddLog(message);
                 Godot.GD.Print($"[morld] add_action_log: {message}");
                 return PyBool.True;
             });
 
             morldModule.ModuleDict["mark_all_logs_read"] = new PyBuiltinFunction("mark_all_logs_read", args =>
             {
-                var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
-                _textUISystem?.MarkAllLogsAsRead();
+                var _actionLogSystem = this._hub.GetSystem("actionLogSystem") as ActionLogSystem;
+                _actionLogSystem?.MarkAllLogsAsRead();
                 return PyBool.True;
             });
 

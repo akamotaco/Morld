@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using ECS;
 using Godot;
@@ -9,20 +8,6 @@ using Morld;
 
 namespace SE
 {
-	/// <summary>
-	/// 행동 로그 항목
-	/// </summary>
-	public class ActionLogEntry
-	{
-		public string Message { get; set; } = "";
-		public bool IsRead { get; set; } = false;
-
-		public ActionLogEntry(string message)
-		{
-			Message = message;
-		}
-	}
-
 	/// <summary>
 	/// UI 텍스트 시스템 (Focus 스택 기반)
 	/// 스택에는 Focus 정보만 저장하고, 표시 시 항상 최신 데이터로 렌더링
@@ -32,11 +17,8 @@ namespace SE
 		private readonly RichTextLabel _textUi;
 		private readonly FocusStack _stack = new();
 		private readonly DescribeSystem _describeSystem;
+		private ActionLogSystem _actionLogSystem;
 		private string? _hoveredMeta = null;
-
-		// 행동 로그 시스템
-		private readonly List<ActionLogEntry> _actionLogs = new();
-		private const int MaxLogLength = 50;   // 최대 로그 보관 개수
 
 		// Lazy update 플래그
 		private bool _needsUpdateDisplay = false;
@@ -45,6 +27,15 @@ namespace SE
 		{
 			_textUi = textUi;
 			_describeSystem = describeSystem;
+		}
+
+		/// <summary>
+		/// ActionLogSystem 참조 설정 (시스템 등록 후 호출)
+		/// </summary>
+		public void SetActionLogSystem(ActionLogSystem actionLogSystem)
+		{
+			_actionLogSystem = actionLogSystem;
+			_actionLogSystem.OnLogAdded = RequestUpdateDisplay;
 		}
 
 		/// <summary>
@@ -133,74 +124,11 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 행동 로그 추가 (appearance 다음, 액션 전에 표시)
-		/// 자동으로 UI 업데이트 요청
-		/// </summary>
-		public void AddActionLog(string message)
-		{
-			_actionLogs.Add(new ActionLogEntry(message));
-
-			// MaxLogLength 초과 시 오래된 로그 삭제
-			while (_actionLogs.Count > MaxLogLength)
-			{
-				_actionLogs.RemoveAt(0);
-			}
-
-			// UI 업데이트 요청 (lazy)
-			RequestUpdateDisplay();
-		}
-
-		/// <summary>
-		/// 출력용 로그 엔트리 반환 (읽지 않은 것만)
-		/// </summary>
-		public IReadOnlyList<ActionLogEntry> GetPrintableLogs()
-		{
-			// 읽지 않은 로그만 반환
-			return _actionLogs
-				.Where(e => !e.IsRead)
-				.ToList();
-		}
-
-		/// <summary>
-		/// 모든 로그를 읽음 처리
-		/// </summary>
-		public void MarkAllLogsAsRead()
-		{
-			foreach (var log in _actionLogs)
-			{
-				log.IsRead = true;
-			}
-		}
-
-		/// <summary>
-		/// 출력된 로그를 읽음 처리 (읽지 않은 것만)
+		/// 출력된 로그를 읽음 처리
 		/// </summary>
 		private void MarkPrintedLogsAsRead()
 		{
-			foreach (var log in _actionLogs.Where(e => !e.IsRead))
-			{
-				log.IsRead = true;
-			}
-		}
-
-		/// <summary>
-		/// 읽지 않은 로그 개수
-		/// </summary>
-		public int UnreadLogCount => _actionLogs.Count(e => !e.IsRead);
-
-		/// <summary>
-		/// 디버그용: 전체 로그 상태 출력
-		/// </summary>
-		public void DebugPrintLogs()
-		{
-#if DEBUG_LOG
-			GD.Print($"[ActionLogs] Total: {_actionLogs.Count}, Unread: {UnreadLogCount}");
-			foreach (var log in _actionLogs)
-			{
-				var readMark = log.IsRead ? "[R]" : "[U]";
-				GD.Print($"  {readMark} {log.Message}");
-			}
-#endif
+			_actionLogSystem?.MarkPrintedLogsAsRead();
 		}
 
 		/// <summary>
@@ -260,7 +188,7 @@ namespace SE
 			}
 
 			// Body: 묘사 텍스트
-			var describeText = _describeSystem.GetDescribeText(lookResult, time, GetPrintableLogs());
+			var describeText = _describeSystem.GetSituationText(lookResult, time);
 			Godot.GD.Print($"[RenderSituation] describeText.Length={describeText?.Length ?? 0}");
 			lines.Add(describeText);
 
@@ -390,7 +318,7 @@ namespace SE
 			}
 
 			// Body: 유닛 정보
-			var body = _describeSystem.GetUnitLookText(unitLook, GetPrintableLogs());
+			var body = _describeSystem.GetUnitLookText(unitLook);
 			lines.Add(body);
 
 			// Footer: 인벤토리 + 상태바 (Python ui.get_footer()에서 통합 생성)

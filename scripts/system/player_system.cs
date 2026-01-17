@@ -360,8 +360,7 @@ namespace SE
 				Name = unit.Name,
 				IsObject = unit.IsObject,
 				Inventory = inventory,
-				Actions = new List<string>(unit.Actions),
-				AppearanceText = ""
+				Actions = new List<string>(unit.Actions)
 			};
 		}
 
@@ -483,7 +482,6 @@ namespace SE
 					{
 						RegionName = "",
 						LocationName = "로딩 중...",
-						AppearanceText = "",
 						LocationRef = player.CurrentLocation
 					},
 					UnitIds = new List<int>(),
@@ -495,7 +493,6 @@ namespace SE
 			{
 				RegionName = region.Name ?? "",
 				LocationName = describeSystem.GetNameWithOwner(location) ?? "",
-				AppearanceText = describeSystem.GetLocationDescribeText(location, gameTime, region) ?? "",
 				LocationRef = player.CurrentLocation
 			};
 
@@ -543,7 +540,6 @@ namespace SE
 			{
 				RegionName = "",  // Edge에서는 Region 정보 생략
 				LocationName = $"{fromLocation.Name} → {toLocation.Name}",
-				AppearanceText = "이동 중입니다.",
 				LocationRef = player.CurrentLocation
 			};
 

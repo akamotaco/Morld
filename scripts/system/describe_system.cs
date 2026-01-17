@@ -1,10 +1,7 @@
 using ECS;
 using Morld;
-using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 
 namespace SE
 {
@@ -13,73 +10,28 @@ namespace SE
 	/// </summary>
 	public class DescribeSystem : ECS.System
 	{
-		private Dictionary<string, string> _actionMessages = new();
-
 		public DescribeSystem()
 		{
 		}
 
 		/// <summary>
-		/// 액션 메시지 템플릿 파일 로드
+		/// 행동 로그 텍스트 생성 (ActionLogSystem에서 가져옴)
 		/// </summary>
-		public void LoadActionMessages(string filePath)
+		private List<string> GetActionLogText()
 		{
-			// Godot FileAccess를 사용해서 res:// 경로 지원
-			// Python 모드에서는 이 파일이 없을 수 있으므로 조용히 스킵
-			if (!Godot.FileAccess.FileExists(filePath))
+			var lines = new List<string>();
+			var actionLogSystem = _hub.GetSystem("actionLogSystem") as ActionLogSystem;
+			var actionLogs = actionLogSystem.GetPrintableLogs();
+
+			if (actionLogs != null && actionLogs.Count > 0)
 			{
-				return;
+				foreach (var log in actionLogs)
+				{
+					lines.Add($"[color=yellow]*{log.Message}[/color]");
+				}
 			}
 
-			using var file = Godot.FileAccess.Open(filePath, Godot.FileAccess.ModeFlags.Read);
-			if (file == null)
-			{
-				Godot.GD.PrintErr($"[DescribeSystem] Failed to open action messages file: {filePath}");
-				return;
-			}
-			var json = file.GetAsText();
-			_actionMessages = JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
-			Godot.GD.Print($"[DescribeSystem] Loaded {_actionMessages.Count} action messages");
-		}
-
-		/// <summary>
-		/// 액션 결과 메시지 생성
-		/// </summary>
-		public string FormatActionMessage(string actionKey, Dictionary<string, string> parameters)
-		{
-			if (!_actionMessages.TryGetValue(actionKey, out var template))
-			{
-				return $"{actionKey} 완료";
-			}
-
-			var result = template;
-			foreach (var (key, value) in parameters)
-			{
-				result = result.Replace($"{{{key}}}", value);
-			}
-			return result;
-		}
-
-		/// <summary>
-		/// 아이템 관련 액션 메시지 생성 (편의 메서드)
-		/// </summary>
-		public string FormatItemActionMessage(string actionKey, string itemName, string? unitName = null)
-		{
-			var parameters = new Dictionary<string, string> { { "itemName", itemName } };
-			if (unitName != null)
-			{
-				parameters["unitName"] = unitName;
-			}
-			return FormatActionMessage(actionKey, parameters);
-		}
-
-		/// <summary>
-		/// Location 묘사 텍스트 반환 (실내/날씨 태그 포함)
-		/// </summary>
-		public string GetLocationDescribeText(Location? location, GameTime? time, Region? region = null)
-		{
-			if (location == null) return "";
-			return SelectDescribeText(location.DescribeText, time, location.IsIndoor, region.CurrentWeather);
+			return lines;
 		}
 
 		/// <summary>
@@ -93,9 +45,6 @@ namespace SE
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
 			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
-
-			if (unitSystem == null || playerSystem == null || scriptSystem == null)
-				return result;
 
 			var playerId = playerSystem.PlayerId;
 			var characterIds = new List<int>();
@@ -118,24 +67,130 @@ namespace SE
 		}
 
 		/// <summary>
-		/// LookResult에서 현재 Location 객체 가져오기
+		/// 주변 유닛(캐릭터/오브젝트) 목록 텍스트 생성
 		/// </summary>
-		private Location? GetLocationFromLookResult(LookResult lookResult)
+		private List<string> GetNearbyUnitsText(LookResult lookResult)
 		{
-			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var lines = new List<string>();
 
-			var locRef = lookResult.Location.LocationRef;
-			return worldSystem.GetTerrain().GetLocation(locRef.RegionId, locRef.LocalId);
+			if (lookResult.UnitIds.Count == 0)
+				return lines;
+
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+
+			// 캐릭터와 오브젝트 분리
+			var characters = new List<Unit>();
+			var objects = new List<Unit>();
+
+			foreach (var id in lookResult.UnitIds)
+			{
+				var unit = unitSystem.FindUnit(id);
+				if (unit != null)
+				{
+					if (unit.IsObject)
+						objects.Add(unit);
+					else
+						characters.Add(unit);
+				}
+			}
+
+			// 캐릭터 표시
+			if (characters.Count > 0)
+			{
+				lines.Add("[color=yellow]주변 인물:[/color]");
+				foreach (var character in characters)
+				{
+					// 현재 Job의 Name을 activity로 표시
+					// 목표 지역에 도착했으면 "XX 중", 이동 중이면 "XX-이동 중"
+					var currentJob = character.JobList?.Current;
+					var activity = currentJob?.Name;
+					string activityText = "";
+					if (!string.IsNullOrEmpty(activity))
+					{
+						var currentLoc = character.CurrentLocation;
+						var jobLoc = currentJob.GetLocationRef();
+						bool isAtDestination = currentLoc.RegionId == jobLoc.RegionId && currentLoc.LocalId == jobLoc.LocalId;
+						activityText = isAtDestination
+							? $" [color=gray]({activity} 중)[/color]"
+							: $" [color=gray]({activity}-이동 중)[/color]";
+					}
+					lines.Add($"  [url=look_unit:{character.Id}]{character.Name}[/url]{activityText}");
+				}
+				lines.Add("");
+			}
+
+			// 오브젝트 표시 (바닥 오브젝트도 포함 - 클릭해서 Container Focus로 조작)
+			if (objects.Count > 0)
+			{
+				lines.Add("[color=orange]오브젝트:[/color]");
+				foreach (var obj in objects)
+				{
+					// ItemVisible이 true면 아이템 개수 표시
+					var itemCountText = "";
+					if (obj.ItemVisible && inventorySystem != null)
+					{
+						var inventory = inventorySystem.GetUnitInventory(obj.Id);
+						if (inventory != null)
+						{
+							int totalCount = 0;
+							foreach (var kvp in inventory)
+								totalCount += kvp.Value;
+							if (totalCount > 0)
+								itemCountText = $" [color=gray](아이템 {totalCount}개)[/color]";
+						}
+					}
+					lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]{itemCountText}");
+				}
+				lines.Add("");
+			}
+
+			return lines;
 		}
 
 		/// <summary>
-		/// DescribeText Dictionary에서 적절한 키 선택 (태그 순서 무관)
-		/// isIndoor=true → "실내" 태그 추가
-		/// isIndoor=false + weather → "날씨:{weather}" 태그 추가
-		/// isIndoor=false + weather=null → 실내/날씨 태그 없음 (Region용)
+		/// 모든 묘사 텍스트 통합 (위치, 캐릭터)
 		/// </summary>
-		private string SelectDescribeText(Dictionary<string, string>? describeText, GameTime? time, bool isIndoor = true, string? weather = null)
+		private List<string> GetAllDescribeText(LookResult lookResult, GameTime time)
 		{
+			var lines = new List<string>();
+
+			// 1. 위치 묘사
+			var locationDescribeText = GetLocationDescribeText(lookResult, time);
+			if (!string.IsNullOrEmpty(locationDescribeText))
+			{
+				lines.Add(locationDescribeText);
+			}
+
+			// 2. 캐릭터 묘사
+			var characterTexts = GetCharacterDescribeTexts(lookResult);
+			lines.AddRange(characterTexts);
+
+			// 묘사 텍스트가 있으면 다음 섹션과 구분하기 위해 빈 줄 추가
+			if (lines.Count > 0)
+			{
+				lines.Add("");
+			}
+
+			return lines;
+		}
+
+		/// <summary>
+		/// Location 묘사 텍스트 반환 (LookResult에서 Location/Region 조회, 태그 기반 선택)
+		/// </summary>
+		private string GetLocationDescribeText(LookResult lookResult, GameTime time)
+		{
+			if (_hub.GetSystem("worldSystem") is not WorldSystem worldSystem)
+				return "";
+
+			var terrain = worldSystem.GetTerrain();
+			var locRef = lookResult.Location.LocationRef;
+			var location = terrain.GetLocation(locRef);
+			var region = terrain.GetRegion(locRef.RegionId);
+
+			if (location == null || region == null) return "";
+
+			var describeText = location.DescribeText;
 			if (describeText == null || describeText.Count == 0)
 				return "";
 
@@ -147,13 +202,13 @@ namespace SE
 			var currentTags = time.GetCurrentTags();
 
 			// 실내/날씨 태그 추가
-			if (isIndoor)
+			if (location.IsIndoor)
 			{
 				currentTags.Add("실내");
 			}
-			else if (!string.IsNullOrEmpty(weather))
+			else if (!string.IsNullOrEmpty(region.CurrentWeather))
 			{
-				currentTags.Add($"날씨:{weather}");
+				currentTags.Add($"날씨:{region.CurrentWeather}");
 			}
 
 			string bestKey = "default";
@@ -182,125 +237,27 @@ namespace SE
 		/// LookResult를 기반으로 전체 상황 설명 텍스트 생성
 		/// 위치/시간/날씨 정보는 TextUISystem에서 Python get_header()를 통해 별도로 렌더링
 		/// </summary>
-		public string GetSituationText(LookResult lookResult, GameTime? time, IReadOnlyList<ActionLogEntry>? actionLogs = null)
+		public string GetSituationText(LookResult lookResult, GameTime time)
 		{
 			var lines = new List<string>();
-			var loc = lookResult.Location;
 
-			// 위치 외관 묘사
-			if (!string.IsNullOrEmpty(loc.AppearanceText))
-			{
-				lines.Add(loc.AppearanceText);
-			}
+			// 1. 묘사 텍스트 (위치, 캐릭터)
+			lines.AddRange(GetAllDescribeText(lookResult, time));
 
-			// 3.1. 캐릭터 describe text (위치 외관 묘사 바로 다음)
-			var describeTexts = GetCharacterDescribeTexts(lookResult);
-			foreach (var describeText in describeTexts)
+			// 2. 행동 로그
+			var actionLogs = GetActionLogText();
+			if (actionLogs.Count > 0)
 			{
-				lines.Add(describeText);
-			}
-
-			if (!string.IsNullOrEmpty(loc.AppearanceText) || describeTexts.Count > 0)
-			{
+				lines.AddRange(actionLogs);
 				lines.Add("");
 			}
 
-			// 3.5. 행동 로그 (appearance 다음, 유닛/액션 전)
-			if (actionLogs != null && actionLogs.Count > 0)
-			{
-				foreach (var log in actionLogs)
-				{
-					var readMark = log.IsRead ? " [읽음]" : "";
-					lines.Add($"[color=yellow]*{log.Message}{readMark}[/color]");
-				}
-				lines.Add("");
-			}
-
-			// 4. 주변 유닛 (캐릭터와 오브젝트 통합)
-			if (lookResult.UnitIds.Count > 0)
-			{
-				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-				{
-					// 캐릭터와 오브젝트 분리
-					var characters = new List<Unit>();
-					var objects = new List<Unit>();
-
-					foreach (var id in lookResult.UnitIds)
-					{
-						var unit = unitSystem.FindUnit(id);
-						if (unit != null)
-						{
-							if (unit.IsObject)
-								objects.Add(unit);
-							else
-								characters.Add(unit);
-						}
-					}
-
-					// 캐릭터 표시
-					if (characters.Count > 0)
-					{
-						lines.Add("[color=yellow]주변 인물:[/color]");
-						foreach (var character in characters)
-						{
-							// 현재 Job의 Name을 activity로 표시
-							// 목표 지역에 도착했으면 "XX 중", 이동 중이면 "XX-이동 중"
-							var currentJob = character.JobList?.Current;
-							var activity = currentJob?.Name;
-							string activityText = "";
-							if (!string.IsNullOrEmpty(activity))
-							{
-								var currentLoc = character.CurrentLocation;
-								var jobLoc = currentJob.GetLocationRef();
-								bool isAtDestination = currentLoc.RegionId == jobLoc.RegionId && currentLoc.LocalId == jobLoc.LocalId;
-								activityText = isAtDestination
-									? $" [color=gray]({activity} 중)[/color]"
-									: $" [color=gray]({activity}-이동 중)[/color]";
-							}
-							lines.Add($"  [url=look_unit:{character.Id}]{character.Name}[/url]{activityText}");
-						}
-						lines.Add("");
-					}
-
-					// 오브젝트 표시 (바닥 오브젝트도 포함 - 클릭해서 Container Focus로 조작)
-					if (objects.Count > 0)
-					{
-						var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-						lines.Add("[color=orange]오브젝트:[/color]");
-						foreach (var obj in objects)
-						{
-							// ItemVisible이 true면 아이템 개수 표시
-							var itemCountText = "";
-							if (obj.ItemVisible && inventorySystem != null)
-							{
-								var inventory = inventorySystem.GetUnitInventory(obj.Id);
-								if (inventory != null)
-								{
-									int totalCount = 0;
-									foreach (var kvp in inventory)
-										totalCount += kvp.Value;
-									if (totalCount > 0)
-										itemCountText = $" [color=gray](아이템 {totalCount}개)[/color]";
-								}
-							}
-							lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]{itemCountText}");
-						}
-						lines.Add("");
-					}
-				}
-			}
+			// 3. 주변 유닛 목록 (캐릭터, 오브젝트)
+			lines.AddRange(GetNearbyUnitsText(lookResult));
 
 			return string.Join("\n", lines);
 		}
 
-		/// <summary>
-		/// 묘사 텍스트만 생성 (행동 옵션 제외)
-		/// TextUISystem에서 Python 훅과 함께 사용
-		/// </summary>
-		public string GetDescribeText(LookResult lookResult, GameTime? time, IReadOnlyList<ActionLogEntry>? actionLogs = null)
-		{
-			return GetSituationText(lookResult, time, actionLogs);
-		}
 
 		/// <summary>
 		/// 행동 옵션 텍스트만 생성 (구분선 포함)
@@ -330,8 +287,8 @@ namespace SE
 			var items = new List<string>();
 
 			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
-			var player = playerSystem.FindPlayerUnit();
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var player = playerSystem.FindPlayerUnit();
 
 			// 1. 이동 가능 경로
 			if (lookResult.Routes.Count > 0)
@@ -391,7 +348,7 @@ namespace SE
 		/// <summary>
 		/// 유닛 살펴보기 결과 텍스트 생성 (캐릭터/오브젝트 통합)
 		/// </summary>
-		public string GetUnitLookText(UnitLookResult unitLook, IReadOnlyList<ActionLogEntry>? actionLogs = null)
+		public string GetUnitLookText(UnitLookResult unitLook)
 		{
 			var lines = new List<string>();
 
@@ -402,20 +359,14 @@ namespace SE
 			lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
 
-			// 외관 묘사
-			if (!string.IsNullOrEmpty(unitLook.AppearanceText))
-			{
-				lines.Add(unitLook.AppearanceText);
-				lines.Add("");
-			}
-
-			// 행동 로그 (appearance 다음, 인벤토리/액션 전)
+			// 행동 로그 (ActionLogSystem에서 직접 가져옴)
+			var actionLogSystem = _hub.GetSystem("actionLogSystem") as ActionLogSystem;
+			var actionLogs = actionLogSystem?.GetPrintableLogs();
 			if (actionLogs != null && actionLogs.Count > 0)
 			{
 				foreach (var log in actionLogs)
 				{
-					var readMark = log.IsRead ? " [읽음]" : "";
-					lines.Add($"[color=yellow]*{log.Message}{readMark}[/color]");
+					lines.Add($"[color=yellow]*{log.Message}[/color]");
 				}
 				lines.Add("");
 			}
@@ -920,27 +871,6 @@ namespace SE
 
 			// can:액션명 prop이 존재하고 값이 1 이상이면 수행 가능
 			return actualProps.Props.HasAtLeast(canProp, 1);
-		}
-
-		/// <summary>
-		/// 액션 리스트를 Actor의 can: prop으로 필터링
-		/// </summary>
-		/// <param name="actions">원본 액션 리스트</param>
-		/// <param name="actor">행위자 Unit</param>
-		/// <returns>수행 가능한 액션만 포함된 리스트</returns>
-		private List<string> FilterActionsByActor(List<string> actions, Unit actor)
-		{
-			if (actor == null) return new List<string>();
-
-			var result = new List<string>();
-			foreach (var action in actions)
-			{
-				if (CanPerformAction(actor, action))
-				{
-					result.Add(action);
-				}
-			}
-			return result;
 		}
 
 		/// <summary>

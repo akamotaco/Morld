@@ -141,9 +141,9 @@ namespace SE
                     _eventSystem.AddDialogTimeConsumed(duration);
 
                     // 행동 로그 추가: "XX와 대화했다. XX분이 흘렀다."
-                    var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+                    var _actionLogSystem = this._hub.GetSystem("actionLogSystem") as ActionLogSystem;
                     var npcName = unit.Name ?? "누군가";
-                    _textUISystem?.AddActionLog($"{npcName}와(과) 대화했다. {duration}분이 흘렀다.");
+                    _actionLogSystem?.AddLog($"{npcName}와(과) 대화했다. {duration}분이 흘렀다.");
 
 #if DEBUG_LOG
                     Godot.GD.Print($"[morld.set_npc_time_consume] Unit {unitId}: action={action}, duration={duration}, target={targetId} (dialog time +{duration})");

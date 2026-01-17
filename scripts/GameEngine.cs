@@ -92,9 +92,12 @@ public partial class GameEngine : Node
 		this._world.AddSystem(new PlayerSystem(), "playerSystem");
 		this._world.AddSystem(new DescribeSystem(), "describeSystem");
 
-		// UI System
-		this._world.AddSystem(new TextUISystem(_textUi, this._world.GetSystem("describeSystem") as DescribeSystem), "textUISystem");
+		// ActionLog System
+		var actionLogSystem = this._world.AddSystem(new ActionLogSystem(), "actionLogSystem") as ActionLogSystem;
 
+		// UI System
+		var textUISystem = this._world.AddSystem(new TextUISystem(_textUi, this._world.GetSystem("describeSystem") as DescribeSystem), "textUISystem") as TextUISystem;
+		textUISystem.SetActionLogSystem(actionLogSystem);
 	}
 
 	/// <summary>
@@ -131,6 +134,7 @@ public partial class GameEngine : Node
 		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
 		var itemSystem = this._world.GetSystem("itemSystem") as ItemSystem;
 		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
+		var _actionLogSystem = this._world.GetSystem("actionLogSystem") as ActionLogSystem;
 
 		// InventorySystem 이벤트 콜백 (행동 로그 자동 생성)
 		// 오브젝트(IsObject=true)의 인벤토리 변경은 로그에서 제외
@@ -168,7 +172,7 @@ public partial class GameEngine : Node
 
 			if (message != null)
 			{
-				_textUISystem?.AddActionLog(message);
+				_actionLogSystem?.AddLog(message);
 			}
 		};
 
