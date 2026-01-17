@@ -2,7 +2,7 @@
 #
 # Region 2: 황폐화된 도시
 # - 도시 입구, 주유소, 편의점, 약국, 주차장, 은신처
-# - 유키(4)와 엘라(5)가 이 Region에 배치됨
+# - 유키와 엘라가 은신처(location 5)에 배치됨
 
 import morld
 import equipment
@@ -32,11 +32,11 @@ EDGES = [
     (2, 6, 3),   # 편의점 - 의류점
 ]
 
-# NPC 배치
+# NPC 배치 정보 (참고용 - 실제 ID는 동적 할당)
 NPC_SPAWNS = [
-    # (unique_id, instance_id, region_id, location_id)
-    ("yuki", 4, REGION_ID, 5),   # 유키 - 은신처
-    ("ella", 5, REGION_ID, 5),   # 엘라 - 은신처
+    # (unique_id, location_id)
+    ("yuki", 5),   # 유키 - 은신처
+    ("ella", 5),   # 엘라 - 은신처
 ]
 
 
@@ -84,13 +84,14 @@ def instantiate_npcs():
     from assets.characters.ella import Ella
 
     npc_classes = {
-        "yuki": (Yuki, 4, 5),   # 유키 - 은신처
-        "ella": (Ella, 5, 5),   # 엘라 - 은신처
+        "yuki": (Yuki, 5),   # 유키 - 은신처 (location_id)
+        "ella": (Ella, 5),   # 엘라 - 은신처 (location_id)
     }
 
     npcs = {}
-    for unique_id, (cls, instance_id, location_id) in npc_classes.items():
+    for unique_id, (cls, location_id) in npc_classes.items():
         npc = cls()
+        instance_id = morld.create_id("unit")  # 동적 ID 할당
         npc.instantiate(instance_id, REGION_ID, location_id)
         npcs[unique_id] = npc
 

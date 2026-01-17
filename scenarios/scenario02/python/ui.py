@@ -273,10 +273,10 @@ def get_action_text():
     # ToggleRenderer가 [hidden=idle]...[/hidden=idle] 영역을 펼침/접힘 처리
     lines.append("  [url=toggle:idle]▶멍때리기[/url]")
     lines.append("[hidden=idle]")
+    lines.append("    [url=idle:1]1분[/url]")
+    lines.append("    [url=idle:5]5분[/url]")
     lines.append("    [url=idle:15]15분[/url]")
     lines.append("    [url=idle:30]30분[/url]")
-    lines.append("    [url=idle:60]1시간[/url]")
-    lines.append("    [url=idle:240]4시간[/url]")
     lines.append("[/hidden=idle]")
 
     # 시간 기반 조건부 행동

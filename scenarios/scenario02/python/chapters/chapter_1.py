@@ -6,7 +6,7 @@
 
 import morld
 import equipment
-from world import mansion, initialize_world
+from world import mansion, city, initialize_world
 
 
 def initialize():
@@ -24,6 +24,7 @@ def initialize():
 
     # 4. NPC 인스턴스화 + Agent 등록
     mansion.instantiate_npcs()
+    city.instantiate_npcs()  # 도심 NPC (유키, 엘라)
 
     # 5. 음식 아이템 등록 (자연 오브젝트보다 먼저)
     mansion.instantiate_food_items()
