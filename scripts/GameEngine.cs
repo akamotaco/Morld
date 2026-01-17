@@ -96,7 +96,9 @@ public partial class GameEngine : Node
 		var actionLogSystem = this._world.AddSystem(new ActionLogSystem(), "actionLogSystem") as ActionLogSystem;
 
 		// UI System
+		var actionSystem = this._world.GetSystem("actionSystem") as ActionSystem;
 		var textUISystem = this._world.AddSystem(new TextUISystem(_textUi, this._world.GetSystem("describeSystem") as DescribeSystem), "textUISystem") as TextUISystem;
+		textUISystem.SetActionSystem(actionSystem);
 		textUISystem.SetActionLogSystem(actionLogSystem);
 	}
 

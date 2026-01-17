@@ -635,7 +635,7 @@ namespace SE
             // get_actions_list() - 현재 상황의 행동 옵션 BBCode 리스트 반환
             morldModule.ModuleDict["get_actions_list"] = new PyBuiltinFunction("get_actions_list", args =>
             {
-                var describeSystem = this._hub.GetSystem("describeSystem") as DescribeSystem;
+                var actionSystem = this._hub.GetSystem("actionSystem") as ActionSystem;
                 var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
                 // PlayerSystem에서 현재 LookResult 가져오기
@@ -643,8 +643,8 @@ namespace SE
                 if (lookResult == null)
                     return new PyList();
 
-                // DescribeSystem에서 행동 아이템 리스트 가져오기
-                var actionItems = describeSystem.GetActionItems(lookResult);
+                // ActionSystem에서 행동 아이템 리스트 가져오기
+                var actionItems = actionSystem.GetActionItems(lookResult);
 
                 // PyList로 변환
                 var pyList = new PyList();

@@ -17,6 +17,7 @@ namespace SE
 		private readonly RichTextLabel _textUi;
 		private readonly FocusStack _stack = new();
 		private readonly DescribeSystem _describeSystem;
+		private ActionSystem _actionSystem;
 		private ActionLogSystem _actionLogSystem;
 		private string? _hoveredMeta = null;
 
@@ -27,6 +28,14 @@ namespace SE
 		{
 			_textUi = textUi;
 			_describeSystem = describeSystem;
+		}
+
+		/// <summary>
+		/// ActionSystem 참조 설정 (시스템 등록 후 호출)
+		/// </summary>
+		public void SetActionSystem(ActionSystem actionSystem)
+		{
+			_actionSystem = actionSystem;
 		}
 
 		/// <summary>
@@ -198,7 +207,7 @@ namespace SE
 			if (string.IsNullOrEmpty(actionText))
 			{
 				// Python 훅 실패 시 C# 폴백
-				actionText = _describeSystem.GetActionText(lookResult);
+				actionText = _actionSystem.GetActionText(lookResult);
 				Godot.GD.Print($"[RenderSituation] actionText from C# fallback: {actionText?.Length ?? 0} chars");
 			}
 			lines.Add(actionText);

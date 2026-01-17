@@ -123,10 +123,10 @@ public partial class MetaActionHandler
 
 		// can: 검사 - 플레이어가 해당 액션을 수행할 수 있는지 확인
 		var player = _playerSystem?.FindPlayerUnit();
-		var describeSystem = _world.GetSystem("describeSystem") as DescribeSystem;
-		if (player != null && describeSystem != null)
+		var actionSystem = _world.GetSystem("actionSystem") as ActionSystem;
+		if (player != null && actionSystem != null)
 		{
-			if (!describeSystem.CanPerformAction(player, methodName))
+			if (!actionSystem.CanPerformAction(player, methodName))
 			{
 #if DEBUG_LOG
 				GD.Print($"[MetaActionHandler] Player cannot perform action: {methodName}");
@@ -137,10 +137,10 @@ public partial class MetaActionHandler
 
 		// can: prop을 제공하는 장비 조회 (장비가 있으면 Python에 전달)
 		Item equipment = null;
-		if (player != null && describeSystem != null)
+		if (player != null && actionSystem != null)
 		{
 			var canProp = $"can:{methodName}";
-			equipment = describeSystem.GetEquipmentSource(player, canProp);
+			equipment = actionSystem.GetEquipmentSource(player, canProp);
 #if DEBUG_LOG
 			if (equipment != null)
 			{
