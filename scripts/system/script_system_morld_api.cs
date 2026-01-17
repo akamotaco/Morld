@@ -391,6 +391,53 @@ namespace SE
         /// </summary>
         private void RegisterUnitInfoAPI(PyModule morldModule)
         {
+            // get_location_info(region_id, location_id) - Location 정보 반환
+            morldModule.ModuleDict["get_location_info"] = new PyBuiltinFunction("get_location_info", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("get_location_info(region_id, location_id) requires 2 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem?.GetTerrain();
+                if (terrain == null)
+                    return PyNone.Instance;
+
+                var location = terrain.GetLocation(regionId, locationId);
+                if (location == null)
+                    return PyNone.Instance;
+
+                var result = new PyDict();
+                result.SetItem(new PyString("name"), new PyString(location.Name ?? ""));
+                result.SetItem(new PyString("region_id"), new PyInt(location.RegionId));
+                result.SetItem(new PyString("location_id"), new PyInt(location.LocalId));
+                result.SetItem(new PyString("is_indoor"), PyBool.FromBool(location.IsIndoor));
+                result.SetItem(new PyString("stay_duration"), new PyInt(location.StayDuration));
+
+                // 날씨 정보 (실외일 때만 유효)
+                var weather = location.CurrentWeather;
+                if (weather != null)
+                    result.SetItem(new PyString("weather"), new PyString(weather));
+                else
+                    result.SetItem(new PyString("weather"), PyNone.Instance);
+
+                // 소유자 정보
+                if (location.Owner != null)
+                    result.SetItem(new PyString("owner"), new PyString(location.Owner));
+                else
+                    result.SetItem(new PyString("owner"), PyNone.Instance);
+
+                // 바닥 오브젝트 ID
+                if (location.GroundUnitId.HasValue)
+                    result.SetItem(new PyString("ground_unit_id"), new PyInt(location.GroundUnitId.Value));
+                else
+                    result.SetItem(new PyString("ground_unit_id"), PyNone.Instance);
+
+                return result;
+            });
+
             morldModule.ModuleDict["get_unit_info"] = new PyBuiltinFunction("get_unit_info", args =>
             {
                 if (args.Length < 1)

@@ -33,6 +33,98 @@ import morld
 from typing import Optional
 
 
+class TextSelector:
+    """
+    조건 기반 텍스트 선택기
+
+    규칙 리스트에서 첫 번째 매칭되는 결과를 반환합니다.
+    규칙은 (조건 dict, 결과) 튜플의 리스트입니다.
+
+    조건 매칭 규칙:
+    - 빈 dict {}: 항상 매칭 (기본값)
+    - 문자열 값: 정확히 일치 (activity == "사냥")
+    - 숫자 값: >= 비교 (호감 >= 50)
+    - 리스트 context에 문자열 조건: in 체크 (mood에 "기쁨" 포함)
+
+    사용 예:
+        RULES = [
+            ({"activity": "사냥", "호감": 50}, "같이 사냥할래?"),
+            ({"activity": "사냥"}, "조용히 해."),
+            ({"mood": "기쁨"}, "기분 좋아 보인다."),
+            ({}, "......"),  # 기본값
+        ]
+        result = TextSelector.select(RULES, context)
+    """
+
+    @staticmethod
+    def select(rules: list, context: dict):
+        """
+        규칙 리스트에서 첫 번째 매칭 결과 반환
+
+        Args:
+            rules: [(conditions, result), ...] 형식의 규칙 리스트
+            context: 현재 상태 dict (activity, mood, 호감, weather 등)
+
+        Returns:
+            첫 번째 매칭된 result, 없으면 None
+        """
+        for conditions, result in rules:
+            if TextSelector.match(conditions, context):
+                return result
+        return None
+
+    @staticmethod
+    def match(conditions: dict, context: dict) -> bool:
+        """
+        모든 조건이 충족되는지 확인
+
+        Args:
+            conditions: 조건 dict (빈 dict면 항상 True)
+            context: 현재 상태 dict
+
+        Returns:
+            모든 조건 충족 시 True
+        """
+        if not conditions:
+            return True  # 빈 조건은 항상 매칭
+
+        for key, expected in conditions.items():
+            actual = context.get(key)
+
+            # actual이 리스트인 경우 (mood 등): expected가 리스트에 포함되어야 함
+            if isinstance(actual, list):
+                if expected not in actual:
+                    return False
+            # expected가 숫자인 경우: >= 비교
+            elif isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
+                if actual < expected:
+                    return False
+            # 그 외: 정확히 일치
+            elif actual != expected:
+                return False
+
+        return True
+
+    @staticmethod
+    def format_result(result, context: dict):
+        """
+        result가 문자열이면 context로 포맷팅
+
+        Args:
+            result: 텍스트 또는 dict
+            context: 포맷팅용 context (name 등)
+
+        Returns:
+            포맷팅된 결과
+        """
+        if isinstance(result, str):
+            try:
+                return result.format(**context)
+            except KeyError:
+                return result
+        return result
+
+
 def _select_text(text_dict: dict, time_tags: list, name: str = None) -> str:
     """
     시간/날씨 태그 리스트와 가장 잘 매칭되는 텍스트 선택
@@ -197,51 +289,46 @@ class Character(Unit):
     """
     캐릭터 클래스 (NPC, 플레이어)
 
-    메서드 오버라이드:
-    - get_describe_text(): 장소에 있을 때 묘사 (플레이어와 같은 위치)
-    - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
+    Rule 기반 텍스트 선택 시스템:
+    - DESCRIBE_RULES: 장소에서 보이는 묘사 규칙
+    - FOCUS_RULES: 클릭했을 때 상세 묘사 규칙
+    - TALK_RULES: 대화 규칙 (dict 또는 메서드명 문자열)
 
-    이동/Activity 묘사 시스템:
-    - get_describe_text()가 is_traveling 체크 후 자동 분기
-    - 이동 중: _get_traveling_describe_text() 호출 (패턴화된 기본 구현)
-    - 정지 중: _get_activity_describe_text() 호출 (서브클래스에서 오버라이드)
+    규칙 형식:
+        RULES = [
+            ({"조건키": 조건값, ...}, 결과),
+            ...
+            ({}, 기본값),  # 빈 조건 = 항상 매칭
+        ]
+
+    조건 매칭:
+    - 문자열: 정확히 일치 (activity == "사냥")
+    - 숫자: >= 비교 (호감 >= 50)
+    - 리스트 context: in 체크 (mood에 "기쁨" 포함)
+    - bool: 정확히 일치 (is_traveling == True)
+
+    TALK_RULES 결과 형식:
+    - {"pages": ["대사1", "대사2"]}: 간단한 대화
+    - "_메서드명": 복잡한 대화 처리 메서드로 위임
+
+    context 키:
+    - name: 캐릭터 이름
+    - activity: 현재 활동 (Job.Name)
+    - mood: 감정 상태 리스트
+    - is_traveling: 이동 중 여부
+    - region_id, location_id: 현재 위치
+    - location: (region_id, location_id) 튜플
+    - weather: 현재 날씨
+    - is_indoor: 실내 여부
+    - 호감: 호감도 (props에서)
     """
 
     type: str = "male"
 
-    def get_describe_text(self) -> str:
-        """
-        장소에 있을 때 묘사 텍스트 반환
-
-        이동 중이면 패턴화된 이동 묘사, 아니면 activity 기반 묘사.
-        """
-        info = morld.get_unit_info(self.instance_id)
-        if not info:
-            return ""
-
-        if info.get("is_traveling"):
-            return self._get_traveling_describe_text(info)
-        return self._get_activity_describe_text(info)
-
-    def _get_traveling_describe_text(self, info: dict) -> str:
-        """
-        이동 중 묘사 - 패턴화된 기본 구현
-
-        서브클래스에서 오버라이드하여 커스텀 이동 묘사 가능.
-        """
-        name = info.get("name", self.name)
-        activity = info.get("activity", "")
-        if activity:
-            return f"{name}(이)가 {activity}을 위해 이동 중이다."
-        return f"{name}(이)가 어딘가로 향하고 있다."
-
-    def _get_activity_describe_text(self, info: dict) -> str:
-        """
-        Activity 기반 묘사 - 서브클래스에서 오버라이드
-
-        기본 구현은 빈 문자열 반환.
-        """
-        return ""
+    # Rule 기반 텍스트 선택 (서브클래스에서 정의)
+    DESCRIBE_RULES: list = None
+    FOCUS_RULES: list = None
+    TALK_RULES: list = None
 
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """캐릭터를 morld에 등록"""
@@ -271,14 +358,188 @@ class Character(Unit):
         from assets.characters import register_instance
         register_instance(instance_id, self)
 
+    # ========================================
+    # Context 빌드
+    # ========================================
+
+    def _build_context(self) -> dict:
+        """
+        현재 상태를 context dict로 변환
+
+        서브클래스에서 오버라이드하여 추가 context 제공 가능.
+        """
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return {"name": self.name}
+
+        # 기본 정보
+        context = {
+            "name": info.get("name", self.name),
+            "activity": info.get("activity"),
+            "mood": info.get("mood", []),
+            "is_traveling": info.get("is_traveling", False),
+            "region_id": info.get("region_id"),
+            "location_id": info.get("location_id"),
+        }
+
+        # 위치 튜플 (조건에서 사용)
+        context["location"] = (context["region_id"], context["location_id"])
+
+        # Props에서 호감도 등 가져오기
+        props = morld.get_unit_props(self.instance_id)
+        if props:
+            context["호감"] = props.get("호감", 0)
+
+        # 위치 정보에서 날씨, 실내 여부 가져오기
+        location_info = morld.get_location_info(
+            context["region_id"],
+            context["location_id"]
+        )
+        if location_info:
+            context["weather"] = location_info.get("weather")
+            context["is_indoor"] = location_info.get("is_indoor", True)
+
+        return context
+
+    # ========================================
+    # Rule 기반 텍스트 선택
+    # ========================================
+
+    def get_describe_text(self) -> str:
+        """
+        Describe 텍스트 - Rule 기반
+
+        DESCRIBE_RULES가 정의되어 있으면 규칙 매칭,
+        없으면 빈 문자열 반환.
+        """
+        if not self.DESCRIBE_RULES:
+            return ""
+
+        context = self._build_context()
+        text = TextSelector.select(self.DESCRIBE_RULES, context)
+        if text:
+            return TextSelector.format_result(text, context)
+
+        # 기본값: 이동 중이면 패턴화된 텍스트
+        if context.get("is_traveling"):
+            return f"{context['name']}(이)가 어딘가로 향하고 있다."
+        return ""
+
+    def get_focus_text(self) -> str:
+        """
+        Focus 텍스트 - Rule 기반
+
+        FOCUS_RULES가 정의되어 있으면 규칙 매칭,
+        없으면 빈 문자열 반환.
+        """
+        if not self.FOCUS_RULES:
+            return ""
+
+        context = self._build_context()
+        text = TextSelector.select(self.FOCUS_RULES, context)
+        if text:
+            return TextSelector.format_result(text, context)
+        return ""
+
     def talk(self):
         """
-        NPC 대화 - 서브클래스에서 오버라이드
+        대화 - Rule 기반 (메서드 위임 지원)
 
-        기본 구현은 간단한 인사.
-        각 캐릭터 클래스에서 오버라이드하여 고유 대화 구현.
+        TALK_RULES가 정의되어 있으면 규칙 매칭:
+        - dict 결과: {"pages": [...]} 형태의 간단한 대사
+        - str 결과: "_"로 시작하는 메서드명 → 복잡한 대화 처리
+
+        TALK_RULES가 없으면 기본 인사.
         """
-        yield morld.dialog(f"{self.name}: 안녕.")
+        if not self.TALK_RULES:
+            yield morld.dialog(f"[{self.name}]\n...")
+            return
+
+        context = self._build_context()
+        result = TextSelector.select(self.TALK_RULES, context)
+
+        if result is None:
+            result = {"pages": ["......"]}
+
+        # 문자열이면 메서드명으로 위임
+        if isinstance(result, str) and result.startswith("_"):
+            method = getattr(self, result, None)
+            if method:
+                yield from method(context)
+                return
+            # 메서드를 찾지 못하면 기본 대사
+            result = {"pages": ["......"]}
+
+        # dict면 간단한 대사
+        name = context.get("name", self.name)
+        pages = [f"[{name}]"] + result.get("pages", ["......"])
+        yield morld.dialog(pages)
+
+    # ========================================
+    # 이벤트 다이얼로그 시스템
+    # ========================================
+
+    # 이벤트별 대화 정의 (서브클래스에서 오버라이드)
+    # 형식:
+    #   EVENT_DIALOGS = {
+    #       "이벤트명": {
+    #           "pages": ["대사1", "대사2", ...],
+    #           "follow_duration": 2,  # 옵션: 대화 후 플레이어 따라가기 (분)
+    #       },
+    #       "복잡한_이벤트": "_handle_complex_event",  # 메서드로 위임
+    #   }
+    EVENT_DIALOGS: dict = None
+
+    def _run_event_dialog(self, event_name: str, **kwargs):
+        """
+        이벤트 다이얼로그 실행 - Generator 반환
+
+        Args:
+            event_name: 이벤트 이름 (EVENT_DIALOGS 키)
+            **kwargs: 추가 컨텍스트 (player_id 등)
+
+        Returns:
+            Generator 또는 None
+        """
+        if not self.EVENT_DIALOGS:
+            return None
+
+        dialog_data = self.EVENT_DIALOGS.get(event_name)
+        if not dialog_data:
+            return None
+
+        # 문자열이면 메서드명으로 위임
+        if isinstance(dialog_data, str) and dialog_data.startswith("_"):
+            method = getattr(self, dialog_data, None)
+            if method:
+                return method(**kwargs)
+            return None
+
+        # dict면 표준 처리
+        return self._create_event_handler(dialog_data, **kwargs)
+
+    def _create_event_handler(self, dialog_data: dict, **kwargs):
+        """
+        이벤트 핸들러 Generator 생성
+
+        Args:
+            dialog_data: {"pages": [...], "follow_duration": N, ...}
+            **kwargs: player_id 등
+
+        Returns:
+            Generator
+        """
+        pages = dialog_data.get("pages", [])
+        follow_duration = dialog_data.get("follow_duration")
+        instance_id = self.instance_id
+
+        def handler():
+            yield morld.dialog(pages)
+            # 대화 후 플레이어 따라가기
+            if follow_duration and "player_id" in kwargs:
+                morld.set_npc_job(instance_id, "follow", follow_duration, kwargs["player_id"])
+
+        return handler()
 
 
 class Object(Unit):
