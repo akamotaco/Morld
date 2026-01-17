@@ -21,7 +21,13 @@ class Yuki(Character):
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 5,
     }
-    actions = ["call:talk:대화", "call:debug_props:속성 보기"]
+    actions = [
+        "call:talk:대화",
+        "call:romance:스킨십",
+        "call:debug_props:속성 보기",
+        "call:debug_affection_up:호감도 +10",
+        "call:debug_affection_down:호감도 -10",
+    ]
     mood = []
 
     # ========================================
@@ -96,6 +102,148 @@ class Yuki(Character):
     ]
 
     # ========================================
+    # 스킨십 반응 (action_id → timing → 조건부 대사 리스트)
+    # 유키: 수줍고 내성적, 조용히 받아들이지만 속으론 기뻐함
+    # ========================================
+    ROMANCE_REACTIONS = {
+        # 즉시형 행위
+        "head_pat": {
+            "start": [
+                ({}, [
+                    "...네...",
+                    "...(고개를 살짝 숙인다)",
+                    "...좋아요...",
+                    "...부끄러워요...",
+                ]),
+            ],
+        },
+        "cheek_caress": {
+            "start": [
+                ({}, [
+                    "...앗...",
+                    "...따뜻해요...",
+                    "...(볼이 붉어진다)",
+                    "...네...",
+                ]),
+            ],
+        },
+        "cheek_pinch": {
+            "start": [
+                ({}, [
+                    "...앗... 아파요...",
+                    "...(눈물이 맺힌다)",
+                    "...왜요...?",
+                    "...그만해 주세요...",
+                ]),
+            ],
+        },
+        "ear_touch": {
+            "start": [
+                ({}, [
+                    "...! 거, 거기는...",
+                    "...이상해요...",
+                    "...(몸을 떤다)",
+                    "...앗...",
+                ]),
+            ],
+        },
+        "french_kiss": {
+            "start": [
+                ({}, [
+                    "...으응...",
+                    "...숨이...",
+                    "...(눈을 꼭 감는다)",
+                    "...더...요...",
+                ]),
+            ],
+        },
+        "butt_caress": {
+            "start": [
+                ({}, [
+                    "...!! ...",
+                    "...부끄러워요...",
+                    "...(얼굴이 빨개진다)",
+                    "...거기는...",
+                ]),
+            ],
+        },
+
+        # 토글형 행위
+        "hug": {
+            "start": [
+                ({"애정": 50}, ["...좋아요... 이대로...", "...안심돼요..."]),
+                ({"호감": 80}, ["...따뜻해요...", "...행복해요..."]),
+                ({}, [
+                    "...앗...",
+                    "...(가만히 있는다)",
+                    "...네...",
+                    "...따뜻해요...",
+                ]),
+            ],
+            "during": [
+                ({"성적흥분": 50}, ["유키가 숨을 거칠게 몰아쉬며 안겨 있다."]),
+                ({"성적흥분": 30}, ["유키의 심장이 빠르게 뛰는 게 느껴진다."]),
+                ({"애정": 40}, ["유키가 안심한 표정으로 안겨 있다."]),
+                ({}, [
+                    "유키가 조용히 안겨 있다.",
+                    "유키의 체온이 느껴진다.",
+                    "유키가 눈을 감고 있다.",
+                    "유키가 작게 떨고 있다.",
+                ]),
+            ],
+        },
+        "deep_kiss": {
+            "start": [
+                ({"성적흥분": 40}, ["...으응... 이상해요..."]),
+                ({"애정": 30}, ["...(눈을 감는다)"]),
+                ({}, [
+                    "...네...",
+                    "...눈... 감을게요...",
+                    "...",
+                ]),
+            ],
+            "during": [
+                ({"성적흥분": 50}, ["유키가 몽롱한 눈으로 키스에 빠져 있다."]),
+                ({"성적흥분": 30}, ["유키의 숨결이 거칠어진다."]),
+                ({}, [
+                    "유키와 깊은 키스를 나누고 있다.",
+                    "유키가 눈을 꼭 감고 있다.",
+                    "유키의 입술이 살짝 떨린다.",
+                ]),
+            ],
+        },
+        "breast_touch": {
+            "start": [
+                ({}, [
+                    "...!! ...",
+                    "...거기는...",
+                    "...부끄러워요...",
+                ]),
+            ],
+            "during": [
+                ({}, [
+                    "유키가 고개를 숙이고 있다.",
+                    "유키가 작은 신음을 흘린다.",
+                    "유키의 귀가 빨갛다.",
+                    "유키가 눈물이 맺힌 채 참고 있다.",
+                ]),
+            ],
+        },
+
+        # 절정 반응
+        "ecstasy": {
+            "start": [
+                ({}, [
+                    "...앗...!! ♡",
+                    "...이상해요... 머리가...♡",
+                    "...(말없이 떨고 있다)",
+                    "...좋아요...♡",
+                ]),
+            ],
+        },
+    }
+
+    # ========================================
     # 이벤트 다이얼로그 정의
     # ========================================
     EVENT_DIALOGS = {
@@ -132,6 +280,61 @@ class Yuki(Character):
 
         self._event_flags["first_meet"] = True
         return self._run_event_dialog("first_meet", player_id=player_id)
+
+    # ========================================
+    # 스킨십 반응
+    # ========================================
+
+    def get_romance_reaction(self, action_id: str, timing: str) -> str:
+        """스킨십 행위에 대한 반응 텍스트 반환"""
+        import random
+
+        action_reactions = self.ROMANCE_REACTIONS.get(action_id)
+        if not action_reactions:
+            return None
+
+        reactions = action_reactions.get(timing)
+        if not reactions:
+            return None
+
+        props = morld.get_unit_props(self.instance_id)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+
+        candidates = []
+        for item in reactions:
+            if isinstance(item, tuple) and len(item) == 2:
+                condition, texts = item
+                if self._check_romance_condition(condition, props, player_name):
+                    if isinstance(texts, list):
+                        candidates.extend(texts)
+                    else:
+                        candidates.append(texts)
+
+        if not candidates:
+            return None
+
+        return random.choice(candidates)
+
+    def _check_romance_condition(self, condition: dict, props: dict, player_name: str) -> bool:
+        """조건 딕셔너리 체크"""
+        if not condition:
+            return True
+
+        for key, required_value in condition.items():
+            if key in ("호감", "애정"):
+                prop_key = f"관계:{player_name}:{key}"
+            elif key in ("성적흥분", "성적절정"):
+                prop_key = f"상태:{key}"
+            else:
+                prop_key = key
+
+            actual_value = props.get(prop_key, 0)
+            if actual_value < required_value:
+                return False
+
+        return True
 
 
 # ========================================

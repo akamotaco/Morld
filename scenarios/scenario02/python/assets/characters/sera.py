@@ -20,7 +20,13 @@ class Sera(Character):
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 5,
     }
-    actions = ["call:talk:대화", "call:debug_props:속성 보기"]
+    actions = [
+        "call:talk:대화",
+        "call:romance:스킨십",
+        "call:debug_props:속성 보기",
+        "call:debug_affection_up:호감도 +10",
+        "call:debug_affection_down:호감도 -10",
+    ]
     mood = []
 
     # ========================================
@@ -112,6 +118,148 @@ class Sera(Character):
         # 기본값
         ({}, "긴 흑발을 묶은 과묵한 여성. 저택의 리더로서 날카로운 갈색 눈이 인상적이다."),
     ]
+
+    # ========================================
+    # 스킨십 반응 (action_id → timing → 조건부 대사 리스트)
+    # 세라: 과묵하지만 속으론 부끄러워함
+    # ========================================
+    ROMANCE_REACTIONS = {
+        # 즉시형 행위
+        "head_pat": {
+            "start": [
+                ({}, [
+                    "......",
+                    "...뭐하는 거냐.",
+                    "...싫진 않다.",
+                    "...그만해.",
+                ]),
+            ],
+        },
+        "cheek_caress": {
+            "start": [
+                ({}, [
+                    "......",
+                    "...간지럽다.",
+                    "...뭐냐.",
+                    "...손이 차군.",
+                ]),
+            ],
+        },
+        "cheek_pinch": {
+            "start": [
+                ({}, [
+                    "...아파.",
+                    "......",
+                    "...뭐하는 짓이냐.",
+                    "...죽고 싶냐.",
+                ]),
+            ],
+        },
+        "ear_touch": {
+            "start": [
+                ({}, [
+                    "...!",
+                    "...거기는... 만지지 마.",
+                    "......(귀가 빨개진다)",
+                    "...그만둬.",
+                ]),
+            ],
+        },
+        "french_kiss": {
+            "start": [
+                ({}, [
+                    "...으응...",
+                    "......(눈을 감는다)",
+                    "...숨이...",
+                    "...더...",
+                ]),
+            ],
+        },
+        "butt_caress": {
+            "start": [
+                ({}, [
+                    "......!",
+                    "...죽고 싶냐.",
+                    "...거기는...",
+                    "......(노려본다)",
+                ]),
+            ],
+        },
+
+        # 토글형 행위
+        "hug": {
+            "start": [
+                ({"애정": 50}, ["...안아줘...", "...이대로 있자..."]),
+                ({"호감": 80}, ["...좋다...", "...따뜻하군..."]),
+                ({}, [
+                    "......",
+                    "...뭐냐.",
+                    "...싫진 않다.",
+                    "...놓아라.",
+                ]),
+            ],
+            "during": [
+                ({"성적흥분": 50}, ["세라의 심장이 빠르게 뛰는 게 느껴진다."]),
+                ({"성적흥분": 30}, ["세라가 숨을 고르고 있다."]),
+                ({"애정": 40}, ["세라가 조용히 안겨 있다."]),
+                ({}, [
+                    "세라가 뻣뻣하게 서 있다.",
+                    "세라의 체온이 느껴진다.",
+                    "세라가 가만히 있다.",
+                    "세라가 어색하게 서 있다.",
+                ]),
+            ],
+        },
+        "deep_kiss": {
+            "start": [
+                ({"성적흥분": 40}, ["...으응... 더..."]),
+                ({"애정": 30}, ["......(눈을 감는다)"]),
+                ({}, [
+                    "......",
+                    "...키스...",
+                    "...눈 감아.",
+                ]),
+            ],
+            "during": [
+                ({"성적흥분": 50}, ["세라가 거칠게 숨을 몰아쉬며 키스에 빠져 있다."]),
+                ({"성적흥분": 30}, ["세라의 숨결이 거칠어진다."]),
+                ({}, [
+                    "세라와 깊은 키스를 나누고 있다.",
+                    "세라가 눈을 감고 있다.",
+                    "세라의 입술이 느껴진다.",
+                ]),
+            ],
+        },
+        "breast_touch": {
+            "start": [
+                ({}, [
+                    "......!",
+                    "...거기는...",
+                    "...뭐하는...",
+                ]),
+            ],
+            "during": [
+                ({}, [
+                    "세라가 고개를 돌리고 있다.",
+                    "세라의 숨소리가 거칠어진다.",
+                    "세라가 참고 있다.",
+                    "세라의 귀가 빨갛다.",
+                ]),
+            ],
+        },
+
+        # 절정 반응
+        "ecstasy": {
+            "start": [
+                ({}, [
+                    "......!!",
+                    "...으... 응...!",
+                    "...(떨리고 있다)",
+                    "...이상해...",
+                ]),
+            ],
+        },
+    }
 
     # ========================================
     # 이벤트 다이얼로그 정의
@@ -210,6 +358,61 @@ class Sera(Character):
             morld.add_action_log("세라가 빈 손을 보고 살짝 고개를 갸웃한다.")
 
         return None
+
+    # ========================================
+    # 스킨십 반응
+    # ========================================
+
+    def get_romance_reaction(self, action_id: str, timing: str) -> str:
+        """스킨십 행위에 대한 반응 텍스트 반환"""
+        import random
+
+        action_reactions = self.ROMANCE_REACTIONS.get(action_id)
+        if not action_reactions:
+            return None
+
+        reactions = action_reactions.get(timing)
+        if not reactions:
+            return None
+
+        props = morld.get_unit_props(self.instance_id)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+
+        candidates = []
+        for item in reactions:
+            if isinstance(item, tuple) and len(item) == 2:
+                condition, texts = item
+                if self._check_romance_condition(condition, props, player_name):
+                    if isinstance(texts, list):
+                        candidates.extend(texts)
+                    else:
+                        candidates.append(texts)
+
+        if not candidates:
+            return None
+
+        return random.choice(candidates)
+
+    def _check_romance_condition(self, condition: dict, props: dict, player_name: str) -> bool:
+        """조건 딕셔너리 체크"""
+        if not condition:
+            return True
+
+        for key, required_value in condition.items():
+            if key in ("호감", "애정"):
+                prop_key = f"관계:{player_name}:{key}"
+            elif key in ("성적흥분", "성적절정"):
+                prop_key = f"상태:{key}"
+            else:
+                prop_key = key
+
+            actual_value = props.get(prop_key, 0)
+            if actual_value < required_value:
+                return False
+
+        return True
 
 
 # ========================================
