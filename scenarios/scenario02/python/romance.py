@@ -425,6 +425,12 @@ def start_romance(player_id, partner_id):
             # 토글 상태 변경
             if is_turning_on:
                 state["active_toggles"].add(action_id)
+                # 토글 ON 시 반응 텍스트 (start 타이밍)
+                partner_asset = get_partner_asset(state["partner_id"])
+                if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                    reaction = partner_asset.get_romance_reaction(action_id, "start")
+                    if reaction:
+                        state["last_reaction"] = reaction
             else:
                 state["active_toggles"].discard(action_id)
 

@@ -214,8 +214,12 @@ class EllaAgent(BaseAgent):
         {"name": "수면", "region_id": 2, "location_id": 5, "start": 1320, "end": 360, "activity": "수면"},
     ]
 
+    def __init__(self, unit_id):
+        super().__init__(unit_id)
+        self.set_base_schedule(self.SCHEDULE)
+
     def think(self):
         """엘라의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 스케줄 기반으로 JobList 채우기
-        self.fill_schedule_jobs_from(self.SCHEDULE)
+        schedule = self.get_current_schedule()
+        self.fill_schedule_jobs_from(schedule)
         return None

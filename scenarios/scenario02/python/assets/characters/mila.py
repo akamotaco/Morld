@@ -108,6 +108,106 @@ class Mila(Character):
     ]
 
     # ========================================
+    # 스킨십 반응 (action_id → timing → 텍스트 리스트)
+    # timing: "start" = 즉시형 실행 시, "during" = 토글 활성 중
+    # 리스트에서 랜덤 선택
+    # ========================================
+    ROMANCE_REACTIONS = {
+        # 즉시형 행위
+        "head_pat": {
+            "start": [
+                "...고마워요.",
+                "...따뜻해요.",
+                "...좋아요, 이런 거.",
+                "...부끄러워요...",
+                "...더 해주세요...",
+            ],
+        },
+        "cheek_caress": {
+            "start": [
+                "...간지러워요...",
+                "...으응...",
+                "손이... 따뜻해요.",
+                "...부끄러워요.",
+            ],
+        },
+        "cheek_pinch": {
+            "start": [
+                "아얏! 아파요~",
+                "으응... 그만요~",
+                "...나빠요.",
+                "왜 그러세요~ 아야~",
+            ],
+        },
+        "ear_touch": {
+            "start": [
+                "...!!! 거, 거기는...!",
+                "...으응... 간지러워요...",
+                "...귀는... 약해요...",
+                "...하앙...",
+            ],
+        },
+        "french_kiss": {
+            "start": [
+                "...으응...♡",
+                "...하앙... 숨이...",
+                "...더... 해주세요...",
+                "...음...♡",
+            ],
+        },
+        "butt_caress": {
+            "start": [
+                "...!! 거, 거기는...!",
+                "...부끄러워요...",
+                "...누가 볼까봐...",
+                "...으응...",
+            ],
+        },
+
+        # 토글형 행위
+        "hug": {
+            "start": [
+                "...꼭 안아주세요...",
+                "...따뜻해요...",
+                "...좋아요...",
+                "...이대로 있고 싶어요...",
+            ],
+            "during": [
+                "밀라가 품 안에서 편안하게 안겨 있다.",
+                "밀라의 따뜻한 체온이 느껴진다.",
+                "밀라가 당신의 등을 가만히 쓰다듬는다.",
+                "밀라가 조용히 눈을 감고 있다.",
+            ],
+        },
+        "deep_kiss": {
+            "start": [
+                "...으응...♡",
+                "...키스... 해주세요...",
+                "...눈 감을게요...",
+            ],
+            "during": [
+                "밀라와 깊은 입맞춤을 나누고 있다.",
+                "밀라의 부드러운 입술이 느껴진다.",
+                "밀라가 눈을 감고 키스에 빠져 있다.",
+                "밀라의 숨결이 거칠어진다.",
+            ],
+        },
+        "breast_touch": {
+            "start": [
+                "...!! 거, 거기는...!",
+                "...부끄러워요... 하지만...",
+                "...으응... 살살요...",
+            ],
+            "during": [
+                "밀라가 얼굴을 붉히며 참고 있다.",
+                "밀라가 작은 신음을 흘린다.",
+                "밀라가 당신의 손을 부끄럽게 바라본다.",
+                "밀라의 심장이 빠르게 뛰는 게 느껴진다.",
+            ],
+        },
+    }
+
+    # ========================================
     # 이벤트 다이얼로그 정의
     # ========================================
     EVENT_DIALOGS = {
@@ -163,6 +263,33 @@ class Mila(Character):
 
         return None
 
+    # ========================================
+    # 스킨십 반응
+    # ========================================
+
+    def get_romance_reaction(self, action_id: str, timing: str) -> str:
+        """
+        스킨십 행위에 대한 반응 텍스트 반환
+
+        Args:
+            action_id: 행위 ID (예: "head_pat", "hug")
+            timing: "start" (즉시형 실행 시) 또는 "during" (토글 활성 중)
+
+        Returns:
+            반응 텍스트 또는 None
+        """
+        import random
+
+        action_reactions = self.ROMANCE_REACTIONS.get(action_id)
+        if not action_reactions:
+            return None
+
+        reactions = action_reactions.get(timing)
+        if not reactions:
+            return None
+
+        return random.choice(reactions)
+
 
 # ========================================
 # AI Agent
@@ -178,26 +305,98 @@ class MilaAgent(BaseAgent):
     - 식사 준비와 실내 청소를 담당
     - 세라를 리더로 신뢰하고 따름
     - 플레이어가 아프면 걱정하며 지켜봄
+    - 계절별로 스케줄이 달라짐
     """
 
-    SCHEDULE = [
-        {"name": "기상", "region_id": 0, "location_id": 9, "start": 300, "end": 360, "activity": "준비"},
-        {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 360, "end": 420, "activity": "요리"},
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
-        {"name": "설거지", "region_id": 0, "location_id": 2, "start": 480, "end": 540, "activity": "설거지"},
-        {"name": "청소", "region_id": 0, "location_id": 1, "start": 540, "end": 660, "activity": "청소"},  # 거실 청소
-        {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660, "end": 720, "activity": "요리"},
-        {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
-        {"name": "청소", "region_id": 0, "location_id": 4, "start": 780, "end": 840, "activity": "청소"},  # 욕실 청소
-        {"name": "휴식", "region_id": 0, "location_id": 1, "start": 840, "end": 960, "activity": "휴식"},
-        {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020, "end": 1110, "activity": "요리"},
-        {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
-        {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170, "end": 1260, "activity": "정리"},
-        {"name": "수면", "region_id": 0, "location_id": 9, "start": 1320, "end": 300, "activity": "수면"},
-    ]
+    # 계절별 스케줄
+    SCHEDULES = {
+        "봄": [
+            {"name": "기상", "region_id": 0, "location_id": 9, "start": 300, "end": 360, "activity": "준비"},
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 360, "end": 420, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 480, "end": 540, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "start": 540, "end": 660, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660, "end": 720, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
+            {"name": "정원가꾸기", "region_id": 0, "location_id": 13, "start": 780, "end": 900, "activity": "정원"},  # 봄: 정원 가꾸기
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020, "end": 1110, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170, "end": 1260, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1320, "end": 300, "activity": "수면"},
+        ],
+        "여름": [
+            {"name": "기상", "region_id": 0, "location_id": 9, "start": 240, "end": 300, "activity": "준비"},  # 여름: 일찍 기상
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 300, "end": 360, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 360, "end": 420, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 420, "end": 480, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "start": 480, "end": 600, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660, "end": 720, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
+            {"name": "낮잠", "region_id": 0, "location_id": 9, "start": 780, "end": 900, "activity": "휴식"},  # 여름: 더위 피해 낮잠
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020, "end": 1110, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170, "end": 1260, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1380, "end": 240, "activity": "수면"},  # 여름: 늦게 잠
+        ],
+        "가을": [
+            {"name": "기상", "region_id": 0, "location_id": 9, "start": 300, "end": 360, "activity": "준비"},
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 360, "end": 420, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 480, "end": 540, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "start": 540, "end": 660, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660, "end": 720, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
+            {"name": "저장식품준비", "region_id": 0, "location_id": 2, "start": 780, "end": 960, "activity": "요리"},  # 가을: 저장식품
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020, "end": 1110, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170, "end": 1260, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1320, "end": 300, "activity": "수면"},
+        ],
+        "겨울": [
+            {"name": "기상", "region_id": 0, "location_id": 9, "start": 360, "end": 420, "activity": "준비"},  # 겨울: 늦게 기상
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 420, "end": 480, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 480, "end": 540, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 540, "end": 600, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "start": 600, "end": 720, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 720, "end": 780, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 780, "end": 840, "activity": "식사"},
+            {"name": "휴식", "region_id": 0, "location_id": 1, "start": 840, "end": 960, "activity": "휴식"},  # 겨울: 실내 휴식
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020, "end": 1110, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170, "end": 1260, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1260, "end": 360, "activity": "수면"},  # 겨울: 일찍 잠
+        ],
+    }
+
+    def __init__(self, unit_id):
+        super().__init__(unit_id)
+        self._current_season = None
+        # 초기 스케줄은 think()에서 계절 확인 후 설정
+
+    def _get_current_season(self):
+        """현재 계절 반환 (게임 날짜 기반)"""
+        time_info = morld.get_time_info()
+        month = time_info.get("month", 3)  # 기본값: 3월 (봄)
+
+        # 월 -> 계절 매핑 (3-5: 봄, 6-8: 여름, 9-11: 가을, 12-2: 겨울)
+        if month in (3, 4, 5):
+            return "봄"
+        elif month in (6, 7, 8):
+            return "여름"
+        elif month in (9, 10, 11):
+            return "가을"
+        else:  # 12, 1, 2
+            return "겨울"
 
     def think(self):
-        """밀라의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 스케줄 기반으로 JobList 채우기
-        self.fill_schedule_jobs_from(self.SCHEDULE)
-        return None
+        """밀라의 행동 결정 - 계절에 따라 스케줄 변경"""
+        # 계절이 바뀌면 기본 스케줄 교체
+        season = self._get_current_season()
+        if season != self._current_season:
+            self._current_season = season
+            new_schedule = self.SCHEDULES.get(season, self.SCHEDULES["봄"])
+            self.set_base_schedule(new_schedule)
+            print(f"[MilaAgent] 계절 변경: {season}")
+
+        # 나머지는 BaseAgent.think()에 위임
+        return super().think()

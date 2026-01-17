@@ -24,10 +24,12 @@ class BaseAgent:
 
     각 캐릭터는 이 클래스를 상속받아 think() 메서드를 구현합니다.
 
-    스케줄 스택:
-        schedule_stack을 사용하여 임시 스케줄을 push/pop 할 수 있습니다.
-        스택이 비어있지 않으면 스택 최상단 스케줄을 사용하고,
-        비어있으면 서브클래스의 SCHEDULE을 사용합니다.
+    스케줄 스택 구조:
+        schedule_stack[0] = 기본 스케줄 (서브클래스에서 set_base_schedule()로 설정)
+        schedule_stack[1+] = 임시 스케줄 (push_schedule/pop_schedule로 관리)
+
+        get_current_schedule()은 항상 스택 최상단을 반환합니다.
+        pop_schedule()은 [0]을 보호하여 기본 스케줄이 삭제되지 않습니다.
 
     공용 스케줄:
         STAY_SCHEDULE - 현재 위치에서 대기 (모든 NPC 공통)
@@ -40,7 +42,21 @@ class BaseAgent:
 
     def __init__(self, unit_id):
         self.unit_id = unit_id
-        self.schedule_stack = []  # 스케줄 스택
+        self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
+
+    def set_base_schedule(self, schedule):
+        """
+        기본 스케줄 설정 (스택[0]에 저장)
+
+        서브클래스의 __init__에서 호출하여 초기 스케줄을 설정합니다.
+        날짜별 스케줄 전환 시에도 이 메서드를 사용합니다.
+
+        Args:
+            schedule: 스케줄 리스트
+        """
+        self.schedule_stack[0] = schedule
+        morld.clear_jobs(self.unit_id)
+        print(f"[think] set_base_schedule unit={self.unit_id}")
 
     def get_info(self):
         """현재 유닛 정보 조회"""
@@ -95,29 +111,27 @@ class BaseAgent:
         """
         스케줄 스택에서 pop (이전 스케줄로 복원)
 
+        [0]의 기본 스케줄은 보호되어 삭제되지 않습니다.
+
         Returns:
-            pop된 스케줄 또는 None (스택이 비어있으면)
+            pop된 스케줄 또는 None (기본 스케줄만 남은 경우)
         """
-        if self.schedule_stack:
+        if len(self.schedule_stack) > 1:
             popped = self.schedule_stack.pop()
             morld.clear_jobs(self.unit_id)
             print(f"[think] pop_schedule unit={self.unit_id}, stack_depth={len(self.schedule_stack)}")
             return popped
-        print(f"[think] pop_schedule unit={self.unit_id}, stack was empty")
+        print(f"[think] pop_schedule unit={self.unit_id}, only base schedule remains")
         return None
 
     def get_current_schedule(self):
         """
-        현재 사용해야 할 스케줄 반환
-        스택이 있으면 스택 최상단, 없으면 SCHEDULE 클래스 변수
+        현재 사용해야 할 스케줄 반환 (스택 최상단)
 
         Returns:
-            스케줄 리스트
+            스케줄 리스트 또는 None
         """
-        if self.schedule_stack:
-            return self.schedule_stack[-1]
-        # 서브클래스의 SCHEDULE 사용 (없으면 빈 리스트)
-        return getattr(self, 'SCHEDULE', [])
+        return self.schedule_stack[-1]
 
     def think(self):
         """

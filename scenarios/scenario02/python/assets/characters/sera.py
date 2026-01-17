@@ -241,8 +241,12 @@ class SeraAgent(BaseAgent):
         {"name": "수면", "region_id": 0, "location_id": 8, "start": 1290, "end": 300, "activity": "수면"},
     ]
 
+    def __init__(self, unit_id):
+        super().__init__(unit_id)
+        self.set_base_schedule(self.SCHEDULE)
+
     def think(self):
         """세라의 행동 결정 - 스케줄 기반 Job 채우기"""
-        # 스케줄 기반으로 JobList 채우기
-        self.fill_schedule_jobs_from(self.SCHEDULE)
+        schedule = self.get_current_schedule()
+        self.fill_schedule_jobs_from(schedule)
         return None
