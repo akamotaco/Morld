@@ -361,6 +361,175 @@ namespace SE
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                 return _worldSystem.IsTimeFrozen() ? PyBool.True : PyBool.False;
             });
+
+            // advance_time_simulate: 시간 진행 + NPC JobBehavior 실행 (연애 모드용)
+            // ThinkSystem은 호출하지 않음 (NPC AI 재계산 불필요)
+            // 반환: 경과된 총 시간 (분)
+            morldModule.ModuleDict["advance_time_simulate"] = new PyBuiltinFunction("advance_time_simulate", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("advance_time_simulate(minutes) requires 1 argument");
+
+                int minutes = args[0].ToInt();
+                if (minutes <= 0)
+                    return new PyInt(0);
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+
+                var terrain = _worldSystem.GetTerrain();
+                var time = _worldSystem.GetTime();
+
+                // 시간 정지 상태면 시뮬레이션하지 않음
+                if (_worldSystem.IsTimeFrozen())
+                {
+                    Godot.GD.Print($"[morld] advance_time_simulate: Time is frozen, skipping simulation");
+                    return new PyInt(0);
+                }
+
+                // 각 유닛에 대해 이동 시뮬레이션 (플레이어 제외)
+                var playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                int playerId = playerSystem?.PlayerId ?? -1;
+
+                foreach (var unit in _unitSystem.Units.Values)
+                {
+                    // 오브젝트와 플레이어는 스킵
+                    if (unit.IsObject) continue;
+                    if (unit.Id == playerId) continue;
+
+                    // 현재 Job 기반 이동 처리
+                    SimulateUnitMovement(unit, minutes, terrain, _itemSystem);
+
+                    // JobList Advance (시간 경과)
+                    unit.AdvanceJobs(minutes);
+                }
+
+                // GameTime 업데이트
+                time.AddMinutes(minutes);
+
+                // 생존 시스템 처리 (플레이어만)
+                ProcessSurvivalTimeElapsed(minutes);
+
+                // 시간 경과 이벤트 발생 (EventSystem으로 전달)
+                var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+                if (_eventSystem != null)
+                {
+                    _eventSystem.Enqueue(GameEvent.OnTimeElapsed(minutes));
+                }
+
+                Godot.GD.Print($"[morld] advance_time_simulate: +{minutes} minutes, NPCs simulated");
+                return new PyInt(minutes);
+            });
+        }
+
+        /// <summary>
+        /// 유닛 이동 시뮬레이션 (advance_time_simulate용)
+        /// JobBehaviorSystem.ProcessJobMovement와 유사하지만, 독립적으로 동작
+        /// </summary>
+        private void SimulateUnitMovement(Morld.Unit unit, int duration, Morld.Terrain terrain, ItemSystem itemSystem)
+        {
+            var currentJob = unit.CurrentJob;
+            if (currentJob == null) return;
+
+            // move 액션인 경우만 처리
+            if (currentJob.Action == "move")
+            {
+                var goalLocation = currentJob.GetLocationRef();
+                if (unit.CurrentLocation == goalLocation)
+                    return;  // 이미 도착
+
+                // 경로가 없으면 계산
+                if (!unit.HasPlannedRoute)
+                {
+                    var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation, unit, itemSystem, null);
+                    if (pathResult != null && pathResult.Found && pathResult.Path.Count > 1)
+                    {
+                        // 첫 번째 요소(현재 위치) 제외하고 경로 설정
+                        var route = pathResult.Path.GetRange(1, pathResult.Path.Count - 1)
+                            .Select(loc => new Morld.LocationRef(loc)).ToList();
+                        unit.SetRoute(route);
+                    }
+                    else
+                    {
+                        return;  // 경로 없음
+                    }
+                }
+
+                // Edge 위에 있지 않으면 다음 Edge로 진입
+                if (unit.CurrentEdge == null && unit.HasPlannedRoute)
+                {
+                    var nextLoc = unit.NextRouteDestination;
+                    if (nextLoc.HasValue)
+                    {
+                        int travelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLoc.Value);
+                        if (travelTime > 0)
+                        {
+                            unit.CurrentEdge = new Morld.EdgeProgress
+                            {
+                                From = unit.CurrentLocation,
+                                To = nextLoc.Value,
+                                TotalTime = travelTime,
+                                ElapsedTime = 0
+                            };
+                        }
+                    }
+                }
+
+                // Edge 이동 처리
+                if (unit.CurrentEdge != null)
+                {
+                    int remaining = duration;
+                    while (remaining > 0 && unit.CurrentEdge != null)
+                    {
+                        int canAdvance = System.Math.Min(remaining, unit.CurrentEdge.RemainingTime);
+                        unit.CurrentEdge.ElapsedTime += canAdvance;
+                        remaining -= canAdvance;
+
+                        if (unit.CurrentEdge.RemainingTime <= 0)
+                        {
+                            // Edge 완료, 다음 Location으로 이동
+                            unit.SetCurrentLocation(unit.CurrentEdge.To);
+                            unit.AdvanceRoute();
+                            unit.CurrentEdge = null;
+
+                            // 목표 도착 체크
+                            if (unit.CurrentLocation == goalLocation)
+                                break;
+
+                            // 다음 Edge로 진입
+                            var nextLoc = unit.NextRouteDestination;
+                            if (nextLoc.HasValue)
+                            {
+                                int travelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLoc.Value);
+                                if (travelTime > 0)
+                                {
+                                    unit.CurrentEdge = new Morld.EdgeProgress
+                                    {
+                                        From = unit.CurrentLocation,
+                                        To = nextLoc.Value,
+                                        TotalTime = travelTime,
+                                        ElapsedTime = 0
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else if (currentJob.Action == "follow" && currentJob.TargetId.HasValue)
+            {
+                // follow 액션: 대상 위치로 이동 (간소화된 처리)
+                var targetUnit = (this._hub.GetSystem("unitSystem") as UnitSystem)?.FindUnit(currentJob.TargetId.Value);
+                if (targetUnit != null && targetUnit.CurrentLocation != unit.CurrentLocation)
+                {
+                    // 즉시 대상 위치로 이동 (간소화)
+                    unit.SetCurrentLocation(targetUnit.CurrentLocation);
+                    unit.CurrentEdge = null;
+                    unit.ClearRoute();
+                }
+            }
+            // stay, flee 등 다른 액션은 이동 없음
         }
 
         #endregion
@@ -633,7 +802,7 @@ namespace SE
                 return new PyInt(0);
             });
 
-            // set_unit_mood: 감정 상태 설정
+            // set_unit_mood: 감정 상태 설정 (기존 mood 덮어쓰기)
             morldModule.ModuleDict["set_unit_mood"] = new PyBuiltinFunction("set_unit_mood", args =>
             {
                 if (args.Length < 2)
@@ -654,6 +823,28 @@ namespace SE
                         Godot.GD.Print($"[morld] set_unit_mood: unit={unitId}, moods=[{string.Join(", ", moods)}]");
                         return PyBool.True;
                     }
+                }
+                return PyBool.False;
+            });
+
+            // add_unit_mood: 감정 상태 추가 (기존 mood 유지)
+            morldModule.ModuleDict["add_unit_mood"] = new PyBuiltinFunction("add_unit_mood", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("add_unit_mood(unit_id, mood) requires 2 arguments");
+
+                int unitId = args[0].ToInt();
+                string mood = args[1].AsString();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit != null)
+                {
+                    // HashSet이므로 중복 자동 무시
+                    unit.Mood.Add(mood);
+                    Godot.GD.Print($"[morld] add_unit_mood: unit={unitId}, added mood={mood}");
+                    return PyBool.True;
                 }
                 return PyBool.False;
             });

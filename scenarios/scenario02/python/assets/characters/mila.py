@@ -18,10 +18,16 @@ class Mila(Character):
         "외모:갈색머리": 1, "외모:중간머리": 1, "외모:갈색눈": 1,
         "성격:다정함": 1, "성격:걱정많음": 1,
         "관계:세라:신뢰": 1,
-        "애정": 0, "성욕": 0, "질투": 0,
-        "피로": 0, "기분": 6,
+        "상태:성욕": 0, "상태:질투": 0,
+        "상태:피로": 0, "상태:기분": 6,
     }
-    actions = ["call:talk:대화", "call:debug_props:속성 보기"]
+    actions = [
+        "call:talk:대화",
+        "call:romance:스킨십",
+        "call:debug_props:속성 보기",
+        "call:debug_affection_up:호감도 +10",
+        "call:debug_affection_down:호감도 -10",
+    ]
     mood = []
 
     # ========================================

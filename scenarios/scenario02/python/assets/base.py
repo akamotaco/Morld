@@ -330,6 +330,51 @@ class Character(Unit):
     FOCUS_RULES: list = None
     TALK_RULES: list = None
 
+    # ========================================
+    # 연애 반응 시스템
+    # ========================================
+    # 서브클래스에서 오버라이드하여 캐릭터별 반응 정의
+    # 형식:
+    #   ROMANCE_REACTIONS = {
+    #       "action_id": {
+    #           "start": "시작 시 텍스트",
+    #           "during": "진행 중 텍스트",
+    #           "end": "종료 시 텍스트",
+    #       },
+    #       ...
+    #   }
+    ROMANCE_REACTIONS: dict = {
+        # 토글 액션 (ON 상태 진행 중 묘사) - romance.py TOGGLE_ACTIONS와 일치
+        "hug": {
+            "during": "상대가 당신을 안고 있다.",
+        },
+        "deep_kiss": {
+            "during": "상대와 깊은 키스를 나누고 있다.",
+        },
+        "breast_touch": {
+            "during": "상대의 가슴에 손을 대고 있다.",
+        },
+        # 즉시 액션 - romance.py INSTANT_ACTIONS와 일치
+        "head_pat": {
+            "start": "상대의 머리를 쓰다듬는다.",
+        },
+        "cheek_caress": {
+            "start": "상대의 볼을 어루만진다.",
+        },
+        "cheek_pinch": {
+            "start": "상대의 볼을 꼬집는다.",
+        },
+        "ear_touch": {
+            "start": "상대의 귀를 만진다.",
+        },
+        "french_kiss": {
+            "start": "상대와 프렌치 키스를 한다.",
+        },
+        "butt_caress": {
+            "start": "상대의 엉덩이를 쓰다듬는다.",
+        },
+    }
+
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """캐릭터를 morld에 등록"""
         super().instantiate(instance_id)
@@ -441,6 +486,48 @@ class Character(Unit):
             return TextSelector.format_result(text, context)
         return ""
 
+    # ========================================
+    # 연애 반응 메서드
+    # ========================================
+
+    def get_romance_reaction(self, action_id: str, timing: str = "during") -> Optional[str]:
+        """
+        연애 액션에 대한 반응 텍스트 반환
+
+        Args:
+            action_id: 액션 ID ("hug", "kiss_light" 등)
+            timing: 타이밍 ("start", "during", "end")
+
+        Returns:
+            반응 텍스트 또는 None
+
+        서브클래스에서 ROMANCE_REACTIONS를 오버라이드하여
+        캐릭터별 커스텀 반응을 정의할 수 있음.
+
+        예시 (NPC 서브클래스):
+            ROMANCE_REACTIONS = {
+                "hug": {
+                    "during": "세라가 조용히 당신을 안고 있다.",
+                },
+                "kiss_light": {
+                    "start": "세라가 살짝 얼굴을 붉히며 입술을 맞춘다.",
+                },
+            }
+        """
+        reactions = getattr(self, 'ROMANCE_REACTIONS', {})
+        if not reactions:
+            return None
+
+        action_reactions = reactions.get(action_id, {})
+        return action_reactions.get(timing)
+
+    def romance(self):
+        """연애 모드 시작"""
+        self._check_instantiated()
+        from romance import start_romance
+        player_id = morld.get_player_id()
+        yield from start_romance(player_id, self.instance_id)
+
     def talk(self):
         """
         대화 - Rule 기반 (메서드 위임 지원)
@@ -474,6 +561,30 @@ class Character(Unit):
         name = context.get("name", self.name)
         pages = [f"[{name}]"] + result.get("pages", ["......"])
         yield morld.dialog(pages)
+
+    # ========================================
+    # 호감도 테스트 메서드 (디버그용)
+    # ========================================
+
+    def debug_affection_up(self):
+        """호감도 +10 테스트"""
+        self._check_instantiated()
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+        prop_name = f"관계:{player_name}:호감"
+        new_value = morld.modify_prop(self.instance_id, prop_name, 10)
+        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} +10\n현재: {new_value}")
+
+    def debug_affection_down(self):
+        """호감도 -10 테스트"""
+        self._check_instantiated()
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+        prop_name = f"관계:{player_name}:호감"
+        new_value = morld.modify_prop(self.instance_id, prop_name, -10)
+        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -10\n현재: {new_value}")
 
     # ========================================
     # 이벤트 다이얼로그 시스템

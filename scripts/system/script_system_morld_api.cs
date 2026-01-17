@@ -486,6 +486,39 @@ namespace SE
 
                 return result;
             });
+
+            // get_units_at_location(region_id, location_id) - Location에 있는 유닛 ID 목록 반환
+            // 캐릭터만 반환 (IsObject=false), Edge 위에 있는 유닛 제외
+            morldModule.ModuleDict["get_units_at_location"] = new PyBuiltinFunction("get_units_at_location", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("get_units_at_location(region_id, location_id) requires 2 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                var result = new PyList();
+                foreach (var unit in _unitSystem.Units.Values)
+                {
+                    // 오브젝트는 제외 (캐릭터만)
+                    if (unit.IsObject)
+                        continue;
+
+                    // Edge 위에 있는 유닛 제외 (Location에 도착한 유닛만)
+                    if (unit.IsOnEdge)
+                        continue;
+
+                    // 현재 위치가 일치하는지 확인
+                    if (unit.CurrentLocation.RegionId == regionId &&
+                        unit.CurrentLocation.LocalId == locationId)
+                    {
+                        result.Append(new PyInt(unit.Id));
+                    }
+                }
+                return result;
+            });
         }
 
         /// <summary>
@@ -621,6 +654,31 @@ namespace SE
                     result.SetItem(new PyString(key), new PyInt(value));
                 }
                 return result;
+            });
+
+            // modify_prop: Prop 값 상대적 변경 (delta 더하기)
+            // modify_prop(unit_id, prop_name, delta)
+            morldModule.ModuleDict["modify_prop"] = new PyBuiltinFunction("modify_prop", args =>
+            {
+                if (args.Length < 3)
+                    throw PyTypeError.Create("modify_prop(unit_id, prop_name, delta) requires 3 arguments");
+
+                int unitId = args[0].ToInt();
+                string propName = args[1].AsString();
+                int delta = args[2].ToInt();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit == null)
+                    return PyBool.False;
+
+                // 현재 값 조회 (없으면 0)
+                int currentValue = unit.TraversalContext.GetProp(propName);
+                int newValue = currentValue + delta;
+
+                unit.TraversalContext.SetProp(propName, newValue);
+                Godot.GD.Print($"[morld] modify_prop: unit={unitId}, {propName} = {currentValue} + {delta} = {newValue}");
+                return new PyInt(newValue);
             });
         }
 
@@ -943,6 +1001,20 @@ namespace SE
                 // 단일 텍스트
                 string text = firstArg.AsString();
                 return new PyDialogRequest(text, null, procCallback, autofill, resultObject);
+            });
+
+            // morld.pop_to_situation() - Situation Focus까지 스택 Pop (스킨십 비정상 종료 등)
+            // 사용: morld.pop_to_situation()
+            // 반환: True (항상 성공)
+            morldModule.ModuleDict["pop_to_situation"] = new PyBuiltinFunction("pop_to_situation", args =>
+            {
+                var _textUiSystem = this._hub.GetSystem("textUiSystem") as TextUISystem;
+                if (_textUiSystem != null)
+                {
+                    _textUiSystem.PopToSituation();
+                    Godot.GD.Print("[morld] pop_to_situation: popped to situation focus");
+                }
+                return PyBool.True;
             });
         }
     }

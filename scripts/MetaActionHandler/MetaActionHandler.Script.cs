@@ -255,7 +255,18 @@ public partial class MetaActionHandler
 		// generator 완료 시 후처리 (새로운 dialog가 없으면)
 		if (processCompletion && _pendingGenerator == null)
 		{
-			_textUISystem?.PopIfInvalid();
+			// pop_to_situation 플래그가 있으면 Situation Focus로 복귀
+			if (result?.PopToSituation == true)
+			{
+#if DEBUG_LOG
+				GD.Print("[MetaActionHandler] pop_to_situation flag detected, popping to situation focus");
+#endif
+				_textUISystem?.PopToSituation();
+			}
+			else
+			{
+				_textUISystem?.PopIfInvalid();
+			}
 			ProcessEventsAndUpdateDisplay();
 		}
 	}

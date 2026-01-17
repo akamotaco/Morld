@@ -111,10 +111,15 @@ class Player(Character):
         # 제작
         "can:craft": 1,
 
+        # 연애
+        "can:romance": 1,
+
         # 디버그
         "can:debug_props": 1,
         "can:debug_self_props": 1,
         "can:debug_item_props": 1,
+        "can:debug_affection_up": 1,
+        "can:debug_affection_down": 1,
     }
     actions = ["call:rest:휴식", "call:sleep:노숙"]
     mood = []

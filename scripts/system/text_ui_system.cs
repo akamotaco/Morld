@@ -568,6 +568,27 @@ namespace SE
 		}
 
 		/// <summary>
+		/// Situation Focus까지 스택 Pop (스킨십 비정상 종료 등에 사용)
+		/// Situation 레이어를 만나면 멈추고, Situation이 없으면 스택 전체 비우고 Situation Push
+		/// </summary>
+		public void PopToSituation()
+		{
+			while (_stack.Count > 0)
+			{
+				if (_stack.Current?.Type == FocusType.Situation)
+				{
+					RequestUpdateDisplay();
+					return;
+				}
+				_stack.Pop();
+			}
+
+			// 스택이 비었으면 Situation으로 초기화
+			_stack.Push(Focus.Situation());
+			RequestUpdateDisplay();
+		}
+
+		/// <summary>
 		/// 토글 펼침/접힘 전환
 		/// </summary>
 		public void ToggleExpand(string toggleId)

@@ -818,7 +818,12 @@ __init__.initialize_scenario()
             // 메시지 결과 - Get()으로 안전하게 조회
             var messageObj = dict.Get(new PyString("message"));
             var message = (messageObj as PyString)?.Value ?? "";
-            return new ScriptResult { Type = type, Message = message };
+
+            // pop_to_situation 플래그 확인
+            var popToSituationObj = dict.Get(new PyString("pop_to_situation"));
+            var popToSituation = popToSituationObj is PyBool pyBool && pyBool.IsTrue();
+
+            return new ScriptResult { Type = type, Message = message, PopToSituation = popToSituation };
         }
 
         /// <summary>
@@ -1039,6 +1044,12 @@ def calculate(a, b):
     {
         public string Type { get; set; }  // "message", "generator_dialog", "error" 등
         public string Message { get; set; }
+
+        /// <summary>
+        /// Generator 완료 후 Situation Focus로 복귀할지 여부
+        /// Python에서 result dict에 "pop_to_situation": True 설정 시 true
+        /// </summary>
+        public bool PopToSituation { get; set; } = false;
     }
 
     /// <summary>
