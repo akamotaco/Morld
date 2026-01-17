@@ -19,6 +19,7 @@ ROMANCE_ENTRY_THRESHOLD = 50   # 연애 진입 최소 호감도
 ROMANCE_JOIN_THRESHOLD = 60    # 합류 가능 최소 호감도
 ROMANCE_STAMINA_KEY = "연애:스태미나"
 DEFAULT_STAMINA = 10
+ECSTASY_THRESHOLD = 100        # 절정 발생 임계값
 
 # ============================================
 # 즉시형 행위 정의
@@ -123,6 +124,38 @@ def get_affection_key(player_id):
     return f"관계:{player_name}:호감"
 
 
+def check_ecstasy(partner_id):
+    """
+    절정 체크 - 성적흥분 >= ECSTASY_THRESHOLD면 절정 발생
+
+    Returns:
+        절정 반응 텍스트 또는 None
+    """
+    partner_props = morld.get_unit_props(partner_id)
+    arousal = partner_props.get("상태:성적흥분", 0)
+
+    if arousal >= ECSTASY_THRESHOLD:
+        # 캐릭터별 절정 반응 텍스트 (초기화 전에 조회 - 조건 체크용)
+        reaction = None
+        partner_asset = get_partner_asset(partner_id)
+        if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+            reaction = partner_asset.get_romance_reaction("ecstasy", "start")
+
+        # 성적절정 +1, 성적흥분 = 0 (반응 조회 후 초기화)
+        morld.modify_prop(partner_id, "상태:성적절정", 1)
+        morld.set_unit_prop(partner_id, "상태:성적흥분", 0)
+
+        if reaction:
+            return reaction
+
+        # 기본 반응
+        partner_info = morld.get_unit_info(partner_id)
+        partner_name = partner_info.get('name', '상대') if partner_info else '상대'
+        return f"{partner_name}(이)가 절정에 달했다."
+
+    return None
+
+
 def can_start_romance(player_id, target_id):
     """연애 진입 가능 여부 확인"""
     affection_key = get_affection_key(player_id)
@@ -173,10 +206,12 @@ def render_romance_ui(state):
     partner_props = morld.get_unit_props(partner_id)
     player_stamina = state["stamina"]
 
-    # 플레이어에 대한 관계 prop 키
+    # 플레이어에 대한 prop 키
+    # 관계 타입: 호감, 애정 → 관계:플레이어:stat
+    # 상태 타입: 성적흥분, 성적절정 → 상태:stat (개인 상태)
     affection_key = get_affection_key(player_id)
     love_key = affection_key.replace(":호감", ":애정")
-    arousal_key = affection_key.replace(":호감", ":성적흥분")
+    arousal_key = "상태:성적흥분"
 
     lines = []
 
@@ -321,7 +356,12 @@ def start_romance(player_id, partner_id):
     }
 
     def apply_effects(action_def, active_toggle_defs):
-        """행위 효과 적용 (즉시형 + 활성 토글들)"""
+        """
+        행위 효과 적용 (즉시형 + 활성 토글들)
+
+        Returns:
+            절정 반응 텍스트 또는 None
+        """
         pid = state["partner_id"]
         player_id = state["player_id"]
         affection_key = get_affection_key(player_id)
@@ -335,10 +375,18 @@ def start_romance(player_id, partner_id):
             for stat, value in toggle_effects.items():
                 effects[stat] = effects.get(stat, 0) + value
 
-        # 효과 적용 (stat을 관계:플레이어:stat 형식으로 변환)
+        # 효과 적용
+        # 관계 타입: 호감, 애정 → 관계:플레이어:stat
+        # 상태 타입: 성적흥분, 성적절정 → 상태:stat (개인 상태)
         for stat, value in effects.items():
-            prop_key = affection_key.replace(":호감", f":{stat}")
+            if stat in ("성적흥분", "성적절정"):
+                prop_key = f"상태:{stat}"
+            else:
+                prop_key = affection_key.replace(":호감", f":{stat}")
             morld.modify_prop(pid, prop_key, value)
+
+        # 절정 체크 (성적흥분 >= 100이면 절정 발생)
+        return check_ecstasy(pid)
 
     def proc(action):
         if action == "init":
@@ -365,32 +413,31 @@ def start_romance(player_id, partner_id):
                 total_stamina += toggle_def["stamina"]
                 active_toggle_defs.append(toggle_def)
 
-            # 체력 부족 체크
-            if state["stamina"] < total_stamina:
+            # 체력 부족 체크 (스태미나 소진 시 props 변화 없이 종료)
+            if state["stamina"] <= total_stamina:
                 state["exhausted"] = True
                 return True  # 체력 부족 종료
 
             # 효과 적용 (경험치 시스템 포함)
             state["stamina"] -= total_stamina
-            apply_effects(action_def, active_toggle_defs)
+            ecstasy_reaction = apply_effects(action_def, active_toggle_defs)
 
-            # 캐릭터별 반응 텍스트 (start 타이밍)
-            partner_asset = get_partner_asset(state["partner_id"])
-            if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                reaction = partner_asset.get_romance_reaction(action_id, "start")
-                if reaction:
-                    state["last_reaction"] = reaction
+            # 절정 반응이 있으면 우선 표시
+            if ecstasy_reaction:
+                state["last_reaction"] = ecstasy_reaction
+            else:
+                # 캐릭터별 반응 텍스트 (start 타이밍)
+                partner_asset = get_partner_asset(state["partner_id"])
+                if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                    reaction = partner_asset.get_romance_reaction(action_id, "start")
+                    if reaction:
+                        state["last_reaction"] = reaction
 
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
             if result["interrupted"]:
                 state["interrupted"] = True
                 state["interrupter_id"] = result["interrupter_id"]
-                return True
-
-            # 체력 0이면 종료
-            if state["stamina"] <= 0:
-                state["exhausted"] = True
                 return True
 
             return render_romance_ui(state)
@@ -417,37 +464,37 @@ def start_romance(player_id, partner_id):
                     total_stamina += toggle_def["stamina"]
                     active_toggle_defs.append(toggle_def)
 
-            # 체력 부족 체크
-            if state["stamina"] < total_stamina:
+            # 체력 부족 체크 (스태미나 소진 시 props 변화 없이 종료)
+            if state["stamina"] <= total_stamina:
                 state["exhausted"] = True
                 return True
 
             # 토글 상태 변경
             if is_turning_on:
                 state["active_toggles"].add(action_id)
+            else:
+                state["active_toggles"].discard(action_id)
+
+            # 효과 적용 (경험치 시스템 포함)
+            state["stamina"] -= total_stamina
+            ecstasy_reaction = apply_effects(action_def, active_toggle_defs)
+
+            # 절정 반응이 있으면 우선 표시
+            if ecstasy_reaction:
+                state["last_reaction"] = ecstasy_reaction
+            elif is_turning_on:
                 # 토글 ON 시 반응 텍스트 (start 타이밍)
                 partner_asset = get_partner_asset(state["partner_id"])
                 if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
                     reaction = partner_asset.get_romance_reaction(action_id, "start")
                     if reaction:
                         state["last_reaction"] = reaction
-            else:
-                state["active_toggles"].discard(action_id)
-
-            # 효과 적용 (경험치 시스템 포함)
-            state["stamina"] -= total_stamina
-            apply_effects(action_def, active_toggle_defs)
 
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
             if result["interrupted"]:
                 state["interrupted"] = True
                 state["interrupter_id"] = result["interrupter_id"]
-                return True
-
-            # 체력 0이면 종료
-            if state["stamina"] <= 0:
-                state["exhausted"] = True
                 return True
 
             return render_romance_ui(state)

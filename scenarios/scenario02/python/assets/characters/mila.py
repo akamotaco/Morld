@@ -246,6 +246,18 @@ class Mila(Character):
                 ]),
             ],
         },
+
+        # 절정 반응
+        "ecstasy": {
+            "start": [
+                ({}, [
+                    "...하앙...!! ♡♡♡",
+                    "...이, 이상해요... 머리가 하얘져요...♡",
+                    "...으응...!! 안 돼... 이러면...♡♡",
+                    "...사, 사랑해요...♡♡♡",
+                ]),
+            ],
+        },
     }
 
     # ========================================
@@ -369,17 +381,19 @@ class Mila(Character):
         조건 딕셔너리 체크
 
         조건 키 변환:
-            "호감" → "관계:{player_name}:호감"
-            "애정" → "관계:{player_name}:애정"
-            "성적흥분" → "관계:{player_name}:성적흥분"
+            관계 타입: "호감", "애정" → "관계:{player_name}:{key}"
+            상태 타입: "성적흥분", "성적절정" → "상태:{key}" (개인 상태)
         """
         if not condition:
             return True  # 빈 조건은 항상 True
 
         for key, required_value in condition.items():
-            # 관계 관련 키는 플레이어 이름으로 변환
-            if key in ("호감", "애정", "성적흥분"):
+            # 관계 타입
+            if key in ("호감", "애정"):
                 prop_key = f"관계:{player_name}:{key}"
+            # 상태 타입 (개인 상태)
+            elif key in ("성적흥분", "성적절정"):
+                prop_key = f"상태:{key}"
             else:
                 prop_key = key
 
