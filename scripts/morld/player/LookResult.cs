@@ -119,4 +119,10 @@ public class UnitLookResult
 	/// 가능한 액션들 (예: "talk", "trade", "open", "examine")
 	/// </summary>
 	public List<string> Actions { get; set; } = new();
+
+	/// <summary>
+	/// 상태 차단 메시지 (수면 중 등 특정 상태일 때 표시)
+	/// null이면 차단 메시지 없음
+	/// </summary>
+	public string? BlockedMessage { get; set; }
 }

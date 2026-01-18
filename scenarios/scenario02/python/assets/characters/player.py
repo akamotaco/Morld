@@ -76,6 +76,7 @@ class Player(Character):
         # 기본 행동 능력 (can:메서드명)
         # NPC 상호작용
         "can:talk": 1,
+        "can:wake_up": 1,  # 수면 중인 NPC 깨우기
 
         # 이동/자세
         "can:sit": 1,

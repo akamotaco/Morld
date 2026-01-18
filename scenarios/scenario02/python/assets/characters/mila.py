@@ -37,6 +37,14 @@ class Mila(Character):
         # 특수 상황 (최우선)
         ({"activity": "수면"}, {"pages": ["(자고 있다)", "...zzZ"]}),
 
+        # 진척도별 사적인 대화 (플래그로 일회성 체크)
+        # 진척도 3 - 과거 이야기
+        ({"호감": 70, "진척도": 3}, "_talk_progress_3"),
+        # 진척도 2 - 좋아하는 것
+        ({"호감": 60, "진척도": 2}, "_talk_progress_2"),
+        # 진척도 1 - 자신에 대해
+        ({"호감": 50, "진척도": 1}, "_talk_progress_1"),
+
         # Activity 기반
         ({"activity": "요리"}, {"pages": ["(요리 중이다)", "잠시만요, 지금 손을 뗄 수가 없어요!"]}),
         ({"activity": "식사"}, {"pages": ["맛있게 드셨으면 좋겠어요.", "더 필요하시면 말씀해 주세요!"]}),
@@ -46,9 +54,9 @@ class Mila(Character):
         ({"activity": "휴식"}, {"pages": ["후~ 잠시 쉬고 있어요.", "오늘 뭐 드시고 싶은 거 있으세요?"]}),
         ({"activity": "준비"}, {"pages": ["지금 준비 중이에요~", "조금만 기다려 주세요!"]}),
 
-        # 호감도 기반
-        ({"호감": 70}, {"pages": ["오셨군요~", "...괜찮으세요? 뭔가 필요하신 거 있으세요?"]}),
-        ({"호감": 50}, {"pages": ["안녕하세요!", "...뭐 드시고 싶은 거 있으세요?"]}),
+        # 호감도 기반 (진척도 증가 로직 포함)
+        ({"호감": 70}, "_talk_friendly_high"),
+        ({"호감": 50}, "_talk_friendly_mid"),
 
         # mood 기반
         ({"mood": "기쁨"}, {"pages": ["안녕하세요~", "오늘 기분이 좋아요!"]}),
@@ -324,6 +332,140 @@ class Mila(Character):
     def __init__(self):
         super().__init__()
         self._event_flags = {}
+
+    # ========================================
+    # TALK_RULES에서 "_메서드명"으로 위임됨
+    # ========================================
+
+    def _talk_friendly_high(self, context):
+        """호감도 70 이상 - 진척도 증가"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 진척도 체크 및 증가
+        prop_key = f"관계:{player_name}:진척도"
+        props = morld.get_unit_props(self.instance_id)
+        progress = props.get(prop_key, 0) if props else 0
+
+        if progress < 3:
+            morld.modify_prop(self.instance_id, prop_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "오셨군요~",
+            "...괜찮으세요? 뭔가 필요하신 거 있으세요?",
+        ])
+
+    def _talk_friendly_mid(self, context):
+        """호감도 50 이상 - 진척도 증가"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 진척도 체크 및 증가
+        prop_key = f"관계:{player_name}:진척도"
+        props = morld.get_unit_props(self.instance_id)
+        progress = props.get(prop_key, 0) if props else 0
+
+        if progress < 1:
+            morld.modify_prop(self.instance_id, prop_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "안녕하세요!",
+            "...뭐 드시고 싶은 거 있으세요?",
+        ])
+
+    def _talk_progress_1(self, context):
+        """진척도 1 - 자신에 대한 이야기 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크 (이미 들었으면 일반 대화)
+        flag_key = f"대화:{player_name}:진척도1"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([f"[{name}]", "오셨군요~", "뭔가 필요하신 게 있으세요?"])
+            return
+
+        # 플래그 설정 및 사적인 이야기
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "저요?",
+            "저는 밀라예요. 여기서 살림을 맡고 있어요.",
+            "요리, 청소, 빨래... 뭐, 그런 것들이요.",
+            "세라랑 리나도 여기 살고 있어요.",
+            "세라는... 좀 무뚝뚝하지만, 마음은 따뜻한 아이예요.",
+            "리나는 활발하고 귀여운 동생이에요.",
+            "...다들 소중한 가족이에요.",
+        ])
+
+    def _talk_progress_2(self, context):
+        """진척도 2 - 좋아하는 것 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크
+        flag_key = f"대화:{player_name}:진척도2"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([f"[{name}]", "오셨군요~", "오늘은 뭐 해드릴까요?"])
+            return
+
+        # 플래그 설정 및 사적인 이야기
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "제가 좋아하는 거요?",
+            "음... 요리하는 걸 좋아해요.",
+            "누군가가 제가 만든 음식을 맛있게 먹을 때...",
+            "그 표정을 보면 정말 행복해져요.",
+            "특히 새로운 레시피가 성공했을 때!",
+            "아, 그리고... 조용히 차 마시는 시간도 좋아요.",
+            "혼자 있는 시간이... 싫지 않아요.",
+            "...가끔은요.",
+        ])
+
+    def _talk_progress_3(self, context):
+        """진척도 3 - 과거 이야기 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크
+        flag_key = f"대화:{player_name}:진척도3"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([f"[{name}]", "오셨군요~", "...그냥 보고 싶었어요."])
+            return
+
+        # 플래그 설정 및 사적인 이야기
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "예전 일이요...?",
+            "...기억나는 게 많지 않아요.",
+            "어느 날 눈을 떴을 때, 이미 이 저택에 있었어요.",
+            "...혼자였어요.",
+            "그래서... 누군가를 돌보는 게 좋았나 봐요.",
+            "세라를 발견했을 때, 정말 기뻤어요.",
+            "리나도... 그 애도 혼자였거든요.",
+            "...다들 기억이 없대요.",
+            "하지만 괜찮아요.",
+            "지금 이렇게... 함께 있으니까요.",
+        ])
 
     # ========================================
     # 이벤트 핸들러

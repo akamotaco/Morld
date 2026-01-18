@@ -726,6 +726,64 @@ actions = ["call:talk:대화", "call:trade:거래"]
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 상태 기반 액션 필터링 (NPC 상태 제한)
+**역할:** NPC의 현재 상태(activity, mood)에 따라 가능한 액션을 동적으로 필터링
+
+**핵심 개념:**
+- **대상(Target) 기준 필터링**: NPC의 상태에 따라 표시되는 액션 제한
+- **Whitelist/Blacklist 모드**: 허용 액션만 표시하거나, 차단 액션만 숨김
+- **차단 메시지**: 제한된 상태일 때 UI에 메시지 표시
+
+**ACTION_AVAILABILITY 정의:**
+```python
+# assets/base.py - Character 클래스
+ACTION_AVAILABILITY: dict = {
+    "수면": {
+        "allowed": ["talk", "debug_props", "wake_up"],  # 허용 액션만 표시
+        "blocked_message": "자고 있다...",  # 차단 시 메시지
+    },
+    "식사": {
+        "blocked": ["romance", "date"],  # 이 액션만 숨김
+    },
+}
+```
+
+**우선순위:**
+- `allowed` 정의 시: 화이트리스트 모드 (해당 액션만 표시)
+- `blocked` 정의 시: 블랙리스트 모드 (해당 액션만 숨김)
+- 둘 다 없으면: 모든 액션 허용
+
+**필터링 흐름:**
+```
+NPC 클릭 (LookUnit)
+    │
+    ▼
+ScriptSystem.GetFilteredActions(unit_id)
+    │
+    ├─ Python assets.get_available_actions(unit_id) 호출
+    │   │
+    │   ├─ Character.get_available_actions()
+    │   │   ├─ activity 기반 규칙 체크
+    │   │   ├─ mood 기반 규칙 체크
+    │   │   └─ 필터링된 액션 목록 반환
+    │   │
+    │   └─ None 반환 (필터링 없음)
+    │
+    └─ UnitLookResult에 Actions, BlockedMessage 설정
+```
+
+**wake_up 액션 (수면 중 NPC 깨우기):**
+- 수면 상태에서만 사용 가능
+- 호감도 기반 성공 확률: `30% + (호감도 × 0.5%)`, 최대 80%
+- 실패 시: 호감도 -3 패널티
+- 서브클래스에서 반응 오버라이드 가능: `get_wake_up_success_reaction()`, `get_wake_up_fail_reaction()`
+
+**파일 위치:**
+- `scenarios/scenario02/python/assets/base.py` - `ACTION_AVAILABILITY`, `get_available_actions()`, `wake_up()`
+- `scenarios/scenario02/python/assets/__init__.py` - API 래퍼 함수
+- `scripts/system/script_system.cs` - `GetFilteredActions()`, `GetActionBlockedMessage()`
+- `scripts/system/unit_system.cs` - `LookUnit()` 필터링 통합
+
 ### 이동 경로 조건 필터링
 **역할:** Edge/RegionEdge의 이동 조건을 검사하여 grey out 또는 숨김 처리
 

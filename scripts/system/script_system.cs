@@ -993,6 +993,73 @@ def calculate(a, b):
             return result;
         }
 
+        /// <summary>
+        /// 유닛의 현재 상태에서 사용 가능한 액션 목록 조회
+        /// Python Asset의 get_available_actions() 호출
+        /// </summary>
+        /// <param name="unitId">유닛 ID</param>
+        /// <returns>필터링된 액션 문자열 리스트, 실패 시 null</returns>
+        public System.Collections.Generic.List<string> GetFilteredActions(int unitId)
+        {
+            try
+            {
+                Execute("import assets");
+                var code = $"assets.get_available_actions({unitId})";
+                var result = Eval(code);
+
+                if (result == null || result is PyNone)
+                {
+                    return null;  // Python에서 None 반환 = 필터링 없음
+                }
+
+                if (result is PyList pyList)
+                {
+                    var actions = new System.Collections.Generic.List<string>();
+                    foreach (var item in pyList.Items)
+                    {
+                        if (item is PyString pyStr)
+                        {
+                            actions.Add(pyStr.Value);
+                        }
+                    }
+                    return actions;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] GetFilteredActions error: {ex.Message}");
+            }
+
+            return null;  // 오류 시 null 반환 (기본 actions 사용)
+        }
+
+        /// <summary>
+        /// 유닛의 현재 상태 차단 메시지 조회
+        /// Python Asset의 get_action_blocked_message() 호출
+        /// </summary>
+        /// <param name="unitId">유닛 ID</param>
+        /// <returns>차단 메시지 또는 null</returns>
+        public string GetActionBlockedMessage(int unitId)
+        {
+            try
+            {
+                Execute("import assets");
+                var code = $"assets.get_action_blocked_message({unitId})";
+                var result = Eval(code);
+
+                if (result is PyString pyStr)
+                {
+                    return pyStr.Value;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] GetActionBlockedMessage error: {ex.Message}");
+            }
+
+            return null;
+        }
+
 
         // ========================================
         // ThinkSystem 지원

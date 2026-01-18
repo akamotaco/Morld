@@ -21,6 +21,10 @@ ROMANCE_STAMINA_KEY = "연애:스태미나"
 DEFAULT_STAMINA = 10
 ECSTASY_THRESHOLD = 100        # 절정 발생 임계값
 
+# 들키지 않을 확률 설정
+STEALTH_BASE_CHANCE = 0.3      # 기본 은신 확률 30%
+STEALTH_HIDING_BONUS = 0.4     # 은신 중일 때 추가 확률 +40%
+
 # ============================================
 # 즉시형 행위 정의
 # ============================================
@@ -225,6 +229,16 @@ def render_romance_ui(state):
     lines.append(f"[{partner_name}와 함께]                 스태미나: {render_stamina_bar(player_stamina)}")
     lines.append("")
 
+    # 근접 경고 (누군가 지나갔지만 들키지 않음)
+    if state.get("near_miss"):
+        near_miss_id = state.get("near_miss_id")
+        near_info = morld.get_unit_info(near_miss_id) if near_miss_id else None
+        near_name = near_info.get("name", "누군가") if near_info else "누군가"
+        lines.append(f"[color=orange]({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)[/color]")
+        lines.append("")
+        state["near_miss"] = False  # 표시 후 클리어
+        state["near_miss_id"] = None
+
     # 마지막 즉시 액션 반응 (있으면 표시 후 클리어)
     last_reaction = state.get("last_reaction")
     if last_reaction:
@@ -294,8 +308,42 @@ def render_romance_ui(state):
 # 시간 경과 및 NPC 감지
 # ============================================
 
+def calculate_stealth_chance(state):
+    """
+    들키지 않을 확률 계산
+
+    조건에 따라 은신 확률이 달라집니다:
+    - 기본 확률: 30%
+    - 은신 중(hiding=True): +40%
+    - 추후 확장: 장소 특성, 시간대 등
+
+    Returns:
+        float: 은신 성공 확률 (0.0 ~ 1.0)
+    """
+    chance = STEALTH_BASE_CHANCE
+
+    # 은신 상태 체크 (state에서 플래그 확인)
+    if state.get("hiding"):
+        chance += STEALTH_HIDING_BONUS
+
+    # 최대 90%로 제한 (항상 들킬 가능성 존재)
+    return min(chance, 0.9)
+
+
+def check_stealth_success(state):
+    """
+    은신 성공 여부 판정
+
+    Returns:
+        bool: True면 들키지 않음, False면 들킴
+    """
+    import random
+    chance = calculate_stealth_chance(state)
+    return random.random() < chance
+
+
 def advance_time_and_check(state, minutes):
-    """시간 경과 + NPC 도착 체크"""
+    """시간 경과 + NPC 도착 체크 (은신 확률 적용)"""
     # 1. 시간 진행 + NPC 이동 시뮬레이션
     morld.advance_time_simulate(minutes)
     state["elapsed_time"] += minutes
@@ -312,12 +360,29 @@ def advance_time_and_check(state, minutes):
         if unit_id == player_id:
             continue
 
+        # 이미 체크한 NPC는 스킵 (같은 NPC에게 여러번 들키지 않음)
+        checked_npcs = state.get("checked_npcs", set())
+        if unit_id in checked_npcs:
+            continue
+
+        # 체크 목록에 추가
+        if "checked_npcs" not in state:
+            state["checked_npcs"] = set()
+        state["checked_npcs"].add(unit_id)
+
         # 호감도 체크
         props = morld.get_unit_props(unit_id)
         affection = props.get("호감", 0)
 
         if affection < ROMANCE_JOIN_THRESHOLD:
-            # 중단
+            # 은신 성공 여부 판정
+            if check_stealth_success(state):
+                # 은신 성공 - 들키지 않음 (근처 접근 표시만)
+                state["near_miss"] = True
+                state["near_miss_id"] = unit_id
+                continue
+
+            # 들킴 - 중단
             return {"interrupted": True, "interrupter_id": unit_id}
         # TODO: 합류 로직 (Phase 6)
 

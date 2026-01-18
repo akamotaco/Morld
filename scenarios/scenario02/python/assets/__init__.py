@@ -192,3 +192,54 @@ def validate_instance_ids():
     # 성공 로그
     total = len(object_ids) + len(item_ids) + len(character_ids)
     print(f"[assets] Instance ID 검사 완료: {total}개 (Objects: {len(object_ids)}, Items: {len(item_ids)}, Characters: {len(character_ids)})")
+
+
+# ========================================
+# 상태 기반 액션 필터링 API (C#에서 호출)
+# ========================================
+
+def get_available_actions(unit_id: int):
+    """
+    유닛의 현재 상태에서 사용 가능한 액션 목록 반환
+
+    Character의 get_available_actions() 메서드를 호출하여
+    activity/mood에 따라 필터링된 액션 목록을 반환합니다.
+
+    Args:
+        unit_id: 유닛 ID
+
+    Returns:
+        필터링된 액션 문자열 리스트 또는 None (필터링 없음)
+    """
+    from assets import characters
+
+    instance = characters.get_instance(unit_id)
+    if instance is None:
+        return None  # 캐릭터가 아니면 필터링 없음
+
+    if hasattr(instance, 'get_available_actions'):
+        return instance.get_available_actions()
+
+    return None
+
+
+def get_action_blocked_message(unit_id: int):
+    """
+    유닛의 현재 상태 차단 메시지 반환
+
+    Args:
+        unit_id: 유닛 ID
+
+    Returns:
+        차단 메시지 문자열 또는 None
+    """
+    from assets import characters
+
+    instance = characters.get_instance(unit_id)
+    if instance is None:
+        return None
+
+    if hasattr(instance, 'get_action_blocked_message'):
+        return instance.get_action_blocked_message()
+
+    return None

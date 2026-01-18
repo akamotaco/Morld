@@ -375,6 +375,142 @@ class Character(Unit):
         },
     }
 
+    # ========================================
+    # 상태 기반 액션 필터링 시스템
+    # ========================================
+    # NPC의 현재 상태(activity, mood 등)에 따라 가능한 액션을 동적으로 필터링
+    #
+    # ACTION_AVAILABILITY: 상태별 허용/차단 액션 정의
+    #   {
+    #       "수면": {
+    #           "allowed": ["talk", "debug_props", "wake_up"],  # 허용 액션만 표시
+    #           "blocked_message": "자고 있다...",  # 차단 시 메시지 (선택)
+    #       },
+    #       "식사": {
+    #           "blocked": ["romance", "date"],  # 차단 액션만 숨김
+    #       },
+    #   }
+    #
+    # 우선순위: allowed > blocked
+    # - allowed가 정의되면 해당 액션만 표시 (화이트리스트)
+    # - blocked가 정의되면 해당 액션만 숨김 (블랙리스트)
+
+    ACTION_AVAILABILITY: dict = {
+        # 기본 수면 상태 처리 (모든 캐릭터 공통)
+        "수면": {
+            "allowed": ["talk", "debug_props", "wake_up"],
+            "blocked_message": "자고 있다...",
+        },
+    }
+
+    def get_available_actions(self) -> list:
+        """
+        현재 상태에서 사용 가능한 액션 목록 반환
+
+        NPC의 activity, mood 등을 기반으로 actions 리스트를 필터링합니다.
+        ACTION_AVAILABILITY에 정의된 규칙에 따라 숨김 처리됩니다.
+
+        Returns:
+            필터링된 액션 문자열 리스트
+        """
+        if not self.actions:
+            return []
+
+        # 현재 상태 조회
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return list(self.actions)
+
+        activity = info.get("activity")
+        mood = info.get("mood", [])
+
+        # ACTION_AVAILABILITY에서 현재 상태에 맞는 규칙 찾기
+        availability = getattr(self, 'ACTION_AVAILABILITY', {})
+        rules = None
+
+        # activity 기반 규칙 체크
+        if activity and activity in availability:
+            rules = availability[activity]
+
+        # mood 기반 규칙 체크 (activity 규칙이 없을 때)
+        if rules is None:
+            for m in mood:
+                if m in availability:
+                    rules = availability[m]
+                    break
+
+        # 규칙이 없으면 모든 액션 허용
+        if rules is None:
+            return list(self.actions)
+
+        # 필터링 적용
+        allowed = rules.get("allowed")
+        blocked = rules.get("blocked")
+
+        result = []
+        for action in self.actions:
+            # 액션 이름 추출 (call:method:label → method)
+            action_name = self._extract_action_name(action)
+
+            if allowed is not None:
+                # 화이트리스트 모드: allowed에 있는 액션만 표시
+                if action_name in allowed:
+                    result.append(action)
+            elif blocked is not None:
+                # 블랙리스트 모드: blocked에 없는 액션만 표시
+                if action_name not in blocked:
+                    result.append(action)
+            else:
+                result.append(action)
+
+        return result
+
+    def _extract_action_name(self, action: str) -> str:
+        """
+        액션 문자열에서 액션 이름 추출
+
+        Examples:
+            "call:talk:대화" → "talk"
+            "call:sit:front:앉기" → "sit"
+            "call:romance:스킨십#" → "romance"
+            "take@container" → "take"
+            "rest" → "rest"
+        """
+        # '#' 마커 제거
+        if action.endswith("#"):
+            action = action[:-1]
+
+        # '@' context 제거
+        if "@" in action:
+            action = action.split("@")[0]
+
+        # call: 패턴 처리
+        if action.startswith("call:"):
+            parts = action.split(":")
+            if len(parts) >= 2:
+                return parts[1]  # method 이름
+
+        return action
+
+    def get_action_blocked_message(self) -> str:
+        """
+        현재 상태의 차단 메시지 반환
+
+        Returns:
+            차단 메시지 또는 None
+        """
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return None
+
+        activity = info.get("activity")
+        availability = getattr(self, 'ACTION_AVAILABILITY', {})
+
+        if activity and activity in availability:
+            return availability[activity].get("blocked_message")
+
+        return None
+
     def instantiate(self, instance_id: int, region_id: int, location_id: int):
         """캐릭터를 morld에 등록"""
         super().instantiate(instance_id)
@@ -547,6 +683,63 @@ class Character(Unit):
         player_id = morld.get_player_id()
         yield from request_date(player_id, self.instance_id)
 
+    # ========================================
+    # 깨우기 시스템
+    # ========================================
+
+    def wake_up(self):
+        """
+        수면 중인 캐릭터 깨우기
+
+        호감도에 따라 성공/실패 확률이 달라집니다.
+        실패 시 호감도가 감소합니다.
+
+        서브클래스에서 get_wake_up_reaction()을 오버라이드하여
+        캐릭터별 반응을 정의할 수 있습니다.
+        """
+        self._check_instantiated()
+        import random
+
+        # 현재 상태 확인
+        info = morld.get_unit_info(self.instance_id)
+        activity = info.get("activity") if info else None
+
+        if activity != "수면":
+            yield morld.dialog(f"[{self.name}]\n\"...무슨 일이야?\"")
+            return
+
+        # 호감도 기반 성공 확률 계산
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        props = morld.get_unit_props(self.instance_id)
+        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
+
+        # 기본 성공률 30%, 호감도 1당 +0.5% (최대 80%)
+        success_chance = min(0.3 + affection * 0.005, 0.8)
+
+        # 성공/실패 판정
+        if random.random() < success_chance:
+            # 성공: 깨어남
+            reaction = self.get_wake_up_success_reaction()
+            yield morld.dialog(reaction)
+            # activity 변경은 NPC 스케줄에 맡김 (여기서 직접 변경하지 않음)
+        else:
+            # 실패: 계속 자고, 호감도 감소
+            affection_loss = -3
+            morld.modify_prop(self.instance_id, f"관계:{player_name}:호감", affection_loss)
+            reaction = self.get_wake_up_fail_reaction()
+            yield morld.dialog(reaction)
+
+    def get_wake_up_success_reaction(self) -> str:
+        """깨우기 성공 반응 - 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"...으응... 뭐야...\"\n\n{self.name}(이)가 졸린 눈을 비비며 일어난다."
+
+    def get_wake_up_fail_reaction(self) -> str:
+        """깨우기 실패 반응 - 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"...으응...\"\n\n{self.name}(이)가 돌아눕는다. 귀찮아하는 것 같다."
+
     def end_date(self):
         """데이트 종료"""
         self._check_instantiated()
@@ -661,14 +854,14 @@ class Character(Unit):
         if affection < affection_threshold:
             return False
 
-        # 제3자 체크 (같은 위치에 다른 NPC가 있으면 시작 안 함)
+        # 단둘이 체크 (플레이어와 NPC 둘만 있어야 함)
         npc_loc = morld.get_unit_location(self.instance_id)
         if npc_loc:
             units_at_loc = morld.get_units_at_location(npc_loc[0], npc_loc[1])
             if units_at_loc:
-                # 플레이어와 자신 외에 다른 유닛이 있으면 False
-                other_units = [u for u in units_at_loc if u != player_id and u != self.instance_id]
-                if other_units:
+                # 플레이어와 자신 외에 다른 캐릭터가 있으면 시작 안 함
+                other_chars = [u for u in units_at_loc if u != player_id and u != self.instance_id]
+                if other_chars:
                     return False
 
         return True

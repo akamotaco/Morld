@@ -37,6 +37,14 @@ class Lina(Character):
         # 특수 상황 (최우선)
         ({"activity": "수면"}, {"pages": ["(자고 있다)", "...zzZ"]}),
 
+        # 진척도별 사적인 대화 (플래그로 일회성 체크)
+        # 진척도 3 - 과거 이야기
+        ({"호감": 70, "진척도": 3}, "_talk_progress_3"),
+        # 진척도 2 - 좋아하는 것
+        ({"호감": 60, "진척도": 2}, "_talk_progress_2"),
+        # 진척도 1 - 자신에 대해
+        ({"호감": 50, "진척도": 1}, "_talk_progress_1"),
+
         # Activity 기반
         ({"activity": "채집"}, {"pages": ["지금 채집 중이야!", "조금만 기다려~"]}),
         ({"activity": "빨래"}, {"pages": ["빨래 중이야~", "금방 끝나!"]}),
@@ -44,9 +52,9 @@ class Lina(Character):
         ({"activity": "휴식"}, {"pages": ["후아~ 오늘 피곤하다~", "...뭐야, 나도 놀아줄까?"]}),
         ({"activity": "준비"}, {"pages": ["잠깐만! 준비 중이야!", "..."]}),
 
-        # 호감도 기반
-        ({"호감": 70}, {"pages": ["야호! 왔구나!", "오늘 뭐 하고 놀까?"]}),
-        ({"호감": 50}, {"pages": ["안녕안녕!", "뭐 재밌는 거 없어?"]}),
+        # 호감도 기반 (진척도 증가 로직 포함)
+        ({"호감": 70}, "_talk_friendly_high"),
+        ({"호감": 50}, "_talk_friendly_mid"),
 
         # mood 기반
         ({"mood": "기쁨"}, {"pages": ["오늘 기분 짱 좋아!", "같이 놀자!"]}),
@@ -400,6 +408,158 @@ class Lina(Character):
                 return False
 
         return True
+
+    # ========================================
+    # 사적인 대화 (진척도 시스템)
+    # ========================================
+
+    def _talk_friendly_high(self, context):
+        """호감도 70 이상 - 진척도 증가 기회"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 진척도 증가 (최대 3)
+        props = morld.get_unit_props(self.instance_id)
+        progress_key = f"관계:{player_name}:진척도"
+        current_progress = props.get(progress_key, 0) if props else 0
+
+        if current_progress < 3:
+            morld.set_unit_prop(self.instance_id, progress_key, current_progress + 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "야호! 왔구나!",
+            "오늘 뭐 하고 놀까? 나 채집 끝났거든!",
+            "아, 아니면 같이 산책할래? 숲이 진짜 예뻐!"
+        ])
+
+    def _talk_friendly_mid(self, context):
+        """호감도 50 이상 - 진척도 증가 기회"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 진척도 증가 (최대 3)
+        props = morld.get_unit_props(self.instance_id)
+        progress_key = f"관계:{player_name}:진척도"
+        current_progress = props.get(progress_key, 0) if props else 0
+
+        if current_progress < 3:
+            morld.set_unit_prop(self.instance_id, progress_key, current_progress + 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "안녕안녕!",
+            "뭐 재밌는 거 없어?",
+            "나 심심했거든~"
+        ])
+
+    def _talk_progress_1(self, context):
+        """진척도 1 - 자신에 대한 이야기 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크 (이미 들었으면 일반 대화)
+        flag_key = f"대화:{player_name}:진척도1"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([f"[{name}]", "뭐야뭐야? 또 놀러 온 거야?", "좋아좋아! 환영!"])
+            return
+
+        # 플래그 설정 및 사적인 이야기
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+        yield morld.dialog([
+            f"[{name}]",
+            "응? 나에 대해 알고 싶어?",
+            "에헤헤, 좋아!",
+            "나는 리나야! 여기서 채집이랑 빨래를 담당하고 있어!",
+            "세라 언니랑 밀라 언니가 있는데...",
+            "세라 언니는 되게 멋있어! 사냥도 잘하고, 진짜 강하거든!",
+            "근데 좀 무서울 때도 있어... 말이 없어서...",
+            "밀라 언니는 진짜 다정해! 맛있는 거 많이 해줘!",
+            "...우리 셋이서 이 저택에서 살고 있어.",
+            "가족 같은 거지!"
+        ])
+
+    def _talk_progress_2(self, context):
+        """진척도 2 - 좋아하는 것 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크
+        flag_key = f"대화:{player_name}:진척도2"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([
+                f"[{name}]",
+                "오늘 날씨 진짜 좋다!",
+                "같이 밖에 나갈래?"
+            ])
+            return
+
+        # 플래그 설정
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+        yield morld.dialog([
+            f"[{name}]",
+            "내가 좋아하는 거?",
+            "음... 채집! 열매 따는 거 진짜 재밌어!",
+            "숲에 가면 새소리도 들리고, 바람도 시원하고...",
+            "혼자 있으면 좀 무섭긴 한데, 그래도 좋아!",
+            "아, 그리고 밀라 언니가 해주는 베리 잼!",
+            "달콤하고 맛있어~ 빵에 발라 먹으면 최고야!",
+            "...",
+            "그리고... 사람들이랑 노는 것도 좋아!",
+            "혼자 있으면 심심하거든...",
+            f"...{player_name}(이)랑 같이 있는 것도 좋아... 에헤헤."
+        ])
+
+    def _talk_progress_3(self, context):
+        """진척도 3 - 과거 이야기 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크
+        flag_key = f"대화:{player_name}:진척도3"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([
+                f"[{name}]",
+                "...",
+                "...그냥 옛날 생각하고 있었어.",
+                "아무것도 아니야!"
+            ])
+            return
+
+        # 플래그 설정
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+        yield morld.dialog([
+            f"[{name}]",
+            "...",
+            "...옛날 이야기?",
+            "...",
+            "사실... 나도 기억이 별로 없어.",
+            "어느 날 눈을 떴는데, 혼자였어.",
+            "여기가 어딘지도 모르겠고, 내가 누군지도...",
+            "무서웠어. 진짜 무서웠어...",
+            "그러다가 세라 언니를 만났어.",
+            "언니도 나처럼 혼자 있었대.",
+            "그리고 밀라 언니도...",
+            "우리 셋 다 아무것도 기억 못 해.",
+            "그래서 셋이서 같이 살기로 했어.",
+            "...",
+            "무섭지 않아? 혼자가 아니니까.",
+            f"...{player_name}(이)도 그렇지?",
+            "...같이 있으면 괜찮아."
+        ])
 
 
 # ========================================

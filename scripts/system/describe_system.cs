@@ -318,6 +318,13 @@ namespace SE
 
 			}
 
+			// 상태 차단 메시지 표시 (수면 중 등)
+			if (!string.IsNullOrEmpty(unitLook.BlockedMessage))
+			{
+				lines.Add($"[color=gray]{unitLook.BlockedMessage}[/color]");
+				lines.Add("");
+			}
+
 			// 액션 표시 (플레이어의 can: prop으로 파티션)
 			var partition = actionSystem.PartitionActionsByActor(unitLook.Actions, player);
 			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0)

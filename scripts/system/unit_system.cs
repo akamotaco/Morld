@@ -540,6 +540,7 @@ namespace SE
 		public UnitLookResult? LookUnit(int targetUnitId, Unit viewerUnit)
 		{
 			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
 
 			if (viewerUnit == null)
 				return null;
@@ -557,13 +558,37 @@ namespace SE
 				? new Dictionary<int, int>(inventorySystem.GetUnitInventory(unit.Id))
 				: new Dictionary<int, int>();
 
+			// 캐릭터의 경우 상태 기반 액션 필터링 적용
+			List<string> actions;
+			string blockedMessage = null;
+
+			if (!unit.IsObject && scriptSystem != null)
+			{
+				// Python에서 필터링된 액션 목록 조회
+				var filteredActions = scriptSystem.GetFilteredActions(targetUnitId);
+				if (filteredActions != null)
+				{
+					actions = filteredActions;
+					blockedMessage = scriptSystem.GetActionBlockedMessage(targetUnitId);
+				}
+				else
+				{
+					actions = new List<string>(unit.Actions);
+				}
+			}
+			else
+			{
+				actions = new List<string>(unit.Actions);
+			}
+
 			return new UnitLookResult
 			{
 				UnitId = unit.Id,
 				Name = unit.Name,
 				IsObject = unit.IsObject,
 				Inventory = inventory,
-				Actions = new List<string>(unit.Actions)
+				Actions = actions,
+				BlockedMessage = blockedMessage
 			};
 		}
 
