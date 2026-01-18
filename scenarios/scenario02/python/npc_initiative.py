@@ -318,6 +318,15 @@ def check_third_party_arrival(state):
             continue
 
         # 이미 체크한 NPC는 스킵 (같은 NPC에게 여러번 들키지 않음)
+        # [Future Enhancement] 시간 기반 재판정 구현 시:
+        #   checked_npcs를 dict로 변경하여 마지막 판정 시간 저장
+        #   checked_npcs = {unit_id: last_check_time, ...}
+        #   일정 시간(예: 30분) 경과 시 재판정 가능하도록 변경:
+        #   last_check = checked_npcs.get(unit_id)
+        #   if last_check is not None:
+        #       if state["elapsed_time"] - last_check < 30:
+        #           continue  # 아직 재판정 시간 안 됨
+        #   checked_npcs[unit_id] = state["elapsed_time"]
         checked_npcs = state.get("checked_npcs", set())
         if unit_id in checked_npcs:
             continue
@@ -339,6 +348,21 @@ def check_third_party_arrival(state):
                 # 은신 성공 - 들키지 않음 (근처 접근 표시만)
                 state["near_miss"] = True
                 state["near_miss_id"] = unit_id
+
+                # NPC 캐릭터의 은신 성공 반응 처리
+                npc_id = state["npc_id"]
+                npc_asset = get_npc_asset(npc_id)
+                if npc_asset:
+                    # 효과 적용 (예: 스릴에 더 흥분)
+                    if hasattr(npc_asset, 'apply_stealth_success_effects'):
+                        npc_asset.apply_stealth_success_effects(player_id)
+
+                    # 반응 텍스트 (near_miss 메시지에 추가)
+                    if hasattr(npc_asset, 'get_stealth_success_reaction'):
+                        reaction = npc_asset.get_stealth_success_reaction(player_id)
+                        if reaction:
+                            state["stealth_reaction"] = reaction
+
                 continue
 
             # 들킴 - 중단
@@ -594,6 +618,13 @@ def render_npc_initiative_ui(state):
         near_info = morld.get_unit_info(near_miss_id) if near_miss_id else None
         near_name = near_info.get("name", "누군가") if near_info else "누군가"
         lines.append(f"[color=orange]({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)[/color]")
+
+        # NPC의 은신 성공 반응 (캐릭터별 특별 대사)
+        stealth_reaction = state.get("stealth_reaction")
+        if stealth_reaction:
+            lines.append(f"[color=cyan][{npc_name}] {stealth_reaction}[/color]")
+            state["stealth_reaction"] = None  # 표시 후 클리어
+
         lines.append("")
         state["near_miss"] = False  # 표시 후 클리어
         state["near_miss_id"] = None

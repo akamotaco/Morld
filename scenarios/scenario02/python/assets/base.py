@@ -376,6 +376,101 @@ class Character(Unit):
     }
 
     # ========================================
+    # 은신 성공 반응 시스템
+    # ========================================
+    # 서브클래스에서 오버라이드하여 캐릭터별 은신 성공 시 반응 정의
+    #
+    # STEALTH_REACTIONS: 은신 성공 시 반응 및 파라미터 변화
+    #   {
+    #       "text": [({조건}, [대사들]), ...],  # 조건부 대사
+    #       "effects": {                         # 파라미터 변화
+    #           "성욕": 5,                       # 스릴에 더 흥분 (세라 등)
+    #           "애정": -1,                      # 부끄러워서 애정 감소 (밀라 등)
+    #       },
+    #   }
+    #
+    # 예시 (세라):
+    #   STEALTH_REACTIONS = {
+    #       "text": [
+    #           ({"성욕": 50}, ["...위험했어...", "...(숨을 몰아쉰다)"]),
+    #           ({}, ["......", "...조심해."]),
+    #       ],
+    #       "effects": {"성욕": 5},  # 스릴에 더 흥분
+    #   }
+
+    STEALTH_REACTIONS: dict = None
+
+    def get_stealth_success_reaction(self, player_id: int) -> Optional[str]:
+        """
+        은신 성공 시 반응 텍스트 반환
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            반응 텍스트 또는 None
+        """
+        if not self.STEALTH_REACTIONS:
+            return None
+
+        text_rules = self.STEALTH_REACTIONS.get("text")
+        if not text_rules:
+            return None
+
+        # context 구성
+        props = morld.get_unit_props(self.instance_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        context = {
+            "성욕": props.get("상태:성욕", 0) if props else 0,
+            "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
+            "애정": props.get(f"관계:{player_name}:애정", 0) if props else 0,
+        }
+
+        # 규칙 매칭
+        import random
+        for conditions, texts in text_rules:
+            if TextSelector.match(conditions, context):
+                if isinstance(texts, list):
+                    return random.choice(texts)
+                return texts
+
+        return None
+
+    def apply_stealth_success_effects(self, player_id: int):
+        """
+        은신 성공 시 파라미터 변화 적용
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            적용된 효과 dict 또는 None
+        """
+        if not self.STEALTH_REACTIONS:
+            return None
+
+        effects = self.STEALTH_REACTIONS.get("effects")
+        if not effects:
+            return None
+
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        applied = {}
+        for stat, value in effects.items():
+            if stat in ("성욕", "성적절정"):
+                prop_key = f"상태:{stat}"
+            else:
+                prop_key = f"관계:{player_name}:{stat}"
+
+            morld.modify_prop(self.instance_id, prop_key, value)
+            applied[stat] = value
+
+        return applied
+
+    # ========================================
     # 상태 기반 액션 필터링 시스템
     # ========================================
     # NPC의 현재 상태(activity, mood 등)에 따라 가능한 액션을 동적으로 필터링
