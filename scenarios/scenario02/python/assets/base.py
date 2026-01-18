@@ -1314,6 +1314,43 @@ class Character(Unit):
         progress_key = f"관계:{self.name}:진척도"
         morld.set_unit_prop(player_id, progress_key, 1)
 
+    def get_initiative_event(self, player_id: int):
+        """
+        NPC 주도 이벤트 조회 - Focus 시점에서 호출
+
+        NPC가 먼저 시작하는 이벤트가 있으면 Generator 반환.
+        Edge 이동 중인 NPC와의 만남은 on_meet이 발생하지 않으므로,
+        플레이어가 NPC를 클릭(focus)할 때 이 메서드로 이벤트를 체크합니다.
+
+        체크 순서:
+        1. First Meet (첫 만남)
+        2. NPC 주도 스킨십
+        3. 기타 NPC 주도 이벤트 (서브클래스에서 확장)
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            Generator (이벤트 있음) 또는 None (없음)
+        """
+        # 1. First Meet 체크
+        if self.is_first_meet(player_id):
+            handler = getattr(self, '_first_meet_handler', None)
+            if handler:
+                return handler(player_id)
+
+        # 2. NPC 주도 스킨십 체크
+        if self.should_initiate_skinship(player_id):
+            self.mark_initiative_cooldown()
+            try:
+                from npc_initiative import start_npc_initiative
+                return start_npc_initiative(player_id, self.instance_id)
+            except ImportError:
+                pass  # npc_initiative 모듈이 없으면 스킵
+
+        # 3. 기타 NPC 주도 이벤트 (서브클래스에서 오버라이드 가능)
+        return None
+
     def _run_event_dialog(self, event_name: str, **kwargs):
         """
         이벤트 다이얼로그 실행 - Generator 반환

@@ -286,3 +286,46 @@ def get_action_blocked_message(unit_id: int):
         return instance.get_action_blocked_message()
 
     return None
+
+
+# ========================================
+# NPC 주도 이벤트 체크 API (C#에서 호출)
+# ========================================
+
+def check_initiative_event(unit_id: int):
+    """
+    NPC 주도 이벤트 체크 - C#의 HandleLookUnitAction에서 호출
+
+    플레이어가 NPC를 클릭(focus)할 때, 일반 focus UI를 표시하기 전에
+    NPC 주도 이벤트가 있는지 확인합니다.
+
+    NPC 주도 이벤트 종류:
+    - First Meet (첫 만남): 아직 만난 적 없는 NPC
+    - NPC 주도 스킨십: 조건 충족 시 NPC가 먼저 시작
+
+    이 함수는 Edge 이동 중인 NPC와의 만남 문제를 해결합니다.
+    on_meet 이벤트는 두 유닛 모두 정지 상태여야 발동하지만,
+    focus 시점에서 체크하면 이동 중인 NPC와도 이벤트가 발생합니다.
+
+    Args:
+        unit_id: NPC 유닛 ID
+
+    Returns:
+        Generator (이벤트 있음) 또는 None (없음)
+    """
+    from assets import characters
+    import morld
+
+    instance = characters.get_instance(unit_id)
+    if instance is None:
+        return None
+
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return None
+
+    # Character.get_initiative_event() 호출
+    if hasattr(instance, 'get_initiative_event'):
+        return instance.get_initiative_event(player_id)
+
+    return None

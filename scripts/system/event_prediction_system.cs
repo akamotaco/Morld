@@ -1,5 +1,3 @@
-#define DEBUG_LOG
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,11 +31,14 @@ namespace SE
 
 		/// <summary>
 		/// 매 Step마다 호출
+		///
+		/// 만남 및 도착 이벤트를 예측하고, 가장 빠른 시간 중단 이벤트에 맞춰
+		/// NextStepDuration을 조정합니다.
 		/// </summary>
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
-			
+
 			// 시간 진행 대기 중이 아니면 스킵
 			if (!_playerSystem.HasPendingTime)
 				return;
@@ -46,7 +47,7 @@ namespace SE
 			if (pendingDuration <= 0)
 				return;
 
-			// C#에서 직접 이벤트 예측
+			// 이벤트 예측 (만남, 도착)
 			_predictedEvents.Clear();
 			PredictMeetings(pendingDuration);
 			PredictArrivals(pendingDuration);
@@ -54,28 +55,12 @@ namespace SE
 			// 시간 중단 이벤트 중 가장 빠른 것 찾기
 			var earliestInterrupt = FindEarliestInterrupt();
 
-#if DEBUG_LOG
-			GD.Print($"[EventPredictionSystem] 예측: {_predictedEvents.Count}개, earliest={earliestInterrupt?.TriggerMinutes ?? -1}분, pending={pendingDuration}분");
-#endif
-
 			if (earliestInterrupt != null && earliestInterrupt.TriggerMinutes < pendingDuration)
 			{
-				// 시간 조정
-				int adjustedDuration = earliestInterrupt.TriggerMinutes;
-				if (adjustedDuration < 1) adjustedDuration = 1;
-
+				// 시간 조정 (최소 1분)
+				int adjustedDuration = Math.Max(1, earliestInterrupt.TriggerMinutes);
 				_playerSystem.AdjustNextStepDuration(adjustedDuration);
 				LastAdjustedDuration = adjustedDuration;
-
-#if DEBUG_LOG
-				GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-				GD.Print($"[EventPredictionSystem] 시간 조정!");
-				GD.Print($"  원래 시간: {pendingDuration}분");
-				GD.Print($"  조정된 시간: {adjustedDuration}분");
-				GD.Print($"  이벤트 타입: {earliestInterrupt.Type}");
-				GD.Print($"  관련 유닛: {string.Join(", ", earliestInterrupt.InvolvedUnitIds)}");
-				GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-#endif
 			}
 			else
 			{
@@ -113,6 +98,7 @@ namespace SE
 
 				// 만남 시점 계산
 				int? meetingTime = FindMeetingTime(playerRoute, npcRoute, duration);
+
 				if (meetingTime.HasValue && meetingTime.Value < duration)
 				{
 					_predictedEvents.Add(new PredictedEvent
@@ -175,32 +161,132 @@ namespace SE
 
 		/// <summary>
 		/// 유닛의 이동 경로 계산
+		///
+		/// 경유지(StayDuration)를 포함한 전체 경로 시뮬레이션:
+		/// 1. 현재 Edge 완료 시점
+		/// 2. 경유지 체류 시간 적용
+		/// 3. 다음 Edge 계산 (Job 목적지 기준)
+		/// 4. duration 내에서 반복
 		/// </summary>
 		private List<RouteWaypoint>? GetMovementRoute(Unit unit, int duration, Terrain terrain)
 		{
 			var route = new List<RouteWaypoint>();
 
-			// 현재 위치 추가
+			// 현재 위치 추가 (ArrivalTime=0)
 			route.Add(new RouteWaypoint
 			{
 				Location = unit.CurrentLocation,
 				ArrivalTime = 0
 			});
 
-			// 이동 중이 아니면 현재 위치만 반환
-			if (unit.CurrentEdge == null) return route;
-
-			// 현재 이동 중인 엣지의 도착 예정 시간
-			int remainingTime = unit.CurrentEdge.RemainingTime;
-			var destLocation = unit.CurrentEdge.To;
-
-			if (remainingTime > 0 && remainingTime <= duration)
+			// Job에서 최종 목적지 가져오기
+			var currentJob = unit.CurrentJob;
+			if (currentJob == null || currentJob.Action != "move")
 			{
-				route.Add(new RouteWaypoint
+				// move Job이 없으면 현재 Edge 목적지만 반환 (있는 경우)
+				if (unit.CurrentEdge != null)
 				{
-					Location = destLocation,
-					ArrivalTime = remainingTime
-				});
+					int remainingTime = unit.CurrentEdge.RemainingTime;
+					if (remainingTime > 0 && remainingTime <= duration)
+					{
+						route.Add(new RouteWaypoint
+						{
+							Location = unit.CurrentEdge.To,
+							ArrivalTime = remainingTime
+						});
+					}
+				}
+				return route;
+			}
+
+			var goalLocation = currentJob.GetLocationRef();
+
+			// 이미 목적지에 있으면 현재 위치만 반환
+			if (unit.CurrentLocation == goalLocation)
+				return route;
+
+			// 시뮬레이션 변수
+			var currentLocation = unit.CurrentLocation;
+			var currentEdge = unit.CurrentEdge;
+			int elapsedTime = 0;
+			int remainingStayTime = unit.RemainingStayTime;
+
+			// 무한 루프 방지
+			int maxIterations = 50;
+			int iterations = 0;
+
+			while (elapsedTime < duration && iterations < maxIterations)
+			{
+				iterations++;
+
+				// Edge 위에 있으면 완료까지 진행
+				if (currentEdge != null)
+				{
+					int timeToComplete = currentEdge.TotalTime - currentEdge.ElapsedTime;
+					int arrivalTime = elapsedTime + timeToComplete;
+
+					if (arrivalTime <= duration)
+					{
+						// 도착
+						currentLocation = currentEdge.To;
+						elapsedTime = arrivalTime;
+						currentEdge = null;
+
+						route.Add(new RouteWaypoint
+						{
+							Location = currentLocation,
+							ArrivalTime = arrivalTime
+						});
+
+						// 목적지 도착하면 종료
+						if (currentLocation == goalLocation)
+							break;
+
+						// 경유지 체류 시간 설정
+						var arrivedLocation = terrain.GetLocation(currentLocation);
+						if (arrivedLocation != null && arrivedLocation.StayDuration > 0)
+						{
+							remainingStayTime = arrivedLocation.StayDuration;
+						}
+					}
+					else
+					{
+						// duration 내에 도착 불가
+						break;
+					}
+					continue;
+				}
+
+				// 체류 중이면 대기
+				if (remainingStayTime > 0)
+				{
+					int stayTime = Math.Min(duration - elapsedTime, remainingStayTime);
+					elapsedTime += stayTime;
+					remainingStayTime -= stayTime;
+					continue;
+				}
+
+				// 이미 목적지면 종료
+				if (currentLocation == goalLocation)
+					break;
+
+				// 다음 Edge 계산
+				var pathResult = terrain.FindPath(currentLocation, goalLocation, unit.TraversalContext);
+				if (!pathResult.Found || pathResult.Path.Count < 2)
+					break;
+
+				var nextLocation = pathResult.Path[1];
+				var nextLocationRef = new LocationRef(nextLocation);
+				int travelTime = terrain.GetTravelTimeBetween(currentLocation, nextLocationRef);
+				if (travelTime < 0) travelTime = 10;
+
+				currentEdge = new EdgeProgress
+				{
+					From = currentLocation,
+					To = nextLocationRef,
+					TotalTime = travelTime,
+					ElapsedTime = 0
+				};
 			}
 
 			return route;
@@ -208,6 +294,11 @@ namespace SE
 
 		/// <summary>
 		/// 두 경로가 만나는 시점 계산
+		///
+		/// 만남 판정 기준:
+		/// 1. 둘 다 ArrivalTime == 0: 이미 같은 위치 → 스킵 (DetectMeetings에서 처리)
+		/// 2. 한쪽만 ArrivalTime == 0: 한쪽이 이미 있고 다른 쪽이 도착 → 만남
+		/// 3. 둘 다 이동 중: 도착 시간 차이 5분 이내 → 만남
 		/// </summary>
 		private int? FindMeetingTime(List<RouteWaypoint> playerRoute, List<RouteWaypoint> npcRoute, int duration)
 		{
@@ -219,14 +310,20 @@ namespace SE
 					if (playerWp.Location.RegionId != npcWp.Location.RegionId) continue;
 					if (playerWp.Location.LocalId != npcWp.Location.LocalId) continue;
 
-					// 이미 같은 위치에 있는 경우는 "새로운 만남"이 아님 - 스킵
-					// (ArrivalTime == 0은 현재 위치를 의미)
+					// 케이스 1: 둘 다 이미 같은 위치에 있음 → 스킵
 					// 실제 on_meet 이벤트는 EventSystem.DetectMeetings()에서 별도로 감지됨
-					// 여기서는 "미래에 발생할 만남"만 예측하여 시간 조정에 사용
 					if (playerWp.ArrivalTime == 0 && npcWp.ArrivalTime == 0)
 						continue;
 
-					// 도착 시간 차이가 작으면 만남으로 판정 (5분 이내)
+					// 케이스 2: 한쪽이 이미 그 위치에 있음 (정지 상태)
+					// → 다른 쪽이 도착하는 시점에 만남 발생
+					// 예: 플레이어가 현관에서 멍때리기, NPC가 현관을 경유지로 통과
+					if (playerWp.ArrivalTime == 0 || npcWp.ArrivalTime == 0)
+					{
+						return Math.Max(playerWp.ArrivalTime, npcWp.ArrivalTime);
+					}
+
+					// 케이스 3: 둘 다 이동 중 → 도착 시간 차이가 작으면 만남 (5분 이내)
 					int timeDiff = Math.Abs(playerWp.ArrivalTime - npcWp.ArrivalTime);
 					if (timeDiff <= 5)
 					{

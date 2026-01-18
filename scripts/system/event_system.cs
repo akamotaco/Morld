@@ -86,16 +86,10 @@ namespace SE
 			if (evt.Type == EventType.OnTimeElapsed && evt.Args.Count > 0 && evt.Args[0] is int minutes)
 			{
 				_accumulatedTimeElapsed += minutes;
-#if DEBUG_LOG
-				GD.Print($"[EventSystem] TimeElapsed 누적: +{minutes}분 (총 {_accumulatedTimeElapsed}분)");
-#endif
 				return;
 			}
 
 			_pendingEvents.Add(evt);
-#if DEBUG_LOG
-			GD.Print($"[EventSystem] Enqueued: {evt}");
-#endif
 		}
 
 		/// <summary>
@@ -284,7 +278,11 @@ namespace SE
 
 		/// <summary>
 		/// 같은 위치에 있는 유닛들의 OnMeet 이벤트 생성
-		/// StayDuration으로 경유지에서 체류하므로, 현재 위치만 체크하면 됨
+		///
+		/// 만남 조건:
+		/// - 조건 A: 정지 상태 (CurrentEdge == null)
+		/// - 조건 B: 방금 도착 (이전 위치 != 현재 위치, 경유지 통과 감지)
+		///
 		/// 시간 정지 상태에서는 스킵 (NPC와 상호작용 불가)
 		/// </summary>
 		public void DetectMeetings()
@@ -295,12 +293,7 @@ namespace SE
 
 			// 시간 정지 상태에서는 on_meet 이벤트 스킵
 			if (_worldSystem.IsTimeFrozen())
-			{
-#if DEBUG_LOG
-				GD.Print("[EventSystem] DetectMeetings skipped: time is frozen");
-#endif
 				return;
-			}
 
 			var playerId = _playerSystem.PlayerId;
 			var player = _unitSystem.FindUnit(playerId);
@@ -309,32 +302,35 @@ namespace SE
 			var playerLocation = player.CurrentLocation;
 
 			// 플레이어와 같은 위치에 있는 유닛 수집
-			// 이동 중인 유닛(CurrentEdge != null)은 제외 (화면에 표시되지 않음)
-			var unitsToMeet = _unitSystem.Units.Values
-				.Where(u => u.Id != playerId
-						 && u.GeneratesEvents
-						 && u.CurrentLocation == playerLocation
-						 && u.CurrentEdge == null)  // 이동 중이 아닌 유닛만
-				.Select(u => u.Id)
-				.OrderBy(id => id)  // 정렬하여 키 정규화
-				.ToList();
+			var unitsToMeet = new List<int>();
 
-#if DEBUG_LOG
-			// 플레이어 위치에 있는 모든 NPC 확인 (이동 중 포함)
-			var allUnitsAtLocation = _unitSystem.Units.Values
-				.Where(u => u.Id != playerId && u.GeneratesEvents && u.CurrentLocation == playerLocation)
-				.ToList();
-			if (allUnitsAtLocation.Count > 0)
+			foreach (var unit in _unitSystem.Units.Values)
 			{
-				GD.Print($"[EventSystem] DetectMeetings at {playerLocation}: {allUnitsAtLocation.Count} units here");
-				foreach (var u in allUnitsAtLocation)
+				if (unit.Id == playerId) continue;
+				if (!unit.GeneratesEvents) continue;
+				if (unit.CurrentLocation != playerLocation) continue;
+
+				// 조건 A: 정지 상태
+				if (unit.CurrentEdge == null)
 				{
-					GD.Print($"  - Unit {u.Id} ({u.Name}): Edge={u.CurrentEdge != null}, toMeet={unitsToMeet.Contains(u.Id)}");
+					unitsToMeet.Add(unit.Id);
+					continue;
+				}
+
+				// 조건 B: 방금 도착 (이동 중이지만 이전 위치와 다름 = 경유지 통과)
+				if (_lastLocations.TryGetValue(unit.Id, out var lastLoc))
+				{
+					if (lastLoc != unit.CurrentLocation)
+					{
+						unitsToMeet.Add(unit.Id);
+					}
 				}
 			}
-#endif
 
-			if (unitsToMeet.Count == 0) return;
+			unitsToMeet.Sort();  // 정렬하여 키 정규화
+
+			if (unitsToMeet.Count == 0)
+				return;
 
 			// 만남 키 생성 (플레이어 + 다른 유닛들, 정렬됨)
 			var allIds = new List<int> { playerId };
@@ -344,17 +340,9 @@ namespace SE
 
 			// 이미 발생한 만남인지 확인
 			if (_lastMeetings.Contains(meetingKey))
-			{
-#if DEBUG_LOG
-				GD.Print($"[EventSystem] Meeting already happened: {meetingKey}");
-#endif
 				return;
-			}
 
 			// 새로운 만남 기록 및 이벤트 생성
-#if DEBUG_LOG
-			GD.Print($"[EventSystem] New meeting detected: {meetingKey}");
-#endif
 			AddMeetingKey(meetingKey, allIds.ToArray());
 			Enqueue(GameEvent.OnMeet(allIds.ToArray()));
 		}
@@ -373,9 +361,6 @@ namespace SE
 			if (_accumulatedTimeElapsed > 0)
 			{
 				var timeEvent = GameEvent.OnTimeElapsed(_accumulatedTimeElapsed);
-#if DEBUG_LOG
-				GD.Print($"[EventSystem] TimeElapsed 플러시: {_accumulatedTimeElapsed}분");
-#endif
 				_accumulatedTimeElapsed = 0;
 
 				var timeResult = _scriptSystem.CallSingleEventHandler(timeEvent);
@@ -384,28 +369,17 @@ namespace SE
 
 			if (_pendingEvents.Count == 0) return false;
 
-#if DEBUG_LOG
-			GD.Print($"[EventSystem] Flushing {_pendingEvents.Count} events (sequential)");
-#endif
-
 			// 2. 나머지 이벤트 순차 처리
 			while (_pendingEvents.Count > 0)
 			{
 				var evt = _pendingEvents[0];
 				_pendingEvents.RemoveAt(0);
 
-#if DEBUG_LOG
-				GD.Print($"[EventSystem] Processing event: {evt}");
-#endif
-
 				var result = _scriptSystem.CallSingleEventHandler(evt);
 
 				// 다이얼로그가 발생하면 처리하고 중단 (나머지 이벤트는 큐에 유지)
 				if (ProcessEventResult(result))
 				{
-#if DEBUG_LOG
-					GD.Print($"[EventSystem] Dialog triggered, {_pendingEvents.Count} events remaining in queue");
-#endif
 					return true;
 				}
 			}
@@ -436,9 +410,6 @@ namespace SE
 
 				// Dialog 표시
 				_textUISystem.PushDialog(genResult.DialogText);
-#if DEBUG_LOG
-				GD.Print($"[EventSystem] Generator dialog: {genResult.DialogText.Substring(0, System.Math.Min(50, genResult.DialogText.Length))}...");
-#endif
 				return true;
 			}
 

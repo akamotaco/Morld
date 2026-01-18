@@ -192,6 +192,13 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// 유닛 살펴보기 처리: look_unit:unitId
+	///
+	/// NPC 클릭 시 먼저 NPC 주도 이벤트(first meet, NPC 주도 스킨십 등)를 체크합니다.
+	/// 이벤트가 있으면 Dialog로 실행하고, 없으면 일반 ShowUnitLook()을 호출합니다.
+	///
+	/// 이 로직은 Edge 이동 중인 NPC와의 만남 문제를 해결합니다.
+	/// on_meet 이벤트는 두 유닛 모두 정지 상태여야 발동하지만,
+	/// focus 시점에서 체크하면 이동 중인 NPC와도 이벤트가 발생합니다.
 	/// </summary>
 	private void HandleLookUnitAction(string[] parts)
 	{
@@ -201,6 +208,52 @@ public partial class MetaActionHandler
 			return;
 		}
 
+		// NPC 주도 이벤트 체크 (first meet, NPC 주도 스킨십 등)
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem != null)
+		{
+			try
+			{
+				// Python의 check_initiative_event() 호출
+				scriptSystem.Eval("from assets import check_initiative_event");
+				var result = scriptSystem.Eval($"check_initiative_event({unitId})");
+
+				if (result is SharpPy.PyGenerator generator)
+				{
+					// NPC 주도 이벤트 발동
+					var genResult = scriptSystem.ProcessGenerator(generator);
+					if (genResult != null && genResult.Type == "generator_dialog"
+						&& genResult is SE.GeneratorScriptResult gr)
+					{
+						SetPendingGenerator(gr.Generator, gr.DialogRequest);
+
+						// proc('init') 호출
+						var displayText = gr.DialogText;
+						if (gr.DialogRequest?.ProcCallback != null)
+						{
+							var (initText, _) = scriptSystem.CallProcCallback(gr.DialogRequest.ProcCallback, "init");
+							if (initText != null)
+							{
+								displayText = initText;
+								gr.DialogRequest.UpdateCurrentPageText(initText);
+							}
+						}
+
+						_textUISystem?.PushDialog(displayText);
+#if DEBUG_LOG
+						GD.Print($"[MetaActionHandler] NPC initiative event triggered for unit {unitId}");
+#endif
+						return;  // 이벤트 실행됨, ShowUnitLook 스킵
+					}
+				}
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[MetaActionHandler] check_initiative_event error: {ex.Message}");
+			}
+		}
+
+		// NPC 주도 이벤트 없음 → 일반 focus UI 표시
 		_textUISystem?.ShowUnitLook(unitId);
 	}
 
@@ -235,6 +288,77 @@ public partial class MetaActionHandler
 			return -1;
 
 		return terrain.CalculatePathTravelTime(pathResult);
+	}
+
+	/// <summary>
+	/// 지도 액션 처리: map:open 또는 map:move:regionId:localId
+	/// Python의 map_ui.py 모듈 호출
+	/// </summary>
+	private void HandleMapAction(string[] parts)
+	{
+		if (parts.Length < 2)
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid map format. Expected: map:open or map:move:regionId:localId");
+			return;
+		}
+
+		var subAction = parts[1];
+
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleMapAction: ScriptSystem not found");
+			return;
+		}
+
+		try
+		{
+			if (subAction == "open")
+			{
+				// 지도 UI 열기 - Python map_ui.show_map() 호출
+				scriptSystem.Eval("import map_ui");
+				var result = scriptSystem.Eval("map_ui.show_map()");
+
+				if (result is SharpPy.PyGenerator generator)
+				{
+					var genResult = scriptSystem.ProcessGenerator(generator);
+					if (genResult != null && genResult.Type == "generator_dialog" && genResult is SE.GeneratorScriptResult gr)
+					{
+						SetPendingGenerator(gr.Generator, gr.DialogRequest);
+
+						// proc('init') 호출 - Dialog 초기화 시 텍스트 갱신
+						var displayText = gr.DialogText;
+						if (gr.DialogRequest?.ProcCallback != null)
+						{
+							var (initText, _) = scriptSystem.CallProcCallback(gr.DialogRequest.ProcCallback, "init");
+							if (initText != null)
+							{
+								displayText = initText;
+								gr.DialogRequest.UpdateCurrentPageText(initText);
+							}
+						}
+
+						_textUISystem?.PushDialog(displayText);
+					}
+				}
+			}
+			else if (subAction == "move" && parts.Length >= 4)
+			{
+				// 지도에서 이동 선택 - 장거리 이동 요청
+				if (!int.TryParse(parts[2], out int regionId) || !int.TryParse(parts[3], out int localId))
+				{
+					GD.PrintErr("[MetaActionHandler] Invalid map move format");
+					return;
+				}
+
+				// 장거리 이동 요청 (threshold 0으로 즉시 이동)
+				_playerSystem?.RequestCommand($"이동:{regionId}:{localId}");
+			}
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandleMapAction error: {ex.Message}");
+		}
 	}
 
 	#region TODO: 조건부 이동 시스템

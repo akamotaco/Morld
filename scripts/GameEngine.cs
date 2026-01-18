@@ -242,24 +242,30 @@ public partial class GameEngine : Node
 			int delta_int = (int)(delta * 1000);
 			this._world.Step(delta_int);
 
-			// 시간 진행 완료 후 이벤트 감지 및 상황 업데이트
+			// 매 Step마다 만남 감지 (EventPredictionSystem이 시간 조정했으므로)
+			// on_meet 이벤트가 발생하면 시간 진행 중단
+			_eventSystem.DetectMeetings();
+			var eventHandled = _eventSystem.FlushEvents();
+
+			if (eventHandled)
+			{
+				// 이벤트 발생: 남은 시간 클리어하고 다이얼로그 진입
+				_playerSystem.ClearPendingTime();
+			}
+
+			// 시간 진행 완료 후 위치 변경 감지 및 상황 업데이트
 			if (!_playerSystem.HasPendingTime)
 			{
-				// 1. 만남 감지 → 이벤트 처리 (ApplyNpcJobs로 이동 상태 변경)
-				//    DetectMeetings가 먼저여야 ApplyNpcJobs가 DetectLocationChanges 전에 실행됨
-				_eventSystem.DetectMeetings();
-				var eventHandled = _eventSystem.FlushEvents();
-
-				// 2. 위치 변경 감지 (ApplyNpcJobs 후이므로 오버라이드된 상태 반영)
+				// 1. 위치 변경 감지 (ApplyNpcJobs 후이므로 오버라이드된 상태 반영)
 				_eventSystem?.DetectLocationChanges();
 
-				// 3. 위치 변경으로 인한 추가 이벤트 처리
+				// 2. 위치 변경으로 인한 추가 이벤트 처리
 				var newEventHandled = _eventSystem.FlushEvents();
 
-				// 4. ExcessTime 계산 (이벤트 처리에서 누적된 다이얼로그 시간 기준)
+				// 3. ExcessTime 계산 (이벤트 처리에서 누적된 다이얼로그 시간 기준)
 				_eventSystem.FinalizeDialogTime();
 
-				// 5. 모놀로그가 없으면 상황 업데이트
+				// 4. 모놀로그가 없으면 상황 업데이트
 				if (!eventHandled && !newEventHandled)
 				{
 					UpdateSituationText();
