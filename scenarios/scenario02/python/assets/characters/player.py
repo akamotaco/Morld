@@ -113,6 +113,11 @@ class Player(Character):
 
         # 연애
         "can:romance": 1,
+        "can:date": 1,
+        "can:end_date": 0,  # 데이트 시작 시 1로 변경
+        "can:hold_hands": 0,  # 데이트 시작 시 1로 변경
+        "can:date_hug": 0,    # 데이트 시작 시 1로 변경
+        "can:date_kiss": 0,   # 데이트 시작 시 1로 변경
 
         # 디버그
         "can:debug_props": 1,

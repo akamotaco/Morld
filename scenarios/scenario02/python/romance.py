@@ -46,6 +46,11 @@ INSTANT_ACTIONS = {
         "effects": {"호감": 1, "애정": 1, "성적흥분": 1},
         "exp_part": "귀", "affection_req": 45
     },
+    "whisper": {
+        "name": "사랑의 속삭임", "time": 2, "stamina": 1,
+        "effects": {"호감": 2, "애정": 3},
+        "exp_part": None, "affection_req": 50
+    },
     "french_kiss": {
         "name": "프렌치 키스", "time": 5, "stamina": 2,
         "effects": {"호감": 1, "애정": 2, "성적흥분": 3},

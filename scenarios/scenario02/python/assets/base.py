@@ -444,6 +444,14 @@ class Character(Unit):
             context["weather"] = location_info.get("weather")
             context["is_indoor"] = location_info.get("is_indoor", True)
 
+        # 데이트 상태 확인
+        from date import is_on_date, get_date_partner
+        player_id = morld.get_player_id()
+        if is_on_date(player_id) and get_date_partner(player_id) == self.instance_id:
+            context["on_date"] = True
+        else:
+            context["on_date"] = False
+
         return context
 
     # ========================================
@@ -527,6 +535,69 @@ class Character(Unit):
         from romance import start_romance
         player_id = morld.get_player_id()
         yield from start_romance(player_id, self.instance_id)
+
+    def date(self):
+        """데이트 요청"""
+        self._check_instantiated()
+        from date import request_date
+        player_id = morld.get_player_id()
+        yield from request_date(player_id, self.instance_id)
+
+    def end_date(self):
+        """데이트 종료"""
+        self._check_instantiated()
+        from date import end_date
+        player_id = morld.get_player_id()
+        yield from end_date(player_id)
+
+    # ========================================
+    # 데이트 반응 메서드 (서브클래스에서 오버라이드)
+    # ========================================
+
+    def get_date_accept_text(self):
+        """데이트 수락 텍스트 - 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"좋아.\""
+
+    def get_date_reject_text(self, reason):
+        """데이트 거절 텍스트 - 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"{reason}\""
+
+    def get_date_end_text(self):
+        """데이트 종료 텍스트 - 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"...또 보자.\""
+
+    def get_date_action_reaction(self, action_id):
+        """데이트 중 애정 표현 반응 - 서브클래스에서 오버라이드"""
+        return None
+
+    def get_date_action_reject(self, action_id):
+        """데이트 중 애정 표현 거부 반응 - 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"...아직은...\""
+
+    # ========================================
+    # 데이트 중 애정 표현 메서드
+    # ========================================
+
+    def hold_hands(self):
+        """손 잡기"""
+        self._check_instantiated()
+        from date import do_date_action
+        player_id = morld.get_player_id()
+        yield from do_date_action(player_id, self.instance_id, "hold_hands")
+
+    def date_hug(self):
+        """안아주기 (데이트 중)"""
+        self._check_instantiated()
+        from date import do_date_action
+        player_id = morld.get_player_id()
+        yield from do_date_action(player_id, self.instance_id, "hug")
+
+    def date_kiss(self):
+        """키스 (데이트 중)"""
+        self._check_instantiated()
+        from date import do_date_action
+        player_id = morld.get_player_id()
+        yield from do_date_action(player_id, self.instance_id, "kiss")
 
     def talk(self):
         """

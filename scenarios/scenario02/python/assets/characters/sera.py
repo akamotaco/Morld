@@ -22,6 +22,11 @@ class Sera(Character):
     }
     actions = [
         "call:talk:대화",
+        "call:date:데이트 신청#",      # 데이트 중 아닐 때만 표시
+        "call:end_date:데이트 종료#",  # 데이트 중일 때만 표시
+        "call:hold_hands:손 잡기#",    # 데이트 중일 때만 표시
+        "call:date_hug:안아주기#",     # 데이트 중일 때만 표시
+        "call:date_kiss:키스#",        # 데이트 중일 때만 표시
         "call:romance:스킨십",
         "call:debug_props:속성 보기",
         "call:debug_affection_up:호감도 +10",
@@ -39,6 +44,11 @@ class Sera(Character):
         # 특수 상황 (최우선)
         ({"mood": "분노"}, {"pages": ["...", "...말 걸지 마."]}),
         ({"activity": "수면"}, {"pages": ["(자고 있다)", "...zzZ"]}),
+
+        # 데이트 중 대화 (우선)
+        ({"on_date": True, "호감": 70}, {"pages": ["......", "...같이 있으니 좋군."]}),
+        ({"on_date": True, "호감": 50}, {"pages": ["......", "...어디로 갈까?"]}),
+        ({"on_date": True}, {"pages": ["......", "...뭐가 보고 싶어?"]}),
 
         # Activity + 호감도 조합 (복잡한 대화는 메서드로 위임)
         ({"activity": "사냥", "호감": 50}, "_talk_hunt_friendly"),
@@ -172,6 +182,25 @@ class Sera(Character):
                     "......(눈을 감는다)",
                     "...숨이...",
                     "...더...",
+                ]),
+            ],
+        },
+        "whisper": {
+            "start": [
+                ({"애정": 70}, [
+                    "......(귀가 빨개진다)",
+                    "...나도...",
+                    "...바보.",
+                ]),
+                ({"애정": 50}, [
+                    "......",
+                    "...뭐라고?",
+                    "...갑자기...",
+                ]),
+                ({}, [
+                    "...뭐냐.",
+                    "......",
+                    "...시끄럽다.",
                 ]),
             ],
         },
@@ -413,6 +442,40 @@ class Sera(Character):
                 return False
 
         return True
+
+    # ========================================
+    # 데이트 반응
+    # ========================================
+
+    def get_date_accept_text(self):
+        """데이트 수락"""
+        return f"[{self.name}]\n\"...좋아. 같이 가지.\""
+
+    def get_date_reject_text(self, reason):
+        """데이트 거절"""
+        return f"[{self.name}]\n\"...{reason}\"\n\"...미안하다.\""
+
+    def get_date_end_text(self):
+        """데이트 종료"""
+        return f"[{self.name}]\n\"...즐거웠다.\"\n\"...또 가자.\""
+
+    def get_date_action_reaction(self, action_id):
+        """데이트 중 애정 표현 반응"""
+        reactions = {
+            "hold_hands": "세라가 손을 꼭 쥐어준다.",
+            "hug": "세라가 조용히 안긴다.\n\"...따뜻하군.\"",
+            "kiss": "세라가 살짝 얼굴을 붉힌다.\n\"......\"",
+        }
+        return reactions.get(action_id)
+
+    def get_date_action_reject(self, action_id):
+        """데이트 중 애정 표현 거부 반응"""
+        rejects = {
+            "hold_hands": f"[{self.name}]\n\"...아직은.\"",
+            "hug": f"[{self.name}]\n\"...그건... 아직 이르다.\"",
+            "kiss": f"[{self.name}]\n\"...!!\"\n세라가 뒤로 물러선다.",
+        }
+        return rejects.get(action_id)
 
 
 # ========================================
