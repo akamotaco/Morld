@@ -1293,6 +1293,58 @@ def post_restore():
 **파일 위치:**
 - `scenarios/scenario02/python/ui.py` - 플래그 및 API
 
+### 연애 시스템 (Romance System)
+**역할:** 플레이어와 NPC 간의 친밀한 상호작용 시스템
+
+> 상세 내용은 [scenarios/scenario02/romance.md](scenarios/scenario02/romance.md) 참조
+
+**시스템 구성:**
+| 시스템 | 파일 | 설명 |
+|--------|------|------|
+| 스킨십 시스템 | `romance.py` | 플레이어 주도 친밀 행위 (토글/즉시) |
+| 데이트 시스템 | `date.py` | 데이트 요청/종료 + 애정 표현 |
+| NPC 주도 시스템 | `npc_initiative.py` | NPC가 먼저 스킨십 시작 |
+
+**핵심 특징:**
+- 토글형(유지)/즉시형(순간) 행위 구분
+- 절정(Ecstasy) 시스템 (성욕 100 도달 시)
+- 캐릭터별 반응 시스템 (ROMANCE_REACTIONS)
+- NPC 주도 스킨십 (조건 충족 시 NPC가 먼저 시작)
+- 행위 마스킹 (신체 부위 충돌 처리)
+
+**캐릭터별 NPC 주도 설정:**
+| 캐릭터 | 성욕 임계값 | 호감도 임계값 | 쿨다운 | 성격 |
+|--------|------------|--------------|--------|------|
+| 세라 | 70 | 60 | 8시간 | 무뚝뚝/거친 - 연애 쑥맥 |
+| 밀라 | 50 | 40 | 6시간 | 다정/포근 - 연애 저돌적 |
+| 리나 | 65 | 55 | 8시간 | 활발 - 연애엔 수줍음 |
+| 유키 | 80 | 70 | 12시간 | 매우 수줍음 |
+| 엘라 | 75 | 65 | 10시간 | 냉정함 |
+
+**Character 클래스 주요 속성/메서드 (base.py):**
+```python
+class Character(Unit):
+    # 스킨십 반응
+    ROMANCE_REACTIONS: dict = None
+
+    # NPC 주도 설정
+    INITIATIVE_CONFIG: dict = None
+    NPC_INITIATIVE_ACTIONS: list = None
+    INITIATIVE_REACTIONS: dict = None
+    INITIATIVE_ACTION_FILTERS: list = None
+
+    def should_initiate_skinship(self, player_id) -> bool: ...
+    def get_initiative_reaction(self, timing) -> str: ...
+    def get_allowed_initiative_actions(self, player_id) -> list: ...
+```
+
+**파일 위치:**
+- `scenarios/scenario02/python/romance.py` - 플레이어 주도 스킨십
+- `scenarios/scenario02/python/date.py` - 데이트 시스템
+- `scenarios/scenario02/python/npc_initiative.py` - NPC 주도 스킨십
+- `scenarios/scenario02/python/assets/base.py` - Character 클래스
+- `scenarios/scenario02/python/assets/characters/*.py` - 캐릭터별 설정
+
 ---
 
 ## 프로젝트 구조
