@@ -23,6 +23,7 @@ class Lina(Character):
     }
     actions = [
         "call:talk:대화",
+        "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:romance:스킨십",
         "call:debug_props:속성 보기",
         "call:debug_affection_up:호감도 +10",
@@ -335,19 +336,29 @@ class Lina(Character):
 
     def on_meet_player(self, player_id):
         """플레이어와 처음 만났을 때 - Generator 기반"""
-        # 첫 만남 이벤트
-        if not self._event_flags.get("first_meet"):
-            unit_info = morld.get_unit_info(self.instance_id)
-            if not (unit_info and unit_info.get("activity") == "수면"):
-                self._event_flags["first_meet"] = True
-                return self._run_event_dialog("first_meet", player_id=player_id)
+        unit_info = morld.get_unit_info(self.instance_id)
 
-        # NPC 주도 스킨십 체크
-        if self.should_initiate_skinship(player_id):
-            from npc_initiative import start_npc_initiative
-            return start_npc_initiative(player_id, self.instance_id)
+        # 수면 중이면 반응 없음
+        if unit_info and unit_info.get("activity") == "수면":
+            return None
 
-        return None
+        # 첫 만남 여부 판정 (관계:리나:진척도 <= 0)
+        if not self.is_first_meet(player_id):
+            # NPC 주도 스킨십 체크 (첫 만남 이후에만)
+            if self.should_initiate_skinship(player_id):
+                from npc_initiative import start_npc_initiative
+                return start_npc_initiative(player_id, self.instance_id)
+            return None
+
+        # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
+        return self._first_meet_handler(player_id)
+
+    def _first_meet_handler(self, player_id):
+        """첫 만남 이벤트 핸들러 - Generator"""
+        # 대화 실행
+        yield from self._run_event_dialog("first_meet", player_id=player_id)
+        # 첫 만남 완료 처리 (관계:리나:진척도 = 1)
+        self.mark_first_meet_done(player_id)
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응"""
@@ -613,3 +624,215 @@ class LinaAgent(BaseAgent):
         schedule = self.get_current_schedule()
         self.fill_schedule_jobs_from(schedule)
         return None
+
+
+# ========================================
+# 캐릭터 개인 퀘스트 (CHARACTER_QUESTS)
+# ========================================
+# 리나 관련 퀘스트는 캐릭터 파일에서 직접 정의
+
+Lina.CHARACTER_QUESTS = [
+    # ========================================
+    # 편지 전달 퀘스트 (기존 side_quests에서 이동)
+    # ========================================
+    {
+        "unique_id": "lina_letter",
+        "name": "리나의 편지",
+        "description": "리나가 세라에게 전해달라는 편지를 전달하자.",
+        "category": "personal",
+
+        "prerequisites": ["sub_meet_lina"],
+        "giver": "lina",
+        "reporter": "lina",
+
+        "conditions": [
+            {"type": "deliver", "item": "lina_letter", "target": "sera", "count": 1},
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:리나:호감", "value": 10},
+            {"type": "prop", "target": "player", "prop": "관계:세라:호감", "value": 3},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[리나]",
+                "저기저기! 부탁 하나만!",
+                "세라 언니한테 이 편지 전해줄 수 있어?",
+                "직접 주기 좀 부끄러워서...",
+            ],
+            "accept": [
+                "[리나]",
+                "에헤헤~ 고마워!",
+                "(리나에게서 편지를 받았다)",
+            ],
+            "decline": [
+                "[리나]",
+                "에에~ 왜...?",
+                "(풀이 죽은 표정이다)",
+            ],
+            "progress": [
+                "[리나]",
+                "편지 전해줬어...?",
+                "세라 언니가 뭐래...?",
+            ],
+            "complete": [
+                "[리나]",
+                "진짜!? 전해줬어!?",
+                "세라 언니가 뭐래!?",
+                "......",
+                "...아무 말 없었어? 그래도 받긴 했지?",
+                "에헤헤... 고마워!",
+            ],
+        },
+    },
+
+    # ========================================
+    # 베리 채집 퀘스트
+    # ========================================
+    {
+        "unique_id": "lina_berry",
+        "name": "베리 채집 도우미",
+        "description": "리나와 함께 숲에서 베리를 채집하자.",
+        "category": "personal",
+
+        "prerequisites": ["lina_letter"],
+        "giver": "lina",
+        "reporter": "lina",
+
+        "conditions": [
+            {"type": "collect", "item": "berry", "count": 10},
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:리나:호감", "value": 8},
+            {"type": "item", "item": "berry_jam", "count": 2},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[리나]",
+                "저기! 같이 채집하러 갈래?",
+                "베리를 10개만 모으면 잼을 만들 수 있어!",
+                "밀라 언니가 만들어주거든!",
+            ],
+            "accept": [
+                "[리나]",
+                "야호! 같이 가자!",
+                "숲에 베리나무가 많아!",
+            ],
+            "decline": [
+                "[리나]",
+                "에에... 알겠어...",
+                "(풀이 죽은 표정이다)",
+            ],
+            "progress": [
+                "[리나]",
+                "베리 다 모았어?",
+                "10개만 있으면 돼!",
+            ],
+            "complete": [
+                "[리나]",
+                "와! 다 모았다!",
+                "(리나에게 베리 10개를 건넸다)",
+                "밀라 언니한테 잼 만들어달라고 하자!",
+                "...",
+                "(잠시 후)",
+                "(리나가 베리 잼을 가져왔다)",
+                "짜잔! 베리 잼이야!",
+                "에헤헤~ 맛있어!",
+            ],
+        },
+    },
+
+    # ========================================
+    # 숨바꼭질 퀘스트 (미니게임 형식)
+    # ========================================
+    {
+        "unique_id": "lina_hide_seek",
+        "name": "숨바꼭질",
+        "description": "리나와 숨바꼭질을 하자. 리나가 숨은 곳을 찾아야 한다.",
+        "category": "personal",
+
+        "prerequisites": ["lina_berry"],
+        "giver": "lina",
+        "reporter": "lina",
+
+        "conditions": [
+            {"type": "reach", "region_id": 0, "location_id": 7},  # 리나의 방
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:리나:호감", "value": 12},
+            {"type": "prop", "target": "player", "prop": "관계:리나:신뢰", "value": 1},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[리나]",
+                "심심해~ 같이 놀자!",
+                "숨바꼭질 할래?",
+                "내가 숨을 테니까, 찾아봐!",
+                "저택 안 어딘가에 숨을 거야~",
+            ],
+            "accept": [
+                "[리나]",
+                "좋아! 그럼 눈 감고 100까지 세!",
+                "...에헤헤, 농담이야. 잠깐만 기다려!",
+                "(리나가 어디론가 달려간다)",
+            ],
+            "decline": [
+                "[리나]",
+                "에에... 재미없어...",
+            ],
+            "progress": [
+                "(리나가 어디 숨었는지 찾아야 한다)",
+                "(저택 안을 둘러보자)",
+            ],
+            "complete": [
+                "[리나]",
+                "앗! 찾았다!",
+                "(리나가 옷장에서 뛰어나온다)",
+                "에헤헤~ 여기 숨은 거 어떻게 알았어?",
+                "다음엔 더 좋은 데 숨을 거야!",
+                "(리나가 재미있었다며 웃는다)",
+            ],
+        },
+    },
+
+    # ========================================
+    # 리나의 신뢰 퀘스트
+    # ========================================
+    {
+        "unique_id": "lina_trust",
+        "name": "리나의 신뢰",
+        "description": "리나와 더 친해지자.",
+        "category": "personal",
+
+        "prerequisites": ["lina_hide_seek"],
+        "giver": None,
+        "reporter": "lina",
+
+        "conditions": [
+            {"type": "prop", "target": "player", "prop": "관계:리나:호감", "min_value": 70},
+        ],
+
+        "rewards": [
+            {"type": "item", "item": "lina_bracelet", "count": 1},
+            {"type": "prop", "target": "player", "prop": "관계:리나:신뢰", "value": 1},
+        ],
+
+        "dialogs": {
+            "complete": [
+                "[리나]",
+                "저기저기...!",
+                "이거! 받아!",
+                "(리나가 손목에서 팔찌를 푼다)",
+                "내가 만든 거야!",
+                "못생겼지만... 진심이야!",
+                "...앞으로도 같이 있어 줄 거지?",
+                "(리나가 뾰로통하지만 기대하는 눈으로 바라본다)",
+            ],
+        },
+    },
+]

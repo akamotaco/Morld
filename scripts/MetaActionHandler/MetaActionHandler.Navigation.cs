@@ -143,6 +143,54 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 퀘스트 UI 표시 처리
+	/// Python의 quest.show_quest_ui() Generator를 호출
+	/// </summary>
+	private void HandleQuestAction()
+	{
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleQuestAction: ScriptSystem not found");
+			return;
+		}
+
+		try
+		{
+			// Python quest 모듈의 show_quest_ui() 호출
+			scriptSystem.Eval("import quest");
+			var result = scriptSystem.Eval("quest.show_quest_ui()");
+
+			if (result is SharpPy.PyGenerator generator)
+			{
+				var genResult = scriptSystem.ProcessGenerator(generator);
+				if (genResult != null && genResult.Type == "generator_dialog" && genResult is SE.GeneratorScriptResult gr)
+				{
+					SetPendingGenerator(gr.Generator, gr.DialogRequest);
+
+					// proc('init') 호출 - Dialog 초기화 시 텍스트 갱신
+					var displayText = gr.DialogText;
+					if (gr.DialogRequest?.ProcCallback != null)
+					{
+						var (initText, _) = scriptSystem.CallProcCallback(gr.DialogRequest.ProcCallback, "init");
+						if (initText != null)
+						{
+							displayText = initText;
+							gr.DialogRequest.UpdateCurrentPageText(initText);
+						}
+					}
+
+					_textUISystem?.PushDialog(displayText);
+				}
+			}
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandleQuestAction error: {ex.Message}");
+		}
+	}
+
+	/// <summary>
 	/// 유닛 살펴보기 처리: look_unit:unitId
 	/// </summary>
 	private void HandleLookUnitAction(string[] parts)

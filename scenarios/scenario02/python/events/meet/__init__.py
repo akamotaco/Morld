@@ -3,4 +3,6 @@
 # 플레이어 만남 이벤트: MeetEvent, DialogEvent 상속
 # NPC 간 만남 이벤트: NpcMeetEvent 상속
 
-__all__ = []
+from .quest_check import QuestMeetCheck
+
+__all__ = ['QuestMeetCheck']

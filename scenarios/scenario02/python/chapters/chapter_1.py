@@ -43,6 +43,7 @@ def post_restore():
     - UI 표시 (헤더/푸터)
     - 누더기 제거 및 일반 옷 지급
     - 챕터 1부터 생존 시스템 활성화
+    - 챕터 1 시작 퀘스트 자동 부여
     """
     # 시간 정지 해제 (프롤로그에서 정지시켰던 시간 흐름 복원)
     morld.set_time_frozen(False)
@@ -62,6 +63,9 @@ def post_restore():
     # 생존 시스템 활성화
     morld.set_unit_prop(player_id, "생존:활성화", 1)
     print("[chapter_1] Survival system enabled")
+
+    # 챕터 1 시작 퀘스트 자동 부여
+    _start_chapter_quest()
 
 
 def _replace_ragged_clothes(player_id):
@@ -104,3 +108,19 @@ def _instantiate_player():
     player = Player()
     player_id = morld.create_id("unit")
     player.instantiate(player_id, mansion.REGION_ID, 6)  # 주인공 방에서 시작
+
+
+def _start_chapter_quest():
+    """챕터 1 시작 퀘스트 자동 부여"""
+    from quest import quest_manager, QuestStatus
+
+    quest_id = "main_understand_situation"
+    status = quest_manager.get_quest_status(quest_id)
+
+    # 아직 시작하지 않은 경우에만 부여
+    # LOCKED 또는 AVAILABLE 상태일 때 accept_quest로 IN_PROGRESS로 전환
+    if status in (QuestStatus.LOCKED, QuestStatus.AVAILABLE):
+        if quest_manager.accept_quest(quest_id):
+            print(f"[chapter_1] Starting quest: {quest_id}")
+        else:
+            print(f"[chapter_1] Failed to start quest: {quest_id}")

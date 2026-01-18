@@ -23,6 +23,7 @@ class Mila(Character):
     }
     actions = [
         "call:talk:대화",
+        "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:romance:스킨십",
         "call:debug_props:속성 보기",
         "call:debug_affection_up:호감도 +10",
@@ -486,19 +487,29 @@ class Mila(Character):
 
     def on_meet_player(self, player_id):
         """플레이어와 처음 만났을 때 - Generator 기반"""
-        # 첫 만남 이벤트
-        if not self._event_flags.get("first_meet"):
-            unit_info = morld.get_unit_info(self.instance_id)
-            if not (unit_info and unit_info.get("activity") == "수면"):
-                self._event_flags["first_meet"] = True
-                return self._run_event_dialog("first_meet", player_id=player_id)
+        unit_info = morld.get_unit_info(self.instance_id)
 
-        # NPC 주도 스킨십 체크
-        if self.should_initiate_skinship(player_id):
-            from npc_initiative import start_npc_initiative
-            return start_npc_initiative(player_id, self.instance_id)
+        # 수면 중이면 반응 없음
+        if unit_info and unit_info.get("activity") == "수면":
+            return None
 
-        return None
+        # 첫 만남 여부 판정 (관계:밀라:진척도 <= 0)
+        if not self.is_first_meet(player_id):
+            # NPC 주도 스킨십 체크 (첫 만남 이후에만)
+            if self.should_initiate_skinship(player_id):
+                from npc_initiative import start_npc_initiative
+                return start_npc_initiative(player_id, self.instance_id)
+            return None
+
+        # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
+        return self._first_meet_handler(player_id)
+
+    def _first_meet_handler(self, player_id):
+        """첫 만남 이벤트 핸들러 - Generator"""
+        # 대화 실행
+        yield from self._run_event_dialog("first_meet", player_id=player_id)
+        # 첫 만남 완료 처리 (관계:밀라:진척도 = 1)
+        self.mark_first_meet_done(player_id)
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응"""
@@ -715,3 +726,233 @@ class MilaAgent(BaseAgent):
 
         # 나머지는 BaseAgent.think()에 위임
         return super().think()
+
+
+# ========================================
+# 캐릭터 개인 퀘스트 (CHARACTER_QUESTS)
+# ========================================
+# 밀라 관련 퀘스트는 캐릭터 파일에서 직접 정의
+
+Mila.CHARACTER_QUESTS = [
+    # ========================================
+    # 허브티 연쇄 퀘스트 1: 허브 채집
+    # ========================================
+    {
+        "unique_id": "mila_herb_gather",
+        "name": "허브 채집",
+        "description": "밀라를 위해 정원에서 허브를 채집하자.",
+        "category": "personal",
+
+        "prerequisites": ["sub_meet_mila"],
+        "giver": "mila",
+        "reporter": "mila",
+
+        "conditions": [
+            {"type": "collect", "item": "herb", "count": 3},
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:밀라:호감", "value": 5},
+            {"type": "unlock_quest", "quest": "mila_herb_dry"},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[밀라]",
+                "저... 부탁 하나 해도 될까요?",
+                "정원에서 허브를 좀 구해올 수 있어요?",
+                "허브티를 만들고 싶은데, 재료가 부족해서요.",
+                "허브 3개만 있으면 될 것 같아요!",
+            ],
+            "accept": [
+                "[밀라]",
+                "감사해요!",
+                "정원 쪽에 허브가 자라고 있을 거예요.",
+            ],
+            "decline": [
+                "[밀라]",
+                "...알겠어요.",
+                "(조금 아쉬운 표정이다)",
+            ],
+            "progress": [
+                "[밀라]",
+                "허브는 구했어요...?",
+                "정원에 있을 거예요!",
+            ],
+            "complete": [
+                "[밀라]",
+                "와! 좋은 허브네요!",
+                "(밀라에게 허브 3개를 건넸다)",
+                "이제 말려서 차를 만들어야 해요.",
+                "조금 기다려 주실래요?",
+            ],
+        },
+    },
+
+    # ========================================
+    # 허브티 연쇄 퀘스트 2: 허브 건조
+    # ========================================
+    {
+        "unique_id": "mila_herb_dry",
+        "name": "허브 건조",
+        "description": "밀라가 허브를 말리는 동안 기다리자.",
+        "category": "personal",
+
+        "prerequisites": ["mila_herb_gather"],
+        "giver": None,  # 자동 시작
+        "reporter": "mila",
+
+        "conditions": [
+            {"type": "wait", "hours": 2},  # 2시간 대기
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:밀라:호감", "value": 3},
+            {"type": "unlock_quest", "quest": "mila_herb_tea"},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[밀라]",
+                "허브를 말리는 데 2시간 정도 걸려요.",
+                "그동안 다른 일 하셔도 괜찮아요!",
+            ],
+            "progress": [
+                "[밀라]",
+                "아직 말리는 중이에요~",
+                "조금만 더 기다려 주세요!",
+            ],
+            "complete": [
+                "[밀라]",
+                "다 말랐어요!",
+                "이제 차를 끓이면 되겠네요.",
+            ],
+        },
+    },
+
+    # ========================================
+    # 허브티 연쇄 퀘스트 3: 허브티 조리
+    # ========================================
+    {
+        "unique_id": "mila_herb_tea",
+        "name": "허브티 조리",
+        "description": "밀라에게 말린 허브를 전달하고 허브티를 만들어 달라고 하자.",
+        "category": "personal",
+
+        "prerequisites": ["mila_herb_dry"],
+        "giver": None,  # 자동 시작
+        "reporter": "mila",
+
+        "conditions": [
+            {"type": "talk", "target": "mila"},
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:밀라:호감", "value": 7},
+            {"type": "item", "item": "herb_tea", "count": 2},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "밀라에게 허브티를 만들어 달라고 하자.",
+            ],
+            "complete": [
+                "[밀라]",
+                "허브티 완성이에요!",
+                "(향긋한 허브 향이 퍼진다)",
+                "같이 마셔요!",
+                "(밀라와 함께 따뜻한 허브티를 마셨다)",
+                "(허브티 2잔을 받았다)",
+            ],
+        },
+    },
+
+    # ========================================
+    # 사과 파이 퀘스트 (기존 side_quests에서 이동)
+    # ========================================
+    {
+        "unique_id": "mila_apple_pie",
+        "name": "밀라의 요리 재료",
+        "description": "밀라가 요리에 쓸 사과 5개를 모아오자.",
+        "category": "personal",
+
+        "prerequisites": ["mila_herb_tea"],  # 허브티 연쇄 완료 후
+        "giver": "mila",
+        "reporter": "mila",
+
+        "conditions": [
+            {"type": "collect", "item": "apple", "count": 5},
+        ],
+
+        "rewards": [
+            {"type": "item", "item": "apple_pie", "count": 1},
+            {"type": "prop", "target": "player", "prop": "관계:밀라:호감", "value": 10},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[밀라]",
+                "저... 사과를 좀 구해올 수 있어요?",
+                "파이를 만들고 싶은데, 재료가 부족해서요.",
+                "5개만 있으면 될 것 같아요!",
+            ],
+            "accept": [
+                "[밀라]",
+                "고마워요!",
+                "숲에 사과나무가 있을 거예요.",
+            ],
+            "decline": [
+                "[밀라]",
+                "...알겠어요.",
+                "(조금 아쉬운 표정이다)",
+            ],
+            "progress": [
+                "[밀라]",
+                "사과는 모았어요...?",
+                "5개면 충분해요!",
+            ],
+            "complete": [
+                "[밀라]",
+                "와! 고마워요!",
+                "(밀라에게 사과 5개를 건넸다)",
+                "이걸로 맛있는 파이를 만들어 드릴게요!",
+                "(밀라에게서 사과 파이를 받았다)",
+            ],
+        },
+    },
+
+    # ========================================
+    # 밀라의 신뢰 퀘스트: 호감도 70 이상
+    # ========================================
+    {
+        "unique_id": "mila_trust",
+        "name": "밀라의 신뢰",
+        "description": "밀라와 더 친해지자.",
+        "category": "personal",
+
+        "prerequisites": ["mila_apple_pie"],
+        "giver": None,
+        "reporter": "mila",
+
+        "conditions": [
+            {"type": "prop", "target": "player", "prop": "관계:밀라:호감", "min_value": 70},
+        ],
+
+        "rewards": [
+            {"type": "item", "item": "mila_recipe_book", "count": 1},
+            {"type": "prop", "target": "player", "prop": "관계:밀라:신뢰", "value": 1},
+        ],
+
+        "dialogs": {
+            "complete": [
+                "[밀라]",
+                "저기...!",
+                "이거... 받아주세요!",
+                "(밀라가 레시피 북을 건넨다)",
+                "제가 모은 요리법이에요.",
+                "같이... 요리하고 싶어서...",
+                "(밀라가 얼굴을 붉힌다)",
+            ],
+        },
+    },
+]

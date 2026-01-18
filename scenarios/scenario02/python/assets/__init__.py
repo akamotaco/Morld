@@ -46,12 +46,46 @@ def _method_accepts_equipment(method) -> bool:
         return False
 
 
+def _update_errand_visibility(player_id: int, partner_id: int):
+    """
+    NPC에게 제안 가능한 퀘스트가 있는지 확인하여 can:errand 설정
+
+    Args:
+        player_id: 플레이어 ID
+        partner_id: NPC instance ID
+    """
+    try:
+        import morld
+        from assets import characters
+        from quest import quest_manager
+
+        # NPC의 unique_id 조회
+        instance = characters.get_instance(partner_id)
+        if instance is None:
+            return
+
+        npc_unique_id = instance.unique_id
+        if not npc_unique_id:
+            return
+
+        # 이 NPC에게서 받을 수 있는 퀘스트가 있는지 확인
+        available_quests = quest_manager.get_available_quests_from(npc_unique_id)
+
+        # can:errand 설정
+        can_errand = 1 if available_quests else 0
+        morld.set_unit_prop(player_id, "can:errand", can_errand)
+    except Exception as e:
+        print(f"[assets] Failed to update errand visibility: {e}")
+
+
 def _update_affection_visibility_if_needed(partner_id: int):
     """
-    캐릭터 액션 호출 시 애정 표현 visibility 업데이트
+    캐릭터 액션 호출 시 애정 표현 및 심부름 visibility 업데이트
 
     date.py의 update_affection_action_visibility()를 호출하여
     데이트 중/일상 상태에 따라 can:hold_hands 등의 prop을 설정.
+
+    또한 심부름 가능 여부도 업데이트.
     """
     try:
         import morld
@@ -59,6 +93,7 @@ def _update_affection_visibility_if_needed(partner_id: int):
         player_id = morld.get_player_id()
         if player_id is not None:
             update_affection_action_visibility(player_id, partner_id)
+            _update_errand_visibility(player_id, partner_id)
     except Exception as e:
         print(f"[assets] Failed to update affection visibility: {e}")
 
@@ -205,6 +240,8 @@ def get_available_actions(unit_id: int):
     Character의 get_available_actions() 메서드를 호출하여
     activity/mood에 따라 필터링된 액션 목록을 반환합니다.
 
+    또한 NPC Focus 시점에서 심부름(errand) 버튼 visibility를 업데이트합니다.
+
     Args:
         unit_id: 유닛 ID
 
@@ -212,10 +249,16 @@ def get_available_actions(unit_id: int):
         필터링된 액션 문자열 리스트 또는 None (필터링 없음)
     """
     from assets import characters
+    import morld
 
     instance = characters.get_instance(unit_id)
     if instance is None:
         return None  # 캐릭터가 아니면 필터링 없음
+
+    # NPC Focus 시 심부름 visibility 업데이트
+    player_id = morld.get_player_id()
+    if player_id is not None:
+        _update_errand_visibility(player_id, unit_id)
 
     if hasattr(instance, 'get_available_actions'):
         return instance.get_available_actions()

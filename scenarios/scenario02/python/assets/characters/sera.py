@@ -22,6 +22,7 @@ class Sera(Character):
     }
     actions = [
         "call:talk:대화",
+        "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:date:데이트 신청#",      # 데이트 중 아닐 때만 표시
         "call:end_date:데이트 종료#",  # 데이트 중일 때만 표시
         "call:hold_hands:손 잡기#",    # 조건 충족 시만 표시
@@ -575,8 +576,9 @@ class Sera(Character):
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
-        # NPC 주도 스킨십 체크 (첫 만남 이후에만)
-        if self._event_flags.get("first_meet"):
+        # 첫 만남 여부 판정 (관계:세라:진척도 <= 0)
+        if not self.is_first_meet(player_id):
+            # NPC 주도 스킨십 체크 (첫 만남 이후에만)
             if self.should_initiate_skinship(player_id):
                 # 쿨다운 기록
                 self.mark_initiative_cooldown()
@@ -585,9 +587,15 @@ class Sera(Character):
                 return start_npc_initiative(player_id, self.instance_id)
             return None
 
-        # 첫 만남 이벤트
-        self._event_flags["first_meet"] = True
-        return self._run_event_dialog("first_meet", player_id=player_id)
+        # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
+        return self._first_meet_handler(player_id)
+
+    def _first_meet_handler(self, player_id):
+        """첫 만남 이벤트 핸들러 - Generator"""
+        # 대화 실행
+        yield from self._run_event_dialog("first_meet", player_id=player_id)
+        # 첫 만남 완료 처리 (관계:세라:진척도 = 1)
+        self.mark_first_meet_done(player_id)
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응"""
@@ -757,3 +765,166 @@ class SeraAgent(BaseAgent):
         schedule = self.get_current_schedule()
         self.fill_schedule_jobs_from(schedule)
         return None
+
+
+# ========================================
+# 캐릭터 개인 퀘스트 (CHARACTER_QUESTS)
+# ========================================
+# 세라 관련 퀘스트는 캐릭터 파일에서 직접 정의
+
+Sera.CHARACTER_QUESTS = [
+    # ========================================
+    # 낚시 퀘스트: 2층 창고에서 낚시 → 물고기 전달
+    # ========================================
+    {
+        "unique_id": "sera_fishing",
+        "name": "저녁 식사 준비",
+        "description": "세라가 저녁 재료로 쓸 물고기를 잡아달라고 했다.",
+        "category": "personal",
+
+        "prerequisites": ["sub_meet_sera"],
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "deliver", "item": "fish", "target": "sera", "count": 2},
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:호감", "value": 10},
+            {"type": "item", "item": "smoked_fish", "count": 1},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "......",
+                "...저녁 재료가 부족해.",
+                "...물고기 2마리만 잡아올 수 있나?",
+                "...2층 창고에 낚싯대가 있다.",
+            ],
+            "accept": [
+                "[세라]",
+                "...고맙다.",
+                "...연못에서 낚으면 된다.",
+            ],
+            "decline": [
+                "[세라]",
+                "......",
+                "...그래.",
+            ],
+            "progress": [
+                "[세라]",
+                "...물고기는?",
+                "...연못에 있을 거다.",
+            ],
+            "complete": [
+                "[세라]",
+                "...잘 잡았군.",
+                "...고맙다.",
+                "(세라에게 물고기 2마리를 건넸다)",
+                "(세라가 훈제 물고기를 건네준다)",
+                "...맛있게 먹어.",
+            ],
+        },
+    },
+
+    # ========================================
+    # 사냥 동행 퀘스트: 세라와 함께 숲 깊은 곳까지 사냥
+    # ========================================
+    {
+        "unique_id": "sera_hunting",
+        "name": "사냥 동행",
+        "description": "세라와 함께 숲으로 사냥을 나가자.",
+        "category": "personal",
+
+        "prerequisites": ["sera_fishing"],  # 낚시 퀘스트 완료 후
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "all", "conditions": [
+                {"type": "meet", "target": "sera"},
+                {"type": "reach", "region_id": 0, "location_id": 24},  # 숲 깊은 곳
+            ]},
+        ],
+
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:호감", "value": 15},
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+            {"type": "item", "item": "wolf_pelt", "count": 1},
+        ],
+
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "......",
+                "...같이 사냥 갈래?",
+                "...숲 깊은 곳에 좋은 사냥터가 있어.",
+                "...위험하니까... 뒤처지지 마.",
+            ],
+            "accept": [
+                "[세라]",
+                "...따라와.",
+                "(세라가 활을 들고 앞장선다)",
+            ],
+            "decline": [
+                "[세라]",
+                "......",
+                "...그래. 다음에.",
+            ],
+            "progress": [
+                "[세라]",
+                "...아직 멀었어.",
+                "...서둘러.",
+            ],
+            "complete": [
+                "[세라]",
+                "......",
+                "(세라가 늑대를 쓰러뜨렸다)",
+                "...잘했어.",
+                "(세라가 희미하게 미소 짓는다)",
+                "...이건 네 몫이다.",
+                "(늑대 가죽을 받았다)",
+            ],
+        },
+    },
+
+    # ========================================
+    # 세라의 신뢰 퀘스트: 호감도 70 이상 달성
+    # ========================================
+    {
+        "unique_id": "sera_trust",
+        "name": "세라의 신뢰",
+        "description": "세라와 더 친해지자.",
+        "category": "personal",
+
+        "prerequisites": ["sera_hunting"],
+        "giver": None,  # 자동 해금
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:호감", "min_value": 70},
+        ],
+
+        "rewards": [
+            {"type": "item", "item": "sera_pendant", "count": 1},
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+        ],
+
+        "dialogs": {
+            "complete": [
+                "[세라]",
+                "......",
+                "...너.",
+                "......",
+                "...이거.",
+                "(세라가 목걸이를 건넨다)",
+                "...어머니가 주신 거야.",
+                "...너한테 주고 싶었어.",
+                "......",
+                "...잃어버리지 마.",
+            ],
+        },
+    },
+]

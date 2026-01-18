@@ -26,6 +26,18 @@ CHARACTER_CLASSES = {
 _instances = {}
 
 
+def get_all_character_classes() -> list:
+    """
+    모든 캐릭터 클래스 반환
+
+    퀘스트 시스템에서 CHARACTER_QUESTS를 수집할 때 사용됩니다.
+
+    Returns:
+        캐릭터 클래스 리스트
+    """
+    return list(CHARACTER_CLASSES.values())
+
+
 def register_instance(instance_id: int, instance):
     """캐릭터 인스턴스 등록 (instantiate 시 호출)"""
     _instances[instance_id] = instance

@@ -1147,6 +1147,44 @@ class Character(Unit):
         pages = [f"[{name}]"] + result.get("pages", ["......"])
         yield morld.dialog(pages)
 
+    def errand(self):
+        """
+        심부름 - NPC에게서 퀘스트를 받는 메뉴
+
+        이 NPC가 giver로 설정된 AVAILABLE 상태의 퀘스트를 보여주고
+        플레이어가 선택하면 퀘스트를 수락합니다.
+        """
+        from quest import quest_manager
+
+        # 이 NPC에게서 받을 수 있는 퀘스트 조회
+        available_quests = quest_manager.get_available_quests_from(self.unique_id)
+
+        if not available_quests:
+            yield morld.dialog(f"[{self.name}]\n\"...부탁할 일은 없어.\"")
+            return
+
+        # 퀘스트 목록 표시
+        lines = [f"[b]{self.name}[/b]의 심부름", ""]
+
+        for quest in available_quests:
+            lines.append(f"[url=@ret:{quest.unique_id}]{quest.name}[/url]")
+            if quest.description:
+                lines.append(f"  [color=gray]{quest.description[:30]}...[/color]" if len(quest.description) > 30 else f"  [color=gray]{quest.description}[/color]")
+
+        lines.append("")
+        lines.append("[url=@ret:cancel]취소[/url]")
+
+        result = yield morld.dialog("\n".join(lines), autofill="off")
+
+        if result and result != "cancel":
+            quest_id = result
+            quest = quest_manager._get_quest_instance(quest_id)
+            if quest:
+                # 퀘스트 제안 다이얼로그 실행
+                accept_result = yield from quest.offer_dialog()
+                if accept_result == "accept":
+                    quest_manager.accept_quest(quest_id)
+
     # ========================================
     # 호감도 테스트 메서드 (디버그용)
     # ========================================
@@ -1199,6 +1237,82 @@ class Character(Unit):
     #       "복잡한_이벤트": "_handle_complex_event",  # 메서드로 위임
     #   }
     EVENT_DIALOGS: dict = None
+
+    # ========================================
+    # 캐릭터 개인 퀘스트 시스템
+    # ========================================
+    # 캐릭터와 깊이 연관된 퀘스트를 캐릭터 파일 내에서 직접 정의
+    #
+    # 형식:
+    #   CHARACTER_QUESTS = [
+    #       {
+    #           "unique_id": "sera_trust_1",
+    #           "name": "세라의 신뢰 I",
+    #           "description": "세라와 더 친해지자.",
+    #           "category": "personal",
+    #           "prerequisites": ["main_find_sera"],
+    #           "giver": "sera",
+    #           "reporter": "sera",
+    #           "conditions": [
+    #               {"type": "prop", "target": "player", "prop": "관계:세라:호감", "min_value": 30},
+    #           ],
+    #           "rewards": [
+    #               {"type": "item", "item": "sera_pendant", "count": 1},
+    #           ],
+    #           "dialogs": {
+    #               "offer": ["..."],
+    #               "accept": ["..."],
+    #               "complete": ["..."],
+    #           },
+    #       },
+    #   ]
+    #
+    # 장점:
+    # - 캐릭터 파일 하나만 보면 그 캐릭터의 모든 것을 알 수 있음
+    # - 캐릭터 삭제 시 관련 퀘스트도 자동으로 제거됨
+    # - 대화, 조건, 보상이 캐릭터와 함께 관리됨
+    CHARACTER_QUESTS: list = []
+
+    @classmethod
+    def get_character_quests(cls) -> list:
+        """캐릭터 개인 퀘스트 목록 반환"""
+        return cls.CHARACTER_QUESTS
+
+    # ========================================
+    # First Meet 판정 시스템
+    # ========================================
+    # 관계:XX:진척도 <= 0 이면 first meet
+    # first meet 이벤트 후 진척도를 1로 설정
+
+    def is_first_meet(self, player_id: int) -> bool:
+        """
+        플레이어와의 첫 만남 여부 판정
+
+        관계:{캐릭터이름}:진척도 가 0 이하이면 True
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            첫 만남이면 True
+        """
+        props = morld.get_unit_props(player_id)
+        if not props:
+            return True  # props가 없으면 첫 만남으로 간주
+
+        progress_key = f"관계:{self.name}:진척도"
+        progress = props.get(progress_key, 0)
+        return progress <= 0
+
+    def mark_first_meet_done(self, player_id: int):
+        """
+        첫 만남 완료 처리 - 진척도를 1로 설정
+
+        Args:
+            player_id: 플레이어 유닛 ID
+        """
+        progress_key = f"관계:{self.name}:진척도"
+        morld.set_unit_prop(player_id, progress_key, 1)
 
     def _run_event_dialog(self, event_name: str, **kwargs):
         """

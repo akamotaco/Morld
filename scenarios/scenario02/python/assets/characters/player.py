@@ -120,6 +120,9 @@ class Player(Character):
         "can:date_hug": 0,    # 동적 관리 (date.py에서 조건에 따라 설정)
         "can:date_kiss": 0,   # 동적 관리 (date.py에서 조건에 따라 설정)
 
+        # 퀘스트
+        "can:errand": 0,  # 동적 관리 (심부름 가능한 퀘스트가 있을 때만 1)
+
         # 디버그
         "can:debug_props": 1,
         "can:debug_self_props": 1,

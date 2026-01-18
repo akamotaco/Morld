@@ -23,6 +23,7 @@ class Yuki(Character):
     }
     actions = [
         "call:talk:대화",
+        "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:romance:스킨십",
         "call:debug_props:속성 보기",
         "call:debug_affection_up:호감도 +10",
@@ -332,19 +333,29 @@ class Yuki(Character):
 
     def on_meet_player(self, player_id):
         """플레이어와 처음 만났을 때 - Generator 기반 (묘사 형식)"""
-        # 첫 만남 이벤트
-        if not self._event_flags.get("first_meet"):
-            unit_info = morld.get_unit_info(self.instance_id)
-            if not (unit_info and unit_info.get("activity") == "수면"):
-                self._event_flags["first_meet"] = True
-                return self._run_event_dialog("first_meet", player_id=player_id)
+        unit_info = morld.get_unit_info(self.instance_id)
 
-        # NPC 주도 스킨십 체크
-        if self.should_initiate_skinship(player_id):
-            from npc_initiative import start_npc_initiative
-            return start_npc_initiative(player_id, self.instance_id)
+        # 수면 중이면 반응 없음
+        if unit_info and unit_info.get("activity") == "수면":
+            return None
 
-        return None
+        # 첫 만남 여부 판정 (관계:유키:진척도 <= 0)
+        if not self.is_first_meet(player_id):
+            # NPC 주도 스킨십 체크 (첫 만남 이후에만)
+            if self.should_initiate_skinship(player_id):
+                from npc_initiative import start_npc_initiative
+                return start_npc_initiative(player_id, self.instance_id)
+            return None
+
+        # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
+        return self._first_meet_handler(player_id)
+
+    def _first_meet_handler(self, player_id):
+        """첫 만남 이벤트 핸들러 - Generator"""
+        # 대화 실행
+        yield from self._run_event_dialog("first_meet", player_id=player_id)
+        # 첫 만남 완료 처리 (관계:유키:진척도 = 1)
+        self.mark_first_meet_done(player_id)
 
     # ========================================
     # 스킨십 반응
