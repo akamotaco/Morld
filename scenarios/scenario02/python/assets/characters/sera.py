@@ -29,11 +29,11 @@ class Sera(Character):
         "call:date_hug:안아주기#",     # 조건 충족 시만 표시
         "call:date_kiss:키스#",        # 조건 충족 시만 표시
         "call:romance:스킨십",
-        "call:debug_props:속성 보기",
-        "call:debug_affection_up:호감도 +10",
-        "call:debug_affection_down:호감도 -10",
-        "call:debug_arousal_up:성욕 +20",
-        "call:debug_arousal_down:성욕 -20",
+        "call:debug_props*:속성 보기",
+        "call:debug_affection_up*:호감도 +10",
+        "call:debug_affection_down*:호감도 -10",
+        "call:debug_arousal_up*:성욕 +20",
+        "call:debug_arousal_down*:성욕 -20",
     ]
     mood = []
 

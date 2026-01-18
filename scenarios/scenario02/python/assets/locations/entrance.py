@@ -2,6 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundStone
+from assets.objects.errand_board import ErrandBoard
 
 
 class Entrance(Location):
@@ -16,6 +17,7 @@ class Entrance(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """현관 생성 + 돌바닥 추가"""
+        """현관 생성 + 돌바닥 + 심부름 게시판 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundStone())
+        self.add_object(ErrandBoard())

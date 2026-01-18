@@ -62,6 +62,8 @@ public partial class MetaActionHandler
 		}
 
 		var methodName = parts[1];
+		// '*' 마커 제거 (can: 체크 우회용 마커, Python 메서드명에서는 제외)
+		var methodNameClean = methodName.TrimEnd('*');
 		var currentFocus = _textUISystem?.CurrentFocus;
 		int? instanceId = null;
 		string[] methodArgs = null;
@@ -75,22 +77,36 @@ public partial class MetaActionHandler
 			methodArgs = parts[2..]; // C# 8.0 range operator
 		}
 		// 일반적인 경우: instance ID 결정 우선순위
-		// 1. parts[2]에 명시된 경우 (URL에서 전달)
+		// 1. parts[2]에 숫자로 명시된 경우 (URL에서 전달)
 		// 2. Focus.ItemId (아이템 메뉴에서 호출)
 		// 3. Focus.TargetUnitId (오브젝트/유닛에서 호출)
+		//
+		// 액션 문자열 형식:
+		// - call:method:displayName → parts[2]는 표시명, methodArgs 없음
+		// - call:method:instanceId:arg → parts[2]는 숫자(instance ID), parts[3..]는 methodArgs
 		else
 		{
+			// call:method:instanceId:arg 형식 (instance ID가 숫자로 명시된 경우)
+			// 예: call:accept_quest:123:daily_deliver_herb
 			if (parts.Length >= 3 && int.TryParse(parts[2], out int explicitId))
 			{
 				instanceId = explicitId;
+				// parts[3..] 이후가 있으면 methodArgs로 전달
+				if (parts.Length >= 4)
+				{
+					methodArgs = parts[3..];
+				}
 			}
+			// call:method:displayName 형식 (parts[2]는 표시명이므로 methodArgs 없음)
 			else if (currentFocus?.ItemId.HasValue == true)
 			{
 				instanceId = currentFocus.ItemId;
+				// 표시명만 있는 경우 methodArgs는 전달하지 않음
 			}
 			else if (currentFocus?.TargetUnitId.HasValue == true)
 			{
 				instanceId = currentFocus.TargetUnitId;
+				// 표시명만 있는 경우 methodArgs는 전달하지 않음
 			}
 		}
 
@@ -136,10 +152,11 @@ public partial class MetaActionHandler
 		}
 
 		// can: prop을 제공하는 장비 조회 (장비가 있으면 Python에 전달)
+		// methodNameClean 사용 (can:view_errands 형태로 검색)
 		Item equipment = null;
 		if (player != null && actionSystem != null)
 		{
-			var canProp = $"can:{methodName}";
+			var canProp = $"can:{methodNameClean}";
 			equipment = actionSystem.GetEquipmentSource(player, canProp);
 #if DEBUG_LOG
 			if (equipment != null)
@@ -150,7 +167,8 @@ public partial class MetaActionHandler
 		}
 
 		// Python의 assets.call_instance_method(instance_id, method_name, *args, equipment) 호출
-		var result = scriptSystem.CallInstanceMethod(instanceId.Value, methodName, methodArgs, equipment);
+		// methodNameClean 사용 (Python 메서드명에서 '*' 제외)
+		var result = scriptSystem.CallInstanceMethod(instanceId.Value, methodNameClean, methodArgs, equipment);
 
 		// 결과 타입에 따른 처리
 		if (result == null)

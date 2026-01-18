@@ -243,11 +243,11 @@ class QuestManager:
         if not props:
             return False
 
-        # 완료된 날짜 확인
+        # 완료된 날짜 확인 (0은 "없음"과 동등)
         finished_day_key = self._get_prop_key(quest_id, "완료일")
-        finished_day = props.get(finished_day_key)
+        finished_day = props.get(finished_day_key, 0)
 
-        if finished_day is None:
+        if finished_day <= 0:
             return False
 
         current_day = self._get_current_day()
@@ -257,17 +257,17 @@ class QuestManager:
         """일일 퀘스트 상태 초기화"""
         player_id = self._get_player_id()
 
-        # 상태 초기화 (삭제)
+        # 상태 초기화 (0은 "없음"과 동등)
         status_key = self._get_prop_key(quest_id, "상태")
-        morld.clear_unit_prop(player_id, status_key)
+        morld.set_unit_prop(player_id, status_key, 0)
 
-        # 완료일 초기화 (삭제)
+        # 완료일 초기화
         finished_day_key = self._get_prop_key(quest_id, "완료일")
-        morld.clear_unit_prop(player_id, finished_day_key)
+        morld.set_unit_prop(player_id, finished_day_key, 0)
 
-        # 수락시각 초기화 (삭제)
+        # 수락시각 초기화
         time_key = self._get_prop_key(quest_id, "수락시각")
-        morld.clear_unit_prop(player_id, time_key)
+        morld.set_unit_prop(player_id, time_key, 0)
 
         # 조건 관련 props 초기화
         self._clear_quest_condition_props(quest_id)
@@ -287,7 +287,7 @@ class QuestManager:
             # 상태, 완료일, 수락시각은 이미 처리했으므로 스킵
             suffix = key[len(prefix):]
             if suffix not in ("상태", "완료일", "수락시각"):
-                morld.clear_unit_prop(player_id, key)
+                morld.set_unit_prop(player_id, key, 0)
 
     def get_quest_status(self, quest_id: str) -> QuestStatus:
         """퀘스트 상태 조회"""
@@ -305,9 +305,10 @@ class QuestManager:
             props = morld.get_unit_props(player_id)
 
         status_key = self._get_prop_key(quest_id, "상태")
-        status_value = props.get(status_key) if props else None
+        status_value = props.get(status_key, 0) if props else 0
 
-        if status_value is None:
+        # 0 이하는 "없음"으로 처리 (prop은 항상 정수)
+        if status_value <= 0:
             # 상태가 없으면 선행 조건 체크
             if quest and self._check_prerequisites(quest):
                 return QuestStatus.AVAILABLE
@@ -562,9 +563,9 @@ class QuestManager:
             finished_day_key = self._get_prop_key(quest_id, "완료일")
             morld.set_unit_prop(player_id, finished_day_key, self._get_current_day())
 
-            # 상태 prop 삭제 (다음 날 _should_reset_daily_quest에서 처리)
+            # 상태 prop 초기화 (다음 날 _should_reset_daily_quest에서 처리)
             status_key = self._get_prop_key(quest_id, "상태")
-            morld.clear_unit_prop(player_id, status_key)
+            morld.set_unit_prop(player_id, status_key, 0)
 
             # 조건 관련 props 초기화
             self._clear_quest_condition_props(quest_id)

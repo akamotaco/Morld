@@ -13,7 +13,7 @@ from assets.base import Object
 class Ground(Object):
     """바닥 오브젝트 베이스 클래스 - 아이템 개수 항상 표시"""
     item_visible = True
-    actions = ["putinobject", "call:debug_props:속성 보기"]
+    actions = ["putinobject", "call:debug_props*:속성 보기"]
 
 
 # ========================================

@@ -216,8 +216,8 @@ def _instantiate_item_by_unique(unique_id: str):
         item_id 또는 None
     """
     # 아이템 클래스 모듈 import (데코레이터 실행을 위해)
-    # 순서: equipment 먼저 (장비 아이템), 그 다음 food
-    from assets.items import equipment, food
+    # 순서: equipment 먼저 (장비 아이템), 그 다음 food, currency
+    from assets.items import equipment, food, currency
 
     # 아이템 클래스 레지스트리에서 조회
     from assets.registry import get_item_class

@@ -70,12 +70,20 @@ namespace SE
 		/// </summary>
 		/// <param name="actor">행위자 Unit (플레이어 등)</param>
 		/// <param name="action">액션 문자열</param>
-		/// <returns>can:액션명 prop이 1 이상이면 true</returns>
+		/// <returns>can:액션명 prop이 1 이상이면 true, 메서드명이 '*'로 끝나면 항상 true</returns>
 		public bool CanPerformAction(Unit actor, string action)
 		{
 			if (actor == null) return false;
 
 			var actionName = ExtractActionName(action);
+
+			// 메서드명이 '*'로 끝나면: can: 체크 없이 항상 통과
+			// 예: call:view_errands*:의뢰 보기 → actionName = "view_errands*"
+			if (actionName.EndsWith('*'))
+			{
+				return true;
+			}
+
 			var canProp = $"can:{actionName}";
 
 			// 장착 아이템의 EquipProps도 반영하기 위해 GetActualProps 사용
@@ -103,6 +111,12 @@ namespace SE
 		/// <param name="actions">원본 액션 리스트</param>
 		/// <param name="actor">행위자 Unit</param>
 		/// <returns>가능/불가능으로 분리된 액션 파티션</returns>
+		/// <remarks>
+		/// 마커 종류 (메서드명 끝에 붙임, 예: call:method*:표시명):
+		/// - 마커 없음: 조건 맞으면 활성화, 안 맞으면 grey out
+		/// - '#' (숨김): 조건 맞으면 표시, 안 맞으면 숨김
+		/// - '*' (항상): can: 체크 없이 항상 활성화
+		/// </remarks>
 		public ActionPartition PartitionActionsByActor(List<string> actions, Unit actor)
 		{
 			var partition = new ActionPartition
@@ -121,6 +135,7 @@ namespace SE
 				var isHiddenWhenDisabled = action.EndsWith("#");
 				var actionToCheck = isHiddenWhenDisabled ? action.Substring(0, action.Length - 1) : action;
 
+				// CanPerformAction에서 '*' 마커 체크 (ExtractActionName으로 메서드명 추출)
 				if (CanPerformAction(actor, actionToCheck))
 				{
 					partition.Enabled.Add(actionToCheck);

@@ -31,6 +31,9 @@ from .clothes import (
 from .materials import (
     Log, Branch, Plank, Cord, Feather
 )
+from .currency import (
+    Coin
+)
 
 __all__ = [
     # equipment
@@ -54,6 +57,8 @@ __all__ = [
     'SeraHuntingOutfit', 'MilaApron',
     # materials
     'Log', 'Branch', 'Plank', 'Cord', 'Feather',
+    # currency
+    'Coin',
 ]
 
 

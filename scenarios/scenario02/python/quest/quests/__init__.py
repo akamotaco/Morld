@@ -8,3 +8,4 @@
 # 퀘스트 파일들 import
 from .main_quests import *
 from .side_quests import *
+from .daily_delivery import *

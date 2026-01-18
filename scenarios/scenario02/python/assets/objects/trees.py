@@ -56,7 +56,7 @@ class Tree(Object):
         "call:look:살펴보기",
         "call:chop:벌목",           # can:chop 필요 (도끼 장착)
         "call:gather:가지 줍기",    # 도구 불필요
-        "call:debug_props:속성 보기"
+        "call:debug_props*:속성 보기"
     ]
 
     focus_text = {

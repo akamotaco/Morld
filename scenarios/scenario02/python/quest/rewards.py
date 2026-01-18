@@ -28,6 +28,8 @@ def apply_reward(player_id: int, reward: dict) -> bool:
         return _apply_unlock_quest_reward(reward)
     elif reward_type == "unlock_location":
         return _apply_unlock_location_reward(player_id, reward)
+    elif reward_type == "coin":
+        return _apply_coin_reward(player_id, reward)
 
     return False
 
@@ -63,6 +65,10 @@ def get_reward_description(reward: dict) -> str:
         region_id = reward.get("region_id", 0)
         location_id = reward.get("location_id", 0)
         return f"장소 해금: {region_id}-{location_id}"
+
+    elif reward_type == "coin":
+        value = reward.get("value", 0)
+        return f"{value}코인"
 
     return "알 수 없는 보상"
 
@@ -136,4 +142,25 @@ def _apply_unlock_location_reward(player_id: int, reward: dict) -> bool:
     # 장소 해금 prop 설정
     unlock_key = f"장소:{region_id}:{location_id}:해금"
     morld.set_unit_prop(player_id, unlock_key, 1)
+    return True
+
+
+def _apply_coin_reward(player_id: int, reward: dict) -> bool:
+    """코인 보상 (아이템 기반)"""
+    from assets.registry import get_or_create_item_id
+
+    value = reward.get("value", 0)
+
+    if value <= 0:
+        return False
+
+    # 코인 아이템 ID 조회/생성 (싱글톤 패턴)
+    coin_id = get_or_create_item_id("coin")
+    if coin_id is None:
+        print(f"[Quest Reward] Failed to get coin item ID")
+        return False
+
+    # 코인 아이템 지급
+    morld.give_item(player_id, coin_id, value)
+    print(f"[Quest Reward] Coin +{value} (item_id={coin_id})")
     return True

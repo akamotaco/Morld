@@ -762,6 +762,7 @@ namespace SE
             });
 
             // set_unit_prop: 단일 Prop 설정 ("타입:이름" 형식)
+            // Note: prop 값은 항상 정수. None이 전달되면 0으로 처리 (의미론적으로 동등)
             morldModule.ModuleDict["set_unit_prop"] = new PyBuiltinFunction("set_unit_prop", args =>
             {
                 if (args.Length < 3)
@@ -769,7 +770,8 @@ namespace SE
 
                 int unitId = args[0].ToInt();
                 string propName = args[1].AsString();
-                int value = args[2].ToInt();
+                // None은 0으로 처리 (prop은 항상 정수, 0 이하는 "없음"과 동등)
+                int value = args[2] is PyNone ? 0 : args[2].ToInt();
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
@@ -1067,7 +1069,8 @@ namespace SE
                 {
                     return new PyInt(value);
                 }
-                return PyNone.Instance;
+                // 키가 없으면 0 반환 (prop은 항상 정수, 0 이하는 "없음"과 동등)
+                return new PyInt(0);
             });
 
             // set_unit_action_prop: 유닛 ActionProps 설정
@@ -1091,6 +1094,7 @@ namespace SE
             });
 
             // get_unit_action_prop: 유닛 ActionProps 조회
+            // Note: 키가 없으면 0 반환 (prop은 항상 정수, 0 이하는 "없음"과 동등)
             morldModule.ModuleDict["get_unit_action_prop"] = new PyBuiltinFunction("get_unit_action_prop", args =>
             {
                 if (args.Length < 2)
@@ -1105,7 +1109,7 @@ namespace SE
                 {
                     return new PyInt(value);
                 }
-                return PyNone.Instance;
+                return new PyInt(0);
             });
         }
 

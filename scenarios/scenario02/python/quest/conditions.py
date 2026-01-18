@@ -216,10 +216,10 @@ def _check_wait(player_id: int, condition: dict, quest_id: str) -> bool:
     if not props:
         return False
 
-    # 퀘스트 수락 시각 확인
+    # 퀘스트 수락 시각 확인 (0 이하는 "없음"과 동등)
     accept_time_key = f"퀘스트:{quest_id}:수락시각"
-    accept_time = props.get(accept_time_key)
-    if accept_time is None:
+    accept_time = props.get(accept_time_key, 0)
+    if accept_time <= 0:
         return False
 
     current_time = morld.get_game_time()

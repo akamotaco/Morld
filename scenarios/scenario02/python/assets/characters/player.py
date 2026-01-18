@@ -123,14 +123,6 @@ class Player(Character):
         # 퀘스트
         "can:errand": 0,  # 동적 관리 (심부름 가능한 퀘스트가 있을 때만 1)
 
-        # 디버그
-        "can:debug_props": 1,
-        "can:debug_self_props": 1,
-        "can:debug_item_props": 1,
-        "can:debug_affection_up": 1,
-        "can:debug_affection_down": 1,
-        "can:debug_arousal_up": 1,
-        "can:debug_arousal_down": 1,
     }
     actions = ["call:rest:휴식", "call:sleep:노숙"]
     mood = []

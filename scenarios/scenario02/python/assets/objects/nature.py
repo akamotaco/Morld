@@ -95,7 +95,7 @@ class AppleTree(Tree, ResourceObject):
         "call:look:살펴보기",
         "call:chop:벌목",           # 통나무 (Tree) - can:chop 필요
         "call:gather:가지 줍기",    # 나뭇가지 (Tree)
-        "call:debug_props:속성 보기"
+        "call:debug_props*:속성 보기"
     ]
 
     focus_text = {
@@ -136,7 +136,7 @@ class BerryBush(ResourceObject):
     name = "산딸기 덤불"
     resource_item_unique_id = "food_wild_berry"
     max_resources = 5
-    actions = ["container#", "call:debug_props:속성 보기"]
+    actions = ["container#", "call:debug_props*:속성 보기"]
 
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""
@@ -155,7 +155,7 @@ class MushroomPatch(ResourceObject):
     name = "버섯 군락"
     resource_item_unique_id = "food_mushroom"
     max_resources = 4
-    actions = ["container#", "call:debug_props:속성 보기"]
+    actions = ["container#", "call:debug_props*:속성 보기"]
 
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""
@@ -174,7 +174,7 @@ class HerbGarden(ResourceObject):
     name = "약초밭"
     resource_item_unique_id = "food_herb"
     max_resources = 4
-    actions = ["container#", "call:debug_props:속성 보기"]
+    actions = ["container#", "call:debug_props*:속성 보기"]
 
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""
@@ -203,7 +203,7 @@ class RabbitBurrow(Object):
     check_interval = 360  # 6시간마다 체크
     catch_chance = 0.4    # 40% 확률로 토끼 포획
 
-    actions = ["container#", "putinobject", "call:look:살펴보기", "call:debug_props:속성 보기"]
+    actions = ["container#", "putinobject", "call:look:살펴보기", "call:debug_props*:속성 보기"]
 
     def instantiate(self, instance_id: int, region_id: int = None, location_id: int = None):
         """토끼 굴 인스턴스화 - trap_agent에 등록"""
