@@ -59,8 +59,43 @@ Morld는 ECS(Entity Component System) 아키텍처를 기반으로 한 게임 �
 ### 시스템 실행 순서
 
 ```
-ThinkSystem → JobBehaviorSystem → PlayerSystem → DescribeSystem
+ThinkSystem → EventPredictionSystem → EventSystem → JobBehaviorSystem → PlayerSystem → DescribeSystem
 ```
+
+### GameEngine 이벤트 루프
+
+```csharp
+// GameEngine._Process() - 매 프레임 실행
+if (_playerSystem.HasPendingTime)
+{
+    // 1. World Step 실행 (모든 시스템 Proc 호출)
+    this._world.Step(delta_int);
+
+    // 2. 매 Step마다 만남 감지 (EventPredictionSystem이 시간 조정했으므로)
+    _eventSystem.DetectMeetings();
+    var eventHandled = _eventSystem.FlushEvents();
+
+    // 3. 이벤트 발생 시 시간 진행 중단
+    if (eventHandled)
+    {
+        _playerSystem.ClearPendingTime();  // 남은 시간 클리어, 다이얼로그 진입
+    }
+
+    // 4. 시간 진행 완료 후 추가 처리
+    if (!_playerSystem.HasPendingTime)
+    {
+        _eventSystem.DetectLocationChanges();
+        _eventSystem.FlushEvents();
+        _eventSystem.FinalizeDialogTime();
+        UpdateSituationText();
+    }
+}
+```
+
+**핵심 변경사항:**
+- `DetectMeetings()`를 매 Step마다 호출 (기존: 시간 완료 후에만)
+- 이벤트 발생 시 즉시 `ClearPendingTime()` 호출
+- `_lastMeetings`로 중복 이벤트 방지
 
 ### 데이터 흐름
 
@@ -310,12 +345,71 @@ class MyAgent(BaseAgent):
 - `on_time_elapsed` - 시간 경과
 - `game_start` - 게임 시작
 
+**DetectMeetings() - 만남 감지:**
+
+플레이어와 같은 위치에 있는 NPC를 감지하여 `on_meet` 이벤트 생성.
+
+```csharp
+// 만남 조건 (둘 중 하나 충족 시 만남 발생)
+// 조건 A: 정지 상태 (CurrentEdge == null)
+if (unit.CurrentEdge == null)
+{
+    unitsToMeet.Add(unit.Id);
+    continue;
+}
+
+// 조건 B: 방금 도착 (이전 위치 != 현재 위치, 경유지 통과 감지)
+if (_lastLocations.TryGetValue(unit.Id, out var lastLoc))
+{
+    if (lastLoc != unit.CurrentLocation)
+    {
+        unitsToMeet.Add(unit.Id);
+    }
+}
+```
+
+| 조건 | 상황 | 설명 |
+|------|------|------|
+| A | NPC 정지 | 플레이어가 도착하거나, 이미 같은 위치 |
+| B | NPC 경유지 통과 | 플레이어가 멍때리기 중, NPC가 지나감 |
+
+**중복 만남 방지:**
+- `_lastMeetings` HashSet으로 동일 만남 중복 발생 방지
+- 만남 키 초기화 조건: 플레이어/NPC 위치 변경, NPC Edge 진입
+
 **파일 위치:**
 - `scripts/system/event_system.cs`
 - `scripts/morld/event/GameEvent.cs`
 - `scenarios/scenario02/python/events/__init__.py`
 
 > 상세 내용은 [event.md](event.md) 참조
+
+### EventPredictionSystem (Logic System)
+**역할:** 이벤트 예측 및 시간 조정
+
+플레이어/NPC의 이동 경로를 분석하여 만남 시점을 예측하고, `NextStepDuration`을 조정하여 이벤트가 정확한 시점에 발생하도록 함.
+
+**실행 순서:**
+```
+ThinkSystem → EventPredictionSystem → EventSystem → JobBehaviorSystem
+```
+
+**핵심 로직:**
+1. `HasPendingTime` 체크 (시간 진행 대기 중일 때만 실행)
+2. 플레이어/NPC 이동 경로 계산 (`GetMovementRoute`)
+3. 만남/도착 이벤트 예측 (`PredictMeetings`, `PredictArrivals`)
+4. 가장 빠른 시간 중단 이벤트 찾기 (`FindEarliestInterrupt`)
+5. `NextStepDuration` 조정 (최소 1분)
+
+**만남 예측 기준 (FindMeetingTime):**
+| 케이스 | 조건 | 결과 |
+|--------|------|------|
+| 1 | 둘 다 ArrivalTime == 0 | 스킵 (이미 같은 위치, DetectMeetings에서 처리) |
+| 2 | 한쪽만 ArrivalTime == 0 | 다른 쪽 도착 시점에 만남 |
+| 3 | 둘 다 이동 중 | 도착 시간 차이 5분 이내면 만남 |
+
+**파일 위치:**
+- `scripts/system/event_prediction_system.cs`
 
 ### UnitSystem (Data System)
 **역할:** 게임 내 모든 유닛(캐릭터/오브젝트)의 데이터 관리

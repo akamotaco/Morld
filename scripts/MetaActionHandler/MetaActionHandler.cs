@@ -206,6 +206,27 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 플레이어 이동 취소
+	/// NPC 주도 이벤트 발동 시 호출하여 기존 위치 유지
+	/// </summary>
+	private void CancelPlayerMovement()
+	{
+		// 시간 진행 중단
+		_playerSystem?.ClearPendingTime();
+
+		// 플레이어 Job/Edge 초기화
+		var player = _playerSystem?.FindPlayerUnit();
+		if (player != null)
+		{
+			player.JobList.Clear();
+			player.CurrentEdge = null;
+#if DEBUG_LOG
+			GD.Print("[MetaActionHandler] CancelPlayerMovement: Player movement cancelled");
+#endif
+		}
+	}
+
+	/// <summary>
 	/// 대기 중인 이벤트 및 ExcessTime 처리
 	/// 다이얼로그가 표시되었거나 ExcessTime으로 인해 시간이 흘렀으면 true 반환
 	/// </summary>

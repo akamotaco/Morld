@@ -225,6 +225,12 @@ public partial class MetaActionHandler
 					if (genResult != null && genResult.Type == "generator_dialog"
 						&& genResult is SE.GeneratorScriptResult gr)
 					{
+						// 플레이어 이동 취소 (시간 진행 중단 + Job/Edge 초기화)
+						CancelPlayerMovement();
+
+						// 스택을 Situation 상태로 정리 (다이얼로그 종료 후 현재 위치 표시를 위해)
+						_textUISystem?.ShowSituation();
+
 						SetPendingGenerator(gr.Generator, gr.DialogRequest);
 
 						// proc('init') 호출
