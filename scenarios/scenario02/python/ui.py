@@ -289,6 +289,14 @@ def get_action_text():
     else:
         lines.append("  [color=gray]낮잠 (4시간)[/color]")
 
+    # 지도 (can:map prop 보유 시 - 지도 아이템 소지)
+    # get_actual_props로 passive_props 포함된 실제 props 조회
+    player_id = morld.get_player_id()
+    if player_id is not None:
+        player_props = morld.get_actual_props(player_id)
+        if player_props.get("can:map", 0) >= 1:
+            lines.append("  [url=map:open]지도[/url]")
+
     # 상태바는 get_footer()로 분리됨 (C#에서 별도 호출)
 
     return "\n".join(lines)

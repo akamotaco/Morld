@@ -73,8 +73,14 @@ class Storage(Location):
         morld.give_item(toolbox_id, saw_id, 1)
 
         # 투박한 단검을 도구함에 넣기 (세라 소유)
-        from assets.items.equipment import RusticDagger
+        from assets.items.equipment import RusticDagger, Map
         dagger = RusticDagger()
         dagger_id = morld.create_id("item")
         dagger.instantiate(dagger_id)
         morld.give_item(toolbox_id, dagger_id, 1)
+
+        # 지도를 도구함에 넣기
+        map_item = Map()
+        map_id = morld.create_id("item")
+        map_item.instantiate(map_id)
+        morld.give_item(toolbox_id, map_id, 1)

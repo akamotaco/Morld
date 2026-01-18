@@ -262,6 +262,34 @@ SmallToolbox = PortableCraftingKit
 
 
 # ========================================
+# 탐색 도구
+# ========================================
+
+@register_item
+class Map(Item):
+    """
+    지도 - 소지 시 지도 기능 활성화
+
+    소지만 해도 can:map 능력 부여
+    - Location focus에서 '지도' 액션 사용 가능
+    - 현재 region의 장소들을 tree 형태로 표시
+    - 장거리 이동(path planning) 가능
+    """
+    unique_id = "map"
+    name = "지도"
+    passive_props = {"can:map": 1}
+    value = 50
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """지도 살펴보기"""
+        yield morld.dialog([
+            "낡았지만 꼼꼼하게 그려진 지도다.",
+            "주변 지역의 지형이 상세하게 표시되어 있다."
+        ])
+
+
+# ========================================
 # 무기
 # ========================================
 

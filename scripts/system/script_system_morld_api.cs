@@ -484,6 +484,18 @@ namespace SE
                 // 목적지로 이동 중인지 여부 (논리적 상태)
                 result.SetItem(new PyString("is_traveling"), PyBool.FromBool(unit.IsTraveling));
 
+                // 이동 중인 경우 목적지 정보 (CurrentJob에서 추출)
+                if (currentJob != null && currentJob.Action == "move")
+                {
+                    result.SetItem(new PyString("dest_region_id"), new PyInt(currentJob.RegionId));
+                    result.SetItem(new PyString("dest_location_id"), new PyInt(currentJob.LocationId));
+                }
+                else
+                {
+                    result.SetItem(new PyString("dest_region_id"), PyNone.Instance);
+                    result.SetItem(new PyString("dest_location_id"), PyNone.Instance);
+                }
+
                 return result;
             });
 
@@ -516,6 +528,23 @@ namespace SE
                     {
                         result.Append(new PyInt(unit.Id));
                     }
+                }
+                return result;
+            });
+
+            // get_all_unit_ids() - 모든 유닛 ID 목록 반환 (캐릭터만, 오브젝트 제외)
+            morldModule.ModuleDict["get_all_unit_ids"] = new PyBuiltinFunction("get_all_unit_ids", args =>
+            {
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                var result = new PyList();
+                foreach (var unit in _unitSystem.Units.Values)
+                {
+                    // 오브젝트는 제외 (캐릭터만)
+                    if (unit.IsObject)
+                        continue;
+
+                    result.Append(new PyInt(unit.Id));
                 }
                 return result;
             });

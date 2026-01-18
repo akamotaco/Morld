@@ -257,8 +257,11 @@ public partial class MetaActionHandler
 
 		if (_pendingDialogRequest == null)
 		{
-			GD.PrintErr("[MetaActionHandler] @next: called without pending dialog request - this is a bug!");
-			return;
+			// 비정상 상태: Dialog가 열려있지만 _pendingDialogRequest가 없음
+			// 이는 버그이므로 에러를 발생시켜 원인 파악 필요
+			throw new System.InvalidOperationException(
+				"[MetaActionHandler] @next: called without pending dialog request. " +
+				"This indicates a bug in Generator/Dialog state management.");
 		}
 
 		if (_pendingDialogRequest.MoveToNextPage())

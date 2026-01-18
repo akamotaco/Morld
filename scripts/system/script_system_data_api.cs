@@ -289,6 +289,149 @@ namespace SE
                 }
                 return PyNone.Instance;
             });
+
+            // get_region_info: Region 정보 조회 (지도 기능용)
+            // 반환: {"id", "name", "locations": [{"id", "name", "edges": [(to_local_id, travel_time), ...], "region_edges": [(to_region, to_local, region_name), ...]}], ...}
+            morldModule.ModuleDict["get_region_info"] = new PyBuiltinFunction("get_region_info", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("get_region_info(region_id) requires 1 argument");
+
+                int regionId = args[0].ToInt();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem.GetTerrain();
+                var region = terrain.GetRegion(regionId);
+
+                if (region == null)
+                    return PyNone.Instance;
+
+                var result = new PyDict();
+                result.SetItem(new PyString("id"), new PyInt(region.Id));
+                result.SetItem(new PyString("name"), new PyString(region.Name ?? ""));
+
+                // Location 목록
+                var locationsList = new PyList();
+                foreach (var location in region.Locations)
+                {
+                    var locDict = new PyDict();
+                    locDict.SetItem(new PyString("id"), new PyInt(location.LocalId));
+                    locDict.SetItem(new PyString("name"), new PyString(location.Name ?? ""));
+                    locDict.SetItem(new PyString("is_indoor"), location.IsIndoor ? PyBool.True : PyBool.False);
+
+                    // 이 Location에서 나가는 Edge 목록 (같은 Region 내)
+                    var edgesList = new PyList();
+                    foreach (var edge in region.Edges)
+                    {
+                        int? toLocalId = null;
+                        int travelTime = 0;
+
+                        if (edge.LocationA.LocalId == location.LocalId)
+                        {
+                            toLocalId = edge.LocationB.LocalId;
+                            travelTime = edge.TravelTimeAtoB;
+                        }
+                        else if (edge.LocationB.LocalId == location.LocalId)
+                        {
+                            toLocalId = edge.LocationA.LocalId;
+                            travelTime = edge.TravelTimeBtoA;
+                        }
+
+                        if (toLocalId.HasValue)
+                        {
+                            var edgeTuple = new PyTuple(new PyObject[] {
+                                new PyInt(toLocalId.Value),
+                                new PyInt(travelTime)
+                            });
+                            edgesList.Append(edgeTuple);
+                        }
+                    }
+                    locDict.SetItem(new PyString("edges"), edgesList);
+
+                    // 이 Location에서 다른 Region으로 가는 RegionEdge 목록
+                    var regionEdgesList = new PyList();
+                    foreach (var regionEdge in terrain.RegionEdges)
+                    {
+                        int? toRegionId = null;
+                        int? toLocalId = null;
+
+                        if (regionEdge.LocationA.RegionId == regionId && regionEdge.LocationA.LocalId == location.LocalId)
+                        {
+                            toRegionId = regionEdge.LocationB.RegionId;
+                            toLocalId = regionEdge.LocationB.LocalId;
+                        }
+                        else if (regionEdge.LocationB.RegionId == regionId && regionEdge.LocationB.LocalId == location.LocalId)
+                        {
+                            toRegionId = regionEdge.LocationA.RegionId;
+                            toLocalId = regionEdge.LocationA.LocalId;
+                        }
+
+                        if (toRegionId.HasValue && toLocalId.HasValue)
+                        {
+                            var targetRegion = terrain.GetRegion(toRegionId.Value);
+                            var regionName = targetRegion?.Name ?? "";
+                            var regionEdgeTuple = new PyTuple(new PyObject[] {
+                                new PyInt(toRegionId.Value),
+                                new PyInt(toLocalId.Value),
+                                new PyString(regionName)
+                            });
+                            regionEdgesList.Append(regionEdgeTuple);
+                        }
+                    }
+                    locDict.SetItem(new PyString("region_edges"), regionEdgesList);
+
+                    locationsList.Append(locDict);
+                }
+                result.SetItem(new PyString("locations"), locationsList);
+
+                return result;
+            });
+
+            // get_travel_time: 두 위치 간 이동 시간 계산 (경로 탐색 포함)
+            morldModule.ModuleDict["get_travel_time"] = new PyBuiltinFunction("get_travel_time", args =>
+            {
+                if (args.Length < 4)
+                    throw PyTypeError.Create("get_travel_time(from_region, from_loc, to_region, to_loc, unit_id=None) requires at least 4 arguments");
+
+                int fromRegion = args[0].ToInt();
+                int fromLoc = args[1].ToInt();
+                int toRegion = args[2].ToInt();
+                int toLoc = args[3].ToInt();
+                int? unitId = args.Length > 4 && args[4] != PyNone.Instance ? args[4].ToInt() : null;
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+
+                var terrain = _worldSystem.GetTerrain();
+                var from = new Morld.LocationRef(fromRegion, fromLoc);
+                var to = new Morld.LocationRef(toRegion, toLoc);
+
+                // 이미 같은 위치면 0
+                if (from == to)
+                    return new PyInt(0);
+
+                // 유닛 기반 경로 탐색 (조건 체크용)
+                Morld.TraversalContext? props = null;
+                if (unitId.HasValue)
+                {
+                    var unit = _unitSystem.FindUnit(unitId.Value);
+                    if (unit != null)
+                    {
+                        var inventory = _inventorySystem.GetUnitInventory(unit.Id);
+                        var equippedItems = _inventorySystem.GetUnitEquippedItems(unit.Id);
+                        props = unit.GetActualProps(_itemSystem, inventory, equippedItems);
+                    }
+                }
+
+                var pathResult = terrain.FindPath(from, to, props);
+
+                if (pathResult == null || !pathResult.Found || pathResult.Path.Count < 2)
+                    return new PyInt(-1);
+
+                return new PyInt(terrain.CalculatePathTravelTime(pathResult));
+            });
         }
 
         #endregion
@@ -1185,6 +1328,25 @@ namespace SE
             morldModule.ModuleDict["set_unit_activity"] = new PyBuiltinFunction("set_unit_activity", args =>
             {
                 Godot.GD.PrintErr("[morld] set_unit_activity is DEPRECATED. Activity is now determined by CurrentJob.Name from schedule.");
+                return PyBool.False;
+            });
+
+            // request_player_command: 플레이어 명령 요청 (시간 진행 포함)
+            // 사용 예: morld.request_player_command("이동:0:1") 또는 morld.request_player_command("휴식:30")
+            morldModule.ModuleDict["request_player_command"] = new PyBuiltinFunction("request_player_command", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("request_player_command(command) requires 1 argument");
+
+                string command = args[0].AsString();
+
+                var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                if (_playerSystem != null)
+                {
+                    _playerSystem.RequestCommand(command);
+                    Godot.GD.Print($"[morld] request_player_command: {command}");
+                    return PyBool.True;
+                }
                 return PyBool.False;
             });
         }
