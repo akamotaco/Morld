@@ -65,6 +65,60 @@ class ConvenienceStore(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundConcrete())
 
+        # 선반 추가 (카운터 뒤 선반 역할)
+        from assets.objects.furniture import Shelf
+        shelf = Shelf()
+        shelf_id = self.add_object(shelf)
+
+        # 도시 지도를 선반에 넣기 (도시 지역 전용)
+        from assets.items.equipment import CityMap
+        city_map = CityMap()
+        city_map_id = morld.create_id("item")
+        city_map.instantiate(city_map_id)
+        morld.give_item(shelf_id, city_map_id, 1)
+
+        # 냉장고들 추가 (편의점에는 냉장고가 많다)
+        from assets.objects.furniture import Refrigerator
+        from assets.items.food import (
+            CannedCola, CannedCoffee, EnergyDrink,
+            WaterBottle, SportsDrink, GreenTea
+        )
+
+        # 냉장고 1 - 탄산/커피
+        fridge1 = Refrigerator()
+        fridge1.name = "냉장고 (탄산/커피)"
+        fridge1_id = self.add_object(fridge1)
+        # 콜라 3개
+        for _ in range(3):
+            item = CannedCola(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge1_id, item_id, 1)
+        # 캔 커피 3개
+        for _ in range(3):
+            item = CannedCoffee(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge1_id, item_id, 1)
+        # 에너지 드링크 2개
+        for _ in range(2):
+            item = EnergyDrink(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge1_id, item_id, 1)
+
+        # 냉장고 2 - 생수/차
+        fridge2 = Refrigerator()
+        fridge2.name = "냉장고 (생수/차)"
+        fridge2_id = self.add_object(fridge2)
+        # 생수 4개
+        for _ in range(4):
+            item = WaterBottle(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge2_id, item_id, 1)
+        # 녹차 2개
+        for _ in range(2):
+            item = GreenTea(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge2_id, item_id, 1)
+
+        # 냉장고 3 - 스포츠 음료
+        fridge3 = Refrigerator()
+        fridge3.name = "냉장고 (스포츠 음료)"
+        fridge3_id = self.add_object(fridge3)
+        # 스포츠 음료 3개
+        for _ in range(3):
+            item = SportsDrink(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge3_id, item_id, 1)
+        # 에너지 드링크 1개
+        item = EnergyDrink(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge3_id, item_id, 1)
+
 
 class Pharmacy(Location):
     """약국 - 약품 있을 수 있음 (실내)"""

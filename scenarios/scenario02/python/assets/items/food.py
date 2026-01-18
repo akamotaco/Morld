@@ -245,3 +245,97 @@ class RoastedRabbit(FoodItem):
     ]
     eat_time = 5
     actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+# ========================================
+# 캔/병 음료
+# ========================================
+
+@register_item
+class CannedCola(FoodItem):
+    """캔 콜라 - 편의점에서 발견"""
+    unique_id = "drink_canned_cola"
+    name = "캔 콜라"
+    value = 5
+    food_satiety = 15
+    eat_message = [
+        "캔을 따서 콜라를 마셨다.",
+        "김이 다 빠졌지만 달콤한 맛은 남아있다."
+    ]
+    eat_time = 1
+    actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+@register_item
+class CannedCoffee(FoodItem):
+    """캔 커피 - 편의점에서 발견"""
+    unique_id = "drink_canned_coffee"
+    name = "캔 커피"
+    value = 5
+    food_satiety = 10
+    eat_message = [
+        "캔 커피를 마셨다.",
+        "미지근하지만 쌉쌀한 맛이 정신을 깨운다."
+    ]
+    eat_time = 1
+    actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+@register_item
+class EnergyDrink(FoodItem):
+    """에너지 드링크 - 편의점에서 발견"""
+    unique_id = "drink_energy"
+    name = "에너지 드링크"
+    value = 8
+    food_satiety = 20
+    eat_message = [
+        "에너지 드링크를 벌컥 마셨다.",
+        "인공적인 단맛과 함께 활력이 느껴진다."
+    ]
+    eat_time = 1
+    actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+@register_item
+class WaterBottle(FoodItem):
+    """생수병 - 편의점에서 발견"""
+    unique_id = "drink_water"
+    name = "생수병"
+    value = 2
+    food_satiety = 10
+    eat_message = [
+        "생수를 마셨다.",
+        "목이 축축해지는 느낌이다."
+    ]
+    eat_time = 1
+    actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+@register_item
+class SportsDrink(FoodItem):
+    """스포츠 음료 - 편의점에서 발견"""
+    unique_id = "drink_sports"
+    name = "스포츠 음료"
+    value = 6
+    food_satiety = 18
+    eat_message = [
+        "스포츠 음료를 마셨다.",
+        "약간 짠맛이 나지만 몸에 좋은 느낌이다."
+    ]
+    eat_time = 1
+    actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+@register_item
+class GreenTea(FoodItem):
+    """녹차 (페트병) - 편의점에서 발견"""
+    unique_id = "drink_green_tea"
+    name = "녹차"
+    value = 4
+    food_satiety = 12
+    eat_message = [
+        "녹차를 마셨다.",
+        "은은한 차 향이 입안에 퍼진다."
+    ]
+    eat_time = 1
+    actions = ["take@container", "call:eat:마시기@inventory"]

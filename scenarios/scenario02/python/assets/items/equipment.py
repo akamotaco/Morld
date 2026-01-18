@@ -266,26 +266,97 @@ SmallToolbox = PortableCraftingKit
 # ========================================
 
 @register_item
-class Map(Item):
+class Compass(Item):
     """
-    지도 - 소지 시 지도 기능 활성화
+    나침반 - 소지 시 전체 지도 기능 활성화
 
     소지만 해도 can:map 능력 부여
     - Location focus에서 '지도' 액션 사용 가능
-    - 현재 region의 장소들을 tree 형태로 표시
+    - 모든 region의 장소들을 볼 수 있음 (지역 제한 없음)
     - 장거리 이동(path planning) 가능
     """
-    unique_id = "map"
-    name = "지도"
+    unique_id = "compass"
+    name = "나침반"
     passive_props = {"can:map": 1}
-    value = 50
+    value = 80
     actions = ["take@container", "call:look:살펴보기@inventory"]
 
     def look(self):
-        """지도 살펴보기"""
+        """나침반 살펴보기"""
         yield morld.dialog([
-            "낡았지만 꼼꼼하게 그려진 지도다.",
-            "주변 지역의 지형이 상세하게 표시되어 있다."
+            "정교하게 만들어진 나침반이다.",
+            "이것만 있으면 어디서든 방향을 잡을 수 있다.",
+            "지도 기능을 사용할 수 있다."
+        ])
+
+
+# 레거시 호환성을 위한 별칭
+Map = Compass
+
+
+@register_item
+class MansionMap(Item):
+    """
+    저택 지도 - 저택 지역(Region 0)에서만 사용 가능
+
+    소지 시 저택 지역에서 can:map:mansion 능력 부여
+    - 저택 Region에서만 지도 기능 활성화
+    """
+    unique_id = "mansion_map"
+    name = "저택 지도"
+    passive_props = {"can:map:mansion": 1}
+    value = 30
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """저택 지도 살펴보기"""
+        yield morld.dialog([
+            "저택과 그 주변을 그린 지도다.",
+            "저택 내부 구조가 상세하게 표시되어 있다."
+        ])
+
+
+@register_item
+class ForestMap(Item):
+    """
+    숲속 지도 - 숲 지역(Region 1)에서만 사용 가능
+
+    소지 시 숲 지역에서 can:map:forest 능력 부여
+    - 숲 Region에서만 지도 기능 활성화
+    """
+    unique_id = "forest_map"
+    name = "숲속 지도"
+    passive_props = {"can:map:forest": 1}
+    value = 30
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """숲속 지도 살펴보기"""
+        yield morld.dialog([
+            "숲의 길과 주요 장소를 그린 지도다.",
+            "오두막, 늑대굴 등의 위치가 표시되어 있다."
+        ])
+
+
+@register_item
+class CityMap(Item):
+    """
+    도시 지도 - 도시 지역(Region 2)에서만 사용 가능
+
+    소지 시 도시 지역에서 can:map:city 능력 부여
+    - 도시 Region에서만 지도 기능 활성화
+    """
+    unique_id = "city_map"
+    name = "도시 지도"
+    passive_props = {"can:map:city": 1}
+    value = 30
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """도시 지도 살펴보기"""
+        yield morld.dialog([
+            "황폐화된 도시의 거리를 그린 지도다.",
+            "편의점, 약국 등의 위치가 표시되어 있다."
         ])
 
 

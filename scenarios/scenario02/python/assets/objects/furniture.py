@@ -476,6 +476,64 @@ class Wardrobe(Object):
 
 
 # ========================================
+# 상점/편의점 오브젝트
+# ========================================
+
+class Shelf(Object):
+    """
+    선반 - 물건 보관 및 진열
+
+    컨테이너 패턴:
+    - container: 물건 넣기/빼기 (인벤토리 조회)
+    - item_visible: True (아이템 개수 표시)
+    """
+    unique_id = "shelf"
+    name = "선반"
+    item_visible = True  # 아이템 개수 표시
+    actions = [
+        "call:look:살펴보기",
+        "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
+        "call:debug_props*:속성 보기"
+    ]
+    focus_text = {"default": "물건을 놓을 수 있는 선반."}
+
+    def look(self):
+        """선반 살펴보기"""
+        yield morld.dialog([
+            "물건을 진열할 수 있는 선반이다.",
+            "남은 물건이 있는지 확인해 볼 수 있다."
+        ])
+        morld.advance_time(1)
+
+
+class Refrigerator(Object):
+    """
+    냉장고 - 음료 및 음식 보관
+
+    컨테이너 패턴:
+    - container: 물건 넣기/빼기 (인벤토리 조회)
+    - item_visible: True (아이템 개수 표시)
+    """
+    unique_id = "refrigerator"
+    name = "냉장고"
+    item_visible = True  # 아이템 개수 표시
+    actions = [
+        "call:look:살펴보기",
+        "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
+        "call:debug_props*:속성 보기"
+    ]
+    focus_text = {"default": "낡은 냉장고. 전기가 안 들어와 그냥 보관함으로 쓰인다."}
+
+    def look(self):
+        """냉장고 살펴보기"""
+        yield morld.dialog([
+            "낡은 냉장고다.",
+            "전기가 들어오지 않아 차갑지 않지만, 음료가 남아있을지도 모른다."
+        ])
+        morld.advance_time(1)
+
+
+# ========================================
 # 2층 복도 오브젝트
 # ========================================
 

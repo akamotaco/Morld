@@ -166,3 +166,10 @@ class ForestCabin(Location):
         # 낡은 옷들
         add_to_wardrobe(WornOutJacket)
         add_to_wardrobe(DirtyShirt)
+
+        # 숲속 지도를 옷장에 넣기 (숲 지역 전용)
+        from assets.items.equipment import ForestMap
+        forest_map = ForestMap()
+        forest_map_id = morld.create_id("item")
+        forest_map.instantiate(forest_map_id)
+        morld.give_item(wardrobe_id, forest_map_id, 1)

@@ -289,12 +289,32 @@ def get_action_text():
     else:
         lines.append("  [color=gray]낮잠 (4시간)[/color]")
 
-    # 지도 (can:map prop 보유 시 - 지도 아이템 소지)
+    # 지도 (can:map 또는 지역별 지도 prop 보유 시)
     # get_actual_props로 passive_props 포함된 실제 props 조회
     player_id = morld.get_player_id()
     if player_id is not None:
         player_props = morld.get_actual_props(player_id)
+        can_use_map = False
+
+        # 나침반(can:map) - 모든 지역에서 사용 가능
         if player_props.get("can:map", 0) >= 1:
+            can_use_map = True
+        else:
+            # 지역별 지도 - 현재 region에서만 사용 가능
+            current_loc = morld.get_unit_location(player_id)
+            if current_loc:
+                current_region_id = current_loc[0]
+                # Region ID → 지도 prop 매핑
+                region_map_props = {
+                    0: "can:map:mansion",   # 저택 지역
+                    1: "can:map:forest",    # 숲 지역
+                    2: "can:map:city",      # 도시 지역
+                }
+                map_prop = region_map_props.get(current_region_id)
+                if map_prop and player_props.get(map_prop, 0) >= 1:
+                    can_use_map = True
+
+        if can_use_map:
             lines.append("  [url=map:open]지도[/url]")
 
     # 상태바는 get_footer()로 분리됨 (C#에서 별도 호출)
