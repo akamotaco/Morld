@@ -133,6 +133,46 @@ class Quest:
         progress_pages = self.dialogs.get("progress", ["퀘스트 진행 중..."])
         yield morld.dialog(progress_pages)
 
+    def get_completion_result(self, context: Dict[str, Any] = None) -> str:
+        """
+        퀘스트 완료 결과 텍스트 생성
+
+        서브클래스에서 오버라이드하여 동적 결과 텍스트를 생성합니다.
+        context에는 퀘스트 완료 시점의 정보가 담깁니다:
+        - met_npc: 만난 NPC 이름 (meet 조건)
+        - reached_location: 도착한 장소 이름 (reach 조건)
+        - player_id: 플레이어 ID
+
+        Args:
+            context: 완료 시점 컨텍스트 정보
+
+        Returns:
+            저장될 결과 텍스트 (UI에서 표시)
+        """
+        # 기본 구현: dialogs의 "result" 키 사용, 없으면 "complete" 사용
+        if context is None:
+            context = {}
+
+        result_template = self.dialogs.get("result")
+        if result_template:
+            # 템플릿 문자열이면 context로 포매팅
+            if isinstance(result_template, str):
+                try:
+                    return result_template.format(**context)
+                except KeyError:
+                    return result_template
+            # 리스트면 줄바꿈으로 연결 후 포매팅
+            elif isinstance(result_template, list):
+                text = "\n".join(result_template)
+                try:
+                    return text.format(**context)
+                except KeyError:
+                    return text
+
+        # result가 없으면 complete 다이얼로그 사용
+        complete_pages = self.dialogs.get("complete", [f"'{self.name}' 완료"])
+        return "\n".join(complete_pages)
+
 
 # ============================================
 # 퀘스트 등록 시스템
@@ -485,8 +525,14 @@ class QuestManager:
         self._set_quest_status(quest_id, QuestStatus.COMPLETED)
         return True
 
-    def claim_reward(self, quest_id: str) -> bool:
-        """보상 수령"""
+    def claim_reward(self, quest_id: str, context: Dict[str, Any] = None) -> bool:
+        """
+        보상 수령
+
+        Args:
+            quest_id: 퀘스트 ID
+            context: 완료 컨텍스트 (met_npc, reached_location 등)
+        """
         status = self.get_quest_status(quest_id)
         if status != QuestStatus.COMPLETED:
             return False
@@ -496,6 +542,15 @@ class QuestManager:
             return False
 
         player_id = self._get_player_id()
+
+        # 컨텍스트 수집 (제공되지 않은 경우)
+        if context is None:
+            context = self._collect_completion_context(quest_id, quest)
+
+        # 결과 텍스트 생성 및 저장 (일반 퀘스트만)
+        if not quest.repeatable:
+            result_text = quest.get_completion_result(context)
+            self._save_quest_result(quest_id, result_text)
 
         # 보상 지급
         for reward in quest.rewards:
@@ -524,6 +579,89 @@ class QuestManager:
         self._check_unlock_quests()
 
         return True
+
+    def _collect_completion_context(self, quest_id: str, quest: Quest) -> Dict[str, Any]:
+        """
+        퀘스트 완료 시 컨텍스트 수집
+
+        조건에서 만난 NPC, 도착한 장소 등의 정보를 수집합니다.
+        """
+        player_id = self._get_player_id()
+        props = morld.get_unit_props(player_id) or {}
+        context = {"player_id": player_id, "quest_name": quest.name}
+
+        # meet 조건에서 만난 NPC 찾기
+        for cond in quest.conditions:
+            cond_type = cond.get("type")
+
+            if cond_type == "meet":
+                target = cond.get("target")
+                if target:
+                    # NPC 이름 조회 (unique_id → 이름)
+                    npc_name = self._get_npc_name(target)
+                    context["met_npc"] = npc_name or target
+                    context["met_npc_id"] = target
+
+            elif cond_type == "meet_anyone":
+                # 관계:*:진척도 에서 만난 NPC 찾기
+                for key, value in props.items():
+                    if key.startswith("관계:") and key.endswith(":진척도") and value >= 1:
+                        # "관계:밀라:진척도" → "밀라"
+                        npc_name = key.split(":")[1]
+                        context["met_npc"] = npc_name
+                        break
+
+            elif cond_type == "reach":
+                region = cond.get("region")
+                location = cond.get("location")
+                location_name = cond.get("location_name")
+                if location_name:
+                    context["reached_location"] = location_name
+                elif region is not None and location is not None:
+                    context["reached_location"] = f"({region}, {location})"
+
+            elif cond_type == "talk":
+                target = cond.get("target")
+                if target:
+                    npc_name = self._get_npc_name(target)
+                    context["talked_npc"] = npc_name or target
+
+        return context
+
+    def _get_npc_name(self, unique_id: str) -> Optional[str]:
+        """NPC unique_id로 이름 조회"""
+        try:
+            from assets import characters
+            # 인스턴스 ID가 아닌 unique_id로 찾기
+            for char_cls in characters.get_all_character_classes():
+                if hasattr(char_cls, 'unique_id') and char_cls.unique_id == unique_id:
+                    return char_cls.name
+        except Exception:
+            pass
+        return None
+
+    def _save_quest_result(self, quest_id: str, result_text: str):
+        """퀘스트 결과 텍스트 저장"""
+        # 결과 텍스트는 _quest_results 딕셔너리에 저장 (세션 내 유지)
+        if not hasattr(self, '_quest_results'):
+            self._quest_results = {}
+        self._quest_results[quest_id] = result_text
+
+    def get_quest_result(self, quest_id: str) -> Optional[str]:
+        """저장된 퀘스트 결과 텍스트 조회"""
+        if not hasattr(self, '_quest_results'):
+            self._quest_results = {}
+
+        # 저장된 결과가 있으면 반환
+        if quest_id in self._quest_results:
+            return self._quest_results[quest_id]
+
+        # 저장된 결과가 없으면 기본 텍스트 생성
+        quest = self._get_quest_instance(quest_id)
+        if quest:
+            return quest.get_completion_result({})
+
+        return None
 
     def _check_unlock_quests(self):
         """선행 조건 충족으로 해금 가능한 퀘스트 체크"""
@@ -600,18 +738,31 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
     if selected_quest_id:
         quest = quest_manager._get_quest_instance(selected_quest_id)
         if quest:
+            status = quest_manager.get_quest_status(selected_quest_id)
+
             lines.append(f"[b]{quest.name}[/b]")
             lines.append("")
-            lines.append(f"{quest.description}")
-            lines.append("")
 
-            # 진행 상황 표시
-            progress = quest_manager.get_quest_progress(selected_quest_id)
-            lines.append("[조건]")
-            for cond_info in progress["conditions"]:
-                status = "[color=lime]✓[/color]" if cond_info["is_met"] else "[color=gray]○[/color]"
-                lines.append(f"  {status} {cond_info['description']}")
-            lines.append("")
+            # 완료된 퀘스트는 결과 텍스트 표시
+            if status == QuestStatus.FINISHED:
+                result_text = quest_manager.get_quest_result(selected_quest_id)
+                if result_text:
+                    lines.append("[기록]")
+                    lines.append(result_text)
+                else:
+                    lines.append(f"{quest.description}")
+                lines.append("")
+            else:
+                lines.append(f"{quest.description}")
+                lines.append("")
+
+                # 진행 상황 표시 (진행 중/완료 대기 퀘스트)
+                progress = quest_manager.get_quest_progress(selected_quest_id)
+                lines.append("[조건]")
+                for cond_info in progress["conditions"]:
+                    cond_status = "[color=lime]✓[/color]" if cond_info["is_met"] else "[color=gray]○[/color]"
+                    lines.append(f"  {cond_status} {cond_info['description']}")
+                lines.append("")
 
             lines.append("[url=@proc:back]← 목록으로[/url]")
             return "\n".join(lines)
@@ -643,7 +794,8 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
         lines.append(f"[url=toggle:finished][color=gray]▶ 완료된 퀘스트 ({len(finished)})[/color][/url]")
         lines.append("[hidden=finished]")
         for quest in finished:
-            lines.append(f"  [color=gray]{quest.name}[/color]")
+            # 클릭하면 결과 텍스트(기록) 보기
+            lines.append(f"  [url=@proc:select:{quest.unique_id}][color=gray]{quest.name}[/color][/url]")
         lines.append("[/hidden=finished]")
         lines.append("")
 

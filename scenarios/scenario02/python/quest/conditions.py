@@ -64,21 +64,23 @@ def get_condition_description(condition: dict) -> str:
     cond_type = condition.get("type")
 
     if cond_type == "reach":
-        # TODO: Location 이름 조회
         region_id = condition.get("region_id", 0)
         location_id = condition.get("location_id", 0)
-        return f"지역 {region_id}-{location_id}에 도착"
+        location_name = _get_location_name(region_id, location_id)
+        return f"{location_name}에 도착"
 
     elif cond_type == "meet":
         target = condition.get("target", "???")
-        # TODO: NPC 이름 조회
-        return f"{target}와(과) 만나기"
+        target_name = _get_npc_name(target)
+        return f"{target_name}와(과) 만나기"
 
     elif cond_type == "collect":
         item = condition.get("item", "???")
         count = condition.get("count", 1)
-        # TODO: 아이템 이름 조회
-        return f"{item} {count}개 수집"
+        item_name = _get_item_name(item)
+        if count == 1:
+            return f"{item_name} 수집"
+        return f"{item_name} {count}개 수집"
 
     elif cond_type == "deliver":
         item = condition.get("item", "???")
@@ -331,3 +333,65 @@ def record_deliver(player_id: int, target_unique_id: str, item_unique_id: str, q
     props = morld.get_unit_props(player_id)
     current = props.get(deliver_key, 0) if props else 0
     morld.set_unit_prop(player_id, deliver_key, current + count)
+
+
+# ============================================
+# 이름 조회 헬퍼 함수
+# ============================================
+
+def _get_location_name(region_id: int, location_id: int) -> str:
+    """
+    Region과 Location ID로 위치 이름 조회
+
+    Returns:
+        위치 이름 (예: "도시 입구", "저택 현관")
+        조회 실패 시 "지역 {region_id}-{location_id}" 형태 반환
+    """
+    try:
+        location_info = morld.get_location_info(region_id, location_id)
+        if location_info and location_info.get("name"):
+            return location_info["name"]
+    except Exception:
+        pass
+    return f"지역 {region_id}-{location_id}"
+
+
+def _get_npc_name(unique_id: str) -> str:
+    """
+    NPC unique_id로 이름 조회
+
+    Returns:
+        NPC 이름 (예: "밀라", "세라")
+        조회 실패 시 unique_id 그대로 반환
+    """
+    try:
+        unit_id = morld.find_unit_by_unique_id(unique_id)
+        if unit_id:
+            unit_info = morld.get_unit_info(unit_id)
+            if unit_info and unit_info.get("name"):
+                return unit_info["name"]
+    except Exception:
+        pass
+    return unique_id
+
+
+def _get_item_name(unique_id: str) -> str:
+    """
+    아이템 unique_id로 이름 조회
+
+    Returns:
+        아이템 이름 (예: "사과", "낚시대")
+        조회 실패 시 unique_id 그대로 반환
+
+    Note:
+        현재 morld API에 unique_id로 아이템 조회 함수가 없으므로
+        아이템 레지스트리에서 직접 조회
+    """
+    try:
+        from assets.registry import get_item_class
+        item_class = get_item_class(unique_id)
+        if item_class and hasattr(item_class, "name"):
+            return item_class.name
+    except Exception:
+        pass
+    return unique_id
