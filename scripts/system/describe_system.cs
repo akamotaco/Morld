@@ -418,22 +418,18 @@ namespace SE
 			}
 			else
 			{
-				int totalValue = 0;
 				foreach (var (itemId, count) in inventory)
 				{
 					var item = itemSystem.FindItem(itemId);
 					if (item != null)
 					{
 						var countText = count > 1 ? $" x{count}" : "";
-						var valueText = item.Value > 0 ? $" ({item.Value * count}G)" : "";
+						var valueText = item.Value > 0 ? $" ({item.Value}G)" : "";
 						var itemName = GetNameWithOwner(item);
 						// 아이템 메뉴로 연결
 						lines.Add($"  [url=item_inv_menu:{itemId}]{itemName}{countText}[/url]{valueText}");
-						totalValue += item.Value * count;
 					}
 				}
-				lines.Add("");
-				lines.Add($"[color=yellow]총 가치: {totalValue}G[/color]");
 			}
 
 			// 장착 아이템 표시
