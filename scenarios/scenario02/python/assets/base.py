@@ -430,10 +430,15 @@ class Character(Unit):
         # 위치 튜플 (조건에서 사용)
         context["location"] = (context["region_id"], context["location_id"])
 
-        # Props에서 호감도 등 가져오기
+        # Props에서 호감도, 진척도 등 가져오기
         props = morld.get_unit_props(self.instance_id)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
         if props:
-            context["호감"] = props.get("호감", 0)
+            context["호감"] = props.get(f"관계:{player_name}:호감", 0)
+            context["진척도"] = props.get(f"관계:{player_name}:진척도", 0)
 
         # 위치 정보에서 날씨, 실내 여부 가져오기
         location_info = morld.get_location_info(
@@ -446,7 +451,6 @@ class Character(Unit):
 
         # 데이트 상태 확인
         from date import is_on_date, get_date_partner
-        player_id = morld.get_player_id()
         if is_on_date(player_id) and get_date_partner(player_id) == self.instance_id:
             context["on_date"] = True
         else:
@@ -575,29 +579,251 @@ class Character(Unit):
         return f"[{self.name}]\n\"...아직은...\""
 
     # ========================================
-    # 데이트 중 애정 표현 메서드
+    # 데이트 외 애정 표현 반응 (서브클래스에서 오버라이드)
+    # ========================================
+
+    def get_casual_action_reaction(self, action_id):
+        """데이트 외 애정 표현 반응 - 서브클래스에서 오버라이드"""
+        return None
+
+    def get_casual_action_reject(self, action_id):
+        """데이트 외 애정 표현 거부 반응 - 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"...뭐 하는 거야?\""
+
+    # ========================================
+    # NPC 주도 스킨십 시스템
+    # ========================================
+    # 서브클래스에서 오버라이드하여 캐릭터별 설정 정의
+    #
+    # INITIATIVE_CONFIG: 트리거 조건 설정
+    #   {
+    #       "arousal_threshold": 70,    # 성욕 임계값
+    #       "affection_threshold": 60,  # 호감도 임계값
+    #       "cooldown_minutes": 480,    # 쿨다운 (분)
+    #   }
+    #
+    # NPC_INITIATIVE_ACTIONS: 조건별 액션 시퀀스
+    #   [
+    #       ({"성욕": 90, "호감": 50}, [
+    #           {"action": "hug", "duration": 10},
+    #           {"action": "deep_kiss", "duration": 15},
+    #       ]),
+    #       ({}, [  # 기본값
+    #           {"action": "hug", "duration": 15},
+    #       ]),
+    #   ]
+    #
+    # INITIATIVE_REACTIONS: 주도 중 반응 텍스트
+    #   {
+    #       "start": [({}, ["...가만히 있어."])],
+    #       "during_hug": [({}, ["강하게 안고 있다."])],
+    #       "escape_fail": [({}, ["...도망가려고?"])],
+    #       "satisfied": [({}, ["...끝이다."])],
+    #   }
+
+    INITIATIVE_CONFIG: dict = None
+    NPC_INITIATIVE_ACTIONS: list = None
+    INITIATIVE_REACTIONS: dict = None
+
+    def should_initiate_skinship(self, player_id: int) -> bool:
+        """
+        NPC 주도 스킨십 트리거 여부 판단
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            True면 NPC 주도 스킨십 시작
+        """
+        if not self.INITIATIVE_CONFIG:
+            return False
+
+        # 쿨다운 체크
+        props = morld.get_unit_props(self.instance_id)
+        if props:
+            last_initiative = props.get("상태:마지막_주도_시각", -99999)
+            cooldown = self.INITIATIVE_CONFIG.get("cooldown_minutes", 480)
+            current_time = morld.get_game_time()
+            if current_time - last_initiative < cooldown:
+                return False
+
+        # 성욕 체크
+        arousal_threshold = self.INITIATIVE_CONFIG.get("arousal_threshold", 70)
+        arousal = props.get("상태:성욕", 0) if props else 0
+        if arousal < arousal_threshold:
+            return False
+
+        # 호감도 체크
+        affection_threshold = self.INITIATIVE_CONFIG.get("affection_threshold", 60)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
+        if affection < affection_threshold:
+            return False
+
+        # 제3자 체크 (같은 위치에 다른 NPC가 있으면 시작 안 함)
+        npc_loc = morld.get_unit_location(self.instance_id)
+        if npc_loc:
+            units_at_loc = morld.get_units_at_location(npc_loc[0], npc_loc[1])
+            if units_at_loc:
+                # 플레이어와 자신 외에 다른 유닛이 있으면 False
+                other_units = [u for u in units_at_loc if u != player_id and u != self.instance_id]
+                if other_units:
+                    return False
+
+        return True
+
+    def get_initiative_actions(self, player_id: int) -> list:
+        """
+        NPC 주도 액션 시퀀스 선택
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            액션 dict 리스트 [{"action": "hug", "duration": 10}, ...]
+        """
+        if not self.NPC_INITIATIVE_ACTIONS:
+            return [{"action": "hug", "duration": 10}]  # 기본값
+
+        # context 구성
+        props = morld.get_unit_props(self.instance_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        context = {
+            "성욕": props.get("상태:성욕", 0) if props else 0,
+            "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
+        }
+
+        # 조건 매칭
+        for conditions, actions in self.NPC_INITIATIVE_ACTIONS:
+            if TextSelector.match(conditions, context):
+                return list(actions)  # 복사본 반환
+
+        # 기본값
+        return [{"action": "hug", "duration": 10}]
+
+    def get_initiative_reaction(self, timing: str) -> str:
+        """
+        NPC 주도 중 반응 텍스트 반환
+
+        Args:
+            timing: "start", "during_hug", "escape_fail", "satisfied" 등
+
+        Returns:
+            반응 텍스트 또는 None
+        """
+        if not self.INITIATIVE_REACTIONS:
+            return None
+
+        rules = self.INITIATIVE_REACTIONS.get(timing)
+        if not rules:
+            return None
+
+        # context 구성 (간단히)
+        context = {}
+
+        # 규칙에서 선택
+        import random
+        for conditions, texts in rules:
+            if TextSelector.match(conditions, context):
+                if isinstance(texts, list):
+                    return random.choice(texts)
+                return texts
+
+        return None
+
+    def mark_initiative_cooldown(self):
+        """NPC 주도 쿨다운 시각 기록"""
+        current_time = morld.get_game_time()
+        morld.set_unit_prop(self.instance_id, "상태:마지막_주도_시각", current_time)
+
+    # ========================================
+    # NPC 주도 행위 필터링 시스템
+    # ========================================
+    # 서브클래스에서 오버라이드하여 캐릭터별/진척도별 행위 제한
+    #
+    # INITIATIVE_ACTION_FILTERS: 조건별 허용 액션 목록
+    #   [
+    #       ({"애정": 80}, ["hug", "deep_kiss", "breast_touch"]),  # 애정 80 이상: 모든 행위
+    #       ({"애정": 50}, ["hug", "deep_kiss"]),                  # 애정 50 이상: 키스까지
+    #       ({}, ["hug"]),                                         # 기본: 포옹만
+    #   ]
+    #
+    # 조건은 위에서부터 순서대로 체크, 첫 번째 매칭 사용
+
+    INITIATIVE_ACTION_FILTERS: list = None
+
+    def get_allowed_initiative_actions(self, player_id: int) -> list:
+        """
+        NPC 주도 시 허용되는 액션 목록 반환
+
+        캐릭터별/진척도별로 NPC가 선택할 수 있는 행위를 제한합니다.
+        INITIATIVE_ACTION_FILTERS가 정의되지 않으면 모든 행위가 허용됩니다.
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            허용되는 액션 ID 리스트 (예: ["hug", "deep_kiss"])
+            None이면 제한 없음 (모든 행위 허용)
+        """
+        if not self.INITIATIVE_ACTION_FILTERS:
+            return None  # 제한 없음
+
+        # context 구성
+        props = morld.get_unit_props(self.instance_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        context = {
+            "성욕": props.get("상태:성욕", 0) if props else 0,
+            "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
+            "애정": props.get(f"관계:{player_name}:애정", 0) if props else 0,
+        }
+
+        # 조건 매칭
+        for conditions, allowed_actions in self.INITIATIVE_ACTION_FILTERS:
+            if TextSelector.match(conditions, context):
+                return list(allowed_actions)
+
+        # 기본값: 제한 없음
+        return None
+
+    # ========================================
+    # 애정 표현 메서드 (데이트 중/외 자동 분기)
     # ========================================
 
     def hold_hands(self):
-        """손 잡기"""
+        """손 잡기 - 데이트 중/외 자동 분기"""
         self._check_instantiated()
-        from date import do_date_action
+        from date import is_on_date, do_date_action, do_casual_action
         player_id = morld.get_player_id()
-        yield from do_date_action(player_id, self.instance_id, "hold_hands")
+        if is_on_date(player_id):
+            yield from do_date_action(player_id, self.instance_id, "hold_hands")
+        else:
+            yield from do_casual_action(player_id, self.instance_id, "hold_hands")
 
     def date_hug(self):
-        """안아주기 (데이트 중)"""
+        """안아주기 - 데이트 중/외 자동 분기"""
         self._check_instantiated()
-        from date import do_date_action
+        from date import is_on_date, do_date_action, do_casual_action
         player_id = morld.get_player_id()
-        yield from do_date_action(player_id, self.instance_id, "hug")
+        if is_on_date(player_id):
+            yield from do_date_action(player_id, self.instance_id, "hug")
+        else:
+            yield from do_casual_action(player_id, self.instance_id, "hug")
 
     def date_kiss(self):
-        """키스 (데이트 중)"""
+        """키스 - 데이트 중/외 자동 분기"""
         self._check_instantiated()
-        from date import do_date_action
+        from date import is_on_date, do_date_action, do_casual_action
         player_id = morld.get_player_id()
-        yield from do_date_action(player_id, self.instance_id, "kiss")
+        if is_on_date(player_id):
+            yield from do_date_action(player_id, self.instance_id, "kiss")
+        else:
+            yield from do_casual_action(player_id, self.instance_id, "kiss")
 
     def talk(self):
         """
@@ -656,6 +882,20 @@ class Character(Unit):
         prop_name = f"관계:{player_name}:호감"
         new_value = morld.modify_prop(self.instance_id, prop_name, -10)
         yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -10\n현재: {new_value}")
+
+    def debug_arousal_up(self):
+        """성욕 +20 테스트 (NPC 주도 트리거 테스트용)"""
+        self._check_instantiated()
+        prop_name = "상태:성욕"
+        new_value = morld.modify_prop(self.instance_id, prop_name, 20)
+        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} +20\n현재: {new_value}")
+
+    def debug_arousal_down(self):
+        """성욕 -20 테스트"""
+        self._check_instantiated()
+        prop_name = "상태:성욕"
+        new_value = morld.modify_prop(self.instance_id, prop_name, -20)
+        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -20\n현재: {new_value}")
 
     # ========================================
     # 이벤트 다이얼로그 시스템

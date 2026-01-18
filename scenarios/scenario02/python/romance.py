@@ -43,7 +43,7 @@ INSTANT_ACTIONS = {
     },
     "ear_touch": {
         "name": "귀 만지기", "time": 3, "stamina": 1,
-        "effects": {"호감": 1, "애정": 1, "성적흥분": 1},
+        "effects": {"호감": 1, "애정": 1, "성욕": 1},
         "exp_part": "귀", "affection_req": 45
     },
     "whisper": {
@@ -53,12 +53,12 @@ INSTANT_ACTIONS = {
     },
     "french_kiss": {
         "name": "프렌치 키스", "time": 5, "stamina": 2,
-        "effects": {"호감": 1, "애정": 2, "성적흥분": 3},
+        "effects": {"호감": 1, "애정": 2, "성욕": 3},
         "exp_part": "입술", "affection_req": 60
     },
     "butt_caress": {
         "name": "엉덩이 쓰다듬기", "time": 3, "stamina": 2,
-        "effects": {"애정": 1, "성적흥분": 3},
+        "effects": {"애정": 1, "성욕": 3},
         "exp_part": "엉덩이", "affection_req": 70
     },
 }
@@ -75,12 +75,12 @@ TOGGLE_ACTIONS = {
     },
     "deep_kiss": {
         "name": "딥키스", "time": 5, "stamina": 2,
-        "effects": {"호감": 1, "애정": 2, "성적흥분": 3},
+        "effects": {"호감": 1, "애정": 2, "성욕": 3},
         "exp_part": "입술", "affection_req": 70
     },
     "breast_touch": {
         "name": "가슴 만지기", "time": 5, "stamina": 2,
-        "effects": {"애정": 1, "성적흥분": 4},
+        "effects": {"애정": 1, "성욕": 4},
         "exp_part": "가슴", "affection_req": 80
     },
 }
@@ -131,13 +131,13 @@ def get_affection_key(player_id):
 
 def check_ecstasy(partner_id):
     """
-    절정 체크 - 성적흥분 >= ECSTASY_THRESHOLD면 절정 발생
+    절정 체크 - 성욕 >= ECSTASY_THRESHOLD면 절정 발생
 
     Returns:
         절정 반응 텍스트 또는 None
     """
     partner_props = morld.get_unit_props(partner_id)
-    arousal = partner_props.get("상태:성적흥분", 0)
+    arousal = partner_props.get("상태:성욕", 0)
 
     if arousal >= ECSTASY_THRESHOLD:
         # 캐릭터별 절정 반응 텍스트 (초기화 전에 조회 - 조건 체크용)
@@ -146,9 +146,9 @@ def check_ecstasy(partner_id):
         if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
             reaction = partner_asset.get_romance_reaction("ecstasy", "start")
 
-        # 성적절정 +1, 성적흥분 = 0 (반응 조회 후 초기화)
+        # 성적절정 +1, 성욕 = 0 (반응 조회 후 초기화)
         morld.modify_prop(partner_id, "상태:성적절정", 1)
-        morld.set_unit_prop(partner_id, "상태:성적흥분", 0)
+        morld.set_unit_prop(partner_id, "상태:성욕", 0)
 
         if reaction:
             return reaction
@@ -213,10 +213,10 @@ def render_romance_ui(state):
 
     # 플레이어에 대한 prop 키
     # 관계 타입: 호감, 애정 → 관계:플레이어:stat
-    # 상태 타입: 성적흥분, 성적절정 → 상태:stat (개인 상태)
+    # 상태 타입: 성욕, 성적절정 → 상태:stat (개인 상태)
     affection_key = get_affection_key(player_id)
     love_key = affection_key.replace(":호감", ":애정")
-    arousal_key = "상태:성적흥분"
+    arousal_key = "상태:성욕"
 
     lines = []
 
@@ -254,11 +254,11 @@ def render_romance_ui(state):
 
     lines.append("")
 
-    # 호감, 애정, 성적흥분 표시
+    # 호감, 애정, 성욕 표시
     affection = partner_props.get(affection_key, 0)
     love = partner_props.get(love_key, 0)
     arousal = partner_props.get(arousal_key, 0)
-    lines.append(f"호감: {affection}  애정: {love}  성적흥분: {arousal}")
+    lines.append(f"호감: {affection}  애정: {love}  성욕: {arousal}")
     lines.append("")
     lines.append("───────────────────────────────────")
     lines.append("")
@@ -382,15 +382,15 @@ def start_romance(player_id, partner_id):
 
         # 효과 적용
         # 관계 타입: 호감, 애정 → 관계:플레이어:stat
-        # 상태 타입: 성적흥분, 성적절정 → 상태:stat (개인 상태)
+        # 상태 타입: 성욕, 성적절정 → 상태:stat (개인 상태)
         for stat, value in effects.items():
-            if stat in ("성적흥분", "성적절정"):
+            if stat in ("성욕", "성적절정"):
                 prop_key = f"상태:{stat}"
             else:
                 prop_key = affection_key.replace(":호감", f":{stat}")
             morld.modify_prop(pid, prop_key, value)
 
-        # 절정 체크 (성적흥분 >= 100이면 절정 발생)
+        # 절정 체크 (성욕 >= 100이면 절정 발생)
         return check_ecstasy(pid)
 
     def proc(action):

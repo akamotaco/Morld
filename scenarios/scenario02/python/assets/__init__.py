@@ -46,6 +46,23 @@ def _method_accepts_equipment(method) -> bool:
         return False
 
 
+def _update_affection_visibility_if_needed(partner_id: int):
+    """
+    캐릭터 액션 호출 시 애정 표현 visibility 업데이트
+
+    date.py의 update_affection_action_visibility()를 호출하여
+    데이트 중/일상 상태에 따라 can:hold_hands 등의 prop을 설정.
+    """
+    try:
+        import morld
+        from date import update_affection_action_visibility
+        player_id = morld.get_player_id()
+        if player_id is not None:
+            update_affection_action_visibility(player_id, partner_id)
+    except Exception as e:
+        print(f"[assets] Failed to update affection visibility: {e}")
+
+
 def call_instance_method(instance_id: int, method_name: str, args=None, equipment=None):
     """
     Asset 인스턴스의 메서드 호출 (call: 액션용)
@@ -98,6 +115,9 @@ def call_instance_method(instance_id: int, method_name: str, args=None, equipmen
     from assets import characters
     instance = characters.get_instance(instance_id)
     if instance is not None:
+        # 애정 표현 액션 visibility 업데이트 (focus 시점)
+        _update_affection_visibility_if_needed(instance_id)
+
         method = getattr(instance, method_name, None)
         if method is not None:
             return _call_method(instance, method)

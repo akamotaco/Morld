@@ -24,13 +24,15 @@ class Sera(Character):
         "call:talk:대화",
         "call:date:데이트 신청#",      # 데이트 중 아닐 때만 표시
         "call:end_date:데이트 종료#",  # 데이트 중일 때만 표시
-        "call:hold_hands:손 잡기#",    # 데이트 중일 때만 표시
-        "call:date_hug:안아주기#",     # 데이트 중일 때만 표시
-        "call:date_kiss:키스#",        # 데이트 중일 때만 표시
+        "call:hold_hands:손 잡기#",    # 조건 충족 시만 표시
+        "call:date_hug:안아주기#",     # 조건 충족 시만 표시
+        "call:date_kiss:키스#",        # 조건 충족 시만 표시
         "call:romance:스킨십",
         "call:debug_props:속성 보기",
         "call:debug_affection_up:호감도 +10",
         "call:debug_affection_down:호감도 -10",
+        "call:debug_arousal_up:성욕 +20",
+        "call:debug_arousal_down:성욕 -20",
     ]
     mood = []
 
@@ -50,6 +52,14 @@ class Sera(Character):
         ({"on_date": True, "호감": 50}, {"pages": ["......", "...어디로 갈까?"]}),
         ({"on_date": True}, {"pages": ["......", "...뭐가 보고 싶어?"]}),
 
+        # 진척도별 사적인 대화 (플래그로 일회성 체크)
+        # 진척도 3 - 과거 이야기
+        ({"호감": 70, "진척도": 3}, "_talk_progress_3"),
+        # 진척도 2 - 좋아하는 것
+        ({"호감": 60, "진척도": 2}, "_talk_progress_2"),
+        # 진척도 1 - 자신에 대해
+        ({"호감": 50, "진척도": 1}, "_talk_progress_1"),
+
         # Activity + 호감도 조합 (복잡한 대화는 메서드로 위임)
         ({"activity": "사냥", "호감": 50}, "_talk_hunt_friendly"),
         ({"activity": "사냥"}, {"pages": ["...조용히 해.", "사냥감이 달아나잖아."]}),
@@ -64,9 +74,9 @@ class Sera(Character):
         ({"weather": "비"}, {"pages": ["...비다."]}),
         ({"weather": "눈"}, {"pages": ["...눈이 온다.", "...사냥감이 줄겠군."]}),
 
-        # 호감도 기반
-        ({"호감": 70}, {"pages": ["......", "...뭐, 괜찮아?"]}),
-        ({"호감": 50}, {"pages": ["......", "...무슨 일이야?"]}),
+        # 호감도 기반 (진척도 증가 로직 포함)
+        ({"호감": 70}, "_talk_friendly_high"),
+        ({"호감": 50}, "_talk_friendly_mid"),
 
         # mood 기반
         ({"mood": "기쁨"}, {"pages": ["......", "...오늘은 기분이 좋군."]}),
@@ -228,8 +238,8 @@ class Sera(Character):
                 ]),
             ],
             "during": [
-                ({"성적흥분": 50}, ["세라의 심장이 빠르게 뛰는 게 느껴진다."]),
-                ({"성적흥분": 30}, ["세라가 숨을 고르고 있다."]),
+                ({"성욕": 50}, ["세라의 심장이 빠르게 뛰는 게 느껴진다."]),
+                ({"성욕": 30}, ["세라가 숨을 고르고 있다."]),
                 ({"애정": 40}, ["세라가 조용히 안겨 있다."]),
                 ({}, [
                     "세라가 뻣뻣하게 서 있다.",
@@ -241,7 +251,7 @@ class Sera(Character):
         },
         "deep_kiss": {
             "start": [
-                ({"성적흥분": 40}, ["...으응... 더..."]),
+                ({"성욕": 40}, ["...으응... 더..."]),
                 ({"애정": 30}, ["......(눈을 감는다)"]),
                 ({}, [
                     "......",
@@ -250,8 +260,8 @@ class Sera(Character):
                 ]),
             ],
             "during": [
-                ({"성적흥분": 50}, ["세라가 거칠게 숨을 몰아쉬며 키스에 빠져 있다."]),
-                ({"성적흥분": 30}, ["세라의 숨결이 거칠어진다."]),
+                ({"성욕": 50}, ["세라가 거칠게 숨을 몰아쉬며 키스에 빠져 있다."]),
+                ({"성욕": 30}, ["세라의 숨결이 거칠어진다."]),
                 ({}, [
                     "세라와 깊은 키스를 나누고 있다.",
                     "세라가 눈을 감고 있다.",
@@ -289,6 +299,67 @@ class Sera(Character):
             ],
         },
     }
+
+    # ========================================
+    # NPC 주도 스킨십 설정
+    # ========================================
+    INITIATIVE_CONFIG = {
+        "arousal_threshold": 70,      # 성욕 70 이상
+        "affection_threshold": 60,    # 호감도 60 이상
+        "cooldown_minutes": 480,      # 8시간 쿨다운
+    }
+
+    # 조건별 액션 시퀀스 (위에서부터 매칭)
+    NPC_INITIATIVE_ACTIONS = [
+        # 성욕 90 이상: 격렬한 시퀀스
+        ({"성욕": 90, "호감": 50}, [
+            {"action": "hug", "duration": 10},
+            {"action": "deep_kiss", "duration": 15},
+            {"action": "breast_touch", "duration": 10},
+        ]),
+        # 성욕 80 이상: 중간 시퀀스
+        ({"성욕": 80}, [
+            {"action": "hug", "duration": 15},
+            {"action": "deep_kiss", "duration": 10},
+        ]),
+        # 기본: 포옹만
+        ({}, [
+            {"action": "hug", "duration": 20},
+        ]),
+    ]
+
+    # 주도 중 반응 텍스트 (조건, 텍스트 리스트)
+    INITIATIVE_REACTIONS = {
+        "start": [
+            ({"호감": 80}, ["...가만히 있어...", "...좀만...", "...네가 필요해..."]),
+            ({}, ["......", "...가만히 있어.", "...움직이지 마."]),
+        ],
+        "during_hug": [
+            ({"성욕": 80}, ["세라가 강하게 안고 있다. 숨소리가 거칠다."]),
+            ({}, ["세라가 조용히 안고 있다.", "세라의 체온이 느껴진다."]),
+        ],
+        "during_deep_kiss": [
+            ({}, ["세라가 깊이 키스하고 있다.", "세라의 숨결이 거칠다."]),
+        ],
+        "during_breast_touch": [
+            ({}, ["세라가 몸을 밀착하고 있다.", "세라가 손을 잡아 끌고 있다."]),
+        ],
+        "escape_fail": [
+            ({}, ["...도망가려고?", "...안 돼.", "...싫어.", "...놓아주지 않을 거야."]),
+        ],
+        "satisfied": [
+            ({"호감": 80}, ["...고마워...", "...좀 나아졌어."]),
+            ({}, ["...끝이다.", "...가도 돼.", "......(물러선다)"]),
+        ],
+    }
+
+    # NPC 주도 시 허용되는 행위 (진척도/캐릭터 성격 기반)
+    # 세라: 애정도에 따라 점진적으로 행위 범위 확장
+    INITIATIVE_ACTION_FILTERS = [
+        ({"애정": 80}, ["hug", "deep_kiss", "breast_touch"]),  # 애정 80 이상: 모든 행위
+        ({"애정": 40}, ["hug", "deep_kiss"]),                   # 애정 40 이상: 키스까지
+        ({}, ["hug"]),                                          # 기본: 포옹만
+    ]
 
     # ========================================
     # 이벤트 다이얼로그 정의
@@ -354,19 +425,154 @@ class Sera(Character):
             yield morld.dialog([f"[{name}]", "...알았다."])
 
     # ========================================
+    # 진척도 기반 대화 (일회성)
+    # ========================================
+
+    def _talk_friendly_mid(self, context):
+        """호감도 50+ 일반 대화 - 진척도 증가"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 진척도 증가 (최대 3까지)
+        props = morld.get_unit_props(self.instance_id)
+        current_progress = props.get(f"관계:{player_name}:진척도", 0) if props else 0
+        if current_progress < 3:
+            morld.modify_prop(self.instance_id, f"관계:{player_name}:진척도", 1)
+
+        yield morld.dialog([f"[{name}]", "......", "...무슨 일이야?"])
+
+    def _talk_friendly_high(self, context):
+        """호감도 70+ 일반 대화 - 진척도 증가"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 진척도 증가 (최대 3까지)
+        props = morld.get_unit_props(self.instance_id)
+        current_progress = props.get(f"관계:{player_name}:진척도", 0) if props else 0
+        if current_progress < 3:
+            morld.modify_prop(self.instance_id, f"관계:{player_name}:진척도", 1)
+
+        yield morld.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
+
+    def _talk_progress_1(self, context):
+        """진척도 1 - 자신에 대한 이야기 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크 (이미 들었으면 일반 대화)
+        flag_key = f"대화:{player_name}:진척도1"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([f"[{name}]", "......", "...무슨 일이야?"])
+            return
+
+        # 플래그 설정 및 사적인 이야기
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "......",
+            "...내 이름은 세라.",
+            "...이 저택에서 사냥과 경비를 맡고 있다.",
+            "...밀라와 리나도 여기 있지.",
+            "......",
+            "...그게 다야.",
+        ])
+
+    def _talk_progress_2(self, context):
+        """진척도 2 - 좋아하는 것 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크
+        flag_key = f"대화:{player_name}:진척도2"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
+            return
+
+        # 플래그 설정 및 사적인 이야기
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "...좋아하는 거?",
+            "......",
+            "...사냥할 때가 좋다.",
+            "...숲의 냄새, 바람의 방향...",
+            "...그런 것들에 집중할 때.",
+            "......",
+            "...머리가 맑아지거든.",
+            "...싫어하는 건...",
+            "...쓸데없는 수다.",
+            "......",
+            "...지금 하고 있는 것 같지만.",
+        ])
+
+    def _talk_progress_3(self, context):
+        """진척도 3 - 과거 이야기 (일회성)"""
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        # 플래그 체크
+        flag_key = f"대화:{player_name}:진척도3"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield morld.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
+            return
+
+        # 플래그 설정 및 사적인 이야기
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+
+        yield morld.dialog([
+            f"[{name}]",
+            "......",
+            "...예전 일?",
+            "......",
+            "...기억나는 건 별로 없어.",
+            "...눈을 떴을 때, 이미 여기였다.",
+            "...밀라가 날 발견했고...",
+            "...그때부터 같이 살았다.",
+            "......",
+            "...그 전의 일은...",
+            "...모른다.",
+            "......",
+            "...알고 싶지도 않아.",
+        ])
+
+    # ========================================
     # 이벤트 핸들러
     # ========================================
 
     def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때 - Generator 기반"""
-        # 첫 만남 이벤트
-        if self._event_flags.get("first_meet"):
-            return None
-
+        """플레이어와 만났을 때 - Generator 기반"""
         unit_info = morld.get_unit_info(self.instance_id)
+
+        # 수면 중이면 반응 없음
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
+        # NPC 주도 스킨십 체크 (첫 만남 이후에만)
+        if self._event_flags.get("first_meet"):
+            if self.should_initiate_skinship(player_id):
+                # 쿨다운 기록
+                self.mark_initiative_cooldown()
+                # NPC 주도 시작
+                from npc_initiative import start_npc_initiative
+                return start_npc_initiative(player_id, self.instance_id)
+            return None
+
+        # 첫 만남 이벤트
         self._event_flags["first_meet"] = True
         return self._run_event_dialog("first_meet", player_id=player_id)
 
@@ -432,7 +638,7 @@ class Sera(Character):
         for key, required_value in condition.items():
             if key in ("호감", "애정"):
                 prop_key = f"관계:{player_name}:{key}"
-            elif key in ("성적흥분", "성적절정"):
+            elif key in ("성욕", "성적절정"):
                 prop_key = f"상태:{key}"
             else:
                 prop_key = key
@@ -474,6 +680,28 @@ class Sera(Character):
             "hold_hands": f"[{self.name}]\n\"...아직은.\"",
             "hug": f"[{self.name}]\n\"...그건... 아직 이르다.\"",
             "kiss": f"[{self.name}]\n\"...!!\"\n세라가 뒤로 물러선다.",
+        }
+        return rejects.get(action_id)
+
+    # ========================================
+    # 데이트 외 애정 표현 반응
+    # ========================================
+
+    def get_casual_action_reaction(self, action_id):
+        """데이트 외 애정 표현 반응 - 더 쑥스러운 반응"""
+        reactions = {
+            "hold_hands": f"[{self.name}]\n\"...갑자기 왜 이래.\"\n세라가 당황하면서도 손을 뿌리치지 않는다.",
+            "hug": f"[{self.name}]\n\"...!!\"\n\"...여기서...?\"\n세라가 주변을 두리번거린다.",
+            "kiss": f"[{self.name}]\n\"......!!\"\n세라의 얼굴이 새빨갛게 물든다.\n\"...미쳤냐...\"",
+        }
+        return reactions.get(action_id)
+
+    def get_casual_action_reject(self, action_id):
+        """데이트 외 애정 표현 거부 반응"""
+        rejects = {
+            "hold_hands": f"[{self.name}]\n\"...뭐 하는 거냐.\"\n세라가 손을 뺀다.",
+            "hug": f"[{self.name}]\n\"...가까이 오지 마.\"\n세라가 한 발 물러선다.",
+            "kiss": f"[{self.name}]\n\"......\"\n세라가 차갑게 노려본다.",
         }
         return rejects.get(action_id)
 

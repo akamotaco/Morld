@@ -108,6 +108,50 @@ class Mila(Character):
     ]
 
     # ========================================
+    # NPC 주도 설정 (밀라: 저돌적/적극적)
+    # ========================================
+    INITIATIVE_CONFIG = {
+        "arousal_threshold": 50,      # 성욕 임계값 (세라보다 낮음 - 더 적극적)
+        "affection_threshold": 40,    # 호감도 임계값 (세라보다 낮음)
+        "cooldown_minutes": 360,      # 쿨다운 6시간 (세라보다 짧음)
+    }
+
+    # NPC 주도 시 허용 액션 필터 (캐릭터별)
+    # 형식: [(조건dict, [허용_액션_리스트]), ...]
+    # 밀라는 저돌적이므로 더 낮은 애정에서도 다양한 액션 허용
+    INITIATIVE_ACTION_FILTERS = [
+        ({"애정": 60}, ["hug", "deep_kiss", "breast_touch"]),  # 세라보다 낮은 조건
+        ({"애정": 30}, ["hug", "deep_kiss"]),  # 세라보다 낮은 조건
+        ({}, ["hug"]),  # 기본: 포옹
+    ]
+
+    # NPC 주도 중 반응 텍스트
+    INITIATIVE_REACTIONS = {
+        "start": [
+            ({"성욕": 70}, ["...보고 싶었어요...", "...가만히 있어줘요..."]),
+            ({}, ["...잠깐만요...", "...가까이 와도 될까요...?"]),
+        ],
+        "during_hug": [
+            ({"성욕": 50}, ["밀라가 숨을 거칠게 몰아쉬며 안아온다."]),
+            ({}, ["밀라가 따뜻하게 안아온다.", "밀라의 심장 소리가 느껴진다."]),
+        ],
+        "during_deep_kiss": [
+            ({"성욕": 60}, ["밀라가 거친 숨을 몰아쉬며 키스를 이어간다."]),
+            ({}, ["밀라가 부드럽게 입술을 맞대고 있다."]),
+        ],
+        "during_breast_touch": [
+            ({}, ["밀라가 얼굴을 붉히며 가만히 있다."]),
+        ],
+        "escape_fail": [
+            ({}, ["...가지 마세요...", "...조금만 더요..."]),
+        ],
+        "satisfied": [
+            ({"애정": 50}, ["...사랑해요...", "...행복해요..."]),
+            ({}, ["...고마워요...", "...기분이 좋아요..."]),
+        ],
+    }
+
+    # ========================================
     # 스킨십 반응 (action_id → timing → 조건부 대사 리스트)
     # 형식: (조건dict, [대사들]) - 조건 충족 시 대사들이 후보에 추가
     # 빈 조건 {}은 무조건 포함
@@ -191,9 +235,9 @@ class Mila(Character):
                 ]),
             ],
             "during": [
-                # 조건부 반응 (성적흥분 높을 때)
-                ({"성적흥분": 50}, ["밀라가 숨을 거칠게 몰아쉬며 안겨 있다."]),
-                ({"성적흥분": 30}, ["밀라의 심장이 빠르게 뛰는 게 느껴진다."]),
+                # 조건부 반응 (성욕 높을 때)
+                ({"성욕": 50}, ["밀라가 숨을 거칠게 몰아쉬며 안겨 있다."]),
+                ({"성욕": 30}, ["밀라의 심장이 빠르게 뛰는 게 느껴진다."]),
                 # 조건부 반응 (애정 높을 때)
                 ({"애정": 40}, ["밀라가 행복한 표정으로 안겨 있다."]),
                 # 무조건 반응 (기본)
@@ -208,7 +252,7 @@ class Mila(Character):
         "deep_kiss": {
             "start": [
                 # 조건부 반응
-                ({"성적흥분": 40}, ["...하앙... 더... 해주세요...♡"]),
+                ({"성욕": 40}, ["...하앙... 더... 해주세요...♡"]),
                 ({"애정": 30}, ["...사랑해요... 으응...♡"]),
                 # 무조건 반응
                 ({}, [
@@ -219,8 +263,8 @@ class Mila(Character):
             ],
             "during": [
                 # 조건부 반응
-                ({"성적흥분": 50}, ["밀라가 거친 숨을 몰아쉬며 키스에 빠져 있다."]),
-                ({"성적흥분": 30}, ["밀라의 숨결이 거칠어진다."]),
+                ({"성욕": 50}, ["밀라가 거친 숨을 몰아쉬며 키스에 빠져 있다."]),
+                ({"성욕": 30}, ["밀라의 숨결이 거칠어진다."]),
                 # 무조건 반응
                 ({}, [
                     "밀라와 깊은 입맞춤을 나누고 있다.",
@@ -288,15 +332,18 @@ class Mila(Character):
     def on_meet_player(self, player_id):
         """플레이어와 처음 만났을 때 - Generator 기반"""
         # 첫 만남 이벤트
-        if self._event_flags.get("first_meet"):
-            return None
+        if not self._event_flags.get("first_meet"):
+            unit_info = morld.get_unit_info(self.instance_id)
+            if not (unit_info and unit_info.get("activity") == "수면"):
+                self._event_flags["first_meet"] = True
+                return self._run_event_dialog("first_meet", player_id=player_id)
 
-        unit_info = morld.get_unit_info(self.instance_id)
-        if unit_info and unit_info.get("activity") == "수면":
-            return None
+        # NPC 주도 스킨십 체크
+        if self.should_initiate_skinship(player_id):
+            from npc_initiative import start_npc_initiative
+            return start_npc_initiative(player_id, self.instance_id)
 
-        self._event_flags["first_meet"] = True
-        return self._run_event_dialog("first_meet", player_id=player_id)
+        return None
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응"""
@@ -382,7 +429,7 @@ class Mila(Character):
 
         조건 키 변환:
             관계 타입: "호감", "애정" → "관계:{player_name}:{key}"
-            상태 타입: "성적흥분", "성적절정" → "상태:{key}" (개인 상태)
+            상태 타입: "성욕", "성적절정" → "상태:{key}" (개인 상태)
         """
         if not condition:
             return True  # 빈 조건은 항상 True
@@ -392,7 +439,7 @@ class Mila(Character):
             if key in ("호감", "애정"):
                 prop_key = f"관계:{player_name}:{key}"
             # 상태 타입 (개인 상태)
-            elif key in ("성적흥분", "성적절정"):
+            elif key in ("성욕", "성적절정"):
                 prop_key = f"상태:{key}"
             else:
                 prop_key = key

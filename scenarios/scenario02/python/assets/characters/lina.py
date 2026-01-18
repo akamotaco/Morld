@@ -103,6 +103,49 @@ class Lina(Character):
     ]
 
     # ========================================
+    # NPC 주도 설정 (리나: 활발하지만 연애엔 수줍음)
+    # ========================================
+    INITIATIVE_CONFIG = {
+        "arousal_threshold": 65,      # 성욕 임계값 (세라와 비슷)
+        "affection_threshold": 55,    # 호감도 임계값 (세라와 비슷)
+        "cooldown_minutes": 480,      # 쿨다운 8시간
+    }
+
+    # NPC 주도 시 허용 액션 필터
+    # 리나는 활발하지만 연애엔 수줍어서 천천히 진행
+    INITIATIVE_ACTION_FILTERS = [
+        ({"애정": 70}, ["hug", "deep_kiss", "breast_touch"]),
+        ({"애정": 45}, ["hug", "deep_kiss"]),
+        ({}, ["hug"]),  # 기본: 포옹만
+    ]
+
+    # NPC 주도 중 반응 텍스트
+    INITIATIVE_REACTIONS = {
+        "start": [
+            ({"성욕": 70}, ["...이리 와...", "...가만히 있어..."]),
+            ({}, ["...저기...", "...잠깐만..."]),
+        ],
+        "during_hug": [
+            ({"성욕": 50}, ["리나가 숨을 거칠게 몰아쉬며 안아온다."]),
+            ({}, ["리나가 수줍게 안아온다.", "리나의 심장이 빠르게 뛴다."]),
+        ],
+        "during_deep_kiss": [
+            ({"성욕": 60}, ["리나가 거친 숨을 몰아쉬며 키스를 이어간다."]),
+            ({}, ["리나가 부끄러워하며 키스하고 있다."]),
+        ],
+        "during_breast_touch": [
+            ({}, ["리나가 얼굴을 붉히며 눈을 감고 있다."]),
+        ],
+        "escape_fail": [
+            ({}, ["...가지 마!", "...조금만 더..."]),
+        ],
+        "satisfied": [
+            ({"애정": 50}, ["에헤헤... 좋아해...♡", "...행복해..."]),
+            ({}, ["...고마워...", "...에헤헤..."]),
+        ],
+    }
+
+    # ========================================
     # 스킨십 반응 (action_id → timing → 조건부 대사 리스트)
     # 리나: 활발하고 명랑함, 부끄러워하면서도 즐거워함
     # ========================================
@@ -182,8 +225,8 @@ class Lina(Character):
                 ]),
             ],
             "during": [
-                ({"성적흥분": 50}, ["리나가 숨을 거칠게 몰아쉬며 안겨 있다."]),
-                ({"성적흥분": 30}, ["리나의 심장이 빠르게 뛰는 게 느껴진다."]),
+                ({"성욕": 50}, ["리나가 숨을 거칠게 몰아쉬며 안겨 있다."]),
+                ({"성욕": 30}, ["리나의 심장이 빠르게 뛰는 게 느껴진다."]),
                 ({"애정": 40}, ["리나가 행복한 표정으로 안겨 있다."]),
                 ({}, [
                     "리나가 기분 좋게 안겨 있다.",
@@ -195,7 +238,7 @@ class Lina(Character):
         },
         "deep_kiss": {
             "start": [
-                ({"성적흥분": 40}, ["...으응... 이상해...♡"]),
+                ({"성욕": 40}, ["...으응... 이상해...♡"]),
                 ({"애정": 30}, ["...좋아해...♡"]),
                 ({}, [
                     "...눈 감을게...",
@@ -204,8 +247,8 @@ class Lina(Character):
                 ]),
             ],
             "during": [
-                ({"성적흥분": 50}, ["리나가 몽롱한 눈으로 키스에 빠져 있다."]),
-                ({"성적흥분": 30}, ["리나의 숨결이 거칠어진다."]),
+                ({"성욕": 50}, ["리나가 몽롱한 눈으로 키스에 빠져 있다."]),
+                ({"성욕": 30}, ["리나의 숨결이 거칠어진다."]),
                 ({}, [
                     "리나와 깊은 키스를 나누고 있다.",
                     "리나가 눈을 꼭 감고 있다.",
@@ -272,15 +315,18 @@ class Lina(Character):
     def on_meet_player(self, player_id):
         """플레이어와 처음 만났을 때 - Generator 기반"""
         # 첫 만남 이벤트
-        if self._event_flags.get("first_meet"):
-            return None
+        if not self._event_flags.get("first_meet"):
+            unit_info = morld.get_unit_info(self.instance_id)
+            if not (unit_info and unit_info.get("activity") == "수면"):
+                self._event_flags["first_meet"] = True
+                return self._run_event_dialog("first_meet", player_id=player_id)
 
-        unit_info = morld.get_unit_info(self.instance_id)
-        if unit_info and unit_info.get("activity") == "수면":
-            return None
+        # NPC 주도 스킨십 체크
+        if self.should_initiate_skinship(player_id):
+            from npc_initiative import start_npc_initiative
+            return start_npc_initiative(player_id, self.instance_id)
 
-        self._event_flags["first_meet"] = True
-        return self._run_event_dialog("first_meet", player_id=player_id)
+        return None
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응"""
@@ -344,7 +390,7 @@ class Lina(Character):
         for key, required_value in condition.items():
             if key in ("호감", "애정"):
                 prop_key = f"관계:{player_name}:{key}"
-            elif key in ("성적흥분", "성적절정"):
+            elif key in ("성욕", "성적절정"):
                 prop_key = f"상태:{key}"
             else:
                 prop_key = key

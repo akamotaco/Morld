@@ -102,6 +102,46 @@ class Yuki(Character):
     ]
 
     # ========================================
+    # NPC 주도 설정 (유키: 매우 수줍음 - 높은 임계값)
+    # ========================================
+    INITIATIVE_CONFIG = {
+        "arousal_threshold": 80,      # 성욕 임계값 (세라보다 높음 - 더 소극적)
+        "affection_threshold": 70,    # 호감도 임계값 (세라보다 높음)
+        "cooldown_minutes": 720,      # 쿨다운 12시간 (가장 김)
+    }
+
+    # NPC 주도 시 허용 액션 필터
+    # 유키는 매우 수줍어서 애정 높아도 제한적
+    INITIATIVE_ACTION_FILTERS = [
+        ({"애정": 85}, ["hug", "deep_kiss"]),  # 세라보다 높은 조건, breast_touch 없음
+        ({"애정": 60}, ["hug"]),
+        ({}, ["hug"]),  # 기본: 포옹만
+    ]
+
+    # NPC 주도 중 반응 텍스트
+    INITIATIVE_REACTIONS = {
+        "start": [
+            ({"성욕": 80}, ["......", "...(말없이 다가온다)"]),
+            ({}, ["......", "...저기요..."]),
+        ],
+        "during_hug": [
+            ({"성욕": 60}, ["유키가 떨리는 숨을 내쉬며 안아온다."]),
+            ({}, ["유키가 조용히 안아온다.", "유키의 심장 소리가 들린다."]),
+        ],
+        "during_deep_kiss": [
+            ({"성욕": 70}, ["유키가 거친 숨을 몰아쉬며 키스를 이어간다."]),
+            ({}, ["유키가 떨리며 키스하고 있다."]),
+        ],
+        "escape_fail": [
+            ({}, ["...(말없이 붙잡는다)", "...가지 마세요..."]),
+        ],
+        "satisfied": [
+            ({"애정": 60}, ["...좋아해요...", "...행복해요..."]),
+            ({}, ["...고마워요...", "..."]),
+        ],
+    }
+
+    # ========================================
     # 스킨십 반응 (action_id → timing → 조건부 대사 리스트)
     # 유키: 수줍고 내성적, 조용히 받아들이지만 속으론 기뻐함
     # ========================================
@@ -181,8 +221,8 @@ class Yuki(Character):
                 ]),
             ],
             "during": [
-                ({"성적흥분": 50}, ["유키가 숨을 거칠게 몰아쉬며 안겨 있다."]),
-                ({"성적흥분": 30}, ["유키의 심장이 빠르게 뛰는 게 느껴진다."]),
+                ({"성욕": 50}, ["유키가 숨을 거칠게 몰아쉬며 안겨 있다."]),
+                ({"성욕": 30}, ["유키의 심장이 빠르게 뛰는 게 느껴진다."]),
                 ({"애정": 40}, ["유키가 안심한 표정으로 안겨 있다."]),
                 ({}, [
                     "유키가 조용히 안겨 있다.",
@@ -194,7 +234,7 @@ class Yuki(Character):
         },
         "deep_kiss": {
             "start": [
-                ({"성적흥분": 40}, ["...으응... 이상해요..."]),
+                ({"성욕": 40}, ["...으응... 이상해요..."]),
                 ({"애정": 30}, ["...(눈을 감는다)"]),
                 ({}, [
                     "...네...",
@@ -203,8 +243,8 @@ class Yuki(Character):
                 ]),
             ],
             "during": [
-                ({"성적흥분": 50}, ["유키가 몽롱한 눈으로 키스에 빠져 있다."]),
-                ({"성적흥분": 30}, ["유키의 숨결이 거칠어진다."]),
+                ({"성욕": 50}, ["유키가 몽롱한 눈으로 키스에 빠져 있다."]),
+                ({"성욕": 30}, ["유키의 숨결이 거칠어진다."]),
                 ({}, [
                     "유키와 깊은 키스를 나누고 있다.",
                     "유키가 눈을 꼭 감고 있다.",
@@ -271,15 +311,19 @@ class Yuki(Character):
 
     def on_meet_player(self, player_id):
         """플레이어와 처음 만났을 때 - Generator 기반 (묘사 형식)"""
-        if self._event_flags.get("first_meet"):
-            return None
+        # 첫 만남 이벤트
+        if not self._event_flags.get("first_meet"):
+            unit_info = morld.get_unit_info(self.instance_id)
+            if not (unit_info and unit_info.get("activity") == "수면"):
+                self._event_flags["first_meet"] = True
+                return self._run_event_dialog("first_meet", player_id=player_id)
 
-        unit_info = morld.get_unit_info(self.instance_id)
-        if unit_info and unit_info.get("activity") == "수면":
-            return None
+        # NPC 주도 스킨십 체크
+        if self.should_initiate_skinship(player_id):
+            from npc_initiative import start_npc_initiative
+            return start_npc_initiative(player_id, self.instance_id)
 
-        self._event_flags["first_meet"] = True
-        return self._run_event_dialog("first_meet", player_id=player_id)
+        return None
 
     # ========================================
     # 스킨십 반응
@@ -325,7 +369,7 @@ class Yuki(Character):
         for key, required_value in condition.items():
             if key in ("호감", "애정"):
                 prop_key = f"관계:{player_name}:{key}"
-            elif key in ("성적흥분", "성적절정"):
+            elif key in ("성욕", "성적절정"):
                 prop_key = f"상태:{key}"
             else:
                 prop_key = key
