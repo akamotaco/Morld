@@ -293,6 +293,7 @@ class Character(Unit):
     - DESCRIBE_RULES: 장소에서 보이는 묘사 규칙
     - FOCUS_RULES: 클릭했을 때 상세 묘사 규칙
     - TALK_RULES: 대화 규칙 (dict 또는 메서드명 문자열)
+    - TALK_TOPICS: 대화 주제 목록 (있으면 주제 선택 메뉴 표시)
 
     규칙 형식:
         RULES = [
@@ -311,6 +312,19 @@ class Character(Unit):
     - {"pages": ["대사1", "대사2"]}: 간단한 대화
     - "_메서드명": 복잡한 대화 처리 메서드로 위임
 
+    TALK_TOPICS + TALK_RULES (주제 기반 대화):
+        TALK_TOPICS = ["잡담", "본인에 대해", "낚시 방법"]
+        TALK_RULES = {
+            "잡담": [
+                ({"mood": "기쁨"}, {"pages": ["좋은 날이야."]}),
+                ({}, {"pages": ["뭐야?"]}),
+            ],
+            "본인에 대해": [
+                ({"호감": 50}, {"pages": ["내 이름은..."]}),
+                ({}, {"pages": ["왜 궁금해?"]}),
+            ],
+        }
+
     context 키:
     - name: 캐릭터 이름
     - activity: 현재 활동 (Job.Name)
@@ -328,7 +342,8 @@ class Character(Unit):
     # Rule 기반 텍스트 선택 (서브클래스에서 정의)
     DESCRIBE_RULES: list = None
     FOCUS_RULES: list = None
-    TALK_RULES: list = None
+    TALK_TOPICS: list = None  # 대화 주제 목록 (있으면 주제 선택 메뉴 표시)
+    TALK_RULES = None  # list (기존 방식) 또는 dict (주제별 규칙)
 
     # ========================================
     # 연애 반응 시스템
@@ -1115,20 +1130,36 @@ class Character(Unit):
 
     def talk(self):
         """
-        대화 - Rule 기반 (메서드 위임 지원)
+        대화 - 주제 선택 + Rule 기반 (메서드 위임 지원)
 
-        TALK_RULES가 정의되어 있으면 규칙 매칭:
+        TALK_TOPICS가 정의되어 있으면:
+        1. 주제 선택 메뉴 표시
+        2. 선택한 주제의 TALK_RULES[주제] 규칙 적용
+
+        TALK_TOPICS가 없고 TALK_RULES가 list면:
+        - 기존 방식 (단일 규칙 리스트)
+
+        규칙 결과 처리:
         - dict 결과: {"pages": [...]} 형태의 간단한 대사
         - str 결과: "_"로 시작하는 메서드명 → 복잡한 대화 처리
-
-        TALK_RULES가 없으면 기본 인사.
         """
-        if not self.TALK_RULES:
+        context = self._build_context()
+
+        # TALK_TOPICS가 있으면 주제 선택 메뉴 표시
+        if self.TALK_TOPICS and isinstance(self.TALK_RULES, dict):
+            topic = yield from self._select_talk_topic(context)
+            if topic is None:
+                return  # 뒤로가기
+            rules = self.TALK_RULES.get(topic, [])
+        elif self.TALK_RULES and isinstance(self.TALK_RULES, list):
+            # 기존 방식: 단일 규칙 리스트
+            rules = self.TALK_RULES
+        else:
             yield morld.dialog(f"[{self.name}]\n...")
             return
 
-        context = self._build_context()
-        result = TextSelector.select(self.TALK_RULES, context)
+        # 규칙 매칭
+        result = TextSelector.select(rules, context)
 
         if result is None:
             result = {"pages": ["......"]}
@@ -1146,6 +1177,30 @@ class Character(Unit):
         name = context.get("name", self.name)
         pages = [f"[{name}]"] + result.get("pages", ["......"])
         yield morld.dialog(pages)
+
+    def _select_talk_topic(self, context):
+        """
+        대화 주제 선택 메뉴 표시
+
+        Returns:
+            str: 선택한 주제 (TALK_TOPICS의 항목)
+            None: 뒤로가기 선택
+        """
+        name = context.get("name", self.name)
+
+        # 주제 선택 메뉴 생성
+        lines = [f"[{name}]"]
+        lines.append("")
+        for topic in self.TALK_TOPICS:
+            lines.append(f"[url=@ret:{topic}]{topic}[/url]")
+        lines.append("")
+        lines.append("[url=@ret:]뒤로[/url]")
+
+        choice = yield morld.dialog("\n".join(lines), autofill="off")
+
+        if not choice:
+            return None
+        return choice
 
     def errand(self):
         """

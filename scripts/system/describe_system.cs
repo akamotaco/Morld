@@ -387,6 +387,73 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 아이템 카테고리 분류
+		/// </summary>
+		private enum ItemCategory
+		{
+			Equipment,  // 장비 (장착 가능 - 손에 드는 것)
+			Clothing,   // 옷 (착용 가능 - 입는 것)
+			Tool,       // 도구 (passive 능력 또는 사용/조합 가능)
+			Food,       // 음식 (먹거나 마실 수 있음)
+			Material    // 재료&잡동사니
+		}
+
+		/// <summary>
+		/// 아이템의 카테고리 판별
+		/// </summary>
+		private ItemCategory GetItemCategory(Item item)
+		{
+			// 1. 옷: 착용 슬롯이 있는 아이템
+			if (item.EquipProps != null && item.EquipProps.Count > 0)
+			{
+				if (item.GetEquipPropKey("착용:") != null)
+				{
+					return ItemCategory.Clothing;
+				}
+			}
+
+			// 2. 장비: 장착 슬롯이 있는 아이템 (손에 드는 것)
+			if (item.EquipProps != null && item.EquipProps.Count > 0)
+			{
+				if (item.GetEquipPropKey("장착:") != null)
+				{
+					return ItemCategory.Equipment;
+				}
+			}
+
+			// 2. 음식: eat 또는 drink 액션이 있는 아이템
+			if (item.Actions != null)
+			{
+				foreach (var action in item.Actions)
+				{
+					if (action.Contains("call:eat:") || action.Contains(":먹기") || action.Contains(":마시기"))
+					{
+						return ItemCategory.Food;
+					}
+				}
+			}
+
+			// 3. 도구: passive_props가 있거나 call: 액션(사용/조합)이 있는 아이템
+			if (item.PassiveProps != null && item.PassiveProps.Count > 0)
+			{
+				return ItemCategory.Tool;
+			}
+			if (item.Actions != null)
+			{
+				foreach (var action in item.Actions)
+				{
+					if (action.Contains("call:") && !action.Contains("call:look:") && !action.Contains("call:debug"))
+					{
+						return ItemCategory.Tool;
+					}
+				}
+			}
+
+			// 4. 나머지는 재료&잡동사니
+			return ItemCategory.Material;
+		}
+
+		/// <summary>
 		/// 플레이어 인벤토리 텍스트 생성
 		/// </summary>
 		public string GetInventoryText()
@@ -418,18 +485,45 @@ namespace SE
 			}
 			else
 			{
+				// 카테고리별로 아이템 분류
+				var equipmentItems = new List<(int itemId, int count, Item item)>();
+				var clothingItems = new List<(int itemId, int count, Item item)>();
+				var toolItems = new List<(int itemId, int count, Item item)>();
+				var foodItems = new List<(int itemId, int count, Item item)>();
+				var materialItems = new List<(int itemId, int count, Item item)>();
+
 				foreach (var (itemId, count) in inventory)
 				{
 					var item = itemSystem.FindItem(itemId);
-					if (item != null)
+					if (item == null) continue;
+
+					var category = GetItemCategory(item);
+					switch (category)
 					{
-						var countText = count > 1 ? $" x{count}" : "";
-						var valueText = item.Value > 0 ? $" ({item.Value}G)" : "";
-						var itemName = GetNameWithOwner(item);
-						// 아이템 메뉴로 연결
-						lines.Add($"  [url=item_inv_menu:{itemId}]{itemName}{countText}[/url]{valueText}");
+						case ItemCategory.Equipment:
+							equipmentItems.Add((itemId, count, item));
+							break;
+						case ItemCategory.Clothing:
+							clothingItems.Add((itemId, count, item));
+							break;
+						case ItemCategory.Tool:
+							toolItems.Add((itemId, count, item));
+							break;
+						case ItemCategory.Food:
+							foodItems.Add((itemId, count, item));
+							break;
+						case ItemCategory.Material:
+							materialItems.Add((itemId, count, item));
+							break;
 					}
 				}
+
+				// 각 카테고리 렌더링
+				RenderInventoryCategory(lines, "장비", equipmentItems);
+				RenderInventoryCategory(lines, "옷", clothingItems);
+				RenderInventoryCategory(lines, "도구", toolItems);
+				RenderInventoryCategory(lines, "음식", foodItems);
+				RenderInventoryCategory(lines, "재료&잡동사니", materialItems);
 			}
 
 			// 장착 아이템 표시
@@ -452,6 +546,24 @@ namespace SE
 			lines.Add("[url=back]뒤로[/url]");
 
 			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// 인벤토리 카테고리 렌더링 헬퍼
+		/// </summary>
+		private void RenderInventoryCategory(List<string> lines, string categoryName, List<(int itemId, int count, Item item)> items)
+		{
+			if (items.Count == 0) return;
+
+			lines.Add($"[color=yellow]{categoryName}[/color]");
+			foreach (var (itemId, count, item) in items)
+			{
+				var countText = count > 1 ? $" x{count}" : "";
+				var valueText = item.Value > 0 ? $" ({item.Value}G)" : "";
+				var itemName = GetNameWithOwner(item);
+				lines.Add($"  [url=item_inv_menu:{itemId}]{itemName}{countText}[/url]{valueText}");
+			}
+			lines.Add("");
 		}
 
 		/// <summary>
