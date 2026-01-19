@@ -42,6 +42,7 @@ EDGES = [
     (1, 6, 1),   # 거실 - 주인공 방 (1층)
     (1, 7, 1),   # 거실 - 리나 방 (1층)
     (1, 9, 1),   # 거실 - 밀라 방 (1층)
+    (1, 15, 1),  # 거실 - 1층 화장실
     (2, 3, 1),   # 주방 - 식당
 
     # === 저택 2층 연결 ===
@@ -50,6 +51,7 @@ EDGES = [
     (14, 10, 1), # 2층 복도 - 빈 방 1 (guest_room1)
     (14, 11, 1), # 2층 복도 - 빈 방 2 (guest_room2)
     (14, 5, 1),  # 2층 복도 - 창고
+    (14, 16, 1), # 2층 복도 - 2층 화장실
 
     # === 마당 연결 ===
     (0, 12, 1),  # 현관 - 앞마당
@@ -103,9 +105,9 @@ def initialize_terrain():
     from assets.locations.lina_room import LinaRoom
     from assets.locations.sera_room import SeraRoom
     from assets.locations.mila_room import MilaRoom
-    from assets.locations.yuki_room import GuestRoom1
-    from assets.locations.ella_room import GuestRoom2
+    from assets.locations.guest_room import GuestRoom
     from assets.locations.corridor_2f import Corridor2F
+    from assets.locations.toilet import ToiletRoom
     from assets.locations.front_yard import FrontYard
     from assets.locations.back_yard import BackYard
     from assets.locations.forest_entrance import ForestEntrance
@@ -130,11 +132,13 @@ def initialize_terrain():
         7: LinaRoom(),
         8: SeraRoom(),
         9: MilaRoom(),
-        10: GuestRoom1(),   # 빈 방 1 (나중에 도심에서 데려올 캐릭터용)
-        11: GuestRoom2(),   # 빈 방 2 (나중에 도심에서 데려올 캐릭터용)
+        10: GuestRoom("guest_room1", "정리되어 있지만 사람 냄새가 나지 않는 방. 아무도 사용하지 않는 듯하다."),
+        11: GuestRoom("guest_room2", "깨끗하지만 비어있는 방. 언젠가 누군가 사용할 것 같다."),
+        15: ToiletRoom("toilet_1f", "저택 1층에 있는 작은 화장실. 깔끔하게 정돈되어 있다."),
         # === 저택 2층 (실내) ===
         14: Corridor2F(),
         5: Storage(),       # 창고 (2층)
+        16: ToiletRoom("toilet_2f", "저택 2층에 있는 작은 화장실. 창문으로 숲이 보인다."),
         # === 마당 (실외) ===
         12: FrontYard(),
         13: BackYard(),

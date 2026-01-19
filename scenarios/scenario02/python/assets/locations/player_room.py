@@ -1,8 +1,11 @@
 # assets/locations/player_room.py - 주인공 방
+#
+# 플레이어가 저택에 온 지 얼마 안 되어 배정받은 방.
+# 최소한의 가구만 있는 간소한 상태.
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Mirror, Bed, Wardrobe
+from assets.objects.furniture import Bed
 
 
 class PlayerRoom(Location):
@@ -12,17 +15,10 @@ class PlayerRoom(Location):
     is_indoor = True
     stay_duration = 0
     describe_text = {
-        "default": "작지만 아늑한 방. 침대와 작은 책상이 놓여 있다.",
-        "아침": "창문으로 아침 햇살이 들어온다.",
-        "밤": "촛불 하나가 방을 희미하게 밝힌다."
+        "default": "텅 빈 방. 침대 하나만 덩그러니 놓여 있다."
     }
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Mirror())
         self.add_object(Bed())
-
-        # 옷장 추가 (비어있음 - 플레이어가 옷을 넣을 수 있음)
-        wardrobe = Wardrobe()
-        self.add_object(wardrobe)

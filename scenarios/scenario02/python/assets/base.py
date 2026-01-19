@@ -1772,13 +1772,14 @@ class Location(Asset):
         # Location에 ground_id 설정
         morld.set_location_ground_id(self.region_id, self.location_id, ground_instance_id)
 
-    def add_object(self, obj: Object, instance_id: int = None) -> int:
+    def add_object(self, obj: Object, instance_id: int = None, owner: str = None) -> int:
         """
         이 Location에 오브젝트 배치
 
         Args:
             obj: Object 인스턴스
             instance_id: 유닛 ID (None이면 create_id로 자동 생성)
+            owner: 소유자 unique_id (None이면 obj.owner 사용)
 
         Returns:
             생성된 오브젝트의 instance_id
@@ -1786,6 +1787,9 @@ class Location(Asset):
         self._check_instantiated()
         if instance_id is None:
             instance_id = morld.create_id("unit")
+        # owner 파라미터가 주어지면 인스턴스의 owner 오버라이드
+        if owner is not None:
+            obj.owner = owner
         obj.instantiate(instance_id, self.region_id, self.location_id)
         return instance_id
 

@@ -1,9 +1,12 @@
 # assets/locations/sera_room.py - 세라의 방
+#
+# 과묵하고 무뚝뚝한 세라지만, 방 한 켠에 낡은 인형이 있다.
+# 은근히 귀여운 것을 좋아하는 의외의 면이 있음을 암시.
 
 import morld
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Bed, Wardrobe
+from assets.objects.furniture import Bed, Wardrobe, OldDoll
 
 
 class SeraRoom(Location):
@@ -13,13 +16,14 @@ class SeraRoom(Location):
     is_indoor = True
     stay_duration = 0
     describe_text = {
-        "default": "검소하고 정돈된 방. 벽에 활과 화살통이 걸려 있다."
+        "default": "검소하고 정돈된 방. 벽에 활과 화살통이 걸려 있다. 침대 곁에 작은 인형이 놓여 있는 게 의외다."
     }
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
         self.add_object(Bed())
+        self.add_object(OldDoll(), owner="sera")
 
         # 옷장 추가 + 옷 배치
         wardrobe = Wardrobe()

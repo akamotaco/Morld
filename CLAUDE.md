@@ -38,8 +38,10 @@
 
 | 작업 | 참고 문서 |
 |------|----------|
-| NPC AI/스케줄/Agent | [agent.md](scenarios/scenario02/docs/agent.md) |
+| NPC 스케줄/AI/Agent | [schedule.md](scenarios/scenario02/docs/schedule.md) |
+| NPC 생활/욕구/자율행동 | [life.md](scenarios/scenario02/docs/life.md) |
 | 연애/스킨십 시스템 | [romance.md](scenarios/scenario02/docs/romance.md) |
+| 전투 시스템 | [battle.md](scenarios/scenario02/docs/battle.md) |
 | 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
 | 시나리오 설계 (세계관, 캐릭터) | [design.md](scenarios/scenario02/docs/design.md) |
 
@@ -74,7 +76,9 @@ scenarios/scenario02/docs/
 ├── map.md              # 맵 구성
 ├── dungeon.md          # 던전 시스템
 ├── ground.md           # 바닥 오브젝트
-├── agent.md            # NPC AI/Agent
+├── schedule.md         # NPC 스케줄/AI/Agent
+├── life.md             # NPC 생활/욕구/자율행동
+├── battle.md           # 전투 시스템
 ├── romance.md          # 연애 시스템
 ├── quest.md            # 퀘스트 시스템
 ├── clothes.md          # 의류/장비

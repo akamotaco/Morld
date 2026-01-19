@@ -1,9 +1,12 @@
 # assets/locations/mila_room.py - 밀라의 방
+#
+# 따뜻하고 가정적인 밀라지만, 방은 의외로 텅 비어 있다.
+# 개인 물건이 거의 없는 건조한 공간. 어두운 과거를 암시.
 
 import morld
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Mirror, Bed, Wardrobe
+from assets.objects.furniture import Bed, Wardrobe
 
 
 class MilaRoom(Location):
@@ -13,13 +16,12 @@ class MilaRoom(Location):
     is_indoor = True
     stay_duration = 0
     describe_text = {
-        "default": "따뜻한 느낌의 방. 손수 만든 쿠션과 담요가 곳곳에 있다."
+        "default": "깨끗하지만 텅 빈 방. 개인 물건이라곤 거의 보이지 않는다."
     }
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Mirror())
         self.add_object(Bed())
 
         # 옷장 추가 + 옷 배치

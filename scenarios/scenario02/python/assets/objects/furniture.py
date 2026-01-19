@@ -565,3 +565,27 @@ class Vase(Object):
             "마른 꽃이 꽂혀 있다."
         ])
         morld.advance_time(1)
+
+
+# ========================================
+# 장식 오브젝트
+# ========================================
+
+class OldDoll(Object):
+    """
+    낡은 인형 - 귀여운 곰 인형
+    owner는 instantiate 시 지정 (예: 세라 방에서 sera 소유로 배치)
+    """
+    unique_id = "old_doll"
+    name = "낡은 인형"
+    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    focus_text = {"default": "작고 낡은 곰 인형. 누군가 소중히 다뤄온 흔적이 보인다."}
+
+    def look(self):
+        """인형 살펴보기"""
+        yield morld.dialog([
+            "작은 곰 인형이다.",
+            "오래되어 색이 바랬지만, 깨끗하게 관리되어 있다.",
+            "...누가 이런 걸 두고 있는 걸까?"
+        ])
+        morld.advance_time(1)
