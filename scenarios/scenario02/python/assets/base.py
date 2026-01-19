@@ -1174,8 +1174,9 @@ class Character(Unit):
             result = {"pages": ["......"]}
 
         # dict면 간단한 대사
-        name = context.get("name", self.name)
-        pages = [f"[{name}]"] + result.get("pages", ["......"])
+        # name = context.get("name", self.name)
+        # pages = [f"[{name}]"] + result.get("pages", ["......"])
+        pages = result.get("pages", ["......"])
         yield morld.dialog(pages)
 
     def _select_talk_topic(self, context):
