@@ -309,7 +309,11 @@ public partial class MetaActionHandler
 		if (!ProcessPendingEvents())
 		{
 			// 플레이어가 Edge 위에 있으면 이동 재개
-			ResumePlayerMovementIfNeeded();
+			// 이동 재개 시 UI 업데이트 스킵 (도착 후 자동 업데이트됨)
+			if (ResumePlayerMovementIfNeeded())
+			{
+				return;
+			}
 
 			// 처리할 이벤트가 없으면 현재 화면 갱신 (스택 유지)
 			_textUISystem?.UpdateDisplay();
@@ -320,10 +324,11 @@ public partial class MetaActionHandler
 	/// 플레이어가 Edge 위에서 중단된 상태면 이동 재개
 	/// 다이얼로그 완료 후 호출
 	/// </summary>
-	private void ResumePlayerMovementIfNeeded()
+	/// <returns>이동 재개됨 여부 (true면 UI 업데이트 불필요)</returns>
+	private bool ResumePlayerMovementIfNeeded()
 	{
 		var player = _playerSystem?.FindPlayerUnit();
-		if (player == null) return;
+		if (player == null) return false;
 
 		// Edge 위에 있고 Job이 남아있으면 이동 재개
 		if (player.CurrentEdge != null && player.CurrentJob != null)
@@ -344,8 +349,10 @@ public partial class MetaActionHandler
 				GD.Print($"[MetaActionHandler] Resuming player movement: {remainingTime}분 남음");
 #endif
 				_playerSystem.RequestTimeAdvance(remainingTime, "이동 재개");
+				return true;
 			}
 		}
+		return false;
 	}
 
 	/// <summary>

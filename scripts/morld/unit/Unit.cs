@@ -370,6 +370,21 @@ public class Unit : IOwnable
 	}
 
 	/// <summary>
+	/// 이동 속도 계산 (퍼센트, 100=기본)
+	/// "이동:속도" Prop을 아이템 효과 포함하여 계산
+	/// </summary>
+	/// <returns>이동 속도 (100=기본, 200=2배 빠름, 50=절반 속도)</returns>
+	public int GetMovementSpeed(
+		ItemSystem? itemSystem,
+		IReadOnlyDictionary<int, int>? inventory = null,
+		IReadOnlyList<int>? equippedItems = null)
+	{
+		var actualProps = GetActualProps(itemSystem, inventory, equippedItems);
+		var speed = actualProps.GetProp("이동:속도");
+		return speed > 0 ? speed : 100;  // 기본값 100
+	}
+
+	/// <summary>
 	/// 아이템 효과가 반영된 최종 Prop 계산 (특정 타입만 필터링)
 	/// </summary>
 	/// <param name="types">가져올 Prop 타입들 (예: ["스탯", "상태"]). null이면 모든 타입</param>

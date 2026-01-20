@@ -278,11 +278,207 @@ def handle(self, player_id, unit_ids):
 
 ---
 
+## Edge 충돌 감지 시스템
+
+Edge(경로) 위에서 이동 중인 유닛 간의 정밀한 충돌을 감지합니다.
+
+### 충돌 타입
+
+| 타입 | 설명 | 예시 |
+|------|------|------|
+| **Encounter** | 반대 방향에서 만남 | A→B와 B→A가 중간에서 만남 |
+| **Overtake** | 같은 방향에서 추월 | 빠른 유닛이 느린 유닛을 따라잡음 |
+
+### 이동속도 시스템
+
+캐릭터의 `이동:속도` Prop으로 이동 속도를 조절합니다.
+
+```python
+# 캐릭터 정의
+class FastRunner(Character):
+    props = {
+        "이동:속도": 150,  # 1.5배 빠름
+    }
+
+# 아이템으로 속도 부여
+class SpeedBoots(Item):
+    equip_props = {
+        "이동:속도": 50,  # +50% 속도
+    }
+```
+
+**속도 계산:**
+- 100 = 기본 속도
+- 200 = 2배 빠름 (이동 시간 절반)
+- 50 = 절반 속도 (이동 시간 2배)
+
+**실제 이동 시간:**
+```
+actualTime = baseTravelTime * 100 / movementSpeed
+```
+
+### EdgeProgress 구조
+
+```csharp
+public class EdgeProgress
+{
+    public LocationRef From { get; set; }      // 출발지
+    public LocationRef To { get; set; }        // 도착지
+    public int BaseTravelTime { get; set; }    // 기본 이동 시간
+    public int TotalTime { get; set; }         // 속도 적용 후 실제 시간
+    public int MovementSpeed { get; set; }     // 이동 속도 (100=기본)
+    public int ElapsedTime { get; set; }       // 경과 시간
+
+    // 계산 속성
+    public float NormalizedPosition => (float)ElapsedTime / TotalTime;  // 0.0~1.0
+    public float VelocityPerMinute => 1f / TotalTime;  // 분당 이동량
+    public int RemainingTime => TotalTime - ElapsedTime;
+}
+```
+
+### 충돌 감지 알고리즘
+
+**1. 반대 방향 만남 (Encounter)**
+```
+A: position_a → 1.0 방향 (속도 v_a)
+B: position_b ← 0.0 방향 (속도 v_b, 실제 위치 = 1 - position_b)
+
+상대 속도 = v_a + v_b (서로 접근)
+거리 = (1 - position_b) - position_a
+충돌 시간 = 거리 / 상대 속도
+```
+
+**2. 같은 방향 추월 (Overtake)**
+```
+A가 B 뒤에 있고 더 빠른 경우:
+상대 속도 = v_a - v_b
+거리 = position_b - position_a
+충돌 시간 = 거리 / 상대 속도
+```
+
+### 경유지 충돌 감지
+
+경유지(StayDuration=0)를 통과하는 유닛과의 충돌도 정밀하게 감지합니다.
+
+**시나리오: 플레이어가 B에 정지, NPC가 A→B→C 이동 (B의 StayDuration=0)**
+
+```
+플레이어: B에서 [0, duration] 체류 (정지 상태)
+NPC:      B에서 [5, 5] 통과 (도착 시간 5분, 체류 0분)
+
+시간 범위 겹침: max(0, 5) <= min(duration, 5)
+              → 5 <= 5 ✓
+
+결과: 5분에 충돌 발생
+```
+
+**시간 범위 기반 판정:**
+```csharp
+// 두 구간 [a1, a2]와 [b1, b2]가 겹치려면:
+// max(a1, b1) <= min(a2, b2)
+int overlapStart = Math.Max(playerStart, npcStart);
+int overlapEnd = Math.Min(playerEnd, npcEnd);
+
+if (overlapStart <= overlapEnd)
+{
+    // 겹침 발생 → 만남 시간 = overlapStart
+}
+```
+
+### 파일 위치
+
+- `scripts/system/edge_collision_detector.cs` - Edge 충돌 계산
+- `scripts/system/event_prediction_system.cs` - 충돌 예측 및 시간 조정
+- `scripts/system/event_system.cs` - 실시간 충돌 감지 (DetectEdgeMeetings)
+- `scripts/morld/unit/ActionLog.cs` - EdgeProgress 정의
+
+---
+
+## Awareness (인식) 시스템
+
+플레이어 근처에서 이동 중인 NPC를 감지하여 액션 로그로 알려줍니다.
+
+### 동작 원리
+
+```
+1. 플레이어 이동 명령 입력 시
+2. 같은 Edge에 있는 NPC 또는 근처 Edge에서 접근 중인 NPC 감지
+3. "세라가 앞마당 쪽에서 다가온다" 형태로 액션 로그 표시
+```
+
+### 감지 조건
+
+| 조건 | 설명 |
+|------|------|
+| 같은 Edge | 플레이어와 같은 경로에서 이동 중 |
+| 인접 Edge | 플레이어의 출발지/도착지와 연결된 Edge |
+| 접근 방향 | 플레이어 방향으로 이동 중 |
+
+### 메시지 형식
+
+```
+{NPC이름}(이)가 {방향}에서 다가온다.
+{NPC이름}(이)가 {방향}(으)로 향하고 있다.
+```
+
+**방향 결정:**
+- NPC의 출발지 Location 이름 사용
+- 플레이어 기준 상대적 위치
+
+### 구현 위치
+
+- `scripts/MetaActionHandler/MetaActionHandler.cs` - `GenerateNearbyAwarenessLogs()`
+
+---
+
+## EventPredictionSystem
+
+미래 이벤트를 예측하여 NextStepDuration을 자동 조정합니다.
+
+### 예측 대상
+
+| 이벤트 | 예측 방법 |
+|--------|----------|
+| on_meet (위치) | 경로 시뮬레이션으로 만남 시점 계산 |
+| on_meet (Edge) | EdgeCollisionDetector로 충돌 시점 계산 |
+| on_reach | 경로 시뮬레이션으로 도착 시점 계산 |
+
+### 시간 조정 흐름
+
+```
+1. ThinkSystem: NPC Job 결정
+2. EventPredictionSystem: 이벤트 예측, NextStepDuration 조정
+3. JobBehaviorSystem: 실제 이동 처리
+4. EventSystem: 이벤트 감지 및 처리
+```
+
+### RouteWaypoint 구조
+
+```csharp
+public struct RouteWaypoint
+{
+    public LocationRef Location { get; set; }  // 위치
+    public int ArrivalTime { get; set; }       // 도착 시간
+    public int StayDuration { get; set; }      // 체류 시간 (0=경유 통과)
+    public int DepartureTime => ArrivalTime + StayDuration;  // 출발 시간
+    public bool IsFinalDestination { get; set; }  // 최종 목적지 여부
+}
+```
+
+### 파일 위치
+
+- `scripts/system/event_prediction_system.cs`
+
+---
+
 ## 파일 위치 요약
 
 **C#:**
 - `scripts/system/event_system.cs` - 이벤트 감지 및 처리
+- `scripts/system/event_prediction_system.cs` - 이벤트 예측 및 시간 조정
+- `scripts/system/edge_collision_detector.cs` - Edge 충돌 계산
 - `scripts/morld/event/GameEvent.cs` - 이벤트 타입 정의
+- `scripts/morld/unit/ActionLog.cs` - EdgeProgress 정의
 
 **Python:**
 - `scenarios/scenario02/python/events/__init__.py` - 이벤트 시스템 메인 (on_equip_change 처리 포함)

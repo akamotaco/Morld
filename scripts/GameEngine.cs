@@ -283,6 +283,11 @@ public partial class GameEngine : Node
 	private void UpdateSituationText()
 	{
 		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+		var _describeSystem = this._world.GetSystem("describeSystem") as DescribeSystem;
+
+		// 주변 인식 정보 생성 (다가오는 캐릭터, 군중 등)
+		_describeSystem?.GenerateNearbyAwarenessLogs();
+
 		_textUISystem.ShowSituation();
 	}
 

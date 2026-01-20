@@ -282,6 +282,7 @@ namespace SE
 		/// 만남 조건:
 		/// - 조건 A: 정지 상태 (CurrentEdge == null)
 		/// - 조건 B: 방금 도착 (이전 위치 != 현재 위치, 경유지 통과 감지)
+		/// - 조건 C: Edge 위 충돌 (같은 Edge에서 반대/같은 방향)
 		///
 		/// 시간 정지 상태에서는 스킵 (NPC와 상호작용 불가)
 		/// </summary>
@@ -327,6 +328,19 @@ namespace SE
 				}
 			}
 
+			// 조건 C: Edge 위 충돌 감지 (플레이어가 Edge 위에 있을 때)
+			if (player.CurrentEdge != null)
+			{
+				var edgeMeetings = DetectEdgeMeetings(player, _unitSystem);
+				foreach (var unitId in edgeMeetings)
+				{
+					if (!unitsToMeet.Contains(unitId))
+					{
+						unitsToMeet.Add(unitId);
+					}
+				}
+			}
+
 			unitsToMeet.Sort();  // 정렬하여 키 정규화
 
 			if (unitsToMeet.Count == 0)
@@ -345,6 +359,55 @@ namespace SE
 			// 새로운 만남 기록 및 이벤트 생성
 			AddMeetingKey(meetingKey, allIds.ToArray());
 			Enqueue(GameEvent.OnMeet(allIds.ToArray()));
+		}
+
+		/// <summary>
+		/// Edge 위에서의 충돌 감지
+		/// 플레이어와 같은 Edge에 있는 유닛 중 충돌 조건 만족하는 유닛 반환
+		/// </summary>
+		private List<int> DetectEdgeMeetings(Unit player, UnitSystem unitSystem)
+		{
+			var result = new List<int>();
+			var playerEdge = player.CurrentEdge;
+			if (playerEdge == null) return result;
+
+			// EdgeKey로 정규화
+			var playerEdgeKey = new EdgeCollisionDetector.EdgeKey(playerEdge.From, playerEdge.To);
+
+			foreach (var unit in unitSystem.Units.Values)
+			{
+				if (unit.Id == player.Id) continue;
+				if (unit.IsObject) continue;
+				if (!unit.GeneratesEvents) continue;
+				if (unit.CurrentEdge == null) continue;
+
+				var unitEdge = unit.CurrentEdge;
+				var unitEdgeKey = new EdgeCollisionDetector.EdgeKey(unitEdge.From, unitEdge.To);
+
+				// 같은 Edge인지 확인
+				if (!playerEdgeKey.Equals(unitEdgeKey)) continue;
+
+				// 위치 계산 (EdgeKey 기준 정규화)
+				float playerPos = playerEdge.From.Equals(playerEdgeKey.A)
+					? playerEdge.NormalizedPosition
+					: 1.0f - playerEdge.NormalizedPosition;
+
+				float unitPos = unitEdge.From.Equals(unitEdgeKey.A)
+					? unitEdge.NormalizedPosition
+					: 1.0f - unitEdge.NormalizedPosition;
+
+				// 위치 차이가 작으면 충돌 (5% 이내 = 거의 같은 위치)
+				float distance = Math.Abs(playerPos - unitPos);
+				if (distance <= 0.05f)
+				{
+#if DEBUG_LOG
+					Godot.GD.Print($"[EventSystem] Edge meeting detected: Player vs {unit.Name} at pos {playerPos:F2} (distance={distance:F2})");
+#endif
+					result.Add(unit.Id);
+				}
+			}
+
+			return result;
 		}
 
 		/// <summary>

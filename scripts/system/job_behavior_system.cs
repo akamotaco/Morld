@@ -246,14 +246,21 @@ namespace SE
 				// 다음 위치로 Edge 생성
 				var nextLocation = pathResult.Path[1];
 				var nextLocationRef = new LocationRef(nextLocation);
-				int travelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLocationRef);
-				if (travelTime < 0) travelTime = 10;  // 기본값
+				int baseTravelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLocationRef);
+				if (baseTravelTime < 0) baseTravelTime = 10;  // 기본값
+
+				// 이동속도 적용 (100=기본, 200=2배 빠름)
+				int movementSpeed = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
+				int actualTravelTime = (int)Math.Ceiling(baseTravelTime * 100.0 / movementSpeed);
+				if (actualTravelTime < 1) actualTravelTime = 1;  // 최소 1분
 
 				unit.CurrentEdge = new EdgeProgress
 				{
 					From = unit.CurrentLocation,
 					To = nextLocationRef,
-					TotalTime = travelTime,
+					BaseTravelTime = baseTravelTime,
+					TotalTime = actualTravelTime,
+					MovementSpeed = movementSpeed,
 					ElapsedTime = 0
 				};
 			}
