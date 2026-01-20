@@ -302,13 +302,49 @@ public partial class MetaActionHandler
 	/// 이벤트 처리 후 현재 화면 갱신 (스택 유지)
 	/// Generator 기반 다이얼로그 완료 후 호출
 	/// 남은 meet 이벤트가 있으면 처리하고, 없으면 현재 화면만 갱신
+	/// 플레이어가 이동 중이었으면 이동 재개
 	/// </summary>
 	private void ProcessEventsAndUpdateDisplay()
 	{
 		if (!ProcessPendingEvents())
 		{
+			// 플레이어가 Edge 위에 있으면 이동 재개
+			ResumePlayerMovementIfNeeded();
+
 			// 처리할 이벤트가 없으면 현재 화면 갱신 (스택 유지)
 			_textUISystem?.UpdateDisplay();
+		}
+	}
+
+	/// <summary>
+	/// 플레이어가 Edge 위에서 중단된 상태면 이동 재개
+	/// 다이얼로그 완료 후 호출
+	/// </summary>
+	private void ResumePlayerMovementIfNeeded()
+	{
+		var player = _playerSystem?.FindPlayerUnit();
+		if (player == null) return;
+
+		// Edge 위에 있고 Job이 남아있으면 이동 재개
+		if (player.CurrentEdge != null && player.CurrentJob != null)
+		{
+			// 남은 이동 시간 계산 (현재 Edge 남은 시간 + Job의 남은 시간)
+			int remainingTime = player.CurrentEdge.RemainingTime;
+
+			// Job의 남은 Duration도 고려 (여러 Edge를 거치는 경우)
+			var job = player.CurrentJob;
+			if (job.Duration > remainingTime)
+			{
+				remainingTime = job.Duration;
+			}
+
+			if (remainingTime > 0)
+			{
+#if DEBUG_LOG
+				GD.Print($"[MetaActionHandler] Resuming player movement: {remainingTime}분 남음");
+#endif
+				_playerSystem.RequestTimeAdvance(remainingTime, "이동 재개");
+			}
 		}
 	}
 

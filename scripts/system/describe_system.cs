@@ -10,8 +10,123 @@ namespace SE
 	/// </summary>
 	public class DescribeSystem : ECS.System
 	{
+		/// <summary>
+		/// Edge 위 캐릭터 감지 거리 threshold (분 단위, -1이면 무한)
+		/// </summary>
+		public int AwarenessDistanceThreshold { get; set; } = 30;
+
+		/// <summary>
+		/// 인접 Location 군중 감지 거리 threshold (분 단위, -1이면 무한)
+		/// </summary>
+		public int CrowdDistanceThreshold { get; set; } = 30;
+
+		/// <summary>
+		/// 군중으로 판단할 최소 인원 수
+		/// </summary>
+		public int CrowdCountThreshold { get; set; } = 3;
+
 		public DescribeSystem()
 		{
+		}
+
+		/// <summary>
+		/// 플레이어 주변 인식 정보를 ActionLog에 추가
+		/// - Edge 위에서 다가오는 캐릭터 감지
+		/// - 인접 Location의 군중(3명 이상) 감지
+		/// pending 상태에서 한 번 호출
+		/// Note: 멀어지는 캐릭터는 NotifyNpcDeparture에서 처리
+		/// </summary>
+		public void GenerateNearbyAwarenessLogs()
+		{
+			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+			var actionLogSystem = _hub.GetSystem("actionLogSystem") as ActionLogSystem;
+
+			var player = playerSystem?.FindPlayerUnit();
+			if (player == null) return;
+
+			var playerLocation = player.CurrentLocation;
+			var terrain = worldSystem?.GetTerrain();
+			if (terrain == null) return;
+
+			var region = terrain.GetRegion(playerLocation.RegionId);
+			var currentLoc = region?.GetLocation(playerLocation.LocalId);
+			if (currentLoc == null) return;
+
+			// 1. Edge 위에서 다가오는 캐릭터 감지
+			foreach (var unit in unitSystem.Units.Values)
+			{
+				// 플레이어, 오브젝트 제외
+				if (unit.Id == player.Id) continue;
+				if (unit.IsObject) continue;
+
+				var edgeProgress = unit.CurrentEdge;
+				if (edgeProgress == null) continue;
+
+				// 다가오는 캐릭터: 목적지가 플레이어 위치
+				if (edgeProgress.To == playerLocation)
+				{
+					// threshold 체크 (-1이면 무한)
+					if (AwarenessDistanceThreshold >= 0 && edgeProgress.RemainingTime > AwarenessDistanceThreshold)
+						continue;
+
+					var fromLoc = terrain.GetLocation(edgeProgress.From);
+					var fromName = GetLocationDisplayName(terrain, fromLoc);
+					actionLogSystem?.AddLog($"{unit.Name}(이)가 {fromName} 쪽에서 다가온다.");
+				}
+			}
+
+			// 2. 인접 Location의 군중 감지
+			var edges = region.GetEdges(currentLoc);
+			foreach (var edge in edges)
+			{
+				var neighborLoc = edge.GetOtherLocation(currentLoc);
+				var travelTime = edge.GetTravelTime(currentLoc);
+
+				// threshold 체크 (-1이면 무한)
+				if (CrowdDistanceThreshold >= 0 && travelTime > CrowdDistanceThreshold)
+					continue;
+
+				// 해당 Location에 있는 캐릭터 수 계산 (오브젝트 제외)
+				var neighborRef = new LocationRef(neighborLoc.RegionId, neighborLoc.LocalId);
+				int characterCount = 0;
+				foreach (var unit in unitSystem.Units.Values)
+				{
+					if (unit.IsObject) continue;
+					if (unit.Id == player.Id) continue;
+					if (unit.CurrentLocation == neighborRef && unit.CurrentEdge == null)
+					{
+						characterCount++;
+					}
+				}
+
+				if (characterCount >= CrowdCountThreshold)
+				{
+					var locName = GetLocationDisplayName(terrain, neighborLoc);
+					actionLogSystem?.AddLog($"{locName}에서 왁자지껄한 소리가 들린다.");
+				}
+				else if (characterCount == 2)
+				{
+					var locName = GetLocationDisplayName(terrain, neighborLoc);
+					actionLogSystem?.AddLog($"{locName}에서 도란도란 이야기 소리가 들린다.");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Location 표시 이름 생성 (Region 이름 포함)
+		/// </summary>
+		private string GetLocationDisplayName(Terrain terrain, Location location)
+		{
+			if (location == null) return "어딘가";
+
+			var region = terrain.GetRegion(location.RegionId);
+			if (region != null && region.Name != "unknown")
+			{
+				return $"{region.Name} {location.Name}";
+			}
+			return location.Name ?? "어딘가";
 		}
 
 		/// <summary>

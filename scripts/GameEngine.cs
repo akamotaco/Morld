@@ -249,7 +249,7 @@ public partial class GameEngine : Node
 
 			if (eventHandled)
 			{
-				// 이벤트 발생: 남은 시간 클리어하고 다이얼로그 진입
+				// 이벤트 발생: 시간 진행만 중단 (Edge/Job은 유지하여 이동 재개 가능)
 				_playerSystem.ClearPendingTime();
 			}
 

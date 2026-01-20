@@ -266,7 +266,7 @@ namespace SE
 			var destLocation = terrain.GetLocation(destination);
 			var destRegion = destLocation != null ? terrain.GetRegion(destLocation.RegionId) : null;
 
-			string destName = destLocation.Name ?? "어딘가";
+			string destName = destLocation?.Name ?? "어딘가";
 			if (destRegion != null && destRegion.Name != "unknown")
 			{
 				destName = $"{destRegion.Name} {destLocation.Name}";
