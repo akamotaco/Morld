@@ -315,4 +315,55 @@ public partial class MetaActionHandler
 			GD.PrintErr("[MetaActionHandler] @prev: no previous page available - this is a bug!");
 		}
 	}
+
+	/// <summary>
+	/// 자동 시간 흐름에 의한 다이얼로그 갱신 (tick)
+	/// TimeFlows=true인 Dialog가 열려있고 proc 콜백이 있으면 proc("tick") 호출
+	/// 지도 UI 등 시간 흐름에 따라 갱신이 필요한 다이얼로그용
+	/// </summary>
+	/// <returns>tick 처리가 수행되었으면 true</returns>
+	public bool TriggerDialogTick()
+	{
+		// 1. Dialog Focus가 열려있는지 확인
+		if (_textUISystem?.CurrentFocus?.Type != FocusType.Dialog)
+			return false;
+
+		// 2. TimeFlows=true인지 확인
+		if (_textUISystem.CurrentFocus.TimeFlows != true)
+			return false;
+
+		// 3. pendingDialogRequest와 proc 콜백이 있는지 확인
+		if (_pendingDialogRequest?.ProcCallback == null)
+			return false;
+
+		// 4. proc("tick") 호출
+		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
+		if (scriptSystem == null)
+			return false;
+
+		var (newText, shouldFinish) = scriptSystem.CallProcCallback(_pendingDialogRequest.ProcCallback, "tick");
+
+		// 5. 반환값 처리
+		if (shouldFinish)
+		{
+			// True 반환: 다이얼로그 종료 (예상치 못한 상황)
+#if DEBUG_LOG
+			GD.Print("[MetaActionHandler] tick: proc returned True, finishing dialog");
+#endif
+			HandleFinishAction();
+			return true;
+		}
+
+		if (newText != null)
+		{
+			// 새 텍스트로 업데이트
+			_pendingDialogRequest.UpdateCurrentPageText(newText);
+			_textUISystem?.UpdateDialogText(newText);
+#if DEBUG_LOG
+			GD.Print($"[MetaActionHandler] tick: dialog updated");
+#endif
+		}
+
+		return true;
+	}
 }

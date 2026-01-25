@@ -280,10 +280,15 @@ public partial class GameEngine : Node
 				// 3. ExcessTime 계산 (이벤트 처리에서 누적된 다이얼로그 시간 기준)
 				_eventSystem.FinalizeDialogTime();
 
-				// 4. 모놀로그가 없으면 상황 업데이트
+				// 4. 모놀로그가 없으면 상황 업데이트 또는 Dialog tick 갱신
 				if (!eventHandled && !newEventHandled)
 				{
-					UpdateSituationText();
+					// Dialog Focus(TimeFlows=true)가 열려있으면 tick 갱신 (지도 UI 등)
+					// 그렇지 않으면 상황 화면 갱신
+					if (!_actionHandler.TriggerDialogTick())
+					{
+						UpdateSituationText();
+					}
 				}
 			}
 		}

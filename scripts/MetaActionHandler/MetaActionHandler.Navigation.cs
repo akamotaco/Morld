@@ -180,7 +180,7 @@ public partial class MetaActionHandler
 						}
 					}
 
-					_textUISystem?.PushDialog(displayText);
+					_textUISystem?.PushDialog(displayText, 0, gr.DialogRequest?.TimeFlows ?? false);
 				}
 			}
 		}
@@ -228,7 +228,7 @@ public partial class MetaActionHandler
 						}
 					}
 
-					_textUISystem?.PushDialog(displayText);
+					_textUISystem?.PushDialog(displayText, 0, gr.DialogRequest?.TimeFlows ?? false);
 				}
 			}
 		}
@@ -293,7 +293,7 @@ public partial class MetaActionHandler
 							}
 						}
 
-						_textUISystem?.PushDialog(displayText);
+						_textUISystem?.PushDialog(displayText, 0, gr.DialogRequest?.TimeFlows ?? false);
 #if DEBUG_LOG
 						GD.Print($"[MetaActionHandler] NPC initiative event triggered for unit {unitId}");
 #endif
@@ -392,7 +392,8 @@ public partial class MetaActionHandler
 							}
 						}
 
-						_textUISystem?.PushDialog(displayText);
+						// time_flows=True인 다이얼로그(지도 등)에서 자동 시간 흐름 허용
+						_textUISystem?.PushDialog(displayText, 0, gr.DialogRequest?.TimeFlows ?? false);
 					}
 				}
 			}

@@ -36,6 +36,10 @@ def show_map():
         if action == "init":
             return None
 
+        # 자동 시간 흐름에 의한 갱신 (tick)
+        if action == "tick":
+            return _render_map(state)  # 지도 다시 렌더링
+
         # 취소
         if action == "cancel":
             return True  # 다이얼로그 종료
@@ -60,7 +64,9 @@ def show_map():
         return None
 
     text = _render_map(state)
-    yield morld.dialog(text, autofill="off", proc=handle_action, result=state)
+    # time_flows=True: 지도를 보는 동안에도 자동 시간 흐름 허용
+    # proc("tick")으로 지도 UI 자동 갱신
+    yield morld.dialog(text, autofill="off", proc=handle_action, result=state, time_flows=True)
 
     # 선택된 목적지가 있으면 이동 확인
     if state["selected"]:
