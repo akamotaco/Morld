@@ -58,17 +58,59 @@ morld.get_location_ground_id(region_id, location_id)
 # ========================================
 # Dialog API (Generator 전용)
 # ========================================
-result = yield morld.dialog(
-    text_or_pages,      # str 또는 list
+# 권장: ui.dialog() 래퍼 사용
+import ui
+result = yield ui.dialog(
+    text_or_pages,      # str 또는 list (연쇄 출력 지원)
     autofill="next",    # "next", "book", "scroll", "off"
     proc=None,          # @proc:값 클릭 시 호출될 콜백
     result=None         # @finish 시 반환할 값
 )
+
+# 저수준 API (직접 사용 비권장)
+result = yield morld.dialog(...)
 ```
 
 ---
 
 ## Dialog 시스템
+
+### ui.dialog() - 권장 API
+
+`ui.dialog()`는 `morld.dialog()`를 감싼 래퍼로, 리스트 기반 다 페이지와 연쇄 출력을 지원합니다.
+
+```python
+import ui
+
+# 단일 페이지 (기존과 동일)
+yield ui.dialog("텍스트")
+
+# 다 페이지 - 연쇄 출력 지원
+yield ui.dialog([
+    "첫 페이지",
+    "+두 번째 (연쇄)",   # 이전 내용 유지 + 새 내용 타이핑
+    "세 번째 (새로)"     # 새로 시작
+])
+```
+
+#### 연쇄 출력 (`+` 접두사)
+
+`+`로 시작하는 페이지는 이전 내용을 즉시 표시(`[!]...[/!]`)하고 새 내용만 타이핑합니다.
+
+| 표현 | 동작 |
+|------|------|
+| `"텍스트"` | 새 페이지로 시작 |
+| `"+텍스트"` | 이전 페이지 유지 + 새 내용 추가 |
+| `"\\+텍스트"` | `+`를 리터럴로 사용 (이스케이프) |
+
+#### autofill 옵션과 ui.dialog() 동작
+
+| 호출 | 처리 방식 |
+|------|-----------|
+| `ui.dialog([...])` | Python proc 기반 처리 (다음/확인 버튼) |
+| `ui.dialog([...], autofill="scroll")` | C# 처리 (텍스트 누적) |
+| `ui.dialog([...], autofill="book")` | C# 처리 (이전/다음 왕복) |
+| `ui.dialog("문자열", ...)` | C# 처리 (기존 동작) |
 
 ### autofill 타입
 
@@ -100,16 +142,32 @@ result = yield morld.dialog(
 ### 예시 - 멀티페이지 모놀로그
 
 ```python
-yield morld.dialog([
+import ui
+
+yield ui.dialog([
     "...어디지, 여기는?",
-    "머리가 지끈거린다.",
-    "일단 저택에서 나가야 할 것 같다."
+    "+머리가 지끈거린다.",      # 연쇄 출력
+    "일단 저택에서 나가야 할 것 같다."  # 새 페이지
+])
+```
+
+### 예시 - 연쇄 출력 (프롤로그 스타일)
+
+```python
+yield ui.dialog([
+    "......",
+    "+......의식이 희미하게 떠오른다.",
+    "머리가... 아프다.",
+    "+여기는... 어디지?",
+    "+기억이... 나지 않는다.",
 ])
 ```
 
 ### 예시 - proc + 선택지
 
 ```python
+import ui
+
 state = {"choice": None}
 
 def handle_choice(action):
@@ -118,7 +176,7 @@ def handle_choice(action):
     state["choice"] = action
     return True  # 다이얼로그 종료
 
-result = yield morld.dialog(
+result = yield ui.dialog(
     "어디로 갈까?\n\n"
     "[url=@proc:town]마을[/url]\n"
     "[url=@proc:forest]숲[/url]",
@@ -163,6 +221,8 @@ class Character(Unit):
 
 ```python
 # assets/characters/sera.py
+import ui
+
 class Sera(Character):
     unique_id = "sera"
     name = "세라"
@@ -176,7 +236,7 @@ class Sera(Character):
     ]
 
     def on_meet_player(self, player_id):
-        yield morld.dialog("...일어났군.")
+        yield ui.dialog("...일어났군.")
 ```
 
 ---
@@ -186,10 +246,12 @@ class Sera(Character):
 ### @morld.register_script 데코레이터
 
 ```python
+import ui
+
 @morld.register_script
 def my_script(context_unit_id, *args):
     """context_unit_id는 Focus 대상 유닛"""
-    result = yield morld.dialog("선택하세요\n\n[url=@ret:yes]예[/url]")
+    result = yield ui.dialog("선택하세요\n\n[url=@ret:yes]예[/url]")
     if result == "yes":
         morld.give_item(context_unit_id, item_id)
 ```

@@ -455,7 +455,44 @@ events/
 
 ## Dialog 시스템
 
-### morld.dialog() API
+### ui.dialog() - 권장 API
+
+`ui.dialog()`는 `morld.dialog()`를 감싼 래퍼로, 리스트 기반 다 페이지와 연쇄 출력을 지원합니다.
+
+```python
+import ui
+
+# 단일 페이지 (기존 morld.dialog와 동일)
+yield ui.dialog("텍스트")
+
+# 다 페이지 - 자동으로 [다음]/[확인] 버튼 추가
+yield ui.dialog([
+    "첫 번째 페이지",
+    "두 번째 페이지",
+    "마지막 페이지"
+])
+
+# 연쇄 출력 (+ 접두사) - 이전 내용 누적
+yield ui.dialog([
+    "첫 번째 문장.",           # 타이핑
+    "+두 번째 문장.",          # 첫 번째는 즉시([!]...[/!]), 두 번째만 타이핑
+    "+세 번째 문장.",          # 1+2는 즉시, 세 번째만 타이핑
+])
+
+# + 리터럴 사용 시 이스케이프
+yield ui.dialog(["\\+로 시작하는 문장"])  # "+"로 시작하는 실제 텍스트
+```
+
+### autofill 옵션과 ui.dialog() 동작
+
+| 호출 | 처리 방식 |
+|------|-----------|
+| `ui.dialog([...])` | Python proc 기반 처리 (다음/확인 버튼) |
+| `ui.dialog([...], autofill="scroll")` | C# 처리 (텍스트 누적) |
+| `ui.dialog([...], autofill="book")` | C# 처리 (이전/다음 왕복) |
+| `ui.dialog("문자열", ...)` | C# 처리 (기존 동작) |
+
+### morld.dialog() API (저수준)
 
 스크립트 함수에서 상호작용 다이얼로그를 표시하는 제너레이터 기반 API.
 
