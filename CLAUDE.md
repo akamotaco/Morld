@@ -103,3 +103,38 @@ scenarios/scenario02/docs/
 | Python Asset 클래스 | `scenarios/scenario02/python/assets/` |
 | Python 이벤트 핸들러 | `scenarios/scenario02/python/events/` |
 | Python NPC AI | `scenarios/scenario02/python/think/` |
+
+---
+
+## 시나리오03 호환성 고려
+
+> **시스템 수정 시 시나리오03 호환성을 고려하세요.**
+>
+> 시나리오03 (Mind The Gap)은 시나리오02의 핵심 시스템을 공유합니다.
+> C# 시스템이나 공용 Python 코드를 수정할 때 아래 원칙을 따라주세요.
+
+### 호환성 원칙
+
+1. **선택적 속성**: 새로운 prop은 없어도 동작하도록 설계
+2. **기본값 적용**: 속성이 없으면 최적/최상의 상태로 간주
+3. **점진적 확장**: 기존 시스템을 수정하지 않고 확장
+
+### 예시: 내구도 시스템
+
+```python
+# GOOD: prop이 없으면 기본값 사용
+def get_durability(item_id: int) -> float:
+    durability = morld.get_unit_prop(item_id, "durability")
+    if durability is None:
+        return 1.0  # 시나리오02 아이템도 정상 동작
+    return durability
+
+# BAD: prop이 없으면 에러
+durability = morld.get_unit_prop(item_id, "durability")
+durability -= 0.1  # None이면 에러!
+```
+
+### 참고 문서
+
+- 시나리오03 설계: [scenarios/scenario03/docs/design.md](scenarios/scenario03/docs/design.md)
+- 호환성 상세: [scenarios/scenario03/docs/compatibility.md](scenarios/scenario03/docs/compatibility.md)
