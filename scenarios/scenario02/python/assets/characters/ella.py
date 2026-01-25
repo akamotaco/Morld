@@ -74,6 +74,7 @@
 # ============================================================
 
 import morld
+import ui
 from assets.base import Character
 from think import BaseAgent, register_agent_class
 
@@ -622,7 +623,7 @@ class Ella(Character):
         if current_progress < 3:
             morld.set_unit_prop(self.instance_id, progress_key, current_progress + 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "......",
             "...무슨 일이냐?",
@@ -644,7 +645,7 @@ class Ella(Character):
         if current_progress < 3:
             morld.set_unit_prop(self.instance_id, progress_key, current_progress + 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "......",
             "...할 말이 있으면 빨리 해라.",
@@ -662,12 +663,12 @@ class Ella(Character):
         flag_key = f"대화:{player_name}:진척도1"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([f"[{name}]", "......", "...또 왔냐."])
+            yield ui.dialog([f"[{name}]", "......", "...또 왔냐."])
             return
 
         # 플래그 설정 및 사적인 이야기
         morld.set_unit_prop(self.instance_id, flag_key, 1)
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "...나에 대해?",
             "......",
@@ -693,7 +694,7 @@ class Ella(Character):
         flag_key = f"대화:{player_name}:진척도2"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([
+            yield ui.dialog([
                 f"[{name}]",
                 "......",
                 "...창밖을 보고 있었다.",
@@ -703,7 +704,7 @@ class Ella(Character):
 
         # 플래그 설정
         morld.set_unit_prop(self.instance_id, flag_key, 1)
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "...좋아하는 것?",
             "......",
@@ -736,7 +737,7 @@ class Ella(Character):
         flag_key = f"대화:{player_name}:진척도3"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([
+            yield ui.dialog([
                 f"[{name}]",
                 "......",
                 "...(먼 곳을 바라보고 있다)",
@@ -746,7 +747,7 @@ class Ella(Character):
 
         # 플래그 설정
         morld.set_unit_prop(self.instance_id, flag_key, 1)
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "...",
             "...과거?",

@@ -10,6 +10,7 @@
 #   loc.add_object(bench, instance_id)
 
 import morld
+import ui
 from assets.base import Object
 
 
@@ -25,7 +26,7 @@ class GardenBench(Object):
 
     def sit(self):
         """벤치에 앉기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "정원 벤치에 앉았다.",
             "바람이 시원하다."
         ])
@@ -40,7 +41,7 @@ class Well(Object):
 
     def look(self):
         """우물 들여다보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "우물 안을 들여다봤다.",
             "맑은 물이 깊은 곳에서 반짝인다."
         ])
@@ -48,7 +49,7 @@ class Well(Object):
 
     def draw(self):
         """물 길어올리기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "두레박으로 물을 길어올렸다.",
             "시원하고 맑은 물이다."
         ])
@@ -73,7 +74,7 @@ class GardenPlot(Object):
 
     def look(self):
         """텃밭 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "작은 텃밭이다.",
             "간단한 채소를 기를 수 있을 것 같다."
         ])
@@ -88,7 +89,7 @@ class DryingRack(Object):
 
     def look(self):
         """빨래 건조대 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "빨래 건조대다.",
             "빨래가 마르면 걷어야 할 것 같다."
         ])
@@ -113,7 +114,7 @@ class FishingSpot(Object):
 
     def look(self):
         """낚시터 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "물이 깊고 잔잔한 곳이다.",
             "물고기가 많이 잡힐 것 같다.",
             "낚시대를 장착하면 낚시를 할 수 있다."
@@ -137,12 +138,12 @@ class FishingSpot(Object):
         if equipment:
             equip_id = equipment.get("unique_id", "")
             if equip_id == "fishing_rod":
-                yield morld.dialog("낚싯줄을 드리운다...")
+                yield ui.dialog("낚싯줄을 드리운다...")
             else:
-                yield morld.dialog(f"{equipment.get('name', '도구')}(으)로 낚시를 시작한다...")
+                yield ui.dialog(f"{equipment.get('name', '도구')}(으)로 낚시를 시작한다...")
         else:
             # can:fish가 기본 능력인 경우 (장비 없이 가능할 때)
-            yield morld.dialog("맨손으로 물고기를 잡아본다...")
+            yield ui.dialog("맨손으로 물고기를 잡아본다...")
         morld.advance_time(15)  # 15분 소요
 
         # 70% 확률로 성공
@@ -160,16 +161,16 @@ class FishingSpot(Object):
                     fish_id = morld.create_id("item")
                     fish.instantiate(fish_id)
                 else:
-                    yield morld.dialog("물고기를 잡았지만, 놓쳐버렸다.")
+                    yield ui.dialog("물고기를 잡았지만, 놓쳐버렸다.")
                     return
 
             morld.give_item(player_id, fish_id, 1)
-            yield morld.dialog([
+            yield ui.dialog([
                 "물고기를 잡았다!",
                 "신선한 생선이다."
             ])
         else:
-            yield morld.dialog([
+            yield ui.dialog([
                 "한참을 기다렸지만...",
                 "아무것도 잡히지 않았다."
             ])

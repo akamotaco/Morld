@@ -273,4 +273,4 @@ def show_settings_ui():
 
         return None
 
-    yield morld.dialog("", autofill="off", proc=proc, result=state)
+    yield ui.dialog("", autofill="off", proc=proc, result=state)

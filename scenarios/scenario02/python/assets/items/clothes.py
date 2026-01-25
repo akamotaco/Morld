@@ -35,6 +35,7 @@
 #   shirt.instantiate(item_id)
 
 import morld
+import ui
 from assets.base import Item
 from assets.registry import register_item
 
@@ -58,7 +59,7 @@ class Clothing(Item):
 
     def look(self):
         """의류 살펴보기 - 서브클래스에서 오버라이드"""
-        yield morld.dialog(f"{self.name}이다.")
+        yield ui.dialog(f"{self.name}이다.")
 
 
 # ========================================
@@ -81,7 +82,7 @@ class RaggedClothes(Clothing):
     }
     value = 1
     def look(self):
-        yield morld.dialog([
+        yield ui.dialog([
             "낡고 해진 옷이다.",
             "여기저기 구멍이 나 있다."
         ])
@@ -100,7 +101,7 @@ class SimpleShirt(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("평범한 셔츠다.")
+        yield ui.dialog("평범한 셔츠다.")
 
 
 @register_item
@@ -112,7 +113,7 @@ class LinenShirt(Clothing):
     value = 20
 
     def look(self):
-        yield morld.dialog("시원한 린넨 소재의 셔츠다.")
+        yield ui.dialog("시원한 린넨 소재의 셔츠다.")
 
 
 @register_item
@@ -124,7 +125,7 @@ class Blouse(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("깔끔한 블라우스다.")
+        yield ui.dialog("깔끔한 블라우스다.")
 
 
 @register_item
@@ -136,7 +137,7 @@ class WhiteBlouse(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("깨끗한 흰 블라우스다.")
+        yield ui.dialog("깨끗한 흰 블라우스다.")
 
 
 # ========================================
@@ -152,7 +153,7 @@ class SimplePants(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("평범한 바지다.")
+        yield ui.dialog("평범한 바지다.")
 
 
 @register_item
@@ -164,7 +165,7 @@ class LinenPants(Clothing):
     value = 20
 
     def look(self):
-        yield morld.dialog("시원한 린넨 소재의 바지다.")
+        yield ui.dialog("시원한 린넨 소재의 바지다.")
 
 
 @register_item
@@ -176,7 +177,7 @@ class LongSkirt(Clothing):
     value = 20
 
     def look(self):
-        yield morld.dialog("발목까지 오는 긴 치마다.")
+        yield ui.dialog("발목까지 오는 긴 치마다.")
 
 
 @register_item
@@ -188,7 +189,7 @@ class Shorts(Clothing):
     value = 12
 
     def look(self):
-        yield morld.dialog("활동하기 편한 반바지다.")
+        yield ui.dialog("활동하기 편한 반바지다.")
 
 
 # ========================================
@@ -207,7 +208,7 @@ class Sundress(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("가벼운 여름용 원피스다.")
+        yield ui.dialog("가벼운 여름용 원피스다.")
 
 
 @register_item
@@ -222,7 +223,7 @@ class MaidDress(Clothing):
     value = 40
 
     def look(self):
-        yield morld.dialog([
+        yield ui.dialog([
             "깔끔한 메이드복이다.",
             "흰 앞치마가 달려 있다."
         ])
@@ -240,7 +241,7 @@ class WorkDress(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("튼튼한 작업용 원피스다.")
+        yield ui.dialog("튼튼한 작업용 원피스다.")
 
 
 # ========================================
@@ -256,7 +257,7 @@ class LightJacket(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("가벼운 재킷이다.")
+        yield ui.dialog("가벼운 재킷이다.")
 
 
 @register_item
@@ -268,7 +269,7 @@ class HuntingVest(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog([
+        yield ui.dialog([
             "튼튼한 사냥용 조끼다.",
             "여러 주머니가 달려 있다."
         ])
@@ -283,7 +284,7 @@ class Apron(Clothing):
     value = 10
 
     def look(self):
-        yield morld.dialog("요리할 때 입는 앞치마다.")
+        yield ui.dialog("요리할 때 입는 앞치마다.")
 
 
 @register_item
@@ -295,7 +296,7 @@ class WarmCoat(Clothing):
     value = 50
 
     def look(self):
-        yield morld.dialog("따뜻한 겨울용 코트다.")
+        yield ui.dialog("따뜻한 겨울용 코트다.")
 
 
 # ========================================
@@ -315,7 +316,7 @@ class SeraHuntingOutfit(Clothing):
     value = 45
 
     def look(self):
-        yield morld.dialog([
+        yield ui.dialog([
             "세라의 사냥복이다.",
             "움직이기 편하게 만들어졌다."
         ])
@@ -331,7 +332,7 @@ class MilaApron(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog([
+        yield ui.dialog([
             "밀라가 항상 두르는 앞치마다.",
             "군데군데 얼룩이 있다."
         ])
@@ -350,7 +351,7 @@ class SimpleBra(Clothing):
     value = 8
 
     def look(self):
-        yield morld.dialog("평범한 브라다.")
+        yield ui.dialog("평범한 브라다.")
 
 
 @register_item
@@ -362,7 +363,7 @@ class LaceBra(Clothing):
     value = 20
 
     def look(self):
-        yield morld.dialog("섬세한 레이스 장식의 브라다.")
+        yield ui.dialog("섬세한 레이스 장식의 브라다.")
 
 
 @register_item
@@ -374,7 +375,7 @@ class SportsBra(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("운동할 때 입는 스포츠 브라다.")
+        yield ui.dialog("운동할 때 입는 스포츠 브라다.")
 
 
 @register_item
@@ -386,7 +387,7 @@ class CuteBra(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("리본 장식이 달린 귀여운 브라다.")
+        yield ui.dialog("리본 장식이 달린 귀여운 브라다.")
 
 
 # ========================================
@@ -402,7 +403,7 @@ class SimplePanties(Clothing):
     value = 5
 
     def look(self):
-        yield morld.dialog("평범한 팬티다.")
+        yield ui.dialog("평범한 팬티다.")
 
 
 @register_item
@@ -414,7 +415,7 @@ class LacePanties(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("섬세한 레이스 장식의 팬티다.")
+        yield ui.dialog("섬세한 레이스 장식의 팬티다.")
 
 
 @register_item
@@ -426,7 +427,7 @@ class CottonPanties(Clothing):
     value = 8
 
     def look(self):
-        yield morld.dialog("편안한 면 소재의 팬티다.")
+        yield ui.dialog("편안한 면 소재의 팬티다.")
 
 
 @register_item
@@ -438,7 +439,7 @@ class CutePanties(Clothing):
     value = 12
 
     def look(self):
-        yield morld.dialog("리본 장식이 달린 귀여운 팬티다.")
+        yield ui.dialog("리본 장식이 달린 귀여운 팬티다.")
 
 
 # ========================================
@@ -454,7 +455,7 @@ class SimpleSocks(Clothing):
     value = 3
 
     def look(self):
-        yield morld.dialog("평범한 양말이다.")
+        yield ui.dialog("평범한 양말이다.")
 
 
 @register_item
@@ -466,7 +467,7 @@ class WoolSocks(Clothing):
     value = 8
 
     def look(self):
-        yield morld.dialog("따뜻한 울 소재의 양말이다.")
+        yield ui.dialog("따뜻한 울 소재의 양말이다.")
 
 
 @register_item
@@ -478,7 +479,7 @@ class Stockings(Clothing):
     value = 12
 
     def look(self):
-        yield morld.dialog("얇은 스타킹이다.")
+        yield ui.dialog("얇은 스타킹이다.")
 
 
 @register_item
@@ -490,7 +491,7 @@ class BlackStockings(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("검은색 스타킹이다.")
+        yield ui.dialog("검은색 스타킹이다.")
 
 
 @register_item
@@ -502,7 +503,7 @@ class ThighHighSocks(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("허벅지까지 오는 긴 양말이다.")
+        yield ui.dialog("허벅지까지 오는 긴 양말이다.")
 
 
 @register_item
@@ -514,7 +515,7 @@ class WhiteThighHighSocks(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("흰색 사이하이삭스다. 청순해 보인다.")
+        yield ui.dialog("흰색 사이하이삭스다. 청순해 보인다.")
 
 
 @register_item
@@ -526,7 +527,7 @@ class StripedThighHighSocks(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("줄무늬 패턴의 사이하이삭스다.")
+        yield ui.dialog("줄무늬 패턴의 사이하이삭스다.")
 
 
 # ========================================
@@ -542,7 +543,7 @@ class SimpleShoes(Clothing):
     value = 20
 
     def look(self):
-        yield morld.dialog("평범한 신발이다.")
+        yield ui.dialog("평범한 신발이다.")
 
 
 @register_item
@@ -554,7 +555,7 @@ class LeatherBoots(Clothing):
     value = 40
 
     def look(self):
-        yield morld.dialog("튼튼한 가죽 부츠다.")
+        yield ui.dialog("튼튼한 가죽 부츠다.")
 
 
 @register_item
@@ -566,7 +567,7 @@ class HighHeels(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("굽이 높은 하이힐이다.")
+        yield ui.dialog("굽이 높은 하이힐이다.")
 
 
 @register_item
@@ -578,7 +579,7 @@ class Sandals(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("시원한 샌들이다.")
+        yield ui.dialog("시원한 샌들이다.")
 
 
 @register_item
@@ -590,7 +591,7 @@ class Slippers(Clothing):
     value = 8
 
     def look(self):
-        yield morld.dialog("편안한 실내용 슬리퍼다.")
+        yield ui.dialog("편안한 실내용 슬리퍼다.")
 
 
 @register_item
@@ -602,7 +603,7 @@ class WarmBoots(Clothing):
     value = 45
 
     def look(self):
-        yield morld.dialog("따뜻한 털이 안에 달린 부츠다.")
+        yield ui.dialog("따뜻한 털이 안에 달린 부츠다.")
 
 
 # ========================================
@@ -618,7 +619,7 @@ class StrawHat(Clothing):
     value = 10
 
     def look(self):
-        yield morld.dialog("햇빛을 가려주는 밀짚모자다.")
+        yield ui.dialog("햇빛을 가려주는 밀짚모자다.")
 
 
 @register_item
@@ -630,7 +631,7 @@ class Beret(Clothing):
     value = 20
 
     def look(self):
-        yield morld.dialog("세련된 베레모다.")
+        yield ui.dialog("세련된 베레모다.")
 
 
 @register_item
@@ -642,7 +643,7 @@ class WoolHat(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("따뜻한 털모자다.")
+        yield ui.dialog("따뜻한 털모자다.")
 
 
 @register_item
@@ -654,7 +655,7 @@ class Ribbon(Clothing):
     value = 8
 
     def look(self):
-        yield morld.dialog("머리에 다는 리본이다.")
+        yield ui.dialog("머리에 다는 리본이다.")
 
 
 @register_item
@@ -666,7 +667,7 @@ class HuntingCap(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("사냥꾼들이 쓰는 모자다.")
+        yield ui.dialog("사냥꾼들이 쓰는 모자다.")
 
 
 @register_item
@@ -678,7 +679,7 @@ class MaidHeadband(Clothing):
     value = 12
 
     def look(self):
-        yield morld.dialog("메이드복에 어울리는 머리띠다.")
+        yield ui.dialog("메이드복에 어울리는 머리띠다.")
 
 
 # ========================================
@@ -694,7 +695,7 @@ class Glasses(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("평범한 안경이다.")
+        yield ui.dialog("평범한 안경이다.")
 
 
 @register_item
@@ -706,7 +707,7 @@ class RoundGlasses(Clothing):
     value = 28
 
     def look(self):
-        yield morld.dialog("둥글둥글한 프레임의 안경이다.")
+        yield ui.dialog("둥글둥글한 프레임의 안경이다.")
 
 
 @register_item
@@ -718,7 +719,7 @@ class Sunglasses(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("햇빛을 막아주는 선글라스다.")
+        yield ui.dialog("햇빛을 막아주는 선글라스다.")
 
 
 @register_item
@@ -730,7 +731,7 @@ class FashionSunglasses(Clothing):
     value = 40
 
     def look(self):
-        yield morld.dialog("세련된 디자인의 패션 선글라스다.")
+        yield ui.dialog("세련된 디자인의 패션 선글라스다.")
 
 
 @register_item
@@ -742,7 +743,7 @@ class Monocle(Clothing):
     value = 50
 
     def look(self):
-        yield morld.dialog("한쪽 눈에 끼는 모노클이다. 귀족적인 느낌이 난다.")
+        yield ui.dialog("한쪽 눈에 끼는 모노클이다. 귀족적인 느낌이 난다.")
 
 
 # ========================================
@@ -758,7 +759,7 @@ class SimpleCape(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("평범한 망토다.")
+        yield ui.dialog("평범한 망토다.")
 
 
 @register_item
@@ -770,7 +771,7 @@ class HoodedCloak(Clothing):
     value = 45
 
     def look(self):
-        yield morld.dialog("후드가 달린 망토다. 얼굴을 숨기기 좋다.")
+        yield ui.dialog("후드가 달린 망토다. 얼굴을 숨기기 좋다.")
 
 
 @register_item
@@ -782,7 +783,7 @@ class VelvetCape(Clothing):
     value = 60
 
     def look(self):
-        yield morld.dialog("부드러운 벨벳 소재의 고급스러운 망토다.")
+        yield ui.dialog("부드러운 벨벳 소재의 고급스러운 망토다.")
 
 
 @register_item
@@ -794,7 +795,7 @@ class TravelCloak(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("여행할 때 입기 좋은 튼튼한 망토다.")
+        yield ui.dialog("여행할 때 입기 좋은 튼튼한 망토다.")
 
 
 # ========================================
@@ -810,7 +811,7 @@ class TankTop(Clothing):
     value = 10
 
     def look(self):
-        yield morld.dialog("민소매 탱크탑이다.")
+        yield ui.dialog("민소매 탱크탑이다.")
 
 
 @register_item
@@ -822,7 +823,7 @@ class Sweater(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("따뜻한 스웨터다.")
+        yield ui.dialog("따뜻한 스웨터다.")
 
 
 @register_item
@@ -834,7 +835,7 @@ class TurtleneckSweater(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("목을 감싸는 터틀넥 스웨터다.")
+        yield ui.dialog("목을 감싸는 터틀넥 스웨터다.")
 
 
 @register_item
@@ -846,7 +847,7 @@ class CropTop(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("배가 드러나는 짧은 상의다.")
+        yield ui.dialog("배가 드러나는 짧은 상의다.")
 
 
 # ========================================
@@ -862,7 +863,7 @@ class MiniSkirt(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("짧은 미니스커트다.")
+        yield ui.dialog("짧은 미니스커트다.")
 
 
 @register_item
@@ -874,7 +875,7 @@ class PleatedSkirt(Clothing):
     value = 22
 
     def look(self):
-        yield morld.dialog("주름이 잡힌 플리츠 스커트다.")
+        yield ui.dialog("주름이 잡힌 플리츠 스커트다.")
 
 
 @register_item
@@ -886,7 +887,7 @@ class HotPants(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("짧은 핫팬츠다.")
+        yield ui.dialog("짧은 핫팬츠다.")
 
 
 @register_item
@@ -898,7 +899,7 @@ class LeggingsClothing(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("몸에 딱 맞는 레깅스다.")
+        yield ui.dialog("몸에 딱 맞는 레깅스다.")
 
 
 # ========================================
@@ -917,7 +918,7 @@ class EveningDress(Clothing):
     value = 80
 
     def look(self):
-        yield morld.dialog("파티에 입기 좋은 화려한 드레스다.")
+        yield ui.dialog("파티에 입기 좋은 화려한 드레스다.")
 
 
 @register_item
@@ -932,7 +933,7 @@ class NightGown(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("잠옷으로 입는 나이트가운이다.")
+        yield ui.dialog("잠옷으로 입는 나이트가운이다.")
 
 
 @register_item
@@ -947,7 +948,7 @@ class Pajamas(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("편안한 잠옷이다.")
+        yield ui.dialog("편안한 잠옷이다.")
 
 
 @register_item
@@ -962,7 +963,7 @@ class Swimsuit(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("수영할 때 입는 수영복이다.")
+        yield ui.dialog("수영할 때 입는 수영복이다.")
 
 
 @register_item
@@ -977,7 +978,7 @@ class Bikini(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("노출이 많은 비키니다.")
+        yield ui.dialog("노출이 많은 비키니다.")
 
 
 # ========================================
@@ -993,7 +994,7 @@ class MensDressShirt(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("격식있는 자리에 어울리는 드레스셔츠다.")
+        yield ui.dialog("격식있는 자리에 어울리는 드레스셔츠다.")
 
 
 @register_item
@@ -1005,7 +1006,7 @@ class MensCasualShirt(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("편하게 입을 수 있는 캐주얼 셔츠다.")
+        yield ui.dialog("편하게 입을 수 있는 캐주얼 셔츠다.")
 
 
 @register_item
@@ -1017,7 +1018,7 @@ class MensVest(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("셔츠 위에 입는 멋스러운 조끼다.")
+        yield ui.dialog("셔츠 위에 입는 멋스러운 조끼다.")
 
 
 @register_item
@@ -1029,7 +1030,7 @@ class MensTShirt(Clothing):
     value = 12
 
     def look(self):
-        yield morld.dialog("편한 티셔츠다.")
+        yield ui.dialog("편한 티셔츠다.")
 
 
 @register_item
@@ -1041,7 +1042,7 @@ class MensHoodie(Clothing):
     value = 28
 
     def look(self):
-        yield morld.dialog("후드가 달린 편한 상의다.")
+        yield ui.dialog("후드가 달린 편한 상의다.")
 
 
 @register_item
@@ -1053,7 +1054,7 @@ class MensKnit(Clothing):
     value = 32
 
     def look(self):
-        yield morld.dialog("따뜻한 니트 스웨터다.")
+        yield ui.dialog("따뜻한 니트 스웨터다.")
 
 
 # ========================================
@@ -1069,7 +1070,7 @@ class MensSlacks(Clothing):
     value = 28
 
     def look(self):
-        yield morld.dialog("격식있는 슬랙스다.")
+        yield ui.dialog("격식있는 슬랙스다.")
 
 
 @register_item
@@ -1081,7 +1082,7 @@ class MensJeans(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("튼튼한 청바지다.")
+        yield ui.dialog("튼튼한 청바지다.")
 
 
 @register_item
@@ -1093,7 +1094,7 @@ class MensCargoPants(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("주머니가 많은 카고바지다.")
+        yield ui.dialog("주머니가 많은 카고바지다.")
 
 
 @register_item
@@ -1105,7 +1106,7 @@ class MensShorts(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("활동하기 편한 남성용 반바지다.")
+        yield ui.dialog("활동하기 편한 남성용 반바지다.")
 
 
 @register_item
@@ -1117,7 +1118,7 @@ class MensSweatpants(Clothing):
     value = 18
 
     def look(self):
-        yield morld.dialog("운동하거나 편하게 입는 트레이닝 바지다.")
+        yield ui.dialog("운동하거나 편하게 입는 트레이닝 바지다.")
 
 
 # ========================================
@@ -1133,7 +1134,7 @@ class MensUnderwear(Clothing):
     value = 5
 
     def look(self):
-        yield morld.dialog("평범한 남성용 속옷이다.")
+        yield ui.dialog("평범한 남성용 속옷이다.")
 
 
 @register_item
@@ -1145,7 +1146,7 @@ class MensBoxers(Clothing):
     value = 8
 
     def look(self):
-        yield morld.dialog("편안한 박서 팬츠다.")
+        yield ui.dialog("편안한 박서 팬츠다.")
 
 
 @register_item
@@ -1157,7 +1158,7 @@ class MensUndershirt(Clothing):
     value = 6
 
     def look(self):
-        yield morld.dialog("셔츠 안에 입는 속셔츠다.")
+        yield ui.dialog("셔츠 안에 입는 속셔츠다.")
 
 
 # ========================================
@@ -1173,7 +1174,7 @@ class MensSuit(Clothing):
     value = 60
 
     def look(self):
-        yield morld.dialog("격식있는 정장 자켓이다.")
+        yield ui.dialog("격식있는 정장 자켓이다.")
 
 
 @register_item
@@ -1185,7 +1186,7 @@ class MensLeatherJacket(Clothing):
     value = 55
 
     def look(self):
-        yield morld.dialog("멋스러운 가죽 자켓이다.")
+        yield ui.dialog("멋스러운 가죽 자켓이다.")
 
 
 @register_item
@@ -1197,7 +1198,7 @@ class MensBomberJacket(Clothing):
     value = 50
 
     def look(self):
-        yield morld.dialog("따뜻하고 멋진 항공 자켓이다.")
+        yield ui.dialog("따뜻하고 멋진 항공 자켓이다.")
 
 
 @register_item
@@ -1209,7 +1210,7 @@ class MensWindbreaker(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("바람을 막아주는 가벼운 자켓이다.")
+        yield ui.dialog("바람을 막아주는 가벼운 자켓이다.")
 
 
 # ========================================
@@ -1225,7 +1226,7 @@ class MensDressShoes(Clothing):
     value = 45
 
     def look(self):
-        yield morld.dialog("광이 나는 구두다.")
+        yield ui.dialog("광이 나는 구두다.")
 
 
 @register_item
@@ -1237,7 +1238,7 @@ class MensSneakers(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("편하게 신을 수 있는 운동화다.")
+        yield ui.dialog("편하게 신을 수 있는 운동화다.")
 
 
 @register_item
@@ -1249,7 +1250,7 @@ class MensWorkBoots(Clothing):
     value = 50
 
     def look(self):
-        yield morld.dialog("튼튼한 작업화다.")
+        yield ui.dialog("튼튼한 작업화다.")
 
 
 # ========================================
@@ -1265,7 +1266,7 @@ class MensFedora(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("클래식한 페도라 모자다.")
+        yield ui.dialog("클래식한 페도라 모자다.")
 
 
 @register_item
@@ -1277,7 +1278,7 @@ class MensCap(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("캐주얼한 캡모자다.")
+        yield ui.dialog("캐주얼한 캡모자다.")
 
 
 @register_item
@@ -1289,7 +1290,7 @@ class MensBeanie(Clothing):
     value = 12
 
     def look(self):
-        yield morld.dialog("따뜻한 비니다.")
+        yield ui.dialog("따뜻한 비니다.")
 
 
 # ========================================
@@ -1305,7 +1306,7 @@ class OversizedHoodie(Clothing):
     value = 30
 
     def look(self):
-        yield morld.dialog("크고 편한 후드티다. 아늑하다.")
+        yield ui.dialog("크고 편한 후드티다. 아늑하다.")
 
 
 @register_item
@@ -1317,7 +1318,7 @@ class DenimJacket(Clothing):
     value = 40
 
     def look(self):
-        yield morld.dialog("데님 소재의 캐주얼 자켓이다.")
+        yield ui.dialog("데님 소재의 캐주얼 자켓이다.")
 
 
 @register_item
@@ -1332,7 +1333,7 @@ class TrackSuit(Clothing):
     value = 35
 
     def look(self):
-        yield morld.dialog("운동할 때 입는 트레이닝복 세트다.")
+        yield ui.dialog("운동할 때 입는 트레이닝복 세트다.")
 
 
 @register_item
@@ -1344,7 +1345,7 @@ class RainCoat(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("비를 막아주는 우비다.")
+        yield ui.dialog("비를 막아주는 우비다.")
 
 
 @register_item
@@ -1356,7 +1357,7 @@ class LabCoat(Clothing):
     value = 40
 
     def look(self):
-        yield morld.dialog("연구원이 입는 흰 실험복이다.")
+        yield ui.dialog("연구원이 입는 흰 실험복이다.")
 
 
 # ========================================
@@ -1372,7 +1373,7 @@ class TornJeans(Clothing):
     value = 15
 
     def look(self):
-        yield morld.dialog("일부러 찢은 듯한 청바지다. 멋스럽다.")
+        yield ui.dialog("일부러 찢은 듯한 청바지다. 멋스럽다.")
 
 
 @register_item
@@ -1384,7 +1385,7 @@ class DirtyShirt(Clothing):
     value = 3
 
     def look(self):
-        yield morld.dialog("얼룩이 많이 묻은 셔츠다.")
+        yield ui.dialog("얼룩이 많이 묻은 셔츠다.")
 
 
 @register_item
@@ -1396,7 +1397,7 @@ class WornOutJacket(Clothing):
     value = 10
 
     def look(self):
-        yield morld.dialog("많이 낡았지만 아직 입을 만한 자켓이다.")
+        yield ui.dialog("많이 낡았지만 아직 입을 만한 자켓이다.")
 
 
 @register_item
@@ -1411,7 +1412,7 @@ class FadedDress(Clothing):
     value = 20
 
     def look(self):
-        yield morld.dialog("한때는 화려했을 드레스다. 색이 많이 바랬다.")
+        yield ui.dialog("한때는 화려했을 드레스다. 색이 많이 바랬다.")
 
 
 @register_item
@@ -1423,7 +1424,7 @@ class MilitaryBoots(Clothing):
     value = 55
 
     def look(self):
-        yield morld.dialog("튼튼한 군용 부츠다.")
+        yield ui.dialog("튼튼한 군용 부츠다.")
 
 
 @register_item
@@ -1435,7 +1436,7 @@ class TacticalVest(Clothing):
     value = 60
 
     def look(self):
-        yield morld.dialog("여러 주머니가 달린 전술 조끼다.")
+        yield ui.dialog("여러 주머니가 달린 전술 조끼다.")
 
 
 @register_item
@@ -1447,4 +1448,4 @@ class CamouflagePants(Clothing):
     value = 25
 
     def look(self):
-        yield morld.dialog("위장 무늬의 바지다.")
+        yield ui.dialog("위장 무늬의 바지다.")

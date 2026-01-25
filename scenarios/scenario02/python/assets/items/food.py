@@ -10,6 +10,7 @@
 #   apple.instantiate(item_id)
 
 import morld
+import ui
 from assets.base import Item
 from assets.registry import register_item
 
@@ -39,7 +40,7 @@ class FoodItem(Item):
         import survival
         stats = survival.get_survival_stats(player_id)
         if stats["satiety"] >= stats["max_satiety"]:
-            yield morld.dialog("배가 불러서 더 먹을 수 없다.")
+            yield ui.dialog("배가 불러서 더 먹을 수 없다.")
             return
 
         # 포만감 회복
@@ -49,7 +50,7 @@ class FoodItem(Item):
         morld.lost_item(player_id, self.instance_id)
 
         # 메시지 표시
-        yield morld.dialog(self.eat_message)
+        yield ui.dialog(self.eat_message)
 
         # 시간 경과
         morld.advance_time(self.eat_time)

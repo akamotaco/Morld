@@ -10,6 +10,7 @@
 #   loc.add_object(fireplace, instance_id)
 
 import morld
+import ui
 from assets.base import Object
 
 
@@ -29,7 +30,7 @@ class Fireplace(Object):
 
     def look(self):
         """벽난로 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "돌로 쌓아 만든 오래된 벽난로다.",
             "저녁이 되면 따뜻한 불이 피워진다."
         ])
@@ -44,7 +45,7 @@ class OldSofa(Object):
 
     def sit(self):
         """소파에 앉기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "소파에 앉았다.",
             "푹신하고 편안하다."
         ])
@@ -84,7 +85,7 @@ class Bookshelf(Object):
 
     def look(self):
         """책장 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "다양한 책이 꽂혀 있다.",
             "소설, 역사서, 요리책... 장르가 다양하다."
         ])
@@ -103,7 +104,7 @@ class DiningTable(Object):
 
     def look(self):
         """식탁 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "잘 닦인 긴 나무 식탁이다.",
             "여섯 개의 의자가 가지런히 놓여 있다."
         ])
@@ -162,7 +163,7 @@ class Stove(Object):
 
     def look(self):
         """아궁이 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "요리에 사용하는 큰 아궁이다.",
             "항상 따뜻한 열기가 느껴진다."
         ])
@@ -178,7 +179,7 @@ class Stove(Object):
         # 현재 재료 확인
         inventory = morld.get_unit_inventory(self.instance_id)
         if not inventory:
-            yield morld.dialog("재료가 없다.")
+            yield ui.dialog("재료가 없다.")
             return
 
         # unique_id 기반으로 변환
@@ -192,7 +193,7 @@ class Stove(Object):
         # 레시피 매칭
         result = find_matching_recipe(inv_uniques)
         if not result:
-            yield morld.dialog("이 재료로는 만들 수 있는 것이 없다.")
+            yield ui.dialog("이 재료로는 만들 수 있는 것이 없다.")
             return
 
         recipe_id, recipe, max_count = result
@@ -222,7 +223,7 @@ class Stove(Object):
             morld.give_item(player_id, result_id, result_count)
 
         # 시간 경과 및 메시지
-        yield morld.dialog(f"{recipe['name']}을(를) 만들었다!")
+        yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")
         morld.advance_time(recipe["cook_time"])
 
 
@@ -249,7 +250,7 @@ class Kettle(Object):
 
     def look(self):
         """주전자 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "물을 끓이거나 차를 우릴 수 있는 주전자다.",
             "아궁이 위에 올려두면 사용할 수 있다."
         ])
@@ -265,7 +266,7 @@ class Kettle(Object):
         # 현재 재료 확인
         inventory = morld.get_unit_inventory(self.instance_id)
         if not inventory:
-            yield morld.dialog("재료가 없다.")
+            yield ui.dialog("재료가 없다.")
             return
 
         # unique_id 기반으로 변환
@@ -279,7 +280,7 @@ class Kettle(Object):
         # 레시피 매칭
         result = find_matching_recipe(inv_uniques)
         if not result:
-            yield morld.dialog("이 재료로는 만들 수 있는 것이 없다.")
+            yield ui.dialog("이 재료로는 만들 수 있는 것이 없다.")
             return
 
         recipe_id, recipe, max_count = result
@@ -309,7 +310,7 @@ class Kettle(Object):
             morld.give_item(player_id, result_id, result_count)
 
         # 시간 경과 및 메시지
-        yield morld.dialog(f"{recipe['name']}을(를) 만들었다!")
+        yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")
         morld.advance_time(recipe["cook_time"])
 
 
@@ -321,7 +322,7 @@ class Cupboard(Object):
 
     def look(self):
         """찬장 살펴보기"""
-        yield morld.dialog(["그릇과 조리도구가 깔끔하게 정리되어 있다."])
+        yield ui.dialog(["그릇과 조리도구가 깔끔하게 정리되어 있다."])
         morld.advance_time(1)
 
 
@@ -337,7 +338,7 @@ class Bathtub(Object):
 
     def use(self):
         """목욕하기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "따뜻한 물을 받아 목욕했다.",
             "몸이 개운해졌다."
         ])
@@ -352,7 +353,7 @@ class Washbasin(Object):
 
     def use(self):
         """세수하기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "시원한 물로 얼굴을 씻었다.",
             "정신이 맑아졌다."
         ])
@@ -376,7 +377,7 @@ class CraftingTable(Object):
 
     def look(self):
         """제작대 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "튼튼한 나무로 만든 작업대다.",
             "복잡한 물건을 제작할 수 있다."
         ])
@@ -401,12 +402,12 @@ class Bed(Object):
 
     def sleep(self):
         """잠자기"""
-        yield morld.dialog(["침대에 누워 잠을 청했다."])
+        yield ui.dialog(["침대에 누워 잠을 청했다."])
         morld.advance_time(480)  # 8시간
 
     def rest(self):
         """누워있기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "침대에 잠시 누워 쉬었다.",
             "피로가 조금 풀렸다."
         ])
@@ -421,7 +422,7 @@ class SmallDesk(Object):
 
     def look(self):
         """책상 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "작은 나무 책상이다.",
             "서랍이 하나 달려 있다."
         ])
@@ -436,7 +437,7 @@ class Mirror(Object):
 
     def look(self):
         """거울 보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "거울 속에 내 얼굴이 비친다.",
             "...그래, 이게 나다."
         ])
@@ -468,7 +469,7 @@ class Wardrobe(Object):
 
     def look(self):
         """옷장 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "큰 나무 옷장이다.",
             "옷을 넣거나 꺼낼 수 있다."
         ])
@@ -499,7 +500,7 @@ class Shelf(Object):
 
     def look(self):
         """선반 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "물건을 진열할 수 있는 선반이다.",
             "남은 물건이 있는지 확인해 볼 수 있다."
         ])
@@ -526,7 +527,7 @@ class Refrigerator(Object):
 
     def look(self):
         """냉장고 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "낡은 냉장고다.",
             "전기가 들어오지 않아 차갑지 않지만, 음료가 남아있을지도 모른다."
         ])
@@ -545,7 +546,7 @@ class CorridorWindow(Object):
 
     def look(self):
         """창문 밖을 보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "2층 창문에서 앞마당이 내려다보인다.",
             "정원이 한눈에 들어온다."
         ])
@@ -560,7 +561,7 @@ class Vase(Object):
 
     def look(self):
         """화병 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "장식용 화병이다.",
             "마른 꽃이 꽂혀 있다."
         ])
@@ -583,7 +584,7 @@ class OldDoll(Object):
 
     def look(self):
         """인형 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "작은 곰 인형이다.",
             "오래되어 색이 바랬지만, 깨끗하게 관리되어 있다.",
             "...누가 이런 걸 두고 있는 걸까?"

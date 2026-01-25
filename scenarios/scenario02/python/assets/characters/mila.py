@@ -74,6 +74,7 @@
 # ============================================================
 
 import morld
+import ui
 from assets.base import Character
 from think import BaseAgent, register_agent_class
 
@@ -544,7 +545,7 @@ class Mila(Character):
         if progress < 3:
             morld.modify_prop(self.instance_id, prop_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "오셨군요~",
             "...괜찮으세요? 뭔가 필요하신 거 있으세요?",
@@ -565,7 +566,7 @@ class Mila(Character):
         if progress < 1:
             morld.modify_prop(self.instance_id, prop_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "안녕하세요!",
             "...뭐 드시고 싶은 거 있으세요?",
@@ -582,13 +583,13 @@ class Mila(Character):
         flag_key = f"대화:{player_name}:진척도1"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([f"[{name}]", "오셨군요~", "뭔가 필요하신 게 있으세요?"])
+            yield ui.dialog([f"[{name}]", "오셨군요~", "뭔가 필요하신 게 있으세요?"])
             return
 
         # 플래그 설정 및 사적인 이야기
         morld.set_unit_prop(self.instance_id, flag_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "저요?",
             "저는 밀라예요. 여기서 살림을 맡고 있어요.",
@@ -610,13 +611,13 @@ class Mila(Character):
         flag_key = f"대화:{player_name}:진척도2"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([f"[{name}]", "오셨군요~", "오늘은 뭐 해드릴까요?"])
+            yield ui.dialog([f"[{name}]", "오셨군요~", "오늘은 뭐 해드릴까요?"])
             return
 
         # 플래그 설정 및 사적인 이야기
         morld.set_unit_prop(self.instance_id, flag_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "제가 좋아하는 거요?",
             "음... 요리하는 걸 좋아해요.",
@@ -639,13 +640,13 @@ class Mila(Character):
         flag_key = f"대화:{player_name}:진척도3"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([f"[{name}]", "오셨군요~", "...그냥 보고 싶었어요."])
+            yield ui.dialog([f"[{name}]", "오셨군요~", "...그냥 보고 싶었어요."])
             return
 
         # 플래그 설정 및 사적인 이야기
         morld.set_unit_prop(self.instance_id, flag_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "예전 일이요...?",
             "...기억나는 게 많지 않아요.",

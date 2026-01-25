@@ -3,6 +3,7 @@
 # 게임 시작 시 캐릭터 생성 흐름
 
 import morld
+import ui
 from events.base import GameStartEvent
 from events import registry
 
@@ -21,12 +22,12 @@ class PrologueStart(GameStartEvent):
         morld.set_prop("chapter", 0)
 
         # 도입 모놀로그
-        yield morld.dialog([
+        yield ui.dialog([
             "......",
-            "......의식이 희미하게 떠오른다.",
+            "+......의식이 희미하게 떠오른다.",
             "머리가... 아프다.",
-            "여기는... 어디지?",
-            "기억이... 나지 않는다.",
+            "+여기는... 어디지?",
+            "+기억이... 나지 않는다.",
             "눈앞에 울창한 나무들이 보인다.\n숲 속인 것 같다.",
             "...일단 나 자신에 대해 생각해보자."
         ])
@@ -39,7 +40,7 @@ class PrologueStart(GameStartEvent):
         apply_character_creation(state)
 
         # 완료 메시지
-        yield morld.dialog([
+        yield ui.dialog([
             f"그래... 나는 {state['name']}.",
             "기억은 아직 희미하지만...\n적어도 나 자신이 누구인지는 알겠다.",
             "...여기가 어디지? 깊은 숲 속인 것 같다.",
@@ -60,7 +61,7 @@ def intro_with_dialog_legacy(context_unit_id):
     @ret:값 - 다이얼로그 종료, yield에 값 반환
     """
     # 단순 Yes/No 다이얼로그
-    result = yield morld.dialog(
+    result = yield ui.dialog(
         "[b]Morld - Dialog API 시범 (레거시)[/b]\n\n"
         "게임을 시작하시겠습니까?\n\n"
         "[url=@ret:yes]예[/url]  [url=@ret:no]아니오[/url]",
@@ -80,7 +81,7 @@ def stat_allocation_new(context_unit_id):
     """
     Dialog API 시범 - 새 통합 API (proc 콜백 + result)
 
-    yield morld.dialog(text, autofill="off", proc=callback, result=state)
+    yield ui.dialog(text, autofill="off", proc=callback, result=state)
     - proc 콜백: @proc:값 클릭 시 호출되어 새 텍스트 반환
     - result: @finish 클릭 시 반환될 객체
     - @proc_finish:값 - proc 콜백 호출 후 즉시 종료
@@ -117,7 +118,7 @@ def stat_allocation_new(context_unit_id):
         return build_stat_text()  # 새 텍스트로 화면 업데이트
 
     # 통합 API로 스탯 배분 UI 표시
-    result = yield morld.dialog(
+    result = yield ui.dialog(
         build_stat_text(),
         autofill="off",
         proc=handle_stat_action,
@@ -154,7 +155,7 @@ def destination_choice(context_unit_id):
         state["choice"] = action
         return True  # 다이얼로그 종료
 
-    result = yield morld.dialog(
+    result = yield ui.dialog(
         "[b]어디로 갈까?[/b]\n\n"
         "[url=@proc:town]마을[/url]\n"
         "[url=@proc:forest]숲[/url]\n"
@@ -176,7 +177,7 @@ def read_diary(context_unit_id):
     """
     Dialog API 시범 - book 모드 (이전/다음 왕복)
     """
-    yield morld.dialog([
+    yield ui.dialog([
         "[b]일기장 - 1페이지[/b]\n\n오늘 숲에서 이상한 소리를 들었다.",
         "[b]일기장 - 2페이지[/b]\n\n그 소리는 동쪽에서 들려왔다.",
         "[b]일기장 - 3페이지[/b]\n\n내일 가서 확인해봐야겠다."
@@ -191,7 +192,7 @@ def memory_flashback(context_unit_id):
     """
     Dialog API 시범 - scroll 모드 (텍스트 누적)
     """
-    yield morld.dialog([
+    yield ui.dialog([
         "...기억이 떠오른다...",
         "어릴 적, 마을 광장에서...",
         "누군가가 내 손을 잡았다...",

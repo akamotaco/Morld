@@ -548,7 +548,7 @@ def handle_npc_initiative_interruption(state, npc_name):
     interrupter_name = interrupter_info.get("name", "누군가") if interrupter_info else "누군가"
 
     # 목격자 반응 다이얼로그
-    yield morld.dialog([
+    yield ui.dialog([
         f"[{interrupter_name}]",
         "어머나! 이게 무슨 꼴이람!"
     ])
@@ -970,7 +970,7 @@ def start_npc_initiative(player_id, npc_id):
         return None
 
     # 다이얼로그 시작
-    yield morld.dialog(
+    yield ui.dialog(
         render_npc_initiative_ui(state),
         autofill="off",
         proc=proc,
@@ -983,21 +983,21 @@ def start_npc_initiative(player_id, npc_id):
 
     # 종료 반응
     if state["player_escaped"]:
-        yield morld.dialog(f"{npc_name}(으)로부터 벗어났다.")
+        yield ui.dialog(f"{npc_name}(으)로부터 벗어났다.")
     elif state.get("interrupted"):
         # 제3자에게 들킴 - 방해 이벤트
         yield from handle_npc_initiative_interruption(state, npc_name)
     elif state["exhausted"]:
-        yield morld.dialog("체력이 바닥났다...")
+        yield ui.dialog("체력이 바닥났다...")
     elif state["npc_satisfied"]:
         satisfied_text = None
         if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
             satisfied_text = npc_asset.get_initiative_reaction("satisfied")
 
         if satisfied_text:
-            yield morld.dialog(satisfied_text)
+            yield ui.dialog(satisfied_text)
         else:
-            yield morld.dialog(f"{npc_name}(이)가 만족한 듯 물러난다.")
+            yield ui.dialog(f"{npc_name}(이)가 만족한 듯 물러난다.")
 
     # 시간 적용
     if state["elapsed_time"] > 0:

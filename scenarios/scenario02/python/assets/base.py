@@ -30,6 +30,7 @@
 #   - call: 패턴과 조합 가능: "call:메서드명:표시명@context"
 
 import morld
+import ui
 from typing import Optional
 
 
@@ -261,12 +262,12 @@ class Unit(Asset):
         self._check_instantiated()
         props = morld.get_unit_props(self.instance_id)
         if not props:
-            yield morld.dialog(f"[b]{self.name}[/b]\n\n속성이 없습니다.")
+            yield ui.dialog(f"[b]{self.name}[/b]\n\n속성이 없습니다.")
             return
         lines = [f"[b]{self.name}[/b]\n"]
         for key, value in props.items():
             lines.append(f"  {key}: {value}")
-        yield morld.dialog("\n".join(lines))
+        yield ui.dialog("\n".join(lines))
 
     def debug_self_props(self):
         """플레이어 자신의 속성 확인 (거울 등에서 사용)"""
@@ -276,13 +277,13 @@ class Unit(Asset):
         player_name = player_info.get("name", "???") if player_info else "???"
 
         if not props:
-            yield morld.dialog(f"[b]{player_name}[/b]\n\n아직 알 수 있는 것이 없다.")
+            yield ui.dialog(f"[b]{player_name}[/b]\n\n아직 알 수 있는 것이 없다.")
             return
 
         lines = [f"[b]{player_name}[/b]\n"]
         for key, value in props.items():
             lines.append(f"  {key}: {value}")
-        yield morld.dialog("\n".join(lines))
+        yield ui.dialog("\n".join(lines))
 
 
 class Character(Unit):
@@ -815,7 +816,7 @@ class Character(Unit):
         activity = info.get("activity") if info else None
 
         if activity != "수면":
-            yield morld.dialog(f"[{self.name}]\n\"...무슨 일이야?\"")
+            yield ui.dialog(f"[{self.name}]\n\"...무슨 일이야?\"")
             return
 
         # 호감도 기반 성공 확률 계산
@@ -833,14 +834,14 @@ class Character(Unit):
         if random.random() < success_chance:
             # 성공: 깨어남
             reaction = self.get_wake_up_success_reaction()
-            yield morld.dialog(reaction)
+            yield ui.dialog(reaction)
             # activity 변경은 NPC 스케줄에 맡김 (여기서 직접 변경하지 않음)
         else:
             # 실패: 계속 자고, 호감도 감소
             affection_loss = -3
             morld.modify_prop(self.instance_id, f"관계:{player_name}:호감", affection_loss)
             reaction = self.get_wake_up_fail_reaction()
-            yield morld.dialog(reaction)
+            yield ui.dialog(reaction)
 
     def get_wake_up_success_reaction(self) -> str:
         """깨우기 성공 반응 - 서브클래스에서 오버라이드"""
@@ -1155,7 +1156,7 @@ class Character(Unit):
             # 기존 방식: 단일 규칙 리스트
             rules = self.TALK_RULES
         else:
-            yield morld.dialog(f"[{self.name}]\n...")
+            yield ui.dialog(f"[{self.name}]\n...")
             return
 
         # 규칙 매칭
@@ -1177,7 +1178,7 @@ class Character(Unit):
         # name = context.get("name", self.name)
         # pages = [f"[{name}]"] + result.get("pages", ["......"])
         pages = result.get("pages", ["......"])
-        yield morld.dialog(pages)
+        yield ui.dialog(pages)
 
     def _select_talk_topic(self, context):
         """
@@ -1197,7 +1198,7 @@ class Character(Unit):
         lines.append("")
         lines.append("[url=@ret:]뒤로[/url]")
 
-        choice = yield morld.dialog("\n".join(lines), autofill="off")
+        choice = yield ui.dialog("\n".join(lines), autofill="off")
 
         if not choice:
             return None
@@ -1216,7 +1217,7 @@ class Character(Unit):
         available_quests = quest_manager.get_available_quests_from(self.unique_id)
 
         if not available_quests:
-            yield morld.dialog(f"[{self.name}]\n\"...부탁할 일은 없어.\"")
+            yield ui.dialog(f"[{self.name}]\n\"...부탁할 일은 없어.\"")
             return
 
         # 퀘스트 목록 표시
@@ -1230,7 +1231,7 @@ class Character(Unit):
         lines.append("")
         lines.append("[url=@ret:cancel]취소[/url]")
 
-        result = yield morld.dialog("\n".join(lines), autofill="off")
+        result = yield ui.dialog("\n".join(lines), autofill="off")
 
         if result and result != "cancel":
             quest_id = result
@@ -1253,7 +1254,7 @@ class Character(Unit):
         player_name = player_info.get('name', '주인공') if player_info else '주인공'
         prop_name = f"관계:{player_name}:호감"
         new_value = morld.modify_prop(self.instance_id, prop_name, 10)
-        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} +10\n현재: {new_value}")
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} +10\n현재: {new_value}")
 
     def debug_affection_down(self):
         """호감도 -10 테스트"""
@@ -1263,21 +1264,21 @@ class Character(Unit):
         player_name = player_info.get('name', '주인공') if player_info else '주인공'
         prop_name = f"관계:{player_name}:호감"
         new_value = morld.modify_prop(self.instance_id, prop_name, -10)
-        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -10\n현재: {new_value}")
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -10\n현재: {new_value}")
 
     def debug_arousal_up(self):
         """성욕 +20 테스트 (NPC 주도 트리거 테스트용)"""
         self._check_instantiated()
         prop_name = "상태:성욕"
         new_value = morld.modify_prop(self.instance_id, prop_name, 20)
-        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} +20\n현재: {new_value}")
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} +20\n현재: {new_value}")
 
     def debug_arousal_down(self):
         """성욕 -20 테스트"""
         self._check_instantiated()
         prop_name = "상태:성욕"
         new_value = morld.modify_prop(self.instance_id, prop_name, -20)
-        yield morld.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -20\n현재: {new_value}")
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -20\n현재: {new_value}")
 
     # ========================================
     # 이벤트 다이얼로그 시스템
@@ -1451,7 +1452,7 @@ class Character(Unit):
         instance_id = self.instance_id
 
         def handler():
-            yield morld.dialog(pages)
+            yield ui.dialog(pages)
             # 대화 후 플레이어 따라가기
             if follow_duration and "player_id" in kwargs:
                 morld.set_npc_job(instance_id, "follow", follow_duration, kwargs["player_id"])
@@ -1523,7 +1524,7 @@ class Object(Unit):
         inventory = morld.get_unit_inventory(player_id)
 
         if not inventory:
-            yield morld.dialog("넣을 아이템이 없다.")
+            yield ui.dialog("넣을 아이템이 없다.")
             return
 
         # 필터 적용하여 아이템 목록 생성
@@ -1548,12 +1549,12 @@ class Object(Unit):
 
         if not has_valid_item:
             filter_desc = ", ".join(self.put_filter) if self.put_filter else ""
-            yield morld.dialog(f"넣을 수 있는 아이템이 없다.")
+            yield ui.dialog(f"넣을 수 있는 아이템이 없다.")
             return
 
         lines.append("\n[url=@ret:cancel]취소[/url]")
 
-        result = yield morld.dialog("\n".join(lines), autofill="off")
+        result = yield ui.dialog("\n".join(lines), autofill="off")
 
         if result and result != "cancel":
             item_id = int(result)
@@ -1645,7 +1646,7 @@ class Item(Asset):
         self._check_instantiated()
         item_info = morld.get_item_info(self.instance_id)
         if not item_info:
-            yield morld.dialog("[debug_item_props] 아이템 정보를 찾을 수 없습니다.")
+            yield ui.dialog("[debug_item_props] 아이템 정보를 찾을 수 없습니다.")
             return
 
         lines = [f"[b]{self.name}[/b] (id={self.instance_id})"]
@@ -1682,7 +1683,7 @@ class Item(Asset):
         else:
             lines.append("[color=gray]Action Props: 없음[/color]")
 
-        yield morld.dialog("\n".join(lines))
+        yield ui.dialog("\n".join(lines))
 
 
 class Location(Asset):

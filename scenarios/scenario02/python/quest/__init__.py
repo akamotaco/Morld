@@ -8,6 +8,7 @@
 from enum import Enum
 from typing import Dict, List, Optional, Any
 import morld
+import ui
 
 from .conditions import check_condition, get_condition_description
 from .rewards import apply_reward
@@ -112,26 +113,26 @@ class Quest:
         choice_text += "[url=@ret:accept]수락[/url]  "
         choice_text += "[url=@ret:decline]거절[/url]"
 
-        result = yield morld.dialog(choice_text, autofill="off")
+        result = yield ui.dialog(choice_text, autofill="off")
 
         if result == "accept":
             accept_pages = self.dialogs.get("accept", ["퀘스트를 수락했습니다."])
-            yield morld.dialog(accept_pages)
+            yield ui.dialog(accept_pages)
         else:
             decline_pages = self.dialogs.get("decline", ["퀘스트를 거절했습니다."])
-            yield morld.dialog(decline_pages)
+            yield ui.dialog(decline_pages)
 
         return result
 
     def complete_dialog(self):
         """퀘스트 완료 다이얼로그 (Generator)"""
         complete_pages = self.dialogs.get("complete", [f"'{self.name}' 퀘스트 완료!"])
-        yield morld.dialog(complete_pages)
+        yield ui.dialog(complete_pages)
 
     def progress_dialog(self):
         """퀘스트 진행 중 다이얼로그 (Generator)"""
         progress_pages = self.dialogs.get("progress", ["퀘스트 진행 중..."])
-        yield morld.dialog(progress_pages)
+        yield ui.dialog(progress_pages)
 
     def get_completion_result(self, context: Dict[str, Any] = None) -> str:
         """
@@ -856,7 +857,7 @@ def show_quest_ui(debug_mode: bool = True):
 
         return None
 
-    yield morld.dialog("", autofill="off", proc=proc, result=state)
+    yield ui.dialog("", autofill="off", proc=proc, result=state)
     # @finish 클릭 시 다이얼로그 종료, 반환값 없음
 
 

@@ -8,6 +8,7 @@
 #   yield from open_craft_menu(get_portable_recipes(), "휴대 제작")
 
 import morld
+import ui
 from assets.registry import get_item_class, get_or_create_item_id
 from crafting_recipes import (
     CRAFTING_RECIPES,
@@ -122,7 +123,7 @@ def craft_item(player_id: int, recipe: dict):
     result_id = get_or_create_item_id(result_unique_id)
 
     if result_id is None:
-        yield morld.dialog("제작에 실패했다...")
+        yield ui.dialog("제작에 실패했다...")
         return
 
     # 결과물 지급
@@ -132,9 +133,9 @@ def craft_item(player_id: int, recipe: dict):
     # 완료 메시지
     result_name = recipe["name"]
     if result_count > 1:
-        yield morld.dialog(f"{result_name} {result_count}개를 만들었다!")
+        yield ui.dialog(f"{result_name} {result_count}개를 만들었다!")
     else:
-        yield morld.dialog(f"{result_name}을(를) 만들었다!")
+        yield ui.dialog(f"{result_name}을(를) 만들었다!")
 
 
 # ========================================
@@ -171,7 +172,7 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작", preview: 
         print(f"[crafting] first recipe: {recipes[0]}")
 
     if not categories:
-        yield morld.dialog("제작할 수 있는 것이 없다.")
+        yield ui.dialog("제작할 수 있는 것이 없다.")
         return
 
     # 상태 관리
@@ -297,7 +298,7 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작", preview: 
         return None
 
     # 메뉴 표시
-    result = yield morld.dialog(
+    result = yield ui.dialog(
         build_category_menu(),
         autofill="off",
         proc=handle_action,

@@ -1,6 +1,7 @@
 # assets/locations/storage.py - 창고
 
 import morld
+import ui
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import CraftingTable
@@ -25,7 +26,7 @@ class Toolbox(object):
 
             def look(self):
                 """도구함 살펴보기"""
-                yield morld.dialog([
+                yield ui.dialog([
                     "여러 도구가 정리된 나무 상자다.",
                     "낚시대, 밧줄 등 야외 활동에 필요한 것들이 있다."
                 ])

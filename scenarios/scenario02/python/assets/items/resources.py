@@ -10,6 +10,7 @@
 #   flour.instantiate(item_id)
 
 import morld
+import ui
 from assets.base import Item
 
 
@@ -58,7 +59,7 @@ class Water(Item):
         # 아이템 소비
         morld.lost_item(player_id, self.instance_id)
 
-        yield morld.dialog([
+        yield ui.dialog([
             "시원한 물을 마셨다.",
             "목이 축축해졌다."
         ])
@@ -83,7 +84,7 @@ class Bread(Item):
         survival.add_satiety(player_id, self.food_satiety)
         morld.lost_item(player_id, self.instance_id)
 
-        yield morld.dialog([
+        yield ui.dialog([
             "빵을 먹었다.",
             "배가 조금 불러졌다."
         ])
@@ -108,7 +109,7 @@ class Berry(Item):
         survival.add_satiety(player_id, self.food_satiety)
         morld.lost_item(player_id, self.instance_id)
 
-        yield morld.dialog([
+        yield ui.dialog([
             "열매를 먹었다.",
             "새콤달콤한 맛이 난다."
         ])

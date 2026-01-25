@@ -11,6 +11,7 @@
 
 import morld
 import think
+import ui
 
 # ============================================
 # 상수 정의
@@ -160,7 +161,7 @@ def request_date(player_id, partner_id):
     # 요청 가능 여부 확인
     can_request, reason = can_request_date(player_id, partner_id)
     if not can_request:
-        yield morld.dialog(reason)
+        yield ui.dialog(reason)
         return
 
     # 파트너 Asset 가져오기
@@ -179,7 +180,7 @@ def request_date(player_id, partner_id):
             custom_text = partner_asset.get_date_reject_text(reject_reason)
             if custom_text:
                 reject_text = custom_text
-        yield morld.dialog(reject_text)
+        yield ui.dialog(reject_text)
         return
 
     # 수락 반응
@@ -188,7 +189,7 @@ def request_date(player_id, partner_id):
         custom_text = partner_asset.get_date_accept_text()
         if custom_text:
             accept_text = custom_text
-    yield morld.dialog(accept_text)
+    yield ui.dialog(accept_text)
 
     # 데이트 시작
     _start_date(player_id, partner_id)
@@ -201,7 +202,7 @@ def end_date(player_id):
     플레이어가 데이트를 종료할 때 호출.
     """
     if not is_on_date(player_id):
-        yield morld.dialog("데이트 중이 아니다.")
+        yield ui.dialog("데이트 중이 아니다.")
         return
 
     partner_id = get_date_partner(player_id)
@@ -218,7 +219,7 @@ def end_date(player_id):
             end_text = custom_text
 
     _end_date(player_id)
-    yield morld.dialog(end_text)
+    yield ui.dialog(end_text)
 
 
 # ============================================
@@ -298,12 +299,12 @@ def do_date_action(player_id, partner_id, action_id):
     데이트 중 애정 표현 실행 - Generator 함수
     """
     if not is_on_date(player_id):
-        yield morld.dialog("데이트 중이 아니다.")
+        yield ui.dialog("데이트 중이 아니다.")
         return
 
     action = DATE_ACTIONS.get(action_id)
     if not action:
-        yield morld.dialog("알 수 없는 행동이다.")
+        yield ui.dialog("알 수 없는 행동이다.")
         return
 
     partner_asset = get_partner_asset(partner_id)
@@ -320,7 +321,7 @@ def do_date_action(player_id, partner_id, action_id):
             if custom_text:
                 reject_text = custom_text
 
-        yield morld.dialog(reject_text)
+        yield ui.dialog(reject_text)
         return
 
     # 효과 적용
@@ -333,7 +334,7 @@ def do_date_action(player_id, partner_id, action_id):
         if custom_text:
             reaction_text = custom_text
 
-    yield morld.dialog(reaction_text)
+    yield ui.dialog(reaction_text)
 
 
 def do_casual_action(player_id, partner_id, action_id):
@@ -346,12 +347,12 @@ def do_casual_action(player_id, partner_id, action_id):
     player_loc = morld.get_unit_location(player_id)
     partner_loc = morld.get_unit_location(partner_id)
     if player_loc != partner_loc:
-        yield morld.dialog("같은 장소에 있어야 한다.")
+        yield ui.dialog("같은 장소에 있어야 한다.")
         return
 
     action = CASUAL_ACTIONS.get(action_id)
     if not action:
-        yield morld.dialog("알 수 없는 행동이다.")
+        yield ui.dialog("알 수 없는 행동이다.")
         return
 
     partner_asset = get_partner_asset(partner_id)
@@ -368,7 +369,7 @@ def do_casual_action(player_id, partner_id, action_id):
             if custom_text:
                 reject_text = custom_text
 
-        yield morld.dialog(reject_text)
+        yield ui.dialog(reject_text)
         return
 
     # 효과 적용
@@ -381,7 +382,7 @@ def do_casual_action(player_id, partner_id, action_id):
         if custom_text:
             reaction_text = custom_text
 
-    yield morld.dialog(reaction_text)
+    yield ui.dialog(reaction_text)
 
 
 # ============================================

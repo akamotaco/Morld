@@ -8,6 +8,7 @@
 # 자원은 오브젝트의 인벤토리에 저장됨
 
 import morld
+import ui
 from assets.base import Object
 from assets.objects.trees import Tree
 from assets.registry import get_or_create_item_id
@@ -240,7 +241,7 @@ class RabbitBurrow(Object):
         else:
             lines.append("덫을 설치하면 토끼를 잡을 수 있을 것 같다.")
 
-        yield morld.dialog(lines)
+        yield ui.dialog(lines)
 
     def _count_traps(self) -> int:
         """설치된 토끼 덫 개수"""

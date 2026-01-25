@@ -431,7 +431,7 @@ def start_romance(player_id, partner_id):
     # 진입 조건 체크
     can_start, reason = can_start_romance(player_id, partner_id)
     if not can_start:
-        yield morld.dialog(reason)
+        yield ui.dialog(reason)
         return
 
     # 파트너 NPC를 현재 위치에 고정 (스킨십 동안 이동 방지)
@@ -604,7 +604,7 @@ def start_romance(player_id, partner_id):
         return None
 
     # 연애 UI 시작
-    yield morld.dialog(
+    yield ui.dialog(
         render_romance_ui(state),
         autofill="off",
         proc=proc,
@@ -619,7 +619,7 @@ def start_romance(player_id, partner_id):
         # 비정상 종료: 체력 소진
         if partner_agent:
             partner_agent.pop_schedule()
-        yield morld.dialog("지쳤다...")
+        yield ui.dialog("지쳤다...")
         morld.pop_to_situation()
     elif state["interrupted"]:
         # 비정상 종료: 방해 이벤트 (handle_interruption에서 flee job 설정)
@@ -640,7 +640,7 @@ def handle_interruption(state):
     # 목격자 반응 다이얼로그
     interrupter_info = morld.get_unit_info(interrupter_id)
     interrupter_name = interrupter_info["name"]
-    yield morld.dialog([
+    yield ui.dialog([
         f"[{interrupter_name}]",
         "어머나! 이게 무슨 꼴이람!"
     ])
@@ -648,7 +648,7 @@ def handle_interruption(state):
     # 파트너 반응 (부끄러움 → 도망)
     partner_info = morld.get_unit_info(partner_id)
     partner_name = partner_info["name"]
-    yield morld.dialog([
+    yield ui.dialog([
         f"[{partner_name}]",
         "...!"
     ])

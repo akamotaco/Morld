@@ -1,6 +1,7 @@
 # events/scripts/debug.py - 디버그용 스크립트 함수
 
 import morld
+import ui
 
 
 def _get_all_unit_props(unit_id):
@@ -44,14 +45,14 @@ def debug_props(context_unit_id):
     """유닛의 모든 속성(props) 표시 - 디버그용"""
     unit_info = morld.get_unit_info(context_unit_id)
     if not unit_info:
-        yield morld.dialog("유닛 정보를 찾을 수 없습니다.")
+        yield ui.dialog("유닛 정보를 찾을 수 없습니다.")
         return
 
     unit_name = unit_info.get("name", f"유닛#{context_unit_id}")
     all_props = _get_all_unit_props(context_unit_id)
     text = _format_props_text(unit_name, all_props)
 
-    yield morld.dialog(text, autofill="scroll")
+    yield ui.dialog(text, autofill="scroll")
 
 
 @morld.register_script
@@ -60,11 +61,11 @@ def debug_self_props(context_unit_id):
     player_id = morld.get_player_id()
     unit_info = morld.get_unit_info(player_id)
     if not unit_info:
-        yield morld.dialog("플레이어 정보를 찾을 수 없습니다.")
+        yield ui.dialog("플레이어 정보를 찾을 수 없습니다.")
         return
 
     unit_name = unit_info.get("name", "???")
     all_props = _get_all_unit_props(player_id)
     text = _format_props_text(unit_name, all_props)
 
-    yield morld.dialog(text, autofill="scroll")
+    yield ui.dialog(text, autofill="scroll")

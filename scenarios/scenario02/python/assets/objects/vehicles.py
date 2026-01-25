@@ -10,6 +10,7 @@
 # - 트렁크 (CarTrunk): 233
 
 import morld
+import ui
 from assets.base import Object
 
 
@@ -77,13 +78,13 @@ class CarDriverSeat(Object):
 
         # 운전 가능 여부 확인
         if not morld.can_drive(player_id):
-            yield morld.dialog("운전석에 앉아야 운전할 수 있다.")
+            yield ui.dialog("운전석에 앉아야 운전할 수 있다.")
             return
 
         # 목적지 목록 조회
         destinations = morld.get_drivable_destinations(player_id)
         if not destinations:
-            yield morld.dialog("갈 수 있는 곳이 없다.")
+            yield ui.dialog("갈 수 있는 곳이 없다.")
             return
 
         # 목적지 선택 다이얼로그 생성
@@ -107,14 +108,14 @@ class CarDriverSeat(Object):
             lines.append(f"[url=@proc:{region_id}:{location_id}]{name} ({travel_time}분)[/url]")
         lines.append("\n[url=@proc:cancel]취소[/url]")
 
-        yield morld.dialog("\n".join(lines), autofill="off", proc=handle_choice, result=state)
+        yield ui.dialog("\n".join(lines), autofill="off", proc=handle_choice, result=state)
 
         if state["dest"] and state["dest"] != "cancel":
             parts = state["dest"].split(":")
             region_id = int(parts[0])
             location_id = int(parts[1])
             result = morld.drive_to(player_id, region_id, location_id)
-            yield morld.dialog(result["message"])
+            yield ui.dialog(result["message"])
             if result["success"]:
                 morld.advance_time(result["time_consumed"])
 
@@ -148,7 +149,7 @@ class CarTrunk(Object):
 
     def look(self):
         """트렁크 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "차 트렁크를 열어보았다.",
             "물건을 넣거나 꺼낼 수 있겠다."
         ])

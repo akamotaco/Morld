@@ -1030,6 +1030,9 @@ namespace SE
 		/// <param name="timeFlows">자동 시간 흐름 허용 여부 (기본값: false, 대부분의 다이얼로그는 시간 정지)</param>
 		public void PushDialog(string text, int timeConsumed = 0, bool timeFlows = false)
 		{
+			// 새 다이얼로그는 타이핑 소스 리셋 (새 페이지는 새로 타이핑 시작)
+			_typingSourceText = "";
+
 			_stack.Push(Focus.Dialog(text, timeConsumed, timeFlows));
 			RequestUpdateDisplay();
 		}

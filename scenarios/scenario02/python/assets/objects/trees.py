@@ -13,6 +13,7 @@
 
 import random
 import morld
+import ui
 from assets.base import Object
 from assets.registry import get_or_create_item_id
 
@@ -136,7 +137,7 @@ class Tree(Object):
         else:
             lines.append("주변에 나뭇가지가 보이지 않는다.")
 
-        yield morld.dialog(lines)
+        yield ui.dialog(lines)
         morld.advance_time(1)
 
     def chop(self, equipment=None):
@@ -151,7 +152,7 @@ class Tree(Object):
         """
         # 통나무 남아있는지 확인
         if not self.can_chop():
-            yield morld.dialog([
+            yield ui.dialog([
                 f"{self.name}를 벌목하려 했지만...",
                 "지금은 얻을 수 있는 통나무가 없다."
             ])
@@ -161,14 +162,14 @@ class Tree(Object):
         if equipment:
             equip_props = equipment.get("equip_props", {})
             if equip_props.get("날붙이"):
-                yield morld.dialog(f"{self.name}를 뚝딱뚝딱 벌목한다...")
+                yield ui.dialog(f"{self.name}를 뚝딱뚝딱 벌목한다...")
             elif equip_props.get("톱날"):
-                yield morld.dialog(f"{self.name}를 슥삭슥삭 벌목한다...")
+                yield ui.dialog(f"{self.name}를 슥삭슥삭 벌목한다...")
             else:
-                yield morld.dialog(f"{equipment.get('name', '도구')}(으)로 {self.name}를 벌목한다...")
+                yield ui.dialog(f"{equipment.get('name', '도구')}(으)로 {self.name}를 벌목한다...")
         else:
             # can:chop이 기본 능력인 경우 (장비 없이 가능할 때)
-            yield morld.dialog(f"{self.name}를 우지끈 벌목한다...")
+            yield ui.dialog(f"{self.name}를 우지끈 벌목한다...")
         morld.advance_time(self.chop_time)
 
         # 확률 체크
@@ -178,19 +179,19 @@ class Tree(Object):
             # registry를 통해 싱글톤 아이템 ID 조회/생성
             log_id = get_or_create_item_id("log")
             if log_id is None:
-                yield morld.dialog("통나무를 얻었지만, 놓쳐버렸다.")
+                yield ui.dialog("통나무를 얻었지만, 놓쳐버렸다.")
                 return
 
             # 통나무 지급 및 자원 감소
             morld.give_item(player_id, log_id, 1)
             self.set_log_count(self.get_log_count() - 1)
 
-            yield morld.dialog([
+            yield ui.dialog([
                 "통나무를 얻었다!",
                 "무거운 통나무다."
             ])
         else:
-            yield morld.dialog([
+            yield ui.dialog([
                 "열심히 벌목했지만...",
                 "쓸만한 통나무를 얻지 못했다."
             ])
@@ -203,13 +204,13 @@ class Tree(Object):
         """
         # 나뭇가지 남아있는지 확인
         if not self.can_gather():
-            yield morld.dialog([
+            yield ui.dialog([
                 f"{self.name} 주변을 둘러보았지만...",
                 "주울 만한 나뭇가지가 없다."
             ])
             return
 
-        yield morld.dialog(f"{self.name} 주변에서 나뭇가지를 줍는다...")
+        yield ui.dialog(f"{self.name} 주변에서 나뭇가지를 줍는다...")
         morld.advance_time(self.gather_time)
 
         # 확률 체크
@@ -219,19 +220,19 @@ class Tree(Object):
             # registry를 통해 싱글톤 아이템 ID 조회/생성
             branch_id = get_or_create_item_id("branch")
             if branch_id is None:
-                yield morld.dialog("나뭇가지를 주웠지만, 놓쳐버렸다.")
+                yield ui.dialog("나뭇가지를 주웠지만, 놓쳐버렸다.")
                 return
 
             # 나뭇가지 지급 및 자원 감소
             morld.give_item(player_id, branch_id, 1)
             self.set_branch_count(self.get_branch_count() - 1)
 
-            yield morld.dialog([
+            yield ui.dialog([
                 "나뭇가지를 주웠다!",
                 "불쏘시개로 쓸 수 있겠다."
             ])
         else:
-            yield morld.dialog([
+            yield ui.dialog([
                 "둘러보았지만...",
                 "쓸만한 나뭇가지를 찾지 못했다."
             ])

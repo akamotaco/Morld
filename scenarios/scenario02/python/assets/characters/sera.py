@@ -64,6 +64,7 @@
 # ============================================================
 
 import morld
+import ui
 from assets.base import Character
 from think import BaseAgent, register_agent_class
 
@@ -553,7 +554,7 @@ class Sera(Character):
         """사냥 중 + 호감 50 이상: 같이 사냥 제안"""
         name = context.get("name", self.name)
 
-        choice = yield morld.dialog(
+        choice = yield ui.dialog(
             f"[{name}]\n"
             "...같이 사냥할래?\n\n"
             "[url=@ret:yes]같이 가겠다[/url]\n"
@@ -562,18 +563,18 @@ class Sera(Character):
         )
 
         if choice == "yes":
-            yield morld.dialog([f"[{name}]", "...조용히만 해."])
+            yield ui.dialog([f"[{name}]", "...조용히만 해."])
             # 플레이어를 따라다니기 (30분)
             player_id = morld.get_player_id()
             morld.set_npc_job(self.instance_id, "follow", 30, player_id)
         else:
-            yield morld.dialog([f"[{name}]", "...그래."])
+            yield ui.dialog([f"[{name}]", "...그래."])
 
     def _talk_patrol_friendly(self, context):
         """순찰 중 + 호감 50 이상: 같이 순찰 제안"""
         name = context.get("name", self.name)
 
-        choice = yield morld.dialog(
+        choice = yield ui.dialog(
             f"[{name}]\n"
             "...순찰 중이다.\n"
             "...같이 돌아볼래?\n\n"
@@ -583,12 +584,12 @@ class Sera(Character):
         )
 
         if choice == "yes":
-            yield morld.dialog([f"[{name}]", "...따라와."])
+            yield ui.dialog([f"[{name}]", "...따라와."])
             # 플레이어를 따라다니기 (60분)
             player_id = morld.get_player_id()
             morld.set_npc_job(self.instance_id, "follow", 60, player_id)
         else:
-            yield morld.dialog([f"[{name}]", "...알았다."])
+            yield ui.dialog([f"[{name}]", "...알았다."])
 
     # ========================================
     # 진척도 기반 대화 (일회성)
@@ -607,7 +608,7 @@ class Sera(Character):
         if current_progress < 3:
             morld.modify_prop(self.instance_id, f"관계:{player_name}:진척도", 1)
 
-        yield morld.dialog([f"[{name}]", "......", "...무슨 일이야?"])
+        yield ui.dialog([f"[{name}]", "......", "...무슨 일이야?"])
 
     def _talk_friendly_high(self, context):
         """호감도 70+ 일반 대화 - 진척도 증가"""
@@ -622,7 +623,7 @@ class Sera(Character):
         if current_progress < 3:
             morld.modify_prop(self.instance_id, f"관계:{player_name}:진척도", 1)
 
-        yield morld.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
+        yield ui.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
 
     def _talk_progress_1(self, context):
         """진척도 1 - 자신에 대한 이야기 (일회성)"""
@@ -635,13 +636,13 @@ class Sera(Character):
         flag_key = f"대화:{player_name}:진척도1"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([f"[{name}]", "......", "...무슨 일이야?"])
+            yield ui.dialog([f"[{name}]", "......", "...무슨 일이야?"])
             return
 
         # 플래그 설정 및 사적인 이야기
         morld.set_unit_prop(self.instance_id, flag_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "......",
             "...내 이름은 세라.",
@@ -662,13 +663,13 @@ class Sera(Character):
         flag_key = f"대화:{player_name}:진척도2"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
+            yield ui.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
             return
 
         # 플래그 설정 및 사적인 이야기
         morld.set_unit_prop(self.instance_id, flag_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "...좋아하는 거?",
             "......",
@@ -694,13 +695,13 @@ class Sera(Character):
         flag_key = f"대화:{player_name}:진척도3"
         props = morld.get_unit_props(self.instance_id)
         if props and props.get(flag_key):
-            yield morld.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
+            yield ui.dialog([f"[{name}]", "......", "...뭐, 괜찮아?"])
             return
 
         # 플래그 설정 및 사적인 이야기
         morld.set_unit_prop(self.instance_id, flag_key, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             f"[{name}]",
             "......",
             "...예전 일?",

@@ -8,6 +8,7 @@
 # - Feather: 깃털 (새 사냥 등)
 
 import morld
+import ui
 from assets.base import Item
 from assets.registry import register_item, get_item_class
 
@@ -33,7 +34,7 @@ class Log(Item):
 
     def look(self):
         """통나무 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "단단한 통나무다.",
             "제작대에서 나무판으로 가공할 수 있을 것 같다."
         ])
@@ -52,7 +53,7 @@ class Branch(Item):
 
     def look(self):
         """나뭇가지 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "마른 나뭇가지다.",
             "불쏘시개나 간단한 도구 재료로 쓸 수 있다."
         ])
@@ -71,7 +72,7 @@ class Plank(Item):
 
     def look(self):
         """나무판 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "반듯하게 다듬어진 나무판이다.",
             "건축이나 도구 제작에 쓸 수 있다."
         ])
@@ -90,7 +91,7 @@ class Cord(Item):
 
     def look(self):
         """끈 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "질긴 식물 줄기로 엮은 끈이다.",
             "활이나 덫을 만드는 데 쓸 수 있다."
         ])
@@ -109,7 +110,7 @@ class Feather(Item):
 
     def look(self):
         """깃털 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "새의 깃털이다.",
             "화살 깃으로 쓸 수 있겠다."
         ])

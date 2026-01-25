@@ -339,3 +339,113 @@ def get_action_text():
     # 상태바는 get_footer()로 분리됨 (C#에서 별도 호출)
 
     return "\n".join(lines)
+
+
+# ========================================
+# 다이얼로그 래퍼 (다 페이지 지원)
+# ========================================
+
+# 연쇄 출력 접두사 (이 문자로 시작하면 이전 페이지 누적)
+CHAIN_PREFIX = "+"
+
+
+def _render_page(pages: list, state: dict) -> str:
+    """
+    현재 페이지 렌더링 (연쇄 출력 처리 포함)
+
+    Args:
+        pages: 페이지 리스트
+        state: {"page": int, "accumulated": str}
+
+    Returns:
+        렌더링된 텍스트 (마지막 페이지면 버튼 없음)
+    """
+    idx = state["page"]
+    page = pages[idx]
+
+    # 이스케이프 처리: \+ → +
+    if page.startswith("\\+"):
+        page = page[1:]
+        state["accumulated"] = page
+        text = page
+    elif page.startswith(CHAIN_PREFIX):
+        # 연쇄 출력: 이전 내용 + 새 내용
+        new_text = page[len(CHAIN_PREFIX):]
+        if state["accumulated"]:
+            text = f"[!]{state['accumulated']}\n[/!]{new_text}"
+            state["accumulated"] = state["accumulated"] + "\n" + new_text
+        else:
+            text = new_text
+            state["accumulated"] = new_text
+    else:
+        # 일반 페이지: 새로 시작
+        text = page
+        state["accumulated"] = page
+
+    # 버튼 추가
+    if idx < len(pages) - 1:
+        # 다음 페이지가 있으면 "다음" 버튼
+        text += "\n\n[url=@proc:next]다음[/url]"
+    else:
+        # 마지막 페이지면 "확인" 버튼 (다이얼로그 종료)
+        text += "\n\n[url=@proc:finish]확인[/url]"
+
+    return text
+
+
+def dialog(content, **kwargs):
+    """
+    향상된 다이얼로그 - 문자열 또는 리스트(다 페이지) 지원
+
+    단일 페이지:
+        yield ui.dialog("텍스트")
+
+    다 페이지 (연쇄 출력 지원):
+        yield ui.dialog([
+            "첫 번째 페이지",
+            "+두 번째 (연쇄)",   # 이전 내용 누적, 새 내용 타이핑
+            "세 번째 (새로)",    # 새로 시작
+        ])
+
+    이스케이프:
+        "\\+로 시작"  # "+"를 리터럴로 사용
+
+    Args:
+        content: 문자열 또는 페이지 리스트
+        **kwargs: morld.dialog()에 전달할 추가 인자
+
+    Returns:
+        Dialog 객체 (yield용)
+    """
+    # 문자열: 기존 동작
+    if isinstance(content, str):
+        return morld.dialog(content, **kwargs)
+
+    # 리스트: autofill이 지정되면 C# 처리에 맡김
+    if "autofill" in kwargs and kwargs["autofill"] not in ("off", None):
+        return morld.dialog(content, **kwargs)
+
+    # 리스트: proc 기반 다 페이지 (autofill 없거나 "off")
+    pages = content
+    state = {"page": 0, "accumulated": ""}
+
+    # 첫 페이지 렌더링 (morld.dialog에 직접 전달)
+    initial_text = _render_page(pages, state)
+
+    def proc(action):
+        if action == "init":
+            return None  # 초기 텍스트는 이미 전달됨
+
+        if action == "next":
+            state["page"] += 1
+            if state["page"] >= len(pages):
+                return True  # 종료
+            return _render_page(pages, state)
+
+        if action == "finish":
+            return True  # 마지막 페이지에서 확인 → 다이얼로그 종료
+
+        return None
+
+    # autofill="off"로 기본 버튼 비활성화 (직접 "다음" 추가)
+    return morld.dialog(initial_text, autofill="off", proc=proc, **kwargs)

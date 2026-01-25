@@ -9,6 +9,7 @@
 #   loc.add_object(board, instance_id)
 
 import morld
+import ui
 from assets.base import Object
 from quest import quest_manager, QuestStatus
 
@@ -220,7 +221,7 @@ class ErrandBoard(Object):
             return None
 
         text = self._render_errand_list()
-        yield morld.dialog(text, autofill="off", proc=handle_action)
+        yield ui.dialog(text, autofill="off", proc=handle_action)
 
     def _do_accept_quest(self, quest_id: str, state: dict) -> str:
         """퀘스트 수락 (proc 콜백용)"""

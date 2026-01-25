@@ -1,6 +1,7 @@
 # assets/locations/toilet.py - 화장실
 
 import morld
+import ui
 from assets.base import Location, Object
 from assets.objects.grounds import GroundTile
 
@@ -16,7 +17,7 @@ class Toilet(Object):
 
     def look(self):
         """변기 살펴보기"""
-        yield morld.dialog("깨끗하게 관리된 변기다. 사용하는 데 문제없어 보인다.")
+        yield ui.dialog("깨끗하게 관리된 변기다. 사용하는 데 문제없어 보인다.")
         morld.advance_time(1)
 
     def use(self):
@@ -27,10 +28,10 @@ class Toilet(Object):
         need = morld.get_unit_prop(player_id, "욕구:배변") or 0
 
         if need < 20:
-            yield morld.dialog("지금은 볼일이 없다.")
+            yield ui.dialog("지금은 볼일이 없다.")
             return
 
-        yield morld.dialog([
+        yield ui.dialog([
             "...",
             "볼일을 마쳤다."
         ])

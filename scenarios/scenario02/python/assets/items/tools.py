@@ -11,6 +11,7 @@
 #   torch.instantiate(item_id)
 
 import morld
+import ui
 from assets.base import Item
 from assets.registry import register_item
 
@@ -29,7 +30,7 @@ class Torch(Item):
 
     def use(self):
         """횃불 사용 - 불 켜기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "횃불에 불을 붙였다.",
             "주변이 환하게 밝아졌다."
         ])
@@ -46,7 +47,7 @@ class Rope(Item):
 
     def use(self):
         """밧줄 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "튼튼한 밧줄이다.",
             "오르거나 묶는 데 쓸 수 있겠다."
         ])
@@ -68,7 +69,7 @@ class KitchenKnife(Item):
 
     def use(self):
         """부엌칼 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "날이 잘 서있는 부엌칼이다.",
             "밀라가 소중히 관리하는 것 같다."
         ])
@@ -86,7 +87,7 @@ class AlarmClock(Item):
 
     def use(self):
         """자명종 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "째깍째깍 소리를 내는 자명종이다.",
             "리나가 아끼는 물건 같다."
         ])
@@ -108,7 +109,7 @@ class FishingRod(Item):
 
     def look(self):
         """낚시대 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "세라의 낚시대다.",
             "장착하면 물가에서 낚시를 할 수 있다."
         ])
@@ -131,7 +132,7 @@ class Axe(Item):
 
     def look(self):
         """도끼 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "세라의 도끼다.",
             "장착하면 나무를 벨 수 있다."
         ])
@@ -153,7 +154,7 @@ class Saw(Item):
 
     def look(self):
         """톱 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "나무를 자를 수 있는 톱이다.",
             "소지하고 있으면 나무를 벨 수 있다."
         ])
@@ -176,7 +177,7 @@ class HuntingBow(Item):
 
     def look(self):
         """활 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "잘 만들어진 사냥용 활이다.",
             "화살과 함께 사용하면 사냥을 할 수 있다."
         ])
@@ -194,7 +195,7 @@ class HerbPouch(Item):
 
     def use(self):
         """약초 주머니 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "리나의 약초 주머니다.",
             "안에는 말린 약초들이 가득하다.",
             "치료에 쓸 수 있는 것들이 많아 보인다."
@@ -224,7 +225,7 @@ class Diary(Item):
 
     def read(self):
         """유키의 일기장 읽기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "유키의 일기장을 펼쳐본다.",
             "\"오늘도 언니들과 함께 저택 청소를 했다.\"",
             "\"저녁에는 밀라 언니가 맛있는 저녁을 해줬다.\"",
@@ -245,7 +246,7 @@ class ManagementLedger(Item):
 
     def read(self):
         """엘라의 관리 장부 읽기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "엘라의 관리 장부를 펼쳐본다.",
             "저택의 식량, 자금, 일정 등이 꼼꼼하게 기록되어 있다.",
             "엘라의 정리 능력에 감탄하지 않을 수 없다."
@@ -268,7 +269,7 @@ class Lantern(Item):
 
     def look(self):
         """랜턴 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "손잡이가 달린 유리 랜턴이다.",
             "장착하면 어두운 곳을 밝힐 수 있다."
         ])
@@ -285,7 +286,7 @@ class WaterBottle(Item):
 
     def use(self):
         """물병 사용 - 물 마시기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "물병의 물을 마셨다.",
             "시원하고 상쾌하다."
         ])
@@ -315,7 +316,7 @@ class RabbitTrap(Item):
 
     def look(self):
         """소형 동물 덫 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "간단히 만든 소형 동물 덫이다.",
             "토끼 굴 근처에 설치하면 토끼를 잡을 수 있다."
         ])
@@ -337,7 +338,7 @@ class TrappedRabbit(Item):
 
     def look(self):
         """붙잡힌 덫 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "덫에 토끼가 걸려 있다!",
             "분해하면 토끼 사체를 얻을 수 있다."
         ])
@@ -350,7 +351,7 @@ class TrappedRabbit(Item):
 
         player_id = morld.get_player_id()
 
-        yield morld.dialog("덫을 분해해서 토끼를 꺼낸다...")
+        yield ui.dialog("덫을 분해해서 토끼를 꺼낸다...")
         morld.advance_time(5)
 
         # 토끼 사체 지급
@@ -361,7 +362,7 @@ class TrappedRabbit(Item):
         # 붙잡힌 덫 제거 (부서짐)
         morld.lost_item(player_id, self.instance_id, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             "토끼 사체를 얻었다!",
             "덫은 부서져서 사용할 수 없게 되었다."
         ])
@@ -385,7 +386,7 @@ class RabbitCarcass(Item):
 
     def look(self):
         """토끼 사체 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "갓 잡은 토끼다.",
             "날붙이로 손질하면 고기와 가죽을 얻을 수 있다."
         ])
@@ -405,7 +406,7 @@ class RabbitCarcass(Item):
         skin_tools = morld.find_items_with_passive(player_id, "can:skin")
 
         if not skin_tools:
-            yield morld.dialog("박피에 필요한 도구가 없다.")
+            yield ui.dialog("박피에 필요한 도구가 없다.")
             return
 
         # 각 도구에 skin_time 추가
@@ -436,7 +437,7 @@ class RabbitCarcass(Item):
             for tool in skin_tools:
                 lines.append(f"  [url=@proc:{tool['id']}]{tool['name']}[/url] [color=gray]({tool['skin_time']}분)[/color]")
 
-            yield morld.dialog("\n".join(lines), autofill="off", proc=on_select, result=state)
+            yield ui.dialog("\n".join(lines), autofill="off", proc=on_select, result=state)
 
             if state["selected_tool"]:
                 yield from self._do_skin(state["selected_tool"])
@@ -453,7 +454,7 @@ class RabbitCarcass(Item):
         player_id = morld.get_player_id()
         skin_time = tool.get("skin_time", 15)
 
-        yield morld.dialog(f"{tool['name']}(으)로 토끼를 손질한다...")
+        yield ui.dialog(f"{tool['name']}(으)로 토끼를 손질한다...")
         morld.advance_time(skin_time)
 
         # 토끼 생고기 지급
@@ -469,7 +470,7 @@ class RabbitCarcass(Item):
         # 토끼 사체 제거
         morld.lost_item(player_id, self.instance_id, 1)
 
-        yield morld.dialog([
+        yield ui.dialog([
             "토끼 생고기를 얻었다!",
             "토끼 가죽을 얻었다!"
         ])
@@ -492,7 +493,7 @@ class RawRabbitMeat(Item):
 
     def look(self):
         """토끼 생고기 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "신선한 토끼 고기다.",
             "익혀서 먹으면 맛있을 것 같다."
         ])
@@ -515,7 +516,7 @@ class RabbitHide(Item):
 
     def look(self):
         """토끼 가죽 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "부드러운 토끼 가죽이다.",
             "가공하면 여러 가지에 쓸 수 있을 것 같다."
         ])

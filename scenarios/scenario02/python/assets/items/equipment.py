@@ -10,6 +10,7 @@
 #   knife.instantiate(item_id)
 
 import morld
+import ui
 from assets.base import Item
 from assets.registry import register_item
 
@@ -33,7 +34,7 @@ class Blade(Item):
 
     def look(self):
         """날붙이 살펴보기"""
-        yield morld.dialog("날카로운 날이 달린 도구다.")
+        yield ui.dialog("날카로운 날이 달린 도구다.")
 
 
 # ========================================
@@ -52,7 +53,7 @@ class OldKnife(Blade):
 
     def look(self):
         """낡은 칼 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "오래되어 녹이 슨 칼이다.",
             "그래도 날은 아직 쓸만하다."
         ])
@@ -71,7 +72,7 @@ class RusticDagger(Blade):
 
     def look(self):
         """투박한 단검 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "투박하지만 튼튼한 단검이다.",
             "세라가 사냥할 때 쓰는 것 같다."
         ])
@@ -112,7 +113,7 @@ class OldBook(Item):
 
     def read(self):
         """낡은 책 읽기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "오래된 책을 펼쳐본다.",
             "손때 묻은 페이지에는 이 저택의 역사가 적혀 있다.",
             "흥미로운 내용이지만, 대부분의 글자는 바래져 읽기 어렵다."
@@ -223,7 +224,7 @@ class PortableCraftingKit(Item):
 
             return None
 
-        result = yield morld.dialog(build_menu(), autofill="off", proc=on_select, result=state)
+        result = yield ui.dialog(build_menu(), autofill="off", proc=on_select, result=state)
 
         # 제작 실행
         if result == "cancel" or not state["recipe"]:
@@ -251,7 +252,7 @@ class PortableCraftingKit(Item):
 
     def look(self):
         """도구 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "간단한 제작 도구가 담긴 작은 가방이다.",
             "이것만 있으면 어디서든 간단한 도구를 만들 수 있다."
         ])
@@ -283,7 +284,7 @@ class Compass(Item):
 
     def look(self):
         """나침반 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "정교하게 만들어진 나침반이다.",
             "이것만 있으면 어디서든 방향을 잡을 수 있다.",
             "지도 기능을 사용할 수 있다."
@@ -310,7 +311,7 @@ class MansionMap(Item):
 
     def look(self):
         """저택 지도 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "저택과 그 주변을 그린 지도다.",
             "저택 내부 구조가 상세하게 표시되어 있다."
         ])
@@ -332,7 +333,7 @@ class ForestMap(Item):
 
     def look(self):
         """숲속 지도 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "숲의 길과 주요 장소를 그린 지도다.",
             "오두막, 늑대굴 등의 위치가 표시되어 있다."
         ])
@@ -354,7 +355,7 @@ class CityMap(Item):
 
     def look(self):
         """도시 지도 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "황폐화된 도시의 거리를 그린 지도다.",
             "편의점, 약국 등의 위치가 표시되어 있다."
         ])
@@ -376,7 +377,7 @@ class WoodenSword(Item):
 
     def look(self):
         """목검 살펴보기"""
-        yield morld.dialog([
+        yield ui.dialog([
             "나무를 깎아 만든 목검이다.",
             "진짜 검보다는 약하지만, 없는 것보다는 낫다."
         ])

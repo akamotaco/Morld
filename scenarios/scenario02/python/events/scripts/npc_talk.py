@@ -1,6 +1,7 @@
 # events/scripts/npc_talk.py - NPC 대화 스크립트 함수
 
 import morld
+import ui
 from assets.characters import get_character_event_handler
 
 
@@ -9,7 +10,7 @@ def npc_talk(context_unit_id):
     """NPC 대화 - Generator 기반"""
     unit_info = morld.get_unit_info(context_unit_id)
     if unit_info is None:
-        yield morld.dialog(["...?"])
+        yield ui.dialog(["...?"])
         return
 
     unit_id = unit_info.get("id")
@@ -24,8 +25,8 @@ def npc_talk(context_unit_id):
         else:
             # 레거시 dict 반환인 경우 변환
             if isinstance(result, dict) and result.get("type") == "monologue":
-                yield morld.dialog(result.get("pages", ["..."]))
+                yield ui.dialog(result.get("pages", ["..."]))
         return
 
     name = unit_info.get("name", "???")
-    yield morld.dialog([f"[{name}]", "......", "별 말이 없다."])
+    yield ui.dialog([f"[{name}]", "......", "별 말이 없다."])

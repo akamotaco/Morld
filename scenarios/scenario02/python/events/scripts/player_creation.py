@@ -4,6 +4,7 @@
 # 새 Dialog API (proc + result) 방식 사용
 
 import morld
+import ui
 from assets.characters.player import (
     Player, NAME_OPTIONS, AGE_OPTIONS, BODY_OPTIONS, EQUIPMENT_OPTIONS
 )
@@ -63,7 +64,7 @@ def run_character_creation(state=None):
                 state["step"] = "age"
                 return True
 
-            yield morld.dialog(
+            yield ui.dialog(
                 build_name_text(),
                 autofill="off",
                 proc=handle_name,
@@ -95,7 +96,7 @@ def run_character_creation(state=None):
                 state["step"] = "body"
                 return True
 
-            yield morld.dialog(
+            yield ui.dialog(
                 build_age_text(),
                 autofill="off",
                 proc=handle_age,
@@ -126,7 +127,7 @@ def run_character_creation(state=None):
                 state["step"] = "equipment"
                 return True
 
-            yield morld.dialog(
+            yield ui.dialog(
                 build_body_text(),
                 autofill="off",
                 proc=handle_body,
@@ -157,7 +158,7 @@ def run_character_creation(state=None):
                 state["step"] = "confirm"
                 return True
 
-            yield morld.dialog(
+            yield ui.dialog(
                 build_equipment_text(),
                 autofill="off",
                 proc=handle_equipment,
@@ -198,7 +199,7 @@ def run_character_creation(state=None):
                     return True
                 return None
 
-            yield morld.dialog(
+            yield ui.dialog(
                 build_confirm_text(),
                 autofill="off",
                 proc=handle_confirm,

@@ -3,6 +3,7 @@
 # 플레이어가 앞마당에 도착하면 쓰러짐 → 챕터 1 전환
 
 import morld
+import ui
 from events.base import ReachEvent
 from events import registry
 
@@ -16,7 +17,7 @@ class FrontYardCollapse(ReachEvent):
 
     def handle(self, **ctx):
         # 쓰러짐 모놀로그
-        yield morld.dialog([
+        yield ui.dialog([
             "저 앞에... 건물이 보인다.",
             "저택인가? 드디어 사람이 사는 곳을 찾았다.",
             "하지만... 몸이 말을 듣지 않는다.",
@@ -37,7 +38,7 @@ class FrontYardCollapse(ReachEvent):
         morld.advance_time(180)  # 3시간 경과
 
         # 깨어남 모놀로그
-        yield morld.dialog([
+        yield ui.dialog([
             "......",
             "......응...?",
             "눈을 떠보니 낯선 천장이 보인다.",

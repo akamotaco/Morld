@@ -6,6 +6,7 @@
 # - 다른 region으로 이동 가능한 장소 표시
 
 import morld
+import ui
 
 
 def show_map():
@@ -66,7 +67,7 @@ def show_map():
     text = _render_map(state)
     # time_flows=True: 지도를 보는 동안에도 자동 시간 흐름 허용
     # proc("tick")으로 지도 UI 자동 갱신
-    yield morld.dialog(text, autofill="off", proc=handle_action, result=state, time_flows=True)
+    yield ui.dialog(text, autofill="off", proc=handle_action, result=state, time_flows=True)
 
     # 선택된 목적지가 있으면 이동 확인
     if state["selected"]:
@@ -105,7 +106,7 @@ def show_map():
                 f"이동 시간: {time_text}\n\n"
                 "[url=@proc:yes]이동[/url]  [url=@proc:no]취소[/url]"
             )
-            yield morld.dialog(confirm_text, autofill="off", proc=confirm_handler)
+            yield ui.dialog(confirm_text, autofill="off", proc=confirm_handler)
 
             if confirm_state["confirmed"]:
                 # 이동 실행 - PlayerSystem.RequestCommand로 시간 진행 포함
