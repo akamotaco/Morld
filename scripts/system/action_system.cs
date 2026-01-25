@@ -389,7 +389,7 @@ namespace SE
 			var lines = new List<string>();
 
 			// 구분선
-			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(TextUISystem.Divider);
 
 			// GetActionItems에서 행동 옵션 가져오기
 			var actionItems = GetActionItems(lookResult);

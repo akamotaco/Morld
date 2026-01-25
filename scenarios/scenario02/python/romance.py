@@ -10,6 +10,7 @@
 """
 
 import morld
+import ui
 
 # ============================================
 # 상수 정의
@@ -281,7 +282,7 @@ def render_romance_ui(state):
     arousal = partner_props.get(arousal_key, 0)
     lines.append(f"호감: {affection}  애정: {love}  성욕: {arousal}")
     lines.append("")
-    lines.append("───────────────────────────────────")
+    lines.append(ui.divider())
     lines.append("")
 
     # 토글 행위
@@ -305,7 +306,7 @@ def render_romance_ui(state):
     lines.append("")
 
     # 푸터
-    lines.append("───────────────────────────────────")
+    lines.append(ui.divider())
     lines.append("[url=@proc:exit]그만두기[/url]")
 
     return "\n".join(lines)

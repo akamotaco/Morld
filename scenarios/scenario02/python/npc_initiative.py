@@ -12,6 +12,7 @@ NPC가 주도하는 스킨십 시스템
 import morld
 import random
 import think
+import ui
 from romance import check_ecstasy
 
 # ============================================
@@ -673,7 +674,7 @@ def render_npc_initiative_ui(state):
         lines.append(f"[color=red]{state['escape_result']}[/color]")
 
     lines.append("")
-    lines.append("───────────────────────────────────")
+    lines.append(ui.divider())
     lines.append("")
 
     # NPC 현재 행위 (토글 - NPC가 주도)
@@ -699,7 +700,7 @@ def render_npc_initiative_ui(state):
     lines.append("")
 
     # 선택지
-    lines.append("───────────────────────────────────")
+    lines.append(ui.divider())
     lines.append("[url=@proc:escape]빠져나가기 시도[/url]")
     lines.append("[url=@proc:accept]받아들이기[/url]")
     lines.append("")
