@@ -976,6 +976,17 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 현재 Focus 화면 갱신 (스택 유지)
+		/// ShowSituation()과 달리 Clear()를 호출하지 않아 스택이 유지됨
+		/// 시간 흐름 시 호출하여 Dialog/Item Focus를 방해하지 않음
+		/// </summary>
+		public void RefreshSituationDisplay()
+		{
+			// 스택 초기화 없이 현재 Focus 화면만 갱신
+			RequestUpdateDisplay();
+		}
+
+		/// <summary>
 		/// 유닛 상세 화면 표시 (Push)
 		/// </summary>
 		public void ShowUnitLook(int unitId)

@@ -302,6 +302,7 @@ public partial class GameEngine : Node
 
 	/// <summary>
 	/// 현재 상황 설명을 TextUI에 표시
+	/// 다른 Focus(Dialog, Item 등)가 열려있으면 스킵하여 스택 유지
 	/// </summary>
 	private void UpdateSituationText()
 	{
@@ -311,7 +312,8 @@ public partial class GameEngine : Node
 		// 주변 인식 정보 생성 (다가오는 캐릭터, 군중 등)
 		_describeSystem?.GenerateNearbyAwarenessLogs();
 
-		_textUISystem.ShowSituation();
+		// 스택에 Situation만 있을 때만 갱신 (다른 Focus 열려있으면 스킵)
+		_textUISystem.RefreshSituationDisplay();
 	}
 
 	/// <summary>
