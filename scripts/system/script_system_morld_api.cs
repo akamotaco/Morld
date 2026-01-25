@@ -949,18 +949,23 @@ namespace SE
         /// </summary>
         private void RegisterDialogAPI(PyModule morldModule)
         {
-            // morld.dialog(text_or_pages, autofill="next", proc=None, result=None)
+            // morld.dialog(text_or_pages, autofill="next", proc=None, result=None, time_flows=False)
             // Python에서 yield로 사용:
             //   yield morld.dialog("텍스트")  # 단일 페이지, 기본 autofill
             //   yield morld.dialog(["페이지1", "페이지2"])  # 멀티 페이지
             //   yield morld.dialog(["페이지1", "페이지2"], autofill="book")  # 이전/다음 왕복
             //   result = yield morld.dialog("텍스트", autofill="off", proc=my_proc, result=state)
+            //   yield morld.dialog("지도 내용", time_flows=True)  # 시간이 계속 흐르는 다이얼로그
             //
             // autofill 타입:
             //   "next" (기본값) - [다음] 버튼만, 마지막 페이지는 [종료]
             //   "book" - [이전][다음] 왕복 가능
             //   "scroll" - 텍스트 누적 + [다음]
             //   "off" - 자동 버튼 없음 (커스텀 UI)
+            //
+            // time_flows 파라미터:
+            //   False (기본값) - 다이얼로그 표시 중 자동 시간 흐름 정지 (대화, 이벤트 등)
+            //   True - 다이얼로그 표시 중에도 자동 시간 흐름 계속 (지도 보기 등)
             //
             // URL 패턴:
             //   @next - 다음 페이지로 이동 (autofill 전용)
@@ -972,7 +977,7 @@ namespace SE
             morldModule.ModuleDict["dialog"] = new PyBuiltinFunction("dialog", (args, kwargs) =>
             {
                 if (args.Length < 1)
-                    throw PyTypeError.Create("dialog(text_or_pages, autofill='next', proc=None, result=None) requires at least 1 argument");
+                    throw PyTypeError.Create("dialog(text_or_pages, autofill='next', proc=None, result=None, time_flows=False) requires at least 1 argument");
 
                 var firstArg = args[0];
 
@@ -980,6 +985,7 @@ namespace SE
                 DialogAutofill autofill = DialogAutofill.Next;
                 PyObject procCallback = null;
                 PyObject resultObject = null;
+                bool timeFlows = false;
 
                 if (kwargs != null)
                 {
@@ -1014,6 +1020,14 @@ namespace SE
                     {
                         resultObject = resultValue;
                     }
+
+                    // time_flows 파라미터 - 자동 시간 흐름 허용 여부
+                    var timeFlowsKey = new PyString("time_flows");
+                    var timeFlowsValue = kwargs.Get(timeFlowsKey);
+                    if (timeFlowsValue != null && !(timeFlowsValue is PyNone))
+                    {
+                        timeFlows = timeFlowsValue.IsTrue();
+                    }
                 }
 
                 // 리스트인 경우 멀티페이지
@@ -1024,12 +1038,12 @@ namespace SE
                     {
                         pages.Add(item.AsString());
                     }
-                    return new PyDialogRequest(pages, null, procCallback, autofill, resultObject);
+                    return new PyDialogRequest(pages, null, procCallback, autofill, resultObject, timeFlows);
                 }
 
                 // 단일 텍스트
                 string text = firstArg.AsString();
-                return new PyDialogRequest(text, null, procCallback, autofill, resultObject);
+                return new PyDialogRequest(text, null, procCallback, autofill, resultObject, timeFlows);
             });
 
             // morld.pop_to_situation() - Situation Focus까지 스택 Pop (스킨십 비정상 종료 등)

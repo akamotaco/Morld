@@ -506,6 +506,91 @@ namespace SE
                 return _worldSystem.IsTimeFrozen() ? PyBool.True : PyBool.False;
             });
 
+            // ========================================
+            // 자동 시간 흐름 API
+            // ========================================
+
+            // set_auto_time_flow: 자동 시간 흐름 활성화/비활성화
+            morldModule.ModuleDict["set_auto_time_flow"] = new PyBuiltinFunction("set_auto_time_flow", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("set_auto_time_flow(enabled) requires 1 argument");
+
+                bool enabled = args[0].IsTrue();
+                var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
+
+                if (_autoTimeFlowSystem == null)
+                    return PyBool.False;
+
+                if (enabled)
+                    _autoTimeFlowSystem.Enable();
+                else
+                    _autoTimeFlowSystem.Disable();
+
+                return PyBool.True;
+            });
+
+            // is_auto_time_flow: 자동 시간 흐름 활성화 여부 반환
+            morldModule.ModuleDict["is_auto_time_flow"] = new PyBuiltinFunction("is_auto_time_flow", args =>
+            {
+                var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
+
+                if (_autoTimeFlowSystem == null)
+                    return PyBool.False;
+
+                return _autoTimeFlowSystem.Enabled ? PyBool.True : PyBool.False;
+            });
+
+            // set_auto_time_flow_interval: 자동 시간 흐름 간격 설정
+            // real_seconds: 실시간 간격 (초)
+            // game_minutes: 게임 시간 간격 (분)
+            morldModule.ModuleDict["set_auto_time_flow_interval"] = new PyBuiltinFunction("set_auto_time_flow_interval", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("set_auto_time_flow_interval(real_seconds, game_minutes) requires 2 arguments");
+
+                float realSeconds = (float)args[0].ToFloat();
+                int gameMinutes = args[1].ToInt();
+
+                var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
+
+                if (_autoTimeFlowSystem == null)
+                    return PyBool.False;
+
+                _autoTimeFlowSystem.RealTimeIntervalSeconds = realSeconds;
+                _autoTimeFlowSystem.GameTimeIntervalMinutes = gameMinutes;
+
+                Godot.GD.Print($"[morld] set_auto_time_flow_interval: {realSeconds}s -> {gameMinutes}min");
+                return PyBool.True;
+            });
+
+            // reset_auto_time_flow_timer: 자동 시간 흐름 타이머 리셋
+            morldModule.ModuleDict["reset_auto_time_flow_timer"] = new PyBuiltinFunction("reset_auto_time_flow_timer", args =>
+            {
+                var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
+
+                if (_autoTimeFlowSystem == null)
+                    return PyBool.False;
+
+                _autoTimeFlowSystem.ResetTimer();
+                return PyBool.True;
+            });
+
+            // get_auto_time_flow_interval: 자동 시간 흐름 간격 조회
+            // 반환: (real_seconds, game_minutes) 튜플
+            morldModule.ModuleDict["get_auto_time_flow_interval"] = new PyBuiltinFunction("get_auto_time_flow_interval", args =>
+            {
+                var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
+
+                if (_autoTimeFlowSystem == null)
+                    return new PyTuple(new PyObject[] { new PyFloat(5.0), new PyInt(1) });
+
+                return new PyTuple(new PyObject[] {
+                    new PyFloat(_autoTimeFlowSystem.RealTimeIntervalSeconds),
+                    new PyInt(_autoTimeFlowSystem.GameTimeIntervalMinutes)
+                });
+            });
+
             // advance_time_simulate: 시간 진행 + NPC JobBehavior 실행 (연애 모드용)
             // ThinkSystem은 호출하지 않음 (NPC AI 재계산 불필요)
             // 반환: 경과된 총 시간 (분)

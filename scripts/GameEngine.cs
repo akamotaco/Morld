@@ -99,6 +99,9 @@ public partial class GameEngine : Node
 		// ActionLog System
 		var actionLogSystem = this._world.AddSystem(new ActionLogSystem(), "actionLogSystem") as ActionLogSystem;
 
+		// AutoTimeFlow System (자동 시간 흐름)
+		this._world.AddSystem(new AutoTimeFlowSystem(), "autoTimeFlowSystem");
+
 		// UI System
 		var actionSystem = this._world.GetSystem("actionSystem") as ActionSystem;
 		var textUISystem = this._world.AddSystem(new TextUISystem(_textUi, this._world.GetSystem("describeSystem") as DescribeSystem), "textUISystem") as TextUISystem;
@@ -235,6 +238,18 @@ public partial class GameEngine : Node
 		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;
 		var _eventSystem = this._world.GetSystem("eventSystem") as EventSystem;
 		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+		var _autoTimeFlowSystem = this._world.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
+
+		// 자동 시간 흐름 체크 - 멍때리기와 동일한 ECS 파이프라인 사용
+		if (_autoTimeFlowSystem != null && _autoTimeFlowSystem.Update((float)delta))
+		{
+			// 자동 시간 흐름 트리거 → RequestTimeAdvance 호출
+			// 이후 HasPendingTime 블록에서 전체 시뮬레이션(Step + 이벤트 감지) 수행
+			_playerSystem?.RequestTimeAdvance(
+				_autoTimeFlowSystem.GameTimeIntervalMinutes,
+				"자동 시간 흐름"
+			);
+		}
 
 		// 대기 중인 시간이 있을 때만 Step 실행
 		if (_playerSystem != null && _playerSystem.HasPendingTime)
@@ -297,6 +312,10 @@ public partial class GameEngine : Node
 	private void OnMetaClicked(Variant meta)
 	{
 		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+		var _autoTimeFlowSystem = this._world.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
+
+		// 자동 시간 흐름 타이머 리셋 (플레이어 액션)
+		_autoTimeFlowSystem?.ResetTimer();
 
 		_actionHandler.HandleAction(meta.AsString());
 		// lazy update 즉시 반영 (다음 프레임까지 기다리지 않음)

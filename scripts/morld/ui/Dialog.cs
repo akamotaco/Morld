@@ -77,6 +77,14 @@ public class PyDialogRequest : PyObject
     public PyObject ResultObject { get; }
 
     /// <summary>
+    /// 자동 시간 흐름 허용 여부
+    /// - true: 이 다이얼로그가 활성화된 동안 자동 시간 흐름 계속 (지도 보기 등)
+    /// - false: 이 다이얼로그가 활성화된 동안 자동 시간 흐름 정지 (대화, 이벤트 등)
+    /// 기본값: false (대부분의 다이얼로그는 시간 정지)
+    /// </summary>
+    public bool TimeFlows { get; }
+
+    /// <summary>
     /// 현재 페이지의 원본 텍스트 (autofill 버튼 제외)
     /// </summary>
     public string RawText => Pages.Count > 0 && CurrentPageIndex < Pages.Count
@@ -106,13 +114,15 @@ public class PyDialogRequest : PyObject
         string returnValue = null,
         PyObject procCallback = null,
         DialogAutofill autofill = DialogAutofill.Next,
-        PyObject resultObject = null)
+        PyObject resultObject = null,
+        bool timeFlows = false)
     {
         Pages = new List<string> { text ?? "" };
         ReturnValue = returnValue;
         ProcCallback = procCallback;
         Autofill = autofill;
         ResultObject = resultObject;
+        TimeFlows = timeFlows;
     }
 
     /// <summary>
@@ -123,7 +133,8 @@ public class PyDialogRequest : PyObject
         string returnValue = null,
         PyObject procCallback = null,
         DialogAutofill autofill = DialogAutofill.Next,
-        PyObject resultObject = null)
+        PyObject resultObject = null,
+        bool timeFlows = false)
     {
         Pages = pages ?? new List<string>();
         if (Pages.Count == 0) Pages.Add("");
@@ -131,6 +142,7 @@ public class PyDialogRequest : PyObject
         ProcCallback = procCallback;
         Autofill = autofill;
         ResultObject = resultObject;
+        TimeFlows = timeFlows;
     }
 
     /// <summary>

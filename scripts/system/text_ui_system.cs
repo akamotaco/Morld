@@ -72,6 +72,30 @@ namespace SE
 		public bool IsStackEmpty() => _stack.Count == 0;
 
 		/// <summary>
+		/// 현재 Focus에서 자동 시간 흐름이 허용되는지 확인
+		/// - Situation, Unit: 항상 허용 (기본 게임 화면)
+		/// - Dialog: TimeFlows 속성에 따름 (기본 false)
+		/// - 기타 (Inventory, Equipment, Item, Result): 허용하지 않음
+		///
+		/// [미구현] 시간이 흐르는 Focus에서 이벤트 발생 시:
+		/// - 새 이벤트가 스택에 push되면 해당 Focus의 TimeFlows를 다시 체크
+		/// - 이벤트에서 아이템 상태 변경 시 기존 Focus가 영향받을 수 있음
+		/// </summary>
+		public bool CanAutoTimeFlow()
+		{
+			if (_stack.Current == null)
+				return true; // 스택 비어있으면 허용 (Situation과 동일)
+
+			return _stack.Current.Type switch
+			{
+				FocusType.Situation => true,
+				FocusType.Unit => true,
+				FocusType.Dialog => _stack.Current.TimeFlows,
+				_ => false // Inventory, Equipment, Item, Result
+			};
+		}
+
+		/// <summary>
 		/// 대기 중인 UI 업데이트 수행 (lazy update 적용)
 		/// </summary>
 		public void FlushDisplay()
@@ -113,6 +137,10 @@ namespace SE
 		/// <param name="markLogsAsRead">true면 로그 읽음 처리, false면 건너뜀 (토글 등 UI 상태만 변경 시)</param>
 		public void OnContentChange(bool markLogsAsRead = true)
 		{
+			// 스택이 비어있으면 무시
+			if (_stack.Current == null)
+				return;
+
 			// 1. 로그 읽음 처리 (Situation, Unit 화면에서만, markLogsAsRead=true일 때)
 			if (markLogsAsRead &&
 				(_stack.Current.Type == FocusType.Situation || _stack.Current.Type == FocusType.Unit))
@@ -482,9 +510,12 @@ namespace SE
 		/// Note: 로그 읽음 처리는 액션 버튼 클릭 시점(HandleAction)에서만 수행
 		/// 이벤트 연쇄 처리 시 중간 다이얼로그에서 로그가 유실되지 않도록 함
 		/// </summary>
-		public void PushDialog(string text, int timeConsumed = 0)
+		/// <param name="text">다이얼로그 텍스트</param>
+		/// <param name="timeConsumed">다이얼로그 완료 시 소요 시간</param>
+		/// <param name="timeFlows">자동 시간 흐름 허용 여부 (기본값: false, 대부분의 다이얼로그는 시간 정지)</param>
+		public void PushDialog(string text, int timeConsumed = 0, bool timeFlows = false)
 		{
-			_stack.Push(Focus.Dialog(text, timeConsumed));
+			_stack.Push(Focus.Dialog(text, timeConsumed, timeFlows));
 			RequestUpdateDisplay();
 		}
 

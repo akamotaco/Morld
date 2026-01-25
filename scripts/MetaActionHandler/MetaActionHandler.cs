@@ -439,10 +439,12 @@ public partial class MetaActionHandler
 				_textUISystem.ShowSituation();
 			}
 
-			// Dialog 표시
-			_textUISystem?.PushDialog(genResult.DialogText);
+			// Dialog 표시 (PyDialogRequest.TimeFlows를 Focus에 전달)
+			bool timeFlows = genResult.DialogRequest?.TimeFlows ?? false;
+			_textUISystem?.PushDialog(genResult.DialogText, timeConsumed: 0, timeFlows: timeFlows);
 #if DEBUG_LOG
-			GD.Print($"[MetaActionHandler] ProcessEventResultFromScript: Dialog pushed");
+			var timeFlowsInfo = timeFlows ? " [time_flows=true]" : "";
+			GD.Print($"[MetaActionHandler] ProcessEventResultFromScript: Dialog pushed{timeFlowsInfo}");
 #endif
 		}
 	}

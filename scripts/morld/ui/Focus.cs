@@ -65,6 +65,19 @@ public class Focus
 	/// </summary>
 	public int TimeConsumed { get; set; } = 0;
 
+	/// <summary>
+	/// 자동 시간 흐름 허용 여부 (Dialog 타입에서 사용)
+	/// - true: 이 Focus가 활성화된 동안 자동 시간 흐름 계속 (지도 보기 등)
+	/// - false: 이 Focus가 활성화된 동안 자동 시간 흐름 정지 (대화, 이벤트 등)
+	/// 기본값: false (대부분의 다이얼로그는 시간 정지)
+	///
+	/// [미구현] 시간이 흐르는 동안 이벤트(on_meet 등)가 발생하면:
+	/// - 새 이벤트 다이얼로그가 스택에 push됨
+	/// - 현재 Focus는 중단되고 대기
+	/// - 이벤트에서 현재 아이템을 뺏거나 상태를 변경하면 Focus도 영향받을 수 있음
+	/// </summary>
+	public bool TimeFlows { get; set; } = false;
+
 	// 팩토리 메서드들
 	public static Focus Situation() => new() { Type = FocusType.Situation };
 	public static Focus Unit(int unitId) => new() { Type = FocusType.Unit, TargetUnitId = unitId };
@@ -73,6 +86,6 @@ public class Focus
 	public static Focus Item(int itemId, string context, int? unitId = null)
 		=> new() { Type = FocusType.Item, ItemId = itemId, Context = context, TargetUnitId = unitId };
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
-	public static Focus Dialog(string text, int timeConsumed = 0)
-		=> new() { Type = FocusType.Dialog, DialogText = text, TimeConsumed = timeConsumed };
+	public static Focus Dialog(string text, int timeConsumed = 0, bool timeFlows = false)
+		=> new() { Type = FocusType.Dialog, DialogText = text, TimeConsumed = timeConsumed, TimeFlows = timeFlows };
 }

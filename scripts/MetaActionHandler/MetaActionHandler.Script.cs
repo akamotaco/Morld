@@ -239,12 +239,15 @@ public partial class MetaActionHandler
 					}
 					else
 					{
-						_textUISystem?.PushDialog(displayText);
+						// PyDialogRequest.TimeFlows를 Focus에 전달
+						bool timeFlows = dialogResult.DialogRequest?.TimeFlows ?? false;
+						_textUISystem?.PushDialog(displayText, timeConsumed: 0, timeFlows: timeFlows);
 #if DEBUG_LOG
 						var pageInfo = dialogResult.DialogRequest?.Pages.Count > 1
 							? $" (page {dialogResult.DialogRequest.CurrentPageIndex + 1}/{dialogResult.DialogRequest.Pages.Count})"
 							: "";
-						GD.Print($"[MetaActionHandler] Dialog push{pageInfo}: {displayText.Substring(0, System.Math.Min(50, displayText.Length))}...");
+						var timeFlowsInfo = timeFlows ? " [time_flows=true]" : "";
+						GD.Print($"[MetaActionHandler] Dialog push{pageInfo}{timeFlowsInfo}: {displayText.Substring(0, System.Math.Min(50, displayText.Length))}...");
 #endif
 					}
 				}
