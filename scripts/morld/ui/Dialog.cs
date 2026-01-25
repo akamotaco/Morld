@@ -13,8 +13,6 @@ public enum DialogAutofill
     Next,
     /// <summary>이전/다음 왕복 가능</summary>
     Book,
-    /// <summary>텍스트 누적 + 다음</summary>
-    Scroll,
     /// <summary>자동 버튼 없음 (커스텀)</summary>
     Off
 }
@@ -67,7 +65,7 @@ public class PyDialogRequest : PyObject
     public PyObject ProcCallback { get; }
 
     /// <summary>
-    /// autofill 타입 (next, book, scroll, off)
+    /// autofill 타입 (next, book, off)
     /// </summary>
     public DialogAutofill Autofill { get; }
 
@@ -156,20 +154,7 @@ public class PyDialogRequest : PyObject
         }
 
         var sb = new StringBuilder();
-
-        // scroll 타입: 현재 페이지까지 텍스트 누적
-        if (Autofill == DialogAutofill.Scroll)
-        {
-            for (int i = 0; i <= CurrentPageIndex; i++)
-            {
-                if (i > 0) sb.Append("\n\n");
-                sb.Append(Pages[i]);
-            }
-        }
-        else
-        {
-            sb.Append(RawText);
-        }
+        sb.Append(RawText);
 
         // 버튼 추가
         sb.Append("\n\n");
@@ -180,7 +165,6 @@ public class PyDialogRequest : PyObject
         switch (Autofill)
         {
             case DialogAutofill.Next:
-            case DialogAutofill.Scroll:
                 if (isLastPage)
                     sb.Append("[url=@finish]종료[/url]");
                 else

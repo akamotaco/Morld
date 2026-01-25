@@ -972,7 +972,6 @@ namespace SE
             // autofill 타입:
             //   "next" (기본값) - [다음] 버튼만, 마지막 페이지는 [종료]
             //   "book" - [이전][다음] 왕복 가능
-            //   "scroll" - 텍스트 누적 + [다음]
             //   "off" - 자동 버튼 없음 (커스텀 UI)
             //
             // time_flows 파라미터:
@@ -1011,7 +1010,6 @@ namespace SE
                         {
                             "next" => DialogAutofill.Next,
                             "book" => DialogAutofill.Book,
-                            "scroll" => DialogAutofill.Scroll,
                             "off" => DialogAutofill.Off,
                             _ => DialogAutofill.Next
                         };

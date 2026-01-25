@@ -62,7 +62,7 @@ morld.get_location_ground_id(region_id, location_id)
 import ui
 result = yield ui.dialog(
     text_or_pages,      # str 또는 list (연쇄 출력 지원)
-    autofill="next",    # "next", "book", "scroll", "off"
+    autofill="next",    # "next", "book", "off"
     proc=None,          # @proc:값 클릭 시 호출될 콜백
     result=None         # @finish 시 반환할 값
 )
@@ -108,7 +108,6 @@ yield ui.dialog([
 | 호출 | 처리 방식 |
 |------|-----------|
 | `ui.dialog([...])` | Python proc 기반 처리 (다음/확인 버튼) |
-| `ui.dialog([...], autofill="scroll")` | C# 처리 (텍스트 누적) |
 | `ui.dialog([...], autofill="book")` | C# 처리 (이전/다음 왕복) |
 | `ui.dialog("문자열", ...)` | C# 처리 (기존 동작) |
 
@@ -118,7 +117,6 @@ yield ui.dialog([
 |------|------|------|
 | `next` | [다음] 버튼만 (기본값) | 순차 모놀로그 |
 | `book` | [이전][다음] 왕복 가능 | 일기, 문서 열람 |
-| `scroll` | 텍스트 누적 + [다음] | 회상, 긴 독백 |
 | `off` | 자동 버튼 없음 | 커스텀 UI |
 
 ### URL 패턴

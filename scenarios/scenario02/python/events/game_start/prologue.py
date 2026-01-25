@@ -186,17 +186,17 @@ def read_diary(context_unit_id):
     return {"type": "message", "message": "일기장을 덮었다."}
 
 
-# 5. scroll 모드 - 텍스트 누적
+# 5. 연쇄 출력 모드 - 텍스트 누적 (+ 접두사)
 @morld.register_script
 def memory_flashback(context_unit_id):
     """
-    Dialog API 시범 - scroll 모드 (텍스트 누적)
+    Dialog API 시범 - 연쇄 출력 (+ 접두사로 텍스트 누적)
     """
     yield ui.dialog([
         "...기억이 떠오른다...",
-        "어릴 적, 마을 광장에서...",
-        "누군가가 내 손을 잡았다...",
-        "\"잊지 마. 넌 특별해.\""
-    ], autofill="scroll")
+        "+어릴 적, 마을 광장에서...",
+        "+누군가가 내 손을 잡았다...",
+        "+\"잊지 마. 넌 특별해.\""
+    ])
 
     return {"type": "message", "message": "기억이 스쳐 지나갔다."}

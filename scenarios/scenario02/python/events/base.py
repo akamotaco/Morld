@@ -57,7 +57,7 @@ class DialogEvent(MeetEvent):
     - handle()에서 yield morld.dialog() 사용 가능
     - morld.dialog() 파라미터:
       - text_or_pages: str 또는 list - 필수
-      - autofill: "next" (기본), "book", "scroll", "off"
+      - autofill: "next" (기본), "book", "off"
       - proc: @proc:값 클릭 시 호출될 콜백
       - result: @finish 시 반환할 값
     """
