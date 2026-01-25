@@ -24,6 +24,85 @@ namespace SE
 		// Lazy update 플래그
 		private bool _needsUpdateDisplay = false;
 
+		// ============================================
+		// 타이핑 효과 시스템
+		// ============================================
+
+		/// <summary>
+		/// 타이핑 진행 중 여부
+		/// </summary>
+		private bool _isTyping = false;
+
+		/// <summary>
+		/// 현재 표시된 문자 수 (BBCode 제외)
+		/// </summary>
+		private int _visibleCharacters = 0;
+
+		/// <summary>
+		/// 전체 문자 수 (BBCode 제외)
+		/// </summary>
+		private int _totalCharacters = 0;
+
+		/// <summary>
+		/// 타이핑 대상 문자 수 (instant 구간 제외)
+		/// </summary>
+		private int _totalTypingCharacters = 0;
+
+		/// <summary>
+		/// 현재까지 타이핑된 문자 수 (instant 제외)
+		/// </summary>
+		private int _typedCharacters = 0;
+
+		/// <summary>
+		/// 즉시 출력 구간 정보 (시작 위치, 길이)
+		/// [!]...[/!] 태그 제거 후의 visible char 기준
+		/// </summary>
+		private List<(int start, int length)> _instantSegments = new();
+
+		/// <summary>
+		/// 타이핑 경과 시간
+		/// </summary>
+		private float _typingElapsedTime = 0f;
+
+		/// <summary>
+		/// 타이핑 속도 (초당 문자 수)
+		/// 0 = 즉시 출력 (타이핑 효과 비활성화)
+		/// </summary>
+		private float _typingSpeed = 50f;
+
+		/// <summary>
+		/// 현재 타이핑 중인 소스 텍스트 (hover 전 원본)
+		/// hover로 인한 재렌더링 시 상태 유지 여부 판단에 사용
+		/// </summary>
+		private string _typingSourceText = "";
+
+		/// <summary>
+		/// 즉시 출력 태그 (페어 태그)
+		/// [!]...[/!] 또는 [url=...]...[/url]
+		/// </summary>
+		private const string InstantTagOpen = "[!]";
+		private const string InstantTagClose = "[/!]";
+
+		/// <summary>
+		/// UI 구분선 (즉시 출력 태그 포함)
+		/// Python의 ui.divider()와 동일
+		/// </summary>
+		public const string Divider = "[!][color=gray]────────────────────[/color][/!]";
+
+		/// <summary>
+		/// 타이핑 진행 중인지 확인
+		/// </summary>
+		public bool IsTyping => _isTyping;
+
+		/// <summary>
+		/// 타이핑 속도 설정 (초당 문자 수, 0 = 즉시 출력)
+		/// </summary>
+		public float TypingSpeed
+		{
+			get => _typingSpeed;
+			set => _typingSpeed = Math.Max(0, value);
+		}
+
 		public TextUISystem(RichTextLabel textUi, DescribeSystem describeSystem)
 		{
 			_textUi = textUi;
@@ -109,21 +188,455 @@ namespace SE
 			{
 				Godot.GD.Print("[TextUISystem] FlushDisplay: stack is empty, clearing text");
 				_textUi.Text = "";
+				_isTyping = false;
+				_typingSourceText = "";
 				return;
 			}
 
 			var text = RenderFocus(_stack.Current);
 
-			_textUi.Text = ToggleRenderer.Render(
+			var renderedText = ToggleRenderer.Render(
 				text,
 				_stack.Current.ExpandedToggles,
 				_hoveredMeta
 			);
 
+			// Dialog Focus인 경우 타이핑 효과 적용
+			if (_stack.Current.Type == FocusType.Dialog)
+			{
+				// 같은 소스 텍스트면 스타일만 업데이트 (hover 등으로 인한 재렌더링)
+				if (text == _typingSourceText)
+				{
+					// [!]...[/!] 태그 제거 (hover 스타일만 다를 뿐 내용은 동일)
+					var (cleanText, _) = ParseInstantTags(renderedText);
+					// 깜박임 방지: 현재 상태 유지하면서 Text만 교체
+					int prevVisible = _textUi.VisibleCharacters;
+					_textUi.VisibleCharacters = -1;  // 전체 표시로 잠깐 전환
+					_textUi.Text = cleanText;
+					_totalCharacters = _textUi.GetTotalCharacterCount();
+					_textUi.VisibleCharacters = prevVisible;  // 원래 상태로 복원
+
+					if (_isTyping)
+					{
+						// 타이핑 진행 중: 현재 진행률로 표시 문자 수 재계산
+						_visibleCharacters = CalculateVisibleCharsAtProgress(_typedCharacters);
+						_textUi.VisibleCharacters = _visibleCharacters;
+						Godot.GD.Print($"[TextUISystem] FlushDisplay: hover update during typing at {_visibleCharacters}/{_totalCharacters}");
+					}
+					else
+					{
+						// 타이핑 완료: 전체 표시 유지
+						_textUi.VisibleCharacters = -1;
+						Godot.GD.Print($"[TextUISystem] FlushDisplay: hover update after typing complete");
+					}
+				}
+				else
+				{
+					// 새 콘텐츠: 타이핑 시작
+					_typingSourceText = text;
+					StartTyping(renderedText);
+					Godot.GD.Print($"[TextUISystem] FlushDisplay: started typing for Dialog, textLen={renderedText.Length}");
+				}
+			}
+			else
+			{
+				// 다른 Focus는 즉시 표시
+				_textUi.Text = renderedText;
+				_textUi.VisibleCharacters = -1;
+				_isTyping = false;
+				_typingSourceText = "";  // Dialog 벗어날 때 초기화
+			}
+
 			Godot.GD.Print($"[TextUISystem] FlushDisplay: rendered {_stack.Current.Type}, textLen={_textUi.Text.Length}");
 
 			// 읽음 처리는 FlushDisplay에서 하지 않음
 			// OnPlayerAction()에서 플레이어 액션 시점에 처리
+		}
+
+		// ============================================
+		// 타이핑 효과 메서드
+		// ============================================
+
+		/// <summary>
+		/// 타이핑 효과 시작 (Dialog Focus 전용)
+		/// [!]...[/!] 태그를 파싱하여 instant 구간을 추출하고, 태그 제거 후 표시
+		/// </summary>
+		/// <param name="text">전체 텍스트 (BBCode 포함, [!]...[/!] 태그 포함)</param>
+		private void StartTyping(string text)
+		{
+			// [!]...[/!] 태그 파싱 및 제거
+			var (cleanText, segments) = ParseInstantTags(text);
+			_instantSegments = segments;
+
+			// 깜박임 방지: Text 설정 전에 먼저 전체 표시 상태로 설정
+			// 이후 필요한 경우 VisibleCharacters를 다시 조정
+			_textUi.VisibleCharacters = -1;
+			_textUi.Text = cleanText;
+
+			// 타이핑 속도 0이면 즉시 출력
+			if (_typingSpeed <= 0)
+			{
+				_isTyping = false;
+				return;
+			}
+
+			_totalCharacters = _textUi.GetTotalCharacterCount();
+			_totalTypingCharacters = CalculateTotalTypingCharacters(cleanText);
+
+			// 타이핑 대상이 없으면 (모두 instant) 즉시 출력 유지
+			if (_totalTypingCharacters == 0)
+			{
+				_isTyping = false;
+				return;
+			}
+
+			_typedCharacters = 0;
+			_typingElapsedTime = 0f;
+			_isTyping = true;
+
+			// 초기 표시 (타이핑 진행률 0에서의 표시 문자 수)
+			_visibleCharacters = CalculateVisibleCharsAtProgress(0);
+			_textUi.VisibleCharacters = _visibleCharacters;
+		}
+
+		/// <summary>
+		/// 타이핑 업데이트 (매 프레임 호출)
+		/// GameEngine._Process()에서 호출됨
+		/// Frozen 상태와 무관하게 항상 동작
+		/// </summary>
+		/// <param name="delta">프레임 경과 시간 (초)</param>
+		public void UpdateTyping(float delta)
+		{
+			if (!_isTyping) return;
+
+			_typingElapsedTime += delta;
+			_typedCharacters = Math.Min(
+				(int)(_typingElapsedTime * _typingSpeed),
+				_totalTypingCharacters
+			);
+
+			// 타이핑 진행률에 따른 표시 문자 수 계산
+			_visibleCharacters = CalculateVisibleCharsAtProgress(_typedCharacters);
+			_textUi.VisibleCharacters = _visibleCharacters;
+
+			if (_typedCharacters >= _totalTypingCharacters)
+			{
+				FinishTyping();
+			}
+		}
+
+		/// <summary>
+		/// 타이핑 완료 (스킵 또는 자연 완료)
+		/// </summary>
+		public void FinishTyping()
+		{
+			_isTyping = false;
+			_textUi.VisibleCharacters = -1; // 전체 표시
+		}
+
+		/// <summary>
+		/// [!]...[/!] 및 [url=...]...[/url] 태그 파싱
+		/// - [!]...[/!]: 태그 제거, 내용만 출력, instant 구간 등록
+		/// - [url=...]...[/url]: BBCode 유지, instant 구간 등록
+		/// </summary>
+		/// <returns>(태그 제거된 텍스트, instant 구간 리스트)</returns>
+		private (string cleanText, List<(int start, int length)> segments) ParseInstantTags(string text)
+		{
+			var segments = new List<(int start, int length)>();
+			if (string.IsNullOrEmpty(text))
+				return (text, segments);
+
+			var result = new System.Text.StringBuilder();
+			int visibleCharPos = 0;  // 태그 제거 후 visible char 위치
+			int i = 0;
+
+			while (i < text.Length)
+			{
+				// [!] 태그 시작 찾기
+				if (i + InstantTagOpen.Length <= text.Length &&
+					text.Substring(i, InstantTagOpen.Length) == InstantTagOpen)
+				{
+					// [/!] 매칭 태그 찾기 (중첩 고려, depth counting)
+					int closeIndex = FindMatchingCloseTag(text, i + InstantTagOpen.Length);
+					if (closeIndex >= 0)
+					{
+						// instant 구간 내용 추출
+						string content = text.Substring(i + InstantTagOpen.Length, closeIndex - i - InstantTagOpen.Length);
+
+						// nested [!]...[/!] 제거 (중첩 태그 처리)
+						content = content.Replace(InstantTagOpen, "").Replace(InstantTagClose, "");
+
+						int contentVisibleChars = CountVisibleChars(content);
+
+						// instant 구간 정보 저장
+						segments.Add((visibleCharPos, contentVisibleChars));
+
+						// 내용만 결과에 추가 (태그 제외)
+						result.Append(content);
+						visibleCharPos += contentVisibleChars;
+
+						i = closeIndex + InstantTagClose.Length;
+						continue;
+					}
+				}
+
+				// [url=...] 태그 시작 찾기 (BBCode 유지, instant 구간 등록)
+				if (i + 5 <= text.Length && text.Substring(i, 5) == "[url=")
+				{
+					// [/url] 태그 끝 찾기
+					int closeIndex = text.IndexOf("[/url]", i);
+					if (closeIndex >= 0)
+					{
+						// URL 전체 (태그 포함) 추출
+						string urlFull = text.Substring(i, closeIndex - i + 6); // 6 = "[/url]".Length
+						int urlVisibleChars = CountVisibleChars(urlFull);
+
+						// instant 구간 정보 저장 (URL은 BBCode 유지하면서 즉시 출력)
+						segments.Add((visibleCharPos, urlVisibleChars));
+
+						// URL 전체를 결과에 추가 (BBCode 포함)
+						result.Append(urlFull);
+						visibleCharPos += urlVisibleChars;
+
+						i = closeIndex + 6;
+						continue;
+					}
+				}
+
+				// BBCode 태그 처리 (visible char 카운트에서 제외)
+				if (text[i] == '[')
+				{
+					int closeIndex = text.IndexOf(']', i);
+					if (closeIndex >= 0)
+					{
+						result.Append(text.Substring(i, closeIndex - i + 1));
+						i = closeIndex + 1;
+						continue;
+					}
+				}
+
+				// 일반 문자
+				result.Append(text[i]);
+				visibleCharPos++;
+				i++;
+			}
+
+			return (result.ToString(), segments);
+		}
+
+		/// <summary>
+		/// 타이핑 대상 문자 수 계산 (instant 구간 및 공백 제외)
+		///
+		/// 공백(스페이스, 줄바꿈, 탭)은 타이핑 대상에서 제외됩니다.
+		/// 이유: [!]A[/!]\n[!]B[/!] 같은 패턴에서 줄바꿈이 타이핑 대상이 되면
+		/// 전체가 instant인데도 깜박임이 발생하기 때문입니다.
+		/// </summary>
+		private int CalculateTotalTypingCharacters(string cleanText)
+		{
+			if (string.IsNullOrEmpty(cleanText)) return 0;
+
+			// 전체 visible 문자 중 instant 구간과 공백을 제외한 타이핑 대상 계산
+			int typingChars = 0;
+			int visiblePos = 0;
+			bool inTag = false;
+
+			foreach (char c in cleanText)
+			{
+				if (c == '[') { inTag = true; continue; }
+				if (c == ']') { inTag = false; continue; }
+				if (inTag) continue;
+
+				// visible 문자
+				bool isInstant = IsInInstantSegment(visiblePos);
+				bool isWhitespace = char.IsWhiteSpace(c);
+
+				// instant도 아니고 공백도 아닌 문자만 타이핑 대상
+				if (!isInstant && !isWhitespace)
+				{
+					typingChars++;
+				}
+
+				visiblePos++;
+			}
+
+			return typingChars;
+		}
+
+		/// <summary>
+		/// 타이핑 진행률에 따른 표시 문자 수 계산
+		/// - instant 구간: 해당 구간 시작점에 도달하면 전체를 한 번에 표시
+		/// - 공백 문자: 즉시 표시 (타이핑 진행에 포함하지 않음)
+		/// - 일반 문자: 1글자씩 증가
+		/// - 정책: 항상 최소 1문자는 표시 (빈 화면 방지)
+		///
+		/// 공백을 즉시 표시하는 이유:
+		/// [!]A[/!]\n[!]B[/!] 같은 패턴에서 줄바꿈(\n)이 타이핑 대상이 되면
+		/// 전체가 instant인데도 깜박임이 발생합니다.
+		/// 공백은 시각적으로 보이지 않으므로 즉시 표시해도 사용자 경험에 영향이 없습니다.
+		/// </summary>
+		/// <param name="typedChars">타이핑된 문자 수 (instant 및 공백 제외)</param>
+		private int CalculateVisibleCharsAtProgress(int typedChars)
+		{
+			string cleanText = _textUi.Text;
+			if (string.IsNullOrEmpty(cleanText)) return 0;
+
+			// visible char 위치 → 실제 문자 매핑 생성
+			var visibleCharMap = BuildVisibleCharMap(cleanText);
+			int totalVisible = visibleCharMap.Count;
+			if (totalVisible == 0) return 0;
+
+			int visibleChars = 0;      // 실제 표시할 문자 수
+			int typingProgress = 0;    // 타이핑 진행 카운터 (instant 및 공백 제외)
+
+			for (int charPos = 0; charPos < totalVisible; charPos++)
+			{
+				char currentChar = visibleCharMap[charPos];
+				bool isWhitespace = char.IsWhiteSpace(currentChar);
+
+				if (IsInInstantSegment(charPos))
+				{
+					// instant 구간: 구간 시작점에 도달했으면 표시
+					var segment = GetInstantSegmentAt(charPos);
+					if (segment.HasValue && charPos == segment.Value.start)
+					{
+						// 구간 시작점: 이전까지 도달했으면 전체 구간 표시
+						if (typingProgress <= typedChars)
+						{
+							visibleChars += segment.Value.length;
+						}
+					}
+					// 구간 중간/끝은 이미 시작점에서 처리됨
+				}
+				else if (isWhitespace)
+				{
+					// 공백 문자: 즉시 표시 (타이핑 진행에 포함하지 않음)
+					// 이전까지의 타이핑 진행에 도달했으면 표시
+					if (typingProgress <= typedChars)
+					{
+						visibleChars++;
+					}
+				}
+				else
+				{
+					// 일반 문자: 1글자씩 진행
+					// 첫 글자는 항상 표시 (visibleChars == 0일 때 무조건 포함)
+					if (typingProgress < typedChars || visibleChars == 0)
+					{
+						visibleChars++;
+						typingProgress++;
+					}
+					else
+					{
+						// 타이핑 완료 지점
+						return visibleChars;
+					}
+				}
+			}
+
+			return visibleChars;
+		}
+
+		/// <summary>
+		/// BBCode를 제외한 visible 문자 리스트 생성
+		/// </summary>
+		private List<char> BuildVisibleCharMap(string text)
+		{
+			var result = new List<char>();
+			bool inTag = false;
+
+			foreach (char c in text)
+			{
+				if (c == '[') { inTag = true; continue; }
+				if (c == ']') { inTag = false; continue; }
+				if (inTag) continue;
+
+				result.Add(c);
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// 해당 위치가 instant 구간 내인지 확인
+		/// </summary>
+		private bool IsInInstantSegment(int pos)
+		{
+			foreach (var (start, length) in _instantSegments)
+			{
+				if (pos >= start && pos < start + length)
+					return true;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// 해당 위치를 포함하는 instant 구간 반환
+		/// </summary>
+		private (int start, int length)? GetInstantSegmentAt(int pos)
+		{
+			foreach (var segment in _instantSegments)
+			{
+				if (pos >= segment.start && pos < segment.start + segment.length)
+					return segment;
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// 중첩 [!]...[/!]를 고려하여 매칭되는 [/!] 태그 위치 찾기
+		/// </summary>
+		/// <param name="text">전체 텍스트</param>
+		/// <param name="startIndex">검색 시작 위치 (여는 [!] 다음 위치)</param>
+		/// <returns>매칭되는 [/!] 시작 위치, 없으면 -1</returns>
+		private static int FindMatchingCloseTag(string text, int startIndex)
+		{
+			int depth = 1;
+			int i = startIndex;
+
+			while (i < text.Length && depth > 0)
+			{
+				// [!] 찾기
+				if (i + InstantTagOpen.Length <= text.Length &&
+					text.Substring(i, InstantTagOpen.Length) == InstantTagOpen)
+				{
+					depth++;
+					i += InstantTagOpen.Length;
+					continue;
+				}
+
+				// [/!] 찾기
+				if (i + InstantTagClose.Length <= text.Length &&
+					text.Substring(i, InstantTagClose.Length) == InstantTagClose)
+				{
+					depth--;
+					if (depth == 0)
+					{
+						return i;  // 매칭되는 닫는 태그 위치
+					}
+					i += InstantTagClose.Length;
+					continue;
+				}
+
+				i++;
+			}
+
+			return -1;  // 매칭되는 태그 없음
+		}
+
+		/// <summary>
+		/// BBCode를 제외한 실제 표시 문자 수 계산
+		/// </summary>
+		private static int CountVisibleChars(string text)
+		{
+			int count = 0;
+			bool inTag = false;
+			foreach (char c in text)
+			{
+				if (c == '[') inTag = true;
+				else if (c == ']') inTag = false;
+				else if (!inTag) count++;
+			}
+			return count;
 		}
 
 		/// <summary>
@@ -195,14 +708,14 @@ namespace SE
 			var lines = new List<string>();
 
 			// Header: 구분선
-			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(Divider);
 
 			// Body: 다이얼로그 텍스트
 			var body = focus.DialogText ?? "";
 			lines.Add(body);
 
 			// Footer: 구분선
-			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(Divider);
 
 			return string.Join("\n", lines);
 		}
@@ -221,7 +734,7 @@ namespace SE
 			if (!string.IsNullOrEmpty(header))
 			{
 				lines.Add(header);
-				lines.Add("[color=gray]────────────────────[/color]");
+				lines.Add(Divider);
 			}
 
 			// Body: 묘사 텍스트
@@ -269,7 +782,7 @@ namespace SE
 					if (!string.IsNullOrEmpty(text))
 					{
 						// 구분선 추가
-						return "[color=gray]────────────────────[/color]\n" + text;
+						return Divider + "\n" + text;
 					}
 				}
 			}
@@ -351,7 +864,7 @@ namespace SE
 			if (!string.IsNullOrEmpty(header))
 			{
 				lines.Add(header);
-				lines.Add("[color=gray]────────────────────[/color]");
+				lines.Add(Divider);
 			}
 
 			// Body: 유닛 정보
@@ -374,9 +887,9 @@ namespace SE
 		{
 			// 인벤토리는 header/footer 없이 구분선 + body + 구분선
 			var lines = new List<string>();
-			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(Divider);
 			lines.Add(_describeSystem.GetInventoryText());
-			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(Divider);
 			return string.Join("\n", lines);
 		}
 
@@ -389,7 +902,7 @@ namespace SE
 			if (!string.IsNullOrEmpty(header))
 			{
 				lines.Add(header);
-				lines.Add("[color=gray]────────────────────[/color]");
+				lines.Add(Divider);
 			}
 
 			// Body: 장비
@@ -433,12 +946,12 @@ namespace SE
 
 			// 아이템은 header/footer 없이 구분선 + body + 구분선
 			var lines = new List<string>();
-			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(Divider);
 
 			var body = _describeSystem.GetItemMenuText(context, itemId, count, targetUnitId);
 			lines.Add(body);
 
-			lines.Add("[color=gray]────────────────────[/color]");
+			lines.Add(Divider);
 			return string.Join("\n", lines);
 		}
 

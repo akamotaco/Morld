@@ -591,6 +591,38 @@ namespace SE
                 });
             });
 
+            // ========================================
+            // 타이핑 효과 API
+            // ========================================
+
+            // get_typing_speed: 타이핑 속도 조회 (초당 문자 수, 0 = 즉시 출력)
+            morldModule.ModuleDict["get_typing_speed"] = new PyBuiltinFunction("get_typing_speed", args =>
+            {
+                var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+
+                if (_textUISystem == null)
+                    return new PyInt(50); // 기본값
+
+                return new PyInt((int)_textUISystem.TypingSpeed);
+            });
+
+            // set_typing_speed: 타이핑 속도 설정 (초당 문자 수, 0 = 즉시 출력)
+            morldModule.ModuleDict["set_typing_speed"] = new PyBuiltinFunction("set_typing_speed", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("set_typing_speed(chars_per_second) requires 1 argument");
+
+                int speed = args[0].ToInt();
+                var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+
+                if (_textUISystem == null)
+                    return PyBool.False;
+
+                _textUISystem.TypingSpeed = speed;
+                Godot.GD.Print($"[morld] set_typing_speed: {speed} chars/sec");
+                return PyBool.True;
+            });
+
             // advance_time_simulate: 시간 진행 + NPC JobBehavior 실행 (연애 모드용)
             // ThinkSystem은 호출하지 않음 (NPC AI 재계산 불필요)
             // 반환: 경과된 총 시간 (분)

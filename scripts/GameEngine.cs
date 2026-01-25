@@ -240,6 +240,9 @@ public partial class GameEngine : Node
 		var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
 		var _autoTimeFlowSystem = this._world.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
 
+		// 타이핑 효과 업데이트 (Frozen 상태와 무관하게 항상 실행)
+		_textUISystem?.UpdateTyping((float)delta);
+
 		// 자동 시간 흐름 체크 - 멍때리기와 동일한 ECS 파이프라인 사용
 		if (_autoTimeFlowSystem != null && _autoTimeFlowSystem.Update((float)delta))
 		{
@@ -321,6 +324,13 @@ public partial class GameEngine : Node
 
 		// 자동 시간 흐름 타이머 리셋 (플레이어 액션)
 		_autoTimeFlowSystem?.ResetTimer();
+
+		// 타이핑 중이면 스킵 (액션 처리하지 않고 타이핑만 완료)
+		if (_textUISystem?.IsTyping == true)
+		{
+			_textUISystem.FinishTyping();
+			return;
+		}
 
 		_actionHandler.HandleAction(meta.AsString());
 		// lazy update 즉시 반영 (다음 프레임까지 기다리지 않음)

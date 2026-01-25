@@ -10,6 +10,25 @@ import morld
 
 
 # ========================================
+# 구분선 (즉시 출력)
+# ========================================
+
+def divider(color: str = "gray", length: int = 20) -> str:
+    """
+    구분선 반환 (즉시 출력 태그 포함)
+
+    Args:
+        color: 구분선 색상 (기본: gray)
+        length: 구분선 길이 (기본: 20)
+
+    Returns:
+        [!][color=...]{구분선}[/color][/!]
+    """
+    line = "─" * length
+    return f"[!][color={color}]{line}[/color][/!]"
+
+
+# ========================================
 # UI 표시 설정
 # ========================================
 
@@ -177,7 +196,7 @@ def get_footer():
         return ""
 
     lines = []
-    lines.append("[color=gray]────────────────────[/color]")
+    lines.append(divider())
     lines.append("[url=inventory]인벤토리[/url]  [url=quest]퀘스트[/url]  [url=settings]설정[/url]")
 
     status_text = get_status_text()
@@ -209,7 +228,7 @@ def get_info_header(show_time=True, show_status=True):
     if not lines:
         return ""
 
-    return "[color=gray]────────────────────[/color]\n" + "\n".join(lines)
+    return divider() + "\n" + "\n".join(lines)
 
 
 def format_time(minutes):

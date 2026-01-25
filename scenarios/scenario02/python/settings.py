@@ -7,6 +7,7 @@
 # - 게임 종료
 
 import morld
+import ui
 
 
 # ============================================
@@ -62,6 +63,29 @@ AUTO_TIME_PRESETS = [
 ]
 
 
+# ============================================
+# 타이핑 속도 프리셋
+# ============================================
+
+# (이름, 초당 문자 수)
+# 0 = 즉시 출력 (타이핑 효과 비활성화)
+TYPING_SPEED_PRESETS = [
+    ("끄기", 0),        # 즉시 출력
+    ("느리게", 25),     # 초당 25자
+    ("보통", 50),       # 초당 50자 (기본)
+    ("빠르게", 100),    # 초당 100자
+]
+
+
+def get_typing_speed_preset_name() -> str:
+    """현재 타이핑 속도에 해당하는 프리셋 이름 반환"""
+    speed = morld.get_typing_speed()
+    for name, preset_speed in TYPING_SPEED_PRESETS:
+        if speed == preset_speed:
+            return name
+    return f"{speed}자/초"
+
+
 def get_current_preset_name() -> str:
     """현재 간격에 해당하는 프리셋 이름 반환"""
     real_sec, game_min = morld.get_auto_time_flow_interval()
@@ -75,13 +99,14 @@ def get_current_preset_name() -> str:
 # UI 렌더링
 # ============================================
 
-def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = False) -> str:
+def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = False, show_typing_menu: bool = False) -> str:
     """
     설정 UI 렌더링
 
     Args:
         confirm_quit: 게임 종료 확인 상태
         show_interval_menu: 시간 간격 메뉴 표시 여부
+        show_typing_menu: 타이핑 속도 메뉴 표시 여부
     """
     lines = ["[b]설정[/b]", ""]
 
@@ -90,7 +115,7 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
         lines.append("[color=yellow]게임을 종료하시겠습니까?[/color]")
         lines.append("")
         lines.append("[url=@proc:quit_yes]예[/url]  [url=@proc:quit_no]아니오[/url]")
-        return "\n".join(lines)
+        return "[!]" + "\n".join(lines) + "[/!]"
 
     # 디버그 모드
     debug_on = is_debug_mode()
@@ -121,7 +146,22 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
                 lines.append(f"    [url=@proc:set_interval:{real_sec}:{game_min}]○ {name}[/url] ({real_sec}초 → {game_min}분)")
 
     lines.append("")
-    lines.append("[color=gray]────────────────────[/color]")
+
+    # 타이핑 속도 설정 (토글 메뉴)
+    typing_preset = get_typing_speed_preset_name()
+    typing_icon = "▼" if show_typing_menu else "▶"
+    lines.append(f"[url=@proc:toggle_typing_menu]{typing_icon} 타이핑 속도[/url]: [color=yellow]{typing_preset}[/color]")
+
+    if show_typing_menu:
+        current_speed = morld.get_typing_speed()
+        for name, speed in TYPING_SPEED_PRESETS:
+            if speed == current_speed:
+                lines.append(f"  [color=lime]● {name}[/color]")
+            else:
+                lines.append(f"  [url=@proc:set_typing_speed:{speed}]○ {name}[/url]")
+
+    lines.append("")
+    lines.append(ui.divider())
     lines.append("")
 
     # 게임 종료
@@ -130,29 +170,35 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     lines.append("")
     lines.append("[url=@finish]닫기[/url]")
 
-    return "\n".join(lines)
+    # 전체를 즉시 출력으로 감싸기 (ui.divider()의 [!][/!]는 중첩 처리됨)
+    return "[!]" + "\n".join(lines) + "[/!]"
 
 
 def show_settings_ui():
     """
     설정 UI 다이얼로그 표시 (Generator)
     """
-    state = {"refresh": True, "confirm_quit": False, "show_interval_menu": False}
+    state = {"refresh": True, "confirm_quit": False, "show_interval_menu": False, "show_typing_menu": False}
+
+    def _render():
+        """현재 상태로 UI 렌더링"""
+        return render_settings_ui(
+            confirm_quit=state.get("confirm_quit", False),
+            show_interval_menu=state.get("show_interval_menu", False),
+            show_typing_menu=state.get("show_typing_menu", False)
+        )
 
     def proc(action):
         if action == "init" or state.get("refresh"):
             state["refresh"] = False
-            return render_settings_ui(
-                confirm_quit=state.get("confirm_quit", False),
-                show_interval_menu=state.get("show_interval_menu", False)
-            )
+            return _render()
 
         # 디버그 모드 토글
         if action == "toggle_debug":
             new_state = not is_debug_mode()
             set_debug_mode(new_state)
             morld.add_action_log(f"디버그 모드: {'ON' if new_state else 'OFF'}")
-            return render_settings_ui(show_interval_menu=state.get("show_interval_menu", False))
+            return _render()
 
         # 시간 정지 토글
         if action == "toggle_frozen":
@@ -160,19 +206,19 @@ def show_settings_ui():
             morld.set_time_frozen(not current)
             status = "정지" if not current else "흐름"
             morld.add_action_log(f"시간: {status}")
-            return render_settings_ui(show_interval_menu=state.get("show_interval_menu", False))
+            return _render()
 
         # 시간 자동 흐름 토글
         if action == "toggle_auto_time":
             new_state = not is_auto_time_flow()
             set_auto_time_flow(new_state)
             morld.add_action_log(f"시간 자동 흐름: {'ON' if new_state else 'OFF'}")
-            return render_settings_ui(show_interval_menu=state.get("show_interval_menu", False))
+            return _render()
 
         # 시간 간격 메뉴 토글
         if action == "toggle_interval_menu":
             state["show_interval_menu"] = not state.get("show_interval_menu", False)
-            return render_settings_ui(show_interval_menu=state["show_interval_menu"])
+            return _render()
 
         # 시간 간격 설정
         if action.startswith("set_interval:"):
@@ -188,7 +234,27 @@ def show_settings_ui():
                         preset_name = name
                         break
                 morld.add_action_log(f"시간 간격: {preset_name}")
-            return render_settings_ui(show_interval_menu=state.get("show_interval_menu", False))
+            return _render()
+
+        # 타이핑 속도 메뉴 토글
+        if action == "toggle_typing_menu":
+            state["show_typing_menu"] = not state.get("show_typing_menu", False)
+            return _render()
+
+        # 타이핑 속도 설정
+        if action.startswith("set_typing_speed:"):
+            parts = action.split(":")
+            if len(parts) == 2:
+                speed = int(parts[1])
+                morld.set_typing_speed(speed)
+                # 프리셋 이름 찾기
+                preset_name = f"{speed}자/초"
+                for name, preset_speed in TYPING_SPEED_PRESETS:
+                    if speed == preset_speed:
+                        preset_name = name
+                        break
+                morld.add_action_log(f"타이핑 속도: {preset_name}")
+            return _render()
 
         # 게임 종료 확인
         if action == "quit":
@@ -203,7 +269,7 @@ def show_settings_ui():
         # 게임 종료 확인 - 아니오
         if action == "quit_no":
             state["confirm_quit"] = False
-            return render_settings_ui(show_interval_menu=state.get("show_interval_menu", False))
+            return _render()
 
         return None
 

@@ -127,7 +127,7 @@ def _render_map(state: dict) -> str:
 
     region_info = morld.get_region_info(region_id)
     if not region_info:
-        return "[지도]\n\n지역 정보를 불러올 수 없습니다.\n\n[url=@proc:cancel]닫기[/url]"
+        return "[!][지도]\n\n지역 정보를 불러올 수 없습니다.\n\n[url=@proc:cancel]닫기[/url][/!]"
 
     lines = []
     lines.append(f"[b]지도 - {region_info['name']}[/b]")
@@ -290,7 +290,8 @@ def _render_map(state: dict) -> str:
     lines.append("")
     lines.append("[url=@proc:cancel]닫기[/url]")
 
-    return "\n".join(lines)
+    # 지도 전체를 즉시 출력
+    return "[!]" + "\n".join(lines) + "[/!]"
 
 
 def _format_time(minutes: int) -> str:
