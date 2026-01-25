@@ -59,6 +59,7 @@
 |------|----------|
 | 이벤트 시스템 (on_meet, on_reach) | [event.md](scenarios/scenario02/docs/event.md) |
 | 시간 정지 (Frozen) 상태 | [frozen.md](scenarios/scenario02/docs/frozen.md) |
+| 시간 흐름 (자동 시간 흐름) | [time-flow.md](scenarios/scenario02/docs/time-flow.md) |
 
 ---
 
@@ -85,7 +86,8 @@ scenarios/scenario02/docs/
 ├── food.md             # 음식/요리
 ├── craft.md            # 크래프팅
 ├── event.md            # 이벤트 시스템
-└── frozen.md           # 시간 정지 상태
+├── frozen.md           # 시간 정지 상태
+└── time-flow.md        # 시간 흐름 시스템
 ```
 
 ---
