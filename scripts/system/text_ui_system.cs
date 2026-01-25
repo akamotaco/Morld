@@ -241,7 +241,9 @@ namespace SE
 			else
 			{
 				// 다른 Focus는 즉시 표시
-				_textUi.Text = renderedText;
+				// [!]...[/!] 태그는 제거해야 함 (타이핑 효과용 마커이므로)
+				var (cleanText, _) = ParseInstantTags(renderedText);
+				_textUi.Text = cleanText;
 				_textUi.VisibleCharacters = -1;
 				_isTyping = false;
 				_typingSourceText = "";  // Dialog 벗어날 때 초기화
