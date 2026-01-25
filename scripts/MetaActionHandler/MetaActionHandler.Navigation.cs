@@ -191,6 +191,54 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 설정 UI 표시 처리
+	/// Python의 settings.show_settings_ui() Generator를 호출
+	/// </summary>
+	private void HandleSettingsAction()
+	{
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleSettingsAction: ScriptSystem not found");
+			return;
+		}
+
+		try
+		{
+			// Python settings 모듈의 show_settings_ui() 호출
+			scriptSystem.Eval("import settings");
+			var result = scriptSystem.Eval("settings.show_settings_ui()");
+
+			if (result is SharpPy.PyGenerator generator)
+			{
+				var genResult = scriptSystem.ProcessGenerator(generator);
+				if (genResult != null && genResult.Type == "generator_dialog" && genResult is SE.GeneratorScriptResult gr)
+				{
+					SetPendingGenerator(gr.Generator, gr.DialogRequest);
+
+					// proc('init') 호출 - Dialog 초기화 시 텍스트 갱신
+					var displayText = gr.DialogText;
+					if (gr.DialogRequest?.ProcCallback != null)
+					{
+						var (initText, _) = scriptSystem.CallProcCallback(gr.DialogRequest.ProcCallback, "init");
+						if (initText != null)
+						{
+							displayText = initText;
+							gr.DialogRequest.UpdateCurrentPageText(initText);
+						}
+					}
+
+					_textUISystem?.PushDialog(displayText);
+				}
+			}
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandleSettingsAction error: {ex.Message}");
+		}
+	}
+
+	/// <summary>
 	/// 유닛 살펴보기 처리: look_unit:unitId
 	///
 	/// NPC 클릭 시 먼저 NPC 주도 이벤트(first meet, NPC 주도 스킨십 등)를 체크합니다.

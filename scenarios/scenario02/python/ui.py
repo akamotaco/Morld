@@ -178,7 +178,7 @@ def get_footer():
 
     lines = []
     lines.append("[color=gray]────────────────────[/color]")
-    lines.append("[url=inventory]인벤토리[/url]  [url=quest]퀘스트[/url]")
+    lines.append("[url=inventory]인벤토리[/url]  [url=quest]퀘스트[/url]  [url=settings]설정[/url]")
 
     status_text = get_status_text()
     if status_text:

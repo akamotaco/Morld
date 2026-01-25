@@ -11,7 +11,7 @@ class Toilet(Object):
     """
     unique_id = "toilet"
     name = "변기"
-    actions = ["call:use:사용하기", "call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:use:사용하기", "call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "낡지만 깨끗하게 관리된 변기."}
 
     def look(self):

@@ -33,7 +33,7 @@ class Bicycle(Object):
     actions = [
         "sit@front:앞좌석 앉기",  # driver_seat 효과
         "sit@rear:뒷좌석 앉기",   # 단순 탑승
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     props = {
         "driver_seat": 1,       # 앞좌석 앉으면 운전 가능
@@ -63,7 +63,7 @@ class CarDriverSeat(Object):
     actions = [
         "sit@seat:앉기",
         "call:drive:운전",
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     props = {
         "driver_seat": 1,      # 앉으면 운전 가능
@@ -130,7 +130,7 @@ class CarPassengerSeat(Object):
     """
     unique_id = "car_passenger_seat"
     name = "조수석"
-    actions = ["sit@seat:앉기", "call:debug_props*:속성 보기"]
+    actions = ["sit@seat:앉기", "call:debug_props:(디버그) 속성 보기#"]
     props = {"seated_by:seat": -1}  # 좌석 (빈 좌석)
     focus_text = {"default": "낡은 가죽 시트의 조수석. 편히 앉을 수 있다."}
 
@@ -143,7 +143,7 @@ class CarTrunk(Object):
     """
     unique_id = "car_trunk"
     name = "트렁크"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "넓은 트렁크 공간. 물건을 보관할 수 있다."}
 
     def look(self):

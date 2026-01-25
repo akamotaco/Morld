@@ -38,7 +38,7 @@ class ErrandBoard(Object):
         "call:view_errands*:의뢰 보기",
         "container#",  # 납품할 아이템 넣기 - 인벤토리 있을 때만 표시
         "call:put:납품 아이템 넣기",
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     focus_text = {"default": "저택 현관에 붙어있는 심부름 게시판. 여러 의뢰가 적힌 종이들이 붙어 있다."}
 

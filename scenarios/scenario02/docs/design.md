@@ -669,9 +669,9 @@ props = {
     # 아이템 사용
     "can:read_book": 1,
 
-    # 디버그
-    "can:debug_props": 1,
-    "can:debug_self_props": 1,
+    # 디버그 (기본 비활성화, 설정에서 토글 가능)
+    # "can:debug_props": 0,
+    # "can:debug_self_props": 0,
 }
 ```
 

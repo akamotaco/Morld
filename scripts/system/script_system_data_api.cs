@@ -39,6 +39,7 @@ namespace SE
                 RegisterPathAPI(morldModule);
                 RegisterJobListAPI(morldModule);
                 RegisterChapterAPI(morldModule);
+                RegisterGameControlAPI(morldModule);
 
                 // === 초기화 완료 플래그 ===
                 morldModule.ModuleDict["data_api_ready"] = PyBool.True;
@@ -2002,6 +2003,28 @@ namespace SE
             {
                 // survival 모듈이 없거나 에러 시 무시 (아직 구현되지 않은 시나리오 호환)
             }
+        }
+
+        #endregion
+
+        #region Game Control API
+
+        /// <summary>
+        /// Game Control API 등록 (게임 종료 등)
+        /// </summary>
+        private void RegisterGameControlAPI(PyModule morldModule)
+        {
+            // quit_game() - 게임 종료
+            morldModule.ModuleDict["quit_game"] = new PyBuiltinFunction("quit_game", args =>
+            {
+                Godot.GD.Print("[morld] quit_game: Exiting game...");
+
+                // Godot 게임 종료
+                var sceneTree = Godot.Engine.GetMainLoop() as Godot.SceneTree;
+                sceneTree?.Quit();
+
+                return PyBool.True;
+            });
         }
 
         #endregion

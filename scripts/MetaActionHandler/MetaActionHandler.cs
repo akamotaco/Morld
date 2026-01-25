@@ -148,6 +148,9 @@ public partial class MetaActionHandler
 			case "quest":
 				HandleQuestAction();
 				break;
+			case "settings":
+				HandleSettingsAction();
+				break;
 			case "drop":
 				HandleDropAction(parts);
 				break;

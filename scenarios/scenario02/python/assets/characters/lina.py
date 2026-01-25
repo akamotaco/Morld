@@ -82,9 +82,11 @@ class Lina(Character):
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:romance:스킨십",
-        "call:debug_props*:속성 보기",
-        "call:debug_affection_up*:호감도 +10",
-        "call:debug_affection_down*:호감도 -10",
+        "call:debug_props:(디버그) 속성 보기#",
+        "call:debug_affection_up:(디버그) 호감도 +10#",
+        "call:debug_affection_down:(디버그) 호감도 -10#",
+        "call:debug_arousal_up:(디버그) 성욕 +20#",
+        "call:debug_arousal_down:(디버그) 성욕 -20#",
     ]
     mood = []
 

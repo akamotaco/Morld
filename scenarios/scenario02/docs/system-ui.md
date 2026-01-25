@@ -94,6 +94,72 @@ actions = ["call:talk:대화", "call:trade:거래"]
 | `call:메서드명:인자:표시명` | 메서드명 |
 | 단순 액션 | 그대로 |
 
+### 액션 마커
+
+액션 문자열에 마커를 붙여 `can:` 체크 동작을 변경할 수 있습니다.
+
+| 마커 | 위치 | 형식 | 동작 | 조건 미충족 시 |
+|------|------|------|------|---------------|
+| 없음 | - | `call:메서드:표시명` | `can:메서드` 체크 | grey out (비활성화) |
+| `#` | **문자열 끝** | `call:메서드:표시명#` | `can:메서드` 체크 | 숨김 (표시 안 함) |
+| `*` | **메서드명 끝** | `call:메서드*:표시명` | `can:` 체크 안 함 | 항상 활성화 |
+
+#### 마커 위치가 다른 이유
+
+- **`#` (문자열 끝)**: 액션 파티셔닝 단계에서 처리. 전체 액션 문자열을 기준으로 숨김/표시 결정
+- **`*` (메서드명 끝)**: can: 체크 단계에서 처리. 메서드명을 추출한 후 `*` 여부로 체크 스킵 결정
+
+```python
+# 예시
+actions = [
+    "call:talk:대화",                      # can:talk 필요, 없으면 grey out
+    "call:debug_props:속성 보기#",         # can:debug_props 필요, 없으면 숨김
+    "call:look*:살펴보기",                 # can: 체크 없이 항상 활성화
+    "call:errand:심부름#",                 # can:errand 필요, 없으면 숨김
+]
+```
+
+### Wildcard 매칭 (can: prop 그룹화)
+
+`can:` prop에 `*` 와일드카드를 사용하여 여러 액션을 한 번에 제어할 수 있습니다.
+
+```
+can:debug_*  →  debug_로 시작하는 모든 액션 허용
+             →  debug_props, debug_affection_up, debug_arousal_up 등
+```
+
+**동작 순서:**
+1. 정확한 매칭: `can:debug_affection_up` 체크
+2. 실패 시 와일드카드 매칭: `*`로 끝나는 prop 중 패턴 매칭
+
+**와일드카드 규칙:**
+- `can:prefix*` 형태의 prop은 `prefix`로 시작하는 모든 액션에 매칭
+- 예: `can:debug_*` → `debug_props`, `debug_affection_up`, `debug_arousal_down` 등 모두 허용
+
+**예시:**
+```python
+# 플레이어 props
+"can:debug_*": 1    # debug_ 계열 모든 액션 허용
+
+# NPC actions
+actions = [
+    "call:debug_props:(디버그) 속성 보기#",       # can:debug_*로 허용
+    "call:debug_affection_up:(디버그) 호감도 +10#",  # can:debug_*로 허용
+    "call:debug_arousal_up:(디버그) 성욕 +20#",      # can:debug_*로 허용
+]
+```
+
+이를 통해 `can:debug_*` 하나로 모든 `debug_` 계열 액션을 제어할 수 있습니다.
+
+**설정 UI와의 연동:**
+```python
+# settings.py
+def set_debug_mode(enabled: bool):
+    player_id = _get_player_id()
+    value = 1 if enabled else 0
+    morld.set_unit_prop(player_id, "can:debug_*", value)
+```
+
 ---
 
 ## 상태 기반 액션 필터링 (NPC 상태 제한)

@@ -70,7 +70,16 @@ namespace SE
 		/// </summary>
 		/// <param name="actor">행위자 Unit (플레이어 등)</param>
 		/// <param name="action">액션 문자열</param>
-		/// <returns>can:액션명 prop이 1 이상이면 true, 메서드명이 '*'로 끝나면 항상 true</returns>
+		/// <returns>
+		/// - 메서드명이 '*'로 끝나면 항상 true (can: 체크 스킵)
+		/// - can:액션명 prop이 1 이상이면 true (정확한 매칭)
+		/// - can:prefix* 형태의 prop이 있고 액션명이 prefix로 시작하면 true (wildcard 매칭)
+		/// </returns>
+		/// <remarks>
+		/// Wildcard 매칭 규칙:
+		/// - props 중 '*'로 끝나는 것이 있으면 glob 패턴 매칭
+		/// - 예: can:debug_* prop이 있고 값 >= 1 이면 debug_로 시작하는 모든 액션 허용
+		/// </remarks>
 		public bool CanPerformAction(Unit actor, string action)
 		{
 			if (actor == null) return false;
@@ -83,8 +92,6 @@ namespace SE
 			{
 				return true;
 			}
-
-			var canProp = $"can:{actionName}";
 
 			// 장착 아이템의 EquipProps도 반영하기 위해 GetActualProps 사용
 			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
@@ -101,8 +108,32 @@ namespace SE
 
 			var actualProps = actor.GetActualProps(itemSystem, inventory, equippedItems);
 
-			// can:액션명 prop이 존재하고 값이 1 이상이면 수행 가능
-			return actualProps.Props.HasAtLeast(canProp, 1);
+			// 1. 정확한 매칭: can:액션명
+			var canProp = $"can:{actionName}";
+			if (actualProps.Props.HasAtLeast(canProp, 1))
+			{
+				return true;
+			}
+
+			// 2. Wildcard 매칭: props 중 "can:prefix*" 형태가 있으면 glob 매칭
+			// 예: can:debug_* prop이 있고 actionName이 "debug_affection_up"이면 매칭
+			foreach (var kvp in actualProps.Props)
+			{
+				var propName = kvp.Key.FullName;
+
+				// can:으로 시작하고 *로 끝나는 prop 찾기
+				if (propName.StartsWith("can:") && propName.EndsWith("*") && kvp.Value >= 1)
+				{
+					// "can:debug_*" → "debug_"
+					var pattern = propName.Substring(4, propName.Length - 5); // "can:" 제거, "*" 제거
+					if (actionName.StartsWith(pattern))
+					{
+						return true;
+					}
+				}
+			}
+
+			return false;
 		}
 
 		/// <summary>

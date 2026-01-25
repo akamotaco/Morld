@@ -20,7 +20,7 @@ from assets.base import Object
 class Fireplace(Object):
     unique_id = "fireplace"
     name = "벽난로"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {
         "default": "돌로 만들어진 오래된 벽난로. 저녁이면 불이 피워진다.",
         "저녁": "따뜻한 불꽃이 타오르고 있다.",
@@ -39,7 +39,7 @@ class Fireplace(Object):
 class OldSofa(Object):
     unique_id = "old_sofa"
     name = "낡은 소파"
-    actions = ["call:sit:앉기", "call:debug_props*:속성 보기"]
+    actions = ["call:sit:앉기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "오래 사용해서 닳았지만 여전히 푹신한 소파."}
 
     def sit(self):
@@ -66,7 +66,7 @@ class LivingSofa(Object):
         "sit@left:왼쪽에 앉기",
         "sit@center:가운데 앉기",
         "sit@right:오른쪽에 앉기",
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     props = {
         "seated_by:left": -1,    # 왼쪽 좌석 (빈 좌석)
@@ -79,7 +79,7 @@ class LivingSofa(Object):
 class Bookshelf(Object):
     unique_id = "bookshelf"
     name = "책장"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "벽면을 따라 놓인 큰 책장. 다양한 책이 꽂혀 있다."}
 
     def look(self):
@@ -98,7 +98,7 @@ class Bookshelf(Object):
 class DiningTable(Object):
     unique_id = "dining_table"
     name = "긴 식탁"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "여섯 명이 앉을 수 있는 긴 나무 식탁. 잘 닦여 있다."}
 
     def look(self):
@@ -124,7 +124,7 @@ class DiningChair(Object):
         "sit@2:2번 의자에 앉기",
         "sit@3:3번 의자에 앉기",
         "sit@4:4번 의자에 앉기",
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     props = {
         "seated_by:1": -1,  # 1번 의자 (빈 좌석)
@@ -156,7 +156,7 @@ class Stove(Object):
         "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
         "call:put:재료 넣기",
         "call:cook:조리하기",
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     focus_text = {"default": "요리에 사용하는 큰 아궁이. 항상 따뜻하다."}
 
@@ -243,7 +243,7 @@ class Kettle(Object):
         "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
         "call:put:재료 넣기",
         "call:brew:끓이기",
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     focus_text = {"default": "물을 끓이거나 차를 우릴 수 있는 주전자."}
 
@@ -316,7 +316,7 @@ class Kettle(Object):
 class Cupboard(Object):
     unique_id = "cupboard"
     name = "찬장"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "그릇과 조리도구가 정리된 찬장."}
 
     def look(self):
@@ -332,7 +332,7 @@ class Cupboard(Object):
 class Bathtub(Object):
     unique_id = "bathtub"
     name = "나무 욕조"
-    actions = ["call:use:목욕하기", "call:debug_props*:속성 보기"]
+    actions = ["call:use:목욕하기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "큰 나무 욕조. 따뜻한 물을 받아 목욕할 수 있다."}
 
     def use(self):
@@ -347,7 +347,7 @@ class Bathtub(Object):
 class Washbasin(Object):
     unique_id = "washbasin"
     name = "세면대"
-    actions = ["call:use:세수하기", "call:debug_props*:속성 보기"]
+    actions = ["call:use:세수하기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "도자기로 만든 세면대. 깨끗하게 관리되어 있다."}
 
     def use(self):
@@ -371,7 +371,7 @@ class CraftingTable(Object):
     """
     unique_id = "crafting_table"
     name = "제작대"
-    actions = ["call:look:살펴보기", "call:craft:제작하기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:craft:제작하기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "도구와 재료를 다룰 수 있는 튼튼한 작업대."}
 
     def look(self):
@@ -396,7 +396,7 @@ class CraftingTable(Object):
 class Bed(Object):
     unique_id = "bed"
     name = "침대"
-    actions = ["call:sleep:잠자기", "call:rest:누워있기", "call:debug_props*:속성 보기"]
+    actions = ["call:sleep:잠자기", "call:rest:누워있기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "작지만 편안해 보이는 침대. 깨끗한 이불이 깔려 있다."}
 
     def sleep(self):
@@ -416,7 +416,7 @@ class Bed(Object):
 class SmallDesk(Object):
     unique_id = "small_desk"
     name = "작은 책상"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "작은 나무 책상. 서랍이 하나 달려 있다."}
 
     def look(self):
@@ -431,7 +431,7 @@ class SmallDesk(Object):
 class Mirror(Object):
     unique_id = "mirror"
     name = "거울"
-    actions = ["call:look:거울 보기", "call:debug_self_props:나를 돌아보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:거울 보기", "call:debug_self_props:(디버그) 나를 돌아보기#", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "벽에 걸린 작은 거울. 내 모습을 비춰볼 수 있다."}
 
     def look(self):
@@ -462,7 +462,7 @@ class Wardrobe(Object):
         "call:look:살펴보기",
         "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
         "call:put:옷 넣기",
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     focus_text = {"default": "옷을 보관할 수 있는 나무 옷장."}
 
@@ -493,7 +493,7 @@ class Shelf(Object):
     actions = [
         "call:look:살펴보기",
         "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     focus_text = {"default": "물건을 놓을 수 있는 선반."}
 
@@ -520,7 +520,7 @@ class Refrigerator(Object):
     actions = [
         "call:look:살펴보기",
         "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
-        "call:debug_props*:속성 보기"
+        "call:debug_props:(디버그) 속성 보기#"
     ]
     focus_text = {"default": "낡은 냉장고. 전기가 안 들어와 그냥 보관함으로 쓰인다."}
 
@@ -540,7 +540,7 @@ class Refrigerator(Object):
 class CorridorWindow(Object):
     unique_id = "corridor_window"
     name = "복도 창문"
-    actions = ["call:look:밖을 보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:밖을 보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "2층 복도에 있는 큰 창문. 앞마당이 내려다보인다."}
 
     def look(self):
@@ -555,7 +555,7 @@ class CorridorWindow(Object):
 class Vase(Object):
     unique_id = "vase"
     name = "화병"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "복도 끝에 놓인 장식용 화병. 마른 꽃이 꽂혀 있다."}
 
     def look(self):
@@ -578,7 +578,7 @@ class OldDoll(Object):
     """
     unique_id = "old_doll"
     name = "낡은 인형"
-    actions = ["call:look:살펴보기", "call:debug_props*:속성 보기"]
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "작고 낡은 곰 인형. 누군가 소중히 다뤄온 흔적이 보인다."}
 
     def look(self):
