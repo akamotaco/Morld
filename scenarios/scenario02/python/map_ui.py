@@ -149,7 +149,7 @@ def _render_map(state: dict) -> str:
         location_characters[loc_id] = characters
 
     # 이동 중인 캐릭터 조회 (Edge 위에 있는 유닛)
-    # 목적지 Location에 "→이름" 형태로 추가
+    # edge 도착지 Location에 "→이름" 또는 "→이름 (→최종목적지)" 형태로 추가
     all_units = morld.get_all_unit_ids()
     for unit_id in all_units:
         if unit_id == player_id:
@@ -160,14 +160,34 @@ def _render_map(state: dict) -> str:
         # Edge 위에서 이동 중인 유닛만
         if not info.get("is_on_edge", False):
             continue
-        # 같은 region의 목적지로 이동 중인지 확인
+        # 현재 edge의 도착지 (물리적 다음 위치)
+        edge_to_region = info.get("edge_to_region_id")
+        edge_to_local = info.get("edge_to_local_id")
+        # 최종 목적지 (Job 목적지)
         dest_region = info.get("dest_region_id")
         dest_local = info.get("dest_location_id")
-        if dest_region == region_id and dest_local is not None:
+
+        # 같은 region의 edge 도착지로 이동 중인지 확인
+        if edge_to_region == region_id and edge_to_local is not None:
             name = info.get("name", "???")
-            if dest_local not in location_characters:
-                location_characters[dest_local] = []
-            location_characters[dest_local].append(f"→{name}")
+            # edge 도착지와 최종 목적지가 다르면 최종 목적지도 표시
+            if dest_region == region_id and dest_local is not None and dest_local != edge_to_local:
+                # 최종 목적지 이름 조회
+                final_dest_name = None
+                for loc in region_info["locations"]:
+                    if loc["id"] == dest_local:
+                        final_dest_name = loc["name"]
+                        break
+                if final_dest_name:
+                    display = f"→{name} (→{final_dest_name})"
+                else:
+                    display = f"→{name}"
+            else:
+                display = f"→{name}"
+
+            if edge_to_local not in location_characters:
+                location_characters[edge_to_local] = []
+            location_characters[edge_to_local].append(display)
 
     # 위치 목록 (id 순 정렬)
     locations = sorted(region_info["locations"], key=lambda x: x["id"])

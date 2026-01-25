@@ -481,10 +481,22 @@ namespace SE
                 // Edge 위에 있는지 여부 (물리적 위치)
                 result.SetItem(new PyString("is_on_edge"), PyBool.FromBool(unit.IsOnEdge));
 
+                // Edge 위에 있는 경우 현재 edge의 도착지 (물리적 다음 위치)
+                if (unit.CurrentEdge != null)
+                {
+                    result.SetItem(new PyString("edge_to_region_id"), new PyInt(unit.CurrentEdge.To.RegionId));
+                    result.SetItem(new PyString("edge_to_local_id"), new PyInt(unit.CurrentEdge.To.LocalId));
+                }
+                else
+                {
+                    result.SetItem(new PyString("edge_to_region_id"), PyNone.Instance);
+                    result.SetItem(new PyString("edge_to_local_id"), PyNone.Instance);
+                }
+
                 // 목적지로 이동 중인지 여부 (논리적 상태)
                 result.SetItem(new PyString("is_traveling"), PyBool.FromBool(unit.IsTraveling));
 
-                // 이동 중인 경우 목적지 정보 (CurrentJob에서 추출)
+                // 이동 중인 경우 최종 목적지 정보 (CurrentJob에서 추출)
                 if (currentJob != null && currentJob.Action == "move")
                 {
                     result.SetItem(new PyString("dest_region_id"), new PyInt(currentJob.RegionId));
