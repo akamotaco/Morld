@@ -112,30 +112,21 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Edge 위의 유닛 추가
+		/// 이동 중인 유닛 추가 (Pi-World: CurrentMovement 기반)
+		/// Note: Pi-World에서는 Edge가 아닌 Location 내 이동이므로
+		/// 이 시스템은 추후 LocationCollisionDetector로 재구현 필요
 		/// </summary>
 		public void AddTraveler(Unit unit)
 		{
-			if (unit.CurrentEdge == null) return;
+			// Pi-World: CurrentMovement 사용
+			if (unit.CurrentMovement == null) return;
 
-			var edge = unit.CurrentEdge;
-			var key = new EdgeKey(edge.From, edge.To);
+			var movement = unit.CurrentMovement;
 
-			if (!_edgeIndex.TryGetValue(key, out var travelers))
-			{
-				travelers = new List<EdgeTraveler>();
-				_edgeIndex[key] = travelers;
-			}
-
-			travelers.Add(new EdgeTraveler
-			{
-				UnitId = unit.Id,
-				From = edge.From,
-				To = edge.To,
-				Position = edge.NormalizedPosition,
-				Velocity = edge.VelocityPerMinute,
-				RemainingTime = edge.RemainingTime
-			});
+			// Pi-World에서는 같은 Location 내에서 이동하므로
+			// Edge 충돌 감지 개념이 맞지 않음 - 임시로 비활성화
+			// TODO: LocationCollisionDetector로 재구현
+			return;
 		}
 
 		/// <summary>

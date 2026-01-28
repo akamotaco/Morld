@@ -48,8 +48,8 @@ namespace SE
                         return PyBool.False;
                     }
 
-                    // 이동 중단
-                    unit.CurrentEdge = null;
+                    // 이동 중단 (Pi-World)
+                    unit.CurrentMovement = null;
                     unit.RemainingStayTime = 0;
 
                     // Job 이름 결정
@@ -108,8 +108,8 @@ namespace SE
                         return PyBool.False;
                     }
 
-                    // 이동 중단
-                    unit.CurrentEdge = null;
+                    // 이동 중단 (Pi-World)
+                    unit.CurrentMovement = null;
                     unit.RemainingStayTime = 0;
 
                     // Job 이름 결정

@@ -79,7 +79,7 @@
 # 저장하지 않는 것:
 # - JobList (스케줄 기반으로 재생성)
 # - PlannedRoute (경로 탐색으로 재계산)
-# - CurrentEdge (저장 시점에 이동 완료 처리)
+# - CurrentMovement (저장 시점에 이동 완료 처리)
 #
 # ### Python 저장 영역 (스크립트)
 #

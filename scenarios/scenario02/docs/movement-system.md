@@ -201,30 +201,33 @@ private void ProcessMoveAction(Unit unit, LocationRef goalLocation, int duration
 
     while (remainingTime > 0)
     {
-        // 1. Edge 위에 있으면 계속 이동
-        if (unit.CurrentEdge != null)
+        // 1. 이동 중이면 계속 이동
+        if (unit.CurrentMovement != null)
         {
-            var edge = unit.CurrentEdge;
-            var timeToComplete = edge.RemainingTime;
+            var movement = unit.CurrentMovement;
+            var timeToComplete = movement.RemainingTime;
 
             if (remainingTime >= timeToComplete)
             {
-                // 도착
-                unit.SetCurrentLocation(edge.To);
-                unit.CurrentEdge = null;
+                // 이동 완료
+                unit.PositionX = movement.TargetX;
                 remainingTime -= timeToComplete;
 
-                // 경유지 지체 시간 처리
-                var location = terrain.GetLocation(edge.To);
-                if (location.StayDuration > 0 && edge.To != goalLocation)
+                // Gate 통과 처리
+                if (movement.TargetGateId != null)
                 {
-                    unit.RemainingStayTime = location.StayDuration;
+                    var gate = location.GetGate(movement.TargetGateId.Value);
+                    unit.SetCurrentLocation(gate.ConnectedLocation);
+                    unit.PositionX = gate.ArrivalX;
                 }
+
+                unit.CurrentMovement = null;
             }
             else
             {
-                // 아직 도착 못함
-                edge.ElapsedTime += remainingTime;
+                // 진행 중
+                movement.ElapsedTime += remainingTime;
+                movement.TraveledDistance += remainingTime * movement.Speed;
                 remainingTime = 0;
             }
             continue;
@@ -243,9 +246,9 @@ private void ProcessMoveAction(Unit unit, LocationRef goalLocation, int duration
         if (unit.CurrentLocation == goalLocation)
             break;
 
-        // 4. 새 이동 시작 - 경로 계산 및 EdgeProgress 생성
-        var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation);
-        // ... EdgeProgress 생성 및 이동 시작
+        // 4. 새 이동 시작 - 다음 Gate로 MovementProgress 생성
+        var nextGate = FindNextGate(unit.CurrentLocation, goalLocation);
+        // ... MovementProgress 생성 및 이동 시작
     }
 }
 ```
@@ -334,7 +337,54 @@ Unit B: ←────── (X=60 → X=40)
 X 좌표가 충돌 반경 이내로 접근 → 충돌
 ```
 
-### 3.3 이벤트 예측 시스템
+### 3.3 Gate 교차 충돌 감지
+
+서로 다른 Location에서 연결된 Gate 쌍을 반대 방향으로 통과할 때 충돌을 감지합니다.
+
+**시나리오:**
+```
+Location A ──[Gate_A]──> Location B
+           <──[Gate_B]──
+
+P: A에서 Gate_A로 이동 (→ B로 진입 예정)
+N: B에서 Gate_B로 이동 (→ A로 진입 예정)
+
+→ Gate에서 교차하며 on_meet 발생
+```
+
+**파일:** [scripts/system/event_system.cs](../../../scripts/system/event_system.cs)
+
+**감지 조건:**
+1. P가 Gate_A로 이동 중 (`player.CurrentMovement?.TargetGateId != null`)
+2. Gate_A가 Location B로 연결됨 (`playerGate.ConnectedLocation == B`)
+3. N이 Location B에 있음 (`npc.CurrentLocation == B`)
+4. N이 Gate_B로 이동 중 (`npc.CurrentMovement?.TargetGateId != null`)
+5. Gate_B가 Location A로 연결됨 (`npcGate.ConnectedLocation == A`)
+
+**NPC 위치 처리 (플레이어 전용 특수 케이스):**
+
+- **플레이어-NPC 교차**: 다이얼로그는 플레이어 중심이므로, NPC를 플레이어의 목적지(B)로 즉시 이동시킴. 다이얼로그 종료 후 P와 N이 같은 Location(B)에 있게 됨.
+- **NPC끼리 교차**: 위치 조정 없음. 각자 원래 목적지로 이동 (N1→B, N2→A, 서로 반대 위치)
+
+```csharp
+// Gate 교차 감지 (DetectGateCrossingMeetings)
+if (unitGate.ConnectedLocation == player.CurrentLocation)
+{
+    // Gate 교차 발생!
+    // ※ 다이얼로그는 플레이어 중심이므로, NPC를 플레이어의 목적지(B)로 이동
+    unit.CurrentMovement = null;  // 이동 취소
+    unit.SetLocation(connectedLocation);  // 플레이어 목적지로 이동
+    unit.PositionX = playerGate.ArrivalX;  // Gate 도착 위치
+}
+```
+
+**예측:**
+```csharp
+// 교차 시점 = 둘 중 늦게 Gate에 도착하는 시점
+int crossingTime = Math.Max(playerTimeToGate, npcTimeToGate);
+```
+
+### 3.4 이벤트 예측 시스템
 
 **파일:** [scripts/system/event_prediction_system.cs](../../../scripts/system/event_prediction_system.cs)
 
@@ -399,7 +449,7 @@ if (isTimeFrozen)
     if (player != null)
     {
         // 즉시 목적지로 이동 (이동 시간 없음)
-        player.CurrentEdge = null;
+        player.CurrentMovement = null;
         player.RemainingStayTime = 0;
         player.SetCurrentLocation(goalLocation);
     }

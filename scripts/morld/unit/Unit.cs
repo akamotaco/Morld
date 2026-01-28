@@ -12,7 +12,6 @@ public class Unit : IOwnable
 {
 	private readonly int _id;
 	private LocationRef _currentLocation;
-	private EdgeProgress? _currentEdge;
 	private MovementProgress? _currentMovement;  // Pi-World 2D 이동
 
 	/// <summary>
@@ -39,16 +38,6 @@ public class Unit : IOwnable
 	/// 현재 Location (이동 중이면 출발지)
 	/// </summary>
 	public LocationRef CurrentLocation => _currentLocation;
-
-	/// <summary>
-	/// 이동 중 Edge 위에 있는 경우의 정보 (저장 대상)
-	/// null이면 Location에 있음, 값이 있으면 Edge 위에서 이동 중
-	/// </summary>
-	public EdgeProgress? CurrentEdge
-	{
-		get => _currentEdge;
-		set => _currentEdge = value;
-	}
 
 	#region Pi-World 2D 위치
 
@@ -161,15 +150,14 @@ public class Unit : IOwnable
 	public HashSet<string> Mood { get; set; } = new();
 
 	/// <summary>
-	/// Edge 위에 있는지 여부 (물리적 위치: Location vs Edge)
-	/// true: Edge 위에서 이동 중, false: Location에 있음
+	/// 이동 중인지 여부 (Pi-World: CurrentMovement가 있음)
 	/// </summary>
-	public bool IsOnEdge => _currentEdge != null;
+	public bool IsOnEdge => _currentMovement != null;
 
 	/// <summary>
-	/// 대기 중인지 여부 (Edge 위에 없음)
+	/// 대기 중인지 여부 (이동 중이 아님)
 	/// </summary>
-	public bool IsIdle => _currentEdge == null;
+	public bool IsIdle => _currentMovement == null;
 
 	/// <summary>
 	/// 목적지로 이동 중인지 여부 (논리적 상태: Job 목적지와 현재 위치 비교)
@@ -250,7 +238,6 @@ public class Unit : IOwnable
 		_id = id;
 		Name = name ?? throw new ArgumentNullException(nameof(name));
 		_currentLocation = startLocation;
-		_currentEdge = null;
 		TraversalContext = new TraversalContext();
 	}
 
@@ -285,8 +272,7 @@ public class Unit : IOwnable
 			ClearSeatedState();
 		}
 		_currentLocation = location;
-		_currentEdge = null;
-		_currentMovement = null;  // Pi-World: 2D 이동도 초기화
+		_currentMovement = null;  // Pi-World: 이동 초기화
 	}
 
 	/// <summary>
@@ -528,9 +514,9 @@ public class Unit : IOwnable
 	/// </summary>
 	public string GetStatusSummary()
 	{
-		if (_currentEdge != null)
+		if (_currentMovement != null)
 		{
-			return $"{Name}: {_currentEdge}";
+			return $"{Name}: {_currentMovement}";
 		}
 		else
 		{
@@ -543,7 +529,7 @@ public class Unit : IOwnable
 
 	public override string ToString()
 	{
-		var state = _currentEdge != null ? "Moving" : "Idle";
+		var state = _currentMovement != null ? "Moving" : "Idle";
 		return $"Unit[{Id}] {Name} ({Type}) @ {_currentLocation} ({state})";
 	}
 }

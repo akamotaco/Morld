@@ -169,18 +169,6 @@ namespace SE
 					}
 				}
 
-				// CurrentEdge 설정 (이동 중 상태 복원)
-				if (data.CurrentEdge != null)
-				{
-					unit.CurrentEdge = new EdgeProgress
-					{
-						From = new LocationRef(data.CurrentEdge.FromRegionId, data.CurrentEdge.FromLocalId),
-						To = new LocationRef(data.CurrentEdge.ToRegionId, data.CurrentEdge.ToLocalId),
-						TotalTime = data.CurrentEdge.TotalTime,
-						ElapsedTime = data.CurrentEdge.ElapsedTime
-					};
-				}
-
 				AddUnit(unit);
 			}
 		}
@@ -243,17 +231,6 @@ namespace SE
 					: null,
 				Mood = unit.Mood.Count > 0
 					? new List<string>(unit.Mood)
-					: null,
-				CurrentEdge = unit.CurrentEdge != null
-					? new EdgeProgressJsonData
-					{
-						FromRegionId = unit.CurrentEdge.From.RegionId,
-						FromLocalId = unit.CurrentEdge.From.LocalId,
-						ToRegionId = unit.CurrentEdge.To.RegionId,
-						ToLocalId = unit.CurrentEdge.To.LocalId,
-						TotalTime = unit.CurrentEdge.TotalTime,
-						ElapsedTime = unit.CurrentEdge.ElapsedTime
-					}
 					: null
 			}).ToArray();
 		}
@@ -370,13 +347,7 @@ namespace SE
 				return new LookResult();
 			}
 
-			// Edge 위에 있는 경우 처리
-			if (unit.IsOnEdge && unit.CurrentEdge != null)
-			{
-				GD.Print($"[UnitSystem.LookFromUnit] unit is moving, CurrentEdge={unit.CurrentEdge}");
-				return LookFromEdge(unit, viewerUnitId);
-			}
-
+			// Pi-World: 이동 중이어도 같은 Location에 있음
 			return LookFromLocation(unit, viewerUnitId);
 		}
 
@@ -421,13 +392,14 @@ namespace SE
 			};
 
 			// 2. 같은 위치에 있는 유닛들 (viewer 제외)
+			// Pi-World: CurrentMovement가 있어도 같은 Location이면 표시
 			var unitIds = new List<int>();
 			foreach (var u in _units.Values)
 			{
 				if (u.Id == viewerUnitId) continue;
 
-				// 같은 위치에 있는 유닛 (이동 중이 아닌)
-				if (u.CurrentLocation == unit.CurrentLocation && u.CurrentEdge == null)
+				// 같은 위치에 있는 유닛
+				if (u.CurrentLocation == unit.CurrentLocation)
 				{
 					unitIds.Add(u.Id);
 				}
@@ -441,53 +413,6 @@ namespace SE
 				Location = locationInfo,
 				UnitIds = unitIds,
 				Routes = routes
-			};
-		}
-
-		/// <summary>
-		/// Edge에서 Look (이동 중)
-		/// </summary>
-		private LookResult LookFromEdge(Unit unit, int viewerUnitId)
-		{
-			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
-			var terrain = worldSystem.GetTerrain();
-
-			// Edge 정보
-			var fromLocation = terrain.GetLocation(unit.CurrentEdge!.From);
-			var toLocation = terrain.GetLocation(unit.CurrentEdge!.To);
-
-			var locationInfo = new LocationInfo
-			{
-				RegionName = "",  // Edge에서는 Region 정보 생략
-				LocationName = $"{fromLocation.Name} → {toLocation.Name}",
-				LocationRef = unit.CurrentLocation
-			};
-
-			// 같은 Edge에 있는 유닛들
-			var unitIds = new List<int>();
-			foreach (var u in _units.Values)
-			{
-				if (u.Id == viewerUnitId) continue;
-
-				if (u.CurrentEdge != null)
-				{
-					// 같은 Edge = From-To 쌍이 같거나 반대
-					bool sameEdge = (u.CurrentEdge.From == unit.CurrentEdge!.From &&
-									u.CurrentEdge.To == unit.CurrentEdge!.To) ||
-								   (u.CurrentEdge.From == unit.CurrentEdge!.To &&
-									u.CurrentEdge.To == unit.CurrentEdge!.From);
-					if (sameEdge)
-					{
-						unitIds.Add(u.Id);
-					}
-				}
-			}
-
-			return new LookResult
-			{
-				Location = locationInfo,
-				UnitIds = unitIds,
-				Routes = new List<RouteInfo>()  // Edge에서는 경로 없음
 			};
 		}
 

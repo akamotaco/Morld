@@ -30,7 +30,7 @@ namespace SE
 		private readonly Dictionary<int, LocationRef> _lastLocations = new();
 
 		// 이동 시작 감지용 (이전 Step에서 이동 중이었는지)
-		// Pi-World: CurrentEdge 또는 CurrentMovement가 있으면 이동 중
+		// Pi-World: CurrentMovement가 있으면 이동 중
 		private readonly HashSet<int> _wasMoving = new();
 
 		// OnMeet 중복 방지
@@ -206,8 +206,8 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 
 				var currentLoc = unit.CurrentLocation;
-				// Pi-World: CurrentEdge 또는 CurrentMovement가 있으면 이동 중
-				var isMoving = unit.CurrentEdge != null || unit.CurrentMovement != null;
+				// Pi-World: CurrentMovement가 있으면 이동 중
+				var isMoving = unit.CurrentMovement != null;
 				var wasMovingBefore = _wasMoving.Contains(unit.Id);
 
 				if (_lastLocations.TryGetValue(unit.Id, out var lastLoc))
@@ -262,12 +262,7 @@ namespace SE
 
 			// 이동 중이면 목적지, 아니면 현재 위치
 			LocationRef destination;
-			if (unit.CurrentEdge != null)
-			{
-				// Legacy: Edge 목적지
-				destination = unit.CurrentEdge.To;
-			}
-			else if (unit.CurrentMovement != null && unit.CurrentMovement.TargetGateId.HasValue)
+			if (unit.CurrentMovement != null && unit.CurrentMovement.TargetGateId.HasValue)
 			{
 				// Pi-World: Gate 통과 이동 중이면 연결된 Location
 				var region = terrain.GetRegion(unit.CurrentLocation.RegionId);
@@ -295,11 +290,10 @@ namespace SE
 		/// <summary>
 		/// 같은 위치에 있는 유닛들의 OnMeet 이벤트 생성
 		///
-		/// 만남 조건:
-		/// - 조건 A: 정지 상태 (CurrentEdge == null, CurrentMovement == null)
+		/// 만남 조건 (Pi-World):
+		/// - 조건 A: 정지 상태 (CurrentMovement == null)
 		/// - 조건 B: 방금 도착 (이전 위치 != 현재 위치, 경유지 통과 감지)
-		/// - 조건 C: Edge 위 충돌 (같은 Edge에서 반대/같은 방향)
-		/// - 조건 D: (Pi-World) 2D 공간에서 충돌 반경 내 접근
+		/// - 조건 C: 2D 공간에서 충돌 반경 내 접근
 		///
 		/// 시간 정지 상태에서는 스킵 (NPC와 상호작용 불가)
 		/// </summary>
@@ -322,7 +316,6 @@ namespace SE
 			// Pi-World: 2D 모드 확인
 			var terrain = _worldSystem.GetTerrain();
 			var location = terrain?.GetLocation(playerLocation);
-			bool is2DMode = location != null && !location.IsLegacyMode;
 
 			// 플레이어와 같은 위치에 있는 유닛 수집
 			var unitsToMeet = new List<int>();
@@ -334,12 +327,12 @@ namespace SE
 				if (unit.CurrentLocation != playerLocation) continue;
 
 				// Pi-World 2D 모드: 거리 기반 충돌 체크
-				if (is2DMode)
+				if (location != null)
 				{
 					float distance = location.CalculateDistance(player.PositionX, unit.PositionX);
 					if (distance <= COLLISION_RADIUS)
 					{
-						// 조건 D: 2D 충돌 반경 내
+						// 조건 C: 2D 충돌 반경 내
 						unitsToMeet.Add(unit.Id);
 #if DEBUG_LOG
 						GD.Print($"[EventSystem] 2D meeting: {player.Name}(X={player.PositionX:F1}) - {unit.Name}(X={unit.PositionX:F1}), dist={distance:F1}");
@@ -348,9 +341,8 @@ namespace SE
 					continue;
 				}
 
-				// Legacy 모드: 기존 로직
-				// 조건 A: 정지 상태
-				if (unit.CurrentEdge == null)
+				// Fallback: 정지 상태면 만남
+				if (unit.CurrentMovement == null)
 				{
 					unitsToMeet.Add(unit.Id);
 					continue;
@@ -366,11 +358,11 @@ namespace SE
 				}
 			}
 
-			// 조건 C: Edge 위 충돌 감지 (플레이어가 Edge 위에 있을 때, Legacy 모드)
-			if (!is2DMode && player.CurrentEdge != null)
+			// Pi-World: 2D 이동 중 충돌 감지 (같은 Location, 이동 중인 유닛들)
+			if (location != null && player.CurrentMovement != null)
 			{
-				var edgeMeetings = DetectEdgeMeetings(player, _unitSystem);
-				foreach (var unitId in edgeMeetings)
+				var movement2DMeetings = Detect2DMovementMeetings(player, _unitSystem, location);
+				foreach (var unitId in movement2DMeetings)
 				{
 					if (!unitsToMeet.Contains(unitId))
 					{
@@ -379,11 +371,11 @@ namespace SE
 				}
 			}
 
-			// Pi-World: 2D 이동 중 충돌 감지 (같은 Location, 이동 중인 유닛들)
-			if (is2DMode && player.CurrentMovement != null)
+			// Pi-World: Gate 교차 충돌 감지 (서로 다른 Location에서 같은 Gate 쌍으로 이동)
+			if (terrain != null && player.CurrentMovement?.TargetGateId != null)
 			{
-				var movement2DMeetings = Detect2DMovementMeetings(player, _unitSystem, location);
-				foreach (var unitId in movement2DMeetings)
+				var gateCrossingMeetings = DetectGateCrossingMeetings(player, _unitSystem, terrain);
+				foreach (var unitId in gateCrossingMeetings)
 				{
 					if (!unitsToMeet.Contains(unitId))
 					{
@@ -447,52 +439,88 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Edge 위에서의 충돌 감지 (Legacy 모드)
-		/// 플레이어와 같은 Edge에 있는 유닛 중 충돌 조건 만족하는 유닛 반환
+		/// Pi-World: Gate 교차 충돌 감지 (플레이어 전용)
+		/// 플레이어가 Gate를 통해 이동 중일 때, 반대편 Location에서 같은 Gate 쌍을 통해
+		/// 반대 방향으로 이동 중인 NPC를 감지
+		///
+		/// 예시:
+		///   Location A -- Gate --> Location B
+		///   P: A에서 Gate로 이동 중 (→ B로 갈 예정)
+		///   N: B에서 Gate로 이동 중 (→ A로 갈 예정)
+		///   → 두 유닛이 Gate에서 교차 → on_meet 발생
+		///
+		/// ※ 플레이어 전용 특수 처리:
+		///   다이얼로그 이벤트는 플레이어 중심이므로, 플레이어-NPC 교차 시에만
+		///   NPC를 플레이어의 목적지(B)로 이동시킴.
+		///   → 다이얼로그 종료 후 P와 N이 같은 Location(B)에 있음
+		///
+		/// ※ NPC끼리 교차하는 경우:
+		///   이 메서드는 플레이어 기준으로만 동작하므로 NPC끼리의 교차는 감지하지 않음.
+		///   NPC끼리 교차 시에는 각자 원래 목적지로 이동 (N1→B, N2→A)
 		/// </summary>
-		private List<int> DetectEdgeMeetings(Unit player, UnitSystem unitSystem)
+		private List<int> DetectGateCrossingMeetings(Unit player, UnitSystem unitSystem, Terrain terrain)
 		{
 			var result = new List<int>();
-			var playerEdge = player.CurrentEdge;
-			if (playerEdge == null) return result;
+			var playerMovement = player.CurrentMovement;
 
-			// EdgeKey로 정규화
-			var playerEdgeKey = new EdgeCollisionDetector.EdgeKey(playerEdge.From, playerEdge.To);
+			// 플레이어가 Gate로 이동 중이어야 함
+			if (playerMovement?.TargetGateId == null) return result;
 
+			// 플레이어가 향하는 Gate 정보 가져오기
+			var playerRegion = terrain.GetRegion(player.CurrentLocation.RegionId);
+			var playerGate = playerRegion?.GetGate(player.CurrentLocation.LocalId, playerMovement.TargetGateId.Value);
+			if (playerGate == null) return result;
+
+			// 플레이어가 도착할 Location (Gate의 연결 대상)
+			var connectedLocation = playerGate.ConnectedLocation;
+
+			// 연결된 Location에 있는 NPC 중, 플레이어 Location으로 연결된 Gate로 이동 중인 NPC 찾기
 			foreach (var unit in unitSystem.Units.Values)
 			{
 				if (unit.Id == player.Id) continue;
 				if (unit.IsObject) continue;
 				if (!unit.GeneratesEvents) continue;
-				if (unit.CurrentEdge == null) continue;
 
-				var unitEdge = unit.CurrentEdge;
-				var unitEdgeKey = new EdgeCollisionDetector.EdgeKey(unitEdge.From, unitEdge.To);
+				// NPC가 플레이어의 목적지 Location에 있어야 함
+				if (unit.CurrentLocation != connectedLocation) continue;
 
-				// 같은 Edge인지 확인
-				if (!playerEdgeKey.Equals(unitEdgeKey)) continue;
+				// NPC도 Gate로 이동 중이어야 함
+				if (unit.CurrentMovement?.TargetGateId == null) continue;
 
-				// 위치 계산 (EdgeKey 기준 정규화)
-				float playerPos = playerEdge.From.Equals(playerEdgeKey.A)
-					? playerEdge.NormalizedPosition
-					: 1.0f - playerEdge.NormalizedPosition;
+				// NPC가 향하는 Gate 정보 가져오기
+				var unitRegion = terrain.GetRegion(unit.CurrentLocation.RegionId);
+				var unitGate = unitRegion?.GetGate(unit.CurrentLocation.LocalId, unit.CurrentMovement.TargetGateId.Value);
+				if (unitGate == null) continue;
 
-				float unitPos = unitEdge.From.Equals(unitEdgeKey.A)
-					? unitEdge.NormalizedPosition
-					: 1.0f - unitEdge.NormalizedPosition;
-
-				// 위치 차이가 작으면 충돌 (5% 이내 = 거의 같은 위치)
-				float distance = Math.Abs(playerPos - unitPos);
-				if (distance <= 0.05f)
+				// NPC의 Gate가 플레이어의 현재 Location으로 연결되어 있는지 확인
+				if (unitGate.ConnectedLocation == player.CurrentLocation)
 				{
+					// Gate 교차 발생!
+					// ※ 다이얼로그는 플레이어 중심이므로, NPC를 플레이어의 목적지(B)로 이동시킴
+					//   이렇게 하면 다이얼로그 종료 후 P와 N이 같은 Location에 있음
+					unit.CurrentMovement = null;  // 이동 취소
+					unit.SetLocation(connectedLocation);  // 플레이어 목적지로 이동
+					unit.PositionX = playerGate.ArrivalX;  // Gate 도착 위치
+
 #if DEBUG_LOG
-					Godot.GD.Print($"[EventSystem] Edge meeting detected: Player vs {unit.Name} at pos {playerPos:F2} (distance={distance:F2})");
+					GD.Print($"[EventSystem] Gate crossing: {player.Name}({player.CurrentLocation} → Gate{playerGate.Id}) × {unit.Name} → moved to {connectedLocation}(X={playerGate.ArrivalX:F1})");
 #endif
 					result.Add(unit.Id);
 				}
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// Edge 위에서의 충돌 감지 (Legacy 모드)
+		/// Pi-World에서는 Edge 기반 충돌이 없음 (Location 내 2D 충돌로 대체)
+		/// 호환성을 위해 빈 리스트 반환
+		/// </summary>
+		private List<int> DetectEdgeMeetings(Unit player, UnitSystem unitSystem)
+		{
+			// Pi-World: Edge 기반 충돌 감지 제거됨
+			return new List<int>();
 		}
 
 		/// <summary>

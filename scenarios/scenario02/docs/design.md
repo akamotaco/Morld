@@ -295,7 +295,7 @@ def on_meet_player(context_unit_id):
 **npc_jobs 동작:**
 - monologue 결과에 `npc_jobs` 필드 포함 시 EventSystem.ApplyNpcJobs() 호출
 - 지정된 NPC의 JobList를 클리어하고 새 Job 삽입
-- 이동 중이었다면 중단 (CurrentEdge = null)
+- 이동 중이었다면 중단 (CurrentMovement = null)
 
 ### npc_jobs + fill_schedule_jobs_from 동작 흐름
 
@@ -1002,7 +1002,7 @@ return {
 ```
 
 **EventSystem.ApplyNpcJobs() 동작:**
-1. 이동 중단 (CurrentEdge = null, RemainingStayTime = 0)
+1. 이동 중단 (CurrentMovement = null, RemainingStayTime = 0)
 2. 추적 상태 동기화 (_wasMoving, _lastLocations)
 3. JobList.InsertWithClear()로 새 Job 삽입
 

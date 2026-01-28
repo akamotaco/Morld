@@ -478,20 +478,13 @@ namespace SE
                     result.SetItem(new PyString("schedule_name"), PyNone.Instance);
                 }
 
-                // Edge 위에 있는지 여부 (물리적 위치)
+                // 이동 중인지 여부 (Pi-World: CurrentMovement가 있으면 이동 중)
                 result.SetItem(new PyString("is_on_edge"), PyBool.FromBool(unit.IsOnEdge));
 
-                // Edge 위에 있는 경우 현재 edge의 도착지 (물리적 다음 위치)
-                if (unit.CurrentEdge != null)
-                {
-                    result.SetItem(new PyString("edge_to_region_id"), new PyInt(unit.CurrentEdge.To.RegionId));
-                    result.SetItem(new PyString("edge_to_local_id"), new PyInt(unit.CurrentEdge.To.LocalId));
-                }
-                else
-                {
-                    result.SetItem(new PyString("edge_to_region_id"), PyNone.Instance);
-                    result.SetItem(new PyString("edge_to_local_id"), PyNone.Instance);
-                }
+                // Pi-World: 이동 중인 경우 Gate 통과 목표가 있으면 표시
+                // (기존 edge_to_* 필드는 호환성을 위해 유지하되 None 반환)
+                result.SetItem(new PyString("edge_to_region_id"), PyNone.Instance);
+                result.SetItem(new PyString("edge_to_local_id"), PyNone.Instance);
 
                 // 목적지로 이동 중인지 여부 (논리적 상태)
                 result.SetItem(new PyString("is_traveling"), PyBool.FromBool(unit.IsTraveling));

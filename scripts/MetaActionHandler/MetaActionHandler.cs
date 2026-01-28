@@ -217,12 +217,12 @@ public partial class MetaActionHandler
 		// 시간 진행 중단
 		_playerSystem?.ClearPendingTime();
 
-		// 플레이어 Job/Edge 초기화
+		// 플레이어 Job/이동 초기화 (Pi-World)
 		var player = _playerSystem?.FindPlayerUnit();
 		if (player != null)
 		{
 			player.JobList.Clear();
-			player.CurrentEdge = null;
+			player.CurrentMovement = null;
 #if DEBUG_LOG
 			GD.Print("[MetaActionHandler] CancelPlayerMovement: Player movement cancelled");
 #endif
@@ -324,7 +324,7 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 플레이어가 Edge 위에서 중단된 상태면 이동 재개
+	/// 플레이어가 이동 중단된 상태면 이동 재개 (Pi-World)
 	/// 다이얼로그 완료 후 호출
 	/// </summary>
 	/// <returns>이동 재개됨 여부 (true면 UI 업데이트 불필요)</returns>
@@ -333,13 +333,13 @@ public partial class MetaActionHandler
 		var player = _playerSystem?.FindPlayerUnit();
 		if (player == null) return false;
 
-		// Edge 위에 있고 Job이 남아있으면 이동 재개
-		if (player.CurrentEdge != null && player.CurrentJob != null)
+		// Pi-World: 이동 중이고 Job이 남아있으면 이동 재개
+		if (player.CurrentMovement != null && player.CurrentJob != null)
 		{
-			// 남은 이동 시간 계산 (현재 Edge 남은 시간 + Job의 남은 시간)
-			int remainingTime = player.CurrentEdge.RemainingTime;
+			// 남은 이동 시간 계산
+			int remainingTime = player.CurrentMovement.RemainingTime;
 
-			// Job의 남은 Duration도 고려 (여러 Edge를 거치는 경우)
+			// Job의 남은 Duration도 고려 (여러 Gate를 거치는 경우)
 			var job = player.CurrentJob;
 			if (job.Duration > remainingTime)
 			{

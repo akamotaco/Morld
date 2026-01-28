@@ -52,11 +52,12 @@ namespace SE
 			if (pendingDuration <= 0)
 				return;
 
-			// 이벤트 예측 (만남, 도착, Edge 충돌)
+			// 이벤트 예측 (만남, 도착, Edge 충돌, Gate 교차)
 			_predictedEvents.Clear();
 			PredictMeetings(pendingDuration);
 			PredictArrivals(pendingDuration);
 			PredictEdgeCollisions(pendingDuration);
+			PredictGateCrossings(pendingDuration);
 
 			// 시간 중단 이벤트 중 가장 빠른 것 찾기
 			var earliestInterrupt = FindEarliestInterrupt();
@@ -134,8 +135,8 @@ namespace SE
 			var player = _playerSystem.FindPlayerUnit();
 			if (player == null) return;
 
-			// 현재 이동 중이 아니면 스킵
-			if (player.CurrentEdge == null) return;
+			// Pi-World: 현재 이동 중이 아니면 스킵
+			if (player.CurrentMovement == null) return;
 
 			var terrain = _worldSystem.GetTerrain();
 			if (terrain == null) return;
@@ -186,8 +187,8 @@ namespace SE
 				? currentJob.GetLocationRef()
 				: (LocationRef?)null;
 
-			// 현재 위치: 정지 상태인지 판단
-			bool isStationary = unit.CurrentEdge == null &&
+			// Pi-World: 현재 위치에서 정지 상태인지 판단
+			bool isStationary = unit.CurrentMovement == null &&
 				(goalLocation == null || unit.CurrentLocation == goalLocation);
 
 			// 현재 위치 추가 (ArrivalTime=0)
@@ -199,20 +200,21 @@ namespace SE
 				IsFinalDestination = isStationary
 			});
 
-			// move Job이 없으면 현재 Edge 목적지만 반환 (있는 경우)
+			// move Job이 없으면 현재 위치만 반환 (Pi-World: Gate 통과 시 즉시 이동)
 			if (goalLocation == null)
 			{
-				if (unit.CurrentEdge != null)
+				// Pi-World: 현재 이동 중이면 남은 시간 계산
+				if (unit.CurrentMovement != null)
 				{
-					int remainingTime = unit.CurrentEdge.RemainingTime;
+					int remainingTime = unit.CurrentMovement.RemainingTime;
 					if (remainingTime > 0 && remainingTime <= duration)
 					{
-						// Edge 목적지에 도착 후 정지
+						// 이동 완료 후 현재 Location에 도착 (Gate 통과는 즉시)
 						route.Add(new RouteWaypoint
 						{
-							Location = unit.CurrentEdge.To,
+							Location = unit.CurrentLocation,
 							ArrivalTime = remainingTime,
-							StayDuration = duration - remainingTime,  // 도착 후 남은 시간 동안 체류
+							StayDuration = duration - remainingTime,
 							IsFinalDestination = true
 						});
 					}
@@ -224,105 +226,40 @@ namespace SE
 			if (unit.CurrentLocation == goalLocation)
 				return route;
 
-			// 시뮬레이션 변수
+			// Pi-World: Gate 기반 이동 시뮬레이션
+			// 현재 이동 중이면 완료 시간 예측
 			var currentLocation = unit.CurrentLocation;
-			var currentEdge = unit.CurrentEdge;
 			int elapsedTime = 0;
 			int remainingStayTime = unit.RemainingStayTime;
 
-			// 무한 루프 방지
-			int maxIterations = 50;
-			int iterations = 0;
-
-			while (elapsedTime < duration && iterations < maxIterations)
+			// 현재 이동 완료 시간 계산
+			if (unit.CurrentMovement != null)
 			{
-				iterations++;
+				int moveTime = unit.CurrentMovement.RemainingTime;
+				elapsedTime += moveTime;
 
-				// Edge 위에 있으면 완료까지 진행
-				if (currentEdge != null)
+				// 이동 완료 후 Gate 통과 시 다음 Location
+				if (unit.CurrentMovement.TargetGateId.HasValue)
 				{
-					int timeToComplete = currentEdge.TotalTime - currentEdge.ElapsedTime;
-					int arrivalTime = elapsedTime + timeToComplete;
-
-					if (arrivalTime <= duration)
+					var region = terrain.GetRegion(currentLocation.RegionId);
+					var gate = region?.GetGate(currentLocation.LocalId, unit.CurrentMovement.TargetGateId.Value);
+					if (gate != null)
 					{
-						// 도착
-						currentLocation = currentEdge.To;
-						elapsedTime = arrivalTime;
-						currentEdge = null;
-
-						// 경유지 체류 시간 가져오기 (목적지가 아닌 경우)
-						int stayDuration = 0;
-						bool isFinal = (currentLocation == goalLocation);
-
-						if (!isFinal)
-						{
-							var arrivedLocation = terrain.GetLocation(currentLocation);
-							if (arrivedLocation != null)
-							{
-								stayDuration = arrivedLocation.StayDuration;
-							}
-						}
-						else
-						{
-							// 최종 목적지: 남은 시간 동안 체류
-							stayDuration = duration - arrivalTime;
-						}
-
-						route.Add(new RouteWaypoint
-						{
-							Location = currentLocation,
-							ArrivalTime = arrivalTime,
-							StayDuration = stayDuration,
-							IsFinalDestination = isFinal
-						});
-
-						// 목적지 도착하면 종료
-						if (isFinal)
-							break;
-
-						// 경유지 체류 시간 설정
-						remainingStayTime = stayDuration;
+						currentLocation = gate.ConnectedLocation;
 					}
-					else
-					{
-						// duration 내에 도착 불가
-						break;
-					}
-					continue;
 				}
 
-				// 체류 중이면 대기
-				if (remainingStayTime > 0)
+				route.Add(new RouteWaypoint
 				{
-					int stayTime = Math.Min(duration - elapsedTime, remainingStayTime);
-					elapsedTime += stayTime;
-					remainingStayTime -= stayTime;
-					continue;
-				}
-
-				// 이미 목적지면 종료
-				if (currentLocation == goalLocation)
-					break;
-
-				// 다음 Edge 계산
-				var pathResult = terrain.FindPath(currentLocation, goalLocation.Value, unit.TraversalContext);
-				if (!pathResult.Found || pathResult.Path.Count < 2)
-					break;
-
-				var nextLocation = pathResult.Path[1];
-				var nextLocationRef = new LocationRef(nextLocation);
-				int travelTime = terrain.GetTravelTimeBetween(currentLocation, nextLocationRef);
-				if (travelTime < 0) travelTime = 10;
-
-				currentEdge = new EdgeProgress
-				{
-					From = currentLocation,
-					To = nextLocationRef,
-					TotalTime = travelTime,
-					ElapsedTime = 0
-				};
+					Location = currentLocation,
+					ArrivalTime = elapsedTime,
+					StayDuration = 0,
+					IsFinalDestination = (currentLocation == goalLocation)
+				});
 			}
+
+			// TODO: Pi-World 경로 예측 구현 (Gate 기반)
+			// 현재는 단순화하여 현재 이동만 예측
 
 			return route;
 		}
@@ -396,8 +333,9 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Edge 위 충돌 예측
-		/// 같은 Edge에서 반대 방향 또는 추월 상황 감지
+		/// Pi-World: Location 내 충돌 예측
+		/// 같은 Location에서 이동 중인 유닛 간 충돌 예측
+		/// TODO: Pi-World에 맞게 재구현 필요
 		/// </summary>
 		private void PredictEdgeCollisions(int duration)
 		{
@@ -407,18 +345,19 @@ namespace SE
 			var player = _playerSystem?.FindPlayerUnit();
 			if (player == null) return;
 
-			// 플레이어가 Edge 위에 있지 않으면 스킵
-			if (player.CurrentEdge == null) return;
+			// Pi-World: 현재 이동 중이 아니면 스킵
+			if (player.CurrentMovement == null) return;
 
-			// Edge 인덱스 구축
+			// Pi-World: EdgeCollisionDetector는 현재 비활성화됨
+			// TODO: LocationCollisionDetector로 재구현
 			_edgeCollisionDetector.Clear();
 
 			foreach (var unit in _unitSystem!.Units.Values)
 			{
 				if (unit.IsObject) continue;
-				if (unit.CurrentEdge == null) continue;
+				if (unit.CurrentMovement == null) continue;
 
-				_edgeCollisionDetector.AddTraveler(unit);
+				_edgeCollisionDetector.AddTraveler(unit);  // 현재는 빈 함수
 			}
 
 			// 충돌 예측
@@ -448,6 +387,94 @@ namespace SE
 				var typeStr = collision.Type == EdgeCollisionDetector.CollisionType.Encounter ? "Encounter" : "Overtake";
 				Godot.GD.Print($"[EventPredictionSystem] Edge collision predicted: {typeStr} between {collision.UnitA} and {collision.UnitB} at t={collision.TimeToCollision}min, pos={collision.CollisionPosition:F2}");
 #endif
+			}
+		}
+
+		/// <summary>
+		/// Pi-World: Gate 교차 충돌 예측
+		/// 플레이어와 NPC가 서로 다른 Location에서 같은 Gate 쌍을 반대 방향으로 통과할 때 예측
+		///
+		/// 예시:
+		///   Location A -- Gate --> Location B
+		///   P: A에서 Gate로 이동 중 (→ B로 갈 예정), 남은 시간 3분
+		///   N: B에서 Gate로 이동 중 (→ A로 갈 예정), 남은 시간 5분
+		///   → 교차 시점 = max(3, 5) = 5분
+		/// </summary>
+		private void PredictGateCrossings(int duration)
+		{
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+			var player = _playerSystem?.FindPlayerUnit();
+			if (player == null) return;
+
+			// 플레이어가 Gate로 이동 중이어야 함
+			if (player.CurrentMovement?.TargetGateId == null) return;
+
+			var terrain = _worldSystem.GetTerrain();
+			if (terrain == null) return;
+
+			// 플레이어가 Gate에 도달하는 시간
+			int playerTimeToGate = player.CurrentMovement.RemainingTime;
+			if (playerTimeToGate > duration) return;
+
+			// 플레이어가 향하는 Gate 정보
+			var playerRegion = terrain.GetRegion(player.CurrentLocation.RegionId);
+			var playerGate = playerRegion?.GetGate(player.CurrentLocation.LocalId, player.CurrentMovement.TargetGateId.Value);
+			if (playerGate == null) return;
+
+			var connectedLocation = playerGate.ConnectedLocation;
+
+			// 연결된 Location에서 플레이어 방향으로 이동 중인 NPC 찾기
+			foreach (var unit in _unitSystem!.Units.Values)
+			{
+				if (unit.Id == player.Id) continue;
+				if (unit.IsObject) continue;
+				if (!unit.GeneratesEvents) continue;
+
+				// NPC가 플레이어의 목적지 Location에 있어야 함
+				if (unit.CurrentLocation != connectedLocation) continue;
+
+				// NPC도 Gate로 이동 중이어야 함
+				if (unit.CurrentMovement?.TargetGateId == null) continue;
+
+				// NPC의 Gate 정보
+				var unitRegion = terrain.GetRegion(unit.CurrentLocation.RegionId);
+				var unitGate = unitRegion?.GetGate(unit.CurrentLocation.LocalId, unit.CurrentMovement.TargetGateId.Value);
+				if (unitGate == null) continue;
+
+				// NPC의 Gate가 플레이어 Location으로 연결되어 있는지 확인
+				if (unitGate.ConnectedLocation != player.CurrentLocation) continue;
+
+				// NPC가 Gate에 도달하는 시간
+				int npcTimeToGate = unit.CurrentMovement.RemainingTime;
+
+				// 둘 다 duration 내에 Gate에 도달하면 교차 예측
+				// 교차 시점은 둘 중 나중에 Gate에 도달하는 시점 (둘 다 도착해야 교차)
+				int crossingTime = Math.Max(playerTimeToGate, npcTimeToGate);
+
+				if (crossingTime <= duration)
+				{
+					_predictedEvents.Add(new PredictedEvent
+					{
+						Type = "on_meet",
+						TriggerMinutes = crossingTime,
+						InvolvedUnitIds = new List<int> { player.Id, unit.Id },
+						InterruptsTime = true,
+						Data = new Dictionary<string, object>
+						{
+							["gate_crossing"] = true,
+							["player_gate_id"] = playerGate.Id,
+							["npc_gate_id"] = unitGate.Id,
+							["npc_name"] = unit.Name ?? "Unknown"
+						}
+					});
+
+#if DEBUG_LOG
+					Godot.GD.Print($"[EventPredictionSystem] Gate crossing predicted: {player.Name}(→Gate{playerGate.Id}) × {unit.Name}(→Gate{unitGate.Id}) at t={crossingTime}min");
+#endif
+				}
 			}
 		}
 

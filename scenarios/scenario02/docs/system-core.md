@@ -113,13 +113,14 @@ Unit
 ├─ Name
 ├─ IsObject (bool)
 ├─ CurrentLocation (LocationRef)
-├─ CurrentEdge (EdgeProgress?)
+├─ PositionX, PositionY (float - Pi-World 2D 좌표)
+├─ CurrentMovement (MovementProgress? - Pi-World 이동 상태)
 ├─ JobList
 ├─ Actions (List<string>)
 ├─ Mood (HashSet<string>)
-├─ IsOnEdge (CurrentEdge != null)
+├─ IsOnEdge (CurrentMovement != null)
 ├─ IsTraveling (currentLoc != jobLoc)
-└─ IsIdle (CurrentEdge == null)
+└─ IsIdle (CurrentMovement == null)
 ```
 
 ---

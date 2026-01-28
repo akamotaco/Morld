@@ -101,50 +101,37 @@ namespace SE
 
 			// Pi-World: 2D 이동 상태 초기화
 			player.CurrentMovement = null;
-
-			// 즉시 목적지로 이동
-			player.CurrentEdge = null;
 			player.RemainingStayTime = 0;
 
-			// Pi-World: 목적지 Location의 2D 모드 확인
-			var destLocation = terrain.GetLocation(goalLocation);
-			if (destLocation != null && !destLocation.IsLegacyMode)
+			// Pi-World: 연결된 Gate 위치에서 시작
+			var region = terrain.GetRegion(goalLocation.RegionId);
+			if (region != null)
 			{
-				// 2D 모드: 연결된 Gate 위치에서 시작
-				var region = terrain.GetRegion(goalLocation.RegionId);
-				if (region != null)
+				// 출발지에서 연결된 Gate 찾기
+				var sourceRegion = terrain.GetRegion(player.CurrentLocation.RegionId);
+				if (sourceRegion != null)
 				{
-					// 출발지에서 연결된 Gate 찾기
-					var sourceRegion = terrain.GetRegion(player.CurrentLocation.RegionId);
-					if (sourceRegion != null)
+					var sourceGates = sourceRegion.GetGates(player.CurrentLocation.LocalId);
+					foreach (var srcGate in sourceGates)
 					{
-						var sourceGates = sourceRegion.GetGates(player.CurrentLocation.LocalId);
-						foreach (var srcGate in sourceGates)
+						if (srcGate.ConnectedLocation == goalLocation)
 						{
-							if (srcGate.ConnectedLocation == goalLocation)
-							{
-								// 목적지의 도착 위치로 이동
-								player.SetLocation2D(goalLocation, srcGate.ArrivalX, srcGate.ArrivalY);
+							// 목적지의 도착 위치로 이동
+							player.SetLocation2D(goalLocation, srcGate.ArrivalX, srcGate.ArrivalY);
 #if DEBUG_LOG
-								GD.Print($"[JobBehaviorSystem] Frozen move 2D: Player teleported to {goalLocation} at X={srcGate.ArrivalX}");
+							GD.Print($"[JobBehaviorSystem] Frozen move: Player teleported to {goalLocation} at X={srcGate.ArrivalX}");
 #endif
-								player.JobList.Clear();
-								return;
-							}
+							player.JobList.Clear();
+							return;
 						}
 					}
+				}
 
-					// Gate 연결이 없으면 기본 위치 (X=0)
-					player.SetLocation2D(goalLocation, 0f, 0f);
-				}
-				else
-				{
-					player.SetCurrentLocation(goalLocation);
-				}
+				// Gate 연결이 없으면 기본 위치 (X=0)
+				player.SetLocation2D(goalLocation, 0f, 0f);
 			}
 			else
 			{
-				// Legacy 모드
 				player.SetCurrentLocation(goalLocation);
 			}
 
@@ -212,12 +199,11 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 목표 위치로 이동 처리
-		/// Pi-World: Location이 2D 모드면 Gate 기반 이동, Legacy면 Edge 기반 이동
+		/// 목표 위치로 이동 처리 (Pi-World Gate 기반)
 		/// </summary>
 		/// <param name="unit">이동할 유닛</param>
 		/// <param name="goalLocation">목표 Location</param>
-		/// <param name="targetX">목표 X 좌표 (Pi-World, 0이면 Gate의 ArrivalX 사용)</param>
+		/// <param name="targetX">목표 X 좌표 (0이면 Gate의 ArrivalX 사용)</param>
 		/// <param name="duration">이동 가능 시간 (분)</param>
 		/// <param name="terrain">지형 정보</param>
 		private void ProcessMoveAction(Unit unit, LocationRef goalLocation, float targetX, int duration, Terrain terrain)
@@ -232,119 +218,19 @@ namespace SE
 				return;
 			}
 
-			// Pi-World: 현재 Location이 2D 모드인지 확인
-			var currentLocation = terrain.GetLocation(unit.CurrentLocation);
-			if (currentLocation != null && !currentLocation.IsLegacyMode)
+			// 이미 목표 Location에 도착한 경우: targetX로 이동
+			if (unit.CurrentLocation == goalLocation)
 			{
-				// 이미 목표 Location에 도착한 경우: targetX로 이동
-				if (unit.CurrentLocation == goalLocation)
+				// targetX가 지정되어 있고, 현재 위치와 다르면 이동
+				if (targetX > 0f && MathF.Abs(unit.PositionX - targetX) > 0.1f)
 				{
-					// targetX가 지정되어 있고, 현재 위치와 다르면 이동
-					if (targetX > 0f && MathF.Abs(unit.PositionX - targetX) > 0.1f)
-					{
-						ProcessMoveWithinLocation(unit, targetX, duration, terrain);
-					}
-					return;
+					ProcessMoveWithinLocation(unit, targetX, duration, terrain);
 				}
-
-				// 2D 모드: Gate 기반 이동 + targetX
-				ProcessMoveAction2D(unit, goalLocation, targetX, duration, terrain);
 				return;
 			}
 
-			// Legacy 모드: Edge 기반 이동 (targetX 무시)
-			if (unit.CurrentLocation != goalLocation)
-			{
-				ProcessMoveActionLegacy(unit, goalLocation, duration, terrain);
-			}
-		}
-
-		/// <summary>
-		/// Legacy 이동 처리 (Edge 기반)
-		/// </summary>
-		private void ProcessMoveActionLegacy(Unit unit, LocationRef goalLocation, int duration, Terrain terrain)
-		{
-			int remainingTime = duration;
-
-			while (remainingTime > 0)
-			{
-				// 이미 Edge 위에 있으면 계속 이동
-				if (unit.CurrentEdge != null)
-				{
-					var edge = unit.CurrentEdge;
-					var timeToComplete = edge.TotalTime - edge.ElapsedTime;
-
-					if (remainingTime >= timeToComplete)
-					{
-						// 도착
-						unit.SetCurrentLocation(edge.To);
-						unit.CurrentEdge = null;
-						remainingTime -= timeToComplete;
-
-						// 경유지 지체 시간 설정
-						var arrivedLocation = terrain.GetLocation(edge.To);
-						if (arrivedLocation != null && arrivedLocation.StayDuration > 0)
-						{
-							if (edge.To != goalLocation)
-							{
-								unit.RemainingStayTime = arrivedLocation.StayDuration;
-							}
-						}
-					}
-					else
-					{
-						edge.ElapsedTime += remainingTime;
-						remainingTime = 0;
-					}
-					continue;
-				}
-
-				// 지체 중이면 대기
-				if (unit.RemainingStayTime > 0)
-				{
-					int stayTime = Math.Min(remainingTime, unit.RemainingStayTime);
-					unit.RemainingStayTime -= stayTime;
-					remainingTime -= stayTime;
-					continue;
-				}
-
-				// 이미 도착했으면 종료
-				if (unit.CurrentLocation == goalLocation)
-					break;
-
-				var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
-				var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
-
-				// 새 이동 시작 - 경로 계산
-				var inventory = _inventorySystem.GetUnitInventory(unit.Id);
-				var equippedItems = _inventorySystem.GetUnitEquippedItems(unit.Id);
-				var actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
-				var pathResult = terrain.FindPath(unit.CurrentLocation, goalLocation, actualProps);
-
-				if (!pathResult.Found || pathResult.Path.Count < 2)
-					break;
-
-				// 다음 위치로 Edge 생성
-				var nextLocation = pathResult.Path[1];
-				var nextLocationRef = new LocationRef(nextLocation);
-				int baseTravelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLocationRef);
-				if (baseTravelTime < 0) baseTravelTime = 10;  // 기본값
-
-				// 이동속도 적용 (100=기본, 200=2배 빠름)
-				int movementSpeed = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
-				int actualTravelTime = (int)Math.Ceiling(baseTravelTime * 100.0 / movementSpeed);
-				if (actualTravelTime < 1) actualTravelTime = 1;  // 최소 1분
-
-				unit.CurrentEdge = new EdgeProgress
-				{
-					From = unit.CurrentLocation,
-					To = nextLocationRef,
-					BaseTravelTime = baseTravelTime,
-					TotalTime = actualTravelTime,
-					MovementSpeed = movementSpeed,
-					ElapsedTime = 0
-				};
-			}
+			// Pi-World: Gate 기반 이동
+			ProcessMoveAction2D(unit, goalLocation, targetX, duration, terrain);
 		}
 
 		/// <summary>
@@ -358,7 +244,7 @@ namespace SE
 		private void ProcessMoveWithinLocation(Unit unit, float targetX, int duration, Terrain terrain)
 		{
 			var location = terrain.GetLocation(unit.CurrentLocation);
-			if (location == null || location.IsLegacyMode)
+			if (location == null)
 				return;
 
 			var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
@@ -438,6 +324,31 @@ namespace SE
 			var equippedItems = _inventorySystem?.GetUnitEquippedItems(unit.Id);
 			var actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
 
+			// 시간 정지 상태 (duration=0): 즉시 이동 (텔레포트)
+			if (duration == 0)
+			{
+				// 진행 중인 이동 취소
+				unit.CurrentMovement = null;
+
+				// 목적지로 즉시 이동
+				unit.SetCurrentLocation(goalLocation);
+
+				// Gate의 ArrivalX 또는 targetX로 위치 설정
+				var destLocation = terrain.GetLocation(goalLocation);
+				if (destLocation != null)
+				{
+					if (targetX > 0f)
+						unit.PositionX = destLocation.NormalizeX(targetX);
+					else
+						unit.PositionX = 0f;  // 기본 위치
+				}
+
+#if DEBUG_LOG
+				GD.Print($"[JobBehaviorSystem] {unit.Name} teleported to {goalLocation} (frozen time)");
+#endif
+				return;
+			}
+
 			int remainingTime = duration;
 
 			while (remainingTime > 0)
@@ -505,28 +416,28 @@ namespace SE
 					// targetX가 지정되어 있으면 해당 위치로 추가 이동
 					if (targetX > 0f && MathF.Abs(unit.PositionX - targetX) > 0.1f)
 					{
-						float fromX = unit.PositionX;
-						float toX = location.NormalizeX(targetX);
-						float distance = location.CalculateDistance(fromX, toX);
+						float targetFromX = unit.PositionX;
+						float targetToX = location.NormalizeX(targetX);
+						float targetDistance = location.CalculateDistance(targetFromX, targetToX);
 
-						if (distance > 0.1f)
+						if (targetDistance > 0.1f)
 						{
-							int movementSpeedPercent = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
-							float speed = location.BaseSpeed * movementSpeedPercent / 100f;
-							if (speed <= 0f) speed = 1f;
+							int targetSpeedPercent = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
+							float targetSpeed = location.BaseSpeed * targetSpeedPercent / 100f;
+							if (targetSpeed <= 0f) targetSpeed = 1f;
 
 							unit.CurrentMovement = new MovementProgress
 							{
-								StartX = fromX,
-								TargetX = toX,
+								StartX = targetFromX,
+								TargetX = targetToX,
 								TargetGateId = null,  // Gate 통과 아님
-								TotalDistance = distance,
+								TotalDistance = targetDistance,
 								TraveledDistance = 0f,
-								Speed = speed,
+								Speed = targetSpeed,
 								ElapsedTime = 0
 							};
 #if DEBUG_LOG
-							GD.Print($"[JobBehaviorSystem] {unit.Name} arrived at goal, moving to targetX: X={fromX:F1} -> X={toX:F1}");
+							GD.Print($"[JobBehaviorSystem] {unit.Name} arrived at goal, moving to targetX: X={targetFromX:F1} -> X={targetToX:F1}");
 #endif
 							continue;  // 이동 시작 후 루프 계속
 						}
@@ -539,7 +450,7 @@ namespace SE
 
 				if (targetGate == null)
 				{
-					// Gate가 없으면 경로 없음 (또는 Legacy 모드 필요)
+					// Gate가 없으면 경로 없음
 #if DEBUG_LOG
 					GD.Print($"[JobBehaviorSystem] {unit.Name} no gate found from {unit.CurrentLocation} to {goalLocation}");
 #endif

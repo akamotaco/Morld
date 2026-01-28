@@ -704,63 +704,24 @@ namespace SE
                     }
                 }
 
-                // Edge 위에 있지 않으면 다음 Edge로 진입
-                if (unit.CurrentEdge == null && unit.HasPlannedRoute)
-                {
-                    var nextLoc = unit.NextRouteDestination;
-                    if (nextLoc.HasValue)
-                    {
-                        int travelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLoc.Value);
-                        if (travelTime > 0)
-                        {
-                            unit.CurrentEdge = new Morld.EdgeProgress
-                            {
-                                From = unit.CurrentLocation,
-                                To = nextLoc.Value,
-                                TotalTime = travelTime,
-                                ElapsedTime = 0
-                            };
-                        }
-                    }
-                }
-
-                // Edge 이동 처리
-                if (unit.CurrentEdge != null)
+                // Pi-World: 이동 처리는 JobBehaviorSystem에서 담당
+                // 여기서는 CurrentMovement가 있으면 진행 처리
+                if (unit.CurrentMovement != null)
                 {
                     int remaining = duration;
-                    while (remaining > 0 && unit.CurrentEdge != null)
+                    while (remaining > 0 && unit.CurrentMovement != null)
                     {
-                        int canAdvance = System.Math.Min(remaining, unit.CurrentEdge.RemainingTime);
-                        unit.CurrentEdge.ElapsedTime += canAdvance;
-                        remaining -= canAdvance;
+                        int timeUsed = unit.CurrentMovement.Advance(remaining);
+                        remaining -= timeUsed;
 
-                        if (unit.CurrentEdge.RemainingTime <= 0)
+                        if (unit.CurrentMovement.IsComplete)
                         {
-                            // Edge 완료, 다음 Location으로 이동
-                            unit.SetCurrentLocation(unit.CurrentEdge.To);
-                            unit.AdvanceRoute();
-                            unit.CurrentEdge = null;
+                            // 이동 완료 - 위치는 JobBehaviorSystem에서 업데이트됨
+                            unit.CurrentMovement = null;
 
                             // 목표 도착 체크
                             if (unit.CurrentLocation == goalLocation)
                                 break;
-
-                            // 다음 Edge로 진입
-                            var nextLoc = unit.NextRouteDestination;
-                            if (nextLoc.HasValue)
-                            {
-                                int travelTime = terrain.GetTravelTimeBetween(unit.CurrentLocation, nextLoc.Value);
-                                if (travelTime > 0)
-                                {
-                                    unit.CurrentEdge = new Morld.EdgeProgress
-                                    {
-                                        From = unit.CurrentLocation,
-                                        To = nextLoc.Value,
-                                        TotalTime = travelTime,
-                                        ElapsedTime = 0
-                                    };
-                                }
-                            }
                         }
                     }
                 }
@@ -773,7 +734,7 @@ namespace SE
                 {
                     // 즉시 대상 위치로 이동 (간소화)
                     unit.SetCurrentLocation(targetUnit.CurrentLocation);
-                    unit.CurrentEdge = null;
+                    unit.CurrentMovement = null;
                     unit.ClearRoute();
                 }
             }

@@ -51,14 +51,14 @@ class ArriveAtFrontYard(ReachEvent):
 ### 2. on_meet (유닛 만남)
 플레이어가 같은 위치에서 NPC와 만났을 때 발생
 
-**OnMeet 감지 로직:**
+**OnMeet 감지 로직 (Pi-World):**
 ```csharp
-// 이동 중인 유닛(CurrentEdge != null)은 제외
+// 같은 Location에서 충돌 반경 내의 유닛
 var unitsToMeet = _unitSystem.Units.Values
     .Where(u => u.Id != playerId
              && u.GeneratesEvents
              && u.CurrentLocation == playerLocation
-             && u.CurrentEdge == null)  // 이동 중이 아닌 유닛만
+             && location.CalculateDistance(player.PositionX, u.PositionX) <= COLLISION_RADIUS)
 ```
 
 **캐릭터 핸들러:**
@@ -317,80 +317,102 @@ class SpeedBoots(Item):
 actualTime = baseTravelTime * 100 / movementSpeed
 ```
 
-### EdgeProgress 구조
+### MovementProgress 구조 (Pi-World)
 
 ```csharp
-public class EdgeProgress
+public class MovementProgress
 {
-    public LocationRef From { get; set; }      // 출발지
-    public LocationRef To { get; set; }        // 도착지
-    public int BaseTravelTime { get; set; }    // 기본 이동 시간
-    public int TotalTime { get; set; }         // 속도 적용 후 실제 시간
-    public int MovementSpeed { get; set; }     // 이동 속도 (100=기본)
+    public float StartX { get; set; }          // 출발 X 좌표
+    public float TargetX { get; set; }         // 목표 X 좌표
+    public int? TargetGateId { get; set; }     // Gate 통과 시 Gate ID
+    public float TotalDistance { get; set; }   // 총 이동 거리
+    public float TraveledDistance { get; set; } // 이동한 거리
+    public float Speed { get; set; }           // 이동 속도 (단위/분)
     public int ElapsedTime { get; set; }       // 경과 시간
 
     // 계산 속성
-    public float NormalizedPosition => (float)ElapsedTime / TotalTime;  // 0.0~1.0
-    public float VelocityPerMinute => 1f / TotalTime;  // 분당 이동량
+    public float Progress => TraveledDistance / TotalDistance;  // 0.0~1.0
     public int RemainingTime => TotalTime - ElapsedTime;
+    public bool IsComplete => TraveledDistance >= TotalDistance;
+    public bool IsGateMovement => TargetGateId.HasValue;
 }
 ```
 
-### 충돌 감지 알고리즘
+### 충돌 감지 알고리즘 (Pi-World)
 
-**1. 반대 방향 만남 (Encounter)**
-```
-A: position_a → 1.0 방향 (속도 v_a)
-B: position_b ← 0.0 방향 (속도 v_b, 실제 위치 = 1 - position_b)
-
-상대 속도 = v_a + v_b (서로 접근)
-거리 = (1 - position_b) - position_a
-충돌 시간 = 거리 / 상대 속도
-```
-
-**2. 같은 방향 추월 (Overtake)**
-```
-A가 B 뒤에 있고 더 빠른 경우:
-상대 속도 = v_a - v_b
-거리 = position_b - position_a
-충돌 시간 = 거리 / 상대 속도
-```
-
-### 경유지 충돌 감지
-
-경유지(StayDuration=0)를 통과하는 유닛과의 충돌도 정밀하게 감지합니다.
-
-**시나리오: 플레이어가 B에 정지, NPC가 A→B→C 이동 (B의 StayDuration=0)**
-
-```
-플레이어: B에서 [0, duration] 체류 (정지 상태)
-NPC:      B에서 [5, 5] 통과 (도착 시간 5분, 체류 0분)
-
-시간 범위 겹침: max(0, 5) <= min(duration, 5)
-              → 5 <= 5 ✓
-
-결과: 5분에 충돌 발생
-```
-
-**시간 범위 기반 판정:**
+**Location 내 2D 충돌:**
 ```csharp
-// 두 구간 [a1, a2]와 [b1, b2]가 겹치려면:
-// max(a1, b1) <= min(a2, b2)
-int overlapStart = Math.Max(playerStart, npcStart);
-int overlapEnd = Math.Min(playerEnd, npcEnd);
-
-if (overlapStart <= overlapEnd)
+// 같은 Location에서 X 좌표 기반 충돌 감지
+float distance = location.CalculateDistance(player.PositionX, unit.PositionX);
+if (distance <= COLLISION_RADIUS)  // 기본값 5.0
 {
-    // 겹침 발생 → 만남 시간 = overlapStart
+    // 충돌 (만남) 발생
 }
+```
+
+### Gate 교차 충돌 감지 (Pi-World)
+
+서로 다른 Location에서 같은 Gate 쌍을 반대 방향으로 통과할 때 충돌을 감지합니다.
+
+**시나리오:**
+```
+Location A -- Gate_A --> Location B
+             <-- Gate_B --
+
+P: Location A에서 Gate_A로 이동 중 (→ B로 갈 예정)
+N: Location B에서 Gate_B로 이동 중 (→ A로 갈 예정)
+
+둘이 Gate에서 교차 → on_meet 발생
+```
+
+**감지 조건:**
+| 조건 | 설명 |
+|------|------|
+| P가 Gate로 이동 중 | `player.CurrentMovement?.TargetGateId != null` |
+| N이 연결된 Location에 있음 | `npc.CurrentLocation == playerGate.ConnectedLocation` |
+| N이 반대 Gate로 이동 중 | `npcGate.ConnectedLocation == player.CurrentLocation` |
+
+**NPC 위치 처리 (플레이어 전용 특수 케이스):**
+```
+플레이어-NPC 교차 시:
+  다이얼로그는 플레이어 중심이므로, NPC를 플레이어의 목적지(B)로 즉시 이동시킴.
+  교차 전:  P → A에서 이동 중, N → B에서 이동 중
+  교차 후:  P → B로 도착 예정, N → B로 즉시 이동 (이동 취소)
+  → 다이얼로그 종료 후 P와 N이 같은 Location(B)에 있음
+
+NPC끼리 교차 시:
+  플레이어가 관여하지 않으므로 위치 조정 없음.
+  N1과 N2가 교차해도 각자 원래 목적지로 이동.
+  교차 후:  N1 → B, N2 → A (서로 반대 위치)
+```
+
+**감지 로직:**
+```csharp
+// event_system.cs - DetectGateCrossingMeetings()
+if (unitGate.ConnectedLocation == player.CurrentLocation)
+{
+    // Gate 교차 발생!
+    // ※ 다이얼로그는 플레이어 중심이므로, NPC를 플레이어의 목적지(B)로 이동
+    unit.CurrentMovement = null;  // 이동 취소
+    unit.SetLocation(connectedLocation);  // 플레이어 목적지로 이동
+    unit.PositionX = playerGate.ArrivalX;  // Gate 도착 위치
+}
+```
+
+**예측 로직:**
+```csharp
+// event_prediction_system.cs - PredictGateCrossings()
+int playerTimeToGate = player.CurrentMovement.RemainingTime;
+int npcTimeToGate = unit.CurrentMovement.RemainingTime;
+int crossingTime = Math.Max(playerTimeToGate, npcTimeToGate);
+// crossingTime에 NextStepDuration 조정
 ```
 
 ### 파일 위치
 
-- `scripts/system/edge_collision_detector.cs` - Edge 충돌 계산
-- `scripts/system/event_prediction_system.cs` - 충돌 예측 및 시간 조정
-- `scripts/system/event_system.cs` - 실시간 충돌 감지 (DetectEdgeMeetings)
-- `scripts/morld/unit/ActionLog.cs` - EdgeProgress 정의
+- `scripts/system/event_prediction_system.cs` - 이동 예측 및 시간 조정
+- `scripts/system/event_system.cs` - 실시간 충돌 감지 (2D 거리 기반)
+- `scripts/morld/unit/ActionLog.cs` - MovementProgress 정의
 
 ---
 
@@ -398,11 +420,11 @@ if (overlapStart <= overlapEnd)
 
 플레이어 근처에서 이동 중인 NPC를 감지하여 액션 로그로 알려줍니다.
 
-### 동작 원리
+### 동작 원리 (Pi-World)
 
 ```
 1. 플레이어 이동 명령 입력 시
-2. 같은 Edge에 있는 NPC 또는 근처 Edge에서 접근 중인 NPC 감지
+2. 같은 Location에서 이동 중인 NPC 또는 Gate로 접근 중인 NPC 감지
 3. "세라가 앞마당 쪽에서 다가온다" 형태로 액션 로그 표시
 ```
 
@@ -478,7 +500,7 @@ public struct RouteWaypoint
 - `scripts/system/event_prediction_system.cs` - 이벤트 예측 및 시간 조정
 - `scripts/system/edge_collision_detector.cs` - Edge 충돌 계산
 - `scripts/morld/event/GameEvent.cs` - 이벤트 타입 정의
-- `scripts/morld/unit/ActionLog.cs` - EdgeProgress 정의
+- `scripts/morld/unit/ActionLog.cs` - MovementProgress 정의
 
 **Python:**
 - `scenarios/scenario02/python/events/__init__.py` - 이벤트 시스템 메인 (on_equip_change 처리 포함)

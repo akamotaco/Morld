@@ -46,9 +46,6 @@ internal class UnitJsonData
 
 	[JsonPropertyName("mood")]
 	public List<string>? Mood { get; set; }
-
-	[JsonPropertyName("currentEdge")]
-	public EdgeProgressJsonData? CurrentEdge { get; set; }
 }
 
 /// <summary>
@@ -75,26 +72,3 @@ internal class ScheduleEntryJsonData
 	public string? Activity { get; set; }
 }
 
-/// <summary>
-/// EdgeProgress JSON 데이터
-/// </summary>
-internal class EdgeProgressJsonData
-{
-	[JsonPropertyName("fromRegionId")]
-	public int FromRegionId { get; set; }
-
-	[JsonPropertyName("fromLocalId")]
-	public int FromLocalId { get; set; }
-
-	[JsonPropertyName("toRegionId")]
-	public int ToRegionId { get; set; }
-
-	[JsonPropertyName("toLocalId")]
-	public int ToLocalId { get; set; }
-
-	[JsonPropertyName("totalTime")]
-	public int TotalTime { get; set; }
-
-	[JsonPropertyName("elapsedTime")]
-	public int ElapsedTime { get; set; }
-}
