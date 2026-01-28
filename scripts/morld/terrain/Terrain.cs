@@ -581,33 +581,31 @@ public class Terrain
     }
 
     /// <summary>
-    /// 두 인접 위치 간 이동 시간 계산
-    /// Edge 또는 RegionEdge를 통해 연결된 위치에 대한 이동 시간 반환
+    /// 두 인접 위치 간 이동 시간 계산 (Pi-World: Gate 기반)
+    /// Gate 통과 시간은 0, 실제 이동 시간은 Location 내 거리 기반으로 계산
     /// </summary>
     /// <param name="from">출발 위치</param>
     /// <param name="to">도착 위치</param>
     /// <returns>이동 시간 (분), 연결이 없으면 -1</returns>
     public int GetTravelTimeBetween(LocationRef from, LocationRef to)
     {
-        // 같은 Region 내 이동
-        if (from.RegionId == to.RegionId)
-        {
-            var region = GetRegion(from.RegionId);
-            if (region == null) return -1;
+        // Gate를 통해 연결되어 있는지 확인
+        var fromRegion = GetRegion(from.RegionId);
+        if (fromRegion == null) return -1;
 
-            var edge = region.GetEdgeBetween(from.LocalId, to.LocalId);
-            if (edge != null)
+        var gates = fromRegion.GetGates(from.LocalId);
+        foreach (var gate in gates)
+        {
+            if (gate.ConnectedLocation.RegionId == to.RegionId &&
+                gate.ConnectedLocation.LocalId == to.LocalId)
             {
-                var fromLocation = region.GetLocation(from.LocalId);
-                if (fromLocation != null)
-                {
-                    return edge.GetTravelTime(fromLocation);
-                }
+                // Gate 통과 시간 = 0 (즉시 통과)
+                // 실제 이동 시간은 Location 내 Unit 위치에서 Gate까지 거리로 계산되어야 함
+                return 0;
             }
-            return -1;
         }
 
-        // Region 간 이동 - RegionEdge 탐색
+        // RegionEdge를 통한 Region 간 이동 (Legacy support)
         foreach (var regionEdge in GetRegionEdgesFrom(from))
         {
             var otherLoc = regionEdge.GetOtherLocation(from);
@@ -870,28 +868,8 @@ public class Terrain
                 region.AddLocation(locData.Id, locData.Name);
             }
 
-            // Edge 추가
-            foreach (var edgeData in regionData.Edges)
-            {
-                var edge = region.AddEdge(
-                    edgeData.A,
-                    edgeData.B,
-                    edgeData.TimeAtoB,
-                    edgeData.TimeBtoA);
-
-                if (edgeData.ConditionsAtoB != null)
-                {
-                    foreach (var (tag, value) in edgeData.ConditionsAtoB)
-                        edge.AddConditionAtoB(tag, value);
-                }
-                if (edgeData.ConditionsBtoA != null)
-                {
-                    foreach (var (tag, value) in edgeData.ConditionsBtoA)
-                        edge.AddConditionBtoA(tag, value);
-                }
-
-                edge.IsBlocked = edgeData.IsBlocked;
-            }
+            // Note: Edge is deprecated, Gate is used instead (Pi-World)
+            // Legacy Edge data in JSON is ignored
 
             terrain.AddRegion(region);
         }
@@ -1011,28 +989,8 @@ public class Terrain
                 // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
             }
 
-            // Edge 추가
-            foreach (var edgeData in regionData.Edges)
-            {
-                var edge = region.AddEdge(
-                    edgeData.A,
-                    edgeData.B,
-                    edgeData.TimeAtoB,
-                    edgeData.TimeBtoA);
-
-                if (edgeData.ConditionsAtoB != null)
-                {
-                    foreach (var (tag, value) in edgeData.ConditionsAtoB)
-                        edge.AddConditionAtoB(tag, value);
-                }
-                if (edgeData.ConditionsBtoA != null)
-                {
-                    foreach (var (tag, value) in edgeData.ConditionsBtoA)
-                        edge.AddConditionBtoA(tag, value);
-                }
-
-                edge.IsBlocked = edgeData.IsBlocked;
-            }
+            // Note: Edge is deprecated, Gate is used instead (Pi-World)
+            // Legacy Edge data in JSON is ignored
 
             AddRegion(region);
         }
@@ -1141,25 +1099,8 @@ public class Terrain
                 regionData.Locations.Add(locationData);
             }
 
-            // Edge 내보내기
-            foreach (var edge in region.Edges)
-            {
-                var edgeData = new EdgeJsonData
-                {
-                    A = edge.LocationA.LocalId,
-                    B = edge.LocationB.LocalId,
-                    TimeAtoB = edge.TravelTimeAtoB,
-                    TimeBtoA = edge.TravelTimeBtoA,
-                    IsBlocked = edge.IsBlocked
-                };
-
-                if (edge.ConditionsAtoB.Count > 0)
-                    edgeData.ConditionsAtoB = new Dictionary<string, int>(edge.ConditionsAtoB);
-                if (edge.ConditionsBtoA.Count > 0)
-                    edgeData.ConditionsBtoA = new Dictionary<string, int>(edge.ConditionsBtoA);
-
-                regionData.Edges.Add(edgeData);
-            }
+            // Note: Edge is deprecated, Gate is used instead (Pi-World)
+            // Gate export would go here if needed for JSON serialization
 
             data.Regions.Add(regionData);
         }
@@ -1264,29 +1205,28 @@ public class Terrain
         var location = GetLocation(from);
         if (region == null || location == null) return routes;
 
-        // Region 내부 Edge
-        var edges = region.GetEdges(location);
-        foreach (var edge in edges)
+        // Gate 기반 경로 (Pi-World)
+        var gates = region.GetGates(from.LocalId);
+        foreach (var gate in gates)
         {
-            // Edge.IsBlocked 체크 - 완전 차단된 경로는 제외
-            if (edge.IsBlocked) continue;
+            if (gate.IsBlocked) continue;
 
-            var conditions = edge.GetConditions(location);
+            var conditions = gate.ConditionsForward;
             var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
 
-            var neighbor = edge.GetOtherLocation(location);
+            var isRegionEdge = gate.ConnectedLocation.RegionId != from.RegionId;
             routes.Add(new RawRouteInfo
             {
-                Destination = new LocationRef(neighbor.RegionId, neighbor.LocalId),
-                TravelTime = edge.GetTravelTime(location),
-                IsRegionEdge = false,
+                Destination = gate.ConnectedLocation,
+                TravelTime = 0,  // Gate 통과 시간 = 0, 실제 이동은 Location 내 거리 기반
+                IsRegionEdge = isRegionEdge,
                 IsBlocked = !canPass,
                 BlockedReason = blockedReason,
                 IsHidden = isHidden
             });
         }
 
-        // Region 간 Edge (RegionEdge)
+        // RegionEdge (Legacy support)
         foreach (var regionEdge in GetRegionEdgesFrom(from))
         {
             if (regionEdge.IsBlocked) continue;
@@ -1343,7 +1283,7 @@ public class Terrain
             lines.Add($"┌─────────────────────────────────────────────────────────────┐");
             lines.Add($"│ Region [{region.Id}]: {region.Name ?? "Unnamed",-45} │");
             lines.Add($"├─────────────────────────────────────────────────────────────┤");
-            lines.Add($"│ Locations: {region.LocationCount,-6}  Edges: {region.EdgeCount,-35} │");
+            lines.Add($"│ Locations: {region.LocationCount,-6}  Gates: {region.GateCount,-35} │");
             lines.Add($"└─────────────────────────────────────────────────────────────┘");
             lines.Add("");
 
@@ -1363,36 +1303,30 @@ public class Terrain
             lines.Add("  └────────┴────────────────────────────────────────────────┘");
             lines.Add("");
 
-            // Edges 테이블 (옵션)
-            if (includeEdges && region.EdgeCount > 0)
+            // Gates 테이블 (옵션)
+            if (includeEdges && region.GateCount > 0)
             {
-                lines.Add("  Edges:");
-                lines.Add("  ┌────────┬────────┬──────────┬──────────┬─────────┐");
-                lines.Add("  │  From  │   To   │  A → B   │  B → A   │ Blocked │");
-                lines.Add("  ├────────┼────────┼──────────┼──────────┼─────────┤");
+                lines.Add("  Gates:");
+                lines.Add("  ┌────────┬────────┬──────────────────────────┬─────────┐");
+                lines.Add("  │  Loc   │ GateID │ Connected To             │ Blocked │");
+                lines.Add("  ├────────┼────────┼──────────────────────────┼─────────┤");
 
-                foreach (var edge in region.Edges)
+                foreach (var gate in region.Gates)
                 {
-                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString().PadLeft(8) : "     N/A";
-                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString().PadLeft(8) : "     N/A";
-                    var blocked = edge.IsBlocked ? "   Yes" : "    -";
+                    var blocked = gate.IsBlocked ? "   Yes" : "    -";
+                    var connected = $"R{gate.ConnectedLocation.RegionId}:L{gate.ConnectedLocation.LocalId}:G{gate.ConnectedGateId}";
 
-                    lines.Add($"  │ {edge.LocationA.LocalId,6} │ {edge.LocationB.LocalId,6} │ {timeAtoB} │ {timeBtoA} │ {blocked,7} │");
+                    lines.Add($"  │ {gate.OwnerLocation.LocalId,6} │ {gate.Id,6} │ {connected,-24} │ {blocked,7} │");
 
                     // Conditions 표시
-                    if (edge.ConditionsAtoB.Count > 0)
+                    if (gate.ConditionsForward.Count > 0)
                     {
-                        var conditions = string.Join(", ", edge.ConditionsAtoB.Select(kvp => $"{kvp.Key}={kvp.Value}"));
-                        lines.Add($"  │        │        │ A→B Conditions: {conditions,-26} │");
-                    }
-                    if (edge.ConditionsBtoA.Count > 0)
-                    {
-                        var conditions = string.Join(", ", edge.ConditionsBtoA.Select(kvp => $"{kvp.Key}={kvp.Value}"));
-                        lines.Add($"  │        │        │ B→A Conditions: {conditions,-26} │");
+                        var conditions = string.Join(", ", gate.ConditionsForward.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                        lines.Add($"  │        │        │ Fwd: {conditions,-40} │");
                     }
                 }
 
-                lines.Add("  └────────┴────────┴──────────┴──────────┴─────────┘");
+                lines.Add("  └────────┴────────┴──────────────────────────┴─────────┘");
                 lines.Add("");
             }
         }
@@ -1473,7 +1407,7 @@ public class Terrain
 
         foreach (var region in _regions.Values.OrderBy(r => r.Id))
         {
-            lines.Add($"  [{region.Id}] {region.Name ?? "Unnamed"}: {region.LocationCount} locations, {region.EdgeCount} edges");
+            lines.Add($"  [{region.Id}] {region.Name ?? "Unnamed"}: {region.LocationCount} locations, {region.GateCount} gates");
         }
 
         return string.Join("\n", lines);

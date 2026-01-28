@@ -112,9 +112,9 @@ public static class TestWorldSerialization
                 identical = false;
             }
 
-            if (region1.EdgeCount != region2.EdgeCount)
+            if (region1.GateCount != region2.GateCount)
             {
-                Console.WriteLine($"   - Region {region1.Id} edge count mismatch: {region1.EdgeCount} vs {region2.EdgeCount}");
+                Console.WriteLine($"   - Region {region1.Id} gate count mismatch: {region1.GateCount} vs {region2.GateCount}");
                 identical = false;
             }
         }

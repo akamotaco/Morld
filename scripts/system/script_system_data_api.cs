@@ -147,80 +147,6 @@ namespace SE
             });
 
             // add_edge
-            morldModule.ModuleDict["add_edge"] = new PyBuiltinFunction("add_edge", args =>
-            {
-                if (args.Length < 3)
-                    throw PyTypeError.Create("add_edge(region_id, from_id, to_id, travel_time=5, conditions=None) requires at least 3 arguments");
-
-                int regionId = args[0].ToInt();
-                int fromId = args[1].ToInt();
-                int toId = args[2].ToInt();
-                int travelTime = args.Length >= 4 ? args[3].ToInt() : 5;
-                var conditions = args.Length >= 5 && args[4] is PyDict condDict
-                    ? PyDictToIntDict(condDict)
-                    : null;
-
-                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-
-                var terrain = _worldSystem.GetTerrain();
-                var region = terrain.GetRegion(regionId);
-                if (region != null)
-                {
-                    // Region.AddEdge(localIdA, localIdB, travelTime)을 사용
-                    var edge = region.AddEdge(fromId, toId, travelTime);
-                    if (conditions != null)
-                    {
-                        foreach (var (key, value) in conditions)
-                            edge.AddCondition(key, value);
-                    }
-                    Godot.GD.Print($"[morld] add_edge: region={regionId}, {fromId}<->{toId}, time={travelTime}");
-                    return PyBool.True;
-                }
-                return PyBool.False;
-            });
-
-            // add_edge_with_conditions: 양방향 조건을 지원하는 edge 추가
-            morldModule.ModuleDict["add_edge_with_conditions"] = new PyBuiltinFunction("add_edge_with_conditions", args =>
-            {
-                if (args.Length < 3)
-                    throw PyTypeError.Create("add_edge_with_conditions(region_id, from_id, to_id, time_ab=1, time_ba=1, conditions_ab={}, conditions_ba={}) requires at least 3 arguments");
-
-                int regionId = args[0].ToInt();
-                int fromId = args[1].ToInt();
-                int toId = args[2].ToInt();
-                int timeAB = args.Length >= 4 ? args[3].ToInt() : 1;
-                int timeBA = args.Length >= 5 ? args[4].ToInt() : timeAB;
-                var conditionsAB = args.Length >= 6 && args[5] is PyDict condDictAB
-                    ? PyDictToIntDict(condDictAB)
-                    : null;
-                var conditionsBA = args.Length >= 7 && args[6] is PyDict condDictBA
-                    ? PyDictToIntDict(condDictBA)
-                    : null;
-
-                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-
-                var terrain = _worldSystem.GetTerrain();
-                var region = terrain.GetRegion(regionId);
-                if (region != null)
-                {
-                    var edge = region.AddEdge(fromId, toId, timeAB);
-                    edge.SetTravelTime(timeAB, timeBA);
-                    if (conditionsAB != null)
-                    {
-                        foreach (var (key, value) in conditionsAB)
-                            edge.AddConditionAtoB(key, value);
-                    }
-                    if (conditionsBA != null)
-                    {
-                        foreach (var (key, value) in conditionsBA)
-                            edge.AddConditionBtoA(key, value);
-                    }
-                    Godot.GD.Print($"[morld] add_edge_with_conditions: region={regionId}, {fromId}<->{toId}, time={timeAB}/{timeBA}");
-                    return PyBool.True;
-                }
-                return PyBool.False;
-            });
-
             // add_region_edge
             morldModule.ModuleDict["add_region_edge"] = new PyBuiltinFunction("add_region_edge", args =>
             {
@@ -391,34 +317,20 @@ namespace SE
                     locDict.SetItem(new PyString("geometry"), new PyString(location.Geometry.ToString().ToLower()));
                     locDict.SetItem(new PyString("base_speed"), new PyFloat(location.BaseSpeed));
 
-                    // 이 Location에서 나가는 Edge 목록 (같은 Region 내)
-                    var edgesList = new PyList();
-                    foreach (var edge in region.Edges)
+                    // 이 Location에서 나가는 Gate 목록 (Pi-World)
+                    var gatesList = new PyList();
+                    foreach (var gate in region.GetGates(location.LocalId))
                     {
-                        int? toLocalId = null;
-                        int travelTime = 0;
-
-                        if (edge.LocationA.LocalId == location.LocalId)
-                        {
-                            toLocalId = edge.LocationB.LocalId;
-                            travelTime = edge.TravelTimeAtoB;
-                        }
-                        else if (edge.LocationB.LocalId == location.LocalId)
-                        {
-                            toLocalId = edge.LocationA.LocalId;
-                            travelTime = edge.TravelTimeBtoA;
-                        }
-
-                        if (toLocalId.HasValue)
-                        {
-                            var edgeTuple = new PyTuple(new PyObject[] {
-                                new PyInt(toLocalId.Value),
-                                new PyInt(travelTime)
-                            });
-                            edgesList.Append(edgeTuple);
-                        }
+                        var gateDict = new PyDict();
+                        gateDict.SetItem(new PyString("id"), new PyInt(gate.Id));
+                        gateDict.SetItem(new PyString("x"), new PyFloat(gate.X));
+                        gateDict.SetItem(new PyString("connected_region"), new PyInt(gate.ConnectedLocation.RegionId));
+                        gateDict.SetItem(new PyString("connected_local"), new PyInt(gate.ConnectedLocation.LocalId));
+                        gateDict.SetItem(new PyString("connected_gate"), new PyInt(gate.ConnectedGateId));
+                        gateDict.SetItem(new PyString("is_blocked"), gate.IsBlocked ? PyBool.True : PyBool.False);
+                        gatesList.Append(gateDict);
                     }
-                    locDict.SetItem(new PyString("edges"), edgesList);
+                    locDict.SetItem(new PyString("gates"), gatesList);
 
                     // 이 Location에서 다른 Region으로 가는 RegionEdge 목록
                     var regionEdgesList = new PyList();

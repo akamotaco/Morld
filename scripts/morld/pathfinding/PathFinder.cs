@@ -192,7 +192,7 @@ public class PathFinder
 
 			closedSet.Add(current.GlobalId);
 
-			foreach ((Location neighbor, Edge edge, float edgeTravelTime) in region.GetTraversableNeighbors(current, context))
+			foreach ((Location neighbor, float edgeTravelTime) in region.GetTraversableNeighbors(current, context))
 			{
 				if (closedSet.Contains(neighbor.GlobalId))
 					continue;
@@ -246,7 +246,7 @@ public class PathFinder
 			var currentRegion = _terrain.GetRegion(current.Location.RegionId)!;
 
 			// 1. 같은 Region 내 이동
-			foreach ((Location neighbor, Edge edge, float edgeTravelTime) in currentRegion.GetTraversableNeighbors(current.Location, context))
+			foreach ((Location neighbor, float edgeTravelTime) in currentRegion.GetTraversableNeighbors(current.Location, context))
 			{
 				var neighborNode = new SearchNode(neighbor);
 				if (closedSet.Contains(neighborNode.Id))

@@ -10,8 +10,6 @@ using System.Linq;
 public class Region : IDescribable
 {
     private readonly Dictionary<int, Location> _locations = new();
-    private readonly Dictionary<int, List<Edge>> _adjacencyList = new();
-    private readonly List<Edge> _allEdges = new();
     private readonly Dictionary<int, Dictionary<int, Gate>> _gates = new(); // Location별 Gate 저장
     private readonly List<Gate> _allGates = new();
     private bool _isChanged;
@@ -58,12 +56,7 @@ public class Region : IDescribable
     public IReadOnlyCollection<Location> Locations => _locations.Values;
 
     /// <summary>
-    /// Region 내 모든 Edge
-    /// </summary>
-    public IReadOnlyCollection<Edge> Edges => _allEdges;
-
-    /// <summary>
-    /// Region 내 모든 Gate (Pi-World)
+    /// Region 내 모든 Gate
     /// </summary>
     public IReadOnlyCollection<Gate> Gates => _allGates;
 
@@ -73,12 +66,7 @@ public class Region : IDescribable
     public int LocationCount => _locations.Count;
 
     /// <summary>
-    /// Edge 수
-    /// </summary>
-    public int EdgeCount => _allEdges.Count;
-
-    /// <summary>
-    /// Gate 수 (Pi-World)
+    /// Gate 수
     /// </summary>
     public int GateCount => _allGates.Count;
 
@@ -135,7 +123,6 @@ public class Region : IDescribable
         var location = new Location(localId, Id, name);
         location.ParentRegion = this;
         _locations[localId] = location;
-        _adjacencyList[localId] = new List<Edge>();
         return location;
     }
 
@@ -159,68 +146,9 @@ public class Region : IDescribable
 
         location.ParentRegion = this;
         _locations[location.LocalId] = location;
-        _adjacencyList[location.LocalId] = new List<Edge>();
     }
 
-    /// <summary>
-    /// 양방향 엣지 추가 (동일한 이동 시간)
-    /// </summary>
-    public Edge AddEdge(int localIdA, int localIdB, int travelTime)
-    {
-        var locationA = GetOrCreateLocation(localIdA);
-        var locationB = GetOrCreateLocation(localIdB);
-
-        var edge = new Edge(locationA, locationB);
-        edge.OwnerRegion = this;
-        edge.SetTravelTime(travelTime);
-
-        _adjacencyList[localIdA].Add(edge);
-        _adjacencyList[localIdB].Add(edge);
-        _allEdges.Add(edge);
-
-        MarkAsChanged();
-        return edge;
-    }
-
-    /// <summary>
-    /// 양방향 엣지 추가 (방향별 다른 이동 시간)
-    /// </summary>
-    public Edge AddEdge(int localIdA, int localIdB, int travelTimeAtoB, int travelTimeBtoA)
-    {
-        var locationA = GetOrCreateLocation(localIdA);
-        var locationB = GetOrCreateLocation(localIdB);
-
-        var edge = new Edge(locationA, locationB);
-        edge.OwnerRegion = this;
-        edge.SetTravelTime(travelTimeAtoB, travelTimeBtoA);
-
-        _adjacencyList[localIdA].Add(edge);
-        _adjacencyList[localIdB].Add(edge);
-        _allEdges.Add(edge);
-
-        MarkAsChanged();
-        return edge;
-    }
-
-    /// <summary>
-    /// 엣지 제거
-    /// </summary>
-    public bool RemoveEdge(int localIdA, int localIdB)
-    {
-        var edge = GetEdgeBetween(localIdA, localIdB);
-        if (edge == null)
-            return false;
-
-        _adjacencyList[localIdA].Remove(edge);
-        _adjacencyList[localIdB].Remove(edge);
-        _allEdges.Remove(edge);
-        edge.OwnerRegion = null;
-
-        MarkAsChanged();
-        return true;
-    }
-
-    #region Pi-World Gate 관리
+    #region Gate 관리
 
     /// <summary>
     /// Gate 추가 (Pi-World)
@@ -392,58 +320,42 @@ public class Region : IDescribable
     }
 
     /// <summary>
-    /// 특정 Location에 연결된 모든 엣지 가져오기
-    /// </summary>
-    public IReadOnlyList<Edge> GetEdges(Location location)
-    {
-        if (_adjacencyList.TryGetValue(location.LocalId, out var edges))
-            return edges;
-        return Array.Empty<Edge>();
-    }
-
-    /// <summary>
-    /// 특정 Location에 연결된 모든 이웃 Location들 가져오기 (이동 가능 여부 무관)
+    /// 특정 Location에 연결된 모든 이웃 Location들 가져오기 (Gate 기반)
     /// </summary>
     public IEnumerable<Location> GetNeighbors(Location location)
     {
-        var edges = GetEdges(location);
-        foreach (var edge in edges)
+        var gates = GetGates(location.LocalId);
+        foreach (var gate in gates)
         {
-            yield return edge.GetOtherLocation(location);
+            var neighborLoc = GetLocation(gate.ConnectedLocation.LocalId);
+            if (neighborLoc != null)
+                yield return neighborLoc;
         }
     }
 
     /// <summary>
-    /// 특정 Location에서 이동 가능한 이웃들 가져오기
+    /// 특정 Location에서 이동 가능한 이웃들 가져오기 (Gate 기반)
+    /// Gate 통과 시간 = 0 (즉시 통과), 이동 시간은 Location 내에서 Gate까지의 거리로 계산
     /// </summary>
-    public IEnumerable<(Location neighbor, Edge edge, int travelTime)> GetTraversableNeighbors(
+    public IEnumerable<(Location neighbor, float travelTime)> GetTraversableNeighbors(
         Location location,
         TraversalContext? context = null)
     {
-        var edges = GetEdges(location);
+        if (!_gates.TryGetValue(location.LocalId, out var gateDict))
+            yield break;
 
-        foreach (var edge in edges)
+        foreach (var gate in gateDict.Values)
         {
-            if (edge.CanTraverse(location, context))
-            {
-                var neighbor = edge.GetOtherLocation(location);
-                var travelTime = edge.GetTravelTime(location);
-                yield return (neighbor, edge, travelTime);
-            }
+            if (!gate.CanTraverseForward(context))
+                continue;
+
+            var neighborLoc = GetLocation(gate.ConnectedLocation.LocalId);
+            if (neighborLoc == null)
+                continue;
+
+            // Gate 통과 시간 = 0 (즉시 통과)
+            yield return (neighborLoc, 0f);
         }
-    }
-
-    /// <summary>
-    /// 두 Location 사이의 엣지 찾기
-    /// </summary>
-    public Edge? GetEdgeBetween(int localIdA, int localIdB)
-    {
-        if (!_adjacencyList.TryGetValue(localIdA, out var edges))
-            return null;
-
-        return edges.FirstOrDefault(e =>
-            (e.LocationA.LocalId == localIdA && e.LocationB.LocalId == localIdB) ||
-            (e.LocationA.LocalId == localIdB && e.LocationB.LocalId == localIdA));
     }
 
     /// <summary>
@@ -452,8 +364,6 @@ public class Region : IDescribable
     public void Clear()
     {
         _locations.Clear();
-        _adjacencyList.Clear();
-        _allEdges.Clear();
         _gates.Clear();
         _allGates.Clear();
     }

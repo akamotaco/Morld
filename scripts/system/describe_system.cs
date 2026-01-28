@@ -11,12 +11,12 @@ namespace SE
 	public class DescribeSystem : ECS.System
 	{
 		/// <summary>
-		/// Edge 위 캐릭터 감지 거리 threshold (분 단위, -1이면 무한)
+		/// 이동 중인 캐릭터 감지 거리 threshold (분 단위, -1이면 무한)
 		/// </summary>
 		public int AwarenessDistanceThreshold { get; set; } = 30;
 
 		/// <summary>
-		/// 인접 Location 군중 감지 거리 threshold (분 단위, -1이면 무한)
+		/// 인접 Location 군중 감지 (Gate 연결 기반)
 		/// </summary>
 		public int CrowdDistanceThreshold { get; set; } = 30;
 
@@ -31,7 +31,7 @@ namespace SE
 
 		/// <summary>
 		/// 플레이어 주변 인식 정보를 ActionLog에 추가
-		/// - Edge 위에서 다가오는 캐릭터 감지
+		/// - 이동 중인 캐릭터 감지 (Gate 통해 다가오는 경우)
 		/// - 인접 Location의 군중(3명 이상) 감지
 		/// pending 상태에서 한 번 호출
 		/// Note: 멀어지는 캐릭터는 NotifyNpcDeparture에서 처리
@@ -54,48 +54,52 @@ namespace SE
 			var currentLoc = region?.GetLocation(playerLocation.LocalId);
 			if (currentLoc == null) return;
 
-			// 1. Edge 위에서 다가오는 캐릭터 감지
+			// 1. 이동 중인 캐릭터 감지 (Gate 통과하여 다가오는 경우)
 			foreach (var unit in unitSystem.Units.Values)
 			{
 				// 플레이어, 오브젝트 제외
 				if (unit.Id == player.Id) continue;
 				if (unit.IsObject) continue;
 
-				var edgeProgress = unit.CurrentEdge;
-				if (edgeProgress == null) continue;
+				var movement = unit.CurrentMovement;
+				if (movement == null) continue;
 
-				// 다가오는 캐릭터: 목적지가 플레이어 위치
-				if (edgeProgress.To == playerLocation)
+				// Gate 통과 이동 중이고, 목적지가 플레이어 위치인 경우
+				if (movement.TargetGateId.HasValue)
 				{
-					// threshold 체크 (-1이면 무한)
-					if (AwarenessDistanceThreshold >= 0 && edgeProgress.RemainingTime > AwarenessDistanceThreshold)
-						continue;
+					var gate = region.GetGate(unit.CurrentLocation.LocalId, movement.TargetGateId.Value);
+					if (gate != null && gate.ConnectedLocation == playerLocation)
+					{
+						// threshold 체크 (-1이면 무한)
+						if (AwarenessDistanceThreshold >= 0 && movement.RemainingTime > AwarenessDistanceThreshold)
+							continue;
 
-					var fromLoc = terrain.GetLocation(edgeProgress.From);
-					var fromName = GetLocationDisplayName(terrain, fromLoc);
-					actionLogSystem?.AddLog($"{unit.Name}(이)가 {fromName} 쪽에서 다가온다.");
+						var fromLoc = terrain.GetLocation(unit.CurrentLocation);
+						var fromName = GetLocationDisplayName(terrain, fromLoc);
+						actionLogSystem?.AddLog($"{unit.Name}(이)가 {fromName} 쪽에서 다가온다.");
+					}
 				}
 			}
 
-			// 2. 인접 Location의 군중 감지
-			var edges = region.GetEdges(currentLoc);
-			foreach (var edge in edges)
+			// 2. 인접 Location의 군중 감지 (Gate 연결 기반)
+			var gates = region.GetGates(currentLoc);
+			foreach (var gate in gates)
 			{
-				var neighborLoc = edge.GetOtherLocation(currentLoc);
-				var travelTime = edge.GetTravelTime(currentLoc);
-
-				// threshold 체크 (-1이면 무한)
-				if (CrowdDistanceThreshold >= 0 && travelTime > CrowdDistanceThreshold)
+				// 같은 Region 내의 연결만 확인
+				if (gate.ConnectedLocation.RegionId != playerLocation.RegionId)
 					continue;
 
+				var neighborLoc = region.GetLocation(gate.ConnectedLocation.LocalId);
+				if (neighborLoc == null) continue;
+
 				// 해당 Location에 있는 캐릭터 수 계산 (오브젝트 제외)
-				var neighborRef = new LocationRef(neighborLoc.RegionId, neighborLoc.LocalId);
+				var neighborRef = gate.ConnectedLocation;
 				int characterCount = 0;
 				foreach (var unit in unitSystem.Units.Values)
 				{
 					if (unit.IsObject) continue;
 					if (unit.Id == player.Id) continue;
-					if (unit.CurrentLocation == neighborRef && unit.CurrentEdge == null)
+					if (unit.CurrentLocation == neighborRef && unit.CurrentMovement == null)
 					{
 						characterCount++;
 					}

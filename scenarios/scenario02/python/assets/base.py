@@ -1487,6 +1487,10 @@ class Object(Unit):
     put_filter: list = None  # 넣기 가능한 카테고리 리스트
     item_visible: bool = False  # True면 오브젝트 리스트에서 아이템 개수 표시
 
+    # Pi-World: Object의 Location 내 위치 (instantiate 시 설정)
+    position_x: float = 0
+    position_y: float = 0
+
     def take(self, item_id):
         """오브젝트에서 특정 아이템 하나 가져가기"""
         player_id = morld.get_player_id()
@@ -1561,11 +1565,24 @@ class Object(Unit):
             morld.lost_item(player_id, item_id)
             morld.give_item(self.instance_id, item_id)
 
-    def instantiate(self, instance_id: int, region_id: int, location_id: int):
-        """오브젝트를 morld에 등록"""
+    def instantiate(self, instance_id: int, region_id: int, location_id: int, x: float = None, y: float = None):
+        """
+        오브젝트를 morld에 등록
+
+        Args:
+            instance_id: 유닛 ID
+            region_id: Region ID
+            location_id: Location ID
+            x: Location 내 X 좌표 (None이면 self.position_x 사용)
+            y: Location 내 Y 좌표 (None이면 self.position_y 사용)
+        """
         super().instantiate(instance_id)
         self.region_id = region_id
         self.location_id = location_id
+
+        # 위치 결정 (인자 > 클래스 속성)
+        pos_x = x if x is not None else self.position_x
+        pos_y = y if y is not None else self.position_y
 
         morld.add_unit(
             instance_id,
@@ -1580,6 +1597,10 @@ class Object(Unit):
             self.owner,      # owner 전달
             self.item_visible  # item_visible 전달
         )
+
+        # Pi-World: Location 내 위치 설정
+        if pos_x != 0 or pos_y != 0:
+            morld.set_unit_position(instance_id, pos_x, pos_y)
 
         # Prop 설정 (좌석 정보 등)
         if self.props:
@@ -1787,7 +1808,7 @@ class Location(Asset):
         # Location에 ground_id 설정
         morld.set_location_ground_id(self.region_id, self.location_id, ground_instance_id)
 
-    def add_object(self, obj: Object, instance_id: int = None, owner: str = None) -> int:
+    def add_object(self, obj: Object, instance_id: int = None, owner: str = None, x: float = None, y: float = None) -> int:
         """
         이 Location에 오브젝트 배치
 
@@ -1795,6 +1816,8 @@ class Location(Asset):
             obj: Object 인스턴스
             instance_id: 유닛 ID (None이면 create_id로 자동 생성)
             owner: 소유자 unique_id (None이면 obj.owner 사용)
+            x: Location 내 X 좌표 (Pi-World)
+            y: Location 내 Y 좌표 (Pi-World)
 
         Returns:
             생성된 오브젝트의 instance_id
@@ -1805,7 +1828,7 @@ class Location(Asset):
         # owner 파라미터가 주어지면 인스턴스의 owner 오버라이드
         if owner is not None:
             obj.owner = owner
-        obj.instantiate(instance_id, self.region_id, self.location_id)
+        obj.instantiate(instance_id, self.region_id, self.location_id, x, y)
         return instance_id
 
     def add_item_to_ground(self, item: Item, count: int = 1):
