@@ -307,12 +307,28 @@ public partial class MetaActionHandler
 			}
 		}
 
-		// NPC 주도 이벤트 없음 → 일반 focus UI 표시
+		// Focus 시 on_meet 이벤트 체크 (충돌 반경 내, 아직 만난 적 없는 경우)
+		var eventSystem = _world.GetSystem("eventSystem") as SE.EventSystem;
+		if (eventSystem != null && eventSystem.TriggerOnMeetForFocus(unitId))
+		{
+			// on_meet 이벤트가 큐에 추가됨 → 이벤트 처리
+			if (eventSystem.FlushEvents())
+			{
+#if DEBUG_LOG
+				GD.Print($"[MetaActionHandler] Focus on_meet event triggered for unit {unitId}");
+#endif
+				return;  // on_meet 이벤트 실행됨, ShowUnitLook 스킵
+			}
+		}
+
+		// NPC 주도 이벤트 없음, on_meet 없음 → 일반 focus UI 표시
 		_textUISystem?.ShowUnitLook(unitId);
 	}
 
 	/// <summary>
 	/// 목적지까지 이동 시간 계산
+	/// Pi-World: X 좌표 기반 거리 계산
+	/// Legacy: Edge 기반 시간 합산
 	/// </summary>
 	/// <returns>이동 시간(분), 경로 없으면 -1</returns>
 	private int CalculateTravelTimeToDestination(int regionId, int localId)
@@ -341,7 +357,97 @@ public partial class MetaActionHandler
 		if (!pathResult.Found || pathResult.Path.Count < 2)
 			return -1;
 
+		// Pi-World: 현재 Location이 2D 모드인지 확인
+		var currentLocation = terrain.GetLocation(player.CurrentLocation);
+		if (currentLocation != null && !currentLocation.IsLegacyMode)
+		{
+			// Pi-World 2D: X 좌표 기반 이동 시간 계산
+			return CalculatePathTravelTime2D(terrain, pathResult, player, actualProps);
+		}
+
+		// Legacy: Edge 기반 이동 시간 합산
 		return terrain.CalculatePathTravelTime(pathResult);
+	}
+
+	/// <summary>
+	/// Pi-World 2D 경로 이동 시간 계산
+	/// 각 Location 내 Gate까지 이동 시간을 합산
+	/// </summary>
+	/// <param name="terrain">지형 정보</param>
+	/// <param name="pathResult">경로 탐색 결과</param>
+	/// <param name="player">플레이어 유닛</param>
+	/// <param name="actualProps">실제 속성 (이동 속도 등)</param>
+	/// <returns>총 이동 시간 (분)</returns>
+	private int CalculatePathTravelTime2D(Terrain terrain, PathResult pathResult, Unit player, TraversalContext actualProps)
+	{
+		if (!pathResult.Found || pathResult.Path.Count < 2)
+			return 0;
+
+		// 이동 속도 배율 계산
+		var itemSystem = _world.GetSystem("itemSystem") as SE.ItemSystem;
+		var inventorySystem = _world.GetSystem("inventorySystem") as SE.InventorySystem;
+		var inventory = inventorySystem?.GetUnitInventory(player.Id);
+		var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+		int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
+		float speedModifier = movementSpeedPercent / 100f;
+
+		int totalTime = 0;
+		float currentX = player.PositionX;
+		var currentLocRef = player.CurrentLocation;
+
+		// 경로의 각 세그먼트에 대해 이동 시간 계산
+		for (int i = 0; i < pathResult.Path.Count - 1; i++)
+		{
+			var fromLocRef = new LocationRef(pathResult.Path[i]);
+			var toLocRef = new LocationRef(pathResult.Path[i + 1]);
+
+			var location = terrain.GetLocation(fromLocRef);
+			if (location == null || location.IsLegacyMode)
+			{
+				// Legacy Location: 기본 Edge 시간 사용
+				var edgeTime = terrain.GetTravelTimeBetween(fromLocRef, toLocRef);
+				totalTime += edgeTime >= 0 ? edgeTime : 1;
+				currentLocRef = toLocRef;
+				currentX = 0f;  // Legacy는 X 좌표 없음
+				continue;
+			}
+
+			// Pi-World: Gate 찾기
+			var region = terrain.GetRegion(fromLocRef.RegionId);
+			if (region == null) continue;
+
+			var gates = region.GetGates(fromLocRef.LocalId);
+			Gate? targetGate = null;
+
+			// 목적지로 연결된 Gate 찾기
+			foreach (var gate in gates)
+			{
+				if (gate.ConnectedLocation == toLocRef && gate.CanTraverseForward(actualProps))
+				{
+					targetGate = gate;
+					break;
+				}
+			}
+
+			if (targetGate == null)
+			{
+				// Gate를 못 찾으면 기본값 사용
+				totalTime += 1;
+				currentLocRef = toLocRef;
+				currentX = 0f;
+				continue;
+			}
+
+			// Gate까지 이동 시간 계산
+			int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
+			totalTime += travelTime;
+
+			// Gate 통과 후 위치 업데이트
+			currentLocRef = toLocRef;
+			currentX = targetGate.ArrivalX;
+		}
+
+		return totalTime;
 	}
 
 	/// <summary>

@@ -593,6 +593,77 @@ namespace SE
 		}
 
 		/// <summary>
+		/// Focus 시 on_meet 이벤트 체크 및 발동
+		/// 플레이어가 캐릭터를 Focus할 때 호출됩니다.
+		/// 조건: 같은 Location, 2D 모드일 경우 충돌 반경 내, 시간 정지가 아닐 것
+		/// </summary>
+		/// <param name="focusedUnitId">Focus된 유닛 ID</param>
+		/// <returns>on_meet 이벤트가 발동되었으면 true</returns>
+		public bool TriggerOnMeetForFocus(int focusedUnitId)
+		{
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+			// 시간 정지 상태에서는 on_meet 이벤트 스킵
+			if (_worldSystem.IsTimeFrozen())
+				return false;
+
+			var playerId = _playerSystem.PlayerId;
+			var player = _unitSystem.FindUnit(playerId);
+			if (player == null) return false;
+
+			var focusedUnit = _unitSystem.FindUnit(focusedUnitId);
+			if (focusedUnit == null) return false;
+			if (focusedUnit.Id == playerId) return false;
+			if (!focusedUnit.GeneratesEvents) return false;
+
+			// 같은 Location인지 확인
+			if (focusedUnit.CurrentLocation != player.CurrentLocation)
+				return false;
+
+			// Pi-World: 2D 모드일 경우 충돌 반경 체크
+			var terrain = _worldSystem.GetTerrain();
+			var location = terrain?.GetLocation(player.CurrentLocation);
+			bool is2DMode = location != null && !location.IsLegacyMode;
+
+			if (is2DMode)
+			{
+				float distance = location.CalculateDistance(player.PositionX, focusedUnit.PositionX);
+				if (distance > COLLISION_RADIUS)
+				{
+#if DEBUG_LOG
+					GD.Print($"[EventSystem] Focus on_meet skipped: {focusedUnit.Name} too far (dist={distance:F1}, radius={COLLISION_RADIUS})");
+#endif
+					return false;
+				}
+			}
+
+			// 만남 키 생성 및 중복 체크
+			var allIds = new List<int> { playerId, focusedUnitId };
+			allIds.Sort();
+			var meetingKey = string.Join(",", allIds);
+
+			if (_lastMeetings.Contains(meetingKey))
+			{
+#if DEBUG_LOG
+				GD.Print($"[EventSystem] Focus on_meet skipped: already met {focusedUnit.Name}");
+#endif
+				return false;
+			}
+
+			// 새로운 만남 기록 및 이벤트 생성
+			AddMeetingKey(meetingKey, allIds.ToArray());
+			Enqueue(GameEvent.OnMeet(allIds.ToArray()));
+
+#if DEBUG_LOG
+			GD.Print($"[EventSystem] Focus on_meet triggered: {player.Name} - {focusedUnit.Name}");
+#endif
+
+			return true;
+		}
+
+		/// <summary>
 		/// Proc은 빈 구현 (호출 기반 시스템)
 		/// </summary>
 		protected override void Proc(int step, Span<Component[]> allComponents)
