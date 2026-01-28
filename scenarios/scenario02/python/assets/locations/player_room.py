@@ -14,6 +14,7 @@ class PlayerRoom(Location):
     owner = "player"
     is_indoor = True
     stay_duration = 0
+    length = 30  # Pi-World: 방 길이
     describe_text = {
         "default": "텅 빈 방. 침대 하나만 덩그러니 놓여 있다."
     }

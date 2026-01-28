@@ -10,6 +10,7 @@ class Entrance(Location):
     name = "현관"
     is_indoor = True
     stay_duration = 0
+    length = 30  # Pi-World: 현관 길이
     describe_text = {
         "default": "저택의 입구. 무거운 나무 문이 달려 있다.",
         "아침": "아침 햇살이 문틈으로 스며든다.",

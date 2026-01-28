@@ -14,9 +14,13 @@ namespace SE
 	/// - 위치 변경 감지 (OnReach)
 	/// - 유닛 만남 감지 (OnMeet)
 	/// - 이벤트 배치 처리 후 Python on_event_list() 호출
+	/// - Pi-World: 2D 좌표 기반 충돌 감지
 	/// </summary>
 	public class EventSystem : ECS.System
 	{
+		// Pi-World: 2D 충돌 감지 반경 (단위)
+		private const float COLLISION_RADIUS = 5f;
+
 		// 이번 Step에서 발생한 이벤트 큐
 		private readonly List<GameEvent> _pendingEvents = new();
 
@@ -26,6 +30,7 @@ namespace SE
 		private readonly Dictionary<int, LocationRef> _lastLocations = new();
 
 		// 이동 시작 감지용 (이전 Step에서 이동 중이었는지)
+		// Pi-World: CurrentEdge 또는 CurrentMovement가 있으면 이동 중
 		private readonly HashSet<int> _wasMoving = new();
 
 		// OnMeet 중복 방지
@@ -177,6 +182,7 @@ namespace SE
 		/// 위치 변경 감지 및 OnReach 이벤트 생성
 		/// 플레이어 위치를 떠난 NPC는 액션 로그로 알림
 		/// 이동 시작한 NPC도 "떠났다" 알림 (화면에서 사라지므로)
+		/// Pi-World: CurrentMovement도 이동 상태로 처리
 		/// </summary>
 		public void DetectLocationChanges()
 		{
@@ -200,7 +206,8 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 
 				var currentLoc = unit.CurrentLocation;
-				var isMoving = unit.CurrentEdge != null;
+				// Pi-World: CurrentEdge 또는 CurrentMovement가 있으면 이동 중
+				var isMoving = unit.CurrentEdge != null || unit.CurrentMovement != null;
 				var wasMovingBefore = _wasMoving.Contains(unit.Id);
 
 				if (_lastLocations.TryGetValue(unit.Id, out var lastLoc))
@@ -245,18 +252,27 @@ namespace SE
 
 		/// <summary>
 		/// NPC가 플레이어 위치를 떠났음을 액션 로그로 알림
-		/// 이동 중인 경우 Edge의 목적지, 아니면 현재 위치를 사용
+		/// 이동 중인 경우 Edge/Gate의 목적지, 아니면 현재 위치를 사용
+		/// Pi-World: CurrentMovement의 TargetGateId로 목적지 확인
 		/// </summary>
 		private void NotifyNpcDeparture(Unit unit)
 		{
 			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
 			var terrain = worldSystem.GetTerrain();
 
-			// 이동 중이면 Edge의 목적지, 아니면 현재 위치
+			// 이동 중이면 목적지, 아니면 현재 위치
 			LocationRef destination;
 			if (unit.CurrentEdge != null)
 			{
+				// Legacy: Edge 목적지
 				destination = unit.CurrentEdge.To;
+			}
+			else if (unit.CurrentMovement != null && unit.CurrentMovement.TargetGateId.HasValue)
+			{
+				// Pi-World: Gate 통과 이동 중이면 연결된 Location
+				var region = terrain.GetRegion(unit.CurrentLocation.RegionId);
+				var gate = region?.GetGate(unit.CurrentLocation.LocalId, unit.CurrentMovement.TargetGateId.Value);
+				destination = gate?.ConnectedLocation ?? unit.CurrentLocation;
 			}
 			else
 			{
@@ -280,9 +296,10 @@ namespace SE
 		/// 같은 위치에 있는 유닛들의 OnMeet 이벤트 생성
 		///
 		/// 만남 조건:
-		/// - 조건 A: 정지 상태 (CurrentEdge == null)
+		/// - 조건 A: 정지 상태 (CurrentEdge == null, CurrentMovement == null)
 		/// - 조건 B: 방금 도착 (이전 위치 != 현재 위치, 경유지 통과 감지)
 		/// - 조건 C: Edge 위 충돌 (같은 Edge에서 반대/같은 방향)
+		/// - 조건 D: (Pi-World) 2D 공간에서 충돌 반경 내 접근
 		///
 		/// 시간 정지 상태에서는 스킵 (NPC와 상호작용 불가)
 		/// </summary>
@@ -302,6 +319,11 @@ namespace SE
 
 			var playerLocation = player.CurrentLocation;
 
+			// Pi-World: 2D 모드 확인
+			var terrain = _worldSystem.GetTerrain();
+			var location = terrain?.GetLocation(playerLocation);
+			bool is2DMode = location != null && !location.IsLegacyMode;
+
 			// 플레이어와 같은 위치에 있는 유닛 수집
 			var unitsToMeet = new List<int>();
 
@@ -311,6 +333,22 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 				if (unit.CurrentLocation != playerLocation) continue;
 
+				// Pi-World 2D 모드: 거리 기반 충돌 체크
+				if (is2DMode)
+				{
+					float distance = location.CalculateDistance(player.PositionX, unit.PositionX);
+					if (distance <= COLLISION_RADIUS)
+					{
+						// 조건 D: 2D 충돌 반경 내
+						unitsToMeet.Add(unit.Id);
+#if DEBUG_LOG
+						GD.Print($"[EventSystem] 2D meeting: {player.Name}(X={player.PositionX:F1}) - {unit.Name}(X={unit.PositionX:F1}), dist={distance:F1}");
+#endif
+					}
+					continue;
+				}
+
+				// Legacy 모드: 기존 로직
 				// 조건 A: 정지 상태
 				if (unit.CurrentEdge == null)
 				{
@@ -328,11 +366,24 @@ namespace SE
 				}
 			}
 
-			// 조건 C: Edge 위 충돌 감지 (플레이어가 Edge 위에 있을 때)
-			if (player.CurrentEdge != null)
+			// 조건 C: Edge 위 충돌 감지 (플레이어가 Edge 위에 있을 때, Legacy 모드)
+			if (!is2DMode && player.CurrentEdge != null)
 			{
 				var edgeMeetings = DetectEdgeMeetings(player, _unitSystem);
 				foreach (var unitId in edgeMeetings)
+				{
+					if (!unitsToMeet.Contains(unitId))
+					{
+						unitsToMeet.Add(unitId);
+					}
+				}
+			}
+
+			// Pi-World: 2D 이동 중 충돌 감지 (같은 Location, 이동 중인 유닛들)
+			if (is2DMode && player.CurrentMovement != null)
+			{
+				var movement2DMeetings = Detect2DMovementMeetings(player, _unitSystem, location);
+				foreach (var unitId in movement2DMeetings)
 				{
 					if (!unitsToMeet.Contains(unitId))
 					{
@@ -362,7 +413,41 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Edge 위에서의 충돌 감지
+		/// Pi-World: 2D 이동 중 충돌 감지
+		/// 플레이어와 같은 Location에서 이동 중인 유닛 중 교차/근접하는 유닛 반환
+		/// </summary>
+		private List<int> Detect2DMovementMeetings(Unit player, UnitSystem unitSystem, Location location)
+		{
+			var result = new List<int>();
+			var playerMovement = player.CurrentMovement;
+			if (playerMovement == null) return result;
+
+			foreach (var unit in unitSystem.Units.Values)
+			{
+				if (unit.Id == player.Id) continue;
+				if (unit.IsObject) continue;
+				if (!unit.GeneratesEvents) continue;
+				if (unit.CurrentLocation != player.CurrentLocation) continue;
+
+				// 현재 위치 기준 거리 계산
+				float playerCurrentX = playerMovement.CurrentX;
+				float unitCurrentX = unit.CurrentMovement?.CurrentX ?? unit.PositionX;
+
+				float distance = location.CalculateDistance(playerCurrentX, unitCurrentX);
+				if (distance <= COLLISION_RADIUS)
+				{
+#if DEBUG_LOG
+					GD.Print($"[EventSystem] 2D movement meeting: {player.Name}(X={playerCurrentX:F1}) - {unit.Name}(X={unitCurrentX:F1}), dist={distance:F1}");
+#endif
+					result.Add(unit.Id);
+				}
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Edge 위에서의 충돌 감지 (Legacy 모드)
 		/// 플레이어와 같은 Edge에 있는 유닛 중 충돌 조건 만족하는 유닛 반환
 		/// </summary>
 		private List<int> DetectEdgeMeetings(Unit player, UnitSystem unitSystem)

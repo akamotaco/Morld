@@ -13,6 +13,7 @@ public class Unit : IOwnable
 	private readonly int _id;
 	private LocationRef _currentLocation;
 	private EdgeProgress? _currentEdge;
+	private MovementProgress? _currentMovement;  // Pi-World 2D 이동
 
 	/// <summary>
 	/// Unit 고유 ID
@@ -48,6 +49,36 @@ public class Unit : IOwnable
 		get => _currentEdge;
 		set => _currentEdge = value;
 	}
+
+	#region Pi-World 2D 위치
+
+	/// <summary>
+	/// Location 내 X 좌표 (Pi-World)
+	/// Line: 거리, Ring: 각도 (0~360)
+	/// </summary>
+	public float PositionX { get; set; } = 0f;
+
+	/// <summary>
+	/// Location 내 Y 좌표 (확장용, 현재 미사용)
+	/// </summary>
+	public float PositionY { get; set; } = 0f;
+
+	/// <summary>
+	/// 2D 이동 진행 정보 (Pi-World)
+	/// null이면 이동 중이 아님
+	/// </summary>
+	public MovementProgress? CurrentMovement
+	{
+		get => _currentMovement;
+		set => _currentMovement = value;
+	}
+
+	/// <summary>
+	/// 2D 이동 중인지 여부 (Pi-World)
+	/// </summary>
+	public bool IsMoving2D => _currentMovement != null;
+
+	#endregion
 
 	/// <summary>
 	/// 기본 스케줄 (DailySchedule) - JobList 채우기용
@@ -255,6 +286,17 @@ public class Unit : IOwnable
 		}
 		_currentLocation = location;
 		_currentEdge = null;
+		_currentMovement = null;  // Pi-World: 2D 이동도 초기화
+	}
+
+	/// <summary>
+	/// 2D 위치로 즉시 이동 (Pi-World)
+	/// </summary>
+	public void SetLocation2D(LocationRef location, float x, float y = 0f)
+	{
+		SetLocation(location);
+		PositionX = x;
+		PositionY = y;
 	}
 
 	/// <summary>

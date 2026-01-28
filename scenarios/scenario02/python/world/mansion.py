@@ -32,38 +32,117 @@ REGION = {
     "weather": "맑음"
 }
 
-# Region 내 Edge
-EDGES = [
+# ========================================
+# Pi-World Gate 정의
+# ========================================
+#
+# Gate는 Location 간 연결점 (통과 시간 = 0)
+# 이동 시간 = Location 내에서 Gate까지의 거리 / 속도
+#
+# (region_id, location_id, gate_id, x, connected_region, connected_location, connected_gate)
+#
+# Location 길이 설정:
+# - 실내 (방): 30 단위
+# - 복도/거실: 50 단위
+# - 마당: 100 단위
+# - 숲: 300 단위
+
+GATES = [
     # === 저택 1층 연결 ===
-    (0, 1, 1),   # 현관 - 거실
-    (1, 2, 1),   # 거실 - 주방
-    (1, 3, 1),   # 거실 - 식당
-    (1, 4, 2),   # 거실 - 욕실
-    (1, 6, 1),   # 거실 - 주인공 방 (1층)
-    (1, 7, 1),   # 거실 - 리나 방 (1층)
-    (1, 9, 1),   # 거실 - 밀라 방 (1층)
-    (1, 15, 1),  # 거실 - 1층 화장실
-    (2, 3, 1),   # 주방 - 식당
+    # 현관(0) <-> 거실(1)
+    (REGION_ID, 0, 0, 30, REGION_ID, 1, 0),   # 현관 끝 -> 거실 입구
+    (REGION_ID, 1, 0, 0, REGION_ID, 0, 0),    # 거실 입구 -> 현관 끝
+
+    # 거실(1) <-> 주방(2)
+    (REGION_ID, 1, 1, 50, REGION_ID, 2, 0),   # 거실 오른쪽 -> 주방 입구
+    (REGION_ID, 2, 0, 0, REGION_ID, 1, 1),    # 주방 입구 -> 거실 오른쪽
+
+    # 거실(1) <-> 식당(3)
+    (REGION_ID, 1, 2, 25, REGION_ID, 3, 0),   # 거실 중앙 -> 식당 입구
+    (REGION_ID, 3, 0, 0, REGION_ID, 1, 2),    # 식당 입구 -> 거실 중앙
+
+    # 거실(1) <-> 욕실(4)
+    (REGION_ID, 1, 3, 40, REGION_ID, 4, 0),   # 거실 -> 욕실 입구
+    (REGION_ID, 4, 0, 0, REGION_ID, 1, 3),    # 욕실 입구 -> 거실
+
+    # 거실(1) <-> 주인공 방(6)
+    (REGION_ID, 1, 4, 10, REGION_ID, 6, 0),   # 거실 왼쪽 -> 주인공 방
+    (REGION_ID, 6, 0, 0, REGION_ID, 1, 4),    # 주인공 방 -> 거실
+
+    # 거실(1) <-> 리나 방(7)
+    (REGION_ID, 1, 5, 15, REGION_ID, 7, 0),   # 거실 -> 리나 방
+    (REGION_ID, 7, 0, 0, REGION_ID, 1, 5),    # 리나 방 -> 거실
+
+    # 거실(1) <-> 밀라 방(9)
+    (REGION_ID, 1, 6, 20, REGION_ID, 9, 0),   # 거실 -> 밀라 방
+    (REGION_ID, 9, 0, 0, REGION_ID, 1, 6),    # 밀라 방 -> 거실
+
+    # 거실(1) <-> 1층 화장실(15)
+    (REGION_ID, 1, 7, 45, REGION_ID, 15, 0),  # 거실 -> 1층 화장실
+    (REGION_ID, 15, 0, 0, REGION_ID, 1, 7),   # 1층 화장실 -> 거실
+
+    # 주방(2) <-> 식당(3)
+    (REGION_ID, 2, 1, 30, REGION_ID, 3, 1),   # 주방 끝 -> 식당
+    (REGION_ID, 3, 1, 30, REGION_ID, 2, 1),   # 식당 -> 주방
 
     # === 저택 2층 연결 ===
-    (1, 14, 1),  # 거실 - 2층 복도 (계단)
-    (14, 8, 1),  # 2층 복도 - 세라 방
-    (14, 10, 1), # 2층 복도 - 빈 방 1 (guest_room1)
-    (14, 11, 1), # 2층 복도 - 빈 방 2 (guest_room2)
-    (14, 5, 1),  # 2층 복도 - 창고
-    (14, 16, 1), # 2층 복도 - 2층 화장실
+    # 거실(1) <-> 2층 복도(14) - 계단
+    (REGION_ID, 1, 8, 30, REGION_ID, 14, 0),  # 거실 계단 -> 2층 복도
+    (REGION_ID, 14, 0, 0, REGION_ID, 1, 8),   # 2층 복도 -> 거실 계단
+
+    # 2층 복도(14) <-> 세라 방(8)
+    (REGION_ID, 14, 1, 10, REGION_ID, 8, 0),  # 2층 복도 -> 세라 방
+    (REGION_ID, 8, 0, 0, REGION_ID, 14, 1),   # 세라 방 -> 2층 복도
+
+    # 2층 복도(14) <-> 빈 방 1(10)
+    (REGION_ID, 14, 2, 20, REGION_ID, 10, 0), # 2층 복도 -> 빈 방 1
+    (REGION_ID, 10, 0, 0, REGION_ID, 14, 2),  # 빈 방 1 -> 2층 복도
+
+    # 2층 복도(14) <-> 빈 방 2(11)
+    (REGION_ID, 14, 3, 30, REGION_ID, 11, 0), # 2층 복도 -> 빈 방 2
+    (REGION_ID, 11, 0, 0, REGION_ID, 14, 3),  # 빈 방 2 -> 2층 복도
+
+    # 2층 복도(14) <-> 창고(5)
+    (REGION_ID, 14, 4, 40, REGION_ID, 5, 0),  # 2층 복도 -> 창고
+    (REGION_ID, 5, 0, 0, REGION_ID, 14, 4),   # 창고 -> 2층 복도
+
+    # 2층 복도(14) <-> 2층 화장실(16)
+    (REGION_ID, 14, 5, 50, REGION_ID, 16, 0), # 2층 복도 -> 2층 화장실
+    (REGION_ID, 16, 0, 0, REGION_ID, 14, 5),  # 2층 화장실 -> 2층 복도
 
     # === 마당 연결 ===
-    (0, 12, 1),  # 현관 - 앞마당
-    (0, 13, 2),  # 현관 - 뒷마당
+    # 현관(0) <-> 앞마당(12)
+    (REGION_ID, 0, 1, 0, REGION_ID, 12, 0),   # 현관 앞 -> 앞마당
+    (REGION_ID, 12, 0, 0, REGION_ID, 0, 1),   # 앞마당 -> 현관 앞
+
+    # 현관(0) <-> 뒷마당(13)
+    (REGION_ID, 0, 2, 15, REGION_ID, 13, 0),  # 현관 옆 -> 뒷마당
+    (REGION_ID, 13, 0, 0, REGION_ID, 0, 2),   # 뒷마당 -> 현관 옆
 
     # === 야외/숲 연결 ===
-    (12, 20, 3),  # 앞마당 - 숲 입구
-    (20, 21, 15), # 숲 입구 - 숲 깊은 곳
-    (20, 22, 10), # 숲 입구 - 강가
-    (20, 23, 10), # 숲 입구 - 채집터
-    (21, 24, 10), # 숲 깊은 곳 - 사냥터
-    (23, 22, 5),  # 채집터 - 강가
+    # 앞마당(12) <-> 숲 입구(20)
+    (REGION_ID, 12, 1, 100, REGION_ID, 20, 0),  # 앞마당 끝 -> 숲 입구
+    (REGION_ID, 20, 0, 0, REGION_ID, 12, 1),    # 숲 입구 -> 앞마당
+
+    # 숲 입구(20) <-> 숲 깊은 곳(21)
+    (REGION_ID, 20, 1, 300, REGION_ID, 21, 0),  # 숲 입구 깊이 -> 숲 깊은 곳
+    (REGION_ID, 21, 0, 0, REGION_ID, 20, 1),    # 숲 깊은 곳 -> 숲 입구
+
+    # 숲 입구(20) <-> 강가(22)
+    (REGION_ID, 20, 2, 200, REGION_ID, 22, 0),  # 숲 입구 옆 -> 강가
+    (REGION_ID, 22, 0, 0, REGION_ID, 20, 2),    # 강가 -> 숲 입구
+
+    # 숲 입구(20) <-> 채집터(23)
+    (REGION_ID, 20, 3, 150, REGION_ID, 23, 0),  # 숲 입구 -> 채집터
+    (REGION_ID, 23, 0, 0, REGION_ID, 20, 3),    # 채집터 -> 숲 입구
+
+    # 숲 깊은 곳(21) <-> 사냥터(24)
+    (REGION_ID, 21, 1, 300, REGION_ID, 24, 0),  # 숲 깊은 곳 -> 사냥터
+    (REGION_ID, 24, 0, 0, REGION_ID, 21, 1),    # 사냥터 -> 숲 깊은 곳
+
+    # 채집터(23) <-> 강가(22)
+    (REGION_ID, 23, 1, 150, REGION_ID, 22, 1),  # 채집터 -> 강가
+    (REGION_ID, 22, 1, 200, REGION_ID, 23, 1),  # 강가 -> 채집터
 ]
 
 TIME_SETTINGS = {
@@ -153,9 +232,9 @@ def initialize_terrain():
     for location_id, loc in locations.items():
         loc.instantiate(location_id, REGION_ID)
 
-    # Edge 등록 (Region 내 연결)
-    for from_id, to_id, travel_time in EDGES:
-        morld.add_edge(REGION_ID, from_id, to_id, travel_time)
+    # Gate 등록 (Pi-World 연결)
+    for region_id, location_id, gate_id, x, conn_region, conn_location, conn_gate in GATES:
+        morld.add_gate(region_id, location_id, gate_id, x, conn_region, conn_location, conn_gate)
 
     print(f"[world.mansion] Region {REGION_ID} initialized: {len(locations)} locations")
     return locations

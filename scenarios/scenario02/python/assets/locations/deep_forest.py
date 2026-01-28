@@ -9,6 +9,7 @@ class DeepForest(Location):
     name = "숲 깊은 곳"
     is_indoor = False
     stay_duration = 0
+    length = 300  # Pi-World: 숲 깊은 곳 길이
     describe_text = {
         "default": "울창한 나무들 사이. 낮에도 어둑하고 길을 잃기 쉽다.",
         "낮": "나뭇잎 사이로 간간이 빛이 스며든다.",

@@ -12,6 +12,8 @@ public class Region : IDescribable
     private readonly Dictionary<int, Location> _locations = new();
     private readonly Dictionary<int, List<Edge>> _adjacencyList = new();
     private readonly List<Edge> _allEdges = new();
+    private readonly Dictionary<int, Dictionary<int, Gate>> _gates = new(); // Location별 Gate 저장
+    private readonly List<Gate> _allGates = new();
     private bool _isChanged;
 
     /// <summary>
@@ -61,6 +63,11 @@ public class Region : IDescribable
     public IReadOnlyCollection<Edge> Edges => _allEdges;
 
     /// <summary>
+    /// Region 내 모든 Gate (Pi-World)
+    /// </summary>
+    public IReadOnlyCollection<Gate> Gates => _allGates;
+
+    /// <summary>
     /// Location 수
     /// </summary>
     public int LocationCount => _locations.Count;
@@ -69,6 +76,11 @@ public class Region : IDescribable
     /// Edge 수
     /// </summary>
     public int EdgeCount => _allEdges.Count;
+
+    /// <summary>
+    /// Gate 수 (Pi-World)
+    /// </summary>
+    public int GateCount => _allGates.Count;
 
     public Region(int id, string name = "unknown")
     {
@@ -208,6 +220,134 @@ public class Region : IDescribable
         return true;
     }
 
+    #region Pi-World Gate 관리
+
+    /// <summary>
+    /// Gate 추가 (Pi-World)
+    /// </summary>
+    /// <param name="localId">Gate가 속한 Location ID</param>
+    /// <param name="gateId">Gate ID (Location 내 고유)</param>
+    /// <param name="x">Gate X 좌표</param>
+    /// <param name="connectedRegion">연결된 Region ID</param>
+    /// <param name="connectedLocal">연결된 Location ID</param>
+    /// <param name="connectedGateId">연결된 Gate ID</param>
+    /// <returns>생성된 Gate</returns>
+    public Gate AddGate(int localId, int gateId, float x,
+                        int connectedRegion, int connectedLocal, int connectedGateId)
+    {
+        // Location 확인/생성
+        var location = GetOrCreateLocation(localId);
+        var ownerRef = new LocationRef(Id, localId);
+        var connectedRef = new LocationRef(connectedRegion, connectedLocal);
+
+        var gate = new Gate(gateId, ownerRef, x, connectedRef, connectedGateId);
+        gate.OwnerRegion = this;
+
+        // Location별 Gate 저장소 초기화
+        if (!_gates.ContainsKey(localId))
+            _gates[localId] = new Dictionary<int, Gate>();
+
+        _gates[localId][gateId] = gate;
+        _allGates.Add(gate);
+
+        MarkAsChanged();
+        return gate;
+    }
+
+    /// <summary>
+    /// Gate 가져오기 (Pi-World)
+    /// </summary>
+    public Gate? GetGate(int localId, int gateId)
+    {
+        if (_gates.TryGetValue(localId, out var locationGates))
+        {
+            if (locationGates.TryGetValue(gateId, out var gate))
+                return gate;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Location의 모든 Gate 가져오기 (Pi-World)
+    /// </summary>
+    public IReadOnlyCollection<Gate> GetGates(int localId)
+    {
+        if (_gates.TryGetValue(localId, out var locationGates))
+            return locationGates.Values.ToList();
+        return Array.Empty<Gate>();
+    }
+
+    /// <summary>
+    /// Location의 모든 Gate 가져오기 (Pi-World)
+    /// </summary>
+    public IReadOnlyCollection<Gate> GetGates(Location location) => GetGates(location.LocalId);
+
+    /// <summary>
+    /// Gate 제거 (Pi-World)
+    /// </summary>
+    public bool RemoveGate(int localId, int gateId)
+    {
+        if (!_gates.TryGetValue(localId, out var locationGates))
+            return false;
+
+        if (!locationGates.TryGetValue(gateId, out var gate))
+            return false;
+
+        locationGates.Remove(gateId);
+        _allGates.Remove(gate);
+        gate.OwnerRegion = null;
+
+        MarkAsChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// 특정 Location에서 통과 가능한 Gate들 가져오기 (Pi-World)
+    /// </summary>
+    public IEnumerable<Gate> GetTraversableGates(int localId, TraversalContext? context = null)
+    {
+        var gates = GetGates(localId);
+        foreach (var gate in gates)
+        {
+            if (gate.CanTraverseForward(context))
+                yield return gate;
+        }
+    }
+
+    /// <summary>
+    /// Location에서 가장 가까운 Gate 찾기 (Pi-World)
+    /// </summary>
+    /// <param name="localId">Location ID</param>
+    /// <param name="x">현재 X 좌표</param>
+    /// <param name="targetLocation">목표 Location (필터링용, null이면 모든 Gate)</param>
+    /// <param name="context">통과 조건 확인용 컨텍스트</param>
+    public Gate? FindNearestGate(int localId, float x, LocationRef? targetLocation = null, TraversalContext? context = null)
+    {
+        var location = GetLocation(localId);
+        if (location == null) return null;
+
+        Gate? nearest = null;
+        float minDistance = float.MaxValue;
+
+        foreach (var gate in GetTraversableGates(localId, context))
+        {
+            // 목표 Location 필터링
+            if (targetLocation.HasValue && gate.ConnectedLocation != targetLocation.Value)
+                continue;
+
+            float distance = location.CalculateDistance(x, gate.X);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                nearest = gate;
+            }
+        }
+
+        return nearest;
+    }
+
+    #endregion
+
     /// <summary>
     /// ID로 Location 가져오기
     /// </summary>
@@ -314,6 +454,8 @@ public class Region : IDescribable
         _locations.Clear();
         _adjacencyList.Clear();
         _allEdges.Clear();
+        _gates.Clear();
+        _allGates.Clear();
     }
 
     /// <summary>

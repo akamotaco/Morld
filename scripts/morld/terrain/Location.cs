@@ -4,7 +4,24 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
+/// Location의 기하학적 형태
+/// </summary>
+public enum LocationGeometry
+{
+    /// <summary>
+    /// 선형 공간: X = 거리 (0 ~ Length)
+    /// </summary>
+    Line,
+
+    /// <summary>
+    /// 원형 공간: X = 각도 (0 ~ 360, 회전 가능)
+    /// </summary>
+    Ring
+}
+
+/// <summary>
 /// Region에 속한 위치 (기존 Node 개념)
+/// Pi-World: 점(0D) → 선형/원형 1D 공간으로 확장
 /// </summary>
 public class Location : IEquatable<Location>, IDescribable, IOwnable
 {
@@ -56,6 +73,110 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     /// 아이템을 버리거나 떨어뜨릴 때 사용
     /// </summary>
     public int? GroundUnitId { get; set; }
+
+    #region Pi-World 2D 속성
+
+    /// <summary>
+    /// Location의 기하학적 형태
+    /// Line: X = 거리 (0 ~ Length), Ring: X = 각도 (0 ~ 360)
+    /// </summary>
+    public LocationGeometry Geometry { get; set; } = LocationGeometry.Line;
+
+    /// <summary>
+    /// Location의 길이 (Line 형태에서 X의 최대값)
+    /// Ring 형태에서는 무시됨 (항상 360)
+    /// 기본값 0은 레거시 모드 (점 형태)
+    /// </summary>
+    public float Length { get; set; } = 0f;
+
+    /// <summary>
+    /// 기본 이동 속도 (단위/분)
+    /// 캐릭터가 이 Location 내에서 이동할 때의 기본 속도
+    /// </summary>
+    public float BaseSpeed { get; set; } = 10f;
+
+    /// <summary>
+    /// Y축 최소값 (확장용, 현재 미사용)
+    /// </summary>
+    public float HeightMin { get; set; } = 0f;
+
+    /// <summary>
+    /// Y축 최대값 (확장용, 현재 미사용)
+    /// </summary>
+    public float HeightMax { get; set; } = 10f;
+
+    /// <summary>
+    /// 레거시 모드 여부 (Length == 0이면 점 형태로 동작)
+    /// </summary>
+    public bool IsLegacyMode => Length <= 0f;
+
+    /// <summary>
+    /// X축의 유효 최대값
+    /// Line: Length, Ring: 360
+    /// </summary>
+    public float MaxX => Geometry == LocationGeometry.Ring ? 360f : Length;
+
+    /// <summary>
+    /// 두 X 좌표 사이의 거리 계산
+    /// Ring 형태에서는 최단 경로 (시계/반시계 중 짧은 방향)
+    /// </summary>
+    public float CalculateDistance(float x1, float x2)
+    {
+        if (IsLegacyMode) return 0f;
+
+        float dx = MathF.Abs(x2 - x1);
+
+        if (Geometry == LocationGeometry.Ring)
+        {
+            // Ring: 최단 경로 선택 (직접 또는 반대 방향)
+            return MathF.Min(dx, 360f - dx);
+        }
+
+        // Line: 직선 거리
+        return dx;
+    }
+
+    /// <summary>
+    /// 거리 기반 이동 시간 계산 (분)
+    /// </summary>
+    /// <param name="fromX">출발 X 좌표</param>
+    /// <param name="toX">도착 X 좌표</param>
+    /// <param name="speedModifier">이동 속도 배율 (1.0 = 기본)</param>
+    /// <returns>이동 시간 (분, 올림)</returns>
+    public int CalculateTravelTime(float fromX, float toX, float speedModifier = 1.0f)
+    {
+        if (IsLegacyMode) return 0;
+
+        float distance = CalculateDistance(fromX, toX);
+        float speed = BaseSpeed * speedModifier;
+
+        if (speed <= 0f) return int.MaxValue;
+
+        return (int)MathF.Ceiling(distance / speed);
+    }
+
+    /// <summary>
+    /// X 좌표 정규화 (범위 내로 제한)
+    /// Ring: 0~360 범위로 래핑
+    /// Line: 0~Length 범위로 클램핑
+    /// </summary>
+    public float NormalizeX(float x)
+    {
+        if (IsLegacyMode) return 0f;
+
+        if (Geometry == LocationGeometry.Ring)
+        {
+            // Ring: 모듈로 연산으로 0~360 범위
+            x %= 360f;
+            if (x < 0) x += 360f;
+            return x;
+        }
+
+        // Line: 범위 제한
+        return MathF.Max(0f, MathF.Min(x, Length));
+    }
+
+    #endregion
 
     /// <summary>
     /// 부모 Region 참조 (Terrain에서 설정)

@@ -14,6 +14,7 @@ class Riverside(Location):
     name = "강가"
     is_indoor = False
     stay_duration = 0
+    length = 200  # Pi-World: 강가 길이
     describe_text = {
         "default": "맑은 물이 흐르는 작은 강. 물소리가 청량하게 들린다.",
         "아침": "아침 햇살에 수면이 반짝인다.",

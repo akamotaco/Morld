@@ -9,6 +9,7 @@ class Corridor2F(Location):
     name = "2층 복도"
     is_indoor = True
     stay_duration = 0
+    length = 50  # Pi-World: 복도 길이
     describe_text = {
         "default": "2층으로 올라오면 나오는 넓은 복도. 창문으로 저택 앞마당이 내려다보인다.",
         "아침": "아침 햇살이 창문을 통해 복도를 비춘다.",

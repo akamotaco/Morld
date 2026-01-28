@@ -508,6 +508,28 @@ namespace SE
                     result.SetItem(new PyString("dest_location_id"), PyNone.Instance);
                 }
 
+                // Pi-World: 2D 위치 정보
+                result.SetItem(new PyString("x"), new PyFloat(unit.PositionX));
+                result.SetItem(new PyString("y"), new PyFloat(unit.PositionY));
+
+                // Pi-World: Location 내 이동 중 여부
+                bool isMoving2D = unit.CurrentMovement != null;
+                result.SetItem(new PyString("is_moving_2d"), PyBool.FromBool(isMoving2D));
+
+                if (unit.CurrentMovement != null)
+                {
+                    result.SetItem(new PyString("target_gate_id"),
+                        unit.CurrentMovement.TargetGateId.HasValue
+                            ? new PyInt(unit.CurrentMovement.TargetGateId.Value)
+                            : PyNone.Instance);
+                    result.SetItem(new PyString("movement_progress"), new PyFloat(unit.CurrentMovement.Progress));
+                }
+                else
+                {
+                    result.SetItem(new PyString("target_gate_id"), PyNone.Instance);
+                    result.SetItem(new PyString("movement_progress"), PyNone.Instance);
+                }
+
                 return result;
             });
 

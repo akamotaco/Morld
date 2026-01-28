@@ -87,11 +87,13 @@ namespace SE
                 return PyBool.True;
             });
 
-            // add_location
+            // add_location (Pi-World 2D 속성 확장)
+            // add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None,
+            //              describe_text=None, ground_id=None, geometry="line", length=0, base_speed=10)
             morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
             {
                 if (args.Length < 3)
-                    throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None, ground_id=None) requires at least 3 arguments");
+                    throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None, ground_id=None, geometry='line', length=0, base_speed=10) requires at least 3 arguments");
 
                 int regionId = args[0].ToInt();
                 int localId = args[1].ToInt();
@@ -103,6 +105,11 @@ namespace SE
                     ? PyDictToStringDict(descDict)
                     : null;
                 int? groundId = args.Length >= 8 && args[7] != PyNone.Instance ? args[7].ToInt() : null;
+
+                // Pi-World 2D 속성
+                string geometry = args.Length >= 9 ? args[8].AsString() : "line";
+                float length = args.Length >= 10 ? (float)args[9].ToFloat() : 0f;
+                float baseSpeed = args.Length >= 11 ? (float)args[10].ToFloat() : 10f;
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -117,6 +124,13 @@ namespace SE
                     location.Owner = owner;
                     location.GroundUnitId = groundId;
 
+                    // Pi-World 2D 속성 설정
+                    location.Geometry = geometry.ToLower() == "ring"
+                        ? Morld.LocationGeometry.Ring
+                        : Morld.LocationGeometry.Line;
+                    location.Length = length;
+                    location.BaseSpeed = baseSpeed;
+
                     // describe_text 설정
                     if (describeText != null)
                     {
@@ -126,7 +140,7 @@ namespace SE
                         }
                     }
 
-                    Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, ground_id={groundId?.ToString() ?? "null"}, describe_text={describeText?.Count ?? 0} entries");
+                    Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, geometry={geometry}, length={length}, base_speed={baseSpeed}");
                     return PyBool.True;
                 }
                 return PyBool.False;
@@ -235,6 +249,58 @@ namespace SE
                 return PyBool.True;
             });
 
+            // add_gate: Pi-World Gate 추가 (Location 간 연결)
+            // add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, connected_gate,
+            //          conditions_forward=None, conditions_backward=None, is_blocked=False, name="")
+            morldModule.ModuleDict["add_gate"] = new PyBuiltinFunction("add_gate", args =>
+            {
+                if (args.Length < 7)
+                    throw PyTypeError.Create("add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, connected_gate, conditions_forward=None, conditions_backward=None, is_blocked=False, name='') requires at least 7 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+                int gateId = args[2].ToInt();
+                float x = (float)args[3].ToFloat();
+                int connectedRegion = args[4].ToInt();
+                int connectedLocation = args[5].ToInt();
+                int connectedGate = args[6].ToInt();
+
+                var conditionsForward = args.Length >= 8 && args[7] is PyDict condFwdDict
+                    ? PyDictToIntDict(condFwdDict)
+                    : null;
+                var conditionsBackward = args.Length >= 9 && args[8] is PyDict condBwdDict
+                    ? PyDictToIntDict(condBwdDict)
+                    : null;
+                bool isBlocked = args.Length >= 10 && args[9].IsTrue();
+                string name = args.Length >= 11 && args[10] is PyString nameStr ? nameStr.Value : "";
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem.GetTerrain();
+                var region = terrain.GetRegion(regionId);
+
+                if (region != null)
+                {
+                    var gate = region.AddGate(locationId, gateId, x, connectedRegion, connectedLocation, connectedGate);
+                    gate.Name = name;
+                    gate.IsBlocked = isBlocked;
+
+                    if (conditionsForward != null)
+                    {
+                        foreach (var (key, value) in conditionsForward)
+                            gate.AddConditionForward(key, value);
+                    }
+                    if (conditionsBackward != null)
+                    {
+                        foreach (var (key, value) in conditionsBackward)
+                            gate.AddConditionBackward(key, value);
+                    }
+
+                    Godot.GD.Print($"[morld] add_gate: {regionId}:{locationId}:Gate{gateId}(X={x}) -> {connectedRegion}:{connectedLocation}:Gate{connectedGate}");
+                    return PyBool.True;
+                }
+                return PyBool.False;
+            });
+
             // region_exists: Region 존재 여부 확인 (챕터별 Region 선택적 로드용)
             morldModule.ModuleDict["region_exists"] = new PyBuiltinFunction("region_exists", args =>
             {
@@ -319,6 +385,11 @@ namespace SE
                     locDict.SetItem(new PyString("id"), new PyInt(location.LocalId));
                     locDict.SetItem(new PyString("name"), new PyString(location.Name ?? ""));
                     locDict.SetItem(new PyString("is_indoor"), location.IsIndoor ? PyBool.True : PyBool.False);
+
+                    // Pi-World: Location 2D 속성
+                    locDict.SetItem(new PyString("length"), new PyFloat(location.Length));
+                    locDict.SetItem(new PyString("geometry"), new PyString(location.Geometry.ToString().ToLower()));
+                    locDict.SetItem(new PyString("base_speed"), new PyFloat(location.BaseSpeed));
 
                     // 이 Location에서 나가는 Edge 목록 (같은 Region 내)
                     var edgesList = new PyList();
@@ -1000,23 +1071,72 @@ namespace SE
                 return PyBool.False;
             });
 
-            // set_unit_location
+            // set_unit_location (Pi-World 2D 위치 확장)
+            // set_unit_location(unit_id, region_id, location_id, x=0, y=0)
             morldModule.ModuleDict["set_unit_location"] = new PyBuiltinFunction("set_unit_location", args =>
             {
                 if (args.Length < 3)
-                    throw PyTypeError.Create("set_unit_location(unit_id, region_id, location_id) requires 3 arguments");
+                    throw PyTypeError.Create("set_unit_location(unit_id, region_id, location_id, x=0, y=0) requires at least 3 arguments");
 
                 int unitId = args[0].ToInt();
                 int regionId = args[1].ToInt();
                 int locationId = args[2].ToInt();
+                float x = args.Length >= 4 ? (float)args[3].ToFloat() : 0f;
+                float y = args.Length >= 5 ? (float)args[4].ToFloat() : 0f;
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                 var unit = _unitSystem.FindUnit(unitId);
                 if (unit != null)
                 {
-                    unit.SetCurrentLocation(new Morld.LocationRef(regionId, locationId));
-                    unit.CurrentEdge = null;  // 이동 중이었다면 취소
-                    Godot.GD.Print($"[morld] set_unit_location: unit={unitId} -> {regionId}:{locationId}");
+                    unit.SetLocation2D(new Morld.LocationRef(regionId, locationId), x, y);
+                    Godot.GD.Print($"[morld] set_unit_location: unit={unitId} -> {regionId}:{locationId} (X={x}, Y={y})");
+                    return PyBool.True;
+                }
+                return PyBool.False;
+            });
+
+            // get_unit_position: Pi-World 2D 위치 조회
+            // get_unit_position(unit_id) -> (x, y) 또는 None
+            morldModule.ModuleDict["get_unit_position"] = new PyBuiltinFunction("get_unit_position", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("get_unit_position(unit_id) requires 1 argument");
+
+                int unitId = args[0].ToInt();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit != null)
+                {
+                    return new PyTuple(new PyObject[]
+                    {
+                        new PyFloat(unit.PositionX),
+                        new PyFloat(unit.PositionY)
+                    });
+                }
+                return PyNone.Instance;
+            });
+
+            // set_unit_position: Pi-World 2D 위치 설정 (Location 유지)
+            // set_unit_position(unit_id, x, y=0)
+            morldModule.ModuleDict["set_unit_position"] = new PyBuiltinFunction("set_unit_position", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("set_unit_position(unit_id, x, y=0) requires at least 2 arguments");
+
+                int unitId = args[0].ToInt();
+                float x = (float)args[1].ToFloat();
+                float y = args.Length >= 3 ? (float)args[2].ToFloat() : 0f;
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit != null)
+                {
+                    unit.PositionX = x;
+                    unit.PositionY = y;
+                    // 이동 중이었다면 취소
+                    unit.CurrentMovement = null;
+                    Godot.GD.Print($"[morld] set_unit_position: unit={unitId} -> X={x}, Y={y}");
                     return PyBool.True;
                 }
                 return PyBool.False;

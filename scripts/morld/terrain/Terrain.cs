@@ -223,6 +223,50 @@ public class Terrain
         return GetLocation(locationRef.RegionId, locationRef.LocalId);
     }
 
+    #region Pi-World Gate 조회
+
+    /// <summary>
+    /// Gate 가져오기 (전역) (Pi-World)
+    /// </summary>
+    public Gate? GetGate(int regionId, int localId, int gateId)
+    {
+        return GetRegion(regionId)?.GetGate(localId, gateId);
+    }
+
+    /// <summary>
+    /// Gate 가져오기 (LocationRef로) (Pi-World)
+    /// </summary>
+    public Gate? GetGate(LocationRef location, int gateId)
+    {
+        return GetGate(location.RegionId, location.LocalId, gateId);
+    }
+
+    /// <summary>
+    /// Gate 가져오기 (GateRef로) (Pi-World)
+    /// </summary>
+    public Gate? GetGate(GateRef gateRef)
+    {
+        return GetGate(gateRef.Location.RegionId, gateRef.Location.LocalId, gateRef.GateId);
+    }
+
+    /// <summary>
+    /// Location의 모든 Gate 가져오기 (Pi-World)
+    /// </summary>
+    public IReadOnlyCollection<Gate> GetGates(LocationRef location)
+    {
+        return GetRegion(location.RegionId)?.GetGates(location.LocalId) ?? Array.Empty<Gate>();
+    }
+
+    /// <summary>
+    /// 연결된 Gate 가져오기 (Pi-World)
+    /// </summary>
+    public Gate? GetConnectedGate(Gate gate)
+    {
+        return GetGate(gate.ConnectedLocation, gate.ConnectedGateId);
+    }
+
+    #endregion
+
     /// <summary>
     /// 이름으로 Location 검색
     /// </summary>

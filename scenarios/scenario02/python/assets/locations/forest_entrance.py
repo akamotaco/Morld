@@ -9,6 +9,7 @@ class ForestEntrance(Location):
     name = "숲 입구"
     is_indoor = False
     stay_duration = 5  # 숲 진입 시 지체 시간
+    length = 300  # Pi-World: 숲 길이
     describe_text = {
         "default": "저택으로 이어지는 숲길. 오래된 나무들이 늘어서 있다.",
         "아침": "아침 안개가 숲 입구를 감싸고 있다.",

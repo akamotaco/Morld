@@ -1696,6 +1696,11 @@ class Location(Asset):
     - describe_text: 장소 묘사 텍스트 딕셔너리 (태그 기반 선택용)
     - owner: 소유자 unique_id (None이면 공용)
 
+    Pi-World 2D 속성:
+    - geometry: "line" (선형) 또는 "ring" (원형), 기본값 "line"
+    - length: Location의 길이 (0이면 레거시 모드 - 점 형태)
+    - base_speed: 기본 이동 속도 (단위/분), 기본값 10
+
     인스턴스 속성:
     - location_id, region_id: 위치 정보
     - ground: 바닥 오브젝트 인스턴스 (instantiate에서 생성)
@@ -1708,6 +1713,11 @@ class Location(Asset):
     stay_duration: int = 0
     describe_text: dict = None  # 태그 기반 묘사 텍스트
     owner: str = None  # 소유자 unique_id (예: "sera", "mila")
+
+    # Pi-World 2D 속성
+    geometry: str = "line"  # "line" 또는 "ring"
+    length: float = 0  # 0 = 레거시 모드 (점 형태)
+    base_speed: float = 10  # 단위/분
 
     def __init__(self):
         super().__init__()
@@ -1726,7 +1736,7 @@ class Location(Asset):
         self.location_id = location_id
         self.region_id = region_id
 
-        # Location 등록
+        # Location 등록 (Pi-World 2D 속성 포함)
         morld.add_location(
             region_id,
             location_id,
@@ -1734,7 +1744,11 @@ class Location(Asset):
             self.stay_duration,
             self.is_indoor,
             self.owner,  # 소유자 정보 전달
-            self.describe_text  # 묘사 텍스트 전달
+            self.describe_text,  # 묘사 텍스트 전달
+            None,  # ground_id (나중에 설정)
+            self.geometry,  # Pi-World: geometry
+            self.length,  # Pi-World: length
+            self.base_speed  # Pi-World: base_speed
         )
 
     def get_describe_text(self) -> str:

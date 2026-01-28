@@ -118,13 +118,19 @@ def _render_map(state: dict) -> str:
     지도 텍스트 렌더링
 
     현재 region의 장소를 tree 형태로 표시
-    - 현재 위치 강조
+    - 현재 위치 강조 (Pi-World: X 좌표 표시)
     - 다른 region으로 가는 장소 표시
-    - 각 장소에 있는 캐릭터 표시
+    - 각 장소에 있는 캐릭터 표시 (Pi-World: 이동 중 표시)
     """
     region_id = state["region_id"]
     current_local = state["local_id"]
     player_id = morld.get_player_id()
+
+    # Pi-World: 플레이어 X 위치 조회
+    player_pos_x = 0
+    player_info = morld.get_unit_info(player_id) if player_id else None
+    if player_info:
+        player_pos_x = player_info.get("x", 0)
 
     region_info = morld.get_region_info(region_id)
     if not region_info:
@@ -149,8 +155,10 @@ def _render_map(state: dict) -> str:
                 characters.append(info.get("name", "???"))
         location_characters[loc_id] = characters
 
-    # 이동 중인 캐릭터 조회 (Edge 위에 있는 유닛)
-    # edge 도착지 Location에 "→이름" 또는 "→이름 (→최종목적지)" 형태로 추가
+    # 이동 중인 캐릭터 조회
+    # - Pi-World: Location 내 이동 (CurrentMovement)
+    # - Legacy: Edge 위 이동 (is_on_edge)
+    # 도착지 Location에 "→이름" 또는 "→이름 (→최종목적지)" 형태로 추가
     all_units = morld.get_all_unit_ids()
     for unit_id in all_units:
         if unit_id == player_id:
@@ -158,7 +166,26 @@ def _render_map(state: dict) -> str:
         info = morld.get_unit_info(unit_id)
         if not info or info.get("is_object", False):
             continue
-        # Edge 위에서 이동 중인 유닛만
+
+        # Pi-World: Location 내 이동 중인 유닛 (Gate를 향해 이동)
+        is_moving_2d = info.get("is_moving_2d", False)
+        if is_moving_2d:
+            # 2D 이동 중 - 현재 위치 Location에 이동 상태 표시
+            unit_region = info.get("region_id")
+            unit_local = info.get("location_id")
+            if unit_region == region_id and unit_local is not None:
+                name = info.get("name", "???")
+                target_gate = info.get("target_gate_id")
+                if target_gate is not None:
+                    display = f"🚶{name}"  # 이동 중 표시
+                else:
+                    display = f"🚶{name}"
+                if unit_local not in location_characters:
+                    location_characters[unit_local] = []
+                location_characters[unit_local].append(display)
+            continue
+
+        # Legacy: Edge 위에서 이동 중인 유닛
         if not info.get("is_on_edge", False):
             continue
         # 현재 edge의 도착지 (물리적 다음 위치)
@@ -229,10 +256,18 @@ def _render_map(state: dict) -> str:
         if chars:
             char_text = f" [color=lime][{', '.join(chars)}][/color]"
 
-        # 현재 위치 표시
+        # 현재 위치 표시 (Pi-World: X 좌표 포함)
         if loc_id == current_local:
             marker = "[color=yellow]>[/color] "
-            name_display = f"[color=yellow]{loc_info['name']}[/color]{char_text} [color=gray](현재 위치)[/color]"
+            # Location 길이 조회 (Pi-World)
+            loc_length = loc_info.get("length", 0)
+            if loc_length > 0:
+                # Pi-World 모드: X 좌표 표시
+                pos_text = f"X:{int(player_pos_x)}/{int(loc_length)}"
+                name_display = f"[color=yellow]{loc_info['name']}[/color]{char_text} [color=gray](현재 위치, {pos_text})[/color]"
+            else:
+                # Legacy 모드: 좌표 없이 표시
+                name_display = f"[color=yellow]{loc_info['name']}[/color]{char_text} [color=gray](현재 위치)[/color]"
             tree_lines.append(f"{indent}{marker}{name_display}")
         else:
             # 이동 가능 표시 (클릭 가능)
