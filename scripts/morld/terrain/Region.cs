@@ -158,17 +158,18 @@ public class Region : IDescribable
     /// <param name="x">Gate X 좌표</param>
     /// <param name="connectedRegion">연결된 Region ID</param>
     /// <param name="connectedLocal">연결된 Location ID</param>
-    /// <param name="connectedGateId">연결된 Gate ID</param>
+    /// <param name="arrivalX">도착 X 좌표</param>
+    /// <param name="arrivalY">도착 Y 좌표 (기본값 0)</param>
     /// <returns>생성된 Gate</returns>
     public Gate AddGate(int localId, int gateId, float x,
-                        int connectedRegion, int connectedLocal, int connectedGateId)
+                        int connectedRegion, int connectedLocal, float arrivalX, float arrivalY = 0f)
     {
         // Location 확인/생성
         var location = GetOrCreateLocation(localId);
         var ownerRef = new LocationRef(Id, localId);
         var connectedRef = new LocationRef(connectedRegion, connectedLocal);
 
-        var gate = new Gate(gateId, ownerRef, x, connectedRef, connectedGateId);
+        var gate = new Gate(gateId, ownerRef, x, connectedRef, arrivalX, arrivalY);
         gate.OwnerRegion = this;
 
         // Location별 Gate 저장소 초기화

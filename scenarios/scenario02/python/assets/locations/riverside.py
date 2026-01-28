@@ -28,4 +28,4 @@ class Riverside(Location):
         """강가 생성 + 바위투성이 바닥 + 낚시터 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundRocky())
-        self.add_object(FishingSpot())
+        self.add_object(FishingSpot(), x=100)  # 강가 중앙

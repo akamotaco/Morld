@@ -33,6 +33,16 @@ public class Job
 	public int LocationId { get; set; }
 
 	/// <summary>
+	/// 목표 X 좌표 (Pi-World, Location 내 위치)
+	/// </summary>
+	public float TargetX { get; set; } = 0f;
+
+	/// <summary>
+	/// 목표 Y 좌표 (Pi-World, 확장용)
+	/// </summary>
+	public float TargetY { get; set; } = 0f;
+
+	/// <summary>
 	/// 시작 시간 (JobList 내에서의 상대 시간, 분)
 	/// - 0이면 즉시 시작 (현재 시점)
 	/// - 양수면 그만큼 뒤에 시작 (Merge용)
@@ -67,6 +77,8 @@ public class Job
 			Action = Action,
 			RegionId = RegionId,
 			LocationId = LocationId,
+			TargetX = TargetX,
+			TargetY = TargetY,
 			StartOffset = StartOffset,
 			Duration = Duration,
 			TargetId = TargetId
@@ -76,7 +88,7 @@ public class Job
 	public override string ToString()
 	{
 		var target = TargetId.HasValue ? $", target={TargetId}" : "";
-		var location = Action == "stay" || Action == "move" ? $" @{RegionId}:{LocationId}" : "";
+		var location = Action == "stay" || Action == "move" ? $" @{RegionId}:{LocationId}(x={TargetX:F0})" : "";
 		return $"Job[{Name}:{Action}]{location} ({Duration}분{target})";
 	}
 }

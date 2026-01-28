@@ -193,6 +193,18 @@ namespace SE
                 job.StartOffset = dict.GetItem(new PyString("start_offset")).ToInt();
             }
 
+            // target_x (optional, Pi-World)
+            if (dict.Contains(new PyString("target_x")).Value)
+            {
+                job.TargetX = (float)dict.GetItem(new PyString("target_x")).ToFloat();
+            }
+
+            // target_y (optional, Pi-World 확장용)
+            if (dict.Contains(new PyString("target_y")).Value)
+            {
+                job.TargetY = (float)dict.GetItem(new PyString("target_y")).ToFloat();
+            }
+
             return job;
         }
 
@@ -267,7 +279,23 @@ namespace SE
                     activity = actObj is PyString ps ? ps.Value : actObj.ToString() ?? "";
                 }
 
+                // x (optional, Pi-World)
+                float targetX = 0f;
+                if (dict.Contains(new PyString("x")).Value)
+                {
+                    targetX = (float)dict.GetItem(new PyString("x")).ToFloat();
+                }
+
+                // y (optional, Pi-World 확장용)
+                float targetY = 0f;
+                if (dict.Contains(new PyString("y")).Value)
+                {
+                    targetY = (float)dict.GetItem(new PyString("y")).ToFloat();
+                }
+
                 var entry = new Morld.ScheduleEntry(name, regionId, locationId, start, end, activity);
+                entry.TargetX = targetX;
+                entry.TargetY = targetY;
                 schedule.AddEntry(entry);
             }
 
@@ -286,6 +314,8 @@ namespace SE
             dict.SetItem(new PyString("location_id"), new PyInt(job.LocationId));
             dict.SetItem(new PyString("duration"), new PyInt(job.Duration));
             dict.SetItem(new PyString("target_id"), job.TargetId.HasValue ? new PyInt(job.TargetId.Value) : PyNone.Instance);
+            dict.SetItem(new PyString("target_x"), new PyFloat(job.TargetX));
+            dict.SetItem(new PyString("target_y"), new PyFloat(job.TargetY));
             return dict;
         }
 

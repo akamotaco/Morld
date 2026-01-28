@@ -22,6 +22,7 @@ class Kitchen(Location):
         """주방 생성 + 바닥 + 아궁이 + 주전자 + 찬장 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundStone())
-        self.add_object(Stove())
-        self.add_object(Kettle())
-        self.add_object(Cupboard())
+        # 오브젝트 위치 분산 (주방 길이 30)
+        self.add_object(Stove(), x=10)    # 아궁이 (중앙 왼쪽)
+        self.add_object(Kettle(), x=15)   # 주전자 (아궁이 옆)
+        self.add_object(Cupboard(), x=25) # 찬장 (끝쪽)

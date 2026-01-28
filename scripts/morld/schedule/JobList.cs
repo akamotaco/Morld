@@ -272,7 +272,9 @@ public class JobList
 					RegionId = entry.Location.RegionId,
 					LocationId = entry.Location.LocalId,
 					Duration = jobDuration,
-					TargetId = null
+					TargetId = null,
+					TargetX = entry.TargetX,  // Pi-World 좌표
+					TargetY = entry.TargetY
 				};
 
 				_jobs.AddLast(job);

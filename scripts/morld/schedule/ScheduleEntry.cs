@@ -28,6 +28,16 @@ public class ScheduleEntry
 	public string Activity { get; set; }
 
 	/// <summary>
+	/// 목표 X 좌표 (Pi-World, Location 내 위치)
+	/// </summary>
+	public float TargetX { get; set; } = 0f;
+
+	/// <summary>
+	/// 목표 Y 좌표 (Pi-World, 확장용)
+	/// </summary>
+	public float TargetY { get; set; } = 0f;
+
+	/// <summary>
 	/// 추가 데이터
 	/// </summary>
 	public object? Tag { get; set; }

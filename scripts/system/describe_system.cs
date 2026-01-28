@@ -15,16 +15,6 @@ namespace SE
 		/// </summary>
 		public int AwarenessDistanceThreshold { get; set; } = 30;
 
-		/// <summary>
-		/// 인접 Location 군중 감지 (Gate 연결 기반)
-		/// </summary>
-		public int CrowdDistanceThreshold { get; set; } = 30;
-
-		/// <summary>
-		/// 군중으로 판단할 최소 인원 수
-		/// </summary>
-		public int CrowdCountThreshold { get; set; } = 3;
-
 		public DescribeSystem()
 		{
 		}
@@ -32,7 +22,6 @@ namespace SE
 		/// <summary>
 		/// 플레이어 주변 인식 정보를 ActionLog에 추가
 		/// - 이동 중인 캐릭터 감지 (Gate 통해 다가오는 경우)
-		/// - 인접 Location의 군중(3명 이상) 감지
 		/// pending 상태에서 한 번 호출
 		/// Note: 멀어지는 캐릭터는 NotifyNpcDeparture에서 처리
 		/// </summary>
@@ -81,41 +70,8 @@ namespace SE
 				}
 			}
 
-			// 2. 인접 Location의 군중 감지 (Gate 연결 기반)
-			var gates = region.GetGates(currentLoc);
-			foreach (var gate in gates)
-			{
-				// 같은 Region 내의 연결만 확인
-				if (gate.ConnectedLocation.RegionId != playerLocation.RegionId)
-					continue;
-
-				var neighborLoc = region.GetLocation(gate.ConnectedLocation.LocalId);
-				if (neighborLoc == null) continue;
-
-				// 해당 Location에 있는 캐릭터 수 계산 (오브젝트 제외)
-				var neighborRef = gate.ConnectedLocation;
-				int characterCount = 0;
-				foreach (var unit in unitSystem.Units.Values)
-				{
-					if (unit.IsObject) continue;
-					if (unit.Id == player.Id) continue;
-					if (unit.CurrentLocation == neighborRef && unit.CurrentMovement == null)
-					{
-						characterCount++;
-					}
-				}
-
-				if (characterCount >= CrowdCountThreshold)
-				{
-					var locName = GetLocationDisplayName(terrain, neighborLoc);
-					actionLogSystem?.AddLog($"{locName}에서 왁자지껄한 소리가 들린다.");
-				}
-				else if (characterCount == 2)
-				{
-					var locName = GetLocationDisplayName(terrain, neighborLoc);
-					actionLogSystem?.AddLog($"{locName}에서 도란도란 이야기 소리가 들린다.");
-				}
-			}
+			// NOTE: 인접 Location 군중 감지 기능 제거됨 (Pi-World 리팩토링)
+			// 필요시 다른 방식으로 재구현 예정
 		}
 
 		/// <summary>

@@ -257,13 +257,6 @@ public class Terrain
         return GetRegion(location.RegionId)?.GetGates(location.LocalId) ?? Array.Empty<Gate>();
     }
 
-    /// <summary>
-    /// 연결된 Gate 가져오기 (Pi-World)
-    /// </summary>
-    public Gate? GetConnectedGate(Gate gate)
-    {
-        return GetGate(gate.ConnectedLocation, gate.ConnectedGateId);
-    }
 
     #endregion
 
@@ -1314,7 +1307,7 @@ public class Terrain
                 foreach (var gate in region.Gates)
                 {
                     var blocked = gate.IsBlocked ? "   Yes" : "    -";
-                    var connected = $"R{gate.ConnectedLocation.RegionId}:L{gate.ConnectedLocation.LocalId}:G{gate.ConnectedGateId}";
+                    var connected = $"R{gate.ConnectedLocation.RegionId}:L{gate.ConnectedLocation.LocalId}(X={gate.ArrivalX:F0})";
 
                     lines.Add($"  │ {gate.OwnerLocation.LocalId,6} │ {gate.Id,6} │ {connected,-24} │ {blocked,7} │");
 

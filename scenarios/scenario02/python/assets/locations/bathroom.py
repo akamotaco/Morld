@@ -23,6 +23,6 @@ class Bathroom(Location):
         """욕실 생성 + 타일 바닥 + 거울 + 욕조 + 세면대 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundTile())
-        self.add_object(Mirror())
-        self.add_object(Bathtub())
-        self.add_object(Washbasin())
+        self.add_object(Mirror(), x=5)      # 문 옆
+        self.add_object(Bathtub(), x=15)    # 중앙
+        self.add_object(Washbasin(), x=25)  # 안쪽

@@ -171,6 +171,14 @@ def get_header():
         if time_text:
             lines.append(time_text)
 
+        # Pi-World 디버깅 정보 (지형 형태 + X 좌표)
+        # geometry: 0 = ring (원), 1 = line (선)
+        geometry = time_info.get("geometry", 0)
+        location_length = time_info.get("location_length", 0)
+        position_x = time_info.get("position_x", 0)
+        geo_text = "선" if geometry == 1 else "원"
+        lines.append(f"[color=gray][{geo_text}] X:{int(position_x)}/{int(location_length)}[/color]")
+
         # 시간 정지 상태 표시
         if morld.is_time_frozen():
             lines.append("[color=cyan][시간 정지][/color]")

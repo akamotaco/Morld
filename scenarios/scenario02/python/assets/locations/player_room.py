@@ -22,4 +22,5 @@ class PlayerRoom(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Bed())
+        # 침대 (방 안쪽, x=20)
+        self.add_object(Bed(), x=20)

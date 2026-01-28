@@ -21,4 +21,5 @@ class Entrance(Location):
         """현관 생성 + 돌바닥 + 심부름 게시판 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundStone())
-        self.add_object(ErrandBoard())
+        # 심부름 게시판 (문 옆, x=5)
+        self.add_object(ErrandBoard(), x=5)

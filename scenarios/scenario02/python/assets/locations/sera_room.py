@@ -23,12 +23,12 @@ class SeraRoom(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Bed())
-        self.add_object(OldDoll(), owner="sera")
+        self.add_object(Bed(), x=20)              # 방 안쪽
+        self.add_object(OldDoll(), owner="sera", x=22)  # 침대 곁
 
         # 옷장 추가 + 옷 배치
         wardrobe = Wardrobe()
-        wardrobe_id = self.add_object(wardrobe)
+        wardrobe_id = self.add_object(wardrobe, x=25)  # 침대 옆
 
         from assets.items.clothes import (
             LinenShirt, LinenPants, HuntingVest, HuntingCap, LeatherBoots,

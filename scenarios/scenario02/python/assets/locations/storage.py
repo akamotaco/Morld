@@ -49,11 +49,11 @@ class Storage(Location):
         """창고 생성 + 바닥 + 제작대 + 도구함 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(CraftingTable())
+        self.add_object(CraftingTable(), x=10)  # 입구 쪽
 
         # 도구함 추가 및 도구 배치
         toolbox = Toolbox()
-        toolbox_id = self.add_object(toolbox)
+        toolbox_id = self.add_object(toolbox, x=20)  # 안쪽
 
         # 낚시대를 도구함에 넣기
         from assets.items.tools import FishingRod, Axe, Saw

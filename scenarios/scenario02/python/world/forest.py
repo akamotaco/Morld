@@ -23,15 +23,50 @@ REGION = {
     "weather": "맑음"
 }
 
-# Region 내 Edge
-EDGES = [
-    # (from_location, to_location, travel_time)
-    (0, 1, 10),   # 숲 입구 - 소나무 숲
-    (0, 2, 10),   # 숲 입구 - 참나무 숲
-    (1, 3, 15),   # 소나무 숲 - 숲속
-    (2, 4, 20),   # 참나무 숲 - 늑대굴
-    (2, 5, 15),   # 참나무 숲 - 오두막
-    (1, 2, 10),   # 소나무 숲 - 참나무 숲
+# ========================================
+# Pi-World Gate 정의
+# ========================================
+#
+# Gate는 Location 간 연결점 (통과 시간 = 0)
+# 이동 시간 = Location 내에서 Gate까지의 거리 / 속도
+#
+# (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
+#
+# - x: Gate의 위치 (이 Location 내)
+# - arrival_x: Gate 통과 시 도착 위치 (연결된 Location 내)
+#
+# Location 길이:
+# - 0: 숲 입구 - 200
+# - 1: 소나무 숲 - 300
+# - 2: 참나무 숲 - 300
+# - 3: 숲속 - 400
+# - 4: 늑대굴 - 100
+# - 5: 오두막 - 30
+
+GATES = [
+    # 숲 입구(0) <-> 소나무 숲(1)
+    (REGION_ID, 0, 0, 100, REGION_ID, 1, 0),   # 숲 입구(x=100) -> 소나무 숲(x=0)
+    (REGION_ID, 1, 0, 0, REGION_ID, 0, 100),   # 소나무 숲(x=0) -> 숲 입구(x=100)
+
+    # 숲 입구(0) <-> 참나무 숲(2)
+    (REGION_ID, 0, 1, 150, REGION_ID, 2, 0),   # 숲 입구(x=150) -> 참나무 숲(x=0)
+    (REGION_ID, 2, 0, 0, REGION_ID, 0, 150),   # 참나무 숲(x=0) -> 숲 입구(x=150)
+
+    # 소나무 숲(1) <-> 숲속(3)
+    (REGION_ID, 1, 1, 300, REGION_ID, 3, 0),   # 소나무 숲(x=300) -> 숲속(x=0)
+    (REGION_ID, 3, 0, 0, REGION_ID, 1, 300),   # 숲속(x=0) -> 소나무 숲(x=300)
+
+    # 참나무 숲(2) <-> 늑대굴(4)
+    (REGION_ID, 2, 1, 200, REGION_ID, 4, 0),   # 참나무 숲(x=200) -> 늑대굴(x=0)
+    (REGION_ID, 4, 0, 0, REGION_ID, 2, 200),   # 늑대굴(x=0) -> 참나무 숲(x=200)
+
+    # 참나무 숲(2) <-> 오두막(5)
+    (REGION_ID, 2, 2, 250, REGION_ID, 5, 0),   # 참나무 숲(x=250) -> 오두막(x=0)
+    (REGION_ID, 5, 0, 0, REGION_ID, 2, 250),   # 오두막(x=0) -> 참나무 숲(x=250)
+
+    # 소나무 숲(1) <-> 참나무 숲(2)
+    (REGION_ID, 1, 2, 200, REGION_ID, 2, 100),  # 소나무 숲(x=200) -> 참나무 숲(x=100)
+    (REGION_ID, 2, 3, 100, REGION_ID, 1, 200),  # 참나무 숲(x=100) -> 소나무 숲(x=200)
 ]
 
 
@@ -63,9 +98,9 @@ def initialize_terrain():
     for location_id, loc in locations.items():
         loc.instantiate(location_id, REGION_ID)
 
-    # Edge 등록 (Region 내 연결)
-    for from_id, to_id, travel_time in EDGES:
-        morld.add_edge(REGION_ID, from_id, to_id, travel_time)
+    # Gate 등록 (Pi-World 연결)
+    for region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x in GATES:
+        morld.add_gate(region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x)
 
     print(f"[world.forest] Region {REGION_ID} initialized: {len(locations)} locations")
     return locations

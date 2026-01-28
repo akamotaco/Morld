@@ -23,5 +23,5 @@ class DiningRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
 
-        # 식탁 의자 배치
-        self.add_object(DiningChair())
+        # 식탁 의자 배치 (테이블 중앙)
+        self.add_object(DiningChair(), x=15)

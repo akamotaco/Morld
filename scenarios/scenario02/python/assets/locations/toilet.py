@@ -61,4 +61,4 @@ class ToiletRoom(Location):
         """화장실 생성"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundTile())
-        self.add_object(Toilet())
+        self.add_object(Toilet(), x=15)  # 중앙

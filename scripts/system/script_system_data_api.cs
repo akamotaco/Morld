@@ -176,12 +176,12 @@ namespace SE
             });
 
             // add_gate: Pi-World Gate 추가 (Location 간 연결)
-            // add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, connected_gate,
-            //          conditions_forward=None, conditions_backward=None, is_blocked=False, name="")
+            // add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x,
+            //          arrival_y=0, conditions_forward=None, conditions_backward=None, is_blocked=False, name="")
             morldModule.ModuleDict["add_gate"] = new PyBuiltinFunction("add_gate", args =>
             {
                 if (args.Length < 7)
-                    throw PyTypeError.Create("add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, connected_gate, conditions_forward=None, conditions_backward=None, is_blocked=False, name='') requires at least 7 arguments");
+                    throw PyTypeError.Create("add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x, arrival_y=0, conditions_forward=None, conditions_backward=None, is_blocked=False, name='') requires at least 7 arguments");
 
                 int regionId = args[0].ToInt();
                 int locationId = args[1].ToInt();
@@ -189,16 +189,19 @@ namespace SE
                 float x = (float)args[3].ToFloat();
                 int connectedRegion = args[4].ToInt();
                 int connectedLocation = args[5].ToInt();
-                int connectedGate = args[6].ToInt();
+                float arrivalX = (float)args[6].ToFloat();
+                float arrivalY = args.Length >= 8 && args[7] is not PyDict ? (float)args[7].ToFloat() : 0f;
 
-                var conditionsForward = args.Length >= 8 && args[7] is PyDict condFwdDict
+                // arrival_y가 없거나 dict이면 다음 파라미터가 conditions
+                int conditionsStartIdx = args.Length >= 8 && args[7] is PyDict ? 7 : 8;
+                var conditionsForward = args.Length > conditionsStartIdx && args[conditionsStartIdx] is PyDict condFwdDict
                     ? PyDictToIntDict(condFwdDict)
                     : null;
-                var conditionsBackward = args.Length >= 9 && args[8] is PyDict condBwdDict
+                var conditionsBackward = args.Length > conditionsStartIdx + 1 && args[conditionsStartIdx + 1] is PyDict condBwdDict
                     ? PyDictToIntDict(condBwdDict)
                     : null;
-                bool isBlocked = args.Length >= 10 && args[9].IsTrue();
-                string name = args.Length >= 11 && args[10] is PyString nameStr ? nameStr.Value : "";
+                bool isBlocked = args.Length > conditionsStartIdx + 2 && args[conditionsStartIdx + 2].IsTrue();
+                string name = args.Length > conditionsStartIdx + 3 && args[conditionsStartIdx + 3] is PyString nameStr ? nameStr.Value : "";
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                 var terrain = _worldSystem.GetTerrain();
@@ -206,7 +209,7 @@ namespace SE
 
                 if (region != null)
                 {
-                    var gate = region.AddGate(locationId, gateId, x, connectedRegion, connectedLocation, connectedGate);
+                    var gate = region.AddGate(locationId, gateId, x, connectedRegion, connectedLocation, arrivalX, arrivalY);
                     gate.Name = name;
                     gate.IsBlocked = isBlocked;
 
@@ -221,7 +224,7 @@ namespace SE
                             gate.AddConditionBackward(key, value);
                     }
 
-                    Godot.GD.Print($"[morld] add_gate: {regionId}:{locationId}:Gate{gateId}(X={x}) -> {connectedRegion}:{connectedLocation}:Gate{connectedGate}");
+                    Godot.GD.Print($"[morld] add_gate: {regionId}:{locationId}:Gate{gateId}(X={x}) -> {connectedRegion}:{connectedLocation}(X={arrivalX})");
                     return PyBool.True;
                 }
                 return PyBool.False;
@@ -284,7 +287,7 @@ namespace SE
             });
 
             // get_region_info: Region 정보 조회 (지도 기능용)
-            // 반환: {"id", "name", "locations": [{"id", "name", "edges": [(to_local_id, travel_time), ...], "region_edges": [(to_region, to_local, region_name), ...]}], ...}
+            // 반환: {"id", "name", "locations": [{"id", "name", "gates": [...], "region_edges": [(to_region, to_local, region_name), ...]}], ...}
             morldModule.ModuleDict["get_region_info"] = new PyBuiltinFunction("get_region_info", args =>
             {
                 if (args.Length < 1)
@@ -326,7 +329,8 @@ namespace SE
                         gateDict.SetItem(new PyString("x"), new PyFloat(gate.X));
                         gateDict.SetItem(new PyString("connected_region"), new PyInt(gate.ConnectedLocation.RegionId));
                         gateDict.SetItem(new PyString("connected_local"), new PyInt(gate.ConnectedLocation.LocalId));
-                        gateDict.SetItem(new PyString("connected_gate"), new PyInt(gate.ConnectedGateId));
+                        gateDict.SetItem(new PyString("arrival_x"), new PyFloat(gate.ArrivalX));
+                        gateDict.SetItem(new PyString("arrival_y"), new PyFloat(gate.ArrivalY));
                         gateDict.SetItem(new PyString("is_blocked"), gate.IsBlocked ? PyBool.True : PyBool.False);
                         gatesList.Append(gateDict);
                     }
@@ -1781,6 +1785,12 @@ namespace SE
                 string weather = "";
                 string regionName = "";
                 string locationName = "";
+                // Pi-World 정보 (디버깅용)
+                // geometry: 0 = ring (원), 1 = line (선)
+                int geometry = 0;
+                float positionX = 0f;
+                float locationLength = 0f;
+
                 var player = _playerSystem?.FindPlayerUnit();
                 if (player != null)
                 {
@@ -1796,14 +1806,26 @@ namespace SE
                             var region = terrain.GetRegion(player.CurrentLocation.RegionId);
                             weather = region?.CurrentWeather ?? "";
                         }
+
+                        // Pi-World 정보: ring=0, line=1
+                        geometry = location.Geometry == Morld.LocationGeometry.Ring ? 0 : 1;
+                        locationLength = location.Length;
                     }
 
                     var playerRegion = terrain.GetRegion(player.CurrentLocation.RegionId);
                     regionName = playerRegion?.Name ?? "";
+
+                    // 플레이어 X 좌표
+                    positionX = player.PositionX;
                 }
                 result.SetItem(new PyString("weather"), new PyString(weather));
                 result.SetItem(new PyString("region_name"), new PyString(regionName));
                 result.SetItem(new PyString("location_name"), new PyString(locationName));
+
+                // Pi-World 정보: geometry (0=ring, 1=line)
+                result.SetItem(new PyString("geometry"), new PyInt(geometry));
+                result.SetItem(new PyString("position_x"), new PyFloat(positionX));
+                result.SetItem(new PyString("location_length"), new PyFloat(locationLength));
 
                 return result;
             });

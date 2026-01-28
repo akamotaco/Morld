@@ -10,7 +10,8 @@ class LivingRoom(Location):
     name = "거실"
     is_indoor = True
     stay_duration = 0
-    length = 50  # Pi-World: 거실 길이 (여러 Gate 연결)
+    geometry = "ring"  # Pi-World: 거실은 원형 (순환 가능, 여러 방 연결)
+    length = 60  # Pi-World: 거실 둘레
     describe_text = {
         "default": "넓은 거실. 벽난로와 낡은 소파가 놓여 있다. 이곳에서 매일 아침 조회가 열린다.",
         "아침": "창문으로 들어오는 햇살이 먼지 입자를 비춘다.",
@@ -23,5 +24,5 @@ class LivingRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
 
-        # 거실 소파 배치
-        self.add_object(LivingSofa())
+        # 거실 소파 배치 (벽난로 근처, x=35)
+        self.add_object(LivingSofa(), x=35)

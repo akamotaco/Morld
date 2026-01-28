@@ -123,17 +123,13 @@ namespace SE
 						{
 							if (srcGate.ConnectedLocation == goalLocation)
 							{
-								// 목적지의 연결된 Gate 위치로 이동
-								var connectedGate = terrain.GetConnectedGate(srcGate);
-								if (connectedGate != null)
-								{
-									player.SetLocation2D(goalLocation, connectedGate.X, 0f);
+								// 목적지의 도착 위치로 이동
+								player.SetLocation2D(goalLocation, srcGate.ArrivalX, srcGate.ArrivalY);
 #if DEBUG_LOG
-									GD.Print($"[JobBehaviorSystem] Frozen move 2D: Player teleported to {goalLocation} at X={connectedGate.X}");
+								GD.Print($"[JobBehaviorSystem] Frozen move 2D: Player teleported to {goalLocation} at X={srcGate.ArrivalX}");
 #endif
-									player.JobList.Clear();
-									return;
-								}
+								player.JobList.Clear();
+								return;
 							}
 						}
 					}
@@ -379,15 +375,12 @@ namespace SE
 							if (gate != null && gate.CanTraverseForward(actualProps))
 							{
 								// Gate를 통해 다른 Location으로 이동
-								var connectedGate = terrain.GetConnectedGate(gate);
-								if (connectedGate != null)
-								{
-									unit.SetCurrentLocation(gate.ConnectedLocation);
-									unit.PositionX = connectedGate.X;
+								unit.SetCurrentLocation(gate.ConnectedLocation);
+								unit.PositionX = gate.ArrivalX;
+								unit.PositionY = gate.ArrivalY;
 #if DEBUG_LOG
-									GD.Print($"[JobBehaviorSystem] {unit.Name} passed gate: {gate.OwnerLocation} -> {gate.ConnectedLocation} (X={connectedGate.X})");
+								GD.Print($"[JobBehaviorSystem] {unit.Name} passed gate: {gate.OwnerLocation} -> {gate.ConnectedLocation} (X={gate.ArrivalX})");
 #endif
-								}
 							}
 						}
 

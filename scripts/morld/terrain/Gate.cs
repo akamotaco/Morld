@@ -40,9 +40,14 @@ public class Gate
     public LocationRef ConnectedLocation { get; }
 
     /// <summary>
-    /// 연결된 Gate ID
+    /// Gate 통과 시 도착 X 좌표
     /// </summary>
-    public int ConnectedGateId { get; }
+    public float ArrivalX { get; set; }
+
+    /// <summary>
+    /// Gate 통과 시 도착 Y 좌표 (확장용, 기본값 0)
+    /// </summary>
+    public float ArrivalY { get; set; } = 0f;
 
     /// <summary>
     /// Forward 방향 (이 Gate → 연결된 Gate) 통과 조건
@@ -94,14 +99,16 @@ public class Gate
     /// <param name="ownerLocation">소속 Location</param>
     /// <param name="x">X 좌표</param>
     /// <param name="connectedLocation">연결된 Location</param>
-    /// <param name="connectedGateId">연결된 Gate ID</param>
-    public Gate(int id, LocationRef ownerLocation, float x, LocationRef connectedLocation, int connectedGateId)
+    /// <param name="arrivalX">도착 X 좌표</param>
+    /// <param name="arrivalY">도착 Y 좌표 (기본값 0)</param>
+    public Gate(int id, LocationRef ownerLocation, float x, LocationRef connectedLocation, float arrivalX, float arrivalY = 0f)
     {
         Id = id;
         OwnerLocation = ownerLocation;
         X = x;
         ConnectedLocation = connectedLocation;
-        ConnectedGateId = connectedGateId;
+        ArrivalX = arrivalX;
+        ArrivalY = arrivalY;
     }
 
     /// <summary>
@@ -199,11 +206,6 @@ public class Gate
     }
 
     /// <summary>
-    /// 연결된 Gate의 전체 참조 (LocationRef + GateId)
-    /// </summary>
-    public GateRef GetConnectedGateRef() => new(ConnectedLocation, ConnectedGateId);
-
-    /// <summary>
     /// 이 Gate의 전체 참조
     /// </summary>
     public GateRef GetGateRef() => new(OwnerLocation, Id);
@@ -211,7 +213,7 @@ public class Gate
     public override string ToString()
     {
         var name = string.IsNullOrEmpty(Name) ? $"Gate{Id}" : Name;
-        return $"{name}@{OwnerLocation}(X={X:F1}) -> {ConnectedLocation}:Gate{ConnectedGateId}";
+        return $"{name}@{OwnerLocation}(X={X:F1}) -> {ConnectedLocation}(X={ArrivalX:F1})";
     }
 }
 

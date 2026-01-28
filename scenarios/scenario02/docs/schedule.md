@@ -35,6 +35,7 @@ SCHEDULE = [
         "name": "아침식사",      # 표시용 이름
         "region_id": 0,         # 목적지 Region
         "location_id": 3,       # 목적지 Location
+        "x": 15,                # (Pi-World) 목표 X 좌표 (optional, 기본값 0)
         "start": 420,           # 시작 시간 (분, 7:00 = 420)
         "end": 480,             # 종료 시간 (분, 8:00 = 480)
         "activity": "식사"      # 활동 유형 (Job.Name으로 사용)
@@ -42,6 +43,18 @@ SCHEDULE = [
     ...
 ]
 ```
+
+### Pi-World 좌표 (x 필드)
+`x` 필드는 Location 내 구체적인 목표 위치를 지정합니다.
+
+**용도:**
+- NPC가 Location 내 특정 오브젝트 위치로 이동
+- 예: 식당(location_id=3)의 식탁 의자(x=15)로 이동
+
+**참고:**
+- `x` 필드는 선택적 (optional)이며 기본값은 0
+- 좌표값은 [terrain.md](terrain.md)의 오브젝트 위치 참고
+- `y` 필드도 지원 (확장용, 현재는 사용 안 함)
 
 ### 시간 변환
 | 시간 | 분 |
@@ -71,8 +84,10 @@ public class Job
 {
     public string Name;       // 표시용 ("사냥", "식사", "순찰")
     public string Action;     // 실제 동작 ("move", "stay", "follow", "flee")
-    public int RegionId;      // 목적지
-    public int LocationId;    // 목적지
+    public int RegionId;      // 목적지 Region
+    public int LocationId;    // 목적지 Location
+    public float TargetX;     // (Pi-World) 목표 X 좌표
+    public float TargetY;     // (Pi-World) 목표 Y 좌표 (확장용)
     public int Duration;      // 남은 시간 (분)
     public int? TargetId;     // follow/flee 대상
 }
