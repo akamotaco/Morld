@@ -18,11 +18,20 @@ PROLOGUE_LOCATIONS = {
     0: "entrance",          # 현관 (목적지)
 }
 
-# 프롤로그용 Edge (제한된 경로)
-PROLOGUE_EDGES = [
-    (21, 20, 15),  # 숲 깊은 곳 - 숲 입구
-    (20, 12, 3),   # 숲 입구 - 앞마당
-    (12, 0, 1),    # 앞마당 - 현관
+# Pi-World Gates (프롤로그용 제한된 경로)
+# (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
+PROLOGUE_GATES = [
+    # 숲 깊은 곳(21) <-> 숲 입구(20)
+    (REGION_ID, 21, 0, 0, REGION_ID, 20, 300),    # 숲 깊은 곳(x=0) → 숲 입구(x=300)
+    (REGION_ID, 20, 1, 300, REGION_ID, 21, 0),    # 숲 입구 깊이(x=300) → 숲 깊은 곳(x=0)
+
+    # 숲 입구(20) <-> 앞마당(12)
+    (REGION_ID, 20, 0, 0, REGION_ID, 12, 100),    # 숲 입구(x=0) → 앞마당 끝(x=100)
+    (REGION_ID, 12, 1, 100, REGION_ID, 20, 0),    # 앞마당 끝(x=100) → 숲 입구(x=0)
+
+    # 앞마당(12) <-> 현관(0)
+    (REGION_ID, 12, 0, 0, REGION_ID, 0, 0),       # 앞마당(x=0) → 현관 앞(x=0)
+    (REGION_ID, 0, 1, 0, REGION_ID, 12, 0),       # 현관 앞(x=0) → 앞마당(x=0)
 ]
 
 REGION = {
@@ -58,9 +67,9 @@ def initialize():
     # 2. Location 등록 (제한된 맵)
     _initialize_locations()
 
-    # 3. Edge 등록
-    for from_id, to_id, travel_time in PROLOGUE_EDGES:
-        morld.add_edge(REGION_ID, from_id, to_id, travel_time)
+    # 3. Gate 등록 (Pi-World 연결)
+    for region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x in PROLOGUE_GATES:
+        morld.add_gate(region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x)
 
     # 4. 시간 설정
     t = TIME_SETTINGS

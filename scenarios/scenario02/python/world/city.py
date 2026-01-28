@@ -20,16 +20,36 @@ REGION = {
     "weather": "맑음"
 }
 
-# Region 내 Edge
-EDGES = [
-    # (from_id, to_id, travel_time)
-    (0, 1, 10),  # 도시 입구 - 주유소
-    (0, 2, 5),   # 도시 입구 - 편의점
-    (0, 3, 8),   # 도시 입구 - 약국
-    (0, 6, 7),   # 도시 입구 - 의류점
-    (1, 4, 3),   # 주유소 - 주차장
-    (3, 5, 5),   # 약국 - 은신처 (숨겨진 길)
-    (2, 6, 3),   # 편의점 - 의류점
+# Pi-World Gates (양방향 연결)
+# (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
+GATES = [
+    # === 도시 입구(0) length=100 ===
+    (REGION_ID, 0, 0, 100, REGION_ID, 1, 0),   # 도시 입구 끝 → 주유소 입구
+    (REGION_ID, 0, 1, 50, REGION_ID, 2, 0),    # 중간 → 편의점 입구
+    (REGION_ID, 0, 2, 80, REGION_ID, 3, 0),    # 약국 방향
+    (REGION_ID, 0, 3, 70, REGION_ID, 6, 0),    # 의류점 방향
+
+    # === 주유소(1) length=50 ===
+    (REGION_ID, 1, 0, 0, REGION_ID, 0, 100),   # 주유소 입구 → 도시 입구 끝
+    (REGION_ID, 1, 1, 50, REGION_ID, 4, 0),    # 주유소 끝 → 주차장 입구
+
+    # === 편의점(2) length=30 ===
+    (REGION_ID, 2, 0, 0, REGION_ID, 0, 50),    # 편의점 입구 → 도시 입구
+    (REGION_ID, 2, 1, 30, REGION_ID, 6, 40),   # 편의점 끝 → 의류점 안쪽
+
+    # === 약국(3) length=30 ===
+    (REGION_ID, 3, 0, 0, REGION_ID, 0, 80),    # 약국 입구 → 도시 입구
+    (REGION_ID, 3, 1, 30, REGION_ID, 5, 0),    # 약국 뒤편 → 은신처 (숨겨진 길)
+
+    # === 주차장(4) length=60 ===
+    (REGION_ID, 4, 0, 0, REGION_ID, 1, 50),    # 주차장 입구 → 주유소 끝
+
+    # === 은신처(5) length=30 ===
+    (REGION_ID, 5, 0, 0, REGION_ID, 3, 30),    # 은신처 입구 → 약국 뒤편
+
+    # === 의류점(6) length=40 ===
+    (REGION_ID, 6, 0, 0, REGION_ID, 0, 70),    # 의류점 입구 → 도시 입구
+    (REGION_ID, 6, 1, 40, REGION_ID, 2, 30),   # 의류점 안쪽 → 편의점 끝
 ]
 
 # NPC 배치 정보 (참고용 - 실제 ID는 동적 할당)
@@ -69,9 +89,9 @@ def initialize_terrain():
     for location_id, loc in locations.items():
         loc.instantiate(location_id, REGION_ID)
 
-    # Edge 등록
-    for from_id, to_id, travel_time in EDGES:
-        morld.add_edge(REGION_ID, from_id, to_id, travel_time)
+    # Gate 등록 (Pi-World 연결)
+    for region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x in GATES:
+        morld.add_gate(region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x)
 
     print(f"[world.city] Region {REGION_ID} initialized: {len(locations)} locations")
     return locations
