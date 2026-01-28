@@ -43,6 +43,7 @@ morld.mark_all_logs_read()
 # 시간 관련
 # ========================================
 morld.get_game_time()  # 분 단위 (0~1439)
+morld.get_time_info()  # 시간/위치/날씨 정보 dict 반환
 morld.advance_time(minutes)
 morld.set_time_frozen(frozen)  # 시간 정지 설정/해제
 morld.is_time_frozen()
@@ -69,6 +70,51 @@ result = yield ui.dialog(
 
 # 저수준 API (직접 사용 비권장)
 result = yield morld.dialog(...)
+```
+
+---
+
+## get_time_info() 반환값
+
+시간, 날씨, 위치 정보를 포함하는 dict를 반환합니다.
+
+```python
+info = morld.get_time_info()
+# {
+#     "year": 1,
+#     "month": 4,
+#     "day": 1,
+#     "weekday": "수",
+#     "hour": 20,
+#     "minute": 0,
+#     "weather": "흐림",           # 실외일 때만
+#     "region_name": "저택",
+#     "location_name": "거실",
+#
+#     # Pi-World 정보 (디버깅용)
+#     "geometry": 0,               # 0 = ring (원), 1 = line (선)
+#     "position_x": 35.0,          # 플레이어 현재 X 좌표
+#     "location_length": 60.0      # Location 길이
+# }
+```
+
+### Pi-World 필드
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `geometry` | int | 지형 형태 (0=ring, 1=line) |
+| `position_x` | float | 플레이어 X 좌표 |
+| `location_length` | float | Location 길이 |
+
+### 사용 예시 (ui.py)
+
+```python
+geometry = time_info.get("geometry", 0)
+position_x = time_info.get("position_x", 0)
+location_length = time_info.get("location_length", 0)
+
+geo_text = "선" if geometry == 1 else "원"
+lines.append(f"[{geo_text}] X:{int(position_x)}/{int(location_length)}")
 ```
 
 ---

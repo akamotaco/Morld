@@ -1,24 +1,29 @@
 # 이동 시스템 (Movement System)
 
-> 이 문서는 Location/Edge 그래프 구조와 캐릭터 이동, 충돌 처리 시스템을 설명합니다.
+> 이 문서는 Pi-World 지형 구조와 캐릭터 이동, 충돌 처리 시스템을 설명합니다.
 
 ---
 
-## 1. 지형 그래프 구조
+## 1. 지형 그래프 구조 (Pi-World)
 
 ### 1.1 계층 구조
 
 ```
 Terrain (전체 세계)
   ├─ Region (저택, 숲 등)
-  │   ├─ Location (현관, 거실, 주방...)
-  │   └─ Edge (같은 Region 내 Location 연결)
+  │   ├─ Location (1D 공간: line/ring)
+  │   └─ Gate (Location 간 연결점)
   └─ RegionEdge (다른 Region 간 연결)
 ```
 
-### 1.2 Location (노드)
+### Pi-World 핵심 개념
+- **Location**: 점(0D) → 1D 공간 (line/ring)
+- **Gate**: Location 간 연결점 (통과 시간 = 0, 즉시 이동)
+- **이동 시간**: 거리 기반 계산 (`distance / speed`)
 
-Region 내의 개별 위치를 나타냅니다.
+### 1.2 Location (1D 공간)
+
+Region 내의 1차원 공간을 나타냅니다.
 
 | 속성 | 타입 | 설명 | 기본값 |
 |------|------|------|--------|
@@ -26,12 +31,21 @@ Region 내의 개별 위치를 나타냅니다.
 | `RegionId` | int | 소속 Region ID | 필수 |
 | `GlobalId` | string | 전역 ID (`RegionId:LocalId`) | 계산됨 |
 | `Name` | string | 위치 이름 | "unknown" |
+| `Geometry` | LocationGeometry | 지형 형태 (Line/Ring) | Ring |
+| `Length` | float | 공간 길이 (0=레거시 점) | 0 |
+| `BaseSpeed` | float | 기본 이동 속도 (단위/분) | 10 |
 | `StayDuration` | int | 경유 시 지체 시간(분) | 0 |
 | `IsIndoor` | bool | 실내 여부 | true |
 | `Owner` | string | 소유자 unique_id | null |
 | `GroundUnitId` | int? | 바닥 오브젝트 Unit ID | null |
 
 **파일:** [scripts/morld/terrain/Location.cs](../../../scripts/morld/terrain/Location.cs)
+
+#### Geometry 타입
+| 값 | 설명 | 거리 계산 |
+|----|------|----------|
+| `Ring` (0) | 원형 공간 (순환) | `min(|dx|, length - |dx|)` |
+| `Line` (1) | 선형 공간 (양 끝) | `|target_x - current_x|` |
 
 ### 1.3 LocationRef (위치 참조)
 
@@ -49,27 +63,34 @@ var ref1 = new LocationRef(0, 12);  // 저택 앞마당
 var ref2 = new LocationRef(3, 20);  // 숲 입구
 ```
 
-### 1.4 Edge (Region 내 연결)
+### 1.4 Gate (Location 연결점)
 
-같은 Region 내 인접한 두 Location 간의 연결입니다.
+Location 내 특정 X 좌표에 배치된 연결점입니다. 통과 시간은 0 (즉시 이동).
 
 | 속성 | 타입 | 설명 |
 |------|------|------|
-| `LocationA`, `LocationB` | Location | 연결된 두 Location |
-| `TravelTimeAtoB` | int | A → B 이동 시간(분) |
-| `TravelTimeBtoA` | int | B → A 이동 시간(분) |
-| `ConditionsAtoB` | Dict | A → B 이동 조건 |
-| `ConditionsBtoA` | Dict | B → A 이동 조건 |
-| `IsBlocked` | bool | 완전 차단 여부 |
+| `Id` | int | Gate ID (Location 내 고유) |
+| `X` | float | Gate 위치 (Location 내 X 좌표) |
+| `ConnectedRegion` | int | 연결된 Region ID |
+| `ConnectedLocation` | int | 연결된 Location ID |
+| `ArrivalX` | float | 도착 시 X 좌표 |
+| `ConditionsForward` | Dict | 통과 조건 |
+| `IsBlocked` | bool | 차단 여부 |
 
-**파일:** [scripts/morld/terrain/Edge.cs](../../../scripts/morld/terrain/Edge.cs)
+**파일:** [scripts/morld/terrain/Gate.cs](../../../scripts/morld/terrain/Gate.cs)
 
-```csharp
-// Edge 생성 예시
-var edge = region.AddEdge(1, 2, 3);  // Location 1 ↔ 2, 양방향 3분
+```python
+# Gate 정의 예시 (Python)
+# (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
+GATES = [
+    (0, 0, 0, 30, 0, 1, 0),   # 현관(x=30) → 거실(x=0)에 도착
+    (0, 1, 0, 0, 0, 0, 30),   # 거실(x=0) → 현관(x=30)에 도착
+]
+```
 
-// 조건 추가 예시
-edge.AddConditionAtoB("level", 2);   // A→B 시 레벨 2 필요
+#### 이동 흐름
+```
+[현재 X] → 이동(거리 기반) → [Gate X] → [즉시] → [도착 Location의 arrival_x] → 이동 → [목적지 X]
 ```
 
 ### 1.5 RegionEdge (Region 간 연결)
@@ -112,44 +133,47 @@ public bool CanTraverse(Location from, TraversalContext? context = null)
 
 ## 2. 캐릭터 이동 시스템
 
-### 2.1 이동 상태 표현
+### 2.1 이동 상태 표현 (Pi-World)
 
-캐릭터의 위치는 **Location (정지)** 또는 **Edge (이동 중)** 두 가지 상태로 표현됩니다.
+캐릭터의 위치는 **Location + X 좌표**로 표현됩니다.
 
 ```csharp
 // Unit 클래스 (scripts/morld/unit/Unit.cs)
-public LocationRef CurrentLocation { get; }  // 현재 위치 (이동 중이면 출발지)
-public EdgeProgress? CurrentEdge { get; }    // null이면 정지, 값이 있으면 이동 중
+public LocationRef CurrentLocation { get; }   // 현재 Location
+public float PositionX { get; set; }          // Location 내 X 좌표
+public float PositionY { get; set; }          // 확장용 (현재 미사용)
+public MovementProgress? CurrentMovement { get; }  // null이면 정지, 값이 있으면 이동 중
 
-public bool IsOnEdge => CurrentEdge != null;  // Edge 위에 있는지
-public bool IsIdle => CurrentEdge == null;    // 정지 상태인지
+public bool IsMoving2D => CurrentMovement != null;  // Location 내 이동 중
+public bool IsIdle => CurrentMovement == null;      // 정지 상태
 ```
 
-### 2.2 EdgeProgress (이동 진행 상황)
+### 2.2 MovementProgress (Location 내 이동)
 
-이동 중인 캐릭터의 진행 상황을 추적합니다.
+Location 내 이동 중인 캐릭터의 진행 상황을 추적합니다.
 
 | 속성 | 타입 | 설명 |
 |------|------|------|
-| `From` | LocationRef | 출발 Location |
-| `To` | LocationRef | 도착 Location |
-| `BaseTravelTime` | int | 기본 이동 시간(분) |
-| `TotalTime` | int | 실제 이동 시간 (이동속도 적용 후) |
+| `StartX` | float | 출발 X 좌표 |
+| `TargetX` | float | 도착 X 좌표 |
+| `TargetGateId` | int? | Gate 통과 시 Gate ID |
+| `TotalDistance` | float | 총 이동 거리 |
+| `TraveledDistance` | float | 이동한 거리 |
+| `Speed` | float | 이동 속도 (단위/분) |
 | `ElapsedTime` | int | 경과 시간(분) |
-| `MovementSpeed` | int | 이동 속도 (100=기본, 200=2배) |
+| `TotalTime` | int | 총 이동 시간 (계산됨) |
 | `RemainingTime` | int | 남은 시간 (계산됨) |
 | `Progress` | float | 진행률 0.0~1.0 (계산됨) |
-| `NormalizedPosition` | float | 정규화 위치 (충돌 감지용) |
 
 **파일:** [scripts/morld/unit/ActionLog.cs](../../../scripts/morld/unit/ActionLog.cs)
 
 ```csharp
-// 이동속도 계산
-실제 이동 시간 = 기본 이동 시간 × 100 / 이동속도
+// 이동 시간 계산 (Pi-World)
+이동 시간 = 거리 / (base_speed × speed_modifier)
 
-// 예시
-기본 20분, 속도 200 → 실제 10분 (2배 빠름)
-기본 20분, 속도 50  → 실제 40분 (절반 속도)
+// 예시: length=60, base_speed=10
+X:0 → X:30 이동 = 30 / 10 = 3분
+X:0 → X:50 (Ring) = min(50, 60-50) / 10 = 1분 (최단 경로)
 ```
 
 ### 2.3 시간 흐름 파이프라인
@@ -238,101 +262,76 @@ private void ProcessMoveAction(Unit unit, LocationRef goalLocation, int duration
 
 ## 3. 충돌(만남) 감지 시스템
 
-### 3.1 만남 감지 조건
+### 3.1 만남 감지 조건 (Pi-World)
 
 **파일:** [scripts/system/event_system.cs](../../../scripts/system/event_system.cs)
 
 | 조건 | 설명 |
 |------|------|
-| **A. 정지 상태** | 같은 Location에서 `CurrentEdge == null`인 유닛 |
-| **B. 방금 도착** | 경유지를 통과하면서 같은 위치에 있는 경우 |
-| **C. Edge 충돌** | 같은 Edge 위에서 위치 차이 5% 이내 |
+| **A. 같은 Location** | 같은 Location에 있는 유닛 |
+| **B. 근접 거리** | X 좌표 차이가 충돌 반경 이내 |
+| **C. Gate 통과** | 동시에 같은 Gate 쌍 통과 시 |
 
 ```csharp
-public void DetectMeetings()
+// Pi-World 충돌 감지
+private List<int> DetectLocationMeetings(Unit player, Location location)
 {
+    var result = new List<int>();
+    float collisionRadius = 5f;  // 충돌 반경
+
     foreach (var unit in _unitSystem.Units.Values)
     {
-        if (unit.CurrentLocation != playerLocation) continue;
+        if (unit.CurrentLocation != player.CurrentLocation) continue;
+        if (unit.Id == player.Id) continue;
 
-        // 조건 A: 정지 상태
-        if (unit.CurrentEdge == null)
-        {
-            unitsToMeet.Add(unit.Id);
-            continue;
-        }
+        // 거리 계산 (Geometry에 따라 다름)
+        float distance = location.Geometry == LocationGeometry.Ring
+            ? DistanceRing(player.PositionX, unit.PositionX, location.Length)
+            : Math.Abs(player.PositionX - unit.PositionX);
 
-        // 조건 B: 방금 도착 (이전 위치와 다름)
-        if (_lastLocations[unit.Id] != unit.CurrentLocation)
-        {
-            unitsToMeet.Add(unit.Id);
-        }
+        if (distance <= collisionRadius)
+            result.Add(unit.Id);
     }
 
-    // 조건 C: Edge 위 충돌 감지
-    if (player.CurrentEdge != null)
+    return result;
+}
+```
+
+### 3.2 Gate 통과 충돌 감지
+
+두 유닛이 동시에 같은 Gate를 통과할 때 충돌을 감지합니다.
+
+**파일:** [scripts/system/event_system.cs](../../../scripts/system/event_system.cs)
+
+#### 충돌 조건
+
+1. 같은 Location에서 같은 Gate로 이동 중
+2. Gate 도착 시점이 동일 (±1분)
+
+```csharp
+// Gate 통과 충돌 감지
+if (player.CurrentMovement?.TargetGateId != null)
+{
+    var playerGateId = player.CurrentMovement.TargetGateId.Value;
+
+    foreach (var unit in unitsInSameLocation)
     {
-        var edgeMeetings = DetectEdgeMeetings(player);
-        unitsToMeet.AddRange(edgeMeetings);
+        if (unit.CurrentMovement?.TargetGateId == playerGateId)
+        {
+            // 같은 Gate로 이동 중 → 충돌 가능
+            result.Add(unit.Id);
+        }
     }
 }
 ```
 
-### 3.2 Edge 충돌 감지
+#### Location 내 이동 충돌
 
-**파일:** [scripts/system/edge_collision_detector.cs](../../../scripts/system/edge_collision_detector.cs)
-
-#### EdgeKey (양방향 동일 경로 식별)
-
-```csharp
-public readonly struct EdgeKey : IEquatable<EdgeKey>
-{
-    public readonly LocationRef A;  // 항상 작은 쪽
-    public readonly LocationRef B;  // 항상 큰 쪽
-
-    // 정규화: A < B (RegionId 먼저, 같으면 LocalId로 비교)
-}
 ```
+Unit A: ──────→ (X=10 → X=50)
+Unit B: ←────── (X=60 → X=40)
 
-#### 충돌 타입
-
-**1. Encounter (반대 방향 만남)**
-```
-Unit A: ──────→ (From → To 방향)
-Unit B: ←────── (To → From 방향, 반대)
-
-서로 접근 → 충돌
-```
-
-**2. Overtake (같은 방향 추월)**
-```
-Unit A: ──────→ (빠름)
-Unit B: ────→   (느림, A보다 앞)
-
-A가 B를 추월 → 충돌
-```
-
-#### 충돌 감지 알고리즘
-
-```csharp
-// 같은 Edge인지 확인
-var playerEdgeKey = new EdgeKey(playerEdge.From, playerEdge.To);
-var unitEdgeKey = new EdgeKey(unitEdge.From, unitEdge.To);
-
-if (!playerEdgeKey.Equals(unitEdgeKey)) continue;
-
-// EdgeKey 기준으로 위치 정규화
-float playerPos = playerEdge.From.Equals(playerEdgeKey.A)
-    ? playerEdge.NormalizedPosition
-    : 1.0f - playerEdge.NormalizedPosition;
-
-float unitPos = /* 동일하게 계산 */;
-
-// 위치 차이가 5% 이내면 충돌
-if (Math.Abs(playerPos - unitPos) <= 0.05f)
-{
-    result.Add(unit.Id);
-}
+X 좌표가 충돌 반경 이내로 접근 → 충돌
 ```
 
 ### 3.3 이벤트 예측 시스템
@@ -425,20 +424,19 @@ if (isTimeFrozen)
 ### 지형 구조
 | 파일 | 역할 |
 |------|------|
-| [scripts/morld/terrain/Location.cs](../../../scripts/morld/terrain/Location.cs) | Location, LocationRef |
-| [scripts/morld/terrain/Edge.cs](../../../scripts/morld/terrain/Edge.cs) | Edge, TraversalContext |
-| [scripts/morld/terrain/RegionEdge.cs](../../../scripts/morld/terrain/RegionEdge.cs) | RegionEdge |
-| [scripts/morld/terrain/Region.cs](../../../scripts/morld/terrain/Region.cs) | Region (Location/Edge 관리) |
+| [scripts/morld/terrain/Location.cs](../../../scripts/morld/terrain/Location.cs) | Location (1D 공간), LocationRef |
+| [scripts/morld/terrain/Gate.cs](../../../scripts/morld/terrain/Gate.cs) | Gate (연결점) |
+| [scripts/morld/terrain/RegionEdge.cs](../../../scripts/morld/terrain/RegionEdge.cs) | RegionEdge (Region 간 연결) |
+| [scripts/morld/terrain/Region.cs](../../../scripts/morld/terrain/Region.cs) | Region (Location/Gate 관리) |
 | [scripts/morld/terrain/Terrain.cs](../../../scripts/morld/terrain/Terrain.cs) | Terrain (Region/RegionEdge 관리) |
 
 ### 이동/충돌 시스템
 | 파일 | 역할 |
 |------|------|
-| [scripts/morld/unit/ActionLog.cs](../../../scripts/morld/unit/ActionLog.cs) | EdgeProgress |
-| [scripts/morld/unit/Unit.cs](../../../scripts/morld/unit/Unit.cs) | Unit 이동 상태 |
+| [scripts/morld/unit/ActionLog.cs](../../../scripts/morld/unit/ActionLog.cs) | MovementProgress (Location 내 이동) |
+| [scripts/morld/unit/Unit.cs](../../../scripts/morld/unit/Unit.cs) | Unit 위치 (PositionX/Y) |
 | [scripts/system/job_behavior_system.cs](../../../scripts/system/job_behavior_system.cs) | 이동 처리 |
-| [scripts/system/event_system.cs](../../../scripts/system/event_system.cs) | 만남 감지 |
-| [scripts/system/edge_collision_detector.cs](../../../scripts/system/edge_collision_detector.cs) | Edge 충돌 감지 |
+| [scripts/system/event_system.cs](../../../scripts/system/event_system.cs) | 만남 감지 (2D 근접) |
 | [scripts/system/event_prediction_system.cs](../../../scripts/system/event_prediction_system.cs) | 이벤트 예측 |
 
 ### 액션 핸들러

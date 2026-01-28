@@ -26,16 +26,18 @@ Pi-World는 Location을 1D 선형/원형 공간으로 확장한 지형 시스템
 ### Location 기본 속성
 ```python
 class Location(Asset):
-    geometry: str = "line"    # "line" 또는 "ring"
+    geometry: int = 0         # 0 = ring (원형), 1 = line (선형)
     length: float = 0         # 0 = 레거시 모드 (점 형태)
     base_speed: float = 10    # 단위/분
 ```
 
 ### Geometry 타입
-| 타입 | 설명 | 사용 예 |
-|------|------|--------|
-| `line` | 선형 공간 (0 ~ length) | 방, 숲길 등 |
-| `ring` | 원형 공간 (순환 가능) | 복도, 거실 등 |
+| 값 | 타입 | 설명 | 사용 예 |
+|----|------|------|--------|
+| 0 | `ring` | 원형 공간 (순환 가능) | 복도, 거실 등 |
+| 1 | `line` | 선형 공간 (0 ~ length) | 방, 숲길 등 |
+
+> **기본값**: `geometry=0` (ring). length=0이면 레거시 점 형태.
 
 ### 이동 시간 계산
 ```
