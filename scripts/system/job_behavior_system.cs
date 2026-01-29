@@ -38,9 +38,12 @@ namespace SE
 			var duration = _playerSystem.NextStepDuration;
 
 			// Duration=0: 즉시 행동 처리 (frozen 이동 또는 Gate 인접 이동)
-			// 플레이어만 처리, 시간/이벤트 처리 없음
+			// HasPendingInstantAction일 때만 처리 (PlayerSystem이 NextStepDuration 미설정 시 오진입 방지)
 			if (duration <= 0)
 			{
+				if (!_playerSystem.HasPendingInstantAction)
+					return; // PlayerSystem이 아직 NextStepDuration을 설정하지 않음 → 스킵
+
 				var player = _playerSystem.FindPlayerUnit();
 				if (player != null && player.CurrentJob != null)
 				{

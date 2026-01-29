@@ -1,10 +1,11 @@
 # events/__init__.py - 이벤트 핸들러 패키지
 #
 # 역할:
-# - 게임 이벤트 처리 (game_start, on_reach, on_meet, on_time_elapsed, on_equip_change)
+# - 게임 이벤트 처리 (game_start, on_reach, on_meet, on_contact, on_time_elapsed, on_equip_change)
 # - 스크립트 함수 자동 등록 (@morld.register_script)
 # - 캐릭터별 이벤트 핸들러 위임
 # - 순차적 on_meet 이벤트 큐 관리
+# - on_contact: 2D 충돌 반경 내 접촉 이벤트
 # - 시간 경과 이벤트 구독 시스템
 # - 장비 변경 이벤트 처리
 
@@ -313,6 +314,16 @@ def on_single_event(event):
 
         if unit_id == player_id:
             return _handle_equip_change(player_id, item_id, is_equip)
+        return None
+
+    elif event_type == "on_contact":
+        unit_ids = event[1:]
+        if player_id in unit_ids:
+            # 플레이어 수면 중이면 이벤트 무시
+            player_info = morld.get_unit_info(player_id)
+            if player_info and player_info.get("activity") == "수면":
+                return None
+            return registry.handle_contact(player_id, unit_ids)
         return None
 
     elif event_type == "on_meet":

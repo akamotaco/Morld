@@ -2,13 +2,14 @@
 #
 # 이벤트 클래스 등록 및 타입별 핸들링
 
-from .base import GameEvent, GameStartEvent, ReachEvent, MeetEvent, DialogEvent, NpcMeetEvent
+from .base import GameEvent, GameStartEvent, ReachEvent, MeetEvent, DialogEvent, ContactEvent, ContactDialogEvent, NpcMeetEvent
 from types import GeneratorType
 
 # 이벤트 저장소
 _game_start_events = []
 _reach_events = []
 _meet_events = []
+_contact_events = []  # 2D 충돌 접촉 이벤트
 _npc_meet_events = []  # NPC 간 만남 이벤트
 
 # 일회성 이벤트 추적
@@ -29,6 +30,9 @@ def register(event_class):
         # NpcMeetEvent는 MeetEvent보다 먼저 체크 (더 구체적)
         _npc_meet_events.append(instance)
         _npc_meet_events.sort(key=lambda e: -e.priority)
+    elif isinstance(instance, ContactEvent):
+        _contact_events.append(instance)
+        _contact_events.sort(key=lambda e: -e.priority)
     elif isinstance(instance, MeetEvent):
         # DialogEvent도 MeetEvent의 하위 클래스
         _meet_events.append(instance)
@@ -115,6 +119,31 @@ def handle_meet(player_id, unit_ids):
     return None
 
 
+def handle_contact(player_id, unit_ids):
+    """접촉 이벤트 처리 (2D 충돌 반경) - Generator 반환"""
+    import morld
+
+    # 플레이어가 수면 중이면 접촉 이벤트 무시
+    player_info = morld.get_unit_info(player_id)
+    if player_info and player_info.get("activity") == "수면":
+        return None
+
+    for event in _contact_events:
+        event_id = _get_event_id(event, "contact")
+
+        if event.once and event_id in _triggered:
+            continue
+
+        if event.should_trigger(unit_ids=unit_ids, player_id=player_id):
+            result = event.handle(player_id=player_id, unit_ids=unit_ids)
+            if result is not None:
+                if event.once:
+                    _triggered.add(event_id)
+                return result
+
+    return None
+
+
 def handle_npc_meet(unit_ids):
     """NPC 간 만남 이벤트 처리 (플레이어 미포함)
 
@@ -156,6 +185,11 @@ def get_reach_events():
 def get_meet_events():
     """등록된 MeetEvent 목록 반환 (EventPredictionSystem용)"""
     return _meet_events
+
+
+def get_contact_events():
+    """등록된 ContactEvent 목록 반환"""
+    return _contact_events
 
 
 def get_npc_meet_events():

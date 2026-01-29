@@ -64,6 +64,32 @@ class DialogEvent(MeetEvent):
     is_dialog_event = True
 
 
+class ContactEvent(GameEvent):
+    """유닛 접촉 이벤트 (2D 충돌 반경 내)
+
+    - on_contact 이벤트로 트리거
+    - 같은 Location 내에서 COLLISION_RADIUS 이내 접근 시 발생
+    - MeetEvent와 독립적으로 동작
+    """
+    target_unit = None  # unique_id (None이면 모든 유닛)
+
+    def should_trigger(self, unit_ids, **ctx) -> bool:
+        if self.target_unit is None:
+            return True
+        from assets import registry
+        target_id = registry.get_instance_id(self.target_unit)
+        return target_id is not None and target_id in unit_ids
+
+
+class ContactDialogEvent(ContactEvent):
+    """접촉 다이얼로그 이벤트
+
+    - is_dialog_event = True
+    - handle()에서 yield morld.dialog() 사용 가능
+    """
+    is_dialog_event = True
+
+
 class NpcMeetEvent(GameEvent):
     """NPC 간 만남 이벤트 (플레이어 미포함)
 

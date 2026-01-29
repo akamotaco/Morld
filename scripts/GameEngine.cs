@@ -260,9 +260,10 @@ public partial class GameEngine : Node
 			int delta_int = (int)(delta * 1000);
 			this._world.Step(delta_int);
 
-			// 매 Step마다 만남 감지 (EventPredictionSystem이 시간 조정했으므로)
-			// on_meet 이벤트가 발생하면 시간 진행 중단
+			// 매 Step마다 만남/접촉 감지 (EventPredictionSystem이 시간 조정했으므로)
+			// on_meet/on_contact 이벤트가 발생하면 시간 진행 중단
 			_eventSystem.DetectMeetings();
+			_eventSystem.DetectContacts();
 			var eventHandled = _eventSystem.FlushEvents();
 
 			if (eventHandled)

@@ -162,12 +162,12 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 유닛의 이동 경로 계산
+		/// 유닛의 이동 경로 계산 (멀티홉 Gate 시뮬레이션)
 		///
 		/// 경유지(StayDuration)를 포함한 전체 경로 시뮬레이션:
 		/// 1. 현재 이동 완료 시점
 		/// 2. 경유지 체류 시간 적용
-		/// 3. 다음 이동 계산 (Job 목적지 기준)
+		/// 3. 다음 Gate 탐색 및 이동 시간 계산
 		/// 4. duration 내에서 반복
 		///
 		/// 각 Waypoint에는 도착 시간과 체류 시간이 포함됨
@@ -221,13 +221,12 @@ namespace SE
 			if (unit.CurrentLocation == goalLocation)
 				return route;
 
-			// Pi-World: Gate 기반 이동 시뮬레이션
-			// 현재 이동 중이면 완료 시간 예측
+			// Pi-World: Gate 기반 이동 시뮬레이션 (멀티홉 경로 예측)
 			var currentLocation = unit.CurrentLocation;
 			int elapsedTime = 0;
-			int remainingStayTime = unit.RemainingStayTime;
+			float simPositionX = unit.PositionX;
 
-			// 현재 이동 완료 시간 계산
+			// 1. 현재 이동 완료 시간 계산
 			if (unit.CurrentMovement != null)
 			{
 				int moveTime = unit.CurrentMovement.RemainingTime;
@@ -240,21 +239,100 @@ namespace SE
 					var gate = region?.GetGate(currentLocation.LocalId, unit.CurrentMovement.TargetGateId.Value);
 					if (gate != null)
 					{
+						elapsedTime += gate.TravelTime;
 						currentLocation = gate.ConnectedLocation;
+						simPositionX = gate.ArrivalX;
 					}
 				}
+				else
+				{
+					simPositionX = unit.CurrentMovement.TargetX;
+				}
+
+				if (elapsedTime <= duration)
+				{
+					var arrivedLoc = terrain.GetLocation(currentLocation);
+					int stayDur = (currentLocation == goalLocation)
+						? (duration - elapsedTime)
+						: (arrivedLoc?.StayDuration ?? 0);
+
+					route.Add(new RouteWaypoint
+					{
+						Location = currentLocation,
+						ArrivalTime = elapsedTime,
+						StayDuration = stayDur,
+						IsFinalDestination = (currentLocation == goalLocation)
+					});
+
+					elapsedTime += arrivedLoc?.StayDuration ?? 0;
+				}
+			}
+
+			// 2. 멀티홉 Gate 경로 시뮬레이션
+			// NPC가 경유하는 모든 Location을 waypoint로 기록
+			int maxHops = 20; // 무한 루프 방지
+			while (elapsedTime < duration && currentLocation != goalLocation && maxHops-- > 0)
+			{
+				var location = terrain.GetLocation(currentLocation);
+				if (location == null) break;
+
+				// 경로 탐색: 현재 → 목표
+				var pathResult = terrain.FindPath(currentLocation, goalLocation.Value, unit.TraversalContext);
+				if (!pathResult.Found || pathResult.Path.Count < 2) break;
+
+				var nextLocationRef = new LocationRef(pathResult.Path[1]);
+
+				// 다음 Location으로의 Gate 찾기
+				var simRegion = terrain.GetRegion(currentLocation.RegionId);
+				if (simRegion == null) break;
+
+				Gate? bestGate = null;
+				float bestDist = float.MaxValue;
+				foreach (var gate in simRegion.GetGates(currentLocation.LocalId))
+				{
+					if (gate.ConnectedLocation == nextLocationRef &&
+						gate.CanTraverseForward(unit.TraversalContext))
+					{
+						float dist = location.CalculateDistance(simPositionX, gate.X);
+						if (dist < bestDist)
+						{
+							bestDist = dist;
+							bestGate = gate;
+						}
+					}
+				}
+
+				if (bestGate == null) break;
+
+				// Gate까지 이동 시간 계산
+				float speed = location.BaseSpeed;
+				if (speed <= 0f) speed = 1f;
+				int travelTimeToGate = (int)MathF.Ceiling(bestDist / speed);
+
+				elapsedTime += travelTimeToGate;
+				elapsedTime += bestGate.TravelTime;
+
+				if (elapsedTime > duration) break;
+
+				// 다음 Location 도착
+				currentLocation = bestGate.ConnectedLocation;
+				simPositionX = bestGate.ArrivalX;
+
+				var nextLoc = terrain.GetLocation(currentLocation);
+				int nextStayDur = (currentLocation == goalLocation)
+					? (duration - elapsedTime)
+					: (nextLoc?.StayDuration ?? 0);
 
 				route.Add(new RouteWaypoint
 				{
 					Location = currentLocation,
 					ArrivalTime = elapsedTime,
-					StayDuration = 0,
+					StayDuration = nextStayDur,
 					IsFinalDestination = (currentLocation == goalLocation)
 				});
-			}
 
-			// TODO: Pi-World 경로 예측 구현 (Gate 기반)
-			// 현재는 단순화하여 현재 이동만 예측
+				elapsedTime += nextLoc?.StayDuration ?? 0;
+			}
 
 			return route;
 		}

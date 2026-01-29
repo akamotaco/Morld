@@ -12,13 +12,14 @@ namespace SE
 	/// <summary>
 	/// EventSystem - 게임 이벤트 수집 및 Python 전달
 	/// - 위치 변경 감지 (OnReach)
-	/// - 유닛 만남 감지 (OnMeet)
+	/// - 유닛 만남 감지 (OnMeet) - 같은 Location 기준
+	/// - 유닛 접촉 감지 (OnContact) - 2D 충돌 반경 기준
 	/// - 이벤트 배치 처리 후 Python on_event_list() 호출
 	/// - Pi-World: 2D 좌표 기반 충돌 감지
 	/// </summary>
 	public class EventSystem : ECS.System
 	{
-		// Pi-World: 2D 충돌 감지 반경 (단위)
+		// Pi-World: 2D 충돌 감지 반경 (단위) - OnContact용
 		private const float COLLISION_RADIUS = 5f;
 
 		// 이번 Step에서 발생한 이벤트 큐
@@ -37,6 +38,10 @@ namespace SE
 		private readonly HashSet<string> _lastMeetings = new();
 		// 역방향 인덱스: 유닛 ID → 해당 유닛이 포함된 만남 키 집합
 		private readonly Dictionary<int, HashSet<string>> _unitToMeetings = new();
+
+		// OnContact 중복 방지
+		private readonly HashSet<string> _lastContacts = new();
+		private readonly Dictionary<int, HashSet<string>> _unitToContacts = new();
 
 		// 초기화 완료 여부 (첫 Step에서 위치 초기화용)
 		private bool _initialized = false;
@@ -65,6 +70,8 @@ namespace SE
 			_wasMoving.Clear();
 			_lastMeetings.Clear();
 			_unitToMeetings.Clear();
+			_lastContacts.Clear();
+			_unitToContacts.Clear();
 			_initialized = false;
 			_dialogTimeConsumed = 0;
 			_excessTime = 0;
@@ -217,8 +224,9 @@ namespace SE
 						// 위치가 변경됨 → OnReach 이벤트 생성
 						Enqueue(GameEvent.OnReach(unit.Id, currentLoc.RegionId, currentLoc.LocalId));
 
-						// 해당 유닛의 만남 상태 리셋
+						// 해당 유닛의 만남/접촉 상태 리셋
 						ClearMeetingsForUnit(unit.Id);
+						ClearContactsForUnit(unit.Id);
 
 						// 플레이어 위치를 떠난 NPC → 액션 로그
 						if (unit.Id != playerId && lastLoc == playerLocation)
@@ -229,8 +237,9 @@ namespace SE
 					// 위치는 같지만 이동을 시작한 경우 (화면에서 사라짐)
 					else if (isMoving && !wasMovingBefore)
 					{
-						// 이동 시작 시 만남 상태 리셋 (다음에 다시 만나면 OnMeet 발생)
+						// 이동 시작 시 만남/접촉 상태 리셋 (다음에 다시 만나면 이벤트 발생)
 						ClearMeetingsForUnit(unit.Id);
+						ClearContactsForUnit(unit.Id);
 
 						// 플레이어와 같은 위치에서 이동 시작 → "떠났다" 알림
 						if (unit.Id != playerId && currentLoc == playerLocation)
@@ -288,12 +297,11 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 같은 위치에 있는 유닛들의 OnMeet 이벤트 생성
+		/// 같은 Location에 있는 유닛들의 OnMeet 이벤트 생성
 		///
-		/// 만남 조건 (Pi-World):
-		/// - 조건 A: 정지 상태 (CurrentMovement == null)
-		/// - 조건 B: 방금 도착 (이전 위치 != 현재 위치, 경유지 통과 감지)
-		/// - 조건 C: 2D 공간에서 충돌 반경 내 접근
+		/// 만남 조건: 같은 Location에 있으면 트리거 (Pi-World/Legacy 공통)
+		/// - 정지 상태 (CurrentMovement == null)
+		/// - 또는 방금 도착 (이전 위치 != 현재 위치, 경유지 통과)
 		///
 		/// 시간 정지 상태에서는 스킵 (NPC와 상호작용 불가)
 		/// </summary>
@@ -313,11 +321,7 @@ namespace SE
 
 			var playerLocation = player.CurrentLocation;
 
-			// Pi-World: 2D 모드 확인
-			var terrain = _worldSystem.GetTerrain();
-			var location = terrain?.GetLocation(playerLocation);
-
-			// 플레이어와 같은 위치에 있는 유닛 수집
+			// 플레이어와 같은 Location에 있는 유닛 수집
 			var unitsToMeet = new List<int>();
 
 			foreach (var unit in _unitSystem.Units.Values)
@@ -326,60 +330,19 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 				if (unit.CurrentLocation != playerLocation) continue;
 
-				// Pi-World 2D 모드: 거리 기반 충돌 체크
-				if (location != null)
-				{
-					float distance = location.CalculateDistance(player.PositionX, unit.PositionX);
-					if (distance <= COLLISION_RADIUS)
-					{
-						// 조건 C: 2D 충돌 반경 내
-						unitsToMeet.Add(unit.Id);
-#if DEBUG_LOG
-						GD.Print($"[EventSystem] 2D meeting: {player.Name}(X={player.PositionX:F1}) - {unit.Name}(X={unit.PositionX:F1}), dist={distance:F1}");
-#endif
-					}
-					continue;
-				}
-
-				// Fallback: 정지 상태면 만남
+				// 정지 상태면 만남
 				if (unit.CurrentMovement == null)
 				{
 					unitsToMeet.Add(unit.Id);
 					continue;
 				}
 
-				// 조건 B: 방금 도착 (이동 중이지만 이전 위치와 다름 = 경유지 통과)
+				// 방금 도착 (이동 중이지만 이전 위치와 다름 = 경유지 통과)
 				if (_lastLocations.TryGetValue(unit.Id, out var lastLoc))
 				{
 					if (lastLoc != unit.CurrentLocation)
 					{
 						unitsToMeet.Add(unit.Id);
-					}
-				}
-			}
-
-			// Pi-World: 2D 이동 중 충돌 감지 (같은 Location, 이동 중인 유닛들)
-			if (location != null && player.CurrentMovement != null)
-			{
-				var movement2DMeetings = Detect2DMovementMeetings(player, _unitSystem, location);
-				foreach (var unitId in movement2DMeetings)
-				{
-					if (!unitsToMeet.Contains(unitId))
-					{
-						unitsToMeet.Add(unitId);
-					}
-				}
-			}
-
-			// Pi-World: Gate 교차 충돌 감지 (서로 다른 Location에서 같은 Gate 쌍으로 이동)
-			if (terrain != null && player.CurrentMovement?.TargetGateId != null)
-			{
-				var gateCrossingMeetings = DetectGateCrossingMeetings(player, _unitSystem, terrain);
-				foreach (var unitId in gateCrossingMeetings)
-				{
-					if (!unitsToMeet.Contains(unitId))
-					{
-						unitsToMeet.Add(unitId);
 					}
 				}
 			}
@@ -402,13 +365,118 @@ namespace SE
 			// 새로운 만남 기록 및 이벤트 생성
 			AddMeetingKey(meetingKey, allIds.ToArray());
 			Enqueue(GameEvent.OnMeet(allIds.ToArray()));
+
+#if DEBUG_LOG
+			var unitNames = allIds.Select(id => _unitSystem.FindUnit(id)?.Name ?? id.ToString());
+			GD.Print($"[EventSystem] OnMeet: [{string.Join(", ", unitNames)}] at {playerLocation}");
+#endif
 		}
 
 		/// <summary>
-		/// Pi-World: 2D 이동 중 충돌 감지
+		/// 2D 충돌 반경 내 접촉한 유닛들의 OnContact 이벤트 생성 (Pi-World 전용)
+		///
+		/// 접촉 조건:
+		/// - 같은 Location에 있어야 함
+		/// - 2D 좌표 거리가 COLLISION_RADIUS 이내
+		/// - 정지 상태 또는 이동 중 모두 포함
+		///
+		/// 시간 정지 상태에서는 스킵
+		/// </summary>
+		public void DetectContacts()
+		{
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+			var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+
+			// 시간 정지 상태에서는 on_contact 이벤트 스킵
+			if (_worldSystem.IsTimeFrozen())
+				return;
+
+			var playerId = _playerSystem.PlayerId;
+			var player = _unitSystem.FindUnit(playerId);
+			if (player == null) return;
+
+			var playerLocation = player.CurrentLocation;
+
+			// Pi-World 2D 모드 확인
+			var terrain = _worldSystem.GetTerrain();
+			var location = terrain?.GetLocation(playerLocation);
+			if (location == null) return;  // Legacy 모드에서는 on_contact 미지원
+
+			// 플레이어와 같은 Location에서 충돌 반경 내 유닛 수집
+			var unitsInContact = new List<int>();
+
+			float playerX = player.CurrentMovement?.CurrentX ?? player.PositionX;
+
+			foreach (var unit in _unitSystem.Units.Values)
+			{
+				if (unit.Id == playerId) continue;
+				if (!unit.GeneratesEvents) continue;
+				if (unit.CurrentLocation != playerLocation) continue;
+
+				float unitX = unit.CurrentMovement?.CurrentX ?? unit.PositionX;
+				float distance = location.CalculateDistance(playerX, unitX);
+
+				if (distance <= COLLISION_RADIUS)
+				{
+					unitsInContact.Add(unit.Id);
+#if DEBUG_LOG
+					GD.Print($"[EventSystem] OnContact: {player.Name}(X={playerX:F1}) - {unit.Name}(X={unitX:F1}), dist={distance:F1}");
+#endif
+				}
+			}
+
+			// Pi-World: 이동 중 교차 충돌 감지 (같은 Location)
+			if (player.CurrentMovement != null)
+			{
+				var movement2DContacts = Detect2DMovementContacts(player, _unitSystem, location);
+				foreach (var unitId in movement2DContacts)
+				{
+					if (!unitsInContact.Contains(unitId))
+					{
+						unitsInContact.Add(unitId);
+					}
+				}
+			}
+
+			// Pi-World: Gate 교차 충돌 감지 (서로 다른 Location에서 같은 Gate 쌍으로 이동)
+			if (terrain != null && player.CurrentMovement?.TargetGateId != null)
+			{
+				var gateCrossingContacts = DetectGateCrossingContacts(player, _unitSystem, terrain);
+				foreach (var unitId in gateCrossingContacts)
+				{
+					if (!unitsInContact.Contains(unitId))
+					{
+						unitsInContact.Add(unitId);
+					}
+				}
+			}
+
+			unitsInContact.Sort();
+
+			if (unitsInContact.Count == 0)
+				return;
+
+			// 접촉 키 생성 (플레이어 + 다른 유닛들, 정렬됨)
+			var allIds = new List<int> { playerId };
+			allIds.AddRange(unitsInContact);
+			allIds.Sort();
+			var contactKey = string.Join(",", allIds);
+
+			// 이미 발생한 접촉인지 확인
+			if (_lastContacts.Contains(contactKey))
+				return;
+
+			// 새로운 접촉 기록 및 이벤트 생성
+			AddContactKey(contactKey, allIds.ToArray());
+			Enqueue(GameEvent.OnContact(allIds.ToArray()));
+		}
+
+		/// <summary>
+		/// Pi-World: 2D 이동 중 접촉 감지
 		/// 플레이어와 같은 Location에서 이동 중인 유닛 중 교차/근접하는 유닛 반환
 		/// </summary>
-		private List<int> Detect2DMovementMeetings(Unit player, UnitSystem unitSystem, Location location)
+		private List<int> Detect2DMovementContacts(Unit player, UnitSystem unitSystem, Location location)
 		{
 			var result = new List<int>();
 			var playerMovement = player.CurrentMovement;
@@ -429,7 +497,7 @@ namespace SE
 				if (distance <= COLLISION_RADIUS)
 				{
 #if DEBUG_LOG
-					GD.Print($"[EventSystem] 2D movement meeting: {player.Name}(X={playerCurrentX:F1}) - {unit.Name}(X={unitCurrentX:F1}), dist={distance:F1}");
+					GD.Print($"[EventSystem] 2D movement contact: {player.Name}(X={playerCurrentX:F1}) - {unit.Name}(X={unitCurrentX:F1}), dist={distance:F1}");
 #endif
 					result.Add(unit.Id);
 				}
@@ -439,7 +507,7 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Pi-World: Gate 교차 충돌 감지 (플레이어 전용)
+		/// Pi-World: Gate 교차 접촉 감지 (플레이어 전용)
 		/// 플레이어가 Gate를 통해 이동 중일 때, 반대편 Location에서 같은 Gate 쌍을 통해
 		/// 반대 방향으로 이동 중인 NPC를 감지
 		///
@@ -447,7 +515,7 @@ namespace SE
 		///   Location A -- Gate --> Location B
 		///   P: A에서 Gate로 이동 중 (→ B로 갈 예정)
 		///   N: B에서 Gate로 이동 중 (→ A로 갈 예정)
-		///   → 두 유닛이 Gate에서 교차 → on_meet 발생
+		///   → 두 유닛이 Gate에서 교차 → on_contact 발생
 		///
 		/// ※ 플레이어 전용 특수 처리:
 		///   다이얼로그 이벤트는 플레이어 중심이므로, 플레이어-NPC 교차 시에만
@@ -458,7 +526,7 @@ namespace SE
 		///   이 메서드는 플레이어 기준으로만 동작하므로 NPC끼리의 교차는 감지하지 않음.
 		///   NPC끼리 교차 시에는 각자 원래 목적지로 이동 (N1→B, N2→A)
 		/// </summary>
-		private List<int> DetectGateCrossingMeetings(Unit player, UnitSystem unitSystem, Terrain terrain)
+		private List<int> DetectGateCrossingContacts(Unit player, UnitSystem unitSystem, Terrain terrain)
 		{
 			var result = new List<int>();
 			var playerMovement = player.CurrentMovement;
@@ -503,24 +571,13 @@ namespace SE
 					unit.PositionX = playerGate.ArrivalX;  // Gate 도착 위치
 
 #if DEBUG_LOG
-					GD.Print($"[EventSystem] Gate crossing: {player.Name}({player.CurrentLocation} → Gate{playerGate.Id}) × {unit.Name} → moved to {connectedLocation}(X={playerGate.ArrivalX:F1})");
+					GD.Print($"[EventSystem] Gate crossing contact: {player.Name}({player.CurrentLocation} → Gate{playerGate.Id}) × {unit.Name} → moved to {connectedLocation}(X={playerGate.ArrivalX:F1})");
 #endif
 					result.Add(unit.Id);
 				}
 			}
 
 			return result;
-		}
-
-		/// <summary>
-		/// Legacy 모드 충돌 감지 (사용되지 않음)
-		/// Pi-World에서는 Location 내 2D 충돌로 대체
-		/// 호환성을 위해 빈 리스트 반환
-		/// </summary>
-		private List<int> DetectLegacyMeetings(Unit player, UnitSystem unitSystem)
-		{
-			// Pi-World: Legacy 충돌 감지는 사용되지 않음
-			return new List<int>();
 		}
 
 		/// <summary>
@@ -593,6 +650,8 @@ namespace SE
 			return false;
 		}
 
+		#region Meeting Key Management
+
 		/// <summary>
 		/// 만남 키 등록 (역방향 인덱스도 갱신)
 		/// </summary>
@@ -620,10 +679,43 @@ namespace SE
 			}
 		}
 
+		#endregion
+
+		#region Contact Key Management
+
+		/// <summary>
+		/// 접촉 키 등록 (역방향 인덱스도 갱신)
+		/// </summary>
+		private void AddContactKey(string contactKey, int[] unitIds)
+		{
+			_lastContacts.Add(contactKey);
+			foreach (var id in unitIds)
+			{
+				if (!_unitToContacts.ContainsKey(id))
+					_unitToContacts[id] = new HashSet<string>();
+				_unitToContacts[id].Add(contactKey);
+			}
+		}
+
+		/// <summary>
+		/// 특정 유닛의 접촉 상태 제거 (역방향 인덱스 활용)
+		/// </summary>
+		private void ClearContactsForUnit(int unitId)
+		{
+			if (_unitToContacts.TryGetValue(unitId, out var keys))
+			{
+				foreach (var key in keys)
+					_lastContacts.Remove(key);
+				_unitToContacts.Remove(unitId);
+			}
+		}
+
+		#endregion
+
 		/// <summary>
 		/// Focus 시 on_meet 이벤트 체크 및 발동
 		/// 플레이어가 캐릭터를 Focus할 때 호출됩니다.
-		/// 조건: 같은 Location, 2D 모드일 경우 충돌 반경 내, 시간 정지가 아닐 것
+		/// 조건: 같은 Location, 시간 정지가 아닐 것
 		/// </summary>
 		/// <param name="focusedUnitId">Focus된 유닛 ID</param>
 		/// <returns>on_meet 이벤트가 발동되었으면 true</returns>
@@ -649,21 +741,6 @@ namespace SE
 			// 같은 Location인지 확인
 			if (focusedUnit.CurrentLocation != player.CurrentLocation)
 				return false;
-
-			// Pi-World: 충돌 반경 체크
-			var terrain = _worldSystem.GetTerrain();
-			var location = terrain?.GetLocation(player.CurrentLocation);
-			if (location != null)
-			{
-				float distance = location.CalculateDistance(player.PositionX, focusedUnit.PositionX);
-				if (distance > COLLISION_RADIUS)
-				{
-#if DEBUG_LOG
-					GD.Print($"[EventSystem] Focus on_meet skipped: {focusedUnit.Name} too far (dist={distance:F1}, radius={COLLISION_RADIUS})");
-#endif
-					return false;
-				}
-			}
 
 			// 만남 키 생성 및 중복 체크
 			var allIds = new List<int> { playerId, focusedUnitId };
