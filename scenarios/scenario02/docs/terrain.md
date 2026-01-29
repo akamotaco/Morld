@@ -187,9 +187,9 @@ def instantiate(self, location_id: int, region_id: int):
 
 ---
 
-## 참고: 기존 Edge 시스템과 비교
+## 참고: 기존 시스템과 비교
 
-### 이전 (Edge 기반)
+### 이전 (Legacy Edge 기반, 삭제됨)
 ```python
 EDGES = [
     (0, 1, 1),   # 현관-거실, 1분
@@ -207,7 +207,7 @@ GATES = [
 ```
 
 ### 차이점
-| 항목 | Edge | Gate |
+| 항목 | Legacy Edge | Gate |
 |------|------|------|
 | 이동 시간 | 고정값 | 거리 기반 계산 |
 | Location 내 위치 | 없음 | x 좌표 |

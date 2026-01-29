@@ -13,8 +13,8 @@ namespace SE
 		/// json 파일로 import/export 하는 기능을 제공하며, 다음의 것을 제공함
 		/// [morld]
 		/// - terrain
-		/// - region (+ region edge)
-		/// - location (+ edge)
+		/// - region (+ region gate)
+		/// - location (+ gate)
 		/// </summary>
 		private Morld.Terrain _terrain;
 		private Morld.GameTime _currentTime;
@@ -44,7 +44,7 @@ namespace SE
 
 		/// <summary>
 		/// Terrain 초기화 (챕터 전환 시 사용)
-		/// 모든 Region, Location, Edge 제거
+		/// 모든 Region, Location, Gate 제거
 		/// </summary>
 		public void ClearTerrain()
 		{

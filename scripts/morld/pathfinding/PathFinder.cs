@@ -36,9 +36,9 @@ public class PathResult
 	public List<int> RegionsTraversed { get; init; } = new();
 
 	/// <summary>
-	/// 사용한 RegionEdge ID 목록
+	/// 사용한 RegionGate ID 목록
 	/// </summary>
-	public List<int> RegionEdgesUsed { get; init; } = new();
+	public List<int> RegionGatesUsed { get; init; } = new();
 
 	/// <summary>
 	/// 빈 결과 (경로 없음)
@@ -192,12 +192,12 @@ public class PathFinder
 
 			closedSet.Add(current.GlobalId);
 
-			foreach ((Location neighbor, float edgeTravelTime) in region.GetTraversableNeighbors(current, context))
+			foreach ((Location neighbor, float gateTravelTime) in region.GetTraversableNeighbors(current, context))
 			{
 				if (closedSet.Contains(neighbor.GlobalId))
 					continue;
 
-				float tentativeTime = travelTime[current.GlobalId] + edgeTravelTime;
+				float tentativeTime = travelTime[current.GlobalId] + gateTravelTime;
 
 				if (!travelTime.ContainsKey(neighbor.GlobalId) || tentativeTime < travelTime[neighbor.GlobalId])
 				{
@@ -216,9 +216,9 @@ public class PathFinder
 	/// </summary>
 	private PathResult FindPathAcrossRegions(Location start, Location goal, TraversalContext? context)
 	{
-		// 전역 탐색: Location + RegionEdge를 모두 탐색
+		// 전역 탐색: Location + RegionGate를 모두 탐색
 		var openSet = new PriorityQueue<SearchNode, float>();
-		var cameFrom = new Dictionary<string, (SearchNode node, int? regionEdgeId)>();
+		var cameFrom = new Dictionary<string, (SearchNode node, int? regionGateId)>();
 		var travelTime = new Dictionary<string, float>();
 		var closedSet = new HashSet<string>();
 		int visitedCount = 0;
@@ -246,13 +246,13 @@ public class PathFinder
 			var currentRegion = _terrain.GetRegion(current.Location.RegionId)!;
 
 			// 1. 같은 Region 내 이동
-			foreach ((Location neighbor, float edgeTravelTime) in currentRegion.GetTraversableNeighbors(current.Location, context))
+			foreach ((Location neighbor, float gateTravelTime) in currentRegion.GetTraversableNeighbors(current.Location, context))
 			{
 				var neighborNode = new SearchNode(neighbor);
 				if (closedSet.Contains(neighborNode.Id))
 					continue;
 
-				float tentativeTime = travelTime[current.Id] + edgeTravelTime;
+				float tentativeTime = travelTime[current.Id] + gateTravelTime;
 
 				if (!travelTime.ContainsKey(neighborNode.Id) || tentativeTime < travelTime[neighborNode.Id])
 				{
@@ -262,9 +262,9 @@ public class PathFinder
 				}
 			}
 
-			// 2. 다른 Region으로 이동 (RegionEdge)
+			// 2. 다른 Region으로 이동 (RegionGate)
 			var currentRef = new LocationRef(current.Location);
-			foreach ((RegionEdge regionEdge, LocationRef destRef, float edgeTravelTime) in _terrain.GetRegionExits(currentRef, context))
+			foreach ((RegionGate regionGate, LocationRef destRef, float gateTravelTime) in _terrain.GetRegionExits(currentRef, context))
 			{
 				var destLocation = _terrain.GetLocation(destRef);
 				if (destLocation == null)
@@ -274,11 +274,11 @@ public class PathFinder
 				if (closedSet.Contains(destNode.Id))
 					continue;
 
-				float tentativeTime = travelTime[current.Id] + edgeTravelTime;
+				float tentativeTime = travelTime[current.Id] + gateTravelTime;
 
 				if (!travelTime.ContainsKey(destNode.Id) || tentativeTime < travelTime[destNode.Id])
 				{
-					cameFrom[destNode.Id] = (current, regionEdge.Id);
+					cameFrom[destNode.Id] = (current, regionGate.Id);
 					travelTime[destNode.Id] = tentativeTime;
 					openSet.Enqueue(destNode, tentativeTime);
 				}
@@ -309,21 +309,21 @@ public class PathFinder
 	/// Region 간 경로 재구성
 	/// </summary>
 	private PathResult ReconstructCrossRegionPath(
-		Dictionary<string, (SearchNode node, int? regionEdgeId)> cameFrom,
+		Dictionary<string, (SearchNode node, int? regionGateId)> cameFrom,
 		SearchNode current,
 		float totalTime,
 		int visitedCount)
 	{
 		var path = new List<Location> { current.Location };
 		var regions = new HashSet<int> { current.Location.RegionId };
-		var regionEdges = new List<int>();
+		var regionGates = new List<int>();
 
 		while (cameFrom.ContainsKey(current.Id))
 		{
-			var (prevNode, regionEdgeId) = cameFrom[current.Id];
+			var (prevNode, regionGateId) = cameFrom[current.Id];
 			
-			if (regionEdgeId.HasValue)
-				regionEdges.Add(regionEdgeId.Value);
+			if (regionGateId.HasValue)
+				regionGates.Add(regionGateId.Value);
 
 			current = prevNode;
 			path.Add(current.Location);
@@ -331,7 +331,7 @@ public class PathFinder
 		}
 
 		path.Reverse();
-		regionEdges.Reverse();
+		regionGates.Reverse();
 
 		return new PathResult
 		{
@@ -340,7 +340,7 @@ public class PathFinder
 			TotalTravelTime = totalTime,
 			VisitedNodes = visitedCount,
 			RegionsTraversed = regions.ToList(),
-			RegionEdgesUsed = regionEdges
+			RegionGatesUsed = regionGates
 		};
 	}
 

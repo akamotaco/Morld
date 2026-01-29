@@ -152,7 +152,7 @@ public class Unit : IOwnable
 	/// <summary>
 	/// 이동 중인지 여부 (Pi-World: CurrentMovement가 있음)
 	/// </summary>
-	public bool IsOnEdge => _currentMovement != null;
+	public bool IsMoving => _currentMovement != null;
 
 	/// <summary>
 	/// 대기 중인지 여부 (이동 중이 아님)

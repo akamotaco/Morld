@@ -192,7 +192,7 @@ def calculate_humidity(region_id, location_id):
 
 ### 개념
 
-실내 Location들이 Edge로 연결되어 있으면 **같은 건물/구역**으로 취급합니다.
+실내 Location들이 Gate로 연결되어 있으면 **같은 건물/구역**으로 취급합니다.
 실외 Location을 만나면 연결이 끊어집니다.
 
 ```

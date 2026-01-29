@@ -303,7 +303,7 @@ def check_initiative_event(unit_id: int):
     - First Meet (첫 만남): 아직 만난 적 없는 NPC
     - NPC 주도 스킨십: 조건 충족 시 NPC가 먼저 시작
 
-    이 함수는 Edge 이동 중인 NPC와의 만남 문제를 해결합니다.
+    이 함수는 이동 중인 NPC와의 만남 문제를 해결합니다.
     on_meet 이벤트는 두 유닛 모두 정지 상태여야 발동하지만,
     focus 시점에서 체크하면 이동 중인 NPC와도 이벤트가 발생합니다.
 

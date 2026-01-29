@@ -13,7 +13,7 @@ public class LookResult
 	public LocationInfo Location { get; set; } = new();
 
 	/// <summary>
-	/// 같은 위치/엣지의 유닛 ID들 (캐릭터 + 오브젝트 통합)
+	/// 같은 위치의 유닛 ID들 (캐릭터 + 오브젝트 통합)
 	/// </summary>
 	public List<int> UnitIds { get; set; } = new();
 
@@ -72,10 +72,10 @@ public class RouteInfo
 	/// <summary>
 	/// Region 간 이동인지
 	/// </summary>
-	public bool IsRegionEdge { get; set; }
+	public bool IsRegionGate { get; set; }
 
 	/// <summary>
-	/// Edge.IsBlocked 또는 조건 미충족 (grey out 표시)
+	/// Gate.IsBlocked 또는 조건 미충족 (grey out 표시)
 	/// </summary>
 	public bool IsBlocked { get; set; }
 

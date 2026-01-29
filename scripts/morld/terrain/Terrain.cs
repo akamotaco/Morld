@@ -14,18 +14,18 @@ using SE;
 public class Terrain
 {
     private readonly Dictionary<int, Region> _regions = new();
-    private readonly Dictionary<int, RegionEdge> _regionEdges = new();
+    private readonly Dictionary<int, RegionGate> _regionGates = new();
     /// <summary>
-    /// Region ID별 연결된 RegionEdge 목록 (O(1) 조회를 위한 인덱스)
-    /// Key: Region ID, Value: 해당 Region에 연결된 모든 RegionEdge
+    /// Region ID별 연결된 RegionGate 목록 (O(1) 조회를 위한 인덱스)
+    /// Key: Region ID, Value: 해당 Region에 연결된 모든 RegionGate
     /// </summary>
-    private readonly Dictionary<int, List<RegionEdge>> _regionEdgeIndex = new();
+    private readonly Dictionary<int, List<RegionGate>> _regionGateIndex = new();
     private readonly HashSet<int> _changedRegions = new();
-    private bool _isRegionEdgeChanged;
+    private bool _isRegionGateChanged;
     /// <summary>
-    /// RegionEdge ID 자동 생성을 위한 카운터 (중복 방지)
+    /// RegionGate ID 자동 생성을 위한 카운터 (중복 방지)
     /// </summary>
-    private int _nextRegionEdgeId = 0;
+    private int _nextRegionGateId = 0;
 
     /// <summary>
     /// Terrain 이름
@@ -40,7 +40,7 @@ public class Terrain
     /// <summary>
     /// 모든 Region 간 연결
     /// </summary>
-    public IReadOnlyCollection<RegionEdge> RegionEdges => _regionEdges.Values;
+    public IReadOnlyCollection<RegionGate> RegionGates => _regionGates.Values;
 
     /// <summary>
     /// Region 수
@@ -50,7 +50,7 @@ public class Terrain
     /// <summary>
     /// Region 간 연결 수
     /// </summary>
-    public int RegionEdgeCount => _regionEdges.Count;
+    public int RegionGateCount => _regionGates.Count;
 
     public Terrain(string name = "unknown")
     {
@@ -62,7 +62,7 @@ public class Terrain
     /// <summary>
     /// 변경된 Region이 있는지 여부
     /// </summary>
-    public bool IsChanged() => _changedRegions.Count > 0 || _isRegionEdgeChanged;
+    public bool IsChanged() => _changedRegions.Count > 0 || _isRegionGateChanged;
 
     /// <summary>
     /// 특정 Region이 변경되었는지 여부
@@ -70,9 +70,9 @@ public class Terrain
     public bool IsRegionChanged(int regionId) => _changedRegions.Contains(regionId);
 
     /// <summary>
-    /// RegionEdge가 변경되었는지 여부
+    /// RegionGate가 변경되었는지 여부
     /// </summary>
-    public bool IsRegionEdgeChanged() => _isRegionEdgeChanged;
+    public bool IsRegionGateChanged() => _isRegionGateChanged;
 
     /// <summary>
     /// 변경된 Region ID 목록
@@ -88,11 +88,11 @@ public class Terrain
     }
 
     /// <summary>
-    /// RegionEdge 변경 표시 (내부용)
+    /// RegionGate 변경 표시 (내부용)
     /// </summary>
-    internal void MarkRegionEdgeAsChanged()
+    internal void MarkRegionGateAsChanged()
     {
-        _isRegionEdgeChanged = true;
+        _isRegionGateChanged = true;
     }
 
     /// <summary>
@@ -101,7 +101,7 @@ public class Terrain
     public void ClearAllChangedFlags()
     {
         _changedRegions.Clear();
-        _isRegionEdgeChanged = false;
+        _isRegionGateChanged = false;
 
         foreach (var region in _regions.Values)
         {
@@ -122,16 +122,16 @@ public class Terrain
     #endregion
 
     /// <summary>
-    /// Terrain 전체 초기화 (모든 Region, RegionEdge 제거)
+    /// Terrain 전체 초기화 (모든 Region, RegionGate 제거)
     /// </summary>
     public void Clear()
     {
         _regions.Clear();
-        _regionEdges.Clear();
-        _regionEdgeIndex.Clear();
+        _regionGates.Clear();
+        _regionGateIndex.Clear();
         _changedRegions.Clear();
-        _isRegionEdgeChanged = false;
-        _nextRegionEdgeId = 0;
+        _isRegionGateChanged = false;
+        _nextRegionGateId = 0;
     }
 
     /// <summary>
@@ -152,7 +152,7 @@ public class Terrain
         var region = new Region(regionId, name);
         region.OwnerWorld = this;
         _regions[regionId] = region;
-        _regionEdgeIndex[regionId] = new List<RegionEdge>();
+        _regionGateIndex[regionId] = new List<RegionGate>();
         return region;
     }
 
@@ -174,7 +174,7 @@ public class Terrain
 
         region.OwnerWorld = this;
         _regions[region.Id] = region;
-        _regionEdgeIndex[region.Id] = new List<RegionEdge>();
+        _regionGateIndex[region.Id] = new List<RegionGate>();
     }
 
     /// <summary>
@@ -193,17 +193,17 @@ public class Terrain
         if (!_regions.Remove(regionId))
             return false;
 
-        // 해당 Region과 연결된 모든 RegionEdge도 제거
-        if (_regionEdgeIndex.TryGetValue(regionId, out var edges))
+        // 해당 Region과 연결된 모든 RegionGate도 제거
+        if (_regionGateIndex.TryGetValue(regionId, out var gates))
         {
-            var edgesToRemove = edges.ToList();
-            foreach (var edge in edgesToRemove)
+            var gatesToRemove = gates.ToList();
+            foreach (var rGate in gatesToRemove)
             {
-                RemoveRegionEdge(edge.Id);
+                RemoveRegionGate(rGate.Id);
             }
         }
 
-        _regionEdgeIndex.Remove(regionId);
+        _regionGateIndex.Remove(regionId);
         return true;
     }
 
@@ -323,186 +323,186 @@ public class Terrain
     /// Region 간 연결 추가
     /// </summary>
     /// <param name="throwOnDuplicate">중복 시 예외 발생 여부 (기본: false)</param>
-    public RegionEdge AddRegionEdge(
-        int edgeId,
+    public RegionGate AddRegionGate(
+        int gateId,
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
         int travelTime,
         bool throwOnDuplicate = false)
     {
-        if (_regionEdges.ContainsKey(edgeId))
+        if (_regionGates.ContainsKey(gateId))
         {
             if (throwOnDuplicate)
-                throw new InvalidOperationException($"RegionEdge with ID '{edgeId}' already exists");
-            return _regionEdges[edgeId];
+                throw new InvalidOperationException($"RegionGate with ID '{gateId}' already exists");
+            return _regionGates[gateId];
         }
 
         ValidateRegionAndLocation(regionIdA, localIdA);
         ValidateRegionAndLocation(regionIdB, localIdB);
 
-        var edge = new RegionEdge(edgeId, regionIdA, localIdA, regionIdB, localIdB);
-        edge.OwnerWorld = this;
-        edge.SetTravelTime(travelTime);
+        var rGate = new RegionGate(gateId, regionIdA, localIdA, regionIdB, localIdB);
+        rGate.OwnerWorld = this;
+        rGate.SetTravelTime(travelTime);
 
-        _regionEdges[edgeId] = edge;
-        _regionEdgeIndex[regionIdA].Add(edge);
-        _regionEdgeIndex[regionIdB].Add(edge);
+        _regionGates[gateId] = rGate;
+        _regionGateIndex[regionIdA].Add(rGate);
+        _regionGateIndex[regionIdB].Add(rGate);
 
-        if (edgeId >= _nextRegionEdgeId)
-            _nextRegionEdgeId = edgeId + 1;
+        if (gateId >= _nextRegionGateId)
+            _nextRegionGateId = gateId + 1;
 
-        MarkRegionEdgeAsChanged();
-        return edge;
+        MarkRegionGateAsChanged();
+        return rGate;
     }
 
     /// <summary>
     /// Region 간 연결 추가 (방향별 다른 이동 시간)
     /// </summary>
     /// <param name="throwOnDuplicate">중복 시 예외 발생 여부 (기본: false)</param>
-    public RegionEdge AddRegionEdge(
-        int edgeId,
+    public RegionGate AddRegionGate(
+        int gateId,
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
         int travelTimeAtoB, int travelTimeBtoA,
         bool throwOnDuplicate = false)
     {
-        if (_regionEdges.ContainsKey(edgeId))
+        if (_regionGates.ContainsKey(gateId))
         {
             if (throwOnDuplicate)
-                throw new InvalidOperationException($"RegionEdge with ID '{edgeId}' already exists");
-            return _regionEdges[edgeId];
+                throw new InvalidOperationException($"RegionGate with ID '{gateId}' already exists");
+            return _regionGates[gateId];
         }
 
         ValidateRegionAndLocation(regionIdA, localIdA);
         ValidateRegionAndLocation(regionIdB, localIdB);
 
-        var edge = new RegionEdge(edgeId, regionIdA, localIdA, regionIdB, localIdB);
-        edge.OwnerWorld = this;
-        edge.SetTravelTime(travelTimeAtoB, travelTimeBtoA);
+        var rGate = new RegionGate(gateId, regionIdA, localIdA, regionIdB, localIdB);
+        rGate.OwnerWorld = this;
+        rGate.SetTravelTime(travelTimeAtoB, travelTimeBtoA);
 
-        _regionEdges[edgeId] = edge;
-        _regionEdgeIndex[regionIdA].Add(edge);
-        _regionEdgeIndex[regionIdB].Add(edge);
+        _regionGates[gateId] = rGate;
+        _regionGateIndex[regionIdA].Add(rGate);
+        _regionGateIndex[regionIdB].Add(rGate);
 
-        if (edgeId >= _nextRegionEdgeId)
-            _nextRegionEdgeId = edgeId + 1;
+        if (gateId >= _nextRegionGateId)
+            _nextRegionGateId = gateId + 1;
 
-        MarkRegionEdgeAsChanged();
-        return edge;
+        MarkRegionGateAsChanged();
+        return rGate;
     }
 
     /// <summary>
     /// Region 간 연결 추가 (ID 자동 생성)
     /// </summary>
-    public RegionEdge AddRegionEdge(
+    public RegionGate AddRegionGate(
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
         int travelTime)
     {
-        return AddRegionEdge(_nextRegionEdgeId, regionIdA, localIdA, regionIdB, localIdB, travelTime);
+        return AddRegionGate(_nextRegionGateId, regionIdA, localIdA, regionIdB, localIdB, travelTime);
     }
 
     /// <summary>
-    /// 기존 RegionEdge 객체 추가
+    /// 기존 RegionGate 객체 추가
     /// </summary>
     /// <param name="throwOnDuplicate">중복 시 예외 발생 여부 (기본: false)</param>
-    public void AddRegionEdge(RegionEdge edge, bool throwOnDuplicate = false)
+    public void AddRegionGate(RegionGate rGate, bool throwOnDuplicate = false)
     {
-        if (edge == null) throw new ArgumentNullException(nameof(edge));
+        if (rGate == null) throw new ArgumentNullException(nameof(rGate));
 
-        if (_regionEdges.ContainsKey(edge.Id))
+        if (_regionGates.ContainsKey(rGate.Id))
         {
             if (throwOnDuplicate)
-                throw new InvalidOperationException($"RegionEdge with ID '{edge.Id}' already exists");
+                throw new InvalidOperationException($"RegionGate with ID '{rGate.Id}' already exists");
             return;
         }
 
-        ValidateRegionAndLocation(edge.LocationA.RegionId, edge.LocationA.LocalId);
-        ValidateRegionAndLocation(edge.LocationB.RegionId, edge.LocationB.LocalId);
+        ValidateRegionAndLocation(rGate.LocationA.RegionId, rGate.LocationA.LocalId);
+        ValidateRegionAndLocation(rGate.LocationB.RegionId, rGate.LocationB.LocalId);
 
-        edge.OwnerWorld = this;
-        _regionEdges[edge.Id] = edge;
-        _regionEdgeIndex[edge.LocationA.RegionId].Add(edge);
-        _regionEdgeIndex[edge.LocationB.RegionId].Add(edge);
+        rGate.OwnerWorld = this;
+        _regionGates[rGate.Id] = rGate;
+        _regionGateIndex[rGate.LocationA.RegionId].Add(rGate);
+        _regionGateIndex[rGate.LocationB.RegionId].Add(rGate);
 
-        if (edge.Id >= _nextRegionEdgeId)
-            _nextRegionEdgeId = edge.Id + 1;
+        if (rGate.Id >= _nextRegionGateId)
+            _nextRegionGateId = rGate.Id + 1;
 
-        MarkRegionEdgeAsChanged();
+        MarkRegionGateAsChanged();
     }
 
     /// <summary>
-    /// RegionEdge 가져오기
+    /// RegionGate 가져오기
     /// </summary>
-    public RegionEdge? GetRegionEdge(int edgeId)
+    public RegionGate? GetRegionGate(int gateId)
     {
-        return _regionEdges.TryGetValue(edgeId, out var edge) ? edge : null;
+        return _regionGates.TryGetValue(gateId, out var rGate) ? rGate : null;
     }
 
     /// <summary>
-    /// RegionEdge 제거
+    /// RegionGate 제거
     /// </summary>
-    public bool RemoveRegionEdge(int edgeId)
+    public bool RemoveRegionGate(int gateId)
     {
-        if (!_regionEdges.TryGetValue(edgeId, out var edge))
+        if (!_regionGates.TryGetValue(gateId, out var rGate))
             return false;
 
-        _regionEdges.Remove(edgeId);
-        if (_regionEdgeIndex.TryGetValue(edge.LocationA.RegionId, out var edgesA))
-            edgesA.Remove(edge);
-        if (_regionEdgeIndex.TryGetValue(edge.LocationB.RegionId, out var edgesB))
-            edgesB.Remove(edge);
+        _regionGates.Remove(gateId);
+        if (_regionGateIndex.TryGetValue(rGate.LocationA.RegionId, out var gatesA))
+            gatesA.Remove(rGate);
+        if (_regionGateIndex.TryGetValue(rGate.LocationB.RegionId, out var gatesB))
+            gatesB.Remove(rGate);
 
         return true;
     }
 
     /// <summary>
-    /// 특정 Region에 연결된 모든 RegionEdge 가져오기
+    /// 특정 Region에 연결된 모든 RegionGate 가져오기
     /// </summary>
-    public IReadOnlyList<RegionEdge> GetRegionEdges(int regionId)
+    public IReadOnlyList<RegionGate> GetRegionGates(int regionId)
     {
-        if (_regionEdgeIndex.TryGetValue(regionId, out var edges))
-            return edges;
-        return Array.Empty<RegionEdge>();
+        if (_regionGateIndex.TryGetValue(regionId, out var gates))
+            return gates;
+        return Array.Empty<RegionGate>();
     }
 
     /// <summary>
-    /// 특정 Location에서 연결된 RegionEdge 목록 가져오기
+    /// 특정 Location에서 연결된 RegionGate 목록 가져오기
     /// </summary>
-    public IEnumerable<RegionEdge> GetRegionEdgesFrom(LocationRef from)
+    public IEnumerable<RegionGate> GetRegionGatesFrom(LocationRef from)
     {
-        var edges = GetRegionEdges(from.RegionId);
+        var gates = GetRegionGates(from.RegionId);
 
-        foreach (var edge in edges)
+        foreach (var rGate in gates)
         {
-            var locInRegion = edge.GetLocationInRegion(from.RegionId);
+            var locInRegion = rGate.GetLocationInRegion(from.RegionId);
             if (locInRegion == null || locInRegion.Value != from)
                 continue;
 
-            yield return edge;
+            yield return rGate;
         }
     }
 
     /// <summary>
     /// 특정 Location에서 다른 Region으로 이동 가능한 연결들 가져오기
     /// </summary>
-    public IEnumerable<(RegionEdge edge, LocationRef destination, float travelTime)> GetRegionExits(
+    public IEnumerable<(RegionGate rGate, LocationRef destination, float travelTime)> GetRegionExits(
         LocationRef from,
         TraversalContext? context = null)
     {
-        var edges = GetRegionEdges(from.RegionId);
+        var gates = GetRegionGates(from.RegionId);
 
-        foreach (var edge in edges)
+        foreach (var rGate in gates)
         {
-            var locInRegion = edge.GetLocationInRegion(from.RegionId);
+            var locInRegion = rGate.GetLocationInRegion(from.RegionId);
             if (locInRegion == null || locInRegion.Value != from)
                 continue;
 
-            if (edge.CanTraverse(from, context))
+            if (rGate.CanTraverse(from, context))
             {
-                var destination = edge.GetOtherLocation(from);
-                var travelTime = edge.GetTravelTime(from);
-                yield return (edge, destination, travelTime);
+                var destination = rGate.GetOtherLocation(from);
+                var travelTime = rGate.GetTravelTime(from);
+                yield return (rGate, destination, travelTime);
             }
         }
     }
@@ -520,39 +520,39 @@ public class Terrain
     }
 
     /// <summary>
-    /// 모든 RegionEdge 유효성 검사 및 무효한 것 제거
+    /// 모든 RegionGate 유효성 검사 및 무효한 것 제거
     /// </summary>
-    public List<int> ValidateAndCleanRegionEdges()
+    public List<int> ValidateAndCleanRegionGates()
     {
-        var invalidEdges = new List<int>();
+        var invalidGates = new List<int>();
 
-        foreach (var edge in _regionEdges.Values.ToList())
+        foreach (var rGate in _regionGates.Values.ToList())
         {
             bool isValid = true;
 
             // Region 존재 확인
-            if (!_regions.ContainsKey(edge.LocationA.RegionId) ||
-                !_regions.ContainsKey(edge.LocationB.RegionId))
+            if (!_regions.ContainsKey(rGate.LocationA.RegionId) ||
+                !_regions.ContainsKey(rGate.LocationB.RegionId))
             {
                 isValid = false;
             }
             else
             {
                 // Location 존재 확인
-                var locA = GetLocation(edge.LocationA);
-                var locB = GetLocation(edge.LocationB);
+                var locA = GetLocation(rGate.LocationA);
+                var locB = GetLocation(rGate.LocationB);
                 if (locA == null || locB == null)
                     isValid = false;
             }
 
             if (!isValid)
             {
-                invalidEdges.Add(edge.Id);
-                RemoveRegionEdge(edge.Id);
+                invalidGates.Add(rGate.Id);
+                RemoveRegionGate(rGate.Id);
             }
         }
 
-        return invalidEdges;
+        return invalidGates;
     }
 
     /// <summary>
@@ -598,13 +598,13 @@ public class Terrain
             }
         }
 
-        // RegionEdge를 통한 Region 간 이동 (Legacy support)
-        foreach (var regionEdge in GetRegionEdgesFrom(from))
+        // RegionGate를 통한 Region 간 이동 (Legacy support)
+        foreach (var regionGate in GetRegionGatesFrom(from))
         {
-            var otherLoc = regionEdge.GetOtherLocation(from);
+            var otherLoc = regionGate.GetOtherLocation(from);
             if (otherLoc == to)
             {
-                return regionEdge.GetTravelTime(from);
+                return regionGate.GetTravelTime(from);
             }
         }
 
@@ -638,9 +638,9 @@ public class Terrain
     public bool HasRegion(int regionId) => _regions.ContainsKey(regionId);
 
     /// <summary>
-    /// RegionEdge ID 존재 여부 확인
+    /// RegionGate ID 존재 여부 확인
     /// </summary>
-    public bool HasRegionEdge(int edgeId) => _regionEdges.ContainsKey(edgeId);
+    public bool HasRegionGate(int gateId) => _regionGates.ContainsKey(gateId);
 
     /// <summary>
     /// 다음 사용 가능한 Region ID
@@ -648,9 +648,9 @@ public class Terrain
     public int GetNextRegionId() => _regions.Count > 0 ? _regions.Keys.Max() + 1 : 0;
 
     /// <summary>
-    /// 다음 사용 가능한 RegionEdge ID
+    /// 다음 사용 가능한 RegionGate ID
     /// </summary>
-    public int GetNextRegionEdgeId() => _nextRegionEdgeId;
+    public int GetNextRegionGateId() => _nextRegionGateId;
 
     /// <summary>
     /// 전체 ID 유효성 검사 (World → Region → Location)
@@ -672,12 +672,12 @@ public class Terrain
             result.Merge(locationValidation);
         }
 
-        // 3. RegionEdge ID 중복 체크
-        var edgeValidation = ValidateRegionEdgeIds();
-        result.Merge(edgeValidation);
+        // 3. RegionGate ID 중복 체크
+        var gateValidation = ValidateRegionGateIds();
+        result.Merge(gateValidation);
 
-        // 4. RegionEdge 참조 유효성 검사
-        var refValidation = ValidateRegionEdgeReferences();
+        // 4. RegionGate 참조 유효성 검사
+        var refValidation = ValidateRegionGateReferences();
         result.Merge(refValidation);
 
         // 5. 빈 슬롯 확인 (옵션)
@@ -713,13 +713,13 @@ public class Terrain
     }
 
     /// <summary>
-    /// RegionEdge ID 중복 검사
+    /// RegionGate ID 중복 검사
     /// </summary>
-    public ValidationResult ValidateRegionEdgeIds()
+    public ValidationResult ValidateRegionGateIds()
     {
         var result = new ValidationResult();
 
-        var ids = _regionEdges.Keys.ToList();
+        var ids = _regionGates.Keys.ToList();
         var duplicates = ids.GroupBy(x => x)
             .Where(g => g.Count() > 1)
             .Select(g => g.Key)
@@ -727,39 +727,39 @@ public class Terrain
 
         foreach (var dup in duplicates)
         {
-            result.AddError($"Duplicate RegionEdge ID: '{dup}'");
+            result.AddError($"Duplicate RegionGate ID: '{dup}'");
         }
 
         return result;
     }
 
     /// <summary>
-    /// RegionEdge가 참조하는 Region/Location 존재 여부 검사
+    /// RegionGate가 참조하는 Region/Location 존재 여부 검사
     /// </summary>
-    public ValidationResult ValidateRegionEdgeReferences()
+    public ValidationResult ValidateRegionGateReferences()
     {
         var result = new ValidationResult();
 
-        foreach (var edge in _regionEdges.Values)
+        foreach (var rGate in _regionGates.Values)
         {
             // Region A 존재 확인
-            if (!_regions.ContainsKey(edge.LocationA.RegionId))
+            if (!_regions.ContainsKey(rGate.LocationA.RegionId))
             {
-                result.AddError($"RegionEdge '{edge.Id}' references non-existent Region: '{edge.LocationA.RegionId}'");
+                result.AddError($"RegionGate '{rGate.Id}' references non-existent Region: '{rGate.LocationA.RegionId}'");
             }
-            else if (_regions[edge.LocationA.RegionId].GetLocation(edge.LocationA.LocalId) == null)
+            else if (_regions[rGate.LocationA.RegionId].GetLocation(rGate.LocationA.LocalId) == null)
             {
-                result.AddError($"RegionEdge '{edge.Id}' references non-existent Location: {edge.LocationA}");
+                result.AddError($"RegionGate '{rGate.Id}' references non-existent Location: {rGate.LocationA}");
             }
 
             // Region B 존재 확인
-            if (!_regions.ContainsKey(edge.LocationB.RegionId))
+            if (!_regions.ContainsKey(rGate.LocationB.RegionId))
             {
-                result.AddError($"RegionEdge '{edge.Id}' references non-existent Region: '{edge.LocationB.RegionId}'");
+                result.AddError($"RegionGate '{rGate.Id}' references non-existent Region: '{rGate.LocationB.RegionId}'");
             }
-            else if (_regions[edge.LocationB.RegionId].GetLocation(edge.LocationB.LocalId) == null)
+            else if (_regions[rGate.LocationB.RegionId].GetLocation(rGate.LocationB.LocalId) == null)
             {
-                result.AddError($"RegionEdge '{edge.Id}' references non-existent Location: {edge.LocationB}");
+                result.AddError($"RegionGate '{rGate.Id}' references non-existent Location: {rGate.LocationB}");
             }
         }
 
@@ -806,7 +806,7 @@ public class Terrain
 
     public override string ToString()
     {
-        return $"Terrain[{Name ?? "Unnamed"}]: {RegionCount} regions, {RegionEdgeCount} connections";
+        return $"Terrain[{Name ?? "Unnamed"}]: {RegionCount} regions, {RegionGateCount} connections";
     }
 
     #region JSON Serialization
@@ -861,34 +861,33 @@ public class Terrain
                 region.AddLocation(locData.Id, locData.Name);
             }
 
-            // Note: Edge is deprecated, Gate is used instead (Pi-World)
-            // Legacy Edge data in JSON is ignored
+            // Note: Legacy Edge in JSON is ignored (Pi-World Gate 사용)
 
             terrain.AddRegion(region);
         }
 
-        // RegionEdge 추가
-        foreach (var edgeData in data.RegionEdges)
+        // RegionGate 추가
+        foreach (var gateData in data.RegionGates)
         {
-            var edge = terrain.AddRegionEdge(
-                edgeData.Id,
-                edgeData.RegionA, edgeData.LocalA,
-                edgeData.RegionB, edgeData.LocalB,
-                edgeData.TimeAtoB,
-                edgeData.TimeBtoA);
+            var rGate = terrain.AddRegionGate(
+                gateData.Id,
+                gateData.RegionA, gateData.LocalA,
+                gateData.RegionB, gateData.LocalB,
+                gateData.TimeAtoB,
+                gateData.TimeBtoA);
 
-            edge.Name = edgeData.Name;
-            edge.IsBlocked = edgeData.IsBlocked;
+            rGate.Name = gateData.Name;
+            rGate.IsBlocked = gateData.IsBlocked;
 
-            if (edgeData.ConditionsAtoB != null)
+            if (gateData.ConditionsAtoB != null)
             {
-                foreach (var (tag, value) in edgeData.ConditionsAtoB)
-                    edge.AddConditionAtoB(tag, value);
+                foreach (var (tag, value) in gateData.ConditionsAtoB)
+                    rGate.AddConditionAtoB(tag, value);
             }
-            if (edgeData.ConditionsBtoA != null)
+            if (gateData.ConditionsBtoA != null)
             {
-                foreach (var (tag, value) in edgeData.ConditionsBtoA)
-                    edge.AddConditionBtoA(tag, value);
+                foreach (var (tag, value) in gateData.ConditionsBtoA)
+                    rGate.AddConditionBtoA(tag, value);
             }
         }
 
@@ -982,34 +981,33 @@ public class Terrain
                 // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
             }
 
-            // Note: Edge is deprecated, Gate is used instead (Pi-World)
-            // Legacy Edge data in JSON is ignored
+            // Note: Legacy Edge in JSON is ignored (Pi-World Gate 사용)
 
             AddRegion(region);
         }
 
-        // RegionEdge 추가
-        foreach (var edgeData in data.RegionEdges)
+        // RegionGate 추가
+        foreach (var gateData in data.RegionGates)
         {
-            var edge = AddRegionEdge(
-                edgeData.Id,
-                edgeData.RegionA, edgeData.LocalA,
-                edgeData.RegionB, edgeData.LocalB,
-                edgeData.TimeAtoB,
-                edgeData.TimeBtoA);
+            var rGate = AddRegionGate(
+                gateData.Id,
+                gateData.RegionA, gateData.LocalA,
+                gateData.RegionB, gateData.LocalB,
+                gateData.TimeAtoB,
+                gateData.TimeBtoA);
 
-            edge.Name = edgeData.Name;
-            edge.IsBlocked = edgeData.IsBlocked;
+            rGate.Name = gateData.Name;
+            rGate.IsBlocked = gateData.IsBlocked;
 
-            if (edgeData.ConditionsAtoB != null)
+            if (gateData.ConditionsAtoB != null)
             {
-                foreach (var (tag, value) in edgeData.ConditionsAtoB)
-                    edge.AddConditionAtoB(tag, value);
+                foreach (var (tag, value) in gateData.ConditionsAtoB)
+                    rGate.AddConditionAtoB(tag, value);
             }
-            if (edgeData.ConditionsBtoA != null)
+            if (gateData.ConditionsBtoA != null)
             {
-                foreach (var (tag, value) in edgeData.ConditionsBtoA)
-                    edge.AddConditionBtoA(tag, value);
+                foreach (var (tag, value) in gateData.ConditionsBtoA)
+                    rGate.AddConditionBtoA(tag, value);
             }
         }
 
@@ -1092,34 +1090,33 @@ public class Terrain
                 regionData.Locations.Add(locationData);
             }
 
-            // Note: Edge is deprecated, Gate is used instead (Pi-World)
-            // Gate export would go here if needed for JSON serialization
+            // Note: Gate export would go here if needed for JSON serialization
 
             data.Regions.Add(regionData);
         }
 
-        // RegionEdge 내보내기
-        foreach (var edge in _regionEdges.Values.OrderBy(e => e.Id))
+        // RegionGate 내보내기
+        foreach (var rGate in _regionGates.Values.OrderBy(e => e.Id))
         {
-            var edgeData = new RegionEdgeJsonData
+            var gateData = new RegionGateJsonData
             {
-                Id = edge.Id,
-                Name = edge.Name,
-                RegionA = edge.LocationA.RegionId,
-                LocalA = edge.LocationA.LocalId,
-                RegionB = edge.LocationB.RegionId,
-                LocalB = edge.LocationB.LocalId,
-                TimeAtoB = edge.TravelTimeAtoB,
-                TimeBtoA = edge.TravelTimeBtoA,
-                IsBlocked = edge.IsBlocked
+                Id = rGate.Id,
+                Name = rGate.Name,
+                RegionA = rGate.LocationA.RegionId,
+                LocalA = rGate.LocationA.LocalId,
+                RegionB = rGate.LocationB.RegionId,
+                LocalB = rGate.LocationB.LocalId,
+                TimeAtoB = rGate.TravelTimeAtoB,
+                TimeBtoA = rGate.TravelTimeBtoA,
+                IsBlocked = rGate.IsBlocked
             };
 
-            if (edge.ConditionsAtoB.Count > 0)
-                edgeData.ConditionsAtoB = new Dictionary<string, int>(edge.ConditionsAtoB);
-            if (edge.ConditionsBtoA.Count > 0)
-                edgeData.ConditionsBtoA = new Dictionary<string, int>(edge.ConditionsBtoA);
+            if (rGate.ConditionsAtoB.Count > 0)
+                gateData.ConditionsAtoB = new Dictionary<string, int>(rGate.ConditionsAtoB);
+            if (rGate.ConditionsBtoA.Count > 0)
+                gateData.ConditionsBtoA = new Dictionary<string, int>(rGate.ConditionsBtoA);
 
-            data.RegionEdges.Add(edgeData);
+            data.RegionGates.Add(gateData);
         }
 
         return data;
@@ -1178,7 +1175,7 @@ public class Terrain
     {
         public LocationRef Destination;
         public int TravelTime;
-        public bool IsRegionEdge;
+        public bool IsRegionGate;
         public bool IsBlocked;
         public string? BlockedReason;
         public bool IsHidden;
@@ -1207,32 +1204,32 @@ public class Terrain
             var conditions = gate.ConditionsForward;
             var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
 
-            var isRegionEdge = gate.ConnectedLocation.RegionId != from.RegionId;
+            var isRegionGate = gate.ConnectedLocation.RegionId != from.RegionId;
             routes.Add(new RawRouteInfo
             {
                 Destination = gate.ConnectedLocation,
                 TravelTime = 0,  // Gate 통과 시간 = 0, 실제 이동은 Location 내 거리 기반
-                IsRegionEdge = isRegionEdge,
+                IsRegionGate = isRegionGate,
                 IsBlocked = !canPass,
                 BlockedReason = blockedReason,
                 IsHidden = isHidden
             });
         }
 
-        // RegionEdge (Legacy support)
-        foreach (var regionEdge in GetRegionEdgesFrom(from))
+        // RegionGate (Legacy support)
+        foreach (var regionGate in GetRegionGatesFrom(from))
         {
-            if (regionEdge.IsBlocked) continue;
+            if (regionGate.IsBlocked) continue;
 
-            var conditions = regionEdge.GetConditions(from);
+            var conditions = regionGate.GetConditions(from);
             var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
 
-            var destination = regionEdge.GetOtherLocation(from);
+            var destination = regionGate.GetOtherLocation(from);
             routes.Add(new RawRouteInfo
             {
                 Destination = destination,
-                TravelTime = regionEdge.GetTravelTime(from),
-                IsRegionEdge = true,
+                TravelTime = regionGate.GetTravelTime(from),
+                IsRegionGate = true,
                 IsBlocked = !canPass,
                 BlockedReason = blockedReason,
                 IsHidden = isHidden
@@ -1249,16 +1246,16 @@ public class Terrain
     /// <summary>
     /// Terrain 전체 정보를 콘솔에 출력 (디버그용)
     /// </summary>
-    public void DebugPrint(bool includeEdges = true, bool includeRegionEdges = true)
+    public void DebugPrint(bool includeGates = true, bool includeRegionGates = true)
     {
-        var output = GetDebugString(includeEdges, includeRegionEdges);
+        var output = GetDebugString(includeGates, includeRegionGates);
         GD.Print(output);
     }
 
     /// <summary>
     /// Terrain 전체 정보를 문자열로 반환 (디버그용)
     /// </summary>
-    public string GetDebugString(bool includeEdges = true, bool includeRegionEdges = true)
+    public string GetDebugString(bool includeGates = true, bool includeRegionGates = true)
     {
         var lines = new List<string>();
 
@@ -1266,7 +1263,7 @@ public class Terrain
         lines.Add("╔════════════════════════════════════════════════════════════╗");
         lines.Add($"║  TERRAIN: {Name ?? "Unnamed",-48} ║");
         lines.Add("╠════════════════════════════════════════════════════════════╣");
-        lines.Add($"║  Regions: {RegionCount,-6}  RegionEdges: {RegionEdgeCount,-27} ║");
+        lines.Add($"║  Regions: {RegionCount,-6}  RegionGates: {RegionGateCount,-27} ║");
         lines.Add("╚════════════════════════════════════════════════════════════╝");
         lines.Add("");
 
@@ -1297,7 +1294,7 @@ public class Terrain
             lines.Add("");
 
             // Gates 테이블 (옵션)
-            if (includeEdges && region.GateCount > 0)
+            if (includeGates && region.GateCount > 0)
             {
                 lines.Add("  Gates:");
                 lines.Add("  ┌────────┬────────┬──────────────────────────┬─────────┐");
@@ -1324,47 +1321,47 @@ public class Terrain
             }
         }
 
-        // RegionEdges 테이블 (옵션)
-        if (includeRegionEdges && RegionEdgeCount > 0)
+        // RegionGates 테이블 (옵션)
+        if (includeRegionGates && RegionGateCount > 0)
         {
             lines.Add("┌─────────────────────────────────────────────────────────────┐");
-            lines.Add($"│ Region Edges ({RegionEdgeCount})                                         │");
+            lines.Add($"│ Region Gates ({RegionGateCount})                                         │");
             lines.Add("├─────────────────────────────────────────────────────────────┤");
             lines.Add("│  ID  │ Name                 │ From        │ To          │TT │");
             lines.Add("├──────┼──────────────────────┼─────────────┼─────────────┼───┤");
 
-            foreach (var edge in _regionEdges.Values.OrderBy(e => e.Id))
+            foreach (var rGate in _regionGates.Values.OrderBy(e => e.Id))
             {
-                var name = (edge.Name ?? edge.Id.ToString()).PadRight(20);
+                var name = (rGate.Name ?? rGate.Id.ToString()).PadRight(20);
                 if (name.Length > 20) name = name.Substring(0, 20);
 
-                var from = $"R{edge.LocationA.RegionId}:L{edge.LocationA.LocalId}".PadRight(11);
-                var to = $"R{edge.LocationB.RegionId}:L{edge.LocationB.LocalId}".PadRight(11);
-                var tt = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString() : (edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString() : "?");
+                var from = $"R{rGate.LocationA.RegionId}:L{rGate.LocationA.LocalId}".PadRight(11);
+                var to = $"R{rGate.LocationB.RegionId}:L{rGate.LocationB.LocalId}".PadRight(11);
+                var tt = rGate.TravelTimeAtoB >= 0 ? rGate.TravelTimeAtoB.ToString() : (rGate.TravelTimeBtoA >= 0 ? rGate.TravelTimeBtoA.ToString() : "?");
 
-                lines.Add($"│ {edge.Id,4} │ {name} │ {from} │ {to} │{tt,2} │");
+                lines.Add($"│ {rGate.Id,4} │ {name} │ {from} │ {to} │{tt,2} │");
 
                 // 상세 정보
-                if (edge.TravelTimeAtoB != edge.TravelTimeBtoA)
+                if (rGate.TravelTimeAtoB != rGate.TravelTimeBtoA)
                 {
-                    var timeAtoB = edge.TravelTimeAtoB >= 0 ? edge.TravelTimeAtoB.ToString() : "N/A";
-                    var timeBtoA = edge.TravelTimeBtoA >= 0 ? edge.TravelTimeBtoA.ToString() : "N/A";
+                    var timeAtoB = rGate.TravelTimeAtoB >= 0 ? rGate.TravelTimeAtoB.ToString() : "N/A";
+                    var timeBtoA = rGate.TravelTimeBtoA >= 0 ? rGate.TravelTimeBtoA.ToString() : "N/A";
                     lines.Add($"│      │                      │ A→B: {timeAtoB,-6} B→A: {timeBtoA,-6}           │");
                 }
 
-                if (edge.IsBlocked)
+                if (rGate.IsBlocked)
                 {
                     lines.Add($"│      │                      │ [BLOCKED]                           │");
                 }
 
-                if (edge.ConditionsAtoB.Count > 0)
+                if (rGate.ConditionsAtoB.Count > 0)
                 {
-                    var conditions = string.Join(", ", edge.ConditionsAtoB.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                    var conditions = string.Join(", ", rGate.ConditionsAtoB.Select(kvp => $"{kvp.Key}={kvp.Value}"));
                     lines.Add($"│      │ A→B Conditions: {conditions,-36} │");
                 }
-                if (edge.ConditionsBtoA.Count > 0)
+                if (rGate.ConditionsBtoA.Count > 0)
                 {
-                    var conditions = string.Join(", ", edge.ConditionsBtoA.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                    var conditions = string.Join(", ", rGate.ConditionsBtoA.Select(kvp => $"{kvp.Key}={kvp.Value}"));
                     lines.Add($"│      │ B→A Conditions: {conditions,-36} │");
                 }
             }
@@ -1395,7 +1392,7 @@ public class Terrain
         lines.Add($"  TERRAIN: {Name ?? "Unnamed"}");
         lines.Add("═══════════════════════════════════════════════════════════");
         lines.Add($"  Regions: {RegionCount}");
-        lines.Add($"  RegionEdges: {RegionEdgeCount}");
+        lines.Add($"  RegionGates: {RegionGateCount}");
         lines.Add("");
 
         foreach (var region in _regions.Values.OrderBy(r => r.Id))

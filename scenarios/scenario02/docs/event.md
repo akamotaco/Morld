@@ -278,9 +278,9 @@ def handle(self, player_id, unit_ids):
 
 ---
 
-## Edge 충돌 감지 시스템
+## 이동 중 충돌 감지 시스템
 
-Edge(경로) 위에서 이동 중인 유닛 간의 정밀한 충돌을 감지합니다.
+Location 내에서 이동 중인 유닛 간의 정밀한 충돌을 감지합니다.
 
 ### 충돌 타입
 
@@ -432,8 +432,8 @@ int crossingTime = Math.Max(playerTimeToGate, npcTimeToGate);
 
 | 조건 | 설명 |
 |------|------|
-| 같은 Edge | 플레이어와 같은 경로에서 이동 중 |
-| 인접 Edge | 플레이어의 출발지/도착지와 연결된 Edge |
+| 같은 Location | 플레이어와 같은 Location에서 이동 중 |
+| 인접 Gate | 플레이어의 출발지/도착지와 연결된 Gate |
 | 접근 방향 | 플레이어 방향으로 이동 중 |
 
 ### 메시지 형식
@@ -462,7 +462,7 @@ int crossingTime = Math.Max(playerTimeToGate, npcTimeToGate);
 | 이벤트 | 예측 방법 |
 |--------|----------|
 | on_meet (위치) | 경로 시뮬레이션으로 만남 시점 계산 |
-| on_meet (Edge) | EdgeCollisionDetector로 충돌 시점 계산 |
+| on_meet (Gate 교차) | Gate 교차 충돌 시점 계산 |
 | on_reach | 경로 시뮬레이션으로 도착 시점 계산 |
 
 ### 시간 조정 흐름
@@ -498,7 +498,7 @@ public struct RouteWaypoint
 **C#:**
 - `scripts/system/event_system.cs` - 이벤트 감지 및 처리
 - `scripts/system/event_prediction_system.cs` - 이벤트 예측 및 시간 조정
-- `scripts/system/edge_collision_detector.cs` - Edge 충돌 계산
+- `scripts/system/event_system.cs` - Gate 교차 충돌 계산 (통합)
 - `scripts/morld/event/GameEvent.cs` - 이벤트 타입 정의
 - `scripts/morld/unit/ActionLog.cs` - MovementProgress 정의
 

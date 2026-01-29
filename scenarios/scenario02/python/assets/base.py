@@ -1376,7 +1376,7 @@ class Character(Unit):
         NPC 주도 이벤트 조회 - Focus 시점에서 호출
 
         NPC가 먼저 시작하는 이벤트가 있으면 Generator 반환.
-        Edge 이동 중인 NPC와의 만남은 on_meet이 발생하지 않으므로,
+        이동 중인 NPC와의 만남은 on_meet이 발생하지 않으므로,
         플레이어가 NPC를 클릭(focus)할 때 이 메서드로 이벤트를 체크합니다.
 
         체크 순서:

@@ -252,7 +252,7 @@ namespace SE
 
 		/// <summary>
 		/// NPC가 플레이어 위치를 떠났음을 액션 로그로 알림
-		/// 이동 중인 경우 Edge/Gate의 목적지, 아니면 현재 위치를 사용
+		/// 이동 중인 경우 Gate의 목적지, 아니면 현재 위치를 사용
 		/// Pi-World: CurrentMovement의 TargetGateId로 목적지 확인
 		/// </summary>
 		private void NotifyNpcDeparture(Unit unit)
@@ -513,13 +513,13 @@ namespace SE
 		}
 
 		/// <summary>
-		/// Edge 위에서의 충돌 감지 (Legacy 모드)
-		/// Pi-World에서는 Edge 기반 충돌이 없음 (Location 내 2D 충돌로 대체)
+		/// Legacy 모드 충돌 감지 (사용되지 않음)
+		/// Pi-World에서는 Location 내 2D 충돌로 대체
 		/// 호환성을 위해 빈 리스트 반환
 		/// </summary>
-		private List<int> DetectEdgeMeetings(Unit player, UnitSystem unitSystem)
+		private List<int> DetectLegacyMeetings(Unit player, UnitSystem unitSystem)
 		{
-			// Pi-World: Edge 기반 충돌 감지 제거됨
+			// Pi-World: Legacy 충돌 감지는 사용되지 않음
 			return new List<int>();
 		}
 

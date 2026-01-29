@@ -183,7 +183,7 @@ ACTION_AVAILABILITY: dict = {
 
 ## 이동 경로 조건 필터링
 
-Edge의 이동 조건을 검사하여 grey out 또는 숨김 처리
+Gate의 이동 조건을 검사하여 grey out 또는 숨김 처리
 
 ### 조건 키 형식
 
@@ -194,10 +194,10 @@ Edge의 이동 조건을 검사하여 grey out 또는 숨김 처리
 
 ```python
 # 일반 조건 - grey out
-Edge(0, 1, conditions={"열쇠:대문": 1})
+Gate(0, 1, conditions={"열쇠:대문": 1})
 
 # 숨김 조건 - 완전히 숨김
-Edge(0, 2, conditions={"비밀통로#": 1})
+Gate(0, 2, conditions={"비밀통로#": 1})
 ```
 
 ---

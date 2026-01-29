@@ -4,12 +4,12 @@
 # - 지형 데이터 정의 및 초기화
 # - 시간 설정
 # - 아이템/오브젝트/캐릭터 인스턴스화
-# - Region 간 연결 (RegionEdge) 관리
+# - Region 간 연결 (RegionGate) 관리
 #
 # 챕터별 Region 선택적 로드:
 # - 챕터 파일에서 필요한 Region만 initialize_terrain() 호출
-# - RegionEdge는 양쪽 Region이 존재할 때만 등록 (없으면 무시)
-# - 예: 챕터 2에서 mansion + forest만 로드하면, city 연결 Edge는 무시됨
+# - RegionGate는 양쪽 Region이 존재할 때만 등록 (없으면 무시)
+# - 예: 챕터 2에서 mansion + forest만 로드하면, city 연결 Gate는 무시됨
 
 import morld
 
@@ -19,13 +19,13 @@ from . import city      # Region 2: 황폐화된 도시
 from . import forest    # Region 3: 숲
 
 # ========================================
-# Region 간 연결 (RegionEdge)
+# Region 간 연결 (RegionGate)
 # ========================================
-# (edge_id, region_a, location_a, region_b, location_b, travel_time)
+# (gate_id, region_a, location_a, region_b, location_b, travel_time)
 #
-# 모든 Edge 데이터를 미리 정의하고, 실제 등록 시 Region 존재 여부 체크
+# 모든 Gate 데이터를 미리 정의하고, 실제 등록 시 Region 존재 여부 체크
 
-REGION_EDGES = [
+REGION_GATES = [
     # 숲 입구(R0:20) ↔ 도시 입구(R2:0) - 2시간 도보
     (0, mansion.REGION_ID, 20, city.REGION_ID, 0, 120),
 
@@ -38,38 +38,38 @@ REGION_EDGES = [
 
 
 # ========================================
-# 안전한 RegionEdge 등록
+# 안전한 RegionGate 등록
 # ========================================
 
-def _safe_add_region_edge(region_a, loc_a, region_b, loc_b, travel_time):
+def _safe_add_region_gate(region_a, loc_a, region_b, loc_b, travel_time):
     """
-    Region이 존재할 때만 RegionEdge 등록 (존재하지 않으면 무시)
+    Region이 존재할 때만 RegionGate 등록 (존재하지 않으면 무시)
 
     챕터별로 Region을 선택적으로 로드할 때,
-    존재하지 않는 Region에 대한 Edge 등록 시도를 조용히 무시합니다.
+    존재하지 않는 Region에 대한 Gate 등록 시도를 조용히 무시합니다.
 
     Returns:
         bool: 등록 성공 여부
     """
     if morld.region_exists(region_a) and morld.region_exists(region_b):
-        morld.add_region_edge(region_a, loc_a, region_b, loc_b, travel_time)
+        morld.add_region_gate(region_a, loc_a, region_b, loc_b, travel_time)
         return True
     # 존재하지 않는 Region은 조용히 무시 (의도된 동작)
     return False
 
 
-def initialize_region_edges():
+def initialize_region_gates():
     """
-    모든 RegionEdge를 안전하게 등록
+    모든 RegionGate를 안전하게 등록
 
-    이미 로드된 Region들 사이의 Edge만 등록됩니다.
+    이미 로드된 Region들 사이의 Gate만 등록됩니다.
     챕터 파일에서 Region들을 먼저 초기화한 후 이 함수를 호출하세요.
     """
     registered = 0
-    for edge_id, region_a, loc_a, region_b, loc_b, travel_time in REGION_EDGES:
-        if _safe_add_region_edge(region_a, loc_a, region_b, loc_b, travel_time):
+    for gate_id, region_a, loc_a, region_b, loc_b, travel_time in REGION_GATES:
+        if _safe_add_region_gate(region_a, loc_a, region_b, loc_b, travel_time):
             registered += 1
-    print(f"[world] RegionEdges registered: {registered}/{len(REGION_EDGES)}")
+    print(f"[world] RegionGates registered: {registered}/{len(REGION_GATES)}")
 
 
 # ========================================
@@ -77,7 +77,7 @@ def initialize_region_edges():
 # ========================================
 
 def initialize_world():
-    """월드 초기화 (지형 + 시간 + RegionEdge)"""
+    """월드 초기화 (지형 + 시간 + RegionGate)"""
     # 각 Region 초기화
     mansion.initialize_terrain()
     vehicle.initialize_terrain()
@@ -87,8 +87,8 @@ def initialize_world():
     # 시간 설정 (mansion에서 관리)
     mansion.initialize_time()
 
-    # Region 간 연결 (RegionEdge) - 안전한 등록
-    initialize_region_edges()
+    # Region 간 연결 (RegionGate) - 안전한 등록
+    initialize_region_gates()
 
 
 def instantiate_player():

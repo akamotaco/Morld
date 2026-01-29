@@ -29,10 +29,6 @@ namespace SE
 		/// </summary>
 		public int LastAdjustedDuration { get; private set; } = 0;
 
-		/// <summary>
-		/// Edge 충돌 감지기
-		/// </summary>
-		private readonly EdgeCollisionDetector _edgeCollisionDetector = new();
 
 		/// <summary>
 		/// 매 Step마다 호출
@@ -52,11 +48,10 @@ namespace SE
 			if (pendingDuration <= 0)
 				return;
 
-			// 이벤트 예측 (만남, 도착, Edge 충돌, Gate 교차)
+			// 이벤트 예측 (만남, 도착, Gate 교차)
 			_predictedEvents.Clear();
 			PredictMeetings(pendingDuration);
 			PredictArrivals(pendingDuration);
-			PredictEdgeCollisions(pendingDuration);
 			PredictGateCrossings(pendingDuration);
 
 			// 시간 중단 이벤트 중 가장 빠른 것 찾기
@@ -170,9 +165,9 @@ namespace SE
 		/// 유닛의 이동 경로 계산
 		///
 		/// 경유지(StayDuration)를 포함한 전체 경로 시뮬레이션:
-		/// 1. 현재 Edge 완료 시점
+		/// 1. 현재 이동 완료 시점
 		/// 2. 경유지 체류 시간 적용
-		/// 3. 다음 Edge 계산 (Job 목적지 기준)
+		/// 3. 다음 이동 계산 (Job 목적지 기준)
 		/// 4. duration 내에서 반복
 		///
 		/// 각 Waypoint에는 도착 시간과 체류 시간이 포함됨
@@ -330,64 +325,6 @@ namespace SE
 			}
 
 			return earliestMeeting;
-		}
-
-		/// <summary>
-		/// Pi-World: Location 내 충돌 예측
-		/// 같은 Location에서 이동 중인 유닛 간 충돌 예측
-		/// TODO: Pi-World에 맞게 재구현 필요
-		/// </summary>
-		private void PredictEdgeCollisions(int duration)
-		{
-			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
-			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
-
-			var player = _playerSystem?.FindPlayerUnit();
-			if (player == null) return;
-
-			// Pi-World: 현재 이동 중이 아니면 스킵
-			if (player.CurrentMovement == null) return;
-
-			// Pi-World: EdgeCollisionDetector는 현재 비활성화됨
-			// TODO: LocationCollisionDetector로 재구현
-			_edgeCollisionDetector.Clear();
-
-			foreach (var unit in _unitSystem!.Units.Values)
-			{
-				if (unit.IsObject) continue;
-				if (unit.CurrentMovement == null) continue;
-
-				_edgeCollisionDetector.AddTraveler(unit);  // 현재는 빈 함수
-			}
-
-			// 충돌 예측
-			var collisions = _edgeCollisionDetector.PredictCollisions(duration);
-
-			foreach (var collision in collisions)
-			{
-				// 플레이어가 관련된 충돌만 시간 중단
-				bool involvesPlayer = collision.UnitA == player.Id || collision.UnitB == player.Id;
-
-				_predictedEvents.Add(new PredictedEvent
-				{
-					Type = "on_meet",  // 기존 on_meet 이벤트로 통합
-					TriggerMinutes = collision.TimeToCollision,
-					InvolvedUnitIds = new List<int> { collision.UnitA, collision.UnitB },
-					InterruptsTime = involvesPlayer,
-					Data = new Dictionary<string, object>
-					{
-						["edge_position"] = collision.CollisionPosition,
-						["is_encounter"] = collision.Type == EdgeCollisionDetector.CollisionType.Encounter,
-						["edge_from"] = collision.Edge.A,
-						["edge_to"] = collision.Edge.B
-					}
-				});
-
-#if DEBUG_LOG
-				var typeStr = collision.Type == EdgeCollisionDetector.CollisionType.Encounter ? "Encounter" : "Overtake";
-				Godot.GD.Print($"[EventPredictionSystem] Edge collision predicted: {typeStr} between {collision.UnitA} and {collision.UnitB} at t={collision.TimeToCollision}min, pos={collision.CollisionPosition:F2}");
-#endif
-			}
 		}
 
 		/// <summary>

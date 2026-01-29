@@ -28,7 +28,7 @@
 
 | 작업 | 참고 문서 |
 |------|----------|
-| Region/Location/Edge 구조 | [terrain.md](scenarios/scenario02/docs/terrain.md) |
+| Region/Location/Gate 구조 | [terrain.md](scenarios/scenario02/docs/terrain.md) |
 | 맵 구성 (저택, 마을, 숲 등) | [map.md](scenarios/scenario02/docs/map.md) |
 | 환경 속성 (온도, 조명, 날씨) | [terrain_property.md](scenarios/scenario02/docs/terrain_property.md) |
 | 던전 시스템 | [dungeon.md](scenarios/scenario02/docs/dungeon.md) |

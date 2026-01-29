@@ -52,10 +52,10 @@ namespace SE
             }
         }
 
-        #region Terrain API (Region/Location/Edge)
+        #region Terrain API (Region/Location/Gate)
 
         /// <summary>
-        /// Terrain API 등록 (Region, Location, Edge)
+        /// Terrain API 등록 (Region, Location, Gate)
         /// </summary>
         private void RegisterTerrainAPI(PyModule morldModule)
         {
@@ -146,12 +146,11 @@ namespace SE
                 return PyBool.False;
             });
 
-            // add_edge
-            // add_region_edge
-            morldModule.ModuleDict["add_region_edge"] = new PyBuiltinFunction("add_region_edge", args =>
+            // add_region_gate
+            morldModule.ModuleDict["add_region_gate"] = new PyBuiltinFunction("add_region_gate", args =>
             {
                 if (args.Length < 4)
-                    throw PyTypeError.Create("add_region_edge(from_region, from_local, to_region, to_local, time_ab=30, time_ba=30) requires at least 4 arguments");
+                    throw PyTypeError.Create("add_region_gate(from_region, from_local, to_region, to_local, time_ab=30, time_ba=30) requires at least 4 arguments");
 
                 int fromRegion = args[0].ToInt();
                 int fromLocal = args[1].ToInt();
@@ -163,15 +162,15 @@ namespace SE
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
                 var terrain = _worldSystem.GetTerrain();
-                // RegionEdge(id, regionIdA, localIdA, regionIdB, localIdB) 생성자 사용
-                var regionEdge = new Morld.RegionEdge(
-                    terrain.RegionEdges.Count,
+                // RegionGate(id, regionIdA, localIdA, regionIdB, localIdB) 생성자 사용
+                var regionGate = new Morld.RegionGate(
+                    terrain.RegionGates.Count,
                     fromRegion, fromLocal,
                     toRegion, toLocal
                 );
-                regionEdge.SetTravelTime(timeAB, timeBA);
-                terrain.AddRegionEdge(regionEdge);
-                Godot.GD.Print($"[morld] add_region_edge: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
+                regionGate.SetTravelTime(timeAB, timeBA);
+                terrain.AddRegionGate(regionGate);
+                Godot.GD.Print($"[morld] add_region_gate: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
                 return PyBool.True;
             });
 
@@ -287,7 +286,7 @@ namespace SE
             });
 
             // get_region_info: Region 정보 조회 (지도 기능용)
-            // 반환: {"id", "name", "locations": [{"id", "name", "gates": [...], "region_edges": [(to_region, to_local, region_name), ...]}], ...}
+            // 반환: {"id", "name", "locations": [{"id", "name", "gates": [...], "region_gates": [(to_region, to_local, region_name), ...]}], ...}
             morldModule.ModuleDict["get_region_info"] = new PyBuiltinFunction("get_region_info", args =>
             {
                 if (args.Length < 1)
@@ -336,37 +335,37 @@ namespace SE
                     }
                     locDict.SetItem(new PyString("gates"), gatesList);
 
-                    // 이 Location에서 다른 Region으로 가는 RegionEdge 목록
-                    var regionEdgesList = new PyList();
-                    foreach (var regionEdge in terrain.RegionEdges)
+                    // 이 Location에서 다른 Region으로 가는 RegionGate 목록
+                    var regionGatesList = new PyList();
+                    foreach (var regionGate in terrain.RegionGates)
                     {
                         int? toRegionId = null;
                         int? toLocalId = null;
 
-                        if (regionEdge.LocationA.RegionId == regionId && regionEdge.LocationA.LocalId == location.LocalId)
+                        if (regionGate.LocationA.RegionId == regionId && regionGate.LocationA.LocalId == location.LocalId)
                         {
-                            toRegionId = regionEdge.LocationB.RegionId;
-                            toLocalId = regionEdge.LocationB.LocalId;
+                            toRegionId = regionGate.LocationB.RegionId;
+                            toLocalId = regionGate.LocationB.LocalId;
                         }
-                        else if (regionEdge.LocationB.RegionId == regionId && regionEdge.LocationB.LocalId == location.LocalId)
+                        else if (regionGate.LocationB.RegionId == regionId && regionGate.LocationB.LocalId == location.LocalId)
                         {
-                            toRegionId = regionEdge.LocationA.RegionId;
-                            toLocalId = regionEdge.LocationA.LocalId;
+                            toRegionId = regionGate.LocationA.RegionId;
+                            toLocalId = regionGate.LocationA.LocalId;
                         }
 
                         if (toRegionId.HasValue && toLocalId.HasValue)
                         {
                             var targetRegion = terrain.GetRegion(toRegionId.Value);
                             var regionName = targetRegion?.Name ?? "";
-                            var regionEdgeTuple = new PyTuple(new PyObject[] {
+                            var regionGateTuple = new PyTuple(new PyObject[] {
                                 new PyInt(toRegionId.Value),
                                 new PyInt(toLocalId.Value),
                                 new PyString(regionName)
                             });
-                            regionEdgesList.Append(regionEdgeTuple);
+                            regionGatesList.Append(regionGateTuple);
                         }
                     }
-                    locDict.SetItem(new PyString("region_edges"), regionEdgesList);
+                    locDict.SetItem(new PyString("region_gates"), regionGatesList);
 
                     locationsList.Append(locDict);
                 }
@@ -2053,7 +2052,7 @@ namespace SE
                 var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
                 var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
 
-                // 1. Terrain 초기화 (Region, Location, Edge 모두 제거)
+                // 1. Terrain 초기화 (Region, Location, Gate 모두 제거)
                 _worldSystem?.ClearTerrain();
 
                 // 2. Unit 초기화 (Player, NPC, Object 모두 제거)

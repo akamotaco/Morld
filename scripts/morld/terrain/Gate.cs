@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Location 내의 통과 지점 (Pi-World)
-/// Edge를 대체하여 Location 간 연결을 담당
+/// Location 간 연결을 담당
 /// Gate는 Location 내 특정 위치(X, Y)에 존재하며, 다른 Location의 Gate와 연결됨
 /// 통과는 즉시 이루어지며, 이동 시간은 캐릭터 위치에서 Gate까지의 거리로 계산
 /// </summary>
@@ -51,13 +51,13 @@ public class Gate
 
     /// <summary>
     /// Forward 방향 (이 Gate → 연결된 Gate) 통과 조건
-    /// Edge의 ConditionsAtoB와 동일한 방식
+    /// Forward 통과 조건
     /// </summary>
     public Dictionary<string, int> ConditionsForward { get; } = new();
 
     /// <summary>
     /// Backward 방향 (연결된 Gate → 이 Gate) 통과 조건
-    /// Edge의 ConditionsBtoA와 동일한 방식
+    /// Backward 통과 조건
     /// </summary>
     public Dictionary<string, int> ConditionsBackward { get; } = new();
 

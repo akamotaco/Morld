@@ -8,7 +8,7 @@
 
 ### 이동 방식
 - 플레이어가 한 노드씩 직접 이동
-- Edge 클릭 → 인접 Location으로 이동
+- Gate 클릭 → 인접 Location으로 이동
 - 경로 계획 없이 즉시 이동
 
 ### Location 구조
@@ -17,7 +17,7 @@ class Location:
     id: int
     name: str
     region_id: int      # 소속 Region
-    edges: list[Edge]   # 연결된 Edge 목록
+    gates: list[Gate]   # 연결된 Gate 목록
 ```
 
 ---
@@ -51,7 +51,7 @@ class Location:
     name: str
     region_id: int
     map_id: int         # 소속 Map (NEW)
-    edges: list[Edge]
+    gates: list[Gate]
 ```
 
 ### 3. 지도 UI 흐름
@@ -73,16 +73,16 @@ class Location:
 ## 그래프 자동 배치 알고리즘
 
 ### 문제 정의
-- 입력: Graph (Nodes + Edges), 해상도 (예: 900x1080)
+- 입력: Graph (Nodes + Gates), 해상도 (예: 900x1080)
 - 출력: 각 Node의 2D 좌표 (x, y)
-- 제약: 연결된 노드는 가깝게, Edge 교차 최소화
+- 제약: 연결된 노드는 가깝게, Gate 교차 최소화
 
 ### 알고리즘 후보
 
 #### 1. Force-Directed Layout (힘 기반 배치)
 **원리:**
 - 노드 간 척력 (모든 노드가 서로 밀어냄)
-- Edge 연결 노드 간 인력 (스프링처럼 당김)
+- Gate 연결 노드 간 인력 (스프링처럼 당김)
 - 반복 시뮬레이션으로 평형점 수렴
 
 **장점:**
@@ -113,7 +113,7 @@ def force_directed_layout(nodes, edges, width, height, iterations=100):
                     n1.vx += force * dx / dist
                     n1.vy += force * dy / dist
 
-        # 인력: Edge로 연결된 노드
+        # 인력: Gate로 연결된 노드
         for edge in edges:
             n1, n2 = edge.from_node, edge.to_node
             dx, dy = n2.x - n1.x, n2.y - n1.y
@@ -166,8 +166,8 @@ def force_directed_layout(nodes, edges, width, height, iterations=100):
 ```
 MapView (Control)
 ├── MapBackground (TextureRect) - 배경 이미지 (선택)
-├── EdgeContainer (Node2D)
-│   └── EdgeLine (Line2D) × N
+├── GateContainer (Node2D)
+│   └── GateLine (Line2D) × N
 └── NodeContainer (Node2D)
     └── LocationNode (Button) × N
 ```
@@ -203,19 +203,19 @@ var node_positions: Dictionary  # location_id -> Vector2
 func show_map(map_id: int):
     current_map_id = map_id
     var locations = get_locations_for_map(map_id)
-    var edges = get_edges_for_map(map_id)
+    var gates = get_gates_for_map(map_id)
 
     # 자동 배치 계산
-    node_positions = calculate_layout(locations, edges, size)
+    node_positions = calculate_layout(locations, gates, size)
 
-    # 노드/엣지 생성
-    _create_edge_lines(edges)
+    # 노드/게이트 생성
+    _create_gate_lines(gates)
     _create_location_nodes(locations)
 
-func calculate_layout(locations, edges, viewport_size) -> Dictionary:
+func calculate_layout(locations, gates, viewport_size) -> Dictionary:
     # Force-Directed 알고리즘 호출
     return ForceDirectedLayout.calculate(
-        locations, edges,
+        locations, gates,
         viewport_size.x, viewport_size.y
     )
 ```
@@ -229,11 +229,11 @@ public class MapSystem : ISystem
     public List<Vector2> CalculateLayout(int mapId, int width, int height)
     {
         var locations = GetLocationsForMap(mapId);
-        var edges = GetEdgesForMap(mapId);
+        var gates = GetGatesForMap(mapId);
 
         // Force-Directed 실행
         var layout = new ForceDirectedLayout(width, height);
-        return layout.Calculate(locations, edges);
+        return layout.Calculate(locations, gates);
     }
 }
 ```
@@ -244,24 +244,24 @@ public class MapSystem : ISystem
 
 ### 인게임 지도 변경 시나리오
 1. 새 Location 발견 → 노드 추가
-2. 길 개통/봉쇄 → Edge 추가/제거
+2. 길 개통/봉쇄 → Gate 추가/제거
 3. 맵 확장 → 해상도 재계산
 
 ### 점진적 레이아웃 업데이트
 
 ```python
-def update_layout_incremental(existing_positions, new_node, new_edges):
+def update_layout_incremental(existing_positions, new_node, new_gates):
     """
     기존 노드 위치 유지하면서 새 노드만 배치
     """
     # 새 노드 초기 위치: 연결된 노드들의 평균
-    connected = [existing_positions[e.other] for e in new_edges]
+    connected = [existing_positions[e.other] for e in new_gates]
     new_node.x = avg([p.x for p in connected])
     new_node.y = avg([p.y for p in connected])
 
     # 짧은 Force-Directed 반복 (새 노드만 이동)
     for _ in range(20):
-        apply_forces(new_node, all_nodes, new_edges)
+        apply_forces(new_node, all_nodes, new_gates)
         # 기존 노드는 고정, 새 노드만 이동
 
     return new_node.x, new_node.y
@@ -291,7 +291,7 @@ def update_layout_incremental(existing_positions, new_node, new_edges):
 
 ### Godot 관련
 - GraphEdit (노드 기반 에디터용, 참고용)
-- Line2D (Edge 렌더링)
+- Line2D (Gate 렌더링)
 - Control (레이아웃 컨테이너)
 
 ---

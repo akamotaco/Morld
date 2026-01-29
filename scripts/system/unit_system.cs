@@ -447,7 +447,7 @@ namespace SE
 					RegionName = destRegion?.Name ?? "",
 					Destination = raw.Destination,
 					TravelTime = raw.TravelTime,
-					IsRegionEdge = raw.IsRegionEdge,
+					IsRegionGate = raw.IsRegionGate,
 					IsBlocked = raw.IsBlocked,
 					BlockedReason = raw.BlockedReason,
 					IsHidden = raw.IsHidden

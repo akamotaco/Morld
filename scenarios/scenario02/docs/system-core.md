@@ -118,7 +118,7 @@ Unit
 ├─ JobList
 ├─ Actions (List<string>)
 ├─ Mood (HashSet<string>)
-├─ IsOnEdge (CurrentMovement != null)
+├─ IsMoving (CurrentMovement != null)
 ├─ IsTraveling (currentLoc != jobLoc)
 └─ IsIdle (CurrentMovement == null)
 ```

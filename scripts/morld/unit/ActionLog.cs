@@ -1,7 +1,7 @@
 namespace Morld;
 
 /// <summary>
-/// 유닛의 단일 행동 기록 (Edge 단위로 분리)
+/// 유닛의 단일 행동 기록
 /// </summary>
 public class ActionLog
 {
@@ -27,7 +27,7 @@ public class ActionLog
 	public LocationRef Location { get; set; }
 
 	/// <summary>
-	/// 도착 위치 (IsMoving=true일 때만 유효, 단일 Edge의 도착지)
+	/// 도착 위치 (IsMoving=true일 때만 유효)
 	/// LocationRef는 readonly struct이므로 자동 값 복사
 	/// </summary>
 	public LocationRef? Destination { get; set; }

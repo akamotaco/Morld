@@ -18,13 +18,13 @@ Region 2: 도심 (city)
 Region 3: 던전 (dungeon)  ← 새로 추가
 ```
 
-### Edge 연결 방식
+### Gate 연결 방식
 
-던전 입구는 기존 지형의 Location에서 RegionEdge로 연결됩니다.
+던전 입구는 기존 지형의 Location에서 RegionGate로 연결됩니다.
 
 ```python
 # 예시: 숲속 동굴 입구 (R0:25) ↔ 동굴 던전 (R3:0)
-REGION_EDGES = [
+REGION_GATES = [
     (3, mansion.REGION_ID, 25, dungeon.REGION_ID, 0, 5),  # 5분 이동
 ]
 ```
@@ -105,10 +105,10 @@ class CaveDungeon(Location):
 
 ### 2. 그래프 던전 (Graph Dungeon)
 
-여러 Location으로 구성되며, 일반 지형처럼 Edge로 연결됩니다.
+여러 Location으로 구성되며, 일반 지형처럼 Gate로 연결됩니다.
 
 **특징:**
-- 여러 Location이 Edge로 연결
+- 여러 Location이 Gate로 연결
 - 각 Location에 몬스터/이벤트 배치
 - on_reach/on_meet 이벤트로 전투 트리거
 - 분기, 막다른 길, 숨겨진 방 등 구현 가능
@@ -118,12 +118,12 @@ class CaveDungeon(Location):
 Region 3 (dungeon)
 ├─ Location 0 (던전 입구)
 ├─ Location 1 (갈림길)
-│   ├─ Edge → Location 2 (왼쪽 통로)
-│   └─ Edge → Location 3 (오른쪽 통로)
+│   ├─ Gate → Location 2 (왼쪽 통로)
+│   └─ Gate → Location 3 (오른쪽 통로)
 ├─ Location 2 (왼쪽 통로)
-│   └─ Edge → Location 4 (보물방)
+│   └─ Gate → Location 4 (보물방)
 ├─ Location 3 (오른쪽 통로)
-│   └─ Edge → Location 5 (보스방)
+│   └─ Gate → Location 5 (보스방)
 ├─ Location 4 (보물방)
 └─ Location 5 (보스방)
 ```
@@ -151,13 +151,13 @@ def initialize_terrain():
         5: BossRoom(),
     }
 
-    # 내부 Edge 연결
-    edges = [
-        Edge(0, 1, travel_time=3),  # 입구 → 갈림길
-        Edge(1, 2, travel_time=2),  # 갈림길 → 왼쪽
-        Edge(1, 3, travel_time=2),  # 갈림길 → 오른쪽
-        Edge(2, 4, travel_time=2),  # 왼쪽 → 보물방
-        Edge(3, 5, travel_time=3),  # 오른쪽 → 보스방
+    # 내부 Gate 연결
+    gates = [
+        Gate(0, 1, travel_time=3),  # 입구 → 갈림길
+        Gate(1, 2, travel_time=2),  # 갈림길 → 왼쪽
+        Gate(1, 3, travel_time=2),  # 갈림길 → 오른쪽
+        Gate(2, 4, travel_time=2),  # 왼쪽 → 보물방
+        Gate(3, 5, travel_time=3),  # 오른쪽 → 보스방
     ]
 ```
 
@@ -314,9 +314,9 @@ class TreasureChest(Object):
 
 **조건부 문:**
 ```python
-# Edge 조건으로 문 잠금
-Edge(3, 5, conditions={"열쇠:보스방": 1})  # 열쇠 필요
-Edge(2, 4, conditions={"퍼즐:레버#": 1})   # 레버 당겨야 열림 (# = 조건 미충족 시 숨김)
+# Gate 조건으로 문 잠금
+Gate(3, 5, conditions={"열쇠:보스방": 1})  # 열쇠 필요
+Gate(2, 4, conditions={"퍼즐:레버#": 1})   # 레버 당겨야 열림 (# = 조건 미충족 시 숨김)
 ```
 
 ---
@@ -393,7 +393,7 @@ class CaveGolem(Monster):
 scenarios/scenario02/python/
 ├─ world/
 │   ├─ dungeon.py          # 던전 리전 정의
-│   └─ __init__.py         # REGION_EDGES에 던전 연결 추가
+│   └─ __init__.py         # REGION_GATES에 던전 연결 추가
 ├─ assets/
 │   ├─ locations/
 │   │   └─ dungeons.py     # 던전 Location 클래스
@@ -449,7 +449,7 @@ scenarios/scenario02/python/
 | 항목 | 자동차 | 던전 |
 |------|--------|------|
 | 리전 타입 | 내부 공간 (1 Location) | 탐험 공간 (1+ Location) |
-| 진입 방식 | sit 액션 | Edge 이동 |
+| 진입 방식 | sit 액션 | Gate 이동 |
 | 상태 관리 | seated_on prop | floor, cleared prop |
-| 이동 | RegionEdge 변경 | Edge 이동 또는 prop 변경 |
+| 이동 | RegionGate 변경 | Gate 이동 또는 prop 변경 |
 | 이벤트 | 운전 다이얼로그 | 전투/탐험 다이얼로그 |

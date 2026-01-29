@@ -311,7 +311,7 @@ public partial class MetaActionHandler
 	{
 		if (!ProcessPendingEvents())
 		{
-			// 플레이어가 Edge 위에 있으면 이동 재개
+			// 플레이어가 이동 중이면 이동 재개
 			// 이동 재개 시 UI 업데이트 스킵 (도착 후 자동 업데이트됨)
 			if (ResumePlayerMovementIfNeeded())
 			{

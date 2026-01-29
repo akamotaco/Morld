@@ -44,7 +44,7 @@
 # │                     게임 세이브 파일                          │
 # ├─────────────────────────────────────────────────────────────┤
 # │  system_save.json (C# 영역)                                 │
-# │  - 지형 데이터 (Region, Location, Edge)                      │
+# │  - 지형 데이터 (Region, Location, Gate)                       │
 # │  - 유닛 데이터 (캐릭터, 오브젝트) - 위치, 이름, props         │
 # │  - 아이템 데이터 (아이템 정의)                                │
 # │  - 인벤토리 데이터 (소유, 장착)                               │
@@ -64,7 +64,7 @@
 # - UnitSystem - UpdateFromJson, ExportToData
 # - ItemSystem - UpdateFromJson, ExportToData
 # - InventorySystem - SaveData, LoadData
-# - WorldSystem - Terrain (Region, Edge)
+# - WorldSystem - Terrain (Region, Gate)
 #
 # 저장 대상:
 # | 대상       | 저장 필드                         | 비고                |

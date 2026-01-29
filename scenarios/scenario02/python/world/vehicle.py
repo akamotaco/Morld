@@ -2,8 +2,8 @@
 #
 # Region 1: 차량 관리 전용
 # - 밀폐형 탈것 (자동차 등)은 별도 Region에서 관리
-# - RegionEdge로 외부 Location과 연결
-# - 운전 시 RegionEdge의 LocationA가 변경됨
+# - RegionGate로 외부 Location과 연결
+# - 운전 시 RegionGate의 LocationA가 변경됨
 
 import morld
 

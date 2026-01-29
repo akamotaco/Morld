@@ -21,7 +21,7 @@ public static class TestWorldSerialization
             var world = Terrain.LoadFromFile("res://scripts/morld/terrain/location_data.json");
             Console.WriteLine($"   Loaded: {world}");
             Console.WriteLine($"   Regions: {world.RegionCount}");
-            Console.WriteLine($"   RegionEdges: {world.RegionEdgeCount}");
+            Console.WriteLine($"   RegionGates: {world.RegionGateCount}");
 
             // 2. JSON으로 다시 직렬화
             Console.WriteLine("\n2. Exporting to JSON...");
@@ -32,7 +32,7 @@ public static class TestWorldSerialization
             var world2 = Terrain.LoadFromJson(exportedJson);
             Console.WriteLine($"   Re-loaded: {world2}");
             Console.WriteLine($"   Regions: {world2.RegionCount}");
-            Console.WriteLine($"   RegionEdges: {world2.RegionEdgeCount}");
+            Console.WriteLine($"   RegionGates: {world2.RegionGateCount}");
 
             // 4. 비교
             Console.WriteLine("\n4. Comparing...");
@@ -82,10 +82,10 @@ public static class TestWorldSerialization
             identical = false;
         }
 
-        // RegionEdge 수 비교
-        if (w1.RegionEdgeCount != w2.RegionEdgeCount)
+        // RegionGate 수 비교
+        if (w1.RegionGateCount != w2.RegionGateCount)
         {
-            Console.WriteLine($"   - RegionEdge count mismatch: {w1.RegionEdgeCount} vs {w2.RegionEdgeCount}");
+            Console.WriteLine($"   - RegionGate count mismatch: {w1.RegionGateCount} vs {w2.RegionGateCount}");
             identical = false;
         }
 

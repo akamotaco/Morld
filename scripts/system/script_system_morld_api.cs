@@ -479,12 +479,7 @@ namespace SE
                 }
 
                 // 이동 중인지 여부 (Pi-World: CurrentMovement가 있으면 이동 중)
-                result.SetItem(new PyString("is_on_edge"), PyBool.FromBool(unit.IsOnEdge));
-
-                // Pi-World: 이동 중인 경우 Gate 통과 목표가 있으면 표시
-                // (기존 edge_to_* 필드는 호환성을 위해 유지하되 None 반환)
-                result.SetItem(new PyString("edge_to_region_id"), PyNone.Instance);
-                result.SetItem(new PyString("edge_to_local_id"), PyNone.Instance);
+                result.SetItem(new PyString("is_moving"), PyBool.FromBool(unit.IsMoving));
 
                 // 목적지로 이동 중인지 여부 (논리적 상태)
                 result.SetItem(new PyString("is_traveling"), PyBool.FromBool(unit.IsTraveling));
@@ -527,7 +522,7 @@ namespace SE
             });
 
             // get_units_at_location(region_id, location_id) - Location에 있는 유닛 ID 목록 반환
-            // 캐릭터만 반환 (IsObject=false), Edge 위에 있는 유닛 제외
+            // 캐릭터만 반환 (IsObject=false), 이동 중인 유닛 제외
             morldModule.ModuleDict["get_units_at_location"] = new PyBuiltinFunction("get_units_at_location", args =>
             {
                 if (args.Length < 2)
@@ -545,8 +540,8 @@ namespace SE
                     if (unit.IsObject)
                         continue;
 
-                    // Edge 위에 있는 유닛 제외 (Location에 도착한 유닛만)
-                    if (unit.IsOnEdge)
+                    // 이동 중인 유닛 제외 (Location에 도착한 유닛만)
+                    if (unit.IsMoving)
                         continue;
 
                     // 현재 위치가 일치하는지 확인

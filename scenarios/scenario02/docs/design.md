@@ -1023,7 +1023,7 @@ return {
 ```python
 # __init__.py - initialize_scenario()
 
-1. initialize_terrain()    # 지형 데이터 (Region, Location, Edge)
+1. initialize_terrain()    # 지형 데이터 (Region, Location, Gate)
 2. initialize_time()       # 게임 시간 설정
 3. load_all_assets()       # Asset 정의 로드
 4. instantiate_player()    # 플레이어만 먼저 생성 (프롤로그)
@@ -1406,18 +1406,18 @@ describe text에서 자세와 함께 표시:
 ```
 
 #### 자동차 이동 메커니즘
-**핵심: 자동차 이동 = RegionEdge 변경 (Location 변경 아님)**
+**핵심: 자동차 이동 = RegionGate 변경 (Location 변경 아님)**
 
 ```
 [이동 전]
-Region 0: 주차장(29) ←RegionEdge→ Region 1: 자동차(0)
+Region 0: 주차장(29) ←RegionGate→ Region 1: 자동차(0)
 
-[운전 이동 후 - RegionEdge의 LocationA만 변경]
-Region 0: 도시 입구(25) ←RegionEdge→ Region 1: 자동차(0)
+[운전 이동 후 - RegionGate의 LocationA만 변경]
+Region 0: 도시 입구(25) ←RegionGate→ Region 1: 자동차(0)
 ```
 
 - 자동차는 별도 Region (Region 1)에 속함
-- **RegionEdge의 LocationA (외부 Region 쪽)**가 변경됨
+- **RegionGate의 LocationA (외부 Region 쪽)**가 변경됨
 - 탑승자들은 자동차 Location에 계속 머무름
 
 ### 의자형 (정적 탈것)

@@ -5,8 +5,8 @@
 #
 # 자동차는 밀폐형 탈것으로 Location 타입
 # - 별도의 Region(Region 1)에 속함
-# - RegionEdge로 외부 Location과 연결
-# - 운전 시 RegionEdge의 LocationA(외부 Region 쪽)가 변경됨
+# - RegionGate로 외부 Location과 연결
+# - 운전 시 RegionGate의 LocationA(외부 Region 쪽)가 변경됨
 # - 자동차 Location 자체는 변하지 않음
 # - 탑승자들은 자동차 Location에 계속 머무름
 

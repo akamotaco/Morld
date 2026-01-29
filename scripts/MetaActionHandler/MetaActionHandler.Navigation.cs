@@ -244,7 +244,7 @@ public partial class MetaActionHandler
 	/// NPC 클릭 시 먼저 NPC 주도 이벤트(first meet, NPC 주도 스킨십 등)를 체크합니다.
 	/// 이벤트가 있으면 Dialog로 실행하고, 없으면 일반 ShowUnitLook()을 호출합니다.
 	///
-	/// 이 로직은 Edge 이동 중인 NPC와의 만남 문제를 해결합니다.
+	/// 이 로직은 이동 중인 NPC와의 만남 문제를 해결합니다.
 	/// on_meet 이벤트는 두 유닛 모두 정지 상태여야 발동하지만,
 	/// focus 시점에서 체크하면 이동 중인 NPC와도 이벤트가 발생합니다.
 	/// </summary>
@@ -273,7 +273,7 @@ public partial class MetaActionHandler
 					if (genResult != null && genResult.Type == "generator_dialog"
 						&& genResult is SE.GeneratorScriptResult gr)
 					{
-						// 플레이어 이동 취소 (시간 진행 중단 + Job/Edge 초기화)
+						// 플레이어 이동 취소 (시간 진행 중단 + Job 초기화)
 						CancelPlayerMovement();
 
 						// 스택을 Situation 상태로 정리 (다이얼로그 종료 후 현재 위치 표시를 위해)
@@ -328,7 +328,7 @@ public partial class MetaActionHandler
 	/// <summary>
 	/// 목적지까지 이동 시간 계산
 	/// Pi-World: X 좌표 기반 거리 계산
-	/// Legacy: Edge 기반 시간 합산
+	/// Legacy: 경로 기반 시간 합산
 	/// </summary>
 	/// <returns>이동 시간(분), 경로 없으면 -1</returns>
 	private int CalculateTravelTimeToDestination(int regionId, int localId)
@@ -365,7 +365,7 @@ public partial class MetaActionHandler
 			return CalculatePathTravelTime2D(terrain, pathResult, player, actualProps);
 		}
 
-		// Legacy: Edge 기반 이동 시간 합산
+		// Legacy: 경로 기반 이동 시간 합산
 		return terrain.CalculatePathTravelTime(pathResult);
 	}
 
@@ -404,9 +404,9 @@ public partial class MetaActionHandler
 			var location = terrain.GetLocation(fromLocRef);
 			if (location == null || location.IsLegacyMode)
 			{
-				// Legacy Location: 기본 Edge 시간 사용
-				var edgeTime = terrain.GetTravelTimeBetween(fromLocRef, toLocRef);
-				totalTime += edgeTime >= 0 ? edgeTime : 1;
+				// Legacy Location: 기본 이동 시간 사용
+				var legacyTime = terrain.GetTravelTimeBetween(fromLocRef, toLocRef);
+				totalTime += legacyTime >= 0 ? legacyTime : 1;
 				currentLocRef = toLocRef;
 				currentX = 0f;  // Legacy는 X 좌표 없음
 				continue;
@@ -534,14 +534,14 @@ public partial class MetaActionHandler
 	// | 조건 충족 (단거리)       | 정상 표시   | 즉시 이동                      |
 	// | 조건 충족 (장거리)       | 정상 표시   | 확인 다이얼로그 + [예/아니오]   |
 	//
-	// === Edge/RegionEdge 조건 타입 ===
+	// === Gate 조건 타입 ===
 	//
 	// - hidden: 조건 미달 시 목록에서 숨김 (예: 관찰력 부족으로 숨겨진 문 못찾음)
 	// - locked: 조건 미달 시 표시는 되나 이동 시 메시지 (예: 잠긴 문)
 	//
-	// === Python Edge 정의 예시 ===
+	// === Python Gate 정의 예시 ===
 	//
-	// EDGES = [
+	// GATES = [
 	//     (0, 1, 1),  # 기본 연결
 	//     (1, 10, 1, {"hidden": {"관찰력": 5}}),  # 숨겨진 문
 	//     (1, 11, 1, {"locked": {"has:열쇠": 1}, "message": "문이 잠겨 있다."}),  # 잠긴 문
@@ -551,7 +551,7 @@ public partial class MetaActionHandler
 	//
 	// private (bool canMove, string? blockMessage) CheckMoveConditions(int regionId, int localId)
 	// {
-	//     // 1. Edge/RegionEdge에서 locked 조건 가져오기
+	//     // 1. Gate에서 locked 조건 가져오기
 	//     // 2. 플레이어 props와 비교
 	//     // 3. 미달 시 (false, message) 반환
 	//     // 4. 충족 시 (true, null) 반환

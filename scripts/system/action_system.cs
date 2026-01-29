@@ -429,7 +429,7 @@ namespace SE
 					else
 					{
 						// 활성화 (이동 가능)
-						var regionTag = route.IsRegionEdge ? $" [{route.RegionName}]" : "";
+						var regionTag = route.IsRegionGate ? $" [{route.RegionName}]" : "";
 						var meta = $"move:{route.Destination.RegionId}:{route.Destination.LocalId}";
 						items.Add($"  [url={meta}]{route.LocationName}{regionTag} ({route.TravelTime}분)[/url]");
 					}
@@ -495,7 +495,7 @@ namespace SE
 
 		/// <summary>
 		/// 운전 가능한 목적지 목록 가져오기
-		/// 차량 Location에서 RegionEdge로 연결된 외부 Location들을 반환
+		/// 차량 Location에서 RegionGate로 연결된 외부 Location들을 반환
 		/// </summary>
 		public List<(int regionId, int locationId, string name, int travelTime)> GetDrivableDestinations(Unit unit)
 		{
@@ -506,9 +506,9 @@ namespace SE
 			var terrain = worldSystem.GetTerrain();
 			var currentLoc = unit.CurrentLocation;
 
-			// 현재 위치에서 RegionEdge를 통해 연결된 외부 Location 찾기
-			// 차량은 별도 Region에 있고, RegionEdge로 외부와 연결됨
-			foreach (var (edge, destination, travelTime) in terrain.GetRegionExits(currentLoc, unit.TraversalContext))
+			// 현재 위치에서 RegionGate를 통해 연결된 외부 Location 찾기
+			// 차량은 별도 Region에 있고, RegionGate로 외부와 연결됨
+			foreach (var (rGate, destination, travelTime) in terrain.GetRegionExits(currentLoc, unit.TraversalContext))
 			{
 				// 목적지 정보 가져오기
 				var destRegion = terrain.GetRegion(destination.RegionId);
@@ -547,8 +547,8 @@ namespace SE
 		}
 
 		/// <summary>
-		/// 실제 운전 실행 (RegionEdge의 LocationA 변경)
-		/// 차량 이동 = RegionEdge의 외부 연결 지점 변경
+		/// 실제 운전 실행 (RegionGate의 LocationA 변경)
+		/// 차량 이동 = RegionGate의 외부 연결 지점 변경
 		/// </summary>
 		private ActionResult ExecuteDrive(Unit driver, int destRegionId, int destLocationId, int travelTime)
 		{
@@ -564,29 +564,29 @@ namespace SE
 			// 현재 위치 (차량 Location)
 			var currentLoc = driver.CurrentLocation;
 
-			// 현재 연결된 RegionEdge 찾기
-			var regionEdges = terrain.GetRegionEdgesFrom(currentLoc).ToList();
-			if (regionEdges.Count == 0)
+			// 현재 연결된 RegionGate 찾기
+			var regionGates = terrain.GetRegionGatesFrom(currentLoc).ToList();
+			if (regionGates.Count == 0)
 				return ActionResult.Fail("차량이 연결된 경로를 찾을 수 없습니다.");
 
-			// 첫 번째 RegionEdge의 외부 Location을 목적지로 변경
-			var edge = regionEdges.First();
+			// 첫 번째 RegionGate의 외부 Location을 목적지로 변경
+			var rGate = regionGates.First();
 
-			// RegionEdge의 외부 쪽(LocationA 또는 LocationB) 변경
+			// RegionGate의 외부 쪽(LocationA 또는 LocationB) 변경
 			// 차량 Region 쪽이 아닌 외부 Region 쪽을 변경
-			if (edge.LocationA.RegionId == currentLoc.RegionId)
+			if (rGate.LocationA.RegionId == currentLoc.RegionId)
 			{
 				// LocationA가 차량 쪽 → LocationB를 변경
-				edge.LocationB = new LocationRef(destRegionId, destLocationId);
+				rGate.LocationB = new LocationRef(destRegionId, destLocationId);
 			}
 			else
 			{
 				// LocationB가 차량 쪽 → LocationA를 변경
-				edge.LocationA = new LocationRef(destRegionId, destLocationId);
+				rGate.LocationA = new LocationRef(destRegionId, destLocationId);
 			}
 
 			// 탑승자들은 차량 Location에 계속 머무름 (위치 변경 없음)
-			// RegionEdge만 변경되므로 탑승자 처리 불필요
+			// RegionGate만 변경되므로 탑승자 처리 불필요
 
 			return ActionResult.Ok($"{destName}(으)로 이동했다.", timeConsumed: travelTime);
 		}

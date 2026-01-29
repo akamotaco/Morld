@@ -16,8 +16,8 @@ public class TerrainJsonData
     [JsonPropertyName("regions")]
     public List<RegionJsonData> Regions { get; set; } = new();
 
-    [JsonPropertyName("regionEdges")]
-    public List<RegionEdgeJsonData> RegionEdges { get; set; } = new();
+    [JsonPropertyName("regionGates")]
+    public List<RegionGateJsonData> RegionGates { get; set; } = new();
 }
 
 /// <summary>
@@ -69,7 +69,7 @@ public class LocationJsonData
 }
 
 /// <summary>
-/// Edge JSON 데이터
+/// Legacy Edge JSON (deprecated) 데이터
 /// </summary>
 public class EdgeJsonData
 {
@@ -96,9 +96,9 @@ public class EdgeJsonData
 }
 
 /// <summary>
-/// RegionEdge JSON 데이터
+/// RegionGate JSON 데이터
 /// </summary>
-public class RegionEdgeJsonData
+public class RegionGateJsonData
 {
     [JsonPropertyName("id")]
     public int Id { get; set; }

@@ -13,7 +13,7 @@ Terrain (전체 세계)
   ├─ Region (저택, 숲 등)
   │   ├─ Location (1D 공간: line/ring)
   │   └─ Gate (Location 간 연결점)
-  └─ RegionEdge (다른 Region 간 연결)
+  └─ RegionGate (다른 Region 간 연결)
 ```
 
 ### Pi-World 핵심 개념
@@ -93,9 +93,9 @@ GATES = [
 [현재 X] → 이동(거리 기반) → [Gate X] → [즉시] → [도착 Location의 arrival_x] → 이동 → [목적지 X]
 ```
 
-### 1.5 RegionEdge (Region 간 연결)
+### 1.5 RegionGate (Region 간 연결)
 
-서로 다른 두 Region을 연결하는 엣지입니다.
+서로 다른 두 Region을 연결하는 게이트입니다.
 
 | 속성 | 타입 | 설명 |
 |------|------|------|
@@ -106,7 +106,7 @@ GATES = [
 | `TravelTimeBtoA` | int | 역방향 이동 시간(분) |
 | `Name` | string | 연결 이름 |
 
-**파일:** [scripts/morld/terrain/RegionEdge.cs](../../../scripts/morld/terrain/RegionEdge.cs)
+**파일:** [scripts/morld/terrain/RegionGate.cs](../../../scripts/morld/terrain/RegionGate.cs)
 
 ```
 예시: 저택 앞마당(0:12) ↔ 숲 입구(3:20), 이동 시간 10분
@@ -114,7 +114,7 @@ GATES = [
 
 ### 1.6 이동 조건 검사
 
-Edge/RegionEdge의 `CanTraverse` 메서드로 이동 가능 여부를 확인합니다.
+Gate/RegionGate의 `CanTraverse` 메서드로 이동 가능 여부를 확인합니다.
 
 ```csharp
 public bool CanTraverse(Location from, TraversalContext? context = null)
@@ -400,7 +400,7 @@ public class EventPredictionSystem : ECS.System
         // 이벤트 예측
         PredictMeetings(pendingDuration);
         PredictArrivals(pendingDuration);
-        PredictEdgeCollisions(pendingDuration);
+        PredictGateCrossings(pendingDuration);
 
         // 가장 빠른 이벤트 시점으로 시간 조정
         var earliestInterrupt = FindEarliestInterrupt();
@@ -476,9 +476,9 @@ if (isTimeFrozen)
 |------|------|
 | [scripts/morld/terrain/Location.cs](../../../scripts/morld/terrain/Location.cs) | Location (1D 공간), LocationRef |
 | [scripts/morld/terrain/Gate.cs](../../../scripts/morld/terrain/Gate.cs) | Gate (연결점) |
-| [scripts/morld/terrain/RegionEdge.cs](../../../scripts/morld/terrain/RegionEdge.cs) | RegionEdge (Region 간 연결) |
+| [scripts/morld/terrain/RegionGate.cs](../../../scripts/morld/terrain/RegionGate.cs) | RegionGate (Region 간 연결) |
 | [scripts/morld/terrain/Region.cs](../../../scripts/morld/terrain/Region.cs) | Region (Location/Gate 관리) |
-| [scripts/morld/terrain/Terrain.cs](../../../scripts/morld/terrain/Terrain.cs) | Terrain (Region/RegionEdge 관리) |
+| [scripts/morld/terrain/Terrain.cs](../../../scripts/morld/terrain/Terrain.cs) | Terrain (Region/RegionGate 관리) |
 
 ### 이동/충돌 시스템
 | 파일 | 역할 |

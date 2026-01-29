@@ -13,7 +13,7 @@ def initialize():
     """챕터 1 초기화 (정식 맵)"""
     print("[chapter_1] Initializing main chapter...")
 
-    # 1. 전체 월드 초기화 (모든 Region + RegionEdge)
+    # 1. 전체 월드 초기화 (모든 Region + RegionGate)
     initialize_world()
 
     # 2. 시간 설정 (아침으로 시작 - initialize_world의 시간 덮어쓰기)

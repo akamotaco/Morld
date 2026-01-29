@@ -255,8 +255,8 @@ def _render_map(state: dict) -> str:
                 tree_lines.append(f"{indent}{marker}[color=gray]{loc_info['name']} (도달 불가)[/color]{char_text}")
 
         # 다른 region으로 가는 연결 표시
-        for region_edge in loc_info.get("region_edges", []):
-            to_region, to_local, region_name = region_edge
+        for region_gate in loc_info.get("region_gates", []):
+            to_region, to_local, region_name = region_gate
             child_indent = "  " * (depth + 1)
             tree_lines.append(
                 f"{child_indent}[color=cyan]-> {region_name}[/color]"

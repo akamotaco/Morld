@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Region 간의 연결 (포탈, 게이트, 경계 등)
 /// </summary>
-public class RegionEdge
+public class RegionGate
 {
     private int _travelTimeAtoB;
     private int _travelTimeBtoA;
@@ -31,7 +31,7 @@ public class RegionEdge
             if (_locationA != value)
             {
                 _locationA = value;
-                OwnerWorld?.MarkRegionEdgeAsChanged();
+                OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
     }
@@ -47,7 +47,7 @@ public class RegionEdge
             if (_locationB != value)
             {
                 _locationB = value;
-                OwnerWorld?.MarkRegionEdgeAsChanged();
+                OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
     }
@@ -68,7 +68,7 @@ public class RegionEdge
             if (_travelTimeAtoB != value)
             {
                 _travelTimeAtoB = value;
-                OwnerWorld?.MarkRegionEdgeAsChanged();
+                OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
     }
@@ -84,7 +84,7 @@ public class RegionEdge
             if (_travelTimeBtoA != value)
             {
                 _travelTimeBtoA = value;
-                OwnerWorld?.MarkRegionEdgeAsChanged();
+                OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
     }
@@ -110,7 +110,7 @@ public class RegionEdge
             if (_isBlocked != value)
             {
                 _isBlocked = value;
-                OwnerWorld?.MarkRegionEdgeAsChanged();
+                OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
     }
@@ -125,14 +125,14 @@ public class RegionEdge
     /// </summary>
     public object? Tag { get; set; }
 
-    public RegionEdge(int id, LocationRef locationA, LocationRef locationB)
+    public RegionGate(int id, LocationRef locationA, LocationRef locationB)
     {
         Id = id;
         _locationA = locationA;
         _locationB = locationB;
     }
 
-    public RegionEdge(int id, int regionIdA, int localIdA, int regionIdB, int localIdB)
+    public RegionGate(int id, int regionIdA, int localIdA, int regionIdB, int localIdB)
         : this(id, new LocationRef(regionIdA, localIdA), new LocationRef(regionIdB, localIdB))
     {
     }
@@ -140,53 +140,53 @@ public class RegionEdge
     /// <summary>
     /// 양방향 동일한 이동 시간 설정
     /// </summary>
-    public RegionEdge SetTravelTime(int time)
+    public RegionGate SetTravelTime(int time)
     {
         _travelTimeAtoB = time;
         _travelTimeBtoA = time;
-        OwnerWorld?.MarkRegionEdgeAsChanged();
+        OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
 
     /// <summary>
     /// 방향별 이동 시간 설정
     /// </summary>
-    public RegionEdge SetTravelTime(int aToB, int bToA)
+    public RegionGate SetTravelTime(int aToB, int bToA)
     {
         _travelTimeAtoB = aToB;
         _travelTimeBtoA = bToA;
-        OwnerWorld?.MarkRegionEdgeAsChanged();
+        OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
 
     /// <summary>
     /// A → B 방향 조건 추가
     /// </summary>
-    public RegionEdge AddConditionAtoB(string tag, int requiredValue)
+    public RegionGate AddConditionAtoB(string tag, int requiredValue)
     {
         ConditionsAtoB[tag] = requiredValue;
-        OwnerWorld?.MarkRegionEdgeAsChanged();
+        OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
 
     /// <summary>
     /// B → A 방향 조건 추가
     /// </summary>
-    public RegionEdge AddConditionBtoA(string tag, int requiredValue)
+    public RegionGate AddConditionBtoA(string tag, int requiredValue)
     {
         ConditionsBtoA[tag] = requiredValue;
-        OwnerWorld?.MarkRegionEdgeAsChanged();
+        OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
 
     /// <summary>
     /// 양방향 동일한 조건 추가
     /// </summary>
-    public RegionEdge AddCondition(string tag, int requiredValue)
+    public RegionGate AddCondition(string tag, int requiredValue)
     {
         ConditionsAtoB[tag] = requiredValue;
         ConditionsBtoA[tag] = requiredValue;
-        OwnerWorld?.MarkRegionEdgeAsChanged();
+        OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
 
@@ -197,7 +197,7 @@ public class RegionEdge
     {
         if (from == LocationA) return LocationB;
         if (from == LocationB) return LocationA;
-        throw new ArgumentException("Location is not part of this edge", nameof(from));
+        throw new ArgumentException("Location is not part of this gate", nameof(from));
     }
 
     /// <summary>
@@ -269,6 +269,6 @@ public class RegionEdge
     {
         var aToB = TravelTimeAtoB >= 0 ? TravelTimeAtoB.ToString() : "X";
         var bToA = TravelTimeBtoA >= 0 ? TravelTimeBtoA.ToString() : "X";
-        return $"RegionEdge[{(Name != "unknown" ? Name : Id.ToString())}]: {LocationA} <--({bToA})--({aToB})--> {LocationB}";
+        return $"RegionGate[{(Name != "unknown" ? Name : Id.ToString())}]: {LocationA} <--({bToA})--({aToB})--> {LocationB}";
     }
 }
