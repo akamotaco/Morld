@@ -354,8 +354,8 @@ public class Region : IDescribable
             if (neighborLoc == null)
                 continue;
 
-            // Gate 통과 시간 = 0 (즉시 통과)
-            yield return (neighborLoc, 0f);
+            // Gate 통과 시간
+            yield return (neighborLoc, gate.TravelTime);
         }
     }
 

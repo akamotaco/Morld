@@ -176,7 +176,7 @@ namespace SE
 
             // add_gate: Pi-World Gate 추가 (Location 간 연결)
             // add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x,
-            //          arrival_y=0, conditions_forward=None, conditions_backward=None, is_blocked=False, name="")
+            //          arrival_y=0, conditions_forward=None, conditions_backward=None, is_blocked=False, name="", travel_time=0)
             morldModule.ModuleDict["add_gate"] = new PyBuiltinFunction("add_gate", args =>
             {
                 if (args.Length < 7)
@@ -201,6 +201,7 @@ namespace SE
                     : null;
                 bool isBlocked = args.Length > conditionsStartIdx + 2 && args[conditionsStartIdx + 2].IsTrue();
                 string name = args.Length > conditionsStartIdx + 3 && args[conditionsStartIdx + 3] is PyString nameStr ? nameStr.Value : "";
+                int travelTime = args.Length > conditionsStartIdx + 4 ? args[conditionsStartIdx + 4].ToInt() : 0;
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                 var terrain = _worldSystem.GetTerrain();
@@ -210,6 +211,7 @@ namespace SE
                 {
                     var gate = region.AddGate(locationId, gateId, x, connectedRegion, connectedLocation, arrivalX, arrivalY);
                     gate.Name = name;
+                    gate.TravelTime = travelTime;
                     gate.IsBlocked = isBlocked;
 
                     if (conditionsForward != null)

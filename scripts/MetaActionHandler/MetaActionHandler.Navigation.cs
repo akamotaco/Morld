@@ -421,9 +421,9 @@ public partial class MetaActionHandler
 				continue;
 			}
 
-			// Gate까지 이동 시간 계산
+			// Gate까지 이동 시간 + Gate 통과 시간
 			int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
-			totalTime += travelTime;
+			totalTime += travelTime + targetGate.TravelTime;
 
 			// Gate 통과 후 위치 업데이트
 			currentLocRef = toLocRef;

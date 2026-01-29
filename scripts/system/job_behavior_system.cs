@@ -329,12 +329,16 @@ namespace SE
 
 							if (gate != null && gate.CanTraverseForward(actualProps))
 							{
+								// Gate 통과 시간 차감
+								if (gate.TravelTime > 0)
+									remainingTime -= gate.TravelTime;
+
 								// Gate를 통해 다른 Location으로 이동
 								unit.SetCurrentLocation(gate.ConnectedLocation);
 								unit.PositionX = gate.ArrivalX;
 								unit.PositionY = gate.ArrivalY;
 #if DEBUG_LOG
-								GD.Print($"[JobBehaviorSystem] {unit.Name} passed gate: {gate.OwnerLocation} -> {gate.ConnectedLocation} (X={gate.ArrivalX})");
+								GD.Print($"[JobBehaviorSystem] {unit.Name} passed gate: {gate.OwnerLocation} -> {gate.ConnectedLocation} (X={gate.ArrivalX}, travelTime={gate.TravelTime})");
 #endif
 							}
 						}

@@ -8,7 +8,7 @@ Pi-World는 Location을 1D 선형/원형 공간으로 확장한 지형 시스템
 
 **핵심 개념:**
 - **Location**: 점(0D) → 선형/원형 1D 공간
-- **Gate**: Location 간 연결점 (통과 시간 = 0)
+- **Gate**: Location 간 연결점 (통과 시간 기본 0, 설정 가능)
 - **이동 시간**: 거리 기반 계산 (distance / speed)
 
 ### Region 구조
@@ -124,21 +124,27 @@ Ring: 거리 = min(|dx|, length - |dx|)  # 최단 경로
 
 ### Gate 정의 형식
 ```python
+# 기본 (travel_time=0, 즉시 통과)
 # (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
-(REGION_ID, 0, 0, 30, REGION_ID, 1, 0),   # 현관 끝(x=30) -> 거실(x=0)에 도착
-(REGION_ID, 1, 0, 0, REGION_ID, 0, 30),   # 거실 입구(x=0) -> 현관(x=30)에 도착
+morld.add_gate(REGION_ID, 0, 0, 30, REGION_ID, 1, 0)   # 현관 끝(x=30) -> 거실(x=0)에 도착
+
+# travel_time 지정 (통과에 시간 소요)
+# add_gate(..., arrival_y=0, conditions_forward=None, conditions_backward=None, is_blocked=False, name="", travel_time=0)
+morld.add_gate(REGION_ID, 0, 0, 30, REGION_ID, 1, 0, 0, None, None, False, "", 5)  # 5분 통과
 ```
 
 ### Gate 속성
 - **x**: Gate 위치 (Location 내 좌표)
 - **arrival_x**: 통과 시 도착 좌표 (연결된 Location 내)
 - **connected_region/location**: 연결된 Location 정보
-- **통과 시간**: 0 (즉시 통과)
+- **travel_time**: 통과 시간 (분, 기본값 0 = 즉시 통과)
 
 ### 이동 흐름
 ```
-[현재 위치] → 이동(거리 기반) → [Gate(x)] → [즉시] → [연결된 Location(arrival_x)] → 이동 → [목적지]
+[현재 위치] → 이동(거리 기반) → [Gate(x)] → [통과 시간] → [연결된 Location(arrival_x)] → 이동 → [목적지]
 ```
+
+> **이동 시간 합산**: Location 내 이동 시간 + Gate 통과 시간의 합이 전체 경로 이동 시간
 
 ---
 
@@ -209,7 +215,7 @@ GATES = [
 ### 차이점
 | 항목 | Legacy Edge | Gate |
 |------|------|------|
-| 이동 시간 | 고정값 | 거리 기반 계산 |
+| 이동 시간 | 고정값 | 거리 기반 계산 + Gate 통과 시간 |
 | Location 내 위치 | 없음 | x 좌표 |
 | 오브젝트 배치 | 위치 없음 | x 좌표 지정 |
 | 연결 | 양방향 암묵적 | 각 방향 명시 |

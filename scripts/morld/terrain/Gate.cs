@@ -78,6 +78,11 @@ public class Gate
     }
 
     /// <summary>
+    /// Gate 통과 시간 (분, 기본값 0 = 즉시 통과)
+    /// </summary>
+    public int TravelTime { get; set; } = 0;
+
+    /// <summary>
     /// Gate 이름 (표시용)
     /// </summary>
     public string Name { get; set; } = "";
