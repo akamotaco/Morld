@@ -107,6 +107,22 @@ namespace SE
 		public bool HasPendingTime => _remainingDuration > 0;
 
 		/// <summary>
+		/// 시간 정지 상태에서 처리할 플레이어 액션이 있는지
+		/// (시간 정지 + 플레이어 Job 존재 시 Step 트리거용)
+		/// </summary>
+		public bool HasPendingFrozenAction
+		{
+			get
+			{
+				var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+				if (worldSystem == null || !worldSystem.IsTimeFrozen())
+					return false;
+				var player = FindPlayerUnit();
+				return player?.CurrentJob != null;
+			}
+		}
+
+		/// <summary>
 		/// 다음 Step 시간 조정 (EventPredictionSystem에서 호출)
 		/// </summary>
 		/// <param name="adjustedMinutes">조정할 시간 (분)</param>
@@ -197,8 +213,8 @@ namespace SE
 				return;
 			}
 
-			// 총 이동 시간 계산
-			var totalTime = terrain.CalculatePathTravelTime(pathResult);
+			// 총 이동 시간 계산 (Pi-World: X 좌표 기반 거리 계산)
+			int totalTime = CalculatePathTravelTime2D(terrain, pathResult, player);
 
 			// JobList에 이동 Job 삽입 (플레이어는 스케줄 없음 → 단순 Insert)
 			var destLocation = terrain.GetLocation(destination);
@@ -234,9 +250,72 @@ namespace SE
 #endif
 		}
 
+		/// <summary>
+		/// Pi-World 2D 경로 이동 시간 계산
+		/// 각 Location 내 Gate까지 X 좌표 거리 기반 시간 합산
+		/// </summary>
+		private int CalculatePathTravelTime2D(Morld.Terrain terrain, Morld.PathResult pathResult, Unit player)
+		{
+			if (!pathResult.Found || pathResult.Path.Count < 2)
+				return 0;
+
+			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
+			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
+			var inventory = inventorySystem?.GetUnitInventory(player.Id);
+			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
+
+			int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
+			float speedModifier = movementSpeedPercent / 100f;
+
+			int totalTime = 0;
+			float currentX = player.PositionX;
+
+			for (int i = 0; i < pathResult.Path.Count - 1; i++)
+			{
+				var fromLocRef = new LocationRef(pathResult.Path[i]);
+				var toLocRef = new LocationRef(pathResult.Path[i + 1]);
+
+				var location = terrain.GetLocation(fromLocRef);
+				if (location == null) continue;
+
+				// Gate 찾기
+				var region = terrain.GetRegion(fromLocRef.RegionId);
+				if (region == null) continue;
+
+				var gates = region.GetGates(fromLocRef.LocalId);
+				Morld.Gate? targetGate = null;
+
+				foreach (var gate in gates)
+				{
+					if (gate.ConnectedLocation == toLocRef && gate.CanTraverseForward(actualProps))
+					{
+						targetGate = gate;
+						break;
+					}
+				}
+
+				if (targetGate == null)
+				{
+					totalTime += 1;
+					currentX = 0f;
+					continue;
+				}
+
+				// Gate까지 이동 시간 계산
+				int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
+				totalTime += travelTime;
+
+				// Gate 통과 후 위치 업데이트
+				currentX = targetGate.ArrivalX;
+			}
+
+			return totalTime;
+		}
+
 		#endregion
 
-	
+
 		protected override void Proc(int step, Span<Component[]> allComponents)
 		{
 			var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;

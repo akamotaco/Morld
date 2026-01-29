@@ -85,7 +85,6 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     /// <summary>
     /// Location의 길이 (Line 형태에서 X의 최대값)
     /// Ring 형태에서는 무시됨 (항상 360)
-    /// 기본값 0은 레거시 모드 (점 형태)
     /// </summary>
     public float Length { get; set; } = 0f;
 
@@ -106,11 +105,6 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     public float HeightMax { get; set; } = 10f;
 
     /// <summary>
-    /// 레거시 모드 여부 (Length == 0이면 점 형태로 동작)
-    /// </summary>
-    public bool IsLegacyMode => Length <= 0f;
-
-    /// <summary>
     /// X축의 유효 최대값
     /// Line: Length, Ring: 360
     /// </summary>
@@ -122,8 +116,6 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     /// </summary>
     public float CalculateDistance(float x1, float x2)
     {
-        if (IsLegacyMode) return 0f;
-
         float dx = MathF.Abs(x2 - x1);
 
         if (Geometry == LocationGeometry.Ring)
@@ -145,8 +137,6 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     /// <returns>이동 시간 (분, 올림)</returns>
     public int CalculateTravelTime(float fromX, float toX, float speedModifier = 1.0f)
     {
-        if (IsLegacyMode) return 0;
-
         float distance = CalculateDistance(fromX, toX);
         float speed = BaseSpeed * speedModifier;
 
@@ -162,8 +152,6 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     /// </summary>
     public float NormalizeX(float x)
     {
-        if (IsLegacyMode) return 0f;
-
         if (Geometry == LocationGeometry.Ring)
         {
             // Ring: 모듈로 연산으로 0~360 범위

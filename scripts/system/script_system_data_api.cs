@@ -417,7 +417,23 @@ namespace SE
                 if (pathResult == null || !pathResult.Found || pathResult.Path.Count < 2)
                     return new PyInt(-1);
 
-                return new PyInt(terrain.CalculatePathTravelTime(pathResult));
+                // 유닛이 있으면 현재 X 좌표와 이동 속도 사용
+                float startX = 0f;
+                float speedModifier = 1.0f;
+                if (unitId.HasValue)
+                {
+                    var unit = _unitSystem.FindUnit(unitId.Value);
+                    if (unit != null)
+                    {
+                        startX = unit.PositionX;
+                        var inventory = _inventorySystem.GetUnitInventory(unit.Id);
+                        var equippedItems = _inventorySystem.GetUnitEquippedItems(unit.Id);
+                        int movementSpeedPercent = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
+                        speedModifier = movementSpeedPercent / 100f;
+                    }
+                }
+
+                return new PyInt(terrain.CalculatePathTravelTime(pathResult, startX, speedModifier));
             });
         }
 

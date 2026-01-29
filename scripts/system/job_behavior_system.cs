@@ -38,11 +38,9 @@ namespace SE
 			var duration = _playerSystem.NextStepDuration;
 			var isTimeFrozen = _worldSystem.IsTimeFrozen();
 
-			// 시간 진행이 없으면 스킵
-			if (duration <= 0)
-				return;
-
 			// 시간 정지 상태: 플레이어만 즉시 이동 처리 (시간 소모 없음)
+			// duration <= 0 체크보다 먼저 처리해야 함
+			// (Pi-World에서 Gate 통과 시간이 0이므로 duration=0이 될 수 있음)
 			if (isTimeFrozen)
 			{
 				var player = _playerSystem.FindPlayerUnit();
@@ -55,6 +53,10 @@ namespace SE
 				_playerSystem.ClearPendingTime();
 				return;
 			}
+
+			// 시간 진행이 없으면 스킵
+			if (duration <= 0)
+				return;
 
 			// 각 유닛 처리
 			foreach (var unit in _unitSystem.Units.Values)

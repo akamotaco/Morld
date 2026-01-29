@@ -357,16 +357,7 @@ public partial class MetaActionHandler
 		if (!pathResult.Found || pathResult.Path.Count < 2)
 			return -1;
 
-		// Pi-World: 현재 Location이 2D 모드인지 확인
-		var currentLocation = terrain.GetLocation(player.CurrentLocation);
-		if (currentLocation != null && !currentLocation.IsLegacyMode)
-		{
-			// Pi-World 2D: X 좌표 기반 이동 시간 계산
-			return CalculatePathTravelTime2D(terrain, pathResult, player, actualProps);
-		}
-
-		// Legacy: 경로 기반 이동 시간 합산
-		return terrain.CalculatePathTravelTime(pathResult);
+		return CalculatePathTravelTime2D(terrain, pathResult, player, actualProps);
 	}
 
 	/// <summary>
@@ -402,17 +393,9 @@ public partial class MetaActionHandler
 			var toLocRef = new LocationRef(pathResult.Path[i + 1]);
 
 			var location = terrain.GetLocation(fromLocRef);
-			if (location == null || location.IsLegacyMode)
-			{
-				// Legacy Location: 기본 이동 시간 사용
-				var legacyTime = terrain.GetTravelTimeBetween(fromLocRef, toLocRef);
-				totalTime += legacyTime >= 0 ? legacyTime : 1;
-				currentLocRef = toLocRef;
-				currentX = 0f;  // Legacy는 X 좌표 없음
-				continue;
-			}
+			if (location == null) continue;
 
-			// Pi-World: Gate 찾기
+			// Gate 찾기
 			var region = terrain.GetRegion(fromLocRef.RegionId);
 			if (region == null) continue;
 

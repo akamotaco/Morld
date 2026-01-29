@@ -67,7 +67,7 @@ public class JobList
 	/// <param name="newJob">삽입할 새 Job</param>
 	public void Prepend(Job newJob)
 	{
-		if (newJob == null || newJob.Duration <= 0) return;
+		if (newJob == null) return;
 		_jobs.AddFirst(newJob);
 	}
 
@@ -78,7 +78,7 @@ public class JobList
 	/// <param name="newJob">삽입할 새 Job</param>
 	public void InsertOverride(Job newJob)
 	{
-		if (newJob == null || newJob.Duration <= 0) return;
+		if (newJob == null) return;
 
 		int overrideDuration = newJob.Duration;
 
@@ -123,7 +123,7 @@ public class JobList
 	/// <param name="newJob">삽입할 새 Job (StartOffset으로 시작 시간 지정)</param>
 	public void InsertMerge(Job newJob)
 	{
-		if (newJob == null || newJob.Duration <= 0) return;
+		if (newJob == null) return;
 
 		int desiredStart = newJob.StartOffset;
 		int newJobDuration = newJob.Duration;
@@ -340,7 +340,7 @@ public class JobList
 	/// </summary>
 	public void AddLast(Job job)
 	{
-		if (job != null && job.Duration > 0)
+		if (job != null)
 		{
 			_jobs.AddLast(job);
 		}
@@ -353,7 +353,7 @@ public class JobList
 	public void InsertWithClear(Job job)
 	{
 		_jobs.Clear();
-		if (job != null && job.Duration > 0)
+		if (job != null)
 		{
 			_jobs.AddLast(job);
 		}

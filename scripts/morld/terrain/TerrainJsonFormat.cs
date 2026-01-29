@@ -40,8 +40,6 @@ public class RegionJsonData
     [JsonPropertyName("locations")]
     public List<LocationJsonData> Locations { get; set; } = new();
 
-    [JsonPropertyName("edges")]
-    public List<EdgeJsonData> Edges { get; set; } = new();
 }
 
 /// <summary>
@@ -66,33 +64,6 @@ public class LocationJsonData
 
     [JsonPropertyName("indoor")]
     public bool Indoor { get; set; } = true;
-}
-
-/// <summary>
-/// Legacy Edge JSON (deprecated) 데이터
-/// </summary>
-public class EdgeJsonData
-{
-    [JsonPropertyName("a")]
-    public int A { get; set; }
-
-    [JsonPropertyName("b")]
-    public int B { get; set; }
-
-    [JsonPropertyName("timeAtoB")]
-    public int TimeAtoB { get; set; } = -1;
-
-    [JsonPropertyName("timeBtoA")]
-    public int TimeBtoA { get; set; } = -1;
-
-    [JsonPropertyName("conditionsAtoB")]
-    public Dictionary<string, int>? ConditionsAtoB { get; set; }
-
-    [JsonPropertyName("conditionsBtoA")]
-    public Dictionary<string, int>? ConditionsBtoA { get; set; }
-
-    [JsonPropertyName("isBlocked")]
-    public bool IsBlocked { get; set; }
 }
 
 /// <summary>

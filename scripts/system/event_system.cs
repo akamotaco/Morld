@@ -650,12 +650,10 @@ namespace SE
 			if (focusedUnit.CurrentLocation != player.CurrentLocation)
 				return false;
 
-			// Pi-World: 2D 모드일 경우 충돌 반경 체크
+			// Pi-World: 충돌 반경 체크
 			var terrain = _worldSystem.GetTerrain();
 			var location = terrain?.GetLocation(player.CurrentLocation);
-			bool is2DMode = location != null && !location.IsLegacyMode;
-
-			if (is2DMode)
+			if (location != null)
 			{
 				float distance = location.CalculateDistance(player.PositionX, focusedUnit.PositionX);
 				if (distance > COLLISION_RADIUS)

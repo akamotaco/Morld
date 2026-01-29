@@ -574,61 +574,58 @@ public class Terrain
     }
 
     /// <summary>
-    /// 두 인접 위치 간 이동 시간 계산 (Pi-World: Gate 기반)
-    /// Gate 통과 시간은 0, 실제 이동 시간은 Location 내 거리 기반으로 계산
-    /// </summary>
-    /// <param name="from">출발 위치</param>
-    /// <param name="to">도착 위치</param>
-    /// <returns>이동 시간 (분), 연결이 없으면 -1</returns>
-    public int GetTravelTimeBetween(LocationRef from, LocationRef to)
-    {
-        // Gate를 통해 연결되어 있는지 확인
-        var fromRegion = GetRegion(from.RegionId);
-        if (fromRegion == null) return -1;
-
-        var gates = fromRegion.GetGates(from.LocalId);
-        foreach (var gate in gates)
-        {
-            if (gate.ConnectedLocation.RegionId == to.RegionId &&
-                gate.ConnectedLocation.LocalId == to.LocalId)
-            {
-                // Gate 통과 시간 = 0 (즉시 통과)
-                // 실제 이동 시간은 Location 내 Unit 위치에서 Gate까지 거리로 계산되어야 함
-                return 0;
-            }
-        }
-
-        // RegionGate를 통한 Region 간 이동 (Legacy support)
-        foreach (var regionGate in GetRegionGatesFrom(from))
-        {
-            var otherLoc = regionGate.GetOtherLocation(from);
-            if (otherLoc == to)
-            {
-                return regionGate.GetTravelTime(from);
-            }
-        }
-
-        return -1;
-    }
-
-    /// <summary>
-    /// 경로의 총 이동 시간 계산
+    /// 경로의 총 이동 시간 계산 (Pi-World: Gate X 좌표 기반)
     /// </summary>
     /// <param name="pathResult">FindPath 결과</param>
+    /// <param name="startX">출발 X 좌표 (기본 0)</param>
+    /// <param name="speedModifier">이동 속도 배율 (기본 1.0)</param>
     /// <returns>총 이동 시간 (분), 경로가 없으면 0</returns>
-    public int CalculatePathTravelTime(PathResult pathResult)
+    public int CalculatePathTravelTime(PathResult pathResult, float startX = 0f, float speedModifier = 1.0f)
     {
         if (!pathResult.Found || pathResult.Path.Count < 2)
             return 0;
 
         int totalTime = 0;
+        float currentX = startX;
+
         for (int i = 0; i < pathResult.Path.Count - 1; i++)
         {
-            var from = new LocationRef(pathResult.Path[i]);
-            var to = new LocationRef(pathResult.Path[i + 1]);
-            var travelTime = GetTravelTimeBetween(from, to);
-            totalTime += travelTime >= 0 ? travelTime : 1; // 연결이 없으면 기본값 1
+            var fromLocRef = new LocationRef(pathResult.Path[i]);
+            var toLocRef = new LocationRef(pathResult.Path[i + 1]);
+
+            var location = GetLocation(fromLocRef);
+            if (location == null) continue;
+
+            var region = GetRegion(fromLocRef.RegionId);
+            if (region == null) continue;
+
+            // 목적지로 연결된 Gate 찾기
+            var gates = region.GetGates(fromLocRef.LocalId);
+            Gate? targetGate = null;
+            foreach (var gate in gates)
+            {
+                if (gate.ConnectedLocation == toLocRef)
+                {
+                    targetGate = gate;
+                    break;
+                }
+            }
+
+            if (targetGate == null)
+            {
+                totalTime += 1;
+                currentX = 0f;
+                continue;
+            }
+
+            // Gate까지 이동 시간 계산
+            int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
+            totalTime += travelTime;
+
+            // Gate 통과 후 위치 업데이트
+            currentX = targetGate.ArrivalX;
         }
+
         return totalTime;
     }
 
@@ -861,7 +858,6 @@ public class Terrain
                 region.AddLocation(locData.Id, locData.Name);
             }
 
-            // Note: Legacy Edge in JSON is ignored (Pi-World Gate 사용)
 
             terrain.AddRegion(region);
         }
@@ -981,7 +977,6 @@ public class Terrain
                 // 주의: Location의 바닥 아이템은 InventorySystem에서 관리됨
             }
 
-            // Note: Legacy Edge in JSON is ignored (Pi-World Gate 사용)
 
             AddRegion(region);
         }
