@@ -254,8 +254,8 @@ public partial class GameEngine : Node
 			);
 		}
 
-		// 대기 중인 시간이 있거나, 시간 정지 상태에서 플레이어 액션이 있으면 Step 실행
-		if (_playerSystem != null && (_playerSystem.HasPendingTime || _playerSystem.HasPendingFrozenAction))
+		// 대기 중인 시간이 있거나, Duration=0 즉시 행동이 있으면 Step 실행
+		if (_playerSystem != null && (_playerSystem.HasPendingTime || _playerSystem.HasPendingInstantAction))
 		{
 			int delta_int = (int)(delta * 1000);
 			this._world.Step(delta_int);

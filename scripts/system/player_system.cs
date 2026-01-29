@@ -34,6 +34,13 @@ namespace SE
 		private int _lastSetDuration = 0;
 
 		/// <summary>
+		/// 즉시 행동 대기 플래그 (Duration=0 Job 처리용)
+		/// RequestTimeAdvance(0) 호출 시 설정, Step 처리 후 해제
+		/// frozen 상태 또는 Gate 인접 이동 시 Duration=0이 발생
+		/// </summary>
+		private bool _hasInstantAction = false;
+
+		/// <summary>
 		/// 현재 활성화된 액션 이름 (디버그용)
 		/// </summary>
 		private string _currentAction = "";
@@ -65,6 +72,7 @@ namespace SE
 		public void ClearPendingTime()
 		{
 			_remainingDuration = 0;
+			_hasInstantAction = false;
 			NextStepDuration = 0;
 			_lastSetDuration = 0;
 #if DEBUG_LOG
@@ -89,6 +97,7 @@ namespace SE
 		public void RequestTimeAdvance(int minutes, string actionName = "")
 		{
 			_remainingDuration += minutes;
+			if (minutes == 0) _hasInstantAction = true;
 			_currentAction = actionName;
 
 #if DEBUG_LOG
@@ -107,20 +116,10 @@ namespace SE
 		public bool HasPendingTime => _remainingDuration > 0;
 
 		/// <summary>
-		/// 시간 정지 상태에서 처리할 플레이어 액션이 있는지
-		/// (시간 정지 + 플레이어 Job 존재 시 Step 트리거용)
+		/// Duration=0 즉시 행동이 대기 중인지
+		/// (frozen 이동 또는 Gate 인접 이동 시 Step 트리거용)
 		/// </summary>
-		public bool HasPendingFrozenAction
-		{
-			get
-			{
-				var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
-				if (worldSystem == null || !worldSystem.IsTimeFrozen())
-					return false;
-				var player = FindPlayerUnit();
-				return player?.CurrentJob != null;
-			}
-		}
+		public bool HasPendingInstantAction => _hasInstantAction;
 
 		/// <summary>
 		/// 다음 Step 시간 조정 (EventPredictionSystem에서 호출)
@@ -213,8 +212,12 @@ namespace SE
 				return;
 			}
 
-			// 총 이동 시간 계산 (Pi-World: X 좌표 기반 거리 계산)
-			int totalTime = CalculatePathTravelTime2D(terrain, pathResult, player);
+			// 총 이동 시간 계산
+			// frozen 상태: 시간 소모 0 (즉시 이동)
+			// 일반 상태: Pi-World X 좌표 기반 거리 계산
+			int totalTime = worldSystem.IsTimeFrozen()
+				? 0
+				: CalculatePathTravelTime2D(terrain, pathResult, player);
 
 			// JobList에 이동 Job 삽입 (플레이어는 스케줄 없음 → 단순 Insert)
 			var destLocation = terrain.GetLocation(destination);
@@ -363,6 +366,7 @@ namespace SE
 			// 3. 대기 중인 시간이 없으면 시간 정지
 			if (_remainingDuration <= 0)
 			{
+				_hasInstantAction = false;
 				NextStepDuration = 0;
 				_lastSetDuration = 0;
 				return;

@@ -36,27 +36,20 @@ namespace SE
 			var terrain = _worldSystem.GetTerrain();
 			var time = _worldSystem.GetTime();
 			var duration = _playerSystem.NextStepDuration;
-			var isTimeFrozen = _worldSystem.IsTimeFrozen();
 
-			// 시간 정지 상태: 플레이어만 즉시 이동 처리 (시간 소모 없음)
-			// duration <= 0 체크보다 먼저 처리해야 함
-			// (Pi-World에서 Gate 통과 시간이 0이므로 duration=0이 될 수 있음)
-			if (isTimeFrozen)
+			// Duration=0: 즉시 행동 처리 (frozen 이동 또는 Gate 인접 이동)
+			// 플레이어만 처리, 시간/이벤트 처리 없음
+			if (duration <= 0)
 			{
 				var player = _playerSystem.FindPlayerUnit();
-				if (player != null)
+				if (player != null && player.CurrentJob != null)
 				{
-					// 플레이어 즉시 이동 (목적지에 바로 도착)
-					ProcessFrozenPlayerMove(player, terrain);
+					ProcessJobMovement(player, 0, terrain, time);
+					player.JobList.Clear();
 				}
-				// 시간 정지 중이므로 시간/이벤트 처리 스킵
 				_playerSystem.ClearPendingTime();
 				return;
 			}
-
-			// 시간 진행이 없으면 스킵
-			if (duration <= 0)
-				return;
 
 			// 각 유닛 처리
 			foreach (var unit in _unitSystem.Units.Values)
@@ -83,64 +76,6 @@ namespace SE
 
 #if DEBUG_LOG
 			GD.Print($"[JobBehaviorSystem] Time: {time}, duration={duration}분, units={_unitSystem.Units.Count}");
-#endif
-		}
-
-		/// <summary>
-		/// 시간 정지 상태에서 플레이어 즉시 이동 처리
-		/// 이동 시간 없이 목적지에 바로 도착
-		/// Pi-World: 2D 모드에서는 Gate 위치로 이동
-		/// </summary>
-		private void ProcessFrozenPlayerMove(Unit player, Terrain terrain)
-		{
-			var currentJob = player.CurrentJob;
-			if (currentJob == null || currentJob.Action != "move")
-				return;
-
-			var goalLocation = currentJob.GetLocationRef();
-			if (player.CurrentLocation == goalLocation)
-				return;
-
-			// Pi-World: 2D 이동 상태 초기화
-			player.CurrentMovement = null;
-			player.RemainingStayTime = 0;
-
-			// Pi-World: 연결된 Gate 위치에서 시작
-			var region = terrain.GetRegion(goalLocation.RegionId);
-			if (region != null)
-			{
-				// 출발지에서 연결된 Gate 찾기
-				var sourceRegion = terrain.GetRegion(player.CurrentLocation.RegionId);
-				if (sourceRegion != null)
-				{
-					var sourceGates = sourceRegion.GetGates(player.CurrentLocation.LocalId);
-					foreach (var srcGate in sourceGates)
-					{
-						if (srcGate.ConnectedLocation == goalLocation)
-						{
-							// 목적지의 도착 위치로 이동
-							player.SetLocation2D(goalLocation, srcGate.ArrivalX, srcGate.ArrivalY);
-#if DEBUG_LOG
-							GD.Print($"[JobBehaviorSystem] Frozen move: Player teleported to {goalLocation} at X={srcGate.ArrivalX}");
-#endif
-							player.JobList.Clear();
-							return;
-						}
-					}
-				}
-
-				// Gate 연결이 없으면 기본 위치 (X=0)
-				player.SetLocation2D(goalLocation, 0f, 0f);
-			}
-			else
-			{
-				player.SetCurrentLocation(goalLocation);
-			}
-
-			player.JobList.Clear();  // Job 완료
-
-#if DEBUG_LOG
-			GD.Print($"[JobBehaviorSystem] Frozen move: Player teleported to {goalLocation}");
 #endif
 		}
 
@@ -326,27 +261,42 @@ namespace SE
 			var equippedItems = _inventorySystem?.GetUnitEquippedItems(unit.Id);
 			var actualProps = unit.GetActualProps(_itemSystem, inventory, equippedItems);
 
-			// 시간 정지 상태 (duration=0): 즉시 이동 (텔레포트)
+			// Duration=0: 즉시 이동 (frozen 또는 Gate 인접)
 			if (duration == 0)
 			{
 				// 진행 중인 이동 취소
 				unit.CurrentMovement = null;
+				unit.RemainingStayTime = 0;
 
-				// 목적지로 즉시 이동
-				unit.SetCurrentLocation(goalLocation);
-
-				// Gate의 ArrivalX 또는 targetX로 위치 설정
-				var destLocation = terrain.GetLocation(goalLocation);
-				if (destLocation != null)
+				// 출발지에서 목적지로 연결된 Gate 찾기 → ArrivalX 사용
+				var sourceRegion = terrain.GetRegion(unit.CurrentLocation.RegionId);
+				if (sourceRegion != null)
 				{
-					if (targetX > 0f)
-						unit.PositionX = destLocation.NormalizeX(targetX);
-					else
-						unit.PositionX = 0f;  // 기본 위치
+					var sourceGates = sourceRegion.GetGates(unit.CurrentLocation.LocalId);
+					foreach (var srcGate in sourceGates)
+					{
+						if (srcGate.ConnectedLocation == goalLocation &&
+							srcGate.CanTraverseForward(actualProps))
+						{
+							unit.SetLocation2D(goalLocation, srcGate.ArrivalX, srcGate.ArrivalY);
+#if DEBUG_LOG
+							GD.Print($"[JobBehaviorSystem] {unit.Name} instant move via Gate: {unit.CurrentLocation} -> {goalLocation} (X={srcGate.ArrivalX})");
+#endif
+							return;
+						}
+					}
 				}
 
+				// Gate 연결 없으면 직접 텔레포트 (targetX 또는 기본 위치)
+				unit.SetCurrentLocation(goalLocation);
+				var destLocation = terrain.GetLocation(goalLocation);
+				if (destLocation != null && targetX > 0f)
+					unit.PositionX = destLocation.NormalizeX(targetX);
+				else
+					unit.PositionX = 0f;
+
 #if DEBUG_LOG
-				GD.Print($"[JobBehaviorSystem] {unit.Name} teleported to {goalLocation} (frozen time)");
+				GD.Print($"[JobBehaviorSystem] {unit.Name} instant move (no gate): -> {goalLocation}");
 #endif
 				return;
 			}
