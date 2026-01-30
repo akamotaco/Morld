@@ -157,7 +157,9 @@ public class MovementProgress
 		float distanceToTravel = millis * Speed;
 		float remainingDistance = TotalDistance - TraveledDistance;
 
-		if (distanceToTravel >= remainingDistance)
+		// 부동소수점 오차 보정: 거리가 충분히 가까우면 도착으로 처리
+		const float epsilon = 0.01f;
+		if (distanceToTravel + epsilon >= remainingDistance)
 		{
 			// 도착
 			TraveledDistance = TotalDistance;

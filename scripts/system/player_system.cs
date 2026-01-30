@@ -102,6 +102,23 @@ namespace SE
 			if (millis == 0) _hasInstantAction = true;
 			_currentAction = actionName;
 
+			// NextStepDuration 사전 설정:
+			// PlayerSystem.Proc()은 JobBehaviorSystem 이후에 실행되므로,
+			// 새 요청의 첫 Step에서 JobBehavior가 NextStepDuration=0을 읽어 스킵하는 문제를 방지.
+			// 여기서 미리 설정하면 첫 Step부터 바로 이동 처리 가능.
+			if (millis > 0 && NextStepDuration <= 0)
+			{
+				var worldSystem = _hub.GetSystem("worldSystem") as WorldSystem;
+				var time = worldSystem?.GetTime();
+				if (time != null)
+				{
+					var millisToMidnight = GameTime.MillisPerDay - time.MillisOfDay;
+					if (millisToMidnight <= 0) millisToMidnight = GameTime.MillisPerDay;
+					NextStepDuration = Math.Min(_remainingDuration, millisToMidnight);
+					_lastSetDuration = NextStepDuration;
+				}
+			}
+
 #if DEBUG_LOG
 			int reqMin = millis / GameTime.MillisPerMinute;
 			int totalMin = _remainingDuration / GameTime.MillisPerMinute;
