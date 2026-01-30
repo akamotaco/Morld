@@ -410,11 +410,46 @@ namespace SE
 
 				if (targetGate == null)
 				{
-					// Gate가 없으면 경로 없음
+					// Gate가 없으면 RegionGate (다른 Region 연결) 확인
+					bool traversedRegionGate = false;
+					foreach (var rGate in terrain.GetRegionGatesFrom(unit.CurrentLocation))
+					{
+						if (!rGate.CanTraverse(unit.CurrentLocation, actualProps))
+							continue;
+
+						var dest = rGate.GetOtherLocation(unit.CurrentLocation);
+
+						// 목적지이거나 목적지로 가는 경로가 있는 RegionGate
+						if (dest == goalLocation || terrain.FindPath(dest, goalLocation, actualProps).Found)
+						{
+							int rgTravelTime = rGate.GetTravelTime(unit.CurrentLocation);
+							remainingTime -= rgTravelTime;
+
+							unit.SetCurrentLocation(dest);
+							unit.PositionX = 0f;
+							unit.PositionY = 0f;
+
+							// StayDuration 처리
+							var arrivedLoc = terrain.GetLocation(unit.CurrentLocation);
+							if (arrivedLoc != null && arrivedLoc.StayDuration > 0 && unit.CurrentLocation != goalLocation)
+							{
+								unit.RemainingStayTime = arrivedLoc.StayDuration;
+							}
+
+							traversedRegionGate = true;
 #if DEBUG_LOG
-					GD.Print($"[JobBehaviorSystem] {unit.Name} no gate found from {unit.CurrentLocation} to {goalLocation}");
+							GD.Print($"[JobBehaviorSystem] {unit.Name} passed RegionGate: {unit.CurrentLocation} -> {dest} (travelTime={rgTravelTime})");
 #endif
-					break;
+							break;
+						}
+					}
+
+					if (!traversedRegionGate)
+					{
+						throw new InvalidOperationException(
+							$"[JobBehaviorSystem] {unit.Name}: no Gate or RegionGate found from {unit.CurrentLocation} to {goalLocation}");
+					}
+					continue;
 				}
 
 				// 5. Gate로 이동 시작

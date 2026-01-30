@@ -421,8 +421,25 @@ public partial class MetaActionHandler
 
 			if (targetGate == null)
 			{
-				// Gate를 못 찾으면 기본값 사용 (1분)
-				totalTimeMillis += GameTime.MillisPerMinute;
+				// Gate가 없으면 RegionGate (다른 Region 연결) 확인
+				bool foundRegionGate = false;
+				foreach (var rGate in terrain.GetRegionGatesFrom(fromLocRef))
+				{
+					var dest = rGate.GetOtherLocation(fromLocRef);
+					if (dest == toLocRef && rGate.CanTraverse(fromLocRef, actualProps))
+					{
+						totalTimeMillis += rGate.GetTravelTime(fromLocRef);
+						foundRegionGate = true;
+						break;
+					}
+				}
+
+				if (!foundRegionGate)
+				{
+					throw new InvalidOperationException(
+						$"[CalculatePathTravelTime2D] No Gate or RegionGate found from {fromLocRef} to {toLocRef}");
+				}
+
 				currentLocRef = toLocRef;
 				currentX = 0f;
 				continue;
