@@ -182,13 +182,15 @@ namespace SE
 		/// 이벤트 처리 완료 후 호출 - ExcessTime 계산 및 DialogTimeConsumed 리셋
 		/// _dialogTimeConsumed를 lastDialogTime으로 사용하여 ExcessTime 계산
 		/// </summary>
-		public void FinalizeDialogTime()
+		public int FinalizeDialogTime()
 		{
 			// _dialogTimeConsumed가 이번 Step의 lastDialogTime 역할
+			var consumed = _dialogTimeConsumed;
 			CalculateExcessTime(_dialogTimeConsumed);
 
 			// 다음 Step을 위해 리셋
 			_dialogTimeConsumed = 0;
+			return consumed;
 		}
 
 		/// <summary>

@@ -1289,7 +1289,9 @@ class Character(Unit):
     #   EVENT_DIALOGS = {
     #       "이벤트명": {
     #           "pages": ["대사1", "대사2", ...],
-    #           "follow_duration": 120000,  # 옵션: 대화 후 플레이어 따라가기 (밀리초)
+    #           "time_consume": 60000,       # 대화로 경과하는 게임 시간 (밀리초)
+    #           "follow_duration": 120000,   # 대화 후 NPC 따라가기 시간 (밀리초)
+    #           # time_consume과 follow_duration은 항상 함께 설정해야 함
     #       },
     #       "복잡한_이벤트": "_handle_complex_event",  # 메서드로 위임
     #   }
@@ -1441,21 +1443,33 @@ class Character(Unit):
         이벤트 핸들러 Generator 생성
 
         Args:
-            dialog_data: {"pages": [...], "follow_duration": N(밀리초), ...}
+            dialog_data: {"pages": [...], "time_consume": N(밀리초), "follow_duration": N(밀리초), ...}
             **kwargs: player_id 등
 
         Returns:
             Generator
         """
         pages = dialog_data.get("pages", [])
+        time_consume = dialog_data.get("time_consume")
         follow_duration = dialog_data.get("follow_duration")
         instance_id = self.instance_id
 
+        # time_consume과 follow_duration은 항상 페어로 설정해야 함
+        if time_consume and not follow_duration:
+            raise ValueError(f"EVENT_DIALOGS: time_consume이 설정되었지만 follow_duration이 없습니다 (instance={instance_id})")
+        if follow_duration and not time_consume:
+            raise ValueError(f"EVENT_DIALOGS: follow_duration이 설정되었지만 time_consume이 없습니다 (instance={instance_id})")
+
         def handler():
             yield ui.dialog(pages)
-            # 대화 후 플레이어 따라가기
-            if follow_duration and "player_id" in kwargs:
-                morld.set_npc_job(instance_id, "follow", follow_duration, kwargs["player_id"])
+            # 대화 시간 경과 + NPC 따라가기
+            if time_consume and "player_id" in kwargs:
+                player_id = kwargs["player_id"]
+                # set_npc_time_consume: Job 설정 + dialogTimeConsumed 누적
+                morld.set_npc_time_consume(instance_id, "follow", time_consume, player_id)
+                # follow_duration이 time_consume과 다르면 Job 기간만 별도 설정
+                if follow_duration != time_consume:
+                    morld.set_npc_job(instance_id, "follow", follow_duration, player_id)
 
         return handler()
 

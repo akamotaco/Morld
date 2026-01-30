@@ -241,9 +241,6 @@ public partial class MetaActionHandler
 		if (eventSystem != null && eventSystem.FlushEvents())
 		{
 			// 다이얼로그가 표시됨
-#if DEBUG_LOG
-			GD.Print("[MetaActionHandler] ProcessPendingEvents: Next event triggered dialog");
-#endif
 			return true;
 		}
 
@@ -253,21 +250,21 @@ public partial class MetaActionHandler
 		// 다이얼로그에서 시간이 경과했으면 남은 meet 이벤트를 스킵해야 함
 		if (eventSystem != null)
 		{
-			eventSystem.FinalizeDialogTime();
-
+			var dialogTimeConsumed = eventSystem.FinalizeDialogTime();
 			var excessTime = eventSystem.ConsumeExcessTime();
+
 			if (excessTime > 0)
 			{
-#if DEBUG_LOG
-				GD.Print($"[MetaActionHandler] ExcessTime={excessTime}, clearing pending meet events");
-#endif
 				_playerSystem?.AddExcessTime(excessTime);
+			}
 
-				// ExcessTime > 0이면 대기 중인 meet 이벤트 모두 제거
-				// (시간이 흘렀으므로 남은 만남 이벤트는 스킵)
+			// 다이얼로그에서 시간이 소모되었으면:
+			// 1. 대기 중인 meet 이벤트 모두 제거
+			// 2. 플레이어의 남은 행동(idle/이동) 취소
+			if (dialogTimeConsumed > 0)
+			{
 				ClearPendingMeetEvents(scriptSystem);
-
-				// ExcessTime이 있으면 _Process에서 시간 진행 후 UI 업데이트됨
+				_playerSystem?.CancelRemainingDuration();
 				return true;
 			}
 		}
@@ -278,9 +275,6 @@ public partial class MetaActionHandler
 			// Python 큐에 대기 중인 meet 이벤트가 있으면 다음 이벤트 처리
 			if (ProcessNextMeetEvent(scriptSystem))
 			{
-#if DEBUG_LOG
-				GD.Print("[MetaActionHandler] ProcessPendingEvents: Python meet event triggered dialog");
-#endif
 				return true;
 			}
 		}

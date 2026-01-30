@@ -69,6 +69,22 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 남은 행동 시간 취소 (다이얼로그 인터럽트 시 호출)
+		/// 이벤트 다이얼로그에서 시간이 소모되면 플레이어의 남은 idle/이동을 취소
+		/// </summary>
+		public void CancelRemainingDuration()
+		{
+#if DEBUG_LOG
+			if (_remainingDuration > 0)
+			{
+				int remMin = _remainingDuration / GameTime.MillisPerMinute;
+				GD.Print($"[PlayerSystem] 남은 행동 취소: {remMin}분 ({_remainingDuration}ms)");
+			}
+#endif
+			_remainingDuration = 0;
+		}
+
+		/// <summary>
 		/// 대기 중인 시간 모두 제거 (시간 정지 상태에서 즉시 이동 후 호출)
 		/// </summary>
 		public void ClearPendingTime()
