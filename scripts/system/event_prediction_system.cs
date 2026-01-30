@@ -305,7 +305,7 @@ namespace SE
 				if (bestGate == null) break;
 
 				// Gate까지 이동 시간 계산
-				float speed = location.BaseSpeed;
+				float speed = Location.BaseSpeed;
 				if (speed <= 0f) speed = 1f;
 				int travelTimeToGate = (int)MathF.Ceiling(bestDist / speed);
 

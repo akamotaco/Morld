@@ -22,12 +22,12 @@ PROLOGUE_LOCATIONS = {
 # (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
 PROLOGUE_GATES = [
     # 숲 깊은 곳(21) <-> 숲 입구(20)
-    (REGION_ID, 21, 0, 0, REGION_ID, 20, 300),    # 숲 깊은 곳(x=0) → 숲 입구(x=300)
-    (REGION_ID, 20, 1, 300, REGION_ID, 21, 0),    # 숲 입구 깊이(x=300) → 숲 깊은 곳(x=0)
+    (REGION_ID, 21, 0, 0, REGION_ID, 20, 1800),   # 숲 깊은 곳(x=0) → 숲 입구(x=1800)
+    (REGION_ID, 20, 1, 1800, REGION_ID, 21, 0),   # 숲 입구 깊이(x=1800) → 숲 깊은 곳(x=0)
 
     # 숲 입구(20) <-> 앞마당(12)
-    (REGION_ID, 20, 0, 0, REGION_ID, 12, 100),    # 숲 입구(x=0) → 앞마당 끝(x=100)
-    (REGION_ID, 12, 1, 100, REGION_ID, 20, 0),    # 앞마당 끝(x=100) → 숲 입구(x=0)
+    (REGION_ID, 20, 0, 0, REGION_ID, 12, 600),    # 숲 입구(x=0) → 앞마당 끝(x=600)
+    (REGION_ID, 12, 1, 600, REGION_ID, 20, 0),    # 앞마당 끝(x=600) → 숲 입구(x=0)
 
     # 앞마당(12) <-> 현관(0)
     (REGION_ID, 12, 0, 0, REGION_ID, 0, 0),       # 앞마당(x=0) → 현관 앞(x=0)

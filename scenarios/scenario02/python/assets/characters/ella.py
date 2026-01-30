@@ -798,16 +798,18 @@ class EllaAgent(BaseAgent):
 
     # 도심 은신처 스케줄 (region_id=2)
     SCHEDULE = [
-        {"name": "기상", "region_id": 2, "location_id": 5, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},
-        {"name": "아침식사", "region_id": 2, "location_id": 5, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
-        {"name": "정찰", "region_id": 2, "location_id": 3, "start": 540 * _M, "end": 660 * _M, "activity": "순찰"},  # 약국
-        {"name": "물자수집", "region_id": 2, "location_id": 2, "start": 660 * _M, "end": 720 * _M, "activity": "탐색"},  # 편의점
-        {"name": "점심식사", "region_id": 2, "location_id": 5, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "관리", "region_id": 2, "location_id": 5, "start": 780 * _M, "end": 960 * _M, "activity": "관리"},
-        {"name": "정찰", "region_id": 2, "location_id": 0, "start": 960 * _M, "end": 1020 * _M, "activity": "순찰"},  # 도시입구
-        {"name": "저녁식사", "region_id": 2, "location_id": 5, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
-        {"name": "휴식", "region_id": 2, "location_id": 5, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
-        {"name": "수면", "region_id": 2, "location_id": 5, "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
+        # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
+        # 은신처(180), 약국(180), 편의점(180), 도시입구(600)
+        {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},
+        {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+        {"name": "정찰", "region_id": 2, "location_id": 3, "x": 90, "start": 540 * _M, "end": 660 * _M, "activity": "순찰"},  # 약국
+        {"name": "물자수집", "region_id": 2, "location_id": 2, "x": 90, "start": 660 * _M, "end": 720 * _M, "activity": "탐색"},  # 편의점
+        {"name": "점심식사", "region_id": 2, "location_id": 5, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+        {"name": "관리", "region_id": 2, "location_id": 5, "x": 90, "start": 780 * _M, "end": 960 * _M, "activity": "관리"},
+        {"name": "정찰", "region_id": 2, "location_id": 0, "x": 300, "start": 960 * _M, "end": 1020 * _M, "activity": "순찰"},  # 도시입구
+        {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
+        {"name": "휴식", "region_id": 2, "location_id": 5, "x": 90, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
+        {"name": "수면", "region_id": 2, "location_id": 5, "x": 120, "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
     ]
 
     def __init__(self, unit_id):

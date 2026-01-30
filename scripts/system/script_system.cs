@@ -279,11 +279,15 @@ namespace SE
                     activity = actObj is PyString ps ? ps.Value : actObj.ToString() ?? "";
                 }
 
-                // x (optional, Pi-World)
+                // x (required when location_id is present, Pi-World)
                 float targetX = 0f;
                 if (dict.Contains(new PyString("x")).Value)
                 {
                     targetX = (float)dict.GetItem(new PyString("x")).ToFloat();
+                }
+                else
+                {
+                    throw new ArgumentException($"Schedule entry '{name}' has location_id={locationId} but missing 'x' coordinate. All schedule entries must specify 'x'.");
                 }
 
                 // y (optional, Pi-World 확장용)

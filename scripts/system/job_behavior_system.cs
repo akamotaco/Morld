@@ -225,7 +225,7 @@ namespace SE
 					break;
 
 				int movementSpeedPercent = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
-				float speed = location.BaseSpeed * movementSpeedPercent / 100f;
+				float speed = Location.BaseSpeed * movementSpeedPercent / 100f;
 				if (speed <= 0f) speed = 1f;
 
 				unit.CurrentMovement = new MovementProgress
@@ -383,7 +383,7 @@ namespace SE
 						if (targetDistance > 0.1f)
 						{
 							int targetSpeedPercent = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
-							float targetSpeed = location.BaseSpeed * targetSpeedPercent / 100f;
+							float targetSpeed = Location.BaseSpeed * targetSpeedPercent / 100f;
 							if (targetSpeed <= 0f) targetSpeed = 1f;
 
 							unit.CurrentMovement = new MovementProgress
@@ -459,7 +459,7 @@ namespace SE
 
 				// 이동 속도 계산: Location.BaseSpeed * Unit.MovementSpeed%
 				int movementSpeedPercent = unit.GetMovementSpeed(_itemSystem, inventory, equippedItems);
-				float speed = location.BaseSpeed * movementSpeedPercent / 100f;
+				float speed = Location.BaseSpeed * movementSpeedPercent / 100f;
 				if (speed <= 0f) speed = 1f;
 
 				unit.CurrentMovement = new MovementProgress

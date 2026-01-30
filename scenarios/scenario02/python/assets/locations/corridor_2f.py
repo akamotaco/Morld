@@ -10,7 +10,7 @@ class Corridor2F(Location):
     is_indoor = True
     stay_duration = 0
     geometry = "ring"  # Pi-World: 복도는 원형 (순환 가능)
-    length = 60  # Pi-World: 복도 둘레 (Gate 위치: 0, 10, 20, 30, 40, 50)
+    length = 360  # Pi-World: 복도 둘레 (Gate 위치: 0, 10, 20, 30, 40, 50)
     describe_text = {
         "default": "2층으로 올라오면 나오는 넓은 복도. 창문으로 저택 앞마당이 내려다보인다.",
         "아침": "아침 햇살이 창문을 통해 복도를 비춘다.",

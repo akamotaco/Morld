@@ -24,32 +24,32 @@ REGION = {
 # (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
 GATES = [
     # === 도시 입구(0) length=100 ===
-    (REGION_ID, 0, 0, 100, REGION_ID, 1, 0),   # 도시 입구 끝 → 주유소 입구
-    (REGION_ID, 0, 1, 50, REGION_ID, 2, 0),    # 중간 → 편의점 입구
-    (REGION_ID, 0, 2, 80, REGION_ID, 3, 0),    # 약국 방향
-    (REGION_ID, 0, 3, 70, REGION_ID, 6, 0),    # 의류점 방향
+    (REGION_ID, 0, 0, 600, REGION_ID, 1, 0),   # 도시 입구 끝 → 주유소 입구
+    (REGION_ID, 0, 1, 300, REGION_ID, 2, 0),    # 중간 → 편의점 입구
+    (REGION_ID, 0, 2, 480, REGION_ID, 3, 0),    # 약국 방향
+    (REGION_ID, 0, 3, 420, REGION_ID, 6, 0),    # 의류점 방향
 
     # === 주유소(1) length=50 ===
-    (REGION_ID, 1, 0, 0, REGION_ID, 0, 100),   # 주유소 입구 → 도시 입구 끝
-    (REGION_ID, 1, 1, 50, REGION_ID, 4, 0),    # 주유소 끝 → 주차장 입구
+    (REGION_ID, 1, 0, 0, REGION_ID, 0, 600),   # 주유소 입구 → 도시 입구 끝
+    (REGION_ID, 1, 1, 300, REGION_ID, 4, 0),    # 주유소 끝 → 주차장 입구
 
     # === 편의점(2) length=30 ===
-    (REGION_ID, 2, 0, 0, REGION_ID, 0, 50),    # 편의점 입구 → 도시 입구
-    (REGION_ID, 2, 1, 30, REGION_ID, 6, 40),   # 편의점 끝 → 의류점 안쪽
+    (REGION_ID, 2, 0, 0, REGION_ID, 0, 300),    # 편의점 입구 → 도시 입구
+    (REGION_ID, 2, 1, 180, REGION_ID, 6, 240),   # 편의점 끝 → 의류점 안쪽
 
     # === 약국(3) length=30 ===
-    (REGION_ID, 3, 0, 0, REGION_ID, 0, 80),    # 약국 입구 → 도시 입구
-    (REGION_ID, 3, 1, 30, REGION_ID, 5, 0),    # 약국 뒤편 → 은신처 (숨겨진 길)
+    (REGION_ID, 3, 0, 0, REGION_ID, 0, 480),    # 약국 입구 → 도시 입구
+    (REGION_ID, 3, 1, 180, REGION_ID, 5, 0),    # 약국 뒤편 → 은신처 (숨겨진 길)
 
     # === 주차장(4) length=60 ===
-    (REGION_ID, 4, 0, 0, REGION_ID, 1, 50),    # 주차장 입구 → 주유소 끝
+    (REGION_ID, 4, 0, 0, REGION_ID, 1, 300),    # 주차장 입구 → 주유소 끝
 
     # === 은신처(5) length=30 ===
-    (REGION_ID, 5, 0, 0, REGION_ID, 3, 30),    # 은신처 입구 → 약국 뒤편
+    (REGION_ID, 5, 0, 0, REGION_ID, 3, 180),    # 은신처 입구 → 약국 뒤편
 
     # === 의류점(6) length=40 ===
-    (REGION_ID, 6, 0, 0, REGION_ID, 0, 70),    # 의류점 입구 → 도시 입구
-    (REGION_ID, 6, 1, 40, REGION_ID, 2, 30),   # 의류점 안쪽 → 편의점 끝
+    (REGION_ID, 6, 0, 0, REGION_ID, 0, 420),    # 의류점 입구 → 도시 입구
+    (REGION_ID, 6, 1, 240, REGION_ID, 2, 180),   # 의류점 안쪽 → 편의점 끝
 ]
 
 # NPC 배치 정보 (참고용 - 실제 ID는 동적 할당)

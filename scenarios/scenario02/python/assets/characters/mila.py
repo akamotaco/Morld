@@ -816,62 +816,64 @@ class MilaAgent(BaseAgent):
     """
 
     # 계절별 스케줄
+    # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
+    # 밀라방(180), 주방(180), 식당(180), 거실(360), 뒷마당(600)
     SCHEDULES = {
         "봄": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
-            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 360 * _M, "end": 420 * _M, "activity": "요리"},
-            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
-            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 480 * _M, "end": 540 * _M, "activity": "설거지"},
-            {"name": "청소", "region_id": 0, "location_id": 1, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
-            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660 * _M, "end": 720 * _M, "activity": "요리"},
-            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-            {"name": "정원가꾸기", "region_id": 0, "location_id": 13, "start": 780 * _M, "end": 900 * _M, "activity": "정원"},  # 봄: 정원 가꾸기
-            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
-            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
-            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "x": 180, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "x": 90, "start": 660 * _M, "end": 720 * _M, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+            {"name": "정원가꾸기", "region_id": 0, "location_id": 13, "x": 300, "start": 780 * _M, "end": 900 * _M, "activity": "정원"},  # 봄: 정원 가꾸기
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
         ],
         "여름": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "start": 240 * _M, "end": 300 * _M, "activity": "준비"},  # 여름: 일찍 기상
-            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 300 * _M, "end": 360 * _M, "activity": "요리"},
-            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 360 * _M, "end": 420 * _M, "activity": "식사"},
-            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 420 * _M, "end": 480 * _M, "activity": "설거지"},
-            {"name": "청소", "region_id": 0, "location_id": 1, "start": 480 * _M, "end": 600 * _M, "activity": "청소"},
-            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660 * _M, "end": 720 * _M, "activity": "요리"},
-            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-            {"name": "낮잠", "region_id": 0, "location_id": 9, "start": 780 * _M, "end": 900 * _M, "activity": "휴식"},  # 여름: 더위 피해 낮잠
-            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
-            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
-            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1380 * _M, "end": 240 * _M, "activity": "수면"},  # 여름: 늦게 잠
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 240 * _M, "end": 300 * _M, "activity": "준비"},  # 여름: 일찍 기상
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 300 * _M, "end": 360 * _M, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "x": 180, "start": 480 * _M, "end": 600 * _M, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "x": 90, "start": 660 * _M, "end": 720 * _M, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+            {"name": "낮잠", "region_id": 0, "location_id": 9, "x": 120, "start": 780 * _M, "end": 900 * _M, "activity": "휴식"},  # 여름: 더위 피해 낮잠
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1380 * _M, "end": 240 * _M, "activity": "수면"},  # 여름: 늦게 잠
         ],
         "가을": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
-            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 360 * _M, "end": 420 * _M, "activity": "요리"},
-            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
-            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 480 * _M, "end": 540 * _M, "activity": "설거지"},
-            {"name": "청소", "region_id": 0, "location_id": 1, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
-            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 660 * _M, "end": 720 * _M, "activity": "요리"},
-            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-            {"name": "저장식품준비", "region_id": 0, "location_id": 2, "start": 780 * _M, "end": 960 * _M, "activity": "요리"},  # 가을: 저장식품
-            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
-            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
-            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "x": 180, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "x": 90, "start": 660 * _M, "end": 720 * _M, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+            {"name": "저장식품준비", "region_id": 0, "location_id": 2, "x": 90, "start": 780 * _M, "end": 960 * _M, "activity": "요리"},  # 가을: 저장식품
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
         ],
         "겨울": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},  # 겨울: 늦게 기상
-            {"name": "아침준비", "region_id": 0, "location_id": 2, "start": 420 * _M, "end": 480 * _M, "activity": "요리"},
-            {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
-            {"name": "설거지", "region_id": 0, "location_id": 2, "start": 540 * _M, "end": 600 * _M, "activity": "설거지"},
-            {"name": "청소", "region_id": 0, "location_id": 1, "start": 600 * _M, "end": 720 * _M, "activity": "청소"},
-            {"name": "점심준비", "region_id": 0, "location_id": 2, "start": 720 * _M, "end": 780 * _M, "activity": "요리"},
-            {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 780 * _M, "end": 840 * _M, "activity": "식사"},
-            {"name": "휴식", "region_id": 0, "location_id": 1, "start": 840 * _M, "end": 960 * _M, "activity": "휴식"},  # 겨울: 실내 휴식
-            {"name": "저녁준비", "region_id": 0, "location_id": 2, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
-            {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
-            {"name": "정리", "region_id": 0, "location_id": 2, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "region_id": 0, "location_id": 9, "start": 1260 * _M, "end": 360 * _M, "activity": "수면"},  # 겨울: 일찍 잠
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},  # 겨울: 늦게 기상
+            {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "요리"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
+            {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 540 * _M, "end": 600 * _M, "activity": "설거지"},
+            {"name": "청소", "region_id": 0, "location_id": 1, "x": 180, "start": 600 * _M, "end": 720 * _M, "activity": "청소"},
+            {"name": "점심준비", "region_id": 0, "location_id": 2, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "요리"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 780 * _M, "end": 840 * _M, "activity": "식사"},
+            {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 840 * _M, "end": 960 * _M, "activity": "휴식"},  # 겨울: 실내 휴식 (소파)
+            {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1260 * _M, "end": 360 * _M, "activity": "수면"},  # 겨울: 일찍 잠
         ],
     }
 

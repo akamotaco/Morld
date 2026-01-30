@@ -89,11 +89,10 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     public float Length { get; set; } = 0f;
 
     /// <summary>
-    /// 기본 이동 속도 (단위/밀리초)
-    /// 캐릭터가 이 Location 내에서 이동할 때의 기본 속도
-    /// 예: 10/60000 = 0.000167 (기존 10단위/분과 동일)
+    /// 기본 이동 속도 (단위/밀리초) - 전역 상수
+    /// 1/1000 = 0.001 (1단위/초 = 60단위/분)
     /// </summary>
-    public float BaseSpeed { get; set; } = 10f / GameTime.MillisPerMinute;
+    public const float BaseSpeed = 1f / GameTime.MillisPerSecond;
 
     /// <summary>
     /// Y축 최소값 (확장용, 현재 미사용)

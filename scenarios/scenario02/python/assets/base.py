@@ -1734,7 +1734,6 @@ class Location(Asset):
     Pi-World 2D 속성:
     - geometry: "line" (선형) 또는 "ring" (원형), 기본값 "line"
     - length: Location의 길이 (0이면 레거시 모드 - 점 형태)
-    - base_speed: 기본 이동 속도 (단위/분), 기본값 10
 
     인스턴스 속성:
     - location_id, region_id: 위치 정보
@@ -1752,7 +1751,6 @@ class Location(Asset):
     # Pi-World 2D 속성
     geometry: str = "line"  # "line" 또는 "ring"
     length: float = 0  # 0 = 레거시 모드 (점 형태)
-    base_speed: float = 10  # 단위/분
 
     def __init__(self):
         super().__init__()
@@ -1783,7 +1781,6 @@ class Location(Asset):
             None,  # ground_id (나중에 설정)
             self.geometry,  # Pi-World: geometry
             self.length,  # Pi-World: length
-            self.base_speed  # Pi-World: base_speed
         )
 
     def get_describe_text(self) -> str:

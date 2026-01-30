@@ -59,8 +59,12 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		// threshold 이상이면 확인 다이얼로그
-		if (travelTimeMillis >= thresholdMillis)
+		// 시간 정지 상태에서는 이동 시간이 소비되지 않으므로 확인 다이얼로그 생략
+		var worldSystem = _world.GetSystem("worldSystem") as SE.WorldSystem;
+		bool isTimeFrozen = worldSystem?.IsTimeFrozen() ?? false;
+
+		// threshold 이상이면 확인 다이얼로그 (시간 정지 시 생략)
+		if (!isTimeFrozen && travelTimeMillis >= thresholdMillis)
 		{
 			// 이동 확인 메시지 생성
 			string message = FormatTravelTimeMessage(travelTimeMillis);

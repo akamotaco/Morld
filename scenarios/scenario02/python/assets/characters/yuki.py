@@ -755,17 +755,17 @@ class YukiAgent(BaseAgent):
     - 엘라를 의지함
     """
 
-    # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처)
+    # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처, length=180)
     SCHEDULE = [
-        {"name": "기상", "region_id": 2, "location_id": 5, "start": 420 * _M, "end": 480 * _M, "activity": "준비"},
-        {"name": "아침식사", "region_id": 2, "location_id": 5, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
-        {"name": "청소", "region_id": 2, "location_id": 5, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
-        {"name": "독서", "region_id": 2, "location_id": 5, "start": 660 * _M, "end": 720 * _M, "activity": "휴식"},
-        {"name": "점심식사", "region_id": 2, "location_id": 5, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "휴식", "region_id": 2, "location_id": 5, "start": 780 * _M, "end": 1020 * _M, "activity": "휴식"},
-        {"name": "저녁식사", "region_id": 2, "location_id": 5, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
-        {"name": "독서", "region_id": 2, "location_id": 5, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
-        {"name": "수면", "region_id": 2, "location_id": 5, "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},
+        {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "준비"},
+        {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
+        {"name": "청소", "region_id": 2, "location_id": 5, "x": 60, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
+        {"name": "독서", "region_id": 2, "location_id": 5, "x": 120, "start": 660 * _M, "end": 720 * _M, "activity": "휴식"},
+        {"name": "점심식사", "region_id": 2, "location_id": 5, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+        {"name": "휴식", "region_id": 2, "location_id": 5, "x": 120, "start": 780 * _M, "end": 1020 * _M, "activity": "휴식"},
+        {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
+        {"name": "독서", "region_id": 2, "location_id": 5, "x": 120, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
+        {"name": "수면", "region_id": 2, "location_id": 5, "x": 120, "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},
     ]
 
     def __init__(self, unit_id):

@@ -900,16 +900,18 @@ class SeraAgent(BaseAgent):
     """
 
     SCHEDULE = [
-        {"name": "기상", "region_id": 0, "location_id": 8, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
-        {"name": "아침순찰", "region_id": 0, "location_id": 12, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},  # 앞마당
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 540 * _M, "end": 720 * _M, "activity": "사냥"},
-        {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 840 * _M, "end": 1020 * _M, "activity": "사냥"},
-        {"name": "저녁순찰", "region_id": 0, "location_id": 20, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},  # 숲 입구
-        {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
-        {"name": "장비정비", "region_id": 0, "location_id": 8, "start": 1200 * _M, "end": 1290 * _M, "activity": "정비"},
-        {"name": "수면", "region_id": 0, "location_id": 8, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
+        # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
+        # 세라방(180), 앞마당(600), 식당(180), 사냥터(1800), 숲입구(1800)
+        {"name": "기상", "region_id": 0, "location_id": 8, "x": 120, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
+        {"name": "아침순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},  # 앞마당
+        {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "x": 900, "start": 540 * _M, "end": 720 * _M, "activity": "사냥"},
+        {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "x": 900, "start": 840 * _M, "end": 1020 * _M, "activity": "사냥"},
+        {"name": "저녁순찰", "region_id": 0, "location_id": 20, "x": 900, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},  # 숲 입구
+        {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+        {"name": "장비정비", "region_id": 0, "location_id": 8, "x": 90, "start": 1200 * _M, "end": 1290 * _M, "activity": "정비"},
+        {"name": "수면", "region_id": 0, "location_id": 8, "x": 120, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
     ]
 
     def __init__(self, unit_id):

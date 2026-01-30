@@ -89,11 +89,11 @@ namespace SE
 
             // add_location (Pi-World 2D 속성 확장)
             // add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None,
-            //              describe_text=None, ground_id=None, geometry="line", length=0, base_speed=10)
+            //              describe_text=None, ground_id=None, geometry="line", length=0)
             morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
             {
                 if (args.Length < 3)
-                    throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None, ground_id=None, geometry='line', length=0, base_speed=10) requires at least 3 arguments");
+                    throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None, ground_id=None, geometry='line', length=0) requires at least 3 arguments");
 
                 int regionId = args[0].ToInt();
                 int localId = args[1].ToInt();
@@ -109,7 +109,6 @@ namespace SE
                 // Pi-World 2D 속성
                 string geometry = args.Length >= 9 ? args[8].AsString() : "line";
                 float length = args.Length >= 10 ? (float)args[9].ToFloat() : 0f;
-                float baseSpeedPerMin = args.Length >= 11 ? (float)args[10].ToFloat() : 10f; // Python: 단위/분
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -129,7 +128,6 @@ namespace SE
                         ? Morld.LocationGeometry.Ring
                         : Morld.LocationGeometry.Line;
                     location.Length = length;
-                    location.BaseSpeed = baseSpeedPerMin / GameTime.MillisPerMinute; // 단위/분 → 단위/밀리초
 
                     // describe_text 설정
                     if (describeText != null)
@@ -140,7 +138,7 @@ namespace SE
                         }
                     }
 
-                    Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, geometry={geometry}, length={length}, base_speed={baseSpeedPerMin}/min, stay={stayDurationMin}min");
+                    Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, geometry={geometry}, length={length}, stay={stayDurationMin}min");
                     return PyBool.True;
                 }
                 return PyBool.False;
@@ -322,7 +320,6 @@ namespace SE
                     // Pi-World: Location 2D 속성
                     locDict.SetItem(new PyString("length"), new PyFloat(location.Length));
                     locDict.SetItem(new PyString("geometry"), new PyString(location.Geometry.ToString().ToLower()));
-                    locDict.SetItem(new PyString("base_speed"), new PyFloat(location.BaseSpeed));
 
                     // 이 Location에서 나가는 Gate 목록 (Pi-World)
                     var gatesList = new PyList();

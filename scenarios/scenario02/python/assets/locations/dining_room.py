@@ -10,7 +10,7 @@ class DiningRoom(Location):
     name = "식당"
     is_indoor = True
     stay_duration = 0
-    length = 30  # Pi-World: 식당 길이
+    length = 180  # Pi-World: 식당 길이
     describe_text = {
         "default": "긴 나무 테이블이 놓인 식당. 여섯 개의 의자가 가지런히 놓여 있다.",
         "아침": "아침 식사 시간. 테이블에 음식이 차려져 있다.",

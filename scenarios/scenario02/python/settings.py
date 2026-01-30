@@ -53,13 +53,13 @@ def set_auto_time_flow(enabled: bool):
 # 자동 시간 흐름 프리셋
 # ============================================
 
-# (이름, 실시간 초, 게임 분)
+# (이름, 실시간 초, 게임 밀리초)
 AUTO_TIME_PRESETS = [
-    ("느리게", 10.0, 1),      # 10초마다 1분
-    ("보통", 5.0, 1),         # 5초마다 1분
-    ("빠르게", 2.0, 1),       # 2초마다 1분
-    ("매우 빠르게", 1.0, 1),  # 1초마다 1분
-    ("초고속", 0.5, 1),       # 0.5초마다 1분
+    ("느리게", 5.0, 1000),       # 5초마다 게임 1초
+    ("보통", 2.0, 1000),         # 2초마다 게임 1초
+    ("빠르게", 1.0, 1000),       # 1초마다 게임 1초
+    ("매우 빠르게", 0.5, 1000),  # 0.5초마다 게임 1초
+    ("초고속", 0.2, 1000),       # 0.2초마다 게임 1초
 ]
 
 
@@ -88,11 +88,11 @@ def get_typing_speed_preset_name() -> str:
 
 def get_current_preset_name() -> str:
     """현재 간격에 해당하는 프리셋 이름 반환"""
-    real_sec, game_min = morld.get_auto_time_flow_interval()
-    for name, preset_sec, preset_min in AUTO_TIME_PRESETS:
-        if abs(real_sec - preset_sec) < 0.01 and game_min == preset_min:
+    real_sec, game_millis = morld.get_auto_time_flow_interval()
+    for name, preset_sec, preset_millis in AUTO_TIME_PRESETS:
+        if abs(real_sec - preset_sec) < 0.01 and game_millis == preset_millis:
             return name
-    return f"{real_sec}초/{game_min}분"
+    return f"{real_sec}초/{game_millis}ms"
 
 
 # ============================================
@@ -138,12 +138,13 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     lines.append(f"  [url=@proc:toggle_interval_menu]{toggle_icon} 시간 간격[/url]: [color=yellow]{preset_name}[/color]")
 
     if show_interval_menu:
-        for name, real_sec, game_min in AUTO_TIME_PRESETS:
+        for name, real_sec, game_millis in AUTO_TIME_PRESETS:
+            game_sec = game_millis // 1000
             # 현재 선택된 프리셋은 하이라이트
             if name == preset_name:
-                lines.append(f"    [color=lime]● {name}[/color] ({real_sec}초 → {game_min}분)")
+                lines.append(f"    [color=lime]● {name}[/color] ({real_sec}초 → {game_sec}초)")
             else:
-                lines.append(f"    [url=@proc:set_interval:{real_sec}:{game_min}]○ {name}[/url] ({real_sec}초 → {game_min}분)")
+                lines.append(f"    [url=@proc:set_interval:{real_sec}:{game_millis}]○ {name}[/url] ({real_sec}초 → {game_sec}초)")
 
     lines.append("")
 
@@ -225,12 +226,12 @@ def show_settings_ui():
             parts = action.split(":")
             if len(parts) == 3:
                 real_sec = float(parts[1])
-                game_min = int(parts[2])
-                morld.set_auto_time_flow_interval(real_sec, game_min)
+                game_millis = int(parts[2])
+                morld.set_auto_time_flow_interval(real_sec, game_millis)
                 # 프리셋 이름 찾기
                 preset_name = "사용자 설정"
-                for name, preset_sec, preset_min in AUTO_TIME_PRESETS:
-                    if abs(real_sec - preset_sec) < 0.01 and game_min == preset_min:
+                for name, preset_sec, preset_millis in AUTO_TIME_PRESETS:
+                    if abs(real_sec - preset_sec) < 0.01 and game_millis == preset_millis:
                         preset_name = name
                         break
                 morld.add_action_log(f"시간 간격: {preset_name}")

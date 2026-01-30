@@ -40,7 +40,7 @@ class Storage(Location):
     name = "창고"
     is_indoor = True
     stay_duration = 0
-    length = 30  # Pi-World: 창고 길이
+    length = 180  # Pi-World: 창고 길이
     describe_text = {
         "default": "저택 2층에 있는 작은 창고. 사용하지 않는 물건들이 쌓여 있다."
     }

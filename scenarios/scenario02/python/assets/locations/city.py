@@ -22,8 +22,8 @@ class CityEntrance(Location):
     stay_duration = 5
     # Pi-World: 도시 허브, 여러 방향으로 분기
     geometry = 1  # line
-    length = 100
-    base_speed = 10
+    length = 600
+
     describe_text = {
         "default": "황폐화된 도시의 입구. 무너진 표지판이 서 있다.",
         "아침": "안개 사이로 버려진 건물들의 윤곽이 보인다.",
@@ -46,8 +46,8 @@ class GasStation(Location):
     stay_duration = 3
     # Pi-World
     geometry = 1  # line
-    length = 50
-    base_speed = 10
+    length = 300
+
     describe_text = {
         "default": "버려진 주유소. 녹슨 주유기가 서 있다.",
         "낮": "햇살 아래 녹슨 철판이 반짝인다.",
@@ -67,8 +67,8 @@ class ConvenienceStore(Location):
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
-    length = 30
-    base_speed = 10
+    length = 180
+
     describe_text = {
         "default": "문이 열려 있는 편의점. 선반이 대부분 비어 있다."
     }
@@ -140,8 +140,8 @@ class Pharmacy(Location):
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
-    length = 30
-    base_speed = 10
+    length = 180
+
     describe_text = {
         "default": "버려진 약국. 약품이 남아 있을지도 모른다."
     }
@@ -159,8 +159,8 @@ class ParkingLot(Location):
     stay_duration = 3
     # Pi-World
     geometry = 1  # line
-    length = 60
-    base_speed = 10
+    length = 360
+
     describe_text = {
         "default": "황량한 주차장. 버려진 차들이 몇 대 보인다.",
         "낮": "햇살 아래 녹슨 차량들이 줄지어 있다.",
@@ -180,8 +180,8 @@ class Hideout(Location):
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
-    length = 30
-    base_speed = 10
+    length = 180
+
     describe_text = {
         "default": "건물 지하에 마련된 은신처. 좁지만 안전해 보인다.",
         "밤": "희미한 촛불이 은신처를 비춘다."
@@ -200,8 +200,8 @@ class ClothingStore(Location):
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
-    length = 40
-    base_speed = 10
+    length = 240
+
     describe_text = {
         "default": "버려진 의류점. 진열대가 넘어져 있고 옷가지들이 여기저기 흩어져 있다.",
         "낮": "깨진 유리창으로 햇빛이 들어와 먼지가 보인다.",

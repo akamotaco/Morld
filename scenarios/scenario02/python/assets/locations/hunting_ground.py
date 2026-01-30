@@ -9,7 +9,7 @@ class HuntingGround(Location):
     name = "사냥터"
     is_indoor = False
     stay_duration = 0
-    length = 300  # Pi-World: 사냥터 길이
+    length = 1800  # Pi-World: 사냥터 길이
     describe_text = {
         "default": "야생 동물의 흔적이 보이는 곳. 조심스럽게 움직여야 한다.",
         "아침": "이슬 맺힌 풀 위에 동물 발자국이 보인다.",

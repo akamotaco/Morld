@@ -11,7 +11,7 @@ class LivingRoom(Location):
     is_indoor = True
     stay_duration = 0
     geometry = "ring"  # Pi-World: 거실은 원형 (순환 가능, 여러 방 연결)
-    length = 60  # Pi-World: 거실 둘레
+    length = 360  # Pi-World: 거실 둘레
     describe_text = {
         "default": "넓은 거실. 벽난로와 낡은 소파가 놓여 있다. 이곳에서 매일 아침 조회가 열린다.",
         "아침": "창문으로 들어오는 햇살이 먼지 입자를 비춘다.",

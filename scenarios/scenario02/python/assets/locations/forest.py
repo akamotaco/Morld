@@ -18,7 +18,7 @@ class ForestEntrance(Location):
     name = "숲 입구"
     is_indoor = False
     stay_duration = 5
-    length = 200  # Pi-World: 숲 입구 길이
+    length = 1200  # Pi-World: 숲 입구 길이
     describe_text = {
         "default": "울창한 숲으로 들어가는 입구. 나무들 사이로 길이 나 있다.",
         "아침": "아침 안개가 숲 입구를 감싸고 있다.",
@@ -39,7 +39,7 @@ class PineForest(Location):
     name = "소나무 숲"
     is_indoor = False
     stay_duration = 5
-    length = 300  # Pi-World: 소나무 숲 길이
+    length = 1800  # Pi-World: 소나무 숲 길이
     describe_text = {
         "default": "키 큰 소나무들이 하늘을 가리고 있다. 솔향기가 은은하다.",
         "아침": "이슬 맺힌 솔잎이 빛난다.",
@@ -64,7 +64,7 @@ class OakForest(Location):
     name = "참나무 숲"
     is_indoor = False
     stay_duration = 5
-    length = 300  # Pi-World: 참나무 숲 길이
+    length = 1800  # Pi-World: 참나무 숲 길이
     describe_text = {
         "default": "굵직한 참나무들이 숲을 이루고 있다. 튼튼한 목재를 얻을 수 있을 것 같다.",
         "아침": "참나무 잎에 이슬이 맺혀 있다.",
@@ -89,7 +89,7 @@ class DeepForest(Location):
     name = "숲속"
     is_indoor = False
     stay_duration = 5
-    length = 400  # Pi-World: 숲속 길이 (넓음)
+    length = 2400  # Pi-World: 숲속 길이 (넓음)
     describe_text = {
         "default": "나무가 우거진 숲속이다. 작은 동물들의 흔적이 보인다.",
         "아침": "이슬에 젖은 풀잎이 발목을 적신다.",
@@ -114,7 +114,7 @@ class WolfDen(Location):
     name = "늑대굴"
     is_indoor = False
     stay_duration = 5
-    length = 100  # Pi-World: 늑대굴 길이 (좁음)
+    length = 600  # Pi-World: 늑대굴 길이 (좁음)
     describe_text = {
         "default": "바위틈에 굴이 있다. 동물 냄새가 진하다. 조심해야 할 것 같다.",
         "아침": "굴 안에서 인기척이 느껴진다.",
@@ -134,7 +134,7 @@ class ForestCabin(Location):
     name = "오두막"
     is_indoor = True
     stay_duration = 0
-    length = 30  # Pi-World: 오두막 길이 (작은 실내)
+    length = 180  # Pi-World: 오두막 길이 (작은 실내)
     describe_text = {
         "default": "숲 속에 있는 낡은 오두막. 오래 전에 누군가 살았던 흔적이 있다.",
         "낮": "창으로 들어오는 빛에 먼지가 춤을 춘다.",
