@@ -574,13 +574,15 @@ public class Terrain
     }
 
     /// <summary>
-    /// 경로의 총 이동 시간 계산 (Pi-World: Gate X 좌표 기반)
+    /// 경로의 총 이동 시간 계산 (Pi-World: Gate/RegionGate X 좌표 기반)
+    /// Gate 통과 조건, Gate.TravelTime, RegionGate 이동 시간을 모두 고려
     /// </summary>
     /// <param name="pathResult">FindPath 결과</param>
     /// <param name="startX">출발 X 좌표 (기본 0)</param>
     /// <param name="speedModifier">이동 속도 배율 (기본 1.0)</param>
+    /// <param name="context">Gate 통과 조건 체크용 (null이면 조건 무시)</param>
     /// <returns>총 이동 시간 (밀리초), 경로가 없으면 0</returns>
-    public int CalculatePathTravelTime(PathResult pathResult, float startX = 0f, float speedModifier = 1.0f)
+    public int CalculatePathTravelTime(PathResult pathResult, float startX = 0f, float speedModifier = 1.0f, TraversalContext? context = null)
     {
         if (!pathResult.Found || pathResult.Path.Count < 2)
             return 0;
@@ -604,7 +606,8 @@ public class Terrain
             Gate? targetGate = null;
             foreach (var gate in gates)
             {
-                if (gate.ConnectedLocation == toLocRef)
+                if (gate.ConnectedLocation == toLocRef &&
+                    (context == null || gate.CanTraverseForward(context)))
                 {
                     targetGate = gate;
                     break;
@@ -613,14 +616,32 @@ public class Terrain
 
             if (targetGate == null)
             {
-                totalTime += GameTime.MillisPerMinute;  // 1분 (밀리초)
+                // Gate가 없으면 RegionGate (다른 Region 연결) 확인
+                bool foundRegionGate = false;
+                foreach (var rGate in GetRegionGatesFrom(fromLocRef))
+                {
+                    var dest = rGate.GetOtherLocation(fromLocRef);
+                    if (dest == toLocRef && (context == null || rGate.CanTraverse(fromLocRef, context)))
+                    {
+                        totalTime += rGate.GetTravelTime(fromLocRef);
+                        foundRegionGate = true;
+                        break;
+                    }
+                }
+
+                if (!foundRegionGate)
+                {
+                    throw new System.InvalidOperationException(
+                        $"[Terrain.CalculatePathTravelTime] No Gate or RegionGate found from {fromLocRef} to {toLocRef}");
+                }
+
                 currentX = 0f;
                 continue;
             }
 
-            // Gate까지 이동 시간 계산 (밀리초)
+            // Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
             int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
-            totalTime += travelTime;
+            totalTime += travelTime + targetGate.TravelTime;
 
             // Gate 통과 후 위치 업데이트
             currentX = targetGate.ArrivalX;

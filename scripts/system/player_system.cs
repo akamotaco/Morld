@@ -238,9 +238,13 @@ namespace SE
 			// 총 이동 시간 계산
 			// frozen 상태: 시간 소모 0 (즉시 이동)
 			// 일반 상태: Pi-World X 좌표 기반 거리 계산
-			int totalTime = worldSystem.IsTimeFrozen()
-				? 0
-				: CalculatePathTravelTime2D(terrain, pathResult, player);
+			int totalTime = 0;
+			if (!worldSystem.IsTimeFrozen())
+			{
+				int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
+				float speedModifier = movementSpeedPercent / 100f;
+				totalTime = terrain.CalculatePathTravelTime(pathResult, player.PositionX, speedModifier, actualProps);
+			}
 
 			// JobList에 이동 Job 삽입 (플레이어는 스케줄 없음 → 단순 Insert)
 			var destLocation = terrain.GetLocation(destination);
@@ -276,70 +280,6 @@ namespace SE
 #if DEBUG_LOG
 			GD.Print($"[PlayerSystem] 휴식 요청: {displayMin}분 ({millis}ms)");
 #endif
-		}
-
-		/// <summary>
-		/// Pi-World 2D 경로 이동 시간 계산
-		/// 각 Location 내 Gate까지 X 좌표 거리 기반 시간 합산
-		/// </summary>
-		/// <returns>총 이동 시간 (밀리초)</returns>
-		private int CalculatePathTravelTime2D(Morld.Terrain terrain, Morld.PathResult pathResult, Unit player)
-		{
-			if (!pathResult.Found || pathResult.Path.Count < 2)
-				return 0;
-
-			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
-			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
-			var inventory = inventorySystem?.GetUnitInventory(player.Id);
-			var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
-			var actualProps = player.GetActualProps(itemSystem, inventory, equippedItems);
-
-			int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
-			float speedModifier = movementSpeedPercent / 100f;
-
-			int totalTimeMillis = 0;
-			float currentX = player.PositionX;
-
-			for (int i = 0; i < pathResult.Path.Count - 1; i++)
-			{
-				var fromLocRef = new LocationRef(pathResult.Path[i]);
-				var toLocRef = new LocationRef(pathResult.Path[i + 1]);
-
-				var location = terrain.GetLocation(fromLocRef);
-				if (location == null) continue;
-
-				// Gate 찾기
-				var region = terrain.GetRegion(fromLocRef.RegionId);
-				if (region == null) continue;
-
-				var gates = region.GetGates(fromLocRef.LocalId);
-				Morld.Gate? targetGate = null;
-
-				foreach (var gate in gates)
-				{
-					if (gate.ConnectedLocation == toLocRef && gate.CanTraverseForward(actualProps))
-					{
-						targetGate = gate;
-						break;
-					}
-				}
-
-				if (targetGate == null)
-				{
-					totalTimeMillis += GameTime.MillisPerMinute;
-					currentX = 0f;
-					continue;
-				}
-
-				// Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
-				int segmentTimeMillis = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
-				totalTimeMillis += segmentTimeMillis + targetGate.TravelTime;
-
-				// Gate 통과 후 위치 업데이트
-				currentX = targetGate.ArrivalX;
-			}
-
-			return totalTimeMillis;
 		}
 
 		#endregion

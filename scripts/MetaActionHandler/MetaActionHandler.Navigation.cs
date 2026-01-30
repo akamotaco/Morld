@@ -364,97 +364,10 @@ public partial class MetaActionHandler
 		if (!pathResult.Found || pathResult.Path.Count < 2)
 			return -1;
 
-		return CalculatePathTravelTime2D(terrain, pathResult, player, actualProps);
-	}
-
-	/// <summary>
-	/// Pi-World 2D 경로 이동 시간 계산
-	/// 각 Location 내 Gate까지 이동 시간을 합산
-	/// </summary>
-	/// <param name="terrain">지형 정보</param>
-	/// <param name="pathResult">경로 탐색 결과</param>
-	/// <param name="player">플레이어 유닛</param>
-	/// <param name="actualProps">실제 속성 (이동 속도 등)</param>
-	/// <returns>총 이동 시간 (밀리초)</returns>
-	private int CalculatePathTravelTime2D(Terrain terrain, PathResult pathResult, Unit player, TraversalContext actualProps)
-	{
-		if (!pathResult.Found || pathResult.Path.Count < 2)
-			return 0;
-
-		// 이동 속도 배율 계산
-		var itemSystem = _world.GetSystem("itemSystem") as SE.ItemSystem;
-		var inventorySystem = _world.GetSystem("inventorySystem") as SE.InventorySystem;
-		var inventory = inventorySystem?.GetUnitInventory(player.Id);
-		var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
 		int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
 		float speedModifier = movementSpeedPercent / 100f;
 
-		int totalTimeMillis = 0;
-		float currentX = player.PositionX;
-		var currentLocRef = player.CurrentLocation;
-
-		// 경로의 각 세그먼트에 대해 이동 시간 계산
-		for (int i = 0; i < pathResult.Path.Count - 1; i++)
-		{
-			var fromLocRef = new LocationRef(pathResult.Path[i]);
-			var toLocRef = new LocationRef(pathResult.Path[i + 1]);
-
-			var location = terrain.GetLocation(fromLocRef);
-			if (location == null) continue;
-
-			// Gate 찾기
-			var region = terrain.GetRegion(fromLocRef.RegionId);
-			if (region == null) continue;
-
-			var gates = region.GetGates(fromLocRef.LocalId);
-			Gate? targetGate = null;
-
-			// 목적지로 연결된 Gate 찾기
-			foreach (var gate in gates)
-			{
-				if (gate.ConnectedLocation == toLocRef && gate.CanTraverseForward(actualProps))
-				{
-					targetGate = gate;
-					break;
-				}
-			}
-
-			if (targetGate == null)
-			{
-				// Gate가 없으면 RegionGate (다른 Region 연결) 확인
-				bool foundRegionGate = false;
-				foreach (var rGate in terrain.GetRegionGatesFrom(fromLocRef))
-				{
-					var dest = rGate.GetOtherLocation(fromLocRef);
-					if (dest == toLocRef && rGate.CanTraverse(fromLocRef, actualProps))
-					{
-						totalTimeMillis += rGate.GetTravelTime(fromLocRef);
-						foundRegionGate = true;
-						break;
-					}
-				}
-
-				if (!foundRegionGate)
-				{
-					throw new InvalidOperationException(
-						$"[CalculatePathTravelTime2D] No Gate or RegionGate found from {fromLocRef} to {toLocRef}");
-				}
-
-				currentLocRef = toLocRef;
-				currentX = 0f;
-				continue;
-			}
-
-			// Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
-			int segmentTimeMillis = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
-			totalTimeMillis += segmentTimeMillis + targetGate.TravelTime;
-
-			// Gate 통과 후 위치 업데이트
-			currentLocRef = toLocRef;
-			currentX = targetGate.ArrivalX;
-		}
-
-		return totalTimeMillis;
+		return terrain.CalculatePathTravelTime(pathResult, player.PositionX, speedModifier, actualProps);
 	}
 
 	/// <summary>
