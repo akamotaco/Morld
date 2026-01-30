@@ -35,9 +35,9 @@ SCHEDULE = [
         "name": "아침식사",      # 표시용 이름
         "region_id": 0,         # 목적지 Region
         "location_id": 3,       # 목적지 Location
-        "x": 15,                # (Pi-World) 목표 X 좌표 (optional, 기본값 0)
-        "start": 420,           # 시작 시간 (분, 7:00 = 420)
-        "end": 480,             # 종료 시간 (분, 8:00 = 480)
+        "x": 90,                # (Pi-World) 목표 X 좌표 (optional, 기본값 0)
+        "start": 25_200_000,    # 시작 시간 (밀리초, 7:00 = 25,200,000)
+        "end": 28_800_000,      # 종료 시간 (밀리초, 8:00 = 28,800,000)
         "activity": "식사"      # 활동 유형 (Job.Name으로 사용)
     },
     ...
@@ -49,7 +49,7 @@ SCHEDULE = [
 
 **용도:**
 - NPC가 Location 내 특정 오브젝트 위치로 이동
-- 예: 식당(location_id=3)의 식탁 의자(x=15)로 이동
+- 예: 식당(location_id=3)의 식탁 의자(x=90)로 이동
 
 **참고:**
 - `x` 필드는 선택적 (optional)이며 기본값은 0
@@ -57,20 +57,22 @@ SCHEDULE = [
 - `y` 필드도 지원 (확장용, 현재는 사용 안 함)
 
 ### 시간 변환
-| 시간 | 분 |
-|------|-----|
-| 00:00 | 0 |
-| 06:00 | 360 |
-| 07:00 | 420 |
-| 12:00 | 720 |
-| 18:00 | 1080 |
-| 22:00 | 1320 |
-| 23:59 | 1439 |
+| 시간 | 밀리초 | 계산 |
+|------|--------|------|
+| 00:00 | 0 | - |
+| 06:00 | 21,600,000 | 6×3,600,000 |
+| 07:00 | 25,200,000 | 7×3,600,000 |
+| 12:00 | 43,200,000 | 12×3,600,000 |
+| 18:00 | 64,800,000 | 18×3,600,000 |
+| 22:00 | 79,200,000 | 22×3,600,000 |
+| 23:59 | 86,340,000 | - |
+
+> **참고**: `GameTime.MillisPerHour = 3,600,000`, `MillisPerMinute = 60,000`
 
 ### 자정 넘기기
 수면처럼 자정을 넘는 스케줄은 `end < start`로 정의:
 ```python
-{"name": "수면", "start": 1320, "end": 360, "activity": "수면"}
+{"name": "수면", "start": 79_200_000, "end": 21_600_000, "activity": "수면"}
 # 22:00 ~ 다음날 06:00
 ```
 
@@ -88,7 +90,7 @@ public class Job
     public int LocationId;    // 목적지 Location
     public float TargetX;     // (Pi-World) 목표 X 좌표
     public float TargetY;     // (Pi-World) 목표 Y 좌표 (확장용)
-    public int Duration;      // 남은 시간 (분)
+    public int Duration;      // 남은 시간 (밀리초)
     public int? TargetId;     // follow/flee 대상
 }
 ```
@@ -167,10 +169,10 @@ def get_status_text(self):
 morld.fill_schedule_jobs_from(unit_id, SCHEDULE)
 
 # NPC Job 즉시 설정 (Override)
-morld.set_npc_job(unit_id, "follow", duration=30)
+morld.set_npc_job(unit_id, "follow", duration=1_800_000)  # 30분
 
 # 시간 경과 포함 Job 설정
-morld.set_npc_time_consume(unit_id, "stay", duration=30)
+morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ```
 
 ---

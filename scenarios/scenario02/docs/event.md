@@ -29,7 +29,7 @@
 | `game_start` | 게임 시작 | - |
 | `on_reach` | 위치 도착 | unit_id, region_id, location_id |
 | `on_meet` | 유닛 만남 | unit_id1, unit_id2, ... |
-| `on_time_elapsed` | 시간 경과 | minutes |
+| `on_time_elapsed` | 시간 경과 | millis |
 | `on_equip_change` | 장비 변경 | unit_id, item_id, is_equip |
 
 ### 1. on_reach (위치 도착)
@@ -68,7 +68,7 @@ class Sera(Character):
     def on_meet_player(self, player_id):
         """플레이어와 만났을 때 이벤트"""
         yield morld.dialog("...일어났군.")
-        morld.set_npc_job(self.instance_id, "follow", 30)
+        morld.set_npc_job(self.instance_id, "follow", 1_800_000)  # 30분
 ```
 
 **Registry 이벤트:**
@@ -112,14 +112,14 @@ public void Enqueue(GameEvent evt) {
 ```python
 from events import subscribe_time_elapsed
 
-def my_handler(minutes):
-    print(f"{minutes}분 경과")
+def my_handler(millis):
+    print(f"{millis}ms 경과")
 
 # 매번 호출
 subscribe_time_elapsed(my_handler)
 
 # 60분마다 호출
-subscribe_time_elapsed(my_hourly_handler, min_interval=60)
+subscribe_time_elapsed(my_hourly_handler, min_interval=3_600_000)
 ```
 
 ### 4. game_start (게임 시작)
@@ -246,10 +246,10 @@ def handle(self, player_id, unit_ids):
     yield morld.dialog("대화 내용...")
 
     # NPC Job 설정 (시간 경과 없음)
-    morld.set_npc_job(unit_id, "follow", duration=30)
+    morld.set_npc_job(unit_id, "follow", duration=1_800_000)  # 30분
 
     # 또는 시간 경과 포함
-    morld.set_npc_time_consume(unit_id, "stay", duration=30)
+    morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ```
 
 ---
@@ -327,8 +327,8 @@ public class MovementProgress
     public int? TargetGateId { get; set; }     // Gate 통과 시 Gate ID
     public float TotalDistance { get; set; }   // 총 이동 거리
     public float TraveledDistance { get; set; } // 이동한 거리
-    public float Speed { get; set; }           // 이동 속도 (단위/분)
-    public int ElapsedTime { get; set; }       // 경과 시간
+    public float Speed { get; set; }           // 이동 속도 (단위/밀리초)
+    public int ElapsedTime { get; set; }       // 경과 시간 (밀리초)
 
     // 계산 속성
     public float Progress => TraveledDistance / TotalDistance;  // 0.0~1.0

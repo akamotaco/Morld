@@ -28,8 +28,9 @@ Pi-World는 Location을 1D 선형/원형 공간으로 확장한 지형 시스템
 class Location(Asset):
     geometry: int = 0         # 0 = ring (원형), 1 = line (선형)
     length: float = 0         # 0 = 레거시 모드 (점 형태)
-    base_speed: float = 10    # 단위/분
 ```
+
+> **이동 속도**: `Location.BaseSpeed` = 1 unit/sec (C# const, 시나리오에서 변경 불가)
 
 ### Geometry 타입
 | 값 | 타입 | 설명 | 사용 예 |
@@ -41,7 +42,8 @@ class Location(Asset):
 
 ### 이동 시간 계산
 ```
-이동 시간 = 거리 / (base_speed * speed_modifier)
+이동 시간(ms) = 거리 / (BaseSpeed * speed_modifier)
+# BaseSpeed = 1 unit/sec = 0.001 unit/ms
 
 Line: 거리 = |target_x - current_x|
 Ring: 거리 = min(|dx|, length - |dx|)  # 최단 경로
@@ -54,28 +56,28 @@ Ring: 거리 = min(|dx|, length - |dx|)  # 최단 경로
 ### Location 목록 (Pi-World)
 | ID | 이름 | Geometry | Length | 주요 오브젝트 |
 |----|------|----------|--------|--------------|
-| 0 | 현관 | line | 30 | 심부름 게시판(x=5) |
-| 1 | 거실 | ring | 60 | 소파(x=35) |
-| 2 | 주방 | line | 30 | 아궁이(x=10), 주전자(x=15), 찬장(x=25) |
-| 3 | 식당 | line | 30 | 식탁 의자(x=15) |
-| 4 | 욕실 | line | 30 | 거울(x=5), 욕조(x=15), 세면대(x=25) |
-| 5 | 창고 | line | 30 | 제작대(x=10), 도구함(x=20) |
-| 6 | 주인공 방 | line | 30 | 침대(x=20) |
-| 7 | 리나 방 | line | 30 | 거울(x=5), 침대(x=20), 옷장(x=25) |
-| 8 | 세라 방 | line | 30 | 침대(x=20), 인형(x=22), 옷장(x=25) |
-| 9 | 밀라 방 | line | 30 | 침대(x=20), 옷장(x=25) |
-| 10 | 빈 방 1 | line | 30 | 거울(x=5), 침대(x=20) |
-| 11 | 빈 방 2 | line | 30 | 거울(x=5), 침대(x=20) |
-| 12 | 앞마당 | line | 100 | - |
-| 13 | 뒷마당 | line | 100 | 자전거(x=50) |
-| 14 | 2층 복도 | ring | 60 | - |
-| 15 | 1층 화장실 | line | 30 | 변기(x=15) |
-| 16 | 2층 화장실 | line | 30 | 변기(x=15) |
-| 20 | 숲 입구 | line | 300 | - |
-| 21 | 숲 깊은 곳 | line | 300 | - |
-| 22 | 강가 | line | 200 | 낚시터(x=100) |
-| 23 | 채집터 | line | 150 | - |
-| 24 | 사냥터 | line | 300 | - |
+| 0 | 현관 | line | 180 | 심부름 게시판(x=30) |
+| 1 | 거실 | ring | 360 | 소파(x=210) |
+| 2 | 주방 | line | 180 | 아궁이(x=60), 주전자(x=90), 찬장(x=150) |
+| 3 | 식당 | line | 180 | 식탁 의자(x=90) |
+| 4 | 욕실 | line | 180 | 거울(x=30), 욕조(x=90), 세면대(x=150) |
+| 5 | 창고 | line | 180 | 제작대(x=60), 도구함(x=120) |
+| 6 | 주인공 방 | line | 180 | 침대(x=120) |
+| 7 | 리나 방 | line | 180 | 거울(x=30), 침대(x=120), 옷장(x=150) |
+| 8 | 세라 방 | line | 180 | 침대(x=120), 인형(x=132), 옷장(x=150) |
+| 9 | 밀라 방 | line | 180 | 침대(x=120), 옷장(x=150) |
+| 10 | 빈 방 1 | line | 180 | 거울(x=30), 침대(x=120) |
+| 11 | 빈 방 2 | line | 180 | 거울(x=30), 침대(x=120) |
+| 12 | 앞마당 | line | 600 | - |
+| 13 | 뒷마당 | line | 600 | 자전거(x=300) |
+| 14 | 2층 복도 | ring | 360 | - |
+| 15 | 1층 화장실 | line | 180 | 변기(x=90) |
+| 16 | 2층 화장실 | line | 180 | 변기(x=90) |
+| 20 | 숲 입구 | line | 1800 | - |
+| 21 | 숲 깊은 곳 | line | 1800 | - |
+| 22 | 강가 | line | 1200 | 낚시터(x=600) |
+| 23 | 채집터 | line | 900 | - |
+| 24 | 사냥터 | line | 1800 | - |
 
 ### 저택 Gate 연결
 ```
@@ -104,12 +106,12 @@ Ring: 거리 = min(|dx|, length - |dx|)  # 최단 경로
 ### Location 목록 (Pi-World)
 | ID | 이름 | Geometry | Length | 주요 오브젝트 |
 |----|------|----------|--------|--------------|
-| 0 | 숲 입구 | line | 200 | - |
-| 1 | 소나무 숲 | line | 300 | 소나무(x=150) |
-| 2 | 참나무 숲 | line | 300 | 참나무(x=150) |
-| 3 | 숲속 | line | 400 | 토끼굴(x=200) |
-| 4 | 늑대굴 | line | 100 | - |
-| 5 | 오두막 | line | 30 | 옷장(x=20) |
+| 0 | 숲 입구 | line | 1200 | - |
+| 1 | 소나무 숲 | line | 1800 | 소나무(x=900) |
+| 2 | 참나무 숲 | line | 1800 | 참나무(x=900) |
+| 3 | 숲속 | line | 2400 | 토끼굴(x=1200) |
+| 4 | 늑대굴 | line | 600 | - |
+| 5 | 오두막 | line | 180 | 옷장(x=120) |
 
 ### 숲 Gate 연결
 ```
@@ -126,18 +128,18 @@ Ring: 거리 = min(|dx|, length - |dx|)  # 최단 경로
 ```python
 # 기본 (travel_time=0, 즉시 통과)
 # (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
-morld.add_gate(REGION_ID, 0, 0, 30, REGION_ID, 1, 0)   # 현관 끝(x=30) -> 거실(x=0)에 도착
+morld.add_gate(REGION_ID, 0, 0, 180, REGION_ID, 1, 0)   # 현관 끝(x=180) -> 거실(x=0)에 도착
 
 # travel_time 지정 (통과에 시간 소요)
 # add_gate(..., arrival_y=0, conditions_forward=None, conditions_backward=None, is_blocked=False, name="", travel_time=0)
-morld.add_gate(REGION_ID, 0, 0, 30, REGION_ID, 1, 0, 0, None, None, False, "", 5)  # 5분 통과
+morld.add_gate(REGION_ID, 0, 0, 180, REGION_ID, 1, 0, 0, None, None, False, "", 5000)  # 5초 통과
 ```
 
 ### Gate 속성
 - **x**: Gate 위치 (Location 내 좌표)
 - **arrival_x**: 통과 시 도착 좌표 (연결된 Location 내)
 - **connected_region/location**: 연결된 Location 정보
-- **travel_time**: 통과 시간 (분, 기본값 0 = 즉시 통과)
+- **travel_time**: 통과 시간 (밀리초, 기본값 0 = 즉시 통과)
 
 ### 이동 흐름
 ```
@@ -160,9 +162,9 @@ morld.add_gate(REGION_ID, 0, 0, 30, REGION_ID, 1, 0, 0, None, None, False, "", 5
 def instantiate(self, location_id: int, region_id: int):
     super().instantiate(location_id, region_id)
     self.add_ground(GroundWooden())
-    self.add_object(Mirror(), x=5)    # 문 옆
-    self.add_object(Bed(), x=20)      # 방 안쪽
-    self.add_object(Wardrobe(), x=25) # 침대 옆
+    self.add_object(Mirror(), x=30)    # 문 옆
+    self.add_object(Bed(), x=120)     # 방 안쪽
+    self.add_object(Wardrobe(), x=150) # 침대 옆
 ```
 
 ---
@@ -171,24 +173,24 @@ def instantiate(self, location_id: int, region_id: int):
 
 ### Location 이동 테스트
 1. [ ] 현관에서 시작 (x=0)
-2. [ ] 거실 Gate로 이동 → 이동 시간 = distance / speed
+2. [ ] 거실 Gate로 이동 → 이동 시간(ms) = distance / BaseSpeed
 3. [ ] Gate 통과 → 거실(1)의 Gate 위치(x=0)에 도착
-4. [ ] 소파(x=35)로 이동
+4. [ ] 소파(x=210)로 이동
 
 ### Gate 연결 테스트
 1. [ ] 거실 → 주방 Gate 통과
-2. [ ] 주방 내 이동 (아궁이 x=10 → 찬장 x=25)
+2. [ ] 주방 내 이동 (아궁이 x=60 → 찬장 x=150)
 3. [ ] 주방 → 식당 Gate 통과
 
 ### Ring Geometry 테스트
-1. [ ] 거실(ring, length=60) 내 이동
-2. [ ] 최단 경로 선택 확인 (x=0 → x=50: 직접 또는 순환)
-3. [ ] 2층 복도(ring, length=60) 내 이동
+1. [ ] 거실(ring, length=360) 내 이동
+2. [ ] 최단 경로 선택 확인 (x=0 → x=300: 직접 또는 순환)
+3. [ ] 2층 복도(ring, length=360) 내 이동
 
 ### 오브젝트 상호작용 테스트
-1. [ ] 침대(x=20) 위치로 이동
+1. [ ] 침대(x=120) 위치로 이동
 2. [ ] 침대 액션 실행
-3. [ ] 옷장(x=25) 위치로 이동
+3. [ ] 옷장(x=150) 위치로 이동
 4. [ ] 옷장 열기
 
 ---
@@ -207,8 +209,8 @@ EDGES = [
 ```python
 # (region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x)
 GATES = [
-    (REGION_ID, 0, 0, 30, REGION_ID, 1, 0),   # 현관(x=30) -> 거실(x=0)
-    (REGION_ID, 1, 0, 0, REGION_ID, 0, 30),   # 거실(x=0) -> 현관(x=30)
+    (REGION_ID, 0, 0, 180, REGION_ID, 1, 0),   # 현관(x=180) -> 거실(x=0)
+    (REGION_ID, 1, 0, 0, REGION_ID, 0, 180),   # 거실(x=0) -> 현관(x=180)
 ]
 ```
 

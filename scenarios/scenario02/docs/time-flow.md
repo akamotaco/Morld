@@ -13,7 +13,7 @@
 플레이어가 행동을 선택하면 해당 행동에 필요한 시간만큼 게임 시간이 진행됩니다.
 
 ```
-플레이어 액션 → RequestTimeAdvance(분) → PlayerSystem.HasPendingTime = true
+플레이어 액션 → RequestTimeAdvance(밀리초) → PlayerSystem.HasPendingTime = true
 → ECS Step 실행 → 전체 시뮬레이션 수행
 ```
 
@@ -23,7 +23,7 @@
 
 ```python
 # Python ui.py에서 idle 액션 정의
-"[url=idle:5]멍때리기 (5분)[/url]"
+"[url=idle:300000]멍때리기 (5분)[/url]"  # 300,000ms = 5분
 ```
 
 ### 3. 자동 시간 흐름 (Auto Time Flow)
@@ -43,7 +43,17 @@
 |------|--------|------|
 | `Enabled` | false | 자동 시간 흐름 활성화 여부 |
 | `RealTimeIntervalSeconds` | 5.0 | 실시간 간격 (초) |
-| `GameTimeIntervalMinutes` | 1 | 한 번에 흐르는 게임 시간 (분) |
+| `GameTimeIntervalMillis` | 60,000 | 한 번에 흐르는 게임 시간 (밀리초, 기본 1분) |
+
+### 프리셋 (settings.py)
+
+| 이름 | 실시간 간격 | 게임 시간 | 설명 |
+|------|------------|----------|------|
+| 느리게 | 1초 | 1,000ms (1초) | X좌표 1단위씩 이동 |
+| 보통 | 1초 | 30,000ms (30초) | 기본 속도 |
+| 빠르게 | 1초 | 60,000ms (1분) | 시간 흐름 관찰용 |
+| 매우 빠르게 | 1초 | 180,000ms (3분) | 스케줄 확인용 |
+| 초고속 | 1초 | 300,000ms (5분) | 하루 빠르게 넘기기 |
 
 ### 동작 원리
 

@@ -19,8 +19,8 @@ morld.set_unit(unit_id, field, value)  # name, type 등
 # JobList 관련
 # ========================================
 morld.fill_schedule_jobs_from(unit_id, schedule)
-morld.set_npc_job(unit_id, action, duration)  # NPC Job 즉시 설정
-morld.set_npc_time_consume(unit_id, action, duration)  # 시간 경과 포함
+morld.set_npc_job(unit_id, action, duration)  # NPC Job 즉시 설정 (duration: ms)
+morld.set_npc_time_consume(unit_id, action, duration)  # 시간 경과 포함 (duration: ms)
 
 # ========================================
 # 아이템 관련
@@ -42,9 +42,9 @@ morld.mark_all_logs_read()
 # ========================================
 # 시간 관련
 # ========================================
-morld.get_game_time()  # 분 단위 (0~1439)
+morld.get_game_time()  # 밀리초 단위 (0~86,399,999)
 morld.get_time_info()  # 시간/위치/날씨 정보 dict 반환
-morld.advance_time(minutes)
+morld.advance_time(millis)  # 밀리초 단위
 morld.set_time_frozen(frozen)  # 시간 정지 설정/해제
 morld.is_time_frozen()
 
@@ -93,8 +93,8 @@ info = morld.get_time_info()
 #
 #     # Pi-World 정보 (디버깅용)
 #     "geometry": 0,               # 0 = ring (원), 1 = line (선)
-#     "position_x": 35.0,          # 플레이어 현재 X 좌표
-#     "location_length": 60.0      # Location 길이
+#     "position_x": 210.0,         # 플레이어 현재 X 좌표
+#     "location_length": 360.0     # Location 길이
 # }
 ```
 
@@ -276,7 +276,7 @@ class Sera(Character):
 
     SCHEDULE = [
         {"name": "순찰", "region_id": 0, "location_id": 1,
-         "start": 360, "end": 720, "activity": "순찰"},
+         "start": 21_600_000, "end": 43_200_000, "activity": "순찰"},
     ]
 
     def on_meet_player(self, player_id):
