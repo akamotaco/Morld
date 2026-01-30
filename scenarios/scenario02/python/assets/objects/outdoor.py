@@ -30,7 +30,7 @@ class GardenBench(Object):
             "정원 벤치에 앉았다.",
             "바람이 시원하다."
         ])
-        morld.advance_time(10)
+        morld.advance_time(10 * 60_000)
 
 
 class Well(Object):
@@ -45,7 +45,7 @@ class Well(Object):
             "우물 안을 들여다봤다.",
             "맑은 물이 깊은 곳에서 반짝인다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
     def draw(self):
         """물 길어올리기"""
@@ -53,7 +53,7 @@ class Well(Object):
             "두레박으로 물을 길어올렸다.",
             "시원하고 맑은 물이다."
         ])
-        morld.advance_time(5)
+        morld.advance_time(5 * 60_000)
 
 
 # ========================================
@@ -78,7 +78,7 @@ class GardenPlot(Object):
             "작은 텃밭이다.",
             "간단한 채소를 기를 수 있을 것 같다."
         ])
-        morld.advance_time(2)
+        morld.advance_time(2 * 60_000)
 
 
 class DryingRack(Object):
@@ -93,7 +93,7 @@ class DryingRack(Object):
             "빨래 건조대다.",
             "빨래가 마르면 걷어야 할 것 같다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 # ========================================
@@ -119,7 +119,7 @@ class FishingSpot(Object):
             "물고기가 많이 잡힐 것 같다.",
             "낚시대를 장착하면 낚시를 할 수 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
     def fish(self, equipment=None):
         """
@@ -144,7 +144,7 @@ class FishingSpot(Object):
         else:
             # can:fish가 기본 능력인 경우 (장비 없이 가능할 때)
             yield ui.dialog("맨손으로 물고기를 잡아본다...")
-        morld.advance_time(15)  # 15분 소요
+        morld.advance_time(15 * 60_000)  # 15분 소요
 
         # 70% 확률로 성공
         if random.random() < 0.7:

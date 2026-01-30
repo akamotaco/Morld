@@ -431,7 +431,8 @@ namespace SE
 						// 활성화 (이동 가능)
 						var regionTag = route.IsRegionGate ? $" [{route.RegionName}]" : "";
 						var meta = $"move:{route.Destination.RegionId}:{route.Destination.LocalId}";
-						items.Add($"  [url={meta}]{route.LocationName}{regionTag} ({route.TravelTime}분)[/url]");
+						int travelMin = route.TravelTime / Morld.GameTime.MillisPerMinute;
+						items.Add($"  [url={meta}]{route.LocationName}{regionTag} ({travelMin}분)[/url]");
 					}
 				}
 			}

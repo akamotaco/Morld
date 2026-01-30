@@ -34,7 +34,7 @@ class Fireplace(Object):
             "돌로 쌓아 만든 오래된 벽난로다.",
             "저녁이 되면 따뜻한 불이 피워진다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 class OldSofa(Object):
@@ -49,7 +49,7 @@ class OldSofa(Object):
             "소파에 앉았다.",
             "푹신하고 편안하다."
         ])
-        morld.advance_time(5)
+        morld.advance_time(5 * 60_000)
 
 
 class LivingSofa(Object):
@@ -89,7 +89,7 @@ class Bookshelf(Object):
             "다양한 책이 꽂혀 있다.",
             "소설, 역사서, 요리책... 장르가 다양하다."
         ])
-        morld.advance_time(2)
+        morld.advance_time(2 * 60_000)
 
 
 # ========================================
@@ -108,7 +108,7 @@ class DiningTable(Object):
             "잘 닦인 긴 나무 식탁이다.",
             "여섯 개의 의자가 가지런히 놓여 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 class DiningChair(Object):
@@ -167,7 +167,7 @@ class Stove(Object):
             "요리에 사용하는 큰 아궁이다.",
             "항상 따뜻한 열기가 느껴진다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
     def cook(self):
         """조리 실행 - 결과물은 플레이어 인벤토리로 바로 지급"""
@@ -224,7 +224,7 @@ class Stove(Object):
 
         # 시간 경과 및 메시지
         yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")
-        morld.advance_time(recipe["cook_time"])
+        morld.advance_time(recipe["cook_time"] * 60_000)
 
 
 class Kettle(Object):
@@ -254,7 +254,7 @@ class Kettle(Object):
             "물을 끓이거나 차를 우릴 수 있는 주전자다.",
             "아궁이 위에 올려두면 사용할 수 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
     def brew(self):
         """음료 제조 - 결과물은 플레이어 인벤토리로 바로 지급"""
@@ -311,7 +311,7 @@ class Kettle(Object):
 
         # 시간 경과 및 메시지
         yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")
-        morld.advance_time(recipe["cook_time"])
+        morld.advance_time(recipe["cook_time"] * 60_000)
 
 
 class Cupboard(Object):
@@ -323,7 +323,7 @@ class Cupboard(Object):
     def look(self):
         """찬장 살펴보기"""
         yield ui.dialog(["그릇과 조리도구가 깔끔하게 정리되어 있다."])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 # ========================================
@@ -342,7 +342,7 @@ class Bathtub(Object):
             "따뜻한 물을 받아 목욕했다.",
             "몸이 개운해졌다."
         ])
-        morld.advance_time(30)
+        morld.advance_time(30 * 60_000)
 
 
 class Washbasin(Object):
@@ -357,7 +357,7 @@ class Washbasin(Object):
             "시원한 물로 얼굴을 씻었다.",
             "정신이 맑아졌다."
         ])
-        morld.advance_time(5)
+        morld.advance_time(5 * 60_000)
 
 
 # ========================================
@@ -381,7 +381,7 @@ class CraftingTable(Object):
             "튼튼한 나무로 만든 작업대다.",
             "복잡한 물건을 제작할 수 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
     def craft(self):
         """제작대에서 제작하기"""
@@ -403,7 +403,7 @@ class Bed(Object):
     def sleep(self):
         """잠자기"""
         yield ui.dialog(["침대에 누워 잠을 청했다."])
-        morld.advance_time(480)  # 8시간
+        morld.advance_time(480 * 60_000)  # 8시간
 
     def rest(self):
         """누워있기"""
@@ -411,7 +411,7 @@ class Bed(Object):
             "침대에 잠시 누워 쉬었다.",
             "피로가 조금 풀렸다."
         ])
-        morld.advance_time(30)
+        morld.advance_time(30 * 60_000)
 
 
 class SmallDesk(Object):
@@ -426,7 +426,7 @@ class SmallDesk(Object):
             "작은 나무 책상이다.",
             "서랍이 하나 달려 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 class Mirror(Object):
@@ -441,7 +441,7 @@ class Mirror(Object):
             "거울 속에 내 얼굴이 비친다.",
             "...그래, 이게 나다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 # ========================================
@@ -473,7 +473,7 @@ class Wardrobe(Object):
             "큰 나무 옷장이다.",
             "옷을 넣거나 꺼낼 수 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 # ========================================
@@ -504,7 +504,7 @@ class Shelf(Object):
             "물건을 진열할 수 있는 선반이다.",
             "남은 물건이 있는지 확인해 볼 수 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 class Refrigerator(Object):
@@ -531,7 +531,7 @@ class Refrigerator(Object):
             "낡은 냉장고다.",
             "전기가 들어오지 않아 차갑지 않지만, 음료가 남아있을지도 모른다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 # ========================================
@@ -550,7 +550,7 @@ class CorridorWindow(Object):
             "2층 창문에서 앞마당이 내려다보인다.",
             "정원이 한눈에 들어온다."
         ])
-        morld.advance_time(2)
+        morld.advance_time(2 * 60_000)
 
 
 class Vase(Object):
@@ -565,7 +565,7 @@ class Vase(Object):
             "장식용 화병이다.",
             "마른 꽃이 꽂혀 있다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 # ========================================
@@ -589,4 +589,4 @@ class OldDoll(Object):
             "오래되어 색이 바랬지만, 깨끗하게 관리되어 있다.",
             "...누가 이런 걸 두고 있는 걸까?"
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)

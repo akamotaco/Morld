@@ -50,8 +50,8 @@ public class ScheduleEntry
 		Activity = activity;
 	}
 
-	public ScheduleEntry(string name, int regionId, int locationId, int startMinute, int endMinute, string activity = "")
-		: this(name, new LocationRef(regionId, locationId), new TimeRange(startMinute, endMinute), activity)
+	public ScheduleEntry(string name, int regionId, int locationId, int startMillis, int endMillis, string activity = "")
+		: this(name, new LocationRef(regionId, locationId), new TimeRange(startMillis, endMillis), activity)
 	{
 	}
 

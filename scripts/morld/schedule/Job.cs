@@ -43,14 +43,14 @@ public class Job
 	public float TargetY { get; set; } = 0f;
 
 	/// <summary>
-	/// 시작 시간 (JobList 내에서의 상대 시간, 분)
+	/// 시작 시간 (JobList 내에서의 상대 시간, 밀리초)
 	/// - 0이면 즉시 시작 (현재 시점)
 	/// - 양수면 그만큼 뒤에 시작 (Merge용)
 	/// </summary>
 	public int StartOffset { get; set; } = 0;
 
 	/// <summary>
-	/// 남은 시간 (분 단위, 시간 경과 시 감소)
+	/// 남은 시간 (밀리초 단위, 시간 경과 시 감소)
 	/// </summary>
 	public int Duration { get; set; }
 
@@ -89,6 +89,7 @@ public class Job
 	{
 		var target = TargetId.HasValue ? $", target={TargetId}" : "";
 		var location = Action == "stay" || Action == "move" ? $" @{RegionId}:{LocationId}(x={TargetX:F0})" : "";
-		return $"Job[{Name}:{Action}]{location} ({Duration}분{target})";
+		int displayMinutes = Duration / GameTime.MillisPerMinute;
+		return $"Job[{Name}:{Action}]{location} ({displayMinutes}분{target})";
 	}
 }

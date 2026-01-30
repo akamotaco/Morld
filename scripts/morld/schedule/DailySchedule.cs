@@ -26,11 +26,11 @@ public class DailySchedule
 	}
 
 	/// <summary>
-	/// 스케줄 항목 추가 (편의 메서드)
+	/// 스케줄 항목 추가 (편의 메서드, 밀리초 단위)
 	/// </summary>
-	public DailySchedule AddEntry(string name, int regionId, int locationId, int startMinute, int endMinute, string activity = "")
+	public DailySchedule AddEntry(string name, int regionId, int locationId, int startMillis, int endMillis, string activity = "")
 	{
-		_entries.Add(new ScheduleEntry(name, regionId, locationId, startMinute, endMinute, activity));
+		_entries.Add(new ScheduleEntry(name, regionId, locationId, startMillis, endMillis, activity));
 		return this;
 	}
 
@@ -59,11 +59,11 @@ public class DailySchedule
 	}
 
 	/// <summary>
-	/// 특정 시간(분)에 활성화된 스케줄 항목 찾기
+	/// 특정 시간(밀리초)에 활성화된 스케줄 항목 찾기
 	/// </summary>
-	public ScheduleEntry? GetEntryAt(int minuteOfDay)
+	public ScheduleEntry? GetEntryAt(int millisOfDay)
 	{
-		return _entries.FirstOrDefault(e => e.TimeRange.Contains(minuteOfDay));
+		return _entries.FirstOrDefault(e => e.TimeRange.ContainsMillis(millisOfDay));
 	}
 
 	/// <summary>
@@ -75,13 +75,13 @@ public class DailySchedule
 	}
 
 	/// <summary>
-	/// 특정 시간 범위 내의 모든 스케줄 항목 찾기
+	/// 특정 시간 범위 내의 모든 스케줄 항목 찾기 (밀리초)
 	/// </summary>
-	public List<ScheduleEntry> GetEntriesInRange(int startMinute, int endMinute)
+	public List<ScheduleEntry> GetEntriesInRange(int startMillis, int endMillis)
 	{
 		return _entries.Where(e =>
-			e.TimeRange.StartMinute < endMinute &&
-			e.TimeRange.EndMinute > startMinute
+			e.TimeRange.StartMillis < endMillis &&
+			e.TimeRange.EndMillis > startMillis
 		).ToList();
 	}
 

@@ -232,7 +232,7 @@ class QuestManager:
     def _get_current_day(self) -> int:
         """현재 게임 날짜 (일수) 계산"""
         game_time = morld.get_game_time()
-        return game_time // 1440  # 1440분 = 24시간
+        return game_time // 86_400_000  # 86,400,000ms = 24시간
 
     def _should_reset_daily_quest(self, quest_id: str, quest: Quest) -> bool:
         """일일 퀘스트 초기화 필요 여부 체크"""

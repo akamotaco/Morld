@@ -29,9 +29,9 @@ namespace SE
         public float RealTimeIntervalSeconds { get; set; } = 5.0f;
 
         /// <summary>
-        /// 게임 시간 간격 (분) - 한 번에 흐르는 게임 시간
+        /// 게임 시간 간격 (밀리초) - 한 번에 흐르는 게임 시간
         /// </summary>
-        public int GameTimeIntervalMinutes { get; set; } = 1;
+        public int GameTimeIntervalMillis { get; set; } = Morld.GameTime.MillisPerMinute;
 
         /// <summary>
         /// 누적된 실시간 (초)
@@ -116,7 +116,8 @@ namespace SE
                 _accumulatedRealTime = 0.0f;
                 // GameEngine에서 RequestTimeAdvance()를 호출하도록 true 반환
                 // 기존 ECS 파이프라인(Step)을 통해 전체 시뮬레이션 수행
-                GD.Print($"[AutoTimeFlowSystem] Triggering time advance: +{GameTimeIntervalMinutes} minutes");
+                int displayMin = GameTimeIntervalMillis / Morld.GameTime.MillisPerMinute;
+                GD.Print($"[AutoTimeFlowSystem] Triggering time advance: +{displayMin} minutes ({GameTimeIntervalMillis}ms)");
                 return true;
             }
 

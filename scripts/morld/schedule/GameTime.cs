@@ -10,13 +10,16 @@ using Godot;
 /// 게임 시간 시스템 (설정 가능한 달력 지원)
 /// - 달력 설정: 월 수, 월별 일 수, 요일 이름
 /// - 기념일 시스템
-/// - 시간 조작: 년/월/일/시간/분
+/// - 시간 조작: 년/월/일/시간/분/밀리초
+/// - 최소 단위: 밀리초 (표현은 분 단위)
 /// </summary>
 public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
 {
-    public const int MinutesPerHour = 60;
+    public const int MillisPerSecond = 1000;
+    public const int MillisPerMinute = 60 * MillisPerSecond;     // 60,000
+    public const int MillisPerHour = 60 * MillisPerMinute;       // 3,600,000
+    public const int MillisPerDay = 24 * MillisPerHour;          // 86,400,000
     public const int HoursPerDay = 24;
-    public const int MinutesPerDay = MinutesPerHour * HoursPerDay; // 1440분
 
     // 달력 설정 (정적 - 모든 GameTime 인스턴스가 공유)
     private static int[] _daysPerMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -27,7 +30,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     private int _year;
     private int _month;
     private int _day;
-    private int _minuteOfDay;  // 하루 중 경과 분 (0~1439), hour/minute 통합
+    private int _millisOfDay;  // 하루 중 경과 밀리초 (0~86,399,999)
 
     /// <summary>
     /// 년 (1부터 시작)
@@ -45,14 +48,14 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     public int Day => _day;
 
     /// <summary>
-    /// 시간 (0~23, _minuteOfDay로부터 계산)
+    /// 시간 (0~23, _millisOfDay로부터 계산)
     /// </summary>
-    public int Hour => _minuteOfDay / MinutesPerHour;
+    public int Hour => _millisOfDay / MillisPerHour;
 
     /// <summary>
-    /// 분 (0~59, _minuteOfDay로부터 계산)
+    /// 분 (0~59, _millisOfDay로부터 계산)
     /// </summary>
-    public int Minute => _minuteOfDay % MinutesPerHour;
+    public int Minute => (_millisOfDay % MillisPerHour) / MillisPerMinute;
 
     /// <summary>
     /// 요일 인덱스 (0 = 첫 번째 요일)
@@ -73,9 +76,14 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     public string WeekdayName => _weekdayNames[WeekdayIndex];
 
     /// <summary>
-    /// 하루 중 경과 분 (0~1439)
+    /// 하루 중 경과 밀리초 (0~86,399,999)
     /// </summary>
-    public int MinuteOfDay => _minuteOfDay;
+    public int MillisOfDay => _millisOfDay;
+
+    /// <summary>
+    /// 하루 중 경과 분 (0~1439) - 밀리초에서 역산 (내림)
+    /// </summary>
+    public int MinuteOfDay => _millisOfDay / MillisPerMinute;
 
     /// <summary>
     /// 1년의 개월 수
@@ -93,18 +101,18 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     public static IReadOnlyList<Holiday> Holidays => _holidays;
 
     /// <summary>
-    /// 기본 생성자 (1년 1월 1일 00:00)
+    /// 기본 생성자 (1년 1월 1일 00:00:00.000)
     /// </summary>
     public GameTime()
     {
         _year = 1;
         _month = 1;
         _day = 1;
-        _minuteOfDay = 0;  // 00:00
+        _millisOfDay = 0;
     }
 
     /// <summary>
-    /// 시간 지정 생성자
+    /// 시간 지정 생성자 (시:분 단위)
     /// </summary>
     public GameTime(int year, int month, int day, int hour, int minute)
     {
@@ -112,7 +120,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     }
 
     /// <summary>
-    /// 시간 설정
+    /// 시간 설정 (시:분 단위, 밀리초는 0으로 초기화)
     /// </summary>
     public void SetTime(int year, int month, int day, int hour, int minute)
     {
@@ -127,34 +135,42 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         _year = year;
         _month = month;
         _day = day;
-        _minuteOfDay = hour * MinutesPerHour + minute;
+        _millisOfDay = hour * MillisPerHour + minute * MillisPerMinute;
     }
 
     /// <summary>
-    /// 분 추가 (O(1) 구현 - _minuteOfDay 기반)
+    /// 밀리초 추가 (O(1) 구현 - _millisOfDay 기반)
     /// </summary>
-    public void AddMinutes(int minutes)
+    public void AddMillis(int millis)
     {
-        if (minutes == 0) return;
+        if (millis == 0) return;
 
-        _minuteOfDay += minutes;
+        _millisOfDay += millis;
 
         // 날짜 경계 처리 (하루 이상 증가)
-        if (_minuteOfDay >= MinutesPerDay)
+        if (_millisOfDay >= MillisPerDay)
         {
-            int days = _minuteOfDay / MinutesPerDay;
-            _minuteOfDay = _minuteOfDay % MinutesPerDay;
+            int days = _millisOfDay / MillisPerDay;
+            _millisOfDay = _millisOfDay % MillisPerDay;
             AddDays(days);
         }
         // 날짜 역행 (음수)
-        else if (_minuteOfDay < 0)
+        else if (_millisOfDay < 0)
         {
-            int days = (_minuteOfDay / MinutesPerDay) - 1;  // 음수 나누기는 내림이 아니므로 -1
-            _minuteOfDay = _minuteOfDay % MinutesPerDay;
-            if (_minuteOfDay < 0)
-                _minuteOfDay += MinutesPerDay;
+            int days = (_millisOfDay / MillisPerDay) - 1;
+            _millisOfDay = _millisOfDay % MillisPerDay;
+            if (_millisOfDay < 0)
+                _millisOfDay += MillisPerDay;
             AddDays(days);
         }
+    }
+
+    /// <summary>
+    /// 분 추가 (편의 메서드)
+    /// </summary>
+    public void AddMinutes(int minutes)
+    {
+        AddMillis(minutes * MillisPerMinute);
     }
 
     /// <summary>
@@ -162,7 +178,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     /// </summary>
     public void AddHours(int hours)
     {
-        AddMinutes(hours * MinutesPerHour);
+        AddMillis(hours * MillisPerHour);
     }
 
     /// <summary>
@@ -246,25 +262,38 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     }
 
     /// <summary>
-    /// 복사본 생성
+    /// 복사본 생성 (밀리초 정밀도 유지)
     /// </summary>
     public GameTime Clone()
     {
-        return new GameTime(_year, _month, _day, Hour, Minute);
+        var clone = new GameTime();
+        clone._year = _year;
+        clone._month = _month;
+        clone._day = _day;
+        clone._millisOfDay = _millisOfDay;
+        return clone;
     }
 
     /// <summary>
-    /// 시간 차이 (분) - 근사값
+    /// 시간 차이 (밀리초)
     /// </summary>
-    public int DifferenceInMinutes(GameTime other)
+    public int DifferenceInMillis(GameTime other)
     {
         int thisTotalDays = GetTotalDays(_year, _month, _day);
         int otherTotalDays = GetTotalDays(other._year, other._month, other._day);
 
         int dayDiff = thisTotalDays - otherTotalDays;
-        int minuteDiff = MinuteOfDay - other.MinuteOfDay;
+        int millisDiff = MillisOfDay - other.MillisOfDay;
 
-        return dayDiff * MinutesPerDay + minuteDiff;
+        return dayDiff * MillisPerDay + millisDiff;
+    }
+
+    /// <summary>
+    /// 시간 차이 (분) - 밀리초에서 역산
+    /// </summary>
+    public int DifferenceInMinutes(GameTime other)
+    {
+        return DifferenceInMillis(other) / MillisPerMinute;
     }
 
     /// <summary>
@@ -275,7 +304,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         if (_year != other._year) return _year > other._year;
         if (_month != other._month) return _month > other._month;
         if (_day != other._day) return _day > other._day;
-        return _minuteOfDay > other._minuteOfDay;
+        return _millisOfDay > other._millisOfDay;
     }
 
     /// <summary>
@@ -286,7 +315,7 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         if (_year != other._year) return _year < other._year;
         if (_month != other._month) return _month < other._month;
         if (_day != other._day) return _day < other._day;
-        return _minuteOfDay < other._minuteOfDay;
+        return _millisOfDay < other._millisOfDay;
     }
 
     /// <summary>
@@ -299,10 +328,12 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
 
     /// <summary>
     /// 하루 중 특정 시간(시:분)인지 확인
+    /// 밀리초 단위이므로 분 단위로 비교 (같은 분에 해당하면 true)
     /// </summary>
     public bool IsTimeOfDay(int hour, int minute)
     {
-        return _minuteOfDay == (hour * MinutesPerHour + minute);
+        int targetMillis = hour * MillisPerHour + minute * MillisPerMinute;
+        return _millisOfDay >= targetMillis && _millisOfDay < targetMillis + MillisPerMinute;
     }
 
     /// <summary>
@@ -310,19 +341,19 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
     /// </summary>
     public bool IsInTimeRange(int startHour, int startMinute, int endHour, int endMinute)
     {
-        int currentMinute = MinuteOfDay;
-        int startMinuteOfDay = startHour * MinutesPerHour + startMinute;
-        int endMinuteOfDay = endHour * MinutesPerHour + endMinute;
+        int currentMillis = MillisOfDay;
+        int startMillis = startHour * MillisPerHour + startMinute * MillisPerMinute;
+        int endMillis = endHour * MillisPerHour + endMinute * MillisPerMinute;
 
-        if (startMinuteOfDay <= endMinuteOfDay)
+        if (startMillis <= endMillis)
         {
             // 같은 날 내 범위 (예: 08:00 ~ 18:00)
-            return currentMinute >= startMinuteOfDay && currentMinute < endMinuteOfDay;
+            return currentMillis >= startMillis && currentMillis < endMillis;
         }
         else
         {
             // 자정을 넘는 범위 (예: 22:00 ~ 06:00)
-            return currentMinute >= startMinuteOfDay || currentMinute < endMinuteOfDay;
+            return currentMillis >= startMillis || currentMillis < endMillis;
         }
     }
 
@@ -377,21 +408,21 @@ public class GameTime : IComparable<GameTime>, IEquatable<GameTime>
         if (_year != other._year) return _year.CompareTo(other._year);
         if (_month != other._month) return _month.CompareTo(other._month);
         if (_day != other._day) return _day.CompareTo(other._day);
-        return _minuteOfDay.CompareTo(other._minuteOfDay);
+        return _millisOfDay.CompareTo(other._millisOfDay);
     }
 
     public bool Equals(GameTime? other)
     {
         if (other == null) return false;
         return _year == other._year && _month == other._month && _day == other._day &&
-               _minuteOfDay == other._minuteOfDay;
+               _millisOfDay == other._millisOfDay;
     }
 
     public override bool Equals(object? obj) => Equals(obj as GameTime);
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(_year, _month, _day, _minuteOfDay);
+        return HashCode.Combine(_year, _month, _day, _millisOfDay);
     }
 
     public static bool operator ==(GameTime? a, GameTime? b)

@@ -138,7 +138,7 @@ class Tree(Object):
             lines.append("주변에 나뭇가지가 보이지 않는다.")
 
         yield ui.dialog(lines)
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
     def chop(self, equipment=None):
         """
@@ -170,7 +170,7 @@ class Tree(Object):
         else:
             # can:chop이 기본 능력인 경우 (장비 없이 가능할 때)
             yield ui.dialog(f"{self.name}를 우지끈 벌목한다...")
-        morld.advance_time(self.chop_time)
+        morld.advance_time(self.chop_time * 60_000)
 
         # 확률 체크
         if random.random() < self.log_chance:
@@ -211,7 +211,7 @@ class Tree(Object):
             return
 
         yield ui.dialog(f"{self.name} 주변에서 나뭇가지를 줍는다...")
-        morld.advance_time(self.gather_time)
+        morld.advance_time(self.gather_time * 60_000)
 
         # 확률 체크
         if random.random() < self.branch_chance:

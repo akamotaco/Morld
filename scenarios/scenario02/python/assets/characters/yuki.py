@@ -69,6 +69,8 @@ import ui
 from assets.base import Character
 from think import BaseAgent, register_agent_class
 
+_M = 60_000  # millis per minute
+
 
 class Yuki(Character):
     unique_id = "yuki"
@@ -284,7 +286,7 @@ class Yuki(Character):
     INITIATIVE_CONFIG = {
         "arousal_threshold": 80,      # 성욕 임계값 (세라보다 높음 - 더 소극적)
         "affection_threshold": 70,    # 호감도 임계값 (세라보다 높음)
-        "cooldown_minutes": 720,      # 쿨다운 12시간 (가장 김)
+        "cooldown_millis": 720 * _M,   # 쿨다운 12시간 (가장 김)
     }
 
     # NPC 주도 시 허용 액션 필터
@@ -755,15 +757,15 @@ class YukiAgent(BaseAgent):
 
     # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처)
     SCHEDULE = [
-        {"name": "기상", "region_id": 2, "location_id": 5, "start": 420, "end": 480, "activity": "준비"},
-        {"name": "아침식사", "region_id": 2, "location_id": 5, "start": 480, "end": 540, "activity": "식사"},
-        {"name": "청소", "region_id": 2, "location_id": 5, "start": 540, "end": 660, "activity": "청소"},
-        {"name": "독서", "region_id": 2, "location_id": 5, "start": 660, "end": 720, "activity": "휴식"},
-        {"name": "점심식사", "region_id": 2, "location_id": 5, "start": 720, "end": 780, "activity": "식사"},
-        {"name": "휴식", "region_id": 2, "location_id": 5, "start": 780, "end": 1020, "activity": "휴식"},
-        {"name": "저녁식사", "region_id": 2, "location_id": 5, "start": 1080, "end": 1140, "activity": "식사"},
-        {"name": "독서", "region_id": 2, "location_id": 5, "start": 1140, "end": 1320, "activity": "휴식"},
-        {"name": "수면", "region_id": 2, "location_id": 5, "start": 1320, "end": 420, "activity": "수면"},
+        {"name": "기상", "region_id": 2, "location_id": 5, "start": 420 * _M, "end": 480 * _M, "activity": "준비"},
+        {"name": "아침식사", "region_id": 2, "location_id": 5, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
+        {"name": "청소", "region_id": 2, "location_id": 5, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
+        {"name": "독서", "region_id": 2, "location_id": 5, "start": 660 * _M, "end": 720 * _M, "activity": "휴식"},
+        {"name": "점심식사", "region_id": 2, "location_id": 5, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+        {"name": "휴식", "region_id": 2, "location_id": 5, "start": 780 * _M, "end": 1020 * _M, "activity": "휴식"},
+        {"name": "저녁식사", "region_id": 2, "location_id": 5, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
+        {"name": "독서", "region_id": 2, "location_id": 5, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
+        {"name": "수면", "region_id": 2, "location_id": 5, "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},
     ]
 
     def __init__(self, unit_id):

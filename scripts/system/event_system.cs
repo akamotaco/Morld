@@ -46,14 +46,14 @@ namespace SE
 		// 초기화 완료 여부 (첫 Step에서 위치 초기화용)
 		private bool _initialized = false;
 
-		// 다이얼로그 시간 경과 (set_npc_time_consume에서 누적)
+		// 다이얼로그 시간 경과 (set_npc_time_consume에서 누적, 밀리초)
 		private int _dialogTimeConsumed = 0;
 
-		// ExcessTime: 다이얼로그가 NextStepDuration을 초과한 시간
+		// ExcessTime: 다이얼로그가 NextStepDuration을 초과한 시간 (밀리초)
 		// PlayerSystem에서 ConsumeExcessTime()으로 가져가서 적용
 		private int _excessTime = 0;
 
-		// on_time_elapsed 이벤트 누적 (여러 Step의 시간을 합쳐서 한 번에 전달)
+		// on_time_elapsed 이벤트 누적 (여러 Step의 시간을 합쳐서 한 번에 전달, 밀리초)
 		private int _accumulatedTimeElapsed = 0;
 
 		public EventSystem()
@@ -95,9 +95,9 @@ namespace SE
 		public void Enqueue(GameEvent evt)
 		{
 			// on_time_elapsed 이벤트는 누적 처리
-			if (evt.Type == EventType.OnTimeElapsed && evt.Args.Count > 0 && evt.Args[0] is int minutes)
+			if (evt.Type == EventType.OnTimeElapsed && evt.Args.Count > 0 && evt.Args[0] is int millis)
 			{
-				_accumulatedTimeElapsed += minutes;
+				_accumulatedTimeElapsed += millis;
 				return;
 			}
 
@@ -129,7 +129,7 @@ namespace SE
 		/// <summary>
 		/// 다이얼로그 시간 경과 추가 (set_npc_time_consume에서 호출)
 		/// </summary>
-		/// <param name="duration">경과할 시간 (분)</param>
+		/// <param name="duration">경과할 시간 (밀리초)</param>
 		public void AddDialogTimeConsumed(int duration)
 		{
 			_dialogTimeConsumed += duration;
@@ -152,7 +152,10 @@ namespace SE
 
 #if DEBUG_LOG
 			if (_excessTime > 0)
-				GD.Print($"[EventSystem] ExcessTime 계산: {lastDialogTime} - {nextStepDuration} = {_excessTime}분");
+			{
+				int exMin = _excessTime / GameTime.MillisPerMinute;
+				GD.Print($"[EventSystem] ExcessTime 계산: {lastDialogTime} - {nextStepDuration} = {_excessTime}ms ({exMin}분)");
+			}
 #endif
 		}
 
@@ -160,14 +163,17 @@ namespace SE
 		/// ExcessTime 반환 및 리셋
 		/// PlayerSystem에서 호출하여 _remainingDuration에 추가
 		/// </summary>
-		/// <returns>초과 시간 (분)</returns>
+		/// <returns>초과 시간 (밀리초)</returns>
 		public int ConsumeExcessTime()
 		{
 			var result = _excessTime;
 			_excessTime = 0;
 #if DEBUG_LOG
 			if (result > 0)
-				GD.Print($"[EventSystem] ConsumeExcessTime: {result}분");
+			{
+				int resMin = result / GameTime.MillisPerMinute;
+				GD.Print($"[EventSystem] ConsumeExcessTime: {resMin}분 ({result}ms)");
+			}
 #endif
 			return result;
 		}

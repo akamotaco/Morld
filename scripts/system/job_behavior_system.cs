@@ -68,7 +68,7 @@ namespace SE
 			}
 
 			// 4. GameTime 업데이트
-			time.AddMinutes(duration);
+			time.AddMillis(duration);
 
 			// 5. 시간 경과 이벤트 발생 (EventSystem으로 전달)
 			var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
@@ -78,7 +78,8 @@ namespace SE
 			}
 
 #if DEBUG_LOG
-			GD.Print($"[JobBehaviorSystem] Time: {time}, duration={duration}분, units={_unitSystem.Units.Count}");
+			int durationMin = duration / GameTime.MillisPerMinute;
+			GD.Print($"[JobBehaviorSystem] Time: {time}, duration={durationMin}분 ({duration}ms), units={_unitSystem.Units.Count}");
 #endif
 		}
 
@@ -144,7 +145,7 @@ namespace SE
 		/// <param name="unit">이동할 유닛</param>
 		/// <param name="goalLocation">목표 Location</param>
 		/// <param name="targetX">목표 X 좌표 (0이면 Gate의 ArrivalX 사용)</param>
-		/// <param name="duration">이동 가능 시간 (분)</param>
+		/// <param name="duration">이동 가능 시간 (밀리초)</param>
 		/// <param name="terrain">지형 정보</param>
 		private void ProcessMoveAction(Unit unit, LocationRef goalLocation, float targetX, int duration, Terrain terrain)
 		{
@@ -179,7 +180,7 @@ namespace SE
 		/// </summary>
 		/// <param name="unit">이동할 유닛</param>
 		/// <param name="targetX">목표 X 좌표</param>
-		/// <param name="duration">이동 가능 시간 (분)</param>
+		/// <param name="duration">이동 가능 시간 (밀리초)</param>
 		/// <param name="terrain">지형 정보</param>
 		private void ProcessMoveWithinLocation(Unit unit, float targetX, int duration, Terrain terrain)
 		{
@@ -253,7 +254,7 @@ namespace SE
 		/// <param name="unit">이동할 유닛</param>
 		/// <param name="goalLocation">목표 Location</param>
 		/// <param name="targetX">목표 X 좌표 (0이면 Gate의 ArrivalX 사용)</param>
-		/// <param name="duration">이동 가능 시간 (분)</param>
+		/// <param name="duration">이동 가능 시간 (밀리초)</param>
 		/// <param name="terrain">지형 정보</param>
 		private void ProcessMoveAction2D(Unit unit, LocationRef goalLocation, float targetX, int duration, Terrain terrain)
 		{

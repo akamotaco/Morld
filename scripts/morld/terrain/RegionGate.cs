@@ -58,7 +58,7 @@ public class RegionGate
     internal Terrain? OwnerWorld { get; set; }
 
     /// <summary>
-    /// A → B 방향 이동 시간 (0 미만이면 이동 불가, 단위: 분)
+    /// A → B 방향 이동 시간 (0 미만이면 이동 불가, 단위: 밀리초)
     /// </summary>
     public int TravelTimeAtoB
     {
@@ -74,7 +74,7 @@ public class RegionGate
     }
 
     /// <summary>
-    /// B → A 방향 이동 시간 (0 미만이면 이동 불가, 단위: 분)
+    /// B → A 방향 이동 시간 (0 미만이면 이동 불가, 단위: 밀리초)
     /// </summary>
     public int TravelTimeBtoA
     {

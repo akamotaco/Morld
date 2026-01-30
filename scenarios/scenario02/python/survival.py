@@ -16,8 +16,11 @@ SATIETY_THRESHOLD_HUNGRY = 30     # 배고픔 경고
 SATIETY_THRESHOLD_STARVING = 10   # 굶주림 경고
 HEALTH_THRESHOLD_DANGER = 20      # 위험 체력
 
-# 시간 누적 (60분 미만의 시간 경과 누적)
-_accumulated_minutes = 0
+# 시간 누적 (1시간 미만의 시간 경과 누적, 밀리초)
+_accumulated_millis = 0
+
+# 시간 상수 (밀리초)
+MILLIS_PER_HOUR = 3_600_000
 
 
 def get_survival_stats(unit_id: int) -> dict:
@@ -73,20 +76,20 @@ def add_health(unit_id: int, amount: int):
     set_health(unit_id, current + amount)
 
 
-def process_time_elapsed(unit_id: int, minutes: int):
+def process_time_elapsed(unit_id: int, millis: int):
     """
     시간 경과에 따른 생존 스탯 처리
 
     on_time_elapsed 이벤트에서 호출됨
-    60분 미만의 시간은 누적하여 처리
+    1시간 미만의 시간은 누적하여 처리
 
     Args:
         unit_id: 유닛 ID
-        minutes: 경과 시간 (분)
+        millis: 경과 시간 (밀리초)
     """
-    global _accumulated_minutes
+    global _accumulated_millis
 
-    if minutes <= 0:
+    if millis <= 0:
         return
 
     # 생존 스탯이 없는 유닛은 무시
@@ -94,16 +97,16 @@ def process_time_elapsed(unit_id: int, minutes: int):
     if stats["max_satiety"] == 0:
         return
 
-    # 시간 누적 후 60분 단위로 처리
-    _accumulated_minutes += minutes
+    # 시간 누적 후 1시간 단위로 처리
+    _accumulated_millis += millis
 
-    # 60분 이상 누적되면 처리
-    if _accumulated_minutes < 60:
+    # 1시간 이상 누적되면 처리
+    if _accumulated_millis < MILLIS_PER_HOUR:
         return
 
     # 처리할 시간 (시간 단위)
-    hours_to_process = _accumulated_minutes // 60
-    _accumulated_minutes = _accumulated_minutes % 60
+    hours_to_process = _accumulated_millis // MILLIS_PER_HOUR
+    _accumulated_millis = _accumulated_millis % MILLIS_PER_HOUR
 
     satiety = stats["satiety"]
 
@@ -219,7 +222,7 @@ def get_status_bar(unit_id: int) -> str:
 # 이벤트 구독 - 시간 경과 시 자동 호출
 # ========================================
 
-def _on_time_elapsed(minutes: int):
+def _on_time_elapsed(millis: int):
     """
     on_time_elapsed 이벤트 핸들러
 
@@ -227,7 +230,7 @@ def _on_time_elapsed(minutes: int):
     """
     player_id = morld.get_player_id()
     if player_id is not None:
-        process_time_elapsed(player_id, minutes)
+        process_time_elapsed(player_id, millis)
 
 
 # 모듈 로드 시 이벤트 구독

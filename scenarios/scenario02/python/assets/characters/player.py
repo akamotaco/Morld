@@ -131,11 +131,11 @@ class Player(Character):
         """휴식 (멍때리기) - 30분 경과"""
         import morld
         morld.add_action_log(f"{self.name}이(가) 잠시 쉬었다.")
-        morld.advance_time(30)
+        morld.advance_time(30 * 60_000)
 
     def sleep(self):
         """야외 취침 (노숙) - 4시간 경과"""
         import morld
         morld.add_action_log(f"{self.name}이(가) 바닥에서 잠을 청했다.")
-        morld.advance_time(240)
+        morld.advance_time(240 * 60_000)
 

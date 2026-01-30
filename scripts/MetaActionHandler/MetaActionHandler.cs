@@ -44,11 +44,11 @@ public partial class MetaActionHandler
 
 
 	/// <summary>
-	/// 이동 확인 다이얼로그 threshold (분)
+	/// 이동 확인 다이얼로그 threshold (밀리초)
 	/// 이 시간 이상 이동 시 확인 다이얼로그 표시
 	/// int.MaxValue면 다이얼로그 없이 항상 즉시 이동
 	/// </summary>
-	private int _moveConfirmThreshold = 60;
+	private int _moveConfirmThresholdMillis = 60 * GameTime.MillisPerMinute;
 
 	public MetaActionHandler(SE.World world, PlayerSystem playerSystem, TextUISystem textUISystem)
 	{
@@ -126,7 +126,7 @@ public partial class MetaActionHandler
 		switch (action)
 		{
 			case "move":
-				HandleMoveAction(parts, _moveConfirmThreshold);
+				HandleMoveAction(parts, _moveConfirmThresholdMillis);
 				break;
 			case "idle":
 				HandleIdleAction(parts);
@@ -349,7 +349,7 @@ public partial class MetaActionHandler
 			if (remainingTime > 0)
 			{
 #if DEBUG_LOG
-				GD.Print($"[MetaActionHandler] Resuming player movement: {remainingTime}분 남음");
+				GD.Print($"[MetaActionHandler] Resuming player movement: {remainingTime}ms 남음");
 #endif
 				_playerSystem.RequestTimeAdvance(remainingTime, "이동 재개");
 				return true;

@@ -78,7 +78,7 @@ public class Gate
     }
 
     /// <summary>
-    /// Gate 통과 시간 (분, 기본값 0 = 즉시 통과)
+    /// Gate 통과 시간 (밀리초, 기본값 0 = 즉시 통과)
     /// </summary>
     public int TravelTime { get; set; } = 0;
 

@@ -67,6 +67,8 @@ import ui
 from assets.base import Character
 from think import BaseAgent, register_agent_class
 
+_M = 60_000  # millis per minute
+
 
 class Lina(Character):
     unique_id = "lina"
@@ -285,7 +287,7 @@ class Lina(Character):
     INITIATIVE_CONFIG = {
         "arousal_threshold": 65,      # 성욕 임계값 (세라와 비슷)
         "affection_threshold": 55,    # 호감도 임계값 (세라와 비슷)
-        "cooldown_minutes": 480,      # 쿨다운 8시간
+        "cooldown_millis": 480 * _M,      # 쿨다운 8시간
     }
 
     # NPC 주도 시 허용 액션 필터
@@ -773,16 +775,16 @@ class LinaAgent(BaseAgent):
     SCHEDULE = [
         # x: Location 내 목표 좌표 (Pi-World)
         # terrain.md 참고: 리나방 침대(x=20), 식당 식탁(x=15), 뒷마당 length=100, 채집터 length=150, 거실 소파(x=35)
-        {"name": "기상", "region_id": 0, "location_id": 7, "x": 20, "start": 360, "end": 420, "activity": "준비"},
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 15, "start": 420, "end": 480, "activity": "식사"},
-        {"name": "빨래", "region_id": 0, "location_id": 13, "x": 50, "start": 480, "end": 540, "activity": "빨래"},  # 뒷마당
-        {"name": "채집", "region_id": 0, "location_id": 23, "x": 75, "start": 540, "end": 720, "activity": "채집"},
-        {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 15, "start": 720, "end": 780, "activity": "식사"},
-        {"name": "채집", "region_id": 0, "location_id": 23, "x": 75, "start": 840, "end": 1020, "activity": "채집"},
-        {"name": "빨래걷기", "region_id": 0, "location_id": 13, "x": 50, "start": 1020, "end": 1080, "activity": "빨래"},  # 뒷마당
-        {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 15, "start": 1110, "end": 1170, "activity": "식사"},
-        {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 35, "start": 1170, "end": 1320, "activity": "휴식"},
-        {"name": "수면", "region_id": 0, "location_id": 7, "x": 20, "start": 1320, "end": 360, "activity": "수면"},
+        {"name": "기상", "region_id": 0, "location_id": 7, "x": 20, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},
+        {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 15, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+        {"name": "빨래", "region_id": 0, "location_id": 13, "x": 50, "start": 480 * _M, "end": 540 * _M, "activity": "빨래"},  # 뒷마당
+        {"name": "채집", "region_id": 0, "location_id": 23, "x": 75, "start": 540 * _M, "end": 720 * _M, "activity": "채집"},
+        {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 15, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+        {"name": "채집", "region_id": 0, "location_id": 23, "x": 75, "start": 840 * _M, "end": 1020 * _M, "activity": "채집"},
+        {"name": "빨래걷기", "region_id": 0, "location_id": 13, "x": 50, "start": 1020 * _M, "end": 1080 * _M, "activity": "빨래"},  # 뒷마당
+        {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 15, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+        {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 35, "start": 1170 * _M, "end": 1320 * _M, "activity": "휴식"},
+        {"name": "수면", "region_id": 0, "location_id": 7, "x": 20, "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
     ]
 
     def __init__(self, unit_id):

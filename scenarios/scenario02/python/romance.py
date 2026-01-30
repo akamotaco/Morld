@@ -25,6 +25,7 @@ ECSTASY_THRESHOLD = 100        # 절정 발생 임계값
 # 들키지 않을 확률 설정
 STEALTH_BASE_CHANCE = 0.3      # 기본 은신 확률 30%
 STEALTH_HIDING_BONUS = 0.4     # 은신 중일 때 추가 확률 +40%
+MILLIS_PER_MINUTE = 60_000
 
 # ============================================
 # 즉시형 행위 정의
@@ -32,37 +33,37 @@ STEALTH_HIDING_BONUS = 0.4     # 은신 중일 때 추가 확률 +40%
 
 INSTANT_ACTIONS = {
     "head_pat": {
-        "name": "머리 쓰다듬기", "time": 3, "stamina": 1,
+        "name": "머리 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 2, "애정": 1},
         "exp_part": None, "affection_req": 40
     },
     "cheek_caress": {
-        "name": "뺨 어루만지기", "time": 2, "stamina": 1,
+        "name": "뺨 어루만지기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 1, "애정": 1},
         "exp_part": None, "affection_req": 30
     },
     "cheek_pinch": {
-        "name": "뺨 꼬집기", "time": 2, "stamina": 1,
+        "name": "뺨 꼬집기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 1},
         "exp_part": None, "affection_req": 35
     },
     "ear_touch": {
-        "name": "귀 만지기", "time": 3, "stamina": 1,
+        "name": "귀 만지기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 1, "애정": 1, "성욕": 1},
         "exp_part": "귀", "affection_req": 45
     },
     "whisper": {
-        "name": "사랑의 속삭임", "time": 2, "stamina": 1,
+        "name": "사랑의 속삭임", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 2, "애정": 3},
         "exp_part": None, "affection_req": 50
     },
     "french_kiss": {
-        "name": "프렌치 키스", "time": 5, "stamina": 2,
+        "name": "프렌치 키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "애정": 2, "성욕": 3},
         "exp_part": "입술", "affection_req": 60
     },
     "butt_caress": {
-        "name": "엉덩이 쓰다듬기", "time": 3, "stamina": 2,
+        "name": "엉덩이 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"애정": 1, "성욕": 3},
         "exp_part": "엉덩이", "affection_req": 70
     },
@@ -74,17 +75,17 @@ INSTANT_ACTIONS = {
 
 TOGGLE_ACTIONS = {
     "hug": {
-        "name": "껴안기", "time": 5, "stamina": 1,
+        "name": "껴안기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 1, "애정": 2},
         "exp_part": None, "affection_req": 50
     },
     "deep_kiss": {
-        "name": "딥키스", "time": 5, "stamina": 2,
+        "name": "딥키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "애정": 2, "성욕": 3},
         "exp_part": "입술", "affection_req": 70
     },
     "breast_touch": {
-        "name": "가슴 만지기", "time": 5, "stamina": 2,
+        "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"애정": 1, "성욕": 4},
         "exp_part": "가슴", "affection_req": 80
     },
@@ -350,11 +351,11 @@ def check_stealth_success(state):
     return random.random() < chance
 
 
-def advance_time_and_check(state, minutes):
+def advance_time_and_check(state, millis):
     """시간 경과 + NPC 도착 체크 (은신 확률 적용)"""
     # 1. 시간 진행 + NPC 이동 시뮬레이션
-    morld.advance_time_simulate(minutes)
-    state["elapsed_time"] += minutes
+    morld.advance_time_simulate(millis)
+    state["elapsed_time"] += millis
 
     # 2. 현재 Location의 NPC 목록 확인
     player_id = morld.get_player_id()
@@ -660,7 +661,7 @@ def handle_interruption(state):
         partner_agent.pop_schedule()
 
     morld.add_unit_mood(partner_id, "부끄러움")
-    morld.set_npc_job(partner_id, "flee", 30, morld.get_player_id())
+    morld.set_npc_job(partner_id, "flee", 30 * MILLIS_PER_MINUTE, morld.get_player_id())
 
     # 목격자 호감도 감소 (관계:플레이어이름:호감)
     player_id = morld.get_player_id()

@@ -13,6 +13,7 @@
 # - TREE_RESOURCE_CONFIG: props 기반 나무 자원 (통나무, 나뭇가지)
 
 import morld
+MILLIS_PER_MINUTE = 60_000
 from assets.objects import get_instance
 
 # 순환 참조 방지: subscribe_time_elapsed는 모듈 하단에서 지연 import
@@ -22,26 +23,26 @@ from assets.objects import get_instance
 # unique_id: (spawn_interval, max_resources)
 # 포만감 감소: 1시간당 1 (하루 24), 최대 포만감 100 → 약 4일 버팀
 RESOURCE_CONFIG = {
-    "apple_tree": (720, 3),      # 12시간마다, 최대 3개 (포만감 25)
-    "berry_bush": (480, 5),      # 8시간마다, 최대 5개 (포만감 10)
-    "mushroom_patch": (600, 4),  # 10시간마다, 최대 4개 (포만감 15)
+    "apple_tree": (720 * MILLIS_PER_MINUTE, 3),      # 12시간마다, 최대 3개 (포만감 25)
+    "berry_bush": (480 * MILLIS_PER_MINUTE, 5),      # 8시간마다, 최대 5개 (포만감 10)
+    "mushroom_patch": (600 * MILLIS_PER_MINUTE, 4),  # 10시간마다, 최대 4개 (포만감 15)
 }
 
 # === 나무 자원 설정 (props 기반) ===
 # unique_id: {"log": (interval, max), "branch": (interval, max)}
 TREE_RESOURCE_CONFIG = {
-    "pine_tree": {"log": (1440, 4), "branch": (480, 6)},      # 통나무 24시간, 가지 8시간
-    "oak_tree": {"log": (1440, 5), "branch": (480, 4)},       # 통나무 24시간, 가지 8시간
-    "apple_tree": {"log": (1440, 2), "branch": (480, 3)},     # 과일나무 - 자원 적음
+    "pine_tree": {"log": (1440 * MILLIS_PER_MINUTE, 4), "branch": (480 * MILLIS_PER_MINUTE, 6)},      # 통나무 24시간, 가지 8시간
+    "oak_tree": {"log": (1440 * MILLIS_PER_MINUTE, 5), "branch": (480 * MILLIS_PER_MINUTE, 4)},       # 통나무 24시간, 가지 8시간
+    "apple_tree": {"log": (1440 * MILLIS_PER_MINUTE, 2), "branch": (480 * MILLIS_PER_MINUTE, 3)},     # 과일나무 - 자원 적음
 }
 
-# 오브젝트별 누적 시간 (인벤토리 기반): instance_id -> accumulated_minutes
+# 오브젝트별 누적 시간 (인벤토리 기반): instance_id -> accumulated_millis
 _accumulated_time = {}
 
 # 등록된 자원 오브젝트: instance_id -> unique_id
 _registered_objects = {}
 
-# 나무 자원용 누적 시간: instance_id -> {"log": minutes, "branch": minutes}
+# 나무 자원용 누적 시간: instance_id -> {"log": millis, "branch": millis}
 _tree_accumulated_time = {}
 
 # 등록된 나무 오브젝트: instance_id -> unique_id
@@ -111,13 +112,13 @@ def clear_all():
     print("[resource_agent] All registrations cleared.")
 
 
-def _process_resource_spawn(instance_id: int, minutes: int):
+def _process_resource_spawn(instance_id: int, millis: int):
     """
     개별 오브젝트의 자원 생성 처리
 
     Args:
         instance_id: 오브젝트 인스턴스 ID
-        minutes: 경과 시간 (분)
+        millis: 경과 시간 (밀리초)
     """
     unique_id = _registered_objects.get(instance_id)
     if not unique_id:
@@ -143,7 +144,7 @@ def _process_resource_spawn(instance_id: int, minutes: int):
         return
 
     # 시간 누적
-    _accumulated_time[instance_id] += minutes
+    _accumulated_time[instance_id] += millis
 
     # spawn_interval 이상이면 생성
     while _accumulated_time[instance_id] >= spawn_interval:
@@ -160,13 +161,13 @@ def _process_resource_spawn(instance_id: int, minutes: int):
             print(f"[resource_agent] Spawned resource: {unique_id} (id={instance_id})")
 
 
-def _process_tree_resource_spawn(instance_id: int, minutes: int):
+def _process_tree_resource_spawn(instance_id: int, millis: int):
     """
     나무 오브젝트의 자원(통나무/나뭇가지) 보충 처리
 
     Args:
         instance_id: 나무 인스턴스 ID
-        minutes: 경과 시간 (분)
+        millis: 경과 시간 (밀리초)
     """
     unique_id = _registered_trees.get(instance_id)
     if not unique_id:
@@ -189,7 +190,7 @@ def _process_tree_resource_spawn(instance_id: int, minutes: int):
         if current >= max_count:
             _tree_accumulated_time[instance_id]["log"] = 0
         else:
-            _tree_accumulated_time[instance_id]["log"] += minutes
+            _tree_accumulated_time[instance_id]["log"] += millis
 
             while _tree_accumulated_time[instance_id]["log"] >= spawn_interval:
                 _tree_accumulated_time[instance_id]["log"] -= spawn_interval
@@ -212,7 +213,7 @@ def _process_tree_resource_spawn(instance_id: int, minutes: int):
         if current >= max_count:
             _tree_accumulated_time[instance_id]["branch"] = 0
         else:
-            _tree_accumulated_time[instance_id]["branch"] += minutes
+            _tree_accumulated_time[instance_id]["branch"] += millis
 
             while _tree_accumulated_time[instance_id]["branch"] >= spawn_interval:
                 _tree_accumulated_time[instance_id]["branch"] -= spawn_interval
@@ -228,7 +229,7 @@ def _process_tree_resource_spawn(instance_id: int, minutes: int):
                     print(f"[resource_agent] Tree branch spawned: {unique_id} (id={instance_id})")
 
 
-def _on_time_elapsed(minutes: int):
+def _on_time_elapsed(millis: int):
     """
     OnTimeElapsed 이벤트 핸들러
 
@@ -236,11 +237,11 @@ def _on_time_elapsed(minutes: int):
     """
     # 인벤토리 기반 자원 (음식)
     for instance_id in list(_registered_objects.keys()):
-        _process_resource_spawn(instance_id, minutes)
+        _process_resource_spawn(instance_id, millis)
 
     # props 기반 나무 자원 (통나무/나뭇가지)
     for instance_id in list(_registered_trees.keys()):
-        _process_tree_resource_spawn(instance_id, minutes)
+        _process_tree_resource_spawn(instance_id, millis)
 
 
 # ========================================

@@ -903,7 +903,7 @@ class Character(Unit):
     #   {
     #       "arousal_threshold": 70,    # 성욕 임계값
     #       "affection_threshold": 60,  # 호감도 임계값
-    #       "cooldown_minutes": 480,    # 쿨다운 (분)
+    #       "cooldown_millis": 480,    # 쿨다운 (분)
     #   }
     #
     # NPC_INITIATIVE_ACTIONS: 조건별 액션 시퀀스
@@ -946,7 +946,7 @@ class Character(Unit):
         props = morld.get_unit_props(self.instance_id)
         if props:
             last_initiative = props.get("상태:마지막_주도_시각", -99999)
-            cooldown = self.INITIATIVE_CONFIG.get("cooldown_minutes", 480)
+            cooldown = self.INITIATIVE_CONFIG.get("cooldown_millis", 480 * 60_000)
             current_time = morld.get_game_time()
             if current_time - last_initiative < cooldown:
                 return False
@@ -1289,7 +1289,7 @@ class Character(Unit):
     #   EVENT_DIALOGS = {
     #       "이벤트명": {
     #           "pages": ["대사1", "대사2", ...],
-    #           "follow_duration": 2,  # 옵션: 대화 후 플레이어 따라가기 (분)
+    #           "follow_duration": 120000,  # 옵션: 대화 후 플레이어 따라가기 (밀리초)
     #       },
     #       "복잡한_이벤트": "_handle_complex_event",  # 메서드로 위임
     #   }
@@ -1441,7 +1441,7 @@ class Character(Unit):
         이벤트 핸들러 Generator 생성
 
         Args:
-            dialog_data: {"pages": [...], "follow_duration": N, ...}
+            dialog_data: {"pages": [...], "follow_duration": N(밀리초), ...}
             **kwargs: player_id 등
 
         Returns:

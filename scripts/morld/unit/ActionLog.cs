@@ -6,12 +6,12 @@ namespace Morld;
 public class ActionLog
 {
 	/// <summary>
-	/// 행동 시작 시간 (상대 분 - 현재 Step 시작 기준 0분부터)
+	/// 행동 시작 시간 (상대 밀리초 - 현재 Step 시작 기준 0ms부터)
 	/// </summary>
 	public int StartTime { get; set; }
 
 	/// <summary>
-	/// 행동 종료 시간 (상대 분)
+	/// 행동 종료 시간 (상대 밀리초)
 	/// </summary>
 	public int EndTime { get; set; }
 
@@ -39,19 +39,21 @@ public class ActionLog
 	public string? Activity { get; set; }
 
 	/// <summary>
-	/// 행동 소요 시간 (분)
+	/// 행동 소요 시간 (밀리초)
 	/// </summary>
 	public int Duration => EndTime - StartTime;
 
 	public override string ToString()
 	{
+		int startMin = StartTime / GameTime.MillisPerMinute;
+		int endMin = EndTime / GameTime.MillisPerMinute;
 		if (IsMoving)
 		{
-			return $"[{StartTime}~{EndTime}분] Moving: {Location} → {Destination} ({Activity ?? "이동"})";
+			return $"[{startMin}~{endMin}분] Moving: {Location} → {Destination} ({Activity ?? "이동"})";
 		}
 		else
 		{
-			return $"[{StartTime}~{EndTime}분] {Activity ?? "Idle"} @ {Location}";
+			return $"[{startMin}~{endMin}분] {Activity ?? "Idle"} @ {Location}";
 		}
 	}
 }
@@ -99,22 +101,22 @@ public class MovementProgress
 	public float TraveledDistance { get; set; }
 
 	/// <summary>
-	/// 이동 속도 (단위/분)
+	/// 이동 속도 (단위/밀리초)
 	/// </summary>
 	public float Speed { get; set; }
 
 	/// <summary>
-	/// 경과 시간 (분)
+	/// 경과 시간 (밀리초)
 	/// </summary>
 	public int ElapsedTime { get; set; }
 
 	/// <summary>
-	/// 총 이동 시간 (분, 계산됨)
+	/// 총 이동 시간 (밀리초, 계산됨)
 	/// </summary>
 	public int TotalTime => Speed > 0 ? (int)MathF.Ceiling(TotalDistance / Speed) : int.MaxValue;
 
 	/// <summary>
-	/// 남은 시간 (분)
+	/// 남은 시간 (밀리초)
 	/// </summary>
 	public int RemainingTime => TotalTime - ElapsedTime;
 
@@ -146,13 +148,13 @@ public class MovementProgress
 	/// <summary>
 	/// 시간 경과 처리
 	/// </summary>
-	/// <param name="minutes">경과 시간 (분)</param>
-	/// <returns>실제 소모된 시간 (분)</returns>
-	public int Advance(int minutes)
+	/// <param name="millis">경과 시간 (밀리초)</param>
+	/// <returns>실제 소모된 시간 (밀리초)</returns>
+	public int Advance(int millis)
 	{
 		if (IsComplete) return 0;
 
-		float distanceToTravel = minutes * Speed;
+		float distanceToTravel = millis * Speed;
 		float remainingDistance = TotalDistance - TraveledDistance;
 
 		if (distanceToTravel >= remainingDistance)
@@ -167,14 +169,15 @@ public class MovementProgress
 		{
 			// 진행 중
 			TraveledDistance += distanceToTravel;
-			ElapsedTime += minutes;
-			return minutes;
+			ElapsedTime += millis;
+			return millis;
 		}
 	}
 
 	public override string ToString()
 	{
 		var gateInfo = TargetGateId.HasValue ? $" → Gate{TargetGateId}" : "";
-		return $"Movement: ({StartX:F1},{StartY:F1}) → ({TargetX:F1},{TargetY:F1}){gateInfo} ({Progress:P0}, {RemainingTime}분 남음)";
+		int remainingMin = RemainingTime / GameTime.MillisPerMinute;
+		return $"Movement: ({StartX:F1},{StartY:F1}) → ({TargetX:F1},{TargetY:F1}){gateInfo} ({Progress:P0}, {remainingMin}분 남음)";
 	}
 }

@@ -223,8 +223,8 @@ def _check_wait(player_id: int, condition: dict, quest_id: str) -> bool:
         return False
 
     current_time = morld.get_game_time()
-    elapsed_minutes = current_time - accept_time
-    elapsed_hours = elapsed_minutes / 60
+    elapsed_millis = current_time - accept_time
+    elapsed_hours = elapsed_millis / 3_600_000
 
     return elapsed_hours >= required_hours
 

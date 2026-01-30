@@ -63,7 +63,7 @@ class Water(Item):
             "시원한 물을 마셨다.",
             "목이 축축해졌다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 class Bread(Item):
@@ -88,7 +88,7 @@ class Bread(Item):
             "빵을 먹었다.",
             "배가 조금 불러졌다."
         ])
-        morld.advance_time(5)
+        morld.advance_time(5 * 60_000)
 
 
 class Berry(Item):
@@ -113,7 +113,7 @@ class Berry(Item):
             "열매를 먹었다.",
             "새콤달콤한 맛이 난다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 class Meat(Item):

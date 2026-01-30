@@ -249,7 +249,7 @@ public partial class GameEngine : Node
 			// 자동 시간 흐름 트리거 → RequestTimeAdvance 호출
 			// 이후 HasPendingTime 블록에서 전체 시뮬레이션(Step + 이벤트 감지) 수행
 			_playerSystem?.RequestTimeAdvance(
-				_autoTimeFlowSystem.GameTimeIntervalMinutes,
+				_autoTimeFlowSystem.GameTimeIntervalMillis,
 				"자동 시간 흐름"
 			);
 		}

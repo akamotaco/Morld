@@ -57,10 +57,10 @@ namespace SE
 			// 시간 중단 이벤트 중 가장 빠른 것 찾기
 			var earliestInterrupt = FindEarliestInterrupt();
 
-			if (earliestInterrupt != null && earliestInterrupt.TriggerMinutes < pendingDuration)
+			if (earliestInterrupt != null && earliestInterrupt.TriggerMillis < pendingDuration)
 			{
-				// 시간 조정 (최소 1분)
-				int adjustedDuration = Math.Max(1, earliestInterrupt.TriggerMinutes);
+				// 시간 조정 (최소 1밀리초)
+				int adjustedDuration = Math.Max(1, earliestInterrupt.TriggerMillis);
 				_playerSystem.AdjustNextStepDuration(adjustedDuration);
 				LastAdjustedDuration = adjustedDuration;
 			}
@@ -106,7 +106,7 @@ namespace SE
 					_predictedEvents.Add(new PredictedEvent
 					{
 						Type = "on_meet",
-						TriggerMinutes = meetingTime.Value,
+						TriggerMillis = meetingTime.Value,
 						InvolvedUnitIds = new List<int> { player.Id, unit.Id },
 						InterruptsTime = true,
 						Data = new Dictionary<string, object>
@@ -149,7 +149,7 @@ namespace SE
 				_predictedEvents.Add(new PredictedEvent
 				{
 					Type = "on_reach",
-					TriggerMinutes = waypoint.ArrivalTime,
+					TriggerMillis = waypoint.ArrivalTime,
 					InvolvedUnitIds = new List<int> { player.Id },
 					InterruptsTime = false, // 기본적으로 도착은 중단하지 않음
 					Data = new Dictionary<string, object>
@@ -474,7 +474,7 @@ namespace SE
 					_predictedEvents.Add(new PredictedEvent
 					{
 						Type = "on_meet",
-						TriggerMinutes = crossingTime,
+						TriggerMillis = crossingTime,
 						InvolvedUnitIds = new List<int> { player.Id, unit.Id },
 						InterruptsTime = true,
 						Data = new Dictionary<string, object>
@@ -487,7 +487,8 @@ namespace SE
 					});
 
 #if DEBUG_LOG
-					Godot.GD.Print($"[EventPredictionSystem] Gate crossing predicted: {player.Name}(→Gate{playerGate.Id}) × {unit.Name}(→Gate{unitGate.Id}) at t={crossingTime}min");
+					int crossMin = crossingTime / Morld.GameTime.MillisPerMinute;
+					Godot.GD.Print($"[EventPredictionSystem] Gate crossing predicted: {player.Name}(→Gate{playerGate.Id}) × {unit.Name}(→Gate{unitGate.Id}) at t={crossMin}min ({crossingTime}ms)");
 #endif
 				}
 			}
@@ -505,7 +506,7 @@ namespace SE
 				if (!evt.InterruptsTime)
 					continue;
 
-				if (earliest == null || evt.TriggerMinutes < earliest.TriggerMinutes)
+				if (earliest == null || evt.TriggerMillis < earliest.TriggerMillis)
 				{
 					earliest = evt;
 				}
@@ -539,9 +540,9 @@ namespace SE
 		public string Type { get; set; } = "";
 
 		/// <summary>
-		/// 트리거 시간 (현재로부터 경과 분)
+		/// 트리거 시간 (현재로부터 경과 밀리초)
 		/// </summary>
-		public int TriggerMinutes { get; set; } = 0;
+		public int TriggerMillis { get; set; } = 0;
 
 		/// <summary>
 		/// 관련된 유닛 ID들
@@ -560,7 +561,8 @@ namespace SE
 
 		public override string ToString()
 		{
-			return $"PredictedEvent[{Type}] at +{TriggerMinutes}min, interrupts={InterruptsTime}, units=[{string.Join(",", InvolvedUnitIds)}]";
+			int displayMin = TriggerMillis / Morld.GameTime.MillisPerMinute;
+			return $"PredictedEvent[{Type}] at +{displayMin}min ({TriggerMillis}ms), interrupts={InterruptsTime}, units=[{string.Join(",", InvolvedUnitIds)}]";
 		}
 	}
 
@@ -571,9 +573,9 @@ namespace SE
 	{
 		/// <summary>위치</summary>
 		public LocationRef Location { get; set; }
-		/// <summary>도착 시간 (시뮬레이션 시작으로부터 경과 분)</summary>
+		/// <summary>도착 시간 (시뮬레이션 시작으로부터 경과 밀리초)</summary>
 		public int ArrivalTime { get; set; }
-		/// <summary>체류 시간 (분). 0이면 경유지 통과</summary>
+		/// <summary>체류 시간 (밀리초). 0이면 경유지 통과</summary>
 		public int StayDuration { get; set; }
 		/// <summary>이 위치에 있는 시간 범위의 끝 (ArrivalTime + StayDuration)</summary>
 		public int DepartureTime => ArrivalTime + StayDuration;

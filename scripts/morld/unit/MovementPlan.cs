@@ -18,12 +18,12 @@ public class MovementPlan
 	public List<Location> Path { get; set; } = new();
 
 	/// <summary>
-	/// 시작 시간 (상대 분)
+	/// 시작 시간 (상대 밀리초)
 	/// </summary>
 	public int StartTime { get; set; }
 
 	/// <summary>
-	/// 각 Location별 도착 시간 (상대 분)
+	/// 각 Location별 도착 시간 (상대 밀리초)
 	/// </summary>
 	public Dictionary<Location, int> ArrivalTimes { get; set; } = new();
 
@@ -35,6 +35,6 @@ public class MovementPlan
 
 	public override string ToString()
 	{
-		return $"MovementPlan[{UnitId}] {Path.Count}개 위치, 시작={StartTime}분";
+		return $"MovementPlan[{UnitId}] {Path.Count}개 위치, 시작={StartTime}ms";
 	}
 }

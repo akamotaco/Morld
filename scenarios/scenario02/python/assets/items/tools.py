@@ -34,7 +34,7 @@ class Torch(Item):
             "횃불에 불을 붙였다.",
             "주변이 환하게 밝아졌다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 class Rope(Item):
@@ -231,7 +231,7 @@ class Diary(Item):
             "\"저녁에는 밀라 언니가 맛있는 저녁을 해줬다.\"",
             "\"...모두가 행복해 보여서 나도 기분이 좋다.\""
         ], autofill="book")
-        morld.advance_time(5)
+        morld.advance_time(5 * 60_000)
 
 
 class ManagementLedger(Item):
@@ -251,7 +251,7 @@ class ManagementLedger(Item):
             "저택의 식량, 자금, 일정 등이 꼼꼼하게 기록되어 있다.",
             "엘라의 정리 능력에 감탄하지 않을 수 없다."
         ], autofill="book")
-        morld.advance_time(5)
+        morld.advance_time(5 * 60_000)
 
 
 # ========================================
@@ -290,7 +290,7 @@ class WaterBottle(Item):
             "물병의 물을 마셨다.",
             "시원하고 상쾌하다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)
 
 
 # ========================================
@@ -352,7 +352,7 @@ class TrappedRabbit(Item):
         player_id = morld.get_player_id()
 
         yield ui.dialog("덫을 분해해서 토끼를 꺼낸다...")
-        morld.advance_time(5)
+        morld.advance_time(5 * 60_000)
 
         # 토끼 사체 지급
         rabbit_carcass_id = get_or_create_item_id("rabbit_carcass")
@@ -455,7 +455,7 @@ class RabbitCarcass(Item):
         skin_time = tool.get("skin_time", 15)
 
         yield ui.dialog(f"{tool['name']}(으)로 토끼를 손질한다...")
-        morld.advance_time(skin_time)
+        morld.advance_time(skin_time * 60_000)
 
         # 토끼 생고기 지급
         raw_meat_id = get_or_create_item_id("raw_rabbit_meat")

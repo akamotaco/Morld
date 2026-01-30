@@ -51,7 +51,7 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     public Dictionary<string, string> DescribeText { get; set; } = new();
 
     /// <summary>
-    /// 경유 시 지체 시간 (분)
+    /// 경유 시 지체 시간 (밀리초)
     /// 지역이 험하거나 넓어서 통과하는데 시간이 소요됨
     /// 0이면 즉시 통과, 기본값 0
     /// </summary>
@@ -89,10 +89,11 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     public float Length { get; set; } = 0f;
 
     /// <summary>
-    /// 기본 이동 속도 (단위/분)
+    /// 기본 이동 속도 (단위/밀리초)
     /// 캐릭터가 이 Location 내에서 이동할 때의 기본 속도
+    /// 예: 10/60000 = 0.000167 (기존 10단위/분과 동일)
     /// </summary>
-    public float BaseSpeed { get; set; } = 10f;
+    public float BaseSpeed { get; set; } = 10f / GameTime.MillisPerMinute;
 
     /// <summary>
     /// Y축 최소값 (확장용, 현재 미사용)
@@ -129,12 +130,12 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
     }
 
     /// <summary>
-    /// 거리 기반 이동 시간 계산 (분)
+    /// 거리 기반 이동 시간 계산 (밀리초)
     /// </summary>
     /// <param name="fromX">출발 X 좌표</param>
     /// <param name="toX">도착 X 좌표</param>
     /// <param name="speedModifier">이동 속도 배율 (1.0 = 기본)</param>
-    /// <returns>이동 시간 (분, 올림)</returns>
+    /// <returns>이동 시간 (밀리초, 올림)</returns>
     public int CalculateTravelTime(float fromX, float toX, float speedModifier = 1.0f)
     {
         float distance = CalculateDistance(fromX, toX);

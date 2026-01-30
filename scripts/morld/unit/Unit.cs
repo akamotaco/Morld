@@ -178,7 +178,7 @@ public class Unit : IOwnable
 	}
 
 	/// <summary>
-	/// 경유지 지체 남은 시간 (분)
+	/// 경유지 지체 남은 시간 (밀리초)
 	/// Location.StayDuration만큼 설정되어 지체 후 이동
 	/// 0이면 지체 중이 아님
 	/// </summary>
@@ -328,17 +328,17 @@ public class Unit : IOwnable
 	/// <summary>
 	/// JobList 시간 경과 처리
 	/// </summary>
-	public void AdvanceJobs(int minutes)
+	public void AdvanceJobs(int millis)
 	{
-		JobList.Advance(minutes);
+		JobList.Advance(millis);
 	}
 
 	/// <summary>
 	/// BaseSchedule로부터 JobList 채우기
 	/// </summary>
-	public void FillJobsFromSchedule(int currentTimeOfDay, int lookAheadMinutes = 1440)
+	public void FillJobsFromSchedule(int currentTimeOfDay, int lookAheadMillis = GameTime.MillisPerDay)
 	{
-		JobList.FillFromSchedule(BaseSchedule, currentTimeOfDay, lookAheadMinutes);
+		JobList.FillFromSchedule(BaseSchedule, currentTimeOfDay, lookAheadMillis);
 	}
 
 	/// <summary>

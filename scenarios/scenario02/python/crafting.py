@@ -115,7 +115,7 @@ def craft_item(player_id: int, recipe: dict):
                     remaining -= to_consume
 
     # 시간 경과
-    morld.advance_time(recipe["craft_time"])
+    morld.advance_time(recipe["craft_time"] * 60_000)
 
     # 결과물 생성 (registry를 통해 싱글톤 ID 조회/생성)
     # result_id가 있으면 그것을 사용, 없으면 unique_id를 사용

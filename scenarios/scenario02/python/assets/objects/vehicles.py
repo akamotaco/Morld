@@ -104,8 +104,9 @@ class CarDriverSeat(Object):
             region_id = dest["region_id"]
             location_id = dest["location_id"]
             name = dest["name"]
-            travel_time = dest["travel_time"]
-            lines.append(f"[url=@proc:{region_id}:{location_id}]{name} ({travel_time}분)[/url]")
+            travel_time_millis = dest["travel_time"]  # 밀리초
+            travel_time_min = travel_time_millis // 60_000
+            lines.append(f"[url=@proc:{region_id}:{location_id}]{name} ({travel_time_min}분)[/url]")
         lines.append("\n[url=@proc:cancel]취소[/url]")
 
         yield ui.dialog("\n".join(lines), autofill="off", proc=handle_choice, result=state)
@@ -117,7 +118,7 @@ class CarDriverSeat(Object):
             result = morld.drive_to(player_id, region_id, location_id)
             yield ui.dialog(result["message"])
             if result["success"]:
-                morld.advance_time(result["time_consumed"])
+                morld.advance_time(result["time_consumed"])  # 이미 밀리초 단위
 
 
 class CarPassengerSeat(Object):
@@ -153,4 +154,4 @@ class CarTrunk(Object):
             "차 트렁크를 열어보았다.",
             "물건을 넣거나 꺼낼 수 있겠다."
         ])
-        morld.advance_time(1)
+        morld.advance_time(1 * 60_000)

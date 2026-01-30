@@ -431,9 +431,15 @@ namespace SE
 			var actualProps = unit.GetActualProps(itemSystem, inventory, equippedItems);
 
 			var describeSystem = this._hub.GetSystem("describeSystem") as DescribeSystem;
+			var worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+			bool isTimeFrozen = worldSystem?.IsTimeFrozen() ?? false;
 
-			// Terrain에서 원시 경로 데이터 가져오기
-			var rawRoutes = terrain.BuildRawRoutes(unit.CurrentLocation, actualProps);
+			// 이동 속도 배율 계산
+			int movementSpeedPercent = unit.GetMovementSpeed(itemSystem, inventory, equippedItems);
+			float speedModifier = movementSpeedPercent / 100f;
+
+			// Terrain에서 원시 경로 데이터 가져오기 (유닛 X 좌표 + 속도 배율 전달)
+			var rawRoutes = terrain.BuildRawRoutes(unit.CurrentLocation, actualProps, unit.PositionX, speedModifier);
 
 			// 표시 이름 추가하여 RouteInfo로 변환
 			foreach (var raw in rawRoutes)
@@ -446,7 +452,7 @@ namespace SE
 					LocationName = describeSystem?.GetNameWithOwner(destLocation) ?? destLocation?.Name ?? "",
 					RegionName = destRegion?.Name ?? "",
 					Destination = raw.Destination,
-					TravelTime = raw.TravelTime,
+					TravelTime = isTimeFrozen ? 0 : raw.TravelTime,
 					IsRegionGate = raw.IsRegionGate,
 					IsBlocked = raw.IsBlocked,
 					BlockedReason = raw.BlockedReason,

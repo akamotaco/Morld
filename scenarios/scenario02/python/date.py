@@ -13,6 +13,9 @@ import morld
 import think
 import ui
 
+MILLIS_PER_MINUTE = 60_000
+MILLIS_PER_DAY = 86_400_000
+
 # ============================================
 # 상수 정의
 # ============================================
@@ -21,7 +24,7 @@ DATE_MIN_AFFECTION = 30  # 데이트 수락 최소 호감도
 
 # 따라가기 스케줄 (24시간 follow)
 FOLLOW_SCHEDULE = [
-    {"name": "따라가기", "action": "follow", "start": 0, "end": 1440, "activity": "데이트"}
+    {"name": "따라가기", "action": "follow", "start": 0, "end": MILLIS_PER_DAY, "activity": "데이트"}
 ]
 
 # ============================================
@@ -57,7 +60,7 @@ def _start_date(player_id, partner_id):
         partner_agent.push_schedule(FOLLOW_SCHEDULE)
 
     # follow job 설정 (플레이어 따라가기)
-    morld.set_npc_job(partner_id, "follow", 1440, player_id)
+    morld.set_npc_job(partner_id, "follow", MILLIS_PER_DAY, player_id)
 
     print(f"[date] Started: player={player_id}, partner={partner_id}")
 

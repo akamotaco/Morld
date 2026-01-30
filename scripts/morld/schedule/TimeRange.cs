@@ -1,52 +1,52 @@
 namespace Morld;
 
 /// <summary>
-/// 하루 중 시간 범위 (스케줄용) - 분 단위
+/// 하루 중 시간 범위 (스케줄용) - 밀리초 단위
 /// </summary>
 public readonly struct TimeRange
 {
     /// <summary>
-    /// 시작 시간 (분, 0~1439)
+    /// 시작 시간 (밀리초, 0~86,399,999)
     /// </summary>
-    public int StartMinute { get; }
+    public int StartMillis { get; }
 
     /// <summary>
-    /// 종료 시간 (분, 0~1439)
+    /// 종료 시간 (밀리초, 0~86,399,999)
     /// </summary>
-    public int EndMinute { get; }
+    public int EndMillis { get; }
 
     /// <summary>
     /// 자정을 넘는 범위인지
     /// </summary>
-    public bool SpansMidnight => StartMinute > EndMinute;
+    public bool SpansMidnight => StartMillis > EndMillis;
 
     /// <summary>
     /// 시작 시간 (시)
     /// </summary>
-    public int StartHour => StartMinute / GameTime.MinutesPerHour;
+    public int StartHour => StartMillis / GameTime.MillisPerHour;
 
     /// <summary>
     /// 시작 시간 (분 부분)
     /// </summary>
-    public int StartMinutePart => StartMinute % GameTime.MinutesPerHour;
+    public int StartMinutePart => (StartMillis % GameTime.MillisPerHour) / GameTime.MillisPerMinute;
 
     /// <summary>
     /// 종료 시간 (시)
     /// </summary>
-    public int EndHour => EndMinute / GameTime.MinutesPerHour;
+    public int EndHour => EndMillis / GameTime.MillisPerHour;
 
     /// <summary>
     /// 종료 시간 (분 부분)
     /// </summary>
-    public int EndMinutePart => EndMinute % GameTime.MinutesPerHour;
+    public int EndMinutePart => (EndMillis % GameTime.MillisPerHour) / GameTime.MillisPerMinute;
 
     /// <summary>
-    /// 분 단위로 생성
+    /// 밀리초 단위로 생성
     /// </summary>
-    public TimeRange(int startMinute, int endMinute)
+    public TimeRange(int startMillis, int endMillis)
     {
-        StartMinute = startMinute;
-        EndMinute = endMinute;
+        StartMillis = startMillis;
+        EndMillis = endMillis;
     }
 
     /// <summary>
@@ -55,8 +55,8 @@ public readonly struct TimeRange
     public static TimeRange FromHourMinute(int startHour, int startMinute, int endHour, int endMinute)
     {
         return new TimeRange(
-            startHour * GameTime.MinutesPerHour + startMinute,
-            endHour * GameTime.MinutesPerHour + endMinute);
+            startHour * GameTime.MillisPerHour + startMinute * GameTime.MillisPerMinute,
+            endHour * GameTime.MillisPerHour + endMinute * GameTime.MillisPerMinute);
     }
 
     /// <summary>
@@ -65,8 +65,8 @@ public readonly struct TimeRange
     public static TimeRange FromHours(int startHour, int endHour)
     {
         return new TimeRange(
-            startHour * GameTime.MinutesPerHour,
-            endHour * GameTime.MinutesPerHour);
+            startHour * GameTime.MillisPerHour,
+            endHour * GameTime.MillisPerHour);
     }
 
     /// <summary>
@@ -74,31 +74,33 @@ public readonly struct TimeRange
     /// </summary>
     public bool Contains(GameTime time)
     {
-        return Contains(time.MinuteOfDay);
+        return ContainsMillis(time.MillisOfDay);
     }
 
     /// <summary>
-    /// 현재 시간(분)이 범위 내인지 확인
+    /// 현재 시간(밀리초)이 범위 내인지 확인
     /// </summary>
-    public bool Contains(int minuteOfDay)
+    public bool ContainsMillis(int millisOfDay)
     {
         if (SpansMidnight)
         {
             // 자정 넘는 경우: 시작 시간 이후이거나, 자정 이후~종료 전
-            return minuteOfDay >= StartMinute || minuteOfDay < EndMinute;
+            return millisOfDay >= StartMillis || millisOfDay < EndMillis;
         }
         else
         {
-            return minuteOfDay >= StartMinute && minuteOfDay < EndMinute;
+            return millisOfDay >= StartMillis && millisOfDay < EndMillis;
         }
     }
 
     /// <summary>
-    /// 현재 시간이 시작 시간인지 확인
+    /// 현재 시간이 시작 시간인지 확인 (같은 분에 해당하면 true)
     /// </summary>
     public bool IsStartTime(GameTime time)
     {
-        return time.MinuteOfDay == StartMinute;
+        int startMinuteMillis = (StartMillis / GameTime.MillisPerMinute) * GameTime.MillisPerMinute;
+        int timeMinuteMillis = (time.MillisOfDay / GameTime.MillisPerMinute) * GameTime.MillisPerMinute;
+        return timeMinuteMillis == startMinuteMillis;
     }
 
     /// <summary>
@@ -106,15 +108,15 @@ public readonly struct TimeRange
     /// </summary>
     public bool HasStarted(GameTime time)
     {
-        int currentMinute = time.MinuteOfDay;
+        int currentMillis = time.MillisOfDay;
 
         if (SpansMidnight)
         {
-            return currentMinute >= StartMinute || currentMinute < EndMinute;
+            return currentMillis >= StartMillis || currentMillis < EndMillis;
         }
         else
         {
-            return currentMinute >= StartMinute;
+            return currentMillis >= StartMillis;
         }
     }
 
@@ -123,15 +125,15 @@ public readonly struct TimeRange
     /// </summary>
     public bool HasEnded(GameTime time)
     {
-        int currentMinute = time.MinuteOfDay;
+        int currentMillis = time.MillisOfDay;
 
         if (SpansMidnight)
         {
-            return currentMinute >= EndMinute && currentMinute < StartMinute;
+            return currentMillis >= EndMillis && currentMillis < StartMillis;
         }
         else
         {
-            return currentMinute >= EndMinute;
+            return currentMillis >= EndMillis;
         }
     }
 

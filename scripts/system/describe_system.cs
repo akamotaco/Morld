@@ -11,9 +11,9 @@ namespace SE
 	public class DescribeSystem : ECS.System
 	{
 		/// <summary>
-		/// 이동 중인 캐릭터 감지 거리 threshold (분 단위, -1이면 무한)
+		/// 이동 중인 캐릭터 감지 거리 threshold (밀리초 단위, -1이면 무한)
 		/// </summary>
-		public int AwarenessDistanceThreshold { get; set; } = 30;
+		public int AwarenessDistanceThresholdMillis { get; set; } = 30 * GameTime.MillisPerMinute;
 
 		public DescribeSystem()
 		{
@@ -60,7 +60,7 @@ namespace SE
 					if (gate != null && gate.ConnectedLocation == playerLocation)
 					{
 						// threshold 체크 (-1이면 무한)
-						if (AwarenessDistanceThreshold >= 0 && movement.RemainingTime > AwarenessDistanceThreshold)
+						if (AwarenessDistanceThresholdMillis >= 0 && movement.RemainingTime > AwarenessDistanceThresholdMillis)
 							continue;
 
 						var fromLoc = terrain.GetLocation(unit.CurrentLocation);

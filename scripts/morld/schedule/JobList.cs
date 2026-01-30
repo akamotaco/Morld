@@ -34,12 +34,12 @@ public class JobList
 	/// <summary>
 	/// 시간 경과 - 앞에서부터 duration만큼 잘라냄
 	/// </summary>
-	/// <param name="minutes">경과 시간 (분)</param>
-	public void Advance(int minutes)
+	/// <param name="millis">경과 시간 (밀리초)</param>
+	public void Advance(int millis)
 	{
-		if (minutes <= 0) return;
+		if (millis <= 0) return;
 
-		int remaining = minutes;
+		int remaining = millis;
 
 		while (remaining > 0 && _jobs.Count > 0)
 		{
@@ -200,11 +200,11 @@ public class JobList
 	/// 스케줄에 빈 시간이 있으면 idle Job으로 채움
 	/// </summary>
 	/// <param name="schedule">DailySchedule</param>
-	/// <param name="currentTimeOfDay">현재 시간 (분, 0~1439)</param>
-	/// <param name="lookAheadMinutes">미리 채울 시간 (분, 기본 1440 = 하루)</param>
+	/// <param name="currentTimeOfDay">현재 시간 (밀리초, 0~86,399,999)</param>
+	/// <param name="lookAheadMillis">미리 채울 시간 (밀리초, 기본 86,400,000 = 하루)</param>
 	/// <param name="currentRegionId">현재 위치 Region ID (idle Job용)</param>
 	/// <param name="currentLocationId">현재 위치 Location ID (idle Job용)</param>
-	public void FillFromSchedule(DailySchedule? schedule, int currentTimeOfDay, int lookAheadMinutes = 1440, int currentRegionId = 0, int currentLocationId = 0)
+	public void FillFromSchedule(DailySchedule? schedule, int currentTimeOfDay, int lookAheadMillis = GameTime.MillisPerDay, int currentRegionId = 0, int currentLocationId = 0)
 	{
 		if (schedule == null || schedule.Entries.Count == 0) return;
 
@@ -216,30 +216,31 @@ public class JobList
 		}
 
 		// lookAhead까지 채워야 할 남은 시간
-		int needToFill = lookAheadMinutes - existingDuration;
+		int needToFill = lookAheadMillis - existingDuration;
 		if (needToFill <= 0) return;
 
 		// 현재 시간 + 기존 Job 시간 = 시작 시점
-		int fillStartTime = (currentTimeOfDay + existingDuration) % 1440;
+		int fillStartTime = (currentTimeOfDay + existingDuration) % GameTime.MillisPerDay;
 
-		// 스케줄 엔트리들을 순회하며 Job 생성
+		// 스케줄 엔트리들을 순회하며 Job 생성 (1분 단위로 순회)
 		int filled = 0;
-		int idleAccumulated = 0;  // 연속된 idle 시간 누적
+		int idleAccumulated = 0;  // 연속된 idle 시간 누적 (밀리초)
 		int safetyCounter = 0;    // 무한 루프 방지
+		int stepMillis = GameTime.MillisPerMinute;  // 1분 단위로 순회
 
 		while (filled < needToFill && safetyCounter < 1500)
 		{
 			safetyCounter++;
 
 			// 현재 시점의 스케줄 엔트리 찾기
-			int checkTime = (fillStartTime + filled) % 1440;
+			int checkTime = (fillStartTime + filled) % GameTime.MillisPerDay;
 			var entry = schedule.GetEntryAt(checkTime);
 
 			if (entry == null)
 			{
-				// 스케줄 빈 시간 - idle 누적
-				idleAccumulated++;
-				filled++;
+				// 스케줄 빈 시간 - idle 누적 (1분 단위)
+				idleAccumulated += stepMillis;
+				filled += stepMillis;
 				continue;
 			}
 
@@ -259,7 +260,7 @@ public class JobList
 				idleAccumulated = 0;
 			}
 
-			// 이 엔트리에서 남은 시간 계산
+			// 이 엔트리에서 남은 시간 계산 (밀리초)
 			int entryRemaining = CalculateRemainingInEntry(entry.TimeRange, checkTime);
 			int jobDuration = System.Math.Min(entryRemaining, needToFill - filled);
 
@@ -303,27 +304,27 @@ public class JobList
 	}
 
 	/// <summary>
-	/// TimeRange 내에서 현재 시간부터 종료까지 남은 시간 계산
+	/// TimeRange 내에서 현재 시간부터 종료까지 남은 시간 계산 (밀리초)
 	/// </summary>
-	private int CalculateRemainingInEntry(TimeRange range, int currentMinute)
+	private int CalculateRemainingInEntry(TimeRange range, int currentMillis)
 	{
 		if (range.SpansMidnight)
 		{
 			// 자정 넘는 경우
-			if (currentMinute >= range.StartMinute)
+			if (currentMillis >= range.StartMillis)
 			{
 				// 시작 후 ~ 자정
-				return (1440 - currentMinute) + range.EndMinute;
+				return (GameTime.MillisPerDay - currentMillis) + range.EndMillis;
 			}
 			else
 			{
 				// 자정 후 ~ 종료
-				return range.EndMinute - currentMinute;
+				return range.EndMillis - currentMillis;
 			}
 		}
 		else
 		{
-			return range.EndMinute - currentMinute;
+			return range.EndMillis - currentMillis;
 		}
 	}
 
@@ -380,13 +381,15 @@ public class JobList
 		if (_jobs.Count == 0) return "JobList (empty)";
 
 		var sb = new System.Text.StringBuilder();
-		sb.Append($"JobList ({_jobs.Count} jobs, {TotalDuration}분): ");
+		int totalMinutes = TotalDuration / GameTime.MillisPerMinute;
+		sb.Append($"JobList ({_jobs.Count} jobs, {totalMinutes}분): ");
 
 		int count = 0;
 		foreach (var job in _jobs)
 		{
 			if (count > 0) sb.Append(" → ");
-			sb.Append($"[{job.Name}:{job.Action} {job.Duration}분]");
+			int jobMinutes = job.Duration / GameTime.MillisPerMinute;
+			sb.Append($"[{job.Name}:{job.Action} {jobMinutes}분]");
 			count++;
 			if (count >= 3)
 			{

@@ -98,7 +98,7 @@ namespace SE
                 int regionId = args[0].ToInt();
                 int localId = args[1].ToInt();
                 string name = args[2].AsString();
-                int stayDuration = args.Length >= 4 ? args[3].ToInt() : 0;
+                int stayDurationMin = args.Length >= 4 ? args[3].ToInt() : 0; // Python: 분 단위
                 bool isIndoor = args.Length >= 5 ? args[4].IsTrue() : true;
                 string owner = args.Length >= 6 && args[5] is PyString ownerStr ? ownerStr.Value : null;
                 var describeText = args.Length >= 7 && args[6] is PyDict descDict
@@ -109,7 +109,7 @@ namespace SE
                 // Pi-World 2D 속성
                 string geometry = args.Length >= 9 ? args[8].AsString() : "line";
                 float length = args.Length >= 10 ? (float)args[9].ToFloat() : 0f;
-                float baseSpeed = args.Length >= 11 ? (float)args[10].ToFloat() : 10f;
+                float baseSpeedPerMin = args.Length >= 11 ? (float)args[10].ToFloat() : 10f; // Python: 단위/분
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -119,7 +119,7 @@ namespace SE
                 {
                     // Region.AddLocation(localId, name)을 사용
                     var location = region.AddLocation(localId, name);
-                    location.StayDuration = stayDuration;
+                    location.StayDuration = stayDurationMin * GameTime.MillisPerMinute; // 분 → 밀리초
                     location.IsIndoor = isIndoor;
                     location.Owner = owner;
                     location.GroundUnitId = groundId;
@@ -129,7 +129,7 @@ namespace SE
                         ? Morld.LocationGeometry.Ring
                         : Morld.LocationGeometry.Line;
                     location.Length = length;
-                    location.BaseSpeed = baseSpeed;
+                    location.BaseSpeed = baseSpeedPerMin / GameTime.MillisPerMinute; // 단위/분 → 단위/밀리초
 
                     // describe_text 설정
                     if (describeText != null)
@@ -140,7 +140,7 @@ namespace SE
                         }
                     }
 
-                    Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, geometry={geometry}, length={length}, base_speed={baseSpeed}");
+                    Godot.GD.Print($"[morld] add_location: region={regionId}, local={localId}, name={name}, indoor={isIndoor}, geometry={geometry}, length={length}, base_speed={baseSpeedPerMin}/min, stay={stayDurationMin}min");
                     return PyBool.True;
                 }
                 return PyBool.False;
@@ -156,8 +156,10 @@ namespace SE
                 int fromLocal = args[1].ToInt();
                 int toRegion = args[2].ToInt();
                 int toLocal = args[3].ToInt();
-                int timeAB = args.Length >= 5 ? args[4].ToInt() : 30;
-                int timeBA = args.Length >= 6 ? args[5].ToInt() : timeAB;
+                int timeABmin = args.Length >= 5 ? args[4].ToInt() : 30; // Python: 분 단위
+                int timeBAmin = args.Length >= 6 ? args[5].ToInt() : timeABmin;
+                int timeABmillis = timeABmin * GameTime.MillisPerMinute; // 분 → 밀리초
+                int timeBAmillis = timeBAmin * GameTime.MillisPerMinute;
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -168,7 +170,7 @@ namespace SE
                     fromRegion, fromLocal,
                     toRegion, toLocal
                 );
-                regionGate.SetTravelTime(timeAB, timeBA);
+                regionGate.SetTravelTime(timeABmillis, timeBAmillis);
                 terrain.AddRegionGate(regionGate);
                 Godot.GD.Print($"[morld] add_region_gate: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
                 return PyBool.True;
@@ -201,7 +203,8 @@ namespace SE
                     : null;
                 bool isBlocked = args.Length > conditionsStartIdx + 2 && args[conditionsStartIdx + 2].IsTrue();
                 string name = args.Length > conditionsStartIdx + 3 && args[conditionsStartIdx + 3] is PyString nameStr ? nameStr.Value : "";
-                int travelTime = args.Length > conditionsStartIdx + 4 ? args[conditionsStartIdx + 4].ToInt() : 0;
+                int travelTimeMin = args.Length > conditionsStartIdx + 4 ? args[conditionsStartIdx + 4].ToInt() : 0; // Python: 분 단위
+                int travelTimeMillis = travelTimeMin * GameTime.MillisPerMinute; // 분 → 밀리초
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                 var terrain = _worldSystem.GetTerrain();
@@ -211,7 +214,7 @@ namespace SE
                 {
                     var gate = region.AddGate(locationId, gateId, x, connectedRegion, connectedLocation, arrivalX, arrivalY);
                     gate.Name = name;
-                    gate.TravelTime = travelTime;
+                    gate.TravelTime = travelTimeMillis;
                     gate.IsBlocked = isBlocked;
 
                     if (conditionsForward != null)
@@ -376,7 +379,7 @@ namespace SE
                 return result;
             });
 
-            // get_travel_time: 두 위치 간 이동 시간 계산 (경로 탐색 포함)
+            // get_travel_time: 두 위치 간 이동 시간 계산 (경로 탐색 포함, 반환: 밀리초)
             morldModule.ModuleDict["get_travel_time"] = new PyBuiltinFunction("get_travel_time", args =>
             {
                 if (args.Length < 4)
@@ -473,18 +476,19 @@ namespace SE
             morldModule.ModuleDict["advance_time"] = new PyBuiltinFunction("advance_time", args =>
             {
                 if (args.Length < 1)
-                    throw PyTypeError.Create("advance_time(minutes) requires 1 argument");
+                    throw PyTypeError.Create("advance_time(millis) requires 1 argument");
 
-                int minutes = args[0].ToInt();
+                int millis = args[0].ToInt();
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
                 var time = _worldSystem.GetTime();
-                time.AddMinutes(minutes);
-                Godot.GD.Print($"[morld] advance_time: +{minutes} minutes");
+                time.AddMillis(millis);
+                int displayMin = millis / GameTime.MillisPerMinute;
+                Godot.GD.Print($"[morld] advance_time: +{displayMin} minutes ({millis}ms)");
 
                 // 생존 시스템 처리 (플레이어만)
-                ProcessSurvivalTimeElapsed(minutes);
+                ProcessSurvivalTimeElapsed(millis);
 
                 return PyBool.True;
             });
@@ -547,14 +551,14 @@ namespace SE
 
             // set_auto_time_flow_interval: 자동 시간 흐름 간격 설정
             // real_seconds: 실시간 간격 (초)
-            // game_minutes: 게임 시간 간격 (분)
+            // game_millis: 게임 시간 간격 (밀리초)
             morldModule.ModuleDict["set_auto_time_flow_interval"] = new PyBuiltinFunction("set_auto_time_flow_interval", args =>
             {
                 if (args.Length < 2)
-                    throw PyTypeError.Create("set_auto_time_flow_interval(real_seconds, game_minutes) requires 2 arguments");
+                    throw PyTypeError.Create("set_auto_time_flow_interval(real_seconds, game_millis) requires 2 arguments");
 
                 float realSeconds = (float)args[0].ToFloat();
-                int gameMinutes = args[1].ToInt();
+                int gameMillis = args[1].ToInt();
 
                 var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
 
@@ -562,9 +566,10 @@ namespace SE
                     return PyBool.False;
 
                 _autoTimeFlowSystem.RealTimeIntervalSeconds = realSeconds;
-                _autoTimeFlowSystem.GameTimeIntervalMinutes = gameMinutes;
+                _autoTimeFlowSystem.GameTimeIntervalMillis = gameMillis;
 
-                Godot.GD.Print($"[morld] set_auto_time_flow_interval: {realSeconds}s -> {gameMinutes}min");
+                int displayMin = gameMillis / GameTime.MillisPerMinute;
+                Godot.GD.Print($"[morld] set_auto_time_flow_interval: {realSeconds}s -> {displayMin}min ({gameMillis}ms)");
                 return PyBool.True;
             });
 
@@ -581,17 +586,17 @@ namespace SE
             });
 
             // get_auto_time_flow_interval: 자동 시간 흐름 간격 조회
-            // 반환: (real_seconds, game_minutes) 튜플
+            // 반환: (real_seconds, game_millis) 튜플
             morldModule.ModuleDict["get_auto_time_flow_interval"] = new PyBuiltinFunction("get_auto_time_flow_interval", args =>
             {
                 var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
 
                 if (_autoTimeFlowSystem == null)
-                    return new PyTuple(new PyObject[] { new PyFloat(5.0), new PyInt(1) });
+                    return new PyTuple(new PyObject[] { new PyFloat(5.0), new PyInt(GameTime.MillisPerMinute) });
 
                 return new PyTuple(new PyObject[] {
                     new PyFloat(_autoTimeFlowSystem.RealTimeIntervalSeconds),
-                    new PyInt(_autoTimeFlowSystem.GameTimeIntervalMinutes)
+                    new PyInt(_autoTimeFlowSystem.GameTimeIntervalMillis)
                 });
             });
 
@@ -629,14 +634,14 @@ namespace SE
 
             // advance_time_simulate: 시간 진행 + NPC JobBehavior 실행 (연애 모드용)
             // ThinkSystem은 호출하지 않음 (NPC AI 재계산 불필요)
-            // 반환: 경과된 총 시간 (분)
+            // 반환: 경과된 총 시간 (밀리초)
             morldModule.ModuleDict["advance_time_simulate"] = new PyBuiltinFunction("advance_time_simulate", args =>
             {
                 if (args.Length < 1)
-                    throw PyTypeError.Create("advance_time_simulate(minutes) requires 1 argument");
+                    throw PyTypeError.Create("advance_time_simulate(millis) requires 1 argument");
 
-                int minutes = args[0].ToInt();
-                if (minutes <= 0)
+                int millis = args[0].ToInt();
+                if (millis <= 0)
                     return new PyInt(0);
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
@@ -664,27 +669,28 @@ namespace SE
                     if (unit.Id == playerId) continue;
 
                     // 현재 Job 기반 이동 처리
-                    SimulateUnitMovement(unit, minutes, terrain, _itemSystem);
+                    SimulateUnitMovement(unit, millis, terrain, _itemSystem);
 
                     // JobList Advance (시간 경과)
-                    unit.AdvanceJobs(minutes);
+                    unit.AdvanceJobs(millis);
                 }
 
                 // GameTime 업데이트
-                time.AddMinutes(minutes);
+                time.AddMillis(millis);
 
                 // 생존 시스템 처리 (플레이어만)
-                ProcessSurvivalTimeElapsed(minutes);
+                ProcessSurvivalTimeElapsed(millis);
 
                 // 시간 경과 이벤트 발생 (EventSystem으로 전달)
                 var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
                 if (_eventSystem != null)
                 {
-                    _eventSystem.Enqueue(GameEvent.OnTimeElapsed(minutes));
+                    _eventSystem.Enqueue(GameEvent.OnTimeElapsed(millis));
                 }
 
-                Godot.GD.Print($"[morld] advance_time_simulate: +{minutes} minutes, NPCs simulated");
-                return new PyInt(minutes);
+                int displayMin = millis / GameTime.MillisPerMinute;
+                Godot.GD.Print($"[morld] advance_time_simulate: +{displayMin} minutes ({millis}ms), NPCs simulated");
+                return new PyInt(millis);
             });
         }
 
@@ -1641,7 +1647,7 @@ namespace SE
             });
 
             // get_drivable_destinations: 운전 가능한 목적지 목록 가져오기
-            // get_drivable_destinations(unit_id) → [{region_id, location_id, name, travel_time}, ...]
+            // get_drivable_destinations(unit_id) → [{region_id, location_id, name, travel_time(밀리초)}, ...]
             morldModule.ModuleDict["get_drivable_destinations"] = new PyBuiltinFunction("get_drivable_destinations", args =>
             {
                 if (args.Length < 1)
@@ -1674,7 +1680,7 @@ namespace SE
             });
 
             // drive_to: 차량 운전하여 목적지로 이동
-            // drive_to(unit_id, region_id, location_id) → {success, message, time_consumed}
+            // drive_to(unit_id, region_id, location_id) → {success, message, time_consumed(밀리초)}
             morldModule.ModuleDict["drive_to"] = new PyBuiltinFunction("drive_to", args =>
             {
                 if (args.Length < 3)
@@ -1733,12 +1739,12 @@ namespace SE
         /// </summary>
         private void RegisterTimeQueryAPI(PyModule morldModule)
         {
-            // get_game_time: 현재 게임 시간 (분 단위) 반환
+            // get_game_time: 현재 게임 시간 (밀리초 단위) 반환
             morldModule.ModuleDict["get_game_time"] = new PyBuiltinFunction("get_game_time", args =>
             {
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                 var time = _worldSystem.GetTime();
-                return new PyInt(time.MinuteOfDay);
+                return new PyInt(time.MillisOfDay);
             });
 
             // get_time_info: 현재 시간 정보 (year, month, day, weekday, hour, minute, weather, region_name, location_name) 반환
@@ -1935,7 +1941,7 @@ namespace SE
 
                 var time = _worldSystem.GetTime();
                 var currentLoc = unit.CurrentLocation;
-                unit.JobList.FillFromSchedule(schedule, time.MinuteOfDay, 1440, currentLoc.RegionId, currentLoc.LocalId);
+                unit.JobList.FillFromSchedule(schedule, time.MillisOfDay, GameTime.MillisPerDay, currentLoc.RegionId, currentLoc.LocalId);
                 return PyBool.True;
             });
 
@@ -2133,9 +2139,9 @@ namespace SE
 
         /// <summary>
         /// 생존 시스템 시간 경과 처리 (advance_time에서 호출)
-        /// Python survival.process_time_elapsed(player_id, minutes) 호출
+        /// Python survival.process_time_elapsed(player_id, millis) 호출
         /// </summary>
-        private void ProcessSurvivalTimeElapsed(int minutes)
+        private void ProcessSurvivalTimeElapsed(int millis)
         {
             try
             {
@@ -2146,7 +2152,7 @@ namespace SE
                 int playerId = playerSystem.PlayerId;
 
                 // Python survival 모듈의 process_time_elapsed 호출
-                Execute($"import survival; survival.process_time_elapsed({playerId}, {minutes})");
+                Execute($"import survival; survival.process_time_elapsed({playerId}, {millis})");
             }
             catch (System.Exception)
             {

@@ -34,9 +34,13 @@ STEALTH_BASE_CHANCE = 0.3      # 기본 은신 확률 30%
 STEALTH_HIDING_BONUS = 0.4     # 은신 중일 때 추가 확률 +40%
 INTERRUPT_JOIN_THRESHOLD = 60  # 합류 가능 최소 호감도
 
+# 시간 상수 (밀리초)
+MILLIS_PER_MINUTE = 60_000
+MILLIS_PER_DAY = 86_400_000
+
 # NPC 대기 스케줄
 STAY_SCHEDULE = [
-    {"name": "대기", "action": "stay", "start": 0, "end": 1440, "activity": "대기"}
+    {"name": "대기", "action": "stay", "start": 0, "end": MILLIS_PER_DAY, "activity": "대기"}
 ]
 
 # 스태미나 설정
@@ -47,17 +51,17 @@ DEFAULT_STAMINA = 10
 # exp_part: 신체 부위 (충돌 판정용) - None이면 충돌 없음
 PLAYER_INSTANT_ACTIONS = {
     "head_pat": {
-        "name": "머리 쓰다듬기", "time": 3, "stamina": 1,
+        "name": "머리 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 2, "애정": 1},
         "exp_part": "머리", "affection_req": 40
     },
     "cheek_caress": {
-        "name": "뺨 어루만지기", "time": 2, "stamina": 1,
+        "name": "뺨 어루만지기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 1, "애정": 1},
         "exp_part": "뺨", "affection_req": 30
     },
     "whisper": {
-        "name": "속삭이기", "time": 2, "stamina": 1,
+        "name": "속삭이기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 2, "애정": 2},
         "exp_part": None, "affection_req": 50
     },
@@ -67,17 +71,17 @@ PLAYER_INSTANT_ACTIONS = {
 # exp_part: 신체 부위 (충돌 판정용) - None이면 충돌 없음
 NPC_TOGGLE_ACTIONS = {
     "hug": {
-        "name": "껴안기", "time": 5, "stamina": 1,
+        "name": "껴안기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 1, "애정": 2},
         "exp_part": None, "affection_req": 50
     },
     "deep_kiss": {
-        "name": "딥키스", "time": 5, "stamina": 2,
+        "name": "딥키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "애정": 2, "성욕": 3},
         "exp_part": "입술", "affection_req": 70
     },
     "breast_touch": {
-        "name": "가슴 만지기", "time": 5, "stamina": 2,
+        "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"애정": 1, "성욕": 4},
         "exp_part": "가슴", "affection_req": 80
     },
@@ -373,19 +377,19 @@ def check_third_party_arrival(state):
     return {"interrupted": False}
 
 
-def advance_time_and_check_npc_initiative(state, minutes):
+def advance_time_and_check_npc_initiative(state, millis):
     """
     시간 경과 + NPC 도착 체크 (NPC 주도용)
 
     Args:
         state: 현재 상태 dict
-        minutes: 경과 시간 (분)
+        millis: 경과 시간 (밀리초)
 
     Returns:
         dict: {"interrupted": bool, "interrupter_id": int or None}
     """
     # 시간 진행 + NPC 이동 시뮬레이션
-    morld.advance_time_simulate(minutes)
+    morld.advance_time_simulate(millis)
 
     # 제3자 도착 체크
     return check_third_party_arrival(state)
@@ -486,7 +490,7 @@ def execute_npc_action(state, action):
     npc_id = state["npc_id"]
     player_id = state["player_id"]
     action_type = action.get("action", "hug")
-    duration = action.get("duration", 5)
+    duration = action.get("duration", 5 * MILLIS_PER_MINUTE)
 
     # 효과 적용 (romance.py의 TOGGLE_ACTIONS 참조)
     npc_asset = get_npc_asset(npc_id)
@@ -557,7 +561,7 @@ def handle_npc_initiative_interruption(state, npc_name):
     morld.add_unit_mood(npc_id, "부끄러움")
 
     # NPC가 도망감
-    morld.set_npc_job(npc_id, "flee", 30, player_id)
+    morld.set_npc_job(npc_id, "flee", 30 * MILLIS_PER_MINUTE, player_id)
 
     # 목격자 호감도 감소
     player_info = morld.get_unit_info(player_id)
@@ -925,12 +929,12 @@ def start_npc_initiative(player_id, npc_id):
                         ecstasy_reaction = result
 
             # 시간 경과 + 제3자 감지 체크 (활성 토글 중 첫 번째 기준, 기본 5분)
-            time_elapsed = 5
+            time_elapsed = 5 * MILLIS_PER_MINUTE
             first_toggle = next(iter(state["active_toggles"]), None)
             if first_toggle:
                 td = NPC_TOGGLE_ACTIONS.get(first_toggle)
                 if td:
-                    time_elapsed = td.get("time", 5)
+                    time_elapsed = td.get("time", 5 * MILLIS_PER_MINUTE)
 
             check_result = advance_time_and_check_npc_initiative(state, time_elapsed)
 

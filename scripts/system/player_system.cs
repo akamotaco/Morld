@@ -19,12 +19,12 @@ namespace SE
 	public class PlayerSystem : ECS.System
 	{
 		/// <summary>
-		/// 다음 Step에서 진행할 시간 (분)
+		/// 다음 Step에서 진행할 시간 (밀리초)
 		/// </summary>
 		public int NextStepDuration { get; private set; } = 0;
 
 		/// <summary>
-		/// 아직 처리해야 할 남은 시간 (분)
+		/// 아직 처리해야 할 남은 시간 (밀리초)
 		/// </summary>
 		private int _remainingDuration = 0;
 
@@ -58,11 +58,13 @@ namespace SE
 		/// 초과 시간 추가 (다이얼로그에서 NextStepDuration 초과 시)
 		/// 플레이어가 이미 소비한 시간이므로 입력 없이 자동 처리됨
 		/// </summary>
-		public void AddExcessTime(int minutes)
+		public void AddExcessTime(int millis)
 		{
-			_remainingDuration += minutes;
+			_remainingDuration += millis;
 #if DEBUG_LOG
-			GD.Print($"[PlayerSystem] ExcessTime 추가: +{minutes}분 (총 대기: {_remainingDuration}분)");
+			int displayMin = millis / GameTime.MillisPerMinute;
+			int totalMin = _remainingDuration / GameTime.MillisPerMinute;
+			GD.Print($"[PlayerSystem] ExcessTime 추가: +{displayMin}분 (총 대기: {totalMin}분)");
 #endif
 		}
 
@@ -92,20 +94,22 @@ namespace SE
 		/// <summary>
 		/// 시간 진행 요청 (외부에서 호출)
 		/// </summary>
-		/// <param name="minutes">진행할 시간 (분)</param>
+		/// <param name="millis">진행할 시간 (밀리초)</param>
 		/// <param name="actionName">액션 이름 (디버그용)</param>
-		public void RequestTimeAdvance(int minutes, string actionName = "")
+		public void RequestTimeAdvance(int millis, string actionName = "")
 		{
-			_remainingDuration += minutes;
-			if (minutes == 0) _hasInstantAction = true;
+			_remainingDuration += millis;
+			if (millis == 0) _hasInstantAction = true;
 			_currentAction = actionName;
 
 #if DEBUG_LOG
+			int reqMin = millis / GameTime.MillisPerMinute;
+			int totalMin = _remainingDuration / GameTime.MillisPerMinute;
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 			GD.Print($"[PlayerSystem] 시간 진행 요청!");
 			GD.Print($"  액션: {actionName}");
-			GD.Print($"  요청 시간: {minutes}분");
-			GD.Print($"  총 대기 시간: {_remainingDuration}분");
+			GD.Print($"  요청 시간: {reqMin}분 ({millis}ms)");
+			GD.Print($"  총 대기 시간: {totalMin}분 ({_remainingDuration}ms)");
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 #endif
 		}
@@ -124,25 +128,27 @@ namespace SE
 		/// <summary>
 		/// 다음 Step 시간 조정 (EventPredictionSystem에서 호출)
 		/// </summary>
-		/// <param name="adjustedMinutes">조정할 시간 (분)</param>
-		public void AdjustNextStepDuration(int adjustedMinutes)
+		/// <param name="adjustedMillis">조정할 시간 (밀리초)</param>
+		public void AdjustNextStepDuration(int adjustedMillis)
 		{
-			if (adjustedMinutes <= 0 || adjustedMinutes >= NextStepDuration)
+			if (adjustedMillis <= 0 || adjustedMillis >= NextStepDuration)
 				return;
 
 #if DEBUG_LOG
-			GD.Print($"[PlayerSystem] NextStepDuration 조정: {NextStepDuration} → {adjustedMinutes}분");
+			int fromMin = NextStepDuration / GameTime.MillisPerMinute;
+			int toMin = adjustedMillis / GameTime.MillisPerMinute;
+			GD.Print($"[PlayerSystem] NextStepDuration 조정: {fromMin}분 → {toMin}분 ({adjustedMillis}ms)");
 #endif
 
-			NextStepDuration = adjustedMinutes;
-			_lastSetDuration = adjustedMinutes;
+			NextStepDuration = adjustedMillis;
+			_lastSetDuration = adjustedMillis;
 		}
 
 		#region 플레이어 액션 요청
 
 		/// <summary>
 		/// 통합 명령 처리
-		/// 포맷: "이동:regionId:localId" 또는 "휴식:minutes"
+		/// 포맷: "이동:regionId:localId" 또는 "휴식:millis"
 		/// </summary>
 		public void RequestCommand(string cmd)
 		{
@@ -163,9 +169,9 @@ namespace SE
 					}
 					break;
 				case "휴식":
-					if (parts.Length >= 2 && int.TryParse(parts[1], out int minutes))
+					if (parts.Length >= 2 && int.TryParse(parts[1], out int millis))
 					{
-						ExecuteIdle(minutes);
+						ExecuteIdle(millis);
 					}
 					break;
 				default:
@@ -236,20 +242,22 @@ namespace SE
 			RequestTimeAdvance(totalTime, moveJob.Name);
 
 #if DEBUG_LOG
-			GD.Print($"[PlayerSystem] 이동 요청: {player.CurrentLocation} → {destination} ({totalTime}분)");
+			int totalMin = totalTime / GameTime.MillisPerMinute;
+			GD.Print($"[PlayerSystem] 이동 요청: {player.CurrentLocation} → {destination} ({totalMin}분, {totalTime}ms)");
 #endif
 		}
 
 		/// <summary>
 		/// 휴식 실행 (스택 변화 없이 시간만 진행)
 		/// </summary>
-		private void ExecuteIdle(int minutes)
+		private void ExecuteIdle(int millis)
 		{
+			int displayMin = millis / GameTime.MillisPerMinute;
 			// 시간 진행 요청 (스택 변화 없음)
-			RequestTimeAdvance(minutes, $"휴식 ({minutes}분)");
+			RequestTimeAdvance(millis, $"휴식 ({displayMin}분)");
 
 #if DEBUG_LOG
-			GD.Print($"[PlayerSystem] 휴식 요청: {minutes}분");
+			GD.Print($"[PlayerSystem] 휴식 요청: {displayMin}분 ({millis}ms)");
 #endif
 		}
 
@@ -257,6 +265,7 @@ namespace SE
 		/// Pi-World 2D 경로 이동 시간 계산
 		/// 각 Location 내 Gate까지 X 좌표 거리 기반 시간 합산
 		/// </summary>
+		/// <returns>총 이동 시간 (밀리초)</returns>
 		private int CalculatePathTravelTime2D(Morld.Terrain terrain, Morld.PathResult pathResult, Unit player)
 		{
 			if (!pathResult.Found || pathResult.Path.Count < 2)
@@ -271,7 +280,7 @@ namespace SE
 			int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
 			float speedModifier = movementSpeedPercent / 100f;
 
-			int totalTime = 0;
+			int totalTimeMillis = 0;
 			float currentX = player.PositionX;
 
 			for (int i = 0; i < pathResult.Path.Count - 1; i++)
@@ -300,20 +309,20 @@ namespace SE
 
 				if (targetGate == null)
 				{
-					totalTime += 1;
+					totalTimeMillis += GameTime.MillisPerMinute;
 					currentX = 0f;
 					continue;
 				}
 
-				// Gate까지 이동 시간 + Gate 통과 시간
-				int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
-				totalTime += travelTime + targetGate.TravelTime;
+				// Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
+				int segmentTimeMillis = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
+				totalTimeMillis += segmentTimeMillis + targetGate.TravelTime;
 
 				// Gate 통과 후 위치 업데이트
 				currentX = targetGate.ArrivalX;
 			}
 
-			return totalTime;
+			return totalTimeMillis;
 		}
 
 		#endregion
@@ -334,12 +343,14 @@ namespace SE
 				_remainingDuration -= _lastSetDuration;
 
 #if DEBUG_LOG
+				int consumedMin = _lastSetDuration / GameTime.MillisPerMinute;
+				int remainMin = _remainingDuration / GameTime.MillisPerMinute;
 				GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 				GD.Print($"[PlayerSystem] Step 완료");
 				GD.Print($"  현재 시간: {time}");
 				GD.Print($"  액션: {_currentAction}");
-				GD.Print($"  소비된 시간: {_lastSetDuration}분");
-				GD.Print($"  남은 시간: {_remainingDuration}분");
+				GD.Print($"  소비된 시간: {consumedMin}분 ({_lastSetDuration}ms)");
+				GD.Print($"  남은 시간: {remainMin}분 ({_remainingDuration}ms)");
 				if (_remainingDuration > 0)
 				{
 					GD.Print($"  ⚠ 다음 Step에서 계속 진행 예정");
@@ -372,16 +383,18 @@ namespace SE
 				return;
 			}
 
-			// 4. 자정까지 남은 시간 계산 (1440분 = 24시간)
-			var minutesToMidnight = 1440 - time.MinuteOfDay;
-			if (minutesToMidnight <= 0) minutesToMidnight = 1440;
+			// 4. 자정까지 남은 시간 계산 (밀리초)
+			var millisToMidnight = GameTime.MillisPerDay - time.MillisOfDay;
+			if (millisToMidnight <= 0) millisToMidnight = GameTime.MillisPerDay;
 
 			// 5. 다음 Step에서 진행할 시간 설정 (자정 제한)
-			NextStepDuration = Math.Min(_remainingDuration, minutesToMidnight);
+			NextStepDuration = Math.Min(_remainingDuration, millisToMidnight);
 			_lastSetDuration = NextStepDuration;
 
 #if DEBUG_LOG
-			GD.Print($"[PlayerSystem] 다음 Step 예약: {NextStepDuration}분 (남은시간: {_remainingDuration}분)");
+			int nextMin = NextStepDuration / GameTime.MillisPerMinute;
+			int remMin = _remainingDuration / GameTime.MillisPerMinute;
+			GD.Print($"[PlayerSystem] 다음 Step 예약: {nextMin}분 ({NextStepDuration}ms) (남은시간: {remMin}분)");
 #endif
 		}
 

@@ -53,7 +53,7 @@ class FoodItem(Item):
         yield ui.dialog(self.eat_message)
 
         # 시간 경과
-        morld.advance_time(self.eat_time)
+        morld.advance_time(self.eat_time * 60_000)
 
 
 # ========================================

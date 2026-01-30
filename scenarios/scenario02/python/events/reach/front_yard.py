@@ -35,7 +35,7 @@ class FrontYardCollapse(ReachEvent):
         morld.set_prop("chapter", 1)
 
         # 시간 경과 (저녁이 되었다고 가정)
-        morld.advance_time(180)  # 3시간 경과
+        morld.advance_time(180 * 60_000)  # 3시간 경과
 
         # 깨어남 모놀로그
         yield ui.dialog([

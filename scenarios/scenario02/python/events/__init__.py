@@ -28,9 +28,9 @@ from assets.characters import get_character_event_handler
 # ========================================
 
 # 시간 경과 이벤트 구독자 목록
-# 각 구독자는 (callback, min_interval) 튜플
-# callback: (minutes) -> None
-# min_interval: 최소 호출 간격 (분). None이면 매 호출마다 실행
+# 각 구독자는 (callback, min_interval_millis) 튜플
+# callback: (millis) -> None
+# min_interval_millis: 최소 호출 간격 (밀리초). None이면 매 호출마다 실행
 _time_elapsed_subscribers = []
 
 
@@ -39,15 +39,15 @@ def subscribe_time_elapsed(callback, min_interval=None):
     시간 경과 이벤트 구독
 
     Args:
-        callback: 콜백 함수 (minutes) -> None
-        min_interval: 최소 호출 간격 (분). None이면 매 호출마다 실행
+        callback: 콜백 함수 (millis) -> None
+        min_interval: 최소 호출 간격 (밀리초). None이면 매 호출마다 실행
 
     Example:
         # 매번 호출
-        subscribe_time_elapsed(lambda m: print(f"{m}분 경과"))
+        subscribe_time_elapsed(lambda ms: print(f"{ms}ms 경과"))
 
-        # 60분마다 호출
-        subscribe_time_elapsed(my_hourly_callback, min_interval=60)
+        # 60분(3,600,000ms)마다 호출
+        subscribe_time_elapsed(my_hourly_callback, min_interval=3_600_000)
     """
     _time_elapsed_subscribers.append({
         "callback": callback,
@@ -56,12 +56,12 @@ def subscribe_time_elapsed(callback, min_interval=None):
     })
 
 
-def _handle_time_elapsed(minutes):
+def _handle_time_elapsed(millis):
     """
     시간 경과 이벤트 처리 - 모든 구독자에게 알림
 
     Args:
-        minutes: 경과 시간 (분)
+        millis: 경과 시간 (밀리초)
     """
     for subscriber in _time_elapsed_subscribers:
         callback = subscriber["callback"]
@@ -70,12 +70,12 @@ def _handle_time_elapsed(minutes):
         if min_interval is None:
             # 매번 호출
             try:
-                callback(minutes)
+                callback(millis)
             except Exception as e:
                 print(f"[events] time_elapsed callback error: {e}")
         else:
             # 누적 시간 기반 호출
-            subscriber["accumulated"] += minutes
+            subscriber["accumulated"] += millis
             while subscriber["accumulated"] >= min_interval:
                 subscriber["accumulated"] -= min_interval
                 try:
@@ -303,8 +303,8 @@ def on_single_event(event):
             return registry.handle_reach(player_id, region_id, location_id)
 
     elif event_type == "on_time_elapsed":
-        minutes = event[1]
-        _handle_time_elapsed(minutes)
+        millis = event[1]
+        _handle_time_elapsed(millis)
         return None  # 시간 이벤트는 다이얼로그 없음
 
     elif event_type == "on_equip_change":

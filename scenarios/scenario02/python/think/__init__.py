@@ -37,7 +37,7 @@ class BaseAgent:
 
     # 공용 스케줄: 현재 위치에서 대기 (24시간)
     STAY_SCHEDULE = [
-        {"name": "대기", "action": "stay", "start": 0, "end": 1440, "activity": "대기"}
+        {"name": "대기", "action": "stay", "start": 0, "end": 86_400_000, "activity": "대기"}
     ]
 
     def __init__(self, unit_id):

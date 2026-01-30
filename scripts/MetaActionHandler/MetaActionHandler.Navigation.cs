@@ -13,8 +13,8 @@ public partial class MetaActionHandler
 	/// 이동 액션 처리: move:regionId:localId 또는 confirm_move:regionId:localId
 	/// </summary>
 	/// <param name="parts">move:regionId:localId 또는 confirm_move:regionId:localId</param>
-	/// <param name="thresholdMinutes">이 시간(분) 이상이면 확인 다이얼로그, 0이면 즉시 이동</param>
-	private void HandleMoveAction(string[] parts, int thresholdMinutes)
+	/// <param name="thresholdMillis">이 시간(밀리초) 이상이면 확인 다이얼로그, 0이면 즉시 이동</param>
+	private void HandleMoveAction(string[] parts, int thresholdMillis)
 	{
 		if (parts.Length < 3)
 		{
@@ -29,8 +29,8 @@ public partial class MetaActionHandler
 		}
 
 		// threshold가 0이면 무한대로 처리 (다이얼로그 없이 즉시 이동)
-		int effectiveThreshold = thresholdMinutes == 0 ? int.MaxValue : thresholdMinutes;
-		ExecuteMoveWithConfirm(regionId, localId, effectiveThreshold);
+		int effectiveThresholdMillis = thresholdMillis == 0 ? int.MaxValue : thresholdMillis;
+		ExecuteMoveWithConfirm(regionId, localId, effectiveThresholdMillis);
 	}
 
 	/// <summary>
@@ -38,8 +38,8 @@ public partial class MetaActionHandler
 	/// </summary>
 	/// <param name="regionId">목적지 Region ID</param>
 	/// <param name="localId">목적지 Location ID</param>
-	/// <param name="thresholdMinutes">이 시간(분) 이상이면 확인 다이얼로그 표시</param>
-	private void ExecuteMoveWithConfirm(int regionId, int localId, int thresholdMinutes)
+	/// <param name="thresholdMillis">이 시간(밀리초) 이상이면 확인 다이얼로그 표시</param>
+	private void ExecuteMoveWithConfirm(int regionId, int localId, int thresholdMillis)
 	{
 		// TODO: 조건부 이동 체크 (locked 조건)
 		// var (canMove, blockMessage) = CheckMoveConditions(regionId, localId);
@@ -52,18 +52,18 @@ public partial class MetaActionHandler
 		// }
 
 		// 이동 시간 계산 (경로 탐색 + 시간 계산)
-		int travelTime = CalculateTravelTimeToDestination(regionId, localId);
-		if (travelTime < 0)
+		int travelTimeMillis = CalculateTravelTimeToDestination(regionId, localId);
+		if (travelTimeMillis < 0)
 		{
 			_textUISystem?.ShowResult("이동할 수 없습니다.");
 			return;
 		}
 
 		// threshold 이상이면 확인 다이얼로그
-		if (travelTime >= thresholdMinutes)
+		if (travelTimeMillis >= thresholdMillis)
 		{
 			// 이동 확인 메시지 생성
-			string message = FormatTravelTimeMessage(travelTime);
+			string message = FormatTravelTimeMessage(travelTimeMillis);
 
 			// Yes 클릭 시 실행할 작업 저장
 			_pendingAction = () => _playerSystem?.RequestCommand($"이동:{regionId}:{localId}");
@@ -79,18 +79,25 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 이동 시간 포맷팅
+	/// 이동 시간 포맷팅 (밀리초 → 시간/분 텍스트)
 	/// </summary>
-	private string FormatTravelTimeMessage(int travelTimeMinutes)
+	private string FormatTravelTimeMessage(int travelTimeMillis)
 	{
-		int hours = travelTimeMinutes / 60;
-		int minutes = travelTimeMinutes % 60;
-		string timeText = minutes > 0 ? $"{hours}시간 {minutes}분" : $"{hours}시간";
+		int totalMinutes = travelTimeMillis / GameTime.MillisPerMinute;
+		int hours = totalMinutes / 60;
+		int minutes = totalMinutes % 60;
+
+		string timeText;
+		if (hours > 0)
+			timeText = minutes > 0 ? $"{hours}시간 {minutes}분" : $"{hours}시간";
+		else
+			timeText = $"{minutes}분";
+
 		return $"이동하는 데 {timeText}이 걸립니다. 이동하시겠습니까?";
 	}
 
 	/// <summary>
-	/// 휴식 액션 처리: idle:minutes
+	/// 휴식 액션 처리: idle:millis
 	/// </summary>
 	private void HandleIdleAction(string[] parts)
 	{
@@ -100,7 +107,7 @@ public partial class MetaActionHandler
 		}
 		else
 		{
-			GD.PrintErr("[MetaActionHandler] Invalid idle format. Expected: idle:minutes");
+			GD.PrintErr("[MetaActionHandler] Invalid idle format. Expected: idle:millis");
 		}
 	}
 
@@ -330,7 +337,7 @@ public partial class MetaActionHandler
 	/// Pi-World: X 좌표 기반 거리 계산
 	/// Legacy: 경로 기반 시간 합산
 	/// </summary>
-	/// <returns>이동 시간(분), 경로 없으면 -1</returns>
+	/// <returns>이동 시간(밀리초), 경로 없으면 -1</returns>
 	private int CalculateTravelTimeToDestination(int regionId, int localId)
 	{
 		var destination = new LocationRef(regionId, localId);
@@ -368,7 +375,7 @@ public partial class MetaActionHandler
 	/// <param name="pathResult">경로 탐색 결과</param>
 	/// <param name="player">플레이어 유닛</param>
 	/// <param name="actualProps">실제 속성 (이동 속도 등)</param>
-	/// <returns>총 이동 시간 (분)</returns>
+	/// <returns>총 이동 시간 (밀리초)</returns>
 	private int CalculatePathTravelTime2D(Terrain terrain, PathResult pathResult, Unit player, TraversalContext actualProps)
 	{
 		if (!pathResult.Found || pathResult.Path.Count < 2)
@@ -382,7 +389,7 @@ public partial class MetaActionHandler
 		int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
 		float speedModifier = movementSpeedPercent / 100f;
 
-		int totalTime = 0;
+		int totalTimeMillis = 0;
 		float currentX = player.PositionX;
 		var currentLocRef = player.CurrentLocation;
 
@@ -414,23 +421,23 @@ public partial class MetaActionHandler
 
 			if (targetGate == null)
 			{
-				// Gate를 못 찾으면 기본값 사용
-				totalTime += 1;
+				// Gate를 못 찾으면 기본값 사용 (1분)
+				totalTimeMillis += GameTime.MillisPerMinute;
 				currentLocRef = toLocRef;
 				currentX = 0f;
 				continue;
 			}
 
-			// Gate까지 이동 시간 + Gate 통과 시간
-			int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
-			totalTime += travelTime + targetGate.TravelTime;
+			// Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
+			int segmentTimeMillis = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
+			totalTimeMillis += segmentTimeMillis + targetGate.TravelTime;
 
 			// Gate 통과 후 위치 업데이트
 			currentLocRef = toLocRef;
 			currentX = targetGate.ArrivalX;
 		}
 
-		return totalTime;
+		return totalTimeMillis;
 	}
 
 	/// <summary>

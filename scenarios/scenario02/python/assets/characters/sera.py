@@ -68,6 +68,8 @@ import ui
 from assets.base import Character
 from think import BaseAgent, register_agent_class
 
+_M = 60_000  # millis per minute
+
 
 class Sera(Character):
     unique_id = "sera"
@@ -460,7 +462,7 @@ class Sera(Character):
     INITIATIVE_CONFIG = {
         "arousal_threshold": 70,      # 성욕 70 이상
         "affection_threshold": 60,    # 호감도 60 이상
-        "cooldown_minutes": 480,      # 8시간 쿨다운
+        "cooldown_millis": 480 * _M,   # 8시간 쿨다운
     }
 
     # 조건별 액션 시퀀스 (위에서부터 매칭)
@@ -534,7 +536,7 @@ class Sera(Character):
     EVENT_DIALOGS = {
         "first_meet": {
             "pages": ["......", "...일어났군.", "...세라다. 사냥을 맡고 있다.", "...무리하지 마라."],
-            "follow_duration": 2,  # 대화 후 2분간 플레이어 따라가기
+            "follow_duration": 2 * _M,  # 대화 후 2분간 플레이어 따라가기
         },
     }
 
@@ -566,7 +568,7 @@ class Sera(Character):
             yield ui.dialog([f"[{name}]", "...조용히만 해."])
             # 플레이어를 따라다니기 (30분)
             player_id = morld.get_player_id()
-            morld.set_npc_job(self.instance_id, "follow", 30, player_id)
+            morld.set_npc_job(self.instance_id, "follow", 30 * _M, player_id)
         else:
             yield ui.dialog([f"[{name}]", "...그래."])
 
@@ -587,7 +589,7 @@ class Sera(Character):
             yield ui.dialog([f"[{name}]", "...따라와."])
             # 플레이어를 따라다니기 (60분)
             player_id = morld.get_player_id()
-            morld.set_npc_job(self.instance_id, "follow", 60, player_id)
+            morld.set_npc_job(self.instance_id, "follow", 60 * _M, player_id)
         else:
             yield ui.dialog([f"[{name}]", "...알았다."])
 
@@ -897,16 +899,16 @@ class SeraAgent(BaseAgent):
     """
 
     SCHEDULE = [
-        {"name": "기상", "region_id": 0, "location_id": 8, "start": 300, "end": 360, "activity": "준비"},
-        {"name": "아침순찰", "region_id": 0, "location_id": 12, "start": 360, "end": 420, "activity": "순찰"},  # 앞마당
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420, "end": 480, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 540, "end": 720, "activity": "사냥"},
-        {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720, "end": 780, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 840, "end": 1020, "activity": "사냥"},
-        {"name": "저녁순찰", "region_id": 0, "location_id": 20, "start": 1020, "end": 1080, "activity": "순찰"},  # 숲 입구
-        {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110, "end": 1170, "activity": "식사"},
-        {"name": "장비정비", "region_id": 0, "location_id": 8, "start": 1200, "end": 1290, "activity": "정비"},
-        {"name": "수면", "region_id": 0, "location_id": 8, "start": 1290, "end": 300, "activity": "수면"},
+        {"name": "기상", "region_id": 0, "location_id": 8, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
+        {"name": "아침순찰", "region_id": 0, "location_id": 12, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},  # 앞마당
+        {"name": "아침식사", "region_id": 0, "location_id": 3, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 540 * _M, "end": 720 * _M, "activity": "사냥"},
+        {"name": "점심식사", "region_id": 0, "location_id": 3, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+        {"name": "사냥", "region_id": 0, "location_id": 24, "start": 840 * _M, "end": 1020 * _M, "activity": "사냥"},
+        {"name": "저녁순찰", "region_id": 0, "location_id": 20, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},  # 숲 입구
+        {"name": "저녁식사", "region_id": 0, "location_id": 3, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+        {"name": "장비정비", "region_id": 0, "location_id": 8, "start": 1200 * _M, "end": 1290 * _M, "activity": "정비"},
+        {"name": "수면", "region_id": 0, "location_id": 8, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
     ]
 
     def __init__(self, unit_id):

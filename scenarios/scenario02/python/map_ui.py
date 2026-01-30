@@ -72,15 +72,15 @@ def show_map():
     # 선택된 목적지가 있으면 이동 확인
     if state["selected"]:
         dest_region, dest_local = state["selected"]
-        travel_time = morld.get_travel_time(
+        travel_time_millis = morld.get_travel_time(
             state["region_id"], state["local_id"],
             dest_region, dest_local,
             player_id
         )
 
-        if travel_time > 0:
+        if travel_time_millis > 0:
             # 이동 시간 표시 및 확인
-            time_text = _format_time(travel_time)
+            time_text = _format_time(travel_time_millis)
 
             # 목적지 이름 조회
             region_info = morld.get_region_info(dest_region)
@@ -152,7 +152,9 @@ def _render_map(state: dict) -> str:
                 continue
             info = morld.get_unit_info(unit_id)
             if info and not info.get("is_object", False):
-                characters.append(info.get("name", "???"))
+                name = info.get("name", "???")
+                x = info.get("x", 0)
+                characters.append(f"{name}(X:{int(x)})")
         location_characters[loc_id] = characters
 
     # 이동 중인 캐릭터 조회 (Pi-World: Location 내 이동)
@@ -173,7 +175,8 @@ def _render_map(state: dict) -> str:
             unit_local = info.get("location_id")
             if unit_region == region_id and unit_local is not None:
                 name = info.get("name", "???")
-                display = f"🚶{name}"  # 이동 중 표시
+                x = info.get("x", 0)
+                display = f"🚶{name}(X:{int(x)})"  # 이동 중 표시
                 if unit_local not in location_characters:
                     location_characters[unit_local] = []
                 location_characters[unit_local].append(display)
@@ -236,18 +239,18 @@ def _render_map(state: dict) -> str:
         else:
             # 이동 가능 표시 (클릭 가능)
             marker = "- "
-            travel_time = morld.get_travel_time(
+            travel_time_millis = morld.get_travel_time(
                 region_id, current_local,
                 region_id, loc_id,
                 morld.get_player_id()
             )
-            if travel_time > 0:
-                time_text = _format_time(travel_time)
+            if travel_time_millis > 0:
+                time_text = _format_time(travel_time_millis)
                 tree_lines.append(
                     f"{indent}{marker}[url=@proc:{region_id}:{loc_id}]{loc_info['name']}[/url]{char_text} "
                     f"[color=gray]({time_text})[/color]"
                 )
-            elif travel_time == 0:
+            elif travel_time_millis == 0:
                 # 바로 옆 (이미 같은 위치 - shouldn't happen)
                 tree_lines.append(f"{indent}{marker}{loc_info['name']}{char_text}")
             else:
@@ -267,12 +270,12 @@ def _render_map(state: dict) -> str:
         # 각 인접 장소까지의 이동 시간 계산 후 정렬
         neighbor_times = []
         for neighbor_id in neighbors:
-            travel_time = morld.get_travel_time(
+            t_millis = morld.get_travel_time(
                 region_id, current_local,
                 region_id, neighbor_id,
                 morld.get_player_id()
             )
-            neighbor_times.append((neighbor_id, travel_time if travel_time >= 0 else 999999))
+            neighbor_times.append((neighbor_id, t_millis if t_millis >= 0 else 999999))
         neighbor_times.sort(key=lambda x: x[1])
 
         for neighbor_id, _ in neighbor_times:
@@ -294,12 +297,13 @@ def _render_map(state: dict) -> str:
     return "[!]" + "\n".join(lines) + "[/!]"
 
 
-def _format_time(minutes: int) -> str:
-    """분 단위 시간을 읽기 좋은 형식으로 변환"""
-    if minutes < 60:
-        return f"{minutes}분"
-    hours = minutes // 60
-    mins = minutes % 60
+def _format_time(millis: int) -> str:
+    """밀리초 단위 시간을 읽기 좋은 형식으로 변환"""
+    total_minutes = millis // 60_000
+    if total_minutes < 60:
+        return f"{total_minutes}분"
+    hours = total_minutes // 60
+    mins = total_minutes % 60
     if mins > 0:
         return f"{hours}시간 {mins}분"
     return f"{hours}시간"

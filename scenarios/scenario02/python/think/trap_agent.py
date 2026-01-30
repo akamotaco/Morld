@@ -11,6 +11,7 @@
 
 import random
 import morld
+MILLIS_PER_MINUTE = 60_000
 from assets.objects import get_instance
 from assets.registry import get_or_create_item_id
 
@@ -20,10 +21,10 @@ from assets.registry import get_or_create_item_id
 # === 토끼 굴 설정 ===
 # unique_id: (check_interval, catch_chance)
 RABBIT_BURROW_CONFIG = {
-    "rabbit_burrow": (360, 0.4),  # 6시간마다 체크, 40% 확률
+    "rabbit_burrow": (360 * MILLIS_PER_MINUTE, 0.4),  # 6시간마다 체크, 40% 확률
 }
 
-# 오브젝트별 누적 시간: instance_id -> accumulated_minutes
+# 오브젝트별 누적 시간: instance_id -> accumulated_millis
 _accumulated_time = {}
 
 # 등록된 토끼 굴: instance_id -> unique_id
@@ -64,13 +65,13 @@ def clear_all():
     print("[trap_agent] All registrations cleared.")
 
 
-def _process_trap_check(instance_id: int, minutes: int):
+def _process_trap_check(instance_id: int, millis: int):
     """
     개별 토끼 굴의 덫 체크 처리
 
     Args:
         instance_id: 오브젝트 인스턴스 ID
-        minutes: 경과 시간 (분)
+        millis: 경과 시간 (밀리초)
     """
     unique_id = _registered_burrows.get(instance_id)
     if not unique_id:
@@ -83,7 +84,7 @@ def _process_trap_check(instance_id: int, minutes: int):
     check_interval, catch_chance = config
 
     # 시간 누적
-    _accumulated_time[instance_id] += minutes
+    _accumulated_time[instance_id] += millis
 
     # check_interval 이상이면 체크
     while _accumulated_time[instance_id] >= check_interval:
@@ -131,14 +132,14 @@ def _check_and_convert_trap(instance_id: int, catch_chance: float):
         print(f"[trap_agent] Failed to create trapped_rabbit item")
 
 
-def _on_time_elapsed(minutes: int):
+def _on_time_elapsed(millis: int):
     """
     OnTimeElapsed 이벤트 핸들러
 
     모든 등록된 토끼 굴에 대해 시간 처리
     """
     for instance_id in list(_registered_burrows.keys()):
-        _process_trap_check(instance_id, minutes)
+        _process_trap_check(instance_id, millis)
 
 
 # ========================================

@@ -579,7 +579,7 @@ public class Terrain
     /// <param name="pathResult">FindPath 결과</param>
     /// <param name="startX">출발 X 좌표 (기본 0)</param>
     /// <param name="speedModifier">이동 속도 배율 (기본 1.0)</param>
-    /// <returns>총 이동 시간 (분), 경로가 없으면 0</returns>
+    /// <returns>총 이동 시간 (밀리초), 경로가 없으면 0</returns>
     public int CalculatePathTravelTime(PathResult pathResult, float startX = 0f, float speedModifier = 1.0f)
     {
         if (!pathResult.Found || pathResult.Path.Count < 2)
@@ -613,12 +613,12 @@ public class Terrain
 
             if (targetGate == null)
             {
-                totalTime += 1;
+                totalTime += GameTime.MillisPerMinute;  // 1분 (밀리초)
                 currentX = 0f;
                 continue;
             }
 
-            // Gate까지 이동 시간 계산
+            // Gate까지 이동 시간 계산 (밀리초)
             int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
             totalTime += travelTime;
 
@@ -1181,8 +1181,10 @@ public class Terrain
     /// </summary>
     /// <param name="from">출발 위치</param>
     /// <param name="actualProps">유닛의 실제 Props (장비 효과 포함)</param>
+    /// <param name="unitX">유닛의 현재 X 좌표 (이동 시간 계산용)</param>
+    /// <param name="speedModifier">이동 속도 배율 (1.0 = 기본)</param>
     /// <returns>이동 가능한 경로 목록 (표시 이름 제외)</returns>
-    public List<RawRouteInfo> BuildRawRoutes(LocationRef from, TraversalContext actualProps)
+    public List<RawRouteInfo> BuildRawRoutes(LocationRef from, TraversalContext actualProps, float unitX = 0f, float speedModifier = 1.0f)
     {
         var routes = new List<RawRouteInfo>();
 
@@ -1200,10 +1202,12 @@ public class Terrain
             var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
 
             var isRegionGate = gate.ConnectedLocation.RegionId != from.RegionId;
+            // Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
+            int travelTimeMillis = location.CalculateTravelTime(unitX, gate.X, speedModifier) + gate.TravelTime;
             routes.Add(new RawRouteInfo
             {
                 Destination = gate.ConnectedLocation,
-                TravelTime = 0,  // Gate 통과 시간 = 0, 실제 이동은 Location 내 거리 기반
+                TravelTime = travelTimeMillis,
                 IsRegionGate = isRegionGate,
                 IsBlocked = !canPass,
                 BlockedReason = blockedReason,
