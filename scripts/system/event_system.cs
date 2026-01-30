@@ -414,7 +414,7 @@ namespace SE
 			// 플레이어와 같은 Location에서 충돌 반경 내 유닛 수집
 			var unitsInContact = new List<int>();
 
-			float playerX = player.CurrentMovement?.CurrentX ?? player.PositionX;
+			float playerX = player.PositionX;
 
 			foreach (var unit in _unitSystem.Units.Values)
 			{
@@ -422,7 +422,7 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 				if (unit.CurrentLocation != playerLocation) continue;
 
-				float unitX = unit.CurrentMovement?.CurrentX ?? unit.PositionX;
+				float unitX = unit.PositionX;
 				float distance = location.CalculateDistance(playerX, unitX);
 
 				if (distance <= COLLISION_RADIUS)
@@ -498,8 +498,8 @@ namespace SE
 				if (unit.CurrentLocation != player.CurrentLocation) continue;
 
 				// 현재 위치 기준 거리 계산
-				float playerCurrentX = playerMovement.CurrentX;
-				float unitCurrentX = unit.CurrentMovement?.CurrentX ?? unit.PositionX;
+				float playerCurrentX = player.PositionX;
+				float unitCurrentX = unit.PositionX;
 
 				float distance = location.CalculateDistance(playerCurrentX, unitCurrentX);
 				if (distance <= COLLISION_RADIUS)

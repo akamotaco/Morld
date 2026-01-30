@@ -43,9 +43,14 @@ public class Unit : IOwnable
 
 	/// <summary>
 	/// Location 내 X 좌표 (Pi-World)
-	/// Line: 거리, Ring: 각도 (0~360)
+	/// 이동 중이면 보간된 현재 위치, 정지 상태면 저장된 위치 반환
 	/// </summary>
-	public float PositionX { get; set; } = 0f;
+	public float PositionX
+	{
+		get => _currentMovement?.CurrentX ?? _positionX;
+		set => _positionX = value;
+	}
+	private float _positionX = 0f;
 
 	/// <summary>
 	/// Location 내 Y 좌표 (확장용, 현재 미사용)

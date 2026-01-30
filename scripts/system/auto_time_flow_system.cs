@@ -31,7 +31,7 @@ namespace SE
         /// <summary>
         /// 게임 시간 간격 (밀리초) - 한 번에 흐르는 게임 시간
         /// </summary>
-        public int GameTimeIntervalMillis { get; set; } = Morld.GameTime.MillisPerSecond;
+        public int GameTimeIntervalMillis { get; set; } = Morld.GameTime.MillisPerMinute;
 
         /// <summary>
         /// 누적된 실시간 (초)
