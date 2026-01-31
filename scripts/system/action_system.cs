@@ -411,31 +411,7 @@ namespace SE
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 			var player = playerSystem.FindPlayerUnit();
 
-			// 1. 이동 가능 경로
-			if (lookResult.Routes.Count > 0)
-			{
-				items.Add("[color=cyan]이동 가능:[/color]");
-				foreach (var route in lookResult.Routes)
-				{
-					// 숨김 처리 (조건 키에 # 마커가 있고 조건 미충족)
-					if (route.IsHidden)
-						continue;
-
-					if (route.IsBlocked)
-					{
-						// grey out 처리 (조건 미충족)
-						items.Add($"  [color=gray]- {route.LocationName}[/color]");
-					}
-					else
-					{
-						// 활성화 (이동 가능)
-						var regionTag = route.IsRegionGate ? $" [{route.RegionName}]" : "";
-						var meta = $"move:{route.Destination.RegionId}:{route.Destination.LocalId}";
-						int travelMin = route.TravelTime / Morld.GameTime.MillisPerMinute;
-						items.Add($"  [url={meta}]{route.LocationName}{regionTag} ({travelMin}분)[/url]");
-					}
-				}
-			}
+			// 1. 이동 경로는 Python ui.py에서 morld.get_movement_info()로 렌더링
 
 			// 2. 앉은 상태 행동
 			if (player != null)

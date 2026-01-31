@@ -271,15 +271,85 @@ def ui_get_move_confirm_message(travel_time_millis):
     return f"이동하는 데 {time_text}이 걸립니다. 이동하시겠습니까?"
 
 
+def _render_movement(info: dict) -> list:
+    """
+    이동 UI 렌더링 - Gate X 순서로 나열, 플레이어 위치 삽입
+
+    Args:
+        info: morld.get_movement_info() 반환값
+    Returns:
+        list[str]: BBCode 줄 목록
+    """
+    lines = []
+    geometry = info["geometry"]  # "ring" or "line"
+    player_x = info["player_x"]
+
+    # 은신 상태 체크
+    player_id = morld.get_player_id()
+    hiding = False
+    if player_id is not None:
+        props = morld.get_actual_props(player_id)
+        hiding = props.get("hiding", 0) >= 1
+
+    # 표시할 경로 필터링 (is_hidden 제외) 및 gate_x 순 정렬
+    routes = [r for r in info["routes"] if not r["is_hidden"]]
+    routes.sort(key=lambda r: r["gate_x"])
+
+    if not routes:
+        return lines
+
+    # 헤더
+    lines.append("[color=cyan]이동 가능 지역:[/color]")
+
+    # 상단 구분선
+    if geometry == "ring":
+        lines.append("[color=gray]-vvv-----------[/color]")
+    else:
+        lines.append("[color=gray]---------------[/color]")
+
+    # 플레이어 마커 — 가장 가까운 Gate의 ●를 ▶/▷로 대체
+    marker = "▷" if hiding else "▶"
+
+    # 가장 가까운 Gate 인덱스 찾기
+    closest_idx = 0
+    closest_dist = abs(routes[0]["gate_x"] - player_x)
+    for i, route in enumerate(routes):
+        dist = abs(route["gate_x"] - player_x)
+        if dist < closest_dist:
+            closest_dist = dist
+            closest_idx = i
+
+    for i, route in enumerate(routes):
+        is_closest = (i == closest_idx)
+        prefix = f"[color=yellow]{marker}[/color]" if is_closest else "●"
+
+        # 경로 표시
+        if route["is_blocked"]:
+            if is_closest:
+                lines.append(f"  {prefix}[color=gray]{route['name']}[/color]")
+            else:
+                lines.append(f"  [color=gray]- {route['name']}[/color]")
+        else:
+            region_tag = f" [{route['region_name']}]" if route["is_region_gate"] else ""
+            travel_min = route["travel_time"] // MILLIS_PER_MINUTE
+            meta = f"move:{route['region_id']}:{route['local_id']}"
+            lines.append(f"  [url={meta}]{prefix}{route['name']}{region_tag} ({travel_min}분)[/url]")
+
+    # 하단 구분선
+    if geometry == "ring":
+        lines.append("[color=gray]-^^^-----------[/color]")
+    else:
+        lines.append("[color=gray]---------------[/color]")
+
+    return lines
+
+
 def get_action_text():
     """
     행동 옵션 BBCode 생성
 
-    C#의 morld.get_actions_list()로 기본 행동 리스트를 받아
-    Python에서 최종 BBCode를 생성합니다.
-
     구조:
-    - [이동 가능:] C#에서 생성 (경로 목록)
+    - [이동] morld.get_movement_info()로 경로 데이터 → Python에서 렌더링
     - [행동:] Python에서 생성 (멍때리기, 낮잠 등)
 
     토글 마크업 형식:
@@ -291,7 +361,12 @@ def get_action_text():
     """
     lines = []
 
-    # C#에서 기본 행동 리스트 가져오기 (이동 경로 등)
+    # 이동 UI (Gate X 순서, 플레이어 위치 표시)
+    movement_info = morld.get_movement_info()
+    if movement_info is not None:
+        lines.extend(_render_movement(movement_info))
+
+    # C#에서 나머지 행동 리스트 가져오기 (앉은 상태 등)
     default_actions = morld.get_actions_list()
     for action in default_actions:
         lines.append(action)

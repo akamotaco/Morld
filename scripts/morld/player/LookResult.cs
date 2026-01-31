@@ -88,6 +88,11 @@ public class RouteInfo
 	/// 조건 미충족 시 숨김 처리 (조건 키에 # 마커가 있는 경우)
 	/// </summary>
 	public bool IsHidden { get; set; }
+
+	/// <summary>
+	/// Gate의 X 좌표 (이동 UI에서 위치 기준 정렬용)
+	/// </summary>
+	public float GateX { get; set; }
 }
 
 /// <summary>

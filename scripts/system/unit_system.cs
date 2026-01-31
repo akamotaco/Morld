@@ -456,7 +456,8 @@ namespace SE
 					IsRegionGate = raw.IsRegionGate,
 					IsBlocked = raw.IsBlocked,
 					BlockedReason = raw.BlockedReason,
-					IsHidden = raw.IsHidden
+					IsHidden = raw.IsHidden,
+					GateX = raw.GateX
 				});
 			}
 

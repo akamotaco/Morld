@@ -1195,6 +1195,7 @@ public class Terrain
         public bool IsBlocked;
         public string? BlockedReason;
         public bool IsHidden;
+        public float GateX;
     }
 
     /// <summary>
@@ -1232,7 +1233,8 @@ public class Terrain
                 IsRegionGate = isRegionGate,
                 IsBlocked = !canPass,
                 BlockedReason = blockedReason,
-                IsHidden = isHidden
+                IsHidden = isHidden,
+                GateX = gate.X
             });
         }
 

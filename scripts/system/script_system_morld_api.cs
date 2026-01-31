@@ -805,6 +805,53 @@ namespace SE
                 }
                 return pyList;
             });
+
+            // get_movement_info() - 이동 UI용 구조화된 경로 데이터 반환
+            morldModule.ModuleDict["get_movement_info"] = new PyBuiltinFunction("get_movement_info", args =>
+            {
+                var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                var worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var terrain = worldSystem?.GetTerrain();
+
+                var player = _playerSystem?.FindPlayerUnit();
+                if (player == null || terrain == null)
+                    return PyNone.Instance;
+
+                var lookResult = _playerSystem.Look();
+                if (lookResult == null)
+                    return PyNone.Instance;
+
+                // 현재 Location 정보
+                var location = terrain.GetLocation(player.CurrentLocation);
+                if (location == null)
+                    return PyNone.Instance;
+
+                var result = new PyDict();
+                result.SetItem(new PyString("geometry"), new PyString(location.Geometry.ToString().ToLower()));
+                result.SetItem(new PyString("length"), new PyFloat(location.Length));
+                result.SetItem(new PyString("player_x"), new PyFloat(player.PositionX));
+
+                // 경로 목록
+                var routesList = new PyList();
+                foreach (var route in lookResult.Routes)
+                {
+                    var routeDict = new PyDict();
+                    routeDict.SetItem(new PyString("name"), new PyString(route.LocationName));
+                    routeDict.SetItem(new PyString("region_name"), new PyString(route.RegionName));
+                    routeDict.SetItem(new PyString("region_id"), new PyInt(route.Destination.RegionId));
+                    routeDict.SetItem(new PyString("local_id"), new PyInt(route.Destination.LocalId));
+                    routeDict.SetItem(new PyString("travel_time"), new PyInt(route.TravelTime));
+                    routeDict.SetItem(new PyString("gate_x"), new PyFloat(route.GateX));
+                    routeDict.SetItem(new PyString("is_region_gate"), route.IsRegionGate ? PyBool.True : PyBool.False);
+                    routeDict.SetItem(new PyString("is_blocked"), route.IsBlocked ? PyBool.True : PyBool.False);
+                    routeDict.SetItem(new PyString("is_hidden"), route.IsHidden ? PyBool.True : PyBool.False);
+                    routesList.Append(routeDict);
+                }
+                result.SetItem(new PyString("routes"), routesList);
+
+                return result;
+            });
         }
 
         /// <summary>
