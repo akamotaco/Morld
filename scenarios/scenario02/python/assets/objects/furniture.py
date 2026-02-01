@@ -426,6 +426,14 @@ class Bed(Object):
         player_name = player_info.get("name", "주인공")
         return owner_props.get(f"관계:{player_name}:호감", 0)
 
+    def _is_sleeping_on_this_bed(self, owner_id):
+        """주인이 이 침대에 누워있는지 확인 (seated_by 슬롯에 owner_id가 있으면 수면 중)"""
+        seated_by = morld.get_unit_props_by_type(self.instance_id, "seated_by")
+        for slot_name, occupant_id in seated_by.items():
+            if occupant_id == owner_id:
+                return True
+        return False
+
     def lie_down(self):
         """눕기 - 방 주인이 있으면 캐릭터별 반응"""
         player_id = morld.get_player_id()
@@ -457,11 +465,22 @@ class Bed(Object):
             # 주인 부재 - 그냥 눕기
             success = morld.sit_on(player_id, self.instance_id, slot)
             if success:
-                owner_info = morld.get_unit_info_by_unique(owner_unique) if hasattr(morld, 'get_unit_info_by_unique') else None
                 yield ui.dialog([f"{self.name}에 몰래 누웠다."])
             return
 
-        # 주인이 있는 경우 - 캐릭터별 반응
+        # 주인이 이 침대에서 자고 있으면 → 깨우지 않고 옆에 눕기
+        if self._is_sleeping_on_this_bed(owner_id):
+            owner_info = morld.get_unit_info(owner_id)
+            owner_name = owner_info.get("name", "누군가") if owner_info else "누군가"
+            success = morld.sit_on(player_id, self.instance_id, slot)
+            if success:
+                yield ui.dialog([
+                    f"{owner_name}(이)가 자고 있다.",
+                    f"조심스럽게 옆에 누웠다."
+                ])
+            return
+
+        # 주인이 깨어있는 경우 - 캐릭터별 반응
         affection = self._get_affection(owner_id, player_id)
 
         if owner_unique == "sera":
