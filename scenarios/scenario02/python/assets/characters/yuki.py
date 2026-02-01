@@ -740,6 +740,268 @@ class Yuki(Character):
         ])
 
 
+    # ========================================
+    # 침대 이벤트
+    # ========================================
+
+    def on_bed_awake(self, bed, player_id, slot, affection, region_id, owner_id):
+        """
+        유키 침대 반응 (깨어있을 때)
+        - 호감도 무관하게 내쫓지 않음 (너무 소심해서 거부 못함)
+        - 호감도에 따라 반응만 달라짐
+        """
+        success = False
+        if affection >= 50:
+            yield ui.dialog([
+                "[유키]",
+                "...어...? 같이... 누울 거예요...?"
+            ])
+            success = morld.sit_on(player_id, bed.instance_id, slot)
+            if success:
+                yield ui.dialog([
+                    "유키의 침대에 누웠다.",
+                    "유키가 조용히 자리를 내줬다."
+                ])
+        elif affection >= 20:
+            yield ui.dialog([
+                "[유키]",
+                "...저기... 그건...",
+                "...네... 괜찮아요..."
+            ])
+            success = morld.sit_on(player_id, bed.instance_id, slot)
+            if success:
+                yield ui.dialog([
+                    "유키의 침대에 누웠다.",
+                    "(유키가 움츠리며 구석으로 비켜줬다.)"
+                ])
+        else:
+            yield ui.dialog([
+                "[유키]",
+                "...!",
+                "...저... 그... 네..."
+            ])
+            success = morld.sit_on(player_id, bed.instance_id, slot)
+            if success:
+                yield ui.dialog([
+                    "유키의 침대에 누웠다.",
+                    "(유키가 겁먹은 표정으로 몸을 웅크렸다.)"
+                ])
+
+        if not success:
+            return
+
+        # 행동 선택지
+        lines = "...\n\n"
+        lines += "[url=@ret:breast]가슴 만지기[/url]\n"
+        lines += "[url=@ret:butt]엉덩이 만지기[/url]\n"
+        lines += "[url=@ret:kiss]키스하기[/url]\n"
+        lines += "[url=@ret:hug]안아주기[/url]\n"
+        if affection >= 50:
+            lines += "[url=@ret:romance]스킨십[/url]\n"
+        lines += "[url=@ret:nothing]가만히 있기[/url]"
+        choice = yield ui.dialog(lines, autofill="off")
+
+        if choice == "nothing" or not choice:
+            return
+
+        if choice == "romance":
+            from romance import start_romance
+            yield from start_romance(player_id, owner_id)
+            return
+
+        if affection >= 50:
+            if choice == "breast":
+                yield ui.dialog(["손을 뻗어 유키의 가슴에 살짝 닿았다."])
+                yield ui.dialog([
+                    "[유키]",
+                    "...!!",
+                    "...저, 저기... 그건..."
+                ])
+                yield ui.dialog([
+                    "유키가 새빨개진 얼굴로 눈을 감았다.",
+                    "...하지만 밀어내지는 않았다."
+                ])
+            elif choice == "butt":
+                yield ui.dialog(["손을 뻗어 유키의 엉덩이에 살짝 닿았다."])
+                yield ui.dialog([
+                    "[유키]",
+                    "히잇...!",
+                    "...저... 그, 거기는..."
+                ])
+                yield ui.dialog([
+                    "유키가 몸을 떨며 이불을 꽉 잡았다.",
+                    "...거부하지는 못하는 것 같다."
+                ])
+            elif choice == "kiss":
+                yield ui.dialog(["유키의 얼굴에 가까이 다가갔다."])
+                yield ui.dialog([
+                    "[유키]",
+                    "...어...? 가, 가까..."
+                ])
+                yield ui.dialog(["유키의 이마에 가볍게 키스했다."])
+                yield ui.dialog([
+                    "유키가 얼굴을 붉히며 눈을 감았다.",
+                    "\"...고마워요...\""
+                ])
+            elif choice == "hug":
+                yield ui.dialog(["유키를 부드럽게 안아줬다."])
+                yield ui.dialog([
+                    "[유키]",
+                    "...!",
+                    "...따뜻해요..."
+                ])
+                yield ui.dialog([
+                    "유키가 처음엔 몸을 굳혔지만...",
+                    "이내 조심스럽게 안겨왔다."
+                ])
+        elif affection >= 20:
+            if choice == "breast":
+                yield ui.dialog(["손을 뻗어 유키의 가슴에 닿으려는 순간—"])
+                yield ui.dialog([
+                    "[유키]",
+                    "...!!! 저, 저기...!",
+                    "그건... 좀..."
+                ])
+                yield ui.dialog(["유키가 겁먹은 눈으로 이불을 끌어당겼다."])
+            elif choice == "butt":
+                yield ui.dialog(["손을 뻗어 유키의 엉덩이에 닿으려는 순간—"])
+                yield ui.dialog([
+                    "[유키]",
+                    "히...!",
+                    "...안 돼요..."
+                ])
+                yield ui.dialog(["유키가 떨리는 목소리로 거부했다."])
+            elif choice == "kiss":
+                yield ui.dialog(["유키의 얼굴에 가까이 다가갔다."])
+                yield ui.dialog([
+                    "[유키]",
+                    "...너무 가까워요...",
+                    "...아직..."
+                ])
+                yield ui.dialog(["유키가 얼굴을 숙이며 뒤로 물러났다."])
+            elif choice == "hug":
+                yield ui.dialog(["유키를 안으려 했다."])
+                yield ui.dialog([
+                    "[유키]",
+                    "...어...!",
+                    "...저... 좀 놀랐어요..."
+                ])
+                yield ui.dialog(["유키가 뻣뻣하게 굳어 있다."])
+        else:
+            if choice == "breast":
+                yield ui.dialog(["손을 뻗어 유키의 가슴에 닿으려는 순간—"])
+            elif choice == "butt":
+                yield ui.dialog(["손을 뻗어 유키의 엉덩이에 닿으려는 순간—"])
+            elif choice == "kiss":
+                yield ui.dialog(["유키의 얼굴에 가까이 다가가려는 순간—"])
+            elif choice == "hug":
+                yield ui.dialog(["유키를 안으려는 순간—"])
+            yield ui.dialog([
+                "[유키]",
+                "...! ...하지 마세요...!",
+                "(유키가 몸을 웅크리며 떨기 시작했다.)"
+            ])
+            yield ui.dialog([
+                "...너무 겁을 먹은 것 같다.",
+                "그만두는 게 좋겠다."
+            ])
+
+    def on_bed_sleeping(self, bed, player_id, slot, affection, owner_id):
+        """유키가 자고 있을 때 - 호감도별 묘사 + 행동 선택"""
+        success = False
+        if affection >= 50:
+            yield ui.dialog([
+                "유키가 조용히 잠들어 있다.",
+                "작은 체구가 이불 속에 꼭 감싸여 있다."
+            ])
+            success = morld.sit_on(player_id, bed.instance_id, slot)
+            if success:
+                yield ui.dialog(["조심스럽게 옆에 누웠다."])
+        elif affection >= 20:
+            yield ui.dialog([
+                "유키가 잠들어 있다.",
+                "잠결에도 불안한 표정이다."
+            ])
+            success = morld.sit_on(player_id, bed.instance_id, slot)
+            if success:
+                yield ui.dialog(["깨우지 않게 살짝 옆에 누웠다."])
+        else:
+            yield ui.dialog([
+                "유키가 잠들어 있다.",
+                "...엘라가 알면 죽을 수도 있다."
+            ])
+            success = morld.sit_on(player_id, bed.instance_id, slot)
+            if success:
+                yield ui.dialog(["숨을 죽이며 옆에 누웠다."])
+
+        if not success:
+            return
+
+        # 수면 중 행동 선택지
+        choice = yield ui.dialog(
+            "...\n\n"
+            "[url=@ret:breast]가슴 만지기[/url]\n"
+            "[url=@ret:butt]엉덩이 만지기[/url]\n"
+            "[url=@ret:kiss]키스하기[/url]\n"
+            "[url=@ret:nothing]가만히 있기[/url]",
+            autofill="off"
+        )
+
+        if choice == "nothing" or not choice:
+            return
+
+        if choice == "breast":
+            yield ui.dialog([
+                "손을 뻗어 유키의 가슴에 살짝 닿았다.",
+                "...작고 부드럽다."
+            ])
+            if affection >= 50:
+                yield ui.dialog([
+                    "유키가 잠결에 \"음...\" 하고 작게 신음했다.",
+                    "얼굴이 살짝 붉어졌다.",
+                    "...깨지 않았다."
+                ])
+            else:
+                yield ui.dialog([
+                    "유키가 잠결에 몸을 움츠렸다.",
+                    "불안한 표정이 스쳤다.",
+                    "...그만두는 게 좋겠다."
+                ])
+        elif choice == "butt":
+            yield ui.dialog([
+                "손을 뻗어 유키의 엉덩이에 살짝 닿았다.",
+                "...작고 부드럽다."
+            ])
+            if affection >= 50:
+                yield ui.dialog([
+                    "유키가 잠결에 살짝 몸을 뒤척였다.",
+                    "\"...음...\"",
+                    "...깨지 않았다."
+                ])
+            else:
+                yield ui.dialog([
+                    "유키가 잠결에 몸을 떨었다.",
+                    "...이 이상은 너무하다."
+                ])
+        elif choice == "kiss":
+            yield ui.dialog(["유키의 얼굴에 가까이 다가갔다."])
+            if affection >= 50:
+                yield ui.dialog([
+                    "잠든 유키의 이마에 살짝 키스했다.",
+                    "유키가 잠결에 살짝 미소 짓는 것 같다."
+                ])
+                yield ui.dialog([
+                    "\"...음... 따뜻해...\"",
+                    "...깨지 않았다."
+                ])
+            else:
+                yield ui.dialog([
+                    "잠든 유키의 이마에 가볍게 키스했다.",
+                    "유키의 눈꺼풀이 떨렸다."
+                ])
+                yield ui.dialog(["...깨기 전에 그만두자."])
+
+
 # ========================================
 # AI Agent
 # ========================================
