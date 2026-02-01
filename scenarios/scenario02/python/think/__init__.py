@@ -133,18 +133,184 @@ class BaseAgent:
         """
         return self.schedule_stack[-1]
 
+    # ========================================
+    # 수면 시스템
+    # ========================================
+
+    # 서브클래스에서 오버라이드: 자기 침대 위치
+    # 예: {"region_id": 0, "location_id": 8, "x": 120}
+    sleep_location = None
+
+    def _is_sleep_time(self):
+        """현재 시간이 수면 시간대인지 확인
+
+        Returns:
+            (bool, entry or None)
+        """
+        schedule = self.get_current_schedule()
+        if not schedule:
+            return False, None
+        millis = self.get_time()  # int: millis_of_day
+        for entry in schedule:
+            if entry.get("activity") != "수면":
+                continue
+            start = entry["start"]
+            end = entry["end"]
+            if end < start:  # 자정 넘기기
+                if millis >= start or millis < end:
+                    return True, entry
+            else:
+                if start <= millis < end:
+                    return True, entry
+        return False, None
+
+    def _resolve_sleep_location(self):
+        """수면 장소를 우선순위에 따라 결정
+
+        우선순위:
+            1. 자기 소유 침대 (sleep_location)
+            2. 현재 위치의 비어있는 침대
+            3. 실내 노숙 (현재 위치가 실내면 그대로)
+            4. 야외 노숙
+
+        Returns:
+            dict: {"region_id", "location_id", "x", "bed_object_id", "rough"} or None
+        """
+        # 1순위: 자기 소유 침대
+        if self.sleep_location:
+            bed = self._find_bed_at(
+                self.sleep_location["region_id"],
+                self.sleep_location["location_id"])
+            if bed:
+                return {**self.sleep_location, "bed_object_id": bed}
+
+        # 2순위: 현재 위치의 비어있는 침대
+        loc = self.get_location()
+        if loc:
+            bed = self._find_bed_at(loc[0], loc[1])
+            if bed:
+                return {"region_id": loc[0], "location_id": loc[1],
+                        "x": None, "bed_object_id": bed}
+
+        # 3순위: 실내 노숙
+        if loc:
+            loc_info = morld.get_location_info(loc[0], loc[1])
+            if loc_info and loc_info.get("is_indoor"):
+                return {"region_id": loc[0], "location_id": loc[1],
+                        "x": None, "bed_object_id": None, "rough": True}
+
+        # 4순위: 야외 노숙
+        if loc:
+            return {"region_id": loc[0], "location_id": loc[1],
+                    "x": None, "bed_object_id": None, "rough": True}
+
+        return None
+
+    def _find_bed_at(self, region_id, location_id):
+        """특정 Location에서 빈 슬롯이 있는 침대 찾기
+
+        Returns:
+            object_id (int) or None
+        """
+        objects = morld.get_objects_at_location(region_id, location_id)
+        for obj_id in objects:
+            props = morld.get_unit_props(obj_id)
+            if props.get("posture") != "lie":
+                continue
+            # 빈 슬롯 확인
+            seated_by = morld.get_unit_props_by_type(obj_id, "seated_by")
+            for slot, occupant in seated_by.items():
+                if occupant == -1:
+                    return obj_id
+        return None
+
+    def _try_sleep_on_bed(self, bed_object_id):
+        """침대에 눕기 시도
+
+        Returns:
+            True 성공, False 실패
+        """
+        # 이미 누워있는지 확인
+        seated_on = morld.get_unit_props_by_type(self.unit_id, "seated_on")
+        if seated_on:
+            return True  # 이미 어딘가에 앉거나 누워있음
+
+        # 빈 슬롯 찾아서 눕기
+        seated_by = morld.get_unit_props_by_type(bed_object_id, "seated_by")
+        for slot, occupant in seated_by.items():
+            if occupant == -1:
+                return morld.sit_on(self.unit_id, bed_object_id, slot)
+        return False
+
+    def _handle_sleep(self):
+        """수면 행동 처리 (think()에서 수면 시간대에 호출)"""
+        sleep_info = self._resolve_sleep_location()
+        if not sleep_info:
+            return
+
+        loc = self.get_location()
+        target_region = sleep_info["region_id"]
+        target_location = sleep_info["location_id"]
+
+        # 목표 위치에 도착했는지
+        if loc and loc[0] == target_region and loc[1] == target_location:
+            # 도착 → 침대에 눕기 시도
+            bed_id = sleep_info.get("bed_object_id")
+            if bed_id:
+                self._try_sleep_on_bed(bed_id)
+            # 침대 없거나 노숙이면 그냥 대기 (이동 안 함)
+        else:
+            # 이동 필요 → move job 설정
+            info = self.get_info()
+            if not info.get("is_moving"):
+                target_x = sleep_info.get("x", 0)
+                morld.insert_job(self.unit_id, {
+                    "name": "수면",
+                    "action": "move",
+                    "region_id": target_region,
+                    "location_id": target_location,
+                    "target_x": target_x if target_x else 0,
+                    "duration": 0,
+                })
+
+    def _ensure_standing(self):
+        """앉거나 누워있으면 일어나기 (활동 전 상태 정리)
+
+        수면 전용이 아님. 현재 seated 상태인데 seated여야 할 이유가
+        없는 상황(예: 수면 시간이 아닌데 누워있음)에서 호출.
+        """
+        seated_on = morld.get_unit_props_by_type(self.unit_id, "seated_on")
+        if seated_on:
+            morld.stand_up(self.unit_id)
+
+    # ========================================
+    # think() 기본 구현
+    # ========================================
+
     def think(self):
         """
         AI 로직 실행 - 서브클래스에서 오버라이드
 
-        기본 구현: get_current_schedule()로 스케줄 가져와서 fill
+        기본 구현: 수면 시간대 확인 후 스케줄 기반 fill
 
         Returns:
             None 또는 계획된 경로
         """
         schedule = self.get_current_schedule()
-        if schedule:
-            self.fill_schedule_jobs_from(schedule)
+        if not schedule:
+            return None
+
+        # 수면 시간대 확인
+        is_sleep, sleep_entry = self._is_sleep_time()
+        if is_sleep:
+            self._handle_sleep()
+            return None
+
+        # 수면 시간이 아님 → 앉거나 누워있으면 일어나기
+        self._ensure_standing()
+
+        # 일반 스케줄 실행
+        self.fill_schedule_jobs_from(schedule)
         return None
 
 

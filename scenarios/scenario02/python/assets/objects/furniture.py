@@ -513,6 +513,13 @@ class Bed(Object):
         morld.advance_time(480 * 60_000)  # 8시간
 
 
+class SleepingBag(Bed):
+    """침낭 - 침대와 동일한 기능, 2인용"""
+    unique_id = "sleeping_bag"
+    name = "침낭"
+    focus_text = {"default": "바닥에 펼쳐진 침낭. 좁지만 잠은 잘 수 있다."}
+
+
 class SmallDesk(Object):
     unique_id = "small_desk"
     name = "작은 책상"

@@ -21,7 +21,9 @@ class LinaRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
         self.add_object(Mirror(), x=5)   # 문 옆
-        self.add_object(Bed(), x=20)     # 방 안쪽
+        bed = Bed()
+        bed.bed_owner = "lina"
+        self.add_object(bed, x=20)     # 방 안쪽
 
         # 옷장 추가 + 옷 배치
         wardrobe = Wardrobe()

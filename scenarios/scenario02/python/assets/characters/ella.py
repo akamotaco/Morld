@@ -1041,15 +1041,11 @@ class EllaAgent(BaseAgent):
         {"name": "정찰", "region_id": 2, "location_id": 0, "x": 300, "start": 960 * _M, "end": 1020 * _M, "activity": "순찰"},  # 도시입구
         {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
         {"name": "휴식", "region_id": 2, "location_id": 5, "x": 90, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
-        {"name": "수면", "region_id": 2, "location_id": 5, "x": 120, "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
+        {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
     ]
+
+    sleep_location = {"region_id": 2, "location_id": 5, "x": 50}  # 은신처 (유키 침낭 공유)
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
         self.set_base_schedule(self.SCHEDULE)
-
-    def think(self):
-        """엘라의 행동 결정 - 스케줄 기반 Job 채우기"""
-        schedule = self.get_current_schedule()
-        self.fill_schedule_jobs_from(schedule)
-        return None

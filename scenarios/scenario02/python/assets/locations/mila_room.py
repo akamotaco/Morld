@@ -23,7 +23,9 @@ class MilaRoom(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Bed(), x=20)  # 방 안쪽
+        bed = Bed()
+        bed.bed_owner = "mila"
+        self.add_object(bed, x=20)  # 방 안쪽
 
         # 옷장 추가 + 옷 배치
         wardrobe = Wardrobe()

@@ -13,7 +13,12 @@ from assets.base import Object
 class Ground(Object):
     """바닥 오브젝트 베이스 클래스 - 아이템 개수 항상 표시"""
     item_visible = True
-    actions = ["putinobject", "call:debug_props:(디버그) 속성 보기#"]
+    actions = ["putinobject", "call:rough_sleep:노숙하기", "call:debug_props:(디버그) 속성 보기#"]
+
+    def rough_sleep(self):
+        """노숙하기 - 침대 없이 잠자기"""
+        from events.sleep import rough_sleep
+        yield from rough_sleep()
 
 
 # ========================================

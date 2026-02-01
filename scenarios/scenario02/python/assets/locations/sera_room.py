@@ -23,7 +23,9 @@ class SeraRoom(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
-        self.add_object(Bed(), x=20)              # 방 안쪽
+        bed = Bed()
+        bed.bed_owner = "sera"
+        self.add_object(bed, x=20)              # 방 안쪽
         self.add_object(OldDoll(), owner="sera", x=22)  # 침대 곁
 
         # 옷장 추가 + 옷 배치
