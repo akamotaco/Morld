@@ -219,6 +219,20 @@ class Hideout(Location):
         sofa.focus_text = {"default": "어디서 주워온 듯한 낡은 소파. 스프링이 튀어나올 것 같지만 앉을 수 있다."}
         self.add_object(sofa, x=90)
 
+        # 유키/엘라 침대 (bed_owner로 소유자 지정)
+        from assets.objects.furniture import Bed
+        yuki_bed = Bed()
+        yuki_bed.name = "유키의 침대"
+        yuki_bed.bed_owner = "yuki"
+        yuki_bed.focus_text = {"default": "구석에 깔끔하게 정돈된 침대. 책 한 권이 베개 옆에 놓여 있다."}
+        self.add_object(yuki_bed, x=50)
+
+        ella_bed = Bed()
+        ella_bed.name = "엘라의 침대"
+        ella_bed.bed_owner = "ella"
+        ella_bed.focus_text = {"default": "간결하게 정리된 침대. 군더더기 없이 깔끔하다."}
+        self.add_object(ella_bed, x=130)
+
 
 class ClothingStore(Location):
     """의류점 - 황폐화된 옷가게 (실내)"""
