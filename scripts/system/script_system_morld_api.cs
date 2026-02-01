@@ -832,6 +832,11 @@ namespace SE
                 result.SetItem(new PyString("length"), new PyFloat(location.Length));
                 result.SetItem(new PyString("player_x"), new PyFloat(player.PositionX));
 
+                // 앉기/눕기 상태
+                var seatedOnProp = player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                bool isSeated = seatedOnProp.Prop.IsValid;
+                result.SetItem(new PyString("seated"), isSeated ? PyBool.True : PyBool.False);
+
                 // 경로 목록
                 var routesList = new PyList();
                 foreach (var route in lookResult.Routes)

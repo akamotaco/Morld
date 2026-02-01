@@ -15,6 +15,12 @@ public class Unit : IOwnable
 	private MovementProgress? _currentMovement;  // Pi-World 2D 이동
 
 	/// <summary>
+	/// 앉은 상태 해제 시 콜백 (UnitSystem에서 오브젝트 측 정리용)
+	/// 파라미터: (unitId, objectId)
+	/// </summary>
+	public Action<int, int>? OnSeatedStateClearing;
+
+	/// <summary>
 	/// Unit 고유 ID
 	/// </summary>
 	public int Id => _id;
@@ -292,16 +298,19 @@ public class Unit : IOwnable
 
 	/// <summary>
 	/// 앉은 상태 해제 (위치 변경 시 자동 호출)
+	/// 캐릭터 측 seated_on 제거 + 콜백으로 오브젝트 측 seated_by 정리
 	/// </summary>
 	private void ClearSeatedState()
 	{
-		// seated_on 타입의 Prop이 있으면 제거
 		var seatedOn = TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
 		if (seatedOn.Prop.IsValid)
 		{
+			// 오브젝트 측 정리를 위해 objectId 추출 후 콜백 호출
+			if (int.TryParse(seatedOn.Prop.Name, out int objectId))
+			{
+				OnSeatedStateClearing?.Invoke(_id, objectId);
+			}
 			TraversalContext.Props.Remove(seatedOn.Prop);
-			// Note: 오브젝트 측 seated_by는 UnitSystem을 통해 접근해야 하므로
-			// 여기서는 캐릭터 측만 해제 (오브젝트 측은 다음 앉기 시도 시 덮어쓰임)
 		}
 	}
 

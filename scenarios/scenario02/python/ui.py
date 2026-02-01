@@ -284,7 +284,8 @@ def _render_movement(info: dict) -> list:
     geometry = info["geometry"]  # "ring" or "line"
     player_x = info["player_x"]
 
-    # 은신 상태 체크
+    # 상태 체크
+    seated = info.get("seated", False)
     player_id = morld.get_player_id()
     hiding = False
     if player_id is not None:
@@ -307,8 +308,11 @@ def _render_movement(info: dict) -> list:
     else:
         lines.append("[color=gray]---------------[/color]")
 
-    # 플레이어 마커 — 가장 가까운 Gate의 ●를 ▶/▷로 대체
-    marker = "▷" if hiding else "▶"
+    # 플레이어 마커 결정
+    if seated:
+        marker = "□" if hiding else "■"
+    else:
+        marker = "▷" if hiding else "▶"
 
     # 가장 가까운 Gate 인덱스 찾기
     closest_idx = 0
@@ -323,8 +327,8 @@ def _render_movement(info: dict) -> list:
         is_closest = (i == closest_idx)
         prefix = f"[color=yellow]{marker}[/color]" if is_closest else "●"
 
-        # 경로 표시
-        if route["is_blocked"]:
+        # 앉은 상태 또는 blocked → grey out (클릭 불가)
+        if seated or route["is_blocked"]:
             if is_closest:
                 lines.append(f"  {prefix}[color=gray]{route['name']}[/color]")
             else:

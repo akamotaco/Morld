@@ -2,6 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundGrass
+from assets.objects.outdoor import GardenBench
 
 
 class FrontYard(Location):
@@ -21,6 +22,9 @@ class FrontYard(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """앞마당 생성 + 잔디 바닥 추가"""
+        """앞마당 생성 + 잔디 바닥 + 정원 벤치 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundGrass())
+
+        # 정원 벤치 배치
+        self.add_object(GardenBench(), x=300)

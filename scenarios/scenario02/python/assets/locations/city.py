@@ -37,6 +37,13 @@ class CityEntrance(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundAsphalt())
 
+        # 버스 정류장 벤치
+        from assets.objects.outdoor import StreetBench
+        bench = StreetBench()
+        bench.name = "버스 정류장 벤치"
+        bench.focus_text = {"default": "버스 정류장에 남은 낡은 벤치. 버스는 더 이상 오지 않는다."}
+        self.add_object(bench, x=200)
+
 
 class GasStation(Location):
     """주유소 - 버려진 주유소"""
@@ -57,6 +64,13 @@ class GasStation(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundAsphalt())
+
+        # 주유소 앞 벤치
+        from assets.objects.outdoor import StreetBench
+        bench = StreetBench()
+        bench.name = "낡은 벤치"
+        bench.focus_text = {"default": "주유소 처마 아래 놓인 낡은 벤치. 녹이 슬었지만 앉을 수 있다."}
+        self.add_object(bench, x=150)
 
 
 class ConvenienceStore(Location):
@@ -171,6 +185,13 @@ class ParkingLot(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundAsphalt())
 
+        # 주차장 옆 벤치
+        from assets.objects.outdoor import StreetBench
+        bench = StreetBench()
+        bench.name = "공원 벤치"
+        bench.focus_text = {"default": "주차장 옆에 남은 공원 벤치. 페인트가 벗겨져 있다."}
+        self.add_object(bench, x=180)
+
 
 class Hideout(Location):
     """은신처 - 도심 생존자들의 거처 (유키/엘라)"""
@@ -190,6 +211,13 @@ class Hideout(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundConcrete())
+
+        # 낡은 소파 (은신처 거처용)
+        from assets.objects.furniture import OldSofa
+        sofa = OldSofa()
+        sofa.name = "낡은 소파"
+        sofa.focus_text = {"default": "어디서 주워온 듯한 낡은 소파. 스프링이 튀어나올 것 같지만 앉을 수 있다."}
+        self.add_object(sofa, x=90)
 
 
 class ClothingStore(Location):

@@ -30,6 +30,18 @@ namespace SE
 				throw new ArgumentNullException(nameof(unit));
 
 			_units[unit.Id] = unit;
+
+			// 앉은 상태 해제 시 오브젝트 측 seated_by 정리 콜백 등록
+			unit.OnSeatedStateClearing = (unitId, objectId) =>
+			{
+				var obj = FindUnit(objectId);
+				if (obj == null) return;
+				foreach (var prop in obj.TraversalContext.Props.GetByType("seated_by"))
+				{
+					if (prop.Value == unitId)
+						obj.TraversalContext.Props.Set(prop.Prop.FullName, -1);
+				}
+			};
 		}
 
 		/// <summary>

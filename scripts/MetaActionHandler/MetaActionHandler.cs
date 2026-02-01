@@ -126,6 +126,10 @@ public partial class MetaActionHandler
 		switch (action)
 		{
 			case "move":
+				// 앉은 상태에서는 이동 불가 (UI에서 grey out이지만 안전장치)
+				var movePlayer = _playerSystem?.FindPlayerUnit();
+				if (movePlayer != null && movePlayer.TraversalContext.Props.GetByType("seated_on").FirstOrDefault().Prop.IsValid)
+					break;
 				HandleMoveAction(parts, _moveConfirmThresholdMillis);
 				break;
 			case "idle":
@@ -199,9 +203,6 @@ public partial class MetaActionHandler
 			case "map":
 				HandleMapAction(parts);
 				break;
-			// TODO: sit, stand_up을 call: 패턴으로 전환 필요
-			// case "sit":
-			// case "stand_up":
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
 				break;

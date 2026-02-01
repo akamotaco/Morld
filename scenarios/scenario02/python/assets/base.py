@@ -1505,6 +1505,54 @@ class Object(Unit):
     position_x: float = 0
     position_y: float = 0
 
+    # ========================================
+    # 앉기/눕기 (Posture) 시스템
+    # ========================================
+
+    def _find_empty_slot(self) -> str | None:
+        """빈 좌석 슬롯 찾기 (seated_by:* 중 값이 -1인 것)"""
+        seated_by = morld.get_unit_props_by_type(self.instance_id, "seated_by")
+        for slot_name, occupant_id in seated_by.items():
+            if occupant_id == -1:
+                return slot_name
+        return None
+
+    def _count_occupants(self) -> int:
+        """현재 점유자 수"""
+        seated_by = morld.get_unit_props_by_type(self.instance_id, "seated_by")
+        return sum(1 for v in seated_by.values() if v != -1)
+
+    def sit(self):
+        """앉기 (자동 빈 슬롯 선택)"""
+        player_id = morld.get_player_id()
+        slot = self._find_empty_slot()
+        if slot is None:
+            yield ui.dialog(["자리가 없다."])
+            return
+        success = morld.sit_on(player_id, self.instance_id, slot)
+        if success:
+            yield ui.dialog([f"{self.name}에 앉았다."])
+
+    def lie_down(self):
+        """눕기 (자동 빈 슬롯 선택)"""
+        player_id = morld.get_player_id()
+        slot = self._find_empty_slot()
+        if slot is None:
+            yield ui.dialog(["자리가 없다."])
+            return
+        success = morld.sit_on(player_id, self.instance_id, slot)
+        if success:
+            yield ui.dialog([f"{self.name}에 누웠다."])
+
+    def stand_up(self):
+        """일어나기"""
+        player_id = morld.get_player_id()
+        morld.stand_up(player_id)
+
+    # ========================================
+    # 컨테이너 시스템
+    # ========================================
+
     def take(self, item_id):
         """오브젝트에서 특정 아이템 하나 가져가기"""
         player_id = morld.get_player_id()

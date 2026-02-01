@@ -22,15 +22,13 @@ class GardenBench(Object):
     unique_id = "garden_bench"
     name = "정원 벤치"
     actions = ["call:sit:앉기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {
+        "posture": "sit",
+        "posture_slots": 2,
+        "seated_by:left": -1,
+        "seated_by:right": -1,
+    }
     focus_text = {"default": "정원에 놓인 나무 벤치. 앉아서 쉴 수 있다."}
-
-    def sit(self):
-        """벤치에 앉기"""
-        yield ui.dialog([
-            "정원 벤치에 앉았다.",
-            "바람이 시원하다."
-        ])
-        morld.advance_time(10 * 60_000)
 
 
 class Well(Object):
@@ -94,6 +92,24 @@ class DryingRack(Object):
             "빨래가 마르면 걷어야 할 것 같다."
         ])
         morld.advance_time(1 * 60_000)
+
+
+# ========================================
+# 도시/거리 오브젝트
+# ========================================
+
+class StreetBench(Object):
+    unique_id = "street_bench"
+    name = "벤치"
+    actions = ["call:sit:앉기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {
+        "posture": "sit",
+        "posture_slots": 3,
+        "seated_by:left": -1,
+        "seated_by:center": -1,
+        "seated_by:right": -1,
+    }
+    focus_text = {"default": "거리에 놓인 낡은 벤치. 앉아서 쉴 수 있다."}
 
 
 # ========================================

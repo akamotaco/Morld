@@ -146,6 +146,10 @@ class ForestCabin(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
 
+        # 나무 의자 배치
+        from assets.objects.furniture import WoodenStool
+        self.add_object(WoodenStool(), x=10)
+
         # 낡은 옷장 추가 - 이전 주인이 남긴 옷들
         from assets.objects.furniture import Wardrobe
         wardrobe = Wardrobe()
