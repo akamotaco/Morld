@@ -227,6 +227,11 @@ class Hideout(Location):
         sleeping_bag.focus_text = {"default": "바닥에 펼쳐진 넓은 침낭. 두 사람이 겨우 들어갈 수 있는 크기다."}
         self.add_object(sleeping_bag, x=50)
 
+        # 간이 드럼통 욕조
+        from assets.objects.furniture import DrumBath
+        drum_bath = DrumBath()
+        self.add_object(drum_bath, x=150)
+
 
 class ClothingStore(Location):
     """의류점 - 황폐화된 옷가게 (실내)"""

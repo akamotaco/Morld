@@ -92,6 +92,7 @@ class Ella(Character):
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 5,
         "can:sleep": 1,
+        "can:bath": 1,
     }
     actions = [
         "call:talk:대화",
@@ -556,6 +557,42 @@ class Ella(Character):
         yield from self._run_event_dialog("first_meet", player_id=player_id)
         # 첫 만남 완료 처리 (관계:엘라:진척도 = 1)
         self.mark_first_meet_done(player_id)
+
+    def _on_room_privacy(self, player_id, activity):
+        """엘라가 목욕 목적으로 도착했는데 플레이어가 있을 때"""
+        if activity != "목욕":
+            return None
+
+        props = morld.get_unit_props(self.instance_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
+        info = morld.get_unit_info(self.instance_id)
+
+        if affection >= 70:
+            def handler():
+                yield ui.dialog([
+                    "[엘라]",
+                    "...어?",
+                    "...지금은 좀 나가 있어줄래?"
+                ])
+                morld.stand_up(player_id)
+                if info:
+                    morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                yield ui.dialog(["은신처 한쪽으로 물러났다."])
+            return handler()
+        else:
+            def handler():
+                yield ui.dialog([
+                    "[엘라]",
+                    "...뭐야.",
+                    "엘라가 차갑게 쏘아붙였다."
+                ])
+                morld.stand_up(player_id)
+                if info:
+                    morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                yield ui.dialog(["은신처 한쪽으로 쫓겨났다."])
+            return handler()
 
     # ========================================
     # 스킨십 반응
@@ -1038,7 +1075,8 @@ class EllaAgent(BaseAgent):
     SCHEDULE = [
         # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
         # 은신처(180), 약국(180), 편의점(180), 도시입구(600)
-        {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},
+        {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 360 * _M, "end": 390 * _M, "activity": "준비"},
+        {"name": "목욕", "region_id": 2, "location_id": 5, "x": 150, "start": 390 * _M, "end": 420 * _M, "activity": "목욕"},
         {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "정찰", "region_id": 2, "location_id": 3, "x": 90, "start": 540 * _M, "end": 660 * _M, "activity": "순찰"},  # 약국
         {"name": "물자수집", "region_id": 2, "location_id": 2, "x": 90, "start": 660 * _M, "end": 720 * _M, "activity": "탐색"},  # 편의점
@@ -1052,6 +1090,7 @@ class EllaAgent(BaseAgent):
 
     owner_unique_id = "ella"
     sleep_location = {"region_id": 2, "location_id": 5, "x": 50}  # 은신처 (유키 침낭 공유)
+    bath_location = {"region_id": 2, "location_id": 5, "x": 150}  # 은신처 드럼통
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

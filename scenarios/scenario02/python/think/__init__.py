@@ -141,6 +141,10 @@ class BaseAgent:
     # 예: {"region_id": 0, "location_id": 8, "x": 120}
     sleep_location = None
 
+    # 서브클래스에서 오버라이드: 목욕 장소
+    # 예: {"region_id": 0, "location_id": 4, "x": 15}
+    bath_location = None
+
     def _is_sleep_time(self):
         """현재 시간이 수면 시간대인지 확인
 
@@ -265,6 +269,70 @@ class BaseAgent:
             morld.stand_up(self.unit_id)
 
     # ========================================
+    # 목욕 시스템
+    # ========================================
+
+    def _is_bath_time(self):
+        """현재 시간이 목욕 시간대인지 확인
+
+        Returns:
+            (bool, entry or None)
+        """
+        schedule = self.get_current_schedule()
+        if not schedule:
+            return False, None
+        millis = self.get_time()
+        for entry in schedule:
+            if entry.get("activity") != "목욕":
+                continue
+            start = entry["start"]
+            end = entry["end"]
+            if end < start:  # 자정 넘기기
+                if millis >= start or millis < end:
+                    return True, entry
+            else:
+                if start <= millis < end:
+                    return True, entry
+        return False, None
+
+    def _handle_bath(self):
+        """목욕 행동 처리 (think()에서 목욕 시간대에 호출)
+
+        침대와 달리 오브젝트 조작 없음. location 도착만 확인.
+        """
+        if not self.bath_location:
+            return
+
+        # can:bath 체크 - 없으면 에러 (개발 시 누락 방지)
+        props = morld.get_unit_props_by_type(self.unit_id, "can")
+        if not props or props.get("bath", 0) <= 0:
+            info = morld.get_unit_info(self.unit_id)
+            name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
+            raise RuntimeError(
+                f"[think] {name}에게 'can:bath' prop이 없습니다. "
+                f"목욕 활동을 하려면 캐릭터에 'can:bath': 1을 추가하세요."
+            )
+
+        loc = self.get_location()
+        target_region = self.bath_location["region_id"]
+        target_location = self.bath_location["location_id"]
+
+        if loc and loc[0] == target_region and loc[1] == target_location:
+            # 도착 — 목욕 중 (별도 오브젝트 조작 없음, 그냥 대기)
+            pass
+        else:
+            # 이동
+            target_x = self.bath_location.get("x", 0)
+            morld.insert_job(self.unit_id, {
+                "name": "목욕",
+                "action": "move",
+                "region_id": target_region,
+                "location_id": target_location,
+                "target_x": target_x,
+                "duration": 0,
+            })
+
+    # ========================================
     # think() 기본 구현
     # ========================================
 
@@ -281,13 +349,19 @@ class BaseAgent:
         if not schedule:
             return None
 
+        # 목욕 시간대 확인
+        is_bath, bath_entry = self._is_bath_time()
+        if is_bath:
+            self._handle_bath()
+            return None
+
         # 수면 시간대 확인
         is_sleep, sleep_entry = self._is_sleep_time()
         if is_sleep:
             self._handle_sleep()
             return None
 
-        # 수면 시간이 아님 → 앉거나 누워있으면 일어나기
+        # 수면/목욕 시간이 아님 → 앉거나 누워있으면 일어나기
         self._ensure_standing()
 
         # 일반 스케줄 실행

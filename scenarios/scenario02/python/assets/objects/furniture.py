@@ -322,6 +322,9 @@ class Bathtub(Object):
     unique_id = "bathtub"
     name = "나무 욕조"
     actions = ["call:use:목욕하기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {
+        "action:bath": 1,
+    }
     focus_text = {"default": "큰 나무 욕조. 따뜻한 물을 받아 목욕할 수 있다."}
 
     def use(self):
@@ -346,6 +349,25 @@ class Washbasin(Object):
             "정신이 맑아졌다."
         ])
         morld.advance_time(5 * 60_000)
+
+
+class DrumBath(Object):
+    """간이 드럼통 욕조 - 도심 은신처용"""
+    unique_id = "drum_bath"
+    name = "간이 드럼통 욕조"
+    actions = ["call:use:목욕하기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {
+        "action:bath": 1,
+    }
+    focus_text = {"default": "큰 드럼통을 잘라 만든 간이 욕조. 물을 데워 쓸 수 있다."}
+
+    def use(self):
+        """목욕하기"""
+        yield ui.dialog([
+            "드럼통에 데운 물을 받아 몸을 씻었다.",
+            "좁지만... 없는 것보단 낫다."
+        ])
+        morld.advance_time(20 * 60_000)
 
 
 # ========================================

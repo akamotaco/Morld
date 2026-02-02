@@ -83,6 +83,7 @@ class Yuki(Character):
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 5,
         "can:sleep": 1,
+        "can:bath": 1,
     }
     actions = [
         "call:talk:대화",
@@ -532,6 +533,42 @@ class Yuki(Character):
         yield from self._run_event_dialog("first_meet", player_id=player_id)
         # 첫 만남 완료 처리 (관계:유키:진척도 = 1)
         self.mark_first_meet_done(player_id)
+
+    def _on_room_privacy(self, player_id, activity):
+        """유키가 목욕 목적으로 도착했는데 플레이어가 있을 때"""
+        if activity != "목욕":
+            return None
+
+        props = morld.get_unit_props(self.instance_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
+        info = morld.get_unit_info(self.instance_id)
+
+        if affection >= 70:
+            def handler():
+                yield ui.dialog([
+                    "[유키]",
+                    "...나가.",
+                    "유키가 조용하지만 단호하게 말했다."
+                ])
+                morld.stand_up(player_id)
+                if info:
+                    morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                yield ui.dialog(["은신처 한쪽으로 물러났다."])
+            return handler()
+        else:
+            def handler():
+                yield ui.dialog([
+                    "[유키]",
+                    "......",
+                    "유키의 눈이 위험하게 빛났다."
+                ])
+                morld.stand_up(player_id)
+                if info:
+                    morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                yield ui.dialog(["은신처 한쪽으로 쫓겨났다."])
+            return handler()
 
     # ========================================
     # 스킨십 반응
@@ -1025,7 +1062,8 @@ class YukiAgent(BaseAgent):
 
     # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처, length=180)
     SCHEDULE = [
-        {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "준비"},
+        {"name": "목욕", "region_id": 2, "location_id": 5, "x": 150, "start": 420 * _M, "end": 450 * _M, "activity": "목욕"},
+        {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 450 * _M, "end": 480 * _M, "activity": "준비"},
         {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
         {"name": "청소", "region_id": 2, "location_id": 5, "x": 60, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
         {"name": "독서", "region_id": 2, "location_id": 5, "x": 120, "start": 660 * _M, "end": 720 * _M, "activity": "휴식"},
@@ -1038,6 +1076,7 @@ class YukiAgent(BaseAgent):
 
     owner_unique_id = "yuki"
     sleep_location = {"region_id": 2, "location_id": 5, "x": 50}  # 은신처 유키침대
+    bath_location = {"region_id": 2, "location_id": 5, "x": 150}  # 은신처 드럼통
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

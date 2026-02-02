@@ -1432,16 +1432,18 @@ class Character(Unit):
         if not job:
             return None
         job_name = job.get("name", "")
-        if job_name not in ("수면",):  # 향후 "목욕" 등 추가 가능
+        if job_name not in ("수면", "목욕"):
             return None
 
-        # 2. 이 Location이 내 방인지
         info = morld.get_unit_info(self.instance_id)
         if not info:
             return None
-        loc_info = morld.get_location_info(info["region_id"], info["location_id"])
-        if not loc_info or loc_info.get("owner") != self.unique_id:
-            return None
+
+        # 2. 수면: 내 방인지 체크 필요 / 목욕: owner 체크 없음 (공유 욕실)
+        if job_name == "수면":
+            loc_info = morld.get_location_info(info["region_id"], info["location_id"])
+            if not loc_info or loc_info.get("owner") != self.unique_id:
+                return None
 
         # 3. 이벤트 반환 (서브클래스에서 구현)
         return self._on_room_privacy(player_id, job_name)

@@ -92,6 +92,7 @@ class Mila(Character):
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 6,
         "can:sleep": 1,
+        "can:bath": 1,
     }
     actions = [
         "call:talk:대화",
@@ -809,7 +810,7 @@ class Mila(Character):
     # ========================================
 
     def _on_room_privacy(self, player_id, activity):
-        """밀라가 수면 목적으로 자기 방에 도착했는데 플레이어가 있을 때"""
+        """밀라가 수면/목욕 목적으로 도착했는데 플레이어가 있을 때"""
         props = morld.get_unit_props(self.instance_id)
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get("name", "주인공") if player_info else "주인공"
@@ -835,6 +836,31 @@ class Mila(Character):
                     if info:
                         morld.set_unit_location(player_id, info["region_id"], 1, 120)
                     yield ui.dialog(["밀라의 방에서 나왔다."])
+                return handler()
+        elif activity == "목욕":
+            if affection >= 70:
+                def handler():
+                    yield ui.dialog([
+                        "[밀라]",
+                        "어엇!? 왜, 왜 여기 있어!?",
+                        "...나, 나가줘! 지금 당장!"
+                    ])
+                    morld.stand_up(player_id)
+                    if info:
+                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                    yield ui.dialog(["욕실에서 나왔다."])
+                return handler()
+            else:
+                def handler():
+                    yield ui.dialog([
+                        "[밀라]",
+                        "......!!",
+                        "밀라가 얼굴이 새빨개져서 소리를 질렀다."
+                    ])
+                    morld.stand_up(player_id)
+                    if info:
+                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                    yield ui.dialog(["욕실에서 쫓겨났다."])
                 return handler()
         return None
 
@@ -1107,7 +1133,8 @@ class MilaAgent(BaseAgent):
     # 밀라방(180), 주방(180), 식당(180), 거실(360), 뒷마당(600)
     SCHEDULES = {
         "봄": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
             {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "요리"},
             {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
             {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "설거지"},
@@ -1121,7 +1148,8 @@ class MilaAgent(BaseAgent):
             {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
         ],
         "여름": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 240 * _M, "end": 300 * _M, "activity": "준비"},  # 여름: 일찍 기상
+            {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 240 * _M, "end": 270 * _M, "activity": "목욕"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 270 * _M, "end": 300 * _M, "activity": "준비"},  # 여름: 일찍 기상
             {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 300 * _M, "end": 360 * _M, "activity": "요리"},
             {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "식사"},
             {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "설거지"},
@@ -1135,7 +1163,8 @@ class MilaAgent(BaseAgent):
             {"name": "수면", "action": "stay", "start": 1380 * _M, "end": 240 * _M, "activity": "수면"},  # 여름: 늦게 잠
         ],
         "가을": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 300 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
             {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 360 * _M, "end": 420 * _M, "activity": "요리"},
             {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
             {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "설거지"},
@@ -1149,7 +1178,8 @@ class MilaAgent(BaseAgent):
             {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
         ],
         "겨울": [
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},  # 겨울: 늦게 기상
+            {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 360 * _M, "end": 390 * _M, "activity": "목욕"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 390 * _M, "end": 420 * _M, "activity": "준비"},  # 겨울: 늦게 기상
             {"name": "아침준비", "region_id": 0, "location_id": 2, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "요리"},
             {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
             {"name": "설거지", "region_id": 0, "location_id": 2, "x": 90, "start": 540 * _M, "end": 600 * _M, "activity": "설거지"},
@@ -1166,6 +1196,7 @@ class MilaAgent(BaseAgent):
 
     owner_unique_id = "mila"
     sleep_location = {"region_id": 0, "location_id": 9, "x": 120}  # 밀라방
+    bath_location = {"region_id": 0, "location_id": 4, "x": 15}  # 욕실
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

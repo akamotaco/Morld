@@ -81,6 +81,7 @@ class Lina(Character):
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 7,
         "can:sleep": 1,
+        "can:bath": 1,
     }
     actions = [
         "call:talk:대화",
@@ -767,7 +768,7 @@ class Lina(Character):
     # ========================================
 
     def _on_room_privacy(self, player_id, activity):
-        """리나가 수면 목적으로 자기 방에 도착했는데 플레이어가 있을 때"""
+        """리나가 수면/목욕 목적으로 도착했는데 플레이어가 있을 때"""
         props = morld.get_unit_props(self.instance_id)
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get("name", "주인공") if player_info else "주인공"
@@ -794,6 +795,31 @@ class Lina(Character):
                     if info:
                         morld.set_unit_location(player_id, info["region_id"], 1, 120)
                     yield ui.dialog(["리나의 방에서 나왔다."])
+                return handler()
+        elif activity == "목욕":
+            if affection >= 70:
+                def handler():
+                    yield ui.dialog([
+                        "[리나]",
+                        "꺄앗! 보, 보지 마...!",
+                        "나, 나가줘... 제발..."
+                    ])
+                    morld.stand_up(player_id)
+                    if info:
+                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                    yield ui.dialog(["욕실에서 나왔다."])
+                return handler()
+            else:
+                def handler():
+                    yield ui.dialog([
+                        "[리나]",
+                        "...!!!",
+                        "리나가 비명을 지르며 물건을 던졌다."
+                    ])
+                    morld.stand_up(player_id)
+                    if info:
+                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                    yield ui.dialog(["욕실에서 쫓겨났다."])
                 return handler()
         return None
 
@@ -1097,7 +1123,8 @@ class LinaAgent(BaseAgent):
     SCHEDULE = [
         # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
         # terrain.md 참고: 리나방 침대(x=120), 식당 식탁(x=90), 뒷마당 length=600, 채집터 length=900, 거실 소파(x=210)
-        {"name": "기상", "region_id": 0, "location_id": 7, "x": 120, "start": 360 * _M, "end": 420 * _M, "activity": "준비"},
+        {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 360 * _M, "end": 390 * _M, "activity": "목욕"},
+        {"name": "기상", "region_id": 0, "location_id": 7, "x": 120, "start": 390 * _M, "end": 420 * _M, "activity": "준비"},
         {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "빨래", "region_id": 0, "location_id": 13, "x": 300, "start": 480 * _M, "end": 540 * _M, "activity": "빨래"},  # 뒷마당
         {"name": "채집", "region_id": 0, "location_id": 23, "x": 450, "start": 540 * _M, "end": 720 * _M, "activity": "채집"},
@@ -1111,6 +1138,7 @@ class LinaAgent(BaseAgent):
 
     owner_unique_id = "lina"
     sleep_location = {"region_id": 0, "location_id": 7, "x": 120}  # 리나방
+    bath_location = {"region_id": 0, "location_id": 4, "x": 15}  # 욕실
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
