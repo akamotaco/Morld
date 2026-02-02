@@ -2,416 +2,240 @@
 
 ## 개요
 
-**현장 전투 + 교전 상태** 방식을 채택합니다.
-- 전투가 일반 시스템과 통합되어 자연스러운 NPC 참전/도주 가능
-- **교전 슬롯** 시스템으로 "물량에 밀림" 문제 해결
-- **Location 용량** 개념으로 지형과 전투가 융합
+**전투는 별도 모드가 아니다.**
+일반 게임플레이와 동일한 공간(Location)에서, 동일한 시간 시스템 위에서 전투가 진행된다.
+적/아군 구분 없이 누구든 공격할 수 있고, 1D X 좌표 기반 거리가 사거리와 이동을 결정한다.
 
 ---
 
 ## 설계 철학
 
-### 왜 "현장 전투"인가?
+### 기존 시스템과의 통합
 
-| 접근법 | 장점 | 단점 |
-|--------|------|------|
-| 별도 전투 시스템 | 관리 쉬움, 파티 확정 | NPC 참전 불가, 추상적 |
-| **현장 전투** | 자연스러운 참전/도주, 지형 활용 | 다수 적 관리 필요 |
+| 요소 | 일반 게임플레이 | 전투 |
+|------|----------------|------|
+| 공간 | Location (1D X 좌표) | 동일 |
+| 시간 | 플레이어 액션 → 시간 경과 | 동일 (적이 인터럽트 가능) |
+| 이동 | Gate를 통해 Location 간 이동 | Gate 방향 이동 = 도주 |
+| NPC | think() → 스케줄 기반 행동 | think() → 전투 행동 |
 
-**현장 전투**를 선택하고, **교전 슬롯**으로 다수 적 문제를 해결합니다.
+### 핵심 원칙
 
----
-
-## Location 용량 시스템
-
-### 개념
-
-Location에 **용량(capacity)** 속성을 추가하여:
-- 동시 교전 가능한 유닛 수 제한
-- 지형의 좁고 넓음을 표현
-- 전투 외 상황에서도 활용 (혼잡도, 숨기 등)
-
-### Location 속성
-
-```python
-class Location:
-    # 기존 속성들...
-
-    # 용량 관련
-    combat_capacity: int = 4      # 전투 시 동시 교전 가능 수
-    presence_capacity: int = 10   # 최대 수용 인원 (선택적)
-    terrain_type: str = "open"    # "open", "narrow", "cramped"
-```
-
-### 용량 예시
-
-| Location | combat_capacity | terrain_type | 설명 |
-|----------|-----------------|--------------|------|
-| 넓은 들판 | 6 | open | 다수 전투 가능 |
-| 숲길 | 4 | open | 기본 |
-| 좁은 통로 | 2 | narrow | 1:1 또는 1:2 |
-| 동굴 입구 | 3 | narrow | 제한적 |
-| 절벽 다리 | 1 | cramped | 1:1만 가능 |
-| 넓은 홀 | 8 | open | 대규모 전투 |
-
-### Python 정의
-
-```python
-# assets/locations/forest.py
-class ForestPath(Location):
-    unique_id = "forest_path"
-    name = "숲길"
-    combat_capacity = 4
-    terrain_type = "open"
-
-class NarrowCave(Location):
-    unique_id = "narrow_cave"
-    name = "좁은 동굴"
-    combat_capacity = 2
-    terrain_type = "narrow"
-
-    # 좁은 지형 특수 효과
-    terrain_effects = {
-        "회피": -10,      # 회피 어려움
-        "대형무기": -20,  # 대형 무기 패널티
-    }
-```
-
-### 용량 활용
-
-```python
-def get_effective_combat_capacity(location):
-    """실제 교전 용량 계산"""
-    base = location.combat_capacity
-
-    # 날씨 영향 (선택적)
-    if location.is_outdoor and get_weather() == "폭풍":
-        base -= 1
-
-    # 시간대 영향 (선택적)
-    if is_night() and not has_light_source():
-        base -= 1
-
-    return max(1, base)
-```
+1. **별도 전투 모드 없음** — 공격 액션이 있을 뿐, "전투 진입/종료"라는 상태 전환이 없다
+2. **누구나 공격 대상** — 적뿐 아니라 동료도 공격 가능 (반격 포함)
+3. **거리가 전부** — 교전 슬롯/용량 없음. X 좌표 차이 = 실제 거리 = 사거리 판정
+4. **Location이 전장** — `length`가 전장 크기, `geometry`가 지형 특성을 결정
 
 ---
 
-## 교전 상태 시스템
+## 적대 유닛
 
-### 개념
+### 표시
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Location: 숲 입구 (combat_capacity: 4)                          │
-│                                                                 │
-│  [교전 중] (4/4 슬롯 사용)                                        │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ 플레이어(1) + 세라(1) ←→ 고블린A(1) + 고블린B(1)          │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  [대기 중]                                                       │
-│  - 고블린C, 고블린D (슬롯 부족으로 대기)                           │
-│                                                                 │
-│  [비전투]                                                        │
-│  - 리나 (따라오는 중, 3분 후 도착)                                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+- 적대 NPC는 **붉은색 이름**으로 표시
+- 중립 NPC는 기본 색상, 도발/공격 시 적대로 전환 가능
 
-### 유닛 크기 (Combat Size)
+### 행동 유형
 
-큰 적은 더 많은 슬롯을 차지합니다:
-
-| 크기 | 슬롯 | 예시 |
+| 유형 | 행동 | 예시 |
 |------|------|------|
-| small | 0.5 | 슬라임, 쥐 |
-| medium | 1 | 인간, 고블린, 늑대 |
-| large | 2 | 오거, 곰, 기사 |
-| huge | 3 | 트롤, 골렘 |
-| colossal | 4+ | 드래곤, 거인 |
+| **호전적 (aggressive)** | 플레이어 감지 시 선제공격 | 고블린 정찰병, 늑대 |
+| **영역 수호 (territorial)** | 일정 거리 내 접근 시 공격 | 동굴 골렘, 보스 |
+| **소극적 (passive)** | 공격받아야 반격 | 슬라임, 초식 동물 |
+| **도주형 (timid)** | 플레이어 감지 시 도망 | 토끼, 겁쟁이 고블린 |
 
 ```python
 class Monster(Character):
-    combat_size: float = 1.0  # 기본 medium
-
-class Slime(Monster):
-    combat_size = 0.5
-
-class CaveGolem(Monster):
-    combat_size = 3.0
-```
-
-### 교전 규칙
-
-```python
-class Engagement:
-    """교전 상태 관리"""
-
-    def __init__(self, location):
-        self.location = location
-        self.capacity = location.combat_capacity
-
-        self.allies = []         # (unit_id, size)
-        self.active_enemies = [] # (unit_id, size)
-        self.waiting_enemies = [] # 대기열
-
-    def get_used_slots(self):
-        """사용 중인 슬롯"""
-        ally_slots = sum(size for _, size in self.allies)
-        enemy_slots = sum(size for _, size in self.active_enemies)
-        return ally_slots + enemy_slots
-
-    def get_available_slots(self):
-        """남은 슬롯"""
-        return self.capacity - self.get_used_slots()
-
-    def can_add_enemy(self, enemy_size):
-        """적 추가 가능 여부"""
-        return self.get_available_slots() >= enemy_size
-
-    def add_enemy(self, enemy_id, size=1.0):
-        """적 추가"""
-        if self.can_add_enemy(size):
-            self.active_enemies.append((enemy_id, size))
-            return True
-        else:
-            self.waiting_enemies.append((enemy_id, size))
-            return False
-
-    def on_unit_removed(self, unit_id):
-        """유닛 제거 시 대기열 처리"""
-        # 활성 목록에서 제거
-        self.active_enemies = [(u, s) for u, s in self.active_enemies if u != unit_id]
-        self.allies = [(u, s) for u, s in self.allies if u != unit_id]
-
-        # 대기열에서 진입 시도
-        self._fill_from_waiting()
-
-    def _fill_from_waiting(self):
-        """대기열에서 슬롯 채우기"""
-        entered = []
-        remaining = []
-
-        for enemy_id, size in self.waiting_enemies:
-            if self.can_add_enemy(size):
-                self.active_enemies.append((enemy_id, size))
-                entered.append(enemy_id)
-            else:
-                remaining.append((enemy_id, size))
-
-        self.waiting_enemies = remaining
-        return entered  # UI 알림용
+    hostility: str = "aggressive"   # aggressive, territorial, passive, timid
+    aggro_range: float = 100        # 감지 거리 (X 좌표 차이)
+    territory_range: float = 50     # 영역 수호 범위
 ```
 
 ---
 
-## 전투 흐름
+## 거리와 사거리
 
-### 턴 구조
+### 1D 거리 시스템
+
+Location의 X 좌표 차이가 곧 전투 거리:
 
 ```
-1턴 = 1분 (게임 시간)
+Location: 숲 입구 (length=1200, geometry="line")
 
-플레이어 턴
-    ↓
-아군 NPC 턴 (AI 자동)
-    ↓
-적 턴 (교전 중인 적만)
-    ↓
-시간 경과 (1분)
-    ↓
-도착 체크 (NPC 이동)
-    ↓
-대기열 처리
-    ↓
-다음 턴
+X=0        X=200      X=500           X=900      X=1200
+│          │          │               │          │
+Gate ─── 플레이어 ── 고블린A ─────── 고블린B ── Gate
+           ←── 300 ──→               ←── 400 ──→
+              (근접 가능)              (원거리만 가능)
 ```
 
-### 턴 처리
+### 사거리 분류
+
+| 분류 | 사거리 | 예시 |
+|------|--------|------|
+| 근접 (melee) | ~30 | 검, 도끼, 단검 |
+| 중거리 (mid) | ~150 | 창, 채찍 |
+| 원거리 (ranged) | ~500 | 활, 석궁 |
+| 장거리 (long) | ~1000+ | 마법, 저격 |
 
 ```python
-TURN_DURATION = 1  # 1턴 = 1분
-
-def _process_turn(state, player_action):
-    """한 턴 처리"""
-
-    # 1. 플레이어 행동
-    result = _process_player_action(state, player_action)
-    if result:  # 전투 종료 조건
-        return result
-
-    # 2. 아군 NPC 행동 (AI)
-    for ally_id, _ in state["engagement"].allies:
-        if ally_id != morld.get_player_id():
-            _process_ally_ai(state, ally_id)
-
-    # 3. 적 행동
-    for enemy_id, _ in state["engagement"].active_enemies:
-        if _is_alive(enemy_id):
-            _process_enemy_action(state, enemy_id)
-
-    # 4. 승패 체크
-    if _check_victory(state):
-        state["victory"] = True
-        return True
-    if _check_defeat(state):
-        state["defeat"] = True
-        return True
-
-    # 5. 시간 경과 + NPC 도착
-    _process_time_and_arrivals(state, TURN_DURATION)
-
-    # 6. 대기열 처리
-    entered = state["engagement"]._fill_from_waiting()
-    for enemy_id in entered:
-        state["log"].append(f"{_get_name(enemy_id)}(이)가 전투에 뛰어들었다!")
-
-    state["turn"] += 1
-    return _render_battle(state)
-```
-
-### NPC 도착 처리
-
-```python
-def _process_time_and_arrivals(state, minutes):
-    """시간 경과 및 도착 처리"""
-
-    # 시간 진행 (내부 시뮬레이션)
-    arrivals = morld.simulate_time_passage(minutes)
-
-    for unit_id in arrivals:
-        unit_loc = morld.get_unit_location(unit_id)
-        if unit_loc != state["location"]:
-            continue
-
-        unit_info = morld.get_unit_info(unit_id)
-
-        if _is_hostile(unit_id):
-            # 적 도착
-            size = _get_combat_size(unit_id)
-            if state["engagement"].add_enemy(unit_id, size):
-                state["log"].append(
-                    f"[color=red]{unit_info['name']}(이)가 나타났다![/color]"
-                )
-            else:
-                state["log"].append(
-                    f"[color=gray]{unit_info['name']}(이)가 기회를 노리고 있다...[/color]"
-                )
-
-        elif _will_join_battle(unit_id):
-            # 아군 합류
-            size = _get_combat_size(unit_id)
-            state["engagement"].allies.append((unit_id, size))
-            state["log"].append(
-                f"[color=cyan]{unit_info['name']}(이)가 합류했다![/color]"
-            )
-
-            # 합류로 용량 변화는 없지만, 아군 추가로 전력 증가
-            # (선택적: 아군이 슬롯을 차지하지 않는 방식도 가능)
-```
-
----
-
-## 도주 시스템
-
-### 도주 확률
-
-```python
-def _calculate_flee_chance(state):
-    """도주 확률 계산"""
-    player_id = morld.get_player_id()
-
-    # 기본 확률 50%
-    base_chance = 50
-
-    # 민첩 비교
-    player_agi = morld.get_actual_prop(player_id, "전투:민첩") or 10
-    avg_enemy_agi = _get_avg_enemy_agility(state)
-    agi_bonus = (player_agi - avg_enemy_agi) * 2
-
-    # 지형 영향
-    terrain = state["location"].terrain_type
-    terrain_bonus = {
-        "open": 10,      # 열린 지형: 도주 쉬움
-        "narrow": -10,   # 좁은 지형: 도주 어려움
-        "cramped": -20,  # 비좁은 지형: 매우 어려움
-    }.get(terrain, 0)
-
-    # 교전 중인 적 수 영향
-    enemy_count = len(state["engagement"].active_enemies)
-    crowd_penalty = (enemy_count - 1) * 5  # 적 1명당 -5%
-
-    chance = base_chance + agi_bonus + terrain_bonus - crowd_penalty
-    return max(10, min(90, chance))  # 10% ~ 90%
-```
-
-### 도주 처리
-
-```python
-def _attempt_flee(state):
-    """도주 시도"""
-
-    flee_chance = _calculate_flee_chance(state)
-
-    if random.randint(1, 100) > flee_chance:
-        state["log"].append("도망치지 못했다!")
-        return None  # 턴 소모
-
-    # 도주 성공 → 경로 선택
-    routes = morld.get_available_routes(state["location"])
-    if not routes:
-        state["log"].append("도망칠 곳이 없다!")
-        return None
-
-    state["flee_routes"] = routes
-    return _render_flee_ui(routes)
-
-def _process_flee_destination(state, route_index):
-    """도주 목적지 선택"""
-    player_id = morld.get_player_id()
-    route = state["flee_routes"][route_index]
-
-    # 이동
-    morld.set_unit_location(player_id, route.region_id, route.location_id)
-
-    # 추적 판정
-    for enemy_id, _ in state["engagement"].active_enemies:
-        if _will_chase(enemy_id):
-            morld.set_npc_job(enemy_id, "follow", duration=30, target=player_id)
-            state["log"].append(f"{_get_name(enemy_id)}(이)가 추적해 온다!")
-
-    state["fled"] = True
-    return True
-```
-
-### 추적 시스템
-
-```python
-def _will_chase(enemy_id):
-    """적의 추적 여부 판정"""
-    enemy = get_unit_asset(enemy_id)
-
-    # 기본 추적 확률
-    chase_chance = enemy.chase_chance if hasattr(enemy, 'chase_chance') else 30
-
-    # 몬스터 타입별 추적 성향
-    chase_types = {
-        "guardian": 0,    # 수호자: 추적 안 함 (영역 방어)
-        "hunter": 80,     # 사냥꾼: 높은 추적률
-        "beast": 50,      # 야수: 중간
-        "undead": 20,     # 언데드: 낮음
-        "boss": 100,      # 보스: 항상 추적
+# 무기별 사거리
+class IronSword(Item):
+    equip_props = {
+        "장착:손": 1,
+        "전투:공격력": 5,
+        "전투:사거리": 30,      # 근접
     }
 
-    if hasattr(enemy, 'monster_type'):
-        chase_chance = chase_types.get(enemy.monster_type, chase_chance)
+class ShortBow(Item):
+    equip_props = {
+        "장착:손": 1,
+        "전투:공격력": 3,
+        "전투:사거리": 500,     # 원거리
+        "전투:명중": -5,        # 원거리 명중 패널티
+    }
+```
 
-    return random.randint(1, 100) <= chase_chance
+### Ring 지형에서의 거리
 
-class Monster(Character):
-    monster_type: str = "beast"  # 기본 타입
-    chase_chance: int = 30       # 기본 추적 확률
+`geometry="ring"`인 Location은 순환형이므로 최단 거리를 사용:
+
+```
+Ring Location (length=360)
+
+X=350 ── Gate ── X=10
+  ↑                ↓
+  │   플레이어     │
+  │   (X=350)      │
+  │                │
+  │   고블린       │
+  │   (X=10)       │
+  ↓                ↑
+X=180 ────────── X=180
+
+거리 = min(|350-10|, 360-|350-10|) = min(340, 20) = 20
+→ 근접 공격 가능
+```
+
+---
+
+## 액션-시간 시스템
+
+### 기본 흐름
+
+```
+플레이어 액션 선택 (예: "영창 10분 마법")
+    ↓
+시간 흐름 시작 (advance_time_simulate)
+    ↓
+적 인터럽트 체크 (매 시뮬레이션 틱)
+    ├─ 적이 공격 범위 내에 없음 → 계속
+    ├─ 적이 공격 → 인터럽트 발생
+    │   ├─ 명중 → 액션 취소, 경과 시간만 반영
+    │   └─ 회피 → 액션 로그에 표시, 계속 진행
+    └─ 아무 일 없음 → 액션 완료, 전체 시간 경과
+```
+
+### 플레이어 액션
+
+| 액션 | 시간 | 이동 | 설명 |
+|------|------|------|------|
+| **근접 공격** | 짧음 | 대상까지 접근 | 거리에 따라 소요 시간 증가 |
+| **원거리 공격** | 중간 | 없음 | 사거리 내면 제자리 공격 |
+| **마법 영창** | 길음 | 없음 | 인터럽트에 취약 |
+| **이동** | 거리 비례 | 지정 위치로 | 순수 이동 (공격 없음) |
+| **도주** | 거리 비례 | Gate 방향 | Gate 도달 시 Location 이동 |
+| **방어** | 짧음 | 없음 | 다음 인터럽트 피해 감소 |
+| **아이템 사용** | 짧음 | 없음 | 회복, 버프 등 |
+
+### 공격에 이동 포함
+
+근접 공격 시 대상까지 자동 접근:
+
+```python
+def calculate_melee_attack_time(attacker_x, target_x, weapon_range, speed):
+    """근접 공격 총 소요 시간 = 이동 시간 + 공격 시간"""
+    distance = abs(attacker_x - target_x)
+
+    if distance <= weapon_range:
+        # 이미 사거리 내 → 공격만
+        return MELEE_ATTACK_DURATION
+
+    # 접근 필요
+    approach_distance = distance - weapon_range
+    move_time = approach_distance / speed
+    return move_time + MELEE_ATTACK_DURATION
+```
+
+### 인터럽트 시스템
+
+적이 플레이어 액션 도중 공격하는 구조:
+
+```python
+def process_player_action(action, duration):
+    """플레이어 액션 처리 + 적 인터럽트"""
+
+    elapsed = 0
+    while elapsed < duration:
+        # 시간 진행 (틱 단위)
+        tick = min(TICK_SIZE, duration - elapsed)
+        morld.advance_time_simulate(tick)
+        elapsed += tick
+
+        # 적 행동 체크
+        for enemy in get_hostile_units_at_location():
+            enemy_action = enemy.think_combat()
+            if enemy_action and enemy_action.type == "attack":
+                # 인터럽트 시도
+                hit, damage, result_text = resolve_attack(enemy, player)
+                if hit:
+                    # 명중 → 플레이어 액션 취소
+                    cancel_player_action()
+                    return {"interrupted": True, "elapsed": elapsed, "damage": damage}
+                else:
+                    # 회피 → 액션 로그에 기록, 계속 진행
+                    add_action_log(result_text)
+
+    # 인터럽트 없이 완료
+    return {"interrupted": False, "elapsed": duration}
+```
+
+---
+
+## 지형과 전투
+
+### Length의 의미
+
+Location의 `length`가 전장 크기를 결정:
+
+| Location | length | 전투 특성 |
+|----------|--------|----------|
+| 좁은 통로 | 100~200 | 근접전 강제. 원거리 의미 없음. 도주 어려움. |
+| 일반 방/숲길 | 300~600 | 근접/원거리 혼합. |
+| 넓은 들판 | 1000~2000 | 원거리 유리. 접근에 시간 소요. |
+| 매우 넓은 지역 | 3000+ | 장거리 무기 필수. 근접은 접근만으로 상당 시간. |
+
+### Geometry의 영향
+
+| Geometry | 전투 특성 |
+|----------|----------|
+| **line** | 양쪽 끝이 막혀 있음. 양쪽 Gate로만 탈출 가능. 일직선 전투. |
+| **ring** | 순환형. 적을 우회할 수 있음. 포위/배후 공격 가능. |
+
+### 좁은 지형의 자연 효과
+
+별도 `terrain_type` 없이, `length`만으로 지형 효과가 자연 발생:
+
+```
+좁은 동굴 (length=100):
+- 모든 유닛이 사거리 30 내에 있음 → 근접 무기만으로 전체 공격 가능
+- 도주 시 Gate까지 거리가 짧지만, 적이 가로막고 있으면 통과 불가
+- 원거리 무기의 이점 없음
+
+넓은 평원 (length=2000):
+- 원거리 유닛이 거리를 유지하며 일방적 공격 가능
+- 근접 전사가 접근하는 데만 수 분 소요
+- 도주가 쉬움 (Gate까지 거리가 멀어도 적과도 멀리 떨어져 있으므로)
 ```
 
 ---
@@ -421,16 +245,16 @@ class Monster(Character):
 ### 기본 스탯
 
 ```python
-# props 형식
 props = {
     "전투:체력": 100,
     "전투:최대체력": 100,
     "전투:공격력": 10,
     "전투:방어력": 5,
-    "전투:민첩": 10,
+    "전투:민첩": 10,       # 이동 속도, 회피에 영향
     "전투:명중": 85,
     "전투:회피": 10,
     "전투:치명타율": 5,
+    "전투:사거리": 30,     # 기본 사거리 (맨손)
 }
 ```
 
@@ -446,165 +270,181 @@ class IronSword(Item):
         "장착:손": 1,
         "전투:공격력": 5,
         "전투:명중": 5,
+        "전투:사거리": 30,
     }
 ```
 
 ### 데미지 계산
 
 ```python
-def calculate_damage(attacker_id, defender_id):
-    """데미지 계산"""
-    atk = morld.get_actual_prop(attacker_id, "전투:공격력")
-    def_ = morld.get_actual_prop(defender_id, "전투:방어력")
+def resolve_attack(attacker_id, defender_id):
+    """공격 판정"""
+    distance = get_distance(attacker_id, defender_id)
+    weapon_range = morld.get_actual_prop(attacker_id, "전투:사거리") or 30
 
-    # 기본 데미지 = 공격력 - 방어력/2
-    base = max(1, atk - def_ // 2)
+    # 사거리 체크
+    if distance > weapon_range:
+        return False, 0, "사거리 밖"
 
     # 명중 판정
-    hit = morld.get_actual_prop(attacker_id, "전투:명중")
-    eva = morld.get_actual_prop(defender_id, "전투:회피")
+    hit = morld.get_actual_prop(attacker_id, "전투:명중") or 85
+    eva = morld.get_actual_prop(defender_id, "전투:회피") or 0
     if random.randint(1, 100) > (hit - eva):
-        return 0, "회피"
+        return False, 0, "회피"
 
-    # 치명타 판정
+    # 데미지 계산
+    atk = morld.get_actual_prop(attacker_id, "전투:공격력") or 1
+    def_ = morld.get_actual_prop(defender_id, "전투:방어력") or 0
+    base = max(1, atk - def_ // 2)
+
+    # 치명타
     crit_rate = morld.get_actual_prop(attacker_id, "전투:치명타율") or 5
     is_crit = random.randint(1, 100) <= crit_rate
     if is_crit:
         base = int(base * 1.5)
 
-    # 랜덤 편차 ±10%
+    # 편차 ±10%
     damage = int(base * random.uniform(0.9, 1.1))
+    return True, damage, "치명타" if is_crit else "일반"
+```
 
-    return damage, "치명타" if is_crit else "일반"
+---
+
+## 도주
+
+### Gate 기반 도주
+
+도주 = Gate 방향으로 이동. Gate에 도달하면 Location 탈출:
+
+```
+Location: 숲길 (length=1200)
+
+X=0(Gate)   X=400(플레이어)   X=800(고블린)   X=1200(Gate)
+│           │                 │               │
+Gate_A ←── 도주 ──             ── 추적 ──→     Gate_B
+```
+
+- 플레이어가 Gate_A(X=0) 방향으로 도주: 거리 400, 이동 시간 계산
+- 이동 중 적이 인터럽트 가능 (추적 공격)
+- Gate 도달 시 Location 전환 → 전투 이탈
+
+### 추적
+
+적이 도주하는 플레이어를 추격:
+
+```python
+class Monster(Character):
+    chase_chance: int = 30        # 추적 확률 (%)
+    chase_distance: float = 500   # 최대 추적 거리 (같은 Location 내)
 ```
 
 ---
 
 ## NPC 전투 AI
 
-### 캐릭터별 전투 행동
-
-연애 시스템의 `ROMANCE_REACTIONS` 패턴 활용:
+### 캐릭터별 행동
 
 ```python
 class Character(Unit):
-    # 전투 행동 설정
     BATTLE_BEHAVIOR: dict = {
-        "target_priority": "weakest",  # "weakest", "strongest", "random"
-        "heal_threshold": 30,          # HP 30% 이하면 회복 시도
-        "skill_preference": 0.3,       # 30% 확률로 스킬 사용
-    }
-
-    # 전투 대사
-    BATTLE_QUOTES: dict = {
-        "join": ["전투에 합류한다!"],
-        "attack": ["공격!"],
-        "hit": ["윽!"],
-        "victory": ["이겼다!"],
+        "target_priority": "nearest",   # nearest, weakest, strongest, random
+        "retreat_threshold": 20,        # HP 20% 이하면 후퇴 시도
+        "preferred_range": 30,          # 선호 교전 거리
     }
 ```
 
-### 캐릭터별 설정 예시
+### 캐릭터별 예시
 
 ```python
-# 세라 - 공격적
+# 세라 - 근접 공격적
 class Sera(Character):
     BATTLE_BEHAVIOR = {
-        "target_priority": "strongest",  # 강한 적 우선
-        "heal_threshold": 20,            # 위험해도 공격
-        "skill_preference": 0.5,
-        "protect_player": True,          # 플레이어 보호
+        "target_priority": "strongest",
+        "retreat_threshold": 15,     # 위험해도 공격
+        "preferred_range": 30,       # 근접
+        "protect_player": True,
     }
 
-    BATTLE_QUOTES = {
-        "join": ["...뒤는 맡겨.", "...시작하지."],
-        "attack": ["...이것이다.", "..."],
-        "hit": ["...읏.", "..."],
-        "victory": ["...끝났어.", "...괜찮아?"],
-        "protect": ["...위험해!", "...물러서!"],
-    }
-
-# 밀라 - 지원형
+# 밀라 - 원거리 지원
 class Mila(Character):
     BATTLE_BEHAVIOR = {
         "target_priority": "weakest",
-        "heal_threshold": 50,
-        "skill_preference": 0.7,         # 스킬 선호
-        "support_priority": True,        # 회복/버프 우선
+        "retreat_threshold": 50,     # 안전 우선
+        "preferred_range": 300,      # 거리 유지
+        "support_priority": True,
     }
+```
 
-    BATTLE_QUOTES = {
-        "join": ["제가 도와드릴게요!", "괜찮으세요?"],
-        "heal": ["치유해 드릴게요.", "조금만 참으세요."],
-        "victory": ["다행이에요...", "다친 데 없으세요?"],
-    }
+### 적 AI
+
+```python
+def think_combat(self):
+    """적 전투 AI — think() 확장"""
+    player_id = morld.get_player_id()
+    distance = get_distance(self.unit_id, player_id)
+
+    if self.hostility == "aggressive":
+        if distance <= self.aggro_range:
+            return self._decide_attack(player_id, distance)
+
+    elif self.hostility == "territorial":
+        if distance <= self.territory_range:
+            return self._decide_attack(player_id, distance)
+
+    elif self.hostility == "timid":
+        if distance <= self.aggro_range:
+            return {"type": "flee"}  # 도주
+
+    return None  # 행동 없음
 ```
 
 ---
 
 ## 전투 UI
 
-### 기본 UI
+### 일반 전투 (액션 로그 기반)
+
+전투는 별도 UI가 아니라 **액션 로그**와 **상황 텍스트**로 표현:
 
 ```
-═══ 전투 (턴 3) ═══
+═══ 숲 입구 ═══
 
-[숲길] 용량: 4/4
-
-[교전 중]
-  고블린 정찰병  [████████░░] 80/100  (1슬롯)
-  고블린 궁수    [██████░░░░] 60/100  (1슬롯)
-
-[대기 중: 2마리]
-  고블린 전사, 고블린 전사
-
-[아군]
-  플레이어      [██████████] 100/100
-  세라          [████████░░] 85/100
+[color=red]고블린 정찰병[/color]이 앞을 가로막고 있다.
 
 ──────────────────────
-고블린 정찰병의 공격! → 12 데미지
+고블린 정찰병이 돌진해 온다!
 세라: "...뒤는 맡겨."
 ──────────────────────
 
 행동 선택:
-  [공격 → 고블린 정찰병]
-  [공격 → 고블린 궁수]
-  [스킬]
+  [공격 → 고블린 정찰병] (거리: 80, 접근 필요)
+  [활 공격 → 고블린 정찰병] (거리: 80, 사거리 내)
   [아이템]
-  [방어]
-  [도주] (성공률: 45%)
-
-[color=gray]리나가 접근 중 (2분 후 도착)[/color]
+  [도주 → 저택 방면] (Gate까지 200)
+  [도주 → 숲 깊은 곳] (Gate까지 1000)
 ```
 
-### 좁은 지형 UI
+### 인터럽트 발생 시
 
 ```
-═══ 전투 (턴 1) ═══
-
-[좁은 동굴 통로] 용량: 2/2
-
-[교전 중]
-  동굴 골렘     [██████████] 100/100  (3슬롯 → 2로 제한)
-
-[아군]
-  플레이어      [██████████] 100/100
-
-[지형 효과]
-  - 회피 -10%
-  - 대형무기 -20%
-
 ──────────────────────
-좁은 통로라 움직이기 어렵다...
+마법 영창 시작... (10분)
+  [3분 경과]
+  고블린 정찰병의 공격! → 12 데미지
+  영창이 풀렸다!
 ──────────────────────
+```
 
-행동 선택:
-  [공격]
-  [스킬]
-  [아이템]
-  [방어]
-  [도주] (성공률: 25%)  ← 좁은 지형 패널티
+### 인터럽트 회피 시
+
+```
+──────────────────────
+마법 영창 시작... (10분)
+  [3분 경과]
+  고블린 정찰병의 공격! → 회피!
+  [10분 경과]
+  마법 발동! → 고블린 정찰병에게 35 데미지
+──────────────────────
 ```
 
 ---
@@ -613,88 +453,71 @@ class Mila(Character):
 
 ```
 scenarios/scenario02/python/
-├─ battle/
-│   ├─ __init__.py          # start_battle() API
-│   ├─ engagement.py        # Engagement 클래스
-│   ├─ combat.py            # 데미지 계산, 턴 처리
-│   ├─ flee.py              # 도주/추적 시스템
-│   └─ ai.py                # NPC 전투 AI
 ├─ assets/
-│   ├─ base.py              # BATTLE_BEHAVIOR, combat_size 추가
+│   ├─ base.py              # Character: BATTLE_BEHAVIOR, hostility, aggro_range
 │   ├─ locations/
-│   │   └─ *.py             # combat_capacity, terrain_type 추가
+│   │   └─ *.py             # length, geometry (기존 속성이 전투에도 활용)
 │   └─ characters/
-│       └─ monsters.py      # Monster 클래스
+│       ├─ monsters/         # Monster 클래스 (적 유닛)
+│       └─ *.py              # NPC별 BATTLE_BEHAVIOR
+├─ think/
+│   └─ __init__.py           # think_combat() — 전투 AI 확장
 └─ docs/
-    └─ battle.md            # 이 문서
+    └─ battle.md             # 이 문서
 ```
 
 ---
 
 ## 구현 순서 (제안)
 
-1. **Location 용량 시스템**
-   - Location에 combat_capacity, terrain_type 속성 추가
-   - C# Location 클래스 확장
+1. **전투 스탯 기반**
+   - 전투 관련 props 정의 (체력, 공격력, 사거리 등)
+   - 장비에 전투 스탯 추가
 
-2. **Engagement 클래스**
-   - 교전 상태 관리
-   - 슬롯 계산, 대기열
+2. **공격 액션**
+   - 플레이어 공격 액션 (근접/원거리)
+   - 데미지 계산, 명중/회피 판정
+   - 거리 + 사거리 체크
 
-3. **기본 전투 루프**
-   - start_battle()
-   - 턴 처리
-   - 승패 판정
+3. **적 유닛**
+   - Monster 클래스 (hostility, aggro_range)
+   - 적 think() — 선제공격, 영역 수호 등
 
-4. **도주/추적**
-   - 도주 확률 계산
-   - 경로 선택
+4. **인터럽트 시스템**
+   - 플레이어 액션 중 적 행동 체크
+   - 인터럽트 성공/회피 처리
+
+5. **도주/추적**
+   - Gate 방향 이동
    - 적 추적 AI
 
-5. **NPC 합류**
-   - 시간 경과 연동
-   - 아군 AI
-
-6. **지형 효과**
-   - terrain_effects 적용
-   - UI 표시
+6. **NPC 전투 참여**
+   - 아군 NPC AI (BATTLE_BEHAVIOR)
+   - 시간 경과 중 NPC 도착/합류
 
 ---
 
 ## 확장 가능성
 
+### 상태이상
+
+```python
+# props로 관리
+"상태:독": 5,        # 5턱 남음 → 틱마다 HP 감소
+"상태:둔화": 3,      # 이동 속도 감소
+"상태:출혈": 10,     # 피해 지속
+```
+
 ### 환경 상호작용
 
-```python
-# 지형 오브젝트 활용
-class BattleEnvironment:
-    """전투 중 환경 요소"""
+Location 내 오브젝트 활용:
+- 바위 뒤에 숨기 (회피 보너스)
+- 함정 설치/활성화
+- 좁은 문 지형지물로 근접전 유도
 
-    def get_cover_objects(self, location):
-        """엄폐물 목록"""
-        # 바위, 나무 등 → 회피 보너스
+### 동료 공격/반격
 
-    def get_hazards(self, location):
-        """위험 요소"""
-        # 함정, 불길 등 → 추가 데미지
-```
-
-### 다중 전선
-
-```python
-# 넓은 Location에서 여러 교전 그룹
-engagement_groups = [
-    Engagement(allies=[player], enemies=[goblin_a, goblin_b]),
-    Engagement(allies=[sera], enemies=[goblin_c]),
-]
-```
-
-### 전투 중 이벤트
-
-```python
-# 특정 조건에서 이벤트 발생
-if state["turn"] == 5 and not state.get("reinforcement_arrived"):
-    # 증원 도착 이벤트
-    yield morld.dialog("[color=red]적 증원이 도착했다![/color]")
-    state["reinforcement_arrived"] = True
-```
+향후 구현:
+- 플레이어가 동료를 공격하면 호감도 급감 + 반격
+- NPC 간 전투 (적대 NPC vs 아군 NPC)
+- 오인 사격 (원거리 공격이 아군에게 맞을 확률)
