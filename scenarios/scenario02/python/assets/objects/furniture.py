@@ -407,6 +407,7 @@ class Bed(Object):
         "posture_slots": 2,
         "seated_by:left": -1,
         "seated_by:right": -1,
+        "action:sleep": 1,
     }
     focus_text = {"default": "작지만 편안해 보이는 침대. 깨끗한 이불이 깔려 있다."}
 

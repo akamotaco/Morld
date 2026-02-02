@@ -91,6 +91,7 @@ class Ella(Character):
         "관계:유키:보호": 1,
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 5,
+        "can:sleep": 1,
     }
     actions = [
         "call:talk:대화",

@@ -621,6 +621,19 @@ namespace SE
                 if (npc == null)
                     return PyNone.Instance;
 
+                // can:sleep 체크 - NPC가 수면 능력이 있는지 확인
+                bool npcCanSleep = false;
+                foreach (var (prop, value) in npc.TraversalContext.Props.GetByType("can"))
+                {
+                    if (prop.Name == "sleep" && value > 0)
+                    {
+                        npcCanSleep = true;
+                        break;
+                    }
+                }
+                if (!npcCanSleep)
+                    return PyNone.Instance;
+
                 // 우선순위 1: pref_location에서 bed_owner가 일치하는 침대 + 빈 슬롯
                 // 우선순위 2: pref_location에서 아무 빈 침대
                 Unit bestOwnerBed = null;
@@ -634,14 +647,17 @@ namespace SE
                     if (unit.CurrentLocation.RegionId != prefRegion ||
                         unit.CurrentLocation.LocalId != prefLocation) continue;
 
-                    // 침대 식별: posture_slots >= 2
-                    int postureSlots = 0;
-                    foreach (var (prop, value) in unit.TraversalContext.Props.GetByType("posture_slots"))
+                    // 수면 가능 오브젝트 식별: action:sleep prop
+                    bool canSleep = false;
+                    foreach (var (prop, value) in unit.TraversalContext.Props.GetByType("action"))
                     {
-                        postureSlots = value;
-                        break;
+                        if (prop.Name == "sleep" && value > 0)
+                        {
+                            canSleep = true;
+                            break;
+                        }
                     }
-                    if (postureSlots < 2) continue;
+                    if (!canSleep) continue;
 
                     // 빈 슬롯 찾기
                     string emptySlot = null;

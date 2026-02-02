@@ -186,6 +186,16 @@ class BaseAgent:
                         "x": None, "bed_object_id": None, "rough": True}
             return None
 
+        # can:sleep 체크 - 없으면 에러 (개발 시 누락 방지)
+        props = morld.get_unit_props_by_type(self.unit_id, "can")
+        if not props or props.get("sleep", 0) <= 0:
+            info = morld.get_unit_info(self.unit_id)
+            name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
+            raise RuntimeError(
+                f"[think] {name}에게 'can:sleep' prop이 없습니다. "
+                f"수면 활동을 하려면 캐릭터에 'can:sleep': 1을 추가하세요."
+            )
+
         owner_unique = self.owner_unique_id or ""
         result = morld.resolve_sleep_target(
             self.unit_id,
