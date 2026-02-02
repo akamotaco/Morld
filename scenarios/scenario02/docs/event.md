@@ -222,6 +222,19 @@ def clear_pending_meet_events():
     """ExcessTime > 0일 때 대기 중인 이벤트 모두 제거"""
     global _pending_meet_events
     _pending_meet_events = []
+
+def queue_meet_events(player_id, unit_ids):
+    """on_meet 이벤트를 큐에 수동 주입 (로맨스 중단 후 등)"""
+    events = _collect_meet_events(player_id, unit_ids)
+    _pending_meet_events.extend(events)
+```
+
+**수동 큐 주입 (로맨스 중단 등):**
+```
+advance_time_simulate() 중 NPC가 도착하면 on_meet이 그 안에서 소비된다.
+로맨스 등 이벤트 핸들러 내부에서 시간 시뮬레이션 후 세션 종료 시,
+도착 NPC의 on_meet 이벤트를 queue_meet_events()로 재수집하여 큐에 주입하고,
+_pop_next_meet_event()로 순차 처리하면 on_meet_player()가 자연 실행된다.
 ```
 
 **ExcessTime과 이벤트 큐 연동:**

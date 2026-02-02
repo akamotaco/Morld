@@ -275,6 +275,25 @@ def has_pending_meet_events():
     return len(_pending_meet_events) > 0
 
 
+def queue_meet_events(player_id, unit_ids):
+    """
+    on_meet 이벤트를 큐에 수동 주입
+
+    advance_time_simulate() 중 도착한 NPC의 on_meet이 소비된 경우,
+    로맨스 종료 후 해당 NPC의 on_meet 이벤트를 재수집하여 큐에 넣는다.
+    _pop_next_meet_event()로 순차 처리 가능.
+
+    Args:
+        player_id: 플레이어 유닛 ID
+        unit_ids: [player_id, npc_id, ...] 만남 대상 목록
+    """
+    global _pending_meet_events
+    events = _collect_meet_events(player_id, unit_ids)
+    for evt in events:
+        evt["unit_ids"] = unit_ids
+    _pending_meet_events.extend(events)
+
+
 def on_single_event(event):
     """
     단일 이벤트 처리 (C#에서 순차 호출)

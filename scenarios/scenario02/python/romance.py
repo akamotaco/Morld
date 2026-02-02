@@ -623,10 +623,22 @@ def start_romance(player_id, partner_id):
         yield ui.dialog("지쳤다...")
         morld.pop_to_situation()
     elif state["interrupted"]:
-        # 비정상 종료: 방해 이벤트 (handle_interruption에서 flee job 설정)
-        # pop은 handle_interruption 내에서 처리
-        yield from handle_interruption(state)
+        # 비정상 종료: 제3자 도착으로 중단
+        player_id = state["player_id"]
+        interrupter_id = state["interrupter_id"]
+        # 1. 파트너 스케줄 복원
+        handle_interruption(state)
+        # 2. 상황 복원 (로맨스 UI 종료)
         morld.pop_to_situation()
+        # 3. 도착 NPC의 on_meet 이벤트 큐잉 + 순차 처리
+        #    → on_meet_player() 자연 실행 (privacy 체크, first-meet 등)
+        from events import queue_meet_events, _pop_next_meet_event
+        queue_meet_events(player_id, [player_id, interrupter_id])
+        while True:
+            result = _pop_next_meet_event(player_id)
+            if result is None:
+                break
+            yield from result
     else:
         # 정상 종료(exit 클릭): NPC focus로 복귀
         if partner_agent:
@@ -634,37 +646,25 @@ def start_romance(player_id, partner_id):
 
 
 def handle_interruption(state):
-    """중단 이벤트 처리"""
-    interrupter_id = state["interrupter_id"]
+    """중단 이벤트 처리 — 로맨스 세션 정리
+
+    로맨스 중 제3자가 도착하면 세션을 조용히 종료한다.
+    도착 NPC의 후속 반응은 이벤트 큐를 통해 on_meet_player()에서 자연 처리.
+    (privacy 체크, first-meet 등 모든 on_meet 핸들러가 정상 실행됨)
+
+    TODO: 캐릭터별 목격/중단 반응 분기
+    현재는 세션만 조용히 종료되지만, 향후 캐릭터 성격에 따라 달라야 자연스럽다.
+    예시:
+      - 리나가 밀라&플레이어 목격 → 리나 놀라서 도주, 밀라는 당당
+      - 밀라가 리나&플레이어 목격 → 리나 놀라서 도주, 밀라가 플레이어 추방
+      - 세라가 밀라&플레이어 목격 → 세라 덤덤하게 무시, 애정행위 계속
+    구현 시 목격자(interrupter) × 파트너(partner) × 장소 조합별 분기 필요.
+    욕실/침실 등 장소에 따라서도 반응이 달라질 수 있음.
+    """
     partner_id = state["partner_id"]
 
-    # 목격자 반응 다이얼로그
-    interrupter_info = morld.get_unit_info(interrupter_id)
-    interrupter_name = interrupter_info["name"]
-    yield ui.dialog([
-        f"[{interrupter_name}]",
-        "어머나! 이게 무슨 꼴이람!"
-    ])
-
-    # 파트너 반응 (부끄러움 → 도망)
-    partner_info = morld.get_unit_info(partner_id)
-    partner_name = partner_info["name"]
-    yield ui.dialog([
-        f"[{partner_name}]",
-        "...!"
-    ])
-
-    # 파트너 상태 변경 - 스케줄 스택 pop 후 flee job 설정
+    # 파트너 스케줄 복원 (원래 행동으로 복귀)
     import think
     partner_agent = think.get_agent(partner_id)
     if partner_agent:
         partner_agent.pop_schedule()
-
-    morld.add_unit_mood(partner_id, "부끄러움")
-    morld.set_npc_job(partner_id, "flee", 30 * MILLIS_PER_MINUTE, morld.get_player_id())
-
-    # 목격자 호감도 감소 (관계:플레이어이름:호감)
-    player_id = morld.get_player_id()
-    player_info = morld.get_unit_info(player_id)
-    player_name = player_info.get('name', '주인공') if player_info else '주인공'
-    morld.modify_prop(interrupter_id, f"관계:{player_name}:호감", -5)
