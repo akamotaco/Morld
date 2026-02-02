@@ -164,65 +164,36 @@ class BaseAgent:
                     return True, entry
         return False, None
 
-    def _resolve_sleep_location(self):
-        """수면 장소를 우선순위에 따라 결정
+    # 서브클래스에서 오버라이드: NPC의 unique_id (침대 소유자 매칭용)
+    owner_unique_id = None
 
-        우선순위:
-            1. 자기 소유 침대 (sleep_location)
-            2. 현재 위치의 비어있는 침대
-            3. 실내 노숙 (현재 위치가 실내면 그대로)
-            4. 야외 노숙
+    def _resolve_sleep_location(self):
+        """수면 장소를 C# API로 결정
+
+        C# resolve_sleep_target() 우선순위:
+            1. pref_location에서 bed_owner가 일치하는 침대 + 빈 슬롯
+            2. pref_location에서 아무 빈 침대
+            3. pref_location이 실내면 노숙
+            4. 현재 위치에서 노숙
 
         Returns:
             dict: {"region_id", "location_id", "x", "bed_object_id", "rough"} or None
         """
-        # 1순위: 자기 소유 침대
-        if self.sleep_location:
-            bed = self._find_bed_at(
-                self.sleep_location["region_id"],
-                self.sleep_location["location_id"])
-            if bed:
-                return {**self.sleep_location, "bed_object_id": bed}
-
-        # 2순위: 현재 위치의 비어있는 침대
-        loc = self.get_location()
-        if loc:
-            bed = self._find_bed_at(loc[0], loc[1])
-            if bed:
-                return {"region_id": loc[0], "location_id": loc[1],
-                        "x": None, "bed_object_id": bed}
-
-        # 3순위: 실내 노숙
-        if loc:
-            loc_info = morld.get_location_info(loc[0], loc[1])
-            if loc_info and loc_info.get("is_indoor"):
+        if not self.sleep_location:
+            loc = self.get_location()
+            if loc:
                 return {"region_id": loc[0], "location_id": loc[1],
                         "x": None, "bed_object_id": None, "rough": True}
+            return None
 
-        # 4순위: 야외 노숙
-        if loc:
-            return {"region_id": loc[0], "location_id": loc[1],
-                    "x": None, "bed_object_id": None, "rough": True}
-
-        return None
-
-    def _find_bed_at(self, region_id, location_id):
-        """특정 Location에서 빈 슬롯이 있는 침대 찾기
-
-        Returns:
-            object_id (int) or None
-        """
-        objects = morld.get_objects_at_location(region_id, location_id)
-        for obj_id in objects:
-            props = morld.get_unit_props(obj_id)
-            if props.get("posture") != "lie":
-                continue
-            # 빈 슬롯 확인
-            seated_by = morld.get_unit_props_by_type(obj_id, "seated_by")
-            for slot, occupant in seated_by.items():
-                if occupant == -1:
-                    return obj_id
-        return None
+        owner_unique = self.owner_unique_id or ""
+        result = morld.resolve_sleep_target(
+            self.unit_id,
+            self.sleep_location["region_id"],
+            self.sleep_location["location_id"],
+            owner_unique
+        )
+        return result
 
     def _try_sleep_on_bed(self, bed_object_id):
         """침대에 눕기 시도

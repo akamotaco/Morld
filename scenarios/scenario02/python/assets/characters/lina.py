@@ -512,6 +512,11 @@ class Lina(Character):
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
+        # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
+        privacy = self._check_room_privacy(player_id)
+        if privacy is not None:
+            return privacy
+
         # 첫 만남 여부 판정 (관계:리나:진척도 <= 0)
         if not self.is_first_meet(player_id):
             # NPC 주도 스킨십 체크 (첫 만남 이후에만)
@@ -755,6 +760,41 @@ class Lina(Character):
             "...같이 있으면 괜찮아."
         ])
 
+
+    # ========================================
+    # 프라이버시 이벤트 (수면 시 방 퇴출)
+    # ========================================
+
+    def _on_room_privacy(self, player_id, activity):
+        """리나가 수면 목적으로 자기 방에 도착했는데 플레이어가 있을 때"""
+        props = morld.get_unit_props(self.instance_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
+        info = morld.get_unit_info(self.instance_id)
+
+        if activity == "수면":
+            if affection >= 50:
+                def handler():
+                    yield ui.dialog([
+                        "[리나]",
+                        "앗, 여기 있었구나?",
+                        "나 좀 졸린데... 같이 있어도 돼?"
+                    ])
+                return handler()
+            else:
+                def handler():
+                    yield ui.dialog([
+                        "[리나]",
+                        "으으... 나 자야 하는데.",
+                        "저기... 나가줄래?"
+                    ])
+                    morld.stand_up(player_id)
+                    if info:
+                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
+                    yield ui.dialog(["리나의 방에서 나왔다."])
+                return handler()
+        return None
 
     # ========================================
     # 침대 이벤트
@@ -1068,6 +1108,7 @@ class LinaAgent(BaseAgent):
         {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
     ]
 
+    owner_unique_id = "lina"
     sleep_location = {"region_id": 0, "location_id": 7, "x": 120}  # 리나방
 
     def __init__(self, unit_id):

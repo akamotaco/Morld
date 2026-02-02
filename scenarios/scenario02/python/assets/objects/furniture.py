@@ -410,6 +410,15 @@ class Bed(Object):
     }
     focus_text = {"default": "작지만 편안해 보이는 침대. 깨끗한 이불이 깔려 있다."}
 
+    def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
+        """bed_owner가 설정되어 있으면 props에 bed_owner:{name} = 1 추가"""
+        bed_owner = getattr(self, 'bed_owner', None)
+        if bed_owner:
+            # 클래스 변수 보호를 위해 인스턴스별 복사
+            self.props = dict(self.props) if self.props else {}
+            self.props[f"bed_owner:{bed_owner}"] = 1
+        super().instantiate(instance_id, region_id, location_id, x, y)
+
     def _find_owner_unit(self, region_id, location_id, owner_unique):
         """방 주인 캐릭터가 같은 Location에 있으면 unit_id 반환"""
         unit_ids = morld.get_units_at_location(region_id, location_id)

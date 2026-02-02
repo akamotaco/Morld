@@ -599,6 +599,127 @@ namespace SE
                 }
                 return result;
             });
+
+            // resolve_sleep_target(unit_id, pref_region, pref_location, owner_unique_id)
+            // 수면 장소 탐색 API - 우선순위에 따라 침대/노숙 장소 결정
+            // 반환: {"bed_object_id": int|None, "region_id": int, "location_id": int, "x": float, "rough": bool}
+            morldModule.ModuleDict["resolve_sleep_target"] = new PyBuiltinFunction("resolve_sleep_target", args =>
+            {
+                if (args.Length < 4)
+                    throw PyTypeError.Create("resolve_sleep_target(unit_id, pref_region, pref_location, owner_unique_id) requires 4 arguments");
+
+                int unitId = args[0].ToInt();
+                int prefRegion = args[1].ToInt();
+                int prefLocation = args[2].ToInt();
+                string ownerUniqueId = args[3].ToString();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem?.GetTerrain();
+
+                var npc = _unitSystem.FindUnit(unitId);
+                if (npc == null)
+                    return PyNone.Instance;
+
+                // 우선순위 1: pref_location에서 bed_owner가 일치하는 침대 + 빈 슬롯
+                // 우선순위 2: pref_location에서 아무 빈 침대
+                Unit bestOwnerBed = null;
+                string bestOwnerSlot = null;
+                Unit bestAnyBed = null;
+                string bestAnySlot = null;
+
+                foreach (var unit in _unitSystem.Units.Values)
+                {
+                    if (!unit.IsObject) continue;
+                    if (unit.CurrentLocation.RegionId != prefRegion ||
+                        unit.CurrentLocation.LocalId != prefLocation) continue;
+
+                    // 침대 식별: posture_slots >= 2
+                    int postureSlots = 0;
+                    foreach (var (prop, value) in unit.TraversalContext.Props.GetByType("posture_slots"))
+                    {
+                        postureSlots = value;
+                        break;
+                    }
+                    if (postureSlots < 2) continue;
+
+                    // 빈 슬롯 찾기
+                    string emptySlot = null;
+                    foreach (var (prop, value) in unit.TraversalContext.Props.GetByType("seated_by"))
+                    {
+                        if (value == -1)
+                        {
+                            emptySlot = prop.Name;
+                            break;
+                        }
+                    }
+                    if (emptySlot == null) continue;
+
+                    // bed_owner 체크
+                    if (!string.IsNullOrEmpty(ownerUniqueId))
+                    {
+                        bool isOwnerBed = false;
+                        foreach (var (prop, value) in unit.TraversalContext.Props.GetByType("bed_owner"))
+                        {
+                            if (prop.Name == ownerUniqueId && value > 0)
+                            {
+                                isOwnerBed = true;
+                                break;
+                            }
+                        }
+
+                        if (isOwnerBed && bestOwnerBed == null)
+                        {
+                            bestOwnerBed = unit;
+                            bestOwnerSlot = emptySlot;
+                        }
+                    }
+
+                    // 아무 빈 침대 (우선순위 2 후보)
+                    if (bestAnyBed == null)
+                    {
+                        bestAnyBed = unit;
+                        bestAnySlot = emptySlot;
+                    }
+                }
+
+                // 결과 결정
+                Unit selectedBed = bestOwnerBed ?? bestAnyBed;
+
+                if (selectedBed != null)
+                {
+                    // 침대 발견
+                    var result = new PyDict();
+                    result.SetItem(new PyString("bed_object_id"), new PyInt(selectedBed.Id));
+                    result.SetItem(new PyString("region_id"), new PyInt(prefRegion));
+                    result.SetItem(new PyString("location_id"), new PyInt(prefLocation));
+                    result.SetItem(new PyString("x"), new PyFloat(selectedBed.PositionX));
+                    result.SetItem(new PyString("rough"), PyBool.FromBool(false));
+                    return result;
+                }
+
+                // 우선순위 3: pref_location이 실내면 노숙
+                var location = terrain?.GetLocation(prefRegion, prefLocation);
+                if (location != null && location.IsIndoor)
+                {
+                    var result = new PyDict();
+                    result.SetItem(new PyString("bed_object_id"), PyNone.Instance);
+                    result.SetItem(new PyString("region_id"), new PyInt(prefRegion));
+                    result.SetItem(new PyString("location_id"), new PyInt(prefLocation));
+                    result.SetItem(new PyString("x"), new PyFloat(0));
+                    result.SetItem(new PyString("rough"), PyBool.FromBool(true));
+                    return result;
+                }
+
+                // 우선순위 4: 현재 위치에서 노숙
+                var result4 = new PyDict();
+                result4.SetItem(new PyString("bed_object_id"), PyNone.Instance);
+                result4.SetItem(new PyString("region_id"), new PyInt(npc.CurrentLocation.RegionId));
+                result4.SetItem(new PyString("location_id"), new PyInt(npc.CurrentLocation.LocalId));
+                result4.SetItem(new PyString("x"), new PyFloat(npc.PositionX));
+                result4.SetItem(new PyString("rough"), PyBool.FromBool(true));
+                return result4;
+            });
         }
 
         /// <summary>

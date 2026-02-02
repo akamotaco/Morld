@@ -509,6 +509,11 @@ class Yuki(Character):
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
+        # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
+        privacy = self._check_room_privacy(player_id)
+        if privacy is not None:
+            return privacy
+
         # 첫 만남 여부 판정 (관계:유키:진척도 <= 0)
         if not self.is_first_meet(player_id):
             # NPC 주도 스킨십 체크 (첫 만남 이후에만)
@@ -1030,6 +1035,7 @@ class YukiAgent(BaseAgent):
         {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},
     ]
 
+    owner_unique_id = "yuki"
     sleep_location = {"region_id": 2, "location_id": 5, "x": 50}  # 은신처 유키침대
 
     def __init__(self, unit_id):

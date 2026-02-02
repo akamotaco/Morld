@@ -1410,6 +1410,55 @@ class Character(Unit):
         # 3. 기타 NPC 주도 이벤트 (서브클래스에서 오버라이드 가능)
         return None
 
+    # ========================================
+    # 프라이버시 이벤트 (수면/목욕 시 방 퇴출)
+    # ========================================
+
+    def _check_room_privacy(self, player_id: int):
+        """
+        수면/목욕 목적으로 자기 방에 도착했는데 플레이어가 있으면 이벤트 반환
+
+        on_meet_player()에서 호출. NPC가 해당 location에 도착하는 시점에
+        1회 발동하므로 이 시점에서 한 번만 체크하면 충분.
+
+        Args:
+            player_id: 플레이어 유닛 ID
+
+        Returns:
+            Generator (이벤트 있음) 또는 None (없음)
+        """
+        # 1. 현재 Job이 프라이버시 활동인지
+        job = morld.get_current_job(self.instance_id)
+        if not job:
+            return None
+        job_name = job.get("name", "")
+        if job_name not in ("수면",):  # 향후 "목욕" 등 추가 가능
+            return None
+
+        # 2. 이 Location이 내 방인지
+        info = morld.get_unit_info(self.instance_id)
+        if not info:
+            return None
+        loc_info = morld.get_location_info(info["region_id"], info["location_id"])
+        if not loc_info or loc_info.get("owner") != self.unique_id:
+            return None
+
+        # 3. 이벤트 반환 (서브클래스에서 구현)
+        return self._on_room_privacy(player_id, job_name)
+
+    def _on_room_privacy(self, player_id: int, activity: str):
+        """
+        프라이버시 이벤트 기본 구현 (서브클래스에서 오버라이드)
+
+        Args:
+            player_id: 플레이어 유닛 ID
+            activity: 활동 종류 ("수면", "목욕" 등)
+
+        Returns:
+            Generator 또는 None
+        """
+        return None
+
     def _run_event_dialog(self, event_name: str, **kwargs):
         """
         이벤트 다이얼로그 실행 - Generator 반환
