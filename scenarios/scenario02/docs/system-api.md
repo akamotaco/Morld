@@ -128,7 +128,95 @@ lines.append(f"[{geo_text}] X:{int(position_x)}/{int(location_length)}")
 
 ## Dialog 시스템
 
-### ui.dialog() - 권장 API
+대화 시스템은 세 가지 타입을 제공합니다:
+
+| 타입 | 설명 | 용도 |
+|------|------|------|
+| **Lines** | 조건부 단답형 | NPC 인사말, 상태 메시지 |
+| **Sequence** | 페이지형 | 나레이션, 설명문 |
+| **Conversation** | CRPG 누적형 | NPC 대화, 첫 만남 이벤트 |
+
+---
+
+### Lines (단답형)
+
+조건에 따라 다른 대사를 출력합니다. 유저 인터랙션 없이 "확인" 버튼만 표시됩니다.
+
+```python
+import ui
+
+lines = ui.Lines("세라")
+lines.when(affection >= 80, "...다음에 또 와.", "...조심해서 가.")
+lines.when(affection >= 50, "...또 뭐야.")
+lines.default("...")
+yield lines.end()
+```
+
+**특징:**
+- 위에서 아래로 조건 평가, 첫 번째 True인 조건 사용
+- 모든 조건 불만족 시 `default()` 대사 출력
+- 호출 시점에 조건 평가 (즉시 평가)
+
+---
+
+### Sequence (페이지형)
+
+페이지가 교체되며 진행됩니다. `+` 접두사로 연쇄 출력을 지원합니다.
+
+```python
+import ui
+
+seq = ui.Sequence("세라")
+seq.add("첫 번째 페이지")
+seq.add("+두 번째 (연쇄)")   # 이전 내용 유지 + 새 내용 타이핑
+seq.add("세 번째 (새로)")    # 새로 시작
+yield seq.end()
+```
+
+**특징:**
+- "다음" 버튼으로 페이지 이동
+- `+` 접두사: 이전 내용 유지 + 새 내용 추가
+- `\+`: `+` 리터럴 (이스케이프)
+
+---
+
+### Conversation (CRPG 누적형)
+
+선택지 대화에서 히스토리가 화면에 쌓입니다. 선택한 항목은 회색으로 표시됩니다.
+
+```python
+import ui
+
+conv = ui.Conversation("세라")
+conv.narration("눈앞에 낯선 여성이 서 있다.")
+conv.say("...일어났군.", "...기억은 있나?")
+conv.ask([
+    ("기억이 없다", "no_memory"),
+    ("여기가 어디야?", "where"),
+    ("(헤어지기)", "@exit"),  # 대화 즉시 종료
+])
+conv.respond("no_memory", "...그렇군.", "...너만 그런 건 아니다.")
+conv.respond("where", "...저택이다.", "...숲 속에 있는.")
+conv.say("...무리하지 마라.")
+yield conv.end()
+```
+
+**메서드:**
+| 메서드 | 설명 |
+|--------|------|
+| `say(*lines)` | NPC 대사 (이름 자동 추가) |
+| `narration(*lines)` | 나레이션 (이름 없이) |
+| `ask(options)` | 선택지 `[("표시", "값"), ...]` |
+| `respond(value, *lines)` | 특정 선택에 대한 응답 |
+| `branch(conditions)` | 여러 선택 응답 `{"값": ["대사"], ...}` |
+| `end()` | 다이얼로그 반환 (yield용) |
+
+**특수 값:**
+- `@exit`: 대화 즉시 종료 (respond 없이 다이얼로그 닫힘)
+
+---
+
+### ui.dialog() - 레거시 API
 
 `ui.dialog()`는 `morld.dialog()`를 감싼 래퍼로, 리스트 기반 다 페이지와 연쇄 출력을 지원합니다.
 

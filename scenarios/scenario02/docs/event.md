@@ -296,20 +296,49 @@ def handle(self, player_id, unit_ids):
     morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ```
 
-### EVENT_DIALOGS 자동 처리
+### 이벤트 대화 구현 (메서드 기반)
 
-캐릭터 클래스의 `EVENT_DIALOGS`를 사용하면 대화 후 NPC 동작이 자동 처리됩니다:
+이벤트 대화는 **메서드 핸들러**로 구현합니다. `on_meet_player`에서 이벤트 체크 후 핸들러를 호출합니다:
 
 ```python
+import ui
+
 class Sera(Character):
-    EVENT_DIALOGS = {
-        "first_meet": {
-            "pages": ["......", "...세라다."],
-            "time_consume": 1 * _M,     # 대화로 1분 경과
-            "stay_duration": 2 * _M,    # 대화 후 2분간 현재 위치에 머무름
-        },
-    }
+    def on_meet_player(self, player_id):
+        # 첫 만남 체크
+        progress = self._get_relationship_prop(player_id, "진척도")
+        if progress == 0:
+            return self._first_meet_handler(player_id)
+        return None
+
+    def _first_meet_handler(self, player_id):
+        """첫 만남 이벤트 - Conversation 사용"""
+        conv = ui.Conversation("세라")
+        conv.narration("눈앞에 낯선 여성이 서 있다.")
+        conv.say("...일어났군.", "...기억은 있나?")
+        conv.ask([
+            ("기억이 없다", "no_memory"),
+            ("여기가 어디야?", "where"),
+        ])
+        conv.respond("no_memory", "...그렇군.")
+        conv.respond("where", "...저택이다.")
+        conv.say("...무리하지 마라.")
+        yield conv.end()
+
+        # 시간 경과 및 NPC 동작 설정
+        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
+        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
+
+        # 진척도 업데이트
+        self.mark_first_meet_done(player_id)
 ```
+
+**대화 타입 선택:**
+| 타입 | 용도 |
+|------|------|
+| `ui.Conversation` | 선택지 대화, 첫 만남 이벤트 |
+| `ui.Sequence` | 일방적 나레이션 |
+| `ui.dialog(pages)` | 간단한 멀티페이지 |
 
 | Job Action | 설명 |
 |------------|------|
