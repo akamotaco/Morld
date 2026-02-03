@@ -350,45 +350,32 @@ class Character(Unit):
     # 연애 반응 시스템
     # ========================================
     # 서브클래스에서 오버라이드하여 캐릭터별 반응 정의
-    # 형식:
+    # 형식: "action:timing" → [(conditions, [texts]), ...]
+    #
+    # 예시:
     #   ROMANCE_REACTIONS = {
-    #       "action_id": {
-    #           "start": "시작 시 텍스트",
-    #           "during": "진행 중 텍스트",
-    #           "end": "종료 시 텍스트",
-    #       },
-    #       ...
+    #       "hug:start": [
+    #           ({"애정": 50}, ["...안아줘...", "...이대로..."]),
+    #           ({}, ["......", "...뭐냐."]),
+    #       ],
+    #       "hug:during": [
+    #           ({}, ["상대가 가만히 있다."]),
+    #       ],
     #   }
     ROMANCE_REACTIONS: dict = {
-        # 토글 액션 (ON 상태 진행 중 묘사) - romance.py TOGGLE_ACTIONS와 일치
-        "hug": {
-            "during": "상대가 당신을 안고 있다.",
-        },
-        "deep_kiss": {
-            "during": "상대와 깊은 키스를 나누고 있다.",
-        },
-        "breast_touch": {
-            "during": "상대의 가슴에 손을 대고 있다.",
-        },
-        # 즉시 액션 - romance.py INSTANT_ACTIONS와 일치
-        "head_pat": {
-            "start": "상대의 머리를 쓰다듬는다.",
-        },
-        "cheek_caress": {
-            "start": "상대의 볼을 어루만진다.",
-        },
-        "cheek_pinch": {
-            "start": "상대의 볼을 꼬집는다.",
-        },
-        "ear_touch": {
-            "start": "상대의 귀를 만진다.",
-        },
-        "french_kiss": {
-            "start": "상대와 프렌치 키스를 한다.",
-        },
-        "butt_caress": {
-            "start": "상대의 엉덩이를 쓰다듬는다.",
-        },
+        # 토글 액션 (ON 상태 진행 중 묘사)
+        "hug:during": [({}, ["상대가 당신을 안고 있다."])],
+        "deep_kiss:during": [({}, ["상대와 깊은 키스를 나누고 있다."])],
+        "breast_touch:during": [({}, ["상대의 가슴에 손을 대고 있다."])],
+        # 즉시 액션
+        "head_pat:start": [({}, ["상대의 머리를 쓰다듬는다."])],
+        "cheek_caress:start": [({}, ["상대의 볼을 어루만진다."])],
+        "cheek_pinch:start": [({}, ["상대의 볼을 꼬집는다."])],
+        "ear_touch:start": [({}, ["상대의 귀를 만진다."])],
+        "french_kiss:start": [({}, ["상대와 프렌치 키스를 한다."])],
+        "butt_caress:start": [({}, ["상대의 엉덩이를 쓰다듬는다."])],
+        # 절정
+        "ecstasy:start": [({}, ["......!"])],
     }
 
     # ========================================
@@ -754,31 +741,91 @@ class Character(Unit):
         연애 액션에 대한 반응 텍스트 반환
 
         Args:
-            action_id: 액션 ID ("hug", "kiss_light" 등)
-            timing: 타이밍 ("start", "during", "end")
+            action_id: 액션 ID ("hug", "deep_kiss" 등)
+            timing: 타이밍 ("start", "during")
 
         Returns:
-            반응 텍스트 또는 None
+            반응 텍스트 또는 None (랜덤 선택)
 
-        서브클래스에서 ROMANCE_REACTIONS를 오버라이드하여
-        캐릭터별 커스텀 반응을 정의할 수 있음.
+        ROMANCE_REACTIONS 구조:
+            {
+                "action:timing": [
+                    (conditions, [texts]),
+                    ({}, [default_texts]),  # 기본값
+                ],
+            }
 
-        예시 (NPC 서브클래스):
+        예시:
             ROMANCE_REACTIONS = {
-                "hug": {
-                    "during": "세라가 조용히 당신을 안고 있다.",
-                },
-                "kiss_light": {
-                    "start": "세라가 살짝 얼굴을 붉히며 입술을 맞춘다.",
-                },
+                "hug:start": [
+                    ({"애정": 50}, ["...안아줘...", "...이대로..."]),
+                    ({}, ["......", "...뭐냐."]),
+                ],
+                "hug:during": [
+                    ({"성욕": 50}, ["세라가 숨을 몰아쉬고 있다."]),
+                    ({}, ["세라가 가만히 있다."]),
+                ],
             }
         """
+        import random
+
         reactions = getattr(self, 'ROMANCE_REACTIONS', {})
         if not reactions:
             return None
 
-        action_reactions = reactions.get(action_id, {})
-        return action_reactions.get(timing)
+        # 새 구조: "action:timing" 키
+        key = f"{action_id}:{timing}"
+        rules = reactions.get(key)
+
+        if not rules:
+            return None
+
+        # 조건 매칭 및 텍스트 선택
+        props = morld.get_unit_props(self.instance_id)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+
+        candidates = []
+        for item in rules:
+            if isinstance(item, tuple) and len(item) == 2:
+                condition, texts = item
+                if self._check_reaction_condition(condition, props, player_name):
+                    if isinstance(texts, list):
+                        candidates.extend(texts)
+                    else:
+                        candidates.append(texts)
+
+        if not candidates:
+            return None
+
+        return random.choice(candidates)
+
+    def _check_reaction_condition(self, condition: dict, props: dict, player_name: str) -> bool:
+        """
+        리액션 조건 체크 (ROMANCE_REACTIONS, STEALTH_REACTIONS 등에서 공통 사용)
+
+        조건 키 매핑:
+        - "호감", "애정" → "관계:{player_name}:{key}"
+        - "성욕", "성적절정" → "상태:{key}"
+        - 그 외 → 그대로 사용
+        """
+        if not condition:
+            return True
+
+        for key, required_value in condition.items():
+            if key in ("호감", "애정"):
+                prop_key = f"관계:{player_name}:{key}"
+            elif key in ("성욕", "성적절정"):
+                prop_key = f"상태:{key}"
+            else:
+                prop_key = key
+
+            actual_value = props.get(prop_key, 0) if props else 0
+            if actual_value < required_value:
+                return False
+
+        return True
 
     def romance(self):
         """연애 모드 시작"""
