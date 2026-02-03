@@ -504,16 +504,7 @@ class Ella(Character):
     # 이벤트 다이얼로그 정의
     # ========================================
     EVENT_DIALOGS = {
-        "first_meet": {
-            "pages": [
-                "단정하게 올린 흑발의 여성이 있다.",
-                "보라색 눈동자가 차갑게 당신을 훑어본다.",
-                "본능적으로 유키를 등 뒤로 감싸며 한 걸음 앞으로 나선다.",
-                "외부인에 대한 경계와 불신이 온몸에서 느껴진다.",
-                "그녀의 눈빛은 '가까이 오지 마라'라고 말하고 있다.",
-                "유키를 지키려는 듯, 굳건히 그 자리에 서 있다."
-            ],
-        },
+        # first_meet은 _first_meet_handler에서 직접 처리 (선택지 대화)
     }
 
     # 이벤트 플래그 (인스턴스별)
@@ -552,9 +543,76 @@ class Ella(Character):
         return self._first_meet_handler(player_id)
 
     def _first_meet_handler(self, player_id):
-        """첫 만남 이벤트 핸들러 - Generator"""
-        # 대화 실행
-        yield from self._run_event_dialog("first_meet", player_id=player_id)
+        """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
+        # 누적형 대화 빌더 사용
+        conv = ui.Conversation("엘라")
+
+        # 도입: 엘라가 유키를 감싸며 경계
+        conv.narration(
+            "단정하게 올린 흑발의 여성이 있다.",
+            "보라색 눈동자가 차갑게 당신을 훑어본다.",
+            "본능적으로 유키를 등 뒤로 감싸며 한 걸음 앞으로 나선다."
+        )
+
+        conv.say(
+            "......",
+            "...누구지?"
+        )
+
+        # 첫 번째 선택지
+        conv.ask([
+            ("길을 잃었어", "lost"),
+            ("적이 아니야", "not_enemy"),
+            ("(헤어지기)", "@exit"),
+        ])
+
+        conv.respond("lost",
+            "...그래?",
+            "...여긴 은신처야. 우연히 찾아올 곳이 아닌데.",
+            "...어디서 온 거지?"
+        )
+
+        conv.respond("not_enemy",
+            "......",
+            "...그건 네가 정하는 게 아니야.",
+            "...유키, 뒤에 있어."
+        )
+
+        # 두 번째 선택지
+        conv.say("...일단 물어볼 게 있어.")
+
+        conv.ask([
+            ("여긴 어디야?", "where"),
+            ("너희는 누구야?", "who"),
+            ("(헤어지기)", "@exit"),
+        ])
+
+        conv.respond("where",
+            "...알 필요 없어.",
+            "...이곳은 우리 둘의 은신처야.",
+            "...그 이상은 말할 생각 없어."
+        )
+
+        conv.respond("who",
+            "...나는 엘라.",
+            "...뒤에 있는 건 유키.",
+            "...그게 다야."
+        )
+
+        # 마무리
+        conv.say(
+            "......",
+            "...경고해 둘게.",
+            "...유키에게 해코지하면 가만두지 않아."
+        )
+
+        # 누적형 대화 시작
+        yield conv.end()
+
+        # 시간 경과 처리
+        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
+        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
+
         # 첫 만남 완료 처리 (관계:엘라:진척도 = 1)
         self.mark_first_meet_done(player_id)
 

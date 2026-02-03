@@ -513,14 +513,7 @@ class Mila(Character):
     # 이벤트 다이얼로그 정의
     # ========================================
     EVENT_DIALOGS = {
-        "first_meet": {
-            "pages": [
-                "어머, 깨어나셨군요!",
-                "저는 밀라예요. 여기서 요리를 맡고 있어요.",
-                "많이 힘드셨죠? 기억은... 좀 나세요?",
-                "괜찮아요, 천천히 쉬세요. 필요한 게 있으면 말씀해 주세요."
-            ],
-        },
+        # first_meet은 _first_meet_handler에서 직접 처리 (선택지 대화)
     }
 
     # 이벤트 플래그 (인스턴스별)
@@ -693,9 +686,97 @@ class Mila(Character):
         return self._first_meet_handler(player_id)
 
     def _first_meet_handler(self, player_id):
-        """첫 만남 이벤트 핸들러 - Generator"""
-        # 대화 실행
-        yield from self._run_event_dialog("first_meet", player_id=player_id)
+        """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
+        # 누적형 대화 빌더 사용
+        conv = ui.Conversation("밀라")
+
+        # 도입: 밀라가 플레이어를 발견
+        conv.narration(
+            "눈앞에 따뜻한 인상의 여성이 있다.",
+            "갈색 머리에 다정한 눈빛. 걱정스러운 표정으로 이쪽을 바라본다."
+        )
+
+        conv.say(
+            "어머! 깨어나셨군요!",
+            "다행이에요... 정말 걱정했어요.",
+            "몸은 괜찮으세요? 아픈 데는 없어요?"
+        )
+
+        # 첫 번째 선택지: 상태에 대해
+        conv.ask([
+            ("괜찮아요", "fine"),
+            ("무슨 일이 있었던 거죠?", "what_happened"),
+            ("당신은 누구예요?", "who"),
+            ("(헤어지기)", "@exit"),
+        ])
+
+        conv.respond("fine",
+            "정말요? 다행이에요!",
+            "숲에서 쓰러져 계셨거든요...",
+            "많이 놀랐어요."
+        )
+
+        conv.respond("what_happened",
+            "저도 자세히는 몰라요...",
+            "숲 근처에서 쓰러져 계신 걸 발견했거든요.",
+            "혼자 두면 위험할 것 같아서 데려왔어요."
+        )
+
+        conv.respond("who",
+            "아, 저도 소개를 안 했네요!"
+        )
+
+        # 밀라 자기소개
+        conv.say(
+            "저는 밀라예요.",
+            "이 저택에서 요리랑 살림을 맡고 있어요."
+        )
+
+        # 두 번째 선택지: 추가 질문
+        conv.say("궁금한 거 있으시면 말씀해 주세요~")
+
+        conv.ask([
+            ("다른 사람도 있어요?", "others"),
+            ("기억이 없어요...", "memory"),
+            ("감사해요", "thanks"),
+            ("(헤어지기)", "@exit"),
+        ])
+
+        conv.respond("others",
+            "네! 저 말고도 두 명 더 있어요.",
+            "세라는... 좀 무뚝뚝하지만 믿음직한 사람이에요.",
+            "리나는 밝고 활발한 아이예요.",
+            "셋이서 사이좋게 지내고 있어요~"
+        )
+
+        conv.respond("memory",
+            "...그렇군요.",
+            "사실... 저희도 그래요.",
+            "세라도, 리나도, 저도... 아무것도 기억 못 해요.",
+            "어느 날 눈을 떴을 때 이미 여기 있었어요.",
+            "당신도... 같은 건지도 모르겠네요."
+        )
+
+        conv.respond("thanks",
+            "에헤헤, 아니에요~",
+            "당연히 해야 할 일이었어요.",
+            "혼자 쓰러져 계시는데 그냥 지나칠 수 없잖아요."
+        )
+
+        # 마무리
+        conv.say(
+            "천천히 회복하세요.",
+            "필요한 게 있으시면 언제든 말씀해 주세요!",
+            "밥 먹을 시간에 부를게요~"
+        )
+
+        # 누적형 대화 시작
+        yield conv.end()
+
+        # 시간 경과 처리
+        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
+        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
+
         # 첫 만남 완료 처리 (관계:밀라:진척도 = 1)
         self.mark_first_meet_done(player_id)
 

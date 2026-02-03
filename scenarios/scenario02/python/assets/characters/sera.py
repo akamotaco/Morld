@@ -536,11 +536,7 @@ class Sera(Character):
     # 이벤트 다이얼로그 정의
     # ========================================
     EVENT_DIALOGS = {
-        "first_meet": {
-            "pages": ["......", "...일어났군.", "...세라다. 사냥을 맡고 있다.", "...무리하지 마라."],
-            "time_consume": 1 * _M,     # 대화로 1분 경과
-            "stay_duration": 2 * _M,    # 대화 후 2분간 현재 위치에 머무르기
-        },
+        # first_meet은 _first_meet_handler에서 직접 처리 (선택지 대화)
     }
 
     # 이벤트 플래그 (인스턴스별)
@@ -754,9 +750,81 @@ class Sera(Character):
         return self._first_meet_handler(player_id)
 
     def _first_meet_handler(self, player_id):
-        """첫 만남 이벤트 핸들러 - Generator"""
-        # 대화 실행
-        yield from self._run_event_dialog("first_meet", player_id=player_id)
+        """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
+        # 누적형 대화 빌더 사용
+        conv = ui.Conversation("세라")
+
+        # 도입: 세라가 플레이어를 발견
+        conv.narration(
+            "......",
+            "눈앞에 낯선 여성이 서 있다.",
+            "긴 흑발을 묶은 과묵한 인상. 날카로운 눈이 이쪽을 관찰한다."
+        )
+
+        conv.say(
+            "...일어났군.",
+            "......",
+            "...기억은 있나?"
+        )
+
+        # 첫 번째 선택지: 기억에 대해 (세라는 선택지 적게)
+        conv.ask([
+            ("기억이 없다", "no_memory"),
+            ("여기가 어디야?", "where"),
+        ])
+
+        conv.respond("no_memory",
+            "......",
+            "...그렇군.",
+            "...너만 그런 건 아니다."
+        )
+
+        conv.respond("where",
+            "...저택이다.",
+            "...숲 속에 있는.",
+            "...밀라가 널 데려왔다."
+        )
+
+        # 세라 자기소개
+        conv.say(
+            "......",
+            "...세라다.",
+            "...이 저택에서 사냥을 맡고 있다."
+        )
+
+        # 두 번째 선택지: 추가 질문
+        conv.say("...질문이 있으면 해라.")
+
+        conv.ask([
+            ("다른 사람들은?", "others"),
+            ("됐어", "done"),
+        ])
+
+        conv.respond("others",
+            "...밀라와 리나가 있다.",
+            "...밀라는 요리를 맡고 있다.",
+            "...리나는... 어린 편이다. 채집을 한다.",
+            "...셋이서 살고 있다."
+        )
+
+        conv.respond("done",
+            "...그래."
+        )
+
+        # 마무리
+        conv.say(
+            "...무리하지 마라.",
+            "......",
+            "...필요한 게 있으면 밀라에게 말해라."
+        )
+
+        # 누적형 대화 시작
+        yield conv.end()
+
+        # 시간 경과 처리
+        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
+        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
+
         # 첫 만남 완료 처리 (관계:세라:진척도 = 1)
         self.mark_first_meet_done(player_id)
 

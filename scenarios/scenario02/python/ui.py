@@ -432,13 +432,224 @@ def get_action_text():
     return "\n".join(lines)
 
 
-# ========================================
-# 다이얼로그 래퍼 (다 페이지 지원)
-# ========================================
+# ════════════════════════════════════════════════════════════════════════════
+#                         대화 시스템 (Dialog System)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# 세 가지 대화 타입을 제공합니다:
+#
+# ┌─────────────┬────────────────────────────────────────────────────────────┐
+# │ Lines       │ 단답형: 조건 → 텍스트 매핑, 유저 인터랙션 없음             │
+# │ (단답형)    │ - 첫 번째 만족하는 조건의 대사 출력                        │
+# │             │ - "확인" 버튼만 있음                                       │
+# │             │ - 예: NPC 인사말, 상태 메시지                              │
+# ├─────────────┼────────────────────────────────────────────────────────────┤
+# │ Sequence    │ 페이지형: 페이지가 교체되며 진행                           │
+# │ (페이지형)  │ - "다음" 버튼으로 페이지 이동                              │
+# │             │ - + 접두사로 연쇄 출력 (이전 내용 누적)                    │
+# │             │ - 예: 나레이션, 설명문                                     │
+# ├─────────────┼────────────────────────────────────────────────────────────┤
+# │ Conversation│ 누적형: 히스토리가 쌓이며 진행                             │
+# │ (누적형)    │ - 선택지 클릭 시 기존 텍스트 유지 + 응답 추가              │
+# │             │ - 선택한 항목은 회색으로 표시                              │
+# │             │ - 예: NPC 대화, 첫 만남 이벤트                             │
+# └─────────────┴────────────────────────────────────────────────────────────┘
+#
+# 공통 인터페이스:
+#   - 생성자에서 npc_name 지정 (선택)
+#   - 빌더 패턴으로 내용 추가
+#   - .end() 메서드로 Dialog 객체 반환 (yield용)
+#
+# ════════════════════════════════════════════════════════════════════════════
 
 # 연쇄 출력 접두사 (이 문자로 시작하면 이전 페이지 누적)
 CHAIN_PREFIX = "+"
 
+
+# ----------------------------------------
+# Lines: 단답형 대화
+# ----------------------------------------
+# 조건에 따라 다른 대사를 출력하는 단순 대화
+# 유저 인터랙션 없이 "확인" 버튼만 표시
+#
+# 사용법:
+#   lines = ui.Lines("세라")
+#   lines.when(affection >= 80, "...다음에 또 와.", "...조심해서 가.")
+#   lines.when(affection >= 50, "...또 뭐야.")
+#   lines.default("...")
+#   yield lines.end()
+#
+# 조건 평가:
+#   - 위에서 아래로 순서대로 평가
+#   - 첫 번째 True인 조건의 대사 출력
+#   - 모든 조건 불만족 시 default 대사 출력
+# ----------------------------------------
+
+class Lines:
+    """
+    단답형 대화 빌더
+
+    조건에 따른 단일 응답을 출력합니다.
+    유저 인터랙션 없이 "확인" 버튼만 표시됩니다.
+    """
+
+    def __init__(self, npc_name: str = None):
+        """
+        Args:
+            npc_name: NPC 이름 (대사 앞에 [이름] 자동 추가)
+        """
+        self.npc_name = npc_name
+        self._conditions = []
+        self._default_lines = None
+
+    def when(self, condition: bool, *lines):
+        """
+        조건부 대사 추가
+
+        Args:
+            condition: 조건 (bool로 평가되는 값)
+            *lines: 조건이 참일 때 표시할 대사들
+
+        Returns:
+            self (체이닝용)
+        """
+        self._conditions.append((condition, lines))
+        return self
+
+    def default(self, *lines):
+        """
+        기본 대사 설정 (모든 조건 불만족 시)
+
+        Args:
+            *lines: 기본 대사들
+
+        Returns:
+            self (체이닝용)
+        """
+        self._default_lines = lines
+        return self
+
+    def end(self, button_text: str = "확인"):
+        """
+        대화 종료 및 Dialog 객체 반환
+
+        Args:
+            button_text: 종료 버튼 텍스트
+
+        Returns:
+            morld.dialog() 객체 (yield용)
+        """
+        # 첫 번째 만족하는 조건 찾기
+        selected_lines = None
+        for condition, lines in self._conditions:
+            if condition:
+                selected_lines = lines
+                break
+
+        # 조건 없으면 default 사용
+        if selected_lines is None:
+            selected_lines = self._default_lines or ("...",)
+
+        # 텍스트 조합
+        content = "\n".join(selected_lines)
+        if self.npc_name:
+            content = f"[{self.npc_name}]\n{content}"
+
+        return morld.dialog(content)
+
+
+# ----------------------------------------
+# Sequence: 페이지형 대화
+# ----------------------------------------
+# 페이지 단위로 교체되며 진행하는 대화
+# "다음" 버튼으로 페이지 이동, 마지막에 "확인"
+#
+# 사용법:
+#   seq = ui.Sequence("세라")
+#   seq.add("첫 번째 페이지")
+#   seq.add("+두 번째 (연쇄)")   # 이전 내용 누적
+#   seq.add("세 번째 (새로)")    # 새로 시작
+#   yield seq.end()
+#
+# 연쇄 출력 (+):
+#   - + 접두사: 이전 내용 유지 + 새 내용 타이핑
+#   - \\+: + 리터럴 (이스케이프)
+# ----------------------------------------
+
+class Sequence:
+    """
+    페이지형 대화 빌더
+
+    페이지가 교체되며 진행됩니다.
+    + 접두사로 연쇄 출력(이전 내용 누적)을 지원합니다.
+    """
+
+    def __init__(self, npc_name: str = None):
+        """
+        Args:
+            npc_name: NPC 이름 (각 페이지 앞에 [이름] 자동 추가)
+        """
+        self.npc_name = npc_name
+        self._pages = []
+
+    def add(self, *lines):
+        """
+        페이지 추가
+
+        Args:
+            *lines: 페이지 내용 (여러 줄)
+                    첫 줄이 "+"로 시작하면 연쇄 출력
+
+        Returns:
+            self (체이닝용)
+        """
+        content = "\n".join(lines)
+        if self.npc_name and not content.startswith("+") and not content.startswith("\\+"):
+            content = f"[{self.npc_name}]\n{content}"
+        elif self.npc_name and content.startswith("+"):
+            # 연쇄 출력에서도 NPC 이름 추가 (+ 뒤에)
+            content = f"+[{self.npc_name}]\n{content[1:]}"
+        self._pages.append(content)
+        return self
+
+    def add_raw(self, text: str):
+        """
+        페이지 추가 (원본 텍스트 그대로)
+
+        Args:
+            text: 페이지 내용 (NPC 이름 자동 추가 안 함)
+
+        Returns:
+            self (체이닝용)
+        """
+        self._pages.append(text)
+        return self
+
+    def end(self, button_text: str = "확인"):
+        """
+        대화 종료 및 Dialog 객체 반환
+
+        Args:
+            button_text: 종료 버튼 텍스트 (현재 미사용, 향후 확장용)
+
+        Returns:
+            morld.dialog() 객체 (yield용)
+        """
+        if not self._pages:
+            return morld.dialog("...")
+
+        if len(self._pages) == 1:
+            return morld.dialog(self._pages[0])
+
+        return dialog(self._pages)
+
+
+# ----------------------------------------
+# dialog() 함수 (레거시 호환)
+# ----------------------------------------
+# Sequence 클래스의 간편 버전
+# 기존 코드와의 호환성을 위해 유지
+# ----------------------------------------
 
 def _render_page(pages: list, state: dict) -> str:
     """
@@ -540,3 +751,275 @@ def dialog(content, **kwargs):
 
     # autofill="off"로 기본 버튼 비활성화 (직접 "다음" 추가)
     return morld.dialog(initial_text, autofill="off", proc=proc, **kwargs)
+
+
+# ----------------------------------------
+# Conversation: 누적형 대화
+# ----------------------------------------
+# CRPG 스타일 대화 시스템
+# 선택하면 기존 텍스트 유지 + 선택 텍스트 회색 표시 + 새 응답 추가
+#
+# 사용법:
+#   conv = ui.Conversation("세라")
+#   conv.say("...일어났군.")
+#   conv.say("...기억은 있나?")
+#   conv.ask([
+#       ("기억이 없다", "no_memory"),
+#       ("여기가 어디야?", "where"),
+#   ])
+#   conv.respond("no_memory", "...그렇군.", "...너만 그런 건 아니다.")
+#   conv.respond("where", "...저택이다.", "...숲 속에 있는.")
+#   conv.ask([...])  # 다음 선택지
+#   conv.say("...무리하지 마라.")  # 공통 마무리
+#   yield conv.end()
+#
+# 메서드:
+#   - say(*lines): NPC 대사 (이름 자동 추가)
+#   - narration(*lines): 나레이션 (이름 없이)
+#   - ask(options): 선택지 [("표시", "값"), ...]
+#   - respond(value, *lines): 특정 선택에 대한 응답
+#   - branch(conditions): 여러 선택 응답 {"값": ["대사"], ...}
+#   - end(button_text): 다이얼로그 반환
+#
+# 히스토리 누적:
+#   - 이미 표시된 텍스트는 [!]...[/!] 태그로 즉시 표시
+#   - 새로 추가되는 텍스트만 타이핑 애니메이션
+#   - 선택한 항목은 [color=gray]> 선택[/color] 형식으로 표시
+#
+# 중간 종료 (@exit):
+#   - 선택지 값을 "@exit"로 지정하면 대화 즉시 종료
+#   - respond() 없이 바로 다이얼로그가 닫힘
+#   - 예: conv.ask([("계속", "continue"), ("헤어지기", "@exit")])
+# ----------------------------------------
+
+class Conversation:
+    """
+    누적형 대화 빌더
+
+    CRPG 스타일로 대화가 화면에 쌓입니다.
+    선택한 항목은 회색으로 표시되어 히스토리에 남습니다.
+    ask() → respond() 패턴으로 분기 대화를 구성합니다.
+    """
+
+    def __init__(self, npc_name: str = None):
+        """
+        Args:
+            npc_name: NPC 이름 (대사 앞에 [이름] 자동 추가)
+        """
+        self.npc_name = npc_name
+        self._steps = []  # 대화 단계 리스트
+        self._current_choice_id = 0  # 선택지 그룹 ID
+
+    def say(self, *lines):
+        """
+        NPC 대사 추가 (무조건 표시)
+
+        Args:
+            *lines: 대사 줄들
+        """
+        self._steps.append({
+            "type": "say",
+            "lines": lines,
+        })
+        return self
+
+    def narration(self, *lines):
+        """
+        나레이션 추가 (NPC 이름 없이)
+
+        Args:
+            *lines: 나레이션 줄들
+        """
+        self._steps.append({
+            "type": "narration",
+            "lines": lines,
+        })
+        return self
+
+    def ask(self, options: list):
+        """
+        선택지 추가
+
+        Args:
+            options: [("표시 텍스트", "값"), ...] 형태의 리스트
+        """
+        self._current_choice_id += 1
+        self._steps.append({
+            "type": "ask",
+            "options": options,
+            "choice_id": self._current_choice_id,
+        })
+        return self
+
+    def respond(self, choice_value: str, *lines):
+        """
+        특정 선택지에 대한 응답 추가
+
+        Args:
+            choice_value: ask()에서 지정한 값
+            *lines: 응답 대사들
+        """
+        self._steps.append({
+            "type": "respond",
+            "choice_value": choice_value,
+            "lines": lines,
+        })
+        return self
+
+    def branch(self, conditions: dict):
+        """
+        조건부 분기 (여러 선택에 대한 응답을 한 번에)
+
+        Args:
+            conditions: {"choice_value": ["대사1", "대사2"], ...}
+        """
+        for choice_value, lines in conditions.items():
+            self._steps.append({
+                "type": "respond",
+                "choice_value": choice_value,
+                "lines": lines if isinstance(lines, (list, tuple)) else [lines],
+            })
+        return self
+
+    def end(self, finish_text: str = "확인"):
+        """
+        대화 종료 및 Dialog 객체 반환
+
+        Args:
+            finish_text: 종료 버튼 텍스트
+
+        Returns:
+            morld.dialog() 객체 (yield용)
+        """
+        state = {
+            "step": 0,
+            "history": "",
+            "choices": {},  # choice_id -> selected_value
+            "finished": False,
+        }
+
+        def _format_npc_line(line):
+            """NPC 이름이 있으면 첫 줄에 [이름] 추가"""
+            if self.npc_name and not line.startswith("[") and not line.startswith("("):
+                return f"[{self.npc_name}]\n{line}"
+            return line
+
+        def _render():
+            """현재 상태에서 표시할 텍스트 생성"""
+            text = ""
+            pending_choices = None  # 아직 선택 안 된 선택지
+
+            for i, step in enumerate(self._steps):
+                step_type = step["type"]
+
+                if step_type == "say":
+                    # 무조건 표시
+                    lines = step["lines"]
+                    content = "\n".join(lines)
+                    if self.npc_name:
+                        content = f"[{self.npc_name}]\n" + content
+                    if text:
+                        text += "\n\n"
+                    text += content
+
+                elif step_type == "narration":
+                    # 나레이션 (NPC 이름 없이)
+                    content = "\n".join(step["lines"])
+                    if text:
+                        text += "\n\n"
+                    text += content
+
+                elif step_type == "ask":
+                    choice_id = step["choice_id"]
+                    if choice_id in state["choices"]:
+                        # 이미 선택됨 - 선택한 항목 표시
+                        selected = state["choices"][choice_id]
+                        for label, value in step["options"]:
+                            if value == selected:
+                                if text:
+                                    text += "\n\n"
+                                text += f"[color=gray]> {label}[/color]"
+                                break
+                    else:
+                        # 아직 선택 안 됨 - 선택지 표시
+                        pending_choices = step
+                        break  # 여기서 멈춤
+
+                elif step_type == "respond":
+                    # 해당 선택이 있을 때만 표시
+                    choice_value = step["choice_value"]
+                    # 가장 최근 ask의 선택과 비교
+                    for prev_step in reversed(self._steps[:i]):
+                        if prev_step["type"] == "ask":
+                            choice_id = prev_step["choice_id"]
+                            if state["choices"].get(choice_id) == choice_value:
+                                lines = step["lines"]
+                                content = "\n".join(lines)
+                                if self.npc_name:
+                                    content = f"[{self.npc_name}]\n" + content
+                                if text:
+                                    text += "\n\n"
+                                text += content
+                            break
+
+            # 선택지 또는 종료 버튼 추가
+            if pending_choices:
+                if text:
+                    text += "\n\n"
+                for label, value in pending_choices["options"]:
+                    text += f"[url=@proc:choice_{pending_choices['choice_id']}_{value}]{label}[/url]\n"
+            elif not state["finished"]:
+                # 모든 단계 완료 - 종료 버튼
+                if text:
+                    text += "\n\n"
+                text += f"[url=@proc:finish]{finish_text}[/url]"
+
+            # 기존 히스토리는 즉시 표시, 새 부분만 타이핑
+            if state["history"]:
+                # 새로 추가된 부분만 분리
+                if text.startswith(state["history"]):
+                    new_part = text[len(state["history"]):]
+                    if new_part.startswith("\n\n"):
+                        new_part = new_part[2:]
+                    return f"[!]{state['history']}[/!]\n\n{new_part}"
+            return text
+
+        def _proc(action):
+            if action == "finish":
+                state["finished"] = True
+                return True  # 다이얼로그 종료
+
+            if action.startswith("choice_"):
+                # choice_{id}_{value} 형식
+                parts = action.split("_", 2)
+                if len(parts) >= 3:
+                    choice_id = int(parts[1])
+                    choice_value = parts[2]
+
+                    # @exit: 대화 즉시 종료
+                    if choice_value == "@exit":
+                        state["finished"] = True
+                        return True
+
+                    state["choices"][choice_id] = choice_value
+
+                    # 현재까지의 텍스트를 히스토리에 저장
+                    current = _render()
+                    # [!]...[/!] 제거하고 저장
+                    if current.startswith("[!]"):
+                        end_idx = current.find("[/!]")
+                        if end_idx > 0:
+                            state["history"] = current[3:end_idx] + current[end_idx+4:]
+                        else:
+                            state["history"] = current
+                    else:
+                        state["history"] = current
+
+                    # 새 화면 렌더링
+                    return _render()
+
+            return None
+
+        # 초기 화면
+        initial = _render()
+        return morld.dialog(initial, autofill="off", proc=_proc)
