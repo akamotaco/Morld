@@ -23,6 +23,13 @@ morld.set_npc_job(unit_id, action, duration)  # NPC Job 즉시 설정 (duration:
 morld.set_npc_time_consume(unit_id, action, duration)  # 시간 경과 포함 (duration: ms)
 
 # ========================================
+# 이벤트 관련
+# ========================================
+morld.queue_event(event_type, player_id, unit_ids)  # 이벤트 핸들러 큐에 수동 주입
+# event_type: "meet" | "contact" | "npc_meet"
+# 예: morld.queue_event("meet", player_id, [player_id, npc_id])
+
+# ========================================
 # 아이템 관련
 # ========================================
 morld.give_item(unit_id, item_id, count)

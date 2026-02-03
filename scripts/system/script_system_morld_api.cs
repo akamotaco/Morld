@@ -84,6 +84,41 @@ namespace SE
                 Godot.GD.Print($"[morld] reset_id_generator: reset to {startId}");
                 return PyBool.True;
             });
+
+            // queue_event(event_type, player_id, unit_ids) - 이벤트 핸들러 큐에 추가
+            // 로맨스 중단 등 특수 상황에서 on_meet 이벤트를 수동으로 큐잉할 때 사용
+            morldModule.ModuleDict["queue_event"] = new PyBuiltinFunction("queue_event", args =>
+            {
+                if (args.Length < 3)
+                    throw PyTypeError.Create("queue_event(event_type, player_id, unit_ids) requires 3 arguments");
+
+                string eventType = args[0] is PyString pyStr ? pyStr.Value : args[0].ToString();
+                int playerId = args[1].ToInt();
+
+                // unit_ids는 리스트
+                var unitIdsList = new System.Collections.Generic.List<int>();
+                if (args[2] is PyList pyList)
+                {
+                    foreach (var item in pyList.Items)
+                    {
+                        unitIdsList.Add(item.ToInt());
+                    }
+                }
+                var unitIds = unitIdsList.ToArray();
+
+                var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+                if (_eventSystem == null)
+                {
+                    Godot.GD.PrintErr("[morld] queue_event: EventSystem is null");
+                    return PyBool.False;
+                }
+
+                _eventSystem.QueueEventHandlers(eventType, playerId, unitIds);
+#if DEBUG_LOG
+                Godot.GD.Print($"[morld] queue_event: type={eventType}, player={playerId}, units=[{string.Join(",", unitIds)}]");
+#endif
+                return PyBool.True;
+            });
         }
 
         /// <summary>

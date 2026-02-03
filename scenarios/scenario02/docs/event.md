@@ -68,7 +68,7 @@ class Sera(Character):
     def on_meet_player(self, player_id):
         """플레이어와 만났을 때 이벤트"""
         yield morld.dialog("...일어났군.")
-        morld.set_npc_job(self.instance_id, "follow", 1_800_000)  # 30분
+        morld.set_npc_job(self.instance_id, "stay", 1_800_000)  # 30분간 현재 위치 유지
 ```
 
 **Registry 이벤트:**
@@ -197,56 +197,87 @@ events/
 
 ---
 
-## on_meet 순차 처리
+## 통합 이벤트 핸들러 큐
 
-한 위치에서 여러 NPC를 동시에 만났을 때, 이벤트가 우선순위별로 순차 처리됩니다.
+한 위치에서 여러 NPC를 만나거나 다양한 이벤트가 동시에 발생할 때, C#에서 통합 관리하는 단일 큐로 순차 처리됩니다.
+
+### 아키텍처
+
+```
+C# EventSystem                          Python events/
+┌─────────────────────┐                ┌─────────────────────┐
+│ _pendingHandlers    │ ←── 수집 ────  │ collect_event_      │
+│ (List<EventHandler>)│                │ handlers()          │
+│                     │                │                     │
+│ ProcessNextHandler()│ ──── 호출 ──→ │ call_event_handler()│
+│                     │                │                     │
+│ ClearPendingHandlers│                │ (핸들러 실행)       │
+│ (ExcessTime 시)     │                │                     │
+└─────────────────────┘                └─────────────────────┘
+```
+
+### 핸들러 수집 (Python → C#)
 
 ```python
-# Python 이벤트 큐 (events/__init__.py)
-_pending_meet_events = []  # 대기 중인 이벤트 목록
+# events/__init__.py
+def collect_event_handlers(event_type, player_id, unit_ids):
+    """
+    이벤트 타입별 핸들러 목록 반환 (C#이 큐로 관리)
 
-def _collect_meet_events(player_id, unit_ids):
-    """조건에 맞는 모든 on_meet 이벤트 수집"""
-    events = []
-    # 1. registry MeetEvent (priority 기반)
-    # 2. character on_meet_player (priority -1)
-    events.sort(key=lambda e: -e["priority"])  # 높은 priority 먼저
-    return events
+    Args:
+        event_type: "meet" | "contact" | "npc_meet"
+        player_id: 플레이어 ID (npc_meet이면 None)
+        unit_ids: 관련 유닛 목록
 
-# C#에서 호출하는 API
-def has_pending_meet_events():
-    """대기 중인 이벤트 존재 여부"""
-    return len(_pending_meet_events) > 0
-
-def clear_pending_meet_events():
-    """ExcessTime > 0일 때 대기 중인 이벤트 모두 제거"""
-    global _pending_meet_events
-    _pending_meet_events = []
-
-def queue_meet_events(player_id, unit_ids):
-    """on_meet 이벤트를 큐에 수동 주입 (로맨스 중단 후 등)"""
-    events = _collect_meet_events(player_id, unit_ids)
-    _pending_meet_events.extend(events)
+    Returns:
+        list of dict: [{"source": "registry"|"character",
+                        "event_type": ..., "event_id": ...,
+                        "unit_id": ..., "priority": ..., "once": ...}]
+    """
 ```
 
-**수동 큐 주입 (로맨스 중단 등):**
-```
-advance_time_simulate() 중 NPC가 도착하면 on_meet이 그 안에서 소비된다.
-로맨스 등 이벤트 핸들러 내부에서 시간 시뮬레이션 후 세션 종료 시,
-도착 NPC의 on_meet 이벤트를 queue_meet_events()로 재수집하여 큐에 주입하고,
-_pop_next_meet_event()로 순차 처리하면 on_meet_player()가 자연 실행된다.
+### 핸들러 실행 (C# → Python)
+
+```python
+# events/__init__.py
+def call_event_handler(handler_info, player_id, unit_ids):
+    """
+    개별 핸들러 실행 (C#에서 호출)
+
+    Returns:
+        Generator (Dialog) 또는 None
+    """
 ```
 
-**ExcessTime과 이벤트 큐 연동:**
+### 수동 큐 주입
+
+로맨스 중단, 특수 이벤트 등에서 on_meet 이벤트를 수동으로 큐에 추가:
+
+```python
+# 로맨스 중단 후 방해자와의 만남 이벤트 주입
+morld.queue_event("meet", player_id, [player_id, interrupter_id])
 ```
-1. 플레이어가 위치 도착 → 여러 NPC와 만남
-2. 이벤트 큐 생성 (우선순위 정렬)
-3. 첫 번째 이벤트 처리 (Dialog 표시)
-4. Dialog 종료 후 ExcessTime 확인:
-   - ExcessTime > 0: 남은 이벤트 모두 스킵 (시간 흐름)
-   - ExcessTime == 0: 다음 이벤트 처리 (순차 대화)
-5. 모든 이벤트 처리 완료 or ExcessTime 발생 시 종료
+
+### ExcessTime과 이벤트 큐 연동
+
 ```
+1. 플레이어가 위치 도착 → on_meet/on_contact 발생
+2. C#에서 Python collect_event_handlers() 호출 → 핸들러 목록 수집
+3. C# _pendingHandlers 큐에 저장 (우선순위 정렬됨)
+4. ProcessNextHandler()로 하나씩 처리
+5. Dialog 종료 후 dialogTimeConsumed 확인:
+   - dialogTimeConsumed > 0: ClearPendingHandlers() → 남은 이벤트 스킵
+   - dialogTimeConsumed == 0: 다음 핸들러 처리
+6. 모든 핸들러 처리 완료 or ExcessTime 발생 시 종료
+```
+
+### 지원 이벤트 타입
+
+| 타입 | 설명 | 핸들러 소스 |
+|------|------|------------|
+| `meet` | 플레이어-NPC 만남 | registry MeetEvent, character on_meet_player |
+| `contact` | 2D 충돌 접촉 | registry ContactEvent, character on_contact_player |
+| `npc_meet` | NPC 간 만남 | registry NpcMeetEvent |
 
 ---
 
@@ -259,11 +290,33 @@ def handle(self, player_id, unit_ids):
     yield morld.dialog("대화 내용...")
 
     # NPC Job 설정 (시간 경과 없음)
-    morld.set_npc_job(unit_id, "follow", duration=1_800_000)  # 30분
+    morld.set_npc_job(unit_id, "stay", duration=1_800_000)  # 30분간 현재 위치 유지
 
-    # 또는 시간 경과 포함
+    # 또는 시간 경과 포함 (대화 후 NPC가 현재 위치에 머무름)
     morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ```
+
+### EVENT_DIALOGS 자동 처리
+
+캐릭터 클래스의 `EVENT_DIALOGS`를 사용하면 대화 후 NPC 동작이 자동 처리됩니다:
+
+```python
+class Sera(Character):
+    EVENT_DIALOGS = {
+        "first_meet": {
+            "pages": ["......", "...세라다."],
+            "time_consume": 1 * _M,     # 대화로 1분 경과
+            "stay_duration": 2 * _M,    # 대화 후 2분간 현재 위치에 머무름
+        },
+    }
+```
+
+| Job Action | 설명 |
+|------------|------|
+| `stay` | 현재 위치에서 대기 (target 불필요) |
+| `follow` | 대상을 따라다님 (target_id 필요) |
+| `flee` | 대상에게서 도망 (target_id 필요) |
+| `move` | 특정 위치로 이동 |
 
 ---
 

@@ -237,44 +237,40 @@ public partial class MetaActionHandler
 	/// <returns>이벤트/시간 처리됨 (UI 업데이트 불필요)</returns>
 	private bool ProcessPendingEvents()
 	{
-		// 남은 이벤트 처리 (다이얼로그 완료 후 다음 이벤트 실행)
 		var eventSystem = _world.GetSystem("eventSystem") as EventSystem;
-		if (eventSystem != null && eventSystem.FlushEvents())
+		if (eventSystem == null) return false;
+
+		// ExcessTime 체크 (핸들러 처리 전에 확인)
+		// 다이얼로그에서 시간이 경과했으면 남은 핸들러를 스킵해야 함
+		var dialogTimeConsumed = eventSystem.FinalizeDialogTime();
+		var excessTime = eventSystem.ConsumeExcessTime();
+
+		if (excessTime > 0)
+		{
+			_playerSystem?.AddExcessTime(excessTime);
+		}
+
+		// 다이얼로그에서 시간이 소모되었으면:
+		// 1. 대기 중인 핸들러 모두 제거 (C# 큐)
+		// 2. 플레이어의 남은 행동(idle/이동) 취소
+		if (dialogTimeConsumed > 0)
+		{
+			eventSystem.ClearPendingHandlers();
+			_playerSystem?.CancelRemainingDuration();
+			return true;
+		}
+
+		// GameEvent 처리 + C# 핸들러 큐 처리
+		if (eventSystem.FlushEvents())
 		{
 			// 다이얼로그가 표시됨
 			return true;
 		}
 
-		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
-
-		// ExcessTime 체크 (Python meet 이벤트 큐 처리 전에 확인)
-		// 다이얼로그에서 시간이 경과했으면 남은 meet 이벤트를 스킵해야 함
-		if (eventSystem != null)
+		// C# 핸들러 큐에 남은 이벤트가 있으면 처리
+		if (eventSystem.HasPendingHandlers())
 		{
-			var dialogTimeConsumed = eventSystem.FinalizeDialogTime();
-			var excessTime = eventSystem.ConsumeExcessTime();
-
-			if (excessTime > 0)
-			{
-				_playerSystem?.AddExcessTime(excessTime);
-			}
-
-			// 다이얼로그에서 시간이 소모되었으면:
-			// 1. 대기 중인 meet 이벤트 모두 제거
-			// 2. 플레이어의 남은 행동(idle/이동) 취소
-			if (dialogTimeConsumed > 0)
-			{
-				ClearPendingMeetEvents(scriptSystem);
-				_playerSystem?.CancelRemainingDuration();
-				return true;
-			}
-		}
-
-		// ExcessTime == 0일 때만 Python meet 이벤트 큐 확인
-		if (scriptSystem != null && HasPendingMeetEvents(scriptSystem))
-		{
-			// Python 큐에 대기 중인 meet 이벤트가 있으면 다음 이벤트 처리
-			if (ProcessNextMeetEvent(scriptSystem))
+			if (eventSystem.ProcessNextHandler())
 			{
 				return true;
 			}
@@ -353,8 +349,12 @@ public partial class MetaActionHandler
 		return false;
 	}
 
+	#region Legacy Python Queue Methods (향후 제거 예정)
+	// 새로운 C# EventSystem._pendingHandlers 큐로 대체됨
+	// Python _pending_meet_events 제거 후 이 메서드들도 제거
+
 	/// <summary>
-	/// Python에 대기 중인 meet 이벤트가 있는지 확인
+	/// [레거시] Python에 대기 중인 meet 이벤트가 있는지 확인
 	/// </summary>
 	private bool HasPendingMeetEvents(ScriptSystem scriptSystem)
 	{
@@ -371,15 +371,12 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// Python 큐에서 다음 meet 이벤트 처리
+	/// [레거시] Python 큐에서 다음 meet 이벤트 처리
 	/// </summary>
-	/// <returns>다이얼로그가 표시되었으면 true</returns>
 	private bool ProcessNextMeetEvent(ScriptSystem scriptSystem)
 	{
 		try
 		{
-			// 더미 on_meet 이벤트로 Python 호출 - 큐에서 다음 이벤트 반환
-			// _pending_meet_events가 비어있지 않으면 큐에서 pop
 			var playerId = _playerSystem?.PlayerId;
 			if (playerId == null)
 			{
@@ -393,12 +390,8 @@ public partial class MetaActionHandler
 				return false;
 			}
 
-			// Generator인 경우 Dialog 처리
 			if (result is SharpPy.PyGenerator generator)
 			{
-#if DEBUG_LOG
-				GD.Print("[MetaActionHandler] ProcessNextMeetEvent: Generator returned, processing...");
-#endif
 				var genResult = scriptSystem.ProcessGenerator(generator);
 				if (genResult != null)
 				{
@@ -417,7 +410,7 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 스크립트 결과를 이벤트로 처리 (EventSystem.ProcessEventResult와 유사)
+	/// [레거시] 스크립트 결과를 이벤트로 처리
 	/// </summary>
 	private void ProcessEventResultFromScript(SE.ScriptResult result)
 	{
@@ -425,27 +418,20 @@ public partial class MetaActionHandler
 
 		if (result.Type == "generator_dialog" && result is SE.GeneratorScriptResult genResult)
 		{
-			// MetaActionHandler에 Generator와 DialogRequest 설정
 			SetPendingGenerator(genResult.Generator, genResult.DialogRequest);
 
-			// 다이얼로그 아래에 Situation이 있어야 Pop 후 정상 동작
 			if (_textUISystem != null && _textUISystem.IsStackEmpty())
 			{
 				_textUISystem.ShowSituation();
 			}
 
-			// Dialog 표시 (PyDialogRequest.TimeFlows를 Focus에 전달)
 			bool timeFlows = genResult.DialogRequest?.TimeFlows ?? false;
 			_textUISystem?.PushDialog(genResult.DialogText, timeConsumed: 0, timeFlows: timeFlows);
-#if DEBUG_LOG
-			var timeFlowsInfo = timeFlows ? " [time_flows=true]" : "";
-			GD.Print($"[MetaActionHandler] ProcessEventResultFromScript: Dialog pushed{timeFlowsInfo}");
-#endif
 		}
 	}
 
 	/// <summary>
-	/// Python의 대기 중인 meet 이벤트 모두 제거
+	/// [레거시] Python의 대기 중인 meet 이벤트 모두 제거
 	/// </summary>
 	private void ClearPendingMeetEvents(ScriptSystem scriptSystem)
 	{
@@ -454,13 +440,12 @@ public partial class MetaActionHandler
 		try
 		{
 			scriptSystem.Eval("clear_pending_meet_events()");
-#if DEBUG_LOG
-			GD.Print("[MetaActionHandler] Cleared pending meet events (ExcessTime > 0)");
-#endif
 		}
 		catch (System.Exception ex)
 		{
 			GD.PrintErr($"[MetaActionHandler] clear_pending_meet_events error: {ex.Message}");
 		}
 	}
+
+	#endregion
 }

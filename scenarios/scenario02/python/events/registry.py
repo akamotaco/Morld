@@ -195,3 +195,59 @@ def get_contact_events():
 def get_npc_meet_events():
     """등록된 NpcMeetEvent 목록 반환"""
     return _npc_meet_events
+
+
+# ========================================
+# C# 통합 이벤트 큐용 API
+# ========================================
+
+def get_event_by_id(event_type, event_id):
+    """
+    event_id로 이벤트 인스턴스 조회
+
+    Args:
+        event_type: "meet" | "contact" | "npc_meet"
+        event_id: "meet:ClassName" 형식의 이벤트 ID
+
+    Returns:
+        이벤트 인스턴스 또는 None
+    """
+    if event_type == "meet":
+        events = _meet_events
+        prefix = "meet"
+    elif event_type == "contact":
+        events = _contact_events
+        prefix = "contact"
+    elif event_type == "npc_meet":
+        events = _npc_meet_events
+        prefix = "npc_meet"
+    else:
+        return None
+
+    for event in events:
+        if _get_event_id(event, prefix) == event_id:
+            return event
+    return None
+
+
+def mark_event_triggered(event_id):
+    """
+    이벤트를 트리거됨으로 표시 (C#에서 호출)
+
+    Args:
+        event_id: "meet:ClassName" 형식의 이벤트 ID
+    """
+    _triggered.add(event_id)
+
+
+def is_event_triggered(event_id):
+    """
+    이벤트가 이미 트리거됐는지 확인
+
+    Args:
+        event_id: 이벤트 ID
+
+    Returns:
+        bool: 트리거됨 여부
+    """
+    return event_id in _triggered

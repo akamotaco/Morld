@@ -62,7 +62,7 @@
 **은신 결과:**
 - **성공**: 근접 경고 표시 ("XXX(이)가 근처를 지나갔다... 들키지 않았다.")
 - **실패**: 세션 조용히 종료 → 도착 NPC의 on_meet 이벤트 큐 재수집 → 자연 처리
-  - `queue_meet_events()`로 이벤트 큐에 수동 주입
+  - `morld.queue_event("meet", player_id, [player_id, interrupter_id])`로 이벤트 큐에 수동 주입
   - `on_meet_player()` → `_check_room_privacy()` 등이 자연 실행됨
   - 예: 목욕하러 온 NPC → privacy 이벤트로 플레이어 추방
 

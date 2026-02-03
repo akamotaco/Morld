@@ -10,11 +10,25 @@ using System.Linq;
 namespace SE
 {
 	/// <summary>
+	/// 이벤트 핸들러 정보 (Python에서 수집, C#에서 큐 관리)
+	/// </summary>
+	public class EventHandler
+	{
+		public string Source { get; set; } = "";      // "registry" | "character"
+		public string EventType { get; set; } = "";   // "meet" | "contact" | "npc_meet"
+		public string? EventId { get; set; }          // registry인 경우: "meet:ClassName"
+		public int? UnitId { get; set; }              // character인 경우: NPC ID
+		public int Priority { get; set; }
+		public bool Once { get; set; }
+		public int[]? UnitIds { get; set; }           // 이벤트 참여 유닛 목록
+	}
+
+	/// <summary>
 	/// EventSystem - 게임 이벤트 수집 및 Python 전달
 	/// - 위치 변경 감지 (OnReach)
 	/// - 유닛 만남 감지 (OnMeet) - 같은 Location 기준
 	/// - 유닛 접촉 감지 (OnContact) - 2D 충돌 반경 기준
-	/// - 이벤트 배치 처리 후 Python on_event_list() 호출
+	/// - 통합 이벤트 핸들러 큐 관리 (ExcessTime 체크 포함)
 	/// - Pi-World: 2D 좌표 기반 충돌 감지
 	/// </summary>
 	public class EventSystem : ECS.System
@@ -56,6 +70,13 @@ namespace SE
 		// on_time_elapsed 이벤트 누적 (여러 Step의 시간을 합쳐서 한 번에 전달, 밀리초)
 		private int _accumulatedTimeElapsed = 0;
 
+		// 통합 이벤트 핸들러 큐 (meet, contact, npc_meet 등 모든 핸들러 포함)
+		// Python에서 수집 → C#에서 순차 처리 → ExcessTime 발생 시 전체 클리어
+		private readonly List<EventHandler> _pendingHandlers = new();
+
+		// 현재 처리 중인 이벤트의 참여 유닛 (핸들러 호출 시 전달용)
+		private int _currentPlayerId = -1;
+
 		public EventSystem()
 		{
 		}
@@ -66,6 +87,7 @@ namespace SE
 		public void ClearState()
 		{
 			_pendingEvents.Clear();
+			_pendingHandlers.Clear();
 			_lastLocations.Clear();
 			_wasMoving.Clear();
 			_lastMeetings.Clear();
@@ -76,6 +98,7 @@ namespace SE
 			_dialogTimeConsumed = 0;
 			_excessTime = 0;
 			_accumulatedTimeElapsed = 0;
+			_currentPlayerId = -1;
 			GD.Print("[EventSystem] State cleared.");
 		}
 
@@ -590,13 +613,14 @@ namespace SE
 
 		/// <summary>
 		/// 이벤트 큐 플러시 및 Python 호출 (순차 처리)
-		/// 각 이벤트를 하나씩 처리하고, 다이얼로그가 발생하면 나머지는 큐에 유지
+		/// on_meet/on_contact는 핸들러 큐로 변환하여 순차 처리
 		/// 누적된 on_time_elapsed는 먼저 처리
 		/// </summary>
-		/// <returns>처리 결과 (모놀로그 표시 시 true)</returns>
+		/// <returns>처리 결과 (다이얼로그 표시 시 true)</returns>
 		public bool FlushEvents()
 		{
 			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
 			// 1. 누적된 on_time_elapsed 이벤트 먼저 처리
 			if (_accumulatedTimeElapsed > 0)
@@ -608,17 +632,54 @@ namespace SE
 				// on_time_elapsed는 다이얼로그를 발생시키지 않으므로 결과 무시
 			}
 
+			// 2. 대기 중인 핸들러가 있으면 먼저 처리
+			if (_pendingHandlers.Count > 0)
+			{
+				if (ProcessNextHandler())
+				{
+					return true;
+				}
+			}
+
 			if (_pendingEvents.Count == 0) return false;
 
-			// 2. 나머지 이벤트 순차 처리
+			// 3. GameEvent 순차 처리
 			while (_pendingEvents.Count > 0)
 			{
 				var evt = _pendingEvents[0];
 				_pendingEvents.RemoveAt(0);
 
+				// on_meet, on_contact는 핸들러 큐로 변환
+				if (evt.Type == EventType.OnMeet || evt.Type == EventType.OnContact)
+				{
+					var unitIds = evt.Args.Cast<int>().ToArray();
+					var playerId = _playerSystem?.PlayerId ?? -1;
+
+					// 플레이어가 포함되어 있는지 확인
+					if (unitIds.Contains(playerId))
+					{
+						var eventType = evt.Type == EventType.OnMeet ? "meet" : "contact";
+						CollectAndQueueHandlers(eventType, playerId, unitIds);
+
+						// 핸들러 큐 처리
+						if (ProcessNextHandler())
+						{
+							return true;
+						}
+					}
+					else if (evt.Type == EventType.OnMeet)
+					{
+						// NPC 간 만남
+						CollectAndQueueHandlers("npc_meet", -1, unitIds);
+						// npc_meet은 다이얼로그 없음, 바로 처리
+						ProcessNextHandler();
+					}
+					continue;
+				}
+
+				// 기타 이벤트는 기존 방식으로 처리
 				var result = _scriptSystem.CallSingleEventHandler(evt);
 
-				// 다이얼로그가 발생하면 처리하고 중단 (나머지 이벤트는 큐에 유지)
 				if (ProcessEventResult(result))
 				{
 					return true;
@@ -773,6 +834,219 @@ namespace SE
 
 			return true;
 		}
+
+		#region PyDict Helper Methods
+
+		private static string? GetDictString(SharpPy.PyDict dict, string key)
+		{
+			var pyKey = new SharpPy.PyString(key);
+			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
+			if (value is SharpPy.PyString pyStr)
+				return pyStr.Value;
+			return null;
+		}
+
+		private static int GetDictInt(SharpPy.PyDict dict, string key, int defaultValue = 0)
+		{
+			var pyKey = new SharpPy.PyString(key);
+			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
+			if (value is SharpPy.PyInt pyInt)
+				return (int)pyInt.Value;
+			return defaultValue;
+		}
+
+		private static int? GetDictIntOrNull(SharpPy.PyDict dict, string key)
+		{
+			var pyKey = new SharpPy.PyString(key);
+			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
+			if (value is SharpPy.PyInt pyInt)
+				return (int)pyInt.Value;
+			return null;
+		}
+
+		private static bool GetDictBool(SharpPy.PyDict dict, string key, bool defaultValue = false)
+		{
+			var pyKey = new SharpPy.PyString(key);
+			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
+			if (value is SharpPy.PyBool pyBool)
+				return pyBool.Value;
+			return defaultValue;
+		}
+
+		#endregion
+
+		#region Event Handler Queue (통합 이벤트 핸들러 큐)
+
+		/// <summary>
+		/// 대기 중인 핸들러가 있는지 확인
+		/// </summary>
+		public bool HasPendingHandlers()
+		{
+			return _pendingHandlers.Count > 0;
+		}
+
+		/// <summary>
+		/// 대기 중인 핸들러 모두 제거 (ExcessTime 발생 시 호출)
+		/// </summary>
+		public void ClearPendingHandlers()
+		{
+			var count = _pendingHandlers.Count;
+			_pendingHandlers.Clear();
+			if (count > 0)
+			{
+#if DEBUG_LOG
+				GD.Print($"[EventSystem] Cleared {count} pending handlers (ExcessTime > 0)");
+#endif
+			}
+		}
+
+		/// <summary>
+		/// on_meet/on_contact 이벤트를 핸들러 큐로 변환
+		/// Python에서 핸들러 목록을 수집하여 큐에 추가
+		/// </summary>
+		/// <param name="eventType">"meet" | "contact" | "npc_meet"</param>
+		/// <param name="playerId">플레이어 ID (npc_meet이면 -1)</param>
+		/// <param name="unitIds">이벤트 참여 유닛 목록</param>
+		public void CollectAndQueueHandlers(string eventType, int playerId, int[] unitIds)
+		{
+			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
+			if (scriptSystem == null) return;
+
+			_currentPlayerId = playerId;
+
+			try
+			{
+				// Python: collect_event_handlers(event_type, player_id, unit_ids)
+				var unitIdsStr = "[" + string.Join(", ", unitIds) + "]";
+				var playerIdArg = playerId >= 0 ? playerId.ToString() : "None";
+				var code = $"collect_event_handlers(\"{eventType}\", {playerIdArg}, {unitIdsStr})";
+
+				var result = scriptSystem.Eval(code);
+
+				if (result is SharpPy.PyList pyList)
+				{
+					foreach (var item in pyList.Items)
+					{
+						if (item is SharpPy.PyDict dict)
+						{
+							var handler = new EventHandler
+							{
+								Source = GetDictString(dict, "source") ?? "",
+								EventType = GetDictString(dict, "event_type") ?? "",
+								EventId = GetDictString(dict, "event_id"),
+								UnitId = GetDictIntOrNull(dict, "unit_id"),
+								Priority = GetDictInt(dict, "priority"),
+								Once = GetDictBool(dict, "once"),
+								UnitIds = unitIds,
+							};
+							_pendingHandlers.Add(handler);
+						}
+					}
+#if DEBUG_LOG
+					GD.Print($"[EventSystem] Collected {_pendingHandlers.Count} handlers for {eventType}");
+#endif
+				}
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"[EventSystem] CollectAndQueueHandlers error: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// 외부에서 핸들러 큐에 직접 추가 (로맨스 중단 등 특수 케이스)
+		/// </summary>
+		public void QueueEventHandlers(string eventType, int playerId, int[] unitIds)
+		{
+			CollectAndQueueHandlers(eventType, playerId, unitIds);
+		}
+
+		/// <summary>
+		/// 큐에서 다음 핸들러를 꺼내 실행
+		/// </summary>
+		/// <returns>다이얼로그가 표시되었으면 true</returns>
+		public bool ProcessNextHandler()
+		{
+			if (_pendingHandlers.Count == 0) return false;
+
+			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
+			if (scriptSystem == null) return false;
+
+			while (_pendingHandlers.Count > 0)
+			{
+				var handler = _pendingHandlers[0];
+				_pendingHandlers.RemoveAt(0);
+
+				var result = CallHandler(scriptSystem, handler);
+				if (ProcessEventResult(result))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Python 핸들러 호출
+		/// </summary>
+		private ScriptResult? CallHandler(ScriptSystem scriptSystem, EventHandler handler)
+		{
+			try
+			{
+				// handler_info를 Python dict로 변환
+				var handlerDict = new System.Text.StringBuilder();
+				handlerDict.Append("{");
+				handlerDict.Append($"\"source\": \"{handler.Source}\", ");
+				handlerDict.Append($"\"event_type\": \"{handler.EventType}\", ");
+
+				if (handler.EventId != null)
+					handlerDict.Append($"\"event_id\": \"{handler.EventId}\", ");
+				else
+					handlerDict.Append("\"event_id\": None, ");
+
+				if (handler.UnitId.HasValue)
+					handlerDict.Append($"\"unit_id\": {handler.UnitId}, ");
+				else
+					handlerDict.Append("\"unit_id\": None, ");
+
+				handlerDict.Append($"\"priority\": {handler.Priority}, ");
+				handlerDict.Append($"\"once\": {(handler.Once ? "True" : "False")}");
+				handlerDict.Append("}");
+
+				var unitIdsStr = "[" + string.Join(", ", handler.UnitIds ?? Array.Empty<int>()) + "]";
+				var playerIdArg = _currentPlayerId >= 0 ? _currentPlayerId.ToString() : "None";
+
+				var code = $"call_event_handler({handlerDict}, {playerIdArg}, {unitIdsStr})";
+
+#if DEBUG_LOG
+				GD.Print($"[EventSystem] Calling handler: {handler.Source}/{handler.EventType}" +
+					(handler.UnitId.HasValue ? $" unit={handler.UnitId}" : "") +
+					(handler.EventId != null ? $" event={handler.EventId}" : ""));
+#endif
+
+				var result = scriptSystem.Eval(code);
+
+				if (result is SharpPy.PyNone || result == null)
+				{
+					return null;
+				}
+
+				if (result is SharpPy.PyGenerator generator)
+				{
+					return scriptSystem.ProcessGenerator(generator);
+				}
+
+				return null;
+			}
+			catch (Exception ex)
+			{
+				GD.PrintErr($"[EventSystem] CallHandler error: {ex.Message}");
+				return null;
+			}
+		}
+
+		#endregion
 
 		/// <summary>
 		/// Proc은 빈 구현 (호출 기반 시스템)

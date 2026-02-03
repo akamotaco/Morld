@@ -401,29 +401,28 @@ def _handle_time_elapsed(minutes):
 **동작 흐름:**
 ```
 1. 플레이어가 위치 도착 → 리나, 밀라와 동시에 만남
-2. 이벤트 수집: [리나(priority -1), 밀라(priority -1)]
-3. 첫 번째 이벤트 처리: 리나 on_meet_player() Dialog
-4. Dialog 종료 → ExcessTime 확인:
-   - ExcessTime > 0: 밀라 이벤트 스킵 (시간 흘러감)
-   - ExcessTime == 0: 밀라 이벤트 처리 (순차 대화)
-5. 모든 이벤트 완료 or 시간 경과 시 종료
+2. C# EventSystem이 Python collect_event_handlers() 호출
+3. 핸들러 수집: [리나(priority -1), 밀라(priority -1)]
+4. C# _pendingHandlers 큐에 저장 (우선순위 정렬됨)
+5. 첫 번째 핸들러 처리: 리나 on_meet_player() Dialog
+6. Dialog 종료 → dialogTimeConsumed 확인:
+   - > 0: C# ClearPendingHandlers() → 밀라 이벤트 스킵
+   - == 0: 다음 핸들러 처리 (밀라 순차 대화)
+7. 모든 핸들러 완료 or 시간 경과 시 종료
 ```
 
 **우선순위:**
 - registry MeetEvent: priority 필드값 (높을수록 먼저)
 - character on_meet_player: priority -1 (registry 이벤트 후에 처리)
 
-**Python API:**
+**핵심 API:**
 ```python
-# events/__init__.py
-def has_pending_meet_events():
-    """대기 중인 이벤트 존재 여부"""
-    return len(_pending_meet_events) > 0
+# Python에서 핸들러 목록 제공
+collect_event_handlers(event_type, player_id, unit_ids)  # C#이 호출
+call_event_handler(handler_info, player_id, unit_ids)    # C#이 호출
 
-def clear_pending_meet_events():
-    """대기 중인 이벤트 모두 제거 (ExcessTime > 0일 때 호출)"""
-    global _pending_meet_events
-    _pending_meet_events = []
+# 수동 이벤트 주입 (로맨스 중단 등)
+morld.queue_event("meet", player_id, [player_id, npc_id])
 ```
 
 **ExcessTime 발생 예시:**
@@ -431,8 +430,8 @@ def clear_pending_meet_events():
 # 리나 on_meet_player에서 시간 경과 추가
 def on_meet_player(self, player_id):
     yield morld.dialog(["대화 내용..."])
-    morld.set_npc_time_consume(self.instance_id, "follow", 30, player_id)
-    # → ExcessTime = 30 → 다음 NPC 이벤트 스킵
+    morld.set_npc_time_consume(self.instance_id, "stay", 30_000)  # 30초
+    # → dialogTimeConsumed = 30000 → 다음 NPC 이벤트 스킵
 ```
 
 ### 이벤트 파일 분리

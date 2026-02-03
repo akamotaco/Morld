@@ -630,15 +630,10 @@ def start_romance(player_id, partner_id):
         handle_interruption(state)
         # 2. 상황 복원 (로맨스 UI 종료)
         morld.pop_to_situation()
-        # 3. 도착 NPC의 on_meet 이벤트 큐잉 + 순차 처리
+        # 3. 도착 NPC의 on_meet 이벤트를 C# 핸들러 큐에 추가
+        #    → 다음 FlushEvents/ProcessPendingEvents에서 자동 처리
         #    → on_meet_player() 자연 실행 (privacy 체크, first-meet 등)
-        from events import queue_meet_events, _pop_next_meet_event
-        queue_meet_events(player_id, [player_id, interrupter_id])
-        while True:
-            result = _pop_next_meet_event(player_id)
-            if result is None:
-                break
-            yield from result
+        morld.queue_event("meet", player_id, [player_id, interrupter_id])
     else:
         # 정상 종료(exit 클릭): NPC focus로 복귀
         if partner_agent:

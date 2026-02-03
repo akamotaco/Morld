@@ -539,7 +539,7 @@ class Sera(Character):
         "first_meet": {
             "pages": ["......", "...일어났군.", "...세라다. 사냥을 맡고 있다.", "...무리하지 마라."],
             "time_consume": 1 * _M,     # 대화로 1분 경과
-            "follow_duration": 2 * _M,  # 대화 후 2분간 플레이어 따라가기
+            "stay_duration": 2 * _M,    # 대화 후 2분간 현재 위치에 머무르기
         },
     }
 

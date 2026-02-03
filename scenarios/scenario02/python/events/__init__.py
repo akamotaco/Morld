@@ -168,26 +168,37 @@ def _get_nearby_character_handlers(player_id, region_id, location_id):
 
 
 # ========================================
-# on_meet 이벤트 큐 (순차 처리용)
+# C# 통합 이벤트 큐용 API
 # ========================================
 
-# 대기 중인 meet 이벤트 목록
-# 각 항목: {"type": "registry" | "character", "handler": ..., "unit_id": ...}
-_pending_meet_events = []
-
-
-def _collect_meet_events(player_id, unit_ids):
+def collect_event_handlers(event_type, player_id, unit_ids):
     """
-    on_meet 이벤트 수집 - 조건에 맞는 모든 이벤트를 우선순위별로 정렬
+    이벤트 타입별 핸들러 목록 반환 (C#이 큐로 관리)
 
     Args:
-        player_id: 플레이어 유닛 ID
-        unit_ids: 만남에 포함된 모든 유닛 ID
+        event_type: "meet" | "contact" | "npc_meet"
+        player_id: 플레이어 ID (npc_meet이면 None)
+        unit_ids: 관련 유닛 목록
 
     Returns:
-        수집된 이벤트 목록 (우선순위 순)
+        list of dict: [{"source": "registry"|"character", "event_type": ...,
+                        "unit_id": ..., "event_id": ..., "priority": ..., "once": ...}]
     """
-    events = []
+    handlers = []
+
+    if event_type == "meet":
+        handlers = _collect_meet_handlers(player_id, unit_ids)
+    elif event_type == "contact":
+        handlers = _collect_contact_handlers(player_id, unit_ids)
+    elif event_type == "npc_meet":
+        handlers = _collect_npc_meet_handlers(unit_ids)
+
+    return handlers
+
+
+def _collect_meet_handlers(player_id, unit_ids):
+    """on_meet 핸들러 수집"""
+    handlers = []
     other_ids = [uid for uid in unit_ids if uid != player_id]
 
     # 1. registry에 등록된 MeetEvent 수집
@@ -195,9 +206,156 @@ def _collect_meet_events(player_id, unit_ids):
         event_id = f"meet:{event.__class__.__name__}"
 
         # 일회성 이벤트 중복 체크
-        if event.once and event_id in registry._triggered:
+        if event.once and registry.is_event_triggered(event_id):
             continue
 
+        if event.should_trigger(unit_ids=unit_ids, player_id=player_id):
+            handlers.append({
+                "source": "registry",
+                "event_type": "meet",
+                "event_id": event_id,
+                "priority": event.priority,
+                "once": event.once,
+            })
+
+    # 2. 캐릭터별 on_meet_player 핸들러 수집
+    for other_id in other_ids:
+        handler = get_character_event_handler(other_id)
+        if handler and hasattr(handler, "on_meet_player"):
+            handlers.append({
+                "source": "character",
+                "event_type": "meet",
+                "unit_id": other_id,
+                "priority": -1,
+                "once": False,
+            })
+
+    # 우선순위 내림차순 정렬 (높은 priority 먼저)
+    handlers.sort(key=lambda h: -h["priority"])
+    return handlers
+
+
+def _collect_contact_handlers(player_id, unit_ids):
+    """on_contact 핸들러 수집"""
+    handlers = []
+    other_ids = [uid for uid in unit_ids if uid != player_id]
+
+    # 1. registry에 등록된 ContactEvent 수집
+    for event in registry.get_contact_events():
+        event_id = f"contact:{event.__class__.__name__}"
+
+        if event.once and registry.is_event_triggered(event_id):
+            continue
+
+        if event.should_trigger(unit_ids=unit_ids, player_id=player_id):
+            handlers.append({
+                "source": "registry",
+                "event_type": "contact",
+                "event_id": event_id,
+                "priority": event.priority,
+                "once": event.once,
+            })
+
+    # 2. 캐릭터별 on_contact_player 핸들러 수집
+    for other_id in other_ids:
+        handler = get_character_event_handler(other_id)
+        if handler and hasattr(handler, "on_contact_player"):
+            handlers.append({
+                "source": "character",
+                "event_type": "contact",
+                "unit_id": other_id,
+                "priority": -1,
+                "once": False,
+            })
+
+    handlers.sort(key=lambda h: -h["priority"])
+    return handlers
+
+
+def _collect_npc_meet_handlers(unit_ids):
+    """npc_meet 핸들러 수집 (플레이어 미포함)"""
+    handlers = []
+
+    for event in registry.get_npc_meet_events():
+        event_id = f"npc_meet:{event.__class__.__name__}"
+
+        if event.once and registry.is_event_triggered(event_id):
+            continue
+
+        if event.should_trigger(unit_ids=unit_ids, player_id=None):
+            handlers.append({
+                "source": "registry",
+                "event_type": "npc_meet",
+                "event_id": event_id,
+                "priority": event.priority,
+                "once": event.once,
+            })
+
+    handlers.sort(key=lambda h: -h["priority"])
+    return handlers
+
+
+def call_event_handler(handler_info, player_id, unit_ids):
+    """
+    개별 핸들러 실행 (C#에서 호출)
+
+    Args:
+        handler_info: {"source": ..., "event_type": ..., "unit_id": ..., "event_id": ...}
+        player_id: 플레이어 ID
+        unit_ids: 만남/접촉 참여자 전체 목록
+
+    Returns:
+        Generator (Dialog) 또는 None
+    """
+    source = handler_info.get("source")
+    event_type = handler_info.get("event_type")
+    event_id = handler_info.get("event_id")
+    unit_id = handler_info.get("unit_id")
+    once = handler_info.get("once", False)
+
+    result = None
+
+    if source == "registry":
+        event = registry.get_event_by_id(event_type, event_id)
+        if event:
+            if event_type == "npc_meet":
+                result = event.handle(unit_ids=unit_ids)
+            else:
+                result = event.handle(player_id=player_id, unit_ids=unit_ids)
+
+            # 일회성 이벤트 트리거 표시
+            if result is not None and once:
+                registry.mark_event_triggered(event_id)
+
+    elif source == "character":
+        handler = get_character_event_handler(unit_id)
+        if handler:
+            if event_type == "meet" and hasattr(handler, "on_meet_player"):
+                result = handler.on_meet_player(player_id)
+            elif event_type == "contact" and hasattr(handler, "on_contact_player"):
+                result = handler.on_contact_player(player_id)
+
+    return result
+
+
+# ========================================
+# 레거시 호환 (이전 버전 지원)
+# 향후 제거 예정
+# ========================================
+
+# 대기 중인 meet 이벤트 목록 (레거시)
+_pending_meet_events = []
+
+
+def _collect_meet_events(player_id, unit_ids):
+    """레거시: _collect_meet_handlers로 대체됨"""
+    events = []
+    other_ids = [uid for uid in unit_ids if uid != player_id]
+
+    for event in registry.get_meet_events():
+        event_id = f"meet:{event.__class__.__name__}"
+        if event.once and event_id in registry._triggered:
+            continue
         if event.should_trigger(unit_ids=unit_ids, player_id=player_id):
             events.append({
                 "type": "registry",
@@ -206,31 +364,22 @@ def _collect_meet_events(player_id, unit_ids):
                 "priority": event.priority,
             })
 
-    # 2. 캐릭터별 on_meet_player 핸들러 수집
     for other_id in other_ids:
         handler = get_character_event_handler(other_id)
         if handler and hasattr(handler, "on_meet_player"):
-            # 캐릭터 핸들러는 priority 0으로 취급 (registry 이벤트 후에 처리)
             events.append({
                 "type": "character",
                 "handler": handler,
                 "unit_id": other_id,
-                "priority": -1,  # registry 이벤트보다 낮은 우선순위
+                "priority": -1,
             })
 
-    # 우선순위 내림차순 정렬 (높은 priority 먼저)
     events.sort(key=lambda e: -e["priority"])
-
     return events
 
 
 def _pop_next_meet_event(player_id):
-    """
-    큐에서 다음 이벤트를 꺼내서 실행
-
-    Returns:
-        Generator 또는 None
-    """
+    """레거시: C# 큐로 대체됨"""
     global _pending_meet_events
 
     while _pending_meet_events:
@@ -239,11 +388,8 @@ def _pop_next_meet_event(player_id):
         if evt["type"] == "registry":
             event = evt["event"]
             event_id = evt["event_id"]
-
-            # 이미 트리거됐으면 스킵
             if event.once and event_id in registry._triggered:
                 continue
-
             result = event.handle(player_id=player_id, unit_ids=evt.get("unit_ids", []))
             if result is not None:
                 if event.once:
@@ -260,9 +406,7 @@ def _pop_next_meet_event(player_id):
 
 
 def clear_pending_meet_events():
-    """
-    대기 중인 meet 이벤트 모두 제거 (ExcessTime > 0일 때 C#에서 호출)
-    """
+    """레거시: C# 큐로 대체됨"""
     global _pending_meet_events
     count = len(_pending_meet_events)
     _pending_meet_events = []
@@ -271,22 +415,12 @@ def clear_pending_meet_events():
 
 
 def has_pending_meet_events():
-    """대기 중인 meet 이벤트가 있는지 확인"""
+    """레거시: C# 큐로 대체됨"""
     return len(_pending_meet_events) > 0
 
 
 def queue_meet_events(player_id, unit_ids):
-    """
-    on_meet 이벤트를 큐에 수동 주입
-
-    advance_time_simulate() 중 도착한 NPC의 on_meet이 소비된 경우,
-    로맨스 종료 후 해당 NPC의 on_meet 이벤트를 재수집하여 큐에 넣는다.
-    _pop_next_meet_event()로 순차 처리 가능.
-
-    Args:
-        player_id: 플레이어 유닛 ID
-        unit_ids: [player_id, npc_id, ...] 만남 대상 목록
-    """
+    """레거시: C# queue_event로 대체됨"""
     global _pending_meet_events
     events = _collect_meet_events(player_id, unit_ids)
     for evt in events:
@@ -403,9 +537,14 @@ def on_event_list(ev_list):
 
 # C#에서 호출하는 메인 진입점
 __all__ = [
+    # 새 API (C# 통합 이벤트 큐)
+    'collect_event_handlers',
+    'call_event_handler',
+    # 기존 API
     'on_event_list',
     'on_single_event',
+    'subscribe_time_elapsed',
+    # 레거시 (향후 제거)
     'clear_pending_meet_events',
     'has_pending_meet_events',
-    'subscribe_time_elapsed',
 ]
