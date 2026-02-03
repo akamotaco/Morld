@@ -128,129 +128,31 @@ lines.append(f"[{geo_text}] X:{int(position_x)}/{int(location_length)}")
 
 ## Dialog 시스템
 
-대화 시스템은 세 가지 타입을 제공합니다:
+대화/리액션/묘사 시스템은 [dialog.md](dialog.md)에서 상세히 다룹니다.
 
-| 타입 | 설명 | 용도 |
+### 개요
+
+| 분류 | 타입 | 용도 |
 |------|------|------|
-| **Lines** | 조건부 단답형 | NPC 인사말, 상태 메시지 |
-| **Sequence** | 페이지형 | 나레이션, 설명문 |
-| **Conversation** | CRPG 누적형 | NPC 대화, 첫 만남 이벤트 |
+| 대화 | Lines, Sequence, Conversation, Rules | NPC 대화, 이벤트 |
+| 리액션 | ROMANCE_REACTIONS 등 | 행동 반응 |
+| 묘사 | DESCRIBE_RULES, FOCUS_RULES | 상태 설명 |
 
----
-
-### Lines (단답형)
-
-조건에 따라 다른 대사를 출력합니다. 유저 인터랙션 없이 "확인" 버튼만 표시됩니다.
+### ui.dialog() - 저수준 API
 
 ```python
 import ui
 
-lines = ui.Lines("세라")
-lines.when(affection >= 80, "...다음에 또 와.", "...조심해서 가.")
-lines.when(affection >= 50, "...또 뭐야.")
-lines.default("...")
-yield lines.end()
-```
-
-**특징:**
-- 위에서 아래로 조건 평가, 첫 번째 True인 조건 사용
-- 모든 조건 불만족 시 `default()` 대사 출력
-- 호출 시점에 조건 평가 (즉시 평가)
-
----
-
-### Sequence (페이지형)
-
-페이지가 교체되며 진행됩니다. `+` 접두사로 연쇄 출력을 지원합니다.
-
-```python
-import ui
-
-seq = ui.Sequence("세라")
-seq.add("첫 번째 페이지")
-seq.add("+두 번째 (연쇄)")   # 이전 내용 유지 + 새 내용 타이핑
-seq.add("세 번째 (새로)")    # 새로 시작
-yield seq.end()
-```
-
-**특징:**
-- "다음" 버튼으로 페이지 이동
-- `+` 접두사: 이전 내용 유지 + 새 내용 추가
-- `\+`: `+` 리터럴 (이스케이프)
-
----
-
-### Conversation (CRPG 누적형)
-
-선택지 대화에서 히스토리가 화면에 쌓입니다. 선택한 항목은 회색으로 표시됩니다.
-
-```python
-import ui
-
-conv = ui.Conversation("세라")
-conv.narration("눈앞에 낯선 여성이 서 있다.")
-conv.say("...일어났군.", "...기억은 있나?")
-conv.ask([
-    ("기억이 없다", "no_memory"),
-    ("여기가 어디야?", "where"),
-    ("(헤어지기)", "@exit"),  # 대화 즉시 종료
-])
-conv.respond("no_memory", "...그렇군.", "...너만 그런 건 아니다.")
-conv.respond("where", "...저택이다.", "...숲 속에 있는.")
-conv.say("...무리하지 마라.")
-yield conv.end()
-```
-
-**메서드:**
-| 메서드 | 설명 |
-|--------|------|
-| `say(*lines)` | NPC 대사 (이름 자동 추가) |
-| `narration(*lines)` | 나레이션 (이름 없이) |
-| `ask(options)` | 선택지 `[("표시", "값"), ...]` |
-| `respond(value, *lines)` | 특정 선택에 대한 응답 |
-| `branch(conditions)` | 여러 선택 응답 `{"값": ["대사"], ...}` |
-| `end()` | 다이얼로그 반환 (yield용) |
-
-**특수 값:**
-- `@exit`: 대화 즉시 종료 (respond 없이 다이얼로그 닫힘)
-
----
-
-### ui.dialog() - 레거시 API
-
-`ui.dialog()`는 `morld.dialog()`를 감싼 래퍼로, 리스트 기반 다 페이지와 연쇄 출력을 지원합니다.
-
-```python
-import ui
-
-# 단일 페이지 (기존과 동일)
+# 단일 페이지
 yield ui.dialog("텍스트")
 
-# 다 페이지 - 연쇄 출력 지원
+# 다 페이지 (연쇄 출력 지원)
 yield ui.dialog([
     "첫 페이지",
-    "+두 번째 (연쇄)",   # 이전 내용 유지 + 새 내용 타이핑
-    "세 번째 (새로)"     # 새로 시작
+    "+두 번째 (연쇄)",   # 이전 내용 유지
+    "세 번째 (새로)"
 ])
 ```
-
-#### 연쇄 출력 (`+` 접두사)
-
-`+`로 시작하는 페이지는 이전 내용을 즉시 표시(`[!]...[/!]`)하고 새 내용만 타이핑합니다.
-
-| 표현 | 동작 |
-|------|------|
-| `"텍스트"` | 새 페이지로 시작 |
-| `"+텍스트"` | 이전 페이지 유지 + 새 내용 추가 |
-| `"\\+텍스트"` | `+`를 리터럴로 사용 (이스케이프) |
-
-#### autofill 옵션과 ui.dialog() 동작
-
-| 호출 | 처리 방식 |
-|------|-----------|
-| `ui.dialog([...])` | Python proc 기반 처리 (다음/확인 버튼) |
-| `ui.dialog([...], autofill="book")` | C# 처리 (이전/다음 왕복) |
-| `ui.dialog("문자열", ...)` | C# 처리 (기존 동작) |
 
 ### autofill 타입
 
@@ -266,64 +168,8 @@ yield ui.dialog([
 |------|------|
 | `@ret:값` | 다이얼로그 종료, yield에 값 반환 |
 | `@finish` | 다이얼로그 종료, result 파라미터 값 반환 |
-| `@proc:값` | proc(값) 호출, 반환값에 따라 동작 |
-| `@next` | 다음 페이지로 이동 |
-| `@prev` | 이전 페이지로 이동 (book 전용) |
-
-### proc 콜백 반환값
-
-| 반환값 | 동작 |
-|--------|------|
-| `문자열` | 해당 문자열로 텍스트 업데이트 |
-| `True` | 다이얼로그 즉시 종료, result 반환 |
-| `None`/`False` | 변경 없음 |
-
-### 예시 - 멀티페이지 모놀로그
-
-```python
-import ui
-
-yield ui.dialog([
-    "...어디지, 여기는?",
-    "+머리가 지끈거린다.",      # 연쇄 출력
-    "일단 저택에서 나가야 할 것 같다."  # 새 페이지
-])
-```
-
-### 예시 - 연쇄 출력 (프롤로그 스타일)
-
-```python
-yield ui.dialog([
-    "......",
-    "+......의식이 희미하게 떠오른다.",
-    "머리가... 아프다.",
-    "+여기는... 어디지?",
-    "+기억이... 나지 않는다.",
-])
-```
-
-### 예시 - proc + 선택지
-
-```python
-import ui
-
-state = {"choice": None}
-
-def handle_choice(action):
-    if action == "init":
-        return None
-    state["choice"] = action
-    return True  # 다이얼로그 종료
-
-result = yield ui.dialog(
-    "어디로 갈까?\n\n"
-    "[url=@proc:town]마을[/url]\n"
-    "[url=@proc:forest]숲[/url]",
-    autofill="off",
-    proc=handle_choice,
-    result=state
-)
-```
+| `@proc:값` | proc(값) 호출 |
+| `@next` / `@prev` | 페이지 이동 |
 
 ---
 

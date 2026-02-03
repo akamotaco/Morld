@@ -16,7 +16,8 @@
 | 문서 | 설명 | 줄 수 |
 |------|------|-------|
 | [system-core.md](scenarios/scenario02/docs/system-core.md) | ECS 아키텍처, 시스템 구조, 프로젝트 레이아웃 | ~150 |
-| [system-api.md](scenarios/scenario02/docs/system-api.md) | morld Python API, Dialog, Asset 클래스 | ~200 |
+| [system-api.md](scenarios/scenario02/docs/system-api.md) | morld Python API, Asset 클래스 | ~150 |
+| [dialog.md](scenarios/scenario02/docs/dialog.md) | 대화/리액션/묘사 시스템 (Lines, Rules 등) | ~250 |
 | [system-ui.md](scenarios/scenario02/docs/system-ui.md) | TextUI, 토글, 액션 필터링 | ~150 |
 | [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 연애 등 게임플레이 시스템 | ~180 |
 
@@ -38,6 +39,7 @@
 
 | 작업 | 참고 문서 |
 |------|----------|
+| NPC 대화/리액션/묘사 | [dialog.md](scenarios/scenario02/docs/dialog.md) |
 | NPC 스케줄/AI/Agent | [schedule.md](scenarios/scenario02/docs/schedule.md) |
 | NPC 생활/욕구/자율행동 | [life.md](scenarios/scenario02/docs/life.md) |
 | 연애/스킨십 시스템 | [romance.md](scenarios/scenario02/docs/romance.md) |
@@ -68,9 +70,10 @@
 ```
 scenarios/scenario02/docs/
 ├── system-core.md      # ECS 아키텍처, 프로젝트 구조
-├── system-api.md       # morld Python API, Dialog
+├── system-api.md       # morld Python API
 ├── system-ui.md        # TextUI, 액션 필터링
 ├── system-gameplay.md  # 장비, 생존, 연애 시스템
+├── dialog.md           # 대화/리액션/묘사 시스템
 ├── design.md           # 시나리오 설계 (세계관, 캐릭터)
 ├── terrain.md          # 지형 시스템
 ├── terrain_property.md # 환경 속성
