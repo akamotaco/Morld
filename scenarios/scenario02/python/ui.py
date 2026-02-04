@@ -916,6 +916,7 @@ class Conversation:
             "history": "",
             "choices": {},  # choice_id -> selected_value
             "finished": False,
+            "last_content": "",  # 버튼 제외한 순수 content (타이핑 효과용)
         }
 
         def _format_npc_line(line):
@@ -982,6 +983,9 @@ class Conversation:
                                 text += content
                             break
 
+            # 버튼 추가 전 content 저장 (타이핑 효과용)
+            state["last_content"] = text
+
             # 선택지 또는 종료 버튼 추가
             if pending_choices:
                 if text:
@@ -1021,21 +1025,27 @@ class Conversation:
                         state["finished"] = True
                         return True
 
+                    # 선택한 항목의 label 찾기
+                    selected_label = None
+                    for step in self._steps:
+                        if step["type"] == "ask" and step["choice_id"] == choice_id:
+                            for label, value in step["options"]:
+                                if value == choice_value:
+                                    selected_label = label
+                                    break
+                            break
+
+                    # 선택 전 content + 선택한 항목 표시를 history에 저장
+                    # (타이핑 효과: 이전 내용 + 선택지는 즉시 표시, 응답만 타이핑)
+                    history_text = state["last_content"]
+                    if selected_label:
+                        history_text += f"\n\n[color=gray]> {selected_label}[/color]"
+                    state["history"] = history_text
+
+                    # 선택 반영
                     state["choices"][choice_id] = choice_value
 
-                    # 현재까지의 텍스트를 히스토리에 저장
-                    current = _render()
-                    # [!]...[/!] 제거하고 저장
-                    if current.startswith("[!]"):
-                        end_idx = current.find("[/!]")
-                        if end_idx > 0:
-                            state["history"] = current[3:end_idx] + current[end_idx+4:]
-                        else:
-                            state["history"] = current
-                    else:
-                        state["history"] = current
-
-                    # 새 화면 렌더링
+                    # 새 화면 렌더링 (새 응답은 타이핑 효과 적용)
                     return _render()
 
             return None
