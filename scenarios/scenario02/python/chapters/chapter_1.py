@@ -46,12 +46,8 @@ def post_restore():
     - 챕터 1 시작 퀘스트 자동 부여
     """
     # 시간 정지 해제 (프롤로그에서 정지시켰던 시간 흐름 복원)
+    # Note: header/footer는 이제 레터박스 스타일로 자동 처리됨
     morld.set_time_frozen(False)
-
-    # UI 표시 (프롤로그에서 숨겼던 헤더/푸터 복원)
-    import ui
-    ui.set_show_header(True)
-    ui.set_show_footer(True)
 
     player_id = morld.get_player_id()
     if player_id is None:

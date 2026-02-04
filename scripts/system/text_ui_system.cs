@@ -233,9 +233,17 @@ namespace SE
 					break;
 			}
 
-			// Header/Footer 출력
-			if (_textUiHeader != null) _textUiHeader.Text = headerText;
-			if (_textUiFooter != null) _textUiFooter.Text = footerText;
+			// Header/Footer 출력 ([!]...[/!] 태그 제거 - 타이핑 효과 미적용)
+			if (_textUiHeader != null)
+			{
+				var (cleanHeader, _) = ParseInstantTags(headerText);
+				_textUiHeader.Text = cleanHeader;
+			}
+			if (_textUiFooter != null)
+			{
+				var (cleanFooter, _) = ParseInstantTags(footerText);
+				_textUiFooter.Text = cleanFooter;
+			}
 
 			// Content 렌더링
 			var text = RenderFocusContent(_stack.Current);
