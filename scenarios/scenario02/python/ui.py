@@ -999,13 +999,11 @@ class Conversation:
                 text += f"[url=@proc:finish]{finish_text}[/url]"
 
             # 기존 히스토리는 즉시 표시, 새 부분만 타이핑
-            if state["history"]:
-                # 새로 추가된 부분만 분리
-                if text.startswith(state["history"]):
-                    new_part = text[len(state["history"]):]
-                    if new_part.startswith("\n\n"):
-                        new_part = new_part[2:]
-                    return f"[!]{state['history']}[/!]\n\n{new_part}"
+            if state["history"] and text.startswith(state["history"]):
+                new_part = text[len(state["history"]):]
+                if new_part.startswith("\n\n"):
+                    new_part = new_part[2:]
+                return f"[!]{state['history']}[/!]\n\n{new_part}"
             return text
 
         def _proc(action):
@@ -1039,7 +1037,10 @@ class Conversation:
                     # (타이핑 효과: 이전 내용 + 선택지는 즉시 표시, 응답만 타이핑)
                     history_text = state["last_content"]
                     if selected_label:
-                        history_text += f"\n\n[color=gray]> {selected_label}[/color]"
+                        # _render와 동일한 형식으로: text가 있을 때만 \n\n 추가
+                        if history_text:
+                            history_text += "\n\n"
+                        history_text += f"[color=gray]> {selected_label}[/color]"
                     state["history"] = history_text
 
                     # 선택 반영
