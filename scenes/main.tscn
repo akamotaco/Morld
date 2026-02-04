@@ -29,16 +29,16 @@ text = "hello world"
 
 [node name="TextUiHeader" type="RichTextLabel" parent="Control"]
 layout_mode = 0
-offset_left = -872.0
+offset_left = -852.0
 offset_top = -6.0
-offset_right = 1061.0
+offset_right = 1040.0
 offset_bottom = 91.0
 bbcode_enabled = true
 text = "hello world (header)"
 
 [node name="TextUiFooter" type="RichTextLabel" parent="Control"]
 layout_mode = 0
-offset_left = -857.0
+offset_left = -852.0
 offset_top = 946.0
 offset_right = 1056.0
 offset_bottom = 1057.0

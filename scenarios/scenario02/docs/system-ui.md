@@ -4,6 +4,25 @@
 
 **역할:** RichTextLabel.Text 관리, 스택 기반 화면 전환, 토글 렌더링
 
+### 3분할 UI 구조
+
+TextUI는 3개의 독립된 RichTextLabel로 구성:
+- `_textUiHeader`: 위치/시간/날씨 정보
+- `_textUiContent`: 본문 (묘사, 행동 옵션, 대화 등)
+- `_textUiFooter`: 인벤토리 링크, 상태바
+
+```
+┌─────────────────────────────┐
+│ Header (위치/시간/날씨)      │
+├─────────────────────────────┤
+│                             │
+│ Content (본문)              │
+│                             │
+├─────────────────────────────┤
+│ Footer (인벤토리/상태바)     │
+└─────────────────────────────┘
+```
+
 ### Lazy Update 패턴
 
 ```csharp
@@ -19,8 +38,11 @@ public void FlushDisplay()
     if (!_needsUpdateDisplay) return;
     _needsUpdateDisplay = false;
 
-    var text = RenderFocus(_stack.Current);
-    _textUi.Text = ToggleRenderer.Render(text, toggles, hoveredMeta);
+    // Focus 타입에 따라 header/footer 결정
+    // Content 렌더링 후 각 영역에 출력
+    _textUiHeader.Text = headerText;
+    _textUiContent.Text = contentText;
+    _textUiFooter.Text = footerText;
 }
 ```
 
@@ -204,16 +226,52 @@ Gate(0, 2, conditions={"비밀통로#": 1})
 
 ## UI 표시 제어
 
-### 헤더/푸터 표시 설정
+### Focus 타입별 Header/Footer 동작
+
+| Focus Type | Header | Footer | 설명 |
+|------------|--------|--------|------|
+| Situation  | 위치/시간 | 인벤토리/상태 | Python get_header/footer 호출 |
+| Unit       | 위치/시간 | 인벤토리/상태 | 유닛 살펴보기 화면 |
+| Equipment  | 위치/시간 | 인벤토리/상태 | 장비 목록 화면 |
+| Inventory  | (비움) | (비움) | 인벤토리 전체화면 |
+| Item       | (비움) | (비움) | 아이템 메뉴 |
+| Dialog     | 구분선 | 구분선 | **레터박스 스타일** |
+| Result     | (비움) | (비움) | 결과 메시지 |
+
+### 레터박스 스타일 (Dialog)
+
+Dialog 모드에서는 영화 레터박스처럼 Header/Footer에 구분선을 표시하여 Content에 집중:
+
+```
+┌─────────────────────────────┐
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━  │  ← Header (구분선)
+├─────────────────────────────┤
+│                             │
+│ 대화 텍스트...               │  ← Content (대화 내용만)
+│                             │
+├─────────────────────────────┤
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━  │  ← Footer (구분선)
+└─────────────────────────────┘
+```
+
+- Dialog 진입 시 자동으로 레터박스 스타일 적용
+- 타이핑 효과는 Content 영역에만 적용
+- `[!][/!]` 태그는 Content에서만 동작 (Header/Footer에서 자동 제거)
+
+### 헤더/푸터 Visible 제어 (선택적)
 
 ```python
 import ui
 
+# Python에서 visible 상태 제어 (선택적 사용)
 ui.set_show_header(True)   # 헤더 표시
 ui.set_show_header(False)  # 헤더 숨김
 ui.set_show_footer(True)   # 푸터 표시
 ui.set_show_footer(False)  # 푸터 숨김
 ```
+
+> **참고**: 대부분의 경우 Focus 타입에 따라 자동으로 처리되므로 직접 호출할 필요 없음.
+> Dialog 모드에서는 레터박스 스타일이 자동 적용됨.
 
 ### 활성화/비활성화 표현
 
