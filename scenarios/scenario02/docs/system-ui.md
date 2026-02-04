@@ -228,15 +228,15 @@ Gate(0, 2, conditions={"비밀통로#": 1})
 
 ### Focus 타입별 Header/Footer 동작
 
-| Focus Type | Header | Footer | 설명 |
-|------------|--------|--------|------|
-| Situation  | 위치/시간 | 인벤토리/상태 | Python get_header/footer 호출 |
-| Unit       | 위치/시간 | 인벤토리/상태 | 유닛 살펴보기 화면 |
-| Equipment  | 위치/시간 | 인벤토리/상태 | 장비 목록 화면 |
-| Inventory  | (비움) | (비움) | 인벤토리 전체화면 |
-| Item       | (비움) | (비움) | 아이템 메뉴 |
-| Dialog     | 구분선 | 구분선 | **레터박스 스타일** |
-| Result     | (비움) | (비움) | 결과 메시지 |
+| Focus Type | Header/Footer | 설명 |
+|------------|---------------|------|
+| Situation  | **표시** | 기본 화면 (Python get_header/footer) |
+| Unit       | **표시** | 유닛/오브젝트 살펴보기 |
+| Equipment  | **표시** | 장비 목록 화면 |
+| Dialog     | **레터박스** | 대화/이벤트 텍스트 |
+| Inventory  | **레터박스** | 인벤토리 전체화면 |
+| Item       | **레터박스** | 아이템 메뉴 |
+| Result     | **레터박스** | 결과 메시지 |
 
 ### 레터박스 스타일 (Dialog)
 

@@ -257,24 +257,19 @@ namespace SE
 				case FocusType.Situation:
 				case FocusType.Unit:
 				case FocusType.Equipment:
-					// Python에서 header/footer 가져오기
+					// 표시: Python에서 header/footer 가져오기
 					headerText = GetHeaderFromPython() ?? "";
 					footerText = GetFooterFromPython() ?? "";
 					break;
 
 				case FocusType.Dialog:
-					// 레터박스 스타일: 동적 너비 구분선으로 "대화 모드" 표시
-					var hr = GetHorizontalRule();
-					headerText = hr;
-					footerText = hr;
-					break;
-
 				case FocusType.Inventory:
 				case FocusType.Item:
 				case FocusType.Result:
-					// header/footer 비움
-					headerText = "";
-					footerText = "";
+					// 레터박스: 동적 너비 구분선
+					var hr = GetHorizontalRule();
+					headerText = hr;
+					footerText = hr;
 					break;
 			}
 
