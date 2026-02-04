@@ -123,39 +123,46 @@ namespace SE
 
 		/// <summary>
 		/// 레터박스용 가로줄 생성 (RichTextLabel 너비에 맞춤)
-		/// 캐시된 값이 있으면 재사용
+		/// 라벨 너비가 유효할 때만 캐싱 (레이아웃 완료 전이면 기본값 반환)
 		/// </summary>
 		private string GetHorizontalRule()
 		{
 			if (_cachedHorizontalRule != null)
 				return _cachedHorizontalRule;
 
-			// Header 기준으로 너비 계산 (없으면 기본값 사용)
+			// Header 기준으로 너비 계산 (없으면 Content 사용)
 			var label = _textUiHeader ?? _textUiContent;
 			if (label == null)
-			{
-				_cachedHorizontalRule = Divider;
-				return _cachedHorizontalRule;
-			}
+				return Divider;
 
 			try
 			{
+				// 라벨 너비 확인 (레이아웃 완료 전이면 0 또는 작은 값)
+				float labelWidth = label.Size.X;
+				if (labelWidth < 100)
+					return Divider; // 레이아웃 미완료 - 캐싱하지 않고 기본값 반환
+
 				// 폰트 정보로 문자 너비 계산
+				// '─' (U+2500)는 일부 폰트에서 0 반환 → 'M' 기준으로 추정
 				var font = label.GetThemeFont("normal_font");
 				var fontSize = label.GetThemeFontSize("normal_font");
-				float charWidth = font.GetCharSize('─', fontSize).X;
+				float charWidthM = font.GetCharSize('M', fontSize).X;
 
-				// 라벨 너비에 맞는 문자 수
-				float labelWidth = label.Size.X;
-				int charCount = Math.Max(1, (int)(labelWidth / charWidth));
+				if (charWidthM <= 0)
+					return Divider;
 
-				// BBCode 색상 포함 (Divider와 동일한 스타일)
-				_cachedHorizontalRule = $"[color=gray]{new string('─', charCount)}[/color]";
+				// '─'는 대략 'M'의 50~60% 너비 추정
+				float estimatedCharWidth = charWidthM * 0.55f;
+				int charCount = Math.Max(1, (int)(labelWidth / estimatedCharWidth));
+
+				// BBCode 색상 포함, 2줄 (레터박스 효과)
+				var line = new string('─', charCount);
+				_cachedHorizontalRule = $"[color=gray]{line}\n{line}[/color]";
 			}
-			catch
+			catch (System.Exception)
 			{
-				// 폰트 정보 획득 실패 시 기본값
-				_cachedHorizontalRule = Divider;
+				// 폰트 정보 획득 실패 시 기본값 (캐싱하지 않음)
+				return Divider;
 			}
 
 			return _cachedHorizontalRule;
@@ -206,7 +213,7 @@ namespace SE
 		/// 현재 Focus에서 자동 시간 흐름이 허용되는지 확인
 		/// - Situation, Unit: 항상 허용 (기본 게임 화면)
 		/// - Dialog: TimeFlows 속성에 따름 (기본 false)
-		/// - 기타 (Inventory, Equipment, Item, Result): 허용하지 않음
+		/// - 기타 (Inventory, Item, Result): 허용하지 않음
 		///
 		/// [미구현] 시간이 흐르는 Focus에서 이벤트 발생 시:
 		/// - 새 이벤트가 스택에 push되면 해당 Focus의 TimeFlows를 다시 체크
@@ -222,7 +229,7 @@ namespace SE
 				FocusType.Situation => true,
 				FocusType.Unit => true,
 				FocusType.Dialog => _stack.Current.TimeFlows,
-				_ => false // Inventory, Equipment, Item, Result
+				_ => false // Inventory, Item, Result
 			};
 		}
 
@@ -256,7 +263,6 @@ namespace SE
 			{
 				case FocusType.Situation:
 				case FocusType.Unit:
-				case FocusType.Equipment:
 					// 표시: Python에서 header/footer 가져오기
 					headerText = GetHeaderFromPython() ?? "";
 					footerText = GetFooterFromPython() ?? "";
@@ -792,7 +798,6 @@ namespace SE
 				FocusType.Situation => RenderSituation(),
 				FocusType.Unit => RenderUnit(focus.TargetUnitId ?? 0),
 				FocusType.Inventory => RenderInventory(),
-				FocusType.Equipment => RenderEquipment(),
 				FocusType.Item => RenderItem(focus.ItemId ?? 0, focus.Context ?? "inventory", focus.TargetUnitId),
 				FocusType.Result => RenderResult(focus.Message ?? ""),
 				FocusType.Dialog => RenderDialog(focus),
@@ -994,13 +999,6 @@ namespace SE
 			return _describeSystem.GetInventoryText();
 		}
 
-		private string RenderEquipment()
-		{
-			// Header/Footer는 FlushDisplay()에서 처리
-			// Body: 장비
-			return _describeSystem.GetEquipmentText();
-		}
-
 		private string RenderItem(int itemId, string context, int? targetUnitId)
 		{
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
@@ -1074,15 +1072,6 @@ namespace SE
 		public void ShowInventory()
 		{
 			_stack.Push(Focus.Inventory());
-			RequestUpdateDisplay();
-		}
-
-		/// <summary>
-		/// 장착 아이템 목록 표시 (Push)
-		/// </summary>
-		public void ShowEquipment()
-		{
-			_stack.Push(Focus.Equipment());
 			RequestUpdateDisplay();
 		}
 

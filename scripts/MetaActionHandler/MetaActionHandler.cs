@@ -146,9 +146,6 @@ public partial class MetaActionHandler
 			case "inventory":
 				HandleInventoryAction();
 				break;
-			case "equipment":
-				HandleEquipmentAction();
-				break;
 			case "quest":
 				HandleQuestAction();
 				break;

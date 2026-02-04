@@ -253,11 +253,6 @@ public partial class GameEngine : Node
 		_inventorySystem.DebugPrint();
 
 		Debug.Print($"System Count : {this._world.GetAllSystem().Count}");
-		GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-		GD.Print("[GameEngine] 입력 테스트 모드");
-		GD.Print("  마우스 왼쪽 클릭: 4시간 (240분) 진행");
-		GD.Print("  마우스 오른쪽 클릭: 15분 진행");
-		GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	}
 #endif
 

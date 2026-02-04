@@ -146,14 +146,6 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 장비 목록 확인 처리
-	/// </summary>
-	private void HandleEquipmentAction()
-	{
-		_textUISystem?.ShowEquipment();
-	}
-
-	/// <summary>
 	/// 퀘스트 UI 표시 처리
 	/// Python의 quest.show_quest_ui() Generator를 호출
 	/// </summary>

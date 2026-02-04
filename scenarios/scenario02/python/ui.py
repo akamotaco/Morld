@@ -197,17 +197,16 @@ def get_footer():
     하단 푸터 반환 (인벤토리 + 상태바)
 
     Focus 화면 최하단에 표시됩니다.
-    구분선 포함.
+    별도 RichTextLabel로 분리되어 구분선 불필요.
 
     Returns:
-        str: 구분선 + 인벤토리 + 상태바 BBCode (빈 문자열이면 표시 안함)
+        str: 인벤토리 + 상태바 BBCode (빈 문자열이면 표시 안함)
     """
     # 푸터 숨김 상태면 빈 문자열
     if not _show_footer:
         return ""
 
     lines = []
-    lines.append(divider())
     lines.append("[url=inventory]인벤토리[/url]  [url=quest]퀘스트[/url]  [url=settings]설정[/url]")
 
     status_text = get_status_text()
