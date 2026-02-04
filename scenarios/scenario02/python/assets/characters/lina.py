@@ -1057,7 +1057,7 @@ class LinaAgent(BaseAgent):
         {"name": "빨래걷기", "region_id": 0, "location_id": 13, "x": 300, "start": 1020 * _M, "end": 1080 * _M, "activity": "빨래"},  # 뒷마당
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
         {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1170 * _M, "end": 1320 * _M, "activity": "휴식"},
-        {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
+        {"name": "수면", "region_id": 0, "location_id": 7, "x": 120, "start": 1320 * _M, "end": 360 * _M, "activity": "수면"},
     ]
 
     owner_unique_id = "lina"

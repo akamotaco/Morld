@@ -35,9 +35,9 @@ class BaseAgent:
         STAY_SCHEDULE - 현재 위치에서 대기 (모든 NPC 공통)
     """
 
-    # 공용 스케줄: 현재 위치에서 대기 (24시간)
+    # 공용 스케줄: 현재 위치에서 대기 (24시간, location_id 없음 = 이동 없이 대기)
     STAY_SCHEDULE = [
-        {"name": "대기", "action": "stay", "start": 0, "end": 86_400_000, "activity": "대기"}
+        {"name": "대기", "start": 0, "end": 86_400_000, "activity": "대기"}
     ]
 
     def __init__(self, unit_id):

@@ -35,7 +35,7 @@ SCHEDULE = [
         "name": "아침식사",      # 표시용 이름
         "region_id": 0,         # 목적지 Region
         "location_id": 3,       # 목적지 Location
-        "x": 90,                # (Pi-World) 목표 X 좌표 (optional, 기본값 0)
+        "x": 90,                # (Pi-World) 목표 X 좌표 (location_id 있으면 필수)
         "start": 25_200_000,    # 시작 시간 (밀리초, 7:00 = 25,200,000)
         "end": 28_800_000,      # 종료 시간 (밀리초, 8:00 = 28,800,000)
         "activity": "식사"      # 활동 유형 (Job.Name으로 사용)
@@ -51,8 +51,9 @@ SCHEDULE = [
 - NPC가 Location 내 특정 오브젝트 위치로 이동
 - 예: 식당(location_id=3)의 식탁 의자(x=90)로 이동
 
-**참고:**
-- `x` 필드는 선택적 (optional)이며 기본값은 0
+**필수 조건:**
+- `location_id`가 명시된 경우 `x` 필드 **필수**
+- `location_id` 없이 `activity`만 지정하면 현재 위치에서 대기 (이동 없음)
 - 좌표값은 [terrain.md](terrain.md)의 오브젝트 위치 참고
 - `y` 필드도 지원 (확장용, 현재는 사용 안 함)
 
@@ -76,6 +77,21 @@ SCHEDULE = [
 # 22:00 ~ 다음날 06:00
 ```
 
+### 현재 위치 대기 (STAY_SCHEDULE 패턴)
+`location_id`를 지정하지 않으면 NPC는 현재 위치에서 이동 없이 대기합니다:
+```python
+# 스케줄이 없는 NPC용 기본 대기
+STAY_SCHEDULE = [
+    {"name": "대기", "start": 0, "end": 86_400_000, "activity": "대기"}
+    # location_id 없음 → 이동 없이 현재 위치에서 대기
+]
+```
+
+**동작:**
+- `location_id` 없음 = 이동 Job 생성 안 함
+- NPC는 현재 위치에 머무름
+- `activity`는 표시용 (대화에서 "대기 중" 등으로 표현)
+
 ---
 
 ## 2. Job 구조
@@ -98,10 +114,12 @@ public class Job
 ### Action 타입
 | Action | 설명 | 필수 필드 |
 |--------|------|----------|
-| `move` | 목표 위치로 이동 | RegionId, LocationId |
+| `move` | 목표 위치로 이동 | RegionId, LocationId, TargetX |
 | `stay` | 현재 위치에서 대기 | Duration |
 | `follow` | 대상 유닛 따라가기 | TargetId, Duration |
 | `flee` | 대상 유닛으로부터 도망 | TargetId, Duration |
+
+> **참고**: 스케줄 항목에서 현재 위치 대기를 원하면 `location_id`를 생략하세요. (이전의 `"action": "stay"` 패턴은 더 이상 지원되지 않습니다.)
 
 ---
 

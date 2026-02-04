@@ -38,9 +38,9 @@ INTERRUPT_JOIN_THRESHOLD = 60  # 합류 가능 최소 호감도
 MILLIS_PER_MINUTE = 60_000
 MILLIS_PER_DAY = 86_400_000
 
-# NPC 대기 스케줄
+# NPC 대기 스케줄 (location_id 없음 = 이동 없이 현위치 대기)
 STAY_SCHEDULE = [
-    {"name": "대기", "action": "stay", "start": 0, "end": MILLIS_PER_DAY, "activity": "대기"}
+    {"name": "대기", "start": 0, "end": MILLIS_PER_DAY, "activity": "대기"}
 ]
 
 # 스태미나 설정

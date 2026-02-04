@@ -974,7 +974,7 @@ class YukiAgent(BaseAgent):
         {"name": "휴식", "region_id": 2, "location_id": 5, "x": 120, "start": 780 * _M, "end": 1020 * _M, "activity": "휴식"},
         {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
         {"name": "독서", "region_id": 2, "location_id": 5, "x": 120, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
-        {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},
+        {"name": "수면", "region_id": 2, "location_id": 5, "x": 120, "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},
     ]
 
     owner_unique_id = "yuki"

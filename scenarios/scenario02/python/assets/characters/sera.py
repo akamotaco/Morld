@@ -1132,7 +1132,7 @@ class SeraAgent(BaseAgent):
         {"name": "저녁순찰", "region_id": 0, "location_id": 20, "x": 900, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},  # 숲 입구
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
         {"name": "장비정비", "region_id": 0, "location_id": 8, "x": 90, "start": 1200 * _M, "end": 1290 * _M, "activity": "정비"},
-        {"name": "수면", "action": "stay", "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
+        {"name": "수면", "region_id": 0, "location_id": 8, "x": 90, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
     ]
 
     owner_unique_id = "sera"

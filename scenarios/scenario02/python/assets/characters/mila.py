@@ -1010,7 +1010,7 @@ class MilaAgent(BaseAgent):
             {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
             {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
         ],
         "여름": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 240 * _M, "end": 270 * _M, "activity": "목욕"},
@@ -1025,7 +1025,7 @@ class MilaAgent(BaseAgent):
             {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
             {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "action": "stay", "start": 1380 * _M, "end": 240 * _M, "activity": "수면"},  # 여름: 늦게 잠
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1380 * _M, "end": 240 * _M, "activity": "수면"},  # 여름: 늦게 잠
         ],
         "가을": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
@@ -1040,7 +1040,7 @@ class MilaAgent(BaseAgent):
             {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
             {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "action": "stay", "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1320 * _M, "end": 300 * _M, "activity": "수면"},
         ],
         "겨울": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 360 * _M, "end": 390 * _M, "activity": "목욕"},
@@ -1055,7 +1055,7 @@ class MilaAgent(BaseAgent):
             {"name": "저녁준비", "region_id": 0, "location_id": 2, "x": 90, "start": 1020 * _M, "end": 1110 * _M, "activity": "요리"},
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
             {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
-            {"name": "수면", "action": "stay", "start": 1260 * _M, "end": 360 * _M, "activity": "수면"},  # 겨울: 일찍 잠
+            {"name": "수면", "region_id": 0, "location_id": 9, "x": 120, "start": 1260 * _M, "end": 360 * _M, "activity": "수면"},  # 겨울: 일찍 잠
         ],
     }
 

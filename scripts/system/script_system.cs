@@ -279,15 +279,20 @@ namespace SE
                     activity = actObj is PyString ps ? ps.Value : actObj.ToString() ?? "";
                 }
 
-                // x (required when location_id is present, Pi-World)
+                // location_id가 명시되었는지 여부
+                bool hasLocationId = dict.Contains(new PyString("location_id")).Value
+                                  || dict.Contains(new PyString("locationId")).Value;
+
+                // x (location_id가 있으면 필수)
                 float targetX = 0f;
                 if (dict.Contains(new PyString("x")).Value)
                 {
                     targetX = (float)dict.GetItem(new PyString("x")).ToFloat();
                 }
-                else
+                else if (hasLocationId)
                 {
-                    throw new ArgumentException($"Schedule entry '{name}' has location_id={locationId} but missing 'x' coordinate. All schedule entries must specify 'x'.");
+                    // location_id가 명시된 경우 x 필수
+                    throw new ArgumentException($"Schedule entry '{name}' has location_id={locationId} but missing 'x' coordinate. All entries with location_id must specify 'x'.");
                 }
 
                 // y (optional, Pi-World 확장용)
