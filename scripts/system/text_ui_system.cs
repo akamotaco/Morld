@@ -990,12 +990,8 @@ namespace SE
 
 		private string RenderInventory()
 		{
-			// 인벤토리는 header/footer 없이 구분선 + body + 구분선
-			var lines = new List<string>();
-			lines.Add(Divider);
-			lines.Add(_describeSystem.GetInventoryText());
-			lines.Add(Divider);
-			return string.Join("\n", lines);
+			// 레터박스 스타일: header/footer에 구분선이 표시되므로 body만 반환
+			return _describeSystem.GetInventoryText();
 		}
 
 		private string RenderEquipment()
@@ -1030,15 +1026,8 @@ namespace SE
 				}
 			}
 
-			// 아이템은 header/footer 없이 구분선 + body + 구분선
-			var lines = new List<string>();
-			lines.Add(Divider);
-
-			var body = _describeSystem.GetItemMenuText(context, itemId, count, targetUnitId);
-			lines.Add(body);
-
-			lines.Add(Divider);
-			return string.Join("\n", lines);
+			// 레터박스 스타일: header/footer에 구분선이 표시되므로 body만 반환
+			return _describeSystem.GetItemMenuText(context, itemId, count, targetUnitId);
 		}
 
 		private string RenderResult(string message)
