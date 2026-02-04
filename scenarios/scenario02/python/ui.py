@@ -37,6 +37,7 @@ def divider(color: str = "gray", length: int = 20) -> str:
 
 _show_header = True
 _show_footer = True
+_ui_locked = False
 
 
 def set_show_header(show: bool):
@@ -59,6 +60,26 @@ def is_header_visible() -> bool:
 def is_footer_visible() -> bool:
     """푸터 UI 표시 여부"""
     return _show_footer
+
+
+def set_ui_lock(locked: bool):
+    """
+    UI Lock 설정
+
+    Lock이 켜지면 모든 Focus 타입에서 레터박스 스타일 강제 적용.
+    인벤토리/퀘스트/설정 메뉴가 구분선으로 가려짐.
+    챕터 0 등에서 조작 제한에 사용.
+
+    Args:
+        locked: True면 Lock (레터박스 강제), False면 일반 모드
+    """
+    global _ui_locked
+    _ui_locked = locked
+
+
+def is_ui_locked() -> bool:
+    """UI Lock 상태 여부"""
+    return _ui_locked
 
 
 # ========================================

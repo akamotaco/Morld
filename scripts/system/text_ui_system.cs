@@ -259,24 +259,37 @@ namespace SE
 			string headerText = "";
 			string footerText = "";
 
-			switch (focusType)
-			{
-				case FocusType.Situation:
-				case FocusType.Unit:
-					// 표시: Python에서 header/footer 가져오기
-					headerText = GetHeaderFromPython() ?? "";
-					footerText = GetFooterFromPython() ?? "";
-					break;
+			// UI Lock 상태 확인 (Lock이면 모든 Focus에서 레터박스 강제)
+			bool isUiLocked = GetUiLockedFromPython();
 
-				case FocusType.Dialog:
-				case FocusType.Inventory:
-				case FocusType.Item:
-				case FocusType.Result:
-					// 레터박스: 동적 너비 구분선
-					var hr = GetHorizontalRule();
-					headerText = hr;
-					footerText = hr;
-					break;
+			if (isUiLocked)
+			{
+				// Lock: 모든 Focus 타입에서 레터박스 (인벤토리/설정 메뉴 가림)
+				var hr = GetHorizontalRule();
+				headerText = hr;
+				footerText = hr;
+			}
+			else
+			{
+				switch (focusType)
+				{
+					case FocusType.Situation:
+					case FocusType.Unit:
+						// 표시: Python에서 header/footer 가져오기
+						headerText = GetHeaderFromPython() ?? "";
+						footerText = GetFooterFromPython() ?? "";
+						break;
+
+					case FocusType.Dialog:
+					case FocusType.Inventory:
+					case FocusType.Item:
+					case FocusType.Result:
+						// 레터박스: 동적 너비 구분선
+						var hr = GetHorizontalRule();
+						headerText = hr;
+						footerText = hr;
+						break;
+				}
 			}
 
 			// Header/Footer 출력 ([!]...[/!] 태그 제거 - 타이핑 효과 미적용)
@@ -979,6 +992,30 @@ namespace SE
 			}
 
 			return true; // 기본값: 표시
+		}
+
+		/// <summary>
+		/// Python ui.is_ui_locked() 호출
+		/// UI Lock 상태 확인 (Lock이면 모든 Focus에서 레터박스 강제)
+		/// </summary>
+		private bool GetUiLockedFromPython()
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var result = _scriptSystem.CallModuleFunction("ui", "is_ui_locked");
+				if (result is SharpPy.PyBool pyBool)
+				{
+					return pyBool.Value;
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python is_ui_locked() error: {ex.Message}");
+			}
+
+			return false; // 기본값: Lock 아님
 		}
 
 		private string RenderUnit(int unitId)

@@ -54,9 +54,11 @@ def initialize():
     """프롤로그 챕터 초기화"""
     print("[chapter_0] Initializing prologue chapter...")
 
-    # 0. 시간 정지 (프롤로그에서는 시간이 흐르지 않음)
-    # Note: header/footer는 이제 레터박스 스타일로 자동 처리됨
+    # 0. 시간 정지 + UI Lock (프롤로그에서는 조작 제한)
     morld.set_time_frozen(True)
+
+    import ui
+    ui.set_ui_lock(True)  # 인벤토리/퀘스트/설정 메뉴 가림
 
     # 1. Region 등록
     r = REGION

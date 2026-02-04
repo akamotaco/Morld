@@ -45,9 +45,11 @@ def post_restore():
     - 챕터 1부터 생존 시스템 활성화
     - 챕터 1 시작 퀘스트 자동 부여
     """
-    # 시간 정지 해제 (프롤로그에서 정지시켰던 시간 흐름 복원)
-    # Note: header/footer는 이제 레터박스 스타일로 자동 처리됨
+    # 시간 정지 해제 + UI Lock 해제
     morld.set_time_frozen(False)
+
+    import ui
+    ui.set_ui_lock(False)  # 인벤토리/퀘스트/설정 메뉴 활성화
 
     player_id = morld.get_player_id()
     if player_id is None:
