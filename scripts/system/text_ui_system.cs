@@ -26,6 +26,10 @@ namespace SE
 		// Lazy update 플래그
 		private bool _needsUpdateDisplay = false;
 
+		// 캐시된 가로줄 (레터박스용)
+		// TODO: 윈도우 크기 동적 변경 시 캐시 무효화 필요
+		private string? _cachedHorizontalRule = null;
+
 		// ============================================
 		// 타이핑 효과 시스템
 		// ============================================
@@ -115,6 +119,46 @@ namespace SE
 			_textUiHeader = textUiHeader;
 			_textUiFooter = textUiFooter;
 			_describeSystem = describeSystem;
+		}
+
+		/// <summary>
+		/// 레터박스용 가로줄 생성 (RichTextLabel 너비에 맞춤)
+		/// 캐시된 값이 있으면 재사용
+		/// </summary>
+		private string GetHorizontalRule()
+		{
+			if (_cachedHorizontalRule != null)
+				return _cachedHorizontalRule;
+
+			// Header 기준으로 너비 계산 (없으면 기본값 사용)
+			var label = _textUiHeader ?? _textUiContent;
+			if (label == null)
+			{
+				_cachedHorizontalRule = Divider;
+				return _cachedHorizontalRule;
+			}
+
+			try
+			{
+				// 폰트 정보로 문자 너비 계산
+				var font = label.GetThemeFont("normal_font");
+				var fontSize = label.GetThemeFontSize("normal_font");
+				float charWidth = font.GetCharSize('─', fontSize).X;
+
+				// 라벨 너비에 맞는 문자 수
+				float labelWidth = label.Size.X;
+				int charCount = Math.Max(1, (int)(labelWidth / charWidth));
+
+				// BBCode 색상 포함 (Divider와 동일한 스타일)
+				_cachedHorizontalRule = $"[color=gray]{new string('─', charCount)}[/color]";
+			}
+			catch
+			{
+				// 폰트 정보 획득 실패 시 기본값
+				_cachedHorizontalRule = Divider;
+			}
+
+			return _cachedHorizontalRule;
 		}
 
 		/// <summary>
@@ -219,9 +263,10 @@ namespace SE
 					break;
 
 				case FocusType.Dialog:
-					// 레터박스 스타일: 구분선으로 "대화 모드" 표시
-					headerText = Divider;
-					footerText = Divider;
+					// 레터박스 스타일: 동적 너비 구분선으로 "대화 모드" 표시
+					var hr = GetHorizontalRule();
+					headerText = hr;
+					footerText = hr;
 					break;
 
 				case FocusType.Inventory:
