@@ -524,9 +524,8 @@ class Lina(Character):
         # 누적형 대화 시작
         yield conv.end()
 
-        # 시간 경과 처리
-        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
-        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
+        # 시간 경과 처리 (first meet은 0초)
+        # morld.set_npc_job(self.instance_id, "stay", 2 * _M) # 머무르지 않고 바로 이동하기 위해 주석처리
 
         # 첫 만남 완료 처리 (관계:리나:진척도 = 1)
         self.mark_first_meet_done(player_id)

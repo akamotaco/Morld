@@ -294,10 +294,11 @@ public partial class GameEngine : Node
 				// 이벤트 발생: 시간 진행만 중단 (이동/Job은 유지하여 이동 재개 가능)
 				_playerSystem.ClearPendingTime();
 			}
-
-			// 시간 진행 완료 후 위치 변경 감지 및 상황 업데이트
-			if (!_playerSystem.HasPendingTime)
+			else if (!_playerSystem.HasPendingTime)
 			{
+				// 시간 진행 완료 후 위치 변경 감지 및 상황 업데이트
+				// (다이얼로그 종료 시 ProcessPendingEvents에서 남은 핸들러 처리)
+
 				// 1. 위치 변경 감지 (ApplyNpcJobs 후이므로 오버라이드된 상태 반영)
 				_eventSystem?.DetectLocationChanges();
 
@@ -307,8 +308,8 @@ public partial class GameEngine : Node
 				// 3. ExcessTime 계산 (이벤트 처리에서 누적된 다이얼로그 시간 기준)
 				_eventSystem.FinalizeDialogTime();
 
-				// 4. 모놀로그가 없으면 상황 업데이트 또는 Dialog tick 갱신
-				if (!eventHandled && !newEventHandled)
+				// 4. 이벤트가 없으면 상황 업데이트 또는 Dialog tick 갱신
+				if (!newEventHandled)
 				{
 					// Dialog Focus(TimeFlows=true)가 열려있으면 tick 갱신 (지도 UI 등)
 					// 그렇지 않으면 상황 화면 갱신
