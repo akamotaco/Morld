@@ -18,13 +18,33 @@ offset_bottom = 1075.0
 grow_horizontal = 0
 grow_vertical = 2
 
-[node name="RichTextLabel" type="RichTextLabel" parent="Control"]
+[node name="TextUiContent" type="RichTextLabel" parent="Control"]
 layout_mode = 0
-offset_right = 1026.0
-offset_bottom = 517.0
+offset_left = -135.0
+offset_top = 116.0
+offset_right = 1054.0
+offset_bottom = 806.0
 bbcode_enabled = true
 text = "hello world"
 
+[node name="TextUiHeader" type="RichTextLabel" parent="Control"]
+layout_mode = 0
+offset_left = -872.0
+offset_top = -6.0
+offset_right = 1061.0
+offset_bottom = 91.0
+bbcode_enabled = true
+text = "hello world (header)"
+
+[node name="TextUiFooter" type="RichTextLabel" parent="Control"]
+layout_mode = 0
+offset_left = -857.0
+offset_top = 946.0
+offset_right = 1056.0
+offset_bottom = 1057.0
+bbcode_enabled = true
+text = "hello world (footer)"
+
 [node name="GameEngine" type="Node" parent="."]
 script = ExtResource("1_o5qli")
-metadata/TextUI = NodePath("../Control/RichTextLabel")
+metadata/TextUiContent = NodePath("../Control/TextUiContent")

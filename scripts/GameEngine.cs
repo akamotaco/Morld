@@ -46,7 +46,9 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void InitializeUI()
 	{
-		var text_ui_path = GetMeta("TextUI").As<string>();
+		var text_ui_path = GetMeta("TextUiContent").As<string>();
+		var text_ui_header_path = GetMeta("TextUiHeader").As<string>();
+		var text_ui_footerpath = GetMeta("TextUiFooter").As<string>();
 		this._textUi = GetNode<RichTextLabel>(text_ui_path);
 		if (this._textUi == null)
 		{
