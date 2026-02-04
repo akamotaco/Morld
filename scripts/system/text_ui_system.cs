@@ -14,7 +14,9 @@ namespace SE
 	/// </summary>
 	public class TextUISystem : ECS.System
 	{
-		private readonly RichTextLabel _textUi;
+		private readonly RichTextLabel _textUiContent;
+		private readonly RichTextLabel _textUiHeader;
+		private readonly RichTextLabel _textUiFooter;
 		private readonly FocusStack _stack = new();
 		private readonly DescribeSystem _describeSystem;
 		private ActionSystem _actionSystem;
@@ -103,9 +105,15 @@ namespace SE
 			set => _typingSpeed = Math.Max(0, value);
 		}
 
-		public TextUISystem(RichTextLabel textUi, DescribeSystem describeSystem)
+		public TextUISystem(
+			RichTextLabel textUiContent,
+			RichTextLabel textUiHeader,
+			RichTextLabel textUiFooter,
+			DescribeSystem describeSystem)
 		{
-			_textUi = textUi;
+			_textUiContent = textUiContent;
+			_textUiHeader = textUiHeader;
+			_textUiFooter = textUiFooter;
 			_describeSystem = describeSystem;
 		}
 
@@ -187,13 +195,50 @@ namespace SE
 			if (_stack.Current == null)
 			{
 				Godot.GD.Print("[TextUISystem] FlushDisplay: stack is empty, clearing text");
-				_textUi.Text = "";
+				_textUiContent.Text = "";
+				if (_textUiHeader != null) _textUiHeader.Text = "";
+				if (_textUiFooter != null) _textUiFooter.Text = "";
 				_isTyping = false;
 				_typingSourceText = "";
 				return;
 			}
 
-			var text = RenderFocus(_stack.Current);
+			// Focus 타입별 header/footer 결정
+			var focusType = _stack.Current.Type;
+			string headerText = "";
+			string footerText = "";
+
+			switch (focusType)
+			{
+				case FocusType.Situation:
+				case FocusType.Unit:
+				case FocusType.Equipment:
+					// Python에서 header/footer 가져오기
+					headerText = GetHeaderFromPython() ?? "";
+					footerText = GetFooterFromPython() ?? "";
+					break;
+
+				case FocusType.Dialog:
+					// 레터박스 스타일: 구분선으로 "대화 모드" 표시
+					headerText = Divider;
+					footerText = Divider;
+					break;
+
+				case FocusType.Inventory:
+				case FocusType.Item:
+				case FocusType.Result:
+					// header/footer 비움
+					headerText = "";
+					footerText = "";
+					break;
+			}
+
+			// Header/Footer 출력
+			if (_textUiHeader != null) _textUiHeader.Text = headerText;
+			if (_textUiFooter != null) _textUiFooter.Text = footerText;
+
+			// Content 렌더링
+			var text = RenderFocusContent(_stack.Current);
 
 			var renderedText = ToggleRenderer.Render(
 				text,
@@ -210,23 +255,23 @@ namespace SE
 					// [!]...[/!] 태그 제거 (hover 스타일만 다를 뿐 내용은 동일)
 					var (cleanText, _) = ParseInstantTags(renderedText);
 					// 깜박임 방지: 현재 상태 유지하면서 Text만 교체
-					int prevVisible = _textUi.VisibleCharacters;
-					_textUi.VisibleCharacters = -1;  // 전체 표시로 잠깐 전환
-					_textUi.Text = cleanText;
-					_totalCharacters = _textUi.GetTotalCharacterCount();
-					_textUi.VisibleCharacters = prevVisible;  // 원래 상태로 복원
+					int prevVisible = _textUiContent.VisibleCharacters;
+					_textUiContent.VisibleCharacters = -1;  // 전체 표시로 잠깐 전환
+					_textUiContent.Text = cleanText;
+					_totalCharacters = _textUiContent.GetTotalCharacterCount();
+					_textUiContent.VisibleCharacters = prevVisible;  // 원래 상태로 복원
 
 					if (_isTyping)
 					{
 						// 타이핑 진행 중: 현재 진행률로 표시 문자 수 재계산
 						_visibleCharacters = CalculateVisibleCharsAtProgress(_typedCharacters);
-						_textUi.VisibleCharacters = _visibleCharacters;
+						_textUiContent.VisibleCharacters = _visibleCharacters;
 						Godot.GD.Print($"[TextUISystem] FlushDisplay: hover update during typing at {_visibleCharacters}/{_totalCharacters}");
 					}
 					else
 					{
 						// 타이핑 완료: 전체 표시 유지
-						_textUi.VisibleCharacters = -1;
+						_textUiContent.VisibleCharacters = -1;
 						Godot.GD.Print($"[TextUISystem] FlushDisplay: hover update after typing complete");
 					}
 				}
@@ -243,13 +288,19 @@ namespace SE
 				// 다른 Focus는 즉시 표시
 				// [!]...[/!] 태그는 제거해야 함 (타이핑 효과용 마커이므로)
 				var (cleanText, _) = ParseInstantTags(renderedText);
-				_textUi.Text = cleanText;
-				_textUi.VisibleCharacters = -1;
+				_textUiContent.Text = cleanText;
+				_textUiContent.VisibleCharacters = -1;
 				_isTyping = false;
 				_typingSourceText = "";  // Dialog 벗어날 때 초기화
 			}
 
-			Godot.GD.Print($"[TextUISystem] FlushDisplay: rendered {_stack.Current.Type}, textLen={_textUi.Text.Length}");
+			Godot.GD.Print($"[TextUISystem] FlushDisplay: rendered {_stack.Current.Type}, textLen={_textUiContent.Text.Length}");
+
+			// Header/Footer Visible 제어 (Python ui.set_show_header/footer 반영)
+			if (_textUiHeader != null)
+				_textUiHeader.Visible = GetHeaderVisibleFromPython();
+			if (_textUiFooter != null)
+				_textUiFooter.Visible = GetFooterVisibleFromPython();
 
 			// 읽음 처리는 FlushDisplay에서 하지 않음
 			// OnPlayerAction()에서 플레이어 액션 시점에 처리
@@ -272,8 +323,8 @@ namespace SE
 
 			// 깜박임 방지: Text 설정 전에 먼저 전체 표시 상태로 설정
 			// 이후 필요한 경우 VisibleCharacters를 다시 조정
-			_textUi.VisibleCharacters = -1;
-			_textUi.Text = cleanText;
+			_textUiContent.VisibleCharacters = -1;
+			_textUiContent.Text = cleanText;
 
 			// 타이핑 속도 0이면 즉시 출력
 			if (_typingSpeed <= 0)
@@ -282,7 +333,7 @@ namespace SE
 				return;
 			}
 
-			_totalCharacters = _textUi.GetTotalCharacterCount();
+			_totalCharacters = _textUiContent.GetTotalCharacterCount();
 			_totalTypingCharacters = CalculateTotalTypingCharacters(cleanText);
 
 			// 타이핑 대상이 없으면 (모두 instant) 즉시 출력 유지
@@ -298,7 +349,7 @@ namespace SE
 
 			// 초기 표시 (타이핑 진행률 0에서의 표시 문자 수)
 			_visibleCharacters = CalculateVisibleCharsAtProgress(0);
-			_textUi.VisibleCharacters = _visibleCharacters;
+			_textUiContent.VisibleCharacters = _visibleCharacters;
 		}
 
 		/// <summary>
@@ -319,7 +370,7 @@ namespace SE
 
 			// 타이핑 진행률에 따른 표시 문자 수 계산
 			_visibleCharacters = CalculateVisibleCharsAtProgress(_typedCharacters);
-			_textUi.VisibleCharacters = _visibleCharacters;
+			_textUiContent.VisibleCharacters = _visibleCharacters;
 
 			if (_typedCharacters >= _totalTypingCharacters)
 			{
@@ -333,7 +384,7 @@ namespace SE
 		public void FinishTyping()
 		{
 			_isTyping = false;
-			_textUi.VisibleCharacters = -1; // 전체 표시
+			_textUiContent.VisibleCharacters = -1; // 전체 표시
 		}
 
 		/// <summary>
@@ -479,7 +530,7 @@ namespace SE
 		/// <param name="typedChars">타이핑된 문자 수 (instant 및 공백 제외)</param>
 		private int CalculateVisibleCharsAtProgress(int typedChars)
 		{
-			string cleanText = _textUi.Text;
+			string cleanText = _textUiContent.Text;
 			if (string.IsNullOrEmpty(cleanText)) return 0;
 
 			// visible char 위치 → 실제 문자 매핑 생성
@@ -686,7 +737,7 @@ namespace SE
 		/// <summary>
 		/// Focus 정보를 기반으로 텍스트 생성
 		/// </summary>
-		private string RenderFocus(Focus focus)
+		private string RenderFocusContent(Focus focus)
 		{
 			return focus.Type switch
 			{
@@ -707,19 +758,9 @@ namespace SE
 		/// </summary>
 		private string RenderDialog(Focus focus)
 		{
-			var lines = new List<string>();
-
-			// Header: 구분선
-			lines.Add(Divider);
-
-			// Body: 다이얼로그 텍스트
-			var body = focus.DialogText ?? "";
-			lines.Add(body);
-
-			// Footer: 구분선
-			lines.Add(Divider);
-
-			return string.Join("\n", lines);
+			// 구분선은 FlushDisplay()에서 header/footer로 출력 (레터박스 스타일)
+			// content는 순수 대화 텍스트만
+			return focus.DialogText ?? "";
 		}
 
 		private string RenderSituation()
@@ -731,13 +772,7 @@ namespace SE
 
 			var lines = new List<string>();
 
-			// Header: 시간/날씨 (Python get_header())
-			var header = GetHeaderFromPython();
-			if (!string.IsNullOrEmpty(header))
-			{
-				lines.Add(header);
-				lines.Add(Divider);
-			}
+			// Header/Footer는 FlushDisplay()에서 처리
 
 			// Body: 묘사 텍스트
 			var describeText = _describeSystem.GetSituationText(lookResult, time);
@@ -754,13 +789,6 @@ namespace SE
 				Godot.GD.Print($"[RenderSituation] actionText from C# fallback: {actionText?.Length ?? 0} chars");
 			}
 			lines.Add(actionText);
-
-			// Footer: 상태바
-			var footer = GetFooterFromPython();
-			if (!string.IsNullOrEmpty(footer))
-			{
-				lines.Add(footer);
-			}
 
 			var result = string.Join("\n", lines);
 			Godot.GD.Print($"[RenderSituation] total={result.Length} chars");
@@ -852,6 +880,54 @@ namespace SE
 			return null;
 		}
 
+		/// <summary>
+		/// Python ui.is_header_visible() 호출
+		/// Header UI 표시 여부 확인
+		/// </summary>
+		private bool GetHeaderVisibleFromPython()
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var result = _scriptSystem.CallModuleFunction("ui", "is_header_visible");
+				if (result is SharpPy.PyBool pyBool)
+				{
+					return pyBool.Value;
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python is_header_visible() error: {ex.Message}");
+			}
+
+			return true; // 기본값: 표시
+		}
+
+		/// <summary>
+		/// Python ui.is_footer_visible() 호출
+		/// Footer UI 표시 여부 확인
+		/// </summary>
+		private bool GetFooterVisibleFromPython()
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var result = _scriptSystem.CallModuleFunction("ui", "is_footer_visible");
+				if (result is SharpPy.PyBool pyBool)
+				{
+					return pyBool.Value;
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python is_footer_visible() error: {ex.Message}");
+			}
+
+			return true; // 기본값: 표시
+		}
+
 		private string RenderUnit(int unitId)
 		{
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
@@ -859,30 +935,9 @@ namespace SE
 			var unitLook = _playerSystem.LookUnit(unitId);
 			if (unitLook == null) return "[color=gray]유닛을 찾을 수 없습니다.[/color]\n\n[url=back]뒤로[/url]";
 
-			var lines = new List<string>();
-
-			// Header: 시간/날씨
-			var header = GetHeaderFromPython();
-			if (!string.IsNullOrEmpty(header))
-			{
-				lines.Add(header);
-				lines.Add(Divider);
-			}
-
+			// Header/Footer는 FlushDisplay()에서 처리
 			// Body: 유닛 정보
-			var body = _describeSystem.GetUnitLookText(unitLook);
-			lines.Add(body);
-
-			// Footer: 인벤토리 + 상태바 (Python ui.get_footer()에서 통합 생성)
-			// 주의: Unit Focus에서 인벤토리 열고 장비 변경 시 on_equip_change 이벤트 관련 이슈 있음
-			// - 다중 NPC가 있을 때 첫 번째 NPC만 이벤트 처리됨 (events/__init__.py 참고)
-			var footer = GetFooterFromPython();
-			if (!string.IsNullOrEmpty(footer))
-			{
-				lines.Add(footer);
-			}
-
-			return string.Join("\n", lines);
+			return _describeSystem.GetUnitLookText(unitLook);
 		}
 
 		private string RenderInventory()
@@ -897,28 +952,9 @@ namespace SE
 
 		private string RenderEquipment()
 		{
-			var lines = new List<string>();
-
-			// Header: 시간/날씨
-			var header = GetHeaderFromPython();
-			if (!string.IsNullOrEmpty(header))
-			{
-				lines.Add(header);
-				lines.Add(Divider);
-			}
-
+			// Header/Footer는 FlushDisplay()에서 처리
 			// Body: 장비
-			var body = _describeSystem.GetEquipmentText();
-			lines.Add(body);
-
-			// Footer: 상태바
-			var footer = GetFooterFromPython();
-			if (!string.IsNullOrEmpty(footer))
-			{
-				lines.Add(footer);
-			}
-
-			return string.Join("\n", lines);
+			return _describeSystem.GetEquipmentText();
 		}
 
 		private string RenderItem(int itemId, string context, int? targetUnitId)

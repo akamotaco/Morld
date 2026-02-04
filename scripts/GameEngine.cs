@@ -8,7 +8,9 @@ using SE;
 public partial class GameEngine : Node
 {
 	private SE.World _world;
-	private RichTextLabel _textUi;
+	private RichTextLabel _textUiContent;
+	private RichTextLabel _textUiHeader;
+	private RichTextLabel _textUiFooter;
 	private MetaActionHandler _actionHandler;
 
 	// 시나리오 경로 (res:// 기준)11111
@@ -46,20 +48,38 @@ public partial class GameEngine : Node
 	/// </summary>
 	private void InitializeUI()
 	{
-		var text_ui_path = GetMeta("TextUiContent").As<string>();
+		var text_ui_content_path = GetMeta("TextUiContent").As<string>();
 		var text_ui_header_path = GetMeta("TextUiHeader").As<string>();
-		var text_ui_footerpath = GetMeta("TextUiFooter").As<string>();
-		this._textUi = GetNode<RichTextLabel>(text_ui_path);
-		if (this._textUi == null)
+		var text_ui_footer_path = GetMeta("TextUiFooter").As<string>();
+
+		this._textUiContent = GetNode<RichTextLabel>(text_ui_content_path);
+		this._textUiHeader = GetNodeOrNull<RichTextLabel>(text_ui_header_path);
+		this._textUiFooter = GetNodeOrNull<RichTextLabel>(text_ui_footer_path);
+
+		if (this._textUiContent == null)
 		{
-			GD.PrintErr($"TextUi 메타가 null이거나 유효하지 않습니다.({GetMeta("TextUI")})");
-			throw new InvalidOperationException("TextUi 메타가 null이거나 유효하지 않습니다.");
+			GD.PrintErr($"TextUiContent 메타가 null이거나 유효하지 않습니다.({GetMeta("TextUiContent")})");
+			throw new InvalidOperationException("TextUiContent 메타가 null이거나 유효하지 않습니다.");
 		}
 
-		this._textUi.BbcodeEnabled = true;
-		this._textUi.MetaClicked += OnMetaClicked;
-		this._textUi.MetaHoverStarted += OnMetaHoverStarted;
-		this._textUi.MetaHoverEnded += OnMetaHoverEnded;
+		// Content: BBCode + 클릭 이벤트
+		this._textUiContent.BbcodeEnabled = true;
+		this._textUiContent.MetaClicked += OnMetaClicked;
+		this._textUiContent.MetaHoverStarted += OnMetaHoverStarted;
+		this._textUiContent.MetaHoverEnded += OnMetaHoverEnded;
+
+		// Footer: BBCode + 클릭 이벤트 (인벤토리/퀘스트/설정 링크)
+		if (this._textUiFooter != null)
+		{
+			this._textUiFooter.BbcodeEnabled = true;
+			this._textUiFooter.MetaClicked += OnMetaClicked;
+		}
+
+		// Header: BBCode만 (클릭 가능한 링크 없음)
+		if (this._textUiHeader != null)
+		{
+			this._textUiHeader.BbcodeEnabled = true;
+		}
 	}
 
 	/// <summary>
@@ -106,7 +126,13 @@ public partial class GameEngine : Node
 
 		// UI System
 		var actionSystem = this._world.GetSystem("actionSystem") as ActionSystem;
-		var textUISystem = this._world.AddSystem(new TextUISystem(_textUi, this._world.GetSystem("describeSystem") as DescribeSystem), "textUISystem") as TextUISystem;
+		var textUISystem = this._world.AddSystem(
+			new TextUISystem(
+				_textUiContent,
+				_textUiHeader,
+				_textUiFooter,
+				this._world.GetSystem("describeSystem") as DescribeSystem),
+			"textUISystem") as TextUISystem;
 		textUISystem.SetActionSystem(actionSystem);
 		textUISystem.SetActionLogSystem(actionLogSystem);
 	}

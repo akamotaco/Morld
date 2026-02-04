@@ -48,3 +48,5 @@ text = "hello world (footer)"
 [node name="GameEngine" type="Node" parent="."]
 script = ExtResource("1_o5qli")
 metadata/TextUiContent = NodePath("../Control/TextUiContent")
+metadata/TextUiHeader = NodePath("../Control/TextUiHeader")
+metadata/TextUiFooter = NodePath("../Control/TextUiFooter")
