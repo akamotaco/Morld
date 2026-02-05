@@ -74,6 +74,21 @@ public partial class MetaActionHandler
 		if (string.IsNullOrEmpty(metaString))
 			return;
 
+		// Animation Focus일 때 Mode 체크
+		if (_textUISystem?.IsAnimationFocus == true)
+		{
+			var mode = _textUISystem.GetAnimlogMode();
+			if (mode == Morld.AnimlogMode.Lock || mode == Morld.AnimlogMode.Block)
+			{
+				// Lock/Block 모드: 스킵만 허용, 다른 액션 무시
+				_textUISystem.SkipAnimation();
+				return;
+			}
+			// Normal 모드: 스킵 후 일반 액션도 처리
+			_textUISystem.SkipAnimation();
+			// 아래 일반 액션 처리 계속...
+		}
+
 		// @ret:값 - 다이얼로그 종료, yield에 값 반환 (레거시 호환)
 		if (metaString.StartsWith("@ret:"))
 		{

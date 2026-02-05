@@ -40,6 +40,7 @@
 | 작업 | 참고 문서 |
 |------|----------|
 | NPC 대화/리액션/묘사 | [dialog.md](scenarios/scenario02/docs/dialog.md) |
+| 애니메이션 연출 (컷씬, 전투) | [system-ui.md#animlog](scenarios/scenario02/docs/system-ui.md#animlog-애니메이션-시퀀스) |
 | NPC 스케줄/AI/Agent | [schedule.md](scenarios/scenario02/docs/schedule.md) |
 | NPC 생활/욕구/자율행동 | [life.md](scenarios/scenario02/docs/life.md) |
 | 연애/스킨십 시스템 | [romance.md](scenarios/scenario02/docs/romance.md) |

@@ -95,10 +95,66 @@ namespace SE
 		/// </summary>
 		public const string Divider = "[!][color=gray]────────────────────[/color][/!]";
 
+		// ============================================
+		// 애니메이션 시스템
+		// ============================================
+
+		/// <summary>
+		/// 현재 애니메이션 요청 (Animation Focus 활성화 시)
+		/// </summary>
+		private PyAnimlogRequest _currentAnimlog = null;
+
+		/// <summary>
+		/// 애니메이션 완료 후 재개할 Generator
+		/// </summary>
+		private SharpPy.PyGenerator _pendingAnimlogGenerator = null;
+
+		/// <summary>
+		/// Dialog 완료 후 재개할 Generator (Animlog에서 Dialog로 전환 시 사용)
+		/// </summary>
+		private SharpPy.PyGenerator _pendingDialogGenerator = null;
+
+		/// <summary>
+		/// 현재 Dialog 요청 (Animlog에서 Dialog로 전환 시 사용)
+		/// </summary>
+		private PyDialogRequest _pendingDialogRequest = null;
+
+		/// <summary>
+		/// Dialog Generator 가져오기 (MetaActionHandler에서 사용)
+		/// </summary>
+		public SharpPy.PyGenerator PendingDialogGenerator => _pendingDialogGenerator;
+
+		/// <summary>
+		/// Dialog Request 가져오기 (MetaActionHandler에서 사용)
+		/// </summary>
+		public PyDialogRequest PendingDialogRequest => _pendingDialogRequest;
+
+		/// <summary>
+		/// Dialog Generator/Request 클리어 (MetaActionHandler에서 사용 후 호출)
+		/// </summary>
+		public void ClearPendingDialog()
+		{
+			_pendingDialogGenerator = null;
+			_pendingDialogRequest = null;
+		}
+
 		/// <summary>
 		/// 타이핑 진행 중인지 확인
 		/// </summary>
 		public bool IsTyping => _isTyping;
+
+		/// <summary>
+		/// Animation Focus 활성화 여부
+		/// </summary>
+		public bool IsAnimationFocus => _stack.Current?.Type == FocusType.Animation;
+
+		/// <summary>
+		/// 현재 Animlog 모드 반환 (Animation Focus가 아니면 Normal)
+		/// </summary>
+		public AnimlogMode GetAnimlogMode()
+		{
+			return _currentAnimlog?.Mode ?? AnimlogMode.Normal;
+		}
 
 		/// <summary>
 		/// 타이핑 속도 설정 (초당 문자 수, 0 = 즉시 출력)
@@ -280,6 +336,25 @@ namespace SE
 						footerText = GetFooterFromPython() ?? "";
 						break;
 
+					case FocusType.Animation:
+						// Animation Mode에 따라 분기
+						switch (_currentAnimlog?.Mode ?? AnimlogMode.Normal)
+						{
+							case AnimlogMode.Normal:
+							case AnimlogMode.Block:
+								// header/footer 보임 (Block은 입력만 차단)
+								headerText = GetHeaderFromPython() ?? "";
+								footerText = GetFooterFromPython() ?? "";
+								break;
+							case AnimlogMode.Lock:
+								// 레터박스 (집중 연출)
+								var hrLock = GetHorizontalRule();
+								headerText = hrLock;
+								footerText = hrLock;
+								break;
+						}
+						break;
+
 					case FocusType.Dialog:
 					case FocusType.Inventory:
 					case FocusType.Item:
@@ -349,6 +424,17 @@ namespace SE
 					StartTyping(renderedText);
 					Godot.GD.Print($"[TextUISystem] FlushDisplay: started typing for Dialog, textLen={renderedText.Length}");
 				}
+			}
+			// Animation Focus인 경우 - UpdateAnimation에서 처리하므로 여기서는 현재 텍스트만 표시
+			else if (_stack.Current.Type == FocusType.Animation)
+			{
+				var animText = RenderAnimation();
+				var (cleanText, _) = ParseInstantTags(animText);
+				_textUiContent.Text = cleanText;
+				_textUiContent.VisibleCharacters = -1;
+				_isTyping = false;
+				_typingSourceText = "";
+				Godot.GD.Print($"[TextUISystem] FlushDisplay: animation frame, textLen={cleanText.Length}");
 			}
 			else
 			{
@@ -1272,6 +1358,357 @@ namespace SE
 		/// 현재 Focus 정보 반환
 		/// </summary>
 		public Focus? CurrentFocus => _stack.Current;
+
+		// ============================================
+		// Animation 관련 메서드
+		// ============================================
+
+		/// <summary>
+		/// 애니메이션 Push (yield anim.play() 호출 시)
+		/// </summary>
+		public void PushAnimation(PyAnimlogRequest request, SharpPy.PyGenerator generator)
+		{
+			_currentAnimlog = request;
+			_pendingAnimlogGenerator = generator;
+
+			_stack.Push(Focus.Animation(request));
+			RequestUpdateDisplay();
+
+			Godot.GD.Print($"[TextUISystem] PushAnimation: steps={request.Steps.Count}, mode={request.Mode}");
+		}
+
+		/// <summary>
+		/// 애니메이션 업데이트 (매 프레임 호출, 게임 시간과 무관)
+		/// </summary>
+		public void UpdateAnimation(float delta)
+		{
+			if (_currentAnimlog == null || _currentAnimlog.IsCompleted)
+				return;
+
+			// scale 적용
+			float adjustedDelta = delta * _currentAnimlog.Scale;
+			_currentAnimlog.StepElapsedTime += adjustedDelta;
+
+			var step = _currentAnimlog.CurrentStep;
+			if (step == null) return;
+
+			switch (step.Type)
+			{
+				case "text":
+					UpdateTextStep(step);
+					break;
+				case "wait":
+					UpdateWaitStep(step);
+					break;
+				case "callback":
+					ExecuteCallback(step);
+					AdvanceToNextStep();
+					break;
+				case "clear":
+					_currentAnimlog.DisplayText = "";
+					AdvanceToNextStep();
+					break;
+			}
+
+			RequestUpdateDisplay();
+		}
+
+		private void UpdateTextStep(AnimlogStep step)
+		{
+			// 속도 계산: delay가 있으면 1/delay, 없으면 speed 사용
+			float charsPerSecond = step.Delay.HasValue
+				? 1f / step.Delay.Value
+				: step.Speed;
+
+			int targetChars = (int)(_currentAnimlog.StepElapsedTime * charsPerSecond);
+			int totalChars = CountVisibleChars(step.Content);
+
+			if (targetChars >= totalChars)
+			{
+				// 스텝 완료 - 전체 텍스트 추가
+				if (step.Append)
+				{
+					if (!string.IsNullOrEmpty(_currentAnimlog.DisplayText))
+						_currentAnimlog.DisplayText += "\n";
+					_currentAnimlog.DisplayText += step.Content;
+				}
+				else
+				{
+					_currentAnimlog.DisplayText = step.Content;
+				}
+				_currentAnimlog.CurrentCharIndex = 0;
+				AdvanceToNextStep();
+			}
+			else
+			{
+				// 진행 중 - 부분 텍스트
+				_currentAnimlog.CurrentCharIndex = targetChars;
+			}
+		}
+
+		private void UpdateWaitStep(AnimlogStep step)
+		{
+			if (_currentAnimlog.StepElapsedTime >= step.Duration)
+			{
+				AdvanceToNextStep();
+			}
+		}
+
+		private void ExecuteCallback(AnimlogStep step)
+		{
+			if (step.CallbackFunc == null) return;
+
+			try
+			{
+				var scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+				if (scriptSystem != null)
+				{
+					// args, kwargs 처리
+					var args = step.CallbackArgs as SharpPy.PyTuple;
+					var kwargs = step.CallbackKwargs as SharpPy.PyDict;
+
+					var argsArray = args?.Items.ToArray() ?? new SharpPy.PyObject[0];
+					step.CallbackFunc.Call(argsArray, kwargs);
+
+					Godot.GD.Print($"[TextUISystem] Animlog callback executed");
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Animlog callback error: {ex.Message}");
+			}
+		}
+
+		private void AdvanceToNextStep()
+		{
+			_currentAnimlog.CurrentStepIndex++;
+			_currentAnimlog.StepElapsedTime = 0f;
+
+			if (_currentAnimlog.IsCompleted)
+			{
+				FinishAnimation();
+			}
+		}
+
+		/// <summary>
+		/// 애니메이션 스킵 (클릭 시)
+		/// </summary>
+		public void SkipAnimation()
+		{
+			if (_currentAnimlog == null) return;
+
+			Godot.GD.Print("[TextUISystem] SkipAnimation called");
+
+			// 남은 스텝 모두 즉시 실행
+			while (!_currentAnimlog.IsCompleted)
+			{
+				var step = _currentAnimlog.CurrentStep;
+				if (step == null) break;
+
+				switch (step.Type)
+				{
+					case "text":
+						if (step.Append)
+						{
+							if (!string.IsNullOrEmpty(_currentAnimlog.DisplayText))
+								_currentAnimlog.DisplayText += "\n";
+							_currentAnimlog.DisplayText += step.Content;
+						}
+						else
+						{
+							_currentAnimlog.DisplayText = step.Content;
+						}
+						break;
+					case "callback":
+						ExecuteCallback(step);
+						break;
+					case "clear":
+						_currentAnimlog.DisplayText = "";
+						break;
+					// wait는 스킵
+				}
+				_currentAnimlog.CurrentStepIndex++;
+			}
+
+			FinishAnimation();
+			RequestUpdateDisplay();
+		}
+
+		private void FinishAnimation()
+		{
+			Godot.GD.Print("[TextUISystem] FinishAnimation");
+
+			// Generator와 Animlog 상태 저장 후 클리어
+			var generator = _pendingAnimlogGenerator;
+			_pendingAnimlogGenerator = null;
+			_currentAnimlog = null;
+
+			// Animation Focus Pop
+			Pop();
+
+			// Generator 재개 및 결과 처리
+			if (generator != null)
+			{
+				var scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+				if (scriptSystem != null)
+				{
+					// None을 전달하여 재개
+					var result = scriptSystem.ResumeGeneratorWithPyObject(generator, SharpPy.PyNone.Instance);
+
+					// 결과 처리 (다음 yield가 있으면 처리)
+					ProcessAnimlogResult(result, scriptSystem);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Animlog 완료 후 Generator 결과 처리
+		/// MetaActionHandler.ProcessScriptResult와 유사한 로직
+		/// </summary>
+		private void ProcessAnimlogResult(SE.ScriptResult result, ScriptSystem scriptSystem)
+		{
+			if (result == null)
+			{
+				// Generator 완료 - 후처리
+				PopIfInvalid();
+				return;
+			}
+
+			switch (result.Type)
+			{
+				case "generator_dialog":
+					// 다음 yield가 Dialog인 경우
+					if (result is SE.GeneratorScriptResult dialogResult)
+					{
+						// proc('init') 호출 - Dialog 초기화 시 텍스트 갱신 기회 제공
+						var displayText = dialogResult.DialogText;
+						if (dialogResult.DialogRequest?.ProcCallback != null)
+						{
+							var (initText, _) = scriptSystem.CallProcCallback(dialogResult.DialogRequest.ProcCallback, "init");
+							if (initText != null)
+							{
+								displayText = initText;
+								dialogResult.DialogRequest.UpdateCurrentPageText(initText);
+							}
+						}
+
+						// Dialog Push - _pendingGenerator와 _pendingDialogRequest는 MetaActionHandler에서 관리
+						// 여기서는 TextUISystem에 저장할 수 없으므로 신호를 보내야 함
+						// 하지만 간단하게 처리하기 위해 직접 Push하고 별도 저장
+						bool timeFlows = dialogResult.DialogRequest?.TimeFlows ?? false;
+						PushDialog(displayText, timeConsumed: 0, timeFlows: timeFlows);
+
+						// Generator와 DialogRequest를 GameEngine의 MetaActionHandler에 전달해야 함
+						// 이를 위해 이벤트나 신호가 필요하지만, 우선 간단하게 처리
+						// MetaActionHandler가 다음 @finish/@ret 처리 시 generator를 찾을 수 있도록
+						// _pendingDialogGenerator와 _pendingDialogRequest 설정
+						_pendingDialogGenerator = dialogResult.Generator;
+						_pendingDialogRequest = dialogResult.DialogRequest;
+						Godot.GD.Print($"[TextUISystem] ProcessAnimlogResult: pushed dialog, generator stored");
+					}
+					break;
+
+				case "generator_animlog":
+					// 다음 yield가 또 다른 Animlog인 경우
+					if (result is SE.AnimlogScriptResult animlogResult)
+					{
+						PushAnimation(animlogResult.AnimlogRequest, animlogResult.Generator);
+						Godot.GD.Print($"[TextUISystem] ProcessAnimlogResult: pushed animlog");
+					}
+					break;
+
+				case "message":
+					if (!string.IsNullOrEmpty(result.Message))
+					{
+						ShowResult(result.Message);
+					}
+					// Generator 완료 후 이벤트 처리
+					PopIfInvalid();
+					break;
+
+				case "error":
+					Godot.GD.PrintErr($"[TextUISystem] Script error: {result.Message}");
+					ShowResult($"스크립트 오류: {result.Message}");
+					break;
+
+				default:
+					if (!string.IsNullOrEmpty(result.Message))
+					{
+						ShowResult(result.Message);
+					}
+					PopIfInvalid();
+					break;
+			}
+		}
+
+		/// <summary>
+		/// 애니메이션 렌더링 (현재 표시할 텍스트)
+		/// </summary>
+		private string RenderAnimation()
+		{
+			if (_currentAnimlog == null)
+				return "";
+
+			var step = _currentAnimlog.CurrentStep;
+
+			// 누적된 텍스트
+			string text = _currentAnimlog.DisplayText;
+
+			// 현재 text 스텝 진행 중이면 부분 텍스트 추가
+			if (step?.Type == "text" && _currentAnimlog.CurrentCharIndex > 0)
+			{
+				string partialText = GetPartialText(step.Content, _currentAnimlog.CurrentCharIndex);
+				if (step.Append)
+				{
+					if (!string.IsNullOrEmpty(text))
+						text += "\n";
+					text += partialText;
+				}
+				else
+				{
+					text = partialText;
+				}
+			}
+
+			return text;
+		}
+
+		/// <summary>
+		/// 텍스트의 visible char 기준 부분 문자열 반환
+		/// BBCode 태그는 건너뛰고 실제 문자만 카운트
+		/// </summary>
+		private string GetPartialText(string text, int visibleCharCount)
+		{
+			if (string.IsNullOrEmpty(text) || visibleCharCount <= 0)
+				return "";
+
+			var result = new System.Text.StringBuilder();
+			int charCount = 0;
+			int i = 0;
+
+			while (i < text.Length && charCount < visibleCharCount)
+			{
+				// BBCode 태그 시작
+				if (text[i] == '[')
+				{
+					int closeIndex = text.IndexOf(']', i);
+					if (closeIndex > i)
+					{
+						// 태그 전체를 결과에 추가
+						result.Append(text.Substring(i, closeIndex - i + 1));
+						i = closeIndex + 1;
+						continue;
+					}
+				}
+
+				// 일반 문자
+				result.Append(text[i]);
+				charCount++;
+				i++;
+			}
+
+			return result.ToString();
+		}
 
 		/// <summary>
 		/// Proc은 빈 구현 (호출 기반 시스템)

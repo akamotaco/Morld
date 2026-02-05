@@ -698,7 +698,7 @@ namespace SE
 
 			var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
 
-			// Generator가 Dialog를 yield한 경우만 처리
+			// Generator가 Dialog를 yield한 경우
 			if (result.Type == "generator_dialog" && result is GeneratorScriptResult genResult)
 			{
 				// MetaActionHandler에 Generator와 DialogRequest 설정
@@ -713,6 +713,20 @@ namespace SE
 				// Dialog 표시 (PyDialogRequest.TimeFlows를 Focus에 전달)
 				bool timeFlows = genResult.DialogRequest?.TimeFlows ?? false;
 				_textUISystem.PushDialog(genResult.DialogText, timeConsumed: 0, timeFlows: timeFlows);
+				return true;
+			}
+
+			// Generator가 Animlog를 yield한 경우
+			if (result.Type == "generator_animlog" && result is AnimlogScriptResult animlogResult)
+			{
+				// 애니메이션 아래에 Situation이 있어야 Pop 후 정상 동작
+				if (_textUISystem != null && _textUISystem.IsStackEmpty())
+				{
+					_textUISystem.ShowSituation();
+				}
+
+				// Animation 표시
+				_textUISystem?.PushAnimation(animlogResult.AnimlogRequest, animlogResult.Generator);
 				return true;
 			}
 

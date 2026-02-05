@@ -1054,3 +1054,149 @@ class Conversation:
         # 초기 화면
         initial = _render()
         return morld.dialog(initial, autofill="off", proc=_proc)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#                         애니메이션 시스템 (Animlog)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# 실시간 기반 애니메이션 시퀀스 시스템
+# Dialog와 달리 시간 기반으로 자동 진행되며, 클릭 시 스킵 가능
+#
+# UI 모드:
+#   - normal: header/footer 보이고 입력 가능 (기본)
+#   - lock: header/footer 가림 (레터박스), 집중 연출용
+#   - block: header/footer 보이지만 입력 불가, 전투용
+#
+# 사용법:
+#   anim = ui.Animlog()
+#   anim.text("니체는 말했다.")              # 기본 타이핑
+#   anim.text("신.은.죽.었다.", delay=2.0)   # 글자당 2초
+#   anim.wait(0.5)                           # 0.5초 대기
+#   anim.text("새 장면", append=False)       # 화면 교체
+#   anim.callback(my_func, arg1, arg2)       # Python 함수 호출
+#   anim.clear()                             # 화면 클리어
+#   yield anim.play(mode="lock")             # 실행 (lock 모드)
+#
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class Animlog:
+    """
+    애니메이션 로그 빌더 - 실시간 기반 시퀀스
+
+    Dialog와 달리 시간 기반으로 자동 진행됩니다.
+    클릭 시 즉시 스킵되며, scale로 재생 속도를 조절할 수 있습니다.
+    """
+
+    def __init__(self, npc_name: str = None):
+        """
+        Args:
+            npc_name: NPC 이름 (텍스트 앞에 [이름] 자동 추가)
+        """
+        self.npc_name = npc_name
+        self._steps = []
+
+    def _format_with_name(self, text: str) -> str:
+        """NPC 이름 포맷팅"""
+        if self.npc_name and text:
+            return f"[{self.npc_name}]\n{text}"
+        return text
+
+    def text(
+        self,
+        content: str,
+        delay: float = None,
+        speed: float = 50.0,
+        append: bool = True
+    ) -> "Animlog":
+        """
+        텍스트 표시 스텝 추가
+
+        Args:
+            content: 표시할 텍스트
+            delay: 글자당 초 (설정 시 speed 무시)
+            speed: 초당 글자 수 (기본 50, Dialog 타이핑과 동일)
+            append: True면 이전 텍스트에 누적, False면 화면 교체
+
+        Returns:
+            self (체이닝용)
+        """
+        formatted = self._format_with_name(content) if not append else content
+        # append=False일 때만 NPC 이름 추가 (새 화면이므로)
+        if append and self.npc_name and content and not self._steps:
+            # 첫 번째 스텝이면서 append=True면 이름 추가
+            formatted = self._format_with_name(content)
+
+        self._steps.append({
+            "type": "text",
+            "content": formatted,
+            "delay": delay,
+            "speed": speed,
+            "append": append,
+        })
+        return self
+
+    def wait(self, duration: float) -> "Animlog":
+        """
+        대기 스텝 추가
+
+        Args:
+            duration: 대기 시간 (초)
+
+        Returns:
+            self (체이닝용)
+        """
+        self._steps.append({
+            "type": "wait",
+            "duration": duration,
+        })
+        return self
+
+    def callback(self, func, *args, **kwargs) -> "Animlog":
+        """
+        콜백 스텝 추가 - 애니메이션 중 Python 함수 호출
+
+        Args:
+            func: 호출할 Python 함수
+            *args: 위치 인자
+            **kwargs: 키워드 인자
+
+        Returns:
+            self (체이닝용)
+        """
+        self._steps.append({
+            "type": "callback",
+            "func": func,
+            "args": args,
+            "kwargs": kwargs,
+        })
+        return self
+
+    def clear(self) -> "Animlog":
+        """
+        클리어 스텝 추가 - 화면 내용 삭제
+
+        Returns:
+            self (체이닝용)
+        """
+        self._steps.append({
+            "type": "clear",
+        })
+        return self
+
+    def play(self, scale: float = 1.0, mode: str = "normal"):
+        """
+        애니메이션 실행
+
+        Args:
+            scale: 재생 속도 배율 (기본 1.0, 설정에서 조정 가능)
+            mode: UI 모드
+                - "normal": header/footer 보이고 입력 가능
+                - "lock": header/footer 가림 (레터박스), 집중 연출용
+                - "block": header/footer 보이지만 입력 불가, 전투용
+
+        Returns:
+            morld.animlog() 객체 (yield용)
+        """
+        return morld.animlog(self._steps, scale=scale, mode=mode)

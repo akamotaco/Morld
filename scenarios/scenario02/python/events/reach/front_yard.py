@@ -37,6 +37,33 @@ class FrontYardCollapse(ReachEvent):
         # 시간 경과 (저녁이 되었다고 가정)
         morld.advance_time(180 * 60_000)  # 3시간 경과
 
+        # ========================================
+        # 챕터 1 시작 - 회고록 애니메이션
+        # ========================================
+        anim = ui.Animlog()
+
+        # 페이지 1: 회고록 시작
+        anim.text("[color=gray]『 누군가의 회고록 』[/color]", append=False)
+        anim.wait(1.0)
+        anim.text("")  # 빈 줄
+        anim.text("그날의 기억은 아직도 선명하다.")
+        anim.text("폐허가 된 저택, 차가운 바람...")
+        anim.text("그리고 그녀의 눈빛.")
+        anim.wait(1.5)
+
+        # 페이지 2: 화면 교체
+        anim.text("[color=gray]『 1년 전 』[/color]", append=False)
+        anim.wait(0.5)
+        anim.text("")
+        anim.text("모든 것이 시작된 그 날,")
+        anim.text("나는 아무것도 몰랐다.", delay=0.1)  # 천천히
+        anim.wait(2.0)
+
+        # lock 모드: header/footer 가림 → 회고록에 집중
+        yield anim.play(mode="lock")
+
+        # ========================================
+
         # 깨어남 모놀로그
         yield ui.dialog([
             "......",

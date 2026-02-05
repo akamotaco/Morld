@@ -12,7 +12,8 @@ public enum FocusType
 	Inventory,   // 플레이어 인벤토리
 	Item,        // 아이템 메뉴
 	Result,      // 결과 메시지
-	Dialog       // 다이얼로그 (morld.dialog() API, BBCode URL 기반)
+	Dialog,      // 다이얼로그 (morld.dialog() API, BBCode URL 기반)
+	Animation    // 애니메이션 시퀀스 (morld.animlog() API, 실시간 기반)
 }
 
 /// <summary>
@@ -77,6 +78,11 @@ public class Focus
 	/// </summary>
 	public bool TimeFlows { get; set; } = false;
 
+	/// <summary>
+	/// 애니메이션 요청 (Animation 타입에서 사용)
+	/// </summary>
+	public PyAnimlogRequest? AnimlogRequest { get; set; }
+
 	// 팩토리 메서드들
 	public static Focus Situation() => new() { Type = FocusType.Situation };
 	public static Focus Unit(int unitId) => new() { Type = FocusType.Unit, TargetUnitId = unitId };
@@ -86,4 +92,6 @@ public class Focus
 	public static Focus Result(string message) => new() { Type = FocusType.Result, Message = message };
 	public static Focus Dialog(string text, int timeConsumed = 0, bool timeFlows = false)
 		=> new() { Type = FocusType.Dialog, DialogText = text, TimeConsumed = timeConsumed, TimeFlows = timeFlows };
+	public static Focus Animation(PyAnimlogRequest request)
+		=> new() { Type = FocusType.Animation, AnimlogRequest = request };
 }

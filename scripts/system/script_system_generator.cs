@@ -42,6 +42,18 @@ namespace SE
                     };
                 }
 
+                // PyAnimlogRequest yield인 경우 (애니메이션 시퀀스)
+                if (yieldedValue is PyAnimlogRequest animlogRequest)
+                {
+                    Godot.GD.Print($"[ScriptSystem] Animlog request: steps={animlogRequest.Steps.Count}, mode={animlogRequest.Mode}");
+                    return new AnimlogScriptResult
+                    {
+                        Type = "generator_animlog",
+                        Generator = generator,
+                        AnimlogRequest = animlogRequest
+                    };
+                }
+
                 // 다른 값이 yield된 경우 (추후 확장 가능)
                 Godot.GD.Print($"[ScriptSystem] Generator yielded unknown type: {yieldedValue.GetType().Name}");
                 return new ScriptResult { Type = "message", Message = yieldedValue.ToString() ?? "" };
@@ -98,6 +110,18 @@ namespace SE
                         Generator = generator,
                         DialogText = dialogRequest.Text,
                         DialogRequest = dialogRequest
+                    };
+                }
+
+                // PyAnimlogRequest yield인 경우 (애니메이션 시퀀스)
+                if (yieldedValue is PyAnimlogRequest animlogRequest)
+                {
+                    Godot.GD.Print($"[ScriptSystem] Animlog request: steps={animlogRequest.Steps.Count}, mode={animlogRequest.Mode}");
+                    return new AnimlogScriptResult
+                    {
+                        Type = "generator_animlog",
+                        Generator = generator,
+                        AnimlogRequest = animlogRequest
                     };
                 }
 
@@ -158,6 +182,18 @@ namespace SE
                         Generator = generator,
                         DialogText = dialogRequest.Text,
                         DialogRequest = dialogRequest
+                    };
+                }
+
+                // PyAnimlogRequest yield인 경우 (애니메이션 시퀀스)
+                if (yieldedValue is PyAnimlogRequest animlogRequest)
+                {
+                    Godot.GD.Print($"[ScriptSystem] Animlog request: steps={animlogRequest.Steps.Count}, mode={animlogRequest.Mode}");
+                    return new AnimlogScriptResult
+                    {
+                        Type = "generator_animlog",
+                        Generator = generator,
+                        AnimlogRequest = animlogRequest
                     };
                 }
 

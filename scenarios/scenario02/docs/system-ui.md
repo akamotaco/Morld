@@ -233,6 +233,7 @@ Gate(0, 2, conditions={"비밀통로#": 1})
 | Situation  | **표시** | 기본 화면 (Python get_header/footer) |
 | Unit       | **표시** | 유닛/오브젝트 살펴보기 |
 | Dialog     | **레터박스** | 대화/이벤트 텍스트 |
+| Animation  | **모드별** | normal: 표시, lock: 레터박스, block: 표시 |
 | Inventory  | **레터박스** | 인벤토리 전체화면 |
 | Item       | **레터박스** | 아이템 메뉴 |
 | Result     | **레터박스** | 결과 메시지 |
@@ -256,6 +257,136 @@ Dialog 모드에서는 영화 레터박스처럼 Header/Footer에 구분선을 �
 - Dialog 진입 시 자동으로 레터박스 스타일 적용
 - 타이핑 효과는 Content 영역에만 적용
 - `[!][/!]` 태그는 Content에서만 동작 (Header/Footer에서 자동 제거)
+
+---
+
+## Animlog (애니메이션 시퀀스)
+
+실시간 기반 애니메이션 시퀀스 시스템입니다. 텍스트 타이핑, 대기, 화면 전환 등을 시간 기반으로 연출합니다.
+
+### 기본 사용법
+
+```python
+import ui
+
+anim = ui.Animlog()
+
+# 텍스트 표시 (타이핑 효과)
+anim.text("첫 번째 줄")
+anim.text("두 번째 줄")  # 이전 텍스트에 누적
+
+# 대기
+anim.wait(1.0)  # 1초 대기
+
+# 화면 교체 (append=False)
+anim.text("새로운 장면", append=False)
+
+# 실행
+yield anim.play(mode="lock")
+```
+
+### text() 파라미터
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|----------|------|--------|------|
+| `content` | str | 필수 | 표시할 텍스트 |
+| `delay` | float | None | 글자당 초 (설정 시 speed 무시) |
+| `speed` | float | 50.0 | 초당 글자 수 |
+| `append` | bool | True | True: 이전 텍스트에 누적, False: 화면 교체 |
+
+### UI 모드 (mode 파라미터)
+
+| 모드 | Header/Footer | 입력 | 용도 |
+|------|---------------|------|------|
+| `"normal"` | 정상 표시 | 허용 | 일반 연출 |
+| `"lock"` | 레터박스 (구분선) | 스킵만 | **집중 필요한 연출** (회고록, 컷씬) |
+| `"block"` | 정상 표시 | 스킵만 | **전투** (HP 등 정보 필요) |
+
+```python
+# 회고록 (집중 필요 → lock)
+yield anim.play(mode="lock")
+
+# 전투 (정보 필요 → block)
+yield anim.play(mode="block")
+```
+
+### 전체 예시: 챕터 전환 연출
+
+```python
+import ui
+
+anim = ui.Animlog()
+
+# 페이지 1: 회고록 시작
+anim.text("[color=gray]『 누군가의 회고록 』[/color]", append=False)
+anim.wait(1.0)
+anim.text("")  # 빈 줄
+anim.text("그날의 기억은 아직도 선명하다.")
+anim.text("폐허가 된 저택, 차가운 바람...")
+anim.text("그리고 그녀의 눈빛.")
+anim.wait(1.5)
+
+# 페이지 2: 화면 교체
+anim.text("[color=gray]『 1년 전 』[/color]", append=False)
+anim.wait(0.5)
+anim.text("")
+anim.text("모든 것이 시작된 그 날,")
+anim.text("나는 아무것도 몰랐다.", delay=0.1)  # 천천히
+anim.wait(2.0)
+
+# lock 모드로 실행
+yield anim.play(mode="lock")
+
+# 이후 Dialog로 이어서...
+yield ui.dialog(["눈을 떠보니...", "..."])
+```
+
+### 스킵 동작
+
+- **클릭**: 즉시 모든 애니메이션 스킵 → 최종 텍스트 표시 → 종료
+- 스킵 시 모든 `wait()`, `text()` 타이핑이 즉시 완료됨
+
+### 콜백 (callback)
+
+애니메이션 중간에 Python 함수를 호출할 수 있습니다:
+
+```python
+def apply_damage(target, damage):
+    # 데미지 적용 로직
+    pass
+
+anim = ui.Animlog()
+anim.text("공격!")
+anim.wait(0.3)
+anim.callback(apply_damage, target=enemy, damage=10)
+anim.text("[color=red]-10[/color]")
+anim.wait(0.5)
+yield anim.play(mode="block")
+```
+
+### Dialog와의 차이점
+
+| 특성 | Dialog | Animlog |
+|------|--------|---------|
+| 진행 방식 | 클릭으로 다음 페이지 | 시간 기반 자동 진행 |
+| 타이밍 제어 | 페이지 단위 | `wait()`, `speed`, `delay` |
+| 스킵 | 타이핑 스킵 → 다음 페이지 | 전체 스킵 → 종료 |
+| 용도 | 대화, 선택지 | 연출, 컷씬, 전투 |
+
+### FocusType.Animation
+
+Animlog는 Dialog와 별도의 Focus 타입으로 관리됩니다:
+
+| Focus Type | Header/Footer |
+|------------|---------------|
+| Dialog | 레터박스 (항상) |
+| Animation | **모드에 따라 다름** |
+
+### 파일 위치
+
+- `scenarios/scenario02/python/ui.py` - `Animlog` 클래스
+- `scripts/morld/ui/Animlog.cs` - `PyAnimlogRequest`, `AnimlogStep`
+- `scripts/system/text_ui_system.cs` - 렌더링, 업데이트 로직
 
 ### 헤더/푸터 Visible 제어 (선택적)
 
@@ -325,6 +456,9 @@ ui.set_ui_lock(False)  # 일반 모드
 
 - `scripts/system/text_ui_system.cs` - TextUISystem
 - `scripts/morld/ui/FocusStack.cs` - 화면 스택
+- `scripts/morld/ui/Focus.cs` - Focus 타입 정의
+- `scripts/morld/ui/Animlog.cs` - Animlog 데이터 (PyAnimlogRequest, AnimlogStep)
+- `scripts/morld/ui/Dialog.cs` - Dialog 데이터 (PyDialogRequest)
 - `scripts/morld/ui/ToggleRenderer.cs` - 토글 렌더링
 - `scripts/system/describe_system.cs` - 액션 필터링
-- `scenarios/scenario02/python/ui.py` - Python UI 함수
+- `scenarios/scenario02/python/ui.py` - Python UI 함수 (Animlog, dialog 등)

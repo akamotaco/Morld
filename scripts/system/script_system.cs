@@ -1180,4 +1180,21 @@ def calculate(a, b):
         /// </summary>
         public PyDialogRequest DialogRequest { get; set; }
     }
+
+    /// <summary>
+    /// 애니메이션 스크립트 결과 - Animlog yield 시 반환
+    /// 애니메이션 완료 후 generator.Send()로 None 전달하여 스크립트 재개
+    /// </summary>
+    public class AnimlogScriptResult : ScriptResult
+    {
+        /// <summary>
+        /// 일시 정지된 제너레이터 (애니메이션 완료 후 재개용)
+        /// </summary>
+        public PyGenerator Generator { get; set; }
+
+        /// <summary>
+        /// 애니메이션 요청 객체
+        /// </summary>
+        public PyAnimlogRequest AnimlogRequest { get; set; }
+    }
 }

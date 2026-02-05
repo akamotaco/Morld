@@ -30,28 +30,32 @@ public partial class MetaActionHandler
 		}
 
 		// Case 1: pendingGenerator가 있으면 generator 재개
-		if (_pendingGenerator != null)
+		// _pendingGenerator 또는 TextUISystem의 PendingDialogGenerator 확인 (Animlog에서 전환된 경우)
+		var activeGenerator = _pendingGenerator ?? _textUISystem?.PendingDialogGenerator;
+		var activeDialogRequest = _pendingDialogRequest ?? _textUISystem?.PendingDialogRequest;
+
+		if (activeGenerator != null)
 		{
 			// 멀티페이지 처리: 다음 페이지가 있으면 이동
-			if (_pendingDialogRequest != null && _pendingDialogRequest.HasNextPage)
+			if (activeDialogRequest != null && activeDialogRequest.HasNextPage)
 			{
-				_pendingDialogRequest.MoveToNextPage();
-				var nextPageText = _pendingDialogRequest.Text;
+				activeDialogRequest.MoveToNextPage();
+				var nextPageText = activeDialogRequest.Text;
 #if DEBUG_LOG
-				GD.Print($"[MetaActionHandler] Multi-page dialog: moving to page {_pendingDialogRequest.CurrentPageIndex + 1}/{_pendingDialogRequest.Pages.Count}");
+				GD.Print($"[MetaActionHandler] Multi-page dialog: moving to page {activeDialogRequest.CurrentPageIndex + 1}/{activeDialogRequest.Pages.Count}");
 #endif
 				_textUISystem?.UpdateDialogText(nextPageText);
 				return;  // generator는 재개하지 않음, 다이얼로그 유지
 			}
 
 			// 마지막 페이지 완료: ReturnValue가 있으면 그 값으로, 없으면 클릭한 값으로 재개
-			var generator = _pendingGenerator;
+			var generator = activeGenerator;
 			_pendingGenerator = null;
-			var dialogRequest = _pendingDialogRequest;
 			_pendingDialogRequest = null;
+			_textUISystem?.ClearPendingDialog();  // TextUISystem 쪽도 클리어
 
 			// 최종 반환값 결정
-			string finalValue = dialogRequest?.ReturnValue ?? value;
+			string finalValue = activeDialogRequest?.ReturnValue ?? value;
 
 			// 다이얼로그 Pop
 			_textUISystem?.Pop();
@@ -112,8 +116,12 @@ public partial class MetaActionHandler
 		GD.Print($"[MetaActionHandler] @proc: action with value: {value}");
 #endif
 
+		// _pendingGenerator 또는 TextUISystem의 PendingDialogGenerator 확인 (Animlog에서 전환된 경우)
+		var activeGenerator = _pendingGenerator ?? _textUISystem?.PendingDialogGenerator;
+		var activeDialogRequest = _pendingDialogRequest ?? _textUISystem?.PendingDialogRequest;
+
 		// pendingGenerator가 없으면 에러
-		if (_pendingGenerator == null)
+		if (activeGenerator == null)
 		{
 			GD.PrintErr("[MetaActionHandler] @proc: called without pending generator - this is a bug!");
 			return;
@@ -127,12 +135,12 @@ public partial class MetaActionHandler
 		}
 
 		// proc 콜백이 있으면 호출
-		if (_pendingDialogRequest?.ProcCallback != null)
+		if (activeDialogRequest?.ProcCallback != null)
 		{
 			var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 			if (scriptSystem != null)
 			{
-				var (newText, shouldFinish) = scriptSystem.CallProcCallback(_pendingDialogRequest.ProcCallback, value);
+				var (newText, shouldFinish) = scriptSystem.CallProcCallback(activeDialogRequest.ProcCallback, value);
 
 				// proc 콜백이 True를 반환하면 다이얼로그 종료
 				if (shouldFinish)
@@ -141,16 +149,16 @@ public partial class MetaActionHandler
 					GD.Print("[MetaActionHandler] proc callback returned True, finishing dialog");
 #endif
 					// @finish와 동일한 처리
-					var generator = _pendingGenerator;
+					var generator = activeGenerator;
 					_pendingGenerator = null;
-					var dialogRequest = _pendingDialogRequest;
 					_pendingDialogRequest = null;
+					_textUISystem?.ClearPendingDialog();  // TextUISystem 쪽도 클리어
 
 					_textUISystem?.Pop();
 
 					// ResultObject가 있으면 그것을, 없으면 None 반환
-					// 주의: dialogRequest?.ResultObject가 null일 수 있으므로 별도 처리 필요
-					PyObject resultValue = dialogRequest?.ResultObject ?? PyNone.Instance;
+					// 주의: activeDialogRequest?.ResultObject가 null일 수 있으므로 별도 처리 필요
+					PyObject resultValue = activeDialogRequest?.ResultObject ?? PyNone.Instance;
 					if (resultValue == null) resultValue = PyNone.Instance;
 					var nextResult = scriptSystem.ResumeGeneratorWithPyObject(generator, resultValue);
 					ProcessScriptResult(nextResult, scriptSystem, processCompletion: true);
@@ -160,7 +168,7 @@ public partial class MetaActionHandler
 				// 반환값이 문자열이면 화면 업데이트
 				if (newText != null)
 				{
-					_pendingDialogRequest.UpdateCurrentPageText(newText);
+					activeDialogRequest.UpdateCurrentPageText(newText);
 					_textUISystem?.UpdateDialogText(newText);
 #if DEBUG_LOG
 					GD.Print($"[MetaActionHandler] proc callback returned text, updating dialog: {newText.Substring(0, System.Math.Min(50, newText.Length))}...");
@@ -177,8 +185,9 @@ public partial class MetaActionHandler
 		}
 
 		// proc 콜백이 없으면 기존 동작: generator에 값 전달
-		var generatorFallback = _pendingGenerator;
-		_pendingGenerator = null;  // 일시적으로 null (ResumeGenerator에서 다시 설정됨)
+		var generatorFallback = activeGenerator;
+		_pendingGenerator = null;
+		_textUISystem?.ClearPendingDialog();  // TextUISystem 쪽도 클리어
 
 		// generator에 값 전달하고 계속 실행 (Pop 안함 - 다이얼로그 유지)
 		var scriptSystemFallback = _world.GetSystem("scriptSystem") as ScriptSystem;
@@ -205,7 +214,11 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		if (_pendingGenerator == null)
+		// _pendingGenerator 또는 TextUISystem의 PendingDialogGenerator 확인 (Animlog에서 전환된 경우)
+		var activeGenerator = _pendingGenerator ?? _textUISystem?.PendingDialogGenerator;
+		var activeDialogRequest = _pendingDialogRequest ?? _textUISystem?.PendingDialogRequest;
+
+		if (activeGenerator == null)
 		{
 			// generator 없으면 단순 다이얼로그 종료 (스택 유지)
 			// meet 이벤트 핸들러일 수 있으므로 남은 이벤트 처리
@@ -214,10 +227,10 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		var generator = _pendingGenerator;
+		var generator = activeGenerator;
 		_pendingGenerator = null;
-		var dialogRequest = _pendingDialogRequest;
 		_pendingDialogRequest = null;
+		_textUISystem?.ClearPendingDialog();  // TextUISystem 쪽도 클리어
 
 		// 다이얼로그 Pop
 		_textUISystem?.Pop();
@@ -228,8 +241,8 @@ public partial class MetaActionHandler
 		if (scriptSystem != null)
 		{
 			// ResultObject가 있으면 그것을, 없으면 None 반환
-			// 주의: dialogRequest?.ResultObject가 null일 수 있으므로 별도 처리 필요
-			PyObject resultValue = dialogRequest?.ResultObject ?? PyNone.Instance;
+			// 주의: activeDialogRequest?.ResultObject가 null일 수 있으므로 별도 처리 필요
+			PyObject resultValue = activeDialogRequest?.ResultObject ?? PyNone.Instance;
 			if (resultValue == null) resultValue = PyNone.Instance;
 #if DEBUG_LOG
 			GD.Print($"[MetaActionHandler] @finish: resuming generator with result={resultValue.GetTypeName()}");
@@ -255,21 +268,24 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		if (_pendingDialogRequest == null)
+		// _pendingDialogRequest 또는 TextUISystem의 PendingDialogRequest 확인 (Animlog에서 전환된 경우)
+		var activeDialogRequest = _pendingDialogRequest ?? _textUISystem?.PendingDialogRequest;
+
+		if (activeDialogRequest == null)
 		{
-			// 비정상 상태: Dialog가 열려있지만 _pendingDialogRequest가 없음
+			// 비정상 상태: Dialog가 열려있지만 DialogRequest가 없음
 			// 이는 버그이므로 에러를 발생시켜 원인 파악 필요
 			throw new System.InvalidOperationException(
 				"[MetaActionHandler] @next: called without pending dialog request. " +
 				"This indicates a bug in Generator/Dialog state management.");
 		}
 
-		if (_pendingDialogRequest.MoveToNextPage())
+		if (activeDialogRequest.MoveToNextPage())
 		{
 			// 다음 페이지 텍스트로 업데이트 (autofill 버튼 포함)
-			var nextPageText = _pendingDialogRequest.Text;
+			var nextPageText = activeDialogRequest.Text;
 #if DEBUG_LOG
-			GD.Print($"[MetaActionHandler] @next: moved to page {_pendingDialogRequest.CurrentPageIndex + 1}/{_pendingDialogRequest.Pages.Count}");
+			GD.Print($"[MetaActionHandler] @next: moved to page {activeDialogRequest.CurrentPageIndex + 1}/{activeDialogRequest.Pages.Count}");
 #endif
 			_textUISystem?.UpdateDialogText(nextPageText);
 		}
@@ -295,18 +311,21 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		if (_pendingDialogRequest == null)
+		// _pendingDialogRequest 또는 TextUISystem의 PendingDialogRequest 확인 (Animlog에서 전환된 경우)
+		var activeDialogRequest = _pendingDialogRequest ?? _textUISystem?.PendingDialogRequest;
+
+		if (activeDialogRequest == null)
 		{
 			GD.PrintErr("[MetaActionHandler] @prev: called without pending dialog request - this is a bug!");
 			return;
 		}
 
-		if (_pendingDialogRequest.MoveToPrevPage())
+		if (activeDialogRequest.MoveToPrevPage())
 		{
 			// 이전 페이지 텍스트로 업데이트 (autofill 버튼 포함)
-			var prevPageText = _pendingDialogRequest.Text;
+			var prevPageText = activeDialogRequest.Text;
 #if DEBUG_LOG
-			GD.Print($"[MetaActionHandler] @prev: moved to page {_pendingDialogRequest.CurrentPageIndex + 1}/{_pendingDialogRequest.Pages.Count}");
+			GD.Print($"[MetaActionHandler] @prev: moved to page {activeDialogRequest.CurrentPageIndex + 1}/{activeDialogRequest.Pages.Count}");
 #endif
 			_textUISystem?.UpdateDialogText(prevPageText);
 		}
@@ -332,8 +351,9 @@ public partial class MetaActionHandler
 		if (_textUISystem.CurrentFocus.TimeFlows != true)
 			return false;
 
-		// 3. pendingDialogRequest와 proc 콜백이 있는지 확인
-		if (_pendingDialogRequest?.ProcCallback == null)
+		// 3. pendingDialogRequest와 proc 콜백이 있는지 확인 (Animlog에서 전환된 경우도 포함)
+		var activeDialogRequest = _pendingDialogRequest ?? _textUISystem?.PendingDialogRequest;
+		if (activeDialogRequest?.ProcCallback == null)
 			return false;
 
 		// 4. proc("tick") 호출
@@ -341,7 +361,7 @@ public partial class MetaActionHandler
 		if (scriptSystem == null)
 			return false;
 
-		var (newText, shouldFinish) = scriptSystem.CallProcCallback(_pendingDialogRequest.ProcCallback, "tick");
+		var (newText, shouldFinish) = scriptSystem.CallProcCallback(activeDialogRequest.ProcCallback, "tick");
 
 		// 5. 반환값 처리
 		if (shouldFinish)
@@ -357,7 +377,7 @@ public partial class MetaActionHandler
 		if (newText != null)
 		{
 			// 새 텍스트로 업데이트
-			_pendingDialogRequest.UpdateCurrentPageText(newText);
+			activeDialogRequest.UpdateCurrentPageText(newText);
 			_textUISystem?.UpdateDialogText(newText);
 #if DEBUG_LOG
 			GD.Print($"[MetaActionHandler] tick: dialog updated");

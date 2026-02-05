@@ -42,6 +42,7 @@ namespace SE
                 RegisterJobAPI(morldModule);
                 RegisterScriptAPI(morldModule);
                 RegisterDialogAPI(morldModule);
+                RegisterAnimlogAPI(morldModule);
 
                 // sys.modules에 등록
                 PyImportSystem.SetModule("morld", morldModule);
@@ -1332,6 +1333,148 @@ namespace SE
                 }
                 return PyBool.True;
             });
+        }
+
+        /// <summary>
+        /// Animlog API 등록
+        /// </summary>
+        private void RegisterAnimlogAPI(PyModule morldModule)
+        {
+            // morld.animlog(steps, scale=1.0, mode="normal")
+            // Python에서 yield로 사용:
+            //   anim = ui.Animlog()
+            //   anim.text("텍스트")
+            //   yield anim.play(mode="lock")
+            //
+            // mode 타입:
+            //   "normal" (기본값) - header/footer 보이고 입력 가능
+            //   "lock" - header/footer 가림 (레터박스), 집중 연출용
+            //   "block" - header/footer 보이지만 입력 불가, 전투용
+            morldModule.ModuleDict["animlog"] = new PyBuiltinFunction("animlog", (args, kwargs) =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("animlog(steps, scale=1.0, mode='normal') requires at least 1 argument");
+
+                var stepsList = args[0] as PyList;
+                if (stepsList == null)
+                    throw PyTypeError.Create("animlog: first argument must be a list of steps");
+
+                // kwargs에서 파라미터 추출
+                float scale = 1.0f;
+                AnimlogMode mode = AnimlogMode.Normal;
+
+                if (kwargs != null)
+                {
+                    // scale 파라미터
+                    var scaleKey = new PyString("scale");
+                    var scaleValue = kwargs.Get(scaleKey);
+                    if (scaleValue != null && !(scaleValue is PyNone))
+                    {
+                        scale = PyObjectToFloat(scaleValue, 1.0f);
+                    }
+
+                    // mode 파라미터
+                    var modeKey = new PyString("mode");
+                    var modeValue = kwargs.Get(modeKey);
+                    if (modeValue != null && !(modeValue is PyNone))
+                    {
+                        string modeStr = modeValue.AsString().ToLower();
+                        mode = modeStr switch
+                        {
+                            "normal" => AnimlogMode.Normal,
+                            "lock" => AnimlogMode.Lock,
+                            "block" => AnimlogMode.Block,
+                            _ => AnimlogMode.Normal
+                        };
+                    }
+                }
+
+                // 스텝 파싱
+                var steps = ParseAnimlogSteps(stepsList);
+                return new PyAnimlogRequest(steps, scale, mode);
+            });
+        }
+
+        /// <summary>
+        /// Python 스텝 리스트를 AnimlogStep 리스트로 변환
+        /// </summary>
+        private System.Collections.Generic.List<AnimlogStep> ParseAnimlogSteps(PyList stepsList)
+        {
+            var steps = new System.Collections.Generic.List<AnimlogStep>();
+
+            foreach (var item in stepsList.Items)
+            {
+                if (item is not PyDict dict) continue;
+
+                var step = new AnimlogStep();
+
+                // type
+                var typeObj = dict.Get(new PyString("type"));
+                step.Type = typeObj is PyString typeStr ? typeStr.Value : "text";
+
+                switch (step.Type)
+                {
+                    case "text":
+                        // content
+                        var contentObj = dict.Get(new PyString("content"));
+                        step.Content = contentObj is PyString contentStr ? contentStr.Value : "";
+
+                        // delay (optional)
+                        var delayObj = dict.Get(new PyString("delay"));
+                        if (delayObj != null && !(delayObj is PyNone))
+                        {
+                            step.Delay = PyObjectToFloat(delayObj, 0f);
+                        }
+
+                        // speed
+                        var speedObj = dict.Get(new PyString("speed"));
+                        if (speedObj != null && !(speedObj is PyNone))
+                        {
+                            step.Speed = PyObjectToFloat(speedObj, 50f);
+                        }
+
+                        // append
+                        var appendObj = dict.Get(new PyString("append"));
+                        step.Append = appendObj == null || appendObj is PyNone || appendObj.IsTrue();
+                        break;
+
+                    case "wait":
+                        // duration
+                        var durationObj = dict.Get(new PyString("duration"));
+                        if (durationObj != null && !(durationObj is PyNone))
+                        {
+                            step.Duration = PyObjectToFloat(durationObj, 0f);
+                        }
+                        break;
+
+                    case "callback":
+                        // func
+                        step.CallbackFunc = dict.Get(new PyString("func"));
+                        step.CallbackArgs = dict.Get(new PyString("args"));
+                        step.CallbackKwargs = dict.Get(new PyString("kwargs"));
+                        break;
+
+                    case "clear":
+                        // 추가 속성 없음
+                        break;
+                }
+
+                steps.Add(step);
+            }
+
+            return steps;
+        }
+
+        /// <summary>
+        /// PyObject를 float로 변환 (PyFloat 또는 PyInt 지원)
+        /// </summary>
+        private static float PyObjectToFloat(PyObject obj, float defaultValue = 0f)
+        {
+            if (obj is PyFloat pf)
+                return (float)pf.Value;
+            if (obj is PyInt pi)
+                return (float)pi.Value;
+            return defaultValue;
         }
     }
 }

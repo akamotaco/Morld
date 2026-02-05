@@ -266,6 +266,9 @@ public partial class GameEngine : Node
 		// 타이핑 효과 업데이트 (Frozen 상태와 무관하게 항상 실행)
 		_textUISystem?.UpdateTyping((float)delta);
 
+		// 애니메이션 업데이트 (Frozen 상태와 무관하게 항상 실행, 게임 시간과 무관)
+		_textUISystem?.UpdateAnimation((float)delta);
+
 		// 자동 시간 흐름 체크 - 멍때리기와 동일한 ECS 파이프라인 사용
 		if (_autoTimeFlowSystem != null && _autoTimeFlowSystem.Update((float)delta))
 		{
@@ -351,6 +354,14 @@ public partial class GameEngine : Node
 
 		// 자동 시간 흐름 타이머 리셋 (플레이어 액션)
 		_autoTimeFlowSystem?.ResetTimer();
+
+		// Animation Focus이면 스킵 (MetaActionHandler에서도 처리하지만 여기서 먼저 체크)
+		if (_textUISystem?.IsAnimationFocus == true)
+		{
+			_textUISystem.SkipAnimation();
+			// FlushDisplay는 SkipAnimation → FinishAnimation → Pop 흐름에서 호출됨
+			return;
+		}
 
 		// 타이핑 중이면 스킵 (액션 처리하지 않고 타이핑만 완료)
 		if (_textUISystem?.IsTyping == true)

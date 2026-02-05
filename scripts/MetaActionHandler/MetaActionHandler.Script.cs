@@ -253,6 +253,18 @@ public partial class MetaActionHandler
 				}
 				break;
 
+			case "generator_animlog":
+				// 제너레이터가 Animlog를 yield한 경우 (애니메이션 시퀀스)
+				if (result is SE.AnimlogScriptResult animlogResult)
+				{
+					// Animation Focus Push
+					_textUISystem?.PushAnimation(animlogResult.AnimlogRequest, animlogResult.Generator);
+#if DEBUG_LOG
+					GD.Print($"[MetaActionHandler] Animlog push: steps={animlogResult.AnimlogRequest.Steps.Count}, mode={animlogResult.AnimlogRequest.Mode}");
+#endif
+				}
+				break;
+
 			case "message":
 				if (!string.IsNullOrEmpty(result.Message))
 				{
