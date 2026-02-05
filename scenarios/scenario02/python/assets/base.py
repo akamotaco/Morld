@@ -1629,6 +1629,7 @@ class Object(Unit):
             return
         success = morld.sit_on(player_id, self.instance_id, slot)
         if success:
+            # posture는 C# sit_on API에서 자동 설정됨
             yield ui.dialog([f"{self.name}에 앉았다."])
 
     def lie_down(self):
@@ -1640,11 +1641,13 @@ class Object(Unit):
             return
         success = morld.sit_on(player_id, self.instance_id, slot)
         if success:
+            # posture는 C# sit_on API에서 자동 설정됨
             yield ui.dialog([f"{self.name}에 누웠다."])
 
     def stand_up(self):
         """일어나기"""
         player_id = morld.get_player_id()
+        # posture는 C# stand_up API에서 자동 초기화됨
         morld.stand_up(player_id)
 
     # ========================================

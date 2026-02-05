@@ -64,6 +64,12 @@ morld.set_location_ground_id(region_id, location_id, ground_unit_id)
 morld.get_location_ground_id(region_id, location_id)
 
 # ========================================
+# 자세/착석 관련 (Posture/Seat API)
+# ========================================
+morld.sit_on(unit_id, object_id, slot, posture)  # 오브젝트에 앉기/눕기
+morld.stand_up(unit_id)                          # 일어나기
+
+# ========================================
 # Dialog API (Generator 전용)
 # ========================================
 # 권장: ui.dialog() 래퍼 사용
@@ -315,3 +321,84 @@ load_chapter("chapter_0", preserve_player=False)
 ```
 
 저장되는 데이터: name, props, mood, inventory (unique_id 기반)
+
+---
+
+## 자세/착석 API (Posture/Seat API)
+
+캐릭터가 오브젝트에 앉거나 눕는 행동을 관리합니다.
+
+### sit_on(unit_id, object_id, slot, posture)
+
+오브젝트의 특정 슬롯에 앉거나 눕습니다.
+
+```python
+# 침대에 눕기
+morld.sit_on(player_id, bed_id, "center", "lying")
+
+# 의자에 앉기
+morld.sit_on(player_id, chair_id, "front", "sitting")
+```
+
+**파라미터:**
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `unit_id` | int | 앉을 캐릭터 ID |
+| `object_id` | int | 대상 오브젝트 ID |
+| `slot` | str | 슬롯 이름 (오브젝트에 정의된 좌석 위치) |
+| `posture` | str | 자세 ("sitting", "lying", "crouch", "prone") |
+
+**반환값:** `True` (성공), `False` (실패 - 슬롯 점유됨 등)
+
+**동작:**
+1. 이미 다른 오브젝트에 앉아있으면 자동으로 일어남 (auto stand_up)
+2. 캐릭터에 `posture:{posture}=1`, `seated_on:{object_id}={hash}` prop 설정
+3. 오브젝트에 `seated_by:{slot}={unit_id}` prop 설정
+
+### stand_up(unit_id)
+
+현재 앉아있는/누워있는 상태에서 일어납니다.
+
+```python
+morld.stand_up(player_id)
+```
+
+**파라미터:**
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `unit_id` | int | 일어날 캐릭터 ID |
+
+**반환값:** `True` (성공), `False` (이미 서있음)
+
+**동작:**
+1. 캐릭터의 `posture:*`, `seated_on:*` prop 제거
+2. 오브젝트의 해당 `seated_by:{slot}` prop 제거
+
+### 자세(Posture) 종류
+
+| 자세 | 이름 | 이동 가능 |
+|------|------|----------|
+| `standing` | 서기 | O (기본 상태, prop 없음) |
+| `sitting` | 앉기 | X |
+| `lying` | 눕기 | X |
+| `crouch` | 웅크리기 | O |
+| `prone` | 엎드리기 | O |
+
+### Props 구조
+
+```python
+# 캐릭터 props
+posture:sitting = 1       # 현재 자세 (없으면 standing)
+seated_on:123 = 456       # object_id=123에 앉아있음 (hash=456)
+
+# 오브젝트 props
+seated_by:front = 1       # front 슬롯에 unit_id=1이 앉아있음
+seated_by:center = 2      # center 슬롯에 unit_id=2가 앉아있음
+```
+
+### UI 표시
+
+- Footer에 현재 자세 항상 표시
+- 이동 불가 자세일 때 노란색으로 표시
+- 이동 UI는 항상 표시하되, 이동 불가 시 회색으로 표시
+- "행동" 섹션에 `[오브젝트명]에서 일어나기` 액션 표시

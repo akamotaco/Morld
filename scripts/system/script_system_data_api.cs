@@ -1517,8 +1517,38 @@ namespace SE
                     var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
                     if (seatedOn.Prop.IsValid)
                     {
-                        Godot.GD.PrintErr($"[morld] sit_on: unit={unitId} is already seated");
-                        return PyBool.False;
+                        // 이미 같은 오브젝트에 앉아있으면 실패
+                        if (int.TryParse(seatedOn.Prop.Name, out int currentObjId) && currentObjId == objectId)
+                        {
+                            Godot.GD.Print($"[morld] sit_on: unit={unitId} is already seated on object={objectId}");
+                            return PyBool.False;
+                        }
+
+                        // 다른 오브젝트에 앉아있으면 먼저 일어나기
+                        Godot.GD.Print($"[morld] sit_on: unit={unitId} auto-standing up from current seat");
+
+                        // 현재 오브젝트의 seated_by 슬롯 해제
+                        if (int.TryParse(seatedOn.Prop.Name, out int prevObjId))
+                        {
+                            var prevObj = _unitSystem.FindUnit(prevObjId);
+                            if (prevObj != null)
+                            {
+                                var seatProps = prevObj.TraversalContext.Props.GetByType("seated_by");
+                                foreach (var (prop, value) in seatProps)
+                                {
+                                    if (value == unitId)
+                                    {
+                                        prevObj.TraversalContext.Props.Set(prop, -1);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // 캐릭터 seated_on 제거
+                        unit.TraversalContext.Props.Remove(seatedOn.Prop);
+
+                        // posture는 새 오브젝트에 앉을 때 덮어씌워지므로 여기서 제거 불필요
                     }
 
                     // 2. 좌석이 비어있는지 확인
@@ -1533,6 +1563,39 @@ namespace SE
                     // 3. 양방향 설정
                     unit.TraversalContext.Props.Set($"seated_on:{objectId}", seatName.GetHashCode());
                     obj.TraversalContext.Props.Set(seatPropName, unitId);
+
+                    // 4. 오브젝트의 posture prop을 읽어서 캐릭터의 posture 설정
+                    // 오브젝트 posture: "sit" → 캐릭터: posture:sitting = 1
+                    //                   "lie" → 캐릭터: posture:lying = 1
+                    var objPostureProps = obj.TraversalContext.Props.GetByType("posture").FirstOrDefault();
+                    if (objPostureProps.Prop.IsValid)
+                    {
+                        string objPosture = objPostureProps.Prop.Name;  // "sit", "lie" 등
+                        string unitPosture = objPosture switch
+                        {
+                            "sit" => "sitting",
+                            "lie" => "lying",
+                            _ => objPosture + "ing"  // 기타: crouch → crouching 등
+                        };
+                        // 기존 posture 모두 제거 후 새 posture 설정
+                        var existingPostures = unit.TraversalContext.Props.GetByType("posture").ToList();
+                        if (existingPostures.Count >= 2)
+                        {
+                            Godot.GD.PrintErr($"[morld] sit_on: WARNING - unit={unitId} has {existingPostures.Count} posture props (should be <= 1)! Removing all.");
+                        }
+                        foreach (var existing in existingPostures)
+                        {
+                            unit.TraversalContext.Props.Remove(existing.Prop);
+                        }
+                        unit.TraversalContext.Props.Set($"posture:{unitPosture}", 1);
+
+                        // 검증: posture가 정확히 1개인지 확인
+                        var postureCount = unit.TraversalContext.Props.GetByType("posture").Count();
+                        if (postureCount != 1)
+                        {
+                            Godot.GD.PrintErr($"[morld] sit_on: ERROR - unit={unitId} posture count is {postureCount} after setting (expected 1)!");
+                        }
+                    }
 
                     Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}");
                     return PyBool.True;
@@ -1583,6 +1646,24 @@ namespace SE
 
                     // 3. 캐릭터 seated_on 제거
                     unit.TraversalContext.Props.Remove(seatedOn.Prop);
+
+                    // 4. 캐릭터 posture 초기화 (기본: 서기) - 모든 posture 제거
+                    var postureProps = unit.TraversalContext.Props.GetByType("posture").ToList();
+                    if (postureProps.Count >= 2)
+                    {
+                        Godot.GD.PrintErr($"[morld] stand_up: WARNING - unit={unitId} has {postureProps.Count} posture props (should be <= 1)! Removing all.");
+                    }
+                    foreach (var postureProp in postureProps)
+                    {
+                        unit.TraversalContext.Props.Remove(postureProp.Prop);
+                    }
+
+                    // 검증: posture가 0개인지 확인 (서있는 상태)
+                    var postureCount = unit.TraversalContext.Props.GetByType("posture").Count();
+                    if (postureCount != 0)
+                    {
+                        Godot.GD.PrintErr($"[morld] stand_up: ERROR - unit={unitId} posture count is {postureCount} after removal (expected 0)!");
+                    }
 
                     Godot.GD.Print($"[morld] stand_up: unit={unitId} stood up");
                     return PyBool.True;

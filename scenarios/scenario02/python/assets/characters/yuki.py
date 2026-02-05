@@ -82,6 +82,7 @@ class Yuki(Character):
         "관계:엘라:의지": 1,
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 5,
+        "can:lie_down": 1,
         "can:sleep": 1,
         "can:bath": 1,
     }

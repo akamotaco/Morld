@@ -435,9 +435,84 @@ if (overlapStart <= overlapEnd)
 
 ---
 
-## 4. 시간 정지(Frozen) 상태
+## 4. 자세(Posture) 시스템
 
-### 4.1 플레이어 즉시 이동
+캐릭터의 자세에 따라 이동 가능 여부가 결정됩니다.
+
+### 4.1 자세 종류
+
+| 자세 | prop 키 | 이름 | 이동 가능 |
+|------|---------|------|----------|
+| standing | (없음) | 서기 | O |
+| sitting | `posture:sitting` | 앉기 | X |
+| lying | `posture:lying` | 눕기 | X |
+| crouch | `posture:crouch` | 웅크리기 | O |
+| prone | `posture:prone` | 엎드리기 | O |
+
+**파일:** [scenarios/scenario02/python/ui.py](../python/ui.py) - `POSTURE_INFO`
+
+### 4.2 Props 구조
+
+```python
+# 캐릭터 props (Unit.TraversalContext.Props)
+posture:sitting = 1       # 현재 자세 (없으면 standing)
+seated_on:123 = 456       # object_id=123에 앉아있음 (hash=456으로 추적)
+
+# 오브젝트 props
+seated_by:front = 1       # front 슬롯에 unit_id=1이 앉아있음
+```
+
+### 4.3 이동 제한 동작
+
+1. **Footer 표시**: 현재 자세 항상 표시 (이동 불가 시 노란색)
+2. **이동 UI**: 항상 표시하되 이동 불가 시 회색으로 비활성화
+3. **행동 메뉴**: 이동 불가 시 `[오브젝트명]에서 일어나기` 액션 추가
+
+```
+[현재 자세: 눕기 (이동 불가)]  ← Footer
+
+[이동]                        ← 항상 표시
+  ▶ 거실 (회색, 클릭 불가)
+  ▶ 복도 (회색, 클릭 불가)
+
+[행동]
+  ▶ 침대에서 일어나기         ← 자동 추가
+```
+
+### 4.4 API 함수
+
+| 함수 | 설명 |
+|------|------|
+| `morld.sit_on(unit_id, object_id, slot, posture)` | 오브젝트에 앉기/눕기 |
+| `morld.stand_up(unit_id)` | 일어나기 |
+
+**파일:** [scripts/system/script_system_data_api.cs](../../../scripts/system/script_system_data_api.cs)
+
+### 4.5 상태 일관성 검사
+
+`ui.py`에서 매 프레임 상태 일관성을 검사합니다:
+
+| 상황 | 경고 |
+|------|------|
+| `posture:sitting` 있는데 `seated_on:*` 없음 | WARNING: posture but no seated_on |
+| `seated_on:*` 있는데 posture=standing | WARNING: seated_on but standing |
+| `posture:*` prop이 2개 이상 | ERROR: Multiple posture props |
+
+### 4.6 오브젝트 전환 처리
+
+침대 A에서 침대 B로 바로 앉을 때:
+
+1. `sit_on()` 호출 시 기존 `seated_on:*` 확인
+2. 이미 앉아있으면 자동으로 이전 오브젝트에서 일어남:
+   - 이전 오브젝트의 `seated_by:*` 정리
+   - 캐릭터의 이전 `seated_on:*` 제거
+3. 새 오브젝트에 앉기 처리
+
+---
+
+## 5. 시간 정지(Frozen) 상태
+
+### 5.1 플레이어 즉시 이동
 
 시간 정지 상태에서는 플레이어만 즉시 이동합니다.
 
@@ -458,7 +533,7 @@ if (isTimeFrozen)
 }
 ```
 
-### 4.2 이벤트 동작
+### 5.2 이벤트 동작
 
 | 이벤트 | Freeze 시 동작 |
 |--------|---------------|
@@ -469,7 +544,7 @@ if (isTimeFrozen)
 
 ---
 
-## 5. 주요 파일 경로
+## 6. 주요 파일 경로
 
 ### 지형 구조
 | 파일 | 역할 |
@@ -496,9 +571,10 @@ if (isTimeFrozen)
 
 ---
 
-## 6. 관련 문서
+## 7. 관련 문서
 
 - [terrain.md](terrain.md) - 지형 테스트 체크리스트
 - [event.md](event.md) - 이벤트 시스템
 - [time-flow.md](time-flow.md) - 시간 흐름 시스템
 - [frozen.md](frozen.md) - 시간 정지 상태
+- [system-api.md](system-api.md) - morld API (sit_on/stand_up)

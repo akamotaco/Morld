@@ -347,6 +347,17 @@ namespace SE
 			var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
 			var player = playerSystem?.FindPlayerUnit();
 
+			// 플레이어가 이 오브젝트에 앉아/누워있는지 확인
+			bool playerSeatedOnThis = false;
+			if (player != null && unitLook.IsObject)
+			{
+				var seatedOn = player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+				if (seatedOn.Prop.IsValid && int.TryParse(seatedOn.Prop.Name, out int seatedObjId))
+				{
+					playerSeatedOnThis = (seatedObjId == unitLook.UnitId);
+				}
+			}
+
 			lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
 
@@ -400,11 +411,30 @@ namespace SE
 				lines.Add("");
 			}
 
+			// 액션 목록 필터링: 플레이어가 이 오브젝트에 앉아/누워있으면 posture 액션 제거
+			var actionsToShow = unitLook.Actions;
+			bool addStandUpAction = false;
+
+			if (playerSeatedOnThis)
+			{
+				// posture 관련 액션 제거 (lie_down, sit 등)
+				actionsToShow = unitLook.Actions
+					.Where(a => !IsPostureAction(a))
+					.ToList();
+				addStandUpAction = true;
+			}
+
 			// 액션 표시 (플레이어의 can: prop으로 파티션)
-			var partition = actionSystem.PartitionActionsByActor(unitLook.Actions, player);
-			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0)
+			var partition = actionSystem.PartitionActionsByActor(actionsToShow, player);
+			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0 || addStandUpAction)
 			{
 				lines.Add("[color=yellow]행동:[/color]");
+
+				// 일어나기 액션 추가 (가장 위에)
+				if (addStandUpAction)
+				{
+					lines.Add($"  [url=call:stand_up:{unitLook.UnitId}]일어나기[/url]");
+				}
 
 				// 활성화된 액션 (링크로 표시)
 				foreach (var action in partition.Enabled)
@@ -432,6 +462,32 @@ namespace SE
 			lines.Add("[url=back]뒤로[/url]");
 
 			return string.Join("\n", lines);
+		}
+
+		/// <summary>
+		/// posture 관련 액션인지 확인 (lie_down, sit 등)
+		/// </summary>
+		private bool IsPostureAction(string action)
+		{
+			// 액션 형식: "call:method:label" 또는 "call:method" 등
+			if (string.IsNullOrEmpty(action))
+				return false;
+
+			// posture 관련 메서드 이름 목록
+			var postureActions = new[] { "lie_down", "sit", "sit_down", "crouch", "prone" };
+
+			// call: 형식 파싱
+			if (action.StartsWith("call:"))
+			{
+				var parts = action.Substring(5).Split(':');
+				if (parts.Length >= 1)
+				{
+					var method = parts[0];
+					return postureActions.Contains(method);
+				}
+			}
+
+			return false;
 		}
 
 		/// <summary>

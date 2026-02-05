@@ -80,6 +80,8 @@ class Player(Character):
 
         # 이동/자세
         "can:sit": 1,
+        "can:lie_down": 1,
+        "can:stand_up": 1,
         "can:rest": 1,
         "can:sleep": 1,
 

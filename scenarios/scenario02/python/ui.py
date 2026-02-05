@@ -215,13 +215,13 @@ def get_header():
 
 def get_footer():
     """
-    하단 푸터 반환 (인벤토리 + 상태바)
+    하단 푸터 반환 (인벤토리 + 상태바 + 자세)
 
     Focus 화면 최하단에 표시됩니다.
     별도 RichTextLabel로 분리되어 구분선 불필요.
 
     Returns:
-        str: 인벤토리 + 상태바 BBCode (빈 문자열이면 표시 안함)
+        str: 인벤토리 + 상태바 + 자세 BBCode (빈 문자열이면 표시 안함)
     """
     # 푸터 숨김 상태면 빈 문자열
     if not _show_footer:
@@ -234,7 +234,71 @@ def get_footer():
     if status_text:
         lines.append(status_text)
 
+    # 플레이어 자세 정보 (기본 자세가 아닌 경우만 표시)
+    posture_text = _get_posture_text()
+    if posture_text:
+        lines.append(posture_text)
+
     return "\n".join(lines)
+
+
+# 자세 정보 매핑
+# - lying: 눕기 (침구류) - 이동 불가
+# - sitting: 앉기 (의자류) - 이동 불가
+# - crouch: 웅크리기 - 이동 가능
+# - prone: 엎드리기 - 이동 가능
+# - standing: 서기 (기본) - 이동 가능
+POSTURE_INFO = {
+    "standing": {"name": "서기", "can_move": True},
+    "lying": {"name": "눕기", "can_move": False},
+    "sitting": {"name": "앉기", "can_move": False},
+    "crouch": {"name": "웅크리기", "can_move": True},
+    "prone": {"name": "엎드리기", "can_move": True},
+}
+
+
+def _get_posture_text() -> str:
+    """플레이어 자세 정보 텍스트 반환 (항상 표시)"""
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return ""
+
+    # posture는 posture:sitting = 1 형태로 저장됨
+    posture_props = morld.get_unit_props_by_type(player_id, "posture")
+    if not posture_props:
+        # posture prop이 없으면 기본 자세 (서기)
+        posture = "standing"
+    else:
+        posture = list(posture_props.keys())[0]  # "sitting", "lying" 등
+
+    # seated_on 상태 확인
+    seated_on_props = morld.get_unit_props_by_type(player_id, "seated_on")
+    has_seated_on = bool(seated_on_props)
+
+    # === 상태 불일치 검증 ===
+    # posture가 이동 불가 자세인데 seated_on이 없음 → 버그
+    posture_info = POSTURE_INFO.get(posture)
+    if posture_info and not posture_info["can_move"] and not has_seated_on:
+        print(f"[ui] WARNING: posture={posture} but seated_on is missing! (inconsistent state)")
+
+    # seated_on이 있는데 posture가 standing → 버그
+    if has_seated_on and posture == "standing":
+        print(f"[ui] WARNING: seated_on is set but posture=standing! (inconsistent state)")
+
+    # posture prop이 2개 이상 → 버그
+    if len(posture_props) >= 2:
+        print(f"[ui] ERROR: Multiple posture props detected: {list(posture_props.keys())}!")
+
+    info = POSTURE_INFO.get(posture)
+    if info is None:
+        # 알 수 없는 자세 (fallback)
+        return f"[color=gray]자세: {posture}[/color]"
+
+    # 이동 가능 여부에 따라 색상 표시
+    if info["can_move"]:
+        return f"[color=gray]자세: {info['name']}[/color]"
+    else:
+        return f"[color=yellow]자세: {info['name']} (이동 불가)[/color]"
 
 
 def get_info_header(show_time=True, show_status=True):
@@ -385,9 +449,30 @@ def get_action_text():
     """
     lines = []
 
-    # 이동 UI (Gate X 순서, 플레이어 위치 표시)
+    # 플레이어 상태 확인
+    player_id = morld.get_player_id()
+    player_posture = None
+    seated_on = None
+    if player_id is not None:
+        # posture는 posture:sitting = 1 형태로 저장됨
+        posture_props = morld.get_unit_props_by_type(player_id, "posture")
+        if posture_props:
+            player_posture = list(posture_props.keys())[0]  # "sitting", "lying" 등
+        # seated_on은 seated_on:{object_id} = {hash} 형태
+        seated_on_props = morld.get_unit_props_by_type(player_id, "seated_on")
+        if seated_on_props:
+            seated_on = int(list(seated_on_props.keys())[0])  # object_id
+
+    # 이동 불가 자세 확인 (눕기/앉기)
+    posture_info = POSTURE_INFO.get(player_posture)
+    can_move = posture_info["can_move"] if posture_info else True
+
+    # 이동 UI 항상 표시 (이동 불가 시 grey out)
     movement_info = morld.get_movement_info()
     if movement_info is not None:
+        # posture로 인한 이동 불가 상태를 movement_info에 반영
+        if not can_move:
+            movement_info["seated"] = True
         lines.extend(_render_movement(movement_info))
 
     # C#에서 나머지 행동 리스트 가져오기 (앉은 상태 등)
@@ -398,6 +483,13 @@ def get_action_text():
     # 행동 섹션 헤더
     lines.append("")
     lines.append("[color=cyan]행동:[/color]")
+
+    # 눕기/앉기 상태 → "일어나기" 행동 추가 (맨 위에)
+    if not can_move and seated_on is not None:
+        # 오브젝트 이름 가져오기
+        obj_info = morld.get_unit_info(seated_on)
+        obj_name = obj_info.get("name", "오브젝트") if obj_info else "오브젝트"
+        lines.append(f"  [url=call:stand_up:{seated_on}]{obj_name}에서 일어나기[/url]")
 
     # 멍때리기 (시간 선택 토글)
     # ToggleRenderer가 [hidden=idle]...[/hidden=idle] 영역을 펼침/접힘 처리
@@ -421,13 +513,12 @@ def get_action_text():
 
     # 지도 (can:map 또는 지역별 지도 prop 보유 시)
     # get_actual_props로 passive_props 포함된 실제 props 조회
-    player_id = morld.get_player_id()
     if player_id is not None:
-        player_props = morld.get_actual_props(player_id)
+        player_actual_props = morld.get_actual_props(player_id)
         can_use_map = False
 
         # 나침반(can:map) - 모든 지역에서 사용 가능
-        if player_props.get("can:map", 0) >= 1:
+        if player_actual_props.get("can:map", 0) >= 1:
             can_use_map = True
         else:
             # 지역별 지도 - 현재 region에서만 사용 가능
@@ -441,7 +532,7 @@ def get_action_text():
                     2: "can:map:city",      # 도시 지역
                 }
                 map_prop = region_map_props.get(current_region_id)
-                if map_prop and player_props.get(map_prop, 0) >= 1:
+                if map_prop and player_actual_props.get(map_prop, 0) >= 1:
                     can_use_map = True
 
         if can_use_map:

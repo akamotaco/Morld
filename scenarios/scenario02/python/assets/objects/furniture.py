@@ -42,7 +42,7 @@ class OldSofa(Object):
     name = "낡은 소파"
     actions = ["call:sit:앉기", "call:debug_props:(디버그) 속성 보기#"]
     props = {
-        "posture": "sit",
+        "posture:sit": 1,
         "posture_slots": 1,
         "seated_by:seat": -1,
     }
@@ -60,7 +60,7 @@ class LivingSofa(Object):
         "call:debug_props:(디버그) 속성 보기#"
     ]
     props = {
-        "posture": "sit",
+        "posture:sit": 1,
         "posture_slots": 3,
         "seated_by:left": -1,
         "seated_by:center": -1,
@@ -114,7 +114,7 @@ class DiningChair(Object):
         "call:debug_props:(디버그) 속성 보기#"
     ]
     props = {
-        "posture": "sit",
+        "posture:sit": 1,
         "posture_slots": 4,
         "seated_by:1": -1,
         "seated_by:2": -1,
@@ -409,7 +409,7 @@ class WoodenStool(Object):
     name = "나무 의자"
     actions = ["call:sit:앉기", "call:debug_props:(디버그) 속성 보기#"]
     props = {
-        "posture": "sit",
+        "posture:sit": 1,
         "posture_slots": 1,
         "seated_by:seat": -1,
     }
@@ -425,7 +425,7 @@ class Bed(Object):
     name = "침대"
     actions = ["call:lie_down:눕기", "call:sleep:잠자기", "call:debug_props:(디버그) 속성 보기#"]
     props = {
-        "posture": "lie",
+        "posture:lie": 1,
         "posture_slots": 2,
         "seated_by:left": -1,
         "seated_by:right": -1,

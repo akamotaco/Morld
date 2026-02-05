@@ -91,6 +91,7 @@ class Mila(Character):
         "관계:세라:신뢰": 1,
         "상태:성욕": 0, "상태:질투": 0,
         "상태:피로": 0, "상태:기분": 6,
+        "can:lie_down": 1,
         "can:sleep": 1,
         "can:bath": 1,
     }
