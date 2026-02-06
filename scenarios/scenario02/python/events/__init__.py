@@ -22,6 +22,9 @@ from . import scripts
 # 캐릭터 이벤트 핸들러 (on_meet_player 등)
 from assets.characters import get_character_event_handler
 
+# 은신 판정 시스템
+import stealth
+
 
 # ========================================
 # 시간 경과 이벤트 구독 시스템
@@ -382,8 +385,22 @@ def _pop_next_meet_event(player_id):
     """레거시: C# 큐로 대체됨"""
     global _pending_meet_events
 
+    stealth_success_count = 0  # 은신 성공 카운트
+
     while _pending_meet_events:
         evt = _pending_meet_events.pop(0)
+
+        # 은신 판정 (character 타입만)
+        if evt["type"] == "character":
+            unit_id = evt.get("unit_id")
+            if unit_id and stealth.is_player_stealthed():
+                # 은신 중 → 판정
+                proceed, msg = stealth.resolve_event_with_stealth(unit_id, is_forced=False)
+                if not proceed:
+                    # 은신 성공 → 이벤트 스킵
+                    stealth_success_count += 1
+                    continue
+                # 발각됨 → 이벤트 진행 (msg는 set_detected에서 처리됨)
 
         if evt["type"] == "registry":
             event = evt["event"]
@@ -401,6 +418,11 @@ def _pop_next_meet_event(player_id):
             result = handler.on_meet_player(player_id)
             if result is not None:
                 return result
+
+    # 모든 이벤트에서 은신 성공한 경우
+    if stealth_success_count > 0:
+        import ui
+        return ui.dialog("들키지 않은 것 같다.")
 
     return None
 
