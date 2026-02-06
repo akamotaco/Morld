@@ -572,31 +572,6 @@ def _get_posture_text() -> str:
         return f"[color=yellow]자세: {info['name']} (이동 불가)[/color]"
 
 
-def get_info_header(show_time=True, show_status=True):
-    """
-    통합 정보 헤더 반환 (레거시 - 하위 호환용)
-
-    Returns:
-        str: 포맷팅된 헤더 BBCode (빈 문자열이면 표시 안함)
-    """
-    lines = []
-
-    if show_time:
-        time_text = get_time_weather_text()
-        if time_text:
-            lines.append(f"[color=gray]{time_text}[/color]")
-
-    if show_status:
-        status_text = get_status_text()
-        if status_text:
-            lines.append(status_text)
-
-    if not lines:
-        return ""
-
-    return divider() + "\n" + "\n".join(lines)
-
-
 def format_time(millis):
     """밀리초 단위 시간을 읽기 좋은 형식으로 변환"""
     total_minutes = millis // MILLIS_PER_MINUTE

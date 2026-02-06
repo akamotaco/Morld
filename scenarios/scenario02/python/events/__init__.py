@@ -430,34 +430,12 @@ def on_single_event(event):
     return None
 
 
-def on_event_list(ev_list):
-    """
-    이벤트 리스트 처리 (C#에서 호출) - 레거시 호환용
-
-    Note: 새 코드는 on_single_event()를 사용하여 순차 처리해야 함
-    이 함수는 하위 호환을 위해 유지하며, 첫 번째 결과만 반환함
-
-    Args:
-        ev_list: [["game_start"], ["on_reach", 0, 0, 6], ["on_meet", 0, 1], ...]
-
-    Returns:
-        첫 번째 모놀로그 결과 또는 None
-    """
-    for event in ev_list:
-        result = on_single_event(event)
-        if result:
-            return result
-
-    return None
-
-
 # C#에서 호출하는 메인 진입점
 __all__ = [
     # C# 통합 이벤트 큐 API
     'collect_event_handlers',
     'call_event_handler',
     # 기존 API
-    'on_event_list',
     'on_single_event',
     'subscribe_time_elapsed',
 ]
