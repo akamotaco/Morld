@@ -357,102 +357,6 @@ def call_event_handler(handler_info, player_id, unit_ids):
     return result
 
 
-# ========================================
-# 레거시 호환 (이전 버전 지원)
-# 향후 제거 예정
-# ========================================
-
-# 대기 중인 meet 이벤트 목록 (레거시)
-_pending_meet_events = []
-
-
-def _collect_meet_events(player_id, unit_ids):
-    """레거시: _collect_meet_handlers로 대체됨"""
-    events = []
-    other_ids = [uid for uid in unit_ids if uid != player_id]
-
-    for event in registry.get_meet_events():
-        event_id = f"meet:{event.__class__.__name__}"
-        if event.once and event_id in registry._triggered:
-            continue
-        if event.should_trigger(unit_ids=unit_ids, player_id=player_id):
-            events.append({
-                "type": "registry",
-                "event": event,
-                "event_id": event_id,
-                "priority": event.priority,
-            })
-
-    for other_id in other_ids:
-        handler = get_character_event_handler(other_id)
-        if handler and hasattr(handler, "on_meet_player"):
-            events.append({
-                "type": "character",
-                "handler": handler,
-                "unit_id": other_id,
-                "priority": -1,
-            })
-
-    events.sort(key=lambda e: -e["priority"])
-    return events
-
-
-def _pop_next_meet_event(player_id):
-    """
-    레거시: C# 큐로 대체됨 (실제로 호출되지 않음)
-
-    on_meet/on_contact 이벤트는 C# EventSystem에서 처리:
-    - collect_event_handlers() → call_event_handler()
-    - 은신 판정은 call_event_handler()에서 수행
-
-    이 함수는 하위 호환을 위해 유지되지만, 실제 이벤트 처리에서는 사용되지 않습니다.
-    """
-    global _pending_meet_events
-
-    while _pending_meet_events:
-        evt = _pending_meet_events.pop(0)
-
-        if evt["type"] == "registry":
-            event = evt["event"]
-            event_id = evt["event_id"]
-            if event.once and event_id in registry._triggered:
-                continue
-            result = event.handle(player_id=player_id, unit_ids=evt.get("unit_ids", []))
-            if result is not None:
-                if event.once:
-                    registry._triggered.add(event_id)
-                return result
-
-        elif evt["type"] == "character":
-            handler = evt["handler"]
-            result = handler.on_meet_player(player_id)
-            if result is not None:
-                return result
-
-    return None
-
-
-def clear_pending_meet_events():
-    """레거시: C# 큐로 대체됨"""
-    global _pending_meet_events
-    count = len(_pending_meet_events)
-    _pending_meet_events = []
-    if count > 0:
-        print(f"[events] Cleared {count} pending meet events (ExcessTime > 0)")
-
-
-def has_pending_meet_events():
-    """레거시: C# 큐로 대체됨"""
-    return len(_pending_meet_events) > 0
-
-
-def queue_meet_events(player_id, unit_ids):
-    """레거시: C# queue_event로 대체됨"""
-    global _pending_meet_events
-    events = _collect_meet_events(player_id, unit_ids)
-    for evt in events:
-        evt["unit_ids"] = unit_ids
-    _pending_meet_events.extend(events)
 
 
 def on_single_event(event):
@@ -518,36 +422,10 @@ def on_single_event(event):
         return None
 
     elif event_type == "on_meet":
-        unit_ids = event[1:]
-        if player_id in unit_ids:
-            # 플레이어 수면 중이면 이벤트 무시
-            player_info = morld.get_unit_info(player_id)
-            if player_info and player_info.get("activity") == "수면":
-                return None
-
-            # 이미 대기 중인 이벤트가 있으면 큐에서 다음 것 반환
-            if _pending_meet_events:
-                return _pop_next_meet_event(player_id)
-
-            # 새 만남: 조건에 맞는 모든 이벤트 수집
-            events = _collect_meet_events(player_id, unit_ids)
-
-            if not events:
-                return None
-
-            # 이벤트에 unit_ids 정보 추가
-            for evt in events:
-                evt["unit_ids"] = unit_ids
-
-            # 큐에 저장
-            _pending_meet_events = events
-
-            # 첫 번째 이벤트 실행
-            return _pop_next_meet_event(player_id)
-        else:
-            # NPC 간 만남 이벤트 (플레이어 미포함)
-            registry.handle_npc_meet(unit_ids)
-            # NPC 간 이벤트는 다이얼로그 없음
+        # NOTE: on_meet은 C# EventSystem에서 새 경로로 처리됨
+        # collect_event_handlers() → call_event_handler()
+        # 이 분기는 도달하지 않음 (데드 코드)
+        pass
 
     return None
 
@@ -575,14 +453,11 @@ def on_event_list(ev_list):
 
 # C#에서 호출하는 메인 진입점
 __all__ = [
-    # 새 API (C# 통합 이벤트 큐)
+    # C# 통합 이벤트 큐 API
     'collect_event_handlers',
     'call_event_handler',
     # 기존 API
     'on_event_list',
     'on_single_event',
     'subscribe_time_elapsed',
-    # 레거시 (향후 제거)
-    'clear_pending_meet_events',
-    'has_pending_meet_events',
 ]
