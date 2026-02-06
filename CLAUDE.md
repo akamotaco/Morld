@@ -42,6 +42,7 @@
 | NPC 대화/리액션/묘사 | [dialog.md](scenarios/scenario02/docs/dialog.md) |
 | 애니메이션 연출 (컷씬, 전투) | [system-ui.md#animlog](scenarios/scenario02/docs/system-ui.md#animlog-애니메이션-시퀀스) |
 | 자세/착석 시스템 (앉기, 눕기) | [movement-system.md#4](scenarios/scenario02/docs/movement-system.md#4-자세posture-시스템) |
+| 은신 시스템 (잠입, 발각) | [stealth.md](scenarios/scenario02/docs/stealth.md) |
 | NPC 스케줄/AI/Agent | [schedule.md](scenarios/scenario02/docs/schedule.md) |
 | NPC 생활/욕구/자율행동 | [life.md](scenarios/scenario02/docs/life.md) |
 | 연애/스킨십 시스템 | [romance.md](scenarios/scenario02/docs/romance.md) |
@@ -76,6 +77,7 @@ scenarios/scenario02/docs/
 ├── system-ui.md        # TextUI, 액션 필터링
 ├── system-gameplay.md  # 장비, 생존, 연애 시스템
 ├── movement-system.md  # 이동 시스템, 자세/착석
+├── stealth.md          # 은신 시스템
 ├── dialog.md           # 대화/리액션/묘사 시스템
 ├── design.md           # 시나리오 설계 (세계관, 캐릭터)
 ├── terrain.md          # 지형 시스템
