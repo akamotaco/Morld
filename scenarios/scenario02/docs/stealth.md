@@ -80,6 +80,7 @@ if is_stealth_posture and no_npcs_in_location:
 | 발각됨 | `status:stealth = 0` | [발각!] 표시 |
 | 발각 후 Location 이동 | `status:stealth` 제거 | 일반 상태 복귀 |
 | 자세 변경 (standing) | `status:stealth` 제거 | 일반 상태 |
+| 휴대 광원 켜기 | `status:stealth` 제거 | 일반 상태 |
 | 수동 해제 | `status:stealth` 제거 | 일반 상태 |
 | 챕터 전환 | `status:stealth` 제거 | 일반 상태 |
 
@@ -314,4 +315,4 @@ if (prop_name.startswith("posture:") or
 
 - [movement-system.md](movement-system.md) - 자세 시스템
 - [event.md](event.md) - 이벤트 시스템
-- [terrain_property.md](terrain_property.md) - 환경 속성 (밝기)
+- [lighting.md](lighting.md) - 조명 시스템 (밝기)

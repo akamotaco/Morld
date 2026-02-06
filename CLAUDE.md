@@ -31,7 +31,8 @@
 |------|----------|
 | Region/Location/Gate 구조 | [terrain.md](scenarios/scenario02/docs/terrain.md) |
 | 맵 구성 (저택, 마을, 숲 등) | [map.md](scenarios/scenario02/docs/map.md) |
-| 환경 속성 (온도, 조명, 날씨) | [terrain_property.md](scenarios/scenario02/docs/terrain_property.md) |
+| 환경 속성 (온도, 날씨) | [terrain_property.md](scenarios/scenario02/docs/terrain_property.md) |
+| 조명 시스템 (밝기, 광원) | [lighting.md](scenarios/scenario02/docs/lighting.md) |
 | 던전 시스템 | [dungeon.md](scenarios/scenario02/docs/dungeon.md) |
 | 바닥 오브젝트 | [ground.md](scenarios/scenario02/docs/ground.md) |
 
@@ -82,6 +83,7 @@ scenarios/scenario02/docs/
 ├── design.md           # 시나리오 설계 (세계관, 캐릭터)
 ├── terrain.md          # 지형 시스템
 ├── terrain_property.md # 환경 속성
+├── lighting.md         # 조명 시스템
 ├── map.md              # 맵 구성
 ├── dungeon.md          # 던전 시스템
 ├── ground.md           # 바닥 오브젝트
