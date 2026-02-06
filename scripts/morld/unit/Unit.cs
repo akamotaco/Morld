@@ -414,6 +414,10 @@ public class Unit : IOwnable
 	/// <summary>
 	/// 이동 속도 계산 (퍼센트, 100=기본)
 	/// "이동:속도" Prop을 아이템 효과 포함하여 계산
+	/// 자세(posture)에 따른 속도 계수도 적용
+	/// - standing: 100% (기본)
+	/// - crouch: 50%
+	/// - prone: 25%
 	/// </summary>
 	/// <returns>이동 속도 (100=기본, 200=2배 빠름, 50=절반 속도)</returns>
 	public int GetMovementSpeed(
@@ -422,8 +426,31 @@ public class Unit : IOwnable
 		IReadOnlyList<int>? equippedItems = null)
 	{
 		var actualProps = GetActualProps(itemSystem, inventory, equippedItems);
-		var speed = actualProps.GetProp("이동:속도");
-		return speed > 0 ? speed : 100;  // 기본값 100
+		var baseSpeed = actualProps.GetProp("이동:속도");
+		if (baseSpeed <= 0) baseSpeed = 100;  // 기본값 100
+
+		// 자세별 속도 계수 적용
+		int postureModifier = GetPostureSpeedModifier();
+		return baseSpeed * postureModifier / 100;
+	}
+
+	/// <summary>
+	/// 현재 자세의 이동 속도 계수 반환 (퍼센트)
+	/// - standing (기본): 100
+	/// - crouch: 50
+	/// - prone: 25
+	/// - sitting/lying: 0 (이동 불가)
+	/// </summary>
+	public int GetPostureSpeedModifier()
+	{
+		// posture:crouch = 1 또는 posture:prone = 1 형태로 저장됨
+		if (Props.GetProp("posture:crouch") > 0)
+			return 50;
+		if (Props.GetProp("posture:prone") > 0)
+			return 25;
+		if (Props.GetProp("posture:sitting") > 0 || Props.GetProp("posture:lying") > 0)
+			return 0;  // 이동 불가
+		return 100;  // standing (기본)
 	}
 
 	/// <summary>

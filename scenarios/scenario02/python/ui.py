@@ -243,33 +243,262 @@ def get_footer():
 
 
 # 자세 정보 매핑
-# - lying: 눕기 (침구류) - 이동 불가
-# - sitting: 앉기 (의자류) - 이동 불가
-# - crouch: 웅크리기 - 이동 가능
-# - prone: 엎드리기 - 이동 가능
-# - standing: 서기 (기본) - 이동 가능
+# - lying: 눕기 (침구류) - 이동 불가, 오브젝트 필요
+# - sitting: 앉기 (의자류) - 이동 불가, 오브젝트 필요
+# - crouch: 웅크리기 - 이동 가능, 속도 50%
+# - prone: 엎드리기 - 이동 가능, 속도 25%
+# - standing: 서기 (기본) - 이동 가능, 속도 100%
+#
+# speed: 이동 속도 계수 (100 = 기본)
+# can_toggle: 자세 로테이션에 포함되는지 (standing/crouch/prone만 해당)
 POSTURE_INFO = {
-    "standing": {"name": "서기", "can_move": True},
-    "lying": {"name": "눕기", "can_move": False},
-    "sitting": {"name": "앉기", "can_move": False},
-    "crouch": {"name": "웅크리기", "can_move": True},
-    "prone": {"name": "엎드리기", "can_move": True},
+    "standing": {"name": "서기", "can_move": True, "speed": 100, "can_toggle": True},
+    "lying": {"name": "눕기", "can_move": False, "speed": 0, "can_toggle": False},
+    "sitting": {"name": "앉기", "can_move": False, "speed": 0, "can_toggle": False},
+    "crouch": {"name": "웅크리기", "can_move": True, "speed": 50, "can_toggle": True},
+    "prone": {"name": "엎드리기", "can_move": True, "speed": 25, "can_toggle": True},
 }
+
+# 자세 로테이션 순서 (서기 → 웅크리기 → 엎드리기 → 서기)
+POSTURE_ROTATION = ["standing", "crouch", "prone"]
+
+
+def get_current_posture() -> str:
+    """
+    플레이어 현재 자세 반환
+
+    Returns:
+        str: 자세 키 ("standing", "crouch", "prone", "sitting", "lying")
+    """
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return "standing"
+
+    posture_props = morld.get_unit_props_by_type(player_id, "posture")
+    if not posture_props:
+        return "standing"
+    return list(posture_props.keys())[0]
+
+
+def get_posture_speed() -> int:
+    """
+    현재 자세의 이동 속도 계수 반환 (C#에서 호출)
+
+    Returns:
+        int: 속도 계수 (100=기본, 50=웅크리기, 25=엎드리기)
+    """
+    posture = get_current_posture()
+    info = POSTURE_INFO.get(posture)
+    if info is None:
+        return 100
+    return info.get("speed", 100)
+
+
+# ========================================
+# 은신 시스템 (Stealth)
+# ========================================
+#
+# status:stealth prop 값:
+# - 1: 은신 중 (NPC 감지 회피 가능)
+# - 0: 발각됨 (현재 Location에서만 유지)
+# - (없음): 일반 상태
+#
+# 은신 진입 조건:
+# - 자세가 crouch 또는 prone
+# - 같은 Location에 NPC가 없음
+#
+# 은신 해제 조건:
+# - 자세 변경 (standing)
+# - 발각됨
+# - 휴대 광원 켜기
+# - 수동 해제
+# - Location 이동 (발각 상태만 해제)
+
+def get_stealth_state() -> int | None:
+    """
+    현재 은신 상태 반환
+
+    Returns:
+        1: 은신 중
+        0: 발각됨
+        None: 일반 상태
+    """
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return None
+
+    stealth = morld.get_unit_prop(player_id, "status:stealth")
+    return stealth
+
+
+def is_stealth_posture(posture: str = None) -> bool:
+    """
+    은신 가능한 자세인지 확인
+
+    Args:
+        posture: 확인할 자세 (None이면 현재 자세)
+
+    Returns:
+        bool: crouch 또는 prone이면 True
+    """
+    if posture is None:
+        posture = get_current_posture()
+    return posture in ["crouch", "prone"]
+
+
+def check_stealth_entry() -> bool:
+    """
+    은신 진입 조건 확인 및 상태 설정
+
+    조건:
+    - 자세가 crouch 또는 prone
+    - 같은 Location에 NPC가 없음
+
+    Returns:
+        bool: 은신 진입 성공 여부
+    """
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return False
+
+    # 이미 은신 중이면 스킵
+    if get_stealth_state() == 1:
+        return True
+
+    # 발각 상태면 진입 불가
+    if get_stealth_state() == 0:
+        return False
+
+    # 자세 확인
+    posture = get_current_posture()
+    if not is_stealth_posture(posture):
+        return False
+
+    # 현재 Location 확인
+    player_loc = morld.get_unit_location(player_id)
+    if player_loc is None:
+        return False
+
+    # 같은 Location에 NPC가 있는지 확인
+    # get_units_at_location은 캐릭터만 반환 (IsObject=false), 이동 중인 유닛 제외
+    region_id, local_id = player_loc
+    npcs = morld.get_units_at_location(region_id, local_id)
+    if npcs is None:
+        npcs = []
+    # 플레이어 제외
+    npc_count = len([u for u in npcs if u != player_id])
+    if npc_count > 0:
+        return False
+
+    # 은신 진입
+    morld.set_unit_prop(player_id, "status:stealth", 1)
+    print(f"[stealth] 은신 상태 진입")
+    return True
+
+
+def exit_stealth(reason: str = ""):
+    """
+    은신 상태 해제
+
+    Args:
+        reason: 해제 사유 (로그용)
+    """
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return
+
+    stealth = get_stealth_state()
+    if stealth is not None:
+        morld.clear_unit_prop(player_id, "status:stealth")
+        if reason:
+            print(f"[stealth] 은신 상태 해제: {reason}")
+        else:
+            print(f"[stealth] 은신 상태 해제")
+
+
+def on_posture_changed(old_posture: str, new_posture: str):
+    """
+    자세 변경 시 은신 상태 처리
+
+    Args:
+        old_posture: 이전 자세
+        new_posture: 새 자세
+    """
+    # standing으로 변경 → 은신 해제
+    if new_posture == "standing":
+        exit_stealth("자세 변경 (서기)")
+        return
+
+    # crouch/prone으로 변경 → 은신 진입 시도
+    if is_stealth_posture(new_posture):
+        check_stealth_entry()
+
+
+def toggle_posture() -> str:
+    """
+    자세 로테이션: 서기 → 웅크리기 → 엎드리기 → 서기
+
+    sitting/lying 상태에서는 로테이션 불가 (먼저 일어나야 함)
+    자세 변경 시 은신 상태도 함께 처리됨
+
+    Returns:
+        str: 새 자세 이름 또는 에러 메시지
+    """
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return "플레이어를 찾을 수 없습니다."
+
+    current = get_current_posture()
+    info = POSTURE_INFO.get(current)
+
+    # sitting/lying은 로테이션 불가
+    if info and not info.get("can_toggle", False):
+        return f"현재 자세({info['name']})에서는 자세를 바꿀 수 없습니다. 먼저 일어나세요."
+
+    # 다음 자세 결정
+    try:
+        idx = POSTURE_ROTATION.index(current)
+        next_idx = (idx + 1) % len(POSTURE_ROTATION)
+        next_posture = POSTURE_ROTATION[next_idx]
+    except ValueError:
+        # 현재 자세가 rotation에 없으면 standing으로
+        next_posture = "standing"
+
+    # 기존 posture prop 제거
+    posture_props = morld.get_unit_props_by_type(player_id, "posture")
+    for prop_name in posture_props:
+        morld.clear_unit_prop(player_id, f"posture:{prop_name}")
+
+    # 새 posture prop 설정 (standing이면 prop 없음)
+    if next_posture != "standing":
+        morld.set_unit_prop(player_id, f"posture:{next_posture}", 1)
+
+    # 은신 상태 처리
+    on_posture_changed(current, next_posture)
+
+    next_info = POSTURE_INFO.get(next_posture, {})
+    print(f"[ui] toggle_posture: {current} -> {next_posture}")
+    return next_info.get("name", next_posture)
 
 
 def _get_posture_text() -> str:
-    """플레이어 자세 정보 텍스트 반환 (항상 표시)"""
+    """
+    플레이어 자세 및 은신 상태 텍스트 반환 (클릭 가능)
+
+    표시 형식:
+    - [서기]                    # 일반 상태
+    - [웅크리기]                # 이동 가능 자세, NPC 있음
+    - [웅크리기] [은신 중]      # 은신 상태
+    - [웅크리기] [발각!]        # 발각됨
+    """
     player_id = morld.get_player_id()
     if player_id is None:
         return ""
 
+    posture = get_current_posture()
+
     # posture는 posture:sitting = 1 형태로 저장됨
     posture_props = morld.get_unit_props_by_type(player_id, "posture")
-    if not posture_props:
-        # posture prop이 없으면 기본 자세 (서기)
-        posture = "standing"
-    else:
-        posture = list(posture_props.keys())[0]  # "sitting", "lying" 등
 
     # seated_on 상태 확인
     seated_on_props = morld.get_unit_props_by_type(player_id, "seated_on")
@@ -294,10 +523,26 @@ def _get_posture_text() -> str:
         # 알 수 없는 자세 (fallback)
         return f"[color=gray]자세: {posture}[/color]"
 
+    # 클릭 가능 여부 결정 (can_toggle인 경우만)
+    can_toggle = info.get("can_toggle", False)
+
+    # 은신 상태 확인
+    stealth = get_stealth_state()
+    stealth_text = ""
+    if stealth == 1:
+        stealth_text = " [color=cyan][은신 중][/color]"
+    elif stealth == 0:
+        stealth_text = " [color=red][발각!][/color]"
+
     # 이동 가능 여부에 따라 색상 표시
     if info["can_move"]:
-        return f"[color=gray]자세: {info['name']}[/color]"
+        if can_toggle:
+            # 클릭하면 자세 변경 (posture:toggle 액션)
+            return f"[url=posture:toggle][color=gray]자세: {info['name']}[/color][/url]{stealth_text}"
+        else:
+            return f"[color=gray]자세: {info['name']}[/color]{stealth_text}"
     else:
+        # 이동 불가 자세는 클릭 불가 (먼저 일어나야 함)
         return f"[color=yellow]자세: {info['name']} (이동 불가)[/color]"
 
 

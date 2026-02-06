@@ -438,6 +438,49 @@ public partial class MetaActionHandler
 		}
 	}
 
+	/// <summary>
+	/// 자세 액션 처리: posture:toggle
+	/// 서기 → 웅크리기 → 엎드리기 → 서기 로테이션
+	/// </summary>
+	private void HandlePostureAction(string[] parts)
+	{
+		if (parts.Length < 2)
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid posture format. Expected: posture:toggle");
+			return;
+		}
+
+		var subAction = parts[1];
+		if (subAction != "toggle")
+		{
+			GD.PrintErr($"[MetaActionHandler] Unknown posture action: {subAction}");
+			return;
+		}
+
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandlePostureAction: ScriptSystem not found");
+			return;
+		}
+
+		try
+		{
+			// Python ui 모듈의 toggle_posture() 호출
+			var result = scriptSystem.CallFunctionEx("ui.toggle_posture", System.Array.Empty<string>());
+#if DEBUG_LOG
+			GD.Print($"[MetaActionHandler] toggle_posture result: {result?.Message}");
+#endif
+
+			// UI 갱신
+			_textUISystem?.RequestUpdateDisplay();
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandlePostureAction error: {ex.Message}");
+		}
+	}
+
 	#region TODO: 조건부 이동 시스템
 
 	// === 이동 조건 체계 설계 ===

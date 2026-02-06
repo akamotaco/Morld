@@ -453,6 +453,17 @@ def on_single_event(event):
         location_id = event[3]
 
         if unit_id == player_id:
+            # 발각 상태 해제 (Location 이동 시 자동 해제)
+            stealth = morld.get_unit_prop(player_id, "status:stealth")
+            if stealth == 0:
+                morld.clear_unit_prop(player_id, "status:stealth")
+                print(f"[stealth] 발각 상태 해제 (Location 이동)")
+            # 은신 가능 자세면 은신 진입 시도
+            elif stealth is None:
+                import ui
+                if ui.is_stealth_posture():
+                    ui.check_stealth_entry()
+
             return registry.handle_reach(player_id, region_id, location_id)
 
     elif event_type == "on_time_elapsed":
