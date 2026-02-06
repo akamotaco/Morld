@@ -7,6 +7,7 @@
 # - ui_get_move_confirm_message(): 이동 확인 다이얼로그 메시지
 
 import morld
+import lighting
 
 MILLIS_PER_MINUTE = 60_000
 MILLIS_PER_HOUR = 3_600_000
@@ -153,6 +154,26 @@ def get_status_text():
         return ""
 
 
+def _get_brightness_text() -> str:
+    """
+    현재 위치의 밝기 레벨 텍스트 반환
+
+    Returns:
+        str: "[밝음]", "[color=yellow][어두움][/color]", "[color=red][암흑][/color]"
+    """
+    try:
+        level = lighting.get_brightness_level()
+        if level == "밝음":
+            return "[밝음]"
+        elif level == "어두움":
+            return "[color=yellow][어두움][/color]"
+        else:  # 암흑
+            return "[color=red][암흑][/color]"
+    except Exception as e:
+        print(f"[ui] _get_brightness_text error: {e}")
+        return ""
+
+
 def get_header():
     """
     상단 헤더 반환 (위치 + 시간/날씨 정보)
@@ -190,10 +211,15 @@ def get_header():
         if location_text:
             lines.append(f"[font_size=20]{location_text}[/font_size]")
 
-        # 시간/날씨 정보
+        # 시간/날씨 정보 + 밝기
         time_text = get_time_weather_text()
-        if time_text:
+        brightness_text = _get_brightness_text()
+        if time_text and brightness_text:
+            lines.append(f"{time_text} {brightness_text}")
+        elif time_text:
             lines.append(time_text)
+        elif brightness_text:
+            lines.append(brightness_text)
 
         # Pi-World 디버깅 정보 (지형 형태 + X 좌표)
         # geometry: 0 = ring (원), 1 = line (선)
