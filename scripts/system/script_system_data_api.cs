@@ -970,6 +970,7 @@ namespace SE
 
             // set_unit_location (Pi-World 2D 위치 확장)
             // set_unit_location(unit_id, region_id, location_id, x=0, y=0)
+            // 강제 이동 시 자동으로 stand_up 처리 (posture/seated_on 정리)
             morldModule.ModuleDict["set_unit_location"] = new PyBuiltinFunction("set_unit_location", args =>
             {
                 if (args.Length < 3)
@@ -985,6 +986,42 @@ namespace SE
                 var unit = _unitSystem.FindUnit(unitId);
                 if (unit != null)
                 {
+                    // === 자동 stand_up 처리: 앉아있으면 자동으로 일어남 ===
+                    var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+                    if (seatedOn.Prop.IsValid)
+                    {
+                        Godot.GD.Print($"[morld] set_unit_location: unit={unitId} is seated, auto stand_up");
+
+                        // 1. 오브젝트의 seated_by 정리
+                        if (int.TryParse(seatedOn.Prop.Name, out int objectId))
+                        {
+                            var obj = _unitSystem.FindUnit(objectId);
+                            if (obj != null)
+                            {
+                                var seatProps = obj.TraversalContext.Props.GetByType("seated_by");
+                                foreach (var (prop, value) in seatProps)
+                                {
+                                    if (value == unitId)
+                                    {
+                                        obj.TraversalContext.Props.Set(prop, -1);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. 캐릭터 seated_on 제거
+                        unit.TraversalContext.Props.Remove(seatedOn.Prop);
+
+                        // 3. 캐릭터 posture 제거 (standing으로 복귀)
+                        var postureProps = unit.TraversalContext.Props.GetByType("posture").ToList();
+                        foreach (var postureProp in postureProps)
+                        {
+                            unit.TraversalContext.Props.Remove(postureProp.Prop);
+                        }
+                    }
+                    // === 자동 stand_up 처리 끝 ===
+
                     unit.SetLocation2D(new Morld.LocationRef(regionId, locationId), x, y);
                     Godot.GD.Print($"[morld] set_unit_location: unit={unitId} -> {regionId}:{locationId} (X={x}, Y={y})");
                     return PyBool.True;

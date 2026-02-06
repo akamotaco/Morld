@@ -347,11 +347,21 @@ def restore_player_data(data):
         morld.set_unit(player_id, "name", data["name"])
         print(f"[persistence] Restored name: {data['name']}")
 
-    # 2. Props 복원
+    # 2. Props 복원 (posture/seated_on 제외 - 챕터 전환 시 오브젝트 ID가 무효화됨)
     if "props" in data and data["props"]:
+        restored_count = 0
+        skipped_props = []
         for prop_name, value in data["props"].items():
+            # posture:*, seated_on:* props는 복원하지 않음
+            # 이전 챕터의 오브젝트 ID가 새 챕터에서 유효하지 않을 수 있음
+            if prop_name.startswith("posture:") or prop_name.startswith("seated_on:"):
+                skipped_props.append(prop_name)
+                continue
             morld.set_unit_prop(player_id, prop_name, value)
-        print(f"[persistence] Restored {len(data['props'])} props")
+            restored_count += 1
+        if skipped_props:
+            print(f"[persistence] Skipped posture/seated_on props: {skipped_props}")
+        print(f"[persistence] Restored {restored_count} props")
 
     # 3. Mood 복원
     if "mood" in data and data["mood"]:
