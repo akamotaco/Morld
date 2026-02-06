@@ -1051,6 +1051,23 @@ namespace SE
 					return scriptSystem.ProcessGenerator(generator);
 				}
 
+				// 은신 성공으로 이벤트 스킵 (stealth_skip: True 반환)
+				if (result is SharpPy.PyDict dict)
+				{
+					var stealthSkip = GetDictBool(dict, "stealth_skip");
+					if (stealthSkip)
+					{
+						var message = GetDictString(dict, "message") ?? "들키지 않은 것 같다.";
+						// 은신 성공 메시지를 액션 로그에 추가
+						var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
+						_textUISystem?.AddActionLog(message);
+#if DEBUG_LOG
+						GD.Print($"[EventSystem] Stealth skip: {message}");
+#endif
+						return null;  // 이벤트 스킵
+					}
+				}
+
 				return null;
 			}
 			catch (Exception ex)

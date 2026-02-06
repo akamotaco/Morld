@@ -309,6 +309,8 @@ def call_event_handler(handler_info, player_id, unit_ids):
 
     Returns:
         Generator (Dialog) 또는 None
+        특수 반환값:
+        - {"stealth_skip": True, "message": "..."}: 은신 성공으로 이벤트 스킵
     """
     source = handler_info.get("source")
     event_type = handler_info.get("event_type")
@@ -317,6 +319,20 @@ def call_event_handler(handler_info, player_id, unit_ids):
     once = handler_info.get("once", False)
 
     result = None
+
+    # ========================================
+    # 은신 판정 (meet/contact 이벤트)
+    # ========================================
+    # character 소스 + meet/contact 이벤트에서 은신 판정 수행
+    # registry 이벤트는 조건 기반이므로 은신 판정 미적용 (TODO: forced 속성 지원 시 추가)
+    if source == "character" and event_type in ("meet", "contact"):
+        if unit_id and stealth.is_player_stealthed():
+            # 은신 중 → 판정
+            proceed, msg = stealth.resolve_event_with_stealth(unit_id, is_forced=False)
+            if not proceed:
+                # 은신 성공 → 이벤트 스킵 (C#에서 처리)
+                return {"stealth_skip": True, "message": msg or "들키지 않은 것 같다."}
+            # 발각됨 → 이벤트 진행 (msg는 set_detected에서 처리됨)
 
     if source == "registry":
         event = registry.get_event_by_id(event_type, event_id)
@@ -382,25 +398,19 @@ def _collect_meet_events(player_id, unit_ids):
 
 
 def _pop_next_meet_event(player_id):
-    """레거시: C# 큐로 대체됨"""
-    global _pending_meet_events
+    """
+    레거시: C# 큐로 대체됨 (실제로 호출되지 않음)
 
-    stealth_success_count = 0  # 은신 성공 카운트
+    on_meet/on_contact 이벤트는 C# EventSystem에서 처리:
+    - collect_event_handlers() → call_event_handler()
+    - 은신 판정은 call_event_handler()에서 수행
+
+    이 함수는 하위 호환을 위해 유지되지만, 실제 이벤트 처리에서는 사용되지 않습니다.
+    """
+    global _pending_meet_events
 
     while _pending_meet_events:
         evt = _pending_meet_events.pop(0)
-
-        # 은신 판정 (character 타입만)
-        if evt["type"] == "character":
-            unit_id = evt.get("unit_id")
-            if unit_id and stealth.is_player_stealthed():
-                # 은신 중 → 판정
-                proceed, msg = stealth.resolve_event_with_stealth(unit_id, is_forced=False)
-                if not proceed:
-                    # 은신 성공 → 이벤트 스킵
-                    stealth_success_count += 1
-                    continue
-                # 발각됨 → 이벤트 진행 (msg는 set_detected에서 처리됨)
 
         if evt["type"] == "registry":
             event = evt["event"]
@@ -418,11 +428,6 @@ def _pop_next_meet_event(player_id):
             result = handler.on_meet_player(player_id)
             if result is not None:
                 return result
-
-    # 모든 이벤트에서 은신 성공한 경우
-    if stealth_success_count > 0:
-        import ui
-        return ui.dialog("들키지 않은 것 같다.")
 
     return None
 
