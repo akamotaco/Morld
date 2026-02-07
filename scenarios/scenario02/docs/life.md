@@ -1,11 +1,18 @@
 # NPC 생활 시스템 (Life System)
 
-> **이 문서는 설계/계획 문서입니다.** 대부분의 내용은 아직 구현되지 않았습니다.
+> **v0.2.1에서 핵심 기능 구현 완료.**
 >
-> **v0.2.1에서 부분 구현된 항목:**
-> - 동적 Activity 탐색 → `activity_resolver.py` (채집/사냥/순찰/벌목)
-> - 도구 기반 Activity → 벌목 시 도끼 가져오기/반납 (`_handle_chop`)
-> - Activity 결과물 → 채집(`_do_gather`), 벌목(`npc_chop`)
+> **구현된 항목:**
+> - 동적 Activity 탐색 → `activity_resolver.py` (채집/사냥/순찰/벌목/낚시/독서/물자수집)
+> - 도구 기반 Activity → 벌목 도끼, 낚시대 가져오기/반납
+> - Activity 결과물 → 채집→저장, 낚시→저장, 벌목, 요리, 청소, 물자수집
+> - NPC 만복도 시스템 → `survival.py` (register_npc, is_npc_hungry, npc_eat)
+> - 배고픔 인터럽트 → think()에서 스케줄보다 우선 처리
+> - 동적 스케줄 → 조건 기반 활동 선택 (`dynamic: True`, `candidates`)
+> - 자원 순환 → 채집→저장→요리→식사 파이프라인
+> - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
+>
+> **미구현 항목:** 배변욕, 수면욕, 사회욕, NPC 주도 상호작용
 >
 > 현재 구현 상태는 [schedule.md#8](schedule.md#8-v021-phase-시스템) 참조.
 
@@ -47,12 +54,14 @@ NPC가 자연스러운 생활 패턴을 보이도록 하는 자율 행동 시스
 
 ---
 
-## 1. 동적 Activity 탐색 — 부분 구현됨 (v0.2.1)
+## 1. 동적 Activity 탐색 — 구현됨 (v0.2.1)
 
-> `activity_resolver.py`에서 채집/사냥/순찰/벌목 구현. 아래 설계와 다른 점:
+> `activity_resolver.py`에서 7종 구현. 아래 설계와 다른 점:
 > - `Location.activities` 속성 없이, resolver 함수가 직접 오브젝트 탐색
 > - `terrain.find_activity()` 대신 `resolve_activity_location(unit_id, activity, region_id)` 사용
 > - 수면은 C# `resolve_sleep_target` API 사용
+>
+> **구현된 resolver:** 채집, 사냥, 순찰, 벌목, 낚시, 독서, 물자수집
 
 ### 현재 문제
 
@@ -667,16 +676,17 @@ class LifeAgent(BaseAgent):
 | 단계 | 내용 | 의존성 | 난이도 | 상태 |
 |------|------|--------|--------|------|
 | 1a | Location.activities 속성 | 없음 | 낮음 | 미구현 (대안: activity_resolver) |
-| 1b | 동적 Activity 탐색 | 1a | 중간 | **부분 구현** (resolver 4종) |
-| 2a | 욕구 props 정의 | 없음 | 낮음 | 미구현 |
-| 2b | 욕구 증가/감소 로직 | 2a | 중간 | 미구현 |
-| 2c | 긴급 행동 트리거 | 2b, 1b | 중간 | 미구현 |
+| 1b | 동적 Activity 탐색 | 1a | 중간 | **구현됨** (resolver 7종) |
+| 2a | 욕구 props 정의 (배고픔) | 없음 | 낮음 | **구현됨** (생존:포만감) |
+| 2b | 욕구 증가/감소 로직 (배고픔) | 2a | 중간 | **구현됨** (survival.py) |
+| 2c | 긴급 행동 트리거 (배고픔) | 2b, 1b | 중간 | **구현됨** (_check_hunger) |
+| 2d | 배변/수면/사회욕 | 2a | 중간 | 미구현 |
 | 3a | 소유물 검색 API | 없음 | 중간 | 미구현 |
-| 3b | 도구 기반 Activity | 3a | 중간 | **벌목 도끼만 구현** |
-| 3c | 결과물 저장소 이동 | 3a, 1b | 높음 | 미구현 |
+| 3b | 도구 기반 Activity | 3a | 중간 | **구현됨** (벌목 도끼, 낚시대) |
+| 3c | 결과물 저장소 이동 | 3a, 1b | 높음 | **구현됨** (채집→저장, 낚시→저장, 요리→저장) |
 | 4a | 상호작용 조건 체크 | 2a | 중간 | 미구현 |
 | 4b | NPC 주도 대화 | 4a | 중간 | 미구현 |
-| 5 | think() 통합 | 전체 | 높음 | 미구현 |
+| 5 | think() 통합 | 전체 | 높음 | **부분 구현** (배고픔+동적스케줄+활동핸들러) |
 
 ---
 

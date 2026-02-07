@@ -207,44 +207,53 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 
 ## 5. NPC별 스케줄 예시
 
-### 세라 (사냥꾼)
+### 세라 (사냥꾼) — 평일/주말 분리
+
+v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()["day"] % 7`로 평일/주말 자동 감지.
+
+**평일:**
 ```
 05:00 아침목욕    → 욕실
 05:30 기상(준비)  → 세라방
 06:00 아침순찰    → 앞마당
 07:00 아침식사    → 식당
-09:00 사냥        → 사냥터
+09:00 오전활동    → (동적: 낚시 > 벌목 > 순찰)   ← v0.2.1 동적 스케줄
 12:00 점심식사    → 식당
-14:00 벌목        → (동적 탐색)    ← v0.2.1 추가
+14:00 오후활동    → (동적: 벌목 > 낚시 > 순찰)   ← v0.2.1 동적 스케줄
 17:00 저녁순찰    → 숲 입구
 18:30 저녁식사    → 식당
 20:00 장비정비    → 세라방
-21:00 저택 소등   → (동적 탐색)    ← v0.2.1 추가
+21:00 저택 소등   → (동적 탐색)
 21:30 수면        → 세라방
 ```
 
-> **벌목**: `location_id` 없음 → `activity_resolver`가 Tree 오브젝트를 동적 탐색.
-> 도끼 가져오기 → 벌목 → 도끼 반납의 phase-based 흐름 (후술).
+**주말 (day % 7 >= 5):**
+```
+05:00 아침목욕 → 06:00 기상 → 06:30 아침순찰 → 08:00 아침식사
+→ 10:00 독서(거실) → 12:00 점심식사 → 14:00 순찰 → 16:00 자유시간
+→ 18:30 저녁식사 → 21:00 소등 → 21:30 수면
+```
 
-### 리나 (채집 담당)
+### 리나 (채집 담당) — 동적 채집/독서
+
 ```
 06:00 아침목욕    → 욕실
 06:30 기상(준비)  → 리나방
 07:00 아침식사    → 식당
 08:00 빨래        → 뒷마당
-09:00 채집        → (동적 탐색)
+09:00 오전활동    → (동적: 채집 if need_food > 독서)  ← v0.2.1
 12:00 점심식사    → 식당
-14:00 채집        → (동적 탐색)
+14:00 오후활동    → (동적: 채집 if need_food > 독서)  ← v0.2.1
 17:00 빨래걷기    → 뒷마당
 18:30 저녁식사    → 식당
 19:30 자유시간    → 거실
-21:30 저택 소등   → (동적 탐색)    ← v0.2.1 추가
+21:30 저택 소등   → (동적 탐색)
 22:00 수면        → 리나방
 ```
 
-> **채집**: `location_id` 없음 → `activity_resolver`가 ResourceObject를 동적 탐색.
+> 채집 시 `_handle_gather_store`: 자원 채집 → 주방 냉장고에 저장.
 
-### 밀라 (요리 담당, 계절별 SCHEDULES)
+### 밀라 (요리 담당, 계절별 SCHEDULES) — 동적 요리/청소
 
 밀라는 `SCHEDULES` dict를 사용하여 계절별로 다른 스케줄을 적용합니다.
 `MilaAgent.think()`에서 계절 변경을 감지해 자동 전환합니다.
@@ -253,17 +262,17 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ```
 05:00 아침목욕    → 욕실
 05:30 기상(준비)  → 밀라방
-06:00 아침준비    → 주방
+06:00 아침준비    → (동적: 요리 if can_cook > 청소)  ← v0.2.1
 07:00 아침식사    → 식당
 08:00 설거지      → 주방
 09:00 청소        → 거실
-11:00 점심준비    → 주방
+11:00 점심준비    → (동적: 요리 if can_cook > 청소)  ← v0.2.1
 12:00 점심식사    → 식당
 13:00 정원가꾸기  → 뒷마당 (봄 한정)
-17:00 저녁준비    → 주방
+17:00 저녁준비    → (동적: 요리 if can_cook > 청소)  ← v0.2.1
 18:30 저녁식사    → 식당
 19:30 정리        → 주방
-21:30 저택 소등   → (동적 탐색)    ← v0.2.1 추가
+21:30 저택 소등   → (동적 탐색)
 22:00 수면        → 밀라방
 ```
 
@@ -275,6 +284,41 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 | 가을 | 05:00 | 저장식품준비 | 21:30/22:00 |
 | 겨울 | 06:00 | 실내휴식 | 20:30/21:00 |
 
+### 엘라 (정찰병, 도시) — 동적 물자수집
+
+```
+06:00 기상       → 은신처
+06:30 목욕       → 은신처 드럼통
+07:00 아침식사   → 은신처
+08:00 정찰(약국) → 약국
+09:30 오전활동   → (동적: 물자수집 if need_supplies > 순찰)  ← v0.2.1
+12:00 점심식사   → 은신처
+14:00 관리       → 은신처
+16:00 정찰(도시입구) → 도시입구
+18:30 저녁식사   → 은신처
+20:00 휴식       → 은신처
+22:00 수면       → 은신처
+```
+
+> food_storage: 은신처 식량 보관함 (R2, L5). 물자수집: ScavengeableObject 탐색.
+
+### 유키 (요리사, 도시) — 동적 요리/독서
+
+```
+06:00 목욕       → 은신처 드럼통
+06:30 기상       → 은신처
+07:00 아침식사   → 은신처
+08:00 청소       → 은신처
+09:30 오전활동   → (동적: 요리 if can_cook > 독서)  ← v0.2.1
+12:00 점심식사   → 은신처
+14:00 독서/휴식  → 은신처
+18:30 저녁식사   → 은신처
+20:00 독서       → 은신처
+22:00 수면       → 은신처
+```
+
+> food_storage: 은신처 식량 보관함 (R2, L5). 요리: PortableStove.npc_cook().
+
 ---
 
 ## 6. 현재 한계점
@@ -282,13 +326,13 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ### 문제점
 | 항목 | 현재 상태 | 문제 |
 |------|----------|------|
-| 위치 결정 | 고정 + 동적 탐색 혼용 | 대부분 하드코딩, 채집/사냥/벌목만 동적 |
-| activity 효과 | **채집/벌목 구현됨** (v0.2.1) | 나머지 활동(요리, 청소 등)은 이동만 |
-| 자원 관리 | 없음 | NPC가 배고파도 먹지 않음 |
-| 도구 사용 | **벌목 시 도끼 관리 구현됨** (v0.2.1) | 낚시대, 바구니 등은 미구현 |
+| 위치 결정 | 고정 + 동적 탐색 혼용 | 대부분 동적화 완료 (v0.2.1) |
+| activity 효과 | **8종 구현됨** (v0.2.1) | 벌목/채집/낚시/요리/청소/물자수집/식사/소등 |
+| 자원 관리 | **구현됨** (v0.2.1) | 만복도 추적, 배고프면 자동 식사 |
+| 도구 사용 | **벌목 도끼 + 낚시대** (v0.2.1) | 바구니 등은 미구현 |
 | 목적지 정보 | Python에 미노출 | "~하러 가는 중" 표현 불가 |
 
-### 빠른 개선 (단기)
+### 남은 개선 (단기)
 1. **목적지 정보 노출**
    - `get_unit_info()`에 `dest_region_id`, `dest_location_id` 추가
    - NPC가 "채집하러 가는 중" vs "채집 중" 구분 가능
@@ -297,12 +341,12 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 
 ## 7. 진보된 스케줄 시스템 (계획)
 
-### Phase 1: Context 기반 Activity 중심 Location 탐색 — 부분 구현됨 (v0.2.1)
+### Phase 1: Context 기반 Activity 중심 Location 탐색 — 구현됨 (v0.2.1)
 
 **구현 완료:**
 - `activity_resolver.py` — 활동별 동적 위치 탐색
 - 스케줄에서 `location_id` 생략 시 자동으로 resolver 호출
-- 현재 구현된 resolver: `채집`, `사냥`, `순찰`, `벌목`
+- 구현된 resolver: `채집`, `사냥`, `순찰`, `벌목`, `낚시`, `독서`, `물자수집`
 
 ```python
 # 스케줄에서 location_id 없이 activity만 지정
@@ -316,60 +360,77 @@ SCHEDULE = [
 # - location_id 없으면 → activity_resolver.resolve_activity_location() 호출
 ```
 
-**미구현:**
-- `Location.activities` 같은 범용 매핑 (현재는 resolver 함수별 직접 탐색)
-- `Location.owner` 장소 소유자 체크 (수면은 `resolve_sleep_target` C# API 사용)
-
 ---
 
-### Phase 2: 영향력 있는 Activity — 부분 구현됨 (v0.2.1)
+### Phase 2: 영향력 있는 Activity — 구현됨 (v0.2.1)
 
 **구현 완료:**
-- `채집`: `_do_gather()` → ResourceObject에서 자원 수집 (npc_take_resource)
-- `벌목`: `_handle_chop()` → Tree.npc_chop() 호출
-- `소등`: `_handle_lights_off()` → 조명 끄기
-
-**미구현:**
-- `on_activity_complete` 콜백 패턴 (현재는 도착 시 즉시 실행)
-- 보관함 자동 이동
-- 요리/청소 등 나머지 활동의 실질적 효과
+- `소등`: `_handle_lights_off()` → 조명 끄기 (방 순회)
+- `벌목`: `_handle_chop()` → 도끼 가져오기 → 벌목 → 도끼 반납
+- `낚시`: `_handle_fish()` → 낚시대 가져오기 → 낚시 → 물고기 저장 → 반납
+- `채집→저장`: `_handle_gather_store()` → 채집 → 냉장고/보관함에 저장
+- `요리`: `_handle_cook()` → 냉장고 재료 확인 → 화로/아궁이 요리 → 결과물 저장
+- `청소`: `_handle_clean()` → 실내 방 순회
+- `물자수집`: `_handle_scavenge()` → ScavengeableObject 탐색 → 식량 보관함에 저장
+- `식사`: `_handle_eat()` → 냉장고/보관함에서 음식 꺼내 먹기 (배고픔 인터럽트)
 
 ---
 
-### Phase 3: 상호작용하는 Agent
+### Phase 3: 상호작용하는 Agent — 부분 구현됨 (v0.2.1)
 
-**현재:** 스케줄대로만 움직임
-
-**개선 후:**
+**구현된 부분:**
 ```python
-class SeraAgent(BaseAgent):
+class BaseAgent:
     def think(self):
-        # 1. 생존 체크 - 스케줄보다 우선
-        satiety = self.get_satiety()
-        if satiety < 30:
-            food_location = self.find_food_source()
-            return self.set_urgent_job("식사", food_location)
+        # 1. 배고픔 체크 - 스케줄보다 우선
+        if self._check_hunger():
+            return None  # _handle_eat이 job 삽입
 
-        # 2. 준비 체크 - 아침에 옷 갈아입기
-        if self.is_morning() and not self.is_dressed():
-            wardrobe = self.find_own_wardrobe()
-            return self.set_job("옷 갈아입기", wardrobe)
+        # 2. 동적 스케줄 - 조건 기반 활동 선택
+        entry = self._resolve_dynamic_entry(entry)
+        # candidates 리스트에서 조건 평가 후 활동 결정
 
-        # 3. 도구 체크 - 사냥 전 무기 챙기기
-        if self.next_activity() == "사냥":
-            if not self.has_equipped("weapon"):
-                storage = self.find_weapon_storage()
-                return self.set_job("무장", storage)
-
-        # 4. 기본 스케줄 실행
-        return self.fill_schedule_jobs()
+        # 3. 활동 핸들러 디스패치
+        handler = _ACTIVITY_HANDLERS.get(activity)
+        if handler:
+            handler(self, entry)
 ```
 
 **구현 요소:**
-- NPC용 생존 시스템 (포만감, 체력)
-- `has_item()`, `has_equipped()` 체크
-- 우선순위: 생존 > 준비 > 스케줄
-- 도구/의류 자동 장착
+- NPC용 생존 시스템 (포만감 추적, 시간 경과 감소)
+- `_check_hunger()`: 포만감 30 이하 → 식사 인터럽트
+- `_resolve_dynamic_entry()`: 조건 기반 동적 활동 선택
+- `_evaluate_condition()`: need_fish, need_logs, need_food, can_cook, need_supplies
+- 도구 자동 관리 (도끼, 낚시대)
+
+**미구현:**
+- 배변/수면/사회욕 긴급 행동
+- 의류 자동 장착
+- NPC 주도 대화
+
+---
+
+### 동적 스케줄 시스템 (v0.2.1)
+
+스케줄 entry에 `"dynamic": True`와 `"candidates"` 리스트 추가:
+
+```python
+{"name": "오전활동", "start": 9*H, "end": 12*H,
+ "dynamic": True, "candidates": [
+     {"activity": "낚시", "condition": "need_fish", "priority": 2},
+     {"activity": "벌목", "condition": "need_logs", "priority": 1},
+     {"activity": "순찰", "condition": None, "priority": 0},  # fallback
+ ]}
+```
+
+조건 평가 (`_evaluate_condition`):
+| 조건 | 의미 | 체크 방법 |
+|------|------|----------|
+| `need_fish` | 물고기 부족 | 저장소에 food_fish < 3 |
+| `need_logs` | 통나무 부족 | 저장소에 log < 5 |
+| `need_food` | 식량 부족 | 저장소 총 아이템 < 10 |
+| `can_cook` | 요리 가능 | 냉장고에 레시피 매칭 재료 있음 |
+| `need_supplies` | 물자 부족 | 저장소 총 아이템 < 5 |
 
 ---
 
@@ -378,29 +439,13 @@ class SeraAgent(BaseAgent):
 | 단계 | 내용 | 난이도 | 효과 | 상태 |
 |------|------|--------|------|------|
 | 0 | 목적지 정보 노출 | 낮음 | 대화 개선 | 미구현 |
-| 1a | activity_resolver 동적 탐색 | 중간 | 유연한 위치 결정 | **구현됨** (채집/사냥/순찰/벌목) |
+| 1a | activity_resolver 동적 탐색 | 중간 | 유연한 위치 결정 | **구현됨** (7종) |
 | 1b | Location.activities 범용 매핑 | 중간 | 확장성 | 미구현 |
-| 2a | 채집/벌목 활동 효과 | 중간 | 활동 효과 | **구현됨** |
-| 2b | 보관함 자동 이동 | 중간 | 자원 순환 | 미구현 |
-| 3a | NPC 생존 시스템 | 높음 | 자율 행동 | 미구현 |
-| 3b | 도구/의류 자동 관리 | 높음 | 완전 자율 | **벌목 도끼만 구현됨** |
-
----
-
-### 예상 결과
-
-**리나의 하루 (Phase 3 완료 후):**
-```
-06:00 기상 - 자기 방에서 일어남
-06:05 옷 갈아입기 - 옷장에서 작업복 착용
-06:15 아침식사 - 식당으로 이동, 음식 섭취 (포만감 +40)
-07:00 채집 준비 - 창고에서 바구니 챙김
-07:10 채집 - 채집터로 이동 (지형 검색으로 결정)
-      ↳ 산딸기 3개, 버섯 2개 획득
-11:00 보관 - 주방 보관함에 채집물 넣기
-11:30 점심 - 배고픔 체크 → 식당 이동
-...
-```
+| 2a | 활동 효과 | 중간 | 활동 효과 | **구현됨** (8종) |
+| 2b | 보관함 자동 이동 | 중간 | 자원 순환 | **구현됨** |
+| 3a | NPC 만복도 시스템 | 높음 | 자율 행동 | **구현됨** |
+| 3b | 동적 스케줄 | 높음 | 조건 기반 선택 | **구현됨** |
+| 3c | 도구/의류 자동 관리 | 높음 | 완전 자율 | **도구 구현됨** (도끼/낚시대) |
 
 ---
 
@@ -427,6 +472,11 @@ activity가 변경되면 자동 리셋됩니다.
 _ACTIVITY_HANDLERS = {
     "소등": _handle_lights_off,
     "벌목": _handle_chop,
+    "낚시": _handle_fish,
+    "채집": _handle_gather_store,
+    "요리": _handle_cook,
+    "청소": _handle_clean,
+    "물자수집": _handle_scavenge,
 }
 
 # think() 내부:
@@ -492,6 +542,10 @@ agent._return_tool("axe")    # 도구함에 반납
 - `scripts/system/job_behavior_system.cs` - Job 실행
 
 ### Python
-- `think/__init__.py` - BaseAgent, Phase 시스템, 활동 핸들러, 도구 관리
-- `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목)
-- `assets/characters/*.py` - 캐릭터별 SCHEDULE 정의
+- `think/__init__.py` - BaseAgent, Phase 시스템, 활동 핸들러 8종, 동적 스케줄, 도구 관리
+- `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
+- `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)
+- `survival.py` - NPC 만복도 추적 (register_npc, is_npc_hungry, npc_eat)
+- `assets/characters/*.py` - 캐릭터별 SCHEDULE/SCHEDULES 정의
+- `assets/base.py` - Object 컨테이너 헬퍼 (npc_store_item, npc_take_item, get_item_count)
+- `assets/objects/scavenge.py` - 비충전 수집 오브젝트 (도시 자원)

@@ -246,3 +246,66 @@
 ### 카테고리 시스템
 - `food_ingredient` - 음식 재료 (아궁이에만 넣을 수 있음)
 - `drink_ingredient` - 음료 재료 (주전자에만 넣을 수 있음)
+
+---
+
+## 6. 도시 자원 (Region 2) — v0.2.1 추가
+
+### 비충전 자원 (ScavengeableObject)
+한 번 가져가면 보충되지 않는 자원.
+
+| 위치 | 오브젝트 | 초기 재고 |
+|------|---------|----------|
+| 주유소 (R2, L1) | 가판대 (gas_station_stand) | 생수x2, 에너지음료x1 |
+| 약국 (R2, L3) | 약품 진열대 (pharmacy_shelf) | 약초x3 |
+| 주차장 (R2, L4) | 부서진 자판기 (broken_vending_machine) | 캔커피x2, 콜라x1 |
+
+### 충전 자원 (ResourceObject — 야생 식물)
+시간 경과 시 자동 재생산되는 자원. 숲보다 느린 재생 속도.
+
+| 위치 | 오브젝트 | 자원 | 재생 주기 | 최대 |
+|------|---------|------|----------|------|
+| 주차장 (R2, L4) | 야생 덤불 (wild_berry_bush) | 산딸기 | 10시간 | 3개 |
+| 주차장 (R2, L4) | 야생 약초 (wild_herb_patch) | 약초 | 12시간 | 2개 |
+
+### 도시 저장소
+| 위치 | 오브젝트 | 용도 |
+|------|---------|------|
+| 은신처 (R2, L5) | 식량 보관함 (food_storage) | 엘라/유키 식량 저장 (초기: 생수x2) |
+| 은신처 (R2, L5) | 간이 화로 (portable_stove) | 간단한 요리 가능 |
+
+---
+
+## 7. NPC 식사 시스템 — v0.2.1 추가
+
+### 만복도 추적
+- 캐릭터 prop: `생존:포만감` (초기 80, 최대 100)
+- 감소율: 1시간당 1 (하루 24)
+- `survival.register_npc(unit_id)` → Agent __init__에서 호출
+- `survival.is_npc_hungry(unit_id, threshold=30)` → 배고픔 체크
+
+### 배고픔 인터럽트
+think()에서 스케줄보다 우선:
+1. `_check_hunger()` → 포만감 30 이하이면 `_handle_eat` 활성화
+2. `_handle_eat` phases: `idle → going_to_storage → taking_food → eating`
+3. 인벤토리에 음식이 있으면 즉시 eating, 없으면 저장소로 이동
+
+### NPC 요리 시스템
+- `Stove.npc_cook(npc_id)` / `PortableStove.npc_cook(npc_id)`
+- NPC 인벤토리의 재료로 `find_matching_recipe()` 호출
+- 성공 시 재료 소비 → 결과물 NPC 인벤토리에 추가
+
+### 캐릭터별 저장소
+| 캐릭터 | 저장소 위치 | unique_id |
+|--------|-----------|-----------|
+| 세라/리나/밀라 | 주방 냉장고 (R0, L2) | kitchen_fridge |
+| 엘라/유키 | 은신처 식량 보관함 (R2, L5) | food_storage |
+
+### 자원 순환 파이프라인
+```
+채집/낚시 → NPC 인벤토리 → 저장소(냉장고/보관함)
+                               ↓
+                  요리 (재료 꺼내기 → 조리 → 결과물 저장)
+                               ↓
+                  식사 (음식 꺼내기 → 먹기 → 포만감 회복)
+```
