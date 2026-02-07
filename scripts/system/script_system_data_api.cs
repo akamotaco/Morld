@@ -807,19 +807,22 @@ namespace SE
                 // === 6. GameTime 업데이트 ===
                 time.AddMillis(step);
 
-                // === 7. 생존 시스템 처리 (플레이어만) ===
-                ProcessSurvivalTimeElapsed(step);
-
-                // === 8. time_elapsed 이벤트 발생 + 즉시 flush ===
+                // === 7. time_elapsed 이벤트 발생 + 즉시 flush ===
                 // Python의 survival/resource_agent/trap_agent 등이 처리됨
+                // (플레이어 생존도 _on_time_elapsed에서 통합 처리)
                 if (eventSystem != null)
                 {
                     eventSystem.Enqueue(GameEvent.OnTimeElapsed(step));
-                    // FlushEvents → _accumulatedTimeElapsed를 Python에 전달
-                    eventSystem.FlushEvents();
+                    // FlushEvents → 플레이어 기절 등 다이얼로그 발생 시 break
+                    if (eventSystem.FlushEvents())
+                    {
+                        remaining -= step;
+                        totalElapsed += step;
+                        break;
+                    }
                 }
 
-                // === 9. think_all() 호출 (job 소진된 NPC가 새 job 삽입) ===
+                // === 8. think_all() 호출 (job 소진된 NPC가 새 job 삽입) ===
                 CallThinkAll();
 
                 remaining -= step;

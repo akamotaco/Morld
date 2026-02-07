@@ -39,6 +39,10 @@ _npc_accumulated = {}          # unit_id -> 누적 밀리초
 # NPC 기절 상태: npc_id -> remaining_hours (남은 기절 시간)
 _fainted_npcs = {}
 
+# 플레이어 기절 상태
+_player_fainted = False          # 현재 기절 중
+_player_faint_pending = False    # 기절 다이얼로그 대기
+
 # 시간 상수 (밀리초)
 MILLIS_PER_HOUR = 3_600_000
 
@@ -165,6 +169,57 @@ def _process_faint(npc_id: int, hours: int):
         set_satiety(npc_id, 0)  # 만복도는 0 유지
 
 
+# ========================================
+# 플레이어 기절 관리
+# ========================================
+
+def _enter_player_faint():
+    """플레이어 기절 상태 진입"""
+    global _player_fainted, _player_faint_pending
+    _player_fainted = True
+    _player_faint_pending = True
+    player_id = morld.get_player_id()
+    set_health(player_id, 0)
+    set_satiety(player_id, 0)
+    print(f"[survival] Player fainted! (will recover in {FAINT_DURATION_HOURS}h)")
+
+
+def is_player_faint_pending() -> bool:
+    """플레이어 기절 다이얼로그가 대기 중인지"""
+    return _player_faint_pending
+
+
+def handle_player_faint():
+    """플레이어 기절 다이얼로그 시퀀스 (generator)"""
+    global _player_fainted, _player_faint_pending
+    import ui
+    _player_faint_pending = False
+
+    yield ui.dialog([
+        "눈앞이 흐려진다...",
+        "몸에 힘이 빠진다...",
+        "......",
+        "(기절했다)"
+    ])
+
+    # 기절 시간 경과 (8시간) — NPC도 이 시간 동안 활동
+    morld.advance_time_des(FAINT_DURATION_HOURS * MILLIS_PER_HOUR)
+
+    # 회복
+    _player_fainted = False
+    player_id = morld.get_player_id()
+    max_health = morld.get_unit_prop(player_id, "생존:최대체력") or 100
+    set_health(player_id, int(max_health * FAINT_RECOVERY_RATIO))
+    set_satiety(player_id, 0)
+
+    yield ui.dialog([
+        "......",
+        "...정신이 돌아왔다.",
+        "얼마나 쓰러져 있었던 거지...?",
+        "몸이 아직 무겁지만, 움직일 수는 있다."
+    ])
+
+
 def _process_npc_time(npc_id: int, millis: int):
     """NPC 시간 경과 처리 (포만감 감소, 체력 증감, 기절)"""
     if millis <= 0:
@@ -228,6 +283,10 @@ def process_time_elapsed(unit_id: int, millis: int):
     if millis <= 0:
         return
 
+    # 플레이어 기절 중이면 스킵
+    if _player_fainted:
+        return
+
     # 생존 스탯이 없는 유닛은 무시
     stats = get_survival_stats(unit_id)
     if stats["max_satiety"] == 0:
@@ -263,6 +322,10 @@ def process_time_elapsed(unit_id: int, millis: int):
         health_loss = int(HEALTH_DECAY_RATE * hours_to_process)
         if health_loss > 0:
             add_health(unit_id, -health_loss)
+            # 체력 0 이하면 기절
+            health = morld.get_unit_prop(unit_id, "생존:체력") or 0
+            if health <= 0:
+                _enter_player_faint()
 
 
 def get_status_message(unit_id: int) -> str:

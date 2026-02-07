@@ -629,7 +629,11 @@ namespace SE
 				_accumulatedTimeElapsed = 0;
 
 				var timeResult = _scriptSystem.CallSingleEventHandler(timeEvent);
-				// on_time_elapsed는 다이얼로그를 발생시키지 않으므로 결과 무시
+				// on_time_elapsed 결과 처리 (플레이어 기절 등 다이얼로그 발생 가능)
+				if (ProcessEventResult(timeResult))
+				{
+					return true;
+				}
 			}
 
 			// 2. 대기 중인 핸들러가 있으면 먼저 처리

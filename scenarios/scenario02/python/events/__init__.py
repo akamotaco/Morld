@@ -400,7 +400,13 @@ def on_single_event(event):
     elif event_type == "on_time_elapsed":
         millis = event[1]
         _handle_time_elapsed(millis)
-        return None  # 시간 이벤트는 다이얼로그 없음
+
+        # 플레이어 기절 체크 — 기절 시 다이얼로그 generator 반환
+        import survival
+        if survival.is_player_faint_pending():
+            return survival.handle_player_faint()
+
+        return None
 
     elif event_type == "on_equip_change":
         unit_id = event[1]
