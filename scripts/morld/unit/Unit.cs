@@ -444,11 +444,11 @@ public class Unit : IOwnable
 	public int GetPostureSpeedModifier()
 	{
 		// posture:crouch = 1 또는 posture:prone = 1 형태로 저장됨
-		if (Props.GetProp("posture:crouch") > 0)
+		if (TraversalContext.GetProp("posture:crouch") > 0)
 			return 50;
-		if (Props.GetProp("posture:prone") > 0)
+		if (TraversalContext.GetProp("posture:prone") > 0)
 			return 25;
-		if (Props.GetProp("posture:sitting") > 0 || Props.GetProp("posture:lying") > 0)
+		if (TraversalContext.GetProp("posture:sitting") > 0 || TraversalContext.GetProp("posture:lying") > 0)
 			return 0;  // 이동 불가
 		return 100;  // standing (기본)
 	}

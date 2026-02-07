@@ -1059,8 +1059,8 @@ namespace SE
 					{
 						var message = GetDictString(dict, "message") ?? "들키지 않은 것 같다.";
 						// 은신 성공 메시지를 액션 로그에 추가
-						var _textUISystem = this._hub.GetSystem("textUISystem") as TextUISystem;
-						_textUISystem?.AddActionLog(message);
+						var _actionLogSystem = this._hub.GetSystem("actionLogSystem") as ActionLogSystem;
+						_actionLogSystem?.AddLog(message);
 #if DEBUG_LOG
 						GD.Print($"[EventSystem] Stealth skip: {message}");
 #endif

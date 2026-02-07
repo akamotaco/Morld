@@ -435,7 +435,7 @@ def exit_stealth(reason: str = ""):
 
     stealth = get_stealth_state()
     if stealth is not None:
-        morld.clear_unit_prop(player_id, "status:stealth")
+        morld.clear_prop(player_id, "status:stealth")
         if reason:
             print(f"[stealth] 은신 상태 해제: {reason}")
         else:
@@ -493,7 +493,7 @@ def toggle_posture() -> str:
     # 기존 posture prop 제거
     posture_props = morld.get_unit_props_by_type(player_id, "posture")
     for prop_name in posture_props:
-        morld.clear_unit_prop(player_id, f"posture:{prop_name}")
+        morld.clear_prop(player_id, f"posture:{prop_name}")
 
     # 새 posture prop 설정 (standing이면 prop 없음)
     if next_posture != "standing":
