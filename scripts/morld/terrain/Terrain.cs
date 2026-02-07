@@ -556,6 +556,51 @@ public class Terrain
     }
 
     /// <summary>
+    /// 두 Location이 같은 건물(실내 연결)에 있는지 판정
+    /// 같은 Region 내에서 실내 Gate만 따라가는 BFS
+    /// </summary>
+    public bool IsSameBuilding(LocationRef a, LocationRef b)
+    {
+        if (a.RegionId != b.RegionId) return false;
+        if (a == b) return true;
+
+        var region = GetRegion(a.RegionId);
+        if (region == null) return false;
+
+        var locA = region.GetLocation(a.LocalId);
+        var locB = region.GetLocation(b.LocalId);
+        if (locA == null || locB == null) return false;
+        if (!locA.IsIndoor || !locB.IsIndoor) return false;
+
+        var visited = new HashSet<int> { a.LocalId };
+        var queue = new Queue<int>();
+        queue.Enqueue(a.LocalId);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            var gates = region.GetGates(current);
+
+            foreach (var gate in gates)
+            {
+                var connected = gate.ConnectedLocation;
+                if (connected.RegionId != a.RegionId) continue;
+                if (visited.Contains(connected.LocalId)) continue;
+
+                var connectedLoc = region.GetLocation(connected.LocalId);
+                if (connectedLoc == null || !connectedLoc.IsIndoor) continue;
+
+                if (connected.LocalId == b.LocalId) return true;
+
+                visited.Add(connected.LocalId);
+                queue.Enqueue(connected.LocalId);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// 경로 탐색 (PathFinder 래퍼) - TraversalContext 직접 전달
     /// </summary>
     public PathResult FindPath(LocationRef from, LocationRef to, TraversalContext? context)

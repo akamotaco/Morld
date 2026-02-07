@@ -41,6 +41,9 @@ class BaseAgent:
         {"name": "대기", "start": 0, "end": 86_400_000, "activity": "대기"}
     ]
 
+    # 도구함 정보 (저택 공용)
+    TOOL_STORAGE = {"region_id": 0, "location_id": 5, "x": 20}  # 창고 도구함 위치
+
     def __init__(self, unit_id):
         self.unit_id = unit_id
         self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
@@ -48,6 +51,9 @@ class BaseAgent:
         self._current_activity = None   # 현재 수행 중인 activity entry
         self._activity_target = None    # resolve된 장소 정보
         self._arrived = False           # 목표 장소 도착 여부
+        self._activity_phase = "idle"   # 활동 내 단계
+        self._activity_state = {}       # 활동별 임시 데이터
+        self._action_taken = False      # think() 내 행동 결정 여부 (경고용)
 
     def set_base_schedule(self, schedule):
         """
@@ -349,11 +355,9 @@ class BaseAgent:
         1. 목욕/수면 시간대 → 기존 핸들러
         2. 현재 시간대 activity 확인
         3. activity 변경 감지 → 상태 리셋
-        4. 장소 결정 (고정 or resolver)
-        5. 미도착 → 이동 (insert_job)
-        6. 도착 → 환경 체크 (조명 등)
-        7. 도착 → 행동 실행 (채집, 벌목 등)
+        4. 활동 핸들러 디스패치 (phase-based)
         """
+        self._action_taken = False
         schedule = self.get_current_schedule()
         if not schedule:
             return None
@@ -379,46 +383,23 @@ class BaseAgent:
             self._current_activity = entry
             self._activity_target = None
             self._arrived = False
+            self._activity_phase = "idle"
+            self._activity_state = {}
 
-        # 4. 장소 결정
-        target = self._resolve_target(entry)
-        if target is None:
-            return None
-
-        # 5. 위치 체크: 도착 여부
-        loc = self.get_location()
-        at_target = (loc and loc[0] == target["region_id"]
-                     and loc[1] == target["location_id"])
-
-        # 6. 미도착 → 이동
-        if not at_target:
-            self._arrived = False
-            info = self.get_info()
-            if not info.get("is_moving"):
-                # 사냥/순찰: location length 내 랜덤 위치
-                target_x = target.get("x", 0)
-                length = target.get("length", 0)
-                if length > 0 and target_x == 0:
-                    target_x = random.randint(0, length)
-
-                morld.insert_job(self.unit_id, {
-                    "name": entry.get("name", entry.get("activity", "이동")),
-                    "action": "move",
-                    "region_id": target["region_id"],
-                    "location_id": target["location_id"],
-                    "target_x": target_x,
-                    "duration": 0,
-                })
-            return None
-
-        # 7. 도착 → 환경 체크 (최초 1회)
-        if not self._arrived:
-            self._arrived = True
-            self._check_environment(loc[0], loc[1])
-
-        # 8. 도착 → 행동 실행
+        # 4. 활동 핸들러 디스패치 (phase-based)
         activity = entry.get("activity", "대기")
-        self._execute_activity(activity, target)
+        handler = _ACTIVITY_HANDLERS.get(activity)
+        if handler:
+            handler(self, entry)
+        else:
+            self._handle_default_activity(entry)
+
+        # 경고: 행동 미결정
+        if not self._action_taken:
+            info = self.get_info()
+            name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
+            print(f"[think] WARNING: {name} - 행동 미결정 (activity={activity}, phase={self._activity_phase})")
+
         return None
 
     # ========================================
@@ -482,7 +463,7 @@ class BaseAgent:
         return loc[0] if loc else 0
 
     def _check_environment(self, region_id, location_id):
-        """환경 인식: 어두운 실내면 조명 켜기 (도착 시 1회 호출)"""
+        """환경 인식: 시간대에 따라 조명 켜기/끄기 (도착 시 1회 호출)"""
         from assets.objects import get_location_objects, get_instance
 
         objects = get_location_objects(region_id, location_id)
@@ -497,13 +478,28 @@ class BaseAgent:
                 if light_on == 1:
                     any_light_on = True
 
-        # 모든 조명이 꺼져있으면 하나 켜기
-        if light_objects and not any_light_on:
-            props = morld.get_unit_props_by_type(self.unit_id, "can")
-            if props and props.get("toggle_switch", 0) > 0:
-                obj = get_instance(light_objects[0])
-                if obj and hasattr(obj, "npc_toggle_switch"):
-                    obj.npc_toggle_switch(self.unit_id, target_state=1)
+        if not light_objects:
+            return
+
+        props = morld.get_unit_props_by_type(self.unit_id, "can")
+        if not props or props.get("toggle_switch", 0) <= 0:
+            return
+
+        millis = self.get_time()
+        is_night = millis >= 1080 * 60_000 or millis < 360 * 60_000  # 18:00~06:00
+
+        if is_night and not any_light_on:
+            # 밤인데 조명 꺼져있으면 → 켜기
+            obj = get_instance(light_objects[0])
+            if obj and hasattr(obj, "npc_toggle_switch"):
+                obj.npc_toggle_switch(self.unit_id, target_state=1)
+        elif not is_night and any_light_on:
+            # 낮인데 조명 켜져있으면 → 끄기
+            for obj_id in light_objects:
+                if morld.get_unit_prop(obj_id, "light:on") == 1:
+                    obj = get_instance(obj_id)
+                    if obj and hasattr(obj, "npc_toggle_switch"):
+                        obj.npc_toggle_switch(self.unit_id, target_state=0)
 
     def _execute_activity(self, activity, target):
         """activity별 행동 실행 (서브클래스에서 오버라이드 가능)"""
@@ -521,6 +517,260 @@ class BaseAgent:
                 taken = obj.npc_take_resource(self.unit_id, count=1)
                 if taken > 0:
                     return
+
+    # ========================================
+    # 공용 헬퍼
+    # ========================================
+
+    def _is_at(self, target):
+        """target의 region_id/location_id에 도착했는지"""
+        loc = self.get_location()
+        return (loc and loc[0] == target["region_id"]
+                and loc[1] == target["location_id"])
+
+    def _on_leaving(self, region_id, location_id):
+        """location 떠나기 전 호출 (서브클래스에서 오버라이드)"""
+        pass
+
+    def _turn_off_lights_here(self, region_id, location_id):
+        """현재 위치의 모든 조명 끄기"""
+        from assets.objects import get_location_objects, get_instance
+
+        props = morld.get_unit_props_by_type(self.unit_id, "can")
+        if not props or props.get("toggle_switch", 0) <= 0:
+            return
+
+        objects = get_location_objects(region_id, location_id)
+        for obj_id in objects:
+            if morld.get_unit_prop(obj_id, "light:on") == 1:
+                obj = get_instance(obj_id)
+                if obj and hasattr(obj, "npc_toggle_switch"):
+                    obj.npc_toggle_switch(self.unit_id, target_state=0)
+
+    def _move_to(self, target, name="이동"):
+        """target으로 이동 job 삽입. 이동 중이면 스킵."""
+        info = self.get_info()
+        if info.get("is_moving"):
+            self._action_taken = True
+            return
+        # 다른 location으로 이동 시 _on_leaving 호출
+        loc = self.get_location()
+        if loc and (loc[0] != target["region_id"] or loc[1] != target["location_id"]):
+            self._on_leaving(loc[0], loc[1])
+        target_x = target.get("x", 0)
+        length = target.get("length", 0)
+        if length > 0 and target_x == 0:
+            target_x = random.randint(0, length)
+        morld.insert_job(self.unit_id, {
+            "name": name,
+            "action": "move",
+            "region_id": target["region_id"],
+            "location_id": target["location_id"],
+            "target_x": target_x,
+            "duration": 0,
+        })
+        self._action_taken = True
+
+    # ========================================
+    # 기본 활동 핸들러
+    # ========================================
+
+    def _handle_default_activity(self, entry):
+        """기본 활동 핸들러 (대부분의 활동)
+
+        resolve target → move → env check → execute
+        """
+        activity = entry.get("activity", "대기")
+
+        # 1. 장소 결정
+        target = self._resolve_target(entry)
+        if target is None:
+            # 장소 없음 → 현재 위치에서 대기
+            self._action_taken = True
+            return
+
+        # 2. 도착 여부
+        if not self._is_at(target):
+            # 미도착 → 이동
+            self._move_to(target, entry.get("name", "이동"))
+            self._arrived = False
+        else:
+            # 도착 → 환경 체크 + 활동 실행
+            if not self._arrived:
+                self._arrived = True
+                self._check_environment(target["region_id"], target["location_id"])
+            self._execute_activity(activity, target)
+            self._action_taken = True
+
+    # ========================================
+    # 도구 관리 헬퍼
+    # ========================================
+
+    def _get_toolbox_id(self):
+        """도구함 unit_id 조회"""
+        from assets.registry import get_instance_id
+        return get_instance_id("toolbox")
+
+    def _has_tool(self, tool_unique_id):
+        """도구 소지 확인"""
+        from assets.registry import get_or_create_item_id
+        item_id = get_or_create_item_id(tool_unique_id)
+        if item_id is None:
+            return False
+        return morld.has_item(self.unit_id, item_id)
+
+    def _pickup_tool(self, tool_unique_id):
+        """도구함에서 도구 가져오기"""
+        from assets.registry import get_or_create_item_id
+        toolbox_id = self._get_toolbox_id()
+        item_id = get_or_create_item_id(tool_unique_id)
+        if toolbox_id and item_id:
+            morld.remove_item(toolbox_id, item_id, 1)
+            morld.give_item(self.unit_id, item_id, 1)
+            return True
+        return False
+
+    def _return_tool(self, tool_unique_id):
+        """도구를 도구함에 반납"""
+        from assets.registry import get_or_create_item_id
+        toolbox_id = self._get_toolbox_id()
+        item_id = get_or_create_item_id(tool_unique_id)
+        if toolbox_id and item_id:
+            morld.remove_item(self.unit_id, item_id, 1)
+            morld.give_item(toolbox_id, item_id, 1)
+            return True
+        return False
+
+    def _find_lit_indoor_room(self, region_id):
+        """조명이 켜진 거처 실내 방 찾기 (소등용)
+        거처 = sleep_location과 같은 건물(실내 연결) 내의 방
+        """
+        from assets.objects import _location_objects
+
+        sleep = getattr(self, "sleep_location", None)
+        sleep_r = sleep["region_id"] if sleep else region_id
+        sleep_l = sleep["location_id"] if sleep else None
+
+        for (r, l), obj_ids in _location_objects.items():
+            if r != region_id:
+                continue
+            # 거처 필터: sleep_location과 같은 건물인 실내만 대상
+            if sleep_l is not None and not morld.is_same_building(r, l, sleep_r, sleep_l):
+                continue
+            loc_info = morld.get_location_info(r, l)
+            if not loc_info or not loc_info.get("is_indoor", False):
+                continue
+            light_ids = []
+            for obj_id in obj_ids:
+                if morld.get_unit_prop(obj_id, "light:on") == 1:
+                    light_ids.append(obj_id)
+            if light_ids:
+                return {"region_id": r, "location_id": l, "x": 0, "light_ids": light_ids}
+        return None
+
+
+# ========================================
+# 활동 핸들러 (module-level)
+# ========================================
+
+def _handle_lights_off(agent, entry):
+    """소등: 조명 켜진 실내 방을 순회하며 끄기"""
+    phase = agent._activity_phase
+
+    if phase == "idle":
+        room = agent._find_lit_indoor_room(agent._get_home_region())
+        if room:
+            agent._activity_state["target_room"] = room
+            agent._activity_phase = "going"
+        else:
+            # 소등 완료 (더 이상 켜진 방 없음)
+            agent._action_taken = True
+
+    elif phase == "going":
+        target = agent._activity_state.get("target_room")
+        if not target:
+            agent._activity_phase = "idle"
+            return
+
+        if agent._is_at(target):
+            # 도착 → 조명 끄기
+            from assets.objects import get_instance
+            for obj_id in target.get("light_ids", []):
+                if morld.get_unit_prop(obj_id, "light:on") == 1:
+                    obj = get_instance(obj_id)
+                    if obj and hasattr(obj, "npc_toggle_switch"):
+                        obj.npc_toggle_switch(agent.unit_id, target_state=0)
+            # 다음 방 탐색으로 복귀
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "소등")
+
+
+def _handle_chop(agent, entry):
+    """벌목: 도끼 가져오기 → 나무로 이동 → 벌목 → 도끼 반납"""
+    phase = agent._activity_phase
+
+    if phase == "idle":
+        if agent._has_tool("axe"):
+            # 도끼 있음 → 벌목 대상 탐색
+            from think.activity_resolver import resolve_activity_location
+            target = resolve_activity_location(
+                agent.unit_id, "벌목", agent._get_home_region()
+            )
+            if target:
+                agent._activity_state["chop_target"] = target
+                agent._activity_phase = "going_to_tree"
+            else:
+                # 벌목 가능한 나무 없음 → 도끼 반납
+                agent._activity_phase = "returning_tool"
+        else:
+            # 도끼 없음 → 도구함으로
+            agent._activity_phase = "getting_tool"
+
+    elif phase == "getting_tool":
+        storage = agent.TOOL_STORAGE
+        if agent._is_at(storage):
+            agent._pickup_tool("axe")
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(storage, "도끼 가져오기")
+
+    elif phase == "going_to_tree":
+        target = agent._activity_state.get("chop_target")
+        if not target:
+            agent._activity_phase = "returning_tool"
+            return
+
+        if agent._is_at(target):
+            # 도착 → 벌목 실행
+            from assets.objects import get_instance
+            obj_id = target.get("object_id")
+            if obj_id:
+                obj = get_instance(obj_id)
+                if obj and hasattr(obj, "npc_chop"):
+                    obj.npc_chop(agent.unit_id)
+            agent._activity_phase = "returning_tool"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "벌목")
+
+    elif phase == "returning_tool":
+        storage = agent.TOOL_STORAGE
+        if agent._is_at(storage):
+            agent._return_tool("axe")
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(storage, "도구 반납")
+
+
+# 활동 핸들러 레지스트리: activity 이름 → handler(agent, entry)
+_ACTIVITY_HANDLERS = {
+    "소등": _handle_lights_off,
+    "벌목": _handle_chop,
+}
 
 
 def register_agent(unit_id, agent):

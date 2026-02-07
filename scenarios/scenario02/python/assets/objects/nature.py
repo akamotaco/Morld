@@ -55,7 +55,7 @@ class ResourceObject(Object):
         item_id = get_or_create_item_id(self.resource_item_unique_id)
         if item_id is None:
             return 0
-        morld.take_item(self.instance_id, item_id, take)
+        morld.remove_item(self.instance_id, item_id, take)
         morld.give_item(npc_id, item_id, take)
         return take
 

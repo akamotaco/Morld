@@ -986,3 +986,7 @@ class YukiAgent(BaseAgent):
     def __init__(self, unit_id):
         super().__init__(unit_id)
         self.set_base_schedule(self.SCHEDULE)
+
+    def _on_leaving(self, region_id, location_id):
+        """이동 전 조명 끄기 (유키 성격: 꼼꼼함)"""
+        self._turn_off_lights_here(region_id, location_id)

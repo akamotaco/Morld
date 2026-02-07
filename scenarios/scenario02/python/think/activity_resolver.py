@@ -105,9 +105,30 @@ def _get_object_x(obj_id):
     return 0
 
 
+def _resolve_chop(unit_id, region_id):
+    """벌목: Tree 오브젝트(can_chop=True)가 있는 location 탐색"""
+    from assets.objects import _location_objects
+    from assets.objects.trees import Tree
+
+    for (r, l), obj_ids in _location_objects.items():
+        if r != region_id:
+            continue
+        for obj_id in obj_ids:
+            obj = get_instance(obj_id)
+            if obj and isinstance(obj, Tree) and obj.can_chop():
+                return {
+                    "region_id": r,
+                    "location_id": l,
+                    "x": _get_object_x(obj_id),
+                    "object_id": obj_id,
+                }
+    return None
+
+
 # 활동 → resolver 함수 매핑
 _ACTIVITY_RESOLVERS = {
     "채집": _resolve_gather,
     "사냥": _resolve_hunt,
     "순찰": _resolve_patrol,
+    "벌목": _resolve_chop,
 }

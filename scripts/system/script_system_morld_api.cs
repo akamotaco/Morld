@@ -772,6 +772,27 @@ namespace SE
                 result4.SetItem(new PyString("rough"), PyBool.FromBool(true));
                 return result4;
             });
+
+            // is_same_building(region_id1, location_id1, region_id2, location_id2) - 같은 건물인지 확인
+            morldModule.ModuleDict["is_same_building"] = new PyBuiltinFunction("is_same_building", args =>
+            {
+                if (args.Length < 4)
+                    throw PyTypeError.Create("is_same_building(region_id1, location_id1, region_id2, location_id2) requires 4 arguments");
+
+                int r1 = args[0].ToInt();
+                int l1 = args[1].ToInt();
+                int r2 = args[2].ToInt();
+                int l2 = args[3].ToInt();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem?.GetTerrain();
+                if (terrain == null)
+                    return PyBool.FromBool(false);
+
+                var a = new LocationRef(r1, l1);
+                var b = new LocationRef(r2, l2);
+                return PyBool.FromBool(terrain.IsSameBuilding(a, b));
+            });
         }
 
         /// <summary>

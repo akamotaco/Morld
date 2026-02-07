@@ -1131,10 +1131,11 @@ class SeraAgent(BaseAgent):
         {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "사냥", "region_id": 0, "location_id": 24, "x": 900, "start": 540 * _M, "end": 720 * _M, "activity": "사냥"},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "x": 900, "start": 840 * _M, "end": 1020 * _M, "activity": "사냥"},
+        {"name": "벌목", "start": 840 * _M, "end": 1020 * _M, "activity": "벌목"},
         {"name": "저녁순찰", "region_id": 0, "location_id": 20, "x": 900, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},  # 숲 입구
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
-        {"name": "장비정비", "region_id": 0, "location_id": 8, "x": 90, "start": 1200 * _M, "end": 1290 * _M, "activity": "정비"},
+        {"name": "장비정비", "region_id": 0, "location_id": 8, "x": 90, "start": 1200 * _M, "end": 1260 * _M, "activity": "정비"},
+        {"name": "저택 소등", "start": 1260 * _M, "end": 1290 * _M, "activity": "소등"},
         {"name": "수면", "region_id": 0, "location_id": 8, "x": 90, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
     ]
 
