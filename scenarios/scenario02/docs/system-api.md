@@ -59,7 +59,9 @@ morld.mark_all_logs_read()
 # ========================================
 morld.get_game_time()  # 밀리초 단위 (0~86,399,999)
 morld.get_time_info()  # 시간/위치/날씨 정보 dict 반환
-morld.advance_time(millis)  # 밀리초 단위
+morld.advance_time(millis)  # 단순 시간 건너뛰기 (NPC 시뮬 없음)
+morld.advance_time_simulate(millis)  # 이동만 처리 (think 없음)
+morld.advance_time_des(millis)  # DES 시뮬레이션 (think + 이동 + 이벤트) ← v0.2.2
 morld.set_time_frozen(frozen)  # 시간 정지 설정/해제
 morld.is_time_frozen()
 
@@ -300,7 +302,7 @@ def my_script(context_unit_id, *args):
 
 ## ThinkSystem과 Agent
 
-### BaseAgent 구조 (v0.2.1)
+### BaseAgent 구조 (v0.2.2)
 
 ```python
 # think/__init__.py
@@ -315,17 +317,25 @@ class BaseAgent:
         self._action_taken = False       # 행동 결정 여부 (경고용)
 
     def think(self):
-        """매 step 호출 — 모든 행동 결정"""
-        # 1. 목욕/수면 시간대 → 전용 핸들러
-        # 2. 현재 activity 확인
-        # 3. activity 변경 시 phase/state 리셋
-        # 4. _ACTIVITY_HANDLERS 디스패치 또는 _handle_default_activity
+        """매 step 호출 — 모든 행동 결정
+        DES 규칙: 모든 경로에서 반드시 job 삽입 (duration > 0)
+        """
+        # 1. 기절 체크 → 기절 job
+        # 2. 배고픔 체크 → _handle_eat
+        # 3. 목욕/수면 시간대 → 전용 핸들러
+        # 4. 동적 스케줄 → _resolve_dynamic_entry
+        # 5. _ACTIVITY_HANDLERS 디스패치 또는 _handle_default_activity
         ...
 
 # 활동 핸들러 레지스트리 (module-level)
 _ACTIVITY_HANDLERS = {
     "소등": _handle_lights_off,
     "벌목": _handle_chop,
+    "낚시": _handle_fish,
+    "채집": _handle_gather_store,
+    "요리": _handle_cook,
+    "청소": _handle_clean,
+    "물자수집": _handle_scavenge,
 }
 ```
 

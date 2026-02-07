@@ -1,3 +1,4 @@
+using System;
 using SharpPy;
 using Morld;
 using System.Collections.Generic;
@@ -689,6 +690,28 @@ namespace SE
                 Godot.GD.Print($"[morld] advance_time_simulate: +{displayMin} minutes ({millis}ms), NPCs simulated");
                 return new PyInt(millis);
             });
+
+            // advance_time_des(millis) - DES 기반 시간 진행 (수면/낮잠 시 NPC 시뮬레이션)
+            //
+            // advance_time_simulate와 달리:
+            // - Step 단위로 시간 진행 (최소 NPC job duration 기준)
+            // - 각 Step마다 think_all() 호출 (NPC AI 재계산)
+            // - Move job 만료 시 NPC를 목표 location에 텔레포트
+            // - time_elapsed 이벤트 Python에 전달 (survival/resource 처리)
+            //
+            // 반환: 실제 경과된 시간 (밀리초)
+            morldModule.ModuleDict["advance_time_des"] = new PyBuiltinFunction("advance_time_des", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("advance_time_des(millis) requires 1 argument");
+
+                int totalMillis = args[0].ToInt();
+                if (totalMillis <= 0)
+                    return new PyInt(0);
+
+                int elapsed = AdvanceTimeDES(totalMillis);
+                return new PyInt(elapsed);
+            });
         }
 
         /// <summary>
@@ -759,6 +782,135 @@ namespace SE
                 }
             }
             // stay, flee 등 다른 액션은 이동 없음
+        }
+
+        /// <summary>
+        /// DES (Discrete Event Simulation) 기반 시간 진행
+        ///
+        /// NPC의 job duration을 기준으로 step 단위 진행:
+        /// 1. 전체 NPC 중 최소 남은 job duration 계산 → step size
+        /// 2. 각 NPC의 이동 시뮬레이션 + job advance
+        /// 3. Move job 만료 시 NPC를 목표 location에 텔레포트
+        /// 4. GameTime 업데이트 + time_elapsed 이벤트 발생 + flush
+        /// 5. think_all() 호출 (job이 소진된 NPC가 새 job 삽입)
+        /// 6. 반복
+        ///
+        /// 안전장치: 최대 1000회 반복 (무한루프 방지)
+        /// </summary>
+        private int AdvanceTimeDES(int totalMillis)
+        {
+            var worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+            var unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+            var itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+            var eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+            var playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+
+            var terrain = worldSystem.GetTerrain();
+            var time = worldSystem.GetTime();
+            int playerId = playerSystem?.PlayerId ?? -1;
+
+            if (worldSystem.IsTimeFrozen())
+            {
+                Godot.GD.Print("[morld] advance_time_des: Time is frozen, skipping");
+                return 0;
+            }
+
+            int remaining = totalMillis;
+            int totalElapsed = 0;
+            int maxIterations = 1000;  // 안전장치
+
+            Godot.GD.Print($"[morld] advance_time_des: Starting DES loop ({totalMillis / GameTime.MillisPerMinute}min)");
+
+            for (int iteration = 0; iteration < maxIterations && remaining > 0; iteration++)
+            {
+                // === 1. Step size 결정: 전체 NPC의 최소 job duration ===
+                int step = remaining;
+                foreach (var unit in unitSystem.Units.Values)
+                {
+                    if (unit.IsObject || unit.Id == playerId) continue;
+
+                    var currentJob = unit.CurrentJob;
+                    if (currentJob != null && currentJob.Duration > 0)
+                    {
+                        step = Math.Min(step, currentJob.Duration);
+                    }
+                }
+                // step이 0이면 1분으로 강제 (빈 job 방지)
+                if (step <= 0) step = Math.Min(GameTime.MillisPerMinute, remaining);
+
+                // === 2. 각 NPC 이동 시뮬레이션 ===
+                foreach (var unit in unitSystem.Units.Values)
+                {
+                    if (unit.IsObject || unit.Id == playerId) continue;
+
+                    SimulateUnitMovement(unit, step, terrain, itemSystem);
+                }
+
+                // === 3. Move job 만료 전 정보 기록 (텔레포트용) ===
+                // AdvanceJobs가 job을 제거하기 전에 move job 정보를 저장
+                var moveJobsToTeleport = new System.Collections.Generic.List<(Morld.Unit unit, Morld.LocationRef goal, float targetX)>();
+                foreach (var unit in unitSystem.Units.Values)
+                {
+                    if (unit.IsObject || unit.Id == playerId) continue;
+
+                    var currentJob = unit.CurrentJob;
+                    if (currentJob != null && currentJob.Action == "move" && currentJob.Duration <= step)
+                    {
+                        // 이 job은 이번 step에서 만료됨 → 텔레포트 대상
+                        moveJobsToTeleport.Add((unit, currentJob.GetLocationRef(), currentJob.TargetX));
+                    }
+                }
+
+                // === 4. Job advance (시간 소진) ===
+                foreach (var unit in unitSystem.Units.Values)
+                {
+                    if (unit.IsObject || unit.Id == playerId) continue;
+                    unit.AdvanceJobs(step);
+                }
+
+                // === 5. Move job 텔레포트 처리 ===
+                foreach (var (unit, goalLocation, targetX) in moveJobsToTeleport)
+                {
+                    // 아직 도착하지 않았으면 텔레포트
+                    if (unit.CurrentLocation != goalLocation)
+                    {
+                        unit.SetCurrentLocation(goalLocation);
+                    }
+                    unit.PositionX = targetX;
+                    unit.CurrentMovement = null;
+                    unit.ClearRoute();
+                }
+
+                // === 6. GameTime 업데이트 ===
+                time.AddMillis(step);
+
+                // === 7. 생존 시스템 처리 (플레이어만) ===
+                ProcessSurvivalTimeElapsed(step);
+
+                // === 8. time_elapsed 이벤트 발생 + 즉시 flush ===
+                // Python의 survival/resource_agent/trap_agent 등이 처리됨
+                if (eventSystem != null)
+                {
+                    eventSystem.Enqueue(GameEvent.OnTimeElapsed(step));
+                    // FlushEvents → _accumulatedTimeElapsed를 Python에 전달
+                    eventSystem.FlushEvents();
+                }
+
+                // === 9. think_all() 호출 (job 소진된 NPC가 새 job 삽입) ===
+                CallThinkAll();
+
+                remaining -= step;
+                totalElapsed += step;
+            }
+
+            if (remaining > 0)
+            {
+                Godot.GD.PrintErr($"[morld] advance_time_des: WARNING - {remaining}ms remaining after max iterations");
+            }
+
+            int displayMin = totalElapsed / GameTime.MillisPerMinute;
+            Godot.GD.Print($"[morld] advance_time_des: Completed ({displayMin}min, {totalElapsed}ms)");
+            return totalElapsed;
         }
 
         #endregion
@@ -2080,6 +2232,14 @@ namespace SE
                 if (job == null)
                     return PyBool.False;
 
+                // DES 호환: move job의 duration이 0 이하면 이동 시간 자동 계산
+                // Python은 이동 시간을 모르므로 duration=0으로 삽입하고,
+                // C#이 PathFinder/CalculateTravelTime으로 최소 이동 시간을 설정한다.
+                if (job.Action == "move" && job.Duration <= 0)
+                {
+                    job.Duration = EstimateMoveTravelTime(unit, job);
+                }
+
                 unit.InsertJobWithClear(job);
                 return PyBool.True;
             });
@@ -2103,6 +2263,12 @@ namespace SE
                 if (job == null)
                     return PyBool.False;
 
+                // DES 호환: move job duration 자동 계산
+                if (job.Action == "move" && job.Duration <= 0)
+                {
+                    job.Duration = EstimateMoveTravelTime(unit, job);
+                }
+
                 unit.InsertJobOverride(job);
                 return PyBool.True;
             });
@@ -2125,6 +2291,12 @@ namespace SE
                 var job = PyDictToJob(jobArg);
                 if (job == null)
                     return PyBool.False;
+
+                // DES 호환: move job duration 자동 계산
+                if (job.Action == "move" && job.Duration <= 0)
+                {
+                    job.Duration = EstimateMoveTravelTime(unit, job);
+                }
 
                 unit.InsertJobMerge(job);
                 return PyBool.True;

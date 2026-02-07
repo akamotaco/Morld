@@ -8,9 +8,25 @@
 #   class LinaAgent(BaseAgent):
 #       def think(self):
 #           ...
+#
+# === DES (Discrete Event Simulation) 호환 규칙 (v0.2.2) ===
+#
+# think()는 반드시 duration > 0인 job을 삽입해야 함.
+# 빈 job list는 DES 루프에서 무한루프를 유발하므로 에러로 간주.
+#
+# Job action 종류:
+#   "stay"  — 현재 위치 대기 (idle, sleep, faint 등 모든 비이동 상태)
+#   "move"  — 목표 location으로 이동
+#             duration=0으로 삽입 → C#이 이동 시간을 계산하여 자동 설정
+#             DES에서 duration 만료 시 NPC를 목표 location에 텔레포트
+#             도착 후 think() 재호출 → 미세 위치 조정 가능
+#
+# 참고: "idle"은 C# MetaAction (플레이어 전용). NPC job에는 "stay" 사용.
 
 import random
 import morld
+
+MILLIS_PER_DAY = 86_400_000
 
 # Agent 레지스트리: unit_id -> Agent 인스턴스
 _agents = {}
@@ -259,7 +275,11 @@ class BaseAgent:
             bed_id = sleep_info.get("bed_object_id")
             if bed_id:
                 self._try_sleep_on_bed(bed_id)
-            # 침대 없거나 노숙이면 그냥 대기 (이동 안 함)
+            # sleep job 삽입 (침대든 노숙이든)
+            _, sleep_entry = self._is_sleep_time()
+            if sleep_entry:
+                remaining = self._remaining_millis_in_entry(sleep_entry)
+                self._insert_idle_job("sleep", max(remaining, 1))
         else:
             # 이동 필요 → move job 설정
             info = self.get_info()
@@ -283,6 +303,36 @@ class BaseAgent:
         seated_on = morld.get_unit_props_by_type(self.unit_id, "seated_on")
         if seated_on:
             morld.stand_up(self.unit_id)
+
+    # ========================================
+    # Job 삽입 헬퍼
+    # ========================================
+
+    def _remaining_millis_in_entry(self, entry):
+        """스케줄 entry 종료까지 남은 밀리초"""
+        millis = self.get_time()
+        end = entry["end"]
+        start = entry["start"]
+        if end < start:  # 자정 넘기기
+            if millis >= start:
+                return (MILLIS_PER_DAY - millis) + end
+            else:
+                return end - millis
+        else:
+            return max(0, end - millis)
+
+    def _insert_idle_job(self, name, duration_millis):
+        """stay job 삽입 (NPC가 현재 위치에서 대기)
+
+        duration_millis <= 0이면 삽입하지 않음.
+        DES 시뮬레이션에서 빈 job 방지용.
+        """
+        if duration_millis > 0:
+            morld.insert_job(self.unit_id, {
+                "name": name,
+                "action": "stay",
+                "duration": duration_millis,
+            })
 
     # ========================================
     # 목욕 시스템
@@ -334,8 +384,11 @@ class BaseAgent:
         target_location = self.bath_location["location_id"]
 
         if loc and loc[0] == target_region and loc[1] == target_location:
-            # 도착 — 목욕 중 (별도 오브젝트 조작 없음, 그냥 대기)
-            pass
+            # 도착 — 목욕 job 삽입
+            _, bath_entry = self._is_bath_time()
+            if bath_entry:
+                remaining = self._remaining_millis_in_entry(bath_entry)
+                self._insert_idle_job("목욕", max(remaining, 1))
         else:
             # 이동
             target_x = self.bath_location.get("x", 0)
@@ -354,19 +407,24 @@ class BaseAgent:
 
     def think(self):
         """
-        AI 로직 실행 — 매 step마다 호출
+        AI 로직 실행 — 매 step마다 호출 (DES에서는 job 만료 시)
 
         모든 행동 결정이 여기서 처리됨:
         1. 목욕/수면 시간대 → 기존 핸들러
         2. 현재 시간대 activity 확인
         3. activity 변경 감지 → 상태 리셋
         4. 활동 핸들러 디스패치 (phase-based)
+
+        [DES 규칙] 이 메서드는 반드시 duration > 0인 job을 삽입해야 함.
+        stay job: _insert_idle_job() 사용, move job: duration=0 (C#이 자동 계산)
         """
         self._action_taken = False
 
         # 0. 기절 체크 (최우선 — 아무것도 못함)
         import survival
         if survival.is_npc_fainted(self.unit_id):
+            remaining = survival.get_faint_remaining_millis(self.unit_id)
+            self._insert_idle_job("fainting", max(remaining, 1))
             self._action_taken = True
             return None
 
@@ -598,7 +656,7 @@ class BaseAgent:
     def _handle_default_activity(self, entry):
         """기본 활동 핸들러 (대부분의 활동)
 
-        resolve target → move → env check → execute
+        resolve target → move → env check → execute → idle job
         """
         activity = entry.get("activity", "대기")
 
@@ -606,6 +664,8 @@ class BaseAgent:
         target = self._resolve_target(entry)
         if target is None:
             # 장소 없음 → 현재 위치에서 대기
+            remaining = self._remaining_millis_in_entry(entry)
+            self._insert_idle_job(entry.get("name", "대기"), max(remaining, 1))
             self._action_taken = True
             return
 
@@ -615,11 +675,13 @@ class BaseAgent:
             self._move_to(target, entry.get("name", "이동"))
             self._arrived = False
         else:
-            # 도착 → 환경 체크 + 활동 실행
+            # 도착 → 환경 체크 + 활동 실행 + idle job
             if not self._arrived:
                 self._arrived = True
                 self._check_environment(target["region_id"], target["location_id"])
             self._execute_activity(activity, target)
+            remaining = self._remaining_millis_in_entry(entry)
+            self._insert_idle_job(entry.get("name", "대기"), max(remaining, 1))
             self._action_taken = True
 
     # ========================================
@@ -771,7 +833,9 @@ def _handle_lights_off(agent, entry):
             agent._activity_state["target_room"] = room
             agent._activity_phase = "going"
         else:
-            # 소등 완료 (더 이상 켜진 방 없음)
+            # 소등 완료 (더 이상 켜진 방 없음) → 대기
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job("소등", max(remaining, 1))
             agent._action_taken = True
 
     elif phase == "going":
@@ -800,20 +864,25 @@ def _handle_chop(agent, entry):
     phase = agent._activity_phase
 
     if phase == "idle":
-        if agent._has_tool("axe"):
-            # 도끼 있음 → 벌목 대상 탐색
-            from think.activity_resolver import resolve_activity_location
-            target = resolve_activity_location(
-                agent.unit_id, "벌목", agent._get_home_region()
-            )
-            if target:
-                agent._activity_state["chop_target"] = target
-                agent._activity_phase = "going_to_tree"
-            else:
-                # 벌목 가능한 나무 없음 → 도끼 반납
+        # 벌목 대상 탐색 (도끼 유무와 무관하게 먼저 확인)
+        from think.activity_resolver import resolve_activity_location
+        target = resolve_activity_location(
+            agent.unit_id, "벌목", agent._get_home_region()
+        )
+        if not target:
+            if agent._has_tool("axe"):
+                # 나무 없음 + 도끼 소지 → 반납
                 agent._activity_phase = "returning_tool"
+            else:
+                # 나무 없음 + 도끼 없음 → 대기
+                remaining = agent._remaining_millis_in_entry(entry)
+                agent._insert_idle_job("벌목", max(remaining, 1))
+                agent._action_taken = True
+            return
+        agent._activity_state["chop_target"] = target
+        if agent._has_tool("axe"):
+            agent._activity_phase = "going_to_tree"
         else:
-            # 도끼 없음 → 도구함으로
             agent._activity_phase = "getting_tool"
 
     elif phase == "getting_tool":
@@ -954,6 +1023,8 @@ def _handle_fish(agent, entry):
     if phase == "idle":
         # 충분성 체크
         if not agent._check_storage_need("kitchen_fridge", "food_fish", 3):
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job("낚시", max(remaining, 1))
             agent._action_taken = True
             return
         if agent._has_tool("fishing_rod"):
@@ -1038,6 +1109,8 @@ def _handle_gather_store(agent, entry):
             agent._activity_state["gather_target"] = target
             agent._activity_phase = "going_to_resource"
         else:
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job("채집", max(remaining, 1))
             agent._action_taken = True
 
     elif phase == "going_to_resource":
@@ -1107,8 +1180,9 @@ def _handle_cook(agent, entry):
                         agent._activity_phase = "going_to_stove"
                         agent._action_taken = True
                         return
-            # 재료 없음 → 활동 종료
-            agent._activity_phase = "idle"
+            # 재료 없음 → 대기
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job("요리", max(remaining, 1))
             agent._action_taken = True
         else:
             agent._move_to(target, "냉장고 확인")
@@ -1199,6 +1273,8 @@ def _handle_clean(agent, entry):
             agent._activity_state["clean_target"] = room
             agent._activity_phase = "going"
         else:
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job("청소", max(remaining, 1))
             agent._action_taken = True
 
     elif phase == "going":
@@ -1256,6 +1332,8 @@ def _handle_scavenge(agent, entry):
             agent._activity_state["scavenge_target"] = target
             agent._activity_phase = "going_to_resource"
         else:
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job("물자수집", max(remaining, 1))
             agent._action_taken = True
 
     elif phase == "going_to_resource":

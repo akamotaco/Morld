@@ -8,6 +8,10 @@
 # - 체력 0 → 기절 상태 (8시간)
 # - 기절 중 → 체력 서서히 회복 (최대체력/2까지), 만복도 0 유지
 # - 기절 종료 → 만복도 0, 체력 = 최대체력/2
+#
+# DES 호환 (v0.2.2):
+# - get_faint_remaining_millis(): think()에서 기절 job duration 결정에 사용
+# - min_interval=1h: DES에서 큰 시간 단위가 넘어와도 내부 누적으로 1시간 단위 처리
 
 import morld
 from events import subscribe_time_elapsed
@@ -115,6 +119,12 @@ def is_npc_hungry(unit_id: int, threshold: int = 30) -> bool:
 def is_npc_fainted(unit_id: int) -> bool:
     """NPC가 기절 상태인지 확인"""
     return unit_id in _fainted_npcs
+
+
+def get_faint_remaining_millis(npc_id: int) -> int:
+    """기절 남은 시간 (밀리초). 기절 중이 아니면 0."""
+    remaining_hours = _fainted_npcs.get(npc_id, 0)
+    return max(0, remaining_hours * MILLIS_PER_HOUR)
 
 
 def npc_eat(unit_id: int, satiety_amount: int):

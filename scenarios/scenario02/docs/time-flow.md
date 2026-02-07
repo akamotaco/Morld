@@ -131,6 +131,46 @@ def toggle_auto_time_flow():
 
 ---
 
+## DES 시뮬레이션 (v0.2.2)
+
+플레이어 수면 등 대규모 시간 건너뛰기 시, NPC가 자율적으로 행동하도록 하는 시스템입니다.
+
+### 시간 진행 API 비교
+
+| API | NPC think() | 이동 처리 | 이벤트 | 용도 |
+|-----|------------|----------|--------|------|
+| `advance_time(ms)` | X | X | X | 단순 시간 건너뛰기 |
+| `advance_time_simulate(ms)` | X | O | X | 이동만 처리 |
+| `advance_time_des(ms)` | **O** | **O** | **O** | **NPC 자율 시뮬레이션** |
+
+### 사용 예시
+
+```python
+# 수면 시 DES 시뮬레이션 (8시간)
+morld.advance_time_des(480 * 60_000)
+# → NPC들이 8시간 동안 자율적으로 행동 (채집, 요리, 이동 등)
+```
+
+### 동작 원리
+
+```
+advance_time_des(총시간) {
+    while 남은시간 > 0:
+        step = min(남은시간, 가장 짧은 NPC Job duration)
+        이동 시뮬레이션 (step만큼)
+        move job 완료된 NPC → 텔레포트
+        Job duration 차감
+        GameTime 증가
+        survival 시간 경과 처리
+        OnTimeElapsed 이벤트 발행
+        think_all() → NPC 재결정
+}
+```
+
+상세: [schedule.md#9](schedule.md#9-v022-des-discrete-event-simulation)
+
+---
+
 ## 구현 파일
 
 | 파일 | 역할 |
@@ -138,6 +178,8 @@ def toggle_auto_time_flow():
 | `scripts/system/auto_time_flow_system.cs` | 자동 시간 흐름 시스템 |
 | `scripts/GameEngine.cs` | AutoTimeFlowSystem 호출 및 시간 진행 |
 | `scripts/system/text_ui_system.cs` | `CanAutoTimeFlow()` - Focus 기반 허용 여부 |
+| `scripts/system/script_system.cs` | `EstimateMoveTravelTime()` - 이동 시간 추정 (v0.2.2) |
+| `scripts/system/script_system_data_api.cs` | `AdvanceTimeDES()` - DES 루프 (v0.2.2) |
 | `scripts/morld/ui/Focus.cs` | `TimeFlows` 속성 |
 | `scripts/morld/ui/Dialog.cs` | `PyDialogRequest.TimeFlows` 속성 |
 | `scripts/MetaActionHandler/MetaActionHandler.Dialog.cs` | `TriggerDialogTick()` - tick 콜백 호출 |

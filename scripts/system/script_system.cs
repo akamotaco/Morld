@@ -1,3 +1,4 @@
+using System;
 using ECS;
 using SharpPy;
 using Morld;
@@ -206,6 +207,71 @@ namespace SE
             }
 
             return job;
+        }
+
+        /// <summary>
+        /// Move job의 이동 시간 추정 (DES 호환)
+        ///
+        /// Python에서 move job을 duration=0으로 삽입하면, 이 메서드가
+        /// 현재 위치에서 목표 위치까지의 최소 이동 시간을 계산하여 반환한다.
+        ///
+        /// 같은 Location 내 이동: CalculateTravelTime 사용
+        /// 다른 Location 간 이동: PathFinder로 경로 탐색 후 TotalTravelTime 사용
+        ///   (Gate.TravelTime이 0인 경우 location 당 2분 휴리스틱 적용)
+        ///
+        /// 최소값: 1분 (GameTime.MillisPerMinute)
+        /// </summary>
+        private int EstimateMoveTravelTime(Morld.Unit unit, Morld.Job job)
+        {
+            var worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+            var terrain = worldSystem.GetTerrain();
+            if (terrain == null)
+                return GameTime.MillisPerMinute;
+
+            var currentLoc = unit.CurrentLocation;
+            var targetLoc = new Morld.LocationRef(job.RegionId, job.LocationId);
+
+            // 같은 Location 내 이동 (X 좌표 변경만)
+            if (currentLoc.RegionId == targetLoc.RegionId &&
+                currentLoc.LocalId == targetLoc.LocalId)
+            {
+                var location = terrain.GetLocation(currentLoc.RegionId, currentLoc.LocalId);
+                if (location == null)
+                    return GameTime.MillisPerMinute;
+
+                // 이동 속도 반영
+                var itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                var inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                var inventory = inventorySystem?.GetUnitInventory(unit.Id);
+                var equipped = inventorySystem?.GetUnitEquippedItems(unit.Id);
+                int speedPercent = unit.GetMovementSpeed(itemSystem, inventory, equipped);
+                float speedModifier = speedPercent / 100f;
+                if (speedModifier <= 0f) speedModifier = 1f;
+
+                int travelTime = location.CalculateTravelTime(unit.PositionX, job.TargetX, speedModifier);
+                return Math.Max(travelTime, GameTime.MillisPerMinute);
+            }
+
+            // 다른 Location 간 이동: PathFinder 사용
+            var itemSys = this._hub.GetSystem("itemSystem") as ItemSystem;
+            var invSys = this._hub.GetSystem("inventorySystem") as InventorySystem;
+            var pathFinder = new Morld.PathFinder(terrain);
+            var pathResult = pathFinder.FindPath(currentLoc, targetLoc, unit, itemSys, invSys);
+
+            if (pathResult.Found && pathResult.TotalTravelTime > 0)
+            {
+                // PathFinder 결과 사용 (Gate.TravelTime=0인 경우 보정)
+                int estimated = (int)MathF.Ceiling(pathResult.TotalTravelTime);
+
+                // 경로상 Location 수 기반 최소 시간 보장 (location당 2분)
+                int minByHops = pathResult.Path.Count * 2 * GameTime.MillisPerMinute;
+                estimated = Math.Max(estimated, minByHops);
+
+                return Math.Max(estimated, GameTime.MillisPerMinute);
+            }
+
+            // 경로를 찾지 못한 경우: Location 수 기반 휴리스틱 (5분)
+            return 5 * GameTime.MillisPerMinute;
         }
 
         /// <summary>

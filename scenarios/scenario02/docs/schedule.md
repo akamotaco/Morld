@@ -203,6 +203,10 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 > **참고**: `insert_job`은 `InsertJobWithClear` 사용 (기존 Job 전부 제거 후 1개 삽입).
 > `duration=0`인 move Job은 매 step 제거되므로, `think()`에서 매번 재삽입 필요.
 
+> **v0.2.2 DES**: move Job의 duration이 0 이하이면 C#이 자동으로 이동 시간 계산.
+> 같은 Location 내 이동: `CalculateTravelTime()` 사용. 다른 Location: `PathFinder` 사용.
+> 최소 1분, hop당 최소 2분 보장.
+
 ---
 
 ## 5. NPC별 스케줄 예시
@@ -532,6 +536,70 @@ agent._return_tool("axe")    # 도구함에 반납
 
 ---
 
+## 9. v0.2.2 DES (Discrete Event Simulation)
+
+### 개요
+
+플레이어 수면 등 대규모 시간 건너뛰기 시, NPC가 **자율적으로 행동**하도록 하는 시스템.
+기존 `advance_time()`은 단순 시간 건너뛰기지만, `advance_time_des()`는 step별로 NPC think()를 호출.
+
+### 시간 진행 API 비교
+
+| API | think() | 이동 | 이벤트 | 용도 |
+|-----|---------|------|--------|------|
+| `advance_time(ms)` | X | X | X | 단순 시간 건너뛰기 |
+| `advance_time_simulate(ms)` | X | O | X | 이동만 처리 |
+| `advance_time_des(ms)` | **O** | **O** | **O** | **NPC 자율 시뮬레이션** |
+
+### DES 루프 흐름
+
+```
+advance_time_des(총시간) {
+    while 남은시간 > 0:
+        step = min(남은시간, 가장 짧은 NPC Job duration)
+        이동 시뮬레이션 (step만큼)
+        move job 완료된 NPC → 텔레포트
+        AdvanceJobs (duration 차감)
+        GameTime 증가 (step만큼)
+        survival 시간 경과 처리
+        OnTimeElapsed 이벤트 발행 → FlushEvents
+        think_all() → NPC 재결정
+}
+```
+
+### move Job duration 자동 계산 (v0.2.2)
+
+Python에서 move Job을 `duration=0`으로 삽입하면, C#이 자동으로 이동 시간을 계산:
+
+| 조건 | 계산 방법 | 최소값 |
+|------|----------|--------|
+| 같은 Location 내 | `CalculateTravelTime(fromX, toX, speedModifier)` | 1분 |
+| 다른 Location 간 | `PathFinder.FindPath()` + hop당 2분 | 1분 |
+
+```python
+# Python에서는 duration=0으로 삽입 — C#이 자동 계산
+morld.insert_job(unit_id, {
+    "name": "이동", "action": "move",
+    "region_id": 0, "location_id": 3,
+    "target_x": 90, "duration": 0,  # ← C#이 자동 계산
+})
+```
+
+### DES think() 규칙
+
+1. **모든 think() 경로는 반드시 job을 삽입해야 함** (duration > 0)
+2. Job 없으면 DES 루프가 무한 반복 (min duration = 0 → step = 0)
+3. stay job: `"action": "stay"` (NOT `"idle"`)
+4. move job: `"action": "move"`, duration=0 (C# 자동 계산)
+5. `_insert_idle_job(name, ms)` 헬퍼로 대기 job 삽입
+
+### C# 구현 위치
+
+- `script_system.cs`: `EstimateMoveTravelTime()` — 이동 시간 추정
+- `script_system_data_api.cs`: `AdvanceTimeDES()` — DES 루프, move duration 자동 계산
+
+---
+
 ## 파일 위치
 
 ### C#
@@ -540,12 +608,15 @@ agent._return_tool("axe")    # 도구함에 반납
 - `scripts/morld/schedule/DailySchedule.cs` - 스케줄 파싱
 - `scripts/system/think_system.cs` - Agent.think() 호출
 - `scripts/system/job_behavior_system.cs` - Job 실행
+- `scripts/system/script_system.cs` - EstimateMoveTravelTime (v0.2.2)
+- `scripts/system/script_system_data_api.cs` - AdvanceTimeDES, move duration 자동 계산 (v0.2.2)
 
 ### Python
 - `think/__init__.py` - BaseAgent, Phase 시스템, 활동 핸들러 8종, 동적 스케줄, 도구 관리
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
 - `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)
-- `survival.py` - NPC 만복도 추적 (register_npc, is_npc_hungry, npc_eat)
+- `think/trap_agent.py` - 덫 시스템 (토끼 굴 체크)
+- `survival.py` - NPC 만복도 추적 (register_npc, is_npc_hungry, npc_eat, 기절 시스템)
 - `assets/characters/*.py` - 캐릭터별 SCHEDULE/SCHEDULES 정의
 - `assets/base.py` - Object 컨테이너 헬퍼 (npc_store_item, npc_take_item, get_item_count)
 - `assets/objects/scavenge.py` - 비충전 수집 오브젝트 (도시 자원)
