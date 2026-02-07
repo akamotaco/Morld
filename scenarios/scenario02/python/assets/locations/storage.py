@@ -50,7 +50,8 @@ class Storage(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
         self.add_object(CraftingTable(), x=10)  # 입구 쪽
-        self.add_object(WallLamp(), x=90)
+        lamp_id = self.add_object(WallLamp(), x=90)
+        morld.set_unit_prop(lamp_id, "light:on", 0)  # 창고는 어두운 상태로 시작
 
         # 도구함 추가 및 도구 배치
         toolbox = Toolbox()

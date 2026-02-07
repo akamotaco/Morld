@@ -21,7 +21,7 @@ from assets.base import Object
 class Fireplace(Object):
     unique_id = "fireplace"
     name = "벽난로"
-    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
+    actions = ["call:look:살펴보기", "call:toggle_switch:불 끄기", "call:toggle_switch:불 피우기", "call:debug_props:(디버그) 속성 보기#"]
     props = {
         "light:on": 1,
         "light:value": 4,  # 0.4 (정수 prop → lighting.py에서 /10 변환)
@@ -32,12 +32,31 @@ class Fireplace(Object):
         "밤": "잔잔한 불씨가 남아 있다."
     }
 
+    def get_available_actions(self):
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        base = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
+        if is_on:
+            return ["call:toggle_switch:불 끄기"] + base
+        else:
+            return ["call:toggle_switch:불 피우기"] + base
+
     def look(self):
         """벽난로 살펴보기"""
         yield ui.dialog([
             "돌로 쌓아 만든 오래된 벽난로다.",
             "저녁이 되면 따뜻한 불이 피워진다."
         ])
+        morld.advance_time(1 * 60_000)
+
+    def toggle_switch(self):
+        """벽난로 불 켜기/끄기"""
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = 0 if is_on else 1
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        if new_state:
+            yield ui.dialog("벽난로에 불을 피웠다.")
+        else:
+            yield ui.dialog("벽난로의 불을 껐다.")
         morld.advance_time(1 * 60_000)
 
 
@@ -63,7 +82,23 @@ class WallLamp(Object):
     unique_id = "wall_lamp"
     name = "벽등"
     props = {"light:on": 1, "light:value": 5}
-    focus_text = {"default": "벽에 걸린 기름등. 은은한 빛을 내고 있다."}
+    actions = ["call:toggle_switch:끄기", "call:toggle_switch:켜기", "call:debug_props:(디버그) 속성 보기#"]
+    focus_text = {"default": "벽에 걸린 기름등."}
+
+    def get_available_actions(self):
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        base = ["call:debug_props:(디버그) 속성 보기#"]
+        if is_on:
+            return ["call:toggle_switch:끄기"] + base
+        else:
+            return ["call:toggle_switch:켜기"] + base
+
+    def toggle_switch(self):
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = 0 if is_on else 1
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        yield ui.dialog("등을 켰다." if new_state else "등을 껐다.")
+        morld.advance_time(1 * 60_000)
 
 
 class Candelabra(Object):
@@ -71,7 +106,26 @@ class Candelabra(Object):
     unique_id = "candelabra"
     name = "촛대"
     props = {"light:on": 1, "light:value": 3}
-    focus_text = {"default": "촛불이 켜진 촛대."}
+    actions = ["call:toggle_switch:끄기", "call:toggle_switch:켜기", "call:debug_props:(디버그) 속성 보기#"]
+    focus_text = {"default": "촛대."}
+
+    def get_available_actions(self):
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        base = ["call:debug_props:(디버그) 속성 보기#"]
+        if is_on:
+            return ["call:toggle_switch:끄기"] + base
+        else:
+            return ["call:toggle_switch:켜기"] + base
+
+    def toggle_switch(self):
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = 0 if is_on else 1
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        if new_state:
+            yield ui.dialog("촛불을 켰다.")
+        else:
+            yield ui.dialog("촛불을 껐다.")
+        morld.advance_time(1 * 60_000)
 
 
 class OilLamp(Object):
@@ -79,7 +133,23 @@ class OilLamp(Object):
     unique_id = "oil_lamp"
     name = "기름등"
     props = {"light:on": 1, "light:value": 4}
+    actions = ["call:toggle_switch:끄기", "call:toggle_switch:켜기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "기름을 넣어 쓰는 낡은 등."}
+
+    def get_available_actions(self):
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        base = ["call:debug_props:(디버그) 속성 보기#"]
+        if is_on:
+            return ["call:toggle_switch:끄기"] + base
+        else:
+            return ["call:toggle_switch:켜기"] + base
+
+    def toggle_switch(self):
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = 0 if is_on else 1
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        yield ui.dialog("등을 켰다." if new_state else "등을 껐다.")
+        morld.advance_time(1 * 60_000)
 
 
 class OldSofa(Object):

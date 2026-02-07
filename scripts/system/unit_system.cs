@@ -506,7 +506,7 @@ namespace SE
 			List<string> actions;
 			string blockedMessage = null;
 
-			if (!unit.IsObject && scriptSystem != null)
+			if (scriptSystem != null)
 			{
 				// Python에서 필터링된 액션 목록 조회
 				var filteredActions = scriptSystem.GetFilteredActions(targetUnitId);

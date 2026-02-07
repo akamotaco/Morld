@@ -94,6 +94,7 @@ class Player(Character):
         "can:put": 1,
 
         # 오브젝트 상호작용 - OOP 메서드명
+        "can:toggle_switch": 1,  # 등/벽난로 켜기/끄기
         "can:look": 1,
         "can:draw": 1,
         "can:drive": 1,

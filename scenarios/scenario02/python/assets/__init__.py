@@ -248,19 +248,24 @@ def get_available_actions(unit_id: int):
     Returns:
         필터링된 액션 문자열 리스트 또는 None (필터링 없음)
     """
-    from assets import characters
+    from assets import characters, objects
     import morld
 
+    # Character 확인 (기존)
     instance = characters.get_instance(unit_id)
-    if instance is None:
-        return None  # 캐릭터가 아니면 필터링 없음
+    if instance is not None:
+        # NPC Focus 시 심부름 visibility 업데이트
+        player_id = morld.get_player_id()
+        if player_id is not None:
+            _update_errand_visibility(player_id, unit_id)
 
-    # NPC Focus 시 심부름 visibility 업데이트
-    player_id = morld.get_player_id()
-    if player_id is not None:
-        _update_errand_visibility(player_id, unit_id)
+        if hasattr(instance, 'get_available_actions'):
+            return instance.get_available_actions()
+        return None
 
-    if hasattr(instance, 'get_available_actions'):
+    # Object 확인 (조명 등 동적 액션 지원)
+    instance = objects.get_instance(unit_id)
+    if instance is not None and hasattr(instance, 'get_available_actions'):
         return instance.get_available_actions()
 
     return None
