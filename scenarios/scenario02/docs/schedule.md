@@ -186,6 +186,13 @@ def get_status_text(self):
 # 스케줄 기반 채우기 (기존 Job 유지, 빈 시간만 채움)
 morld.fill_schedule_jobs_from(unit_id, SCHEDULE)
 
+# Job 삽입 (기존 Job 제거 후 삽입) — think()에서 주로 사용
+morld.insert_job(unit_id, {
+    "name": "이동", "action": "move",
+    "region_id": 0, "location_id": 3,
+    "target_x": 90, "duration": 0,
+})
+
 # NPC Job 즉시 설정 (Override)
 morld.set_npc_job(unit_id, "follow", duration=1_800_000)  # 30분
 
@@ -193,52 +200,80 @@ morld.set_npc_job(unit_id, "follow", duration=1_800_000)  # 30분
 morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ```
 
+> **참고**: `insert_job`은 `InsertJobWithClear` 사용 (기존 Job 전부 제거 후 1개 삽입).
+> `duration=0`인 move Job은 매 step 제거되므로, `think()`에서 매번 재삽입 필요.
+
 ---
 
 ## 5. NPC별 스케줄 예시
 
 ### 세라 (사냥꾼)
 ```
-05:00 기상      → 자기 방
-06:00 아침순찰  → 앞마당
-07:00 아침식사  → 식당
-09:00 사냥      → 사냥터
-12:00 점심식사  → 식당
-14:00 사냥      → 사냥터
-17:00 저녁순찰  → 숲 입구
-18:30 저녁식사  → 식당
-20:00 장비정비  → 자기 방
-21:30 수면      → 자기 방
+05:00 아침목욕    → 욕실
+05:30 기상(준비)  → 세라방
+06:00 아침순찰    → 앞마당
+07:00 아침식사    → 식당
+09:00 사냥        → 사냥터
+12:00 점심식사    → 식당
+14:00 벌목        → (동적 탐색)    ← v0.2.1 추가
+17:00 저녁순찰    → 숲 입구
+18:30 저녁식사    → 식당
+20:00 장비정비    → 세라방
+21:00 저택 소등   → (동적 탐색)    ← v0.2.1 추가
+21:30 수면        → 세라방
 ```
+
+> **벌목**: `location_id` 없음 → `activity_resolver`가 Tree 오브젝트를 동적 탐색.
+> 도끼 가져오기 → 벌목 → 도끼 반납의 phase-based 흐름 (후술).
 
 ### 리나 (채집 담당)
 ```
-06:00 기상      → 자기 방
-07:00 아침식사  → 식당
-08:00 빨래      → 뒷마당
-09:00 채집      → 채집터
-12:00 점심식사  → 식당
-14:00 채집      → 채집터
-17:00 빨래걷기  → 뒷마당
-18:30 저녁식사  → 식당
-19:30 자유시간  → 거실
-22:00 수면      → 자기 방
+06:00 아침목욕    → 욕실
+06:30 기상(준비)  → 리나방
+07:00 아침식사    → 식당
+08:00 빨래        → 뒷마당
+09:00 채집        → (동적 탐색)
+12:00 점심식사    → 식당
+14:00 채집        → (동적 탐색)
+17:00 빨래걷기    → 뒷마당
+18:30 저녁식사    → 식당
+19:30 자유시간    → 거실
+21:30 저택 소등   → (동적 탐색)    ← v0.2.1 추가
+22:00 수면        → 리나방
 ```
 
-### 밀라 (요리 담당)
+> **채집**: `location_id` 없음 → `activity_resolver`가 ResourceObject를 동적 탐색.
+
+### 밀라 (요리 담당, 계절별 SCHEDULES)
+
+밀라는 `SCHEDULES` dict를 사용하여 계절별로 다른 스케줄을 적용합니다.
+`MilaAgent.think()`에서 계절 변경을 감지해 자동 전환합니다.
+
+**봄 기준:**
 ```
-05:00 기상      → 자기 방
-06:00 아침준비  → 주방
-07:00 아침식사  → 식당
-08:00 설거지    → 주방
-09:00 청소      → 거실
-11:00 점심준비  → 주방
-12:00 점심식사  → 식당
-13:00 욕실청소  → 욕실
-14:00 휴식      → 거실
-17:00 저녁준비  → 주방
-...
+05:00 아침목욕    → 욕실
+05:30 기상(준비)  → 밀라방
+06:00 아침준비    → 주방
+07:00 아침식사    → 식당
+08:00 설거지      → 주방
+09:00 청소        → 거실
+11:00 점심준비    → 주방
+12:00 점심식사    → 식당
+13:00 정원가꾸기  → 뒷마당 (봄 한정)
+17:00 저녁준비    → 주방
+18:30 저녁식사    → 식당
+19:30 정리        → 주방
+21:30 저택 소등   → (동적 탐색)    ← v0.2.1 추가
+22:00 수면        → 밀라방
 ```
+
+**계절별 차이점:**
+| 계절 | 기상 | 오후 활동 | 소등/수면 |
+|------|------|----------|----------|
+| 봄 | 05:00 | 정원가꾸기 | 21:30/22:00 |
+| 여름 | 04:00 | 낮잠(더위) | 22:30/23:00 |
+| 가을 | 05:00 | 저장식품준비 | 21:30/22:00 |
+| 겨울 | 06:00 | 실내휴식 | 20:30/21:00 |
 
 ---
 
@@ -247,10 +282,10 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ### 문제점
 | 항목 | 현재 상태 | 문제 |
 |------|----------|------|
-| 위치 결정 | 하드코딩된 location_id | 유연성 없음 |
-| activity 효과 | 없음 (이동만) | 채집해도 아이템 획득 안됨 |
+| 위치 결정 | 고정 + 동적 탐색 혼용 | 대부분 하드코딩, 채집/사냥/벌목만 동적 |
+| activity 효과 | **채집/벌목 구현됨** (v0.2.1) | 나머지 활동(요리, 청소 등)은 이동만 |
 | 자원 관리 | 없음 | NPC가 배고파도 먹지 않음 |
-| 도구 사용 | 없음 | 낚시대 없이도 낚시 가능 |
+| 도구 사용 | **벌목 시 도끼 관리 구현됨** (v0.2.1) | 낚시대, 바구니 등은 미구현 |
 | 목적지 정보 | Python에 미노출 | "~하러 가는 중" 표현 불가 |
 
 ### 빠른 개선 (단기)
@@ -262,73 +297,42 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 
 ## 7. 진보된 스케줄 시스템 (계획)
 
-### Phase 1: Context 기반 Activity 중심 Location 탐색
+### Phase 1: Context 기반 Activity 중심 Location 탐색 — 부분 구현됨 (v0.2.1)
 
-**현재:**
+**구현 완료:**
+- `activity_resolver.py` — 활동별 동적 위치 탐색
+- 스케줄에서 `location_id` 생략 시 자동으로 resolver 호출
+- 현재 구현된 resolver: `채집`, `사냥`, `순찰`, `벌목`
+
 ```python
+# 스케줄에서 location_id 없이 activity만 지정
 SCHEDULE = [
-    {"activity": "채집", "location_id": 23, ...}  # 위치 하드코딩
+    {"name": "채집", "start": 540*_M, "end": 720*_M, "activity": "채집"},
+    {"name": "벌목", "start": 840*_M, "end": 1020*_M, "activity": "벌목"},
 ]
+
+# think/__init__.py의 _resolve_target()에서 자동 분기:
+# - location_id 있으면 → 고정 장소
+# - location_id 없으면 → activity_resolver.resolve_activity_location() 호출
 ```
 
-**개선 후:**
-```python
-SCHEDULE = [
-    {"activity": "채집", ...}  # 위치 없음
-]
-
-# think()에서 동적 결정
-def think(self):
-    activity = self.get_current_activity()
-
-    if activity == "채집":
-        # 지형 정보에서 채집 가능한 위치 탐색
-        location = self.find_location_for_activity("채집")
-        # 산딸기 덤불, 약초밭 등 중 선택
-
-    elif activity == "수면":
-        # 본인 소유 방 탐색
-        location = self.find_owned_room()
-        if not location:
-            location = self.find_shelter()  # 노숙 장소
-```
-
-**구현 요소:**
-- `Location.activities = ["채집", "낚시"]` - 장소별 가능한 활동
-- `Location.owner = "sera"` - 장소 소유자
-- `find_location_for_activity(activity)` - 활동에 맞는 장소 검색
+**미구현:**
+- `Location.activities` 같은 범용 매핑 (현재는 resolver 함수별 직접 탐색)
+- `Location.owner` 장소 소유자 체크 (수면은 `resolve_sleep_target` C# API 사용)
 
 ---
 
-### Phase 2: 영향력 있는 Activity
+### Phase 2: 영향력 있는 Activity — 부분 구현됨 (v0.2.1)
 
-**현재:** 이동만 하고 실제 효과 없음
+**구현 완료:**
+- `채집`: `_do_gather()` → ResourceObject에서 자원 수집 (npc_take_resource)
+- `벌목`: `_handle_chop()` → Tree.npc_chop() 호출
+- `소등`: `_handle_lights_off()` → 조명 끄기
 
-**개선 후:**
-```python
-# Activity 완료 시 효과 발생
-class LinaAgent(BaseAgent):
-    def on_activity_complete(self, activity, location):
-        if activity == "채집":
-            # 채집 결과물 인벤토리에 추가
-            items = self.roll_gathering_result(location)
-            for item in items:
-                morld.give_item(self.unit_id, item)
-
-            # 보관함으로 이동하여 put
-            storage = self.find_nearest_storage()
-            self.set_next_job("보관", storage, duration=10)
-
-        elif activity == "요리":
-            # 재료 소비, 요리 생성
-            morld.lost_item(self.unit_id, "food_fish")
-            morld.give_item(self.unit_id, "food_cooked_fish")
-```
-
-**구현 요소:**
-- `on_activity_complete(activity, location)` 콜백
-- 활동별 결과물 테이블
-- 보관함 위치 탐색 및 자동 이동
+**미구현:**
+- `on_activity_complete` 콜백 패턴 (현재는 도착 시 즉시 실행)
+- 보관함 자동 이동
+- 요리/청소 등 나머지 활동의 실질적 효과
 
 ---
 
@@ -371,15 +375,15 @@ class SeraAgent(BaseAgent):
 
 ### 구현 우선순위
 
-| 단계 | 내용 | 난이도 | 효과 |
-|------|------|--------|------|
-| 0 | 목적지 정보 노출 | 낮음 | 대화 개선 |
-| 1a | Location.activities 추가 | 중간 | 유연한 위치 결정 |
-| 1b | find_location_for_activity() | 중간 | 동적 탐색 |
-| 2a | on_activity_complete 콜백 | 중간 | 활동 효과 |
-| 2b | 보관함 자동 이동 | 중간 | 자원 순환 |
-| 3a | NPC 생존 시스템 | 높음 | 자율 행동 |
-| 3b | 도구/의류 자동 관리 | 높음 | 완전 자율 |
+| 단계 | 내용 | 난이도 | 효과 | 상태 |
+|------|------|--------|------|------|
+| 0 | 목적지 정보 노출 | 낮음 | 대화 개선 | 미구현 |
+| 1a | activity_resolver 동적 탐색 | 중간 | 유연한 위치 결정 | **구현됨** (채집/사냥/순찰/벌목) |
+| 1b | Location.activities 범용 매핑 | 중간 | 확장성 | 미구현 |
+| 2a | 채집/벌목 활동 효과 | 중간 | 활동 효과 | **구현됨** |
+| 2b | 보관함 자동 이동 | 중간 | 자원 순환 | 미구현 |
+| 3a | NPC 생존 시스템 | 높음 | 자율 행동 | 미구현 |
+| 3b | 도구/의류 자동 관리 | 높음 | 완전 자율 | **벌목 도끼만 구현됨** |
 
 ---
 
@@ -400,6 +404,84 @@ class SeraAgent(BaseAgent):
 
 ---
 
+## 8. v0.2.1 Phase 시스템
+
+### 개요
+
+v0.2.1에서 도입된 **Phase-based Activity** 시스템. 다단계 활동(벌목: 도끼 가져오기 → 벌목 → 도끼 반납)을 지원합니다.
+
+### 상태 변수
+
+```python
+self._activity_phase = "idle"    # 활동 내 단계
+self._activity_state = {}        # 활동별 임시 데이터
+self._action_taken = False       # 행동 결정 여부 (경고용)
+```
+
+activity가 변경되면 자동 리셋됩니다.
+
+### 활동 핸들러 디스패치
+
+```python
+# think/__init__.py (module-level)
+_ACTIVITY_HANDLERS = {
+    "소등": _handle_lights_off,
+    "벌목": _handle_chop,
+}
+
+# think() 내부:
+handler = _ACTIVITY_HANDLERS.get(activity)
+if handler:
+    handler(self, entry)        # 전용 핸들러
+else:
+    self._handle_default_activity(entry)  # 기본 (이동→환경체크→실행)
+```
+
+### 벌목 Phase 흐름
+
+```
+idle → getting_tool → idle → going_to_tree → returning_tool → idle
+```
+
+| Phase | 설명 |
+|-------|------|
+| `idle` | 도끼 소지 확인 → 있으면 `going_to_tree`, 없으면 `getting_tool` |
+| `getting_tool` | 창고(도구함)로 이동 → 도착 시 도끼 pick up → `idle` |
+| `going_to_tree` | 나무 위치로 이동 → 도착 시 npc_chop → `returning_tool` |
+| `returning_tool` | 창고로 이동 → 도착 시 도끼 반납 → `idle` |
+
+### 소등 Phase 흐름
+
+```
+idle → going → idle → going → ... → idle (완료)
+```
+
+| Phase | 설명 |
+|-------|------|
+| `idle` | 조명 켜진 실내 방 탐색 → 있으면 `going`, 없으면 완료 |
+| `going` | 해당 방으로 이동 → 도착 시 조명 끄기 → `idle` (다음 방) |
+
+### 도구 관리 API
+
+```python
+agent._has_tool("axe")       # 도끼 소지 확인
+agent._pickup_tool("axe")    # 도구함에서 가져오기
+agent._return_tool("axe")    # 도구함에 반납
+```
+
+도구함: `TOOL_STORAGE = {"region_id": 0, "location_id": 5, "x": 20}` (창고)
+
+### 시간대별 조명
+
+`_check_environment()`: NPC가 장소에 도착할 때 시간대를 확인하여 조명 자동 관리.
+
+| 시간대 | 조건 | 행동 |
+|--------|------|------|
+| 밤 (18:00~06:00) | 조명 꺼져있음 | 켜기 |
+| 낮 (06:00~18:00) | 조명 켜져있음 | 끄기 |
+
+---
+
 ## 파일 위치
 
 ### C#
@@ -410,5 +492,6 @@ class SeraAgent(BaseAgent):
 - `scripts/system/job_behavior_system.cs` - Job 실행
 
 ### Python
-- `think/__init__.py` - BaseAgent, think_all()
+- `think/__init__.py` - BaseAgent, Phase 시스템, 활동 핸들러, 도구 관리
+- `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목)
 - `assets/characters/*.py` - 캐릭터별 SCHEDULE 정의

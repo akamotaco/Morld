@@ -12,13 +12,20 @@ morld.get_player_id()
 morld.get_unit_info(unit_id)  # {name, region_id, location_id, activity, is_moving, is_traveling, ...}
 morld.get_unit_location(unit_id)
 morld.set_unit_location(unit_id, region_id, location_id)
-morld.get_unit_props(unit_id)
+morld.get_unit_props(unit_id)               # 모든 props dict 반환
+morld.get_unit_prop(unit_id, prop_name)     # 단일 prop 값 반환 (없으면 None)
+morld.get_unit_props_by_type(unit_id, type) # 특정 type의 props dict (예: "can" → {"sleep":1, "bath":1})
+morld.get_unit_prop_types(unit_id)          # prop type 목록 반환
 morld.set_unit(unit_id, field, value)  # name, type 등
 
 # ========================================
 # JobList 관련
 # ========================================
 morld.fill_schedule_jobs_from(unit_id, schedule)
+morld.insert_job(unit_id, job_dict)          # InsertWithClear (기존 Job 전부 제거 후 삽입)
+morld.insert_job_override(unit_id, job_dict) # InsertOverride (기존 Job 잘라내고 삽입)
+morld.insert_job_merge(unit_id, job_dict)    # InsertMerge (빈 공간에만 삽입)
+morld.clear_jobs(unit_id)                    # 모든 Job 제거
 morld.set_npc_job(unit_id, action, duration)  # NPC Job 즉시 설정 (duration: ms)
 morld.set_npc_time_consume(unit_id, action, duration)  # 시간 경과 포함 (duration: ms)
 
@@ -34,7 +41,8 @@ morld.queue_event(event_type, player_id, unit_ids)  # 이벤트 핸들러 큐에
 # ========================================
 morld.give_item(unit_id, item_id, count)
 morld.has_item(unit_id, item_id)
-morld.lost_item(unit_id, item_id, count)
+morld.remove_item(unit_id, item_id, count)   # 아이템 제거 (도구 이동 등)
+morld.lost_item(unit_id, item_id, count)     # 아이템 분실 (이벤트 로그 포함)
 
 # ========================================
 # Prop/로그
@@ -59,9 +67,17 @@ morld.is_time_frozen()
 # 위치 관련
 # ========================================
 morld.get_location_name(region_id, location_id)
+morld.get_location_info(region_id, location_id)  # {is_indoor, length, ...}
+morld.is_same_building(r1, l1, r2, l2)          # 두 Location이 같은 건물인지
 morld.get_units_at_location(region_id, location_id)
 morld.set_location_ground_id(region_id, location_id, ground_unit_id)
 morld.get_location_ground_id(region_id, location_id)
+morld.find_path(from_r, from_l, to_r, to_l, unit_id)  # 경로 탐색
+
+# ========================================
+# NPC 수면/행동 관련
+# ========================================
+morld.resolve_sleep_target(unit_id, region_id, location_id, owner_unique)  # 수면 장소 결정
 
 # ========================================
 # 자세/착석 관련 (Posture/Seat API)
@@ -284,27 +300,46 @@ def my_script(context_unit_id, *args):
 
 ## ThinkSystem과 Agent
 
+### BaseAgent 구조 (v0.2.1)
+
 ```python
 # think/__init__.py
 class BaseAgent:
+    TOOL_STORAGE = {"region_id": 0, "location_id": 5, "x": 20}  # 도구함 위치
+
     def __init__(self, unit_id):
         self.unit_id = unit_id
-
-    def get_info(self):
-        return morld.get_unit_info(self.unit_id)
-
-    def fill_schedule_jobs_from(self, schedule):
-        return morld.fill_schedule_jobs_from(self.unit_id, schedule)
+        self.schedule_stack = [None]     # [0] = 기본 스케줄
+        self._activity_phase = "idle"    # Phase 시스템
+        self._activity_state = {}        # 활동별 임시 데이터
+        self._action_taken = False       # 행동 결정 여부 (경고용)
 
     def think(self):
-        """AI 로직 - 서브클래스에서 오버라이드"""
-        pass
+        """매 step 호출 — 모든 행동 결정"""
+        # 1. 목욕/수면 시간대 → 전용 핸들러
+        # 2. 현재 activity 확인
+        # 3. activity 변경 시 phase/state 리셋
+        # 4. _ACTIVITY_HANDLERS 디스패치 또는 _handle_default_activity
+        ...
 
-@register_agent_class("sera")
-class SeraAgent(BaseAgent):
-    def think(self):
-        self.fill_schedule_jobs_from(Sera.SCHEDULE)
+# 활동 핸들러 레지스트리 (module-level)
+_ACTIVITY_HANDLERS = {
+    "소등": _handle_lights_off,
+    "벌목": _handle_chop,
+}
 ```
+
+### 주요 헬퍼
+
+| 메서드 | 설명 |
+|--------|------|
+| `_is_at(target)` | target location에 도착했는지 |
+| `_move_to(target, name)` | 이동 job 삽입 (이동 중이면 스킵) |
+| `_resolve_target(entry)` | 장소 결정 (고정 or resolver) |
+| `_check_environment(r, l)` | 시간대별 조명 켜기/끄기 |
+| `_has_tool(id)` / `_pickup_tool(id)` / `_return_tool(id)` | 도구 관리 |
+
+상세: [schedule.md#8](schedule.md#8-v021-phase-시스템)
 
 ---
 

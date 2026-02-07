@@ -25,12 +25,6 @@ namespace SE
             this.height = this.texture.GetHeight();
         }
 
-        // internal void Apply(ref Sprite3D s3d, float scale=1, bool absolute=false)
-        // {
-        //     s3d.Texture = this.texture;
-        //     s3d.Offset = new Vector2(centerX,centerY);
-        //     s3d.PixelSize = absolute ? scale : 1.0f/height * scale;
-        // }
     }
 
     public class SpriteAnimInfo

@@ -91,13 +91,3 @@ def find_matching_recipe(inventory_uniques: dict):
             return recipe_id, recipe, int(max_count)
 
     return None
-
-
-def get_recipe_by_id(recipe_id: str):
-    """레시피 ID로 레시피 조회"""
-    return RECIPES.get(recipe_id)
-
-
-def list_all_recipes():
-    """모든 레시피 목록 반환"""
-    return list(RECIPES.items())

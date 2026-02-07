@@ -1,5 +1,14 @@
 # NPC 생활 시스템 (Life System)
 
+> **이 문서는 설계/계획 문서입니다.** 대부분의 내용은 아직 구현되지 않았습니다.
+>
+> **v0.2.1에서 부분 구현된 항목:**
+> - 동적 Activity 탐색 → `activity_resolver.py` (채집/사냥/순찰/벌목)
+> - 도구 기반 Activity → 벌목 시 도끼 가져오기/반납 (`_handle_chop`)
+> - Activity 결과물 → 채집(`_do_gather`), 벌목(`npc_chop`)
+>
+> 현재 구현 상태는 [schedule.md#8](schedule.md#8-v021-phase-시스템) 참조.
+
 ## 개요
 
 NPC가 자연스러운 생활 패턴을 보이도록 하는 자율 행동 시스템입니다.
@@ -38,7 +47,12 @@ NPC가 자연스러운 생활 패턴을 보이도록 하는 자율 행동 시스
 
 ---
 
-## 1. 동적 Activity 탐색
+## 1. 동적 Activity 탐색 — 부분 구현됨 (v0.2.1)
+
+> `activity_resolver.py`에서 채집/사냥/순찰/벌목 구현. 아래 설계와 다른 점:
+> - `Location.activities` 속성 없이, resolver 함수가 직접 오브젝트 탐색
+> - `terrain.find_activity()` 대신 `resolve_activity_location(unit_id, activity, region_id)` 사용
+> - 수면은 C# `resolve_sleep_target` API 사용
 
 ### 현재 문제
 
@@ -650,19 +664,19 @@ class LifeAgent(BaseAgent):
 
 ## 구현 우선순위
 
-| 단계 | 내용 | 의존성 | 난이도 |
-|------|------|--------|--------|
-| 1a | Location.activities 속성 | 없음 | 낮음 |
-| 1b | terrain.find_activity() | 1a | 중간 |
-| 2a | 욕구 props 정의 | 없음 | 낮음 |
-| 2b | 욕구 증가/감소 로직 | 2a | 중간 |
-| 2c | 긴급 행동 트리거 | 2b, 1b | 중간 |
-| 3a | 소유물 검색 API | 없음 | 중간 |
-| 3b | 도구 기반 Activity | 3a | 중간 |
-| 3c | 결과물 저장소 이동 | 3a, 1b | 높음 |
-| 4a | 상호작용 조건 체크 | 2a | 중간 |
-| 4b | NPC 주도 대화 | 4a | 중간 |
-| 5 | think() 통합 | 전체 | 높음 |
+| 단계 | 내용 | 의존성 | 난이도 | 상태 |
+|------|------|--------|--------|------|
+| 1a | Location.activities 속성 | 없음 | 낮음 | 미구현 (대안: activity_resolver) |
+| 1b | 동적 Activity 탐색 | 1a | 중간 | **부분 구현** (resolver 4종) |
+| 2a | 욕구 props 정의 | 없음 | 낮음 | 미구현 |
+| 2b | 욕구 증가/감소 로직 | 2a | 중간 | 미구현 |
+| 2c | 긴급 행동 트리거 | 2b, 1b | 중간 | 미구현 |
+| 3a | 소유물 검색 API | 없음 | 중간 | 미구현 |
+| 3b | 도구 기반 Activity | 3a | 중간 | **벌목 도끼만 구현** |
+| 3c | 결과물 저장소 이동 | 3a, 1b | 높음 | 미구현 |
+| 4a | 상호작용 조건 체크 | 2a | 중간 | 미구현 |
+| 4b | NPC 주도 대화 | 4a | 중간 | 미구현 |
+| 5 | think() 통합 | 전체 | 높음 | 미구현 |
 
 ---
 
