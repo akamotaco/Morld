@@ -18,7 +18,8 @@ from .outdoor import (
     GardenBench, Well, GardenPlot, DryingRack, FishingSpot
 )
 from .nature import (
-    ResourceObject, AppleTree, BerryBush, MushroomPatch
+    ResourceObject, AppleTree, BerryBush, MushroomPatch,
+    WildBerryBush, WildHerbPatch
 )
 from .grounds import (
     GroundWooden, GroundStone, GroundMarble, GroundTile,
@@ -46,6 +47,7 @@ __all__ = [
     'GardenBench', 'Well', 'GardenPlot', 'DryingRack', 'FishingSpot',
     # nature (자원 생성)
     'ResourceObject', 'AppleTree', 'BerryBush', 'MushroomPatch',
+    'WildBerryBush', 'WildHerbPatch',
     # grounds
     'GroundWooden', 'GroundStone', 'GroundMarble', 'GroundTile',
     'GroundDirt', 'GroundGrass', 'GroundForest', 'GroundRocky',

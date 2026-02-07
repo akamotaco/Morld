@@ -26,6 +26,8 @@ RESOURCE_CONFIG = {
     "apple_tree": (720 * MILLIS_PER_MINUTE, 3),      # 12시간마다, 최대 3개 (포만감 25)
     "berry_bush": (480 * MILLIS_PER_MINUTE, 5),      # 8시간마다, 최대 5개 (포만감 10)
     "mushroom_patch": (600 * MILLIS_PER_MINUTE, 4),  # 10시간마다, 최대 4개 (포만감 15)
+    "wild_berry_bush": (600 * MILLIS_PER_MINUTE, 3), # 10시간마다, 최대 3개 (도시 야생)
+    "wild_herb_patch": (720 * MILLIS_PER_MINUTE, 2), # 12시간마다, 최대 2개 (도시 야생)
 }
 
 # === 나무 자원 설정 (props 기반) ===

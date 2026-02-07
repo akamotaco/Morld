@@ -204,6 +204,20 @@ class ParkingLot(Location):
         from assets.objects.scavenge import BrokenVendingMachine
         self.add_object(BrokenVendingMachine(), x=100)
 
+        # 야생 식물 (충전 자원 - 도시 폐허에 자생)
+        from assets.objects.nature import WildBerryBush, WildHerbPatch
+        from think.resource_agent import register_resource_object
+
+        wild_berry = WildBerryBush()
+        berry_id = self.add_object(wild_berry, x=220)
+        register_resource_object(berry_id, "wild_berry_bush")
+        wild_berry.spawn_resource()  # 초기 자원 1개
+
+        wild_herb = WildHerbPatch()
+        herb_id = self.add_object(wild_herb, x=250)
+        register_resource_object(herb_id, "wild_herb_patch")
+        wild_herb.spawn_resource()  # 초기 자원 1개
+
         # 주차장 옆 벤치
         from assets.objects.outdoor import StreetBench
         bench = StreetBench()

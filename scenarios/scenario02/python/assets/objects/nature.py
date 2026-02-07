@@ -201,6 +201,42 @@ class HerbGarden(ResourceObject):
             return "약초밭. 아직 약초가 자라지 않았다."
 
 
+class WildBerryBush(ResourceObject):
+    """야생 덤불 - 도시 폐허에 자생하는 산딸기 (주차장 등)"""
+    unique_id = "wild_berry_bush"
+    name = "야생 덤불"
+    resource_item_unique_id = "food_wild_berry"
+    max_resources = 3
+    actions = ["container#", "call:debug_props:(디버그) 속성 보기#"]
+
+    def get_focus_text(self):
+        count = self.get_resource_count()
+        if count >= 3:
+            return "아스팔트 틈을 뚫고 자란 야생 덤불. 작은 열매가 빨갛게 익어 있다."
+        elif count > 0:
+            return f"주차장 구석에 자란 야생 덤불. 열매가 {count}개 있다."
+        else:
+            return "야생 덤불. 열매는 아직 익지 않았다."
+
+
+class WildHerbPatch(ResourceObject):
+    """야생 약초 - 도시 폐허에 자생하는 약초"""
+    unique_id = "wild_herb_patch"
+    name = "야생 약초"
+    resource_item_unique_id = "food_herb"
+    max_resources = 2
+    actions = ["container#", "call:debug_props:(디버그) 속성 보기#"]
+
+    def get_focus_text(self):
+        count = self.get_resource_count()
+        if count >= 2:
+            return "콘크리트 틈에서 자라난 야생 허브. 은은한 향기가 난다."
+        elif count > 0:
+            return f"야생 약초. 수확 가능한 것이 {count}개 있다."
+        else:
+            return "야생 약초. 아직 자라지 않았다."
+
+
 class RabbitBurrow(Object):
     """
     토끼 굴 - 토끼 덫 설치 장소
