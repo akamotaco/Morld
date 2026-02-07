@@ -403,6 +403,44 @@ class Character(Unit):
 
     STEALTH_REACTIONS: dict = None
 
+    # EQUIP_CHANGE_REACTIONS: 플레이어 장비 변경 시 반응 텍스트
+    #   EQUIP_CHANGE_REACTIONS = {
+    #       "equip": "세라가 무기를 힐끗 보더니 고개를 끄덕인다.",
+    #       "unequip": "세라가 빈 손을 보고 살짝 고개를 갸웃한다.",
+    #   }
+
+    EQUIP_CHANGE_REACTIONS: dict = None
+
+    # PROGRESS_DIALOGS: 진척도별 대화 (일회성 플래그)
+    #   PROGRESS_DIALOGS = {
+    #       1: {"fallback": ["......", "...무슨 일이야?"], "dialog": ["......", "...내 이름은 세라.", ...]},
+    #       2: {"fallback": [...], "dialog": [...]},
+    #       3: {"fallback": [...], "dialog": [...]},
+    #   }
+    # dialog 내 "{player_name}" 은 자동 치환됨
+
+    PROGRESS_DIALOGS: dict = None
+
+    # FRIENDLY_TALK_CONFIG: 친밀도별 대화 (진척도 증가)
+    #   FRIENDLY_TALK_CONFIG = {
+    #       "high": {"dialog": [...], "progress_cap": 3},
+    #       "mid":  {"dialog": [...], "progress_cap": 3},
+    #   }
+
+    FRIENDLY_TALK_CONFIG: dict = None
+
+    # ROOM_PRIVACY_CONFIG: 수면/목욕 시 프라이버시 이벤트
+    #   ROOM_PRIVACY_CONFIG = {
+    #       "수면": {
+    #           "threshold": 50,
+    #           "high": {"dialog": ["[세라]", "..."]},
+    #           "low":  {"dialog": ["[세라]", "..."], "teleport": 1, "after": "세라의 방에서 나왔다."},
+    #       },
+    #       "목욕": {...},
+    #   }
+
+    ROOM_PRIVACY_CONFIG: dict = None
+
     def get_stealth_success_reaction(self, player_id: int) -> Optional[str]:
         """
         은신 성공 시 반응 텍스트 반환
@@ -1420,6 +1458,115 @@ class Character(Unit):
         progress_key = f"관계:{self.name}:진척도"
         morld.set_unit_prop(player_id, progress_key, 1)
 
+    def on_meet_player(self, player_id):
+        """플레이어와 만났을 때 - Generator 기반"""
+        unit_info = morld.get_unit_info(self.instance_id)
+
+        # 수면 중이면 반응 없음
+        if unit_info and unit_info.get("activity") == "수면":
+            return None
+
+        # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
+        privacy = self._check_room_privacy(player_id)
+        if privacy is not None:
+            return privacy
+
+        # 첫 만남 여부 판정
+        if not self.is_first_meet(player_id):
+            # NPC 주도 스킨십 체크 (첫 만남 이후에만)
+            if self.should_initiate_skinship(player_id):
+                self.mark_initiative_cooldown()
+                from npc_initiative import start_npc_initiative
+                return start_npc_initiative(player_id, self.instance_id)
+            return None
+
+        # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
+        return self._first_meet_handler(player_id)
+
+    def on_equip_change(self, player_id, item_id, is_equip):
+        """플레이어 장비 변경 시 반응 - EQUIP_CHANGE_REACTIONS 기반"""
+        if not self.EQUIP_CHANGE_REACTIONS:
+            return None
+
+        item_info = morld.get_item_info(item_id)
+        if not item_info:
+            return None
+
+        equip_props = item_info.get("equip_props", {})
+        if not equip_props.get("장착:손"):
+            return None  # 무기가 아니면 무시
+
+        key = "equip" if is_equip else "unequip"
+        text = self.EQUIP_CHANGE_REACTIONS.get(key)
+        if text:
+            morld.add_action_log(text)
+
+        return None
+
+    # ========================================
+    # 진척도/친밀 대화 (PROGRESS_DIALOGS / FRIENDLY_TALK_CONFIG)
+    # ========================================
+
+    def _talk_progress(self, level, context):
+        """진척도 대화 - PROGRESS_DIALOGS 기반 (일회성 플래그)"""
+        if not self.PROGRESS_DIALOGS or level not in self.PROGRESS_DIALOGS:
+            yield ui.dialog(f"[{self.name}]\n......")
+            return
+
+        config = self.PROGRESS_DIALOGS[level]
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        flag_key = f"대화:{player_name}:진척도{level}"
+        props = morld.get_unit_props(self.instance_id)
+        if props and props.get(flag_key):
+            yield ui.dialog([f"[{name}]"] + config["fallback"])
+            return
+
+        morld.set_unit_prop(self.instance_id, flag_key, 1)
+        dialog = [line.format(player_name=player_name) if "{player_name}" in line else line
+                  for line in config["dialog"]]
+        yield ui.dialog([f"[{name}]"] + dialog)
+
+    def _talk_progress_1(self, context):
+        return self._talk_progress(1, context)
+
+    def _talk_progress_2(self, context):
+        return self._talk_progress(2, context)
+
+    def _talk_progress_3(self, context):
+        return self._talk_progress(3, context)
+
+    def _talk_friendly(self, level, context):
+        """친밀 대화 - FRIENDLY_TALK_CONFIG 기반 (진척도 증가)"""
+        if not self.FRIENDLY_TALK_CONFIG or level not in self.FRIENDLY_TALK_CONFIG:
+            yield ui.dialog(f"[{self.name}]\n......")
+            return
+
+        config = self.FRIENDLY_TALK_CONFIG[level]
+        name = context.get("name", self.name)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        props = morld.get_unit_props(self.instance_id)
+        progress_key = f"관계:{player_name}:진척도"
+        current = props.get(progress_key, 0) if props else 0
+        if current < config.get("progress_cap", 3):
+            morld.modify_prop(self.instance_id, progress_key, 1)
+
+        dialog = [line.format(player_name=player_name) if "{player_name}" in line else line
+                  for line in config["dialog"]]
+        yield ui.dialog([f"[{name}]"] + dialog)
+
+    def _talk_friendly_high(self, context):
+        return self._talk_friendly("high", context)
+
+    def _talk_friendly_mid(self, context):
+        return self._talk_friendly("mid", context)
+
     def get_initiative_event(self, player_id: int):
         """
         NPC 주도 이벤트 조회 - Focus 시점에서 호출
@@ -1497,7 +1644,7 @@ class Character(Unit):
 
     def _on_room_privacy(self, player_id: int, activity: str):
         """
-        프라이버시 이벤트 기본 구현 (서브클래스에서 오버라이드)
+        프라이버시 이벤트 - ROOM_PRIVACY_CONFIG 기반
 
         Args:
             player_id: 플레이어 유닛 ID
@@ -1506,7 +1653,32 @@ class Character(Unit):
         Returns:
             Generator 또는 None
         """
-        return None
+        if not self.ROOM_PRIVACY_CONFIG:
+            return None
+        config = self.ROOM_PRIVACY_CONFIG.get(activity)
+        if not config:
+            return None
+
+        props = morld.get_unit_props(self.instance_id)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
+        info = morld.get_unit_info(self.instance_id)
+
+        threshold = config.get("threshold", 50)
+        tier = config["high"] if affection >= threshold else config["low"]
+
+        def handler():
+            yield ui.dialog(tier["dialog"])
+            teleport_loc = tier.get("teleport")
+            if teleport_loc is not None:
+                morld.stand_up(player_id)
+                if info:
+                    morld.set_unit_location(player_id, info["region_id"], teleport_loc, 120)
+                after = tier.get("after")
+                if after:
+                    yield ui.dialog([after])
+        return handler()
 
     def _run_event_dialog(self, event_name: str, **kwargs):
         """

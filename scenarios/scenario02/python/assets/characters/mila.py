@@ -358,6 +358,98 @@ class Mila(Character):
         "effects": {"호감": -1, "애정": 1},  # 부끄러워서 호감 감소, 하지만 사랑은 증가
     }
 
+    EQUIP_CHANGE_REACTIONS = {
+        "equip": "밀라가 걱정스러운 눈으로 무기를 바라본다.",
+        "unequip": "밀라가 안심한 듯 미소를 짓는다.",
+    }
+
+    FRIENDLY_TALK_CONFIG = {
+        "high": {
+            "dialog": [
+                "오셨군요~",
+                "...괜찮으세요? 뭔가 필요하신 거 있으세요?",
+            ],
+            "progress_cap": 3,
+        },
+        "mid": {
+            "dialog": [
+                "안녕하세요!",
+                "...뭐 드시고 싶은 거 있으세요?",
+            ],
+            "progress_cap": 1,
+        },
+    }
+
+    PROGRESS_DIALOGS = {
+        1: {
+            "fallback": ["오셨군요~", "뭔가 필요하신 게 있으세요?"],
+            "dialog": [
+                "저요?",
+                "저는 밀라예요. 여기서 살림을 맡고 있어요.",
+                "요리, 청소, 빨래... 뭐, 그런 것들이요.",
+                "세라랑 리나도 여기 살고 있어요.",
+                "세라는... 좀 무뚝뚝하지만, 마음은 따뜻한 아이예요.",
+                "리나는 활발하고 귀여운 동생이에요.",
+                "...다들 소중한 가족이에요.",
+            ],
+        },
+        2: {
+            "fallback": ["오셨군요~", "오늘은 뭐 해드릴까요?"],
+            "dialog": [
+                "제가 좋아하는 거요?",
+                "음... 요리하는 걸 좋아해요.",
+                "누군가가 제가 만든 음식을 맛있게 먹을 때...",
+                "그 표정을 보면 정말 행복해져요.",
+                "특히 새로운 레시피가 성공했을 때!",
+                "아, 그리고... 조용히 차 마시는 시간도 좋아요.",
+                "혼자 있는 시간이... 싫지 않아요.",
+                "...가끔은요.",
+            ],
+        },
+        3: {
+            "fallback": ["오셨군요~", "...그냥 보고 싶었어요."],
+            "dialog": [
+                "예전 일이요...?",
+                "...기억나는 게 많지 않아요.",
+                "어느 날 눈을 떴을 때, 이미 이 저택에 있었어요.",
+                "...혼자였어요.",
+                "그래서... 누군가를 돌보는 게 좋았나 봐요.",
+                "세라를 발견했을 때, 정말 기뻤어요.",
+                "리나도... 그 애도 혼자였거든요.",
+                "...다들 기억이 없대요.",
+                "하지만 괜찮아요.",
+                "지금 이렇게... 함께 있으니까요.",
+            ],
+        },
+    }
+
+    ROOM_PRIVACY_CONFIG = {
+        "수면": {
+            "threshold": 50,
+            "high": {
+                "dialog": ["[밀라]", "어... 여기 있었어?", "...괜찮아, 그냥 잘게."],
+            },
+            "low": {
+                "dialog": ["[밀라]", "...자려고 하는데, 나가줄 수 있어?"],
+                "teleport": 1,
+                "after": "밀라의 방에서 나왔다.",
+            },
+        },
+        "목욕": {
+            "threshold": 70,
+            "high": {
+                "dialog": ["[밀라]", "어엇!? 왜, 왜 여기 있어!?", "...나, 나가줘! 지금 당장!"],
+                "teleport": 1,
+                "after": "욕실에서 나왔다.",
+            },
+            "low": {
+                "dialog": ["[밀라]", "......!!", "밀라가 얼굴이 새빨개져서 소리를 질렀다."],
+                "teleport": 1,
+                "after": "욕실에서 쫓겨났다.",
+            },
+        },
+    }
+
     # ========================================
     # 스킨십 반응 (action:timing → 조건부 대사 리스트)
     # 형식: (조건dict, [대사들]) - 조건 충족 시 대사들이 후보에 추가
@@ -419,166 +511,8 @@ class Mila(Character):
     }
 
     # ========================================
-    # TALK_RULES에서 "_메서드명"으로 위임됨
-    # ========================================
-
-    def _talk_friendly_high(self, context):
-        """호감도 70 이상 - 진척도 증가"""
-        name = context.get("name", self.name)
-        player_id = morld.get_player_id()
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-
-        # 진척도 체크 및 증가
-        prop_key = f"관계:{player_name}:진척도"
-        props = morld.get_unit_props(self.instance_id)
-        progress = props.get(prop_key, 0) if props else 0
-
-        if progress < 3:
-            morld.modify_prop(self.instance_id, prop_key, 1)
-
-        yield ui.dialog([
-            f"[{name}]",
-            "오셨군요~",
-            "...괜찮으세요? 뭔가 필요하신 거 있으세요?",
-        ])
-
-    def _talk_friendly_mid(self, context):
-        """호감도 50 이상 - 진척도 증가"""
-        name = context.get("name", self.name)
-        player_id = morld.get_player_id()
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-
-        # 진척도 체크 및 증가
-        prop_key = f"관계:{player_name}:진척도"
-        props = morld.get_unit_props(self.instance_id)
-        progress = props.get(prop_key, 0) if props else 0
-
-        if progress < 1:
-            morld.modify_prop(self.instance_id, prop_key, 1)
-
-        yield ui.dialog([
-            f"[{name}]",
-            "안녕하세요!",
-            "...뭐 드시고 싶은 거 있으세요?",
-        ])
-
-    def _talk_progress_1(self, context):
-        """진척도 1 - 자신에 대한 이야기 (일회성)"""
-        name = context.get("name", self.name)
-        player_id = morld.get_player_id()
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-
-        # 플래그 체크 (이미 들었으면 일반 대화)
-        flag_key = f"대화:{player_name}:진척도1"
-        props = morld.get_unit_props(self.instance_id)
-        if props and props.get(flag_key):
-            yield ui.dialog([f"[{name}]", "오셨군요~", "뭔가 필요하신 게 있으세요?"])
-            return
-
-        # 플래그 설정 및 사적인 이야기
-        morld.set_unit_prop(self.instance_id, flag_key, 1)
-
-        yield ui.dialog([
-            f"[{name}]",
-            "저요?",
-            "저는 밀라예요. 여기서 살림을 맡고 있어요.",
-            "요리, 청소, 빨래... 뭐, 그런 것들이요.",
-            "세라랑 리나도 여기 살고 있어요.",
-            "세라는... 좀 무뚝뚝하지만, 마음은 따뜻한 아이예요.",
-            "리나는 활발하고 귀여운 동생이에요.",
-            "...다들 소중한 가족이에요.",
-        ])
-
-    def _talk_progress_2(self, context):
-        """진척도 2 - 좋아하는 것 (일회성)"""
-        name = context.get("name", self.name)
-        player_id = morld.get_player_id()
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-
-        # 플래그 체크
-        flag_key = f"대화:{player_name}:진척도2"
-        props = morld.get_unit_props(self.instance_id)
-        if props and props.get(flag_key):
-            yield ui.dialog([f"[{name}]", "오셨군요~", "오늘은 뭐 해드릴까요?"])
-            return
-
-        # 플래그 설정 및 사적인 이야기
-        morld.set_unit_prop(self.instance_id, flag_key, 1)
-
-        yield ui.dialog([
-            f"[{name}]",
-            "제가 좋아하는 거요?",
-            "음... 요리하는 걸 좋아해요.",
-            "누군가가 제가 만든 음식을 맛있게 먹을 때...",
-            "그 표정을 보면 정말 행복해져요.",
-            "특히 새로운 레시피가 성공했을 때!",
-            "아, 그리고... 조용히 차 마시는 시간도 좋아요.",
-            "혼자 있는 시간이... 싫지 않아요.",
-            "...가끔은요.",
-        ])
-
-    def _talk_progress_3(self, context):
-        """진척도 3 - 과거 이야기 (일회성)"""
-        name = context.get("name", self.name)
-        player_id = morld.get_player_id()
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-
-        # 플래그 체크
-        flag_key = f"대화:{player_name}:진척도3"
-        props = morld.get_unit_props(self.instance_id)
-        if props and props.get(flag_key):
-            yield ui.dialog([f"[{name}]", "오셨군요~", "...그냥 보고 싶었어요."])
-            return
-
-        # 플래그 설정 및 사적인 이야기
-        morld.set_unit_prop(self.instance_id, flag_key, 1)
-
-        yield ui.dialog([
-            f"[{name}]",
-            "예전 일이요...?",
-            "...기억나는 게 많지 않아요.",
-            "어느 날 눈을 떴을 때, 이미 이 저택에 있었어요.",
-            "...혼자였어요.",
-            "그래서... 누군가를 돌보는 게 좋았나 봐요.",
-            "세라를 발견했을 때, 정말 기뻤어요.",
-            "리나도... 그 애도 혼자였거든요.",
-            "...다들 기억이 없대요.",
-            "하지만 괜찮아요.",
-            "지금 이렇게... 함께 있으니까요.",
-        ])
-
-    # ========================================
     # 이벤트 핸들러
     # ========================================
-
-    def on_meet_player(self, player_id):
-        """플레이어와 처음 만났을 때 - Generator 기반"""
-        unit_info = morld.get_unit_info(self.instance_id)
-
-        # 수면 중이면 반응 없음
-        if unit_info and unit_info.get("activity") == "수면":
-            return None
-
-        # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
-        privacy = self._check_room_privacy(player_id)
-        if privacy is not None:
-            return privacy
-
-        # 첫 만남 여부 판정 (관계:밀라:진척도 <= 0)
-        if not self.is_first_meet(player_id):
-            # NPC 주도 스킨십 체크 (첫 만남 이후에만)
-            if self.should_initiate_skinship(player_id):
-                from npc_initiative import start_npc_initiative
-                return start_npc_initiative(player_id, self.instance_id)
-            return None
-
-        # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
-        return self._first_meet_handler(player_id)
 
     def _first_meet_handler(self, player_id):
         """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
@@ -674,83 +608,6 @@ class Mila(Character):
 
         # 첫 만남 완료 처리 (관계:밀라:진척도 = 1)
         self.mark_first_meet_done(player_id)
-
-    def on_equip_change(self, player_id, item_id, is_equip):
-        """플레이어 장비 변경 시 반응"""
-        # 무기(장착:손) 체크
-        item_info = morld.get_item_info(item_id)
-        if not item_info:
-            return None
-
-        equip_props = item_info.get("equip_props", {})
-        if not equip_props.get("장착:손"):
-            return None  # 무기가 아니면 무시
-
-        if is_equip:
-            morld.add_action_log("밀라가 걱정스러운 눈으로 무기를 바라본다.")
-        else:
-            morld.add_action_log("밀라가 안심한 듯 미소를 짓는다.")
-
-        return None
-
-    # ========================================
-    # 프라이버시 이벤트 (수면 시 방 퇴출)
-    # ========================================
-
-    def _on_room_privacy(self, player_id, activity):
-        """밀라가 수면/목욕 목적으로 도착했는데 플레이어가 있을 때"""
-        props = morld.get_unit_props(self.instance_id)
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
-        info = morld.get_unit_info(self.instance_id)
-
-        if activity == "수면":
-            if affection >= 50:
-                def handler():
-                    yield ui.dialog([
-                        "[밀라]",
-                        "어... 여기 있었어?",
-                        "...괜찮아, 그냥 잘게."
-                    ])
-                return handler()
-            else:
-                def handler():
-                    yield ui.dialog([
-                        "[밀라]",
-                        "...자려고 하는데, 나가줄 수 있어?"
-                    ])
-                    morld.stand_up(player_id)
-                    if info:
-                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
-                    yield ui.dialog(["밀라의 방에서 나왔다."])
-                return handler()
-        elif activity == "목욕":
-            if affection >= 70:
-                def handler():
-                    yield ui.dialog([
-                        "[밀라]",
-                        "어엇!? 왜, 왜 여기 있어!?",
-                        "...나, 나가줘! 지금 당장!"
-                    ])
-                    morld.stand_up(player_id)
-                    if info:
-                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
-                    yield ui.dialog(["욕실에서 나왔다."])
-                return handler()
-            else:
-                def handler():
-                    yield ui.dialog([
-                        "[밀라]",
-                        "......!!",
-                        "밀라가 얼굴이 새빨개져서 소리를 질렀다."
-                    ])
-                    morld.stand_up(player_id)
-                    if info:
-                        morld.set_unit_location(player_id, info["region_id"], 1, 120)
-                    yield ui.dialog(["욕실에서 쫓겨났다."])
-                return handler()
-        return None
 
     # ========================================
     # 침대 이벤트
