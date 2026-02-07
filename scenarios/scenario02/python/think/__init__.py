@@ -395,6 +395,10 @@ class BaseAgent:
             self._activity_phase = "idle"
             self._activity_state = {}
 
+        # 3.5. 동적 entry 해석
+        if entry.get("dynamic"):
+            entry = self._resolve_dynamic_entry(entry)
+
         # 4. 활동 핸들러 디스패치 (phase-based)
         activity = entry.get("activity", "대기")
         handler = _ACTIVITY_HANDLERS.get(activity)
@@ -689,6 +693,62 @@ class BaseAgent:
         _handle_eat(self)
         return True
 
+    # ========================================
+    # 동적 스케줄 해석
+    # ========================================
+
+    def _resolve_dynamic_entry(self, entry):
+        """동적 스케줄 entry를 조건 평가 후 확정된 entry로 변환"""
+        # 이미 해석된 결과가 있으면 반환
+        cached = self._activity_state.get("resolved_entry")
+        if cached:
+            return cached
+
+        for candidate in entry.get("candidates", []):
+            condition = candidate.get("condition")
+            if condition is None or self._evaluate_condition(condition):
+                resolved = dict(entry)
+                resolved["activity"] = candidate["activity"]
+                # candidate에 장소 정보가 있으면 오버라이드
+                for key in ("location_id", "region_id", "x"):
+                    if key in candidate:
+                        resolved[key] = candidate[key]
+                self._activity_state["resolved_entry"] = resolved
+                return resolved
+
+        # 모든 조건 불충족 → entry 그대로
+        return entry
+
+    def _evaluate_condition(self, condition):
+        """동적 스케줄 조건 평가 (True=활동 필요)"""
+        if condition == "need_fish":
+            return self._check_storage_need("kitchen_fridge", "food_fish", 3)
+        elif condition == "need_logs":
+            return self._check_storage_need("ingredient_storage", "log", 5)
+        elif condition == "need_food":
+            return self._check_storage_need(self.food_storage_unique_id, None, 10)
+        elif condition == "can_cook":
+            # 냉장고에 재료 2개 이상이면 요리 가능
+            return not self._check_storage_need(self.food_storage_unique_id, None, 2)
+        elif condition == "need_supplies":
+            return self._check_storage_need(self.food_storage_unique_id, None, 5)
+        return False
+
+    def _check_storage_need(self, storage_uid, item_uid, threshold):
+        """저장소 아이템 부족 여부 (True=부족)"""
+        from assets.registry import get_instance_id
+        from assets.objects import get_instance
+        storage_id = get_instance_id(storage_uid)
+        if not storage_id:
+            return False  # 저장소 없으면 필요 없음
+        obj = get_instance(storage_id)
+        if not obj:
+            return False
+        if item_uid:
+            return obj.get_item_count(item_uid) < threshold
+        else:
+            return obj.get_item_count() < threshold
+
 
 # ========================================
 # 활동 핸들러 (module-level)
@@ -876,10 +936,385 @@ def _handle_eat(agent):
         agent._action_taken = True
 
 
+# ========================================
+# 낚시 핸들러
+# ========================================
+
+def _handle_fish(agent, entry):
+    """낚시: 낚시대 가져오기 → 낚시터 이동 → 낚시 → 냉장고 저장 → 낚시대 반납"""
+    phase = agent._activity_phase
+
+    if phase == "idle":
+        # 충분성 체크
+        if not agent._check_storage_need("kitchen_fridge", "food_fish", 3):
+            agent._action_taken = True
+            return
+        if agent._has_tool("fishing_rod"):
+            agent._activity_phase = "going_to_spot"
+        else:
+            agent._activity_phase = "getting_tool"
+
+    elif phase == "getting_tool":
+        storage = agent.TOOL_STORAGE
+        if agent._is_at(storage):
+            agent._pickup_tool("fishing_rod")
+            agent._activity_phase = "going_to_spot"
+            agent._action_taken = True
+        else:
+            agent._move_to(storage, "낚시대 가져오기")
+
+    elif phase == "going_to_spot":
+        target = agent._activity_state.get("fish_target")
+        if not target:
+            from think.activity_resolver import resolve_activity_location
+            target = resolve_activity_location(
+                agent.unit_id, "낚시", agent._get_home_region()
+            )
+            if not target:
+                agent._activity_phase = "returning_tool"
+                return
+            agent._activity_state["fish_target"] = target
+
+        if agent._is_at(target):
+            # 도착 → 낚시
+            from assets.objects import get_instance
+            obj_id = target.get("object_id")
+            if obj_id:
+                obj = get_instance(obj_id)
+                if obj and hasattr(obj, "npc_fish"):
+                    obj.npc_fish(agent.unit_id)
+            agent._activity_phase = "storing_catch"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "낚시")
+
+    elif phase == "storing_catch":
+        # 잡은 물고기를 냉장고에 저장
+        target = agent.food_storage_location
+        if agent._is_at(target):
+            from assets.registry import get_instance_id
+            from assets.objects import get_instance
+            storage_id = get_instance_id(agent.food_storage_unique_id)
+            if storage_id:
+                obj = get_instance(storage_id)
+                if obj:
+                    obj.npc_store_item(agent.unit_id, "food_fish")
+            agent._activity_phase = "returning_tool"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "물고기 저장")
+
+    elif phase == "returning_tool":
+        storage = agent.TOOL_STORAGE
+        if agent._is_at(storage):
+            agent._return_tool("fishing_rod")
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(storage, "낚시대 반납")
+
+
+# ========================================
+# 채집→저장 핸들러
+# ========================================
+
+def _handle_gather_store(agent, entry):
+    """채집→저장: 채집 대상 탐색 → 채집 → 저장소에 저장"""
+    phase = agent._activity_phase
+
+    if phase == "idle":
+        from think.activity_resolver import resolve_activity_location
+        target = resolve_activity_location(
+            agent.unit_id, "채집", agent._get_home_region()
+        )
+        if target:
+            agent._activity_state["gather_target"] = target
+            agent._activity_phase = "going_to_resource"
+        else:
+            agent._action_taken = True
+
+    elif phase == "going_to_resource":
+        target = agent._activity_state.get("gather_target")
+        if not target:
+            agent._activity_phase = "idle"
+            return
+
+        if agent._is_at(target):
+            from assets.objects import get_instance
+            obj_id = target.get("object_id")
+            if obj_id:
+                obj = get_instance(obj_id)
+                if obj and hasattr(obj, "npc_take_resource"):
+                    obj.npc_take_resource(agent.unit_id, count=1)
+            agent._activity_phase = "going_to_storage"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "채집")
+
+    elif phase == "going_to_storage":
+        target = agent.food_storage_location
+        if agent._is_at(target):
+            # 인벤토리의 채집물을 저장소에 넣기
+            from assets.registry import get_instance_id
+            from assets.objects import get_instance
+            storage_id = get_instance_id(agent.food_storage_unique_id)
+            if storage_id:
+                obj = get_instance(storage_id)
+                if obj:
+                    # 모든 음식 아이템 저장
+                    food = _find_npc_food(agent.unit_id)
+                    while food:
+                        obj.npc_store_item(agent.unit_id, food["unique_id"])
+                        food = _find_npc_food(agent.unit_id)
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "재료 저장")
+
+
+# ========================================
+# 요리 핸들러
+# ========================================
+
+def _handle_cook(agent, entry):
+    """요리: 냉장고 확인 → 재료 가져오기 → 화로/아궁이에서 조리 → 결과 저장"""
+    phase = agent._activity_phase
+
+    if phase == "idle":
+        # 냉장고로 이동
+        agent._activity_phase = "checking_fridge"
+
+    elif phase == "checking_fridge":
+        target = agent.food_storage_location
+        if agent._is_at(target):
+            # 냉장고에서 재료 가져오기
+            from assets.registry import get_instance_id
+            from assets.objects import get_instance
+            storage_id = get_instance_id(agent.food_storage_unique_id)
+            if storage_id:
+                obj = get_instance(storage_id)
+                if obj:
+                    food_uid = _find_food_in_container(storage_id)
+                    if food_uid:
+                        obj.npc_take_item(agent.unit_id, food_uid, 1)
+                        agent._activity_phase = "going_to_stove"
+                        agent._action_taken = True
+                        return
+            # 재료 없음 → 활동 종료
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "냉장고 확인")
+
+    elif phase == "going_to_stove":
+        # 아궁이/화로 위치 탐색
+        stove_target = agent._activity_state.get("stove_target")
+        if not stove_target:
+            stove_target = _find_stove_location(agent)
+            if not stove_target:
+                agent._activity_phase = "idle"
+                agent._action_taken = True
+                return
+            agent._activity_state["stove_target"] = stove_target
+
+        if agent._is_at(stove_target):
+            # 도착 → 조리
+            from assets.objects import get_instance
+            obj_id = stove_target.get("object_id")
+            if obj_id:
+                obj = get_instance(obj_id)
+                if obj and hasattr(obj, "npc_cook"):
+                    obj.npc_cook(agent.unit_id)
+            agent._activity_phase = "storing_result"
+            agent._action_taken = True
+        else:
+            agent._move_to(stove_target, "요리")
+
+    elif phase == "storing_result":
+        target = agent.food_storage_location
+        if agent._is_at(target):
+            from assets.registry import get_instance_id
+            from assets.objects import get_instance
+            storage_id = get_instance_id(agent.food_storage_unique_id)
+            if storage_id:
+                obj = get_instance(storage_id)
+                if obj:
+                    food = _find_npc_food(agent.unit_id)
+                    while food:
+                        obj.npc_store_item(agent.unit_id, food["unique_id"])
+                        food = _find_npc_food(agent.unit_id)
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "요리 저장")
+
+
+def _find_stove_location(agent):
+    """화로/아궁이 위치 탐색 (거처 내)"""
+    from assets.objects import _location_objects, get_instance
+    from assets.objects.furniture import Stove
+
+    home_region = agent._get_home_region()
+    for (r, l), obj_ids in _location_objects.items():
+        if r != home_region:
+            continue
+        for obj_id in obj_ids:
+            obj = get_instance(obj_id)
+            if obj and isinstance(obj, Stove):
+                return {
+                    "region_id": r,
+                    "location_id": l,
+                    "x": _get_object_x_from_info(obj_id),
+                    "object_id": obj_id,
+                }
+    return None
+
+
+def _get_object_x_from_info(obj_id):
+    """오브젝트의 x 좌표 조회"""
+    info = morld.get_unit_info(obj_id)
+    if info:
+        return info.get("x", 0)
+    return 0
+
+
+# ========================================
+# 청소 핸들러
+# ========================================
+
+def _handle_clean(agent, entry):
+    """청소: 거처 실내 방을 순회"""
+    phase = agent._activity_phase
+
+    if phase == "idle":
+        room = _find_indoor_room(agent)
+        if room:
+            agent._activity_state["clean_target"] = room
+            agent._activity_phase = "going"
+        else:
+            agent._action_taken = True
+
+    elif phase == "going":
+        target = agent._activity_state.get("clean_target")
+        if not target:
+            agent._activity_phase = "idle"
+            return
+
+        if agent._is_at(target):
+            # 도착 → 청소 완료
+            agent._activity_state["cleaned"] = agent._activity_state.get("cleaned", set())
+            agent._activity_state["cleaned"].add(target["location_id"])
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "청소")
+
+
+def _find_indoor_room(agent):
+    """거처 실내 방 찾기 (아직 청소하지 않은 방)"""
+    from assets.objects import _location_objects
+
+    cleaned = agent._activity_state.get("cleaned", set())
+    sleep = getattr(agent, "sleep_location", None)
+    home_region = agent._get_home_region()
+    sleep_l = sleep["location_id"] if sleep else None
+
+    for (r, l) in _location_objects.keys():
+        if r != home_region:
+            continue
+        if l in cleaned:
+            continue
+        if sleep_l is not None and not morld.is_same_building(r, l, home_region, sleep_l):
+            continue
+        loc_info = morld.get_location_info(r, l)
+        if loc_info and loc_info.get("is_indoor", False):
+            return {"region_id": r, "location_id": l, "x": 0}
+    return None
+
+
+# ========================================
+# 물자수집 핸들러
+# ========================================
+
+def _handle_scavenge(agent, entry):
+    """물자수집: ScavengeableObject에서 아이템 수집 → 은신처 저장"""
+    phase = agent._activity_phase
+
+    if phase == "idle":
+        from think.activity_resolver import resolve_activity_location
+        target = resolve_activity_location(
+            agent.unit_id, "물자수집", agent._get_home_region()
+        )
+        if target:
+            agent._activity_state["scavenge_target"] = target
+            agent._activity_phase = "going_to_resource"
+        else:
+            agent._action_taken = True
+
+    elif phase == "going_to_resource":
+        target = agent._activity_state.get("scavenge_target")
+        if not target:
+            agent._activity_phase = "idle"
+            return
+
+        if agent._is_at(target):
+            # 도착 → 아이템 수집
+            from assets.objects import get_instance
+            obj_id = target.get("object_id")
+            if obj_id:
+                obj = get_instance(obj_id)
+                if obj:
+                    # npc_take_item 사용 (base.py 헬퍼)
+                    inventory = morld.get_unit_inventory(obj_id)
+                    if inventory:
+                        from assets.registry import get_unique_id
+                        for item_id, count in inventory.items():
+                            if count > 0:
+                                uid = get_unique_id(item_id)
+                                if uid:
+                                    obj.npc_take_item(agent.unit_id, uid, 1)
+                                    break
+            agent._activity_phase = "going_to_storage"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "물자수집")
+
+    elif phase == "going_to_storage":
+        target = agent.food_storage_location
+        if agent._is_at(target):
+            from assets.registry import get_instance_id, get_unique_id
+            from assets.objects import get_instance
+            storage_id = get_instance_id(agent.food_storage_unique_id)
+            if storage_id:
+                obj = get_instance(storage_id)
+                if obj:
+                    # NPC 인벤토리의 모든 음식/음료 저장
+                    inventory = morld.get_unit_inventory(agent.unit_id)
+                    if inventory:
+                        from assets.registry import get_item_class
+                        for item_id, count in list(inventory.items()):
+                            if count <= 0:
+                                continue
+                            uid = get_unique_id(item_id)
+                            if uid:
+                                cls = get_item_class(uid)
+                                if cls and getattr(cls, 'food_satiety', 0) > 0:
+                                    obj.npc_store_item(agent.unit_id, uid, count)
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "물자 저장")
+
+
 # 활동 핸들러 레지스트리: activity 이름 → handler(agent, entry)
 _ACTIVITY_HANDLERS = {
     "소등": _handle_lights_off,
     "벌목": _handle_chop,
+    "낚시": _handle_fish,
+    "채집": _handle_gather_store,
+    "요리": _handle_cook,
+    "청소": _handle_clean,
+    "물자수집": _handle_scavenge,
 }
 
 

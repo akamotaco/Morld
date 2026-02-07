@@ -854,7 +854,10 @@ class YukiAgent(BaseAgent):
         {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 450 * _M, "end": 480 * _M, "activity": "준비"},
         {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
         {"name": "청소", "region_id": 2, "location_id": 5, "x": 60, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
-        {"name": "독서", "region_id": 2, "location_id": 5, "x": 120, "start": 660 * _M, "end": 720 * _M, "activity": "휴식"},
+        {"name": "오전활동", "start": 660 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
+            {"activity": "요리", "condition": "can_cook"},
+            {"activity": "독서", "condition": None, "region_id": 2, "location_id": 5, "x": 120},
+        ]},
         {"name": "점심식사", "region_id": 2, "location_id": 5, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
         {"name": "휴식", "region_id": 2, "location_id": 5, "x": 120, "start": 780 * _M, "end": 1020 * _M, "activity": "휴식"},
         {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},

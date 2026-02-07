@@ -910,9 +910,15 @@ class LinaAgent(BaseAgent):
         {"name": "기상", "region_id": 0, "location_id": 7, "x": 120, "start": 390 * _M, "end": 420 * _M, "activity": "준비"},
         {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "빨래", "region_id": 0, "location_id": 13, "x": 300, "start": 480 * _M, "end": 540 * _M, "activity": "빨래"},  # 뒷마당
-        {"name": "채집", "start": 540 * _M, "end": 720 * _M, "activity": "채집"},
+        {"name": "오전활동", "start": 540 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
+            {"activity": "채집", "condition": "need_food"},
+            {"activity": "독서", "condition": None},
+        ]},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "채집", "start": 840 * _M, "end": 1020 * _M, "activity": "채집"},
+        {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "dynamic": True, "candidates": [
+            {"activity": "채집", "condition": "need_food"},
+            {"activity": "독서", "condition": None},
+        ]},
         {"name": "빨래걷기", "region_id": 0, "location_id": 13, "x": 300, "start": 1020 * _M, "end": 1080 * _M, "activity": "빨래"},  # 뒷마당
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
         {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1170 * _M, "end": 1290 * _M, "activity": "휴식"},

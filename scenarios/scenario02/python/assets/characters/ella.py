@@ -858,7 +858,10 @@ class EllaAgent(BaseAgent):
         {"name": "목욕", "region_id": 2, "location_id": 5, "x": 150, "start": 390 * _M, "end": 420 * _M, "activity": "목욕"},
         {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "정찰", "region_id": 2, "location_id": 3, "x": 90, "start": 540 * _M, "end": 660 * _M, "activity": "순찰"},  # 약국
-        {"name": "물자수집", "region_id": 2, "location_id": 2, "x": 90, "start": 660 * _M, "end": 720 * _M, "activity": "탐색"},  # 편의점
+        {"name": "물자수집", "start": 660 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
+            {"activity": "물자수집", "condition": "need_supplies"},
+            {"activity": "순찰", "condition": None},
+        ]},
         {"name": "점심식사", "region_id": 2, "location_id": 5, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
         {"name": "관리", "region_id": 2, "location_id": 5, "x": 90, "start": 780 * _M, "end": 960 * _M, "activity": "관리"},
         {"name": "정찰", "region_id": 2, "location_id": 0, "x": 300, "start": 960 * _M, "end": 1020 * _M, "activity": "순찰"},  # 도시입구

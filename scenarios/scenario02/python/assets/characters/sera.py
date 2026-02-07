@@ -983,22 +983,43 @@ class SeraAgent(BaseAgent):
     - 플레이어에게 무관심하지만 위험시 보호
     """
 
-    SCHEDULE = [
-        # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
-        # 세라방(180), 앞마당(600), 식당(180), 사냥터(1800), 숲입구(1800)
-        {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
-        {"name": "기상", "region_id": 0, "location_id": 8, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
-        {"name": "아침순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},  # 앞마당
-        {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
-        {"name": "사냥", "region_id": 0, "location_id": 24, "x": 900, "start": 540 * _M, "end": 720 * _M, "activity": "사냥"},
-        {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "벌목", "start": 840 * _M, "end": 1020 * _M, "activity": "벌목"},
-        {"name": "저녁순찰", "region_id": 0, "location_id": 20, "x": 900, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},  # 숲 입구
-        {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
-        {"name": "장비정비", "region_id": 0, "location_id": 8, "x": 90, "start": 1200 * _M, "end": 1260 * _M, "activity": "정비"},
-        {"name": "저택 소등", "start": 1260 * _M, "end": 1290 * _M, "activity": "소등"},
-        {"name": "수면", "region_id": 0, "location_id": 8, "x": 90, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
-    ]
+    SCHEDULES = {
+        "평일": [
+            {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
+            {"name": "기상", "region_id": 0, "location_id": 8, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "아침순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+            {"name": "오전활동", "start": 540 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
+                {"activity": "낚시", "condition": "need_fish"},
+                {"activity": "벌목", "condition": "need_logs"},
+                {"activity": "순찰", "condition": None},
+            ]},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+            {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "dynamic": True, "candidates": [
+                {"activity": "벌목", "condition": "need_logs"},
+                {"activity": "낚시", "condition": "need_fish"},
+                {"activity": "순찰", "condition": None},
+            ]},
+            {"name": "저녁순찰", "region_id": 0, "location_id": 20, "x": 900, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "장비정비", "region_id": 0, "location_id": 8, "x": 90, "start": 1200 * _M, "end": 1260 * _M, "activity": "정비"},
+            {"name": "저택 소등", "start": 1260 * _M, "end": 1290 * _M, "activity": "소등"},
+            {"name": "수면", "region_id": 0, "location_id": 8, "x": 90, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
+        ],
+        "주말": [
+            {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
+            {"name": "기상", "region_id": 0, "location_id": 8, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "아침순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},
+            {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+            {"name": "독서", "start": 540 * _M, "end": 720 * _M, "activity": "독서"},
+            {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+            {"name": "순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 840 * _M, "end": 960 * _M, "activity": "순찰"},
+            {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 960 * _M, "end": 1080 * _M, "activity": "휴식"},
+            {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "저택 소등", "start": 1260 * _M, "end": 1290 * _M, "activity": "소등"},
+            {"name": "수면", "region_id": 0, "location_id": 8, "x": 90, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
+        ],
+    }
 
     owner_unique_id = "sera"
     sleep_location = {"region_id": 0, "location_id": 8, "x": 120}  # 세라방
@@ -1006,9 +1027,19 @@ class SeraAgent(BaseAgent):
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
-        self.set_base_schedule(self.SCHEDULE)
+        self._current_day_type = None
         import survival
         survival.register_npc(unit_id)
+
+    def think(self):
+        """주말/평일 감지 → 스케줄 전환"""
+        time_info = morld.get_time_info()
+        day = time_info.get("day", 0)
+        day_type = "주말" if day % 7 >= 5 else "평일"
+        if self._current_day_type != day_type:
+            self._current_day_type = day_type
+            self.set_base_schedule(self.SCHEDULES[day_type])
+        return super().think()
 
 
 # ========================================

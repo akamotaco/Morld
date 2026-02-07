@@ -357,6 +357,42 @@ class Stove(Object):
         yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")
         morld.advance_time(recipe["cook_time"] * 60_000)
 
+    def npc_cook(self, npc_id):
+        """NPC 요리 (non-generator). NPC 인벤토리 재료로 조리 → 결과물 NPC에게 지급."""
+        from recipes import find_matching_recipe
+        from assets.registry import get_or_create_item_id, get_unique_id
+
+        # NPC 인벤토리에서 재료 확인
+        inventory = morld.get_unit_inventory(npc_id)
+        if not inventory:
+            return False
+
+        inv_uniques = {}
+        for item_id, count in inventory.items():
+            uid = get_unique_id(item_id)
+            if uid:
+                inv_uniques[uid] = inv_uniques.get(uid, 0) + count
+
+        result = find_matching_recipe(inv_uniques)
+        if not result:
+            return False
+
+        recipe_id, recipe, max_count = result
+
+        # 재료 소비
+        for unique_id, needed in recipe["ingredients"].items():
+            item_id = get_or_create_item_id(unique_id)
+            if item_id:
+                morld.remove_item(npc_id, item_id, needed)
+
+        # 결과물 생성
+        result_unique, result_count = recipe["result"]
+        result_id = get_or_create_item_id(result_unique)
+        if result_id:
+            morld.give_item(npc_id, result_id, result_count)
+
+        return True
+
 
 class Kettle(Object):
     """

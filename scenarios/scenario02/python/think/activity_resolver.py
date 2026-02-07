@@ -125,10 +125,82 @@ def _resolve_chop(unit_id, region_id):
     return None
 
 
+def _resolve_fish(unit_id, region_id):
+    """낚시: FishingSpot 오브젝트가 있는 location 탐색"""
+    from assets.objects import _location_objects
+    from assets.objects.outdoor import FishingSpot
+
+    for (r, l), obj_ids in _location_objects.items():
+        if r != region_id:
+            continue
+        for obj_id in obj_ids:
+            obj = get_instance(obj_id)
+            if obj and isinstance(obj, FishingSpot):
+                return {
+                    "region_id": r,
+                    "location_id": l,
+                    "x": _get_object_x(obj_id),
+                    "object_id": obj_id,
+                }
+    return None
+
+
+def _resolve_read(unit_id, region_id):
+    """독서: Bookshelf 오브젝트가 있는 location 탐색"""
+    from assets.objects import _location_objects
+    from assets.objects.furniture import Bookshelf
+
+    for (r, l), obj_ids in _location_objects.items():
+        if r != region_id:
+            continue
+        for obj_id in obj_ids:
+            obj = get_instance(obj_id)
+            if obj and isinstance(obj, Bookshelf):
+                return {
+                    "region_id": r,
+                    "location_id": l,
+                    "x": _get_object_x(obj_id),
+                    "object_id": obj_id,
+                }
+    return None
+
+
+def _resolve_scavenge(unit_id, region_id):
+    """물자수집: ScavengeableObject 중 재고>0인 것 탐색"""
+    from assets.objects import _location_objects
+    from assets.objects.scavenge import ScavengeableObject
+
+    candidates = []
+    for (r, l), obj_ids in _location_objects.items():
+        if r != region_id:
+            continue
+        for obj_id in obj_ids:
+            obj = get_instance(obj_id)
+            if obj and isinstance(obj, ScavengeableObject):
+                count = obj.get_item_count()
+                if count > 0:
+                    candidates.append({
+                        "region_id": r,
+                        "location_id": l,
+                        "x": _get_object_x(obj_id),
+                        "object_id": obj_id,
+                        "item_count": count,
+                    })
+
+    if not candidates:
+        return None
+    # 아이템이 가장 많은 곳 선택
+    candidates.sort(key=lambda c: -c["item_count"])
+    return candidates[0]
+
+
 # 활동 → resolver 함수 매핑
 _ACTIVITY_RESOLVERS = {
     "채집": _resolve_gather,
     "사냥": _resolve_hunt,
     "순찰": _resolve_patrol,
     "벌목": _resolve_chop,
+    "낚시": _resolve_fish,
+    "독서": _resolve_read,
+    "물자수집": _resolve_scavenge,
 }

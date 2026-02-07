@@ -190,3 +190,14 @@ class FishingSpot(Object):
                 "한참을 기다렸지만...",
                 "아무것도 잡히지 않았다."
             ])
+
+    def npc_fish(self, npc_id):
+        """NPC 낚시 (non-generator, 70% 성공)"""
+        import random
+        from assets.registry import get_or_create_item_id
+        if random.random() < 0.7:
+            item_id = get_or_create_item_id("food_fish")
+            if item_id:
+                morld.give_item(npc_id, item_id, 1)
+                return True
+        return False
