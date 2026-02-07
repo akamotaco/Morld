@@ -59,7 +59,6 @@ morld.mark_all_logs_read()
 # ========================================
 morld.get_game_time()  # 밀리초 단위 (0~86,399,999)
 morld.get_time_info()  # 시간/위치/날씨 정보 dict 반환
-morld.advance_time_simulate(millis)  # 이동만 처리 (think 없음)
 morld.advance_time_des(millis)  # DES 시뮬레이션 (think + 이동 + 이벤트) ← v0.2.2
 morld.set_time_frozen(frozen)  # 시간 정지 설정/해제
 morld.is_time_frozen()

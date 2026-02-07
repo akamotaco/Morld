@@ -26,7 +26,7 @@
 | **JobBehaviorSystem** | NPC 이동 스킵, 플레이어 즉시 텔레포트 | `job_behavior_system.cs:38` |
 | **ThinkSystem** | NPC AI (think_all) 스킵 | `think_system.cs:37` |
 | **EventSystem.DetectMeetings()** | `on_meet` 이벤트 스킵 | `event_system.cs:295` |
-| **advance_time_simulate** | 시뮬레이션 스킵 | `script_system_data_api.cs:528` |
+| **advance_time_des** | DES 시뮬레이션 스킵 | `script_system_data_api.cs` |
 
 ### 코드 예시
 

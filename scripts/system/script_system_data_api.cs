@@ -609,70 +609,8 @@ namespace SE
                 return PyBool.True;
             });
 
-            // advance_time_simulate: 시간 진행 + NPC JobBehavior 실행 (연애 모드용)
-            // ThinkSystem은 호출하지 않음 (NPC AI 재계산 불필요)
-            // 반환: 경과된 총 시간 (밀리초)
-            morldModule.ModuleDict["advance_time_simulate"] = new PyBuiltinFunction("advance_time_simulate", args =>
-            {
-                if (args.Length < 1)
-                    throw PyTypeError.Create("advance_time_simulate(millis) requires 1 argument");
-
-                int millis = args[0].ToInt();
-                if (millis <= 0)
-                    return new PyInt(0);
-
-                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
-                var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
-
-                var terrain = _worldSystem.GetTerrain();
-                var time = _worldSystem.GetTime();
-
-                // 시간 정지 상태면 시뮬레이션하지 않음
-                if (_worldSystem.IsTimeFrozen())
-                {
-                    Godot.GD.Print($"[morld] advance_time_simulate: Time is frozen, skipping simulation");
-                    return new PyInt(0);
-                }
-
-                // 각 유닛에 대해 이동 시뮬레이션 (플레이어 제외)
-                var playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
-                int playerId = playerSystem?.PlayerId ?? -1;
-
-                foreach (var unit in _unitSystem.Units.Values)
-                {
-                    // 오브젝트와 플레이어는 스킵
-                    if (unit.IsObject) continue;
-                    if (unit.Id == playerId) continue;
-
-                    // 현재 Job 기반 이동 처리
-                    SimulateUnitMovement(unit, millis, terrain, _itemSystem);
-
-                    // JobList Advance (시간 경과)
-                    unit.AdvanceJobs(millis);
-                }
-
-                // GameTime 업데이트
-                time.AddMillis(millis);
-
-                // 생존 시스템 처리 (플레이어만)
-                ProcessSurvivalTimeElapsed(millis);
-
-                // 시간 경과 이벤트 발생 (EventSystem으로 전달)
-                var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
-                if (_eventSystem != null)
-                {
-                    _eventSystem.Enqueue(GameEvent.OnTimeElapsed(millis));
-                }
-
-                int displayMin = millis / GameTime.MillisPerMinute;
-                Godot.GD.Print($"[morld] advance_time_simulate: +{displayMin} minutes ({millis}ms), NPCs simulated");
-                return new PyInt(millis);
-            });
-
-            // advance_time_des(millis) - DES 기반 시간 진행 (수면/낮잠 시 NPC 시뮬레이션)
+            // advance_time_des(millis) - DES 기반 시간 진행
             //
-            // advance_time_simulate와 달리:
             // - Step 단위로 시간 진행 (최소 NPC job duration 기준)
             // - 각 Step마다 think_all() 호출 (NPC AI 재계산)
             // - Move job 만료 시 NPC를 목표 location에 텔레포트
@@ -694,7 +632,7 @@ namespace SE
         }
 
         /// <summary>
-        /// 유닛 이동 시뮬레이션 (advance_time_simulate용)
+        /// 유닛 이동 시뮬레이션 (advance_time_des용)
         /// JobBehaviorSystem.ProcessJobMovement와 유사하지만, 독립적으로 동작
         /// </summary>
         private void SimulateUnitMovement(Morld.Unit unit, int duration, Morld.Terrain terrain, ItemSystem itemSystem)

@@ -354,7 +354,7 @@ def check_stealth_success(state):
 def advance_time_and_check(state, millis):
     """시간 경과 + NPC 도착 체크 (은신 확률 적용)"""
     # 1. 시간 진행 + NPC 이동 시뮬레이션
-    morld.advance_time_simulate(millis)
+    morld.advance_time_des(millis)
     state["elapsed_time"] += millis
 
     # 2. 현재 Location의 NPC 목록 확인

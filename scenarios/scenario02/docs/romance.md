@@ -665,7 +665,7 @@ class Sera(Character):
 | API | 설명 | 사용처 |
 |-----|------|--------|
 | `get_units_at_location(r, l)` | Location의 유닛 ID 목록 | 제3자 체크 |
-| `advance_time_simulate(min)` | 시간 + NPC 이동 시뮬레이션 | 행위 시간 경과 |
+| `advance_time_des(millis)` | DES 시뮬레이션 (think + 이동 + 이벤트) | 행위 시간 경과 |
 | `modify_prop(id, prop, delta)` | prop 상대값 변경 | 호감도/애정 증감 |
 | `add_unit_mood(id, mood)` | mood 추가 | 부끄러움 등 |
 | `set_npc_job(id, action, dur, target)` | NPC Job 설정 | flee, follow |

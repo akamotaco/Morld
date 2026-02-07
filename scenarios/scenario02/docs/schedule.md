@@ -547,8 +547,7 @@ agent._return_tool("axe")    # 도구함에 반납
 
 | API | think() | 이동 | 이벤트 | 용도 |
 |-----|---------|------|--------|------|
-| `advance_time_simulate(ms)` | X | O | X | 이동만 처리 |
-| `advance_time_des(ms)` | **O** | **O** | **O** | **NPC 자율 시뮬레이션** |
+| `advance_time_des(ms)` | **O** | **O** | **O** | **모든 시간 진행** |
 
 ### DES 루프 흐름
 

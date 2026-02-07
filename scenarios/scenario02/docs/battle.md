@@ -312,7 +312,7 @@ class Heal(Skill):
 ```
 플레이어 액션 선택 (예: "영창 10분 마법")
     ↓
-시간 흐름 시작 (advance_time_simulate)
+시간 흐름 시작 (advance_time_des)
     ↓
 적 인터럽트 체크 (매 시뮬레이션 틱)
     ├─ 적이 공격 범위 내에 없음 → 계속
@@ -365,7 +365,7 @@ def process_player_action(action, duration):
     while elapsed < duration:
         # 시간 진행 (틱 단위)
         tick = min(TICK_SIZE, duration - elapsed)
-        morld.advance_time_simulate(tick)
+        morld.advance_time_des(tick)
         elapsed += tick
 
         # 적 행동 체크
@@ -1000,7 +1000,7 @@ scenarios/scenario02/python/
 ### 간소화 처리
 
 ```python
-def advance_time_simulate(millis):
+def advance_time_des(millis):
     player_loc = morld.get_player_location()
 
     # 플레이어 Location: 상세 전투 시뮬레이션

@@ -388,8 +388,8 @@ def advance_time_and_check_npc_initiative(state, millis):
     Returns:
         dict: {"interrupted": bool, "interrupter_id": int or None}
     """
-    # 시간 진행 + NPC 이동 시뮬레이션
-    morld.advance_time_simulate(millis)
+    # 시간 진행 + NPC 자율 행동 시뮬레이션 (DES)
+    morld.advance_time_des(millis)
 
     # 제3자 도착 체크
     return check_third_party_arrival(state)
@@ -1003,6 +1003,4 @@ def start_npc_initiative(player_id, npc_id):
         else:
             yield ui.dialog(f"{npc_name}(이)가 만족한 듯 물러난다.")
 
-    # 시간 적용
-    if state["elapsed_time"] > 0:
-        morld.advance_time_des(state["elapsed_time"])
+

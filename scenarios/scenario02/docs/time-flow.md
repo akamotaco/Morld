@@ -139,8 +139,7 @@ def toggle_auto_time_flow():
 
 | API | NPC think() | 이동 처리 | 이벤트 | 용도 |
 |-----|------------|----------|--------|------|
-| `advance_time_simulate(ms)` | X | O | X | 이동만 처리 |
-| `advance_time_des(ms)` | **O** | **O** | **O** | **NPC 자율 시뮬레이션** |
+| `advance_time_des(ms)` | **O** | **O** | **O** | **모든 시간 진행** |
 
 ### 사용 예시
 
