@@ -56,7 +56,8 @@ namespace SE
 				// Gate 통과 이동 중이고, 목적지가 플레이어 위치인 경우
 				if (movement.TargetGateId.HasValue)
 				{
-					var gate = region.GetGate(unit.CurrentLocation.LocalId, movement.TargetGateId.Value);
+					var unitRegion = terrain.GetRegion(unit.CurrentLocation.RegionId);
+					var gate = unitRegion?.GetGate(unit.CurrentLocation.LocalId, movement.TargetGateId.Value);
 					if (gate != null && gate.ConnectedLocation == playerLocation)
 					{
 						// threshold 체크 (-1이면 무한)
