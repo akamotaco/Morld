@@ -4,7 +4,7 @@ import morld
 import ui
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import CraftingTable
+from assets.objects.furniture import CraftingTable, WallLamp
 
 
 class Toolbox(object):
@@ -50,6 +50,7 @@ class Storage(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
         self.add_object(CraftingTable(), x=10)  # 입구 쪽
+        self.add_object(WallLamp(), x=90)
 
         # 도구함 추가 및 도구 배치
         toolbox = Toolbox()

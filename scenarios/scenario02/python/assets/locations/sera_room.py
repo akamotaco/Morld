@@ -6,7 +6,7 @@
 import morld
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Bed, Wardrobe, OldDoll
+from assets.objects.furniture import Bed, Wardrobe, OldDoll, WallLamp, Window
 
 
 class SeraRoom(Location):
@@ -27,6 +27,8 @@ class SeraRoom(Location):
         bed.bed_owner = "sera"
         self.add_object(bed, x=20)              # 방 안쪽
         self.add_object(OldDoll(), owner="sera", x=22)  # 침대 곁
+        self.add_object(WallLamp(), x=90)
+        self.add_object(Window(), x=120)
 
         # 옷장 추가 + 옷 배치
         wardrobe = Wardrobe()

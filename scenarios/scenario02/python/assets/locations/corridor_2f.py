@@ -2,6 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
+from assets.objects.furniture import Candelabra, CorridorWindow
 
 
 class Corridor2F(Location):
@@ -21,3 +22,6 @@ class Corridor2F(Location):
         """2층 복도 생성 + 나무 바닥 추가"""
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
+        self.add_object(Candelabra(), x=90)
+        self.add_object(Candelabra(), x=270)
+        self.add_object(CorridorWindow(), x=180)

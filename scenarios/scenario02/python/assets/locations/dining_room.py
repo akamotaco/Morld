@@ -2,7 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import DiningChair
+from assets.objects.furniture import DiningChair, Candelabra, Window
 
 
 class DiningRoom(Location):
@@ -25,3 +25,5 @@ class DiningRoom(Location):
 
         # 식탁 의자 배치 (테이블 중앙)
         self.add_object(DiningChair(), x=15)
+        self.add_object(Candelabra(), x=15)
+        self.add_object(Window(), x=90)

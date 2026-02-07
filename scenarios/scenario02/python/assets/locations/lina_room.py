@@ -3,7 +3,7 @@
 import morld
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Mirror, Bed, Wardrobe
+from assets.objects.furniture import Mirror, Bed, Wardrobe, WallLamp, Window
 
 
 class LinaRoom(Location):
@@ -21,6 +21,8 @@ class LinaRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
         self.add_object(Mirror(), x=5)   # 문 옆
+        self.add_object(WallLamp(), x=90)
+        self.add_object(Window(), x=120)
         bed = Bed()
         bed.bed_owner = "lina"
         self.add_object(bed, x=20)     # 방 안쪽

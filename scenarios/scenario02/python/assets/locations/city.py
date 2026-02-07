@@ -91,6 +91,10 @@ class ConvenienceStore(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundConcrete())
 
+        # 조명 (깨진 유리문으로 빛이 들어옴)
+        from assets.objects.furniture import Window
+        self.add_object(Window(), x=5)
+
         # 선반 추가 (카운터 뒤 선반 역할)
         from assets.objects.furniture import Shelf
         shelf = Shelf()
@@ -164,6 +168,9 @@ class Pharmacy(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundConcrete())
 
+        from assets.objects.furniture import Window
+        self.add_object(Window(), x=90)
+
 
 class ParkingLot(Location):
     """주차장 - 차량 발견 장소"""
@@ -212,6 +219,10 @@ class Hideout(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundConcrete())
 
+        # 조명 (희미한 촛불)
+        from assets.objects.furniture import OilLamp
+        self.add_object(OilLamp(), x=90)
+
         # 낡은 소파 (은신처 거처용)
         from assets.objects.furniture import OldSofa
         sofa = OldSofa()
@@ -252,6 +263,10 @@ class ClothingStore(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundConcrete())
+
+        # 조명 (깨진 유리창으로 빛이 들어옴)
+        from assets.objects.furniture import Window
+        self.add_object(Window(), x=120)
 
         # 옷걸이 (옷장 역할)
         from assets.objects.furniture import Wardrobe

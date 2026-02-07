@@ -515,7 +515,6 @@ def _get_posture_text() -> str:
     - [서기]                    # 일반 상태
     - [웅크리기]                # 이동 가능 자세, NPC 있음
     - [웅크리기] [은신 중]      # 은신 상태
-    - [웅크리기] [발각!]        # 발각됨
     """
     player_id = morld.get_player_id()
     if player_id is None:
@@ -557,8 +556,6 @@ def _get_posture_text() -> str:
     stealth_text = ""
     if stealth == 1:
         stealth_text = " [color=cyan][은신 중][/color]"
-    elif stealth == 0:
-        stealth_text = " [color=red][발각!][/color]"
 
     # 이동 가능 여부에 따라 색상 표시
     if info["can_move"]:

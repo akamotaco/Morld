@@ -146,6 +146,11 @@ class ForestCabin(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundWooden())
 
+        # 조명
+        from assets.objects.furniture import OilLamp, Window
+        self.add_object(OilLamp(), x=90)
+        self.add_object(Window(), x=120)
+
         # 나무 의자 배치
         from assets.objects.furniture import WoodenStool
         self.add_object(WoodenStool(), x=10)

@@ -5,7 +5,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Bed
+from assets.objects.furniture import Bed, WallLamp, Window
 
 
 class PlayerRoom(Location):
@@ -24,3 +24,5 @@ class PlayerRoom(Location):
         self.add_ground(GroundWooden())
         # 침대 (방 안쪽, x=20)
         self.add_object(Bed(), x=20)
+        self.add_object(WallLamp(), x=90)
+        self.add_object(Window(), x=120)

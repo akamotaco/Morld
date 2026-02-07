@@ -3,6 +3,7 @@
 from assets.base import Location
 from assets.objects.grounds import GroundStone
 from assets.objects.errand_board import ErrandBoard
+from assets.objects.furniture import WallLamp
 
 
 class Entrance(Location):
@@ -23,3 +24,4 @@ class Entrance(Location):
         self.add_ground(GroundStone())
         # 심부름 게시판 (문 옆, x=5)
         self.add_object(ErrandBoard(), x=5)
+        self.add_object(WallLamp(), x=90)

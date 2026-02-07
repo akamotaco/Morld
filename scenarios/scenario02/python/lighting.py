@@ -148,7 +148,8 @@ def get_location_light_sources(region_id: int, location_id: int) -> list:
         if morld.get_unit_prop(obj_id, "light:on") == 1:
             light_value = morld.get_unit_prop(obj_id, "light:value")
             if light_value is not None and light_value > 0:
-                light_sources.append(light_value)
+                # prop은 정수 (×10 저장): 4 → 0.4, 8 → 0.8
+                light_sources.append(light_value / 10.0)
 
     return light_sources
 

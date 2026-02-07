@@ -22,6 +22,10 @@ class Fireplace(Object):
     unique_id = "fireplace"
     name = "벽난로"
     actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {
+        "light:on": 1,
+        "light:value": 4,  # 0.4 (정수 prop → lighting.py에서 /10 변환)
+    }
     focus_text = {
         "default": "돌로 만들어진 오래된 벽난로. 저녁이면 불이 피워진다.",
         "저녁": "따뜻한 불꽃이 타오르고 있다.",
@@ -35,6 +39,47 @@ class Fireplace(Object):
             "저녁이 되면 따뜻한 불이 피워진다."
         ])
         morld.advance_time(1 * 60_000)
+
+
+# ========================================
+# 조명 오브젝트
+# ========================================
+
+class Window(Object):
+    """창문 - 실외 밝기를 실내로 전달"""
+    unique_id = "window"
+    name = "창문"
+    props = {"light:window": 1}
+    actions = ["call:look:밖을 보기", "call:debug_props:(디버그) 속성 보기#"]
+    focus_text = {"default": "밖이 내다보이는 창문."}
+
+    def look(self):
+        yield ui.dialog(["창문 밖을 내다본다."])
+        morld.advance_time(1 * 60_000)
+
+
+class WallLamp(Object):
+    """벽등 - 저택 실내 기본 조명 (밝기 0.5)"""
+    unique_id = "wall_lamp"
+    name = "벽등"
+    props = {"light:on": 1, "light:value": 5}
+    focus_text = {"default": "벽에 걸린 기름등. 은은한 빛을 내고 있다."}
+
+
+class Candelabra(Object):
+    """촛대 - 식탁/복도용 (밝기 0.3)"""
+    unique_id = "candelabra"
+    name = "촛대"
+    props = {"light:on": 1, "light:value": 3}
+    focus_text = {"default": "촛불이 켜진 촛대."}
+
+
+class OilLamp(Object):
+    """기름등 - 오두막/은신처용 (밝기 0.4)"""
+    unique_id = "oil_lamp"
+    name = "기름등"
+    props = {"light:on": 1, "light:value": 4}
+    focus_text = {"default": "기름을 넣어 쓰는 낡은 등."}
 
 
 class OldSofa(Object):
@@ -679,6 +724,7 @@ class Refrigerator(Object):
 class CorridorWindow(Object):
     unique_id = "corridor_window"
     name = "복도 창문"
+    props = {"light:window": 1}
     actions = ["call:look:밖을 보기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "2층 복도에 있는 큰 창문. 앞마당이 내려다보인다."}
 

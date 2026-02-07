@@ -2,7 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import LivingSofa
+from assets.objects.furniture import LivingSofa, Fireplace, Window
 
 
 class LivingRoom(Location):
@@ -26,3 +26,5 @@ class LivingRoom(Location):
 
         # 거실 소파 배치 (벽난로 근처, x=35)
         self.add_object(LivingSofa(), x=35)
+        self.add_object(Fireplace(), x=180)
+        self.add_object(Window(), x=90)

@@ -5,7 +5,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Mirror, Bed
+from assets.objects.furniture import Mirror, Bed, WallLamp, Window
 
 
 class GuestRoom(Location):
@@ -26,3 +26,5 @@ class GuestRoom(Location):
         self.add_ground(GroundWooden())
         self.add_object(Mirror(), x=5)   # 문 옆
         self.add_object(Bed(), x=20)     # 방 안쪽
+        self.add_object(WallLamp(), x=90)
+        self.add_object(Window(), x=120)

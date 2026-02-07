@@ -6,7 +6,7 @@
 import morld
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import Bed, Wardrobe
+from assets.objects.furniture import Bed, Wardrobe, WallLamp, Window
 
 
 class MilaRoom(Location):
@@ -26,6 +26,8 @@ class MilaRoom(Location):
         bed = Bed()
         bed.bed_owner = "mila"
         self.add_object(bed, x=20)  # 방 안쪽
+        self.add_object(WallLamp(), x=90)
+        self.add_object(Window(), x=120)
 
         # 옷장 추가 + 옷 배치
         wardrobe = Wardrobe()

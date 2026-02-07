@@ -4,6 +4,7 @@ import morld
 import ui
 from assets.base import Location, Object
 from assets.objects.grounds import GroundTile
+from assets.objects.furniture import WallLamp
 
 
 class Toilet(Object):
@@ -62,3 +63,4 @@ class ToiletRoom(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundTile())
         self.add_object(Toilet(), x=15)  # 중앙
+        self.add_object(WallLamp(), x=90)

@@ -2,7 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundStone
-from assets.objects.furniture import Stove, Kettle, Cupboard
+from assets.objects.furniture import Stove, Kettle, Cupboard, WallLamp
 
 
 class Kitchen(Location):
@@ -26,3 +26,4 @@ class Kitchen(Location):
         self.add_object(Stove(), x=10)    # 아궁이 (중앙 왼쪽)
         self.add_object(Kettle(), x=15)   # 주전자 (아궁이 옆)
         self.add_object(Cupboard(), x=25) # 찬장 (끝쪽)
+        self.add_object(WallLamp(), x=90)

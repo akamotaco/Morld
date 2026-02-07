@@ -2,7 +2,7 @@
 
 from assets.base import Location
 from assets.objects.grounds import GroundTile
-from assets.objects.furniture import Mirror, Bathtub, Washbasin
+from assets.objects.furniture import Mirror, Bathtub, Washbasin, WallLamp
 
 
 class Bathroom(Location):
@@ -26,3 +26,4 @@ class Bathroom(Location):
         self.add_object(Mirror(), x=5)      # 문 옆
         self.add_object(Bathtub(), x=15)    # 중앙
         self.add_object(Washbasin(), x=25)  # 안쪽
+        self.add_object(WallLamp(), x=90)
