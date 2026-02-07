@@ -85,6 +85,7 @@ class Sera(Character):
         "can:bath": 1,
         "can:toggle_switch": 1,
         "can:chop": 1,
+        "생존:포만감": 80, "생존:최대포만감": 100,
     }
     actions = [
         "call:talk:대화",
@@ -1006,6 +1007,8 @@ class SeraAgent(BaseAgent):
     def __init__(self, unit_id):
         super().__init__(unit_id)
         self.set_base_schedule(self.SCHEDULE)
+        import survival
+        survival.register_npc(unit_id)
 
 
 # ========================================

@@ -44,6 +44,10 @@ class BaseAgent:
     # 도구함 정보 (저택 공용)
     TOOL_STORAGE = {"region_id": 0, "location_id": 5, "x": 20}  # 창고 도구함 위치
 
+    # 식량 보관 위치 (서브클래스에서 오버라이드)
+    food_storage_location = {"region_id": 0, "location_id": 2, "x": 35}  # 주방 냉장고
+    food_storage_unique_id = "kitchen_fridge"
+
     def __init__(self, unit_id):
         self.unit_id = unit_id
         self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
@@ -54,6 +58,7 @@ class BaseAgent:
         self._activity_phase = "idle"   # 활동 내 단계
         self._activity_state = {}       # 활동별 임시 데이터
         self._action_taken = False      # think() 내 행동 결정 여부 (경고용)
+        self._hunger_phase = None       # 식사 단계 (None=배고프지 않음)
 
     def set_base_schedule(self, schedule):
         """
@@ -373,6 +378,10 @@ class BaseAgent:
             return None
         self._ensure_standing()
 
+        # 1.5. 배고픔 체크 (활동보다 우선)
+        if self._check_hunger():
+            return None
+
         # 2. 현재 activity 확인
         entry = self._get_current_activity(schedule)
         if entry is None:
@@ -668,6 +677,18 @@ class BaseAgent:
                 return {"region_id": r, "location_id": l, "x": 0, "light_ids": light_ids}
         return None
 
+    def _check_hunger(self):
+        """배고픔 확인 → 식사 활동 시작. Returns True if handling hunger."""
+        import survival
+        if not survival.is_npc_hungry(self.unit_id):
+            self._hunger_phase = None
+            return False
+        # 배고프면 식사 핸들러 실행
+        if self._hunger_phase is None:
+            self._hunger_phase = "idle"
+        _handle_eat(self)
+        return True
+
 
 # ========================================
 # 활동 핸들러 (module-level)
@@ -764,6 +785,95 @@ def _handle_chop(agent, entry):
             agent._action_taken = True
         else:
             agent._move_to(storage, "도구 반납")
+
+
+# ========================================
+# 식사 핸들러 (배고픔 인터럽트)
+# ========================================
+
+def _find_npc_food(unit_id):
+    """NPC 인벤토리에서 음식 아이템 찾기"""
+    from assets.registry import get_unique_id, get_item_class
+    inventory = morld.get_unit_inventory(unit_id)
+    if not inventory:
+        return None
+    for item_id, count in inventory.items():
+        if count <= 0:
+            continue
+        uid = get_unique_id(item_id)
+        if uid:
+            cls = get_item_class(uid)
+            if cls and getattr(cls, 'food_satiety', 0) > 0:
+                return {"item_id": item_id, "unique_id": uid, "satiety": cls.food_satiety}
+    return None
+
+
+def _find_food_in_container(container_id):
+    """컨테이너에서 음식 아이템 unique_id 찾기"""
+    from assets.registry import get_unique_id, get_item_class
+    inventory = morld.get_unit_inventory(container_id)
+    if not inventory:
+        return None
+    for item_id, count in inventory.items():
+        if count <= 0:
+            continue
+        uid = get_unique_id(item_id)
+        if uid:
+            cls = get_item_class(uid)
+            if cls and getattr(cls, 'food_satiety', 0) > 0:
+                return uid
+    return None
+
+
+def _handle_eat(agent):
+    """식사: 인벤토리 확인 → 식량 보관 이동 → 음식 가져오기 → 식사"""
+    phase = agent._hunger_phase
+
+    if phase == "idle":
+        # 인벤토리에 음식이 있으면 바로 식사
+        food = _find_npc_food(agent.unit_id)
+        if food:
+            agent._hunger_phase = "eating"
+            _handle_eat(agent)
+            return
+        # 없으면 식량 보관소로 이동
+        agent._hunger_phase = "going_to_storage"
+        _handle_eat(agent)
+        return
+
+    elif phase == "going_to_storage":
+        target = agent.food_storage_location
+        if agent._is_at(target):
+            agent._hunger_phase = "taking_food"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "식사")
+
+    elif phase == "taking_food":
+        from assets.registry import get_instance_id
+        from assets.objects import get_instance
+        storage_id = get_instance_id(agent.food_storage_unique_id)
+        if storage_id:
+            obj = get_instance(storage_id)
+            if obj:
+                food_uid = _find_food_in_container(storage_id)
+                if food_uid:
+                    obj.npc_take_item(agent.unit_id, food_uid, 1)
+                    agent._hunger_phase = "eating"
+                    agent._action_taken = True
+                    return
+        # 음식 없음 → 포기
+        agent._hunger_phase = None
+        agent._action_taken = True
+
+    elif phase == "eating":
+        food = _find_npc_food(agent.unit_id)
+        if food:
+            import survival
+            survival.npc_eat(agent.unit_id, food["satiety"])
+            morld.remove_item(agent.unit_id, food["item_id"], 1)
+        agent._hunger_phase = None
+        agent._action_taken = True
 
 
 # 활동 핸들러 레지스트리: activity 이름 → handler(agent, entry)

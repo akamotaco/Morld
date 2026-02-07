@@ -95,6 +95,7 @@ class Mila(Character):
         "can:sleep": 1,
         "can:bath": 1,
         "can:toggle_switch": 1,
+        "생존:포만감": 80, "생존:최대포만감": 100,
     }
     actions = [
         "call:talk:대화",
@@ -930,6 +931,8 @@ class MilaAgent(BaseAgent):
         super().__init__(unit_id)
         self._current_season = None
         # 초기 스케줄은 think()에서 계절 확인 후 설정
+        import survival
+        survival.register_npc(unit_id)
 
     def _get_current_season(self):
         """현재 계절 반환 (게임 날짜 기반)"""

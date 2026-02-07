@@ -19,6 +19,10 @@ HEALTH_THRESHOLD_DANGER = 20      # 위험 체력
 # 시간 누적 (1시간 미만의 시간 경과 누적, 밀리초)
 _accumulated_millis = 0
 
+# NPC 만복도 추적
+_npc_registry = set()          # 등록된 NPC unit_id 집합
+_npc_accumulated = {}          # unit_id -> 누적 밀리초
+
 # 시간 상수 (밀리초)
 MILLIS_PER_HOUR = 3_600_000
 
@@ -74,6 +78,52 @@ def add_health(unit_id: int, amount: int):
     """
     current = morld.get_unit_prop(unit_id, "생존:체력") or 0
     set_health(unit_id, current + amount)
+
+
+# ========================================
+# NPC 만복도 관리
+# ========================================
+
+def register_npc(unit_id: int):
+    """NPC를 만복도 추적 대상에 등록 (Agent __init__에서 호출)"""
+    _npc_registry.add(unit_id)
+    _npc_accumulated[unit_id] = 0
+
+
+def is_npc_hungry(unit_id: int, threshold: int = 30) -> bool:
+    """NPC가 배고픈지 확인. 생존 prop이 없으면 False (배고프지 않음)."""
+    satiety = morld.get_unit_prop(unit_id, "생존:포만감")
+    if satiety is None:
+        return False
+    return satiety <= threshold
+
+
+def npc_eat(unit_id: int, satiety_amount: int):
+    """NPC 식사 (포만감 추가)"""
+    add_satiety(unit_id, satiety_amount)
+
+
+def _process_npc_time(npc_id: int, millis: int):
+    """NPC 시간 경과 처리 (포만감 감소만)"""
+    if millis <= 0:
+        return
+
+    # 생존 prop이 없으면 무시 (시나리오03 호환)
+    satiety = morld.get_unit_prop(npc_id, "생존:포만감")
+    if satiety is None:
+        return
+
+    _npc_accumulated[npc_id] = _npc_accumulated.get(npc_id, 0) + millis
+    if _npc_accumulated[npc_id] < MILLIS_PER_HOUR:
+        return
+
+    hours = _npc_accumulated[npc_id] // MILLIS_PER_HOUR
+    _npc_accumulated[npc_id] %= MILLIS_PER_HOUR
+
+    # 포만감 감소 (시간에 비례)
+    loss = int(SATIETY_DECAY_RATE * hours)
+    if loss > 0:
+        set_satiety(npc_id, satiety - loss)
 
 
 def process_time_elapsed(unit_id: int, millis: int):
@@ -231,6 +281,10 @@ def _on_time_elapsed(millis: int):
     player_id = morld.get_player_id()
     if player_id is not None:
         process_time_elapsed(player_id, millis)
+
+    # 등록된 NPC들의 포만감 처리
+    for npc_id in _npc_registry:
+        _process_npc_time(npc_id, millis)
 
 
 # 모듈 로드 시 이벤트 구독

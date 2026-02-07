@@ -86,6 +86,7 @@ class Yuki(Character):
         "can:sleep": 1,
         "can:bath": 1,
         "can:toggle_switch": 1,
+        "생존:포만감": 80, "생존:최대포만감": 100,
     }
     actions = [
         "call:talk:대화",
@@ -864,10 +865,14 @@ class YukiAgent(BaseAgent):
     owner_unique_id = "yuki"
     sleep_location = {"region_id": 2, "location_id": 5, "x": 50}  # 은신처 유키침대
     bath_location = {"region_id": 2, "location_id": 5, "x": 150}  # 은신처 드럼통
+    food_storage_location = {"region_id": 2, "location_id": 5, "x": 120}  # 은신처 식량함
+    food_storage_unique_id = "food_storage"
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
         self.set_base_schedule(self.SCHEDULE)
+        import survival
+        survival.register_npc(unit_id)
 
     def _on_leaving(self, region_id, location_id):
         """이동 전 조명 끄기 (유키 성격: 꼼꼼함)"""
