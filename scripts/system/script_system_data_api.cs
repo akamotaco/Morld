@@ -609,12 +609,18 @@ namespace SE
                 return PyBool.True;
             });
 
-            // advance_time_des(millis) - DES 기반 시간 진행
+            // advance_time_des(millis) - DES 기반 시간 진행 (유일한 시간 진행 API)
             //
             // - Step 단위로 시간 진행 (최소 NPC job duration 기준)
             // - 각 Step마다 think_all() 호출 (NPC AI 재계산)
             // - Move job 만료 시 NPC를 목표 location에 텔레포트
             // - time_elapsed 이벤트 Python에 전달 (survival/resource 처리)
+            //
+            // [아키텍처 주의]
+            // 이 메서드는 ECS Step(GameEngine._Process → World.Step)과 별도 경로로 실행됨.
+            // 역할 분리: C#은 시스템(이동/Job/시간), Python은 컨텐츠(think/이벤트).
+            // 이 분리가 유지되는 한 실질적으로 단일 호출이지만,
+            // C# 시스템 로직(JobBehaviorSystem 등) 변경 시 이 메서드도 동기화 필요.
             //
             // 반환: 실제 경과된 시간 (밀리초)
             morldModule.ModuleDict["advance_time_des"] = new PyBuiltinFunction("advance_time_des", args =>

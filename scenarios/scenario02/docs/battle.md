@@ -554,7 +554,7 @@ def process_player_action(action, duration):
 
     if combat_ctx is None:
         # 비전투 상황: 인터럽트 체크 없이 즉시 처리
-        morld.advance_time(duration)
+        morld.advance_time_des(duration)
         return execute_action(action)
 
     # 전투 상황: 인터럽트 체크하며 시간 진행

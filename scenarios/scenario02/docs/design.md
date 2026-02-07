@@ -1230,7 +1230,7 @@ class FoodItem(Item):
         survival.add_satiety(player_id, self.food_satiety)
         morld.lost_item(player_id, self.instance_id)
         yield morld.dialog(self.eat_message)
-        morld.advance_time(self.eat_time)
+        morld.advance_time_des(self.eat_time)
 ```
 
 ### 파일 구조

@@ -135,6 +135,11 @@ def toggle_auto_time_flow():
 
 플레이어 수면 등 대규모 시간 건너뛰기 시, NPC가 자율적으로 행동하도록 하는 시스템입니다.
 
+> **아키텍처 참고**: DES 루프는 ECS Step(`GameEngine._Process → World.Step`)과 별도 경로로 실행됩니다.
+> C#은 시스템 업데이트(이동, Job, 시간), Python은 컨텐츠 업데이트(think, 이벤트)를 담당하며,
+> 이 분리가 유지되는 한 실질적으로 단일 호출입니다.
+> 단, C# 시스템 로직(JobBehaviorSystem 등) 변경 시 DES 루프(`AdvanceTimeDES`)도 동기화해야 합니다.
+
 ### 시간 진행 API 비교
 
 | API | NPC think() | 이동 처리 | 이벤트 | 용도 |
