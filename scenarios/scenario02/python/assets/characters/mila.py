@@ -95,6 +95,7 @@ class Mila(Character):
         "can:sleep": 1,
         "can:bath": 1,
         "can:toggle_switch": 1,
+        "생존:체력": 100, "생존:최대체력": 100,
         "생존:포만감": 80, "생존:최대포만감": 100,
     }
     actions = [

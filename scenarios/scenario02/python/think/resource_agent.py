@@ -14,6 +14,7 @@
 
 import morld
 MILLIS_PER_MINUTE = 60_000
+MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE
 from assets.objects import get_instance
 
 # 순환 참조 방지: subscribe_time_elapsed는 모듈 하단에서 지연 import
@@ -259,8 +260,8 @@ def _ensure_subscribed():
     _subscribed = True
 
     from events import subscribe_time_elapsed
-    subscribe_time_elapsed(_on_time_elapsed)
-    print("[resource_agent] Subscribed to time_elapsed events")
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
+    print("[resource_agent] Subscribed to time_elapsed events (hourly)")
 
 
 # Note: 이벤트 기반으로 변경되어 Agent 클래스는 더 이상 필요하지 않음

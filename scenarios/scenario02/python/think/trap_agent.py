@@ -12,6 +12,7 @@
 import random
 import morld
 MILLIS_PER_MINUTE = 60_000
+MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE
 from assets.objects import get_instance
 from assets.registry import get_or_create_item_id
 
@@ -156,5 +157,5 @@ def _ensure_subscribed():
     _subscribed = True
 
     from events import subscribe_time_elapsed
-    subscribe_time_elapsed(_on_time_elapsed)
-    print("[trap_agent] Subscribed to time_elapsed events")
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
+    print("[trap_agent] Subscribed to time_elapsed events (hourly)")

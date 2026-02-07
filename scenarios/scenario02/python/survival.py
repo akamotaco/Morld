@@ -1,7 +1,13 @@
-# survival.py - 생존 시스템 (체력, 포만감)
+# survival.py - 생존 시스템 (체력, 포만감, 기절)
 #
-# 시간 경과 시 호출되어 포만감 감소, 체력 증감 처리
-# on_time_elapsed 이벤트 구독 방식으로 동작
+# 시간 경과 시 호출되어 포만감 감소, 체력 증감, 기절 처리
+# on_time_elapsed 이벤트 구독 방식으로 동작 (1시간 간격)
+#
+# 기절 규칙:
+# - 만복도 0 → 체력 감소 (2/시간)
+# - 체력 0 → 기절 상태 (8시간)
+# - 기절 중 → 체력 서서히 회복 (최대체력/2까지), 만복도 0 유지
+# - 기절 종료 → 만복도 0, 체력 = 최대체력/2
 
 import morld
 from events import subscribe_time_elapsed
@@ -16,12 +22,18 @@ SATIETY_THRESHOLD_HUNGRY = 30     # 배고픔 경고
 SATIETY_THRESHOLD_STARVING = 10   # 굶주림 경고
 HEALTH_THRESHOLD_DANGER = 20      # 위험 체력
 
+FAINT_DURATION_HOURS = 8          # 기절 지속시간 (시간)
+FAINT_RECOVERY_RATIO = 0.5       # 기절 후 체력 회복 비율 (최대체력의 절반)
+
 # 시간 누적 (1시간 미만의 시간 경과 누적, 밀리초)
 _accumulated_millis = 0
 
 # NPC 만복도 추적
 _npc_registry = set()          # 등록된 NPC unit_id 집합
 _npc_accumulated = {}          # unit_id -> 누적 밀리초
+
+# NPC 기절 상태: npc_id -> remaining_hours (남은 기절 시간)
+_fainted_npcs = {}
 
 # 시간 상수 (밀리초)
 MILLIS_PER_HOUR = 3_600_000
@@ -81,7 +93,7 @@ def add_health(unit_id: int, amount: int):
 
 
 # ========================================
-# NPC 만복도 관리
+# NPC 만복도/체력/기절 관리
 # ========================================
 
 def register_npc(unit_id: int):
@@ -92,10 +104,17 @@ def register_npc(unit_id: int):
 
 def is_npc_hungry(unit_id: int, threshold: int = 30) -> bool:
     """NPC가 배고픈지 확인. 생존 prop이 없으면 False (배고프지 않음)."""
+    if is_npc_fainted(unit_id):
+        return False  # 기절 중에는 배고픔 인터럽트 안 함
     satiety = morld.get_unit_prop(unit_id, "생존:포만감")
     if satiety is None:
         return False
     return satiety <= threshold
+
+
+def is_npc_fainted(unit_id: int) -> bool:
+    """NPC가 기절 상태인지 확인"""
+    return unit_id in _fainted_npcs
 
 
 def npc_eat(unit_id: int, satiety_amount: int):
@@ -103,9 +122,49 @@ def npc_eat(unit_id: int, satiety_amount: int):
     add_satiety(unit_id, satiety_amount)
 
 
+def _enter_faint(npc_id: int):
+    """NPC 기절 상태 진입"""
+    _fainted_npcs[npc_id] = FAINT_DURATION_HOURS
+    set_health(npc_id, 0)
+    set_satiety(npc_id, 0)
+    print(f"[survival] NPC {npc_id} fainted! (will recover in {FAINT_DURATION_HOURS}h)")
+
+
+def _process_faint(npc_id: int, hours: int):
+    """기절 중 NPC 처리 (체력 서서히 회복, 만복도 0 유지)"""
+    if npc_id not in _fainted_npcs:
+        return
+
+    _fainted_npcs[npc_id] -= hours
+
+    max_health = morld.get_unit_prop(npc_id, "생존:최대체력") or 100
+    target_health = int(max_health * FAINT_RECOVERY_RATIO)
+
+    if _fainted_npcs[npc_id] <= 0:
+        # 기절 종료: 만복도 0, 체력 = 최대/2
+        del _fainted_npcs[npc_id]
+        set_health(npc_id, target_health)
+        set_satiety(npc_id, 0)
+        print(f"[survival] NPC {npc_id} recovered from faint (health={target_health})")
+    else:
+        # 서서히 회복: 경과 비율에 따라 체력 설정
+        elapsed = FAINT_DURATION_HOURS - _fainted_npcs[npc_id]
+        progress = elapsed / FAINT_DURATION_HOURS  # 0.0 ~ 1.0
+        current_target = int(target_health * progress)
+        set_health(npc_id, current_target)
+        set_satiety(npc_id, 0)  # 만복도는 0 유지
+
+
 def _process_npc_time(npc_id: int, millis: int):
-    """NPC 시간 경과 처리 (포만감 감소만)"""
+    """NPC 시간 경과 처리 (포만감 감소, 체력 증감, 기절)"""
     if millis <= 0:
+        return
+
+    # 기절 중이면 기절 회복 처리만
+    if npc_id in _fainted_npcs:
+        # millis → hours 변환 (min_interval=1h 이므로 보통 1)
+        hours = max(1, millis // MILLIS_PER_HOUR)
+        _process_faint(npc_id, hours)
         return
 
     # 생존 prop이 없으면 무시 (시나리오03 호환)
@@ -120,10 +179,27 @@ def _process_npc_time(npc_id: int, millis: int):
     hours = _npc_accumulated[npc_id] // MILLIS_PER_HOUR
     _npc_accumulated[npc_id] %= MILLIS_PER_HOUR
 
-    # 포만감 감소 (시간에 비례)
+    # 1. 포만감 감소 (시간에 비례)
     loss = int(SATIETY_DECAY_RATE * hours)
     if loss > 0:
         set_satiety(npc_id, satiety - loss)
+        satiety = morld.get_unit_prop(npc_id, "생존:포만감") or 0
+
+    # 2. 체력 증감 (포만감에 따라)
+    if satiety >= 50:
+        # 포만감 충분: 체력 천천히 회복
+        health_gain = int(HEALTH_REGEN_RATE * hours)
+        if health_gain > 0:
+            add_health(npc_id, health_gain)
+    elif satiety <= 0:
+        # 공복 상태: 체력 감소
+        health_loss = int(HEALTH_DECAY_RATE * hours)
+        if health_loss > 0:
+            add_health(npc_id, -health_loss)
+            # 체력 0 이하면 기절
+            health = morld.get_unit_prop(npc_id, "생존:체력") or 0
+            if health <= 0:
+                _enter_faint(npc_id)
 
 
 def process_time_elapsed(unit_id: int, millis: int):
@@ -287,5 +363,5 @@ def _on_time_elapsed(millis: int):
         _process_npc_time(npc_id, millis)
 
 
-# 모듈 로드 시 이벤트 구독
-subscribe_time_elapsed(_on_time_elapsed)
+# 모듈 로드 시 이벤트 구독 (1시간 간격)
+subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)

@@ -363,6 +363,13 @@ class BaseAgent:
         4. 활동 핸들러 디스패치 (phase-based)
         """
         self._action_taken = False
+
+        # 0. 기절 체크 (최우선 — 아무것도 못함)
+        import survival
+        if survival.is_npc_fainted(self.unit_id):
+            self._action_taken = True
+            return None
+
         schedule = self.get_current_schedule()
         if not schedule:
             return None
