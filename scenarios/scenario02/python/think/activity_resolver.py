@@ -126,23 +126,29 @@ def _resolve_chop(unit_id, region_id):
 
 
 def _resolve_fish(unit_id, region_id):
-    """낚시: FishingSpot 오브젝트가 있는 location 탐색"""
+    """낚시: FishingSpot + can_fish() 확인, 물고기 많은 곳 우선"""
     from assets.objects import _location_objects
     from assets.objects.outdoor import FishingSpot
 
+    candidates = []
     for (r, l), obj_ids in _location_objects.items():
         if r != region_id:
             continue
         for obj_id in obj_ids:
             obj = get_instance(obj_id)
-            if obj and isinstance(obj, FishingSpot):
-                return {
+            if obj and isinstance(obj, FishingSpot) and obj.can_fish():
+                candidates.append({
                     "region_id": r,
                     "location_id": l,
                     "x": _get_object_x(obj_id),
                     "object_id": obj_id,
-                }
-    return None
+                    "fish_count": obj.get_fish_count(),
+                })
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda c: -c["fish_count"])
+    return candidates[0]
 
 
 def _resolve_read(unit_id, region_id):

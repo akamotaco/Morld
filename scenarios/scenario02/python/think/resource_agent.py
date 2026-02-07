@@ -11,6 +11,7 @@
 # 자원 타입:
 # - RESOURCE_CONFIG: 인벤토리 기반 음식 자원 (사과, 산딸기 등)
 # - TREE_RESOURCE_CONFIG: props 기반 나무 자원 (통나무, 나뭇가지)
+# - FISHING_SPOT_CONFIG: props 기반 낚시터 자원 (물고기)
 
 import morld
 MILLIS_PER_MINUTE = 60_000
@@ -39,6 +40,12 @@ TREE_RESOURCE_CONFIG = {
     "apple_tree": {"log": (1440 * MILLIS_PER_MINUTE, 2), "branch": (480 * MILLIS_PER_MINUTE, 3)},     # 과일나무 - 자원 적음
 }
 
+# === 낚시터 자원 설정 (props 기반) ===
+# unique_id: (spawn_interval, max_fish)
+FISHING_SPOT_CONFIG = {
+    "fishing_spot": (360 * MILLIS_PER_MINUTE, 5),  # 6시간마다, 최대 5마리
+}
+
 # 오브젝트별 누적 시간 (인벤토리 기반): instance_id -> accumulated_millis
 _accumulated_time = {}
 
@@ -50,6 +57,12 @@ _tree_accumulated_time = {}
 
 # 등록된 나무 오브젝트: instance_id -> unique_id
 _registered_trees = {}
+
+# 낚시터 자원용 누적 시간: instance_id -> accumulated_millis
+_fishing_accumulated_time = {}
+
+# 등록된 낚시터 오브젝트: instance_id -> unique_id
+_registered_fishing_spots = {}
 
 
 def register_resource_object(instance_id: int, unique_id: str):
@@ -106,12 +119,40 @@ def unregister_tree_object(instance_id: int):
         del _tree_accumulated_time[instance_id]
 
 
+def register_fishing_spot(instance_id: int, unique_id: str):
+    """
+    낚시터 오브젝트 등록 (instantiate 시 호출)
+
+    Args:
+        instance_id: 오브젝트 인스턴스 ID
+        unique_id: 낚시터 타입 (fishing_spot 등)
+    """
+    if unique_id not in FISHING_SPOT_CONFIG:
+        return
+
+    _ensure_subscribed()
+
+    _registered_fishing_spots[instance_id] = unique_id
+    _fishing_accumulated_time[instance_id] = 0
+    print(f"[resource_agent] Registered fishing spot: {unique_id} (id={instance_id})")
+
+
+def unregister_fishing_spot(instance_id: int):
+    """낚시터 오브젝트 등록 해제"""
+    if instance_id in _registered_fishing_spots:
+        del _registered_fishing_spots[instance_id]
+    if instance_id in _fishing_accumulated_time:
+        del _fishing_accumulated_time[instance_id]
+
+
 def clear_all():
     """모든 등록 정보 초기화 (챕터 전환용)"""
     _registered_objects.clear()
     _accumulated_time.clear()
     _registered_trees.clear()
     _tree_accumulated_time.clear()
+    _registered_fishing_spots.clear()
+    _fishing_accumulated_time.clear()
     print("[resource_agent] All registrations cleared.")
 
 
@@ -232,6 +273,50 @@ def _process_tree_resource_spawn(instance_id: int, millis: int):
                     print(f"[resource_agent] Tree branch spawned: {unique_id} (id={instance_id})")
 
 
+def _process_fishing_spawn(instance_id: int, millis: int):
+    """
+    낚시터의 물고기 보충 처리 (Tree props 패턴과 동일)
+
+    Args:
+        instance_id: 낚시터 인스턴스 ID
+        millis: 경과 시간 (밀리초)
+    """
+    unique_id = _registered_fishing_spots.get(instance_id)
+    if not unique_id:
+        return
+
+    config = FISHING_SPOT_CONFIG.get(unique_id)
+    if not config:
+        return
+
+    spawn_interval, max_fish = config
+
+    obj = get_instance(instance_id)
+    if obj is None:
+        return
+
+    current = obj.get_fish_count() if hasattr(obj, 'get_fish_count') else 0
+
+    # 최대 개수에 도달했으면 시간 누적 없음
+    if current >= max_fish:
+        _fishing_accumulated_time[instance_id] = 0
+        return
+
+    _fishing_accumulated_time[instance_id] += millis
+
+    while _fishing_accumulated_time[instance_id] >= spawn_interval:
+        _fishing_accumulated_time[instance_id] -= spawn_interval
+
+        current = obj.get_fish_count() if hasattr(obj, 'get_fish_count') else 0
+        if current >= max_fish:
+            _fishing_accumulated_time[instance_id] = 0
+            break
+
+        if hasattr(obj, 'set_fish_count'):
+            obj.set_fish_count(current + 1)
+            print(f"[resource_agent] Fish spawned: {unique_id} (id={instance_id})")
+
+
 def _on_time_elapsed(millis: int):
     """
     OnTimeElapsed 이벤트 핸들러
@@ -245,6 +330,10 @@ def _on_time_elapsed(millis: int):
     # props 기반 나무 자원 (통나무/나뭇가지)
     for instance_id in list(_registered_trees.keys()):
         _process_tree_resource_spawn(instance_id, millis)
+
+    # props 기반 낚시터 자원 (물고기)
+    for instance_id in list(_registered_fishing_spots.keys()):
+        _process_fishing_spawn(instance_id, millis)
 
 
 # ========================================

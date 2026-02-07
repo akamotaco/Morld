@@ -120,28 +120,77 @@ class FishingSpot(Object):
     """
     낚시터 - can:fish 필요 (낚시대 장착)
 
+    props 기반 자원 관리:
+    - "자원:물고기": 현재 어획 가능 물고기 수
+    - OnTimeElapsed 이벤트로 자동 보충 (resource_agent)
+
     플레이어가 낚시대를 장착하면 can:fish가 부여되고,
     이 오브젝트의 "낚시" 액션이 표시됨.
     """
     unique_id = "fishing_spot"
     name = "낚시터"
     actions = ["call:look:살펴보기", "call:fish:낚시", "call:debug_props:(디버그) 속성 보기#"]
-    focus_text = {"default": "물이 깊고 잔잔한 곳. 물고기가 많을 것 같다."}
+
+    # 자원 설정 (prop 기반, Tree 패턴)
+    max_fish = 5
+    initial_fish = 4
+    fish_chance = 0.7    # 70%
+
+    def instantiate(self, instance_id: int, region_id: int = None, location_id: int = None):
+        """낚시터 인스턴스화 - 초기 자원 설정 및 resource_agent 등록"""
+        super().instantiate(instance_id, region_id, location_id)
+        self.set_fish_count(self.initial_fish)
+        from think.resource_agent import register_fishing_spot
+        register_fishing_spot(instance_id, self.unique_id)
+
+    def get_fish_count(self) -> int:
+        """현재 물고기 수 (props에서 조회)"""
+        if not self._instantiated:
+            return 0
+        props = morld.get_unit_props(self.instance_id)
+        return props.get("자원:물고기", 0)
+
+    def set_fish_count(self, count: int):
+        """물고기 수 설정"""
+        morld.set_unit_prop(self.instance_id, "자원:물고기",
+                            max(0, min(count, self.max_fish)))
+
+    def can_fish(self) -> bool:
+        """낚시 가능 여부 (물고기 남아있는지)"""
+        return self.get_fish_count() > 0
+
+    def has_resource(self) -> bool:
+        """통일 리소스 체크 인터페이스"""
+        return self.can_fish()
+
+    def get_focus_text(self):
+        """현재 상태에 따른 묘사"""
+        count = self.get_fish_count()
+        if count >= 4:
+            return "물이 깊고 잔잔한 곳. 물고기가 많이 보인다."
+        elif count > 0:
+            return f"낚시터. 물고기가 좀 보인다. ({count}마리 정도)"
+        else:
+            return "낚시터. 물고기가 보이지 않는다. 시간이 지나면 돌아올 것이다."
 
     def look(self):
         """낚시터 살펴보기"""
-        yield ui.dialog([
-            "물이 깊고 잔잔한 곳이다.",
-            "물고기가 많이 잡힐 것 같다.",
-            "낚시대를 장착하면 낚시를 할 수 있다."
-        ])
+        count = self.get_fish_count()
+        if count >= 4:
+            lines = ["물이 깊고 잔잔한 곳이다.", "물고기가 많이 보인다."]
+        elif count > 0:
+            lines = ["낚시터다.", f"물고기가 {count}마리 정도 보인다."]
+        else:
+            lines = ["낚시터다.", "물고기가 보이지 않는다. 시간이 지나면 돌아올 것이다."]
+        lines.append("낚시대를 장착하면 낚시를 할 수 있다.")
+        yield ui.dialog(lines)
         morld.advance_time_des(1 * 60_000)
 
     def fish(self, equipment=None):
         """
         낚시하기 - can:fish가 있어야 실행 가능
 
-        랜덤으로 생선 획득 또는 실패
+        자원 체크 + 확률 기반 생선 획득
 
         Args:
             equipment: 낚시에 사용된 장비 정보
@@ -149,6 +198,14 @@ class FishingSpot(Object):
         """
         import random
         from assets.registry import get_item_class
+
+        # 자원 체크
+        if not self.can_fish():
+            yield ui.dialog([
+                "한참을 기다렸지만...",
+                "물고기가 보이지 않는다. 다른 곳을 찾아보자."
+            ])
+            return
 
         # 장비에 따라 다른 낚시 메시지
         if equipment:
@@ -158,12 +215,11 @@ class FishingSpot(Object):
             else:
                 yield ui.dialog(f"{equipment.get('name', '도구')}(으)로 낚시를 시작한다...")
         else:
-            # can:fish가 기본 능력인 경우 (장비 없이 가능할 때)
             yield ui.dialog("맨손으로 물고기를 잡아본다...")
         morld.advance_time_des(15 * 60_000)  # 15분 소요
 
-        # 70% 확률로 성공
-        if random.random() < 0.7:
+        # 확률 기반 성공
+        if random.random() < self.fish_chance:
             player_id = morld.get_player_id()
 
             # 기존 생선 아이템 ID 조회 (스택을 위해)
@@ -181,6 +237,7 @@ class FishingSpot(Object):
                     return
 
             morld.give_item(player_id, fish_id, 1)
+            self.set_fish_count(self.get_fish_count() - 1)
             yield ui.dialog([
                 "물고기를 잡았다!",
                 "신선한 생선이다."
@@ -192,12 +249,15 @@ class FishingSpot(Object):
             ])
 
     def npc_fish(self, npc_id):
-        """NPC 낚시 (non-generator, 70% 성공)"""
+        """NPC 낚시 — 자원 체크 + 확률 + 차감"""
+        if not self.can_fish():
+            return False
         import random
         from assets.registry import get_or_create_item_id
-        if random.random() < 0.7:
+        if random.random() < self.fish_chance:
             item_id = get_or_create_item_id("food_fish")
             if item_id:
                 morld.give_item(npc_id, item_id, 1)
+                self.set_fish_count(self.get_fish_count() - 1)
                 return True
         return False

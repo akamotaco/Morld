@@ -106,6 +106,10 @@ class Tree(Object):
         """가지 줍기 가능 여부 (나뭇가지 남아있는지)"""
         return self.get_branch_count() > 0
 
+    def has_resource(self) -> bool:
+        """통일 리소스 체크 인터페이스 (벌목 가능 여부)"""
+        return self.can_chop()
+
     def get_focus_text(self):
         """현재 상태에 따른 묘사"""
         logs = self.get_log_count()

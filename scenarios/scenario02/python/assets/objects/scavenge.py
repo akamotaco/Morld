@@ -34,6 +34,10 @@ class ScavengeableObject(Object):
 
         return self.instance_id
 
+    def has_resource(self) -> bool:
+        """통일 리소스 체크 인터페이스 (수집 가능 여부)"""
+        return self.get_item_count() > 0
+
     def look(self):
         """살펴보기"""
         inventory = morld.get_unit_inventory(self.instance_id)

@@ -59,6 +59,10 @@ class ResourceObject(Object):
         morld.give_item(npc_id, item_id, take)
         return take
 
+    def has_resource(self) -> bool:
+        """통일 리소스 체크 인터페이스 (채집 가능 여부)"""
+        return self.get_resource_count() > 0
+
     def spawn_resource(self):
         """
         자원 하나 생성 (Agent에서 호출)
