@@ -19,7 +19,7 @@ class Toilet(Object):
     def look(self):
         """변기 살펴보기"""
         yield ui.dialog("깨끗하게 관리된 변기다. 사용하는 데 문제없어 보인다.")
-        morld.advance_time(1 * 60_000)
+        morld.advance_time_des(1 * 60_000)
 
     def use(self):
         """변기 사용 (배변)"""
@@ -39,7 +39,7 @@ class Toilet(Object):
 
         # 배변욕 해소
         morld.set_unit_prop(player_id, "욕구:배변", 0)
-        morld.advance_time(5 * 60_000)
+        morld.advance_time_des(5 * 60_000)
 
 
 class ToiletRoom(Location):

@@ -26,4 +26,4 @@ def rough_sleep():
     else:
         yield ui.dialog(["풀밭 위에 누워 잠을 청했다.", "별이 보인다... 하지만 불안하다."])
 
-    morld.advance_time(480 * 60_000)  # 8시간
+    morld.advance_time_des(480 * 60_000)  # 8시간 (DES: NPC 자율 행동)

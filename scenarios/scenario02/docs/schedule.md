@@ -540,14 +540,13 @@ agent._return_tool("axe")    # 도구함에 반납
 
 ### 개요
 
-플레이어 수면 등 대규모 시간 건너뛰기 시, NPC가 **자율적으로 행동**하도록 하는 시스템.
-기존 `advance_time()`은 단순 시간 건너뛰기지만, `advance_time_des()`는 step별로 NPC think()를 호출.
+시간 건너뛰기 시 NPC가 **자율적으로 행동**하도록 하는 시스템.
+`advance_time_des()`는 step별로 NPC think()를 호출하여 자율 행동을 시뮬레이션.
 
 ### 시간 진행 API 비교
 
 | API | think() | 이동 | 이벤트 | 용도 |
 |-----|---------|------|--------|------|
-| `advance_time(ms)` | X | X | X | 단순 시간 건너뛰기 |
 | `advance_time_simulate(ms)` | X | O | X | 이동만 처리 |
 | `advance_time_des(ms)` | **O** | **O** | **O** | **NPC 자율 시뮬레이션** |
 

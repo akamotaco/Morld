@@ -118,7 +118,7 @@ class CarDriverSeat(Object):
             result = morld.drive_to(player_id, region_id, location_id)
             yield ui.dialog(result["message"])
             if result["success"]:
-                morld.advance_time(result["time_consumed"])  # 이미 밀리초 단위
+                morld.advance_time_des(result["time_consumed"])  # 이미 밀리초 단위
 
 
 class CarPassengerSeat(Object):
@@ -154,4 +154,4 @@ class CarTrunk(Object):
             "차 트렁크를 열어보았다.",
             "물건을 넣거나 꺼낼 수 있겠다."
         ])
-        morld.advance_time(1 * 60_000)
+        morld.advance_time_des(1 * 60_000)

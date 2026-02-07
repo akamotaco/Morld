@@ -470,27 +470,6 @@ namespace SE
                 return PyBool.True;
             });
 
-            // advance_time
-            morldModule.ModuleDict["advance_time"] = new PyBuiltinFunction("advance_time", args =>
-            {
-                if (args.Length < 1)
-                    throw PyTypeError.Create("advance_time(millis) requires 1 argument");
-
-                int millis = args[0].ToInt();
-
-                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-
-                var time = _worldSystem.GetTime();
-                time.AddMillis(millis);
-                int displayMin = millis / GameTime.MillisPerMinute;
-                Godot.GD.Print($"[morld] advance_time: +{displayMin} minutes ({millis}ms)");
-
-                // 생존 시스템 처리 (플레이어만)
-                ProcessSurvivalTimeElapsed(millis);
-
-                return PyBool.True;
-            });
-
             // set_time_frozen
             morldModule.ModuleDict["set_time_frozen"] = new PyBuiltinFunction("set_time_frozen", args =>
             {

@@ -30,7 +30,7 @@ class Toolbox(object):
                     "여러 도구가 정리된 나무 상자다.",
                     "낚시대, 밧줄 등 야외 활동에 필요한 것들이 있다."
                 ])
-                morld.advance_time(1 * 60_000)
+                morld.advance_time_des(1 * 60_000)
 
         return ToolboxObject()
 

@@ -41,7 +41,7 @@ class ScavengeableObject(Object):
             yield ui.dialog(["무언가 남아 있는 것 같다."])
         else:
             yield ui.dialog(["텅 비어 있다. 쓸 만한 것은 더 이상 없다."])
-        morld.advance_time(1 * 60_000)
+        morld.advance_time_des(1 * 60_000)
 
 
 class GasStationStand(ScavengeableObject):

@@ -35,7 +35,7 @@ class FrontYardCollapse(ReachEvent):
         morld.set_prop("chapter", 1)
 
         # 시간 경과 (저녁이 되었다고 가정)
-        morld.advance_time(180 * 60_000)  # 3시간 경과
+        morld.advance_time_des(180 * 60_000)  # 3시간 경과
 
         # ========================================
         # 챕터 1 시작 - 회고록 애니메이션

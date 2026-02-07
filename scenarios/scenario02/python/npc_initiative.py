@@ -1005,4 +1005,4 @@ def start_npc_initiative(player_id, npc_id):
 
     # 시간 적용
     if state["elapsed_time"] > 0:
-        morld.advance_time(state["elapsed_time"])
+        morld.advance_time_des(state["elapsed_time"])
