@@ -474,6 +474,9 @@ namespace SE
 			var (cleanText, segments) = ParseInstantTags(text);
 			_instantSegments = segments;
 
+			// 타이핑 중 자동 스크롤 활성화
+			_textUiContent.ScrollFollowing = true;
+
 			// 깜박임 방지: Text 설정 전에 먼저 전체 표시 상태로 설정
 			// 이후 필요한 경우 VisibleCharacters를 다시 조정
 			_textUiContent.VisibleCharacters = -1;
@@ -483,6 +486,7 @@ namespace SE
 			if (_typingSpeed <= 0)
 			{
 				_isTyping = false;
+				_textUiContent.ScrollFollowing = false;
 				return;
 			}
 
@@ -493,6 +497,7 @@ namespace SE
 			if (_totalTypingCharacters == 0)
 			{
 				_isTyping = false;
+				_textUiContent.ScrollFollowing = false;
 				return;
 			}
 
@@ -538,6 +543,7 @@ namespace SE
 		{
 			_isTyping = false;
 			_textUiContent.VisibleCharacters = -1; // 전체 표시
+			_textUiContent.ScrollFollowing = false; // 타이핑 완료 후 자동 스크롤 비활성화
 		}
 
 		/// <summary>

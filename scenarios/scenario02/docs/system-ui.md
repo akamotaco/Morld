@@ -165,11 +165,15 @@ can:debug_*  →  debug_로 시작하는 모든 액션 허용
 
 # NPC actions
 actions = [
-    "call:debug_props:(디버그) 속성 보기#",       # can:debug_*로 허용
-    "call:debug_affection_up:(디버그) 호감도 +10#",  # can:debug_*로 허용
-    "call:debug_arousal_up:(디버그) 성욕 +20#",      # can:debug_*로 허용
+    "call:debug_props:(디버그) 속성 보기#",            # can:debug_*로 허용
+    "call:debug_affection_up:(디버그) 호감도 +10#",    # can:debug_*로 허용
+    "call:debug_arousal_up:(디버그) 성욕 +20#",        # can:debug_*로 허용
+    "call:debug_work_order:(디버그) 작업지시#",        # can:debug_*로 허용
 ]
 ```
+
+> **동적 라벨**: `debug_work_order`는 `_apply_dynamic_action_labels()`로 포커스 메뉴에서
+> `"(디버그) 작업지시 [벌목]"` 처럼 현재 NPC 활동이 동적으로 표시됩니다.
 
 이를 통해 `can:debug_*` 하나로 모든 `debug_` 계열 액션을 제어할 수 있습니다.
 
@@ -438,6 +442,18 @@ Dialog Focus에서 타이핑 연출 제어용 태그입니다.
 # 선택지 클릭 후 이전 내용은 [!][/!]로 감싸짐
 f"[!]{이전_대화_히스토리}[/!]\n\n{새_응답_내용}"
 ```
+
+### ScrollFollowing 제어
+
+RichTextLabel의 `ScrollFollowing`은 **타이핑 중에만** 활성화됩니다.
+
+| 시점 | ScrollFollowing | 이유 |
+|------|----------------|------|
+| `StartTyping()` | `true` | 타이핑 텍스트가 자동 스크롤 |
+| `FinishTyping()` | `false` | hover 등으로 인한 스크롤 점프 방지 |
+| 타이핑 즉시 완료 (speed=0) | `false` | 즉시 꺼짐 |
+
+hover 이벤트가 `Text` 재할당을 유발하는데, `ScrollFollowing = true` 상태에서 이를 방지합니다.
 
 ### UI Lock
 

@@ -368,14 +368,16 @@ SCHEDULE = [
 
 ### Phase 2: 영향력 있는 Activity — 구현됨 (v0.2.1)
 
-**구현 완료:**
-- `소등`: `_handle_lights_off()` → 조명 끄기 (방 순회)
-- `벌목`: `_handle_chop()` → 도끼 가져오기 → 벌목 → 도끼 반납
-- `낚시`: `_handle_fish()` → 낚시대 가져오기 → 낚시 → 물고기 저장 → 반납
-- `채집→저장`: `_handle_gather_store()` → 채집 → 냉장고/보관함에 저장
-- `요리`: `_handle_cook()` → 냉장고 재료 확인 → 화로/아궁이 요리 → 결과물 저장
-- `청소`: `_handle_clean()` → 실내 방 순회
-- `물자수집`: `_handle_scavenge()` → ScavengeableObject 탐색 → 식량 보관함에 저장
+**구현 완료 (7종 모듈화: `think/activities/`):**
+- `소등`: `handle_lights_off()` → 조명 끄기 (방 순회)
+- `벌목`: `handle_chop()` → 도끼 가져오기 → 벌목 → 도끼 반납
+- `낚시`: `handle_fish()` → 낚시대 가져오기 → 낚시 → 물고기 저장 → 반납
+- `채집→저장`: `handle_gather_store()` → 채집 → 냉장고/보관함에 저장
+- `요리`: `handle_cook()` → 냉장고 재료 확인 → 화로/아궁이 요리 → 결과물 저장
+- `청소`: `handle_clean()` → 실내 방 순회
+- `물자수집`: `handle_scavenge()` → ScavengeableObject 탐색 → 식량 보관함에 저장
+
+**`think/__init__.py` 내 (인라인):**
 - `식사`: `_handle_eat()` → 냉장고/보관함에서 음식 꺼내 먹기 (배고픔 인터럽트)
 
 ---
@@ -471,17 +473,30 @@ activity가 변경되면 자동 리셋됩니다.
 
 ### 활동 핸들러 디스패치
 
+핸들러는 `think/activities/` 패키지에 모듈화되어 있으며, `ACTIVITY_HANDLERS` dict로 자동 등록됩니다.
+
 ```python
-# think/__init__.py (module-level)
-_ACTIVITY_HANDLERS = {
-    "소등": _handle_lights_off,
-    "벌목": _handle_chop,
-    "낚시": _handle_fish,
-    "채집": _handle_gather_store,
-    "요리": _handle_cook,
-    "청소": _handle_clean,
-    "물자수집": _handle_scavenge,
+# think/activities/__init__.py
+from .lights import handle_lights_off
+from .chop import handle_chop
+from .fish import handle_fish
+from .gather import handle_gather_store
+from .cook import handle_cook
+from .clean import handle_clean
+from .scavenge import handle_scavenge
+
+ACTIVITY_HANDLERS = {
+    "소등": handle_lights_off,
+    "벌목": handle_chop,
+    "낚시": handle_fish,
+    "채집": handle_gather_store,
+    "요리": handle_cook,
+    "청소": handle_clean,
+    "물자수집": handle_scavenge,
 }
+
+# think/__init__.py에서 import하여 사용:
+from think.activities import ACTIVITY_HANDLERS as _ACTIVITY_HANDLERS
 
 # think() 내부:
 handler = _ACTIVITY_HANDLERS.get(activity)
@@ -490,6 +505,23 @@ if handler:
 else:
     self._handle_default_activity(entry)  # 기본 (이동→환경체크→실행)
 ```
+
+### 핸들러 모듈 구조
+
+```
+think/activities/
+├── __init__.py      # ACTIVITY_HANDLERS dict (핸들러 등록)
+├── helpers.py       # 공용 헬퍼 (find_npc_food, store_food_items 등)
+├── lights.py        # 소등
+├── chop.py          # 벌목
+├── fish.py          # 낚시
+├── gather.py        # 채집→저장
+├── cook.py          # 요리
+├── clean.py         # 청소
+└── scavenge.py      # 물자수집
+```
+
+새 활동 핸들러 추가 시: 모듈 파일 생성 → `__init__.py`에 import + dict 등록 → 스케줄에 activity 이름 지정
 
 ### 벌목 Phase 흐름
 
@@ -514,6 +546,19 @@ idle → going → idle → going → ... → idle (완료)
 |-------|------|
 | `idle` | 조명 켜진 실내 방 탐색 → 있으면 `going`, 없으면 완료 |
 | `going` | 해당 방으로 이동 → 도착 시 조명 끄기 → `idle` (다음 방) |
+
+### 리소스 검증
+
+활동 핸들러는 자원 오브젝트의 `has_resource()` 메서드로 자원 존재 여부를 확인합니다.
+
+| 오브젝트 | `has_resource()` | 자원 관리 |
+|----------|-----------------|-----------|
+| `TreeObject` | 인벤토리에 log 있음 | 벌목 시 log 소비 |
+| `FishingSpot` | props `fish_count > 0` | 낚시 시 감소, 시간 경과로 재생 |
+| `WildBerryBush` | 인벤토리에 아이템 있음 | 채집 시 소비, 시간 경과로 재생 |
+| `WildHerbPatch` | 인벤토리에 아이템 있음 | 채집 시 소비, 시간 경과로 재생 |
+
+자원이 없는 오브젝트는 `activity_resolver`가 자동 스킵합니다.
 
 ### 도구 관리 API
 
@@ -602,6 +647,35 @@ morld.insert_job(unit_id, {
 
 ---
 
+## 10. 디버그 작업지시
+
+디버그 모드에서 NPC에게 특정 활동을 직접 지시하여 테스트할 수 있습니다.
+
+### 사용법
+
+1. 설정에서 디버그 모드 ON (`can:debug_*`)
+2. NPC 포커스 → "(디버그) 작업지시 [현재활동]" 클릭
+3. 활동 목록에서 선택 → NPC가 즉시 해당 활동 시작
+4. 해제 시 원래 스케줄 복원
+
+### 구현
+
+`assets/base.py`의 `debug_work_order()` 메서드:
+
+```python
+# 임시 스케줄 push (24시간 = 항상 매칭)
+work_order = [{"name": f"DEBUG: {choice}", "activity": choice,
+               "start": 0, "end": 86_400_000}]
+agent.push_schedule(work_order)
+```
+
+- `push_schedule()` → `morld.clear_jobs()` → 다음 tick에서 `think()` 재호출
+- `pop_schedule()` → 원래 스케줄 복원
+- 활동 목록은 `ACTIVITY_HANDLERS.keys()`에서 동적으로 가져옴
+- 포커스 메뉴에 현재 NPC 활동이 동적 표시 (`_apply_dynamic_action_labels`)
+
+---
+
 ## 파일 위치
 
 ### C#
@@ -614,11 +688,13 @@ morld.insert_job(unit_id, {
 - `scripts/system/script_system_data_api.cs` - AdvanceTimeDES, move duration 자동 계산 (v0.2.2)
 
 ### Python
-- `think/__init__.py` - BaseAgent, Phase 시스템, 활동 핸들러 8종, 동적 스케줄, 도구 관리
+- `think/__init__.py` - BaseAgent, Phase 시스템, 식사 핸들러, 동적 스케줄, 도구 관리
+- `think/activities/` - 활동 핸들러 패키지 (7종: 소등/벌목/낚시/채집/요리/청소/물자수집)
+- `think/activities/helpers.py` - 핸들러 공용 헬퍼 (find_npc_food, store_food_items 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
 - `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)
 - `think/trap_agent.py` - 덫 시스템 (토끼 굴 체크)
 - `survival.py` - NPC 만복도 추적 (register_npc, is_npc_hungry, npc_eat, 기절 시스템)
 - `assets/characters/*.py` - 캐릭터별 SCHEDULE/SCHEDULES 정의
-- `assets/base.py` - Object 컨테이너 헬퍼 (npc_store_item, npc_take_item, get_item_count)
+- `assets/base.py` - Object 컨테이너 헬퍼, 디버그 작업지시 (debug_work_order)
 - `assets/objects/scavenge.py` - 비충전 수집 오브젝트 (도시 자원)
