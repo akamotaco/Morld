@@ -120,6 +120,32 @@ class Tree(Object):
         else:
             return f"{self.name}. 지금은 얻을 수 있는 게 없어 보인다."
 
+    def npc_gather_branch(self, npc_id):
+        """NPC 나뭇가지 줍기 (non-generator). Returns: 성공 여부"""
+        if not self.can_gather():
+            return False
+        branch_id = get_or_create_item_id("branch")
+        if branch_id is None:
+            return False
+        if random.random() < self.branch_chance:
+            morld.give_item(npc_id, branch_id, 1)
+            self.set_branch_count(self.get_branch_count() - 1)
+            return True
+        return False
+
+    def npc_chop(self, npc_id):
+        """NPC 벌목 (non-generator). Returns: 성공 여부"""
+        if not self.can_chop():
+            return False
+        log_id = get_or_create_item_id("log")
+        if log_id is None:
+            return False
+        if random.random() < self.log_chance:
+            morld.give_item(npc_id, log_id, 1)
+            self.set_log_count(self.get_log_count() - 1)
+            return True
+        return False
+
     def look(self):
         """나무 살펴보기"""
         logs = self.get_log_count()

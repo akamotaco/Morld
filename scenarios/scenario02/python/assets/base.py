@@ -1989,6 +1989,9 @@ class Location(Asset):
         if owner is not None:
             obj.owner = owner
         obj.instantiate(instance_id, self.region_id, self.location_id, x, y)
+        # NPC 행동용 location 인덱스에 등록
+        from assets.objects import register_location_object
+        register_location_object(self.region_id, self.location_id, instance_id)
         return instance_id
 
     def add_item_to_ground(self, item: Item, count: int = 1):

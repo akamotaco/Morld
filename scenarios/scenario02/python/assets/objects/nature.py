@@ -46,6 +46,19 @@ class ResourceObject(Object):
         """자원 생성 가능 여부"""
         return self.get_resource_count() < self.max_resources
 
+    def npc_take_resource(self, npc_id, count=1):
+        """NPC가 자원 가져가기 (non-generator). Returns: 실제 가져간 개수"""
+        available = self.get_resource_count()
+        take = min(count, available)
+        if take <= 0:
+            return 0
+        item_id = get_or_create_item_id(self.resource_item_unique_id)
+        if item_id is None:
+            return 0
+        morld.take_item(self.instance_id, item_id, take)
+        morld.give_item(npc_id, item_id, take)
+        return take
+
     def spawn_resource(self):
         """
         자원 하나 생성 (Agent에서 호출)

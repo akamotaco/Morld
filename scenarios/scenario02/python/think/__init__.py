@@ -9,6 +9,7 @@
 #       def think(self):
 #           ...
 
+import random
 import morld
 
 # Agent 레지스트리: unit_id -> Agent 인스턴스
@@ -43,6 +44,10 @@ class BaseAgent:
     def __init__(self, unit_id):
         self.unit_id = unit_id
         self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
+        # Activity 상태 (think에서 단일 행동 계획용)
+        self._current_activity = None   # 현재 수행 중인 activity entry
+        self._activity_target = None    # resolve된 장소 정보
+        self._arrived = False           # 목표 장소 도착 여부
 
     def set_base_schedule(self, schedule):
         """
@@ -333,40 +338,189 @@ class BaseAgent:
             })
 
     # ========================================
-    # think() 기본 구현
+    # think() — 모든 행동 결정을 여기서 처리
     # ========================================
 
     def think(self):
         """
-        AI 로직 실행 - 서브클래스에서 오버라이드
+        AI 로직 실행 — 매 step마다 호출
 
-        기본 구현: 수면 시간대 확인 후 스케줄 기반 fill
-
-        Returns:
-            None 또는 계획된 경로
+        모든 행동 결정이 여기서 처리됨:
+        1. 목욕/수면 시간대 → 기존 핸들러
+        2. 현재 시간대 activity 확인
+        3. activity 변경 감지 → 상태 리셋
+        4. 장소 결정 (고정 or resolver)
+        5. 미도착 → 이동 (insert_job)
+        6. 도착 → 환경 체크 (조명 등)
+        7. 도착 → 행동 실행 (채집, 벌목 등)
         """
         schedule = self.get_current_schedule()
         if not schedule:
             return None
 
-        # 목욕 시간대 확인
-        is_bath, bath_entry = self._is_bath_time()
+        # 1. 목욕/수면 (기존 유지)
+        is_bath, _ = self._is_bath_time()
         if is_bath:
             self._handle_bath()
             return None
-
-        # 수면 시간대 확인
-        is_sleep, sleep_entry = self._is_sleep_time()
+        is_sleep, _ = self._is_sleep_time()
         if is_sleep:
             self._handle_sleep()
             return None
-
-        # 수면/목욕 시간이 아님 → 앉거나 누워있으면 일어나기
         self._ensure_standing()
 
-        # 일반 스케줄 실행
-        self.fill_schedule_jobs_from(schedule)
+        # 2. 현재 activity 확인
+        entry = self._get_current_activity(schedule)
+        if entry is None:
+            return None
+
+        # 3. activity 변경 감지 → 상태 리셋
+        if self._current_activity is not entry:
+            self._current_activity = entry
+            self._activity_target = None
+            self._arrived = False
+
+        # 4. 장소 결정
+        target = self._resolve_target(entry)
+        if target is None:
+            return None
+
+        # 5. 위치 체크: 도착 여부
+        loc = self.get_location()
+        at_target = (loc and loc[0] == target["region_id"]
+                     and loc[1] == target["location_id"])
+
+        # 6. 미도착 → 이동
+        if not at_target:
+            self._arrived = False
+            info = self.get_info()
+            if not info.get("is_moving"):
+                # 사냥/순찰: location length 내 랜덤 위치
+                target_x = target.get("x", 0)
+                length = target.get("length", 0)
+                if length > 0 and target_x == 0:
+                    target_x = random.randint(0, length)
+
+                morld.insert_job(self.unit_id, {
+                    "name": entry.get("name", entry.get("activity", "이동")),
+                    "action": "move",
+                    "region_id": target["region_id"],
+                    "location_id": target["location_id"],
+                    "target_x": target_x,
+                    "duration": 0,
+                })
+            return None
+
+        # 7. 도착 → 환경 체크 (최초 1회)
+        if not self._arrived:
+            self._arrived = True
+            self._check_environment(loc[0], loc[1])
+
+        # 8. 도착 → 행동 실행
+        activity = entry.get("activity", "대기")
+        self._execute_activity(activity, target)
         return None
+
+    # ========================================
+    # think() 헬퍼 메서드
+    # ========================================
+
+    def _get_current_activity(self, schedule):
+        """현재 시간에 해당하는 스케줄 entry 반환 (수면/목욕 제외)
+
+        Args:
+            schedule: 스케줄 리스트
+
+        Returns:
+            entry dict 또는 None
+        """
+        millis = self.get_time()
+        for entry in schedule:
+            activity = entry.get("activity", "")
+            if activity in ("수면", "목욕"):
+                continue
+            start = entry["start"]
+            end = entry["end"]
+            if end < start:  # 자정 넘기기
+                if millis >= start or millis < end:
+                    return entry
+            else:
+                if start <= millis < end:
+                    return entry
+        return None
+
+    def _resolve_target(self, entry):
+        """장소 결정: 스케줄에 location 있으면 사용, 없으면 resolver
+
+        Args:
+            entry: 스케줄 entry dict
+
+        Returns:
+            {"region_id": int, "location_id": int, "x": int} 또는 None
+        """
+        if "location_id" in entry:
+            # 고정 장소 모드
+            return {
+                "region_id": entry.get("region_id", self._get_home_region()),
+                "location_id": entry["location_id"],
+                "x": entry.get("x", 0),
+            }
+
+        # 동적 탐색 (캐시)
+        if self._activity_target is None:
+            from think.activity_resolver import resolve_activity_location
+            self._activity_target = resolve_activity_location(
+                self.unit_id, entry.get("activity"), self._get_home_region()
+            )
+        return self._activity_target
+
+    def _get_home_region(self):
+        """NPC의 홈 region (sleep_location 기준, 없으면 현재 위치)"""
+        if self.sleep_location:
+            return self.sleep_location.get("region_id", 0)
+        loc = self.get_location()
+        return loc[0] if loc else 0
+
+    def _check_environment(self, region_id, location_id):
+        """환경 인식: 어두운 실내면 조명 켜기 (도착 시 1회 호출)"""
+        from assets.objects import get_location_objects, get_instance
+
+        objects = get_location_objects(region_id, location_id)
+
+        # 조명 오브젝트 찾기
+        light_objects = []
+        any_light_on = False
+        for obj_id in objects:
+            light_on = morld.get_unit_prop(obj_id, "light:on")
+            if light_on is not None:
+                light_objects.append(obj_id)
+                if light_on == 1:
+                    any_light_on = True
+
+        # 모든 조명이 꺼져있으면 하나 켜기
+        if light_objects and not any_light_on:
+            props = morld.get_unit_props_by_type(self.unit_id, "can")
+            if props and props.get("toggle_switch", 0) > 0:
+                obj = get_instance(light_objects[0])
+                if obj and hasattr(obj, "npc_toggle_switch"):
+                    obj.npc_toggle_switch(self.unit_id, target_state=1)
+
+    def _execute_activity(self, activity, target):
+        """activity별 행동 실행 (서브클래스에서 오버라이드 가능)"""
+        if activity == "채집":
+            self._do_gather(target)
+
+    def _do_gather(self, target):
+        """채집: ResourceObject에서 자원 수집"""
+        from assets.objects import get_location_objects, get_instance
+
+        objects = get_location_objects(target["region_id"], target["location_id"])
+        for obj_id in objects:
+            obj = get_instance(obj_id)
+            if obj and hasattr(obj, "npc_take_resource"):
+                taken = obj.npc_take_resource(self.unit_id, count=1)
+                if taken > 0:
+                    return
 
 
 def register_agent(unit_id, agent):

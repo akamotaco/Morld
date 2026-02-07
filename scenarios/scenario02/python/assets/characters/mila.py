@@ -94,6 +94,7 @@ class Mila(Character):
         "can:lie_down": 1,
         "can:sleep": 1,
         "can:bath": 1,
+        "can:toggle_switch": 1,
     }
     actions = [
         "call:talk:대화",

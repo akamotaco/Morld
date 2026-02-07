@@ -68,6 +68,7 @@ def clear_instances():
     """모든 인스턴스 캐시 초기화 (챕터 전환 시 호출)"""
     global _instances
     _instances.clear()
+    _location_objects.clear()
     print("[assets.objects] Instances cleared.")
 
 
@@ -82,6 +83,31 @@ def get_focus_text(unit_id: int) -> str:
     if instance is None:
         return ""
     return instance.get_focus_text()
+
+
+# ========================================
+# Location 오브젝트 인덱스 (NPC 행동용)
+# ========================================
+
+_location_objects = {}  # (region_id, location_id) -> [instance_id, ...]
+
+
+def register_location_object(region_id: int, location_id: int, instance_id: int):
+    """오브젝트를 location 인덱스에 등록 (add_object 시 호출)"""
+    key = (region_id, location_id)
+    if key not in _location_objects:
+        _location_objects[key] = []
+    _location_objects[key].append(instance_id)
+
+
+def get_location_objects(region_id: int, location_id: int) -> list:
+    """특정 location의 오브젝트 ID 목록 반환"""
+    return _location_objects.get((region_id, location_id), [])
+
+
+def clear_location_objects():
+    """location 인덱스 초기화 (챕터 전환 시)"""
+    _location_objects.clear()
 
 
 def call_instance_method(instance_id: int, method_name: str):

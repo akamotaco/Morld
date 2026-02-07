@@ -83,6 +83,8 @@ class Lina(Character):
         "can:lie_down": 1,
         "can:sleep": 1,
         "can:bath": 1,
+        "can:toggle_switch": 1,
+        "can:gather": 1,
     }
     actions = [
         "call:talk:대화",
@@ -1051,9 +1053,9 @@ class LinaAgent(BaseAgent):
         {"name": "기상", "region_id": 0, "location_id": 7, "x": 120, "start": 390 * _M, "end": 420 * _M, "activity": "준비"},
         {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "빨래", "region_id": 0, "location_id": 13, "x": 300, "start": 480 * _M, "end": 540 * _M, "activity": "빨래"},  # 뒷마당
-        {"name": "채집", "region_id": 0, "location_id": 23, "x": 450, "start": 540 * _M, "end": 720 * _M, "activity": "채집"},
+        {"name": "채집", "start": 540 * _M, "end": 720 * _M, "activity": "채집"},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "채집", "region_id": 0, "location_id": 23, "x": 450, "start": 840 * _M, "end": 1020 * _M, "activity": "채집"},
+        {"name": "채집", "start": 840 * _M, "end": 1020 * _M, "activity": "채집"},
         {"name": "빨래걷기", "region_id": 0, "location_id": 13, "x": 300, "start": 1020 * _M, "end": 1080 * _M, "activity": "빨래"},  # 뒷마당
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
         {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1170 * _M, "end": 1320 * _M, "activity": "휴식"},

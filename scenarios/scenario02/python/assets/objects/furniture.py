@@ -59,6 +59,13 @@ class Fireplace(Object):
             yield ui.dialog("벽난로의 불을 껐다.")
         morld.advance_time(1 * 60_000)
 
+    def npc_toggle_switch(self, npc_id, target_state=None):
+        """NPC 조명 토글 (non-generator)"""
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = target_state if target_state is not None else (0 if is_on else 1)
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        return new_state
+
 
 # ========================================
 # 조명 오브젝트
@@ -100,6 +107,13 @@ class WallLamp(Object):
         yield ui.dialog("등을 켰다." if new_state else "등을 껐다.")
         morld.advance_time(1 * 60_000)
 
+    def npc_toggle_switch(self, npc_id, target_state=None):
+        """NPC 조명 토글 (non-generator)"""
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = target_state if target_state is not None else (0 if is_on else 1)
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        return new_state
+
 
 class Candelabra(Object):
     """촛대 - 식탁/복도용 (밝기 0.3)"""
@@ -127,6 +141,13 @@ class Candelabra(Object):
             yield ui.dialog("촛불을 껐다.")
         morld.advance_time(1 * 60_000)
 
+    def npc_toggle_switch(self, npc_id, target_state=None):
+        """NPC 조명 토글 (non-generator)"""
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = target_state if target_state is not None else (0 if is_on else 1)
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        return new_state
+
 
 class OilLamp(Object):
     """기름등 - 오두막/은신처용 (밝기 0.4)"""
@@ -150,6 +171,13 @@ class OilLamp(Object):
         morld.set_unit_prop(self.instance_id, "light:on", new_state)
         yield ui.dialog("등을 켰다." if new_state else "등을 껐다.")
         morld.advance_time(1 * 60_000)
+
+    def npc_toggle_switch(self, npc_id, target_state=None):
+        """NPC 조명 토글 (non-generator)"""
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        new_state = target_state if target_state is not None else (0 if is_on else 1)
+        morld.set_unit_prop(self.instance_id, "light:on", new_state)
+        return new_state
 
 
 class OldSofa(Object):
