@@ -577,7 +577,7 @@ class Character(Unit):
 
         # 규칙이 없으면 모든 액션 허용
         if rules is None:
-            return list(self.actions)
+            return self._apply_dynamic_action_labels(list(self.actions), info)
 
         # 필터링 적용
         allowed = rules.get("allowed")
@@ -599,7 +599,20 @@ class Character(Unit):
             else:
                 result.append(action)
 
-        return result
+        return self._apply_dynamic_action_labels(result, info)
+
+    def _apply_dynamic_action_labels(self, actions, info):
+        """동적 라벨 적용 (작업지시에 현재 활동 표시 등)"""
+        activity = info.get("activity", "") if info else ""
+        if not activity:
+            return actions
+        updated = []
+        for action in actions:
+            if "debug_work_order" in action:
+                updated.append(f"call:debug_work_order:(디버그) 작업지시 [{activity}]#")
+            else:
+                updated.append(action)
+        return updated
 
     def _extract_action_name(self, action: str) -> str:
         """
@@ -1368,6 +1381,64 @@ class Character(Unit):
         prop_name = "상태:성욕"
         new_value = morld.modify_prop(self.instance_id, prop_name, -20)
         yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -20\n현재: {new_value}")
+
+    def debug_work_order(self):
+        """디버그: NPC에게 작업 지시 (임시 스케줄 push)"""
+        self._check_instantiated()
+        from think import get_agent
+        from think.activities import ACTIVITY_HANDLERS
+
+        agent = get_agent(self.instance_id)
+        if not agent:
+            yield ui.dialog(f"[b]{self.name}[/b]\n\nAI Agent가 없습니다.")
+            return
+
+        # 선택지 구성
+        activities = list(ACTIVITY_HANDLERS.keys())
+        has_order = len(agent.schedule_stack) > 1
+
+        lines = [f"[b]{self.name}[/b]", ""]
+        if has_order:
+            current = agent.get_current_schedule()
+            current_name = current[0].get("activity", "?") if current else "?"
+            lines.append(f"현재 작업지시: [b]{current_name}[/b]")
+            lines.append("")
+
+        lines.append("작업을 선택하세요:")
+        lines.append("")
+        for act in activities:
+            lines.append(f"[url=@ret:{act}]{act}[/url]")
+
+        if has_order:
+            lines.append("")
+            lines.append("[url=@ret:__cancel__]작업지시 해제[/url]")
+
+        lines.append("")
+        lines.append("[url=@ret:]뒤로[/url]")
+
+        choice = yield ui.dialog("\n".join(lines), autofill="off")
+        if not choice:
+            return
+
+        if choice == "__cancel__":
+            agent.pop_schedule()
+            yield ui.dialog(f"[b]{self.name}[/b]\n\n작업지시를 해제했습니다.\n원래 스케줄로 복원됩니다.")
+            return
+
+        # 기존 작업지시가 있으면 먼저 pop
+        if has_order:
+            agent.pop_schedule()
+
+        # 임시 스케줄 push (24시간 = 항상 매칭)
+        work_order = [{
+            "name": f"DEBUG: {choice}",
+            "activity": choice,
+            "start": 0,
+            "end": 86_400_000,
+        }]
+        agent.push_schedule(work_order)
+
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n'{choice}' 작업을 지시했습니다.")
 
     # ========================================
     # 이벤트 다이얼로그 시스템

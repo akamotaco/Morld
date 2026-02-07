@@ -97,6 +97,7 @@ class Lina(Character):
         "call:debug_affection_down:(디버그) 호감도 -10#",
         "call:debug_arousal_up:(디버그) 성욕 +20#",
         "call:debug_arousal_down:(디버그) 성욕 -20#",
+        "call:debug_work_order:(디버그) 작업지시#",
     ]
     mood = []
 
