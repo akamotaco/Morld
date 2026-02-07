@@ -75,6 +75,7 @@ class BaseAgent:
         self._activity_state = {}       # 활동별 임시 데이터
         self._action_taken = False      # think() 내 행동 결정 여부 (경고용)
         self._hunger_phase = None       # 식사 단계 (None=배고프지 않음)
+        self._tool_memory = {}          # 도구 원래 위치 기억 {item_id: {"container_id", "location"}}
 
     def set_base_schedule(self, schedule):
         """
@@ -460,17 +461,25 @@ class BaseAgent:
             self._activity_phase = "idle"
             self._activity_state = {}
 
-        # 3.5. 동적 entry 해석
-        if entry.get("dynamic"):
-            entry = self._resolve_dynamic_entry(entry)
+        # 3.5 + 4. 동적 entry 해석 + 디스패치 루프
+        # skip 시 idle job 없이 즉시 다음 candidate로 재디스패치
+        original_entry = entry
+        while True:
+            if original_entry.get("dynamic"):
+                entry = self._resolve_dynamic_entry(original_entry)
 
-        # 4. 활동 핸들러 디스패치 (phase-based)
-        activity = entry.get("activity", "대기")
-        handler = _ACTIVITY_HANDLERS.get(activity)
-        if handler:
-            handler(self, entry)
-        else:
-            self._handle_default_activity(entry)
+            activity = entry.get("activity", "대기")
+            handler = _ACTIVITY_HANDLERS.get(activity)
+            if handler:
+                handler(self, entry)
+            else:
+                self._handle_default_activity(entry)
+
+            if self._action_taken:
+                break
+
+            if not original_entry.get("dynamic"):
+                break
 
         # 경고: 행동 미결정
         if not self._action_taken:
@@ -706,7 +715,7 @@ class BaseAgent:
         from assets.registry import get_or_create_item_id
         toolbox_id = self._get_toolbox_id()
         item_id = get_or_create_item_id(tool_unique_id)
-        if toolbox_id and item_id:
+        if toolbox_id and item_id and morld.has_item(toolbox_id, item_id):
             morld.remove_item(toolbox_id, item_id, 1)
             morld.give_item(self.unit_id, item_id, 1)
             return True
@@ -722,6 +731,132 @@ class BaseAgent:
             morld.give_item(toolbox_id, item_id, 1)
             return True
         return False
+
+    def _is_tool_available(self, tool_unique_id):
+        """도구 사용 가능 여부 (소지 또는 도구함)"""
+        if self._has_tool(tool_unique_id):
+            return True
+        from assets.registry import get_or_create_item_id
+        toolbox_id = self._get_toolbox_id()
+        item_id = get_or_create_item_id(tool_unique_id)
+        if toolbox_id and item_id:
+            return morld.has_item(toolbox_id, item_id)
+        return False
+
+    def _skip_dynamic_activity(self, entry):
+        """동적 활동 건너뛰기 → 다음 candidate로 전환 준비.
+
+        디스패치 루프에서 action_taken 미설정 + return하면
+        루프가 즉시 다음 candidate를 re-resolve하여 재디스패치.
+
+        Returns: True(dynamic 성공), False(고정 스케줄)
+        """
+        if not entry.get("dynamic"):
+            return False
+        skipped = self._activity_state.get("skipped_activities", set())
+        resolved = self._activity_state.get("resolved_entry")
+        if resolved:
+            skipped.add(resolved.get("activity"))
+        self._activity_state.pop("resolved_entry", None)
+        self._activity_state["skipped_activities"] = skipped
+        self._activity_phase = "idle"
+        return True
+
+    # ========================================
+    # capability 기반 도구 탐색 (Phase 2)
+    # ========================================
+
+    def _find_tool_by_capability(self, capability):
+        """capability 기반 도구 탐색 (소유권 우선순위 적용)
+
+        탐색 순서:
+        1. NPC 인벤토리 (이미 소지)
+        2. 리전 내 컨테이너: 본인 소유 아이템
+        3. 리전 내 컨테이너: 무소유 아이템
+        타인 소유 아이템은 무시.
+
+        Returns:
+            {"item_id", "item_unique_id", "is_own", "source",
+             "container_id", "location"} or None
+        """
+        from assets.registry import get_unique_id, get_item_class
+
+        my_uid = self.owner_unique_id  # NPC unique_id (e.g. "sera")
+
+        # 1. NPC 인벤토리
+        inv = morld.get_unit_inventory(self.unit_id)
+        if inv:
+            for item_id, count in inv.items():
+                if count <= 0:
+                    continue
+                uid = get_unique_id(item_id)
+                cls = get_item_class(uid) if uid else None
+                if cls and self._item_has_capability(cls, capability):
+                    return {"item_id": item_id, "item_unique_id": uid,
+                            "is_own": getattr(cls, 'owner', None) == my_uid,
+                            "source": "inventory"}
+
+        # 2~3. 리전 내 컨테이너: 본인 소유 먼저, 그 다음 무소유
+        home_region = self._get_home_region()
+        for owner_filter in (my_uid, None):
+            result = self._search_containers_for_tool(
+                capability, home_region, owner_filter)
+            if result:
+                return result
+
+        return None
+
+    def _item_has_capability(self, item_cls, capability):
+        """passive_props 또는 equip_props에 capability가 있는지"""
+        return ((item_cls.passive_props or {}).get(capability, 0) > 0 or
+                (item_cls.equip_props or {}).get(capability, 0) > 0)
+
+    def _search_containers_for_tool(self, capability, region_id, owner_filter):
+        """리전 내 컨테이너에서 도구 탐색
+
+        Args:
+            capability: 필요 능력 (예: "can:chop")
+            region_id: 탐색할 리전
+            owner_filter: str=해당 소유자, None=무소유 아이템만
+        """
+        from assets.registry import get_unique_id, get_item_class
+        from assets.objects import _location_objects
+
+        for (r, l), obj_ids in _location_objects.items():
+            if r != region_id:
+                continue
+            for obj_id in obj_ids:
+                inv = morld.get_unit_inventory(obj_id)
+                if not inv:
+                    continue
+                for item_id, count in inv.items():
+                    if count <= 0:
+                        continue
+                    uid = get_unique_id(item_id)
+                    cls = get_item_class(uid) if uid else None
+                    if not cls:
+                        continue
+                    if getattr(cls, 'owner', None) != owner_filter:
+                        continue
+                    if self._item_has_capability(cls, capability):
+                        info = morld.get_unit_info(obj_id)
+                        return {
+                            "item_id": item_id, "item_unique_id": uid,
+                            "is_own": owner_filter == self.owner_unique_id,
+                            "source": "container",
+                            "container_id": obj_id,
+                            "location": {"region_id": r, "location_id": l,
+                                         "x": info.get("x", 0) if info else 0},
+                        }
+        return None
+
+    def _set_tool_missing_flag(self, capability):
+        """도구 분실 플래그 설정 (예: "도구분실:can:chop")"""
+        morld.set_unit_prop(self.unit_id, f"도구분실:{capability}", 1)
+
+    def _clear_tool_missing_flag(self, capability):
+        """도구 분실 플래그 해제"""
+        morld.clear_prop(self.unit_id, f"도구분실:{capability}")
 
     def _find_lit_indoor_room(self, region_id):
         """조명이 켜진 거처 실내 방 찾기 (소등용)
@@ -773,11 +908,16 @@ class BaseAgent:
         if cached:
             return cached
 
+        skipped = self._activity_state.get("skipped_activities", set())
+
         for candidate in entry.get("candidates", []):
+            activity = candidate["activity"]
+            if activity in skipped:
+                continue
             condition = candidate.get("condition")
             if condition is None or self._evaluate_condition(condition):
                 resolved = dict(entry)
-                resolved["activity"] = candidate["activity"]
+                resolved["activity"] = activity
                 # candidate에 장소 정보가 있으면 오버라이드
                 for key in ("location_id", "region_id", "x"):
                     if key in candidate:
@@ -785,7 +925,7 @@ class BaseAgent:
                 self._activity_state["resolved_entry"] = resolved
                 return resolved
 
-        # 모든 조건 불충족 → entry 그대로
+        # 모든 조건 불충족 or 전부 skipped → entry 그대로
         return entry
 
     def _evaluate_condition(self, condition):
@@ -860,39 +1000,74 @@ def _handle_lights_off(agent, entry):
 
 
 def _handle_chop(agent, entry):
-    """벌목: 도끼 가져오기 → 나무로 이동 → 벌목 → 도끼 반납"""
+    """벌목: 도구 탐색(can:chop) → 가져오기 → 나무 이동 → 벌목 → 반납"""
     phase = agent._activity_phase
 
     if phase == "idle":
-        # 벌목 대상 탐색 (도끼 유무와 무관하게 먼저 확인)
+        # capability 기반 도구 탐색 (소유권 우선)
+        tool = agent._find_tool_by_capability("can:chop")
+        if not tool:
+            agent._set_tool_missing_flag("can:chop")
+            if agent._skip_dynamic_activity(entry):
+                return  # 루프가 즉시 다음 candidate 시도
+            else:
+                remaining = agent._remaining_millis_in_entry(entry)
+                agent._insert_idle_job("벌목", max(remaining, 1))
+                agent._action_taken = True
+                return
+
+        agent._clear_tool_missing_flag("can:chop")
+        agent._activity_state["tool"] = tool
+
+        # 벌목 대상 탐색
         from think.activity_resolver import resolve_activity_location
         target = resolve_activity_location(
             agent.unit_id, "벌목", agent._get_home_region()
         )
         if not target:
-            if agent._has_tool("axe"):
-                # 나무 없음 + 도끼 소지 → 반납
+            if tool["source"] == "inventory":
+                # 나무 없음 + 도구 소지 → 반납
                 agent._activity_phase = "returning_tool"
             else:
-                # 나무 없음 + 도끼 없음 → 대기
+                # 나무 없음 + 도구 미소지 → 대기
                 remaining = agent._remaining_millis_in_entry(entry)
                 agent._insert_idle_job("벌목", max(remaining, 1))
                 agent._action_taken = True
             return
         agent._activity_state["chop_target"] = target
-        if agent._has_tool("axe"):
+
+        if tool["source"] == "inventory":
             agent._activity_phase = "going_to_tree"
         else:
             agent._activity_phase = "getting_tool"
 
     elif phase == "getting_tool":
-        storage = agent.TOOL_STORAGE
-        if agent._is_at(storage):
-            agent._pickup_tool("axe")
+        tool = agent._activity_state.get("tool")
+        if not tool:
             agent._activity_phase = "idle"
-            agent._action_taken = True
+            return
+
+        target = tool.get("location") or agent.TOOL_STORAGE
+        if agent._is_at(target):
+            container_id = tool.get("container_id") or agent._get_toolbox_id()
+            item_id = tool["item_id"]
+            if morld.has_item(container_id, item_id):
+                morld.remove_item(container_id, item_id, 1)
+                morld.give_item(agent.unit_id, item_id, 1)
+                # 원래 위치 기억 (반납용)
+                agent._tool_memory[item_id] = {
+                    "container_id": container_id,
+                    "location": target,
+                }
+                agent._activity_phase = "going_to_tree"
+                agent._action_taken = True
+            else:
+                # 경합으로 사라짐 → 재탐색
+                agent._activity_state.pop("tool", None)
+                agent._activity_phase = "idle"
+                agent._action_taken = True
         else:
-            agent._move_to(storage, "도끼 가져오기")
+            agent._move_to(target, "도구 찾기")
 
     elif phase == "going_to_tree":
         target = agent._activity_state.get("chop_target")
@@ -914,13 +1089,25 @@ def _handle_chop(agent, entry):
             agent._move_to(target, "벌목")
 
     elif phase == "returning_tool":
-        storage = agent.TOOL_STORAGE
-        if agent._is_at(storage):
-            agent._return_tool("axe")
+        tool = agent._activity_state.get("tool")
+        item_id = tool["item_id"] if tool else None
+        memory = agent._tool_memory.pop(item_id, None) if item_id else None
+
+        if memory:
+            target = memory["location"]
+            container_id = memory["container_id"]
+        else:
+            target = agent.TOOL_STORAGE
+            container_id = agent._get_toolbox_id()
+
+        if agent._is_at(target):
+            if item_id and container_id:
+                morld.remove_item(agent.unit_id, item_id, 1)
+                morld.give_item(container_id, item_id, 1)
             agent._activity_phase = "idle"
             agent._action_taken = True
         else:
-            agent._move_to(storage, "도구 반납")
+            agent._move_to(target, "도구 반납")
 
 
 # ========================================
@@ -1017,7 +1204,7 @@ def _handle_eat(agent):
 # ========================================
 
 def _handle_fish(agent, entry):
-    """낚시: 낚시대 가져오기 → 낚시터 이동 → 낚시 → 냉장고 저장 → 낚시대 반납"""
+    """낚시: 도구 탐색(can:fish) → 가져오기 → 낚시터 이동 → 낚시 → 저장 → 반납"""
     phase = agent._activity_phase
 
     if phase == "idle":
@@ -1027,19 +1214,54 @@ def _handle_fish(agent, entry):
             agent._insert_idle_job("낚시", max(remaining, 1))
             agent._action_taken = True
             return
-        if agent._has_tool("fishing_rod"):
+
+        # capability 기반 도구 탐색 (소유권 우선)
+        tool = agent._find_tool_by_capability("can:fish")
+        if not tool:
+            agent._set_tool_missing_flag("can:fish")
+            if agent._skip_dynamic_activity(entry):
+                return  # 루프가 즉시 다음 candidate 시도
+            else:
+                remaining = agent._remaining_millis_in_entry(entry)
+                agent._insert_idle_job("낚시", max(remaining, 1))
+                agent._action_taken = True
+                return
+
+        agent._clear_tool_missing_flag("can:fish")
+        agent._activity_state["tool"] = tool
+
+        if tool["source"] == "inventory":
             agent._activity_phase = "going_to_spot"
         else:
             agent._activity_phase = "getting_tool"
 
     elif phase == "getting_tool":
-        storage = agent.TOOL_STORAGE
-        if agent._is_at(storage):
-            agent._pickup_tool("fishing_rod")
-            agent._activity_phase = "going_to_spot"
-            agent._action_taken = True
+        tool = agent._activity_state.get("tool")
+        if not tool:
+            agent._activity_phase = "idle"
+            return
+
+        target = tool.get("location") or agent.TOOL_STORAGE
+        if agent._is_at(target):
+            container_id = tool.get("container_id") or agent._get_toolbox_id()
+            item_id = tool["item_id"]
+            if morld.has_item(container_id, item_id):
+                morld.remove_item(container_id, item_id, 1)
+                morld.give_item(agent.unit_id, item_id, 1)
+                # 원래 위치 기억 (반납용)
+                agent._tool_memory[item_id] = {
+                    "container_id": container_id,
+                    "location": target,
+                }
+                agent._activity_phase = "going_to_spot"
+                agent._action_taken = True
+            else:
+                # 경합으로 사라짐 → 재탐색
+                agent._activity_state.pop("tool", None)
+                agent._activity_phase = "idle"
+                agent._action_taken = True
         else:
-            agent._move_to(storage, "낚시대 가져오기")
+            agent._move_to(target, "도구 찾기")
 
     elif phase == "going_to_spot":
         target = agent._activity_state.get("fish_target")
@@ -1083,13 +1305,25 @@ def _handle_fish(agent, entry):
             agent._move_to(target, "물고기 저장")
 
     elif phase == "returning_tool":
-        storage = agent.TOOL_STORAGE
-        if agent._is_at(storage):
-            agent._return_tool("fishing_rod")
+        tool = agent._activity_state.get("tool")
+        item_id = tool["item_id"] if tool else None
+        memory = agent._tool_memory.pop(item_id, None) if item_id else None
+
+        if memory:
+            target = memory["location"]
+            container_id = memory["container_id"]
+        else:
+            target = agent.TOOL_STORAGE
+            container_id = agent._get_toolbox_id()
+
+        if agent._is_at(target):
+            if item_id and container_id:
+                morld.remove_item(agent.unit_id, item_id, 1)
+                morld.give_item(container_id, item_id, 1)
             agent._activity_phase = "idle"
             agent._action_taken = True
         else:
-            agent._move_to(storage, "낚시대 반납")
+            agent._move_to(target, "도구 반납")
 
 
 # ========================================

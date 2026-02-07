@@ -711,6 +711,10 @@ class Character(Unit):
         if props:
             context["호감"] = props.get(f"관계:{player_name}:호감", 0)
             context["진척도"] = props.get(f"관계:{player_name}:진척도", 0)
+            # 도구 분실 플래그
+            for key, value in props.items():
+                if key.startswith("도구분실:"):
+                    context[key] = value
 
         # 위치 정보에서 날씨, 실내 여부 가져오기
         location_info = morld.get_location_info(

@@ -235,6 +235,12 @@ class Sera(Character):
     # {name}은 자동으로 캐릭터 이름으로 치환됨
     # ========================================
     DESCRIBE_RULES = [
+        # 도구 분실 — 대체 활동 중
+        ({"도구분실:can:chop": 1, "activity": "순찰"},
+         "{name}가 순찰하고 있다. 벌목 도구를 찾지 못한 것 같다."),
+        ({"도구분실:can:fish": 1, "activity": "순찰"},
+         "{name}가 순찰하고 있다. 낚시 도구가 없어 낚시를 못 하는 모양이다."),
+
         # 이동 중
         ({"is_traveling": True, "activity": "사냥"}, "{name}가 사냥터로 향하고 있다."),
         ({"is_traveling": True, "activity": "순찰"}, "{name}가 순찰을 위해 이동 중이다."),
@@ -275,6 +281,12 @@ class Sera(Character):
     # Focus 규칙 (클릭했을 때 상세 묘사)
     # ========================================
     FOCUS_RULES = [
+        # 도구 분실
+        ({"도구분실:can:chop": 1},
+         "뭔가 찾는 듯한 표정이다. 벌목 도구가 보이지 않는 모양이다."),
+        ({"도구분실:can:fish": 1},
+         "뭔가 찾는 듯한 표정이다. 낚시 도구가 없어 낚시를 못 하는 모양이다."),
+
         # Activity 기반
         ({"activity": "사냥"}, "활을 들고 날카로운 눈으로 주변을 살핀다."),
         ({"activity": "순찰"}, "날카로운 눈으로 주변을 경계하고 있다."),
@@ -580,6 +592,33 @@ class Sera(Character):
     # ========================================
     # 이벤트 핸들러
     # ========================================
+
+    def on_meet_player(self, player_id):
+        """플레이어와 만남 — 도구 분실 시 30% 확률 언급"""
+        base_result = super().on_meet_player(player_id)
+        if base_result is not None:
+            return base_result
+
+        # 도구 분실 언급 (30% 확률)
+        import random
+        if random.random() < 0.3:
+            props = morld.get_unit_props(self.instance_id)
+            if props:
+                cap_msgs = {
+                    "can:chop": "...도끼가 도구함에 없더라.\n...혹시 봤으면 돌려놔.",
+                    "can:fish": "...낚시대가 보이지 않아.\n...어디 갔는지 모르겠군.",
+                }
+                for key, val in props.items():
+                    if key.startswith("도구분실:") and val == 1:
+                        cap = key[len("도구분실:"):]
+                        msg = cap_msgs.get(cap)
+                        if msg:
+                            return self._tool_missing_dialog(msg)
+        return None
+
+    def _tool_missing_dialog(self, message):
+        """도구 분실 언급 다이얼로그"""
+        yield ui.dialog([f"[{self.name}]", message])
 
     def _first_meet_handler(self, player_id):
         """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
