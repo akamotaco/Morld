@@ -4,7 +4,7 @@ import morld
 import ui
 from assets.base import Location
 from assets.objects.grounds import GroundWooden
-from assets.objects.furniture import CraftingTable, WallLamp
+from assets.objects.furniture import CraftingTable, WallLamp, IngredientStorage
 
 
 class Toolbox(object):
@@ -52,6 +52,8 @@ class Storage(Location):
         self.add_object(CraftingTable(), x=10)  # 입구 쪽
         lamp_id = self.add_object(WallLamp(), x=90)
         morld.set_unit_prop(lamp_id, "light:on", 0)  # 창고는 어두운 상태로 시작
+
+        self.add_object(IngredientStorage(), x=40)  # 재료 보관함
 
         # 도구함 추가 및 도구 배치
         toolbox = Toolbox()

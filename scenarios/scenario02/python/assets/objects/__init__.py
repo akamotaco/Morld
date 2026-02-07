@@ -25,6 +25,9 @@ from .grounds import (
     GroundDirt, GroundGrass, GroundForest, GroundRocky,
     GroundAsphalt, GroundConcrete
 )
+from .scavenge import (
+    ScavengeableObject, GasStationStand, PharmacyShelf, BrokenVendingMachine
+)
 from .vehicles import (
     Bicycle, CarDriverSeat, CarPassengerSeat, CarTrunk
 )
@@ -47,6 +50,8 @@ __all__ = [
     'GroundWooden', 'GroundStone', 'GroundMarble', 'GroundTile',
     'GroundDirt', 'GroundGrass', 'GroundForest', 'GroundRocky',
     'GroundAsphalt', 'GroundConcrete',
+    # scavenge (비충전 수집)
+    'ScavengeableObject', 'GasStationStand', 'PharmacyShelf', 'BrokenVendingMachine',
     # vehicles
     'Bicycle', 'CarDriverSeat', 'CarPassengerSeat', 'CarTrunk',
 ]

@@ -815,6 +815,73 @@ class Refrigerator(Object):
         morld.advance_time(1 * 60_000)
 
 
+class KitchenFridge(Refrigerator):
+    """주방 냉장고 - NPC가 식료품을 보관하는 용도"""
+    unique_id = "kitchen_fridge"
+    focus_text = {"default": "주방에 놓인 낡은 냉장고. 식료품 보관에 쓰인다."}
+
+    def look(self):
+        yield ui.dialog([
+            "주방에 놓인 낡은 냉장고다.",
+            "전기는 들어오지 않지만, 식료품을 보관하는 데 쓰고 있다."
+        ])
+        morld.advance_time(1 * 60_000)
+
+
+class IngredientStorage(Object):
+    """재료 보관함 - 목재, 재료 보관"""
+    unique_id = "ingredient_storage"
+    name = "재료 보관함"
+    item_visible = True
+    actions = [
+        "call:look:살펴보기",
+        "container#",
+        "call:debug_props:(디버그) 속성 보기#"
+    ]
+    focus_text = {"default": "목재와 재료를 보관하는 나무 선반."}
+
+    def look(self):
+        yield ui.dialog([
+            "목재와 각종 재료를 보관하는 선반이다.",
+            "통나무와 나뭇가지가 정리되어 있다."
+        ])
+        morld.advance_time(1 * 60_000)
+
+
+class FoodStorage(Object):
+    """식량 보관함 - 은신처용 식량 보관"""
+    unique_id = "food_storage"
+    name = "식량 보관함"
+    item_visible = True
+    actions = [
+        "call:look:살펴보기",
+        "container#",
+        "call:debug_props:(디버그) 속성 보기#"
+    ]
+    focus_text = {"default": "은신처에 마련된 간이 식량 보관함."}
+
+    def look(self):
+        yield ui.dialog([
+            "나무 상자로 만든 간이 식량 보관함이다.",
+            "비상 식량이 조금 들어있다."
+        ])
+        morld.advance_time(1 * 60_000)
+
+
+class PortableStove(Stove):
+    """간이 화로 - 은신처용 조리 도구"""
+    unique_id = "portable_stove"
+    name = "간이 화로"
+    focus_text = {"default": "은신처에 놓인 간이 화로. 간단한 조리가 가능하다."}
+
+    def look(self):
+        yield ui.dialog([
+            "연탄과 냄비로 만든 간이 화로다.",
+            "간단한 조리 정도는 할 수 있다."
+        ])
+        morld.advance_time(1 * 60_000)
+
+
 # ========================================
 # 2층 복도 오브젝트
 # ========================================

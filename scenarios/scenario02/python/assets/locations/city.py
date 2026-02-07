@@ -65,6 +65,10 @@ class GasStation(Location):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundAsphalt())
 
+        # 가판대 (비충전 자원: 생수, 에너지음료)
+        from assets.objects.scavenge import GasStationStand
+        self.add_object(GasStationStand(), x=100)
+
         # 주유소 앞 벤치
         from assets.objects.outdoor import StreetBench
         bench = StreetBench()
@@ -171,6 +175,10 @@ class Pharmacy(Location):
         from assets.objects.furniture import Window
         self.add_object(Window(), x=90)
 
+        # 약품 진열대 (비충전 자원: 약초)
+        from assets.objects.scavenge import PharmacyShelf
+        self.add_object(PharmacyShelf(), x=50)
+
 
 class ParkingLot(Location):
     """주차장 - 차량 발견 장소"""
@@ -191,6 +199,10 @@ class ParkingLot(Location):
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
         self.add_ground(GroundAsphalt())
+
+        # 부서진 자판기 (비충전 자원: 캔커피, 콜라)
+        from assets.objects.scavenge import BrokenVendingMachine
+        self.add_object(BrokenVendingMachine(), x=100)
 
         # 주차장 옆 벤치
         from assets.objects.outdoor import StreetBench
@@ -237,6 +249,23 @@ class Hideout(Location):
         sleeping_bag.bed_owner = "yuki"
         sleeping_bag.focus_text = {"default": "바닥에 펼쳐진 넓은 침낭. 두 사람이 겨우 들어갈 수 있는 크기다."}
         self.add_object(sleeping_bag, x=50)
+
+        # 식량 보관함 (엘라/유키 식량 저장)
+        from assets.objects.furniture import FoodStorage
+        food_storage = FoodStorage()
+        food_storage_id = self.add_object(food_storage, x=120)
+
+        # 초기 식량: 생수 2개
+        from assets.items.food import WaterBottle
+        for _ in range(2):
+            item = WaterBottle()
+            item_id = morld.create_id("item")
+            item.instantiate(item_id)
+            morld.give_item(food_storage_id, item_id, 1)
+
+        # 간이 화로 (간단한 조리 가능)
+        from assets.objects.furniture import PortableStove
+        self.add_object(PortableStove(), x=130)
 
         # 간이 드럼통 욕조
         from assets.objects.furniture import DrumBath

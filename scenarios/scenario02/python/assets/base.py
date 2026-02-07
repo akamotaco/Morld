@@ -1900,6 +1900,46 @@ class Object(Unit):
             morld.lost_item(player_id, item_id)
             morld.give_item(self.instance_id, item_id)
 
+    # ========================================
+    # NPC 컨테이너 조작 (think 시스템용, non-generator)
+    # ========================================
+
+    def npc_store_item(self, npc_id, item_unique_id, count=1):
+        """NPC 인벤토리 → 이 컨테이너로 아이템 이동"""
+        from assets.registry import get_or_create_item_id
+        item_id = get_or_create_item_id(item_unique_id)
+        if item_id and morld.has_item(npc_id, item_id):
+            morld.remove_item(npc_id, item_id, count)
+            morld.give_item(self.instance_id, item_id, count)
+            return True
+        return False
+
+    def npc_take_item(self, npc_id, item_unique_id, count=1):
+        """이 컨테이너 → NPC 인벤토리로 아이템 이동"""
+        from assets.registry import get_or_create_item_id
+        item_id = get_or_create_item_id(item_unique_id)
+        if item_id is None:
+            return False
+        inventory = morld.get_unit_inventory(self.instance_id)
+        if inventory and inventory.get(item_id, 0) >= count:
+            morld.remove_item(self.instance_id, item_id, count)
+            morld.give_item(npc_id, item_id, count)
+            return True
+        return False
+
+    def get_item_count(self, item_unique_id=None):
+        """아이템 수 조회 (None이면 전체 합계)"""
+        inventory = morld.get_unit_inventory(self.instance_id)
+        if not inventory:
+            return 0
+        if item_unique_id is None:
+            return sum(inventory.values())
+        from assets.registry import get_or_create_item_id
+        item_id = get_or_create_item_id(item_unique_id)
+        if item_id is None:
+            return 0
+        return inventory.get(item_id, 0)
+
     def instantiate(self, instance_id: int, region_id: int, location_id: int, x: float = None, y: float = None):
         """
         오브젝트를 morld에 등록
