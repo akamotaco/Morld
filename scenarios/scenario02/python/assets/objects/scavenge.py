@@ -24,15 +24,15 @@ class ScavengeableObject(Object):
     initial_items = {}  # {unique_id: count} — 서브클래스에서 오버라이드
 
     def instantiate(self, *args, **kwargs):
-        instance_id = super().instantiate(*args, **kwargs)
+        super().instantiate(*args, **kwargs)
 
         # 초기 재고 배치
         for unique_id, count in self.initial_items.items():
             item_id = get_or_create_item_id(unique_id)
             if item_id is not None:
-                morld.give_item(instance_id, item_id, count)
+                morld.give_item(self.instance_id, item_id, count)
 
-        return instance_id
+        return self.instance_id
 
     def look(self):
         """살펴보기"""

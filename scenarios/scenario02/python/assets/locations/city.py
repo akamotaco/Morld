@@ -108,6 +108,7 @@ class ConvenienceStore(Location):
         from assets.items.equipment import CityMap
         city_map = CityMap()
         city_map_id = morld.create_id("item")
+
         city_map.instantiate(city_map_id)
         morld.give_item(shelf_id, city_map_id, 1)
 

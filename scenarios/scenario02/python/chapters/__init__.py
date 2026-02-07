@@ -39,12 +39,10 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
 
     # 1. 기존 데이터 저장 (첫 로드가 아니고 preserve_player=True면)
     if _current_chapter is not None and preserve_player:
-        print(f"[chapters] Saving player data before chapter transition...")
         save_for_chapter_transition()
 
     # 2. 기존 데이터 초기화 (첫 로드가 아니면)
     if _current_chapter is not None:
-        print(f"[chapters] Clearing previous chapter: {_current_chapter}")
         morld.clear_world()
 
     # 3. 챕터 모듈 동적 import
@@ -62,7 +60,6 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
 
     # 5. 저장된 플레이어 데이터 복원
     if has_saved_data():
-        print(f"[chapters] Restoring player data after chapter transition...")
         restore_after_chapter_transition()
 
     # 5.1. 챕터별 후처리 (복원 후 추가 설정)
