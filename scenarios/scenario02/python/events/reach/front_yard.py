@@ -30,12 +30,13 @@ class FrontYardCollapse(ReachEvent):
         # 챕터 1 로드 (전체 지형 + NPC)
         # load_chapter가 플레이어 위치도 설정함 (현관에서 시작)
         from chapters import load_chapter
-        load_chapter("chapter_1")
 
-        morld.set_prop("chapter", 1)
+        def _do_load():
+            load_chapter("chapter_1")
+            morld.set_prop("chapter", 1)
+            morld.advance_time_des(180 * 60_000)  # 3시간 경과
 
-        # 시간 경과 (저녁이 되었다고 가정)
-        morld.advance_time_des(180 * 60_000)  # 3시간 경과
+        yield ui.loading_screen(_do_load)
 
         # ========================================
         # 챕터 1 시작 - 회고록 애니메이션

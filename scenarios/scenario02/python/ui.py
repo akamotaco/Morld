@@ -32,6 +32,32 @@ def divider(color: str = "gray", length: int = 20) -> str:
     return f"[!][color={color}]{line}[/color][/!]"
 
 
+def loading_screen(callback, text="로딩 중..."):
+    """
+    로딩 화면 표시 후 callback 실행 (yield용)
+
+    Animlog lock 모드 + callback 패턴:
+    1. lock 모드로 header/footer 가림 (레터박스)
+    2. 로딩 텍스트 즉시 표시
+    3. 0.1초 대기 (화면 렌더링 보장)
+    4. callback 실행 (동기, 화면은 로딩 텍스트 유지)
+
+    Args:
+        callback: 로딩 중 실행할 함수 (인자 없음)
+        text: 로딩 화면에 표시할 텍스트
+
+    Usage:
+        def do_load():
+            load_chapter("chapter_1")
+        yield ui.loading_screen(do_load)
+    """
+    anim = Animlog()
+    anim.text(f"\n\n\n[center]{text}[/center]", append=False, speed=9999)
+    anim.wait(0.1)
+    anim.callback(callback)
+    return anim.play(mode="lock")
+
+
 # ========================================
 # UI 표시 설정
 # ========================================
