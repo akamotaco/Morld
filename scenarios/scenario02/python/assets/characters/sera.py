@@ -140,6 +140,11 @@ class Sera(Character):
             ({"activity": "순찰"}, {"pages": ["...순찰 중이다.", "이상 없다."]}),
             ({"activity": "식사"}, {"pages": ["(조용히 먹고 있다)", "...뭔가?"]}),
             ({"activity": "정비"}, {"pages": ["...활을 손보는 중이다.", "나중에 와라."]}),
+            ({"activity": "벌목"}, {"pages": ["...보다시피 바쁘다.", "...위험하니 뒤로 가라."]}),
+            ({"activity": "낚시"}, {"pages": ["...쉿.", "...물고기가 달아나잖아."]}),
+            ({"activity": "독서"}, {"pages": ["...읽는 중이다.", "...조용히 해라."]}),
+            ({"activity": "휴식"}, {"pages": ["......", "...뭐냐."]}),
+            ({"activity": "목욕"}, {"pages": ["(목욕 중이다)", "...나중에 와라."]}),
             ({"activity": "준비"}, {"pages": ["...지금 준비 중이다.", "..."]}),
 
             # 날씨 반응
@@ -245,15 +250,21 @@ class Sera(Character):
         # 이동 중
         ({"is_traveling": True, "activity": "사냥"}, "{name}가 사냥터로 향하고 있다."),
         ({"is_traveling": True, "activity": "순찰"}, "{name}가 순찰을 위해 이동 중이다."),
+        ({"is_traveling": True, "activity": "벌목"}, "{name}가 벌목터로 향하고 있다."),
+        ({"is_traveling": True, "activity": "낚시"}, "{name}가 낚시터로 향하고 있다."),
         ({"is_traveling": True}, "{name}(이)가 어딘가로 향하고 있다."),
 
         # Activity 기반
         ({"activity": "사냥"}, "{name}가 활을 점검하고 있다."),
         ({"activity": "순찰"}, "{name}가 주변을 경계하고 있다."),
+        ({"activity": "벌목"}, "{name}가 묵묵히 나무를 베고 있다."),
+        ({"activity": "낚시"}, "{name}가 낚싯대를 드리우고 앉아 있다."),
+        ({"activity": "독서"}, "{name}가 조용히 책을 읽고 있다."),
         ({"activity": "식사"}, "{name}가 조용히 식사 중이다."),
         ({"activity": "수면"}, "{name}가 조용히 잠들어 있다."),
         ({"activity": "휴식"}, "{name}가 벽에 기대어 쉬고 있다."),
         ({"activity": "정비"}, "{name}가 장비를 손보고 있다."),
+        ({"activity": "목욕"}, "{name}가 목욕 중이다."),
 
         # 날씨 반응
         ({"weather": "비", "is_indoor": False}, "{name}가 비를 맞으며 서 있다."),
@@ -291,8 +302,12 @@ class Sera(Character):
         # Activity 기반
         ({"activity": "사냥"}, "활을 들고 날카로운 눈으로 주변을 살핀다."),
         ({"activity": "순찰"}, "날카로운 눈으로 주변을 경계하고 있다."),
+        ({"activity": "벌목"}, "도끼를 휘두르며 나무를 베고 있다. 정확한 동작이다."),
+        ({"activity": "낚시"}, "물 위에 시선을 고정하고 조용히 앉아 있다."),
+        ({"activity": "독서"}, "책장을 넘기며 집중하고 있다. 의외로 진지하다."),
         ({"activity": "식사"}, "조용히 음식을 먹고 있다."),
         ({"activity": "수면"}, "경계심 없이 잠들어 있다."),
+        ({"activity": "휴식"}, "벽에 기대어 쉬고 있다. 경계는 풀지 않았다."),
         ({"activity": "정비"}, "활과 화살을 꼼꼼히 점검하고 있다."),
 
         # mood 기반

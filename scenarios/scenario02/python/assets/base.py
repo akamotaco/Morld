@@ -703,9 +703,13 @@ class Character(Unit):
             return {"name": self.name}
 
         # 기본 정보
+        # Job.Name이 "오전활동:독서" 형태일 수 있음 → 실제 활동명만 추출
+        raw_activity = info.get("activity")
+        activity = raw_activity.split(":")[-1] if raw_activity and ":" in raw_activity else raw_activity
+
         context = {
             "name": info.get("name", self.name),
-            "activity": info.get("activity"),
+            "activity": activity,
             "mood": info.get("mood", []),
             "is_traveling": info.get("is_traveling", False),
             "region_id": info.get("region_id"),
