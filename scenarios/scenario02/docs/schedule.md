@@ -472,6 +472,27 @@ self._action_taken = False       # 행동 결정 여부 (경고용)
 
 activity가 변경되면 자동 리셋됩니다.
 
+### 지속 기억 (`_memory` dict) — v0.2.2
+
+활동 간/턴 간 유지되어야 하는 데이터를 `_memory` dict에 통합합니다.
+`_activity_state`는 활동 변경 시 리셋되지만, `_memory`는 유지됩니다.
+
+```python
+self._memory = {
+    "tool": {},              # 도구 반납 위치 {item_id: {"container_id", "location"}}
+    "hunger_phase": None,    # 식사 인터럽트 단계 (None/idle/going_to_storage/taking_food/eating)
+    "current_season": None,  # 밀라 계절 추적
+    "current_day_type": None # 세라 요일 타입 추적
+}
+```
+
+| 키 | 용도 | 사용 NPC |
+|----|------|----------|
+| `tool` | 도구를 가져온 컨테이너 위치 기억 (반납 시 사용) | 벌목/낚시/청소 |
+| `hunger_phase` | 식사 인터럽트 multi-step 상태 | 전체 |
+| `current_season` | 계절 변화 감지 → 스케줄 갱신 | 밀라 |
+| `current_day_type` | 요일 타입 변화 감지 → 스케줄 갱신 | 세라 |
+
 ### 활동 핸들러 디스패치
 
 핸들러는 `think/activities/` 패키지에 모듈화되어 있으며, `ACTIVITY_HANDLERS` dict로 자동 등록됩니다.

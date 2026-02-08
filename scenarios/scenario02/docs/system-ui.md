@@ -264,6 +264,44 @@ Dialog 모드에서는 영화 레터박스처럼 Header/Footer에 구분선을 �
 
 ---
 
+## 즉시 출력 헬퍼
+
+`ui.py`에서 제공하는 유틸리티 함수들입니다.
+
+### `divider(color, length)`
+
+구분선을 즉시 출력합니다. `[!]` 태그로 감싸져 타이핑 없이 표시됩니다.
+
+```python
+import ui
+
+ui.divider()                    # 기본: 회색 20칸
+ui.divider("white", 30)        # 흰색 30칸
+```
+
+### `loading_screen(callback, text)`
+
+로딩 화면을 표시한 뒤 무거운 작업을 실행합니다. Animlog lock 모드 + callback 패턴을 사용합니다.
+
+```python
+import ui
+
+def _do_load():
+    load_chapter("chapter_1")
+    morld.set_prop("chapter", 1)
+
+yield ui.loading_screen(_do_load)           # 기본 텍스트: "로딩 중..."
+yield ui.loading_screen(_do_load, "준비 중...")  # 커스텀 텍스트
+```
+
+**동작 원리:**
+1. lock 모드로 header/footer 가림 (레터박스)
+2. `speed=9999`로 로딩 텍스트 즉시 표시
+3. `wait(0.1)`으로 최소 수 프레임 렌더링 보장
+4. callback 실행 (동기, 화면은 로딩 텍스트 유지)
+
+---
+
 ## Animlog (애니메이션 시퀀스)
 
 실시간 기반 애니메이션 시퀀스 시스템입니다. 텍스트 타이핑, 대기, 화면 전환 등을 시간 기반으로 연출합니다.
