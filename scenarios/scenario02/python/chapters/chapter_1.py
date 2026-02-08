@@ -32,6 +32,9 @@ def initialize():
     # 6. 자연 오브젝트 인스턴스화 + Agent 등록
     mansion.instantiate_nature_objects()
 
+    # 7. 전 맵 오염도 등록
+    _register_pollution()
+
     print("[chapter_1] Main chapter initialized: full map with NPCs and nature objects")
 
 
@@ -106,6 +109,26 @@ def _instantiate_player():
     player = Player()
     player_id = morld.create_id("unit")
     player.instantiate(player_id, mansion.REGION_ID, 6)  # 주인공 방에서 시작
+
+
+def _register_pollution():
+    """전 맵 location에 오염도 등록"""
+    import pollution
+
+    # Region 0: 저택 (실내 + 마당 + 숲)
+    for loc_id in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                   20, 21, 22, 23, 24]:
+        pollution.register_location(0, loc_id, max_pollution=20, rate=1)
+
+    # Region 2: 도시
+    for loc_id in range(7):
+        pollution.register_location(2, loc_id, max_pollution=20, rate=1)
+
+    # Region 3: 숲
+    for loc_id in range(6):
+        pollution.register_location(3, loc_id, max_pollution=20, rate=1)
+
+    print("[chapter_1] Pollution registered for all locations")
 
 
 def _start_chapter_quest():

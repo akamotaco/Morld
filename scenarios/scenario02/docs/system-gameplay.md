@@ -197,6 +197,69 @@ temperature.register_heat_source(unit_id, region_id, location_id)
 
 ---
 
+## 오염도 시스템 (Pollution System)
+
+> `pollution.py` — 순수 Python, C# 변경 없음
+
+Location/오브젝트/캐릭터의 오염도를 시간 경과에 따라 시뮬레이션합니다.
+NPC(밀라)가 빗자루로 청소하거나, 플레이어가 직접 청소할 수 있습니다.
+
+### 오염도 등록 및 증가
+
+```python
+import pollution
+
+# 챕터 초기화 시 location 등록
+pollution.register_location(region_id, location_id, max_pollution=20, rate=1)
+```
+
+`subscribe_time_elapsed`로 1시간마다 업데이트:
+- **Location**: `current += rate` (max까지)
+- **오브젝트**: Location 오염도에 비례하여 증가 (prop `오염:수치`)
+- **캐릭터**: `rate × CHAR_POLLUTION_FACTOR(0.3)`, 장비는 확률적 오염
+
+### 청소
+
+```python
+# NPC/플레이어 청소
+pollution.clean_location(region_id, location_id, amount)
+
+# 오브젝트/유닛 청소
+pollution.clean_unit(unit_id, amount)
+
+# 현재 오염도 조회
+current = pollution.get_location_pollution(region_id, location_id)
+```
+
+### NPC 청소 활동
+
+`handle_clean()` — 4-phase 도구 기반 (chop.py 패턴):
+
+```
+idle → getting_tool → going_to_room ↔ (다음 방) → returning_tool
+```
+
+- `_find_tool_by_capability("can:clean")` — 빗자루 탐색
+- `find_polluted_room(agent)` — 거처 내 오염된 방 탐색
+- 청소 시 `pollution.clean_location(r, l, 청소력)` 호출 (빗자루 청소력=5)
+- 동적 스케줄 조건 `should_clean`: 거처 내 오염도 > 0인 location 존재 여부
+
+### 플레이어 청소
+
+빗자루를 인벤토리에 넣고 "청소하기" 액션 사용:
+- 현재 위치의 오염도를 `청소력`만큼 감소
+- 소요 시간: 30분
+
+### 오염도 등록 범위 (챕터 1)
+
+| Region | Locations | max | rate |
+|--------|-----------|-----|------|
+| 0 (저택) | 0~16, 20~24 (22개) | 20 | 1 |
+| 2 (도시) | 0~6 (7개) | 20 | 1 |
+| 3 (숲) | 0~5 (6개) | 20 | 1 |
+
+---
+
 ## 자원 생성 시스템 (Resource Spawning)
 
 `on_time_elapsed` 이벤트 구독, 오브젝트별 시간 누적 후 자원 생성

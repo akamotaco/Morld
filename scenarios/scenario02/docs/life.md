@@ -4,8 +4,8 @@
 >
 > **구현된 항목:**
 > - 동적 Activity 탐색 → `activity_resolver.py` (채집/사냥/순찰/벌목/낚시/독서/물자수집)
-> - 도구 기반 Activity → 벌목 도끼, 낚시대 가져오기/반납
-> - Activity 결과물 → 채집→저장, 낚시→저장, 벌목, 요리, 청소, 물자수집
+> - 도구 기반 Activity → 벌목 도끼, 낚시대, 빗자루 가져오기/반납
+> - Activity 결과물 → 채집→저장, 낚시→저장, 벌목, 요리, 청소(오염도 감소), 물자수집
 > - NPC 만복도 시스템 → `survival.py` (register_npc, is_npc_hungry, npc_eat)
 > - 배고픔 인터럽트 → think()에서 스케줄보다 우선 처리
 > - 동적 스케줄 → 조건 기반 활동 선택 (`dynamic: True`, `candidates`)

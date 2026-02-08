@@ -11,6 +11,7 @@
 import events
 import survival  # 시간 경과 이벤트 구독
 import temperature  # 온도 시스템 (시간 경과 이벤트 구독)
+import pollution  # 오염도 시스템 (시간 경과 이벤트 구독)
 
 from assets.characters import get_character_event_handler
 from chapters import load_chapter

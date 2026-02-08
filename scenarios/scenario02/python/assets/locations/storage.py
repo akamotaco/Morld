@@ -96,3 +96,10 @@ class Storage(Location):
         mansion_map_id = morld.create_id("item")
         mansion_map.instantiate(mansion_map_id)
         morld.give_item(toolbox_id, mansion_map_id, 1)
+
+        # 빗자루를 도구함에 넣기 (청소 도구)
+        from assets.items.tools import Broom
+        broom = Broom()
+        broom_id = morld.create_id("item")
+        broom.instantiate(broom_id)
+        morld.give_item(toolbox_id, broom_id, 1)

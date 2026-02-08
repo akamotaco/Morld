@@ -5,6 +5,7 @@ store_food_items — NPC 인벤토리 → 저장소 일괄 이동
 find_stove_location — 화로/아궁이 위치 탐색
 get_object_x_from_info — 오브젝트 x 좌표 조회
 find_indoor_room — 거처 실내 방 탐색
+find_polluted_room — 오염된 거처 내 방 탐색
 """
 import morld
 
@@ -125,4 +126,27 @@ def find_indoor_room(agent):
         loc_info = morld.get_location_info(r, l)
         if loc_info and loc_info.get("is_indoor", False):
             return {"region_id": r, "location_id": l, "x": 0}
+    return None
+
+
+def find_polluted_room(agent):
+    """오염도가 있는 거처 내 방 찾기 (아직 청소하지 않은 방)"""
+    import pollution
+
+    cleaned = agent._activity_state.get("cleaned", set())
+    home_region = agent._get_home_region()
+    sleep = getattr(agent, "sleep_location", None)
+    sleep_l = sleep["location_id"] if sleep else None
+
+    for key, data in pollution._location_pollution.items():
+        r, l = key
+        if r != home_region:
+            continue
+        if l in cleaned:
+            continue
+        if data["current"] <= 0:
+            continue
+        if sleep_l is not None and not morld.is_same_building(r, l, home_region, sleep_l):
+            continue
+        return {"region_id": r, "location_id": l, "x": 0}
     return None

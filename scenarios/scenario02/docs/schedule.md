@@ -266,14 +266,14 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 ```
 05:00 아침목욕    → 욕실
 05:30 기상(준비)  → 밀라방
-06:00 아침준비    → (동적: 요리 if can_cook > 청소)  ← v0.2.1
+06:00 아침준비    → (동적: 요리 if can_cook > 청소 if should_clean > 휴식)  ← v0.2.2
 07:00 아침식사    → 식당
 08:00 설거지      → 주방
-09:00 청소        → 거실
-11:00 점심준비    → (동적: 요리 if can_cook > 청소)  ← v0.2.1
+09:00 청소        → (동적: 청소 if should_clean > 휴식)  ← v0.2.2
+11:00 점심준비    → (동적: 요리 if can_cook > 청소 if should_clean > 휴식)  ← v0.2.2
 12:00 점심식사    → 식당
 13:00 정원가꾸기  → 뒷마당 (봄 한정)
-17:00 저녁준비    → (동적: 요리 if can_cook > 청소)  ← v0.2.1
+17:00 저녁준비    → (동적: 요리 if can_cook > 청소 if should_clean > 휴식)  ← v0.2.2
 18:30 저녁식사    → 식당
 19:30 정리        → 주방
 21:30 저택 소등   → (동적 탐색)
@@ -331,7 +331,7 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 | 항목 | 현재 상태 | 문제 |
 |------|----------|------|
 | 위치 결정 | 고정 + 동적 탐색 혼용 | 대부분 동적화 완료 (v0.2.1) |
-| activity 효과 | **8종 구현됨** (v0.2.1) | 벌목/채집/낚시/요리/청소/물자수집/식사/소등 |
+| activity 효과 | **8종 구현됨** (v0.2.1~v0.2.2) | 벌목/채집/낚시/요리/청소(도구+오염도)/물자수집/식사/소등 |
 | 자원 관리 | **구현됨** (v0.2.1) | 만복도 추적, 배고프면 자동 식사 |
 | 도구 사용 | **벌목 도끼 + 낚시대** (v0.2.1) | 바구니 등은 미구현 |
 | 목적지 정보 | Python에 미노출 | "~하러 가는 중" 표현 불가 |
@@ -374,7 +374,7 @@ SCHEDULE = [
 - `낚시`: `handle_fish()` → 낚시대 가져오기 → 낚시 → 물고기 저장 → 반납
 - `채집→저장`: `handle_gather_store()` → 채집 → 냉장고/보관함에 저장
 - `요리`: `handle_cook()` → 냉장고 재료 확인 → 화로/아궁이 요리 → 결과물 저장
-- `청소`: `handle_clean()` → 실내 방 순회
+- `청소`: `handle_clean()` → 빗자루(can:clean) 가져오기 → 오염 방 순회 청소 → 반납
 - `물자수집`: `handle_scavenge()` → ScavengeableObject 탐색 → 식량 보관함에 저장
 
 **`think/__init__.py` 내 (인라인):**
@@ -406,8 +406,8 @@ class BaseAgent:
 - NPC용 생존 시스템 (포만감 추적, 시간 경과 감소)
 - `_check_hunger()`: 포만감 30 이하 → 식사 인터럽트
 - `_resolve_dynamic_entry()`: 조건 기반 동적 활동 선택
-- `_evaluate_condition()`: need_fish, need_logs, need_food, can_cook, need_supplies
-- 도구 자동 관리 (도끼, 낚시대)
+- `_evaluate_condition()`: need_fish, need_logs, need_food, can_cook, need_supplies, should_clean
+- 도구 자동 관리 (도끼, 낚시대, 빗자루)
 
 **미구현:**
 - 배변/수면/사회욕 긴급 행동
@@ -437,6 +437,7 @@ class BaseAgent:
 | `need_food` | 식량 부족 | 저장소 총 아이템 < 10 |
 | `can_cook` | 요리 가능 | 냉장고에 레시피 매칭 재료 있음 |
 | `need_supplies` | 물자 부족 | 저장소 총 아이템 < 5 |
+| `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 location 존재 |
 
 ---
 
@@ -451,7 +452,7 @@ class BaseAgent:
 | 2b | 보관함 자동 이동 | 중간 | 자원 순환 | **구현됨** |
 | 3a | NPC 만복도 시스템 | 높음 | 자율 행동 | **구현됨** |
 | 3b | 동적 스케줄 | 높음 | 조건 기반 선택 | **구현됨** |
-| 3c | 도구/의류 자동 관리 | 높음 | 완전 자율 | **도구 구현됨** (도끼/낚시대) |
+| 3c | 도구/의류 자동 관리 | 높음 | 완전 자율 | **도구 구현됨** (도끼/낚시대/빗자루) |
 
 ---
 
@@ -546,6 +547,19 @@ idle → going → idle → going → ... → idle (완료)
 |-------|------|
 | `idle` | 조명 켜진 실내 방 탐색 → 있으면 `going`, 없으면 완료 |
 | `going` | 해당 방으로 이동 → 도착 시 조명 끄기 → `idle` (다음 방) |
+
+### 청소 Phase 흐름 (v0.2.2)
+
+```
+idle → getting_tool → going_to_room ↔ (다음 방) → returning_tool → idle
+```
+
+| Phase | 설명 |
+|-------|------|
+| `idle` | `_find_tool_by_capability("can:clean")` → 빗자루 탐색, `find_polluted_room()` → 오염 방 탐색 |
+| `getting_tool` | 도구함으로 이동 → 빗자루 pick up → `going_to_room` |
+| `going_to_room` | 오염 방으로 이동 → 도착 시 `pollution.clean_location()` + 10분 대기 → 다음 방 or `returning_tool` |
+| `returning_tool` | 도구함으로 이동 → 빗자루 반납 → `idle` |
 
 ### 리소스 검증
 

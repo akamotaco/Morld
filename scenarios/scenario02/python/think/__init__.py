@@ -941,6 +941,28 @@ class BaseAgent:
             return not self._check_storage_need(self.food_storage_unique_id, None, 2)
         elif condition == "need_supplies":
             return self._check_storage_need(self.food_storage_unique_id, None, 5)
+        elif condition == "should_clean":
+            return self._check_has_pollution()
+        return False
+
+    def _check_has_pollution(self):
+        """거처 내 오염된 방이 있는지 확인 (True=청소 필요)"""
+        try:
+            import pollution
+        except ImportError:
+            return False
+        home_region = self._get_home_region()
+        sleep = getattr(self, "sleep_location", None)
+        sleep_l = sleep["location_id"] if sleep else None
+        for key, data in pollution._location_pollution.items():
+            r, l = key
+            if r != home_region:
+                continue
+            if data["current"] <= 0:
+                continue
+            if sleep_l is not None and not morld.is_same_building(r, l, home_region, sleep_l):
+                continue
+            return True
         return False
 
     def _check_storage_need(self, storage_uid, item_uid, threshold):

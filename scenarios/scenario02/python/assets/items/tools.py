@@ -522,3 +522,57 @@ class RabbitHide(Item):
         ])
 
 
+# ========================================
+# 청소 도구
+# ========================================
+
+class Broom(Item):
+    """
+    빗자루 - 청소 도구
+
+    NPC가 can:clean 으로 탐색하여 청소 활동에 사용.
+    플레이어는 인벤토리에서 "청소하기" 액션으로 현재 위치 오염도 감소.
+    청소력 prop으로 1회 청소 시 감소량 결정.
+    """
+    unique_id = "broom"
+    name = "빗자루"
+    owner = None
+    passive_props = {"can:clean": 1, "청소력": 5}
+    equip_props = {"장착:손": 1}
+    value = 10
+    actions = ["take@container", "equip@inventory",
+               "call:clean:청소하기@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """빗자루 살펴보기"""
+        yield ui.dialog([
+            "낡았지만 튼튼한 빗자루다.",
+            "이것으로 방을 청소할 수 있다."
+        ])
+
+    def clean(self):
+        """플레이어 청소: 현재 위치 오염도 감소"""
+        import pollution
+
+        player_id = morld.get_player_id()
+        loc = morld.get_unit_location(player_id)
+        if not loc:
+            return
+
+        current = pollution.get_location_pollution(loc[0], loc[1])
+        if current <= 0:
+            yield ui.dialog("이 장소는 충분히 깨끗하다.")
+            return
+
+        clean_power = morld.get_unit_prop(self.instance_id, "청소력") or 5
+        yield ui.dialog("열심히 빗자루질을 한다...")
+        morld.advance_time_des(30 * 60_000)  # 30분
+
+        pollution.clean_location(loc[0], loc[1], clean_power)
+        after = pollution.get_location_pollution(loc[0], loc[1])
+        if after <= 0:
+            yield ui.dialog("깨끗해졌다!")
+        else:
+            yield ui.dialog("조금 깨끗해진 것 같다.")
+
+
