@@ -1068,7 +1068,7 @@ class SeraAgent(BaseAgent):
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
-        self._current_day_type = None
+        self._memory["current_day_type"] = None
         import survival
         survival.register_npc(unit_id)
 
@@ -1077,8 +1077,8 @@ class SeraAgent(BaseAgent):
         time_info = morld.get_time_info()
         day = time_info.get("day", 0)
         day_type = "주말" if day % 7 >= 5 else "평일"
-        if self._current_day_type != day_type:
-            self._current_day_type = day_type
+        if self._memory["current_day_type"] != day_type:
+            self._memory["current_day_type"] = day_type
             self.set_base_schedule(self.SCHEDULES[day_type])
         return super().think()
 

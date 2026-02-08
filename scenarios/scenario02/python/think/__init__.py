@@ -74,8 +74,11 @@ class BaseAgent:
         self._activity_phase = "idle"   # 활동 내 단계
         self._activity_state = {}       # 활동별 임시 데이터
         self._action_taken = False      # think() 내 행동 결정 여부 (경고용)
-        self._hunger_phase = None       # 식사 단계 (None=배고프지 않음)
-        self._tool_memory = {}          # 도구 원래 위치 기억 {item_id: {"container_id", "location"}}
+        # === 지속 기억 (활동 간 유지, 향후 세이브/로드 대상) ===
+        self._memory = {
+            "tool": {},             # 도구 반납 위치 {item_id: {"container_id", "location"}}
+            "hunger_phase": None,   # 식사 단계 (None/idle/going_to_storage/taking_food/eating)
+        }
 
     def set_base_schedule(self, schedule):
         """
@@ -889,11 +892,11 @@ class BaseAgent:
         """배고픔 확인 → 식사 활동 시작. Returns True if handling hunger."""
         import survival
         if not survival.is_npc_hungry(self.unit_id):
-            self._hunger_phase = None
+            self._memory["hunger_phase"] = None
             return False
         # 배고프면 식사 핸들러 실행
-        if self._hunger_phase is None:
-            self._hunger_phase = "idle"
+        if self._memory["hunger_phase"] is None:
+            self._memory["hunger_phase"] = "idle"
         _handle_eat(self)
         return True
 
@@ -996,24 +999,24 @@ from think.activities.helpers import find_food_in_container as _find_food_in_con
 
 def _handle_eat(agent):
     """식사: 인벤토리 확인 → 식량 보관 이동 → 음식 가져오기 → 식사"""
-    phase = agent._hunger_phase
+    phase = agent._memory["hunger_phase"]
 
     if phase == "idle":
         # 인벤토리에 음식이 있으면 바로 식사
         food = _find_npc_food(agent.unit_id)
         if food:
-            agent._hunger_phase = "eating"
+            agent._memory["hunger_phase"] = "eating"
             _handle_eat(agent)
             return
         # 없으면 식량 보관소로 이동
-        agent._hunger_phase = "going_to_storage"
+        agent._memory["hunger_phase"] = "going_to_storage"
         _handle_eat(agent)
         return
 
     elif phase == "going_to_storage":
         target = agent.food_storage_location
         if agent._is_at(target):
-            agent._hunger_phase = "taking_food"
+            agent._memory["hunger_phase"] = "taking_food"
             agent._action_taken = True
         else:
             agent._move_to(target, "식사")
@@ -1028,11 +1031,11 @@ def _handle_eat(agent):
                 food_uid = _find_food_in_container(storage_id)
                 if food_uid:
                     obj.npc_take_item(agent.unit_id, food_uid, 1)
-                    agent._hunger_phase = "eating"
+                    agent._memory["hunger_phase"] = "eating"
                     agent._action_taken = True
                     return
         # 음식 없음 → 포기
-        agent._hunger_phase = None
+        agent._memory["hunger_phase"] = None
         agent._action_taken = True
 
     elif phase == "eating":
@@ -1041,7 +1044,7 @@ def _handle_eat(agent):
             import survival
             survival.npc_eat(agent.unit_id, food["satiety"])
             morld.remove_item(agent.unit_id, food["item_id"], 1)
-        agent._hunger_phase = None
+        agent._memory["hunger_phase"] = None
         agent._action_taken = True
 
 

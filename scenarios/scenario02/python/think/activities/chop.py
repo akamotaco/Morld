@@ -58,7 +58,7 @@ def handle_chop(agent, entry):
                 morld.remove_item(container_id, item_id, 1)
                 morld.give_item(agent.unit_id, item_id, 1)
                 # 원래 위치 기억 (반납용)
-                agent._tool_memory[item_id] = {
+                agent._memory["tool"][item_id] = {
                     "container_id": container_id,
                     "location": target,
                 }
@@ -94,7 +94,7 @@ def handle_chop(agent, entry):
     elif phase == "returning_tool":
         tool = agent._activity_state.get("tool")
         item_id = tool["item_id"] if tool else None
-        memory = agent._tool_memory.pop(item_id, None) if item_id else None
+        memory = agent._memory["tool"].pop(item_id, None) if item_id else None
 
         if memory:
             target = memory["location"]

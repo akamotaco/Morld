@@ -995,7 +995,7 @@ class MilaAgent(BaseAgent):
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
-        self._current_season = None
+        self._memory["current_season"] = None
         # 초기 스케줄은 think()에서 계절 확인 후 설정
         import survival
         survival.register_npc(unit_id)
@@ -1019,8 +1019,8 @@ class MilaAgent(BaseAgent):
         """밀라의 행동 결정 - 계절에 따라 스케줄 변경"""
         # 계절이 바뀌면 기본 스케줄 교체
         season = self._get_current_season()
-        if season != self._current_season:
-            self._current_season = season
+        if season != self._memory["current_season"]:
+            self._memory["current_season"] = season
             new_schedule = self.SCHEDULES.get(season, self.SCHEDULES["봄"])
             self.set_base_schedule(new_schedule)
             print(f"[MilaAgent] 계절 변경: {season}")
