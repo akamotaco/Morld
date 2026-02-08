@@ -1533,6 +1533,10 @@ class Character(Unit):
         progress_key = f"관계:{self.name}:진척도"
         morld.set_unit_prop(player_id, progress_key, 1)
 
+        # 퀘스트 조건 즉시 체크 (시간 경과로 이벤트 핸들러가 스킵될 수 있으므로)
+        from quest import quest_manager
+        quest_manager.check_meet_conditions(player_id, self.instance_id)
+
     def on_meet_player(self, player_id):
         """플레이어와 만났을 때 - Generator 기반"""
         unit_info = morld.get_unit_info(self.instance_id)

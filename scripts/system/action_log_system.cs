@@ -12,6 +12,7 @@ namespace SE
 	{
 		public string Message { get; set; } = "";
 		public bool IsRead { get; set; } = false;
+		public bool WasDisplayed { get; set; } = false;
 
 		public ActionLogEntry(string message)
 		{
@@ -59,9 +60,15 @@ namespace SE
 		/// </summary>
 		public IReadOnlyList<ActionLogEntry> GetPrintableLogs()
 		{
-			return _actionLogs
+			var logs = _actionLogs
 				.Where(e => !e.IsRead)
 				.ToList();
+
+			// 렌더링에 사용된 로그를 표시됨으로 마킹
+			foreach (var log in logs)
+				log.WasDisplayed = true;
+
+			return logs;
 		}
 
 		/// <summary>
@@ -80,7 +87,7 @@ namespace SE
 		/// </summary>
 		public void MarkPrintedLogsAsRead()
 		{
-			foreach (var log in _actionLogs.Where(e => !e.IsRead))
+			foreach (var log in _actionLogs.Where(e => !e.IsRead && e.WasDisplayed))
 			{
 				log.IsRead = true;
 			}
