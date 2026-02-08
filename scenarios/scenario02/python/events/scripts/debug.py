@@ -52,7 +52,7 @@ def debug_props(context_unit_id):
     all_props = _get_all_unit_props(context_unit_id)
     text = _format_props_text(unit_name, all_props)
 
-    yield ui.dialog(text)
+    yield ui.dialog(f"[!]{text}[/!]")
 
 
 @morld.register_script
@@ -68,4 +68,4 @@ def debug_self_props(context_unit_id):
     all_props = _get_all_unit_props(player_id)
     text = _format_props_text(unit_name, all_props)
 
-    yield ui.dialog(text)
+    yield ui.dialog(f"[!]{text}[/!]")

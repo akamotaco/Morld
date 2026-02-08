@@ -178,15 +178,16 @@ namespace SE
 				foreach (var character in characters)
 				{
 					// 현재 Job의 Name을 activity로 표시
-					// 목표 지역에 도착했으면 "XX 중", 이동 중이면 "XX-이동 중"
+					// stay job → 항상 "XX 중", move job → 도착 여부에 따라 "XX 중" / "XX-이동 중"
 					var currentJob = character.JobList?.Current;
 					var activity = currentJob?.Name;
 					string activityText = "";
 					if (!string.IsNullOrEmpty(activity))
 					{
+						bool isStay = currentJob.Action == "stay";
 						var currentLoc = character.CurrentLocation;
 						var jobLoc = currentJob.GetLocationRef();
-						bool isAtDestination = currentLoc.RegionId == jobLoc.RegionId && currentLoc.LocalId == jobLoc.LocalId;
+						bool isAtDestination = isStay || (currentLoc.RegionId == jobLoc.RegionId && currentLoc.LocalId == jobLoc.LocalId);
 						activityText = isAtDestination
 							? $" [color=gray]({activity} 중)[/color]"
 							: $" [color=gray]({activity}-이동 중)[/color]";

@@ -661,6 +661,14 @@ class BaseAgent:
         })
         self._action_taken = True
 
+    def _get_display_name(self, entry):
+        """스케줄 항목의 표시용 이름 (동적 활동 포함)"""
+        name = entry.get("name", "대기")
+        activity = entry.get("activity")
+        if activity and name != activity:
+            return f"{name}:{activity}"
+        return name
+
     # ========================================
     # 기본 활동 핸들러
     # ========================================
@@ -677,14 +685,14 @@ class BaseAgent:
         if target is None:
             # 장소 없음 → 현재 위치에서 대기
             remaining = self._remaining_millis_in_entry(entry)
-            self._insert_idle_job(entry.get("name", "대기"), max(remaining, 1))
+            self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
             self._action_taken = True
             return
 
         # 2. 도착 여부
         if not self._is_at(target):
             # 미도착 → 이동
-            self._move_to(target, entry.get("name", "이동"))
+            self._move_to(target, self._get_display_name(entry))
             self._arrived = False
         else:
             # 도착 → 환경 체크 + 활동 실행 + idle job
@@ -693,7 +701,7 @@ class BaseAgent:
                 self._check_environment(target["region_id"], target["location_id"])
             self._execute_activity(activity, target)
             remaining = self._remaining_millis_in_entry(entry)
-            self._insert_idle_job(entry.get("name", "대기"), max(remaining, 1))
+            self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
             self._action_taken = True
 
     # ========================================

@@ -284,11 +284,12 @@ class Compass(Item):
 
     def look(self):
         """나침반 살펴보기"""
-        yield ui.dialog([
+        text = "\n".join([
             "정교하게 만들어진 나침반이다.",
             "이것만 있으면 어디서든 방향을 잡을 수 있다.",
-            "지도 기능을 사용할 수 있다."
+            "지도 기능을 사용할 수 있다.",
         ])
+        yield ui.dialog(f"[!]{text}[/!]")
 
 
 # 레거시 호환성을 위한 별칭
@@ -311,10 +312,11 @@ class MansionMap(Item):
 
     def look(self):
         """저택 지도 살펴보기"""
-        yield ui.dialog([
+        text = "\n".join([
             "저택과 그 주변을 그린 지도다.",
-            "저택 내부 구조가 상세하게 표시되어 있다."
+            "저택 내부 구조가 상세하게 표시되어 있다.",
         ])
+        yield ui.dialog(f"[!]{text}[/!]")
 
 
 @register_item
@@ -333,10 +335,11 @@ class ForestMap(Item):
 
     def look(self):
         """숲속 지도 살펴보기"""
-        yield ui.dialog([
+        text = "\n".join([
             "숲의 길과 주요 장소를 그린 지도다.",
-            "오두막, 늑대굴 등의 위치가 표시되어 있다."
+            "오두막, 늑대굴 등의 위치가 표시되어 있다.",
         ])
+        yield ui.dialog(f"[!]{text}[/!]")
 
 
 @register_item
@@ -355,10 +358,11 @@ class CityMap(Item):
 
     def look(self):
         """도시 지도 살펴보기"""
-        yield ui.dialog([
+        text = "\n".join([
             "황폐화된 도시의 거리를 그린 지도다.",
-            "편의점, 약국 등의 위치가 표시되어 있다."
+            "편의점, 약국 등의 위치가 표시되어 있다.",
         ])
+        yield ui.dialog(f"[!]{text}[/!]")
 
 
 # ========================================
