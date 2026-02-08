@@ -113,8 +113,25 @@ def get_time_weather_text():
 
         # 날씨 (실외일 때만)
         weather = time_info.get("weather", "")
+
+        # 온도 (temperature 모듈이 있으면 표시)
+        temp_text = ""
+        try:
+            import temperature
+            player_id = morld.get_player_id()
+            if player_id is not None:
+                loc = morld.get_unit_location(player_id)
+                if loc:
+                    temp = temperature.get_temperature(loc[0], loc[1])
+                    if temp is not None:
+                        temp_text = f" {temp:.0f}℃"
+        except ImportError:
+            pass
+
         if weather:
-            return f"{time_str} / {weather}"
+            return f"{time_str} / {weather}{temp_text}"
+        if temp_text:
+            return f"{time_str}{temp_text}"
         return time_str
     except Exception as e:
         print(f"[ui] get_time_weather_text error: {e}")

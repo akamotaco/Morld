@@ -25,12 +25,22 @@ class Fireplace(Object):
     props = {
         "light:on": 1,
         "light:value": 4,  # 0.4 (정수 prop → lighting.py에서 /10 변환)
+        "heat:output": 15,  # +15°C (light:on 상태일 때)
+        "heat:depth": 1,    # 인접 1칸까지 영향
     }
     focus_text = {
         "default": "돌로 만들어진 오래된 벽난로. 저녁이면 불이 피워진다.",
         "저녁": "따뜻한 불꽃이 타오르고 있다.",
         "밤": "잔잔한 불씨가 남아 있다."
     }
+
+    def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
+        super().instantiate(instance_id, region_id, location_id, x, y)
+        try:
+            import temperature
+            temperature.register_heat_source(instance_id, region_id, location_id)
+        except Exception as e:
+            print(f"[Fireplace] heat source registration failed: {e}")
 
     def get_available_actions(self):
         is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1

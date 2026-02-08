@@ -122,6 +122,81 @@ bar = survival.get_status_bar(unit_id)
 
 ---
 
+## 온도 시스템 (Temperature System)
+
+> `temperature.py` — 순수 Python, C# 변경 없음
+
+Location별 온도를 매시간 시뮬레이션하여 헤더에 표시합니다.
+현재는 표시 전용이며, 향후 체온/질병 시스템과 연동 예정입니다.
+
+### 실외 온도 결정
+
+```
+실외 온도 = 계절 기본값 + 날씨 보정 + 시간대 오프셋
+```
+
+| 계절 | 기본값 | | 날씨 | 보정 |
+|------|--------|--|------|------|
+| 봄 | 15°C | | 맑음 | +2 |
+| 여름 | 28°C | | 흐림 | 0 |
+| 가을 | 12°C | | 비 | -3 |
+| 겨울 | -5°C | | 눈 | -5 |
+
+시간대 오프셋: 새벽 -5 ~ 낮 +5 (24시간 고정 테이블)
+
+### 실내 온도 업데이트 (매시간)
+
+```
+1. old_temps = 스냅샷
+2. 실외 location → outdoor_temp 직접 적용
+3. 열원 BFS 계산 (light:on 체크, depth별 감쇠)
+4. 실내 location:
+   - neighbor_avg = 인접 location 가중 평균
+     (indoor↔indoor: 1.0, indoor↔outdoor: 0.5)
+   - target = neighbor_avg + heat_contribution
+   - new = old + (target - old) × 0.3
+5. Clamp [-30, 50]
+```
+
+### 열원 시스템
+
+오브젝트에 `heat:output`, `heat:depth` prop 설정 → `temperature.register_heat_source()` 호출.
+`light:on` prop을 공유하여 on/off 제어.
+
+```python
+class Fireplace(Object):
+    props = {
+        "light:on": 1,
+        "light:value": 4,
+        "heat:output": 15,   # +15°C
+        "heat:depth": 1,     # 인접 1칸까지
+    }
+```
+
+BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
+
+### Python API
+
+```python
+import temperature
+
+# 현재 온도 조회
+temp = temperature.get_temperature(region_id, location_id)
+# → float (예: 22.3) 또는 None
+
+# 열원 등록 (오브젝트 instantiate에서 호출)
+temperature.register_heat_source(unit_id, region_id, location_id)
+```
+
+### UI 표시
+
+`ui.get_time_weather_text()`에서 날씨 뒤에 온도 표시:
+```
+1년 4월 1일 (수) 20:00 / 흐림 12℃
+```
+
+---
+
 ## 자원 생성 시스템 (Resource Spawning)
 
 `on_time_elapsed` 이벤트 구독, 오브젝트별 시간 누적 후 자원 생성
