@@ -19,7 +19,7 @@
 | [system-api.md](scenarios/scenario02/docs/system-api.md) | morld Python API, Asset 클래스 | ~150 |
 | [dialog.md](scenarios/scenario02/docs/dialog.md) | 대화/리액션/묘사 시스템 (Lines, Rules 등) | ~250 |
 | [system-ui.md](scenarios/scenario02/docs/system-ui.md) | TextUI, 토글, 액션 필터링 | ~150 |
-| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 연애 등 게임플레이 시스템 | ~180 |
+| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 연애, 온도, 습도 등 게임플레이 시스템 | ~350 |
 
 ---
 
@@ -31,7 +31,7 @@
 |------|----------|
 | Region/Location/Gate 구조 | [terrain.md](scenarios/scenario02/docs/terrain.md) |
 | 맵 구성 (저택, 마을, 숲 등) | [map.md](scenarios/scenario02/docs/map.md) |
-| 환경 속성 (온도, 날씨) | [terrain_property.md](scenarios/scenario02/docs/terrain_property.md) |
+| 환경 속성 (온도, 습도, 날씨) | [terrain_property.md](scenarios/scenario02/docs/terrain_property.md) |
 | 조명 시스템 (밝기, 광원) | [lighting.md](scenarios/scenario02/docs/lighting.md) |
 | 던전 시스템 | [dungeon.md](scenarios/scenario02/docs/dungeon.md) |
 | 바닥 오브젝트 | [ground.md](scenarios/scenario02/docs/ground.md) |

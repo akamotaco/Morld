@@ -260,6 +260,90 @@ idle → getting_tool → going_to_room ↔ (다음 방) → returning_tool
 
 ---
 
+## 습도 시스템 (Humidity System)
+
+> `humidity.py` — 순수 Python, C# 변경 없음
+
+Location별 습도를 날씨 기반으로 관리하고, 비/눈에 의한 캐릭터·오브젝트·아이템 젖음을 처리합니다.
+온도와 달리 **region → 실외 location 단방향**이며, 인접 location 영향은 없습니다.
+
+### 날씨 강도 시스템
+
+기본 날씨 타입(비/눈/맑음)에 **강도(intensity)**를 Python에서 관리합니다.
+C# 태그(`날씨:비`)는 변경 없이 호환됩니다.
+
+| 날씨 | 강도 | 습도 | 시간당 젖음 |
+|------|------|------|------------|
+| 비 | (기본) | 80% | +15 |
+| 비 | 가랑비 | 60% | +5 |
+| 비 | 소나기 | 90% | +25 |
+| 비 | 폭우 | 100% | +40 |
+| 눈 | (기본) | 60% | +5 |
+| 눈 | 폭설 | 75% | +10 |
+| 맑음 | (기본) | 30% | - |
+| 맑음 | 폭염 | 15% | - |
+| 흐림 | - | 50% | - |
+
+- 날씨 변경 시 가중치 랜덤으로 강도 결정
+- 폭염은 여름에만 발동
+- UI: `"비(소나기)"`, `"맑음(폭염)"` 형태로 표시
+
+### 실내/실외 습도
+
+```
+실외: WEATHER_BASE_HUMIDITY[날씨] + INTENSITY_HUMIDITY_MOD[강도]
+실내: 고정 35% (비 영향 없음)
+```
+
+### 젖음 전파 (단방향: location → unit/item)
+
+비/눈이 내리는 실외 location에서만 적용:
+
+| 대상 | 젖음 | 비고 |
+|------|------|------|
+| 오브젝트 | O | location 내 모든 오브젝트 |
+| item_visible 컨테이너 내 아이템 | O | 외부 노출 상태 |
+| 캐릭터 | O | 매시간 + on_reach 즉시 |
+| 캐릭터 장비 | O | 착용 중인 아이템 |
+| 캐릭터 인벤토리 아이템 | X | 보호됨 |
+| 연쇄 전파 (젖은 오브젝트 → 아이템) | X | 없음 |
+
+### 건조 (매시간)
+
+```
+dry_rate = 5 (base)
+if 온도 > 20℃: dry_rate += (온도 - 20) × 0.2
+if 실내: dry_rate += 5
+```
+
+| 상황 | 건조 속도 | 만젖(100)→건조 |
+|------|----------|--------------|
+| 실내 30℃ | 12/시간 | ~8시간 |
+| 실외 10℃ | 5/시간 | ~20시간 |
+| 실외 40℃(폭염) | 9/시간 | ~11시간 |
+
+### Python API
+
+```python
+import humidity
+
+humidity.get_humidity(region_id, location_id)  # → float (0-100)
+humidity.get_unit_wetness(unit_id)             # → float (0-100, 0=건조)
+humidity.dry_unit(unit_id, amount)             # 건조 (모닥불 등)
+humidity.is_raining()                          # → bool
+humidity.get_weather_display()                 # → "비(소나기)" (UI용)
+humidity.get_intensity()                       # → "소나기" or None
+```
+
+### UI 표시
+
+`ui.get_time_weather_text()`에서 날씨 강도 + 습도 표시:
+```
+1년 4월 1일 (수) 20:00 / 비(소나기) 12℃ 90%
+```
+
+---
+
 ## 자원 생성 시스템 (Resource Spawning)
 
 `on_time_elapsed` 이벤트 구독, 오브젝트별 시간 누적 후 자원 생성
