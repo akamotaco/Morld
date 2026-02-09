@@ -197,13 +197,13 @@ namespace SE
             // target_x (optional, Pi-World)
             if (dict.Contains(new PyString("target_x")).Value)
             {
-                job.TargetX = (float)dict.GetItem(new PyString("target_x")).ToFloat();
+                job.TargetX = dict.GetItem(new PyString("target_x")).ToFloat();
             }
 
             // target_y (optional, Pi-World 확장용)
             if (dict.Contains(new PyString("target_y")).Value)
             {
-                job.TargetY = (float)dict.GetItem(new PyString("target_y")).ToFloat();
+                job.TargetY = dict.GetItem(new PyString("target_y")).ToFloat();
             }
 
             return job;
@@ -353,7 +353,7 @@ namespace SE
                 float targetX = 0f;
                 if (dict.Contains(new PyString("x")).Value)
                 {
-                    targetX = (float)dict.GetItem(new PyString("x")).ToFloat();
+                    targetX = dict.GetItem(new PyString("x")).ToFloat();
                 }
                 else if (hasLocationId)
                 {
@@ -365,7 +365,7 @@ namespace SE
                 float targetY = 0f;
                 if (dict.Contains(new PyString("y")).Value)
                 {
-                    targetY = (float)dict.GetItem(new PyString("y")).ToFloat();
+                    targetY = dict.GetItem(new PyString("y")).ToFloat();
                 }
 
                 var entry = new Morld.ScheduleEntry(name, regionId, locationId, start, end, activity);

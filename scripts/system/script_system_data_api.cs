@@ -109,7 +109,7 @@ namespace SE
 
                 // Pi-World 2D 속성
                 string geometry = args.Length >= 9 ? args[8].AsString() : "line";
-                float length = args.Length >= 10 ? (float)args[9].ToFloat() : 0f;
+                float length = args.Length >= 10 ? args[9].ToFloat() : 0f;
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -183,11 +183,11 @@ namespace SE
                 int regionId = args[0].ToInt();
                 int locationId = args[1].ToInt();
                 int gateId = args[2].ToInt();
-                float x = (float)args[3].ToFloat();
+                float x = args[3].ToFloat();
                 int connectedRegion = args[4].ToInt();
                 int connectedLocation = args[5].ToInt();
-                float arrivalX = (float)args[6].ToFloat();
-                float arrivalY = args.Length >= 8 && args[7] is not PyDict ? (float)args[7].ToFloat() : 0f;
+                float arrivalX = args[6].ToFloat();
+                float arrivalY = args.Length >= 8 && args[7] is not PyDict ? args[7].ToFloat() : 0f;
 
                 // arrival_y가 없거나 dict이면 다음 파라미터가 conditions
                 int conditionsStartIdx = args.Length >= 8 && args[7] is PyDict ? 7 : 8;
@@ -534,7 +534,7 @@ namespace SE
                 if (args.Length < 2)
                     throw PyTypeError.Create("set_auto_time_flow_interval(real_seconds, game_millis) requires 2 arguments");
 
-                float realSeconds = (float)args[0].ToFloat();
+                float realSeconds = args[0].ToFloat();
                 int gameMillis = args[1].ToInt();
 
                 var _autoTimeFlowSystem = this._hub.GetSystem("autoTimeFlowSystem") as AutoTimeFlowSystem;
@@ -1057,8 +1057,8 @@ namespace SE
                 int unitId = args[0].ToInt();
                 int regionId = args[1].ToInt();
                 int locationId = args[2].ToInt();
-                float x = args.Length >= 4 ? (float)args[3].ToFloat() : 0f;
-                float y = args.Length >= 5 ? (float)args[4].ToFloat() : 0f;
+                float x = args.Length >= 4 ? args[3].ToFloat() : 0f;
+                float y = args.Length >= 5 ? args[4].ToFloat() : 0f;
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                 var unit = _unitSystem.FindUnit(unitId);
@@ -1137,8 +1137,8 @@ namespace SE
                     throw PyTypeError.Create("set_unit_position(unit_id, x, y=0) requires at least 2 arguments");
 
                 int unitId = args[0].ToInt();
-                float x = (float)args[1].ToFloat();
-                float y = args.Length >= 3 ? (float)args[2].ToFloat() : 0f;
+                float x = args[1].ToFloat();
+                float y = args.Length >= 3 ? args[2].ToFloat() : 0f;
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                 var unit = _unitSystem.FindUnit(unitId);
