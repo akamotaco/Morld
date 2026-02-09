@@ -30,6 +30,23 @@ SOUND_INTENSITIES = {
     "moan": 20,
 }
 
+# 소리 카테고리 (NPC 리액션 디스패치용)
+SOUND_CATEGORIES = {
+    "footstep": "이동",
+    "footstep_run": "이동",
+    "combat": "전투",
+    "scream": "전투",
+    "gunshot": "전투",
+    "chop": "작업",
+    "cooking": "작업",
+    "splash": "작업",
+    "animal": "자연",
+    "crash": "사고",
+    "door": "생활",
+    "talk": "생활",
+    "moan": "친밀",
+}
+
 # 청력 threshold (감쇠 후 강도가 이 값 이상이면 들림)
 HEARING_THRESHOLD = {
     "keen": 5,
@@ -133,10 +150,11 @@ _initialized = False
 
 class SoundEvent:
     """전파된 소리 이벤트"""
-    __slots__ = ("sound_type", "intensity", "source_id", "source_location", "distance", "hops")
+    __slots__ = ("sound_type", "category", "intensity", "source_id", "source_location", "distance", "hops")
 
     def __init__(self, sound_type, intensity, source_id, source_location, distance, hops):
         self.sound_type = sound_type
+        self.category = SOUND_CATEGORIES.get(sound_type, "기타")
         self.intensity = intensity       # 감쇠 후 강도
         self.source_id = source_id       # 소리를 낸 unit_id
         self.source_location = source_location  # (region_id, location_id)
@@ -372,6 +390,20 @@ def get_heard(unit_id):
         list[SoundEvent]
     """
     return _heard_events.get(unit_id, [])
+
+
+def get_heard_by_category(unit_id, category):
+    """
+    특정 카테고리의 소리만 필터링하여 반환
+
+    Args:
+        unit_id: 캐릭터 unit_id
+        category: "전투" / "이동" / "작업" / "자연" / "사고" / "생활" / "친밀"
+
+    Returns:
+        list[SoundEvent]
+    """
+    return [e for e in _heard_events.get(unit_id, []) if e.category == category]
 
 
 def flush():

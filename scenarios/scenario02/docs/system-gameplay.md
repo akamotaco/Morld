@@ -469,6 +469,60 @@ sound.reset()
 
 ---
 
+## 소리 전파 시스템 (Sound System)
+
+> `sound.py` — 순수 Python, C# 변경 없음
+
+캐릭터 중심 소리 전파: `emit_sound()` → BFS 전파 → 청력별 필터 → heard 리스트.
+
+### 소리 타입 및 카테고리
+
+| 카테고리 | 소리 타입 | 기본 강도 |
+|---------|----------|----------|
+| 전투 | combat(80), scream(100), gunshot(120) | 높음 |
+| 이동 | footstep(20), footstep_run(40) | 낮음 |
+| 작업 | chop(50), cooking(10), splash(25) | 중간 |
+| 자연 | animal(60) | 중간 |
+| 사고 | crash(70) | 중간 |
+| 생활 | door(30), talk(15) | 낮음 |
+| 친밀 | moan(20) | 낮음 |
+
+카테고리는 `SOUND_CATEGORIES` dict에 정의. NPC 리액션 디스패치용 (예: "전투" 소리 → 도망).
+
+### 감쇠 모델
+
+```
+attenuated = intensity / (1 + distance / ATTENUATION_HALF)
+```
+- `ATTENUATION_HALF = 500` (이 거리에서 강도 절반)
+- 실내↔실외 경계: `INDOOR_BOUNDARY_FACTOR = 0.7` (30% 추가 감쇠)
+
+### 청력
+
+| 청력 | threshold |
+|------|-----------|
+| keen | 5 |
+| normal | 15 |
+| dull | 30 |
+
+### Python API
+
+```python
+import sound
+
+sound.emit_sound(source_id, "combat")                    # 소리 발생 + BFS 전파
+sound.emit_sound(source_id, "moan", intensity=50)        # 강도 지정
+sound.register_hearing(unit_id, "normal")                 # 청력 등록
+sound.get_heard(unit_id)                                  # → [SoundEvent, ...]
+sound.get_heard_by_category(unit_id, "전투")              # → 카테고리 필터링
+sound.get_heard_texts(unit_id)                            # → ["어딘가에서 전투 소리가...", ...]
+sound.flush()                                             # step 종료 시 초기화
+```
+
+`SoundEvent` 속성: `sound_type`, `category`, `intensity`, `source_id`, `source_location`, `distance`, `hops`
+
+---
+
 ## 자원 생성 시스템 (Resource Spawning)
 
 `on_time_elapsed` 이벤트 구독, 오브젝트별 시간 누적 후 자원 생성
