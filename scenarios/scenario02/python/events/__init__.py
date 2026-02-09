@@ -390,6 +390,13 @@ def on_single_event(event):
         except ImportError:
             pass
 
+        # 습도 체크 (실외 비/눈 맞으면 즉시 젖음)
+        try:
+            import humidity
+            humidity.on_unit_reach(unit_id, region_id, location_id)
+        except ImportError:
+            pass
+
         if unit_id == player_id:
             # 발각 상태 해제 (Location 이동 시 자동 해제)
             stealth = morld.get_unit_prop(player_id, "status:stealth")

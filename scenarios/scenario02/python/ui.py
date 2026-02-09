@@ -140,24 +140,43 @@ def get_time_weather_text():
         # 날씨 (실외일 때만)
         weather = time_info.get("weather", "")
 
+        # 플레이어 위치 조회 (온도/습도 공용)
+        loc = None
+        try:
+            player_id = morld.get_player_id()
+            if player_id is not None:
+                loc = morld.get_unit_location(player_id)
+        except Exception:
+            pass
+
         # 온도 (temperature 모듈이 있으면 표시)
         temp_text = ""
         try:
             import temperature
-            player_id = morld.get_player_id()
-            if player_id is not None:
-                loc = morld.get_unit_location(player_id)
-                if loc:
-                    temp = temperature.get_temperature(loc[0], loc[1])
-                    if temp is not None:
-                        temp_text = f" {temp:.0f}℃"
+            if loc:
+                temp = temperature.get_temperature(loc[0], loc[1])
+                if temp is not None:
+                    temp_text = f" {temp:.0f}℃"
         except ImportError:
             pass
 
-        if weather:
-            return f"{time_str} / {weather}{temp_text}"
+        # 습도 + 날씨 강도 (humidity 모듈이 있으면 표시)
+        humidity_text = ""
+        weather_display = weather
+        try:
+            import humidity
+            weather_display = humidity.get_weather_display() or weather
+            if loc:
+                h = humidity.get_humidity(loc[0], loc[1])
+                if h is not None:
+                    humidity_text = f" {h:.0f}%"
+        except ImportError:
+            pass
+
+        if weather_display:
+            return f"{time_str} / {weather_display}{temp_text}{humidity_text}"
         if temp_text:
-            return f"{time_str}{temp_text}"
+            return f"{time_str}{temp_text}{humidity_text}"
         return time_str
     except Exception as e:
         print(f"[ui] get_time_weather_text error: {e}")

@@ -58,7 +58,8 @@ class GasStation(Location):
     describe_text = {
         "default": "버려진 주유소. 녹슨 주유기가 서 있다.",
         "낮": "햇살 아래 녹슨 철판이 반짝인다.",
-        "밤": "어둠 속에서 주유소 지붕의 실루엣이 보인다."
+        "밤": "어둠 속에서 주유소 지붕의 실루엣이 보인다.",
+        "날씨:비": "빗물이 녹슨 주유기를 타고 흘러내린다."
     }
 
     def instantiate(self, location_id: int, region_id: int):
@@ -194,7 +195,8 @@ class ParkingLot(Location):
     describe_text = {
         "default": "황량한 주차장. 버려진 차들이 몇 대 보인다.",
         "낮": "햇살 아래 녹슨 차량들이 줄지어 있다.",
-        "밤": "어둠 속에 차량들의 검은 윤곽만 보인다."
+        "밤": "어둠 속에 차량들의 검은 윤곽만 보인다.",
+        "날씨:비": "빗물이 아스팔트 위에 고이고 있다."
     }
 
     def instantiate(self, location_id: int, region_id: int):
