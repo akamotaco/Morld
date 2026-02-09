@@ -155,8 +155,7 @@ namespace SE
                 int fromLocal = args[1].ToInt();
                 int toRegion = args[2].ToInt();
                 int toLocal = args[3].ToInt();
-                float distAB = args.Length >= 5 ? (float)args[4].ToDouble() : 1800f; // Python: location units
-                float distBA = args.Length >= 6 ? (float)args[5].ToDouble() : distAB;
+                float distance = args.Length >= 5 ? (float)args[4].ToDouble() : 1800f; // Python: location units
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -166,9 +165,9 @@ namespace SE
                     fromRegion, fromLocal,
                     toRegion, toLocal
                 );
-                regionGate.SetDistance(distAB, distBA);
+                regionGate.SetDistance(distance);
                 terrain.AddRegionGate(regionGate);
-                Godot.GD.Print($"[morld] add_region_gate: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal} (distance={distAB})");
+                Godot.GD.Print($"[morld] add_region_gate: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal} (distance={distance})");
                 return PyBool.True;
             });
 
@@ -357,13 +356,11 @@ namespace SE
                         {
                             var targetRegion = terrain.GetRegion(toRegionId.Value);
                             var regionName = targetRegion?.Name ?? "";
-                            var fromRef = new Morld.LocationRef(regionId, location.LocalId);
-                            var rGateDistance = regionGate.GetDistance(fromRef);
                             var regionGateTuple = new PyTuple(new PyObject[] {
                                 new PyInt(toRegionId.Value),
                                 new PyInt(toLocalId.Value),
                                 new PyString(regionName),
-                                new PyFloat(rGateDistance)
+                                new PyFloat(regionGate.Distance)
                             });
                             regionGatesList.Append(regionGateTuple);
                         }

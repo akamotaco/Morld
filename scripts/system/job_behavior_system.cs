@@ -423,7 +423,7 @@ namespace SE
 						// 목적지이거나 목적지로 가는 경로가 있는 RegionGate
 						if (dest == goalLocation || terrain.FindPath(dest, goalLocation, actualProps).Found)
 						{
-							int rgTravelTime = Morld.Location.DistanceToTime(rGate.GetDistance(unit.CurrentLocation));
+							int rgTravelTime = Morld.Location.DistanceToTime(rGate.Distance);
 							remainingTime -= rgTravelTime;
 
 							unit.SetCurrentLocation(dest);
@@ -439,7 +439,7 @@ namespace SE
 
 							traversedRegionGate = true;
 #if DEBUG_LOG
-							GD.Print($"[JobBehaviorSystem] {unit.Name} passed RegionGate: {unit.CurrentLocation} -> {dest} (distance={rGate.GetDistance(unit.CurrentLocation)})");
+							GD.Print($"[JobBehaviorSystem] {unit.Name} passed RegionGate: {unit.CurrentLocation} -> {dest} (distance={rGate.Distance})");
 #endif
 							break;
 						}

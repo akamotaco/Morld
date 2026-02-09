@@ -356,42 +356,6 @@ public class Terrain
     }
 
     /// <summary>
-    /// Region 간 연결 추가 (방향별 다른 이동 시간)
-    /// </summary>
-    /// <param name="throwOnDuplicate">중복 시 예외 발생 여부 (기본: false)</param>
-    public RegionGate AddRegionGate(
-        int gateId,
-        int regionIdA, int localIdA,
-        int regionIdB, int localIdB,
-        float distanceAtoB, float distanceBtoA,
-        bool throwOnDuplicate = false)
-    {
-        if (_regionGates.ContainsKey(gateId))
-        {
-            if (throwOnDuplicate)
-                throw new InvalidOperationException($"RegionGate with ID '{gateId}' already exists");
-            return _regionGates[gateId];
-        }
-
-        ValidateRegionAndLocation(regionIdA, localIdA);
-        ValidateRegionAndLocation(regionIdB, localIdB);
-
-        var rGate = new RegionGate(gateId, regionIdA, localIdA, regionIdB, localIdB);
-        rGate.OwnerWorld = this;
-        rGate.SetDistance(distanceAtoB, distanceBtoA);
-
-        _regionGates[gateId] = rGate;
-        _regionGateIndex[regionIdA].Add(rGate);
-        _regionGateIndex[regionIdB].Add(rGate);
-
-        if (gateId >= _nextRegionGateId)
-            _nextRegionGateId = gateId + 1;
-
-        MarkRegionGateAsChanged();
-        return rGate;
-    }
-
-    /// <summary>
     /// Region 간 연결 추가 (ID 자동 생성)
     /// </summary>
     public RegionGate AddRegionGate(
@@ -501,8 +465,7 @@ public class Terrain
             if (rGate.CanTraverse(from, context))
             {
                 var destination = rGate.GetOtherLocation(from);
-                var distance = rGate.GetDistance(from);
-                yield return (rGate, destination, distance);
+                yield return (rGate, destination, rGate.Distance);
             }
         }
     }
@@ -668,7 +631,7 @@ public class Terrain
                     var dest = rGate.GetOtherLocation(fromLocRef);
                     if (dest == toLocRef && (context == null || rGate.CanTraverse(fromLocRef, context)))
                     {
-                        totalTime += Location.DistanceToTime(rGate.GetDistance(fromLocRef), speedModifier);
+                        totalTime += Location.DistanceToTime(rGate.Distance, speedModifier);
                         foundRegionGate = true;
                         break;
                     }
@@ -935,8 +898,7 @@ public class Terrain
                 gateData.Id,
                 gateData.RegionA, gateData.LocalA,
                 gateData.RegionB, gateData.LocalB,
-                gateData.DistanceAtoB,
-                gateData.DistanceBtoA);
+                gateData.Distance);
 
             rGate.Name = gateData.Name;
             rGate.IsBlocked = gateData.IsBlocked;
@@ -1054,8 +1016,7 @@ public class Terrain
                 gateData.Id,
                 gateData.RegionA, gateData.LocalA,
                 gateData.RegionB, gateData.LocalB,
-                gateData.DistanceAtoB,
-                gateData.DistanceBtoA);
+                gateData.Distance);
 
             rGate.Name = gateData.Name;
             rGate.IsBlocked = gateData.IsBlocked;
@@ -1167,8 +1128,7 @@ public class Terrain
                 LocalA = rGate.LocationA.LocalId,
                 RegionB = rGate.LocationB.RegionId,
                 LocalB = rGate.LocationB.LocalId,
-                DistanceAtoB = rGate.DistanceAtoB,
-                DistanceBtoA = rGate.DistanceBtoA,
+                Distance = rGate.Distance,
                 IsBlocked = rGate.IsBlocked
             };
 
@@ -1295,7 +1255,7 @@ public class Terrain
             routes.Add(new RawRouteInfo
             {
                 Destination = destination,
-                TravelTime = Location.DistanceToTime(regionGate.GetDistance(from), speedModifier),
+                TravelTime = Location.DistanceToTime(regionGate.Distance, speedModifier),
                 IsRegionGate = true,
                 IsBlocked = !canPass,
                 BlockedReason = blockedReason,
@@ -1404,17 +1364,9 @@ public class Terrain
 
                 var from = $"R{rGate.LocationA.RegionId}:L{rGate.LocationA.LocalId}".PadRight(11);
                 var to = $"R{rGate.LocationB.RegionId}:L{rGate.LocationB.LocalId}".PadRight(11);
-                var dist = rGate.DistanceAtoB >= 0 ? rGate.DistanceAtoB.ToString("F0") : (rGate.DistanceBtoA >= 0 ? rGate.DistanceBtoA.ToString("F0") : "?");
+                var dist = rGate.Distance >= 0 ? rGate.Distance.ToString("F0") : "?";
 
                 lines.Add($"│ {rGate.Id,4} │ {name} │ {from} │ {to} │{dist,2} │");
-
-                // 상세 정보
-                if (rGate.DistanceAtoB != rGate.DistanceBtoA)
-                {
-                    var distAtoB = rGate.DistanceAtoB >= 0 ? rGate.DistanceAtoB.ToString("F0") : "N/A";
-                    var distBtoA = rGate.DistanceBtoA >= 0 ? rGate.DistanceBtoA.ToString("F0") : "N/A";
-                    lines.Add($"│      │                      │ A→B: {distAtoB,-6} B→A: {distBtoA,-6}           │");
-                }
 
                 if (rGate.IsBlocked)
                 {

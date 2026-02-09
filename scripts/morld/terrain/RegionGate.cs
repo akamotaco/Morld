@@ -8,8 +8,7 @@ using System.Collections.Generic;
 /// </summary>
 public class RegionGate
 {
-    private float _distanceAtoB;
-    private float _distanceBtoA;
+    private float _distance;
     private bool _isBlocked;
 
     /// <summary>
@@ -58,34 +57,17 @@ public class RegionGate
     internal Terrain? OwnerWorld { get; set; }
 
     /// <summary>
-    /// A → B 방향 거리 (0 미만이면 이동 불가, 단위: location units)
+    /// 양방향 거리 (0 미만이면 이동 불가, 단위: location units)
     /// 이동 시간은 Location.DistanceToTime()으로 계산
     /// </summary>
-    public float DistanceAtoB
+    public float Distance
     {
-        get => _distanceAtoB;
+        get => _distance;
         set
         {
-            if (_distanceAtoB != value)
+            if (_distance != value)
             {
-                _distanceAtoB = value;
-                OwnerWorld?.MarkRegionGateAsChanged();
-            }
-        }
-    }
-
-    /// <summary>
-    /// B → A 방향 거리 (0 미만이면 이동 불가, 단위: location units)
-    /// 이동 시간은 Location.DistanceToTime()으로 계산
-    /// </summary>
-    public float DistanceBtoA
-    {
-        get => _distanceBtoA;
-        set
-        {
-            if (_distanceBtoA != value)
-            {
-                _distanceBtoA = value;
+                _distance = value;
                 OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
@@ -140,23 +122,11 @@ public class RegionGate
     }
 
     /// <summary>
-    /// 양방향 동일한 거리 설정
+    /// 거리 설정
     /// </summary>
     public RegionGate SetDistance(float distance)
     {
-        _distanceAtoB = distance;
-        _distanceBtoA = distance;
-        OwnerWorld?.MarkRegionGateAsChanged();
-        return this;
-    }
-
-    /// <summary>
-    /// 방향별 거리 설정
-    /// </summary>
-    public RegionGate SetDistance(float aToB, float bToA)
-    {
-        _distanceAtoB = aToB;
-        _distanceBtoA = bToA;
+        _distance = distance;
         OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
@@ -208,22 +178,10 @@ public class RegionGate
     public bool CanTraverse(LocationRef from, TraversalContext? context = null)
     {
         if (IsBlocked) return false;
-
-        var distance = GetDistance(from);
-        if (distance < 0) return false;
+        if (Distance < 0) return false;
 
         var conditions = GetConditions(from);
         return CheckConditions(conditions, context);
-    }
-
-    /// <summary>
-    /// 주어진 방향의 거리 반환 (0 미만이면 이동 불가, -1이면 유효하지 않은 위치)
-    /// </summary>
-    public float GetDistance(LocationRef from)
-    {
-        if (from == LocationA) return DistanceAtoB;
-        if (from == LocationB) return DistanceBtoA;
-        return -1f;
     }
 
     /// <summary>
@@ -269,8 +227,7 @@ public class RegionGate
 
     public override string ToString()
     {
-        var aToB = DistanceAtoB >= 0 ? DistanceAtoB.ToString("F0") : "X";
-        var bToA = DistanceBtoA >= 0 ? DistanceBtoA.ToString("F0") : "X";
-        return $"RegionGate[{(Name != "unknown" ? Name : Id.ToString())}]: {LocationA} <--({bToA})--({aToB})--> {LocationB}";
+        var dist = Distance >= 0 ? Distance.ToString("F0") : "X";
+        return $"RegionGate[{(Name != "unknown" ? Name : Id.ToString())}]: {LocationA} <--({dist})--> {LocationB}";
     }
 }
