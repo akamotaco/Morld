@@ -13,7 +13,7 @@ import morld
 import random
 import think
 import ui
-from romance import check_ecstasy
+from romance import check_ecstasy, emit_romance_sound, emit_ecstasy_sound
 
 # ============================================
 # 상수 정의
@@ -854,6 +854,13 @@ def start_npc_initiative(player_id, npc_id):
                     if ecstasy_result and not ecstasy_reaction:
                         ecstasy_reaction = ecstasy_result
 
+            # 소음 발생
+            npc_id = state["npc_id"]
+            if ecstasy_reaction:
+                emit_ecstasy_sound(npc_id)
+            else:
+                emit_romance_sound(npc_id)
+
             # 시간 경과 + 제3자 감지 체크
             total_time = action_def["time"]
             check_result = advance_time_and_check_npc_initiative(state, total_time)
@@ -927,6 +934,13 @@ def start_npc_initiative(player_id, npc_id):
                     result = apply_action_effects(state, td)
                     if result and not ecstasy_reaction:
                         ecstasy_reaction = result
+
+            # 소음 발생
+            npc_id = state["npc_id"]
+            if ecstasy_reaction:
+                emit_ecstasy_sound(npc_id)
+            else:
+                emit_romance_sound(npc_id)
 
             # 시간 경과 + 제3자 감지 체크 (활성 토글 중 첫 번째 기준, 기본 5분)
             time_elapsed = 5 * MILLIS_PER_MINUTE

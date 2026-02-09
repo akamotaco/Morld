@@ -27,6 +27,7 @@ SOUND_INTENSITIES = {
     "crash": 70,
     "door": 30,
     "talk": 15,
+    "moan": 20,
 }
 
 # 청력 threshold (감쇠 후 강도가 이 값 이상이면 들림)

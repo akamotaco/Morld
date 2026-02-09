@@ -104,6 +104,43 @@ def get_partner_asset(partner_id):
         return None
 
 
+def get_excitement_level(npc_id):
+    """NPC 흥분도 단계 (0=low, 1=mid, 2=high)"""
+    props = morld.get_unit_props(npc_id)
+    arousal = props.get("상태:성욕", 0)
+    if arousal >= 70:
+        return 2
+    elif arousal >= 35:
+        return 1
+    return 0
+
+
+def emit_romance_sound(partner_id):
+    """파트너의 흥분도에 따른 소음 발생"""
+    import sound
+    partner_asset = get_partner_asset(partner_id)
+    if not partner_asset:
+        return
+    profile = getattr(partner_asset, 'ROMANCE_SOUND_PROFILE', None)
+    if not profile:
+        return
+    level = get_excitement_level(partner_id)
+    intensity = profile["levels"][level]
+    if intensity > 0:
+        sound.emit_sound(partner_id, "moan", intensity)
+
+
+def emit_ecstasy_sound(partner_id):
+    """절정 시 소음 (높은 강도)"""
+    import sound
+    partner_asset = get_partner_asset(partner_id)
+    if not partner_asset:
+        return
+    profile = getattr(partner_asset, 'ROMANCE_SOUND_PROFILE', None)
+    intensity = profile["ecstasy"] if profile else 60
+    sound.emit_sound(partner_id, "moan", intensity)
+
+
 def calculate_effects(action_def, partner_id):
     """경험치 보정된 효과 계산"""
     base_effects = action_def["effects"].copy()
@@ -528,6 +565,7 @@ def start_romance(player_id, partner_id):
             # 절정 반응이 있으면 우선 표시
             if ecstasy_reaction:
                 state["last_reaction"] = ecstasy_reaction
+                emit_ecstasy_sound(state["partner_id"])
             else:
                 # 캐릭터별 반응 텍스트 (start 타이밍)
                 partner_asset = get_partner_asset(state["partner_id"])
@@ -535,6 +573,7 @@ def start_romance(player_id, partner_id):
                     reaction = partner_asset.get_romance_reaction(action_id, "start")
                     if reaction:
                         state["last_reaction"] = reaction
+                emit_romance_sound(state["partner_id"])
 
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
@@ -585,13 +624,16 @@ def start_romance(player_id, partner_id):
             # 절정 반응이 있으면 우선 표시
             if ecstasy_reaction:
                 state["last_reaction"] = ecstasy_reaction
-            elif is_turning_on:
-                # 토글 ON 시 반응 텍스트 (start 타이밍)
-                partner_asset = get_partner_asset(state["partner_id"])
-                if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                    reaction = partner_asset.get_romance_reaction(action_id, "start")
-                    if reaction:
-                        state["last_reaction"] = reaction
+                emit_ecstasy_sound(state["partner_id"])
+            else:
+                if is_turning_on:
+                    # 토글 ON 시 반응 텍스트 (start 타이밍)
+                    partner_asset = get_partner_asset(state["partner_id"])
+                    if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                        reaction = partner_asset.get_romance_reaction(action_id, "start")
+                        if reaction:
+                            state["last_reaction"] = reaction
+                emit_romance_sound(state["partner_id"])
 
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
