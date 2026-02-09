@@ -547,15 +547,23 @@ def handle_npc_initiative_interruption(state, npc_name):
     npc_id = state["npc_id"]
     player_id = state["player_id"]
 
-    # 목격자 정보
-    interrupter_info = morld.get_unit_info(interrupter_id)
-    interrupter_name = interrupter_info.get("name", "누군가") if interrupter_info else "누군가"
-
-    # 목격자 반응 다이얼로그
-    yield ui.dialog([
-        f"[{interrupter_name}]",
-        "어머나! 이게 무슨 꼴이람!"
-    ])
+    # 캐릭터별 발각 반응 시도
+    from assets.characters import get_instance
+    interrupter = get_instance(interrupter_id)
+    if interrupter and hasattr(interrupter, 'on_romance_discovered'):
+        result = interrupter.on_romance_discovered(player_id, npc_id)
+        if result is not None:
+            yield from result
+        else:
+            # fallback: 기본 대사
+            interrupter_info = morld.get_unit_info(interrupter_id)
+            interrupter_name = interrupter_info.get("name", "누군가") if interrupter_info else "누군가"
+            yield ui.dialog([f"[{interrupter_name}]", "...!"])
+    else:
+        # 캐릭터 인스턴스 없음: 기본 대사
+        interrupter_info = morld.get_unit_info(interrupter_id)
+        interrupter_name = interrupter_info.get("name", "누군가") if interrupter_info else "누군가"
+        yield ui.dialog([f"[{interrupter_name}]", "...!"])
 
     # NPC 반응 (부끄러움)
     morld.add_unit_mood(npc_id, "부끄러움")
@@ -563,12 +571,9 @@ def handle_npc_initiative_interruption(state, npc_name):
     # NPC가 도망감
     morld.set_npc_job(npc_id, "flee", 30 * MILLIS_PER_MINUTE, player_id)
 
-    # 목격자 호감도 감소
+    # NPC 호감도 감소 (들켜서 부끄러움)
     player_info = morld.get_unit_info(player_id)
     player_name = player_info.get('name', '주인공') if player_info else '주인공'
-    morld.modify_prop(interrupter_id, f"관계:{player_name}:호감", -5)
-
-    # NPC 호감도 감소 (들켜서 부끄러움)
     morld.modify_prop(npc_id, f"관계:{player_name}:호감", -3)
 
 

@@ -441,6 +441,15 @@ class Character(Unit):
 
     ROOM_PRIVACY_CONFIG: dict = None
 
+    # ROMANCE_DISCOVERY_REACTIONS: 다른 캐릭터의 애정행위를 목격했을 때 반응
+    #   키: 파트너 unique_id 또는 "default"
+    #   ROMANCE_DISCOVERY_REACTIONS = {
+    #       "default": {"text": ["...!", "...뭐야...?!"], "effects": {"호감": -3}},
+    #       "sera":    {"text": ["...세라 언니랑...?!"], "effects": {"호감": -5}},
+    #   }
+
+    ROMANCE_DISCOVERY_REACTIONS: dict = None
+
     def get_stealth_success_reaction(self, player_id: int) -> Optional[str]:
         """
         은신 성공 시 반응 텍스트 반환
@@ -1548,6 +1557,13 @@ class Character(Unit):
 
     def on_meet_player(self, player_id):
         """플레이어와 만났을 때 - Generator 기반"""
+
+        # 애정행위 발각 체크 (최우선)
+        from romance import get_interrupted_context
+        ctx = get_interrupted_context()
+        if ctx:
+            return self.on_romance_discovered(player_id, ctx["partner_id"])
+
         unit_info = morld.get_unit_info(self.instance_id)
 
         # 수면 중이면 반응 없음
@@ -1570,6 +1586,58 @@ class Character(Unit):
 
         # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
         return self._first_meet_handler(player_id)
+
+    def on_romance_discovered(self, player_id, partner_id):
+        """플레이어의 애정행위를 목격했을 때 반응 (Generator)
+
+        Args:
+            player_id: 플레이어 유닛 ID
+            partner_id: 애정행위 파트너 유닛 ID
+
+        Returns:
+            Generator 또는 None
+        """
+        if not self.ROMANCE_DISCOVERY_REACTIONS:
+            return None
+
+        import random
+        from assets.characters import get_instance
+
+        # 파트너 unique_id로 반응 조회
+        partner = get_instance(partner_id)
+        partner_uid = partner.unique_id if partner else None
+
+        reaction = self.ROMANCE_DISCOVERY_REACTIONS.get(partner_uid)
+        if not reaction:
+            reaction = self.ROMANCE_DISCOVERY_REACTIONS.get("default")
+        if not reaction:
+            return None
+
+        return self._romance_discovery_dialog(player_id, reaction)
+
+    def _romance_discovery_dialog(self, player_id, reaction):
+        """발각 반응 다이얼로그 + 효과 적용"""
+        import random
+
+        # 대사 선택
+        texts = reaction.get("text", [])
+        text = random.choice(texts) if texts else None
+
+        # 효과 적용 (호감도 변화)
+        effects = reaction.get("effects", {})
+        if effects:
+            player_info = morld.get_unit_info(player_id)
+            player_name = player_info.get("name", "주인공") if player_info else "주인공"
+            for stat, value in effects.items():
+                if stat in ("호감", "애정"):
+                    prop_key = f"관계:{player_name}:{stat}"
+                else:
+                    prop_key = f"상태:{stat}"
+                morld.modify_prop(self.instance_id, prop_key, value)
+
+        # 다이얼로그 출력
+        if text:
+            yield ui.dialog([f"[{self.name}]", text])
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응 - EQUIP_CHANGE_REACTIONS 기반"""

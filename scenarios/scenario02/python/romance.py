@@ -92,6 +92,27 @@ TOGGLE_ACTIONS = {
 }
 
 # ============================================
+# 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
+# ============================================
+
+_interrupted_context = None
+
+
+def set_interrupted_context(partner_id):
+    """발각 시 파트너 정보 저장 (on_meet_player에서 소비)"""
+    global _interrupted_context
+    _interrupted_context = {"partner_id": partner_id}
+
+
+def get_interrupted_context():
+    """발각 컨텍스트 반환 + 소비 (1회성)"""
+    global _interrupted_context
+    ctx = _interrupted_context
+    _interrupted_context = None
+    return ctx
+
+
+# ============================================
 # 유틸리티 함수
 # ============================================
 
@@ -668,11 +689,17 @@ def start_romance(player_id, partner_id):
         # 비정상 종료: 제3자 도착으로 중단
         player_id = state["player_id"]
         interrupter_id = state["interrupter_id"]
-        # 1. 파트너 스케줄 복원
+        # 1. 발각 컨텍스트 저장 (on_meet_player에서 파트너 정보 사용)
+        set_interrupted_context(state["partner_id"])
+        # 2. 파트너 스케줄 복원
         handle_interruption(state)
-        # 2. 상황 복원 (로맨스 UI 종료)
+        # 3. 중단 로그 표시
+        interrupter_info = morld.get_unit_info(interrupter_id)
+        interrupter_name = interrupter_info.get("name", "누군가") if interrupter_info else "누군가"
+        morld.add_action_log(f"{interrupter_name}의 방해로 중단되었다.")
+        # 4. 상황 복원 (로맨스 UI 종료)
         morld.pop_to_situation()
-        # 3. 도착 NPC의 on_meet 이벤트를 C# 핸들러 큐에 추가
+        # 5. 도착 NPC의 on_meet 이벤트를 C# 핸들러 큐에 추가
         #    → 다음 FlushEvents/ProcessPendingEvents에서 자동 처리
         #    → on_meet_player() 자연 실행 (privacy 체크, first-meet 등)
         morld.queue_event("meet", player_id, [player_id, interrupter_id])
