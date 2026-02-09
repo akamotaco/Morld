@@ -187,12 +187,39 @@ def _on_time_elapsed(millis):
         else:
             _location_humidity[key] = float(outdoor_humidity)
 
-    # 3. 캐릭터 젖음 처리
+    # 3. 젖음 처리 (캐릭터 + 오브젝트 + 아이템)
     wetness_key = _get_wetness_key(weather, _current_intensity)
     gain = WETNESS_GAIN.get(wetness_key, 0) if wetness_key else 0
 
     for key, is_indoor in _location_indoor.items():
         region_id, location_id = key
+        raining = not is_indoor and gain > 0
+
+        # 3a. 오브젝트 + item_visible 컨테이너 내 아이템
+        if raining:
+            try:
+                obj_ids = morld.get_objects_at_location(region_id, location_id)
+            except Exception:
+                obj_ids = []
+
+            for obj_id in obj_ids:
+                current = _get_wetness(obj_id)
+                _set_wetness(obj_id, min(WETNESS_MAX, current + gain))
+
+                # item_visible 오브젝트 → 내부 아이템도 젖음
+                try:
+                    from assets.objects import get_instance
+                    instance = get_instance(obj_id)
+                    if instance and getattr(instance, "item_visible", False):
+                        inventory = morld.get_unit_inventory(obj_id)
+                        if inventory:
+                            for item_id in inventory:
+                                item_wet = _get_wetness(item_id)
+                                _set_wetness(item_id, min(WETNESS_MAX, item_wet + gain))
+                except Exception:
+                    pass
+
+        # 3b. 캐릭터 + 장비
         try:
             units = morld.get_units_at_location(region_id, location_id)
         except Exception:
@@ -203,10 +230,19 @@ def _on_time_elapsed(millis):
         for unit_id in units:
             current = _get_wetness(unit_id)
 
-            if not is_indoor and gain > 0:
-                # 실외 + 비/눈: 젖음 증가
-                new_val = min(WETNESS_MAX, current + gain)
-                _set_wetness(unit_id, new_val)
+            if raining:
+                # 실외 + 비/눈: 캐릭터 젖음 증가
+                _set_wetness(unit_id, min(WETNESS_MAX, current + gain))
+
+                # 장비도 젖음
+                try:
+                    equipped = morld.get_equipped_items(unit_id)
+                except Exception:
+                    equipped = []
+                for item_id in equipped:
+                    item_wet = _get_wetness(item_id)
+                    _set_wetness(item_id, min(WETNESS_MAX, item_wet + gain))
+
             elif current > 0:
                 # 건조
                 dry_rate = WETNESS_DRY_BASE
