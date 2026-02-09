@@ -327,7 +327,7 @@ public class Terrain
         int gateId,
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
-        int travelTime,
+        float distance,
         bool throwOnDuplicate = false)
     {
         if (_regionGates.ContainsKey(gateId))
@@ -342,7 +342,7 @@ public class Terrain
 
         var rGate = new RegionGate(gateId, regionIdA, localIdA, regionIdB, localIdB);
         rGate.OwnerWorld = this;
-        rGate.SetTravelTime(travelTime);
+        rGate.SetDistance(distance);
 
         _regionGates[gateId] = rGate;
         _regionGateIndex[regionIdA].Add(rGate);
@@ -363,7 +363,7 @@ public class Terrain
         int gateId,
         int regionIdA, int localIdA,
         int regionIdB, int localIdB,
-        int travelTimeAtoB, int travelTimeBtoA,
+        float distanceAtoB, float distanceBtoA,
         bool throwOnDuplicate = false)
     {
         if (_regionGates.ContainsKey(gateId))
@@ -378,7 +378,7 @@ public class Terrain
 
         var rGate = new RegionGate(gateId, regionIdA, localIdA, regionIdB, localIdB);
         rGate.OwnerWorld = this;
-        rGate.SetTravelTime(travelTimeAtoB, travelTimeBtoA);
+        rGate.SetDistance(distanceAtoB, distanceBtoA);
 
         _regionGates[gateId] = rGate;
         _regionGateIndex[regionIdA].Add(rGate);
@@ -486,7 +486,7 @@ public class Terrain
     /// <summary>
     /// 특정 Location에서 다른 Region으로 이동 가능한 연결들 가져오기
     /// </summary>
-    public IEnumerable<(RegionGate rGate, LocationRef destination, float travelTime)> GetRegionExits(
+    public IEnumerable<(RegionGate rGate, LocationRef destination, float distance)> GetRegionExits(
         LocationRef from,
         TraversalContext? context = null)
     {
@@ -501,8 +501,8 @@ public class Terrain
             if (rGate.CanTraverse(from, context))
             {
                 var destination = rGate.GetOtherLocation(from);
-                var travelTime = rGate.GetTravelTime(from);
-                yield return (rGate, destination, travelTime);
+                var distance = rGate.GetDistance(from);
+                yield return (rGate, destination, distance);
             }
         }
     }
@@ -620,7 +620,7 @@ public class Terrain
 
     /// <summary>
     /// 경로의 총 이동 시간 계산 (Pi-World: Gate/RegionGate X 좌표 기반)
-    /// Gate 통과 조건, Gate.TravelTime, RegionGate 이동 시간을 모두 고려
+    /// Gate/RegionGate의 Distance를 시간으로 변환하여 합산
     /// </summary>
     /// <param name="pathResult">FindPath 결과</param>
     /// <param name="startX">출발 X 좌표 (기본 0)</param>
@@ -668,7 +668,7 @@ public class Terrain
                     var dest = rGate.GetOtherLocation(fromLocRef);
                     if (dest == toLocRef && (context == null || rGate.CanTraverse(fromLocRef, context)))
                     {
-                        totalTime += rGate.GetTravelTime(fromLocRef);
+                        totalTime += Location.DistanceToTime(rGate.GetDistance(fromLocRef), speedModifier);
                         foundRegionGate = true;
                         break;
                     }
@@ -684,9 +684,9 @@ public class Terrain
                 continue;
             }
 
-            // Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
+            // Gate까지 이동 시간 + Gate 통과 거리→시간 변환 (밀리초)
             int travelTime = location.CalculateTravelTime(currentX, targetGate.X, speedModifier);
-            totalTime += travelTime + targetGate.TravelTime;
+            totalTime += travelTime + Location.DistanceToTime(targetGate.Distance, speedModifier);
 
             // Gate 통과 후 위치 업데이트
             currentX = targetGate.ArrivalX;
@@ -935,8 +935,8 @@ public class Terrain
                 gateData.Id,
                 gateData.RegionA, gateData.LocalA,
                 gateData.RegionB, gateData.LocalB,
-                gateData.TimeAtoB,
-                gateData.TimeBtoA);
+                gateData.DistanceAtoB,
+                gateData.DistanceBtoA);
 
             rGate.Name = gateData.Name;
             rGate.IsBlocked = gateData.IsBlocked;
@@ -1054,8 +1054,8 @@ public class Terrain
                 gateData.Id,
                 gateData.RegionA, gateData.LocalA,
                 gateData.RegionB, gateData.LocalB,
-                gateData.TimeAtoB,
-                gateData.TimeBtoA);
+                gateData.DistanceAtoB,
+                gateData.DistanceBtoA);
 
             rGate.Name = gateData.Name;
             rGate.IsBlocked = gateData.IsBlocked;
@@ -1167,8 +1167,8 @@ public class Terrain
                 LocalA = rGate.LocationA.LocalId,
                 RegionB = rGate.LocationB.RegionId,
                 LocalB = rGate.LocationB.LocalId,
-                TimeAtoB = rGate.TravelTimeAtoB,
-                TimeBtoA = rGate.TravelTimeBtoA,
+                DistanceAtoB = rGate.DistanceAtoB,
+                DistanceBtoA = rGate.DistanceBtoA,
                 IsBlocked = rGate.IsBlocked
             };
 
@@ -1269,8 +1269,8 @@ public class Terrain
             var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
 
             var isRegionGate = gate.ConnectedLocation.RegionId != from.RegionId;
-            // Gate까지 이동 시간 + Gate 통과 시간 (밀리초)
-            int travelTimeMillis = location.CalculateTravelTime(unitX, gate.X, speedModifier) + gate.TravelTime;
+            // Gate까지 이동 시간 + Gate 통과 거리→시간 변환 (밀리초)
+            int travelTimeMillis = location.CalculateTravelTime(unitX, gate.X, speedModifier) + Location.DistanceToTime(gate.Distance, speedModifier);
             routes.Add(new RawRouteInfo
             {
                 Destination = gate.ConnectedLocation,
@@ -1295,7 +1295,7 @@ public class Terrain
             routes.Add(new RawRouteInfo
             {
                 Destination = destination,
-                TravelTime = regionGate.GetTravelTime(from),
+                TravelTime = Location.DistanceToTime(regionGate.GetDistance(from), speedModifier),
                 IsRegionGate = true,
                 IsBlocked = !canPass,
                 BlockedReason = blockedReason,
@@ -1404,16 +1404,16 @@ public class Terrain
 
                 var from = $"R{rGate.LocationA.RegionId}:L{rGate.LocationA.LocalId}".PadRight(11);
                 var to = $"R{rGate.LocationB.RegionId}:L{rGate.LocationB.LocalId}".PadRight(11);
-                var tt = rGate.TravelTimeAtoB >= 0 ? rGate.TravelTimeAtoB.ToString() : (rGate.TravelTimeBtoA >= 0 ? rGate.TravelTimeBtoA.ToString() : "?");
+                var dist = rGate.DistanceAtoB >= 0 ? rGate.DistanceAtoB.ToString("F0") : (rGate.DistanceBtoA >= 0 ? rGate.DistanceBtoA.ToString("F0") : "?");
 
-                lines.Add($"│ {rGate.Id,4} │ {name} │ {from} │ {to} │{tt,2} │");
+                lines.Add($"│ {rGate.Id,4} │ {name} │ {from} │ {to} │{dist,2} │");
 
                 // 상세 정보
-                if (rGate.TravelTimeAtoB != rGate.TravelTimeBtoA)
+                if (rGate.DistanceAtoB != rGate.DistanceBtoA)
                 {
-                    var timeAtoB = rGate.TravelTimeAtoB >= 0 ? rGate.TravelTimeAtoB.ToString() : "N/A";
-                    var timeBtoA = rGate.TravelTimeBtoA >= 0 ? rGate.TravelTimeBtoA.ToString() : "N/A";
-                    lines.Add($"│      │                      │ A→B: {timeAtoB,-6} B→A: {timeBtoA,-6}           │");
+                    var distAtoB = rGate.DistanceAtoB >= 0 ? rGate.DistanceAtoB.ToString("F0") : "N/A";
+                    var distBtoA = rGate.DistanceBtoA >= 0 ? rGate.DistanceBtoA.ToString("F0") : "N/A";
+                    lines.Add($"│      │                      │ A→B: {distAtoB,-6} B→A: {distBtoA,-6}           │");
                 }
 
                 if (rGate.IsBlocked)

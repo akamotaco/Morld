@@ -239,7 +239,7 @@ namespace SE
 					var gate = region?.GetGate(currentLocation.LocalId, unit.CurrentMovement.TargetGateId.Value);
 					if (gate != null)
 					{
-						elapsedTime += gate.TravelTime;
+						elapsedTime += Morld.Location.DistanceToTime(gate.Distance);
 						currentLocation = gate.ConnectedLocation;
 						simPositionX = gate.ArrivalX;
 					}
@@ -310,7 +310,7 @@ namespace SE
 				int travelTimeToGate = (int)MathF.Ceiling(bestDist / speed);
 
 				elapsedTime += travelTimeToGate;
-				elapsedTime += bestGate.TravelTime;
+				elapsedTime += Morld.Location.DistanceToTime(bestGate.Distance);
 
 				if (elapsedTime > duration) break;
 

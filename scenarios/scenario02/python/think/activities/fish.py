@@ -82,6 +82,8 @@ def handle_fish(agent, entry):
                 obj = get_instance(obj_id)
                 if obj and hasattr(obj, "npc_fish"):
                     obj.npc_fish(agent.unit_id)
+                    import sound
+                    sound.emit_sound(agent.unit_id, "splash")
             agent._activity_phase = "storing_catch"
             agent._action_taken = True
         else:

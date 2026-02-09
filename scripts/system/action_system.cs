@@ -484,7 +484,7 @@ namespace SE
 
 			// 현재 위치에서 RegionGate를 통해 연결된 외부 Location 찾기
 			// 차량은 별도 Region에 있고, RegionGate로 외부와 연결됨
-			foreach (var (rGate, destination, travelTime) in terrain.GetRegionExits(currentLoc, unit.TraversalContext))
+			foreach (var (rGate, destination, distance) in terrain.GetRegionExits(currentLoc, unit.TraversalContext))
 			{
 				// 목적지 정보 가져오기
 				var destRegion = terrain.GetRegion(destination.RegionId);
@@ -497,7 +497,7 @@ namespace SE
 				if (destLocation.IsIndoor) continue;
 
 				var name = destLocation.Name ?? $"Location {destination.LocalId}";
-				destinations.Add((destination.RegionId, destination.LocalId, name, (int)travelTime));
+				destinations.Add((destination.RegionId, destination.LocalId, name, Location.DistanceToTime(distance)));
 			}
 
 			return destinations;

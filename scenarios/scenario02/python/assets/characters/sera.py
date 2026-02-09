@@ -75,6 +75,7 @@ class Sera(Character):
     unique_id = "sera"
     name = "세라"
     type = "female"
+    hearing_type = "keen"
     props = {
         "외모:흑발": 1, "외모:장발": 1, "외모:갈색눈": 1,
         "성격:과묵함": 1, "성격:듬직함": 1, "성격:리더십": 1,

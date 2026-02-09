@@ -688,6 +688,11 @@ class Character(Unit):
         from assets.characters import register_instance
         register_instance(instance_id, self)
 
+        # 소리 청력 등록
+        import sound
+        hearing_type = getattr(self, 'hearing_type', 'normal')
+        sound.register_hearing(instance_id, hearing_type)
+
     # ========================================
     # Context 빌드
     # ========================================

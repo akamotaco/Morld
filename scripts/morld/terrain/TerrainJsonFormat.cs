@@ -89,11 +89,11 @@ public class RegionGateJsonData
     [JsonPropertyName("localB")]
     public int LocalB { get; set; }
 
-    [JsonPropertyName("timeAtoB")]
-    public int TimeAtoB { get; set; } = -1;
+    [JsonPropertyName("distanceAtoB")]
+    public float DistanceAtoB { get; set; } = -1f;
 
-    [JsonPropertyName("timeBtoA")]
-    public int TimeBtoA { get; set; } = -1;
+    [JsonPropertyName("distanceBtoA")]
+    public float DistanceBtoA { get; set; } = -1f;
 
     [JsonPropertyName("conditionsAtoB")]
     public Dictionary<string, int>? ConditionsAtoB { get; set; }

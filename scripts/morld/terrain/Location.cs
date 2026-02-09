@@ -164,6 +164,20 @@ public class Location : IEquatable<Location>, IDescribable, IOwnable
         return MathF.Max(0f, MathF.Min(x, Length));
     }
 
+    /// <summary>
+    /// 거리를 이동 시간(밀리초)으로 변환
+    /// </summary>
+    /// <param name="distance">거리 (location units)</param>
+    /// <param name="speedModifier">이동 속도 배율 (1.0 = 기본)</param>
+    /// <returns>이동 시간 (밀리초, 올림). 거리 0 이하면 0</returns>
+    public static int DistanceToTime(float distance, float speedModifier = 1.0f)
+    {
+        if (distance <= 0f) return 0;
+        float speed = BaseSpeed * speedModifier;
+        if (speed <= 0f) return int.MaxValue;
+        return (int)MathF.Ceiling(distance / speed);
+    }
+
     #endregion
 
     /// <summary>

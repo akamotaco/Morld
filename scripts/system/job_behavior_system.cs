@@ -333,16 +333,17 @@ namespace SE
 
 							if (gate != null && gate.CanTraverseForward(actualProps))
 							{
-								// Gate 통과 시간 차감
-								if (gate.TravelTime > 0)
-									remainingTime -= gate.TravelTime;
+								// Gate 통과 거리→시간 차감
+								int gateTransitTime = Morld.Location.DistanceToTime(gate.Distance);
+								if (gateTransitTime > 0)
+									remainingTime -= gateTransitTime;
 
 								// Gate를 통해 다른 Location으로 이동
 								unit.SetCurrentLocation(gate.ConnectedLocation);
 								unit.PositionX = gate.ArrivalX;
 								unit.PositionY = gate.ArrivalY;
 #if DEBUG_LOG
-								GD.Print($"[JobBehaviorSystem] {unit.Name} passed gate: {gate.OwnerLocation} -> {gate.ConnectedLocation} (X={gate.ArrivalX}, travelTime={gate.TravelTime})");
+								GD.Print($"[JobBehaviorSystem] {unit.Name} passed gate: {gate.OwnerLocation} -> {gate.ConnectedLocation} (X={gate.ArrivalX}, distance={gate.Distance})");
 #endif
 							}
 						}
@@ -422,7 +423,7 @@ namespace SE
 						// 목적지이거나 목적지로 가는 경로가 있는 RegionGate
 						if (dest == goalLocation || terrain.FindPath(dest, goalLocation, actualProps).Found)
 						{
-							int rgTravelTime = rGate.GetTravelTime(unit.CurrentLocation);
+							int rgTravelTime = Morld.Location.DistanceToTime(rGate.GetDistance(unit.CurrentLocation));
 							remainingTime -= rgTravelTime;
 
 							unit.SetCurrentLocation(dest);
@@ -438,7 +439,7 @@ namespace SE
 
 							traversedRegionGate = true;
 #if DEBUG_LOG
-							GD.Print($"[JobBehaviorSystem] {unit.Name} passed RegionGate: {unit.CurrentLocation} -> {dest} (travelTime={rgTravelTime})");
+							GD.Print($"[JobBehaviorSystem] {unit.Name} passed RegionGate: {unit.CurrentLocation} -> {dest} (distance={rGate.GetDistance(unit.CurrentLocation)})");
 #endif
 							break;
 						}

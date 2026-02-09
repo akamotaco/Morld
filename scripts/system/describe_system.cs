@@ -71,8 +71,16 @@ namespace SE
 				}
 			}
 
-			// NOTE: 인접 Location 군중 감지 기능 제거됨 (Pi-World 리팩토링)
-			// 필요시 다른 방식으로 재구현 예정
+			// 2. 소리 전파 시스템 — Python sound.get_heard_texts() 호출
+			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
+			if (scriptSystem != null)
+			{
+				var soundTexts = scriptSystem.GetSoundHeardTexts(player.Id);
+				foreach (var text in soundTexts)
+				{
+					actionLogSystem?.AddLog(text);
+				}
+			}
 		}
 
 		/// <summary>

@@ -78,9 +78,10 @@ public class Gate
     }
 
     /// <summary>
-    /// Gate 통과 시간 (밀리초, 기본값 0 = 즉시 통과)
+    /// Gate 통과 거리 (location units, 기본값 0 = 즉시 통과)
+    /// 이동 시간은 Location.DistanceToTime()으로 계산
     /// </summary>
-    public int TravelTime { get; set; } = 0;
+    public float Distance { get; set; } = 0f;
 
     /// <summary>
     /// Gate 이름 (표시용)

@@ -21,19 +21,20 @@ from . import forest    # Region 3: 숲
 # ========================================
 # Region 간 연결 (RegionGate)
 # ========================================
-# (gate_id, region_a, location_a, region_b, location_b, travel_time)
+# (gate_id, region_a, location_a, region_b, location_b, distance)
+# distance: location units (BaseSpeed = 1 unit/sec, 120분 도보 = 7200 units)
 #
 # 모든 Gate 데이터를 미리 정의하고, 실제 등록 시 Region 존재 여부 체크
 
 REGION_GATES = [
-    # 숲 입구(R0:20) ↔ 도시 입구(R2:0) - 2시간 도보
-    (0, mansion.REGION_ID, 20, city.REGION_ID, 0, 120),
+    # 숲 입구(R0:20) ↔ 도시 입구(R2:0) - ≈2시간 도보
+    (0, mansion.REGION_ID, 20, city.REGION_ID, 0, 7200),
 
-    # 주차장(R2:4) ↔ 낡은 자동차(R1:0) - 1분 탑승
-    (1, city.REGION_ID, 4, vehicle.REGION_ID, 0, 1),
+    # 주차장(R2:4) ↔ 낡은 자동차(R1:0) - ≈1분 탑승
+    (1, city.REGION_ID, 4, vehicle.REGION_ID, 0, 60),
 
-    # 숲 입구(R0:20) ↔ 숲 입구(R3:0) - 30분 도보
-    (2, mansion.REGION_ID, 20, forest.REGION_ID, 0, 30),
+    # 숲 입구(R0:20) ↔ 숲 입구(R3:0) - ≈30분 도보
+    (2, mansion.REGION_ID, 20, forest.REGION_ID, 0, 1800),
 ]
 
 
@@ -41,18 +42,21 @@ REGION_GATES = [
 # 안전한 RegionGate 등록
 # ========================================
 
-def _safe_add_region_gate(region_a, loc_a, region_b, loc_b, travel_time):
+def _safe_add_region_gate(region_a, loc_a, region_b, loc_b, distance):
     """
     Region이 존재할 때만 RegionGate 등록 (존재하지 않으면 무시)
 
     챕터별로 Region을 선택적으로 로드할 때,
     존재하지 않는 Region에 대한 Gate 등록 시도를 조용히 무시합니다.
 
+    Args:
+        distance: 물리적 거리 (location units)
+
     Returns:
         bool: 등록 성공 여부
     """
     if morld.region_exists(region_a) and morld.region_exists(region_b):
-        morld.add_region_gate(region_a, loc_a, region_b, loc_b, travel_time)
+        morld.add_region_gate(region_a, loc_a, region_b, loc_b, distance)
         return True
     # 존재하지 않는 Region은 조용히 무시 (의도된 동작)
     return False
@@ -66,8 +70,8 @@ def initialize_region_gates():
     챕터 파일에서 Region들을 먼저 초기화한 후 이 함수를 호출하세요.
     """
     registered = 0
-    for gate_id, region_a, loc_a, region_b, loc_b, travel_time in REGION_GATES:
-        if _safe_add_region_gate(region_a, loc_a, region_b, loc_b, travel_time):
+    for gate_id, region_a, loc_a, region_b, loc_b, distance in REGION_GATES:
+        if _safe_add_region_gate(region_a, loc_a, region_b, loc_b, distance):
             registered += 1
     print(f"[world] RegionGates registered: {registered}/{len(REGION_GATES)}")
 

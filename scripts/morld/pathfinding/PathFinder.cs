@@ -21,9 +21,10 @@ public class PathResult
 	public List<Location> Path { get; init; } = new();
 
 	/// <summary>
-	/// 총 이동 시간
+	/// 총 경로 거리 (location units)
+	/// 이동 시간은 Location.DistanceToTime()으로 변환
 	/// </summary>
-	public float TotalTravelTime { get; init; }
+	public float TotalDistance { get; init; }
 
 	/// <summary>
 	/// 탐색 중 방문한 노드 수
@@ -155,7 +156,7 @@ public class PathFinder
 			{
 				Found = true,
 				Path = new List<Location> { start },
-				TotalTravelTime = 0,
+				TotalDistance = 0,
 				VisitedNodes = 1,
 				RegionsTraversed = new List<int> { start.RegionId }
 			};
@@ -163,11 +164,11 @@ public class PathFinder
 
 		var openSet = new PriorityQueue<Location, float>();
 		var cameFrom = new Dictionary<string, Location>();
-		var travelTime = new Dictionary<string, float>();
+		var distMap = new Dictionary<string, float>();
 		var closedSet = new HashSet<string>();
 		int visitedCount = 0;
 
-		travelTime[start.GlobalId] = 0;
+		distMap[start.GlobalId] = 0;
 		openSet.Enqueue(start, 0);
 
 		while (openSet.Count > 0)
@@ -184,7 +185,7 @@ public class PathFinder
 				{
 					Found = true,
 					Path = ReconstructPath(cameFrom, current),
-					TotalTravelTime = travelTime[current.GlobalId],
+					TotalDistance = distMap[current.GlobalId],
 					VisitedNodes = visitedCount,
 					RegionsTraversed = new List<int> { start.RegionId }
 				};
@@ -192,18 +193,18 @@ public class PathFinder
 
 			closedSet.Add(current.GlobalId);
 
-			foreach ((Location neighbor, float gateTravelTime) in region.GetTraversableNeighbors(current, context))
+			foreach ((Location neighbor, float gateDistance) in region.GetTraversableNeighbors(current, context))
 			{
 				if (closedSet.Contains(neighbor.GlobalId))
 					continue;
 
-				float tentativeTime = travelTime[current.GlobalId] + gateTravelTime;
+				float tentativeDist = distMap[current.GlobalId] + gateDistance;
 
-				if (!travelTime.ContainsKey(neighbor.GlobalId) || tentativeTime < travelTime[neighbor.GlobalId])
+				if (!distMap.ContainsKey(neighbor.GlobalId) || tentativeDist < distMap[neighbor.GlobalId])
 				{
 					cameFrom[neighbor.GlobalId] = current;
-					travelTime[neighbor.GlobalId] = tentativeTime;
-					openSet.Enqueue(neighbor, tentativeTime);
+					distMap[neighbor.GlobalId] = tentativeDist;
+					openSet.Enqueue(neighbor, tentativeDist);
 				}
 			}
 		}
@@ -219,12 +220,12 @@ public class PathFinder
 		// 전역 탐색: Location + RegionGate를 모두 탐색
 		var openSet = new PriorityQueue<SearchNode, float>();
 		var cameFrom = new Dictionary<string, (SearchNode node, int? regionGateId)>();
-		var travelTime = new Dictionary<string, float>();
+		var distMap = new Dictionary<string, float>();
 		var closedSet = new HashSet<string>();
 		int visitedCount = 0;
 
 		var startNode = new SearchNode(start);
-		travelTime[startNode.Id] = 0;
+		distMap[startNode.Id] = 0;
 		openSet.Enqueue(startNode, 0);
 
 		while (openSet.Count > 0)
@@ -238,7 +239,7 @@ public class PathFinder
 			// 목표 도달
 			if (current.Location.Equals(goal))
 			{
-				return ReconstructCrossRegionPath(cameFrom, current, travelTime[current.Id], visitedCount);
+				return ReconstructCrossRegionPath(cameFrom, current, distMap[current.Id], visitedCount);
 			}
 
 			closedSet.Add(current.Id);
@@ -246,25 +247,25 @@ public class PathFinder
 			var currentRegion = _terrain.GetRegion(current.Location.RegionId)!;
 
 			// 1. 같은 Region 내 이동
-			foreach ((Location neighbor, float gateTravelTime) in currentRegion.GetTraversableNeighbors(current.Location, context))
+			foreach ((Location neighbor, float gateDistance) in currentRegion.GetTraversableNeighbors(current.Location, context))
 			{
 				var neighborNode = new SearchNode(neighbor);
 				if (closedSet.Contains(neighborNode.Id))
 					continue;
 
-				float tentativeTime = travelTime[current.Id] + gateTravelTime;
+				float tentativeDist = distMap[current.Id] + gateDistance;
 
-				if (!travelTime.ContainsKey(neighborNode.Id) || tentativeTime < travelTime[neighborNode.Id])
+				if (!distMap.ContainsKey(neighborNode.Id) || tentativeDist < distMap[neighborNode.Id])
 				{
 					cameFrom[neighborNode.Id] = (current, null);
-					travelTime[neighborNode.Id] = tentativeTime;
-					openSet.Enqueue(neighborNode, tentativeTime);
+					distMap[neighborNode.Id] = tentativeDist;
+					openSet.Enqueue(neighborNode, tentativeDist);
 				}
 			}
 
 			// 2. 다른 Region으로 이동 (RegionGate)
 			var currentRef = new LocationRef(current.Location);
-			foreach ((RegionGate regionGate, LocationRef destRef, float gateTravelTime) in _terrain.GetRegionExits(currentRef, context))
+			foreach ((RegionGate regionGate, LocationRef destRef, float gateDistance) in _terrain.GetRegionExits(currentRef, context))
 			{
 				var destLocation = _terrain.GetLocation(destRef);
 				if (destLocation == null)
@@ -274,13 +275,13 @@ public class PathFinder
 				if (closedSet.Contains(destNode.Id))
 					continue;
 
-				float tentativeTime = travelTime[current.Id] + gateTravelTime;
+				float tentativeDist = distMap[current.Id] + gateDistance;
 
-				if (!travelTime.ContainsKey(destNode.Id) || tentativeTime < travelTime[destNode.Id])
+				if (!distMap.ContainsKey(destNode.Id) || tentativeDist < distMap[destNode.Id])
 				{
 					cameFrom[destNode.Id] = (current, regionGate.Id);
-					travelTime[destNode.Id] = tentativeTime;
-					openSet.Enqueue(destNode, tentativeTime);
+					distMap[destNode.Id] = tentativeDist;
+					openSet.Enqueue(destNode, tentativeDist);
 				}
 			}
 		}
@@ -337,7 +338,7 @@ public class PathFinder
 		{
 			Found = true,
 			Path = path,
-			TotalTravelTime = totalTime,
+			TotalDistance = totalTime,
 			VisitedNodes = visitedCount,
 			RegionsTraversed = regions.ToList(),
 			RegionGatesUsed = regionGates

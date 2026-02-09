@@ -383,6 +383,13 @@ def on_single_event(event):
         region_id = event[2]
         location_id = event[3]
 
+        # 발소리 (캐릭터 이동 시 소리 전파)
+        try:
+            import sound
+            sound.emit_sound(unit_id, "footstep", location=(region_id, location_id))
+        except ImportError:
+            pass
+
         # 오염 체크 (모든 unit에 대해)
         try:
             import pollution

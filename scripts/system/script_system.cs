@@ -216,8 +216,8 @@ namespace SE
         /// 현재 위치에서 목표 위치까지의 최소 이동 시간을 계산하여 반환한다.
         ///
         /// 같은 Location 내 이동: CalculateTravelTime 사용
-        /// 다른 Location 간 이동: PathFinder로 경로 탐색 후 TotalTravelTime 사용
-        ///   (Gate.TravelTime이 0인 경우 location 당 2분 휴리스틱 적용)
+        /// 다른 Location 간 이동: PathFinder로 경로 탐색 후 TotalDistance를 시간으로 변환
+        ///   (Gate.Distance가 0인 경우 location 당 2분 휴리스틱 적용)
         ///
         /// 최소값: 1분 (GameTime.MillisPerMinute)
         /// </summary>
@@ -258,10 +258,10 @@ namespace SE
             var pathFinder = new Morld.PathFinder(terrain);
             var pathResult = pathFinder.FindPath(currentLoc, targetLoc, unit, itemSys, invSys);
 
-            if (pathResult.Found && pathResult.TotalTravelTime > 0)
+            if (pathResult.Found && pathResult.TotalDistance > 0)
             {
-                // PathFinder 결과 사용 (Gate.TravelTime=0인 경우 보정)
-                int estimated = (int)MathF.Ceiling(pathResult.TotalTravelTime);
+                // PathFinder 결과 (distance) → 시간 변환
+                int estimated = Morld.Location.DistanceToTime(pathResult.TotalDistance);
 
                 // 경로상 Location 수 기반 최소 시간 보장 (location당 2분)
                 int minByHops = pathResult.Path.Count * 2 * GameTime.MillisPerMinute;
@@ -1093,6 +1093,44 @@ def calculate(a, b):
             catch (System.Exception ex)
             {
                 Godot.GD.PrintErr($"[ScriptSystem] GetCharacterDescribeTexts error: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 소리 전파 시스템 — 플레이어가 들은 소리 텍스트 조회 + flush
+        /// Python sound.get_heard_texts() 호출 후 sound.flush()
+        /// </summary>
+        /// <param name="playerId">플레이어 유닛 ID</param>
+        /// <returns>소리 묘사 텍스트 리스트</returns>
+        public System.Collections.Generic.List<string> GetSoundHeardTexts(int playerId)
+        {
+            var result = new System.Collections.Generic.List<string>();
+
+            try
+            {
+                var code = $"__import__('sound').get_heard_texts({playerId})";
+                var pyResult = Eval(code);
+
+                if (pyResult is PyList pyList)
+                {
+                    for (int i = 0; i < pyList.Length(); i++)
+                    {
+                        var item = pyList.GetItem(i);
+                        if (item is PyString pyStr)
+                        {
+                            result.Add(pyStr.Value);
+                        }
+                    }
+                }
+
+                // 소비 후 flush
+                Execute("__import__('sound').flush()");
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] GetSoundHeardTexts error: {ex.Message}");
             }
 
             return result;

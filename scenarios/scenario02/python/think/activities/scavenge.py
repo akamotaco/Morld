@@ -42,6 +42,8 @@ def handle_scavenge(agent, entry):
                                 uid = get_unique_id(item_id)
                                 if uid:
                                     obj.npc_take_item(agent.unit_id, uid, 1)
+                                    import sound
+                                    sound.emit_sound(agent.unit_id, "crash")
                                     break
             agent._activity_phase = "going_to_storage"
             agent._action_taken = True

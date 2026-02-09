@@ -52,6 +52,8 @@ def handle_cook(agent, entry):
                 obj = get_instance(obj_id)
                 if obj and hasattr(obj, "npc_cook"):
                     obj.npc_cook(agent.unit_id)
+                    import sound
+                    sound.emit_sound(agent.unit_id, "cooking")
             agent._activity_phase = "storing_result"
             agent._action_taken = True
         else:

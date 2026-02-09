@@ -86,6 +86,8 @@ def handle_chop(agent, entry):
                 obj = get_instance(obj_id)
                 if obj and hasattr(obj, "npc_chop"):
                     obj.npc_chop(agent.unit_id)
+                    import sound
+                    sound.emit_sound(agent.unit_id, "chop")
             agent._activity_phase = "returning_tool"
             agent._action_taken = True
         else:

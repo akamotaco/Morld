@@ -336,9 +336,9 @@ public class Region : IDescribable
 
     /// <summary>
     /// 특정 Location에서 이동 가능한 이웃들 가져오기 (Gate 기반)
-    /// Gate 통과 시간 = 0 (즉시 통과), 이동 시간은 Location 내에서 Gate까지의 거리로 계산
+    /// 반환되는 distance는 Gate의 물리적 거리 (location units)
     /// </summary>
-    public IEnumerable<(Location neighbor, float travelTime)> GetTraversableNeighbors(
+    public IEnumerable<(Location neighbor, float distance)> GetTraversableNeighbors(
         Location location,
         TraversalContext? context = null)
     {
@@ -354,8 +354,8 @@ public class Region : IDescribable
             if (neighborLoc == null)
                 continue;
 
-            // Gate 통과 시간
-            yield return (neighborLoc, gate.TravelTime);
+            // Gate 통과 거리
+            yield return (neighborLoc, gate.Distance);
         }
     }
 

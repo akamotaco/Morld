@@ -8,8 +8,8 @@ using System.Collections.Generic;
 /// </summary>
 public class RegionGate
 {
-    private int _travelTimeAtoB;
-    private int _travelTimeBtoA;
+    private float _distanceAtoB;
+    private float _distanceBtoA;
     private bool _isBlocked;
 
     /// <summary>
@@ -58,32 +58,34 @@ public class RegionGate
     internal Terrain? OwnerWorld { get; set; }
 
     /// <summary>
-    /// A → B 방향 이동 시간 (0 미만이면 이동 불가, 단위: 밀리초)
+    /// A → B 방향 거리 (0 미만이면 이동 불가, 단위: location units)
+    /// 이동 시간은 Location.DistanceToTime()으로 계산
     /// </summary>
-    public int TravelTimeAtoB
+    public float DistanceAtoB
     {
-        get => _travelTimeAtoB;
+        get => _distanceAtoB;
         set
         {
-            if (_travelTimeAtoB != value)
+            if (_distanceAtoB != value)
             {
-                _travelTimeAtoB = value;
+                _distanceAtoB = value;
                 OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
     }
 
     /// <summary>
-    /// B → A 방향 이동 시간 (0 미만이면 이동 불가, 단위: 밀리초)
+    /// B → A 방향 거리 (0 미만이면 이동 불가, 단위: location units)
+    /// 이동 시간은 Location.DistanceToTime()으로 계산
     /// </summary>
-    public int TravelTimeBtoA
+    public float DistanceBtoA
     {
-        get => _travelTimeBtoA;
+        get => _distanceBtoA;
         set
         {
-            if (_travelTimeBtoA != value)
+            if (_distanceBtoA != value)
             {
-                _travelTimeBtoA = value;
+                _distanceBtoA = value;
                 OwnerWorld?.MarkRegionGateAsChanged();
             }
         }
@@ -138,23 +140,23 @@ public class RegionGate
     }
 
     /// <summary>
-    /// 양방향 동일한 이동 시간 설정
+    /// 양방향 동일한 거리 설정
     /// </summary>
-    public RegionGate SetTravelTime(int time)
+    public RegionGate SetDistance(float distance)
     {
-        _travelTimeAtoB = time;
-        _travelTimeBtoA = time;
+        _distanceAtoB = distance;
+        _distanceBtoA = distance;
         OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
 
     /// <summary>
-    /// 방향별 이동 시간 설정
+    /// 방향별 거리 설정
     /// </summary>
-    public RegionGate SetTravelTime(int aToB, int bToA)
+    public RegionGate SetDistance(float aToB, float bToA)
     {
-        _travelTimeAtoB = aToB;
-        _travelTimeBtoA = bToA;
+        _distanceAtoB = aToB;
+        _distanceBtoA = bToA;
         OwnerWorld?.MarkRegionGateAsChanged();
         return this;
     }
@@ -207,21 +209,21 @@ public class RegionGate
     {
         if (IsBlocked) return false;
 
-        var travelTime = GetTravelTime(from);
-        if (travelTime < 0) return false;
+        var distance = GetDistance(from);
+        if (distance < 0) return false;
 
         var conditions = GetConditions(from);
         return CheckConditions(conditions, context);
     }
 
     /// <summary>
-    /// 주어진 방향의 이동 시간 반환 (0 미만이면 이동 불가, -1이면 유효하지 않은 위치)
+    /// 주어진 방향의 거리 반환 (0 미만이면 이동 불가, -1이면 유효하지 않은 위치)
     /// </summary>
-    public int GetTravelTime(LocationRef from)
+    public float GetDistance(LocationRef from)
     {
-        if (from == LocationA) return TravelTimeAtoB;
-        if (from == LocationB) return TravelTimeBtoA;
-        return -1;
+        if (from == LocationA) return DistanceAtoB;
+        if (from == LocationB) return DistanceBtoA;
+        return -1f;
     }
 
     /// <summary>
@@ -267,8 +269,8 @@ public class RegionGate
 
     public override string ToString()
     {
-        var aToB = TravelTimeAtoB >= 0 ? TravelTimeAtoB.ToString() : "X";
-        var bToA = TravelTimeBtoA >= 0 ? TravelTimeBtoA.ToString() : "X";
+        var aToB = DistanceAtoB >= 0 ? DistanceAtoB.ToString("F0") : "X";
+        var bToA = DistanceBtoA >= 0 ? DistanceBtoA.ToString("F0") : "X";
         return $"RegionGate[{(Name != "unknown" ? Name : Id.ToString())}]: {LocationA} <--({bToA})--({aToB})--> {LocationB}";
     }
 }

@@ -149,29 +149,26 @@ namespace SE
             morldModule.ModuleDict["add_region_gate"] = new PyBuiltinFunction("add_region_gate", args =>
             {
                 if (args.Length < 4)
-                    throw PyTypeError.Create("add_region_gate(from_region, from_local, to_region, to_local, time_ab=30, time_ba=30) requires at least 4 arguments");
+                    throw PyTypeError.Create("add_region_gate(from_region, from_local, to_region, to_local, distance_ab=1800, distance_ba=distance_ab) requires at least 4 arguments");
 
                 int fromRegion = args[0].ToInt();
                 int fromLocal = args[1].ToInt();
                 int toRegion = args[2].ToInt();
                 int toLocal = args[3].ToInt();
-                int timeABmin = args.Length >= 5 ? args[4].ToInt() : 30; // Python: 분 단위
-                int timeBAmin = args.Length >= 6 ? args[5].ToInt() : timeABmin;
-                int timeABmillis = timeABmin * GameTime.MillisPerMinute; // 분 → 밀리초
-                int timeBAmillis = timeBAmin * GameTime.MillisPerMinute;
+                float distAB = args.Length >= 5 ? (float)args[4].ToDouble() : 1800f; // Python: location units
+                float distBA = args.Length >= 6 ? (float)args[5].ToDouble() : distAB;
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
                 var terrain = _worldSystem.GetTerrain();
-                // RegionGate(id, regionIdA, localIdA, regionIdB, localIdB) 생성자 사용
                 var regionGate = new Morld.RegionGate(
                     terrain.RegionGates.Count,
                     fromRegion, fromLocal,
                     toRegion, toLocal
                 );
-                regionGate.SetTravelTime(timeABmillis, timeBAmillis);
+                regionGate.SetDistance(distAB, distBA);
                 terrain.AddRegionGate(regionGate);
-                Godot.GD.Print($"[morld] add_region_gate: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal}");
+                Godot.GD.Print($"[morld] add_region_gate: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal} (distance={distAB})");
                 return PyBool.True;
             });
 
@@ -202,8 +199,7 @@ namespace SE
                     : null;
                 bool isBlocked = args.Length > conditionsStartIdx + 2 && args[conditionsStartIdx + 2].IsTrue();
                 string name = args.Length > conditionsStartIdx + 3 && args[conditionsStartIdx + 3] is PyString nameStr ? nameStr.Value : "";
-                int travelTimeMin = args.Length > conditionsStartIdx + 4 ? args[conditionsStartIdx + 4].ToInt() : 0; // Python: 분 단위
-                int travelTimeMillis = travelTimeMin * GameTime.MillisPerMinute; // 분 → 밀리초
+                float gateDistance = args.Length > conditionsStartIdx + 4 ? (float)args[conditionsStartIdx + 4].ToDouble() : 0f; // Python: location units
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
                 var terrain = _worldSystem.GetTerrain();
@@ -213,7 +209,7 @@ namespace SE
                 {
                     var gate = region.AddGate(locationId, gateId, x, connectedRegion, connectedLocation, arrivalX, arrivalY);
                     gate.Name = name;
-                    gate.TravelTime = travelTimeMillis;
+                    gate.Distance = gateDistance;
                     gate.IsBlocked = isBlocked;
 
                     if (conditionsForward != null)
@@ -334,6 +330,7 @@ namespace SE
                         gateDict.SetItem(new PyString("arrival_x"), new PyFloat(gate.ArrivalX));
                         gateDict.SetItem(new PyString("arrival_y"), new PyFloat(gate.ArrivalY));
                         gateDict.SetItem(new PyString("is_blocked"), gate.IsBlocked ? PyBool.True : PyBool.False);
+                        gateDict.SetItem(new PyString("distance"), new PyFloat(gate.Distance));
                         gatesList.Append(gateDict);
                     }
                     locDict.SetItem(new PyString("gates"), gatesList);
@@ -360,10 +357,13 @@ namespace SE
                         {
                             var targetRegion = terrain.GetRegion(toRegionId.Value);
                             var regionName = targetRegion?.Name ?? "";
+                            var fromRef = new Morld.LocationRef(regionId, location.LocalId);
+                            var rGateDistance = regionGate.GetDistance(fromRef);
                             var regionGateTuple = new PyTuple(new PyObject[] {
                                 new PyInt(toRegionId.Value),
                                 new PyInt(toLocalId.Value),
-                                new PyString(regionName)
+                                new PyString(regionName),
+                                new PyFloat(rGateDistance)
                             });
                             regionGatesList.Append(regionGateTuple);
                         }
