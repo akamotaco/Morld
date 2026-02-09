@@ -15,11 +15,11 @@
 
 | 문서 | 설명 | 줄 수 |
 |------|------|-------|
-| [system-core.md](scenarios/scenario02/docs/system-core.md) | ECS 아키텍처, 시스템 구조, 프로젝트 레이아웃 | ~150 |
+| [system-core.md](scenarios/scenario02/docs/system-core.md) | ECS 아키텍처, 시스템 구조, 챕터 전환 라이프사이클 | ~200 |
 | [system-api.md](scenarios/scenario02/docs/system-api.md) | morld Python API, Asset 클래스 | ~150 |
 | [dialog.md](scenarios/scenario02/docs/dialog.md) | 대화/리액션/묘사 시스템 (Lines, Rules 등) | ~250 |
 | [system-ui.md](scenarios/scenario02/docs/system-ui.md) | TextUI, 토글, 액션 필터링 | ~150 |
-| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 연애, 온도, 습도 등 게임플레이 시스템 | ~350 |
+| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 연애, 온도, 습도, 혼잡도 등 게임플레이 시스템 | ~500 |
 
 ---
 
@@ -63,7 +63,7 @@
 
 | 작업 | 참고 문서 |
 |------|----------|
-| 이벤트 시스템 (on_meet, on_reach) | [event.md](scenarios/scenario02/docs/event.md) |
+| 이벤트 시스템 (on_meet, on_reach, on_leave) | [event.md](scenarios/scenario02/docs/event.md) |
 | 시간 정지 (Frozen) 상태 | [frozen.md](scenarios/scenario02/docs/frozen.md) |
 | 시간 흐름 (자동 시간 흐름) | [time-flow.md](scenarios/scenario02/docs/time-flow.md) |
 
@@ -113,6 +113,7 @@ scenarios/scenario02/docs/
 | Python Asset 클래스 | `scenarios/scenario02/python/assets/` |
 | Python 이벤트 핸들러 | `scenarios/scenario02/python/events/` |
 | Python NPC AI | `scenarios/scenario02/python/think/` |
+| Python 환경 시스템 | `scenarios/scenario02/python/` (temperature, humidity, congestion, pollution, sound) |
 
 ---
 

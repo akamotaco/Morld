@@ -10,6 +10,7 @@ public enum EventType
 {
 	GameStart,       // 게임 시작
 	OnReach,         // 위치 도착 (unit_id, region_id, location_id)
+	OnLeave,         // 위치 이탈 (unit_id, region_id, location_id)
 	OnMeet,          // 유닛들이 같은 Location에 있음 (unit_id1, unit_id2, ...)
 	OnContact,       // 유닛들이 2D 충돌 반경 내 접촉 (unit_id1, unit_id2, ...)
 	OnTimeElapsed,   // 시간 경과 (minutes)
@@ -50,6 +51,7 @@ public class GameEvent
 	{
 		EventType.GameStart => "game_start",
 		EventType.OnReach => "on_reach",
+		EventType.OnLeave => "on_leave",
 		EventType.OnMeet => "on_meet",
 		EventType.OnContact => "on_contact",
 		EventType.OnTimeElapsed => "on_time_elapsed",
@@ -70,6 +72,12 @@ public class GameEvent
 	/// </summary>
 	public static GameEvent OnReach(int unitId, int regionId, int locationId)
 		=> new() { Type = EventType.OnReach, Args = new List<object> { unitId, regionId, locationId } };
+
+	/// <summary>
+	/// 위치 이탈 이벤트
+	/// </summary>
+	public static GameEvent OnLeave(int unitId, int regionId, int locationId)
+		=> new() { Type = EventType.OnLeave, Args = new List<object> { unitId, regionId, locationId } };
 
 	/// <summary>
 	/// 유닛 만남 이벤트 (같은 Location)

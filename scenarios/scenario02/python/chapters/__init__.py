@@ -45,6 +45,14 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     if _current_chapter is not None:
         morld.clear_world()
 
+    # 2.1. 환경 시스템 리셋 (lazy init 모듈들의 챕터 전환 대응)
+    #      clear_world() 후 새 챕터 데이터로 재초기화되어야 함
+    import temperature, humidity, congestion, sound
+    temperature.reset()
+    humidity.reset()
+    congestion.reset()
+    sound.reset()
+
     # 3. 챕터 모듈 동적 import
     try:
         chapter_module = __import__(f"chapters.{chapter_name}", fromlist=[chapter_name])

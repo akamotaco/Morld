@@ -157,8 +157,34 @@ scenarios/scenario02/python/
 ├─ assets/ (Python Asset 클래스)
 ├─ events/ (이벤트 핸들러)
 ├─ chapters/ (챕터 관리)
-└─ think/ (NPC AI Agent)
+├─ think/ (NPC AI Agent)
+├─ temperature.py (온도 시스템)
+├─ humidity.py (습도 시스템)
+├─ congestion.py (혼잡도 시스템)
+├─ pollution.py (오염도 시스템)
+└─ sound.py (소리 전파 시스템)
 ```
+
+---
+
+## 챕터 전환 라이프사이클
+
+`chapters/__init__.py`의 `load_chapter()` 실행 순서:
+
+```
+1. 기존 데이터 저장 (preserve_player=True 시)
+2. morld.clear_world() — 기존 유닛/지형 삭제
+2.1. 환경 시스템 reset() — temperature, humidity, congestion, sound
+3. 챕터 모듈 동적 import
+4. chapter_module.initialize() — 새 지형/유닛/오브젝트 생성
+5. 저장된 플레이어 데이터 복원
+5.1. chapter_module.post_restore() — 챕터별 후처리
+6. morld.reinitialize_locations() — EventSystem 위치 초기화
+7. Instance ID 중복 검사
+8. 현재 챕터 기록
+```
+
+**환경 시스템 reset**: lazy init 모듈(`temperature`, `humidity`, `congestion`, `sound`)은 `get_region_info()`로 location 데이터를 구축합니다. 챕터 전환 시 location이 바뀌므로, `reset()`으로 `_initialized = False`를 설정하여 다음 접근 시 새 데이터로 재초기화됩니다.
 
 ---
 

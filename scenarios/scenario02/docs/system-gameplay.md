@@ -188,6 +188,12 @@ temp = temperature.get_temperature(region_id, location_id)
 temperature.register_heat_source(unit_id, region_id, location_id)
 ```
 
+### 챕터 전환 대응
+
+`reset()` 함수로 상태 초기화. `chapters/__init__.py`의 `load_chapter()`에서 자동 호출.
+
+**주의**: 초기화 완료 후 미등록 location 조회 시 `KeyError` 발생 (데이터 누락 버그 조기 감지)
+
 ### UI 표시
 
 `ui.get_time_weather_text()`에서 날씨 뒤에 온도 표시:
@@ -335,12 +341,131 @@ humidity.get_weather_display()                 # → "비(소나기)" (UI용)
 humidity.get_intensity()                       # → "소나기" or None
 ```
 
+### 챕터 전환 대응
+
+`reset()` 함수로 상태 초기화. `chapters/__init__.py`의 `load_chapter()`에서 자동 호출.
+
+**주의**: 초기화 완료 후 미등록 location 조회 시 `KeyError` 발생 (데이터 누락 버그 조기 감지)
+
 ### UI 표시
 
-`ui.get_time_weather_text()`에서 날씨 강도 + 습도 표시:
+`ui.get_time_weather_text()`에서 날씨 강도 + 습도 + 혼잡도 표시:
 ```
-1년 4월 1일 (수) 20:00 / 비(소나기) 12℃ 90%
+1년 4월 1일 (수) 20:00 / 비(소나기) 12℃ 습도90% 혼잡x2.0
 ```
+혼잡도는 congestion > 0.5일 때만, > 1.0이면 노란색으로 표시.
+
+---
+
+## 혼잡도 시스템 (Congestion System)
+
+> `congestion.py` — 순수 Python + C# `이동:혼잡` prop
+
+Location별 혼잡도를 on_reach/on_leave 이벤트로 추적하고, 혼잡 시 이동속도를 감소시킵니다.
+
+### 혼잡도 계산
+
+```
+congestion = population / capacity
+capacity = max(MIN_CAPACITY, length / SPACE_PER_UNIT)
+```
+
+| 상수 | 값 | 설명 |
+|------|---|------|
+| `SPACE_PER_UNIT` | 5 | 캐릭터 1명당 점유 공간 |
+| `MIN_CAPACITY` | 2 | 최소 수용 인원 |
+
+### 이동속도 감속
+
+congestion > 1일 때 `이동:혼잡` prop을 유닛에 설정:
+
+| 혼잡도 | 이동:혼잡 | 실제 속도 |
+|--------|----------|----------|
+| 1.0 이하 | (없음) | 100% |
+| 2.0 | 50 | 50% |
+| 3.0 | 33 | 33% |
+| 5.0+ | 20 | 20% (최소) |
+
+C# `Unit.GetMovementSpeed()`에서 `이동:혼잡` prop을 읽어 최종 속도에 적용:
+```
+result = 이동:속도 × 자세보정 × 이동:혼잡 / 100
+```
+
+### 이벤트 연동
+
+```
+on_leave(unit, old_r, old_l) → population-- → _apply_congestion
+on_reach(unit, new_r, new_l) → population++ → _apply_congestion
+```
+
+- `_apply_congestion`: 해당 location의 모든 유닛에 `이동:혼잡` prop 설정/해제
+- lazy init: `get_region_info()` → location별 capacity 구축
+
+### 초기화 및 동기화
+
+- **lazy init**: 첫 접근 시 `get_region_info()`로 capacity 구축 + `_sync_population()` 호출
+- **초기 인구 스캔**: `get_units_at_location()`으로 모든 location 인구 카운트 (게임 시작 시 on_reach 미발생 보정)
+- **자정 동기화**: `subscribe_time_elapsed(1시간)` → 매일 00:00에 전체 인구 재스캔 (drift 보정)
+- **챕터 전환**: `reset()` 함수로 상태 초기화 → 다음 접근 시 재초기화 (아래 "챕터 전환 대응" 참조)
+
+### Python API
+
+```python
+import congestion
+
+congestion.get_congestion(region_id, location_id)  # → float (1.0=정상, 2.0=2배 혼잡)
+congestion.get_population(region_id, location_id)   # → int (현재 인구)
+congestion.get_capacity(region_id, location_id)     # → int (수용력)
+```
+
+**주의**: 초기화 완료 후 미등록 location 조회 시 `KeyError` 발생 (데이터 누락 버그 조기 감지)
+
+### UI 표시
+
+`ui.get_time_weather_text()`에서 혼잡 시에만 표시:
+```
+1년 4월 1일 (수) 20:00 / 흐림 12℃ 습도50% 혼잡x2.0
+```
+
+---
+
+## 챕터 전환과 환경 시스템 리셋
+
+온도/습도/혼잡도/소리 시스템은 `get_region_info()`로 lazy init됩니다.
+챕터 전환 시 location 데이터가 바뀌므로 재초기화가 필요합니다.
+
+### 문제
+
+```
+load_chapter("chapter_0") → 4개 location으로 humidity 초기화
+load_chapter("chapter_1") → 35+ location 추가
+→ humidity._initialized = True → 새 location 미등록 → get_humidity() 실패
+```
+
+### 해결: reset() 패턴
+
+`chapters/__init__.py`의 `load_chapter()`에서 자동 호출:
+
+```python
+# load_chapter() step 2.1
+import temperature, humidity, congestion, sound
+temperature.reset()
+humidity.reset()
+congestion.reset()
+sound.reset()
+```
+
+각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
+
+### 대상 모듈
+
+| 모듈 | reset() 대상 | 비고 |
+|------|-------------|------|
+| `temperature.py` | temps, adjacency, heat_sources, indoor | 열원은 챕터 초기화에서 재등록 |
+| `humidity.py` | humidity, indoor, intensity, last_weather | |
+| `congestion.py` | capacity, population, last_sync_day | 재초기화 시 인구 재스캔 |
+| `sound.py` | adjacency, location_info | hearing/heard_events는 유지 |
+| `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---
 

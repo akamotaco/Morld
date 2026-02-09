@@ -28,12 +28,17 @@
 |--------|------|------|
 | `game_start` | 게임 시작 | - |
 | `on_reach` | 위치 도착 | unit_id, region_id, location_id |
+| `on_leave` | 위치 이탈 | unit_id, region_id, location_id |
 | `on_meet` | 유닛 만남 | unit_id1, unit_id2, ... |
 | `on_time_elapsed` | 시간 경과 | millis |
 | `on_equip_change` | 장비 변경 | unit_id, item_id, is_equip |
 
 ### 1. on_reach (위치 도착)
 플레이어나 NPC가 새로운 위치에 도착했을 때 발생
+
+**Python 핸들러 처리 (events/__init__.py):**
+- `humidity.on_unit_reach()` — 실외 + 비/눈 시 즉시 젖음
+- `congestion.on_unit_reach()` — 혼잡도 인구 증가
 
 ```python
 # events/reach/front_yard.py
@@ -48,7 +53,16 @@ class ArriveAtFrontYard(ReachEvent):
         yield morld.dialog("저택 앞마당에 도착했다.")
 ```
 
-### 2. on_meet (유닛 만남)
+### 2. on_leave (위치 이탈)
+유닛이 이전 위치를 떠났을 때 발생 (on_reach보다 먼저 발생)
+
+**감지 로직:** `event_system.cs` `DetectLocationChanges()`에서 `currentLoc != lastLoc` 시 `OnLeave(lastLoc)` → `OnReach(currentLoc)` 순서로 생성
+
+**Python 핸들러 처리 (events/__init__.py):**
+- `congestion.on_unit_leave()` — 혼잡도 인구 감소
+- `think.get_agent(unit_id).on_leave()` — NPC별 on_leave 처리 (예: 유키 소등)
+
+### 3. on_meet (유닛 만남)
 플레이어가 같은 위치에서 NPC와 만났을 때 발생
 
 **OnMeet 감지 로직 (Pi-World):**
@@ -368,6 +382,7 @@ class Sera(Character):
 |--------|---------------|
 | on_meet | 스킵 (DetectMeetings 스킵) |
 | on_reach | 정상 동작 (챕터 전환에 필요) |
+| on_leave | 정상 동작 (on_reach와 동일 조건) |
 | on_time_elapsed | 스킵 (시간 진행 없음) |
 | on_equip_change | 정상 동작 (즉시 반응) |
 

@@ -115,13 +115,21 @@ def _get_wetness_key(weather, intensity):
 
 # === 초기화 ===
 
+def reset():
+    """챕터 전환 시 호출 — 모든 상태 초기화 (다음 접근 시 재초기화)"""
+    global _initialized, _current_intensity, _last_weather
+    _initialized = False
+    _location_humidity.clear()
+    _location_indoor.clear()
+    _current_intensity = None
+    _last_weather = None
+
+
 def _ensure_initialized():
     """lazy init: get_region_info()로 location 목록 구축"""
     global _initialized
     if _initialized:
         return
-
-    _initialized = True
 
     for region_id in REGION_IDS:
         try:
@@ -136,6 +144,12 @@ def _ensure_initialized():
             local_id = loc["id"]
             key = (region_id, local_id)
             _location_indoor[key] = loc.get("is_indoor", False)
+
+    # region 데이터가 없으면 초기화 연기 (다음 호출 시 재시도)
+    if not _location_indoor:
+        return
+
+    _initialized = True
 
     # 초기 습도 설정
     time_info = morld.get_time_info()
@@ -318,9 +332,15 @@ def get_humidity(region_id, location_id):
 
     Returns:
         float 또는 None (초기화 전)
+
+    Raises:
+        KeyError: 초기화 완료 후 해당 location이 등록되지 않은 경우
     """
     _ensure_initialized()
-    return _location_humidity.get((region_id, location_id))
+    key = (region_id, location_id)
+    if _initialized and key not in _location_humidity:
+        raise KeyError(f"[humidity] Unknown location {key}. {len(_location_humidity)} locations registered")
+    return _location_humidity.get(key)
 
 
 def get_unit_wetness(unit_id):

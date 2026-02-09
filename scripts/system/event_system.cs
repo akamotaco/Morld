@@ -252,7 +252,9 @@ namespace SE
 				{
 					if (currentLoc != lastLoc)
 					{
-						// 위치가 변경됨 → OnReach 이벤트 생성
+						// 이전 위치에서 떠남 → OnLeave (OnReach보다 먼저)
+						Enqueue(GameEvent.OnLeave(unit.Id, lastLoc.RegionId, lastLoc.LocalId));
+						// 새 위치에 도착 → OnReach 이벤트 생성
 						Enqueue(GameEvent.OnReach(unit.Id, currentLoc.RegionId, currentLoc.LocalId));
 
 						// 해당 유닛의 만남/접촉 상태 리셋

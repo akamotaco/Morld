@@ -618,8 +618,8 @@ class BaseAgent:
         return (loc and loc[0] == target["region_id"]
                 and loc[1] == target["location_id"])
 
-    def _on_leaving(self, region_id, location_id):
-        """location 떠나기 전 호출 (서브클래스에서 오버라이드)"""
+    def on_leave(self, region_id, location_id):
+        """location 떠날 때 호출 (C# OnLeave 이벤트 → events 핸들러 경유)"""
         pass
 
     def _turn_off_lights_here(self, region_id, location_id):
@@ -643,10 +643,6 @@ class BaseAgent:
         if info.get("is_moving"):
             self._action_taken = True
             return
-        # 다른 location으로 이동 시 _on_leaving 호출
-        loc = self.get_location()
-        if loc and (loc[0] != target["region_id"] or loc[1] != target["location_id"]):
-            self._on_leaving(loc[0], loc[1])
         target_x = target.get("x", 0)
         length = target.get("length", 0)
         if length > 0 and target_x == 0:

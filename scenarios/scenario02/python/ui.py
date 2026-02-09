@@ -169,14 +169,27 @@ def get_time_weather_text():
             if loc:
                 h = humidity.get_humidity(loc[0], loc[1])
                 if h is not None:
-                    humidity_text = f" {h:.0f}%"
+                    humidity_text = f" 습도{h:.0f}%"
+        except ImportError:
+            pass
+
+        # 혼잡도 (congestion 모듈이 있으면 표시, 혼잡 시에만)
+        congestion_text = ""
+        try:
+            import congestion
+            if loc:
+                cong = congestion.get_congestion(loc[0], loc[1])
+                if cong > 1.0:
+                    congestion_text = f" [color=yellow]혼잡x{cong:.1f}[/color]"
+                elif cong > 0.5:
+                    congestion_text = f" 혼잡x{cong:.1f}"
         except ImportError:
             pass
 
         if weather_display:
-            return f"{time_str} / {weather_display}{temp_text}{humidity_text}"
+            return f"{time_str} / {weather_display}{temp_text}{humidity_text}{congestion_text}"
         if temp_text:
-            return f"{time_str}{temp_text}{humidity_text}"
+            return f"{time_str}{temp_text}{humidity_text}{congestion_text}"
         return time_str
     except Exception as e:
         print(f"[ui] get_time_weather_text error: {e}")

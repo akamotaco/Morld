@@ -404,6 +404,13 @@ def on_single_event(event):
         except ImportError:
             pass
 
+        # 혼잡도 업데이트
+        try:
+            import congestion
+            congestion.on_unit_reach(unit_id, region_id, location_id)
+        except ImportError:
+            pass
+
         if unit_id == player_id:
             # 발각 상태 해제 (Location 이동 시 자동 해제)
             stealth = morld.get_unit_prop(player_id, "status:stealth")
@@ -417,6 +424,24 @@ def on_single_event(event):
                     ui.check_stealth_entry()
 
             return registry.handle_reach(player_id, region_id, location_id)
+
+    elif event_type == "on_leave":
+        unit_id = event[1]
+        region_id = event[2]
+        location_id = event[3]
+
+        # 혼잡도 업데이트
+        try:
+            import congestion
+            congestion.on_unit_leave(unit_id, region_id, location_id)
+        except ImportError:
+            pass
+
+        # NPC on_leave 처리 (조명 끄기 등)
+        import think
+        agent = think.get_agent(unit_id)
+        if agent and hasattr(agent, 'on_leave'):
+            agent.on_leave(region_id, location_id)
 
     elif event_type == "on_time_elapsed":
         millis = event[1]

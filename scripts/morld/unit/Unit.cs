@@ -431,7 +431,15 @@ public class Unit : IOwnable
 
 		// 자세별 속도 계수 적용
 		int postureModifier = GetPostureSpeedModifier();
-		return baseSpeed * postureModifier / 100;
+		int result = baseSpeed * postureModifier / 100;
+
+		// 혼잡도 감속 (Python congestion.py에서 설정)
+		// 이동:혼잡 = 퍼센트 (100=보통, 50=반감). 0 또는 미설정=감속 없음.
+		var congestionSpeed = TraversalContext.GetProp("이동:혼잡");
+		if (congestionSpeed > 0 && congestionSpeed < 100)
+			result = result * congestionSpeed / 100;
+
+		return Math.Max(result, 10);  // 최소 10%
 	}
 
 	/// <summary>

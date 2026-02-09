@@ -84,13 +84,21 @@ def _get_outdoor_temp(season, weather, hour):
 
 # === 초기화 ===
 
+def reset():
+    """챕터 전환 시 호출 — 모든 상태 초기화 (다음 접근 시 재초기화)"""
+    global _initialized
+    _initialized = False
+    _location_temps.clear()
+    _adjacency.clear()
+    _heat_sources.clear()
+    _location_indoor.clear()
+
+
 def _ensure_initialized():
     """lazy init: get_region_info()로 인접 그래프 + 초기 온도 구축"""
     global _initialized
     if _initialized:
         return
-
-    _initialized = True
 
     for region_id in REGION_IDS:
         try:
@@ -122,6 +130,12 @@ def _ensure_initialized():
                     neighbors.append((cr, cl))
 
             _adjacency[key] = neighbors
+
+    # region 데이터가 없으면 초기화 연기 (다음 호출 시 재시도)
+    if not _location_indoor:
+        return
+
+    _initialized = True
 
     # 초기 온도 설정 (현재 실외 온도로 전체 초기화)
     time_info = morld.get_time_info()
@@ -264,9 +278,14 @@ def get_temperature(region_id, location_id):
 
     Returns:
         float 또는 None (초기화 전)
+
+    Raises:
+        KeyError: 초기화 완료 후 해당 location이 등록되지 않은 경우
     """
     _ensure_initialized()
     key = (region_id, location_id)
+    if _initialized and key not in _location_temps:
+        raise KeyError(f"[temperature] Unknown location {key}. {len(_location_temps)} locations registered")
     return _location_temps.get(key)
 
 

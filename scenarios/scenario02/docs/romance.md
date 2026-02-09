@@ -414,15 +414,105 @@ should_initiate_skinship() 체크
 - **최대**: 90%
 
 **방해 이벤트 발생 시 (NPC 주도):**
-- 목격자가 놀람 반응 다이얼로그
+- 목격자의 캐릭터별 발각 반응 (`on_romance_discovered()`)
 - NPC에게 "부끄러움" mood 추가
 - NPC가 플레이어로부터 도망 (`flee` job)
-- 목격자 호감도 -5
+- 목격자 호감도 변화: `ROMANCE_DISCOVERY_REACTIONS`의 effects에 따라 (파트너별 분기)
 - NPC 호감도 -3
 
 ---
 
-## 4. 사적인 대화 시스템 (진척도)
+## 4. 소음 시스템 (Romance Sound)
+
+### 개요
+행위 중 캐릭터가 소음(신음)을 발생시켜 sound.py의 전파 시스템과 연동.
+흥분도(성욕)에 따라 3단계로 소음 강도가 달라지며, 캐릭터별 프로필이 다름.
+
+### 흥분도 단계
+| 단계 | 성욕 범위 | 설명 |
+|------|----------|------|
+| 0 (low) | 0~34 | 조용 |
+| 1 (mid) | 35~69 | 중간 |
+| 2 (high) | 70+ | 시끄러움 |
+
+### 캐릭터별 소음 프로필 (ROMANCE_SOUND_PROFILE)
+
+```python
+ROMANCE_SOUND_PROFILE = {"levels": [low, mid, high], "ecstasy": ecstasy_intensity}
+```
+
+| 캐릭터 | low | mid | high | 절정 | 특징 |
+|--------|-----|-----|------|------|------|
+| 세라 | 5 | 15 | 50 | 70 | 초반 조용, 후반 시끄러움 |
+| 리나 | 25 | 40 | 60 | 80 | 처음부터 시끄러움 |
+| 밀라 | 5 | 15 | 25 | 40 | 조용 → 중간 |
+| 유키 | 10 | 20 | 35 | 50 | 중간 정도 |
+| 엘라 | 3 | 10 | 20 | 35 | 전체적으로 조용 |
+
+### 소음 발생 위치
+- `romance.py` proc(): 즉시형/토글형 행위 실행 시 `emit_romance_sound()`, 절정 시 `emit_ecstasy_sound()`
+- `npc_initiative.py`: NPC 주도 행위 중 플레이어 액션/수락 시 동일
+
+### 관련 함수 (romance.py)
+- `get_excitement_level(npc_id)` → 0/1/2
+- `emit_romance_sound(partner_id)` → `sound.emit_sound(id, "moan", intensity)`
+- `emit_ecstasy_sound(partner_id)` → 절정 강도로 emit
+
+---
+
+## 5. 발각 반응 시스템 (Discovery Reactions)
+
+### 개요
+애정행위 중 제3자에게 발각되었을 때, 목격자의 성격 + 파트너가 누구인지에 따라
+다른 대사와 호감도 효과가 적용됨.
+
+### 플로우
+
+#### 플레이어 주도 (romance.py)
+```
+중단 감지 → set_interrupted_context(partner_id)
+         → handle_interruption()
+         → 중단 로그 ("XX의 방해로 중단되었다.")
+         → pop_to_situation()
+         → queue_event("meet") → on_meet_player()
+         → get_interrupted_context() → on_romance_discovered()
+```
+
+#### NPC 주도 (npc_initiative.py)
+```
+중단 감지 → handle_npc_initiative_interruption()
+         → interrupter.on_romance_discovered(player_id, npc_id)
+         → NPC 부끄러움 + 도망
+```
+
+### 캐릭터별 발각 반응 (ROMANCE_DISCOVERY_REACTIONS)
+
+```python
+ROMANCE_DISCOVERY_REACTIONS = {
+    "default": {"text": ["...!"], "effects": {"호감": -3}},
+    "sera":    {"text": ["...세라랑?!"], "effects": {"호감": -5}},
+}
+```
+
+| 캐릭터(목격자) | 성격 톤 | default | 특별 반응 파트너 |
+|--------------|---------|---------|-----------------|
+| 세라 | 침묵 → 한마디 | 호감-3 | 리나(-5), 밀라(-4) |
+| 리나 | 큰 충격, 놀람 | 호감-5 | 세라(-8), 밀라(-6) |
+| 밀라 | 조용히 상처 | 호감-3 | 세라(-4), 리나(-5) |
+| 유키 | 얼어붙음 | 호감-3 | 엘라(-8) |
+| 엘라 | 차갑게 한마디 | 호감-3 | 유키(-10), 세라(-4) |
+
+### 관련 메서드 (base.py)
+- `on_romance_discovered(player_id, partner_id)` → Generator 또는 None
+- `_romance_discovery_dialog(player_id, reaction)` → 대사 + effects 적용
+
+### 컨텍스트 전달 (romance.py)
+- `set_interrupted_context(partner_id)` — 1회성 저장
+- `get_interrupted_context()` — 소비 후 None 리셋
+
+---
+
+## 6. 사적인 대화 시스템 (진척도)
 
 ### 개요
 호감도가 높아지면 NPC와 점점 깊은 대화를 나눌 수 있는 시스템.
@@ -533,7 +623,7 @@ def _talk_progress_1(self, context):
 
 ---
 
-## 5. 캐릭터별 구현 가이드
+## 7. 캐릭터별 구현 가이드
 
 ### Character 클래스 속성 (base.py)
 
@@ -549,6 +639,12 @@ class Character(Unit):
 
     # 은신 성공 반응
     STEALTH_REACTIONS: dict = None
+
+    # 소음 프로필
+    ROMANCE_SOUND_PROFILE: dict = None
+
+    # 발각 반응 (목격자로서)
+    ROMANCE_DISCOVERY_REACTIONS: dict = None
 ```
 
 ### 세라 구현 예시 (sera.py)
@@ -610,7 +706,7 @@ class Sera(Character):
 
 ---
 
-## 6. 구현 상태
+## 8. 구현 상태
 
 ### 완료된 기능
 
@@ -638,29 +734,34 @@ class Sera(Character):
 | 은신 시스템 (NPC 주도) | npc_initiative.py | ✅ 완료 |
 | 제3자 방해 이벤트 (NPC 주도) | npc_initiative.py | ✅ 완료 |
 | 캐릭터별 은신 반응 | base.py, 전체 NPC | ✅ 완료 |
+| 소음 시스템 (흥분도 3단계) | romance.py, npc_initiative.py, sound.py | ✅ 완료 |
+| 캐릭터별 소음 프로필 | 전체 NPC (ROMANCE_SOUND_PROFILE) | ✅ 완료 |
+| 발각 반응 시스템 | base.py (on_romance_discovered) | ✅ 완료 |
+| 캐릭터별 발각 반응 | 전체 NPC (ROMANCE_DISCOVERY_REACTIONS) | ✅ 완료 |
+| 중단 액션 로그 | romance.py ("XX의 방해로 중단되었다.") | ✅ 완료 |
 
 ### 지원 캐릭터
 
-| 캐릭터 | 스킨십 반응 | NPC 주도 | 사적인 대화 | 은신 반응 | 특징 |
-|--------|-----------|----------|-----------|----------|------|
-| 세라 | ✅ | ✅ | ✅ | ✅ | 무뚝뚝/거친 - 연애 쑥맥 |
-| 밀라 | ✅ | ✅ | ✅ | ✅ | 다정/포근 - 연애 저돌적 |
-| 리나 | ✅ | ✅ | ✅ | ✅ | 활발 - 연애엔 수줍음 |
-| 유키 | ✅ | ✅ | ✅ | ✅ | 매우 수줍음 |
-| 엘라 | ✅ | ✅ | ✅ | ✅ | 냉정함 |
+| 캐릭터 | 스킨십 반응 | NPC 주도 | 사적인 대화 | 은신 반응 | 소음 | 발각 반응 | 특징 |
+|--------|-----------|----------|-----------|----------|------|---------|------|
+| 세라 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 무뚝뚝/거친 - 연애 쑥맥 |
+| 밀라 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 다정/포근 - 연애 저돌적 |
+| 리나 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 활발 - 연애엔 수줍음 |
+| 유키 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 매우 수줍음 |
+| 엘라 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 냉정함 |
 
 ### 미구현/선택적 기능
 
 | 기능 | 설명 | 상태 |
 |------|------|------|
-| 캐릭터별 목격 반응 | 목격자 × 파트너 × 장소 조합별 분기 | 미구현 (TODO) |
+| ~~캐릭터별 목격 반응~~ | ~~목격자 × 파트너 분기~~ | ✅ 완료 (ROMANCE_DISCOVERY_REACTIONS) |
 | 합류 이벤트 | 호감 높은 NPC 합류 | 미구현 |
 | 성적흥분 시간 감소 | 시간 경과 시 자동 감소 | 미구현 |
 | 복수 파트너 UI | 3인 이상 연애 | 미구현 |
 
 ---
 
-## 7. 관련 morld API
+## 9. 관련 morld API
 
 | API | 설명 | 사용처 |
 |-----|------|--------|
@@ -673,7 +774,7 @@ class Sera(Character):
 
 ---
 
-## 8. 파일 구조
+## 10. 파일 구조
 
 ```
 scenarios/scenario02/python/

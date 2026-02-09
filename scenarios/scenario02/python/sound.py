@@ -146,13 +146,20 @@ class SoundEvent:
 
 # === 초기화 ===
 
+def reset():
+    """챕터 전환 시 호출 — 모든 상태 초기화 (다음 접근 시 재초기화)"""
+    global _initialized
+    _initialized = False
+    _adjacency.clear()
+    _location_info.clear()
+    # _hearing, _heard_events는 유지 (캐릭터 등록은 챕터 초기화에서 다시 됨)
+
+
 def _ensure_initialized():
     """lazy init: get_region_info()로 adjacency graph 구축"""
     global _initialized
     if _initialized:
         return
-
-    _initialized = True
 
     # 1. location 정보 수집
     for region_id in REGION_IDS:
@@ -194,6 +201,12 @@ def _ensure_initialized():
                 else:
                     continue
                 _adjacency[key].append((cr, cl, rg_dist))
+
+    # region 데이터가 없으면 초기화 연기 (다음 호출 시 재시도)
+    if not _location_info:
+        return
+
+    _initialized = True
 
     # 2. edge_distance 계산 (src.length/2 + gate_dist + dest.length/2)
     final_adjacency = {}
