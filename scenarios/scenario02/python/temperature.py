@@ -398,17 +398,17 @@ def get_body_temperature(unit_id):
         float: 체온 (기본값 36.5)
     """
     val = morld.get_unit_prop(unit_id, PROP_BODY_TEMP)
-    if val is None:
+    if not val:  # 0 또는 None = prop 미존재 → 정상 체온
         return NORMAL_BODY_TEMP
-    return float(val)
+    return val / 10.0  # 10배 정수 저장 → 소수 복원
 
 
 def set_body_temperature(unit_id, value):
-    """캐릭터 체온 설정 (정상 범위면 prop 제거)"""
+    """캐릭터 체온 설정 (정상 범위면 prop 제거, 10배 정수 저장)"""
     if abs(value - NORMAL_BODY_TEMP) < 0.05:
         morld.clear_prop(unit_id, PROP_BODY_TEMP)
     else:
-        morld.set_unit_prop(unit_id, PROP_BODY_TEMP, round(value, 1))
+        morld.set_unit_prop(unit_id, PROP_BODY_TEMP, round(value * 10))
 
 
 def get_temperature(region_id, location_id):
