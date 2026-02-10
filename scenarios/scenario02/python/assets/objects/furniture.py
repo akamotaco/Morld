@@ -20,31 +20,38 @@ from assets.base import Object
 
 def _fill_water_container(source_name: str):
     """
-    물 용기에 물 채우기 (세면대/싱크대 공용)
+    물 용기에 물 채우기 (세면대/싱크대/수도꼭지 공용)
 
-    인벤토리에서 물뿌리개/물통을 찾아 물을 가득 채운다.
+    인벤토리에서 can:water prop이 있는 물 용기를 찾아 물을 가득 채운다.
     """
-    from assets.registry import get_or_create_item_id, get_item_class
+    from assets.registry import get_unique_id, get_item_class
     from assets.items.garden_items import PROP_WATER_AMOUNT
 
     player_id = morld.get_player_id()
 
-    # 물 용기 찾기
+    # 물 용기 찾기 (can:water passive_prop 기반)
     containers = []
-    for uid in ("watering_can", "water_bucket", "simple_water_bottle"):
-        item_id = get_or_create_item_id(uid)
-        if item_id and morld.has_item(player_id, item_id):
-            item_cls = get_item_class(uid)
-            capacity = getattr(item_cls, "water_capacity", 1) if item_cls else 1
-            current = morld.get_unit_prop(item_id, PROP_WATER_AMOUNT)
-            info = morld.get_item_info(item_id)
-            name = info.get("name", uid) if info else uid
-            containers.append({
-                "id": item_id,
-                "name": name,
-                "capacity": capacity,
-                "current": current,
-            })
+    inventory = morld.get_unit_inventory(player_id)
+    for item_id, count in (inventory or {}).items():
+        if count <= 0:
+            continue
+        info = morld.get_item_info(item_id)
+        if not info:
+            continue
+        passive = info.get("passive_props") or {}
+        if passive.get("can:water", 0) <= 0:
+            continue
+        uid = get_unique_id(item_id)
+        item_cls = get_item_class(uid) if uid else None
+        capacity = getattr(item_cls, "water_capacity", 1) if item_cls else 1
+        current = morld.get_unit_prop(item_id, PROP_WATER_AMOUNT)
+        name = info.get("name", f"아이템#{item_id}")
+        containers.append({
+            "id": item_id,
+            "name": name,
+            "capacity": capacity,
+            "current": current,
+        })
 
     if not containers:
         yield ui.dialog("물을 담을 도구가 없다. 물뿌리개나 물통이 필요하다.")
