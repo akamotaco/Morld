@@ -70,6 +70,12 @@ class GasStation(Location):
         from assets.objects.scavenge import GasStationStand
         self.add_object(GasStationStand(), x=100)
 
+        # 수도꼭지 (물 받기)
+        from assets.objects.furniture import WaterTap
+        tap = WaterTap()
+        tap.focus_text = {"default": "주유소 뒤편의 녹슨 수도꼭지. 틀면 아직 물이 나온다."}
+        self.add_object(tap, x=200)
+
         # 주유소 앞 벤치
         from assets.objects.outdoor import StreetBench
         bench = StreetBench()
@@ -154,6 +160,12 @@ class ConvenienceStore(Location):
             item = SportsDrink(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge3_id, item_id, 1)
         # 에너지 드링크 1개
         item = EnergyDrink(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(fridge3_id, item_id, 1)
+
+        # 수도꼭지 (편의점 뒤편)
+        from assets.objects.furniture import WaterTap
+        tap = WaterTap()
+        tap.focus_text = {"default": "편의점 뒤편의 수도꼭지. 녹슬었지만 물은 나온다."}
+        self.add_object(tap, x=170)
 
 
 class Pharmacy(Location):
@@ -284,10 +296,25 @@ class Hideout(Location):
         from assets.objects.furniture import PortableStove
         self.add_object(PortableStove(), x=130)
 
+        # 초기 아이템: 간이 물병 (이미 획득한 설정)
+        from assets.items.garden_items import SimpleWaterBottle
+        water_bottle = SimpleWaterBottle()
+        water_bottle_id = morld.create_id("item")
+        water_bottle.instantiate(water_bottle_id)
+        morld.give_item(food_storage_id, water_bottle_id, 1)
+
         # 간이 드럼통 욕조
         from assets.objects.furniture import DrumBath
         drum_bath = DrumBath()
         self.add_object(drum_bath, x=150)
+
+        # 간이 텃밭 (이랑 2개)
+        from assets.objects.garden import GardenBed
+        self.add_object(GardenBed(furrow_count=2), x=160)
+
+        # 디버그: 무한 씨앗 포대
+        from assets.objects.storage import InfiniteSeedBag
+        self.add_object(InfiniteSeedBag(), x=165)
 
 
 class ClothingStore(Location):

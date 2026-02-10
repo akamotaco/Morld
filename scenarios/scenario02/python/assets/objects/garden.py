@@ -29,6 +29,10 @@ class GardenBed(Object):
     ]
     focus_text = {"default": "잘 정돈된 텃밭이다. 이랑이 줄지어 나 있다."}
 
+    def __init__(self, furrow_count=None):
+        super().__init__()
+        self._init_furrow_count = furrow_count or DEFAULT_FURROW_COUNT
+
     def instantiate(self, instance_id: int, region_id: int, location_id: int, x: float, y: float = 0):
         super().instantiate(instance_id, region_id, location_id, x, y)
 
@@ -36,7 +40,7 @@ class GardenBed(Object):
         import garden
         furrow_count = morld.get_unit_prop(instance_id, garden.PROP_FURROW_COUNT)
         if not furrow_count:
-            morld.set_unit_prop(instance_id, garden.PROP_FURROW_COUNT, DEFAULT_FURROW_COUNT)
+            morld.set_unit_prop(instance_id, garden.PROP_FURROW_COUNT, self._init_furrow_count)
 
         # 생장 시스템 등록
         garden.register_garden(instance_id)
@@ -284,7 +288,7 @@ class GardenBed(Object):
         from assets.items.garden_items import PROP_WATER_AMOUNT
 
         result = []
-        for uid in ("watering_can", "water_bucket"):
+        for uid in ("watering_can", "water_bucket", "simple_water_bottle"):
             item_id = get_or_create_item_id(uid)
             if item_id and morld.has_item(player_id, item_id):
                 water = morld.get_unit_prop(item_id, PROP_WATER_AMOUNT)

@@ -230,3 +230,11 @@ class WaterBucket(WaterContainer):
     name = "물통"
     water_capacity = 5
     value = 8
+
+
+@register_item
+class SimpleWaterBottle(WaterContainer):
+    unique_id = "simple_water_bottle"
+    name = "간이 물병"
+    water_capacity = 2
+    value = 3

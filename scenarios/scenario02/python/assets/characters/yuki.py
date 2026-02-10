@@ -122,6 +122,7 @@ class Yuki(Character):
 
             # Activity 기반
             ({"activity": "청소"}, {"pages": ["...청소 중이에요...", "..."]}),
+            ({"activity": "정원"}, {"pages": ["...텃밭 돌보고 있어요...", "...싹이 나고 있어요..."]}),
             ({"activity": "빨래"}, {"pages": ["...빨래를 널고 있어요...", "...조금만 기다려 주세요..."]}),
             ({"activity": "식사"}, {"pages": ["(조용히 먹고 있다)", "...맛있어요..."]}),
             ({"activity": "휴식"}, {"pages": ["(책을 읽고 있다)", "...아, 네..."]}),
@@ -236,6 +237,7 @@ class Yuki(Character):
 
         # Activity 기반
         ({"activity": "청소"}, "{name}가 조용히 청소하고 있다."),
+        ({"activity": "정원"}, "{name}가 조용히 텃밭을 돌보고 있다."),
         ({"activity": "빨래"}, "{name}가 빨래를 널고 있다."),
         ({"activity": "요리"}, "{name}가 조용히 요리하고 있다."),
         ({"activity": "독서"}, "{name}가 조용히 책을 읽고 있다."),
@@ -270,6 +272,7 @@ class Yuki(Character):
     FOCUS_RULES = [
         # Activity 기반
         ({"activity": "청소"}, "열심히 청소하고 있다."),
+        ({"activity": "정원"}, "조용히 텃밭을 가꾸고 있다. 손놀림이 정성스럽다."),
         ({"activity": "빨래"}, "빨래를 정성스럽게 널고 있다."),
         ({"activity": "요리"}, "조용히 재료를 다듬고 있다. 손놀림이 정성스럽다."),
         ({"activity": "독서"}, "책에 빠져 있다. 가끔 작게 미소짓는다."),
@@ -886,7 +889,8 @@ class YukiAgent(BaseAgent):
             {"activity": "독서", "condition": None, "region_id": 2, "location_id": 5, "x": 120},
         ]},
         {"name": "점심식사", "region_id": 2, "location_id": 5, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "휴식", "region_id": 2, "location_id": 5, "x": 120, "start": 780 * _M, "end": 1020 * _M, "activity": "휴식"},
+        {"name": "정원", "region_id": 2, "location_id": 5, "x": 160, "start": 780 * _M, "end": 900 * _M, "activity": "정원"},
+        {"name": "휴식", "region_id": 2, "location_id": 5, "x": 120, "start": 900 * _M, "end": 1020 * _M, "activity": "휴식"},
         {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
         {"name": "독서", "region_id": 2, "location_id": 5, "x": 120, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
         {"name": "수면", "region_id": 2, "location_id": 5, "x": 120, "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},

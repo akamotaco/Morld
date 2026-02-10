@@ -31,7 +31,7 @@ def _fill_water_container(source_name: str):
 
     # 물 용기 찾기
     containers = []
-    for uid in ("watering_can", "water_bucket"):
+    for uid in ("watering_can", "water_bucket", "simple_water_bottle"):
         item_id = get_or_create_item_id(uid)
         if item_id and morld.has_item(player_id, item_id):
             item_cls = get_item_class(uid)
@@ -643,6 +643,25 @@ class KitchenSink(Object):
         yield from _fill_water_container(self.name)
 
 
+class WaterTap(Object):
+    """수도꼭지 - 도시 물 공급 시설"""
+    unique_id = "water_tap"
+    name = "수도꼭지"
+    actions = ["call:look:살펴보기", "call:fill:물 받기", "call:debug_props:(디버그) 속성 보기#"]
+    focus_text = {"default": "녹슨 수도꼭지. 틀면 아직 물이 나온다."}
+
+    def look(self):
+        yield ui.dialog([
+            "녹슨 수도꼭지다.",
+            "수압은 약하지만 물은 나온다."
+        ])
+        morld.advance_time_des(1 * 60_000)
+
+    def fill(self):
+        """물 받기 - 물뿌리개/물통/물병에 물 채우기"""
+        yield from _fill_water_container(self.name)
+
+
 class DrumBath(Object):
     """간이 드럼통 욕조 - 도심 은신처용"""
     unique_id = "drum_bath"
@@ -1018,15 +1037,30 @@ class FoodStorage(Object):
 
 
 class PortableStove(Stove):
-    """간이 화로 - 은신처용 조리 도구"""
+    """간이 화로 - 은신처용 조리 도구 + 보온"""
     unique_id = "portable_stove"
     name = "간이 화로"
+    props = {
+        "light:on": 1,
+        "light:value": 2,   # 0.2 (약한 불빛)
+        "heat:output": 8,   # +8°C (Fireplace=15 대비 소규모)
+        "heat:depth": 0,    # 해당 location에만 영향
+    }
     focus_text = {"default": "은신처에 놓인 간이 화로. 간단한 조리가 가능하다."}
+
+    def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
+        super().instantiate(instance_id, region_id, location_id, x, y)
+        try:
+            import temperature
+            temperature.register_heat_source(instance_id, region_id, location_id)
+        except Exception as e:
+            print(f"[PortableStove] heat source registration failed: {e}")
 
     def look(self):
         yield ui.dialog([
             "연탄과 냄비로 만든 간이 화로다.",
-            "간단한 조리 정도는 할 수 있다."
+            "간단한 조리 정도는 할 수 있다.",
+            "은은한 온기가 느껴진다."
         ])
         morld.advance_time_des(1 * 60_000)
 
