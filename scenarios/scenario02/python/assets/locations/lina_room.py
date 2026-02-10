@@ -33,7 +33,8 @@ class LinaRoom(Location):
 
         from assets.items.clothes import (
             Sundress, WhiteBlouse, Shorts, PleatedSkirt, Ribbon,
-            SimpleBra, SimplePanties, ThighHighSocks, Sandals, Pajamas
+            SimpleBra, SimplePanties, ThighHighSocks, Sandals, Pajamas,
+            HoodedCloak, WoolHat,
         )
 
         # 중첩 함수 패턴 - SharpPy v0.4.1 버그 수정 테스트
@@ -56,3 +57,6 @@ class LinaRoom(Location):
         add_to_wardrobe(Ribbon)
         add_to_wardrobe(ThighHighSocks)
         add_to_wardrobe(Sandals)
+        # 방한
+        add_to_wardrobe(HoodedCloak)
+        add_to_wardrobe(WoolHat)

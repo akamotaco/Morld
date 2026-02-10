@@ -78,6 +78,9 @@ class BaseAgent:
         self._memory = {
             "tool": {},             # 도구 반납 위치 {item_id: {"container_id", "location"}}
             "hunger_phase": None,   # 식사 단계 (None/idle/going_to_storage/taking_food/eating)
+            "cold_phase": None,     # 방한 단계 (None/idle/going/taking/equipping)
+            "cold_last_attempt": None,  # 마지막 추위 대응 시도 시각 (밀리초)
+            "hot_phase": None,      # 더위 단계 (None/idle/unequipping/storing)
         }
 
     def set_base_schedule(self, schedule):
@@ -180,6 +183,11 @@ class BaseAgent:
     # 서브클래스에서 오버라이드: 목욕 장소
     # 예: {"region_id": 0, "location_id": 4, "x": 15}
     bath_location = None
+
+    # 서브클래스에서 오버라이드: 옷장 장소 (추위/더위 인터럽트용)
+    # 예: {"region_id": 0, "location_id": 8, "x": 25}
+    wardrobe_location = None
+    wardrobe_unique_id = "wardrobe"  # 옷장 오브젝트 unique_id
 
     def _is_sleep_time(self):
         """현재 시간이 수면 시간대인지 확인
@@ -388,7 +396,11 @@ class BaseAgent:
         target_location = self.bath_location["location_id"]
 
         if loc and loc[0] == target_region and loc[1] == target_location:
-            # 도착 — 목욕 job 삽입
+            # 도착 — 체온/젖음 효과 + 목욕 job 삽입
+            import temperature
+            import humidity
+            temperature.warm_character(self.unit_id, 2.0)
+            humidity.dry_unit(self.unit_id, 100)
             _, bath_entry = self._is_bath_time()
             if bath_entry:
                 remaining = self._remaining_millis_in_entry(bath_entry)
@@ -449,6 +461,14 @@ class BaseAgent:
 
         # 1.5. 배고픔 체크 (활동보다 우선)
         if self._check_hunger():
+            return None
+
+        # 1.6. 추위 체크 (옷 입기)
+        if self._check_cold():
+            return None
+
+        # 1.7. 더위 체크 (옷 벗기)
+        if self._check_hot():
             return None
 
         # 2. 현재 activity 확인
@@ -905,6 +925,86 @@ class BaseAgent:
         return True
 
     # ========================================
+    # 추위/더위 인터럽트
+    # ========================================
+
+    COLD_COOLDOWN_MILLIS = 3_600_000  # 추위 대응 실패 후 1시간 쿨다운
+
+    def _check_cold(self):
+        """추위/젖음 확인 → 방한 활동 시작. Returns True if handling cold."""
+        if self.wardrobe_location is None:
+            return False
+
+        # 이미 진행 중이면 계속
+        if self._memory["cold_phase"] is not None:
+            _handle_cold(self)
+            return True
+
+        import temperature
+        import humidity
+
+        insulation = temperature.get_insulation_total(self.unit_id)
+
+        # 조건 1: 체온 낮고 보온 부족
+        cold_trigger = temperature.is_cold(self.unit_id) and insulation < 2
+
+        # 조건 2: 비 맞고 방수 부족
+        wet_trigger = False
+        if humidity.is_raining():
+            wetness = humidity.get_unit_wetness(self.unit_id)
+            waterproof = temperature._get_equip_prop_total(self.unit_id, "방수")
+            if wetness and wetness > 30 and waterproof < 1:
+                wet_trigger = True
+
+        if not (cold_trigger or wet_trigger):
+            return False
+
+        # 쿨다운 체크
+        last_attempt = self._memory.get("cold_last_attempt")
+        if last_attempt is not None:
+            current_time = morld.get_game_time()
+            if current_time - last_attempt < self.COLD_COOLDOWN_MILLIS:
+                return False
+
+        self._memory["cold_phase"] = "idle"
+        _handle_cold(self)
+        return True
+
+    def _check_hot(self):
+        """더위 확인 → 보온 의류 벗기. Returns True if handling hot."""
+        if self.wardrobe_location is None:
+            return False
+
+        # 이미 진행 중이면 계속
+        if self._memory["hot_phase"] is not None:
+            _handle_hot(self)
+            return True
+
+        import temperature
+        if not temperature.is_hot(self.unit_id):
+            return False
+        if temperature.get_insulation_total(self.unit_id) <= 0:
+            return False
+
+        self._memory["hot_phase"] = "idle"
+        _handle_hot(self)
+        return True
+
+    def _find_wardrobe_id(self):
+        """wardrobe_location의 옷장 오브젝트 ID 반환"""
+        if not self.wardrobe_location:
+            return None
+        from assets.objects import get_location_objects, get_instance
+        from assets.registry import get_unique_id
+        r = self.wardrobe_location["region_id"]
+        l = self.wardrobe_location["location_id"]
+        for obj_id in get_location_objects(r, l):
+            uid = get_unique_id(obj_id)
+            if uid == self.wardrobe_unique_id:
+                return obj_id
+        return None
+
+    # ========================================
     # 동적 스케줄 해석
     # ========================================
 
@@ -1051,6 +1151,188 @@ def _handle_eat(agent):
         agent._memory["hunger_phase"] = None
         agent._action_taken = True
 
+
+
+# ========================================
+# 추위 핸들러 (방한 인터럽트)
+# ========================================
+
+def _handle_cold(agent):
+    """추위: 인벤토리 확인 → 옷장 이동 → 옷 가져오기 → 장착"""
+    phase = agent._memory["cold_phase"]
+
+    if phase == "idle":
+        # 인벤토리에 보온/방수 아이템이 있으면 바로 장착
+        if _has_warm_items_in_inventory(agent.unit_id):
+            agent._memory["cold_phase"] = "equipping"
+            _handle_cold(agent)
+            return
+        # 없으면 옷장으로 이동
+        agent._memory["cold_phase"] = "going"
+        _handle_cold(agent)
+        return
+
+    elif phase == "going":
+        target = agent.wardrobe_location
+        if agent._is_at(target):
+            agent._memory["cold_phase"] = "taking"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "방한")
+
+    elif phase == "taking":
+        wardrobe_id = agent._find_wardrobe_id()
+        if wardrobe_id:
+            # 보온 아이템 꺼내기
+            _take_warm_items_from_container(agent, wardrobe_id)
+            # 방수 아이템도 꺼내기
+            _take_waterproof_items_from_container(agent, wardrobe_id)
+        agent._memory["cold_phase"] = "equipping"
+        agent._action_taken = True
+
+    elif phase == "equipping":
+        _equip_warm_items(agent.unit_id)
+        agent._memory["cold_phase"] = None
+        agent._memory["cold_last_attempt"] = morld.get_game_time()
+        agent._action_taken = True
+
+
+def _has_warm_items_in_inventory(unit_id):
+    """인벤토리에 미장착 보온/방수 아이템이 있는지"""
+    import equipment
+    inv = morld.get_unit_inventory(unit_id)
+    if not inv:
+        return False
+    equipped = set(equipment.get_equipped_items(unit_id))
+    for item_id, count in inv.items():
+        if count <= 0 or item_id in equipped:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                ep = info.get("equip_props", {})
+                if ep.get("보온", 0) > 0 or ep.get("방수", 0) > 0:
+                    return True
+        except Exception:
+            pass
+    return False
+
+
+def _take_warm_items_from_container(agent, container_id):
+    """컨테이너에서 보온 아이템을 NPC 인벤토리로 이동"""
+    inv = morld.get_unit_inventory(container_id)
+    if not inv:
+        return
+    for item_id, count in list(inv.items()):
+        if count <= 0:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if info and info.get("equip_props", {}).get("보온", 0) > 0:
+                morld.remove_item(container_id, item_id, 1)
+                morld.give_item(agent.unit_id, item_id, 1)
+        except Exception:
+            pass
+
+
+def _take_waterproof_items_from_container(agent, container_id):
+    """컨테이너에서 방수 아이템을 NPC 인벤토리로 이동"""
+    inv = morld.get_unit_inventory(container_id)
+    if not inv:
+        return
+    for item_id, count in list(inv.items()):
+        if count <= 0:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if info and info.get("equip_props", {}).get("방수", 0) > 0:
+                morld.remove_item(container_id, item_id, 1)
+                morld.give_item(agent.unit_id, item_id, 1)
+        except Exception:
+            pass
+
+
+def _equip_warm_items(unit_id):
+    """인벤토리의 보온/방수 아이템 전부 장착"""
+    import equipment
+    inv = morld.get_unit_inventory(unit_id)
+    if not inv:
+        return
+    equipped = set(equipment.get_equipped_items(unit_id))
+    for item_id, count in inv.items():
+        if count <= 0 or item_id in equipped:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                ep = info.get("equip_props", {})
+                if ep.get("보온", 0) > 0 or ep.get("방수", 0) > 0:
+                    equipment.equip_item(unit_id, item_id)
+        except Exception:
+            pass
+
+
+# ========================================
+# 더위 핸들러 (보온 의류 벗기)
+# ========================================
+
+def _handle_hot(agent):
+    """더위: 보온 의류 벗기 → (옷장 위치면) 저장"""
+    phase = agent._memory["hot_phase"]
+
+    if phase == "idle":
+        agent._memory["hot_phase"] = "unequipping"
+        _handle_hot(agent)
+        return
+
+    elif phase == "unequipping":
+        _unequip_warm_items(agent.unit_id)
+        # 옷장 location에 있으면 저장
+        if agent.wardrobe_location and agent._is_at(agent.wardrobe_location):
+            agent._memory["hot_phase"] = "storing"
+            agent._action_taken = True
+        else:
+            agent._memory["hot_phase"] = None
+            agent._action_taken = True
+
+    elif phase == "storing":
+        wardrobe_id = agent._find_wardrobe_id()
+        if wardrobe_id:
+            _store_warm_items_to_container(agent, wardrobe_id)
+        agent._memory["hot_phase"] = None
+        agent._action_taken = True
+
+
+def _unequip_warm_items(unit_id):
+    """장착 중인 보온 아이템 전부 벗기"""
+    import equipment
+    equipped = equipment.get_equipped_items(unit_id)
+    for item_id in equipped:
+        try:
+            info = morld.get_item_info(item_id)
+            if info and info.get("equip_props", {}).get("보온", 0) > 0:
+                equipment.unequip_item(unit_id, item_id)
+        except Exception:
+            pass
+
+
+def _store_warm_items_to_container(agent, container_id):
+    """인벤토리의 보온 아이템을 컨테이너에 저장"""
+    import equipment
+    inv = morld.get_unit_inventory(agent.unit_id)
+    if not inv:
+        return
+    equipped = set(equipment.get_equipped_items(agent.unit_id))
+    for item_id, count in list(inv.items()):
+        if count <= 0 or item_id in equipped:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if info and info.get("equip_props", {}).get("보온", 0) > 0:
+                morld.remove_item(agent.unit_id, item_id, 1)
+                morld.give_item(container_id, item_id, 1)
+        except Exception:
+            pass
 
 
 def register_agent(unit_id, agent):

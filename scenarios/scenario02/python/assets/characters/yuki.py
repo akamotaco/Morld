@@ -901,6 +901,7 @@ class YukiAgent(BaseAgent):
     bath_location = {"region_id": 2, "location_id": 5, "x": 150}  # 은신처 드럼통
     food_storage_location = {"region_id": 2, "location_id": 5, "x": 120}  # 은신처 식량함
     food_storage_unique_id = "food_storage"
+    wardrobe_location = {"region_id": 2, "location_id": 6, "x": 120}  # 의류점 옷걸이
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

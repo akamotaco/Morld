@@ -356,8 +356,12 @@ class ClothingStore(Location):
             # 황폐한 의류
             WornOutJacket, FadedDress, MilitaryBoots, TacticalVest, CamouflagePants,
             # 기타
-            Sunglasses, DenimJacket, TrackSuit
+            Sunglasses, DenimJacket, TrackSuit,
+            # 방한/방수
+            WarmCoat, MensBomberJacket, MensBeanie, WarmBoots,
+            HoodedCloak, RainCoat,
         )
+        from assets.items.equipment import Umbrella
 
         # 남성/유니섹스 의류
         item = MensTShirt(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
@@ -384,3 +388,11 @@ class ClothingStore(Location):
         item = CamouflagePants(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
         # 악세서리
         item = Sunglasses(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        # 방한/방수 의류
+        item = WarmCoat(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = MensBomberJacket(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = MensBeanie(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = WarmBoots(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = HoodedCloak(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = RainCoat(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+        item = Umbrella(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)

@@ -11,6 +11,8 @@
 
 import morld
 import ui
+import temperature
+import humidity
 from assets.base import Object
 
 
@@ -604,6 +606,9 @@ class Bathtub(Object):
 
     def use(self):
         """목욕하기"""
+        player_id = morld.get_player_id()
+        humidity.dry_unit(player_id, 100)
+        temperature.warm_character(player_id, 2.0)
         yield ui.dialog([
             "따뜻한 물을 받아 목욕했다.",
             "몸이 개운해졌다."
@@ -670,17 +675,27 @@ class WaterTap(Object):
 
 
 class DrumBath(Object):
-    """간이 드럼통 욕조 - 도심 은신처용"""
+    """간이 드럼통 욕조 - 도심 은신처용 (열원 겸용)"""
     unique_id = "drum_bath"
     name = "간이 드럼통 욕조"
     actions = ["call:use:목욕하기", "call:debug_props:(디버그) 속성 보기#"]
     props = {
         "action:bath": 1,
+        "light:on": 1,
+        "heat:output": 5,
+        "heat:depth": 0,
     }
     focus_text = {"default": "큰 드럼통을 잘라 만든 간이 욕조. 물을 데워 쓸 수 있다."}
 
+    def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
+        super().instantiate(instance_id, region_id, location_id, x, y)
+        temperature.register_heat_source(instance_id, region_id, location_id)
+
     def use(self):
         """목욕하기"""
+        player_id = morld.get_player_id()
+        humidity.dry_unit(player_id, 100)
+        temperature.warm_character(player_id, 2.0)
         yield ui.dialog([
             "드럼통에 데운 물을 받아 몸을 씻었다.",
             "좁지만... 없는 것보단 낫다."

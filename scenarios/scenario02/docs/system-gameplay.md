@@ -170,9 +170,27 @@ class Fireplace(Object):
         "heat:output": 15,   # +15°C
         "heat:depth": 1,     # 인접 1칸까지
     }
+
+class DrumBath(Object):
+    props = {
+        "action:bath": 1,
+        "light:on": 1,       # 물 데우는 불 (상시)
+        "heat:output": 5,    # +5°C (약한 열원)
+        "heat:depth": 0,     # 해당 location에만
+    }
 ```
 
 BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
+
+은신처 총 열원: PortableStove(8) + DrumBath(5) = **13°C** (저택 Fireplace 15에 근접)
+
+### 목욕 체온 효과
+
+Bathtub(저택), DrumBath(은신처) 사용 시:
+- **체온 +2°C** — `temperature.warm_character(player_id, 2.0)`
+- **젖음 완전 제거** — `humidity.dry_unit(player_id, 100)`
+
+NPC `_handle_bath()`도 동일 효과 적용 (목욕 location 도착 시).
 
 ### 캐릭터 체온
 
@@ -231,6 +249,14 @@ temperature.register_heat_source(unit_id, region_id, location_id)
 # Location 열전달률 (바람, 특수 환경 등)
 temperature.set_location_transfer_rate(region_id, location_id, 1.5)  # 바람
 temperature.get_location_transfer_rate(region_id, location_id)       # → float (기본 1.0)
+
+# 체온 즉시 조작 (목욕 등)
+temperature.warm_character(unit_id, 2.0)           # 체온 +2°C (BODY_TEMP_MAX 제한)
+
+# NPC 인터럽트용 상태 확인
+temperature.is_cold(unit_id, threshold=35.5)       # → bool (체온 ≤ threshold)
+temperature.is_hot(unit_id, threshold=37.5)        # → bool (체온 ≥ threshold)
+temperature.get_insulation_total(unit_id)           # → float (장착 보온 합계)
 ```
 
 플레이어는 자동 추적 (register 불필요). NPC는 에이전트 `__init__`에서 `register_character()` 호출.

@@ -19,7 +19,7 @@
 | [system-api.md](scenarios/scenario02/docs/system-api.md) | morld Python API, Asset 클래스 | ~150 |
 | [dialog.md](scenarios/scenario02/docs/dialog.md) | 대화/리액션/묘사 시스템 (Lines, Rules 등) | ~250 |
 | [system-ui.md](scenarios/scenario02/docs/system-ui.md) | TextUI, 토글, 액션 필터링 | ~150 |
-| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 연애, 온도, 습도, 혼잡도, 텃밭 등 게임플레이 시스템 | ~600 |
+| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 연애, 온도, 습도, 혼잡도, 텃밭 등 게임플레이 시스템 | ~800 |
 
 ---
 

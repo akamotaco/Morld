@@ -35,7 +35,8 @@ class MilaRoom(Location):
 
         from assets.items.clothes import (
             Blouse, LongSkirt, Apron, MaidHeadband, SimpleShoes,
-            SimpleBra, SimplePanties, Stockings, Sweater, Pajamas
+            SimpleBra, SimplePanties, Stockings, Sweater, Pajamas,
+            TurtleneckSweater, WoolHat,
         )
 
         def add_to_wardrobe(item_class):
@@ -57,3 +58,6 @@ class MilaRoom(Location):
         add_to_wardrobe(MaidHeadband)
         add_to_wardrobe(Stockings)
         add_to_wardrobe(SimpleShoes)
+        # 방한
+        add_to_wardrobe(TurtleneckSweater)
+        add_to_wardrobe(WoolHat)

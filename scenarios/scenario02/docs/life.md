@@ -8,9 +8,11 @@
 > - Activity 결과물 → 채집→저장, 낚시→저장, 벌목, 요리, 청소(오염도 감소), 물자수집
 > - NPC 만복도 시스템 → `survival.py` (register_npc, is_npc_hungry, npc_eat)
 > - 배고픔 인터럽트 → think()에서 스케줄보다 우선 처리
+> - 추위/더위 인터럽트 → 방한/방수 의류 자동 착탈 (v0.2.2)
 > - 동적 스케줄 → 조건 기반 활동 선택 (`dynamic: True`, `candidates`)
 > - 자원 순환 → 채집→저장→요리→식사 파이프라인
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
+> - 텃밭 활동 → 정원 4-phase (idle/going/working/storing_harvest)
 >
 > **미구현 항목:** 배변욕, 수면욕, 사회욕, NPC 주도 상호작용
 >
@@ -348,6 +350,79 @@ class ToiletBehavior:
 
 ---
 
+## 2-B. 추위/더위 인터럽트 — 구현됨 (v0.2.2)
+
+> `think/__init__.py` — 배고픔 인터럽트와 같은 계층에서 동작
+
+### think() 우선순위
+
+```
+기절(최우선) > 목욕/수면 > 배고픔 > 추위 > 더위 > 일반 활동
+```
+
+### 추위 인터럽트 (`_check_cold` → `_handle_cold`)
+
+**트리거 조건** (모두 충족):
+1. 체온 ≤ 35.5 AND 보온 < 2, **OR** 비 + 젖음 > 30 + 방수 < 1
+2. `wardrobe_location` 설정됨 (옷장 접근 가능)
+3. 1시간 쿨다운 경과 (`_memory["cold_last_attempt"]`)
+
+**페이즈 흐름** (`_memory["cold_phase"]`):
+```
+None → idle → going → taking → equipping → None
+```
+
+| 페이즈 | 동작 |
+|--------|------|
+| `idle` | 인벤토리에 보온 아이템 있으면 → `equipping`, 없으면 → `going` |
+| `going` | `wardrobe_location`으로 이동 (move job) |
+| `taking` | 옷장에서 보온/방수 아이템 꺼내기 (`npc_take_item`) |
+| `equipping` | 인벤토리의 보온/방수 아이템 장착 (`equipment.equip_item`) → 완료 |
+
+### 더위 인터럽트 (`_check_hot` → `_handle_hot`)
+
+**트리거 조건** (모두 충족):
+1. 체온 ≥ 37.5
+2. 보온 합계 > 0 (보온 의류 착용 중)
+3. `wardrobe_location` 설정됨
+
+**페이즈 흐름** (`_memory["hot_phase"]`):
+```
+None → idle → unequipping → storing → None
+```
+
+| 페이즈 | 동작 |
+|--------|------|
+| `idle` | → `unequipping` |
+| `unequipping` | 보온 아이템 벗기 (`equipment.unequip_item`), 이동 불필요 |
+| `storing` | 옷장 location이면 옷장에 넣기, 아니면 인벤토리 보관 → 완료 |
+
+### wardrobe_location 설정
+
+각 NPC 에이전트에 `wardrobe_location` dict 설정:
+
+| NPC | wardrobe_location | 위치 |
+|-----|-------------------|------|
+| 세라 | `{"region_id": 0, "location_id": 8, "x": 25}` | 세라방 옷장 |
+| 밀라 | `{"region_id": 0, "location_id": 9, "x": 25}` | 밀라방 옷장 |
+| 리나 | `{"region_id": 0, "location_id": 7, "x": 25}` | 리나방 옷장 |
+| 유키 | `{"region_id": 2, "location_id": 6, "x": 120}` | 의류점 |
+| 엘라 | `{"region_id": 2, "location_id": 6, "x": 120}` | 의류점 |
+
+`BaseAgent`에 `wardrobe_location = None` (기본: 비활성). `wardrobe_unique_id = "wardrobe"`.
+
+### _memory 키
+
+```python
+self._memory = {
+    "cold_phase": None,         # None/idle/going/taking/equipping
+    "cold_last_attempt": None,  # 실패 시 쿨다운 타임스탬프
+    "hot_phase": None,          # None/idle/unequipping/storing
+}
+```
+
+---
+
 ## 3. 소유물 기반 행동
 
 ### 소유물 인식
@@ -680,7 +755,8 @@ class LifeAgent(BaseAgent):
 | 2a | 욕구 props 정의 (배고픔) | 없음 | 낮음 | **구현됨** (생존:포만감) |
 | 2b | 욕구 증가/감소 로직 (배고픔) | 2a | 중간 | **구현됨** (survival.py) |
 | 2c | 긴급 행동 트리거 (배고픔) | 2b, 1b | 중간 | **구현됨** (_check_hunger) |
-| 2d | 배변/수면/사회욕 | 2a | 중간 | 미구현 |
+| 2d | 추위/더위 인터럽트 | 체온 시스템 | 중간 | **구현됨** (_check_cold/_check_hot) |
+| 2e | 배변/수면/사회욕 | 2a | 중간 | 미구현 |
 | 3a | 소유물 검색 API | 없음 | 중간 | 미구현 |
 | 3b | 도구 기반 Activity | 3a | 중간 | **구현됨** (벌목 도끼, 낚시대) |
 | 3c | 결과물 저장소 이동 | 3a, 1b | 높음 | **구현됨** (채집→저장, 낚시→저장, 요리→저장) |

@@ -36,7 +36,8 @@ class SeraRoom(Location):
 
         from assets.items.clothes import (
             LinenShirt, LinenPants, HuntingVest, HuntingCap, LeatherBoots,
-            SportsBra, CottonPanties, SimpleSocks, TankTop
+            SportsBra, CottonPanties, SimpleSocks, TankTop,
+            WarmCoat, WoolHat,
         )
 
         def add_to_wardrobe(item_class):
@@ -57,3 +58,6 @@ class SeraRoom(Location):
         add_to_wardrobe(HuntingCap)
         add_to_wardrobe(SimpleSocks)
         add_to_wardrobe(LeatherBoots)
+        # 방한
+        add_to_wardrobe(WarmCoat)
+        add_to_wardrobe(WoolHat)

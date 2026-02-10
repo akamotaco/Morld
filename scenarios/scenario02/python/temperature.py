@@ -438,6 +438,28 @@ def get_location_transfer_rate(region_id, location_id):
     return _location_transfer_rate.get((region_id, location_id), 1.0)
 
 
+def warm_character(unit_id, amount):
+    """체온 즉시 올림 (목욕 등). amount만큼 상승, BODY_TEMP_MAX 제한"""
+    current = get_body_temperature(unit_id)
+    new_temp = min(BODY_TEMP_MAX, current + amount)
+    set_body_temperature(unit_id, new_temp)
+
+
+def is_cold(unit_id, threshold=35.5):
+    """체온이 threshold 이하인지 확인 (NPC cold interrupt용)"""
+    return get_body_temperature(unit_id) <= threshold
+
+
+def is_hot(unit_id, threshold=37.5):
+    """체온이 threshold 이상인지 확인 (NPC hot interrupt용)"""
+    return get_body_temperature(unit_id) >= threshold
+
+
+def get_insulation_total(unit_id):
+    """장착 의류의 총 보온 수치 반환"""
+    return _get_equip_prop_total(unit_id, "보온")
+
+
 # === 모듈 로드 시 이벤트 구독 (1시간 간격) ===
 
 subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)

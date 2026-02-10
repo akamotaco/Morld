@@ -1100,6 +1100,7 @@ class SeraAgent(BaseAgent):
     owner_unique_id = "sera"
     sleep_location = {"region_id": 0, "location_id": 8, "x": 120}  # 세라방
     bath_location = {"region_id": 0, "location_id": 4, "x": 15}  # 욕실
+    wardrobe_location = {"region_id": 0, "location_id": 8, "x": 25}  # 세라방 옷장
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
