@@ -178,8 +178,16 @@ BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
 
 Location 온도, 젖음, 장비 보온에 따라 매시간 수렴합니다.
 
+체열 가둠 + 환경 열교환 모델:
+- **보온**: 체열을 가두어 항상 체온↑ (여름 = 옷 벗기, 겨울 = 옷 입기)
+- **열전달률**: location별 수정자 (실내 0.7, 실외 1.0, 바람 1.5 등)
+- **방풍**: 열전달률을 낮춰 환경 영향 감소
+
 ```
-target = 36.5 + (location_temp - 20) × 0.1 + insulation × 0.5 - (wetness / 100) × 2.0
+trapped_heat = 36.5 × insulation × 0.005         (체열 가둠, 항상 +)
+effective_rate = max(0.3, loc_rate - windproof × 0.3)
+env_change = (loc_temp - 36.5) × 0.04 × effective_rate  (환경 열교환)
+target = 36.5 + trapped_heat + env_change - (wetness / 100) × 2.0
 new = current + (target - current) × 0.3
 clamp(34.0, 40.0)
 ```
@@ -187,16 +195,22 @@ clamp(34.0, 40.0)
 | 상수 | 값 | 설명 |
 |------|---|------|
 | `NORMAL_BODY_TEMP` | 36.5 | 정상 체온 |
-| `TEMP_SENSITIVITY` | 0.1 | location 온도 영향 계수 |
-| `INSULATION_BONUS` | 0.5 | 보온 1당 target +0.5℃ |
+| `HEAT_TRANSFER_RATE` | 0.04 | 기본 열전달률 (체온↔환경) |
+| `INSULATION_HEAT_COEFF` | 0.005 | 보온 1당 체열 가둠 계수 (체온의 0.5%) |
+| `INDOOR_TRANSFER_RATE` | 0.7 | 실내 기본 열전달률 수정자 |
+| `OUTDOOR_TRANSFER_RATE` | 1.0 | 실외 기본 열전달률 수정자 |
+| `WINDPROOF_REDUCTION` | 0.3 | 방풍 1당 열전달률 -0.3 |
+| `TRANSFER_RATE_MIN` | 0.3 | 열전달률 하한 |
 | `WETNESS_TEMP_PENALTY` | 2.0 | 100% 젖음 시 target -2℃ |
 | `BODY_CONVERGENCE_RATE` | 0.3 | 시간당 30% 수렴 |
 
-보온은 장착 아이템의 `equip_props`에서 `"보온"` 값을 합산합니다.
-예: 코트(보온2) + 부츠(보온1) = target +1.5℃
-
-예시: location 0℃, 젖음 0%, 보온 0 → target 34.5℃
-예시: location 0℃, 젖음 0%, 보온 3 → target 36.0℃
+| loc_temp | 보온 | loc_rate | 방풍 | target |
+|----------|------|---------|------|--------|
+| 20℃(실외) | 0 | 1.0 | 0 | 35.8 |
+| 20℃(실내) | 2 | 0.7 | 0 | 36.4 |
+| -5℃(바람) | 0 | 1.5 | 0 | 34.0 |
+| -5℃(바람) | 7 | 1.5 | 1 | 35.8 |
+| 33℃(실외) | 0 | 1.0 | 0 | 36.4 |
 
 ### Python API
 
@@ -213,6 +227,10 @@ temperature.set_body_temperature(unit_id, value)     # 체온 설정
 
 # 열원 등록
 temperature.register_heat_source(unit_id, region_id, location_id)
+
+# Location 열전달률 (바람, 특수 환경 등)
+temperature.set_location_transfer_rate(region_id, location_id, 1.5)  # 바람
+temperature.get_location_transfer_rate(region_id, location_id)       # → float (기본 1.0)
 ```
 
 플레이어는 자동 추적 (register 불필요). NPC는 에이전트 `__init__`에서 `register_character()` 호출.
@@ -367,6 +385,23 @@ actual_gain = gain × (1 - reduction)
 | 우비+우산 | 3 | 90% (상한) |
 
 매시간 젖음과 on_reach 즉시 효과 모두에 적용됩니다.
+
+### 방풍 (Windproof)
+
+장착 아이템의 `equip_props`에서 `"방풍"` 값을 합산하여 환경 열전달률을 감소시킵니다.
+
+```
+effective_rate = max(0.3, loc_rate - 방풍합계 × 0.3)
+```
+
+| 아이템 | 방풍 |
+|--------|------|
+| 후드 망토 | 1 |
+| 항공 자켓 | 1 |
+| 우비 | 1 |
+
+location 열전달률이 높을수록 (바람 등) 체온이 환경 온도에 더 빨리 영향받습니다.
+방풍은 이 효과를 줄여줍니다. `set_location_transfer_rate(r, l, rate)`로 설정 가능.
 
 ### 건조 (매시간)
 

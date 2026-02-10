@@ -47,9 +47,13 @@ REGION_IDS = [0, 2, 3]
 PROP_BODY_TEMP = "체온"
 NORMAL_BODY_TEMP = 36.5         # 정상 체온 (°C)
 BODY_CONVERGENCE_RATE = 0.3     # 시간당 30% 수렴
-TEMP_SENSITIVITY = 0.1          # location 온도 → 체온 영향 계수
+HEAT_TRANSFER_RATE = 0.04       # 기본 열전달률 (체온↔환경)
+INSULATION_HEAT_COEFF = 0.005   # 보온 1당 체열 가둠 계수 (체온의 0.5%)
 WETNESS_TEMP_PENALTY = 2.0      # 100% 젖으면 target -2℃
-INSULATION_BONUS = 0.5          # 보온 1당 target +0.5℃
+INDOOR_TRANSFER_RATE = 0.7      # 실내 기본 열전달률 수정자
+OUTDOOR_TRANSFER_RATE = 1.0     # 실외 기본 열전달률 수정자
+WINDPROOF_REDUCTION = 0.3       # 방풍 1당 열전달률 -0.3
+TRANSFER_RATE_MIN = 0.3         # 열전달률 하한 (완전 차단 불가)
 BODY_TEMP_MIN = 34.0
 BODY_TEMP_MAX = 40.0
 
@@ -67,6 +71,9 @@ _heat_sources = {}
 
 # (region_id, location_id) → bool
 _location_indoor = {}
+
+# (region_id, location_id) → float (열전달률 수정자, 기본 1.0)
+_location_transfer_rate = {}
 
 # 체온 추적 대상: set of unit_id
 _tracked_characters = set()
@@ -106,6 +113,7 @@ def reset():
     _adjacency.clear()
     _heat_sources.clear()
     _location_indoor.clear()
+    _location_transfer_rate.clear()
     _tracked_characters.clear()
 
 
@@ -163,8 +171,9 @@ def _ensure_initialized():
     else:
         outdoor = 15.0
 
-    for key in _location_indoor:
+    for key, is_indoor in _location_indoor.items():
         _location_temps[key] = float(outdoor)
+        _location_transfer_rate[key] = INDOOR_TRANSFER_RATE if is_indoor else OUTDOOR_TRANSFER_RATE
 
     print(f"[temperature] Initialized: {len(_location_indoor)} locations, outdoor={outdoor:.1f}°C")
 
@@ -340,13 +349,18 @@ def _update_characters():
         # 현재 체온
         current = get_body_temperature(unit_id)
 
-        # 목표 체온: 정상 + (location 온도 - 20) × 감도
-        target = NORMAL_BODY_TEMP + (loc_temp - 20) * TEMP_SENSITIVITY
-
-        # 보온 보정: 장비의 보온 prop 합산
+        # 보온에 의한 체열 가둠 (항상 양수 — 여름엔 과열 유발)
         insulation = _get_equip_prop_total(unit_id, "보온")
-        if insulation > 0:
-            target += insulation * INSULATION_BONUS
+        trapped_heat = NORMAL_BODY_TEMP * insulation * INSULATION_HEAT_COEFF
+
+        # 환경 열교환: (환경 - 체온) × 열전달률 × location 수정자 × 방풍
+        loc_rate = _location_transfer_rate.get((region_id, location_id), 1.0)
+        windproof = _get_equip_prop_total(unit_id, "방풍")
+        effective_rate = max(TRANSFER_RATE_MIN, loc_rate - windproof * WINDPROOF_REDUCTION)
+        env_change = (loc_temp - NORMAL_BODY_TEMP) * HEAT_TRANSFER_RATE * effective_rate
+
+        # 목표 체온 = 정상 + 체열가둠 + 환경영향
+        target = NORMAL_BODY_TEMP + trapped_heat + env_change
 
         # 젖음 보정: 젖을수록 체감 온도 하락
         try:
@@ -412,6 +426,16 @@ def get_temperature(region_id, location_id):
     if _initialized and key not in _location_temps:
         raise KeyError(f"[temperature] Unknown location {key}. {len(_location_temps)} locations registered")
     return _location_temps.get(key)
+
+
+def set_location_transfer_rate(region_id, location_id, rate):
+    """location 열전달률 수동 설정 (바람, 특수 환경 등)"""
+    _location_transfer_rate[(region_id, location_id)] = float(rate)
+
+
+def get_location_transfer_rate(region_id, location_id):
+    """location 열전달률 조회 (기본 1.0)"""
+    return _location_transfer_rate.get((region_id, location_id), 1.0)
 
 
 # === 모듈 로드 시 이벤트 구독 (1시간 간격) ===

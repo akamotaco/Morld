@@ -767,7 +767,7 @@ class HoodedCloak(Clothing):
     """후드 달린 망토"""
     unique_id = "hooded_cloak"
     name = "후드 망토"
-    equip_props = {"착용:망토": 1, "분위기:신비로움": 1, "분위기:따뜻함": 1, "보온": 1}
+    equip_props = {"착용:망토": 1, "분위기:신비로움": 1, "분위기:따뜻함": 1, "보온": 1, "방풍": 1}
     value = 45
 
     def look(self):
@@ -1194,7 +1194,7 @@ class MensBomberJacket(Clothing):
     """남성용 항공 자켓"""
     unique_id = "mens_bomber_jacket"
     name = "항공 자켓"
-    equip_props = {"착용:외투": 1, "분위기:멋짐": 1, "분위기:따뜻함": 1, "보온": 1}
+    equip_props = {"착용:외투": 1, "분위기:멋짐": 1, "분위기:따뜻함": 1, "보온": 1, "방풍": 1}
     value = 50
 
     def look(self):
@@ -1341,7 +1341,7 @@ class RainCoat(Clothing):
     """우비"""
     unique_id = "rain_coat"
     name = "우비"
-    equip_props = {"착용:외투": 1, "방수": 2, "분위기:활동적": 1}
+    equip_props = {"착용:외투": 1, "방수": 2, "방풍": 1, "분위기:활동적": 1}
     value = 25
 
     def look(self):
