@@ -49,6 +49,7 @@ NORMAL_BODY_TEMP = 36.5         # 정상 체온 (°C)
 BODY_CONVERGENCE_RATE = 0.3     # 시간당 30% 수렴
 TEMP_SENSITIVITY = 0.1          # location 온도 → 체온 영향 계수
 WETNESS_TEMP_PENALTY = 2.0      # 100% 젖으면 target -2℃
+INSULATION_BONUS = 0.5          # 보온 1당 target +0.5℃
 BODY_TEMP_MIN = 34.0
 BODY_TEMP_MAX = 40.0
 
@@ -287,6 +288,27 @@ def _on_time_elapsed(millis):
             _location_temps[key] = max(TEMP_MIN, min(TEMP_MAX, new_temp))
 
 
+# === 캐릭터 체온 헬퍼 ===
+
+def _get_equip_prop_total(unit_id, prop_name):
+    """장착 아이템의 equip_prop 합산"""
+    try:
+        equipped = morld.get_equipped_items(unit_id)
+    except Exception:
+        return 0
+    if not equipped:
+        return 0
+    total = 0
+    for item_id in equipped:
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                total += info.get("equip_props", {}).get(prop_name, 0)
+        except Exception:
+            pass
+    return total
+
+
 # === 캐릭터 체온 업데이트 ===
 
 def _update_characters():
@@ -320,6 +342,11 @@ def _update_characters():
 
         # 목표 체온: 정상 + (location 온도 - 20) × 감도
         target = NORMAL_BODY_TEMP + (loc_temp - 20) * TEMP_SENSITIVITY
+
+        # 보온 보정: 장비의 보온 prop 합산
+        insulation = _get_equip_prop_total(unit_id, "보온")
+        if insulation > 0:
+            target += insulation * INSULATION_BONUS
 
         # 젖음 보정: 젖을수록 체감 온도 하락
         try:

@@ -55,6 +55,8 @@ WETNESS_MAX = 100
 # 실내 습도 (비 영향 없음, 고정)
 INDOOR_HUMIDITY = 35
 
+WATERPROOF_REDUCTION = 0.4  # 방수 1당 40% 젖음 감소
+
 PROP_WETNESS = "습도:젖음"
 REGION_IDS = [0, 2, 3]
 
@@ -245,8 +247,12 @@ def _on_time_elapsed(millis):
             current = _get_wetness(unit_id)
 
             if raining:
+                # 방수 보정
+                waterproof = _get_equip_prop_total(unit_id, "방수")
+                reduction = min(0.9, waterproof * WATERPROOF_REDUCTION)
+                actual_gain = gain * (1 - reduction)
                 # 실외 + 비/눈: 캐릭터 젖음 증가
-                _set_wetness(unit_id, min(WETNESS_MAX, current + gain))
+                _set_wetness(unit_id, min(WETNESS_MAX, current + actual_gain))
 
                 # 장비도 젖음
                 try:
@@ -276,6 +282,27 @@ def _on_time_elapsed(millis):
                 _set_wetness(unit_id, new_val)
 
 
+# === 방수 헬퍼 ===
+
+def _get_equip_prop_total(unit_id, prop_name):
+    """장착 아이템의 equip_prop 합산"""
+    try:
+        equipped = morld.get_equipped_items(unit_id)
+    except Exception:
+        return 0
+    if not equipped:
+        return 0
+    total = 0
+    for item_id in equipped:
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                total += info.get("equip_props", {}).get(prop_name, 0)
+        except Exception:
+            pass
+    return total
+
+
 # === on_reach ===
 
 def on_unit_reach(unit_id, region_id, location_id):
@@ -300,7 +327,10 @@ def on_unit_reach(unit_id, region_id, location_id):
     if gain <= 0:
         return
 
-    immediate = gain * 0.25
+    # 방수 보정
+    waterproof = _get_equip_prop_total(unit_id, "방수")
+    reduction = min(0.9, waterproof * WATERPROOF_REDUCTION)
+    immediate = gain * 0.25 * (1 - reduction)
     current = _get_wetness(unit_id)
     new_val = min(WETNESS_MAX, current + immediate)
     _set_wetness(unit_id, new_val)

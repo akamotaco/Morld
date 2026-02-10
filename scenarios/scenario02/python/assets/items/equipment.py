@@ -385,3 +385,21 @@ class WoodenSword(Item):
             "나무를 깎아 만든 목검이다.",
             "진짜 검보다는 약하지만, 없는 것보다는 낫다."
         ])
+
+
+# ========================================
+# 방수 장비
+# ========================================
+
+@register_item
+class Umbrella(Item):
+    """우산 — 장착 시 방수 효과"""
+    unique_id = "umbrella"
+    name = "우산"
+    equip_props = {"방수": 1, "장착:손": 1}
+    value = 15
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """우산 살펴보기"""
+        yield ui.dialog("비를 막아주는 우산이다.")

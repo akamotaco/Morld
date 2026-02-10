@@ -1341,7 +1341,7 @@ class RainCoat(Clothing):
     """우비"""
     unique_id = "rain_coat"
     name = "우비"
-    equip_props = {"착용:외투": 1, "분위기:활동적": 1}
+    equip_props = {"착용:외투": 1, "방수": 2, "분위기:활동적": 1}
     value = 25
 
     def look(self):

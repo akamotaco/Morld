@@ -176,10 +176,10 @@ BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
 
 ### 캐릭터 체온
 
-Location 온도와 젖음 수치에 따라 매시간 수렴합니다 (현재 표시 전용).
+Location 온도, 젖음, 장비 보온에 따라 매시간 수렴합니다.
 
 ```
-target = 36.5 + (location_temp - 20) × 0.1 - (wetness / 100) × 2.0
+target = 36.5 + (location_temp - 20) × 0.1 + insulation × 0.5 - (wetness / 100) × 2.0
 new = current + (target - current) × 0.3
 clamp(34.0, 40.0)
 ```
@@ -188,11 +188,15 @@ clamp(34.0, 40.0)
 |------|---|------|
 | `NORMAL_BODY_TEMP` | 36.5 | 정상 체온 |
 | `TEMP_SENSITIVITY` | 0.1 | location 온도 영향 계수 |
+| `INSULATION_BONUS` | 0.5 | 보온 1당 target +0.5℃ |
 | `WETNESS_TEMP_PENALTY` | 2.0 | 100% 젖음 시 target -2℃ |
 | `BODY_CONVERGENCE_RATE` | 0.3 | 시간당 30% 수렴 |
 
-예시: location 0℃, 젖음 0% → target 34.5℃
-예시: location 10℃, 젖음 50% → target 34.5℃
+보온은 장착 아이템의 `equip_props`에서 `"보온"` 값을 합산합니다.
+예: 코트(보온2) + 부츠(보온1) = target +1.5℃
+
+예시: location 0℃, 젖음 0%, 보온 0 → target 34.5℃
+예시: location 0℃, 젖음 0%, 보온 3 → target 36.0℃
 
 ### Python API
 
@@ -346,6 +350,23 @@ C# 태그(`날씨:비`)는 변경 없이 호환됩니다.
 | 캐릭터 장비 | O | 착용 중인 아이템 |
 | 캐릭터 인벤토리 아이템 | X | 보호됨 |
 | 연쇄 전파 (젖은 오브젝트 → 아이템) | X | 없음 |
+
+### 방수 (Waterproof)
+
+장착 아이템의 `equip_props`에서 `"방수"` 값을 합산하여 젖음 획득량을 감소시킵니다.
+
+```
+reduction = min(0.9, 방수합계 × 0.4)
+actual_gain = gain × (1 - reduction)
+```
+
+| 아이템 | 방수 | 감소율 |
+|--------|------|--------|
+| 우산 | 1 | 40% |
+| 우비 | 2 | 80% |
+| 우비+우산 | 3 | 90% (상한) |
+
+매시간 젖음과 on_reach 즉시 효과 모두에 적용됩니다.
 
 ### 건조 (매시간)
 
