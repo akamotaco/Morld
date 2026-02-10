@@ -376,6 +376,7 @@ SCHEDULE = [
 - `요리`: `handle_cook()` → 냉장고 재료 확인 → 화로/아궁이 요리 → 결과물 저장
 - `청소`: `handle_clean()` → 빗자루(can:clean) 가져오기 → 오염 방 순회 청소 → 반납
 - `물자수집`: `handle_scavenge()` → ScavengeableObject 탐색 → 식량 보관함에 저장
+- `정원`: `handle_garden()` → 텃밭 이동 → 수확/물주기/씨심기 → 수확물 저장
 
 **`think/__init__.py` 내 (인라인):**
 - `식사`: `_handle_eat()` → 냉장고/보관함에서 음식 꺼내 먹기 (배고픔 인터럽트)
@@ -506,6 +507,7 @@ from .gather import handle_gather_store
 from .cook import handle_cook
 from .clean import handle_clean
 from .scavenge import handle_scavenge
+from .garden_activity import handle_garden
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
@@ -515,6 +517,7 @@ ACTIVITY_HANDLERS = {
     "요리": handle_cook,
     "청소": handle_clean,
     "물자수집": handle_scavenge,
+    "정원": handle_garden,
 }
 
 # think/__init__.py에서 import하여 사용:
@@ -532,15 +535,16 @@ else:
 
 ```
 think/activities/
-├── __init__.py      # ACTIVITY_HANDLERS dict (핸들러 등록)
-├── helpers.py       # 공용 헬퍼 (find_npc_food, store_food_items 등)
-├── lights.py        # 소등
-├── chop.py          # 벌목
-├── fish.py          # 낚시
-├── gather.py        # 채집→저장
-├── cook.py          # 요리
-├── clean.py         # 청소
-└── scavenge.py      # 물자수집
+├── __init__.py          # ACTIVITY_HANDLERS dict (핸들러 등록)
+├── helpers.py           # 공용 헬퍼 (find_npc_food, store_food_items, find_garden_location 등)
+├── lights.py            # 소등
+├── chop.py              # 벌목
+├── fish.py              # 낚시
+├── gather.py            # 채집→저장
+├── cook.py              # 요리
+├── clean.py             # 청소
+├── scavenge.py          # 물자수집
+└── garden_activity.py   # 정원 (텃밭 관리)
 ```
 
 새 활동 핸들러 추가 시: 모듈 파일 생성 → `__init__.py`에 import + dict 등록 → 스케줄에 activity 이름 지정
@@ -724,7 +728,7 @@ agent.push_schedule(work_order)
 
 ### Python
 - `think/__init__.py` - BaseAgent, Phase 시스템, 식사 핸들러, 동적 스케줄, 도구 관리
-- `think/activities/` - 활동 핸들러 패키지 (7종: 소등/벌목/낚시/채집/요리/청소/물자수집)
+- `think/activities/` - 활동 핸들러 패키지 (8종: 소등/벌목/낚시/채집/요리/청소/물자수집/정원)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (find_npc_food, store_food_items 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
 - `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)

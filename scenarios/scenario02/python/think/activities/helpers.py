@@ -129,6 +129,27 @@ def find_indoor_room(agent):
     return None
 
 
+def find_garden_location(agent):
+    """텃밭(GardenBed) 위치 탐색 (거처 내)"""
+    from assets.objects import _location_objects, get_instance
+    from assets.objects.garden import GardenBed
+
+    home_region = agent._get_home_region()
+    for (r, l), obj_ids in _location_objects.items():
+        if r != home_region:
+            continue
+        for obj_id in obj_ids:
+            obj = get_instance(obj_id)
+            if obj and isinstance(obj, GardenBed):
+                return {
+                    "region_id": r,
+                    "location_id": l,
+                    "x": get_object_x_from_info(obj_id),
+                    "object_id": obj_id,
+                }
+    return None
+
+
 def find_polluted_room(agent):
     """오염도가 있는 거처 내 방 찾기 (아직 청소하지 않은 방)"""
     import pollution

@@ -13,6 +13,7 @@ from .gather import handle_gather_store
 from .cook import handle_cook
 from .clean import handle_clean
 from .scavenge import handle_scavenge
+from .garden_activity import handle_garden
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
@@ -22,4 +23,5 @@ ACTIVITY_HANDLERS = {
     "요리": handle_cook,
     "청소": handle_clean,
     "물자수집": handle_scavenge,
+    "정원": handle_garden,
 }

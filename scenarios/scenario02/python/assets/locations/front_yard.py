@@ -3,6 +3,7 @@
 from assets.base import Location
 from assets.objects.grounds import GroundGrass
 from assets.objects.outdoor import GardenBench
+from assets.objects.garden import GardenBed
 
 
 class FrontYard(Location):
@@ -28,3 +29,6 @@ class FrontYard(Location):
 
         # 정원 벤치 배치
         self.add_object(GardenBench(), x=300)
+
+        # 텃밭 배치
+        self.add_object(GardenBed(), x=150)

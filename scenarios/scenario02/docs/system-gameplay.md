@@ -537,11 +537,12 @@ load_chapter("chapter_1") → 35+ location 추가
 
 ```python
 # load_chapter() step 2.1
-import temperature, humidity, congestion, sound
+import temperature, humidity, congestion, sound, garden
 temperature.reset()
 humidity.reset()
 congestion.reset()
 sound.reset()
+garden.reset()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -554,6 +555,7 @@ sound.reset()
 | `humidity.py` | humidity, indoor, intensity, last_weather | |
 | `congestion.py` | capacity, population, last_sync_day | 재초기화 시 인구 재스캔 |
 | `sound.py` | adjacency, location_info | hearing/heard_events는 유지 |
+| `garden.py` | _registered_gardens | GardenBed.instantiate()에서 재등록 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---
@@ -609,6 +611,106 @@ sound.flush()                                             # step 종료 시 초�
 ```
 
 `SoundEvent` 속성: `sound_type`, `category`, `intensity`, `source_id`, `source_location`, `distance`, `hops`
+
+---
+
+## 텃밭 시스템 (Garden System)
+
+> `garden.py` + `assets/objects/garden.py` — 순수 Python, C# 변경 없음
+
+텃밭(GardenBed)에 씨앗을 심고, 수분/비료를 관리하여 작물을 수확하는 시스템.
+
+### 텃밭 구조
+
+| Prop | 범위 | 설명 |
+|------|------|------|
+| `이랑수` | 정수 (기본 4) | 이랑 개수 |
+| `수분` | 0-100 | 텃밭 수분 (공유, 시간당 -3 감소) |
+| `비료` | 0-100 | 텃밭 비료 (공유, 시간당 -2 감소) |
+| `씨앗:N` | 0-5 | N번째 이랑 씨앗 코드 (0=비어있음) |
+| `성장:N` | 0-100 | N번째 이랑 성장도 (100=수확 가능) |
+
+### 씨앗 레지스트리 (SEED_REGISTRY)
+
+| 코드 | 씨앗 | 수확물 | 성장/시간 | ~소요시간 | 수확량 | 씨앗 확률 |
+|------|------|--------|-----------|-----------|--------|-----------|
+| 1 | 감자 씨앗 | 감자 | 3 | ~34h | 2-4개 | 30% |
+| 2 | 토마토 씨앗 | 토마토 | 2 | ~50h | 3-5개 | 25% |
+| 3 | 당근 씨앗 | 당근 | 4 | ~25h | 2-3개 | 20% |
+| 4 | 약초 씨앗 | 약초(기존) | 3 | ~34h | 1-3개 | 35% |
+| 5 | 양배추 씨앗 | 양배추 | 2 | ~50h | 1-2개 | 40% |
+
+### 성장 수식 (매시간)
+
+```
+if 수분 >= 10:
+    fertilizer_bonus = 1.0 + 비료 / 100.0   # 1.0 ~ 2.0
+    성장 += base_rate × fertilizer_bonus
+    수분 -= 3   # 수분 감소
+    비료 -= 2   # 비료 감소
+
+if 비 오는 중:
+    rain_amount = {"가랑비": 5, "소나기": 15, "폭우": 25}
+    수분 = min(100, 수분 + rain_amount)
+```
+
+- 비료 100일 때: 성장속도 2배 (소요시간 절반)
+- 수분 < 10: 성장 정지
+
+### 물 아이템
+
+| 아이템 | unique_id | 용량 | 효과 |
+|--------|-----------|------|------|
+| 물뿌리개 | watering_can | 3회 | 수분 +20 |
+| 물통 | water_bucket | 5회 | 수분 +20 |
+
+- Prop `물:양`: 0=비어있음, 1~N=남은 횟수
+- 싱크대/세면대에서 "물 받기" → 용량만큼 충전
+- 텃밭 "물 주기" → 횟수 -1, 수분 +20
+- "물 마시기" → 횟수 -1, 포만감 +5
+
+### 플레이어 액션
+
+| 액션 | 설명 | 소요 시간 |
+|------|------|-----------|
+| 살펴보기 | 수분/비료/이랑 상태 표시 | - |
+| 씨 심기 | 씨앗 선택 → 이랑 선택 → 씨앗 소비 | 10분 |
+| 물 주기 | 물 아이템 선택 → 수분 +20, 물 -1 | 10분 |
+| 비료 주기 | 비료 아이템 소비 → 비료 +30 | 10분 |
+| 수확하기 | 성장 100인 이랑 일괄 수확 | 20분 |
+| 식물 제거 | 이랑 선택 → 식물 제거 (반환 없음) | 5분 |
+
+### NPC 정원 활동
+
+`handle_garden()` — 4-phase 핸들러:
+
+```
+idle → going_to_garden → working ↔ storing_harvest → going_to_garden
+```
+
+- **working 우선순위**: 수확 → 물주기 → 씨 심기
+- **수확 후**: 음식 저장소(kitchen_fridge)로 이동하여 보관
+- **씨 심기**: NPC 인벤토리에 씨앗이 있을 때만 (수확 시 seed_chance로 획득)
+- 밀라 봄 스케줄: `{"activity": "정원", ...}` (13:00~15:00, 앞마당)
+
+### Python API
+
+```python
+import garden
+
+garden.SEED_REGISTRY              # 씨앗 코드 → 정보
+garden.SEED_CODE_MAP              # seed_unique_id → 코드 역매핑
+garden.get_seed_name(code)        # 코드 → 이름
+garden.get_growth_stage_text(g)   # 성장도 → "새싹"/"자라는 중"/...
+garden.get_moisture_text(m)       # 수분 → "메마름"/"건조"/...
+garden.do_harvest(inst, fi, pid)  # 수확 실행 → {crop_name, crop_count, seed_name, seed_count}
+garden.register_garden(inst_id)   # 텃밭 등록
+garden.reset()                    # 챕터 전환용
+```
+
+### 챕터 전환 대응
+
+`reset()` 함수로 상태 초기화. `chapters/__init__.py`의 `load_chapter()`에서 자동 호출.
 
 ---
 

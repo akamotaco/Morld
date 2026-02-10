@@ -249,7 +249,46 @@
 
 ---
 
-## 6. 도시 자원 (Region 2) — v0.2.1 추가
+## 6. 텃밭 작물/씨앗
+
+> 상세 시스템은 [system-gameplay.md](system-gameplay.md#텃밭-시스템-garden-system) 참조
+
+### 씨앗 아이템
+| unique_id | 이름 | 카테고리 | 가격 |
+|-----------|------|---------|------|
+| `seed_potato` | 감자 씨앗 | seed | 3 |
+| `seed_tomato` | 토마토 씨앗 | seed | 3 |
+| `seed_carrot` | 당근 씨앗 | seed | 3 |
+| `seed_herb` | 약초 씨앗 | seed | 5 |
+| `seed_cabbage` | 양배추 씨앗 | seed | 3 |
+
+### 작물 아이템 (수확물)
+| unique_id | 이름 | 카테고리 | 포만감 | 섭취 시간 |
+|-----------|------|---------|-------|----------|
+| `food_potato` | 감자 | food_ingredient | 30 | 3분 |
+| `food_tomato` | 토마토 | food_ingredient | 15 | 2분 |
+| `food_carrot` | 당근 | food_ingredient | 20 | 2분 |
+| `food_herb` | 약초 (기존) | drink_ingredient | 5 | 1분 |
+| `food_cabbage` | 양배추 | food_ingredient | 15 | 2분 |
+
+### 텃밭용 도구/비료
+| unique_id | 이름 | 카테고리 | 설명 |
+|-----------|------|---------|------|
+| `watering_can` | 물뿌리개 | garden_tool | 물 용량 3회, 수분 +20/회 |
+| `water_bucket` | 물통 | garden_tool | 물 용량 5회, 수분 +20/회 |
+| `fertilizer` | 비료 | garden_supply | 비료 +30 |
+
+### 씨앗 → 작물 사이클
+```
+씨앗 심기 → 수분 관리 (비/물뿌리개) → 시간 경과 → 수확 (작물 + 확률적 씨앗)
+```
+- 물 충전: 싱크대(주방) 또는 세면대(욕실)에서 "물 받기"
+- 비료: 비료 아이템 사용 시 성장속도 최대 2배
+- 비: 실외 텃밭은 비에 의해 자동 수분 공급
+
+---
+
+## 7. 도시 자원 (Region 2) — v0.2.1 추가
 
 ### 비충전 자원 (ScavengeableObject)
 한 번 가져가면 보충되지 않는 자원.
@@ -276,7 +315,7 @@
 
 ---
 
-## 7. NPC 식사 시스템 — v0.2.1 추가
+## 8. NPC 식사 시스템 — v0.2.1 추가
 
 ### 만복도 추적
 - 캐릭터 prop: `생존:포만감` (초기 80, 최대 100)

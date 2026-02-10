@@ -15,6 +15,85 @@ from assets.base import Object
 
 
 # ========================================
+# 물 받기 공용 헬퍼
+# ========================================
+
+def _fill_water_container(source_name: str):
+    """
+    물 용기에 물 채우기 (세면대/싱크대 공용)
+
+    인벤토리에서 물뿌리개/물통을 찾아 물을 가득 채운다.
+    """
+    from assets.registry import get_or_create_item_id, get_item_class
+    from assets.items.garden_items import PROP_WATER_AMOUNT
+
+    player_id = morld.get_player_id()
+
+    # 물 용기 찾기
+    containers = []
+    for uid in ("watering_can", "water_bucket"):
+        item_id = get_or_create_item_id(uid)
+        if item_id and morld.has_item(player_id, item_id):
+            item_cls = get_item_class(uid)
+            capacity = getattr(item_cls, "water_capacity", 1) if item_cls else 1
+            current = morld.get_unit_prop(item_id, PROP_WATER_AMOUNT)
+            info = morld.get_item_info(item_id)
+            name = info.get("name", uid) if info else uid
+            containers.append({
+                "id": item_id,
+                "name": name,
+                "capacity": capacity,
+                "current": current,
+            })
+
+    if not containers:
+        yield ui.dialog("물을 담을 도구가 없다. 물뿌리개나 물통이 필요하다.")
+        return
+
+    # 이미 가득 찬 것 제외
+    fillable = [c for c in containers if c["current"] < c["capacity"]]
+    if not fillable:
+        yield ui.dialog("물 용기가 이미 가득 차 있다.")
+        return
+
+    # 하나면 바로 채우기, 여러 개면 선택
+    if len(fillable) == 1:
+        target = fillable[0]
+    else:
+        state = {"selected": None}
+
+        def on_select(action):
+            if action == "init":
+                return None
+            for c in fillable:
+                if str(c["id"]) == action:
+                    state["selected"] = c
+                    return True
+            return None
+
+        lines = ["어떤 용기에 물을 받을까?", ""]
+        for c in fillable:
+            lines.append(f"  [url=@proc:{c['id']}]{c['name']}[/url] [color=gray]({c['current']}/{c['capacity']})[/color]")
+        lines.append("")
+        lines.append("[url=@ret:cancel]취소[/url]")
+
+        yield ui.dialog("\n".join(lines), autofill="off", proc=on_select, result=state)
+        target = state.get("selected")
+
+    if not target:
+        return
+
+    # 물 채우기
+    morld.set_unit_prop(target["id"], PROP_WATER_AMOUNT, target["capacity"])
+
+    yield ui.dialog([
+        f"{source_name}에서 {target['name']}에 물을 가득 담았다.",
+        f"물: {target['capacity']}/{target['capacity']}",
+    ])
+    morld.advance_time_des(5 * 60_000)
+
+
+# ========================================
 # 거실 오브젝트
 # ========================================
 
@@ -528,7 +607,7 @@ class Bathtub(Object):
 class Washbasin(Object):
     unique_id = "washbasin"
     name = "세면대"
-    actions = ["call:use:세수하기", "call:debug_props:(디버그) 속성 보기#"]
+    actions = ["call:use:세수하기", "call:fill:물 받기", "call:debug_props:(디버그) 속성 보기#"]
     focus_text = {"default": "도자기로 만든 세면대. 깨끗하게 관리되어 있다."}
 
     def use(self):
@@ -538,6 +617,30 @@ class Washbasin(Object):
             "정신이 맑아졌다."
         ])
         morld.advance_time_des(5 * 60_000)
+
+    def fill(self):
+        """물 받기 - 물뿌리개/물통에 물 채우기"""
+        yield from _fill_water_container(self.name)
+
+
+class KitchenSink(Object):
+    """싱크대 - 주방 세척 및 물 받기"""
+    unique_id = "kitchen_sink"
+    name = "싱크대"
+    actions = ["call:use:세수하기", "call:fill:물 받기", "call:debug_props:(디버그) 속성 보기#"]
+    focus_text = {"default": "주방 싱크대. 수도꼭지에서 물이 나온다."}
+
+    def use(self):
+        """세수하기"""
+        yield ui.dialog([
+            "싱크대에서 물로 얼굴을 씻었다.",
+            "정신이 맑아졌다."
+        ])
+        morld.advance_time_des(5 * 60_000)
+
+    def fill(self):
+        """물 받기 - 물뿌리개/물통에 물 채우기"""
+        yield from _fill_water_container(self.name)
 
 
 class DrumBath(Object):
