@@ -13,6 +13,7 @@
 > - 자원 순환 → 채집→저장→요리→식사 파이프라인
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
 > - 텃밭 활동 → 정원 4-phase (idle/going/working/storing_harvest)
+> - 시설 탐색 리졸버 → `facility_resolver.py` (목욕 예약 + 옷장 우선순위 탐색) (v0.2.2)
 >
 > **미구현 항목:** 배변욕, 수면욕, 사회욕, NPC 주도 상호작용
 >
@@ -419,6 +420,73 @@ self._memory = {
     "cold_last_attempt": None,  # 실패 시 쿨다운 타임스탬프
     "hot_phase": None,          # None/idle/unequipping/storing
 }
+```
+
+---
+
+## 2-C. 시설 탐색 리졸버 — 구현됨 (v0.2.2)
+
+> `think/facility_resolver.py` — 목욕/옷장 등 시설의 우선순위 탐색 + 예약
+
+### 개요
+
+NPC가 시설(욕조, 옷장 등)을 사용할 때 하드코딩 좌표 대신 **우선순위 기반 동적 탐색**을 수행합니다.
+`activity_resolver.py`와 동일한 stateless 패턴 (lazy init 불필요, 챕터 전환 이슈 없음).
+
+### 탐색 우선순위
+
+```
+1. agent.bath_location / wardrobe_location (선호 위치)
+2. 같은 region의 다른 시설
+3. (cross_region=True일 때만) 다른 region의 시설
+4. 모두 점유/없음 → None
+```
+
+### 목욕 시설 탐색 (`resolve_bath`)
+
+```python
+from think.facility_resolver import resolve_bath, release_bath
+
+target = resolve_bath(agent)                    # 탐색 + 예약
+target = resolve_bath(agent, cross_region=True) # 다른 region도 탐색
+release_bath(agent)                             # 예약 해제
+```
+
+**예약 시스템**: 욕조 오브젝트에 `예약:사용자` prop을 설정하여 점유 표시.
+침대의 `seated_by` 패턴과 동일. 챕터 전환 시 오브젝트 재생성으로 자동 초기화.
+
+| 동작 | 설명 |
+|------|------|
+| `resolve_bath()` | 가용 욕조 탐색 → `예약:사용자` prop 설정 → dict 반환 |
+| `release_bath()` | 해당 NPC의 예약 prop 해제 |
+| stale 정리 | 예약자의 `_is_bath_time()`이 False면 자동 해제 |
+
+**대기 로직** (`_handle_bath`에서):
+- 모든 욕실 점유 + 목욕 시간 10분+ 남음 → 5분 대기 후 재탐색
+- 모든 욕실 점유 + 목욕 시간 10분 미만 → 목욕 포기
+- 예: 밀라가 5분 대기 → 세라가 5:30에 완료 → 밀라 5:05에 입욕
+
+### 옷장 탐색 (`resolve_wardrobe`)
+
+```python
+from think.facility_resolver import resolve_wardrobe
+
+target = resolve_wardrobe(agent)  # 탐색 (예약 불필요)
+```
+
+점유 감지 없음 (동시 사용 충돌 불가).
+추위/더위 인터럽트의 `_handle_cold`/`_handle_hot`에서 옷장 위치 탐색에 사용.
+
+### 반환값
+
+```python
+{
+    "region_id": 0,
+    "location_id": 4,
+    "x": 15,
+    "object_id": 101
+}
+# 또는 None (시설 없음)
 ```
 
 ---

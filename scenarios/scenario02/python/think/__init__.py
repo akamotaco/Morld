@@ -376,10 +376,10 @@ class BaseAgent:
     def _handle_bath(self):
         """목욕 행동 처리 (think()에서 목욕 시간대에 호출)
 
-        침대와 달리 오브젝트 조작 없음. location 도착만 확인.
+        facility_resolver로 가용 욕실 탐색 (점유 감지 포함).
+        모든 욕실 점유 시: 시간 여유 있으면 대기 후 재탐색, 없으면 목욕 포기.
         """
-        if not self.bath_location:
-            return
+        from think.facility_resolver import resolve_bath
 
         # can:bath 체크 - 없으면 에러 (개발 시 누락 방지)
         props = morld.get_unit_props_by_type(self.unit_id, "can")
@@ -391,10 +391,26 @@ class BaseAgent:
                 f"목욕 활동을 하려면 캐릭터에 'can:bath': 1을 추가하세요."
             )
 
-        loc = self.get_location()
-        target_region = self.bath_location["region_id"]
-        target_location = self.bath_location["location_id"]
+        target = resolve_bath(self)
+        if target is None:
+            # 모든 욕실 점유 또는 없음 → 대기/포기
+            _, bath_entry = self._is_bath_time()
+            if bath_entry:
+                remaining = self._remaining_millis_in_entry(bath_entry)
+                if remaining > 10 * 60_000:
+                    # 10분 이상 남음 → 5분 대기 후 재탐색
+                    self._insert_idle_job("목욕대기", 5 * 60_000)
+                else:
+                    # 10분 미만 → 목욕 포기, 남은 시간 대기
+                    self._insert_idle_job("대기", max(remaining, 1))
+            else:
+                self._insert_idle_job("대기", 60_000)
+            return
 
+        target_region = target["region_id"]
+        target_location = target["location_id"]
+
+        loc = self.get_location()
         if loc and loc[0] == target_region and loc[1] == target_location:
             # 도착 — 체온/젖음 효과 + 목욕 job 삽입
             import temperature
@@ -407,7 +423,7 @@ class BaseAgent:
                 self._insert_idle_job("목욕", max(remaining, 1))
         else:
             # 이동
-            target_x = self.bath_location.get("x", 0)
+            target_x = target.get("x", 0)
             morld.insert_job(self.unit_id, {
                 "name": "목욕",
                 "action": "move",
@@ -991,18 +1007,10 @@ class BaseAgent:
         return True
 
     def _find_wardrobe_id(self):
-        """wardrobe_location의 옷장 오브젝트 ID 반환"""
-        if not self.wardrobe_location:
-            return None
-        from assets.objects import get_location_objects, get_instance
-        from assets.registry import get_unique_id
-        r = self.wardrobe_location["region_id"]
-        l = self.wardrobe_location["location_id"]
-        for obj_id in get_location_objects(r, l):
-            uid = get_unique_id(obj_id)
-            if uid == self.wardrobe_unique_id:
-                return obj_id
-        return None
+        """옷장 오브젝트 ID 반환 (facility_resolver로 탐색)"""
+        from think.facility_resolver import resolve_wardrobe
+        result = resolve_wardrobe(self)
+        return result["object_id"] if result else None
 
     # ========================================
     # 동적 스케줄 해석
@@ -1173,7 +1181,12 @@ def _handle_cold(agent):
         return
 
     elif phase == "going":
-        target = agent.wardrobe_location
+        from think.facility_resolver import resolve_wardrobe
+        target = resolve_wardrobe(agent)
+        if target is None:
+            agent._memory["cold_phase"] = None
+            agent._action_taken = True
+            return
         if agent._is_at(target):
             agent._memory["cold_phase"] = "taking"
             agent._action_taken = True
@@ -1287,8 +1300,10 @@ def _handle_hot(agent):
 
     elif phase == "unequipping":
         _unequip_warm_items(agent.unit_id)
-        # 옷장 location에 있으면 저장
-        if agent.wardrobe_location and agent._is_at(agent.wardrobe_location):
+        # 현재 위치에 옷장이 있으면 저장
+        from think.facility_resolver import resolve_wardrobe
+        result = resolve_wardrobe(agent)
+        if result and agent._is_at(result):
             agent._memory["hot_phase"] = "storing"
             agent._action_taken = True
         else:
