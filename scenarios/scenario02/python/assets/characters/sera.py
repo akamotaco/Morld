@@ -1106,6 +1106,8 @@ class SeraAgent(BaseAgent):
         self._memory["current_day_type"] = None
         import survival
         survival.register_npc(unit_id)
+        import temperature
+        temperature.register_character(unit_id)
 
     def think(self):
         """주말/평일 감지 → 스케줄 전환"""

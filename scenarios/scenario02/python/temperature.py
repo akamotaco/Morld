@@ -1,13 +1,13 @@
-# temperature.py - Location 온도 시스템
+# temperature.py - Location 온도 + 캐릭터 체온 시스템
 #
 # Location별 온도를 시뮬레이션하여 헤더에 표시
 # 계절/날씨/시간대에 따라 실외 온도가 결정되고,
 # 실내는 인접 공간과의 평활화 + 열원(난로 등)으로 결정됨
 #
-# 현재는 표시 전용이며, 향후 체온/질병 시스템과 연동 예정
+# 캐릭터 체온: location 온도 + 젖음에 따라 매시간 수렴 (표시 전용)
 #
 # 구독: subscribe_time_elapsed(_on_time_elapsed, min_interval=1h)
-# 매시간 전체 location 온도 업데이트
+# 매시간 전체 location 온도 + 캐릭터 체온 업데이트
 
 import morld
 from events import subscribe_time_elapsed
@@ -42,6 +42,16 @@ TEMP_MAX = 50
 # 알려진 Region ID 목록
 REGION_IDS = [0, 2, 3]
 
+# === 캐릭터 체온 상수 ===
+
+PROP_BODY_TEMP = "체온"
+NORMAL_BODY_TEMP = 36.5         # 정상 체온 (°C)
+BODY_CONVERGENCE_RATE = 0.3     # 시간당 30% 수렴
+TEMP_SENSITIVITY = 0.1          # location 온도 → 체온 영향 계수
+WETNESS_TEMP_PENALTY = 2.0      # 100% 젖으면 target -2℃
+BODY_TEMP_MIN = 34.0
+BODY_TEMP_MAX = 40.0
+
 
 # === 데이터 저장 ===
 
@@ -56,6 +66,9 @@ _heat_sources = {}
 
 # (region_id, location_id) → bool
 _location_indoor = {}
+
+# 체온 추적 대상: set of unit_id
+_tracked_characters = set()
 
 _initialized = False
 
@@ -92,6 +105,7 @@ def reset():
     _adjacency.clear()
     _heat_sources.clear()
     _location_indoor.clear()
+    _tracked_characters.clear()
 
 
 def _ensure_initialized():
@@ -232,6 +246,9 @@ def _on_time_elapsed(millis):
     season = _get_season(month)
     outdoor_temp = _get_outdoor_temp(season, weather, hour)
 
+    # 0. 캐릭터 체온 업데이트
+    _update_characters()
+
     # 1. 스냅샷
     old_temps = dict(_location_temps)
 
@@ -270,7 +287,88 @@ def _on_time_elapsed(millis):
             _location_temps[key] = max(TEMP_MIN, min(TEMP_MAX, new_temp))
 
 
+# === 캐릭터 체온 업데이트 ===
+
+def _update_characters():
+    """등록된 캐릭터 + 플레이어의 체온 업데이트 (매시간 _on_time_elapsed에서 호출)"""
+    # 플레이어 + 등록된 NPC
+    targets = set(_tracked_characters)
+    player_id = morld.get_player_id()
+    if player_id is not None:
+        targets.add(player_id)
+
+    if not targets:
+        return
+
+    for unit_id in targets:
+        info = morld.get_unit_info(unit_id)
+        if not info:
+            continue
+
+        region_id = info.get("region_id")
+        location_id = info.get("location_id")
+        if region_id is None or location_id is None:
+            continue
+
+        # location 온도 조회
+        loc_temp = _location_temps.get((region_id, location_id))
+        if loc_temp is None:
+            continue
+
+        # 현재 체온
+        current = get_body_temperature(unit_id)
+
+        # 목표 체온: 정상 + (location 온도 - 20) × 감도
+        target = NORMAL_BODY_TEMP + (loc_temp - 20) * TEMP_SENSITIVITY
+
+        # 젖음 보정: 젖을수록 체감 온도 하락
+        try:
+            import humidity
+            wetness = humidity.get_unit_wetness(unit_id)
+            if wetness and wetness > 0:
+                target -= (wetness / 100) * WETNESS_TEMP_PENALTY
+        except ImportError:
+            pass
+
+        # 수렴
+        new_temp = current + (target - current) * BODY_CONVERGENCE_RATE
+        new_temp = max(BODY_TEMP_MIN, min(BODY_TEMP_MAX, new_temp))
+
+        set_body_temperature(unit_id, new_temp)
+
+
 # === Public API ===
+
+def register_character(unit_id):
+    """체온 추적 대상 등록 (survival.register_npc 등에서 호출)"""
+    _tracked_characters.add(unit_id)
+
+
+def unregister_character(unit_id):
+    """체온 추적 대상 해제"""
+    _tracked_characters.discard(unit_id)
+
+
+def get_body_temperature(unit_id):
+    """
+    캐릭터 체온 조회
+
+    Returns:
+        float: 체온 (기본값 36.5)
+    """
+    val = morld.get_unit_prop(unit_id, PROP_BODY_TEMP)
+    if val is None:
+        return NORMAL_BODY_TEMP
+    return float(val)
+
+
+def set_body_temperature(unit_id, value):
+    """캐릭터 체온 설정 (정상 범위면 prop 제거)"""
+    if abs(value - NORMAL_BODY_TEMP) < 0.05:
+        morld.clear_prop(unit_id, PROP_BODY_TEMP)
+    else:
+        morld.set_unit_prop(unit_id, PROP_BODY_TEMP, round(value, 1))
+
 
 def get_temperature(region_id, location_id):
     """

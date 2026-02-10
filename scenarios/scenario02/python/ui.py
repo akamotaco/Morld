@@ -314,15 +314,66 @@ def get_header():
         return ""
 
 
+def _get_environment_status_text():
+    """
+    플레이어의 환경 상태 텍스트 (체온/젖음/오염)
+
+    Returns:
+        str: "체온 36.5℃ | 젖음 20% | 오염 15" 형식 (빈 문자열이면 표시 안함)
+    """
+    try:
+        player_id = morld.get_player_id()
+        if player_id is None:
+            return ""
+
+        parts = []
+
+        # 체온 (항상 표시)
+        try:
+            import temperature
+            body_temp = temperature.get_body_temperature(player_id)
+            if body_temp < 35.5:
+                parts.append(f"[color=cyan]체온 {body_temp:.1f}℃[/color]")
+            elif body_temp > 37.5:
+                parts.append(f"[color=red]체온 {body_temp:.1f}℃[/color]")
+            else:
+                parts.append(f"체온 {body_temp:.1f}℃")
+        except ImportError:
+            pass
+
+        # 젖음 (> 0일 때만)
+        try:
+            import humidity
+            wetness = humidity.get_unit_wetness(player_id)
+            if wetness and wetness > 0:
+                parts.append(f"[color=cyan]젖음 {wetness:.0f}%[/color]")
+        except ImportError:
+            pass
+
+        # 오염 (> 0일 때만)
+        try:
+            import pollution
+            pol = pollution.get_unit_pollution(player_id)
+            if pol and pol > 0:
+                parts.append(f"[color=orange]오염 {pol:.0f}[/color]")
+        except ImportError:
+            pass
+
+        return " | ".join(parts) if parts else ""
+    except Exception as e:
+        print(f"[ui] _get_environment_status_text error: {e}")
+        return ""
+
+
 def get_footer():
     """
-    하단 푸터 반환 (인벤토리 + 상태바 + 자세)
+    하단 푸터 반환 (인벤토리 + 상태바 + 환경상태 + 자세)
 
     Focus 화면 최하단에 표시됩니다.
     별도 RichTextLabel로 분리되어 구분선 불필요.
 
     Returns:
-        str: 인벤토리 + 상태바 + 자세 BBCode (빈 문자열이면 표시 안함)
+        str: 인벤토리 + 상태바 + 환경상태 + 자세 BBCode (빈 문자열이면 표시 안함)
     """
     # 푸터 숨김 상태면 빈 문자열
     if not _show_footer:
@@ -334,6 +385,11 @@ def get_footer():
     status_text = get_status_text()
     if status_text:
         lines.append(status_text)
+
+    # 환경 상태 (체온/젖음/오염)
+    env_text = _get_environment_status_text()
+    if env_text:
+        lines.append(env_text)
 
     # 플레이어 자세 정보 (기본 자세가 아닌 경우만 표시)
     posture_text = _get_posture_text()

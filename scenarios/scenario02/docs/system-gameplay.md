@@ -126,8 +126,7 @@ bar = survival.get_status_bar(unit_id)
 
 > `temperature.py` — 순수 Python, C# 변경 없음
 
-Location별 온도를 매시간 시뮬레이션하여 헤더에 표시합니다.
-현재는 표시 전용이며, 향후 체온/질병 시스템과 연동 예정입니다.
+Location별 온도 시뮬레이션 + 캐릭터 체온 수렴 시스템.
 
 ### 실외 온도 결정
 
@@ -175,18 +174,44 @@ class Fireplace(Object):
 
 BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
 
+### 캐릭터 체온
+
+Location 온도와 젖음 수치에 따라 매시간 수렴합니다 (현재 표시 전용).
+
+```
+target = 36.5 + (location_temp - 20) × 0.1 - (wetness / 100) × 2.0
+new = current + (target - current) × 0.3
+clamp(34.0, 40.0)
+```
+
+| 상수 | 값 | 설명 |
+|------|---|------|
+| `NORMAL_BODY_TEMP` | 36.5 | 정상 체온 |
+| `TEMP_SENSITIVITY` | 0.1 | location 온도 영향 계수 |
+| `WETNESS_TEMP_PENALTY` | 2.0 | 100% 젖음 시 target -2℃ |
+| `BODY_CONVERGENCE_RATE` | 0.3 | 시간당 30% 수렴 |
+
+예시: location 0℃, 젖음 0% → target 34.5℃
+예시: location 10℃, 젖음 50% → target 34.5℃
+
 ### Python API
 
 ```python
 import temperature
 
-# 현재 온도 조회
+# Location 온도 조회
 temp = temperature.get_temperature(region_id, location_id)
-# → float (예: 22.3) 또는 None
 
-# 열원 등록 (오브젝트 instantiate에서 호출)
+# 캐릭터 체온
+temperature.register_character(unit_id)             # 체온 추적 등록
+temperature.get_body_temperature(unit_id)            # → float (기본 36.5)
+temperature.set_body_temperature(unit_id, value)     # 체온 설정
+
+# 열원 등록
 temperature.register_heat_source(unit_id, region_id, location_id)
 ```
+
+플레이어는 자동 추적 (register 불필요). NPC는 에이전트 `__init__`에서 `register_character()` 호출.
 
 ### 챕터 전환 대응
 
@@ -196,10 +221,18 @@ temperature.register_heat_source(unit_id, region_id, location_id)
 
 ### UI 표시
 
-`ui.get_time_weather_text()`에서 날씨 뒤에 온도 표시:
+**Header** — `ui.get_time_weather_text()`에서 날씨 뒤에 location 온도 표시:
 ```
 1년 4월 1일 (수) 20:00 / 흐림 12℃
 ```
+
+**Footer** — `ui._get_environment_status_text()`에서 캐릭터 체온 표시:
+```
+체온 36.5℃ | 젖음 20% | 오염 15
+```
+- 체온: 항상 표시 (`< 35.5` cyan, `> 37.5` red)
+- 젖음: `> 0`일 때만 (cyan)
+- 오염: `> 0`일 때만 (orange)
 
 ---
 

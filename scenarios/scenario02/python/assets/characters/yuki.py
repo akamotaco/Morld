@@ -903,6 +903,8 @@ class YukiAgent(BaseAgent):
         self.set_base_schedule(self.SCHEDULE)
         import survival
         survival.register_npc(unit_id)
+        import temperature
+        temperature.register_character(unit_id)
 
     def on_leave(self, region_id, location_id):
         """위치 이탈 시 조명 끄기 (유키 성격: 꼼꼼함)"""

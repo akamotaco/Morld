@@ -1026,6 +1026,8 @@ class MilaAgent(BaseAgent):
         # 초기 스케줄은 think()에서 계절 확인 후 설정
         import survival
         survival.register_npc(unit_id)
+        import temperature
+        temperature.register_character(unit_id)
 
     def _get_current_season(self):
         """현재 계절 반환 (게임 날짜 기반)"""

@@ -914,3 +914,5 @@ class EllaAgent(BaseAgent):
         self.set_base_schedule(self.SCHEDULE)
         import survival
         survival.register_npc(unit_id)
+        import temperature
+        temperature.register_character(unit_id)
