@@ -1085,6 +1085,13 @@ class Character(Unit):
         if affection < affection_threshold:
             return False
 
+        # 욕망 체크 (설정된 경우)
+        desire_threshold = self.INITIATIVE_CONFIG.get("desire_threshold", 0)
+        if desire_threshold > 0:
+            desire = props.get(f"관계:{player_name}:욕망", 0) if props else 0
+            if desire < desire_threshold:
+                return False
+
         # 단둘이 체크 (플레이어와 NPC 둘만 있어야 함)
         npc_loc = morld.get_unit_location(self.instance_id)
         if npc_loc:

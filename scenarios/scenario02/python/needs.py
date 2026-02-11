@@ -146,6 +146,28 @@ def is_npc_need_bath(unit_id):
 # 매시간 업데이트 (내부)
 # ========================================
 
+def _get_max_desire(unit_id):
+    """유닛의 모든 관계에서 최고 욕망 값 반환"""
+    props = morld.get_unit_props(unit_id)
+    if not props:
+        return 0
+    max_val = 0
+    for key, val in props.items():
+        if key.startswith("관계:") and key.endswith(":욕망"):
+            if isinstance(val, (int, float)) and val > max_val:
+                max_val = val
+    return max_val
+
+
+def _get_arousal_cap(unit_id):
+    """욕망 기반 성욕 자연 상한 계산
+
+    욕망 0 → cap 50, 욕망 50 → cap 75, 욕망 100 → cap 100
+    """
+    max_desire = _get_max_desire(unit_id)
+    return min(100, AROUSAL_NATURAL_CAP + max_desire * 0.5)
+
+
 def _is_sleeping(unit_id):
     """유닛이 수면 중인지 (seated_on prop = 침대에 누움)"""
     seated_on = morld.get_unit_props_by_type(unit_id, "seated_on")
@@ -198,11 +220,12 @@ def _process_hourly(unit_id):
         morld.set_unit_prop(unit_id, PROP_SOCIAL,
                             min(100, current_social + SOCIAL_RATE))
 
-    # 성욕: 자연 증가 (상한 이하일 때만)
+    # 성욕: 자연 증가 (욕망 기반 동적 상한)
+    arousal_cap = _get_arousal_cap(unit_id)
     current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
-    if current_arousal < AROUSAL_NATURAL_CAP:
+    if current_arousal < arousal_cap:
         morld.set_unit_prop(unit_id, PROP_AROUSAL,
-                            min(AROUSAL_NATURAL_CAP,
+                            min(arousal_cap,
                                 current_arousal + AROUSAL_NATURAL_RATE))
 
 

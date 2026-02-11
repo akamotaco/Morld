@@ -909,6 +909,7 @@ class EllaAgent(BaseAgent):
     food_storage_location = {"region_id": 2, "location_id": 5, "x": 120}  # 은신처 식량함
     food_storage_unique_id = "food_storage"
     wardrobe_location = {"region_id": 2, "location_id": 6, "x": 120}  # 의류점 옷걸이
+    toilet_location = {"region_id": 2, "location_id": 5, "x": 170}  # 은신처 간이 화장실
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

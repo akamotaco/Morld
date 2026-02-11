@@ -252,19 +252,20 @@ DATE_MIN_AFFECTION = 30  # 데이트 수락 최소 호감도
 
 캐릭터별로 다른 임계값 설정 가능:
 
-| 캐릭터 | 성욕 임계값 | 호감도 임계값 | 쿨다운 | 성격 |
-|--------|------------|--------------|--------|------|
-| 세라 | 70 | 60 | 8시간 | 무뚝뚝/거친 - 연애 쑥맥 |
-| 밀라 | 50 | 40 | 6시간 | 다정/포근 - 연애 저돌적 |
-| 리나 | 65 | 55 | 8시간 | 활발 - 연애엔 수줍음 |
-| 유키 | 80 | 70 | 12시간 | 매우 수줍음 |
-| 엘라 | 75 | 65 | 10시간 | 냉정함 |
+| 캐릭터 | 성욕 임계값 | 호감도 임계값 | 욕망 임계값 | 쿨다운 | 성격 |
+|--------|------------|--------------|------------|--------|------|
+| 세라 | 70 | 60 | 0 | 8시간 | 무뚝뚝/거친 - 연애 쑥맥 |
+| 밀라 | 50 | 40 | 0 | 6시간 | 다정/포근 - 연애 저돌적 |
+| 리나 | 65 | 55 | 0 | 8시간 | 활발 - 연애엔 수줍음 |
+| 유키 | 80 | 70 | 0 | 12시간 | 매우 수줍음 |
+| 엘라 | 75 | 65 | 0 | 10시간 | 냉정함 |
 
 ```python
 # 밀라 예시 - 저돌적인 성격 반영
 INITIATIVE_CONFIG = {
     "arousal_threshold": 50,      # 낮은 성욕에서도 시작
     "affection_threshold": 40,    # 낮은 호감에서도 시작
+    "desire_threshold": 0,        # 욕망 임계값 (0 = 체크 안 함)
     "cooldown_minutes": 360,      # 짧은 쿨다운
 }
 ```
@@ -512,7 +513,97 @@ ROMANCE_DISCOVERY_REACTIONS = {
 
 ---
 
-## 6. 사적인 대화 시스템 (진척도)
+## 6. 감각 시스템 (Sensation System)
+
+### 개요
+
+부위별 경험치(`경험:{부위}`)를 M/B/A/V 감각 카테고리에 매핑하여
+감각 레벨을 산출하고, 성욕 효과에 보정을 적용합니다.
+
+### 감각 카테고리 매핑 (SENSATION_MAP)
+
+| 부위 | 카테고리 | 설명 |
+|------|----------|------|
+| 입술 | M (Mouth) | 키스 계열 |
+| 가슴 | B (Breast) | 가슴 계열 |
+| 엉덩이 | A (Anal) | 엉덩이 계열 |
+| — | V (Vaginal) | 향후 추가 |
+| 귀 | None | 비성적 |
+| 뺨 | None | 비성적 |
+| 머리 | None | 비성적 |
+
+### 감각 레벨 계산
+
+```python
+def get_sensation_level(unit_id, category):
+    """경험치 합산 기반 감각 레벨 (0-10)"""
+    total_exp = sum(
+        morld.get_unit_prop(unit_id, f"경험:{part}") or 0
+        for part, cat in SENSATION_MAP.items()
+        if cat == category
+    )
+    return min(10, total_exp // 5)
+```
+
+### 감각 보정 (성욕 효과)
+
+`calculate_effects()`에서 성욕 효과에 sensation bonus 추가:
+
+```python
+bonus = round(base_arousal_effect * sensation_level * 0.1)
+```
+
+- 감각 레벨 0: 보정 없음
+- 감각 레벨 5: 성욕 효과 +50%
+- 감각 레벨 10: 성욕 효과 +100%
+
+### UI 표시
+
+```
+호감: 45  애정: 30  욕망: 20  성욕: 60
+감각 M:3 B:1
+```
+
+감각 레벨이 0 초과인 카테고리만 표시.
+
+---
+
+## 7. 욕망 시스템 (Desire System)
+
+### 개요
+
+관계별 욕망(`관계:{name}:욕망`) prop으로 NPC에 대한 성적 욕구를 추적.
+스킨십 행위의 effects에 `"욕망"` 키가 있으면 자동 반영됩니다.
+
+### Prop 구조
+
+`관계:{대상이름}:욕망` — 관계별 A-B 쌍 (호감/애정과 동일 패턴)
+
+### 성욕 자연 상한 (Dynamic Arousal Cap)
+
+욕망이 높을수록 성욕의 자연 상한이 상승:
+
+```python
+def _get_arousal_cap(unit_id):
+    max_desire = max(관계:*:욕망 props)
+    return min(100, 50 + max_desire * 0.5)
+```
+
+| 최고 욕망 | 성욕 자연 상한 |
+|----------|--------------|
+| 0 | 50 |
+| 50 | 75 |
+| 100 | 100 |
+
+### NPC 주도 조건
+
+`INITIATIVE_CONFIG`에 `desire_threshold` 추가:
+- 욕망이 임계값 이상이어야 NPC 주도 발동
+- 현재 모든 캐릭터 0 (체크 안 함)
+
+---
+
+## 8. 사적인 대화 시스템 (진척도)
 
 ### 개요
 호감도가 높아지면 NPC와 점점 깊은 대화를 나눌 수 있는 시스템.
@@ -623,7 +714,7 @@ def _talk_progress_1(self, context):
 
 ---
 
-## 7. 캐릭터별 구현 가이드
+## 9. 캐릭터별 구현 가이드
 
 ### Character 클래스 속성 (base.py)
 
@@ -706,7 +797,7 @@ class Sera(Character):
 
 ---
 
-## 8. 구현 상태
+## 10. 구현 상태
 
 ### 완료된 기능
 
@@ -739,6 +830,10 @@ class Sera(Character):
 | 발각 반응 시스템 | base.py (on_romance_discovered) | ✅ 완료 |
 | 캐릭터별 발각 반응 | 전체 NPC (ROMANCE_DISCOVERY_REACTIONS) | ✅ 완료 |
 | 중단 액션 로그 | romance.py ("XX의 방해로 중단되었다.") | ✅ 완료 |
+| 감각 시스템 (M/B/A/V) | romance.py (SENSATION_MAP, get_sensation_level) | ✅ 완료 |
+| 감각 보정 (성욕 효과) | romance.py (calculate_effects) | ✅ 완료 |
+| 욕망 prop 인프라 | romance.py (apply_effects), needs.py (동적 cap) | ✅ 완료 |
+| NPC 주도 욕망 임계값 | base.py (desire_threshold) | ✅ 완료 |
 
 ### 지원 캐릭터
 
@@ -758,10 +853,14 @@ class Sera(Character):
 | 합류 이벤트 | 호감 높은 NPC 합류 | 미구현 |
 | 성적흥분 시간 감소 | 시간 경과 시 자동 감소 | 미구현 |
 | 복수 파트너 UI | 3인 이상 연애 | 미구현 |
+| 자위 행동 | NPC self-comfort think 핸들러 | 미구현 |
+| NPC→플레이어 탐색 | 고욕망+고관계+고성욕 시 플레이어 찾기 | 미구현 |
+| NPC-NPC 행위 | NPC 간 실제 행위 발생 | 미구현 |
+| V 부위 액션 | Vaginal 카테고리 액션 추가 | 미구현 |
 
 ---
 
-## 9. 관련 morld API
+## 11. 관련 morld API
 
 | API | 설명 | 사용처 |
 |-----|------|--------|
@@ -774,7 +873,7 @@ class Sera(Character):
 
 ---
 
-## 10. 파일 구조
+## 12. 파일 구조
 
 ```
 scenarios/scenario02/python/

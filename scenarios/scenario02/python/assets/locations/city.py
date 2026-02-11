@@ -316,6 +316,10 @@ class Hideout(Location):
         from assets.objects.storage import InfiniteSeedBag
         self.add_object(InfiniteSeedBag(), x=165)
 
+        # 간이 화장실
+        from assets.locations.toilet import PortableToilet
+        self.add_object(PortableToilet(), x=170)
+
 
 class ClothingStore(Location):
     """의류점 - 황폐화된 옷가게 (실내)"""

@@ -28,6 +28,29 @@ STEALTH_HIDING_BONUS = 0.4     # 은신 중일 때 추가 확률 +40%
 MILLIS_PER_MINUTE = 60_000
 
 # ============================================
+# 감각 시스템 (부위 → M/B/A/V 매핑)
+# ============================================
+
+# 행위 부위 → 감각 카테고리 매핑
+SENSATION_MAP = {
+    "입술": "M",       # Mouth
+    "가슴": "B",       # Breast
+    "엉덩이": "A",     # Anal
+    # V(Vaginal)는 현재 액션에 없음 → 향후 추가
+    "귀": None,        # 비성적 부위
+    "뺨": None,
+    "머리": None,
+}
+
+# 감각 카테고리별 prop 키
+SENSATION_PROPS = {
+    "M": "감각:M",     # Mouth sensation level
+    "B": "감각:B",     # Breast sensation level
+    "A": "감각:A",     # Anal sensation level
+    "V": "감각:V",     # Vaginal sensation level
+}
+
+# ============================================
 # 즉시형 행위 정의
 # ============================================
 
@@ -162,8 +185,34 @@ def emit_ecstasy_sound(partner_id):
     sound.emit_sound(partner_id, "moan", intensity)
 
 
+def get_sensation_level(unit_id, category):
+    """감각 카테고리의 현재 레벨 (경험치에서 산출)
+
+    해당 카테고리에 매핑된 부위들의 경험치 합산 → 레벨 변환.
+
+    Args:
+        unit_id: 대상 유닛 ID
+        category: "M", "B", "A", "V"
+
+    Returns:
+        int: 감각 레벨 (0-10)
+    """
+    total_exp = 0
+    for part, cat in SENSATION_MAP.items():
+        if cat == category:
+            total_exp += morld.get_unit_prop(unit_id, f"경험:{part}") or 0
+    return min(10, total_exp // 5)
+
+
+def get_desire_key(player_id):
+    """플레이어에 대한 욕망 prop 키 생성"""
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get('name', '주인공') if player_info else '주인공'
+    return f"관계:{player_name}:욕망"
+
+
 def calculate_effects(action_def, partner_id):
-    """경험치 보정된 효과 계산"""
+    """경험치 + 감각 보정된 효과 계산"""
     base_effects = action_def["effects"].copy()
     exp_part = action_def.get("exp_part")
 
@@ -173,12 +222,21 @@ def calculate_effects(action_def, partner_id):
         partner_props = morld.get_unit_props(partner_id)
         exp_value = partner_props.get(exp_key, 0)
 
-        # 배율 계산: 1.0 + (경험 × 0.1)
+        # 경험 배율: 1.0 + (경험 × 0.1)
         multiplier = 1.0 + (exp_value * 0.1)
 
         # 효과 적용 (반올림)
         for stat, value in base_effects.items():
             base_effects[stat] = round(value * multiplier)
+
+        # 감각 보너스: 성적 부위의 감각 레벨에 따라 성욕 효과 증폭
+        category = SENSATION_MAP.get(exp_part)
+        if category:
+            sensation = get_sensation_level(partner_id, category)
+            arousal_base = action_def["effects"].get("성욕", 0)
+            if arousal_base > 0 and sensation > 0:
+                bonus = round(arousal_base * sensation * 0.1)
+                base_effects["성욕"] = base_effects.get("성욕", 0) + bonus
 
         # 경험치 +1
         morld.modify_prop(partner_id, exp_key, 1)
@@ -335,11 +393,22 @@ def render_romance_ui(state):
 
     lines.append("")
 
-    # 호감, 애정, 성욕 표시
+    # 호감, 애정, 욕망, 성욕 표시
     affection = partner_props.get(affection_key, 0)
     love = partner_props.get(love_key, 0)
+    desire_key = get_desire_key(player_id)
+    desire = partner_props.get(desire_key, 0)
     arousal = partner_props.get(arousal_key, 0)
-    lines.append(f"호감: {affection}  애정: {love}  성욕: {arousal}")
+    lines.append(f"호감: {affection}  애정: {love}  욕망: {desire}  성욕: {arousal}")
+
+    # 감각 레벨 표시 (1 이상인 것만)
+    sensation_parts = []
+    for cat in ("M", "B", "A", "V"):
+        level = get_sensation_level(partner_id, cat)
+        if level > 0:
+            sensation_parts.append(f"{cat}:{level}")
+    if sensation_parts:
+        lines.append(f"감각: {' '.join(sensation_parts)}")
     lines.append("")
     lines.append(ui.divider())
     lines.append("")
@@ -537,7 +606,7 @@ def start_romance(player_id, partner_id):
                 effects[stat] = effects.get(stat, 0) + value
 
         # 효과 적용
-        # 관계 타입: 호감, 애정 → 관계:플레이어:stat
+        # 관계 타입: 호감, 애정, 욕망 → 관계:플레이어:stat
         # 상태 타입: 성욕, 성적절정 → 상태:stat (개인 상태)
         for stat, value in effects.items():
             if stat in ("성욕", "성적절정"):

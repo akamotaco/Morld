@@ -416,7 +416,7 @@ class BaseAgent:
 
 **v0.2.2 추가 구현:**
 - 추위/더위 인터럽트 → 의류 자동 착탈 (`_check_cold`/`_check_hot`)
-- 시설 탐색 리졸버 → 목욕 예약 + 옷장 우선순위 탐색 (`facility_resolver.py`)
+- 시설 탐색 리졸버 → 목욕 선착순 + 옷장 우선순위 탐색 (`facility_resolver.py`)
 - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적
 - **배변 인터럽트** → `_check_excretion()` + `_handle_excretion()` (Tier 4)
 - **피로 인터럽트** → `_check_fatigue()` + `_handle_sleep()` 재사용 (Tier 4)
@@ -748,7 +748,7 @@ agent.push_schedule(work_order)
 - `think/activities/` - 활동 핸들러 패키지 (8종: 소등/벌목/낚시/채집/요리/청소/물자수집/정원)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (find_npc_food, store_food_items 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
-- `think/facility_resolver.py` - 시설 탐색 리졸버 (목욕 예약 + 옷장 우선순위 탐색) (v0.2.2)
+- `think/facility_resolver.py` - 시설 탐색 리졸버 (목욕 선착순 + 옷장 우선순위 탐색) (v0.2.2)
 - `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)
 - `think/trap_agent.py` - 덫 시스템 (토끼 굴 체크)
 - `survival.py` - NPC 만복도 추적 (register_npc, is_npc_hungry, npc_eat, 기절 시스템)

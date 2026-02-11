@@ -13,7 +13,7 @@
 > - 자원 순환 → 채집→저장→요리→식사 파이프라인
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
 > - 텃밭 활동 → 정원 4-phase (idle/going/working/storing_harvest)
-> - 시설 탐색 리졸버 → `facility_resolver.py` (목욕 예약 + 옷장 우선순위 탐색) (v0.2.2)
+> - 시설 탐색 리졸버 → `facility_resolver.py` (목욕 선착순 + 옷장 우선순위 탐색) (v0.2.2)
 > - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적 (v0.2.2)
 > - **배변 인터럽트** → toilet_location 기반 화장실 이동 (v0.2.2)
 > - **피로 인터럽트** → 비스케줄 수면 자동 시작 (v0.2.2)
@@ -221,7 +221,7 @@ def find_toilet_location(unit_id):
 | 피로 | `욕구:피로` | 0-100 | +4/h (각성 중) | 수면 중 -12/h | 80 |
 | 청결 | `욕구:청결` | 0-100 | +1 + 오염×0.1 + 젖음×0.05 | 목욕 → 0 | 70 |
 | 사회 | `욕구:사회` | 0-100 | +1/h (고립 시) | 대화/교류 시 감소 | — |
-| 성욕 | `상태:성욕` | 0-100 | +0.5/h (cap 50) | 절정 → 0 | — |
+| 성욕 | `상태:성욕` | 0-100 | +0.5/h (동적 cap) | 절정 → 0 | — |
 
 ### 매시간 업데이트
 
@@ -240,8 +240,9 @@ def _process_hourly(unit_id):
     if _is_alone(unit_id):
         add_social(unit_id, SOCIAL_RATE)  # +1/h
 
-    # 성욕: 자연 증가 (50 이하일 때만)
-    if current < 50:
+    # 성욕: 자연 증가 (욕망 기반 동적 상한)
+    arousal_cap = _get_arousal_cap(unit_id)  # min(100, 50 + max_desire * 0.5)
+    if current < arousal_cap:
         arousal += 0.5
 ```
 
@@ -285,8 +286,8 @@ None → idle → going → using → None
 | 세라 | `{"region_id": 0, "location_id": 16, "x": 15}` | 2층 화장실 |
 | 리나 | `{"region_id": 0, "location_id": 16, "x": 15}` | 2층 화장실 |
 | 밀라 | `{"region_id": 0, "location_id": 15, "x": 15}` | 1층 화장실 |
-| 엘라 | `None` (skip) | R2에 화장실 없음 |
-| 유키 | `None` (skip) | R2에 화장실 없음 |
+| 엘라 | `{"region_id": 2, "location_id": 5, "x": 170}` | 은신처 간이 화장실 |
+| 유키 | `{"region_id": 2, "location_id": 5, "x": 170}` | 은신처 간이 화장실 |
 
 ### 비스케줄 fallback duration
 
@@ -420,7 +421,7 @@ self._memory = {
 
 ## 2-C. 시설 탐색 리졸버 — 구현됨 (v0.2.2)
 
-> `think/facility_resolver.py` — 목욕/옷장 등 시설의 우선순위 탐색 + 예약
+> `think/facility_resolver.py` — 목욕/옷장 등 시설의 우선순위 탐색 + 선착순 점유
 
 ### 개요
 
@@ -439,26 +440,20 @@ NPC가 시설(욕조, 옷장 등)을 사용할 때 하드코딩 좌표 대신 **
 ### 목욕 시설 탐색 (`resolve_bath`)
 
 ```python
-from think.facility_resolver import resolve_bath, release_bath
+from think.facility_resolver import resolve_bath
 
-target = resolve_bath(agent)                    # 탐색 + 예약
+target = resolve_bath(agent)                    # 탐색 (선착순 점유)
 target = resolve_bath(agent, cross_region=True) # 다른 region도 탐색
-release_bath(agent)                             # 예약 해제
 ```
 
-**예약 시스템**: 욕조 오브젝트에 `예약:사용자` prop을 설정하여 점유 표시.
-침대의 `seated_by` 패턴과 동일. 챕터 전환 시 오브젝트 재생성으로 자동 초기화.
+**선착순 점유**: 욕조의 location에 목욕 중인 NPC가 없으면 사용 가능.
+needs 시스템의 주기적 체크로 자연스럽게 재시도됨 (예약 불필요).
 
 | 동작 | 설명 |
 |------|------|
-| `resolve_bath()` | 가용 욕조 탐색 → `예약:사용자` prop 설정 → dict 반환 |
-| `release_bath()` | 해당 NPC의 예약 prop 해제 |
-| stale 정리 | 예약자의 `_is_bath_time()`이 False면 자동 해제 |
-
-**대기 로직** (`_handle_bath`에서):
-- 모든 욕실 점유 + 목욕 시간 10분+ 남음 → 5분 대기 후 재탐색
-- 모든 욕실 점유 + 목욕 시간 10분 미만 → 목욕 포기
-- 예: 밀라가 5분 대기 → 세라가 5:30에 완료 → 밀라 5:05에 입욕
+| `resolve_bath()` | 가용 욕조 탐색 → 점유되지 않은 첫 번째 욕조 반환 |
+| 점유 판정 | location 내 NPC가 `_is_bath_time()` 또는 `is_npc_need_bath()` → 점유 |
+| 재시도 | needs 주기적 체크로 자연 재시도 (별도 대기 로직 불필요) |
 
 ### 옷장 탐색 (`resolve_wardrobe`)
 

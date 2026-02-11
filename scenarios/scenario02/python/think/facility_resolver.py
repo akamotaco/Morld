@@ -3,10 +3,9 @@
 # NPC가 목욕/옷장 등 시설을 찾을 때 우선순위 기반으로 탐색.
 # activity_resolver.py와 동일한 stateless 패턴 (lazy init 불필요).
 #
-# 예약 시스템:
-#   욕조 오브젝트에 "예약:사용자" prop을 설정하여 점유 표시.
-#   침대의 seated_by 패턴과 동일. 챕터 전환 시 오브젝트 재생성으로 자동 초기화.
-#   stale 예약은 _is_bath_time()=False 확인 시 자동 정리 (self-cleaning).
+# 선착순 점유:
+#   목욕 시설은 현재 해당 location에 목욕 중인 NPC가 없으면 사용 가능.
+#   주기적 체크(needs 시스템)로 점유 상태를 자연 감지.
 #
 # 사용법:
 #   from think.facility_resolver import resolve_bath, resolve_wardrobe
@@ -17,19 +16,15 @@ import morld
 from assets.objects import get_instance, _location_objects
 from assets.registry import get_unique_id
 
-PROP_RESERVED_BY = "예약:사용자"
-
 
 def resolve_bath(agent, cross_region=False):
-    """목욕 시설 탐색 (예약 기반 점유 감지)
+    """목욕 시설 탐색 (선착순 점유)
 
     우선순위:
     1. agent.bath_location (선호 위치) — 비어있으면 사용
     2. 같은 region의 다른 action:bath 오브젝트
     3. (cross_region=True일 때만) 다른 region의 오브젝트
     4. 모두 점유/없음 → None
-
-    예약: 결과 반환 시 욕조 오브젝트에 예약:사용자 prop 설정.
 
     Returns:
         {"region_id", "location_id", "x", "object_id"} or None
@@ -46,20 +41,9 @@ def resolve_bath(agent, cross_region=False):
     for bath in sorted_baths:
         obj_id = bath["object_id"]
         if _is_bath_available(obj_id, agent.unit_id):
-            # 예약 등록
-            morld.set_unit_prop(obj_id, PROP_RESERVED_BY, agent.unit_id)
             return bath
 
     return None
-
-
-def release_bath(agent):
-    """NPC의 욕조 예약 해제 (목욕 포기/완료 시 호출)"""
-    all_baths = _find_facilities_by_prop("action:bath", 1)
-    for bath in all_baths:
-        reserved = morld.get_unit_prop(bath["object_id"], PROP_RESERVED_BY)
-        if reserved == agent.unit_id:
-            morld.set_unit_prop(bath["object_id"], PROP_RESERVED_BY, -1)
 
 
 def resolve_wardrobe(agent, cross_region=False):
@@ -132,43 +116,40 @@ def _get_object_x(obj_id):
 
 
 def _is_bath_available(obj_id, exclude_unit_id=None):
-    """욕조 오브젝트가 사용 가능한지 확인 (예약 prop 기반)
+    """욕조가 사용 가능한지 (현재 location에 목욕 중인 NPC 없음)
 
-    예약:사용자 prop 확인:
-    - None/-1 → 사용 가능
-    - exclude_unit_id → 자기 자신 예약 → 사용 가능
-    - 다른 unit_id → 해당 NPC의 _is_bath_time() 확인
-      - True → 점유 중
-      - False → stale 예약 → 자동 해제 → 사용 가능
+    점유 판정:
+    - 해당 location에 있는 NPC 중 목욕 스케줄이거나 청결 인터럽트 중이면 점유
+    - exclude_unit_id (자기 자신)는 점유 판정에서 제외
     """
-    reserved = morld.get_unit_prop(obj_id, PROP_RESERVED_BY)
-    if reserved is None or reserved <= 0:
-        return True
-    if reserved == exclude_unit_id:
+    obj_loc = morld.get_unit_location(obj_id)
+    if not obj_loc:
+        return False
+
+    units = morld.get_units_at_location(obj_loc[0], obj_loc[1])
+    if not units:
         return True
 
-    # 예약자가 아직 목욕 시간인지 확인 (stale 정리)
     from think import _agents
-    reserving_agent = _agents.get(reserved)
-    if reserving_agent is None:
-        # 에이전트 없음 → stale
-        morld.set_unit_prop(obj_id, PROP_RESERVED_BY, -1)
-        return True
+    for uid in units:
+        if uid == exclude_unit_id:
+            continue
+        agent = _agents.get(uid)
+        if agent is None:
+            continue
+        # 목욕 스케줄 중인 NPC → 점유
+        is_bath, _ = agent._is_bath_time()
+        if is_bath:
+            return False
+        # 청결 인터럽트로 목욕 중인 NPC → 점유
+        try:
+            import needs
+            if needs.is_npc_need_bath(uid):
+                return False
+        except ImportError:
+            pass
 
-    is_bath, _ = reserving_agent._is_bath_time()
-    if not is_bath:
-        # 스케줄 목욕이 아닌 경우 — 예약자가 아직 욕조 location에 있으면 사용 중
-        agent_loc = reserving_agent.get_location()
-        obj_loc = morld.get_unit_location(obj_id)
-        if (agent_loc and obj_loc
-                and agent_loc[0] == obj_loc[0]
-                and agent_loc[1] == obj_loc[1]):
-            return False  # 같은 location → 사용 중
-        # 목욕 시간 아니고 부재 → stale 예약 해제
-        morld.set_unit_prop(obj_id, PROP_RESERVED_BY, -1)
-        return True
-
-    return False
+    return True
 
 
 def _sort_by_priority(facilities, preferred, home_region_id, cross_region=False):
