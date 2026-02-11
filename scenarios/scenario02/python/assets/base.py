@@ -1057,7 +1057,7 @@ class Character(Unit):
 
     # 자위 설정 (서브클래스 오버라이드)
     self_comfort_threshold: int = 80       # 성욕 자위 임계치
-    self_comfort_max_length: int = 200     # 은밀 장소 기준 (length ≤ 이 값인 location)
+    self_comfort_max_length: int = 150     # 은밀 장소 기준 (침실/욕실/화장실=150)
     SELF_COMFORT_DISCOVERY_REACTIONS: dict = None
 
     def should_initiate_skinship(self, player_id: int) -> bool:

@@ -283,7 +283,7 @@ class Ella(Character):
     # NPC 주도 설정 (엘라: 냉정함 - 높은 임계값, 세라와 비슷)
     # ========================================
     self_comfort_threshold = 85       # 자제력 높음
-    self_comfort_max_length = 200     # length ≤ 200인 location
+    self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 75,      # 성욕 임계값 (세라와 비슷하게 높음)

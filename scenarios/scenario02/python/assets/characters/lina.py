@@ -302,7 +302,7 @@ class Lina(Character):
     # NPC 주도 설정 (리나: 활발하지만 연애엔 수줍음)
     # ========================================
     self_comfort_threshold = 80       # 기본값
-    self_comfort_max_length = 200     # length ≤ 200인 location
+    self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 65,      # 성욕 임계값 (세라와 비슷)

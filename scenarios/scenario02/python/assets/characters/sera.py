@@ -453,7 +453,7 @@ class Sera(Character):
     # NPC 주도 스킨십 설정
     # ========================================
     self_comfort_threshold = 85       # 자제력 높음
-    self_comfort_max_length = 200     # length ≤ 200인 location
+    self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 70,      # 성욕 70 이상

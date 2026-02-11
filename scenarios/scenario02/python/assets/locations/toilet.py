@@ -88,7 +88,7 @@ class ToiletRoom(Location):
     name = "화장실"
     is_indoor = True
     stay_duration = 0
-    length = 180  # Pi-World: 화장실 길이
+    length = 150  # Pi-World: 화장실 (개인 공간)
 
     # life.md 연동용 (미래 구현)
     activities = ["배변"]

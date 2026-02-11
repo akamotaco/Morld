@@ -14,7 +14,7 @@ class GuestRoom(Location):
     owner = None  # 빈 방 (아직 소유자 없음)
     is_indoor = True
     stay_duration = 0
-    length = 180  # Pi-World: 방 길이
+    length = 150  # Pi-World: 침실 (개인 공간)
 
     def __init__(self, unique_id: str, description: str):
         super().__init__()

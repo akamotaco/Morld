@@ -318,7 +318,7 @@ class Mila(Character):
     # NPC 주도 설정 (밀라: 저돌적/적극적)
     # ========================================
     self_comfort_threshold = 70       # 감정적/민감
-    self_comfort_max_length = 200     # length ≤ 200인 location
+    self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 50,      # 성욕 임계값 (세라보다 낮음 - 더 적극적)

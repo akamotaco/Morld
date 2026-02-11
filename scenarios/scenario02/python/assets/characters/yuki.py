@@ -306,7 +306,7 @@ class Yuki(Character):
     # NPC 주도 설정 (유키: 매우 수줍음 - 높은 임계값)
     # ========================================
     self_comfort_threshold = 90       # 매우 수줍음
-    self_comfort_max_length = 200     # length ≤ 200인 location
+    self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 80,      # 성욕 임계값 (세라보다 높음 - 더 소극적)

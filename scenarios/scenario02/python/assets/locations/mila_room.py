@@ -15,7 +15,7 @@ class MilaRoom(Location):
     owner = "mila"
     is_indoor = True
     stay_duration = 0
-    length = 180  # Pi-World: 방 길이
+    length = 150  # Pi-World: 침실 (개인 공간)
     describe_text = {
         "default": "깨끗하지만 텅 빈 방. 개인 물건이라곤 거의 보이지 않는다."
     }

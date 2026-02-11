@@ -15,7 +15,7 @@ class SeraRoom(Location):
     owner = "sera"
     is_indoor = True
     stay_duration = 0
-    length = 180  # Pi-World: 방 길이
+    length = 150  # Pi-World: 침실 (개인 공간)
     describe_text = {
         "default": "검소하고 정돈된 방. 벽에 활과 화살통이 걸려 있다. 침대 곁에 작은 인형이 놓여 있는 게 의외다."
     }

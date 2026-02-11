@@ -12,7 +12,7 @@ class LinaRoom(Location):
     owner = "lina"
     is_indoor = True
     stay_duration = 0
-    length = 180  # Pi-World: 방 길이
+    length = 150  # Pi-World: 침실 (개인 공간)
     describe_text = {
         "default": "밝고 활기찬 분위기의 방. 창가에 작은 화분이 놓여 있다."
     }
