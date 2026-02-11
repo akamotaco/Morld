@@ -352,6 +352,14 @@ class Sera(Character):
         },
     }
 
+    SELF_COMFORT_DISCOVERY_REACTIONS = {
+        "text": [
+            ({"애정": 70}, ["[세라]", "...!", "...(얼굴을 돌린다)", "...뭘 봤는지 모른 척 해.", "...안 그러면 죽여버린다."]),
+            ({}, ["[세라]", "...!", "세라가 황급히 몸을 돌린다.", "...나가.", "...지금 당장."]),
+        ],
+        "effects": {"호감": -5},
+    }
+
     # ========================================
     # 스킨십 반응 (action:timing → 조건부 대사 리스트)
     # 세라: 과묵하지만 속으론 부끄러워함
@@ -444,6 +452,9 @@ class Sera(Character):
     # ========================================
     # NPC 주도 스킨십 설정
     # ========================================
+    self_comfort_threshold = 85       # 자제력 높음
+    self_comfort_max_length = 200     # length ≤ 200인 location
+
     INITIATIVE_CONFIG = {
         "arousal_threshold": 70,      # 성욕 70 이상
         "affection_threshold": 60,    # 호감도 60 이상
@@ -611,6 +622,14 @@ class Sera(Character):
                 "dialog": ["[세라]", "...뭐 해. 나가.", "세라의 시선이 차갑다."],
                 "teleport": 1,
                 "after": "욕실에서 쫓겨났다.",
+            },
+        },
+        "화장실": {
+            "threshold": 0,
+            "low": {
+                "dialog": ["[세라]", "...나가."],
+                "teleport": 1,
+                "after": "화장실에서 쫓겨났다.",
             },
         },
     }

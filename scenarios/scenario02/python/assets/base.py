@@ -1048,6 +1048,17 @@ class Character(Unit):
     INITIATIVE_CONFIG: dict = None
     NPC_INITIATIVE_ACTIONS: list = None
     INITIATIVE_REACTIONS: dict = None
+    INITIATIVE_SENSATION_REQS: dict = {
+        "deep_kiss": {"M": 1},
+        "breast_touch": {"B": 1},
+        "genital_touch": {"V": 2},
+        "clit_rub": {"C": 2},
+    }
+
+    # 자위 설정 (서브클래스 오버라이드)
+    self_comfort_threshold: int = 80       # 성욕 자위 임계치
+    self_comfort_max_length: int = 200     # 은밀 장소 기준 (length ≤ 이 값인 location)
+    SELF_COMFORT_DISCOVERY_REACTIONS: dict = None
 
     def should_initiate_skinship(self, player_id: int) -> bool:
         """
@@ -1217,12 +1228,29 @@ class Character(Unit):
         }
 
         # 조건 매칭
+        allowed = None
         for conditions, allowed_actions in self.INITIATIVE_ACTION_FILTERS:
             if TextSelector.match(conditions, context):
-                return list(allowed_actions)
+                allowed = list(allowed_actions)
+                break
 
-        # 기본값: 제한 없음
-        return None
+        if allowed is None:
+            return None
+
+        # 감각 기반 필터링
+        if self.INITIATIVE_SENSATION_REQS:
+            from romance import get_sensation_level
+            filtered = []
+            for action_id in allowed:
+                reqs = self.INITIATIVE_SENSATION_REQS.get(action_id)
+                if reqs is None:
+                    filtered.append(action_id)  # 제한 없음 (hug 등)
+                elif all(get_sensation_level(self.instance_id, cat) >= level
+                         for cat, level in reqs.items()):
+                    filtered.append(action_id)
+            return filtered
+
+        return allowed
 
     # ========================================
     # 애정 표현 메서드 (데이트 중/외 자동 분기)
@@ -1599,6 +1627,11 @@ class Character(Unit):
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
+        # 자위 발각 체크
+        job = morld.get_current_job(self.instance_id)
+        if job and job.get("name", "") == "자위":
+            return self._on_self_comfort_discovered(player_id)
+
         # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
         privacy = self._check_room_privacy(player_id)
         if privacy is not None:
@@ -1667,6 +1700,58 @@ class Character(Unit):
         # 다이얼로그 출력
         if text:
             yield ui.dialog([f"[{self.name}]", text])
+
+    def _on_self_comfort_discovered(self, player_id):
+        """자위 발각 처리 (Generator)"""
+        # NPC 상태 리셋
+        import think
+        agent = think.get_agent(self.instance_id)
+        if agent:
+            agent._memory["self_comfort_phase"] = None
+            morld.clear_jobs(self.instance_id)
+            agent._insert_idle_job("대기", 60_000)
+
+        if not self.SELF_COMFORT_DISCOVERY_REACTIONS:
+            def handler():
+                yield ui.dialog(f"[{self.name}]\n...!\n{self.name}(이)가 황급히 멈춘다.")
+            return handler()
+
+        config = self.SELF_COMFORT_DISCOVERY_REACTIONS
+        return self._run_discovery_reaction(player_id, config)
+
+    def _run_discovery_reaction(self, player_id, config):
+        """발각 반응 실행 (Generator)"""
+        def handler():
+            props = morld.get_unit_props(self.instance_id)
+            player_info = morld.get_unit_info(player_id)
+            player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+            # 조건부 텍스트 선택
+            text_rules = config.get("text", [])
+            selected = None
+            for conditions, texts in text_rules:
+                match = all(
+                    (props.get(f"관계:{player_name}:{k}", 0) if k in ("호감", "애정", "욕망")
+                     else props.get(f"상태:{k}", 0) if k in ("성욕",)
+                     else 0) >= v
+                    for k, v in conditions.items()
+                ) if conditions else True
+                if match:
+                    selected = texts
+                    break
+            if selected:
+                yield ui.dialog(selected)
+
+            # 효과 적용
+            effects = config.get("effects", {})
+            player_name_for_prop = player_name
+            for key, value in effects.items():
+                if key in ("성욕",):
+                    morld.modify_prop(self.instance_id, f"상태:{key}", value)
+                else:
+                    morld.modify_prop(self.instance_id, f"관계:{player_name_for_prop}:{key}", value)
+
+        return handler()
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응 - EQUIP_CHANGE_REACTIONS 기반"""
@@ -1811,14 +1896,14 @@ class Character(Unit):
         if not job:
             return None
         job_name = job.get("name", "")
-        if job_name not in ("수면", "목욕"):
+        if job_name not in ("수면", "목욕", "화장실"):
             return None
 
         info = morld.get_unit_info(self.instance_id)
         if not info:
             return None
 
-        # 2. 수면: 내 방인지 체크 필요 / 목욕: owner 체크 없음 (공유 욕실)
+        # 2. 수면: 내 방인지 체크 필요 / 목욕, 화장실: owner 체크 없음 (공유)
         if job_name == "수면":
             loc_info = morld.get_location_info(info["region_id"], info["location_id"])
             if not loc_info or loc_info.get("owner") != self.unique_id:

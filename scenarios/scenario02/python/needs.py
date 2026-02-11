@@ -220,13 +220,15 @@ def _process_hourly(unit_id):
         morld.set_unit_prop(unit_id, PROP_SOCIAL,
                             min(100, current_social + SOCIAL_RATE))
 
-    # 성욕: 자연 증가 (욕망 기반 동적 상한)
+    # 성욕: 자연 증가 (욕망 기반 동적 상한) + 상한 초과 시 클램프
     arousal_cap = _get_arousal_cap(unit_id)
     current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
     if current_arousal < arousal_cap:
         morld.set_unit_prop(unit_id, PROP_AROUSAL,
                             min(arousal_cap,
                                 current_arousal + AROUSAL_NATURAL_RATE))
+    elif current_arousal > arousal_cap:
+        morld.set_unit_prop(unit_id, PROP_AROUSAL, arousal_cap)
 
 
 def _process_accumulated(unit_id, millis):

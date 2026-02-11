@@ -82,6 +82,10 @@ class BaseAgent:
             "cold_last_attempt": None,  # 마지막 추위 대응 시도 시각 (밀리초)
             "hot_phase": None,      # 더위 단계 (None/idle/unequipping/storing)
             "excretion_phase": None,  # 배변 단계 (None/idle/going/using)
+            "self_comfort_phase": None,   # 자위 단계 (None/idle/going/performing)
+            "self_comfort_cooldown": None, # 마지막 자위/탐색 시각 (밀리초)
+            "seek_player_phase": None,    # 플레이어 탐색 단계 (None/idle/going)
+            "seek_player_target": None,   # 탐색 대상 위치
         }
 
     def set_base_schedule(self, schedule):
@@ -555,7 +559,11 @@ class BaseAgent:
         if self._check_fatigue():
             return True
 
-        # 4c. 목욕 (스케줄 OR 청결 기반)
+        # 4c. 성욕 (플레이어 탐색 → 자위)
+        if self._check_arousal():
+            return True
+
+        # 4d. 목욕 (스케줄 OR 청결 기반)
         is_bath, _ = self._is_bath_time()
         is_dirty = False
         try:
@@ -568,7 +576,7 @@ class BaseAgent:
             self._action_taken = True
             return True
 
-        # 4d. 취침 이동 (수면 시간이지만 아직 침대 아님)
+        # 4e. 취침 이동 (수면 시간이지만 아직 침대 아님)
         # (이미 침대에 누운 경우는 tier 1에서 처리됨)
         is_sleep, _ = self._is_sleep_time()
         if is_sleep:
@@ -624,6 +632,88 @@ class BaseAgent:
         self._handle_sleep()
         self._action_taken = True
         return True
+
+    def _check_arousal(self):
+        """성욕 처리: 플레이어 탐색 또는 자위. Returns True if handling."""
+        # 진행 중 → 계속
+        if self._memory["seek_player_phase"] is not None:
+            _handle_seek_player(self)
+            return True
+        if self._memory["self_comfort_phase"] is not None:
+            _handle_self_comfort(self)
+            return True
+
+        # 쿨다운
+        last = self._memory.get("self_comfort_cooldown")
+        if last is not None and self.get_time() - last < _SELF_COMFORT_COOLDOWN_MS:
+            return False
+
+        # 임계치
+        threshold = getattr(self, 'self_comfort_threshold', 80)
+        arousal = morld.get_unit_prop(self.unit_id, "상태:성욕") or 0
+        if arousal < threshold:
+            return False
+
+        # 1순위: 플레이어 탐색
+        can_seek, target = self._can_seek_player()
+        if can_seek:
+            self._memory["seek_player_phase"] = "idle"
+            self._memory["seek_player_target"] = target
+            _handle_seek_player(self)
+            return True
+
+        # 2순위: 자위
+        private = _resolve_private_location(self)
+        if private is not None:
+            self._memory["self_comfort_phase"] = "idle"
+            _handle_self_comfort(self)
+            return True
+
+        return False
+
+    def _can_seek_player(self):
+        """플레이어 탐색 가능 여부 (INITIATIVE_CONFIG 조건 재사용)"""
+        if not self.INITIATIVE_CONFIG:
+            return False, None
+
+        # initiative 쿨다운
+        props = morld.get_unit_props(self.unit_id)
+        if props:
+            last = props.get("상태:마지막_주도_시각", -99999)
+            cd = self.INITIATIVE_CONFIG.get("cooldown_millis", 480 * 60_000)
+            if self.get_time() - last < cd:
+                return False, None
+
+        player_id = morld.get_player_id()
+        if player_id is None:
+            return False, None
+        player_info = morld.get_unit_info(player_id)
+        if not player_info:
+            return False, None
+
+        # 호감/욕망 체크
+        player_name = player_info.get("name", "주인공")
+        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
+        if affection < self.INITIATIVE_CONFIG.get("affection_threshold", 60):
+            return False, None
+        desire_th = self.INITIATIVE_CONFIG.get("desire_threshold", 0)
+        if desire_th > 0:
+            desire = props.get(f"관계:{player_name}:욕망", 0) if props else 0
+            if desire < desire_th:
+                return False, None
+
+        # 같은 region만 (교차 리전 이동 미지원)
+        npc_loc = self.get_location()
+        if npc_loc and npc_loc[0] != player_info["region_id"]:
+            return False, None
+
+        # 이미 같은 location → on_meet이 처리 (seek 불필요)
+        if npc_loc and npc_loc[1] == player_info["location_id"]:
+            return False, None
+
+        target = {"region_id": player_info["region_id"],
+                  "location_id": player_info["location_id"], "x": 0}
+        return True, target
 
     def _check_tier5_routine(self):
         """Tier 5: 일상 (스케줄 기반 활동 디스패치)
@@ -1577,6 +1667,192 @@ def _store_warm_items_to_container(agent, container_id):
                 morld.give_item(container_id, item_id, 1)
         except Exception:
             pass
+
+
+# ========================================
+# 성욕 핸들러 (자위 + 플레이어 탐색)
+# ========================================
+
+_SELF_COMFORT_COOLDOWN_MS = 7_200_000  # 2시간 (완료/플레이어 발각)
+_SELF_COMFORT_INTERRUPT_COOLDOWN_MS = 1_800_000  # 30분 (NPC 방해로 중단)
+
+
+def _resolve_private_location(agent):
+    """은밀 장소 탐색 — length 기반
+
+    조건 (모두 충족):
+      - 현재 NPC와 같은 region
+      - length ≤ self_comfort_max_length
+      - 현재 아무도 없는 location (본인 제외)
+      - 실내 location
+      - 오염도 낮은 location (오염 > 10 제외)
+
+    우선순위: 현재 위치 → 침실 → 화장실 → region 내 가장 가까운 후보
+    """
+    from assets.registry import get_unique_id, get_location_class
+    import pollution
+
+    max_length = getattr(agent, 'self_comfort_max_length', 200)
+    loc = agent.get_location()
+    if not loc:
+        return None
+    cur_r, cur_l = loc[0], loc[1]
+
+    def _is_valid(r, l):
+        """location이 자위 장소로 적합한지 검사"""
+        if r != cur_r:
+            return False
+        # length 조회 (registry → Location 클래스)
+        uid = get_unique_id(l)
+        if not uid:
+            return False
+        cls = get_location_class(uid)
+        if not cls:
+            return False
+        length = getattr(cls, 'length', 0)
+        if length <= 0 or length > max_length:
+            return False
+        # 실내만
+        if not getattr(cls, 'is_indoor', True):
+            return False
+        # 오염도
+        pol = pollution.get_location_pollution(r, l)
+        if pol > 10:
+            return False
+        # 비어있는지 (본인 제외)
+        units = morld.get_units_at_location(r, l)
+        if units and any(u != agent.unit_id for u in units):
+            return False
+        return True
+
+    # 1. 현재 위치 (이동 불필요)
+    if _is_valid(cur_r, cur_l):
+        return {"region_id": cur_r, "location_id": cur_l, "x": 0}
+
+    # 2. 침실
+    if agent.sleep_location:
+        sr = agent.sleep_location["region_id"]
+        sl = agent.sleep_location["location_id"]
+        if _is_valid(sr, sl):
+            return agent.sleep_location
+
+    # 3. 화장실
+    if agent.toilet_location:
+        tr = agent.toilet_location["region_id"]
+        tl = agent.toilet_location["location_id"]
+        if _is_valid(tr, tl):
+            return agent.toilet_location
+
+    # 4. region 내 가장 가까운 후보
+    region_info = morld.get_region_info(cur_r)
+    if region_info and "locations" in region_info:
+        best = None
+        best_dist = 999999
+        for loc_info in region_info["locations"]:
+            lid = loc_info["id"]
+            if lid == cur_l:
+                continue  # 이미 체크함
+            if not _is_valid(cur_r, lid):
+                continue
+            dist = abs(lid - cur_l)  # location_id 거리 (인접 기준)
+            if dist < best_dist:
+                best_dist = dist
+                best = {"region_id": cur_r, "location_id": lid, "x": 0}
+        if best is not None:
+            return best
+
+    return None
+
+
+def _handle_self_comfort(agent):
+    """자위: 은밀 장소 이동 → 수행 → 완료 확인
+
+    Phase: idle → going → performing → finishing
+    - performing: 15분 job 삽입 (job name="자위" → 플레이어 발각 대상)
+    - finishing: job 완료 후 주변 확인 → 혼자면 성욕 감소, 타인 있으면 중단
+    """
+    phase = agent._memory["self_comfort_phase"]
+
+    if phase == "idle":
+        target = _resolve_private_location(agent)
+        if target is None:
+            agent._memory["self_comfort_phase"] = None
+            return
+        if agent._is_at(target):
+            agent._memory["self_comfort_phase"] = "performing"
+            _handle_self_comfort(agent)
+        else:
+            agent._memory["self_comfort_phase"] = "going"
+            _handle_self_comfort(agent)
+        return
+
+    elif phase == "going":
+        target = _resolve_private_location(agent)
+        if target is None:
+            agent._memory["self_comfort_phase"] = None
+            return
+        if agent._is_at(target):
+            agent._memory["self_comfort_phase"] = "performing"
+            _handle_self_comfort(agent)
+        else:
+            agent._move_to(target, "이동")  # 이동 중엔 발각 안 됨
+
+    elif phase == "performing":
+        # 15분 자위 job 삽입 — job 완료 후 finishing 단계에서 결과 처리
+        agent._insert_idle_job("자위", 15 * 60_000)
+        agent._memory["self_comfort_phase"] = "finishing"
+        agent._action_taken = True
+
+    elif phase == "finishing":
+        # job 완료 → 주변 확인
+        loc = agent.get_location()
+        alone = True
+        if loc:
+            units = morld.get_units_at_location(loc[0], loc[1])
+            if units and any(u != agent.unit_id for u in units):
+                alone = False
+
+        if alone:
+            # 성공: 성욕 감소 + 정상 쿨다운
+            arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
+            morld.set_unit_prop(agent.unit_id, "상태:성욕", max(0, arousal - 50))
+            agent._memory["self_comfort_phase"] = None
+            agent._memory["self_comfort_cooldown"] = agent.get_time()
+            agent._insert_idle_job("대기", 60_000)
+            agent._action_taken = True
+        else:
+            # NPC에게 발각 — 성욕 감소 없음, 짧은 쿨다운으로 재시도 유도
+            agent._memory["self_comfort_phase"] = None
+            agent._memory["self_comfort_cooldown"] = (
+                agent.get_time() - _SELF_COMFORT_COOLDOWN_MS + _SELF_COMFORT_INTERRUPT_COOLDOWN_MS
+            )
+            agent._insert_idle_job("대기", 60_000)
+            agent._action_taken = True
+
+
+def _handle_seek_player(agent):
+    """플레이어 탐색: 위치로 이동 → on_meet 자동 트리거"""
+    phase = agent._memory["seek_player_phase"]
+
+    if phase == "idle":
+        agent._memory["seek_player_phase"] = "going"
+        _handle_seek_player(agent)
+        return
+
+    elif phase == "going":
+        target = agent._memory.get("seek_player_target")
+        if target is None:
+            agent._memory["seek_player_phase"] = None
+            return
+        if agent._is_at(target):
+            # 도착 → on_meet이 C# 이벤트로 자동 발화
+            agent._memory["seek_player_phase"] = None
+            agent._memory["seek_player_target"] = None
+            agent._memory["self_comfort_cooldown"] = agent.get_time()
+            agent._insert_idle_job("대기", 60_000)
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "이동")
 
 
 def register_agent(unit_id, agent):

@@ -893,7 +893,79 @@ class Sera(Character):
 
 ---
 
-## 11. 구현 상태
+## 11. NPC 성욕 행동 시스템
+
+### 성적흥분 상한 클램프
+
+`needs.py`의 `_process_hourly()`에서 성욕이 동적 상한(`_get_arousal_cap()`) 초과 시 즉시 클램프.
+욕망 감소 → 상한 하락 → 성욕 자동 조절.
+
+### 은밀 장소 선정 (length 기반)
+
+Location의 기존 `length` 속성으로 은밀도 판정 — 별도 속성 없음:
+
+| 조건 | 설명 |
+|------|------|
+| 같은 region | 현재 NPC 위치와 동일 region |
+| `length ≤ self_comfort_max_length` | 기본 200 (침실/욕실/화장실=180 포함, 거실/복도=360 제외) |
+| 비어있는 location | 본인 외 아무도 없음 |
+| 실내 (`is_indoor=True`) | 실외 location 제외 |
+| 오염도 ≤ 10 | 오염이 심한 곳 제외 |
+
+우선순위: 현재 위치 → 침실(sleep_location) → 화장실(toilet_location) → region 내 가장 가까운 후보.
+
+### NPC 자위 (Self-Comfort)
+
+Tier 4 comfort에 위치 (배변 → 피로 → **성욕** → 목욕 → 수면).
+
+- 조건: `arousal ≥ self_comfort_threshold` + 2시간 쿨다운
+- 우선순위: 플레이어 탐색 > 자위
+- 은밀 장소: `length ≤ self_comfort_max_length` + 실내 + 혼자 + 저오염
+- Phase: idle → going → performing (15분 job "자위") → finishing (결과 확인)
+- **혼자일 때**: arousal -50, 정상 쿨다운 2시간
+- **NPC 발각**: arousal 감소 없음, 짧은 쿨다운 30분 (재시도 유도)
+- **플레이어 발각**: SELF_COMFORT_DISCOVERY_REACTIONS 반응
+- Job 이름: 이동 중 "이동" (발각 안 됨), 수행 중 "자위" (발각 대상)
+
+### NPC→플레이어 탐색
+
+arousal ≥ threshold + INITIATIVE_CONFIG 조건 충족 + 같은 region → 플레이어 location으로 이동.
+도착 시 on_meet → should_initiate_skinship → NPC 주도 시작.
+
+### 감각 기반 주도 제한 (INITIATIVE_SENSATION_REQS)
+
+`get_allowed_initiative_actions()`에서 INITIATIVE_ACTION_FILTERS 매칭 후 독립 필터:
+
+```python
+INITIATIVE_SENSATION_REQS = {
+    "deep_kiss": {"M": 1},       # 입 감각 레벨 1 이상
+    "breast_touch": {"B": 1},    # 가슴 감각 레벨 1 이상
+    "genital_touch": {"V": 2},   # 음부 감각 레벨 2 이상
+    "clit_rub": {"C": 2},        # 클리토리스 감각 레벨 2 이상
+}
+```
+
+감각 경험 부족 → 기본 행위(hug)만 주도 가능.
+
+### 자위 발각
+
+on_meet_player() 내 수면 체크 다음:
+- job name "자위" → `_on_self_comfort_discovered()` → SELF_COMFORT_DISCOVERY_REACTIONS
+- NPC 상태 리셋 + 조건부 대사 + 호감 감소
+
+### 캐릭터별 설정
+
+| 캐릭터 | self_comfort_threshold | max_length | 발각 호감 | 성격 |
+|--------|----------------------|------------|----------|------|
+| 세라 | 85 | 200 | -5 | 분노+수치 |
+| 밀라 | 70 | 200 | -3 | 당혹+울먹임 |
+| 리나 | 80 | 200 | -5 | 패닉 |
+| 유키 | 90 | 200 | -3 | 공포+경직 |
+| 엘라 | 85 | 200 | -5 | 냉정한 수습 |
+
+---
+
+## 12. 구현 상태
 
 ### 완료된 기능
 
@@ -952,18 +1024,24 @@ class Sera(Character):
 | 기능 | 설명 | 상태 |
 |------|------|------|
 | ~~캐릭터별 목격 반응~~ | ~~목격자 × 파트너 분기~~ | ✅ 완료 (ROMANCE_DISCOVERY_REACTIONS) |
-| 합류 이벤트 | 호감 높은 NPC 합류 | 미구현 |
-| 성적흥분 시간 감소 | 시간 경과 시 자동 감소 | 미구현 |
-| 복수 파트너 UI | 3인 이상 연애 | 미구현 |
-| 자위 행동 | NPC self-comfort think 핸들러 | 미구현 |
-| NPC→플레이어 탐색 | 고욕망+고관계+고성욕 시 플레이어 찾기 | 미구현 |
-| NPC-NPC 행위 | NPC 간 실제 행위 발생 | 미구현 |
+| 합류 이벤트 | 호감 높은 NPC 합류 | 취소 |
+| ~~성적흥분 상한 클램프~~ | ~~동적 cap 초과 시 즉시 클램프~~ | ✅ 완료 (needs.py) |
+| 복수 파트너 UI | 3인 이상 연애 | 취소 |
+| ~~자위 행동~~ | ~~NPC self-comfort think 핸들러~~ | ✅ 완료 (think/__init__.py) |
+| ~~NPC→플레이어 탐색~~ | ~~고욕망+고관계+고성욕 시 플레이어 찾기~~ | ✅ 완료 (think/__init__.py) |
+| ~~감각 기반 주도 제한~~ | ~~INITIATIVE_SENSATION_REQS 필터~~ | ✅ 완료 (base.py) |
+| ~~자위 발각~~ | ~~on_meet 시 자위 중 발각 처리~~ | ✅ 완료 (base.py) |
+| ~~은밀 장소 판정~~ | ~~length 기반 은밀 장소 선정~~ | ✅ 완료 (length 기반) |
+| ~~화장실 프라이버시~~ | ~~ROOM_PRIVACY_CONFIG "화장실" 추가~~ | ✅ 완료 (5캐릭터) |
+| NPC-NPC 대화 | 사회욕 기반 대화 시스템 + describe text | 미구현 |
+| NPC-NPC 행위 발각 | 행위 중 플레이어 개입 이벤트 | 미구현 |
+| NPC-NPC 자위 발각 상호작용 | 연인 NPC 발각 시 상호 애정 행위 전환 | 미구현 (현재: NPC 방해 → 짧은 쿨다운) |
 | ~~V 부위 액션~~ | ~~Vaginal 카테고리 액션 추가~~ | ✅ 완료 (V/C 4종 추가) |
 | ~~복종 시스템~~ | ~~관계:{name}:복종 prop + 이중 경로 submission~~ | ✅ 디버그 전용 (자연 증가 미구현) |
 
 ---
 
-## 12. 관련 morld API
+## 13. 관련 morld API
 
 | API | 설명 | 사용처 |
 |-----|------|--------|
@@ -976,7 +1054,7 @@ class Sera(Character):
 
 ---
 
-## 13. 파일 구조
+## 14. 파일 구조
 
 ```
 scenarios/scenario02/python/
