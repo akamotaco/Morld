@@ -38,7 +38,11 @@ class Toilet(Object):
         ])
 
         # 배변욕 해소
-        morld.set_unit_prop(player_id, "욕구:배변", 0)
+        try:
+            import needs
+            needs.set_excretion(player_id, 0)
+        except ImportError:
+            morld.set_unit_prop(player_id, "욕구:배변", 0)
         morld.advance_time_des(5 * 60_000)
 
 

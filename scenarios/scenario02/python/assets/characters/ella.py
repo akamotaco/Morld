@@ -917,3 +917,5 @@ class EllaAgent(BaseAgent):
         survival.register_npc(unit_id)
         import temperature
         temperature.register_character(unit_id)
+        import needs
+        needs.register_character(unit_id)

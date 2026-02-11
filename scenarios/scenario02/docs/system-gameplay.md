@@ -122,6 +122,39 @@ bar = survival.get_status_bar(unit_id)
 
 ---
 
+## 욕구 시스템 (Needs System)
+
+> `needs.py` — 순수 Python, C# 변경 없음. 상세 내용은 [life.md#2](life.md#2-욕구-시스템-needs-system--구현됨-v022) 참조.
+
+5개 욕구를 수치화하여 매시간 업데이트. NPC는 임계치 초과 시 자동 인터럽트.
+
+| 욕구 | Prop | 증가율 | 임계치 | 해소 |
+|------|------|--------|--------|------|
+| 배변 | `욕구:배변` | 식사 시 +`max(5, 포만감/2)` | 70 | 화장실 → 0 |
+| 피로 | `욕구:피로` | +4/h (각성), -12/h (수면) | 80 | 수면 |
+| 청결 | `욕구:청결` | +1/h + 오염·젖음 보정 | 70 | 목욕 → 0 |
+| 사회 | `욕구:사회` | +1/h (고립 시) | — | 교류 |
+| 성욕 | `상태:성욕` | +0.5/h (cap 50) | — | romance |
+
+### Python API
+
+```python
+import needs
+
+needs.register_character(unit_id)        # NPC 등록
+needs.get_excretion(unit_id)             # 배변 조회
+needs.get_fatigue(unit_id)               # 피로 조회
+needs.get_cleanliness(unit_id)           # 청결 조회
+needs.is_npc_need_excretion(unit_id)     # ≥ 70 → True
+needs.is_npc_need_sleep(unit_id)         # ≥ 80 → True
+needs.is_npc_need_bath(unit_id)          # ≥ 70 → True
+needs.reset()                            # 챕터 전환
+```
+
+플레이어는 자동 추적 (register 불필요). UI footer에 50 이상일 때 표시.
+
+---
+
 ## 온도 시스템 (Temperature System)
 
 > `temperature.py` — 순수 Python, C# 변경 없음
@@ -274,13 +307,14 @@ temperature.get_insulation_total(unit_id)           # → float (장착 보온 �
 1년 4월 1일 (수) 20:00 / 흐림 12℃
 ```
 
-**Footer** — `ui._get_environment_status_text()`에서 캐릭터 체온 표시:
+**Footer** — `ui._get_environment_status_text()`에서 캐릭터 상태 표시:
 ```
-체온 36.5℃ | 젖음 20% | 오염 15
+체온 36.5℃ | 젖음 20% | 오염 15 | 배변 72 | 피로 45 | 불결 30
 ```
 - 체온: 항상 표시 (`< 35.5` cyan, `> 37.5` red)
 - 젖음: `> 0`일 때만 (cyan)
 - 오염: `> 0`일 때만 (orange)
+- 배변/피로/불결: `≥ 50`일 때만 (yellow), 임계치 이상 (red)
 
 ---
 
@@ -563,12 +597,13 @@ load_chapter("chapter_1") → 35+ location 추가
 
 ```python
 # load_chapter() step 2.1
-import temperature, humidity, congestion, sound, garden
+import temperature, humidity, congestion, sound, garden, needs
 temperature.reset()
 humidity.reset()
 congestion.reset()
 sound.reset()
 garden.reset()
+needs.reset()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -582,6 +617,7 @@ garden.reset()
 | `congestion.py` | capacity, population, last_sync_day | 재초기화 시 인구 재스캔 |
 | `sound.py` | adjacency, location_info | hearing/heard_events는 유지 |
 | `garden.py` | _registered_gardens | GardenBed.instantiate()에서 재등록 |
+| `needs.py` | _npc_registry, _accumulated | 플레이어 자동 추적, NPC 재등록 필요 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---

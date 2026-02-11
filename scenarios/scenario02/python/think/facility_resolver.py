@@ -157,7 +157,14 @@ def _is_bath_available(obj_id, exclude_unit_id=None):
 
     is_bath, _ = reserving_agent._is_bath_time()
     if not is_bath:
-        # 목욕 시간 아님 → stale 예약 해제
+        # 스케줄 목욕이 아닌 경우 — 예약자가 아직 욕조 location에 있으면 사용 중
+        agent_loc = reserving_agent.get_location()
+        obj_loc = morld.get_unit_location(obj_id)
+        if (agent_loc and obj_loc
+                and agent_loc[0] == obj_loc[0]
+                and agent_loc[1] == obj_loc[1]):
+            return False  # 같은 location → 사용 중
+        # 목욕 시간 아니고 부재 → stale 예약 해제
         morld.set_unit_prop(obj_id, PROP_RESERVED_BY, -1)
         return True
 

@@ -81,6 +81,7 @@ class BaseAgent:
             "cold_phase": None,     # 방한 단계 (None/idle/going/taking/equipping)
             "cold_last_attempt": None,  # 마지막 추위 대응 시도 시각 (밀리초)
             "hot_phase": None,      # 더위 단계 (None/idle/unequipping/storing)
+            "excretion_phase": None,  # 배변 단계 (None/idle/going/using)
         }
 
     def set_base_schedule(self, schedule):
@@ -189,6 +190,10 @@ class BaseAgent:
     wardrobe_location = None
     wardrobe_unique_id = "wardrobe"  # 옷장 오브젝트 unique_id
 
+    # 서브클래스에서 오버라이드: 화장실 장소 (배변 인터럽트용)
+    # 예: {"region_id": 0, "location_id": 15, "x": 15}
+    toilet_location = None
+
     def _is_sleep_time(self):
         """현재 시간이 수면 시간대인지 확인
 
@@ -210,6 +215,23 @@ class BaseAgent:
             else:
                 if start <= millis < end:
                     return True, entry
+        return False, None
+
+    def _is_already_sleeping(self):
+        """침대에 누운 상태 + 수면 시간 → 비자발적 수면 (tier 1)
+
+        seated_on prop 존재 = 침대에 눕혀있음.
+        수면 시간이면 인터럽트 불가 (기절과 동일 계층).
+
+        Returns:
+            (bool, entry or None)
+        """
+        seated_on = morld.get_unit_props_by_type(self.unit_id, "seated_on")
+        if not seated_on:
+            return False, None
+        is_sleep, entry = self._is_sleep_time()
+        if is_sleep:
+            return True, entry
         return False, None
 
     # 서브클래스에서 오버라이드: NPC의 unique_id (침대 소유자 매칭용)
@@ -292,6 +314,9 @@ class BaseAgent:
             if sleep_entry:
                 remaining = self._remaining_millis_in_entry(sleep_entry)
                 self._insert_idle_job("sleep", max(remaining, 1))
+            else:
+                # 피로 인터럽트 등 비스케줄 수면 — 2시간 단위
+                self._insert_idle_job("sleep", 2 * 3_600_000)
         else:
             # 이동 필요 → move job 설정
             info = self.get_info()
@@ -412,15 +437,23 @@ class BaseAgent:
 
         loc = self.get_location()
         if loc and loc[0] == target_region and loc[1] == target_location:
-            # 도착 — 체온/젖음 효과 + 목욕 job 삽입
+            # 도착 — 체온/젖음/청결 효과 + 목욕 job 삽입
             import temperature
             import humidity
             temperature.warm_character(self.unit_id, 2.0)
             humidity.dry_unit(self.unit_id, 100)
+            try:
+                import needs
+                needs.set_cleanliness(self.unit_id, 0)
+            except ImportError:
+                pass
             _, bath_entry = self._is_bath_time()
             if bath_entry:
                 remaining = self._remaining_millis_in_entry(bath_entry)
                 self._insert_idle_job("목욕", max(remaining, 1))
+            else:
+                # 청결 인터럽트 등 비스케줄 목욕 — 30분
+                self._insert_idle_job("목욕", 30 * 60_000)
         else:
             # 이동
             target_x = target.get("x", 0)
@@ -434,65 +467,181 @@ class BaseAgent:
             })
 
     # ========================================
-    # think() — 모든 행동 결정을 여기서 처리
+    # think() — 5-Tier 우선순위 계층 기반 AI 결정
     # ========================================
+    #
+    # Tier 1: 비자발적 (Involuntary)  — 기절, 이미 수면 중
+    # Tier 2: 반응형  (Reactive)      — [미래] 위협/소리 반응
+    # Tier 3: 생존    (Survival)      — 배고픔, 추위, 더위
+    # Tier 4: 쾌적    (Comfort)       — 목욕, 취침 이동
+    # Tier 5: 일상    (Routine)       — 스케줄 기반 활동
+    #
+    # [DES 규칙] 모든 경로에서 반드시 duration > 0인 job을 삽입해야 함.
 
-    def think(self):
+    def _check_tier1_involuntary(self):
+        """Tier 1: 비자발적 상태 (기절, 수면 중)
+
+        이 상태의 NPC는 어떤 인터럽트도 받지 않음.
+        _ensure_standing() 호출 전이므로 침대에 누운 상태 유지.
+
+        Returns:
+            True if action was taken.
         """
-        AI 로직 실행 — 매 step마다 호출 (DES에서는 job 만료 시)
-
-        모든 행동 결정이 여기서 처리됨:
-        1. 목욕/수면 시간대 → 기존 핸들러
-        2. 현재 시간대 activity 확인
-        3. activity 변경 감지 → 상태 리셋
-        4. 활동 핸들러 디스패치 (phase-based)
-
-        [DES 규칙] 이 메서드는 반드시 duration > 0인 job을 삽입해야 함.
-        stay job: _insert_idle_job() 사용, move job: duration=0 (C#이 자동 계산)
-        """
-        self._action_taken = False
-
-        # 0. 기절 체크 (최우선 — 아무것도 못함)
+        # 1a. 기절
         import survival
         if survival.is_npc_fainted(self.unit_id):
             remaining = survival.get_faint_remaining_millis(self.unit_id)
             self._insert_idle_job("fainting", max(remaining, 1))
             self._action_taken = True
-            return None
+            return True
 
-        schedule = self.get_current_schedule()
-        if not schedule:
-            return None
+        # 1b. 이미 침대에서 자는 중
+        already_sleeping, sleep_entry = self._is_already_sleeping()
+        if already_sleeping:
+            remaining = self._remaining_millis_in_entry(sleep_entry)
+            self._insert_idle_job("sleep", max(remaining, 1))
+            self._action_taken = True
+            return True
 
-        # 1. 목욕/수면 (기존 유지)
+        return False
+
+    def _check_tier2_reactive(self):
+        """Tier 2: 반응형 (위협, 소리) — 미래 확장 포인트
+
+        향후 구현 예정:
+        - sound.get_heard_by_category(unit_id, "전투") → 위협 반응
+        - 전투/도주 판단
+        - 소리에 대한 호기심/경계 반응
+
+        Returns:
+            True if action was taken.
+        """
+        return False
+
+    def _check_tier3_survival(self):
+        """Tier 3: 생존 욕구 (배고픔, 추위, 더위)
+
+        스케줄보다 우선하는 긴급 욕구.
+        기존 _check_hunger/_check_cold/_check_hot 그대로 호출.
+
+        Returns:
+            True if action was taken.
+        """
+        if self._check_hunger():
+            return True
+        if self._check_cold():
+            return True
+        if self._check_hot():
+            return True
+        return False
+
+    def _check_tier4_comfort(self):
+        """Tier 4: 쾌적 욕구 (배변, 피로, 목욕/청결, 취침 이동)
+
+        생존보다 낮은 우선순위.
+        배변: needs 임계치 → _handle_excretion()
+        피로: needs 임계치 → _handle_sleep() (비스케줄)
+        목욕: 스케줄 OR 청결 임계치 → _handle_bath()
+        취침: 스케줄 → _handle_sleep()
+
+        Returns:
+            True if action was taken.
+        """
+        # 4a. 배변 인터럽트
+        if self._check_excretion():
+            return True
+
+        # 4b. 피로 인터럽트 (비스케줄 수면)
+        if self._check_fatigue():
+            return True
+
+        # 4c. 목욕 (스케줄 OR 청결 기반)
         is_bath, _ = self._is_bath_time()
-        if is_bath:
+        is_dirty = False
+        try:
+            import needs
+            is_dirty = needs.is_npc_need_bath(self.unit_id)
+        except ImportError:
+            pass
+        if is_bath or is_dirty:
             self._handle_bath()
-            return None
+            self._action_taken = True
+            return True
+
+        # 4d. 취침 이동 (수면 시간이지만 아직 침대 아님)
+        # (이미 침대에 누운 경우는 tier 1에서 처리됨)
         is_sleep, _ = self._is_sleep_time()
         if is_sleep:
             self._handle_sleep()
-            return None
-        self._ensure_standing()
+            self._action_taken = True
+            return True
 
-        # 1.5. 배고픔 체크 (활동보다 우선)
-        if self._check_hunger():
-            return None
+        return False
 
-        # 1.6. 추위 체크 (옷 입기)
-        if self._check_cold():
-            return None
+    def _check_excretion(self):
+        """배변욕 확인 → 화장실 이동. Returns True if handling."""
+        if self.toilet_location is None:
+            return False
 
-        # 1.7. 더위 체크 (옷 벗기)
-        if self._check_hot():
-            return None
+        # 이미 진행 중이면 계속
+        if self._memory["excretion_phase"] is not None:
+            _handle_excretion(self)
+            return True
 
-        # 2. 현재 activity 확인
+        try:
+            import needs
+            if not needs.is_npc_need_excretion(self.unit_id):
+                return False
+        except ImportError:
+            return False
+
+        self._memory["excretion_phase"] = "idle"
+        _handle_excretion(self)
+        return True
+
+    def _check_fatigue(self):
+        """피로로 인한 수면. Returns True if handling.
+
+        스케줄 수면 시간이면 skip (4d에서 처리).
+        피로 임계치 초과 시 비스케줄 수면 시작.
+        """
+        is_sleep, _ = self._is_sleep_time()
+        if is_sleep:
+            return False  # 스케줄 수면은 4d에서 처리
+
+        if self.sleep_location is None:
+            return False
+
+        try:
+            import needs
+            if not needs.is_npc_need_sleep(self.unit_id):
+                return False
+        except ImportError:
+            return False
+
+        # 피로로 인한 비스케줄 수면 → _handle_sleep 재사용
+        # (fallback duration 2시간이 적용됨)
+        self._handle_sleep()
+        self._action_taken = True
+        return True
+
+    def _check_tier5_routine(self):
+        """Tier 5: 일상 (스케줄 기반 활동 디스패치)
+
+        activity 조회 → 변경 감지 → 동적 entry 해석 → 핸들러 디스패치.
+
+        Returns:
+            True if action was taken.
+        """
+        schedule = self.get_current_schedule()
+        if not schedule:
+            return False
+
         entry = self._get_current_activity(schedule)
         if entry is None:
-            return None
+            return False
 
-        # 3. activity 변경 감지 → 상태 리셋
+        # activity 변경 감지 → 상태 리셋
         if self._current_activity is not entry:
             self._current_activity = entry
             self._activity_target = None
@@ -500,8 +649,7 @@ class BaseAgent:
             self._activity_phase = "idle"
             self._activity_state = {}
 
-        # 3.5 + 4. 동적 entry 해석 + 디스패치 루프
-        # skip 시 idle job 없이 즉시 다음 candidate로 재디스패치
+        # 동적 entry 해석 + 디스패치 루프
         original_entry = entry
         while True:
             if original_entry.get("dynamic"):
@@ -520,11 +668,55 @@ class BaseAgent:
             if not original_entry.get("dynamic"):
                 break
 
+        return self._action_taken
+
+    def think(self):
+        """
+        AI 로직 실행 — 매 step마다 호출 (DES에서는 job 만료 시)
+
+        5-Tier 우선순위 계층:
+        [1] Involuntary: 기절, 이미 수면 중 (인터럽트 불가)
+        [2] Reactive: 위협/소리 반응 (미래 확장)
+        [3] Survival: 배고픔, 추위, 더위
+        [4] Comfort: 목욕, 취침 이동
+        [5] Routine: 스케줄 기반 활동
+
+        [DES 규칙] 이 메서드는 반드시 duration > 0인 job을 삽입해야 함.
+        stay job: _insert_idle_job() 사용, move job: duration=0 (C#이 자동 계산)
+        """
+        self._action_taken = False
+
+        schedule = self.get_current_schedule()
+        if not schedule:
+            return None
+
+        # Tier 1: 비자발적 (기절, 수면 중)
+        if self._check_tier1_involuntary():
+            return None
+
+        # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
+        self._ensure_standing()
+
+        # Tier 2: 반응형 (미래 확장)
+        if self._check_tier2_reactive():
+            return None
+
+        # Tier 3: 생존
+        if self._check_tier3_survival():
+            return None
+
+        # Tier 4: 쾌적
+        if self._check_tier4_comfort():
+            return None
+
+        # Tier 5: 일과
+        self._check_tier5_routine()
+
         # 경고: 행동 미결정
         if not self._action_taken:
             info = self.get_info()
             name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
-            print(f"[think] WARNING: {name} - 행동 미결정 (activity={activity}, phase={self._activity_phase})")
+            print(f"[think] WARNING: {name} - 행동 미결정")
 
         return None
 
@@ -1058,6 +1250,12 @@ class BaseAgent:
             return self._check_storage_need(self.food_storage_unique_id, None, 5)
         elif condition == "should_clean":
             return self._check_has_pollution()
+        elif condition == "need_social":
+            try:
+                import needs
+                return needs.get_social(self.unit_id) >= 50
+            except ImportError:
+                return False
         return False
 
     def _check_has_pollution(self):
@@ -1159,6 +1357,37 @@ def _handle_eat(agent):
         agent._memory["hunger_phase"] = None
         agent._action_taken = True
 
+
+# ========================================
+# 배변 핸들러 (배변 인터럽트)
+# ========================================
+
+def _handle_excretion(agent):
+    """배변: 화장실 이동 → 사용"""
+    phase = agent._memory["excretion_phase"]
+
+    if phase == "idle":
+        agent._memory["excretion_phase"] = "going"
+        _handle_excretion(agent)
+        return
+
+    elif phase == "going":
+        target = agent.toilet_location
+        if agent._is_at(target):
+            agent._memory["excretion_phase"] = "using"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "화장실")
+
+    elif phase == "using":
+        try:
+            import needs
+            needs.set_excretion(agent.unit_id, 0)
+        except ImportError:
+            morld.set_unit_prop(agent.unit_id, "욕구:배변", 0)
+        agent._memory["excretion_phase"] = None
+        agent._insert_idle_job("화장실", 5 * 60_000)  # 5분
+        agent._action_taken = True
 
 
 # ========================================

@@ -1,6 +1,6 @@
 # NPC 생활 시스템 (Life System)
 
-> **v0.2.1에서 핵심 기능 구현 완료.**
+> **v0.2.2에서 욕구 수치화 시스템 구현 완료.**
 >
 > **구현된 항목:**
 > - 동적 Activity 탐색 → `activity_resolver.py` (채집/사냥/순찰/벌목/낚시/독서/물자수집)
@@ -14,8 +14,12 @@
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
 > - 텃밭 활동 → 정원 4-phase (idle/going/working/storing_harvest)
 > - 시설 탐색 리졸버 → `facility_resolver.py` (목욕 예약 + 옷장 우선순위 탐색) (v0.2.2)
+> - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적 (v0.2.2)
+> - **배변 인터럽트** → toilet_location 기반 화장실 이동 (v0.2.2)
+> - **피로 인터럽트** → 비스케줄 수면 자동 시작 (v0.2.2)
+> - **청결 인터럽트** → 비스케줄 목욕 자동 시작 (v0.2.2)
 >
-> **미구현 항목:** 배변욕, 수면욕, 사회욕, NPC 주도 상호작용
+> **미구현 항목:** NPC 주도 상호작용
 >
 > 현재 구현 상태는 [schedule.md#8](schedule.md#8-v021-phase-시스템) 참조.
 
@@ -204,150 +208,135 @@ def find_toilet_location(unit_id):
 
 ---
 
-## 2. 욕구 시스템 (Needs System)
+## 2. 욕구 시스템 (Needs System) — 구현됨 (v0.2.2)
+
+> `needs.py` — 순수 Python, subscribe_time_elapsed 1시간 간격.
+> 플레이어 자동 추적, NPC는 `register_character(unit_id)`.
 
 ### 욕구 타입
 
-| 욕구 | prop 키 | 범위 | 증가 조건 | 해소 방법 |
-|------|---------|------|-----------|-----------|
-| 배고픔 | `욕구:배고픔` | 0~100 | 시간 경과 | 식사 |
-| 배변욕 | `욕구:배변` | 0~100 | 시간 경과, 식사 후 | 화장실/야외 |
-| 수면욕 | `욕구:수면` | 0~100 | 시간 경과 | 수면 |
-| 사회욕 | `욕구:사회` | 0~100 | 혼자 있을 때 | 대화 |
+| 욕구 | Prop | 범위 | 시간당 증가 | 해소 | NPC 임계치 |
+|------|------|------|------------|------|-----------|
+| 배변 | `욕구:배변` | 0-100 | 식사 시 `max(5, 포만감/2)` | 화장실 → 0 | 70 |
+| 피로 | `욕구:피로` | 0-100 | +4/h (각성 중) | 수면 중 -12/h | 80 |
+| 청결 | `욕구:청결` | 0-100 | +1 + 오염×0.1 + 젖음×0.05 | 목욕 → 0 | 70 |
+| 사회 | `욕구:사회` | 0-100 | +1/h (고립 시) | 대화/교류 시 감소 | — |
+| 성욕 | `상태:성욕` | 0-100 | +0.5/h (cap 50) | 절정 → 0 | — |
 
-### 욕구 증가율
-
-```python
-NEED_RATES = {
-    "배고픔": {
-        "base_rate": 4,      # 시간당 기본 증가
-        "activity_mod": {    # 활동별 보정
-            "사냥": 2,       # 사냥 중 +2/시간
-            "수면": -2,      # 수면 중 -2/시간
-        }
-    },
-    "배변": {
-        "base_rate": 2,
-        "after_meal": 20,    # 식사 후 +20
-    },
-    "수면": {
-        "base_rate": 4,
-        "night_mod": 2,      # 밤에 추가 증가
-    },
-    "사회": {
-        "base_rate": 1,
-        "alone_mod": 3,      # 혼자 있을 때 추가
-    }
-}
-```
-
-### 욕구 임계값
-
-| 욕구 | 경고 | 긴급 | 위험 |
-|------|------|------|------|
-| 배고픔 | 50 | 70 | 90 |
-| 배변 | 60 | 80 | 95 |
-| 수면 | 50 | 70 | 90 |
-| 사회 | 40 | 60 | 80 |
-
-### 긴급 행동 트리거
+### 매시간 업데이트
 
 ```python
-def think(self):
-    """욕구 기반 행동 우선순위"""
+def _process_hourly(unit_id):
+    # 피로: 수면 중이면 감소, 아니면 증가
+    if _is_sleeping(unit_id):
+        reduce_fatigue(unit_id, FATIGUE_SLEEP_RECOVERY)  # -12/h
+    else:
+        add_fatigue(unit_id, FATIGUE_RATE)  # +4/h
 
-    needs = self.get_all_needs()
+    # 청결: 오염 + 젖음 기반 증가
+    cleanliness_increase = (1 + pollution × 0.1 + wetness × 0.05)
 
-    # 1. 위험 수준 욕구 (즉시 처리)
-    for need, value in needs.items():
-        if value >= CRITICAL_THRESHOLD[need]:
-            return self._handle_critical_need(need)
+    # 사회: 같은 location에 다른 캐릭터 없으면 증가
+    if _is_alone(unit_id):
+        add_social(unit_id, SOCIAL_RATE)  # +1/h
 
-    # 2. 긴급 수준 욕구 (스케줄 중단)
-    for need, value in needs.items():
-        if value >= URGENT_THRESHOLD[need]:
-            return self._handle_urgent_need(need)
-
-    # 3. 경고 수준 욕구 (스케줄 빈 시간에 처리)
-    pending_needs = [n for n, v in needs.items()
-                    if v >= WARNING_THRESHOLD[n]]
-
-    # 4. 기본 스케줄
-    return self.fill_schedule_jobs(pending_needs)
-
-def _handle_critical_need(self, need):
-    """위험 수준 욕구 처리"""
-    if need == "배변":
-        # 가장 가까운 곳에서 즉시 해결 (야외도 가능)
-        location = terrain.find_activity(self.unit_id, "배변")
-        if not location:
-            location = terrain.find_activity(self.unit_id, "야외배변")
-        return self.set_urgent_job("배변", location, priority="critical")
-
-    elif need == "수면":
-        # 쓰러지기 직전 - 그 자리에서 잠들 수도
-        location = terrain.find_sleep_location(self.unit_id)
-        return self.set_urgent_job("수면", location, priority="critical")
+    # 성욕: 자연 증가 (50 이하일 때만)
+    if current < 50:
+        arousal += 0.5
 ```
 
-### 욕구 해소 효과
+### 연동 시스템
+
+| 이벤트 | 호출 | 효과 |
+|--------|------|------|
+| 식사 | `survival.add_satiety()` | `needs.add_excretion(max(5, amount//2))` |
+| 화장실 | `Toilet.use()` / NPC `_handle_excretion()` | `needs.set_excretion(0)` |
+| 목욕 | `_handle_bath()` 도착 시 | `needs.set_cleanliness(0)` |
+| 수면 중 | `needs._on_time_elapsed()` | `needs.reduce_fatigue(12)` |
+
+### NPC 인터럽트 (Tier 4)
+
+```
+4a. 배변 (_check_excretion): 욕구:배변 ≥ 70 → _handle_excretion()
+4b. 피로 (_check_fatigue): 욕구:피로 ≥ 80 → _handle_sleep() (2시간 fallback)
+4c. 목욕 (스케줄 OR 청결): 욕구:청결 ≥ 70 → _handle_bath() (30분 fallback)
+4d. 취침: 스케줄 수면 시간 → _handle_sleep()
+```
+
+### 배변 인터럽트 (`_check_excretion` → `_handle_excretion`)
+
+**조건**: `toilet_location` 설정 + `욕구:배변 ≥ 70`
+
+**페이즈 흐름** (`_memory["excretion_phase"]`):
+```
+None → idle → going → using → None
+```
+
+| 페이즈 | 동작 |
+|--------|------|
+| `idle` | → `going` |
+| `going` | `toilet_location`으로 이동 (move job) |
+| `using` | `needs.set_excretion(0)` + 5분 대기 → 완료 |
+
+### toilet_location 설정
+
+| NPC | toilet_location | 위치 |
+|-----|-----------------|------|
+| 세라 | `{"region_id": 0, "location_id": 16, "x": 15}` | 2층 화장실 |
+| 리나 | `{"region_id": 0, "location_id": 16, "x": 15}` | 2층 화장실 |
+| 밀라 | `{"region_id": 0, "location_id": 15, "x": 15}` | 1층 화장실 |
+| 엘라 | `None` (skip) | R2에 화장실 없음 |
+| 유키 | `None` (skip) | R2에 화장실 없음 |
+
+### 비스케줄 fallback duration
+
+| 인터럽트 | fallback | 비고 |
+|----------|----------|------|
+| 피로 수면 | 2시간 | `_is_sleep_time()` 반환값이 None일 때 |
+| 청결 목욕 | 30분 | `_is_bath_time()` 반환값이 None일 때 |
+
+### Python API
 
 ```python
-NEED_RELIEF = {
-    "배고픔": {
-        "식사": -50,          # 식사 시 -50
-        "간식": -20,          # 간식 시 -20
-    },
-    "배변": {
-        "배변": -100,         # 완전 해소
-    },
-    "수면": {
-        "수면": -10,          # 시간당 -10 (8시간 = -80)
-        "낮잠": -5,           # 시간당 -5
-    },
-    "사회": {
-        "대화": -30,          # 대화 시 -30
-        "함께있기": -5,       # 같은 공간에 있을 때 시간당
-    }
-}
+import needs
+
+# 등록 (NPC Agent.__init__에서)
+needs.register_character(unit_id)
+
+# 조회
+needs.get_excretion(unit_id)     # → float
+needs.get_fatigue(unit_id)       # → float
+needs.get_cleanliness(unit_id)   # → float
+needs.get_social(unit_id)        # → float
+
+# 수정
+needs.add_excretion(unit_id, amount)
+needs.set_excretion(unit_id, 0)     # 화장실 사용 시
+needs.set_cleanliness(unit_id, 0)   # 목욕 시
+needs.reduce_fatigue(unit_id, amount)
+needs.reduce_social(unit_id, amount)
+
+# NPC 체크
+needs.is_npc_need_excretion(unit_id)  # → bool (≥ 70)
+needs.is_npc_need_sleep(unit_id)      # → bool (≥ 80)
+needs.is_npc_need_bath(unit_id)       # → bool (≥ 70)
+
+# 챕터 전환
+needs.reset()
 ```
 
-### 배변 시스템 상세
+### UI 표시
 
-```python
-class ToiletBehavior:
-    """배변 행동 처리"""
-
-    def process(self, unit_id):
-        need = morld.get_unit_prop(unit_id, "욕구:배변")
-
-        if need >= 95:
-            # 위험: 즉시 해결 (실수 가능성)
-            return self._emergency_relief(unit_id)
-
-        elif need >= 80:
-            # 긴급: 가장 가까운 화장실
-            location = terrain.find_activity(unit_id, "배변")
-            return self._go_to_toilet(unit_id, location)
-
-        elif need >= 60:
-            # 경고: 스케줄 빈 시간에 처리
-            return self._schedule_toilet(unit_id)
-
-    def _emergency_relief(self, unit_id):
-        """긴급 배변 - 야외 포함"""
-        toilet = terrain.find_activity(unit_id, "배변")
-        if toilet and self._is_close(unit_id, toilet):
-            return self._go_to_toilet(unit_id, toilet)
-
-        # 화장실이 멀면 야외에서
-        outdoor = terrain.find_activity(unit_id, "야외배변")
-        if outdoor:
-            return self._outdoor_relief(unit_id, outdoor)
-
-        # 최악의 경우: 그 자리에서... (이벤트 발생)
-        return self._accident(unit_id)
+Footer에 임계치 근처일 때만 표시:
 ```
+체온 36.5℃ | 젖음 20% | 오염 15 | 배변 72 | 피로 45 | 불결 30
+```
+- 50 이상: 노란색
+- 임계치 이상: 빨간색 (배변 70, 피로 80, 청결 70)
+
+### 챕터 전환 대응
+
+`reset()` 함수로 상태 초기화. `chapters/__init__.py`의 `load_chapter()`에서 자동 호출.
 
 ---
 
@@ -355,10 +344,14 @@ class ToiletBehavior:
 
 > `think/__init__.py` — 배고픔 인터럽트와 같은 계층에서 동작
 
-### think() 우선순위
+### think() 5-tier 우선순위
 
 ```
-기절(최우선) > 목욕/수면 > 배고픔 > 추위 > 더위 > 일반 활동
+Tier 1 (Involuntary): 기절
+Tier 2 (Reactive): 피격 반응 (미래)
+Tier 3 (Survival): 배고픔 → 추위 → 더위
+Tier 4 (Comfort): 배변 → 피로 → 목욕/청결 → 수면
+Tier 5 (Routine): 스케줄 기반 일반 활동
 ```
 
 ### 추위 인터럽트 (`_check_cold` → `_handle_cold`)
@@ -416,9 +409,10 @@ None → idle → unequipping → storing → None
 
 ```python
 self._memory = {
-    "cold_phase": None,         # None/idle/going/taking/equipping
-    "cold_last_attempt": None,  # 실패 시 쿨다운 타임스탬프
-    "hot_phase": None,          # None/idle/unequipping/storing
+    "cold_phase": None,          # None/idle/going/taking/equipping
+    "cold_last_attempt": None,   # 실패 시 쿨다운 타임스탬프
+    "hot_phase": None,           # None/idle/unequipping/storing
+    "excretion_phase": None,     # None/idle/going/using
 }
 ```
 
@@ -824,7 +818,7 @@ class LifeAgent(BaseAgent):
 | 2b | 욕구 증가/감소 로직 (배고픔) | 2a | 중간 | **구현됨** (survival.py) |
 | 2c | 긴급 행동 트리거 (배고픔) | 2b, 1b | 중간 | **구현됨** (_check_hunger) |
 | 2d | 추위/더위 인터럽트 | 체온 시스템 | 중간 | **구현됨** (_check_cold/_check_hot) |
-| 2e | 배변/수면/사회욕 | 2a | 중간 | 미구현 |
+| 2e | 배변/피로/청결/사회욕 수치화 | 2a | 중간 | **구현됨** (needs.py, v0.2.2) |
 | 3a | 소유물 검색 API | 없음 | 중간 | 미구현 |
 | 3b | 도구 기반 Activity | 3a | 중간 | **구현됨** (벌목 도끼, 낚시대) |
 | 3c | 결과물 저장소 이동 | 3a, 1b | 높음 | **구현됨** (채집→저장, 낚시→저장, 요리→저장) |

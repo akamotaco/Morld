@@ -1101,6 +1101,7 @@ class SeraAgent(BaseAgent):
     sleep_location = {"region_id": 0, "location_id": 8, "x": 120}  # 세라방
     bath_location = {"region_id": 0, "location_id": 4, "x": 15}  # 욕실
     wardrobe_location = {"region_id": 0, "location_id": 8, "x": 25}  # 세라방 옷장
+    toilet_location = {"region_id": 0, "location_id": 16, "x": 15}  # 2층 화장실
 
     def __init__(self, unit_id):
         super().__init__(unit_id)
@@ -1109,6 +1110,8 @@ class SeraAgent(BaseAgent):
         survival.register_npc(unit_id)
         import temperature
         temperature.register_character(unit_id)
+        import needs
+        needs.register_character(unit_id)
 
     def think(self):
         """주말/평일 감지 → 스케줄 전환"""

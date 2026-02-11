@@ -359,6 +359,26 @@ def _get_environment_status_text():
         except ImportError:
             pass
 
+        # 욕구 (임계치 근처일 때만 표시)
+        try:
+            import needs
+            excretion = needs.get_excretion(player_id)
+            if excretion >= 50:
+                color = "red" if excretion >= 70 else "yellow"
+                parts.append(f"[color={color}]배변 {excretion:.0f}[/color]")
+
+            fatigue = needs.get_fatigue(player_id)
+            if fatigue >= 50:
+                color = "red" if fatigue >= 80 else "yellow"
+                parts.append(f"[color={color}]피로 {fatigue:.0f}[/color]")
+
+            cleanliness = needs.get_cleanliness(player_id)
+            if cleanliness >= 50:
+                color = "red" if cleanliness >= 70 else "yellow"
+                parts.append(f"[color={color}]불결 {cleanliness:.0f}[/color]")
+        except ImportError:
+            pass
+
         return " | ".join(parts) if parts else ""
     except Exception as e:
         print(f"[ui] _get_environment_status_text error: {e}")

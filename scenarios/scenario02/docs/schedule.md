@@ -412,12 +412,16 @@ class BaseAgent:
 - 도구 자동 관리 (도끼, 낚시대, 빗자루)
 
 **미구현:**
-- 배변/수면/사회욕 긴급 행동
 - NPC 주도 대화
 
 **v0.2.2 추가 구현:**
 - 추위/더위 인터럽트 → 의류 자동 착탈 (`_check_cold`/`_check_hot`)
 - 시설 탐색 리졸버 → 목욕 예약 + 옷장 우선순위 탐색 (`facility_resolver.py`)
+- **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적
+- **배변 인터럽트** → `_check_excretion()` + `_handle_excretion()` (Tier 4)
+- **피로 인터럽트** → `_check_fatigue()` + `_handle_sleep()` 재사용 (Tier 4)
+- **청결 인터럽트** → `is_npc_need_bath()` + `_handle_bath()` 재사용 (Tier 4)
+- **5-tier 우선순위** → think() 재구성 (Involuntary/Reactive/Survival/Comfort/Routine)
 
 ---
 
@@ -443,6 +447,7 @@ class BaseAgent:
 | `can_cook` | 요리 가능 | 냉장고에 레시피 매칭 재료 있음 |
 | `need_supplies` | 물자 부족 | 저장소 총 아이템 < 5 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 location 존재 |
+| `need_social` | 사교 필요 | `needs.get_social(unit_id) >= 50` |
 
 ---
 
@@ -486,6 +491,10 @@ activity가 변경되면 자동 리셋됩니다.
 self._memory = {
     "tool": {},              # 도구 반납 위치 {item_id: {"container_id", "location"}}
     "hunger_phase": None,    # 식사 인터럽트 단계 (None/idle/going_to_storage/taking_food/eating)
+    "cold_phase": None,      # 방한 인터럽트 단계 (None/idle/going/taking/equipping)
+    "cold_last_attempt": None,  # 추위 대응 쿨다운 타임스탬프
+    "hot_phase": None,       # 더위 인터럽트 단계 (None/idle/unequipping/storing)
+    "excretion_phase": None, # 배변 인터럽트 단계 (None/idle/going/using)
     "current_season": None,  # 밀라 계절 추적
     "current_day_type": None # 세라 요일 타입 추적
 }
@@ -495,6 +504,10 @@ self._memory = {
 |----|------|----------|
 | `tool` | 도구를 가져온 컨테이너 위치 기억 (반납 시 사용) | 벌목/낚시/청소 |
 | `hunger_phase` | 식사 인터럽트 multi-step 상태 | 전체 |
+| `cold_phase` | 방한 인터럽트 단계 | 전체 (wardrobe_location 설정 NPC) |
+| `cold_last_attempt` | 추위 대응 쿨다운 (1시간) | 전체 |
+| `hot_phase` | 더위 인터럽트 단계 | 전체 |
+| `excretion_phase` | 배변 인터럽트 단계 | 전체 (toilet_location 설정 NPC) |
 | `current_season` | 계절 변화 감지 → 스케줄 갱신 | 밀라 |
 | `current_day_type` | 요일 타입 변화 감지 → 스케줄 갱신 | 세라 |
 
@@ -739,6 +752,7 @@ agent.push_schedule(work_order)
 - `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)
 - `think/trap_agent.py` - 덫 시스템 (토끼 굴 체크)
 - `survival.py` - NPC 만복도 추적 (register_npc, is_npc_hungry, npc_eat, 기절 시스템)
+- `needs.py` - 욕구 수치화 (배변/피로/청결/사회/성욕), NPC 인터럽트 체크 (v0.2.2)
 - `assets/characters/*.py` - 캐릭터별 SCHEDULE/SCHEDULES 정의
 - `assets/base.py` - Object 컨테이너 헬퍼, 디버그 작업지시 (debug_work_order)
 - `assets/objects/scavenge.py` - 비충전 수집 오브젝트 (도시 자원)

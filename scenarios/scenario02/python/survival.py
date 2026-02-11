@@ -86,6 +86,12 @@ def add_satiety(unit_id: int, amount: int):
     """
     current = morld.get_unit_prop(unit_id, "생존:포만감") or 0
     set_satiety(unit_id, current + amount)
+    # 식사 → 배변욕 증가 (포만감 회복량에 비례)
+    try:
+        import needs
+        needs.add_excretion(unit_id, max(5, amount // 2))
+    except ImportError:
+        pass
 
 
 def add_health(unit_id: int, amount: int):
