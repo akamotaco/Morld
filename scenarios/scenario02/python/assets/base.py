@@ -1212,6 +1212,8 @@ class Character(Unit):
             "성욕": props.get("상태:성욕", 0) if props else 0,
             "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
             "애정": props.get(f"관계:{player_name}:애정", 0) if props else 0,
+            "욕망": props.get(f"관계:{player_name}:욕망", 0) if props else 0,
+            "복종": props.get(f"관계:{player_name}:복종", 0) if props else 0,
         }
 
         # 조건 매칭
@@ -1404,6 +1406,26 @@ class Character(Unit):
         """성욕 -20 테스트"""
         self._check_instantiated()
         prop_name = "상태:성욕"
+        new_value = morld.modify_prop(self.instance_id, prop_name, -20)
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -20\n현재: {new_value}")
+
+    def debug_submission_up(self):
+        """복종 +20 테스트 (이중 경로 해금 테스트용)"""
+        self._check_instantiated()
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+        prop_name = f"관계:{player_name}:복종"
+        new_value = morld.modify_prop(self.instance_id, prop_name, 20)
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} +20\n현재: {new_value}")
+
+    def debug_submission_down(self):
+        """복종 -20 테스트"""
+        self._check_instantiated()
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+        prop_name = f"관계:{player_name}:복종"
         new_value = morld.modify_prop(self.instance_id, prop_name, -20)
         yield ui.dialog(f"[b]{self.name}[/b]\n\n{prop_name} -20\n현재: {new_value}")
 

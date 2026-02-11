@@ -13,7 +13,8 @@ import morld
 import random
 import think
 import ui
-from romance import check_ecstasy, emit_romance_sound, emit_ecstasy_sound
+from romance import (check_ecstasy, emit_romance_sound, emit_ecstasy_sound,
+                     is_action_available, get_effective_affection_req)
 
 # ============================================
 # 상수 정의
@@ -65,6 +66,11 @@ PLAYER_INSTANT_ACTIONS = {
         "effects": {"호감": 2, "애정": 2},
         "exp_part": None, "affection_req": 50
     },
+    "genital_caress": {
+        "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"애정": 1, "성욕": 4, "욕망": 2},
+        "exp_part": "음부", "affection_req": 85
+    },
 }
 
 # NPC 토글 행위 정의 (romance.py와 공유)
@@ -82,8 +88,18 @@ NPC_TOGGLE_ACTIONS = {
     },
     "breast_touch": {
         "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 4},
+        "effects": {"애정": 1, "성욕": 4, "욕망": 1},
         "exp_part": "가슴", "affection_req": 80
+    },
+    "genital_touch": {
+        "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"애정": 1, "성욕": 5, "욕망": 3},
+        "exp_part": "음부", "affection_req": 90
+    },
+    "clit_rub": {
+        "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4},
+        "exp_part": "클리토리스", "affection_req": 95
     },
 }
 
@@ -408,13 +424,11 @@ def get_available_npc_actions(npc_id, player_id):
     Returns:
         list: 선택 가능한 액션 ID 리스트
     """
-    affection = get_affection(npc_id, player_id)
     arousal = get_npc_arousal(npc_id)
 
     available = []
     for action_id, action_def in NPC_TOGGLE_ACTIONS.items():
-        req_affection = action_def.get("affection_req", 0)
-        if affection >= req_affection:
+        if is_action_available(npc_id, player_id, action_def):
             available.append(action_id)
 
     # 성욕이 높을수록 더 적극적인 액션 선호
@@ -501,15 +515,18 @@ def execute_npc_action(state, action):
     effects = {
         "hug": {"호감": 1, "애정": 2},
         "deep_kiss": {"호감": 1, "애정": 2, "성욕": 3},
-        "breast_touch": {"애정": 1, "성욕": 4},
+        "breast_touch": {"애정": 1, "성욕": 4, "욕망": 1},
+        "genital_touch": {"애정": 1, "성욕": 5, "욕망": 3},
+        "clit_rub": {"성욕": 7, "욕망": 4},
     }
 
     action_effects = effects.get(action_type, {"호감": 1})
+    affection_key = f"관계:{player_name}:호감"
     for key, value in action_effects.items():
-        if key in ("호감", "애정"):
-            prop_key = f"관계:{player_name}:{key}"
-        else:
+        if key in ("성욕", "성적절정"):
             prop_key = f"상태:{key}"
+        else:
+            prop_key = affection_key.replace(":호감", f":{key}")
         morld.modify_prop(npc_id, prop_key, value)
 
     # 시간 경과
@@ -699,13 +716,18 @@ def render_npc_initiative_ui(state):
     # 플레이어 선택 가능한 즉시 행위
     lines.append("[즉시 행위] (플레이어)")
     for action_id, action in PLAYER_INSTANT_ACTIONS.items():
-        if affection >= action["affection_req"]:
+        if is_action_available(npc_id, player_id, action):
             if player_stamina >= action["stamina"]:
                 lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
             else:
                 lines.append(f"  [color=gray]{action['name']} (스태미나 부족)[/color]")
         else:
-            lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
+            desire_key = affection_key.replace(":호감", ":욕망")
+            submission_key = affection_key.replace(":호감", ":복종")
+            eff_req = get_effective_affection_req(action["affection_req"],
+                npc_props.get(desire_key, 0) if npc_props else 0,
+                npc_props.get(submission_key, 0) if npc_props else 0)
+            lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
     lines.append("")
 
     # 선택지

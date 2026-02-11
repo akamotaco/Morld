@@ -142,14 +142,18 @@ STEALTH_REACTIONS = {
 | 귀 만지기 | 3분 | 1 | 호감+1, 애정+1, 성적흥분+1 | 45 |
 | 사랑의 속삭임 | 2분 | 1 | 호감+2, 애정+3 | 50 |
 | 프렌치 키스 | 5분 | 2 | 호감+1, 애정+2, 성적흥분+3 | 60 |
-| 엉덩이 쓰다듬기 | 3분 | 2 | 애정+1, 성적흥분+3 | 70 |
+| 엉덩이 쓰다듬기 | 3분 | 2 | 애정+1, 성적흥분+3, 욕망+1 | 70 |
+| 음부 쓰다듬기 | 5분 | 2 | 애정+1, 성욕+4, 욕망+2 | 85 |
+| 클리토리스 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 |
 
 #### 토글형 행위 (TOGGLE_ACTIONS)
 | 이름 | 틱당 시간 | 틱당 스태미나 | 효과 | 필요 호감도 |
 |------|----------|-------------|------|------------|
 | 껴안기 | 5분 | 1 | 호감+1, 애정+2 | 50 |
 | 딥키스 | 5분 | 2 | 호감+1, 애정+2, 성적흥분+3 | 70 |
-| 가슴 만지기 | 5분 | 2 | 애정+1, 성적흥분+4 | 80 |
+| 가슴 만지기 | 5분 | 2 | 애정+1, 성적흥분+4, 욕망+1 | 80 |
+| 음부 만지기 | 5분 | 3 | 애정+1, 성욕+5, 욕망+3 | 90 |
+| 클리토리스 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 |
 
 ### 절정 시스템
 - 성적흥분 >= 100 도달 시 절정 발생
@@ -276,6 +280,8 @@ NPC 주도 시 캐릭터 성격과 관계 진척도에 따라 허용되는 액�
 ```python
 # 밀라 - 저돌적 (낮은 조건에서도 다양한 액션)
 INITIATIVE_ACTION_FILTERS = [
+    ({"애정": 85}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub"]),
+    ({"애정": 70}, ["hug", "deep_kiss", "breast_touch", "genital_touch"]),
     ({"애정": 60}, ["hug", "deep_kiss", "breast_touch"]),
     ({"애정": 30}, ["hug", "deep_kiss"]),
     ({}, ["hug"]),
@@ -283,7 +289,9 @@ INITIATIVE_ACTION_FILTERS = [
 
 # 유키 - 매우 수줍음 (높은 애정에서도 제한적)
 INITIATIVE_ACTION_FILTERS = [
-    ({"애정": 85}, ["hug", "deep_kiss"]),  # breast_touch 없음
+    ({"애정": 98}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub"]),
+    ({"애정": 90}, ["hug", "deep_kiss", "breast_touch", "genital_touch"]),
+    ({"애정": 85}, ["hug", "deep_kiss", "breast_touch"]),
     ({"애정": 60}, ["hug"]),
     ({}, ["hug"]),
 ]
@@ -295,15 +303,18 @@ INITIATIVE_ACTION_FILTERS = [
 ```python
 # 신체 부위 정의
 NPC_TOGGLE_ACTIONS = {
-    "hug": {..., "exp_part": None, ...},        # 충돌 없음
+    "hug": {..., "exp_part": None, ...},            # 충돌 없음
     "deep_kiss": {..., "exp_part": "입술", ...},
     "breast_touch": {..., "exp_part": "가슴", ...},
+    "genital_touch": {..., "exp_part": "음부", ...},      # NEW
+    "clit_rub": {..., "exp_part": "클리토리스", ...},     # NEW
 }
 
 PLAYER_INSTANT_ACTIONS = {
     "head_pat": {..., "exp_part": "머리", ...},
     "french_kiss": {..., "exp_part": "입술", ...},  # deep_kiss와 충돌
     "whisper": {..., "exp_part": None, ...},        # 충돌 없음
+    "genital_caress": {..., "exp_part": "음부", ...},     # NEW
 }
 ```
 
@@ -527,7 +538,8 @@ ROMANCE_DISCOVERY_REACTIONS = {
 | 입술 | M (Mouth) | 키스 계열 |
 | 가슴 | B (Breast) | 가슴 계열 |
 | 엉덩이 | A (Anal) | 엉덩이 계열 |
-| — | V (Vaginal) | 향후 추가 |
+| 음부 | V (Vaginal) | 음부 계열 |
+| 클리토리스 | C (Clitoral) | 클리토리스 계열 |
 | 귀 | None | 비성적 |
 | 뺨 | None | 비성적 |
 | 머리 | None | 비성적 |
@@ -561,10 +573,10 @@ bonus = round(base_arousal_effect * sensation_level * 0.1)
 
 ```
 호감: 45  애정: 30  욕망: 20  성욕: 60
-감각 M:3 B:1
+감각 M:3 B:1 V:2 C:1
 ```
 
-감각 레벨이 0 초과인 카테고리만 표시.
+감각 레벨이 0 초과인 카테고리만 표시 (M/B/A/V/C 순서).
 
 ---
 
@@ -603,7 +615,91 @@ def _get_arousal_cap(unit_id):
 
 ---
 
-## 8. 사적인 대화 시스템 (진척도)
+## 8. 이중 경로 잠금 해제 (Dual-Path Unlock)
+
+### 개요
+
+액션의 `affection_req`(필요 호감도)를 애정 경로 **또는** 육욕 경로로 해금할 수 있는 시스템.
+욕망이 높으면 호감도가 부족해도 NPC가 마지못해 허락합니다.
+
+### 유효 호감 요구치 공식
+
+```python
+def get_effective_affection_req(req, desire=0, submission=0):
+    """욕망/복종에 의한 호감 요구치 할인"""
+    desire_discount = min(req * 0.3, desire * 0.3)
+    submission_discount = min(req * 0.3, submission * 0.3)
+    total = min(req * 0.5, desire_discount + submission_discount)
+    return max(20, req - total)
+```
+
+**할인 규칙:**
+- 욕망: 최대 30% 할인
+- 복종: 최대 30% 할인 (디버그 전용 — 자연 증가 미구현)
+- 합산: 최대 50% 할인
+- 절대 최소: 20
+
+### 할인 테이블 예시
+
+| 액션 (req) | 욕망 0 | 욕망 50 | 욕망 100 | 욕망 100+복종 100 |
+|-----------|--------|---------|----------|-----------------|
+| breast_touch (80) | 80 | 65 | 56 | 40 |
+| genital_caress (85) | 85 | 70 | 60 | 43 |
+| genital_touch (90) | 90 | 75 | 63 | 45 |
+| clit_rub (95) | 95 | 80 | 67 | 48 |
+
+### 적용 위치 (6곳)
+
+| 파일 | 위치 | 설명 |
+|------|------|------|
+| romance.py | render_romance_ui() 토글 표시 | 플레이어 주도 토글 해금 |
+| romance.py | render_romance_ui() 즉시 표시 | 플레이어 주도 즉시 해금 |
+| npc_initiative.py | render_npc_initiative_ui() | NPC 주도 중 플레이어 즉시 표시 |
+| npc_initiative.py | get_available_npc_actions() | NPC 토글 선택 조건 |
+| date.py | 데이트 중/외 애정 표현 | Phase C에서 적용 예정 |
+
+### UI 색상 구분
+
+| 해금 경로 | 색상 | 의미 |
+|----------|------|------|
+| 애정 해금 (호감 >= req) | 기본색 | 정상 해금 |
+| 욕망 해금 (호감 < req, 할인으로 해금) | 핑크 (`[color=pink]`) | 마지못해 허락 |
+
+### 헬퍼 함수 (romance.py)
+
+```python
+def is_action_available(partner_id, player_id, action_def):
+    """액션 해금 여부 (이중 경로 체크)"""
+
+def get_submission_key(player_id):
+    """복종 prop 키 생성"""
+
+def is_desire_unlocked(affection, action_def, desire, submission=0):
+    """욕망/복종에 의한 해금인지 (핑크색 표시용)"""
+```
+
+### INITIATIVE_ACTION_FILTERS context
+
+base.py `get_allowed_initiative_actions()`의 context에 `"욕망"`, `"복종"` 포함:
+```python
+context = {
+    "성욕": ..., "호감": ..., "애정": ...,
+    "욕망": props.get(f"관계:{player_name}:욕망", 0),
+    "복종": props.get(f"관계:{player_name}:복종", 0),
+}
+```
+
+### 복종 시스템 (디버그 전용)
+
+- **Prop**: `관계:{name}:복종` — 디버그 모드에서 +20/-20 수동 조정
+- **할인 공식**: `get_effective_affection_req()`에 submission 파라미터 활성화 완료
+- **UI**: 복종 > 0일 때만 스킨십 UI 헤더에 `복종: N` 표시
+- **자연 증가**: 미구현 (향후 리더십/명령 수행 시 증가 예정)
+- **date.py**: 이중 경로 미적용 (향후 적용 예정)
+
+---
+
+## 9. 사적인 대화 시스템 (진척도)
 
 ### 개요
 호감도가 높아지면 NPC와 점점 깊은 대화를 나눌 수 있는 시스템.
@@ -714,7 +810,7 @@ def _talk_progress_1(self, context):
 
 ---
 
-## 9. 캐릭터별 구현 가이드
+## 10. 캐릭터별 구현 가이드
 
 ### Character 클래스 속성 (base.py)
 
@@ -797,7 +893,7 @@ class Sera(Character):
 
 ---
 
-## 10. 구현 상태
+## 11. 구현 상태
 
 ### 완료된 기능
 
@@ -830,10 +926,16 @@ class Sera(Character):
 | 발각 반응 시스템 | base.py (on_romance_discovered) | ✅ 완료 |
 | 캐릭터별 발각 반응 | 전체 NPC (ROMANCE_DISCOVERY_REACTIONS) | ✅ 완료 |
 | 중단 액션 로그 | romance.py ("XX의 방해로 중단되었다.") | ✅ 완료 |
-| 감각 시스템 (M/B/A/V) | romance.py (SENSATION_MAP, get_sensation_level) | ✅ 완료 |
+| 감각 시스템 (M/B/A/V/C) | romance.py (SENSATION_MAP, get_sensation_level) | ✅ 완료 |
 | 감각 보정 (성욕 효과) | romance.py (calculate_effects) | ✅ 완료 |
 | 욕망 prop 인프라 | romance.py (apply_effects), needs.py (동적 cap) | ✅ 완료 |
 | NPC 주도 욕망 임계값 | base.py (desire_threshold) | ✅ 완료 |
+| V/C 부위 액션 (4종) | romance.py, npc_initiative.py | ✅ 완료 |
+| 이중 경로 잠금 해제 | romance.py, npc_initiative.py (욕망 할인) | ✅ 완료 |
+| 욕망 효과 활성화 | romance.py, npc_initiative.py (butt_caress/breast_touch 욕망+1) | ✅ 완료 |
+| FILTERS context 욕망 | base.py (get_allowed_initiative_actions) | ✅ 완료 |
+| 복종 디버그 조정 | base.py (debug_submission_up/down), 전체 NPC | ✅ 완료 |
+| 복종 이중 경로 | romance.py (is_action_available + submission) | ✅ 완료 |
 
 ### 지원 캐릭터
 
@@ -856,11 +958,12 @@ class Sera(Character):
 | 자위 행동 | NPC self-comfort think 핸들러 | 미구현 |
 | NPC→플레이어 탐색 | 고욕망+고관계+고성욕 시 플레이어 찾기 | 미구현 |
 | NPC-NPC 행위 | NPC 간 실제 행위 발생 | 미구현 |
-| V 부위 액션 | Vaginal 카테고리 액션 추가 | 미구현 |
+| ~~V 부위 액션~~ | ~~Vaginal 카테고리 액션 추가~~ | ✅ 완료 (V/C 4종 추가) |
+| ~~복종 시스템~~ | ~~관계:{name}:복종 prop + 이중 경로 submission~~ | ✅ 디버그 전용 (자연 증가 미구현) |
 
 ---
 
-## 11. 관련 morld API
+## 12. 관련 morld API
 
 | API | 설명 | 사용처 |
 |-----|------|--------|
@@ -873,7 +976,7 @@ class Sera(Character):
 
 ---
 
-## 12. 파일 구조
+## 13. 파일 구조
 
 ```
 scenarios/scenario02/python/

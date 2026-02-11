@@ -33,11 +33,12 @@ MILLIS_PER_MINUTE = 60_000
 
 # 행위 부위 → 감각 카테고리 매핑
 SENSATION_MAP = {
-    "입술": "M",       # Mouth
-    "가슴": "B",       # Breast
-    "엉덩이": "A",     # Anal
-    # V(Vaginal)는 현재 액션에 없음 → 향후 추가
-    "귀": None,        # 비성적 부위
+    "입술": "M",        # Mouth
+    "가슴": "B",        # Breast
+    "엉덩이": "A",      # Anal
+    "음부": "V",        # Vaginal
+    "클리토리스": "C",   # Clitoral
+    "귀": None,         # 비성적 부위
     "뺨": None,
     "머리": None,
 }
@@ -48,6 +49,7 @@ SENSATION_PROPS = {
     "B": "감각:B",     # Breast sensation level
     "A": "감각:A",     # Anal sensation level
     "V": "감각:V",     # Vaginal sensation level
+    "C": "감각:C",     # Clitoral sensation level
 }
 
 # ============================================
@@ -87,8 +89,18 @@ INSTANT_ACTIONS = {
     },
     "butt_caress": {
         "name": "엉덩이 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 3},
+        "effects": {"애정": 1, "성욕": 3, "욕망": 1},
         "exp_part": "엉덩이", "affection_req": 70
+    },
+    "genital_caress": {
+        "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"애정": 1, "성욕": 4, "욕망": 2},
+        "exp_part": "음부", "affection_req": 85
+    },
+    "clit_stimulation": {
+        "name": "클리토리스 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 6, "욕망": 3},
+        "exp_part": "클리토리스", "affection_req": 90
     },
 }
 
@@ -109,8 +121,18 @@ TOGGLE_ACTIONS = {
     },
     "breast_touch": {
         "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 4},
+        "effects": {"애정": 1, "성욕": 4, "욕망": 1},
         "exp_part": "가슴", "affection_req": 80
+    },
+    "genital_touch": {
+        "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"애정": 1, "성욕": 5, "욕망": 3},
+        "exp_part": "음부", "affection_req": 90
+    },
+    "clit_rub": {
+        "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4},
+        "exp_part": "클리토리스", "affection_req": 95
     },
 }
 
@@ -183,6 +205,44 @@ def emit_ecstasy_sound(partner_id):
     profile = getattr(partner_asset, 'ROMANCE_SOUND_PROFILE', None)
     intensity = profile["ecstasy"] if profile else 60
     sound.emit_sound(partner_id, "moan", intensity)
+
+
+def get_effective_affection_req(req, desire=0, submission=0):
+    """유효 호감 요구치 (욕망/복종 할인 적용)
+
+    각 요소: 최대 30% 할인
+    합산: 최대 50% 할인
+    절대 최소: 20
+    """
+    desire_discount = min(req * 0.3, desire * 0.3)
+    submission_discount = min(req * 0.3, submission * 0.3)  # Phase C
+    total = min(req * 0.5, desire_discount + submission_discount)
+    return max(20, req - total)
+
+
+def get_submission_key(player_id):
+    """플레이어에 대한 복종 prop 키 생성"""
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get('name', '주인공') if player_info else '주인공'
+    return f"관계:{player_name}:복종"
+
+
+def is_action_available(partner_id, player_id, action_def):
+    """액션 해금 여부 (감정 + 육욕 이중 경로)"""
+    affection_key = get_affection_key(player_id)
+    props = morld.get_unit_props(partner_id)
+    affection = props.get(affection_key, 0) if props else 0
+    desire_key = get_desire_key(player_id)
+    desire = props.get(desire_key, 0) if props else 0
+    submission_key = get_submission_key(player_id)
+    submission = props.get(submission_key, 0) if props else 0
+    eff_req = get_effective_affection_req(action_def["affection_req"], desire, submission)
+    return affection >= eff_req
+
+
+def is_desire_unlocked(affection, action_def, desire, submission=0):
+    """욕망/복종에 의한 해금인지 (정상 호감 미달이지만 욕망/복종으로 보완)"""
+    return affection < action_def["affection_req"] and (desire > 0 or submission > 0)
 
 
 def get_sensation_level(unit_id, category):
@@ -393,17 +453,22 @@ def render_romance_ui(state):
 
     lines.append("")
 
-    # 호감, 애정, 욕망, 성욕 표시
+    # 호감, 애정, 욕망, 복종, 성욕 표시
     affection = partner_props.get(affection_key, 0)
     love = partner_props.get(love_key, 0)
     desire_key = get_desire_key(player_id)
     desire = partner_props.get(desire_key, 0)
+    submission_key = get_submission_key(player_id)
+    submission = partner_props.get(submission_key, 0)
     arousal = partner_props.get(arousal_key, 0)
-    lines.append(f"호감: {affection}  애정: {love}  욕망: {desire}  성욕: {arousal}")
+    stat_line = f"호감: {affection}  애정: {love}  욕망: {desire}  성욕: {arousal}"
+    if submission > 0:
+        stat_line += f"  복종: {submission}"
+    lines.append(stat_line)
 
     # 감각 레벨 표시 (1 이상인 것만)
     sensation_parts = []
-    for cat in ("M", "B", "A", "V"):
+    for cat in ("M", "B", "A", "V", "C"):
         level = get_sensation_level(partner_id, cat)
         if level > 0:
             sensation_parts.append(f"{cat}:{level}")
@@ -417,9 +482,12 @@ def render_romance_ui(state):
     lines.append("[토글 행위]")
     for action_id, action in TOGGLE_ACTIONS.items():
         is_on = action_id in state["active_toggles"]
-        if affection >= action["affection_req"]:
+        if is_action_available(partner_id, player_id, action):
             prefix = "■" if is_on else "▶"
-            lines.append(f"  [url=@proc:toggle:{action_id}]{prefix} {action['name']}[/url]")
+            if is_desire_unlocked(affection, action, desire, submission):
+                lines.append(f"  [url=@proc:toggle:{action_id}][color=pink]{prefix} {action['name']}[/color][/url]")
+            else:
+                lines.append(f"  [url=@proc:toggle:{action_id}]{prefix} {action['name']}[/url]")
         else:
             lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
     lines.append("")
@@ -427,8 +495,11 @@ def render_romance_ui(state):
     # 즉시 행위
     lines.append("[즉시 행위]")
     for action_id, action in INSTANT_ACTIONS.items():
-        if affection >= action["affection_req"]:
-            lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
+        if is_action_available(partner_id, player_id, action):
+            if is_desire_unlocked(affection, action, desire, submission):
+                lines.append(f"  [url=@proc:instant:{action_id}][color=pink]{action['name']}[/color][/url]")
+            else:
+                lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
         else:
             lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
     lines.append("")
