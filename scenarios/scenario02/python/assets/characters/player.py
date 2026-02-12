@@ -25,6 +25,12 @@ BODY_OPTIONS = [
     {"value": "거구", "label": "거구 - 크고 건장한 몸"},
 ]
 
+GENDER_OPTIONS = [
+    {"value": "male", "label": "남성"},
+    {"value": "female", "label": "여성"},
+    {"value": "futanari", "label": "후타나리"},
+]
+
 EQUIPMENT_OPTIONS = [
     {
         "id": "hunter",

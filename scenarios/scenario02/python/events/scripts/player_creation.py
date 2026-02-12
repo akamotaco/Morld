@@ -6,7 +6,8 @@
 import morld
 import ui
 from assets.characters.player import (
-    Player, NAME_OPTIONS, AGE_OPTIONS, BODY_OPTIONS, EQUIPMENT_OPTIONS
+    Player, NAME_OPTIONS, AGE_OPTIONS, BODY_OPTIONS, EQUIPMENT_OPTIONS,
+    GENDER_OPTIONS
 )
 from assets import registry
 from assets.items.equipment import (
@@ -39,15 +40,40 @@ def run_character_creation(state=None):
     """
     if state is None:
         state = {
+            "gender": None,
             "name": None,
             "age": None,
             "body": None,
             "equipment": None,
-            "step": "name",  # name → age → body → equipment → confirm
+            "step": "gender",  # gender → name → age → body → equipment → confirm
         }
 
-    # === 이름 → 나이 → 체격 → 장비 → 확인 루프 ===
+    # === 성별 → 이름 → 나이 → 체격 → 장비 → 확인 루프 ===
     while True:
+        # --- 성별 선택 ---
+        if state["step"] == "gender":
+            def build_gender_text():
+                links = "\n".join([
+                    f"[url=@proc:{opt['value']}]{opt['label']}[/url]"
+                    for opt in GENDER_OPTIONS
+                ])
+                return f"나는...?\n\n{links}"
+
+            def handle_gender(action):
+                if action == "init":
+                    return build_gender_text()
+                state["gender"] = action
+                state["step"] = "name"
+                return True
+
+            yield ui.dialog(
+                build_gender_text(),
+                autofill="off",
+                proc=handle_gender,
+                result=state
+            )
+            continue
+
         # --- 이름 선택 ---
         if state["step"] == "name":
             def build_name_text():
@@ -55,11 +81,14 @@ def run_character_creation(state=None):
                     f"[url=@proc:{name}]{name}[/url]"
                     for name in NAME_OPTIONS
                 ])
-                return f"내 이름은...?\n\n{name_links}"
+                return f"내 이름은...?\n\n{name_links}\n\n[url=@proc:back]← 성별 다시 선택[/url]"
 
             def handle_name(action):
                 if action == "init":
                     return build_name_text()
+                if action == "back":
+                    state["step"] = "gender"
+                    return True
                 state["name"] = action
                 state["step"] = "age"
                 return True
@@ -176,11 +205,16 @@ def run_character_creation(state=None):
                 (opt["label"] for opt in BODY_OPTIONS if opt["value"] == state["body"]),
                 "???"
             )
+            gender_label = next(
+                (opt["label"] for opt in GENDER_OPTIONS if opt["value"] == state["gender"]),
+                "???"
+            )
 
             def build_confirm_text():
                 return (
                     f"[b]캐릭터 확인[/b]\n\n"
                     f"이름: {state['name']}\n"
+                    f"성별: {gender_label}\n"
                     f"나이: {state['age']}세\n"
                     f"체격: {body_label}\n"
                     f"소지품: {equip_info['label']}\n\n"
@@ -223,6 +257,10 @@ def apply_character_creation(state):
         state: run_character_creation()의 결과
     """
     player_id = morld.get_player_id()
+
+    # 성별 설정
+    Player.type = state["gender"]
+    morld.set_unit(player_id, "type", state["gender"])
 
     # 이름 설정
     Player.name = state["name"]

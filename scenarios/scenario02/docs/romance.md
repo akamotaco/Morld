@@ -1017,8 +1017,12 @@ on_meet_player() 내 수면 체크 다음:
 - `has_anatomy(unit_id, category)` → 해당 카테고리 보유 여부
 - `get_anatomy(unit_id)` → 보유 감각 카테고리 frozenset
 
+### 플레이어 성별 선택
+캐릭터 생성 시 성별 선택 가능 (male/female/futanari).
+`player_creation.py`에서 gender 단계 → `Player.type` + `morld.set_unit(type)` 반영.
+
 ### 현재 캐릭터
-Player=male, 모든 NPC=female. P감각은 male NPC 추가 시 활용.
+Player=선택 가능(male/female/futanari), 모든 NPC=female.
 
 ---
 
