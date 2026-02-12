@@ -877,6 +877,20 @@ def apply_action_effects(state, action_def):
             prop_key = affection_key.replace(":호감", f":{stat}")
         morld.modify_prop(npc_id, prop_key, value)
 
+    # 반발 조회 (자극 계산 + 복종 증가에 사용)
+    rebellion_key = get_rebellion_key(player_id)
+    npc_props = morld.get_unit_props(npc_id)
+    rebellion = npc_props.get(rebellion_key, 0) if npc_props else 0
+
+    # 복종 자연 증가: 고요구 행위 수행 시 (반발 50 미만)
+    from romance import SUBMISSION_ACTION_THRESHOLD, SUBMISSION_ACTION_GAIN, SUBMISSION_MAX
+    req = action_def.get("affection_req", 0)
+    if req >= SUBMISSION_ACTION_THRESHOLD:
+        submission_key = affection_key.replace(":호감", ":복종")
+        current_sub = (npc_props or {}).get(submission_key, 0)
+        if current_sub < SUBMISSION_MAX and rebellion < 50:
+            morld.modify_prop(npc_id, submission_key, SUBMISSION_ACTION_GAIN)
+
     # 자극 계산
     stim_state = state.get("stim")
     if not stim_state:
@@ -892,10 +906,6 @@ def apply_action_effects(state, action_def):
     base = effects.get("성욕", 0)
     if base <= 0:
         return None
-
-    rebellion_key = get_rebellion_key(player_id)
-    npc_props = morld.get_unit_props(npc_id)
-    rebellion = npc_props.get(rebellion_key, 0) if npc_props else 0
     sensation = get_sensation_level(npc_id, category)
     gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
     climax_info = stimulation.apply(stim_state, category, gain)
@@ -915,6 +925,14 @@ def apply_action_effects(state, action_def):
                 if c == climax_info["category"]:
                     morld.modify_prop(npc_id, f"경험:{part}", exp_gain)
                     break
+
+        # 절정 시 복종 증가 (반발에 의해 억제)
+        climax_sub_gain = max(0, 2 - rebellion // 25)
+        if climax_sub_gain > 0:
+            submission_key = affection_key.replace(":호감", ":복종")
+            current_sub = (npc_props or {}).get(submission_key, 0)
+            if current_sub < SUBMISSION_MAX:
+                morld.modify_prop(npc_id, submission_key, climax_sub_gain)
 
         # 절정 반응 텍스트
         npc_asset = get_npc_asset(npc_id)

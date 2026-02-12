@@ -31,6 +31,7 @@ CLEANLINESS_WETNESS_FACTOR = 0.05   # 젖음 x 0.05 추가
 SOCIAL_RATE = 1               # 고립 시 +1/h
 AROUSAL_NATURAL_RATE = 0.5    # 자연 성욕 증가 +0.5/h
 AROUSAL_NATURAL_CAP = 50      # 자연 증가 상한
+SUBMISSION_DECAY_INTERVAL = 2 # 복종 자연 감소 간격 (시간)
 
 # === 임계치 (NPC 인터럽트, Phase B에서 사용) ===
 EXCRETION_THRESHOLD = 70
@@ -229,6 +230,19 @@ def _process_hourly(unit_id):
                                 current_arousal + AROUSAL_NATURAL_RATE))
     elif current_arousal > arousal_cap:
         morld.set_unit_prop(unit_id, PROP_AROUSAL, arousal_cap)
+
+    # 복종: 자연 감소 (2시간마다 -1)
+    time_info = morld.get_time_info()
+    hour = time_info.get("hour", 0) if time_info else 0
+    if hour % SUBMISSION_DECAY_INTERVAL == 0:
+        player_id = morld.get_player_id()
+        if player_id:
+            player_info = morld.get_unit_info(player_id)
+            player_name = player_info.get("name", "주인공") if player_info else "주인공"
+            sub_key = f"관계:{player_name}:복종"
+            current_sub = morld.get_unit_prop(unit_id, sub_key) or 0
+            if current_sub > 0:
+                morld.set_unit_prop(unit_id, sub_key, max(0, current_sub - 1))
 
 
 def _process_accumulated(unit_id, millis):

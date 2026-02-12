@@ -57,6 +57,8 @@
 | FILTERS context 욕망 | base.py (get_allowed_initiative_actions) | ✅ 완료 |
 | 복종 디버그 조정 | base.py (debug_submission_up/down), 전체 NPC | ✅ 완료 |
 | 복종 이중 경로 | romance.py (is_action_available + submission) | ✅ 완료 |
+| 복종 자연 증가 (행위/절정) | romance.py, npc_initiative.py (apply_effects) | ✅ 완료 |
+| 복종 자연 감소 (시간 경과) | needs.py (_process_hourly) | ✅ 완료 |
 | 관계 라벨 시스템 | romance.py | ✅ 완료 |
 | 반발 시스템 | romance.py, base.py | ✅ 완료 |
 | 성별 시스템 | gender.py | ✅ 완료 |
@@ -98,7 +100,7 @@
 | NPC-NPC 행위 발각 | 행위 중 플레이어 개입 이벤트 | 미구현 |
 | NPC-NPC 자위 발각 상호작용 | 연인 NPC 발각 시 상호 애정 행위 전환 | 미구현 (현재: NPC 방해 → 짧은 쿨다운) |
 | ~~V 부위 액션~~ | ~~Vaginal 카테고리 액션 추가~~ | ✅ 완료 (V/C 4종 추가) |
-| ~~복종 시스템~~ | ~~관계:{name}:복종 prop + 이중 경로 submission~~ | ✅ 디버그 전용 (자연 증가 미구현) |
+| ~~복종 시스템~~ | ~~관계:{name}:복종 prop + 이중 경로 + 자연 증가/감소~~ | ✅ 완료 (romance.py, npc_initiative.py, needs.py) |
 
 ---
 

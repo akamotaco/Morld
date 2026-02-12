@@ -33,6 +33,11 @@ EXPOSURE_BONUS = 1.5           # 노출 시 효과 배율
 UNDRESS_UPPER_SLOTS = ["착용:외투", "착용:상의", "착용:속옷상의"]
 UNDRESS_LOWER_SLOTS = ["착용:하의", "착용:속옷하의"]
 
+# 복종 자연 증가
+SUBMISSION_ACTION_THRESHOLD = 80  # 이 이상 affection_req 행위에서 복종 증가
+SUBMISSION_ACTION_GAIN = 1        # 행위당 증가량
+SUBMISSION_MAX = 100              # 복종 상한
+
 # ============================================
 # 감각 시스템 (부위 → M/B/A/V 매핑)
 # ============================================
@@ -922,6 +927,14 @@ def start_romance(player_id, partner_id, preserved=None):
         partner_props = morld.get_unit_props(pid)
         rebellion = partner_props.get(rebellion_key, 0) if partner_props else 0
 
+        # 복종 자연 증가: 고요구 행위 수행 시 (반발 50 미만)
+        req = action_def.get("affection_req", 0)
+        if req >= SUBMISSION_ACTION_THRESHOLD:
+            submission_key = affection_key.replace(":호감", ":복종")
+            current_sub = (partner_props or {}).get(submission_key, 0)
+            if current_sub < SUBMISSION_MAX and rebellion < 50:
+                morld.modify_prop(pid, submission_key, SUBMISSION_ACTION_GAIN)
+
         all_actions = [action_def] + list(active_toggle_defs)
         climax_info = None
 
@@ -960,6 +973,14 @@ def start_romance(player_id, partner_id, preserved=None):
                     if c == cat:
                         morld.modify_prop(pid, f"경험:{part}", exp_gain)
                         break
+
+            # 절정 시 복종 증가 (반발에 의해 억제)
+            climax_sub_gain = max(0, 2 - rebellion // 25)
+            if climax_sub_gain > 0:
+                submission_key = affection_key.replace(":호감", ":복종")
+                current_sub = (partner_props or {}).get(submission_key, 0)
+                if current_sub < SUBMISSION_MAX:
+                    morld.modify_prop(pid, submission_key, climax_sub_gain)
 
             # 절정 반응 텍스트
             partner_asset = get_partner_asset(pid)
