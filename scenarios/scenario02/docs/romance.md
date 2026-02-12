@@ -8,8 +8,9 @@
 | 문서 | 설명 |
 |------|------|
 | [romance-relationship.md](romance-relationship.md) | 관계 라벨, 욕망, 이중 경로, 복종, 사적인 대화, 성별 |
-| [romance-actions.md](romance-actions.md) | 스킨십, 데이트, NPC 주도, 감각/자극, 탈의/노출, 은신/발각, 소음 |
-| [romance-pregnancy.md](romance-pregnancy.md) | 임신과 출산 (미구현) |
+| [romance-actions.md](romance-actions.md) | 스킨십, 데이트, NPC 주도, 감각/자극, 탈의/노출, 은신/발각, 소음, 삽입 |
+| [romance-pregnancy.md](romance-pregnancy.md) | 임신과 출산 (월경/수정/임신/출산/아이 NPC) |
+| [romance-join.md](romance-join.md) | 합류/복수 파트너 시스템 |
 
 ---
 

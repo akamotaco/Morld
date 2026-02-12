@@ -857,7 +857,184 @@ on_meet_player() 내 수면 체크 다음:
 
 ---
 
-## 12. 캐릭터별 구현 가이드
+## 12. 삽입 행위 시스템 (Intercourse)
+
+### 개요
+
+기존 스킨십 행위는 모두 외부 자극(만지기/쓰다듬기/문지르기)이었으나,
+삽입 행위는 체내 결합을 수반하는 행위 카테고리. 임신 시스템의 전제 조건이자
+연애 행위의 최종 단계.
+
+### 새 필드: requires_player_anatomy
+
+기존 행위는 NPC(대상)의 해부학만 체크했으나, 삽입은 **양쪽 모두** 필요:
+
+| 필드 | 기존 | 삽입 행위에서 추가 |
+|------|------|-------------------|
+| `exp_part` → SENSATION_MAP → `has_anatomy(target)` | NPC 해부학 체크 | 동일 유지 |
+| `requires_player_anatomy` | 없음 | 플레이어 해부학 추가 체크 |
+
+```python
+# 예: 삽입 (플레이어 P → NPC V)
+"vaginal_penetration": {
+    "exp_part": "음부",                    # NPC쪽 → has_anatomy(npc, "V") 체크
+    "requires_player_anatomy": "P",        # 플레이어쪽 → has_anatomy(player, "P") 체크
+}
+
+# 예: 피삽입 (NPC P → 플레이어 V)
+"receive_penetration": {
+    "exp_part": "음경",                    # NPC쪽 → has_anatomy(npc, "P") 체크
+    "requires_player_anatomy": "V",        # 플레이어쪽 → has_anatomy(player, "V") 체크
+}
+```
+
+**is_anatomy_compatible() 확장:**
+```python
+def is_anatomy_compatible(action_def, target_id, player_id=None):
+    # 기존: NPC 해부학 체크
+    exp_part = action_def.get("exp_part")
+    if exp_part:
+        category = SENSATION_MAP.get(exp_part)
+        if category and not has_anatomy(target_id, category):
+            return False
+    # 추가: 플레이어 해부학 체크
+    player_req = action_def.get("requires_player_anatomy")
+    if player_req and player_id:
+        if not has_anatomy(player_id, player_req):
+            return False
+    return True
+```
+
+### 삽입 토글 행위 정의
+
+삽입은 **토글형** (지속 행위). 시작 후 매 틱마다 자극/효과 누적.
+
+#### 플레이어 주도 (TOGGLE_ACTIONS 추가)
+
+| 행위 ID | 이름 | 틱당 시간 | 스태미나 | exp_part | requires_player_anatomy | 효과 | 필요 호감도 |
+|---------|------|----------|---------|----------|------------------------|------|------------|
+| `vaginal_penetration` | 삽입 | 5분 | 4 | 음부 | P | 성욕+8, 욕망+5, 복종+1 | 98 |
+| `receive_penetration` | 피삽입 | 5분 | 4 | 음경 | V | 성욕+8, 욕망+5 | 98 |
+
+```python
+"vaginal_penetration": {
+    "name": "삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+    "effects": {"성욕": 8, "욕망": 5, "복종": 1},
+    "exp_part": "음부", "affection_req": 98,
+    "requires_player_anatomy": "P",
+    "requires_exposure": "lower",       # NPC 하체 노출 필수
+    "pregnancy_check": True,            # 임신 판정 트리거
+},
+"receive_penetration": {
+    "name": "피삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+    "effects": {"성욕": 8, "욕망": 5},
+    "exp_part": "음경", "affection_req": 98,
+    "requires_player_anatomy": "V",
+    "requires_exposure": "lower",
+    "pregnancy_check": True,
+},
+```
+
+#### 즉시형 행위 없음
+삽입은 순간적 자극이 아닌 지속 행위이므로 토글형만 존재.
+
+### NPC 주도 삽입
+
+NPC 주도 시스템(`npc_initiative.py`)에도 동일 행위 추가:
+
+```python
+NPC_TOGGLE_ACTIONS에 추가:
+"vaginal_penetration": {
+    "exp_part": "음부", "requires_player_anatomy": "P",
+    "requires_exposure": "lower", "pregnancy_check": True, ...
+},
+"receive_penetration": {
+    "exp_part": "음경", "requires_player_anatomy": "V",
+    "requires_exposure": "lower", "pregnancy_check": True, ...
+},
+```
+
+**INITIATIVE_ACTION_FILTERS에 추가 (캐릭터별):**
+- 최상위 필터 (가장 높은 호감 조건)에만 삽입 행위 포함
+- 기존 액션 리스트 끝에 추가
+
+**INITIATIVE_SENSATION_REQS에 추가:**
+```python
+"vaginal_penetration": {"V": 3},   # 음부 감각 레벨 3 이상
+"receive_penetration": {"P": 3},   # 음경 감각 레벨 3 이상
+```
+
+### 노출 요건
+
+삽입은 반드시 **하체 노출** 필수 (하드 락):
+- `requires_exposure: "lower"` — NPC 하체 노출 필수
+- 미노출 시 `[color=gray]삽입 (탈의 필요)[/color]` 표시
+- 노출 보너스(×1.5)는 이미 노출 필수이므로 적용 안 함
+
+### 임신 판정 (pregnancy_check)
+
+`pregnancy_check: True` 플래그가 있는 행위 실행 시, 매 틱마다 임신 판정 호출:
+- 상세 메커니즘은 [romance-pregnancy.md](romance-pregnancy.md) 참조
+- `pregnancy.check_conception(player_id, partner_id)` 호출
+- P → V 방향일 때만 판정 (has_anatomy 기반 자동 결정)
+
+### 부위 충돌 (exp_part)
+
+| 행위 | exp_part | 충돌 대상 |
+|------|----------|----------|
+| 삽입 (vaginal_penetration) | 음부 | 음부 만지기, 음부 쓰다듬기 |
+| 피삽입 (receive_penetration) | 음경 | 음경 만지기, 음경 쓰다듬기 |
+
+삽입 활성화 시 같은 부위의 기존 토글 자동 해제.
+
+### 자극 시스템 연동
+
+삽입은 exp_part 기반으로 기존 자극 시스템과 동일하게 연동:
+- `vaginal_penetration` → V 카테고리 자극 증가
+- `receive_penetration` → P 카테고리 자극 증가
+- 절정 시 기존 절정 처리 로직 그대로 적용
+
+### 효과 밸런스
+
+| 항목 | 삽입 | 비교 (클리토리스 문지르기) |
+|------|------|--------------------------|
+| 성욕 | +8 | +7 |
+| 욕망 | +5 | +4 |
+| 복종 | +1 (삽입만) | 없음 |
+| 스태미나 | 4 | 3 |
+| 필요 호감도 | 98 | 95 |
+| 노출 | 필수 (하드 락) | 보너스 (×1.5) |
+
+삽입은 현재 행위 중 최고 효과 + 최고 요구 조건.
+
+### 소음 연동
+
+삽입 행위 중에도 기존 소음 시스템 동일 적용:
+- `emit_romance_sound()` → 흥분도 기반 3단계
+- 절정 시 `emit_ecstasy_sound()`
+
+### 캐릭터별 반응 (ROMANCE_REACTIONS)
+
+각 캐릭터 파일에 삽입 반응 추가 필요:
+
+```python
+ROMANCE_REACTIONS = {
+    "vaginal_penetration": {
+        "start": [...],
+        "during": [...],
+        "end": [...],
+    },
+    "receive_penetration": {
+        "start": [...],
+        "during": [...],
+        "end": [...],
+    },
+}
+```
+
+---
+
+## 13. 캐릭터별 구현 가이드
 
 ### Character 클래스 속성 (base.py)
 
