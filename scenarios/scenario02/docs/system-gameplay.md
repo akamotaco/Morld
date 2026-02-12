@@ -839,7 +839,11 @@ morld.set_time_frozen(False)  # 시간 흐름 복원
 | 스킨십 | `romance.py` | 플레이어 주도 친밀 행위 (즉시형 9종 + 토글형 5종) |
 | 데이트 | `date.py` | 데이트 요청/종료 |
 | NPC 주도 | `npc_initiative.py` | NPC가 먼저 스킨십 시작 |
-| 감각 | `romance.py` | 부위별 경험치 → M/B/A/V/C 감각 레벨 → 성욕 보정 |
+| 성별 | `gender.py` | 성별별 보유 감각 카테고리 (male/female/futanari/asexual) |
+| 감각 | `romance.py` | 부위별 경험치 → M/B/A/V/C/P 감각 레벨 → 성욕 보정 |
+| 자극 | `stimulation.py` | 세션 스코프 부위별 자극 → 절정/여운/연쇄 절정 |
+| 관계 라벨 | `romance.py` | 호감+욕망 기반 관계 라벨 (타인/친구/정욕/애인) |
+| 반발 | `romance.py`, `base.py` | `관계:{name}:반발` prop, 자극 억제 |
 | 욕망 | `romance.py`, `needs.py` | `관계:{name}:욕망` prop, 동적 성욕 cap 연동 |
 | 이중 경로 해금 | `romance.py` | 욕망/복종에 의한 호감 요구치 할인 (최대 50%) |
 | 복종 | `base.py` | `관계:{name}:복종` prop (디버그 전용, 자연 증가 미구현) |

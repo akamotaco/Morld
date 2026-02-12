@@ -233,17 +233,17 @@ def end_date(player_id):
 DATE_ACTIONS = {
     "hold_hands": {
         "name": "손 잡기",
-        "effects": {"호감": 1, "애정": 1},
+        "effects": {"호감": 2},
         "affection_req": 30
     },
     "hug": {
         "name": "안아주기",
-        "effects": {"호감": 2, "애정": 2},
+        "effects": {"호감": 4},
         "affection_req": 50
     },
     "kiss": {
         "name": "키스",
-        "effects": {"호감": 2, "애정": 3},
+        "effects": {"호감": 5},
         "affection_req": 60
     },
 }
@@ -252,17 +252,17 @@ DATE_ACTIONS = {
 CASUAL_ACTIONS = {
     "hold_hands": {
         "name": "손 잡기",
-        "effects": {"호감": 1, "애정": 1},
+        "effects": {"호감": 2},
         "affection_req": 50  # 데이트 중보다 높음
     },
     "hug": {
         "name": "안아주기",
-        "effects": {"호감": 2, "애정": 2},
+        "effects": {"호감": 4},
         "affection_req": 70
     },
     "kiss": {
         "name": "키스",
-        "effects": {"호감": 2, "애정": 3},
+        "effects": {"호감": 5},
         "affection_req": 80
     },
 }
@@ -278,7 +278,7 @@ def apply_date_action_effects(partner_id, player_id, action_id):
     player_name = player_info.get('name', '주인공') if player_info else '주인공'
 
     for key, value in action["effects"].items():
-        if key in ("호감", "애정"):
+        if key in ("호감", "욕망"):
             prop_key = f"관계:{player_name}:{key}"
         else:
             prop_key = key

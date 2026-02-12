@@ -355,7 +355,7 @@ class Character(Unit):
     # 예시:
     #   ROMANCE_REACTIONS = {
     #       "hug:start": [
-    #           ({"애정": 50}, ["...안아줘...", "...이대로..."]),
+    #           ({"호감": 50}, ["...안아줘...", "...이대로..."]),
     #           ({}, ["......", "...뭐냐."]),
     #       ],
     #       "hug:during": [
@@ -388,7 +388,7 @@ class Character(Unit):
     #       "text": [({조건}, [대사들]), ...],  # 조건부 대사
     #       "effects": {                         # 파라미터 변화
     #           "성욕": 5,                       # 스릴에 더 흥분 (세라 등)
-    #           "애정": -1,                      # 부끄러워서 애정 감소 (밀라 등)
+    #           "호감": 1,                       # 호감 증가 (엘라 등)
     #       },
     #   }
     #
@@ -475,7 +475,7 @@ class Character(Unit):
         context = {
             "성욕": props.get("상태:성욕", 0) if props else 0,
             "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
-            "애정": props.get(f"관계:{player_name}:애정", 0) if props else 0,
+            "반발": props.get(f"관계:{player_name}:반발", 0) if props else 0,
         }
 
         # 규칙 매칭
@@ -831,7 +831,7 @@ class Character(Unit):
         예시:
             ROMANCE_REACTIONS = {
                 "hug:start": [
-                    ({"애정": 50}, ["...안아줘...", "...이대로..."]),
+                    ({"호감": 50}, ["...안아줘...", "...이대로..."]),
                     ({}, ["......", "...뭐냐."]),
                 ],
                 "hug:during": [
@@ -879,7 +879,7 @@ class Character(Unit):
         리액션 조건 체크 (ROMANCE_REACTIONS, STEALTH_REACTIONS 등에서 공통 사용)
 
         조건 키 매핑:
-        - "호감", "애정" → "관계:{player_name}:{key}"
+        - "호감", "욕망", "복종", "반발" → "관계:{player_name}:{key}"
         - "성욕", "성적절정" → "상태:{key}"
         - 그 외 → 그대로 사용
         """
@@ -887,7 +887,7 @@ class Character(Unit):
             return True
 
         for key, required_value in condition.items():
-            if key in ("호감", "애정"):
+            if key in ("호감", "욕망", "복종", "반발"):
                 prop_key = f"관계:{player_name}:{key}"
             elif key in ("성욕", "성적절정"):
                 prop_key = f"상태:{key}"
@@ -1188,8 +1188,8 @@ class Character(Unit):
     #
     # INITIATIVE_ACTION_FILTERS: 조건별 허용 액션 목록
     #   [
-    #       ({"애정": 80}, ["hug", "deep_kiss", "breast_touch"]),  # 애정 80 이상: 모든 행위
-    #       ({"애정": 50}, ["hug", "deep_kiss"]),                  # 애정 50 이상: 키스까지
+    #       ({"호감": 80}, ["hug", "deep_kiss", "breast_touch"]),  # 호감 80 이상: 모든 행위
+    #       ({"호감": 50}, ["hug", "deep_kiss"]),                  # 호감 50 이상: 키스까지
     #       ({}, ["hug"]),                                         # 기본: 포옹만
     #   ]
     #
@@ -1222,9 +1222,9 @@ class Character(Unit):
         context = {
             "성욕": props.get("상태:성욕", 0) if props else 0,
             "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
-            "애정": props.get(f"관계:{player_name}:애정", 0) if props else 0,
             "욕망": props.get(f"관계:{player_name}:욕망", 0) if props else 0,
             "복종": props.get(f"관계:{player_name}:복종", 0) if props else 0,
+            "반발": props.get(f"관계:{player_name}:반발", 0) if props else 0,
         }
 
         # 조건 매칭
@@ -1691,7 +1691,7 @@ class Character(Unit):
             player_info = morld.get_unit_info(player_id)
             player_name = player_info.get("name", "주인공") if player_info else "주인공"
             for stat, value in effects.items():
-                if stat in ("호감", "애정"):
+                if stat in ("호감", "욕망", "복종", "반발"):
                     prop_key = f"관계:{player_name}:{stat}"
                 else:
                     prop_key = f"상태:{stat}"
@@ -1731,7 +1731,7 @@ class Character(Unit):
             selected = None
             for conditions, texts in text_rules:
                 match = all(
-                    (props.get(f"관계:{player_name}:{k}", 0) if k in ("호감", "애정", "욕망")
+                    (props.get(f"관계:{player_name}:{k}", 0) if k in ("호감", "욕망", "복종", "반발")
                      else props.get(f"상태:{k}", 0) if k in ("성욕",)
                      else 0) >= v
                     for k, v in conditions.items()

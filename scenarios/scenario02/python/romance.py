@@ -10,6 +10,7 @@
 """
 
 import morld
+import stimulation
 import ui
 
 # ============================================
@@ -38,6 +39,7 @@ SENSATION_MAP = {
     "엉덩이": "A",      # Anal
     "음부": "V",        # Vaginal
     "클리토리스": "C",   # Clitoral
+    "음경": "P",        # Penis (male)
     "귀": None,         # 비성적 부위
     "뺨": None,
     "머리": None,
@@ -50,7 +52,26 @@ SENSATION_PROPS = {
     "A": "감각:A",     # Anal sensation level
     "V": "감각:V",     # Vaginal sensation level
     "C": "감각:C",     # Clitoral sensation level
+    "P": "감각:P",     # Penis sensation level
 }
+
+# ============================================
+# 관계 라벨 시스템
+# ============================================
+
+RELATIONSHIP_LABELS = {
+    (False, False): "타인",   # 낮은 호감 + 낮은 욕망
+    (True,  False): "친구",   # 높은 호감 + 낮은 욕망
+    (False, True):  "정욕",   # 낮은 호감 + 높은 욕망
+    (True,  True):  "애인",   # 높은 호감 + 높은 욕망
+}
+AFF_LABEL_THRESHOLD = 50
+DES_LABEL_THRESHOLD = 40
+
+
+def get_relationship_label(affection, desire):
+    """호감+욕망 기반 관계 라벨 반환"""
+    return RELATIONSHIP_LABELS[(affection >= AFF_LABEL_THRESHOLD, desire >= DES_LABEL_THRESHOLD)]
 
 # ============================================
 # 즉시형 행위 정의
@@ -59,12 +80,12 @@ SENSATION_PROPS = {
 INSTANT_ACTIONS = {
     "head_pat": {
         "name": "머리 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 2, "애정": 1},
+        "effects": {"호감": 3},
         "exp_part": None, "affection_req": 40
     },
     "cheek_caress": {
         "name": "뺨 어루만지기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1, "애정": 1},
+        "effects": {"호감": 2},
         "exp_part": None, "affection_req": 30
     },
     "cheek_pinch": {
@@ -74,27 +95,27 @@ INSTANT_ACTIONS = {
     },
     "ear_touch": {
         "name": "귀 만지기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1, "애정": 1, "성욕": 1},
+        "effects": {"호감": 2, "성욕": 1},
         "exp_part": "귀", "affection_req": 45
     },
     "whisper": {
         "name": "사랑의 속삭임", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 2, "애정": 3},
+        "effects": {"호감": 5},
         "exp_part": None, "affection_req": 50
     },
     "french_kiss": {
         "name": "프렌치 키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "애정": 2, "성욕": 3},
+        "effects": {"호감": 3, "성욕": 3},
         "exp_part": "입술", "affection_req": 60
     },
     "butt_caress": {
         "name": "엉덩이 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 3, "욕망": 1},
+        "effects": {"호감": 1, "성욕": 3, "욕망": 1},
         "exp_part": "엉덩이", "affection_req": 70
     },
     "genital_caress": {
         "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 4, "욕망": 2},
+        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
         "exp_part": "음부", "affection_req": 85
     },
     "clit_stimulation": {
@@ -111,22 +132,22 @@ INSTANT_ACTIONS = {
 TOGGLE_ACTIONS = {
     "hug": {
         "name": "껴안기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1, "애정": 2},
+        "effects": {"호감": 3},
         "exp_part": None, "affection_req": 50
     },
     "deep_kiss": {
         "name": "딥키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "애정": 2, "성욕": 3},
+        "effects": {"호감": 3, "성욕": 3},
         "exp_part": "입술", "affection_req": 70
     },
     "breast_touch": {
         "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 4, "욕망": 1},
+        "effects": {"호감": 1, "성욕": 4, "욕망": 1},
         "exp_part": "가슴", "affection_req": 80
     },
     "genital_touch": {
         "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"애정": 1, "성욕": 5, "욕망": 3},
+        "effects": {"호감": 1, "성욕": 5, "욕망": 3},
         "exp_part": "음부", "affection_req": 90
     },
     "clit_rub": {
@@ -271,6 +292,13 @@ def get_desire_key(player_id):
     return f"관계:{player_name}:욕망"
 
 
+def get_rebellion_key(player_id):
+    """플레이어에 대한 반발 prop 키 생성"""
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get('name', '주인공') if player_info else '주인공'
+    return f"관계:{player_name}:반발"
+
+
 def calculate_effects(action_def, partner_id):
     """경험치 + 감각 보정된 효과 계산"""
     base_effects = action_def["effects"].copy()
@@ -394,10 +422,7 @@ def render_romance_ui(state):
     player_stamina = state["stamina"]
 
     # 플레이어에 대한 prop 키
-    # 관계 타입: 호감, 애정 → 관계:플레이어:stat
-    # 상태 타입: 성욕, 성적절정 → 상태:stat (개인 상태)
     affection_key = get_affection_key(player_id)
-    love_key = affection_key.replace(":호감", ":애정")
     arousal_key = "상태:성욕"
 
     lines = []
@@ -453,22 +478,52 @@ def render_romance_ui(state):
 
     lines.append("")
 
-    # 호감, 애정, 욕망, 복종, 성욕 표시
+    # 호감, 욕망, 복종, 반발, 성욕 표시
     affection = partner_props.get(affection_key, 0)
-    love = partner_props.get(love_key, 0)
     desire_key = get_desire_key(player_id)
     desire = partner_props.get(desire_key, 0)
     submission_key = get_submission_key(player_id)
     submission = partner_props.get(submission_key, 0)
+    rebellion_key = get_rebellion_key(player_id)
+    rebellion = partner_props.get(rebellion_key, 0)
     arousal = partner_props.get(arousal_key, 0)
-    stat_line = f"호감: {affection}  애정: {love}  욕망: {desire}  성욕: {arousal}"
+
+    # 관계 라벨
+    rel_label = get_relationship_label(affection, desire)
+    stat_line = f"[{rel_label}] 호감: {affection}  욕망: {desire}  성욕: {arousal}"
     if submission > 0:
         stat_line += f"  복종: {submission}"
+    if rebellion > 0:
+        stat_line += f"  반발: {rebellion}"
     lines.append(stat_line)
 
-    # 감각 레벨 표시 (1 이상인 것만)
+    # 자극 표시 (세션 스코프, 대상 성별 기반)
+    import gender as gender_mod
+    partner_anatomy = gender_mod.get_anatomy(partner_id)
+    stim_state = state.get("stim")
+    if stim_state:
+        stim_parts = []
+        for cat in ("M", "B", "A", "V", "C", "P"):
+            if cat not in partner_anatomy:
+                continue
+            val = stim_state["stim"].get(cat, 0)
+            stim_parts.append(f"{cat}:{val}")
+        stim_line = f"자극: {' '.join(stim_parts)}"
+        if stim_state["afterglow"] > 0:
+            chain = stim_state["chain_count"]
+            if chain > 0:
+                stim_line += f"  [color=pink][여운 ×{chain + 1}][/color]"
+            else:
+                stim_line += f"  [color=pink][여운][/color]"
+        if stim_state["climax_total"] > 0:
+            stim_line += f"  절정: {stim_state['climax_total']}"
+        lines.append(stim_line)
+
+    # 감각 레벨 표시 (1 이상인 것만, 대상 성별 기반)
     sensation_parts = []
-    for cat in ("M", "B", "A", "V", "C"):
+    for cat in ("M", "B", "A", "V", "C", "P"):
+        if cat not in partner_anatomy:
+            continue
         level = get_sensation_level(partner_id, cat)
         if level > 0:
             sensation_parts.append(f"{cat}:{level}")
@@ -654,11 +709,12 @@ def start_romance(player_id, partner_id):
         "interrupter_id": None,
         "exhausted": False,  # 체력 소진 종료
         "last_reaction": None,  # 마지막 즉시 액션 반응 텍스트
+        "stim": stimulation.create_state(),  # 부위별 자극 상태 (세션 스코프)
     }
 
     def apply_effects(action_def, active_toggle_defs):
         """
-        행위 효과 적용 (즉시형 + 활성 토글들)
+        행위 효과 적용 (즉시형 + 활성 토글들) + 자극 계산
 
         Returns:
             절정 반응 텍스트 또는 None
@@ -666,6 +722,7 @@ def start_romance(player_id, partner_id):
         pid = state["partner_id"]
         player_id = state["player_id"]
         affection_key = get_affection_key(player_id)
+        stim_state = state["stim"]
 
         # 즉시형/토글 행위의 효과 (경험치 보정 포함)
         effects = calculate_effects(action_def, pid)
@@ -676,9 +733,7 @@ def start_romance(player_id, partner_id):
             for stat, value in toggle_effects.items():
                 effects[stat] = effects.get(stat, 0) + value
 
-        # 효과 적용
-        # 관계 타입: 호감, 애정, 욕망 → 관계:플레이어:stat
-        # 상태 타입: 성욕, 성적절정 → 상태:stat (개인 상태)
+        # 효과 적용 (호감/욕망/성욕 prop 변경)
         for stat, value in effects.items():
             if stat in ("성욕", "성적절정"):
                 prop_key = f"상태:{stat}"
@@ -686,8 +741,61 @@ def start_romance(player_id, partner_id):
                 prop_key = affection_key.replace(":호감", f":{stat}")
             morld.modify_prop(pid, prop_key, value)
 
-        # 절정 체크 (성욕 >= 100이면 절정 발생)
-        return check_ecstasy(pid)
+        # 자극 계산 — 각 행위의 exp_part 기반
+        rebellion_key = get_rebellion_key(player_id)
+        partner_props = morld.get_unit_props(pid)
+        rebellion = partner_props.get(rebellion_key, 0) if partner_props else 0
+
+        all_actions = [action_def] + list(active_toggle_defs)
+        climax_info = None
+
+        for act_def in all_actions:
+            exp_part = act_def.get("exp_part")
+            if not exp_part:
+                continue
+            category = SENSATION_MAP.get(exp_part)
+            if not category:
+                continue
+            base = act_def["effects"].get("성욕", 0)
+            if base <= 0:
+                continue
+            sensation = get_sensation_level(pid, category)
+            gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"])
+            result = stimulation.apply(stim_state, category, gain)
+            if result and not climax_info:
+                climax_info = result
+
+        # 여운 감소 (턴당 1회)
+        stimulation.tick_afterglow(stim_state)
+
+        # 절정 처리
+        if climax_info:
+            # 성욕 일부 감소 (전액 초기화 대신)
+            current_arousal = partner_props.get("상태:성욕", 0) if partner_props else 0
+            new_arousal = max(0, current_arousal - stimulation.CLIMAX_AROUSAL_REDUCTION)
+            morld.set_unit_prop(pid, "상태:성욕", new_arousal)
+            # 성적절정 +1
+            morld.modify_prop(pid, "상태:성적절정", 1)
+            # 절정 부위 감각 경험치 보너스
+            exp_gain = stimulation.get_climax_sensation_gain(rebellion)
+            if exp_gain > 0:
+                cat = climax_info["category"]
+                for part, c in SENSATION_MAP.items():
+                    if c == cat:
+                        morld.modify_prop(pid, f"경험:{part}", exp_gain)
+                        break
+
+            # 절정 반응 텍스트
+            partner_asset = get_partner_asset(pid)
+            if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                reaction = partner_asset.get_romance_reaction("ecstasy", "start")
+                if reaction:
+                    return reaction
+            partner_info = morld.get_unit_info(pid)
+            partner_name = partner_info.get('name', '상대') if partner_info else '상대'
+            return f"{partner_name}(이)가 절정에 달했다."
+
+        return None
 
     def proc(action):
         if action == "init":

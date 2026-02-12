@@ -13,8 +13,10 @@ import morld
 import random
 import think
 import ui
-from romance import (check_ecstasy, emit_romance_sound, emit_ecstasy_sound,
-                     is_action_available, get_effective_affection_req)
+import stimulation
+from romance import (emit_romance_sound, emit_ecstasy_sound,
+                     is_action_available, get_effective_affection_req,
+                     SENSATION_MAP, get_sensation_level, get_rebellion_key)
 
 # ============================================
 # 상수 정의
@@ -53,22 +55,22 @@ DEFAULT_STAMINA = 10
 PLAYER_INSTANT_ACTIONS = {
     "head_pat": {
         "name": "머리 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 2, "애정": 1},
+        "effects": {"호감": 3},
         "exp_part": "머리", "affection_req": 40
     },
     "cheek_caress": {
         "name": "뺨 어루만지기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1, "애정": 1},
+        "effects": {"호감": 2},
         "exp_part": "뺨", "affection_req": 30
     },
     "whisper": {
         "name": "속삭이기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 2, "애정": 2},
+        "effects": {"호감": 4},
         "exp_part": None, "affection_req": 50
     },
     "genital_caress": {
         "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 4, "욕망": 2},
+        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
         "exp_part": "음부", "affection_req": 85
     },
 }
@@ -78,22 +80,22 @@ PLAYER_INSTANT_ACTIONS = {
 NPC_TOGGLE_ACTIONS = {
     "hug": {
         "name": "껴안기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1, "애정": 2},
+        "effects": {"호감": 3},
         "exp_part": None, "affection_req": 50
     },
     "deep_kiss": {
         "name": "딥키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "애정": 2, "성욕": 3},
+        "effects": {"호감": 3, "성욕": 3},
         "exp_part": "입술", "affection_req": 70
     },
     "breast_touch": {
         "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"애정": 1, "성욕": 4, "욕망": 1},
+        "effects": {"호감": 1, "성욕": 4, "욕망": 1},
         "exp_part": "가슴", "affection_req": 80
     },
     "genital_touch": {
         "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"애정": 1, "성욕": 5, "욕망": 3},
+        "effects": {"호감": 1, "성욕": 5, "욕망": 3},
         "exp_part": "음부", "affection_req": 90
     },
     "clit_rub": {
@@ -513,10 +515,10 @@ def execute_npc_action(state, action):
 
     # 기본 효과 (간단화)
     effects = {
-        "hug": {"호감": 1, "애정": 2},
-        "deep_kiss": {"호감": 1, "애정": 2, "성욕": 3},
-        "breast_touch": {"애정": 1, "성욕": 4, "욕망": 1},
-        "genital_touch": {"애정": 1, "성욕": 5, "욕망": 3},
+        "hug": {"호감": 3},
+        "deep_kiss": {"호감": 3, "성욕": 3},
+        "breast_touch": {"호감": 1, "성욕": 4, "욕망": 1},
+        "genital_touch": {"호감": 1, "성욕": 5, "욕망": 3},
         "clit_rub": {"성욕": 7, "욕망": 4},
     }
 
@@ -628,9 +630,8 @@ def render_npc_initiative_ui(state):
     npc_name = npc_info.get('name', '그녀') if npc_info else '그녀'
     npc_props = morld.get_unit_props(npc_id)
 
-    # 호감/애정/성욕 키
+    # 호감/성욕 키
     affection_key = get_affection_key(player_id)
-    love_key = affection_key.replace(":호감", ":애정")
     arousal_key = "상태:성욕"
 
     lines = []
@@ -684,11 +685,36 @@ def render_npc_initiative_ui(state):
 
     lines.append("")
 
-    # 호감/애정/성욕 표시
+    # 호감/욕망/성욕 표시
     affection = npc_props.get(affection_key, 0) if npc_props else 0
-    love = npc_props.get(love_key, 0) if npc_props else 0
+    desire_key = affection_key.replace(":호감", ":욕망")
+    desire = npc_props.get(desire_key, 0) if npc_props else 0
     arousal = npc_props.get(arousal_key, 0) if npc_props else 0
-    lines.append(f"호감: {affection}  애정: {love}  성욕: {arousal}")
+    from romance import get_relationship_label
+    rel_label = get_relationship_label(affection, desire)
+    lines.append(f"[{rel_label}] 호감: {affection}  욕망: {desire}  성욕: {arousal}")
+
+    # 자극 표시 (세션 스코프, 대상 성별 기반)
+    stim_state = state.get("stim")
+    if stim_state:
+        import gender as gender_mod
+        npc_anatomy = gender_mod.get_anatomy(npc_id)
+        stim_parts = []
+        for cat in ("M", "B", "A", "V", "C", "P"):
+            if cat not in npc_anatomy:
+                continue
+            val = stim_state["stim"].get(cat, 0)
+            stim_parts.append(f"{cat}:{val}")
+        stim_line = f"자극: {' '.join(stim_parts)}"
+        if stim_state["afterglow"] > 0:
+            chain = stim_state["chain_count"]
+            if chain > 0:
+                stim_line += f"  [color=pink][여운 ×{chain + 1}][/color]"
+            else:
+                stim_line += f"  [color=pink][여운][/color]"
+        if stim_state["climax_total"] > 0:
+            stim_line += f"  절정: {stim_state['climax_total']}"
+        lines.append(stim_line)
     lines.append("")
 
     # 탈출 확률 표시
@@ -746,7 +772,7 @@ def render_npc_initiative_ui(state):
 
 def apply_action_effects(state, action_def):
     """
-    행위 효과 적용
+    행위 효과 적용 + 자극 계산
 
     Args:
         state: 현재 상태
@@ -754,6 +780,9 @@ def apply_action_effects(state, action_def):
 
     Returns:
         절정 반응 텍스트 또는 None
+
+    Note:
+        tick_afterglow()는 호출자가 턴당 1회 호출해야 함.
     """
     npc_id = state["npc_id"]
     player_id = state["player_id"]
@@ -767,8 +796,56 @@ def apply_action_effects(state, action_def):
             prop_key = affection_key.replace(":호감", f":{stat}")
         morld.modify_prop(npc_id, prop_key, value)
 
-    # 절정 체크 (성욕 >= 100이면 절정 발생, 성욕 0으로 리셋)
-    return check_ecstasy(npc_id)
+    # 자극 계산
+    stim_state = state.get("stim")
+    if not stim_state:
+        return None
+
+    exp_part = action_def.get("exp_part")
+    if not exp_part:
+        return None
+    category = SENSATION_MAP.get(exp_part)
+    if not category:
+        return None
+
+    base = effects.get("성욕", 0)
+    if base <= 0:
+        return None
+
+    rebellion_key = get_rebellion_key(player_id)
+    npc_props = morld.get_unit_props(npc_id)
+    rebellion = npc_props.get(rebellion_key, 0) if npc_props else 0
+    sensation = get_sensation_level(npc_id, category)
+    gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"])
+    climax_info = stimulation.apply(stim_state, category, gain)
+
+    if climax_info:
+        # 성욕 일부 감소 (전액 초기화 대신)
+        npc_props = morld.get_unit_props(npc_id)
+        current_arousal = npc_props.get("상태:성욕", 0) if npc_props else 0
+        new_arousal = max(0, current_arousal - stimulation.CLIMAX_AROUSAL_REDUCTION)
+        morld.set_unit_prop(npc_id, "상태:성욕", new_arousal)
+        # 성적절정 +1
+        morld.modify_prop(npc_id, "상태:성적절정", 1)
+        # 감각 경험치 보너스
+        exp_gain = stimulation.get_climax_sensation_gain(rebellion)
+        if exp_gain > 0:
+            for part, c in SENSATION_MAP.items():
+                if c == climax_info["category"]:
+                    morld.modify_prop(npc_id, f"경험:{part}", exp_gain)
+                    break
+
+        # 절정 반응 텍스트
+        npc_asset = get_npc_asset(npc_id)
+        if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+            reaction = npc_asset.get_romance_reaction("ecstasy", "start")
+            if reaction:
+                return reaction
+        npc_info = morld.get_unit_info(npc_id)
+        npc_name = npc_info.get('name', '상대') if npc_info else '상대'
+        return f"{npc_name}(이)가 절정에 달했다."
+
+    return None
 
 
 # ============================================
@@ -810,6 +887,7 @@ def start_npc_initiative(player_id, npc_id):
         "exhausted": False,
         "last_reaction": None,
         "escape_result": None,
+        "stim": stimulation.create_state(),  # 부위별 자극 상태 (세션 스코프)
     }
 
     # 시작 반응
@@ -880,6 +958,9 @@ def start_npc_initiative(player_id, npc_id):
                     ecstasy_result = apply_action_effects(state, toggle_def)
                     if ecstasy_result and not ecstasy_reaction:
                         ecstasy_reaction = ecstasy_result
+
+            # 여운 감소 (턴당 1회)
+            stimulation.tick_afterglow(state["stim"])
 
             # 소음 발생
             npc_id = state["npc_id"]
@@ -961,6 +1042,9 @@ def start_npc_initiative(player_id, npc_id):
                     result = apply_action_effects(state, td)
                     if result and not ecstasy_reaction:
                         ecstasy_reaction = result
+
+            # 여운 감소 (턴당 1회)
+            stimulation.tick_afterglow(state["stim"])
 
             # 소음 발생
             npc_id = state["npc_id"]
