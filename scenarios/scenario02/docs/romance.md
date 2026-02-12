@@ -163,7 +163,8 @@ STEALTH_REACTIONS = {
 - **자극 기반 절정**: 부위별 자극(`stimulation.py`)이 100 도달 시 절정 발생 (성욕 임계값 방식 폐지)
 - 절정 시: 성적절정 +1, 성욕 -30 (전액 초기화 대신 일부 감소)
 - 절정 부위 감각 경험치 +3 (반발에 의해 억제 가능)
-- 여운(afterglow) 상태 진입 → 연쇄 절정 가능
+- **여성/후타나리**: 여운(afterglow) 진입 → 연쇄 절정 가능 (×1.5 증폭)
+- **남성**: 불응기(refractory) 진입 → 자극 gain 90% 감소, 연쇄 절정 불가
 - 캐릭터별 절정 반응 (`ROMANCE_REACTIONS["ecstasy"]`)
 
 ### 캐릭터별 반응 시스템
@@ -1056,37 +1057,44 @@ Player=선택 가능(male/female/futanari), 모든 NPC=female.
 - **세션 스코프**: romance 세션 state dict 안에만 존재, prop 아님
 - **부위별 자극**: MBAVCP 카테고리별 독립 자극 수치 (0-100)
 - **절정**: 자극이 100 도달 시 발생, 해당 카테고리 자극 리셋
-- **여운 (afterglow)**: 절정 후 일시적 상태, 행위마다 감소
+- **여운 (afterglow)**: 여성 절정 후 일시적 상태, 행위마다 감소
 - **연쇄 절정**: 여운 중 재절정 시 자극 증폭 (×1.5)
+- **불응기 (refractory)**: 남성 절정 후 자극 gain 90% 감소, 연쇄 불가
 
 ### 상수
 
 | 상수 | 값 | 설명 |
 |------|---|------|
 | STIM_MAX | 100 | 절정 발생 임계값 |
-| AFTERGLOW_INITIAL | 50 | 절정 시 부여되는 여운 초기값 |
+| AFTERGLOW_INITIAL | 50 | 절정 시 부여되는 여운 초기값 (여성) |
 | AFTERGLOW_DECAY | 10 | 행위 1회당 여운 감소량 |
 | CHAIN_AMPLIFIER | 1.5 | 연쇄 절정 시 자극 배율 |
 | CLIMAX_AROUSAL_REDUCTION | 30 | 절정 시 성욕 감소량 |
 | CLIMAX_SENSATION_GAIN | 3 | 절정 부위 경험치 보너스 |
+| REFRACTORY_INITIAL | 60 | 불응기 초기값 (남성, 6턴 지속) |
+| REFRACTORY_DECAY | 10 | 행위 1회당 불응기 감소량 |
+| REFRACTORY_GAIN_FACTOR | 0.1 | 불응기 중 자극 gain 배율 |
+
+### male_mode
+
+`create_state(male_mode=False)` — 세션 생성 시 대상 성별에 따라 결정:
+- `male_mode=True`: 남성 대상 → 절정 시 불응기 진입
+- `male_mode=False`: 여성/후타나리 대상 → 절정 시 여운 진입
 
 ### 자극 증가량 계산
 
 ```python
-def calc_gain(base, sensation_level, rebellion, afterglow):
+def calc_gain(base, sensation_level, rebellion, afterglow, refractory=0):
     gain = base * (1.0 + sensation_level * 0.15)
     gain *= max(0.2, 1.0 - rebellion * 0.008)  # 반발 감소
-    if afterglow > 0:
+    if refractory > 0:
+        gain *= REFRACTORY_GAIN_FACTOR  # 0.1 — 불응기 중 대폭 감소
+    elif afterglow > 0:
         gain *= CHAIN_AMPLIFIER  # 여운 중 증폭
     return max(1, round(gain))
 ```
 
-- `base`: 행위의 기본 성욕 효과 값
-- `sensation_level`: 해당 부위 감각 레벨 (0-10)
-- `rebellion`: 반발 수치 (0-100)
-- `afterglow`: 현재 여운 수치
-
-### 절정 처리
+### 절정 처리 (여성)
 1. 해당 카테고리 자극 리셋 (0)
 2. 연쇄 판정 (여운 중이면 연쇄)
 3. 여운 진입/갱신 (afterglow = 50)
@@ -1094,12 +1102,22 @@ def calc_gain(base, sensation_level, rebellion, afterglow):
 5. 성적절정 +1
 6. 절정 부위 감각 경험치 +3
 
+### 절정 처리 (남성)
+1. 해당 카테고리 자극 리셋 (0)
+2. 불응기 진입 (refractory = 60)
+3. 여운/연쇄 초기화 (afterglow = 0, chain_count = 0)
+4. 성욕 -30
+5. 성적절정 +1
+6. 절정 부위 감각 경험치 +3
+
 ### UI 표시
 ```
-자극: M:0 B:15 V:72  [여운 ×2]  절정: 1
+자극: M:0 B:15 V:72  [여운 ×2]  절정: 1    # 여성
+자극: M:0 B:15 P:72  [불응기]  절정: 1      # 남성
 ```
 - 대상 성별 기반으로 해당 카테고리만 표시
-- 여운 중: `[여운]` + 연쇄 횟수 표시
+- 여성 여운 중: `[color=pink][여운][/color]` + 연쇄 횟수 표시
+- 남성 불응기 중: `[color=red][불응기][/color]` 표시
 - 절정 누적 횟수 표시
 
 ---
@@ -1189,6 +1207,7 @@ if state.get("switch_to") == "npc":
 | 반발 시스템 | romance.py, base.py | ✅ 완료 |
 | 성별 시스템 | gender.py | ✅ 완료 |
 | 자극 시스템 (부위별) | stimulation.py, romance.py, npc_initiative.py | ✅ 완료 |
+| 남성 불응기 (refractory) | stimulation.py (male_mode), romance.py, npc_initiative.py | ✅ 완료 |
 | 자극 UI (여운/연쇄/절정) | romance.py, npc_initiative.py | ✅ 완료 |
 | 애정 prop 제거 (호감 통합) | romance.py, npc_initiative.py, date.py, 5캐릭터 | ✅ 완료 |
 | 공수 전환 (주도권 전환) | romance.py, npc_initiative.py | ✅ 완료 |

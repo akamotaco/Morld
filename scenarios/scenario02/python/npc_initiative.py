@@ -724,7 +724,9 @@ def render_npc_initiative_ui(state):
             val = stim_state["stim"].get(cat, 0)
             stim_parts.append(f"{cat}:{val}")
         stim_line = f"자극: {' '.join(stim_parts)}"
-        if stim_state["afterglow"] > 0:
+        if stim_state.get("refractory", 0) > 0:
+            stim_line += f"  [color=red][불응기][/color]"
+        elif stim_state["afterglow"] > 0:
             chain = stim_state["chain_count"]
             if chain > 0:
                 stim_line += f"  [color=pink][여운 ×{chain + 1}][/color]"
@@ -842,7 +844,7 @@ def apply_action_effects(state, action_def):
     npc_props = morld.get_unit_props(npc_id)
     rebellion = npc_props.get(rebellion_key, 0) if npc_props else 0
     sensation = get_sensation_level(npc_id, category)
-    gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"])
+    gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
     climax_info = stimulation.apply(stim_state, category, gain)
 
     if climax_info:
@@ -917,6 +919,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
     initial_stamina = player_props.get(ROMANCE_STAMINA_KEY, DEFAULT_STAMINA) if player_props else DEFAULT_STAMINA
 
     # 상태 초기화
+    import gender as gender_mod
     state = {
         "player_id": player_id,
         "npc_id": npc_id,
@@ -931,7 +934,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         "exhausted": False,
         "last_reaction": None,
         "escape_result": None,
-        "stim": stimulation.create_state(),  # 부위별 자극 상태 (세션 스코프)
+        "stim": stimulation.create_state(
+            male_mode=(gender_mod.get_gender(npc_id) == "male")
+        ),  # 부위별 자극 상태 (세션 스코프)
     }
 
     # 전환 시 보존 상태 복원

@@ -21,17 +21,23 @@ CHAIN_AMPLIFIER = 1.5           # 연쇄 절정 시 자극 배율
 CHAIN_RAPID_BONUS = 0.5         # 짧은 간격 연쇄 시 추가 배율
 CLIMAX_AROUSAL_REDUCTION = 30   # 절정 시 성욕 감소량
 CLIMAX_SENSATION_GAIN = 3       # 절정 부위 경험치 보너스
+REFRACTORY_INITIAL = 60         # 불응기 초기값 (남성 절정 후)
+REFRACTORY_DECAY = 10           # 행위 1회당 불응기 감소량
+REFRACTORY_GAIN_FACTOR = 0.1   # 불응기 중 자극 gain 배율 (90% 감소)
 
 
 # ============================================
 # 세션 상태 관리
 # ============================================
 
-def create_state():
+def create_state(male_mode=False):
     """세션용 자극 상태 생성
 
     romance 세션 시작 시 state["stim"]에 할당.
     세션 종료 시 자동 폐기 (prop 저장 안 함).
+
+    Args:
+        male_mode: True이면 남성 모드 (절정=불응기, 연쇄 불가)
 
     Returns:
         dict: 자극 상태
@@ -41,6 +47,8 @@ def create_state():
         "afterglow": 0,         # 0=통상, >0=여운 상태
         "chain_count": 0,       # 현재 연쇄 절정 횟수 (여운 종료 시 리셋)
         "climax_total": 0,      # 이번 세션 총 절정 횟수
+        "refractory": 0,        # 0=통상, >0=불응기 (남성 전용)
+        "male_mode": male_mode, # 남성 모드 플래그 (세션 중 불변)
     }
 
 
@@ -48,7 +56,7 @@ def create_state():
 # 자극 계산
 # ============================================
 
-def calc_gain(base, sensation_level, rebellion, afterglow):
+def calc_gain(base, sensation_level, rebellion, afterglow, refractory=0):
     """자극 증가량 계산
 
     Args:
@@ -56,6 +64,7 @@ def calc_gain(base, sensation_level, rebellion, afterglow):
         sensation_level: 해당 부위 감각 레벨 (0-10)
         rebellion: 반발 수치 (0-100)
         afterglow: 현재 여운 수치 (0=통상)
+        refractory: 현재 불응기 수치 (0=통상, 남성 전용)
 
     Returns:
         int: 최종 자극 증가량
@@ -70,8 +79,10 @@ def calc_gain(base, sensation_level, rebellion, afterglow):
     rebellion_factor = max(0.2, 1.0 - rebellion * 0.008)
     gain *= rebellion_factor
 
-    # 여운 중 연쇄 증폭
-    if afterglow > 0:
+    # 불응기 중 대폭 감소 (남성), 여운 중 연쇄 증폭 (여성)
+    if refractory > 0:
+        gain *= REFRACTORY_GAIN_FACTOR
+    elif afterglow > 0:
         gain *= CHAIN_AMPLIFIER
 
     return max(1, round(gain))
@@ -102,17 +113,18 @@ def apply(state, category, amount):
 
 
 def tick_afterglow(state):
-    """행위마다 호출 — 여운 감소
+    """행위마다 호출 — 여운/불응기 감소
 
     여운이 0이 되면 연쇄 카운트도 리셋.
     """
-    if state["afterglow"] <= 0:
-        return
+    if state["afterglow"] > 0:
+        state["afterglow"] = max(0, state["afterglow"] - AFTERGLOW_DECAY)
+        if state["afterglow"] <= 0:
+            state["chain_count"] = 0
 
-    state["afterglow"] = max(0, state["afterglow"] - AFTERGLOW_DECAY)
-
-    if state["afterglow"] <= 0:
-        state["chain_count"] = 0
+    # 불응기 감소 (남성)
+    if state.get("refractory", 0) > 0:
+        state["refractory"] = max(0, state["refractory"] - REFRACTORY_DECAY)
 
 
 def get_climax_sensation_gain(rebellion):
@@ -134,10 +146,8 @@ def get_climax_sensation_gain(rebellion):
 def _trigger_climax(state, category):
     """절정 처리 (내부)
 
-    1. 해당 카테고리 자극 리셋
-    2. 연쇄 판정 (여운 중이면 연쇄)
-    3. 여운 진입/갱신
-    4. climax info 반환
+    남성 모드: 불응기 진입, 연쇄 불가
+    여성 모드: 여운 진입/갱신, 연쇄 가능
 
     Returns:
         dict: {"category", "is_chain", "chain_count", "climax_total"}
@@ -145,15 +155,21 @@ def _trigger_climax(state, category):
     # 자극 리셋
     state["stim"][category] = 0
 
-    # 연쇄 판정
-    is_chain = state["afterglow"] > 0
-    if is_chain:
-        state["chain_count"] += 1
-    else:
-        state["chain_count"] = 0
+    is_chain = False
 
-    # 여운 진입/갱신
-    state["afterglow"] = AFTERGLOW_INITIAL
+    if state.get("male_mode"):
+        # 남성: 불응기 진입, 연쇄 불가
+        state["afterglow"] = 0
+        state["chain_count"] = 0
+        state["refractory"] = REFRACTORY_INITIAL
+    else:
+        # 여성: 연쇄 판정 + 여운 진입
+        is_chain = state["afterglow"] > 0
+        if is_chain:
+            state["chain_count"] += 1
+        else:
+            state["chain_count"] = 0
+        state["afterglow"] = AFTERGLOW_INITIAL
 
     # 총 절정 횟수
     state["climax_total"] += 1

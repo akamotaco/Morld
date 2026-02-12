@@ -541,7 +541,9 @@ def render_romance_ui(state):
             val = stim_state["stim"].get(cat, 0)
             stim_parts.append(f"{cat}:{val}")
         stim_line = f"자극: {' '.join(stim_parts)}"
-        if stim_state["afterglow"] > 0:
+        if stim_state.get("refractory", 0) > 0:
+            stim_line += f"  [color=red][불응기][/color]"
+        elif stim_state["afterglow"] > 0:
             chain = stim_state["chain_count"]
             if chain > 0:
                 stim_line += f"  [color=pink][여운 ×{chain + 1}][/color]"
@@ -763,6 +765,7 @@ def start_romance(player_id, partner_id, preserved=None):
     player_props = morld.get_unit_props(player_id)
     initial_stamina = player_props.get(ROMANCE_STAMINA_KEY, DEFAULT_STAMINA)
 
+    import gender as gender_mod
     state = {
         "player_id": player_id,
         "partner_id": partner_id,
@@ -773,7 +776,9 @@ def start_romance(player_id, partner_id, preserved=None):
         "interrupter_id": None,
         "exhausted": False,  # 체력 소진 종료
         "last_reaction": None,  # 마지막 즉시 액션 반응 텍스트
-        "stim": stimulation.create_state(),  # 부위별 자극 상태 (세션 스코프)
+        "stim": stimulation.create_state(
+            male_mode=(gender_mod.get_gender(partner_id) == "male")
+        ),  # 부위별 자극 상태 (세션 스코프)
     }
 
     # 전환 시 보존 상태 복원
@@ -832,7 +837,7 @@ def start_romance(player_id, partner_id, preserved=None):
             if base <= 0:
                 continue
             sensation = get_sensation_level(pid, category)
-            gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"])
+            gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
             result = stimulation.apply(stim_state, category, gain)
             if result and not climax_info:
                 climax_info = result
