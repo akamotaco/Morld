@@ -44,6 +44,7 @@ MILLIS_PER_HOUR = 3_600_000
 # 등록된 NPC
 _npc_registry = set()
 _accumulated = {}  # unit_id -> 밀리초 누적
+_last_year = None  # 나이 시스템: 연도 변경 감지용
 
 
 # ========================================
@@ -58,8 +59,10 @@ def register_character(unit_id):
 
 def reset():
     """챕터 전환 시 리셋"""
+    global _last_year
     _npc_registry.clear()
     _accumulated.clear()
+    _last_year = None
 
 
 # ========================================
@@ -193,6 +196,16 @@ def _process_hourly(unit_id):
         reduce_fatigue(unit_id, FATIGUE_SLEEP_RECOVERY)
     else:
         add_fatigue(unit_id, FATIGUE_RATE)
+        # 임신 3분기 피로 보너스
+        try:
+            import pregnancy
+            trimester = pregnancy.get_trimester(unit_id)
+            if trimester == "trimester_3":
+                fatigue_bonus = pregnancy.PREGNANCY_EFFECTS["trimester_3"]["fatigue_bonus"]
+                if fatigue_bonus > 0:
+                    add_fatigue(unit_id, fatigue_bonus)
+        except ImportError:
+            pass
 
     # 청결: 오염 + 젖음 기반 증가
     pollution_val = 0
@@ -244,6 +257,23 @@ def _process_hourly(unit_id):
             if current_sub > 0:
                 morld.set_unit_prop(unit_id, sub_key, max(0, current_sub - 1))
 
+    # 모성 욕구: 아이가 있는 경우 증가
+    try:
+        import pregnancy
+        children = pregnancy.get_children(unit_id)
+        if children:
+            mother_loc = morld.get_unit_location(unit_id)
+            child_loc = morld.get_unit_location(children[-1])  # 막내 기준
+            current_maternal = morld.get_unit_prop(unit_id, "욕구:모성") or 0
+            if mother_loc != child_loc:
+                morld.set_unit_prop(unit_id, "욕구:모성",
+                                    min(100, current_maternal + 3))
+            else:
+                morld.set_unit_prop(unit_id, "욕구:모성",
+                                    min(100, current_maternal + 1))
+    except ImportError:
+        pass
+
 
 def _process_accumulated(unit_id, millis):
     """시간 누적 후 1시간 단위로 처리"""
@@ -259,8 +289,36 @@ def _process_accumulated(unit_id, millis):
 # 이벤트 구독
 # ========================================
 
+def _age_all_characters():
+    """모든 등록 캐릭터 나이 +1 (연도 변경 시 호출)"""
+    # 플레이어
+    player_id = morld.get_player_id()
+    if player_id:
+        current_age = morld.get_unit_prop(player_id, "나이")
+        if current_age is not None:
+            morld.set_unit_prop(player_id, "나이", current_age + 1)
+
+    # NPC
+    for unit_id in _npc_registry:
+        current_age = morld.get_unit_prop(unit_id, "나이")
+        if current_age is not None:
+            morld.set_unit_prop(unit_id, "나이", current_age + 1)
+
+
 def _on_time_elapsed(millis):
     """on_time_elapsed 핸들러 (1시간 간격)"""
+    global _last_year
+
+    # 연도 변경 감지 → 나이 증가
+    time_info = morld.get_time_info()
+    if time_info:
+        current_year = time_info.get("year", 0)
+        if _last_year is None:
+            _last_year = current_year
+        elif current_year != _last_year:
+            _last_year = current_year
+            _age_all_characters()
+
     # 플레이어 처리 (등록 불필요)
     player_id = morld.get_player_id()
     if player_id is not None:

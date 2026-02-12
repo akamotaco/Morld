@@ -16,7 +16,7 @@ import ui
 import stimulation
 from romance import (emit_romance_sound, emit_ecstasy_sound,
                      is_action_available, is_anatomy_compatible,
-                     get_effective_affection_req,
+                     get_effective_affection_req, get_climax_reaction_key,
                      SENSATION_MAP, get_sensation_level, get_rebellion_key,
                      get_exposure_state, get_next_undress_item, perform_undress,
                      EXPOSURE_BONUS)
@@ -81,6 +81,31 @@ PLAYER_INSTANT_ACTIONS = {
         "effects": {"호감": 1, "성욕": 4, "욕망": 2},
         "exp_part": "음경", "affection_req": 85, "requires_exposure": "lower"
     },
+    "lip_lick": {
+        "name": "입술 핥기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"호감": 2, "성욕": 2},
+        "exp_part": "입술", "affection_req": 55
+    },
+    "neck_kiss": {
+        "name": "목 키스", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 2, "성욕": 3},
+        "exp_part": "목", "affection_req": 65
+    },
+    "breast_caress": {
+        "name": "가슴 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 1, "성욕": 3},
+        "exp_part": "가슴", "affection_req": 75
+    },
+    "nipple_stimulation": {
+        "name": "유두 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 5, "욕망": 2},
+        "exp_part": "가슴", "affection_req": 85, "requires_exposure": "upper"
+    },
+    "anal_stimulation": {
+        "name": "항문 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 5, "욕망": 3},
+        "exp_part": "엉덩이", "affection_req": 90, "requires_exposure": "lower"
+    },
     "undress_upper": {
         "name": "상체 옷 벗기기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 1},
@@ -130,6 +155,77 @@ NPC_TOGGLE_ACTIONS = {
         "name": "음경 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 7, "욕망": 4},
         "exp_part": "음경", "affection_req": 95, "exposure_bonus": "lower"
+    },
+    "tongue_play": {
+        "name": "혀 섞기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 2, "성욕": 4},
+        "exp_part": "입술", "affection_req": 75
+    },
+    "butt_squeeze": {
+        "name": "엉덩이 주무르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 1, "성욕": 3, "욕망": 1},
+        "exp_part": "엉덩이", "affection_req": 75
+    },
+    "breast_squeeze": {
+        "name": "가슴 주무르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
+        "exp_part": "가슴", "affection_req": 85, "exposure_bonus": "upper"
+    },
+    "breast_suck": {
+        "name": "가슴 빨기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 6, "욕망": 3},
+        "exp_part": "가슴", "affection_req": 90, "requires_exposure": "upper"
+    },
+    "clit_lick": {
+        "name": "클리토리스 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 8, "욕망": 4},
+        "exp_part": "클리토리스", "affection_req": 95, "requires_exposure": "lower"
+    },
+    "cunnilingus": {
+        "name": "커닐링구스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 8, "욕망": 4},
+        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower"
+    },
+    "finger_insertion": {
+        "name": "손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4, "복종": 1},
+        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower"
+    },
+    "fellatio": {
+        "name": "펠라치오", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 8, "욕망": 4},
+        "exp_part": "음경", "affection_req": 95, "requires_exposure": "lower"
+    },
+    # 삽입 행위
+    "vaginal_penetration": {
+        "name": "삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+        "effects": {"성욕": 8, "욕망": 5, "복종": 1},
+        "exp_part": "음부", "affection_req": 98,
+        "requires_player_anatomy": "P",
+        "requires_exposure": "lower",
+        "pregnancy_check": True,
+    },
+    "receive_penetration": {
+        "name": "피삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+        "effects": {"성욕": 8, "욕망": 5},
+        "exp_part": "음경", "affection_req": 98,
+        "requires_player_anatomy": "V",
+        "requires_exposure": "lower",
+        "pregnancy_check": True,
+    },
+    "anal_penetration": {
+        "name": "항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+        "effects": {"성욕": 8, "욕망": 5, "복종": 2},
+        "exp_part": "엉덩이", "affection_req": 98,
+        "requires_player_anatomy": "P",
+        "requires_exposure": "lower",
+    },
+    "receive_anal": {
+        "name": "피항문삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+        "effects": {"성욕": 8, "욕망": 5},
+        "exp_part": "음경", "affection_req": 98,
+        "requires_player_anatomy": "A",
+        "requires_exposure": "lower",
     },
 }
 
@@ -220,8 +316,9 @@ def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None)
     """
     새 액션과 충돌하는 활성 토글 목록 반환
 
-    같은 신체 부위(exp_part)를 사용하는 토글들을 찾습니다.
-    exp_part가 None인 액션은 충돌하지 않습니다.
+    충돌 조건:
+    1. 같은 exp_part (NPC쪽 부위 충돌)
+    2. 같은 requires_player_anatomy (행위자 신체 충돌)
 
     Args:
         new_action_id: 새로 선택한 액션 ID
@@ -232,18 +329,23 @@ def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None)
         set: 충돌하는 토글 ID들
     """
     new_exp_part = get_action_exp_part(new_action_id, new_action_dict)
-
-    # exp_part가 None이면 충돌 없음
-    if new_exp_part is None:
-        return set()
+    new_def = new_action_dict or NPC_TOGGLE_ACTIONS.get(new_action_id) or {}
+    new_player_req = new_def.get("requires_player_anatomy")
 
     conflicting = set()
     for toggle_id in active_toggles:
+        if toggle_id == new_action_id:
+            continue
         toggle_def = NPC_TOGGLE_ACTIONS.get(toggle_id)
-        if toggle_def:
-            toggle_exp_part = toggle_def.get("exp_part")
-            if toggle_exp_part == new_exp_part:
-                conflicting.add(toggle_id)
+        if not toggle_def:
+            continue
+        # exp_part 충돌
+        if new_exp_part and toggle_def.get("exp_part") == new_exp_part:
+            conflicting.add(toggle_id)
+            continue
+        # requires_player_anatomy 충돌
+        if new_player_req and toggle_def.get("requires_player_anatomy") == new_player_req:
+            conflicting.add(toggle_id)
 
     return conflicting
 
@@ -458,7 +560,7 @@ def get_available_npc_actions(npc_id, player_id):
 
     available = []
     for action_id, action_def in NPC_TOGGLE_ACTIONS.items():
-        if not is_anatomy_compatible(action_def, player_id):
+        if not is_anatomy_compatible(action_def, player_id, actor_id=npc_id):
             continue
         if is_action_available(npc_id, player_id, action_def):
             available.append(action_id)
@@ -738,7 +840,7 @@ def render_npc_initiative_ui(state):
         import gender as gender_mod
         npc_anatomy = gender_mod.get_anatomy(npc_id)
         stim_parts = []
-        for cat in ("M", "B", "A", "V", "C", "P"):
+        for cat in ("F", "M", "B", "A", "V", "C", "P"):
             if cat not in npc_anatomy:
                 continue
             val = stim_state["stim"].get(cat, 0)
@@ -791,7 +893,7 @@ def render_npc_initiative_ui(state):
     # 플레이어 선택 가능한 즉시 행위
     lines.append("[즉시 행위] (플레이어)")
     for action_id, action in PLAYER_INSTANT_ACTIONS.items():
-        if not is_anatomy_compatible(action, npc_id):
+        if not is_anatomy_compatible(action, npc_id, actor_id=player_id):
             continue
         # 탈의 행위: 벗을 것 없으면 숨김
         if action.get("undress"):
@@ -934,10 +1036,24 @@ def apply_action_effects(state, action_def):
             if current_sub < SUBMISSION_MAX:
                 morld.modify_prop(npc_id, submission_key, climax_sub_gain)
 
+        # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
+        has_intercourse = any(
+            NPC_TOGGLE_ACTIONS.get(tid, {}).get("pregnancy_check")
+            for tid in state["active_toggles"]
+        )
+        if has_intercourse:
+            import gender as gender_mod
+            if gender_mod.has_anatomy(npc_id, "P"):
+                import pregnancy
+                pregnancy.check_conception(player_id, npc_id)
+
         # 절정 반응 텍스트
         npc_asset = get_npc_asset(npc_id)
         if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-            reaction = npc_asset.get_romance_reaction("ecstasy", "start")
+            reactions = getattr(npc_asset, 'ROMANCE_REACTIONS', {})
+            ecstasy_key = get_climax_reaction_key(
+                climax_info, state["active_toggles"], NPC_TOGGLE_ACTIONS, reactions)
+            reaction = npc_asset.get_romance_reaction(ecstasy_key, "start")
             if reaction:
                 return reaction
         npc_info = morld.get_unit_info(npc_id)

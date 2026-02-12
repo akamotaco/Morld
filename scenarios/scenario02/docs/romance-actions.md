@@ -95,12 +95,13 @@
 
 | 부위 (카테고리) | 즉시형 | 토글형 | 삽입형 | 합계 |
 |----------------|--------|--------|--------|------|
-| 입술 (M) | 입술 핥기, 프렌치 키스, 목 키스 | 딥키스, 혀 섞기 | — | 5 |
+| 입술 (M) | 입술 핥기, 프렌치 키스 | 딥키스, 혀 섞기 | — | 4 |
 | 가슴 (B) | 가슴 쓰다듬기, 유두 자극 | 가슴 만지기, 가슴 주무르기, 가슴 빨기 | — | 5 |
 | 엉덩이 (A) | 엉덩이 쓰다듬기, 항문 자극 | 엉덩이 주무르기 | 항문 삽입, 피항문삽입 | 5 |
 | 음부 (V) | 음부 쓰다듬기 | 음부 만지기, 커닐링구스, 손가락 삽입 | 삽입 | 5 |
 | 클리토리스 (C) | 클리토리스 자극 | 클리토리스 문지르기, 클리토리스 핥기 | — | 3 |
 | 음경 (P) | 음경 쓰다듬기, 음경 자극 | 음경 만지기, 음경 문지르기, 펠라치오 | 피삽입 | 6 |
+| 얼굴/목 (F) | 목 키스, 귀 만지기, 뺨 어루만지기, 뺨 꼬집기 | — | — | 4 |
 
 ### 캐릭터별 반응 시스템
 
@@ -556,7 +557,7 @@ ROMANCE_SOUND_PROFILE = {"levels": [low, mid, high], "ecstasy": ecstasy_intensit
 
 ### 개요
 
-부위별 경험치(`경험:{부위}`)를 M/B/A/V/C/P 감각 카테고리에 매핑하여
+부위별 경험치(`경험:{부위}`)를 M/B/A/V/C/P/F 감각 카테고리에 매핑하여
 감각 레벨을 산출하고, 성욕 효과에 보정을 적용합니다.
 
 ### 감각 카테고리 매핑 (SENSATION_MAP)
@@ -569,9 +570,9 @@ ROMANCE_SOUND_PROFILE = {"levels": [low, mid, high], "ecstasy": ecstasy_intensit
 | 음부 | V (Vaginal) | 음부 계열 |
 | 클리토리스 | C (Clitoral) | 클리토리스 계열 |
 | 음경 | P (Penis) | 음경 계열 (male) |
-| 목 | M (Mouth) | 키스 계열 (입술과 동일 카테고리) |
-| 귀 | None | 비성적 |
-| 뺨 | None | 비성적 |
+| 목 | F (Face) | 얼굴/목 계열 |
+| 귀 | F (Face) | 얼굴/목 계열 |
+| 뺨 | F (Face) | 얼굴/목 계열 |
 | 머리 | None | 비성적 |
 
 ### 감각 레벨 계산
@@ -610,7 +611,7 @@ bonus = round(base_arousal_effect * sensation_level * 0.1)
 - 관계 라벨 + 호감/욕망/성욕 표시 (애정 제거)
 - 자극: 대상 성별 기반으로 해당 카테고리만 표시 + 여운/절정 상태
 - 반발 > 0일 때만 반발 표시
-- 감각 레벨이 0 초과인 카테고리만 표시 (M/B/A/V/C/P 순서).
+- 감각 레벨이 0 초과인 카테고리만 표시 (F/M/B/A/V/C/P 순서).
 
 ---
 
@@ -622,7 +623,7 @@ bonus = round(base_arousal_effect * sensation_level * 0.1)
 
 ### 핵심 특성
 - **세션 스코프**: romance 세션 state dict 안에만 존재, prop 아님
-- **부위별 자극**: MBAVCP 카테고리별 독립 자극 수치 (0-100)
+- **부위별 자극**: FMBAVCP 카테고리별 독립 자극 수치 (0-100)
 - **절정**: 자극이 100 도달 시 발생, 해당 카테고리 자극 리셋
 - **여운 (afterglow)**: 여성 절정 후 일시적 상태, 행위마다 감소
 - **연쇄 절정**: 여운 중 재절정 시 자극 증폭 (×1.5)
@@ -1049,6 +1050,37 @@ if climax_info and any_active_intercourse_with_pregnancy_check(state):
 | 피항문삽입 (receive_anal) | 음경 | 음경 만지기, 펠라치오 |
 
 삽입 활성화 시 같은 부위의 기존 토글 자동 해제.
+
+### 플레이어 신체 충돌 (requires_player_anatomy)
+
+exp_part 기반 충돌은 **NPC쪽 부위** 기준이므로,
+**플레이어 신체 1개를 여러 행위에 동시 사용**하는 모순을 방지하지 못함.
+
+예: `vaginal_penetration`(P 필요) + `anal_penetration`(P 필요) 동시 활성화 → 물리적 불가능
+
+**규칙**: 같은 `requires_player_anatomy` 값을 가진 행위는 상호 배타.
+
+```python
+def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None):
+    # 기존: exp_part 충돌 검사
+    ...
+    # 추가: requires_player_anatomy 충돌 검사
+    new_player_req = new_def.get("requires_player_anatomy")
+    if new_player_req:
+        for toggle_id in active_toggles:
+            toggle_def = get_toggle_def(toggle_id)
+            if toggle_def and toggle_def.get("requires_player_anatomy") == new_player_req:
+                conflicting.add(toggle_id)
+    return conflicting
+```
+
+| 충돌 그룹 | requires_player_anatomy | 대상 행위 |
+|-----------|------------------------|-----------|
+| P 사용 | P | vaginal_penetration, anal_penetration |
+| V 사용 | V | receive_penetration |
+| A 사용 | A | receive_anal |
+
+**결과**: 질 삽입 활성 중 항문 삽입 선택 시, 질 삽입이 자동 해제되고 항문 삽입으로 전환.
 
 ### 자극 시스템 연동
 

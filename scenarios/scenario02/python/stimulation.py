@@ -43,7 +43,7 @@ def create_state(male_mode=False):
         dict: 자극 상태
     """
     return {
-        "stim": {"M": 0, "B": 0, "A": 0, "V": 0, "C": 0, "P": 0},
+        "stim": {"F": 0, "M": 0, "B": 0, "A": 0, "V": 0, "C": 0, "P": 0},
         "afterglow": 0,         # 0=통상, >0=여운 상태
         "chain_count": 0,       # 현재 연쇄 절정 횟수 (여운 종료 시 리셋)
         "climax_total": 0,      # 이번 세션 총 절정 횟수

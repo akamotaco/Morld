@@ -369,14 +369,40 @@ class Character(Unit):
         # 토글 액션 (ON 상태 진행 중 묘사)
         "hug:during": [({}, ["상대가 당신을 안고 있다."])],
         "deep_kiss:during": [({}, ["상대와 깊은 키스를 나누고 있다."])],
+        "tongue_play:during": [({}, ["상대와 혀를 섞고 있다."])],
+        "butt_squeeze:during": [({}, ["상대의 엉덩이를 주무르고 있다."])],
         "breast_touch:during": [({}, ["상대의 가슴에 손을 대고 있다."])],
+        "breast_squeeze:during": [({}, ["상대의 가슴을 주무르고 있다."])],
+        "breast_suck:during": [({}, ["상대의 가슴을 빨고 있다."])],
+        "genital_touch:during": [({}, ["상대의 음부를 만지고 있다."])],
+        "clit_rub:during": [({}, ["상대의 클리토리스를 문지르고 있다."])],
+        "clit_lick:during": [({}, ["상대의 클리토리스를 핥고 있다."])],
+        "cunnilingus:during": [({}, ["상대에게 커닐링구스 중이다."])],
+        "finger_insertion:during": [({}, ["상대에게 손가락을 삽입하고 있다."])],
+        "penis_touch:during": [({}, ["상대의 음경을 만지고 있다."])],
+        "penis_rub:during": [({}, ["상대의 음경을 문지르고 있다."])],
+        "fellatio:during": [({}, ["상대에게 펠라치오 중이다."])],
         # 즉시 액션
         "head_pat:start": [({}, ["상대의 머리를 쓰다듬는다."])],
         "cheek_caress:start": [({}, ["상대의 볼을 어루만진다."])],
         "cheek_pinch:start": [({}, ["상대의 볼을 꼬집는다."])],
         "ear_touch:start": [({}, ["상대의 귀를 만진다."])],
+        "lip_lick:start": [({}, ["상대의 입술을 핥는다."])],
         "french_kiss:start": [({}, ["상대와 프렌치 키스를 한다."])],
+        "neck_kiss:start": [({}, ["상대의 목에 키스한다."])],
         "butt_caress:start": [({}, ["상대의 엉덩이를 쓰다듬는다."])],
+        "breast_caress:start": [({}, ["상대의 가슴을 쓰다듬는다."])],
+        "nipple_stimulation:start": [({}, ["상대의 유두를 자극한다."])],
+        "anal_stimulation:start": [({}, ["상대의 항문을 자극한다."])],
+        # 삽입 행위
+        "vaginal_penetration:start": [({}, ["상대와 결합한다."])],
+        "vaginal_penetration:during": [({}, ["상대와 결합되어 있다."])],
+        "receive_penetration:start": [({}, ["상대를 받아들인다."])],
+        "receive_penetration:during": [({}, ["상대를 받아들이고 있다."])],
+        "anal_penetration:start": [({}, ["상대의 뒤로 삽입한다."])],
+        "anal_penetration:during": [({}, ["상대의 뒤에 삽입되어 있다."])],
+        "receive_anal:start": [({}, ["상대를 뒤로 받아들인다."])],
+        "receive_anal:during": [({}, ["상대를 뒤로 받아들이고 있다."])],
         # 절정
         "ecstasy:start": [({}, ["......!"])],
     }
@@ -1053,9 +1079,20 @@ class Character(Unit):
     INITIATIVE_REACTIONS: dict = None
     INITIATIVE_SENSATION_REQS: dict = {
         "deep_kiss": {"M": 1},
+        "tongue_play": {"M": 2},
         "breast_touch": {"B": 1},
+        "breast_squeeze": {"B": 2},
+        "breast_suck": {"B": 3},
         "genital_touch": {"V": 2},
         "clit_rub": {"C": 2},
+        "clit_lick": {"C": 3},
+        "cunnilingus": {"V": 3},
+        "finger_insertion": {"V": 4},
+        "fellatio": {"P": 3},
+        "vaginal_penetration": {"V": 3},
+        "receive_penetration": {"P": 3},
+        "anal_penetration": {"A": 3},
+        "receive_anal": {"P": 3},
     }
 
     # 자위 설정 (서브클래스 오버라이드)
@@ -1517,6 +1554,35 @@ class Character(Unit):
         agent.push_schedule(work_order)
 
         yield ui.dialog(f"[b]{self.name}[/b]\n\n'{choice}' 작업을 지시했습니다.")
+
+    # ========================================
+    # 임신 디버그 (Pregnancy Debug)
+    # ========================================
+
+    def debug_pregnancy_info(self):
+        """디버그: 임신/월경 주기 정보 표시"""
+        self._check_instantiated()
+        import pregnancy
+        info = pregnancy.get_cycle_info(self.instance_id)
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n{info}")
+
+    def debug_force_conceive(self):
+        """디버그: 강제 임신"""
+        self._check_instantiated()
+        import pregnancy
+        player_id = morld.get_player_id()
+        if player_id is None:
+            yield ui.dialog(f"[b]{self.name}[/b]\n\n플레이어가 없습니다.")
+            return
+        pregnancy.force_conceive(self.instance_id, player_id)
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n강제 임신 처리됨.")
+
+    def debug_force_birth(self):
+        """디버그: 강제 출산 (주차를 40으로 설정)"""
+        self._check_instantiated()
+        import pregnancy
+        pregnancy.force_birth(self.instance_id)
+        yield ui.dialog(f"[b]{self.name}[/b]\n\n출산 임박으로 설정됨 (40주차).")
 
     # ========================================
     # 이벤트 다이얼로그 시스템

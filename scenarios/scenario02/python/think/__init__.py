@@ -88,6 +88,15 @@ class BaseAgent:
             "self_comfort_cooldown": None, # 마지막 자위/탐색 시각 (밀리초)
             "seek_player_phase": None,    # 플레이어 탐색 단계 (None/idle/going)
             "seek_player_target": None,   # 탐색 대상 위치
+            "childbirth_phase": None,     # 출산 단계 (None/idle/going/laboring/recovery)
+            "childbirth_target": None,    # 출산 장소
+            "childbirth_child_id": None,  # 출산된 아이 unit_id
+            "last_child_id": None,        # 마지막 출산 아이 unit_id
+            "maternal_phase": None,       # 모성 단계 (None/idle/going/interacting)
+            "maternal_target": None,      # 아이 위치
+            "socialize_phase": None,      # 대화 단계 (None/idle/going/talking)
+            "socialize_target_id": None,  # 대화 대상 NPC unit_id
+            "socialize_cooldown": None,   # 마지막 대화 시각 (밀리초)
         }
 
     def set_base_schedule(self, schedule):
@@ -583,7 +592,19 @@ class BaseAgent:
             self._action_taken = True
             return True
 
-        # 4f. 취침 이동 (수면 시간이지만 아직 침대 아님)
+        # 4f. 출산 인터럽트 (임신 40주+)
+        if self._check_childbirth():
+            return True
+
+        # 4g. 모성 인터럽트 (아이 탐색)
+        if self._check_maternal():
+            return True
+
+        # 4h. 사회욕 (NPC-NPC 대화)
+        if self._check_social():
+            return True
+
+        # 4i. 취침 이동 (수면 시간이지만 아직 침대 아님)
         # (이미 침대에 누운 경우는 tier 1에서 처리됨)
         is_sleep, _ = self._is_sleep_time()
         if is_sleep:
@@ -677,6 +698,81 @@ class BaseAgent:
             return True
 
         return False
+
+    def _check_childbirth(self):
+        """출산 인터럽트: 임신 40주+ 또는 출산 진행 중. Returns True if handling."""
+        # 진행 중 → 계속
+        if self._memory.get("childbirth_phase") is not None:
+            from think.activities.childbirth import handle_childbirth
+            handle_childbirth(self, None)
+            return True
+
+        try:
+            import pregnancy
+            week = pregnancy.get_pregnancy_week(self.unit_id)
+            if week is not None and week >= 40:
+                self._memory["childbirth_phase"] = "idle"
+                from think.activities.childbirth import handle_childbirth
+                handle_childbirth(self, None)
+                return True
+        except ImportError:
+            pass
+
+        return False
+
+    def _check_maternal(self):
+        """모성 인터럽트: 아이가 있고 모성 욕구 임계치 초과. Returns True if handling."""
+        # 진행 중 → 계속
+        if self._memory.get("maternal_phase") is not None:
+            from think.activities.childbirth import handle_maternal
+            handle_maternal(self, None)
+            return True
+
+        # 아이 없으면 스킵
+        child_id = self._memory.get("last_child_id")
+        if not child_id:
+            return False
+
+        # 모성 욕구 임계치 (60)
+        maternal = morld.get_unit_prop(self.unit_id, "욕구:모성") or 0
+        if maternal < 60:
+            return False
+
+        self._memory["maternal_phase"] = "idle"
+        from think.activities.childbirth import handle_maternal
+        handle_maternal(self, None)
+        return True
+
+    def _check_social(self):
+        """사회욕 인터럽트: 다른 NPC 탐색 → 대화. Returns True if handling."""
+        # 진행 중 → 계속
+        if self._memory.get("socialize_phase") is not None:
+            _handle_socialize(self)
+            return True
+
+        # 쿨다운 (1시간)
+        last = self._memory.get("socialize_cooldown")
+        if last is not None and self.get_time() - last < 3_600_000:
+            return False
+
+        # 사회욕 임계치 (70)
+        try:
+            import needs
+            social = needs.get_social(self.unit_id)
+        except ImportError:
+            return False
+        if social < 70:
+            return False
+
+        # 대화 대상 탐색 (같은 location의 다른 NPC)
+        target_id = _find_socialize_target(self)
+        if target_id is None:
+            return False
+
+        self._memory["socialize_phase"] = "idle"
+        self._memory["socialize_target_id"] = target_id
+        _handle_socialize(self)
+        return True
 
     def _can_seek_player(self):
         """플레이어 탐색 가능 여부 (INITIATIVE_CONFIG 조건 재사용)"""
@@ -2012,10 +2108,15 @@ def _handle_self_comfort(agent):
         # job 완료 → 주변 확인
         loc = agent.get_location()
         alone = True
+        discovered_by = None
         if loc:
             units = morld.get_units_at_location(loc[0], loc[1])
-            if units and any(u != agent.unit_id for u in units):
-                alone = False
+            if units:
+                for u in units:
+                    if u != agent.unit_id:
+                        alone = False
+                        discovered_by = u
+                        break
 
         if alone:
             # 성공: 성욕 감소 + 정상 쿨다운
@@ -2026,13 +2127,24 @@ def _handle_self_comfort(agent):
             agent._insert_idle_job("대기", 60_000)
             agent._action_taken = True
         else:
-            # NPC에게 발각 — 성욕 감소 없음, 짧은 쿨다운으로 재시도 유도
-            agent._memory["self_comfort_phase"] = None
-            agent._memory["self_comfort_cooldown"] = (
-                agent.get_time() - _SELF_COMFORT_COOLDOWN_MS + _SELF_COMFORT_INTERRUPT_COOLDOWN_MS
-            )
-            agent._insert_idle_job("대기", 60_000)
-            agent._action_taken = True
+            # 발각 — 발각자가 연인 NPC인지 확인
+            is_lover = _is_lover_npc(agent.unit_id, discovered_by)
+            if is_lover:
+                # 연인 발각: 성욕 절반 감소 + 정상 쿨다운 (수치심 경감)
+                arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
+                morld.set_unit_prop(agent.unit_id, "상태:성욕", max(0, arousal - 25))
+                agent._memory["self_comfort_phase"] = None
+                agent._memory["self_comfort_cooldown"] = agent.get_time()
+                agent._insert_idle_job("대기", 60_000)
+                agent._action_taken = True
+            else:
+                # 비연인 발각 — 성욕 감소 없음, 짧은 쿨다운으로 재시도 유도
+                agent._memory["self_comfort_phase"] = None
+                agent._memory["self_comfort_cooldown"] = (
+                    agent.get_time() - _SELF_COMFORT_COOLDOWN_MS + _SELF_COMFORT_INTERRUPT_COOLDOWN_MS
+                )
+                agent._insert_idle_job("대기", 60_000)
+                agent._action_taken = True
 
 
 def _handle_seek_player(agent):
@@ -2058,6 +2170,141 @@ def _handle_seek_player(agent):
             agent._action_taken = True
         else:
             agent._move_to(target, "이동")
+
+
+# ========================================
+# NPC-NPC 발각 헬퍼
+# ========================================
+
+_LOVER_AFFECTION_THRESHOLD = 60  # 연인 판정 호감 임계치
+
+
+def _is_lover_npc(npc_id, other_id):
+    """other_id가 npc_id의 연인 NPC인지 판정
+
+    플레이어가 아닌 NPC 간 연인 관계 확인.
+    호감도가 임계치 이상이면 연인으로 간주.
+    """
+    if other_id is None:
+        return False
+
+    # 플레이어면 False (플레이어 발각은 별도 처리)
+    player_id = morld.get_player_id()
+    if other_id == player_id:
+        return False
+
+    # NPC인지 확인
+    if other_id not in _agents:
+        return False
+
+    # NPC → NPC 호감 확인 (양방향 중 어느 쪽이든)
+    other_info = morld.get_unit_info(other_id)
+    if not other_info:
+        return False
+    other_name = other_info.get("name", "")
+
+    npc_props = morld.get_unit_props(npc_id)
+    if npc_props:
+        affection = npc_props.get(f"관계:{other_name}:호감", 0)
+        if affection >= _LOVER_AFFECTION_THRESHOLD:
+            return True
+
+    return False
+
+
+# ========================================
+# NPC-NPC 대화 (사회욕 기반)
+# ========================================
+
+_SOCIALIZE_COOLDOWN_MS = 3_600_000  # 1시간
+_SOCIALIZE_SOCIAL_THRESHOLD = 70    # 사회욕 임계치
+
+
+def _find_socialize_target(agent):
+    """대화 대상 NPC 탐색 (같은 location, 수면/기절 중 아닌 NPC)"""
+    my_loc = agent.get_location()
+    if my_loc is None:
+        return None
+
+    for uid, other_agent in _agents.items():
+        if uid == agent.unit_id:
+            continue
+        other_loc = other_agent.get_location()
+        if other_loc is None:
+            continue
+        if other_loc[0] == my_loc[0] and other_loc[1] == my_loc[1]:
+            # 수면/기절 중이면 스킵
+            info = morld.get_unit_info(uid)
+            if info:
+                job_name = info.get("job_name", "")
+                if job_name in ("sleep", "fainting"):
+                    continue
+            return uid
+
+    return None
+
+
+def _handle_socialize(agent):
+    """NPC-NPC 대화: 대상 위치 이동 → 대화(30분) → 사회욕 감소"""
+    phase = agent._memory["socialize_phase"]
+
+    if phase == "idle":
+        target_id = agent._memory.get("socialize_target_id")
+        if target_id is None:
+            agent._memory["socialize_phase"] = None
+            return
+
+        target_loc = morld.get_unit_location(target_id)
+        if target_loc is None:
+            agent._memory["socialize_phase"] = None
+            agent._memory["socialize_target_id"] = None
+            return
+
+        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
+        if agent._is_at(target):
+            agent._memory["socialize_phase"] = "talking"
+            agent._insert_idle_job("대화", 30 * 60_000)  # 30분
+            agent._action_taken = True
+        else:
+            agent._memory["socialize_phase"] = "going"
+            _handle_socialize(agent)
+
+    elif phase == "going":
+        target_id = agent._memory.get("socialize_target_id")
+        if target_id is None:
+            agent._memory["socialize_phase"] = None
+            return
+
+        target_loc = morld.get_unit_location(target_id)
+        if target_loc is None:
+            agent._memory["socialize_phase"] = None
+            agent._memory["socialize_target_id"] = None
+            return
+
+        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
+        if agent._is_at(target):
+            agent._memory["socialize_phase"] = "talking"
+            agent._insert_idle_job("대화", 30 * 60_000)
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "대화")
+
+    elif phase == "talking":
+        # 대화 완료 → 양측 사회욕 감소
+        try:
+            import needs
+            needs.reduce_social(agent.unit_id, 30)
+            target_id = agent._memory.get("socialize_target_id")
+            if target_id:
+                needs.reduce_social(target_id, 15)  # 상대방은 절반
+        except ImportError:
+            pass
+
+        agent._memory["socialize_phase"] = None
+        agent._memory["socialize_target_id"] = None
+        agent._memory["socialize_cooldown"] = agent.get_time()
+        agent._insert_idle_job("대화완료", 60_000)
+        agent._action_taken = True
 
 
 def register_agent(unit_id, agent):
