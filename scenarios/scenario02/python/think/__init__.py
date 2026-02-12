@@ -81,6 +81,8 @@ class BaseAgent:
             "cold_phase": None,     # 방한 단계 (None/idle/going/taking/equipping)
             "cold_last_attempt": None,  # 마지막 추위 대응 시도 시각 (밀리초)
             "hot_phase": None,      # 더위 단계 (None/idle/unequipping/storing)
+            "clothing_phase": None,   # 착의 단계 (None/idle/going/taking/equipping)
+            "clothing_last_attempt": None,  # 마지막 착의 시도 시각 (밀리초)
             "excretion_phase": None,  # 배변 단계 (None/idle/going/using)
             "self_comfort_phase": None,   # 자위 단계 (None/idle/going/performing)
             "self_comfort_cooldown": None, # 마지막 자위/탐색 시각 (밀리초)
@@ -540,9 +542,10 @@ class BaseAgent:
         return False
 
     def _check_tier4_comfort(self):
-        """Tier 4: 쾌적 욕구 (배변, 피로, 목욕/청결, 취침 이동)
+        """Tier 4: 쾌적 욕구 (착의, 배변, 피로, 목욕/청결, 취침 이동)
 
         생존보다 낮은 우선순위.
+        착의: 상의/하의 미착용 → _handle_clothing()
         배변: needs 임계치 → _handle_excretion()
         피로: needs 임계치 → _handle_sleep() (비스케줄)
         목욕: 스케줄 OR 청결 임계치 → _handle_bath()
@@ -551,19 +554,23 @@ class BaseAgent:
         Returns:
             True if action was taken.
         """
-        # 4a. 배변 인터럽트
+        # 4a. 착의 인터럽트
+        if self._check_clothing():
+            return True
+
+        # 4b. 배변 인터럽트
         if self._check_excretion():
             return True
 
-        # 4b. 피로 인터럽트 (비스케줄 수면)
+        # 4c. 피로 인터럽트 (비스케줄 수면)
         if self._check_fatigue():
             return True
 
-        # 4c. 성욕 (플레이어 탐색 → 자위)
+        # 4d. 성욕 (플레이어 탐색 → 자위)
         if self._check_arousal():
             return True
 
-        # 4d. 목욕 (스케줄 OR 청결 기반)
+        # 4e. 목욕 (스케줄 OR 청결 기반)
         is_bath, _ = self._is_bath_time()
         is_dirty = False
         try:
@@ -576,7 +583,7 @@ class BaseAgent:
             self._action_taken = True
             return True
 
-        # 4e. 취침 이동 (수면 시간이지만 아직 침대 아님)
+        # 4f. 취침 이동 (수면 시간이지만 아직 침대 아님)
         # (이미 침대에 누운 경우는 tier 1에서 처리됨)
         is_sleep, _ = self._is_sleep_time()
         if is_sleep:
@@ -1295,6 +1302,43 @@ class BaseAgent:
         return result["object_id"] if result else None
 
     # ========================================
+    # 착의 인터럽트
+    # ========================================
+
+    CLOTHING_COOLDOWN_MILLIS = 3_600_000  # 착의 실패 후 1시간 쿨다운
+
+    def _check_clothing(self):
+        """착의 확인 → 옷장 이동. Returns True if handling."""
+        if self.wardrobe_location is None:
+            return False
+
+        # 이미 진행 중이면 계속
+        if self._memory["clothing_phase"] is not None:
+            _handle_clothing(self)
+            return True
+
+        # 다른 의류 핸들러 활성 중이면 스킵
+        if self._memory["cold_phase"] is not None:
+            return False
+        if self._memory["hot_phase"] is not None:
+            return False
+
+        # 이미 착의 상태면 불필요
+        if _is_dressed(self.unit_id):
+            return False
+
+        # 쿨다운 체크
+        last = self._memory.get("clothing_last_attempt")
+        if last is not None:
+            current_time = morld.get_game_time()
+            if current_time - last < self.CLOTHING_COOLDOWN_MILLIS:
+                return False
+
+        self._memory["clothing_phase"] = "idle"
+        _handle_clothing(self)
+        return True
+
+    # ========================================
     # 동적 스케줄 해석
     # ========================================
 
@@ -1665,6 +1709,167 @@ def _store_warm_items_to_container(agent, container_id):
             if info and info.get("equip_props", {}).get("보온", 0) > 0:
                 morld.remove_item(agent.unit_id, item_id, 1)
                 morld.give_item(container_id, item_id, 1)
+        except Exception:
+            pass
+
+
+# ========================================
+# 착의 핸들러 (나체/반나체 → 옷장 → 착의)
+# ========================================
+
+def _is_dressed(unit_id):
+    """상의+하의 모두 착용 중인지"""
+    import equipment
+    equipped = equipment.get_equipped_items(unit_id)
+    has_top = False
+    has_bottom = False
+    for item_id in equipped:
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                ep = info.get("equip_props", {})
+                if ep.get("착용:상의", 0) > 0:
+                    has_top = True
+                if ep.get("착용:하의", 0) > 0:
+                    has_bottom = True
+        except Exception:
+            pass
+    return has_top and has_bottom
+
+
+def _handle_clothing(agent):
+    """착의: 인벤토리 확인 → 옷장 이동 → 옷 가져오기 → 장착"""
+    phase = agent._memory["clothing_phase"]
+
+    if phase == "idle":
+        # 인벤토리에 착용 가능한 옷이 있으면 바로 장착
+        if _has_clothing_in_inventory(agent.unit_id):
+            agent._memory["clothing_phase"] = "equipping"
+            _handle_clothing(agent)
+            return
+        # 없으면 옷장으로 이동
+        agent._memory["clothing_phase"] = "going"
+        _handle_clothing(agent)
+        return
+
+    elif phase == "going":
+        from think.facility_resolver import resolve_wardrobe
+        target = resolve_wardrobe(agent)
+        if target is None:
+            agent._memory["clothing_phase"] = None
+            agent._memory["clothing_last_attempt"] = morld.get_game_time()
+            agent._action_taken = True
+            return
+        if agent._is_at(target):
+            agent._memory["clothing_phase"] = "taking"
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "착의")
+
+    elif phase == "taking":
+        wardrobe_id = agent._find_wardrobe_id()
+        if wardrobe_id:
+            import temperature
+            avoid_warm = temperature.is_hot(agent.unit_id)
+            _take_clothing_from_container(agent, wardrobe_id, avoid_warm)
+        agent._memory["clothing_phase"] = "equipping"
+        agent._action_taken = True
+
+    elif phase == "equipping":
+        _equip_clothing_items(agent.unit_id)
+        agent._memory["clothing_phase"] = None
+        agent._memory["clothing_last_attempt"] = morld.get_game_time()
+        agent._action_taken = True
+
+
+def _has_clothing_in_inventory(unit_id):
+    """인벤토리에 미장착 상의/하의 아이템이 있는지"""
+    import equipment
+    inv = morld.get_unit_inventory(unit_id)
+    if not inv:
+        return False
+    equipped = set(equipment.get_equipped_items(unit_id))
+    for item_id, count in inv.items():
+        if count <= 0 or item_id in equipped:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                ep = info.get("equip_props", {})
+                if ep.get("착용:상의", 0) > 0 or ep.get("착용:하의", 0) > 0:
+                    return True
+        except Exception:
+            pass
+    return False
+
+
+def _take_clothing_from_container(agent, container_id, avoid_warm=False):
+    """옷장에서 부족 슬롯 의류 꺼내기"""
+    import equipment
+    # 현재 부족한 슬롯 확인
+    equipped = equipment.get_equipped_items(agent.unit_id)
+    need_top = True
+    need_bottom = True
+    for item_id in equipped:
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                ep = info.get("equip_props", {})
+                if ep.get("착용:상의", 0) > 0:
+                    need_top = False
+                if ep.get("착용:하의", 0) > 0:
+                    need_bottom = False
+        except Exception:
+            pass
+
+    if not need_top and not need_bottom:
+        return
+
+    inv = morld.get_unit_inventory(container_id)
+    if not inv:
+        return
+    for item_id, count in list(inv.items()):
+        if count <= 0:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if not info:
+                continue
+            ep = info.get("equip_props", {})
+            # 더울 때 보온 아이템 스킵
+            if avoid_warm and ep.get("보온", 0) > 0:
+                continue
+            fills_top = ep.get("착용:상의", 0) > 0
+            fills_bottom = ep.get("착용:하의", 0) > 0
+            if (need_top and fills_top) or (need_bottom and fills_bottom):
+                morld.remove_item(container_id, item_id, 1)
+                morld.give_item(agent.unit_id, item_id, 1)
+                if fills_top:
+                    need_top = False
+                if fills_bottom:
+                    need_bottom = False
+            if not need_top and not need_bottom:
+                break
+        except Exception:
+            pass
+
+
+def _equip_clothing_items(unit_id):
+    """인벤토리의 미장착 상의/하의 아이템 장착"""
+    import equipment
+    inv = morld.get_unit_inventory(unit_id)
+    if not inv:
+        return
+    equipped = set(equipment.get_equipped_items(unit_id))
+    for item_id, count in inv.items():
+        if count <= 0 or item_id in equipped:
+            continue
+        try:
+            info = morld.get_item_info(item_id)
+            if info:
+                ep = info.get("equip_props", {})
+                if ep.get("착용:상의", 0) > 0 or ep.get("착용:하의", 0) > 0:
+                    equipment.equip_item(unit_id, item_id)
         except Exception:
             pass
 

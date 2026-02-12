@@ -258,10 +258,12 @@ def _process_hourly(unit_id):
 ### NPC 인터럽트 (Tier 4)
 
 ```
-4a. 배변 (_check_excretion): 욕구:배변 ≥ 70 → _handle_excretion()
-4b. 피로 (_check_fatigue): 욕구:피로 ≥ 80 → _handle_sleep() (2시간 fallback)
-4c. 목욕 (스케줄 OR 청결): 욕구:청결 ≥ 70 → _handle_bath() (30분 fallback)
-4d. 취침: 스케줄 수면 시간 → _handle_sleep()
+4a. 착의 (_check_clothing): 상의/하의 미착용 → _handle_clothing()
+4b. 배변 (_check_excretion): 욕구:배변 ≥ 70 → _handle_excretion()
+4c. 피로 (_check_fatigue): 욕구:피로 ≥ 80 → _handle_sleep() (2시간 fallback)
+4d. 성욕 (_check_arousal): 성욕 임계값 → _handle_self_comfort() / _handle_seek_player()
+4e. 목욕 (스케줄 OR 청결): 욕구:청결 ≥ 70 → _handle_bath() (30분 fallback)
+4f. 취침: 스케줄 수면 시간 → _handle_sleep()
 ```
 
 ### 배변 인터럽트 (`_check_excretion` → `_handle_excretion`)
@@ -351,7 +353,7 @@ Footer에 임계치 근처일 때만 표시:
 Tier 1 (Involuntary): 기절
 Tier 2 (Reactive): 피격 반응 (미래)
 Tier 3 (Survival): 배고픔 → 추위 → 더위
-Tier 4 (Comfort): 배변 → 피로 → 목욕/청결 → 수면
+Tier 4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 수면
 Tier 5 (Routine): 스케줄 기반 일반 활동
 ```
 
@@ -413,9 +415,33 @@ self._memory = {
     "cold_phase": None,          # None/idle/going/taking/equipping
     "cold_last_attempt": None,   # 실패 시 쿨다운 타임스탬프
     "hot_phase": None,           # None/idle/unequipping/storing
+    "clothing_phase": None,      # None/idle/going/taking/equipping
+    "clothing_last_attempt": None,  # 실패 시 쿨다운 타임스탬프
     "excretion_phase": None,     # None/idle/going/using
 }
 ```
+
+### 착의 인터럽트 (`_check_clothing` → `_handle_clothing`)
+
+**트리거 조건** (모두 충족):
+1. `착용:상의` 또는 `착용:하의` 슬롯 미착용 (나체/반나체)
+2. `wardrobe_location` 설정됨
+3. `cold_phase`/`hot_phase` 비활성 (의류 핸들러 충돌 방지)
+4. 1시간 쿨다운 경과 (`_memory["clothing_last_attempt"]`)
+
+**페이즈 흐름** (`_memory["clothing_phase"]`):
+```
+None → idle → going → taking → equipping → None
+```
+
+| 페이즈 | 동작 |
+|--------|------|
+| `idle` | 인벤토리에 상의/하의 있으면 → `equipping`, 없으면 → `going` |
+| `going` | `wardrobe_location`으로 이동 |
+| `taking` | 옷장에서 부족 슬롯(상의/하의) 아이템 꺼내기 |
+| `equipping` | 인벤토리의 상의/하의 장착 → 완료 |
+
+**더위 충돌 방지**: 더울 때(`temperature.is_hot()`) 보온 아이템(`보온>0`)을 제외하고 착의. hot_handler가 벗긴 보온 아이템을 다시 입는 순환 방지.
 
 ---
 
