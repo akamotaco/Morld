@@ -844,6 +844,7 @@ morld.set_time_frozen(False)  # 시간 흐름 복원
 | 자극 | `stimulation.py` | 세션 스코프 부위별 자극 → 절정/여운/연쇄 절정 |
 | 관계 라벨 | `romance.py` | 호감+욕망 기반 관계 라벨 (타인/친구/정욕/애인) |
 | 반발 | `romance.py`, `base.py` | `관계:{name}:반발` prop, 자극 억제 |
+| 공수 전환 | `romance.py`, `npc_initiative.py` | 세션 중 주도권 전환 (자극/스태미나 유지) |
 | 욕망 | `romance.py`, `needs.py` | `관계:{name}:욕망` prop, 동적 성욕 cap 연동 |
 | 이중 경로 해금 | `romance.py` | 욕망/복종에 의한 호감 요구치 할인 (최대 50%) |
 | 복종 | `base.py` | `관계:{name}:복종` prop (디버그 전용, 자연 증가 미구현) |

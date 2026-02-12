@@ -760,6 +760,12 @@ def render_npc_initiative_ui(state):
     lines.append(ui.divider())
     lines.append("[url=@proc:escape]빠져나가기 시도[/url]")
     lines.append("[url=@proc:accept]받아들이기[/url]")
+
+    # 공수 전환 버튼 (플레이어 주도로 전환)
+    from romance import ROMANCE_ENTRY_THRESHOLD
+    if affection >= ROMANCE_ENTRY_THRESHOLD:
+        lines.append("[url=@proc:switch]주도권 빼앗기[/url]")
+
     lines.append("")
     lines.append("[url=@proc:exit][color=gray]나가기[/color][/url]")
 
@@ -852,27 +858,45 @@ def apply_action_effects(state, action_def):
 # 메인 함수
 # ============================================
 
-def start_npc_initiative(player_id, npc_id):
+def _extract_preserved(state):
+    """공수 전환 시 보존할 상태 추출"""
+    return {
+        "stim": state["stim"],
+        "stamina": state["stamina"],
+        "elapsed_time": state["elapsed_time"],
+        "checked_npcs": state.get("checked_npcs", set()),
+        "schedule_pushed": True,
+    }
+
+
+def start_npc_initiative(player_id, npc_id, preserved=None):
     """
     NPC 주도 스킨십 시작 - Generator 기반
 
     on_meet 이벤트에서 조건 충족 시 호출됨.
     플레이어도 즉시 행위를 선택할 수 있음.
+
+    Args:
+        player_id: 플레이어 유닛 ID
+        npc_id: NPC 유닛 ID
+        preserved: 공수 전환 시 보존된 상태 (None이면 신규 세션)
     """
     npc_asset = get_npc_asset(npc_id)
     npc_info = morld.get_unit_info(npc_id)
     npc_name = npc_info.get('name', '그녀') if npc_info else '그녀'
 
-    # NPC 스케줄 push (움직이지 않도록)
+    # NPC 스케줄 push (움직이지 않도록, 전환 시 스킵)
     npc_agent = think.get_agent(npc_id)
-    if npc_agent:
-        npc_agent.push_schedule(STAY_SCHEDULE)
+    schedule_pushed = preserved.get("schedule_pushed", False) if preserved else False
+    if not schedule_pushed:
+        if npc_agent:
+            npc_agent.push_schedule(STAY_SCHEDULE)
 
     # 플레이어 스태미나 조회
     player_props = morld.get_unit_props(player_id)
     initial_stamina = player_props.get(ROMANCE_STAMINA_KEY, DEFAULT_STAMINA) if player_props else DEFAULT_STAMINA
 
-    # 상태 초기화 (action_queue 제거 - 랜덤 선택 방식으로 변경)
+    # 상태 초기화
     state = {
         "player_id": player_id,
         "npc_id": npc_id,
@@ -890,9 +914,18 @@ def start_npc_initiative(player_id, npc_id):
         "stim": stimulation.create_state(),  # 부위별 자극 상태 (세션 스코프)
     }
 
-    # 시작 반응
-    if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
-        state["last_reaction"] = npc_asset.get_initiative_reaction("start")
+    # 전환 시 보존 상태 복원
+    if preserved:
+        state["stim"] = preserved["stim"]
+        state["stamina"] = preserved["stamina"]
+        state["elapsed_time"] = preserved["elapsed_time"]
+        if preserved.get("checked_npcs"):
+            state["checked_npcs"] = preserved["checked_npcs"]
+
+    # 시작 반응 (전환 시 생략 — 이미 진행 중)
+    if not preserved:
+        if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
+            state["last_reaction"] = npc_asset.get_initiative_reaction("start")
 
     # proc 콜백
     def proc(action):
@@ -1091,6 +1124,11 @@ def start_npc_initiative(player_id, npc_id):
 
             return render_npc_initiative_ui(state)
 
+        # 공수 전환 (NPC → 플레이어 주도)
+        if action == "switch":
+            state["switch_to"] = "player"
+            return True
+
         # 강제 종료 (디버그용)
         if action == "exit":
             state["player_escaped"] = True
@@ -1105,6 +1143,13 @@ def start_npc_initiative(player_id, npc_id):
         proc=proc,
         result=state
     )
+
+    # 공수 전환 — 플레이어 주도로 전환
+    if state.get("switch_to") == "player":
+        preserved = _extract_preserved(state)
+        from romance import start_romance
+        yield from start_romance(player_id, npc_id, preserved=preserved)
+        return
 
     # 종료 처리
     if npc_agent:

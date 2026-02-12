@@ -1080,7 +1080,44 @@ def calc_gain(base, sensation_level, rebellion, afterglow):
 
 ---
 
-## 15. 구현 상태
+## 15. 공수 전환 시스템 (Initiative Switching)
+
+세션 도중 주도권을 전환 (플레이어 ↔ NPC).
+
+### 전환 방향
+
+| 방향 | 조건 | UI 텍스트 |
+|------|------|-----------|
+| Player→NPC | NPC에 `INITIATIVE_CONFIG` + 호감 ≥ affection_threshold | `주도권 넘기기` |
+| NPC→Player | 호감 ≥ `ROMANCE_ENTRY_THRESHOLD` (50) | `주도권 빼앗기` |
+
+### 보존 상태
+
+전환 시 다음 상태가 유지됨:
+- **자극 상태** (`stim`): M/B/A/V/C/P 수치, 여운, 연쇄, 절정 횟수
+- **스태미나**: 남은 양
+- **경과시간**: 세션 누적
+- **감지 기록** (`checked_npcs`): 중복 판정 방지
+
+### 메커니즘
+
+`yield from` 체이닝 — 현재 세션 dialog 종료 후 반대편 시스템의 제너레이터 실행:
+
+```python
+# romance.py → npc_initiative.py
+if state.get("switch_to") == "npc":
+    preserved = _extract_preserved(state)
+    yield from start_npc_initiative(player_id, partner_id, preserved=preserved)
+```
+
+- 전환 시 `pop_schedule()` 하지 않음 (파트너 고정 유지)
+- 새 세션에서 `push_schedule()` 하지 않음 (`schedule_pushed` 플래그)
+- 최종 세션 종료 시에만 `pop_schedule()` 실행
+- `active_toggles`는 빈 set으로 초기화 (새 주도자가 선택)
+
+---
+
+## 16. 구현 상태
 
 ### 완료된 기능
 
@@ -1129,6 +1166,7 @@ def calc_gain(base, sensation_level, rebellion, afterglow):
 | 자극 시스템 (부위별) | stimulation.py, romance.py, npc_initiative.py | ✅ 완료 |
 | 자극 UI (여운/연쇄/절정) | romance.py, npc_initiative.py | ✅ 완료 |
 | 애정 prop 제거 (호감 통합) | romance.py, npc_initiative.py, date.py, 5캐릭터 | ✅ 완료 |
+| 공수 전환 (주도권 전환) | romance.py, npc_initiative.py | ✅ 완료 |
 
 ### 지원 캐릭터
 
@@ -1162,7 +1200,7 @@ def calc_gain(base, sensation_level, rebellion, afterglow):
 
 ---
 
-## 16. 관련 morld API
+## 17. 관련 morld API
 
 | API | 설명 | 사용처 |
 |-----|------|--------|
@@ -1175,7 +1213,7 @@ def calc_gain(base, sensation_level, rebellion, afterglow):
 
 ---
 
-## 17. 파일 구조
+## 18. 파일 구조
 
 ```
 scenarios/scenario02/python/

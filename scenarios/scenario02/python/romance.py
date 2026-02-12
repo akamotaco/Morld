@@ -561,6 +561,14 @@ def render_romance_ui(state):
 
     # 푸터
     lines.append(ui.divider())
+
+    # 공수 전환 버튼 (NPC가 주도 가능할 때만)
+    partner_asset = get_partner_asset(partner_id)
+    if partner_asset and getattr(partner_asset, 'INITIATIVE_CONFIG', None):
+        init_aff_threshold = partner_asset.INITIATIVE_CONFIG.get("affection_threshold", 60)
+        if affection >= init_aff_threshold:
+            lines.append("[url=@proc:switch]주도권 넘기기[/url]")
+
     lines.append("[url=@proc:exit]그만두기[/url]")
 
     return "\n".join(lines)
@@ -679,21 +687,41 @@ def advance_time_and_check(state, millis):
 # 메인 연애 함수
 # ============================================
 
-def start_romance(player_id, partner_id):
-    """연애 모드 시작 - Generator 기반"""
+def _extract_preserved(state):
+    """공수 전환 시 보존할 상태 추출"""
+    return {
+        "stim": state["stim"],
+        "stamina": state["stamina"],
+        "elapsed_time": state["elapsed_time"],
+        "checked_npcs": state.get("checked_npcs", set()),
+        "schedule_pushed": True,
+    }
 
-    # 진입 조건 체크
-    can_start, reason = can_start_romance(player_id, partner_id)
-    if not can_start:
-        yield ui.dialog(reason)
-        return
+
+def start_romance(player_id, partner_id, preserved=None):
+    """연애 모드 시작 - Generator 기반
+
+    Args:
+        player_id: 플레이어 유닛 ID
+        partner_id: 파트너 유닛 ID
+        preserved: 공수 전환 시 보존된 상태 (None이면 신규 세션)
+    """
+
+    # 진입 조건 체크 (전환 시 스킵 — 이미 세션 중)
+    if not preserved:
+        can_start, reason = can_start_romance(player_id, partner_id)
+        if not can_start:
+            yield ui.dialog(reason)
+            return
 
     # 파트너 NPC를 현재 위치에 고정 (스킨십 동안 이동 방지)
     # 스케줄 스택에 STAY_SCHEDULE push, 종료 시 pop으로 복원
     import think
     partner_agent = think.get_agent(partner_id)
-    if partner_agent:
-        partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
+    schedule_pushed = preserved.get("schedule_pushed", False) if preserved else False
+    if not schedule_pushed:
+        if partner_agent:
+            partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
 
     # 플레이어 스태미나 조회 (연애 전용)
     player_props = morld.get_unit_props(player_id)
@@ -711,6 +739,14 @@ def start_romance(player_id, partner_id):
         "last_reaction": None,  # 마지막 즉시 액션 반응 텍스트
         "stim": stimulation.create_state(),  # 부위별 자극 상태 (세션 스코프)
     }
+
+    # 전환 시 보존 상태 복원
+    if preserved:
+        state["stim"] = preserved["stim"]
+        state["stamina"] = preserved["stamina"]
+        state["elapsed_time"] = preserved["elapsed_time"]
+        if preserved.get("checked_npcs"):
+            state["checked_npcs"] = preserved["checked_npcs"]
 
     def apply_effects(action_def, active_toggle_defs):
         """
@@ -803,6 +839,11 @@ def start_romance(player_id, partner_id):
 
         # 종료
         if action == "exit":
+            return True
+
+        # 공수 전환 (플레이어 → NPC 주도)
+        if action == "switch":
+            state["switch_to"] = "npc"
             return True
 
         # 즉시형 행위
@@ -922,6 +963,13 @@ def start_romance(player_id, partner_id):
         proc=proc,
         result=state
     )
+
+    # 공수 전환 — NPC 주도로 전환
+    if state.get("switch_to") == "npc":
+        preserved = _extract_preserved(state)
+        from npc_initiative import start_npc_initiative
+        yield from start_npc_initiative(player_id, partner_id, preserved=preserved)
+        return
 
     # 종료 처리 - 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
     partner_id = state["partner_id"]
