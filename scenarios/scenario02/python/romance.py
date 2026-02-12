@@ -28,6 +28,11 @@ STEALTH_BASE_CHANCE = 0.3      # 기본 은신 확률 30%
 STEALTH_HIDING_BONUS = 0.4     # 은신 중일 때 추가 확률 +40%
 MILLIS_PER_MINUTE = 60_000
 
+# 탈의/노출 시스템
+EXPOSURE_BONUS = 1.5           # 노출 시 효과 배율
+UNDRESS_UPPER_SLOTS = ["착용:외투", "착용:상의", "착용:속옷상의"]
+UNDRESS_LOWER_SLOTS = ["착용:하의", "착용:속옷하의"]
+
 # ============================================
 # 감각 시스템 (부위 → M/B/A/V 매핑)
 # ============================================
@@ -116,22 +121,32 @@ INSTANT_ACTIONS = {
     "genital_caress": {
         "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "성욕": 4, "욕망": 2},
-        "exp_part": "음부", "affection_req": 85
+        "exp_part": "음부", "affection_req": 85, "requires_exposure": "lower"
     },
     "clit_stimulation": {
         "name": "클리토리스 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "클리토리스", "affection_req": 90
+        "exp_part": "클리토리스", "affection_req": 90, "requires_exposure": "lower"
     },
     "penis_caress": {
         "name": "음경 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "성욕": 4, "욕망": 2},
-        "exp_part": "음경", "affection_req": 85
+        "exp_part": "음경", "affection_req": 85, "requires_exposure": "lower"
     },
     "penis_stimulation": {
         "name": "음경 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "음경", "affection_req": 90
+        "exp_part": "음경", "affection_req": 90, "requires_exposure": "lower"
+    },
+    "undress_upper": {
+        "name": "상체 옷 벗기기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"호감": 1},
+        "exp_part": None, "affection_req": 70, "undress": "upper"
+    },
+    "undress_lower": {
+        "name": "하체 옷 벗기기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"호감": 1},
+        "exp_part": None, "affection_req": 80, "undress": "lower"
     },
 }
 
@@ -153,27 +168,27 @@ TOGGLE_ACTIONS = {
     "breast_touch": {
         "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "성욕": 4, "욕망": 1},
-        "exp_part": "가슴", "affection_req": 80
+        "exp_part": "가슴", "affection_req": 80, "exposure_bonus": "upper"
     },
     "genital_touch": {
         "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"호감": 1, "성욕": 5, "욕망": 3},
-        "exp_part": "음부", "affection_req": 90
+        "exp_part": "음부", "affection_req": 90, "exposure_bonus": "lower"
     },
     "clit_rub": {
         "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 7, "욕망": 4},
-        "exp_part": "클리토리스", "affection_req": 95
+        "exp_part": "클리토리스", "affection_req": 95, "exposure_bonus": "lower"
     },
     "penis_touch": {
         "name": "음경 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"호감": 1, "성욕": 5, "욕망": 3},
-        "exp_part": "음경", "affection_req": 90
+        "exp_part": "음경", "affection_req": 90, "exposure_bonus": "lower"
     },
     "penis_rub": {
         "name": "음경 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 7, "욕망": 4},
-        "exp_part": "음경", "affection_req": 95
+        "exp_part": "음경", "affection_req": 95, "exposure_bonus": "lower"
     },
 }
 
@@ -280,6 +295,52 @@ def is_anatomy_compatible(action_def, target_id):
     return gender_mod.has_anatomy(target_id, category)
 
 
+def get_exposure_state(unit_id):
+    """유닛의 상/하체 노출 상태 반환"""
+    import equipment
+    equipped = equipment.get_equipped_items(unit_id)
+    has_top = False
+    has_bra = False
+    has_bottom = False
+    has_panties = False
+    for item_id in equipped:
+        info = morld.get_item_info(item_id)
+        if not info:
+            continue
+        ep = info.get("equip_props", {})
+        if ep.get("착용:상의", 0) > 0:
+            has_top = True
+        if ep.get("착용:속옷상의", 0) > 0:
+            has_bra = True
+        if ep.get("착용:하의", 0) > 0:
+            has_bottom = True
+        if ep.get("착용:속옷하의", 0) > 0:
+            has_panties = True
+    return {
+        "upper_exposed": not has_top and not has_bra,
+        "lower_exposed": not has_bottom and not has_panties,
+    }
+
+
+def get_next_undress_item(unit_id, upper=True):
+    """다음 탈의 대상 아이템 반환 (None이면 더 벗을 것 없음)"""
+    import equipment
+    equipped = equipment.get_equipped_items(unit_id)
+    slots = UNDRESS_UPPER_SLOTS if upper else UNDRESS_LOWER_SLOTS
+    for slot in slots:
+        for item_id in equipped:
+            info = morld.get_item_info(item_id)
+            if info and info.get("equip_props", {}).get(slot, 0) > 0:
+                return item_id
+    return None
+
+
+def perform_undress(unit_id, item_id):
+    """아이템 1개 탈의 (unequip)"""
+    import equipment
+    return equipment.unequip_item(unit_id, item_id)
+
+
 def is_action_available(partner_id, player_id, action_def):
     """액션 해금 여부 (감정 + 육욕 이중 경로)"""
     affection_key = get_affection_key(player_id)
@@ -360,6 +421,14 @@ def calculate_effects(action_def, partner_id):
 
         # 경험치 +1
         morld.modify_prop(partner_id, exp_key, 1)
+
+    # 노출 보너스 (해당 부위 노출 시 ×1.5)
+    bonus_area = action_def.get("exposure_bonus")
+    if bonus_area:
+        exposure = get_exposure_state(partner_id)
+        if exposure.get(f"{bonus_area}_exposed"):
+            for stat in base_effects:
+                base_effects[stat] = round(base_effects[stat] * EXPOSURE_BONUS)
 
     return base_effects
 
@@ -563,6 +632,17 @@ def render_romance_ui(state):
             sensation_parts.append(f"{cat}:{level}")
     if sensation_parts:
         lines.append(f"감각: {' '.join(sensation_parts)}")
+
+    # 노출 상태 표시
+    exposure = get_exposure_state(partner_id)
+    exposure_parts = []
+    if exposure["upper_exposed"]:
+        exposure_parts.append("[color=pink]상체 노출[/color]")
+    if exposure["lower_exposed"]:
+        exposure_parts.append("[color=pink]하체 노출[/color]")
+    if exposure_parts:
+        lines.append(f"복장: {' '.join(exposure_parts)}")
+
     lines.append("")
     lines.append(ui.divider())
     lines.append("")
@@ -575,10 +655,15 @@ def render_romance_ui(state):
         is_on = action_id in state["active_toggles"]
         if is_action_available(partner_id, player_id, action):
             prefix = "■" if is_on else "▶"
+            name_text = action['name']
+            # 노출 보너스 힌트
+            bonus_area = action.get("exposure_bonus")
+            if bonus_area and exposure.get(f"{bonus_area}_exposed"):
+                name_text += " [color=pink]×1.5[/color]"
             if is_desire_unlocked(affection, action, desire, submission):
-                lines.append(f"  [url=@proc:toggle:{action_id}][color=pink]{prefix} {action['name']}[/color][/url]")
+                lines.append(f"  [url=@proc:toggle:{action_id}][color=pink]{prefix} {name_text}[/color][/url]")
             else:
-                lines.append(f"  [url=@proc:toggle:{action_id}]{prefix} {action['name']}[/url]")
+                lines.append(f"  [url=@proc:toggle:{action_id}]{prefix} {name_text}[/url]")
         else:
             lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
     lines.append("")
@@ -588,11 +673,25 @@ def render_romance_ui(state):
     for action_id, action in INSTANT_ACTIONS.items():
         if not is_anatomy_compatible(action, partner_id):
             continue
-        if is_action_available(partner_id, player_id, action):
-            if is_desire_unlocked(affection, action, desire, submission):
-                lines.append(f"  [url=@proc:instant:{action_id}][color=pink]{action['name']}[/color][/url]")
+        # 탈의 행위: 벗을 것 없으면 숨김
+        if action.get("undress"):
+            is_upper = action["undress"] == "upper"
+            if get_next_undress_item(partner_id, upper=is_upper) is None:
+                continue
+        # 노출 필요 행위: 미노출 시 잠금 표시
+        req_area = action.get("requires_exposure")
+        if req_area and not exposure.get(f"{req_area}_exposed"):
+            if is_action_available(partner_id, player_id, action):
+                lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
             else:
-                lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
+                lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
+            continue
+        if is_action_available(partner_id, player_id, action):
+            name_text = action['name']
+            if is_desire_unlocked(affection, action, desire, submission):
+                lines.append(f"  [url=@proc:instant:{action_id}][color=pink]{name_text}[/color][/url]")
+            else:
+                lines.append(f"  [url=@proc:instant:{action_id}]{name_text}[/url]")
         else:
             lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
     lines.append("")
@@ -894,6 +993,33 @@ def start_romance(player_id, partner_id, preserved=None):
             if not action_def:
                 return None
 
+            # 탈의 전용 처리
+            if action_def.get("undress"):
+                is_upper = action_def["undress"] == "upper"
+                item_id = get_next_undress_item(state["partner_id"], upper=is_upper)
+                if item_id is None:
+                    return render_romance_ui(state)  # 벗을 것 없음
+                # 스태미나 + 시간 처리
+                total_stamina = action_def["stamina"]
+                for toggle_id in state["active_toggles"]:
+                    total_stamina += TOGGLE_ACTIONS[toggle_id]["stamina"]
+                if state["stamina"] <= total_stamina:
+                    state["exhausted"] = True
+                    return True
+                state["stamina"] -= total_stamina
+                perform_undress(state["partner_id"], item_id)
+                item_info = morld.get_item_info(item_id)
+                item_name = item_info.get("name", "옷") if item_info else "옷"
+                partner_info = morld.get_unit_info(state["partner_id"])
+                p_name = partner_info.get("name", "상대") if partner_info else "상대"
+                state["last_reaction"] = f"{p_name}의 {item_name}을(를) 벗겼다."
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                return render_romance_ui(state)
+
             # 체력 계산: 즉시형 + 활성 토글들
             total_stamina = action_def["stamina"]
             total_time = action_def["time"]
@@ -1015,6 +1141,10 @@ def start_romance(player_id, partner_id, preserved=None):
     # 종료 처리 - 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
     partner_id = state["partner_id"]
     partner_agent = think.get_agent(partner_id)
+
+    # 착의 쿨다운 리셋 (탈의 후 즉시 착의 인터럽트 발동 가능하도록)
+    if partner_agent:
+        partner_agent._memory["clothing_last_attempt"] = None
 
     if state["exhausted"]:
         # 비정상 종료: 체력 소진

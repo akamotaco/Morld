@@ -46,7 +46,10 @@
 | 은신 시스템 (잠입, 발각) | [stealth.md](scenarios/scenario02/docs/stealth.md) |
 | NPC 스케줄/AI/Agent | [schedule.md](scenarios/scenario02/docs/schedule.md) |
 | NPC 생활/욕구/자율행동 | [life.md](scenarios/scenario02/docs/life.md) |
-| 연애/스킨십 시스템 | [romance.md](scenarios/scenario02/docs/romance.md) |
+| 연애 시스템 (인덱스) | [romance.md](scenarios/scenario02/docs/romance.md) |
+| 연애 관계 (라벨/욕망/해금) | [romance-relationship.md](scenarios/scenario02/docs/romance-relationship.md) |
+| 애정 행위 (스킨십/자극/탈의) | [romance-actions.md](scenarios/scenario02/docs/romance-actions.md) |
+| 임신과 출산 | [romance-pregnancy.md](scenarios/scenario02/docs/romance-pregnancy.md) |
 | 전투 시스템 | [battle.md](scenarios/scenario02/docs/battle.md) |
 | 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
 | 시나리오 설계 (세계관, 캐릭터) | [design.md](scenarios/scenario02/docs/design.md) |
@@ -90,7 +93,10 @@ scenarios/scenario02/docs/
 ├── schedule.md         # NPC 스케줄/AI/Agent
 ├── life.md             # NPC 생활/욕구/자율행동
 ├── battle.md           # 전투 시스템
-├── romance.md          # 연애 시스템
+├── romance.md                # 연애 시스템 (인덱스 + 구현 상태)
+├── romance-relationship.md   # 연애 관계 (라벨/욕망/해금/대화/성별)
+├── romance-actions.md        # 애정 행위 (스킨십/자극/탈의/은신/소음)
+├── romance-pregnancy.md      # 임신과 출산
 ├── quest.md            # 퀘스트 시스템
 ├── clothes.md          # 의류/장비
 ├── food.md             # 음식/요리

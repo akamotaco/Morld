@@ -33,6 +33,9 @@ import morld
 import ui
 from typing import Optional
 
+# 나체 발각 추가 페널티 (on_romance_discovered에서 파트너 노출 시 적용)
+EXPOSURE_DISCOVERY_PENALTY = {"호감": -3, "반발": 5}
+
 
 class TextSelector:
     """
@@ -1675,14 +1678,22 @@ class Character(Unit):
         if not reaction:
             return None
 
-        return self._romance_discovery_dialog(player_id, reaction)
+        # 파트너 노출 상태 체크
+        from romance import get_exposure_state
+        exposure = get_exposure_state(partner_id)
+        exposed = exposure.get("upper_exposed") or exposure.get("lower_exposed")
 
-    def _romance_discovery_dialog(self, player_id, reaction):
+        return self._romance_discovery_dialog(player_id, reaction, exposed=exposed)
+
+    def _romance_discovery_dialog(self, player_id, reaction, exposed=False):
         """발각 반응 다이얼로그 + 효과 적용"""
         import random
 
-        # 대사 선택
-        texts = reaction.get("text", [])
+        # 대사 선택 — 노출 시 exposed_text 우선
+        if exposed and reaction.get("exposed_text"):
+            texts = reaction["exposed_text"]
+        else:
+            texts = reaction.get("text", [])
         text = random.choice(texts) if texts else None
 
         # 효과 적용 (호감도 변화)
@@ -1691,6 +1702,17 @@ class Character(Unit):
             player_info = morld.get_unit_info(player_id)
             player_name = player_info.get("name", "주인공") if player_info else "주인공"
             for stat, value in effects.items():
+                if stat in ("호감", "욕망", "복종", "반발"):
+                    prop_key = f"관계:{player_name}:{stat}"
+                else:
+                    prop_key = f"상태:{stat}"
+                morld.modify_prop(self.instance_id, prop_key, value)
+
+        # 나체 발각 추가 페널티
+        if exposed:
+            player_info = morld.get_unit_info(player_id)
+            player_name = player_info.get("name", "주인공") if player_info else "주인공"
+            for stat, value in EXPOSURE_DISCOVERY_PENALTY.items():
                 if stat in ("호감", "욕망", "복종", "반발"):
                     prop_key = f"관계:{player_name}:{stat}"
                 else:

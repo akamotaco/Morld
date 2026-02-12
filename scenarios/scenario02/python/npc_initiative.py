@@ -17,7 +17,9 @@ import stimulation
 from romance import (emit_romance_sound, emit_ecstasy_sound,
                      is_action_available, is_anatomy_compatible,
                      get_effective_affection_req,
-                     SENSATION_MAP, get_sensation_level, get_rebellion_key)
+                     SENSATION_MAP, get_sensation_level, get_rebellion_key,
+                     get_exposure_state, get_next_undress_item, perform_undress,
+                     EXPOSURE_BONUS)
 
 # ============================================
 # 상수 정의
@@ -72,12 +74,22 @@ PLAYER_INSTANT_ACTIONS = {
     "genital_caress": {
         "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "성욕": 4, "욕망": 2},
-        "exp_part": "음부", "affection_req": 85
+        "exp_part": "음부", "affection_req": 85, "requires_exposure": "lower"
     },
     "penis_caress": {
         "name": "음경 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "성욕": 4, "욕망": 2},
-        "exp_part": "음경", "affection_req": 85
+        "exp_part": "음경", "affection_req": 85, "requires_exposure": "lower"
+    },
+    "undress_upper": {
+        "name": "상체 옷 벗기기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"호감": 1},
+        "exp_part": None, "affection_req": 70, "undress": "upper"
+    },
+    "undress_lower": {
+        "name": "하체 옷 벗기기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"호감": 1},
+        "exp_part": None, "affection_req": 80, "undress": "lower"
     },
 }
 
@@ -97,27 +109,27 @@ NPC_TOGGLE_ACTIONS = {
     "breast_touch": {
         "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "성욕": 4, "욕망": 1},
-        "exp_part": "가슴", "affection_req": 80
+        "exp_part": "가슴", "affection_req": 80, "exposure_bonus": "upper"
     },
     "genital_touch": {
         "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"호감": 1, "성욕": 5, "욕망": 3},
-        "exp_part": "음부", "affection_req": 90
+        "exp_part": "음부", "affection_req": 90, "exposure_bonus": "lower"
     },
     "clit_rub": {
         "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 7, "욕망": 4},
-        "exp_part": "클리토리스", "affection_req": 95
+        "exp_part": "클리토리스", "affection_req": 95, "exposure_bonus": "lower"
     },
     "penis_touch": {
         "name": "음경 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"호감": 1, "성욕": 5, "욕망": 3},
-        "exp_part": "음경", "affection_req": 90
+        "exp_part": "음경", "affection_req": 90, "exposure_bonus": "lower"
     },
     "penis_rub": {
         "name": "음경 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 7, "욕망": 4},
-        "exp_part": "음경", "affection_req": 95
+        "exp_part": "음경", "affection_req": 95, "exposure_bonus": "lower"
     },
 }
 
@@ -608,10 +620,18 @@ def handle_npc_initiative_interruption(state, npc_name):
     # NPC가 도망감
     morld.set_npc_job(npc_id, "flee", 30 * MILLIS_PER_MINUTE, player_id)
 
-    # NPC 호감도 감소 (들켜서 부끄러움)
+    # NPC 호감도 감소 + 반발 (들켜서 부끄러움)
     player_info = morld.get_unit_info(player_id)
     player_name = player_info.get('name', '주인공') if player_info else '주인공'
     morld.modify_prop(npc_id, f"관계:{player_name}:호감", -3)
+    morld.modify_prop(npc_id, f"관계:{player_name}:반발", 3)
+
+    # 나체 발각 추가 페널티
+    from romance import get_exposure_state
+    exposure = get_exposure_state(npc_id)
+    if exposure.get("upper_exposed") or exposure.get("lower_exposed"):
+        morld.modify_prop(npc_id, f"관계:{player_name}:호감", -2)
+        morld.modify_prop(npc_id, f"관계:{player_name}:반발", 5)
 
 
 # ============================================
@@ -735,6 +755,15 @@ def render_npc_initiative_ui(state):
         if stim_state["climax_total"] > 0:
             stim_line += f"  절정: {stim_state['climax_total']}"
         lines.append(stim_line)
+    # 노출 상태 표시
+    exposure = get_exposure_state(npc_id)
+    exposure_parts = []
+    if exposure["upper_exposed"]:
+        exposure_parts.append("[color=pink]상체 노출[/color]")
+    if exposure["lower_exposed"]:
+        exposure_parts.append("[color=pink]하체 노출[/color]")
+    if exposure_parts:
+        lines.append(f"복장: {' '.join(exposure_parts)}")
     lines.append("")
 
     # 탈출 확률 표시
@@ -763,6 +792,24 @@ def render_npc_initiative_ui(state):
     lines.append("[즉시 행위] (플레이어)")
     for action_id, action in PLAYER_INSTANT_ACTIONS.items():
         if not is_anatomy_compatible(action, npc_id):
+            continue
+        # 탈의 행위: 벗을 것 없으면 숨김
+        if action.get("undress"):
+            is_upper = action["undress"] == "upper"
+            if get_next_undress_item(npc_id, upper=is_upper) is None:
+                continue
+        # 노출 필요 행위: 미노출 시 잠금
+        req_area = action.get("requires_exposure")
+        if req_area and not exposure.get(f"{req_area}_exposed"):
+            if is_action_available(npc_id, player_id, action):
+                lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
+            else:
+                desire_key = affection_key.replace(":호감", ":욕망")
+                submission_key = affection_key.replace(":호감", ":복종")
+                eff_req = get_effective_affection_req(action["affection_req"],
+                    npc_props.get(desire_key, 0) if npc_props else 0,
+                    npc_props.get(submission_key, 0) if npc_props else 0)
+                lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
             continue
         if is_action_available(npc_id, player_id, action):
             if player_stamina >= action["stamina"]:
@@ -816,7 +863,13 @@ def apply_action_effects(state, action_def):
     player_id = state["player_id"]
     affection_key = get_affection_key(player_id)
 
-    effects = action_def.get("effects", {})
+    effects = dict(action_def.get("effects", {}))
+    # 노출 보너스 적용 (해당 부위 노출 시 ×1.5)
+    bonus_area = action_def.get("exposure_bonus")
+    if bonus_area:
+        exposure = get_exposure_state(npc_id)
+        if exposure.get(f"{bonus_area}_exposed"):
+            effects = {k: round(v * EXPOSURE_BONUS) for k, v in effects.items()}
     for stat, value in effects.items():
         if stat in ("성욕", "성적절정"):
             prop_key = f"상태:{stat}"
@@ -986,6 +1039,42 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 return None
 
             state["escape_result"] = None
+
+            # 탈의 전용 처리
+            if action_def.get("undress"):
+                npc_id = state["npc_id"]
+                is_upper = action_def["undress"] == "upper"
+                item_id = get_next_undress_item(npc_id, upper=is_upper)
+                if item_id is None:
+                    return render_npc_initiative_ui(state)
+                required_stamina = action_def["stamina"]
+                for tid in state["active_toggles"]:
+                    td = NPC_TOGGLE_ACTIONS.get(tid)
+                    if td:
+                        required_stamina += td["stamina"]
+                if state["stamina"] < required_stamina:
+                    state["exhausted"] = True
+                    return True
+                state["stamina"] -= required_stamina
+                perform_undress(npc_id, item_id)
+                item_info = morld.get_item_info(item_id)
+                item_name = item_info.get("name", "옷") if item_info else "옷"
+                npc_info = morld.get_unit_info(npc_id)
+                n_name = npc_info.get("name", "상대") if npc_info else "상대"
+                state["last_reaction"] = f"{n_name}의 {item_name}을(를) 벗겼다."
+                # NPC 턴 처리 (활성 토글 효과)
+                for tid in state["active_toggles"]:
+                    td = NPC_TOGGLE_ACTIONS.get(tid)
+                    if td:
+                        apply_action_effects(state, td)
+                stimulation.tick_afterglow(state["stim"])
+                # 시간 경과 + 제3자 감지
+                check_result = advance_time_and_check_npc_initiative(state, action_def["time"])
+                if check_result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = check_result["interrupter_id"]
+                    return True
+                return render_npc_initiative_ui(state)
 
             # 충돌 처리: 같은 신체 부위를 사용하는 토글 비활성화
             removed_toggles = remove_conflicting_toggles(action_id, state["active_toggles"], action_def)
@@ -1176,8 +1265,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         yield from start_romance(player_id, npc_id, preserved=preserved)
         return
 
-    # 종료 처리
+    # 종료 처리 — 착의 쿨다운 리셋 (탈의 후 즉시 착의 인터럽트 발동)
     if npc_agent:
+        npc_agent._memory["clothing_last_attempt"] = None
         npc_agent.pop_schedule()
 
     # 종료 반응
