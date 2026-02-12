@@ -516,8 +516,8 @@ class Sera(Character):
     # NPC 주도 시 허용되는 행위 (진척도/캐릭터 성격 기반)
     # 세라: 애정도에 따라 점진적으로 행위 범위 확장
     INITIATIVE_ACTION_FILTERS = [
-        ({"호감": 95}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub"]),
-        ({"호감": 85}, ["hug", "deep_kiss", "breast_touch", "genital_touch"]),
+        ({"호감": 95}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub", "penis_touch", "penis_rub"]),
+        ({"호감": 85}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "penis_touch"]),
         ({"호감": 80}, ["hug", "deep_kiss", "breast_touch"]),
         ({"호감": 40}, ["hug", "deep_kiss"]),
         ({}, ["hug"]),

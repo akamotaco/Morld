@@ -294,8 +294,8 @@ class Ella(Character):
     # NPC 주도 시 허용 액션 필터
     # 엘라는 냉정해서 마음을 열기 어렵지만, 열리면 직접적
     INITIATIVE_ACTION_FILTERS = [
-        ({"호감": 95}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub"]),
-        ({"호감": 85}, ["hug", "deep_kiss", "breast_touch", "genital_touch"]),
+        ({"호감": 95}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub", "penis_touch", "penis_rub"]),
+        ({"호감": 85}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "penis_touch"]),
         ({"호감": 80}, ["hug", "deep_kiss", "breast_touch"]),  # 높은 애정 필요
         ({"호감": 50}, ["hug", "deep_kiss"]),
         ({}, ["hug"]),  # 기본: 포옹만

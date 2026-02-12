@@ -145,6 +145,8 @@ STEALTH_REACTIONS = {
 | 엉덩이 쓰다듬기 | 3분 | 2 | 호감+1, 성욕+3, 욕망+1 | 70 |
 | 음부 쓰다듬기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 |
 | 클리토리스 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 |
+| 음경 쓰다듬기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 |
+| 음경 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 |
 
 #### 토글형 행위 (TOGGLE_ACTIONS)
 | 이름 | 틱당 시간 | 틱당 스태미나 | 효과 | 필요 호감도 |
@@ -154,6 +156,8 @@ STEALTH_REACTIONS = {
 | 가슴 만지기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+1 | 80 |
 | 음부 만지기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 |
 | 클리토리스 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 |
+| 음경 만지기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 |
+| 음경 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 |
 
 ### 절정 시스템 (자극 기반)
 - **자극 기반 절정**: 부위별 자극(`stimulation.py`)이 100 도달 시 절정 발생 (성욕 임계값 방식 폐지)
@@ -308,15 +312,18 @@ NPC_TOGGLE_ACTIONS = {
     "hug": {..., "exp_part": None, ...},            # 충돌 없음
     "deep_kiss": {..., "exp_part": "입술", ...},
     "breast_touch": {..., "exp_part": "가슴", ...},
-    "genital_touch": {..., "exp_part": "음부", ...},      # NEW
-    "clit_rub": {..., "exp_part": "클리토리스", ...},     # NEW
+    "genital_touch": {..., "exp_part": "음부", ...},
+    "clit_rub": {..., "exp_part": "클리토리스", ...},
+    "penis_touch": {..., "exp_part": "음경", ...},
+    "penis_rub": {..., "exp_part": "음경", ...},
 }
 
 PLAYER_INSTANT_ACTIONS = {
     "head_pat": {..., "exp_part": "머리", ...},
     "french_kiss": {..., "exp_part": "입술", ...},  # deep_kiss와 충돌
     "whisper": {..., "exp_part": None, ...},        # 충돌 없음
-    "genital_caress": {..., "exp_part": "음부", ...},     # NEW
+    "genital_caress": {..., "exp_part": "음부", ...},
+    "penis_caress": {..., "exp_part": "음경", ...},
 }
 ```
 
@@ -1024,6 +1031,19 @@ on_meet_player() 내 수면 체크 다음:
 ### 현재 캐릭터
 Player=선택 가능(male/female/futanari), 모든 NPC=female.
 
+### 행위 해부학 필터링
+
+`is_anatomy_compatible(action_def, target_id)`: 행위의 `exp_part`가 대상의 anatomy와 호환되는지 확인.
+
+- V/C 행위 (음부/클리토리스): female/futanari에게만 표시
+- P 행위 (음경): male/futanari에게만 표시
+- 비성적 부위 (귀, 뺨, 머리) 및 exp_part 없는 행위: 항상 표시
+
+**필터 적용 지점:**
+- `romance.py render_romance_ui()`: 파트너 anatomy 기준 (플레이어→파트너)
+- `npc_initiative.py get_available_npc_actions()`: 플레이어 anatomy 기준 (NPC→플레이어)
+- `npc_initiative.py render_npc_initiative_ui()`: NPC anatomy 기준 (플레이어 즉시행위)
+
 ---
 
 ## 14. 자극 시스템 (stimulation.py)
@@ -1158,7 +1178,8 @@ if state.get("switch_to") == "npc":
 | 감각 보정 (성욕 효과) | romance.py (calculate_effects) | ✅ 완료 |
 | 욕망 prop 인프라 | romance.py (apply_effects), needs.py (동적 cap) | ✅ 완료 |
 | NPC 주도 욕망 임계값 | base.py (desire_threshold) | ✅ 완료 |
-| V/C 부위 액션 (4종) | romance.py, npc_initiative.py | ✅ 완료 |
+| V/C/P 부위 액션 (8종) | romance.py, npc_initiative.py | ✅ 완료 |
+| 행위 해부학 필터링 | romance.py (is_anatomy_compatible), npc_initiative.py | ✅ 완료 |
 | 이중 경로 잠금 해제 | romance.py, npc_initiative.py (욕망 할인) | ✅ 완료 |
 | 욕망 효과 활성화 | romance.py, npc_initiative.py (butt_caress/breast_touch 욕망+1) | ✅ 완료 |
 | FILTERS context 욕망 | base.py (get_allowed_initiative_actions) | ✅ 완료 |

@@ -15,7 +15,8 @@ import think
 import ui
 import stimulation
 from romance import (emit_romance_sound, emit_ecstasy_sound,
-                     is_action_available, get_effective_affection_req,
+                     is_action_available, is_anatomy_compatible,
+                     get_effective_affection_req,
                      SENSATION_MAP, get_sensation_level, get_rebellion_key)
 
 # ============================================
@@ -73,6 +74,11 @@ PLAYER_INSTANT_ACTIONS = {
         "effects": {"호감": 1, "성욕": 4, "욕망": 2},
         "exp_part": "음부", "affection_req": 85
     },
+    "penis_caress": {
+        "name": "음경 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
+        "exp_part": "음경", "affection_req": 85
+    },
 }
 
 # NPC 토글 행위 정의 (romance.py와 공유)
@@ -102,6 +108,16 @@ NPC_TOGGLE_ACTIONS = {
         "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 7, "욕망": 4},
         "exp_part": "클리토리스", "affection_req": 95
+    },
+    "penis_touch": {
+        "name": "음경 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"호감": 1, "성욕": 5, "욕망": 3},
+        "exp_part": "음경", "affection_req": 90
+    },
+    "penis_rub": {
+        "name": "음경 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4},
+        "exp_part": "음경", "affection_req": 95
     },
 }
 
@@ -430,6 +446,8 @@ def get_available_npc_actions(npc_id, player_id):
 
     available = []
     for action_id, action_def in NPC_TOGGLE_ACTIONS.items():
+        if not is_anatomy_compatible(action_def, player_id):
+            continue
         if is_action_available(npc_id, player_id, action_def):
             available.append(action_id)
 
@@ -742,6 +760,8 @@ def render_npc_initiative_ui(state):
     # 플레이어 선택 가능한 즉시 행위
     lines.append("[즉시 행위] (플레이어)")
     for action_id, action in PLAYER_INSTANT_ACTIONS.items():
+        if not is_anatomy_compatible(action, npc_id):
+            continue
         if is_action_available(npc_id, player_id, action):
             if player_stamina >= action["stamina"]:
                 lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")

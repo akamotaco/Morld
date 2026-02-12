@@ -330,8 +330,8 @@ class Mila(Character):
     # 형식: [(조건dict, [허용_액션_리스트]), ...]
     # 밀라는 저돌적이므로 더 낮은 애정에서도 다양한 액션 허용
     INITIATIVE_ACTION_FILTERS = [
-        ({"호감": 85}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub"]),
-        ({"호감": 70}, ["hug", "deep_kiss", "breast_touch", "genital_touch"]),
+        ({"호감": 85}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "clit_rub", "penis_touch", "penis_rub"]),
+        ({"호감": 70}, ["hug", "deep_kiss", "breast_touch", "genital_touch", "penis_touch"]),
         ({"호감": 60}, ["hug", "deep_kiss", "breast_touch"]),  # 세라보다 낮은 조건
         ({"호감": 30}, ["hug", "deep_kiss"]),  # 세라보다 낮은 조건
         ({}, ["hug"]),  # 기본: 포옹

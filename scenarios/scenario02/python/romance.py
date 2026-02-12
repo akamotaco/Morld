@@ -123,6 +123,16 @@ INSTANT_ACTIONS = {
         "effects": {"성욕": 6, "욕망": 3},
         "exp_part": "클리토리스", "affection_req": 90
     },
+    "penis_caress": {
+        "name": "음경 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
+        "exp_part": "음경", "affection_req": 85
+    },
+    "penis_stimulation": {
+        "name": "음경 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 6, "욕망": 3},
+        "exp_part": "음경", "affection_req": 90
+    },
 }
 
 # ============================================
@@ -154,6 +164,16 @@ TOGGLE_ACTIONS = {
         "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 7, "욕망": 4},
         "exp_part": "클리토리스", "affection_req": 95
+    },
+    "penis_touch": {
+        "name": "음경 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"호감": 1, "성욕": 5, "욕망": 3},
+        "exp_part": "음경", "affection_req": 90
+    },
+    "penis_rub": {
+        "name": "음경 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4},
+        "exp_part": "음경", "affection_req": 95
     },
 }
 
@@ -246,6 +266,18 @@ def get_submission_key(player_id):
     player_info = morld.get_unit_info(player_id)
     player_name = player_info.get('name', '주인공') if player_info else '주인공'
     return f"관계:{player_name}:복종"
+
+
+def is_anatomy_compatible(action_def, target_id):
+    """행위가 대상의 해부학적 구조와 호환되는지"""
+    exp_part = action_def.get("exp_part")
+    if not exp_part:
+        return True
+    category = SENSATION_MAP.get(exp_part)
+    if category is None:
+        return True  # 비성적 부위 (귀, 뺨, 머리)
+    import gender as gender_mod
+    return gender_mod.has_anatomy(target_id, category)
 
 
 def is_action_available(partner_id, player_id, action_def):
@@ -536,6 +568,8 @@ def render_romance_ui(state):
     # 토글 행위
     lines.append("[토글 행위]")
     for action_id, action in TOGGLE_ACTIONS.items():
+        if not is_anatomy_compatible(action, partner_id):
+            continue
         is_on = action_id in state["active_toggles"]
         if is_action_available(partner_id, player_id, action):
             prefix = "■" if is_on else "▶"
@@ -550,6 +584,8 @@ def render_romance_ui(state):
     # 즉시 행위
     lines.append("[즉시 행위]")
     for action_id, action in INSTANT_ACTIONS.items():
+        if not is_anatomy_compatible(action, partner_id):
+            continue
         if is_action_available(partner_id, player_id, action):
             if is_desire_unlocked(affection, action, desire, submission):
                 lines.append(f"  [url=@proc:instant:{action_id}][color=pink]{action['name']}[/color][/url]")
