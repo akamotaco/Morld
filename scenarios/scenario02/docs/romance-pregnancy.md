@@ -150,11 +150,17 @@ def _daily_update(unit_id):
 
 ### 트리거
 
-삽입 행위(`pregnancy_check: True`)의 매 틱에서 호출:
+**P를 가진 쪽이 절정할 때만 수정 판정 발생.**
+
+삽입 행위(`pregnancy_check: True`)가 활성 상태에서 P 보유자가 절정 도달 시 호출:
 
 ```python
 def check_conception(player_id, partner_id):
-    """삽입 행위 틱마다 호출 — 수정 가능 여부 판정"""
+    """P 보유자 절정 시 호출 — 수정 가능 여부 판정
+
+    romance.py / npc_initiative.py의 절정 처리 블록에서 호출.
+    삽입 행위(pregnancy_check=True)가 활성 토글일 때 + P 보유자 절정 시에만.
+    """
     # P를 가진 쪽이 inseminator, V를 가진 쪽이 receiver
     import gender as gender_mod
 
@@ -164,6 +170,11 @@ def check_conception(player_id, partner_id):
     if gender_mod.has_anatomy(partner_id, "P") and gender_mod.has_anatomy(player_id, "V"):
         _try_conceive(player_id, partner_id)  # 플레이어가 receiver
 ```
+
+**매 틱이 아닌 절정 시 1회 판정인 이유:**
+- 현실적 (사정 = 수정 기회)
+- 밸런스 (매 틱 판정 시 확률 과다 누적)
+- 긴장감 (절정 순간에 임신 여부 결정)
 
 ### 수정 로직
 
@@ -538,12 +549,22 @@ if trimester == "trimester_3":
 
 ### romance.py / npc_initiative.py 연동
 
-삽입 행위 실행 시:
+**절정 처리 블록** 내에서 호출 (매 틱이 아님):
 ```python
-# apply_effects() 내 pregnancy_check 처리:
-if action_def.get("pregnancy_check"):
-    import pregnancy
-    pregnancy.check_conception(player_id, partner_id)
+# 절정 발생 시 (climax_info가 반환된 경우):
+if climax_info:
+    # pregnancy_check 활성 삽입 행위가 진행 중인지 확인
+    active_intercourse = [
+        tid for tid in state["active_toggles"]
+        if TOGGLE_ACTIONS.get(tid, {}).get("pregnancy_check")
+    ]
+    if active_intercourse:
+        # P 보유자가 절정했는지 확인
+        import gender as gender_mod
+        climaxing_id = partner_id  # NPC가 절정한 경우
+        if gender_mod.has_anatomy(climaxing_id, "P"):
+            import pregnancy
+            pregnancy.check_conception(player_id, partner_id)
 ```
 
 ### think 인터럽트 연동
@@ -671,18 +692,131 @@ actions = [
 
 ---
 
-## 13. 구현 순서
+## 13. 출산 후 모성 행동 (Post-Birth Maternal Behavior)
+
+### 개요
+
+출산 후 어머니 NPC는 아이 NPC에 대한 **모성 욕구**를 가짐.
+아이의 위치를 추적하고, 주기적으로 아이를 찾아가 대화/돌봄 행위를 수행.
+NPC-NPC 대화 시스템의 첫 응용 사례.
+
+### 모성 욕구 (Prop)
+
+```python
+"욕구:모성"   # 0-100, 출산 직후 0에서 시작, 시간 경과에 따라 증가
+```
+
+- 증가율: +3/h (아이와 떨어져 있을 때)
+- 감소: 아이와 대화 시 -30
+- 임계치: 60 이상이면 아이 탐색 인터럽트 발동
+
+### Think 인터럽트 위치
+
+Tier 4 (Comfort) 내, 수면 앞에 삽입:
+```
+Tier 4: 배변 → 피로 → 성욕 → 목욕 → 출산 → 모성(아이 탐색) → 수면
+```
+
+### 아이 위치 추적
+
+```python
+def _find_child_location(mother_id):
+    """어머니의 아이 NPC 위치 반환"""
+    # mother의 마지막 출산 아이 ID를 추적
+    child_id = mother._memory.get("last_child_id")
+    if not child_id:
+        return None
+    child_loc = morld.get_unit_location(child_id)
+    if child_loc:
+        return {"region_id": child_loc[0], "location_id": child_loc[1]}
+    return None
+```
+
+### 모성 핸들러 (handle_maternal)
+
+3-phase 구조:
+
+```python
+def handle_maternal(agent, entry):
+    phase = agent._memory.get("maternal_phase", "idle")
+
+    if phase == "idle":
+        child_loc = _find_child_location(agent)
+        if not child_loc:
+            agent._memory["maternal_phase"] = None
+            return
+        agent._memory["maternal_target"] = child_loc
+        agent._memory["maternal_phase"] = "going"
+        # 이동 job 삽입
+
+    elif phase == "going":
+        if agent._is_at_location(target):
+            agent._memory["maternal_phase"] = "interacting"
+            agent._insert_idle_job("육아", 30 * 60_000)  # 30분 대화/돌봄
+
+    elif phase == "interacting":
+        # 대화 완료 → 모성 욕구 감소
+        morld.modify_prop(agent.unit_id, "욕구:모성", -30)
+        agent._memory["maternal_phase"] = None
+```
+
+### NPC-NPC 대화 연동
+
+모성 핸들러의 "interacting" phase에서 NPC-NPC 대화 시스템 활용:
+- 어머니 → 아이 방향 대화 (아이가 반응 텍스트 생성)
+- describe 텍스트: `"{어머니이름}(이)가 {아이이름}와 이야기하고 있다."`
+- 주변 NPC/플레이어에게 location describe로 표시
+
+```python
+# 대화 describe 텍스트 (location에 있는 다른 유닛이 볼 수 있는 묘사)
+def get_maternal_describe(mother_name, child_name):
+    return f"{mother_name}(이)가 {child_name}에게 다정하게 말을 걸고 있다."
+```
+
+### 어머니 기억
+
+```python
+# agent._memory 추가 키:
+"last_child_id": int        # 마지막 출산 아이 unit_id
+"maternal_phase": str       # None/idle/going/interacting
+"maternal_target": dict     # 아이 위치
+```
+
+### needs.py 연동
+
+```python
+# _process_hourly() 내 추가:
+# 모성 욕구 증가 (아이가 있는 경우)
+child_id = ...  # 어머니의 아이 ID
+if child_id:
+    mother_loc = morld.get_unit_location(unit_id)
+    child_loc = morld.get_unit_location(child_id)
+    if mother_loc != child_loc:
+        # 떨어져 있으면 모성 욕구 증가
+        current = morld.get_unit_prop(unit_id, "욕구:모성") or 0
+        morld.set_unit_prop(unit_id, "욕구:모성", min(100, current + 3))
+    else:
+        # 같은 위치면 느리게 증가
+        current = morld.get_unit_prop(unit_id, "욕구:모성") or 0
+        morld.set_unit_prop(unit_id, "욕구:모성", min(100, current + 1))
+```
+
+---
+
+## 14. 구현 순서
 
 | 단계 | 내용 | 파일 |
 |------|------|------|
 | 1 | pregnancy.py 모듈 생성 (월경 주기 + 수정 판정) | pregnancy.py |
 | 2 | 삽입 행위 추가 (romance.py, npc_initiative.py) | romance.py, npc_initiative.py |
-| 3 | 임신 기간 관리 (주간 업데이트, 증상) | pregnancy.py, needs.py |
-| 4 | 출산 핸들러 (think 인터럽트) | think/activities/childbirth.py |
-| 5 | 아이 NPC 생성 (Child Asset + ChildAgent) | assets/characters/child.py |
-| 6 | UI 표시 (임신 상태, 행위 제한) | romance.py, player.py |
-| 7 | 디버그 기능 | pregnancy.py, base.py |
-| 8 | 챕터 전환 연동 | chapters/__init__.py |
+| 3 | 절정 시 수정 판정 연동 | romance.py, npc_initiative.py |
+| 4 | 임신 기간 관리 (주간 업데이트, 증상) | pregnancy.py, needs.py |
+| 5 | 출산 핸들러 (think 인터럽트) | think/activities/childbirth.py |
+| 6 | 아이 NPC 생성 (Child Asset + ChildAgent) | assets/characters/child.py |
+| 7 | 모성 행동 (아이 탐색 + NPC-NPC 대화 기초) | think/activities/, needs.py |
+| 8 | UI 표시 (임신 상태, 행위 제한) | romance.py, player.py |
+| 9 | 디버그 기능 | pregnancy.py, base.py |
+| 10 | 챕터 전환 연동 | chapters/__init__.py |
 
 ---
 

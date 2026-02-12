@@ -53,30 +53,54 @@
 ### 행위 정의
 
 #### 즉시형 행위 (INSTANT_ACTIONS)
-| 이름 | 시간 | 스태미나 | 효과 | 필요 호감도 |
-|------|-----|---------|------|------------|
-| 머리 쓰다듬기 | 3분 | 1 | 호감+3 | 40 |
-| 뺨 어루만지기 | 2분 | 1 | 호감+2 | 30 |
-| 뺨 꼬집기 | 2분 | 1 | 호감+1 | 35 |
-| 귀 만지기 | 3분 | 1 | 호감+2, 성욕+1 | 45 |
-| 사랑의 속삭임 | 2분 | 1 | 호감+5 | 50 |
-| 프렌치 키스 | 5분 | 2 | 호감+3, 성욕+3 | 60 |
-| 엉덩이 쓰다듬기 | 3분 | 2 | 호감+1, 성욕+3, 욕망+1 | 70 |
-| 음부 쓰다듬기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 |
-| 클리토리스 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 |
-| 음경 쓰다듬기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 |
-| 음경 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 |
+| ID | 이름 | 시간 | 스태미나 | 효과 | 호감도 | 비고 |
+|----|------|-----|---------|------|--------|------|
+| head_pat | 머리 쓰다듬기 | 3분 | 1 | 호감+3 | 40 | |
+| cheek_caress | 뺨 어루만지기 | 2분 | 1 | 호감+2 | 30 | |
+| cheek_pinch | 뺨 꼬집기 | 2분 | 1 | 호감+1 | 35 | |
+| ear_touch | 귀 만지기 | 3분 | 1 | 호감+2, 성욕+1 | 45 | |
+| whisper | 사랑의 속삭임 | 2분 | 1 | 호감+5 | 50 | |
+| lip_lick | 입술 핥기 | 3분 | 1 | 호감+2, 성욕+2 | 55 | **신규** |
+| french_kiss | 프렌치 키스 | 5분 | 2 | 호감+3, 성욕+3 | 60 | |
+| neck_kiss | 목 키스 | 3분 | 2 | 호감+2, 성욕+3 | 65 | **신규** |
+| butt_caress | 엉덩이 쓰다듬기 | 3분 | 2 | 호감+1, 성욕+3, 욕망+1 | 70 | |
+| breast_caress | 가슴 쓰다듬기 | 3분 | 2 | 호감+1, 성욕+3 | 75 | **신규** |
+| nipple_stimulation | 유두 자극 | 5분 | 2 | 성욕+5, 욕망+2 | 85 | **신규**, requires_exposure: upper |
+| genital_caress | 음부 쓰다듬기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 | requires_exposure: lower |
+| clit_stimulation | 클리토리스 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 | requires_exposure: lower |
+| anal_stimulation | 항문 자극 | 5분 | 2 | 성욕+5, 욕망+3 | 90 | **신규**, requires_exposure: lower |
+| penis_caress | 음경 쓰다듬기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 | requires_exposure: lower |
+| penis_stimulation | 음경 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 | requires_exposure: lower |
 
 #### 토글형 행위 (TOGGLE_ACTIONS)
-| 이름 | 틱당 시간 | 틱당 스태미나 | 효과 | 필요 호감도 |
-|------|----------|-------------|------|------------|
-| 껴안기 | 5분 | 1 | 호감+3 | 50 |
-| 딥키스 | 5분 | 2 | 호감+3, 성욕+3 | 70 |
-| 가슴 만지기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+1 | 80 |
-| 음부 만지기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 |
-| 클리토리스 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 |
-| 음경 만지기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 |
-| 음경 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 |
+| ID | 이름 | 틱당 시간 | 스태미나 | 효과 | 호감도 | 비고 |
+|----|------|----------|---------|------|--------|------|
+| hug | 껴안기 | 5분 | 1 | 호감+3 | 50 | |
+| deep_kiss | 딥키스 | 5분 | 2 | 호감+3, 성욕+3 | 70 | |
+| tongue_play | 혀 섞기 | 5분 | 2 | 호감+2, 성욕+4 | 75 | **신규** |
+| butt_squeeze | 엉덩이 주무르기 | 5분 | 2 | 호감+1, 성욕+3, 욕망+1 | 75 | **신규** |
+| breast_touch | 가슴 만지기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+1 | 80 | exposure_bonus: upper |
+| breast_squeeze | 가슴 주무르기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 | **신규**, exposure_bonus: upper |
+| breast_suck | 가슴 빨기 | 5분 | 3 | 성욕+6, 욕망+3 | 90 | **신규**, requires_exposure: upper |
+| genital_touch | 음부 만지기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 | exposure_bonus: lower |
+| clit_rub | 클리토리스 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 | exposure_bonus: lower |
+| clit_lick | 클리토리스 핥기 | 5분 | 3 | 성욕+8, 욕망+4 | 95 | **신규**, requires_exposure: lower |
+| cunnilingus | 커닐링구스 | 5분 | 3 | 성욕+8, 욕망+4 | 95 | **신규**, requires_exposure: lower |
+| finger_insertion | 손가락 삽입 | 5분 | 3 | 성욕+7, 욕망+4, 복종+1 | 95 | **신규**, requires_exposure: lower |
+| penis_touch | 음경 만지기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 | exposure_bonus: lower |
+| penis_rub | 음경 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 | exposure_bonus: lower |
+| fellatio | 펠라치오 | 5분 | 3 | 성욕+8, 욕망+4 | 95 | **신규**, requires_exposure: lower |
+
+#### 부위별 행위 요약
+
+| 부위 (카테고리) | 즉시형 | 토글형 | 삽입형 | 합계 |
+|----------------|--------|--------|--------|------|
+| 입술 (M) | 입술 핥기, 프렌치 키스, 목 키스 | 딥키스, 혀 섞기 | — | 5 |
+| 가슴 (B) | 가슴 쓰다듬기, 유두 자극 | 가슴 만지기, 가슴 주무르기, 가슴 빨기 | — | 5 |
+| 엉덩이 (A) | 엉덩이 쓰다듬기, 항문 자극 | 엉덩이 주무르기 | 항문 삽입, 피항문삽입 | 5 |
+| 음부 (V) | 음부 쓰다듬기 | 음부 만지기, 커닐링구스, 손가락 삽입 | 삽입 | 5 |
+| 클리토리스 (C) | 클리토리스 자극 | 클리토리스 문지르기, 클리토리스 핥기 | — | 3 |
+| 음경 (P) | 음경 쓰다듬기, 음경 자극 | 음경 만지기, 음경 문지르기, 펠라치오 | 피삽입 | 6 |
 
 ### 캐릭터별 반응 시스템
 
@@ -545,6 +569,7 @@ ROMANCE_SOUND_PROFILE = {"levels": [low, mid, high], "ecstasy": ecstasy_intensit
 | 음부 | V (Vaginal) | 음부 계열 |
 | 클리토리스 | C (Clitoral) | 클리토리스 계열 |
 | 음경 | P (Penis) | 음경 계열 (male) |
+| 목 | M (Mouth) | 키스 계열 (입술과 동일 카테고리) |
 | 귀 | None | 비성적 |
 | 뺨 | None | 비성적 |
 | 머리 | None | 비성적 |
@@ -908,13 +933,22 @@ def is_anatomy_compatible(action_def, target_id, player_id=None):
 ### 삽입 토글 행위 정의
 
 삽입은 **토글형** (지속 행위). 시작 후 매 틱마다 자극/효과 누적.
+즉시형 삽입은 없음 — 삽입은 본질적으로 지속 행위.
 
-#### 플레이어 주도 (TOGGLE_ACTIONS 추가)
+#### 전체 삽입 행위 목록
 
-| 행위 ID | 이름 | 틱당 시간 | 스태미나 | exp_part | requires_player_anatomy | 효과 | 필요 호감도 |
-|---------|------|----------|---------|----------|------------------------|------|------------|
-| `vaginal_penetration` | 삽입 | 5분 | 4 | 음부 | P | 성욕+8, 욕망+5, 복종+1 | 98 |
-| `receive_penetration` | 피삽입 | 5분 | 4 | 음경 | V | 성욕+8, 욕망+5 | 98 |
+| 행위 ID | 이름 | 틱당 시간 | 스태미나 | exp_part | player_anatomy | 효과 | 호감도 | 비고 |
+|---------|------|----------|---------|----------|---------------|------|--------|------|
+| `vaginal_penetration` | 삽입 | 5분 | 4 | 음부 | P | 성욕+8, 욕망+5, 복종+1 | 98 | pregnancy_check |
+| `receive_penetration` | 피삽입 | 5분 | 4 | 음경 | V | 성욕+8, 욕망+5 | 98 | pregnancy_check |
+| `anal_penetration` | 항문 삽입 | 5분 | 4 | 엉덩이 | P | 성욕+8, 욕망+5, 복종+2 | 98 | **신규** |
+| `receive_anal` | 피항문삽입 | 5분 | 4 | 음경 | A | 성욕+8, 욕망+5 | 98 | **신규** |
+
+> **손가락 삽입**(`finger_insertion`)과 **커닐링구스/펠라치오**는
+> 토글형 외부 자극으로 분류 (위 TOGGLE_ACTIONS 테이블 참조).
+> 이들은 `pregnancy_check` 없음, requires_player_anatomy 없음.
+
+#### 코드 예시
 
 ```python
 "vaginal_penetration": {
@@ -922,8 +956,8 @@ def is_anatomy_compatible(action_def, target_id, player_id=None):
     "effects": {"성욕": 8, "욕망": 5, "복종": 1},
     "exp_part": "음부", "affection_req": 98,
     "requires_player_anatomy": "P",
-    "requires_exposure": "lower",       # NPC 하체 노출 필수
-    "pregnancy_check": True,            # 임신 판정 트리거
+    "requires_exposure": "lower",
+    "pregnancy_check": True,            # 절정 시 수정 판정
 },
 "receive_penetration": {
     "name": "피삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
@@ -933,25 +967,33 @@ def is_anatomy_compatible(action_def, target_id, player_id=None):
     "requires_exposure": "lower",
     "pregnancy_check": True,
 },
+"anal_penetration": {
+    "name": "항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+    "effects": {"성욕": 8, "욕망": 5, "복종": 2},
+    "exp_part": "엉덩이", "affection_req": 98,
+    "requires_player_anatomy": "P",
+    "requires_exposure": "lower",
+    # pregnancy_check 없음 — 임신 불가
+},
+"receive_anal": {
+    "name": "피항문삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+    "effects": {"성욕": 8, "욕망": 5},
+    "exp_part": "음경", "affection_req": 98,
+    "requires_player_anatomy": "A",     # A = 모든 성별 보유
+    "requires_exposure": "lower",
+},
 ```
-
-#### 즉시형 행위 없음
-삽입은 순간적 자극이 아닌 지속 행위이므로 토글형만 존재.
 
 ### NPC 주도 삽입
 
-NPC 주도 시스템(`npc_initiative.py`)에도 동일 행위 추가:
+NPC 주도 시스템(`npc_initiative.py`)에도 동일 4종 추가:
 
 ```python
 NPC_TOGGLE_ACTIONS에 추가:
-"vaginal_penetration": {
-    "exp_part": "음부", "requires_player_anatomy": "P",
-    "requires_exposure": "lower", "pregnancy_check": True, ...
-},
-"receive_penetration": {
-    "exp_part": "음경", "requires_player_anatomy": "V",
-    "requires_exposure": "lower", "pregnancy_check": True, ...
-},
+"vaginal_penetration": { ..., "pregnancy_check": True },
+"receive_penetration": { ..., "pregnancy_check": True },
+"anal_penetration": { ... },
+"receive_anal": { ... },
 ```
 
 **INITIATIVE_ACTION_FILTERS에 추가 (캐릭터별):**
@@ -962,28 +1004,49 @@ NPC_TOGGLE_ACTIONS에 추가:
 ```python
 "vaginal_penetration": {"V": 3},   # 음부 감각 레벨 3 이상
 "receive_penetration": {"P": 3},   # 음경 감각 레벨 3 이상
+"anal_penetration": {"A": 3},      # 엉덩이 감각 레벨 3 이상
+"receive_anal": {"P": 3},          # 음경(NPC) 감각 레벨 3 이상
 ```
 
 ### 노출 요건
 
-삽입은 반드시 **하체 노출** 필수 (하드 락):
+모든 삽입 행위는 **하체 노출** 필수 (하드 락):
 - `requires_exposure: "lower"` — NPC 하체 노출 필수
 - 미노출 시 `[color=gray]삽입 (탈의 필요)[/color]` 표시
 - 노출 보너스(×1.5)는 이미 노출 필수이므로 적용 안 함
 
-### 임신 판정 (pregnancy_check)
+### 임신 판정 (pregnancy_check) — 절정 시 판정
 
-`pregnancy_check: True` 플래그가 있는 행위 실행 시, 매 틱마다 임신 판정 호출:
+**중요: 수정 판정은 매 틱이 아닌, P를 가진 쪽의 절정 시에만 발생.**
+
+`pregnancy_check: True` 플래그가 있는 삽입 행위가 활성 상태에서 절정이 발생할 때:
+
+```python
+# 절정 처리 블록 내 (romance.py, npc_initiative.py):
+if climax_info and any_active_intercourse_with_pregnancy_check(state):
+    # P를 가진 쪽이 절정했을 때만 수정 판정
+    if is_p_side_climax(climax_info, state):
+        import pregnancy
+        pregnancy.check_conception(player_id, partner_id)
+```
+
+**판정 조건:**
+1. 삽입 행위(`pregnancy_check: True`)가 활성 토글로 진행 중
+2. P를 보유한 쪽(삽입자)이 절정 도달
+3. V를 보유한 쪽(피삽입자)의 월경 주기 기반 가임 확률 적용
+
+- 항문 삽입(`anal_penetration`, `receive_anal`)은 `pregnancy_check` 없으므로 판정 안 함
+- 손가락/구강 행위도 판정 안 함
 - 상세 메커니즘은 [romance-pregnancy.md](romance-pregnancy.md) 참조
-- `pregnancy.check_conception(player_id, partner_id)` 호출
-- P → V 방향일 때만 판정 (has_anatomy 기반 자동 결정)
 
 ### 부위 충돌 (exp_part)
 
 | 행위 | exp_part | 충돌 대상 |
 |------|----------|----------|
-| 삽입 (vaginal_penetration) | 음부 | 음부 만지기, 음부 쓰다듬기 |
-| 피삽입 (receive_penetration) | 음경 | 음경 만지기, 음경 쓰다듬기 |
+| 삽입 (vaginal_penetration) | 음부 | 음부 만지기, 커닐링구스, 손가락 삽입 |
+| 피삽입 (receive_penetration) | 음경 | 음경 만지기, 펠라치오 |
+| 항문 삽입 (anal_penetration) | 엉덩이 | 엉덩이 주무르기 |
+| 피항문삽입 (receive_anal) | 음경 | 음경 만지기, 펠라치오 |
 
 삽입 활성화 시 같은 부위의 기존 토글 자동 해제.
 
@@ -992,20 +1055,23 @@ NPC_TOGGLE_ACTIONS에 추가:
 삽입은 exp_part 기반으로 기존 자극 시스템과 동일하게 연동:
 - `vaginal_penetration` → V 카테고리 자극 증가
 - `receive_penetration` → P 카테고리 자극 증가
+- `anal_penetration` → A 카테고리 자극 증가
+- `receive_anal` → P 카테고리 자극 증가
 - 절정 시 기존 절정 처리 로직 그대로 적용
 
 ### 효과 밸런스
 
-| 항목 | 삽입 | 비교 (클리토리스 문지르기) |
-|------|------|--------------------------|
-| 성욕 | +8 | +7 |
-| 욕망 | +5 | +4 |
-| 복종 | +1 (삽입만) | 없음 |
-| 스태미나 | 4 | 3 |
-| 필요 호감도 | 98 | 95 |
-| 노출 | 필수 (하드 락) | 보너스 (×1.5) |
+| 항목 | 질 삽입 | 항문 삽입 | 비교 (클리토리스 문지르기) |
+|------|---------|----------|--------------------------|
+| 성욕 | +8 | +8 | +7 |
+| 욕망 | +5 | +5 | +4 |
+| 복종 | +1 | +2 | 없음 |
+| 스태미나 | 4 | 4 | 3 |
+| 필요 호감도 | 98 | 98 | 95 |
+| 노출 | 필수 | 필수 | 보너스 (×1.5) |
+| 임신 | 절정 시 판정 | 없음 | 없음 |
 
-삽입은 현재 행위 중 최고 효과 + 최고 요구 조건.
+항문 삽입은 복종 효과가 더 높고(+2), 임신 판정 없음.
 
 ### 소음 연동
 
@@ -1015,22 +1081,147 @@ NPC_TOGGLE_ACTIONS에 추가:
 
 ### 캐릭터별 반응 (ROMANCE_REACTIONS)
 
-각 캐릭터 파일에 삽입 반응 추가 필요:
+각 캐릭터 파일에 삽입 4종 + 신규 행위 반응 추가 필요:
 
 ```python
 ROMANCE_REACTIONS = {
     "vaginal_penetration": {
-        "start": [...],
-        "during": [...],
-        "end": [...],
+        "start": [...], "during": [...], "end": [...],
     },
     "receive_penetration": {
-        "start": [...],
-        "during": [...],
-        "end": [...],
+        "start": [...], "during": [...], "end": [...],
+    },
+    "anal_penetration": {
+        "start": [...], "during": [...], "end": [...],
+    },
+    "receive_anal": {
+        "start": [...], "during": [...], "end": [...],
+    },
+    # 신규 외부 행위도 동일 패턴
+    "tongue_play": { "start": [...], "during": [...] },
+    "breast_suck": { "start": [...], "during": [...] },
+    "cunnilingus": { "start": [...], "during": [...] },
+    "fellatio": { "start": [...], "during": [...] },
+    "finger_insertion": { "start": [...], "during": [...] },
+    ...
+}
+```
+
+---
+
+## 12.5. 절정 묘사 시스템 (Climax Description)
+
+### 개요
+
+기존 절정은 `"ecstasy"` 키 하나로 모든 절정을 동일 묘사했으나,
+절정 부위(카테고리)와 연쇄 여부에 따라 다른 묘사를 제공.
+
+### 구조 확장: CLIMAX_REACTIONS
+
+기존 `"ecstasy"` 키를 카테고리별로 세분화:
+
+```python
+ROMANCE_REACTIONS = {
+    # 기존 (하위 호환 유지)
+    "ecstasy": {
+        "start": [({}, ["......!!", "...이상해..."])],
+    },
+
+    # 카테고리별 절정 묘사 (있으면 우선 사용, 없으면 ecstasy fallback)
+    "ecstasy_V": {
+        "start": [
+            ({"성적절정": 3}, ["...또... 이러면... 안 돼...!!"]),
+            ({}, ["...안에서... 뭔가......!!"]),
+        ],
+    },
+    "ecstasy_M": {
+        "start": [({}, ["...입술이... 녹을 것 같아......"])],
+    },
+    "ecstasy_B": {
+        "start": [({}, ["...가슴이... 이상해......!"])],
+    },
+    "ecstasy_P": {
+        "start": [({}, ["......!!", "...나... 나올 것 같아...!"])],
+    },
+    "ecstasy_A": {
+        "start": [({}, ["...뒤에서... 이상해......!!"])],
+    },
+
+    # 연쇄 절정 전용 (chain_count > 0일 때 우선 사용)
+    "ecstasy_chain": {
+        "start": [
+            ({"성적절정": 5}, ["...멈... 멈춰... 더 이상... 못...!!!"]),
+            ({}, ["...또... 가......!!", "...연속으로... 안 돼...!!"]),
+        ],
+    },
+
+    # 삽입 중 절정 (pregnancy_check 활성 상태에서 절정)
+    "ecstasy_intercourse": {
+        "start": [
+            ({}, ["...안에서... 느껴져......!!", "...깊이... 오고 있어...!!"]),
+        ],
     },
 }
 ```
+
+### 절정 텍스트 선택 우선순위
+
+```
+1. ecstasy_intercourse  — 삽입 중 절정 (pregnancy_check 활성)
+2. ecstasy_chain        — 연쇄 절정 (chain_count > 0)
+3. ecstasy_{category}   — 카테고리별 (ecstasy_V, ecstasy_B 등)
+4. ecstasy              — 기본 fallback
+```
+
+```python
+def get_climax_reaction_key(climax_info, state):
+    """절정 묘사 키 결정"""
+    # 1. 삽입 중 절정
+    if _has_active_intercourse(state):
+        key = "ecstasy_intercourse"
+        if key in reactions:
+            return key
+
+    # 2. 연쇄 절정
+    if climax_info.get("is_chain"):
+        key = "ecstasy_chain"
+        if key in reactions:
+            return key
+
+    # 3. 카테고리별
+    cat = climax_info.get("category")
+    if cat:
+        key = f"ecstasy_{cat}"
+        if key in reactions:
+            return key
+
+    # 4. 기본
+    return "ecstasy"
+```
+
+### 남성 절정 묘사 (불응기 진입)
+
+P 보유자가 절정 시 추가 묘사:
+```python
+"ecstasy_P_male": {
+    "start": [
+        ({}, ["...(거친 숨)... 나왔어......", "...!!"]),
+    ],
+}
+```
+
+### UI 표시
+
+절정 시 기존보다 풍부한 표시:
+```
+[color=pink]──── 절정 (V) ────[/color]
+[세라] ...안에서... 뭔가......!!
+[color=pink]연쇄 절정 ×3[/color]
+```
+
+- 절정 부위 카테고리 표시
+- 연쇄 횟수 강조
+- 삽입 중 절정 시 특별 연출
 
 ---
 
