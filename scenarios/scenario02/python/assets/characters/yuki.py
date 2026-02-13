@@ -76,6 +76,7 @@ class Yuki(Character):
     unique_id = "yuki"
     name = "유키"
     type = "female"
+    sexual_orientation = "bisexual"
     props = {
         "외모:은발": 1, "외모:장발": 1, "외모:붉은눈": 1,
         "성격:수줍음": 1, "성격:얌전함": 1,
@@ -92,6 +93,7 @@ class Yuki(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
+        "체격": 1,
     }
     actions = [
         "call:talk:대화",
@@ -721,6 +723,7 @@ class Yuki(Character):
             ({}, ["...앗...!!", "...아파요..."]),
         ],
         "vaginal_penetration:during": [
+            ({"크기통증": 1}, ["유키가 이를 물며 참는다. \"...크다...\"", "\"...아프지만... 괜찮다...\""]),
             ({"성욕": 90}, ["유키가 당신에게 매달리며 작은 소리로 울고 있다.", "유키의 안이 뜨겁게 조여온다."]),
             ({}, ["유키가 이를 악물며 견디고 있다.", "유키의 눈에서 눈물이 흐르고 있다."]),
         ],
@@ -736,6 +739,7 @@ class Yuki(Character):
             ({}, ["...안 돼요...!!", "...(눈물이 흐른다)"]),
         ],
         "anal_penetration:during": [
+            ({"크기통증": 1}, ["유키가 이를 꽉 문다. \"...뒤는... 더 힘들다...\""]),
             ({"성욕": 90}, ["유키가 소리 없이 울며 떨고 있다.", "유키가 당신의 손을 꽉 잡고 있다."]),
             ({}, ["유키가 입술을 깨물며 참고 있다.", "유키의 몸이 떨리고 있다."]),
         ],
@@ -767,6 +771,14 @@ class Yuki(Character):
             "...입에... 넣는 거예요...?",
             "...처음이에요... 어떻게 해야...",
             "...(불안한 눈으로 올려다보며 입을 벌린다)",
+        ],
+
+        # 사정 참기 반응
+        "hold_back_success:start": [
+            ({}, ["유키가 고개를 끄덕인다. \"...잘 참았다.\"", "\"...\" 유키가 안도의 숨을 내쉰다."]),
+        ],
+        "hold_back_failure:start": [
+            ({}, ["유키가 눈을 크게 뜬다. \"...안에...?\"", "\"...참지 못했나.\" 유키가 조용히 말한다."]),
         ],
 
         # 내부 사정 반응
@@ -877,6 +889,15 @@ class Yuki(Character):
         "swallow_semen:start": [
             ({"성욕": 70}, ["...(조용히 삼킨다)...♡", "...뜨거워요... 목으로..."]),
             ({}, ["...으읍...", "...(삼키지 못하고 입을 막는다)"]),
+        ],
+        "swallow_semen_spit:start": [
+            ({}, ["유키가 고개를 돌려 뱉는다. \"...삼킬 수 없다...\"", "\"...무리다.\" 유키가 조용히 뱉어낸다."]),
+        ],
+        "swallow_semen_drip:start": [
+            ({}, ["유키의 입에서 정액이 흘러나온다. \"...\"", "\"...아직 못 삼킨다...\" 유키가 입을 연다."]),
+        ],
+        "swallow_semen_vomit:start": [
+            ({}, ["유키가 구역질한다. \"...으...\"", "\"...\" 유키가 고개를 돌려 구역질한다."]),
         ],
 
         # Phase 5: 거친 행위 반응
@@ -1307,6 +1328,8 @@ class YukiAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
+        import gender as gender_mod
+        gender_mod.register_orientation(unit_id, Yuki.sexual_orientation)
 
     def on_leave(self, region_id, location_id):
         """위치 이탈 시 조명 끄기 (유키 성격: 꼼꼼함)"""

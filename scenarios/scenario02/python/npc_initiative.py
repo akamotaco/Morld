@@ -159,6 +159,13 @@ PLAYER_INSTANT_ACTIONS = {
         "exp_part": "클리토리스", "affection_req": 98,
         "requires_active_penetration": True, "intensity": 2
     },
+    "hold_back": {
+        "name": "참기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+        "requires_player_anatomy_self": "P",
+        "requires_active_penetration": True,
+    },
 }
 
 # NPC 토글 행위 정의 (romance.py와 공유)
@@ -1033,6 +1040,17 @@ def render_npc_initiative_ui(state):
     for action_id, action in PLAYER_INSTANT_ACTIONS.items():
         if not is_anatomy_compatible(action, npc_id, actor_id=player_id):
             continue
+        # 플레이어 자신의 해부학 요구사항 (hold_back 등)
+        player_self_req = action.get("requires_player_anatomy_self")
+        if player_self_req:
+            import gender as gender_mod
+            if not gender_mod.has_anatomy(player_id, player_self_req):
+                continue
+        # hold_back: P 자극 미달 시 숨김
+        if action_id == "hold_back":
+            from romance import is_hold_back_available, _calculate_hold_back_chance
+            if not is_hold_back_available(state):
+                continue
         # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
         if action.get("requires_active_penetration") and not has_penetration:
             continue
@@ -1061,7 +1079,11 @@ def render_npc_initiative_ui(state):
             continue
         if is_action_available(npc_id, player_id, action):
             if player_stamina >= action["stamina"]:
-                lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
+                display_name = action['name']
+                if action_id == "hold_back":
+                    chance = _calculate_hold_back_chance(player_id, state["stim"])
+                    display_name = f"참기 ({chance}%)"
+                lines.append(f"  [url=@proc:instant:{action_id}]{display_name}[/url]")
             else:
                 lines.append(f"  [color=gray]{action['name']} (스태미나 부족)[/color]")
         else:
@@ -1162,7 +1184,21 @@ def apply_action_effects(state, action_def):
         return None
     sensation = get_sensation_level(npc_id, category)
     gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
+    # 삽입 크기 배율 적용
+    size_mod = state.get("size_stim_mod", 1.0)
+    if size_mod != 1.0 and exp_part in ("음부", "엉덩이", "음경"):
+        gain = round(gain * size_mod)
     climax_info = stimulation.apply(stim_state, category, gain)
+
+    # 삽입 중 플레이어 P 자극 축적
+    from romance import _has_active_penetration
+    if exp_part in ("음부", "엉덩이") and _has_active_penetration(state.get("active_toggles", set())):
+        import gender as gender_mod
+        if gender_mod.has_anatomy(player_id, "P"):
+            p_gain = max(3, base // 2)
+            stim_state["stim"]["P"] = min(
+                stimulation.STIM_MAX,
+                stim_state["stim"].get("P", 0) + p_gain)
 
     if climax_info:
         # 성욕 일부 감소 (전액 초기화 대신)
@@ -1173,7 +1209,8 @@ def apply_action_effects(state, action_def):
         # 성적절정 +1
         morld.modify_prop(npc_id, "상태:성적절정", 1)
         # 감각 경험치 보너스
-        exp_gain = stimulation.get_climax_sensation_gain(rebellion)
+        exp_gain = stimulation.get_climax_sensation_gain(
+            rebellion, climax_info.get("chain_count", 0))
         if exp_gain > 0:
             for part, c in SENSATION_MAP.items():
                 if c == climax_info["category"]:
@@ -1371,9 +1408,33 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 from romance import get_internal_semen
                 if get_internal_semen(npc_id, req_internal) <= 0:
                     return render_npc_initiative_ui(state)
-                # 삼키기: 체내 정액 제거
+                # 삼키기: M 감각 레벨에 따라 분기
                 if action_id == "swallow_semen":
-                    morld.clear_prop(npc_id, f"체내:정액:{req_internal}")
+                    from romance import SWALLOW_M_THRESHOLD
+                    m_level = get_sensation_level(npc_id, "M")
+                    semen_amount = get_internal_semen(npc_id, req_internal)
+                    if m_level >= SWALLOW_M_THRESHOLD:
+                        morld.clear_prop(npc_id, f"체내:정액:{req_internal}")
+                    elif m_level >= 3:
+                        morld.clear_prop(npc_id, f"체내:정액:{req_internal}")
+                        spit_amount = semen_amount // 2
+                        if spit_amount > 0:
+                            ext = morld.get_unit_prop(npc_id, "오염물:정액:가슴") or 0
+                            morld.set_unit_prop(npc_id, "오염물:정액:가슴",
+                                                min(100, ext + spit_amount))
+                        action_id = "swallow_semen_spit"
+                    elif m_level >= 1:
+                        half = semen_amount // 2
+                        morld.set_unit_prop(npc_id, f"체내:정액:{req_internal}",
+                                            max(0, semen_amount - half))
+                        ext = morld.get_unit_prop(npc_id, "오염물:정액:가슴") or 0
+                        morld.set_unit_prop(npc_id, "오염물:정액:가슴",
+                                            min(100, ext + half))
+                        action_id = "swallow_semen_drip"
+                    else:
+                        rebellion_key = get_rebellion_key(player_id)
+                        morld.modify_prop(npc_id, rebellion_key, 2)
+                        action_id = "swallow_semen_vomit"
 
             # 탈의 전용 처리
             if action_def.get("undress"):
@@ -1411,6 +1472,48 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                     return True
                 return render_npc_initiative_ui(state)
 
+            # 참기 특수 처리
+            if action_id == "hold_back":
+                import random
+                from romance import (
+                    _calculate_hold_back_chance, calculate_ejaculation_amount,
+                    _has_active_intercourse, add_internal_semen, apply_semen_external,
+                    _get_active_penetration_part, HOLD_BACK_P_THRESHOLD
+                )
+                chance = _calculate_hold_back_chance(player_id, state["stim"])
+                state["stamina"] -= action_def["stamina"]
+                npc_asset = get_npc_asset(npc_id)
+                if random.randint(1, 100) <= chance:
+                    state["stim"]["stim"]["P"] = 60
+                    reaction = None
+                    if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+                        reaction = npc_asset.get_romance_reaction("hold_back_success", "start")
+                    state["last_reaction"] = reaction or "참았다."
+                else:
+                    pen_part = _get_active_penetration_part(state["active_toggles"])
+                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                    if pen_part:
+                        add_internal_semen(npc_id, pen_part, ejac_amount)
+                        if _has_active_intercourse(state["active_toggles"], NPC_TOGGLE_ACTIONS):
+                            try:
+                                import pregnancy
+                                pregnancy.check_conception(player_id, npc_id)
+                            except ImportError:
+                                pass
+                    else:
+                        apply_semen_external(npc_id, ejac_amount)
+                    stimulation.apply_climax_reset_p(state["stim"])
+                    reaction = None
+                    if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+                        reaction = npc_asset.get_romance_reaction("hold_back_failure", "start")
+                    state["last_reaction"] = reaction or "참지 못했다...!"
+                check_result = advance_time_and_check_npc_initiative(state, action_def["time"])
+                if check_result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = check_result["interrupter_id"]
+                    return True
+                return render_npc_initiative_ui(state)
+
             # 충돌 처리: 같은 신체 부위를 사용하는 토글 비활성화
             removed_toggles = remove_conflicting_toggles(action_id, state["active_toggles"], action_def)
 
@@ -1430,8 +1533,21 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             # 스태미나 소모
             state["stamina"] -= required_stamina
 
+            # 준비 부족 체크 (강도 행위)
+            from romance import check_preparation, UNPREPARED_EFFECT_MULT, UNPREPARED_REBELLION
+            effective_def = action_def
+            if not check_preparation(state["stim"], action_def):
+                effective_def = dict(action_def)
+                effective_def["effects"] = {
+                    k: round(v * UNPREPARED_EFFECT_MULT)
+                    for k, v in action_def["effects"].items()
+                }
+                effective_def["exp_part"] = None
+                rebellion_key = get_rebellion_key(player_id)
+                morld.modify_prop(state["npc_id"], rebellion_key, UNPREPARED_REBELLION)
+
             # 효과 적용 (플레이어 즉시 행위)
-            ecstasy_reaction = apply_action_effects(state, action_def)
+            ecstasy_reaction = apply_action_effects(state, effective_def)
 
             # 활성 토글들의 효과도 적용 (충돌로 제거된 토글은 제외됨)
             for toggle_id in state["active_toggles"]:
@@ -1517,9 +1633,29 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             # 스태미나 소모
             state["stamina"] -= required_stamina
 
-            # 새 액션이 있으면 토글에 추가 + 처녀 체크
+            # 새 액션이 있으면 토글에 추가 + 호환성/처녀 체크
             first_key = None
             if new_action and new_toggle_def:
+                # 삽입 호환성 체크 (크기 차이)
+                from romance import _PENETRATION_TOGGLE_IDS
+                if new_action in _PENETRATION_TOGGLE_IDS:
+                    import gender as gender_mod
+                    player_anat = new_toggle_def.get("requires_player_anatomy")
+                    if player_anat == "P":
+                        compat = gender_mod.check_penetration_compatibility(
+                            player_id, npc_id)
+                    elif player_anat in ("V", "A"):
+                        compat = gender_mod.check_penetration_compatibility(
+                            npc_id, player_id)
+                    else:
+                        compat = {"needs_prep": 0, "pain": False, "stim_mod": 1.0}
+                    state["size_pain"] = compat["pain"]
+                    state["size_stim_mod"] = compat["stim_mod"]
+                    if compat["pain"]:
+                        rebellion_key = get_rebellion_key(player_id)
+                        morld.modify_prop(npc_id, rebellion_key, 3)
+                        morld.set_unit_prop(npc_id, "크기통증", 1)
+
                 state["active_toggles"].add(new_action)
                 first_key = check_and_clear_virginity_npc(
                     state["npc_id"], state["player_id"], new_action)

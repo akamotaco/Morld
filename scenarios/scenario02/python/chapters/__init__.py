@@ -47,7 +47,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
 
     # 2.1. 환경 시스템 리셋 (lazy init 모듈들의 챕터 전환 대응)
     #      clear_world() 후 새 챕터 데이터로 재초기화되어야 함
-    import temperature, humidity, congestion, sound, garden, needs, pregnancy
+    import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender
     temperature.reset()
     humidity.reset()
     congestion.reset()
@@ -55,6 +55,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     garden.reset()
     needs.reset()
     pregnancy.reset()
+    gender.reset_orientation()
 
     # 3. 챕터 모듈 동적 import
     try:

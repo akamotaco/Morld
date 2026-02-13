@@ -86,6 +86,7 @@ class Ella(Character):
     name = "엘라"
     type = "female"
     hearing_type = "keen"
+    sexual_orientation = "heterosexual"
     props = {
         "외모:흑발": 1, "외모:올림머리": 1, "외모:보라색눈": 1,
         "성격:냉정함": 1, "성격:리더십": 1,
@@ -102,6 +103,7 @@ class Ella(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
+        "체격": 3,
     }
     actions = [
         "call:talk:대화",
@@ -711,6 +713,7 @@ class Ella(Character):
             ({}, ["......", "...(몸이 경직된다)"]),
         ],
         "vaginal_penetration:during": [
+            ({"크기통증": 1}, ["엘라가 찡그리며도 웃는다. \"...커...! 아프지만... 괜찮아!\"", "\"으앗... 아파... 그래도... 기분이 이상해...\""]),
             ({"성욕": 90}, ["엘라가 자제력을 완전히 잃고 당신에게 매달리고 있다.", "엘라의 안이 뜨겁게 조여온다."]),
             ({}, ["엘라가 이를 악물며 견디고 있다.", "엘라가 얼굴을 묻고 있다."]),
         ],
@@ -726,6 +729,7 @@ class Ella(Character):
             ({}, ["...거기는 안 돼요.", "...(차갑게 거부한다)"]),
         ],
         "anal_penetration:during": [
+            ({"크기통증": 1}, ["엘라가 놀란다. \"으...! 뒤는... 좀 더 아파...!\""]),
             ({"성욕": 90}, ["엘라가 자제력을 잃고 떨고 있다.", "엘라가 시트를 꽉 움켜쥐고 있다."]),
             ({}, ["엘라가 이를 악물며 참고 있다.", "엘라의 표정에 균열이 가고 있다."]),
         ],
@@ -757,6 +761,14 @@ class Ella(Character):
             "...구강으로? ...처음이다.",
             "...이렇게 하면 되는 건가.",
             "...(냉정하게 입을 벌린다)",
+        ],
+
+        # 사정 참기 반응
+        "hold_back_success:start": [
+            ({}, ["엘라가 웃는다. \"참았구나! 대단해!\"", "\"으응, 잘 참았어!\" 엘라가 안심한다."]),
+        ],
+        "hold_back_failure:start": [
+            ({}, ["엘라가 놀란다. \"에...!? 안에...!?\"", "\"아, 안에 나왔어...!\" 엘라가 당황한다."]),
         ],
 
         # 내부 사정 반응
@@ -867,6 +879,15 @@ class Ella(Character):
         "swallow_semen:start": [
             ({"성욕": 70}, ["...(무표정하게 삼킨다)", "...뜨겁군요... 목으로..."]),
             ({}, ["...(미간을 찌푸리며) ...삼키라는 건가요.", "...으..."]),
+        ],
+        "swallow_semen_spit:start": [
+            ({}, ["엘라가 뱉으며 기침한다. \"으... 못 삼키겠어...!\"", "\"...무리야...!\" 엘라가 고개를 돌려 뱉는다."]),
+        ],
+        "swallow_semen_drip:start": [
+            ({}, ["엘라의 입에서 정액이 흘러내린다. \"으... 미안...\"", "\"...삼키고 싶었는데...\" 엘라가 흘린다."]),
+        ],
+        "swallow_semen_vomit:start": [
+            ({}, ["엘라가 구역질한다. \"으엑...! 미안...!\"", "\"...우웩...!\" 엘라가 기침하며 구역질한다."]),
         ],
 
         # Phase 5: 거친 행위 반응
@@ -1307,3 +1328,5 @@ class EllaAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
+        import gender as gender_mod
+        gender_mod.register_orientation(unit_id, Ella.sexual_orientation)

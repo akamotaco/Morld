@@ -159,24 +159,63 @@ context = {
 | NPC 절정 (반발 25-49) | +1 | |
 | NPC 절정 (반발 50+) | +0 | 증가 없음 |
 
-#### 자연 감소
-
-| 조건 | 감소량 | 비고 |
-|------|--------|------|
-| 2시간마다 | -1 | needs.py `_process_hourly()` |
-| 하루 최대 | -12 | 주기적 교류로 유지 필요 |
-
 #### 적용 위치
 
 | 파일 | 함수 | 설명 |
 |------|------|------|
 | romance.py | `apply_effects()` | 플레이어 주도: 행위 +1, 절정 +2 |
 | npc_initiative.py | `apply_action_effects()` | NPC 주도: 동일 |
-| needs.py | `_process_hourly()` | 자연 감소 -1/2h |
+| needs.py | `_process_hourly()` | 관계 항상성 (아래 참조) |
 
 ---
 
-## 4. 사적인 대화 시스템 (진척도)
+## 4. 관계 항상성 (Homeostasis)
+
+### 개요
+
+호감/반발/복종이 시간에 따라 basin(끌개)으로 자연 수렴.
+기존의 "복종 -1/2h" 단순 감소 대신, 현재 값에 따라 수렴 방향이 달라지는 항상성 시스템.
+
+### 수렴 공식
+
+```python
+HOMEOSTASIS_RATE = 0.5  # 시간당 최대 ±0.5
+
+def _apply_homeostasis(unit_id, prop_key, basins):
+    current = get_prop(unit_id, prop_key) or 0
+    attractor = basins[-1][1]  # 기본: 최상위 basin
+    for threshold, target in basins:
+        if current < threshold:
+            attractor = target
+            break
+    delta = sign(attractor - current) * min(abs(attractor - current), 0.5)
+    new_value = clamp(0, 100, current + delta)
+```
+
+### Basin 정의
+
+| Prop | 구간 | attractor | 의미 |
+|------|------|-----------|------|
+| 호감 | < 35 | 0 | 소원 → 0으로 수렴 |
+| 호감 | 35-75 | 50 | 중립 → 50으로 수렴 |
+| 호감 | > 75 | 100 | 친밀 → 100으로 수렴 |
+| 반발 | < 25 | 0 | 저반발 → 0으로 수렴 |
+| 반발 | 25-50 | 35 | 중반발 → 35로 수렴 |
+| 반발 | > 50 | 75 | 고반발 → 75로 수렴 |
+| 복종 | < 20 | 0 | 저복종 → 0으로 수렴 |
+| 복종 | 20-60 | 40 | 중복종 → 40으로 수렴 |
+| 복종 | > 60 | 80 | 고복종 → 80으로 수렴 |
+
+### 설계 의도
+
+- **무조건적 감소 방지**: 기존에는 복종이 무조건 -1/2h로 감소했으나, 이제 basin 내에서 유지
+- **관계 안정성**: 호감 60이면 50으로 수렴 (10 감소), 호감 80이면 100으로 수렴 (20 증가)
+- **외부 행위로만 basin 이동**: 스킨십/이벤트로 경계(35, 75)를 넘어야 basin 변경
+- **극단적 반발 안정화**: 반발 100은 75로 서서히 감소, 반발 20은 0으로 감소
+
+---
+
+## 5. 사적인 대화 시스템 (진척도)
 
 ### 개요
 호감도가 높아지면 NPC와 점점 깊은 대화를 나눌 수 있는 시스템.
@@ -287,7 +326,7 @@ def _talk_progress_1(self, context):
 
 ---
 
-## 5. 성별 시스템 (gender.py)
+## 6. 성별 시스템 (gender.py)
 
 ### 개요
 캐릭터의 성별에 따라 보유 감각 카테고리를 결정.
@@ -325,3 +364,94 @@ Player=선택 가능(male/female/futanari), 모든 NPC=female.
 - `romance.py render_romance_ui()`: 파트너 anatomy 기준 (플레이어→파트너)
 - `npc_initiative.py get_available_npc_actions()`: 플레이어 anatomy 기준 (NPC→플레이어)
 - `npc_initiative.py render_npc_initiative_ui()`: NPC anatomy 기준 (플레이어 즉시행위)
+
+---
+
+## 7. 성적 지향성 (Sexual Orientation)
+
+### 개요
+NPC별 성적 지향에 따라 호감/성욕 효과에 배율 적용.
+
+### 지향성 종류 및 배율
+
+| 지향 | 조건 | 배율 |
+|------|------|------|
+| bisexual (양성애) | 항상 | ×1.0 |
+| heterosexual (이성애) | 이성 파트너 | ×1.1 |
+| heterosexual (이성애) | 동성 파트너 | ×0.5 |
+| homosexual (동성애) | 동성 파트너 | ×1.1 |
+| homosexual (동성애) | 이성 파트너 | ×0.5 |
+
+- futanari는 female 기반으로 취급
+- 배율은 `calculate_effects()` 결과 전체에 곱셈
+- 성욕 자연 증가에도 적용 (`needs.py`)
+
+### 캐릭터별 지향
+
+| 캐릭터 | 지향 |
+|--------|------|
+| 세라 | bisexual (양성애) |
+| 밀라 | heterosexual (이성애) |
+| 리나 | bisexual (양성애) |
+| 유키 | bisexual (양성애) |
+| 엘라 | heterosexual (이성애) |
+
+### API
+
+```python
+import gender
+
+gender.register_orientation(unit_id, "heterosexual")
+gender.get_orientation(unit_id)                    # → str
+gender.get_orientation_multiplier(npc_id, player_id)  # → float
+gender.reset_orientation()                         # 챕터 전환
+```
+
+---
+
+## 8. 체격/음경 크기 호환성 (Penetration Compatibility)
+
+### 개요
+삽입 행위 시 체격 차이 + 음경 크기로 준비 필요/통증/자극 배율을 결정.
+
+### 체격 (Body Size)
+
+모든 캐릭터에 `체격` prop 설정:
+
+| 캐릭터 | 체격값 | 라벨 |
+|--------|--------|------|
+| 리나 | 1 | 왜소 |
+| 유키 | 1 | 왜소 |
+| 밀라 | 2 | 보통 |
+| 세라 | 3 | 장신 |
+| 엘라 | 3 | 장신 |
+| 플레이어 | 1-4 | 선택 |
+
+### 음경 크기 (Penis Size)
+
+남성/후타나리 플레이어만 캐릭터 생성 시 선택 (3단계):
+
+| 값 | 라벨 |
+|---|------|
+| 1 | 작음 |
+| 2 | 보통 |
+| 3 | 큼 |
+
+Prop: `음경:크기` — `get_penis_size()` 기본값 2.
+
+### 호환성 체크
+
+`check_penetration_compatibility(actor_id, target_id)`:
+- `diff = penis_size - body_size`
+
+| diff | needs_prep | pain | stim_mod |
+|------|-----------|------|----------|
+| ≥ 2 | 60 (stim) | True | ×1.3 |
+| 1 | 30 (stim) | False | ×1.1 |
+| 0 | 0 | False | ×1.0 |
+| -1 | 0 | False | ×0.85 |
+| ≤ -2 | 0 | False | ×0.7 |
+
+- **needs_prep**: 대상 부위 자극이 이 값 미만이면 삽입 차단 + 메시지
+- **pain**: True면 삽입 시 반발 +3, 삽입 중 NPC에 `크기통증` prop → 통증+쾌감 혼재 반응
+- **stim_mod**: 삽입 토글 활성 동안 자극 계산에 곱셈

@@ -9,6 +9,7 @@
 - 캐릭터별 반응 시스템
 """
 
+import math
 import morld
 import stimulation
 import ui
@@ -22,6 +23,12 @@ ROMANCE_JOIN_THRESHOLD = 60    # 합류 가능 최소 호감도
 ROMANCE_STAMINA_KEY = "연애:스태미나"
 DEFAULT_STAMINA = 10
 ECSTASY_THRESHOLD = 100        # 절정 발생 임계값
+SWALLOW_M_THRESHOLD = 5        # 삼키기에 필요한 M 감각 레벨
+
+# 준비 부족 강도 행위 페널티
+PREPARATION_THRESHOLD = 30     # intensity ≥ 3 행위에 필요한 최소 자극
+UNPREPARED_EFFECT_MULT = 0.5   # 미준비 시 효과 배율
+UNPREPARED_REBELLION = 2       # 미준비 시 반발 증가
 
 # 들키지 않을 확률 설정
 STEALTH_BASE_CHANCE = 0.3      # 기본 은신 확률 30%
@@ -235,6 +242,13 @@ INSTANT_ACTIONS = {
         "effects": {"성욕": 6, "욕망": 3},
         "exp_part": "클리토리스", "affection_req": 98,
         "requires_active_penetration": True, "intensity": 2
+    },
+    "hold_back": {
+        "name": "참기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+        "requires_player_anatomy_self": "P",
+        "requires_active_penetration": True,
     },
 }
 
@@ -501,6 +515,30 @@ def calculate_ejaculation_amount(unit_id, stamina):
     return max(SEMEN_AMOUNT_MIN, min(SEMEN_AMOUNT_MAX, round(amount)))
 
 
+HOLD_BACK_P_THRESHOLD = 80  # 참기 가능 최소 P 자극
+
+
+def _calculate_hold_back_chance(player_id, stim_state):
+    """참기 성공 확률 계산 (5-90%)
+
+    공식: 40 - (p_stim - 80) × 2 + p_sensation × 5
+    """
+    p_stim = stim_state["stim"].get("P", 0)
+    p_sensation = get_sensation_level(player_id, "P")
+    chance = 40 - (p_stim - 80) * 2 + p_sensation * 5
+    return max(5, min(90, chance))
+
+
+def is_hold_back_available(state):
+    """참기 가능 여부: P 보유 + 삽입 토글 활성 + P 자극 ≥ 80"""
+    if not _get_active_penetration_part(state.get("active_toggles", set())):
+        return False
+    stim = state.get("stim")
+    if not stim:
+        return False
+    return stim["stim"].get("P", 0) >= HOLD_BACK_P_THRESHOLD
+
+
 def is_pull_out_available(state):
     """질외사정 가능 여부: 삽입 토글 활성 + P 자극 ≥ 임계값"""
     if not _get_active_penetration_part(state.get("active_toggles", set())):
@@ -508,7 +546,7 @@ def is_pull_out_available(state):
     stim = state.get("stim")
     if not stim:
         return False
-    return stim.get("level", 0) >= PULL_OUT_STIM_THRESHOLD
+    return stim["stim"].get("P", 0) >= PULL_OUT_STIM_THRESHOLD
 
 
 # ============================================
@@ -750,7 +788,9 @@ def get_sensation_level(unit_id, category):
     for part, cat in SENSATION_MAP.items():
         if cat == category:
             total_exp += morld.get_unit_prop(unit_id, f"경험:{part}") or 0
-    return min(10, total_exp // 5)
+    # 제곱 곡선: level = floor(sqrt(exp / 3))
+    # Lv1=3, Lv3=27, Lv5=75, Lv7=147, Lv10=300 exp 필요
+    return min(10, int(math.floor(math.sqrt(total_exp / 3))))
 
 
 def _has_active_intercourse(active_toggles, toggle_actions):
@@ -808,6 +848,27 @@ def check_lubrication(partner_id, state):
         state["lubricated"] = True
         return True
     return False
+
+
+def check_preparation(stim_state, action_def):
+    """강도 행위 준비 상태 확인
+
+    intensity ≥ 3인 행위는 해당 부위 자극이 PREPARATION_THRESHOLD 이상이어야 함.
+
+    Returns:
+        True if 준비됨 or 비강도 행위, False if 미준비
+    """
+    intensity = action_def.get("intensity", 0)
+    if intensity < 3:
+        return True
+    exp_part = action_def.get("exp_part")
+    if not exp_part:
+        return True
+    category = SENSATION_MAP.get(exp_part)
+    if not category:
+        return True
+    current_stim = stim_state["stim"].get(category, 0)
+    return current_stim >= PREPARATION_THRESHOLD
 
 
 def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactions):
@@ -869,8 +930,8 @@ def get_rebellion_key(player_id):
     return f"관계:{player_name}:반발"
 
 
-def calculate_effects(action_def, partner_id):
-    """경험치 + 감각 보정된 효과 계산"""
+def calculate_effects(action_def, partner_id, player_id=None):
+    """경험치 + 감각 + 지향성 보정된 효과 계산"""
     base_effects = action_def["effects"].copy()
     exp_part = action_def.get("exp_part")
 
@@ -913,6 +974,14 @@ def calculate_effects(action_def, partner_id):
         if exposure.get(f"{bonus_area}_exposed"):
             for stat in base_effects:
                 base_effects[stat] = round(base_effects[stat] * EXPOSURE_BONUS)
+
+    # 성적 지향성 배율
+    if player_id:
+        import gender as gender_mod
+        orientation_mult = gender_mod.get_orientation_multiplier(partner_id, player_id)
+        if orientation_mult != 1.0:
+            for stat in base_effects:
+                base_effects[stat] = round(base_effects[stat] * orientation_mult)
 
     return base_effects
 
@@ -1213,6 +1282,12 @@ def render_romance_ui(state):
     for action_id, action in INSTANT_ACTIONS.items():
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
+        # 플레이어 자신의 해부학 요구사항 (hold_back 등)
+        player_self_req = action.get("requires_player_anatomy_self")
+        if player_self_req:
+            import gender as gender_mod
+            if not gender_mod.has_anatomy(player_id, player_self_req):
+                continue
         # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
         if action.get("requires_active_penetration") and not has_penetration:
             continue
@@ -1248,6 +1323,12 @@ def render_romance_ui(state):
         lines.append("[질외사정]")
         for target in SEMEN_PARTS:
             lines.append(f"  [url=@proc:pull_out_target:{target}]{target}[/url]")
+    # 참기 (삽입 중 + P 자극 ≥ 80)
+    if is_hold_back_available(state):
+        import gender as gender_mod
+        if gender_mod.has_anatomy(state["player_id"], "P"):
+            chance = _calculate_hold_back_chance(state["player_id"], state["stim"])
+            lines.append(f"  [url=@proc:instant:hold_back]참기 ({chance}%)[/url]")
     lines.append("")
 
     # 푸터
@@ -1459,11 +1540,11 @@ def start_romance(player_id, partner_id, preserved=None):
         stim_state = state["stim"]
 
         # 즉시형/토글 행위의 효과 (경험치 보정 포함)
-        effects = calculate_effects(action_def, pid)
+        effects = calculate_effects(action_def, pid, player_id)
 
         # 활성 토글들의 효과도 합산
         for toggle_def in active_toggle_defs:
-            toggle_effects = calculate_effects(toggle_def, pid)
+            toggle_effects = calculate_effects(toggle_def, pid, player_id)
             for stat, value in toggle_effects.items():
                 effects[stat] = effects.get(stat, 0) + value
 
@@ -1503,9 +1584,27 @@ def start_romance(player_id, partner_id, preserved=None):
                 continue
             sensation = get_sensation_level(pid, category)
             gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
+            # 삽입 크기 배율 적용
+            size_mod = state.get("size_stim_mod", 1.0)
+            if size_mod != 1.0 and act_def.get("exp_part") in ("음부", "엉덩이", "음경"):
+                gain = round(gain * size_mod)
             result = stimulation.apply(stim_state, category, gain)
             if result and not climax_info:
                 climax_info = result
+
+        # 삽입 중 플레이어 P 자극 축적
+        if _has_active_penetration(state.get("active_toggles", set())):
+            import gender as gender_mod
+            if gender_mod.has_anatomy(player_id, "P"):
+                p_base = sum(
+                    a["effects"].get("성욕", 0)
+                    for a in all_actions
+                    if a.get("exp_part") in ("음부", "엉덩이")
+                ) // 2
+                p_gain = max(3, p_base)
+                stim_state["stim"]["P"] = min(
+                    stimulation.STIM_MAX,
+                    stim_state["stim"].get("P", 0) + p_gain)
 
         # 여운 감소 (턴당 1회)
         stimulation.tick_afterglow(stim_state)
@@ -1519,7 +1618,8 @@ def start_romance(player_id, partner_id, preserved=None):
             # 성적절정 +1
             morld.modify_prop(pid, "상태:성적절정", 1)
             # 절정 부위 감각 경험치 보너스
-            exp_gain = stimulation.get_climax_sensation_gain(rebellion)
+            exp_gain = stimulation.get_climax_sensation_gain(
+                rebellion, climax_info.get("chain_count", 0))
             if exp_gain > 0:
                 cat = climax_info["category"]
                 for part, c in SENSATION_MAP.items():
@@ -1675,9 +1775,37 @@ def start_romance(player_id, partner_id, preserved=None):
             if req_internal:
                 if get_internal_semen(state["partner_id"], req_internal) <= 0:
                     return render_romance_ui(state)
-                # 삼키기: 체내 정액 제거
+                # 삼키기: M 감각 레벨에 따라 분기
                 if action_id == "swallow_semen":
-                    morld.clear_prop(state["partner_id"], f"체내:정액:{req_internal}")
+                    m_level = get_sensation_level(state["partner_id"], "M")
+                    semen_amount = get_internal_semen(state["partner_id"], req_internal)
+                    partner_asset = get_partner_asset(state["partner_id"])
+                    if m_level >= SWALLOW_M_THRESHOLD:
+                        # 정상 삼키기
+                        morld.clear_prop(state["partner_id"], f"체내:정액:{req_internal}")
+                    elif m_level >= 3:
+                        # 뱉기 — 구강 제거, 가슴에 일부 적용
+                        morld.clear_prop(state["partner_id"], f"체내:정액:{req_internal}")
+                        spit_amount = semen_amount // 2
+                        if spit_amount > 0:
+                            ext = morld.get_unit_prop(state["partner_id"], "오염물:정액:가슴") or 0
+                            morld.set_unit_prop(state["partner_id"], "오염물:정액:가슴",
+                                                min(100, ext + spit_amount))
+                        action_id = "swallow_semen_spit"
+                    elif m_level >= 1:
+                        # 흘림 — 절반 제거, 나머지 외부
+                        half = semen_amount // 2
+                        morld.set_unit_prop(state["partner_id"], f"체내:정액:{req_internal}",
+                                            max(0, semen_amount - half))
+                        ext = morld.get_unit_prop(state["partner_id"], "오염물:정액:가슴") or 0
+                        morld.set_unit_prop(state["partner_id"], "오염물:정액:가슴",
+                                            min(100, ext + half))
+                        action_id = "swallow_semen_drip"
+                    else:
+                        # 구역질 — 구강 유지, 반발 +2
+                        rebellion_key = get_rebellion_key(player_id)
+                        morld.modify_prop(state["partner_id"], rebellion_key, 2)
+                        action_id = "swallow_semen_vomit"
 
             # 탈의 전용 처리
             if action_def.get("undress"):
@@ -1706,6 +1834,48 @@ def start_romance(player_id, partner_id, preserved=None):
                     return True
                 return render_romance_ui(state)
 
+            # 참기 특수 처리
+            if action_id == "hold_back":
+                import random
+                chance = _calculate_hold_back_chance(player_id, state["stim"])
+                state["stamina"] -= action_def["stamina"]
+                partner_asset = get_partner_asset(state["partner_id"])
+                if random.randint(1, 100) <= chance:
+                    # 성공: P 자극 → 60으로 감소
+                    state["stim"]["stim"]["P"] = 60
+                    reaction = None
+                    if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                        reaction = partner_asset.get_romance_reaction("hold_back_success", "start")
+                    state["last_reaction"] = reaction or "참았다."
+                else:
+                    # 실패: 강제 P 절정 → 현재 삽입 대상에 내부 사정
+                    pen_part = _get_active_penetration_part(state["active_toggles"])
+                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                    if pen_part:
+                        add_internal_semen(state["partner_id"], pen_part, ejac_amount)
+                        # 임신 판정
+                        if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
+                            try:
+                                import pregnancy
+                                pregnancy.check_conception(player_id, state["partner_id"])
+                            except ImportError:
+                                pass
+                    else:
+                        apply_semen_external(state["partner_id"], ejac_amount)
+                    # P 자극 리셋
+                    import stimulation
+                    stimulation.apply_climax_reset_p(state["stim"])
+                    reaction = None
+                    if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                        reaction = partner_asset.get_romance_reaction("hold_back_failure", "start")
+                    state["last_reaction"] = reaction or "참지 못했다...!"
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                return render_romance_ui(state)
+
             # 체력 계산: 즉시형 + 활성 토글들
             total_stamina = action_def["stamina"]
             total_time = action_def["time"]
@@ -1721,9 +1891,22 @@ def start_romance(player_id, partner_id, preserved=None):
                 state["exhausted"] = True
                 return True  # 체력 부족 종료
 
+            # 준비 부족 체크 (강도 행위)
+            unprepared = not check_preparation(state["stim"], action_def)
+            effective_action_def = action_def
+            if unprepared:
+                effective_action_def = dict(action_def)
+                effective_action_def["effects"] = {
+                    k: round(v * UNPREPARED_EFFECT_MULT)
+                    for k, v in action_def["effects"].items()
+                }
+                effective_action_def["exp_part"] = None  # 경험치 미부여
+                rebellion_key = get_rebellion_key(player_id)
+                morld.modify_prop(state["partner_id"], rebellion_key, UNPREPARED_REBELLION)
+
             # 효과 적용 (경험치 시스템 포함)
             state["stamina"] -= total_stamina
-            ecstasy_reaction = apply_effects(action_def, active_toggle_defs)
+            ecstasy_reaction = apply_effects(effective_action_def, active_toggle_defs)
 
             # 절정 반응이 있으면 우선 표시
             if ecstasy_reaction:
@@ -1736,6 +1919,9 @@ def start_romance(player_id, partner_id, preserved=None):
                     reaction = partner_asset.get_romance_reaction(action_id, "start")
                     if reaction:
                         state["last_reaction"] = reaction
+                    if unprepared:
+                        state["last_reaction"] = (state.get("last_reaction", "") +
+                            " (준비 부족 — 효과 감소)")
                 emit_romance_sound(state["partner_id"])
 
             # 시간 경과 + NPC 도착 체크
@@ -1781,6 +1967,36 @@ def start_romance(player_id, partner_id, preserved=None):
                     state["last_reaction"] = f"아직 준비가 안 됐다. (성욕: {int(arousal)}/{LUBRICATION_THRESHOLD})"
                     return render_romance_ui(state)
 
+            # 삽입 호환성 체크 (크기 차이)
+            if is_turning_on and action_id in _PENETRATION_TOGGLE_IDS:
+                import gender as gender_mod
+                player_anat = action_def.get("requires_player_anatomy")
+                if player_anat == "P":
+                    compat = gender_mod.check_penetration_compatibility(
+                        player_id, state["partner_id"])
+                elif player_anat in ("V", "A"):
+                    compat = gender_mod.check_penetration_compatibility(
+                        state["partner_id"], player_id)
+                else:
+                    compat = {"needs_prep": 0, "pain": False, "stim_mod": 1.0}
+                # 준비 필요 시 자극 확인
+                if compat["needs_prep"] > 0:
+                    stim_state = state["stim"]
+                    target_cat = SENSATION_MAP.get(action_def.get("exp_part", ""), "")
+                    target_stim = stim_state["stim"].get(target_cat, 0) if target_cat else 0
+                    if target_stim < compat["needs_prep"]:
+                        state["last_reaction"] = (
+                            f"크기 차이로 더 준비가 필요하다. "
+                            f"(자극: {int(target_stim)}/{compat['needs_prep']})")
+                        return render_romance_ui(state)
+                # 통증/배율 저장
+                state["size_pain"] = compat["pain"]
+                state["size_stim_mod"] = compat["stim_mod"]
+                if compat["pain"]:
+                    rebellion_key = get_rebellion_key(player_id)
+                    morld.modify_prop(state["partner_id"], rebellion_key, 3)
+                    morld.set_unit_prop(state["partner_id"], "크기통증", 1)
+
             # 토글 상태 변경
             if is_turning_on:
                 # 같은 부위 토글 충돌 해소
@@ -1788,6 +2004,11 @@ def start_romance(player_id, partner_id, preserved=None):
                 state["active_toggles"].add(action_id)
             else:
                 state["active_toggles"].discard(action_id)
+                # 삽입 해제 시 크기 관련 상태 정리
+                if action_id in _PENETRATION_TOGGLE_IDS:
+                    state.pop("size_pain", None)
+                    state.pop("size_stim_mod", None)
+                    morld.set_unit_prop(state["partner_id"], "크기통증", 0)
 
             # 처녀(첫경험) 체크 — 토글 ON 시
             first_key = None
@@ -1795,9 +2016,22 @@ def start_romance(player_id, partner_id, preserved=None):
                 first_key = check_and_clear_virginity(
                     state["partner_id"], player_id, action_id)
 
+            # 준비 부족 체크 (강도 행위 — 토글 ON 시)
+            unprepared_toggle = is_turning_on and not check_preparation(state["stim"], action_def)
+            effective_toggle_def = action_def
+            if unprepared_toggle:
+                effective_toggle_def = dict(action_def)
+                effective_toggle_def["effects"] = {
+                    k: round(v * UNPREPARED_EFFECT_MULT)
+                    for k, v in action_def["effects"].items()
+                }
+                effective_toggle_def["exp_part"] = None
+                rebellion_key = get_rebellion_key(player_id)
+                morld.modify_prop(state["partner_id"], rebellion_key, UNPREPARED_REBELLION)
+
             # 효과 적용 (경험치 시스템 포함)
             state["stamina"] -= total_stamina
-            ecstasy_reaction = apply_effects(action_def, active_toggle_defs)
+            ecstasy_reaction = apply_effects(effective_toggle_def, active_toggle_defs)
 
             # 절정 반응이 있으면 우선 표시
             if ecstasy_reaction:
@@ -1815,6 +2049,9 @@ def start_romance(player_id, partner_id, preserved=None):
                             reaction = partner_asset.get_romance_reaction(action_id, "start")
                         if reaction:
                             state["last_reaction"] = reaction
+                    if unprepared_toggle:
+                        state["last_reaction"] = (state.get("last_reaction", "") +
+                            " (준비 부족 — 효과 감소)")
                 emit_romance_sound(state["partner_id"])
 
             # 시간 경과 + NPC 도착 체크

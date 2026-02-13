@@ -76,6 +76,7 @@ class Sera(Character):
     name = "세라"
     type = "female"
     hearing_type = "keen"
+    sexual_orientation = "bisexual"
     props = {
         "외모:흑발": 1, "외모:장발": 1, "외모:갈색눈": 1,
         "성격:과묵함": 1, "성격:듬직함": 1, "성격:리더십": 1,
@@ -92,6 +93,7 @@ class Sera(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
+        "체격": 3,
     }
     actions = [
         "call:talk:대화",
@@ -580,6 +582,7 @@ class Sera(Character):
             ({}, ["......!!", "...하지 마..."]),
         ],
         "vaginal_penetration:during": [
+            ({"크기통증": 1}, ["세라가 찡그리며 숨을 참는다. \"...커, 아파...\"", "\"으... 아파, 그런데... 으응...\""]),
             ({"성욕": 90}, ["세라가 당신을 끌어안으며 신음하고 있다.", "세라의 안이 뜨겁게 조여온다."]),
             ({}, ["세라가 이를 악물며 견디고 있다.", "세라가 얼굴을 묻고 있다."]),
         ],
@@ -595,6 +598,7 @@ class Sera(Character):
             ({}, ["...거기는...! ...안 돼...!", "...(몸이 크게 경직된다)"]),
         ],
         "anal_penetration:during": [
+            ({"크기통증": 1}, ["세라가 찡그린다. \"뒤는... 더 아파...\""]),
             ({"성욕": 90}, ["세라가 이를 악물며 떨고 있다.", "세라의 몸이 긴장으로 떨리고 있다."]),
             ({}, ["세라가 참으며 견디고 있다.", "세라가 시트를 꽉 움켜쥐고 있다."]),
         ],
@@ -626,6 +630,14 @@ class Sera(Character):
             "...이런 거... 처음이야...",
             "...으... 입에...",
             "...(서툴게 입을 벌린다)",
+        ],
+
+        # 사정 참기 반응
+        "hold_back_success:start": [
+            ({}, ["세라가 안도한다. \"...참았구나.\"", "\"...무리하지 마.\" 세라가 숨을 고른다."]),
+        ],
+        "hold_back_failure:start": [
+            ({}, ["세라가 놀란다. \"...! 안에...!?\"", "\"어...!? 안에 쏟았잖아...!\" 세라가 화들짝 놀란다."]),
         ],
 
         # 내부 사정 반응
@@ -736,6 +748,15 @@ class Sera(Character):
         "swallow_semen:start": [
             ({"성욕": 70}, ["...삼킬게...", "...뜨거워... 목 안으로..."]),
             ({}, ["...삼킬 수 없어...", "...으읍... 이 바보..."]),
+        ],
+        "swallow_semen_spit:start": [
+            ({}, ["\"...삼킬 수 없어.\" 세라가 고개를 돌려 뱉는다.", "세라가 입에서 흘리며 고개를 숙인다. \"...못 삼키겠어.\""]),
+        ],
+        "swallow_semen_drip:start": [
+            ({}, ["세라의 입에서 정액이 흘러내린다. \"...으...\"", "\"...무리야.\" 세라가 입을 열어 정액을 흘린다."]),
+        ],
+        "swallow_semen_vomit:start": [
+            ({}, ["세라가 구역질을 하며 고개를 돌린다. \"...으엑...!\"", "\"...기분 나빠...!\" 세라가 구역질한다."]),
         ],
 
         # Phase 5: 거친 행위 반응
@@ -1499,6 +1520,8 @@ class SeraAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
+        import gender as gender_mod
+        gender_mod.register_orientation(unit_id, Sera.sexual_orientation)
 
     def think(self):
         """주말/평일 감지 → 스케줄 전환"""

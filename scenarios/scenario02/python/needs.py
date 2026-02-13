@@ -31,7 +31,15 @@ CLEANLINESS_WETNESS_FACTOR = 0.05   # 젖음 x 0.05 추가
 SOCIAL_RATE = 1               # 고립 시 +1/h
 AROUSAL_NATURAL_RATE = 0.5    # 자연 성욕 증가 +0.5/h
 AROUSAL_NATURAL_CAP = 50      # 자연 증가 상한
-SUBMISSION_DECAY_INTERVAL = 2 # 복종 자연 감소 간격 (시간)
+SUBMISSION_DECAY_INTERVAL = 2 # 복종 자연 감소 간격 (시간) — 미사용 (항상성으로 대체)
+
+# === 관계 항상성 (basin 수렴) ===
+HOMEOSTASIS_RATE = 0.5  # 시간당 수렴 속도
+
+# basins: (upper_bound, attractor) — current ≤ upper_bound → attractor로 수렴
+AFFECTION_BASINS = [(35, 0), (75, 50), (100, 100)]
+REBELLION_BASINS = [(25, 0), (50, 35), (100, 75)]
+SUBMISSION_BASINS = [(20, 0), (60, 40), (100, 80)]
 
 # === 임계치 (NPC 인터럽트, Phase B에서 사용) ===
 EXCRETION_THRESHOLD = 70
@@ -189,6 +197,30 @@ def _is_alone(unit_id):
     return len([u for u in units if u != unit_id]) == 0
 
 
+def _apply_homeostasis(unit_id, prop_key, basins):
+    """관계 수치를 attractor basin으로 수렴
+
+    basins: [(upper_bound, attractor), ...] — 오름차순
+    current ≤ upper_bound인 첫 번째 basin의 attractor로 수렴.
+    """
+    current = morld.get_unit_prop(unit_id, prop_key) or 0
+    # 해당 basin 찾기
+    attractor = basins[-1][1]  # fallback: 마지막 basin
+    for upper, attr in basins:
+        if current <= upper:
+            attractor = attr
+            break
+    if current == attractor:
+        return
+    # attractor 방향으로 수렴
+    if attractor > current:
+        delta = min(attractor - current, HOMEOSTASIS_RATE)
+    else:
+        delta = -min(current - attractor, HOMEOSTASIS_RATE)
+    new_val = max(0, min(100, current + delta))
+    morld.set_unit_prop(unit_id, prop_key, new_val)
+
+
 def _process_hourly(unit_id):
     """캐릭터 1시간 욕구 업데이트"""
     # 피로: 수면 중이면 감소, 아니면 증가
@@ -267,24 +299,29 @@ def _process_hourly(unit_id):
     arousal_cap = _get_arousal_cap(unit_id)
     current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
     if current_arousal < arousal_cap:
+        arousal_rate = AROUSAL_NATURAL_RATE
+        # 성적 지향성 배율
+        player_id_h = morld.get_player_id()
+        if player_id_h:
+            try:
+                import gender as gender_mod
+                arousal_rate *= gender_mod.get_orientation_multiplier(unit_id, player_id_h)
+            except ImportError:
+                pass
         morld.set_unit_prop(unit_id, PROP_AROUSAL,
                             min(arousal_cap,
-                                current_arousal + AROUSAL_NATURAL_RATE))
+                                current_arousal + arousal_rate))
     elif current_arousal > arousal_cap:
         morld.set_unit_prop(unit_id, PROP_AROUSAL, arousal_cap)
 
-    # 복종: 자연 감소 (2시간마다 -1)
-    time_info = morld.get_time_info()
-    hour = time_info.get("hour", 0) if time_info else 0
-    if hour % SUBMISSION_DECAY_INTERVAL == 0:
-        player_id = morld.get_player_id()
-        if player_id:
-            player_info = morld.get_unit_info(player_id)
-            player_name = player_info.get("name", "주인공") if player_info else "주인공"
-            sub_key = f"관계:{player_name}:복종"
-            current_sub = morld.get_unit_prop(unit_id, sub_key) or 0
-            if current_sub > 0:
-                morld.set_unit_prop(unit_id, sub_key, max(0, current_sub - 1))
+    # 관계 항상성: 호감/반발/복종 basin 수렴
+    player_id_h = morld.get_player_id()
+    if player_id_h:
+        player_info_h = morld.get_unit_info(player_id_h)
+        player_name_h = player_info_h.get("name", "주인공") if player_info_h else "주인공"
+        _apply_homeostasis(unit_id, f"관계:{player_name_h}:호감", AFFECTION_BASINS)
+        _apply_homeostasis(unit_id, f"관계:{player_name_h}:반발", REBELLION_BASINS)
+        _apply_homeostasis(unit_id, f"관계:{player_name_h}:복종", SUBMISSION_BASINS)
 
     # 모성 욕구: 아이가 있는 경우 증가
     try:

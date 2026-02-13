@@ -59,7 +59,15 @@
 | 복종 디버그 조정 | base.py (debug_submission_up/down), 전체 NPC | ✅ 완료 |
 | 복종 이중 경로 | romance.py (is_action_available + submission) | ✅ 완료 |
 | 복종 자연 증가 (행위/절정) | romance.py, npc_initiative.py (apply_effects) | ✅ 완료 |
-| 복종 자연 감소 (시간 경과) | needs.py (_process_hourly) | ✅ 완료 |
+| 관계 항상성 (호감/반발/복종 basin 수렴) | needs.py (_apply_homeostasis) | ✅ 완료 |
+| 감각 비선형 진행 (제곱 곡선) | romance.py (get_sensation_level) | ✅ 완료 |
+| 연쇄 절정 경험치 배율 (×2.5) | stimulation.py (get_climax_sensation_gain) | ✅ 완료 |
+| 성적 지향성 (NPC별 배율) | gender.py (orientation system) | ✅ 완료 |
+| 체격/음경 크기 호환성 | gender.py (check_penetration_compatibility) | ✅ 완료 |
+| M 감각 삼키기 게이트 | romance.py, npc_initiative.py | ✅ 완료 |
+| 준비부족 강도 행위 페널티 | romance.py, npc_initiative.py | ✅ 완료 |
+| 사정감 참기 (hold_back) | romance.py, npc_initiative.py | ✅ 완료 |
+| pull_out 버그 수정 | romance.py (is_pull_out_available) | ✅ 완료 |
 | 관계 라벨 시스템 | romance.py | ✅ 완료 |
 | 반발 시스템 | romance.py, base.py | ✅ 완료 |
 | 성별 시스템 | gender.py | ✅ 완료 |
@@ -125,7 +133,7 @@ scenarios/scenario02/python/
 ├── romance.py              # 스킨십 시스템 (플레이어 주도)
 ├── date.py                 # 데이트 시스템 + 애정 표현
 ├── npc_initiative.py       # NPC 주도 스킨십 시스템 (행위 마스킹, 캐릭터 필터)
-├── gender.py               # 성별 시스템 (anatomy 매핑)
+├── gender.py               # 성별/성적지향/체격/음경크기/삽입호환성
 ├── stimulation.py          # 자극 시스템 (절정/여운/연쇄)
 ├── pregnancy.py            # 임신/출산 시스템 (월경/수정/임신/출산)
 ├── assets/

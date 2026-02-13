@@ -7,7 +7,7 @@ import morld
 import ui
 from assets.characters.player import (
     Player, NAME_OPTIONS, AGE_OPTIONS, BODY_OPTIONS, EQUIPMENT_OPTIONS,
-    GENDER_OPTIONS
+    GENDER_OPTIONS, PENIS_SIZE_OPTIONS
 )
 from assets import registry
 from assets.items.equipment import (
@@ -44,8 +44,9 @@ def run_character_creation(state=None):
             "name": None,
             "age": None,
             "body": None,
+            "penis_size": None,
             "equipment": None,
-            "step": "gender",  # gender → name → age → body → equipment → confirm
+            "step": "gender",  # gender → name → age → body → (penis_size) → equipment → confirm
         }
 
     # === 성별 → 이름 → 나이 → 체격 → 장비 → 확인 루프 ===
@@ -153,13 +154,49 @@ def run_character_creation(state=None):
                     state["step"] = "age"
                     return True
                 state["body"] = action
-                state["step"] = "equipment"
+                # 남성/후타나리면 음경 크기 선택, 여성이면 건너뜀
+                if state["gender"] in ("male", "futanari"):
+                    state["step"] = "penis_size"
+                else:
+                    state["penis_size"] = None
+                    state["step"] = "equipment"
                 return True
 
             yield ui.dialog(
                 build_body_text(),
                 autofill="off",
                 proc=handle_body,
+                result=state
+            )
+            continue
+
+        # --- 음경 크기 선택 (남성/후타나리만) ---
+        if state["step"] == "penis_size":
+            def build_penis_size_text():
+                links = "\n".join([
+                    f"[url=@proc:{opt['value']}]{opt['label']}[/url]"
+                    for opt in PENIS_SIZE_OPTIONS
+                ])
+                return (
+                    f"...\n\n"
+                    f"{links}\n\n"
+                    f"[url=@proc:back]← 체격 다시 선택[/url]"
+                )
+
+            def handle_penis_size(action):
+                if action == "init":
+                    return build_penis_size_text()
+                if action == "back":
+                    state["step"] = "body"
+                    return True
+                state["penis_size"] = int(action)
+                state["step"] = "equipment"
+                return True
+
+            yield ui.dialog(
+                build_penis_size_text(),
+                autofill="off",
+                proc=handle_penis_size,
                 result=state
             )
             continue
@@ -181,7 +218,10 @@ def run_character_creation(state=None):
                 if action == "init":
                     return build_equipment_text()
                 if action == "back":
-                    state["step"] = "body"
+                    if state["gender"] in ("male", "futanari"):
+                        state["step"] = "penis_size"
+                    else:
+                        state["step"] = "body"
                     return True
                 state["equipment"] = action
                 state["step"] = "confirm"
@@ -269,9 +309,15 @@ def apply_character_creation(state):
     # 나이 저장 (prop)
     morld.set_prop("player_age", state["age"])
 
-    # 신체 타입 저장 (인덱스)
+    # 신체 타입 저장 (인덱스 + 체격 prop)
     body_index = {"왜소": 0, "보통": 1, "장신": 2, "거구": 3}.get(state["body"], 1)
     morld.set_prop("player_body", body_index)
+    body_size = {"왜소": 1, "보통": 2, "장신": 3, "거구": 4}.get(state["body"], 2)
+    morld.set_unit_prop(player_id, "체격", body_size)
+
+    # 음경 크기 저장
+    if state.get("penis_size") is not None:
+        morld.set_unit_prop(player_id, "음경:크기", state["penis_size"])
 
     # 이름 인덱스 저장
     name_index = NAME_OPTIONS.index(state["name"]) if state["name"] in NAME_OPTIONS else 0

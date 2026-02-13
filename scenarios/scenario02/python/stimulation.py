@@ -127,16 +127,25 @@ def tick_afterglow(state):
         state["refractory"] = max(0, state["refractory"] - REFRACTORY_DECAY)
 
 
-def get_climax_sensation_gain(rebellion):
-    """절정 시 감각 경험치 보너스 (반발에 의해 억제 가능)
+def get_climax_sensation_gain(rebellion, chain_count=0):
+    """절정 시 감각 경험치 보너스 (반발 억제 + 연쇄 절정 배율)
 
     Args:
         rebellion: 반발 수치 (0-100)
+        chain_count: 연쇄 절정 횟수 (0=일반, 1+=연쇄)
 
     Returns:
         int: 경험치 증가량 (0 이상)
     """
-    return max(0, CLIMAX_SENSATION_GAIN - rebellion // 25)
+    base = max(0, CLIMAX_SENSATION_GAIN - rebellion // 25)
+    # 연쇄 절정 배율: chain 0=x1.0, 1=x1.5, 2=x2.0, 3+=x2.5
+    chain_mult = 1.0 + min(chain_count, 3) * 0.5
+    return max(0, round(base * chain_mult))
+
+
+def apply_climax_reset_p(state):
+    """P 자극 강제 리셋 (참기 실패 시 사용)"""
+    state["stim"]["P"] = 0
 
 
 # ============================================

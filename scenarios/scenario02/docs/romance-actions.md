@@ -71,6 +71,7 @@
 | anal_stimulation | 항문 자극 | 5분 | 2 | 성욕+5, 욕망+3 | 90 | **신규**, requires_exposure: lower |
 | penis_caress | 음경 쓰다듬기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 | requires_exposure: lower |
 | penis_stimulation | 음경 자극 | 5분 | 3 | 성욕+6, 욕망+3 | 90 | requires_exposure: lower |
+| hold_back | 참기 | 1분 | 2 | — | 0 | P stim ≥ 80일 때만 표시 |
 
 #### 토글형 행위 (TOGGLE_ACTIONS)
 | ID | 이름 | 틱당 시간 | 스태미나 | 효과 | 호감도 | 비고 |
@@ -575,18 +576,32 @@ ROMANCE_SOUND_PROFILE = {"levels": [low, mid, high], "ecstasy": ecstasy_intensit
 | 뺨 | F (Face) | 얼굴/목 계열 |
 | 머리 | None | 비성적 |
 
-### 감각 레벨 계산
+### 감각 레벨 계산 (비선형 제곱 곡선)
 
 ```python
+import math
+
 def get_sensation_level(unit_id, category):
-    """경험치 합산 기반 감각 레벨 (0-10)"""
+    """경험치 합산 기반 감각 레벨 (0-10) — 제곱 곡선"""
     total_exp = sum(
         morld.get_unit_prop(unit_id, f"경험:{part}") or 0
         for part, cat in SENSATION_MAP.items()
         if cat == category
     )
-    return min(10, total_exp // 5)
+    return min(10, int(math.floor(math.sqrt(total_exp / 3))))
 ```
+
+**레벨별 필요 경험치:**
+
+| 레벨 | 필요 exp | 누적 기본절정 횟수 |
+|------|---------|-------------------|
+| 1 | 3 | 1회 |
+| 3 | 27 | 9회 |
+| 5 | 75 | 25회 |
+| 7 | 147 | 49회 |
+| 10 | 300 | 100회 |
+
+저레벨은 빠르게 성장, 고레벨은 반복적인 절정(특히 연쇄 절정)이 필요.
 
 ### 감각 보정 (성욕 효과)
 
@@ -638,7 +653,7 @@ bonus = round(base_arousal_effect * sensation_level * 0.1)
 | AFTERGLOW_DECAY | 10 | 행위 1회당 여운 감소량 |
 | CHAIN_AMPLIFIER | 1.5 | 연쇄 절정 시 자극 배율 |
 | CLIMAX_AROUSAL_REDUCTION | 30 | 절정 시 성욕 감소량 |
-| CLIMAX_SENSATION_GAIN | 3 | 절정 부위 경험치 보너스 |
+| CLIMAX_SENSATION_GAIN | 3 | 절정 부위 경험치 기본 보너스 |
 | REFRACTORY_INITIAL | 60 | 불응기 초기값 (남성, 6턴 지속) |
 | REFRACTORY_DECAY | 10 | 행위 1회당 불응기 감소량 |
 | REFRACTORY_GAIN_FACTOR | 0.1 | 불응기 중 자극 gain 배율 |
@@ -1257,7 +1272,130 @@ P 보유자가 절정 시 추가 묘사:
 
 ---
 
-## 13. 캐릭터별 구현 가이드
+## 13. 연쇄 절정 경험치 배율 (Chain Climax Exp)
+
+### 개요
+연쇄 절정(여운 중 재절정) 시 감각 경험치 보너스에 배율 적용.
+고레벨 감각 달성의 주된 수단.
+
+### 공식
+
+```python
+def get_climax_sensation_gain(rebellion, chain_count=0):
+    base = max(0, 3 - rebellion // 25)
+    chain_mult = 1.0 + min(chain_count, 3) * 0.5
+    return max(0, round(base * chain_mult))
+```
+
+| chain_count | 배율 | 결과 (반발 0) |
+|-------------|------|--------------|
+| 0 | ×1.0 | 3 exp |
+| 1 | ×1.5 | 4 exp |
+| 2 | ×2.0 | 6 exp |
+| 3+ | ×2.5 | 7 exp |
+
+연쇄 절정 3회 이상에서 최대 배율. 반발이 높으면 base 자체가 감소.
+
+---
+
+## 14. M 감각 삼키기 게이트 (Swallow Gate)
+
+### 개요
+구강 내 사정(swallow_semen) 시 M 감각 레벨에 따라 삼키기/뱉기/흘림/구역질 분기.
+
+### M 레벨별 분기
+
+| M 감각 | 행동 | 반응 키 | 메커니즘 |
+|--------|------|---------|---------|
+| ≥ 5 | 삼키기 (정상) | `swallow_semen:start` | 구강 정액 제거, 체내 흡수 |
+| 3-4 | 뱉기 | `swallow_semen_spit:start` | 구강 제거, 일부 외부(가슴) 적용 |
+| 1-2 | 흘림 | `swallow_semen_drip:start` | 절반 제거, 나머지 외부 |
+| 0 | 구역질 | `swallow_semen_vomit:start` | 구강 유지, 반발 +2 |
+
+### 상수
+```python
+SWALLOW_M_THRESHOLD = 5
+```
+
+---
+
+## 15. 준비부족 강도 행위 페널티 (Unprepared Penalty)
+
+### 개요
+intensity ≥ 3인 행위를 대상 부위 자극이 낮은 상태에서 시도하면 페널티 적용.
+
+### 메커니즘
+
+| 항목 | 값 |
+|------|---|
+| 적용 조건 | `intensity ≥ 3` and 대상 부위 stim < 30 |
+| 효과 배율 | ×0.5 (`UNPREPARED_EFFECT_MULT`) |
+| 반발 증가 | +2 (`UNPREPARED_REBELLION`) |
+| 경험치 | 미지급 (`suppress_exp=True`) |
+
+### 상수
+```python
+PREPARATION_THRESHOLD = 30
+UNPREPARED_EFFECT_MULT = 0.5
+UNPREPARED_REBELLION = 2
+```
+
+### 적용 범위
+- 즉시형/토글형 행위 모두 적용
+- 플레이어 주도 (romance.py) + NPC 주도 (npc_initiative.py) 모두
+
+---
+
+## 16. 사정감 참기 (Hold Back)
+
+### 개요
+P 보유 플레이어가 P 자극 80+ 상태에서 사정을 참는 즉시 행위.
+확률적 성공/실패 → 실패 시 강제 사정.
+
+### 조건
+- `requires_player_anatomy_self: "P"` — P 보유 플레이어만
+- P stim ≥ 80 (`HOLD_BACK_P_THRESHOLD`)일 때만 UI에 표시
+
+### 성공 확률 계산
+
+```python
+def _calculate_hold_back_chance(player_id, stim_state):
+    p_stim = stim_state["stim"].get("P", 0)
+    p_sensation = get_sensation_level(player_id, "P")
+    chance = 40 - (p_stim - 80) * 2 + p_sensation * 5
+    return max(5, min(90, chance))
+```
+
+| P stim | P 감각 0 | P 감각 5 | P 감각 10 |
+|--------|---------|---------|----------|
+| 80 | 40% | 65% | 90% |
+| 90 | 20% | 45% | 70% |
+| 100 | 0%→5% | 25% | 50% |
+
+### 결과
+
+| 결과 | 처리 |
+|------|------|
+| 성공 | P stim → 60, 반응 `hold_back_success:start` |
+| 실패 | 강제 P 절정 + 삽입 중이면 체내 사정 + 임신 판정, 반응 `hold_back_failure:start` |
+
+### P stim 누적
+
+삽입 토글 활성 중 매 행위 실행 시 P stim 자동 증가:
+```python
+p_gain = max(3, base_arousal_effect // 2)
+```
+
+UI: `참기 (X%)` 버튼으로 현재 성공률 표시.
+
+### pull_out 버그 수정
+
+기존 `is_pull_out_available()`에서 `stim.get("level", 0)` → `stim["stim"].get("P", 0)` 수정.
+(항상 0을 반환하여 빼기가 불가능했던 버그)
+
+---
+
+## 17. 캐릭터별 구현 가이드
 
 ### Character 클래스 속성 (base.py)
 

@@ -597,7 +597,7 @@ load_chapter("chapter_1") → 35+ location 추가
 
 ```python
 # load_chapter() step 2.1
-import temperature, humidity, congestion, sound, garden, needs, pregnancy
+import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender
 temperature.reset()
 humidity.reset()
 congestion.reset()
@@ -605,6 +605,7 @@ sound.reset()
 garden.reset()
 needs.reset()
 pregnancy.reset()
+gender.reset_orientation()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -620,6 +621,7 @@ pregnancy.reset()
 | `garden.py` | _registered_gardens | GardenBed.instantiate()에서 재등록 |
 | `needs.py` | _npc_registry, _accumulated | 플레이어 자동 추적, NPC 재등록 필요 |
 | `pregnancy.py` | _registry, _child_registry | V 보유 캐릭터 재등록 필요 |
+| `gender.py` | _orientation_cache | NPC Agent.__init__에서 재등록 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---
@@ -887,19 +889,20 @@ pregnancy.reset()                        # 챕터 전환
 
 | 시스템 | 파일 | 설명 |
 |--------|------|------|
-| 스킨십 | `romance.py` | 플레이어 주도 친밀 행위 (즉시형 16종 + 토글형 19종) |
+| 스킨십 | `romance.py` | 플레이어 주도 친밀 행위 (즉시형 17종 + 토글형 19종) |
 | 데이트 | `date.py` | 데이트 요청/종료 |
 | NPC 주도 | `npc_initiative.py` | NPC가 먼저 스킨십 시작 |
-| 성별 | `gender.py` | 성별별 보유 감각 카테고리 (male/female/futanari/asexual) |
-| 감각 | `romance.py` | 부위별 경험치 → M/B/A/V/C/P 감각 레벨 → 성욕 보정 |
-| 자극 | `stimulation.py` | 세션 스코프 부위별 자극 → 절정/여운/연쇄 절정 |
-| 삽입 | `romance.py` | 삽입 행위 4종 (질/항문 × 삽입/피삽입) + 임신 판정 |
+| 성별/지향 | `gender.py` | 성별, 성적 지향, 체격/음경 크기, 삽입 호환성 |
+| 감각 | `romance.py` | 부위별 경험치 → 비선형 감각 레벨 (제곱 곡선) → 성욕 보정 |
+| 자극 | `stimulation.py` | 세션 스코프 부위별 자극 → 절정/여운/연쇄 절정 + 연쇄 exp 배율 |
+| 삽입 | `romance.py` | 삽입 행위 4종 + 체격 호환성 + 참기/빼기 + 임신 판정 |
 | 관계 라벨 | `romance.py` | 호감+욕망 기반 관계 라벨 (타인/친구/정욕/애인) |
 | 반발 | `romance.py`, `base.py` | `관계:{name}:반발` prop, 자극 억제 |
 | 공수 전환 | `romance.py`, `npc_initiative.py` | 세션 중 주도권 전환 (자극/스태미나 유지) |
 | 욕망 | `romance.py`, `needs.py` | `관계:{name}:욕망` prop, 동적 성욕 cap 연동 |
 | 이중 경로 해금 | `romance.py` | 욕망/복종에 의한 호감 요구치 할인 (최대 50%) |
-| 복종 | `base.py` | `관계:{name}:복종` prop + 자연 증가/감소 |
+| 복종 | `base.py` | `관계:{name}:복종` prop + 관계 항상성 수렴 |
+| 관계 항상성 | `needs.py` | 호감/반발/복종 basin 기반 시간 수렴 (±0.5/h) |
 
 ### 캐릭터별 NPC 주도 설정
 

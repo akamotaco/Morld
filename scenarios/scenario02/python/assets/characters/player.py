@@ -31,6 +31,12 @@ GENDER_OPTIONS = [
     {"value": "futanari", "label": "후타나리"},
 ]
 
+PENIS_SIZE_OPTIONS = [
+    {"value": 1, "label": "작음 - 평균 이하"},
+    {"value": 2, "label": "보통 - 평범한 크기"},
+    {"value": 3, "label": "큼 - 평균 이상"},
+]
+
 EQUIPMENT_OPTIONS = [
     {
         "id": "hunter",
