@@ -121,6 +121,44 @@ PLAYER_INSTANT_ACTIONS = {
         "effects": {"호감": 1},
         "exp_part": None, "affection_req": 80, "undress": "lower"
     },
+    "swallow_semen": {
+        "name": "삼키기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {"욕망": 2, "복종": 1},
+        "exp_part": "입술", "affection_req": 90,
+        "requires_internal_semen": "구강"
+    },
+    # 강도 행위
+    "nipple_pinch": {
+        "name": "유두 꼬집기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 7, "욕망": 3, "복종": 1},
+        "exp_part": "유두", "affection_req": 90, "requires_exposure": "upper",
+        "intensity": 3
+    },
+    "rough_finger": {
+        "name": "거친 손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 9, "욕망": 5, "복종": 2},
+        "exp_part": "음부", "affection_req": 98, "requires_exposure": "lower",
+        "intensity": 3
+    },
+    # 삽입 중 즉시형 행위
+    "thrust_deep": {
+        "name": "깊게 밀어넣기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 8, "욕망": 4, "복종": 1},
+        "exp_part": None, "affection_req": 98,
+        "requires_active_penetration": True, "intensity": 3
+    },
+    "thrust_slow": {
+        "name": "느리게 움직이기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 4, "호감": 2, "욕망": 2},
+        "exp_part": None, "affection_req": 98,
+        "requires_active_penetration": True, "intensity": 1
+    },
+    "grind": {
+        "name": "밀착 흔들기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 6, "욕망": 3},
+        "exp_part": "클리토리스", "affection_req": 98,
+        "requires_active_penetration": True, "intensity": 2
+    },
 }
 
 # NPC 토글 행위 정의 (romance.py와 공유)
@@ -236,6 +274,23 @@ NPC_TOGGLE_ACTIONS = {
         "exp_part": "음경", "affection_req": 98,
         "requires_player_anatomy": "A",
         "requires_exposure": "lower",
+    },
+    # 강도 행위
+    "rough_thrust": {
+        "name": "거칠게 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
+        "effects": {"성욕": 11, "욕망": 7, "복종": 2},
+        "exp_part": "음부", "affection_req": 100,
+        "requires_player_anatomy": "P",
+        "requires_exposure": "lower",
+        "pregnancy_check": True, "intensity": 3
+    },
+    "hard_anal": {
+        "name": "거친 항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
+        "effects": {"성욕": 11, "욕망": 7, "복종": 3},
+        "exp_part": "엉덩이", "affection_req": 100,
+        "requires_player_anatomy": "P",
+        "requires_exposure": "lower",
+        "intensity": 3
     },
 }
 
@@ -622,7 +677,7 @@ def get_available_npc_actions(npc_id, player_id):
     return available
 
 
-def select_random_npc_action(npc_id, player_id, active_toggles):
+def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True):
     """
     NPC가 랜덤으로 행위 선택
 
@@ -633,6 +688,7 @@ def select_random_npc_action(npc_id, player_id, active_toggles):
         npc_id: NPC ID
         player_id: 플레이어 ID
         active_toggles: 현재 활성화된 토글 set
+        lubricated: 윤활 상태 (False면 pregnancy_check 행위 제외)
 
     Returns:
         str: 선택된 액션 ID 또는 None (더 이상 선택할 액션 없음)
@@ -646,6 +702,11 @@ def select_random_npc_action(npc_id, player_id, active_toggles):
         if allowed is not None:
             # 허용된 액션만 남김
             available = [a for a in available if a in allowed]
+
+    # 윤활 미충족 시 질 삽입 행위 제외
+    if not lubricated:
+        available = [a for a in available
+                     if not NPC_TOGGLE_ACTIONS.get(a, {}).get("pregnancy_check")]
 
     # 이미 활성화된 토글 제외
     candidates = [a for a in available if a not in active_toggles]
@@ -918,6 +979,29 @@ def render_npc_initiative_ui(state):
         exposure_parts.append("[color=pink]하체 노출[/color]")
     if exposure_parts:
         lines.append(f"복장: {' '.join(exposure_parts)}")
+
+    # 체내 정액 표시
+    from romance import get_internal_semen_total, get_internal_semen, INTERNAL_SEMEN_PARTS
+    internal_total = get_internal_semen_total(npc_id)
+    if internal_total > 0:
+        internal_parts = []
+        for ip in INTERNAL_SEMEN_PARTS:
+            val = get_internal_semen(npc_id, ip)
+            if val > 0:
+                internal_parts.append(f"{ip}: {val}")
+        if internal_parts:
+            lines.append(f"[color=pink]체내 정액: {', '.join(internal_parts)}[/color]")
+
+    # 윤활 상태 표시
+    import gender as gender_mod
+    from romance import LUBRICATION_THRESHOLD
+    if gender_mod.has_anatomy(npc_id, "V"):
+        if state.get("lubricated"):
+            lines.append("[color=green]윤활: 충분[/color]")
+        else:
+            arousal = morld.get_unit_prop(npc_id, "상태:성욕") or 0
+            lines.append(f"[color=red]윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})[/color]")
+
     lines.append("")
 
     # 탈출 확률 표시
@@ -943,10 +1027,20 @@ def render_npc_initiative_ui(state):
     lines.append("")
 
     # 플레이어 선택 가능한 즉시 행위
+    from romance import _has_active_penetration
+    has_penetration = _has_active_penetration(active_toggles)
     lines.append("[즉시 행위] (플레이어)")
     for action_id, action in PLAYER_INSTANT_ACTIONS.items():
         if not is_anatomy_compatible(action, npc_id, actor_id=player_id):
             continue
+        # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
+        if action.get("requires_active_penetration") and not has_penetration:
+            continue
+        # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
+        req_internal = action.get("requires_internal_semen")
+        if req_internal:
+            if get_internal_semen(npc_id, req_internal) <= 0:
+                continue
         # 탈의 행위: 벗을 것 없으면 숨김
         if action.get("undress"):
             is_upper = action["undress"] == "upper"
@@ -1112,10 +1206,13 @@ def apply_action_effects(state, action_def):
             if gender_mod.has_anatomy(npc_id, "P"):
                 ejac_part = _get_active_penetration_part_npc(state["active_toggles"])
 
-        # 내부 사정 → 정액 흘러나옴
-        if ejac_part and ejac_part in ("음부", "항문"):
-            from romance import _apply_semen, SEMEN_INTERNAL_DRIP
-            _apply_semen(npc_id, ejac_part, SEMEN_INTERNAL_DRIP)
+        # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
+        if ejac_part and ejac_part in ("음부", "항문", "구강"):
+            from romance import _apply_internal_semen, calculate_ejaculation_amount
+            import gender as _gm
+            _p_holder = npc_id if _gm.has_anatomy(npc_id, "P") else state["player_id"]
+            _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
+            _apply_internal_semen(npc_id, ejac_part, _ejac_amt)
 
         # 절정 반응 텍스트
         npc_asset = get_npc_asset(npc_id)
@@ -1153,6 +1250,7 @@ def _extract_preserved(state):
         "stamina": state["stamina"],
         "elapsed_time": state["elapsed_time"],
         "checked_npcs": state.get("checked_npcs", set()),
+        "lubricated": state.get("lubricated", False),
         "schedule_pushed": True,
     }
 
@@ -1200,6 +1298,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         "exhausted": False,
         "last_reaction": None,
         "escape_result": None,
+        "lubricated": False,  # 윤활 세션 플래그
         "stim": stimulation.create_state(
             male_mode=(gender_mod.get_gender(npc_id) == "male")
         ),  # 부위별 자극 상태 (세션 스코프)
@@ -1210,6 +1309,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         state["stim"] = preserved["stim"]
         state["stamina"] = preserved["stamina"]
         state["elapsed_time"] = preserved["elapsed_time"]
+        if preserved.get("lubricated"):
+            state["lubricated"] = preserved["lubricated"]
         if preserved.get("checked_npcs"):
             state["checked_npcs"] = preserved["checked_npcs"]
 
@@ -1252,6 +1353,27 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 return None
 
             state["escape_result"] = None
+
+            # 삽입 중 즉시형: 유효성 + exp_part 동적 오버라이드
+            if action_def.get("requires_active_penetration"):
+                from romance import _get_penetration_exp_part
+                if not _has_active_penetration(state["active_toggles"]):
+                    return render_npc_initiative_ui(state)
+                if action_def.get("exp_part") is None:
+                    pen_part = _get_penetration_exp_part(state["active_toggles"])
+                    if pen_part:
+                        action_def = dict(action_def)
+                        action_def["exp_part"] = pen_part
+
+            # 체내 정액 필요 행위 유효성 검증
+            req_internal = action_def.get("requires_internal_semen")
+            if req_internal:
+                from romance import get_internal_semen
+                if get_internal_semen(npc_id, req_internal) <= 0:
+                    return render_npc_initiative_ui(state)
+                # 삼키기: 체내 정액 제거
+                if action_id == "swallow_semen":
+                    morld.clear_prop(npc_id, f"체내:정액:{req_internal}")
 
             # 탈의 전용 처리
             if action_def.get("undress"):
@@ -1355,8 +1477,13 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if action == "accept":
             state["escape_result"] = None
 
+            # 윤활 상태 업데이트 (NPC 성욕이 임계치 이상이면 세션 동안 유지)
+            from romance import check_lubrication
+            check_lubrication(npc_id, state)
+
             # NPC가 새로운 행위를 랜덤 선택 (기존 토글 제외)
-            new_action = select_random_npc_action(npc_id, player_id, state["active_toggles"])
+            new_action = select_random_npc_action(npc_id, player_id, state["active_toggles"],
+                                                   lubricated=state.get("lubricated", True))
 
             # 새 액션의 정의
             new_toggle_def = None

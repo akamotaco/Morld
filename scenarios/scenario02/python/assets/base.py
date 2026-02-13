@@ -778,6 +778,14 @@ class Character(Unit):
             context["정액"] = semen_total
             for p in _semen_parts:
                 context[f"정액:{p}"] = props.get(f"오염물:정액:{p}", 0)
+            # 체내 정액
+            _internal_parts = ["음부", "항문", "구강"]
+            internal_total = 0
+            for ip in _internal_parts:
+                val = props.get(f"체내:정액:{ip}", 0)
+                context[f"체내정액:{ip}"] = val
+                internal_total += val
+            context["체내정액"] = internal_total
             # 도구 분실 플래그
             for key, value in props.items():
                 if key.startswith("도구분실:"):
@@ -798,6 +806,10 @@ class Character(Unit):
             context["on_date"] = True
         else:
             context["on_date"] = False
+
+        # 플레이어 체력 역전 (HP 낮을수록 높은 값 → >= 비교 편의)
+        player_hp = morld.get_unit_prop(player_id, "생존:체력")
+        context["피로도_체력"] = max(0, 100 - (player_hp if player_hp is not None else 100))
 
         return context
 
@@ -923,6 +935,15 @@ class Character(Unit):
             return True
 
         for key, required_value in condition.items():
+            # 플레이어 체력 역전값 (HP 낮을수록 높음)
+            if key == "피로도_체력":
+                player_id = morld.get_player_id()
+                player_hp = morld.get_unit_prop(player_id, "생존:체력") if player_id else 100
+                actual_value = max(0, 100 - (player_hp if player_hp is not None else 100))
+                if actual_value < required_value:
+                    return False
+                continue
+
             if key in ("호감", "욕망", "복종", "반발"):
                 prop_key = f"관계:{player_name}:{key}"
             elif key in ("성욕", "성적절정"):

@@ -23,6 +23,7 @@ import random
 
 PREGNANCY_TIME_SCALE = 1.0  # 기본 배율 (디버그에서 수정 가능)
 MILLIS_PER_HOUR = 3_600_000
+LACTATION_DURATION_DAYS = 180  # 수유 지속 기간 (출산 후 6개월)
 
 # ============================================
 # 상수
@@ -232,6 +233,8 @@ def _pregnancy_daily(unit_id):
     # 임신 20주+ → 수유 시작
     if week >= 20 and not morld.get_unit_prop(unit_id, "상태:수유"):
         morld.set_unit_prop(unit_id, "상태:수유", 1)
+        morld.set_unit_prop(unit_id, "상태:수유시작일",
+                            morld.get_time_info().get("day", 0))
 
 
 # ============================================
@@ -245,6 +248,10 @@ def reset_pregnancy(unit_id):
     morld.set_unit_prop(unit_id, "상태:수정일", None)
     # 월경 주기 재시작
     morld.set_unit_prop(unit_id, "생식:주기일", 1)
+    # 수유시작일이 없으면 현재 날짜로 설정 (기존 데이터 호환)
+    if morld.get_unit_prop(unit_id, "상태:수유") and not morld.get_unit_prop(unit_id, "상태:수유시작일"):
+        morld.set_unit_prop(unit_id, "상태:수유시작일",
+                            morld.get_time_info().get("day", 0))
 
 
 def spawn_child(mother_agent):
@@ -421,6 +428,15 @@ def _daily_update(unit_id):
     if morld.get_unit_prop(unit_id, "상태:임신"):
         _pregnancy_daily(unit_id)
         return
+
+    # 수유 종료 체크 (비임신 + 수유 중 → 출산 후 180일 경과)
+    if morld.get_unit_prop(unit_id, "상태:수유"):
+        start_day = morld.get_unit_prop(unit_id, "상태:수유시작일")
+        if start_day is not None:
+            current_day = morld.get_time_info().get("day", 0)
+            if current_day - start_day >= LACTATION_DURATION_DAYS:
+                morld.set_unit_prop(unit_id, "상태:수유", 0)
+                morld.clear_prop(unit_id, "상태:수유시작일")
 
     # 주기일 진행
     cycle_day = morld.get_unit_prop(unit_id, "생식:주기일") or 1

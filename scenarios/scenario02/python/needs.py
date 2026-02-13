@@ -238,6 +238,25 @@ def _process_hourly(unit_id):
     morld.set_unit_prop(unit_id, PROP_CLEANLINESS,
                         min(100, current + cleanliness_increase))
 
+    # 체내 정액: 매시간 -10 감소, 음부/항문은 외부로 흘러나옴
+    try:
+        from romance import INTERNAL_SEMEN_PARTS, get_internal_semen
+        _DRIP_MAP = {"음부": "음부", "항문": "엉덩이"}  # 체내→체외 매핑
+        for ip in INTERNAL_SEMEN_PARTS:
+            iv = get_internal_semen(unit_id, ip)
+            if iv > 0:
+                decay = min(iv, 10)
+                morld.set_unit_prop(unit_id, f"체내:정액:{ip}", max(0, iv - decay))
+                # 흘러나옴 (구강 제외)
+                drip_target = _DRIP_MAP.get(ip)
+                if drip_target:
+                    drip_amount = min(5, decay)
+                    ext_val = morld.get_unit_prop(unit_id, f"오염물:정액:{drip_target}") or 0
+                    morld.set_unit_prop(unit_id, f"오염물:정액:{drip_target}",
+                                        min(100, ext_val + drip_amount))
+    except ImportError:
+        pass
+
     # 사회: 혼자이면 증가
     if _is_alone(unit_id):
         current_social = get_social(unit_id)

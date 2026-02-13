@@ -40,9 +40,15 @@ SUBMISSION_MAX = 100              # 복종 상한
 
 # 정액 오염 시스템
 SEMEN_PARTS = ["얼굴", "가슴", "배", "음부", "엉덩이"]
-SEMEN_EXTERNAL_AMOUNT = 30        # 외부 사정 시 부위별 적용량
-SEMEN_INTERNAL_DRIP = 10          # 내부 사정 후 흘러나옴
+SEMEN_EXTERNAL_AMOUNT = 30        # 외부 사정 시 부위별 적용량 (기본값, 동적 계산 시 base)
+SEMEN_INTERNAL_DRIP = 10          # 내부 사정 후 흘러나옴 (기본값)
+SEMEN_AMOUNT_BASE = 30            # 사정량 기본값
+SEMEN_AMOUNT_MIN = 10             # 최소 사정량
+SEMEN_AMOUNT_MAX = 100            # 최대 사정량
+INTERNAL_SEMEN_PARTS = ["음부", "항문", "구강"]  # 체내 정액 부위
+INTERNAL_SEMEN_MAX = 100          # 체내 정액 최대값
 PULL_OUT_STIM_THRESHOLD = 80      # 질외사정 가능 자극 임계값
+LUBRICATION_THRESHOLD = 30        # 윤활 임계치 (성욕 기준)
 
 # ============================================
 # 감각 시스템 (부위 → M/B/A/V 매핑)
@@ -192,6 +198,44 @@ INSTANT_ACTIONS = {
         "effects": {"호감": 1},
         "exp_part": None, "affection_req": 80, "undress": "lower"
     },
+    "swallow_semen": {
+        "name": "삼키기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {"욕망": 2, "복종": 1},
+        "exp_part": "입술", "affection_req": 90,
+        "requires_internal_semen": "구강"
+    },
+    # 강도 행위
+    "nipple_pinch": {
+        "name": "유두 꼬집기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 7, "욕망": 3, "복종": 1},
+        "exp_part": "유두", "affection_req": 90, "requires_exposure": "upper",
+        "intensity": 3
+    },
+    "rough_finger": {
+        "name": "거친 손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 9, "욕망": 5, "복종": 2},
+        "exp_part": "음부", "affection_req": 98, "requires_exposure": "lower",
+        "intensity": 3
+    },
+    # 삽입 중 즉시형 행위
+    "thrust_deep": {
+        "name": "깊게 밀어넣기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 8, "욕망": 4, "복종": 1},
+        "exp_part": None, "affection_req": 98,
+        "requires_active_penetration": True, "intensity": 3
+    },
+    "thrust_slow": {
+        "name": "느리게 움직이기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 4, "호감": 2, "욕망": 2},
+        "exp_part": None, "affection_req": 98,
+        "requires_active_penetration": True, "intensity": 1
+    },
+    "grind": {
+        "name": "밀착 흔들기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 6, "욕망": 3},
+        "exp_part": "클리토리스", "affection_req": 98,
+        "requires_active_penetration": True, "intensity": 2
+    },
 }
 
 # ============================================
@@ -310,6 +354,23 @@ TOGGLE_ACTIONS = {
         "requires_player_anatomy": "A",
         "requires_exposure": "lower",
     },
+    # 강도 행위
+    "rough_thrust": {
+        "name": "거칠게 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
+        "effects": {"성욕": 11, "욕망": 7, "복종": 2},
+        "exp_part": "음부", "affection_req": 100,
+        "requires_player_anatomy": "P",
+        "requires_exposure": "lower",
+        "pregnancy_check": True, "intensity": 3
+    },
+    "hard_anal": {
+        "name": "거친 항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
+        "effects": {"성욕": 11, "욕망": 7, "복종": 3},
+        "exp_part": "엉덩이", "affection_req": 100,
+        "requires_player_anatomy": "P",
+        "requires_exposure": "lower",
+        "intensity": 3
+    },
 }
 
 # ============================================
@@ -321,8 +382,11 @@ VIRGINITY_CLEARING_ACTIONS = {
     "vaginal_penetration": "처녀:음부",
     "receive_penetration": "처녀:음부",
     "finger_insertion": "처녀:음부",
+    "rough_finger": "처녀:음부",
+    "rough_thrust": "처녀:음부",
     "anal_penetration": "처녀:항문",
     "receive_anal": "처녀:항문",
+    "hard_anal": "처녀:항문",
     "fellatio": "처녀:구강",
 }
 
@@ -389,9 +453,52 @@ def _apply_semen(target_id, part, amount):
 
 
 def clear_all_semen(unit_id):
-    """전부위 정액 제거 (목욕 시)"""
+    """전부위 정액 제거 (목욕 시) — 외부 + 체내"""
     for p in SEMEN_PARTS:
         morld.clear_prop(unit_id, f"오염물:정액:{p}")
+    for p in INTERNAL_SEMEN_PARTS:
+        morld.clear_prop(unit_id, f"체내:정액:{p}")
+
+
+def get_internal_semen(unit_id, part):
+    """체내 정액 조회"""
+    return morld.get_unit_prop(unit_id, f"체내:정액:{part}") or 0
+
+
+def get_internal_semen_total(unit_id):
+    """체내 정액 전체 합산"""
+    return sum(get_internal_semen(unit_id, p) for p in INTERNAL_SEMEN_PARTS)
+
+
+def _apply_internal_semen(target_id, part, amount):
+    """체내 정액 적용"""
+    prop = f"체내:정액:{part}"
+    current = morld.get_unit_prop(target_id, prop) or 0
+    morld.set_unit_prop(target_id, prop, min(INTERNAL_SEMEN_MAX, current + amount))
+
+
+def clear_all_internal_semen(unit_id):
+    """전부위 체내 정액 제거"""
+    for p in INTERNAL_SEMEN_PARTS:
+        morld.clear_prop(unit_id, f"체내:정액:{p}")
+
+
+def calculate_ejaculation_amount(unit_id, stamina):
+    """사정량 계산 — P 감각 + 체력 기반
+
+    Args:
+        unit_id: P 보유자 unit_id
+        stamina: 현재 세션 스태미나
+
+    Returns:
+        int: 사정량 (10-100)
+    """
+    base = SEMEN_AMOUNT_BASE
+    p_sensation = get_sensation_level(unit_id, "P")
+    sensation_bonus = p_sensation * 3
+    stamina_bonus = stamina * 2
+    amount = base + sensation_bonus + stamina_bonus
+    return max(SEMEN_AMOUNT_MIN, min(SEMEN_AMOUNT_MAX, round(amount)))
 
 
 def is_pull_out_available(state):
@@ -652,6 +759,54 @@ def _has_active_intercourse(active_toggles, toggle_actions):
         td = toggle_actions.get(toggle_id)
         if td and td.get("pregnancy_check"):
             return True
+    return False
+
+
+# 삽입 토글 ID 집합 (삽입 중 즉시형 행위 활성화 판별용)
+_PENETRATION_TOGGLE_IDS = {
+    "vaginal_penetration", "receive_penetration",
+    "anal_penetration", "receive_anal",
+    "rough_thrust", "hard_anal",
+}
+
+# 삽입 토글 → exp_part 매핑 (동적 exp_part 상속용)
+_PENETRATION_EXP_MAP = {
+    "vaginal_penetration": "음부", "receive_penetration": "음부",
+    "rough_thrust": "음부",
+    "anal_penetration": "엉덩이", "receive_anal": "엉덩이",
+    "hard_anal": "엉덩이",
+}
+
+
+def _has_active_penetration(active_toggles):
+    """활성 토글 중 삽입 행위가 있는지 확인"""
+    return bool(active_toggles & _PENETRATION_TOGGLE_IDS)
+
+
+def _get_penetration_exp_part(active_toggles):
+    """활성 삽입 토글의 exp_part 반환 (첫 번째 매칭)"""
+    for tid in active_toggles:
+        if tid in _PENETRATION_EXP_MAP:
+            return _PENETRATION_EXP_MAP[tid]
+    return None
+
+
+def check_lubrication(partner_id, state):
+    """윤활 체크 — V 보유자의 성욕이 임계치 이상인지 확인
+
+    한번 충족되면 세션 동안 유지 (state["lubricated"] = True).
+    Returns True if OK, False if too dry.
+    """
+    if state.get("lubricated"):
+        return True
+    import gender as gender_mod
+    if not gender_mod.has_anatomy(partner_id, "V"):
+        state["lubricated"] = True  # V 없으면 항상 OK
+        return True
+    arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
+    if arousal >= LUBRICATION_THRESHOLD:
+        state["lubricated"] = True
+        return True
     return False
 
 
@@ -994,6 +1149,26 @@ def render_romance_ui(state):
             if semen_detail:
                 lines.append(f"[color=pink]정액: {', '.join(semen_detail)}[/color]")
 
+    # 체내 정액 표시
+    internal_total = get_internal_semen_total(partner_id)
+    if internal_total > 0:
+        internal_parts = []
+        for ip in INTERNAL_SEMEN_PARTS:
+            val = get_internal_semen(partner_id, ip)
+            if val > 0:
+                internal_parts.append(f"{ip}: {val}")
+        if internal_parts:
+            lines.append(f"[color=pink]체내 정액: {', '.join(internal_parts)}[/color]")
+
+    # 윤활 상태 표시
+    import gender as gender_mod
+    if gender_mod.has_anatomy(partner_id, "V"):
+        if state.get("lubricated"):
+            lines.append("[color=green]윤활: 충분[/color]")
+        else:
+            arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
+            lines.append(f"[color=red]윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})[/color]")
+
     lines.append("")
     lines.append(ui.divider())
     lines.append("")
@@ -1033,10 +1208,19 @@ def render_romance_ui(state):
     lines.append("")
 
     # 즉시 행위
+    has_penetration = _has_active_penetration(state["active_toggles"])
     lines.append("[즉시 행위]")
     for action_id, action in INSTANT_ACTIONS.items():
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
+        # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
+        if action.get("requires_active_penetration") and not has_penetration:
+            continue
+        # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
+        req_internal = action.get("requires_internal_semen")
+        if req_internal:
+            if get_internal_semen(partner_id, req_internal) <= 0:
+                continue
         # 탈의 행위: 벗을 것 없으면 숨김
         if action.get("undress"):
             is_upper = action["undress"] == "upper"
@@ -1201,6 +1385,7 @@ def _extract_preserved(state):
         "stamina": state["stamina"],
         "elapsed_time": state["elapsed_time"],
         "checked_npcs": state.get("checked_npcs", set()),
+        "lubricated": state.get("lubricated", False),
         "schedule_pushed": True,
     }
 
@@ -1245,6 +1430,7 @@ def start_romance(player_id, partner_id, preserved=None):
         "interrupter_id": None,
         "exhausted": False,  # 체력 소진 종료
         "last_reaction": None,  # 마지막 즉시 액션 반응 텍스트
+        "lubricated": False,  # 윤활 세션 플래그
         "stim": stimulation.create_state(
             male_mode=(gender_mod.get_gender(partner_id) == "male")
         ),  # 부위별 자극 상태 (세션 스코프)
@@ -1255,6 +1441,8 @@ def start_romance(player_id, partner_id, preserved=None):
         state["stim"] = preserved["stim"]
         state["stamina"] = preserved["stamina"]
         state["elapsed_time"] = preserved["elapsed_time"]
+        if preserved.get("lubricated"):
+            state["lubricated"] = preserved["lubricated"]
         if preserved.get("checked_npcs"):
             state["checked_npcs"] = preserved["checked_npcs"]
 
@@ -1361,9 +1549,14 @@ def start_romance(player_id, partner_id, preserved=None):
                 if gender_mod.has_anatomy(pid, "P"):
                     ejac_part = _get_active_penetration_part(state["active_toggles"])
 
-            # 내부 사정 → 정액 흘러나옴
-            if ejac_part and ejac_part in ("음부", "항문"):
-                _apply_semen(pid, ejac_part, SEMEN_INTERNAL_DRIP)
+            # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
+            if ejac_part and ejac_part in ("음부", "항문", "구강"):
+                import gender as _gm
+                _p_holder = player_id
+                if _gm.has_anatomy(pid, "P"):
+                    _p_holder = pid
+                _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
+                _apply_internal_semen(pid, ejac_part, _ejac_amt)
 
             # 절정 반응 텍스트 (우선순위: intercourse > chain > category > default)
             partner_asset = get_partner_asset(pid)
@@ -1422,19 +1615,28 @@ def start_romance(player_id, partner_id, preserved=None):
             stim = state.get("stim")
             if stim:
                 stimulation.force_climax(stim, "P")
+            # 사정량 계산
+            import gender as gender_mod
+            p_holder_id = state["player_id"]
+            if gender_mod.has_anatomy(pid, "P"):
+                p_holder_id = pid
+            ejac_amount = calculate_ejaculation_amount(p_holder_id, state["stamina"])
             # 정액 적용
-            _apply_semen(pid, target_part, SEMEN_EXTERNAL_AMOUNT)
+            _apply_semen(pid, target_part, ejac_amount)
             # 외부 사정 → 극감 수정 확률 (2%)
             if target_part == "음부":
                 import pregnancy
                 import random
                 if random.random() < 0.02:
                     pregnancy.check_conception(state["player_id"], pid)
-            # 반응 텍스트
+            # 반응 텍스트 (대량 사정 우선)
             partner_asset = get_partner_asset(pid)
             reaction = None
             if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                reaction = partner_asset.get_romance_reaction(f"pull_out_{target_part}", "start")
+                if ejac_amount >= 50:
+                    reaction = partner_asset.get_romance_reaction(f"pull_out_{target_part}_heavy", "start")
+                if not reaction:
+                    reaction = partner_asset.get_romance_reaction(f"pull_out_{target_part}", "start")
             if reaction:
                 state["last_reaction"] = reaction
             else:
@@ -1456,6 +1658,26 @@ def start_romance(player_id, partner_id, preserved=None):
             action_def = INSTANT_ACTIONS.get(action_id)
             if not action_def:
                 return None
+
+            # 삽입 중 즉시형: 유효성 + exp_part 동적 오버라이드
+            if action_def.get("requires_active_penetration"):
+                if not _has_active_penetration(state["active_toggles"]):
+                    return render_romance_ui(state)
+                # exp_part가 None이면 활성 삽입 토글의 부위 상속
+                if action_def.get("exp_part") is None:
+                    pen_part = _get_penetration_exp_part(state["active_toggles"])
+                    if pen_part:
+                        action_def = dict(action_def)
+                        action_def["exp_part"] = pen_part
+
+            # 체내 정액 필요 행위 유효성 검증
+            req_internal = action_def.get("requires_internal_semen")
+            if req_internal:
+                if get_internal_semen(state["partner_id"], req_internal) <= 0:
+                    return render_romance_ui(state)
+                # 삼키기: 체내 정액 제거
+                if action_id == "swallow_semen":
+                    morld.clear_prop(state["partner_id"], f"체내:정액:{req_internal}")
 
             # 탈의 전용 처리
             if action_def.get("undress"):
@@ -1551,6 +1773,13 @@ def start_romance(player_id, partner_id, preserved=None):
             if state["stamina"] <= total_stamina:
                 state["exhausted"] = True
                 return True
+
+            # 윤활 체크 (질 삽입 ON 시)
+            if is_turning_on and action_def.get("pregnancy_check"):
+                if not check_lubrication(state["partner_id"], state):
+                    arousal = morld.get_unit_prop(state["partner_id"], "상태:성욕") or 0
+                    state["last_reaction"] = f"아직 준비가 안 됐다. (성욕: {int(arousal)}/{LUBRICATION_THRESHOLD})"
+                    return render_romance_ui(state)
 
             # 토글 상태 변경
             if is_turning_on:
