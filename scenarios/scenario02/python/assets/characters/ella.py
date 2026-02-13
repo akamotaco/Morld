@@ -88,6 +88,7 @@ class Ella(Character):
     hearing_type = "keen"
     sexual_orientation = "heterosexual"
     props = {
+        "성별": "female", "성적지향": "heterosexual",
         "외모:흑발": 1, "외모:올림머리": 1, "외모:보라색눈": 1,
         "성격:냉정함": 1, "성격:리더십": 1,
         "관계:유키:보호": 1,
@@ -103,7 +104,7 @@ class Ella(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
-        "체격": 3,
+        "체격": 3, "가슴:크기": 2,
     }
     actions = [
         "call:talk:대화",
@@ -1328,5 +1329,3 @@ class EllaAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
-        import gender as gender_mod
-        gender_mod.register_orientation(unit_id, Ella.sexual_orientation)

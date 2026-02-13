@@ -1,0 +1,698 @@
+# romance_core.py - 애정 행위 공유 핵심 로직
+"""
+romance.py와 npc_initiative.py가 공유하는 핵심 함수 모음.
+
+포함 영역:
+- 관계 Prop 키 생성
+- 감각 레벨 계산
+- 가용/호환 판정
+- 효과 계산 (경험치/감각/지향성 보정)
+- 노출/탈의
+- 정액 시스템
+- 삽입/충돌 헬퍼
+- 처녀(첫경험)
+- 참기/질외사정
+- 준비/윤활 체크
+- 은신 판정
+- 소리
+- 절정 반응 키
+"""
+
+import math
+import random
+import morld
+from romance_actions import (
+    MILLIS_PER_MINUTE,
+    SEMEN_PARTS, SEMEN_AMOUNT_BASE, SEMEN_AMOUNT_MIN, SEMEN_AMOUNT_MAX,
+    INTERNAL_SEMEN_PARTS, INTERNAL_SEMEN_MAX,
+    PULL_OUT_STIM_THRESHOLD, LUBRICATION_THRESHOLD,
+    PREPARATION_THRESHOLD,
+    EXPOSURE_BONUS, UNDRESS_UPPER_SLOTS, UNDRESS_LOWER_SLOTS,
+    STEALTH_BASE_CHANCE, STEALTH_HIDING_BONUS,
+    HOLD_BACK_P_THRESHOLD,
+    SENSATION_MAP,
+    INSTANT_ACTIONS, TOGGLE_ACTIONS,
+    VIRGINITY_CLEARING_ACTIONS, VIRGINITY_BONUS_AFFECTION, VIRGINITY_BONUS_EXP,
+    _PENETRATION_TOGGLE_IDS,
+)
+
+
+# ============================================
+# Asset 헬퍼
+# ============================================
+
+def get_character_asset(unit_id):
+    """캐릭터(NPC/파트너)의 Python Asset 인스턴스 가져오기"""
+    try:
+        from assets.characters import get_instance
+        return get_instance(unit_id)
+    except Exception:
+        return None
+
+
+# ============================================
+# 관계 Prop 키 생성
+# ============================================
+
+def _get_relationship_key(player_id, suffix):
+    """관계 prop 키 생성 헬퍼"""
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get('name', '주인공') if player_info else '주인공'
+    return f"관계:{player_name}:{suffix}"
+
+
+def get_affection_key(player_id):
+    """플레이어에 대한 호감도 prop 키 생성"""
+    return _get_relationship_key(player_id, "호감")
+
+
+def get_desire_key(player_id):
+    """플레이어에 대한 욕망 prop 키 생성"""
+    return _get_relationship_key(player_id, "욕망")
+
+
+def get_rebellion_key(player_id):
+    """플레이어에 대한 반발 prop 키 생성"""
+    return _get_relationship_key(player_id, "반발")
+
+
+def get_submission_key(player_id):
+    """플레이어에 대한 복종 prop 키 생성"""
+    return _get_relationship_key(player_id, "복종")
+
+
+def get_effective_affection_req(req, desire=0, submission=0):
+    """유효 호감 요구치 (욕망/복종 할인 적용)
+
+    각 요소: 최대 30% 할인
+    합산: 최대 50% 할인
+    절대 최소: 20
+    """
+    desire_discount = min(req * 0.3, desire * 0.3)
+    submission_discount = min(req * 0.3, submission * 0.3)
+    total = min(req * 0.5, desire_discount + submission_discount)
+    return max(20, req - total)
+
+
+# ============================================
+# 감각 레벨
+# ============================================
+
+def get_sensation_level(unit_id, category):
+    """감각 카테고리의 현재 레벨 (경험치에서 산출)
+
+    해당 카테고리에 매핑된 부위들의 경험치 합산 → 레벨 변환.
+
+    Args:
+        unit_id: 대상 유닛 ID
+        category: "M", "B", "A", "V", "C", "P", "F"
+
+    Returns:
+        int: 감각 레벨 (0-10)
+    """
+    total_exp = 0
+    for part, cat in SENSATION_MAP.items():
+        if cat == category:
+            total_exp += morld.get_unit_prop(unit_id, f"경험:{part}") or 0
+    return min(10, int(math.floor(math.sqrt(total_exp / 3))))
+
+
+# ============================================
+# 가용 / 호환 판정
+# ============================================
+
+def is_action_available(partner_id, player_id, action_def):
+    """액션 해금 여부 (감정 + 육욕 이중 경로)"""
+    affection_key = get_affection_key(player_id)
+    props = morld.get_unit_props(partner_id)
+    affection = props.get(affection_key, 0) if props else 0
+    desire_key = get_desire_key(player_id)
+    desire = props.get(desire_key, 0) if props else 0
+    submission_key = get_submission_key(player_id)
+    submission = props.get(submission_key, 0) if props else 0
+    eff_req = get_effective_affection_req(action_def["affection_req"], desire, submission)
+    return affection >= eff_req
+
+
+def is_desire_unlocked(affection, action_def, desire, submission=0):
+    """욕망/복종에 의한 해금인지 (정상 호감 미달이지만 욕망/복종으로 보완)"""
+    return affection < action_def["affection_req"] and (desire > 0 or submission > 0)
+
+
+def is_anatomy_compatible(action_def, target_id, actor_id=None):
+    """행위가 대상/행위자의 해부학적 구조와 호환되는지
+
+    Args:
+        action_def: 행위 정의 dict
+        target_id: 대상(자극 받는 쪽) 유닛 ID
+        actor_id: 행위자(수행하는 쪽) 유닛 ID (삽입 행위 체크용)
+    """
+    exp_part = action_def.get("exp_part")
+    if exp_part:
+        category = SENSATION_MAP.get(exp_part)
+        if category is not None:
+            import gender as gender_mod
+            if not gender_mod.has_anatomy(target_id, category):
+                return False
+    # 행위자 해부학 체크 (삽입 행위: requires_player_anatomy)
+    player_req = action_def.get("requires_player_anatomy")
+    if player_req and actor_id:
+        import gender as gender_mod
+        if not gender_mod.has_anatomy(actor_id, player_req):
+            return False
+    # 양쪽 해부학 체크 (tribadism 등: 양쪽 모두 V 보유 필요)
+    both_req = action_def.get("requires_both_anatomy")
+    if both_req and actor_id:
+        import gender as gender_mod
+        if not gender_mod.has_anatomy(target_id, both_req):
+            return False
+        if not gender_mod.has_anatomy(actor_id, both_req):
+            return False
+    # 가슴 크기 체크
+    breast_req = action_def.get("requires_breast_size")
+    if breast_req is not None:
+        import gender as gender_mod
+        if gender_mod.get_breast_size(target_id) < breast_req:
+            return False
+    return True
+
+
+# ============================================
+# 효과 계산
+# ============================================
+
+def calculate_effects(action_def, partner_id, player_id=None):
+    """경험치 + 감각 + 지향성 보정된 효과 계산"""
+    base_effects = action_def["effects"].copy()
+    exp_part = action_def.get("exp_part")
+
+    if exp_part:
+        exp_key = f"경험:{exp_part}"
+        partner_props = morld.get_unit_props(partner_id)
+        exp_value = partner_props.get(exp_key, 0)
+        multiplier = 1.0 + (exp_value * 0.1)
+        for stat, value in base_effects.items():
+            base_effects[stat] = round(value * multiplier)
+
+        # 감각 보너스
+        category = SENSATION_MAP.get(exp_part)
+        if category:
+            sensation = get_sensation_level(partner_id, category)
+            arousal_base = action_def["effects"].get("성욕", 0)
+            if arousal_base > 0 and sensation > 0:
+                bonus = round(arousal_base * sensation * 0.1)
+                base_effects["성욕"] = base_effects.get("성욕", 0) + bonus
+
+        # 수유 보너스: B 카테고리 + 수유 중 → ×1.3
+        if category == "B":
+            import pregnancy
+            if pregnancy.is_lactating(partner_id):
+                for stat in base_effects:
+                    base_effects[stat] = round(base_effects[stat] * 1.3)
+
+        # 경험치 +1
+        morld.modify_prop(partner_id, exp_key, 1)
+
+    # 노출 보너스 (해당 부위 노출 시 ×1.5)
+    bonus_area = action_def.get("exposure_bonus")
+    if bonus_area:
+        exposure = get_exposure_state(partner_id)
+        if exposure.get(f"{bonus_area}_exposed"):
+            for stat in base_effects:
+                base_effects[stat] = round(base_effects[stat] * EXPOSURE_BONUS)
+
+    # 성적 지향성 배율
+    if player_id:
+        import gender as gender_mod
+        orientation_mult = gender_mod.get_orientation_multiplier(partner_id, player_id)
+        if orientation_mult != 1.0:
+            for stat in base_effects:
+                base_effects[stat] = round(base_effects[stat] * orientation_mult)
+
+    return base_effects
+
+
+# ============================================
+# 노출 / 탈의
+# ============================================
+
+def get_exposure_state(unit_id):
+    """유닛의 상/하체 노출 상태 반환"""
+    import equipment
+    equipped = equipment.get_equipped_items(unit_id)
+    has_top = False
+    has_bra = False
+    has_bottom = False
+    has_panties = False
+    for item_id in equipped:
+        info = morld.get_item_info(item_id)
+        if not info:
+            continue
+        ep = info.get("equip_props", {})
+        if ep.get("착용:상의", 0) > 0:
+            has_top = True
+        if ep.get("착용:속옷상의", 0) > 0:
+            has_bra = True
+        if ep.get("착용:하의", 0) > 0:
+            has_bottom = True
+        if ep.get("착용:속옷하의", 0) > 0:
+            has_panties = True
+    return {
+        "upper_exposed": not has_top and not has_bra,
+        "lower_exposed": not has_bottom and not has_panties,
+    }
+
+
+def get_next_undress_item(unit_id, upper=True):
+    """다음 탈의 대상 아이템 반환 (None이면 더 벗을 것 없음)"""
+    import equipment
+    equipped = equipment.get_equipped_items(unit_id)
+    slots = UNDRESS_UPPER_SLOTS if upper else UNDRESS_LOWER_SLOTS
+    for slot in slots:
+        for item_id in equipped:
+            info = morld.get_item_info(item_id)
+            if info and info.get("equip_props", {}).get(slot, 0) > 0:
+                return item_id
+    return None
+
+
+def perform_undress(unit_id, item_id):
+    """아이템 1개 탈의 (unequip)"""
+    import equipment
+    return equipment.unequip_item(unit_id, item_id)
+
+
+# ============================================
+# 정액 시스템
+# ============================================
+
+def get_semen_total(unit_id):
+    """전체 정액 오염 합산"""
+    return sum(morld.get_unit_prop(unit_id, f"오염물:정액:{p}") or 0 for p in SEMEN_PARTS)
+
+
+def _apply_semen(target_id, part, amount):
+    """부위별 정액 적용"""
+    prop = f"오염물:정액:{part}"
+    current = morld.get_unit_prop(target_id, prop) or 0
+    morld.set_unit_prop(target_id, prop, min(100, current + amount))
+    try:
+        import pollution
+        current_poll = pollution.get_unit_pollution(target_id)
+        pollution.set_unit_pollution(target_id, current_poll + 10)
+    except Exception:
+        pass
+
+
+def clear_all_semen(unit_id):
+    """전부위 정액 제거 (목욕 시) — 외부 + 체내"""
+    for p in SEMEN_PARTS:
+        morld.clear_prop(unit_id, f"오염물:정액:{p}")
+    for p in INTERNAL_SEMEN_PARTS:
+        morld.clear_prop(unit_id, f"체내:정액:{p}")
+
+
+def get_internal_semen(unit_id, part):
+    """체내 정액 조회"""
+    return morld.get_unit_prop(unit_id, f"체내:정액:{part}") or 0
+
+
+def get_internal_semen_total(unit_id):
+    """체내 정액 전체 합산"""
+    return sum(get_internal_semen(unit_id, p) for p in INTERNAL_SEMEN_PARTS)
+
+
+def _apply_internal_semen(target_id, part, amount):
+    """체내 정액 적용"""
+    prop = f"체내:정액:{part}"
+    current = morld.get_unit_prop(target_id, prop) or 0
+    morld.set_unit_prop(target_id, prop, min(INTERNAL_SEMEN_MAX, current + amount))
+
+
+def clear_all_internal_semen(unit_id):
+    """전부위 체내 정액 제거"""
+    for p in INTERNAL_SEMEN_PARTS:
+        morld.clear_prop(unit_id, f"체내:정액:{p}")
+
+
+def calculate_ejaculation_amount(unit_id, stamina):
+    """사정량 계산 — P 감각 + 체력 기반
+
+    Args:
+        unit_id: P 보유자 unit_id
+        stamina: 현재 세션 스태미나
+
+    Returns:
+        int: 사정량 (10-100)
+    """
+    base = SEMEN_AMOUNT_BASE
+    p_sensation = get_sensation_level(unit_id, "P")
+    sensation_bonus = p_sensation * 3
+    stamina_bonus = stamina * 2
+    amount = base + sensation_bonus + stamina_bonus
+    return max(SEMEN_AMOUNT_MIN, min(SEMEN_AMOUNT_MAX, round(amount)))
+
+
+# ============================================
+# 삽입 / 충돌 헬퍼
+# ============================================
+
+# 삽입 토글 → exp_part 매핑 (동적 exp_part 상속용)
+_PENETRATION_EXP_MAP = {
+    "vaginal_penetration": "음부", "receive_penetration": "음부",
+    "rough_thrust": "음부",
+    "anal_penetration": "엉덩이", "receive_anal": "엉덩이",
+    "hard_anal": "엉덩이",
+}
+
+
+def _get_active_penetration_part(active_toggles):
+    """활성 삽입 토글의 부위 반환 (내부 사정 판별용)"""
+    for toggle_id in active_toggles:
+        td = TOGGLE_ACTIONS.get(toggle_id)
+        if not td:
+            continue
+        if td.get("pregnancy_check"):
+            return "음부"
+        if toggle_id in ("anal_penetration", "receive_anal"):
+            return "항문"
+        if toggle_id == "fellatio":
+            return "구강"
+    return None
+
+
+def _has_active_penetration(active_toggles):
+    """활성 토글 중 삽입 행위가 있는지 확인"""
+    return bool(active_toggles & _PENETRATION_TOGGLE_IDS)
+
+
+def _has_active_intercourse(active_toggles, toggle_actions):
+    """활성 토글 중 pregnancy_check가 있는(삽입 행위) 것이 있는지"""
+    for toggle_id in active_toggles:
+        td = toggle_actions.get(toggle_id)
+        if td and td.get("pregnancy_check"):
+            return True
+    return False
+
+
+def _get_penetration_exp_part(active_toggles):
+    """활성 삽입 토글의 exp_part 반환 (첫 번째 매칭)"""
+    for tid in active_toggles:
+        if tid in _PENETRATION_EXP_MAP:
+            return _PENETRATION_EXP_MAP[tid]
+    return None
+
+
+def get_action_exp_part(action_id, action_dict=None):
+    """액션의 신체 부위(exp_part) 반환
+
+    Args:
+        action_id: 액션 ID
+        action_dict: 액션 정의 dict (없으면 자동 조회)
+
+    Returns:
+        str: 신체 부위 또는 None
+    """
+    if action_dict:
+        return action_dict.get("exp_part")
+    if action_id in TOGGLE_ACTIONS:
+        return TOGGLE_ACTIONS[action_id].get("exp_part")
+    if action_id in INSTANT_ACTIONS:
+        return INSTANT_ACTIONS[action_id].get("exp_part")
+    return None
+
+
+def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None):
+    """새 토글과 충돌하는 활성 토글 반환
+
+    충돌 조건:
+    1. 같은 exp_part (NPC쪽 부위 충돌)
+    2. 같은 requires_player_anatomy (플레이어 신체 충돌)
+    3. uses_mouth 충돌 (입/혀 행위는 동시에 하나만)
+    exp_part가 None인 토글(껴안기 등)은 충돌하지 않습니다.
+    """
+    new_exp_part = get_action_exp_part(new_action_id, new_action_dict)
+    new_def = new_action_dict or TOGGLE_ACTIONS.get(new_action_id) or {}
+    new_player_req = new_def.get("requires_player_anatomy")
+    new_uses_mouth = new_def.get("uses_mouth")
+
+    conflicting = set()
+    for toggle_id in active_toggles:
+        if toggle_id == new_action_id:
+            continue
+        toggle_def = TOGGLE_ACTIONS.get(toggle_id)
+        if not toggle_def:
+            continue
+        # exp_part 충돌 (NPC쪽 부위)
+        if new_exp_part and toggle_def.get("exp_part") == new_exp_part:
+            conflicting.add(toggle_id)
+            continue
+        # requires_player_anatomy 충돌 (플레이어 신체)
+        if new_player_req and toggle_def.get("requires_player_anatomy") == new_player_req:
+            conflicting.add(toggle_id)
+            continue
+        # uses_mouth 충돌 (입/혀 배타적)
+        if new_uses_mouth and toggle_def.get("uses_mouth"):
+            conflicting.add(toggle_id)
+
+    return conflicting
+
+
+def _remove_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None):
+    """새 토글과 충돌하는 토글들을 비활성화 (in-place)"""
+    conflicting = get_conflicting_toggles(new_action_id, active_toggles, new_action_dict)
+    for toggle_id in conflicting:
+        active_toggles.discard(toggle_id)
+    return conflicting
+
+
+# ============================================
+# 처녀(첫경험)
+# ============================================
+
+def check_and_clear_virginity(target_id, player_id, action_id):
+    """처녀 해제 체크. 해제 시 보너스 적용 + first 반응 키 반환."""
+    virginity_prop = VIRGINITY_CLEARING_ACTIONS.get(action_id)
+    if not virginity_prop:
+        return None
+    current = morld.get_unit_prop(target_id, virginity_prop)
+    if not current:
+        return None
+    # 처녀 해제
+    morld.set_unit_prop(target_id, virginity_prop, 0)
+    # 보너스: 호감 +5
+    affection_key = get_affection_key(player_id)
+    morld.modify_prop(target_id, affection_key, VIRGINITY_BONUS_AFFECTION)
+    # 보너스: 감각 경험치 +3
+    exp_part = TOGGLE_ACTIONS.get(action_id, {}).get("exp_part")
+    if exp_part:
+        morld.modify_prop(target_id, f"경험:{exp_part}", VIRGINITY_BONUS_EXP)
+    return f"first_{action_id}"
+
+
+# ============================================
+# 참기 / 질외사정
+# ============================================
+
+def _calculate_hold_back_chance(player_id, stim_state):
+    """참기 성공 확률 계산 (5-90%)
+
+    공식: 40 - (p_stim - 80) × 2 + p_sensation × 5
+    """
+    p_stim = stim_state["stim"].get("P", 0)
+    p_sensation = get_sensation_level(player_id, "P")
+    chance = 40 - (p_stim - 80) * 2 + p_sensation * 5
+    return max(5, min(90, chance))
+
+
+def is_hold_back_available(state):
+    """참기 가능 여부: P 보유 + 삽입 토글 활성 + P 자극 ≥ 80"""
+    if not _get_active_penetration_part(state.get("active_toggles", set())):
+        return False
+    stim = state.get("stim")
+    if not stim:
+        return False
+    return stim["stim"].get("P", 0) >= HOLD_BACK_P_THRESHOLD
+
+
+def is_pull_out_available(state):
+    """질외사정 가능 여부: 삽입 토글 활성 + P 자극 ≥ 임계값"""
+    if not _get_active_penetration_part(state.get("active_toggles", set())):
+        return False
+    stim = state.get("stim")
+    if not stim:
+        return False
+    return stim["stim"].get("P", 0) >= PULL_OUT_STIM_THRESHOLD
+
+
+# ============================================
+# 준비 / 윤활 체크
+# ============================================
+
+def check_preparation(stim_state, action_def):
+    """강도 행위 준비 상태 확인
+
+    intensity ≥ 3인 행위는 해당 부위 자극이 PREPARATION_THRESHOLD 이상이어야 함.
+
+    Returns:
+        True if 준비됨 or 비강도 행위, False if 미준비
+    """
+    intensity = action_def.get("intensity", 0)
+    if intensity < 3:
+        return True
+    exp_part = action_def.get("exp_part")
+    if not exp_part:
+        return True
+    category = SENSATION_MAP.get(exp_part)
+    if not category:
+        return True
+    current_stim = stim_state["stim"].get(category, 0)
+    return current_stim >= PREPARATION_THRESHOLD
+
+
+def check_lubrication(partner_id, state):
+    """윤활 체크 — V 보유자의 성욕이 임계치 이상인지 확인
+
+    한번 충족되면 세션 동안 유지 (state["lubricated"] = True).
+    Returns True if OK, False if too dry.
+    """
+    if state.get("lubricated"):
+        return True
+    import gender as gender_mod
+    if not gender_mod.has_anatomy(partner_id, "V"):
+        state["lubricated"] = True  # V 없으면 항상 OK
+        return True
+    arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
+    if arousal >= LUBRICATION_THRESHOLD:
+        state["lubricated"] = True
+        return True
+    return False
+
+
+# ============================================
+# 은신 판정
+# ============================================
+
+def calculate_stealth_chance(state):
+    """들키지 않을 확률 계산
+
+    - 기본 확률: 30%
+    - 은신 중(hiding=True): +40%
+
+    Returns:
+        float: 은신 성공 확률 (0.0 ~ 1.0)
+    """
+    chance = STEALTH_BASE_CHANCE
+    if state.get("hiding"):
+        chance += STEALTH_HIDING_BONUS
+    return min(chance, 0.9)
+
+
+def check_stealth_success(state):
+    """은신 성공 여부 판정
+
+    Returns:
+        bool: True면 들키지 않음, False면 들킴
+    """
+    chance = calculate_stealth_chance(state)
+    return random.random() < chance
+
+
+# ============================================
+# 소리
+# ============================================
+
+def get_excitement_level(npc_id):
+    """NPC 흥분도 단계 (0=low, 1=mid, 2=high)"""
+    props = morld.get_unit_props(npc_id)
+    arousal = props.get("상태:성욕", 0)
+    if arousal >= 70:
+        return 2
+    elif arousal >= 35:
+        return 1
+    return 0
+
+
+def emit_romance_sound(partner_id):
+    """파트너의 흥분도에 따른 소음 발생"""
+    import sound
+    partner_asset = get_character_asset(partner_id)
+    if not partner_asset:
+        return
+    profile = getattr(partner_asset, 'ROMANCE_SOUND_PROFILE', None)
+    if not profile:
+        return
+    level = get_excitement_level(partner_id)
+    intensity = profile["levels"][level]
+    if intensity > 0:
+        sound.emit_sound(partner_id, "moan", intensity)
+
+
+def emit_ecstasy_sound(partner_id):
+    """절정 시 소음 (높은 강도)"""
+    import sound
+    partner_asset = get_character_asset(partner_id)
+    if not partner_asset:
+        return
+    profile = getattr(partner_asset, 'ROMANCE_SOUND_PROFILE', None)
+    intensity = profile["ecstasy"] if profile else 60
+    sound.emit_sound(partner_id, "moan", intensity)
+
+
+# ============================================
+# 절정 반응 키
+# ============================================
+
+def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactions):
+    """절정 묘사 키 결정 (우선순위 기반)
+
+    1. ecstasy_intercourse — 삽입 중 절정
+    2. ecstasy_chain_3 — 3회차+ 연쇄 (chain_count >= 2)
+    3. ecstasy_chain_2 — 2회차 연쇄 (chain_count >= 1)
+    4. ecstasy_chain_{cat} — 부위별 연쇄
+    5. ecstasy_chain — 범용 연쇄
+    6. ecstasy_{category} — 카테고리별
+    7. ecstasy — 기본 fallback
+    """
+    def _has_key(k):
+        return f"{k}:start" in reactions or k in reactions
+
+    # 1. 삽입 중 절정
+    if _has_active_intercourse(active_toggles, toggle_actions):
+        if _has_key("ecstasy_intercourse"):
+            return "ecstasy_intercourse"
+
+    is_chain = climax_info.get("is_chain")
+    chain_count = climax_info.get("chain_count", 0)
+    cat = climax_info.get("category")
+
+    if is_chain:
+        if chain_count >= 2 and _has_key("ecstasy_chain_3"):
+            return "ecstasy_chain_3"
+        if chain_count >= 1 and _has_key("ecstasy_chain_2"):
+            return "ecstasy_chain_2"
+        if cat and _has_key(f"ecstasy_chain_{cat}"):
+            return f"ecstasy_chain_{cat}"
+        if _has_key("ecstasy_chain"):
+            return "ecstasy_chain"
+
+    if cat and _has_key(f"ecstasy_{cat}"):
+        return f"ecstasy_{cat}"
+
+    return "ecstasy"
+
+
+# ============================================
+# 세션 보존 (공수 전환)
+# ============================================
+
+def extract_preserved(state):
+    """공수 전환 시 보존할 상태 추출"""
+    return {
+        "stim": state["stim"],
+        "stamina": state["stamina"],
+        "elapsed_time": state["elapsed_time"],
+        "checked_npcs": state.get("checked_npcs", set()),
+        "lubricated": state.get("lubricated", False),
+        "schedule_pushed": True,
+    }

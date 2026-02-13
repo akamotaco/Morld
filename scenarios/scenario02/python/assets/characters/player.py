@@ -70,6 +70,7 @@ class Player(Character):
     name = "???"
     type = "male"
     props = {
+        "성별": "male",
         # 기본 스탯
         "힘": 5,
         "지능": 5,

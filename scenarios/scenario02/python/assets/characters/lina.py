@@ -76,6 +76,7 @@ class Lina(Character):
     type = "female"
     sexual_orientation = "bisexual"
     props = {
+        "성별": "female", "성적지향": "bisexual",
         "외모:금발": 1, "외모:단발": 1, "외모:녹색눈": 1,
         "성격:명랑함": 1, "성격:활발함": 1,
         "관계:세라:신뢰": 1,
@@ -92,7 +93,7 @@ class Lina(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
-        "체격": 1,
+        "체격": 1, "가슴:크기": 1,
     }
     actions = [
         "call:talk:대화",
@@ -1389,8 +1390,6 @@ class LinaAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
-        import gender as gender_mod
-        gender_mod.register_orientation(unit_id, Lina.sexual_orientation)
 
 
 # ========================================

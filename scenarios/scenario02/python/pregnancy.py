@@ -230,11 +230,16 @@ def _pregnancy_daily(unit_id):
 
     morld.set_unit_prop(unit_id, "상태:임신주차", min(week, 42))
 
-    # 임신 20주+ → 수유 시작
+    # 임신 20주+ → 수유 시작 + 가슴 크기 증가
     if week >= 20 and not morld.get_unit_prop(unit_id, "상태:수유"):
         morld.set_unit_prop(unit_id, "상태:수유", 1)
         morld.set_unit_prop(unit_id, "상태:수유시작일",
                             morld.get_time_info().get("day", 0))
+        # 가슴 크기 +1 (최대 3)
+        import gender as gender_mod
+        current_breast = gender_mod.get_breast_size(unit_id)
+        if current_breast < 3:
+            morld.set_unit_prop(unit_id, "가슴:크기", current_breast + 1)
 
 
 # ============================================
@@ -283,6 +288,7 @@ def spawn_child(mother_agent):
     child.name = child_name
     child.type = child_gender
     child.props = {
+        "성별": child_gender,
         "나이": 0,
         "생존:체력": 50,
         "생존:최대체력": 50,
@@ -437,6 +443,14 @@ def _daily_update(unit_id):
             if current_day - start_day >= LACTATION_DURATION_DAYS:
                 morld.set_unit_prop(unit_id, "상태:수유", 0)
                 morld.clear_prop(unit_id, "상태:수유시작일")
+                # 가슴 크기 -1 (원래 값 이하로 내려가지 않도록)
+                import gender as gender_mod
+                current_breast = gender_mod.get_breast_size(unit_id)
+                base_breast = gender_mod.BREAST_SIZE_DEFAULT.get(
+                    gender_mod.get_gender(unit_id), 0)
+                if current_breast > base_breast:
+                    morld.set_unit_prop(unit_id, "가슴:크기",
+                                        current_breast - 1)
 
     # 주기일 진행
     cycle_day = morld.get_unit_prop(unit_id, "생식:주기일") or 1

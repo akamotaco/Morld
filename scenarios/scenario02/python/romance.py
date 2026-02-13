@@ -9,72 +9,48 @@
 - 캐릭터별 반응 시스템
 """
 
-import math
 import morld
 import stimulation
 import ui
+from romance_actions import (
+    MILLIS_PER_MINUTE, SEMEN_PARTS, SEMEN_EXTERNAL_AMOUNT, SEMEN_INTERNAL_DRIP,
+    INTERNAL_SEMEN_PARTS,
+    UNPREPARED_EFFECT_MULT, UNPREPARED_REBELLION,
+    SUBMISSION_ACTION_THRESHOLD, SUBMISSION_ACTION_GAIN, SUBMISSION_MAX,
+    ROMANCE_ENTRY_THRESHOLD, ROMANCE_JOIN_THRESHOLD, DEFAULT_STAMINA,
+    ECSTASY_THRESHOLD, SWALLOW_M_THRESHOLD,
+    SENSATION_MAP, get_relationship_label,
+    INSTANT_ACTIONS, TOGGLE_ACTIONS,
+    _PENETRATION_TOGGLE_IDS,
+)
+# 공유 핵심 로직: romance_core.py에서 import (+ 외부 모듈 호환 re-export)
+from romance_core import (  # noqa: F401 — re-export for external callers
+    get_character_asset as get_partner_asset,
+    _get_relationship_key, get_affection_key, get_desire_key,
+    get_rebellion_key, get_submission_key,
+    get_effective_affection_req,
+    get_sensation_level,
+    is_action_available, is_desire_unlocked, is_anatomy_compatible,
+    calculate_effects,
+    get_exposure_state, get_next_undress_item, perform_undress,
+    get_semen_total, _apply_semen, clear_all_semen,
+    get_internal_semen, get_internal_semen_total,
+    _apply_internal_semen, clear_all_internal_semen,
+    calculate_ejaculation_amount,
+    _PENETRATION_EXP_MAP,
+    _get_active_penetration_part, _has_active_penetration,
+    _has_active_intercourse, _get_penetration_exp_part,
+    get_action_exp_part, get_conflicting_toggles, _remove_conflicting_toggles,
+    check_and_clear_virginity,
+    _calculate_hold_back_chance, is_hold_back_available, is_pull_out_available,
+    check_preparation, check_lubrication,
+    calculate_stealth_chance, check_stealth_success,
+    get_excitement_level, emit_romance_sound, emit_ecstasy_sound,
+    get_climax_reaction_key,
+    extract_preserved,
+)
 
-# ============================================
-# 상수 정의
-# ============================================
-
-ROMANCE_ENTRY_THRESHOLD = 50   # 연애 진입 최소 호감도
-ROMANCE_JOIN_THRESHOLD = 60    # 합류 가능 최소 호감도
 ROMANCE_STAMINA_KEY = "연애:스태미나"
-DEFAULT_STAMINA = 10
-ECSTASY_THRESHOLD = 100        # 절정 발생 임계값
-SWALLOW_M_THRESHOLD = 5        # 삼키기에 필요한 M 감각 레벨
-
-# 준비 부족 강도 행위 페널티
-PREPARATION_THRESHOLD = 30     # intensity ≥ 3 행위에 필요한 최소 자극
-UNPREPARED_EFFECT_MULT = 0.5   # 미준비 시 효과 배율
-UNPREPARED_REBELLION = 2       # 미준비 시 반발 증가
-
-# 들키지 않을 확률 설정
-STEALTH_BASE_CHANCE = 0.3      # 기본 은신 확률 30%
-STEALTH_HIDING_BONUS = 0.4     # 은신 중일 때 추가 확률 +40%
-MILLIS_PER_MINUTE = 60_000
-
-# 탈의/노출 시스템
-EXPOSURE_BONUS = 1.5           # 노출 시 효과 배율
-UNDRESS_UPPER_SLOTS = ["착용:외투", "착용:상의", "착용:속옷상의"]
-UNDRESS_LOWER_SLOTS = ["착용:하의", "착용:속옷하의"]
-
-# 복종 자연 증가
-SUBMISSION_ACTION_THRESHOLD = 80  # 이 이상 affection_req 행위에서 복종 증가
-SUBMISSION_ACTION_GAIN = 1        # 행위당 증가량
-SUBMISSION_MAX = 100              # 복종 상한
-
-# 정액 오염 시스템
-SEMEN_PARTS = ["얼굴", "가슴", "배", "음부", "엉덩이"]
-SEMEN_EXTERNAL_AMOUNT = 30        # 외부 사정 시 부위별 적용량 (기본값, 동적 계산 시 base)
-SEMEN_INTERNAL_DRIP = 10          # 내부 사정 후 흘러나옴 (기본값)
-SEMEN_AMOUNT_BASE = 30            # 사정량 기본값
-SEMEN_AMOUNT_MIN = 10             # 최소 사정량
-SEMEN_AMOUNT_MAX = 100            # 최대 사정량
-INTERNAL_SEMEN_PARTS = ["음부", "항문", "구강"]  # 체내 정액 부위
-INTERNAL_SEMEN_MAX = 100          # 체내 정액 최대값
-PULL_OUT_STIM_THRESHOLD = 80      # 질외사정 가능 자극 임계값
-LUBRICATION_THRESHOLD = 30        # 윤활 임계치 (성욕 기준)
-
-# ============================================
-# 감각 시스템 (부위 → M/B/A/V 매핑)
-# ============================================
-
-# 행위 부위 → 감각 카테고리 매핑
-SENSATION_MAP = {
-    "입술": "M",        # Mouth
-    "가슴": "B",        # Breast
-    "유두": "B",        # Breast (nipple)
-    "엉덩이": "A",      # Anal
-    "음부": "V",        # Vaginal
-    "클리토리스": "C",   # Clitoral
-    "음경": "P",        # Penis (male)
-    "목": "F",          # Face/Neck
-    "귀": "F",          # Face/Neck
-    "뺨": "F",          # Face/Neck
-    "머리": None,       # 비성적 부위
-}
 
 # 감각 카테고리별 prop 키
 SENSATION_PROPS = {
@@ -88,465 +64,8 @@ SENSATION_PROPS = {
 }
 
 # ============================================
-# 관계 라벨 시스템
+# 즉시형/토글형 행위 + 공유 핵심 로직: romance_actions.py / romance_core.py에서 import
 # ============================================
-
-RELATIONSHIP_LABELS = {
-    (False, False): "타인",   # 낮은 호감 + 낮은 욕망
-    (True,  False): "친구",   # 높은 호감 + 낮은 욕망
-    (False, True):  "정욕",   # 낮은 호감 + 높은 욕망
-    (True,  True):  "애인",   # 높은 호감 + 높은 욕망
-}
-AFF_LABEL_THRESHOLD = 50
-DES_LABEL_THRESHOLD = 40
-
-
-def get_relationship_label(affection, desire):
-    """호감+욕망 기반 관계 라벨 반환"""
-    return RELATIONSHIP_LABELS[(affection >= AFF_LABEL_THRESHOLD, desire >= DES_LABEL_THRESHOLD)]
-
-# ============================================
-# 즉시형 행위 정의
-# ============================================
-
-INSTANT_ACTIONS = {
-    "head_pat": {
-        "name": "머리 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 3},
-        "exp_part": None, "affection_req": 40
-    },
-    "cheek_caress": {
-        "name": "뺨 어루만지기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 2},
-        "exp_part": None, "affection_req": 30
-    },
-    "cheek_pinch": {
-        "name": "뺨 꼬집기", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1},
-        "exp_part": None, "affection_req": 35
-    },
-    "ear_touch": {
-        "name": "귀 만지기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 2, "성욕": 1},
-        "exp_part": "귀", "affection_req": 45
-    },
-    "whisper": {
-        "name": "사랑의 속삭임", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 5},
-        "exp_part": None, "affection_req": 50
-    },
-    "lip_lick": {
-        "name": "입술 핥기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 2, "성욕": 2},
-        "exp_part": "입술", "affection_req": 55, "uses_mouth": True
-    },
-    "french_kiss": {
-        "name": "프렌치 키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 3, "성욕": 3},
-        "exp_part": "입술", "affection_req": 60, "uses_mouth": True
-    },
-    "neck_kiss": {
-        "name": "목 키스", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 2, "성욕": 3},
-        "exp_part": "목", "affection_req": 65, "uses_mouth": True
-    },
-    "butt_caress": {
-        "name": "엉덩이 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "성욕": 3, "욕망": 1},
-        "exp_part": "엉덩이", "affection_req": 70
-    },
-    "breast_caress": {
-        "name": "가슴 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "성욕": 3},
-        "exp_part": "가슴", "affection_req": 75
-    },
-    "nipple_stimulation": {
-        "name": "유두 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"성욕": 5, "욕망": 2},
-        "exp_part": "가슴", "affection_req": 85, "requires_exposure": "upper"
-    },
-    "nipple_lick": {
-        "name": "유두 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"성욕": 5, "욕망": 2},
-        "exp_part": "유두", "affection_req": 85, "requires_exposure": "upper", "uses_mouth": True
-    },
-    "genital_caress": {
-        "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
-        "exp_part": "음부", "affection_req": 85, "requires_exposure": "lower"
-    },
-    "clit_stimulation": {
-        "name": "클리토리스 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "클리토리스", "affection_req": 90, "requires_exposure": "lower"
-    },
-    "anal_stimulation": {
-        "name": "항문 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"성욕": 5, "욕망": 3},
-        "exp_part": "엉덩이", "affection_req": 90, "requires_exposure": "lower"
-    },
-    "penis_caress": {
-        "name": "음경 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
-        "exp_part": "음경", "affection_req": 85, "requires_exposure": "lower"
-    },
-    "penis_stimulation": {
-        "name": "음경 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "음경", "affection_req": 90, "requires_exposure": "lower"
-    },
-    "undress_upper": {
-        "name": "상체 옷 벗기기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1},
-        "exp_part": None, "affection_req": 70, "undress": "upper"
-    },
-    "undress_lower": {
-        "name": "하체 옷 벗기기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 1},
-        "exp_part": None, "affection_req": 80, "undress": "lower"
-    },
-    "swallow_semen": {
-        "name": "삼키기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
-        "effects": {"욕망": 2, "복종": 1},
-        "exp_part": "입술", "affection_req": 90,
-        "requires_internal_semen": "구강"
-    },
-    # 강도 행위
-    "nipple_pinch": {
-        "name": "유두 꼬집기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"성욕": 7, "욕망": 3, "복종": 1},
-        "exp_part": "유두", "affection_req": 90, "requires_exposure": "upper",
-        "intensity": 3
-    },
-    "rough_finger": {
-        "name": "거친 손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 9, "욕망": 5, "복종": 2},
-        "exp_part": "음부", "affection_req": 98, "requires_exposure": "lower",
-        "intensity": 3
-    },
-    # 삽입 중 즉시형 행위
-    "thrust_deep": {
-        "name": "깊게 밀어넣기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 8, "욕망": 4, "복종": 1},
-        "exp_part": None, "affection_req": 98,
-        "requires_active_penetration": True, "intensity": 3
-    },
-    "thrust_slow": {
-        "name": "느리게 움직이기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"성욕": 4, "호감": 2, "욕망": 2},
-        "exp_part": None, "affection_req": 98,
-        "requires_active_penetration": True, "intensity": 1
-    },
-    "grind": {
-        "name": "밀착 흔들기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "클리토리스", "affection_req": 98,
-        "requires_active_penetration": True, "intensity": 2
-    },
-    "hold_back": {
-        "name": "참기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {},
-        "exp_part": None, "affection_req": 0,
-        "requires_player_anatomy_self": "P",
-        "requires_active_penetration": True,
-    },
-}
-
-# ============================================
-# 토글형 행위 정의
-# ============================================
-
-TOGGLE_ACTIONS = {
-    "hug": {
-        "name": "껴안기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
-        "effects": {"호감": 3},
-        "exp_part": None, "affection_req": 50
-    },
-    "deep_kiss": {
-        "name": "딥키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 3, "성욕": 3},
-        "exp_part": "입술", "affection_req": 70, "uses_mouth": True
-    },
-    "tongue_play": {
-        "name": "혀 섞기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 2, "성욕": 4},
-        "exp_part": "입술", "affection_req": 75, "uses_mouth": True
-    },
-    "butt_squeeze": {
-        "name": "엉덩이 주무르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "성욕": 3, "욕망": 1},
-        "exp_part": "엉덩이", "affection_req": 75
-    },
-    "breast_touch": {
-        "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "성욕": 4, "욕망": 1},
-        "exp_part": "가슴", "affection_req": 80, "exposure_bonus": "upper"
-    },
-    "breast_squeeze": {
-        "name": "가슴 주무르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 1, "성욕": 4, "욕망": 2},
-        "exp_part": "가슴", "affection_req": 85, "exposure_bonus": "upper"
-    },
-    "breast_suck": {
-        "name": "가슴 빨기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "가슴", "affection_req": 90, "requires_exposure": "upper", "uses_mouth": True
-    },
-    "nipple_suck": {
-        "name": "유두 빨기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 7, "욕망": 3},
-        "exp_part": "유두", "affection_req": 90, "requires_exposure": "upper", "uses_mouth": True
-    },
-    "genital_touch": {
-        "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"호감": 1, "성욕": 5, "욕망": 3},
-        "exp_part": "음부", "affection_req": 90, "exposure_bonus": "lower"
-    },
-    "clit_rub": {
-        "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 7, "욕망": 4},
-        "exp_part": "클리토리스", "affection_req": 95, "exposure_bonus": "lower"
-    },
-    "clit_lick": {
-        "name": "클리토리스 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "클리토리스", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
-    },
-    "cunnilingus": {
-        "name": "커닐링구스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
-    },
-    "finger_insertion": {
-        "name": "손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 7, "욕망": 4, "복종": 1},
-        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower"
-    },
-    "penis_touch": {
-        "name": "음경 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"호감": 1, "성욕": 5, "욕망": 3},
-        "exp_part": "음경", "affection_req": 90, "exposure_bonus": "lower"
-    },
-    "penis_rub": {
-        "name": "음경 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 7, "욕망": 4},
-        "exp_part": "음경", "affection_req": 95, "exposure_bonus": "lower"
-    },
-    "fellatio": {
-        "name": "펠라치오", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "음경", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
-    },
-    # 삽입 행위
-    "vaginal_penetration": {
-        "name": "삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-        "effects": {"성욕": 8, "욕망": 5, "복종": 1},
-        "exp_part": "음부", "affection_req": 98,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-        "pregnancy_check": True,
-    },
-    "receive_penetration": {
-        "name": "피삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-        "effects": {"성욕": 8, "욕망": 5},
-        "exp_part": "음경", "affection_req": 98,
-        "requires_player_anatomy": "V",
-        "requires_exposure": "lower",
-        "pregnancy_check": True,
-    },
-    "anal_penetration": {
-        "name": "항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-        "effects": {"성욕": 8, "욕망": 5, "복종": 2},
-        "exp_part": "엉덩이", "affection_req": 98,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-    },
-    "receive_anal": {
-        "name": "피항문삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-        "effects": {"성욕": 8, "욕망": 5},
-        "exp_part": "음경", "affection_req": 98,
-        "requires_player_anatomy": "A",
-        "requires_exposure": "lower",
-    },
-    # 강도 행위
-    "rough_thrust": {
-        "name": "거칠게 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
-        "effects": {"성욕": 11, "욕망": 7, "복종": 2},
-        "exp_part": "음부", "affection_req": 100,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-        "pregnancy_check": True, "intensity": 3
-    },
-    "hard_anal": {
-        "name": "거친 항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
-        "effects": {"성욕": 11, "욕망": 7, "복종": 3},
-        "exp_part": "엉덩이", "affection_req": 100,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-        "intensity": 3
-    },
-}
-
-# ============================================
-# 처녀(첫경험) 시스템
-# ============================================
-
-# 행위 → 해제 부위 매핑
-VIRGINITY_CLEARING_ACTIONS = {
-    "vaginal_penetration": "처녀:음부",
-    "receive_penetration": "처녀:음부",
-    "finger_insertion": "처녀:음부",
-    "rough_finger": "처녀:음부",
-    "rough_thrust": "처녀:음부",
-    "anal_penetration": "처녀:항문",
-    "receive_anal": "처녀:항문",
-    "hard_anal": "처녀:항문",
-    "fellatio": "처녀:구강",
-}
-
-VIRGINITY_BONUS_AFFECTION = 5
-VIRGINITY_BONUS_EXP = 3
-
-
-def check_and_clear_virginity(partner_id, player_id, action_id):
-    """처녀 해제 체크. 해제 시 보너스 적용 + first 반응 키 반환."""
-    virginity_prop = VIRGINITY_CLEARING_ACTIONS.get(action_id)
-    if not virginity_prop:
-        return None
-    current = morld.get_unit_prop(partner_id, virginity_prop)
-    if not current:
-        return None
-    # 처녀 해제
-    morld.set_unit_prop(partner_id, virginity_prop, 0)
-    # 보너스: 호감 +5
-    affection_key = get_affection_key(player_id)
-    morld.modify_prop(partner_id, affection_key, VIRGINITY_BONUS_AFFECTION)
-    # 보너스: 감각 경험치 +3
-    exp_part = TOGGLE_ACTIONS.get(action_id, {}).get("exp_part")
-    if exp_part:
-        morld.modify_prop(partner_id, f"경험:{exp_part}", VIRGINITY_BONUS_EXP)
-    return f"first_{action_id}"
-
-
-def _get_active_penetration_part(active_toggles):
-    """활성 삽입 토글의 부위 반환 (내부 사정 판별용)"""
-    for toggle_id in active_toggles:
-        td = TOGGLE_ACTIONS.get(toggle_id)
-        if not td:
-            continue
-        if td.get("pregnancy_check"):
-            return "음부"
-        if toggle_id in ("anal_penetration", "receive_anal"):
-            return "항문"
-        if toggle_id == "fellatio":
-            return "구강"
-    return None
-
-
-# ============================================
-# 정액 오염 시스템
-# ============================================
-
-def get_semen_total(unit_id):
-    """전체 정액 오염 합산"""
-    return sum(morld.get_unit_prop(unit_id, f"오염물:정액:{p}") or 0 for p in SEMEN_PARTS)
-
-
-def _apply_semen(target_id, part, amount):
-    """부위별 정액 적용"""
-    prop = f"오염물:정액:{part}"
-    current = morld.get_unit_prop(target_id, prop) or 0
-    morld.set_unit_prop(target_id, prop, min(100, current + amount))
-    # 오염도 증가
-    try:
-        import pollution
-        current_poll = pollution.get_unit_pollution(target_id)
-        pollution.set_unit_pollution(target_id, current_poll + 10)
-    except Exception:
-        pass
-
-
-def clear_all_semen(unit_id):
-    """전부위 정액 제거 (목욕 시) — 외부 + 체내"""
-    for p in SEMEN_PARTS:
-        morld.clear_prop(unit_id, f"오염물:정액:{p}")
-    for p in INTERNAL_SEMEN_PARTS:
-        morld.clear_prop(unit_id, f"체내:정액:{p}")
-
-
-def get_internal_semen(unit_id, part):
-    """체내 정액 조회"""
-    return morld.get_unit_prop(unit_id, f"체내:정액:{part}") or 0
-
-
-def get_internal_semen_total(unit_id):
-    """체내 정액 전체 합산"""
-    return sum(get_internal_semen(unit_id, p) for p in INTERNAL_SEMEN_PARTS)
-
-
-def _apply_internal_semen(target_id, part, amount):
-    """체내 정액 적용"""
-    prop = f"체내:정액:{part}"
-    current = morld.get_unit_prop(target_id, prop) or 0
-    morld.set_unit_prop(target_id, prop, min(INTERNAL_SEMEN_MAX, current + amount))
-
-
-def clear_all_internal_semen(unit_id):
-    """전부위 체내 정액 제거"""
-    for p in INTERNAL_SEMEN_PARTS:
-        morld.clear_prop(unit_id, f"체내:정액:{p}")
-
-
-def calculate_ejaculation_amount(unit_id, stamina):
-    """사정량 계산 — P 감각 + 체력 기반
-
-    Args:
-        unit_id: P 보유자 unit_id
-        stamina: 현재 세션 스태미나
-
-    Returns:
-        int: 사정량 (10-100)
-    """
-    base = SEMEN_AMOUNT_BASE
-    p_sensation = get_sensation_level(unit_id, "P")
-    sensation_bonus = p_sensation * 3
-    stamina_bonus = stamina * 2
-    amount = base + sensation_bonus + stamina_bonus
-    return max(SEMEN_AMOUNT_MIN, min(SEMEN_AMOUNT_MAX, round(amount)))
-
-
-HOLD_BACK_P_THRESHOLD = 80  # 참기 가능 최소 P 자극
-
-
-def _calculate_hold_back_chance(player_id, stim_state):
-    """참기 성공 확률 계산 (5-90%)
-
-    공식: 40 - (p_stim - 80) × 2 + p_sensation × 5
-    """
-    p_stim = stim_state["stim"].get("P", 0)
-    p_sensation = get_sensation_level(player_id, "P")
-    chance = 40 - (p_stim - 80) * 2 + p_sensation * 5
-    return max(5, min(90, chance))
-
-
-def is_hold_back_available(state):
-    """참기 가능 여부: P 보유 + 삽입 토글 활성 + P 자극 ≥ 80"""
-    if not _get_active_penetration_part(state.get("active_toggles", set())):
-        return False
-    stim = state.get("stim")
-    if not stim:
-        return False
-    return stim["stim"].get("P", 0) >= HOLD_BACK_P_THRESHOLD
-
-
-def is_pull_out_available(state):
-    """질외사정 가능 여부: 삽입 토글 활성 + P 자극 ≥ 임계값"""
-    if not _get_active_penetration_part(state.get("active_toggles", set())):
-        return False
-    stim = state.get("stim")
-    if not stim:
-        return False
-    return stim["stim"].get("P", 0) >= PULL_OUT_STIM_THRESHOLD
 
 
 # ============================================
@@ -570,427 +89,6 @@ def get_interrupted_context():
     return ctx
 
 
-# ============================================
-# 유틸리티 함수
-# ============================================
-
-def get_partner_asset(partner_id):
-    """파트너의 Python Asset 인스턴스 가져오기"""
-    try:
-        from assets.characters import get_instance
-        return get_instance(partner_id)
-    except:
-        return None
-
-
-def get_excitement_level(npc_id):
-    """NPC 흥분도 단계 (0=low, 1=mid, 2=high)"""
-    props = morld.get_unit_props(npc_id)
-    arousal = props.get("상태:성욕", 0)
-    if arousal >= 70:
-        return 2
-    elif arousal >= 35:
-        return 1
-    return 0
-
-
-def emit_romance_sound(partner_id):
-    """파트너의 흥분도에 따른 소음 발생"""
-    import sound
-    partner_asset = get_partner_asset(partner_id)
-    if not partner_asset:
-        return
-    profile = getattr(partner_asset, 'ROMANCE_SOUND_PROFILE', None)
-    if not profile:
-        return
-    level = get_excitement_level(partner_id)
-    intensity = profile["levels"][level]
-    if intensity > 0:
-        sound.emit_sound(partner_id, "moan", intensity)
-
-
-def emit_ecstasy_sound(partner_id):
-    """절정 시 소음 (높은 강도)"""
-    import sound
-    partner_asset = get_partner_asset(partner_id)
-    if not partner_asset:
-        return
-    profile = getattr(partner_asset, 'ROMANCE_SOUND_PROFILE', None)
-    intensity = profile["ecstasy"] if profile else 60
-    sound.emit_sound(partner_id, "moan", intensity)
-
-
-def get_effective_affection_req(req, desire=0, submission=0):
-    """유효 호감 요구치 (욕망/복종 할인 적용)
-
-    각 요소: 최대 30% 할인
-    합산: 최대 50% 할인
-    절대 최소: 20
-    """
-    desire_discount = min(req * 0.3, desire * 0.3)
-    submission_discount = min(req * 0.3, submission * 0.3)  # Phase C
-    total = min(req * 0.5, desire_discount + submission_discount)
-    return max(20, req - total)
-
-
-def get_submission_key(player_id):
-    """플레이어에 대한 복종 prop 키 생성"""
-    player_info = morld.get_unit_info(player_id)
-    player_name = player_info.get('name', '주인공') if player_info else '주인공'
-    return f"관계:{player_name}:복종"
-
-
-def is_anatomy_compatible(action_def, target_id, actor_id=None):
-    """행위가 대상/행위자의 해부학적 구조와 호환되는지
-
-    Args:
-        action_def: 행위 정의 dict
-        target_id: 대상(자극 받는 쪽) 유닛 ID
-        actor_id: 행위자(수행하는 쪽) 유닛 ID (삽입 행위 체크용)
-    """
-    exp_part = action_def.get("exp_part")
-    if exp_part:
-        category = SENSATION_MAP.get(exp_part)
-        if category is not None:
-            import gender as gender_mod
-            if not gender_mod.has_anatomy(target_id, category):
-                return False
-    # 행위자 해부학 체크 (삽입 행위: requires_player_anatomy)
-    player_req = action_def.get("requires_player_anatomy")
-    if player_req and actor_id:
-        import gender as gender_mod
-        if not gender_mod.has_anatomy(actor_id, player_req):
-            return False
-    return True
-
-
-def get_exposure_state(unit_id):
-    """유닛의 상/하체 노출 상태 반환"""
-    import equipment
-    equipped = equipment.get_equipped_items(unit_id)
-    has_top = False
-    has_bra = False
-    has_bottom = False
-    has_panties = False
-    for item_id in equipped:
-        info = morld.get_item_info(item_id)
-        if not info:
-            continue
-        ep = info.get("equip_props", {})
-        if ep.get("착용:상의", 0) > 0:
-            has_top = True
-        if ep.get("착용:속옷상의", 0) > 0:
-            has_bra = True
-        if ep.get("착용:하의", 0) > 0:
-            has_bottom = True
-        if ep.get("착용:속옷하의", 0) > 0:
-            has_panties = True
-    return {
-        "upper_exposed": not has_top and not has_bra,
-        "lower_exposed": not has_bottom and not has_panties,
-    }
-
-
-def get_next_undress_item(unit_id, upper=True):
-    """다음 탈의 대상 아이템 반환 (None이면 더 벗을 것 없음)"""
-    import equipment
-    equipped = equipment.get_equipped_items(unit_id)
-    slots = UNDRESS_UPPER_SLOTS if upper else UNDRESS_LOWER_SLOTS
-    for slot in slots:
-        for item_id in equipped:
-            info = morld.get_item_info(item_id)
-            if info and info.get("equip_props", {}).get(slot, 0) > 0:
-                return item_id
-    return None
-
-
-def perform_undress(unit_id, item_id):
-    """아이템 1개 탈의 (unequip)"""
-    import equipment
-    return equipment.unequip_item(unit_id, item_id)
-
-
-def is_action_available(partner_id, player_id, action_def):
-    """액션 해금 여부 (감정 + 육욕 이중 경로)"""
-    affection_key = get_affection_key(player_id)
-    props = morld.get_unit_props(partner_id)
-    affection = props.get(affection_key, 0) if props else 0
-    desire_key = get_desire_key(player_id)
-    desire = props.get(desire_key, 0) if props else 0
-    submission_key = get_submission_key(player_id)
-    submission = props.get(submission_key, 0) if props else 0
-    eff_req = get_effective_affection_req(action_def["affection_req"], desire, submission)
-    return affection >= eff_req
-
-
-def is_desire_unlocked(affection, action_def, desire, submission=0):
-    """욕망/복종에 의한 해금인지 (정상 호감 미달이지만 욕망/복종으로 보완)"""
-    return affection < action_def["affection_req"] and (desire > 0 or submission > 0)
-
-
-def get_conflicting_toggles(new_action_id, active_toggles):
-    """새 토글과 충돌하는 활성 토글 반환
-
-    충돌 조건:
-    1. 같은 exp_part (NPC쪽 부위 충돌)
-    2. 같은 requires_player_anatomy (플레이어 신체 충돌)
-    3. uses_mouth 충돌 (입/혀 행위는 동시에 하나만)
-    exp_part가 None인 토글(껴안기 등)은 충돌하지 않습니다.
-    """
-    new_def = TOGGLE_ACTIONS.get(new_action_id)
-    if not new_def:
-        return set()
-    new_exp_part = new_def.get("exp_part")
-    new_player_req = new_def.get("requires_player_anatomy")
-    new_uses_mouth = new_def.get("uses_mouth")
-    conflicting = set()
-    for toggle_id in active_toggles:
-        if toggle_id == new_action_id:
-            continue
-        toggle_def = TOGGLE_ACTIONS.get(toggle_id)
-        if not toggle_def:
-            continue
-        # exp_part 충돌 (NPC쪽 부위)
-        if new_exp_part and toggle_def.get("exp_part") == new_exp_part:
-            conflicting.add(toggle_id)
-            continue
-        # requires_player_anatomy 충돌 (플레이어 신체)
-        if new_player_req and toggle_def.get("requires_player_anatomy") == new_player_req:
-            conflicting.add(toggle_id)
-            continue
-        # uses_mouth 충돌 (입/혀 배타적)
-        if new_uses_mouth and toggle_def.get("uses_mouth"):
-            conflicting.add(toggle_id)
-    return conflicting
-
-
-def _remove_conflicting_toggles(new_action_id, active_toggles):
-    """새 토글과 충돌하는 토글들을 비활성화 (in-place)"""
-    conflicting = get_conflicting_toggles(new_action_id, active_toggles)
-    for toggle_id in conflicting:
-        active_toggles.discard(toggle_id)
-    return conflicting
-
-
-def get_sensation_level(unit_id, category):
-    """감각 카테고리의 현재 레벨 (경험치에서 산출)
-
-    해당 카테고리에 매핑된 부위들의 경험치 합산 → 레벨 변환.
-
-    Args:
-        unit_id: 대상 유닛 ID
-        category: "M", "B", "A", "V"
-
-    Returns:
-        int: 감각 레벨 (0-10)
-    """
-    total_exp = 0
-    for part, cat in SENSATION_MAP.items():
-        if cat == category:
-            total_exp += morld.get_unit_prop(unit_id, f"경험:{part}") or 0
-    # 제곱 곡선: level = floor(sqrt(exp / 3))
-    # Lv1=3, Lv3=27, Lv5=75, Lv7=147, Lv10=300 exp 필요
-    return min(10, int(math.floor(math.sqrt(total_exp / 3))))
-
-
-def _has_active_intercourse(active_toggles, toggle_actions):
-    """활성 토글 중 pregnancy_check가 있는(삽입 행위) 것이 있는지"""
-    for toggle_id in active_toggles:
-        td = toggle_actions.get(toggle_id)
-        if td and td.get("pregnancy_check"):
-            return True
-    return False
-
-
-# 삽입 토글 ID 집합 (삽입 중 즉시형 행위 활성화 판별용)
-_PENETRATION_TOGGLE_IDS = {
-    "vaginal_penetration", "receive_penetration",
-    "anal_penetration", "receive_anal",
-    "rough_thrust", "hard_anal",
-}
-
-# 삽입 토글 → exp_part 매핑 (동적 exp_part 상속용)
-_PENETRATION_EXP_MAP = {
-    "vaginal_penetration": "음부", "receive_penetration": "음부",
-    "rough_thrust": "음부",
-    "anal_penetration": "엉덩이", "receive_anal": "엉덩이",
-    "hard_anal": "엉덩이",
-}
-
-
-def _has_active_penetration(active_toggles):
-    """활성 토글 중 삽입 행위가 있는지 확인"""
-    return bool(active_toggles & _PENETRATION_TOGGLE_IDS)
-
-
-def _get_penetration_exp_part(active_toggles):
-    """활성 삽입 토글의 exp_part 반환 (첫 번째 매칭)"""
-    for tid in active_toggles:
-        if tid in _PENETRATION_EXP_MAP:
-            return _PENETRATION_EXP_MAP[tid]
-    return None
-
-
-def check_lubrication(partner_id, state):
-    """윤활 체크 — V 보유자의 성욕이 임계치 이상인지 확인
-
-    한번 충족되면 세션 동안 유지 (state["lubricated"] = True).
-    Returns True if OK, False if too dry.
-    """
-    if state.get("lubricated"):
-        return True
-    import gender as gender_mod
-    if not gender_mod.has_anatomy(partner_id, "V"):
-        state["lubricated"] = True  # V 없으면 항상 OK
-        return True
-    arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
-    if arousal >= LUBRICATION_THRESHOLD:
-        state["lubricated"] = True
-        return True
-    return False
-
-
-def check_preparation(stim_state, action_def):
-    """강도 행위 준비 상태 확인
-
-    intensity ≥ 3인 행위는 해당 부위 자극이 PREPARATION_THRESHOLD 이상이어야 함.
-
-    Returns:
-        True if 준비됨 or 비강도 행위, False if 미준비
-    """
-    intensity = action_def.get("intensity", 0)
-    if intensity < 3:
-        return True
-    exp_part = action_def.get("exp_part")
-    if not exp_part:
-        return True
-    category = SENSATION_MAP.get(exp_part)
-    if not category:
-        return True
-    current_stim = stim_state["stim"].get(category, 0)
-    return current_stim >= PREPARATION_THRESHOLD
-
-
-def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactions):
-    """절정 묘사 키 결정 (우선순위 기반)
-
-    1. ecstasy_intercourse — 삽입 중 절정
-    2. ecstasy_chain_3 — 3회차+ 연쇄 (chain_count >= 2)
-    3. ecstasy_chain_2 — 2회차 연쇄 (chain_count >= 1)
-    4. ecstasy_chain_{cat} — 부위별 연쇄
-    5. ecstasy_chain — 범용 연쇄
-    6. ecstasy_{category} — 카테고리별
-    7. ecstasy — 기본 fallback
-    """
-    def _has_key(k):
-        return f"{k}:start" in reactions or k in reactions
-
-    # 1. 삽입 중 절정
-    if _has_active_intercourse(active_toggles, toggle_actions):
-        if _has_key("ecstasy_intercourse"):
-            return "ecstasy_intercourse"
-
-    is_chain = climax_info.get("is_chain")
-    chain_count = climax_info.get("chain_count", 0)
-    cat = climax_info.get("category")
-
-    if is_chain:
-        # 2. 3회차+ 연쇄
-        if chain_count >= 2 and _has_key("ecstasy_chain_3"):
-            return "ecstasy_chain_3"
-        # 3. 2회차 연쇄
-        if chain_count >= 1 and _has_key("ecstasy_chain_2"):
-            return "ecstasy_chain_2"
-        # 4. 부위별 연쇄
-        if cat and _has_key(f"ecstasy_chain_{cat}"):
-            return f"ecstasy_chain_{cat}"
-        # 5. 범용 연쇄
-        if _has_key("ecstasy_chain"):
-            return "ecstasy_chain"
-
-    # 6. 카테고리별
-    if cat and _has_key(f"ecstasy_{cat}"):
-        return f"ecstasy_{cat}"
-
-    # 7. 기본
-    return "ecstasy"
-
-
-def get_desire_key(player_id):
-    """플레이어에 대한 욕망 prop 키 생성"""
-    player_info = morld.get_unit_info(player_id)
-    player_name = player_info.get('name', '주인공') if player_info else '주인공'
-    return f"관계:{player_name}:욕망"
-
-
-def get_rebellion_key(player_id):
-    """플레이어에 대한 반발 prop 키 생성"""
-    player_info = morld.get_unit_info(player_id)
-    player_name = player_info.get('name', '주인공') if player_info else '주인공'
-    return f"관계:{player_name}:반발"
-
-
-def calculate_effects(action_def, partner_id, player_id=None):
-    """경험치 + 감각 + 지향성 보정된 효과 계산"""
-    base_effects = action_def["effects"].copy()
-    exp_part = action_def.get("exp_part")
-
-    if exp_part:
-        # 경험치 조회 (NPC별로 저장)
-        exp_key = f"경험:{exp_part}"
-        partner_props = morld.get_unit_props(partner_id)
-        exp_value = partner_props.get(exp_key, 0)
-
-        # 경험 배율: 1.0 + (경험 × 0.1)
-        multiplier = 1.0 + (exp_value * 0.1)
-
-        # 효과 적용 (반올림)
-        for stat, value in base_effects.items():
-            base_effects[stat] = round(value * multiplier)
-
-        # 감각 보너스: 성적 부위의 감각 레벨에 따라 성욕 효과 증폭
-        category = SENSATION_MAP.get(exp_part)
-        if category:
-            sensation = get_sensation_level(partner_id, category)
-            arousal_base = action_def["effects"].get("성욕", 0)
-            if arousal_base > 0 and sensation > 0:
-                bonus = round(arousal_base * sensation * 0.1)
-                base_effects["성욕"] = base_effects.get("성욕", 0) + bonus
-
-        # 수유 보너스: B 카테고리 + 수유 중 → ×1.3
-        if category == "B":
-            import pregnancy
-            if pregnancy.is_lactating(partner_id):
-                for stat in base_effects:
-                    base_effects[stat] = round(base_effects[stat] * 1.3)
-
-        # 경험치 +1
-        morld.modify_prop(partner_id, exp_key, 1)
-
-    # 노출 보너스 (해당 부위 노출 시 ×1.5)
-    bonus_area = action_def.get("exposure_bonus")
-    if bonus_area:
-        exposure = get_exposure_state(partner_id)
-        if exposure.get(f"{bonus_area}_exposed"):
-            for stat in base_effects:
-                base_effects[stat] = round(base_effects[stat] * EXPOSURE_BONUS)
-
-    # 성적 지향성 배율
-    if player_id:
-        import gender as gender_mod
-        orientation_mult = gender_mod.get_orientation_multiplier(partner_id, player_id)
-        if orientation_mult != 1.0:
-            for stat in base_effects:
-                base_effects[stat] = round(base_effects[stat] * orientation_mult)
-
-    return base_effects
-
-
-def get_affection_key(player_id):
-    """플레이어에 대한 호감도 prop 키 생성"""
-    player_info = morld.get_unit_info(player_id)
-    player_name = player_info.get('name', '주인공') if player_info else '주인공'
-    return f"관계:{player_name}:호감"
 
 
 def check_ecstasy(partner_id):
@@ -1087,14 +185,14 @@ def render_romance_ui(state):
     lines.append("")
 
     # 근접 경고 (누군가 지나갔지만 들키지 않음)
-    if state.get("near_miss"):
-        near_miss_id = state.get("near_miss_id")
+    if state["near_miss"]:
+        near_miss_id = state["near_miss_id"]
         near_info = morld.get_unit_info(near_miss_id) if near_miss_id else None
         near_name = near_info.get("name", "누군가") if near_info else "누군가"
         lines.append(f"[color=orange]({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)[/color]")
 
         # 파트너의 은신 성공 반응 (캐릭터별 특별 대사)
-        stealth_reaction = state.get("stealth_reaction")
+        stealth_reaction = state["stealth_reaction"]
         if stealth_reaction:
             lines.append(f"[color=cyan][{partner_name}] {stealth_reaction}[/color]")
             state["stealth_reaction"] = None  # 표시 후 클리어
@@ -1104,7 +202,7 @@ def render_romance_ui(state):
         state["near_miss_id"] = None
 
     # 마지막 즉시 액션 반응 (있으면 표시 후 클리어)
-    last_reaction = state.get("last_reaction")
+    last_reaction = state["last_reaction"]
     if last_reaction:
         lines.append(f"[color=yellow]{last_reaction}[/color]")
         lines.append("")
@@ -1232,7 +330,7 @@ def render_romance_ui(state):
     # 윤활 상태 표시
     import gender as gender_mod
     if gender_mod.has_anatomy(partner_id, "V"):
-        if state.get("lubricated"):
+        if state["lubricated"]:
             lines.append("[color=green]윤활: 충분[/color]")
         else:
             arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
@@ -1350,40 +448,6 @@ def render_romance_ui(state):
 # 시간 경과 및 NPC 감지
 # ============================================
 
-def calculate_stealth_chance(state):
-    """
-    들키지 않을 확률 계산
-
-    조건에 따라 은신 확률이 달라집니다:
-    - 기본 확률: 30%
-    - 은신 중(hiding=True): +40%
-    - 추후 확장: 장소 특성, 시간대 등
-
-    Returns:
-        float: 은신 성공 확률 (0.0 ~ 1.0)
-    """
-    chance = STEALTH_BASE_CHANCE
-
-    # 은신 상태 체크 (state에서 플래그 확인)
-    if state.get("hiding"):
-        chance += STEALTH_HIDING_BONUS
-
-    # 최대 90%로 제한 (항상 들킬 가능성 존재)
-    return min(chance, 0.9)
-
-
-def check_stealth_success(state):
-    """
-    은신 성공 여부 판정
-
-    Returns:
-        bool: True면 들키지 않음, False면 들킴
-    """
-    import random
-    chance = calculate_stealth_chance(state)
-    return random.random() < chance
-
-
 def advance_time_and_check(state, millis):
     """시간 경과 + NPC 도착 체크 (은신 확률 적용)"""
     # 1. 시간 진행 + NPC 이동 시뮬레이션
@@ -1412,13 +476,10 @@ def advance_time_and_check(state, millis):
         #       if state["elapsed_time"] - last_check < 30:
         #           continue  # 아직 재판정 시간 안 됨
         #   checked_npcs[unit_id] = state["elapsed_time"]
-        checked_npcs = state.get("checked_npcs", set())
-        if unit_id in checked_npcs:
+        if unit_id in state["checked_npcs"]:
             continue
 
         # 체크 목록에 추가
-        if "checked_npcs" not in state:
-            state["checked_npcs"] = set()
         state["checked_npcs"].add(unit_id)
 
         # 호감도 체크
@@ -1459,18 +520,6 @@ def advance_time_and_check(state, millis):
 # 메인 연애 함수
 # ============================================
 
-def _extract_preserved(state):
-    """공수 전환 시 보존할 상태 추출"""
-    return {
-        "stim": state["stim"],
-        "stamina": state["stamina"],
-        "elapsed_time": state["elapsed_time"],
-        "checked_npcs": state.get("checked_npcs", set()),
-        "lubricated": state.get("lubricated", False),
-        "schedule_pushed": True,
-    }
-
-
 def start_romance(player_id, partner_id, preserved=None):
     """연애 모드 시작 - Generator 기반
 
@@ -1502,19 +551,31 @@ def start_romance(player_id, partner_id, preserved=None):
 
     import gender as gender_mod
     state = {
+        # 핵심 (세션 수명)
         "player_id": player_id,
         "partner_id": partner_id,
-        "active_toggles": set(),  # 현재 ON인 토글들 (복수 가능)
-        "stamina": initial_stamina,  # 남은 스태미나
+        "active_toggles": set(),
+        "stamina": initial_stamina,
         "elapsed_time": 0,
-        "interrupted": False,
-        "interrupter_id": None,
-        "exhausted": False,  # 체력 소진 종료
-        "last_reaction": None,  # 마지막 즉시 액션 반응 텍스트
-        "lubricated": False,  # 윤활 세션 플래그
+        "lubricated": False,
         "stim": stimulation.create_state(
             male_mode=(gender_mod.get_gender(partner_id) == "male")
-        ),  # 부위별 자극 상태 (세션 스코프)
+        ),
+        # 삽입 호환 (삽입 토글 ON 시 설정)
+        "size_pain": False,
+        "size_stim_mod": 1.0,
+        # 제3자 추적
+        "checked_npcs": set(),
+        # UI 일시적 (렌더링 후 소비)
+        "last_reaction": None,
+        "near_miss": False,
+        "near_miss_id": None,
+        "stealth_reaction": None,
+        # 종료 조건
+        "interrupted": False,
+        "interrupter_id": None,
+        "exhausted": False,
+        "switch_to": None,
     }
 
     # 전환 시 보존 상태 복원
@@ -1522,10 +583,8 @@ def start_romance(player_id, partner_id, preserved=None):
         state["stim"] = preserved["stim"]
         state["stamina"] = preserved["stamina"]
         state["elapsed_time"] = preserved["elapsed_time"]
-        if preserved.get("lubricated"):
-            state["lubricated"] = preserved["lubricated"]
-        if preserved.get("checked_npcs"):
-            state["checked_npcs"] = preserved["checked_npcs"]
+        state["lubricated"] = preserved.get("lubricated", False)
+        state["checked_npcs"] = preserved.get("checked_npcs", set())
 
     def apply_effects(action_def, active_toggle_defs):
         """
@@ -1585,12 +644,22 @@ def start_romance(player_id, partner_id, preserved=None):
             sensation = get_sensation_level(pid, category)
             gain = stimulation.calc_gain(base, sensation, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
             # 삽입 크기 배율 적용
-            size_mod = state.get("size_stim_mod", 1.0)
+            size_mod = state["size_stim_mod"]
             if size_mod != 1.0 and act_def.get("exp_part") in ("음부", "엉덩이", "음경"):
                 gain = round(gain * size_mod)
             result = stimulation.apply(stim_state, category, gain)
             if result and not climax_info:
                 climax_info = result
+            # 추가 자극 (tribadism: V+C 동시)
+            extra = act_def.get("extra_exp_part")
+            if extra:
+                extra_cat = SENSATION_MAP.get(extra)
+                if extra_cat:
+                    extra_sens = get_sensation_level(pid, extra_cat)
+                    extra_gain = stimulation.calc_gain(base, extra_sens, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
+                    r2 = stimulation.apply(stim_state, extra_cat, extra_gain)
+                    if r2 and not climax_info:
+                        climax_info = r2
 
         # 삽입 중 플레이어 P 자극 축적
         if _has_active_penetration(state.get("active_toggles", set())):
@@ -1852,7 +921,7 @@ def start_romance(player_id, partner_id, preserved=None):
                     pen_part = _get_active_penetration_part(state["active_toggles"])
                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
                     if pen_part:
-                        add_internal_semen(state["partner_id"], pen_part, ejac_amount)
+                        _apply_internal_semen(state["partner_id"], pen_part, ejac_amount)
                         # 임신 판정
                         if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
                             try:
@@ -1861,7 +930,7 @@ def start_romance(player_id, partner_id, preserved=None):
                             except ImportError:
                                 pass
                     else:
-                        apply_semen_external(state["partner_id"], ejac_amount)
+                        _apply_semen(state["partner_id"], "body", ejac_amount)
                     # P 자극 리셋
                     import stimulation
                     stimulation.apply_climax_reset_p(state["stim"])
@@ -2074,8 +1143,8 @@ def start_romance(player_id, partner_id, preserved=None):
     )
 
     # 공수 전환 — NPC 주도로 전환
-    if state.get("switch_to") == "npc":
-        preserved = _extract_preserved(state)
+    if state["switch_to"] == "npc":
+        preserved = extract_preserved(state)
         from npc_initiative import start_npc_initiative
         yield from start_npc_initiative(player_id, partner_id, preserved=preserved)
         return

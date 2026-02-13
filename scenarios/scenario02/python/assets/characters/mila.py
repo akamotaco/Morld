@@ -87,6 +87,7 @@ class Mila(Character):
     type = "female"
     sexual_orientation = "heterosexual"
     props = {
+        "성별": "female", "성적지향": "heterosexual",
         "외모:갈색머리": 1, "외모:중간머리": 1, "외모:갈색눈": 1,
         "성격:다정함": 1, "성격:걱정많음": 1,
         "관계:세라:신뢰": 1,
@@ -102,7 +103,7 @@ class Mila(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
-        "체격": 2,
+        "체격": 2, "가슴:크기": 3,
     }
     actions = [
         "call:talk:대화",
@@ -1444,8 +1445,6 @@ class MilaAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
-        import gender as gender_mod
-        gender_mod.register_orientation(unit_id, Mila.sexual_orientation)
 
     def _get_current_season(self):
         """현재 계절 반환 (게임 날짜 기반)"""

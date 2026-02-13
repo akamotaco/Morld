@@ -13,6 +13,7 @@ class Child(Character):
     type = "male"  # 출산 시 랜덤 결정
 
     props = {
+        "성별": "male",  # 출산 시 랜덤 결정
         "나이": 0,
         "생존:체력": 50,
         "생존:최대체력": 50,

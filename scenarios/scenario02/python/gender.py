@@ -34,20 +34,17 @@ ANATOMY = {
 # ============================================
 
 def get_gender(unit_id):
-    """유닛의 성별 반환 (Character asset의 type 필드 기반)
+    """유닛의 성별 반환 (prop "성별" 우선 → unit_info type fallback)
 
     Returns:
         str: "male", "female", "futanari", "asexual" 중 하나
     """
-    try:
-        from assets.characters import get_instance
-        instance = get_instance(unit_id)
-        if instance:
-            return getattr(instance, 'type', MALE)
-    except Exception:
-        pass
+    # 1. prop 우선
+    val = morld.get_unit_prop(unit_id, "성별")
+    if val:
+        return val
 
-    # asset 없으면 unit_info에서 type 확인
+    # 2. C# unit_info의 type fallback
     info = morld.get_unit_info(unit_id)
     if info:
         return info.get("type", MALE)
@@ -85,17 +82,17 @@ ORIENTATION_HETEROSEXUAL = "heterosexual"
 ORIENTATION_BISEXUAL = "bisexual"
 ORIENTATION_HOMOSEXUAL = "homosexual"
 
-_orientation_cache = {}  # unit_id -> orientation
-
-
 def register_orientation(unit_id, orientation):
-    """NPC 성적 지향 등록 (Agent.__init__에서 호출)"""
-    _orientation_cache[unit_id] = orientation
+    """(deprecated) 호환성 유지용 no-op — props로 전환됨"""
+    pass
 
 
 def get_orientation(unit_id):
-    """성적 지향 반환 (기본: bisexual)"""
-    return _orientation_cache.get(unit_id, ORIENTATION_BISEXUAL)
+    """성적 지향 반환 (prop "성적지향" 우선 → 기본 bisexual)"""
+    val = morld.get_unit_prop(unit_id, "성적지향")
+    if val:
+        return val
+    return ORIENTATION_BISEXUAL
 
 
 def get_orientation_multiplier(npc_id, partner_id):
@@ -122,16 +119,18 @@ def get_orientation_multiplier(npc_id, partner_id):
 
 
 def reset_orientation():
-    """챕터 전환 시 리셋"""
-    _orientation_cache.clear()
+    """(deprecated) 호환성 유지용 no-op — props는 instantiate 시 자동 재설정"""
+    pass
 
 
 # ============================================
-# 체격 / 음경 크기 시스템
+# 체격 / 음경 / 가슴 크기 시스템
 # ============================================
 
 BODY_SIZE_MAP = {"왜소": 1, "보통": 2, "장신": 3, "거구": 4}
 PENIS_SIZE_MAP = {"작음": 1, "보통": 2, "큼": 3}
+# 가슴 크기: 0=없음, 1=작음, 2=보통, 3=큼
+BREAST_SIZE_DEFAULT = {MALE: 0, FEMALE: 2, FUTANARI: 2, ASEXUAL: 0}
 
 
 def get_body_size(unit_id):
@@ -157,6 +156,15 @@ def get_penis_size(unit_id):
     if val is not None:
         return val
     return 2  # 기본 보통
+
+
+def get_breast_size(unit_id):
+    """가슴 크기 수치 반환 (0=없음, 1=작음, 2=보통, 3=큼)"""
+    val = morld.get_unit_prop(unit_id, "가슴:크기")
+    if val is not None:
+        return val
+    gender = get_gender(unit_id)
+    return BREAST_SIZE_DEFAULT.get(gender, 0)
 
 
 def check_penetration_compatibility(actor_id, target_id):

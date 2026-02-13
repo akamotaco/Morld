@@ -78,6 +78,7 @@ class Sera(Character):
     hearing_type = "keen"
     sexual_orientation = "bisexual"
     props = {
+        "성별": "female", "성적지향": "bisexual",
         "외모:흑발": 1, "외모:장발": 1, "외모:갈색눈": 1,
         "성격:과묵함": 1, "성격:듬직함": 1, "성격:리더십": 1,
         "나이": 23,
@@ -93,7 +94,7 @@ class Sera(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
-        "체격": 3,
+        "체격": 3, "가슴:크기": 2,
     }
     actions = [
         "call:talk:대화",
@@ -1520,8 +1521,6 @@ class SeraAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
-        import gender as gender_mod
-        gender_mod.register_orientation(unit_id, Sera.sexual_orientation)
 
     def think(self):
         """주말/평일 감지 → 스케줄 전환"""

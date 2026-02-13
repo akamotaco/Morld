@@ -78,6 +78,7 @@ class Yuki(Character):
     type = "female"
     sexual_orientation = "bisexual"
     props = {
+        "성별": "female", "성적지향": "bisexual",
         "외모:은발": 1, "외모:장발": 1, "외모:붉은눈": 1,
         "성격:수줍음": 1, "성격:얌전함": 1,
         "관계:엘라:의지": 1,
@@ -93,7 +94,7 @@ class Yuki(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
-        "체격": 1,
+        "체격": 1, "가슴:크기": 1,
     }
     actions = [
         "call:talk:대화",
@@ -1328,8 +1329,6 @@ class YukiAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
-        import gender as gender_mod
-        gender_mod.register_orientation(unit_id, Yuki.sexual_orientation)
 
     def on_leave(self, region_id, location_id):
         """위치 이탈 시 조명 끄기 (유키 성격: 꼼꼼함)"""
