@@ -126,22 +126,24 @@ def get_cycle_phase(unit_id):
 # 수정 판정
 # ============================================
 
-def check_conception(player_id, partner_id):
+def check_conception(player_id, partner_id, father_type=None):
     """P 보유자 절정 시 호출 — 수정 가능 여부 판정
 
     romance.py / npc_initiative.py의 절정 처리 블록에서 호출.
     삽입 행위(pregnancy_check=True)가 활성 토글일 때 + P 보유자 절정 시에만.
+
+    father_type: None이면 정상 (이름/id 기록), "unknown"이면 아버지 불명 처리.
     """
     import gender as gender_mod
 
     if gender_mod.has_anatomy(player_id, "P") and gender_mod.has_anatomy(partner_id, "V"):
-        _try_conceive(partner_id, player_id)
+        _try_conceive(partner_id, player_id, father_type=father_type)
 
     if gender_mod.has_anatomy(partner_id, "P") and gender_mod.has_anatomy(player_id, "V"):
-        _try_conceive(player_id, partner_id)
+        _try_conceive(player_id, partner_id, father_type=father_type)
 
 
-def _try_conceive(receiver_id, inseminator_id):
+def _try_conceive(receiver_id, inseminator_id, father_type=None):
     """수정 시도"""
     if morld.get_unit_prop(receiver_id, "상태:임신"):
         return
@@ -151,10 +153,10 @@ def _try_conceive(receiver_id, inseminator_id):
         return
 
     if random.random() < chance:
-        _conceive(receiver_id, inseminator_id)
+        _conceive(receiver_id, inseminator_id, father_type=father_type)
 
 
-def _conceive(receiver_id, inseminator_id):
+def _conceive(receiver_id, inseminator_id, father_type=None):
     """수정 성공 — 임신 시작"""
     morld.set_unit_prop(receiver_id, "상태:임신", 1)
     morld.set_unit_prop(receiver_id, "상태:임신주차", 0)
@@ -163,10 +165,17 @@ def _conceive(receiver_id, inseminator_id):
     conception_day = time_info.get("day", 0)
     morld.set_unit_prop(receiver_id, "상태:수정일", conception_day)
 
-    insem_info = morld.get_unit_info(inseminator_id)
-    insem_name = insem_info.get("name", "???") if insem_info else "???"
-    morld.set_unit_prop(receiver_id, "상태:아이아버지", insem_name)
-    morld.set_unit_prop(receiver_id, "상태:아이아버지id", inseminator_id)
+    if father_type == "unknown":
+        morld.set_unit_prop(receiver_id, "상태:아이아버지", "???")
+        morld.set_unit_prop(receiver_id, "상태:아이아버지id", 0)
+    else:
+        insem_info = morld.get_unit_info(inseminator_id)
+        insem_name = insem_info.get("name", "???") if insem_info else "???"
+        morld.set_unit_prop(receiver_id, "상태:아이아버지", insem_name)
+        morld.set_unit_prop(receiver_id, "상태:아이아버지id", inseminator_id)
+
+    # 이벤트 플래그 (on_meet에서 수정 알림 트리거)
+    morld.set_unit_prop(receiver_id, "이벤트:수정", 1)
 
 
 # ============================================
@@ -214,6 +223,39 @@ def is_romance_blocked(unit_id):
     return week >= 40
 
 
+# 임신 발표 임계 주차
+ANNOUNCEMENT_WEEK = 12
+
+
+def check_pending_pregnancy_events(unit_id):
+    """on_meet에서 호출 — 임신 관련 이벤트 키 반환
+
+    Returns:
+        str or None: 이벤트 키 ("conception:discovery", "conception:unknown_father",
+                     "pregnancy:announcement", "pregnancy:unknown_father")
+    """
+    # 수정 이벤트 (1회성 — 수정 직후 첫 만남)
+    if morld.get_unit_prop(unit_id, "이벤트:수정"):
+        morld.set_unit_prop(unit_id, "이벤트:수정", 0)  # 소비
+        father_id = morld.get_unit_prop(unit_id, "상태:아이아버지id") or 0
+        if father_id == 0:
+            return "conception:unknown_father"
+        return "conception:discovery"
+
+    # 임신 발표 (12주차 이상, 1회)
+    if is_pregnant(unit_id):
+        week = get_pregnancy_week(unit_id)
+        if week is not None and week >= ANNOUNCEMENT_WEEK:
+            if not morld.get_unit_prop(unit_id, "이벤트:임신발표"):
+                morld.set_unit_prop(unit_id, "이벤트:임신발표", 1)
+                father_id = morld.get_unit_prop(unit_id, "상태:아이아버지id") or 0
+                if father_id == 0:
+                    return "pregnancy:unknown_father"
+                return "pregnancy:announcement"
+
+    return None
+
+
 def is_lactating(unit_id):
     """수유 여부 (임신 20주+ 또는 출산 후 수유 지속)"""
     return bool(morld.get_unit_prop(unit_id, "상태:수유"))
@@ -251,6 +293,9 @@ def reset_pregnancy(unit_id):
     morld.set_unit_prop(unit_id, "상태:임신", 0)
     morld.set_unit_prop(unit_id, "상태:임신주차", 0)
     morld.set_unit_prop(unit_id, "상태:수정일", None)
+    # 이벤트 플래그 초기화 (다음 임신 시 재활용)
+    morld.set_unit_prop(unit_id, "이벤트:수정", 0)
+    morld.set_unit_prop(unit_id, "이벤트:임신발표", 0)
     # 월경 주기 재시작
     morld.set_unit_prop(unit_id, "생식:주기일", 1)
     # 수유시작일이 없으면 현재 날짜로 설정 (기존 데이터 호환)

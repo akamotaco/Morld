@@ -52,7 +52,7 @@ from romance_core import (
 
 # 빠져나가기 확률 보정
 ESCAPE_BASE_CHANCE = 0.3  # 기본 30%
-ESCAPE_STRENGTH_BONUS = 0.05  # 힘 1당 +5%
+ESCAPE_STRENGTH_BONUS = 0.05  # 근력 1당 +5%
 ESCAPE_BODY_BONUS = {
     "왜소": -0.1,
     "보통": 0.0,
@@ -92,11 +92,11 @@ def get_player_body_type(player_id):
 
 
 def get_player_strength(player_id):
-    """플레이어 힘 스탯 가져오기"""
+    """플레이어 근력 스탯 가져오기"""
     props = morld.get_unit_props(player_id)
     if not props:
         return 5
-    return props.get("힘", 5)
+    return props.get("근력", 5)
 
 
 def get_affection(npc_id, player_id):
@@ -157,6 +157,25 @@ def attempt_escape(player_id, npc_id):
     """
     chance = calculate_escape_chance(player_id, npc_id)
     return random.random() < chance
+
+
+# 저항 모드 상수
+RESISTANCE_BASE_GAIN = 15    # 기본 저항 축적량
+RESISTANCE_MAX = 100         # 저항 임계치 (도달 시 탈출)
+
+
+def calculate_resistance_gain(player_id, npc_id):
+    """저항 모드: 매 턴 저항 축적량 계산
+
+    Returns:
+        int: 저항 축적량 (RESISTANCE_MAX 도달 시 탈출)
+    """
+    from romance_mode import get_unit_power
+    player_power = get_unit_power(player_id)
+    npc_power = get_unit_power(npc_id)
+    diff = player_power - npc_power
+    gain = RESISTANCE_BASE_GAIN + int(diff * 2)
+    return max(5, min(40, gain))
 
 
 # ============================================
@@ -501,7 +520,14 @@ def render_npc_initiative_ui(state):
     lines = []
 
     # 헤더 - NPC 이름 + 스태미나
-    lines.append(f"[{npc_name}의 주도]                 스태미나: {render_stamina_bar(player_stamina)}")
+    resistance_mode = state.get("resistance_mode", False)
+    mode_label = " [color=red][저항 중][/color]" if resistance_mode else ""
+    lines.append(f"[{npc_name}의 주도]{mode_label}                 스태미나: {render_stamina_bar(player_stamina)}")
+
+    # 저항 게이지 (저항 모드)
+    if resistance_mode:
+        meter = state.get("resistance_meter", 0)
+        lines.append(f"[color=red]저항: {'█' * (meter // 10)}{'░' * (10 - meter // 10)} {meter}/{RESISTANCE_MAX}[/color]")
     lines.append("")
 
     # 근접 경고 (누군가 지나갔지만 들키지 않음)
@@ -637,42 +663,58 @@ def render_npc_initiative_ui(state):
         lines.append("  (없음)")
     lines.append("")
 
-    # 플레이어 선택 가능한 즉시 행위
-
-    has_penetration = _has_active_penetration(active_toggles)
-    lines.append("[즉시 행위] (플레이어)")
-    for action_id, action in PLAYER_INSTANT_ACTIONS.items():
-        if not is_anatomy_compatible(action, npc_id, actor_id=player_id):
-            continue
-        # 플레이어 자신의 해부학 요구사항 (hold_back 등)
-        player_self_req = action.get("requires_player_anatomy_self")
-        if player_self_req:
-            import gender as gender_mod
-            if not gender_mod.has_anatomy(player_id, player_self_req):
+    # 플레이어 선택 가능한 즉시 행위 (저항 모드에서는 숨김)
+    if not resistance_mode:
+        has_penetration = _has_active_penetration(active_toggles)
+        lines.append("[즉시 행위] (플레이어)")
+        for action_id, action in PLAYER_INSTANT_ACTIONS.items():
+            if not is_anatomy_compatible(action, npc_id, actor_id=player_id):
                 continue
-        # hold_back: P 자극 미달 시 숨김
-        if action_id == "hold_back":
-
-            if not is_hold_back_available(state):
+            # 플레이어 자신의 해부학 요구사항 (hold_back 등)
+            player_self_req = action.get("requires_player_anatomy_self")
+            if player_self_req:
+                import gender as gender_mod
+                if not gender_mod.has_anatomy(player_id, player_self_req):
+                    continue
+            # hold_back: P 자극 미달 시 숨김
+            if action_id == "hold_back":
+                if not is_hold_back_available(state):
+                    continue
+            # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
+            if action.get("requires_active_penetration") and not has_penetration:
                 continue
-        # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
-        if action.get("requires_active_penetration") and not has_penetration:
-            continue
-        # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
-        req_internal = action.get("requires_internal_semen")
-        if req_internal:
-            if get_internal_semen(npc_id, req_internal) <= 0:
+            # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
+            req_internal = action.get("requires_internal_semen")
+            if req_internal:
+                if get_internal_semen(npc_id, req_internal) <= 0:
+                    continue
+            # 탈의 행위: 벗을 것 없으면 숨김
+            if action.get("undress"):
+                is_upper = action["undress"] == "upper"
+                if get_next_undress_item(npc_id, upper=is_upper) is None:
+                    continue
+            # 노출 필요 행위: 미노출 시 잠금
+            req_area = action.get("requires_exposure")
+            if req_area and not exposure.get(f"{req_area}_exposed"):
+                if is_action_available(npc_id, player_id, action):
+                    lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
+                else:
+                    desire_key = affection_key.replace(":호감", ":욕망")
+                    submission_key = affection_key.replace(":호감", ":복종")
+                    eff_req = get_effective_affection_req(action["affection_req"],
+                        npc_props.get(desire_key, 0) if npc_props else 0,
+                        npc_props.get(submission_key, 0) if npc_props else 0)
+                    lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
                 continue
-        # 탈의 행위: 벗을 것 없으면 숨김
-        if action.get("undress"):
-            is_upper = action["undress"] == "upper"
-            if get_next_undress_item(npc_id, upper=is_upper) is None:
-                continue
-        # 노출 필요 행위: 미노출 시 잠금
-        req_area = action.get("requires_exposure")
-        if req_area and not exposure.get(f"{req_area}_exposed"):
             if is_action_available(npc_id, player_id, action):
-                lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
+                if player_stamina >= action["stamina"]:
+                    display_name = action['name']
+                    if action_id == "hold_back":
+                        chance = _calculate_hold_back_chance(player_id, state["stim"])
+                        display_name = f"참기 ({chance}%)"
+                    lines.append(f"  [url=@proc:instant:{action_id}]{display_name}[/url]")
+                else:
+                    lines.append(f"  [color=gray]{action['name']} (스태미나 부족)[/color]")
             else:
                 desire_key = affection_key.replace(":호감", ":욕망")
                 submission_key = affection_key.replace(":호감", ":복종")
@@ -680,34 +722,23 @@ def render_npc_initiative_ui(state):
                     npc_props.get(desire_key, 0) if npc_props else 0,
                     npc_props.get(submission_key, 0) if npc_props else 0)
                 lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
-            continue
-        if is_action_available(npc_id, player_id, action):
-            if player_stamina >= action["stamina"]:
-                display_name = action['name']
-                if action_id == "hold_back":
-                    chance = _calculate_hold_back_chance(player_id, state["stim"])
-                    display_name = f"참기 ({chance}%)"
-                lines.append(f"  [url=@proc:instant:{action_id}]{display_name}[/url]")
-            else:
-                lines.append(f"  [color=gray]{action['name']} (스태미나 부족)[/color]")
-        else:
-            desire_key = affection_key.replace(":호감", ":욕망")
-            submission_key = affection_key.replace(":호감", ":복종")
-            eff_req = get_effective_affection_req(action["affection_req"],
-                npc_props.get(desire_key, 0) if npc_props else 0,
-                npc_props.get(submission_key, 0) if npc_props else 0)
-            lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
-    lines.append("")
+        lines.append("")
 
     # 선택지
     lines.append(ui.divider())
-    lines.append("[url=@proc:escape]빠져나가기 시도[/url]")
-    lines.append("[url=@proc:accept]받아들이기[/url]")
+    if resistance_mode:
+        # 저항 모드: 저항/포기만 가능
+        gain = calculate_resistance_gain(player_id, npc_id)
+        lines.append(f"[url=@proc:resist][color=red]저항하기 (+{gain})[/color][/url]")
+        lines.append("[url=@proc:surrender]포기하기[/url]")
+    else:
+        lines.append("[url=@proc:escape]빠져나가기 시도[/url]")
+        lines.append("[url=@proc:resist_start][color=red]저항하기[/color][/url]")
+        lines.append("[url=@proc:accept]받아들이기[/url]")
 
-    # 공수 전환 버튼 (플레이어 주도로 전환)
-
-    if affection >= ROMANCE_ENTRY_THRESHOLD:
-        lines.append("[url=@proc:switch]주도권 빼앗기[/url]")
+        # 공수 전환 버튼 (플레이어 주도로 전환)
+        if affection >= ROMANCE_ENTRY_THRESHOLD:
+            lines.append("[url=@proc:switch]주도권 빼앗기[/url]")
 
     lines.append("")
     lines.append("[url=@proc:exit][color=gray]나가기[/color][/url]")
@@ -942,6 +973,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         # NPC 주도 전용
         "escape_attempts": 0,
         "escape_result": None,
+        "resistance_mode": False,    # 저항 모드 (NPC 강제, 플레이어 저항)
+        "resistance_meter": 0,       # 저항 축적 (100 도달 시 탈출)
         # UI 일시적 (렌더링 후 소비)
         "last_reaction": None,
         "near_miss": False,
@@ -969,6 +1002,125 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
             state["last_reaction"] = npc_asset.get_initiative_reaction("start")
 
+    # NPC 행위 자동 진행 (accept / resist에서 공유)
+    def _npc_auto_advance(state, npc_id, player_id, npc_asset, forced_reaction=False):
+        """NPC가 랜덤으로 행위를 선택하고 효과 적용
+
+        forced_reaction: True면 forced_ 접두사 반응 사용 (저항 모드)
+        state["exhausted"], state["interrupted"] 가 True로 설정될 수 있음.
+        """
+        # 윤활 상태 업데이트
+        check_lubrication(npc_id, state)
+
+        # NPC 랜덤 행위 선택
+        new_action = select_random_npc_action(npc_id, player_id, state["active_toggles"],
+                                               lubricated=state["lubricated"])
+
+        new_toggle_def = None
+        if new_action:
+            new_toggle_def = NPC_TOGGLE_ACTIONS.get(new_action)
+            _remove_conflicting_toggles(new_action, state["active_toggles"], new_toggle_def)
+
+        # 스태미나 계산
+        required_stamina = 0
+        if new_toggle_def:
+            required_stamina += new_toggle_def["stamina"]
+        for tid in state["active_toggles"]:
+            td = NPC_TOGGLE_ACTIONS.get(tid)
+            if td:
+                required_stamina += td["stamina"]
+        if required_stamina == 0:
+            required_stamina = 1
+
+        if state["stamina"] <= required_stamina:
+            state["exhausted"] = True
+            return
+
+        state["stamina"] -= required_stamina
+
+        # 새 액션 처리
+        first_key = None
+        if new_action and new_toggle_def:
+            if new_action in _PENETRATION_TOGGLE_IDS:
+                import gender as gender_mod
+                player_anat = new_toggle_def.get("requires_player_anatomy")
+                if player_anat == "P":
+                    compat = gender_mod.check_penetration_compatibility(player_id, npc_id)
+                elif player_anat in ("V", "A"):
+                    compat = gender_mod.check_penetration_compatibility(npc_id, player_id)
+                else:
+                    compat = {"needs_prep": 0, "pain": False, "stim_mod": 1.0}
+                state["size_pain"] = compat["pain"]
+                state["size_stim_mod"] = compat["stim_mod"]
+                if compat["pain"]:
+                    rebellion_key = get_rebellion_key(player_id)
+                    morld.modify_prop(npc_id, rebellion_key, 3)
+                    morld.set_unit_prop(npc_id, "크기통증", 1)
+
+            state["active_toggles"].add(new_action)
+            first_key = check_and_clear_virginity(npc_id, player_id, new_action)
+
+        # 효과 적용
+        ecstasy_reaction = None
+        for tid in state["active_toggles"]:
+            td = NPC_TOGGLE_ACTIONS.get(tid)
+            if td:
+                result = apply_action_effects(state, td)
+                if result and not ecstasy_reaction:
+                    ecstasy_reaction = result
+
+        stimulation.tick_afterglow(state["stim"])
+
+        # 소음 (저항 모드에서도 소음 방출)
+        if ecstasy_reaction:
+            emit_ecstasy_sound(npc_id)
+        else:
+            emit_romance_sound(npc_id)
+
+        # 시간 경과 + 제3자 감지
+        time_elapsed = 5 * MILLIS_PER_MINUTE
+        first_toggle = next(iter(state["active_toggles"]), None)
+        if first_toggle:
+            td = NPC_TOGGLE_ACTIONS.get(first_toggle)
+            if td:
+                time_elapsed = td.get("time", 5 * MILLIS_PER_MINUTE)
+
+        check_result = advance_time_and_check_npc_initiative(state, time_elapsed)
+        if check_result["interrupted"]:
+            state["interrupted"] = True
+            state["interrupter_id"] = check_result["interrupter_id"]
+            return
+
+        # 반응 텍스트
+        if ecstasy_reaction:
+            state["last_reaction"] = ecstasy_reaction
+        elif new_action:
+            reaction = None
+            if first_key and npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+                reaction = npc_asset.get_romance_reaction(first_key, "start")
+            if not reaction:
+                # 저항 모드: forced_ 접두사 시도
+                timing = f"during_{new_action}"
+                if forced_reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
+                    reaction = npc_asset.get_initiative_reaction(f"forced_{timing}")
+                if not reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
+                    reaction = npc_asset.get_initiative_reaction(timing)
+            if reaction:
+                state["last_reaction"] = reaction
+        elif state["active_toggles"]:
+            for tid in state["active_toggles"]:
+                timing = f"during_{tid}"
+                if forced_reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
+                    reaction = npc_asset.get_initiative_reaction(f"forced_{timing}")
+                    if reaction:
+                        state["last_reaction"] = reaction
+                        break
+                if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
+                    reaction = npc_asset.get_initiative_reaction(timing)
+                    if reaction:
+                        state["last_reaction"] = reaction
+                        break
+
     # proc 콜백
     def proc(action):
         if action == "init":
@@ -993,6 +1145,42 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             else:
                 state["escape_result"] = "빠져나가지 못했다."
 
+            return render_npc_initiative_ui(state)
+
+        # 저항 모드 진입
+        if action == "resist_start":
+            state["resistance_mode"] = True
+            state["resistance_meter"] = 0
+            state["escape_result"] = None
+            state["last_reaction"] = "(저항하기 시작했다.)"
+            return render_npc_initiative_ui(state)
+
+        # 저항 (저항 모드 중)
+        if action == "resist":
+            state["escape_result"] = None
+
+            # 저항 축적
+            gain = calculate_resistance_gain(player_id, npc_id)
+            state["resistance_meter"] += gain
+
+            if state["resistance_meter"] >= RESISTANCE_MAX:
+                # 탈출 성공
+                state["player_escaped"] = True
+                return True
+
+            # NPC는 계속 행위 (accept와 동일한 NPC 행위 흐름)
+            _npc_auto_advance(state, npc_id, player_id, npc_asset, forced_reaction=True)
+            if state["exhausted"] or state["interrupted"]:
+                return True
+
+            state["last_reaction"] = f"(필사적으로 저항하고 있다... [{state['resistance_meter']}/{RESISTANCE_MAX}])"
+            return render_npc_initiative_ui(state)
+
+        # 포기 (저항 모드 → 합의로 전환)
+        if action == "surrender":
+            state["resistance_mode"] = False
+            state["resistance_meter"] = 0
+            state["last_reaction"] = "(저항을 포기했다...)"
             return render_npc_initiative_ui(state)
 
         # 플레이어 즉시 행위
@@ -1196,131 +1384,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         # 받아들이기 - NPC가 랜덤으로 행위 선택
         if action == "accept":
             state["escape_result"] = None
-
-            # 윤활 상태 업데이트 (NPC 성욕이 임계치 이상이면 세션 동안 유지)
-            check_lubrication(npc_id, state)
-
-            # NPC가 새로운 행위를 랜덤 선택 (기존 토글 제외)
-            new_action = select_random_npc_action(npc_id, player_id, state["active_toggles"],
-                                                   lubricated=state["lubricated"])
-
-            # 새 액션의 정의
-            new_toggle_def = None
-            if new_action:
-                new_toggle_def = NPC_TOGGLE_ACTIONS.get(new_action)
-
-                # 충돌 처리: 같은 신체 부위를 사용하는 토글 비활성화
-                _remove_conflicting_toggles(new_action, state["active_toggles"], new_toggle_def)
-
-            # 스태미나 계산: 새 액션 + 기존 활성 토글들 (충돌로 제거된 토글 제외)
-            required_stamina = 0
-
-            # 새 액션의 스태미나
-            if new_toggle_def:
-                required_stamina += new_toggle_def["stamina"]
-
-            # 기존 활성 토글들의 스태미나
-            for tid in state["active_toggles"]:
-                td = NPC_TOGGLE_ACTIONS.get(tid)
-                if td:
-                    required_stamina += td["stamina"]
-
-            # 스태미나 체크 (최소 1 필요)
-            if required_stamina == 0:
-                required_stamina = 1
-
-            if state["stamina"] <= required_stamina:
-                state["exhausted"] = True
-                return True  # 스태미나 부족으로 종료
-
-            # 스태미나 소모
-            state["stamina"] -= required_stamina
-
-            # 새 액션이 있으면 토글에 추가 + 호환성/처녀 체크
-            first_key = None
-            if new_action and new_toggle_def:
-                # 삽입 호환성 체크 (크기 차이)
-                if new_action in _PENETRATION_TOGGLE_IDS:
-                    import gender as gender_mod
-                    player_anat = new_toggle_def.get("requires_player_anatomy")
-                    if player_anat == "P":
-                        compat = gender_mod.check_penetration_compatibility(
-                            player_id, npc_id)
-                    elif player_anat in ("V", "A"):
-                        compat = gender_mod.check_penetration_compatibility(
-                            npc_id, player_id)
-                    else:
-                        compat = {"needs_prep": 0, "pain": False, "stim_mod": 1.0}
-                    state["size_pain"] = compat["pain"]
-                    state["size_stim_mod"] = compat["stim_mod"]
-                    if compat["pain"]:
-                        rebellion_key = get_rebellion_key(player_id)
-                        morld.modify_prop(npc_id, rebellion_key, 3)
-                        morld.set_unit_prop(npc_id, "크기통증", 1)
-
-                state["active_toggles"].add(new_action)
-                first_key = check_and_clear_virginity(
-                    state["npc_id"], state["player_id"], new_action)
-
-            # 모든 활성 토글들의 효과 적용
-            ecstasy_reaction = None
-            for tid in state["active_toggles"]:
-                td = NPC_TOGGLE_ACTIONS.get(tid)
-                if td:
-                    result = apply_action_effects(state, td)
-                    if result and not ecstasy_reaction:
-                        ecstasy_reaction = result
-
-            # 여운 감소 (턴당 1회)
-            stimulation.tick_afterglow(state["stim"])
-
-            # 소음 발생
-            npc_id = state["npc_id"]
-            if ecstasy_reaction:
-                emit_ecstasy_sound(npc_id)
-            else:
-                emit_romance_sound(npc_id)
-
-            # 시간 경과 + 제3자 감지 체크 (활성 토글 중 첫 번째 기준, 기본 5분)
-            time_elapsed = 5 * MILLIS_PER_MINUTE
-            first_toggle = next(iter(state["active_toggles"]), None)
-            if first_toggle:
-                td = NPC_TOGGLE_ACTIONS.get(first_toggle)
-                if td:
-                    time_elapsed = td.get("time", 5 * MILLIS_PER_MINUTE)
-
-            check_result = advance_time_and_check_npc_initiative(state, time_elapsed)
-
-            # 제3자에게 들킴 - 중단
-            if check_result["interrupted"]:
-                state["interrupted"] = True
-                state["interrupter_id"] = check_result["interrupter_id"]
+            _npc_auto_advance(state, npc_id, player_id, npc_asset)
+            if state["exhausted"] or state["interrupted"]:
                 return True
-
-            # 반응 텍스트 설정
-            if ecstasy_reaction:
-                state["last_reaction"] = ecstasy_reaction
-            elif new_action:
-                # 첫경험 반응 우선, 없으면 일반 반응
-                reaction = None
-                if first_key and npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-                    reaction = npc_asset.get_romance_reaction(first_key, "start")
-                if not reaction:
-                    timing = f"during_{new_action}"
-                    if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
-                        reaction = npc_asset.get_initiative_reaction(timing)
-                if reaction:
-                    state["last_reaction"] = reaction
-            elif state["active_toggles"]:
-                # 기존 토글 중 하나의 반응
-                for tid in state["active_toggles"]:
-                    timing = f"during_{tid}"
-                    if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
-                        reaction = npc_asset.get_initiative_reaction(timing)
-                        if reaction:
-                            state["last_reaction"] = reaction
-                            break
-
             return render_npc_initiative_ui(state)
 
         # 공수 전환 (NPC → 플레이어 주도)

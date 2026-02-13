@@ -94,6 +94,7 @@ class Sera(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
+        "근력": 6, "체력": 6,
         "체격": 3, "가슴:크기": 2,
     }
     actions = [
@@ -105,6 +106,7 @@ class Sera(Character):
         "call:date_hug:안아주기#",     # 조건 충족 시만 표시
         "call:date_kiss:키스#",        # 조건 충족 시만 표시
         "call:romance:스킨십",
+        "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
         "call:debug_affection_up:(디버그) 호감도 +10#",
         "call:debug_affection_down:(디버그) 호감도 -10#",
@@ -799,6 +801,17 @@ class Sera(Character):
             ({"성욕": 70}, ["...으으... 안에서 움직이면...", "...거기 누르면... 이상해져..."]),
             ({}, ["...움직이지 마...", "...이상한 짓 하지 마..."]),
         ],
+
+        # 강제 모드 반응
+        "forced_start:start": [
+            ({}, ["하지 마...! 놓으라고!"]),
+        ],
+        "forced_ecstasy:start": [
+            ({}, ["싫어...! 이런 거... 느끼기 싫어...!"]),
+        ],
+        "forced_break_free:start": [
+            ({}, ["다시는... 가까이 오지 마!"]),
+        ],
     }
 
     # ========================================
@@ -1198,6 +1211,33 @@ class Sera(Character):
         }
         return rejects.get(action_id)
 
+
+    # ========================================
+    # 임신/모드 후유증 반응
+    # ========================================
+
+    def _handle_pregnancy_event(self, player_id, event_key):
+        """세라 임신 이벤트 반응"""
+        import pregnancy as _preg
+        week = _preg.get_pregnancy_week(self.instance_id)
+
+        if event_key == "conception:discovery":
+            yield ui.dialog(f"[{self.name}]\n\"...아이가 생겼어.\"\n\"...너 때문이야. ...책임져.\"")
+        elif event_key == "conception:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"...몸이 이상해. ...뭔가 달라.\"\n\"...설마...\"")
+        elif event_key == "pregnancy:announcement":
+            yield ui.dialog(f"[{self.name}]\n\"...{week}주차야.\"\n\"...어떻게 할 건지... 정해.\"")
+        elif event_key == "pregnancy:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"...{week}주차래.\"\n\"...누구 아이인지는... 모르겠어.\"")
+
+    def _handle_mode_aftermath(self, player_id, event_key):
+        """세라 모드 피해 후유증 반응"""
+        if event_key == "forced_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...가까이 오지 마.\"\n세라가 차갑게 노려본다. 눈에 분노와 치욕이 서려 있다.")
+        elif event_key == "unconscious_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...몸이 이상해.\"\n세라가 미간을 찌푸린다. \"...뭔가 있었어...?\"")
+        elif event_key == "frozen_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...시간이 이상하게 흘렀어.\"\n\"...설명해. 지금 당장.\"")
 
     # ========================================
     # 침대 이벤트

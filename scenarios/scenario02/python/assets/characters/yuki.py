@@ -94,12 +94,14 @@ class Yuki(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
+        "근력": 3, "체력": 4,
         "체격": 1, "가슴:크기": 1,
     }
     actions = [
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:romance:스킨십",
+        "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
         "call:debug_affection_up:(디버그) 호감도 +10#",
         "call:debug_affection_down:(디버그) 호감도 -10#",
@@ -940,6 +942,17 @@ class Yuki(Character):
             ({"성욕": 70}, ["...안에서 움직이면... 이상해요...♡", "...거기 누르면... tokeru...♡"]),
             ({}, ["...움직이면... 이상해요...", "..."]),
         ],
+
+        # 강제 모드 반응
+        "forced_start:start": [
+            ({}, ["...그만둬. 후회할 거야."]),
+        ],
+        "forced_ecstasy:start": [
+            ({}, ["...! (이를 악문다)"]),
+        ],
+        "forced_break_free:start": [
+            ({}, ["...다음에는 가만두지 않을 거야."]),
+        ],
     }
 
     # ========================================
@@ -1023,6 +1036,33 @@ class Yuki(Character):
 
         # 첫 만남 완료 처리 (관계:유키:진척도 = 1)
         self.mark_first_meet_done(player_id)
+
+    # ========================================
+    # 임신/모드 후유증 반응
+    # ========================================
+
+    def _handle_pregnancy_event(self, player_id, event_key):
+        """유키 임신 이벤트 반응"""
+        import pregnancy as _preg
+        week = _preg.get_pregnancy_week(self.instance_id)
+
+        if event_key == "conception:discovery":
+            yield ui.dialog(f"[{self.name}]\n\"...아이가... 생겼어요.\"\n\"...당신의... 아이예요.\"")
+        elif event_key == "conception:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"...몸이 이상해요...\"\n\"...무서워요...\"")
+        elif event_key == "pregnancy:announcement":
+            yield ui.dialog(f"[{self.name}]\n\"...{week}주차... 래요.\"\n\"...잘 키울 수 있을까요...\"")
+        elif event_key == "pregnancy:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"...{week}주차...\"\n\"...아버지가 누군지... 모르겠어요...\"")
+
+    def _handle_mode_aftermath(self, player_id, event_key):
+        """유키 모드 피해 후유증 반응"""
+        if event_key == "forced_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"......\"\n유키가 아무 말 없이 당신을 바라본다. 눈빛이 얼어붙어 있다.")
+        elif event_key == "unconscious_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...몸이... 이상해요...\"\n유키가 불안한 눈으로 자신의 몸을 내려다본다.")
+        elif event_key == "frozen_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...시간이... 빠진 것 같아요...\"\n유키가 조용히 주변을 둘러본다.")
 
     # ========================================
     # 침대 이벤트

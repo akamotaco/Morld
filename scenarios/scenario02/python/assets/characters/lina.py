@@ -93,12 +93,14 @@ class Lina(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
+        "근력": 3, "체력": 4,
         "체격": 1, "가슴:크기": 1,
     }
     actions = [
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:romance:스킨십",
+        "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
         "call:debug_affection_up:(디버그) 호감도 +10#",
         "call:debug_affection_down:(디버그) 호감도 -10#",
@@ -959,6 +961,17 @@ class Lina(Character):
             ({"성욕": 70}, ["안에서 움직이면... 미칠 것 같아...♡♡", "거기 누르면... 녹아...♡"]),
             ({}, ["움직이지 마...!", "이상해... 그러면..."]),
         ],
+
+        # 강제 모드 반응
+        "forced_start:start": [
+            ({}, ["무...무서워...! 하지 마..."]),
+        ],
+        "forced_ecstasy:start": [
+            ({}, ["머리가... 하얘져..."]),
+        ],
+        "forced_break_free:start": [
+            ({}, ["...! (떨면서 도망친다)"]),
+        ],
     }
 
     # ========================================
@@ -1067,6 +1080,33 @@ class Lina(Character):
 
         # 첫 만남 완료 처리 (관계:리나:진척도 = 1)
         self.mark_first_meet_done(player_id)
+
+    # ========================================
+    # 임신/모드 후유증 반응
+    # ========================================
+
+    def _handle_pregnancy_event(self, player_id, event_key):
+        """리나 임신 이벤트 반응"""
+        import pregnancy as _preg
+        week = _preg.get_pregnancy_week(self.instance_id)
+
+        if event_key == "conception:discovery":
+            yield ui.dialog(f"[{self.name}]\n\"에엣?! 아, 아기가...?!\"\n\"...너 때문이야...! 책임져...!\"")
+        elif event_key == "conception:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"...배가 이상해... 왜 이러지...?\"\n\"...설마... 아기...?\"")
+        elif event_key == "pregnancy:announcement":
+            yield ui.dialog(f"[{self.name}]\n\"{week}주차래...!\"\n\"...리나 엄마 되는 거야...? 무서워... 근데 기대돼...!\"")
+        elif event_key == "pregnancy:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"{week}주차... 래...\"\n\"...아빠가 누군지... 모르겠어... 무서워...\"")
+
+    def _handle_mode_aftermath(self, player_id, event_key):
+        """리나 모드 피해 후유증 반응"""
+        if event_key == "forced_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...가까이 오지 마...!\"\n리나가 몸을 떨며 뒷걸음친다. 눈에 눈물이 가득하다.")
+        elif event_key == "unconscious_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...이상한 꿈 꿨어...\"\n리나가 불안한 표정으로 몸을 만져본다. \"...몸이 좀 이상해...\"")
+        elif event_key == "frozen_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...어? 시간이 갑자기 건너뛴 것 같아...?\"\n리나가 고개를 갸웃거린다. \"...뭔가 이상해...\"")
 
     # ========================================
     # 침대 이벤트

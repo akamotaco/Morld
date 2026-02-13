@@ -104,12 +104,14 @@ class Ella(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
+        "근력": 5, "체력": 6,
         "체격": 3, "가슴:크기": 2,
     }
     actions = [
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:romance:스킨십",
+        "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
         "call:debug_affection_up:(디버그) 호감도 +10#",
         "call:debug_affection_down:(디버그) 호감도 -10#",
@@ -930,6 +932,17 @@ class Ella(Character):
             ({"성욕": 70}, ["...안에서 움직이면... 이상하군요...", "...거기 누르면... I can't..."]),
             ({}, ["...움직이지 마세요...", "..."]),
         ],
+
+        # 강제 모드 반응
+        "forced_start:start": [
+            ({}, ["미쳤어?! 당장 놔!"]),
+        ],
+        "forced_ecstasy:start": [
+            ({}, ["이런...! 죽여버릴 거야...!"]),
+        ],
+        "forced_break_free:start": [
+            ({}, ["한 번만 더 이러면 진짜 죽는다."]),
+        ],
     }
 
     # ========================================
@@ -1054,6 +1067,33 @@ class Ella(Character):
 
         # 첫 만남 완료 처리 (관계:엘라:진척도 = 1)
         self.mark_first_meet_done(player_id)
+
+    # ========================================
+    # 임신/모드 후유증 반응
+    # ========================================
+
+    def _handle_pregnancy_event(self, player_id, event_key):
+        """엘라 임신 이벤트 반응"""
+        import pregnancy as _preg
+        week = _preg.get_pregnancy_week(self.instance_id)
+
+        if event_key == "conception:discovery":
+            yield ui.dialog(f"[{self.name}]\n\"...임신이야.\"\n\"...네 아이다. ...각오해.\"")
+        elif event_key == "conception:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"...몸에 변화가 있어.\"\n\"...원인을 알아야겠어.\"")
+        elif event_key == "pregnancy:announcement":
+            yield ui.dialog(f"[{self.name}]\n\"{week}주차다.\"\n\"...어떻게든 지켜낼 거야.\"")
+        elif event_key == "pregnancy:unknown_father":
+            yield ui.dialog(f"[{self.name}]\n\"{week}주차...\"\n\"...아버지가 누군지는 모르겠어. 하지만 상관없어.\"")
+
+    def _handle_mode_aftermath(self, player_id, event_key):
+        """엘라 모드 피해 후유증 반응"""
+        if event_key == "forced_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...다음에 이러면 죽여버린다.\"\n엘라가 살기 어린 눈으로 당신을 노려본다.")
+        elif event_key == "unconscious_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...몸이 이상해.\"\n엘라가 미간을 찌푸린다. \"...뭔가 있었나.\"")
+        elif event_key == "frozen_aftermath":
+            yield ui.dialog(f"[{self.name}]\n\"...시간이 이상하게 흘렀어.\"\n\"...설명해. 지금 당장.\"")
 
     # ========================================
     # 침대 이벤트

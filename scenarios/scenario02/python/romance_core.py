@@ -688,7 +688,7 @@ def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactio
 
 def extract_preserved(state):
     """공수 전환 시 보존할 상태 추출"""
-    return {
+    preserved = {
         "stim": state["stim"],
         "stamina": state["stamina"],
         "elapsed_time": state["elapsed_time"],
@@ -696,3 +696,6 @@ def extract_preserved(state):
         "lubricated": state.get("lubricated", False),
         "schedule_pushed": True,
     }
+    if "mode_ctx" in state:
+        preserved["mode_ctx"] = state["mode_ctx"]
+    return preserved

@@ -9,6 +9,10 @@
 | 시스템 | 파일 | 설명 |
 |--------|------|------|
 | **스킨십 시스템** | `romance.py` | 플레이어 주도 친밀 행위 (토글/즉시) |
+| **행위 정의** | `romance_actions.py` | 행위 데이터 + 공유 상수 |
+| **핵심 로직** | `romance_core.py` | 공유 함수 (25+) |
+| **동작 모드** | `romance_mode.py` | 합의/강제/무의식/시간정지 |
+| **UI 렌더링** | `romance_ui.py` | 연애 화면 텍스트 생성 |
 | **데이트 시스템** | `date.py` | 데이트 요청/종료 + 애정 표현 |
 | **NPC 주도 시스템** | `npc_initiative.py` | NPC가 먼저 스킨십 시작 |
 | **자극 시스템** | `stimulation.py` | 부위별 자극 → 절정/여운/불응기 |
@@ -22,6 +26,7 @@
 - 플레이어가 행위를 선택하고 NPC가 반응
 - 토글형(유지)/즉시형(순간) 행위 구분
 - 캐릭터별 반응 시스템 (ROMANCE_REACTIONS)
+- **4가지 동작 모드**: 합의/강제/무의식/시간정지 (→ [18. 동작 모드 시스템](#18-동작-모드-시스템-romance_modepy))
 
 ### 진입 조건
 - 호감도 50 이상 (`ROMANCE_ENTRY_THRESHOLD`)
@@ -1475,3 +1480,198 @@ class Sera(Character):
         self._event_flags["first_meet"] = True
         return self._run_event_dialog("first_meet", player_id=player_id)
 ```
+
+---
+
+## 18. 동작 모드 시스템 (romance_mode.py)
+
+### 개요
+
+연애 세션은 4가지 **동작 모드**로 실행될 수 있다:
+
+| 모드 | 상수 | 진입 조건 | 설명 |
+|------|------|----------|------|
+| 합의 | `MODE_CONSENSUAL` | 호감도 50+ | 기본 상호 동의 |
+| 강제 | `MODE_FORCED` | 1:1 + 제압 판정 | 의식 있는 대상, NPC 저항 가능 |
+| 무의식 | `MODE_UNCONSCIOUS` | NPC 기절 중 | 반응 없음, 각성 시 강제로 전이 |
+| 시간정지 | `MODE_FROZEN` | 시간정지 상태 | 반응 없음, 효과 지연 |
+
+### 모드 컨텍스트 (`state["mode_ctx"]`)
+
+```python
+{
+    "mode": "forced",         # 현재 모드
+    "actor_id": player_id,    # 주도자
+    "target_id": partner_id,  # 대상
+    "action_count": 0,        # 행위 횟수
+    # FORCED
+    "resistance_meter": 0,    # NPC 저항 축적 (100 도달 시 탈출)
+    "break_free_attempts": 0, # 저항 시도 횟수
+    # UNCONSCIOUS
+    "wake_check_accum": 0,    # 각성 체크 누적
+    # FROZEN
+    "deferred_effects": [],   # 해제 후 적용할 효과
+    "deferred_semen": {},     # 해제 후 적용할 정액
+    "deferred_climax_count": 0,
+}
+```
+
+### 모드별 동작 차이
+
+| 훅 | consensual | forced | unconscious | frozen |
+|----|-----------|--------|-------------|--------|
+| affection_req | 정상 | 무시(0) | 무시(0) | 무시(0) |
+| 효과 배율 | ×1.0 | 호감×0, 반발+보너스 | 감정×0, 물리×0.5 | 전부 지연 (30% 감쇠) |
+| 반응 접두사 | `""` | `"forced_"` | None (나레이션) | None (나레이션) |
+| 소음 발생 | O | O | X | X |
+| 시간 경과 | O | O | O | X |
+| 3자 감지 | O | O | X | X |
+| NPC 저항 | X | O (매 행위 후) | X | X |
+| 각성 체크 | X | X | O (기절 해제 시) | X |
+| 주도권 전환 | O | X | X | X |
+
+### 18.1 강제 모드 (Player→NPC)
+
+#### 진입 흐름
+
+1. 포커스 메뉴에서 "강제 행위" 선택 (`base.py force_romance()`)
+2. 1:1 상황 체크 (`can_start_forced()` — 같은 location, 다른 의식있는 NPC 없음)
+3. 제압 성공 확률 표시 + 확인
+4. 성공 → 강제 세션 시작 / 실패 → 호감 -10, 반발 +15
+
+#### 제압 성공 확률 (`calculate_force_chance()`)
+
+```python
+actor_power = 근력 + 체격 + (체력/최대체력) × 3
+target_power = 동일 공식
+base = 0.5 + (actor_power - target_power) × 0.05
+# 은신 기습 보너스: status:stealth == 1 → +20%
+chance = clamp(0.1, 0.95, base + stealth_bonus)
+```
+
+NPC 기본 스탯:
+
+| NPC | 근력 | 체격 | 근거 |
+|-----|------|------|------|
+| 세라 | 6 | 3 | 장신, 활동적 |
+| 밀라 | 4 | 2 | 보통 체격, 가사 |
+| 리나 | 3 | 1 | 왜소, 약함 |
+| 유키 | 3 | 1 | 왜소, 약함 |
+| 엘라 | 5 | 3 | 장신, 단련됨 |
+
+#### NPC 저항 (`check_resistance()`)
+
+매 행위 후 `_post_action_mode_check()`에서 호출:
+
+```python
+resistance_chance = 0.10 + 근력 × 0.02 + 반발 × 0.003  # 최대 50%
+# 확률 성공 → 즉시 탈출
+# 확률 실패 → resistance_meter += max(3, 근력 × 1.5)
+# resistance_meter ≥ 100 → 축적 탈출
+```
+
+- 탈출 성공 → 세션 종료, `상태:강제피해` prop 설정
+- 탈출 시 NPC 반응: `forced_break_free:start`
+
+#### 효과 배율
+
+- 호감: ×0, 욕망: ×0, 반발: ×2.0, 복종: ×2.0
+- 성욕: ×0.5, 감각경험치: ×0.5
+- 매 행위마다 반발 +1 추가
+
+#### 반응 키
+
+강제 모드 전용 반응: `"forced_{action_id}:start"` → fallback `"{action_id}:start"`
+
+### 18.2 무의식 모드 (Player→기절NPC)
+
+#### 진입
+
+- `survival.is_npc_fainted(target_id)` 시 `base.py romance()`에서 자동 판별
+- 포커스 메뉴에서 "애정 행위" 선택 시 기절 NPC면 자동으로 `MODE_UNCONSCIOUS`
+
+#### 세션 중 동작
+
+- NPC 반응 없음 → 나레이션: `"(반응 없이 축 늘어져 있다.)"`
+- 소음 미발생
+- 감정 효과 억제: 호감/욕망/반발 ×0
+- 물리적 반사: 성욕 ×0.5, 감각경험치 ×0.5
+
+#### 각성 전이
+
+매 행위 후 `survival.get_faint_remaining_millis()` 확인:
+- 기절 시간 만료 → `transition_to_forced()`: `MODE_UNCONSCIOUS` → `MODE_FORCED`
+- 전이 시: resistance_meter 30으로 시작 (각성 직후 높은 저항)
+- 세션 상태 보존 (자극/스태미나/경과시간)
+
+### 18.3 시간정지 모드 (Player→정지NPC)
+
+#### 진입
+
+- `morld.is_time_frozen()` 시 `base.py romance()`에서 자동 판별
+
+#### 지연 효과 시스템
+
+- **시간 미경과**: `advance_time_and_check()` 스킵
+- **효과 지연**: 관계 수치 변화를 `deferred_effects`에 축적
+- **정액 지연**: `deferred_semen`에 축적
+- **자극**: 정상 누적 (절정 카운팅용)
+- **감각 경험치**: ×0 (신경계 정지)
+
+#### 임신 판정
+
+시간정지 중에도 정상 임신 판정 가능:
+- `father_type="unknown"` 설정 (NPC는 상대를 모름)
+- `상태:아이아버지 = "???"`, `상태:아이아버지id = 0`
+
+#### 세션 종료 후
+
+`apply_deferred_effects(target_id, mode_ctx, player_id)` 호출:
+- 축적된 효과의 **30%만** 실제 적용 (DAMPENING = 0.3)
+- `상태:시간정지피해` prop 설정
+
+### 18.4 NPC→Player 저항 모드
+
+NPC 주도 세션(`npc_initiative.py`)에서 플레이어 선택:
+
+| 선택 | 동작 |
+|------|------|
+| 수락 | `MODE_CONSENSUAL` (기존) |
+| 저항 | 저항 모드 진입 — 매 턴 저항/포기 선택 |
+| 탈출 시도 | 1회성 탈출 판정 (기존) |
+
+#### 저항 메카닉
+
+```python
+resistance_gain = 15 + max(0, (player_power - npc_power)) × 3  # 5~40
+# 매 턴: resistance_meter += gain
+# resistance_meter ≥ 100 → 탈출 성공
+# 포기 선택 → 합의로 전환
+```
+
+NPC는 저항 중에도 자동으로 행위 진행 (`_npc_auto_advance()`), 강제 반응 접두사 사용.
+
+### 18.5 사후 이벤트 (on_meet)
+
+강제/무의식/시간정지 세션 종료 후 NPC와 재회 시:
+
+| prop | 트리거 | 처리 |
+|------|--------|------|
+| `상태:강제피해` | 강제 종료 시 | `_handle_mode_aftermath("forced")` |
+| `상태:무의식피해` | 무의식 종료 시 | `_handle_mode_aftermath("unconscious")` |
+| `상태:시간정지피해` | 시간정지 종료 시 | `_handle_mode_aftermath("frozen")` |
+
+각 캐릭터 파일에서 `_handle_mode_aftermath()` 오버라이드로 성격별 반응.
+
+### 18.6 임신 이벤트 (on_meet)
+
+`pregnancy.check_pending_pregnancy_events(unit_id)` 호출:
+
+| 이벤트 키 | 조건 | 설명 |
+|-----------|------|------|
+| `conception:discovery` | `이벤트:수정` flag | 수정 인지 (상대 알고 있음) |
+| `conception:unknown_father` | `이벤트:수정` + 아버지=??? | 수정 인지 (상대 모름) |
+| `pregnancy:announcement` | 12주차 + 미발표 | 임신 발표 |
+| `pregnancy:unknown_father` | 12주차 + 미발표 + 아버지=??? | 상대 모르는 임신 발표 |
+
+각 캐릭터 파일에서 `_handle_pregnancy_event()` 오버라이드로 성격별 반응.

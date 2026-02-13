@@ -13,15 +13,25 @@ import morld
 import stimulation
 import ui
 from romance_actions import (
-    MILLIS_PER_MINUTE, SEMEN_PARTS, SEMEN_EXTERNAL_AMOUNT, SEMEN_INTERNAL_DRIP,
-    INTERNAL_SEMEN_PARTS,
+    MILLIS_PER_MINUTE, SEMEN_PARTS,
+    INTERNAL_SEMEN_PARTS,  # noqa: F401 — re-export (needs.py)
     UNPREPARED_EFFECT_MULT, UNPREPARED_REBELLION,
     SUBMISSION_ACTION_THRESHOLD, SUBMISSION_ACTION_GAIN, SUBMISSION_MAX,
     ROMANCE_ENTRY_THRESHOLD, ROMANCE_JOIN_THRESHOLD, DEFAULT_STAMINA,
-    ECSTASY_THRESHOLD, SWALLOW_M_THRESHOLD,
-    SENSATION_MAP, get_relationship_label,
+    LUBRICATION_THRESHOLD, SWALLOW_M_THRESHOLD,
+    SENSATION_MAP,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
     _PENETRATION_TOGGLE_IDS,
+)
+from romance_ui import render_romance_ui, render_stamina_bar  # noqa: F401
+from romance_mode import (
+    MODE_CONSENSUAL, MODE_FORCED, MODE_UNCONSCIOUS, MODE_FROZEN,
+    create_mode_context, get_effect_multipliers, get_reaction_prefix,
+    should_advance_time, should_emit_sound, should_check_third_party,
+    can_switch_initiative, check_resistance, check_wakeup,
+    transition_to_forced, get_silent_narration, get_silent_climax_narration,
+    apply_forced_end_penalty, apply_unconscious_end_state,
+    apply_deferred_effects, defer_effect, defer_semen,
 )
 # 공유 핵심 로직: romance_core.py에서 import (+ 외부 모듈 호환 re-export)
 from romance_core import (  # noqa: F401 — re-export for external callers
@@ -52,21 +62,6 @@ from romance_core import (  # noqa: F401 — re-export for external callers
 
 ROMANCE_STAMINA_KEY = "연애:스태미나"
 
-# 감각 카테고리별 prop 키
-SENSATION_PROPS = {
-    "F": "감각:F",     # Face/Neck sensation level
-    "M": "감각:M",     # Mouth sensation level
-    "B": "감각:B",     # Breast sensation level
-    "A": "감각:A",     # Anal sensation level
-    "V": "감각:V",     # Vaginal sensation level
-    "C": "감각:C",     # Clitoral sensation level
-    "P": "감각:P",     # Penis sensation level
-}
-
-# ============================================
-# 즉시형/토글형 행위 + 공유 핵심 로직: romance_actions.py / romance_core.py에서 import
-# ============================================
-
 
 # ============================================
 # 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
@@ -88,39 +83,6 @@ def get_interrupted_context():
     _interrupted_context = None
     return ctx
 
-
-
-
-def check_ecstasy(partner_id):
-    """
-    절정 체크 - 성욕 >= ECSTASY_THRESHOLD면 절정 발생
-
-    Returns:
-        절정 반응 텍스트 또는 None
-    """
-    partner_props = morld.get_unit_props(partner_id)
-    arousal = partner_props.get("상태:성욕", 0)
-
-    if arousal >= ECSTASY_THRESHOLD:
-        # 캐릭터별 절정 반응 텍스트 (초기화 전에 조회 - 조건 체크용)
-        reaction = None
-        partner_asset = get_partner_asset(partner_id)
-        if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-            reaction = partner_asset.get_romance_reaction("ecstasy", "start")
-
-        # 성적절정 +1, 성욕 = 0 (반응 조회 후 초기화)
-        morld.modify_prop(partner_id, "상태:성적절정", 1)
-        morld.set_unit_prop(partner_id, "상태:성욕", 0)
-
-        if reaction:
-            return reaction
-
-        # 기본 반응
-        partner_info = morld.get_unit_info(partner_id)
-        partner_name = partner_info.get('name', '상대') if partner_info else '상대'
-        return f"{partner_name}(이)가 절정에 달했다."
-
-    return None
 
 
 def can_start_romance(player_id, target_id):
@@ -154,305 +116,24 @@ def can_start_romance(player_id, target_id):
 
 
 # ============================================
-# UI 렌더링
-# ============================================
-
-def render_stamina_bar(stamina, max_stamina=DEFAULT_STAMINA):
-    """체력 바 렌더링"""
-    filled = int(stamina)
-    empty = max_stamina - filled
-    bar = "█" * filled + "░" * empty
-    return f"{bar} {stamina}"
-
-
-def render_romance_ui(state):
-    """연애 UI 텍스트 생성"""
-    player_id = state["player_id"]
-    partner_id = state["partner_id"]
-    partner_info = morld.get_unit_info(partner_id)
-    partner_props = morld.get_unit_props(partner_id)
-    player_stamina = state["stamina"]
-
-    # 플레이어에 대한 prop 키
-    affection_key = get_affection_key(player_id)
-    arousal_key = "상태:성욕"
-
-    lines = []
-
-    # 헤더
-    partner_name = partner_info['name']
-    lines.append(f"[{partner_name}와 함께]                 스태미나: {render_stamina_bar(player_stamina)}")
-    lines.append("")
-
-    # 근접 경고 (누군가 지나갔지만 들키지 않음)
-    if state["near_miss"]:
-        near_miss_id = state["near_miss_id"]
-        near_info = morld.get_unit_info(near_miss_id) if near_miss_id else None
-        near_name = near_info.get("name", "누군가") if near_info else "누군가"
-        lines.append(f"[color=orange]({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)[/color]")
-
-        # 파트너의 은신 성공 반응 (캐릭터별 특별 대사)
-        stealth_reaction = state["stealth_reaction"]
-        if stealth_reaction:
-            lines.append(f"[color=cyan][{partner_name}] {stealth_reaction}[/color]")
-            state["stealth_reaction"] = None  # 표시 후 클리어
-
-        lines.append("")
-        state["near_miss"] = False  # 표시 후 클리어
-        state["near_miss_id"] = None
-
-    # 마지막 즉시 액션 반응 (있으면 표시 후 클리어)
-    last_reaction = state["last_reaction"]
-    if last_reaction:
-        lines.append(f"[color=yellow]{last_reaction}[/color]")
-        lines.append("")
-        state["last_reaction"] = None  # 표시 후 클리어
-
-    # 파트너 반응 텍스트 (활성 토글 기반)
-    partner_asset = get_partner_asset(partner_id)
-    reaction_lines = []
-    for toggle_id in state["active_toggles"]:
-        if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-            reaction = partner_asset.get_romance_reaction(toggle_id, "during")
-        else:
-            # 기본 반응
-            toggle_def = TOGGLE_ACTIONS.get(toggle_id)
-            reaction = f"{partner_name}(이)가 당신과 {toggle_def['name']} 중이다." if toggle_def else None
-
-        if reaction:
-            reaction_lines.append(f"({reaction})")
-
-    if reaction_lines:
-        for line in reaction_lines:
-            lines.append(line)
-    else:
-        lines.append(f"({partner_name}(이)가 당신을 바라보고 있다.)")
-
-    lines.append("")
-
-    # 임신 상태 표시
-    import pregnancy as _pregnancy_mod
-    preg_text = _pregnancy_mod.get_pregnancy_status_text(partner_id)
-    if preg_text:
-        lines.append(preg_text)
-        lines.append("")
-
-    # 호감, 욕망, 복종, 반발, 성욕 표시
-    affection = partner_props.get(affection_key, 0)
-    desire_key = get_desire_key(player_id)
-    desire = partner_props.get(desire_key, 0)
-    submission_key = get_submission_key(player_id)
-    submission = partner_props.get(submission_key, 0)
-    rebellion_key = get_rebellion_key(player_id)
-    rebellion = partner_props.get(rebellion_key, 0)
-    arousal = partner_props.get(arousal_key, 0)
-
-    # 관계 라벨
-    rel_label = get_relationship_label(affection, desire)
-    stat_line = f"[{rel_label}] 호감: {affection}  욕망: {desire}  성욕: {arousal}"
-    if submission > 0:
-        stat_line += f"  복종: {submission}"
-    if rebellion > 0:
-        stat_line += f"  반발: {rebellion}"
-    lines.append(stat_line)
-
-    # 자극 표시 (세션 스코프, 대상 성별 기반)
-    import gender as gender_mod
-    partner_anatomy = gender_mod.get_anatomy(partner_id)
-    stim_state = state.get("stim")
-    if stim_state:
-        stim_parts = []
-        for cat in ("F", "M", "B", "A", "V", "C", "P"):
-            if cat not in partner_anatomy:
-                continue
-            val = stim_state["stim"].get(cat, 0)
-            stim_parts.append(f"{cat}:{val}")
-        stim_line = f"자극: {' '.join(stim_parts)}"
-        if stim_state.get("refractory", 0) > 0:
-            stim_line += f"  [color=red][불응기][/color]"
-        elif stim_state["afterglow"] > 0:
-            chain = stim_state["chain_count"]
-            if chain > 0:
-                stim_line += f"  [color=pink][여운 ×{chain + 1}][/color]"
-            else:
-                stim_line += f"  [color=pink][여운][/color]"
-        if stim_state["climax_total"] > 0:
-            stim_line += f"  절정: {stim_state['climax_total']}"
-        lines.append(stim_line)
-
-    # 감각 레벨 표시 (1 이상인 것만, 대상 성별 기반)
-    sensation_parts = []
-    for cat in ("F", "M", "B", "A", "V", "C", "P"):
-        if cat not in partner_anatomy:
-            continue
-        level = get_sensation_level(partner_id, cat)
-        if level > 0:
-            sensation_parts.append(f"{cat}:{level}")
-    if sensation_parts:
-        lines.append(f"감각: {' '.join(sensation_parts)}")
-
-    # 노출 상태 표시
-    exposure = get_exposure_state(partner_id)
-    exposure_parts = []
-    if exposure["upper_exposed"]:
-        exposure_parts.append("[color=pink]상체 노출[/color]")
-    if exposure["lower_exposed"]:
-        exposure_parts.append("[color=pink]하체 노출[/color]")
-    if exposure_parts:
-        lines.append(f"복장: {' '.join(exposure_parts)}")
-
-    # 정액 오염 표시
-    semen_total = get_semen_total(partner_id)
-    if semen_total > 0:
-        if semen_total >= 60:
-            lines.append("[color=pink]정액이 온몸에 흥건하다[/color]")
-        elif semen_total >= 30:
-            lines.append("[color=pink]정액이 묻어 있다[/color]")
-        else:
-            semen_detail = []
-            for sp in SEMEN_PARTS:
-                if (morld.get_unit_prop(partner_id, f"오염물:정액:{sp}") or 0) > 0:
-                    semen_detail.append(sp)
-            if semen_detail:
-                lines.append(f"[color=pink]정액: {', '.join(semen_detail)}[/color]")
-
-    # 체내 정액 표시
-    internal_total = get_internal_semen_total(partner_id)
-    if internal_total > 0:
-        internal_parts = []
-        for ip in INTERNAL_SEMEN_PARTS:
-            val = get_internal_semen(partner_id, ip)
-            if val > 0:
-                internal_parts.append(f"{ip}: {val}")
-        if internal_parts:
-            lines.append(f"[color=pink]체내 정액: {', '.join(internal_parts)}[/color]")
-
-    # 윤활 상태 표시
-    import gender as gender_mod
-    if gender_mod.has_anatomy(partner_id, "V"):
-        if state["lubricated"]:
-            lines.append("[color=green]윤활: 충분[/color]")
-        else:
-            arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
-            lines.append(f"[color=red]윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})[/color]")
-
-    lines.append("")
-    lines.append(ui.divider())
-    lines.append("")
-
-    # 토글 행위
-    _intercourse_blocked = _pregnancy_mod.is_intercourse_blocked(partner_id)
-    lines.append("[토글 행위]")
-    for action_id, action in TOGGLE_ACTIONS.items():
-        if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
-            continue
-        # 임신 후기: 삽입 행위 비활성화
-        if _intercourse_blocked and action.get("pregnancy_check"):
-            lines.append(f"  [color=gray]{action['name']} (임신 후기)[/color]")
-            continue
-        is_on = action_id in state["active_toggles"]
-        # 노출 필요 행위: 미노출 시 잠금 표시
-        req_area = action.get("requires_exposure")
-        if req_area and not exposure.get(f"{req_area}_exposed") and not is_on:
-            if is_action_available(partner_id, player_id, action):
-                lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
-            else:
-                lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
-            continue
-        if is_action_available(partner_id, player_id, action):
-            prefix = "■" if is_on else "▶"
-            name_text = action['name']
-            # 노출 보너스 힌트
-            bonus_area = action.get("exposure_bonus")
-            if bonus_area and exposure.get(f"{bonus_area}_exposed"):
-                name_text += " [color=pink]×1.5[/color]"
-            if is_desire_unlocked(affection, action, desire, submission):
-                lines.append(f"  [url=@proc:toggle:{action_id}][color=pink]{prefix} {name_text}[/color][/url]")
-            else:
-                lines.append(f"  [url=@proc:toggle:{action_id}]{prefix} {name_text}[/url]")
-        else:
-            lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
-    lines.append("")
-
-    # 즉시 행위
-    has_penetration = _has_active_penetration(state["active_toggles"])
-    lines.append("[즉시 행위]")
-    for action_id, action in INSTANT_ACTIONS.items():
-        if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
-            continue
-        # 플레이어 자신의 해부학 요구사항 (hold_back 등)
-        player_self_req = action.get("requires_player_anatomy_self")
-        if player_self_req:
-            import gender as gender_mod
-            if not gender_mod.has_anatomy(player_id, player_self_req):
-                continue
-        # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
-        if action.get("requires_active_penetration") and not has_penetration:
-            continue
-        # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
-        req_internal = action.get("requires_internal_semen")
-        if req_internal:
-            if get_internal_semen(partner_id, req_internal) <= 0:
-                continue
-        # 탈의 행위: 벗을 것 없으면 숨김
-        if action.get("undress"):
-            is_upper = action["undress"] == "upper"
-            if get_next_undress_item(partner_id, upper=is_upper) is None:
-                continue
-        # 노출 필요 행위: 미노출 시 잠금 표시
-        req_area = action.get("requires_exposure")
-        if req_area and not exposure.get(f"{req_area}_exposed"):
-            if is_action_available(partner_id, player_id, action):
-                lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
-            else:
-                lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
-            continue
-        if is_action_available(partner_id, player_id, action):
-            name_text = action['name']
-            if is_desire_unlocked(affection, action, desire, submission):
-                lines.append(f"  [url=@proc:instant:{action_id}][color=pink]{name_text}[/color][/url]")
-            else:
-                lines.append(f"  [url=@proc:instant:{action_id}]{name_text}[/url]")
-        else:
-            lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
-    # 질외사정 (삽입 중 + P 자극 ≥ 임계값)
-    if is_pull_out_available(state):
-        lines.append("")
-        lines.append("[질외사정]")
-        for target in SEMEN_PARTS:
-            lines.append(f"  [url=@proc:pull_out_target:{target}]{target}[/url]")
-    # 참기 (삽입 중 + P 자극 ≥ 80)
-    if is_hold_back_available(state):
-        import gender as gender_mod
-        if gender_mod.has_anatomy(state["player_id"], "P"):
-            chance = _calculate_hold_back_chance(state["player_id"], state["stim"])
-            lines.append(f"  [url=@proc:instant:hold_back]참기 ({chance}%)[/url]")
-    lines.append("")
-
-    # 푸터
-    lines.append(ui.divider())
-
-    # 공수 전환 버튼 (NPC가 주도 가능할 때만)
-    partner_asset = get_partner_asset(partner_id)
-    if partner_asset and getattr(partner_asset, 'INITIATIVE_CONFIG', None):
-        init_aff_threshold = partner_asset.INITIATIVE_CONFIG.get("affection_threshold", 60)
-        if affection >= init_aff_threshold:
-            lines.append("[url=@proc:switch]주도권 넘기기[/url]")
-
-    lines.append("[url=@proc:exit]그만두기[/url]")
-
-    return "\n".join(lines)
-
-
-# ============================================
 # 시간 경과 및 NPC 감지
 # ============================================
 
 def advance_time_and_check(state, millis):
     """시간 경과 + NPC 도착 체크 (은신 확률 적용)"""
+    cur_mode = state["mode_ctx"]["mode"]
+
+    # 시간정지: 시간 경과 및 NPC 체크 스킵
+    if not should_advance_time(cur_mode):
+        return {"interrupted": False}
+
     # 1. 시간 진행 + NPC 이동 시뮬레이션
     morld.advance_time_des(millis)
     state["elapsed_time"] += millis
+
+    # 무의식/강제: 제3자 감지 스킵 여부
+    if not should_check_third_party(cur_mode):
+        return {"interrupted": False}
 
     # 2. 현재 Location의 NPC 목록 확인
     player_id = morld.get_player_id()
@@ -520,17 +201,18 @@ def advance_time_and_check(state, millis):
 # 메인 연애 함수
 # ============================================
 
-def start_romance(player_id, partner_id, preserved=None):
+def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     """연애 모드 시작 - Generator 기반
 
     Args:
         player_id: 플레이어 유닛 ID
         partner_id: 파트너 유닛 ID
         preserved: 공수 전환 시 보존된 상태 (None이면 신규 세션)
+        mode: 동작 모드 (MODE_CONSENSUAL/MODE_FORCED/MODE_UNCONSCIOUS/MODE_FROZEN)
     """
 
     # 진입 조건 체크 (전환 시 스킵 — 이미 세션 중)
-    if not preserved:
+    if not preserved and mode == MODE_CONSENSUAL:
         can_start, reason = can_start_romance(player_id, partner_id)
         if not can_start:
             yield ui.dialog(reason)
@@ -549,6 +231,9 @@ def start_romance(player_id, partner_id, preserved=None):
     player_props = morld.get_unit_props(player_id)
     initial_stamina = player_props.get(ROMANCE_STAMINA_KEY, DEFAULT_STAMINA)
 
+    # 모드 컨텍스트 생성
+    mode_ctx = create_mode_context(mode, player_id, partner_id)
+
     import gender as gender_mod
     state = {
         # 핵심 (세션 수명)
@@ -561,6 +246,8 @@ def start_romance(player_id, partner_id, preserved=None):
         "stim": stimulation.create_state(
             male_mode=(gender_mod.get_gender(partner_id) == "male")
         ),
+        # 동작 모드
+        "mode_ctx": mode_ctx,
         # 삽입 호환 (삽입 토글 ON 시 설정)
         "size_pain": False,
         "size_stim_mod": 1.0,
@@ -575,6 +262,8 @@ def start_romance(player_id, partner_id, preserved=None):
         "interrupted": False,
         "interrupter_id": None,
         "exhausted": False,
+        "escaped": False,         # NPC 저항 탈출 (forced 모드)
+        "wakeup_transition": False,  # 무의식→강제 전이
         "switch_to": None,
     }
 
@@ -585,6 +274,8 @@ def start_romance(player_id, partner_id, preserved=None):
         state["elapsed_time"] = preserved["elapsed_time"]
         state["lubricated"] = preserved.get("lubricated", False)
         state["checked_npcs"] = preserved.get("checked_npcs", set())
+        if "mode_ctx" in preserved:
+            state["mode_ctx"] = preserved["mode_ctx"]
 
     def apply_effects(action_def, active_toggle_defs):
         """
@@ -607,13 +298,37 @@ def start_romance(player_id, partner_id, preserved=None):
             for stat, value in toggle_effects.items():
                 effects[stat] = effects.get(stat, 0) + value
 
-        # 효과 적용 (호감/욕망/성욕 prop 변경)
+        # 모드별 효과 배율 적용
+        cur_mode = state["mode_ctx"]["mode"]
+        multipliers = get_effect_multipliers(cur_mode)
+        _STAT_MULT_MAP = {
+            "호감": "affection", "욕망": "desire", "반발": "rebellion",
+            "복종": "submission", "성욕": "arousal",
+        }
+
+        # 효과 적용 (호감/욕망/성욕 prop 변경) — 모드 배율 반영
         for stat, value in effects.items():
+            mult_key = _STAT_MULT_MAP.get(stat)
+            if mult_key:
+                value = round(value * multipliers.get(mult_key, 1.0))
+            if value == 0:
+                continue
+
+            if cur_mode == MODE_FROZEN:
+                # 시간정지: 효과 지연
+                defer_effect(state["mode_ctx"], stat, value)
+                continue
+
             if stat in ("성욕", "성적절정"):
                 prop_key = f"상태:{stat}"
             else:
                 prop_key = affection_key.replace(":호감", f":{stat}")
             morld.modify_prop(pid, prop_key, value)
+
+        # 강제 모드: 매 행위마다 반발 +1
+        if cur_mode == MODE_FORCED:
+            rebellion_key = get_rebellion_key(player_id)
+            morld.modify_prop(pid, rebellion_key, 1)
 
         # 자극 계산 — 각 행위의 exp_part 기반
         rebellion_key = get_rebellion_key(player_id)
@@ -680,15 +395,23 @@ def start_romance(player_id, partner_id, preserved=None):
 
         # 절정 처리
         if climax_info:
-            # 성욕 일부 감소 (전액 초기화 대신)
-            current_arousal = partner_props.get("상태:성욕", 0) if partner_props else 0
-            new_arousal = max(0, current_arousal - stimulation.CLIMAX_AROUSAL_REDUCTION)
-            morld.set_unit_prop(pid, "상태:성욕", new_arousal)
-            # 성적절정 +1
-            morld.modify_prop(pid, "상태:성적절정", 1)
-            # 절정 부위 감각 경험치 보너스
+            exp_mult = multipliers.get("sensation_exp", 1.0)
+
+            if cur_mode == MODE_FROZEN:
+                # 시간정지: 절정 횟수만 축적, 실제 효과 지연
+                state["mode_ctx"]["deferred_climax_count"] += 1
+            else:
+                # 성욕 일부 감소 (전액 초기화 대신)
+                current_arousal = partner_props.get("상태:성욕", 0) if partner_props else 0
+                new_arousal = max(0, current_arousal - stimulation.CLIMAX_AROUSAL_REDUCTION)
+                morld.set_unit_prop(pid, "상태:성욕", new_arousal)
+                # 성적절정 +1
+                morld.modify_prop(pid, "상태:성적절정", 1)
+
+            # 절정 부위 감각 경험치 보너스 (모드 배율 적용)
             exp_gain = stimulation.get_climax_sensation_gain(
                 rebellion, climax_info.get("chain_count", 0))
+            exp_gain = round(exp_gain * exp_mult)
             if exp_gain > 0:
                 cat = climax_info["category"]
                 for part, c in SENSATION_MAP.items():
@@ -696,13 +419,16 @@ def start_romance(player_id, partner_id, preserved=None):
                         morld.modify_prop(pid, f"경험:{part}", exp_gain)
                         break
 
-            # 절정 시 복종 증가 (반발에 의해 억제)
-            climax_sub_gain = max(0, 2 - rebellion // 25)
-            if climax_sub_gain > 0:
-                submission_key = affection_key.replace(":호감", ":복종")
-                current_sub = (partner_props or {}).get(submission_key, 0)
-                if current_sub < SUBMISSION_MAX:
-                    morld.modify_prop(pid, submission_key, climax_sub_gain)
+            # 절정 시 복종 증가 (반발에 의해 억제) — frozen은 지연
+            if cur_mode != MODE_FROZEN:
+                climax_sub_gain = max(0, 2 - rebellion // 25)
+                if cur_mode == MODE_FORCED:
+                    climax_sub_gain = round(climax_sub_gain * multipliers.get("submission", 1.0))
+                if climax_sub_gain > 0:
+                    submission_key = affection_key.replace(":호감", ":복종")
+                    current_sub = (partner_props or {}).get(submission_key, 0)
+                    if current_sub < SUBMISSION_MAX:
+                        morld.modify_prop(pid, submission_key, climax_sub_gain)
 
             # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
             ejac_part = None
@@ -710,7 +436,11 @@ def start_romance(player_id, partner_id, preserved=None):
                 import gender as gender_mod
                 if gender_mod.has_anatomy(pid, "P"):
                     import pregnancy
-                    pregnancy.check_conception(player_id, pid)
+                    # 시간정지: 임신 판정은 정상 (물리적 현상), 아버지 unknown
+                    if cur_mode == MODE_FROZEN:
+                        pregnancy.check_conception(player_id, pid, father_type="unknown")
+                    else:
+                        pregnancy.check_conception(player_id, pid)
                     ejac_part = "음부"
             # P 절정 + 삽입 토글 활성 → 내부 사정 부위 판별
             if not ejac_part:
@@ -725,20 +455,37 @@ def start_romance(player_id, partner_id, preserved=None):
                 if _gm.has_anatomy(pid, "P"):
                     _p_holder = pid
                 _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
-                _apply_internal_semen(pid, ejac_part, _ejac_amt)
+                if cur_mode == MODE_FROZEN:
+                    defer_semen(state["mode_ctx"], ejac_part, _ejac_amt, internal=True)
+                else:
+                    _apply_internal_semen(pid, ejac_part, _ejac_amt)
 
-            # 절정 반응 텍스트 (우선순위: intercourse > chain > category > default)
+            # 절정 반응 텍스트 — 모드별 분기
+            reaction_prefix = get_reaction_prefix(cur_mode)
+            if reaction_prefix is None:
+                # 무반응 모드 (무의식/시간정지): 나레이션
+                return get_silent_climax_narration(cur_mode)
+
             partner_asset = get_partner_asset(pid)
             if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
                 reactions = getattr(partner_asset, 'ROMANCE_REACTIONS', {})
                 # 내부 사정 반응 + 절정 반응 결합
                 ejac_reaction = None
                 if ejac_part:
-                    ejac_key = f"ejaculation_internal_{ejac_part}"
+                    ejac_key = f"{reaction_prefix}ejaculation_internal_{ejac_part}"
                     ejac_reaction = partner_asset.get_romance_reaction(ejac_key, "start")
+                    if not ejac_reaction and reaction_prefix:
+                        ejac_reaction = partner_asset.get_romance_reaction(
+                            f"ejaculation_internal_{ejac_part}", "start")
                 ecstasy_key = get_climax_reaction_key(
                     climax_info, state["active_toggles"], TOGGLE_ACTIONS, reactions)
-                reaction = partner_asset.get_romance_reaction(ecstasy_key, "start")
+                # 강제 모드: forced_ 접두사 시도 → fallback
+                reaction = None
+                if reaction_prefix:
+                    reaction = partner_asset.get_romance_reaction(
+                        f"{reaction_prefix}{ecstasy_key}", "start")
+                if not reaction:
+                    reaction = partner_asset.get_romance_reaction(ecstasy_key, "start")
                 if ejac_reaction and reaction:
                     return f"{ejac_reaction}\n{reaction}"
                 if ejac_reaction:
@@ -751,6 +498,52 @@ def start_romance(player_id, partner_id, preserved=None):
 
         return None
 
+    def _post_action_mode_check():
+        """행위 후 모드별 체크 (저항/각성). True면 세션 종료 필요."""
+        mode_ctx = state["mode_ctx"]
+        cur_mode = mode_ctx["mode"]
+        mode_ctx["action_count"] = mode_ctx.get("action_count", 0) + 1
+
+        # 강제 모드: NPC 저항 체크
+        if cur_mode == MODE_FORCED:
+            result = check_resistance(mode_ctx, state["partner_id"])
+            if result["escaped"]:
+                state["escaped"] = True
+                return True
+
+        # 무의식 모드: 각성 체크
+        if cur_mode == MODE_UNCONSCIOUS:
+            if check_wakeup(mode_ctx, state["partner_id"], 0):
+                # 각성 → FORCED 전이
+                transition_to_forced(mode_ctx)
+                state["wakeup_transition"] = True
+                return True  # UI 전환을 위해 일단 종료
+
+        return False
+
+    def _get_mode_reaction(action_id, timing="start"):
+        """모드별 반응 텍스트 조회"""
+        mode_ctx = state["mode_ctx"]
+        cur_mode = mode_ctx["mode"]
+        reaction_prefix = get_reaction_prefix(cur_mode)
+
+        if reaction_prefix is None:
+            # 무반응 모드: 나레이션
+            return get_silent_narration(cur_mode)
+
+        partner_asset = get_partner_asset(state["partner_id"])
+        if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+            reaction = None
+            # 접두사 있으면 먼저 시도 (forced_ 등)
+            if reaction_prefix:
+                reaction = partner_asset.get_romance_reaction(
+                    f"{reaction_prefix}{action_id}", timing)
+            # fallback: 기본 반응
+            if not reaction:
+                reaction = partner_asset.get_romance_reaction(action_id, timing)
+            return reaction
+        return None
+
     def proc(action):
         if action == "init":
             return render_romance_ui(state)
@@ -759,8 +552,10 @@ def start_romance(player_id, partner_id, preserved=None):
         if action == "exit":
             return True
 
-        # 공수 전환 (플레이어 → NPC 주도)
+        # 공수 전환 (플레이어 → NPC 주도) — 합의 모드에서만
         if action == "switch":
+            if not can_switch_initiative(state["mode_ctx"]["mode"]):
+                return render_romance_ui(state)
             state["switch_to"] = "npc"
             return True
 
@@ -790,34 +585,42 @@ def start_romance(player_id, partner_id, preserved=None):
             if gender_mod.has_anatomy(pid, "P"):
                 p_holder_id = pid
             ejac_amount = calculate_ejaculation_amount(p_holder_id, state["stamina"])
-            # 정액 적용
-            _apply_semen(pid, target_part, ejac_amount)
+            # 정액 적용 (시간정지: 지연)
+            if cur_mode == MODE_FROZEN:
+                defer_semen(state["mode_ctx"], target_part, ejac_amount)
+            else:
+                _apply_semen(pid, target_part, ejac_amount)
             # 외부 사정 → 극감 수정 확률 (2%)
             if target_part == "음부":
                 import pregnancy
                 import random
                 if random.random() < 0.02:
-                    pregnancy.check_conception(state["player_id"], pid)
-            # 반응 텍스트 (대량 사정 우선)
-            partner_asset = get_partner_asset(pid)
+                    if cur_mode == MODE_FROZEN:
+                        pregnancy.check_conception(state["player_id"], pid,
+                                                   father_type="unknown")
+                    else:
+                        pregnancy.check_conception(state["player_id"], pid)
+            # 반응 텍스트 (모드별 분기)
             reaction = None
-            if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                if ejac_amount >= 50:
-                    reaction = partner_asset.get_romance_reaction(f"pull_out_{target_part}_heavy", "start")
-                if not reaction:
-                    reaction = partner_asset.get_romance_reaction(f"pull_out_{target_part}", "start")
+            if ejac_amount >= 50:
+                reaction = _get_mode_reaction(f"pull_out_{target_part}_heavy", "start")
+            if not reaction:
+                reaction = _get_mode_reaction(f"pull_out_{target_part}", "start")
             if reaction:
                 state["last_reaction"] = reaction
             else:
                 partner_info = morld.get_unit_info(pid)
                 pname = partner_info.get('name', '상대') if partner_info else '상대'
                 state["last_reaction"] = f"{pname}의 {target_part}에 사정했다."
-            emit_ecstasy_sound(pid)
+            if should_emit_sound(state["mode_ctx"]["mode"]):
+                emit_ecstasy_sound(pid)
             # 시간 경과
             result = advance_time_and_check(state, 3 * MILLIS_PER_MINUTE)
             if result["interrupted"]:
                 state["interrupted"] = True
                 state["interrupter_id"] = result["interrupter_id"]
+                return True
+            if _post_action_mode_check():
                 return True
             return render_romance_ui(state)
 
@@ -848,7 +651,6 @@ def start_romance(player_id, partner_id, preserved=None):
                 if action_id == "swallow_semen":
                     m_level = get_sensation_level(state["partner_id"], "M")
                     semen_amount = get_internal_semen(state["partner_id"], req_internal)
-                    partner_asset = get_partner_asset(state["partner_id"])
                     if m_level >= SWALLOW_M_THRESHOLD:
                         # 정상 삼키기
                         morld.clear_prop(state["partner_id"], f"체내:정액:{req_internal}")
@@ -908,40 +710,48 @@ def start_romance(player_id, partner_id, preserved=None):
                 import random
                 chance = _calculate_hold_back_chance(player_id, state["stim"])
                 state["stamina"] -= action_def["stamina"]
-                partner_asset = get_partner_asset(state["partner_id"])
                 if random.randint(1, 100) <= chance:
                     # 성공: P 자극 → 60으로 감소
                     state["stim"]["stim"]["P"] = 60
-                    reaction = None
-                    if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                        reaction = partner_asset.get_romance_reaction("hold_back_success", "start")
+                    reaction = _get_mode_reaction("hold_back_success", "start")
                     state["last_reaction"] = reaction or "참았다."
                 else:
                     # 실패: 강제 P 절정 → 현재 삽입 대상에 내부 사정
                     pen_part = _get_active_penetration_part(state["active_toggles"])
                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                    cur_mode = state["mode_ctx"]["mode"]
                     if pen_part:
-                        _apply_internal_semen(state["partner_id"], pen_part, ejac_amount)
+                        if cur_mode == MODE_FROZEN:
+                            defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
+                        else:
+                            _apply_internal_semen(state["partner_id"], pen_part, ejac_amount)
                         # 임신 판정
                         if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
                             try:
                                 import pregnancy
-                                pregnancy.check_conception(player_id, state["partner_id"])
+                                if cur_mode == MODE_FROZEN:
+                                    pregnancy.check_conception(player_id, state["partner_id"],
+                                                               father_type="unknown")
+                                else:
+                                    pregnancy.check_conception(player_id, state["partner_id"])
                             except ImportError:
                                 pass
                     else:
-                        _apply_semen(state["partner_id"], "body", ejac_amount)
+                        if cur_mode == MODE_FROZEN:
+                            defer_semen(state["mode_ctx"], "body", ejac_amount)
+                        else:
+                            _apply_semen(state["partner_id"], "body", ejac_amount)
                     # P 자극 리셋
                     import stimulation
                     stimulation.apply_climax_reset_p(state["stim"])
-                    reaction = None
-                    if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                        reaction = partner_asset.get_romance_reaction("hold_back_failure", "start")
+                    reaction = _get_mode_reaction("hold_back_failure", "start")
                     state["last_reaction"] = reaction or "참지 못했다...!"
                 result = advance_time_and_check(state, action_def["time"])
                 if result["interrupted"]:
                     state["interrupted"] = True
                     state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
                     return True
                 return render_romance_ui(state)
 
@@ -980,24 +790,28 @@ def start_romance(player_id, partner_id, preserved=None):
             # 절정 반응이 있으면 우선 표시
             if ecstasy_reaction:
                 state["last_reaction"] = ecstasy_reaction
-                emit_ecstasy_sound(state["partner_id"])
+                if should_emit_sound(state["mode_ctx"]["mode"]):
+                    emit_ecstasy_sound(state["partner_id"])
             else:
-                # 캐릭터별 반응 텍스트 (start 타이밍)
-                partner_asset = get_partner_asset(state["partner_id"])
-                if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                    reaction = partner_asset.get_romance_reaction(action_id, "start")
-                    if reaction:
-                        state["last_reaction"] = reaction
-                    if unprepared:
-                        state["last_reaction"] = (state.get("last_reaction", "") +
-                            " (준비 부족 — 효과 감소)")
-                emit_romance_sound(state["partner_id"])
+                # 캐릭터별 반응 텍스트 (모드별 분기)
+                reaction = _get_mode_reaction(action_id, "start")
+                if reaction:
+                    state["last_reaction"] = reaction
+                if unprepared:
+                    state["last_reaction"] = (state.get("last_reaction", "") +
+                        " (준비 부족 — 효과 감소)")
+                if should_emit_sound(state["mode_ctx"]["mode"]):
+                    emit_romance_sound(state["partner_id"])
 
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
             if result["interrupted"]:
                 state["interrupted"] = True
                 state["interrupter_id"] = result["interrupter_id"]
+                return True
+
+            # 모드별 후처리 (저항/각성 체크)
+            if _post_action_mode_check():
                 return True
 
             return render_romance_ui(state)
@@ -1105,29 +919,33 @@ def start_romance(player_id, partner_id, preserved=None):
             # 절정 반응이 있으면 우선 표시
             if ecstasy_reaction:
                 state["last_reaction"] = ecstasy_reaction
-                emit_ecstasy_sound(state["partner_id"])
+                if should_emit_sound(state["mode_ctx"]["mode"]):
+                    emit_ecstasy_sound(state["partner_id"])
             else:
                 if is_turning_on:
-                    # 첫경험 반응 우선, 없으면 일반 start 반응
-                    partner_asset = get_partner_asset(state["partner_id"])
-                    if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                        reaction = None
-                        if first_key:
-                            reaction = partner_asset.get_romance_reaction(first_key, "start")
-                        if not reaction:
-                            reaction = partner_asset.get_romance_reaction(action_id, "start")
-                        if reaction:
-                            state["last_reaction"] = reaction
+                    # 첫경험 반응 우선, 없으면 모드별 반응
+                    reaction = None
+                    if first_key:
+                        reaction = _get_mode_reaction(first_key, "start")
+                    if not reaction:
+                        reaction = _get_mode_reaction(action_id, "start")
+                    if reaction:
+                        state["last_reaction"] = reaction
                     if unprepared_toggle:
                         state["last_reaction"] = (state.get("last_reaction", "") +
                             " (준비 부족 — 효과 감소)")
-                emit_romance_sound(state["partner_id"])
+                if should_emit_sound(state["mode_ctx"]["mode"]):
+                    emit_romance_sound(state["partner_id"])
 
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
             if result["interrupted"]:
                 state["interrupted"] = True
                 state["interrupter_id"] = result["interrupter_id"]
+                return True
+
+            # 모드별 후처리 (저항/각성 체크)
+            if _post_action_mode_check():
                 return True
 
             return render_romance_ui(state)
@@ -1142,6 +960,15 @@ def start_romance(player_id, partner_id, preserved=None):
         result=state
     )
 
+    # 무의식→강제 전이: 새 세션 시작
+    if state["wakeup_transition"]:
+        preserved = extract_preserved(state)
+        preserved["mode_ctx"] = state["mode_ctx"]
+        yield ui.dialog("(상대가 의식을 되찾았다...!)")
+        yield from start_romance(player_id, partner_id, preserved=preserved,
+                                 mode=MODE_FORCED)
+        return
+
     # 공수 전환 — NPC 주도로 전환
     if state["switch_to"] == "npc":
         preserved = extract_preserved(state)
@@ -1151,13 +978,30 @@ def start_romance(player_id, partner_id, preserved=None):
 
     # 종료 처리 - 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
     partner_id = state["partner_id"]
+    mode_ctx = state["mode_ctx"]
+    cur_mode = mode_ctx["mode"]
     partner_agent = think.get_agent(partner_id)
 
     # 착의 쿨다운 리셋 (탈의 후 즉시 착의 인터럽트 발동 가능하도록)
     if partner_agent:
         partner_agent._memory["clothing_last_attempt"] = None
 
-    if state["exhausted"]:
+    # 모드별 종료 패널티 적용
+    if cur_mode == MODE_FORCED:
+        apply_forced_end_penalty(partner_id, mode_ctx, player_id)
+    elif cur_mode == MODE_UNCONSCIOUS:
+        apply_unconscious_end_state(partner_id, mode_ctx)
+    elif cur_mode == MODE_FROZEN:
+        # 시간정지: 축적된 지연 효과 일괄 적용 (30% 감쇠)
+        apply_deferred_effects(partner_id, mode_ctx, player_id)
+
+    if state["escaped"]:
+        # NPC 저항 탈출 (강제 모드)
+        if partner_agent:
+            partner_agent.pop_schedule()
+        yield ui.dialog("상대가 빠져나갔다...!")
+        morld.pop_to_situation()
+    elif state["exhausted"]:
         # 비정상 종료: 체력 소진
         if partner_agent:
             partner_agent.pop_schedule()

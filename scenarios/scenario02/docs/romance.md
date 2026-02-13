@@ -80,6 +80,16 @@
 | 노출 기반 행위 해금 (하드 락) | romance.py, npc_initiative.py | ✅ 완료 |
 | 노출 기반 효과 보너스 (×1.5) | romance.py, npc_initiative.py | ✅ 완료 |
 | 세션 종료 → 착의 인터럽트 연계 | romance.py, npc_initiative.py | ✅ 완료 |
+| 동작 모드 인프라 (4모드) | romance_mode.py | ✅ 완료 |
+| 강제 모드 (Player→NPC) | romance.py, romance_mode.py, base.py | ✅ 완료 |
+| 무의식 모드 (기절 NPC) | romance.py, romance_mode.py | ✅ 완료 |
+| 시간정지 모드 (지연 효과) | romance.py, romance_mode.py | ✅ 완료 |
+| NPC→Player 저항 모드 | npc_initiative.py | ✅ 완료 |
+| 강제 진입 은신 기습 보너스 | romance_mode.py | ✅ 완료 |
+| NPC 저항/탈출 (강제 중) | romance_mode.py (check_resistance) | ✅ 완료 |
+| 모드별 캐릭터 반응 | 전체 NPC (forced_/aftermath) | ✅ 완료 |
+| 임신 이벤트 (수정/발표) | pregnancy.py, base.py, 전체 NPC | ✅ 완료 |
+| 모드 사후 이벤트 (on_meet) | base.py, 전체 NPC | ✅ 완료 |
 
 ### 지원 캐릭터
 
@@ -131,11 +141,15 @@
 ```
 scenarios/scenario02/python/
 ├── romance.py              # 스킨십 시스템 (플레이어 주도)
+├── romance_actions.py      # 행위 정의 + 공유 상수
+├── romance_core.py         # 공유 핵심 로직 (25+ 함수)
+├── romance_mode.py         # 동작 모드 (합의/강제/무의식/시간정지)
+├── romance_ui.py           # 연애 UI 렌더링
 ├── date.py                 # 데이트 시스템 + 애정 표현
 ├── npc_initiative.py       # NPC 주도 스킨십 시스템 (행위 마스킹, 캐릭터 필터)
 ├── gender.py               # 성별/성적지향/체격/음경크기/삽입호환성
 ├── stimulation.py          # 자극 시스템 (절정/여운/연쇄)
-├── pregnancy.py            # 임신/출산 시스템 (월경/수정/임신/출산)
+├── pregnancy.py            # 임신/출산 시스템 (월경/수정/임신/출산/이벤트)
 ├── assets/
 │   ├── base.py             # Character 클래스 (ROMANCE_REACTIONS, INITIATIVE_*, STEALTH_REACTIONS)
 │   │                       # - should_initiate_skinship()

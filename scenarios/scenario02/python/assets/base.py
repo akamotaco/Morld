@@ -958,11 +958,75 @@ class Character(Unit):
         return True
 
     def romance(self):
-        """연애 모드 시작"""
+        """연애 모드 시작 (모드 자동 감지)"""
         self._check_instantiated()
         from romance import start_romance
+        from romance_mode import (
+            MODE_CONSENSUAL, MODE_UNCONSCIOUS, MODE_FROZEN,
+            can_start_unconscious, can_start_frozen,
+        )
         player_id = morld.get_player_id()
-        yield from start_romance(player_id, self.instance_id)
+
+        # 자동 모드 감지: 기절 → 무의식, 시간정지 → 시간정지
+        ok, _ = can_start_unconscious(player_id, self.instance_id)
+        if ok:
+            yield from start_romance(player_id, self.instance_id, mode=MODE_UNCONSCIOUS)
+            return
+
+        ok, _ = can_start_frozen(player_id, self.instance_id)
+        if ok:
+            yield from start_romance(player_id, self.instance_id, mode=MODE_FROZEN)
+            return
+
+        yield from start_romance(player_id, self.instance_id, mode=MODE_CONSENSUAL)
+
+    def force_romance(self):
+        """강제 행위 시도"""
+        self._check_instantiated()
+        import random
+        from romance import start_romance
+        from romance_mode import (
+            MODE_FORCED, can_start_forced, calculate_force_chance,
+        )
+        from romance_core import get_affection_key, get_rebellion_key
+        player_id = morld.get_player_id()
+        partner_id = self.instance_id
+
+        # 1:1 상황 체크
+        can_force, reason = can_start_forced(player_id, partner_id)
+        if not can_force:
+            yield ui.dialog(f"[color=red]{reason}[/color]")
+            return
+
+        # 성공 확률 표시 + 확인
+        chance = calculate_force_chance(player_id, partner_id)
+        chance_pct = int(chance * 100)
+        stealth = morld.get_unit_prop(player_id, "status:stealth")
+        stealth_hint = " [color=cyan](은신 기습 +20%)[/color]" if stealth == 1 else ""
+        choice = yield ui.dialog(
+            f"제압 성공률: {chance_pct}%{stealth_hint}\n\n"
+            f"[url=@ret:confirm]시도한다[/url]\n"
+            f"[url=@ret:cancel]그만둔다[/url]",
+            autofill="off"
+        )
+        if choice != "confirm":
+            return
+
+        # 판정
+        if random.random() < chance:
+            # 성공 → 강제 세션 시작
+            yield from start_romance(player_id, partner_id, mode=MODE_FORCED)
+        else:
+            # 실패 → 페널티 (호감 -10, 반발 +15)
+            aff_key = get_affection_key(player_id)
+            reb_key = get_rebellion_key(player_id)
+            morld.modify_prop(partner_id, aff_key, -10)
+            morld.modify_prop(partner_id, reb_key, 15)
+            yield ui.dialog(
+                f"[color=red]제압에 실패했다![/color]\n"
+                f"({self.name}(이)가 필사적으로 저항하여 벗어났다.)\n"
+                f"[color=gray]호감 -10, 반발 +15[/color]"
+            )
 
     def date(self):
         """데이트 요청"""
@@ -1734,6 +1798,16 @@ class Character(Unit):
         if privacy is not None:
             return privacy
 
+        # 모드 피해 후유증 체크 (강제/무의식/시간정지 세션 후 첫 만남)
+        aftermath = self._check_mode_aftermath(player_id)
+        if aftermath is not None:
+            return aftermath
+
+        # 임신 이벤트 체크 (수정 알림, 임신 발표)
+        preg_event = self._check_pregnancy_event(player_id)
+        if preg_event is not None:
+            return preg_event
+
         # 첫 만남 여부 판정
         if not self.is_first_meet(player_id):
             # NPC 주도 스킨십 체크 (첫 만남 이후에만)
@@ -1745,6 +1819,84 @@ class Character(Unit):
 
         # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
         return self._first_meet_handler(player_id)
+
+    def _check_mode_aftermath(self, player_id):
+        """모드 피해 후유증 체크 — 강제/무의식/시간정지 세션 후 첫 만남
+
+        서브클래스에서 get_mode_aftermath_reaction()을 오버라이드하여
+        캐릭터별 반응을 정의할 수 있습니다.
+
+        Returns:
+            Generator or None
+        """
+        props = morld.get_unit_props(self.instance_id)
+        if not props:
+            return None
+
+        # 체크할 피해 상태 목록 (우선순위 순)
+        aftermath_keys = [
+            ("상태:강제피해", "forced_aftermath"),
+            ("상태:무의식피해", "unconscious_aftermath"),
+            ("상태:시간정지피해", "frozen_aftermath"),
+        ]
+
+        for prop_key, event_key in aftermath_keys:
+            if props.get(prop_key):
+                morld.set_unit_prop(self.instance_id, prop_key, 0)  # 소비
+                return self._handle_mode_aftermath(player_id, event_key)
+
+        return None
+
+    def _handle_mode_aftermath(self, player_id, event_key):
+        """모드 피해 후유증 다이얼로그 (기본 구현)
+
+        서브클래스에서 오버라이드하여 캐릭터별 반응 정의.
+        """
+        _AFTERMATH_TEXT = {
+            "forced_aftermath": f"({self.name}(이)가 겁에 질린 표정으로 당신을 바라본다.)",
+            "unconscious_aftermath": f"({self.name}(이)가 어딘가 이상한 기분이 드는 것 같다...)",
+            "frozen_aftermath": f"({self.name}(이)가 뭔가 이상함을 느끼는 것 같다...)",
+        }
+        text = _AFTERMATH_TEXT.get(event_key, "")
+        if text:
+            yield ui.dialog(text)
+
+    def _check_pregnancy_event(self, player_id):
+        """임신 이벤트 체크 — 수정 알림, 임신 발표
+
+        Returns:
+            Generator or None
+        """
+        import pregnancy as _preg
+        event_key = _preg.check_pending_pregnancy_events(self.instance_id)
+        if event_key:
+            return self._handle_pregnancy_event(player_id, event_key)
+        return None
+
+    def _handle_pregnancy_event(self, player_id, event_key):
+        """임신 이벤트 다이얼로그 (기본 구현)
+
+        서브클래스에서 오버라이드하여 캐릭터별 반응 정의.
+
+        Args:
+            event_key: "conception:discovery", "conception:unknown_father",
+                       "pregnancy:announcement", "pregnancy:unknown_father"
+        """
+        import pregnancy as _preg
+        father_name = morld.get_unit_prop(self.instance_id, "상태:아이아버지") or "???"
+        week = _preg.get_pregnancy_week(self.instance_id)
+
+        if event_key == "conception:discovery":
+            yield ui.dialog(f"[{self.name}] ...최근 몸 상태가 이상해. 혹시 임신일지도...")
+        elif event_key == "conception:unknown_father":
+            yield ui.dialog(f"[{self.name}] ...몸에 뭔가 이상한 변화가 느껴져...")
+        elif event_key == "pregnancy:announcement":
+            yield ui.dialog(f"[{self.name}] ...{week}주차야. 아이가 생겼어.")
+        elif event_key == "pregnancy:unknown_father":
+            yield ui.dialog(
+                f"[{self.name}] ...임신한 것 같아. {week}주차인데... "
+                f"아버지가 누구인지 모르겠어."
+            )
 
     def on_romance_discovered(self, player_id, partner_id):
         """플레이어의 애정행위를 목격했을 때 반응 (Generator)
