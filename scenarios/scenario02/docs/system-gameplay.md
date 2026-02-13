@@ -597,13 +597,14 @@ load_chapter("chapter_1") → 35+ location 추가
 
 ```python
 # load_chapter() step 2.1
-import temperature, humidity, congestion, sound, garden, needs
+import temperature, humidity, congestion, sound, garden, needs, pregnancy
 temperature.reset()
 humidity.reset()
 congestion.reset()
 sound.reset()
 garden.reset()
 needs.reset()
+pregnancy.reset()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -618,6 +619,7 @@ needs.reset()
 | `sound.py` | adjacency, location_info | hearing/heard_events는 유지 |
 | `garden.py` | _registered_gardens | GardenBed.instantiate()에서 재등록 |
 | `needs.py` | _npc_registry, _accumulated | 플레이어 자동 추적, NPC 재등록 필요 |
+| `pregnancy.py` | _registry, _child_registry | V 보유 캐릭터 재등록 필요 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---
@@ -830,24 +832,74 @@ morld.set_time_frozen(False)  # 시간 흐름 복원
 
 ---
 
+## 임신/출산 시스템 (Pregnancy System)
+
+> `pregnancy.py` — 순수 Python, C# 변경 없음. 상세 내용은 [romance-pregnancy.md](romance-pregnancy.md) 참조.
+
+삽입 행위 → 월경 주기 기반 수정 판정 → 임신 기간(40주) → 출산 → 아이 NPC 생성.
+
+| 기능 | 설명 |
+|------|------|
+| 월경 주기 | 25-35일 주기, V 보유 캐릭터만, 매일 자정 업데이트 |
+| 수정 판정 | P 보유자 절정 시 `check_conception()`, 배란일 30%/배란기 15% |
+| 임신 기간 | 40주, 3분기제 (1분기 입덧, 3분기 피로↑/이동↓) |
+| 출산 | 40주+ → Tier 4 인터럽트, 8시간 출산 + 24시간 회복 |
+| 아이 NPC | `ChildAgent` 동적 생성, 최소 욕구 행동 |
+| 모성 | `욕구:모성` +3/h, 60 이상 시 아이 탐색 인터럽트 |
+
+### Python API
+
+```python
+import pregnancy
+
+pregnancy.register_character(unit_id)    # V 보유 캐릭터 등록
+pregnancy.is_pregnant(unit_id)           # 임신 여부
+pregnancy.get_pregnancy_week(unit_id)    # 임신 주차
+pregnancy.get_trimester(unit_id)         # 분기 (trimester_1/2/3)
+pregnancy.is_lactating(unit_id)          # 수유 여부
+pregnancy.check_conception(p_id, v_id)   # 수정 판정
+pregnancy.reset()                        # 챕터 전환
+```
+
+---
+
+## NPC-NPC 대화 시스템 (Socialization)
+
+> `think/__init__.py` — BaseAgent._check_social() + _handle_socialize()
+
+사회욕(`욕구:사회`) 기반 NPC 간 자발적 대화 시스템. Tier 4h (목욕 다음).
+
+| 항목 | 값 |
+|------|---|
+| 임계치 | `욕구:사회` ≥ 50 |
+| 쿨다운 | 1시간 |
+| 대화 시간 | 30분 (대화 job) |
+| 효과 | `욕구:사회` -20 |
+| 대상 | 같은 region 내 다른 NPC (가장 가까운) |
+
+3-phase 구조: idle → going → talking
+
+---
+
 ## 연애 시스템 (Romance System)
 
 > 상세 내용은 [romance.md](romance.md) 참조
 
 | 시스템 | 파일 | 설명 |
 |--------|------|------|
-| 스킨십 | `romance.py` | 플레이어 주도 친밀 행위 (즉시형 9종 + 토글형 5종) |
+| 스킨십 | `romance.py` | 플레이어 주도 친밀 행위 (즉시형 16종 + 토글형 19종) |
 | 데이트 | `date.py` | 데이트 요청/종료 |
 | NPC 주도 | `npc_initiative.py` | NPC가 먼저 스킨십 시작 |
 | 성별 | `gender.py` | 성별별 보유 감각 카테고리 (male/female/futanari/asexual) |
 | 감각 | `romance.py` | 부위별 경험치 → M/B/A/V/C/P 감각 레벨 → 성욕 보정 |
 | 자극 | `stimulation.py` | 세션 스코프 부위별 자극 → 절정/여운/연쇄 절정 |
+| 삽입 | `romance.py` | 삽입 행위 4종 (질/항문 × 삽입/피삽입) + 임신 판정 |
 | 관계 라벨 | `romance.py` | 호감+욕망 기반 관계 라벨 (타인/친구/정욕/애인) |
 | 반발 | `romance.py`, `base.py` | `관계:{name}:반발` prop, 자극 억제 |
 | 공수 전환 | `romance.py`, `npc_initiative.py` | 세션 중 주도권 전환 (자극/스태미나 유지) |
 | 욕망 | `romance.py`, `needs.py` | `관계:{name}:욕망` prop, 동적 성욕 cap 연동 |
 | 이중 경로 해금 | `romance.py` | 욕망/복종에 의한 호감 요구치 할인 (최대 50%) |
-| 복종 | `base.py` | `관계:{name}:복종` prop (디버그 전용, 자연 증가 미구현) |
+| 복종 | `base.py` | `관계:{name}:복종` prop + 자연 증가/감소 |
 
 ### 캐릭터별 NPC 주도 설정
 

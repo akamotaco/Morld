@@ -97,7 +97,7 @@
 | ~~자위 발각~~ | ~~on_meet 시 자위 중 발각 처리~~ | ✅ 완료 (base.py) |
 | ~~은밀 장소 판정~~ | ~~length 기반 은밀 장소 선정~~ | ✅ 완료 (length 기반) |
 | ~~화장실 프라이버시~~ | ~~ROOM_PRIVACY_CONFIG "화장실" 추가~~ | ✅ 완료 (5캐릭터) |
-| NPC-NPC 대화 | 사회욕 기반 대화 시스템 + describe text | 미구현 |
+| ~~NPC-NPC 대화~~ | ~~사회욕 기반 대화 시스템 + describe text~~ | ✅ 완료 (think/__init__.py _handle_socialize) |
 | NPC-NPC 행위 발각 | 행위 중 플레이어 개입 이벤트 | 미구현 |
 | NPC-NPC 자위 발각 상호작용 | 연인 NPC 발각 시 상호 애정 행위 전환 | 미구현 (현재: NPC 방해 → 짧은 쿨다운) |
 | ~~V 부위 액션~~ | ~~Vaginal 카테고리 액션 추가~~ | ✅ 완료 (V/C 4종 추가) |
@@ -126,7 +126,8 @@ scenarios/scenario02/python/
 ├── date.py                 # 데이트 시스템 + 애정 표현
 ├── npc_initiative.py       # NPC 주도 스킨십 시스템 (행위 마스킹, 캐릭터 필터)
 ├── gender.py               # 성별 시스템 (anatomy 매핑)
-├── stimulation.py           # 자극 시스템 (절정/여운/연쇄)
+├── stimulation.py          # 자극 시스템 (절정/여운/연쇄)
+├── pregnancy.py            # 임신/출산 시스템 (월경/수정/임신/출산)
 ├── assets/
 │   ├── base.py             # Character 클래스 (ROMANCE_REACTIONS, INITIATIVE_*, STEALTH_REACTIONS)
 │   │                       # - should_initiate_skinship()
@@ -140,7 +141,11 @@ scenarios/scenario02/python/
 │       ├── mila.py         # 밀라 - 다정/포근, 연애 저돌적
 │       ├── lina.py         # 리나 - 활발, 연애엔 수줍음
 │       ├── yuki.py         # 유키 - 매우 수줍음
-│       └── ella.py         # 엘라 - 냉정함
+│       ├── ella.py         # 엘라 - 냉정함
+│       └── child.py        # 아이 NPC (출산 시 동적 생성)
 └── think/
-    └── __init__.py         # BaseAgent (STAY_SCHEDULE, push/pop)
+    ├── __init__.py         # BaseAgent (think 5-tier, NPC 성욕/사회 행동)
+    ├── child_agent.py      # 아이 NPC Agent (최소 욕구 행동)
+    └── activities/
+        └── childbirth.py   # 출산/모성 활동 핸들러
 ```
