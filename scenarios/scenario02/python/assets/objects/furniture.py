@@ -609,6 +609,11 @@ class Bathtub(Object):
         player_id = morld.get_player_id()
         humidity.dry_unit(player_id, 100)
         temperature.warm_character(player_id, 2.0)
+        try:
+            import romance
+            romance.clear_all_semen(player_id)
+        except ImportError:
+            pass
         yield ui.dialog([
             "따뜻한 물을 받아 목욕했다.",
             "몸이 개운해졌다."
@@ -696,6 +701,11 @@ class DrumBath(Object):
         player_id = morld.get_player_id()
         humidity.dry_unit(player_id, 100)
         temperature.warm_character(player_id, 2.0)
+        try:
+            import romance
+            romance.clear_all_semen(player_id)
+        except ImportError:
+            pass
         yield ui.dialog([
             "드럼통에 데운 물을 받아 몸을 씻었다.",
             "좁지만... 없는 것보단 낫다."

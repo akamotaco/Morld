@@ -771,6 +771,13 @@ class Character(Unit):
         if props:
             context["호감"] = props.get(f"관계:{player_name}:호감", 0)
             context["진척도"] = props.get(f"관계:{player_name}:진척도", 0)
+            context["성욕"] = props.get("상태:성욕", 0)
+            # 정액 오염
+            _semen_parts = ["얼굴", "가슴", "배", "음부", "엉덩이"]
+            semen_total = sum(props.get(f"오염물:정액:{p}", 0) for p in _semen_parts)
+            context["정액"] = semen_total
+            for p in _semen_parts:
+                context[f"정액:{p}"] = props.get(f"오염물:정액:{p}", 0)
             # 도구 분실 플래그
             for key, value in props.items():
                 if key.startswith("도구분실:"):

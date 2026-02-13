@@ -452,7 +452,7 @@ class BaseAgent:
 
         loc = self.get_location()
         if loc and loc[0] == target_region and loc[1] == target_location:
-            # 도착 — 체온/젖음/청결 효과 + 목욕 job 삽입
+            # 도착 — 체온/젖음/청결/정액 효과 + 목욕 job 삽입
             import temperature
             import humidity
             temperature.warm_character(self.unit_id, 2.0)
@@ -460,6 +460,11 @@ class BaseAgent:
             try:
                 import needs
                 needs.set_cleanliness(self.unit_id, 0)
+            except ImportError:
+                pass
+            try:
+                import romance
+                romance.clear_all_semen(self.unit_id)
             except ImportError:
                 pass
             _, bath_entry = self._is_bath_time()
@@ -582,12 +587,18 @@ class BaseAgent:
         # 4e. 목욕 (스케줄 OR 청결 기반)
         is_bath, _ = self._is_bath_time()
         is_dirty = False
+        is_semen_dirty = False
         try:
             import needs
             is_dirty = needs.is_npc_need_bath(self.unit_id)
         except ImportError:
             pass
-        if is_bath or is_dirty:
+        try:
+            import romance
+            is_semen_dirty = romance.get_semen_total(self.unit_id) > 20
+        except ImportError:
+            pass
+        if is_bath or is_dirty or is_semen_dirty:
             self._handle_bath()
             self._action_taken = True
             return True

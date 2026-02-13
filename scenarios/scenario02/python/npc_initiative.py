@@ -84,12 +84,12 @@ PLAYER_INSTANT_ACTIONS = {
     "lip_lick": {
         "name": "입술 핥기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 2, "성욕": 2},
-        "exp_part": "입술", "affection_req": 55
+        "exp_part": "입술", "affection_req": 55, "uses_mouth": True
     },
     "neck_kiss": {
         "name": "목 키스", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 2, "성욕": 3},
-        "exp_part": "목", "affection_req": 65
+        "exp_part": "목", "affection_req": 65, "uses_mouth": True
     },
     "breast_caress": {
         "name": "가슴 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -100,6 +100,11 @@ PLAYER_INSTANT_ACTIONS = {
         "name": "유두 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"성욕": 5, "욕망": 2},
         "exp_part": "가슴", "affection_req": 85, "requires_exposure": "upper"
+    },
+    "nipple_lick": {
+        "name": "유두 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 5, "욕망": 2},
+        "exp_part": "유두", "affection_req": 85, "requires_exposure": "upper", "uses_mouth": True
     },
     "anal_stimulation": {
         "name": "항문 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -129,7 +134,7 @@ NPC_TOGGLE_ACTIONS = {
     "deep_kiss": {
         "name": "딥키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 3, "성욕": 3},
-        "exp_part": "입술", "affection_req": 70
+        "exp_part": "입술", "affection_req": 70, "uses_mouth": True
     },
     "breast_touch": {
         "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -159,7 +164,7 @@ NPC_TOGGLE_ACTIONS = {
     "tongue_play": {
         "name": "혀 섞기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 2, "성욕": 4},
-        "exp_part": "입술", "affection_req": 75
+        "exp_part": "입술", "affection_req": 75, "uses_mouth": True
     },
     "butt_squeeze": {
         "name": "엉덩이 주무르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -174,17 +179,22 @@ NPC_TOGGLE_ACTIONS = {
     "breast_suck": {
         "name": "가슴 빨기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "가슴", "affection_req": 90, "requires_exposure": "upper"
+        "exp_part": "가슴", "affection_req": 90, "requires_exposure": "upper", "uses_mouth": True
+    },
+    "nipple_suck": {
+        "name": "유두 빨기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 3},
+        "exp_part": "유두", "affection_req": 90, "requires_exposure": "upper", "uses_mouth": True
     },
     "clit_lick": {
         "name": "클리토리스 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "클리토리스", "affection_req": 95, "requires_exposure": "lower"
+        "exp_part": "클리토리스", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
     },
     "cunnilingus": {
         "name": "커닐링구스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower"
+        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
     },
     "finger_insertion": {
         "name": "손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
@@ -194,7 +204,7 @@ NPC_TOGGLE_ACTIONS = {
     "fellatio": {
         "name": "펠라치오", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "음경", "affection_req": 95, "requires_exposure": "lower"
+        "exp_part": "음경", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
     },
     # 삽입 행위
     "vaginal_penetration": {
@@ -331,6 +341,7 @@ def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None)
     new_exp_part = get_action_exp_part(new_action_id, new_action_dict)
     new_def = new_action_dict or NPC_TOGGLE_ACTIONS.get(new_action_id) or {}
     new_player_req = new_def.get("requires_player_anatomy")
+    new_uses_mouth = new_def.get("uses_mouth")
 
     conflicting = set()
     for toggle_id in active_toggles:
@@ -345,6 +356,10 @@ def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None)
             continue
         # requires_player_anatomy 충돌
         if new_player_req and toggle_def.get("requires_player_anatomy") == new_player_req:
+            conflicting.add(toggle_id)
+            continue
+        # uses_mouth 충돌 (입/혀 배타적)
+        if new_uses_mouth and toggle_def.get("uses_mouth"):
             conflicting.add(toggle_id)
 
     return conflicting
@@ -366,6 +381,43 @@ def remove_conflicting_toggles(new_action_id, active_toggles, new_action_dict=No
     for toggle_id in conflicting:
         active_toggles.discard(toggle_id)
     return conflicting
+
+
+# ============================================
+# 처녀(첫경험) + 내부 사정 헬퍼
+# ============================================
+
+def check_and_clear_virginity_npc(npc_id, player_id, action_id):
+    """NPC 주도 토글 ON 시 처녀 해제 체크"""
+    from romance import VIRGINITY_CLEARING_ACTIONS, VIRGINITY_BONUS_AFFECTION, VIRGINITY_BONUS_EXP
+    virginity_prop = VIRGINITY_CLEARING_ACTIONS.get(action_id)
+    if not virginity_prop:
+        return None
+    current = morld.get_unit_prop(npc_id, virginity_prop)
+    if not current:
+        return None
+    morld.set_unit_prop(npc_id, virginity_prop, 0)
+    affection_key = get_affection_key(player_id)
+    morld.modify_prop(npc_id, affection_key, VIRGINITY_BONUS_AFFECTION)
+    exp_part = NPC_TOGGLE_ACTIONS.get(action_id, {}).get("exp_part")
+    if exp_part:
+        morld.modify_prop(npc_id, f"경험:{exp_part}", VIRGINITY_BONUS_EXP)
+    return f"first_{action_id}"
+
+
+def _get_active_penetration_part_npc(active_toggles):
+    """활성 삽입 토글의 부위 반환 (NPC 주도)"""
+    for toggle_id in active_toggles:
+        td = NPC_TOGGLE_ACTIONS.get(toggle_id)
+        if not td:
+            continue
+        if td.get("pregnancy_check"):
+            return "음부"
+        if toggle_id in ("anal_penetration", "receive_anal"):
+            return "항문"
+        if toggle_id == "fellatio":
+            return "구강"
+    return None
 
 
 # ============================================
@@ -972,6 +1024,12 @@ def apply_action_effects(state, action_def):
         exposure = get_exposure_state(npc_id)
         if exposure.get(f"{bonus_area}_exposed"):
             effects = {k: round(v * EXPOSURE_BONUS) for k, v in effects.items()}
+    # 수유 보너스: B 카테고리 + 수유 중 → ×1.3
+    exp_part_check = action_def.get("exp_part")
+    if exp_part_check and SENSATION_MAP.get(exp_part_check) == "B":
+        import pregnancy
+        if pregnancy.is_lactating(npc_id):
+            effects = {k: round(v * 1.3) for k, v in effects.items()}
     for stat, value in effects.items():
         if stat in ("성욕", "성적절정"):
             prop_key = f"상태:{stat}"
@@ -1037,6 +1095,7 @@ def apply_action_effects(state, action_def):
                 morld.modify_prop(npc_id, submission_key, climax_sub_gain)
 
         # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
+        ejac_part = None
         has_intercourse = any(
             NPC_TOGGLE_ACTIONS.get(tid, {}).get("pregnancy_check")
             for tid in state["active_toggles"]
@@ -1046,14 +1105,34 @@ def apply_action_effects(state, action_def):
             if gender_mod.has_anatomy(npc_id, "P"):
                 import pregnancy
                 pregnancy.check_conception(player_id, npc_id)
+                ejac_part = "음부"
+        # P 절정 + 비삽입 토글 → 부위 판별
+        if not ejac_part:
+            import gender as gender_mod
+            if gender_mod.has_anatomy(npc_id, "P"):
+                ejac_part = _get_active_penetration_part_npc(state["active_toggles"])
+
+        # 내부 사정 → 정액 흘러나옴
+        if ejac_part and ejac_part in ("음부", "항문"):
+            from romance import _apply_semen, SEMEN_INTERNAL_DRIP
+            _apply_semen(npc_id, ejac_part, SEMEN_INTERNAL_DRIP)
 
         # 절정 반응 텍스트
         npc_asset = get_npc_asset(npc_id)
         if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
             reactions = getattr(npc_asset, 'ROMANCE_REACTIONS', {})
+            # 내부 사정 반응 + 절정 반응 결합
+            ejac_reaction = None
+            if ejac_part:
+                ejac_key = f"ejaculation_internal_{ejac_part}"
+                ejac_reaction = npc_asset.get_romance_reaction(ejac_key, "start")
             ecstasy_key = get_climax_reaction_key(
                 climax_info, state["active_toggles"], NPC_TOGGLE_ACTIONS, reactions)
             reaction = npc_asset.get_romance_reaction(ecstasy_key, "start")
+            if ejac_reaction and reaction:
+                return f"{ejac_reaction}\n{reaction}"
+            if ejac_reaction:
+                return ejac_reaction
             if reaction:
                 return reaction
         npc_info = morld.get_unit_info(npc_id)
@@ -1311,9 +1390,12 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             # 스태미나 소모
             state["stamina"] -= required_stamina
 
-            # 새 액션이 있으면 토글에 추가
+            # 새 액션이 있으면 토글에 추가 + 처녀 체크
+            first_key = None
             if new_action and new_toggle_def:
                 state["active_toggles"].add(new_action)
+                first_key = check_and_clear_virginity_npc(
+                    state["npc_id"], state["player_id"], new_action)
 
             # 모든 활성 토글들의 효과 적용
             ecstasy_reaction = None
@@ -1354,12 +1436,16 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             if ecstasy_reaction:
                 state["last_reaction"] = ecstasy_reaction
             elif new_action:
-                # 새로 추가된 액션에 대한 반응
-                timing = f"during_{new_action}"
-                if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
-                    reaction = npc_asset.get_initiative_reaction(timing)
-                    if reaction:
-                        state["last_reaction"] = reaction
+                # 첫경험 반응 우선, 없으면 일반 반응
+                reaction = None
+                if first_key and npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+                    reaction = npc_asset.get_romance_reaction(first_key, "start")
+                if not reaction:
+                    timing = f"during_{new_action}"
+                    if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
+                        reaction = npc_asset.get_initiative_reaction(timing)
+                if reaction:
+                    state["last_reaction"] = reaction
             elif state["active_toggles"]:
                 # 기존 토글 중 하나의 반응
                 for tid in state["active_toggles"]:

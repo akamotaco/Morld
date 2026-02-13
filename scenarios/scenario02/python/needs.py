@@ -221,9 +221,19 @@ def _process_hourly(unit_id):
     except ImportError:
         pass
 
+    # 정액 오염: 불결도 기여 + 자연 감소
+    semen_total = 0
+    _SEMEN_PARTS = ["얼굴", "가슴", "배", "음부", "엉덩이"]
+    for sp in _SEMEN_PARTS:
+        val = morld.get_unit_prop(unit_id, f"오염물:정액:{sp}") or 0
+        semen_total += val
+        if val > 0:
+            morld.set_unit_prop(unit_id, f"오염물:정액:{sp}", max(0, val - 5))
+
     cleanliness_increase = (CLEANLINESS_BASE_RATE
                             + pollution_val * CLEANLINESS_POLLUTION_FACTOR
-                            + wetness_val * CLEANLINESS_WETNESS_FACTOR)
+                            + wetness_val * CLEANLINESS_WETNESS_FACTOR
+                            + semen_total * 0.2)
     current = get_cleanliness(unit_id)
     morld.set_unit_prop(unit_id, PROP_CLEANLINESS,
                         min(100, current + cleanliness_increase))

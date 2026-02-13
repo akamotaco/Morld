@@ -38,6 +38,12 @@ SUBMISSION_ACTION_THRESHOLD = 80  # 이 이상 affection_req 행위에서 복종
 SUBMISSION_ACTION_GAIN = 1        # 행위당 증가량
 SUBMISSION_MAX = 100              # 복종 상한
 
+# 정액 오염 시스템
+SEMEN_PARTS = ["얼굴", "가슴", "배", "음부", "엉덩이"]
+SEMEN_EXTERNAL_AMOUNT = 30        # 외부 사정 시 부위별 적용량
+SEMEN_INTERNAL_DRIP = 10          # 내부 사정 후 흘러나옴
+PULL_OUT_STIM_THRESHOLD = 80      # 질외사정 가능 자극 임계값
+
 # ============================================
 # 감각 시스템 (부위 → M/B/A/V 매핑)
 # ============================================
@@ -46,6 +52,7 @@ SUBMISSION_MAX = 100              # 복종 상한
 SENSATION_MAP = {
     "입술": "M",        # Mouth
     "가슴": "B",        # Breast
+    "유두": "B",        # Breast (nipple)
     "엉덩이": "A",      # Anal
     "음부": "V",        # Vaginal
     "클리토리스": "C",   # Clitoral
@@ -118,17 +125,17 @@ INSTANT_ACTIONS = {
     "lip_lick": {
         "name": "입술 핥기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"호감": 2, "성욕": 2},
-        "exp_part": "입술", "affection_req": 55
+        "exp_part": "입술", "affection_req": 55, "uses_mouth": True
     },
     "french_kiss": {
         "name": "프렌치 키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 3, "성욕": 3},
-        "exp_part": "입술", "affection_req": 60
+        "exp_part": "입술", "affection_req": 60, "uses_mouth": True
     },
     "neck_kiss": {
         "name": "목 키스", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 2, "성욕": 3},
-        "exp_part": "목", "affection_req": 65
+        "exp_part": "목", "affection_req": 65, "uses_mouth": True
     },
     "butt_caress": {
         "name": "엉덩이 쓰다듬기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -144,6 +151,11 @@ INSTANT_ACTIONS = {
         "name": "유두 자극", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"성욕": 5, "욕망": 2},
         "exp_part": "가슴", "affection_req": 85, "requires_exposure": "upper"
+    },
+    "nipple_lick": {
+        "name": "유두 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"성욕": 5, "욕망": 2},
+        "exp_part": "유두", "affection_req": 85, "requires_exposure": "upper", "uses_mouth": True
     },
     "genital_caress": {
         "name": "음부 쓰다듬기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -195,12 +207,12 @@ TOGGLE_ACTIONS = {
     "deep_kiss": {
         "name": "딥키스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 3, "성욕": 3},
-        "exp_part": "입술", "affection_req": 70
+        "exp_part": "입술", "affection_req": 70, "uses_mouth": True
     },
     "tongue_play": {
         "name": "혀 섞기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 2, "성욕": 4},
-        "exp_part": "입술", "affection_req": 75
+        "exp_part": "입술", "affection_req": 75, "uses_mouth": True
     },
     "butt_squeeze": {
         "name": "엉덩이 주무르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -220,7 +232,12 @@ TOGGLE_ACTIONS = {
     "breast_suck": {
         "name": "가슴 빨기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 6, "욕망": 3},
-        "exp_part": "가슴", "affection_req": 90, "requires_exposure": "upper"
+        "exp_part": "가슴", "affection_req": 90, "requires_exposure": "upper", "uses_mouth": True
+    },
+    "nipple_suck": {
+        "name": "유두 빨기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 3},
+        "exp_part": "유두", "affection_req": 90, "requires_exposure": "upper", "uses_mouth": True
     },
     "genital_touch": {
         "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
@@ -235,12 +252,12 @@ TOGGLE_ACTIONS = {
     "clit_lick": {
         "name": "클리토리스 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "클리토리스", "affection_req": 95, "requires_exposure": "lower"
+        "exp_part": "클리토리스", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
     },
     "cunnilingus": {
         "name": "커닐링구스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower"
+        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
     },
     "finger_insertion": {
         "name": "손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
@@ -260,7 +277,7 @@ TOGGLE_ACTIONS = {
     "fellatio": {
         "name": "펠라치오", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
-        "exp_part": "음경", "affection_req": 95, "requires_exposure": "lower"
+        "exp_part": "음경", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
     },
     # 삽입 행위
     "vaginal_penetration": {
@@ -294,6 +311,98 @@ TOGGLE_ACTIONS = {
         "requires_exposure": "lower",
     },
 }
+
+# ============================================
+# 처녀(첫경험) 시스템
+# ============================================
+
+# 행위 → 해제 부위 매핑
+VIRGINITY_CLEARING_ACTIONS = {
+    "vaginal_penetration": "처녀:음부",
+    "receive_penetration": "처녀:음부",
+    "finger_insertion": "처녀:음부",
+    "anal_penetration": "처녀:항문",
+    "receive_anal": "처녀:항문",
+    "fellatio": "처녀:구강",
+}
+
+VIRGINITY_BONUS_AFFECTION = 5
+VIRGINITY_BONUS_EXP = 3
+
+
+def check_and_clear_virginity(partner_id, player_id, action_id):
+    """처녀 해제 체크. 해제 시 보너스 적용 + first 반응 키 반환."""
+    virginity_prop = VIRGINITY_CLEARING_ACTIONS.get(action_id)
+    if not virginity_prop:
+        return None
+    current = morld.get_unit_prop(partner_id, virginity_prop)
+    if not current:
+        return None
+    # 처녀 해제
+    morld.set_unit_prop(partner_id, virginity_prop, 0)
+    # 보너스: 호감 +5
+    affection_key = get_affection_key(player_id)
+    morld.modify_prop(partner_id, affection_key, VIRGINITY_BONUS_AFFECTION)
+    # 보너스: 감각 경험치 +3
+    exp_part = TOGGLE_ACTIONS.get(action_id, {}).get("exp_part")
+    if exp_part:
+        morld.modify_prop(partner_id, f"경험:{exp_part}", VIRGINITY_BONUS_EXP)
+    return f"first_{action_id}"
+
+
+def _get_active_penetration_part(active_toggles):
+    """활성 삽입 토글의 부위 반환 (내부 사정 판별용)"""
+    for toggle_id in active_toggles:
+        td = TOGGLE_ACTIONS.get(toggle_id)
+        if not td:
+            continue
+        if td.get("pregnancy_check"):
+            return "음부"
+        if toggle_id in ("anal_penetration", "receive_anal"):
+            return "항문"
+        if toggle_id == "fellatio":
+            return "구강"
+    return None
+
+
+# ============================================
+# 정액 오염 시스템
+# ============================================
+
+def get_semen_total(unit_id):
+    """전체 정액 오염 합산"""
+    return sum(morld.get_unit_prop(unit_id, f"오염물:정액:{p}") or 0 for p in SEMEN_PARTS)
+
+
+def _apply_semen(target_id, part, amount):
+    """부위별 정액 적용"""
+    prop = f"오염물:정액:{part}"
+    current = morld.get_unit_prop(target_id, prop) or 0
+    morld.set_unit_prop(target_id, prop, min(100, current + amount))
+    # 오염도 증가
+    try:
+        import pollution
+        current_poll = pollution.get_unit_pollution(target_id)
+        pollution.set_unit_pollution(target_id, current_poll + 10)
+    except Exception:
+        pass
+
+
+def clear_all_semen(unit_id):
+    """전부위 정액 제거 (목욕 시)"""
+    for p in SEMEN_PARTS:
+        morld.clear_prop(unit_id, f"오염물:정액:{p}")
+
+
+def is_pull_out_available(state):
+    """질외사정 가능 여부: 삽입 토글 활성 + P 자극 ≥ 임계값"""
+    if not _get_active_penetration_part(state.get("active_toggles", set())):
+        return False
+    stim = state.get("stim")
+    if not stim:
+        return False
+    return stim.get("level", 0) >= PULL_OUT_STIM_THRESHOLD
+
 
 # ============================================
 # 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
@@ -480,6 +589,7 @@ def get_conflicting_toggles(new_action_id, active_toggles):
     충돌 조건:
     1. 같은 exp_part (NPC쪽 부위 충돌)
     2. 같은 requires_player_anatomy (플레이어 신체 충돌)
+    3. uses_mouth 충돌 (입/혀 행위는 동시에 하나만)
     exp_part가 None인 토글(껴안기 등)은 충돌하지 않습니다.
     """
     new_def = TOGGLE_ACTIONS.get(new_action_id)
@@ -487,6 +597,7 @@ def get_conflicting_toggles(new_action_id, active_toggles):
         return set()
     new_exp_part = new_def.get("exp_part")
     new_player_req = new_def.get("requires_player_anatomy")
+    new_uses_mouth = new_def.get("uses_mouth")
     conflicting = set()
     for toggle_id in active_toggles:
         if toggle_id == new_action_id:
@@ -500,6 +611,10 @@ def get_conflicting_toggles(new_action_id, active_toggles):
             continue
         # requires_player_anatomy 충돌 (플레이어 신체)
         if new_player_req and toggle_def.get("requires_player_anatomy") == new_player_req:
+            conflicting.add(toggle_id)
+            continue
+        # uses_mouth 충돌 (입/혀 배타적)
+        if new_uses_mouth and toggle_def.get("uses_mouth"):
             conflicting.add(toggle_id)
     return conflicting
 
@@ -544,30 +659,44 @@ def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactio
     """절정 묘사 키 결정 (우선순위 기반)
 
     1. ecstasy_intercourse — 삽입 중 절정
-    2. ecstasy_chain — 연쇄 절정
-    3. ecstasy_{category} — 카테고리별
-    4. ecstasy — 기본 fallback
+    2. ecstasy_chain_3 — 3회차+ 연쇄 (chain_count >= 2)
+    3. ecstasy_chain_2 — 2회차 연쇄 (chain_count >= 1)
+    4. ecstasy_chain_{cat} — 부위별 연쇄
+    5. ecstasy_chain — 범용 연쇄
+    6. ecstasy_{category} — 카테고리별
+    7. ecstasy — 기본 fallback
     """
+    def _has_key(k):
+        return f"{k}:start" in reactions or k in reactions
+
     # 1. 삽입 중 절정
     if _has_active_intercourse(active_toggles, toggle_actions):
-        key = "ecstasy_intercourse"
-        if f"{key}:start" in reactions or key in reactions:
-            return key
+        if _has_key("ecstasy_intercourse"):
+            return "ecstasy_intercourse"
 
-    # 2. 연쇄 절정
-    if climax_info.get("is_chain"):
-        key = "ecstasy_chain"
-        if f"{key}:start" in reactions or key in reactions:
-            return key
-
-    # 3. 카테고리별
+    is_chain = climax_info.get("is_chain")
+    chain_count = climax_info.get("chain_count", 0)
     cat = climax_info.get("category")
-    if cat:
-        key = f"ecstasy_{cat}"
-        if f"{key}:start" in reactions or key in reactions:
-            return key
 
-    # 4. 기본
+    if is_chain:
+        # 2. 3회차+ 연쇄
+        if chain_count >= 2 and _has_key("ecstasy_chain_3"):
+            return "ecstasy_chain_3"
+        # 3. 2회차 연쇄
+        if chain_count >= 1 and _has_key("ecstasy_chain_2"):
+            return "ecstasy_chain_2"
+        # 4. 부위별 연쇄
+        if cat and _has_key(f"ecstasy_chain_{cat}"):
+            return f"ecstasy_chain_{cat}"
+        # 5. 범용 연쇄
+        if _has_key("ecstasy_chain"):
+            return "ecstasy_chain"
+
+    # 6. 카테고리별
+    if cat and _has_key(f"ecstasy_{cat}"):
+        return f"ecstasy_{cat}"
+
+    # 7. 기본
     return "ecstasy"
 
 
@@ -611,6 +740,13 @@ def calculate_effects(action_def, partner_id):
             if arousal_base > 0 and sensation > 0:
                 bonus = round(arousal_base * sensation * 0.1)
                 base_effects["성욕"] = base_effects.get("성욕", 0) + bonus
+
+        # 수유 보너스: B 카테고리 + 수유 중 → ×1.3
+        if category == "B":
+            import pregnancy
+            if pregnancy.is_lactating(partner_id):
+                for stat in base_effects:
+                    base_effects[stat] = round(base_effects[stat] * 1.3)
 
         # 경험치 +1
         morld.modify_prop(partner_id, exp_key, 1)
@@ -843,6 +979,21 @@ def render_romance_ui(state):
     if exposure_parts:
         lines.append(f"복장: {' '.join(exposure_parts)}")
 
+    # 정액 오염 표시
+    semen_total = get_semen_total(partner_id)
+    if semen_total > 0:
+        if semen_total >= 60:
+            lines.append("[color=pink]정액이 온몸에 흥건하다[/color]")
+        elif semen_total >= 30:
+            lines.append("[color=pink]정액이 묻어 있다[/color]")
+        else:
+            semen_detail = []
+            for sp in SEMEN_PARTS:
+                if (morld.get_unit_prop(partner_id, f"오염물:정액:{sp}") or 0) > 0:
+                    semen_detail.append(sp)
+            if semen_detail:
+                lines.append(f"[color=pink]정액: {', '.join(semen_detail)}[/color]")
+
     lines.append("")
     lines.append(ui.divider())
     lines.append("")
@@ -907,6 +1058,12 @@ def render_romance_ui(state):
                 lines.append(f"  [url=@proc:instant:{action_id}]{name_text}[/url]")
         else:
             lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
+    # 질외사정 (삽입 중 + P 자극 ≥ 임계값)
+    if is_pull_out_available(state):
+        lines.append("")
+        lines.append("[질외사정]")
+        for target in SEMEN_PARTS:
+            lines.append(f"  [url=@proc:pull_out_target:{target}]{target}[/url]")
     lines.append("")
 
     # 푸터
@@ -1191,19 +1348,39 @@ def start_romance(player_id, partner_id, preserved=None):
                     morld.modify_prop(pid, submission_key, climax_sub_gain)
 
             # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
+            ejac_part = None
             if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
                 import gender as gender_mod
                 if gender_mod.has_anatomy(pid, "P"):
                     import pregnancy
                     pregnancy.check_conception(player_id, pid)
+                    ejac_part = "음부"
+            # P 절정 + 삽입 토글 활성 → 내부 사정 부위 판별
+            if not ejac_part:
+                import gender as gender_mod
+                if gender_mod.has_anatomy(pid, "P"):
+                    ejac_part = _get_active_penetration_part(state["active_toggles"])
+
+            # 내부 사정 → 정액 흘러나옴
+            if ejac_part and ejac_part in ("음부", "항문"):
+                _apply_semen(pid, ejac_part, SEMEN_INTERNAL_DRIP)
 
             # 절정 반응 텍스트 (우선순위: intercourse > chain > category > default)
             partner_asset = get_partner_asset(pid)
             if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
                 reactions = getattr(partner_asset, 'ROMANCE_REACTIONS', {})
+                # 내부 사정 반응 + 절정 반응 결합
+                ejac_reaction = None
+                if ejac_part:
+                    ejac_key = f"ejaculation_internal_{ejac_part}"
+                    ejac_reaction = partner_asset.get_romance_reaction(ejac_key, "start")
                 ecstasy_key = get_climax_reaction_key(
                     climax_info, state["active_toggles"], TOGGLE_ACTIONS, reactions)
                 reaction = partner_asset.get_romance_reaction(ecstasy_key, "start")
+                if ejac_reaction and reaction:
+                    return f"{ejac_reaction}\n{reaction}"
+                if ejac_reaction:
+                    return ejac_reaction
                 if reaction:
                     return reaction
             partner_info = morld.get_unit_info(pid)
@@ -1224,6 +1401,54 @@ def start_romance(player_id, partner_id, preserved=None):
         if action == "switch":
             state["switch_to"] = "npc"
             return True
+
+        # 질외사정
+        if action.startswith("pull_out_target:"):
+            target_part = action.split(":", 1)[1]
+            if target_part not in SEMEN_PARTS:
+                return render_romance_ui(state)
+            if not is_pull_out_available(state):
+                return render_romance_ui(state)
+            pid = state["partner_id"]
+            # 삽입 토글 해제
+            penetration_toggles = set()
+            for tid in state["active_toggles"]:
+                td = TOGGLE_ACTIONS.get(tid)
+                if td and (td.get("pregnancy_check") or tid in ("anal_penetration", "receive_anal", "fellatio")):
+                    penetration_toggles.add(tid)
+            for tid in penetration_toggles:
+                state["active_toggles"].discard(tid)
+            # P 절정 강제 발동
+            stim = state.get("stim")
+            if stim:
+                stimulation.force_climax(stim, "P")
+            # 정액 적용
+            _apply_semen(pid, target_part, SEMEN_EXTERNAL_AMOUNT)
+            # 외부 사정 → 극감 수정 확률 (2%)
+            if target_part == "음부":
+                import pregnancy
+                import random
+                if random.random() < 0.02:
+                    pregnancy.check_conception(state["player_id"], pid)
+            # 반응 텍스트
+            partner_asset = get_partner_asset(pid)
+            reaction = None
+            if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                reaction = partner_asset.get_romance_reaction(f"pull_out_{target_part}", "start")
+            if reaction:
+                state["last_reaction"] = reaction
+            else:
+                partner_info = morld.get_unit_info(pid)
+                pname = partner_info.get('name', '상대') if partner_info else '상대'
+                state["last_reaction"] = f"{pname}의 {target_part}에 사정했다."
+            emit_ecstasy_sound(pid)
+            # 시간 경과
+            result = advance_time_and_check(state, 3 * MILLIS_PER_MINUTE)
+            if result["interrupted"]:
+                state["interrupted"] = True
+                state["interrupter_id"] = result["interrupter_id"]
+                return True
+            return render_romance_ui(state)
 
         # 즉시형 행위
         if action.startswith("instant:"):
@@ -1335,6 +1560,12 @@ def start_romance(player_id, partner_id, preserved=None):
             else:
                 state["active_toggles"].discard(action_id)
 
+            # 처녀(첫경험) 체크 — 토글 ON 시
+            first_key = None
+            if is_turning_on:
+                first_key = check_and_clear_virginity(
+                    state["partner_id"], player_id, action_id)
+
             # 효과 적용 (경험치 시스템 포함)
             state["stamina"] -= total_stamina
             ecstasy_reaction = apply_effects(action_def, active_toggle_defs)
@@ -1345,10 +1576,14 @@ def start_romance(player_id, partner_id, preserved=None):
                 emit_ecstasy_sound(state["partner_id"])
             else:
                 if is_turning_on:
-                    # 토글 ON 시 반응 텍스트 (start 타이밍)
+                    # 첫경험 반응 우선, 없으면 일반 start 반응
                     partner_asset = get_partner_asset(state["partner_id"])
                     if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-                        reaction = partner_asset.get_romance_reaction(action_id, "start")
+                        reaction = None
+                        if first_key:
+                            reaction = partner_asset.get_romance_reaction(first_key, "start")
+                        if not reaction:
+                            reaction = partner_asset.get_romance_reaction(action_id, "start")
                         if reaction:
                             state["last_reaction"] = reaction
                 emit_romance_sound(state["partner_id"])

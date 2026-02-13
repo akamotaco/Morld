@@ -213,8 +213,13 @@ def is_romance_blocked(unit_id):
     return week >= 40
 
 
+def is_lactating(unit_id):
+    """수유 여부 (임신 20주+ 또는 출산 후 수유 지속)"""
+    return bool(morld.get_unit_prop(unit_id, "상태:수유"))
+
+
 def _pregnancy_daily(unit_id):
-    """임신 중 매일 업데이트 — 주차 계산"""
+    """임신 중 매일 업데이트 — 주차 계산 + 수유 시작"""
     conception_day = morld.get_unit_prop(unit_id, "상태:수정일") or 0
     current_day = morld.get_time_info().get("day", 0)
 
@@ -223,6 +228,10 @@ def _pregnancy_daily(unit_id):
     week = scaled // 7
 
     morld.set_unit_prop(unit_id, "상태:임신주차", min(week, 42))
+
+    # 임신 20주+ → 수유 시작
+    if week >= 20 and not morld.get_unit_prop(unit_id, "상태:수유"):
+        morld.set_unit_prop(unit_id, "상태:수유", 1)
 
 
 # ============================================

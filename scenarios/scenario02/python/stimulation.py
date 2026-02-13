@@ -180,3 +180,8 @@ def _trigger_climax(state, category):
         "chain_count": state["chain_count"],
         "climax_total": state["climax_total"],
     }
+
+
+def force_climax(state, category):
+    """강제 절정 발동 (질외사정 등)"""
+    return _trigger_climax(state, category)
