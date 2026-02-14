@@ -817,7 +817,7 @@ idle → going_to_garden → working ↔ storing_harvest → going_to_garden
 ```
 
 - **working 우선순위**: 수확 → 물주기 → 씨 심기
-- **수확 후**: 음식 저장소(kitchen_fridge)로 이동하여 보관
+- **수확 후**: `resolve_storage_container(agent, "food_ingredient")` 동적 탐색하여 보관
 - **씨 심기**: NPC 인벤토리에 씨앗이 있을 때만 (수확 시 seed_chance로 획득)
 - 밀라 봄 스케줄: `{"activity": "정원", ...}` (13:00~15:00, 앞마당)
 - 유키 스케줄: `{"activity": "정원", ...}` (13:00~15:00, 은신처 텃밭)

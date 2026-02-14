@@ -1,11 +1,11 @@
 """정원 활동 핸들러
 
 텃밭(GardenBed) 관리: 수확 → 물주기 → 씨 심기 (우선순위 순)
-수확물은 음식 저장소(kitchen_fridge)에 보관.
+수확물은 storage:food_ingredient 컨테이너에 동적 보관.
 
 Phase: idle → going_to_garden → working → (storing_harvest → going_to_garden) → ...
 """
-from .helpers import find_garden_location, find_npc_food
+from .helpers import find_garden_location
 from assets.objects import get_instance
 
 
@@ -78,18 +78,22 @@ def handle_garden(agent, entry):
         agent._action_taken = True
 
     elif phase == "storing_harvest":
-        # 수확물을 음식 저장소에 보관
-        target = agent.food_storage_location
+        # 수확물을 보관소에 보관
+        target = agent._activity_state.get("storage_target")
+        if not target:
+            from .helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "food_ingredient")
+            if not target:
+                target = resolve_storage_container(agent, "food")
+            if not target:
+                agent._activity_phase = "going_to_garden"
+                agent._action_taken = True
+                return
+            agent._activity_state["storage_target"] = target
+
         if agent._is_at(target):
-            from assets.registry import get_instance_id
-            storage_id = get_instance_id(agent.food_storage_unique_id)
-            if storage_id:
-                obj = get_instance(storage_id)
-                if obj:
-                    food = find_npc_food(agent.unit_id)
-                    while food:
-                        obj.npc_store_item(agent.unit_id, food["unique_id"])
-                        food = find_npc_food(agent.unit_id)
+            from .helpers import store_npc_items
+            store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._insert_idle_job("정리", 5 * 60_000)
             agent._activity_phase = "going_to_garden"
             agent._action_taken = True

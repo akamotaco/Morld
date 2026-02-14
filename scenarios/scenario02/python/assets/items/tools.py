@@ -23,6 +23,7 @@ from assets.registry import register_item
 class Torch(Item):
     unique_id = "torch"
     name = "횃불"
+    category = "tool"
     passive_props = {}
     equip_props = {"밝기": 3, "장착:손": 1}
     value = 5
@@ -61,6 +62,7 @@ class KitchenKnife(Item):
     """밀라의 부엌칼"""
     unique_id = "kitchen_knife"
     name = "부엌칼"
+    category = "tool"
     owner = "mila"
     passive_props = {}
     equip_props = {"공격력": 2, "장착:손": 1}
@@ -101,6 +103,7 @@ class FishingRod(Item):
     """
     unique_id = "fishing_rod"
     name = "낚시대"
+    category = "tool"
     owner = "sera"
     passive_props = {}
     equip_props = {"can:fish": 1, "장착:손": 1}
@@ -124,6 +127,7 @@ class Axe(Item):
     """
     unique_id = "axe"
     name = "도끼"
+    category = "tool"
     owner = "sera"
     passive_props = {}
     equip_props = {"can:chop": 1, "공격력": 3, "장착:손": 1, "날붙이": 1}
@@ -147,6 +151,7 @@ class Saw(Item):
     """
     unique_id = "saw"
     name = "톱"
+    category = "tool"
     passive_props = {"can:chop": 1, "톱날": 1}
     equip_props = {}
     value = 30
@@ -169,6 +174,7 @@ class HuntingBow(Item):
     """
     unique_id = "hunting_bow"
     name = "사냥용 활"
+    category = "tool"
     owner = "sera"
     passive_props = {}
     equip_props = {"공격력": 5, "사거리": 3, "장착:손": 1}
@@ -262,6 +268,7 @@ class Lantern(Item):
     """랜턴 - 장착 시 밝기 제공"""
     unique_id = "lantern"
     name = "랜턴"
+    category = "tool"
     passive_props = {}
     equip_props = {"밝기": 2, "장착:손": 1}    
     value = 10
@@ -536,6 +543,7 @@ class Broom(Item):
     """
     unique_id = "broom"
     name = "빗자루"
+    category = "tool"
     owner = None
     passive_props = {"can:clean": 1, "청소력": 5}
     equip_props = {"장착:손": 1}

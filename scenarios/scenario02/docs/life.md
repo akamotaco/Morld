@@ -662,15 +662,10 @@ def on_activity_complete(self, activity, location):
             if kitchen:
                 return self._create_process_job(prey, kitchen)
 
-def _find_storage(self, storage_type):
-    """저장소 찾기"""
-    # 1순위: 자기 소유 저장소
-    owned = find_owned_objects(self.unit_id, f"storage_{storage_type}")
-    if owned:
-        return owned[0]
-
-    # 2순위: 공용 저장소
-    return terrain.find_activity(self.unit_id, f"{storage_type}보관")
+def _find_storage(self, category):
+    """저장소 찾기 — storage:{category} prop 기반 동적 탐색"""
+    from think.activities.helpers import resolve_storage_container
+    return resolve_storage_container(self, category)
 ```
 
 ---

@@ -1,6 +1,5 @@
 """물자수집 활동 핸들러"""
 import morld
-from .helpers import store_food_items
 
 
 def handle_scavenge(agent, entry):
@@ -51,9 +50,21 @@ def handle_scavenge(agent, entry):
             agent._move_to(target, "물자수집")
 
     elif phase == "going_to_storage":
-        target = agent.food_storage_location
+        target = agent._activity_state.get("storage_target")
+        if not target:
+            from .helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "food_ingredient")
+            if not target:
+                target = resolve_storage_container(agent, "food")
+            if not target:
+                agent._activity_phase = "idle"
+                agent._action_taken = True
+                return
+            agent._activity_state["storage_target"] = target
+
         if agent._is_at(target):
-            store_food_items(agent)
+            from .helpers import store_npc_items
+            store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._activity_phase = "idle"
             agent._action_taken = True
         else:

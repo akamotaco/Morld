@@ -1011,8 +1011,6 @@ class YukiAgent(BaseAgent):
     owner_unique_id = "yuki"
     sleep_location = {"region_id": 2, "location_id": 5, "x": 50}  # 은신처 유키침대
     bath_location = {"region_id": 2, "location_id": 5, "x": 150}  # 은신처 드럼통
-    food_storage_location = {"region_id": 2, "location_id": 5, "x": 120}  # 은신처 식량함
-    food_storage_unique_id = "food_storage"
     wardrobe_location = {"region_id": 2, "location_id": 6, "x": 120}  # 의류점 옷걸이
     toilet_location = {"region_id": 2, "location_id": 5, "x": 170}  # 은신처 간이 화장실
 

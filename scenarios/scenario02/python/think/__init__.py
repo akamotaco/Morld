@@ -57,12 +57,7 @@ class BaseAgent:
         {"name": "대기", "start": 0, "end": 86_400_000, "activity": "대기"}
     ]
 
-    # 도구함 정보 (저택 공용)
-    TOOL_STORAGE = {"region_id": 0, "location_id": 5, "x": 20}  # 창고 도구함 위치
-
-    # 식량 보관 위치 (서브클래스에서 오버라이드)
-    food_storage_location = {"region_id": 0, "location_id": 2, "x": 35}  # 주방 냉장고
-    food_storage_unique_id = "kitchen_fridge"
+    # (보관소는 storage:{category} prop 기반 동적 탐색 — resolve_storage_container)
 
     def __init__(self, unit_id):
         self.unit_id = unit_id
@@ -1533,16 +1528,16 @@ class BaseAgent:
     def _evaluate_condition(self, condition):
         """동적 스케줄 조건 평가 (True=활동 필요)"""
         if condition == "need_fish":
-            return self._check_storage_need("kitchen_fridge", "food_fish", 3)
+            return self._check_storage_need("food_ingredient", "food_fish", 3)
         elif condition == "need_logs":
-            return self._check_storage_need("ingredient_storage", "log", 5)
+            return self._check_storage_need("material", "log", 5)
         elif condition == "need_food":
-            return self._check_storage_need(self.food_storage_unique_id, None, 10)
+            return self._check_storage_need("food_ingredient", None, 10)
         elif condition == "can_cook":
-            # 냉장고에 재료 2개 이상이면 요리 가능
-            return not self._check_storage_need(self.food_storage_unique_id, None, 2)
+            # 보관소에 재료 2개 이상이면 요리 가능
+            return not self._check_storage_need("food_ingredient", None, 2)
         elif condition == "need_supplies":
-            return self._check_storage_need(self.food_storage_unique_id, None, 5)
+            return self._check_storage_need("food", None, 5)
         elif condition == "should_clean":
             return self._check_has_pollution()
         elif condition == "need_social":
@@ -1586,14 +1581,14 @@ class BaseAgent:
                 return True
         return False
 
-    def _check_storage_need(self, storage_uid, item_uid, threshold):
-        """저장소 아이템 부족 여부 (True=부족)"""
-        from assets.registry import get_instance_id
-        from assets.objects import get_instance
-        storage_id = get_instance_id(storage_uid)
-        if not storage_id:
+    def _check_storage_need(self, category, item_uid, threshold):
+        """카테고리 기반 저장소 아이템 부족 여부 (True=부족)"""
+        from think.activities.helpers import resolve_storage_container
+        target = resolve_storage_container(self, category)
+        if not target:
             return False  # 저장소 없으면 필요 없음
-        obj = get_instance(storage_id)
+        from assets.objects import get_instance
+        obj = get_instance(target["object_id"])
         if not obj:
             return False
         if item_uid:
@@ -1632,7 +1627,18 @@ def _handle_eat(agent):
         return
 
     elif phase == "going_to_storage":
-        target = agent.food_storage_location
+        target = agent._memory.get("hunger_target")
+        if not target:
+            from think.activities.helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "food_ingredient")
+            if not target:
+                target = resolve_storage_container(agent, "food")
+            if not target:
+                agent._memory["hunger_phase"] = None
+                agent._action_taken = True
+                return
+            agent._memory["hunger_target"] = target
+
         if agent._is_at(target):
             agent._memory["hunger_phase"] = "taking_food"
             agent._action_taken = True
@@ -1640,20 +1646,21 @@ def _handle_eat(agent):
             agent._move_to(target, "식사")
 
     elif phase == "taking_food":
-        from assets.registry import get_instance_id
-        from assets.objects import get_instance
-        storage_id = get_instance_id(agent.food_storage_unique_id)
-        if storage_id:
-            obj = get_instance(storage_id)
+        target = agent._memory.get("hunger_target")
+        if target:
+            from assets.objects import get_instance
+            obj = get_instance(target["object_id"])
             if obj:
-                food_uid = _find_food_in_container(storage_id)
+                food_uid = _find_food_in_container(target["object_id"])
                 if food_uid:
                     obj.npc_take_item(agent.unit_id, food_uid, 1)
                     agent._memory["hunger_phase"] = "eating"
+                    agent._memory.pop("hunger_target", None)
                     agent._action_taken = True
                     return
         # 음식 없음 → 포기
         agent._memory["hunger_phase"] = None
+        agent._memory.pop("hunger_target", None)
         agent._action_taken = True
 
     elif phase == "eating":
@@ -1663,6 +1670,7 @@ def _handle_eat(agent):
             survival.npc_eat(agent.unit_id, food["satiety"])
             morld.remove_item(agent.unit_id, food["item_id"], 1)
         agent._memory["hunger_phase"] = None
+        agent._memory.pop("hunger_target", None)
         agent._action_taken = True
 
 

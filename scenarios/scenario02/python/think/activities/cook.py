@@ -1,31 +1,39 @@
 """요리 활동 핸들러"""
-from .helpers import find_food_in_container, find_npc_food, find_stove_location
+from .helpers import (find_food_in_container, find_npc_food,
+                      find_stove_location, resolve_storage_container,
+                      store_npc_items)
 
 
 def handle_cook(agent, entry):
-    """요리: 냉장고 확인 → 재료 가져오기 → 화로/아궁이에서 조리 → 결과 저장"""
+    """요리: 보관소 확인 → 재료 가져오기 → 화로/아궁이에서 조리 → 결과 저장"""
     phase = agent._activity_phase
 
     if phase == "idle":
-        # 냉장고로 이동
+        # 식재료 보관소로 이동
         agent._activity_phase = "checking_fridge"
 
     elif phase == "checking_fridge":
-        target = agent.food_storage_location
+        target = agent._activity_state.get("fridge_target")
+        if not target:
+            target = resolve_storage_container(agent, "food_ingredient")
+            if not target:
+                remaining = agent._remaining_millis_in_entry(entry)
+                agent._insert_idle_job("요리", max(remaining, 1))
+                agent._action_taken = True
+                return
+            agent._activity_state["fridge_target"] = target
+
         if agent._is_at(target):
-            # 냉장고에서 재료 가져오기
-            from assets.registry import get_instance_id
+            # 보관소에서 재료 가져오기
             from assets.objects import get_instance
-            storage_id = get_instance_id(agent.food_storage_unique_id)
-            if storage_id:
-                obj = get_instance(storage_id)
-                if obj:
-                    food_uid = find_food_in_container(storage_id)
-                    if food_uid:
-                        obj.npc_take_item(agent.unit_id, food_uid, 1)
-                        agent._activity_phase = "going_to_stove"
-                        agent._action_taken = True
-                        return
+            obj = get_instance(target["object_id"])
+            if obj:
+                food_uid = find_food_in_container(target["object_id"])
+                if food_uid:
+                    obj.npc_take_item(agent.unit_id, food_uid, 1)
+                    agent._activity_phase = "going_to_stove"
+                    agent._action_taken = True
+                    return
             # 재료 없음 → 대기
             remaining = agent._remaining_millis_in_entry(entry)
             agent._insert_idle_job("요리", max(remaining, 1))
@@ -60,18 +68,19 @@ def handle_cook(agent, entry):
             agent._move_to(stove_target, "요리")
 
     elif phase == "storing_result":
-        target = agent.food_storage_location
+        target = agent._activity_state.get("storage_target")
+        if not target:
+            target = resolve_storage_container(agent, "food_ingredient")
+            if not target:
+                target = resolve_storage_container(agent, "food")
+            if not target:
+                agent._activity_phase = "idle"
+                agent._action_taken = True
+                return
+            agent._activity_state["storage_target"] = target
+
         if agent._is_at(target):
-            from assets.registry import get_instance_id
-            from assets.objects import get_instance
-            storage_id = get_instance_id(agent.food_storage_unique_id)
-            if storage_id:
-                obj = get_instance(storage_id)
-                if obj:
-                    food = find_npc_food(agent.unit_id)
-                    while food:
-                        obj.npc_store_item(agent.unit_id, food["unique_id"])
-                        food = find_npc_food(agent.unit_id)
+            store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._activity_phase = "idle"
             agent._action_taken = True
         else:

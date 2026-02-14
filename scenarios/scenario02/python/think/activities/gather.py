@@ -1,5 +1,4 @@
 """채집→저장 활동 핸들러"""
-from .helpers import find_npc_food
 
 
 def handle_gather_store(agent, entry):
@@ -38,20 +37,21 @@ def handle_gather_store(agent, entry):
             agent._move_to(target, "채집")
 
     elif phase == "going_to_storage":
-        target = agent.food_storage_location
+        target = agent._activity_state.get("storage_target")
+        if not target:
+            from .helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "food_ingredient")
+            if not target:
+                target = resolve_storage_container(agent, "food")
+            if not target:
+                agent._activity_phase = "idle"
+                agent._action_taken = True
+                return
+            agent._activity_state["storage_target"] = target
+
         if agent._is_at(target):
-            # 인벤토리의 채집물을 저장소에 넣기
-            from assets.registry import get_instance_id
-            from assets.objects import get_instance
-            storage_id = get_instance_id(agent.food_storage_unique_id)
-            if storage_id:
-                obj = get_instance(storage_id)
-                if obj:
-                    # 모든 음식 아이템 저장
-                    food = find_npc_food(agent.unit_id)
-                    while food:
-                        obj.npc_store_item(agent.unit_id, food["unique_id"])
-                        food = find_npc_food(agent.unit_id)
+            from .helpers import store_npc_items
+            store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._activity_phase = "idle"
             agent._action_taken = True
         else:

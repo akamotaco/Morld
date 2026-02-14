@@ -2,6 +2,8 @@
 
 find_npc_food / find_food_in_container — 음식 탐색 (eat, gather, cook 공용)
 store_food_items — NPC 인벤토리 → 저장소 일괄 이동
+resolve_storage_container — storage:{category} prop 기반 보관소 동적 탐색
+store_npc_items — 카테고리 기반 보관 (현재 위치 컨테이너에 저장)
 find_stove_location — 화로/아궁이 위치 탐색
 get_object_x_from_info — 오브젝트 x 좌표 조회
 find_indoor_room — 거처 실내 방 탐색
@@ -53,29 +55,90 @@ def find_food_in_container(container_id):
 
 
 def store_food_items(agent):
-    """NPC 인벤토리의 모든 음식 아이템을 저장소에 보관"""
-    from assets.registry import get_instance_id, get_unique_id, get_item_class
-    from assets.objects import get_instance
+    """NPC 인벤토리의 모든 음식 아이템을 저장소에 보관 (하위 호환)"""
+    store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
 
-    storage_id = get_instance_id(agent.food_storage_unique_id)
-    if not storage_id:
-        return
-    obj = get_instance(storage_id)
-    if not obj:
-        return
 
-    inventory = morld.get_unit_inventory(agent.unit_id)
-    if not inventory:
-        return
+def resolve_storage_container(agent, category):
+    """storage:{category} prop을 가진 컨테이너를 거처 내에서 탐색
 
-    for item_id, count in list(inventory.items()):
+    Args:
+        agent: NPC agent
+        category: 아이템 카테고리 (예: "food_ingredient", "material", "tool")
+
+    Returns:
+        {"region_id", "location_id", "x", "object_id"} 또는 None
+
+    탐색 순서: home_region 내 오브젝트
+    """
+    from assets.objects import _location_objects
+
+    home_region = agent._get_home_region()
+    for (r, l), obj_ids in _location_objects.items():
+        if r != home_region:
+            continue
+        for obj_id in obj_ids:
+            if morld.get_unit_prop(obj_id, f"storage:{category}"):
+                return {
+                    "region_id": r,
+                    "location_id": l,
+                    "x": get_object_x_from_info(obj_id),
+                    "object_id": obj_id,
+                }
+    return None
+
+
+def store_npc_items(agent, categories=None):
+    """NPC 인벤토리의 보관 가능 아이템을 현재 위치 컨테이너에 저장
+
+    컨테이너와 같은 위치에 있어야 함 (이동은 caller 책임).
+    각 아이템의 category와 컨테이너의 storage:{category} prop을 매칭.
+
+    Args:
+        agent: NPC agent
+        categories: 저장할 카테고리 제한 (None=전부)
+
+    Returns:
+        int: 저장한 아이템 종류 수
+    """
+    from assets.registry import get_unique_id, get_item_class
+    from assets.objects import get_instance, _location_objects
+
+    loc = morld.get_unit_location(agent.unit_id)
+    if not loc:
+        return 0
+
+    r, l = loc[0], loc[1]
+    obj_ids = _location_objects.get((r, l), [])
+
+    inv = morld.get_unit_inventory(agent.unit_id)
+    if not inv:
+        return 0
+
+    stored = 0
+    for item_id, count in list(inv.items()):
         if count <= 0:
             continue
         uid = get_unique_id(item_id)
-        if uid:
-            cls = get_item_class(uid)
-            if cls and getattr(cls, 'food_satiety', 0) > 0:
-                obj.npc_store_item(agent.unit_id, uid, count)
+        if not uid:
+            continue
+        cls = get_item_class(uid)
+        if not cls:
+            continue
+        cat = getattr(cls, 'category', None)
+        if not cat:
+            continue
+        if categories and cat not in categories:
+            continue
+        # 해당 카테고리를 받는 컨테이너 찾기
+        for obj_id in obj_ids:
+            if morld.get_unit_prop(obj_id, f"storage:{cat}"):
+                obj = get_instance(obj_id)
+                if obj:
+                    obj.npc_store_item(agent.unit_id, uid, count)
+                    stored += 1
+                break
+    return stored
 
 
 def find_stove_location(agent):

@@ -1011,10 +1011,14 @@ class Wardrobe(Object):
     컨테이너 패턴:
     - container: 옷 넣기/빼기 (인벤토리 조회)
     - put_filter: clothing 카테고리 아이템만 넣을 수 있음
+    - storage:clothing: NPC 동적 보관 대상
     """
     unique_id = "wardrobe"
     name = "옷장"
     put_filter = ["clothing"]  # 의류만 넣을 수 있음
+    props = {
+        "storage:clothing": 1,
+    }
     actions = [
         "call:look:살펴보기",
         "container#",  # C# 기본 컨테이너 UI 사용 - 인벤토리 있을 때만 표시
@@ -1093,6 +1097,11 @@ class Refrigerator(Object):
 class KitchenFridge(Refrigerator):
     """주방 냉장고 - NPC가 식료품을 보관하는 용도"""
     unique_id = "kitchen_fridge"
+    props = {
+        "storage:food": 1,
+        "storage:food_ingredient": 1,
+        "storage:drink_ingredient": 1,
+    }
     focus_text = {"default": "주방에 놓인 낡은 냉장고. 식료품 보관에 쓰인다."}
 
     def look(self):
@@ -1108,6 +1117,11 @@ class IngredientStorage(Object):
     unique_id = "ingredient_storage"
     name = "재료 보관함"
     item_visible = True
+    props = {
+        "storage:material": 1,
+        "storage:seed": 1,
+        "storage:garden_supply": 1,
+    }
     actions = [
         "call:look:살펴보기",
         "container#",
@@ -1128,6 +1142,11 @@ class FoodStorage(Object):
     unique_id = "food_storage"
     name = "식량 보관함"
     item_visible = True
+    props = {
+        "storage:food": 1,
+        "storage:food_ingredient": 1,
+        "storage:drink_ingredient": 1,
+    }
     actions = [
         "call:look:살펴보기",
         "container#",

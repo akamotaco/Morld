@@ -8,7 +8,7 @@ def handle_fish(agent, entry):
 
     if phase == "idle":
         # 충분성 체크
-        if not agent._check_storage_need("kitchen_fridge", "food_fish", 3):
+        if not agent._check_storage_need("food_ingredient", "food_fish", 3):
             remaining = agent._remaining_millis_in_entry(entry)
             agent._insert_idle_job("낚시", max(remaining, 1))
             agent._action_taken = True
@@ -40,9 +40,17 @@ def handle_fish(agent, entry):
             agent._activity_phase = "idle"
             return
 
-        target = tool.get("location") or agent.TOOL_STORAGE
+        target = tool.get("location")
+        if not target:
+            from .helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "tool")
+        if not target:
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+            return
+
         if agent._is_at(target):
-            container_id = tool.get("container_id") or agent._get_toolbox_id()
+            container_id = tool.get("container_id") or target.get("object_id")
             item_id = tool["item_id"]
             if morld.has_item(container_id, item_id):
                 morld.remove_item(container_id, item_id, 1)
@@ -90,16 +98,22 @@ def handle_fish(agent, entry):
             agent._move_to(target, "낚시")
 
     elif phase == "storing_catch":
-        # 잡은 물고기를 냉장고에 저장
-        target = agent.food_storage_location
+        # 잡은 물고기를 보관소에 저장
+        target = agent._activity_state.get("storage_target")
+        if not target:
+            from .helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "food_ingredient")
+            if not target:
+                target = resolve_storage_container(agent, "food")
+            if not target:
+                agent._activity_phase = "returning_tool"
+                agent._action_taken = True
+                return
+            agent._activity_state["storage_target"] = target
+
         if agent._is_at(target):
-            from assets.registry import get_instance_id
-            from assets.objects import get_instance
-            storage_id = get_instance_id(agent.food_storage_unique_id)
-            if storage_id:
-                obj = get_instance(storage_id)
-                if obj:
-                    obj.npc_store_item(agent.unit_id, "food_fish")
+            from .helpers import store_npc_items
+            store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._activity_phase = "returning_tool"
             agent._action_taken = True
         else:
@@ -114,8 +128,14 @@ def handle_fish(agent, entry):
             target = memory["location"]
             container_id = memory["container_id"]
         else:
-            target = agent.TOOL_STORAGE
-            container_id = agent._get_toolbox_id()
+            from .helpers import resolve_storage_container
+            fallback = resolve_storage_container(agent, "tool")
+            if not fallback:
+                agent._activity_phase = "idle"
+                agent._action_taken = True
+                return
+            target = fallback
+            container_id = fallback["object_id"]
 
         if agent._is_at(target):
             if item_id and container_id:

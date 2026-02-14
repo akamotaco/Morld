@@ -64,6 +64,7 @@ class RusticDagger(Blade):
     """투박한 단검 - 세라 소유, 창고 도구함에 배치"""
     unique_id = "rustic_dagger"
     name = "투박한 단검"
+    category = "tool"
     owner = "sera"
     passive_props = {"can:skin": 1}
     equip_props = {"공격": 3, "사냥": 2, "장착:손": 1}

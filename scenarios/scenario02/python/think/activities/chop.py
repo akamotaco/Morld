@@ -50,9 +50,17 @@ def handle_chop(agent, entry):
             agent._activity_phase = "idle"
             return
 
-        target = tool.get("location") or agent.TOOL_STORAGE
+        target = tool.get("location")
+        if not target:
+            from .helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "tool")
+        if not target:
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+            return
+
         if agent._is_at(target):
-            container_id = tool.get("container_id") or agent._get_toolbox_id()
+            container_id = tool.get("container_id") or target.get("object_id")
             item_id = tool["item_id"]
             if morld.has_item(container_id, item_id):
                 morld.remove_item(container_id, item_id, 1)
@@ -102,8 +110,14 @@ def handle_chop(agent, entry):
             target = memory["location"]
             container_id = memory["container_id"]
         else:
-            target = agent.TOOL_STORAGE
-            container_id = agent._get_toolbox_id()
+            from .helpers import resolve_storage_container
+            fallback = resolve_storage_container(agent, "tool")
+            if not fallback:
+                agent._activity_phase = "idle"
+                agent._action_taken = True
+                return
+            target = fallback
+            container_id = fallback["object_id"]
 
         if agent._is_at(target):
             if item_id and container_id:

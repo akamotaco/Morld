@@ -305,7 +305,7 @@ def my_script(context_unit_id, *args):
 ```python
 # think/__init__.py
 class BaseAgent:
-    TOOL_STORAGE = {"region_id": 0, "location_id": 5, "x": 20}  # 도구함 위치
+    # 보관소는 storage:{category} prop 기반 동적 탐색 (resolve_storage_container)
 
     def __init__(self, unit_id):
         self.unit_id = unit_id

@@ -184,6 +184,39 @@ def _fuel_npc_load(npc_id, hs_id, item_uid, count=1):
 _fuel.npc_load_fuel = _fuel_npc_load
 sys.modules["fuel"] = _fuel
 
+# assets module stubs (think.activities.helpers lazy imports)
+_assets_mod = types.ModuleType("assets")
+sys.modules.setdefault("assets", _assets_mod)
+_assets_base = types.ModuleType("assets.base")
+sys.modules.setdefault("assets.base", _assets_base)
+
+_assets_objects = types.ModuleType("assets.objects")
+_assets_objects._location_objects = {}
+_assets_objects.get_instance = lambda obj_id: None
+_assets_objects.get_location_objects = lambda r, l: []
+sys.modules.setdefault("assets.objects", _assets_objects)
+
+_assets_objects_furniture = types.ModuleType("assets.objects.furniture")
+class _FakeStove: pass
+_assets_objects_furniture.Stove = _FakeStove
+sys.modules.setdefault("assets.objects.furniture", _assets_objects_furniture)
+
+_assets_objects_garden = types.ModuleType("assets.objects.garden")
+class _FakeGardenBed: pass
+_assets_objects_garden.GardenBed = _FakeGardenBed
+sys.modules.setdefault("assets.objects.garden", _assets_objects_garden)
+
+for _sub in ["assets.objects.scavenge", "assets.objects.nature",
+             "assets.objects.outdoor", "assets.objects.grounds"]:
+    sys.modules.setdefault(_sub, types.ModuleType(_sub))
+
+_assets_registry = types.ModuleType("assets.registry")
+_assets_registry.get_instance_id = lambda uid: None
+_assets_registry.get_unique_id = lambda iid: None
+_assets_registry.get_item_class = lambda uid: None
+_assets_registry.get_or_create_item_id = lambda uid: None
+sys.modules.setdefault("assets.registry", _assets_registry)
+
 # ============================================
 # 4b. think 모듈 클린업 (이전 테스트가 partial import 유발 가능)
 # ============================================
@@ -227,12 +260,9 @@ class TestAgent(BaseAgent):
     owner_unique_id = "test_npc"
 
     sleep_location = {"region_id": 0, "location_id": 1, "x": 0}
-    food_storage_location = {"region_id": 0, "location_id": 2, "x": 0}
-    food_storage_unique_id = "test_fridge"
     wardrobe_location = {"region_id": 0, "location_id": 3, "x": 0}
     toilet_location = {"region_id": 0, "location_id": 4, "x": 0}
     bath_location = {"region_id": 0, "location_id": 5, "x": 0}
-    TOOL_STORAGE = {"region_id": 0, "location_id": 6, "x": 0}
 
     _SCHEDULE = [
         {"name": "오전활동", "start": 8 * _H, "end": 12 * _H,
@@ -291,6 +321,10 @@ def _reset_all():
 
     # fuel
     _fuel._fuel_sources.clear()
+
+    # assets.objects — 보관소 mock 초기화
+    _assets_objects._location_objects = {}
+    _assets_objects.get_instance = lambda obj_id: None
 
     # think helpers — 기본값 복원
     _think_module._find_npc_food = lambda uid: None
@@ -495,8 +529,10 @@ class TestHungerFlow:
         _think_module._find_npc_food = lambda uid: None
         agent._memory["hunger_phase"] = "going_to_storage"
 
-        # 저장소 위치로 텔레포트
-        _teleport(agent, agent.food_storage_location)
+        # 동적 탐색 대신 hunger_target 직접 설정
+        target = {"region_id": 0, "location_id": 2, "x": 0, "object_id": 500}
+        agent._memory["hunger_target"] = target
+        _teleport(agent, target)
 
         agent.think()
 
@@ -1147,3 +1183,165 @@ class TestNeedFuelCondition:
         result = agent._evaluate_condition("need_fuel")
         # fuel source는 region 2에 등록 → agent의 home_region(0)과 불일치
         assert result is False, "다른 region 열원은 무시"
+
+
+# ============================================
+# K. TestStorageResolver — 보관소 동적 탐색 검증
+# ============================================
+
+FOOD_STORAGE_ID = 600
+TOOL_STORAGE_ID = 601
+MATERIAL_STORAGE_ID = 602
+
+
+def _create_food_storage(region=0, location=2):
+    """food_ingredient/food/drink_ingredient 보관소 mock 생성"""
+    morld.register_unit(FOOD_STORAGE_ID, "KitchenFridge", location=(region, location))
+    morld.set_unit_prop(FOOD_STORAGE_ID, "storage:food", 1)
+    morld.set_unit_prop(FOOD_STORAGE_ID, "storage:food_ingredient", 1)
+    morld.set_unit_prop(FOOD_STORAGE_ID, "storage:drink_ingredient", 1)
+    _assets_objects._location_objects[(region, location)] = [FOOD_STORAGE_ID]
+
+
+def _create_tool_storage(region=0, location=6):
+    """tool 보관소 mock 생성"""
+    morld.register_unit(TOOL_STORAGE_ID, "Toolbox", location=(region, location))
+    morld.set_unit_prop(TOOL_STORAGE_ID, "storage:tool", 1)
+    morld.set_unit_prop(TOOL_STORAGE_ID, "storage:garden_tool", 1)
+    existing = _assets_objects._location_objects.get((region, location), [])
+    existing.append(TOOL_STORAGE_ID)
+    _assets_objects._location_objects[(region, location)] = existing
+
+
+def _create_material_storage(region=0, location=5):
+    """material/seed/garden_supply 보관소 mock 생성"""
+    morld.register_unit(MATERIAL_STORAGE_ID, "IngredientStorage", location=(region, location))
+    morld.set_unit_prop(MATERIAL_STORAGE_ID, "storage:material", 1)
+    morld.set_unit_prop(MATERIAL_STORAGE_ID, "storage:seed", 1)
+    morld.set_unit_prop(MATERIAL_STORAGE_ID, "storage:garden_supply", 1)
+    existing = _assets_objects._location_objects.get((region, location), [])
+    existing.append(MATERIAL_STORAGE_ID)
+    _assets_objects._location_objects[(region, location)] = existing
+
+
+class TestStorageResolver:
+    """resolve_storage_container 동적 탐색 검증"""
+
+    def test_resolve_food_storage(self):
+        """food_ingredient 카테고리 컨테이너 탐색"""
+        agent = _create_agent()
+        _create_food_storage(region=0, location=2)
+
+        from think.activities.helpers import resolve_storage_container
+        result = resolve_storage_container(agent, "food_ingredient")
+
+        assert result is not None
+        assert result["region_id"] == 0
+        assert result["location_id"] == 2
+        assert result["object_id"] == FOOD_STORAGE_ID
+
+    def test_resolve_food_storage_not_found(self):
+        """컨테이너 없으면 None"""
+        agent = _create_agent()
+
+        from think.activities.helpers import resolve_storage_container
+        result = resolve_storage_container(agent, "food_ingredient")
+
+        assert result is None
+
+    def test_resolve_food_storage_different_region(self):
+        """다른 region 컨테이너는 무시"""
+        agent = _create_agent()
+        # agent home_region = 0 (sleep_location), storage in region 2
+        _create_food_storage(region=2, location=5)
+
+        from think.activities.helpers import resolve_storage_container
+        result = resolve_storage_container(agent, "food_ingredient")
+
+        assert result is None
+
+    def test_resolve_tool_storage(self):
+        """tool 카테고리 컨테이너 탐색"""
+        agent = _create_agent()
+        _create_tool_storage(region=0, location=6)
+
+        from think.activities.helpers import resolve_storage_container
+        result = resolve_storage_container(agent, "tool")
+
+        assert result is not None
+        assert result["object_id"] == TOOL_STORAGE_ID
+
+    def test_resolve_material_storage(self):
+        """material 카테고리 컨테이너 탐색"""
+        agent = _create_agent()
+        _create_material_storage(region=0, location=5)
+
+        from think.activities.helpers import resolve_storage_container
+        result = resolve_storage_container(agent, "material")
+
+        assert result is not None
+        assert result["object_id"] == MATERIAL_STORAGE_ID
+
+    def test_resolve_wrong_category(self):
+        """컨테이너에 없는 카테고리는 매칭 안됨"""
+        agent = _create_agent()
+        _create_food_storage(region=0, location=2)
+
+        from think.activities.helpers import resolve_storage_container
+        # food_storage has food/food_ingredient/drink_ingredient but not tool
+        result = resolve_storage_container(agent, "tool")
+
+        assert result is None
+
+
+class TestStorageCondition:
+    """_check_storage_need 카테고리 기반 조건 검증"""
+
+    def test_need_food_dynamic(self):
+        """food_ingredient 보관소 기반 need_food 조건"""
+        agent = _create_agent()
+        _create_food_storage(region=0, location=2)
+
+        # Mock get_instance for item counting
+        class FakeFridge:
+            def get_item_count(self, uid=None):
+                return 3  # 재고 3개 (threshold 10 미만)
+        _assets_objects.get_instance = lambda obj_id: FakeFridge() if obj_id == FOOD_STORAGE_ID else None
+
+        result = agent._check_storage_need("food_ingredient", None, 10)
+        assert result is True, "재고 3 < threshold 10 → 부족"
+
+    def test_need_food_sufficient(self):
+        """재고 충분 → False"""
+        agent = _create_agent()
+        _create_food_storage(region=0, location=2)
+
+        class FakeFridge:
+            def get_item_count(self, uid=None):
+                return 15  # 충분
+        _assets_objects.get_instance = lambda obj_id: FakeFridge() if obj_id == FOOD_STORAGE_ID else None
+
+        result = agent._check_storage_need("food_ingredient", None, 10)
+        assert result is False, "재고 15 >= threshold 10 → 충분"
+
+    def test_need_food_no_storage(self):
+        """보관소 없으면 False (필요 없음)"""
+        agent = _create_agent()
+
+        result = agent._check_storage_need("food_ingredient", None, 10)
+        assert result is False, "보관소 없으면 need 판정 안함"
+
+    def test_check_specific_item(self):
+        """특정 아이템(food_fish) 부족 체크"""
+        agent = _create_agent()
+        _create_food_storage(region=0, location=2)
+
+        class FakeFridge:
+            def get_item_count(self, uid=None):
+                if uid == "food_fish":
+                    return 1
+                return 10
+        _assets_objects.get_instance = lambda obj_id: FakeFridge() if obj_id == FOOD_STORAGE_ID else None
+
+        result = agent._check_storage_need("food_ingredient", "food_fish", 3)
+        assert result is True, "물고기 1 < threshold 3 → 부족"

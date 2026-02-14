@@ -345,15 +345,24 @@ think()에서 스케줄보다 우선:
 - NPC 인벤토리의 재료로 `find_matching_recipe()` 호출
 - 성공 시 재료 소비 → 결과물 NPC 인벤토리에 추가
 
-### 캐릭터별 저장소
-| 캐릭터 | 저장소 위치 | unique_id |
-|--------|-----------|-----------|
-| 세라/리나/밀라 | 주방 냉장고 (R0, L2) | kitchen_fridge |
-| 엘라/유키 | 은신처 식량 보관함 (R2, L5) | food_storage |
+### 보관소 동적 탐색 (`storage:{category}` prop)
+
+NPC는 아이템을 보관할 때 `resolve_storage_container(agent, category)`로 거처 내 컨테이너를 동적 탐색합니다.
+컨테이너에 `storage:{category}` prop이 있으면 해당 카테고리 아이템을 받을 수 있습니다.
+
+| 컨테이너 | unique_id | 보관 카테고리 |
+|----------|-----------|-------------|
+| 주방 냉장고 | kitchen_fridge | food, food_ingredient, drink_ingredient |
+| 은신처 식량함 | food_storage | food, food_ingredient, drink_ingredient |
+| 재료 보관함 | ingredient_storage | material, seed, garden_supply |
+| 도구함 | toolbox | tool, garden_tool |
+| 옷장 | wardrobe | clothing |
+
+탐색 범위: NPC의 `_get_home_region()` 내 오브젝트만 탐색.
 
 ### 자원 순환 파이프라인
 ```
-채집/낚시 → NPC 인벤토리 → 저장소(냉장고/보관함)
+채집/낚시 → NPC 인벤토리 → resolve_storage_container() → 보관소
                                ↓
                   요리 (재료 꺼내기 → 조리 → 결과물 저장)
                                ↓

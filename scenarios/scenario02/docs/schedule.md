@@ -255,7 +255,7 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 22:00 수면        → 리나방
 ```
 
-> 채집 시 `_handle_gather_store`: 자원 채집 → 주방 냉장고에 저장.
+> 채집 시 `_handle_gather_store`: 자원 채집 → `storage:food_ingredient` 컨테이너에 동적 보관.
 
 ### 밀라 (요리 담당, 계절별 SCHEDULES) — 동적 요리/청소
 
@@ -304,7 +304,7 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 22:00 수면       → 은신처
 ```
 
-> food_storage: 은신처 식량 보관함 (R2, L5). 물자수집: ScavengeableObject 탐색.
+> 보관소: `storage:food` prop 기반 동적 탐색. 물자수집: ScavengeableObject 탐색.
 
 ### 유키 (요리사, 도시) — 동적 요리/독서
 
@@ -322,7 +322,7 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 22:00 수면       → 은신처
 ```
 
-> food_storage: 은신처 식량 보관함 (R2, L5). 요리: PortableStove.npc_cook().
+> 보관소: `storage:food_ingredient` prop 기반 동적 탐색. 요리: PortableStove.npc_cook().
 
 ---
 
@@ -372,15 +372,15 @@ SCHEDULE = [
 **구현 완료 (7종 모듈화: `think/activities/`):**
 - `소등`: `handle_lights_off()` → 조명 끄기 (방 순회)
 - `벌목`: `handle_chop()` → 도끼 가져오기 → 벌목 → 도끼 반납
-- `낚시`: `handle_fish()` → 낚시대 가져오기 → 낚시 → 물고기 저장 → 반납
-- `채집→저장`: `handle_gather_store()` → 채집 → 냉장고/보관함에 저장
-- `요리`: `handle_cook()` → 냉장고 재료 확인 → 화로/아궁이 요리 → 결과물 저장
+- `낚시`: `handle_fish()` → 낚시대 가져오기 → 낚시 → 보관소에 저장 → 반납
+- `채집→저장`: `handle_gather_store()` → 채집 → 보관소에 동적 저장
+- `요리`: `handle_cook()` → 보관소 재료 확인 → 화로/아궁이 요리 → 결과물 저장
 - `청소`: `handle_clean()` → 빗자루(can:clean) 가져오기 → 오염 방 순회 청소 → 반납
 - `물자수집`: `handle_scavenge()` → ScavengeableObject 탐색 → 식량 보관함에 저장
 - `정원`: `handle_garden()` → 텃밭 이동 → 수확/물주기/씨심기 → 수확물 저장
 
 **`think/__init__.py` 내 (인라인):**
-- `식사`: `_handle_eat()` → 냉장고/보관함에서 음식 꺼내 먹기 (배고픔 인터럽트)
+- `식사`: `_handle_eat()` → 보관소에서 음식 꺼내 먹기 (배고픔 인터럽트, 동적 탐색)
 
 ---
 
@@ -441,11 +441,11 @@ class BaseAgent:
 조건 평가 (`_evaluate_condition`):
 | 조건 | 의미 | 체크 방법 |
 |------|------|----------|
-| `need_fish` | 물고기 부족 | 저장소에 food_fish < 3 |
-| `need_logs` | 통나무 부족 | 저장소에 log < 5 |
-| `need_food` | 식량 부족 | 저장소 총 아이템 < 10 |
-| `can_cook` | 요리 가능 | 냉장고에 레시피 매칭 재료 있음 |
-| `need_supplies` | 물자 부족 | 저장소 총 아이템 < 5 |
+| `need_fish` | 물고기 부족 | `storage:food_ingredient` 컨테이너에 food_fish < 3 |
+| `need_logs` | 통나무 부족 | `storage:material` 컨테이너에 log < 5 |
+| `need_food` | 식량 부족 | `storage:food_ingredient` 컨테이너 총 아이템 < 10 |
+| `can_cook` | 요리 가능 | `storage:food_ingredient` 컨테이너에 레시피 매칭 재료 있음 |
+| `need_supplies` | 물자 부족 | `storage:food` 컨테이너 총 아이템 < 5 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 location 존재 |
 | `need_social` | 사교 필요 | `needs.get_social(unit_id) >= 50` |
 
@@ -555,7 +555,7 @@ else:
 ```
 think/activities/
 ├── __init__.py          # ACTIVITY_HANDLERS dict (핸들러 등록)
-├── helpers.py           # 공용 헬퍼 (find_npc_food, store_food_items, find_garden_location 등)
+├── helpers.py           # 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
 ├── lights.py            # 소등
 ├── chop.py              # 벌목
 ├── fish.py              # 낚시
@@ -642,7 +642,7 @@ agent._pickup_tool("axe")    # 도구함에서 가져오기
 agent._return_tool("axe")    # 도구함에 반납
 ```
 
-도구함: `TOOL_STORAGE = {"region_id": 0, "location_id": 5, "x": 20}` (창고)
+도구 반납: `_memory["tool"]`에 기억된 원래 위치 → fallback으로 `resolve_storage_container(agent, "tool")` 동적 탐색
 
 ### 시간대별 조명
 
@@ -764,7 +764,7 @@ agent.push_schedule(work_order)
 ### Python
 - `think/__init__.py` - BaseAgent, Phase 시스템, 식사 핸들러, 동적 스케줄, 도구 관리
 - `think/activities/` - 활동 핸들러 패키지 (8종: 소등/벌목/낚시/채집/요리/청소/물자수집/정원)
-- `think/activities/helpers.py` - 핸들러 공용 헬퍼 (find_npc_food, store_food_items 등)
+- `think/activities/helpers.py` - 핸들러 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
 - `think/facility_resolver.py` - 시설 탐색 리졸버 (목욕 선착순 + 옷장 우선순위 탐색) (v0.2.2)
 - `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)
