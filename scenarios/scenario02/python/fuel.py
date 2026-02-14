@@ -34,6 +34,7 @@ _initialized = False
 
 def register_fuel_source(unit_id, region_id, location_id):
     """소비형 열원 등록 (PortableStove/DrumBath instantiate에서 호출)"""
+    _ensure_initialized()
     _fuel_sources[unit_id] = {
         "region_id": region_id,
         "location_id": location_id,
@@ -51,8 +52,6 @@ def _ensure_initialized():
 
 def _on_time_elapsed(millis):
     """매시간 연료 소비"""
-    _ensure_initialized()
-
     for unit_id in list(_fuel_sources.keys()):
         mode = morld.get_unit_prop(unit_id, PROP_FUEL_MODE)
         if not mode:    # 0 or None = 무한

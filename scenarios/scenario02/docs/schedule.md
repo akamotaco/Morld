@@ -525,6 +525,7 @@ from .cook import handle_cook
 from .clean import handle_clean
 from .scavenge import handle_scavenge
 from .garden_activity import handle_garden
+from .fuel import handle_fuel
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
@@ -535,6 +536,7 @@ ACTIVITY_HANDLERS = {
     "청소": handle_clean,
     "물자수집": handle_scavenge,
     "정원": handle_garden,
+    "연료수집": handle_fuel,
 }
 
 # think/__init__.py에서 import하여 사용:
@@ -561,7 +563,8 @@ think/activities/
 ├── cook.py              # 요리
 ├── clean.py             # 청소
 ├── scavenge.py          # 물자수집
-└── garden_activity.py   # 정원 (텃밭 관리)
+├── garden_activity.py   # 정원 (텃밭 관리)
+└── fuel.py              # 연료수집 (나뭇가지 줍기 → 열원 장전)
 ```
 
 새 활동 핸들러 추가 시: 모듈 파일 생성 → `__init__.py`에 import + dict 등록 → 스케줄에 activity 이름 지정
@@ -602,6 +605,21 @@ idle → getting_tool → going_to_room ↔ (다음 방) → returning_tool → 
 | `getting_tool` | 도구함으로 이동 → 빗자루 pick up → `going_to_room` |
 | `going_to_room` | 오염 방으로 이동 → 도착 시 `pollution.clean_location()` + 10분 대기 → 다음 방 or `returning_tool` |
 | `returning_tool` | 도구함으로 이동 → 빗자루 반납 → `idle` |
+
+### 연료수집 Phase 흐름 (v0.2.2)
+
+```
+idle → going_to_tree → going_to_heat_source → idle
+```
+
+| Phase | 설명 |
+|-------|------|
+| `idle` | `find_heat_source_needing_fuel()` → 연료 부족 열원 탐색, `_resolve_branch_tree()` → 나뭇가지 있는 나무 탐색. 둘 다 없으면 대기 |
+| `going_to_tree` | 나무로 이동 → 도착 시 `npc_gather_branch()` ×3 → `going_to_heat_source` |
+| `going_to_heat_source` | 열원으로 이동 → 도착 시 `_load_all_fuel()` (인벤토리의 branch/log 전부 장전) → `idle` |
+
+**스케줄 조건**: `need_fuel` — `_check_heat_source_needs_fuel()`로 거처 내 연료 부족 열원 확인.
+엘라 스케줄에서 물자수집/관리 시간대에 dynamic 최우선 후보로 등록.
 
 ### 리소스 검증
 

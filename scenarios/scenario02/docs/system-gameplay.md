@@ -217,6 +217,65 @@ BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
 
 은신처 총 열원: PortableStove(8) + DrumBath(5) = **13°C** (저택 Fireplace 15에 근접)
 
+### 연료 시스템 (Fuel System)
+
+> `fuel.py` — 순수 Python, C# 변경 없음
+
+열원의 연료 소비를 시간 단위로 추적합니다. 연료가 소진되면 `light:on=0` → 발열 자동 중단.
+
+**연료 모드**:
+- `heat:fuel_mode=1` (소비형): 매시간 연료 -1, 소진 시 자동 소화
+- `heat:fuel_mode=0` 또는 미설정 (무한): 연료 소비 없음 (Scenario 03 호환)
+
+**열원별 연료 설정**:
+
+| 열원 | fuel_mode | 초기 연료 | 최대 연료 | 비고 |
+|------|-----------|----------|----------|------|
+| Fireplace (저택) | 없음 (무한) | — | — | 부유한 가정, 연료 관리 불필요 |
+| PortableStove (은신처) | 1 (소비) | 12h | 24h | 주요 난방 + 조리 |
+| DrumBath (은신처) | 1 (소비) | 6h | 12h | 목욕용 열원 |
+
+**연료 아이템**:
+
+| 아이템 | unique_id | 연소 시간 |
+|--------|-----------|----------|
+| 나뭇가지 | `branch` | 2시간 |
+| 통나무 | `log` | 6시간 |
+
+**주요 동작**:
+- 매시간 소비형 열원의 `heat:fuel` -1
+- `heat:fuel` ≤ 0 → `light:on=0` (자동 소화) → temperature 시스템에서 발열 0
+- 연료 장전 시 `light:on=0`이면 자동 점화 (`light:on=1`)
+- 장전량은 `heat:fuel_max`로 cap
+
+**Props**:
+
+| Prop | 설명 | 기본값 |
+|------|------|--------|
+| `heat:fuel` | 현재 연료 (시간 단위) | 0 |
+| `heat:fuel_max` | 최대 연료 용량 | 24 |
+| `heat:fuel_mode` | 1=소비형, 0/없음=무한 | 없음 (무한) |
+
+**Python API**:
+
+```python
+import fuel
+
+fuel.register_fuel_source(unit_id, region_id, location_id)  # 소비형 열원 등록
+fuel.load_fuel(unit_id, item_unique_id, count)              # 연료 장전 → 실제 추가량 반환
+fuel.npc_load_fuel(npc_id, heat_source_id, item_uid, count) # NPC용 (인벤토리 제거 + 장전)
+fuel.get_fuel_level(unit_id)                                # 현재 연료 조회
+fuel.get_fuel_max(unit_id)                                  # 최대 연료 조회
+fuel.needs_fuel(unit_id, threshold=6)                       # 연료 < threshold → True
+fuel.is_fuel_source(unit_id)                                # 등록된 소비형 열원인지
+fuel.get_sources_in_region(region_id)                       # region 내 소비형 열원 목록
+fuel.reset()                                                # 챕터 전환 초기화
+```
+
+**플레이어 액션**: PortableStove/DrumBath에 `call:load_fuel:연료 넣기`, `call:check_fuel:연료 확인` 추가.
+
+**NPC 연료수집**: `think/activities/fuel.py` — 엘라가 스케줄에 따라 나뭇가지 수집 → 열원 장전. 상세는 schedule.md 참조.
+
 ### 목욕 체온 효과
 
 Bathtub(저택), DrumBath(은신처) 사용 시:
@@ -597,7 +656,7 @@ load_chapter("chapter_1") → 35+ location 추가
 
 ```python
 # load_chapter() step 2.1
-import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender
+import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender, fuel
 temperature.reset()
 humidity.reset()
 congestion.reset()
@@ -606,6 +665,7 @@ garden.reset()
 needs.reset()
 pregnancy.reset()
 gender.reset_orientation()
+fuel.reset()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -622,6 +682,7 @@ gender.reset_orientation()
 | `needs.py` | _npc_registry, _accumulated | 플레이어 자동 추적, NPC 재등록 필요 |
 | `pregnancy.py` | _registry, _child_registry | V 보유 캐릭터 재등록 필요 |
 | `gender.py` | _orientation_cache | NPC Agent.__init__에서 재등록 |
+| `fuel.py` | _fuel_sources | PortableStove/DrumBath instantiate에서 재등록 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---

@@ -350,12 +350,14 @@ Footer에 임계치 근처일 때만 표시:
 ### think() 5-tier 우선순위
 
 ```
-Tier 1 (Involuntary): 기절
+Tier 1 (Involuntary): 기절 / 수면 (추위 기상: 체온 ≤ 35.0 → tier 3으로 이관)
 Tier 2 (Reactive): 피격 반응 (미래)
 Tier 3 (Survival): 배고픔 → 추위 → 더위
 Tier 4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 수면
 Tier 5 (Routine): 스케줄 기반 일반 활동
 ```
+
+**추위 기상** (v0.2.2): 수면 중 체온이 위험 수준(≤ 35.0)이면 tier 1에서 수면을 중단하고 `return False` → `_ensure_standing()` → tier 3 cold 인터럽트로 방한 처리. 미세한 추위(35.0 < 체온 ≤ 35.5)에서는 수면 유지. 연료 소진으로 열원이 꺼지면 체온이 하락하여 기상 트리거.
 
 ### 추위 인터럽트 (`_check_cold` → `_handle_cold`)
 
