@@ -49,6 +49,10 @@ class FoodItem(Item):
         # 포만감 회복
         survival.add_satiety(player_id, self.food_satiety)
 
+        # 플레이어 통계: 음식 섭취 횟수
+        morld.set_unit_prop(player_id, "통계:음식섭취",
+                            (morld.get_unit_prop(player_id, "통계:음식섭취") or 0) + 1)
+
         # 아이템 소비
         morld.lost_item(player_id, self.instance_id)
 
@@ -256,6 +260,84 @@ class RoastedRabbit(FoodItem):
         "든든하게 배가 찬다."
     ]
     eat_time = 5
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class AppleJam(FoodItem):
+    """사과잼 - 조리 필요 (사과 2개)"""
+    unique_id = "food_apple_jam"
+    name = "사과잼"
+    value = 20
+    food_satiety = 30
+    eat_message = [
+        "사과잼을 먹었다.",
+        "달콤하고 새콤한 맛이 입안에 퍼진다."
+    ]
+    eat_time = 2
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class VegetableSoup(FoodItem):
+    """야채 수프 - 조리 필요 (버섯 2 + 산딸기 1)"""
+    unique_id = "food_vegetable_soup"
+    name = "야채 수프"
+    value = 22
+    food_satiety = 40
+    eat_message = [
+        "따끈한 야채 수프를 먹었다.",
+        "버섯과 산딸기의 조화가 묘하게 좋다.",
+        "속이 든든해진다."
+    ]
+    eat_time = 5
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class BerryJuice(FoodItem):
+    """산딸기 주스 - 조리 필요 (산딸기 3개)"""
+    unique_id = "food_berry_juice"
+    name = "산딸기 주스"
+    value = 12
+    food_satiety = 25
+    eat_message = [
+        "산딸기 주스를 마셨다.",
+        "새콤달콤한 맛이 온몸에 퍼진다."
+    ]
+    eat_time = 2
+    actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+@register_item
+class FishSetMeal(FoodItem):
+    """생선정식 - 조리 필요 (생선 1 + 버섯 1)"""
+    unique_id = "food_fish_set_meal"
+    name = "생선정식"
+    value = 28
+    food_satiety = 55
+    eat_message = [
+        "생선정식을 먹었다.",
+        "잘 구운 생선에 버섯 반찬까지, 풍성한 한 끼다.",
+        "든든하게 배가 찬다."
+    ]
+    eat_time = 6
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class MixedStew(FoodItem):
+    """종합 스튜 - 조리 필요 (사과 1 + 버섯 1 + 산딸기 1)"""
+    unique_id = "food_mixed_stew"
+    name = "종합 스튜"
+    value = 25
+    food_satiety = 50
+    eat_message = [
+        "종합 스튜를 먹었다.",
+        "다양한 재료가 어우러져 깊은 맛을 낸다.",
+        "몸이 따뜻해지는 느낌이다."
+    ]
+    eat_time = 6
     actions = ["take@container", "call:eat:먹기@inventory"]
 
 

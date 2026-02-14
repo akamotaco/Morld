@@ -410,6 +410,7 @@ class Sera(Character):
         "liked_categories": ["equipment", "material"],
         "favorite_items": ["hunting_bow", "wooden_sword"],
         "disliked_categories": ["trinket"],
+        "favorite_foods": ["food_roasted_rabbit", "food_fish_set_meal"],
     }
 
     requires_condom = True  # 삽입 시 콘돔 요구 (경험:콘돔속임 ≥ 3이면 체념)
@@ -433,6 +434,8 @@ class Sera(Character):
             ({}, ["...!", "...거기는... 만지지 마.", "......(귀가 빨개진다)", "...그만둬."]),
         ],
         "french_kiss:start": [
+            ({"미경험:기억:첫키스": 1}, ["......!", "...갑자기 뭐하는...!", "......(얼굴이 빨개진다)"]),
+            ({"경험:총만남횟수": 10}, ["...응...", "...좋다...", "...또 해도 돼."]),
             ({}, ["...으응...", "......(눈을 감는다)", "...숨이...", "...더..."]),
         ],
         "whisper:start": [
@@ -726,6 +729,8 @@ class Sera(Character):
 
         # 절정 반응
         "ecstasy:start": [
+            ({"미경험:기억:첫절정": 1}, ["......?! ...이게 뭐...야...?!", "...몸이... 갑자기...!", "...(처음 느끼는 감각에 당황하고 있다)"]),
+            ({"경험:절정:V": 10}, ["...또... 가...!", "...(익숙한 듯 몸을 맡기며) ...으응..."]),
             ({}, ["......!!", "...으... 응...!", "...(떨리고 있다)", "...이상해..."]),
         ],
         "ecstasy_V:start": [

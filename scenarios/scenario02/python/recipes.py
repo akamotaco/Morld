@@ -6,12 +6,12 @@
 # - cook_time: 조리 시간 (분)
 #
 # 현재 채집 가능한 재료:
-# - food_wild_berry (산딸기) - 채집터, 강가
-# - food_apple (사과) - 숲 깊은 곳
-# - food_mushroom (버섯) - 채집터
-# - food_fish (생선) - 강가 낚시
-# - food_herb (약초) - 뒷마당 약초밭
-# - raw_rabbit_meat (토끼 생고기) - 토끼 사체 박피
+# - food_wild_berry (산딸기) - 채집터, 강가 [food_ingredient → Stove]
+# - food_apple (사과) - 숲 깊은 곳 [food_ingredient → Stove]
+# - food_mushroom (버섯) - 채집터 [food_ingredient → Stove]
+# - food_fish (생선) - 강가 낚시 [food_ingredient → Stove]
+# - food_herb (약초) - 뒷마당 약초밭 [drink_ingredient → Kettle]
+# - raw_rabbit_meat (토끼 생고기) - 토끼 사체 박피 [food_ingredient → Stove]
 
 
 # 레시피 정의
@@ -54,6 +54,43 @@ RECIPES = {
         "name": "토끼 구이",
         "ingredients": {"raw_rabbit_meat": 1},
         "result": ("food_roasted_rabbit", 1),
+        "cook_time": 15,
+    },
+
+    # === 사과 요리 ===
+    "food_apple_jam": {
+        "name": "사과잼",
+        "ingredients": {"food_apple": 2},
+        "result": ("food_apple_jam", 1),
+        "cook_time": 10,
+    },
+
+    # === 복합 요리 ===
+    "food_vegetable_soup": {
+        "name": "야채 수프",
+        "ingredients": {"food_mushroom": 2, "food_wild_berry": 1},
+        "result": ("food_vegetable_soup", 1),
+        "cook_time": 15,
+    },
+
+    "food_berry_juice": {
+        "name": "산딸기 주스",
+        "ingredients": {"food_wild_berry": 3},
+        "result": ("food_berry_juice", 1),
+        "cook_time": 5,
+    },
+
+    "food_fish_set_meal": {
+        "name": "생선정식",
+        "ingredients": {"food_fish": 1, "food_mushroom": 1},
+        "result": ("food_fish_set_meal", 1),
+        "cook_time": 20,
+    },
+
+    "food_mixed_stew": {
+        "name": "종합 스튜",
+        "ingredients": {"food_apple": 1, "food_mushroom": 1, "food_wild_berry": 1},
+        "result": ("food_mixed_stew", 1),
         "cook_time": 15,
     },
 }

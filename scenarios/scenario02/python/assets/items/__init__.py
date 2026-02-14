@@ -19,7 +19,9 @@ from .resources import (
 )
 from .food import (
     FoodItem, WildBerry, Apple, Mushroom, CookedMeat, CookedFish,
-    Fish, Herb, HerbTea, FruitSalad, MushroomStew
+    Fish, Herb, HerbTea, FruitSalad, MushroomStew,
+    AppleJam, VegetableSoup, BerryJuice, FishSetMeal, MixedStew,
+    RoastedRabbit,
 )
 from .clothes import (
     Clothing, RaggedClothes, SimpleShirt, LinenShirt, Blouse, WhiteBlouse,
@@ -56,6 +58,8 @@ __all__ = [
     # food
     'FoodItem', 'WildBerry', 'Apple', 'Mushroom', 'CookedMeat', 'CookedFish',
     'Fish', 'Herb', 'HerbTea', 'FruitSalad', 'MushroomStew',
+    'AppleJam', 'VegetableSoup', 'BerryJuice', 'FishSetMeal', 'MixedStew',
+    'RoastedRabbit',
     # clothes
     'Clothing', 'RaggedClothes', 'SimpleShirt', 'LinenShirt', 'Blouse', 'WhiteBlouse',
     'SimplePants', 'LinenPants', 'LongSkirt', 'Shorts',

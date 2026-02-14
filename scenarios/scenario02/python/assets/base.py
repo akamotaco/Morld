@@ -483,10 +483,12 @@ class Character(Unit):
     #   liked_categories: 선호 카테고리 리스트 → 호감 +5
     #   favorite_items: 최애 아이템 unique_id 리스트 → 호감 +10
     #   disliked_categories: 비선호 카테고리 리스트 → 호감 +0
+    #   favorite_foods: 선호 음식 unique_id 리스트 → 호감 +3 추가, 80% 즉시 섭취
     GIFT_PREFERENCES: dict = {
         "liked_categories": [],
         "favorite_items": [],
         "disliked_categories": [],
+        "favorite_foods": [],
     }
 
     def get_stealth_success_reaction(self, player_id: int) -> Optional[str]:
@@ -945,6 +947,14 @@ class Character(Unit):
             return True
 
         for key, required_value in condition.items():
+            # 미경험 조건: prop이 0 또는 None이면 True
+            if key.startswith("미경험:"):
+                actual_key = key[4:]  # "미경험:" 이후
+                actual_value = morld.get_unit_prop(self.instance_id, actual_key) or 0
+                if actual_value != 0:
+                    return False
+                continue
+
             # 플레이어 체력 역전값 (HP 낮을수록 높음)
             if key == "피로도_체력":
                 player_id = morld.get_player_id()
@@ -1138,24 +1148,38 @@ class Character(Unit):
             bonus = 0
             reaction = "disliked"
 
+        # 선호 음식 추가 보너스
+        is_favorite_food = is_food and item_unique in prefs.get("favorite_foods", [])
+        if is_favorite_food:
+            bonus += 3
+
         # 아이템 이동 (플레이어 → NPC)
         morld.remove_item(player_id, item_id)
 
+        food_eaten = False
         if is_food:
             # 미약 첨가 여부 확인
             has_aphrodisiac = morld.get_unit_prop(item_id, "상태:미약첨가") == 1
 
-            # 음식은 NPC가 바로 섭취
-            import survival
-            survival.add_satiety(partner_id, item_instance.food_satiety)
-            morld.lost_item(partner_id, item_id)  # 소비
+            # 섭취 확률: 선호 음식 80%, 일반 음식 50%
+            import random
+            eat_chance = 0.8 if is_favorite_food else 0.5
+            if random.random() < eat_chance:
+                # NPC가 바로 섭취
+                import survival
+                survival.add_satiety(partner_id, item_instance.food_satiety)
+                morld.lost_item(partner_id, item_id)  # 소비
+                food_eaten = True
 
-            # 미약 효과 적용
-            if has_aphrodisiac:
-                aph_remaining = morld.get_unit_prop(partner_id, "상태:미약남은시간") or 0
-                if aph_remaining <= 0:
-                    morld.set_unit_prop(partner_id, "상태:미약", 1)
-                    morld.set_unit_prop(partner_id, "상태:미약남은시간", 6)
+                # 미약 효과 적용
+                if has_aphrodisiac:
+                    aph_remaining = morld.get_unit_prop(partner_id, "상태:미약남은시간") or 0
+                    if aph_remaining <= 0:
+                        morld.set_unit_prop(partner_id, "상태:미약", 1)
+                        morld.set_unit_prop(partner_id, "상태:미약남은시간", 6)
+            else:
+                # 나중에 먹겠다며 보관
+                morld.give_item(partner_id, item_id)
         else:
             # 음식이 아니면 NPC 인벤토리에 저장
             morld.give_item(partner_id, item_id)
@@ -1164,8 +1188,17 @@ class Character(Unit):
         if bonus > 0:
             morld.modify_prop(partner_id, aff_key, bonus)
 
+        # 플레이어 통계: 선물 횟수
+        morld.set_unit_prop(player_id, "통계:선물횟수",
+                            (morld.get_unit_prop(player_id, "통계:선물횟수") or 0) + 1)
+
+        # 마일스톤: 마지막 선물
+        morld.set_unit_prop(partner_id, "기억:마지막선물", item_unique)
+        time_info = morld.get_time_info()
+        morld.set_unit_prop(partner_id, "기억:마지막선물일", time_info.get("day", 0))
+
         # 반응 대사
-        gift_reaction = self._get_gift_reaction(reaction, item_name, is_food)
+        gift_reaction = self._get_gift_reaction(reaction, item_name, food_eaten)
         bonus_text = f" [color=gray](호감 +{bonus})[/color]" if bonus > 0 else " [color=gray](호감 변화 없음)[/color]"
         yield ui.dialog(f"{gift_reaction}{bonus_text}")
 

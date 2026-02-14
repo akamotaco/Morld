@@ -417,12 +417,21 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             exp_gain = stimulation.get_climax_sensation_gain(
                 rebellion, climax_info.get("chain_count", 0))
             exp_gain = round(exp_gain * exp_mult)
+            cat = climax_info["category"]
             if exp_gain > 0:
-                cat = climax_info["category"]
                 for part, c in SENSATION_MAP.items():
                     if c == cat:
                         morld.modify_prop(pid, f"경험:{part}", exp_gain)
                         break
+
+            # 절정 횟수 카운트 (부위별)
+            climax_count_key = f"경험:절정:{cat}"
+            morld.set_unit_prop(pid, climax_count_key,
+                                (morld.get_unit_prop(pid, climax_count_key) or 0) + 1)
+
+            # 마일스톤: 첫 절정
+            if not morld.get_unit_prop(pid, "기억:첫절정"):
+                morld.set_unit_prop(pid, "기억:첫절정", 1)
 
             # 절정 시 복종 증가 (반발에 의해 억제) — frozen은 지연
             if cur_mode != MODE_FROZEN:
@@ -465,6 +474,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     defer_semen(state["mode_ctx"], ejac_part, _ejac_amt, internal=True)
                 else:
                     _apply_internal_semen(pid, ejac_part, _ejac_amt)
+                # 경험 축적: 사정 횟수
+                morld.set_unit_prop(pid, "경험:사정횟수",
+                                    (morld.get_unit_prop(pid, "경험:사정횟수") or 0) + 1)
+                # 플레이어 통계: 총 사정량
+                morld.set_unit_prop(player_id, "통계:총사정량",
+                                    (morld.get_unit_prop(player_id, "통계:총사정량") or 0) + _ejac_amt)
 
             # 구멍 뚫린 콘돔 발각 (사정 시 70% 확률)
             if state["condom_active"] and state["condom_punctured"] and ejac_part:
@@ -607,6 +622,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 defer_semen(state["mode_ctx"], target_part, ejac_amount)
             else:
                 _apply_semen(pid, target_part, ejac_amount)
+            # 경험 축적: 사정 횟수
+            morld.set_unit_prop(pid, "경험:사정횟수",
+                                (morld.get_unit_prop(pid, "경험:사정횟수") or 0) + 1)
+            # 플레이어 통계: 총 사정량
+            morld.set_unit_prop(player_id, "통계:총사정량",
+                                (morld.get_unit_prop(player_id, "통계:총사정량") or 0) + ejac_amount)
             # 외부 사정 → 극감 수정 확률 (2%) — 콘돔 착용 시 스킵
             if target_part == "음부":
                 if not (state["condom_active"] and not state["condom_punctured"]):
@@ -848,6 +869,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             state["stamina"] -= total_stamina
             ecstasy_reaction = apply_effects(effective_action_def, active_toggle_defs)
 
+            # 마일스톤 기록 (첫 키스)
+            if "kiss" in action_id and not morld.get_unit_prop(pid, "기억:첫키스"):
+                morld.set_unit_prop(pid, "기억:첫키스", 1)
+
             # 절정 반응이 있으면 우선 표시
             if ecstasy_reaction:
                 state["last_reaction"] = ecstasy_reaction
@@ -974,6 +999,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 first_key = check_and_clear_virginity(
                     state["partner_id"], player_id, action_id)
 
+            # 마일스톤: 첫 경험 (삽입 토글 ON 시)
+            if is_turning_on and action_def.get("pregnancy_check"):
+                if not morld.get_unit_prop(pid, "기억:첫경험"):
+                    morld.set_unit_prop(pid, "기억:첫경험", 1)
+
             # 준비 부족 체크 (강도 행위 — 토글 ON 시)
             unprepared_toggle = is_turning_on and not check_preparation(state["stim"], action_def)
             effective_toggle_def = action_def
@@ -1061,10 +1091,28 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     if partner_agent:
         partner_agent._memory["clothing_last_attempt"] = None
 
-    # 경험 축적: 강제 모드
+    # 경험 축적: 총 만남 횟수
+    total_count = (morld.get_unit_prop(partner_id, "경험:총만남횟수") or 0) + 1
+    morld.set_unit_prop(partner_id, "경험:총만남횟수", total_count)
+
+    # 경험 축적: 모드별 횟수
+    MODE_EXP_KEYS = {
+        MODE_CONSENSUAL: "경험:합의횟수",
+        MODE_FORCED: "경험:강제횟수",
+        MODE_UNCONSCIOUS: "경험:무의식횟수",
+        MODE_FROZEN: "경험:시간정지횟수",
+    }
+    mode_key = MODE_EXP_KEYS.get(cur_mode)
+    if mode_key:
+        mode_count = (morld.get_unit_prop(partner_id, mode_key) or 0) + 1
+        morld.set_unit_prop(partner_id, mode_key, mode_count)
+
+    # 플레이어 통계: 총 만남/강제 횟수
+    morld.set_unit_prop(player_id, "통계:총만남횟수",
+                        (morld.get_unit_prop(player_id, "통계:총만남횟수") or 0) + 1)
     if cur_mode == MODE_FORCED:
-        force_count = (morld.get_unit_prop(partner_id, "경험:강제횟수") or 0) + 1
-        morld.set_unit_prop(partner_id, "경험:강제횟수", force_count)
+        morld.set_unit_prop(player_id, "통계:강제횟수",
+                            (morld.get_unit_prop(player_id, "통계:강제횟수") or 0) + 1)
 
     # 경험 축적: 질내 사정 (내부 정액 잔존)
     internal_vaginal = get_internal_semen(partner_id, "음부")

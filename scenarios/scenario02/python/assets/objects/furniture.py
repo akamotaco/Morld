@@ -451,6 +451,10 @@ class Stove(Object):
         if result_id:
             morld.give_item(player_id, result_id, result_count)
 
+        # 플레이어 통계: 요리 횟수
+        morld.set_unit_prop(player_id, "통계:요리횟수",
+                            (morld.get_unit_prop(player_id, "통계:요리횟수") or 0) + 1)
+
         # 시간 경과 및 메시지
         yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")
         morld.advance_time_des(recipe["cook_time"] * 60_000)
@@ -573,6 +577,10 @@ class Kettle(Object):
 
         if result_id:
             morld.give_item(player_id, result_id, result_count)
+
+        # 플레이어 통계: 요리 횟수
+        morld.set_unit_prop(player_id, "통계:요리횟수",
+                            (morld.get_unit_prop(player_id, "통계:요리횟수") or 0) + 1)
 
         # 시간 경과 및 메시지
         yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")

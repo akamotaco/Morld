@@ -181,6 +181,10 @@ def _conceive(receiver_id, inseminator_id, father_type=None):
         morld.set_unit_prop(receiver_id, "상태:아이아버지", insem_name)
         morld.set_unit_prop(receiver_id, "상태:아이아버지id", inseminator_id)
 
+    # 경험 축적: 수정 횟수
+    morld.set_unit_prop(receiver_id, "경험:수정횟수",
+                        (morld.get_unit_prop(receiver_id, "경험:수정횟수") or 0) + 1)
+
     # 이벤트 플래그 (on_meet에서 수정 알림 트리거)
     morld.set_unit_prop(receiver_id, "이벤트:수정", 1)
 
@@ -371,6 +375,10 @@ def spawn_child(mother_agent):
     if mother_id not in _child_registry:
         _child_registry[mother_id] = []
     _child_registry[mother_id].append(child_id)
+
+    # 경험 축적: 출산 횟수
+    morld.set_unit_prop(mother_id, "경험:출산횟수",
+                        (morld.get_unit_prop(mother_id, "경험:출산횟수") or 0) + 1)
 
     return child_id
 
