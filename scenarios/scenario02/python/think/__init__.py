@@ -101,6 +101,7 @@ class BaseAgent:
             "gift_target_id": None,       # 선물 대상 NPC unit_id
             "gift_item_id": None,         # 선물할 아이템 ID
             "gift_cooldown": None,        # 마지막 선물 시각 (밀리초)
+            "romance_last": None,         # 마지막 애정 행위 기억 {partner_id, region_id, location_id, timestamp, mode}
         }
 
     def set_base_schedule(self, schedule):

@@ -889,20 +889,23 @@ pregnancy.reset()                        # 챕터 전환
 
 | 시스템 | 파일 | 설명 |
 |--------|------|------|
-| 스킨십 | `romance.py` | 플레이어 주도 친밀 행위 (즉시형 17종 + 토글형 19종) |
+| 스킨십 | `romance.py` | 플레이어 주도 친밀 행위 (즉시형 22종 + 토글형 23종) |
 | 데이트 | `date.py` | 데이트 요청/종료 |
-| NPC 주도 | `npc_initiative.py` | NPC가 먼저 스킨십 시작 |
+| NPC 주도 | `npc_initiative.py` | NPC가 먼저 스킨십 시작 (조건부 쿨다운, NPC 만족 종료) |
 | 성별/지향 | `gender.py` | 성별, 성적 지향, 체격/음경 크기, 삽입 호환성 |
 | 감각 | `romance.py` | 부위별 경험치 → 비선형 감각 레벨 (제곱 곡선) → 성욕 보정 |
 | 자극 | `stimulation.py` | 세션 스코프 부위별 자극 → 절정/여운/연쇄 절정 + 연쇄 exp 배율 |
 | 삽입 | `romance.py` | 삽입 행위 4종 + 체격 호환성 + 참기/빼기 + 임신 판정 |
 | 관계 라벨 | `romance.py` | 호감+욕망 기반 관계 라벨 (타인/친구/정욕/애인) |
 | 반발 | `romance.py`, `base.py` | `관계:{name}:반발` prop, 자극 억제 |
-| 공수 전환 | `romance.py`, `npc_initiative.py` | 세션 중 주도권 전환 (자극/스태미나 유지) |
+| 공수 전환 | `romance.py`, `npc_initiative.py` | 세션 중 주도권 전환 (자극/체력/경과시간 유지) |
 | 욕망 | `romance.py`, `needs.py` | `관계:{name}:욕망` prop, 동적 성욕 cap 연동 |
 | 이중 경로 해금 | `romance.py` | 욕망/복종에 의한 호감 요구치 할인 (최대 50%) |
 | 복종 | `base.py` | `관계:{name}:복종` prop + 관계 항상성 수렴 |
 | 관계 항상성 | `needs.py` | 호감/반발/복종 basin 기반 시간 수렴 (±0.5/h) |
+| 체력 연동 | `romance.py`, `npc_initiative.py` | 생존:체력을 스태미나로 사용, 세션 종료 시 HP writeback |
+| 행위 묘사 | `romance_actions.py` | ACTION_DESCRIPTIONS + TOGGLE_DURING_DESCRIPTIONS |
+| 상태 묘사 | `romance_core.py` | 자극 수준 기반 자동 나레이션 (get_state_description) |
 
 ### 캐릭터별 NPC 주도 설정
 

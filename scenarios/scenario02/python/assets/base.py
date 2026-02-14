@@ -581,6 +581,18 @@ class Character(Unit):
     # - allowed가 정의되면 해당 액션만 표시 (화이트리스트)
     # - blocked가 정의되면 해당 액션만 숨김 (블랙리스트)
 
+    # ========================================
+    # 가벼운 애정 행위 (포커스 메뉴용)
+    # ========================================
+    # action_type: (label, affection_req, desire_req, arousal_gain)
+    CASUAL_ACTIONS = {
+        "casual_kiss":    ("가벼운 키스",    60, 50, 5),
+        "casual_breast":  ("가슴 만지기",    70, 60, 10),
+        "casual_butt":    ("엉덩이 만지기",  70, 60, 8),
+        "casual_genital": ("음부 만지기",    80, 70, 15),   # female NPC
+        "casual_penis":   ("음경 만지기",    80, 70, 15),   # male NPC
+    }
+
     ACTION_AVAILABILITY: dict = {
         # 기본 수면 상태 처리 (모든 캐릭터 공통)
         "수면": {
@@ -627,7 +639,8 @@ class Character(Unit):
 
         # 규칙이 없으면 모든 액션 허용
         if rules is None:
-            return self._apply_dynamic_action_labels(list(self.actions), info)
+            result = self._apply_dynamic_action_labels(list(self.actions), info)
+            return self._add_casual_affection_actions(result)
 
         # 필터링 적용
         allowed = rules.get("allowed")
@@ -649,7 +662,8 @@ class Character(Unit):
             else:
                 result.append(action)
 
-        return self._apply_dynamic_action_labels(result, info)
+        result = self._apply_dynamic_action_labels(result, info)
+        return self._add_casual_affection_actions(result)
 
     def _apply_dynamic_action_labels(self, actions, info):
         """동적 라벨 적용 (작업지시에 현재 활동 표시 등)"""
@@ -663,6 +677,55 @@ class Character(Unit):
             else:
                 updated.append(action)
         return updated
+
+    def _add_casual_affection_actions(self, actions):
+        """가벼운 애정 행위를 액션 목록에 조건부 삽입"""
+        if not hasattr(self, 'CASUAL_REACTIONS') or not self.CASUAL_REACTIONS:
+            return actions
+
+        player_id = morld.get_player_id()
+        if not player_id:
+            return actions
+
+        from romance_core import get_affection_key, get_desire_key
+        props = morld.get_unit_props(self.instance_id) or {}
+        aff_key = get_affection_key(player_id)
+        des_key = get_desire_key(player_id)
+        affection = props.get(aff_key, 0)
+        desire = props.get(des_key, 0)
+
+        # NPC 성별 확인
+        npc_gender = props.get("성별", "female")
+
+        casual_items = []
+        for action_type, (label, aff_req, des_req, _gain) in self.CASUAL_ACTIONS.items():
+            # 성별 필터: female → casual_genital, male → casual_penis
+            if action_type == "casual_penis" and npc_gender == "female":
+                continue
+            if action_type == "casual_genital" and npc_gender == "male":
+                continue
+
+            # 호감 OR 욕망 중 하나만 충족하면 해금
+            if affection >= aff_req or desire >= des_req:
+                casual_items.append(f"call:casual_affection:{action_type}:{label}")
+
+        if not casual_items:
+            return actions
+
+        # "call:romance:스킨십" 앞에 삽입
+        insert_idx = None
+        for i, act in enumerate(actions):
+            if "romance" in act and "force_romance" not in act:
+                insert_idx = i
+                break
+
+        if insert_idx is not None:
+            for j, item in enumerate(casual_items):
+                actions.insert(insert_idx + j, item)
+        else:
+            actions.extend(casual_items)
+
+        return actions
 
     def _extract_action_name(self, action: str) -> str:
         """
@@ -782,6 +845,7 @@ class Character(Unit):
 
         if props:
             context["호감"] = props.get(f"관계:{player_name}:호감", 0)
+            context["욕망"] = props.get(f"관계:{player_name}:욕망", 0)
             context["진척도"] = props.get(f"관계:{player_name}:진척도", 0)
             context["성욕"] = props.get("상태:성욕", 0)
             # 정액 오염
@@ -980,12 +1044,19 @@ class Character(Unit):
     def romance(self):
         """연애 모드 시작 (모드 자동 감지)"""
         self._check_instantiated()
-        from romance import start_romance
+        from romance import start_romance, ROMANCE_MIN_HEALTH
         from romance_mode import (
             MODE_CONSENSUAL, MODE_UNCONSCIOUS, MODE_FROZEN,
             can_start_unconscious, can_start_frozen,
         )
         player_id = morld.get_player_id()
+
+        # HP 가드
+        import survival
+        player_stats = survival.get_survival_stats(player_id)
+        if player_stats["health"] < ROMANCE_MIN_HEALTH:
+            yield ui.dialog("몸에 힘이 없어 스킨십할 상태가 아니다.")
+            return
 
         # 자동 모드 감지: 기절 → 무의식, 시간정지 → 시간정지
         ok, _ = can_start_unconscious(player_id, self.instance_id)
@@ -1004,13 +1075,20 @@ class Character(Unit):
         """강제 행위 시도"""
         self._check_instantiated()
         import random
-        from romance import start_romance
+        from romance import start_romance, ROMANCE_MIN_HEALTH
         from romance_mode import (
             MODE_FORCED, can_start_forced, calculate_force_chance,
         )
         from romance_core import get_affection_key, get_rebellion_key
         player_id = morld.get_player_id()
         partner_id = self.instance_id
+
+        # HP 가드
+        import survival
+        player_stats = survival.get_survival_stats(player_id)
+        if player_stats["health"] < ROMANCE_MIN_HEALTH:
+            yield ui.dialog("몸에 힘이 없어 행위할 상태가 아니다.")
+            return
 
         # 1:1 상황 체크
         can_force, reason = can_start_forced(player_id, partner_id)
@@ -1047,6 +1125,44 @@ class Character(Unit):
                 f"({self.name}(이)가 필사적으로 저항하여 벗어났다.)\n"
                 f"[color=gray]호감 -10, 반발 +15[/color]"
             )
+
+    def casual_affection(self, action_type):
+        """가벼운 애정 행위 — 포커스 메뉴에서 호출"""
+        self._check_instantiated()
+        import random
+
+        action_def = self.CASUAL_ACTIONS.get(action_type)
+        if not action_def:
+            return
+        _label, _aff_req, _des_req, arousal_gain = action_def
+
+        # CASUAL_REACTIONS에서 반응 텍스트 결정
+        reactions = getattr(self, 'CASUAL_REACTIONS', {})
+        action_reactions = reactions.get(action_type, {})
+
+        # 반응 스타일 결정: 욕망 >= 70 → addicted, 호감 >= 80 → flirty, 그 외 → default
+        player_id = morld.get_player_id()
+        from romance_core import get_affection_key, get_desire_key
+        props = morld.get_unit_props(self.instance_id) or {}
+        aff_key = get_affection_key(player_id)
+        des_key = get_desire_key(player_id)
+        desire = props.get(des_key, 0)
+        affection = props.get(aff_key, 0)
+
+        if desire >= 70:
+            style = "addicted"
+        elif affection >= 80:
+            style = "flirty"
+        else:
+            style = "default"
+
+        texts = action_reactions.get(style, action_reactions.get("default", ["......"]))
+        text = random.choice(texts) if texts else "......"
+
+        yield ui.dialog(text)
+
+        # NPC 성욕 증가
+        morld.modify_prop(self.instance_id, "상태:성욕", arousal_gain)
 
     def give_gift(self):
         """선물하기 — 플레이어 인벤토리에서 아이템을 골라 NPC에게 선물"""

@@ -90,6 +90,13 @@
 | 모드별 캐릭터 반응 | 전체 NPC (forced_/aftermath) | ✅ 완료 |
 | 임신 이벤트 (수정/발표) | pregnancy.py, base.py, 전체 NPC | ✅ 완료 |
 | 모드 사후 이벤트 (on_meet) | base.py, 전체 NPC | ✅ 완료 |
+| HP 통합 (스태미나→생존체력) | romance.py, npc_initiative.py, romance_core.py | ✅ 완료 |
+| 조건부 쿨다운 (NPC 주도) | npc_initiative.py, base.py | ✅ 완료 |
+| NPC 만족 종료 | npc_initiative.py | ✅ 완료 |
+| 행위 묘사 시스템 | romance_actions.py, romance.py, npc_initiative.py | ✅ 완료 |
+| 자극 상태 자동 묘사 | romance_core.py, romance_ui.py | ✅ 완료 |
+| 탈진 HP 1 보존 | romance.py, npc_initiative.py | ✅ 완료 |
+| 체력 바 10칸 정규화 | romance_ui.py, npc_initiative.py | ✅ 완료 |
 
 ### 지원 캐릭터
 

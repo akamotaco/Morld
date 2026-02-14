@@ -26,7 +26,7 @@
 - 플레이어가 행위를 선택하고 NPC가 반응
 - 토글형(유지)/즉시형(순간) 행위 구분
 - 캐릭터별 반응 시스템 (ROMANCE_REACTIONS)
-- **4가지 동작 모드**: 합의/강제/무의식/시간정지 (→ [18. 동작 모드 시스템](#18-동작-모드-시스템-romance_modepy))
+- **4가지 동작 모드**: 합의/강제/무의식/시간정지 (→ [21. 동작 모드 시스템](#21-동작-모드-시스템-romance_modepy))
 
 ### 진입 조건
 - 호감도 50 이상 (`ROMANCE_ENTRY_THRESHOLD`)
@@ -725,7 +725,7 @@ def calc_gain(base, sensation_level, rebellion, afterglow, refractory=0):
 
 전환 시 다음 상태가 유지됨:
 - **자극 상태** (`stim`): M/B/A/V/C/P 수치, 여운, 연쇄, 절정 횟수
-- **스태미나**: 남은 양
+- **체력** (`stamina`, `initial_stamina`, `max_stamina`): 남은 HP + 초기값 + 최대값
 - **경과시간**: 세션 누적
 - **감지 기록** (`checked_npcs`): 중복 판정 방지
 
@@ -736,7 +736,7 @@ def calc_gain(base, sensation_level, rebellion, afterglow, refractory=0):
 ```python
 # romance.py → npc_initiative.py
 if state.get("switch_to") == "npc":
-    preserved = _extract_preserved(state)
+    preserved = extract_preserved(state)
     yield from start_npc_initiative(player_id, partner_id, preserved=preserved)
 ```
 
@@ -1471,7 +1471,6 @@ class Sera(Character):
         # 첫 만남 이후 NPC 주도 체크
         if self._event_flags.get("first_meet"):
             if self.should_initiate_skinship(player_id):
-                self.mark_initiative_cooldown()
                 from npc_initiative import start_npc_initiative
                 return start_npc_initiative(player_id, self.instance_id)
             return None
@@ -1483,7 +1482,146 @@ class Sera(Character):
 
 ---
 
-## 18. 동작 모드 시스템 (romance_mode.py)
+## 18. 체력 시스템 (HP 통합)
+
+### 개요
+
+연애 세션의 스태미나를 전투/생존 체력(`생존:체력`)과 통합.
+별도의 `연애:스태미나` prop을 제거하고, 실제 HP를 소비하는 방식.
+
+### 핵심 메커니즘
+
+| 항목 | 설명 |
+|------|------|
+| 세션 시작 | `survival.get_survival_stats(player_id)` → `health`, `max_health` 읽기 |
+| 행위 소비 | 행위마다 `state["stamina"]` 차감 (기존과 동일) |
+| 탈진 | `stamina ≤ total_stamina` → `stamina = 1` (HP 1 보존, 기절 방지) |
+| 세션 종료 | `survival.set_health(player_id, state["stamina"])` — HP writeback |
+
+### 체력 바 렌더링
+
+10칸 정규화 — HP 범위에 관계없이 일관된 표시:
+
+```python
+def render_stamina_bar(stamina, max_stamina=100):
+    BAR_WIDTH = 10
+    ratio = stamina / max(1, max_stamina)
+    filled = max(0, min(BAR_WIDTH, round(ratio * BAR_WIDTH)))
+    empty = BAR_WIDTH - filled
+    bar = "█" * filled + "░" * empty
+    return f"{bar} {int(stamina)}/{int(max_stamina)}"
+```
+
+UI 라벨: `체력: ████████░░ 80/100`
+
+### 사정량 HP 정규화
+
+`calculate_ejaculation_amount(unit_id, stamina, max_stamina)`:
+- `max_stamina > 10` → 0-10 스케일로 정규화 후 공식 적용
+- 기존 0-10 범위에서의 공식 호환성 유지
+
+### 세션 상태 보존
+
+공수 전환 시 `extract_preserved(state)`:
+- `initial_stamina`: 세션 시작 시점 HP
+- `max_stamina`: 최대 HP
+- `stamina`: 현재 HP
+
+---
+
+## 19. NPC 주도 종료 조건
+
+### NPC 만족 종료
+
+NPC가 절정 후 성욕이 임계치 미만으로 떨어지면 자발적 종료:
+
+```python
+NPC_SATISFACTION_AROUSAL = 20   # 성욕 임계치
+NPC_SATISFACTION_CLIMAX = 1     # 최소 절정 횟수
+```
+
+조건: `climax_total ≥ 1` AND `성욕 < 20` → `state["npc_satisfied"] = True`
+
+종료 반응: `INITIATIVE_REACTIONS["satisfied"]` (캐릭터별 텍스트)
+
+### 조건부 쿨다운
+
+NPC 주도 쿨다운(`mark_initiative_cooldown()`)을 세션 시작에서 종료로 이동:
+
+| 조건 | 쿨다운 |
+|------|--------|
+| `stamina < initial_stamina` (행위 발생) | 정상 적용 (8시간 등) |
+| `stamina == initial_stamina` (즉시 탈출) | 스킵 — 다음 on_meet에서 재시도 |
+
+**HP 가드**: `should_initiate_skinship()`에서 플레이어 HP < 5면 NPC 주도 거부.
+
+```python
+INITIATIVE_MIN_HEALTH = 5
+```
+
+---
+
+## 20. 행위 묘사 시스템
+
+### 개요
+
+행위 실행 시 **묘사 텍스트**(3인칭 나레이션)와 **NPC 대사**를 결합하여 표시.
+NPC 대사가 없는 행위에도 묘사로 상황 전달.
+
+### ACTION_DESCRIPTIONS (즉시형)
+
+`romance_actions.py`에 정의. 행위 실행 시 대사 앞에 `[color=silver]` 태그로 표시:
+
+```python
+ACTION_DESCRIPTIONS = {
+    "head_pat": "머리를 부드럽게 쓰다듬는다.",
+    "french_kiss": "깊은 키스를 한다.",
+    "breast_caress": "가슴을 부드럽게 어루만진다.",
+    "thrust_deep": "깊숙이 밀어넣는다.",
+    ...
+}
+```
+
+### TOGGLE_DURING_DESCRIPTIONS (토글 진행 중)
+
+활성 토글 행위의 상황 묘사. UI에서 토글마다 표시:
+
+```python
+TOGGLE_DURING_DESCRIPTIONS = {
+    "hug": "서로를 껴안고 있다.",
+    "deep_kiss": "깊은 키스가 이어지고 있다.",
+    "vaginal_penetration": "삽입이 이어지고 있다.",
+    ...
+}
+```
+
+### 자극 상태 자동 묘사 (get_state_description)
+
+`romance_core.py`에서 부위별 자극 수치에 따라 자동 생성 (최대 2줄):
+
+| 자극 수준 | 표시 |
+|----------|------|
+| ≥ 80 (high) | 강렬한 묘사 (`_STIM_HIGH_TEXTS`) |
+| ≥ 50 (mid) | 중간 묘사 (`_STIM_MID_TEXTS`) |
+| < 50 | 표시 안 함 |
+
+절정 접근 시 추가: `gauge ≥ 80` → "절정이 가까워지고 있다."
+
+### UI 통합
+
+`last_reaction` 형식 변경 — 묘사 + 대사 결합:
+```
+[color=silver]깊은 키스를 한다.[/color]
+[color=yellow]...끝나지 않게...[/color]
+```
+
+`render_romance_ui()`에서 `last_reaction`을 raw 출력 (자체 color 태그 포함).
+
+---
+
+## 21. 동작 모드 시스템 (romance_mode.py)
+
+> 기존 18번 섹션에서 이동 (18→19→20 신규 추가로 번호 밀림)
 
 ### 개요
 
@@ -1530,7 +1668,7 @@ class Sera(Character):
 | 각성 체크 | X | X | O (기절 해제 시) | X |
 | 주도권 전환 | O | X | X | X |
 
-### 18.1 강제 모드 (Player→NPC)
+### 21.1 강제 모드 (Player→NPC)
 
 #### 진입 흐름
 
@@ -1583,7 +1721,7 @@ resistance_chance = 0.10 + 근력 × 0.02 + 반발 × 0.003  # 최대 50%
 
 강제 모드 전용 반응: `"forced_{action_id}:start"` → fallback `"{action_id}:start"`
 
-### 18.2 무의식 모드 (Player→기절NPC)
+### 21.2 무의식 모드 (Player→기절NPC)
 
 #### 진입
 
@@ -1602,9 +1740,9 @@ resistance_chance = 0.10 + 근력 × 0.02 + 반발 × 0.003  # 최대 50%
 매 행위 후 `survival.get_faint_remaining_millis()` 확인:
 - 기절 시간 만료 → `transition_to_forced()`: `MODE_UNCONSCIOUS` → `MODE_FORCED`
 - 전이 시: resistance_meter 30으로 시작 (각성 직후 높은 저항)
-- 세션 상태 보존 (자극/스태미나/경과시간)
+- 세션 상태 보존 (자극/체력/경과시간)
 
-### 18.3 시간정지 모드 (Player→정지NPC)
+### 21.3 시간정지 모드 (Player→정지NPC)
 
 #### 진입
 
@@ -1630,7 +1768,7 @@ resistance_chance = 0.10 + 근력 × 0.02 + 반발 × 0.003  # 최대 50%
 - 축적된 효과의 **30%만** 실제 적용 (DAMPENING = 0.3)
 - `상태:시간정지피해` prop 설정
 
-### 18.4 NPC→Player 저항 모드
+### 21.4 NPC→Player 저항 모드
 
 NPC 주도 세션(`npc_initiative.py`)에서 플레이어 선택:
 
@@ -1651,7 +1789,7 @@ resistance_gain = 15 + max(0, (player_power - npc_power)) × 3  # 5~40
 
 NPC는 저항 중에도 자동으로 행위 진행 (`_npc_auto_advance()`), 강제 반응 접두사 사용.
 
-### 18.5 사후 이벤트 (on_meet)
+### 21.5 사후 이벤트 (on_meet)
 
 강제/무의식/시간정지 세션 종료 후 NPC와 재회 시:
 
@@ -1663,7 +1801,7 @@ NPC는 저항 중에도 자동으로 행위 진행 (`_npc_auto_advance()`), 강�
 
 각 캐릭터 파일에서 `_handle_mode_aftermath()` 오버라이드로 성격별 반응.
 
-### 18.6 임신 이벤트 (on_meet)
+### 21.6 임신 이벤트 (on_meet)
 
 `pregnancy.check_pending_pregnancy_events(unit_id)` 호출:
 

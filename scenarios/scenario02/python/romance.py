@@ -62,6 +62,8 @@ from romance_core import (  # noqa: F401 — re-export for external callers
     extract_preserved,
 )
 
+ROMANCE_MIN_HEALTH = 5  # 애정 행위 진입 최소 체력
+
 # ============================================
 # 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
 # ============================================
@@ -86,6 +88,12 @@ def get_interrupted_context():
 
 def can_start_romance(player_id, target_id):
     """연애 진입 가능 여부 확인"""
+    # 0. 플레이어 체력 체크
+    import survival
+    player_stats = survival.get_survival_stats(player_id)
+    if player_stats["health"] < ROMANCE_MIN_HEALTH:
+        return False, "몸에 힘이 없어 스킨십할 상태가 아니다."
+
     affection_key = get_affection_key(player_id)
 
     # 1. 대상 호감도 체크
@@ -1300,6 +1308,15 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     # 착의 쿨다운 리셋 (탈의 후 즉시 착의 인터럽트 발동 가능하도록)
     if partner_agent:
         partner_agent._memory["clothing_last_attempt"] = None
+        # 애정 행위 기억 저장
+        loc = morld.get_unit_location(partner_id)
+        partner_agent._memory["romance_last"] = {
+            "partner_id": player_id,
+            "region_id": loc[0] if loc else None,
+            "location_id": loc[1] if loc else None,
+            "timestamp": morld.get_time(),
+            "mode": cur_mode,
+        }
 
     # 경험 축적: 총 만남 횟수
     total_count = (morld.get_unit_prop(partner_id, "경험:총만남횟수") or 0) + 1
