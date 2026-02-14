@@ -1,14 +1,14 @@
 # think/facility_resolver.py - 시설 탐색 리졸버
 #
-# NPC가 목욕/옷장 등 시설을 찾을 때 우선순위 기반으로 탐색.
+# NPC가 목욕/옷장/화장실 등 시설을 찾을 때 prop 기반 동적 탐색.
 # activity_resolver.py와 동일한 stateless 패턴 (lazy init 불필요).
 #
 # 선착순 점유:
-#   목욕 시설은 현재 해당 location에 목욕 중인 NPC가 없으면 사용 가능.
+#   목욕/화장실 시설은 현재 해당 location에 사용 중인 NPC가 없으면 사용 가능.
 #   주기적 체크(needs 시스템)로 점유 상태를 자연 감지.
 #
 # 사용법:
-#   from think.facility_resolver import resolve_bath, resolve_wardrobe
+#   from think.facility_resolver import resolve_bath, resolve_wardrobe, resolve_toilet
 #   target = resolve_bath(agent)
 #   # -> {"region_id": 0, "location_id": 4, "x": 15, "object_id": 101} or None
 
@@ -21,22 +21,17 @@ def resolve_bath(agent, cross_region=False):
     """목욕 시설 탐색 (선착순 점유)
 
     우선순위:
-    1. agent._locations["bath"] (선호 위치) — 비어있으면 사용
-    2. 같은 region의 다른 action:bath 오브젝트
-    3. (cross_region=True일 때만) 다른 region의 오브젝트
-    4. 모두 점유/없음 → None
+    1. home_region 내 action:bath 오브젝트 — 비어있으면 사용
+    2. (cross_region=True일 때만) 다른 region의 오브젝트
+    3. 모두 점유/없음 → None
 
     Returns:
         {"region_id", "location_id", "x", "object_id"} or None
     """
-    preferred = agent._locations.get("bath")
-    home_region = preferred["region_id"] if preferred else None
-    if home_region is None:
-        loc = agent.get_location()
-        home_region = loc[0] if loc else 0
+    home_region = agent._get_home_region()
 
     all_baths = _find_facilities_by_prop("action:bath", 1)
-    sorted_baths = _sort_by_priority(all_baths, preferred, home_region, cross_region)
+    sorted_baths = _sort_by_priority(all_baths, None, home_region, cross_region)
 
     for bath in sorted_baths:
         obj_id = bath["object_id"]
@@ -47,27 +42,55 @@ def resolve_bath(agent, cross_region=False):
 
 
 def resolve_wardrobe(agent, cross_region=False):
-    """옷장 탐색 (점유 감지 없음)
+    """옷장 탐색 (소유권 기반)
 
     우선순위:
-    1. agent._locations["wardrobe"] (선호 위치)
-    2. 같은 region의 다른 wardrobe 오브젝트
+    1. wardrobe_owner:{owner} prop 소유 옷장 (home_region 내)
+    2. 아무 wardrobe 오브젝트 (home_region 내, 모브 fallback)
     3. (cross_region=True일 때만) 다른 region의 오브젝트
 
     Returns:
         {"region_id", "location_id", "x", "object_id"} or None
     """
-    preferred = agent._locations.get("wardrobe")
-    home_region = preferred["region_id"] if preferred else None
-    if home_region is None:
-        loc = agent.get_location()
-        home_region = loc[0] if loc else 0
+    home_region = agent._get_home_region()
+    owner = getattr(agent, 'owner_unique_id', None)
 
-    unique_id = getattr(agent, "wardrobe_unique_id", "wardrobe")
-    all_wardrobes = _find_facilities_by_unique_id(unique_id)
-    sorted_wardrobes = _sort_by_priority(all_wardrobes, preferred, home_region, cross_region)
+    # 1순위: 소유 옷장
+    if owner:
+        owned = _find_facilities_by_prop(f"wardrobe_owner:{owner}", 1)
+        sorted_owned = _sort_by_priority(owned, None, home_region, cross_region)
+        if sorted_owned:
+            return sorted_owned[0]
+
+    # 2순위: 아무 옷장 (모브 fallback)
+    all_wardrobes = _find_facilities_by_unique_id("wardrobe")
+    sorted_wardrobes = _sort_by_priority(all_wardrobes, None, home_region, cross_region)
 
     return sorted_wardrobes[0] if sorted_wardrobes else None
+
+
+def resolve_toilet(agent, cross_region=False):
+    """화장실 탐색 (선착순 점유)
+
+    우선순위:
+    1. home_region 내 action:toilet 오브젝트 — 비어있으면 사용
+    2. (cross_region=True일 때만) 다른 region의 오브젝트
+    3. 모두 점유/없음 → None
+
+    Returns:
+        {"region_id", "location_id", "x", "object_id"} or None
+    """
+    home_region = agent._get_home_region()
+
+    all_toilets = _find_facilities_by_prop("action:toilet", 1)
+    sorted_toilets = _sort_by_priority(all_toilets, None, home_region, cross_region)
+
+    for toilet in sorted_toilets:
+        obj_id = toilet["object_id"]
+        if _is_toilet_available(obj_id, agent.unit_id):
+            return toilet
+
+    return None
 
 
 # ========================================
@@ -148,6 +171,32 @@ def _is_bath_available(obj_id, exclude_unit_id=None):
                 return False
         except ImportError:
             pass
+
+    return True
+
+
+def _is_toilet_available(obj_id, exclude_unit_id=None):
+    """화장실이 사용 가능한지 (현재 location에 배변 중인 NPC 없음)
+
+    점유 판정:
+    - 해당 location에 있는 NPC 중 배변 phase가 활성이면 점유
+    - exclude_unit_id (자기 자신)는 점유 판정에서 제외
+    """
+    obj_loc = morld.get_unit_location(obj_id)
+    if not obj_loc:
+        return False
+
+    units = morld.get_units_at_location(obj_loc[0], obj_loc[1])
+    if not units:
+        return True
+
+    from think import _agents
+    for uid in units:
+        if uid == exclude_unit_id:
+            continue
+        ag = _agents.get(uid)
+        if ag and ag._memory.get("excretion_phase") is not None:
+            return False
 
     return True
 

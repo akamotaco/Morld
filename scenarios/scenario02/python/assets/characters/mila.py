@@ -1121,12 +1121,6 @@ class MilaAgent(BaseAgent):
     }
 
     owner_unique_id = "mila"
-    _locations = {
-        "sleep": {"region_id": 0, "location_id": 9, "x": 120},      # 밀라방
-        "bath": {"region_id": 0, "location_id": 4, "x": 15},         # 욕실
-        "wardrobe": {"region_id": 0, "location_id": 9, "x": 25},     # 밀라방 옷장
-        "toilet": {"region_id": 0, "location_id": 15, "x": 15},      # 1층 화장실
-    }
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

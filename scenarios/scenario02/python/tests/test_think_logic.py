@@ -229,6 +229,10 @@ for _key in list(sys.modules.keys()):
 _facility = types.ModuleType("think.facility_resolver")
 _facility.resolve_wardrobe = lambda agent, cross_region=False: None
 _facility.resolve_bath = lambda agent, cross_region=False: None
+_facility.resolve_toilet = lambda agent, cross_region=False: None
+_facility._find_facilities_by_prop = lambda prop, val: []
+_facility._find_facilities_by_unique_id = lambda uid: []
+_facility._sort_by_priority = lambda f, p, h, c=False: f
 sys.modules["think.facility_resolver"] = _facility
 
 # think.activity_resolver
@@ -254,17 +258,16 @@ _M = 60_000  # 1분 (밀리초)
 _H = 3_600_000  # 1시간 (밀리초)
 NPC_ID = 100
 
+# 테스트용 시설 위치 상수 (구 _locations 대체)
+_TEST_WARDROBE = {"region_id": 0, "location_id": 3, "x": 0, "object_id": 50}
+_TEST_TOILET = {"region_id": 0, "location_id": 4, "x": 0, "object_id": 51}
+_TEST_BATH = {"region_id": 0, "location_id": 5, "x": 0, "object_id": 52}
+
 
 class TestAgent(BaseAgent):
     """테스트용 최소 Agent"""
     owner_unique_id = "test_npc"
-
-    _locations = {
-        "sleep": {"region_id": 0, "location_id": 1, "x": 0},
-        "wardrobe": {"region_id": 0, "location_id": 3, "x": 0},
-        "toilet": {"region_id": 0, "location_id": 4, "x": 0},
-        "bath": {"region_id": 0, "location_id": 5, "x": 0},
-    }
+    _home_region_id = 0  # 테스트용 home_region 고정
 
     _SCHEDULE = [
         {"name": "오전활동", "start": 8 * _H, "end": 12 * _H,
@@ -337,6 +340,8 @@ def _reset_all():
     # facility resolver — 기본값
     _facility.resolve_wardrobe = lambda agent, cross_region=False: None
     _facility.resolve_bath = lambda agent, cross_region=False: None
+    _facility.resolve_toilet = lambda agent, cross_region=False: None
+    _facility._find_facilities_by_prop = lambda prop, val: []
 
 
 def _create_agent(time_millis=10 * _H, location=(0, 0)):
@@ -411,7 +416,7 @@ class TestTierPriority:
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 0
         # 옷장 위치 제공 (going phase에서 이동 대상 필요)
-        wloc = agent._locations.get("wardrobe")
+        wloc = _TEST_WARDROBE
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -424,6 +429,7 @@ class TestTierPriority:
         agent = _create_agent()
         _temperature.is_hot = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 3
+        _facility.resolve_wardrobe = lambda a, cross_region=False: _TEST_WARDROBE
         # 보온 아이템 장착 (unequip 대상)
         warm_id = 200
         morld.register_item(warm_id, "코트", equip_props={"보온": 3})
@@ -456,6 +462,7 @@ class TestTierPriority:
         """배변욕 → tier 4가 tier 5보다 우선"""
         agent = _create_agent()
         _needs.is_npc_need_excretion = lambda uid: True
+        _facility.resolve_toilet = lambda a, cross_region=False: _TEST_TOILET
 
         agent.think()
 
@@ -471,7 +478,7 @@ class TestTierPriority:
         job = _last_job(agent)
         assert job is not None
         # 피로 수면 = 이동 or stay job
-        # _locations["sleep"]로 이동 또는 sleep job
+        # 수면 위치로 이동 또는 sleep job
         assert agent._action_taken is True
 
     def test_routine_when_no_interrupt(self):
@@ -584,7 +591,7 @@ class TestColdFlow:
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 1
         # 옷장 제공 → handler가 이동 시도
-        wloc = agent._locations.get("wardrobe")
+        wloc = _TEST_WARDROBE
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -599,7 +606,7 @@ class TestColdFlow:
         _humidity.get_unit_wetness = lambda uid: 50
         _temperature._get_equip_prop_total = lambda uid, prop: 0
         _temperature.get_insulation_total = lambda uid: 0
-        wloc = agent._locations.get("wardrobe")
+        wloc = _TEST_WARDROBE
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -611,6 +618,8 @@ class TestColdFlow:
         agent = _create_agent()
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 0
+        wloc = _TEST_WARDROBE
+        _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         # 보온 아이템 추가
         warm_id = 200
@@ -642,7 +651,7 @@ class TestColdFlow:
         _temperature.get_insulation_total = lambda uid: 0
         # 2시간 전에 시도
         agent._memory["cold_last_attempt"] = morld.get_time() - 2 * _H
-        wloc = agent._locations.get("wardrobe")
+        wloc = _TEST_WARDROBE
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -654,6 +663,8 @@ class TestColdFlow:
         agent = _create_agent()
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 0
+        wloc = _TEST_WARDROBE
+        _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         warm_id = 200
         morld.give_item(NPC_ID, warm_id)
@@ -673,10 +684,11 @@ class TestColdFlow:
 
 class TestHotFlow:
     def test_hot_trigger(self):
-        """체온≥37.5 + 보온>0 → hot 처리"""
+        """체온≥37.5 + 보온>0 + 옷장 접근 가능 → hot 처리"""
         agent = _create_agent()
         _temperature.is_hot = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 3
+        _facility.resolve_wardrobe = lambda a, cross_region=False: _TEST_WARDROBE
         # 보온 아이템 장착 (unequip 대상)
         warm_id = 200
         morld.register_item(warm_id, "코트", equip_props={"보온": 3})
@@ -692,6 +704,7 @@ class TestHotFlow:
         agent = _create_agent()
         _temperature.is_hot = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 3
+        _facility.resolve_wardrobe = lambda a, cross_region=False: _TEST_WARDROBE
 
         warm_id = 200
         morld.register_item(warm_id, "코트", equip_props={"보온": 3})
@@ -721,6 +734,7 @@ class TestExcretionFlow:
         """배변욕 → phase 시작"""
         agent = _create_agent()
         _needs.is_npc_need_excretion = lambda uid: True
+        _facility.resolve_toilet = lambda a, cross_region=False: _TEST_TOILET
 
         agent.think()
 
@@ -743,7 +757,9 @@ class TestExcretionFlow:
         """화장실 미도착 → move job 삽입"""
         agent = _create_agent()
         _needs.is_npc_need_excretion = lambda uid: True
+        _facility.resolve_toilet = lambda a, cross_region=False: _TEST_TOILET
         agent._memory["excretion_phase"] = "going"
+        agent._memory["excretion_target"] = _TEST_TOILET
         # 현재 위치: (0,0), 화장실: (0,4) → 미도착
 
         agent.think()
@@ -912,6 +928,7 @@ class TestMemoryManagement:
         agent = _create_agent()
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 0
+        _facility.resolve_wardrobe = lambda a, cross_region=False: _TEST_WARDROBE
 
         warm_id = 200
         morld.give_item(NPC_ID, warm_id)
@@ -1107,7 +1124,7 @@ class TestWakeFromCold:
         _temperature.is_cold = lambda uid, threshold=35.5: True
         _temperature.get_insulation_total = lambda uid: 0
         # cold handler 진행용 옷장 위치
-        wloc = agent._locations.get("wardrobe")
+        wloc = _TEST_WARDROBE
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -1180,7 +1197,7 @@ class TestNeedFuelCondition:
         agent = _create_agent()
         # agent의 home_region은 0, 열원은 region 2
         _create_heat_source(fuel_level=3)
-        # _get_home_region()은 _locations["sleep"]의 region_id를 반환하므로 0
+        # _get_home_region()은 _home_region_id=0 을 반환
         result = agent._evaluate_condition("need_fuel")
         # fuel source는 region 2에 등록 → agent의 home_region(0)과 불일치
         assert result is False, "다른 region 열원은 무시"
@@ -1253,7 +1270,7 @@ class TestStorageResolver:
     def test_resolve_food_storage_different_region(self):
         """다른 region 컨테이너는 무시"""
         agent = _create_agent()
-        # agent home_region = 0 (_locations["sleep"]), storage in region 2
+        # agent home_region = 0 (_home_region_id=0), storage in region 2
         _create_food_storage(region=2, location=5)
 
         from think.activities.helpers import resolve_storage_container

@@ -18,8 +18,14 @@ def handle_childbirth(agent, entry):
     phase = agent._memory.get("childbirth_phase", "idle")
 
     if phase == "idle":
-        # 출산 장소 = 침실 (_locations["sleep"])
-        target = agent._locations.get("sleep")
+        # 출산 장소 = 소유 침대 위치
+        target = None
+        owner = getattr(agent, 'owner_unique_id', None)
+        if owner:
+            from think.facility_resolver import _find_facilities_by_prop
+            beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
+            if beds:
+                target = beds[0]
         if not target:
             target = {"region_id": 0, "location_id": 1}
         agent._memory["childbirth_target"] = target

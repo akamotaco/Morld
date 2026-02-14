@@ -850,7 +850,7 @@ Location의 기존 `length` 속성으로 은밀도 판정 — 별도 속성 없�
 | 실내 (`is_indoor=True`) | 실외 location 제외 |
 | 오염도 ≤ 10 | 오염이 심한 곳 제외 |
 
-우선순위: 현재 위치 → 침실(sleep_location) → 화장실(toilet_location) → region 내 가장 가까운 후보.
+우선순위: 현재 위치 → 침실(`bed_owner` prop 탐색) → 화장실(`action:toilet` prop 탐색) → region 내 가장 가까운 후보.
 
 ### NPC 자위 (Self-Comfort)
 

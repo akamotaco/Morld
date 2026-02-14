@@ -61,7 +61,6 @@ class BaseAgent:
 
     def __init__(self, unit_id):
         self.unit_id = unit_id
-        self._locations = dict(self.__class__._locations)  # 인스턴스 복사 (변이 방지)
         self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
         # Activity 상태 (think에서 단일 행동 계획용)
         self._current_activity = None   # 현재 수행 중인 activity entry
@@ -79,6 +78,7 @@ class BaseAgent:
             "clothing_phase": None,   # 착의 단계 (None/idle/going/taking/equipping)
             "clothing_last_attempt": None,  # 마지막 착의 시도 시각 (밀리초)
             "excretion_phase": None,  # 배변 단계 (None/idle/going/using)
+            "excretion_target": None, # 동적 탐색된 화장실 위치
             "self_comfort_phase": None,   # 자위 단계 (None/idle/going/performing)
             "self_comfort_cooldown": None, # 마지막 자위/탐색 시각 (밀리초)
             "seek_player_phase": None,    # 플레이어 탐색 단계 (None/idle/going)
@@ -192,10 +192,7 @@ class BaseAgent:
     # 수면 시스템
     # ========================================
 
-    # 서브클래스에서 오버라이드: NPC 장소 정보
-    # 예: {"sleep": {"region_id": 0, ...}, "bath": {...}, "wardrobe": {...}, "toilet": {...}}
-    _locations = {}
-    wardrobe_unique_id = "wardrobe"  # 옷장 오브젝트 unique_id (별도 유지)
+    # (시설 탐색은 facility_resolver를 통한 prop 기반 동적 탐색)
 
     def _is_sleep_time(self):
         """현재 시간이 수면 시간대인지 확인
@@ -252,8 +249,17 @@ class BaseAgent:
         Returns:
             dict: {"region_id", "location_id", "x", "bed_object_id", "rough"} or None
         """
-        sleep = self._locations.get("sleep")
-        if not sleep:
+        # bed_owner prop 기반 침대 탐색
+        owner_unique = self.owner_unique_id or ""
+        bed_loc = None
+        if owner_unique:
+            from think.facility_resolver import _find_facilities_by_prop
+            beds = _find_facilities_by_prop(f"bed_owner:{owner_unique}", 1)
+            if beds:
+                bed_loc = beds[0]
+
+        if not bed_loc:
+            # 소유 침대 없음 → 현재 위치에서 노숙
             loc = self.get_location()
             if loc:
                 return {"region_id": loc[0], "location_id": loc[1],
@@ -270,11 +276,10 @@ class BaseAgent:
                 f"수면 활동을 하려면 캐릭터에 'can:sleep': 1을 추가하세요."
             )
 
-        owner_unique = self.owner_unique_id or ""
         result = morld.resolve_sleep_target(
             self.unit_id,
-            sleep["region_id"],
-            sleep["location_id"],
+            bed_loc["region_id"],
+            bed_loc["location_id"],
             owner_unique
         )
         return result
@@ -628,9 +633,6 @@ class BaseAgent:
 
     def _check_excretion(self):
         """배변욕 확인 → 화장실 이동. Returns True if handling."""
-        if not self._locations.get("toilet"):
-            return False
-
         # 이미 진행 중이면 계속
         if self._memory["excretion_phase"] is not None:
             _handle_excretion(self)
@@ -643,7 +645,14 @@ class BaseAgent:
         except ImportError:
             return False
 
+        # 화장실 탐색
+        from think.facility_resolver import resolve_toilet
+        toilet = resolve_toilet(self)
+        if not toilet:
+            return False
+
         self._memory["excretion_phase"] = "idle"
+        self._memory["excretion_target"] = toilet
         _handle_excretion(self)
         return True
 
@@ -656,9 +665,6 @@ class BaseAgent:
         is_sleep, _ = self._is_sleep_time()
         if is_sleep:
             return False  # 스케줄 수면은 4d에서 처리
-
-        if not self._locations.get("sleep"):
-            return False
 
         try:
             import needs
@@ -1015,11 +1021,19 @@ class BaseAgent:
             )
         return self._activity_target
 
+    _home_region_id = None  # lazy cache (bed_owner prop 기반)
+
     def _get_home_region(self):
-        """NPC의 홈 region (_locations["sleep"] 기준, 없으면 현재 위치)"""
-        sleep = self._locations.get("sleep")
-        if sleep:
-            return sleep.get("region_id", 0)
+        """NPC의 홈 region (bed_owner prop 기반 침대 탐색, 없으면 현재 위치)"""
+        if self._home_region_id is not None:
+            return self._home_region_id
+        owner = getattr(self, 'owner_unique_id', None)
+        if owner:
+            from think.facility_resolver import _find_facilities_by_prop
+            beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
+            if beds:
+                self._home_region_id = beds[0]["region_id"]
+                return self._home_region_id
         loc = self.get_location()
         return loc[0] if loc else 0
 
@@ -1338,18 +1352,25 @@ class BaseAgent:
 
     def _find_lit_indoor_room(self, region_id):
         """조명이 켜진 거처 실내 방 찾기 (소등용)
-        거처 = _locations["sleep"]와 같은 건물(실내 연결) 내의 방
+        거처 = 소유 침대와 같은 건물(실내 연결) 내의 방
         """
         from assets.objects import _location_objects
 
-        sleep = self._locations.get("sleep")
-        sleep_r = sleep["region_id"] if sleep else region_id
-        sleep_l = sleep["location_id"] if sleep else None
+        # 소유 침대 위치로 건물 판정
+        sleep_r = region_id
+        sleep_l = None
+        owner = getattr(self, 'owner_unique_id', None)
+        if owner:
+            from think.facility_resolver import _find_facilities_by_prop
+            beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
+            if beds:
+                sleep_r = beds[0]["region_id"]
+                sleep_l = beds[0]["location_id"]
 
         for (r, l), obj_ids in _location_objects.items():
             if r != region_id:
                 continue
-            # 거처 필터: _locations["sleep"]와 같은 건물인 실내만 대상
+            # 거처 필터: 소유 침대와 같은 건물인 실내만 대상
             if sleep_l is not None and not morld.is_same_building(r, l, sleep_r, sleep_l):
                 continue
             loc_info = morld.get_location_info(r, l)
@@ -1383,9 +1404,6 @@ class BaseAgent:
 
     def _check_cold(self):
         """추위/젖음 확인 → 방한 활동 시작. Returns True if handling cold."""
-        if not self._locations.get("wardrobe"):
-            return False
-
         # 이미 진행 중이면 계속
         if self._memory["cold_phase"] is not None:
             _handle_cold(self)
@@ -1417,15 +1435,17 @@ class BaseAgent:
             if current_time - last_attempt < self.COLD_COOLDOWN_MILLIS:
                 return False
 
+        # 옷장 접근 가능 여부
+        from think.facility_resolver import resolve_wardrobe
+        if not resolve_wardrobe(self):
+            return False
+
         self._memory["cold_phase"] = "idle"
         _handle_cold(self)
         return True
 
     def _check_hot(self):
         """더위 확인 → 보온 의류 벗기. Returns True if handling hot."""
-        if not self._locations.get("wardrobe"):
-            return False
-
         # 이미 진행 중이면 계속
         if self._memory["hot_phase"] is not None:
             _handle_hot(self)
@@ -1435,6 +1455,11 @@ class BaseAgent:
         if not temperature.is_hot(self.unit_id):
             return False
         if temperature.get_insulation_total(self.unit_id) <= 0:
+            return False
+
+        # 옷장 접근 가능 여부
+        from think.facility_resolver import resolve_wardrobe
+        if not resolve_wardrobe(self):
             return False
 
         self._memory["hot_phase"] = "idle"
@@ -1455,9 +1480,6 @@ class BaseAgent:
 
     def _check_clothing(self):
         """착의 확인 → 옷장 이동. Returns True if handling."""
-        if not self._locations.get("wardrobe"):
-            return False
-
         # 이미 진행 중이면 계속
         if self._memory["clothing_phase"] is not None:
             _handle_clothing(self)
@@ -1479,6 +1501,11 @@ class BaseAgent:
             current_time = morld.get_game_time()
             if current_time - last < self.CLOTHING_COOLDOWN_MILLIS:
                 return False
+
+        # 옷장 접근 가능 여부
+        from think.facility_resolver import resolve_wardrobe
+        if not resolve_wardrobe(self):
+            return False
 
         self._memory["clothing_phase"] = "idle"
         _handle_clothing(self)
@@ -1547,8 +1574,14 @@ class BaseAgent:
         except ImportError:
             return False
         home_region = self._get_home_region()
-        sleep = self._locations.get("sleep")
-        sleep_l = sleep["location_id"] if sleep else None
+        # 소유 침대 위치로 건물 판정
+        sleep_l = None
+        owner = getattr(self, 'owner_unique_id', None)
+        if owner:
+            from think.facility_resolver import _find_facilities_by_prop
+            beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
+            if beds:
+                sleep_l = beds[0]["location_id"]
         for key, data in pollution._location_pollution.items():
             r, l = key
             if r != home_region:
@@ -1673,12 +1706,23 @@ def _handle_excretion(agent):
     phase = agent._memory["excretion_phase"]
 
     if phase == "idle":
+        # 화장실 타겟이 없으면 탐색
+        if not agent._memory.get("excretion_target"):
+            from think.facility_resolver import resolve_toilet
+            toilet = resolve_toilet(agent)
+            if not toilet:
+                agent._memory["excretion_phase"] = None
+                return
+            agent._memory["excretion_target"] = toilet
         agent._memory["excretion_phase"] = "going"
         _handle_excretion(agent)
         return
 
     elif phase == "going":
-        target = agent._locations.get("toilet")
+        target = agent._memory.get("excretion_target")
+        if not target:
+            agent._memory["excretion_phase"] = None
+            return
         if agent._is_at(target):
             agent._memory["excretion_phase"] = "using"
             agent._action_taken = True
@@ -1692,6 +1736,7 @@ def _handle_excretion(agent):
         except ImportError:
             morld.set_unit_prop(agent.unit_id, "욕구:배변", 0)
         agent._memory["excretion_phase"] = None
+        agent._memory.pop("excretion_target", None)
         agent._insert_idle_job("화장실", 5 * 60_000)  # 5분
         agent._action_taken = True
 
@@ -2106,20 +2151,21 @@ def _resolve_private_location(agent):
     if _is_valid(cur_r, cur_l):
         return {"region_id": cur_r, "location_id": cur_l, "x": 0}
 
-    # 2. 침실
-    sleep = agent._locations.get("sleep")
-    if sleep:
-        sr = sleep["region_id"]
-        sl = sleep["location_id"]
-        if _is_valid(sr, sl):
-            return sleep
+    # 2. 침실 (소유 침대 위치)
+    owner = getattr(agent, 'owner_unique_id', None)
+    if owner:
+        from think.facility_resolver import _find_facilities_by_prop
+        beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
+        if beds:
+            bed = beds[0]
+            if _is_valid(bed["region_id"], bed["location_id"]):
+                return bed
 
     # 3. 화장실
-    toilet = agent._locations.get("toilet")
+    from think.facility_resolver import resolve_toilet
+    toilet = resolve_toilet(agent)
     if toilet:
-        tr = toilet["region_id"]
-        tl = toilet["location_id"]
-        if _is_valid(tr, tl):
+        if _is_valid(toilet["region_id"], toilet["location_id"]):
             return toilet
 
     # 4. region 내 가장 가까운 후보

@@ -416,7 +416,7 @@ class BaseAgent:
 
 **v0.2.2 추가 구현:**
 - 추위/더위 인터럽트 → 의류 자동 착탈 (`_check_cold`/`_check_hot`)
-- 시설 탐색 리졸버 → 목욕 선착순 + 옷장 우선순위 탐색 (`facility_resolver.py`)
+- 시설 탐색 리졸버 → 목욕/화장실 선착순 + 옷장 소유권 탐색 (`facility_resolver.py`)
 - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적
 - **배변 인터럽트** → `_check_excretion()` + `_handle_excretion()` (Tier 4)
 - **피로 인터럽트** → `_check_fatigue()` + `_handle_sleep()` 재사용 (Tier 4)
@@ -504,10 +504,11 @@ self._memory = {
 |----|------|----------|
 | `tool` | 도구를 가져온 컨테이너 위치 기억 (반납 시 사용) | 벌목/낚시/청소 |
 | `hunger_phase` | 식사 인터럽트 multi-step 상태 | 전체 |
-| `cold_phase` | 방한 인터럽트 단계 | 전체 (wardrobe_location 설정 NPC) |
+| `cold_phase` | 방한 인터럽트 단계 | 전체 (resolve_wardrobe 가능 NPC) |
 | `cold_last_attempt` | 추위 대응 쿨다운 (1시간) | 전체 |
 | `hot_phase` | 더위 인터럽트 단계 | 전체 |
-| `excretion_phase` | 배변 인터럽트 단계 | 전체 (toilet_location 설정 NPC) |
+| `excretion_phase` | 배변 인터럽트 단계 | 전체 (resolve_toilet 가능 NPC) |
+| `excretion_target` | 배변 대상 화장실 캐시 | 전체 |
 | `current_season` | 계절 변화 감지 → 스케줄 갱신 | 밀라 |
 | `current_day_type` | 요일 타입 변화 감지 → 스케줄 갱신 | 세라 |
 
@@ -766,7 +767,7 @@ agent.push_schedule(work_order)
 - `think/activities/` - 활동 핸들러 패키지 (8종: 소등/벌목/낚시/채집/요리/청소/물자수집/정원)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
-- `think/facility_resolver.py` - 시설 탐색 리졸버 (목욕 선착순 + 옷장 우선순위 탐색) (v0.2.2)
+- `think/facility_resolver.py` - 시설 탐색 리졸버 (목욕/화장실 선착순 + 옷장 소유권 탐색) (v0.2.2)
 - `think/resource_agent.py` - 자원 재생 시스템 (인벤토리 기반 + props 기반)
 - `think/trap_agent.py` - 덫 시스템 (토끼 굴 체크)
 - `survival.py` - NPC 만복도 추적 (register_npc, is_npc_hungry, npc_eat, 기절 시스템)

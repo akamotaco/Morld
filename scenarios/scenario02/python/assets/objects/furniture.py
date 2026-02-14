@@ -852,12 +852,14 @@ class Bed(Object):
     focus_text = {"default": "작지만 편안해 보이는 침대. 깨끗한 이불이 깔려 있다."}
 
     def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
-        """bed_owner가 설정되어 있으면 props에 bed_owner:{name} = 1 추가"""
+        """bed_owner가 설정되어 있으면 props에 bed_owner:{name} = 1 추가 (복수 소유자 지원)"""
         bed_owner = getattr(self, 'bed_owner', None)
         if bed_owner:
             # 클래스 변수 보호를 위해 인스턴스별 복사
             self.props = dict(self.props) if self.props else {}
-            self.props[f"bed_owner:{bed_owner}"] = 1
+            owners = bed_owner if isinstance(bed_owner, list) else [bed_owner]
+            for owner in owners:
+                self.props[f"bed_owner:{owner}"] = 1
         super().instantiate(instance_id, region_id, location_id, x, y)
 
     def _find_owner_unit(self, region_id, location_id, owner_unique):
@@ -1026,6 +1028,16 @@ class Wardrobe(Object):
         "call:debug_props:(디버그) 속성 보기#"
     ]
     focus_text = {"default": "옷을 보관할 수 있는 나무 옷장."}
+
+    def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
+        """wardrobe_owner가 설정되어 있으면 props에 wardrobe_owner:{name} = 1 추가 (복수 소유자 지원)"""
+        wardrobe_owner = getattr(self, 'wardrobe_owner', None)
+        if wardrobe_owner:
+            self.props = dict(self.props) if self.props else {}
+            owners = wardrobe_owner if isinstance(wardrobe_owner, list) else [wardrobe_owner]
+            for owner in owners:
+                self.props[f"wardrobe_owner:{owner}"] = 1
+        super().instantiate(instance_id, region_id, location_id, x, y)
 
     def look(self):
         """옷장 살펴보기"""

@@ -353,19 +353,27 @@ def spawn_child(mother_agent):
         "부모:아버지": father_name,
     }
 
-    # 어머니 수면 위치에 배치
-    loc = mother_agent._locations.get("sleep")
-    if not loc:
-        loc = {"region_id": 0, "location_id": 1}
+    # 어머니 소유 침대 위치에 배치
+    from think.facility_resolver import _find_facilities_by_prop
+    mother_owner = getattr(mother_agent, 'owner_unique_id', None)
+    mother_bed = None
+    if mother_owner:
+        beds = _find_facilities_by_prop(f"bed_owner:{mother_owner}", 1)
+        if beds:
+            mother_bed = beds[0]
+    loc = mother_bed or {"region_id": 0, "location_id": 1}
 
     child_id = morld.create_id("unit")
     child.instantiate(child_id, loc["region_id"], loc["location_id"])
+
+    # 어머니 침대에 아이도 소유자로 추가 (bed_owner:{child_unique_id})
+    if mother_bed:
+        morld.set_unit_prop(mother_bed["object_id"], f"bed_owner:{child.unique_id}", 1)
 
     # Agent 등록
     from think import register_agent
     from think.child_agent import ChildAgent
     agent = ChildAgent(child_id)
-    agent._locations["sleep"] = loc
     register_agent(child_id, agent)
 
     import needs

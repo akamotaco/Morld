@@ -13,9 +13,9 @@
 > - 자원 순환 → 채집→저장→요리→식사 파이프라인
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
 > - 텃밭 활동 → 정원 4-phase (idle/going/working/storing_harvest)
-> - 시설 탐색 리졸버 → `facility_resolver.py` (목욕 선착순 + 옷장 우선순위 탐색) (v0.2.2)
+> - 시설 탐색 리졸버 → `facility_resolver.py` (목욕/화장실 선착순 + 옷장 소유권 탐색) (v0.2.2)
 > - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적 (v0.2.2)
-> - **배변 인터럽트** → toilet_location 기반 화장실 이동 (v0.2.2)
+> - **배변 인터럽트** → `resolve_toilet()` 동적 탐색 + 화장실 이동 (v0.2.2)
 > - **피로 인터럽트** → 비스케줄 수면 자동 시작 (v0.2.2)
 > - **청결 인터럽트** → 비스케줄 목욕 자동 시작 (v0.2.2)
 >
@@ -268,7 +268,7 @@ def _process_hourly(unit_id):
 
 ### 배변 인터럽트 (`_check_excretion` → `_handle_excretion`)
 
-**조건**: `toilet_location` 설정 + `욕구:배변 ≥ 70`
+**조건**: `욕구:배변 ≥ 70` + `resolve_toilet()` 성공 (화장실 탐색 가능)
 
 **페이즈 흐름** (`_memory["excretion_phase"]`):
 ```
@@ -278,18 +278,11 @@ None → idle → going → using → None
 | 페이즈 | 동작 |
 |--------|------|
 | `idle` | → `going` |
-| `going` | `toilet_location`으로 이동 (move job) |
+| `going` | `_memory["excretion_target"]` (동적 탐색 결과)로 이동 |
 | `using` | `needs.set_excretion(0)` + 5분 대기 → 완료 |
 
-### toilet_location 설정
-
-| NPC | toilet_location | 위치 |
-|-----|-----------------|------|
-| 세라 | `{"region_id": 0, "location_id": 16, "x": 15}` | 2층 화장실 |
-| 리나 | `{"region_id": 0, "location_id": 16, "x": 15}` | 2층 화장실 |
-| 밀라 | `{"region_id": 0, "location_id": 15, "x": 15}` | 1층 화장실 |
-| 엘라 | `{"region_id": 2, "location_id": 5, "x": 170}` | 은신처 간이 화장실 |
-| 유키 | `{"region_id": 2, "location_id": 5, "x": 170}` | 은신처 간이 화장실 |
+화장실은 `resolve_toilet(agent)` (prop `action:toilet` 기반)으로 동적 탐색.
+`_memory["excretion_target"]`에 캐시, 완료 시 자동 정리.
 
 ### 비스케줄 fallback duration
 
@@ -363,7 +356,7 @@ Tier 5 (Routine): 스케줄 기반 일반 활동
 
 **트리거 조건** (모두 충족):
 1. 체온 ≤ 35.5 AND 보온 < 2, **OR** 비 + 젖음 > 30 + 방수 < 1
-2. `wardrobe_location` 설정됨 (옷장 접근 가능)
+2. `resolve_wardrobe()` 성공 (옷장 접근 가능)
 3. 1시간 쿨다운 경과 (`_memory["cold_last_attempt"]`)
 
 **페이즈 흐름** (`_memory["cold_phase"]`):
@@ -374,7 +367,7 @@ None → idle → going → taking → equipping → None
 | 페이즈 | 동작 |
 |--------|------|
 | `idle` | 인벤토리에 보온 아이템 있으면 → `equipping`, 없으면 → `going` |
-| `going` | `wardrobe_location`으로 이동 (move job) |
+| `going` | `resolve_wardrobe()` 결과 위치로 이동 (move job) |
 | `taking` | 옷장에서 보온/방수 아이템 꺼내기 (`npc_take_item`) |
 | `equipping` | 인벤토리의 보온/방수 아이템 장착 (`equipment.equip_item`) → 완료 |
 
@@ -383,7 +376,7 @@ None → idle → going → taking → equipping → None
 **트리거 조건** (모두 충족):
 1. 체온 ≥ 37.5
 2. 보온 합계 > 0 (보온 의류 착용 중)
-3. `wardrobe_location` 설정됨
+3. `resolve_wardrobe()` 성공
 
 **페이즈 흐름** (`_memory["hot_phase"]`):
 ```
@@ -396,19 +389,15 @@ None → idle → unequipping → storing → None
 | `unequipping` | 보온 아이템 벗기 (`equipment.unequip_item`), 이동 불필요 |
 | `storing` | 옷장 location이면 옷장에 넣기, 아니면 인벤토리 보관 → 완료 |
 
-### wardrobe_location 설정
+### 옷장 탐색 (동적)
 
-각 NPC 에이전트에 `wardrobe_location` dict 설정:
+`resolve_wardrobe(agent)` — prop 기반 동적 탐색 (하드코딩 제거):
+1. 소유 옷장: `wardrobe_owner:{owner_unique_id}` prop 매칭
+2. 아무 옷장: `unique_id == "wardrobe"` (모브 fallback)
+3. home_region 우선, `cross_region=True`일 때 다른 region도 탐색
 
-| NPC | wardrobe_location | 위치 |
-|-----|-------------------|------|
-| 세라 | `{"region_id": 0, "location_id": 8, "x": 25}` | 세라방 옷장 |
-| 밀라 | `{"region_id": 0, "location_id": 9, "x": 25}` | 밀라방 옷장 |
-| 리나 | `{"region_id": 0, "location_id": 7, "x": 25}` | 리나방 옷장 |
-| 유키 | `{"region_id": 2, "location_id": 6, "x": 120}` | 의류점 |
-| 엘라 | `{"region_id": 2, "location_id": 6, "x": 120}` | 의류점 |
-
-`BaseAgent`에 `wardrobe_location = None` (기본: 비활성). `wardrobe_unique_id = "wardrobe"`.
+옷장 소유권은 Location 파일에서 `wardrobe.wardrobe_owner = "sera"` 등으로 설정.
+`Wardrobe.instantiate()`에서 `wardrobe_owner:{name}` prop 자동 추가.
 
 ### _memory 키
 
@@ -420,6 +409,7 @@ self._memory = {
     "clothing_phase": None,      # None/idle/going/taking/equipping
     "clothing_last_attempt": None,  # 실패 시 쿨다운 타임스탬프
     "excretion_phase": None,     # None/idle/going/using
+    "excretion_target": None,    # resolve_toilet() 결과 캐시
 }
 ```
 
@@ -427,7 +417,7 @@ self._memory = {
 
 **트리거 조건** (모두 충족):
 1. `착용:상의` 또는 `착용:하의` 슬롯 미착용 (나체/반나체)
-2. `wardrobe_location` 설정됨
+2. `resolve_wardrobe()` 성공 (옷장 접근 가능)
 3. `cold_phase`/`hot_phase` 비활성 (의류 핸들러 충돌 방지)
 4. 1시간 쿨다운 경과 (`_memory["clothing_last_attempt"]`)
 
@@ -439,7 +429,7 @@ None → idle → going → taking → equipping → None
 | 페이즈 | 동작 |
 |--------|------|
 | `idle` | 인벤토리에 상의/하의 있으면 → `equipping`, 없으면 → `going` |
-| `going` | `wardrobe_location`으로 이동 |
+| `going` | `resolve_wardrobe()` 결과 위치로 이동 |
 | `taking` | 옷장에서 부족 슬롯(상의/하의) 아이템 꺼내기 |
 | `equipping` | 인벤토리의 상의/하의 장착 → 완료 |
 
@@ -449,21 +439,27 @@ None → idle → going → taking → equipping → None
 
 ## 2-C. 시설 탐색 리졸버 — 구현됨 (v0.2.2)
 
-> `think/facility_resolver.py` — 목욕/옷장 등 시설의 우선순위 탐색 + 선착순 점유
+> `think/facility_resolver.py` — 목욕/화장실/옷장 시설의 prop 기반 동적 탐색 + 선착순 점유
 
 ### 개요
 
-NPC가 시설(욕조, 옷장 등)을 사용할 때 하드코딩 좌표 대신 **우선순위 기반 동적 탐색**을 수행합니다.
+NPC가 시설(욕조, 화장실, 옷장)을 사용할 때 **prop 기반 동적 탐색**을 수행합니다.
+하드코딩 좌표(`_locations` dict) 완전 제거 — 모든 시설은 오브젝트 prop으로 탐색.
 `activity_resolver.py`와 동일한 stateless 패턴 (lazy init 불필요, 챕터 전환 이슈 없음).
 
 ### 탐색 우선순위
 
 ```
-1. agent.bath_location / wardrobe_location (선호 위치)
-2. 같은 region의 다른 시설
+1. 소유권 prop 매칭 (옷장: wardrobe_owner:{owner})
+2. home_region 내 시설 (bed_owner:{owner} prop 기반 home_region 판정)
 3. (cross_region=True일 때만) 다른 region의 시설
 4. 모두 점유/없음 → None
 ```
+
+### home_region 판정
+
+`_get_home_region()` — `bed_owner:{owner_unique_id}` prop으로 소유 침대 위치에서 region 판정.
+lazy cache (`_home_region_id`)로 한 번만 탐색, 이후 캐시 사용.
 
 ### 목욕 시설 탐색 (`resolve_bath`)
 
@@ -474,8 +470,7 @@ target = resolve_bath(agent)                    # 탐색 (선착순 점유)
 target = resolve_bath(agent, cross_region=True) # 다른 region도 탐색
 ```
 
-**선착순 점유**: 욕조의 location에 목욕 중인 NPC가 없으면 사용 가능.
-needs 시스템의 주기적 체크로 자연스럽게 재시도됨 (예약 불필요).
+prop: `action:bath`. 선착순 점유 — 욕조의 location에 목욕 중인 NPC가 없으면 사용 가능.
 
 | 동작 | 설명 |
 |------|------|
@@ -483,16 +478,31 @@ needs 시스템의 주기적 체크로 자연스럽게 재시도됨 (예약 불�
 | 점유 판정 | location 내 NPC가 `_is_bath_time()` 또는 `is_npc_need_bath()` → 점유 |
 | 재시도 | needs 주기적 체크로 자연 재시도 (별도 대기 로직 불필요) |
 
+### 화장실 탐색 (`resolve_toilet`)
+
+```python
+from think.facility_resolver import resolve_toilet
+
+target = resolve_toilet(agent)                    # 탐색 (선착순 점유)
+target = resolve_toilet(agent, cross_region=True) # 다른 region도 탐색
+```
+
+prop: `action:toilet`. 선착순 점유 — 화장실의 location에 배변 중(`excretion_phase` 활성) NPC가 없으면 사용 가능.
+
 ### 옷장 탐색 (`resolve_wardrobe`)
 
 ```python
 from think.facility_resolver import resolve_wardrobe
 
-target = resolve_wardrobe(agent)  # 탐색 (예약 불필요)
+target = resolve_wardrobe(agent)  # 탐색 (소유권 기반)
 ```
 
+소유권 기반 탐색:
+1. `wardrobe_owner:{owner_unique_id}` prop 매칭 (소유 옷장)
+2. `unique_id == "wardrobe"` fallback (모브 NPC용)
+
 점유 감지 없음 (동시 사용 충돌 불가).
-추위/더위 인터럽트의 `_handle_cold`/`_handle_hot`에서 옷장 위치 탐색에 사용.
+추위/더위/착의 인터럽트의 `_handle_cold`/`_handle_hot`/`_handle_clothing`에서 사용.
 
 ### 반환값
 
@@ -505,6 +515,15 @@ target = resolve_wardrobe(agent)  # 탐색 (예약 불필요)
 }
 # 또는 None (시설 없음)
 ```
+
+### 시설 prop 정리
+
+| 오브젝트 | prop | 용도 |
+|----------|------|------|
+| Toilet, PortableToilet | `action:toilet = 1` | 화장실 탐색 |
+| DrumBath, BathroomBath | `action:bath = 1` | 목욕 시설 탐색 |
+| Wardrobe | `wardrobe_owner:{name} = 1` | 소유 옷장 탐색 |
+| Bed, SleepingBag 등 | `bed_owner:{name} = 1` | 소유 침대 탐색, home_region 판정 |
 
 ---
 

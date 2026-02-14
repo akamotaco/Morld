@@ -341,7 +341,7 @@ def handle_childbirth(agent, entry):
 
     if phase == "idle":
         # 출산 장소 결정 (침실 우선)
-        target = agent.sleep_location or _find_safe_location(agent)
+        target = _find_bed_location(agent) or _find_safe_location(agent)
         agent._memory["childbirth_target"] = target
         agent._memory["childbirth_phase"] = "going"
         # 이동 job 삽입
@@ -402,7 +402,8 @@ def _spawn_child(mother_agent):
     child.type = _determine_child_gender()
 
     # 3. 어머니 위치에 배치
-    loc = mother_agent.sleep_location
+    # bed_owner:{mother} prop으로 어머니 침대 위치 탐색
+    loc = _find_bed_location(mother_agent)
     child.instantiate(child_id, loc["region_id"], loc["location_id"])
 
     # 4. Agent 등록
@@ -464,7 +465,7 @@ class ChildAgent(BaseAgent):
 
 ### 수면 위치
 
-- 출산 직후: 어머니의 `sleep_location`에서 함께 수면
+- 출산 직후: 어머니의 침대(`bed_owner:{mother}` prop)에서 함께 수면 (어머니 침대에 `bed_owner:{child}` prop 자동 추가)
 - 이후: 아이 침대(craftable) 배치 시 별도 위치
 
 ---

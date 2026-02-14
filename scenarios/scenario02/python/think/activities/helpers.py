@@ -175,9 +175,16 @@ def find_indoor_room(agent):
     from assets.objects import _location_objects
 
     cleaned = agent._activity_state.get("cleaned", set())
-    sleep = agent._locations.get("sleep")
     home_region = agent._get_home_region()
-    sleep_l = sleep["location_id"] if sleep else None
+
+    # 소유 침대 위치로 건물 판정
+    sleep_l = None
+    owner = getattr(agent, 'owner_unique_id', None)
+    if owner:
+        from think.facility_resolver import _find_facilities_by_prop
+        beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
+        if beds:
+            sleep_l = beds[0]["location_id"]
 
     for (r, l) in _location_objects.keys():
         if r != home_region:
@@ -219,8 +226,15 @@ def find_polluted_room(agent):
 
     cleaned = agent._activity_state.get("cleaned", set())
     home_region = agent._get_home_region()
-    sleep = agent._locations.get("sleep")
-    sleep_l = sleep["location_id"] if sleep else None
+
+    # 소유 침대 위치로 건물 판정
+    sleep_l = None
+    owner = getattr(agent, 'owner_unique_id', None)
+    if owner:
+        from think.facility_resolver import _find_facilities_by_prop
+        beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
+        if beds:
+            sleep_l = beds[0]["location_id"]
 
     for key, data in pollution._location_pollution.items():
         r, l = key

@@ -32,6 +32,7 @@ class SeraRoom(Location):
 
         # 옷장 추가 + 옷 배치
         wardrobe = Wardrobe()
+        wardrobe.wardrobe_owner = "sera"
         wardrobe_id = self.add_object(wardrobe, x=25)  # 침대 옆
 
         from assets.items.clothes import (

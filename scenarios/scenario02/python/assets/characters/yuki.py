@@ -1009,12 +1009,6 @@ class YukiAgent(BaseAgent):
     ]
 
     owner_unique_id = "yuki"
-    _locations = {
-        "sleep": {"region_id": 2, "location_id": 5, "x": 50},        # 은신처 유키침대
-        "bath": {"region_id": 2, "location_id": 5, "x": 150},        # 은신처 드럼통
-        "wardrobe": {"region_id": 2, "location_id": 6, "x": 120},    # 의류점 옷걸이
-        "toilet": {"region_id": 2, "location_id": 5, "x": 170},      # 은신처 간이 화장실
-    }
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

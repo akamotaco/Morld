@@ -14,6 +14,7 @@ class Toilet(Object):
     unique_id = "toilet"
     name = "변기"
     actions = ["call:use:사용하기", "call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {"action:toilet": 1}
     focus_text = {"default": "낡지만 깨끗하게 관리된 변기."}
 
     def look(self):
@@ -53,6 +54,7 @@ class PortableToilet(Object):
     unique_id = "portable_toilet"
     name = "간이 화장실"
     actions = ["call:use:사용하기", "call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {"action:toilet": 1}
     focus_text = {"default": "양동이와 판자로 만든 간이 화장실. 없는 것보다는 낫다."}
 
     def look(self):

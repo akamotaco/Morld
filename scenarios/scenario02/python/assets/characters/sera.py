@@ -1214,12 +1214,6 @@ class SeraAgent(BaseAgent):
     }
 
     owner_unique_id = "sera"
-    _locations = {
-        "sleep": {"region_id": 0, "location_id": 8, "x": 120},      # 세라방
-        "bath": {"region_id": 0, "location_id": 4, "x": 15},         # 욕실
-        "wardrobe": {"region_id": 0, "location_id": 8, "x": 25},     # 세라방 옷장
-        "toilet": {"region_id": 0, "location_id": 16, "x": 15},      # 2층 화장실
-    }
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

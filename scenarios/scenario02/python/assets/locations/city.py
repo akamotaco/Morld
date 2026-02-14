@@ -275,7 +275,7 @@ class Hideout(Location):
         from assets.objects.furniture import SleepingBag
         sleeping_bag = SleepingBag()
         sleeping_bag.name = "유키의 침낭"
-        sleeping_bag.bed_owner = "yuki"
+        sleeping_bag.bed_owner = ["yuki", "ella"]
         sleeping_bag.focus_text = {"default": "바닥에 펼쳐진 넓은 침낭. 두 사람이 겨우 들어갈 수 있는 크기다."}
         self.add_object(sleeping_bag, x=50)
 
@@ -349,6 +349,7 @@ class ClothingStore(Location):
         from assets.objects.furniture import Wardrobe
         wardrobe = Wardrobe()
         wardrobe.name = "옷걸이"
+        wardrobe.wardrobe_owner = ["yuki", "ella"]
         wardrobe_id = self.add_object(wardrobe)
 
         from assets.items.clothes import (
