@@ -70,8 +70,8 @@ sys.modules["survival"] = _survival
 
 # temperature
 _temperature = sys.modules.get("temperature") or types.ModuleType("temperature")
-_temperature.is_cold = lambda uid: False
-_temperature.is_hot = lambda uid: False
+_temperature.is_cold = lambda uid, threshold=35.5: False
+_temperature.is_hot = lambda uid, threshold=37.5: False
 _temperature.get_insulation_total = lambda uid: 0
 _temperature._get_equip_prop_total = lambda uid, prop: 0
 _temperature.warm_character = lambda uid, amount: None
@@ -144,6 +144,45 @@ sys.modules["pollution"] = _pollution
 # congestion
 _congestion = sys.modules.get("congestion") or types.ModuleType("congestion")
 sys.modules["congestion"] = _congestion
+
+# fuel
+_fuel = sys.modules.get("fuel") or types.ModuleType("fuel")
+_fuel.FUEL_VALUES = {"branch": 2, "log": 6}
+_fuel.PROP_FUEL = "heat:fuel"
+_fuel.PROP_FUEL_MAX = "heat:fuel_max"
+_fuel.PROP_FUEL_MODE = "heat:fuel_mode"
+_fuel.DEFAULT_FUEL_MAX = 24
+_fuel._fuel_sources = {}
+_fuel.register_fuel_source = lambda uid, r, l: _fuel._fuel_sources.update({uid: {"region_id": r, "location_id": l}})
+_fuel.is_fuel_source = lambda uid: uid in _fuel._fuel_sources
+_fuel.needs_fuel = lambda uid, threshold=6: (morld.get_unit_prop(uid, "heat:fuel_mode") or 0) > 0 and (morld.get_unit_prop(uid, "heat:fuel") or 0) < threshold
+_fuel.get_fuel_level = lambda uid: morld.get_unit_prop(uid, "heat:fuel") or 0
+_fuel.get_fuel_max = lambda uid: morld.get_unit_prop(uid, "heat:fuel_max") or 24
+_fuel.get_sources_in_region = lambda r: [uid for uid, info in _fuel._fuel_sources.items() if info["region_id"] == r]
+_fuel.reset = lambda: _fuel._fuel_sources.clear()
+def _fuel_load(unit_id, item_uid, count=1):
+    val = _fuel.FUEL_VALUES.get(item_uid, 0)
+    if val <= 0:
+        return 0
+    added = val * count
+    cur = morld.get_unit_prop(unit_id, "heat:fuel") or 0
+    mx = morld.get_unit_prop(unit_id, "heat:fuel_max") or 24
+    new = min(cur + added, mx)
+    morld.set_unit_prop(unit_id, "heat:fuel", new)
+    if new > 0 and not morld.get_unit_prop(unit_id, "light:on"):
+        morld.set_unit_prop(unit_id, "light:on", 1)
+    return new - cur
+_fuel.load_fuel = _fuel_load
+def _fuel_npc_load(npc_id, hs_id, item_uid, count=1):
+    # 간이 구현: NPC 인벤토리에서 제거하고 load_fuel 호출
+    val = _fuel.FUEL_VALUES.get(item_uid, 0)
+    if val <= 0:
+        return 0
+    inv = morld.get_unit_inventory(npc_id)
+    # 아이템 unique_id → item_id 매핑은 테스트에서 직접 설정
+    return _fuel.load_fuel(hs_id, item_uid, count)
+_fuel.npc_load_fuel = _fuel_npc_load
+sys.modules["fuel"] = _fuel
 
 # ============================================
 # 4b. think 모듈 클린업 (이전 테스트가 partial import 유발 가능)
@@ -224,8 +263,8 @@ def _reset_all():
     _survival._eat_log.clear()
 
     # temperature
-    _temperature.is_cold = lambda uid: False
-    _temperature.is_hot = lambda uid: False
+    _temperature.is_cold = lambda uid, threshold=35.5: False
+    _temperature.is_hot = lambda uid, threshold=37.5: False
     _temperature.get_insulation_total = lambda uid: 0
     _temperature._get_equip_prop_total = lambda uid, prop: 0
 
@@ -249,6 +288,9 @@ def _reset_all():
 
     # romance — semen total (bath check에서 사용)
     _romance.get_semen_total = lambda uid: 0
+
+    # fuel
+    _fuel._fuel_sources.clear()
 
     # think helpers — 기본값 복원
     _think_module._find_npc_food = lambda uid: None
@@ -899,3 +941,209 @@ class TestMovement:
 
         job = _last_job(agent)
         assert job is None
+
+
+# ============================================
+# J. TestFuelSystem — 연료 소비/장전 검증
+# ============================================
+
+HEAT_SOURCE_ID = 500
+
+def _create_heat_source(fuel_level=12, fuel_max=24, fuel_mode=1):
+    """테스트용 소비형 열원 등록"""
+    morld.register_unit(HEAT_SOURCE_ID, "PortableStove", location=(2, 5))
+    morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel", fuel_level)
+    morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel_max", fuel_max)
+    morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel_mode", fuel_mode)
+    morld.set_unit_prop(HEAT_SOURCE_ID, "light:on", 1)
+    morld.set_unit_prop(HEAT_SOURCE_ID, "heat:output", 8)
+    _fuel.register_fuel_source(HEAT_SOURCE_ID, 2, 5)
+
+
+class TestFuelSystem:
+    def test_fuel_load_branch(self):
+        """나뭇가지 장전 → fuel += 2"""
+        _reset_all()
+        _create_heat_source(fuel_level=5)
+        added = _fuel.load_fuel(HEAT_SOURCE_ID, "branch", 1)
+        assert added == 2
+        assert _fuel.get_fuel_level(HEAT_SOURCE_ID) == 7
+
+    def test_fuel_load_log(self):
+        """통나무 장전 → fuel += 6"""
+        _reset_all()
+        _create_heat_source(fuel_level=5)
+        added = _fuel.load_fuel(HEAT_SOURCE_ID, "log", 1)
+        assert added == 6
+        assert _fuel.get_fuel_level(HEAT_SOURCE_ID) == 11
+
+    def test_fuel_load_cap(self):
+        """최대 연료 초과 불가"""
+        _reset_all()
+        _create_heat_source(fuel_level=22, fuel_max=24)
+        added = _fuel.load_fuel(HEAT_SOURCE_ID, "log", 1)  # +6 but capped
+        assert added == 2  # 24 - 22 = 2
+        assert _fuel.get_fuel_level(HEAT_SOURCE_ID) == 24
+
+    def test_fuel_load_auto_ignite(self):
+        """연료 장전 시 꺼져있으면 자동 점화"""
+        _reset_all()
+        _create_heat_source(fuel_level=0)
+        morld.set_unit_prop(HEAT_SOURCE_ID, "light:on", 0)
+        _fuel.load_fuel(HEAT_SOURCE_ID, "branch", 1)
+        assert morld.get_unit_prop(HEAT_SOURCE_ID, "light:on") == 1
+
+    def test_needs_fuel_true(self):
+        """연료 부족 → needs_fuel True"""
+        _reset_all()
+        _create_heat_source(fuel_level=3)
+        assert _fuel.needs_fuel(HEAT_SOURCE_ID) is True
+
+    def test_needs_fuel_false_sufficient(self):
+        """연료 충분 → needs_fuel False"""
+        _reset_all()
+        _create_heat_source(fuel_level=10)
+        assert _fuel.needs_fuel(HEAT_SOURCE_ID) is False
+
+    def test_needs_fuel_false_infinite(self):
+        """무한 모드 → needs_fuel always False"""
+        _reset_all()
+        _create_heat_source(fuel_level=0, fuel_mode=0)
+        assert _fuel.needs_fuel(HEAT_SOURCE_ID) is False
+
+    def test_is_fuel_source(self):
+        """등록된 열원 확인"""
+        _reset_all()
+        _create_heat_source()
+        assert _fuel.is_fuel_source(HEAT_SOURCE_ID) is True
+        assert _fuel.is_fuel_source(999) is False
+
+    def test_get_sources_in_region(self):
+        """region별 열원 조회"""
+        _reset_all()
+        _create_heat_source()
+        sources = _fuel.get_sources_in_region(2)
+        assert HEAT_SOURCE_ID in sources
+        assert len(_fuel.get_sources_in_region(0)) == 0
+
+    def test_fuel_load_invalid_item(self):
+        """잘못된 아이템 → 0 반환"""
+        _reset_all()
+        _create_heat_source(fuel_level=5)
+        added = _fuel.load_fuel(HEAT_SOURCE_ID, "stone", 1)
+        assert added == 0
+        assert _fuel.get_fuel_level(HEAT_SOURCE_ID) == 5
+
+    def test_fuel_reset(self):
+        """reset → 등록 정보 초기화"""
+        _reset_all()
+        _create_heat_source()
+        assert _fuel.is_fuel_source(HEAT_SOURCE_ID) is True
+        _fuel.reset()
+        assert _fuel.is_fuel_source(HEAT_SOURCE_ID) is False
+
+
+# ============================================
+# K. TestWakeFromCold — 추위 기상 검증
+# ============================================
+
+class TestWakeFromCold:
+    def test_sleep_continues_when_warm(self):
+        """따뜻할 때 → 수면 유지 (tier 1에서 처리)"""
+        # 수면 시간(22h) + 침대에 앉은 상태
+        agent = _create_agent(time_millis=23 * _H, location=(0, 1))
+        morld.set_unit_prop(NPC_ID, "seated_on:bed", 999)
+        _temperature.is_cold = lambda uid, threshold=35.5: False
+
+        agent.think()
+
+        job = _last_job(agent)
+        assert job is not None
+        assert job["name"] == "sleep", "따뜻하면 수면 유지"
+
+    def test_wake_when_cold(self):
+        """체온 위험 → 수면 중 기상 + tier 3 cold 처리"""
+        # 수면 시간 + 침대에 앉은 상태
+        agent = _create_agent(time_millis=23 * _H, location=(0, 1))
+        morld.set_unit_prop(NPC_ID, "seated_on:bed", 999)
+        # is_cold: 어떤 threshold든 True (체온이 매우 낮음)
+        _temperature.is_cold = lambda uid, threshold=35.5: True
+        _temperature.get_insulation_total = lambda uid: 0
+        # cold handler 진행용 옷장 위치
+        wloc = agent.wardrobe_location
+        _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
+
+        agent.think()
+
+        # tier 1 통과 → _ensure_standing → tier 3 cold 처리
+        # cold_phase가 시작되어야 함
+        assert agent._memory["cold_phase"] is not None, "추위 기상 → cold 처리 시작"
+        job = _last_job(agent)
+        assert job is not None
+        # sleep이 아닌 다른 job (move or stay)
+        assert job["name"] != "sleep", "기상 후 sleep이 아니어야 함"
+
+    def test_wake_threshold_specificity(self):
+        """35.5 이하이지만 35.0 초과 → 기상하지 않음 (미세한 추위는 무시)"""
+        agent = _create_agent(time_millis=23 * _H, location=(0, 1))
+        morld.set_unit_prop(NPC_ID, "seated_on:bed", 999)
+        # threshold=35.0일 때만 False (35.5는 True지만 35.0은 False)
+        _temperature.is_cold = lambda uid, threshold=35.5: threshold > 35.0
+
+        agent.think()
+
+        job = _last_job(agent)
+        assert job is not None
+        assert job["name"] == "sleep", "미세한 추위에서는 수면 유지"
+
+
+# ============================================
+# L. TestNeedFuelCondition — need_fuel 스케줄 조건
+# ============================================
+
+class TestNeedFuelCondition:
+    def test_need_fuel_true(self):
+        """소비형 열원 연료 부족 → condition True"""
+        agent = _create_agent()
+        # agent home_region=0이므로 region 0에 열원 등록
+        morld.register_unit(HEAT_SOURCE_ID, "Stove", location=(0, 7))
+        morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel", 3)
+        morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel_max", 24)
+        morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel_mode", 1)
+        _fuel.register_fuel_source(HEAT_SOURCE_ID, 0, 7)
+        result = agent._evaluate_condition("need_fuel")
+        assert result is True, "연료 부족 시 need_fuel = True"
+
+    def test_need_fuel_false_sufficient(self):
+        """연료 충분 → condition False"""
+        agent = _create_agent()
+        morld.register_unit(HEAT_SOURCE_ID, "Stove", location=(0, 7))
+        morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel", 10)
+        morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel_max", 24)
+        morld.set_unit_prop(HEAT_SOURCE_ID, "heat:fuel_mode", 1)
+        _fuel.register_fuel_source(HEAT_SOURCE_ID, 0, 7)
+        result = agent._evaluate_condition("need_fuel")
+        assert result is False, "연료 충분 시 need_fuel = False"
+
+    def test_need_fuel_false_no_source(self):
+        """소비형 열원 없음 → condition False"""
+        agent = _create_agent()
+        result = agent._evaluate_condition("need_fuel")
+        assert result is False, "열원 없으면 need_fuel = False"
+
+    def test_need_fuel_false_infinite(self):
+        """무한 모드 열원 → condition False"""
+        agent = _create_agent()
+        _create_heat_source(fuel_level=0, fuel_mode=0)
+        result = agent._evaluate_condition("need_fuel")
+        assert result is False, "무한 모드에서 need_fuel = False"
+
+    def test_need_fuel_different_region(self):
+        """다른 region 열원 → condition False (home_region 불일치)"""
+        agent = _create_agent()
+        # agent의 home_region은 0, 열원은 region 2
+        _create_heat_source(fuel_level=3)
+        # _get_home_region()은 sleep_location의 region_id를 반환하므로 0
+        result = agent._evaluate_condition("need_fuel")
+        # fuel source는 region 2에 등록 → agent의 home_region(0)과 불일치
+        assert result is False, "다른 region 열원은 무시"

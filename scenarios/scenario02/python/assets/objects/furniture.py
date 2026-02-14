@@ -688,21 +688,34 @@ class WaterTap(Object):
 
 
 class DrumBath(Object):
-    """간이 드럼통 욕조 - 도심 은신처용 (열원 겸용)"""
+    """간이 드럼통 욕조 - 도심 은신처용 (열원 겸용, 연료 소비형)"""
     unique_id = "drum_bath"
     name = "간이 드럼통 욕조"
-    actions = ["call:use:목욕하기", "call:debug_props:(디버그) 속성 보기#"]
+    actions = [
+        "call:use:목욕하기",
+        "call:load_fuel:연료 넣기",
+        "call:check_fuel:연료 확인",
+        "call:debug_props:(디버그) 속성 보기#",
+    ]
     props = {
         "action:bath": 1,
         "light:on": 1,
         "heat:output": 5,
         "heat:depth": 0,
+        "heat:fuel": 6,         # 초기 연료 6시간
+        "heat:fuel_max": 12,    # 최대 연료 12시간
+        "heat:fuel_mode": 1,    # 소비형
     }
     focus_text = {"default": "큰 드럼통을 잘라 만든 간이 욕조. 물을 데워 쓸 수 있다."}
 
     def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
         super().instantiate(instance_id, region_id, location_id, x, y)
         temperature.register_heat_source(instance_id, region_id, location_id)
+        try:
+            import fuel
+            fuel.register_fuel_source(instance_id, region_id, location_id)
+        except Exception as e:
+            print(f"[DrumBath] fuel source registration failed: {e}")
 
     def use(self):
         """목욕하기"""
@@ -719,6 +732,60 @@ class DrumBath(Object):
             "좁지만... 없는 것보단 낫다."
         ])
         morld.advance_time_des(20 * 60_000)
+
+    def load_fuel(self):
+        """플레이어가 연료를 넣기"""
+        import fuel
+        from assets.registry import get_unique_id
+
+        player_id = morld.get_player_id()
+        inventory = morld.get_unit_inventory(player_id)
+
+        fuel_items = []
+        for item_id, count in (inventory or {}).items():
+            if count <= 0:
+                continue
+            uid = get_unique_id(item_id)
+            if uid in fuel.FUEL_VALUES:
+                info = morld.get_item_info(item_id)
+                name = info.get("name", uid) if info else uid
+                fuel_items.append({"item_id": item_id, "unique_id": uid,
+                                   "name": name, "count": count})
+
+        if not fuel_items:
+            yield ui.dialog("연료로 쓸 수 있는 나뭇가지나 통나무가 없다.")
+            return
+
+        total_added = 0
+        for fi in fuel_items:
+            added = fuel.npc_load_fuel(player_id, self.instance_id,
+                                       fi["unique_id"], fi["count"])
+            total_added += added
+
+        level = fuel.get_fuel_level(self.instance_id)
+        max_fuel = fuel.get_fuel_max(self.instance_id)
+        yield ui.dialog([
+            f"욕조 아래에 연료를 넣었다. (+{total_added}시간)",
+            f"연료: {level}/{max_fuel}시간",
+        ])
+        morld.advance_time_des(2 * 60_000)
+
+    def check_fuel(self):
+        """연료 상태 확인"""
+        import fuel
+        level = fuel.get_fuel_level(self.instance_id)
+        max_fuel = fuel.get_fuel_max(self.instance_id)
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        state = "켜짐" if is_on else "꺼짐"
+        yield ui.dialog([
+            f"간이 드럼통 욕조 ({state})",
+            f"연료: {level}/{max_fuel}시간",
+        ])
+
+    def npc_load_fuel(self, npc_id, item_uid, count=1):
+        """NPC 연료 장전 (non-generator)"""
+        import fuel
+        return fuel.npc_load_fuel(npc_id, self.instance_id, item_uid, count)
 
 
 # ========================================
@@ -1077,15 +1144,27 @@ class FoodStorage(Object):
 
 
 class PortableStove(Stove):
-    """간이 화로 - 은신처용 조리 도구 + 보온"""
+    """간이 화로 - 은신처용 조리 도구 + 보온 (연료 소비형)"""
     unique_id = "portable_stove"
     name = "간이 화로"
     props = {
         "light:on": 1,
-        "light:value": 2,   # 0.2 (약한 불빛)
-        "heat:output": 8,   # +8°C (Fireplace=15 대비 소규모)
-        "heat:depth": 0,    # 해당 location에만 영향
+        "light:value": 2,       # 0.2 (약한 불빛)
+        "heat:output": 8,       # +8°C (Fireplace=15 대비 소규모)
+        "heat:depth": 0,        # 해당 location에만 영향
+        "heat:fuel": 12,        # 초기 연료 12시간
+        "heat:fuel_max": 24,    # 최대 연료 24시간
+        "heat:fuel_mode": 1,    # 소비형 (1=소비, 0/없음=무한)
     }
+    actions = [
+        "call:look:살펴보기",
+        "container#",
+        "call:put:재료 넣기",
+        "call:cook:조리하기",
+        "call:load_fuel:연료 넣기",
+        "call:check_fuel:연료 확인",
+        "call:debug_props:(디버그) 속성 보기#"
+    ]
     focus_text = {"default": "은신처에 놓인 간이 화로. 간단한 조리가 가능하다."}
 
     def instantiate(self, instance_id, region_id, location_id, x=None, y=None):
@@ -1095,14 +1174,79 @@ class PortableStove(Stove):
             temperature.register_heat_source(instance_id, region_id, location_id)
         except Exception as e:
             print(f"[PortableStove] heat source registration failed: {e}")
+        try:
+            import fuel
+            fuel.register_fuel_source(instance_id, region_id, location_id)
+        except Exception as e:
+            print(f"[PortableStove] fuel source registration failed: {e}")
 
     def look(self):
-        yield ui.dialog([
-            "연탄과 냄비로 만든 간이 화로다.",
-            "간단한 조리 정도는 할 수 있다.",
-            "은은한 온기가 느껴진다."
-        ])
+        import fuel
+        level = fuel.get_fuel_level(self.instance_id)
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        lines = ["연탄과 냄비로 만든 간이 화로다.", "간단한 조리 정도는 할 수 있다."]
+        if is_on:
+            lines.append(f"은은한 온기가 느껴진다. (연료: {level}시간)")
+        else:
+            lines.append("불이 꺼져 있다. 연료가 필요하다.")
+        yield ui.dialog(lines)
         morld.advance_time_des(1 * 60_000)
+
+    def load_fuel(self):
+        """플레이어가 연료를 넣기"""
+        import fuel
+        from assets.registry import get_unique_id
+
+        player_id = morld.get_player_id()
+        inventory = morld.get_unit_inventory(player_id)
+
+        # 연료 아이템 탐색
+        fuel_items = []
+        for item_id, count in (inventory or {}).items():
+            if count <= 0:
+                continue
+            uid = get_unique_id(item_id)
+            if uid in fuel.FUEL_VALUES:
+                info = morld.get_item_info(item_id)
+                name = info.get("name", uid) if info else uid
+                fuel_items.append({"item_id": item_id, "unique_id": uid,
+                                   "name": name, "count": count})
+
+        if not fuel_items:
+            yield ui.dialog("연료로 쓸 수 있는 나뭇가지나 통나무가 없다.")
+            return
+
+        # 전부 넣기
+        total_added = 0
+        for fi in fuel_items:
+            added = fuel.npc_load_fuel(player_id, self.instance_id,
+                                       fi["unique_id"], fi["count"])
+            total_added += added
+
+        level = fuel.get_fuel_level(self.instance_id)
+        max_fuel = fuel.get_fuel_max(self.instance_id)
+        yield ui.dialog([
+            f"화로에 연료를 넣었다. (+{total_added}시간)",
+            f"연료: {level}/{max_fuel}시간",
+        ])
+        morld.advance_time_des(2 * 60_000)
+
+    def check_fuel(self):
+        """연료 상태 확인"""
+        import fuel
+        level = fuel.get_fuel_level(self.instance_id)
+        max_fuel = fuel.get_fuel_max(self.instance_id)
+        is_on = morld.get_unit_prop(self.instance_id, "light:on") == 1
+        state = "켜짐" if is_on else "꺼짐"
+        yield ui.dialog([
+            f"간이 화로 ({state})",
+            f"연료: {level}/{max_fuel}시간",
+        ])
+
+    def npc_load_fuel(self, npc_id, item_uid, count=1):
+        """NPC 연료 장전 (non-generator)"""
+        import fuel
+        return fuel.npc_load_fuel(npc_id, self.instance_id, item_uid, count)
 
 
 # ========================================

@@ -293,6 +293,15 @@ class MockMorld:
         """앉기 (테스트에서는 항상 성공)"""
         return True
 
+    def stand_up(self, unit_id):
+        """일어서기 (seated_on 해제)"""
+        u = self._units.get(unit_id)
+        if u:
+            # seated_on:* prop 모두 제거
+            to_remove = [k for k in u["props"] if k.startswith("seated_on:")]
+            for k in to_remove:
+                del u["props"][k]
+
     def is_same_building(self, r1, l1, r2, l2):
         """같은 건물 판정 (테스트에서는 항상 True)"""
         return True

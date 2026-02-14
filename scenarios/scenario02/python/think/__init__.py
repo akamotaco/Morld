@@ -523,6 +523,14 @@ class BaseAgent:
         # 1b. 이미 침대에서 자는 중
         already_sleeping, sleep_entry = self._is_already_sleeping()
         if already_sleeping:
+            # 추위 기상: 체온이 위험 수준이면 깨어남
+            try:
+                import temperature
+                if temperature.is_cold(self.unit_id, threshold=35.0):
+                    # 침대에서 일어남 → tier 3 cold 처리로 이관
+                    return False
+            except ImportError:
+                pass
             remaining = self._remaining_millis_in_entry(sleep_entry)
             self._insert_idle_job("sleep", max(remaining, 1))
             self._action_taken = True
@@ -1543,6 +1551,8 @@ class BaseAgent:
                 return needs.get_social(self.unit_id) >= 50
             except ImportError:
                 return False
+        elif condition == "need_fuel":
+            return self._check_heat_source_needs_fuel()
         return False
 
     def _check_has_pollution(self):
@@ -1563,6 +1573,17 @@ class BaseAgent:
             if sleep_l is not None and not morld.is_same_building(r, l, home_region, sleep_l):
                 continue
             return True
+        return False
+
+    def _check_heat_source_needs_fuel(self):
+        """거처 내 연료 부족 열원 확인"""
+        try:
+            import fuel
+        except ImportError:
+            return False
+        for uid in fuel.get_sources_in_region(self._get_home_region()):
+            if fuel.needs_fuel(uid):
+                return True
         return False
 
     def _check_storage_need(self, storage_uid, item_uid, threshold):
