@@ -494,17 +494,6 @@ def check_and_clear_virginity(target_id, player_id, action_id):
 # 참기 / 질외사정
 # ============================================
 
-def _calculate_hold_back_chance(player_id, stim_state):
-    """참기 성공 확률 계산 (5-90%)
-
-    공식: 40 - (p_stim - 80) × 2 + p_sensation × 5
-    """
-    p_stim = stim_state["stim"].get("P", 0)
-    p_sensation = get_sensation_level(player_id, "P")
-    chance = 40 - (p_stim - 80) * 2 + p_sensation * 5
-    return max(5, min(90, chance))
-
-
 def is_hold_back_available(state):
     """참기 가능 여부: peaked 부위 존재 + 절정 게이지 > 0"""
     stim = state.get("stim")
@@ -587,6 +576,57 @@ def check_lubrication(partner_id, state):
 # ============================================
 # 은신 판정
 # ============================================
+
+# ============================================
+# 상태 묘사 (자극 수준 기반 자동 텍스트)
+# ============================================
+
+_STIM_HIGH_TEXTS = {
+    "F": "얼굴이 달아오르고 있다.",
+    "M": "입안의 감각이 뜨겁게 달아오른다.",
+    "B": "가슴의 감각이 극에 달하고 있다.",
+    "V": "깊은 곳에서 뜨거운 파도가 밀려온다.",
+    "C": "클리토리스가 극도로 예민해져 있다.",
+    "A": "항문의 자극이 강렬해지고 있다.",
+    "P": "참을 수 없는 감각이 밀려온다.",
+}
+
+_STIM_MID_TEXTS = {
+    "F": "얼굴이 상기되어 있다.",
+    "M": "입안에서 감각이 퍼지고 있다.",
+    "B": "가슴이 달아오르고 있다.",
+    "V": "안에서 뜨거운 감각이 느껴진다.",
+    "C": "클리토리스가 예민해지고 있다.",
+    "A": "항문에서 낯선 감각이 느껴진다.",
+    "P": "아래에서 욱신거리는 감각이 있다.",
+}
+
+
+def get_state_description(stim_state, anatomy_set):
+    """자극 상태에 따른 자동 묘사 (최대 2줄)"""
+    texts = []
+    for cat in ("F", "M", "B", "A", "V", "C", "P"):
+        if cat not in anatomy_set:
+            continue
+        val = stim_state["stim"].get(cat, 0)
+        if val >= 80:
+            t = _STIM_HIGH_TEXTS.get(cat)
+            if t:
+                texts.append(t)
+        elif val >= 50:
+            t = _STIM_MID_TEXTS.get(cat)
+            if t:
+                texts.append(t)
+
+    # 절정 접근
+    gauge = stim_state.get("climax_gauge", 0)
+    if gauge >= 80:
+        texts.append("절정이 가까워지고 있다.")
+    elif gauge >= 50:
+        texts.append("자극이 쌓이고 있다.")
+
+    return texts[:2]  # 최대 2줄
+
 
 def calculate_stealth_chance(state):
     """들키지 않을 확률 계산

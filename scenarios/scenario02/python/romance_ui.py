@@ -17,6 +17,7 @@ from romance_actions import (
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
     _PENETRATION_TOGGLE_IDS,
 )
+from romance_actions import TOGGLE_DURING_DESCRIPTIONS
 from romance_core import (
     get_character_asset as get_partner_asset,
     get_affection_key, get_desire_key,
@@ -27,6 +28,7 @@ from romance_core import (
     get_semen_total, get_internal_semen, get_internal_semen_total,
     _has_active_penetration,
     is_pull_out_available, is_hold_back_available, is_ejaculate_available,
+    get_state_description,
 )
 
 
@@ -95,29 +97,38 @@ def render_romance_ui(state):
     # 마지막 즉시 액션 반응 (있으면 표시 후 클리어)
     last_reaction = state["last_reaction"]
     if last_reaction:
-        lines.append(f"[color=yellow]{last_reaction}[/color]")
+        lines.append(last_reaction)  # 이미 color 태그 포함
         lines.append("")
         state["last_reaction"] = None  # 표시 후 클리어
 
-    # 파트너 반응 텍스트 (활성 토글 기반)
+    # 파트너 반응 텍스트 (활성 토글 기반 — 묘사 + NPC 대사)
     partner_asset = get_partner_asset(partner_id)
-    reaction_lines = []
+    has_toggle_lines = False
     for toggle_id in state["active_toggles"]:
+        # 1. 행위 묘사 (항상)
+        desc = TOGGLE_DURING_DESCRIPTIONS.get(toggle_id)
+        if desc:
+            lines.append(f"[color=silver]({desc})[/color]")
+            has_toggle_lines = True
+
+        # 2. NPC 대사/반응 (있으면)
         if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
             reaction = partner_asset.get_romance_reaction(toggle_id, "during")
-        else:
-            # 기본 반응
-            toggle_def = TOGGLE_ACTIONS.get(toggle_id)
-            reaction = f"{partner_name}(이)가 당신과 {toggle_def['name']} 중이다." if toggle_def else None
+            if reaction:
+                lines.append(f"  [color=yellow]{reaction}[/color]")
+                has_toggle_lines = True
 
-        if reaction:
-            reaction_lines.append(f"({reaction})")
-
-    if reaction_lines:
-        for line in reaction_lines:
-            lines.append(line)
-    else:
+    if not has_toggle_lines:
         lines.append(f"({partner_name}(이)가 당신을 바라보고 있다.)")
+
+    # 상태 묘사 (자극 수준 기반)
+    stim_state = state.get("stim")
+    if stim_state:
+        import gender as gender_mod_desc
+        partner_anatomy = gender_mod_desc.get_anatomy(partner_id)
+        state_descs = get_state_description(stim_state, partner_anatomy)
+        for sd in state_descs:
+            lines.append(f"[color=gray]{sd}[/color]")
 
     lines.append("")
 

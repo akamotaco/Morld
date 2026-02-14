@@ -75,6 +75,10 @@ STAY_SCHEDULE = [
 ROMANCE_STAMINA_KEY = "연애:스태미나"
 DEFAULT_STAMINA = 10
 
+# NPC 만족 종료 조건
+NPC_SATISFACTION_AROUSAL = 20   # 성욕 임계치
+NPC_SATISFACTION_CLIMAX = 1     # 최소 절정 횟수
+
 
 # ============================================
 # 유틸리티 함수
@@ -376,61 +380,6 @@ def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True,
     return random.choices(candidates, weights=weights, k=1)[0]
 
 
-def execute_npc_action(state, action):
-    """
-    NPC 액션 실행
-
-    Args:
-        state: 현재 상태 dict
-        action: 실행할 액션 dict
-
-    Returns:
-        str: 반응 텍스트
-    """
-    npc_id = state["npc_id"]
-    player_id = state["player_id"]
-    action_type = action.get("action", "hug")
-    duration = action.get("duration", 5 * MILLIS_PER_MINUTE)
-
-    # 효과 적용 (romance.py의 TOGGLE_ACTIONS 참조)
-    npc_asset = get_npc_asset(npc_id)
-    player_info = morld.get_unit_info(player_id)
-    player_name = player_info.get('name', '주인공') if player_info else '주인공'
-
-    # 기본 효과 (간단화)
-    effects = {
-        "hug": {"호감": 3},
-        "deep_kiss": {"호감": 3, "성욕": 3},
-        "breast_touch": {"호감": 1, "성욕": 4, "욕망": 1},
-        "genital_touch": {"호감": 1, "성욕": 5, "욕망": 3},
-        "clit_rub": {"성욕": 7, "욕망": 4},
-    }
-
-    action_effects = effects.get(action_type, {"호감": 1})
-    affection_key = f"관계:{player_name}:호감"
-    for key, value in action_effects.items():
-        if key in ("성욕", "성적절정"):
-            prop_key = f"상태:{key}"
-        else:
-            prop_key = affection_key.replace(":호감", f":{key}")
-        morld.modify_prop(npc_id, prop_key, value)
-
-    # 시간 경과
-    state["elapsed_time"] += duration
-
-    # 반응 텍스트
-    timing = f"during_{action_type}"
-    if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
-        reaction = npc_asset.get_initiative_reaction(timing)
-        if reaction:
-            return reaction
-
-    # 기본 반응
-    npc_info = morld.get_unit_info(npc_id)
-    npc_name = npc_info.get('name', '그녀') if npc_info else '그녀'
-    return f"{npc_name}(이)가 주도적으로 행동한다."
-
-
 # ============================================
 # 제3자 방해 이벤트 처리
 # ============================================
@@ -561,28 +510,46 @@ def render_npc_initiative_ui(state):
     # 마지막 반응 텍스트 (즉시 액션 결과 등)
     last_reaction = state["last_reaction"]
     if last_reaction:
-        lines.append(f"[color=yellow]{last_reaction}[/color]")
+        lines.append(last_reaction)  # 이미 color 태그 포함
         lines.append("")
         state["last_reaction"] = None  # 표시 후 클리어
 
-    # NPC의 현재 행위 표시 (활성 토글)
+    # NPC의 현재 행위 표시 (활성 토글 — 묘사 + NPC 대사)
+    from romance_actions import TOGGLE_DURING_DESCRIPTIONS
     npc_asset = get_npc_asset(npc_id)
     active_toggles = state.get("active_toggles", set())
+    has_toggle_lines = False
     if active_toggles:
         for toggle_id in active_toggles:
             toggle_def = NPC_TOGGLE_ACTIONS.get(toggle_id)
             if toggle_def:
-                # 캐릭터별 반응 또는 기본 반응
+                # 1. 행위 묘사
+                desc = TOGGLE_DURING_DESCRIPTIONS.get(toggle_id)
+                if desc:
+                    lines.append(f"[color=silver]({desc})[/color]")
+                    has_toggle_lines = True
+                # 2. NPC 반응
+                reaction = None
                 if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
                     reaction = npc_asset.get_initiative_reaction(f"during_{toggle_id}")
-                    if reaction:
-                        lines.append(f"({reaction})")
-                    else:
-                        lines.append(f"({npc_name}(이)가 {toggle_def['name']} 중이다.)")
-                else:
+                if reaction:
+                    lines.append(f"  [color=yellow]{reaction}[/color]")
+                    has_toggle_lines = True
+                elif not desc:
                     lines.append(f"({npc_name}(이)가 {toggle_def['name']} 중이다.)")
-    else:
+                    has_toggle_lines = True
+    if not has_toggle_lines:
         lines.append(f"({npc_name}(이)가 당신을 붙잡고 있다.)")
+
+    # 상태 묘사 (자극 수준 기반)
+    stim_state_desc = state.get("stim")
+    if stim_state_desc:
+        import gender as gender_mod_desc
+        npc_anatomy_desc = gender_mod_desc.get_anatomy(npc_id)
+        from romance_core import get_state_description
+        state_descs = get_state_description(stim_state_desc, npc_anatomy_desc)
+        for sd in state_descs:
+            lines.append(f"[color=gray]{sd}[/color]")
 
     lines.append("")
 
@@ -1102,6 +1069,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             required_stamina = 1
 
         if state["stamina"] <= required_stamina:
+            state["stamina"] = 1  # 최소 1 보존
             state["exhausted"] = True
             return
 
@@ -1140,6 +1108,14 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
         stimulation.tick_afterglow(state["stim"])
 
+        # NPC 만족 체크 (절정 후 성욕 감소 → 임계치 미만)
+        stim_state = state["stim"]
+        npc_arousal = morld.get_unit_prop(npc_id, "상태:성욕") or 0
+        if (stim_state["climax_total"] >= NPC_SATISFACTION_CLIMAX
+                and npc_arousal < NPC_SATISFACTION_AROUSAL):
+            state["npc_satisfied"] = True
+            return
+
         # 소음 (저항 모드에서도 소음 방출)
         if ecstasy_reaction:
             emit_ecstasy_sound(npc_id)
@@ -1160,35 +1136,45 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             state["interrupter_id"] = check_result["interrupter_id"]
             return
 
-        # 반응 텍스트
+        # 반응 텍스트 (묘사 + 대사 결합)
+        from romance_actions import ACTION_DESCRIPTIONS
         if ecstasy_reaction:
-            state["last_reaction"] = ecstasy_reaction
+            if new_action:
+                desc = ACTION_DESCRIPTIONS.get(new_action, "")
+                if desc:
+                    state["last_reaction"] = f"[color=silver]{desc}[/color]\n{ecstasy_reaction}"
+                else:
+                    state["last_reaction"] = ecstasy_reaction
+            else:
+                state["last_reaction"] = ecstasy_reaction
         elif new_action:
+            desc = ACTION_DESCRIPTIONS.get(new_action, "")
             reaction = None
             if first_key and npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
                 reaction = npc_asset.get_romance_reaction(first_key, "start")
             if not reaction:
-                # 저항 모드: forced_ 접두사 시도
                 timing = f"during_{new_action}"
                 if forced_reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
                     reaction = npc_asset.get_initiative_reaction(f"forced_{timing}")
                 if not reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
                     reaction = npc_asset.get_initiative_reaction(timing)
-            if reaction:
-                state["last_reaction"] = reaction
+            if desc and reaction:
+                state["last_reaction"] = f"[color=silver]{desc}[/color]\n[color=yellow]{reaction}[/color]"
+            elif desc:
+                state["last_reaction"] = f"[color=silver]{desc}[/color]"
+            elif reaction:
+                state["last_reaction"] = f"[color=yellow]{reaction}[/color]"
         elif state["active_toggles"]:
             for tid in state["active_toggles"]:
                 timing = f"during_{tid}"
+                reaction = None
                 if forced_reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
                     reaction = npc_asset.get_initiative_reaction(f"forced_{timing}")
-                    if reaction:
-                        state["last_reaction"] = reaction
-                        break
-                if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
+                if not reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
                     reaction = npc_asset.get_initiative_reaction(timing)
-                    if reaction:
-                        state["last_reaction"] = reaction
-                        break
+                if reaction:
+                    state["last_reaction"] = f"[color=yellow]{reaction}[/color]"
+                    break
 
     # proc 콜백
     def proc(action):
@@ -1239,7 +1225,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
             # NPC는 계속 행위 (accept와 동일한 NPC 행위 흐름)
             _npc_auto_advance(state, npc_id, player_id, npc_asset, forced_reaction=True)
-            if state["exhausted"] or state["interrupted"]:
+            if state["exhausted"] or state["interrupted"] or state["npc_satisfied"]:
                 return True
 
             state["last_reaction"] = f"(필사적으로 저항하고 있다... [{state['resistance_meter']}/{RESISTANCE_MAX}])"
@@ -1487,7 +1473,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if action == "accept":
             state["escape_result"] = None
             _npc_auto_advance(state, npc_id, player_id, npc_asset)
-            if state["exhausted"] or state["interrupted"]:
+            if state["exhausted"] or state["interrupted"] or state["npc_satisfied"]:
                 return True
             return render_npc_initiative_ui(state)
 
@@ -1530,7 +1516,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         # 제3자에게 들킴 - 방해 이벤트
         yield from handle_npc_initiative_interruption(state, npc_name)
     elif state["exhausted"]:
-        yield ui.dialog("체력이 바닥났다...")
+        yield ui.dialog("몸에 힘이 빠져 더 이상 움직일 수 없다...")
     elif state["npc_satisfied"]:
         satisfied_text = None
         if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):

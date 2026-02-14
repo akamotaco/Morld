@@ -448,3 +448,63 @@ _PENETRATION_TOGGLE_IDS = frozenset({
     "anal_penetration", "receive_anal",
     "rough_thrust", "hard_anal",
 })
+
+
+# ============================================
+# 행위 묘사 (3인칭 나레이션)
+# ============================================
+
+# 즉시형 행위 묘사
+ACTION_DESCRIPTIONS = {
+    "head_pat": "머리를 부드럽게 쓰다듬는다.",
+    "cheek_caress": "뺨을 어루만진다.",
+    "cheek_pinch": "뺨을 가볍게 꼬집는다.",
+    "ear_touch": "귀를 손가락으로 만진다.",
+    "whisper": "귓가에 속삭인다.",
+    "lip_lick": "입술을 천천히 핥는다.",
+    "french_kiss": "깊은 키스를 한다.",
+    "neck_kiss": "목에 입술을 가져간다.",
+    "butt_caress": "엉덩이를 부드럽게 쓰다듬는다.",
+    "breast_caress": "가슴을 부드럽게 어루만진다.",
+    "nipple_stimulation": "유두를 손가락으로 자극한다.",
+    "nipple_lick": "유두를 혀로 핥는다.",
+    "genital_caress": "은밀한 곳을 부드럽게 쓰다듬는다.",
+    "clit_stimulation": "클리토리스를 자극한다.",
+    "anal_stimulation": "항문을 자극한다.",
+    "penis_caress": "음경을 부드럽게 어루만진다.",
+    "penis_stimulation": "음경을 자극한다.",
+    "nipple_pinch": "유두를 세게 꼬집는다.",
+    "breast_grab": "가슴을 세게 움켜쥔다.",
+    "rough_finger": "거칠게 손가락을 삽입한다.",
+    "thrust_deep": "깊숙이 밀어넣는다.",
+    "thrust_slow": "천천히 움직인다.",
+    "grind": "밀착하여 허리를 흔든다.",
+}
+
+# 토글형 행위 묘사 (진행 중 상태)
+TOGGLE_DURING_DESCRIPTIONS = {
+    "hug": "서로를 껴안고 있다.",
+    "deep_kiss": "깊은 키스가 이어지고 있다.",
+    "tongue_play": "혀를 섞고 있다.",
+    "butt_squeeze": "엉덩이를 주무르고 있다.",
+    "breast_touch": "가슴을 만지고 있다.",
+    "breast_squeeze": "가슴을 주무르고 있다.",
+    "breast_suck": "가슴을 빨고 있다.",
+    "nipple_suck": "유두를 빨고 있다.",
+    "paizuri": "가슴 사이에 끼운 채 움직이고 있다.",
+    "genital_touch": "은밀한 곳을 만지고 있다.",
+    "clit_rub": "클리토리스를 문지르고 있다.",
+    "clit_lick": "클리토리스를 핥고 있다.",
+    "cunnilingus": "구강으로 자극하고 있다.",
+    "finger_insertion": "손가락이 안에서 움직이고 있다.",
+    "penis_touch": "음경을 만지고 있다.",
+    "penis_rub": "음경을 문지르고 있다.",
+    "fellatio": "입으로 감싸고 있다.",
+    "vaginal_penetration": "삽입이 이어지고 있다.",
+    "receive_penetration": "삽입이 이어지고 있다.",
+    "anal_penetration": "항문 삽입이 이어지고 있다.",
+    "receive_anal": "항문 삽입이 이어지고 있다.",
+    "rough_thrust": "거친 삽입이 이어지고 있다.",
+    "hard_anal": "거친 항문 삽입이 이어지고 있다.",
+    "tribadism": "서로의 은밀한 곳을 맞대고 있다.",
+}

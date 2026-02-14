@@ -23,6 +23,7 @@ from romance_actions import (
     SENSATION_MAP,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
     _PENETRATION_TOGGLE_IDS,
+    ACTION_DESCRIPTIONS,
 )
 from romance_ui import render_romance_ui, render_stamina_bar  # noqa: F401
 from romance_mode import (
@@ -876,6 +877,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 for toggle_id in state["active_toggles"]:
                     total_stamina += TOGGLE_ACTIONS[toggle_id]["stamina"]
                 if state["stamina"] <= total_stamina:
+                    state["stamina"] = 1  # 최소 1 보존
                     state["exhausted"] = True
                     return True
                 state["stamina"] -= total_stamina
@@ -1035,6 +1037,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
             # 체력 부족 체크 (스태미나 소진 시 props 변화 없이 종료)
             if state["stamina"] <= total_stamina:
+                state["stamina"] = 1  # 최소 1 보존
                 state["exhausted"] = True
                 return True  # 체력 부족 종료
 
@@ -1059,19 +1062,26 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if "kiss" in action_id and not morld.get_unit_prop(pid, "기억:첫키스"):
                 morld.set_unit_prop(pid, "기억:첫키스", 1)
 
-            # 절정 반응이 있으면 우선 표시
+            # 행위 묘사 + 반응 결합
+            desc = ACTION_DESCRIPTIONS.get(action_id, "")
             if ecstasy_reaction:
-                state["last_reaction"] = ecstasy_reaction
+                if desc:
+                    state["last_reaction"] = f"[color=silver]{desc}[/color]\n{ecstasy_reaction}"
+                else:
+                    state["last_reaction"] = ecstasy_reaction
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_ecstasy_sound(state["partner_id"])
             else:
-                # 캐릭터별 반응 텍스트 (모드별 분기)
                 reaction = _get_mode_reaction(action_id, "start")
-                if reaction:
-                    state["last_reaction"] = reaction
+                if desc and reaction:
+                    state["last_reaction"] = f"[color=silver]{desc}[/color]\n[color=yellow]{reaction}[/color]"
+                elif desc:
+                    state["last_reaction"] = f"[color=silver]{desc}[/color]"
+                elif reaction:
+                    state["last_reaction"] = f"[color=yellow]{reaction}[/color]"
                 if unprepared:
                     state["last_reaction"] = (state.get("last_reaction", "") +
-                        " (준비 부족 — 효과 감소)")
+                        "\n[color=red](준비 부족 — 효과 감소)[/color]")
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_romance_sound(state["partner_id"])
 
@@ -1112,6 +1122,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
             # 체력 부족 체크 (스태미나 소진 시 props 변화 없이 종료)
             if state["stamina"] <= total_stamina:
+                state["stamina"] = 1  # 최소 1 보존
                 state["exhausted"] = True
                 return True
 
@@ -1207,24 +1218,31 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             state["stamina"] -= total_stamina
             ecstasy_reaction = apply_effects(effective_toggle_def, active_toggle_defs)
 
-            # 절정 반응이 있으면 우선 표시
+            # 행위 묘사 + 반응 결합
+            desc = ACTION_DESCRIPTIONS.get(action_id, "") if is_turning_on else ""
             if ecstasy_reaction:
-                state["last_reaction"] = ecstasy_reaction
+                if desc:
+                    state["last_reaction"] = f"[color=silver]{desc}[/color]\n{ecstasy_reaction}"
+                else:
+                    state["last_reaction"] = ecstasy_reaction
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_ecstasy_sound(state["partner_id"])
             else:
                 if is_turning_on:
-                    # 첫경험 반응 우선, 없으면 모드별 반응
                     reaction = None
                     if first_key:
                         reaction = _get_mode_reaction(first_key, "start")
                     if not reaction:
                         reaction = _get_mode_reaction(action_id, "start")
-                    if reaction:
-                        state["last_reaction"] = reaction
+                    if desc and reaction:
+                        state["last_reaction"] = f"[color=silver]{desc}[/color]\n[color=yellow]{reaction}[/color]"
+                    elif desc:
+                        state["last_reaction"] = f"[color=silver]{desc}[/color]"
+                    elif reaction:
+                        state["last_reaction"] = f"[color=yellow]{reaction}[/color]"
                     if unprepared_toggle:
                         state["last_reaction"] = (state.get("last_reaction", "") +
-                            " (준비 부족 — 효과 감소)")
+                            "\n[color=red](준비 부족 — 효과 감소)[/color]")
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_romance_sound(state["partner_id"])
 
@@ -1325,7 +1343,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         # 비정상 종료: 체력 소진
         if partner_agent:
             partner_agent.pop_schedule()
-        yield ui.dialog("지쳤다...")
+        yield ui.dialog("몸에 힘이 빠져 더 이상 움직일 수 없다...")
         morld.pop_to_situation()
     elif state["interrupted"]:
         # 비정상 종료: 제3자 도착으로 중단
