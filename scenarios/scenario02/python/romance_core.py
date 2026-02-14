@@ -335,12 +335,13 @@ def clear_all_internal_semen(unit_id):
         morld.clear_prop(unit_id, f"체내:정액:{p}")
 
 
-def calculate_ejaculation_amount(unit_id, stamina):
+def calculate_ejaculation_amount(unit_id, stamina, max_stamina=None):
     """사정량 계산 — P 감각 + 체력 기반
 
     Args:
         unit_id: P 보유자 unit_id
-        stamina: 현재 세션 스태미나
+        stamina: 현재 세션 스태미나 (= 체력)
+        max_stamina: 최대 체력 (None이면 기존 0-10 스케일 가정)
 
     Returns:
         int: 사정량 (10-100)
@@ -348,7 +349,12 @@ def calculate_ejaculation_amount(unit_id, stamina):
     base = SEMEN_AMOUNT_BASE
     p_sensation = get_sensation_level(unit_id, "P")
     sensation_bonus = p_sensation * 3
-    stamina_bonus = stamina * 2
+    # HP 정규화 (max_stamina > 10이면 0-10 범위로 변환)
+    if max_stamina and max_stamina > 10:
+        normalized = (stamina / max(1, max_stamina)) * 10
+    else:
+        normalized = stamina
+    stamina_bonus = normalized * 2
     amount = base + sensation_bonus + stamina_bonus
     return max(SEMEN_AMOUNT_MIN, min(SEMEN_AMOUNT_MAX, round(amount)))
 
@@ -746,6 +752,8 @@ def extract_preserved(state):
     preserved = {
         "stim": state["stim"],
         "stamina": state["stamina"],
+        "initial_stamina": state.get("initial_stamina", state["stamina"]),
+        "max_stamina": state.get("max_stamina", 100),
         "elapsed_time": state["elapsed_time"],
         "checked_npcs": state.get("checked_npcs", set()),
         "lubricated": state.get("lubricated", False),

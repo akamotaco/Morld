@@ -11,7 +11,7 @@ import stimulation
 import position
 import ui
 from romance_actions import (
-    SEMEN_PARTS, INTERNAL_SEMEN_PARTS, DEFAULT_STAMINA,
+    SEMEN_PARTS, INTERNAL_SEMEN_PARTS,
     LUBRICATION_THRESHOLD,
     get_relationship_label,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
@@ -32,12 +32,14 @@ from romance_core import (
 )
 
 
-def render_stamina_bar(stamina, max_stamina=DEFAULT_STAMINA):
-    """체력 바 렌더링"""
-    filled = int(stamina)
-    empty = max_stamina - filled
+def render_stamina_bar(stamina, max_stamina=100):
+    """체력 바 렌더링 (10칸 정규화)"""
+    BAR_WIDTH = 10
+    ratio = stamina / max(1, max_stamina)
+    filled = max(0, min(BAR_WIDTH, round(ratio * BAR_WIDTH)))
+    empty = BAR_WIDTH - filled
     bar = "█" * filled + "░" * empty
-    return f"{bar} {stamina}"
+    return f"{bar} {int(stamina)}/{int(max_stamina)}"
 
 
 def render_romance_ui(state):
@@ -69,7 +71,8 @@ def render_romance_ui(state):
     cur_pos = state.get("position", "missionary")
     pos_name_hdr = position.get_name(cur_pos)
     pos_facing_hdr = "대면" if position.get_facing(cur_pos) == "front" else "배면"
-    lines.append(f"[{partner_name}와 함께]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  스태미나: {render_stamina_bar(player_stamina)}")
+    max_stamina = state.get("max_stamina", 100)
+    lines.append(f"[{partner_name}와 함께]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  체력: {render_stamina_bar(player_stamina, max_stamina)}")
 
     # 저항 게이지 (강제 모드)
     if cur_mode == "forced" and mode_ctx:

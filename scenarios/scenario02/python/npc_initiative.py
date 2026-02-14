@@ -71,9 +71,8 @@ STAY_SCHEDULE = [
     {"name": "대기", "start": 0, "end": MILLIS_PER_DAY, "activity": "대기"}
 ]
 
-# 스태미나 설정
-ROMANCE_STAMINA_KEY = "연애:스태미나"
-DEFAULT_STAMINA = 10
+# NPC 주도 최소 체력 (HP 가드)
+INITIATIVE_MIN_HEALTH = 5
 
 # NPC 만족 종료 조건
 NPC_SATISFACTION_AROUSAL = 20   # 성욕 임계치
@@ -441,12 +440,14 @@ def handle_npc_initiative_interruption(state, npc_name):
 # UI 렌더링
 # ============================================
 
-def render_stamina_bar(stamina, max_stamina=DEFAULT_STAMINA):
-    """스태미나 바 렌더링"""
-    filled = int(stamina)
-    empty = max_stamina - filled
+def render_stamina_bar(stamina, max_stamina=100):
+    """체력 바 렌더링 (10칸 정규화)"""
+    BAR_WIDTH = 10
+    ratio = stamina / max(1, max_stamina)
+    filled = max(0, min(BAR_WIDTH, round(ratio * BAR_WIDTH)))
+    empty = BAR_WIDTH - filled
     bar = "█" * filled + "░" * empty
-    return f"{bar} {stamina}"
+    return f"{bar} {int(stamina)}/{int(max_stamina)}"
 
 
 def get_affection_key(player_id):
@@ -482,7 +483,8 @@ def render_npc_initiative_ui(state):
     cur_pos = state.get("position", "missionary")
     pos_name_hdr = position.get_name(cur_pos)
     pos_facing_hdr = "대면" if position.get_facing(cur_pos) == "front" else "배면"
-    lines.append(f"[{npc_name}의 주도]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  스태미나: {render_stamina_bar(player_stamina)}")
+    max_stamina = state.get("max_stamina", 100)
+    lines.append(f"[{npc_name}의 주도]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  체력: {render_stamina_bar(player_stamina, max_stamina)}")
 
     # 저항 게이지 (저항 모드)
     if resistance_mode:
@@ -920,7 +922,7 @@ def apply_action_effects(state, action_def):
             if ejac_part and ejac_part in ("음부", "항문", "구강"):
                 import gender as _gm
                 _p_holder = npc_id if _gm.has_anatomy(npc_id, "P") else state["player_id"]
-                _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
+                _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"], state["max_stamina"])
                 _apply_internal_semen(npc_id, ejac_part, _ejac_amt)
 
         # 절정 반응 텍스트
@@ -974,9 +976,11 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if npc_agent:
             npc_agent.push_schedule(STAY_SCHEDULE)
 
-    # 플레이어 스태미나 조회
-    player_props = morld.get_unit_props(player_id)
-    initial_stamina = player_props.get(ROMANCE_STAMINA_KEY, DEFAULT_STAMINA) if player_props else DEFAULT_STAMINA
+    # 플레이어 체력 조회 (생존:체력 기반)
+    import survival
+    player_stats = survival.get_survival_stats(player_id)
+    initial_stamina = player_stats["health"]
+    max_stamina = player_stats["max_health"]
 
     # 상태 초기화
     import gender as gender_mod
@@ -989,6 +993,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         "npc_id": npc_id,
         "active_toggles": set(),
         "stamina": initial_stamina,
+        "initial_stamina": initial_stamina,
+        "max_stamina": max_stamina,
         "elapsed_time": 0,
         "lubricated": False,
         "stim": stimulation.create_state(
@@ -1026,6 +1032,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
     if preserved:
         state["stim"] = preserved["stim"]
         state["stamina"] = preserved["stamina"]
+        state["initial_stamina"] = preserved.get("initial_stamina", state["stamina"])
+        state["max_stamina"] = preserved.get("max_stamina", max_stamina)
         state["elapsed_time"] = preserved["elapsed_time"]
         state["lubricated"] = preserved.get("lubricated", False)
         state["checked_npcs"] = preserved.get("checked_npcs", set())
@@ -1347,7 +1355,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                             climax_info = stimulation.force_climax(stim_state)
                             if climax_info and climax_info.get("has_p"):
                                 pen_part = _get_active_penetration_part(state["active_toggles"])
-                                ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                                ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
                                 if pen_part and pen_part in ("음부", "항문", "구강"):
                                     _apply_internal_semen(npc_id, pen_part, ejac_amount)
                                     if _has_active_intercourse(state["active_toggles"], NPC_TOGGLE_ACTIONS):
@@ -1371,7 +1379,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 climax_info = stimulation.force_ejaculate(stim_state)
                 if climax_info and climax_info.get("has_p"):
                     pen_part = _get_active_penetration_part(state["active_toggles"])
-                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
                     if pen_part and pen_part in ("음부", "항문", "구강"):
                         _apply_internal_semen(npc_id, pen_part, ejac_amount)
                         if _has_active_intercourse(state["active_toggles"], NPC_TOGGLE_ACTIONS):
@@ -1504,7 +1512,15 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         yield from start_romance(player_id, npc_id, preserved=preserved)
         return
 
-    # 종료 처리 — 착의 쿨다운 리셋 (탈의 후 즉시 착의 인터럽트 발동)
+    # 종료 처리 — 플레이어 체력 기록 (HP 연동)
+    survival.set_health(player_id, state["stamina"])
+
+    # 조건부 쿨다운: 체력 변동이 있었으면(행위 발생) 쿨다운 적용
+    if state["stamina"] < state["initial_stamina"]:
+        if npc_asset:
+            npc_asset.mark_initiative_cooldown()
+
+    # 착의 쿨다운 리셋 (탈의 후 즉시 착의 인터럽트 발동)
     if npc_agent:
         npc_agent._memory["clothing_last_attempt"] = None
         npc_agent.pop_schedule()

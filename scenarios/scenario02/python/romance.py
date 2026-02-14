@@ -18,7 +18,7 @@ from romance_actions import (
     INTERNAL_SEMEN_PARTS,  # noqa: F401 — re-export (needs.py)
     UNPREPARED_EFFECT_MULT, UNPREPARED_REBELLION,
     SUBMISSION_ACTION_THRESHOLD, SUBMISSION_ACTION_GAIN, SUBMISSION_MAX,
-    ROMANCE_ENTRY_THRESHOLD, ROMANCE_JOIN_THRESHOLD, DEFAULT_STAMINA,
+    ROMANCE_ENTRY_THRESHOLD, ROMANCE_JOIN_THRESHOLD,
     LUBRICATION_THRESHOLD, SWALLOW_M_THRESHOLD,
     SENSATION_MAP,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
@@ -61,9 +61,6 @@ from romance_core import (  # noqa: F401 — re-export for external callers
     get_climax_reaction_key,
     extract_preserved,
 )
-
-ROMANCE_STAMINA_KEY = "연애:스태미나"
-
 
 # ============================================
 # 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
@@ -229,9 +226,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         if partner_agent:
             partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
 
-    # 플레이어 스태미나 조회 (연애 전용)
-    player_props = morld.get_unit_props(player_id)
-    initial_stamina = player_props.get(ROMANCE_STAMINA_KEY, DEFAULT_STAMINA)
+    # 플레이어 체력 조회 (생존:체력 기반)
+    import survival
+    player_stats = survival.get_survival_stats(player_id)
+    initial_stamina = player_stats["health"]
+    max_stamina = player_stats["max_health"]
 
     # 모드 컨텍스트 생성
     mode_ctx = create_mode_context(mode, player_id, partner_id)
@@ -250,6 +249,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         "partner_id": partner_id,
         "active_toggles": set(),
         "stamina": initial_stamina,
+        "initial_stamina": initial_stamina,
+        "max_stamina": max_stamina,
         "elapsed_time": 0,
         "lubricated": False,
         "stim": stimulation.create_state(
@@ -288,6 +289,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     if preserved:
         state["stim"] = preserved["stim"]
         state["stamina"] = preserved["stamina"]
+        state["initial_stamina"] = preserved.get("initial_stamina", state["stamina"])
+        state["max_stamina"] = preserved.get("max_stamina", max_stamina)
         state["elapsed_time"] = preserved["elapsed_time"]
         state["lubricated"] = preserved.get("lubricated", False)
         state["checked_npcs"] = preserved.get("checked_npcs", set())
@@ -503,7 +506,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     _p_holder = player_id
                     if _gm.has_anatomy(pid, "P"):
                         _p_holder = pid
-                    _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
+                    _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"], state["max_stamina"])
                     if cur_mode == MODE_FROZEN:
                         defer_semen(state["mode_ctx"], ejac_part, _ejac_amt, internal=True)
                     else:
@@ -718,7 +721,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             p_holder_id = state["player_id"]
             if gender_mod.has_anatomy(pid, "P"):
                 p_holder_id = pid
-            ejac_amount = calculate_ejaculation_amount(p_holder_id, state["stamina"])
+            ejac_amount = calculate_ejaculation_amount(p_holder_id, state["stamina"], state["max_stamina"])
             # 정액 적용 (시간정지: 지연)
             if cur_mode == MODE_FROZEN:
                 defer_semen(state["mode_ctx"], target_part, ejac_amount)
@@ -919,7 +922,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                                     pid = state["partner_id"]
                                     pen_part = _get_active_penetration_part(state["active_toggles"])
                                     cur_mode = state["mode_ctx"]["mode"]
-                                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
                                     if pen_part and pen_part in ("음부", "항문", "구강"):
                                         if cur_mode == MODE_FROZEN:
                                             defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
@@ -960,7 +963,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
                 if climax_info and climax_info.get("has_p"):
                     pen_part = _get_active_penetration_part(state["active_toggles"])
-                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
 
                     # 내부 사정
                     if pen_part and pen_part in ("음부", "항문", "구강"):
@@ -1285,7 +1288,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         yield from start_npc_initiative(player_id, partner_id, preserved=preserved)
         return
 
-    # 종료 처리 - 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
+    # 종료 처리 - 플레이어 체력 기록 (HP 연동)
+    survival.set_health(player_id, state["stamina"])
+
+    # 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
     partner_id = state["partner_id"]
     mode_ctx = state["mode_ctx"]
     cur_mode = mode_ctx["mode"]

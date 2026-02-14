@@ -1399,6 +1399,12 @@ class Character(Unit):
         if not self.INITIATIVE_CONFIG:
             return False
 
+        # 플레이어 체력 가드 (HP가 너무 낮으면 시작 안 함)
+        import survival
+        player_stats = survival.get_survival_stats(player_id)
+        if player_stats["health"] < 5:
+            return False
+
         # 쿨다운 체크
         props = morld.get_unit_props(self.instance_id)
         if props:
@@ -2006,7 +2012,6 @@ class Character(Unit):
         if not self.is_first_meet(player_id):
             # NPC 주도 스킨십 체크 (첫 만남 이후에만)
             if self.should_initiate_skinship(player_id):
-                self.mark_initiative_cooldown()
                 from npc_initiative import start_npc_initiative
                 return start_npc_initiative(player_id, self.instance_id)
             return None
@@ -2326,7 +2331,6 @@ class Character(Unit):
 
         # 2. NPC 주도 스킨십 체크
         if self.should_initiate_skinship(player_id):
-            self.mark_initiative_cooldown()
             try:
                 from npc_initiative import start_npc_initiative
                 return start_npc_initiative(player_id, self.instance_id)
