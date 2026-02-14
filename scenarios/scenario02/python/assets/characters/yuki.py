@@ -1021,7 +1021,3 @@ class YukiAgent(BaseAgent):
         needs.register_character(unit_id)
         import pregnancy
         pregnancy.register_character(unit_id)
-
-    def on_leave(self, region_id, location_id):
-        """위치 이탈 시 조명 끄기 (유키 성격: 꼼꼼함)"""
-        self._turn_off_lights_here(region_id, location_id)

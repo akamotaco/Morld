@@ -36,6 +36,7 @@ ARCHETYPE_SPEECH = {
     "proud": "rough",
     "innocent": "casual",
     "devoted": "formal",
+    "child": "formal",
 }
 
 # 아키타입별 기본 말투 전환 규칙

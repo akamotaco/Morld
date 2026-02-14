@@ -25,10 +25,9 @@ class ChildAgent(BaseAgent):
         {"name": "수면", "start": 1200 * _M, "end": 86_400_000, "activity": "수면"},
     ]
 
-    owner_unique_id = "child"
-
     def __init__(self, unit_id):
         super().__init__(unit_id)
+        self.owner_unique_id = f"child_{unit_id}"  # 인스턴스별 고유
         self.set_base_schedule(self.DEFAULT_SCHEDULE)
 
         import survival

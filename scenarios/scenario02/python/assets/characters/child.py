@@ -3,7 +3,7 @@
 # 출산 시 동적 생성되는 아이 NPC.
 # pregnancy.spawn_child()에서 인스턴스 생성 후 속성 설정.
 
-from assets.base import Character
+from assets.base import Character, build_focus_rules, build_describe_rules
 
 
 class Child(Character):
@@ -22,10 +22,24 @@ class Child(Character):
         "부모:아버지": "",
     }
 
-    DESCRIBE_RULES = [
-        ({}, "{name}(이)가 있다."),
-    ]
+    DESCRIBE_RULES = build_describe_rules(
+        "child",
+        activities=[
+            ("수면", "{name}(이)가 새근새근 자고 있다."),
+            ("식사", "{name}(이)가 음식을 먹고 있다."),
+            ("산책", "{name}(이)가 주변을 돌아다니고 있다."),
+        ],
+        default_text="{name}(이)가 주변을 두리번거리고 있다.",
+        order=["activity", "default", "fatigue"],
+    )
 
-    FOCUS_RULES = [
-        ({}, "{name} — 아직 어린아이다."),
-    ]
+    FOCUS_RULES = build_focus_rules(
+        "child",
+        activities=[
+            ("수면", "평화롭게 잠들어 있다."),
+            ("식사", "열심히 먹고 있다."),
+            ("산책", "호기심 가득한 눈으로 돌아다니고 있다."),
+        ],
+        default_text="어린아이다. 호기심 가득한 눈으로 주변을 바라보고 있다.",
+        order=["activity", "mood", "default"],
+    )

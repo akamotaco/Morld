@@ -1158,16 +1158,41 @@ class BaseAgent:
         """기본 활동 핸들러 (대부분의 활동)
 
         resolve target → move → env check → execute → idle job
+        target=None (대기 등) 일 때는 home_region 내 산책.
         """
         activity = entry.get("activity", "대기")
 
         # 1. 장소 결정
         target = self._resolve_target(entry)
         if target is None:
-            # 장소 없음 → 현재 위치에서 대기
+            # 장소 없음 → 산책 (home_region 내 랜덤 이동)
             remaining = self._remaining_millis_in_entry(entry)
-            self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
-            self._action_taken = True
+
+            # 남은 시간 5분 미만 → 그냥 대기
+            if remaining < 5 * 60_000:
+                self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
+                self._action_taken = True
+                return
+
+            wander_target = self._activity_state.get("wander_target")
+            if wander_target is not None:
+                if self._is_at(wander_target):
+                    # 도착 → 10~30분 휴식 후 다음 산책
+                    self._activity_state.pop("wander_target", None)
+                    rest = min(random.randint(10, 30) * 60_000, remaining)
+                    self._insert_idle_job("산책", max(rest, 1))
+                    self._action_taken = True
+                else:
+                    self._move_to(wander_target, "산책")
+            else:
+                # 새 산책 목적지 선택
+                wander_loc = self._pick_wander_location()
+                if wander_loc:
+                    self._activity_state["wander_target"] = wander_loc
+                    self._move_to(wander_loc, "산책")
+                else:
+                    self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
+                    self._action_taken = True
             return
 
         # 2. 도착 여부
@@ -1184,6 +1209,30 @@ class BaseAgent:
             remaining = self._remaining_millis_in_entry(entry)
             self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
             self._action_taken = True
+
+    def _pick_wander_location(self):
+        """home_region 내 랜덤 location 선택 (산책용)"""
+        home_region = self._get_home_region()
+        cur_loc = self.get_location()
+        if not cur_loc:
+            return None
+
+        region_info = morld.get_region_info(home_region)
+        if not region_info or "locations" not in region_info:
+            return None
+
+        candidates = []
+        for loc_info in region_info["locations"]:
+            lid = loc_info["id"]
+            if cur_loc[0] == home_region and cur_loc[1] == lid:
+                continue  # 현재 위치 제외
+            candidates.append(lid)
+
+        if not candidates:
+            return None
+
+        target_lid = random.choice(candidates)
+        return {"region_id": home_region, "location_id": target_lid}
 
     # ========================================
     # 도구 관리 헬퍼
@@ -1375,6 +1424,10 @@ class BaseAgent:
                 continue
             loc_info = morld.get_location_info(r, l)
             if not loc_info or not loc_info.get("is_indoor", False):
+                continue
+            # 점유 체크: 다른 유닛이 있으면 소등 대상 제외
+            units_here = morld.get_units_at_location(r, l)
+            if units_here and any(u != self.unit_id for u in units_here):
                 continue
             light_ids = []
             for obj_id in obj_ids:

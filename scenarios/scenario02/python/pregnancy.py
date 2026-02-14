@@ -364,6 +364,7 @@ def spawn_child(mother_agent):
     loc = mother_bed or {"region_id": 0, "location_id": 1}
 
     child_id = morld.create_id("unit")
+    child.unique_id = f"child_{child_id}"  # 인스턴스별 고유 unique_id
     child.instantiate(child_id, loc["region_id"], loc["location_id"])
 
     # 어머니 침대에 아이도 소유자로 추가 (bed_owner:{child_unique_id})
