@@ -259,10 +259,12 @@ class TestAgent(BaseAgent):
     """테스트용 최소 Agent"""
     owner_unique_id = "test_npc"
 
-    sleep_location = {"region_id": 0, "location_id": 1, "x": 0}
-    wardrobe_location = {"region_id": 0, "location_id": 3, "x": 0}
-    toilet_location = {"region_id": 0, "location_id": 4, "x": 0}
-    bath_location = {"region_id": 0, "location_id": 5, "x": 0}
+    _locations = {
+        "sleep": {"region_id": 0, "location_id": 1, "x": 0},
+        "wardrobe": {"region_id": 0, "location_id": 3, "x": 0},
+        "toilet": {"region_id": 0, "location_id": 4, "x": 0},
+        "bath": {"region_id": 0, "location_id": 5, "x": 0},
+    }
 
     _SCHEDULE = [
         {"name": "오전활동", "start": 8 * _H, "end": 12 * _H,
@@ -409,7 +411,7 @@ class TestTierPriority:
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 0
         # 옷장 위치 제공 (going phase에서 이동 대상 필요)
-        wloc = agent.wardrobe_location
+        wloc = agent._locations.get("wardrobe")
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -469,7 +471,7 @@ class TestTierPriority:
         job = _last_job(agent)
         assert job is not None
         # 피로 수면 = 이동 or stay job
-        # sleep_location으로 이동 또는 sleep job
+        # _locations["sleep"]로 이동 또는 sleep job
         assert agent._action_taken is True
 
     def test_routine_when_no_interrupt(self):
@@ -582,7 +584,7 @@ class TestColdFlow:
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 1
         # 옷장 제공 → handler가 이동 시도
-        wloc = agent.wardrobe_location
+        wloc = agent._locations.get("wardrobe")
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -597,7 +599,7 @@ class TestColdFlow:
         _humidity.get_unit_wetness = lambda uid: 50
         _temperature._get_equip_prop_total = lambda uid, prop: 0
         _temperature.get_insulation_total = lambda uid: 0
-        wloc = agent.wardrobe_location
+        wloc = agent._locations.get("wardrobe")
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -640,7 +642,7 @@ class TestColdFlow:
         _temperature.get_insulation_total = lambda uid: 0
         # 2시간 전에 시도
         agent._memory["cold_last_attempt"] = morld.get_time() - 2 * _H
-        wloc = agent.wardrobe_location
+        wloc = agent._locations.get("wardrobe")
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -890,7 +892,6 @@ class TestMemoryManagement:
         assert agent._memory["hot_phase"] is None
         assert agent._memory["excretion_phase"] is None
         assert agent._memory["cold_last_attempt"] is None
-        assert isinstance(agent._memory["tool"], dict)
 
     def test_activity_state_reset_on_change(self):
         """activity 변경 시 phase/state 리셋"""
@@ -1106,7 +1107,7 @@ class TestWakeFromCold:
         _temperature.is_cold = lambda uid, threshold=35.5: True
         _temperature.get_insulation_total = lambda uid: 0
         # cold handler 진행용 옷장 위치
-        wloc = agent.wardrobe_location
+        wloc = agent._locations.get("wardrobe")
         _facility.resolve_wardrobe = lambda a, cross_region=False: wloc
 
         agent.think()
@@ -1179,7 +1180,7 @@ class TestNeedFuelCondition:
         agent = _create_agent()
         # agent의 home_region은 0, 열원은 region 2
         _create_heat_source(fuel_level=3)
-        # _get_home_region()은 sleep_location의 region_id를 반환하므로 0
+        # _get_home_region()은 _locations["sleep"]의 region_id를 반환하므로 0
         result = agent._evaluate_condition("need_fuel")
         # fuel source는 region 2에 등록 → agent의 home_region(0)과 불일치
         assert result is False, "다른 region 열원은 무시"
@@ -1252,7 +1253,7 @@ class TestStorageResolver:
     def test_resolve_food_storage_different_region(self):
         """다른 region 컨테이너는 무시"""
         agent = _create_agent()
-        # agent home_region = 0 (sleep_location), storage in region 2
+        # agent home_region = 0 (_locations["sleep"]), storage in region 2
         _create_food_storage(region=2, location=5)
 
         from think.activities.helpers import resolve_storage_container

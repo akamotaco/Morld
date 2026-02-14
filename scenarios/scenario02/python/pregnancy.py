@@ -354,7 +354,7 @@ def spawn_child(mother_agent):
     }
 
     # 어머니 수면 위치에 배치
-    loc = mother_agent.sleep_location
+    loc = mother_agent._locations.get("sleep")
     if not loc:
         loc = {"region_id": 0, "location_id": 1}
 
@@ -365,7 +365,7 @@ def spawn_child(mother_agent):
     from think import register_agent
     from think.child_agent import ChildAgent
     agent = ChildAgent(child_id)
-    agent.sleep_location = loc
+    agent._locations["sleep"] = loc
     register_agent(child_id, agent)
 
     import needs

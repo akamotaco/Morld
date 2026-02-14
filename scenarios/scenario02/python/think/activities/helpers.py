@@ -175,7 +175,7 @@ def find_indoor_room(agent):
     from assets.objects import _location_objects
 
     cleaned = agent._activity_state.get("cleaned", set())
-    sleep = getattr(agent, "sleep_location", None)
+    sleep = agent._locations.get("sleep")
     home_region = agent._get_home_region()
     sleep_l = sleep["location_id"] if sleep else None
 
@@ -219,7 +219,7 @@ def find_polluted_room(agent):
 
     cleaned = agent._activity_state.get("cleaned", set())
     home_region = agent._get_home_region()
-    sleep = getattr(agent, "sleep_location", None)
+    sleep = agent._locations.get("sleep")
     sleep_l = sleep["location_id"] if sleep else None
 
     for key, data in pollution._location_pollution.items():

@@ -18,8 +18,8 @@ def handle_childbirth(agent, entry):
     phase = agent._memory.get("childbirth_phase", "idle")
 
     if phase == "idle":
-        # 출산 장소 = 침실 (sleep_location)
-        target = getattr(agent, 'sleep_location', None)
+        # 출산 장소 = 침실 (_locations["sleep"])
+        target = agent._locations.get("sleep")
         if not target:
             target = {"region_id": 0, "location_id": 1}
         agent._memory["childbirth_target"] = target

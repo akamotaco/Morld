@@ -1063,10 +1063,12 @@ class LinaAgent(BaseAgent):
     ]
 
     owner_unique_id = "lina"
-    sleep_location = {"region_id": 0, "location_id": 7, "x": 120}  # 리나방
-    bath_location = {"region_id": 0, "location_id": 4, "x": 15}  # 욕실
-    wardrobe_location = {"region_id": 0, "location_id": 7, "x": 25}  # 리나방 옷장
-    toilet_location = {"region_id": 0, "location_id": 16, "x": 15}  # 2층 화장실
+    _locations = {
+        "sleep": {"region_id": 0, "location_id": 7, "x": 120},      # 리나방
+        "bath": {"region_id": 0, "location_id": 4, "x": 15},         # 욕실
+        "wardrobe": {"region_id": 0, "location_id": 7, "x": 25},     # 리나방 옷장
+        "toilet": {"region_id": 0, "location_id": 16, "x": 15},      # 2층 화장실
+    }
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

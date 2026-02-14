@@ -61,6 +61,7 @@ class BaseAgent:
 
     def __init__(self, unit_id):
         self.unit_id = unit_id
+        self._locations = dict(self.__class__._locations)  # 인스턴스 복사 (변이 방지)
         self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
         # Activity 상태 (think에서 단일 행동 계획용)
         self._current_activity = None   # 현재 수행 중인 activity entry
@@ -71,7 +72,6 @@ class BaseAgent:
         self._action_taken = False      # think() 내 행동 결정 여부 (경고용)
         # === 지속 기억 (활동 간 유지, 향후 세이브/로드 대상) ===
         self._memory = {
-            "tool": {},             # 도구 반납 위치 {item_id: {"container_id", "location"}}
             "hunger_phase": None,   # 식사 단계 (None/idle/going_to_storage/taking_food/eating)
             "cold_phase": None,     # 방한 단계 (None/idle/going/taking/equipping)
             "cold_last_attempt": None,  # 마지막 추위 대응 시도 시각 (밀리초)
@@ -192,22 +192,10 @@ class BaseAgent:
     # 수면 시스템
     # ========================================
 
-    # 서브클래스에서 오버라이드: 자기 침대 위치
-    # 예: {"region_id": 0, "location_id": 8, "x": 120}
-    sleep_location = None
-
-    # 서브클래스에서 오버라이드: 목욕 장소
-    # 예: {"region_id": 0, "location_id": 4, "x": 15}
-    bath_location = None
-
-    # 서브클래스에서 오버라이드: 옷장 장소 (추위/더위 인터럽트용)
-    # 예: {"region_id": 0, "location_id": 8, "x": 25}
-    wardrobe_location = None
-    wardrobe_unique_id = "wardrobe"  # 옷장 오브젝트 unique_id
-
-    # 서브클래스에서 오버라이드: 화장실 장소 (배변 인터럽트용)
-    # 예: {"region_id": 0, "location_id": 15, "x": 15}
-    toilet_location = None
+    # 서브클래스에서 오버라이드: NPC 장소 정보
+    # 예: {"sleep": {"region_id": 0, ...}, "bath": {...}, "wardrobe": {...}, "toilet": {...}}
+    _locations = {}
+    wardrobe_unique_id = "wardrobe"  # 옷장 오브젝트 unique_id (별도 유지)
 
     def _is_sleep_time(self):
         """현재 시간이 수면 시간대인지 확인
@@ -264,7 +252,8 @@ class BaseAgent:
         Returns:
             dict: {"region_id", "location_id", "x", "bed_object_id", "rough"} or None
         """
-        if not self.sleep_location:
+        sleep = self._locations.get("sleep")
+        if not sleep:
             loc = self.get_location()
             if loc:
                 return {"region_id": loc[0], "location_id": loc[1],
@@ -284,8 +273,8 @@ class BaseAgent:
         owner_unique = self.owner_unique_id or ""
         result = morld.resolve_sleep_target(
             self.unit_id,
-            self.sleep_location["region_id"],
-            self.sleep_location["location_id"],
+            sleep["region_id"],
+            sleep["location_id"],
             owner_unique
         )
         return result
@@ -639,7 +628,7 @@ class BaseAgent:
 
     def _check_excretion(self):
         """배변욕 확인 → 화장실 이동. Returns True if handling."""
-        if self.toilet_location is None:
+        if not self._locations.get("toilet"):
             return False
 
         # 이미 진행 중이면 계속
@@ -668,7 +657,7 @@ class BaseAgent:
         if is_sleep:
             return False  # 스케줄 수면은 4d에서 처리
 
-        if self.sleep_location is None:
+        if not self._locations.get("sleep"):
             return False
 
         try:
@@ -1027,9 +1016,10 @@ class BaseAgent:
         return self._activity_target
 
     def _get_home_region(self):
-        """NPC의 홈 region (sleep_location 기준, 없으면 현재 위치)"""
-        if self.sleep_location:
-            return self.sleep_location.get("region_id", 0)
+        """NPC의 홈 region (_locations["sleep"] 기준, 없으면 현재 위치)"""
+        sleep = self._locations.get("sleep")
+        if sleep:
+            return sleep.get("region_id", 0)
         loc = self.get_location()
         return loc[0] if loc else 0
 
@@ -1348,18 +1338,18 @@ class BaseAgent:
 
     def _find_lit_indoor_room(self, region_id):
         """조명이 켜진 거처 실내 방 찾기 (소등용)
-        거처 = sleep_location과 같은 건물(실내 연결) 내의 방
+        거처 = _locations["sleep"]와 같은 건물(실내 연결) 내의 방
         """
         from assets.objects import _location_objects
 
-        sleep = getattr(self, "sleep_location", None)
+        sleep = self._locations.get("sleep")
         sleep_r = sleep["region_id"] if sleep else region_id
         sleep_l = sleep["location_id"] if sleep else None
 
         for (r, l), obj_ids in _location_objects.items():
             if r != region_id:
                 continue
-            # 거처 필터: sleep_location과 같은 건물인 실내만 대상
+            # 거처 필터: _locations["sleep"]와 같은 건물인 실내만 대상
             if sleep_l is not None and not morld.is_same_building(r, l, sleep_r, sleep_l):
                 continue
             loc_info = morld.get_location_info(r, l)
@@ -1393,7 +1383,7 @@ class BaseAgent:
 
     def _check_cold(self):
         """추위/젖음 확인 → 방한 활동 시작. Returns True if handling cold."""
-        if self.wardrobe_location is None:
+        if not self._locations.get("wardrobe"):
             return False
 
         # 이미 진행 중이면 계속
@@ -1433,7 +1423,7 @@ class BaseAgent:
 
     def _check_hot(self):
         """더위 확인 → 보온 의류 벗기. Returns True if handling hot."""
-        if self.wardrobe_location is None:
+        if not self._locations.get("wardrobe"):
             return False
 
         # 이미 진행 중이면 계속
@@ -1465,7 +1455,7 @@ class BaseAgent:
 
     def _check_clothing(self):
         """착의 확인 → 옷장 이동. Returns True if handling."""
-        if self.wardrobe_location is None:
+        if not self._locations.get("wardrobe"):
             return False
 
         # 이미 진행 중이면 계속
@@ -1557,7 +1547,7 @@ class BaseAgent:
         except ImportError:
             return False
         home_region = self._get_home_region()
-        sleep = getattr(self, "sleep_location", None)
+        sleep = self._locations.get("sleep")
         sleep_l = sleep["location_id"] if sleep else None
         for key, data in pollution._location_pollution.items():
             r, l = key
@@ -1688,7 +1678,7 @@ def _handle_excretion(agent):
         return
 
     elif phase == "going":
-        target = agent.toilet_location
+        target = agent._locations.get("toilet")
         if agent._is_at(target):
             agent._memory["excretion_phase"] = "using"
             agent._action_taken = True
@@ -2117,18 +2107,20 @@ def _resolve_private_location(agent):
         return {"region_id": cur_r, "location_id": cur_l, "x": 0}
 
     # 2. 침실
-    if agent.sleep_location:
-        sr = agent.sleep_location["region_id"]
-        sl = agent.sleep_location["location_id"]
+    sleep = agent._locations.get("sleep")
+    if sleep:
+        sr = sleep["region_id"]
+        sl = sleep["location_id"]
         if _is_valid(sr, sl):
-            return agent.sleep_location
+            return sleep
 
     # 3. 화장실
-    if agent.toilet_location:
-        tr = agent.toilet_location["region_id"]
-        tl = agent.toilet_location["location_id"]
+    toilet = agent._locations.get("toilet")
+    if toilet:
+        tr = toilet["region_id"]
+        tl = toilet["location_id"]
         if _is_valid(tr, tl):
-            return agent.toilet_location
+            return toilet
 
     # 4. region 내 가장 가까운 후보
     region_info = morld.get_region_info(cur_r)

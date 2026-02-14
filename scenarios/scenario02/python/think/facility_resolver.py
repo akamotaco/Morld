@@ -21,7 +21,7 @@ def resolve_bath(agent, cross_region=False):
     """목욕 시설 탐색 (선착순 점유)
 
     우선순위:
-    1. agent.bath_location (선호 위치) — 비어있으면 사용
+    1. agent._locations["bath"] (선호 위치) — 비어있으면 사용
     2. 같은 region의 다른 action:bath 오브젝트
     3. (cross_region=True일 때만) 다른 region의 오브젝트
     4. 모두 점유/없음 → None
@@ -29,7 +29,7 @@ def resolve_bath(agent, cross_region=False):
     Returns:
         {"region_id", "location_id", "x", "object_id"} or None
     """
-    preferred = agent.bath_location
+    preferred = agent._locations.get("bath")
     home_region = preferred["region_id"] if preferred else None
     if home_region is None:
         loc = agent.get_location()
@@ -50,14 +50,14 @@ def resolve_wardrobe(agent, cross_region=False):
     """옷장 탐색 (점유 감지 없음)
 
     우선순위:
-    1. agent.wardrobe_location (선호 위치)
+    1. agent._locations["wardrobe"] (선호 위치)
     2. 같은 region의 다른 wardrobe 오브젝트
     3. (cross_region=True일 때만) 다른 region의 오브젝트
 
     Returns:
         {"region_id", "location_id", "x", "object_id"} or None
     """
-    preferred = agent.wardrobe_location
+    preferred = agent._locations.get("wardrobe")
     home_region = preferred["region_id"] if preferred else None
     if home_region is None:
         loc = agent.get_location()

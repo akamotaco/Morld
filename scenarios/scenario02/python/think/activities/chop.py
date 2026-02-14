@@ -65,11 +65,6 @@ def handle_chop(agent, entry):
             if morld.has_item(container_id, item_id):
                 morld.remove_item(container_id, item_id, 1)
                 morld.give_item(agent.unit_id, item_id, 1)
-                # 원래 위치 기억 (반납용)
-                agent._memory["tool"][item_id] = {
-                    "container_id": container_id,
-                    "location": target,
-                }
                 agent._activity_phase = "going_to_tree"
                 agent._action_taken = True
             else:
@@ -104,20 +99,14 @@ def handle_chop(agent, entry):
     elif phase == "returning_tool":
         tool = agent._activity_state.get("tool")
         item_id = tool["item_id"] if tool else None
-        memory = agent._memory["tool"].pop(item_id, None) if item_id else None
 
-        if memory:
-            target = memory["location"]
-            container_id = memory["container_id"]
-        else:
-            from .helpers import resolve_storage_container
-            fallback = resolve_storage_container(agent, "tool")
-            if not fallback:
-                agent._activity_phase = "idle"
-                agent._action_taken = True
-                return
-            target = fallback
-            container_id = fallback["object_id"]
+        from .helpers import resolve_storage_container
+        target = resolve_storage_container(agent, "tool")
+        if not target:
+            agent._activity_phase = "idle"
+            agent._action_taken = True
+            return
+        container_id = target["object_id"]
 
         if agent._is_at(target):
             if item_id and container_id:
