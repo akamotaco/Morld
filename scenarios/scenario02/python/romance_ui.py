@@ -7,6 +7,8 @@
 """
 
 import morld
+import stimulation
+import position
 import ui
 from romance_actions import (
     SEMEN_PARTS, INTERNAL_SEMEN_PARTS, DEFAULT_STAMINA,
@@ -24,7 +26,7 @@ from romance_core import (
     get_exposure_state,
     get_semen_total, get_internal_semen, get_internal_semen_total,
     _has_active_penetration,
-    is_pull_out_available, is_hold_back_available, _calculate_hold_back_chance,
+    is_pull_out_available, is_hold_back_available, is_ejaculate_available,
 )
 
 
@@ -62,7 +64,10 @@ def render_romance_ui(state):
         "frozen": " [color=cyan][시간정지][/color]",
     }
     mode_label = _MODE_LABELS.get(cur_mode, "")
-    lines.append(f"[{partner_name}와 함께]{mode_label}                 스태미나: {render_stamina_bar(player_stamina)}")
+    cur_pos = state.get("position", "missionary")
+    pos_name_hdr = position.get_name(cur_pos)
+    pos_facing_hdr = "대면" if position.get_facing(cur_pos) == "front" else "배면"
+    lines.append(f"[{partner_name}와 함께]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  스태미나: {render_stamina_bar(player_stamina)}")
 
     # 저항 게이지 (강제 모드)
     if cur_mode == "forced" and mode_ctx:
@@ -152,7 +157,10 @@ def render_romance_ui(state):
             if cat not in partner_anatomy:
                 continue
             val = stim_state["stim"].get(cat, 0)
-            stim_parts.append(f"{cat}:{val}")
+            if val >= stimulation.STIM_MAX:
+                stim_parts.append(f"[color=yellow]{cat}:{val}★[/color]")
+            else:
+                stim_parts.append(f"{cat}:{val}")
         stim_line = f"자극: {' '.join(stim_parts)}"
         if stim_state.get("refractory", 0) > 0:
             stim_line += f"  [color=red][불응기][/color]"
@@ -165,6 +173,16 @@ def render_romance_ui(state):
         if stim_state["climax_total"] > 0:
             stim_line += f"  절정: {stim_state['climax_total']}"
         lines.append(stim_line)
+        # 절정 게이지
+        gauge = stim_state.get("climax_gauge", 0)
+        gauge_filled = int(gauge / 10)
+        gauge_empty = 10 - gauge_filled
+        gauge_line = f"절정: {'█' * gauge_filled}{'░' * gauge_empty} {int(gauge)}/{stimulation.CLIMAX_GAUGE_MAX}"
+        if stimulation.is_trance(stim_state):
+            gauge_line += "  [color=magenta][트랜스][/color]"
+        if stimulation.is_p_peaked(stim_state):
+            gauge_line += "  [color=red][사정감][/color]"
+        lines.append(gauge_line)
 
     # 감각 레벨 표시 (1 이상인 것만, 대상 성별 기반)
     sensation_parts = []
@@ -246,6 +264,11 @@ def render_romance_ui(state):
             lines.append(f"  [color=gray]{action['name']} (임신 후기)[/color]")
             continue
         is_on = action_id in state["active_toggles"]
+        # 배면 체위: 입 사용 행위 비활성화 (이미 ON이면 해제 가능)
+        if action.get("uses_mouth") and not is_on:
+            if position.get_facing(state.get("position", "missionary")) == "back":
+                lines.append(f"  [color=gray]{action['name']} (배면 체위)[/color]")
+                continue
         # 노출 필요 행위: 미노출 시 잠금 표시
         req_area = action.get("requires_exposure")
         if req_area and not exposure.get(f"{req_area}_exposed") and not is_on:
@@ -280,8 +303,15 @@ def render_romance_ui(state):
     for action_id, action in INSTANT_ACTIONS.items():
         if action.get("is_condom_action"):
             continue  # 콘돔 액션은 위에서 별도 렌더링
+        if action_id in ("hold_back", "ejaculate"):
+            continue  # 특수 표시 영역에서 처리
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
+        # 배면 체위: 입 사용 행위 비활성화
+        if action.get("uses_mouth"):
+            if position.get_facing(state.get("position", "missionary")) == "back":
+                lines.append(f"  [color=gray]{action['name']} (배면 체위)[/color]")
+                continue
         # 플레이어 자신의 해부학 요구사항 (hold_back 등)
         player_self_req = action.get("requires_player_anatomy_self")
         if player_self_req:
@@ -320,12 +350,30 @@ def render_romance_ui(state):
         lines.append("[질외사정]")
         for target in SEMEN_PARTS:
             lines.append(f"  [url=@proc:pull_out_target:{target}]{target}[/url]")
-    # 참기 (삽입 중 + P 자극 ≥ 80)
+    # 참기 (peaked 부위 존재 + 게이지 > 0)
     if is_hold_back_available(state):
-        if gender_mod.has_anatomy(state["player_id"], "P"):
-            chance = _calculate_hold_back_chance(state["player_id"], state["stim"])
-            lines.append(f"  [url=@proc:instant:hold_back]참기 ({chance}%)[/url]")
+        hb_count = stim_state.get("hold_back_count", 0) if stim_state else 0
+        chance = max(stimulation.HOLD_BACK_MIN_CHANCE,
+                     stimulation.HOLD_BACK_BASE_CHANCE - hb_count * stimulation.HOLD_BACK_CHANCE_DECAY)
+        reduction = max(stimulation.HOLD_BACK_REDUCTION_MIN,
+                        stimulation.HOLD_BACK_REDUCTION - hb_count * stimulation.HOLD_BACK_REDUCTION_DECAY)
+        lines.append(f"  [url=@proc:instant:hold_back]참기 (성공률 {chance}%, 성공 시 -{reduction})[/url]")
+    # 사정하기 (P stim >= threshold)
+    if is_ejaculate_available(state, state["player_id"]):
+        p_stim = stim_state["stim"].get("P", 0) if stim_state else 0
+        p_sensation = get_sensation_level(state["player_id"], "P")
+        threshold = stimulation.get_ejaculate_threshold(p_sensation)
+        lines.append(f"  [url=@proc:instant:ejaculate]사정하기 (P: {p_stim}/{threshold})[/url]")
     lines.append("")
+
+    # 체위 변경 메뉴
+    if state.get("pending_position_change"):
+        lines.append("[체위 변경]")
+        for pos in state.get("available_positions", []):
+            pn = position.get_name(pos)
+            pf = "대면" if position.get_facing(pos) == "front" else "배면"
+            lines.append(f"  [url=@proc:position:{pos}]{pn} ({pf})[/url]")
+        lines.append("")
 
     # 푸터
     lines.append(ui.divider())

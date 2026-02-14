@@ -506,13 +506,28 @@ def _calculate_hold_back_chance(player_id, stim_state):
 
 
 def is_hold_back_available(state):
-    """참기 가능 여부: P 보유 + 삽입 토글 활성 + P 자극 ≥ 80"""
-    if not _get_active_penetration_part(state.get("active_toggles", set())):
-        return False
+    """참기 가능 여부: peaked 부위 존재 + 절정 게이지 > 0"""
     stim = state.get("stim")
     if not stim:
         return False
-    return stim["stim"].get("P", 0) >= HOLD_BACK_P_THRESHOLD
+    import stimulation as _stim_mod
+    return (_stim_mod.get_peaked_count(stim) > 0
+            and stim["climax_gauge"] > 0)
+
+
+def is_ejaculate_available(state, player_id):
+    """사정하기 가능 여부: P 해부학 + P stim >= threshold(감각 보정)"""
+    stim = state.get("stim")
+    if not stim:
+        return False
+    import gender as gender_mod
+    if not gender_mod.has_anatomy(player_id, "P"):
+        return False
+    p_stim = stim["stim"].get("P", 0)
+    p_sensation = get_sensation_level(player_id, "P")
+    import stimulation as _stim_mod
+    threshold = _stim_mod.get_ejaculate_threshold(p_sensation)
+    return p_stim >= threshold
 
 
 def is_pull_out_available(state):
@@ -695,6 +710,10 @@ def extract_preserved(state):
         "checked_npcs": state.get("checked_npcs", set()),
         "lubricated": state.get("lubricated", False),
         "schedule_pushed": True,
+        "position": state.get("position", "missionary"),
+        "condom_active": state.get("condom_active", False),
+        "condom_punctured": state.get("condom_punctured", False),
+        "condom_removed_in_trance": state.get("condom_removed_in_trance", False),
     }
     if "mode_ctx" in state:
         preserved["mode_ctx"] = state["mode_ctx"]

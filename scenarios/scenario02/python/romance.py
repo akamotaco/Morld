@@ -11,6 +11,7 @@
 
 import morld
 import stimulation
+import position
 import ui
 from romance_actions import (
     MILLIS_PER_MINUTE, SEMEN_PARTS,
@@ -52,7 +53,7 @@ from romance_core import (  # noqa: F401 — re-export for external callers
     _has_active_intercourse, _get_penetration_exp_part,
     get_action_exp_part, get_conflicting_toggles, _remove_conflicting_toggles,
     check_and_clear_virginity,
-    _calculate_hold_back_chance, is_hold_back_available, is_pull_out_available,
+    is_hold_back_available, is_ejaculate_available, is_pull_out_available,
     check_preparation, check_lubrication,
     calculate_stealth_chance, check_stealth_success,
     get_excitement_level, emit_romance_sound, emit_ecstasy_sound,
@@ -235,6 +236,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     mode_ctx = create_mode_context(mode, player_id, partner_id)
 
     import gender as gender_mod
+    # NPC 성적 선호 조회
+    partner_asset_init = get_partner_asset(partner_id)
+    npc_prefs = getattr(partner_asset_init, 'SEXUAL_PREFERENCES', None)
+    is_npc_init = (mode != MODE_CONSENSUAL and mode != MODE_FROZEN)
+    initial_position = position.select_initial_position(
+        is_npc_initiative=is_npc_init, npc_prefs=npc_prefs)
+
     state = {
         # 핵심 (세션 수명)
         "player_id": player_id,
@@ -246,6 +254,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         "stim": stimulation.create_state(
             male_mode=(gender_mod.get_gender(partner_id) == "male")
         ),
+        # 체위
+        "position": initial_position,
         # 동작 모드
         "mode_ctx": mode_ctx,
         # 삽입 호환 (삽입 토글 ON 시 설정)
@@ -268,6 +278,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         # 콘돔
         "condom_active": False,
         "condom_punctured": False,
+        "condom_removed_in_trance": False,
+        # NPC 선호
+        "npc_prefs": npc_prefs,
     }
 
     # 전환 시 보존 상태 복원
@@ -279,6 +292,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         state["checked_npcs"] = preserved.get("checked_npcs", set())
         state["condom_active"] = preserved.get("condom_active", False)
         state["condom_punctured"] = preserved.get("condom_punctured", False)
+        state["condom_removed_in_trance"] = preserved.get("condom_removed_in_trance", False)
+        if "position" in preserved:
+            state["position"] = preserved["position"]
         if "mode_ctx" in preserved:
             state["mode_ctx"] = preserved["mode_ctx"]
 
@@ -367,6 +383,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             size_mod = state["size_stim_mod"]
             if size_mod != 1.0 and act_def.get("exp_part") in ("음부", "엉덩이", "음경"):
                 gain = round(gain * size_mod)
+            # NPC 선호 보너스 (체위/부위)
+            pref_mult = position.get_preference_mult(state["position"], category, state.get("npc_prefs"))
+            if pref_mult != 1.0:
+                gain = round(gain * pref_mult)
             result = stimulation.apply(stim_state, category, gain)
             if result and not climax_info:
                 climax_info = result
@@ -377,11 +397,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 if extra_cat:
                     extra_sens = get_sensation_level(pid, extra_cat)
                     extra_gain = stimulation.calc_gain(base, extra_sens, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
+                    extra_pref = position.get_preference_mult(state["position"], extra_cat, state.get("npc_prefs"))
+                    if extra_pref != 1.0:
+                        extra_gain = round(extra_gain * extra_pref)
                     r2 = stimulation.apply(stim_state, extra_cat, extra_gain)
                     if r2 and not climax_info:
                         climax_info = r2
 
-        # 삽입 중 플레이어 P 자극 축적
+        # 삽입 중 플레이어 P 자극 축적 (P 감각에 따른 상승 감소)
         if _has_active_penetration(state.get("active_toggles", set())):
             import gender as gender_mod
             if gender_mod.has_anatomy(player_id, "P"):
@@ -391,43 +414,51 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     if a.get("exp_part") in ("음부", "엉덩이")
                 ) // 2
                 p_gain = max(3, p_base)
-                stim_state["stim"]["P"] = min(
-                    stimulation.STIM_MAX,
-                    stim_state["stim"].get("P", 0) + p_gain)
+                # P 감각 스케일링 (경험 ↑ → 지속력 ↑)
+                p_sensation = get_sensation_level(player_id, "P")
+                p_gain = max(1, round(p_gain * stimulation.get_p_gain_multiplier(p_sensation)))
+                r_p = stimulation.apply(stim_state, "P", p_gain)
+                if r_p and not climax_info:
+                    climax_info = r_p
 
         # 여운 감소 (턴당 1회)
         stimulation.tick_afterglow(stim_state)
 
-        # 절정 처리
+        # 절정 처리 (다중 부위 동시 절정)
         if climax_info:
             exp_mult = multipliers.get("sensation_exp", 1.0)
+            sim_mult = climax_info.get("simultaneous_mult", 1.0)
+            peaked_parts = climax_info.get("peaked_parts", [climax_info["category"]])
+            non_p_parts = climax_info.get("non_p_parts", peaked_parts)
+            has_p = climax_info.get("has_p", False)
 
             if cur_mode == MODE_FROZEN:
                 # 시간정지: 절정 횟수만 축적, 실제 효과 지연
                 state["mode_ctx"]["deferred_climax_count"] += 1
             else:
-                # 성욕 일부 감소 (전액 초기화 대신)
+                # 성욕 일부 감소 (동시 절정 배율 적용)
+                arousal_reduction = round(stimulation.CLIMAX_AROUSAL_REDUCTION * sim_mult)
                 current_arousal = partner_props.get("상태:성욕", 0) if partner_props else 0
-                new_arousal = max(0, current_arousal - stimulation.CLIMAX_AROUSAL_REDUCTION)
+                new_arousal = max(0, current_arousal - arousal_reduction)
                 morld.set_unit_prop(pid, "상태:성욕", new_arousal)
                 # 성적절정 +1
                 morld.modify_prop(pid, "상태:성적절정", 1)
 
-            # 절정 부위 감각 경험치 보너스 (모드 배율 적용)
+            # 절정 부위 감각 경험치 보너스 (모드 배율 적용, 부위별)
             exp_gain = stimulation.get_climax_sensation_gain(
                 rebellion, climax_info.get("chain_count", 0))
-            exp_gain = round(exp_gain * exp_mult)
-            cat = climax_info["category"]
-            if exp_gain > 0:
-                for part, c in SENSATION_MAP.items():
-                    if c == cat:
-                        morld.modify_prop(pid, f"경험:{part}", exp_gain)
-                        break
+            exp_gain = round(exp_gain * exp_mult * sim_mult)
+            for cat in non_p_parts:
+                if exp_gain > 0:
+                    for part, c in SENSATION_MAP.items():
+                        if c == cat:
+                            morld.modify_prop(pid, f"경험:{part}", exp_gain)
+                            break
 
-            # 절정 횟수 카운트 (부위별)
-            climax_count_key = f"경험:절정:{cat}"
-            morld.set_unit_prop(pid, climax_count_key,
-                                (morld.get_unit_prop(pid, climax_count_key) or 0) + 1)
+                # 절정 횟수 카운트 (부위별)
+                climax_count_key = f"경험:절정:{cat}"
+                morld.set_unit_prop(pid, climax_count_key,
+                                    (morld.get_unit_prop(pid, climax_count_key) or 0) + 1)
 
             # 마일스톤: 첫 절정
             if not morld.get_unit_prop(pid, "기억:첫절정"):
@@ -444,53 +475,69 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     if current_sub < SUBMISSION_MAX:
                         morld.modify_prop(pid, submission_key, climax_sub_gain)
 
-            # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
+            # P 절정 (사정) 처리
             ejac_part = None
-            if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
-                import gender as gender_mod
-                if gender_mod.has_anatomy(pid, "P"):
-                    # 콘돔: 정상 콘돔이면 임신 판정 스킵
-                    if not (state["condom_active"] and not state["condom_punctured"]):
-                        import pregnancy
-                        if cur_mode == MODE_FROZEN:
-                            pregnancy.check_conception(player_id, pid, father_type="unknown")
-                        else:
-                            pregnancy.check_conception(player_id, pid)
-                    ejac_part = "음부"
-            # P 절정 + 삽입 토글 활성 → 내부 사정 부위 판별
-            if not ejac_part:
-                import gender as gender_mod
-                if gender_mod.has_anatomy(pid, "P"):
-                    ejac_part = _get_active_penetration_part(state["active_toggles"])
+            if has_p:
+                # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
+                if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
+                    import gender as gender_mod
+                    if gender_mod.has_anatomy(pid, "P"):
+                        # 콘돔: 정상 콘돔이면 임신 판정 스킵
+                        if not (state["condom_active"] and not state["condom_punctured"]):
+                            import pregnancy
+                            if cur_mode == MODE_FROZEN:
+                                pregnancy.check_conception(player_id, pid, father_type="unknown")
+                            else:
+                                pregnancy.check_conception(player_id, pid)
+                        ejac_part = "음부"
+                # P 절정 + 삽입 토글 활성 → 내부 사정 부위 판별
+                if not ejac_part:
+                    import gender as gender_mod
+                    if gender_mod.has_anatomy(pid, "P"):
+                        ejac_part = _get_active_penetration_part(state["active_toggles"])
 
-            # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
-            if ejac_part and ejac_part in ("음부", "항문", "구강"):
-                import gender as _gm
-                _p_holder = player_id
-                if _gm.has_anatomy(pid, "P"):
-                    _p_holder = pid
-                _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
-                if cur_mode == MODE_FROZEN:
-                    defer_semen(state["mode_ctx"], ejac_part, _ejac_amt, internal=True)
-                else:
-                    _apply_internal_semen(pid, ejac_part, _ejac_amt)
-                # 경험 축적: 사정 횟수
-                morld.set_unit_prop(pid, "경험:사정횟수",
-                                    (morld.get_unit_prop(pid, "경험:사정횟수") or 0) + 1)
-                # 플레이어 통계: 총 사정량
-                morld.set_unit_prop(player_id, "통계:총사정량",
-                                    (morld.get_unit_prop(player_id, "통계:총사정량") or 0) + _ejac_amt)
+                # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
+                if ejac_part and ejac_part in ("음부", "항문", "구강"):
+                    import gender as _gm
+                    _p_holder = player_id
+                    if _gm.has_anatomy(pid, "P"):
+                        _p_holder = pid
+                    _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
+                    if cur_mode == MODE_FROZEN:
+                        defer_semen(state["mode_ctx"], ejac_part, _ejac_amt, internal=True)
+                    else:
+                        _apply_internal_semen(pid, ejac_part, _ejac_amt)
+                    # 경험 축적: 사정 횟수
+                    morld.set_unit_prop(pid, "경험:사정횟수",
+                                        (morld.get_unit_prop(pid, "경험:사정횟수") or 0) + 1)
+                    # 플레이어 통계: 총 사정량
+                    morld.set_unit_prop(player_id, "통계:총사정량",
+                                        (morld.get_unit_prop(player_id, "통계:총사정량") or 0) + _ejac_amt)
 
-            # 구멍 뚫린 콘돔 발각 (사정 시 70% 확률)
-            if state["condom_active"] and state["condom_punctured"] and ejac_part:
-                import random
-                if random.random() < 0.7 and cur_mode not in (MODE_UNCONSCIOUS, MODE_FROZEN):
+                # 트랜스 중 콘돔 제거 → 사정 후 발각
+                if state.get("condom_removed_in_trance") and ejac_part:
                     rebellion_key = get_rebellion_key(player_id)
-                    morld.modify_prop(pid, rebellion_key, 10)
-                    # 경험 축적
-                    cheat_count = (morld.get_unit_prop(pid, "경험:콘돔속임") or 0) + 1
-                    morld.set_unit_prop(pid, "경험:콘돔속임", cheat_count)
-                    state["last_reaction"] = "...콘돔에 구멍이 뚫려 있다는 걸 알아챘다!"
+                    morld.modify_prop(pid, rebellion_key, 5)
+                    state["condom_removed_in_trance"] = False
+                    state["last_reaction"] = "...콘돔이...빠져 있었...어...?"
+
+                # 구멍 뚫린 콘돔 발각 (사정 시 70% 확률)
+                if state["condom_active"] and state["condom_punctured"] and ejac_part:
+                    import random
+                    if random.random() < 0.7 and cur_mode not in (MODE_UNCONSCIOUS, MODE_FROZEN):
+                        rebellion_key = get_rebellion_key(player_id)
+                        morld.modify_prop(pid, rebellion_key, 10)
+                        # 경험 축적
+                        cheat_count = (morld.get_unit_prop(pid, "경험:콘돔속임") or 0) + 1
+                        morld.set_unit_prop(pid, "경험:콘돔속임", cheat_count)
+                        state["last_reaction"] = "...콘돔에 구멍이 뚫려 있다는 걸 알아챘다!"
+
+            # 트랜스 자동 삽입 체크 (절정 후 NPC 비-P 부위 아직 peaked)
+            auto_insert = _check_trance_auto_insert(state)
+            if auto_insert:
+                trance_reaction = _get_mode_reaction("trance_insert", "start")
+                if trance_reaction:
+                    state["last_reaction"] = trance_reaction
 
             # 절정 반응 텍스트 — 모드별 분기
             reaction_prefix = get_reaction_prefix(cur_mode)
@@ -527,6 +574,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             partner_info = morld.get_unit_info(pid)
             partner_name = partner_info.get('name', '상대') if partner_info else '상대'
             return f"{partner_name}(이)가 절정에 달했다."
+
+        # 절정 미발생 시에도 트랜스 체크
+        auto_insert = _check_trance_auto_insert(state)
+        if auto_insert:
+            trance_reaction = _get_mode_reaction("trance_insert", "start")
+            if trance_reaction:
+                return trance_reaction
 
         return None
 
@@ -576,8 +630,55 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             return reaction
         return None
 
+    def _check_trance_auto_insert(state):
+        """트랜스 NPC 자동 삽입 판정 (apply_effects 후 호출)"""
+        stim_state = state["stim"]
+        if not stimulation.is_trance(stim_state):
+            return None
+        peaked = stimulation.get_peaked_count(stim_state)
+        if peaked < 2:
+            return None
+        if _has_active_penetration(state.get("active_toggles", set())):
+            return None
+        pid = state["partner_id"]
+        desire_key = get_desire_key(state["player_id"])
+        desire = morld.get_unit_prop(pid, desire_key) or 0
+        if desire < 50:
+            return None
+        # NPC 자동 삽입 (기승위)
+        state["active_toggles"].add("receive_penetration")
+        state["position"] = "cowgirl"
+        return "receive_penetration"
+
     def proc(action):
         if action == "init":
+            return render_romance_ui(state)
+
+        # 체위 변경 확정
+        if action.startswith("position:"):
+            target_pos = action.split(":", 1)[1]
+            state["pending_position_change"] = False
+            state["available_positions"] = []
+            current_pos = state.get("position", "missionary")
+            if not position.can_transition(current_pos, target_pos):
+                return render_romance_ui(state)
+            state["position"] = target_pos
+            pos_name = position.get_name(target_pos)
+            state["last_reaction"] = f"체위를 {pos_name}(으)로 변경했다."
+            # 충돌하는 토글 해제 (배면 전환 시 입 사용 행위)
+            if position.get_facing(target_pos) == "back":
+                mouth_toggles = {t for t in state["active_toggles"]
+                                 if TOGGLE_ACTIONS.get(t, {}).get("uses_mouth")}
+                for mt in mouth_toggles:
+                    state["active_toggles"].discard(mt)
+            # 시간 경과
+            result = advance_time_and_check(state, 2 * MILLIS_PER_MINUTE)
+            if result["interrupted"]:
+                state["interrupted"] = True
+                state["interrupter_id"] = result["interrupter_id"]
+                return True
+            if _post_action_mode_check():
+                return True
             return render_romance_ui(state)
 
         # 종료
@@ -610,7 +711,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             # P 절정 강제 발동
             stim = state.get("stim")
             if stim:
-                stimulation.force_climax(stim, "P")
+                stimulation.force_ejaculate(stim)
             # 사정량 계산
             import gender as gender_mod
             p_holder_id = state["player_id"]
@@ -756,7 +857,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                         return render_romance_ui(state)
                     state["condom_active"] = False
                     state["condom_punctured"] = False
-                    state["last_reaction"] = "콘돔을 제거했다."
+                    # 트랜스 중: NPC가 인지 못함
+                    if stimulation.is_trance(state["stim"]):
+                        state["condom_removed_in_trance"] = True
+                        state["last_reaction"] = "(...눈치채지 못한 것 같다.)"
+                    else:
+                        state["last_reaction"] = "콘돔을 제거했다."
                     return render_romance_ui(state)
 
             # 탈의 전용 처리
@@ -786,48 +892,54 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     return True
                 return render_romance_ui(state)
 
-            # 참기 특수 처리
+            # 참기 특수 처리 (확률 기반 + 감쇠형)
             if action_id == "hold_back":
-                import random
-                chance = _calculate_hold_back_chance(player_id, state["stim"])
-                state["stamina"] -= action_def["stamina"]
-                if random.randint(1, 100) <= chance:
-                    # 성공: P 자극 → 60으로 감소
-                    state["stim"]["stim"]["P"] = 60
+                stim_state = state["stim"]
+                hb_result = stimulation.hold_back(stim_state)
+                state["stamina"] = max(0, state["stamina"] - action_def["stamina"])
+
+                if hb_result["success"]:
                     reaction = _get_mode_reaction("hold_back_success", "start")
-                    state["last_reaction"] = reaction or "참았다."
+                    state["last_reaction"] = reaction or f"(이를 악물고 참았다... -{hb_result['reduction']})"
                 else:
-                    # 실패: 강제 P 절정 → 현재 삽입 대상에 내부 사정
-                    pen_part = _get_active_penetration_part(state["active_toggles"])
-                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
-                    cur_mode = state["mode_ctx"]["mode"]
-                    if pen_part:
-                        if cur_mode == MODE_FROZEN:
-                            defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
-                        else:
-                            _apply_internal_semen(state["partner_id"], pen_part, ejac_amount)
-                        # 임신 판정 — 콘돔 착용 시 스킵
-                        if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
-                            if not (state["condom_active"] and not state["condom_punctured"]):
-                                try:
-                                    import pregnancy
-                                    if cur_mode == MODE_FROZEN:
-                                        pregnancy.check_conception(player_id, state["partner_id"],
-                                                                   father_type="unknown")
-                                    else:
-                                        pregnancy.check_conception(player_id, state["partner_id"])
-                                except ImportError:
-                                    pass
-                    else:
-                        if cur_mode == MODE_FROZEN:
-                            defer_semen(state["mode_ctx"], "body", ejac_amount)
-                        else:
-                            _apply_semen(state["partner_id"], "body", ejac_amount)
-                    # P 자극 리셋
-                    import stimulation
-                    stimulation.apply_climax_reset_p(state["stim"])
+                    # 실패: 게이지 오히려 증가
                     reaction = _get_mode_reaction("hold_back_failure", "start")
-                    state["last_reaction"] = reaction or "참지 못했다...!"
+                    state["last_reaction"] = reaction or "(참으려 했지만 실패했다...!)"
+                    # 실패 + 게이지 만충 + peaked 존재 → 즉시 절정
+                    if hb_result["gauge"] >= stimulation.CLIMAX_GAUGE_MAX:
+                        if stimulation.get_peaked_count(stim_state) > 0:
+                            climax_info = stimulation.force_climax(stim_state)
+                            if climax_info:
+                                active_toggle_defs = [TOGGLE_ACTIONS[t] for t in state["active_toggles"]]
+                                ecstasy = apply_effects.__wrapped__(climax_info, active_toggle_defs) if hasattr(apply_effects, '__wrapped__') else None
+                                # 사정 처리 (has_p인 경우)
+                                if climax_info.get("has_p"):
+                                    pid = state["partner_id"]
+                                    pen_part = _get_active_penetration_part(state["active_toggles"])
+                                    cur_mode = state["mode_ctx"]["mode"]
+                                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                                    if pen_part and pen_part in ("음부", "항문", "구강"):
+                                        if cur_mode == MODE_FROZEN:
+                                            defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
+                                        else:
+                                            _apply_internal_semen(pid, pen_part, ejac_amount)
+                                        if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
+                                            if not (state["condom_active"] and not state["condom_punctured"]):
+                                                try:
+                                                    import pregnancy
+                                                    if cur_mode == MODE_FROZEN:
+                                                        pregnancy.check_conception(player_id, pid,
+                                                                                   father_type="unknown")
+                                                    else:
+                                                        pregnancy.check_conception(player_id, pid)
+                                                except ImportError:
+                                                    pass
+                                    elif pen_part:
+                                        if cur_mode == MODE_FROZEN:
+                                            defer_semen(state["mode_ctx"], pen_part, ejac_amount)
+                                        else:
+                                            _apply_semen(pid, pen_part, ejac_amount)
+
                 result = advance_time_and_check(state, action_def["time"])
                 if result["interrupted"]:
                     state["interrupted"] = True
@@ -835,6 +947,80 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     return True
                 if _post_action_mode_check():
                     return True
+                return render_romance_ui(state)
+
+            # 사정하기 특수 처리
+            if action_id == "ejaculate":
+                stim_state = state["stim"]
+                climax_info = stimulation.force_ejaculate(stim_state)
+                pid = state["partner_id"]
+                cur_mode = state["mode_ctx"]["mode"]
+
+                if climax_info and climax_info.get("has_p"):
+                    pen_part = _get_active_penetration_part(state["active_toggles"])
+                    ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+
+                    # 내부 사정
+                    if pen_part and pen_part in ("음부", "항문", "구강"):
+                        if cur_mode == MODE_FROZEN:
+                            defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
+                        else:
+                            _apply_internal_semen(pid, pen_part, ejac_amount)
+                        # 임신 판정
+                        if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
+                            if not (state["condom_active"] and not state["condom_punctured"]):
+                                try:
+                                    import pregnancy
+                                    if cur_mode == MODE_FROZEN:
+                                        pregnancy.check_conception(player_id, pid,
+                                                                   father_type="unknown")
+                                    else:
+                                        pregnancy.check_conception(player_id, pid)
+                                except ImportError:
+                                    pass
+                        # 경험/통계
+                        morld.set_unit_prop(pid, "경험:사정횟수",
+                                            (morld.get_unit_prop(pid, "경험:사정횟수") or 0) + 1)
+                        morld.set_unit_prop(player_id, "통계:총사정량",
+                                            (morld.get_unit_prop(player_id, "통계:총사정량") or 0) + ejac_amount)
+                    elif pen_part:
+                        if cur_mode == MODE_FROZEN:
+                            defer_semen(state["mode_ctx"], pen_part, ejac_amount)
+                        else:
+                            _apply_semen(pid, pen_part, ejac_amount)
+
+                    # 트랜스 중 콘돔 제거 발각
+                    if state.get("condom_removed_in_trance"):
+                        rebellion_key = get_rebellion_key(player_id)
+                        morld.modify_prop(pid, rebellion_key, 5)
+                        state["condom_removed_in_trance"] = False
+                        state["last_reaction"] = "...콘돔이...빠져 있었...어...?"
+                    else:
+                        reaction = _get_mode_reaction("ejaculate", "start")
+                        state["last_reaction"] = reaction or "사정했다."
+
+                    if should_emit_sound(state["mode_ctx"]["mode"]):
+                        emit_ecstasy_sound(pid)
+
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
+
+            # 체위 변경 특수 처리
+            if action_id == "change_position":
+                current_pos = state.get("position", "missionary")
+                transitions = position.get_available_transitions(current_pos)
+                if not transitions:
+                    state["last_reaction"] = "변경 가능한 체위가 없다."
+                    return render_romance_ui(state)
+                # 선택지 리턴 (UI에서 처리)
+                state["pending_position_change"] = True
+                state["available_positions"] = transitions
                 return render_romance_ui(state)
 
             # 체력 계산: 즉시형 + 활성 토글들

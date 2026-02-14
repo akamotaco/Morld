@@ -14,6 +14,7 @@ import random
 import think
 import ui
 import stimulation
+import position
 from romance_actions import (
     INSTANT_ACTIONS as PLAYER_INSTANT_ACTIONS,
     TOGGLE_ACTIONS as NPC_TOGGLE_ACTIONS,
@@ -37,7 +38,7 @@ from romance_core import (
     _has_active_penetration, _get_active_penetration_part,
     _has_active_intercourse, _get_penetration_exp_part,
     _apply_internal_semen, _apply_semen, calculate_ejaculation_amount,
-    is_hold_back_available, _calculate_hold_back_chance,
+    is_hold_back_available, is_ejaculate_available,
     check_preparation, check_lubrication,
     check_and_clear_virginity,
     get_conflicting_toggles, _remove_conflicting_toggles,
@@ -308,7 +309,8 @@ def get_available_npc_actions(npc_id, player_id):
     return available
 
 
-def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True):
+def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True,
+                             cur_position="missionary"):
     """
     NPC가 랜덤으로 행위 선택
 
@@ -320,6 +322,7 @@ def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True)
         player_id: 플레이어 ID
         active_toggles: 현재 활성화된 토글 set
         lubricated: 윤활 상태 (False면 pregnancy_check 행위 제외)
+        cur_position: 현재 체위 (배면 체위 시 uses_mouth 행위 제외)
 
     Returns:
         str: 선택된 액션 ID 또는 None (더 이상 선택할 액션 없음)
@@ -338,6 +341,11 @@ def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True)
     if not lubricated:
         available = [a for a in available
                      if not NPC_TOGGLE_ACTIONS.get(a, {}).get("pregnancy_check")]
+
+    # 배면 체위: 입 사용 행위 제외
+    if position.get_facing(cur_position) == "back":
+        available = [a for a in available
+                     if not NPC_TOGGLE_ACTIONS.get(a, {}).get("uses_mouth")]
 
     # 이미 활성화된 토글 제외
     candidates = [a for a in available if a not in active_toggles]
@@ -522,7 +530,10 @@ def render_npc_initiative_ui(state):
     # 헤더 - NPC 이름 + 스태미나
     resistance_mode = state.get("resistance_mode", False)
     mode_label = " [color=red][저항 중][/color]" if resistance_mode else ""
-    lines.append(f"[{npc_name}의 주도]{mode_label}                 스태미나: {render_stamina_bar(player_stamina)}")
+    cur_pos = state.get("position", "missionary")
+    pos_name_hdr = position.get_name(cur_pos)
+    pos_facing_hdr = "대면" if position.get_facing(cur_pos) == "front" else "배면"
+    lines.append(f"[{npc_name}의 주도]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  스태미나: {render_stamina_bar(player_stamina)}")
 
     # 저항 게이지 (저항 모드)
     if resistance_mode:
@@ -594,7 +605,10 @@ def render_npc_initiative_ui(state):
             if cat not in npc_anatomy:
                 continue
             val = stim_state["stim"].get(cat, 0)
-            stim_parts.append(f"{cat}:{val}")
+            if val >= stimulation.STIM_MAX:
+                stim_parts.append(f"[color=yellow]{cat}:{val}★[/color]")
+            else:
+                stim_parts.append(f"{cat}:{val}")
         stim_line = f"자극: {' '.join(stim_parts)}"
         if stim_state.get("refractory", 0) > 0:
             stim_line += f"  [color=red][불응기][/color]"
@@ -607,6 +621,16 @@ def render_npc_initiative_ui(state):
         if stim_state["climax_total"] > 0:
             stim_line += f"  절정: {stim_state['climax_total']}"
         lines.append(stim_line)
+        # 절정 게이지
+        gauge = stim_state.get("climax_gauge", 0)
+        gauge_filled = int(gauge / 10)
+        gauge_empty = 10 - gauge_filled
+        gauge_line = f"절정: {'█' * gauge_filled}{'░' * gauge_empty} {int(gauge)}/{stimulation.CLIMAX_GAUGE_MAX}"
+        if stimulation.is_trance(stim_state):
+            gauge_line += "  [color=magenta][트랜스][/color]"
+        if stimulation.is_p_peaked(stim_state):
+            gauge_line += "  [color=red][사정감][/color]"
+        lines.append(gauge_line)
     # 노출 상태 표시
     exposure = get_exposure_state(npc_id)
     exposure_parts = []
@@ -676,9 +700,13 @@ def render_npc_initiative_ui(state):
                 import gender as gender_mod
                 if not gender_mod.has_anatomy(player_id, player_self_req):
                     continue
-            # hold_back: P 자극 미달 시 숨김
-            if action_id == "hold_back":
-                if not is_hold_back_available(state):
+            # hold_back/ejaculate: 특수 표시 영역에서 처리
+            if action_id in ("hold_back", "ejaculate"):
+                continue
+            # 배면 체위: 입 사용 행위 비활성화
+            if action.get("uses_mouth"):
+                if position.get_facing(state.get("position", "missionary")) == "back":
+                    lines.append(f"  [color=gray]{action['name']} (배면 체위)[/color]")
                     continue
             # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
             if action.get("requires_active_penetration") and not has_penetration:
@@ -708,11 +736,7 @@ def render_npc_initiative_ui(state):
                 continue
             if is_action_available(npc_id, player_id, action):
                 if player_stamina >= action["stamina"]:
-                    display_name = action['name']
-                    if action_id == "hold_back":
-                        chance = _calculate_hold_back_chance(player_id, state["stim"])
-                        display_name = f"참기 ({chance}%)"
-                    lines.append(f"  [url=@proc:instant:{action_id}]{display_name}[/url]")
+                    lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
                 else:
                     lines.append(f"  [color=gray]{action['name']} (스태미나 부족)[/color]")
             else:
@@ -722,6 +746,22 @@ def render_npc_initiative_ui(state):
                     npc_props.get(desire_key, 0) if npc_props else 0,
                     npc_props.get(submission_key, 0) if npc_props else 0)
                 lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
+        # 참기 (peaked 부위 존재 + 게이지 > 0)
+        if is_hold_back_available(state):
+            import gender as gender_mod
+            if gender_mod.has_anatomy(player_id, "P"):
+                hb_count = stim_state.get("hold_back_count", 0) if stim_state else 0
+                chance = max(stimulation.HOLD_BACK_MIN_CHANCE,
+                             stimulation.HOLD_BACK_BASE_CHANCE - hb_count * stimulation.HOLD_BACK_CHANCE_DECAY)
+                reduction = max(stimulation.HOLD_BACK_REDUCTION_MIN,
+                                stimulation.HOLD_BACK_REDUCTION - hb_count * stimulation.HOLD_BACK_REDUCTION_DECAY)
+                lines.append(f"  [url=@proc:instant:hold_back]참기 (성공률 {chance}%, 성공 시 -{reduction})[/url]")
+        # 사정하기 (P stim >= threshold)
+        if is_ejaculate_available(state, player_id):
+            p_stim = stim_state["stim"].get("P", 0) if stim_state else 0
+            p_sensation = get_sensation_level(player_id, "P")
+            threshold = stimulation.get_ejaculate_threshold(p_sensation)
+            lines.append(f"  [url=@proc:instant:ejaculate]사정하기 (P: {p_stim}/{threshold})[/url]")
         lines.append("")
 
     # 선택지
@@ -823,6 +863,10 @@ def apply_action_effects(state, action_def):
     size_mod = state["size_stim_mod"]
     if size_mod != 1.0 and exp_part in ("음부", "엉덩이", "음경"):
         gain = round(gain * size_mod)
+    # NPC 선호 보너스 (체위/부위)
+    pref_mult = position.get_preference_mult(state["position"], category, state.get("npc_prefs"))
+    if pref_mult != 1.0:
+        gain = round(gain * pref_mult)
     climax_info = stimulation.apply(stim_state, category, gain)
     # 추가 자극 (tribadism: V+C 동시)
     extra = action_def.get("extra_exp_part")
@@ -831,36 +875,53 @@ def apply_action_effects(state, action_def):
         if extra_cat:
             extra_sens = get_sensation_level(npc_id, extra_cat)
             extra_gain = stimulation.calc_gain(base, extra_sens, rebellion, stim_state["afterglow"], stim_state.get("refractory", 0))
+            extra_pref = position.get_preference_mult(state["position"], extra_cat, state.get("npc_prefs"))
+            if extra_pref != 1.0:
+                extra_gain = round(extra_gain * extra_pref)
             r2 = stimulation.apply(stim_state, extra_cat, extra_gain)
             if r2 and not climax_info:
                 climax_info = r2
 
-    # 삽입 중 플레이어 P 자극 축적
-
+    # 삽입 중 플레이어 P 자극 축적 (P 감각 스케일링)
     if exp_part in ("음부", "엉덩이") and _has_active_penetration(state.get("active_toggles", set())):
         import gender as gender_mod
         if gender_mod.has_anatomy(player_id, "P"):
             p_gain = max(3, base // 2)
-            stim_state["stim"]["P"] = min(
-                stimulation.STIM_MAX,
-                stim_state["stim"].get("P", 0) + p_gain)
+            p_sensation = get_sensation_level(player_id, "P")
+            p_gain = max(1, round(p_gain * stimulation.get_p_gain_multiplier(p_sensation)))
+            r_p = stimulation.apply(stim_state, "P", p_gain)
+            if r_p and not climax_info:
+                climax_info = r_p
 
     if climax_info:
-        # 성욕 일부 감소 (전액 초기화 대신)
+        sim_mult = climax_info.get("simultaneous_mult", 1.0)
+        peaked_parts = climax_info.get("peaked_parts", [climax_info["category"]])
+        non_p_parts = climax_info.get("non_p_parts", peaked_parts)
+        has_p = climax_info.get("has_p", False)
+
+        # 성욕 일부 감소 (동시 절정 배율 적용)
         npc_props = morld.get_unit_props(npc_id)
+        arousal_reduction = round(stimulation.CLIMAX_AROUSAL_REDUCTION * sim_mult)
         current_arousal = npc_props.get("상태:성욕", 0) if npc_props else 0
-        new_arousal = max(0, current_arousal - stimulation.CLIMAX_AROUSAL_REDUCTION)
+        new_arousal = max(0, current_arousal - arousal_reduction)
         morld.set_unit_prop(npc_id, "상태:성욕", new_arousal)
         # 성적절정 +1
         morld.modify_prop(npc_id, "상태:성적절정", 1)
-        # 감각 경험치 보너스
+
+        # 절정 부위 감각 경험치 보너스 (부위별)
         exp_gain = stimulation.get_climax_sensation_gain(
             rebellion, climax_info.get("chain_count", 0))
-        if exp_gain > 0:
-            for part, c in SENSATION_MAP.items():
-                if c == climax_info["category"]:
-                    morld.modify_prop(npc_id, f"경험:{part}", exp_gain)
-                    break
+        exp_gain = round(exp_gain * sim_mult)
+        for cat in non_p_parts:
+            if exp_gain > 0:
+                for part, c in SENSATION_MAP.items():
+                    if c == cat:
+                        morld.modify_prop(npc_id, f"경험:{part}", exp_gain)
+                        break
+            # 절정 횟수 카운트 (부위별)
+            climax_count_key = f"경험:절정:{cat}"
+            morld.set_unit_prop(npc_id, climax_count_key,
+                                (morld.get_unit_prop(npc_id, climax_count_key) or 0) + 1)
 
         # 절정 시 복종 증가 (반발에 의해 억제)
         climax_sub_gain = max(0, 2 - rebellion // 25)
@@ -870,37 +931,35 @@ def apply_action_effects(state, action_def):
             if current_sub < SUBMISSION_MAX:
                 morld.modify_prop(npc_id, submission_key, climax_sub_gain)
 
-        # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
+        # P 절정 (사정) 처리
         ejac_part = None
-        has_intercourse = any(
-            NPC_TOGGLE_ACTIONS.get(tid, {}).get("pregnancy_check")
-            for tid in state["active_toggles"]
-        )
-        if has_intercourse:
-            import gender as gender_mod
-            if gender_mod.has_anatomy(npc_id, "P"):
-                import pregnancy
-                pregnancy.check_conception(player_id, npc_id)
-                ejac_part = "음부"
-        # P 절정 + 비삽입 토글 → 부위 판별
-        if not ejac_part:
-            import gender as gender_mod
-            if gender_mod.has_anatomy(npc_id, "P"):
-                ejac_part = _get_active_penetration_part(state["active_toggles"])
+        if has_p:
+            has_intercourse = any(
+                NPC_TOGGLE_ACTIONS.get(tid, {}).get("pregnancy_check")
+                for tid in state["active_toggles"]
+            )
+            if has_intercourse:
+                import gender as gender_mod
+                if gender_mod.has_anatomy(npc_id, "P"):
+                    import pregnancy
+                    pregnancy.check_conception(player_id, npc_id)
+                    ejac_part = "음부"
+            if not ejac_part:
+                import gender as gender_mod
+                if gender_mod.has_anatomy(npc_id, "P"):
+                    ejac_part = _get_active_penetration_part(state["active_toggles"])
 
-        # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
-        if ejac_part and ejac_part in ("음부", "항문", "구강"):
-
-            import gender as _gm
-            _p_holder = npc_id if _gm.has_anatomy(npc_id, "P") else state["player_id"]
-            _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
-            _apply_internal_semen(npc_id, ejac_part, _ejac_amt)
+            # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
+            if ejac_part and ejac_part in ("음부", "항문", "구강"):
+                import gender as _gm
+                _p_holder = npc_id if _gm.has_anatomy(npc_id, "P") else state["player_id"]
+                _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"])
+                _apply_internal_semen(npc_id, ejac_part, _ejac_amt)
 
         # 절정 반응 텍스트
         npc_asset = get_npc_asset(npc_id)
         if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
             reactions = getattr(npc_asset, 'ROMANCE_REACTIONS', {})
-            # 내부 사정 반응 + 절정 반응 결합
             ejac_reaction = None
             if ejac_part:
                 ejac_key = f"ejaculation_internal_{ejac_part}"
@@ -954,6 +1013,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
     # 상태 초기화
     import gender as gender_mod
+    npc_prefs = getattr(npc_asset, 'SEXUAL_PREFERENCES', None) if npc_asset else None
+    initial_position = position.select_initial_position(
+        is_npc_initiative=True, npc_prefs=npc_prefs)
     state = {
         # 핵심 (세션 수명)
         "player_id": player_id,
@@ -965,11 +1027,15 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         "stim": stimulation.create_state(
             male_mode=(gender_mod.get_gender(npc_id) == "male")
         ),
+        # 체위
+        "position": initial_position,
         # 삽입 호환 (삽입 토글 ON 시 설정)
         "size_pain": False,
         "size_stim_mod": 1.0,
         # 제3자 추적
         "checked_npcs": set(),
+        # NPC 선호
+        "npc_prefs": npc_prefs,
         # NPC 주도 전용
         "escape_attempts": 0,
         "escape_result": None,
@@ -996,6 +1062,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         state["elapsed_time"] = preserved["elapsed_time"]
         state["lubricated"] = preserved.get("lubricated", False)
         state["checked_npcs"] = preserved.get("checked_npcs", set())
+        if "position" in preserved:
+            state["position"] = preserved["position"]
 
     # 시작 반응 (전환 시 생략 — 이미 진행 중)
     if not preserved:
@@ -1014,7 +1082,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
         # NPC 랜덤 행위 선택
         new_action = select_random_npc_action(npc_id, player_id, state["active_toggles"],
-                                               lubricated=state["lubricated"])
+                                               lubricated=state["lubricated"],
+                                               cur_position=state.get("position", "missionary"))
 
         new_toggle_def = None
         if new_action:
@@ -1270,22 +1339,54 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                     return True
                 return render_npc_initiative_ui(state)
 
-            # 참기 특수 처리
+            # 참기 특수 처리 (확률 기반 + 감쇠형)
             if action_id == "hold_back":
-                import random
-                chance = _calculate_hold_back_chance(player_id, state["stim"])
-                state["stamina"] -= action_def["stamina"]
+                stim_state = state["stim"]
+                hb_result = stimulation.hold_back(stim_state)
+                state["stamina"] = max(0, state["stamina"] - action_def["stamina"])
                 npc_asset = get_npc_asset(npc_id)
-                if random.randint(1, 100) <= chance:
-                    state["stim"]["stim"]["P"] = 60
+                if hb_result["success"]:
                     reaction = None
                     if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
                         reaction = npc_asset.get_romance_reaction("hold_back_success", "start")
-                    state["last_reaction"] = reaction or "참았다."
+                    state["last_reaction"] = reaction or f"(이를 악물고 참았다... -{hb_result['reduction']})"
                 else:
+                    reaction = None
+                    if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+                        reaction = npc_asset.get_romance_reaction("hold_back_failure", "start")
+                    state["last_reaction"] = reaction or "(참으려 했지만 실패했다...!)"
+                    # 실패 + 게이지 만충 + peaked 존재 → 즉시 절정
+                    if hb_result["gauge"] >= stimulation.CLIMAX_GAUGE_MAX:
+                        if stimulation.get_peaked_count(stim_state) > 0:
+                            climax_info = stimulation.force_climax(stim_state)
+                            if climax_info and climax_info.get("has_p"):
+                                pen_part = _get_active_penetration_part(state["active_toggles"])
+                                ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
+                                if pen_part and pen_part in ("음부", "항문", "구강"):
+                                    _apply_internal_semen(npc_id, pen_part, ejac_amount)
+                                    if _has_active_intercourse(state["active_toggles"], NPC_TOGGLE_ACTIONS):
+                                        try:
+                                            import pregnancy
+                                            pregnancy.check_conception(player_id, npc_id)
+                                        except ImportError:
+                                            pass
+                                elif pen_part:
+                                    _apply_semen(npc_id, pen_part, ejac_amount)
+                check_result = advance_time_and_check_npc_initiative(state, action_def["time"])
+                if check_result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = check_result["interrupter_id"]
+                    return True
+                return render_npc_initiative_ui(state)
+
+            # 사정하기 특수 처리
+            if action_id == "ejaculate":
+                stim_state = state["stim"]
+                climax_info = stimulation.force_ejaculate(stim_state)
+                if climax_info and climax_info.get("has_p"):
                     pen_part = _get_active_penetration_part(state["active_toggles"])
                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"])
-                    if pen_part:
+                    if pen_part and pen_part in ("음부", "항문", "구강"):
                         _apply_internal_semen(npc_id, pen_part, ejac_amount)
                         if _has_active_intercourse(state["active_toggles"], NPC_TOGGLE_ACTIONS):
                             try:
@@ -1293,13 +1394,14 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                                 pregnancy.check_conception(player_id, npc_id)
                             except ImportError:
                                 pass
-                    else:
-                        _apply_semen(npc_id, "body", ejac_amount)
-                    stimulation.apply_climax_reset_p(state["stim"])
-                    reaction = None
-                    if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-                        reaction = npc_asset.get_romance_reaction("hold_back_failure", "start")
-                    state["last_reaction"] = reaction or "참지 못했다...!"
+                        morld.set_unit_prop(npc_id, "경험:사정횟수",
+                                            (morld.get_unit_prop(npc_id, "경험:사정횟수") or 0) + 1)
+                        morld.set_unit_prop(player_id, "통계:총사정량",
+                                            (morld.get_unit_prop(player_id, "통계:총사정량") or 0) + ejac_amount)
+                    elif pen_part:
+                        _apply_semen(npc_id, pen_part, ejac_amount)
+                    state["last_reaction"] = "사정했다."
+                    emit_ecstasy_sound(npc_id)
                 check_result = advance_time_and_check_npc_initiative(state, action_def["time"])
                 if check_result["interrupted"]:
                     state["interrupted"] = True

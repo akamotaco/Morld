@@ -237,7 +237,17 @@ INSTANT_ACTIONS = {
         "effects": {},
         "exp_part": None, "affection_req": 0,
         "requires_player_anatomy_self": "P",
-        "requires_active_penetration": True,
+    },
+    "ejaculate": {
+        "name": "사정하기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+        "requires_player_anatomy_self": "P",
+    },
+    "change_position": {
+        "name": "체위 변경", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
     },
     # 콘돔
     "condom_on": {
