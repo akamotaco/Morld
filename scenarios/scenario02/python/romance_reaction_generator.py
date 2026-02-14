@@ -60,22 +60,31 @@ ACTION_TO_CATEGORY = {
     # light — 가벼운 접촉
     "hug": "light", "deep_kiss": "light", "tongue_play": "light",
     "french_kiss": "light", "kiss": "light",
+    "head_pat": "light", "cheek_caress": "light", "cheek_pinch": "light",
+    "lip_lick": "light", "whisper": "light",
     # medium — 중간 수위
     "breast_touch": "medium", "breast_squeeze": "medium",
     "butt_squeeze": "medium", "breast_suck": "medium",
     "nipple_suck": "medium", "paizuri": "medium",
     "face_touch": "medium", "neck_touch": "medium",
-    "ear_touch": "medium",
+    "ear_touch": "medium", "neck_kiss": "medium",
+    "butt_caress": "medium", "breast_caress": "medium",
+    "nipple_stimulation": "medium", "nipple_lick": "medium",
+    "nipple_pinch": "medium", "breast_grab": "medium",
     # strong — 강한 자극
     "genital_touch": "strong", "clit_rub": "strong",
     "clit_lick": "strong", "cunnilingus": "strong",
     "finger_insertion": "strong", "fellatio": "strong",
     "penis_touch": "strong", "penis_rub": "strong",
+    "genital_caress": "strong", "clit_stimulation": "strong",
+    "anal_stimulation": "strong", "rough_finger": "strong",
     # penetration — 삽입
     "vaginal_penetration": "penetration",
     "anal_penetration": "penetration",
     "receive_penetration": "penetration",
     "receive_anal": "penetration",
+    "thrust_deep": "penetration", "thrust_slow": "penetration",
+    "grind": "penetration", "ejaculate": "penetration",
     # rough — 거친 행위
     "rough_thrust": "rough", "hard_anal": "rough",
 }
