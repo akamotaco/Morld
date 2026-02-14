@@ -18,12 +18,15 @@ class MockMorld:
     def reset(self):
         self._units = {}
         self._items = {}
+        self._locations = {}
         self._player_id = 1
         self._time = 0
         self._time_frozen = False
         self._logs = []
         self._events = []
         self._moods = []
+        self._jobs = {}
+        self._quest_conditions = []
 
     # ========================================
     # 테스트 셋업 헬퍼 (morld API 아님)
@@ -32,11 +35,25 @@ class MockMorld:
     def register_unit(self, unit_id, name="NPC", props=None,
                       location=(0, 0), gender="female"):
         """테스트용 유닛 등록"""
+        r, l = location
         self._units[unit_id] = {
-            "info": {"name": name, "type": gender},
+            "info": {
+                "name": name, "type": gender,
+                "activity": None, "mood": [],
+                "is_traveling": False,
+                "region_id": r, "location_id": l,
+            },
             "props": dict(props or {}),
             "location": location,
             "inventory": [],
+        }
+
+    def register_location(self, region_id, location_id, **kwargs):
+        """테스트용 location 등록"""
+        key = (region_id, location_id)
+        self._locations[key] = {
+            "weather": kwargs.get("weather"),
+            "is_indoor": kwargs.get("is_indoor", True),
         }
 
     def register_item(self, item_id, name="아이템", equip_props=None):
@@ -147,3 +164,68 @@ class MockMorld:
 
     def pop_to_situation(self):
         pass
+
+    # ========================================
+    # morld API — Character 지원 확장
+    # ========================================
+
+    def add_unit(self, unit_id, name, region_id, location_id,
+                 unit_type, actions=None, mood=None,
+                 unique_id=None, action_props=None, owner=None):
+        """유닛 생성 (Character.instantiate에서 호출)"""
+        self._units[unit_id] = {
+            "info": {
+                "name": name, "type": unit_type,
+                "activity": None, "mood": mood or [],
+                "is_traveling": False,
+                "region_id": region_id, "location_id": location_id,
+            },
+            "props": {},
+            "location": (region_id, location_id),
+            "inventory": [],
+        }
+
+    def set_unit_props(self, unit_id, props_dict):
+        """복수 prop 일괄 설정"""
+        u = self._units.get(unit_id)
+        if u:
+            u["props"].update(props_dict)
+
+    def get_location_info(self, region_id, location_id):
+        """location 정보 반환"""
+        key = (region_id, location_id)
+        if key in self._locations:
+            return dict(self._locations[key])
+        return {"weather": None, "is_indoor": True}
+
+    def give_item(self, unit_id, item_id, count=1):
+        """유닛에 아이템 지급"""
+        u = self._units.get(unit_id)
+        if u:
+            u["inventory"].append(item_id)
+
+    def remove_item(self, unit_id, item_id):
+        """유닛에서 아이템 제거"""
+        u = self._units.get(unit_id)
+        if u and item_id in u["inventory"]:
+            u["inventory"].remove(item_id)
+
+    def set_unit_location(self, unit_id, region_id, location_id):
+        """유닛 위치 설정"""
+        u = self._units.get(unit_id)
+        if u:
+            u["location"] = (region_id, location_id)
+            u["info"]["region_id"] = region_id
+            u["info"]["location_id"] = location_id
+
+    def check_quest_condition(self, condition_type, *args):
+        """퀘스트 조건 체크 (no-op)"""
+        self._quest_conditions.append((condition_type, args))
+
+    def dialog(self, content, **kwargs):
+        """다이얼로그 표시 (테스트에서는 content 반환)"""
+        return content
+
+    def get_current_job(self, unit_id):
+        """현재 작업 정보 반환"""
+        return self._jobs.get(unit_id)

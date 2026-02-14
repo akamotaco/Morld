@@ -655,6 +655,12 @@ class Character(Unit):
 
     type: str = "male"
 
+    # mob NPC 기본 아키타입 (서브클래스에서 오버라이드)
+    _DEFAULT_ARCHETYPE = "stoic"
+
+    # 연애 소리 프로필 (서브클래스에서 오버라이드)
+    ROMANCE_SOUND_PROFILE = {"levels": [5, 15, 30], "ecstasy": 50}
+
     # Rule 기반 텍스트 선택 (서브클래스에서 정의)
     DESCRIBE_RULES: list = None
     FOCUS_RULES: list = None
@@ -1210,13 +1216,19 @@ class Character(Unit):
         Describe 텍스트 - Rule 기반
 
         DESCRIBE_RULES가 정의되어 있으면 규칙 매칭,
-        없으면 빈 문자열 반환.
+        없으면 _DEFAULT_ARCHETYPE 기반 기본 규칙으로 fallback.
         """
-        if not self.DESCRIBE_RULES:
-            return ""
+        rules = self.DESCRIBE_RULES
+        if not rules:
+            if not hasattr(self, '_default_describe_rules'):
+                self._default_describe_rules = build_describe_rules(
+                    self._DEFAULT_ARCHETYPE,
+                    default_text=f"{self.name}(이)가 서 있다.",
+                )
+            rules = self._default_describe_rules
 
         context = self._build_context()
-        text = TextSelector.select(self.DESCRIBE_RULES, context)
+        text = TextSelector.select(rules, context)
         if text:
             return TextSelector.format_result(text, context)
 
@@ -1230,13 +1242,20 @@ class Character(Unit):
         Focus 텍스트 - Rule 기반
 
         FOCUS_RULES가 정의되어 있으면 규칙 매칭,
-        없으면 빈 문자열 반환.
+        없으면 _DEFAULT_ARCHETYPE 기반 기본 규칙으로 fallback.
         """
-        if not self.FOCUS_RULES:
-            return ""
+        rules = self.FOCUS_RULES
+        if not rules:
+            if not hasattr(self, '_default_focus_rules'):
+                self._default_focus_rules = build_focus_rules(
+                    self._DEFAULT_ARCHETYPE,
+                    activities=[],
+                    default_text=f"{self.name}(이)가 당신을 바라보고 있다.",
+                )
+            rules = self._default_focus_rules
 
         context = self._build_context()
-        text = TextSelector.select(self.FOCUS_RULES, context)
+        text = TextSelector.select(rules, context)
         if text:
             return TextSelector.format_result(text, context)
         return ""
@@ -2567,6 +2586,11 @@ class Character(Unit):
 
         # 첫 만남 이벤트 - 완료 후 진척도 1로 설정
         return self._first_meet_handler(player_id)
+
+    def _first_meet_handler(self, player_id):
+        """기본 첫 만남 핸들러 — 서브클래스에서 오버라이드"""
+        yield ui.dialog(f"[{self.name}]\n...처음 뵙겠습니다.")
+        self.mark_first_meet_done(player_id)
 
     def _check_mode_aftermath(self, player_id):
         """모드 피해 후유증 체크 — 강제/무의식/시간정지 세션 후 첫 만남

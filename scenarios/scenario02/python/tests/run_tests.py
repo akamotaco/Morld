@@ -1,4 +1,4 @@
-# run_tests.py — pytest 없이 동작하는 테스트 러너
+# run_tests.py -pytest 없이 동작하는 테스트 러너
 """
 사용법:
     python run_tests.py                # 전체 테스트
@@ -40,7 +40,7 @@ def run_test_module(module_name, verbose=False):
     try:
         mod = __import__(module_name)
     except Exception as e:
-        print(f"  IMPORT ERROR: {module_name} — {e}")
+        print(f"  IMPORT ERROR: {module_name} -{e}")
         traceback.print_exc()
         return 0, 1, 0
 
@@ -75,7 +75,7 @@ def run_test_module(module_name, verbose=False):
                     print()
             except Exception as e:
                 errors += 1
-                print(f"    ERROR {full_name} — {e}")
+                print(f"    ERROR {full_name} -{e}")
                 if verbose:
                     traceback.print_exc()
                     print()
@@ -92,6 +92,7 @@ def main():
         "test_romance_actions",
         "test_romance_mode",
         "test_romance_core",
+        "test_mob_character",
     ]
 
     if filter_modules:
