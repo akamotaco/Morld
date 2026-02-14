@@ -658,8 +658,21 @@ class Character(Unit):
     # mob NPC 기본 아키타입 (서브클래스에서 오버라이드)
     _DEFAULT_ARCHETYPE = "stoic"
 
+    # 캐릭터 기본 속성 (서브클래스에서 오버라이드)
+    sexual_orientation: str = "bisexual"  # bisexual / heterosexual
+    hearing_type: str = "normal"          # normal / keen (은신 감지 관련)
+    requires_condom: bool = False         # 삽입 시 콘돔 요구 여부
+
     # 연애 소리 프로필 (서브클래스에서 오버라이드)
     ROMANCE_SOUND_PROFILE = {"levels": [5, 15, 30], "ecstasy": 50}
+
+    # 아키타입 기반 반응 생성 프로필 (서브클래스에서 오버라이드)
+    # romance_line_generator / romance_reaction_generator에서 사용
+    REACTION_PROFILE: dict = None
+
+    # 성적 선호도 (서브클래스에서 오버라이드)
+    # position.py / npc_initiative.py에서 getattr로 참조
+    SEXUAL_PREFERENCES: dict = None
 
     # Rule 기반 텍스트 선택 (서브클래스에서 정의)
     DESCRIBE_RULES: list = None
@@ -2591,6 +2604,34 @@ class Character(Unit):
         """기본 첫 만남 핸들러 — 서브클래스에서 오버라이드"""
         yield ui.dialog(f"[{self.name}]\n...처음 뵙겠습니다.")
         self.mark_first_meet_done(player_id)
+
+    # ========================================
+    # 침대 반응 (서브클래스에서 오버라이드)
+    # ========================================
+
+    def on_bed_awake(self, bed, player_id, slot, affection, region_id, owner_id):
+        """침대 주인이 깨어있을 때 반응 — 서브클래스에서 오버라이드"""
+        success = morld.sit_on(player_id, bed.instance_id, slot)
+        if success:
+            if affection >= 50:
+                yield ui.dialog([
+                    f"[{self.name}]",
+                    "......어서 와.",
+                ])
+            else:
+                yield ui.dialog([
+                    f"[{self.name}]",
+                    "......뭐야.",
+                ])
+
+    def on_bed_sleeping(self, bed, player_id, slot, affection, owner_id):
+        """침대 주인이 자고 있을 때 반응 — 서브클래스에서 오버라이드"""
+        success = morld.sit_on(player_id, bed.instance_id, slot)
+        if success:
+            yield ui.dialog([
+                f"{self.name}(이)가 자고 있다.",
+                "조심스럽게 옆에 누웠다.",
+            ])
 
     def _check_mode_aftermath(self, player_id):
         """모드 피해 후유증 체크 — 강제/무의식/시간정지 세션 후 첫 만남

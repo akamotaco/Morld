@@ -503,3 +503,85 @@ class TestMiscSafety:
         """ROMANCE_DISCOVERY_REACTIONS None → 안전"""
         mob = _create_mob()
         assert mob.ROMANCE_DISCOVERY_REACTIONS is None
+
+    def test_sexual_orientation_default(self):
+        """sexual_orientation 기본값"""
+        mob = _create_mob()
+        assert mob.sexual_orientation == "bisexual"
+
+    def test_hearing_type_default(self):
+        """hearing_type 기본값"""
+        mob = _create_mob()
+        assert mob.hearing_type == "normal"
+
+    def test_requires_condom_default(self):
+        """requires_condom 기본값 False"""
+        mob = _create_mob()
+        assert mob.requires_condom is False
+
+    def test_reaction_profile_default(self):
+        """REACTION_PROFILE 기본값 None"""
+        mob = _create_mob()
+        assert mob.REACTION_PROFILE is None
+
+    def test_sexual_preferences_default(self):
+        """SEXUAL_PREFERENCES 기본값 None"""
+        mob = _create_mob()
+        assert mob.SEXUAL_PREFERENCES is None
+
+    def test_equip_change_reactions_default(self):
+        """EQUIP_CHANGE_REACTIONS 기본값 None"""
+        mob = _create_mob()
+        assert mob.EQUIP_CHANGE_REACTIONS is None
+
+
+# ============================================
+# on_bed_awake / on_bed_sleeping 기본 구현
+# ============================================
+
+class TestBedReactions:
+    def test_on_bed_awake_high_affection(self):
+        """깨어있을 때 높은 호감도 반응"""
+        mob = _create_mob()
+        morld.register_unit(1, "Player")
+
+        class FakeBed:
+            instance_id = 999
+        bed = FakeBed()
+        gen = mob.on_bed_awake(bed, 1, 0, 60, 0, mob.instance_id)
+        results = list(gen)
+        assert len(results) > 0
+
+    def test_on_bed_awake_low_affection(self):
+        """깨어있을 때 낮은 호감도 반응"""
+        mob = _create_mob()
+        morld.register_unit(1, "Player")
+
+        class FakeBed:
+            instance_id = 999
+        bed = FakeBed()
+        gen = mob.on_bed_awake(bed, 1, 0, 20, 0, mob.instance_id)
+        results = list(gen)
+        assert len(results) > 0
+
+    def test_on_bed_sleeping(self):
+        """잠자고 있을 때 기본 반응"""
+        mob = _create_mob()
+        morld.register_unit(1, "Player")
+
+        class FakeBed:
+            instance_id = 999
+        bed = FakeBed()
+        gen = mob.on_bed_sleeping(bed, 1, 0, 50, mob.instance_id)
+        results = list(gen)
+        assert len(results) > 0
+
+    def test_subclass_override(self):
+        """서브클래스에서 on_bed_awake 오버라이드 가능"""
+        class CustomNPC(Character):
+            def on_bed_awake(self, bed, player_id, slot, affection, region_id, owner_id):
+                yield "custom_awake"
+
+        npc = CustomNPC()
+        results = list(npc.on_bed_awake(None, 1, 0, 50, 0, 0))
+        assert results == ["custom_awake"]

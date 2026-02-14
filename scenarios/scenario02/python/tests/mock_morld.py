@@ -229,3 +229,7 @@ class MockMorld:
     def get_current_job(self, unit_id):
         """현재 작업 정보 반환"""
         return self._jobs.get(unit_id)
+
+    def sit_on(self, unit_id, target_id, slot=0):
+        """앉기 (테스트에서는 항상 성공)"""
+        return True
