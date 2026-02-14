@@ -93,6 +93,7 @@ def main():
         "test_romance_mode",
         "test_romance_core",
         "test_mob_character",
+        "test_think_logic",
     ]
 
     if filter_modules:

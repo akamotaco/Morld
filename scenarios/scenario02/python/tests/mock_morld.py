@@ -45,7 +45,7 @@ class MockMorld:
             },
             "props": dict(props or {}),
             "location": location,
-            "inventory": [],
+            "inventory": {},
         }
 
     def register_location(self, region_id, location_id, **kwargs):
@@ -63,11 +63,11 @@ class MockMorld:
             "equip_props": equip_props or {},
         }
 
-    def add_to_inventory(self, unit_id, item_id):
+    def add_to_inventory(self, unit_id, item_id, count=1):
         """테스트용 인벤토리 추가"""
         u = self._units.get(unit_id)
         if u:
-            u["inventory"].append(item_id)
+            u["inventory"][item_id] = u["inventory"].get(item_id, 0) + count
 
     # ========================================
     # morld API — Property 조작
@@ -96,6 +96,18 @@ class MockMorld:
         if u:
             u["props"].pop(key, None)
 
+    def get_unit_props_by_type(self, unit_id, prop_type):
+        """prop_type 접두사로 시작하는 props 반환 (접두사 제거)"""
+        u = self._units.get(unit_id)
+        if not u:
+            return None
+        prefix = prop_type + ":"
+        result = {}
+        for k, v in u["props"].items():
+            if k.startswith(prefix):
+                result[k[len(prefix):]] = v
+        return result if result else None
+
     # ========================================
     # morld API — Unit 정보
     # ========================================
@@ -117,7 +129,7 @@ class MockMorld:
 
     def get_unit_inventory(self, unit_id):
         u = self._units.get(unit_id)
-        return list(u["inventory"]) if u else []
+        return dict(u["inventory"]) if u else {}
 
     # ========================================
     # morld API — Item 정보
@@ -135,6 +147,9 @@ class MockMorld:
     def get_time(self):
         return self._time
 
+    def get_game_time(self):
+        return self._time
+
     def advance_time_des(self, millis):
         self._time += millis
 
@@ -142,7 +157,44 @@ class MockMorld:
         return self._time_frozen
 
     # ========================================
-    # morld API — NPC / UI (no-op)
+    # morld API — Job 시스템
+    # ========================================
+
+    def insert_job(self, unit_id, job_dict):
+        """DES job 삽입 (기록용)"""
+        if unit_id not in self._jobs:
+            self._jobs[unit_id] = []
+        self._jobs[unit_id].append(dict(job_dict))
+
+    def get_current_job(self, unit_id):
+        """현재 작업 정보 반환 (마지막 삽입된 job)"""
+        jobs = self._jobs.get(unit_id)
+        return jobs[-1] if jobs else None
+
+    def get_all_jobs(self, unit_id):
+        """테스트용: 모든 삽입된 job 반환"""
+        return list(self._jobs.get(unit_id, []))
+
+    def clear_jobs(self, unit_id=None):
+        """테스트용: job 기록 초기화"""
+        if unit_id is None:
+            self._jobs.clear()
+        else:
+            self._jobs.pop(unit_id, None)
+
+    def resolve_sleep_target(self, unit_id, region_id, location_id,
+                             owner_unique=""):
+        """수면 위치 해석 (C# resolve_sleep_target 모사)"""
+        return {
+            "region_id": region_id,
+            "location_id": location_id,
+            "x": 0,
+            "bed_object_id": None,
+            "rough": False,
+        }
+
+    # ========================================
+    # morld API — NPC / UI
     # ========================================
 
     def set_npc_job(self, unit_id, action, duration, target=None):
@@ -154,10 +206,12 @@ class MockMorld:
     def queue_event(self, event_type, actor_id, args=None):
         self._events.append((event_type, actor_id, args))
 
-    def lost_item(self, unit_id, item_id):
+    def lost_item(self, unit_id, item_id, count=1):
         u = self._units.get(unit_id)
         if u and item_id in u["inventory"]:
-            u["inventory"].remove(item_id)
+            u["inventory"][item_id] -= count
+            if u["inventory"][item_id] <= 0:
+                del u["inventory"][item_id]
 
     def add_unit_mood(self, unit_id, mood):
         self._moods.append((unit_id, mood))
@@ -182,7 +236,7 @@ class MockMorld:
             },
             "props": {},
             "location": (region_id, location_id),
-            "inventory": [],
+            "inventory": {},
         }
 
     def set_unit_props(self, unit_id, props_dict):
@@ -202,13 +256,22 @@ class MockMorld:
         """유닛에 아이템 지급"""
         u = self._units.get(unit_id)
         if u:
-            u["inventory"].append(item_id)
+            u["inventory"][item_id] = u["inventory"].get(item_id, 0) + count
 
-    def remove_item(self, unit_id, item_id):
+    def remove_item(self, unit_id, item_id, count=1):
         """유닛에서 아이템 제거"""
         u = self._units.get(unit_id)
         if u and item_id in u["inventory"]:
-            u["inventory"].remove(item_id)
+            u["inventory"][item_id] -= count
+            if u["inventory"][item_id] <= 0:
+                del u["inventory"][item_id]
+
+    def has_item(self, unit_id, item_id):
+        """아이템 보유 확인"""
+        u = self._units.get(unit_id)
+        if u:
+            return u["inventory"].get(item_id, 0) > 0
+        return False
 
     def set_unit_location(self, unit_id, region_id, location_id):
         """유닛 위치 설정"""
@@ -226,10 +289,10 @@ class MockMorld:
         """다이얼로그 표시 (테스트에서는 content 반환)"""
         return content
 
-    def get_current_job(self, unit_id):
-        """현재 작업 정보 반환"""
-        return self._jobs.get(unit_id)
-
     def sit_on(self, unit_id, target_id, slot=0):
         """앉기 (테스트에서는 항상 성공)"""
+        return True
+
+    def is_same_building(self, r1, l1, r2, l2):
+        """같은 건물 판정 (테스트에서는 항상 True)"""
         return True
