@@ -935,68 +935,180 @@ class Character(Unit):
 
     def get_romance_reaction(self, action_id: str, timing: str = "during") -> Optional[str]:
         """
-        연애 액션에 대한 반응 텍스트 반환
+        연애 액션에 대한 반응 텍스트 반환 (2-stage + generator fallback)
 
         Args:
             action_id: 액션 ID ("hug", "deep_kiss" 등)
             timing: 타이밍 ("start", "during")
 
         Returns:
-            반응 텍스트 또는 None (랜덤 선택)
+            반응 텍스트 또는 None
 
-        ROMANCE_REACTIONS 구조:
-            {
-                "action:timing": [
-                    (conditions, [texts]),
-                    ({}, [default_texts]),  # 기본값
-                ],
-            }
-
-        예시:
-            ROMANCE_REACTIONS = {
-                "hug:start": [
-                    ({"호감": 50}, ["...안아줘...", "...이대로..."]),
-                    ({}, ["......", "...뭐냐."]),
-                ],
-                "hug:during": [
-                    ({"성욕": 50}, ["세라가 숨을 몰아쉬고 있다."]),
-                    ({}, ["세라가 가만히 있다."]),
-                ],
-            }
+        ROMANCE_REACTIONS 지원 포맷:
+            1) plain string list: ["text1", "text2"] → random.choice
+            2) dict 조건 tuple: ({"성욕": 70}, ["text"]) → first-match
+            3) 2D 좌표 tuple: ((80, 70), ["text"]) → nearest-neighbor
+            4) 2-stage: ({"성욕": 90}, [((80,70), ["t"]), ...]) → dict→2D
         """
         import random
 
         reactions = getattr(self, 'ROMANCE_REACTIONS', {})
-        if not reactions:
-            return None
-
-        # 새 구조: "action:timing" 키
         key = f"{action_id}:{timing}"
         rules = reactions.get(key)
+
+        if rules:
+            result = self._resolve_reaction_rules(rules)
+            if result:
+                return result
+
+        # Generator fallback — timing별 분기
+        if timing == "start":
+            generator = self._get_line_generator()
+            if generator:
+                state = self._build_reaction_state()
+                return generator.generate(action_id, state)
+        else:
+            generator = self._get_reaction_generator()
+            if generator:
+                state = self._build_reaction_state()
+                return generator.generate(action_id, timing, state)
+
+        return None
+
+    def _resolve_reaction_rules(self, rules):
+        """ROMANCE_REACTIONS 규칙 해석 — first-match + 2D nearest"""
+        import random
 
         if not rules:
             return None
 
-        # 조건 매칭 및 텍스트 선택
+        # plain string list (첫경험 등): ["text1", "text2"]
+        if all(isinstance(item, str) for item in rules):
+            return random.choice(rules)
+
         props = morld.get_unit_props(self.instance_id)
         player_id = morld.get_player_id()
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get('name', '주인공') if player_info else '주인공'
 
-        candidates = []
+        for item in rules:
+            if not isinstance(item, tuple) or len(item) != 2:
+                continue
+
+            key_part, texts = item
+
+            # 2D 좌표: ((x, y), [texts])
+            if isinstance(key_part, tuple) and len(key_part) == 2 and all(isinstance(v, (int, float)) for v in key_part):
+                continue  # top-level 좌표는 아래 _nearest_2d_raw에서 처리
+
+            # dict 조건: ({"성욕": 70}, [...])
+            if isinstance(key_part, dict):
+                if not self._check_reaction_condition(key_part, props, player_name):
+                    continue
+                # 내부에 2D 좌표 리스트가 있으면 2-stage
+                if isinstance(texts, list) and texts and isinstance(texts[0], tuple):
+                    result = self._nearest_2d(texts, props, player_name)
+                    if result:
+                        return result
+                    continue
+                # 일반 텍스트 리스트
+                if isinstance(texts, list):
+                    return random.choice(texts)
+                return texts
+
+        # top-level 2D 좌표 nearest
+        coord_entries = []
         for item in rules:
             if isinstance(item, tuple) and len(item) == 2:
-                condition, texts = item
-                if self._check_reaction_condition(condition, props, player_name):
-                    if isinstance(texts, list):
-                        candidates.extend(texts)
-                    else:
-                        candidates.append(texts)
+                key_part, texts = item
+                if isinstance(key_part, tuple) and len(key_part) == 2 and all(isinstance(v, (int, float)) for v in key_part):
+                    coord_entries.append(item)
+        if coord_entries:
+            return self._nearest_2d_raw(coord_entries, props, player_name)
 
-        if not candidates:
+        return None
+
+    def _nearest_2d(self, entries, props, player_name):
+        """좌표 리스트 내에서 nearest-neighbor 선택."""
+        import random
+        import math
+
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        pname = player_info.get('name', '주인공') if player_info else '주인공'
+
+        affection = props.get(f"관계:{pname}:호감", 0) if props else 0
+        desire = props.get(f"관계:{pname}:욕망", 0) if props else 0
+
+        best_dist = float("inf")
+        best_texts = []
+        for item in entries:
+            if not isinstance(item, tuple) or len(item) != 2:
+                continue
+            coord, texts = item
+            if not isinstance(coord, tuple) or len(coord) != 2:
+                continue
+            d = math.hypot(affection - coord[0], desire - coord[1])
+            if d < best_dist - 0.01:
+                best_dist = d
+                best_texts = texts if isinstance(texts, list) else [texts]
+            elif abs(d - best_dist) < 0.01:
+                if isinstance(texts, list):
+                    best_texts = best_texts + texts
+                else:
+                    best_texts = best_texts + [texts]
+
+        if best_texts:
+            return random.choice(best_texts)
+        return None
+
+    def _nearest_2d_raw(self, coord_entries, props, player_name):
+        """top-level 좌표 리스트에서 nearest-neighbor 선택."""
+        return self._nearest_2d(coord_entries, props, player_name)
+
+    def _get_reaction_generator(self):
+        """REACTION_PROFILE 기반 ReactionGenerator 반환 (캐싱)."""
+        if hasattr(self, '_reaction_generator_cache'):
+            return self._reaction_generator_cache
+
+        profile = getattr(self, 'REACTION_PROFILE', None)
+        if not profile:
+            self._reaction_generator_cache = None
             return None
 
-        return random.choice(candidates)
+        from romance_reaction_generator import ReactionGenerator
+        gen = ReactionGenerator(profile)
+        self._reaction_generator_cache = gen
+        return gen
+
+    def _get_line_generator(self):
+        """REACTION_PROFILE 기반 LineGenerator 반환 (캐싱)."""
+        if hasattr(self, '_line_generator_cache'):
+            return self._line_generator_cache
+
+        profile = getattr(self, 'REACTION_PROFILE', None)
+        if not profile:
+            self._line_generator_cache = None
+            return None
+
+        from romance_line_generator import LineGenerator
+        gen = LineGenerator(profile)
+        self._line_generator_cache = gen
+        return gen
+
+    def _build_reaction_state(self):
+        """generator용 현재 상태 dict."""
+        props = morld.get_unit_props(self.instance_id)
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get('name', '주인공') if player_info else '주인공'
+
+        return {
+            "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
+            "욕망": props.get(f"관계:{player_name}:욕망", 0) if props else 0,
+            "성욕": props.get("상태:성욕", 0) if props else 0,
+            "반발": props.get(f"관계:{player_name}:반발", 0) if props else 0,
+        }
 
     def _check_reaction_condition(self, condition: dict, props: dict, player_name: str) -> bool:
         """
