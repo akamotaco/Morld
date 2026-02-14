@@ -1248,10 +1248,6 @@ class Character(Unit):
             return
         _label, _aff_req, _des_req, arousal_gain = action_def
 
-        # CASUAL_REACTIONS에서 반응 텍스트 결정
-        reactions = getattr(self, 'CASUAL_REACTIONS', {})
-        action_reactions = reactions.get(action_type, {})
-
         # 반응 스타일 결정: 욕망 >= 70 → addicted, 호감 >= 80 → flirty, 그 외 → default
         player_id = morld.get_player_id()
         from romance_core import get_affection_key, get_desire_key
@@ -1268,8 +1264,21 @@ class Character(Unit):
         else:
             style = "default"
 
-        texts = action_reactions.get(style, action_reactions.get("default", ["......"]))
-        text = random.choice(texts) if texts else "......"
+        # CASUAL_REACTIONS 우선 → generator fallback
+        text = None
+        reactions = getattr(self, 'CASUAL_REACTIONS', {})
+        action_reactions = reactions.get(action_type, {})
+        if action_reactions:
+            texts = action_reactions.get(style, action_reactions.get("default", []))
+            text = random.choice(texts) if texts else None
+
+        if text is None:
+            generator = self._get_line_generator()
+            if generator:
+                text = generator.generate_casual(action_type, style)
+
+        if text is None:
+            text = "......"
 
         yield ui.dialog(text)
 
@@ -2406,12 +2415,17 @@ class Character(Unit):
             morld.clear_jobs(self.instance_id)
             agent._insert_idle_job("대기", 60_000)
 
-        if not self.SELF_COMFORT_DISCOVERY_REACTIONS:
+        config = self.SELF_COMFORT_DISCOVERY_REACTIONS
+        if not config:
+            generator = self._get_line_generator()
+            if generator:
+                config = generator.get_discovery_config()
+
+        if not config:
             def handler():
                 yield ui.dialog(f"[{self.name}]\n...!\n{self.name}(이)가 황급히 멈춘다.")
             return handler()
 
-        config = self.SELF_COMFORT_DISCOVERY_REACTIONS
         return self._run_discovery_reaction(player_id, config)
 
     def _run_discovery_reaction(self, player_id, config):
