@@ -38,6 +38,9 @@ from .collectibles import (
     WildFlower, DriedFlower,
     PrettyStone, OldPendant, WoodCarving, BrokenWatch, OldTeddyBear
 )
+from .consumables import (
+    ContraceptivePill, Aphrodisiac, Condom
+)
 
 __all__ = [
     # equipment
@@ -66,6 +69,8 @@ __all__ = [
     # collectibles
     'WildFlower', 'DriedFlower',
     'PrettyStone', 'OldPendant', 'WoodCarving', 'BrokenWatch', 'OldTeddyBear',
+    # consumables
+    'ContraceptivePill', 'Aphrodisiac', 'Condom',
 ]
 
 

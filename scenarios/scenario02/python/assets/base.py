@@ -1142,10 +1142,20 @@ class Character(Unit):
         morld.remove_item(player_id, item_id)
 
         if is_food:
+            # 미약 첨가 여부 확인
+            has_aphrodisiac = morld.get_unit_prop(item_id, "상태:미약첨가") == 1
+
             # 음식은 NPC가 바로 섭취
             import survival
             survival.add_satiety(partner_id, item_instance.food_satiety)
             morld.lost_item(partner_id, item_id)  # 소비
+
+            # 미약 효과 적용
+            if has_aphrodisiac:
+                aph_remaining = morld.get_unit_prop(partner_id, "상태:미약남은시간") or 0
+                if aph_remaining <= 0:
+                    morld.set_unit_prop(partner_id, "상태:미약", 1)
+                    morld.set_unit_prop(partner_id, "상태:미약남은시간", 6)
         else:
             # 음식이 아니면 NPC 인벤토리에 저장
             morld.give_item(partner_id, item_id)

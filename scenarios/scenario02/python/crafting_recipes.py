@@ -35,6 +35,16 @@ CRAFTING_RECIPES = {
     },
 
     # === 도구 ===
+    # === 약품 ===
+    "aphrodisiac": {
+        "name": "미약",
+        "category": "약품",
+        "materials": {"food_herb": 2, "food_mushroom": 1},
+        "result_count": 1,
+        "craft_time": 15,
+    },
+
+    # === 도구 ===
     "rabbit_trap_branch": {
         "name": "토끼 덫",
         "category": "도구",
@@ -66,6 +76,7 @@ PORTABLE_RECIPE_LIST = [
 WORKBENCH_RECIPE_LIST = [
     "plank",
     "wooden_sword",
+    "aphrodisiac",
     "rabbit_trap_branch",
     "rabbit_trap_plank",
 ]
@@ -102,7 +113,7 @@ def get_recipes_by_category(category: str, recipe_list: list = None) -> list:
 
 def get_available_categories(recipe_list: list = None) -> list:
     """레시피가 존재하는 카테고리만 반환 (순서 유지)"""
-    CATEGORY_ORDER = ["재료", "무기", "도구", "채집"]
+    CATEGORY_ORDER = ["재료", "무기", "도구", "약품", "채집"]
 
     if recipe_list is None:
         recipe_list = [{"unique_id": uid, **r} for uid, r in CRAFTING_RECIPES.items()]

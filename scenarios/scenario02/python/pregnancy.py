@@ -88,7 +88,7 @@ def reset():
 # ============================================
 
 def _get_fertility_chance(unit_id):
-    """현재 주기 기반 가임 확률"""
+    """현재 주기 기반 가임 확률 (피임약 적용)"""
     cycle_day = morld.get_unit_prop(unit_id, "생식:주기일") or 1
     cycle_len = morld.get_unit_prop(unit_id, "생식:주기길이") or 28
 
@@ -96,11 +96,18 @@ def _get_fertility_chance(unit_id):
     diff = abs(cycle_day - ovulation_day)
 
     if diff == 0:
-        return 0.30  # 배란일
+        base = 0.30  # 배란일
     elif diff <= 3:
-        return 0.15  # 배란기
+        base = 0.15  # 배란기
     else:
-        return 0.0   # 비가임기
+        base = 0.0   # 비가임기
+
+    # 피임약 효과 (95% 감소)
+    contraceptive = morld.get_unit_prop(unit_id, "상태:피임") or 0
+    if contraceptive == 1:
+        base *= 0.05
+
+    return base
 
 
 def get_cycle_phase(unit_id):

@@ -289,6 +289,24 @@ def _process_hourly(unit_id):
     except ImportError:
         pass
 
+    # 피임약: 남은시간 감소
+    contraceptive_remaining = morld.get_unit_prop(unit_id, "상태:피임남은시간") or 0
+    if contraceptive_remaining > 0:
+        contraceptive_remaining -= 1
+        morld.set_unit_prop(unit_id, "상태:피임남은시간", contraceptive_remaining)
+        if contraceptive_remaining <= 0:
+            morld.set_unit_prop(unit_id, "상태:피임", 0)
+
+    # 미약: 남은시간 감소 + 성욕 증가
+    aphrodisiac_remaining = morld.get_unit_prop(unit_id, "상태:미약남은시간") or 0
+    if aphrodisiac_remaining > 0:
+        aphrodisiac_remaining -= 1
+        morld.set_unit_prop(unit_id, "상태:미약남은시간", aphrodisiac_remaining)
+        current_arousal_a = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
+        morld.set_unit_prop(unit_id, PROP_AROUSAL, min(100, current_arousal_a + 5))
+        if aphrodisiac_remaining <= 0:
+            morld.set_unit_prop(unit_id, "상태:미약", 0)
+
     # 사회: 혼자이면 증가
     if _is_alone(unit_id):
         current_social = get_social(unit_id)

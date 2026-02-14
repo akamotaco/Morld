@@ -265,6 +265,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         "escaped": False,         # NPC 저항 탈출 (forced 모드)
         "wakeup_transition": False,  # 무의식→강제 전이
         "switch_to": None,
+        # 콘돔
+        "condom_active": False,
+        "condom_punctured": False,
     }
 
     # 전환 시 보존 상태 복원
@@ -274,6 +277,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         state["elapsed_time"] = preserved["elapsed_time"]
         state["lubricated"] = preserved.get("lubricated", False)
         state["checked_npcs"] = preserved.get("checked_npcs", set())
+        state["condom_active"] = preserved.get("condom_active", False)
+        state["condom_punctured"] = preserved.get("condom_punctured", False)
         if "mode_ctx" in preserved:
             state["mode_ctx"] = preserved["mode_ctx"]
 
@@ -435,12 +440,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
                 import gender as gender_mod
                 if gender_mod.has_anatomy(pid, "P"):
-                    import pregnancy
-                    # 시간정지: 임신 판정은 정상 (물리적 현상), 아버지 unknown
-                    if cur_mode == MODE_FROZEN:
-                        pregnancy.check_conception(player_id, pid, father_type="unknown")
-                    else:
-                        pregnancy.check_conception(player_id, pid)
+                    # 콘돔: 정상 콘돔이면 임신 판정 스킵
+                    if not (state["condom_active"] and not state["condom_punctured"]):
+                        import pregnancy
+                        if cur_mode == MODE_FROZEN:
+                            pregnancy.check_conception(player_id, pid, father_type="unknown")
+                        else:
+                            pregnancy.check_conception(player_id, pid)
                     ejac_part = "음부"
             # P 절정 + 삽입 토글 활성 → 내부 사정 부위 판별
             if not ejac_part:
@@ -459,6 +465,17 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     defer_semen(state["mode_ctx"], ejac_part, _ejac_amt, internal=True)
                 else:
                     _apply_internal_semen(pid, ejac_part, _ejac_amt)
+
+            # 구멍 뚫린 콘돔 발각 (사정 시 70% 확률)
+            if state["condom_active"] and state["condom_punctured"] and ejac_part:
+                import random
+                if random.random() < 0.7 and cur_mode not in (MODE_UNCONSCIOUS, MODE_FROZEN):
+                    rebellion_key = get_rebellion_key(player_id)
+                    morld.modify_prop(pid, rebellion_key, 10)
+                    # 경험 축적
+                    cheat_count = (morld.get_unit_prop(pid, "경험:콘돔속임") or 0) + 1
+                    morld.set_unit_prop(pid, "경험:콘돔속임", cheat_count)
+                    state["last_reaction"] = "...콘돔에 구멍이 뚫려 있다는 걸 알아챘다!"
 
             # 절정 반응 텍스트 — 모드별 분기
             reaction_prefix = get_reaction_prefix(cur_mode)
@@ -590,16 +607,17 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 defer_semen(state["mode_ctx"], target_part, ejac_amount)
             else:
                 _apply_semen(pid, target_part, ejac_amount)
-            # 외부 사정 → 극감 수정 확률 (2%)
+            # 외부 사정 → 극감 수정 확률 (2%) — 콘돔 착용 시 스킵
             if target_part == "음부":
-                import pregnancy
-                import random
-                if random.random() < 0.02:
-                    if cur_mode == MODE_FROZEN:
-                        pregnancy.check_conception(state["player_id"], pid,
-                                                   father_type="unknown")
-                    else:
-                        pregnancy.check_conception(state["player_id"], pid)
+                if not (state["condom_active"] and not state["condom_punctured"]):
+                    import pregnancy
+                    import random
+                    if random.random() < 0.02:
+                        if cur_mode == MODE_FROZEN:
+                            pregnancy.check_conception(state["player_id"], pid,
+                                                       father_type="unknown")
+                        else:
+                            pregnancy.check_conception(state["player_id"], pid)
             # 반응 텍스트 (모드별 분기)
             reaction = None
             if ejac_amount >= 50:
@@ -678,6 +696,48 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                         morld.modify_prop(state["partner_id"], rebellion_key, 2)
                         action_id = "swallow_semen_vomit"
 
+            # 콘돔 전용 처리
+            if action_def.get("is_condom_action"):
+                if action_id == "condom_on":
+                    if state["condom_active"]:
+                        state["last_reaction"] = "이미 콘돔을 착용 중이다."
+                        return render_romance_ui(state)
+                    # 인벤토리에서 콘돔 찾기
+                    inventory = morld.get_unit_inventory(player_id)
+                    condom_item_id = None
+                    condom_is_punctured = False
+                    if inventory:
+                        from assets.items import get_instance as get_item_instance
+                        # 구멍 뚫린 콘돔 우선 사용
+                        for iid in inventory:
+                            inst = get_item_instance(int(iid))
+                            if inst and getattr(inst, 'unique_id', '') == "condom":
+                                if morld.get_unit_prop(int(iid), "상태:구멍") == 1:
+                                    condom_item_id = int(iid)
+                                    condom_is_punctured = True
+                                    break
+                        if not condom_item_id:
+                            for iid in inventory:
+                                inst = get_item_instance(int(iid))
+                                if inst and getattr(inst, 'unique_id', '') == "condom":
+                                    condom_item_id = int(iid)
+                                    break
+                    if not condom_item_id:
+                        state["last_reaction"] = "콘돔이 없다."
+                        return render_romance_ui(state)
+                    morld.lost_item(player_id, condom_item_id)
+                    state["condom_active"] = True
+                    state["condom_punctured"] = condom_is_punctured
+                    state["last_reaction"] = "콘돔을 착용했다."
+                    return render_romance_ui(state)
+                elif action_id == "condom_off":
+                    if not state["condom_active"]:
+                        return render_romance_ui(state)
+                    state["condom_active"] = False
+                    state["condom_punctured"] = False
+                    state["last_reaction"] = "콘돔을 제거했다."
+                    return render_romance_ui(state)
+
             # 탈의 전용 처리
             if action_def.get("undress"):
                 is_upper = action_def["undress"] == "upper"
@@ -725,17 +785,18 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                             defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
                         else:
                             _apply_internal_semen(state["partner_id"], pen_part, ejac_amount)
-                        # 임신 판정
+                        # 임신 판정 — 콘돔 착용 시 스킵
                         if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
-                            try:
-                                import pregnancy
-                                if cur_mode == MODE_FROZEN:
-                                    pregnancy.check_conception(player_id, state["partner_id"],
-                                                               father_type="unknown")
-                                else:
-                                    pregnancy.check_conception(player_id, state["partner_id"])
-                            except ImportError:
-                                pass
+                            if not (state["condom_active"] and not state["condom_punctured"]):
+                                try:
+                                    import pregnancy
+                                    if cur_mode == MODE_FROZEN:
+                                        pregnancy.check_conception(player_id, state["partner_id"],
+                                                                   father_type="unknown")
+                                    else:
+                                        pregnancy.check_conception(player_id, state["partner_id"])
+                                except ImportError:
+                                    pass
                     else:
                         if cur_mode == MODE_FROZEN:
                             defer_semen(state["mode_ctx"], "body", ejac_amount)
@@ -849,6 +910,20 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     arousal = morld.get_unit_prop(state["partner_id"], "상태:성욕") or 0
                     state["last_reaction"] = f"아직 준비가 안 됐다. (성욕: {int(arousal)}/{LUBRICATION_THRESHOLD})"
                     return render_romance_ui(state)
+
+            # 콘돔 요구 체크 (합의 모드 + 삽입 토글 ON 시)
+            if is_turning_on and action_def.get("pregnancy_check"):
+                cur_mode_t = state["mode_ctx"]["mode"]
+                if cur_mode_t == MODE_CONSENSUAL and not state["condom_active"]:
+                    partner_asset = get_partner_asset(state["partner_id"])
+                    if partner_asset and getattr(partner_asset, 'requires_condom', False):
+                        # 콘돔 체념 체크 (경험:콘돔속임 ≥ 3 → 요구 해제)
+                        cheat_exp = morld.get_unit_prop(state["partner_id"], "경험:콘돔속임") or 0
+                        if cheat_exp < 3:
+                            partner_info_c = morld.get_unit_info(state["partner_id"])
+                            p_name_c = partner_info_c.get("name", "상대") if partner_info_c else "상대"
+                            state["last_reaction"] = f"{p_name_c}(이)가 콘돔 없이는 안 된다고 한다."
+                            return render_romance_ui(state)
 
             # 삽입 호환성 체크 (크기 차이)
             if is_turning_on and action_id in _PENETRATION_TOGGLE_IDS:
@@ -985,6 +1060,17 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     # 착의 쿨다운 리셋 (탈의 후 즉시 착의 인터럽트 발동 가능하도록)
     if partner_agent:
         partner_agent._memory["clothing_last_attempt"] = None
+
+    # 경험 축적: 강제 모드
+    if cur_mode == MODE_FORCED:
+        force_count = (morld.get_unit_prop(partner_id, "경험:강제횟수") or 0) + 1
+        morld.set_unit_prop(partner_id, "경험:강제횟수", force_count)
+
+    # 경험 축적: 질내 사정 (내부 정액 잔존)
+    internal_vaginal = get_internal_semen(partner_id, "음부")
+    if internal_vaginal > 0:
+        vaginal_count = (morld.get_unit_prop(partner_id, "경험:질내사정") or 0) + 1
+        morld.set_unit_prop(partner_id, "경험:질내사정", vaginal_count)
 
     # 모드별 종료 패널티 적용
     if cur_mode == MODE_FORCED:

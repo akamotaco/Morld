@@ -239,6 +239,21 @@ INSTANT_ACTIONS = {
         "requires_player_anatomy_self": "P",
         "requires_active_penetration": True,
     },
+    # 콘돔
+    "condom_on": {
+        "name": "콘돔 착용", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+        "requires_player_anatomy_self": "P",
+        "is_condom_action": True,
+    },
+    "condom_off": {
+        "name": "콘돔 제거", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+        "requires_player_anatomy_self": "P",
+        "is_condom_action": True,
+    },
 }
 
 # ============================================

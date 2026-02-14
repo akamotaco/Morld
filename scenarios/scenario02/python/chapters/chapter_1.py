@@ -35,7 +35,10 @@ def initialize():
     # 7. 잡동사니 아이템 배치
     _instantiate_collectibles()
 
-    # 8. 전 맵 오염도 등록
+    # 8. 소비 아이템 배치
+    _instantiate_consumables()
+
+    # 9. 전 맵 오염도 등록
     _register_pollution()
 
     print("[chapter_1] Main chapter initialized: full map with NPCs and nature objects")
@@ -148,6 +151,36 @@ def _instantiate_collectibles():
         count += 1
 
     print(f"[chapter_1] {count} collectible items placed")
+
+
+def _instantiate_consumables():
+    """소비 아이템 (피임약, 미약, 콘돔) 생성 및 배치"""
+    from assets.items.consumables import ContraceptivePill, Aphrodisiac, Condom
+
+    # (아이템 클래스, region_id, location_id)
+    placements = [
+        (ContraceptivePill, 0, 4),    # 피임약 — 욕실
+        (ContraceptivePill, 2, 3),    # 피임약 — 약국
+        (Condom,            0, 4),    # 콘돔 — 욕실
+        (Condom,            2, 2),    # 콘돔 — 편의점
+        (Condom,            2, 3),    # 콘돔 — 약국
+        (Aphrodisiac,       0, 5),    # 미약 — 창고
+    ]
+
+    count = 0
+    for item_cls, region_id, location_id in placements:
+        ground_id = morld.get_location_ground_id(region_id, location_id)
+        if not ground_id:
+            print(f"[chapter_1] No ground for R{region_id},L{location_id}, skipping {item_cls.__name__}")
+            continue
+
+        item = item_cls()
+        item_id = morld.create_id("item")
+        item.instantiate(item_id)
+        morld.give_item(ground_id, item_id, 1)
+        count += 1
+
+    print(f"[chapter_1] {count} consumable items placed")
 
 
 def _register_pollution():

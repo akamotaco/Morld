@@ -221,6 +221,13 @@ def render_romance_ui(state):
             arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
             lines.append(f"[color=red]윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})[/color]")
 
+    # 콘돔 상태 표시
+    if state.get("condom_active"):
+        if state.get("condom_punctured"):
+            lines.append("[color=yellow]콘돔 착용 중 (구멍)[/color]")
+        else:
+            lines.append("[color=green]콘돔 착용 중[/color]")
+
     lines.append("")
     lines.append(ui.divider())
     lines.append("")
@@ -262,7 +269,17 @@ def render_romance_ui(state):
     # 즉시 행위
     has_penetration = _has_active_penetration(state["active_toggles"])
     lines.append("[즉시 행위]")
+
+    # 콘돔 버튼 (P 해부학 보유 시)
+    if gender_mod.has_anatomy(player_id, "P"):
+        if state.get("condom_active"):
+            lines.append(f"  [url=@proc:instant:condom_off][color=cyan]콘돔 제거[/color][/url]")
+        else:
+            lines.append(f"  [url=@proc:instant:condom_on][color=cyan]콘돔 착용[/color][/url]")
+
     for action_id, action in INSTANT_ACTIONS.items():
+        if action.get("is_condom_action"):
+            continue  # 콘돔 액션은 위에서 별도 렌더링
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
         # 플레이어 자신의 해부학 요구사항 (hold_back 등)

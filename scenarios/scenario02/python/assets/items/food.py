@@ -43,6 +43,9 @@ class FoodItem(Item):
             yield ui.dialog("배가 불러서 더 먹을 수 없다.")
             return
 
+        # 미약 첨가 여부 확인
+        has_aphrodisiac = morld.get_unit_prop(self.instance_id, "상태:미약첨가") == 1
+
         # 포만감 회복
         survival.add_satiety(player_id, self.food_satiety)
 
@@ -51,6 +54,14 @@ class FoodItem(Item):
 
         # 메시지 표시
         yield ui.dialog(self.eat_message)
+
+        # 미약 효과 적용
+        if has_aphrodisiac:
+            remaining = morld.get_unit_prop(player_id, "상태:미약남은시간") or 0
+            if remaining <= 0:
+                morld.set_unit_prop(player_id, "상태:미약", 1)
+                morld.set_unit_prop(player_id, "상태:미약남은시간", 6)
+                yield ui.dialog("...뭔가 이상한 맛이 섞여 있던 것 같다.")
 
         # 시간 경과
         morld.advance_time_des(self.eat_time * 60_000)
