@@ -97,6 +97,10 @@
 | 자극 상태 자동 묘사 | romance_core.py, romance_ui.py | ✅ 완료 |
 | 탈진 HP 1 보존 | romance.py, npc_initiative.py | ✅ 완료 |
 | 체력 바 10칸 정규화 | romance_ui.py, npc_initiative.py | ✅ 완료 |
+| 대사 generator (archetype 기반) | romance_line_generator.py | ✅ 완료 |
+| 묘사 generator (archetype 기반) | romance_reaction_generator.py | ✅ 완료 |
+| FOCUS/DESCRIBE 아키타입 빌더 | base.py (build_focus_rules, build_describe_rules) | ✅ 완료 |
+| ROMANCE_REACTIONS 아키타입 빌더 | base.py (build_romance_reactions) | ✅ 완료 |
 
 ### 지원 캐릭터
 
@@ -147,34 +151,39 @@
 
 ```
 scenarios/scenario02/python/
-├── romance.py              # 스킨십 시스템 (플레이어 주도)
-├── romance_actions.py      # 행위 정의 + 공유 상수
-├── romance_core.py         # 공유 핵심 로직 (25+ 함수)
-├── romance_mode.py         # 동작 모드 (합의/강제/무의식/시간정지)
-├── romance_ui.py           # 연애 UI 렌더링
-├── date.py                 # 데이트 시스템 + 애정 표현
-├── npc_initiative.py       # NPC 주도 스킨십 시스템 (행위 마스킹, 캐릭터 필터)
-├── gender.py               # 성별/성적지향/체격/음경크기/삽입호환성
-├── stimulation.py          # 자극 시스템 (절정/여운/연쇄)
-├── pregnancy.py            # 임신/출산 시스템 (월경/수정/임신/출산/이벤트)
+├── romance.py                    # 스킨십 시스템 (플레이어 주도)
+├── romance_actions.py            # 행위 정의 + 공유 상수
+├── romance_core.py               # 공유 핵심 로직 (25+ 함수)
+├── romance_mode.py               # 동작 모드 (합의/강제/무의식/시간정지)
+├── romance_ui.py                 # 연애 UI 렌더링
+├── romance_line_generator.py     # 대사 generator (:start 1인칭, archetype×speech×tone)
+├── romance_reaction_generator.py # 묘사 generator (:during 3인칭, archetype×tone)
+├── date.py                       # 데이트 시스템 + 애정 표현
+├── npc_initiative.py             # NPC 주도 스킨십 시스템 (행위 마스킹, 캐릭터 필터)
+├── gender.py                     # 성별/성적지향/체격/음경크기/삽입호환성
+├── stimulation.py                # 자극 시스템 (절정/여운/연쇄)
+├── pregnancy.py                  # 임신/출산 시스템 (월경/수정/임신/출산/이벤트)
 ├── assets/
-│   ├── base.py             # Character 클래스 (ROMANCE_REACTIONS, INITIATIVE_*, STEALTH_REACTIONS)
-│   │                       # - should_initiate_skinship()
-│   │                       # - get_initiative_reaction()
-│   │                       # - get_allowed_initiative_actions()
-│   │                       # - get_stealth_success_reaction()
-│   │                       # - apply_stealth_success_effects()
+│   ├── base.py                   # Character 클래스 + 빌더 함수
+│   │                             # - build_focus_rules(): FOCUS_RULES 아키타입 빌더
+│   │                             # - build_describe_rules(): DESCRIBE_RULES 아키타입 빌더
+│   │                             # - build_romance_reactions(): ROMANCE_REACTIONS 빌더
+│   │                             # - should_initiate_skinship()
+│   │                             # - get_initiative_reaction()
+│   │                             # - get_allowed_initiative_actions()
+│   │                             # - get_stealth_success_reaction()
+│   │                             # - apply_stealth_success_effects()
 │   └── characters/
-│       ├── player.py       # 플레이어 (can: props)
-│       ├── sera.py         # 세라 - 무뚝뚝/거친, 연애 쑥맥
-│       ├── mila.py         # 밀라 - 다정/포근, 연애 저돌적
-│       ├── lina.py         # 리나 - 활발, 연애엔 수줍음
-│       ├── yuki.py         # 유키 - 매우 수줍음
-│       ├── ella.py         # 엘라 - 냉정함
-│       └── child.py        # 아이 NPC (출산 시 동적 생성)
+│       ├── player.py             # 플레이어 (can: props)
+│       ├── sera.py               # 세라 - stoic, 연애 쑥맥
+│       ├── mila.py               # 밀라 - gentle, 연애 저돌적
+│       ├── lina.py               # 리나 - cheerful, 연애엔 수줍음
+│       ├── yuki.py               # 유키 - timid
+│       ├── ella.py               # 엘라 - cold
+│       └── child.py              # 아이 NPC (출산 시 동적 생성)
 └── think/
-    ├── __init__.py         # BaseAgent (think 5-tier, NPC 성욕/사회 행동)
-    ├── child_agent.py      # 아이 NPC Agent (최소 욕구 행동)
+    ├── __init__.py               # BaseAgent (think 5-tier, NPC 성욕/사회 행동)
+    ├── child_agent.py            # 아이 NPC Agent (최소 욕구 행동)
     └── activities/
-        └── childbirth.py   # 출산/모성 활동 핸들러
+        └── childbirth.py         # 출산/모성 활동 핸들러
 ```

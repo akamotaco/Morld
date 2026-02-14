@@ -213,41 +213,52 @@ TALK_RULES = [
 
 ### ROMANCE_REACTIONS (스킨십 반응)
 
+네임드 NPC의 **특수 조건 반응**만 정의합니다. 일반 반응은 Generator가 자동 생성합니다.
+
 ```python
 ROMANCE_REACTIONS = {
-    # 즉시형 행위 (start만)
-    "head_pat:start": [
-        ({}, ["......", "...뭐하는 거냐.", "...싫진 않다."]),
+    # 특수 조건만 유지 (일반 반응은 Generator fallback)
+    "french_kiss:start": [
+        ({"미경험:기억:첫키스": 1}, [
+            ((80, 70), ["......!", "......(얼굴이 빨개진다)"]),
+            ((20, 20), ["...갑자기 뭐하는...!"]),
+        ]),
+        ((80, 70), ["...응...", "...좋다..."]),
     ],
-
-    # 토글형 행위 (start + during)
-    "hug:start": [
-        ({"애정": 50}, ["...안아줘...", "...이대로..."]),
-        ({"호감": 80}, ["...괜찮다...", "...따뜻하군..."]),
-        ({}, ["......", "...뭐냐.", "...놓아라."]),
+    "nipple_suck:start": [
+        ({"상태:수유": 1}, ["빨지 마...! 나, 나오잖아..."]),
     ],
+    # :during 항목 (3인칭 묘사)
     "hug:during": [
         ({"성욕": 50}, ["세라가 숨을 거칠게 몰아쉬고 있다."]),
         ({}, ["세라가 가만히 있다."]),
     ],
-
-    "deep_kiss:start": [...],
-    "deep_kiss:during": [...],
 }
 ```
 
 **구조:** `"action:timing" → [(조건, 대사 리스트), ...]`
 
 **timing 값:**
-- `start`: 행위 시작 시
-- `during`: 행위 진행 중 (토글형 행위만)
+- `start`: 행위 시작 시 (1인칭 대사)
+- `during`: 행위 진행 중 (3인칭 묘사, 토글형 행위만)
 
-**조회 방식:**
+**조회 방식 — 2단계 fallback:**
 ```python
-# Character.get_romance_reaction() 메서드가 처리
+# 1) ROMANCE_REACTIONS에서 조건 매칭 시도
 key = f"{action_id}:{timing}"  # 예: "hug:start"
 rules = self.ROMANCE_REACTIONS.get(key)
+
+# 2) 매칭 실패 시 Generator fallback
+#    :start → LineGenerator (1인칭 대사, 아키타입 × 말투 × 톤)
+#    :during → ReactionGenerator (3인칭 묘사, 아키타입 × 톤)
 ```
+
+**Generator 시스템** (`romance_line_generator.py`, `romance_reaction_generator.py`):
+- **10 아키타입**: stoic, gentle, cheerful, timid, cold, seductive, fierce, proud, innocent, devoted
+- **2D 좌표**: (호감, 욕망) → 톤 (romance/platonic/lust/rejection)
+- **3단 말투**: formal(존대) / casual(평어) / rough(하대)
+- **흥분 단계**: base → high(70+) → extreme(90+)
+- 모브 NPC는 `REACTION_PROFILE`만으로 전체 대사/묘사 자동 생성
 
 ---
 
@@ -287,54 +298,63 @@ NPC의 상태나 외형을 설명하는 텍스트입니다. Rules 형식을 사�
 
 ### DESCRIBE_RULES (장소 묘사)
 
-장소에서 NPC가 보일 때의 묘사입니다.
+장소에서 NPC가 보일 때의 묘사입니다. `build_describe_rules()` 빌더로 생성합니다.
 
 ```python
-DESCRIBE_RULES = [
-    # 이동 중
-    ({"is_traveling": True, "activity": "순찰"}, "{name}가 정찰을 위해 이동 중이다."),
-    ({"is_traveling": True}, "{name}(이)가 어딘가로 향하고 있다."),
+from assets.base import build_describe_rules
 
-    # 성욕 기반
-    ({"성욕": 80}, "{name}가 뻣뻣하게 서 있다. 평소의 냉정함이 흔들리는 듯하다."),
-    ({"성욕": 60}, "{name}가 이쪽을 힐끔 보더니 고개를 돌린다."),
-
-    # Activity 기반
-    ({"activity": "순찰"}, "{name}가 주변을 경계하고 있다."),
-    ({"activity": "수면"}, "{name}가 잠들어 있다."),
-
-    # 기본값
-    ({}, "{name}가 서 있다."),
-]
+# 아키타입 기반 빌더 — 정액/체내정액/성욕/호감/피로도 묘사 자동 상속
+DESCRIBE_RULES = build_describe_rules(
+    "stoic",  # archetype
+    traveling=[
+        ({"is_traveling": True, "activity": "순찰"}, "{name}가 정찰을 위해 이동 중이다."),
+        ({"is_traveling": True}, "{name}(이)가 어딘가로 향하고 있다."),
+    ],
+    activities=[
+        ("순찰", "{name}가 주변을 경계하고 있다."),
+        ("수면", "{name}가 잠들어 있다."),
+    ],
+    locations=[
+        ({"location": (0, 24)}, "{name}가 사냥감을 추적하고 있다."),
+    ],
+    default_text="{name}가 과묵하게 서 있다.",
+    order=None,  # 기본 순서 사용 (Ella는 커스텀 순서 지정)
+)
 ```
+
+**빌더 섹션 순서** (기본):
+`specials → traveling → activity → weather → location → semen → internal_semen → desire → affection → default → fatigue`
 
 **특징:**
 - `{name}` 플레이스홀더 자동 치환
 - 위에서 아래로 평가, 첫 번째 매칭 사용
+- 모브 NPC: archetype + activities + default_text만 지정하면 완전한 DESCRIBE_RULES 생성
 
 ---
 
 ### FOCUS_RULES (클릭 묘사)
 
-NPC를 클릭했을 때의 상세 묘사입니다.
+NPC를 클릭했을 때의 상세 묘사입니다. `build_focus_rules()` 빌더로 생성합니다.
 
 ```python
-FOCUS_RULES = [
-    # 성욕 기반
-    ({"성욕": 80}, "숨결이 평소보다 거칠다. 귀끝이 붉게 달아올라 있다."),
-    ({"성욕": 60}, "시선을 피하고 있다. 평소의 날카로움이 조금 흔들린다."),
+from assets.base import build_focus_rules
 
-    # 애정/호감 기반
-    ({"애정": 80}, "눈빛이 많이 부드러워졌다."),
-    ({"호감": 70}, "당신을 보고 살짝 고개를 끄덕인다."),
-
-    # Activity 기반
-    ({"activity": "수면"}, "편안하게 잠들어 있다."),
-
-    # 기본값
-    ({}, "단정한 여성이다."),
-]
+# 아키타입 기반 빌더 — 정액/체내정액/성욕/호감/mood 묘사 자동 상속
+FOCUS_RULES = build_focus_rules(
+    "stoic",  # archetype
+    activities=[
+        ("순찰", "날카로운 눈으로 주변을 경계하고 있다."),
+        ("수면", "경계심 없이 잠들어 있다."),
+    ],
+    default_text="긴 흑발을 묶은 과묵한 여성.",
+    specials=[  # 선택적 — NPC 고유 특수 조건
+        ({"도구분실:can:chop": 1}, "벌목 도구가 보이지 않는 모양이다."),
+    ],
+)
 ```
+
+**빌더 섹션 순서** (기본):
+`specials → semen → internal_semen → activity → mood → desire → affection → default`
 
 ---
 
@@ -370,8 +390,10 @@ result = TextSelector.select(rules, context)  # "result_b"
 | 파일 | 내용 |
 |------|------|
 | `python/ui.py` | Lines, Sequence, Conversation 클래스 |
-| `python/assets/base.py` | TextSelector, Character 기본 클래스 |
-| `python/assets/characters/*.py` | 캐릭터별 RULES 정의 |
+| `python/assets/base.py` | TextSelector, Character, build_focus_rules(), build_describe_rules() |
+| `python/assets/characters/*.py` | 캐릭터별 RULES 정의 (빌더 호출 + 특수 조건) |
+| `python/romance_line_generator.py` | :start 1인칭 대사 Generator (아키타입 × 말투 × 톤) |
+| `python/romance_reaction_generator.py` | :during 3인칭 묘사 Generator (아키타입 × 톤) |
 
 ---
 
@@ -385,11 +407,12 @@ result = TextSelector.select(rules, context)  # "result_b"
 └── Rules (규칙형) ──────── 지연 평가, NPC 대화용
 
 리액션 (Reaction)
-├── ROMANCE_REACTIONS ──── 스킨십 반응
+├── ROMANCE_REACTIONS ──── 스킨십 반응 (특수 조건만)
+│   └── Generator fallback ── LineGenerator(:start) / ReactionGenerator(:during)
 ├── STEALTH_REACTIONS ──── 은신 반응
 └── INITIATIVE_REACTIONS ─ NPC 주도 반응
 
 묘사 (Description)
-├── DESCRIBE_RULES ─────── 장소에서 보이는 묘사
-└── FOCUS_RULES ────────── 클릭 시 상세 묘사
+├── DESCRIBE_RULES ─────── 장소에서 보이는 묘사 (build_describe_rules 빌더)
+└── FOCUS_RULES ────────── 클릭 시 상세 묘사 (build_focus_rules 빌더)
 ```
