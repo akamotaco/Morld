@@ -11,29 +11,13 @@
 
 from . import registry
 
-# 이벤트 클래스 import (자동 등록)
-from . import game_start
-from . import reach
-from . import meet
-
-# 스크립트 함수 import (@morld.register_script 자동 등록)
-from . import scripts
-
-# 캐릭터 이벤트 핸들러 (on_meet_player 등)
-from assets.characters import get_character_event_handler
-
-# 은신 판정 시스템
-import stealth
-
-
 # ========================================
 # 시간 경과 이벤트 구독 시스템
 # ========================================
+# NOTE: subscribe_time_elapsed는 다른 모듈에서 모듈 로드 시점에
+# from events import subscribe_time_elapsed 로 사용하므로,
+# 순환 import를 피하기 위해 서브모듈 import보다 먼저 정의해야 함.
 
-# 시간 경과 이벤트 구독자 목록
-# 각 구독자는 (callback, min_interval_millis) 튜플
-# callback: (millis) -> None
-# min_interval_millis: 최소 호출 간격 (밀리초). None이면 매 호출마다 실행
 _time_elapsed_subscribers = []
 
 
@@ -57,6 +41,21 @@ def subscribe_time_elapsed(callback, min_interval=None):
         "min_interval": min_interval,
         "accumulated": 0,
     })
+
+
+# 이벤트 클래스 import (자동 등록)
+from . import game_start
+from . import reach
+from . import meet
+
+# 스크립트 함수 import (@morld.register_script 자동 등록)
+from . import scripts
+
+# 캐릭터 이벤트 핸들러 (on_meet_player 등)
+from assets.characters import get_character_event_handler
+
+# 은신 판정 시스템
+import stealth
 
 
 def _handle_time_elapsed(millis):
