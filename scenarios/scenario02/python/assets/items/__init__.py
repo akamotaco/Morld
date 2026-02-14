@@ -34,6 +34,10 @@ from .materials import (
 from .currency import (
     Coin
 )
+from .collectibles import (
+    WildFlower, DriedFlower,
+    PrettyStone, OldPendant, WoodCarving, BrokenWatch, OldTeddyBear
+)
 
 __all__ = [
     # equipment
@@ -59,6 +63,9 @@ __all__ = [
     'Log', 'Branch', 'Plank', 'Cord', 'Feather',
     # currency
     'Coin',
+    # collectibles
+    'WildFlower', 'DriedFlower',
+    'PrettyStone', 'OldPendant', 'WoodCarving', 'BrokenWatch', 'OldTeddyBear',
 ]
 
 

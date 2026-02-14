@@ -479,6 +479,16 @@ class Character(Unit):
 
     ROMANCE_DISCOVERY_REACTIONS: dict = None
 
+    # GIFT_PREFERENCES: 선물 선호도 (서브클래스에서 오버라이드)
+    #   liked_categories: 선호 카테고리 리스트 → 호감 +5
+    #   favorite_items: 최애 아이템 unique_id 리스트 → 호감 +10
+    #   disliked_categories: 비선호 카테고리 리스트 → 호감 +0
+    GIFT_PREFERENCES: dict = {
+        "liked_categories": [],
+        "favorite_items": [],
+        "disliked_categories": [],
+    }
+
     def get_stealth_success_reaction(self, player_id: int) -> Optional[str]:
         """
         은신 성공 시 반응 텍스트 반환
@@ -1027,6 +1037,147 @@ class Character(Unit):
                 f"({self.name}(이)가 필사적으로 저항하여 벗어났다.)\n"
                 f"[color=gray]호감 -10, 반발 +15[/color]"
             )
+
+    def give_gift(self):
+        """선물하기 — 플레이어 인벤토리에서 아이템을 골라 NPC에게 선물"""
+        self._check_instantiated()
+        from romance_core import get_affection_key, get_rebellion_key
+        from assets.items import get_instance as get_item_instance
+
+        player_id = morld.get_player_id()
+        partner_id = self.instance_id
+
+        # 반발 체크 (반발 50+ → 거절)
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+        props = morld.get_unit_props(partner_id) or {}
+        aff_key = get_affection_key(player_id)
+        reb_key = get_rebellion_key(player_id)
+        rebellion = props.get(reb_key, 0)
+        affection = props.get(aff_key, 0)
+
+        if rebellion >= 50:
+            yield ui.dialog(f"[{self.name}]\n\"......받기 싫어.\"")
+            return
+
+        if affection < 20:
+            yield ui.dialog(f"[{self.name}]\n\"...모르는 사람한테 물건을 받을 수는 없어.\"")
+            return
+
+        # 플레이어 인벤토리 표시 (장착 중인 아이템 제외)
+        inventory = morld.get_unit_inventory(player_id)
+        if not inventory:
+            yield ui.dialog("선물할 수 있는 아이템이 없다.")
+            return
+
+        import equipment as eq
+        equipped = eq.get_equipped_items(player_id) if hasattr(eq, 'get_equipped_items') else []
+        equipped_ids = set(equipped) if equipped else set()
+
+        lines = [f"[b]{self.name}[/b]에게 선물하기\n"]
+        valid_items = []
+
+        for item_id, count in inventory.items():
+            item_id_int = int(item_id)
+            # 장착 중인 아이템 제외
+            if item_id_int in equipped_ids:
+                continue
+            item_info = morld.get_item_info(item_id_int)
+            if not item_info:
+                continue
+            # 소유권 체크 (타인 소유 → 제외)
+            owner = item_info.get("owner")
+            runtime_owner = morld.get_unit_prop(item_id_int, "소유자")
+            if owner and owner != "player" and owner != player_info.get("unique_id", "player"):
+                continue
+            if runtime_owner and runtime_owner != "player" and runtime_owner != player_info.get("unique_id", "player"):
+                continue
+
+            item_name = item_info.get("name", f"아이템#{item_id_int}")
+            if isinstance(count, str):
+                count = int(count)
+            count_text = f" x{count}" if count > 1 else ""
+            lines.append(f"[url=@ret:{item_id_int}]{item_name}{count_text}[/url]")
+            valid_items.append(item_id_int)
+
+        if not valid_items:
+            yield ui.dialog("선물할 수 있는 아이템이 없다.")
+            return
+
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+
+        result = yield ui.dialog("\n".join(lines), autofill="off")
+        if not result or result == "cancel":
+            return
+
+        item_id = int(result)
+        item_info = morld.get_item_info(item_id)
+        if not item_info:
+            return
+
+        item_name = item_info.get("name", "선물")
+        item_unique = item_info.get("unique_id", "")
+
+        # 카테고리 판정 (Python 인스턴스에서 가져오기)
+        item_instance = get_item_instance(item_id)
+        item_category = item_instance.category if item_instance else None
+        is_food = hasattr(item_instance, 'food_satiety') and item_instance.food_satiety > 0
+
+        # 호감 보너스 계산
+        prefs = self.GIFT_PREFERENCES
+        bonus = 3  # 기본
+        reaction = "normal"
+
+        if item_unique in prefs.get("favorite_items", []):
+            bonus = 10
+            reaction = "favorite"
+        elif item_category in prefs.get("liked_categories", []):
+            bonus = 5
+            reaction = "liked"
+        elif item_category in prefs.get("disliked_categories", []):
+            bonus = 0
+            reaction = "disliked"
+
+        # 아이템 이동 (플레이어 → NPC)
+        morld.remove_item(player_id, item_id)
+
+        if is_food:
+            # 음식은 NPC가 바로 섭취
+            import survival
+            survival.add_satiety(partner_id, item_instance.food_satiety)
+            morld.lost_item(partner_id, item_id)  # 소비
+        else:
+            # 음식이 아니면 NPC 인벤토리에 저장
+            morld.give_item(partner_id, item_id)
+
+        # 호감도 적용
+        if bonus > 0:
+            morld.modify_prop(partner_id, aff_key, bonus)
+
+        # 반응 대사
+        gift_reaction = self._get_gift_reaction(reaction, item_name, is_food)
+        bonus_text = f" [color=gray](호감 +{bonus})[/color]" if bonus > 0 else " [color=gray](호감 변화 없음)[/color]"
+        yield ui.dialog(f"{gift_reaction}{bonus_text}")
+
+        # 5분 시간 경과
+        morld.advance_time_des(5 * 60_000)
+
+    def _get_gift_reaction(self, reaction_type: str, item_name: str, is_food: bool) -> str:
+        """선물 반응 대사 생성 (서브클래스에서 오버라이드 가능)"""
+        name = self.name
+        if is_food:
+            eat_text = f"\n({name}(이)가 {item_name}을(를) 맛있게 먹었다.)"
+        else:
+            eat_text = ""
+
+        if reaction_type == "favorite":
+            return f"[{name}]\n\"이거... 정말 좋아! 고마워!\"{eat_text}"
+        elif reaction_type == "liked":
+            return f"[{name}]\n\"고마워, 마음에 들어.\"{eat_text}"
+        elif reaction_type == "disliked":
+            return f"[{name}]\n\"......음, 고맙긴 한데...\"{eat_text}"
+        else:
+            return f"[{name}]\n\"...고마워.\"{eat_text}"
 
     def date(self):
         """데이트 요청"""

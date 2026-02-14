@@ -105,6 +105,7 @@ class Sera(Character):
         "call:hold_hands:손 잡기#",    # 조건 충족 시만 표시
         "call:date_hug:안아주기#",     # 조건 충족 시만 표시
         "call:date_kiss:키스#",        # 조건 충족 시만 표시
+        "call:give_gift:선물하기",
         "call:romance:스킨십",
         "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
@@ -400,6 +401,15 @@ class Sera(Character):
             ({}, ["[세라]", "...!", "세라가 황급히 몸을 돌린다.", "...나가.", "...지금 당장."]),
         ],
         "effects": {"호감": -5},
+    }
+
+    # ========================================
+    # 선물 선호도
+    # ========================================
+    GIFT_PREFERENCES = {
+        "liked_categories": ["equipment", "material"],
+        "favorite_items": ["hunting_bow", "wooden_sword"],
+        "disliked_categories": ["trinket"],
     }
 
     # ========================================

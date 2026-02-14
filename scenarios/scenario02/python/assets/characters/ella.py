@@ -110,6 +110,7 @@ class Ella(Character):
     actions = [
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
+        "call:give_gift:선물하기",
         "call:romance:스킨십",
         "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
@@ -528,6 +529,15 @@ class Ella(Character):
             ({}, ["[엘라]", "......!", "엘라가 차가운 시선을 보낸다.", "...나가요. 지금."]),
         ],
         "effects": {"호감": -5},
+    }
+
+    # ========================================
+    # 선물 선호도
+    # ========================================
+    GIFT_PREFERENCES = {
+        "liked_categories": ["equipment", "drink_ingredient"],
+        "favorite_items": ["trinket_broken_watch", "drink_herb_tea"],
+        "disliked_categories": ["trinket"],
     }
 
     # ========================================

@@ -130,6 +130,11 @@ def craft_item(player_id: int, recipe: dict):
     result_count = recipe.get("result_count", 1)
     morld.give_item(player_id, result_id, result_count)
 
+    # 소유자 설정 (선물 시스템용)
+    player_info = morld.get_unit_info(player_id)
+    if player_info:
+        morld.set_unit_prop(result_id, "소유자", player_info.get("unique_id", "player"))
+
     # 완료 메시지
     result_name = recipe["name"]
     if result_count > 1:

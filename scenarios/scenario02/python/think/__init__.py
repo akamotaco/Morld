@@ -97,6 +97,10 @@ class BaseAgent:
             "socialize_phase": None,      # 대화 단계 (None/idle/going/talking)
             "socialize_target_id": None,  # 대화 대상 NPC unit_id
             "socialize_cooldown": None,   # 마지막 대화 시각 (밀리초)
+            "gift_phase": None,           # 선물 단계 (None/idle/going/giving)
+            "gift_target_id": None,       # 선물 대상 NPC unit_id
+            "gift_item_id": None,         # 선물할 아이템 ID
+            "gift_cooldown": None,        # 마지막 선물 시각 (밀리초)
         }
 
     def set_base_schedule(self, schedule):
@@ -615,6 +619,10 @@ class BaseAgent:
         if self._check_social():
             return True
 
+        # 4h-2. NPC→NPC 선물
+        if self._check_gift():
+            return True
+
         # 4i. 취침 이동 (수면 시간이지만 아직 침대 아님)
         # (이미 침대에 누운 경우는 tier 1에서 처리됨)
         is_sleep, _ = self._is_sleep_time()
@@ -783,6 +791,43 @@ class BaseAgent:
         self._memory["socialize_phase"] = "idle"
         self._memory["socialize_target_id"] = target_id
         _handle_socialize(self)
+        return True
+
+    def _check_gift(self):
+        """NPC→NPC 선물 인터럽트. Returns True if handling."""
+        # 진행 중 → 계속
+        if self._memory.get("gift_phase") is not None:
+            _handle_gift(self)
+            return True
+
+        # 쿨다운 (24시간)
+        last = self._memory.get("gift_cooldown")
+        if last is not None and self.get_time() - last < 86_400_000:
+            return False
+
+        # 사회욕 80+ 필요
+        try:
+            import needs
+            social = needs.get_social(self.unit_id)
+        except ImportError:
+            return False
+        if social < 80:
+            return False
+
+        # 인벤토리에 선물 가능 아이템 확인
+        gift_item_id = _find_gift_item(self)
+        if gift_item_id is None:
+            return False
+
+        # 같은 region에서 호감 높은 NPC 탐색
+        target_id = _find_gift_target(self)
+        if target_id is None:
+            return False
+
+        self._memory["gift_phase"] = "idle"
+        self._memory["gift_target_id"] = target_id
+        self._memory["gift_item_id"] = gift_item_id
+        _handle_gift(self)
         return True
 
     def _can_seek_player(self):
@@ -2316,6 +2361,155 @@ def _handle_socialize(agent):
         agent._memory["socialize_cooldown"] = agent.get_time()
         agent._insert_idle_job("대화완료", 60_000)
         agent._action_taken = True
+
+
+# ========================================
+# NPC→NPC 선물
+# ========================================
+
+def _find_gift_item(agent):
+    """NPC 인벤토리에서 선물 가능한 아이템 탐색 (장착 중 제외)"""
+    import equipment as eq
+    from assets.items import get_instance as get_item_instance
+
+    inventory = morld.get_unit_inventory(agent.unit_id)
+    if not inventory:
+        return None
+
+    equipped = eq.get_equipped_items(agent.unit_id) if hasattr(eq, 'get_equipped_items') else []
+    equipped_ids = set(equipped) if equipped else set()
+
+    for item_id, count in inventory.items():
+        item_id_int = int(item_id)
+        if item_id_int in equipped_ids:
+            continue
+        item_instance = get_item_instance(item_id_int)
+        if item_instance is None:
+            continue
+        cat = item_instance.category
+        if cat in ("flower", "trinket", "food_ingredient"):
+            return item_id_int
+
+    return None
+
+
+def _find_gift_target(agent):
+    """선물 대상 NPC 탐색 (같은 region, 호감 높은 NPC)"""
+    my_loc = agent.get_location()
+    if my_loc is None:
+        return None
+
+    my_region = my_loc[0]
+    my_name = None
+    my_info = morld.get_unit_info(agent.unit_id)
+    if my_info:
+        my_name = my_info.get("name", "")
+
+    best_target = None
+    best_aff = 0
+
+    for uid, other_agent in _agents.items():
+        if uid == agent.unit_id:
+            continue
+        other_loc = other_agent.get_location()
+        if other_loc is None:
+            continue
+        if other_loc[0] != my_region:
+            continue
+
+        # 수면/기절 중이면 스킵
+        info = morld.get_unit_info(uid)
+        if info:
+            job_name = info.get("job_name", "")
+            if job_name in ("sleep", "fainting"):
+                continue
+
+        # 호감도 확인
+        if my_name:
+            props = morld.get_unit_props(uid) or {}
+            aff = props.get(f"관계:{my_name}:호감", 0)
+            if aff > best_aff:
+                best_aff = aff
+                best_target = uid
+
+    return best_target
+
+
+def _handle_gift(agent):
+    """NPC→NPC 선물: 대상 이동 → 전달(5분) → 호감 증가"""
+    phase = agent._memory["gift_phase"]
+
+    if phase == "idle":
+        target_id = agent._memory.get("gift_target_id")
+        if target_id is None:
+            _reset_gift(agent)
+            return
+
+        target_loc = morld.get_unit_location(target_id)
+        if target_loc is None:
+            _reset_gift(agent)
+            return
+
+        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
+        if agent._is_at(target):
+            agent._memory["gift_phase"] = "giving"
+            agent._insert_idle_job("선물", 5 * 60_000)  # 5분
+            agent._action_taken = True
+        else:
+            agent._memory["gift_phase"] = "going"
+            _handle_gift(agent)
+
+    elif phase == "going":
+        target_id = agent._memory.get("gift_target_id")
+        if target_id is None:
+            _reset_gift(agent)
+            return
+
+        target_loc = morld.get_unit_location(target_id)
+        if target_loc is None:
+            _reset_gift(agent)
+            return
+
+        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
+        if agent._is_at(target):
+            agent._memory["gift_phase"] = "giving"
+            agent._insert_idle_job("선물", 5 * 60_000)
+            agent._action_taken = True
+        else:
+            agent._move_to(target, "선물")
+
+    elif phase == "giving":
+        target_id = agent._memory.get("gift_target_id")
+        item_id = agent._memory.get("gift_item_id")
+
+        if target_id and item_id:
+            # 아이템 전달
+            if morld.has_item(agent.unit_id, item_id):
+                morld.remove_item(agent.unit_id, item_id)
+                morld.give_item(target_id, item_id)
+
+            # 호감도 변경 (양측 +3)
+            agent_info = morld.get_unit_info(agent.unit_id)
+            target_info = morld.get_unit_info(target_id)
+            if agent_info and target_info:
+                agent_name = agent_info.get("name", "")
+                target_name = target_info.get("name", "")
+                if target_name:
+                    morld.modify_prop(agent.unit_id, f"관계:{target_name}:호감", 3)
+                if agent_name:
+                    morld.modify_prop(target_id, f"관계:{agent_name}:호감", 5)
+
+        _reset_gift(agent)
+        agent._insert_idle_job("선물완료", 60_000)
+        agent._action_taken = True
+
+
+def _reset_gift(agent):
+    """선물 상태 초기화"""
+    agent._memory["gift_phase"] = None
+    agent._memory["gift_target_id"] = None
+    agent._memory["gift_item_id"] = None
+    agent._memory["gift_cooldown"] = agent.get_time()
 
 
 def register_agent(unit_id, agent):

@@ -32,7 +32,10 @@ def initialize():
     # 6. 자연 오브젝트 인스턴스화 + Agent 등록
     mansion.instantiate_nature_objects()
 
-    # 7. 전 맵 오염도 등록
+    # 7. 잡동사니 아이템 배치
+    _instantiate_collectibles()
+
+    # 8. 전 맵 오염도 등록
     _register_pollution()
 
     print("[chapter_1] Main chapter initialized: full map with NPCs and nature objects")
@@ -109,6 +112,42 @@ def _instantiate_player():
     player = Player()
     player_id = morld.create_id("unit")
     player.instantiate(player_id, mansion.REGION_ID, 6)  # 주인공 방에서 시작
+
+
+def _instantiate_collectibles():
+    """잡동사니 아이템 생성 및 배치"""
+    from assets.items.collectibles import (
+        WildFlower, DriedFlower,
+        PrettyStone, OldPendant, WoodCarving, BrokenWatch, OldTeddyBear
+    )
+
+    # (아이템 클래스, region_id, location_id)
+    placements = [
+        (WildFlower,    0, 12),   # 들꽃 — 앞마당
+        (WildFlower,    0, 22),   # 들꽃 — 강가
+        (DriedFlower,   0, 10),   # 말린 꽃 — 빈 방 1
+        (PrettyStone,   0, 22),   # 예쁜 돌멩이 — 강가
+        (PrettyStone,   0, 23),   # 예쁜 돌멩이 — 채집터
+        (OldPendant,    0, 11),   # 낡은 펜던트 — 빈 방 2
+        (WoodCarving,   0, 14),   # 나무 조각 — 2층 복도
+        (BrokenWatch,   2, 2),    # 고장난 시계 — 편의점
+        (OldTeddyBear,  0, 10),   # 낡은 곰 인형 — 빈 방 1
+    ]
+
+    count = 0
+    for item_cls, region_id, location_id in placements:
+        ground_id = morld.get_location_ground_id(region_id, location_id)
+        if not ground_id:
+            print(f"[chapter_1] No ground for R{region_id},L{location_id}, skipping {item_cls.__name__}")
+            continue
+
+        item = item_cls()
+        item_id = morld.create_id("item")
+        item.instantiate(item_id)
+        morld.give_item(ground_id, item_id, 1)
+        count += 1
+
+    print(f"[chapter_1] {count} collectible items placed")
 
 
 def _register_pollution():

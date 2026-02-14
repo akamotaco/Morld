@@ -99,6 +99,7 @@ class Lina(Character):
     actions = [
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
+        "call:give_gift:선물하기",
         "call:romance:스킨십",
         "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
@@ -553,6 +554,15 @@ class Lina(Character):
             ({}, ["[리나]", "꺄악!!", "리나가 베개를 집어던진다.", "나가!! 나가라고!!"]),
         ],
         "effects": {"호감": -5},
+    }
+
+    # ========================================
+    # 선물 선호도
+    # ========================================
+    GIFT_PREFERENCES = {
+        "liked_categories": ["trinket", "flower"],
+        "favorite_items": ["trinket_teddy_bear", "flower_wild"],
+        "disliked_categories": ["material"],
     }
 
     # ========================================

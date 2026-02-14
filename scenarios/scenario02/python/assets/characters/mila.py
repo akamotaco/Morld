@@ -109,6 +109,7 @@ class Mila(Character):
     actions = [
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
+        "call:give_gift:선물하기",
         "call:romance:스킨십",
         "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
@@ -551,6 +552,15 @@ class Mila(Character):
             ({}, ["[밀라]", "...!", "밀라가 비명을 지르며 이불을 끌어당긴다.", "...나가 주세요...!"]),
         ],
         "effects": {"호감": -3},
+    }
+
+    # ========================================
+    # 선물 선호도
+    # ========================================
+    GIFT_PREFERENCES = {
+        "liked_categories": ["food_ingredient", "flower"],
+        "favorite_items": ["food_fruit_salad", "food_mushroom_stew"],
+        "disliked_categories": ["trinket"],
     }
 
     # ========================================

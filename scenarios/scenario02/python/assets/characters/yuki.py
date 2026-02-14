@@ -100,6 +100,7 @@ class Yuki(Character):
     actions = [
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
+        "call:give_gift:선물하기",
         "call:romance:스킨십",
         "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
@@ -538,6 +539,15 @@ class Yuki(Character):
             ({}, ["[유키]", "...!", "유키가 움직임을 멈추고 부들부들 떤다.", "...(아무 말도 못 한다)"]),
         ],
         "effects": {"호감": -3},
+    }
+
+    # ========================================
+    # 선물 선호도
+    # ========================================
+    GIFT_PREFERENCES = {
+        "liked_categories": ["flower", "trinket"],
+        "favorite_items": ["flower_dried", "trinket_pretty_stone"],
+        "disliked_categories": ["equipment"],
     }
 
     # ========================================
