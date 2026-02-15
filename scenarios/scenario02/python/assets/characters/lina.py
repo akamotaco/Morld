@@ -1410,11 +1410,13 @@ class LinaAgent(BaseAgent):
             {"activity": "독서", "condition": None},
         ]},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+        {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 780 * _M, "end": 840 * _M, "activity": "휴식"},  # 거실
         {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "dynamic": True, "candidates": [
             {"activity": "채집", "condition": "need_food"},
             {"activity": "독서", "condition": None},
         ]},
         {"name": "빨래걷기", "region_id": 0, "location_id": 13, "x": 300, "start": 1020 * _M, "end": 1080 * _M, "activity": "빨래"},  # 뒷마당
+        {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1080 * _M, "end": 1110 * _M, "activity": "휴식"},  # 거실
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
         {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1170 * _M, "end": 1290 * _M, "activity": "휴식"},
         {"name": "저택 소등", "start": 1290 * _M, "end": 1320 * _M, "activity": "소등"},

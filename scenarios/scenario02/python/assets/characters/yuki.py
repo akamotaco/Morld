@@ -1196,6 +1196,7 @@ class YukiAgent(BaseAgent):
         {"name": "점심식사", "region_id": 2, "location_id": 5, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
         {"name": "정원", "region_id": 2, "location_id": 5, "x": 160, "start": 780 * _M, "end": 900 * _M, "activity": "정원"},
         {"name": "휴식", "region_id": 2, "location_id": 5, "x": 120, "start": 900 * _M, "end": 1020 * _M, "activity": "휴식"},
+        {"name": "자유시간", "region_id": 2, "location_id": 5, "x": 120, "start": 1020 * _M, "end": 1080 * _M, "activity": "휴식"},  # 은신처
         {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},
         {"name": "독서", "region_id": 2, "location_id": 5, "x": 120, "start": 1140 * _M, "end": 1320 * _M, "activity": "휴식"},
         {"name": "수면", "region_id": 2, "location_id": 5, "x": 120, "start": 1320 * _M, "end": 420 * _M, "activity": "수면"},

@@ -1113,6 +1113,8 @@ class KitchenFridge(Refrigerator):
         "storage:food": 1,
         "storage:food_ingredient": 1,
         "storage:drink_ingredient": 1,
+        "need:food_fish": 3,
+        "need:log": 5,
     }
     focus_text = {"default": "주방에 놓인 낡은 냉장고. 식료품 보관에 쓰인다."}
 
@@ -1133,6 +1135,7 @@ class IngredientStorage(Object):
         "storage:material": 1,
         "storage:seed": 1,
         "storage:garden_supply": 1,
+        "need:log": 5,
     }
     actions = [
         "call:look:살펴보기",
@@ -1158,6 +1161,10 @@ class FoodStorage(Object):
         "storage:food": 1,
         "storage:food_ingredient": 1,
         "storage:drink_ingredient": 1,
+        "storage:material": 1,
+        "need:food_fish": 3,
+        "need:branch": 6,
+        "need:log": 3,
     }
     actions = [
         "call:look:살펴보기",

@@ -12,6 +12,8 @@
 > - 동적 스케줄 → 조건 기반 활동 선택 (`dynamic: True`, `candidates`)
 > - 자원 순환 → 채집→저장→요리→식사 파이프라인
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
+> - **Prop 기반 보관 기준치** → `need:{item_uid}` prop으로 컨테이너별 부족 기준 커스터마이징 (v0.2.2)
+> - **연료 재료 수집** → `need_fuel_material` 조건, `storage:material` 컨테이너 (v0.2.2)
 > - 텃밭 활동 → 정원 7-phase (idle/getting_tool/going_to_garden/working/working_wait/storing_harvest/returning_tool)
 > - 시설 탐색 리졸버 → `facility_resolver.py` (목욕/화장실 선착순 + 옷장 소유권 탐색) (v0.2.2)
 > - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적 (v0.2.2)
@@ -22,6 +24,7 @@
 > **미구현 항목:** NPC 주도 상호작용
 >
 > 현재 구현 상태는 [schedule.md#8](schedule.md#8-v021-phase-시스템) 참조.
+> 활동 핸들러 제작 가이드: [make_activity.md](make_activity.md)
 
 ## 개요
 
@@ -686,6 +689,11 @@ def _find_storage(self, category):
     from think.activities.helpers import resolve_storage_container
     return resolve_storage_container(self, category)
 ```
+
+> **Prop 기반 보관 기준치** (v0.2.2): 컨테이너에 `need:{item_uid}` prop을 설정하면
+> `_check_storage_need()` 호출 시 해당 값을 부족 기준치로 사용합니다.
+> 예: `"need:branch": 6` → 나뭇가지 6개 미만이면 "부족"으로 판정.
+> 상세: [make_activity.md#보관-시스템-storage-system](make_activity.md#보관-시스템-storage-system)
 
 ---
 

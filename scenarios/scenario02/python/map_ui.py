@@ -247,8 +247,8 @@ def _render_map(state: dict) -> str:
             if travel_time_millis > 0:
                 time_text = _format_time(travel_time_millis)
                 tree_lines.append(
-                    f"{indent}{marker}[url=@proc:{region_id}:{loc_id}]{loc_info['name']}[/url]{char_text} "
-                    f"[color=gray]({time_text})[/color]"
+                    f"{indent}{marker}[url=@proc:{region_id}:{loc_id}]{loc_info['name']}[/url] "
+                    f"[color=gray]({time_text})[/color]{char_text}"
                 )
             elif travel_time_millis == 0:
                 # 바로 옆 (이미 같은 위치 - shouldn't happen)

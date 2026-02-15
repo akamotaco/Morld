@@ -972,11 +972,12 @@ class BaseAgent:
         # Tier 5: 일과
         self._check_tier5_routine()
 
-        # 경고: 행동 미결정
+        # 경고: 행동 미결정 → safety net (idle job 삽입)
         if not self._action_taken:
             info = self.get_info()
             name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
-            print(f"[think] WARNING: {name} - 행동 미결정")
+            print(f"[think] WARNING: {name} - 행동 미결정 (safety net)")
+            self._insert_idle_job("할 일 없음", 10 * 60_000)
 
         return None
 
@@ -1687,6 +1688,9 @@ class BaseAgent:
                 return False
         elif condition == "need_fuel":
             return self._check_heat_source_needs_fuel()
+        elif condition == "need_fuel_material":
+            return (self._check_storage_need("material", "branch", 6) or
+                    self._check_storage_need("material", "log", 3))
         return False
 
     def _check_has_pollution(self):
@@ -1727,7 +1731,11 @@ class BaseAgent:
         return False
 
     def _check_storage_need(self, category, item_uid, threshold):
-        """카테고리 기반 저장소 아이템 부족 여부 (True=부족)"""
+        """카테고리 기반 저장소 아이템 부족 여부 (True=부족)
+
+        컨테이너에 need:{item_uid} prop이 있으면 그 값을 기준치로 사용,
+        없으면 파라미터 threshold를 fallback으로 사용.
+        """
         from think.activities.helpers import resolve_storage_container
         target = resolve_storage_container(self, category)
         if not target:
@@ -1737,7 +1745,10 @@ class BaseAgent:
         if not obj:
             return False
         if item_uid:
-            return obj.get_item_count(item_uid) < threshold
+            # prop 기반 기준치 (우선) → 파라미터 fallback
+            prop_threshold = morld.get_unit_prop(target["object_id"], f"need:{item_uid}")
+            actual_threshold = prop_threshold if prop_threshold is not None else threshold
+            return obj.get_item_count(item_uid) < actual_threshold
         else:
             return obj.get_item_count() < threshold
 

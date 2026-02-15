@@ -1346,19 +1346,23 @@ class SeraAgent(BaseAgent):
             {"name": "기상", "region_id": 0, "location_id": 8, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
             {"name": "아침순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},
             {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+            {"name": "훈련", "region_id": 0, "location_id": 13, "x": 300, "start": 480 * _M, "end": 540 * _M, "activity": "훈련"},  # 뒷마당
             {"name": "오전활동", "start": 540 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
                 {"activity": "낚시", "condition": "need_fish"},
                 {"activity": "벌목", "condition": "need_logs"},
                 {"activity": "순찰", "condition": None},
             ]},
             {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+            {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 780 * _M, "end": 840 * _M, "activity": "휴식"},  # 거실
             {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "dynamic": True, "candidates": [
                 {"activity": "벌목", "condition": "need_logs"},
                 {"activity": "낚시", "condition": "need_fish"},
                 {"activity": "순찰", "condition": None},
             ]},
             {"name": "저녁순찰", "region_id": 0, "location_id": 20, "x": 900, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},
+            {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1080 * _M, "end": 1110 * _M, "activity": "휴식"},  # 거실
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "휴식", "region_id": 0, "location_id": 8, "x": 90, "start": 1170 * _M, "end": 1200 * _M, "activity": "휴식"},  # 세라방
             {"name": "장비정비", "region_id": 0, "location_id": 8, "x": 90, "start": 1200 * _M, "end": 1260 * _M, "activity": "정비"},
             {"name": "저택 소등", "start": 1260 * _M, "end": 1290 * _M, "activity": "소등"},
             {"name": "수면", "region_id": 0, "location_id": 8, "x": 90, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
@@ -1368,11 +1372,15 @@ class SeraAgent(BaseAgent):
             {"name": "기상", "region_id": 0, "location_id": 8, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
             {"name": "아침순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},
             {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
+            {"name": "훈련", "region_id": 0, "location_id": 13, "x": 300, "start": 480 * _M, "end": 540 * _M, "activity": "훈련"},  # 뒷마당
             {"name": "독서", "start": 540 * _M, "end": 720 * _M, "activity": "독서"},
             {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
+            {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 780 * _M, "end": 840 * _M, "activity": "휴식"},  # 거실
             {"name": "순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 840 * _M, "end": 960 * _M, "activity": "순찰"},
             {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 960 * _M, "end": 1080 * _M, "activity": "휴식"},
+            {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1080 * _M, "end": 1110 * _M, "activity": "휴식"},  # 거실
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
+            {"name": "취침준비", "region_id": 0, "location_id": 8, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "휴식"},  # 세라방
             {"name": "저택 소등", "start": 1260 * _M, "end": 1290 * _M, "activity": "소등"},
             {"name": "수면", "region_id": 0, "location_id": 8, "x": 90, "start": 1290 * _M, "end": 300 * _M, "activity": "수면"},
         ],

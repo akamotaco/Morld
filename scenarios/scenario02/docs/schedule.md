@@ -409,7 +409,7 @@ class BaseAgent:
 - NPC용 생존 시스템 (포만감 추적, 시간 경과 감소)
 - `_check_hunger()`: 포만감 30 이하 → 식사 인터럽트
 - `_resolve_dynamic_entry()`: 조건 기반 동적 활동 선택
-- `_evaluate_condition()`: need_fish, need_logs, need_food, can_cook, need_supplies, should_clean
+- `_evaluate_condition()`: need_fish, need_logs, need_food, can_cook, need_supplies, should_clean, need_fuel, need_fuel_material
 - 도구 자동 관리 (도끼, 낚시대, 빗자루)
 
 **미구현:**
@@ -442,13 +442,19 @@ class BaseAgent:
 조건 평가 (`_evaluate_condition`):
 | 조건 | 의미 | 체크 방법 |
 |------|------|----------|
-| `need_fish` | 물고기 부족 | `storage:food_ingredient` 컨테이너에 food_fish < 3 |
-| `need_logs` | 통나무 부족 | `storage:material` 컨테이너에 log < 5 |
-| `need_food` | 식량 부족 | `storage:food_ingredient` 컨테이너 총 아이템 < 10 |
-| `can_cook` | 요리 가능 | `storage:food_ingredient` 컨테이너에 레시피 매칭 재료 있음 |
-| `need_supplies` | 물자 부족 | `storage:food` 컨테이너 총 아이템 < 5 |
+| `need_fish` | 물고기 부족 | `storage:food_ingredient` 컨테이너에 food_fish < 기준치 |
+| `need_logs` | 통나무 부족 | `storage:material` 컨테이너에 log < 기준치 |
+| `need_food` | 식량 부족 | `storage:food_ingredient` 컨테이너 총 아이템 < 기준치 |
+| `can_cook` | 요리 가능 | `storage:food_ingredient` 컨테이너에 재료 ≥ 2 |
+| `need_supplies` | 물자 부족 | `storage:food` 컨테이너 총 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 location 존재 |
 | `need_social` | 사교 필요 | `needs.get_social(unit_id) >= 50` |
+| `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |
+| `need_fuel_material` | 연료 재료 부족 | `storage:material` 컨테이너에 branch < 기준치 또는 log < 기준치 |
+
+> **기준치 결정**: 컨테이너에 `need:{item_uid}` prop이 설정되어 있으면 해당 값을 기준치로 사용.
+> 없으면 코드의 fallback 값 사용 (예: need_fish → 3, need_logs → 5).
+> 상세: [make_activity.md](make_activity.md#보관-시스템-storage-system)
 
 ---
 
@@ -621,8 +627,13 @@ idle → going_to_tree → going_to_heat_source → idle
 | `going_to_tree` | 나무로 이동 → 도착 시 `npc_gather_branch()` ×3 → `going_to_heat_source` |
 | `going_to_heat_source` | 열원으로 이동 → 도착 시 `_load_all_fuel()` (인벤토리의 branch/log 전부 장전) → `idle` |
 
-**스케줄 조건**: `need_fuel` — `_check_heat_source_needs_fuel()`로 거처 내 연료 부족 열원 확인.
-엘라 스케줄에서 물자수집/관리 시간대에 dynamic 최우선 후보로 등록.
+**스케줄 조건**:
+- `need_fuel` — `_check_heat_source_needs_fuel()`로 거처 내 연료 부족 열원 확인.
+- `need_fuel_material` — `material` 컨테이너에서 branch/log 부족 확인 (prop 기반 기준치).
+
+엘라 스케줄에서 물자수집/관리 시간대에 dynamic 후보로 등록.
+
+> 활동 핸들러 작성 가이드: [make_activity.md](make_activity.md)
 
 ### 리소스 검증
 
