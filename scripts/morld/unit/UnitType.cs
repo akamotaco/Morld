@@ -1,19 +1,14 @@
 namespace Morld;
 
 /// <summary>
-/// Unit 타입 (성별 또는 오브젝트)
+/// Unit 타입 (캐릭터 또는 오브젝트)
 /// </summary>
 public enum UnitType
 {
 	/// <summary>
-	/// 남성 캐릭터
+	/// 캐릭터 (이동/스케줄/이벤트 가능)
 	/// </summary>
-	Male,
-
-	/// <summary>
-	/// 여성 캐릭터
-	/// </summary>
-	Female,
+	Character,
 
 	/// <summary>
 	/// 오브젝트 (이동/스케줄 없음)

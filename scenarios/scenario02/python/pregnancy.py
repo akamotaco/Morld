@@ -342,9 +342,9 @@ def spawn_child(mother_agent):
     from assets.characters.child import Child
     child = Child()
     child.name = child_name
-    child.type = child_gender
+    from gender import gender_to_int
     child.props = {
-        "성별": child_gender,
+        "성별": gender_to_int(child_gender),
         "나이": 0,
         "생존:체력": 50,
         "생존:최대체력": 50,

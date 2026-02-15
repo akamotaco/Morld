@@ -12,13 +12,25 @@
 import morld
 
 # ============================================
-# 성별 상수
+# 성별 상수 (문자열 — 외부 인터페이스용)
 # ============================================
 
 MALE = "male"
 FEMALE = "female"
 FUTANARI = "futanari"
 ASEXUAL = "asexual"
+
+# 정수 인코딩 (prop 시스템은 정수만 지원)
+_GENDER_TO_INT = {MALE: 1, FEMALE: 2, FUTANARI: 3, ASEXUAL: 4}
+_INT_TO_GENDER = {v: k for k, v in _GENDER_TO_INT.items()}
+
+def gender_to_int(gender_str):
+    """문자열 성별 → 정수 (prop 저장용)"""
+    return _GENDER_TO_INT.get(gender_str, 1)
+
+def int_to_gender(gender_int):
+    """정수 → 문자열 성별"""
+    return _INT_TO_GENDER.get(gender_int, MALE)
 
 # 성별별 보유 감각 카테고리
 ANATOMY = {
@@ -34,20 +46,14 @@ ANATOMY = {
 # ============================================
 
 def get_gender(unit_id):
-    """유닛의 성별 반환 (prop "성별" 우선 → unit_info type fallback)
+    """유닛의 성별 반환 (prop "성별" 정수 디코딩)
 
     Returns:
         str: "male", "female", "futanari", "asexual" 중 하나
     """
-    # 1. prop 우선
     val = morld.get_unit_prop(unit_id, "성별")
     if val:
-        return val
-
-    # 2. C# unit_info의 type fallback
-    info = morld.get_unit_info(unit_id)
-    if info:
-        return info.get("type", MALE)
+        return int_to_gender(val)
     return MALE
 
 
@@ -82,16 +88,27 @@ ORIENTATION_HETEROSEXUAL = "heterosexual"
 ORIENTATION_BISEXUAL = "bisexual"
 ORIENTATION_HOMOSEXUAL = "homosexual"
 
+_ORIENT_TO_INT = {ORIENTATION_HETEROSEXUAL: 1, ORIENTATION_BISEXUAL: 2, ORIENTATION_HOMOSEXUAL: 3}
+_INT_TO_ORIENT = {v: k for k, v in _ORIENT_TO_INT.items()}
+
+def orientation_to_int(orient_str):
+    """문자열 성적지향 → 정수 (prop 저장용)"""
+    return _ORIENT_TO_INT.get(orient_str, 2)
+
+def int_to_orientation(orient_int):
+    """정수 → 문자열 성적지향"""
+    return _INT_TO_ORIENT.get(orient_int, ORIENTATION_BISEXUAL)
+
 def register_orientation(unit_id, orientation):
     """(deprecated) 호환성 유지용 no-op — props로 전환됨"""
     pass
 
 
 def get_orientation(unit_id):
-    """성적 지향 반환 (prop "성적지향" 우선 → 기본 bisexual)"""
+    """성적 지향 반환 (prop "성적지향" 정수 디코딩)"""
     val = morld.get_unit_prop(unit_id, "성적지향")
     if val:
-        return val
+        return int_to_orientation(val)
     return ORIENTATION_BISEXUAL
 
 

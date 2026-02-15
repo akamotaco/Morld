@@ -10,10 +10,10 @@ class Child(Character):
     """아이 NPC — 출산 시 동적 생성"""
     unique_id = "child"
     name = "아이"
-    type = "male"  # 출산 시 랜덤 결정
+    type = "character"
 
     props = {
-        "성별": "male",  # 출산 시 랜덤 결정
+        "성별": 1,  # 1=male, 출산 시 랜덤 결정
         "나이": 0,
         "생존:체력": 50,
         "생존:최대체력": 50,

@@ -84,11 +84,11 @@ _M = 60_000  # millis per minute
 class Ella(Character):
     unique_id = "ella"
     name = "엘라"
-    type = "female"
+    type = "character"
     hearing_type = "keen"
     sexual_orientation = "heterosexual"
     props = {
-        "성별": "female", "성적지향": "heterosexual",
+        "성별": 2, "성적지향": 1,  # female, heterosexual
         "외모:흑발": 1, "외모:올림머리": 1, "외모:보라색눈": 1,
         "성격:냉정함": 1, "성격:리더십": 1,
         "관계:유키:보호": 1,

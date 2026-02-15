@@ -107,9 +107,9 @@ public class Unit : IOwnable
 
 
 	/// <summary>
-	/// Unit 타입 (Male, Female, Object)
+	/// Unit 타입 (Character, Object)
 	/// </summary>
-	public UnitType Type { get; set; } = UnitType.Male;
+	public UnitType Type { get; set; } = UnitType.Character;
 
 	/// <summary>
 	/// 오브젝트 여부 (Type == Object)

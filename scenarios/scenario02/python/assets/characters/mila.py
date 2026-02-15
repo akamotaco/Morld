@@ -84,10 +84,10 @@ _M = 60_000  # millis per minute
 class Mila(Character):
     unique_id = "mila"
     name = "밀라"
-    type = "female"
+    type = "character"
     sexual_orientation = "heterosexual"
     props = {
-        "성별": "female", "성적지향": "heterosexual",
+        "성별": 2, "성적지향": 1,  # female, heterosexual
         "외모:갈색머리": 1, "외모:중간머리": 1, "외모:갈색눈": 1,
         "성격:다정함": 1, "성격:걱정많음": 1,
         "관계:세라:신뢰": 1,

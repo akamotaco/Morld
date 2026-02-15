@@ -73,10 +73,10 @@ _M = 60_000  # millis per minute
 class Lina(Character):
     unique_id = "lina"
     name = "리나"
-    type = "female"
+    type = "character"
     sexual_orientation = "bisexual"
     props = {
-        "성별": "female", "성적지향": "bisexual",
+        "성별": 2, "성적지향": 2,  # female, bisexual
         "외모:금발": 1, "외모:단발": 1, "외모:녹색눈": 1,
         "성격:명랑함": 1, "성격:활발함": 1,
         "관계:세라:신뢰": 1,

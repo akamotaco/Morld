@@ -254,10 +254,8 @@ namespace SE
 		{
 			return type.ToLower() switch
 			{
-				"male" => UnitType.Male,
-				"female" => UnitType.Female,
 				"object" => UnitType.Object,
-				_ => UnitType.Male // 기본값
+				_ => UnitType.Character // male, female, character 등 모두 캐릭터
 			};
 		}
 

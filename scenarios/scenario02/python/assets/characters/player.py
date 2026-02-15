@@ -68,9 +68,9 @@ EQUIPMENT_OPTIONS = [
 class Player(Character):
     unique_id = "player"
     name = "???"
-    type = "male"
+    type = "character"
     props = {
-        "성별": "male",
+        "성별": 1,  # 1=male, 2=female (player_creation에서 재설정)
         # 기본 스탯
         "근력": 5,
         "지능": 5,

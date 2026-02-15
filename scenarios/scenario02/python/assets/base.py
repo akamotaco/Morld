@@ -1033,15 +1033,15 @@ class Character(Unit):
         affection = props.get(aff_key, 0)
         desire = props.get(des_key, 0)
 
-        # NPC 성별 확인
-        npc_gender = props.get("성별", "female")
+        # NPC 성별 확인 (정수: 1=male, 2=female)
+        npc_gender = props.get("성별", 2)
 
         casual_items = []
         for action_type, (label, aff_req, des_req, _gain) in self.CASUAL_ACTIONS.items():
-            # 성별 필터: female → casual_genital, male → casual_penis
-            if action_type == "casual_penis" and npc_gender == "female":
+            # 성별 필터: female(2) → casual_genital, male(1) → casual_penis
+            if action_type == "casual_penis" and npc_gender == 2:
                 continue
-            if action_type == "casual_genital" and npc_gender == "male":
+            if action_type == "casual_genital" and npc_gender == 1:
                 continue
 
             # 호감 OR 욕망 중 하나만 충족하면 해금

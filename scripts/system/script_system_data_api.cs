@@ -991,9 +991,8 @@ namespace SE
                 unit.ItemVisible = itemVisible;
                 unit.Type = type.ToLower() switch
                 {
-                    "female" => Morld.UnitType.Female,
                     "object" => Morld.UnitType.Object,
-                    _ => Morld.UnitType.Male
+                    _ => Morld.UnitType.Character
                 };
                 if (actions != null)
                     unit.Actions.AddRange(actions);
@@ -1243,7 +1242,7 @@ namespace SE
 
             // set_unit: 유닛 필드 설정
             // set_unit(unit_id, field, value)
-            // 지원 필드: "name"
+            // 지원 필드: "name", "type"
             morldModule.ModuleDict["set_unit"] = new PyBuiltinFunction("set_unit", args =>
             {
                 if (args.Length < 3)
@@ -1264,6 +1263,15 @@ namespace SE
                     case "name":
                         unit.Name = value.AsString();
                         Godot.GD.Print($"[morld] set_unit: unit={unitId}, name={value.AsString()}");
+                        return PyBool.True;
+                    case "type":
+                        var typeStr = value.AsString();
+                        unit.Type = typeStr.ToLower() switch
+                        {
+                            "object" => UnitType.Object,
+                            _ => UnitType.Character
+                        };
+                        Godot.GD.Print($"[morld] set_unit: unit={unitId}, type={typeStr}");
                         return PyBool.True;
                     default:
                         throw PyTypeError.Create($"set_unit: unknown field '{field}'");

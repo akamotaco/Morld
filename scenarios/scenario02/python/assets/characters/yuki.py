@@ -75,10 +75,10 @@ _M = 60_000  # millis per minute
 class Yuki(Character):
     unique_id = "yuki"
     name = "유키"
-    type = "female"
+    type = "character"
     sexual_orientation = "bisexual"
     props = {
-        "성별": "female", "성적지향": "bisexual",
+        "성별": 2, "성적지향": 2,  # female, bisexual
         "외모:은발": 1, "외모:장발": 1, "외모:붉은눈": 1,
         "성격:수줍음": 1, "성격:얌전함": 1,
         "관계:엘라:의지": 1,

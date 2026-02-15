@@ -298,10 +298,9 @@ def apply_character_creation(state):
     """
     player_id = morld.get_player_id()
 
-    # 성별 설정
-    Player.type = state["gender"]
-    morld.set_unit(player_id, "type", state["gender"])
-    morld.set_unit_prop(player_id, "성별", state["gender"])
+    # 성별 설정 (정수 인코딩: 1=male, 2=female, 3=futanari, 4=asexual)
+    from gender import gender_to_int
+    morld.set_unit_prop(player_id, "성별", gender_to_int(state["gender"]))
 
     # 이름 설정
     Player.name = state["name"]
