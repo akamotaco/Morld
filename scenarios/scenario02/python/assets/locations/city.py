@@ -313,7 +313,7 @@ class Hideout(Location):
         self.add_object(GardenBed(furrow_count=2), x=160)
 
         # 디버그: 무한 씨앗 포대
-        from assets.objects.storage import InfiniteSeedBag
+        from assets.locations.storage import InfiniteSeedBag
         self.add_object(InfiniteSeedBag(), x=165)
 
         # 간이 화장실

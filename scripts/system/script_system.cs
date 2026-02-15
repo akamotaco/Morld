@@ -1240,8 +1240,18 @@ def calculate(a, b):
             }
             catch (System.Exception ex)
             {
-                Godot.GD.PrintErr($"[ScriptSystem] CallThinkAll error: {ex.Message}");
+                Godot.GD.PrintErr($"[ScriptSystem] CallThinkAll error: {FormatPythonError(ex)}");
             }
+        }
+
+        /// <summary>
+        /// Python 에러를 포맷 — PythonException이면 traceback 포함, 아니면 C# 스택트레이스
+        /// </summary>
+        internal static string FormatPythonError(System.Exception ex)
+        {
+            if (ex is PythonException pyEx)
+                return pyEx.FormatTraceback();
+            return $"{ex.Message}\n{ex.StackTrace}";
         }
 
     }

@@ -150,7 +150,7 @@ namespace SE
             }
             catch (System.Exception ex)
             {
-                Godot.GD.PrintErr($"[ScriptSystem] ResumeGenerator error: {ex.Message}");
+                Godot.GD.PrintErr($"[ScriptSystem] ResumeGenerator error: {ScriptSystem.FormatPythonError(ex)}");
                 return new ScriptResult { Type = "error", Message = ex.Message };
             }
         }
@@ -222,7 +222,7 @@ namespace SE
             }
             catch (System.Exception ex)
             {
-                Godot.GD.PrintErr($"[ScriptSystem] ResumeGeneratorWithPyObject error: {ex.Message}");
+                Godot.GD.PrintErr($"[ScriptSystem] ResumeGeneratorWithPyObject error: {ScriptSystem.FormatPythonError(ex)}");
                 return new ScriptResult { Type = "error", Message = ex.Message };
             }
         }
