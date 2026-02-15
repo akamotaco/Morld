@@ -267,10 +267,12 @@ namespace SE
 							NotifyNpcDeparture(unit);
 						}
 					}
-					// 위치는 같지만 이동을 시작한 경우 (화면에서 사라짐)
-					else if (isMoving && !wasMovingBefore)
+					// 위치는 같지만 Gate를 통해 이동을 시작한 경우 (다른 Location으로 떠남)
+					// Location 내 이동(책장으로 걸어가기 등)은 무시
+					else if (isMoving && !wasMovingBefore
+						&& unit.CurrentMovement.IsGateMovement)
 					{
-						// 이동 시작 시 만남/접촉 상태 리셋 (다음에 다시 만나면 이벤트 발생)
+						// Gate 이동 시작 시 만남/접촉 상태 리셋 (다음에 다시 만나면 이벤트 발생)
 						ClearMeetingsForUnit(unit.Id);
 						ClearContactsForUnit(unit.Id);
 
@@ -363,21 +365,12 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 				if (unit.CurrentLocation != playerLocation) continue;
 
-				// 정지 상태면 만남
-				if (unit.CurrentMovement == null)
-				{
-					unitsToMeet.Add(unit.Id);
+				// Gate를 통해 다른 Location으로 이동 중인 NPC는 제외
+				// Location 내 이동(책장으로 걸어가기 등)은 만남 대상에 포함
+				if (unit.CurrentMovement != null && unit.CurrentMovement.IsGateMovement)
 					continue;
-				}
 
-				// 방금 도착 (이동 중이지만 이전 위치와 다름 = 경유지 통과)
-				if (_lastLocations.TryGetValue(unit.Id, out var lastLoc))
-				{
-					if (lastLoc != unit.CurrentLocation)
-					{
-						unitsToMeet.Add(unit.Id);
-					}
-				}
+				unitsToMeet.Add(unit.Id);
 			}
 
 			unitsToMeet.Sort();  // 정렬하여 키 정규화
