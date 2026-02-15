@@ -62,9 +62,8 @@ def _get_arousal_cap(unit_id):
 
 ### NPC 주도 조건
 
-`INITIATIVE_CONFIG`에 `desire_threshold` 추가:
-- 욕망이 임계값 이상이어야 NPC 주도 발동
-- 현재 모든 캐릭터 0 (체크 안 함)
+욕망 ≥ 40 (DES_LABEL_THRESHOLD) 필수. 순수한 NPC는 주도하지 않음.
+`should_initiate_skinship()`에서 체크 (기존 affection 체크 대체).
 
 ---
 
@@ -215,7 +214,85 @@ def _apply_homeostasis(unit_id, prop_key, basins):
 
 ---
 
-## 5. 사적인 대화 시스템 (진척도)
+## 5. 순수/욕망 게임플레이 효과
+
+### 개요
+
+4축 관계(호감/반발/순수/욕망)가 톤(대사/묘사) 외에도 실제 게임플레이에 영향을 미침.
+순수→성욕 감소, 욕망→성욕 증가, 호감→욕망 전환, 4분면별 행동 게이팅.
+
+### 5.1 성욕 변화율 (needs.py)
+
+기존: 성욕 항상 +0.5/h → 변경: desire 수준에 따라 증감.
+
+```python
+DES_BOUNDARY = 40  # 순수/욕망 경계선
+
+if desire < DES_BOUNDARY:
+    # 순수 zone: 성욕 감소
+    factor = 1.0 - desire / DES_BOUNDARY
+    effective_rate = 0.5 - factor * 1.0  # desire=0 → -0.5/h
+else:
+    # 욕망 zone: 성욕 증가 가속
+    factor = (desire - DES_BOUNDARY) / (100 - DES_BOUNDARY)
+    effective_rate = 0.5 + factor * 0.5  # desire=100 → 1.0/h
+```
+
+| desire | rate | 의미 |
+|--------|------|------|
+| 0 | -0.5/h | 강한 감소 |
+| 20 | 0.0/h | 중립 |
+| 40 | +0.5/h | 현재와 동일 |
+| 70 | +0.75/h | 빠른 증가 |
+| 100 | +1.0/h | 2배속 증가 |
+
+### 5.2 호감→욕망 자연 이동 (needs.py)
+
+호감이 높고 성욕이 있으면 순수→욕망으로 서서히 전환:
+
+```python
+AFFECTION_DESIRE_SHIFT_RATE = 0.5   # 최대 시간당 이동량
+AFFECTION_DESIRE_SHIFT_MIN = 50     # 호감 임계치
+
+if affection >= 50 and arousal > 0 and desire < 100:
+    shift = (affection / 100) * (arousal / 100) * 0.5
+```
+
+| 호감 | 성욕 | shift/h | 욕망 40 도달 시간 |
+|------|------|---------|-----------------|
+| 50 | 30 | 0.075 | ~533h (22일) |
+| 70 | 50 | 0.175 | ~229h (10일) |
+| 80 | 80 | 0.32 | ~125h (5일) |
+| 100 | 100 | 0.5 | ~80h (3일) |
+
+### 5.3 반발 효과 (TODO)
+
+전투 시스템 추가 후 구현 예정:
+- 적대치 증가 → 적대적 행동 (공격/도주)
+
+### 5.4 4분면 행동 매트릭스
+
+| 상태 | 호감행동(선물/대화/데이트) | 애정행동(스킨십) | NPC 주도 | 강제 저항 |
+|------|--------------------------|-----------------|---------|---------|
+| 애인 (호감↑ + 욕망↑) | ✅ 허용 | ✅ 허용 | ✅ 발생 | 정상 |
+| 정욕 (반발↑ + 욕망↑) | ❌ 거절 | ✅ 거부불가 | ✅ 발생 | ❌ 저항X |
+| 친구 (호감↑ + 순수↑) | ✅ 허용 | ❌ 거절 | ❌ 없음 | 정상 |
+| 타인 (반발↑ + 순수↑) | ❌ 거절 | ❌ 거절 | ❌ 없음 | 정상 |
+
+**경계값**: 호감 ≥ 50, 욕망 ≥ 40
+
+**적용 위치:**
+
+| 파일 | 함수 | 게이팅 |
+|------|------|--------|
+| `romance.py` | `can_start_romance()` | 욕망 < 40 → 스킨십 진입 거절 |
+| `npc_initiative.py` | `calculate_resistance_gain()` | 욕망 ≥ 40 → 강제 저항 0 |
+| `base.py` | `should_initiate_skinship()` | 욕망 < 40 → NPC 주도 불가 |
+| `date.py` | `will_accept_date()` | 반발 ≥ 50 → 데이트 거절 |
+
+---
+
+## 6. 사적인 대화 시스템 (진척도)
 
 ### 개요
 호감도가 높아지면 NPC와 점점 깊은 대화를 나눌 수 있는 시스템.
@@ -326,7 +403,7 @@ def _talk_progress_1(self, context):
 
 ---
 
-## 6. 성별 시스템 (gender.py)
+## 7. 성별 시스템 (gender.py)
 
 ### 개요
 캐릭터의 성별에 따라 보유 감각 카테고리를 결정.
@@ -367,7 +444,7 @@ Player=선택 가능(male/female/futanari), 모든 NPC=female.
 
 ---
 
-## 7. 성적 지향성 (Sexual Orientation)
+## 8. 성적 지향성 (Sexual Orientation)
 
 ### 개요
 NPC별 성적 지향에 따라 호감/성욕 효과에 배율 적용.
@@ -409,7 +486,7 @@ gender.reset_orientation()                         # 챕터 전환
 
 ---
 
-## 8. 체격/음경 크기 호환성 (Penetration Compatibility)
+## 9. 체격/음경 크기 호환성 (Penetration Compatibility)
 
 ### 개요
 삽입 행위 시 체격 차이 + 음경 크기로 준비 필요/통증/자극 배율을 결정.

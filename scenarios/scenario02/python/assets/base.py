@@ -2034,20 +2034,13 @@ class Character(Unit):
         if arousal < arousal_threshold:
             return False
 
-        # 호감도 체크
-        affection_threshold = self.INITIATIVE_CONFIG.get("affection_threshold", 60)
+        # 욕망 체크 (필수 — 순수하면 NPC 주도 없음)
+        from romance_actions import DES_LABEL_THRESHOLD
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get("name", "주인공") if player_info else "주인공"
-        affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
-        if affection < affection_threshold:
+        desire = props.get(f"관계:{player_name}:욕망", 0) if props else 0
+        if desire < DES_LABEL_THRESHOLD:
             return False
-
-        # 욕망 체크 (설정된 경우)
-        desire_threshold = self.INITIATIVE_CONFIG.get("desire_threshold", 0)
-        if desire_threshold > 0:
-            desire = props.get(f"관계:{player_name}:욕망", 0) if props else 0
-            if desire < desire_threshold:
-                return False
 
         # 단둘이 체크 (플레이어와 NPC 둘만 있어야 함)
         npc_loc = morld.get_unit_location(self.instance_id)

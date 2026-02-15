@@ -147,6 +147,14 @@ def will_accept_date(partner_id, player_id):
     if affection < DATE_MIN_AFFECTION:
         return False, "아직 그 정도로 친하지 않다."
 
+    # 반발 체크 (반발↑ → 데이트 거절)
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get("name", "주인공") if player_info else "주인공"
+    props = morld.get_unit_props(partner_id)
+    rebellion = props.get(f"관계:{player_name}:반발", 0) if props else 0
+    if rebellion >= 50:
+        return False, "지금은 함께하고 싶지 않은 것 같다."
+
     # 추가 조건은 캐릭터별 오버라이드 가능
     return True, None
 

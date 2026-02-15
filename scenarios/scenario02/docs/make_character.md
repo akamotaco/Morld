@@ -89,7 +89,7 @@ CHARACTER_CLASSES = {
 
 | 속성 | 기본값 | 설명 |
 |------|--------|------|
-| `INITIATIVE_CONFIG` | `None` | 주도 트리거 조건 (None이면 주도 안 함) |
+| `INITIATIVE_CONFIG` | `None` | 주도 트리거 조건 (None이면 주도 안 함, 욕망 ≥ 40 필수) |
 | `NPC_INITIATIVE_ACTIONS` | `None` | 주도 시 행위 시퀀스 |
 | `INITIATIVE_REACTIONS` | `None` | 주도 중 반응 텍스트 |
 | `INITIATIVE_ACTION_FILTERS` | `None` | 주도 시 허용 행위 필터 |
@@ -511,6 +511,142 @@ Agent의 상세 구조는 [schedule.md](schedule.md)와 [life.md](life.md)를 �
 | `cheerful` | 활발형 | 리나 | "안녕~!", "재밌겠다!" |
 | `timid` | 소심형 | 유키 | "...저기...", "...죄송해요..." |
 | `cold` | 냉담형 | 엘라 | "......", "...필요 없어요." |
+
+---
+
+## 톤 템플릿 시스템 (3D 좌표)
+
+연애 반응(`:during` 묘사, `:start` 대사)은 **3D 좌표 기반**으로 자동 생성됩니다.
+
+### 좌표 축
+
+| 축 | 계산 | 의미 |
+|----|------|------|
+| X (호감-반발) | `affection - rebellion` | 감정 방향 |
+| Y (욕망+성욕-순수도) | `arousal + desire - innocence` | 성적 각성도 |
+| Z (자극 강도) | `gauge × 0.6 + total × 10` | 현재 자극 수준 |
+
+### innocence (순수도)
+
+아키타입 기본치 + 경험 기반 감소:
+
+```python
+ARCHETYPE_BASE_INNOCENCE = {
+    "stoic": 30, "gentle": 50, "cheerful": 40,
+    "timid": 70, "cold": 60,
+}
+# 경험에 따라 자동 감소 (experience_factor = total_gauge_exp / 1000)
+innocence = base × max(0, 1 - experience_factor)
+```
+
+### 아키타입 → 톤 템플릿
+
+10개 톤 템플릿 (`tone_templates/`):
+
+| 톤 | 특징 | 사용 아키타입 |
+|----|------|-------------|
+| `stoic` | 과묵, 무심 | stoic |
+| `gentle` | 온화, 배려 | gentle |
+| `cheerful` | 활발, 솔직 | cheerful |
+| `timid` | 수줍, 불안 | timid |
+| `cold` | 냉담, 경계 | cold |
+| `seductive` | 도발, 유혹 | (순수→욕망 전환 시) |
+| `fierce` | 격렬, 투쟁 | (고반발 시) |
+| `proud` | 오만, 통제 | (고자존 시) |
+| `innocent` | 순수, 무지 | (고순수 시) |
+| `devoted` | 헌신, 맹종 | (고복종 시) |
+
+각 톤 파일은 `CATEGORY_TEMPLATES`(카테고리별 좌표→텍스트)와 `ACTION_TEMPLATES`(행위별 좌표→텍스트) 풀을 정의합니다.
+
+### 선택 알고리즘
+
+`select_by_coord(pool, sx, sy, sz, k=3)` — K-nearest 방식:
+1. 풀의 좌표 (x, y, z)와 현재 좌표 (sx, sy, sz)의 거리 계산 (Z_WEIGHT=2.0)
+2. 가장 가까운 k=3개 후보 중 랜덤 선택
+3. 3단계 fallback: 행위별 → 카테고리별 → 기본 텍스트
+
+### 카테고리
+
+행위는 5가지 카테고리로 분류:
+
+| 카테고리 | 행위 예시 |
+|---------|---------|
+| `light` | hug, pat_head, ear_touch |
+| `medium` | deep_kiss, breast_touch |
+| `strong` | genital_caress, clit_rub |
+| `penetration` | vaginal_penetration, anal_penetration |
+| `rough` | hair_pull, slap |
+
+---
+
+## CHARACTER_REACTIONS / CHARACTER_LINES (캐릭터 오버레이)
+
+캐릭터 고유 반응을 좌표 풀에 오버레이하여 아키타입 기본 텍스트를 부분 대체합니다.
+
+### 구조
+
+```python
+CHARACTER_REACTIONS = {
+    # 카테고리별 오버레이 (:during 3인칭 묘사)
+    "light": [
+        (30, 40, 0, "세라가 시선을 돌린다."),
+        (70, 60, 0, "세라가 조용히 눈을 감는다."),
+    ],
+    # 행위별 오버레이
+    "hug": [
+        (50, 30, 0, "세라가 어색하게 팔을 내린다."),
+    ],
+}
+
+CHARACTER_LINES = {
+    # 카테고리별 오버레이 (:start 1인칭 대사)
+    "light": [
+        (30, 40, 0, "......뭐하는 거냐."),
+    ],
+    "hug": [
+        (50, 30, 0, "...좋아서 하는 건 아니다."),
+    ],
+}
+```
+
+### REACTION_PROFILE 설정
+
+```python
+REACTION_PROFILE = {
+    "archetype": "stoic",          # 기본 톤 템플릿
+    "name": "세라",                # 3인칭 묘사용 이름
+    "char_reactions": CHARACTER_REACTIONS,  # :during 오버레이
+    "char_lines": CHARACTER_LINES,         # :start 오버레이
+}
+```
+
+**병합 순서**: 캐릭터 오버레이와 아키타입 풀이 같은 좌표면 캐릭터 쪽이 우선, 나머지는 아키타입 유지.
+
+---
+
+## 순수/욕망 행동 게이팅
+
+4축 관계(호감/반발/순수/욕망)가 NPC 행동 허용/거절에 영향:
+
+### 4분면 매트릭스
+
+| 상태 | 호감행동(선물/대화/데이트) | 애정행동(스킨십) | NPC 주도 | 강제 저항 |
+|------|--------------------------|-----------------|---------|---------|
+| 애인 (호감↑ + 욕망↑) | ✅ 허용 | ✅ 허용 | ✅ 발생 | 정상 |
+| 정욕 (반발↑ + 욕망↑) | ❌ 거절 | ✅ 거부불가 | ✅ 발생 | ❌ 저항X |
+| 친구 (호감↑ + 순수↑) | ✅ 허용 | ❌ 거절 | ❌ 없음 | 정상 |
+| 타인 (반발↑ + 순수↑) | ❌ 거절 | ❌ 거절 | ❌ 없음 | 정상 |
+
+**경계값**: 호감 ≥ 50 (ROMANCE_ENTRY_THRESHOLD), 욕망 ≥ 40 (DES_LABEL_THRESHOLD)
+
+### 적용 위치
+
+| 파일 | 함수 | 게이팅 |
+|------|------|--------|
+| `romance.py` | `can_start_romance()` | 욕망 < 40 → 스킨십 진입 거절 |
+| `npc_initiative.py` | `calculate_resistance_gain()` | 욕망 ≥ 40 → 강제 저항 0 |
+| `base.py` | `should_initiate_skinship()` | 욕망 < 40 → NPC 주도 불가 |
+| `date.py` | `will_accept_date()` | 반발 ≥ 50 → 데이트 거절 |
 
 ---
 

@@ -174,6 +174,15 @@ def calculate_resistance_gain(player_id, npc_id):
     Returns:
         int: 저항 축적량 (RESISTANCE_MAX 도달 시 탈출)
     """
+    # 욕망이 높으면 저항 불가 (정욕 quadrant)
+    from romance_actions import DES_LABEL_THRESHOLD
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get("name", "주인공") if player_info else "주인공"
+    npc_props = morld.get_unit_props(npc_id)
+    desire = npc_props.get(f"관계:{player_name}:욕망", 0) if npc_props else 0
+    if desire >= DES_LABEL_THRESHOLD:
+        return 0
+
     from romance_mode import get_unit_power
     player_power = get_unit_power(player_id)
     npc_power = get_unit_power(npc_id)

@@ -33,6 +33,16 @@ AROUSAL_NATURAL_RATE = 0.5    # 자연 성욕 증가 +0.5/h
 AROUSAL_NATURAL_CAP = 50      # 자연 증가 상한
 SUBMISSION_DECAY_INTERVAL = 2 # 복종 자연 감소 간격 (시간) — 미사용 (항상성으로 대체)
 
+# === 순수/욕망 효과 ===
+# 순수 (desire < 40): 성욕 감소, 욕망 (desire >= 40): 성욕 증가 가속
+INNOCENCE_DECAY_RATE = 1.0    # desire=0일 때 최대 성욕 감소율 (/h)
+DESIRE_BONUS_RATE = 0.5       # desire=100일 때 최대 성욕 증가 보너스 (/h)
+DES_BOUNDARY = 40             # 순수/욕망 경계선 (DES_LABEL_THRESHOLD과 동일)
+
+# 호감→욕망 자연 이동
+AFFECTION_DESIRE_SHIFT_RATE = 0.5  # 최대 시간당 욕망 이동량
+AFFECTION_DESIRE_SHIFT_MIN = 50    # 호감 임계치 (이상일 때만 이동)
+
 # === 관계 항상성 (basin 수렴) ===
 HOMEOSTASIS_RATE = 0.5  # 시간당 수렴 속도
 
@@ -320,24 +330,42 @@ def _process_hourly(unit_id):
         if current_arousal > 0:
             morld.set_unit_prop(unit_id, PROP_AROUSAL, 0)
     else:
-        # 성욕: 자연 증가 (욕망 기반 동적 상한) + 상한 초과 시 클램프
+        # 성욕: 순수/욕망에 따른 변화율 + 욕망 기반 동적 상한
         arousal_cap = _get_arousal_cap(unit_id)
         current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
-        if current_arousal < arousal_cap:
-            arousal_rate = AROUSAL_NATURAL_RATE
-            # 성적 지향성 배율
-            player_id_h = morld.get_player_id()
-            if player_id_h:
-                try:
-                    import gender as gender_mod
-                    arousal_rate *= gender_mod.get_orientation_multiplier(unit_id, player_id_h)
-                except ImportError:
-                    pass
+        desire = _get_max_desire(unit_id)
+
+        # 순수/욕망에 따른 변화율 계산
+        if desire < DES_BOUNDARY:
+            # 순수 zone: 성욕 감소 (desire=0 → -0.5, desire=20 → 0.0)
+            factor = 1.0 - desire / DES_BOUNDARY
+            effective_rate = AROUSAL_NATURAL_RATE - factor * INNOCENCE_DECAY_RATE
+        else:
+            # 욕망 zone: 성욕 증가 가속 (desire=40 → 0.5, desire=100 → 1.0)
+            factor = (desire - DES_BOUNDARY) / (100 - DES_BOUNDARY)
+            effective_rate = AROUSAL_NATURAL_RATE + factor * DESIRE_BONUS_RATE
+
+        # 성적 지향성 배율
+        player_id_h = morld.get_player_id()
+        if player_id_h:
+            try:
+                import gender as gender_mod
+                effective_rate *= gender_mod.get_orientation_multiplier(unit_id, player_id_h)
+            except ImportError:
+                pass
+
+        if effective_rate > 0:
+            # 증가: cap까지만
+            if current_arousal < arousal_cap:
+                morld.set_unit_prop(unit_id, PROP_AROUSAL,
+                                    min(arousal_cap,
+                                        current_arousal + effective_rate))
+            elif current_arousal > arousal_cap:
+                morld.set_unit_prop(unit_id, PROP_AROUSAL, arousal_cap)
+        elif effective_rate < 0:
+            # 감소: 0까지만 (순수 zone)
             morld.set_unit_prop(unit_id, PROP_AROUSAL,
-                                min(arousal_cap,
-                                    current_arousal + arousal_rate))
-        elif current_arousal > arousal_cap:
-            morld.set_unit_prop(unit_id, PROP_AROUSAL, arousal_cap)
+                                max(0, current_arousal + effective_rate))
 
     # 관계 항상성: 호감/반발/복종 basin 수렴
     player_id_h = morld.get_player_id()
@@ -347,6 +375,19 @@ def _process_hourly(unit_id):
         _apply_homeostasis(unit_id, f"관계:{player_name_h}:호감", AFFECTION_BASINS)
         _apply_homeostasis(unit_id, f"관계:{player_name_h}:반발", REBELLION_BASINS)
         _apply_homeostasis(unit_id, f"관계:{player_name_h}:복종", SUBMISSION_BASINS)
+
+        # 호감→욕망 자연 이동: 호감 높고 성욕 있으면 순수→욕망으로 이동
+        aff_h = morld.get_unit_prop(unit_id, f"관계:{player_name_h}:호감") or 0
+        des_h = morld.get_unit_prop(unit_id, f"관계:{player_name_h}:욕망") or 0
+        aro_h = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
+        if aff_h >= AFFECTION_DESIRE_SHIFT_MIN and aro_h > 0 and des_h < 100:
+            shift = (aff_h / 100) * (aro_h / 100) * AFFECTION_DESIRE_SHIFT_RATE
+            morld.set_unit_prop(unit_id, f"관계:{player_name_h}:욕망",
+                                min(100, des_h + shift))
+
+    # TODO: 전투 시스템 추가 후 구현
+    # 반발 효과: 적대치 증가 → 적대적으로 변화
+    # - 적대적인 캐릭터를 먼저 공격하거나 같은 공간에 있는 경우 도주
 
     # 모성 욕구: 아이가 있는 경우 증가
     try:

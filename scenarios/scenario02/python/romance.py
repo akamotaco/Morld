@@ -19,6 +19,7 @@ from romance_actions import (
     UNPREPARED_EFFECT_MULT, UNPREPARED_REBELLION,
     SUBMISSION_ACTION_THRESHOLD, SUBMISSION_ACTION_GAIN, SUBMISSION_MAX,
     ROMANCE_ENTRY_THRESHOLD, ROMANCE_JOIN_THRESHOLD,
+    DES_LABEL_THRESHOLD,
     LUBRICATION_THRESHOLD, SWALLOW_M_THRESHOLD,
     SENSATION_MAP,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
@@ -96,11 +97,12 @@ def can_start_romance(player_id, target_id):
 
     affection_key = get_affection_key(player_id)
 
-    # 1. 대상 호감도 체크
+    # 1. 대상 욕망 체크 (순수하면 애정행동 거절)
     target_props = morld.get_unit_props(target_id)
-    affection = target_props.get(affection_key, 0)
-    if affection < ROMANCE_ENTRY_THRESHOLD:
-        return False, f"호감도가 부족합니다 (현재: {affection}, 필요: {ROMANCE_ENTRY_THRESHOLD})"
+    desire_key = get_desire_key(player_id)
+    desire = target_props.get(desire_key, 0)
+    if desire < DES_LABEL_THRESHOLD:
+        return False, "아직 그런 분위기가 아닙니다."
 
     # 2. 같은 Location 확인
     player_loc = morld.get_unit_location(player_id)
