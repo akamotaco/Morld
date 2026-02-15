@@ -26,7 +26,8 @@ def resolve_activity_location(unit_id, activity, home_region_id):
     """
     resolver = _ACTIVITY_RESOLVERS.get(activity)
     if resolver is None:
-        print(f"[activity_resolver] No resolver for activity '{activity}' (unit={unit_id})")
+        if activity not in _NO_RESOLVER_ACTIVITIES:
+            print(f"[activity_resolver] No resolver for activity '{activity}' (unit={unit_id})")
         return None
     result = resolver(unit_id, home_region_id)
     if result is None:
@@ -188,3 +189,6 @@ _ACTIVITY_RESOLVERS = {
     "독서": _resolve_read,
     "물자수집": _resolve_scavenge,
 }
+
+# resolver가 필요 없는 활동 (경고 억제)
+_NO_RESOLVER_ACTIVITIES = {"대기", "휴식", "수면", "식사"}

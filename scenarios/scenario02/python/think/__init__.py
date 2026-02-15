@@ -916,6 +916,12 @@ class BaseAgent:
             if not original_entry.get("dynamic"):
                 break
 
+            # 동적 entry 핸들러가 action 없이 return → 자동 스킵
+            resolved = self._activity_state.get("resolved_entry")
+            if not resolved:
+                break  # candidate 소진 → "할 일 없음" 폴백
+            self._skip_dynamic_activity(original_entry)
+
         # 핸들러가 action을 생성하지 못한 경우 → "할 일 없음" 대기
         if not self._action_taken:
             remaining = self._remaining_millis_in_entry(entry)
@@ -1135,7 +1141,7 @@ class BaseAgent:
             self._action_taken = True
             return
         target_x = target.get("x", 0)
-        length = target.get("length", 0)
+        length = int(target.get("length", 0))
         if length > 0 and target_x == 0:
             target_x = random.randint(0, length)
         morld.insert_job(self.unit_id, {
