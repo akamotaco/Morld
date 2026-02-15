@@ -1466,12 +1466,17 @@ class Character(Unit):
         player_id = morld.get_player_id()
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get('name', '주인공') if player_info else '주인공'
+        profile = getattr(self, 'REACTION_PROFILE', None) or {}
 
         return {
             "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
             "욕망": props.get(f"관계:{player_name}:욕망", 0) if props else 0,
             "성욕": props.get("상태:성욕", 0) if props else 0,
             "반발": props.get(f"관계:{player_name}:반발", 0) if props else 0,
+            "archetype": profile.get("archetype", "stoic"),
+            "미경험:기억:첫키스": 1 if not (props.get("기억:첫키스") if props else None) else 0,
+            "미경험:기억:첫절정": 1 if not (props.get("기억:첫절정") if props else None) else 0,
+            "경험:총만남횟수": (props.get("경험:총만남횟수", 0) if props else 0),
         }
 
     def _check_reaction_condition(self, condition: dict, props: dict, player_name: str) -> bool:

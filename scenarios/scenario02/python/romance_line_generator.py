@@ -15,7 +15,10 @@
 """
 import random
 
-from romance_reaction_generator import resolve_tone, resolve_arousal_tier, ACTION_TO_CATEGORY
+from romance_reaction_generator import (
+    resolve_tone, resolve_arousal_tier, resolve_rebellion_tier,
+    ACTION_TO_CATEGORY, _build_cascade_keys,
+)
 
 # ─────────────────────────────────────────────
 # 말투 상수 + 아키타입 기본 매핑
@@ -60,19 +63,19 @@ LINE_TEMPLATES = {
     "light:start": {
         "formal": {
             "romance":   ["...좋아요...", "...이대로 있고 싶어요...", "...따뜻해요..."],
-            "platonic":  ["...네...", "...부끄럽지만... 괜찮아요.", "...놀랐어요..."],
+            "platonic":  ["...네...", "...부끄럽지만... 괜찮아요.", "...놀랐어요...", "...이게 무슨... 의미인 건가요...?", "...왜 이러시는 거예요...?"],
             "lust":      ["...더... 해주세요...", "...놓지 마요...", "...가까이 와요..."],
             "rejection": ["...갑자기...", "...놀랐어요...", "...뭐하시는 거예요..."],
         },
         "casual": {
             "romance":   ["좋아!", "따뜻해!", "더 꽉!", "에헤헤~"],
-            "platonic":  ["갑자기?", "에헤~", "뭐야~"],
+            "platonic":  ["갑자기?", "에헤~", "뭐야~", "이게 뭐야...?", "왜 이러는 건데...?"],
             "lust":      ["...안아줘...", "...놓지 마...", "...더..."],
             "rejection": ["뭐야 갑자기!", "놓아줘!", "싫어!"],
         },
         "rough": {
             "romance":   ["...좋다...", "...이대로 있자...", "...나쁘지 않다."],
-            "platonic":  ["...싫진 않다.", "......", "...뭐냐."],
+            "platonic":  ["...싫진 않다.", "......", "...뭐냐.", "...의미를 모르겠다.", "...왜 이러는 건지."],
             "lust":      ["...흥.", "...원하면 그렇게 해.", "...마음대로 해."],
             "rejection": ["......", "...놓아라.", "...뭐냐.", "...건드리지 마."],
         },
@@ -110,19 +113,19 @@ LINE_TEMPLATES = {
     "medium:start": {
         "formal": {
             "romance":   ["...앗... 거기는... 부끄러워요...", "...만지지 마요... 아니, 괜찮아요...", "...살살 해주세요..."],
-            "platonic":  ["...거기는... 안 돼요...", "...부끄러워요...", "...갑자기 왜..."],
+            "platonic":  ["...거기는... 안 돼요...", "...부끄러워요...", "...갑자기 왜...", "...이상한 느낌이에요...", "...왜 이런 걸 하시는 거예요...?"],
             "lust":      ["...더 만져요...", "...거기... 좋아요...", "...놓지 마요..."],
             "rejection": ["...안 돼요!", "...만지지 마세요!", "...뭐하시는 거예요!"],
         },
         "casual": {
             "romance":   ["앗...! 거기...!", "부끄러워...!", "...좋아..."],
-            "platonic":  ["거기 만지지 마!", "뭐야...!", "갑자기...!"],
+            "platonic":  ["거기 만지지 마!", "뭐야...!", "갑자기...!", "이상한 느낌이야...", "뭐하는 건데...?"],
             "lust":      ["더 만져줘...", "거기... 좋아...", "...멈추지 마..."],
             "rejection": ["만지지 마!", "뭐하는 거야!", "싫어!"],
         },
         "rough": {
             "romance":   ["...흥, 좋다...", "...나쁘지 않군...", "...계속해."],
-            "platonic":  ["...뭐하는 거냐.", "......", "...건드리지 마."],
+            "platonic":  ["...뭐하는 거냐.", "......", "...건드리지 마.", "...이상한 짓 하지 마.", "...뭐하는 거냐."],
             "lust":      ["...더 해.", "...마음대로 해.", "...세게."],
             "rejection": ["...손 치워.", "...건드리지 마.", "......"],
         },
@@ -160,19 +163,19 @@ LINE_TEMPLATES = {
     "strong:start": {
         "formal": {
             "romance":   ["...앗...! 거기는... 안 돼요...", "...부끄러워요... 하지만...", "...살살... 해주세요..."],
-            "platonic":  ["...안 돼요...!", "...거기는... 무서워요...", "...제발..."],
+            "platonic":  ["...안 돼요...!", "...거기는... 무서워요...", "...제발...", "...이상해요... 몸이...", "...왜 거기를... 이해가 안 돼요..."],
             "lust":      ["...거기... 만져요...", "...더... 해주세요...", "...좋아요..."],
             "rejection": ["...안 돼요! 그만해요!", "...싫어요!", "...놓으세요!"],
         },
         "casual": {
             "romance":   ["앗...! 거기는...!", "부끄러워...!", "...살살 해..."],
-            "platonic":  ["안 돼...!", "거기는... 무서워...", "...제발..."],
+            "platonic":  ["안 돼...!", "거기는... 무서워...", "...제발...", "이상해... 몸이...", "왜 거기를... 모르겠어..."],
             "lust":      ["거기... 만져줘...", "더... 해줘...", "좋아..."],
             "rejection": ["안 돼! 그만해!", "싫어!", "놓아줘!"],
         },
         "rough": {
             "romance":   ["...흥... 거기를...", "...마음대로 해.", "...나쁘지 않다."],
-            "platonic":  ["...뭐하는 거냐.", "......", "...건드리지 마."],
+            "platonic":  ["...뭐하는 거냐.", "......", "...건드리지 마.", "...몸이 이상하다...", "...뭐하는 건지."],
             "lust":      ["...더 해.", "...세게.", "...멈추면 안 돼."],
             "rejection": ["...그만둬.", "...손 치워.", "...건드리지 마."],
         },
@@ -210,19 +213,19 @@ LINE_TEMPLATES = {
     "penetration:start": {
         "formal": {
             "romance":   ["...넣어요... 천천히...", "...안에... 느껴져요...", "...깊어요..."],
-            "platonic":  ["...아파요... 천천히...", "...잠깐만요...", "...무서워요..."],
+            "platonic":  ["...아파요... 천천히...", "...잠깐만요...", "...무서워요...", "...이게... 뭐예요...?", "...이상해요... 안에서..."],
             "lust":      ["...넣어주세요...", "...빨리... 넣어요...", "...안에... 원해요..."],
             "rejection": ["...싫어요... 빼주세요...", "...아파요!", "...안 돼요!"],
         },
         "casual": {
             "romance":   ["...넣어... 천천히...", "...안에... 느껴져...", "...깊어..."],
-            "platonic":  ["...아파... 천천히...", "...잠깐...", "...무서워..."],
+            "platonic":  ["...아파... 천천히...", "...잠깐...", "...무서워...", "이게... 뭐야...?", "이상해... 안에서..."],
             "lust":      ["...넣어줘...", "...빨리... 넣어...", "...안에... 원해..."],
             "rejection": ["...싫어... 빼줘...", "...아파!", "...안 돼!"],
         },
         "rough": {
             "romance":   ["...넣어... 천천히.", "...안에서... 느껴진다.", "...깊다."],
-            "platonic":  ["...아프다... 천천히.", "...잠깐.", "......"],
+            "platonic":  ["...아프다... 천천히.", "...잠깐.", "......", "...뭐하는 거냐.", "...안에서... 이상하다."],
             "lust":      ["...빨리 넣어.", "...안에... 원한다.", "...마음대로 해."],
             "rejection": ["...빼.", "...안 돼.", "...그만둬."],
         },
@@ -260,19 +263,19 @@ LINE_TEMPLATES = {
     "rough:start": {
         "formal": {
             "romance":   ["...아파요... 하지만... 괜찮아요...", "...세게... 하지 마요...", "...으으..."],
-            "platonic":  ["...아파요...!", "...너무 세요...!", "...잠깐...!"],
+            "platonic":  ["...아파요...!", "...너무 세요...!", "...잠깐...!", "...왜 이렇게 하시는 거예요...?", "...무서워요... 이해가 안 돼요..."],
             "lust":      ["...더 세게... 해주세요...", "...아파요... 더...!", "...멈추지 마요...!"],
             "rejection": ["...아파요! 그만해요!", "...너무 아파요...!", "...안 돼요!"],
         },
         "casual": {
             "romance":   ["...아파... 하지만... 괜찮아...", "...세게 하지 마...", "...으으..."],
-            "platonic":  ["아파...!", "너무 세...!", "잠깐...!"],
+            "platonic":  ["아파...!", "너무 세...!", "잠깐...!", "왜 이렇게 하는 거야...?", "무서워... 왜..."],
             "lust":      ["...더 세게...!", "아파... 더...!", "멈추지 마...!"],
             "rejection": ["아파! 그만해!", "너무 아파...!", "안 돼!"],
         },
         "rough": {
             "romance":   ["...아프다... 하지만 괜찮다.", "...세게 하지 마.", "......"],
-            "platonic":  ["...아프다.", "...너무 세다.", "......"],
+            "platonic":  ["...아프다.", "...너무 세다.", "......", "...이해가 안 된다.", "...왜 이러는 건지."],
             "lust":      ["...더 세게.", "...아프다... 더.", "...멈추지 마."],
             "rejection": ["...그만둬.", "...아프다.", "......"],
         },
@@ -303,6 +306,201 @@ LINE_TEMPLATES = {
         "rough": {
             "romance":   ["...간다...! ...아프다...!", "...멈추지 마...!"],
             "lust":      ["...더...! 세게...!", "...간다...!"],
+        },
+    },
+
+    # ── rebellion cascade: light ──────────────────
+    "light:start:rebellion_mild": {
+        "formal": {
+            "rejection": ["...하지 마세요...", "...싫어요...", "...놓아주세요..."],
+            "lust":      ["...싫은데... 왜...", "...하지 마세요... 이상해요..."],
+        },
+        "casual": {
+            "rejection": ["하지 마...", "싫어...", "놓아줘..."],
+            "lust":      ["싫어... 왜 이러는 거야..."],
+        },
+        "rough": {
+            "rejection": ["...건드리지 마.", "...놓아라.", "...싫다."],
+        },
+    },
+    "light:start:rebellion_high": {
+        "formal": {
+            "rejection": ["만지지 마세요!", "놓아주세요!", "...싫다고 했잖아요!"],
+            "lust":      ["...싫어요... 이러지 마세요..."],
+        },
+        "casual": {
+            "rejection": ["만지지 마!", "놓아줘!", "싫다고 했잖아!"],
+            "lust":      ["...싫어... 왜 이래..."],
+        },
+        "rough": {
+            "rejection": ["...건드리지 마라.", "...손 치워.", "...한 번 더 만지면..."],
+        },
+    },
+    "light:start:rebellion_extreme": {
+        "formal": {
+            "rejection": ["...(발버둥)", "...제발... 그만...!", "...(비명)"],
+        },
+        "casual": {
+            "rejection": ["...(발버둥)", "...그만해...!", "...(비명)"],
+        },
+        "rough": {
+            "rejection": ["...(이를 악물고)", "...죽여버린다...", "...놓아라...!"],
+        },
+    },
+
+    # ── rebellion cascade: medium ─────────────────
+    "medium:start:rebellion_mild": {
+        "formal": {
+            "rejection": ["...거기는 안 돼요...", "...싫어요... 만지지 마세요...", "...하지 마세요..."],
+            "lust":      ["...싫은데... 몸이...", "...만지지 마세요... 이상해져요..."],
+        },
+        "casual": {
+            "rejection": ["거기 만지지 마...", "싫어... 하지 마...", "...안 돼..."],
+            "lust":      ["싫어... 근데 왜..."],
+        },
+        "rough": {
+            "rejection": ["...거기 건드리지 마.", "...그만둬.", "...싫다고 했다."],
+        },
+    },
+    "medium:start:rebellion_high": {
+        "formal": {
+            "rejection": ["그만하세요! 만지지 마세요!", "...싫어요!! 제발...!", "...하지 마세요!!"],
+            "lust":      ["...싫어요... 그만해주세요..."],
+        },
+        "casual": {
+            "rejection": ["그만해! 만지지 마!", "싫어!! 놓으라고!", "뭐하는 거야!"],
+            "lust":      ["...싫어... 제발 그만..."],
+        },
+        "rough": {
+            "rejection": ["...손 치워.", "...한 번 더 만지면 죽인다.", "...그만둬."],
+        },
+    },
+    "medium:start:rebellion_extreme": {
+        "formal": {
+            "rejection": ["...(울부짖음)", "...제발...! ...그만...!", "...(비명)"],
+        },
+        "casual": {
+            "rejection": ["...(울부짖음)", "...그만...!", "...(비명)"],
+        },
+        "rough": {
+            "rejection": ["...(이를 악물고)", "...죽인다...", "..."],
+        },
+    },
+
+    # ── rebellion cascade: strong ─────────────────
+    "strong:start:rebellion_mild": {
+        "formal": {
+            "rejection": ["...안 돼요... 거기는...", "...무서워요...", "...제발 하지 마세요..."],
+            "lust":      ["...싫어요... 근데... 왜...", "...안 돼요... 이상해요..."],
+        },
+        "casual": {
+            "rejection": ["안 돼... 거기는...", "무서워...", "...제발 하지 마..."],
+            "lust":      ["...싫어... 근데 왜 이래..."],
+        },
+        "rough": {
+            "rejection": ["...거기 건드리지 마.", "...그만둬라.", "...죽고 싶냐."],
+        },
+    },
+    "strong:start:rebellion_high": {
+        "formal": {
+            "rejection": ["그만해요! 싫어요!!", "제발...! 거기는...!", "...안 돼요!! 하지 마세요!!"],
+            "lust":      ["...싫어요... 제발..."],
+        },
+        "casual": {
+            "rejection": ["그만해! 싫어!!", "제발! 거기는!!", "안 돼!! 하지 마!!"],
+            "lust":      ["...싫어... 이러지 마..."],
+        },
+        "rough": {
+            "rejection": ["...그만둬.", "...건드리면 죽인다.", "...놓아라."],
+        },
+    },
+    "strong:start:rebellion_extreme": {
+        "formal": {
+            "rejection": ["...(절규)", "...(말을 잃음)", "..."],
+        },
+        "casual": {
+            "rejection": ["...(절규)", "...(말을 잃음)", "..."],
+        },
+        "rough": {
+            "rejection": ["...", "...(침묵)", "...반드시..."],
+        },
+    },
+
+    # ── rebellion cascade: penetration ────────────
+    "penetration:start:rebellion_mild": {
+        "formal": {
+            "rejection": ["...아파요... 빼주세요...", "...무서워요...", "...제발 그만해주세요..."],
+            "lust":      ["...싫어요... 아픈데... 왜...", "...빼주세요... 이상해요..."],
+        },
+        "casual": {
+            "rejection": ["...아파... 빼줘...", "무서워...", "...제발 그만해..."],
+            "lust":      ["...싫어... 아픈데 왜..."],
+        },
+        "rough": {
+            "rejection": ["...빼라.", "...아프다... 그만둬.", "...죽고 싶냐."],
+        },
+    },
+    "penetration:start:rebellion_high": {
+        "formal": {
+            "rejection": ["빼세요! 싫어요!!", "아파요! 제발!!", "...안 돼요!! 그만해주세요!!"],
+            "lust":      ["...싫어요... 아파요... 제발..."],
+        },
+        "casual": {
+            "rejection": ["빼! 싫어!!", "아파! 제발!!", "안 돼!! 그만해!!"],
+            "lust":      ["...싫어... 아파... 제발..."],
+        },
+        "rough": {
+            "rejection": ["...빼라.", "...그만두지 않으면 죽인다.", "...아프다고 했다."],
+        },
+    },
+    "penetration:start:rebellion_extreme": {
+        "formal": {
+            "rejection": ["...(의식이 흐려짐)", "...", "...(흐느낌)"],
+        },
+        "casual": {
+            "rejection": ["...(의식이 흐려짐)", "...", "...(흐느낌)"],
+        },
+        "rough": {
+            "rejection": ["...", "...(침묵)", "...반드시... 죽인다..."],
+        },
+    },
+
+    # ── rebellion cascade: rough ──────────────────
+    "rough:start:rebellion_mild": {
+        "formal": {
+            "rejection": ["...아파요... 그만해주세요...", "...너무 세요...", "...제발 살살..."],
+            "lust":      ["...아파요... 근데... 왜...", "...그만해주세요... 이상해요..."],
+        },
+        "casual": {
+            "rejection": ["...아파... 그만해...", "너무 세...", "...제발 살살..."],
+            "lust":      ["...아파... 근데 왜..."],
+        },
+        "rough": {
+            "rejection": ["...그만둬.", "...아프다.", "...세게 하면 죽인다."],
+        },
+    },
+    "rough:start:rebellion_high": {
+        "formal": {
+            "rejection": ["그만하세요!! 아파요!!", "제발 멈춰주세요!!", "...안 돼요!! 그만!!"],
+            "lust":      ["...싫어요... 아파요..."],
+        },
+        "casual": {
+            "rejection": ["그만해!! 아파!!", "제발 멈춰!!", "안 돼!! 그만!!"],
+            "lust":      ["...싫어... 아파..."],
+        },
+        "rough": {
+            "rejection": ["...멈춰라.", "...그만두지 않으면...", "...죽인다."],
+        },
+    },
+    "rough:start:rebellion_extreme": {
+        "formal": {
+            "rejection": ["...(비명만)", "...", "...(의식이 끊어짐)"],
+        },
+        "casual": {
+            "rejection": ["...(비명만)", "...", "...(의식이 끊어짐)"],
+        },
+        "rough": {
+            "rejection": ["...", "...(침묵)", "...기억해둔다..."],
         },
     },
 }
@@ -1113,6 +1311,116 @@ ACTION_LINE_TEMPLATES = {
         "timid":    {"formal": ["...(조용히 삼킨다)...♡", "...뜨거워요... 목으로..."]},
         "cold":     {"formal": ["...(무표정하게 삼킨다)", "...뜨겁군요... 목으로..."]},
     },
+    # ── rebellion templates (hug) ──────────────────────
+    "hug:start:rebellion_mild": {
+        "stoic":    {"rough": {"rejection": ["...놓아라...", "...건드리지 마..."]}},
+        "gentle":   {"formal": {"rejection": ["...놓아주세요...", "...안아달라고 안 했어요..."]}},
+        "cheerful": {"casual": {"rejection": ["놓아줘...", "싫어..."]}},
+        "timid":    {"formal": {"rejection": ["...무서워요... 놓아주세요...", "...싫어요..."]}},
+        "cold":     {"formal": {"rejection": ["...손 대지 마세요.", "...놓아주세요."]}},
+    },
+    "hug:start:rebellion_high": {
+        "stoic":    {"rough": {"rejection": ["놓아라!", "...만지지 마!", "...꺼져!"]}},
+        "gentle":   {"formal": {"rejection": ["놓아주세요!", "만지지 마세요!", "...싫어요...!"]}},
+        "cheerful": {"casual": {"rejection": ["놓아줘!", "만지지 마!", "꺼져!"]}},
+        "timid":    {"formal": {"rejection": ["...싫어요...! 놓아주세요...!", "...무서워요...!"]}},
+        "cold":     {"formal": {"rejection": ["...놓으세요.", "손 떼세요.", "...건드리지 마세요."]}},
+    },
+    "hug:start:rebellion_extreme": {
+        "stoic":    {"rough": {"rejection": ["...(발버둥 친다)", "...", "...(이를 악문다)"]}},
+        "gentle":   {"formal": {"rejection": ["...(발버둥)...", "...", "...(비명을 지른다)"]}},
+        "cheerful": {"casual": {"rejection": ["...(발버둥)", "...", "...(비명)"]}},
+        "timid":    {"formal": {"rejection": ["...(몸이 굳는다)...", "...", "...(벌벌 떤다)"]}},
+        "cold":     {"formal": {"rejection": ["...(차갑게 응시한다)", "...", "...(입을 다문다)"]}},
+    },
+    # ── rebellion templates (deep_kiss) ────────────────
+    "deep_kiss:start:rebellion_mild": {
+        "stoic":    {"rough": {"rejection": ["...입술... 치워라...", "...하지 마..."]}},
+        "gentle":   {"formal": {"rejection": ["...입술... 싫어요...", "...하지 마세요..."]}},
+        "cheerful": {"casual": {"rejection": ["...입술... 싫어...", "...하지 마..."]}},
+        "timid":    {"formal": {"rejection": ["...무서워요... 입술....", "...하지 마세요..."]}},
+        "cold":     {"formal": {"rejection": ["...입술 대지 마세요.", "...더럽군요."]}},
+    },
+    "deep_kiss:start:rebellion_high": {
+        "stoic":    {"rough": {"rejection": ["...더럽다! 치워!", "하지 마!", "...뱉어!"]}},
+        "gentle":   {"formal": {"rejection": ["더러워요! 하지 마세요!", "...뱉을 거예요...!"]}},
+        "cheerful": {"casual": {"rejection": ["더러워! 뱉어!", "하지 마!", "...으읍...!"]}},
+        "timid":    {"formal": {"rejection": ["...으...! 하지 마세요...!", "...싫어요...!"]}},
+        "cold":     {"formal": {"rejection": ["...입 떼세요.", "...더럽습니다.", "하지 마세요."]}},
+    },
+    "deep_kiss:start:rebellion_extreme": {
+        "stoic":    {"rough": {"rejection": ["...(이를 악물고 버틴다)", "...", "...(고개를 돌린다)"]}},
+        "gentle":   {"formal": {"rejection": ["...(이를 악물고)...", "...", "...(말을 잃는다)"]}},
+        "cheerful": {"casual": {"rejection": ["...(이를 악문다)", "...", "...(눈물)"]}},
+        "timid":    {"formal": {"rejection": ["...(입을 꽉 다문다)...", "...", "...(떨린다)"]}},
+        "cold":     {"formal": {"rejection": ["...(무표정하게 고개를 돌린다)", "...", "...(입을 닫는다)"]}},
+    },
+    # ── rebellion templates (genital_caress) ───────────
+    "genital_caress:start:rebellion_mild": {
+        "stoic":    {"rough": {"rejection": ["...거기는 건드리지 마...", "...만지지 마..."]}},
+        "gentle":   {"formal": {"rejection": ["...거기는... 안 돼요...", "...만지지 마세요..."]}},
+        "cheerful": {"casual": {"rejection": ["거기는 안 돼...!", "만지지 마...!"]}},
+        "timid":    {"formal": {"rejection": ["...거기... 무서워요...", "...만지지 마세요..."]}},
+        "cold":     {"formal": {"rejection": ["...거기 손 대지 마세요.", "...만지지 마세요."]}},
+    },
+    "genital_caress:start:rebellion_high": {
+        "stoic":    {"rough": {"rejection": ["거기 만지지 마!", "놓으라고!!", "...이 자식...!"]}},
+        "gentle":   {"formal": {"rejection": ["거기 만지지 마세요!!", "놓아주세요...!", "...싫어요...!!"]}},
+        "cheerful": {"casual": {"rejection": ["거기 만지지 마!", "놓으라고!!", "싫어!!"]}},
+        "timid":    {"formal": {"rejection": ["...싫어요...!! 거기는...!", "...놓아주세요...!!"]}},
+        "cold":     {"formal": {"rejection": ["...손 치우세요.", "거기 만지지 마세요.", "...놓으세요."]}},
+    },
+    "genital_caress:start:rebellion_extreme": {
+        "stoic":    {"rough": {"rejection": ["...(울부짖는다)", "...", "...(반응이 없다)"]}},
+        "gentle":   {"formal": {"rejection": ["...(울부짖음)...", "...", "...(눈이 풀린다)"]}},
+        "cheerful": {"casual": {"rejection": ["...(울부짖음)", "...", "...(반응 없음)"]}},
+        "timid":    {"formal": {"rejection": ["...(소리 없이 운다)...", "...", "...(몸이 굳는다)"]}},
+        "cold":     {"formal": {"rejection": ["...(차갑게 눈을 감는다)", "...", "...(반응이 없다)"]}},
+    },
+    # ── rebellion templates (vaginal_penetration) ──────
+    "vaginal_penetration:start:rebellion_mild": {
+        "stoic":    {"rough": {"rejection": ["...빼라... 아파...", "...넣지 마..."]}},
+        "gentle":   {"formal": {"rejection": ["...아파요... 빼주세요...", "...넣지 마세요..."]}},
+        "cheerful": {"casual": {"rejection": ["아파... 빼줘...", "넣지 마..."]}},
+        "timid":    {"formal": {"rejection": ["...아파요... 무서워요...", "...빼주세요..."]}},
+        "cold":     {"formal": {"rejection": ["...빼세요.", "...넣지 마세요."]}},
+    },
+    "vaginal_penetration:start:rebellion_high": {
+        "stoic":    {"rough": {"rejection": ["빼!! 아프다고!!", "...싫어!!", "제발...!!"]}},
+        "gentle":   {"formal": {"rejection": ["빼주세요!! 아파요!!", "...싫어요...!!", "제발요...!!"]}},
+        "cheerful": {"casual": {"rejection": ["빼!! 싫어!!", "아파!! 제발!!", "...으아아...!!"]}},
+        "timid":    {"formal": {"rejection": ["...아파요...!! 빼주세요...!!", "...제발요...!!"]}},
+        "cold":     {"formal": {"rejection": ["...빼세요.", "...아프다고 했습니다.", "...멈추세요."]}},
+    },
+    "vaginal_penetration:start:rebellion_extreme": {
+        "stoic":    {"rough": {"rejection": ["...", "...(텅 빈 눈)", "...(의식이 흐려진다)"]}},
+        "gentle":   {"formal": {"rejection": ["...", "...(텅 빈 눈)...", "...(의식이 없다)"]}},
+        "cheerful": {"casual": {"rejection": ["...", "...(텅 빈 눈)", "...(의식 없음)"]}},
+        "timid":    {"formal": {"rejection": ["...", "...(눈에 빛이 사라진다)...", "...(축 늘어진다)"]}},
+        "cold":     {"formal": {"rejection": ["...", "...(눈을 감는다)", "...(반응이 없다)"]}},
+    },
+    # ── rebellion templates (fellatio) ─────────────────
+    "fellatio:start:rebellion_mild": {
+        "stoic":    {"rough": {"rejection": ["...이런 거 하기 싫어...", "...으윽..."]}},
+        "gentle":   {"formal": {"rejection": ["...이런 거... 싫어요...", "...으윽..."]}},
+        "cheerful": {"casual": {"rejection": ["이런 거 싫어...", "...으윽..."]}},
+        "timid":    {"formal": {"rejection": ["...무서워요... 이런 거...", "...으윽..."]}},
+        "cold":     {"formal": {"rejection": ["...이런 것을 시키지 마세요.", "...으..."]}},
+    },
+    "fellatio:start:rebellion_high": {
+        "stoic":    {"rough": {"rejection": ["으웩...! 하지 마!", "...싫어!", "...빼!"]}},
+        "gentle":   {"formal": {"rejection": ["으웩...! 싫어요...!", "하지 마세요...!", "...빼주세요...!"]}},
+        "cheerful": {"casual": {"rejection": ["으웩...! 싫어!", "하지 마!", "빼!"]}},
+        "timid":    {"formal": {"rejection": ["...으읍...! 하지 마세요...!", "...싫어요...!"]}},
+        "cold":     {"formal": {"rejection": ["...빼세요.", "...으...", "하지 마세요."]}},
+    },
+    "fellatio:start:rebellion_extreme": {
+        "stoic":    {"rough": {"rejection": ["...", "...(말없이 눈물을 흘린다)", "...(반응이 없다)"]}},
+        "gentle":   {"formal": {"rejection": ["...", "...(말없이 눈물)...", "...(반응이 없다)"]}},
+        "cheerful": {"casual": {"rejection": ["...", "...(말없이 눈물)", "...(반응 없음)"]}},
+        "timid":    {"formal": {"rejection": ["...", "...(소리 없이 운다)...", "...(눈이 풀린다)"]}},
+        "cold":     {"formal": {"rejection": ["...", "...(무표정하게 눈물을 흘린다)", "...(반응이 없다)"]}},
+    },
 }
 
 
@@ -1892,8 +2200,9 @@ class LineGenerator:
         Returns:
             대사 텍스트 또는 None
         """
-        tone = resolve_tone(state.get("호감", 0), state.get("욕망", 0))
+        tone = resolve_tone(state)
         arousal = resolve_arousal_tier(state.get("성욕", 0))
+        rebellion_tier = resolve_rebellion_tier(state.get("반발", 0))
         speech = self._resolve_speech_level(state)
 
         # 1) 캐릭터 override
@@ -1903,7 +2212,7 @@ class LineGenerator:
             return self._pick_from_nested(override_texts, speech, tone)
 
         # 2) 행위별 아키타입 템플릿 (first/pull_out/ecstasy 포함)
-        text = self._try_action_template(action_id, speech, tone, arousal)
+        text = self._try_action_template(action_id, speech, tone, arousal, rebellion_tier)
         if text:
             return text
 
@@ -1913,7 +2222,7 @@ class LineGenerator:
             return special
 
         # 4) 카테고리 fallback
-        text = self._try_category_fallback(action_id, speech, tone, arousal)
+        text = self._try_category_fallback(action_id, speech, tone, arousal, rebellion_tier)
         if text:
             return text
 
@@ -1963,41 +2272,36 @@ class LineGenerator:
         "low": [],
     }
 
-    def _try_action_template(self, action_id, speech, tone, arousal):
-        """ACTION_LINE_TEMPLATES에서 아키타입별 조회 — arousal cascade 포함."""
+    def _try_action_template(self, action_id, speech, tone, arousal, rebellion_tier):
+        """ACTION_LINE_TEMPLATES에서 cascade 조회 (rebellion + arousal)."""
         key = f"{action_id}:start"
-        templates = ACTION_LINE_TEMPLATES.get(key, {})
-        arch_block = templates.get(self.archetype, {})
+        arousal_tiers = self._AROUSAL_CASCADE.get(arousal, [])
 
-        # arousal cascade: extreme → high → medium 순서로 탐색
-        for tier in self._AROUSAL_CASCADE.get(arousal, []):
-            arousal_key = f"{key}:{tier}"
-            arousal_templates = ACTION_LINE_TEMPLATES.get(arousal_key, {})
-            arousal_block = arousal_templates.get(self.archetype, {})
-            text = self._pick_speech_tone(arousal_block, speech, tone)
+        for cascade_key in _build_cascade_keys(key, arousal_tiers, rebellion_tier):
+            templates = ACTION_LINE_TEMPLATES.get(cascade_key, {})
+            arch_block = templates.get(self.archetype, {})
+            text = self._pick_speech_tone(arch_block, speech, tone)
             if text:
                 return text
 
-        return self._pick_speech_tone(arch_block, speech, tone)
+        return None
 
-    def _try_category_fallback(self, action_id, speech, tone, arousal):
-        """LINE_TEMPLATES 카테고리에서 fallback."""
+    def _try_category_fallback(self, action_id, speech, tone, arousal, rebellion_tier):
+        """LINE_TEMPLATES 카테고리에서 cascade fallback."""
         category = ACTION_TO_CATEGORY.get(action_id)
         if not category:
             return None
 
         cat_key = f"{category}:start"
+        arousal_tiers = [arousal] if arousal in ("extreme", "high") else []
 
-        # arousal-specific category
-        if arousal in ("extreme", "high"):
-            arousal_templates = LINE_TEMPLATES.get(f"{cat_key}:{arousal}", {})
-            text = self._pick_speech_tone(arousal_templates, speech, tone)
+        for cascade_key in _build_cascade_keys(cat_key, arousal_tiers, rebellion_tier):
+            templates = LINE_TEMPLATES.get(cascade_key, {})
+            text = self._pick_speech_tone(templates, speech, tone)
             if text:
                 return text
 
-        # base category
-        base_templates = LINE_TEMPLATES.get(cat_key, {})
-        return self._pick_speech_tone(base_templates, speech, tone)
+        return None
 
     def _pick_speech_tone(self, speech_dict, speech, tone):
         """speech_dict[speech][tone] → random.choice, tone fallback 포함.
