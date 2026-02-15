@@ -253,6 +253,26 @@ rules = self.ROMANCE_REACTIONS.get(key)
 #    :during → ReactionGenerator (3인칭 묘사, 아키타입 × 톤)
 ```
 
+**1회성(once) 반응:**
+
+세션 내 한 번만 출력되는 반응을 정의할 수 있습니다. 조건 dict에 `"once": True`를 추가하면,
+해당 규칙이 매칭되어 텍스트를 반환한 뒤 세션 종료까지 다시 매칭되지 않습니다.
+소모 후에는 다음 규칙 또는 Generator fallback으로 넘어갑니다.
+
+```python
+ROMANCE_REACTIONS = {
+    "hug:start": [
+        # 세션 중 첫 포옹에만 출력 (once), 이후는 아래 규칙 또는 Generator
+        ({"once": True, "호감": 50}, ["...처음으로 안아보는구나..."]),
+        ({"호감": 50}, ["...안아줘서 고마워..."]),
+    ],
+}
+```
+
+- `once`는 조건 판정이 아닌 메타 플래그로, `_check_reaction_condition()`에서 스킵됩니다.
+- 소모 추적은 `stim_state["_seen_reactions"]` (set)에 저장되며, 세션 종료 시 자동 폐기됩니다.
+- 플레이어 주도 ↔ NPC 주도 전환 시에도 `stim` dict 참조가 유지되어 소모 상태가 보존됩니다.
+
 **Generator 시스템** (`romance_line_generator.py`, `romance_reaction_generator.py`):
 - **10 아키타입**: stoic, gentle, cheerful, timid, cold, seductive, fierce, proud, innocent, devoted
 - **3D 좌표**: X(호감), Y(욕구), Z(절정) → K=3 nearest-neighbor 블렌딩

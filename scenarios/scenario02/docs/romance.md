@@ -103,6 +103,7 @@
 | 캐릭터 오버레이 (5 NPC) | characters/*.py (CHARACTER_REACTIONS/LINES) | ✅ 완료 |
 | FOCUS/DESCRIBE 아키타입 빌더 | base.py (build_focus_rules, build_describe_rules) | ✅ 완료 |
 | ROMANCE_REACTIONS 아키타입 빌더 | base.py (build_romance_reactions) | ✅ 완료 |
+| 1회성(once) 반응 시스템 | base.py, stimulation.py, characters/*.py | ✅ 완료 |
 
 ### 지원 캐릭터
 

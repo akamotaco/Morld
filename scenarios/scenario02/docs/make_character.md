@@ -322,6 +322,11 @@ class Noel(Character):
     # 개별 반응 override (지정하지 않은 키는 base 기본값 사용)
     ROMANCE_REACTIONS = {
         **Character.ROMANCE_REACTIONS,  # base 기본값 상속
+        "hug:start": [
+            # once: 세션 내 첫 포옹에만 출력, 이후 Generator fallback
+            ({"once": True, "호감": 50}, ["...처음으로 안아주는 거예요...?"]),
+            ({"호감": 50}, ["...따뜻해요..."]),
+        ],
         "hug:during": [
             ({"호감": 50}, ["...따뜻해요...", "...이대로 있고 싶어요..."]),
             ({}, ["...!", "...(몸이 굳는다)"]),

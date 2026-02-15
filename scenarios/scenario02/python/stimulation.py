@@ -79,6 +79,7 @@ def create_state(male_mode=False):
         "refractory": 0,        # 0=통상, >0=불응기 (남성 전용)
         "male_mode": male_mode, # 남성 모드 플래그 (세션 중 불변)
         "hold_back_count": 0,   # 참기 횟수 (감쇠 추적)
+        "_seen_reactions": set(),  # 1회성(once) 반응 소모 추적 (세션 내 휘발)
     }
 
 

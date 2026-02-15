@@ -1321,7 +1321,8 @@ class Character(Unit):
         rules = reactions.get(key)
 
         if rules:
-            result = self._resolve_reaction_rules(rules)
+            seen = stim_state.get("_seen_reactions") if stim_state else None
+            result = self._resolve_reaction_rules(rules, seen=seen, rule_key=key)
             if result:
                 return result
 
@@ -1339,8 +1340,14 @@ class Character(Unit):
 
         return None
 
-    def _resolve_reaction_rules(self, rules):
-        """ROMANCE_REACTIONS 규칙 해석 — first-match + 2D nearest"""
+    def _resolve_reaction_rules(self, rules, *, seen=None, rule_key=""):
+        """ROMANCE_REACTIONS 규칙 해석 — first-match + 2D nearest
+
+        Args:
+            rules: 규칙 리스트
+            seen: _seen_reactions set (once 소모 추적, None이면 무시)
+            rule_key: 규칙 식별용 키 (e.g. "hug:start")
+        """
         import random
 
         if not rules:
@@ -1355,7 +1362,7 @@ class Character(Unit):
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get('name', '주인공') if player_info else '주인공'
 
-        for item in rules:
+        for idx, item in enumerate(rules):
             if not isinstance(item, tuple) or len(item) != 2:
                 continue
 
@@ -1367,8 +1374,21 @@ class Character(Unit):
 
             # dict 조건: ({"성욕": 70}, [...])
             if isinstance(key_part, dict):
+                # once 처리: 이미 소모된 규칙 스킵
+                is_once = key_part.get("once", False)
+                if is_once and seen is not None:
+                    once_id = f"{rule_key}#{idx}"
+                    if once_id in seen:
+                        continue
+
                 if not self._check_reaction_condition(key_part, props, player_name):
                     continue
+
+                # once 소모 기록
+                if is_once and seen is not None:
+                    once_id = f"{rule_key}#{idx}"
+                    seen.add(once_id)
+
                 # 내부에 2D 좌표 리스트가 있으면 2-stage
                 if isinstance(texts, list) and texts and isinstance(texts[0], tuple):
                     result = self._nearest_2d(texts, props, player_name)
@@ -1496,6 +1516,10 @@ class Character(Unit):
             return True
 
         for key, required_value in condition.items():
+            # once 마커: 조건 판정이 아닌 메타 플래그 → 스킵
+            if key == "once":
+                continue
+
             # 미경험 조건: prop이 0 또는 None이면 True
             if key.startswith("미경험:"):
                 actual_key = key[4:]  # "미경험:" 이후

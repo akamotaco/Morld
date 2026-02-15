@@ -863,6 +863,12 @@ class Lina(Character):
     ROMANCE_REACTIONS = {
         # 특수 조건 반응만 유지 (일반 반응은 generator로 이동)
 
+        "hug:start": [
+            # 세션 첫 포옹: 한 번만 출력, 이후 Generator fallback
+            ({"once": True, "호감": 50}, ["안아주는 거야~?! 에헤헤, 리나 좋아~!♡"]),
+            ({"once": True}, ["...! ...(얼굴이 빨개진다) ...갑자기 왜...!"]),
+        ],
+
         # 첫키스 기억 + 경험 분기
         "french_kiss:start": [
             ({"반발": 30}, ["만지지 마!! 더러워!!", "입 대지 마!! 꺼져!!", "키스 같은 거 하지 마!!"]),
