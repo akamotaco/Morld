@@ -97,8 +97,10 @@
 | 자극 상태 자동 묘사 | romance_core.py, romance_ui.py | ✅ 완료 |
 | 탈진 HP 1 보존 | romance.py, npc_initiative.py | ✅ 완료 |
 | 체력 바 10칸 정규화 | romance_ui.py, npc_initiative.py | ✅ 완료 |
-| 대사 generator (archetype 기반) | romance_line_generator.py | ✅ 완료 |
-| 묘사 generator (archetype 기반) | romance_reaction_generator.py | ✅ 완료 |
+| 대사 generator (3D 좌표 기반) | romance_line_generator.py | ✅ 완료 |
+| 묘사 generator (3D 좌표 기반) | romance_reaction_generator.py | ✅ 완료 |
+| 톤 템플릿 (10 아키타입) | tone_templates/ | ✅ 완료 |
+| 캐릭터 오버레이 (5 NPC) | characters/*.py (CHARACTER_REACTIONS/LINES) | ✅ 완료 |
 | FOCUS/DESCRIBE 아키타입 빌더 | base.py (build_focus_rules, build_describe_rules) | ✅ 완료 |
 | ROMANCE_REACTIONS 아키타입 빌더 | base.py (build_romance_reactions) | ✅ 완료 |
 
@@ -156,8 +158,21 @@ scenarios/scenario02/python/
 ├── romance_core.py               # 공유 핵심 로직 (25+ 함수)
 ├── romance_mode.py               # 동작 모드 (합의/강제/무의식/시간정지)
 ├── romance_ui.py                 # 연애 UI 렌더링
-├── romance_line_generator.py     # 대사 generator (:start 1인칭, archetype×speech×tone)
-├── romance_reaction_generator.py # 묘사 generator (:during 3인칭, archetype×tone)
+├── romance_line_generator.py     # 대사 generator (:start 1인칭, 3D 좌표 기반)
+├── romance_reaction_generator.py # 묘사 generator (:during 3인칭, 3D 좌표 기반)
+├── tone_templates/               # 아키타입별 좌표→텍스트 풀 패키지
+│   ├── coords.py                 # 3D 좌표 계산 (calc_coordinates, select_by_coord)
+│   ├── __init__.py               # 4개 dict 집계 (CATEGORY/ARCHETYPE/LINE/ACTION_LINE)
+│   ├── stoic.py                  # stoic 아키타입 (세라)
+│   ├── gentle.py                 # gentle 아키타입 (밀라)
+│   ├── cheerful.py               # cheerful 아키타입 (리나)
+│   ├── timid.py                  # timid 아키타입 (유키)
+│   ├── cold.py                   # cold 아키타입 (엘라)
+│   ├── seductive.py              # seductive 아키타입 (모브)
+│   ├── fierce.py                 # fierce 아키타입 (모브)
+│   ├── proud.py                  # proud 아키타입 (모브)
+│   ├── innocent.py               # innocent 아키타입 (모브)
+│   └── devoted.py                # devoted 아키타입 (모브)
 ├── date.py                       # 데이트 시스템 + 애정 표현
 ├── npc_initiative.py             # NPC 주도 스킨십 시스템 (행위 마스킹, 캐릭터 필터)
 ├── gender.py                     # 성별/성적지향/체격/음경크기/삽입호환성

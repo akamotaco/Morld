@@ -116,7 +116,7 @@ def render_romance_ui(state):
 
         # 2. NPC 대사/반응 (있으면)
         if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
-            reaction = partner_asset.get_romance_reaction(toggle_id, "during")
+            reaction = partner_asset.get_romance_reaction(toggle_id, "during", stim_state=state.get("stim"))
             if reaction:
                 lines.append(f"  [color=yellow]{reaction}[/color]")
                 has_toggle_lines = True

@@ -313,7 +313,10 @@ class Noel(Character):
     REACTION_PROFILE = {
         "archetype": "gentle",
         "name": "노엘",
-        # romance_line_generator가 아키타입 기반으로 대사 생성
+        # 3D 좌표 기반 대사/묘사 자동 생성 (tone_templates/)
+        # 캐릭터 오버레이로 일부 좌표 대체 가능:
+        # "char_reactions": CHARACTER_REACTIONS,  # :during 3인칭
+        # "char_lines": CHARACTER_LINES,          # :start 1인칭
     }
 
     # 개별 반응 override (지정하지 않은 키는 base 기본값 사용)

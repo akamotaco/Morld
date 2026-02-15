@@ -52,6 +52,7 @@
 | 임신과 출산 | [romance-pregnancy.md](scenarios/scenario02/docs/romance-pregnancy.md) |
 | 전투 시스템 | [battle.md](scenarios/scenario02/docs/battle.md) |
 | 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
+| 캐릭터 만들기 (NPC 정의 가이드) | [make_character.md](scenarios/scenario02/docs/make_character.md) |
 | 시나리오 설계 (세계관, 캐릭터) | [design.md](scenarios/scenario02/docs/design.md) |
 
 ### 아이템 작업
@@ -97,6 +98,7 @@ scenarios/scenario02/docs/
 ├── romance-relationship.md   # 연애 관계 (라벨/욕망/해금/대화/성별)
 ├── romance-actions.md        # 애정 행위 (스킨십/자극/탈의/은신/소음/동작모드)
 ├── romance-pregnancy.md      # 임신과 출산
+├── make_character.md         # 캐릭터 만들기 가이드
 ├── quest.md            # 퀘스트 시스템
 ├── clothes.md          # 의류/장비
 ├── food.md             # 음식/요리
@@ -119,6 +121,7 @@ scenarios/scenario02/docs/
 | Python Asset 클래스 | `scenarios/scenario02/python/assets/` |
 | Python 이벤트 핸들러 | `scenarios/scenario02/python/events/` |
 | Python NPC AI | `scenarios/scenario02/python/think/` |
+| Python 톤 템플릿 | `scenarios/scenario02/python/tone_templates/` (아키타입별 3D 좌표 대사/묘사) |
 | Python 환경 시스템 | `scenarios/scenario02/python/` (temperature, humidity, congestion, pollution, sound, garden, needs) |
 
 ---

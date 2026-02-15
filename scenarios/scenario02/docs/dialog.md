@@ -255,9 +255,15 @@ rules = self.ROMANCE_REACTIONS.get(key)
 
 **Generator 시스템** (`romance_line_generator.py`, `romance_reaction_generator.py`):
 - **10 아키타입**: stoic, gentle, cheerful, timid, cold, seductive, fierce, proud, innocent, devoted
-- **2D 좌표**: (호감, 욕망) → 톤 (romance/platonic/lust/rejection)
+- **3D 좌표**: X(호감), Y(욕구), Z(절정) → K=3 nearest-neighbor 블렌딩
+  - X = 호감 - 반발×0.8 (-100~+100)
+  - Y = (성욕+욕망)/2 - 순수도/2 (-100~+100)
+  - Z = gauge×0.6 + min(total,4)×10 (0~100)
+- **좌표 톤**: romance/platonic/lust/rejection (X,Y로 결정, Z 무시)
 - **3단 말투**: formal(존대) / casual(평어) / rough(하대)
-- **흥분 단계**: base → high(70+) → extreme(90+)
+- **3단계 탐색**: override → 행위별 좌표 → 카테고리 좌표
+- **캐릭터 오버레이**: `CHARACTER_REACTIONS`/`CHARACTER_LINES`로 아키타입 좌표 일부 대체
+- **톤 템플릿**: `tone_templates/` 패키지 (아키타입별 좌표→텍스트 풀)
 - 모브 NPC는 `REACTION_PROFILE`만으로 전체 대사/묘사 자동 생성
 
 ---
@@ -392,8 +398,9 @@ result = TextSelector.select(rules, context)  # "result_b"
 | `python/ui.py` | Lines, Sequence, Conversation 클래스 |
 | `python/assets/base.py` | TextSelector, Character, build_focus_rules(), build_describe_rules() |
 | `python/assets/characters/*.py` | 캐릭터별 RULES 정의 (빌더 호출 + 특수 조건) |
-| `python/romance_line_generator.py` | :start 1인칭 대사 Generator (아키타입 × 말투 × 톤) |
-| `python/romance_reaction_generator.py` | :during 3인칭 묘사 Generator (아키타입 × 톤) |
+| `python/romance_line_generator.py` | :start 1인칭 대사 Generator (3D 좌표 기반) |
+| `python/romance_reaction_generator.py` | :during 3인칭 묘사 Generator (3D 좌표 기반) |
+| `python/tone_templates/` | 10 아키타입 좌표→텍스트 풀 (coords, stoic, gentle, ...) |
 
 ---
 

@@ -932,10 +932,10 @@ def apply_action_effects(state, action_def):
             ejac_reaction = None
             if ejac_part:
                 ejac_key = f"ejaculation_internal_{ejac_part}"
-                ejac_reaction = npc_asset.get_romance_reaction(ejac_key, "start")
+                ejac_reaction = npc_asset.get_romance_reaction(ejac_key, "start", stim_state=state.get("stim"))
             ecstasy_key = get_climax_reaction_key(
                 climax_info, state["active_toggles"], NPC_TOGGLE_ACTIONS, reactions)
-            reaction = npc_asset.get_romance_reaction(ecstasy_key, "start")
+            reaction = npc_asset.get_romance_reaction(ecstasy_key, "start", stim_state=state.get("stim"))
             if ejac_reaction and reaction:
                 return f"{ejac_reaction}\n{reaction}"
             if ejac_reaction:
@@ -1159,7 +1159,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             desc = ACTION_DESCRIPTIONS.get(new_action, "")
             reaction = None
             if first_key and npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-                reaction = npc_asset.get_romance_reaction(first_key, "start")
+                reaction = npc_asset.get_romance_reaction(first_key, "start", stim_state=state.get("stim"))
             if not reaction:
                 timing = f"during_{new_action}"
                 if forced_reaction and npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
@@ -1342,12 +1342,12 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 if hb_result["success"]:
                     reaction = None
                     if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-                        reaction = npc_asset.get_romance_reaction("hold_back_success", "start")
+                        reaction = npc_asset.get_romance_reaction("hold_back_success", "start", stim_state=state.get("stim"))
                     state["last_reaction"] = reaction or f"(이를 악물고 참았다... -{hb_result['reduction']})"
                 else:
                     reaction = None
                     if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-                        reaction = npc_asset.get_romance_reaction("hold_back_failure", "start")
+                        reaction = npc_asset.get_romance_reaction("hold_back_failure", "start", stim_state=state.get("stim"))
                     state["last_reaction"] = reaction or "(참으려 했지만 실패했다...!)"
                     # 실패 + 게이지 만충 + peaked 존재 → 즉시 절정
                     if hb_result["gauge"] >= stimulation.CLIMAX_GAUGE_MAX:
@@ -1471,7 +1471,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             else:
                 # 반응 텍스트
                 if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-                    reaction = npc_asset.get_romance_reaction(action_id, "start")
+                    reaction = npc_asset.get_romance_reaction(action_id, "start", stim_state=state.get("stim"))
                     if reaction:
                         state["last_reaction"] = reaction
 

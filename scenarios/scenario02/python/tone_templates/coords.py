@@ -1,10 +1,11 @@
-"""좌표 기반 톤 시스템 — 2D 감정공간(sentiment × desire) + K-nearest 블렌딩
+"""좌표 기반 톤 시스템 — 3D 감정공간(sentiment × desire × climax) + K-nearest 블렌딩
 
 좌표 공간:
   X축 (sentiment): 호감 - 반발*0.8          (-100 ~ +100)
   Y축 (desire):    (성욕*0.5 + 욕망*0.5) - 순수도*0.5  (-100 ~ +100)
+  Z축 (climax):    gauge*0.6 + min(total,4)*10          (0 ~ 100)
 
-10개 좌표 포인트:
+10개 XY 좌표 포인트 (Z=0 기본):
   #   흥분/욕구 ↑ (Y=+100)
   #        │
   #  (-80,0)  (-60,30) (-30,60)   (30,60)    (80,80)
@@ -44,6 +45,14 @@ COORD_TONES = {
 REB_WEIGHT = 0.8
 INN_WEIGHT = 0.5
 
+# Z축 가중치 (튜닝 가능)
+CLIMAX_GAUGE_WEIGHT = 0.6   # 게이지 비중 (60%)
+CLIMAX_TOTAL_WEIGHT = 10    # 누적 1회당 가중치
+CLIMAX_TOTAL_CAP = 4        # 누적 반영 상한
+
+# K-nearest 거리 계산 시 Z축 스케일 (Z 범위 0-100 vs XY 범위 ~200)
+Z_DISTANCE_WEIGHT = 2.0
+
 ARCHETYPE_BASE_INNOCENCE = {
     "timid": 40, "cold": 30, "stoic": 20, "gentle": 15, "cheerful": 10,
     "innocent": 50, "devoted": 20, "seductive": 0, "fierce": 10, "proud": 25,
@@ -62,23 +71,28 @@ def _calc_innocence(state):
 
 
 def calc_coordinates(state):
-    """state dict → (sx, sy) 좌표.
+    """state dict → (sx, sy, sz) 좌표.
 
     X = clamp(호감 - 반발*0.8, -100, 100)
     Y = clamp((성욕*0.5 + 욕망*0.5) - 순수도*0.5, -100, 100)
+    Z = min(100, gauge*0.6 + min(total,4)*10)
     """
     sx = max(-100, min(100,
         state.get("호감", 0) - state.get("반발", 0) * REB_WEIGHT))
     sy = max(-100, min(100,
         (state.get("성욕", 0) * 0.5 + state.get("욕망", 0) * 0.5)
         - _calc_innocence(state) * INN_WEIGHT))
-    return sx, sy
+    sz = min(100,
+        state.get("climax_gauge", 0) * CLIMAX_GAUGE_WEIGHT
+        + min(state.get("climax_total", 0), CLIMAX_TOTAL_CAP) * CLIMAX_TOTAL_WEIGHT)
+    return sx, sy, sz
 
 
-def select_by_coord(coord_pool, sx, sy, k=3):
+def select_by_coord(coord_pool, sx, sy, sz=0, k=3):
     """가장 가까운 k개 좌표의 텍스트풀 병합 → 랜덤 선택.
 
-    coord_pool: {(x, y): [text, ...], ...}
+    coord_pool: {(x, y): [...], (x, y, z): [...], ...}
+    2-tuple 키는 z=0으로 처리 (하위호환).
     반환: 선택된 텍스트 문자열 또는 None.
     """
     if not coord_pool:
@@ -88,7 +102,14 @@ def select_by_coord(coord_pool, sx, sy, k=3):
     for key, texts in coord_pool.items():
         if not isinstance(key, tuple) or not texts:
             continue
-        dist_sq = (sx - key[0]) ** 2 + (sy - key[1]) ** 2
+        if len(key) == 2:
+            kx, ky, kz = key[0], key[1], 0
+        elif len(key) == 3:
+            kx, ky, kz = key
+        else:
+            continue
+        dist_sq = ((sx - kx) ** 2 + (sy - ky) ** 2
+                   + ((sz - kz) * Z_DISTANCE_WEIGHT) ** 2)
         distances.append((dist_sq, texts))
 
     if not distances:

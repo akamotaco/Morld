@@ -1297,7 +1297,7 @@ class Character(Unit):
     # 연애 반응 메서드
     # ========================================
 
-    def get_romance_reaction(self, action_id: str, timing: str = "during") -> Optional[str]:
+    def get_romance_reaction(self, action_id: str, timing: str = "during", stim_state=None) -> Optional[str]:
         """
         연애 액션에 대한 반응 텍스트 반환 (2-stage + generator fallback)
 
@@ -1329,12 +1329,12 @@ class Character(Unit):
         if timing == "start":
             generator = self._get_line_generator()
             if generator:
-                state = self._build_reaction_state()
+                state = self._build_reaction_state(stim_state)
                 return generator.generate(action_id, state)
         else:
             generator = self._get_reaction_generator()
             if generator:
-                state = self._build_reaction_state()
+                state = self._build_reaction_state(stim_state)
                 return generator.generate(action_id, timing, state)
 
         return None
@@ -1361,8 +1361,8 @@ class Character(Unit):
 
             key_part, texts = item
 
-            # 2D 좌표: ((x, y), [texts])
-            if isinstance(key_part, tuple) and len(key_part) == 2 and all(isinstance(v, (int, float)) for v in key_part):
+            # 좌표: ((x, y), [texts]) 또는 ((x, y, z), [texts])
+            if isinstance(key_part, tuple) and len(key_part) in (2, 3) and all(isinstance(v, (int, float)) for v in key_part):
                 continue  # top-level 좌표는 아래 _nearest_2d_raw에서 처리
 
             # dict 조건: ({"성욕": 70}, [...])
@@ -1385,7 +1385,7 @@ class Character(Unit):
         for item in rules:
             if isinstance(item, tuple) and len(item) == 2:
                 key_part, texts = item
-                if isinstance(key_part, tuple) and len(key_part) == 2 and all(isinstance(v, (int, float)) for v in key_part):
+                if isinstance(key_part, tuple) and len(key_part) in (2, 3) and all(isinstance(v, (int, float)) for v in key_part):
                     coord_entries.append(item)
         if coord_entries:
             return self._nearest_2d_raw(coord_entries, props, player_name)
@@ -1410,7 +1410,7 @@ class Character(Unit):
             if not isinstance(item, tuple) or len(item) != 2:
                 continue
             coord, texts = item
-            if not isinstance(coord, tuple) or len(coord) != 2:
+            if not isinstance(coord, tuple) or len(coord) not in (2, 3):
                 continue
             d = math.hypot(affection - coord[0], desire - coord[1])
             if d < best_dist - 0.01:
@@ -1460,7 +1460,7 @@ class Character(Unit):
         self._line_generator_cache = gen
         return gen
 
-    def _build_reaction_state(self):
+    def _build_reaction_state(self, stim_state=None):
         """generator용 현재 상태 dict."""
         props = morld.get_unit_props(self.instance_id)
         player_id = morld.get_player_id()
@@ -1468,7 +1468,7 @@ class Character(Unit):
         player_name = player_info.get('name', '주인공') if player_info else '주인공'
         profile = getattr(self, 'REACTION_PROFILE', None) or {}
 
-        return {
+        result = {
             "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
             "욕망": props.get(f"관계:{player_name}:욕망", 0) if props else 0,
             "성욕": props.get("상태:성욕", 0) if props else 0,
@@ -1478,6 +1478,10 @@ class Character(Unit):
             "미경험:기억:첫절정": 1 if not (props.get("기억:첫절정") if props else None) else 0,
             "경험:총만남횟수": (props.get("경험:총만남횟수", 0) if props else 0),
         }
+        if stim_state:
+            result["climax_gauge"] = stim_state.get("climax_gauge", 0)
+            result["climax_total"] = stim_state.get("climax_total", 0)
+        return result
 
     def _check_reaction_condition(self, condition: dict, props: dict, player_name: str) -> bool:
         """

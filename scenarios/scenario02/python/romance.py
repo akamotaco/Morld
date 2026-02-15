@@ -564,19 +564,19 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 ejac_reaction = None
                 if ejac_part:
                     ejac_key = f"{reaction_prefix}ejaculation_internal_{ejac_part}"
-                    ejac_reaction = partner_asset.get_romance_reaction(ejac_key, "start")
+                    ejac_reaction = partner_asset.get_romance_reaction(ejac_key, "start", stim_state=state["stim"])
                     if not ejac_reaction and reaction_prefix:
                         ejac_reaction = partner_asset.get_romance_reaction(
-                            f"ejaculation_internal_{ejac_part}", "start")
+                            f"ejaculation_internal_{ejac_part}", "start", stim_state=state["stim"])
                 ecstasy_key = get_climax_reaction_key(
                     climax_info, state["active_toggles"], TOGGLE_ACTIONS, reactions)
                 # 강제 모드: forced_ 접두사 시도 → fallback
                 reaction = None
                 if reaction_prefix:
                     reaction = partner_asset.get_romance_reaction(
-                        f"{reaction_prefix}{ecstasy_key}", "start")
+                        f"{reaction_prefix}{ecstasy_key}", "start", stim_state=state["stim"])
                 if not reaction:
-                    reaction = partner_asset.get_romance_reaction(ecstasy_key, "start")
+                    reaction = partner_asset.get_romance_reaction(ecstasy_key, "start", stim_state=state["stim"])
                 if ejac_reaction and reaction:
                     return f"{ejac_reaction}\n{reaction}"
                 if ejac_reaction:
@@ -635,10 +635,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             # 접두사 있으면 먼저 시도 (forced_ 등)
             if reaction_prefix:
                 reaction = partner_asset.get_romance_reaction(
-                    f"{reaction_prefix}{action_id}", timing)
+                    f"{reaction_prefix}{action_id}", timing, stim_state=state["stim"])
             # fallback: 기본 반응
             if not reaction:
-                reaction = partner_asset.get_romance_reaction(action_id, timing)
+                reaction = partner_asset.get_romance_reaction(action_id, timing, stim_state=state["stim"])
             return reaction
         return None
 
