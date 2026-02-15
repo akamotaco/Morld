@@ -54,9 +54,13 @@ def run_character_creation(state=None):
         # --- 성별 선택 ---
         if state["step"] == "gender":
             def build_gender_text():
+                from settings import is_romance_enabled
+                options = GENDER_OPTIONS if is_romance_enabled() else [
+                    opt for opt in GENDER_OPTIONS if opt["value"] != "futanari"
+                ]
                 links = "\n".join([
                     f"[url=@proc:{opt['value']}]{opt['label']}[/url]"
-                    for opt in GENDER_OPTIONS
+                    for opt in options
                 ])
                 return f"나는...?\n\n{links}"
 
@@ -156,7 +160,12 @@ def run_character_creation(state=None):
                 state["body"] = action
                 # 남성/후타나리면 음경 크기 선택, 여성이면 건너뜀
                 if state["gender"] in ("male", "futanari"):
-                    state["step"] = "penis_size"
+                    from settings import is_romance_enabled
+                    if is_romance_enabled():
+                        state["step"] = "penis_size"
+                    else:
+                        state["penis_size"] = 2  # 보통 (자동 설정)
+                        state["step"] = "equipment"
                 else:
                     state["penis_size"] = None
                     state["step"] = "equipment"

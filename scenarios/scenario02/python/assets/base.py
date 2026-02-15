@@ -1002,6 +1002,13 @@ class Character(Unit):
                 result.append(action)
 
         result = self._apply_dynamic_action_labels(result, info)
+
+        # 연애 모드 OFF → 연애 관련 액션 제거
+        import settings
+        if not settings.is_romance_enabled():
+            result = [a for a in result if not self._is_romance_action(a)]
+            return result
+
         return self._add_casual_affection_actions(result)
 
     def _apply_dynamic_action_labels(self, actions, info):
@@ -1065,6 +1072,11 @@ class Character(Unit):
             actions.extend(casual_items)
 
         return actions
+
+    def _is_romance_action(self, action: str) -> bool:
+        """연애 관련 액션인지 판별"""
+        name = self._extract_action_name(action)
+        return name in ("romance", "force_romance", "casual_affection")
 
     def _extract_action_name(self, action: str) -> str:
         """
@@ -1985,6 +1997,10 @@ class Character(Unit):
         Returns:
             True면 NPC 주도 스킨십 시작
         """
+        import settings
+        if not settings.is_romance_enabled():
+            return False
+
         if not self.INITIATIVE_CONFIG:
             return False
 

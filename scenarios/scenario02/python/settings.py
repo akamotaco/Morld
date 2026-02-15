@@ -11,6 +11,25 @@ import ui
 
 
 # ============================================
+# 연애 모드
+# ============================================
+
+# 기본값: False (OFF). 연애 콘텐츠 활성화 시 True로 변경.
+_romance_enabled = False  # ← 이 값을 True로 변경하면 기본 ON
+
+
+def is_romance_enabled() -> bool:
+    """연애 모드 활성화 여부"""
+    return _romance_enabled
+
+
+def set_romance_enabled(enabled: bool):
+    """연애 모드 설정"""
+    global _romance_enabled
+    _romance_enabled = enabled
+
+
+# ============================================
 # 플레이어 ID 조회
 # ============================================
 
@@ -123,6 +142,11 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     debug_status = "[color=lime]ON[/color]" if debug_on else "[color=gray]OFF[/color]"
     lines.append(f"[url=@proc:toggle_debug]디버그 모드[/url]: {debug_status}")
 
+    # 연애 모드
+    romance_on = is_romance_enabled()
+    romance_status = "[color=lime]ON[/color]" if romance_on else "[color=gray]OFF[/color]"
+    lines.append(f"[url=@proc:toggle_romance]연애 모드[/url]: {romance_status}")
+
     # 시간 정지
     frozen = morld.is_time_frozen()
     frozen_status = "[color=cyan]정지[/color]" if frozen else "[color=gray]흐름[/color]"
@@ -200,6 +224,13 @@ def show_settings_ui():
             new_state = not is_debug_mode()
             set_debug_mode(new_state)
             morld.add_action_log(f"디버그 모드: {'ON' if new_state else 'OFF'}")
+            return _render()
+
+        # 연애 모드 토글
+        if action == "toggle_romance":
+            new_state = not is_romance_enabled()
+            set_romance_enabled(new_state)
+            morld.add_action_log(f"연애 모드: {'ON' if new_state else 'OFF'}")
             return _render()
 
         # 시간 정지 토글

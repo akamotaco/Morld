@@ -313,24 +313,31 @@ def _process_hourly(unit_id):
         morld.set_unit_prop(unit_id, PROP_SOCIAL,
                             min(100, current_social + SOCIAL_RATE))
 
-    # 성욕: 자연 증가 (욕망 기반 동적 상한) + 상한 초과 시 클램프
-    arousal_cap = _get_arousal_cap(unit_id)
-    current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
-    if current_arousal < arousal_cap:
-        arousal_rate = AROUSAL_NATURAL_RATE
-        # 성적 지향성 배율
-        player_id_h = morld.get_player_id()
-        if player_id_h:
-            try:
-                import gender as gender_mod
-                arousal_rate *= gender_mod.get_orientation_multiplier(unit_id, player_id_h)
-            except ImportError:
-                pass
-        morld.set_unit_prop(unit_id, PROP_AROUSAL,
-                            min(arousal_cap,
-                                current_arousal + arousal_rate))
-    elif current_arousal > arousal_cap:
-        morld.set_unit_prop(unit_id, PROP_AROUSAL, arousal_cap)
+    # 성욕: 연애 모드 OFF → 항상 0
+    import settings
+    if not settings.is_romance_enabled():
+        current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
+        if current_arousal > 0:
+            morld.set_unit_prop(unit_id, PROP_AROUSAL, 0)
+    else:
+        # 성욕: 자연 증가 (욕망 기반 동적 상한) + 상한 초과 시 클램프
+        arousal_cap = _get_arousal_cap(unit_id)
+        current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
+        if current_arousal < arousal_cap:
+            arousal_rate = AROUSAL_NATURAL_RATE
+            # 성적 지향성 배율
+            player_id_h = morld.get_player_id()
+            if player_id_h:
+                try:
+                    import gender as gender_mod
+                    arousal_rate *= gender_mod.get_orientation_multiplier(unit_id, player_id_h)
+                except ImportError:
+                    pass
+            morld.set_unit_prop(unit_id, PROP_AROUSAL,
+                                min(arousal_cap,
+                                    current_arousal + arousal_rate))
+        elif current_arousal > arousal_cap:
+            morld.set_unit_prop(unit_id, PROP_AROUSAL, arousal_cap)
 
     # 관계 항상성: 호감/반발/복종 basin 수렴
     player_id_h = morld.get_player_id()
