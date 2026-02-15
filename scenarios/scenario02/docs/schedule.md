@@ -369,8 +369,9 @@ SCHEDULE = [
 
 ### Phase 2: 영향력 있는 Activity — 구현됨 (v0.2.1)
 
-**구현 완료 (7종 모듈화: `think/activities/`):**
-- `소등`: `handle_lights_off()` → 조명 끄기 (방 순회)
+**구현 완료 (10종 모듈화: `think/activities/`):**
+- `소등`: `handle_lights_off()` → 조명 끄기 (방 순회, 열원 제외)
+- `점등`: `handle_lights_on()` → 조명 켜기 (방 순회, 열원 제외)
 - `벌목`: `handle_chop()` → 도끼 가져오기 → 벌목 → 도끼 반납
 - `낚시`: `handle_fish()` → 낚시대 가져오기 → 낚시 → 보관소에 저장 → 반납
 - `채집→저장`: `handle_gather_store()` → 채집 → 보관소에 동적 저장
@@ -518,7 +519,7 @@ self._memory = {
 
 ```python
 # think/activities/__init__.py
-from .lights import handle_lights_off
+from .lights import handle_lights_off, handle_lights_on
 from .chop import handle_chop
 from .fish import handle_fish
 from .gather import handle_gather_store
@@ -530,6 +531,7 @@ from .fuel import handle_fuel
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
+    "점등": handle_lights_on,
     "벌목": handle_chop,
     "낚시": handle_fish,
     "채집": handle_gather_store,
@@ -557,7 +559,7 @@ else:
 think/activities/
 ├── __init__.py          # ACTIVITY_HANDLERS dict (핸들러 등록)
 ├── helpers.py           # 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
-├── lights.py            # 소등
+├── lights.py            # 소등/점등 (3-phase 조명 관리)
 ├── chop.py              # 벌목
 ├── fish.py              # 낚시
 ├── gather.py            # 채집→저장
@@ -764,7 +766,7 @@ agent.push_schedule(work_order)
 
 ### Python
 - `think/__init__.py` - BaseAgent, Phase 시스템, 식사 핸들러, 동적 스케줄, 도구 관리
-- `think/activities/` - 활동 핸들러 패키지 (8종: 소등/벌목/낚시/채집/요리/청소/물자수집/정원)
+- `think/activities/` - 활동 핸들러 패키지 (10종: 소등/점등/벌목/낚시/채집/요리/청소/물자수집/정원/연료수집)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)
 - `think/facility_resolver.py` - 시설 탐색 리졸버 (목욕/화장실 선착순 + 옷장 소유권 탐색) (v0.2.2)

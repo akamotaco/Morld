@@ -1049,18 +1049,37 @@ class BaseAgent:
         loc = self.get_location()
         return loc[0] if loc else 0
 
+    # 조명 3-phase 시간 경계 (밀리초)
+    _EVENING_START = 1080 * 60_000   # 18:00 — 점등 시작
+    _NIGHT_START   = 1260 * 60_000   # 21:00 — 소등 시작
+    _MORNING_START = 360 * 60_000    # 06:00 — 소등 시작
+
+    def _should_lights_on(self):
+        """현재 시간이 점등 시간대(18:00~21:00)인지 판정"""
+        millis = self.get_time()
+        return self._EVENING_START <= millis < self._NIGHT_START
+
     def _check_environment(self, region_id, location_id):
-        """환경 인식: 시간대에 따라 조명 켜기/끄기 (도착 시 1회 호출)"""
+        """환경 인식: 3-phase 시간대에 따라 조명 켜기/끄기 (도착 시 1회 호출)
+
+        소극적 조명 관리:
+        - 06:00~18:00 (주간): 켜진 조명 끄기
+        - 18:00~21:00 (저녁): 꺼진 조명 켜기
+        - 21:00~06:00 (야간): 켜진 조명 끄기
+        열원(heat:output)은 토글 대상에서 제외.
+        """
         from assets.objects import get_location_objects, get_instance
 
         objects = get_location_objects(region_id, location_id)
 
-        # 조명 오브젝트 찾기
+        # 조명 오브젝트 찾기 (열원 제외)
         light_objects = []
         any_light_on = False
         for obj_id in objects:
             light_on = morld.get_unit_prop(obj_id, "light:on")
             if light_on is not None:
+                if morld.get_unit_prop(obj_id, "heat:output"):
+                    continue  # 열원은 조명 토글 대상 아님
                 light_objects.append(obj_id)
                 if light_on == 1:
                     any_light_on = True
@@ -1072,16 +1091,15 @@ class BaseAgent:
         if not props or props.get("toggle_switch", 0) <= 0:
             return
 
-        millis = self.get_time()
-        is_night = millis >= 1080 * 60_000 or millis < 360 * 60_000  # 18:00~06:00
+        should_on = self._should_lights_on()
 
-        if is_night and not any_light_on:
-            # 밤인데 조명 꺼져있으면 → 켜기
+        if should_on and not any_light_on:
+            # 점등 시간인데 조명 꺼져있으면 → 켜기
             obj = get_instance(light_objects[0])
             if obj and hasattr(obj, "npc_toggle_switch"):
                 obj.npc_toggle_switch(self.unit_id, target_state=1)
-        elif not is_night and any_light_on:
-            # 낮인데 조명 켜져있으면 → 끄기
+        elif not should_on and any_light_on:
+            # 소등 시간인데 조명 켜져있으면 → 끄기
             for obj_id in light_objects:
                 if morld.get_unit_prop(obj_id, "light:on") == 1:
                     obj = get_instance(obj_id)
@@ -1411,13 +1429,8 @@ class BaseAgent:
         """도구 분실 플래그 해제"""
         morld.clear_prop(self.unit_id, f"도구분실:{capability}")
 
-    def _find_lit_indoor_room(self, region_id):
-        """조명이 켜진 거처 실내 방 찾기 (소등용)
-        거처 = 소유 침대와 같은 건물(실내 연결) 내의 방
-        """
-        from assets.objects import _location_objects
-
-        # 소유 침대 위치로 건물 판정
+    def _get_home_building_info(self, region_id):
+        """소유 침대 위치 기반 건물 정보 조회 (조명 탐색 공용)"""
         sleep_r = region_id
         sleep_l = None
         owner = getattr(self, 'owner_unique_id', None)
@@ -1427,11 +1440,22 @@ class BaseAgent:
             if beds:
                 sleep_r = beds[0]["region_id"]
                 sleep_l = beds[0]["location_id"]
+        return sleep_r, sleep_l
+
+    def _find_lit_indoor_room(self, region_id):
+        """조명이 켜진 거처 실내 방 찾기 (소등용)
+
+        거처 = 소유 침대와 같은 건물(실내 연결) 내의 방.
+        열원(heat:output)은 소등 대상에서 제외.
+        다른 유닛이 있는 방은 소등 대상 제외.
+        """
+        from assets.objects import _location_objects
+
+        sleep_r, sleep_l = self._get_home_building_info(region_id)
 
         for (r, l), obj_ids in _location_objects.items():
             if r != region_id:
                 continue
-            # 거처 필터: 소유 침대와 같은 건물인 실내만 대상
             if sleep_l is not None and not morld.is_same_building(r, l, sleep_r, sleep_l):
                 continue
             loc_info = morld.get_location_info(r, l)
@@ -1444,6 +1468,39 @@ class BaseAgent:
             light_ids = []
             for obj_id in obj_ids:
                 if morld.get_unit_prop(obj_id, "light:on") == 1:
+                    if morld.get_unit_prop(obj_id, "heat:output"):
+                        continue  # 열원은 소등 대상 아님
+                    light_ids.append(obj_id)
+            if light_ids:
+                return {"region_id": r, "location_id": l, "x": 0, "light_ids": light_ids}
+        return None
+
+    def _find_unlit_indoor_room(self, region_id):
+        """조명이 꺼진 거처 실내 방 찾기 (점등용)
+
+        거처 = 소유 침대와 같은 건물(실내 연결) 내의 방.
+        열원(heat:output)은 점등 대상에서 제외.
+        다른 유닛이 있는 방도 점등 대상에 포함 (점등은 사람 있어도 해야 함).
+        """
+        from assets.objects import _location_objects
+
+        sleep_r, sleep_l = self._get_home_building_info(region_id)
+
+        for (r, l), obj_ids in _location_objects.items():
+            if r != region_id:
+                continue
+            if sleep_l is not None and not morld.is_same_building(r, l, sleep_r, sleep_l):
+                continue
+            loc_info = morld.get_location_info(r, l)
+            if not loc_info or not loc_info.get("is_indoor", False):
+                continue
+            # 점등은 점유 체크 안 함 (사람 있는 방도 켜야 함)
+            light_ids = []
+            for obj_id in obj_ids:
+                if morld.get_unit_prop(obj_id, "heat:output"):
+                    continue  # 열원은 점등 대상 아님
+                light_on = morld.get_unit_prop(obj_id, "light:on")
+                if light_on is not None and light_on != 1:
                     light_ids.append(obj_id)
             if light_ids:
                 return {"region_id": r, "location_id": l, "x": 0, "light_ids": light_ids}

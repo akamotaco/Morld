@@ -328,12 +328,15 @@ class BaseAgent:
 # 활동 핸들러 레지스트리 (module-level)
 _ACTIVITY_HANDLERS = {
     "소등": _handle_lights_off,
+    "점등": _handle_lights_on,
     "벌목": _handle_chop,
     "낚시": _handle_fish,
     "채집": _handle_gather_store,
     "요리": _handle_cook,
     "청소": _handle_clean,
     "물자수집": _handle_scavenge,
+    "정원": _handle_garden,
+    "연료수집": _handle_fuel,
 }
 ```
 

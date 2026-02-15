@@ -6,7 +6,7 @@
 새 NPC에 활동 추가 시, 스케줄에 activity 이름만 지정하면
 ACTIVITY_HANDLERS를 통해 자동으로 핸들러가 호출됩니다.
 """
-from .lights import handle_lights_off
+from .lights import handle_lights_off, handle_lights_on
 from .chop import handle_chop
 from .fish import handle_fish
 from .gather import handle_gather_store
@@ -18,6 +18,7 @@ from .fuel import handle_fuel
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
+    "점등": handle_lights_on,
     "벌목": handle_chop,
     "낚시": handle_fish,
     "채집": handle_gather_store,

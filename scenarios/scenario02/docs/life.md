@@ -12,7 +12,7 @@
 > - 동적 스케줄 → 조건 기반 활동 선택 (`dynamic: True`, `candidates`)
 > - 자원 순환 → 채집→저장→요리→식사 파이프라인
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
-> - 텃밭 활동 → 정원 4-phase (idle/going/working/storing_harvest)
+> - 텃밭 활동 → 정원 7-phase (idle/getting_tool/going_to_garden/working/working_wait/storing_harvest/returning_tool)
 > - 시설 탐색 리졸버 → `facility_resolver.py` (목욕/화장실 선착순 + 옷장 소유권 탐색) (v0.2.2)
 > - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적 (v0.2.2)
 > - **배변 인터럽트** → `resolve_toilet()` 동적 탐색 + 화장실 이동 (v0.2.2)

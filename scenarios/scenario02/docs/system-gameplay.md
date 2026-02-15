@@ -810,17 +810,22 @@ if 비 오는 중:
 
 ### NPC 정원 활동
 
-`handle_garden()` — 4-phase 핸들러:
+`handle_garden()` — 7-phase 핸들러 (도구 기반 물주기 + 시간 기반 대기):
 
 ```
-idle → going_to_garden → working ↔ storing_harvest → going_to_garden
+idle → (getting_tool) → going_to_garden → working → working_wait
+     → (storing_harvest → going_to_garden) → returning_tool → idle
 ```
 
-- **working 우선순위**: 수확 → 물주기 → 씨 심기
+- **working 우선순위**: 수확 → 물주기(도구 필요) → 씨 심기
+- **도구 탐색**: `_find_tool_by_capability("can:water")` — 인벤토리 우선, 없으면 보관함 탐색
+- **시간 기반 대기**: `_start_wait()` — `wait_until = get_time() + duration_ms` 절대 타임스탬프 사용, 매 step `remaining = wait_until - now`로 자연 감소
 - **수확 후**: `resolve_storage_container(agent, "food_ingredient")` 동적 탐색하여 보관
 - **씨 심기**: NPC 인벤토리에 씨앗이 있을 때만 (수확 시 seed_chance로 획득)
+- **인터럽트 복귀**: working phase에서 위치 확인 → 텃밭에 없으면 going_to_garden으로 재이동
 - 밀라 봄 스케줄: `{"activity": "정원", ...}` (13:00~15:00, 앞마당)
 - 유키 스케줄: `{"activity": "정원", ...}` (13:00~15:00, 은신처 텃밭)
+- **은신처 도구함**: Toolbox(x=125)에 간이 물병 보관 — 유키 정원 활동 지원
 
 ### Python API
 

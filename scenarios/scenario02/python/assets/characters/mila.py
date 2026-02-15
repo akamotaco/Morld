@@ -1379,7 +1379,8 @@ class MilaAgent(BaseAgent):
     SCHEDULES = {
         "봄": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 345 * _M, "activity": "준비"},
+            {"name": "아침 소등", "start": 345 * _M, "end": 360 * _M, "activity": "소등"},
             {"name": "아침준비", "start": 360 * _M, "end": 420 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
@@ -1398,11 +1399,12 @@ class MilaAgent(BaseAgent):
             ]},
             {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
             {"name": "정원가꾸기", "region_id": 0, "location_id": 13, "x": 300, "start": 780 * _M, "end": 900 * _M, "activity": "정원"},  # 봄: 정원 가꾸기
-            {"name": "저녁준비", "start": 1020 * _M, "end": 1110 * _M, "dynamic": True, "candidates": [
+            {"name": "저녁준비", "start": 1020 * _M, "end": 1080 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},
             ]},
+            {"name": "저택 점등", "start": 1080 * _M, "end": 1110 * _M, "activity": "점등"},
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
             {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
             {"name": "저택 소등", "start": 1290 * _M, "end": 1320 * _M, "activity": "소등"},
@@ -1410,7 +1412,8 @@ class MilaAgent(BaseAgent):
         ],
         "여름": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 240 * _M, "end": 270 * _M, "activity": "목욕"},
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 270 * _M, "end": 300 * _M, "activity": "준비"},  # 여름: 일찍 기상
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 270 * _M, "end": 285 * _M, "activity": "준비"},  # 여름: 일찍 기상
+            {"name": "아침 소등", "start": 285 * _M, "end": 300 * _M, "activity": "소등"},
             {"name": "아침준비", "start": 300 * _M, "end": 360 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
@@ -1429,11 +1432,12 @@ class MilaAgent(BaseAgent):
             ]},
             {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
             {"name": "낮잠", "region_id": 0, "location_id": 9, "x": 120, "start": 780 * _M, "end": 900 * _M, "activity": "휴식"},  # 여름: 더위 피해 낮잠
-            {"name": "저녁준비", "start": 1020 * _M, "end": 1110 * _M, "dynamic": True, "candidates": [
+            {"name": "저녁준비", "start": 1020 * _M, "end": 1080 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},
             ]},
+            {"name": "저택 점등", "start": 1080 * _M, "end": 1110 * _M, "activity": "점등"},
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
             {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
             {"name": "저택 소등", "start": 1350 * _M, "end": 1380 * _M, "activity": "소등"},
@@ -1441,7 +1445,8 @@ class MilaAgent(BaseAgent):
         ],
         "가을": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 360 * _M, "activity": "준비"},
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 345 * _M, "activity": "준비"},
+            {"name": "아침 소등", "start": 345 * _M, "end": 360 * _M, "activity": "소등"},
             {"name": "아침준비", "start": 360 * _M, "end": 420 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
@@ -1464,11 +1469,12 @@ class MilaAgent(BaseAgent):
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},
             ]},
-            {"name": "저녁준비", "start": 1020 * _M, "end": 1110 * _M, "dynamic": True, "candidates": [
+            {"name": "저녁준비", "start": 1020 * _M, "end": 1080 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},
             ]},
+            {"name": "저택 점등", "start": 1080 * _M, "end": 1110 * _M, "activity": "점등"},
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
             {"name": "정리", "region_id": 0, "location_id": 2, "x": 90, "start": 1170 * _M, "end": 1260 * _M, "activity": "정리"},
             {"name": "저택 소등", "start": 1290 * _M, "end": 1320 * _M, "activity": "소등"},
@@ -1476,7 +1482,8 @@ class MilaAgent(BaseAgent):
         ],
         "겨울": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 360 * _M, "end": 390 * _M, "activity": "목욕"},
-            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 390 * _M, "end": 420 * _M, "activity": "준비"},  # 겨울: 늦게 기상
+            {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 390 * _M, "end": 405 * _M, "activity": "준비"},  # 겨울: 늦게 기상
+            {"name": "아침 소등", "start": 405 * _M, "end": 420 * _M, "activity": "소등"},
             {"name": "아침준비", "start": 420 * _M, "end": 480 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
@@ -1495,6 +1502,7 @@ class MilaAgent(BaseAgent):
             ]},
             {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 780 * _M, "end": 840 * _M, "activity": "식사"},
             {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 840 * _M, "end": 960 * _M, "activity": "휴식"},  # 겨울: 실내 휴식 (소파)
+            {"name": "저택 점등", "start": 1000 * _M, "end": 1020 * _M, "activity": "점등"},  # 겨울: 일찍 점등
             {"name": "저녁준비", "start": 1020 * _M, "end": 1110 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
