@@ -402,4 +402,4 @@ def render_romance_ui(state):
 
     lines.append("[url=@proc:exit]그만두기[/url]")
 
-    return "\n".join(lines)
+    return "[!]" + "\n".join(lines) + "[/!]"

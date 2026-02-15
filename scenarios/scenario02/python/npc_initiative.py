@@ -1529,7 +1529,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             "partner_id": player_id,
             "region_id": loc[0] if loc else None,
             "location_id": loc[1] if loc else None,
-            "timestamp": morld.get_time(),
+            "timestamp": morld.get_game_time(),
             "mode": "consensual",
         }
         npc_agent.pop_schedule()

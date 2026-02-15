@@ -1314,7 +1314,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             "partner_id": player_id,
             "region_id": loc[0] if loc else None,
             "location_id": loc[1] if loc else None,
-            "timestamp": morld.get_time(),
+            "timestamp": morld.get_game_time(),
             "mode": cur_mode,
         }
 
