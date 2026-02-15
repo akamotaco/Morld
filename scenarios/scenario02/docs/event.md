@@ -11,7 +11,7 @@
 **핵심 설계:**
 - **이벤트 배치 처리**: 이벤트를 수집해서 한 번에 Python으로 전달
 - **위치 변경 감지**: OnReach 이벤트 자동 생성
-- **만남 감지**: OnMeet 이벤트 자동 생성 (Gate 이동 중인 유닛 제외)
+- **만남 감지**: OnMeet 이벤트 자동 생성 (같은 Location이면 이동 상태 무관)
 - **장비 변경 감지**: OnEquipChange 이벤트로 NPC 반응
 - **Python 제어**: 이벤트 처리 순서/우선순위를 Python에서 결정
 
@@ -67,24 +67,20 @@ class ArriveAtFrontYard(ReachEvent):
 
 **OnMeet 감지 로직 (Pi-World):**
 ```csharp
-// 같은 Location에 있는 유닛 (Gate 이동 중인 유닛은 제외)
+// 같은 Location에 있으면 이동 상태와 무관하게 만남 대상
 foreach (var unit in _unitSystem.Units.Values)
 {
     if (unit.Id == playerId) continue;
     if (!unit.GeneratesEvents) continue;
     if (unit.CurrentLocation != playerLocation) continue;
 
-    // Gate를 통해 다른 Location으로 이동 중인 NPC는 제외
-    // Location 내 이동(책장으로 걸어가기 등)은 만남 대상에 포함
-    if (unit.CurrentMovement != null && unit.CurrentMovement.IsGateMovement)
-        continue;
-
     unitsToMeet.Add(unit.Id);
 }
 ```
 
-**참고:** Location 내 이동(`IsGateMovement == false`)은 만남 대상에 포함됩니다.
-Gate를 통해 다른 Location으로 이동 중인 NPC만 제외되며, `_lastMeetings` 중복 방지 시스템이 반복 트리거를 방지합니다.
+**참고:** 같은 Location에 있으면 이동 상태(정지/Location 내 이동/Gate 이동 중)와 무관하게 만남 대상입니다.
+Gate를 향해 걷고 있어도 아직 Location을 떠나지 않은 상태이므로 만남이 가능합니다.
+`_lastMeetings` 중복 방지 시스템이 반복 트리거를 방지합니다.
 
 **캐릭터 핸들러:**
 ```python

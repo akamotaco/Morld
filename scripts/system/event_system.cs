@@ -334,9 +334,8 @@ namespace SE
 		/// <summary>
 		/// 같은 Location에 있는 유닛들의 OnMeet 이벤트 생성
 		///
-		/// 만남 조건: 같은 Location에 있으면 트리거 (Pi-World/Legacy 공통)
-		/// - 정지 상태 (CurrentMovement == null)
-		/// - 또는 방금 도착 (이전 위치 != 현재 위치, 경유지 통과)
+		/// 만남 조건: 같은 Location에 있으면 이동 상태와 무관하게 트리거
+		/// (Gate를 향해 이동 중이어도 아직 Location을 떠나지 않았으므로 만남 가능)
 		///
 		/// 시간 정지 상태에서는 스킵 (NPC와 상호작용 불가)
 		/// </summary>
@@ -365,11 +364,8 @@ namespace SE
 				if (!unit.GeneratesEvents) continue;
 				if (unit.CurrentLocation != playerLocation) continue;
 
-				// Gate를 통해 다른 Location으로 이동 중인 NPC는 제외
-				// Location 내 이동(책장으로 걸어가기 등)은 만남 대상에 포함
-				if (unit.CurrentMovement != null && unit.CurrentMovement.IsGateMovement)
-					continue;
-
+				// 같은 Location에 있으면 이동 상태와 무관하게 만남 대상
+				// (Gate를 향해 걷고 있어도 아직 떠나지 않은 상태이므로 만남 가능)
 				unitsToMeet.Add(unit.Id);
 			}
 
