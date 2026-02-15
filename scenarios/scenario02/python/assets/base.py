@@ -1621,7 +1621,9 @@ class Character(Unit):
 
         # 판정
         if random.random() < chance:
-            # 성공 → 강제 세션 시작
+            # 성공 → 반발 증가 + 강제 세션 시작
+            reb_key = get_rebellion_key(player_id)
+            morld.modify_prop(partner_id, reb_key, 5)
             yield from start_romance(player_id, partner_id, mode=MODE_FORCED)
         else:
             # 실패 → 페널티 (호감 -10, 반발 +15)

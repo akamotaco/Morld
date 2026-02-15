@@ -676,6 +676,37 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             current_pos = state.get("position", "missionary")
             if not position.can_transition(current_pos, target_pos):
                 return render_romance_ui(state)
+
+            # 강제 모드: 체위 변경 실패 가능성
+            mode_ctx = state["mode_ctx"]
+            if mode_ctx["mode"] == MODE_FORCED:
+                import random
+                pid = state["partner_id"]
+                p_props = morld.get_unit_props(pid) or {}
+                p_strength = p_props.get("근력", 5)
+                reb_key = get_rebellion_key(state["player_id"])
+                p_rebellion = p_props.get(reb_key, 0)
+                fail_chance = min(0.5, 0.10 + p_strength * 0.02 + p_rebellion * 0.003)
+                if random.random() < fail_chance:
+                    # 실패: 저항 게이지 누적
+                    delta = max(3, int(p_strength * 1.5))
+                    mode_ctx["resistance_meter"] += delta
+                    if mode_ctx["resistance_meter"] >= 100:
+                        state["escaped"] = True
+                        return True
+                    state["last_reaction"] = f"체위를 변경하려 했으나 저항에 막혔다. [저항 +{delta}]"
+                    result = advance_time_and_check(state, 2 * MILLIS_PER_MINUTE)
+                    if result["interrupted"]:
+                        state["interrupted"] = True
+                        state["interrupter_id"] = result["interrupter_id"]
+                        return True
+                    if _post_action_mode_check():
+                        return True
+                    return render_romance_ui(state)
+                else:
+                    # 성공: 저항 게이지 초기화
+                    mode_ctx["resistance_meter"] = 0
+
             state["position"] = target_pos
             pos_name = position.get_name(target_pos)
             state["last_reaction"] = f"체위를 {pos_name}(으)로 변경했다."
