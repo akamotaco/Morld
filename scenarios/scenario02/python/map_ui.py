@@ -259,7 +259,7 @@ def _render_map(state: dict) -> str:
 
         # 다른 region으로 가는 연결 표시
         for region_gate in loc_info.get("region_gates", []):
-            to_region, to_local, region_name = region_gate
+            to_region, to_local, region_name, *_ = region_gate
             child_indent = "  " * (depth + 1)
             tree_lines.append(
                 f"{child_indent}[color=cyan]-> {region_name}[/color]"

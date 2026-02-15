@@ -285,7 +285,7 @@ namespace SE
             });
 
             // get_region_info: Region 정보 조회 (지도 기능용)
-            // 반환: {"id", "name", "locations": [{"id", "name", "gates": [...], "region_gates": [(to_region, to_local, region_name), ...]}], ...}
+            // 반환: {"id", "name", "locations": [{"id", "name", "gates": [...], "region_gates": [(to_region, to_local, region_name, distance), ...]}], ...}
             morldModule.ModuleDict["get_region_info"] = new PyBuiltinFunction("get_region_info", args =>
             {
                 if (args.Length < 1)
