@@ -1563,13 +1563,13 @@ class Character(Unit):
         import survival
         player_stats = survival.get_survival_stats(player_id)
         if player_stats["health"] < ROMANCE_MIN_HEALTH:
-            yield ui.dialog("몸에 힘이 없어 행위할 상태가 아니다.")
+            yield ui.dialog("[!]몸에 힘이 없어 행위할 상태가 아니다.[/!]")
             return
 
         # 1:1 상황 체크
         can_force, reason = can_start_forced(player_id, partner_id)
         if not can_force:
-            yield ui.dialog(f"[color=red]{reason}[/color]")
+            yield ui.dialog(f"[!][color=red]{reason}[/color][/!]")
             return
 
         # 성공 확률 표시 + 확인
@@ -1578,9 +1578,9 @@ class Character(Unit):
         stealth = morld.get_unit_prop(player_id, "status:stealth")
         stealth_hint = " [color=cyan](은신 기습 +20%)[/color]" if stealth == 1 else ""
         choice = yield ui.dialog(
-            f"제압 성공률: {chance_pct}%{stealth_hint}\n\n"
+            f"[!]제압 성공률: {chance_pct}%{stealth_hint}\n\n"
             f"[url=@ret:confirm]시도한다[/url]\n"
-            f"[url=@ret:cancel]그만둔다[/url]",
+            f"[url=@ret:cancel]그만둔다[/url][/!]",
             autofill="off"
         )
         if choice != "confirm":
@@ -1597,9 +1597,9 @@ class Character(Unit):
             morld.modify_prop(partner_id, aff_key, -10)
             morld.modify_prop(partner_id, reb_key, 15)
             yield ui.dialog(
-                f"[color=red]제압에 실패했다![/color]\n"
+                f"[!][color=red]제압에 실패했다![/color]\n"
                 f"({self.name}(이)가 필사적으로 저항하여 벗어났다.)\n"
-                f"[color=gray]호감 -10, 반발 +15[/color]"
+                f"[color=gray]호감 -10, 반발 +15[/color][/!]"
             )
 
     def casual_affection(self, action_type):

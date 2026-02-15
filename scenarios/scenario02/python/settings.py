@@ -27,6 +27,12 @@ def set_romance_enabled(enabled: bool):
     """연애 모드 설정"""
     global _romance_enabled
     _romance_enabled = enabled
+    # 플레이어 can: prop 연동 (스킨십/강제 행위 표시 제어)
+    player_id = _get_player_id()
+    if player_id >= 0:
+        value = 1 if enabled else 0
+        morld.set_unit_prop(player_id, "can:romance", value)
+        morld.set_unit_prop(player_id, "can:force_romance", value)
 
 
 # ============================================

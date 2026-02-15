@@ -130,8 +130,8 @@ class Player(Character):
 
         # 연애
         "can:give_gift": 1,
-        "can:romance": 1,
-        "can:force_romance": 1,
+        "can:romance": 0,       # 연애 모드 ON 시 settings에서 1로 변경
+        "can:force_romance": 0, # 연애 모드 ON 시 settings에서 1로 변경
         "can:date": 1,
         "can:end_date": 0,    # 데이트 시작 시 1로 변경
         "can:hold_hands": 0,  # 동적 관리 (date.py에서 조건에 따라 설정)

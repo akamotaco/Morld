@@ -290,6 +290,23 @@ namespace SE
 		private void ExecuteIdle(int millis)
 		{
 			int displayMin = millis / GameTime.MillisPerMinute;
+
+			// 액션 로그 추가
+			var actionLogSystem = _hub.GetSystem("actionLogSystem") as ActionLogSystem;
+			if (actionLogSystem != null)
+			{
+				int hours = displayMin / 60;
+				int minutes = displayMin % 60;
+				string timeText;
+				if (hours > 0)
+					timeText = minutes > 0 ? $"{hours}시간 {minutes}분" : $"{hours}시간";
+				else
+					timeText = $"{minutes}분";
+
+				string activity = hours >= 1 ? "낮잠을 잤다." : "멍하니 시간을 보냈다.";
+				actionLogSystem.AddLog($"{activity} {timeText}이 흘렀다.");
+			}
+
 			// 시간 진행 요청 (스택 변화 없음)
 			RequestTimeAdvance(millis, $"휴식 ({displayMin}분)");
 

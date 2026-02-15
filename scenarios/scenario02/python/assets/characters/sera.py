@@ -106,8 +106,8 @@ class Sera(Character):
         "call:date_hug:안아주기#",     # 조건 충족 시만 표시
         "call:date_kiss:키스#",        # 조건 충족 시만 표시
         "call:give_gift:선물하기",
-        "call:romance:스킨십",
-        "call:force_romance:강제 행위",
+        "call:romance:스킨십#",
+        "call:force_romance:강제 행위#",
         "call:debug_props:(디버그) 속성 보기#",
         "call:debug_affection_up:(디버그) 호감도 +10#",
         "call:debug_affection_down:(디버그) 호감도 -10#",

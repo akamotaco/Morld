@@ -100,8 +100,8 @@ class Lina(Character):
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:give_gift:선물하기",
-        "call:romance:스킨십",
-        "call:force_romance:강제 행위",
+        "call:romance:스킨십#",
+        "call:force_romance:강제 행위#",
         "call:debug_props:(디버그) 속성 보기#",
         "call:debug_affection_up:(디버그) 호감도 +10#",
         "call:debug_affection_down:(디버그) 호감도 -10#",
