@@ -296,12 +296,16 @@ class Hideout(Location):
         from assets.objects.furniture import PortableStove
         self.add_object(PortableStove(), x=130)
 
-        # 초기 아이템: 간이 물병 (이미 획득한 설정)
+        # 도구함 (정원 도구 보관)
+        from assets.locations.storage import Toolbox
+        toolbox_id = self.add_object(Toolbox(), x=125)
+
+        # 간이 물병 → 도구함에 보관
         from assets.items.garden_items import SimpleWaterBottle
         water_bottle = SimpleWaterBottle()
         water_bottle_id = morld.create_id("item")
         water_bottle.instantiate(water_bottle_id)
-        morld.give_item(food_storage_id, water_bottle_id, 1)
+        morld.give_item(toolbox_id, water_bottle_id, 1)
 
         # 간이 드럼통 욕조
         from assets.objects.furniture import DrumBath
