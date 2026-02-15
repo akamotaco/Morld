@@ -412,36 +412,43 @@ namespace SE
 				if (targetGate == null)
 				{
 					// Gate가 없으면 RegionGate (다른 Region 연결) 확인
+					// PathFinder(Dijkstra)로 올바른 다음 단계를 결정하여 정확한 RegionGate 선택
 					bool traversedRegionGate = false;
-					foreach (var rGate in terrain.GetRegionGatesFrom(unit.CurrentLocation))
+					var rgPathResult = terrain.FindPath(unit.CurrentLocation, goalLocation, actualProps);
+
+					if (rgPathResult.Found && rgPathResult.Path.Count >= 2)
 					{
-						if (!rGate.CanTraverse(unit.CurrentLocation, actualProps))
-							continue;
+						var nextStep = new LocationRef(rgPathResult.Path[1]);
 
-						var dest = rGate.GetOtherLocation(unit.CurrentLocation);
-
-						// 목적지이거나 목적지로 가는 경로가 있는 RegionGate
-						if (dest == goalLocation || terrain.FindPath(dest, goalLocation, actualProps).Found)
+						foreach (var rGate in terrain.GetRegionGatesFrom(unit.CurrentLocation))
 						{
-							int rgTravelTime = Morld.Location.DistanceToTime(rGate.Distance);
-							remainingTime -= rgTravelTime;
+							if (!rGate.CanTraverse(unit.CurrentLocation, actualProps))
+								continue;
 
-							unit.SetCurrentLocation(dest);
-							unit.PositionX = 0f;
-							unit.PositionY = 0f;
+							var dest = rGate.GetOtherLocation(unit.CurrentLocation);
 
-							// StayDuration 처리
-							var arrivedLoc = terrain.GetLocation(unit.CurrentLocation);
-							if (arrivedLoc != null && arrivedLoc.StayDuration > 0 && unit.CurrentLocation != goalLocation)
+							if (dest == nextStep)
 							{
-								unit.RemainingStayTime = arrivedLoc.StayDuration;
-							}
+								int rgTravelTime = Morld.Location.DistanceToTime(rGate.Distance);
+								remainingTime -= rgTravelTime;
 
-							traversedRegionGate = true;
+								unit.SetCurrentLocation(dest);
+								unit.PositionX = 0f;
+								unit.PositionY = 0f;
+
+								// StayDuration 처리
+								var arrivedLoc = terrain.GetLocation(unit.CurrentLocation);
+								if (arrivedLoc != null && arrivedLoc.StayDuration > 0 && unit.CurrentLocation != goalLocation)
+								{
+									unit.RemainingStayTime = arrivedLoc.StayDuration;
+								}
+
+								traversedRegionGate = true;
 #if DEBUG_LOG
-							GD.Print($"[JobBehaviorSystem] {unit.Name} passed RegionGate: {unit.CurrentLocation} -> {dest} (distance={rGate.Distance})");
+								GD.Print($"[JobBehaviorSystem] {unit.Name} passed RegionGate: {unit.CurrentLocation} -> {dest} (distance={rGate.Distance})");
 #endif
-							break;
+								break;
+							}
 						}
 					}
 
