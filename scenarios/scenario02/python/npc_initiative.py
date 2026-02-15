@@ -206,7 +206,7 @@ def check_third_party_arrival(state):
     if not player_loc:
         return {"interrupted": False}
 
-    units_at_loc = morld.get_units_at_location(player_loc[0], player_loc[1])
+    units_at_loc = morld.get_characters_at_location(player_loc[0], player_loc[1])
 
     # 새로 도착한 NPC 중 호감도 체크
     for unit_id in units_at_loc:

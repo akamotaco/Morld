@@ -11,13 +11,8 @@ def handle_chop(agent, entry):
         tool = agent._find_tool_by_capability("can:chop")
         if not tool:
             agent._set_tool_missing_flag("can:chop")
-            if agent._skip_dynamic_activity(entry):
-                return  # 루프가 즉시 다음 candidate 시도
-            else:
-                remaining = agent._remaining_millis_in_entry(entry)
-                agent._insert_idle_job("벌목", max(remaining, 1))
-                agent._action_taken = True
-                return
+            agent._skip_dynamic_activity(entry)  # dynamic이면 다음 candidate
+            return  # non-dynamic이면 "할 일 없음" 폴백
 
         agent._clear_tool_missing_flag("can:chop")
         agent._activity_state["tool"] = tool
@@ -32,10 +27,8 @@ def handle_chop(agent, entry):
                 # 나무 없음 + 도구 소지 → 반납
                 agent._activity_phase = "returning_tool"
             else:
-                # 나무 없음 + 도구 미소지 → 대기
-                remaining = agent._remaining_millis_in_entry(entry)
-                agent._insert_idle_job("벌목", max(remaining, 1))
-                agent._action_taken = True
+                # 나무 없음 + 도구 미소지 → "할 일 없음" 폴백
+                return
             return
         agent._activity_state["chop_target"] = target
 

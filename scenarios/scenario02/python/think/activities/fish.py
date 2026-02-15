@@ -18,13 +18,8 @@ def handle_fish(agent, entry):
         tool = agent._find_tool_by_capability("can:fish")
         if not tool:
             agent._set_tool_missing_flag("can:fish")
-            if agent._skip_dynamic_activity(entry):
-                return  # 루프가 즉시 다음 candidate 시도
-            else:
-                remaining = agent._remaining_millis_in_entry(entry)
-                agent._insert_idle_job("낚시", max(remaining, 1))
-                agent._action_taken = True
-                return
+            agent._skip_dynamic_activity(entry)  # dynamic이면 다음 candidate
+            return  # non-dynamic이면 "할 일 없음" 폴백
 
         agent._clear_tool_missing_flag("can:fish")
         agent._activity_state["tool"] = tool

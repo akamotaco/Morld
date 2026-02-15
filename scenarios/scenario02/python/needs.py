@@ -191,7 +191,7 @@ def _is_alone(unit_id):
     loc = morld.get_unit_location(unit_id)
     if not loc:
         return True
-    units = morld.get_units_at_location(loc[0], loc[1])
+    units = morld.get_characters_at_location(loc[0], loc[1])
     if not units:
         return True
     return len([u for u in units if u != unit_id]) == 0

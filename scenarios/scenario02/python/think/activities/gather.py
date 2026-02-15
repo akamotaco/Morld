@@ -14,9 +14,7 @@ def handle_gather_store(agent, entry):
             agent._activity_state["gather_target"] = target
             agent._activity_phase = "going_to_resource"
         else:
-            remaining = agent._remaining_millis_in_entry(entry)
-            agent._insert_idle_job("채집", max(remaining, 1))
-            agent._action_taken = True
+            return  # target 없음 → 디스패치 루프가 "할 일 없음" 폴백
 
     elif phase == "going_to_resource":
         target = agent._activity_state.get("gather_target")

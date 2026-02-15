@@ -24,10 +24,7 @@ def handle_fuel(agent, entry):
         # 2. 나뭇가지 있는 나무 찾기
         tree_target = _resolve_branch_tree(agent)
         if not tree_target:
-            remaining = agent._remaining_millis_in_entry(entry)
-            agent._insert_idle_job("연료수집", max(remaining, 1))
-            agent._action_taken = True
-            return
+            return  # 나무 없음 → 디스패치 루프가 "할 일 없음" 폴백
 
         agent._activity_state["fuel_target"] = target_source
         agent._activity_state["tree_target"] = tree_target

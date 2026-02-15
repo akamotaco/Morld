@@ -916,6 +916,12 @@ class BaseAgent:
             if not original_entry.get("dynamic"):
                 break
 
+        # 핸들러가 action을 생성하지 못한 경우 → "할 일 없음" 대기
+        if not self._action_taken:
+            remaining = self._remaining_millis_in_entry(entry)
+            self._insert_idle_job("할 일 없음", max(remaining, 1))
+            self._action_taken = True
+
         return self._action_taken
 
     def think(self):
@@ -1426,7 +1432,7 @@ class BaseAgent:
             if not loc_info or not loc_info.get("is_indoor", False):
                 continue
             # 점유 체크: 다른 유닛이 있으면 소등 대상 제외
-            units_here = morld.get_units_at_location(r, l)
+            units_here = morld.get_characters_at_location(r, l)
             if units_here and any(u != self.unit_id for u in units_here):
                 continue
             light_ids = []
@@ -2195,7 +2201,7 @@ def _resolve_private_location(agent):
         if pol > 10:
             return False
         # 비어있는지 (본인 제외)
-        units = morld.get_units_at_location(r, l)
+        units = morld.get_characters_at_location(r, l)
         if units and any(u != agent.unit_id for u in units):
             return False
         return True
@@ -2287,7 +2293,7 @@ def _handle_self_comfort(agent):
         alone = True
         discovered_by = None
         if loc:
-            units = morld.get_units_at_location(loc[0], loc[1])
+            units = morld.get_characters_at_location(loc[0], loc[1])
             if units:
                 for u in units:
                     if u != agent.unit_id:

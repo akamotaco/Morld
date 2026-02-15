@@ -864,7 +864,7 @@ class Bed(Object):
 
     def _find_owner_unit(self, region_id, location_id, owner_unique):
         """방 주인 캐릭터가 같은 Location에 있으면 unit_id 반환"""
-        unit_ids = morld.get_units_at_location(region_id, location_id)
+        unit_ids = morld.get_characters_at_location(region_id, location_id)
         for uid in unit_ids:
             info = morld.get_unit_info(uid)
             if info and info.get("unique_id") == owner_unique:

@@ -224,7 +224,7 @@ def can_start_forced(actor_id, target_id):
 
     # 같은 location의 다른 의식있는 유닛 확인
     import survival
-    units = morld.get_units_at_location(actor_loc[0], actor_loc[1])
+    units = morld.get_characters_at_location(actor_loc[0], actor_loc[1])
     for uid in units:
         if uid == actor_id or uid == target_id:
             continue

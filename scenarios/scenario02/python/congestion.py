@@ -104,7 +104,7 @@ def _sync_population():
     for key in _population:
         region_id, location_id = key
         try:
-            units = morld.get_units_at_location(region_id, location_id)
+            units = morld.get_characters_at_location(region_id, location_id)
             _population[key] = len(units) if units else 0
         except Exception:
             _population[key] = 0
@@ -170,7 +170,7 @@ def _apply_congestion(key):
     region_id, location_id = key
     congestion = get_congestion(region_id, location_id)
 
-    units = morld.get_units_at_location(region_id, location_id)
+    units = morld.get_characters_at_location(region_id, location_id)
     if not units:
         return
 

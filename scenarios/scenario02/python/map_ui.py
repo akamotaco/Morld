@@ -145,7 +145,7 @@ def _render_map(state: dict) -> str:
     location_characters = {}
     for loc in region_info["locations"]:
         loc_id = loc["id"]
-        unit_ids = morld.get_units_at_location(region_id, loc_id)
+        unit_ids = morld.get_characters_at_location(region_id, loc_id)
         characters = []
         for unit_id in unit_ids:
             if unit_id == player_id:

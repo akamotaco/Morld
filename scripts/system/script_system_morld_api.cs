@@ -557,12 +557,12 @@ namespace SE
                 return result;
             });
 
-            // get_units_at_location(region_id, location_id) - Location에 있는 유닛 ID 목록 반환
+            // get_characters_at_location(region_id, location_id) - Location에 있는 캐릭터 ID 목록 반환
             // 캐릭터만 반환 (IsObject=false), 이동 중인 유닛 제외
-            morldModule.ModuleDict["get_units_at_location"] = new PyBuiltinFunction("get_units_at_location", args =>
+            morldModule.ModuleDict["get_characters_at_location"] = new PyBuiltinFunction("get_characters_at_location", args =>
             {
                 if (args.Length < 2)
-                    throw PyTypeError.Create("get_units_at_location(region_id, location_id) requires 2 arguments");
+                    throw PyTypeError.Create("get_characters_at_location(region_id, location_id) requires 2 arguments");
 
                 int regionId = args[0].ToInt();
                 int locationId = args[1].ToInt();
@@ -581,6 +581,41 @@ namespace SE
                         continue;
 
                     // 현재 위치가 일치하는지 확인
+                    if (unit.CurrentLocation.RegionId == regionId &&
+                        unit.CurrentLocation.LocalId == locationId)
+                    {
+                        result.Append(new PyInt(unit.Id));
+                    }
+                }
+                return result;
+            });
+
+            // get_units_at_location(region_id, location_id, type=None) - Location에 있는 유닛 ID 목록 반환
+            // type: "character" = 캐릭터만, "object" = 오브젝트만, 생략 = 전체
+            // 이동 중인 유닛 제외
+            morldModule.ModuleDict["get_units_at_location"] = new PyBuiltinFunction("get_units_at_location", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("get_units_at_location(region_id, location_id, type=None) requires at least 2 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+                string typeFilter = args.Length > 2 && args[2] != PyNone.Instance ? args[2].ToString() : null;
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+
+                var result = new PyList();
+                foreach (var unit in _unitSystem.Units.Values)
+                {
+                    if (typeFilter == "character" && unit.IsObject)
+                        continue;
+                    if (typeFilter == "object" && !unit.IsObject)
+                        continue;
+
+                    // 이동 중인 유닛 제외
+                    if (unit.IsMoving)
+                        continue;
+
                     if (unit.CurrentLocation.RegionId == regionId &&
                         unit.CurrentLocation.LocalId == locationId)
                     {

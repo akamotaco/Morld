@@ -331,7 +331,7 @@ def emit_sound(source_id, sound_type, intensity=None, location=None):
 
         region_id, location_id = loc_key
         try:
-            units = morld.get_units_at_location(region_id, location_id)
+            units = morld.get_characters_at_location(region_id, location_id)
         except Exception:
             continue
         if not units:

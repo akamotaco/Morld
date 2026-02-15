@@ -2027,7 +2027,7 @@ class Character(Unit):
         # 단둘이 체크 (플레이어와 NPC 둘만 있어야 함)
         npc_loc = morld.get_unit_location(self.instance_id)
         if npc_loc:
-            units_at_loc = morld.get_units_at_location(npc_loc[0], npc_loc[1])
+            units_at_loc = morld.get_characters_at_location(npc_loc[0], npc_loc[1])
             if units_at_loc:
                 # 플레이어와 자신 외에 다른 캐릭터가 있으면 시작 안 함
                 other_chars = [u for u in units_at_loc if u != player_id and u != self.instance_id]

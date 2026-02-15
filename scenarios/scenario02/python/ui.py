@@ -557,9 +557,9 @@ def check_stealth_entry() -> bool:
         return False
 
     # 같은 Location에 NPC가 있는지 확인
-    # get_units_at_location은 캐릭터만 반환 (IsObject=false), 이동 중인 유닛 제외
+    # get_characters_at_location은 캐릭터만 반환 (IsObject=false), 이동 중인 유닛 제외
     region_id, local_id = player_loc
-    npcs = morld.get_units_at_location(region_id, local_id)
+    npcs = morld.get_characters_at_location(region_id, local_id)
     if npcs is None:
         npcs = []
     # 플레이어 제외

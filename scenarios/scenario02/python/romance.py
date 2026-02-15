@@ -109,7 +109,7 @@ def can_start_romance(player_id, target_id):
         return False, "같은 장소에 있어야 합니다"
 
     # 3. 호감도 낮은 제3자 확인
-    units_at_loc = morld.get_units_at_location(player_loc[0], player_loc[1])
+    units_at_loc = morld.get_characters_at_location(player_loc[0], player_loc[1])
     for unit_id in units_at_loc:
         if unit_id == player_id or unit_id == target_id:
             continue
@@ -145,7 +145,7 @@ def advance_time_and_check(state, millis):
     # 2. 현재 Location의 NPC 목록 확인
     player_id = morld.get_player_id()
     player_loc = morld.get_unit_location(player_id)
-    units_at_loc = morld.get_units_at_location(player_loc[0], player_loc[1])
+    units_at_loc = morld.get_characters_at_location(player_loc[0], player_loc[1])
 
     # 3. 새로 도착한 NPC 중 호감도 체크
     for unit_id in units_at_loc:

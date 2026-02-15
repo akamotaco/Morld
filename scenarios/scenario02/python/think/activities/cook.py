@@ -17,10 +17,7 @@ def handle_cook(agent, entry):
         if not target:
             target = resolve_storage_container(agent, "food_ingredient")
             if not target:
-                remaining = agent._remaining_millis_in_entry(entry)
-                agent._insert_idle_job("요리", max(remaining, 1))
-                agent._action_taken = True
-                return
+                return  # 보관소 없음 → 디스패치 루프가 "할 일 없음" 폴백
             agent._activity_state["fridge_target"] = target
 
         if agent._is_at(target):
@@ -34,10 +31,8 @@ def handle_cook(agent, entry):
                     agent._activity_phase = "going_to_stove"
                     agent._action_taken = True
                     return
-            # 재료 없음 → 대기
-            remaining = agent._remaining_millis_in_entry(entry)
-            agent._insert_idle_job("요리", max(remaining, 1))
-            agent._action_taken = True
+            # 재료 없음 → 디스패치 루프가 "할 일 없음" 폴백
+            return
         else:
             agent._move_to(target, "냉장고 확인")
 

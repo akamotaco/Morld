@@ -120,9 +120,21 @@ class MockMorld:
         u = self._units.get(unit_id)
         return u["location"] if u else None
 
-    def get_units_at_location(self, region, location):
+    def get_characters_at_location(self, region, location):
         return [uid for uid, u in self._units.items()
-                if u["location"] == (region, location)]
+                if u["location"] == (region, location) and u.get("type") != "object"]
+
+    def get_units_at_location(self, region, location, type_filter=None):
+        result = []
+        for uid, u in self._units.items():
+            if u["location"] != (region, location):
+                continue
+            if type_filter == "character" and u.get("type") == "object":
+                continue
+            if type_filter == "object" and u.get("type") != "object":
+                continue
+            result.append(uid)
+        return result
 
     def get_player_id(self):
         return self._player_id

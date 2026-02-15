@@ -149,7 +149,7 @@ def _is_bath_available(obj_id, exclude_unit_id=None):
     if not obj_loc:
         return False
 
-    units = morld.get_units_at_location(obj_loc[0], obj_loc[1])
+    units = morld.get_characters_at_location(obj_loc[0], obj_loc[1])
     if not units:
         return True
 
@@ -186,7 +186,7 @@ def _is_toilet_available(obj_id, exclude_unit_id=None):
     if not obj_loc:
         return False
 
-    units = morld.get_units_at_location(obj_loc[0], obj_loc[1])
+    units = morld.get_characters_at_location(obj_loc[0], obj_loc[1])
     if not units:
         return True
 

@@ -211,7 +211,7 @@ def _on_time_elapsed(millis):
         rate = data["rate"]
 
         try:
-            unit_ids = morld.get_units_at_location(region_id, location_id)
+            unit_ids = morld.get_characters_at_location(region_id, location_id)
         except Exception:
             unit_ids = []
 
