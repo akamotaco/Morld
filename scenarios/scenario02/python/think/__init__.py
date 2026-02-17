@@ -968,34 +968,46 @@ class BaseAgent:
         stay job: _insert_idle_job() 사용, move job: duration=0 (C#이 자동 계산)
         """
         self._action_taken = False
+        _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
         schedule = self.get_current_schedule()
         if schedule:
             # Tier 1: 비자발적 (기절, 수면 중)
             if self._check_tier1_involuntary():
-                pass
+                _tier_reached = 1
             else:
                 # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
                 self._ensure_standing()
 
                 # Tier 2: 반응형 (미래 확장)
                 if self._check_tier2_reactive():
-                    pass
+                    _tier_reached = 2
                 # Tier 3: 생존
                 elif self._check_tier3_survival():
-                    pass
+                    _tier_reached = 3
                 # Tier 4: 쾌적
                 elif self._check_tier4_comfort():
-                    pass
+                    _tier_reached = 4
                 else:
                     # Tier 5: 일과
+                    _tier_reached = 5
                     self._check_tier5_routine()
 
         # safety net: 어떤 경로든 job 미삽입 시 idle job 보장
         if not self._action_taken:
             info = self.get_info()
             name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
-            print(f"[think] WARNING: {name} - 행동 미결정 (safety net)")
+            cause = "schedule=None" if not schedule else f"tier={_tier_reached}"
+            # 진행 중인 인터럽트 상태 수집
+            active_phases = []
+            for key in ("hunger_phase", "cold_phase", "hot_phase", "clothing_phase",
+                        "excretion_phase", "self_comfort_phase", "seek_player_phase",
+                        "socialize_phase", "gift_phase", "childbirth_phase", "maternal_phase"):
+                val = self._memory.get(key)
+                if val is not None:
+                    active_phases.append(f"{key}={val}")
+            phase_info = ", ".join(active_phases) if active_phases else "none"
+            print(f"[think] WARNING: {name} 행동 미결정 — {cause}, phases=[{phase_info}]")
             self._insert_idle_job("할 일 없음", self._get_action_duration("safety_net"))
 
         return None
@@ -1173,14 +1185,12 @@ class BaseAgent:
                     obj.npc_toggle_switch(self.unit_id, target_state=0)
 
     def _move_to(self, target, name="이동"):
-        """target으로 이동 job 삽입. 이동 중이면 스킵.
+        """target으로 이동 job 삽입.
 
         Duration은 C#이 거리/속도 기반으로 동적 계산 (ACTION_DURATION 대상 아님).
+        매 호출마다 새 move job을 삽입한다 (InsertJobWithClear가 기존 job 정리).
+        이전 step에서 이동 미완료 시에도 새 job으로 갱신되어 정상 동작.
         """
-        info = self.get_info()
-        if info.get("is_moving"):
-            self._action_taken = True
-            return
         target_x = target.get("x", 0)
         length = int(target.get("length", 0))
         if length > 0 and target_x == 0:
@@ -1207,45 +1217,31 @@ class BaseAgent:
     # 기본 활동 핸들러
     # ========================================
 
+    # 돌아다니기가 필요한 활동 (순찰/산책 = 한 곳에 머물지 않고 이동)
+    _WANDER_ACTIVITIES = frozenset({"순찰", "산책"})
+
     def _handle_default_activity(self, entry):
         """기본 활동 핸들러 (대부분의 활동)
 
-        resolve target → move → env check → execute → idle job
-        target=None (대기 등) 일 때는 home_region 내 산책.
+        resolve target → move → env check → execute → idle job.
+        순찰/산책: 돌아다니기 (target 도착 후에도 지역 내 이동 반복).
+        기타 활동 + target=None: 제자리 대기.
         """
         activity = entry.get("activity", "대기")
+        is_wander = activity in self._WANDER_ACTIVITIES
 
         # 1. 장소 결정
         target = self._resolve_target(entry)
-        if target is None:
-            # 장소 없음 → 산책 (home_region 내 랜덤 이동)
-            remaining = self._remaining_millis_in_entry(entry)
 
-            # 남은 시간 5분 미만 → 그냥 대기
-            if remaining < 5 * 60_000:
+        if target is None:
+            if is_wander:
+                # 순찰/산책: 목표 없이도 돌아다니기
+                self._do_wander(entry)
+            else:
+                # 기타 활동: 목표 없으면 제자리 대기
+                remaining = self._remaining_millis_in_entry(entry)
                 self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
                 self._action_taken = True
-                return
-
-            wander_target = self._activity_state.get("wander_target")
-            if wander_target is not None:
-                if self._is_at(wander_target):
-                    # 도착 → 10~30분 휴식 후 다음 산책
-                    self._activity_state.pop("wander_target", None)
-                    rest = min(random.randint(10, 30) * 60_000, remaining)
-                    self._insert_idle_job("산책", max(rest, 1))  # 랜덤 휴식 시간 — ACTION_DURATION 대상 아님
-                    self._action_taken = True
-                else:
-                    self._move_to(wander_target, "산책")
-            else:
-                # 새 산책 목적지 선택
-                wander_loc = self._pick_wander_location()
-                if wander_loc:
-                    self._activity_state["wander_target"] = wander_loc
-                    self._move_to(wander_loc, "산책")
-                else:
-                    self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
-                    self._action_taken = True
             return
 
         # 2. 도착 여부
@@ -1254,14 +1250,55 @@ class BaseAgent:
             self._move_to(target, self._get_display_name(entry))
             self._arrived = False
         else:
-            # 도착 → 환경 체크 + 활동 실행 + idle job
+            # 도착 → 환경 체크
             if not self._arrived:
                 self._arrived = True
                 self._check_environment(target["region_id"], target["location_id"])
-            self._execute_activity(activity, target)
-            remaining = self._remaining_millis_in_entry(entry)
-            self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
+
+            if is_wander:
+                # 순찰/산책: 도착 후 지역 내 돌아다니기
+                self._do_wander(entry)
+            else:
+                # 기타 활동: 실행 후 스케줄 끝까지 대기
+                self._execute_activity(activity, target)
+                remaining = self._remaining_millis_in_entry(entry)
+                self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
+                self._action_taken = True
+
+    def _do_wander(self, entry):
+        """돌아다니기: 랜덤 location 이동 → 10~30분 체류 → 반복
+
+        순찰/산책 공용. home_region 내 랜덤 location을 순회한다.
+        남은 시간 5분 미만이면 제자리 대기로 전환.
+        """
+        remaining = self._remaining_millis_in_entry(entry)
+        display = self._get_display_name(entry)
+
+        # 남은 시간 5분 미만 → 제자리 대기
+        if remaining < 5 * 60_000:
+            self._insert_idle_job(display, max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             self._action_taken = True
+            return
+
+        wander_target = self._activity_state.get("wander_target")
+        if wander_target is not None:
+            if self._is_at(wander_target):
+                # 도착 → 10~30분 체류 후 다음 이동
+                self._activity_state.pop("wander_target", None)
+                rest = min(random.randint(10, 30) * 60_000, remaining)
+                self._insert_idle_job(display, max(rest, 1))  # 랜덤 체류 시간 — ACTION_DURATION 대상 아님
+                self._action_taken = True
+            else:
+                self._move_to(wander_target, display)
+        else:
+            # 새 목적지 선택
+            wander_loc = self._pick_wander_location()
+            if wander_loc:
+                self._activity_state["wander_target"] = wander_loc
+                self._move_to(wander_loc, display)
+            else:
+                self._insert_idle_job(display, max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
+                self._action_taken = True
 
     def _pick_wander_location(self):
         """home_region 내 랜덤 location 선택 (산책용)"""
@@ -1823,7 +1860,20 @@ def think_all():
         try:
             agent.think()
         except Exception as e:
-            print(f"[think] Error in agent {unit_id}: {e}")
+            import traceback
+            info = agent.get_info()
+            name = info.get("name", str(unit_id)) if info else str(unit_id)
+            print(f"[think] EXCEPTION in {name}(id={unit_id}): {e}")
+            traceback.print_exc()
+            # 예외 발생 시에도 safety net job 보장 (DES 무한루프 방지)
+            try:
+                agent._insert_idle_job("에러복구", agent._get_action_duration("safety_net"))
+            except Exception:
+                morld.insert_job(unit_id, {
+                    "name": "에러복구",
+                    "action": "stay",
+                    "duration": 600_000,  # 10분 fallback
+                })
 
 
 def clear_all():

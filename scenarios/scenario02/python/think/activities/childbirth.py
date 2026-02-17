@@ -37,6 +37,7 @@ def handle_childbirth(agent, entry):
         target = agent._memory.get("childbirth_target")
         if not target:
             agent._memory["childbirth_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
         if agent._is_at(target):
             agent._memory["childbirth_phase"] = "laboring"
@@ -75,11 +76,13 @@ def handle_maternal(agent, entry):
         child_id = agent._memory.get("last_child_id")
         if not child_id:
             agent._memory["maternal_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
 
         child_loc = morld.get_unit_location(child_id)
         if not child_loc:
             agent._memory["maternal_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
 
         target = {"region_id": child_loc[0], "location_id": child_loc[1]}
@@ -92,6 +95,7 @@ def handle_maternal(agent, entry):
         target = agent._memory.get("maternal_target")
         if not target:
             agent._memory["maternal_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
         if agent._is_at(target):
             agent._memory["maternal_phase"] = "interacting"

@@ -111,7 +111,7 @@ class SeraAgent(BaseAgent):
 | 메서드 | 설명 |
 |--------|------|
 | `agent._is_at(target)` | NPC가 target 위치에 도착했는지 확인 |
-| `agent._move_to(target, "설명")` | target으로 이동 job 삽입 (C# 동적 duration) |
+| `agent._move_to(target, "설명")` | target으로 이동 job 삽입 (매번 새 job, C# 동적 duration) |
 | `agent._insert_idle_job("이름", ms)` | 대기 job 삽입 (duration=ms) |
 | `agent._do_instant_action("이름", "key")` | 고정 시간 행동 (ACTION_DURATION 조회 + job 삽입 + action_taken) |
 | `agent._get_action_duration("key")` | ACTION_DURATION 테이블에서 밀리초 조회 (오버라이드 우선) |
@@ -119,6 +119,8 @@ class SeraAgent(BaseAgent):
 | `agent._get_home_region()` | NPC 거처 region_id 반환 |
 | `agent._find_tool_by_capability("can:X")` | 도구 탐색 (인벤토리 → 도구함) |
 | `agent._skip_dynamic_activity(entry)` | dynamic entry에서 다음 candidate로 건너뛰기 |
+| `agent._do_wander(entry)` | 순찰/산책용 wandering (랜덤 location → 이동 → 10~30분 휴식) |
+| `agent._pick_wander_location()` | 같은 region 내 랜덤 location 선택 |
 
 ### target dict 형식
 
@@ -598,6 +600,9 @@ def handle_my_activity(agent, entry):
 ---
 
 ## FAQ
+
+### Q: 순찰/산책처럼 돌아다니는 활동을 만들려면?
+`_WANDER_ACTIVITIES` frozenset에 활동 이름을 추가하면, `_handle_default_activity()`가 자동으로 `_do_wander()`를 사용합니다. 별도 핸들러 작성 불필요.
 
 ### Q: handler가 action을 만들지 못하면?
 `_handle_schedule()`의 디스패치 루프가 자동으로 "할 일 없음" idle job을 삽입합니다. handler 안에서 명시적으로 `return`만 해도 안전합니다.

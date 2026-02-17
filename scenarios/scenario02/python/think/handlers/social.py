@@ -90,12 +90,14 @@ def _handle_socialize(agent):
         target_id = agent._memory.get("socialize_target_id")
         if target_id is None:
             agent._memory["socialize_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
 
         target_loc = morld.get_unit_location(target_id)
         if target_loc is None:
             agent._memory["socialize_phase"] = None
             agent._memory["socialize_target_id"] = None
+            agent._do_instant_action("대기", "abort")
             return
 
         target = {"region_id": target_loc[0], "location_id": target_loc[1]}
@@ -110,12 +112,14 @@ def _handle_socialize(agent):
         target_id = agent._memory.get("socialize_target_id")
         if target_id is None:
             agent._memory["socialize_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
 
         target_loc = morld.get_unit_location(target_id)
         if target_loc is None:
             agent._memory["socialize_phase"] = None
             agent._memory["socialize_target_id"] = None
+            agent._do_instant_action("대기", "abort")
             return
 
         target = {"region_id": target_loc[0], "location_id": target_loc[1]}
@@ -223,11 +227,13 @@ def _handle_gift(agent):
         target_id = agent._memory.get("gift_target_id")
         if target_id is None:
             _reset_gift(agent)
+            agent._do_instant_action("대기", "abort")
             return
 
         target_loc = morld.get_unit_location(target_id)
         if target_loc is None:
             _reset_gift(agent)
+            agent._do_instant_action("대기", "abort")
             return
 
         target = {"region_id": target_loc[0], "location_id": target_loc[1]}
@@ -242,11 +248,13 @@ def _handle_gift(agent):
         target_id = agent._memory.get("gift_target_id")
         if target_id is None:
             _reset_gift(agent)
+            agent._do_instant_action("대기", "abort")
             return
 
         target_loc = morld.get_unit_location(target_id)
         if target_loc is None:
             _reset_gift(agent)
+            agent._do_instant_action("대기", "abort")
             return
 
         target = {"region_id": target_loc[0], "location_id": target_loc[1]}

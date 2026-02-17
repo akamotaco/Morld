@@ -123,7 +123,7 @@ scenarios/scenario02/docs/
 | Python Asset 클래스 | `scenarios/scenario02/python/assets/` |
 | Python 이벤트 핸들러 | `scenarios/scenario02/python/events/` |
 | Python NPC AI | `scenarios/scenario02/python/think/` |
-| Python 인터럽트 핸들러 | `scenarios/scenario02/python/think/handlers/` (식사/체온/자위/사회) |
+| Python 인터럽트 핸들러 | `scenarios/scenario02/python/think/handlers/` (식사/배변/체온/착의/자위/사회/선물) |
 | Python 톤 템플릿 | `scenarios/scenario02/python/tone_templates/` (아키타입별 3D 좌표 대사/묘사) |
 | Python 환경 시스템 | `scenarios/scenario02/python/` (temperature, humidity, congestion, pollution, sound, garden, needs) |
 

@@ -80,7 +80,7 @@ SCHEDULE = [
 ### 현재 위치 대기 (STAY_SCHEDULE 패턴)
 `location_id`를 지정하지 않으면 NPC는 현재 위치에서 이동 없이 대기합니다:
 ```python
-# 스케줄이 없는 NPC용 기본 대기
+# 임시 홀드용 (연애/NPC 주도 중 시간 정지 상태에서 사용)
 STAY_SCHEDULE = [
     {"name": "대기", "start": 0, "end": 86_400_000, "activity": "대기"}
     # location_id 없음 → 이동 없이 현재 위치에서 대기
@@ -91,6 +91,44 @@ STAY_SCHEDULE = [
 - `location_id` 없음 = 이동 Job 생성 안 함
 - NPC는 현재 위치에 머무름
 - `activity`는 표시용 (대화에서 "대기 중" 등으로 표현)
+
+### "대기" vs "할 일 없음"
+
+| 용어 | 의미 | 발생 조건 |
+|------|------|----------|
+| **대기** | 필요에 의해 제자리 대기 | handler abort/brief, 목욕 대기, 발각 처리 등 |
+| **할 일 없음** | 스케줄 비어있음 + 모든 욕구 충족 | safety net 또는 tier 5 fallback |
+
+- 스케줄 갭 (현재 시간에 해당하는 entry 없음) → safety net → "할 일 없음"
+- 스케줄 entry의 dynamic 후보 전부 실패 → "할 일 없음"
+- handler abort: 조건 미충족/자원 없음 등으로 핸들러가 조기 종료 → "대기" (5분)
+
+### 순찰/산책 Wandering
+
+`순찰`과 `산책` 활동은 도착 후 제자리 대기가 아닌, 실제로 근처 location을 돌아다닙니다.
+
+```python
+_WANDER_ACTIVITIES = frozenset({"순찰", "산책"})
+```
+
+**동작:**
+- target 있으면 → target으로 이동 → 도착 후 wandering 시작
+- target 없으면 → 즉시 wandering 시작
+- wandering: `_do_wander()` — 랜덤 location 선택 → 이동 → 10~30분 휴식 → 반복
+- 잔여 시간 5분 미만이면 wandering 중단, 대기
+
+**그 외 활동** (벌목, 낚시, 채집 등): target=None이면 현재 위치에서 대기 (wandering 하지 않음).
+
+### Safety net 원인 추적
+
+think()의 safety net은 `_action_taken=False`일 때 WARNING을 출력하며, 진단 정보를 포함합니다:
+
+```
+WARNING: {name} has no current job (tier={tier_reached}, phases: cold={cold_phase}, hot={hot_phase}, ...)
+```
+
+이는 에러 자체가 아닌 **왜 에러가 발생했는지를 파악**하기 위한 시스템입니다.
+`_action_taken`은 자기 선언형 플래그로, handler가 job을 삽입하면 True를 설정합니다.
 
 ---
 
@@ -201,7 +239,8 @@ morld.set_npc_time_consume(unit_id, "stay", duration=1_800_000)  # 30분
 ```
 
 > **참고**: `insert_job`은 `InsertJobWithClear` 사용 (기존 Job 전부 제거 후 1개 삽입).
-> `duration=0`인 move Job은 매 step 제거되므로, `think()`에서 매번 재삽입 필요.
+> `_move_to()`는 매 호출마다 새 move job을 삽입합니다 (InsertJobWithClear가 기존 job 정리).
+> 이전 step에서 이동 미완료 시에도 새 job으로 갱신되어 정상 동작합니다.
 
 > **v0.2.2 DES**: move Job의 duration이 0 이하이면 C#이 자동으로 이동 시간 계산.
 > 같은 Location 내 이동: `CalculateTravelTime()` 사용. 다른 Location: `PathFinder` 사용.
@@ -778,7 +817,8 @@ agent.push_schedule(work_order)
 - `scripts/system/script_system_data_api.cs` - AdvanceTimeDES, move duration 자동 계산 (v0.2.2)
 
 ### Python
-- `think/__init__.py` - BaseAgent, Phase 시스템, 식사 핸들러, 동적 스케줄, 도구 관리
+- `think/__init__.py` - BaseAgent, Phase 시스템, 동적 스케줄, 도구 관리, wandering
+- `think/handlers/` - 인터럽트 핸들러 (식사/배변/체온/착의/자위/사회/선물)
 - `think/activities/` - 활동 핸들러 패키지 (10종: 소등/점등/벌목/낚시/채집/요리/청소/물자수집/정원/연료수집)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)

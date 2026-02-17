@@ -94,14 +94,18 @@ namespace SE
 #if DEBUG_LOG
 				if (!unit.IsObject && unit.Id > 0)
 				{
-					var loc = unit.CurrentLocation;
-					var jobCount = unit.JobList.Count;
-					var hasSchedule = unit.BaseSchedule != null && unit.BaseSchedule.Entries.Count > 0;
-					var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
-					var isSeated = seatedOn.Prop.IsValid;
-					GD.Print($"[JobBehaviorSystem] Unit {unit.Id} ({unit.Name}) has no current job — " +
-						$"loc=R{loc.RegionId}L{loc.LocalId} x={unit.PositionX:F0}, " +
-						$"jobList.Count={jobCount}, hasSchedule={hasSchedule}, isSeated={isSeated}");
+					// 플레이어는 think()가 아닌 PlayerSystem이 관리 — 경고 스킵
+					var _ps = this._hub.GetSystem("playerSystem") as PlayerSystem;
+					if (_ps == null || unit.Id != _ps.PlayerId)
+					{
+						var loc = unit.CurrentLocation;
+						var jobCount = unit.JobList.Count;
+						var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+						var isSeated = seatedOn.Prop.IsValid;
+						GD.Print($"[JobBehaviorSystem] Unit {unit.Id} ({unit.Name}) has no current job — " +
+							$"loc=R{loc.RegionId}L{loc.LocalId} x={unit.PositionX:F0}, " +
+							$"jobList.Count={jobCount}, isSeated={isSeated}");
+					}
 				}
 #endif
 				return;

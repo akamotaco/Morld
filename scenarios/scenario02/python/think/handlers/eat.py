@@ -91,6 +91,7 @@ def _handle_excretion(agent):
             toilet = resolve_toilet(agent)
             if not toilet:
                 agent._memory["excretion_phase"] = None
+                agent._do_instant_action("대기", "abort")
                 return
             agent._memory["excretion_target"] = toilet
         agent._memory["excretion_phase"] = "going"
@@ -101,6 +102,7 @@ def _handle_excretion(agent):
         target = agent._memory.get("excretion_target")
         if not target:
             agent._memory["excretion_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
         if agent._is_at(target):
             agent._memory["excretion_phase"] = "using"

@@ -82,6 +82,10 @@ NPC가 자연스러운 생활 패턴을 보이도록 하는 자율 행동 시스
 > - 수면은 C# `resolve_sleep_target` API 사용
 >
 > **구현된 resolver:** 채집, 사냥, 순찰, 벌목, 낚시, 독서, 물자수집
+>
+> **순찰/산책 wandering** (v0.2.2): 순찰/산책 활동은 도착 후 제자리 대기가 아닌 실제로 근처를 돌아다닙니다.
+> `_WANDER_ACTIVITIES = frozenset({"순찰", "산책"})` — `_do_wander()`로 랜덤 location 선택 → 이동 → 10~30분 휴식 → 반복.
+> target이 없는 경우에도 wandering. 그 외 활동에서 target=None이면 현재 위치에서 대기.
 
 ### 현재 문제
 
@@ -359,9 +363,11 @@ Footer에 임계치 근처일 때만 표시:
 Tier 1 (Involuntary): 기절 / 수면 (추위 기상: 체온 ≤ 35.0 → tier 3으로 이관)
 Tier 2 (Reactive): 피격 반응 (미래)
 Tier 3 (Survival): 배고픔 → 추위 → 더위
-Tier 4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 수면
-Tier 5 (Routine): 스케줄 기반 일반 활동
+Tier 4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 출산 → 모성 → 사회 → 선물 → 수면
+Tier 5 (Routine): 스케줄 기반 일반 활동 (순찰/산책은 wandering)
 ```
+
+**Safety net**: 모든 tier를 통과했는데 `_action_taken=False`이면 WARNING 출력 (도달한 tier + 활성 phase 정보 포함) 후 "할 일 없음" job 삽입. 이는 알고리즘 약점을 식별하기 위한 진단 시스템입니다.
 
 **추위 기상** (v0.2.2): 수면 중 체온이 위험 수준(≤ 35.0)이면 tier 1에서 수면을 중단하고 `return False` → `_ensure_standing()` → tier 3 cold 인터럽트로 방한 처리. 미세한 추위(35.0 < 체온 ≤ 35.5)에서는 수면 유지. 연료 소진으로 열원이 꺼지면 체온이 하락하여 기상 트리거.
 

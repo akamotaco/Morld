@@ -125,6 +125,7 @@ def _handle_self_comfort(agent):
         target = _resolve_private_location(agent)
         if target is None:
             agent._memory["self_comfort_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
         if agent._is_at(target):
             agent._memory["self_comfort_phase"] = "performing"
@@ -138,6 +139,7 @@ def _handle_self_comfort(agent):
         target = _resolve_private_location(agent)
         if target is None:
             agent._memory["self_comfort_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
         if agent._is_at(target):
             agent._memory["self_comfort_phase"] = "performing"
@@ -208,6 +210,7 @@ def _handle_seek_player(agent):
         target = agent._memory.get("seek_player_target")
         if target is None:
             agent._memory["seek_player_phase"] = None
+            agent._do_instant_action("대기", "abort")
             return
         if agent._is_at(target):
             # 도착 → on_meet이 C# 이벤트로 자동 발화
