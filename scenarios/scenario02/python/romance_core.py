@@ -153,6 +153,14 @@ def is_anatomy_compatible(action_def, target_id, actor_id=None):
         if category is not None:
             import gender as gender_mod
             if not gender_mod.has_anatomy(target_id, category):
+                action_name = action_def.get("name", "?")
+                target_gender = gender_mod.get_gender(target_id)
+                target_anatomy = gender_mod.get_anatomy(target_id)
+                raw_prop = morld.get_unit_prop(target_id, "성별")
+                print(f"[ANATOMY FILTER] '{action_name}' hidden: "
+                      f"target={target_id} needs '{category}', "
+                      f"gender='{target_gender}'(prop={raw_prop}), "
+                      f"anatomy={target_anatomy}")
                 return False
     # 행위자 해부학 체크 (삽입 행위: requires_player_anatomy)
     player_req = action_def.get("requires_player_anatomy")

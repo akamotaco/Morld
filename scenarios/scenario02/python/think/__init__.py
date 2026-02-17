@@ -61,6 +61,18 @@ class BaseAgent:
 
     _action_duration_overrides = {}  # 서브클래스에서 오버라이드 가능
 
+    def __getattr__(self, name):
+        """BaseAgent에 없는 속성 → Character asset에서 조회 (composition delegation)"""
+        if name.startswith("_"):
+            raise AttributeError(name)
+        from assets.characters import get_instance
+        char = get_instance(self.unit_id)
+        if char is not None:
+            return getattr(char, name)
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
+
     def __init__(self, unit_id):
         self.unit_id = unit_id
         self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)

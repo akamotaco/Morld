@@ -1408,7 +1408,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         # NPC 저항 탈출 (강제 모드)
         if partner_agent:
             partner_agent.pop_schedule()
-        yield ui.dialog("상대가 빠져나갔다...!")
+        # 마지막 행위 로그 포함 (탈출 직전 진행된 내용 표시)
+        escape_lines = []
+        last_reaction = state.get("last_reaction")
+        if last_reaction:
+            escape_lines.append(last_reaction)
+        escape_lines.append("\n[color=red]상대가 빠져나갔다...![/color]")
+        yield ui.dialog("\n".join(escape_lines))
         morld.pop_to_situation()
     elif state["exhausted"]:
         # 비정상 종료: 체력 소진
