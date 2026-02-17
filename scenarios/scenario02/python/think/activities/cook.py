@@ -50,14 +50,21 @@ def handle_cook(agent, entry):
             # 도착 → 조리
             from assets.objects import get_instance
             obj_id = stove_target.get("object_id")
+            cook_ok = False
             if obj_id:
                 obj = get_instance(obj_id)
                 if obj and hasattr(obj, "npc_cook"):
-                    obj.npc_cook(agent.unit_id)
-                    import sound
-                    sound.emit_sound(agent.unit_id, "cooking")
-            agent._activity_phase = "storing_result"
-            agent._do_instant_action("요리", "cook")
+                    cook_ok = obj.npc_cook(agent.unit_id)
+                    if cook_ok:
+                        import sound
+                        sound.emit_sound(agent.unit_id, "cooking")
+            if cook_ok:
+                agent._activity_phase = "storing_result"
+                agent._do_instant_action("요리", "cook")
+            else:
+                # 불 꺼짐 등으로 요리 실패 → 재료 반납 후 idle
+                agent._activity_phase = "storing_result"
+                agent._do_instant_action("대기", "abort")
         else:
             agent._move_to(stove_target, "요리")
 

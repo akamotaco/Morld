@@ -25,6 +25,14 @@ CRAFTING_RECIPES = {
         "craft_time": 10,
     },
 
+    "wood_chip": {
+        "name": "나무조각",
+        "category": "재료",
+        "materials": {"log": 1},
+        "result_count": 4,
+        "craft_time": 10,
+    },
+
     # === 무기 ===
     "wooden_sword": {
         "name": "목검",
@@ -75,6 +83,7 @@ PORTABLE_RECIPE_LIST = [
 
 WORKBENCH_RECIPE_LIST = [
     "plank",
+    "wood_chip",
     "wooden_sword",
     "aphrodisiac",
     "rabbit_trap_branch",

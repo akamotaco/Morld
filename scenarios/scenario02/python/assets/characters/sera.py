@@ -1350,12 +1350,14 @@ class SeraAgent(BaseAgent):
             {"name": "오전활동", "start": 540 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
                 {"activity": "낚시", "condition": "need_fish"},
                 {"activity": "벌목", "condition": "need_logs"},
+                {"activity": "제작", "condition": "need_wood_chip"},
                 {"activity": "순찰", "condition": None},
             ]},
             {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
             {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 780 * _M, "end": 840 * _M, "activity": "휴식"},  # 거실
             {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "dynamic": True, "candidates": [
                 {"activity": "벌목", "condition": "need_logs"},
+                {"activity": "제작", "condition": "need_wood_chip"},
                 {"activity": "낚시", "condition": "need_fish"},
                 {"activity": "순찰", "condition": None},
             ]},

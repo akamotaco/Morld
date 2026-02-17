@@ -1745,6 +1745,8 @@ class BaseAgent:
                 return needs.get_social(self.unit_id) >= 50
             except ImportError:
                 return False
+        elif condition == "need_wood_chip":
+            return self._check_storage_need("material", "wood_chip", 8)
         elif condition == "need_fuel":
             return self._check_heat_source_needs_fuel()
         elif condition == "need_fuel_material":

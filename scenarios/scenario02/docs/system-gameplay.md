@@ -202,6 +202,20 @@ class Fireplace(Object):
         "light:value": 4,
         "heat:output": 15,   # +15°C
         "heat:depth": 1,     # 인접 1칸까지
+        "heat:fuel": 24,     # 초기 24h
+        "heat:fuel_max": 36,
+        "heat:fuel_mode": 1, # 소비형
+    }
+
+class Stove(Object):
+    props = {
+        "light:on": 1,
+        "light:value": 3,
+        "heat:output": 10,   # +10°C
+        "heat:depth": 0,     # 해당 location에만
+        "heat:fuel": 18,     # 초기 18h
+        "heat:fuel_max": 24,
+        "heat:fuel_mode": 1, # 소비형, 연료 소진 → 요리 불가
     }
 
 class DrumBath(Object):
@@ -215,6 +229,7 @@ class DrumBath(Object):
 
 BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
 
+저택 총 열원: Fireplace(15, depth 1) + Stove(10, depth 0)
 은신처 총 열원: PortableStove(8) + DrumBath(5) = **13°C** (저택 Fireplace 15에 근접)
 
 ### 연료 시스템 (Fuel System)
@@ -231,7 +246,8 @@ BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
 
 | 열원 | fuel_mode | 초기 연료 | 최대 연료 | 비고 |
 |------|-----------|----------|----------|------|
-| Fireplace (저택) | 없음 (무한) | — | — | 부유한 가정, 연료 관리 불필요 |
+| Fireplace (저택) | 1 (소비) | 24h | 36h | 세라 벌목→제작, 밀라 연료장전 |
+| Stove (저택 아궁이) | 1 (소비) | 18h | 24h | 요리용, 연료 소진 시 요리 불가 |
 | PortableStove (은신처) | 1 (소비) | 12h | 24h | 주요 난방 + 조리 |
 | DrumBath (은신처) | 1 (소비) | 6h | 12h | 목욕용 열원 |
 
@@ -240,6 +256,7 @@ BFS 감쇠: depth 0 = 100%, depth 1 = 50%, depth 2 = 25%
 | 아이템 | unique_id | 연소 시간 |
 |--------|-----------|----------|
 | 나뭇가지 | `branch` | 2시간 |
+| 나무조각 | `wood_chip` | 3시간 |
 | 통나무 | `log` | 6시간 |
 
 **주요 동작**:
@@ -272,9 +289,14 @@ fuel.get_sources_in_region(region_id)                       # region 내 소비�
 fuel.reset()                                                # 챕터 전환 초기화
 ```
 
-**플레이어 액션**: PortableStove/DrumBath에 `call:load_fuel:연료 넣기`, `call:check_fuel:연료 확인` 추가.
+**플레이어 액션**: 모든 소비형 열원(Fireplace/Stove/PortableStove/DrumBath)에 `call:load_fuel:연료 넣기`, `call:check_fuel:연료 확인` 추가.
 
-**NPC 연료수집**: `think/activities/fuel.py` — 엘라가 스케줄에 따라 나뭇가지 수집 → 열원 장전. 상세는 schedule.md 참조.
+**NPC 연료 관련 활동**:
+- `think/activities/fuel.py` (연료수집) — 엘라: 나뭇가지 수집 → 열원 직접 장전
+- `think/activities/craft.py` (제작) — 세라: 통나무 → 나무조각 제작 (제작대, need_wood_chip 조건)
+- `think/activities/fuel_load.py` (연료장전) — 밀라: 보관소 연료 → 벽난로/아궁이 장전 (need_fuel 조건)
+
+**요리와 연료**: 아궁이(Stove)에 연료가 소진되면(`light:on=0`) `npc_cook()` → False → 요리 중단. 밀라가 연료장전 후 복구.
 
 ### 목욕 체온 효과
 
@@ -682,7 +704,7 @@ fuel.reset()
 | `needs.py` | _npc_registry, _accumulated | 플레이어 자동 추적, NPC 재등록 필요 |
 | `pregnancy.py` | _registry, _child_registry | V 보유 캐릭터 재등록 필요 |
 | `gender.py` | _orientation_cache | NPC Agent.__init__에서 재등록 |
-| `fuel.py` | _fuel_sources | PortableStove/DrumBath instantiate에서 재등록 |
+| `fuel.py` | _fuel_sources | Fireplace/Stove/PortableStove/DrumBath instantiate에서 재등록 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---

@@ -23,8 +23,10 @@ think/activities/
 ├── clean.py             # 청소
 ├── scavenge.py          # 물자수집
 ├── garden_activity.py   # 정원 (텃밭 관리)
-├── fuel.py              # 연료수집
-└── branch_collect.py    # 난방 연료 수집
+├── fuel.py              # 연료수집 (나뭇가지 줍기 → 열원 직접 장전)
+├── branch_collect.py    # 난방 연료 수집 (나뭇가지 비축)
+├── craft.py             # 제작 (보관소 재료 → 제작대 → 결과물 저장)
+└── fuel_load.py         # 연료장전 (보관소 연료 → 열원 장전)
 ```
 
 ---
@@ -372,7 +374,7 @@ agent._check_storage_need("material", "branch", 10)
 | `food` | 요리 완성품 |
 | `food_ingredient` | 생선, 열매, 약초 |
 | `drink_ingredient` | 음료 재료 |
-| `material` | branch, log |
+| `material` | branch, log, wood_chip, plank |
 | `seed` | 씨앗류 |
 | `garden_supply` | 비료 |
 | `clothing` | 의류/장비 |
@@ -449,6 +451,7 @@ candidates는 **순서대로** 평가됩니다. 첫 번째로 조건이 True인 
 | `need_supplies` | 물자 부족 | `food` 컨테이너에 food 카테고리 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 방 존재 |
 | `need_social` | 사교 필요 | `needs.get_social() >= 50` |
+| `need_wood_chip` | 나무조각 부족 | `material` 컨테이너에서 wood_chip < 기준치 |
 | `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |
 | `need_fuel_material` | 연료 재료 부족 | `material` 컨테이너에서 branch < 6 또는 log < 3 |
 
@@ -592,11 +595,14 @@ def handle_my_activity(agent, entry):
 | 벌목 | `chop.py` | idle → getting_tool → going_to_tree → returning_tool → idle | 도구 관리 (can:chop) |
 | 낚시 | `fish.py` | idle → getting_tool → going_to_spot → going_to_storage → returning_tool → idle | 도구 + 보관 |
 | 채집 | `gather.py` | idle → going_to_bush → going_to_storage → idle | 보관소 저장 |
-| 요리 | `cook.py` | idle → going_to_storage → going_to_stove → idle | 재료 가져오기 → 조리 |
+| 요리 | `cook.py` | idle → checking_fridge → going_to_stove → storing_result → idle | 재료 가져오기 → 조리 (불 꺼지면 실패 abort) |
 | 청소 | `clean.py` | idle → getting_tool → going_to_room (반복) → returning_tool → idle | 도구 + 오염 방 순회 |
 | 물자수집 | `scavenge.py` | idle → going_to_resource → going_to_storage → idle | ScavengeableObject 탐색 |
 | 정원 | `garden_activity.py` | idle → getting_tool → going_to_garden → working → storing_harvest → returning_tool → idle | 7-phase, 도구+보관 |
-| 연료수집 | `fuel.py` | idle → going_to_tree → going_to_heat_source → idle | 나뭇가지 줍기 → 열원 장전 |
+| 연료수집 | `fuel.py` | idle → going_to_tree → going_to_heat_source → idle | 나뭇가지 줍기 → 열원 직접 장전 |
+| 난방 연료 수집 | `branch_collect.py` | idle → going_to_tree → going_to_storage → idle | 나뭇가지 비축 (보관소 저장) |
+| 제작 | `craft.py` | idle → going → crafting → idle | 보관소 재료 → 제작대 → 결과물 저장 |
+| 연료장전 | `fuel_load.py` | idle → going_to_storage → going_to_heat_source → idle | 보관소 연료 → 열원 장전 |
 
 ---
 
