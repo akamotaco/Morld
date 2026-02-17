@@ -38,6 +38,7 @@ TREE_RESOURCE_CONFIG = {
     "pine_tree": {"log": (1440 * MILLIS_PER_MINUTE, 4), "branch": (480 * MILLIS_PER_MINUTE, 6)},      # 통나무 24시간, 가지 8시간
     "oak_tree": {"log": (1440 * MILLIS_PER_MINUTE, 5), "branch": (480 * MILLIS_PER_MINUTE, 4)},       # 통나무 24시간, 가지 8시간
     "apple_tree": {"log": (1440 * MILLIS_PER_MINUTE, 2), "branch": (480 * MILLIS_PER_MINUTE, 3)},     # 과일나무 - 자원 적음
+    "urban_tree": {"log": (1440 * MILLIS_PER_MINUTE, 1), "branch": (480 * MILLIS_PER_MINUTE, 4)},   # 도시 야생 나무
 }
 
 # === 낚시터 자원 설정 (props 기반) ===

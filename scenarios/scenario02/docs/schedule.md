@@ -483,9 +483,9 @@ class BaseAgent:
 |------|------|----------|
 | `need_fish` | 물고기 부족 | `storage:food_ingredient` 컨테이너에 food_fish < 기준치 |
 | `need_logs` | 통나무 부족 | `storage:material` 컨테이너에 log < 기준치 |
-| `need_food` | 식량 부족 | `storage:food_ingredient` 컨테이너 총 아이템 < 기준치 |
-| `can_cook` | 요리 가능 | `storage:food_ingredient` 컨테이너에 재료 ≥ 2 |
-| `need_supplies` | 물자 부족 | `storage:food` 컨테이너 총 아이템 < 기준치 |
+| `need_food` | 식량 부족 | `storage:food_ingredient` 컨테이너에 food_ingredient 카테고리 아이템 < 기준치 |
+| `can_cook` | 요리 가능 | `storage:food_ingredient` 컨테이너에 food_ingredient 카테고리 재료 ≥ 2 |
+| `need_supplies` | 물자 부족 | `storage:food` 컨테이너에 food 카테고리 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 location 존재 |
 | `need_social` | 사교 필요 | `needs.get_social(unit_id) >= 50` |
 | `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |
@@ -585,6 +585,7 @@ ACTIVITY_HANDLERS = {
     "물자수집": handle_scavenge,
     "정원": handle_garden,
     "연료수집": handle_fuel,
+    "난방 연료 수집": handle_branch_collect,
 }
 
 # think/__init__.py에서 import하여 사용:
@@ -603,7 +604,7 @@ else:
 ```
 think/activities/
 ├── __init__.py          # ACTIVITY_HANDLERS dict (핸들러 등록)
-├── helpers.py           # 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
+├── helpers.py           # 공용 헬퍼 (resolve_storage_container, store_npc_items, resolve_branch_tree 등)
 ├── lights.py            # 소등/점등 (3-phase 조명 관리)
 ├── chop.py              # 벌목
 ├── fish.py              # 낚시
@@ -612,7 +613,8 @@ think/activities/
 ├── clean.py             # 청소
 ├── scavenge.py          # 물자수집
 ├── garden_activity.py   # 정원 (텃밭 관리)
-└── fuel.py              # 연료수집 (나뭇가지 줍기 → 열원 장전)
+├── fuel.py              # 연료수집 (나뭇가지 줍기 → 열원 장전)
+└── branch_collect.py    # 난방 연료 수집 (나뭇가지 줍기 → 보관소 비축)
 ```
 
 새 활동 핸들러 추가 시: 모듈 파일 생성 → `__init__.py`에 import + dict 등록 → 스케줄에 activity 이름 지정
@@ -620,14 +622,15 @@ think/activities/
 ### 벌목 Phase 흐름
 
 ```
-idle → getting_tool → idle → going_to_tree → returning_tool → idle
+idle → getting_tool → going_to_tree → storing_logs → returning_tool → idle
 ```
 
 | Phase | 설명 |
 |-------|------|
-| `idle` | 도끼 소지 확인 → 있으면 `going_to_tree`, 없으면 `getting_tool` |
-| `getting_tool` | 창고(도구함)로 이동 → 도착 시 도끼 pick up → `idle` |
-| `going_to_tree` | 나무 위치로 이동 → 도착 시 npc_chop → `returning_tool` |
+| `idle` | 충분성 체크 (`_check_storage_need("material", "log", 5)`), 도끼 소지 확인 → 있으면 `going_to_tree`, 없으면 `getting_tool` |
+| `getting_tool` | 창고(도구함)로 이동 → 도착 시 도끼 pick up → `going_to_tree` |
+| `going_to_tree` | 나무 위치로 이동 → 도착 시 npc_chop → `storing_logs` |
+| `storing_logs` | `resolve_storage_container(agent, "material")` → 보관소로 이동 → `store_npc_items(categories=["material"])` → `returning_tool` |
 | `returning_tool` | 창고로 이동 → 도착 시 도끼 반납 → `idle` |
 
 ### 소등 Phase 흐름
@@ -662,7 +665,7 @@ idle → going_to_tree → going_to_heat_source → idle
 
 | Phase | 설명 |
 |-------|------|
-| `idle` | `find_heat_source_needing_fuel()` → 연료 부족 열원 탐색, `_resolve_branch_tree()` → 나뭇가지 있는 나무 탐색. 둘 다 없으면 대기 |
+| `idle` | `find_heat_source_needing_fuel()` → 연료 부족 열원 탐색, `resolve_branch_tree()` (helpers) → 나뭇가지 있는 나무 탐색. 둘 다 없으면 대기 |
 | `going_to_tree` | 나무로 이동 → 도착 시 `npc_gather_branch()` ×3 → `going_to_heat_source` |
 | `going_to_heat_source` | 열원으로 이동 → 도착 시 `_load_all_fuel()` (인벤토리의 branch/log 전부 장전) → `idle` |
 
@@ -671,6 +674,21 @@ idle → going_to_tree → going_to_heat_source → idle
 - `need_fuel_material` — `material` 컨테이너에서 branch/log 부족 확인 (prop 기반 기준치).
 
 엘라 스케줄에서 물자수집/관리 시간대에 dynamic 후보로 등록.
+
+### 난방 연료 수집 Phase 흐름 (v0.2.2)
+
+```
+idle → going_to_tree → going_to_storage → idle
+```
+
+| Phase | 설명 |
+|-------|------|
+| `idle` | 충분성 체크 (`_check_storage_need("material", "branch/log")`), `resolve_branch_tree()` (helpers) → 나뭇가지 있는 나무 탐색 |
+| `going_to_tree` | 나무로 이동 → 도착 시 `npc_gather_branch()` ×3 → `going_to_storage` |
+| `going_to_storage` | `resolve_storage_container(agent, "material")` → 보관소로 이동 → `store_npc_items(categories=["material"])` → `idle` |
+
+**연료수집과의 차이**: 연료수집은 열원에 직접 장전, 난방 연료 수집은 material 컨테이너에 비축.
+엘라 스케줄에서 `need_fuel_material` 조건으로 dynamic 후보 등록.
 
 > 활동 핸들러 작성 가이드: [make_activity.md](make_activity.md)
 

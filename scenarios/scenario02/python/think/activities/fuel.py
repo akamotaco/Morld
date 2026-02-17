@@ -22,7 +22,8 @@ def handle_fuel(agent, entry):
             return
 
         # 2. 나뭇가지 있는 나무 찾기
-        tree_target = _resolve_branch_tree(agent)
+        from .helpers import resolve_branch_tree
+        tree_target = resolve_branch_tree(agent, cross_region=False)
         if not tree_target:
             return  # 나무 없음 → 디스패치 루프가 "할 일 없음" 폴백
 
@@ -90,27 +91,6 @@ def find_heat_source_needing_fuel(agent):
                         "x": get_object_x_from_info(obj_id),
                         "object_id": obj_id,
                     }
-    return None
-
-
-def _resolve_branch_tree(agent):
-    """나뭇가지 있는 나무 탐색 (activity_resolver 패턴)"""
-    from assets.objects import _location_objects, get_instance
-    from assets.objects.trees import Tree
-
-    home_region = agent._get_home_region()
-    for (r, l), obj_ids in _location_objects.items():
-        if r != home_region:
-            continue
-        for obj_id in obj_ids:
-            obj = get_instance(obj_id)
-            if isinstance(obj, Tree) and obj.can_gather():
-                return {
-                    "region_id": r,
-                    "location_id": l,
-                    "x": get_object_x_from_info(obj_id),
-                    "object_id": obj_id,
-                }
     return None
 
 

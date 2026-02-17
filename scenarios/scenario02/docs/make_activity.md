@@ -14,7 +14,7 @@ Activity Handler는 NPC가 스케줄 시간대에 수행하는 **다단계 행�
 ```
 think/activities/
 ├── __init__.py          # ACTIVITY_HANDLERS dict (핸들러 등록)
-├── helpers.py           # 공용 헬퍼 (resolve_storage_container, store_npc_items 등)
+├── helpers.py           # 공용 헬퍼 (resolve_storage_container, store_npc_items, resolve_branch_tree 등)
 ├── lights.py            # 소등/점등
 ├── chop.py              # 벌목
 ├── fish.py              # 낚시
@@ -23,7 +23,8 @@ think/activities/
 ├── clean.py             # 청소
 ├── scavenge.py          # 물자수집
 ├── garden_activity.py   # 정원 (텃밭 관리)
-└── fuel.py              # 연료수집
+├── fuel.py              # 연료수집
+└── branch_collect.py    # 난방 연료 수집
 ```
 
 ---
@@ -443,9 +444,9 @@ candidates는 **순서대로** 평가됩니다. 첫 번째로 조건이 True인 
 |------|------|----------|
 | `need_fish` | 물고기 부족 | `food_ingredient` 컨테이너에서 food_fish < 기준치 |
 | `need_logs` | 통나무 부족 | `material` 컨테이너에서 log < 기준치 |
-| `need_food` | 식재료 부족 | `food_ingredient` 컨테이너 총 아이템 < 기준치 |
-| `can_cook` | 요리 가능 | `food_ingredient` 컨테이너에 재료 ≥ 2 |
-| `need_supplies` | 물자 부족 | `food` 컨테이너 총 아이템 < 기준치 |
+| `need_food` | 식재료 부족 | `food_ingredient` 컨테이너에 food_ingredient 카테고리 아이템 < 기준치 |
+| `can_cook` | 요리 가능 | `food_ingredient` 컨테이너에 food_ingredient 카테고리 재료 ≥ 2 |
+| `need_supplies` | 물자 부족 | `food` 컨테이너에 food 카테고리 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 방 존재 |
 | `need_social` | 사교 필요 | `needs.get_social() >= 50` |
 | `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |

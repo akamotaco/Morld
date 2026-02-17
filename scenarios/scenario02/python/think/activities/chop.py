@@ -3,10 +3,17 @@ import morld
 
 
 def handle_chop(agent, entry):
-    """벌목: 도구 탐색(can:chop) → 가져오기 → 나무 이동 → 벌목 → 반납"""
+    """벌목: 도구 탐색(can:chop) → 가져오기 → 나무 이동 → 벌목 → 저장 → 반납"""
     phase = agent._activity_phase
 
     if phase == "idle":
+        # 충분성 체크
+        if not agent._check_storage_need("material", "log", 5):
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job("벌목", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
+            agent._action_taken = True
+            return
+
         # capability 기반 도구 탐색 (소유권 우선)
         tool = agent._find_tool_by_capability("can:chop")
         if not tool:
@@ -83,10 +90,29 @@ def handle_chop(agent, entry):
                     obj.npc_chop(agent.unit_id)
                     import sound
                     sound.emit_sound(agent.unit_id, "chop")
-            agent._activity_phase = "returning_tool"
+            agent._activity_phase = "storing_logs"
             agent._do_instant_action("벌목", "chop")
         else:
             agent._move_to(target, "벌목")
+
+    elif phase == "storing_logs":
+        target = agent._activity_state.get("storage_target")
+        if not target:
+            from .helpers import resolve_storage_container
+            target = resolve_storage_container(agent, "material")
+            if not target:
+                agent._activity_phase = "returning_tool"
+                agent._do_instant_action("대기", "abort")
+                return
+            agent._activity_state["storage_target"] = target
+
+        if agent._is_at(target):
+            from .helpers import store_npc_items
+            store_npc_items(agent, categories=["material"])
+            agent._activity_phase = "returning_tool"
+            agent._do_instant_action("통나무 저장", "store_item")
+        else:
+            agent._move_to(target, "통나무 저장")
 
     elif phase == "returning_tool":
         tool = agent._activity_state.get("tool")

@@ -224,6 +224,44 @@ def find_stove_location(agent):
     return None
 
 
+def resolve_branch_tree(agent, cross_region=False):
+    """나뭇가지 있는 나무 탐색 (home_region 우선, cross_region=True면 다른 Region도)"""
+    from assets.objects import _location_objects, get_instance
+    from assets.objects.trees import Tree
+
+    home_region = agent._get_home_region()
+
+    # 1차: home_region
+    for (r, l), obj_ids in _location_objects.items():
+        if r != home_region:
+            continue
+        for obj_id in obj_ids:
+            obj = get_instance(obj_id)
+            if isinstance(obj, Tree) and obj.can_gather():
+                return {
+                    "region_id": r,
+                    "location_id": l,
+                    "x": get_object_x_from_info(obj_id),
+                    "object_id": obj_id,
+                }
+
+    # 2차: 다른 Region (cross_region=True만)
+    if cross_region:
+        for (r, l), obj_ids in _location_objects.items():
+            if r == home_region:
+                continue
+            for obj_id in obj_ids:
+                obj = get_instance(obj_id)
+                if isinstance(obj, Tree) and obj.can_gather():
+                    return {
+                        "region_id": r,
+                        "location_id": l,
+                        "x": get_object_x_from_info(obj_id),
+                        "object_id": obj_id,
+                    }
+    return None
+
+
 def get_object_x_from_info(obj_id):
     """오브젝트의 x 좌표 조회"""
     info = morld.get_unit_info(obj_id)

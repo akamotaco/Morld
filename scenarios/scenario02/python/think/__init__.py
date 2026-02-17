@@ -1809,7 +1809,7 @@ class BaseAgent:
             actual_threshold = prop_threshold if prop_threshold is not None else threshold
             return obj.get_item_count(item_uid) < actual_threshold
         else:
-            return obj.get_item_count() < threshold
+            return obj.get_category_item_count(category) < threshold
 
 
 # ========================================

@@ -3347,6 +3347,23 @@ class Object(Unit):
             return 0
         return inventory.get(item_id, 0)
 
+    def get_category_item_count(self, category):
+        """카테고리별 아이템 수 합계"""
+        from assets.registry import get_unique_id, get_item_class
+        inventory = morld.get_unit_inventory(self.instance_id)
+        if not inventory:
+            return 0
+        total = 0
+        for item_id, count in inventory.items():
+            if count <= 0:
+                continue
+            uid = get_unique_id(item_id)
+            if uid:
+                cls = get_item_class(uid)
+                if cls and getattr(cls, 'category', None) == category:
+                    total += count
+        return total
+
     def instantiate(self, instance_id: int, region_id: int, location_id: int, x: float = None, y: float = None):
         """
         오브젝트를 morld에 등록

@@ -44,6 +44,20 @@ class CityEntrance(Location):
         bench.focus_text = {"default": "버스 정류장에 남은 낡은 벤치. 버스는 더 이상 오지 않는다."}
         self.add_object(bench, x=200)
 
+        # 도시 입구 가로수 (버려진 도시에 남은 나무)
+        from assets.objects.trees import Tree
+        from think.resource_agent import register_tree_object
+        street_tree = Tree()
+        street_tree.name = "가로수"
+        street_tree.unique_id = "urban_tree"
+        street_tree.max_logs = 1
+        street_tree.max_branches = 4
+        street_tree.initial_logs = 0
+        street_tree.initial_branches = 3
+        street_tree.focus_text = {"default": "도시 입구에 남은 가로수. 관리되지 않아 가지가 무성하다."}
+        tree_id = self.add_object(street_tree, x=450)
+        register_tree_object(tree_id, "urban_tree")
+
 
 class GasStation(Location):
     """주유소 - 버려진 주유소"""
@@ -239,6 +253,20 @@ class ParkingLot(Location):
         bench.name = "공원 벤치"
         bench.focus_text = {"default": "주차장 옆에 남은 공원 벤치. 페인트가 벗겨져 있다."}
         self.add_object(bench, x=180)
+
+        # 도시 나무 (아스팔트 틈을 뚫고 자란 야생 나무)
+        from assets.objects.trees import Tree
+        from think.resource_agent import register_tree_object
+        urban_tree = Tree()
+        urban_tree.name = "야생 나무"
+        urban_tree.unique_id = "urban_tree"
+        urban_tree.max_logs = 1
+        urban_tree.max_branches = 4
+        urban_tree.initial_logs = 0
+        urban_tree.initial_branches = 3
+        urban_tree.focus_text = {"default": "아스팔트 틈을 뚫고 자란 야생 나무. 잎이 무성하다."}
+        tree_id = self.add_object(urban_tree, x=300)
+        register_tree_object(tree_id, "urban_tree")
 
 
 class Hideout(Location):

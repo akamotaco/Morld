@@ -1349,7 +1349,7 @@ class EllaAgent(BaseAgent):
         {"name": "정찰", "region_id": 2, "location_id": 3, "x": 90, "start": 540 * _M, "end": 660 * _M, "activity": "순찰"},  # 약국
         {"name": "물자수집", "start": 660 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
             {"activity": "연료수집", "condition": "need_fuel"},
-            {"activity": "물자수집", "condition": "need_fuel_material"},
+            {"activity": "난방 연료 수집", "condition": "need_fuel_material"},
             {"activity": "물자수집", "condition": "need_supplies"},
             {"activity": "순찰", "condition": None},
         ]},

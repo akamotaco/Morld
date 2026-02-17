@@ -5,7 +5,7 @@
 > **구현된 항목:**
 > - 동적 Activity 탐색 → `activity_resolver.py` (채집/사냥/순찰/벌목/낚시/독서/물자수집)
 > - 도구 기반 Activity → 벌목 도끼, 낚시대, 빗자루 가져오기/반납
-> - Activity 결과물 → 채집→저장, 낚시→저장, 벌목, 요리, 청소(오염도 감소), 물자수집
+> - Activity 결과물 → 채집→저장, 낚시→저장, 벌목→저장, 요리, 청소(오염도 감소), 물자수집
 > - NPC 만복도 시스템 → `survival.py` (register_npc, is_npc_hungry, npc_eat)
 > - 배고픔 인터럽트 → think()에서 스케줄보다 우선 처리
 > - 추위/더위 인터럽트 → 방한/방수 의류 자동 착탈 (v0.2.2)
@@ -13,7 +13,7 @@
 > - 자원 순환 → 채집→저장→요리→식사 파이프라인
 > - 컨테이너 헬퍼 → `npc_store_item`, `npc_take_item`, `get_item_count`
 > - **Prop 기반 보관 기준치** → `need:{item_uid}` prop으로 컨테이너별 부족 기준 커스터마이징 (v0.2.2)
-> - **연료 재료 수집** → `need_fuel_material` 조건, `storage:material` 컨테이너 (v0.2.2)
+> - **난방 연료 수집** → `need_fuel_material` 조건, `storage:material` 컨테이너에 나뭇가지/통나무 비축 (v0.2.2)
 > - 텃밭 활동 → 정원 7-phase (idle/getting_tool/going_to_garden/working/working_wait/storing_harvest/returning_tool)
 > - 시설 탐색 리졸버 → `facility_resolver.py` (목욕/화장실 선착순 + 옷장 소유권 탐색) (v0.2.2)
 > - **욕구 수치화** → `needs.py` (배변/피로/청결/사회/성욕) 매시간 추적 (v0.2.2)
@@ -709,6 +709,8 @@ def _find_storage(self, category):
 > **Prop 기반 보관 기준치** (v0.2.2): 컨테이너에 `need:{item_uid}` prop을 설정하면
 > `_check_storage_need()` 호출 시 해당 값을 부족 기준치로 사용합니다.
 > 예: `"need:branch": 6` → 나뭇가지 6개 미만이면 "부족"으로 판정.
+> item_uid=None인 조건(need_food, can_cook, need_supplies)은 **카테고리별 카운팅** (`get_category_item_count`)으로
+> 해당 카테고리 아이템만 정확하게 집계합니다.
 > 상세: [make_activity.md#보관-시스템-storage-system](make_activity.md#보관-시스템-storage-system)
 
 ---
