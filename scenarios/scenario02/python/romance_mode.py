@@ -20,6 +20,31 @@ MODE_FORCED = "forced"
 MODE_UNCONSCIOUS = "unconscious"
 MODE_FROZEN = "frozen"
 
+# ============================================
+# 탈출 확률 상수
+# ============================================
+
+ESCAPE_BASE = 0.10                # 기본 10%
+ESCAPE_STR_FACTOR = 0.02          # 근력 1당 +2%
+ESCAPE_REB_FACTOR = 0.003         # 반발 1당 +0.3%
+ESCAPE_MAX = 0.50                 # 최대 50%
+ESCAPE_AROUSAL_PENALTY = 0.002    # 성욕 1당 -0.2%
+ESCAPE_GAUGE_PENALTY = 0.002      # 절정게이지 1당 -0.2%
+ESCAPE_CLIMAX_PENALTY = 0.03      # 절정횟수 1당 -3%
+ESCAPE_CLIMAX_CAP = 3             # 절정횟수 반영 상한
+
+# 항상 실패 (futile) 판정
+FUTILE_STR_W = 2.0                # 근력 가중치
+FUTILE_BODY_W = 3.0               # 체격 가중치
+FUTILE_HP_W = 5.0                 # 체력비율 가중치
+FUTILE_AROUSAL_W = 0.2            # 성욕 억제 가중치
+FUTILE_GAUGE_W = 0.2              # 절정게이지 억제 가중치
+FUTILE_CLIMAX_W = 5.0             # 절정횟수 억제 가중치
+
+# 저항 게이지 축적
+METER_DELTA_NORMAL_MIN = 3        # 일반 실패 최소 축적
+METER_DELTA_FUTILE_MIN = 1        # futile 시 최소 축적
+
 
 # ============================================
 # 모드 컨텍스트 생성
@@ -46,6 +71,8 @@ def create_mode_context(mode, actor_id, target_id):
     if mode == MODE_FORCED:
         ctx["resistance_meter"] = 0       # 대상 저항 축적 (100 도달 시 탈출)
         ctx["break_free_attempts"] = 0
+        ctx["last_escape_chance"] = 0.0   # UI 표시용 최근 탈출 확률
+        ctx["last_is_futile"] = False     # UI 표시용 항상실패 여부
 
     elif mode == MODE_UNCONSCIOUS:
         ctx["wake_check_accum"] = 0       # 각성 체크 누적 시간 (ms)
@@ -267,47 +294,167 @@ def can_start_frozen(actor_id, target_id):
 # 저항 메카닉 (FORCED 모드)
 # ============================================
 
-def check_resistance(mode_ctx, target_id):
+def calculate_escape_chance(target_id, stim_state=None):
+    """탈출 확률 + 항상실패 여부 계산
+
+    Args:
+        target_id: 저항하는 NPC
+        stim_state: 자극 상태 (None이면 성욕/게이지 페널티 무시)
+
+    Returns:
+        dict: {
+            "chance": float (0.0 ~ 0.50),
+            "is_futile": bool,
+            "escape_power": float,
+            "suppression": float,
+            "meter_delta": int,
+        }
+    """
+    props = morld.get_unit_props(target_id) or {}
+    strength = props.get("근력", 5)
+    body_size = props.get("체격", 2)
+    hp = props.get("생존:체력", 100)
+    max_hp = props.get("생존:최대체력", 100)
+    hp_ratio = hp / max_hp if max_hp > 0 else 1.0
+
+    # 반발 수치 찾기
+    rebellion = 0
+    for key in props:
+        if key.startswith("관계:") and key.endswith(":반발"):
+            rebellion = props.get(key, 0)
+            break
+
+    # 성욕/게이지/절정횟수
+    arousal = props.get("상태:성욕", 0)
+    gauge = 0
+    climax_total = 0
+    if stim_state:
+        gauge = stim_state.get("climax_gauge", 0)
+        climax_total = stim_state.get("climax_total", 0)
+
+    # 확률 공식: base - penalty
+    base = ESCAPE_BASE + strength * ESCAPE_STR_FACTOR + rebellion * ESCAPE_REB_FACTOR
+    penalty = (arousal * ESCAPE_AROUSAL_PENALTY
+               + gauge * ESCAPE_GAUGE_PENALTY
+               + min(climax_total, ESCAPE_CLIMAX_CAP) * ESCAPE_CLIMAX_PENALTY)
+    chance = max(0.0, min(ESCAPE_MAX, base - penalty))
+
+    # 항상실패 판정: escape_power vs suppression
+    escape_power = (strength * FUTILE_STR_W
+                    + body_size * FUTILE_BODY_W
+                    + hp_ratio * FUTILE_HP_W)
+    suppression = (arousal * FUTILE_AROUSAL_W
+                   + gauge * FUTILE_GAUGE_W
+                   + min(climax_total, ESCAPE_CLIMAX_CAP) * FUTILE_CLIMAX_W)
+    is_futile = suppression >= escape_power
+
+    if is_futile:
+        chance = 0.0
+
+    # 저항 게이지 축적량
+    if is_futile:
+        meter_delta = max(METER_DELTA_FUTILE_MIN, int(strength * 0.5))
+    else:
+        meter_delta = max(METER_DELTA_NORMAL_MIN, int(strength * 1.5))
+
+    return {
+        "chance": chance,
+        "is_futile": is_futile,
+        "escape_power": escape_power,
+        "suppression": suppression,
+        "meter_delta": meter_delta,
+    }
+
+
+def check_resistance(mode_ctx, target_id, stim_state=None):
     """NPC 저항 체크 (매 행위 후 호출)
 
     Args:
         mode_ctx: 모드 컨텍스트
         target_id: 저항하는 NPC
+        stim_state: 자극 상태 (None이면 성욕/게이지 페널티 무시)
 
     Returns:
-        dict: {"escaped": bool, "resistance_delta": int}
+        dict: {
+            "escaped": bool,
+            "resistance_delta": int,
+            "attempted": bool,
+            "is_futile": bool,
+            "escape_chance": float,
+        }
     """
     if mode_ctx["mode"] != MODE_FORCED:
-        return {"escaped": False, "resistance_delta": 0}
+        return {"escaped": False, "resistance_delta": 0,
+                "attempted": False, "is_futile": False, "escape_chance": 0.0}
 
-    props = morld.get_unit_props(target_id) or {}
-    strength = props.get("근력", 5)
-    rebellion_key = None
-
-    # 반발 수치 찾기
-    for key in props:
-        if key.startswith("관계:") and key.endswith(":반발"):
-            rebellion_key = key
-            break
-    rebellion = props.get(rebellion_key, 0) if rebellion_key else 0
-
-    # 저항 확률: 기본 10% + 근력 2% + 반발 0.3%
     import random
-    resistance_chance = 0.10 + strength * 0.02 + rebellion * 0.003
-    resistance_chance = min(0.5, resistance_chance)  # 최대 50%
 
+    escape_info = calculate_escape_chance(target_id, stim_state)
+    chance = escape_info["chance"]
+    is_futile = escape_info["is_futile"]
+    meter_delta = escape_info["meter_delta"]
+
+    # UI용 상태 저장
+    mode_ctx["last_escape_chance"] = chance
+    mode_ctx["last_is_futile"] = is_futile
     mode_ctx["break_free_attempts"] += 1
 
-    if random.random() < resistance_chance:
-        return {"escaped": True, "resistance_delta": 0}
+    # 즉시 탈출 판정
+    if chance > 0 and random.random() < chance:
+        return {"escaped": True, "resistance_delta": 0,
+                "attempted": True, "is_futile": False,
+                "escape_chance": chance}
 
-    # 저항 실패 — 저항 게이지 소폭 축적
-    delta = max(3, int(strength * 1.5))
-    mode_ctx["resistance_meter"] += delta
+    # 저항 실패 — 저항 게이지 축적
+    mode_ctx["resistance_meter"] += meter_delta
     if mode_ctx["resistance_meter"] >= 100:
-        return {"escaped": True, "resistance_delta": delta}
+        return {"escaped": True, "resistance_delta": meter_delta,
+                "attempted": True, "is_futile": is_futile,
+                "escape_chance": chance}
 
-    return {"escaped": False, "resistance_delta": delta}
+    return {"escaped": False, "resistance_delta": meter_delta,
+            "attempted": True, "is_futile": is_futile,
+            "escape_chance": chance}
+
+
+# ============================================
+# 탈출 시도 메시지
+# ============================================
+
+_ESCAPE_ATTEMPT_MSGS = {
+    "normal": [
+        "{name}(이)가 몸을 비틀며 빠져나가려 한다... 하지만 실패했다.",
+        "{name}(이)가 팔을 뿌리치려 했으나 잡혔다.",
+        "{name}(이)가 버둥거렸지만 꼼짝할 수 없었다.",
+        "{name}(이)가 몸을 뒤틀었지만 빠져나가지 못했다.",
+    ],
+    "futile": [
+        "{name}(이)가 힘없이 몸부림을 쳤다.",
+        "{name}(이)가 빠져나가려 하지만... 힘이 들어가지 않는다.",
+        "{name}의 손이 힘없이 밀어보지만, 이미 몸에 힘이 빠져 있다.",
+        "{name}(이)가 고개를 돌리려 하지만 몸이 말을 듣지 않는다.",
+        "{name}의 저항이 점점 약해지고 있다...",
+    ],
+}
+
+
+def get_escape_attempt_message(target_id, is_futile):
+    """탈출 시도 실패 메시지 반환
+
+    Args:
+        target_id: 저항하는 NPC
+        is_futile: 항상실패 상태
+
+    Returns:
+        str: 색상 태그 포함 메시지
+    """
+    import random
+    info = morld.get_unit_info(target_id)
+    name = info.get("name", "상대") if info else "상대"
+    pool_key = "futile" if is_futile else "normal"
+    pool = _ESCAPE_ATTEMPT_MSGS.get(pool_key, _ESCAPE_ATTEMPT_MSGS["normal"])
+    text = random.choice(pool).format(name=name)
+    return f"[color=red]({text})[/color]"
 
 
 # ============================================
@@ -350,6 +497,8 @@ def transition_to_forced(mode_ctx):
     mode_ctx["mode"] = MODE_FORCED
     mode_ctx["resistance_meter"] = 30  # 각성 직후 높은 초기 저항
     mode_ctx["break_free_attempts"] = 0
+    mode_ctx["last_escape_chance"] = 0.0
+    mode_ctx["last_is_futile"] = False
     # unconscious 전용 필드 정리
     mode_ctx.pop("wake_check_accum", None)
 

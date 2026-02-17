@@ -87,6 +87,11 @@
 | NPC→Player 저항 모드 | npc_initiative.py | ✅ 완료 |
 | 강제 진입 은신 기습 보너스 | romance_mode.py | ✅ 완료 |
 | NPC 저항/탈출 (강제 중) | romance_mode.py (check_resistance) | ✅ 완료 |
+| 탈출 확률 개편 (성욕/게이지 감소) | romance_mode.py (calculate_escape_chance) | ✅ 완료 |
+| 항상실패(futile) 판정 | romance_mode.py (escape_power vs suppression) | ✅ 완료 |
+| 탈출 시도 메시지 (실패 시) | romance_mode.py (get_escape_attempt_message) | ✅ 완료 |
+| 탈출 확률 UI 표시 | romance_ui.py (저항 바 + 탈출%) | ✅ 완료 |
+| 신체 반응 묘사 (10 아키타입) | romance_body_reaction.py | ✅ 완료 |
 | 모드별 캐릭터 반응 | 전체 NPC (forced_/aftermath) | ✅ 완료 |
 | 임신 이벤트 (수정/발표) | pregnancy.py, base.py, 전체 NPC | ✅ 완료 |
 | 모드 사후 이벤트 (on_meet) | base.py, 전체 NPC | ✅ 완료 |
@@ -158,6 +163,7 @@ scenarios/scenario02/python/
 ├── romance_actions.py            # 행위 정의 + 공유 상수
 ├── romance_core.py               # 공유 핵심 로직 (25+ 함수)
 ├── romance_mode.py               # 동작 모드 (합의/강제/무의식/시간정지)
+├── romance_body_reaction.py      # 강제 모드 신체 반응 (10 아키타입 × 각성 단계)
 ├── romance_ui.py                 # 연애 UI 렌더링
 ├── romance_line_generator.py     # 대사 generator (:start 1인칭, 3D 좌표 기반)
 ├── romance_reaction_generator.py # 묘사 generator (:during 3인칭, 3D 좌표 기반)

@@ -1699,17 +1699,52 @@ NPC 기본 스탯:
 
 #### NPC 저항 (`check_resistance()`)
 
-매 행위 후 `_post_action_mode_check()`에서 호출:
+매 행위 후 `_post_action_mode_check()`에서 호출.
 
+**탈출 확률 공식** (`calculate_escape_chance()`):
 ```python
-resistance_chance = 0.10 + 근력 × 0.02 + 반발 × 0.003  # 최대 50%
-# 확률 성공 → 즉시 탈출
-# 확률 실패 → resistance_meter += max(3, 근력 × 1.5)
-# resistance_meter ≥ 100 → 축적 탈출
+base = 0.10 + 근력 × 0.02 + 반발 × 0.003
+penalty = 성욕 × 0.002 + 절정게이지 × 0.002 + min(절정횟수, 3) × 0.03
+chance = clamp(base - penalty, 0, 0.50)
 ```
+
+**항상실패(futile) 판정** — 성적 각성이 육체적 저항력을 압도:
+```python
+escape_power = 근력 × 2 + 체격 × 3 + (체력/최대체력) × 5
+suppression  = 성욕 × 0.2 + 절정게이지 × 0.2 + min(절정횟수, 3) × 5
+is_futile = suppression >= escape_power   # → chance = 0
+```
+
+**저항 게이지 축적**:
+- 일반: `max(3, int(근력 × 1.5))` / futile: `max(1, int(근력 × 0.5))`
+- `resistance_meter ≥ 100` → futile 상태에서도 강제 탈출 (안전장치)
+
+**NPC별 보정표**:
+
+| NPC | 근력 | 체격 | escape_power | 성욕=0 확률 | 성욕=80+게이지=50 | futile 진입 기준 |
+|-----|------|------|-------------|-----------|-----------------|----------------|
+| 세라 | 6 | 3 | 26 | 22% | ~0% (futile) | 성욕80+게이지50 |
+| 엘라 | 5 | 3 | 23 | 20% | ~0% (futile) | 성욕80+게이지35 |
+| 밀라 | 4 | 2 | 19 | 18% | ~0% (futile) | 성욕70+게이지25 |
+| 리나 | 3 | 1 | 14 | 16% | ~0% (futile) | 성욕50+게이지20 |
+| 유키 | 3 | 1 | 14 | 16% | ~0% (futile) | 성욕50+게이지20 |
+
+**체위 변경 시**: 탈출 확률로 저항 판정 → 성공 시 `resistance_meter` 초기화, 실패 시 축적.
+
+**탈출 시도 메시지**: 실패 시 NPC가 저항하는 묘사 (일반/futile 풀 분리).
 
 - 탈출 성공 → 세션 종료, `상태:강제피해` prop 설정
 - 탈출 시 NPC 반응: `forced_break_free:start`
+
+#### 신체 반응 (`romance_body_reaction.py`)
+
+강제 모드 중 성욕/절정게이지 변화에 따른 비자발적 신체 반응 묘사.
+
+- **2차원 단계**: arousal_tier(low/medium/high/extreme) × gauge_tier(low/medium/high/critical)
+- **10개 아키타입**: stoic/gentle/cheerful/timid/cold/seductive/fierce/proud/innocent/devoted
+- **절정 후 반응**: climax_total ≥ 1 + arousal < 30 → 별도 풀
+- **UI 표시**: `[color=magenta]` 태그, 저항 바 아래에 렌더링
+- **fallback**: 정확한 키 없으면 gauge → arousal 순으로 한 단계 낮춰 검색
 
 #### 효과 배율
 

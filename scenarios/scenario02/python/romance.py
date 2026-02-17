@@ -35,6 +35,7 @@ from romance_mode import (
     transition_to_forced, get_silent_narration, get_silent_climax_narration,
     apply_forced_end_penalty, apply_unconscious_end_state,
     apply_deferred_effects, defer_effect, defer_semen,
+    calculate_escape_chance, get_escape_attempt_message,
 )
 # 공유 핵심 로직: romance_core.py에서 import (+ 외부 모듈 호환 re-export)
 from romance_core import (  # noqa: F401 — re-export for external callers
@@ -606,10 +607,22 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
         # 강제 모드: NPC 저항 체크
         if cur_mode == MODE_FORCED:
-            result = check_resistance(mode_ctx, state["partner_id"])
+            stim_state = state.get("stim")
+            result = check_resistance(mode_ctx, state["partner_id"],
+                                      stim_state=stim_state)
             if result["escaped"]:
                 state["escaped"] = True
                 return True
+            # 탈출 시도 메시지 (실패)
+            if result.get("attempted"):
+                msg = get_escape_attempt_message(
+                    state["partner_id"], result.get("is_futile", False))
+                if msg:
+                    existing = state.get("last_reaction") or ""
+                    if existing:
+                        state["last_reaction"] = existing + "\n" + msg
+                    else:
+                        state["last_reaction"] = msg
 
         # 무의식 모드: 각성 체크
         if cur_mode == MODE_UNCONSCIOUS:
@@ -682,19 +695,21 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if mode_ctx["mode"] == MODE_FORCED:
                 import random
                 pid = state["partner_id"]
-                p_props = morld.get_unit_props(pid) or {}
-                p_strength = p_props.get("근력", 5)
-                reb_key = get_rebellion_key(state["player_id"])
-                p_rebellion = p_props.get(reb_key, 0)
-                fail_chance = min(0.5, 0.10 + p_strength * 0.02 + p_rebellion * 0.003)
-                if random.random() < fail_chance:
+                escape_info = calculate_escape_chance(pid, state.get("stim"))
+                resist_chance = escape_info["chance"]
+                # UI용 상태 갱신
+                mode_ctx["last_escape_chance"] = resist_chance
+                mode_ctx["last_is_futile"] = escape_info["is_futile"]
+                if random.random() < resist_chance:
                     # 실패: 저항 게이지 누적
-                    delta = max(3, int(p_strength * 1.5))
+                    delta = escape_info["meter_delta"]
                     mode_ctx["resistance_meter"] += delta
                     if mode_ctx["resistance_meter"] >= 100:
                         state["escaped"] = True
                         return True
-                    state["last_reaction"] = f"체위를 변경하려 했으나 저항에 막혔다. [저항 +{delta}]"
+                    esc_msg = get_escape_attempt_message(
+                        pid, escape_info["is_futile"])
+                    state["last_reaction"] = f"체위를 변경하려 했으나 저항에 막혔다.\n{esc_msg}"
                     result = advance_time_and_check(state, 2 * MILLIS_PER_MINUTE)
                     if result["interrupted"]:
                         state["interrupted"] = True

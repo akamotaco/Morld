@@ -32,6 +32,16 @@ from romance_core import (
 )
 
 
+def _get_partner_archetype(partner_id):
+    """파트너 아키타입 조회"""
+    partner_asset = get_partner_asset(partner_id)
+    if partner_asset:
+        profile = getattr(partner_asset, 'REACTION_PROFILE', None)
+        if profile:
+            return profile.get("archetype", "stoic")
+    return "stoic"
+
+
 def render_stamina_bar(stamina, max_stamina=100):
     """체력 바 렌더링 (10칸 정규화)"""
     BAR_WIDTH = 10
@@ -74,10 +84,28 @@ def render_romance_ui(state):
     max_stamina = state.get("max_stamina", 100)
     lines.append(f"[{partner_name}와 함께]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  체력: {render_stamina_bar(player_stamina, max_stamina)}")
 
-    # 저항 게이지 (강제 모드)
+    # 저항 게이지 + 탈출 확률 (강제 모드)
     if cur_mode == "forced" and mode_ctx:
         resistance = mode_ctx.get("resistance_meter", 0)
-        lines.append(f"[color=red]저항: {'█' * (resistance // 10)}{'░' * (10 - resistance // 10)} {resistance}/100[/color]")
+        bar = "█" * (resistance // 10) + "░" * (10 - resistance // 10)
+        is_futile = mode_ctx.get("last_is_futile", False)
+        escape_chance = mode_ctx.get("last_escape_chance", 0.0)
+        if is_futile:
+            escape_text = "[color=gray]불가능[/color]"
+        else:
+            escape_text = f"{int(escape_chance * 100)}%"
+        lines.append(f"[color=red]저항: {bar} {resistance}/100  탈출: {escape_text}[/color]")
+
+        # 신체 반응 묘사
+        from romance_body_reaction import get_body_reaction
+        archetype = _get_partner_archetype(partner_id)
+        arousal = partner_props.get("상태:성욕", 0)
+        stim_state_br = state.get("stim")
+        gauge_br = stim_state_br.get("climax_gauge", 0) if stim_state_br else 0
+        climax_br = stim_state_br.get("climax_total", 0) if stim_state_br else 0
+        body_text = get_body_reaction(archetype, partner_name, arousal, gauge_br, climax_br)
+        if body_text:
+            lines.append(f"[color=magenta]({body_text})[/color]")
     lines.append("")
 
     # 근접 경고 (누군가 지나갔지만 들키지 않음)
