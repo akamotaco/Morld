@@ -53,7 +53,7 @@ def get_gender(unit_id):
     """
     val = morld.get_unit_prop(unit_id, "성별")
     if val:
-        return int_to_gender(val)
+        return int_to_gender(int(val))
     return MALE
 
 

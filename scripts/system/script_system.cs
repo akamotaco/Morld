@@ -129,7 +129,8 @@ namespace SE
                 var key = keys.GetItem(i);
                 var keyStr = key is PyString ks ? ks.Value : key.ToString();
                 var value = dict.GetItem(key);
-                var valueInt = value is PyInt vi ? (int)vi.Value : 0;
+                var valueInt = value is PyBool vb ? (vb.IsTrue() ? 1 : 0)
+                             : value is PyInt vi ? (int)vi.Value : 0;
                 result[keyStr] = valueInt;
             }
             return result;

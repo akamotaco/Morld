@@ -3,10 +3,9 @@ namespace Morld;
 using System;
 
 /// <summary>
-/// Prop (타입:이름 형식)
-/// - 타입: "스탯", "상태", "감정", "스킬" 등
-/// - 이름: "힘", "피로", "기쁨", "검술" 등
-/// - 형식: "타입:이름" (둘 다 필수)
+/// Prop (타입:이름 형식 또는 단순 이름)
+/// - 복합: "타입:이름" (예: "생존:체력", "외모:흑발")
+/// - 단순: "이름" (예: "성별", "근력") → Type=""
 /// </summary>
 public readonly struct Prop : IEquatable<Prop>
 {
@@ -21,14 +20,14 @@ public readonly struct Prop : IEquatable<Prop>
 	public string Name { get; }
 
 	/// <summary>
-	/// 전체 이름 (예: "스탯:힘")
+	/// 전체 이름 (복합: "타입:이름", 단순: "이름")
 	/// </summary>
-	public string FullName => $"{Type}:{Name}";
+	public string FullName => string.IsNullOrEmpty(Type) ? Name : $"{Type}:{Name}";
 
 	/// <summary>
-	/// 유효한 Prop인지 (타입과 이름이 모두 있는지)
+	/// 유효한 Prop인지 (이름이 있으면 유효, Type은 비어도 됨)
 	/// </summary>
-	public bool IsValid => !string.IsNullOrEmpty(Type) && !string.IsNullOrEmpty(Name);
+	public bool IsValid => !string.IsNullOrEmpty(Name);
 
 	/// <summary>
 	/// Prop 생성
@@ -40,8 +39,7 @@ public readonly struct Prop : IEquatable<Prop>
 	}
 
 	/// <summary>
-	/// "타입:이름" 형식 문자열에서 파싱
-	/// 잘못된 형식이면 IsValid = false인 Prop 반환
+	/// 문자열에서 파싱: "타입:이름" → 복합 Prop, "이름" → 단순 Prop (Type="")
 	/// </summary>
 	public static Prop Parse(string fullName)
 	{
@@ -50,7 +48,13 @@ public readonly struct Prop : IEquatable<Prop>
 
 		var colonIndex = fullName.IndexOf(':');
 		if (colonIndex <= 0 || colonIndex >= fullName.Length - 1)
-			return default; // ":" 없거나, ":이름" 또는 "타입:" 형식
+		{
+			// 콜론 없음 또는 불완전 → 단순 Prop (Type="")
+			var trimmed = fullName.Trim();
+			if (string.IsNullOrEmpty(trimmed))
+				return default;
+			return new Prop(string.Empty, trimmed);
+		}
 
 		var type = fullName.Substring(0, colonIndex).Trim();
 		var name = fullName.Substring(colonIndex + 1).Trim();
@@ -77,9 +81,14 @@ public readonly struct Prop : IEquatable<Prop>
 	{
 		var prop = Parse(fullName);
 		if (!prop.IsValid)
-			throw new ArgumentException($"Invalid prop format: '{fullName}'. Expected 'Type:Name' format.", nameof(fullName));
+			throw new ArgumentException($"Invalid prop format: '{fullName}'. Expected 'Type:Name' or 'Name' format.", nameof(fullName));
 		return prop;
 	}
+
+	/// <summary>
+	/// 단순 Prop인지 (Type이 비어있는지)
+	/// </summary>
+	public bool IsSimple => string.IsNullOrEmpty(Type);
 
 	public override string ToString() => IsValid ? FullName : "(invalid)";
 
