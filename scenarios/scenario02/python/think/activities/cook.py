@@ -29,7 +29,7 @@ def handle_cook(agent, entry):
                 if food_uid:
                     obj.npc_take_item(agent.unit_id, food_uid, 1)
                     agent._activity_phase = "going_to_stove"
-                    agent._action_taken = True
+                    agent._do_instant_action("재료 꺼내기", "take_item")
                     return
             # 재료 없음 → 디스패치 루프가 "할 일 없음" 폴백
             return
@@ -42,8 +42,7 @@ def handle_cook(agent, entry):
         if not stove_target:
             stove_target = find_stove_location(agent)
             if not stove_target:
-                agent._activity_phase = "idle"
-                agent._action_taken = True
+                agent._do_instant_action("대기", "abort")
                 return
             agent._activity_state["stove_target"] = stove_target
 
@@ -58,7 +57,7 @@ def handle_cook(agent, entry):
                     import sound
                     sound.emit_sound(agent.unit_id, "cooking")
             agent._activity_phase = "storing_result"
-            agent._action_taken = True
+            agent._do_instant_action("요리", "cook")
         else:
             agent._move_to(stove_target, "요리")
 
@@ -69,14 +68,13 @@ def handle_cook(agent, entry):
             if not target:
                 target = resolve_storage_container(agent, "food")
             if not target:
-                agent._activity_phase = "idle"
-                agent._action_taken = True
+                agent._do_instant_action("대기", "abort")
                 return
             agent._activity_state["storage_target"] = target
 
         if agent._is_at(target):
             store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("요리 저장", "store_item")
         else:
             agent._move_to(target, "요리 저장")

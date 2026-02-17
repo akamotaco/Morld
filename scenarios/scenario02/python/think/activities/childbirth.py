@@ -40,8 +40,7 @@ def handle_childbirth(agent, entry):
             return
         if agent._is_at(target):
             agent._memory["childbirth_phase"] = "laboring"
-            agent._insert_idle_job("출산", 8 * 60 * 60_000)  # 8시간
-            agent._action_taken = True
+            agent._do_instant_action("출산", "labor")
         else:
             agent._move_to(target, "출산")
 
@@ -52,8 +51,7 @@ def handle_childbirth(agent, entry):
         agent._memory["childbirth_child_id"] = child_id
         agent._memory["last_child_id"] = child_id
         agent._memory["childbirth_phase"] = "recovery"
-        agent._insert_idle_job("산후조리", 24 * 60 * 60_000)  # 24시간 회복
-        agent._action_taken = True
+        agent._do_instant_action("산후조리", "postpartum")
 
     elif phase == "recovery":
         # 회복 완료 → 상태 초기화
@@ -62,8 +60,7 @@ def handle_childbirth(agent, entry):
         agent._memory["childbirth_phase"] = None
         agent._memory["childbirth_target"] = None
         # 기본 행동으로 복귀 (다음 think()에서 결정)
-        agent._insert_idle_job("회복완료", 60_000)  # 1분
-        agent._action_taken = True
+        agent._do_instant_action("회복완료", "brief")
 
 
 # ============================================
@@ -98,8 +95,7 @@ def handle_maternal(agent, entry):
             return
         if agent._is_at(target):
             agent._memory["maternal_phase"] = "interacting"
-            agent._insert_idle_job("육아", 30 * 60_000)  # 30분 돌봄
-            agent._action_taken = True
+            agent._do_instant_action("육아", "maternal")
         else:
             agent._move_to(target, "육아")
 
@@ -109,7 +105,5 @@ def handle_maternal(agent, entry):
         morld.set_unit_prop(agent.unit_id, "욕구:모성", max(0, current - 30))
         agent._memory["maternal_phase"] = None
         agent._memory["maternal_target"] = None
-        agent._action_taken = True
         # 다음 think에서 일반 행동 재개
-        agent._insert_idle_job("육아완료", 60_000)
-        agent._action_taken = True
+        agent._do_instant_action("육아완료", "brief")

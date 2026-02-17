@@ -727,6 +727,8 @@ morld.insert_job(unit_id, {
 3. stay job: `"action": "stay"` (NOT `"idle"`)
 4. move job: `"action": "move"`, duration=0 (C# 자동 계산)
 5. `_insert_idle_job(name, ms)` 헬퍼로 대기 job 삽입
+6. **고정 시간 행동**: `agent._do_instant_action("이름", "key")` — ACTION_DURATION 테이블 조회 + job 삽입 + action_taken 설정을 한 번에 처리. 테이블: `think/activities/helpers.py`
+7. **캐릭터 오버라이드**: `_action_duration_overrides` dict로 NPC별 행동 시간 변경 가능
 
 ### C# 구현 위치
 

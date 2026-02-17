@@ -48,8 +48,7 @@ def handle_chop(agent, entry):
             from .helpers import resolve_storage_container
             target = resolve_storage_container(agent, "tool")
         if not target:
-            agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("대기", "abort")
             return
 
         if agent._is_at(target):
@@ -59,12 +58,12 @@ def handle_chop(agent, entry):
                 morld.remove_item(container_id, item_id, 1)
                 morld.give_item(agent.unit_id, item_id, 1)
                 agent._activity_phase = "going_to_tree"
-                agent._action_taken = True
+                agent._do_instant_action("도구 준비", "take_item")
             else:
                 # 경합으로 사라짐 → 재탐색
                 agent._activity_state.pop("tool", None)
                 agent._activity_phase = "idle"
-                agent._action_taken = True
+                agent._do_instant_action("대기", "abort")
         else:
             agent._move_to(target, "도구 찾기")
 
@@ -85,7 +84,7 @@ def handle_chop(agent, entry):
                     import sound
                     sound.emit_sound(agent.unit_id, "chop")
             agent._activity_phase = "returning_tool"
-            agent._action_taken = True
+            agent._do_instant_action("벌목", "chop")
         else:
             agent._move_to(target, "벌목")
 
@@ -96,8 +95,7 @@ def handle_chop(agent, entry):
         from .helpers import resolve_storage_container
         target = resolve_storage_container(agent, "tool")
         if not target:
-            agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("대기", "abort")
             return
         container_id = target["object_id"]
 
@@ -106,6 +104,6 @@ def handle_chop(agent, entry):
                 morld.remove_item(agent.unit_id, item_id, 1)
                 morld.give_item(container_id, item_id, 1)
             agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("도구 반납", "store_item")
         else:
             agent._move_to(target, "도구 반납")

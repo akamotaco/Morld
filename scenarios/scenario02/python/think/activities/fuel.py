@@ -17,7 +17,7 @@ def handle_fuel(agent, entry):
         if not target_source:
             # 연료 충분 → 나머지 시간 대기
             remaining = agent._remaining_millis_in_entry(entry)
-            agent._insert_idle_job("연료수집", max(remaining, 1))
+            agent._insert_idle_job("연료수집", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             agent._action_taken = True
             return
 
@@ -47,7 +47,7 @@ def handle_fuel(agent, entry):
                         if not obj.npc_gather_branch(agent.unit_id):
                             break
             agent._activity_phase = "going_to_heat_source"
-            agent._action_taken = True
+            agent._do_instant_action("나뭇가지 줍기", "gather_branch")
         else:
             agent._move_to(target, "나뭇가지 줍기")
 
@@ -61,7 +61,7 @@ def handle_fuel(agent, entry):
             # 도착 → 인벤토리의 branch/log를 열원에 장전
             _load_all_fuel(agent, target["object_id"])
             agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("연료 투입", "load_fuel")
         else:
             agent._move_to(target, "연료 장전")
 

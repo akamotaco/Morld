@@ -79,7 +79,7 @@ def _handle_idle(agent, entry):
 
     # 할 일 없음
     remaining = agent._remaining_millis_in_entry(entry)
-    agent._insert_idle_job("정원", max(remaining, 1))
+    agent._insert_idle_job("정원", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
     agent._action_taken = True
 
 
@@ -96,8 +96,7 @@ def _handle_getting_tool(agent):
         if not target:
             target = resolve_storage_container(agent, "tool")
     if not target:
-        agent._activity_phase = "idle"
-        agent._action_taken = True
+        agent._do_instant_action("대기", "abort")
         return
 
     if agent._is_at(target):
@@ -107,12 +106,12 @@ def _handle_getting_tool(agent):
             morld.remove_item(container_id, item_id, 1)
             morld.give_item(agent.unit_id, item_id, 1)
             agent._activity_phase = "going_to_garden"
-            agent._action_taken = True
+            agent._do_instant_action("도구 준비", "take_item")
         else:
             # 경합으로 사라짐 → 재탐색
             agent._activity_state.pop("tool", None)
             agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("대기", "abort")
     else:
         agent._move_to(target, "도구 찾기")
 
@@ -151,14 +150,14 @@ def _handle_working(agent, entry):
     if obj.has_harvestable():
         count = obj.npc_harvest(agent.unit_id)
         if count > 0:
-            _start_wait(agent, "수확", 20 * 60_000, "storing_harvest")
+            _start_wait(agent, "수확", agent._get_action_duration("harvest"), "storing_harvest")
             return
 
     # 우선순위 2: 물주기 (도구 필요)
     if obj.needs_water():
         if _has_water_tool(agent):
             obj.npc_water(agent.unit_id)
-            _start_wait(agent, "물주기", 10 * 60_000, "working")
+            _start_wait(agent, "물주기", agent._get_action_duration("water_garden"), "working")
             return
         else:
             # 도구 없이 도착 (수확 후 재평가 등) → 도구 가져오기
@@ -173,7 +172,7 @@ def _handle_working(agent, entry):
         random.shuffle(codes)
         for code in codes:
             if obj.npc_plant(agent.unit_id, code):
-                _start_wait(agent, "씨 심기", 10 * 60_000, "working")
+                _start_wait(agent, "씨 심기", agent._get_action_duration("plant_seed"), "working")
                 return
 
     # 할 일 없음 → 도구 반납
@@ -186,7 +185,7 @@ def _handle_working_wait(agent):
     remaining = wait_until - agent.get_time()
     if remaining > 0:
         wait_name = agent._activity_state.get("wait_name", "정원")
-        agent._insert_idle_job(wait_name, remaining)
+        agent._insert_idle_job(wait_name, remaining)  # get_time() 기반 재계산 — ACTION_DURATION 대상 아님
         agent._action_taken = True
     else:
         # 대기 완료 → 다음 단계
@@ -205,14 +204,14 @@ def _handle_storing_harvest(agent):
         if not target:
             # 보관소 없음 → 정원 복귀
             agent._activity_phase = "going_to_garden"
-            agent._action_taken = True
+            agent._do_instant_action("정리", "store_item")
             return
         agent._activity_state["storage_target"] = target
 
     if agent._is_at(target):
         store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
         agent._activity_state.pop("storage_target", None)
-        _start_wait(agent, "정리", 5 * 60_000, "going_to_garden")
+        _start_wait(agent, "정리", agent._get_action_duration("garden_tidy"), "going_to_garden")
     else:
         agent._move_to(target, "수확물 보관")
 
@@ -223,7 +222,7 @@ def _handle_returning_tool(agent, entry):
     if not tool:
         # 도구 없음 → 잔여 시간 대기
         remaining = agent._remaining_millis_in_entry(entry)
-        agent._insert_idle_job("정원", max(remaining, 1))
+        agent._insert_idle_job("정원", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
         agent._action_taken = True
         return
 
@@ -233,7 +232,7 @@ def _handle_returning_tool(agent, entry):
     if not morld.has_item(agent.unit_id, item_id):
         agent._activity_state.pop("tool", None)
         agent._activity_phase = "idle"
-        agent._action_taken = True
+        agent._do_instant_action("정원", "store_item")
         return
 
     target = resolve_storage_container(agent, "garden_tool")
@@ -243,7 +242,7 @@ def _handle_returning_tool(agent, entry):
         # 반납 불가 → 인벤토리에 보유한 채 대기
         agent._activity_state.pop("tool", None)
         remaining = agent._remaining_millis_in_entry(entry)
-        agent._insert_idle_job("정원", max(remaining, 1))
+        agent._insert_idle_job("정원", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
         agent._action_taken = True
         return
 
@@ -253,7 +252,7 @@ def _handle_returning_tool(agent, entry):
         morld.give_item(container_id, item_id, 1)
         agent._activity_state.pop("tool", None)
         agent._activity_phase = "idle"
-        agent._action_taken = True
+        agent._do_instant_action("도구 반납", "store_item")
     else:
         agent._move_to(target, "도구 반납")
 

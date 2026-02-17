@@ -93,7 +93,16 @@ namespace SE
 			{
 #if DEBUG_LOG
 				if (!unit.IsObject && unit.Id > 0)
-					GD.Print($"[JobBehaviorSystem] Unit {unit.Id} ({unit.Name}) has no current job");
+				{
+					var loc = unit.CurrentLocation;
+					var jobCount = unit.JobList.Count;
+					var hasSchedule = unit.BaseSchedule != null && unit.BaseSchedule.Entries.Count > 0;
+					var seatedOn = unit.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
+					var isSeated = seatedOn.Prop.IsValid;
+					GD.Print($"[JobBehaviorSystem] Unit {unit.Id} ({unit.Name}) has no current job — " +
+						$"loc=R{loc.RegionId}L{loc.LocalId} x={unit.PositionX:F0}, " +
+						$"jobList.Count={jobCount}, hasSchedule={hasSchedule}, isSeated={isSeated}");
+				}
 #endif
 				return;
 			}

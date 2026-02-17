@@ -10,7 +10,7 @@ def handle_fish(agent, entry):
         # 충분성 체크
         if not agent._check_storage_need("food_ingredient", "food_fish", 3):
             remaining = agent._remaining_millis_in_entry(entry)
-            agent._insert_idle_job("낚시", max(remaining, 1))
+            agent._insert_idle_job("낚시", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             agent._action_taken = True
             return
 
@@ -40,8 +40,7 @@ def handle_fish(agent, entry):
             from .helpers import resolve_storage_container
             target = resolve_storage_container(agent, "tool")
         if not target:
-            agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("대기", "abort")
             return
 
         if agent._is_at(target):
@@ -51,12 +50,12 @@ def handle_fish(agent, entry):
                 morld.remove_item(container_id, item_id, 1)
                 morld.give_item(agent.unit_id, item_id, 1)
                 agent._activity_phase = "going_to_spot"
-                agent._action_taken = True
+                agent._do_instant_action("도구 준비", "take_item")
             else:
                 # 경합으로 사라짐 → 재탐색
                 agent._activity_state.pop("tool", None)
                 agent._activity_phase = "idle"
-                agent._action_taken = True
+                agent._do_instant_action("대기", "abort")
         else:
             agent._move_to(target, "도구 찾기")
 
@@ -83,7 +82,7 @@ def handle_fish(agent, entry):
                     import sound
                     sound.emit_sound(agent.unit_id, "splash")
             agent._activity_phase = "storing_catch"
-            agent._action_taken = True
+            agent._do_instant_action("낚시", "fish")
         else:
             agent._move_to(target, "낚시")
 
@@ -97,7 +96,7 @@ def handle_fish(agent, entry):
                 target = resolve_storage_container(agent, "food")
             if not target:
                 agent._activity_phase = "returning_tool"
-                agent._action_taken = True
+                agent._do_instant_action("대기", "abort")
                 return
             agent._activity_state["storage_target"] = target
 
@@ -105,7 +104,7 @@ def handle_fish(agent, entry):
             from .helpers import store_npc_items
             store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._activity_phase = "returning_tool"
-            agent._action_taken = True
+            agent._do_instant_action("물고기 저장", "store_item")
         else:
             agent._move_to(target, "물고기 저장")
 
@@ -116,8 +115,7 @@ def handle_fish(agent, entry):
         from .helpers import resolve_storage_container
         target = resolve_storage_container(agent, "tool")
         if not target:
-            agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("대기", "abort")
             return
         container_id = target["object_id"]
 
@@ -126,6 +124,6 @@ def handle_fish(agent, entry):
                 morld.remove_item(agent.unit_id, item_id, 1)
                 morld.give_item(container_id, item_id, 1)
             agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("도구 반납", "store_item")
         else:
             agent._move_to(target, "도구 반납")

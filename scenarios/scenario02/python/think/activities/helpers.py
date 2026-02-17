@@ -1,5 +1,6 @@
 """활동 핸들러 공통 유틸
 
+ACTION_DURATION — 고정 시간 행동 소요시간 테이블 (밀리초)
 find_npc_food / find_food_in_container — 음식 탐색 (eat, gather, cook 공용)
 store_food_items — NPC 인벤토리 → 저장소 일괄 이동
 resolve_storage_container — storage:{category} prop 기반 보관소 동적 탐색
@@ -10,6 +11,67 @@ find_indoor_room — 거처 실내 방 탐색
 find_polluted_room — 오염된 거처 내 방 탐색
 """
 import morld
+
+# ========================================
+# 행동 소요시간 테이블 (밀리초)
+# ========================================
+# 이동(move)은 C#이 거리 기반 동적 계산 → 제외
+# max(remaining, 1) 패턴은 스케줄 종료 시간 연동 → 제외
+# BaseAgent._action_duration_overrides 로 캐릭터별 오버라이드 가능
+
+ACTION_DURATION = {
+    # 식사
+    "eat":           15 * 60_000,   # 15분
+
+    # 아이템 조작
+    "take_item":      1 * 60_000,   # 1분 — 컨테이너에서 꺼내기
+    "store_item":     1 * 60_000,   # 1분 — 컨테이너에 넣기
+
+    # 의류 착탈
+    "equip":          3 * 60_000,   # 3분 — 장비 착용
+    "unequip":        2 * 60_000,   # 2분 — 장비 해제
+
+    # 자원 활동
+    "chop":          30 * 60_000,   # 30분 — 벌목
+    "fish":          30 * 60_000,   # 30분 — 낚시
+    "gather":        10 * 60_000,   # 10분 — 채집
+    "scavenge":      10 * 60_000,   # 10분 — 물자 수집
+    "gather_branch":  5 * 60_000,   # 5분 — 나뭇가지 줍기
+
+    # 가사
+    "cook":          20 * 60_000,   # 20분 — 요리
+    "clean_room":    10 * 60_000,   # 10분 — 청소 (1개 방)
+    "toggle_light":   1 * 60_000,   # 1분 — 조명 켜기/끄기
+    "load_fuel":      5 * 60_000,   # 5분 — 연료 투입
+
+    # 생활
+    "excretion":      5 * 60_000,   # 5분 — 배변
+    "bath":          30 * 60_000,   # 30분 — 목욕 (비스케줄)
+    "bath_wait":      5 * 60_000,   # 5분 — 목욕 대기 (욕실 점유)
+    "self_comfort":  15 * 60_000,   # 15분 — 자위
+    "sleep_fallback":10 * 60_000,   # 10분 — 수면 폴백
+    "sleep_default":  2 * 3_600_000, # 2시간 — 비스케줄 수면
+
+    # 사회
+    "socialize":     30 * 60_000,   # 30분 — 대화
+    "gift":           5 * 60_000,   # 5분 — 선물
+
+    # 정원
+    "water_garden":  10 * 60_000,   # 10분 — 물주기
+    "harvest":       20 * 60_000,   # 20분 — 수확
+    "plant_seed":    10 * 60_000,   # 10분 — 씨 심기
+    "garden_tidy":    5 * 60_000,   # 5분 — 정리
+
+    # 출산/모성
+    "labor":          8 * 3_600_000, # 8시간 — 출산
+    "postpartum":    24 * 3_600_000, # 24시간 — 산후조리
+    "maternal":      30 * 60_000,   # 30분 — 육아
+
+    # 대기/중단
+    "abort":          5 * 60_000,   # 5분 — 중단/오류
+    "brief":          1 * 60_000,   # 1분 — 짧은 전환
+    "safety_net":    10 * 60_000,   # 10분 — think() 안전망
+}
 
 
 def find_npc_food(unit_id):

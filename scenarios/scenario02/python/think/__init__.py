@@ -59,6 +59,8 @@ class BaseAgent:
 
     # (보관소는 storage:{category} prop 기반 동적 탐색 — resolve_storage_container)
 
+    _action_duration_overrides = {}  # 서브클래스에서 오버라이드 가능
+
     def __init__(self, unit_id):
         self.unit_id = unit_id
         self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
@@ -306,6 +308,9 @@ class BaseAgent:
         """수면 행동 처리 (think()에서 수면 시간대에 호출)"""
         sleep_info = self._resolve_sleep_location()
         if not sleep_info:
+            # 침대도 못 찾고 현재 위치도 없음 → 최소 idle
+            self._insert_idle_job("sleep", self._get_action_duration("sleep_fallback"))
+            self._action_taken = True
             return
 
         loc = self.get_location()
@@ -322,23 +327,23 @@ class BaseAgent:
             _, sleep_entry = self._is_sleep_time()
             if sleep_entry:
                 remaining = self._remaining_millis_in_entry(sleep_entry)
-                self._insert_idle_job("sleep", max(remaining, 1))
+                self._insert_idle_job("sleep", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             else:
                 # 피로 인터럽트 등 비스케줄 수면 — 2시간 단위
-                self._insert_idle_job("sleep", 2 * 3_600_000)
+                self._insert_idle_job("sleep", self._get_action_duration("sleep_default"))
+            self._action_taken = True
         else:
-            # 이동 필요 → move job 설정
-            info = self.get_info()
-            if not info.get("is_moving"):
-                target_x = sleep_info.get("x", 0)
-                morld.insert_job(self.unit_id, {
-                    "name": "수면",
-                    "action": "move",
-                    "region_id": target_region,
-                    "location_id": target_location,
-                    "target_x": target_x if target_x else 0,
-                    "duration": 0,
-                })
+            # 이동 필요 → move job 설정 (항상 삽입)
+            target_x = sleep_info.get("x", 0)
+            morld.insert_job(self.unit_id, {
+                "name": "수면",
+                "action": "move",
+                "region_id": target_region,
+                "location_id": target_location,
+                "target_x": target_x if target_x else 0,
+                "duration": 0,
+            })
+            self._action_taken = True
 
     def _ensure_standing(self):
         """앉거나 누워있으면 일어나기 (활동 전 상태 정리)
@@ -379,6 +384,24 @@ class BaseAgent:
                 "action": "stay",
                 "duration": duration_millis,
             })
+
+    def _get_action_duration(self, key):
+        """행동 소요시간 조회 — 캐릭터 오버라이드 우선, 없으면 테이블 기본값"""
+        if key in self._action_duration_overrides:
+            return self._action_duration_overrides[key]
+        from think.activities.helpers import ACTION_DURATION
+        return ACTION_DURATION.get(key, ACTION_DURATION["abort"])
+
+    def _do_instant_action(self, job_name, duration_key):
+        """고정 시간 행동 수행 — idle job 삽입 + action_taken 설정
+
+        Args:
+            job_name: DES job 이름 (디버그/UI 표시용)
+            duration_key: ACTION_DURATION 테이블 키
+        """
+        duration = self._get_action_duration(duration_key)
+        self._insert_idle_job(job_name, duration)
+        self._action_taken = True
 
     # ========================================
     # 목욕 시스템
@@ -433,12 +456,12 @@ class BaseAgent:
                 remaining = self._remaining_millis_in_entry(bath_entry)
                 if remaining > 10 * 60_000:
                     # 10분 이상 남음 → 5분 대기 후 재탐색
-                    self._insert_idle_job("목욕대기", 5 * 60_000)
+                    self._insert_idle_job("목욕대기", self._get_action_duration("bath_wait"))
                 else:
                     # 10분 미만 → 목욕 포기, 남은 시간 대기
-                    self._insert_idle_job("대기", max(remaining, 1))
+                    self._insert_idle_job("대기", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             else:
-                self._insert_idle_job("대기", 60_000)
+                self._insert_idle_job("대기", self._get_action_duration("brief"))
             return
 
         target_region = target["region_id"]
@@ -464,10 +487,10 @@ class BaseAgent:
             _, bath_entry = self._is_bath_time()
             if bath_entry:
                 remaining = self._remaining_millis_in_entry(bath_entry)
-                self._insert_idle_job("목욕", max(remaining, 1))
+                self._insert_idle_job("목욕", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             else:
                 # 청결 인터럽트 등 비스케줄 목욕 — 30분
-                self._insert_idle_job("목욕", 30 * 60_000)
+                self._insert_idle_job("목욕", self._get_action_duration("bath"))
         else:
             # 이동
             target_x = target.get("x", 0)
@@ -505,7 +528,7 @@ class BaseAgent:
         import survival
         if survival.is_npc_fainted(self.unit_id):
             remaining = survival.get_faint_remaining_millis(self.unit_id)
-            self._insert_idle_job("fainting", max(remaining, 1))
+            self._insert_idle_job("fainting", max(remaining, 1))  # 기절 잔여 시간 — survival 시스템 연동
             self._action_taken = True
             return True
 
@@ -521,7 +544,7 @@ class BaseAgent:
             except ImportError:
                 pass
             remaining = self._remaining_millis_in_entry(sleep_entry)
-            self._insert_idle_job("sleep", max(remaining, 1))
+            self._insert_idle_job("sleep", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             self._action_taken = True
             return True
 
@@ -925,7 +948,7 @@ class BaseAgent:
         # 핸들러가 action을 생성하지 못한 경우 → "할 일 없음" 대기
         if not self._action_taken:
             remaining = self._remaining_millis_in_entry(entry)
-            self._insert_idle_job("할 일 없음", max(remaining, 1))
+            self._insert_idle_job("할 일 없음", max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             self._action_taken = True
 
         return self._action_taken
@@ -947,37 +970,33 @@ class BaseAgent:
         self._action_taken = False
 
         schedule = self.get_current_schedule()
-        if not schedule:
-            return None
+        if schedule:
+            # Tier 1: 비자발적 (기절, 수면 중)
+            if self._check_tier1_involuntary():
+                pass
+            else:
+                # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
+                self._ensure_standing()
 
-        # Tier 1: 비자발적 (기절, 수면 중)
-        if self._check_tier1_involuntary():
-            return None
+                # Tier 2: 반응형 (미래 확장)
+                if self._check_tier2_reactive():
+                    pass
+                # Tier 3: 생존
+                elif self._check_tier3_survival():
+                    pass
+                # Tier 4: 쾌적
+                elif self._check_tier4_comfort():
+                    pass
+                else:
+                    # Tier 5: 일과
+                    self._check_tier5_routine()
 
-        # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
-        self._ensure_standing()
-
-        # Tier 2: 반응형 (미래 확장)
-        if self._check_tier2_reactive():
-            return None
-
-        # Tier 3: 생존
-        if self._check_tier3_survival():
-            return None
-
-        # Tier 4: 쾌적
-        if self._check_tier4_comfort():
-            return None
-
-        # Tier 5: 일과
-        self._check_tier5_routine()
-
-        # 경고: 행동 미결정 → safety net (idle job 삽입)
+        # safety net: 어떤 경로든 job 미삽입 시 idle job 보장
         if not self._action_taken:
             info = self.get_info()
             name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
             print(f"[think] WARNING: {name} - 행동 미결정 (safety net)")
-            self._insert_idle_job("할 일 없음", 10 * 60_000)
+            self._insert_idle_job("할 일 없음", self._get_action_duration("safety_net"))
 
         return None
 
@@ -1154,7 +1173,10 @@ class BaseAgent:
                     obj.npc_toggle_switch(self.unit_id, target_state=0)
 
     def _move_to(self, target, name="이동"):
-        """target으로 이동 job 삽입. 이동 중이면 스킵."""
+        """target으로 이동 job 삽입. 이동 중이면 스킵.
+
+        Duration은 C#이 거리/속도 기반으로 동적 계산 (ACTION_DURATION 대상 아님).
+        """
         info = self.get_info()
         if info.get("is_moving"):
             self._action_taken = True
@@ -1201,7 +1223,7 @@ class BaseAgent:
 
             # 남은 시간 5분 미만 → 그냥 대기
             if remaining < 5 * 60_000:
-                self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
+                self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
                 self._action_taken = True
                 return
 
@@ -1211,7 +1233,7 @@ class BaseAgent:
                     # 도착 → 10~30분 휴식 후 다음 산책
                     self._activity_state.pop("wander_target", None)
                     rest = min(random.randint(10, 30) * 60_000, remaining)
-                    self._insert_idle_job("산책", max(rest, 1))
+                    self._insert_idle_job("산책", max(rest, 1))  # 랜덤 휴식 시간 — ACTION_DURATION 대상 아님
                     self._action_taken = True
                 else:
                     self._move_to(wander_target, "산책")
@@ -1222,7 +1244,7 @@ class BaseAgent:
                     self._activity_state["wander_target"] = wander_loc
                     self._move_to(wander_loc, "산책")
                 else:
-                    self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
+                    self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
                     self._action_taken = True
             return
 
@@ -1238,7 +1260,7 @@ class BaseAgent:
                 self._check_environment(target["region_id"], target["location_id"])
             self._execute_activity(activity, target)
             remaining = self._remaining_millis_in_entry(entry)
-            self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
+            self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
             self._action_taken = True
 
     def _pick_wander_location(self):
@@ -1758,959 +1780,18 @@ class BaseAgent:
 # ========================================
 
 from think.activities import ACTIVITY_HANDLERS as _ACTIVITY_HANDLERS
-from think.activities.helpers import find_npc_food as _find_npc_food
-from think.activities.helpers import find_food_in_container as _find_food_in_container
-
-
 # ========================================
-# 식사 핸들러 (배고픔 인터럽트)
+# 인터럽트 핸들러 (think/handlers/ 에서 분리)
 # ========================================
-
-def _handle_eat(agent):
-    """식사: 인벤토리 확인 → 식량 보관 이동 → 음식 가져오기 → 식사"""
-    phase = agent._memory["hunger_phase"]
-
-    if phase == "idle":
-        # 인벤토리에 음식이 있으면 바로 식사
-        food = _find_npc_food(agent.unit_id)
-        if food:
-            agent._memory["hunger_phase"] = "eating"
-            _handle_eat(agent)
-            return
-        # 없으면 식량 보관소로 이동
-        agent._memory["hunger_phase"] = "going_to_storage"
-        _handle_eat(agent)
-        return
-
-    elif phase == "going_to_storage":
-        target = agent._memory.get("hunger_target")
-        if not target:
-            from think.activities.helpers import resolve_storage_container
-            target = resolve_storage_container(agent, "food_ingredient")
-            if not target:
-                target = resolve_storage_container(agent, "food")
-            if not target:
-                agent._memory["hunger_phase"] = None
-                agent._action_taken = True
-                return
-            agent._memory["hunger_target"] = target
-
-        if agent._is_at(target):
-            agent._memory["hunger_phase"] = "taking_food"
-            agent._action_taken = True
-        else:
-            agent._move_to(target, "식사")
-
-    elif phase == "taking_food":
-        target = agent._memory.get("hunger_target")
-        if target:
-            from assets.objects import get_instance
-            obj = get_instance(target["object_id"])
-            if obj:
-                food_uid = _find_food_in_container(target["object_id"])
-                if food_uid:
-                    obj.npc_take_item(agent.unit_id, food_uid, 1)
-                    agent._memory["hunger_phase"] = "eating"
-                    agent._memory.pop("hunger_target", None)
-                    agent._action_taken = True
-                    return
-        # 음식 없음 → 포기
-        agent._memory["hunger_phase"] = None
-        agent._memory.pop("hunger_target", None)
-        agent._action_taken = True
-
-    elif phase == "eating":
-        food = _find_npc_food(agent.unit_id)
-        if food:
-            import survival
-            survival.npc_eat(agent.unit_id, food["satiety"])
-            morld.remove_item(agent.unit_id, food["item_id"], 1)
-        agent._memory["hunger_phase"] = None
-        agent._memory.pop("hunger_target", None)
-        agent._action_taken = True
-
-
-# ========================================
-# 배변 핸들러 (배변 인터럽트)
-# ========================================
-
-def _handle_excretion(agent):
-    """배변: 화장실 이동 → 사용"""
-    phase = agent._memory["excretion_phase"]
-
-    if phase == "idle":
-        # 화장실 타겟이 없으면 탐색
-        if not agent._memory.get("excretion_target"):
-            from think.facility_resolver import resolve_toilet
-            toilet = resolve_toilet(agent)
-            if not toilet:
-                agent._memory["excretion_phase"] = None
-                return
-            agent._memory["excretion_target"] = toilet
-        agent._memory["excretion_phase"] = "going"
-        _handle_excretion(agent)
-        return
-
-    elif phase == "going":
-        target = agent._memory.get("excretion_target")
-        if not target:
-            agent._memory["excretion_phase"] = None
-            return
-        if agent._is_at(target):
-            agent._memory["excretion_phase"] = "using"
-            agent._action_taken = True
-        else:
-            agent._move_to(target, "화장실")
-
-    elif phase == "using":
-        try:
-            import needs
-            needs.set_excretion(agent.unit_id, 0)
-        except ImportError:
-            morld.set_unit_prop(agent.unit_id, "욕구:배변", 0)
-        agent._memory["excretion_phase"] = None
-        agent._memory.pop("excretion_target", None)
-        agent._insert_idle_job("화장실", 5 * 60_000)  # 5분
-        agent._action_taken = True
-
-
-# ========================================
-# 추위 핸들러 (방한 인터럽트)
-# ========================================
-
-def _handle_cold(agent):
-    """추위: 인벤토리 확인 → 옷장 이동 → 옷 가져오기 → 장착"""
-    phase = agent._memory["cold_phase"]
-
-    if phase == "idle":
-        # 인벤토리에 보온/방수 아이템이 있으면 바로 장착
-        if _has_warm_items_in_inventory(agent.unit_id):
-            agent._memory["cold_phase"] = "equipping"
-            _handle_cold(agent)
-            return
-        # 없으면 옷장으로 이동
-        agent._memory["cold_phase"] = "going"
-        _handle_cold(agent)
-        return
-
-    elif phase == "going":
-        from think.facility_resolver import resolve_wardrobe
-        target = resolve_wardrobe(agent)
-        if target is None:
-            agent._memory["cold_phase"] = None
-            agent._action_taken = True
-            return
-        if agent._is_at(target):
-            agent._memory["cold_phase"] = "taking"
-            agent._action_taken = True
-        else:
-            agent._move_to(target, "방한")
-
-    elif phase == "taking":
-        wardrobe_id = agent._find_wardrobe_id()
-        if wardrobe_id:
-            # 보온 아이템 꺼내기
-            _take_warm_items_from_container(agent, wardrobe_id)
-            # 방수 아이템도 꺼내기
-            _take_waterproof_items_from_container(agent, wardrobe_id)
-        agent._memory["cold_phase"] = "equipping"
-        agent._action_taken = True
-
-    elif phase == "equipping":
-        _equip_warm_items(agent.unit_id)
-        agent._memory["cold_phase"] = None
-        agent._memory["cold_last_attempt"] = morld.get_game_time()
-        agent._action_taken = True
-
-
-def _has_warm_items_in_inventory(unit_id):
-    """인벤토리에 미장착 보온/방수 아이템이 있는지"""
-    import equipment
-    inv = morld.get_unit_inventory(unit_id)
-    if not inv:
-        return False
-    equipped = set(equipment.get_equipped_items(unit_id))
-    for item_id, count in inv.items():
-        if count <= 0 or item_id in equipped:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if info:
-                ep = info.get("equip_props", {})
-                if ep.get("보온", 0) > 0 or ep.get("방수", 0) > 0:
-                    return True
-        except Exception:
-            pass
-    return False
-
-
-def _take_warm_items_from_container(agent, container_id):
-    """컨테이너에서 보온 아이템을 NPC 인벤토리로 이동"""
-    inv = morld.get_unit_inventory(container_id)
-    if not inv:
-        return
-    for item_id, count in list(inv.items()):
-        if count <= 0:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if info and info.get("equip_props", {}).get("보온", 0) > 0:
-                morld.remove_item(container_id, item_id, 1)
-                morld.give_item(agent.unit_id, item_id, 1)
-        except Exception:
-            pass
-
-
-def _take_waterproof_items_from_container(agent, container_id):
-    """컨테이너에서 방수 아이템을 NPC 인벤토리로 이동"""
-    inv = morld.get_unit_inventory(container_id)
-    if not inv:
-        return
-    for item_id, count in list(inv.items()):
-        if count <= 0:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if info and info.get("equip_props", {}).get("방수", 0) > 0:
-                morld.remove_item(container_id, item_id, 1)
-                morld.give_item(agent.unit_id, item_id, 1)
-        except Exception:
-            pass
-
-
-def _equip_warm_items(unit_id):
-    """인벤토리의 보온/방수 아이템 전부 장착"""
-    import equipment
-    inv = morld.get_unit_inventory(unit_id)
-    if not inv:
-        return
-    equipped = set(equipment.get_equipped_items(unit_id))
-    for item_id, count in inv.items():
-        if count <= 0 or item_id in equipped:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if info:
-                ep = info.get("equip_props", {})
-                if ep.get("보온", 0) > 0 or ep.get("방수", 0) > 0:
-                    equipment.equip_item(unit_id, item_id)
-        except Exception:
-            pass
-
-
-# ========================================
-# 더위 핸들러 (보온 의류 벗기)
-# ========================================
-
-def _handle_hot(agent):
-    """더위: 보온 의류 벗기 → (옷장 위치면) 저장"""
-    phase = agent._memory["hot_phase"]
-
-    if phase == "idle":
-        agent._memory["hot_phase"] = "unequipping"
-        _handle_hot(agent)
-        return
-
-    elif phase == "unequipping":
-        _unequip_warm_items(agent.unit_id)
-        # 현재 위치에 옷장이 있으면 저장
-        from think.facility_resolver import resolve_wardrobe
-        result = resolve_wardrobe(agent)
-        if result and agent._is_at(result):
-            agent._memory["hot_phase"] = "storing"
-            agent._action_taken = True
-        else:
-            agent._memory["hot_phase"] = None
-            agent._action_taken = True
-
-    elif phase == "storing":
-        wardrobe_id = agent._find_wardrobe_id()
-        if wardrobe_id:
-            _store_warm_items_to_container(agent, wardrobe_id)
-        agent._memory["hot_phase"] = None
-        agent._action_taken = True
-
-
-def _unequip_warm_items(unit_id):
-    """장착 중인 보온 아이템 전부 벗기"""
-    import equipment
-    equipped = equipment.get_equipped_items(unit_id)
-    for item_id in equipped:
-        try:
-            info = morld.get_item_info(item_id)
-            if info and info.get("equip_props", {}).get("보온", 0) > 0:
-                equipment.unequip_item(unit_id, item_id)
-        except Exception:
-            pass
-
-
-def _store_warm_items_to_container(agent, container_id):
-    """인벤토리의 보온 아이템을 컨테이너에 저장"""
-    import equipment
-    inv = morld.get_unit_inventory(agent.unit_id)
-    if not inv:
-        return
-    equipped = set(equipment.get_equipped_items(agent.unit_id))
-    for item_id, count in list(inv.items()):
-        if count <= 0 or item_id in equipped:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if info and info.get("equip_props", {}).get("보온", 0) > 0:
-                morld.remove_item(agent.unit_id, item_id, 1)
-                morld.give_item(container_id, item_id, 1)
-        except Exception:
-            pass
-
-
-# ========================================
-# 착의 핸들러 (나체/반나체 → 옷장 → 착의)
-# ========================================
-
-def _is_dressed(unit_id):
-    """상의+하의 모두 착용 중인지"""
-    import equipment
-    equipped = equipment.get_equipped_items(unit_id)
-    has_top = False
-    has_bottom = False
-    for item_id in equipped:
-        try:
-            info = morld.get_item_info(item_id)
-            if info:
-                ep = info.get("equip_props", {})
-                if ep.get("착용:상의", 0) > 0:
-                    has_top = True
-                if ep.get("착용:하의", 0) > 0:
-                    has_bottom = True
-        except Exception:
-            pass
-    return has_top and has_bottom
-
-
-def _handle_clothing(agent):
-    """착의: 인벤토리 확인 → 옷장 이동 → 옷 가져오기 → 장착"""
-    phase = agent._memory["clothing_phase"]
-
-    if phase == "idle":
-        # 인벤토리에 착용 가능한 옷이 있으면 바로 장착
-        if _has_clothing_in_inventory(agent.unit_id):
-            agent._memory["clothing_phase"] = "equipping"
-            _handle_clothing(agent)
-            return
-        # 없으면 옷장으로 이동
-        agent._memory["clothing_phase"] = "going"
-        _handle_clothing(agent)
-        return
-
-    elif phase == "going":
-        from think.facility_resolver import resolve_wardrobe
-        target = resolve_wardrobe(agent)
-        if target is None:
-            agent._memory["clothing_phase"] = None
-            agent._memory["clothing_last_attempt"] = morld.get_game_time()
-            agent._action_taken = True
-            return
-        if agent._is_at(target):
-            agent._memory["clothing_phase"] = "taking"
-            agent._action_taken = True
-        else:
-            agent._move_to(target, "착의")
-
-    elif phase == "taking":
-        wardrobe_id = agent._find_wardrobe_id()
-        if wardrobe_id:
-            import temperature
-            avoid_warm = temperature.is_hot(agent.unit_id)
-            _take_clothing_from_container(agent, wardrobe_id, avoid_warm)
-        agent._memory["clothing_phase"] = "equipping"
-        agent._action_taken = True
-
-    elif phase == "equipping":
-        _equip_clothing_items(agent.unit_id)
-        agent._memory["clothing_phase"] = None
-        agent._memory["clothing_last_attempt"] = morld.get_game_time()
-        agent._action_taken = True
-
-
-def _has_clothing_in_inventory(unit_id):
-    """인벤토리에 미장착 상의/하의 아이템이 있는지"""
-    import equipment
-    inv = morld.get_unit_inventory(unit_id)
-    if not inv:
-        return False
-    equipped = set(equipment.get_equipped_items(unit_id))
-    for item_id, count in inv.items():
-        if count <= 0 or item_id in equipped:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if info:
-                ep = info.get("equip_props", {})
-                if ep.get("착용:상의", 0) > 0 or ep.get("착용:하의", 0) > 0:
-                    return True
-        except Exception:
-            pass
-    return False
-
-
-def _take_clothing_from_container(agent, container_id, avoid_warm=False):
-    """옷장에서 부족 슬롯 의류 꺼내기"""
-    import equipment
-    # 현재 부족한 슬롯 확인
-    equipped = equipment.get_equipped_items(agent.unit_id)
-    need_top = True
-    need_bottom = True
-    for item_id in equipped:
-        try:
-            info = morld.get_item_info(item_id)
-            if info:
-                ep = info.get("equip_props", {})
-                if ep.get("착용:상의", 0) > 0:
-                    need_top = False
-                if ep.get("착용:하의", 0) > 0:
-                    need_bottom = False
-        except Exception:
-            pass
-
-    if not need_top and not need_bottom:
-        return
-
-    inv = morld.get_unit_inventory(container_id)
-    if not inv:
-        return
-    for item_id, count in list(inv.items()):
-        if count <= 0:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if not info:
-                continue
-            ep = info.get("equip_props", {})
-            # 더울 때 보온 아이템 스킵
-            if avoid_warm and ep.get("보온", 0) > 0:
-                continue
-            fills_top = ep.get("착용:상의", 0) > 0
-            fills_bottom = ep.get("착용:하의", 0) > 0
-            if (need_top and fills_top) or (need_bottom and fills_bottom):
-                morld.remove_item(container_id, item_id, 1)
-                morld.give_item(agent.unit_id, item_id, 1)
-                if fills_top:
-                    need_top = False
-                if fills_bottom:
-                    need_bottom = False
-            if not need_top and not need_bottom:
-                break
-        except Exception:
-            pass
-
-
-def _equip_clothing_items(unit_id):
-    """인벤토리의 미장착 상의/하의 아이템 장착"""
-    import equipment
-    inv = morld.get_unit_inventory(unit_id)
-    if not inv:
-        return
-    equipped = set(equipment.get_equipped_items(unit_id))
-    for item_id, count in inv.items():
-        if count <= 0 or item_id in equipped:
-            continue
-        try:
-            info = morld.get_item_info(item_id)
-            if info:
-                ep = info.get("equip_props", {})
-                if ep.get("착용:상의", 0) > 0 or ep.get("착용:하의", 0) > 0:
-                    equipment.equip_item(unit_id, item_id)
-        except Exception:
-            pass
-
-
-# ========================================
-# 성욕 핸들러 (자위 + 플레이어 탐색)
-# ========================================
-
-_SELF_COMFORT_COOLDOWN_MS = 7_200_000  # 2시간 (완료/플레이어 발각)
-_SELF_COMFORT_INTERRUPT_COOLDOWN_MS = 1_800_000  # 30분 (NPC 방해로 중단)
-
-
-def _resolve_private_location(agent):
-    """은밀 장소 탐색 — length 기반
-
-    조건 (모두 충족):
-      - 현재 NPC와 같은 region
-      - length ≤ self_comfort_max_length
-      - 현재 아무도 없는 location (본인 제외)
-      - 실내 location
-      - 오염도 낮은 location (오염 > 10 제외)
-
-    우선순위: 현재 위치 → 침실 → 화장실 → region 내 가장 가까운 후보
-    """
-    from assets.registry import get_unique_id, get_location_class
-    import pollution
-
-    max_length = getattr(agent, 'self_comfort_max_length', 200)
-    loc = agent.get_location()
-    if not loc:
-        return None
-    cur_r, cur_l = loc[0], loc[1]
-
-    def _is_valid(r, l):
-        """location이 자위 장소로 적합한지 검사"""
-        if r != cur_r:
-            return False
-        # length 조회 (registry → Location 클래스)
-        uid = get_unique_id(l)
-        if not uid:
-            return False
-        cls = get_location_class(uid)
-        if not cls:
-            return False
-        length = getattr(cls, 'length', 0)
-        if length <= 0 or length > max_length:
-            return False
-        # 실내만
-        if not getattr(cls, 'is_indoor', True):
-            return False
-        # 오염도
-        pol = pollution.get_location_pollution(r, l)
-        if pol > 10:
-            return False
-        # 비어있는지 (본인 제외)
-        units = morld.get_characters_at_location(r, l)
-        if units and any(u != agent.unit_id for u in units):
-            return False
-        return True
-
-    # 1. 현재 위치 (이동 불필요)
-    if _is_valid(cur_r, cur_l):
-        return {"region_id": cur_r, "location_id": cur_l, "x": 0}
-
-    # 2. 침실 (소유 침대 위치)
-    owner = getattr(agent, 'owner_unique_id', None)
-    if owner:
-        from think.facility_resolver import _find_facilities_by_prop
-        beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
-        if beds:
-            bed = beds[0]
-            if _is_valid(bed["region_id"], bed["location_id"]):
-                return bed
-
-    # 3. 화장실
-    from think.facility_resolver import resolve_toilet
-    toilet = resolve_toilet(agent)
-    if toilet:
-        if _is_valid(toilet["region_id"], toilet["location_id"]):
-            return toilet
-
-    # 4. region 내 가장 가까운 후보
-    region_info = morld.get_region_info(cur_r)
-    if region_info and "locations" in region_info:
-        best = None
-        best_dist = 999999
-        for loc_info in region_info["locations"]:
-            lid = loc_info["id"]
-            if lid == cur_l:
-                continue  # 이미 체크함
-            if not _is_valid(cur_r, lid):
-                continue
-            dist = abs(lid - cur_l)  # location_id 거리 (인접 기준)
-            if dist < best_dist:
-                best_dist = dist
-                best = {"region_id": cur_r, "location_id": lid, "x": 0}
-        if best is not None:
-            return best
-
-    return None
-
-
-def _handle_self_comfort(agent):
-    """자위: 은밀 장소 이동 → 수행 → 완료 확인
-
-    Phase: idle → going → performing → finishing
-    - performing: 15분 job 삽입 (job name="자위" → 플레이어 발각 대상)
-    - finishing: job 완료 후 주변 확인 → 혼자면 성욕 감소, 타인 있으면 중단
-    """
-    phase = agent._memory["self_comfort_phase"]
-
-    if phase == "idle":
-        target = _resolve_private_location(agent)
-        if target is None:
-            agent._memory["self_comfort_phase"] = None
-            return
-        if agent._is_at(target):
-            agent._memory["self_comfort_phase"] = "performing"
-            _handle_self_comfort(agent)
-        else:
-            agent._memory["self_comfort_phase"] = "going"
-            _handle_self_comfort(agent)
-        return
-
-    elif phase == "going":
-        target = _resolve_private_location(agent)
-        if target is None:
-            agent._memory["self_comfort_phase"] = None
-            return
-        if agent._is_at(target):
-            agent._memory["self_comfort_phase"] = "performing"
-            _handle_self_comfort(agent)
-        else:
-            agent._move_to(target, "이동")  # 이동 중엔 발각 안 됨
-
-    elif phase == "performing":
-        # 15분 자위 job 삽입 — job 완료 후 finishing 단계에서 결과 처리
-        agent._insert_idle_job("자위", 15 * 60_000)
-        agent._memory["self_comfort_phase"] = "finishing"
-        agent._action_taken = True
-
-    elif phase == "finishing":
-        # job 완료 → 주변 확인
-        loc = agent.get_location()
-        alone = True
-        discovered_by = None
-        if loc:
-            units = morld.get_characters_at_location(loc[0], loc[1])
-            if units:
-                for u in units:
-                    if u != agent.unit_id:
-                        alone = False
-                        discovered_by = u
-                        break
-
-        if alone:
-            # 성공: 성욕 감소 + 정상 쿨다운
-            arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
-            morld.set_unit_prop(agent.unit_id, "상태:성욕", max(0, arousal - 50))
-            agent._memory["self_comfort_phase"] = None
-            agent._memory["self_comfort_cooldown"] = agent.get_time()
-            agent._insert_idle_job("대기", 60_000)
-            agent._action_taken = True
-        else:
-            # 발각 — 발각자가 연인 NPC인지 확인
-            is_lover = _is_lover_npc(agent.unit_id, discovered_by)
-            if is_lover:
-                # 연인 발각: 성욕 절반 감소 + 정상 쿨다운 (수치심 경감)
-                arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
-                morld.set_unit_prop(agent.unit_id, "상태:성욕", max(0, arousal - 25))
-                agent._memory["self_comfort_phase"] = None
-                agent._memory["self_comfort_cooldown"] = agent.get_time()
-                agent._insert_idle_job("대기", 60_000)
-                agent._action_taken = True
-            else:
-                # 비연인 발각 — 성욕 감소 없음, 짧은 쿨다운으로 재시도 유도
-                agent._memory["self_comfort_phase"] = None
-                agent._memory["self_comfort_cooldown"] = (
-                    agent.get_time() - _SELF_COMFORT_COOLDOWN_MS + _SELF_COMFORT_INTERRUPT_COOLDOWN_MS
-                )
-                agent._insert_idle_job("대기", 60_000)
-                agent._action_taken = True
-
-
-def _handle_seek_player(agent):
-    """플레이어 탐색: 위치로 이동 → on_meet 자동 트리거"""
-    phase = agent._memory["seek_player_phase"]
-
-    if phase == "idle":
-        agent._memory["seek_player_phase"] = "going"
-        _handle_seek_player(agent)
-        return
-
-    elif phase == "going":
-        target = agent._memory.get("seek_player_target")
-        if target is None:
-            agent._memory["seek_player_phase"] = None
-            return
-        if agent._is_at(target):
-            # 도착 → on_meet이 C# 이벤트로 자동 발화
-            agent._memory["seek_player_phase"] = None
-            agent._memory["seek_player_target"] = None
-            agent._memory["self_comfort_cooldown"] = agent.get_time()
-            agent._insert_idle_job("대기", 60_000)
-            agent._action_taken = True
-        else:
-            agent._move_to(target, "이동")
-
-
-# ========================================
-# NPC-NPC 발각 헬퍼
-# ========================================
-
-_LOVER_AFFECTION_THRESHOLD = 60  # 연인 판정 호감 임계치
-
-
-def _is_lover_npc(npc_id, other_id):
-    """other_id가 npc_id의 연인 NPC인지 판정
-
-    플레이어가 아닌 NPC 간 연인 관계 확인.
-    호감도가 임계치 이상이면 연인으로 간주.
-    """
-    if other_id is None:
-        return False
-
-    # 플레이어면 False (플레이어 발각은 별도 처리)
-    player_id = morld.get_player_id()
-    if other_id == player_id:
-        return False
-
-    # NPC인지 확인
-    if other_id not in _agents:
-        return False
-
-    # NPC → NPC 호감 확인 (양방향 중 어느 쪽이든)
-    other_info = morld.get_unit_info(other_id)
-    if not other_info:
-        return False
-    other_name = other_info.get("name", "")
-
-    npc_props = morld.get_unit_props(npc_id)
-    if npc_props:
-        affection = npc_props.get(f"관계:{other_name}:호감", 0)
-        if affection >= _LOVER_AFFECTION_THRESHOLD:
-            return True
-
-    return False
-
-
-# ========================================
-# NPC-NPC 대화 (사회욕 기반)
-# ========================================
-
-_SOCIALIZE_COOLDOWN_MS = 3_600_000  # 1시간
-_SOCIALIZE_SOCIAL_THRESHOLD = 70    # 사회욕 임계치
-
-
-def _find_socialize_target(agent):
-    """대화 대상 NPC 탐색 (같은 location, 수면/기절 중 아닌 NPC)"""
-    my_loc = agent.get_location()
-    if my_loc is None:
-        return None
-
-    for uid, other_agent in _agents.items():
-        if uid == agent.unit_id:
-            continue
-        other_loc = other_agent.get_location()
-        if other_loc is None:
-            continue
-        if other_loc[0] == my_loc[0] and other_loc[1] == my_loc[1]:
-            # 수면/기절 중이면 스킵
-            info = morld.get_unit_info(uid)
-            if info:
-                job_name = info.get("job_name", "")
-                if job_name in ("sleep", "fainting"):
-                    continue
-            return uid
-
-    return None
-
-
-def _handle_socialize(agent):
-    """NPC-NPC 대화: 대상 위치 이동 → 대화(30분) → 사회욕 감소"""
-    phase = agent._memory["socialize_phase"]
-
-    if phase == "idle":
-        target_id = agent._memory.get("socialize_target_id")
-        if target_id is None:
-            agent._memory["socialize_phase"] = None
-            return
-
-        target_loc = morld.get_unit_location(target_id)
-        if target_loc is None:
-            agent._memory["socialize_phase"] = None
-            agent._memory["socialize_target_id"] = None
-            return
-
-        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
-        if agent._is_at(target):
-            agent._memory["socialize_phase"] = "talking"
-            agent._insert_idle_job("대화", 30 * 60_000)  # 30분
-            agent._action_taken = True
-        else:
-            agent._memory["socialize_phase"] = "going"
-            _handle_socialize(agent)
-
-    elif phase == "going":
-        target_id = agent._memory.get("socialize_target_id")
-        if target_id is None:
-            agent._memory["socialize_phase"] = None
-            return
-
-        target_loc = morld.get_unit_location(target_id)
-        if target_loc is None:
-            agent._memory["socialize_phase"] = None
-            agent._memory["socialize_target_id"] = None
-            return
-
-        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
-        if agent._is_at(target):
-            agent._memory["socialize_phase"] = "talking"
-            agent._insert_idle_job("대화", 30 * 60_000)
-            agent._action_taken = True
-        else:
-            agent._move_to(target, "대화")
-
-    elif phase == "talking":
-        # 대화 완료 → 양측 사회욕 감소
-        try:
-            import needs
-            needs.reduce_social(agent.unit_id, 30)
-            target_id = agent._memory.get("socialize_target_id")
-            if target_id:
-                needs.reduce_social(target_id, 15)  # 상대방은 절반
-        except ImportError:
-            pass
-
-        agent._memory["socialize_phase"] = None
-        agent._memory["socialize_target_id"] = None
-        agent._memory["socialize_cooldown"] = agent.get_time()
-        agent._insert_idle_job("대화완료", 60_000)
-        agent._action_taken = True
-
-
-# ========================================
-# NPC→NPC 선물
-# ========================================
-
-def _find_gift_item(agent):
-    """NPC 인벤토리에서 선물 가능한 아이템 탐색 (장착 중 제외)"""
-    import equipment as eq
-    from assets.items import get_instance as get_item_instance
-
-    inventory = morld.get_unit_inventory(agent.unit_id)
-    if not inventory:
-        return None
-
-    equipped = eq.get_equipped_items(agent.unit_id) if hasattr(eq, 'get_equipped_items') else []
-    equipped_ids = set(equipped) if equipped else set()
-
-    for item_id, count in inventory.items():
-        item_id_int = int(item_id)
-        if item_id_int in equipped_ids:
-            continue
-        item_instance = get_item_instance(item_id_int)
-        if item_instance is None:
-            continue
-        cat = item_instance.category
-        if cat in ("flower", "trinket", "food_ingredient"):
-            return item_id_int
-
-    return None
-
-
-def _find_gift_target(agent):
-    """선물 대상 NPC 탐색 (같은 region, 호감 높은 NPC)"""
-    my_loc = agent.get_location()
-    if my_loc is None:
-        return None
-
-    my_region = my_loc[0]
-    my_name = None
-    my_info = morld.get_unit_info(agent.unit_id)
-    if my_info:
-        my_name = my_info.get("name", "")
-
-    best_target = None
-    best_aff = 0
-
-    for uid, other_agent in _agents.items():
-        if uid == agent.unit_id:
-            continue
-        other_loc = other_agent.get_location()
-        if other_loc is None:
-            continue
-        if other_loc[0] != my_region:
-            continue
-
-        # 수면/기절 중이면 스킵
-        info = morld.get_unit_info(uid)
-        if info:
-            job_name = info.get("job_name", "")
-            if job_name in ("sleep", "fainting"):
-                continue
-
-        # 호감도 확인
-        if my_name:
-            props = morld.get_unit_props(uid) or {}
-            aff = props.get(f"관계:{my_name}:호감", 0)
-            if aff > best_aff:
-                best_aff = aff
-                best_target = uid
-
-    return best_target
-
-
-def _handle_gift(agent):
-    """NPC→NPC 선물: 대상 이동 → 전달(5분) → 호감 증가"""
-    phase = agent._memory["gift_phase"]
-
-    if phase == "idle":
-        target_id = agent._memory.get("gift_target_id")
-        if target_id is None:
-            _reset_gift(agent)
-            return
-
-        target_loc = morld.get_unit_location(target_id)
-        if target_loc is None:
-            _reset_gift(agent)
-            return
-
-        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
-        if agent._is_at(target):
-            agent._memory["gift_phase"] = "giving"
-            agent._insert_idle_job("선물", 5 * 60_000)  # 5분
-            agent._action_taken = True
-        else:
-            agent._memory["gift_phase"] = "going"
-            _handle_gift(agent)
-
-    elif phase == "going":
-        target_id = agent._memory.get("gift_target_id")
-        if target_id is None:
-            _reset_gift(agent)
-            return
-
-        target_loc = morld.get_unit_location(target_id)
-        if target_loc is None:
-            _reset_gift(agent)
-            return
-
-        target = {"region_id": target_loc[0], "location_id": target_loc[1]}
-        if agent._is_at(target):
-            agent._memory["gift_phase"] = "giving"
-            agent._insert_idle_job("선물", 5 * 60_000)
-            agent._action_taken = True
-        else:
-            agent._move_to(target, "선물")
-
-    elif phase == "giving":
-        target_id = agent._memory.get("gift_target_id")
-        item_id = agent._memory.get("gift_item_id")
-
-        if target_id and item_id:
-            # 아이템 전달
-            if morld.has_item(agent.unit_id, item_id):
-                morld.remove_item(agent.unit_id, item_id)
-                morld.give_item(target_id, item_id)
-
-            # 호감도 변경 (양측 +3)
-            agent_info = morld.get_unit_info(agent.unit_id)
-            target_info = morld.get_unit_info(target_id)
-            if agent_info and target_info:
-                agent_name = agent_info.get("name", "")
-                target_name = target_info.get("name", "")
-                if target_name:
-                    morld.modify_prop(agent.unit_id, f"관계:{target_name}:호감", 3)
-                if agent_name:
-                    morld.modify_prop(target_id, f"관계:{agent_name}:호감", 5)
-
-        _reset_gift(agent)
-        agent._insert_idle_job("선물완료", 60_000)
-        agent._action_taken = True
-
-
-def _reset_gift(agent):
-    """선물 상태 초기화"""
-    agent._memory["gift_phase"] = None
-    agent._memory["gift_target_id"] = None
-    agent._memory["gift_item_id"] = None
-    agent._memory["gift_cooldown"] = agent.get_time()
+from think.handlers import (
+    _handle_eat, _handle_excretion,
+    _handle_cold, _handle_hot, _handle_clothing, _is_dressed,
+    _handle_self_comfort, _handle_seek_player,
+    _SELF_COMFORT_COOLDOWN_MS,
+    _handle_socialize, _handle_gift,
+    _find_socialize_target, _find_gift_item, _find_gift_target,
+)
+from think.handlers.self_comfort import _resolve_private_location
 
 
 def register_agent(unit_id, agent):

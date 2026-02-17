@@ -55,13 +55,66 @@ agent._action_taken     # True로 설정하면 이번 think()에서 행동 완�
 
 > handler가 `_action_taken`을 설정하지 않으면, `_handle_schedule()`이 "할 일 없음" idle job을 자동 삽입합니다 (폴백).
 
+### 행동 시간 시스템 (ACTION_DURATION)
+
+고정 시간이 소요되는 모든 행동은 `think/activities/helpers.py`의 **ACTION_DURATION** 테이블에 정의됩니다.
+
+#### 고정 시간 행동 — `_do_instant_action()`
+
+```python
+# 도구 집기 (1분)
+agent._do_instant_action("도구 준비", "take_item")
+
+# 벌목 (30분)
+agent._do_instant_action("벌목", "chop")
+
+# 중단/오류 (5분)
+agent._do_instant_action("대기", "abort")
+```
+
+`_do_instant_action(job_name, duration_key)`는 내부적으로:
+1. `_get_action_duration(key)` → ACTION_DURATION 테이블에서 밀리초 조회
+2. `_insert_idle_job(job_name, duration)` → DES job 삽입
+3. `_action_taken = True` → 행동 완료 표시
+
+#### 주요 duration_key 목록
+
+| key | 시간 | 용도 |
+|-----|------|------|
+| `take_item` | 1분 | 컨테이너에서 아이템 꺼내기 |
+| `store_item` | 1분 | 컨테이너에 아이템 넣기 |
+| `abort` | 5분 | 중단/오류 시 대기 |
+| `brief` | 1분 | 짧은 전환 |
+
+> 전체 목록은 `think/activities/helpers.py`의 ACTION_DURATION dict 참조.
+
+#### 비고정 시간 행동 — 테이블 대상 아님
+
+| 패턴 | 설명 |
+|------|------|
+| `max(remaining, 1)` | 스케줄 잔여 시간 연동 — 스케줄 종료까지 대기 |
+| `_move_to()` | C#이 거리/속도 기반으로 동적 계산 |
+
+#### 캐릭터 오버라이드
+
+서브클래스에서 `_action_duration_overrides` dict를 정의하면 해당 NPC만 시간이 변경됩니다:
+
+```python
+class SeraAgent(BaseAgent):
+    _action_duration_overrides = {
+        "chop": 20 * 60_000,   # 세라는 벌목이 빠름 (20분)
+    }
+```
+
 ### Agent 헬퍼 메서드
 
 | 메서드 | 설명 |
 |--------|------|
 | `agent._is_at(target)` | NPC가 target 위치에 도착했는지 확인 |
-| `agent._move_to(target, "설명")` | target으로 이동 job 삽입 |
+| `agent._move_to(target, "설명")` | target으로 이동 job 삽입 (C# 동적 duration) |
 | `agent._insert_idle_job("이름", ms)` | 대기 job 삽입 (duration=ms) |
+| `agent._do_instant_action("이름", "key")` | 고정 시간 행동 (ACTION_DURATION 조회 + job 삽입 + action_taken) |
+| `agent._get_action_duration("key")` | ACTION_DURATION 테이블에서 밀리초 조회 (오버라이드 우선) |
 | `agent._remaining_millis_in_entry(entry)` | 현재 스케줄 entry의 남은 시간(ms) |
 | `agent._get_home_region()` | NPC 거처 region_id 반환 |
 | `agent._find_tool_by_capability("can:X")` | 도구 탐색 (인벤토리 → 도구함) |

@@ -43,7 +43,7 @@ def handle_scavenge(agent, entry):
                                     sound.emit_sound(agent.unit_id, "crash")
                                     break
             agent._activity_phase = "going_to_storage"
-            agent._action_taken = True
+            agent._do_instant_action("물자수집", "scavenge")
         else:
             agent._move_to(target, "물자수집")
 
@@ -55,8 +55,7 @@ def handle_scavenge(agent, entry):
             if not target:
                 target = resolve_storage_container(agent, "food")
             if not target:
-                agent._activity_phase = "idle"
-                agent._action_taken = True
+                agent._do_instant_action("대기", "abort")
                 return
             agent._activity_state["storage_target"] = target
 
@@ -64,6 +63,6 @@ def handle_scavenge(agent, entry):
             from .helpers import store_npc_items
             store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
             agent._activity_phase = "idle"
-            agent._action_taken = True
+            agent._do_instant_action("물자 저장", "store_item")
         else:
             agent._move_to(target, "물자 저장")

@@ -64,6 +64,16 @@ NPC가 자연스러운 생활 패턴을 보이도록 하는 자율 행동 시스
 
 ---
 
+### 행동 시간 시스템
+
+고정 시간 행동은 `think/activities/helpers.py`의 **ACTION_DURATION** 테이블에 중앙 관리됩니다.
+활동 핸들러에서는 `agent._do_instant_action("이름", "duration_key")`로 통일하여 DES job 삽입 + `_action_taken` 설정을 한 번에 처리합니다.
+캐릭터별 `_action_duration_overrides` dict로 NPC별 행동 시간 오버라이드가 가능합니다.
+
+> 상세: [make_activity.md#행동-시간-시스템-action_duration](make_activity.md#행동-시간-시스템-action_duration)
+
+---
+
 ## 1. 동적 Activity 탐색 — 구현됨 (v0.2.1)
 
 > `activity_resolver.py`에서 7종 구현. 아래 설계와 다른 점:
