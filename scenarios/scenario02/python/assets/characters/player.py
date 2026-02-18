@@ -70,7 +70,7 @@ class Player(Character):
     name = "???"
     type = "character"
     props = {
-        "성별": 1,  # 1=male, 2=female (player_creation에서 재설정)
+        # "성별"은 player_creation에서 설정 (챕터 전환 시 덮어쓰기 방지)
         # 기본 스탯
         "근력": 5,
         "지능": 5,
