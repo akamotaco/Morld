@@ -153,32 +153,14 @@ def is_anatomy_compatible(action_def, target_id, actor_id=None):
         if category is not None:
             import gender as gender_mod
             if not gender_mod.has_anatomy(target_id, category):
-                action_name = action_def.get("name", "?")
-                target_gender = gender_mod.get_gender(target_id)
-                target_anatomy = gender_mod.get_anatomy(target_id)
-                raw_prop = morld.get_unit_prop(target_id, "성별")
-                print(f"[ANATOMY FILTER] '{action_name}' hidden: "
-                      f"target={target_id} needs '{category}', "
-                      f"gender='{target_gender}'(prop={raw_prop}), "
-                      f"anatomy={target_anatomy}")
                 return False
     # 행위자 해부학 체크 (삽입 행위: requires_player_anatomy)
-    # actor_id=0(플레이어)일 수 있으므로 is not None 사용 (truthiness 체크 금지)
     player_req = action_def.get("requires_player_anatomy")
     if player_req and actor_id is not None:
         import gender as gender_mod
-        has_it = gender_mod.has_anatomy(actor_id, player_req)
-        actor_gender = gender_mod.get_gender(actor_id)
-        actor_anatomy = gender_mod.get_anatomy(actor_id)
-        raw_prop = morld.get_unit_prop(actor_id, "성별")
-        action_name = action_def.get("name", "?")
-        print(f"[ACTOR ANATOMY] '{action_name}': actor={actor_id} needs '{player_req}', "
-              f"has={has_it}, gender='{actor_gender}'(prop={raw_prop}), "
-              f"anatomy={actor_anatomy}")
-        if not has_it:
+        if not gender_mod.has_anatomy(actor_id, player_req):
             return False
     # 양쪽 해부학 체크 (tribadism 등: 양쪽 모두 V 보유 필요)
-    # actor_id=0(플레이어)일 수 있으므로 is not None 사용
     both_req = action_def.get("requires_both_anatomy")
     if both_req and actor_id is not None:
         import gender as gender_mod

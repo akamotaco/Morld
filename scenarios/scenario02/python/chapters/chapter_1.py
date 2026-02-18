@@ -115,25 +115,7 @@ def _instantiate_player():
     player = Player()
     player_id = morld.create_id("unit")
     player.instantiate(player_id, mansion.REGION_ID, 6)  # 주인공 방에서 시작
-
-    # 캐릭터 생성 시 선택한 값 복원 (global prop → unit prop)
-    _restore_player_creation_props(player_id)
-
-
-def _restore_player_creation_props(player_id):
-    """캐릭터 생성 시 설정된 global prop을 unit prop으로 복원"""
-    # 성별
-    gender = morld.get_prop("player_gender")
-    if gender:
-        morld.set_unit_prop(player_id, "성별", gender)
-    # 체격 (player_body는 인덱스(0-3), 체격은 크기(1-4))
-    body_index = morld.get_prop("player_body")
-    if body_index is not None:
-        morld.set_unit_prop(player_id, "체격", body_index + 1)
-    # 음경 크기
-    penis_size = morld.get_prop("player_penis_size")
-    if penis_size:
-        morld.set_unit_prop(player_id, "음경:크기", penis_size)
+    # 성별/체격/음경 등 플레이어 선택 속성은 persistence가 복원함
 
 
 def _instantiate_collectibles():

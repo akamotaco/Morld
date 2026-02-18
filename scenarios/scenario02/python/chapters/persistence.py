@@ -248,8 +248,8 @@ def _get_all_unit_props_flat(unit_id):
         props = morld.get_unit_props_by_type(unit_id, prop_type)
         if props:
             for name, value in props.items():
-                # "타입:이름" 형식으로 저장
-                full_name = f"{prop_type}:{name}"
+                # 단순 prop (Type="")이면 이름만, 복합이면 "타입:이름"
+                full_name = f"{prop_type}:{name}" if prop_type else name
                 all_props[full_name] = value
 
     return all_props

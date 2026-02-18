@@ -308,10 +308,9 @@ def apply_character_creation(state):
     player_id = morld.get_player_id()
 
     # 성별 설정 (정수 인코딩: 1=male, 2=female, 3=futanari, 4=asexual)
-    # global prop으로도 저장 (챕터 전환 시 유닛 재생성되므로)
+    # persistence가 챕터 전환 시 unit prop을 자동 복원
     from gender import gender_to_int
     gender_int = gender_to_int(state["gender"])
-    morld.set_prop("player_gender", gender_int)
     morld.set_unit_prop(player_id, "성별", gender_int)
 
     # 이름 설정
@@ -327,9 +326,8 @@ def apply_character_creation(state):
     body_size = {"왜소": 1, "보통": 2, "장신": 3, "거구": 4}.get(state["body"], 2)
     morld.set_unit_prop(player_id, "체격", body_size)
 
-    # 음경 크기 저장 (global prop으로도 저장)
+    # 음경 크기 저장
     if state.get("penis_size") is not None:
-        morld.set_prop("player_penis_size", state["penis_size"])
         morld.set_unit_prop(player_id, "음경:크기", state["penis_size"])
 
     # 이름 인덱스 저장

@@ -50,11 +50,18 @@ def get_gender(unit_id):
 
     Returns:
         str: "male", "female", "futanari", "asexual" 중 하나
+
+    Raises:
+        ValueError: "성별" prop이 없을 때 (설정 누락은 반드시 수정 필요)
     """
     val = morld.get_unit_prop(unit_id, "성별")
     if val:
         return int_to_gender(int(val))
-    return MALE
+    # 성별 prop 없음 → 기본값 반환 대신 에러로 조기 발견
+    raise ValueError(
+        f"get_gender(unit_id={unit_id}): '성별' prop이 0 또는 미설정. "
+        f"Character.instantiate() 또는 persistence 복원 경로를 확인하세요."
+    )
 
 
 def has_anatomy(unit_id, category):
