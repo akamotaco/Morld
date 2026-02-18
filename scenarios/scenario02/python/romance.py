@@ -23,7 +23,7 @@ from romance_actions import (
     LUBRICATION_THRESHOLD, SWALLOW_M_THRESHOLD,
     SENSATION_MAP,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
-    _PENETRATION_TOGGLE_IDS,
+    _THRUST_TOGGLE_IDS, _INSERTION_INSTANT_IDS, _INSERTION_EXP_MAP,
     ACTION_DESCRIPTIONS,
 )
 from romance_ui import render_romance_ui, render_stamina_bar  # noqa: F401
@@ -51,9 +51,8 @@ from romance_core import (  # noqa: F401 — re-export for external callers
     get_internal_semen, get_internal_semen_total,
     _apply_internal_semen, clear_all_internal_semen,
     calculate_ejaculation_amount,
-    _PENETRATION_EXP_MAP,
-    _get_active_penetration_part, _has_active_penetration,
-    _has_active_intercourse, _get_penetration_exp_part,
+    _has_active_penetration,
+    _has_active_intercourse_from_state, get_insertion_exp_part,
     get_action_exp_part, get_conflicting_toggles, _remove_conflicting_toggles,
     check_and_clear_virginity,
     is_hold_back_available, is_ejaculate_available, is_pull_out_available,
@@ -294,6 +293,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         "condom_removed_in_trance": False,
         # NPC 선호
         "npc_prefs": npc_prefs,
+        # 삽입 상태
+        "insertion": {
+            "active": False,
+            "orifice": None,      # "vaginal" or "anal"
+            "who": None,           # "player" or "npc"
+            "failed_count": 0,
+        },
     }
 
     # 전환 시 보존 상태 복원
@@ -308,6 +314,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         state["condom_active"] = preserved.get("condom_active", False)
         state["condom_punctured"] = preserved.get("condom_punctured", False)
         state["condom_removed_in_trance"] = preserved.get("condom_removed_in_trance", False)
+        if "insertion" in preserved:
+            state["insertion"] = preserved["insertion"]
         if "position" in preserved:
             state["position"] = preserved["position"]
         if "mode_ctx" in preserved:
@@ -420,7 +428,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                         climax_info = r2
 
         # 삽입 중 플레이어 P 자극 축적 (P 감각에 따른 상승 감소)
-        if _has_active_penetration(state.get("active_toggles", set())):
+        if state["insertion"]["active"] and any(t in _THRUST_TOGGLE_IDS for t in state["active_toggles"]):
             import gender as gender_mod
             if gender_mod.has_anatomy(player_id, "P"):
                 p_base = sum(
@@ -493,23 +501,27 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             # P 절정 (사정) 처리
             ejac_part = None
             if has_p:
-                # 임신 판정 (pregnancy_check 토글 활성 + P 보유자 절정 시)
-                if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
-                    import gender as gender_mod
-                    if gender_mod.has_anatomy(pid, "P"):
-                        # 콘돔: 정상 콘돔이면 임신 판정 스킵
-                        if not (state["condom_active"] and not state["condom_punctured"]):
-                            import pregnancy
-                            if cur_mode == MODE_FROZEN:
-                                pregnancy.check_conception(player_id, pid, father_type="unknown")
-                            else:
-                                pregnancy.check_conception(player_id, pid)
+                insertion = state["insertion"]
+                if insertion["active"]:
+                    orifice = insertion["orifice"]
+                    if orifice == "vaginal":
+                        # 임신 판정 (질 삽입 + P 보유자 절정)
+                        import gender as gender_mod
+                        if gender_mod.has_anatomy(pid, "P"):
+                            if not (state["condom_active"] and not state["condom_punctured"]):
+                                import pregnancy
+                                if cur_mode == MODE_FROZEN:
+                                    pregnancy.check_conception(player_id, pid, father_type="unknown")
+                                else:
+                                    pregnancy.check_conception(player_id, pid)
                         ejac_part = "음부"
-                # P 절정 + 삽입 토글 활성 → 내부 사정 부위 판별
-                if not ejac_part:
+                    elif orifice == "anal":
+                        ejac_part = "항문"
+                # 삽입 미활성 + 펠라치오 활성 → 구강 사정
+                if not ejac_part and "fellatio" in state["active_toggles"]:
                     import gender as gender_mod
                     if gender_mod.has_anatomy(pid, "P"):
-                        ejac_part = _get_active_penetration_part(state["active_toggles"])
+                        ejac_part = "구강"
 
                 # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
                 if ejac_part and ejac_part in ("음부", "항문", "구강"):
@@ -547,6 +559,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                         morld.set_unit_prop(pid, "경험:콘돔속임", cheat_count)
                         state["last_reaction"] = "...콘돔에 구멍이 뚫려 있다는 걸 알아챘다!"
 
+            # 절정 시 허리흔들기 토글 해제 (삽입 상태는 유지)
+            for tid in list(state["active_toggles"]):
+                if tid in _THRUST_TOGGLE_IDS:
+                    state["active_toggles"].discard(tid)
+
             # 트랜스 자동 삽입 체크 (절정 후 NPC 비-P 부위 아직 peaked)
             auto_insert = _check_trance_auto_insert(state)
             if auto_insert:
@@ -572,7 +589,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                         ejac_reaction = partner_asset.get_romance_reaction(
                             f"ejaculation_internal_{ejac_part}", "start", stim_state=state["stim"])
                 ecstasy_key = get_climax_reaction_key(
-                    climax_info, state["active_toggles"], TOGGLE_ACTIONS, reactions)
+                    climax_info, state["active_toggles"], TOGGLE_ACTIONS, reactions, state=state)
                 # 강제 모드: forced_ 접두사 시도 → fallback
                 reaction = None
                 if reaction_prefix:
@@ -665,17 +682,125 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         peaked = stimulation.get_peaked_count(stim_state)
         if peaked < 2:
             return None
-        if _has_active_penetration(state.get("active_toggles", set())):
+        if state["insertion"]["active"]:
             return None
         pid = state["partner_id"]
         desire_key = get_desire_key(state["player_id"])
         desire = morld.get_unit_prop(pid, desire_key) or 0
         if desire < 50:
             return None
-        # NPC 자동 삽입 (기승위)
-        state["active_toggles"].add("receive_penetration")
+        # NPC 자동 삽입 (기승위) — 삽입 상태 활성화 + 허리흔들기
+        state["insertion"]["active"] = True
+        state["insertion"]["orifice"] = "vaginal"
+        state["insertion"]["who"] = "npc"
+        state["active_toggles"].add("thrust_normal")
         state["position"] = "cowgirl"
-        return "receive_penetration"
+        return "npc_auto_insert"
+
+    def _check_insertion_hard_fail(state, action_def, partner_id):
+        """삽입 확정 실패 조건 체크. 실패 메시지 반환 또는 None."""
+        # 1. 윤활 조건 미충족 (질삽입 시) → 항상 실패
+        if action_def.get("insertion_orifice") == "vaginal":
+            if not check_lubrication(partner_id, state):
+                arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
+                return f"아직 준비가 안 됐다. (성욕: {int(arousal)}/{LUBRICATION_THRESHOLD})"
+
+        # 2. 크기 차이 + 자극 부족 → 항상 실패
+        import gender as gender_mod
+        compat = gender_mod.check_penetration_compatibility(
+            state["player_id"], partner_id)
+        if compat["needs_prep"] > 0:
+            orifice = action_def.get("insertion_orifice", "vaginal")
+            exp_part = _INSERTION_EXP_MAP.get(orifice, "음부")
+            cat = SENSATION_MAP.get(exp_part, "V")
+            target_stim = state["stim"]["stim"].get(cat, 0)
+            if target_stim < compat["needs_prep"]:
+                return (f"크기 차이로 더 준비가 필요하다. "
+                        f"(자극: {int(target_stim)}/{compat['needs_prep']})")
+
+        return None
+
+    def _check_npc_autonomous_action(state):
+        """NPC 자율 행동 판정 (가만히 있기 시 호출)
+
+        Returns:
+            dict {"type": str, "reaction": str} 또는 None
+        """
+        pid = state["partner_id"]
+        stim = state["stim"]
+
+        # 조건: 절정게이지 ≥ 80 AND 성욕 ≥ 60
+        if stim["climax_gauge"] < 80:
+            return None
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        if arousal < 60:
+            return None
+
+        # 이미 삽입 중이면 스킵
+        if state["insertion"]["active"]:
+            return None
+
+        # 하체 노출 필요
+        exposure = get_exposure_state(pid)
+        if not exposure.get("lower_exposed"):
+            return None
+
+        # NPC에 P 해부학 필요 (삽입 주체)
+        import gender as gender_mod
+        if not gender_mod.has_anatomy(pid, "P"):
+            return None
+
+        # 플레이어 V 해부학 필요 (피삽입 대상)
+        player_id = state["player_id"]
+        if not gender_mod.has_anatomy(player_id, "V"):
+            return None
+
+        # 윤활 체크
+        if not check_lubrication(pid, state):
+            return None
+
+        # NPC 자율 삽입 실행
+        state["insertion"]["active"] = True
+        state["insertion"]["orifice"] = "vaginal"
+        state["insertion"]["who"] = "npc"
+
+        # 체위 변경 (기승위)
+        state["position"] = "cowgirl"
+
+        # 자율 허리흔들기 시작
+        state["active_toggles"].add("thrust_normal")
+
+        # 크기 호환성 체크
+        compat = gender_mod.check_penetration_compatibility(pid, player_id)
+        state["size_pain"] = compat["pain"]
+        state["size_stim_mod"] = compat["stim_mod"]
+
+        # 처녀 체크
+        check_and_clear_virginity(player_id, pid, "vaginal_insert")
+
+        # 반응 텍스트
+        reaction = _get_mode_reaction("npc_self_insert", "start")
+        if not reaction:
+            partner_info = morld.get_unit_info(pid)
+            pname = partner_info.get("name", "상대") if partner_info else "상대"
+            reaction = f"{pname}(이)가 스스로 올라탔다..."
+
+        return {"type": "self_insert", "reaction": reaction}
+
+    def _check_npc_beg_state(state):
+        """NPC 애원 조건 확인 (삽입 시도 자동 성공 판정용)"""
+        if state["insertion"]["active"]:
+            return False
+        stim = state["stim"]
+        if stim["climax_gauge"] < 70:
+            return False
+        pid = state["partner_id"]
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        if arousal < 50:
+            return False
+        desire_key = get_desire_key(state["player_id"])
+        desire = morld.get_unit_prop(pid, desire_key) or 0
+        return desire >= DES_LABEL_THRESHOLD
 
     def proc(action):
         if action == "init":
@@ -760,14 +885,20 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if not is_pull_out_available(state):
                 return render_romance_ui(state)
             pid = state["partner_id"]
-            # 삽입 토글 해제
-            penetration_toggles = set()
-            for tid in state["active_toggles"]:
-                td = TOGGLE_ACTIONS.get(tid)
-                if td and (td.get("pregnancy_check") or tid in ("anal_penetration", "receive_anal", "fellatio")):
-                    penetration_toggles.add(tid)
-            for tid in penetration_toggles:
-                state["active_toggles"].discard(tid)
+            # 허리흔들기 토글 해제 + 삽입 상태 해제
+            for tid in list(state["active_toggles"]):
+                if tid in _THRUST_TOGGLE_IDS:
+                    state["active_toggles"].discard(tid)
+            # 펠라치오 해제 (구강 사정의 경우)
+            if "fellatio" in state["active_toggles"]:
+                state["active_toggles"].discard("fellatio")
+            # 삽입 상태 해제
+            state["insertion"]["active"] = False
+            state["insertion"]["orifice"] = None
+            state["insertion"]["who"] = None
+            state.pop("size_pain", None)
+            state.pop("size_stim_mod", None)
+            morld.set_unit_prop(pid, "크기통증", 0)
             # P 절정 강제 발동
             stim = state.get("stim")
             if stim:
@@ -831,16 +962,205 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if not action_def:
                 return None
 
+            # 활성 토글 필요 체크 (예: tongue_play → deep_kiss 활성 필요)
+            req_toggle = action_def.get("requires_active_toggle")
+            if req_toggle and req_toggle not in state["active_toggles"]:
+                return render_romance_ui(state)
+
             # 삽입 중 즉시형: 유효성 + exp_part 동적 오버라이드
-            if action_def.get("requires_active_penetration"):
-                if not _has_active_penetration(state["active_toggles"]):
+            if action_def.get("requires_active_insertion"):
+                if not state["insertion"]["active"]:
                     return render_romance_ui(state)
-                # exp_part가 None이면 활성 삽입 토글의 부위 상속
+                # exp_part가 None이면 삽입 부위에서 동적 결정
                 if action_def.get("exp_part") is None:
-                    pen_part = _get_penetration_exp_part(state["active_toggles"])
+                    orifice = state["insertion"]["orifice"]
+                    pen_part = _INSERTION_EXP_MAP.get(orifice)
                     if pen_part:
                         action_def = dict(action_def)
                         action_def["exp_part"] = pen_part
+                        # 질삽입이면 pregnancy_check 동적 설정
+                        if orifice == "vaginal":
+                            action_def["pregnancy_check"] = True
+
+            # 삽입 시도 (성공/실패 판정)
+            if action_def.get("is_insertion_attempt"):
+                orifice = action_def["insertion_orifice"]
+                pid = state["partner_id"]
+
+                # 이미 삽입 중이면 무시
+                if state["insertion"]["active"]:
+                    state["last_reaction"] = "이미 삽입 중이다."
+                    return render_romance_ui(state)
+
+                # 확정 실패 조건 체크
+                fail_result = _check_insertion_hard_fail(state, action_def, pid)
+                if fail_result:
+                    state["last_reaction"] = fail_result
+                    state["insertion"]["failed_count"] += 1
+                    result = advance_time_and_check(state, action_def["time"])
+                    if result["interrupted"]:
+                        state["interrupted"] = True
+                        state["interrupter_id"] = result["interrupter_id"]
+                        return True
+                    if _post_action_mode_check():
+                        return True
+                    return render_romance_ui(state)
+
+                # 확률 기반 저항 (강제 모드에서만)
+                mode_ctx = state["mode_ctx"]
+                if mode_ctx["mode"] == MODE_FORCED:
+                    # NPC 애원 중이면 저항 스킵 (자동 성공)
+                    if not _check_npc_beg_state(state):
+                        import random
+                        escape_info = calculate_escape_chance(pid, state.get("stim"))
+                        resist_chance = escape_info["chance"]
+                        if random.random() < resist_chance:
+                            state["insertion"]["failed_count"] += 1
+                            msg = get_escape_attempt_message(pid, escape_info["is_futile"])
+                            state["last_reaction"] = "삽입하려 했지만 저항에 막혔다."
+                            if msg:
+                                state["last_reaction"] += f"\n{msg}"
+                            mode_ctx["resistance_meter"] += escape_info["meter_delta"]
+                            if mode_ctx["resistance_meter"] >= 100:
+                                state["escaped"] = True
+                                return True
+                            result = advance_time_and_check(state, action_def["time"])
+                            if result["interrupted"]:
+                                state["interrupted"] = True
+                                state["interrupter_id"] = result["interrupter_id"]
+                                return True
+                            return render_romance_ui(state)
+
+                # 삽입 성공
+                state["insertion"]["active"] = True
+                state["insertion"]["orifice"] = orifice
+                state["insertion"]["who"] = "player"
+                state["insertion"]["failed_count"] = 0
+
+                # 성공 시 반발 감소
+                rebellion_key = get_rebellion_key(player_id)
+                morld.modify_prop(pid, rebellion_key, -3)
+
+                # 삽입 호환성 체크 (크기)
+                import gender as gender_mod
+                compat = gender_mod.check_penetration_compatibility(
+                    player_id, state["partner_id"])
+                state["size_pain"] = compat["pain"]
+                state["size_stim_mod"] = compat["stim_mod"]
+                if compat["pain"]:
+                    rebellion_key_pain = get_rebellion_key(player_id)
+                    morld.modify_prop(pid, rebellion_key_pain, 3)
+                    morld.set_unit_prop(pid, "크기통증", 1)
+
+                # 처녀 체크
+                first_key = check_and_clear_virginity(pid, player_id, action_id)
+
+                # 마일스톤: 첫 경험
+                if orifice == "vaginal" and not morld.get_unit_prop(pid, "기억:첫경험"):
+                    morld.set_unit_prop(pid, "기억:첫경험", 1)
+
+                # 이하 일반 즉시형 처리로 fall-through (stamina/effects/time)
+
+            # 멈추기 특수 처리 (허리흔들기 중단, 삽입 유지)
+            if action_id == "thrust_stop":
+                if not state["insertion"]["active"]:
+                    return render_romance_ui(state)
+                # 허리흔들기 토글 전부 해제
+                for tid in list(state["active_toggles"]):
+                    if tid in _THRUST_TOGGLE_IDS:
+                        state["active_toggles"].discard(tid)
+                state["last_reaction"] = "움직임을 멈췄다."
+                reaction = _get_mode_reaction("thrust_stop", "start")
+                if reaction:
+                    state["last_reaction"] += f"\n[color=yellow]{reaction}[/color]"
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
+
+            # 빼기 특수 처리
+            if action_id == "withdraw":
+                if not state["insertion"]["active"]:
+                    return render_romance_ui(state)
+                pid = state["partner_id"]
+                orifice = state["insertion"]["orifice"]
+
+                # 활성 허리흔들기 토글 해제
+                for tid in list(state["active_toggles"]):
+                    if tid in _THRUST_TOGGLE_IDS:
+                        state["active_toggles"].discard(tid)
+
+                # 삽입 상태 해제
+                state["insertion"]["active"] = False
+                state["insertion"]["orifice"] = None
+                state["insertion"]["who"] = None
+
+                # 크기 관련 상태 정리
+                state.pop("size_pain", None)
+                state.pop("size_stim_mod", None)
+                morld.set_unit_prop(pid, "크기통증", 0)
+
+                # 체내 정액 있으면 흘러나옴 묘사
+                internal_part = "음부" if orifice == "vaginal" else "항문"
+                internal_amount = get_internal_semen(pid, internal_part)
+                if internal_amount > 0:
+                    drip = min(internal_amount, 20)
+                    exp_part = _INSERTION_EXP_MAP.get(orifice, "음부")
+                    _apply_semen(pid, exp_part, drip)
+                    state["last_reaction"] = "빼냈다. 정액이 흘러나오고 있다..."
+                else:
+                    state["last_reaction"] = "빼냈다."
+
+                reaction = _get_mode_reaction("withdraw", "start")
+                if reaction:
+                    state["last_reaction"] += f"\n[color=yellow]{reaction}[/color]"
+
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
+
+            # 가만히 있기 특수 처리
+            if action_id == "stay_still":
+                pid = state["partner_id"]
+
+                # 활성 토글 효과만 적용 (즉시형 효과 없음)
+                active_toggle_defs = [TOGGLE_ACTIONS[t] for t in state["active_toggles"]]
+                if active_toggle_defs:
+                    ecstasy = apply_effects(
+                        {"effects": {}, "exp_part": None, "affection_req": 0,
+                         "time": 0, "stamina": 0},
+                        active_toggle_defs)
+                    if ecstasy:
+                        state["last_reaction"] = ecstasy
+                        if should_emit_sound(state["mode_ctx"]["mode"]):
+                            emit_ecstasy_sound(pid)
+                    else:
+                        state["last_reaction"] = "가만히 있는다..."
+                else:
+                    state["last_reaction"] = "가만히 있는다..."
+
+                # NPC 자율 행동 판정
+                npc_action = _check_npc_autonomous_action(state)
+                if npc_action:
+                    state["last_reaction"] = npc_action["reaction"]
+
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
 
             # 체내 정액 필요 행위 유효성 검증
             req_internal = action_def.get("requires_internal_semen")
@@ -976,30 +1296,28 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                                 # 사정 처리 (has_p인 경우)
                                 if climax_info.get("has_p"):
                                     pid = state["partner_id"]
-                                    pen_part = _get_active_penetration_part(state["active_toggles"])
                                     cur_mode = state["mode_ctx"]["mode"]
                                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
-                                    if pen_part and pen_part in ("음부", "항문", "구강"):
-                                        if cur_mode == MODE_FROZEN:
-                                            defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
-                                        else:
-                                            _apply_internal_semen(pid, pen_part, ejac_amount)
-                                        if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
-                                            if not (state["condom_active"] and not state["condom_punctured"]):
-                                                try:
-                                                    import pregnancy
-                                                    if cur_mode == MODE_FROZEN:
-                                                        pregnancy.check_conception(player_id, pid,
-                                                                                   father_type="unknown")
-                                                    else:
-                                                        pregnancy.check_conception(player_id, pid)
-                                                except ImportError:
-                                                    pass
-                                    elif pen_part:
-                                        if cur_mode == MODE_FROZEN:
-                                            defer_semen(state["mode_ctx"], pen_part, ejac_amount)
-                                        else:
-                                            _apply_semen(pid, pen_part, ejac_amount)
+                                    insertion = state["insertion"]
+                                    if insertion["active"]:
+                                        orifice = insertion["orifice"]
+                                        pen_part = _INSERTION_EXP_MAP.get(orifice)
+                                        if pen_part and pen_part in ("음부", "항문"):
+                                            if cur_mode == MODE_FROZEN:
+                                                defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
+                                            else:
+                                                _apply_internal_semen(pid, pen_part, ejac_amount)
+                                            if orifice == "vaginal":
+                                                if not (state["condom_active"] and not state["condom_punctured"]):
+                                                    try:
+                                                        import pregnancy
+                                                        if cur_mode == MODE_FROZEN:
+                                                            pregnancy.check_conception(player_id, pid,
+                                                                                       father_type="unknown")
+                                                        else:
+                                                            pregnancy.check_conception(player_id, pid)
+                                                    except ImportError:
+                                                        pass
 
                 result = advance_time_and_check(state, action_def["time"])
                 if result["interrupted"]:
@@ -1017,18 +1335,30 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 pid = state["partner_id"]
                 cur_mode = state["mode_ctx"]["mode"]
 
+                # 허리흔들기 토글 해제 (삽입 상태는 유지)
+                for tid in list(state["active_toggles"]):
+                    if tid in _THRUST_TOGGLE_IDS:
+                        state["active_toggles"].discard(tid)
+
                 if climax_info and climax_info.get("has_p"):
-                    pen_part = _get_active_penetration_part(state["active_toggles"])
+                    insertion = state["insertion"]
                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
 
-                    # 내부 사정
+                    # 삽입 중이면 내부 사정
+                    pen_part = None
+                    if insertion["active"]:
+                        orifice = insertion["orifice"]
+                        pen_part = _INSERTION_EXP_MAP.get(orifice)
+                    elif "fellatio" in state["active_toggles"]:
+                        pen_part = "구강"
+
                     if pen_part and pen_part in ("음부", "항문", "구강"):
                         if cur_mode == MODE_FROZEN:
                             defer_semen(state["mode_ctx"], pen_part, ejac_amount, internal=True)
                         else:
                             _apply_internal_semen(pid, pen_part, ejac_amount)
-                        # 임신 판정
-                        if _has_active_intercourse(state["active_toggles"], TOGGLE_ACTIONS):
+                        # 임신 판정 (질삽입)
+                        if insertion["active"] and insertion["orifice"] == "vaginal":
                             if not (state["condom_active"] and not state["condom_punctured"]):
                                 try:
                                     import pregnancy
@@ -1166,6 +1496,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
             # 토글 전환
             is_turning_on = action_id not in state["active_toggles"]
+            # thrust 토글 재선택 시: OFF하지 않고 계속 유지 (효과 재적용)
+            if not is_turning_on and action_id in _THRUST_TOGGLE_IDS:
+                is_turning_on = True
 
             # 체력 계산 (토글 ON/OFF 모두 시간 흐름)
             total_stamina = action_def["stamina"]
@@ -1185,80 +1518,37 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 state["exhausted"] = True
                 return True
 
-            # 윤활 체크 (질 삽입 ON 시)
-            if is_turning_on and action_def.get("pregnancy_check"):
-                if not check_lubrication(state["partner_id"], state):
-                    arousal = morld.get_unit_prop(state["partner_id"], "상태:성욕") or 0
-                    state["last_reaction"] = f"아직 준비가 안 됐다. (성욕: {int(arousal)}/{LUBRICATION_THRESHOLD})"
+            # 허리흔들기 ON 시: 삽입 상태 필요 + exp_part 동적 결정
+            if is_turning_on and action_def.get("requires_active_insertion"):
+                if not state["insertion"]["active"]:
+                    state["last_reaction"] = "삽입 상태가 아니다."
                     return render_romance_ui(state)
-
-            # 콘돔 요구 체크 (합의 모드 + 삽입 토글 ON 시)
-            if is_turning_on and action_def.get("pregnancy_check"):
-                cur_mode_t = state["mode_ctx"]["mode"]
-                if cur_mode_t == MODE_CONSENSUAL and not state["condom_active"]:
-                    partner_asset = get_partner_asset(state["partner_id"])
-                    if partner_asset and getattr(partner_asset, 'requires_condom', False):
-                        # 콘돔 체념 체크 (경험:콘돔속임 ≥ 3 → 요구 해제)
-                        cheat_exp = morld.get_unit_prop(state["partner_id"], "경험:콘돔속임") or 0
-                        if cheat_exp < 3:
-                            partner_info_c = morld.get_unit_info(state["partner_id"])
-                            p_name_c = partner_info_c.get("name", "상대") if partner_info_c else "상대"
-                            state["last_reaction"] = f"{p_name_c}(이)가 콘돔 없이는 안 된다고 한다."
-                            return render_romance_ui(state)
-
-            # 삽입 호환성 체크 (크기 차이)
-            if is_turning_on and action_id in _PENETRATION_TOGGLE_IDS:
-                import gender as gender_mod
-                player_anat = action_def.get("requires_player_anatomy")
-                if player_anat == "P":
-                    compat = gender_mod.check_penetration_compatibility(
-                        player_id, state["partner_id"])
-                elif player_anat in ("V", "A"):
-                    compat = gender_mod.check_penetration_compatibility(
-                        state["partner_id"], player_id)
-                else:
-                    compat = {"needs_prep": 0, "pain": False, "stim_mod": 1.0}
-                # 준비 필요 시 자극 확인
-                if compat["needs_prep"] > 0:
-                    stim_state = state["stim"]
-                    target_cat = SENSATION_MAP.get(action_def.get("exp_part", ""), "")
-                    target_stim = stim_state["stim"].get(target_cat, 0) if target_cat else 0
-                    if target_stim < compat["needs_prep"]:
-                        state["last_reaction"] = (
-                            f"크기 차이로 더 준비가 필요하다. "
-                            f"(자극: {int(target_stim)}/{compat['needs_prep']})")
-                        return render_romance_ui(state)
-                # 통증/배율 저장
-                state["size_pain"] = compat["pain"]
-                state["size_stim_mod"] = compat["stim_mod"]
-                if compat["pain"]:
-                    rebellion_key = get_rebellion_key(player_id)
-                    morld.modify_prop(state["partner_id"], rebellion_key, 3)
-                    morld.set_unit_prop(state["partner_id"], "크기통증", 1)
+                # exp_part 동적 결정
+                if action_def.get("exp_part") is None:
+                    orifice = state["insertion"]["orifice"]
+                    action_def = dict(action_def)
+                    action_def["exp_part"] = _INSERTION_EXP_MAP.get(orifice, "음부")
+                    if orifice == "vaginal":
+                        action_def["pregnancy_check"] = True
 
             # 토글 상태 변경
             if is_turning_on:
                 # 같은 부위 토글 충돌 해소
                 _remove_conflicting_toggles(action_id, state["active_toggles"])
+                # 허리흔들기 토글끼리 충돌 (하나만 활성)
+                if action_id in _THRUST_TOGGLE_IDS:
+                    for tid in list(state["active_toggles"]):
+                        if tid in _THRUST_TOGGLE_IDS:
+                            state["active_toggles"].discard(tid)
                 state["active_toggles"].add(action_id)
             else:
                 state["active_toggles"].discard(action_id)
-                # 삽입 해제 시 크기 관련 상태 정리
-                if action_id in _PENETRATION_TOGGLE_IDS:
-                    state.pop("size_pain", None)
-                    state.pop("size_stim_mod", None)
-                    morld.set_unit_prop(state["partner_id"], "크기통증", 0)
 
-            # 처녀(첫경험) 체크 — 토글 ON 시
+            # 처녀(첫경험) 체크 — 토글 ON 시 (fellatio 등)
             first_key = None
             if is_turning_on:
                 first_key = check_and_clear_virginity(
                     state["partner_id"], player_id, action_id)
-
-            # 마일스톤: 첫 경험 (삽입 토글 ON 시)
-            if is_turning_on and action_def.get("pregnancy_check"):
-                if not morld.get_unit_prop(pid, "기억:첫경험"):
-                    morld.set_unit_prop(pid, "기억:첫경험", 1)
 
             # 준비 부족 체크 (강도 행위 — 토글 ON 시)
             unprepared_toggle = is_turning_on and not check_preparation(state["stim"], action_def)

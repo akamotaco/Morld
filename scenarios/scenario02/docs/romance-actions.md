@@ -88,7 +88,7 @@
 | breast_touch | 가슴 만지기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+1 | 80 | exposure_bonus: upper |
 | breast_squeeze | 가슴 주무르기 | 5분 | 2 | 호감+1, 성욕+4, 욕망+2 | 85 | **신규**, exposure_bonus: upper |
 | breast_suck | 가슴 빨기 | 5분 | 3 | 성욕+6, 욕망+3 | 90 | **신규**, requires_exposure: upper |
-| genital_touch | 음부 만지기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 | exposure_bonus: lower |
+| genital_caress | 음부 쓰다듬기 | 5분 | 3 | 호감+1, 성욕+5, 욕망+3 | 90 | 즉시형 (INSTANT_ACTIONS) |
 | clit_rub | 클리토리스 문지르기 | 5분 | 3 | 성욕+7, 욕망+4 | 95 | exposure_bonus: lower |
 | clit_lick | 클리토리스 핥기 | 5분 | 3 | 성욕+8, 욕망+4 | 95 | **신규**, requires_exposure: lower |
 | cunnilingus | 커닐링구스 | 5분 | 3 | 성욕+8, 욕망+4 | 95 | **신규**, requires_exposure: lower |
@@ -99,15 +99,16 @@
 
 #### 부위별 행위 요약
 
-| 부위 (카테고리) | 즉시형 | 토글형 | 삽입형 | 합계 |
-|----------------|--------|--------|--------|------|
+| 부위 (카테고리) | 즉시형 | 토글형 | 삽입 관련 | 합계 |
+|----------------|--------|--------|----------|------|
 | 입술 (M) | 입술 핥기, 프렌치 키스 | 딥키스, 혀 섞기 | — | 4 |
 | 가슴 (B) | 가슴 쓰다듬기, 유두 자극 | 가슴 만지기, 가슴 주무르기, 가슴 빨기 | — | 5 |
-| 엉덩이 (A) | 엉덩이 쓰다듬기, 항문 자극 | 엉덩이 주무르기 | 항문 삽입, 피항문삽입 | 5 |
-| 음부 (V) | 음부 쓰다듬기 | 음부 만지기, 커닐링구스, 손가락 삽입 | 삽입 | 5 |
+| 엉덩이 (A) | 엉덩이 쓰다듬기, 항문 자극 | 엉덩이 주무르기 | 항문 삽입(즉시) | 4 |
+| 음부 (V) | 음부 쓰다듬기, 삽입(즉시) | 커닐링구스, 손가락 삽입 | — | 4 |
 | 클리토리스 (C) | 클리토리스 자극 | 클리토리스 문지르기, 클리토리스 핥기 | — | 3 |
-| 음경 (P) | 음경 쓰다듬기, 음경 자극 | 음경 만지기, 음경 문지르기, 펠라치오 | 피삽입 | 6 |
+| 음경 (P) | 음경 쓰다듬기, 음경 자극 | 음경 만지기, 음경 문지르기, 펠라치오 | — | 5 |
 | 얼굴/목 (F) | 목 키스, 귀 만지기, 뺨 어루만지기, 뺨 꼬집기 | — | — | 4 |
+| 삽입 전용 | thrust_stop, withdraw, thrust_deep 등 | thrust_gentle/normal/rough | — | 6+ |
 
 ### 캐릭터별 반응 시스템
 
@@ -907,9 +908,16 @@ on_meet_player() 내 수면 체크 다음:
 
 ### 개요
 
-기존 스킨십 행위는 모두 외부 자극(만지기/쓰다듬기/문지르기)이었으나,
-삽입 행위는 체내 결합을 수반하는 행위 카테고리. 임신 시스템의 전제 조건이자
-연애 행위의 최종 단계.
+삽입 행위는 **즉시형 삽입 시도** + **토글형 허리흔들기** 2단계로 구성.
+삽입(정지 상태) → 허리흔들기(강도 선택) → 멈추기/빼기의 흐름.
+
+**핵심 구조:**
+- `vaginal_insert` / `anal_insert` — 즉시형 삽입 시도 (`is_insertion_attempt`)
+- `thrust_gentle` / `thrust_normal` / `thrust_rough` — 토글형 허리흔들기 (`requires_active_insertion`)
+- `thrust_stop` — 즉시형 멈추기 (삽입 유지, 허리흔들기 해제)
+- `withdraw` — 즉시형 빼기 (삽입 해제)
+
+**삽입 상태 추적**: `state["insertion"]["active"]`, `state["insertion"]["orifice"]`
 
 ### 새 필드: requires_player_anatomy
 
@@ -922,15 +930,9 @@ on_meet_player() 내 수면 체크 다음:
 
 ```python
 # 예: 삽입 (플레이어 P → NPC V)
-"vaginal_penetration": {
+"vaginal_insert": {
     "exp_part": "음부",                    # NPC쪽 → has_anatomy(npc, "V") 체크
     "requires_player_anatomy": "P",        # 플레이어쪽 → has_anatomy(player, "P") 체크
-}
-
-# 예: 피삽입 (NPC P → 플레이어 V)
-"receive_penetration": {
-    "exp_part": "음경",                    # NPC쪽 → has_anatomy(npc, "P") 체크
-    "requires_player_anatomy": "V",        # 플레이어쪽 → has_anatomy(player, "V") 체크
 }
 ```
 
@@ -951,171 +953,108 @@ def is_anatomy_compatible(action_def, target_id, player_id=None):
     return True
 ```
 
-### 삽입 토글 행위 정의
+### 삽입 즉시형 행위 (Insertion Attempt)
 
-삽입은 **토글형** (지속 행위). 시작 후 매 틱마다 자극/효과 누적.
-즉시형 삽입은 없음 — 삽입은 본질적으로 지속 행위.
+삽입은 **즉시형** — 실행 시 삽입 상태로 전환. 이미 삽입 중이면 숨김.
 
-#### 전체 삽입 행위 목록
-
-| 행위 ID | 이름 | 틱당 시간 | 스태미나 | exp_part | player_anatomy | 효과 | 호감도 | 비고 |
-|---------|------|----------|---------|----------|---------------|------|--------|------|
-| `vaginal_penetration` | 삽입 | 5분 | 4 | 음부 | P | 성욕+8, 욕망+5, 복종+1 | 98 | pregnancy_check |
-| `receive_penetration` | 피삽입 | 5분 | 4 | 음경 | V | 성욕+8, 욕망+5 | 98 | pregnancy_check |
-| `anal_penetration` | 항문 삽입 | 5분 | 4 | 엉덩이 | P | 성욕+8, 욕망+5, 복종+2 | 98 | **신규** |
-| `receive_anal` | 피항문삽입 | 5분 | 4 | 음경 | A | 성욕+8, 욕망+5 | 98 | **신규** |
-
-> **손가락 삽입**(`finger_insertion`)과 **커닐링구스/펠라치오**는
-> 토글형 외부 자극으로 분류 (위 TOGGLE_ACTIONS 테이블 참조).
-> 이들은 `pregnancy_check` 없음, requires_player_anatomy 없음.
-
-#### 코드 예시
+| 행위 ID | 이름 | 시간 | 스태미나 | exp_part | player_anatomy | 효과 | 호감도 | 비고 |
+|---------|------|------|---------|----------|---------------|------|--------|------|
+| `vaginal_insert` | 삽입 | 3분 | 3 | 음부 | P | 성욕+5, 욕망+3, 복종+1 | 98 | pregnancy_check, `is_insertion_attempt` |
+| `anal_insert` | 항문 삽입 | 3분 | 3 | 엉덩이 | P | 성욕+5, 욕망+3, 복종+2 | 98 | `is_insertion_attempt` |
 
 ```python
-"vaginal_penetration": {
-    "name": "삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-    "effects": {"성욕": 8, "욕망": 5, "복종": 1},
+"vaginal_insert": {
+    "name": "삽입", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
+    "effects": {"성욕": 5, "욕망": 3, "복종": 1},
     "exp_part": "음부", "affection_req": 98,
-    "requires_player_anatomy": "P",
-    "requires_exposure": "lower",
-    "pregnancy_check": True,            # 절정 시 수정 판정
-},
-"receive_penetration": {
-    "name": "피삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-    "effects": {"성욕": 8, "욕망": 5},
-    "exp_part": "음경", "affection_req": 98,
-    "requires_player_anatomy": "V",
-    "requires_exposure": "lower",
+    "requires_player_anatomy": "P", "requires_exposure": "lower",
     "pregnancy_check": True,
+    "is_insertion_attempt": True, "insertion_orifice": "vaginal",
 },
-"anal_penetration": {
-    "name": "항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-    "effects": {"성욕": 8, "욕망": 5, "복종": 2},
+"anal_insert": {
+    "name": "항문 삽입", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
+    "effects": {"성욕": 5, "욕망": 3, "복종": 2},
     "exp_part": "엉덩이", "affection_req": 98,
-    "requires_player_anatomy": "P",
-    "requires_exposure": "lower",
-    # pregnancy_check 없음 — 임신 불가
-},
-"receive_anal": {
-    "name": "피항문삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-    "effects": {"성욕": 8, "욕망": 5},
-    "exp_part": "음경", "affection_req": 98,
-    "requires_player_anatomy": "A",     # A = 모든 성별 보유
-    "requires_exposure": "lower",
+    "requires_player_anatomy": "P", "requires_exposure": "lower",
+    "is_insertion_attempt": True, "insertion_orifice": "anal",
 },
 ```
 
-### NPC 주도 삽입
+삽입 성공 시 `state["insertion"] = {"active": True, "orifice": "vaginal"/"anal"}` 설정.
 
-NPC 주도 시스템(`npc_initiative.py`)에도 동일 4종 추가:
+### 허리흔들기 토글 (Thrust Toggles)
 
-```python
-NPC_TOGGLE_ACTIONS에 추가:
-"vaginal_penetration": { ..., "pregnancy_check": True },
-"receive_penetration": { ..., "pregnancy_check": True },
-"anal_penetration": { ... },
-"receive_anal": { ... },
-```
+삽입 상태에서만 활성화 가능한 토글형 행위. **3가지 강도**.
 
-**INITIATIVE_ACTION_FILTERS에 추가 (캐릭터별):**
-- 최상위 필터 (가장 높은 호감 조건)에만 삽입 행위 포함
-- 기존 액션 리스트 끝에 추가
+| 행위 ID | 이름 | 틱당 시간 | 스태미나 | 효과 | 호감도 | 강도 |
+|---------|------|----------|---------|------|--------|------|
+| `thrust_gentle` | 부드럽게 움직이기 | 5분 | 3 | 성욕+5, 호감+2, 욕망+2 | 98 | 1 |
+| `thrust_normal` | 허리 흔들기 | 5분 | 4 | 성욕+8, 욕망+5, 복종+1 | 98 | 2 |
+| `thrust_rough` | 거칠게 흔들기 | 5분 | 5 | 성욕+11, 욕망+7, 복종+2 | 100 | 3 (준비필요) |
 
-**INITIATIVE_SENSATION_REQS에 추가:**
-```python
-"vaginal_penetration": {"V": 3},   # 음부 감각 레벨 3 이상
-"receive_penetration": {"P": 3},   # 음경 감각 레벨 3 이상
-"anal_penetration": {"A": 3},      # 엉덩이 감각 레벨 3 이상
-"receive_anal": {"P": 3},          # 음경(NPC) 감각 레벨 3 이상
-```
+**토글 동작 규칙:**
+- `exp_part: None` — 삽입 부위(orifice)에서 동적 결정
+- 같은 thrust 재선택 → **OFF되지 않고 계속 유지** (효과 재적용)
+- 다른 thrust 선택 → 기존 thrust 해제 + 새 thrust 활성화
+- `_THRUST_TOGGLE_IDS = frozenset({"thrust_gentle", "thrust_normal", "thrust_rough"})`
+
+### 삽입 관련 즉시형 (삽입 상태 필요)
+
+| 행위 ID | 이름 | 시간 | 스태미나 | 효과 | 비고 |
+|---------|------|------|---------|------|------|
+| `thrust_stop` | 멈추기 | 1분 | 0 | — | thrust 활성일 때만 표시 |
+| `withdraw` | 빼기 | 1분 | 0 | — | 삽입 상태 해제 |
+| `thrust_deep` | 깊게 밀어넣기 | 3분 | 3 | 성욕+8, 욕망+4, 복종+1 | 강도 3 |
+| `thrust_slow` | 느리게 움직이기 | 3분 | 2 | 성욕+4, 호감+2, 욕망+2 | 강도 1 |
+| `grind` | 밀착 흔들기 | 3분 | 2 | 성욕+6, 욕망+3 | exp_part: 클리토리스 |
+
+**thrust_stop 동작:**
+- 허리흔들기 토글 전부 해제 (삽입은 유지)
+- 사정 후 자동 멈춤 시에도 동일 처리
+- UI: 삽입 중 + thrust 활성일 때만 표시
+
+> **손가락 삽입**(`finger_insertion`, `finger_anal_insertion`)과 **커닐링구스/펠라치오**는
+> 토글형 외부 자극으로 분류 (위 TOGGLE_ACTIONS 테이블 참조).
+> 이들은 `is_insertion_attempt` 없음, requires_player_anatomy 없음.
 
 ### 노출 요건
 
 모든 삽입 행위는 **하체 노출** 필수 (하드 락):
 - `requires_exposure: "lower"` — NPC 하체 노출 필수
 - 미노출 시 `[color=gray]삽입 (탈의 필요)[/color]` 표시
-- 노출 보너스(×1.5)는 이미 노출 필수이므로 적용 안 함
 
 ### 임신 판정 (pregnancy_check) — 절정 시 판정
 
 **중요: 수정 판정은 매 틱이 아닌, P를 가진 쪽의 절정 시에만 발생.**
 
-`pregnancy_check: True` 플래그가 있는 삽입 행위가 활성 상태에서 절정이 발생할 때:
-
-```python
-# 절정 처리 블록 내 (romance.py, npc_initiative.py):
-if climax_info and any_active_intercourse_with_pregnancy_check(state):
-    # P를 가진 쪽이 절정했을 때만 수정 판정
-    if is_p_side_climax(climax_info, state):
-        import pregnancy
-        pregnancy.check_conception(player_id, partner_id)
-```
+`vaginal_insert`의 `pregnancy_check: True` 플래그로 삽입 상태에서 절정 시 판정:
 
 **판정 조건:**
-1. 삽입 행위(`pregnancy_check: True`)가 활성 토글로 진행 중
+1. 질 삽입 상태(`insertion.orifice == "vaginal"`)에서 진행 중
 2. P를 보유한 쪽(삽입자)이 절정 도달
 3. V를 보유한 쪽(피삽입자)의 월경 주기 기반 가임 확률 적용
 
-- 항문 삽입(`anal_penetration`, `receive_anal`)은 `pregnancy_check` 없으므로 판정 안 함
+- 항문 삽입(`anal_insert`)은 `pregnancy_check` 없으므로 판정 안 함
 - 손가락/구강 행위도 판정 안 함
 - 상세 메커니즘은 [romance-pregnancy.md](romance-pregnancy.md) 참조
 
-### 부위 충돌 (exp_part)
+### 삽입 부위 충돌
 
-| 행위 | exp_part | 충돌 대상 |
-|------|----------|----------|
-| 삽입 (vaginal_penetration) | 음부 | 음부 만지기, 커닐링구스, 손가락 삽입 |
-| 피삽입 (receive_penetration) | 음경 | 음경 만지기, 펠라치오 |
-| 항문 삽입 (anal_penetration) | 엉덩이 | 엉덩이 주무르기 |
-| 피항문삽입 (receive_anal) | 음경 | 음경 만지기, 펠라치오 |
-
-삽입 활성화 시 같은 부위의 기존 토글 자동 해제.
-
-### 플레이어 신체 충돌 (requires_player_anatomy)
-
-exp_part 기반 충돌은 **NPC쪽 부위** 기준이므로,
-**플레이어 신체 1개를 여러 행위에 동시 사용**하는 모순을 방지하지 못함.
-
-예: `vaginal_penetration`(P 필요) + `anal_penetration`(P 필요) 동시 활성화 → 물리적 불가능
-
-**규칙**: 같은 `requires_player_anatomy` 값을 가진 행위는 상호 배타.
-
-```python
-def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None):
-    # 기존: exp_part 충돌 검사
-    ...
-    # 추가: requires_player_anatomy 충돌 검사
-    new_player_req = new_def.get("requires_player_anatomy")
-    if new_player_req:
-        for toggle_id in active_toggles:
-            toggle_def = get_toggle_def(toggle_id)
-            if toggle_def and toggle_def.get("requires_player_anatomy") == new_player_req:
-                conflicting.add(toggle_id)
-    return conflicting
-```
-
-| 충돌 그룹 | requires_player_anatomy | 대상 행위 |
-|-----------|------------------------|-----------|
-| P 사용 | P | vaginal_penetration, anal_penetration |
-| V 사용 | V | receive_penetration |
-| A 사용 | A | receive_anal |
-
-**결과**: 질 삽입 활성 중 항문 삽입 선택 시, 질 삽입이 자동 해제되고 항문 삽입으로 전환.
+삽입은 한 번에 하나만 가능. `vaginal_insert` → `anal_insert` 선택 시 기존 삽입 해제 + 새 삽입.
+허리흔들기 토글은 `exp_part: None`이므로 exp_part 충돌 없음 — 삽입 부위에서 동적 결정.
 
 ### 자극 시스템 연동
 
-삽입은 exp_part 기반으로 기존 자극 시스템과 동일하게 연동:
-- `vaginal_penetration` → V 카테고리 자극 증가
-- `receive_penetration` → P 카테고리 자극 증가
-- `anal_penetration` → A 카테고리 자극 증가
-- `receive_anal` → P 카테고리 자극 증가
+- 삽입 즉시형 (`vaginal_insert`) → exp_part 기반 자극 (음부/엉덩이)
+- 허리흔들기 토글 → 삽입 orifice에서 동적으로 exp_part 결정
+  - vaginal → 음부(V), anal → 엉덩이(A)
 - 절정 시 기존 절정 처리 로직 그대로 적용
 
 ### 효과 밸런스
 
-| 항목 | 질 삽입 | 항문 삽입 | 비교 (클리토리스 문지르기) |
-|------|---------|----------|--------------------------|
-| 성욕 | +8 | +8 | +7 |
+| 항목 | 질 삽입(즉시) | 허리 일반(토글) | 비교 (클리토리스 문지르기) |
+|------|-------------|---------------|--------------------------|
+| 성욕 | +5 | +8 | +7 |
 | 욕망 | +5 | +5 | +4 |
 | 복종 | +1 | +2 | 없음 |
 | 스태미나 | 4 | 4 | 3 |
@@ -1133,31 +1072,29 @@ def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None)
 
 ### 캐릭터별 반응 (ROMANCE_REACTIONS)
 
-각 캐릭터 파일에 삽입 4종 + 신규 행위 반응 추가 필요:
+삽입 관련 반응 키:
 
 ```python
 ROMANCE_REACTIONS = {
-    "vaginal_penetration": {
-        "start": [...], "during": [...], "end": [...],
+    "vaginal_insert": {                # 삽입 즉시형
+        "start": [...],
     },
-    "receive_penetration": {
-        "start": [...], "during": [...], "end": [...],
+    "thrust_normal": {                 # 허리흔들기 토글
+        "during": [...],
     },
-    "anal_penetration": {
-        "start": [...], "during": [...], "end": [...],
+    "thrust_stop": {                   # 멈추기
+        "start": [...],
     },
-    "receive_anal": {
-        "start": [...], "during": [...], "end": [...],
+    "withdraw": {                      # 빼기
+        "start": [...],
     },
-    # 신규 외부 행위도 동일 패턴
-    "tongue_play": { "start": [...], "during": [...] },
-    "breast_suck": { "start": [...], "during": [...] },
-    "cunnilingus": { "start": [...], "during": [...] },
-    "fellatio": { "start": [...], "during": [...] },
-    "finger_insertion": { "start": [...], "during": [...] },
     ...
 }
 ```
+
+**톤 템플릿 키 매핑:**
+- `ACTION_REACTIONS` (`:during`) → 토글 묘사: `thrust_normal`, `thrust_gentle`, `thrust_rough`
+- `ACTION_LINES` (`:start`) → 즉시형 대사: `vaginal_insert`, `anal_insert`, `thrust_rough`, `genital_caress`, `first_vaginal_insert`, `first_anal_insert`
 
 ---
 
@@ -1590,7 +1527,7 @@ ACTION_DESCRIPTIONS = {
 TOGGLE_DURING_DESCRIPTIONS = {
     "hug": "서로를 껴안고 있다.",
     "deep_kiss": "깊은 키스가 이어지고 있다.",
-    "vaginal_penetration": "삽입이 이어지고 있다.",
+    "thrust_normal": "허리를 흔들고 있다.",
     ...
 }
 ```

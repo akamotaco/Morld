@@ -15,7 +15,7 @@ from romance_actions import (
     LUBRICATION_THRESHOLD,
     get_relationship_label,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
-    _PENETRATION_TOGGLE_IDS,
+    _THRUST_TOGGLE_IDS, _INSERTION_EXP_MAP,
 )
 from romance_actions import TOGGLE_DURING_DESCRIPTIONS
 from romance_core import (
@@ -26,7 +26,6 @@ from romance_core import (
     is_action_available, is_anatomy_compatible,
     get_exposure_state,
     get_semen_total, get_internal_semen, get_internal_semen_total,
-    _has_active_penetration,
     is_pull_out_available, is_hold_back_available, is_ejaculate_available,
     get_state_description,
 )
@@ -288,6 +287,36 @@ def render_romance_ui(state):
         else:
             lines.append("[color=green]콘돔 착용 중[/color]")
 
+    # 삽입 상태 표시
+    insertion = state.get("insertion", {})
+    is_inserted = insertion.get("active", False)
+    if is_inserted:
+        orifice_name = {"vaginal": "질", "anal": "항문"}.get(insertion.get("orifice"), "?")
+        who_name = "플레이어" if insertion.get("who") == "player" else partner_name
+        lines.append(f"[color=red]삽입 중 ({orifice_name}) — {who_name}[/color]")
+        # 현재 허리흔들기 강도
+        active_thrust = None
+        for tid in state["active_toggles"]:
+            if tid in _THRUST_TOGGLE_IDS:
+                active_thrust = TOGGLE_ACTIONS[tid]["name"]
+                break
+        if active_thrust:
+            lines.append(f"  └ {active_thrust}")
+        else:
+            lines.append(f"  └ [color=gray]정지 (허리흔들기 선택 필요)[/color]")
+
+    # NPC 애원 표시 (미삽입 + 높은 절정게이지/성욕/욕망)
+    if not is_inserted:
+        stim_beg = state.get("stim")
+        if stim_beg and stim_beg.get("climax_gauge", 0) >= 70:
+            beg_arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
+            if beg_arousal >= 50:
+                from romance_actions import DES_LABEL_THRESHOLD
+                beg_desire_key = get_desire_key(player_id)
+                beg_desire = morld.get_unit_prop(partner_id, beg_desire_key) or 0
+                if beg_desire >= DES_LABEL_THRESHOLD:
+                    lines.append(f"[color=magenta]{partner_name}(이)가 삽입을 애원하고 있다...[/color]")
+
     lines.append("")
     lines.append(ui.divider())
     lines.append("")
@@ -306,6 +335,10 @@ def render_romance_ui(state):
             lines.append(f"  [color=gray]{action['name']} (임신 후기)[/color]")
             continue
         is_on = action_id in state["active_toggles"]
+        # 허리흔들기 토글: 삽입 상태가 아니면 숨김 (이미 ON이면 해제 가능)
+        if action.get("requires_active_insertion") and not is_on:
+            if not is_inserted:
+                continue
         # 배면 체위: 입 사용 행위 비활성화 (이미 ON이면 해제 가능)
         if action.get("uses_mouth") and not is_on:
             if position.get_facing(state.get("position", "missionary")) == "back":
@@ -332,7 +365,6 @@ def render_romance_ui(state):
     lines.append("")
 
     # 즉시 행위
-    has_penetration = _has_active_penetration(state["active_toggles"])
     lines.append("[즉시 행위]")
 
     # 콘돔 버튼 (P 해부학 보유 시)
@@ -349,6 +381,20 @@ def render_romance_ui(state):
             continue  # 특수 표시 영역에서 처리
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
+        # 삽입 시도: 이미 삽입 중이면 숨김
+        if action.get("is_insertion_attempt") and is_inserted:
+            continue
+        # 삽입 상태 필요 즉시형: 삽입 중이 아니면 숨김
+        if action.get("requires_active_insertion") and not is_inserted:
+            continue
+        # thrust_stop: 삽입 중 + thrust 활성일 때만 표시
+        if action_id == "thrust_stop":
+            if not any(t in _THRUST_TOGGLE_IDS for t in state.get("active_toggles", set())):
+                continue
+        # 활성 토글 필요 즉시형 (tongue_play → deep_kiss 필요)
+        req_toggle = action.get("requires_active_toggle")
+        if req_toggle and req_toggle not in state.get("active_toggles", set()):
+            continue
         # 배면 체위: 입 사용 행위 비활성화
         if action.get("uses_mouth"):
             if position.get_facing(state.get("position", "missionary")) == "back":
@@ -359,9 +405,6 @@ def render_romance_ui(state):
         if player_self_req:
             if not gender_mod.has_anatomy(player_id, player_self_req):
                 continue
-        # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
-        if action.get("requires_active_penetration") and not has_penetration:
-            continue
         # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
         req_internal = action.get("requires_internal_semen")
         if req_internal:

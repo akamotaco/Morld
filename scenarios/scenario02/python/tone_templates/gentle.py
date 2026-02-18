@@ -394,8 +394,8 @@ ACTION_REACTIONS = {
         ],
     },
 
-    # ── 삽입 (vaginal_penetration) ──
-    "vaginal_penetration": {
+    # ── 삽입 (thrust_normal) ──
+    "thrust_normal": {
         # rebellion_mild
         (-30, 0): [
             "{name}가 아파서 울면서 살살 해달라고 애원하고 있다.",
@@ -815,7 +815,7 @@ ACTION_LINES = {
         ],
     },
     # ── 삽입 ──  (tone-independent → (30,0))
-    "vaginal_penetration": {
+    "vaginal_insert": {
         (30, 0): [
             "...앗...!!",
             "...천천히... 해주세요...",
@@ -931,17 +931,10 @@ ACTION_LINES = {
         ],
     },
     # ── 항문 삽입 ──
-    "anal_penetration": {
+    "anal_insert": {
         (30, 0): [
             "...에엣?! 거, 거기는 안 돼요...!!",
             "...(겁에 질린다)",
-        ],
-    },
-    # ── 수동 항문 삽입 ──
-    "receive_anal": {
-        (30, 0): [
-            "...(불안한 눈으로 올려다본다)",
-            "...아파요...",
         ],
     },
     # ── 목 키스 ──
@@ -981,7 +974,7 @@ ACTION_LINES = {
         ],
     },
     # ── 성기 터치 ──
-    "genital_touch": {
+    "genital_caress": {
         (30, 0): [
             "...거기는...!",
             "...부끄러워요... 하지만...",
@@ -1076,21 +1069,9 @@ ACTION_LINES = {
             "...(몸이 크게 떨린다)",
         ],
     },
-    # ── 수동 삽입 ──
-    "receive_penetration": {
-        (30, 0): [
-            "...앗...",
-            "...(긴장한다)",
-        ],
-        # :high
-        (80, 80): [
-            "...(조심스럽게 받아들인다)♡",
-            "...들어오는 거... 느껴져요...",
-        ],
-    },
 
     # ── 첫 경험 ──
-    "first_vaginal_penetration": {
+    "first_vaginal_insert": {
         # (80,30) 따뜻한 쾌감 — 호감 높은 첫 경험, 긴장+설렘
         (80, 30): [
             "...처음이에요... 하지만, 당신이니까... 괜찮아요...♡",
@@ -1132,7 +1113,7 @@ ACTION_LINES = {
             "...으으... 손가락은... 싫어요...",
         ],
     },
-    "first_anal_penetration": {
+    "first_anal_insert": {
         # (80,30) 따뜻한 쾌감 — 호감 있지만 공포
         (80, 30): [
             "...거기는... 무서워요... 하지만 당신이 원하신다면...",

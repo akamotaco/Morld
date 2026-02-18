@@ -213,24 +213,88 @@ INSTANT_ACTIONS = {
         "exp_part": "음부", "affection_req": 98, "requires_exposure": "lower",
         "intensity": 3
     },
+    # 토글→즉시 전환 행위
+    "tongue_play": {
+        "name": "혀 섞기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"호감": 2, "성욕": 4},
+        "exp_part": "입술", "affection_req": 75, "uses_mouth": True,
+        "requires_active_toggle": "deep_kiss",
+    },
+    "clit_rub": {
+        "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4},
+        "exp_part": "클리토리스", "affection_req": 95, "requires_exposure": "lower",
+    },
+    "finger_insertion": {
+        "name": "손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4, "복종": 1},
+        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower",
+    },
+    "finger_anal_insertion": {
+        "name": "손가락 항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 7, "욕망": 4, "복종": 1},
+        "exp_part": "엉덩이", "affection_req": 95, "requires_exposure": "lower",
+        "intensity": 3,
+    },
+    # 삽입 시도 (성공/실패 판정)
+    "vaginal_insert": {
+        "name": "삽입", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 5, "욕망": 3, "복종": 1},
+        "exp_part": "음부", "affection_req": 98,
+        "requires_player_anatomy": "P", "requires_exposure": "lower",
+        "pregnancy_check": True,
+        "is_insertion_attempt": True,
+        "insertion_orifice": "vaginal",
+    },
+    "anal_insert": {
+        "name": "항문 삽입", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 5, "욕망": 3, "복종": 2},
+        "exp_part": "엉덩이", "affection_req": 98,
+        "requires_player_anatomy": "P", "requires_exposure": "lower",
+        "is_insertion_attempt": True,
+        "insertion_orifice": "anal",
+    },
+    # 삽입 관련 즉시형
+    "withdraw": {
+        "name": "빼기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+        "requires_active_insertion": True,
+    },
+    "thrust_stop": {
+        "name": "멈추기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+        "requires_active_insertion": True,
+    },
+    "stay_still": {
+        "name": "가만히 있기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+    },
+    "demand_dirty_talk": {
+        "name": "음어요구", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"성욕": 3, "복종": 2, "욕망": 2},
+        "exp_part": None, "affection_req": 85,
+    },
     # 삽입 중 즉시형 행위
     "thrust_deep": {
         "name": "깊게 밀어넣기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4, "복종": 1},
         "exp_part": None, "affection_req": 98,
-        "requires_active_penetration": True, "intensity": 3
+        "requires_active_insertion": True, "intensity": 3
     },
     "thrust_slow": {
         "name": "느리게 움직이기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"성욕": 4, "호감": 2, "욕망": 2},
         "exp_part": None, "affection_req": 98,
-        "requires_active_penetration": True, "intensity": 1
+        "requires_active_insertion": True, "intensity": 1
     },
     "grind": {
         "name": "밀착 흔들기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"성욕": 6, "욕망": 3},
         "exp_part": "클리토리스", "affection_req": 98,
-        "requires_active_penetration": True, "intensity": 2
+        "requires_active_insertion": True, "intensity": 2
     },
     "hold_back": {
         "name": "참기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 2,
@@ -281,11 +345,6 @@ TOGGLE_ACTIONS = {
         "effects": {"호감": 3, "성욕": 3},
         "exp_part": "입술", "affection_req": 70, "uses_mouth": True
     },
-    "tongue_play": {
-        "name": "혀 섞기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
-        "effects": {"호감": 2, "성욕": 4},
-        "exp_part": "입술", "affection_req": 75, "uses_mouth": True
-    },
     "butt_squeeze": {
         "name": "엉덩이 주무르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"호감": 1, "성욕": 3, "욕망": 1},
@@ -321,16 +380,6 @@ TOGGLE_ACTIONS = {
         "exp_part": "가슴", "affection_req": 95, "requires_exposure": "upper",
         "requires_breast_size": 2, "requires_player_anatomy": "P"
     },
-    "genital_touch": {
-        "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"호감": 1, "성욕": 5, "욕망": 3},
-        "exp_part": "음부", "affection_req": 90, "exposure_bonus": "lower"
-    },
-    "clit_rub": {
-        "name": "클리토리스 문지르기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 7, "욕망": 4},
-        "exp_part": "클리토리스", "affection_req": 95, "exposure_bonus": "lower"
-    },
     "clit_lick": {
         "name": "클리토리스 핥기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
@@ -340,11 +389,6 @@ TOGGLE_ACTIONS = {
         "name": "커닐링구스", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
         "effects": {"성욕": 8, "욕망": 4},
         "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
-    },
-    "finger_insertion": {
-        "name": "손가락 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
-        "effects": {"성욕": 7, "욕망": 4, "복종": 1},
-        "exp_part": "음부", "affection_req": 95, "requires_exposure": "lower"
     },
     "penis_touch": {
         "name": "음경 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
@@ -361,53 +405,28 @@ TOGGLE_ACTIONS = {
         "effects": {"성욕": 8, "욕망": 4},
         "exp_part": "음경", "affection_req": 95, "requires_exposure": "lower", "uses_mouth": True
     },
-    # 삽입 행위
-    "vaginal_penetration": {
-        "name": "삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
+    # 허리흔들기 (삽입 상태 필요)
+    "thrust_gentle": {
+        "name": "부드럽게 움직이기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"성욕": 5, "호감": 2, "욕망": 2},
+        "exp_part": None, "affection_req": 98,
+        "requires_active_insertion": True,
+        "thrust_intensity": 1,
+    },
+    "thrust_normal": {
+        "name": "허리 흔들기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
         "effects": {"성욕": 8, "욕망": 5, "복종": 1},
-        "exp_part": "음부", "affection_req": 98,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-        "pregnancy_check": True,
+        "exp_part": None, "affection_req": 98,
+        "requires_active_insertion": True,
+        "thrust_intensity": 2,
     },
-    "receive_penetration": {
-        "name": "피삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-        "effects": {"성욕": 8, "욕망": 5},
-        "exp_part": "음경", "affection_req": 98,
-        "requires_player_anatomy": "V",
-        "requires_exposure": "lower",
-        "pregnancy_check": True,
-    },
-    "anal_penetration": {
-        "name": "항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-        "effects": {"성욕": 8, "욕망": 5, "복종": 2},
-        "exp_part": "엉덩이", "affection_req": 98,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-    },
-    "receive_anal": {
-        "name": "피항문삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 4,
-        "effects": {"성욕": 8, "욕망": 5},
-        "exp_part": "음경", "affection_req": 98,
-        "requires_player_anatomy": "A",
-        "requires_exposure": "lower",
-    },
-    # 강도 행위
-    "rough_thrust": {
-        "name": "거칠게 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
+    "thrust_rough": {
+        "name": "거칠게 흔들기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
         "effects": {"성욕": 11, "욕망": 7, "복종": 2},
-        "exp_part": "음부", "affection_req": 100,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-        "pregnancy_check": True, "intensity": 3
-    },
-    "hard_anal": {
-        "name": "거친 항문 삽입", "time": 5 * MILLIS_PER_MINUTE, "stamina": 5,
-        "effects": {"성욕": 11, "욕망": 7, "복종": 3},
-        "exp_part": "엉덩이", "affection_req": 100,
-        "requires_player_anatomy": "P",
-        "requires_exposure": "lower",
-        "intensity": 3
+        "exp_part": None, "affection_req": 100,
+        "requires_active_insertion": True,
+        "thrust_intensity": 3,
+        "intensity": 3,
     },
     # 상호 행위
     "tribadism": {
@@ -425,14 +444,11 @@ TOGGLE_ACTIONS = {
 # ============================================
 
 VIRGINITY_CLEARING_ACTIONS = {
-    "vaginal_penetration": "처녀:음부",
-    "receive_penetration": "처녀:음부",
+    "vaginal_insert": "처녀:음부",
     "finger_insertion": "처녀:음부",
     "rough_finger": "처녀:음부",
-    "rough_thrust": "처녀:음부",
-    "anal_penetration": "처녀:항문",
-    "receive_anal": "처녀:항문",
-    "hard_anal": "처녀:항문",
+    "anal_insert": "처녀:항문",
+    "finger_anal_insertion": "처녀:항문",
     "fellatio": "처녀:구강",
 }
 
@@ -440,14 +456,17 @@ VIRGINITY_BONUS_AFFECTION = 5
 VIRGINITY_BONUS_EXP = 3
 
 # ============================================
-# 삽입 토글 ID
+# 삽입 관련 상수
 # ============================================
 
-_PENETRATION_TOGGLE_IDS = frozenset({
-    "vaginal_penetration", "receive_penetration",
-    "anal_penetration", "receive_anal",
-    "rough_thrust", "hard_anal",
-})
+# 허리흔들기 토글 ID
+_THRUST_TOGGLE_IDS = frozenset({"thrust_gentle", "thrust_normal", "thrust_rough"})
+
+# 삽입 시도 즉시형 ID
+_INSERTION_INSTANT_IDS = frozenset({"vaginal_insert", "anal_insert"})
+
+# 삽입 부위 매핑 (orifice → exp_part)
+_INSERTION_EXP_MAP = {"vaginal": "음부", "anal": "엉덩이"}
 
 
 # ============================================
@@ -476,6 +495,16 @@ ACTION_DESCRIPTIONS = {
     "nipple_pinch": "유두를 세게 꼬집는다.",
     "breast_grab": "가슴을 세게 움켜쥔다.",
     "rough_finger": "거칠게 손가락을 삽입한다.",
+    "tongue_play": "혀를 섞는다.",
+    "clit_rub": "클리토리스를 문지른다.",
+    "finger_insertion": "손가락을 삽입한다.",
+    "finger_anal_insertion": "항문에 손가락을 삽입한다.",
+    "vaginal_insert": "삽입했다.",
+    "anal_insert": "항문에 삽입했다.",
+    "withdraw": "천천히 빼냈다.",
+    "thrust_stop": "움직임을 멈췄다.",
+    "stay_still": "가만히 있는다...",
+    "demand_dirty_talk": "음란한 말을 요구한다.",
     "thrust_deep": "깊숙이 밀어넣는다.",
     "thrust_slow": "천천히 움직인다.",
     "grind": "밀착하여 허리를 흔든다.",
@@ -485,26 +514,19 @@ ACTION_DESCRIPTIONS = {
 TOGGLE_DURING_DESCRIPTIONS = {
     "hug": "서로를 껴안고 있다.",
     "deep_kiss": "깊은 키스가 이어지고 있다.",
-    "tongue_play": "혀를 섞고 있다.",
     "butt_squeeze": "엉덩이를 주무르고 있다.",
     "breast_touch": "가슴을 만지고 있다.",
     "breast_squeeze": "가슴을 주무르고 있다.",
     "breast_suck": "가슴을 빨고 있다.",
     "nipple_suck": "유두를 빨고 있다.",
     "paizuri": "가슴 사이에 끼운 채 움직이고 있다.",
-    "genital_touch": "은밀한 곳을 만지고 있다.",
-    "clit_rub": "클리토리스를 문지르고 있다.",
     "clit_lick": "클리토리스를 핥고 있다.",
     "cunnilingus": "구강으로 자극하고 있다.",
-    "finger_insertion": "손가락이 안에서 움직이고 있다.",
     "penis_touch": "음경을 만지고 있다.",
     "penis_rub": "음경을 문지르고 있다.",
     "fellatio": "입으로 감싸고 있다.",
-    "vaginal_penetration": "삽입이 이어지고 있다.",
-    "receive_penetration": "삽입이 이어지고 있다.",
-    "anal_penetration": "항문 삽입이 이어지고 있다.",
-    "receive_anal": "항문 삽입이 이어지고 있다.",
-    "rough_thrust": "거친 삽입이 이어지고 있다.",
-    "hard_anal": "거친 항문 삽입이 이어지고 있다.",
+    "thrust_gentle": "부드럽게 움직이고 있다.",
+    "thrust_normal": "허리를 흔들고 있다.",
+    "thrust_rough": "거칠게 허리를 흔들고 있다.",
     "tribadism": "서로의 은밀한 곳을 맞대고 있다.",
 }

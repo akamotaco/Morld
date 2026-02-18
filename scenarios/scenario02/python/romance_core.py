@@ -33,7 +33,7 @@ from romance_actions import (
     SENSATION_MAP,
     INSTANT_ACTIONS, TOGGLE_ACTIONS,
     VIRGINITY_CLEARING_ACTIONS, VIRGINITY_BONUS_AFFECTION, VIRGINITY_BONUS_EXP,
-    _PENETRATION_TOGGLE_IDS,
+    _THRUST_TOGGLE_IDS, _INSERTION_EXP_MAP,
 )
 
 
@@ -363,50 +363,23 @@ def calculate_ejaculation_amount(unit_id, stamina, max_stamina=None):
 # 삽입 / 충돌 헬퍼
 # ============================================
 
-# 삽입 토글 → exp_part 매핑 (동적 exp_part 상속용)
-_PENETRATION_EXP_MAP = {
-    "vaginal_penetration": "음부", "receive_penetration": "음부",
-    "rough_thrust": "음부",
-    "anal_penetration": "엉덩이", "receive_anal": "엉덩이",
-    "hard_anal": "엉덩이",
-}
-
-
-def _get_active_penetration_part(active_toggles):
-    """활성 삽입 토글의 부위 반환 (내부 사정 판별용)"""
-    for toggle_id in active_toggles:
-        td = TOGGLE_ACTIONS.get(toggle_id)
-        if not td:
-            continue
-        if td.get("pregnancy_check"):
-            return "음부"
-        if toggle_id in ("anal_penetration", "receive_anal"):
-            return "항문"
-        if toggle_id == "fellatio":
-            return "구강"
-    return None
-
-
 def _has_active_penetration(active_toggles):
-    """활성 토글 중 삽입 행위가 있는지 확인"""
-    return bool(active_toggles & _PENETRATION_TOGGLE_IDS)
+    """활성 토글 중 삽입(허리흔들기) 행위가 있는지 확인"""
+    return bool(active_toggles & _THRUST_TOGGLE_IDS)
 
 
-def _has_active_intercourse(active_toggles, toggle_actions):
-    """활성 토글 중 pregnancy_check가 있는(삽입 행위) 것이 있는지"""
-    for toggle_id in active_toggles:
-        td = toggle_actions.get(toggle_id)
-        if td and td.get("pregnancy_check"):
-            return True
-    return False
+def _has_active_intercourse_from_state(state):
+    """삽입 상태에서 질 삽입 중인지 확인 (state 기반)"""
+    insertion = state.get("insertion", {})
+    return insertion.get("active") and insertion.get("orifice") == "vaginal"
 
 
-def _get_penetration_exp_part(active_toggles):
-    """활성 삽입 토글의 exp_part 반환 (첫 번째 매칭)"""
-    for tid in active_toggles:
-        if tid in _PENETRATION_EXP_MAP:
-            return _PENETRATION_EXP_MAP[tid]
-    return None
+def get_insertion_exp_part(state):
+    """삽입 상태의 exp_part 반환"""
+    insertion = state.get("insertion", {})
+    if not insertion.get("active"):
+        return None
+    return _INSERTION_EXP_MAP.get(insertion.get("orifice"))
 
 
 def get_action_exp_part(action_id, action_dict=None):
@@ -460,6 +433,11 @@ def get_conflicting_toggles(new_action_id, active_toggles, new_action_dict=None)
         # uses_mouth 충돌 (입/혀 배타적)
         if new_uses_mouth and toggle_def.get("uses_mouth"):
             conflicting.add(toggle_id)
+            continue
+        # 허리흔들기 충돌 (requires_active_insertion 토글끼리 배타적)
+        if (new_def.get("requires_active_insertion")
+                and toggle_def.get("requires_active_insertion")):
+            conflicting.add(toggle_id)
 
     return conflicting
 
@@ -490,7 +468,8 @@ def check_and_clear_virginity(target_id, player_id, action_id):
     affection_key = get_affection_key(player_id)
     morld.modify_prop(target_id, affection_key, VIRGINITY_BONUS_AFFECTION)
     # 보너스: 감각 경험치 +3
-    exp_part = TOGGLE_ACTIONS.get(action_id, {}).get("exp_part")
+    action_def = INSTANT_ACTIONS.get(action_id) or TOGGLE_ACTIONS.get(action_id) or {}
+    exp_part = action_def.get("exp_part")
     if exp_part:
         morld.modify_prop(target_id, f"경험:{exp_part}", VIRGINITY_BONUS_EXP)
     return f"first_{action_id}"
@@ -526,8 +505,9 @@ def is_ejaculate_available(state, player_id):
 
 
 def is_pull_out_available(state):
-    """질외사정 가능 여부: 삽입 토글 활성 + P 자극 ≥ 임계값"""
-    if not _get_active_penetration_part(state.get("active_toggles", set())):
+    """질외사정 가능 여부: 삽입 상태 활성 + P 자극 ≥ 임계값"""
+    insertion = state.get("insertion", {})
+    if not insertion.get("active"):
         return False
     stim = state.get("stim")
     if not stim:
@@ -704,7 +684,7 @@ def emit_ecstasy_sound(partner_id):
 # 절정 반응 키
 # ============================================
 
-def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactions):
+def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactions, state=None):
     """절정 묘사 키 결정 (우선순위 기반)
 
     1. ecstasy_intercourse — 삽입 중 절정
@@ -719,7 +699,10 @@ def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactio
         return f"{k}:start" in reactions or k in reactions
 
     # 1. 삽입 중 절정
-    if _has_active_intercourse(active_toggles, toggle_actions):
+    is_intercourse = False
+    if state:
+        is_intercourse = _has_active_intercourse_from_state(state)
+    if is_intercourse:
         if _has_key("ecstasy_intercourse"):
             return "ecstasy_intercourse"
 
@@ -765,4 +748,6 @@ def extract_preserved(state):
     }
     if "mode_ctx" in state:
         preserved["mode_ctx"] = state["mode_ctx"]
+    if "insertion" in state:
+        preserved["insertion"] = state["insertion"].copy()
     return preserved

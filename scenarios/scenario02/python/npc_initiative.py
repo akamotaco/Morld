@@ -24,7 +24,8 @@ from romance_actions import (
     INTERNAL_SEMEN_PARTS, SWALLOW_M_THRESHOLD,
     LUBRICATION_THRESHOLD, UNPREPARED_EFFECT_MULT, UNPREPARED_REBELLION,
     SUBMISSION_ACTION_THRESHOLD, SUBMISSION_ACTION_GAIN, SUBMISSION_MAX,
-    ROMANCE_ENTRY_THRESHOLD, _PENETRATION_TOGGLE_IDS,
+    ROMANCE_ENTRY_THRESHOLD,
+    _THRUST_TOGGLE_IDS, _INSERTION_EXP_MAP,
 )
 from romance_core import (
     get_character_asset as get_npc_asset,
@@ -35,8 +36,8 @@ from romance_core import (
     get_exposure_state, get_next_undress_item, perform_undress,
     _get_relationship_key,
     get_internal_semen_total, get_internal_semen,
-    _has_active_penetration, _get_active_penetration_part,
-    _has_active_intercourse, _get_penetration_exp_part,
+    _has_active_penetration,
+    _has_active_intercourse_from_state, get_insertion_exp_part,
     _apply_internal_semen, _apply_semen, calculate_ejaculation_amount,
     is_hold_back_available, is_ejaculate_available,
     check_preparation, check_lubrication,
@@ -322,7 +323,7 @@ def get_available_npc_actions(npc_id, player_id):
 
 
 def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True,
-                             cur_position="missionary"):
+                             cur_position="missionary", is_inserted=False):
     """
     NPC가 랜덤으로 행위 선택
 
@@ -335,6 +336,7 @@ def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True,
         active_toggles: 현재 활성화된 토글 set
         lubricated: 윤활 상태 (False면 pregnancy_check 행위 제외)
         cur_position: 현재 체위 (배면 체위 시 uses_mouth 행위 제외)
+        is_inserted: 삽입 상태 (False면 requires_active_insertion 행위 제외)
 
     Returns:
         str: 선택된 액션 ID 또는 None (더 이상 선택할 액션 없음)
@@ -358,6 +360,11 @@ def select_random_npc_action(npc_id, player_id, active_toggles, lubricated=True,
     if position.get_facing(cur_position) == "back":
         available = [a for a in available
                      if not NPC_TOGGLE_ACTIONS.get(a, {}).get("uses_mouth")]
+
+    # 삽입 상태 필요 토글: 미삽입 시 제외
+    if not is_inserted:
+        available = [a for a in available
+                     if not NPC_TOGGLE_ACTIONS.get(a, {}).get("requires_active_insertion")]
 
     # 이미 활성화된 토글 제외
     candidates = [a for a in available if a not in active_toggles]
@@ -666,8 +673,9 @@ def render_npc_initiative_ui(state):
     lines.append("")
 
     # 플레이어 선택 가능한 즉시 행위 (저항 모드에서는 숨김)
+    insertion = state.get("insertion", {})
+    is_inserted = insertion.get("active", False)
     if not resistance_mode:
-        has_penetration = _has_active_penetration(active_toggles)
         lines.append("[즉시 행위] (플레이어)")
         for action_id, action in PLAYER_INSTANT_ACTIONS.items():
             if not is_anatomy_compatible(action, npc_id, actor_id=player_id):
@@ -681,14 +689,21 @@ def render_npc_initiative_ui(state):
             # hold_back/ejaculate: 특수 표시 영역에서 처리
             if action_id in ("hold_back", "ejaculate"):
                 continue
+            # 삽입 시도: 이미 삽입 중이면 숨김
+            if action.get("is_insertion_attempt") and is_inserted:
+                continue
+            # 삽입 상태 필요 즉시형: 삽입 중이 아니면 숨김
+            if action.get("requires_active_insertion") and not is_inserted:
+                continue
+            # 활성 토글 필요 즉시형 (tongue_play → deep_kiss 필요)
+            req_toggle = action.get("requires_active_toggle")
+            if req_toggle and req_toggle not in active_toggles:
+                continue
             # 배면 체위: 입 사용 행위 비활성화
             if action.get("uses_mouth"):
                 if position.get_facing(state.get("position", "missionary")) == "back":
                     lines.append(f"  [color=gray]{action['name']} (배면 체위)[/color]")
                     continue
-            # 삽입 중 즉시형: 삽입 토글 비활성 시 숨김
-            if action.get("requires_active_penetration") and not has_penetration:
-                continue
             # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
             req_internal = action.get("requires_internal_semen")
             if req_internal:
@@ -861,7 +876,9 @@ def apply_action_effects(state, action_def):
                 climax_info = r2
 
     # 삽입 중 플레이어 P 자극 축적 (P 감각 스케일링)
-    if exp_part in ("음부", "엉덩이") and _has_active_penetration(state.get("active_toggles", set())):
+    if (exp_part in ("음부", "엉덩이")
+            and state.get("insertion", {}).get("active")
+            and any(t in _THRUST_TOGGLE_IDS for t in state.get("active_toggles", set()))):
         import gender as gender_mod
         if gender_mod.has_anatomy(player_id, "P"):
             p_gain = max(3, base // 2)
@@ -912,20 +929,19 @@ def apply_action_effects(state, action_def):
         # P 절정 (사정) 처리
         ejac_part = None
         if has_p:
-            has_intercourse = any(
-                NPC_TOGGLE_ACTIONS.get(tid, {}).get("pregnancy_check")
-                for tid in state["active_toggles"]
-            )
-            if has_intercourse:
-                import gender as gender_mod
-                if gender_mod.has_anatomy(npc_id, "P"):
-                    import pregnancy
-                    pregnancy.check_conception(player_id, npc_id)
-                    ejac_part = "음부"
-            if not ejac_part:
-                import gender as gender_mod
-                if gender_mod.has_anatomy(npc_id, "P"):
-                    ejac_part = _get_active_penetration_part(state["active_toggles"])
+            insertion = state.get("insertion", {})
+            if insertion.get("active"):
+                orifice = insertion.get("orifice")
+                if orifice == "vaginal":
+                    import gender as gender_mod
+                    if gender_mod.has_anatomy(npc_id, "P"):
+                        import pregnancy
+                        pregnancy.check_conception(player_id, npc_id)
+                        ejac_part = "음부"
+                elif orifice == "anal":
+                    ejac_part = "항문"
+            if not ejac_part and "fellatio" in state.get("active_toggles", set()):
+                ejac_part = "구강"
 
             # 내부 사정 → 체내 정액 저장 (사정량 동적 계산)
             if ejac_part and ejac_part in ("음부", "항문", "구강"):
@@ -943,7 +959,7 @@ def apply_action_effects(state, action_def):
                 ejac_key = f"ejaculation_internal_{ejac_part}"
                 ejac_reaction = npc_asset.get_romance_reaction(ejac_key, "start", stim_state=state.get("stim"))
             ecstasy_key = get_climax_reaction_key(
-                climax_info, state["active_toggles"], NPC_TOGGLE_ACTIONS, reactions)
+                climax_info, state["active_toggles"], NPC_TOGGLE_ACTIONS, reactions, state=state)
             reaction = npc_asset.get_romance_reaction(ecstasy_key, "start", stim_state=state.get("stim"))
             if ejac_reaction and reaction:
                 return f"{ejac_reaction}\n{reaction}"
@@ -1011,7 +1027,14 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         ),
         # 체위
         "position": initial_position,
-        # 삽입 호환 (삽입 토글 ON 시 설정)
+        # 삽입 상태
+        "insertion": {
+            "active": False,
+            "orifice": None,
+            "who": None,
+            "failed_count": 0,
+        },
+        # 삽입 호환 (삽입 시 설정)
         "size_pain": False,
         "size_stim_mod": 1.0,
         # 제3자 추적
@@ -1048,6 +1071,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         state["checked_npcs"] = preserved.get("checked_npcs", set())
         if "position" in preserved:
             state["position"] = preserved["position"]
+        if "insertion" in preserved:
+            state["insertion"] = preserved["insertion"]
 
     # 시작 반응 (전환 시 생략 — 이미 진행 중)
     if not preserved:
@@ -1067,7 +1092,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         # NPC 랜덤 행위 선택
         new_action = select_random_npc_action(npc_id, player_id, state["active_toggles"],
                                                lubricated=state["lubricated"],
-                                               cur_position=state.get("position", "missionary"))
+                                               cur_position=state.get("position", "missionary"),
+                                               is_inserted=state["insertion"]["active"])
 
         new_toggle_def = None
         if new_action:
@@ -1092,25 +1118,42 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
         state["stamina"] -= required_stamina
 
+        # NPC 자동 삽입 시도 (미삽입 + 성욕 ≥ 70 + 윤활 충족)
+        if not state["insertion"]["active"]:
+            npc_arousal = morld.get_unit_prop(npc_id, "상태:성욕") or 0
+            if npc_arousal >= 70 and state["lubricated"]:
+                import gender as gender_mod
+                # NPC가 P 보유 → 질/항문 삽입 시도
+                if gender_mod.has_anatomy(npc_id, "P"):
+                    orifice = "vaginal"
+                    if gender_mod.has_anatomy(player_id, "V"):
+                        orifice = "vaginal"
+                    elif gender_mod.has_anatomy(player_id, "A"):
+                        orifice = "anal"
+                    else:
+                        orifice = None
+                    if orifice:
+                        state["insertion"]["active"] = True
+                        state["insertion"]["orifice"] = orifice
+                        state["insertion"]["who"] = "npc"
+                        # 크기 호환성 체크
+                        compat = gender_mod.check_penetration_compatibility(npc_id, player_id)
+                        state["size_pain"] = compat["pain"]
+                        state["size_stim_mod"] = compat["stim_mod"]
+                        if compat["pain"]:
+                            rebellion_key = get_rebellion_key(player_id)
+                            morld.modify_prop(npc_id, rebellion_key, 3)
+                            morld.set_unit_prop(npc_id, "크기통증", 1)
+                        # 자동으로 thrust_normal 시작
+                        if new_action not in _THRUST_TOGGLE_IDS:
+                            state["active_toggles"].add("thrust_normal")
+                        # 처녀 체크
+                        insert_action = "vaginal_insert" if orifice == "vaginal" else "anal_insert"
+                        check_and_clear_virginity(npc_id, player_id, insert_action)
+
         # 새 액션 처리
         first_key = None
         if new_action and new_toggle_def:
-            if new_action in _PENETRATION_TOGGLE_IDS:
-                import gender as gender_mod
-                player_anat = new_toggle_def.get("requires_player_anatomy")
-                if player_anat == "P":
-                    compat = gender_mod.check_penetration_compatibility(player_id, npc_id)
-                elif player_anat in ("V", "A"):
-                    compat = gender_mod.check_penetration_compatibility(npc_id, player_id)
-                else:
-                    compat = {"needs_prep": 0, "pain": False, "stim_mod": 1.0}
-                state["size_pain"] = compat["pain"]
-                state["size_stim_mod"] = compat["stim_mod"]
-                if compat["pain"]:
-                    rebellion_key = get_rebellion_key(player_id)
-                    morld.modify_prop(npc_id, rebellion_key, 3)
-                    morld.set_unit_prop(npc_id, "크기통증", 1)
-
             state["active_toggles"].add(new_action)
             first_key = check_and_clear_virginity(npc_id, player_id, new_action)
 
@@ -1264,15 +1307,18 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
             state["escape_result"] = None
 
-            # 삽입 중 즉시형: 유효성 + exp_part 동적 오버라이드
-            if action_def.get("requires_active_penetration"):
-                if not _has_active_penetration(state["active_toggles"]):
+            # 삽입 상태 필요 즉시형: 유효성 + exp_part 동적 오버라이드
+            if action_def.get("requires_active_insertion"):
+                if not state["insertion"]["active"]:
                     return render_npc_initiative_ui(state)
                 if action_def.get("exp_part") is None:
-                    pen_part = _get_penetration_exp_part(state["active_toggles"])
-                    if pen_part:
+                    orifice = state["insertion"]["orifice"]
+                    exp_part = _INSERTION_EXP_MAP.get(orifice)
+                    if exp_part:
                         action_def = dict(action_def)
-                        action_def["exp_part"] = pen_part
+                        action_def["exp_part"] = exp_part
+                        if orifice == "vaginal":
+                            action_def["pregnancy_check"] = True
 
             # 체내 정액 필요 행위 유효성 검증
             req_internal = action_def.get("requires_internal_semen")
@@ -1363,18 +1409,24 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                         if stimulation.get_peaked_count(stim_state) > 0:
                             climax_info = stimulation.force_climax(stim_state)
                             if climax_info and climax_info.get("has_p"):
-                                pen_part = _get_active_penetration_part(state["active_toggles"])
                                 ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
-                                if pen_part and pen_part in ("음부", "항문", "구강"):
-                                    _apply_internal_semen(npc_id, pen_part, ejac_amount)
-                                    if _has_active_intercourse(state["active_toggles"], NPC_TOGGLE_ACTIONS):
+                                insertion = state["insertion"]
+                                ejac_part = None
+                                if insertion.get("active"):
+                                    orifice = insertion.get("orifice")
+                                    ejac_part = _INSERTION_EXP_MAP.get(orifice)
+                                if not ejac_part and "fellatio" in state["active_toggles"]:
+                                    ejac_part = "구강"
+                                if ejac_part and ejac_part in ("음부", "항문", "구강"):
+                                    _apply_internal_semen(npc_id, ejac_part, ejac_amount)
+                                    if insertion.get("active") and insertion.get("orifice") == "vaginal":
                                         try:
                                             import pregnancy
                                             pregnancy.check_conception(player_id, npc_id)
                                         except ImportError:
                                             pass
-                                elif pen_part:
-                                    _apply_semen(npc_id, pen_part, ejac_amount)
+                                elif ejac_part:
+                                    _apply_semen(npc_id, ejac_part, ejac_amount)
                 check_result = advance_time_and_check_npc_initiative(state, action_def["time"])
                 if check_result["interrupted"]:
                     state["interrupted"] = True
@@ -1387,11 +1439,21 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 stim_state = state["stim"]
                 climax_info = stimulation.force_ejaculate(stim_state)
                 if climax_info and climax_info.get("has_p"):
-                    pen_part = _get_active_penetration_part(state["active_toggles"])
                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
-                    if pen_part and pen_part in ("음부", "항문", "구강"):
-                        _apply_internal_semen(npc_id, pen_part, ejac_amount)
-                        if _has_active_intercourse(state["active_toggles"], NPC_TOGGLE_ACTIONS):
+                    insertion = state["insertion"]
+                    ejac_part = None
+                    if insertion.get("active"):
+                        orifice = insertion.get("orifice")
+                        ejac_part = _INSERTION_EXP_MAP.get(orifice)
+                    if not ejac_part and "fellatio" in state["active_toggles"]:
+                        ejac_part = "구강"
+                    # 허리흔들기 토글 해제 (삽입 상태 유지)
+                    for tid in list(state["active_toggles"]):
+                        if tid in _THRUST_TOGGLE_IDS:
+                            state["active_toggles"].discard(tid)
+                    if ejac_part and ejac_part in ("음부", "항문", "구강"):
+                        _apply_internal_semen(npc_id, ejac_part, ejac_amount)
+                        if insertion.get("active") and insertion.get("orifice") == "vaginal":
                             try:
                                 import pregnancy
                                 pregnancy.check_conception(player_id, npc_id)
@@ -1401,8 +1463,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                                             (morld.get_unit_prop(npc_id, "경험:사정횟수") or 0) + 1)
                         morld.set_unit_prop(player_id, "통계:총사정량",
                                             (morld.get_unit_prop(player_id, "통계:총사정량") or 0) + ejac_amount)
-                    elif pen_part:
-                        _apply_semen(npc_id, pen_part, ejac_amount)
+                    elif ejac_part:
+                        _apply_semen(npc_id, ejac_part, ejac_amount)
                     state["last_reaction"] = "사정했다."
                     emit_ecstasy_sound(npc_id)
                 check_result = advance_time_and_check_npc_initiative(state, action_def["time"])

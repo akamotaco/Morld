@@ -92,6 +92,7 @@ def main():
         "test_romance_actions",
         "test_romance_mode",
         "test_romance_core",
+        "test_alias_removal",
         "test_mob_character",
         "test_think_logic",
     ]

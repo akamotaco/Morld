@@ -142,19 +142,21 @@ ACTION_TO_CATEGORY = {
     "nipple_stimulation": "medium", "nipple_lick": "medium",
     "nipple_pinch": "medium", "breast_grab": "medium",
     # strong
-    "genital_touch": "strong", "clit_rub": "strong",
+    "clit_rub": "strong",
     "clit_lick": "strong", "cunnilingus": "strong",
     "finger_insertion": "strong", "fellatio": "strong",
     "penis_touch": "strong", "penis_rub": "strong",
     "genital_caress": "strong", "clit_stimulation": "strong",
     "anal_stimulation": "strong", "rough_finger": "strong",
+    "finger_anal_insertion": "strong",
     # penetration
-    "vaginal_penetration": "penetration",
-    "anal_penetration": "penetration",
-    "receive_penetration": "penetration",
-    "receive_anal": "penetration",
+    "vaginal_insert": "penetration",
+    "anal_insert": "penetration",
+    "thrust_gentle": "penetration",
+    "thrust_normal": "penetration",
     "thrust_deep": "penetration", "thrust_slow": "penetration",
     "grind": "penetration", "ejaculate": "penetration",
+    "withdraw": "penetration",
     # rough
-    "rough_thrust": "rough", "hard_anal": "rough",
+    "thrust_rough": "rough",
 }

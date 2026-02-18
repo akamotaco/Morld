@@ -713,7 +713,6 @@ class Character(Unit):
         "breast_touch:during": [({}, ["상대의 가슴에 손을 대고 있다."])],
         "breast_squeeze:during": [({}, ["상대의 가슴을 주무르고 있다."])],
         "breast_suck:during": [({}, ["상대의 가슴을 빨고 있다."])],
-        "genital_touch:during": [({}, ["상대의 음부를 만지고 있다."])],
         "clit_rub:during": [({}, ["상대의 클리토리스를 문지르고 있다."])],
         "clit_lick:during": [({}, ["상대의 클리토리스를 핥고 있다."])],
         "cunnilingus:during": [({}, ["상대에게 커닐링구스 중이다."])],
@@ -734,14 +733,14 @@ class Character(Unit):
         "nipple_stimulation:start": [({}, ["상대의 유두를 자극한다."])],
         "anal_stimulation:start": [({}, ["상대의 항문을 자극한다."])],
         # 삽입 행위
-        "vaginal_penetration:start": [({}, ["상대와 결합한다."])],
-        "vaginal_penetration:during": [({}, ["상대와 결합되어 있다."])],
-        "receive_penetration:start": [({}, ["상대를 받아들인다."])],
-        "receive_penetration:during": [({}, ["상대를 받아들이고 있다."])],
-        "anal_penetration:start": [({}, ["상대의 뒤로 삽입한다."])],
-        "anal_penetration:during": [({}, ["상대의 뒤에 삽입되어 있다."])],
-        "receive_anal:start": [({}, ["상대를 뒤로 받아들인다."])],
-        "receive_anal:during": [({}, ["상대를 뒤로 받아들이고 있다."])],
+        "vaginal_insert:start": [({}, ["상대와 결합한다."])],
+        "anal_insert:start": [({}, ["상대의 뒤로 삽입한다."])],
+        "withdraw:start": [({}, ["빼냈다."])],
+        "npc_self_insert:start": [({}, ["상대가 스스로 올라탔다..."])],
+        # 허리흔들기
+        "thrust_gentle:during": [({}, ["부드럽게 움직이고 있다."])],
+        "thrust_normal:during": [({}, ["허리를 흔들고 있다."])],
+        "thrust_rough:during": [({}, ["거칠게 허리를 흔들고 있다."])],
         # 절정
         "ecstasy:start": [({}, ["......!"])],
     }
@@ -2005,16 +2004,17 @@ class Character(Unit):
         "breast_touch": {"B": 1},
         "breast_squeeze": {"B": 2},
         "breast_suck": {"B": 3},
-        "genital_touch": {"V": 2},
         "clit_rub": {"C": 2},
         "clit_lick": {"C": 3},
         "cunnilingus": {"V": 3},
         "finger_insertion": {"V": 4},
+        "finger_anal_insertion": {"A": 3},
         "fellatio": {"P": 3},
-        "vaginal_penetration": {"V": 3},
-        "receive_penetration": {"P": 3},
-        "anal_penetration": {"A": 3},
-        "receive_anal": {"P": 3},
+        "vaginal_insert": {"V": 3},
+        "anal_insert": {"A": 3},
+        "thrust_gentle": {"V": 2},
+        "thrust_normal": {"V": 3},
+        "thrust_rough": {"V": 4},
     }
 
     # 자위 설정 (서브클래스 오버라이드)
