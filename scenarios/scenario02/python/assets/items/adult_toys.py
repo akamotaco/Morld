@@ -15,7 +15,8 @@
 #   - "성인용품:진동": N  → 절정 +N/h (needs.py에서 처리)
 #   - "성인용품:자극": N  → 절정 +N/h
 #   - "임시해부학:P": 1   → 임시 P anatomy 추가 (gender.py)
-#   - "결박:사지": 1      → 사지 결박 (이동/행동 불가)
+#   - "결박:상체": 1      → 상체 결박 (장비 해제/저항 불가, 이동 가능)
+#   - "결박:하체": 1      → 하체 결박 (이동 불가, 장비 해제 가능)
 #   - "결박:입": 1        → 입 결박 (말하기/구강행위 차단)
 #   - "결박:눈": 1        → 시각 차단 (감각 증폭)
 #   - "결박:강도": N      → 해제 난이도 (높을수록 어려움)
@@ -114,7 +115,7 @@ class RestraintEquipment(Item):
     """
     결박 장비 기본 클래스
 
-    장착 시 결박:사지 prop 부여 → 이동/행동 제한
+    장착 시 결박:상체/하체 prop 부여 → 행동/이동 제한
     해제 난이도는 결박:강도 값에 비례
     """
     category = "restraint"
@@ -230,18 +231,18 @@ class CollarLeash(AdultToyEquipment):
 @register_item
 class RestraintRope(RestraintEquipment):
     """
-    결박 로프 — 사지 결박 (해제 난이도 낮음)
+    결박 로프 — 전신 결박 (상체+하체, 해제 난이도 낮음)
 
     일반 밧줄(tools.py Rope)과 별도 아이템.
     """
     unique_id = "restraint_rope"
     name = "결박 로프"
-    equip_props = {"착용:결박": 1, "결박:사지": 1, "결박:강도": 30}
+    equip_props = {"착용:결박": 1, "결박:상체": 1, "결박:하체": 1, "결박:강도": 30}
     value = 15
 
     def look(self):
         yield ui.dialog([
-            "사지를 묶기 위한 튼튼한 로프다.",
+            "전신을 묶기 위한 튼튼한 로프다.",
             "적당히 저항하면 풀 수 있을 것 같다.",
         ])
 
@@ -249,17 +250,66 @@ class RestraintRope(RestraintEquipment):
 @register_item
 class Handcuffs(RestraintEquipment):
     """
-    수갑 — 사지 결박 (해제 난이도 높음)
+    수갑 — 상체 결박 (팔/손만, 해제 난이도 높음)
     """
     unique_id = "handcuffs"
     name = "수갑"
-    equip_props = {"착용:결박": 1, "결박:사지": 1, "결박:강도": 60}
+    equip_props = {"착용:결박상체": 1, "결박:상체": 1, "결박:강도": 60}
     value = 35
 
     def look(self):
         yield ui.dialog([
             "금속으로 만든 수갑이다.",
             "일단 채워지면 풀기 매우 어렵다.",
+        ])
+
+
+@register_item
+class ArmCuffs(RestraintEquipment):
+    """팔 결박구 — 상체만"""
+    unique_id = "arm_cuffs"
+    name = "팔 결박구"
+    equip_props = {"착용:결박상체": 1, "결박:상체": 1, "결박:강도": 40}
+    value = 25
+
+    def look(self):
+        yield ui.dialog([
+            "팔을 뒤로 묶는 결박구다.",
+            "장비를 해제할 수 없게 된다.",
+        ])
+
+
+@register_item
+class LegCuffs(RestraintEquipment):
+    """다리 결박구 — 하체만"""
+    unique_id = "leg_cuffs"
+    name = "다리 결박구"
+    equip_props = {"착용:결박하체": 1, "결박:하체": 1, "결박:강도": 40}
+    value = 25
+
+    def look(self):
+        yield ui.dialog([
+            "다리를 묶는 결박구다.",
+            "이동이 불가능해진다.",
+        ])
+
+
+@register_item
+class FullBodyRestraint(RestraintEquipment):
+    """전신 결박구 — 상체+하체 (해제 난이도 최고)"""
+    unique_id = "full_body_restraint"
+    name = "전신 결박구"
+    equip_props = {
+        "착용:결박전신": 1,
+        "결박:상체": 1, "결박:하체": 1,
+        "결박:강도": 100,
+    }
+    value = 60
+
+    def look(self):
+        yield ui.dialog([
+            "전신을 완전히 구속하는 결박구다.",
+            "자력으로는 절대 풀 수 없다.",
         ])
 
 

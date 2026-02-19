@@ -240,6 +240,7 @@ class Yuki(Character):
     name = "유키"
     type = "character"
     sexual_orientation = "bisexual"
+    shame_sensitivity = 1.3  # 매우 부끄러움
     props = {
         "성별": 2, "성적지향": 2,  # female, bisexual
         "외모:은발": 1, "외모:장발": 1, "외모:붉은눈": 1,

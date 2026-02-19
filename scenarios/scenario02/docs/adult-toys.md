@@ -26,8 +26,11 @@
 | 3 | `nipple_clamp` | 니플클램프 | `착용:유두장비`, `성인용품:자극=3` | +3 절정/h |
 | 4 | `blindfold` | 안대 | `착용:안경`, `결박:눈` | 기존 안경 슬롯 공유 |
 | 5 | `collar_leash` | 목줄 | `착용:목장비`, `성인용품:목줄` | 묘사 연출용 |
-| 6 | `rope` | 로프 | `착용:결박`, `결박:사지`, `결박:강도=30` | 해제 난이도 낮음 |
-| 7 | `handcuffs` | 수갑 | `착용:결박`, `결박:사지`, `결박:강도=60` | 해제 난이도 높음 |
+| 6 | `restraint_rope` | 결박 로프 | `착용:결박`, `결박:상체`, `결박:하체`, `결박:강도=30` | 전신 결박, 해제 난이도 낮음 |
+| 7 | `handcuffs` | 수갑 | `착용:결박상체`, `결박:상체`, `결박:강도=60` | 상체 결박, 해제 난이도 높음 |
+| 8 | `arm_cuffs` | 팔 결박구 | `착용:결박상체`, `결박:상체`, `결박:강도=40` | 상체 결박 |
+| 9 | `leg_cuffs` | 다리 결박구 | `착용:결박하체`, `결박:하체`, `결박:강도=40` | 하체 결박 |
+| 10 | `full_body_restraint` | 전신 결박구 | `착용:결박전신`, `결박:상체`, `결박:하체`, `결박:강도=100` | 전신 결박, 자력 해제 사실상 불가 |
 
 ### 삽입형 (prop-based 추적)
 
@@ -109,19 +112,29 @@ from assets.items.adult_toys import (
 
 | Prop | 설명 | 설정 주체 |
 |------|------|----------|
-| `결박:사지` | 사지 결박 (이동/행동 차단) | rope, handcuffs의 equip_props |
+| `결박:상체` | 상체(팔/손) 결박 — 장비 해제 불가, 저항 불가, 이동 가능 | 수갑, 팔 결박구, 로프, 전신 결박구 |
+| `결박:하체` | 하체(다리) 결박 — 이동 불가, 장비 해제 가능, 저항 불가 | 다리 결박구, 로프, 전신 결박구 |
 | `결박:입` | 입 결박 (말하기/구강/식사 차단) | ball_gag의 equip_props |
 | `결박:눈` | 시각 차단 (감각 효과) | blindfold의 equip_props |
-| `결박:강도` | 해제 난이도 (30=로프, 60=수갑) | equip_props |
+| `결박:강도` | 해제 난이도 (30=로프, 40=결박구, 60=수갑, 100=전신) | equip_props |
+
+**상체+하체 동시 결박 = 탈출 불가** (별도 prop 불필요)
 
 ### 상태 판별 API
 
 ```python
 import restraint
 
-restraint.is_restrained(unit_id)      # 결박:사지 여부
-restraint.is_gagged(unit_id)          # 결박:입 여부
-restraint.is_blindfolded(unit_id)     # 결박:눈 여부
+restraint.is_restrained(unit_id)        # 상체 또는 하체 결박 여부
+restraint.is_upper_restrained(unit_id)  # 상체 결박 여부
+restraint.is_lower_restrained(unit_id)  # 하체 결박 여부
+restraint.is_fully_restrained(unit_id)  # 상체+하체 동시 (= 탈출 불가)
+restraint.can_move(unit_id)             # 이동 가능 (하체 미결박)
+restraint.can_use_hands(unit_id)        # 손 사용 가능 (상체 미결박)
+restraint.can_escape_romance(unit_id)   # 로맨스 탈출 가능 (전신 아닐 때)
+restraint.get_escape_multiplier(unit_id) # 탈출 배율 (0.0/0.3/1.0)
+restraint.is_gagged(unit_id)            # 결박:입 여부
+restraint.is_blindfolded(unit_id)       # 결박:눈 여부
 restraint.get_restraint_strength(unit_id)  # 결박:강도 값
 ```
 
@@ -146,16 +159,19 @@ restraint.release_unit(unit_id)  # 항상 성공, 모든 결박 prop 해제
 
 ### 결박 중 행동 제한
 
-| 상태 | 가능 | 불가 |
-|------|------|------|
-| `결박:사지` | 자력 해제 시도, 소리치기(입 자유 시) | 이동, 아이템, 착의/탈의, 식사, 자위, 일상 전체 |
-| `결박:입` | 위 + 구강 차단 | 말하기, 구강 행위, 식사, 소리치기 |
-| `결박:눈` | 제한 없음 (감각 효과만) | — |
+| 상태 | 이동 | 장비 해제 | 저항 | 로맨스 탈출 |
+|------|------|---------|------|-----------|
+| 상체만 (수갑/팔결박구) | O | X | X | 감소 (×0.3) |
+| 하체만 (다리결박구) | X | O | X | 감소 (×0.3) |
+| 상체+하체 (로프/전신결박구) | X | X | X | **불가** |
+| `결박:입` | — | — | — | — (말하기/구강/식사/소리치기 차단) |
+| `결박:눈` | — | — | — | — (감각 효과만) |
 
 ### NPC AI 연동
 
-**Tier 0 (최고 우선순위)**: 결박 상태 → `_handle_restrained()`
-- 3-phase: idle → escaping → waiting
+**Tier 0 (최고 우선순위)**: 결박 상태 분기
+- **하체 포함** → `_handle_restrained()`: 3-phase (idle→escaping→waiting), 이동 불가
+- **상체만** → `_handle_upper_restrained()`: 이동 가능, 배회하며 해제 시도
 - 30분마다 자력 해제 시도
 - 입 자유 시 소리 발생 (`sound.emit_sound("scream", 80)`)
 - **결박 중 복종 소폭 상승**: waiting phase마다 플레이어에 대한 복종 +0.5 (30분당)
@@ -324,13 +340,19 @@ use_chance = (desire - 30) × 0.013 + (arousal - 50) × 0.003
 ### Context 키
 
 ```python
-ctx["restrained"]     # 결박:사지 여부
-ctx["gagged"]         # 결박:입 여부
-ctx["blindfolded"]    # 결박:눈 여부
-ctx["절정"]           # 상태:절정 수치 (0-100)
-ctx["삽입물_음부"]    # 삽입물:음부 존재 여부
-ctx["삽입물_항문"]    # 삽입물:항문 존재 여부
-ctx["삽입물_클리토리스"] # 삽입물:클리토리스 존재 여부
+ctx["restrained"]         # 상체 또는 하체 결박 여부
+ctx["upper_restrained"]   # 상체 결박 여부
+ctx["lower_restrained"]   # 하체 결박 여부
+ctx["gagged"]             # 결박:입 여부
+ctx["blindfolded"]        # 결박:눈 여부
+ctx["절정"]               # 상태:절정 수치 (0-100)
+ctx["삽입물_음부"]        # 삽입물:음부 존재 여부
+ctx["삽입물_항문"]        # 삽입물:항문 존재 여부
+ctx["삽입물_클리토리스"]  # 삽입물:클리토리스 존재 여부
+ctx["노출도"]             # 의상 노출도 (0-100)
+ctx["상체노출"]           # 상체 노출 수준 (0=커버, 1=속옷, 2=누드)
+ctx["하체노출"]           # 하체 노출 수준 (0=커버, 1=속옷, 2=누드)
+ctx["수치심"]             # 노출도 × shame_sensitivity (0-100)
 ```
 
 ### 규칙 예시 (FOCUS_RULES)

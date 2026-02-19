@@ -419,6 +419,7 @@ class Ella(Character):
     type = "character"
     hearing_type = "keen"
     sexual_orientation = "heterosexual"
+    shame_sensitivity = 0.3  # 거의 무관심
     props = {
         "성별": 2, "성적지향": 1,  # female, heterosexual
         "외모:흑발": 1, "외모:올림머리": 1, "외모:보라색눈": 1,

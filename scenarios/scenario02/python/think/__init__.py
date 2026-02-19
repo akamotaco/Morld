@@ -640,6 +640,59 @@ class BaseAgent:
             self._action_taken = True
             return
 
+    def _handle_upper_restrained(self):
+        """상체만 결박 — 이동 가능하지만 손 사용 불가
+
+        이동은 가능하므로 도움을 요청하며 돌아다닌다.
+        30분마다 자력 해제를 시도한다.
+        """
+        import restraint
+
+        phase = self._memory.get("restrained_phase", "idle")
+
+        if phase == "idle":
+            self._memory["restrained_phase"] = "escaping"
+            self._insert_idle_job("결박 해제 시도", 5 * 60 * 1000)
+            self._action_taken = True
+            return
+
+        if phase == "escaping":
+            if restraint.attempt_self_escape(self.unit_id):
+                restraint.release_self(self.unit_id)
+                if not restraint.is_restrained(self.unit_id):
+                    if restraint.is_gagged(self.unit_id):
+                        restraint.release_mouth(self.unit_id)
+                    if restraint.is_blindfolded(self.unit_id):
+                        restraint.release_eyes(self.unit_id)
+                self._memory["restrained_phase"] = "idle"
+                self._insert_idle_job("결박 해제됨", 1 * 60 * 1000)
+            else:
+                self._memory["restrained_phase"] = "wandering"
+                self._memory["restrained_wait_until"] = (
+                    self.get_time() + self.RESTRAINED_ESCAPE_INTERVAL
+                )
+                # 입이 자유로우면 소리치기
+                if not restraint.is_gagged(self.unit_id):
+                    try:
+                        import sound
+                        sound.emit_sound(self.unit_id, "scream", 80)
+                    except ImportError:
+                        pass
+                # 이동 가능 — 랜덤 배회
+                self._do_wander()
+            self._action_taken = True
+            return
+
+        if phase == "wandering":
+            wait_until = self._memory.get("restrained_wait_until", 0)
+            if self.get_time() >= wait_until:
+                self._memory["restrained_phase"] = "idle"
+                self._insert_idle_job("결박", 1 * 60 * 1000)
+            else:
+                self._do_wander()
+            self._action_taken = True
+            return
+
     # ========================================
     # 결박된 동료 발견 + 해제 (Tier 2)
     # ========================================
@@ -1106,11 +1159,15 @@ class BaseAgent:
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
-        # Tier 0: 결박 (모든 일상 행동 차단)
+        # Tier 0: 결박
         import restraint
         if restraint.is_restrained(self.unit_id):
-            self._handle_restrained()
-            return None
+            if restraint.is_lower_restrained(self.unit_id):
+                self._handle_restrained()  # 하체 포함 → 이동 불가
+                return None
+            else:
+                self._handle_upper_restrained()  # 상체만 → 이동 가능
+                return None
 
         schedule = self.get_current_schedule()
         if schedule:

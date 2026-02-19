@@ -387,9 +387,10 @@ def check_resistance(mode_ctx, target_id, stim_state=None):
         return {"escaped": False, "resistance_delta": 0,
                 "attempted": False, "is_futile": False, "escape_chance": 0.0}
 
-    # 결박 상태: 탈출 불가 (저항 게이지도 축적 안됨)
+    # 결박 상태: 전신 결박(상체+하체) = 탈출 불가, 부분 결박 = 감소
     import restraint
-    if restraint.is_restrained(target_id):
+    if not restraint.can_escape_romance(target_id):
+        # 상체+하체 동시 결박 — 탈출 불가
         mode_ctx["last_escape_chance"] = 0.0
         mode_ctx["last_is_futile"] = True
         return {"escaped": False, "resistance_delta": 0,
@@ -401,6 +402,12 @@ def check_resistance(mode_ctx, target_id, stim_state=None):
     chance = escape_info["chance"]
     is_futile = escape_info["is_futile"]
     meter_delta = escape_info["meter_delta"]
+
+    # 부분 결박(상체 또는 하체만) — 탈출 확률/게이지 감소
+    escape_mult = restraint.get_escape_multiplier(target_id)
+    if escape_mult < 1.0:
+        chance *= escape_mult
+        meter_delta = int(meter_delta * escape_mult)
 
     # UI용 상태 저장
     mode_ctx["last_escape_chance"] = chance

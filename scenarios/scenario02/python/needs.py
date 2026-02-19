@@ -242,20 +242,52 @@ def _apply_homeostasis(unit_id, prop_key, basins):
     morld.set_unit_prop(unit_id, prop_key, new_val)
 
 
+# 삽입 오리피스 → 감각 경험 부위 매핑
+_ORIFICE_EXP_MAP = {
+    "음부": "음부",
+    "항문": "엉덩이",
+    "클리토리스": "클리토리스",
+}
+
+
 def _update_climax(unit_id):
     """절정 상시 업데이트 (시간당)
 
     성인용품(삽입물+착용형) 자극 합산 - 자연 감소.
     100 도달 시 수동 절정 이벤트 발동.
+    삽입물/장착 자극에 의한 감각 경험치도 매 시간 축적.
     """
     climax = morld.get_unit_prop(unit_id, PROP_CLIMAX) or 0
 
     # 성인용품 자극 합산
     try:
-        from assets.items.adult_toys import get_total_climax_rate
+        from assets.items.adult_toys import (
+            get_total_climax_rate, INSERTABLE_ORIFICES, get_inserted_toy_info,
+        )
         toy_rate = get_total_climax_rate(unit_id)
     except ImportError:
         toy_rate = 0
+        INSERTABLE_ORIFICES = ()
+        get_inserted_toy_info = None
+
+    # 삽입물/장착 자극에 의한 감각 경험치 축적 (매 시간)
+    if toy_rate > 0 and get_inserted_toy_info:
+        for orifice in INSERTABLE_ORIFICES:
+            info = get_inserted_toy_info(unit_id, orifice)
+            if info:
+                exp_part = _ORIFICE_EXP_MAP.get(orifice)
+                if exp_part:
+                    exp_gain = max(1, info["vibration_rate"] // 3)
+                    morld.modify_prop(unit_id, f"경험:{exp_part}", exp_gain)
+
+        # 착용형 자극 (니플클램프 등)
+        import equipment
+        for item_id in equipment.get_equipped_items(unit_id):
+            item_info = morld.get_item_info(item_id)
+            if item_info:
+                stim = item_info.get("equip_props", {}).get("성인용품:자극", 0)
+                if stim > 0:
+                    morld.modify_prop(unit_id, "경험:유두", max(1, stim // 2))
 
     # 정력제: 절정 -5/h
     stamina_active = morld.get_unit_prop(unit_id, "상태:정력제") or 0

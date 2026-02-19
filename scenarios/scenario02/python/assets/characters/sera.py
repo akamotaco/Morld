@@ -212,6 +212,7 @@ class Sera(Character):
     type = "character"
     hearing_type = "keen"
     sexual_orientation = "bisexual"
+    shame_sensitivity = 0.5  # 자제력 강함
     props = {
         "성별": 2, "성적지향": 2,  # female, bisexual
         "외모:흑발": 1, "외모:장발": 1, "외모:갈색눈": 1,

@@ -444,6 +444,7 @@ class Mila(Character):
     name = "밀라"
     type = "character"
     sexual_orientation = "heterosexual"
+    shame_sensitivity = 1.0  # 정상 반응
     props = {
         "성별": 2, "성적지향": 1,  # female, heterosexual
         "외모:갈색머리": 1, "외모:중간머리": 1, "외모:갈색눈": 1,

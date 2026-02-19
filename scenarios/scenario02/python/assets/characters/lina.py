@@ -404,6 +404,7 @@ class Lina(Character):
     name = "리나"
     type = "character"
     sexual_orientation = "bisexual"
+    shame_sensitivity = 0.7  # 덜 신경 씀
     props = {
         "성별": 2, "성적지향": 2,  # female, bisexual
         "외모:금발": 1, "외모:단발": 1, "외모:녹색눈": 1,

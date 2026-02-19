@@ -3,10 +3,13 @@
 # 결박 장비(로프, 수갑 등)에 의한 행동 제한 관리.
 #
 # 결박 상태 props:
-#   - "결박:사지": 1  → 이동/아이템/착탈의/식사/자위 등 행동 불가
+#   - "결박:상체": 1  → 팔/손 결박 (장비 해제 불가, 저항 불가, 이동 가능)
+#   - "결박:하체": 1  → 다리 결박 (이동 불가, 장비 해제 가능, 저항 불가)
 #   - "결박:입": 1    → 말하기/구강행위/식사/소리치기 불가
 #   - "결박:눈": 1    → 시각 차단 (감각 증폭 효과)
 #   - "결박:강도": N  → 해제 난이도 (높을수록 자력 해제 어려움)
+#
+# 상체+하체 동시 결박 = 탈출 불가 (별도 prop 불필요)
 #
 # 결박 중 가능한 행동 (NPC think):
 #   - 자력 해제 시도 (30분마다, 확률 기반)
@@ -26,9 +29,24 @@ import equipment
 # 상태 확인 API
 # ========================================
 
+def is_upper_restrained(unit_id):
+    """상체(팔/손) 결박 여부"""
+    return bool(morld.get_unit_prop(unit_id, "결박:상체"))
+
+
+def is_lower_restrained(unit_id):
+    """하체(다리) 결박 여부"""
+    return bool(morld.get_unit_prop(unit_id, "결박:하체"))
+
+
 def is_restrained(unit_id):
-    """사지 결박 여부"""
-    return bool(morld.get_unit_prop(unit_id, "결박:사지"))
+    """어떤 형태든 결박 여부 (상체 또는 하체)"""
+    return is_upper_restrained(unit_id) or is_lower_restrained(unit_id)
+
+
+def is_fully_restrained(unit_id):
+    """상체+하체 동시 결박 (= 탈출 불가)"""
+    return is_upper_restrained(unit_id) and is_lower_restrained(unit_id)
 
 
 def is_gagged(unit_id):
@@ -47,8 +65,32 @@ def get_restraint_strength(unit_id):
 
 
 def is_any_restrained(unit_id):
-    """사지/입/눈 중 하나라도 결박된 상태인지"""
+    """상체/하체/입/눈 중 하나라도 결박된 상태인지"""
     return is_restrained(unit_id) or is_gagged(unit_id) or is_blindfolded(unit_id)
+
+
+def can_move(unit_id):
+    """이동 가능 여부 — 하체 결박 시 불가"""
+    return not is_lower_restrained(unit_id)
+
+
+def can_use_hands(unit_id):
+    """손 사용 가능 여부 — 상체 결박 시 불가"""
+    return not is_upper_restrained(unit_id)
+
+
+def can_escape_romance(unit_id):
+    """로맨스 탈출 가능 여부 — 상체+하체 동시 결박 시 불가"""
+    return not is_fully_restrained(unit_id)
+
+
+def get_escape_multiplier(unit_id):
+    """탈출 확률 배율 — 전신 0.0, 부분 0.3, 없음 1.0"""
+    if is_fully_restrained(unit_id):
+        return 0.0
+    if is_upper_restrained(unit_id) or is_lower_restrained(unit_id):
+        return 0.3
+    return 1.0
 
 
 # ========================================
@@ -105,8 +147,6 @@ def _apply_restraint(target_id, item_id):
 
 def _calc_restrain_block_chance(actor_id, target_id):
     """강제 결박 시 차단 확률 계산"""
-    import survival
-
     # 대상의 저항력
     target_strength = morld.get_unit_prop(target_id, "근력") or 5
     rebellion = _get_relationship(target_id, actor_id, "반발")
@@ -175,53 +215,54 @@ def release_unit(unit_id):
     """
     equipped_items = equipment.get_equipped_items(unit_id)
     for item_id in list(equipped_items):
-        item_info = morld.get_item_info(item_id)
-        if not item_info:
-            continue
-        ep = item_info.get("equip_props", {})
-        # 결박 장비인지 확인 (결박:사지 또는 결박:입 또는 결박:눈)
-        if ep.get("결박:사지") or ep.get("결박:입") or ep.get("결박:눈"):
+        ep = _get_equip_props(item_id)
+        if ep.get("결박:상체") or ep.get("결박:하체") or ep.get("결박:입") or ep.get("결박:눈"):
             equipment.unequip_item(unit_id, item_id)
 
 
 def release_self(unit_id):
     """
-    자력 결박 해제 — 사지 결박만 해제
+    자력 결박 해제 — 하나의 결박 아이템만 해제 (하체 전용 → 상체 전용 → 전신 순)
 
     입/눈 결박은 사지가 자유로워야 해제 가능 (별도 호출).
     """
     equipped_items = equipment.get_equipped_items(unit_id)
+    # 하체 전용 아이템 먼저 해제 시도
     for item_id in list(equipped_items):
-        item_info = morld.get_item_info(item_id)
-        if not item_info:
-            continue
-        ep = item_info.get("equip_props", {})
-        if ep.get("결박:사지"):
+        ep = _get_equip_props(item_id)
+        if ep.get("결박:하체") and not ep.get("결박:상체"):
             equipment.unequip_item(unit_id, item_id)
-            break  # 사지 결박 장비는 하나만 가능
+            return True
+    # 상체 전용 아이템
+    for item_id in list(equipped_items):
+        ep = _get_equip_props(item_id)
+        if ep.get("결박:상체") and not ep.get("결박:하체"):
+            equipment.unequip_item(unit_id, item_id)
+            return True
+    # 전신 아이템 (상체+하체 동시)
+    for item_id in list(equipped_items):
+        ep = _get_equip_props(item_id)
+        if ep.get("결박:상체") and ep.get("결박:하체"):
+            equipment.unequip_item(unit_id, item_id)
+            return True
+    return False
 
 
 def release_mouth(unit_id):
-    """입 결박 해제 (사지 자유 상태에서만 호출)"""
+    """입 결박 해제 (상체 자유 상태에서만 호출)"""
     equipped_items = equipment.get_equipped_items(unit_id)
     for item_id in list(equipped_items):
-        item_info = morld.get_item_info(item_id)
-        if not item_info:
-            continue
-        ep = item_info.get("equip_props", {})
+        ep = _get_equip_props(item_id)
         if ep.get("결박:입"):
             equipment.unequip_item(unit_id, item_id)
             break
 
 
 def release_eyes(unit_id):
-    """눈 결박 해제 (사지 자유 상태에서만 호출)"""
+    """눈 결박 해제 (상체 자유 상태에서만 호출)"""
     equipped_items = equipment.get_equipped_items(unit_id)
     for item_id in list(equipped_items):
-        item_info = morld.get_item_info(item_id)
-        if not item_info:
-            continue
-        ep = item_info.get("equip_props", {})
+        ep = _get_equip_props(item_id)
         if ep.get("결박:눈"):
             equipment.unequip_item(unit_id, item_id)
             break
@@ -230,6 +271,14 @@ def release_eyes(unit_id):
 # ========================================
 # 유틸리티
 # ========================================
+
+def _get_equip_props(item_id):
+    """아이템 equip_props 조회 헬퍼"""
+    item_info = morld.get_item_info(item_id)
+    if not item_info:
+        return {}
+    return item_info.get("equip_props", {})
+
 
 def _get_relationship(unit_id, target_id, key):
     """관계 prop 조회 헬퍼"""
