@@ -2,7 +2,7 @@
 
 > `assets/items/adult_toys.py`, `restraint.py`, `needs.py` — 순수 Python
 
-성인용품 아이템 정의, 구속 메커니즘, 절정 상시 관리를 통합한 시스템.
+성인용품 아이템 정의, 결박 메커니즘, 절정 상시 관리를 통합한 시스템.
 
 **관련 문서**:
 | 문서 | 설명 |
@@ -22,12 +22,12 @@
 | # | unique_id | 이름 | equip_props | 비고 |
 |---|-----------|------|-------------|------|
 | 1 | `penis_band` | 페니스 밴드 | `착용:하체장비`, `임시해부학:P` | V/C 있는 캐릭터만. 임시 P anatomy (사정 불가) |
-| 2 | `ball_gag` | 볼개그 | `착용:구강장비`, `구속:입` | 말하기/구강행위/식사 차단 |
+| 2 | `ball_gag` | 볼개그 | `착용:구강장비`, `결박:입` | 말하기/구강행위/식사 차단 |
 | 3 | `nipple_clamp` | 니플클램프 | `착용:유두장비`, `성인용품:자극=3` | +3 절정/h |
-| 4 | `blindfold` | 안대 | `착용:안경`, `구속:눈` | 기존 안경 슬롯 공유 |
+| 4 | `blindfold` | 안대 | `착용:안경`, `결박:눈` | 기존 안경 슬롯 공유 |
 | 5 | `collar_leash` | 목줄 | `착용:목장비`, `성인용품:목줄` | 묘사 연출용 |
-| 6 | `rope` | 로프 | `착용:구속`, `구속:사지`, `구속:강도=30` | 해제 난이도 낮음 |
-| 7 | `handcuffs` | 수갑 | `착용:구속`, `구속:사지`, `구속:강도=60` | 해제 난이도 높음 |
+| 6 | `rope` | 로프 | `착용:결박`, `결박:사지`, `결박:강도=30` | 해제 난이도 낮음 |
+| 7 | `handcuffs` | 수갑 | `착용:결박`, `결박:사지`, `결박:강도=60` | 해제 난이도 높음 |
 
 ### 삽입형 (prop-based 추적)
 
@@ -101,28 +101,28 @@ from assets.items.adult_toys import (
 
 ---
 
-## 3. 구속 시스템 (Restraint)
+## 3. 결박 시스템 (Restraint)
 
-> `restraint.py` — 구속 상태 판별, 자력 해제, 타인 해제 API
+> `restraint.py` — 결박 상태 판별, 자력 해제, 타인 해제 API
 
-### 구속 Props
+### 결박 Props
 
 | Prop | 설명 | 설정 주체 |
 |------|------|----------|
-| `구속:사지` | 사지 구속 (이동/행동 차단) | rope, handcuffs의 equip_props |
-| `구속:입` | 입 구속 (말하기/구강/식사 차단) | ball_gag의 equip_props |
-| `구속:눈` | 시각 차단 (감각 효과) | blindfold의 equip_props |
-| `구속:강도` | 해제 난이도 (30=로프, 60=수갑) | equip_props |
+| `결박:사지` | 사지 결박 (이동/행동 차단) | rope, handcuffs의 equip_props |
+| `결박:입` | 입 결박 (말하기/구강/식사 차단) | ball_gag의 equip_props |
+| `결박:눈` | 시각 차단 (감각 효과) | blindfold의 equip_props |
+| `결박:강도` | 해제 난이도 (30=로프, 60=수갑) | equip_props |
 
 ### 상태 판별 API
 
 ```python
 import restraint
 
-restraint.is_restrained(unit_id)      # 구속:사지 여부
-restraint.is_gagged(unit_id)          # 구속:입 여부
-restraint.is_blindfolded(unit_id)     # 구속:눈 여부
-restraint.get_restraint_strength(unit_id)  # 구속:강도 값
+restraint.is_restrained(unit_id)      # 결박:사지 여부
+restraint.is_gagged(unit_id)          # 결박:입 여부
+restraint.is_blindfolded(unit_id)     # 결박:눈 여부
+restraint.get_restraint_strength(unit_id)  # 결박:강도 값
 ```
 
 ### 자력 해제 (NPC)
@@ -134,32 +134,33 @@ restraint.attempt_self_escape(unit_id)  # True/False
 확률 계산:
 ```
 power = 근력×2 + 체격×3 + HP비율×50
-difficulty = 구속강도 + 절정×0.3
+difficulty = 결박강도 + 절정×0.3
 chance = min(0.7, max(0.05, power / (difficulty + power)))
 ```
 
 ### 타인 해제
 
 ```python
-restraint.release_unit(unit_id)  # 항상 성공, 모든 구속 prop 해제
+restraint.release_unit(unit_id)  # 항상 성공, 모든 결박 prop 해제
 ```
 
-### 구속 중 행동 제한
+### 결박 중 행동 제한
 
 | 상태 | 가능 | 불가 |
 |------|------|------|
-| `구속:사지` | 자력 해제 시도, 소리치기(입 자유 시) | 이동, 아이템, 착의/탈의, 식사, 자위, 일상 전체 |
-| `구속:입` | 위 + 구강 차단 | 말하기, 구강 행위, 식사, 소리치기 |
-| `구속:눈` | 제한 없음 (감각 효과만) | — |
+| `결박:사지` | 자력 해제 시도, 소리치기(입 자유 시) | 이동, 아이템, 착의/탈의, 식사, 자위, 일상 전체 |
+| `결박:입` | 위 + 구강 차단 | 말하기, 구강 행위, 식사, 소리치기 |
+| `결박:눈` | 제한 없음 (감각 효과만) | — |
 
 ### NPC AI 연동
 
-**Tier 0 (최고 우선순위)**: 구속 상태 → `_handle_restrained()`
+**Tier 0 (최고 우선순위)**: 결박 상태 → `_handle_restrained()`
 - 3-phase: idle → escaping → waiting
 - 30분마다 자력 해제 시도
 - 입 자유 시 소리 발생 (`sound.emit_sound("scream", 80)`)
+- **결박 중 복종 소폭 상승**: waiting phase마다 플레이어에 대한 복종 +0.5 (30분당)
 
-**Tier 2 (Reactive)**: 같은 location에 구속된 NPC 발견 → 해제
+**Tier 2 (Reactive)**: 같은 location에 결박된 NPC 발견 → 해제
 - 2-phase: detect → releasing (3분)
 
 ---
@@ -240,8 +241,8 @@ morld.set_unit_prop(npc_id, "상태:절정", final_climax)
 
 | ID | 이름 | 시간 | 스태미나 | 비고 |
 |----|------|------|---------|------|
-| `restrain_partner` | 구속 | 2분 | 2 | 저항 체크, 인벤토리 restraint 필요 |
-| `unrestrain_partner` | 구속 해제 | 1분 | 0 | |
+| `restrain_partner` | 결박 | 2분 | 2 | 저항 체크, 인벤토리 restraint 필요 |
+| `unrestrain_partner` | 결박 해제 | 1분 | 0 | |
 | `equip_toy_partner` | 성인용품 장착 | 2분 | 1 | 저항 체크, 인벤토리 adult_toy 필요 |
 | `remove_toy_partner` | 성인용품 해제 | 1분 | 0 | |
 | `force_feed` | 강제 투여 | 1분 | 1 | 인벤토리 medicine 필요, 입 자유 필요 |
@@ -250,13 +251,13 @@ morld.set_unit_prop(npc_id, "상태:절정", final_climax)
 ### 행위 차단 로직 (romance_core.py)
 
 `is_action_blocked_by_state(action_def, target_id)`:
-- `uses_mouth` + 입 구속 → 차단
-- `requires_no_gag` + 입 구속 → 차단
+- `uses_mouth` + 입 결박 → 차단
+- `requires_no_gag` + 입 결박 → 차단
 - `insertion_orifice` + 해당 부위 삽입물 존재 → 차단
 
-### 구속 + 강제 모드
+### 결박 + 강제 모드
 
-구속 상태에서 `romance_mode.check_resistance()`:
+결박 상태에서 `romance_mode.check_resistance()`:
 - 탈출 시도 불가 (`escape_chance = 0`)
 - 항상 futile 판정
 - 반발 수치는 계속 증가
@@ -278,8 +279,35 @@ gender.has_natural_anatomy(unit_id, "P") # 자연 해부학만 (사정 체크용
 
 ### 성인용품 사용
 
-`performing` phase에서 인벤토리의 삽입형 성인용품을 자동 사용:
-1. `_try_use_toy(agent)`: 삽입 가능한 아이템 탐색 → 해부학 호환 오리피스 선택 → prop 설정
+`performing` phase에서 `_try_use_toy(agent)`로 인벤토리의 삽입형 성인용품을 자동 선택/사용.
+
+**사용 확률** (욕망 기반):
+```
+use_chance = (desire - 30) × 0.013 + (arousal - 50) × 0.003
+```
+- desire 40 → ~30%, desire 100 → ~95%
+- 아이템이 없거나 확률 실패 시 성인용품 없이 자위
+
+**선택 로직** (가중 랜덤):
+1. 인벤토리 내 삽입형 아이템 수집
+2. 각 아이템 가중치 계산: `base_pref × desire_bonus × sensation_bonus`
+   - `base_pref`: 캐릭터별 `toy_preferences` dict (0.0~1.0)
+   - `desire_bonus`: desire ≥ 80 → ×1.5, ≥ 60 → ×1.2, 그 외 ×1.0
+   - `sensation_bonus`: `감각:{category}` prop × 0.01 + 1.0
+3. 가중 랜덤으로 최종 선택
+
+**캐릭터별 선호 (`toy_preferences`)**:
+
+| NPC | vibrator | dildo | rotor | anal_plug | 성격 |
+|-----|----------|-------|-------|-----------|------|
+| 세라 | 0.3 | 0.6 | 0.2 | 0.1 | 실용적, 정적 선호 |
+| 밀라 | 0.7 | 0.4 | 0.6 | 0.2 | 민감, 진동 선호 |
+| 리나 | 0.6 | 0.3 | 0.5 | 0.3 | 호기심, 골고루 |
+| 유키 | 0.2 | 0.5 | 0.3 | 0.1 | 소심, 자극 낮은 것 |
+| 엘라 | 0.4 | 0.5 | 0.3 | 0.2 | 균형형 |
+
+**처리 흐름**:
+1. 아이템 선택 → 해부학 호환 오리피스 결정 → `삽입물:{orifice}` prop 설정
 2. 15분 자위 job 실행
 3. `_cleanup_toy(agent)`: 삽입물 prop 해제
 
@@ -296,9 +324,9 @@ gender.has_natural_anatomy(unit_id, "P") # 자연 해부학만 (사정 체크용
 ### Context 키
 
 ```python
-ctx["restrained"]     # 구속:사지 여부
-ctx["gagged"]         # 구속:입 여부
-ctx["blindfolded"]    # 구속:눈 여부
+ctx["restrained"]     # 결박:사지 여부
+ctx["gagged"]         # 결박:입 여부
+ctx["blindfolded"]    # 결박:눈 여부
 ctx["절정"]           # 상태:절정 수치 (0-100)
 ctx["삽입물_음부"]    # 삽입물:음부 존재 여부
 ctx["삽입물_항문"]    # 삽입물:항문 존재 여부
@@ -309,10 +337,10 @@ ctx["삽입물_클리토리스"] # 삽입물:클리토리스 존재 여부
 
 ```python
 _FOCUS_RESTRAINT = [
-    # 구속 + 성인용품 복합
+    # 결박 + 성인용품 복합
     ({"restrained": True, "삽입물_음부": True, "절정": (60, None)},
      "{name}가 결박당한 채 ...에 의해 몸이 떨리고 있다."),
-    # 구속 단독
+    # 결박 단독
     ({"restrained": True, "gagged": True},
      "{name}가 결박당해 입까지 막힌 채 움직이지 못하고 있다."),
     # 절정 높음
@@ -324,10 +352,16 @@ _FOCUS_RESTRAINT = [
 
 ### 톤 템플릿 반응
 
-10개 아키타입에 3개 상태 반응 키 추가:
-- `"restrained_idle"` — 구속 상태 묘사/대사
+10개 아키타입에 상태 반응 + 액션 반응 추가:
+
+**상태 반응 키** (3개):
+- `"restrained_idle"` — 결박 상태 묘사/대사
 - `"passive_climax"` — 비로맨스 절정 시 반응
 - `"toy_equipped"` — 성인용품 장착 상태 반응
+
+**액션 반응 키** (6개 × 2종):
+- ACTION_REACTIONS (`:during` 3인칭 묘사): `restrain_partner`, `unrestrain_partner`, `equip_toy_partner`, `remove_toy_partner`, `force_feed`, `use_whip`
+- ACTION_LINES (`:start` 1인칭 대사): 위 6개와 동일 키에 `:start` suffix
 
 ---
 
@@ -337,14 +371,14 @@ _FOCUS_RESTRAINT = [
 scenarios/scenario02/python/
 ├── assets/items/
 │   └── adult_toys.py          # 17개 아이템 정의 + 유틸리티
-├── restraint.py               # 구속 상태 API
+├── restraint.py               # 결박 상태 API
 ├── needs.py                   # _update_climax() 절정 상시 관리
 ├── gender.py                  # has_natural_anatomy() 임시 해부학
 ├── romance_actions.py         # 신규 6개 액션 정의
 ├── romance_core.py            # is_action_blocked_by_state()
-├── romance_mode.py            # 구속 시 탈출 불가
+├── romance_mode.py            # 결박 시 탈출 불가
 ├── think/
-│   ├── __init__.py            # Tier 0 구속 + Tier 2 구출
+│   ├── __init__.py            # Tier 0 결박 + Tier 2 구출
 │   └── handlers/
 │       ├── self_comfort.py    # NPC 자위 성인용품 연동
 │       └── eat.py             # NPC 식사 약물 첨가 체크

@@ -343,16 +343,16 @@ INSTANT_ACTIONS = {
         "passive_in_npc_initiative": True,
         "npc_initiative_only": True,
     },
-    # ── 구속/성인용품 ────────────────────────────────
+    # ── 결박/성인용품 ────────────────────────────────
     "restrain_partner": {
-        "name": "구속", "time": 2 * MILLIS_PER_MINUTE, "stamina": 2,
+        "name": "결박", "time": 2 * MILLIS_PER_MINUTE, "stamina": 2,
         "effects": {"반발": 3, "복종": 2},
         "exp_part": None, "affection_req": 0,
         "requires_inventory_category": "restraint",
         "resistance_check": True,
     },
     "unrestrain_partner": {
-        "name": "구속 해제", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "name": "결박 해제", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
         "effects": {},
         "exp_part": None, "affection_req": 0,
     },

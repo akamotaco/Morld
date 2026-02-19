@@ -115,42 +115,83 @@ def _resolve_private_location(agent):
 def _try_use_toy(agent):
     """자위 시 삽입형 성인용품 사용 시도
 
-    인벤토리에서 삽입형 성인용품이 있으면 사용.
+    욕망 기반 사용 확률 + 캐릭터 선호도 + 감각 수치 기반 가중 랜덤 선택.
     삽입물 prop 설정 + 메모리에 기록.
     """
+    import random
     try:
         from assets.items.adult_toys import INSERTABLE_ORIFICES
         import gender as gender_mod
     except ImportError:
         return
 
+    # 욕망 기반 사용 확률: 욕망 40 미만이면 사용하지 않음
+    from needs import _get_max_desire
+    desire = _get_max_desire(agent.unit_id)
+    arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
+    # 사용 확률: desire 40→30%, 60→60%, 80→85%, 100→95%
+    use_chance = max(0, min(0.95, (desire - 30) * 0.013 + (arousal - 50) * 0.003))
+    if random.random() > use_chance:
+        return
+
     inventory = morld.get_unit_items(agent.unit_id)
     if not inventory:
         return
 
+    # 캐릭터 선호도 (없으면 기본값)
+    toy_prefs = getattr(agent, 'toy_preferences', {})
+    # 기본 선호: vibrator=0.5, dildo=0.3, rotor=0.4, anal_plug=0.2
+    _DEFAULT_PREFS = {"vibrator": 0.5, "dildo": 0.3, "rotor": 0.4, "anal_plug": 0.2}
+
+    # 후보 수집: (item_id, orifice, weight)
+    candidates = []
     for item_id in inventory:
         item_info = morld.get_item_info(item_id)
         if not item_info:
             continue
         pp = item_info.get("passive_props", {})
-        insertable = pp.get("성인용품:삽입형")
-        if not insertable:
+        if not pp.get("성인용품:삽입형"):
             continue
-        # 오리피스 선택 (해부학 기반)
+        uid = item_info.get("unique_id", "")
+        base_pref = toy_prefs.get(uid, _DEFAULT_PREFS.get(uid, 0.3))
+        vib_rate = pp.get("성인용품:진동", 0) or item_info.get("vibration_rate", 0)
+
         for orifice in INSERTABLE_ORIFICES:
             # 해부학 호환 체크
             if orifice == "음부" and not gender_mod.has_anatomy(agent.unit_id, "V"):
                 continue
             if orifice == "클리토리스" and not gender_mod.has_anatomy(agent.unit_id, "C"):
                 continue
-            # 이미 삽입물 있으면 스킵
             if morld.get_unit_prop(agent.unit_id, f"삽입물:{orifice}"):
                 continue
-            # 삽입
+            # 가중치 계산: 선호도 × 욕망 보정 × 진동 보정
+            weight = base_pref
+            # 욕망 높을수록 강한 자극 선호
+            if desire >= 70:
+                weight *= (1.0 + vib_rate * 0.05)
+            # 감각 수치 반영 (해당 부위 감각이 발달할수록 선호)
+            _ORIFICE_STIM = {"음부": "V", "항문": "A", "클리토리스": "C"}
+            stim_cat = _ORIFICE_STIM.get(orifice)
+            if stim_cat:
+                stim_val = morld.get_unit_prop(agent.unit_id,
+                                               f"감각:{stim_cat}") or 0
+                weight *= (1.0 + stim_val * 0.01)  # 감각 50 → +50%
+            candidates.append((item_id, orifice, max(0.01, weight)))
+
+    if not candidates:
+        return
+
+    # 가중 랜덤 선택
+    total = sum(w for _, _, w in candidates)
+    r = random.random() * total
+    cumulative = 0
+    for item_id, orifice, weight in candidates:
+        cumulative += weight
+        if r <= cumulative:
             morld.set_unit_prop(agent.unit_id, f"삽입물:{orifice}", item_id)
             agent._memory["self_comfort_toy"] = item_id
             agent._memory["self_comfort_toy_orifice"] = orifice
-            return  # 1개만 사용
+            return
 
 
 def _cleanup_toy(agent):

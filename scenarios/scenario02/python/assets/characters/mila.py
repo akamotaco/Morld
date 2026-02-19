@@ -664,6 +664,7 @@ class Mila(Character):
     # ========================================
     self_comfort_threshold = 70       # 감정적/민감
     self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
+    toy_preferences = {"vibrator": 0.7, "dildo": 0.4, "rotor": 0.6, "anal_plug": 0.2}
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 50,      # 성욕 임계값 (세라보다 낮음 - 더 적극적)

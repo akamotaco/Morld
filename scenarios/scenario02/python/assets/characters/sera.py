@@ -700,6 +700,7 @@ class Sera(Character):
     # ========================================
     self_comfort_threshold = 85       # 자제력 높음
     self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
+    toy_preferences = {"vibrator": 0.3, "dildo": 0.6, "rotor": 0.2, "anal_plug": 0.1}
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 70,      # 성욕 70 이상

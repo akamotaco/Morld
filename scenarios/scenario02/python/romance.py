@@ -1027,7 +1027,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             state["position"] = target_pos
             pos_name = position.get_name(target_pos)
             state["last_reaction"] = f"체위를 {pos_name}(으)로 변경했다."
-            # 충돌하는 토글 해제 (배면 전환 시 입 사용 행위)
+            # 체위 변경 시 토글 해제:
+            # 1. 삽입 토글 (thrust) — 물리적 재배치이므로 항상 해제
+            for tid in list(state["active_toggles"]):
+                if tid in _THRUST_TOGGLE_IDS:
+                    state["active_toggles"].discard(tid)
+            # 2. 배면 전환 시 입 사용 행위 추가 해제
             if position.get_facing(target_pos) == "back":
                 mouth_toggles = {t for t in state["active_toggles"]
                                  if TOGGLE_ACTIONS.get(t, {}).get("uses_mouth")}

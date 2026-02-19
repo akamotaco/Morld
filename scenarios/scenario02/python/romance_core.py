@@ -178,7 +178,7 @@ def is_anatomy_compatible(action_def, target_id, actor_id=None):
 
 
 def is_action_blocked_by_state(action_def, target_id):
-    """구속/삽입물에 의한 행위 차단 체크
+    """결박/삽입물에 의한 행위 차단 체크
 
     Args:
         action_def: 행위 정의 dict
@@ -189,7 +189,7 @@ def is_action_blocked_by_state(action_def, target_id):
     """
     import restraint
 
-    # 구강 차단: 입 구속 시 구강 행위 불가
+    # 구강 차단: 입 결박 시 구강 행위 불가
     if action_def.get("uses_mouth") and restraint.is_gagged(target_id):
         return True
 

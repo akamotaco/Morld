@@ -621,6 +621,7 @@ class Ella(Character):
     # ========================================
     self_comfort_threshold = 85       # 자제력 높음
     self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
+    toy_preferences = {"vibrator": 0.4, "dildo": 0.5, "rotor": 0.3, "anal_plug": 0.2}
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 75,      # 성욕 임계값 (세라와 비슷하게 높음)

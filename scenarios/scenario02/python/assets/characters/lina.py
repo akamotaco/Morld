@@ -619,6 +619,7 @@ class Lina(Character):
     # ========================================
     self_comfort_threshold = 80       # 기본값
     self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
+    toy_preferences = {"vibrator": 0.6, "dildo": 0.3, "rotor": 0.5, "anal_plug": 0.3}
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 65,      # 성욕 임계값 (세라와 비슷)

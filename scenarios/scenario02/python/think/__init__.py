@@ -566,13 +566,13 @@ class BaseAgent:
         return False
 
     # ========================================
-    # 구속 상태 처리 (Tier 0)
+    # 결박 상태 처리 (Tier 0)
     # ========================================
 
     RESTRAINED_ESCAPE_INTERVAL = 30 * 60 * 1000  # 30분마다 해제 시도
 
     def _handle_restrained(self):
-        """구속 상태 처리 — 모든 일상 행동 차단
+        """결박 상태 처리 — 모든 일상 행동 차단
 
         3-phase: idle → escaping → waiting
         - idle: 해제 시도 가능 여부 체크
@@ -584,7 +584,7 @@ class BaseAgent:
         phase = self._memory.get("restrained_phase", "idle")
 
         if phase == "idle":
-            # 처음 구속됨 or 대기 후 재시도
+            # 처음 결박됨 or 대기 후 재시도
             self._memory["restrained_phase"] = "escaping"
             self._insert_idle_job("결박 해제 시도", 5 * 60 * 1000)  # 5분 걸림
             self._action_taken = True
@@ -592,7 +592,7 @@ class BaseAgent:
 
         if phase == "escaping":
             if restraint.attempt_self_escape(self.unit_id):
-                # 성공: 사지 구속 해제
+                # 성공: 사지 결박 해제
                 restraint.release_self(self.unit_id)
                 # 사지 해제 후 입/눈도 해제
                 if not restraint.is_restrained(self.unit_id):
@@ -601,7 +601,7 @@ class BaseAgent:
                     if restraint.is_blindfolded(self.unit_id):
                         restraint.release_eyes(self.unit_id)
                 self._memory["restrained_phase"] = "idle"
-                self._insert_idle_job("구속 해제됨", 1 * 60 * 1000)
+                self._insert_idle_job("결박 해제됨", 1 * 60 * 1000)
             else:
                 # 실패: 대기 상태로 전환
                 self._memory["restrained_phase"] = "waiting"
@@ -621,6 +621,17 @@ class BaseAgent:
                 except ImportError:
                     pass
 
+            # 결박 중 복종 소폭 상승 (+0.5/30분)
+            player_id = morld.get_player_id()
+            if player_id:
+                player_info = morld.get_unit_info(player_id)
+                if player_info:
+                    pname = player_info.get("name", "주인공")
+                    sub_key = f"관계:{pname}:복종"
+                    sub_val = morld.get_unit_prop(self.unit_id, sub_key) or 0
+                    morld.set_unit_prop(self.unit_id, sub_key,
+                                        min(100, sub_val + 0.5))
+
             wait_until = self._memory.get("restrained_wait_until", 0)
             if self.get_time() >= wait_until:
                 # 재시도
@@ -630,13 +641,13 @@ class BaseAgent:
             return
 
     # ========================================
-    # 구속된 동료 발견 + 해제 (Tier 2)
+    # 결박된 동료 발견 + 해제 (Tier 2)
     # ========================================
 
     RESCUE_DURATION = 3 * 60 * 1000  # 해제 소요 3분
 
     def _check_restrained_nearby(self):
-        """같은 location에 구속된 비적대 유닛 발견 시 해제 시도
+        """같은 location에 결박된 비적대 유닛 발견 시 해제 시도
 
         Returns:
             True if action was taken (해제 진행/완료).
@@ -645,7 +656,7 @@ class BaseAgent:
 
         phase = self._memory.get("rescue_phase")
         if phase is None:
-            # 탐색: 같은 location에 구속된 유닛 있는지
+            # 탐색: 같은 location에 결박된 유닛 있는지
             my_loc = morld.get_unit_location(self.unit_id)
             if not my_loc:
                 return False
@@ -1095,7 +1106,7 @@ class BaseAgent:
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
-        # Tier 0: 구속 (모든 일상 행동 차단)
+        # Tier 0: 결박 (모든 일상 행동 차단)
         import restraint
         if restraint.is_restrained(self.unit_id):
             self._handle_restrained()
@@ -1110,7 +1121,7 @@ class BaseAgent:
                 # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
                 self._ensure_standing()
 
-                # Tier 2: 반응형 — 구속된 동료 발견 + 해제
+                # Tier 2: 반응형 — 결박된 동료 발견 + 해제
                 if self._check_restrained_nearby():
                     _tier_reached = 2
                 elif self._check_tier2_reactive():

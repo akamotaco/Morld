@@ -293,9 +293,9 @@ class Unit(Asset):
 # FOCUS_RULES 공유 상수 및 빌더
 # ========================================
 
-# 구속 + 성인용품 focus
+# 결박 + 성인용품 focus
 _FOCUS_RESTRAINT = [
-    # 구속 + 삽입물 복합
+    # 결박 + 삽입물 복합
     ({"restrained": True, "삽입물_음부": True, "절정": 60},
      "결박당한 채 몸이 떨리고 있다. 참을 수 없는 표정이다."),
     ({"restrained": True, "gagged": True},
@@ -1277,10 +1277,10 @@ class Character(Unit):
         player_hp = morld.get_unit_prop(player_id, "생존:체력")
         context["피로도_체력"] = max(0, 100 - (player_hp if player_hp is not None else 100))
 
-        # 구속 상태
-        context["restrained"] = bool(props.get("구속:사지")) if props else False
-        context["gagged"] = bool(props.get("구속:입")) if props else False
-        context["blindfolded"] = bool(props.get("구속:눈")) if props else False
+        # 결박 상태
+        context["restrained"] = bool(props.get("결박:사지")) if props else False
+        context["gagged"] = bool(props.get("결박:입")) if props else False
+        context["blindfolded"] = bool(props.get("결박:눈")) if props else False
 
         # 절정 수치
         context["절정"] = props.get("상태:절정", 0) if props else 0
@@ -1738,8 +1738,21 @@ class Character(Unit):
 
         yield ui.dialog(text)
 
-        # NPC 성욕 증가
-        morld.modify_prop(self.instance_id, "상태:성욕", arousal_gain)
+        # NPC 성욕 증가 (높은 성욕일수록 효과 증폭)
+        npc_arousal = props.get("상태:성욕", 0)
+        arousal_mult = 1.5 if npc_arousal >= 70 else (1.2 if npc_arousal >= 40 else 1.0)
+        effective_gain = arousal_gain * arousal_mult
+        morld.modify_prop(self.instance_id, "상태:성욕", effective_gain)
+
+        # 절정 게이지에도 소폭 기여 (arousal_gain의 1/3, 최대 5)
+        import settings
+        if settings.is_romance_enabled():
+            climax_contrib = min(5, arousal_gain / 3)
+            if npc_arousal >= 40:
+                climax_contrib *= 1.5  # 성욕 높으면 절정 기여도 증가
+            cur_climax = props.get("상태:절정", 0)
+            morld.set_unit_prop(self.instance_id, "상태:절정",
+                                min(100, cur_climax + climax_contrib))
 
     def give_gift(self):
         """선물하기 — 플레이어 인벤토리에서 아이템을 골라 NPC에게 선물"""

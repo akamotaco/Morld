@@ -50,7 +50,7 @@
 | 연애 관계 (라벨/욕망/해금) | [romance-relationship.md](scenarios/scenario02/docs/romance-relationship.md) |
 | 애정 행위 (스킨십/자극/탈의/동작모드) | [romance-actions.md](scenarios/scenario02/docs/romance-actions.md) |
 | 임신과 출산 | [romance-pregnancy.md](scenarios/scenario02/docs/romance-pregnancy.md) |
-| 성인용품/구속/절정 시스템 | [adult-toys.md](scenarios/scenario02/docs/adult-toys.md) |
+| 성인용품/결박/절정 시스템 | [adult-toys.md](scenarios/scenario02/docs/adult-toys.md) |
 | 전투 시스템 | [battle.md](scenarios/scenario02/docs/battle.md) |
 | 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
 | 캐릭터 만들기 (NPC 정의 가이드) | [make_character.md](scenarios/scenario02/docs/make_character.md) |
@@ -100,7 +100,7 @@ scenarios/scenario02/docs/
 ├── romance-relationship.md   # 연애 관계 (라벨/욕망/해금/대화/성별)
 ├── romance-actions.md        # 애정 행위 (스킨십/자극/탈의/은신/소음/동작모드)
 ├── romance-pregnancy.md      # 임신과 출산
-├── adult-toys.md             # 성인용품/구속/절정 시스템
+├── adult-toys.md             # 성인용품/결박/절정 시스템
 ├── make_character.md         # 캐릭터 만들기 가이드
 ├── make_activity.md          # 활동(Activity) 핸들러 만들기 가이드
 ├── quest.md            # 퀘스트 시스템

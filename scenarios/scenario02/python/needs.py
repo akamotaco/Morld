@@ -277,7 +277,7 @@ def _update_climax(unit_id):
 def _trigger_passive_climax(unit_id):
     """비로맨스 상태에서 성인용품에 의한 절정 이벤트
 
-    성욕 감소, 피로 증가, 구속:입 없으면 신음 발생.
+    성욕 감소, 피로 증가, 결박:입 없으면 신음 발생.
     """
     # 성욕 감소
     current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
@@ -290,7 +290,7 @@ def _trigger_passive_climax(unit_id):
                         min(100, current_fatigue + CLIMAX_PASSIVE_FATIGUE))
 
     # 소리 발생 (입이 자유로운 경우만)
-    gagged = morld.get_unit_prop(unit_id, "구속:입")
+    gagged = morld.get_unit_prop(unit_id, "결박:입")
     if not gagged:
         try:
             import sound

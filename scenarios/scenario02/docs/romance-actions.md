@@ -109,26 +109,26 @@
 | 음경 (P) | 음경 쓰다듬기, 음경 자극 | 음경 만지기, 음경 문지르기, 펠라치오 | — | 5 |
 | 얼굴/목 (F) | 목 키스, 귀 만지기, 뺨 어루만지기, 뺨 꼬집기 | — | — | 4 |
 | 삽입 전용 | thrust_stop, withdraw, thrust_deep 등 | thrust_gentle/normal/rough | — | 6+ |
-| 성인용품/구속 | 구속, 구속 해제, 성인용품 장착/해제, 강제 투여, 채찍질 | — | — | 6 |
+| 성인용품/결박 | 결박, 결박 해제, 성인용품 장착/해제, 강제 투여, 채찍질 | — | — | 6 |
 
-#### 성인용품/구속 액션 (INSTANT_ACTIONS)
+#### 성인용품/결박 액션 (INSTANT_ACTIONS)
 
 > 상세: [adult-toys.md](adult-toys.md) 참조
 
 | ID | 이름 | 시간 | 스태미나 | 효과 | 비고 |
 |----|------|------|---------|------|------|
-| restrain_partner | 구속 | 2분 | 2 | 반발+3, 복종+2 | 인벤토리 restraint 필요, 저항 체크 |
-| unrestrain_partner | 구속 해제 | 1분 | 0 | — | |
+| restrain_partner | 결박 | 2분 | 2 | 반발+3, 복종+2 | 인벤토리 restraint 필요, 저항 체크 |
+| unrestrain_partner | 결박 해제 | 1분 | 0 | — | |
 | equip_toy_partner | 성인용품 장착 | 2분 | 1 | — | 인벤토리 adult_toy 필요, 저항 체크 |
 | remove_toy_partner | 성인용품 해제 | 1분 | 0 | — | |
 | force_feed | 강제 투여 | 1분 | 1 | — | 인벤토리 medicine 필요, 입 자유 필요 |
 | use_whip | 채찍질 | 2분 | 2 | 반발+3, 복종+2, 성욕+2 | 채찍 장착 필요 |
 
-#### 행위 차단 (구속/삽입물)
+#### 행위 차단 (결박/삽입물)
 
-- `구속:입` → 구강 사용 행위 (펠라치오, 딥키스 등) 차단
+- `결박:입` → 구강 사용 행위 (펠라치오, 딥키스 등) 차단
 - `삽입물:{부위}` → 해당 오리피스 삽입 행위 차단
-- 구속 상태 → 강제 모드 탈출 불가
+- 결박 상태 → 강제 모드 탈출 불가
 
 ### 캐릭터별 반응 시스템
 
@@ -204,6 +204,48 @@ DATE_MIN_AFFECTION = 30  # 데이트 수락 최소 호감도
         ↓
 데이트 종료 → NPC 스케줄 pop
 ```
+
+---
+
+## 2-b. 가벼운 애정 행위 (CASUAL_ACTIONS)
+
+> `assets/base.py` — 포커스 메뉴에서 직접 실행. 로맨스 세션 밖.
+
+### 행위 목록
+
+| action_type | 이름 | 호감 조건 | 욕망 조건 | 성욕 상승 |
+|-------------|------|----------|----------|----------|
+| `casual_kiss` | 가벼운 키스 | 60 | 50 | 5 |
+| `casual_breast` | 가슴 만지기 | 70 | 60 | 10 |
+| `casual_butt` | 엉덩이 만지기 | 70 | 60 | 8 |
+| `casual_genital` | 음부 만지기 | 80 | 70 | 15 |
+| `casual_penis` | 음경 만지기 | 80 | 70 | 15 |
+
+해금 조건: 호감 OR 욕망 중 하나 이상 충족. 성별 필터 적용 (female→casual_genital, male→casual_penis).
+
+### 성욕/절정 영향
+
+NPC의 현재 성욕 수치에 따라 효과가 증폭됨:
+
+| NPC 성욕 | 성욕 상승 배율 |
+|----------|--------------|
+| 0~39 | ×1.0 (기본) |
+| 40~69 | ×1.2 |
+| 70+ | ×1.5 |
+
+절정 게이지(`상태:절정`)에도 소폭 기여:
+- 기본: `arousal_gain / 3` (최대 5)
+- NPC 성욕 ≥ 40일 때: ×1.5 추가 보너스
+
+### 반응 스타일
+
+| 조건 | 스타일 | 설명 |
+|------|--------|------|
+| 욕망 ≥ 70 | `addicted` | 중독적 반응 |
+| 호감 ≥ 80 | `flirty` | 설레는 반응 |
+| 그 외 | `default` | 기본 반응 |
+
+캐릭터별 `CASUAL_REACTIONS` dict로 스타일별 텍스트 오버라이드.
 
 ---
 
@@ -985,10 +1027,11 @@ Tier 4 comfort에 위치 (배변 → 피로 → **성욕** → 목욕 → 수면
 - 우선순위: 플레이어 탐색 > 자위
 - 은밀 장소: `length ≤ self_comfort_max_length` + 실내 + 혼자 + 저오염
 - Phase: idle → going → performing (15분 job "자위") → finishing (결과 확인)
-- **혼자일 때**: arousal -50, 정상 쿨다운 2시간
+- **혼자일 때**: arousal -50, 정상 쿨다운 2시간 (성인용품 사용 시: -70)
 - **NPC 발각**: arousal 감소 없음, 짧은 쿨다운 30분 (재시도 유도)
 - **플레이어 발각**: SELF_COMFORT_DISCOVERY_REACTIONS 반응
 - Job 이름: 이동 중 "이동" (발각 안 됨), 수행 중 "자위" (발각 대상)
+- **성인용품 자동 사용**: `_try_use_toy()` — 욕망 확률 + 캐릭터 선호 + 감각 가중 랜덤 선택 (→ [adult-toys.md](adult-toys.md#7-npc-자위-연동))
 
 ### NPC→플레이어 탐색
 
@@ -1120,6 +1163,7 @@ def is_anatomy_compatible(action_def, target_id, player_id=None):
 - `exp_part: None` — 삽입 부위(orifice)에서 동적 결정
 - 같은 thrust 재선택 → **OFF되지 않고 계속 유지** (효과 재적용)
 - 다른 thrust 선택 → 기존 thrust 해제 + 새 thrust 활성화
+- **체위 변경 시**: 모든 thrust 토글 자동 해제 (물리적 재배치). 배면 전환 시 입 사용 토글도 추가 해제
 - `_THRUST_TOGGLE_IDS = frozenset({"thrust_gentle", "thrust_normal", "thrust_rough"})`
 
 ### 삽입 관련 즉시형 (삽입 상태 필요)

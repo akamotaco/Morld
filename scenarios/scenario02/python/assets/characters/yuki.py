@@ -457,6 +457,7 @@ class Yuki(Character):
     # ========================================
     self_comfort_threshold = 90       # 매우 수줍음
     self_comfort_max_length = 150     # 침실/욕실/화장실만 (length=150)
+    toy_preferences = {"vibrator": 0.2, "dildo": 0.5, "rotor": 0.3, "anal_plug": 0.1}
 
     INITIATIVE_CONFIG = {
         "arousal_threshold": 80,      # 성욕 임계값 (세라보다 높음 - 더 소극적)
