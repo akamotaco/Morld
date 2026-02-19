@@ -385,6 +385,101 @@ should_initiate_skinship() 체크
 - 목격자 호감도 변화: `ROMANCE_DISCOVERY_REACTIONS`의 effects에 따라 (파트너별 분기)
 - NPC 호감도 -3
 
+### 플레이어 행동 제한 (NPC 주도 중)
+
+NPC 주도 모드에서 호감 < 80 (`NPC_INITIATIVE_CONSENT_THRESHOLD`)일 때,
+플레이어의 **능동적 행위**에 확률 기반 차단 판정 발생.
+
+#### 행위 분류: 수동 vs 능동
+
+**수동 행위** (`passive_in_npc_initiative: True`) — 항상 허용:
+- `hold_back`, `ejaculate` — 자기 절제
+- `sync_thrust` — NPC 리듬 맞추기
+- `beg` — 애원하기 (NPC 주도 전용)
+- `swallow_semen_*` — 정액 삼키기류
+- `undress_upper`, `undress_lower` — 탈의
+
+**능동 행위** — 차단 대상 (위 목록에 없는 모든 즉시 행위):
+- 삽입 (`vaginal_insert`, `anal_insert`)
+- 터치/애무 (`breast_touch`, `clit_rub` 등)
+- 키스류 (`kiss`, `deep_kiss`, `french_kiss` 등)
+
+#### 차단 확률
+
+```python
+NPC_BLOCK_BASE_CHANCE = 0.85        # 기본 85% 차단
+NPC_BLOCK_STRENGTH_BONUS = 0.05     # 근력 1당 -5%
+NPC_BLOCK_BODY_BONUS = {
+    "왜소": 0.05,    # 오히려 막기 쉬움
+    "보통": 0.0,
+    "장신": -0.05,
+    "거구": -0.15,
+}
+NPC_BLOCK_MIN_CHANCE = 0.30         # 최소 차단 확률
+NPC_BLOCK_MAX_CHANCE = 0.95         # 최대 차단 확률
+```
+
+- 호감 ≥ 80: 합의 전환 → 차단 없음
+- 차단 성공: NPC 반응 텍스트 + 턴 소비 (스태미나 -1)
+- 차단 실패: 행위 정상 진행
+
+#### UI 표시
+
+- 능동 행위: `[color=yellow]행위이름[/color] [color=gray](제지 가능)[/color]`
+- 수동 행위: 일반 색상 표시
+
+#### 톤 템플릿 키
+
+| 키 | 설명 |
+|---|---|
+| `npc_block_player` | NPC가 플레이어 행위 차단 시 반응 |
+| `beg` | 플레이어 애원 시 NPC 반응 |
+
+#### "애원하기" 즉시 행위 (beg)
+
+NPC 주도 모드 전용 즉시 행위 (`npc_initiative_only: True`):
+
+| 항목 | 값 |
+|------|---|
+| 시간 | 3분 |
+| 스태미나 | 0 |
+| 효과 | NPC 성욕 +5 |
+| 특수 | `beg_boost` 에스컬레이션 유도 |
+
+### NPC 여운 상태 체감 (Afterglow)
+
+절정 후 NPC의 여운(afterglow) 상태가 UI와 반응에 반영됩니다.
+
+#### 여운 UI 표시
+
+```
+[color=pink]여운 (80%)[/color]
+```
+
+afterglow × 2 = 퍼센트 표시 (50 → 100%, 10 → 20%).
+
+#### 여운 중 행위 반응
+
+afterglow > 0일 때 행위 시 강도별 추가 반응 텍스트:
+
+| 조건 | 톤 템플릿 키 | 설명 |
+|------|-------------|------|
+| afterglow ≥ 40 | `afterglow_sensitive` | 절정 직후 극도 민감 |
+| afterglow ≥ 20 | `afterglow_trembling` | 중간 여운, 여전히 떨림 |
+| afterglow < 20 | `afterglow_fading` | 여운 사라져감 |
+
+#### 여운 종료 반응
+
+`tick_afterglow()`가 `"ended"` 반환 시 `afterglow_end` 반응 1회 출력.
+
+#### NPC 주도 여운 행동
+
+afterglow > 0일 때 `_npc_auto_advance()`에서:
+- NPC는 새 행위를 선택하지 않음 (기존 토글만 유지)
+- 자동 삽입 시도 안 함
+
+적용 위치: `romance.py` (플레이어 주도) + `npc_initiative.py` (NPC 주도) 모두.
+
 ---
 
 ## 4. 은신 시스템 (들키지 않을 확률)
@@ -646,7 +741,7 @@ bonus = round(base_arousal_effect * sensation_level * 0.1)
 - **세션 스코프**: romance 세션 state dict 안에만 존재, prop 아님
 - **부위별 자극**: FMBAVCP 카테고리별 독립 자극 수치 (0-100)
 - **절정**: 자극이 100 도달 시 발생, 해당 카테고리 자극 리셋
-- **여운 (afterglow)**: 여성 절정 후 일시적 상태, 행위마다 감소
+- **여운 (afterglow)**: 여성 절정 후 일시적 상태, 행위마다 감소. 여운 중 행위 시 강도별 반응, 종료 시 1회 반응
 - **연쇄 절정**: 여운 중 재절정 시 자극 증폭 (×1.5)
 - **불응기 (refractory)**: 남성 절정 후 자극 gain 90% 감소, 연쇄 불가
 
@@ -690,6 +785,15 @@ def calc_gain(base, sensation_level, rebellion, afterglow, refractory=0):
 4. 성욕 -30 (전액 초기화 대신)
 5. 성적절정 +1
 6. 절정 부위 감각 경험치 +3
+
+### 여운 감소 및 종료 (tick_afterglow)
+
+`tick_afterglow(state)` — 매 행위 턴마다 호출:
+- afterglow > 0이면 -10 감소
+- afterglow가 0으로 전이 시 `"ended"` 반환 → 여운 종료 반응 트리거
+- 여운 종료 시 `chain_count` 리셋
+
+여운 중 행위 시 강도별 추가 반응 (→ [Section 3: NPC 여운 상태 체감](#npc-여운-상태-체감-afterglow)).
 
 ### 절정 처리 (남성)
 1. 해당 카테고리 자극 리셋 (0)

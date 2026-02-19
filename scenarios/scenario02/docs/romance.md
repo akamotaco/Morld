@@ -109,6 +109,15 @@
 | FOCUS/DESCRIBE 아키타입 빌더 | base.py (build_focus_rules, build_describe_rules) | ✅ 완료 |
 | ROMANCE_REACTIONS 아키타입 빌더 | base.py (build_romance_reactions) | ✅ 완료 |
 | 1회성(once) 반응 시스템 | base.py, stimulation.py, characters/*.py | ✅ 완료 |
+| NPC 주도 플레이어 행동 제한 | npc_initiative.py, romance_actions.py | ✅ 완료 |
+| 능동/수동 행위 분류 (passive_in_npc_initiative) | romance_actions.py | ✅ 완료 |
+| 차단 확률 (근력/체격 보정) | npc_initiative.py (_check_npc_block) | ✅ 완료 |
+| "애원하기" NPC 주도 전용 행위 | romance_actions.py, npc_initiative.py | ✅ 완료 |
+| NPC 차단/애원 반응 (10 아키타입) | tone_templates/, characters/*.py | ✅ 완료 |
+| NPC 여운 상태 체감 (UI + 반응) | romance.py, npc_initiative.py | ✅ 완료 |
+| 여운 강도별 반응 (sensitive/trembling/fading) | tone_templates/, characters/*.py | ✅ 완료 |
+| 여운 종료 반응 (afterglow_end) | stimulation.py, romance.py, npc_initiative.py | ✅ 완료 |
+| NPC 주도 여운 행동 (자동 일시정지) | npc_initiative.py (_npc_auto_advance) | ✅ 완료 |
 
 ### 지원 캐릭터
 

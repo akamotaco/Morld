@@ -507,7 +507,7 @@ Agent의 상세 구조는 [schedule.md](schedule.md)와 [life.md](life.md)를 �
 
 ## 아키타입 목록
 
-텍스트 자동생성(`build_describe_rules`, `build_focus_rules`, `REACTION_PROFILE`)에 사용되는 5가지 아키타입:
+텍스트 자동생성(`build_describe_rules`, `build_focus_rules`, `REACTION_PROFILE`)에 사용되는 기본 5가지 아키타입 + 톤 전환용 5가지:
 
 | 아키타입 | 한국어 | 캐릭터 | 말투 특징 |
 |----------|--------|--------|-----------|
@@ -562,6 +562,37 @@ innocence = base × max(0, 1 - experience_factor)
 | `devoted` | 헌신, 맹종 | (고복종 시) |
 
 각 톤 파일은 `CATEGORY_TEMPLATES`(카테고리별 좌표→텍스트)와 `ACTION_TEMPLATES`(행위별 좌표→텍스트) 풀을 정의합니다.
+
+### 특수 ACTION_LINES 키
+
+톤 템플릿의 `ACTION_LINES`에는 행위별 대사 외에 시스템 이벤트 반응 키도 포함됩니다:
+
+| 키 | 발생 조건 | 설명 |
+|---|---|---|
+| `npc_block_player` | NPC 주도 중 플레이어 능동 행위 차단 시 | NPC가 제지하는 대사 |
+| `beg` | 플레이어가 "애원하기" 실행 시 | NPC의 애원 반응 |
+| `afterglow_sensitive` | afterglow ≥ 40일 때 행위 시 | 절정 직후 극도 민감 |
+| `afterglow_trembling` | afterglow ≥ 20일 때 행위 시 | 중간 여운 떨림 |
+| `afterglow_fading` | afterglow < 20일 때 행위 시 | 여운 사라져감 |
+| `afterglow_end` | afterglow가 0으로 전이 시 | 여운 완전 종료 |
+
+이 키들은 `ROMANCE_REACTIONS`에서 캐릭터별 오버라이드도 가능합니다:
+
+```python
+ROMANCE_REACTIONS = {
+    **Character.ROMANCE_REACTIONS,
+    "npc_block_player:start": [
+        ({"반발": 30}, ["...건드리면 죽인다."]),
+        ({}, ["...건드리지 마."]),
+    ],
+    "beg:start": [
+        ({"성욕": 70}, ["...알았다... 한 번만이다."]),
+        ({}, ["...소용없다."]),
+    ],
+    "afterglow_sensitive:start": ["...만지지 마... 아직..."],
+    "afterglow_end:start": ["...됐다."],
+}
+```
 
 ### 선택 알고리즘
 
