@@ -6,7 +6,7 @@ from romance_actions import (
     INSTANT_ACTIONS, TOGGLE_ACTIONS, SENSATION_MAP,
     RELATIONSHIP_LABELS, AFF_LABEL_THRESHOLD, DES_LABEL_THRESHOLD,
     get_relationship_label,
-    VIRGINITY_CLEARING_ACTIONS, _PENETRATION_TOGGLE_IDS,
+    VIRGINITY_CLEARING_ACTIONS, _THRUST_TOGGLE_IDS,
     ACTION_DESCRIPTIONS, TOGGLE_DURING_DESCRIPTIONS,
     SEMEN_PARTS, INTERNAL_SEMEN_PARTS,
 )
@@ -155,12 +155,12 @@ class TestConflictConsistency:
             f"Only {len(mouth_toggles)} uses_mouth toggles — conflict impossible"
 
     def test_player_anatomy_conflict_possible(self):
-        """requires_player_anatomy 충돌 가능한 토글 존재"""
+        """requires_player_anatomy 충돌 가능한 액션 존재 (즉시+토글)"""
         by_anatomy = {}
-        for tid, tdef in TOGGLE_ACTIONS.items():
-            req = tdef.get("requires_player_anatomy")
+        for aid, adef in {**INSTANT_ACTIONS, **TOGGLE_ACTIONS}.items():
+            req = adef.get("requires_player_anatomy")
             if req:
-                by_anatomy.setdefault(req, []).append(tid)
+                by_anatomy.setdefault(req, []).append(aid)
         has_conflict = any(len(ids) >= 2 for ids in by_anatomy.values())
         assert has_conflict, "No player anatomy conflicts possible"
 
@@ -193,23 +193,23 @@ class TestVirginity:
 class TestPenetration:
     def test_all_penetration_ids_are_toggles(self):
         """삽입 토글 ID가 TOGGLE_ACTIONS에 존재"""
-        for tid in _PENETRATION_TOGGLE_IDS:
+        for tid in _THRUST_TOGGLE_IDS:
             assert tid in TOGGLE_ACTIONS, \
                 f"Penetration toggle '{tid}' not in TOGGLE_ACTIONS"
 
-    def test_penetration_requires_player_anatomy(self):
-        """삽입 토글은 requires_player_anatomy 필드를 가져야"""
-        for tid in _PENETRATION_TOGGLE_IDS:
+    def test_thrust_requires_active_insertion(self):
+        """허리흔들기 토글은 requires_active_insertion 필드를 가져야"""
+        for tid in _THRUST_TOGGLE_IDS:
             tdef = TOGGLE_ACTIONS[tid]
-            assert "requires_player_anatomy" in tdef, \
-                f"Penetration toggle '{tid}' missing requires_player_anatomy"
+            assert tdef.get("requires_active_insertion") is True, \
+                f"Thrust toggle '{tid}' missing requires_active_insertion"
 
     def test_pregnancy_check_consistency(self):
         """pregnancy_check가 있는 토글은 삽입 토글 세트에 포함"""
         for tid, tdef in TOGGLE_ACTIONS.items():
             if tdef.get("pregnancy_check"):
-                assert tid in _PENETRATION_TOGGLE_IDS, \
-                    f"'{tid}' has pregnancy_check but not in _PENETRATION_TOGGLE_IDS"
+                assert tid in _THRUST_TOGGLE_IDS, \
+                    f"'{tid}' has pregnancy_check but not in _THRUST_TOGGLE_IDS"
 
 
 # ============================================

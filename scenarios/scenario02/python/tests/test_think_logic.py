@@ -248,6 +248,7 @@ from think import BaseAgent
 
 # think 모듈 레벨 함수 참조 (monkey-patch용)
 import think as _think_module
+import think.handlers.eat as _eat_module
 
 
 # ============================================
@@ -332,7 +333,7 @@ def _reset_all():
     _assets_objects.get_instance = lambda obj_id: None
 
     # think helpers — 기본값 복원
-    _think_module._find_npc_food = lambda uid: None
+    _eat_module._find_npc_food = lambda uid: None
     _think_module._find_food_in_container = lambda uid: None
     # _is_dressed = True → _check_clothing() 비활성화 (기본)
     _think_module._is_dressed = lambda uid: True
@@ -399,7 +400,7 @@ class TestTierPriority:
         """배고픔 → tier 3이 tier 5 스케줄보다 우선"""
         agent = _create_agent()
         _survival.is_npc_hungry = lambda uid: True
-        _think_module._find_npc_food = lambda uid: {
+        _eat_module._find_npc_food = lambda uid: {
             "item_id": 50, "unique_id": "apple", "satiety": 30
         }
         morld.give_item(NPC_ID, 50)  # 사과 1개
@@ -446,7 +447,7 @@ class TestTierPriority:
         _survival.is_npc_hungry = lambda uid: True
         _temperature.is_cold = lambda uid: True
         _temperature.get_insulation_total = lambda uid: 0
-        _think_module._find_npc_food = lambda uid: {
+        _eat_module._find_npc_food = lambda uid: {
             "item_id": 50, "unique_id": "apple", "satiety": 30
         }
         morld.give_item(NPC_ID, 50)
@@ -503,7 +504,7 @@ class TestHungerFlow:
         _survival.is_npc_hungry = lambda uid: True
         food_id = 50
         morld.give_item(NPC_ID, food_id)
-        _think_module._find_npc_food = lambda uid: {
+        _eat_module._find_npc_food = lambda uid: {
             "item_id": food_id, "unique_id": "apple", "satiety": 30
         }
 
@@ -519,7 +520,7 @@ class TestHungerFlow:
         """인벤토리 비어있음 → going_to_storage로 이동"""
         agent = _create_agent()
         _survival.is_npc_hungry = lambda uid: True
-        _think_module._find_npc_food = lambda uid: None
+        _eat_module._find_npc_food = lambda uid: None
 
         agent.think()
 
@@ -535,7 +536,7 @@ class TestHungerFlow:
         """저장소 도착 후 음식 가져와서 식사"""
         agent = _create_agent()
         _survival.is_npc_hungry = lambda uid: True
-        _think_module._find_npc_food = lambda uid: None
+        _eat_module._find_npc_food = lambda uid: None
         agent._memory["hunger_phase"] = "going_to_storage"
 
         # 동적 탐색 대신 hunger_target 직접 설정
@@ -555,7 +556,7 @@ class TestHungerFlow:
         _survival.is_npc_hungry = lambda uid: True
         food_id = 50
         morld.give_item(NPC_ID, food_id)
-        _think_module._find_npc_food = lambda uid: {
+        _eat_module._find_npc_food = lambda uid: {
             "item_id": food_id, "unique_id": "apple", "satiety": 25
         }
 
@@ -570,7 +571,7 @@ class TestHungerFlow:
         _survival.is_npc_hungry = lambda uid: True
         food_id = 50
         morld.give_item(NPC_ID, food_id, 3)
-        _think_module._find_npc_food = lambda uid: {
+        _eat_module._find_npc_food = lambda uid: {
             "item_id": food_id, "unique_id": "apple", "satiety": 30
         }
 
@@ -1323,6 +1324,8 @@ class TestStorageCondition:
         # Mock get_instance for item counting
         class FakeFridge:
             def get_item_count(self, uid=None):
+                return 3
+            def get_category_item_count(self, category):
                 return 3  # 재고 3개 (threshold 10 미만)
         _assets_objects.get_instance = lambda obj_id: FakeFridge() if obj_id == FOOD_STORAGE_ID else None
 
@@ -1336,6 +1339,8 @@ class TestStorageCondition:
 
         class FakeFridge:
             def get_item_count(self, uid=None):
+                return 15
+            def get_category_item_count(self, category):
                 return 15  # 충분
         _assets_objects.get_instance = lambda obj_id: FakeFridge() if obj_id == FOOD_STORAGE_ID else None
 

@@ -119,8 +119,8 @@ class TestClassAttributes:
         assert "head_pat:start" in reactions
         assert "french_kiss:start" in reactions
         # 삽입 키 확인
-        assert "vaginal_penetration:start" in reactions
-        assert "vaginal_penetration:during" in reactions
+        assert "vaginal_insert:start" in reactions
+        assert "thrust_normal:during" in reactions
         # 절정 키 확인
         assert "ecstasy:start" in reactions
 
@@ -349,15 +349,18 @@ class TestRomanceReaction:
     def test_penetration_reactions(self):
         """삽입 행위 반응 모두 존재"""
         mob = _create_mob()
-        penetration_keys = [
-            "vaginal_penetration", "receive_penetration",
-            "anal_penetration", "receive_anal",
+        # 즉시형 삽입 → :start, 토글형 허리흔들기 → :during
+        penetration_checks = [
+            ("vaginal_insert", "start"),
+            ("anal_insert", "start"),
+            ("thrust_gentle", "during"),
+            ("thrust_normal", "during"),
+            ("thrust_rough", "during"),
         ]
-        for action in penetration_keys:
-            for timing in ("start", "during"):
-                text = mob.get_romance_reaction(action, timing)
-                assert text is not None, \
-                    f"Missing reaction: {action}:{timing}"
+        for action, timing in penetration_checks:
+            text = mob.get_romance_reaction(action, timing)
+            assert text is not None, \
+                f"Missing reaction: {action}:{timing}"
 
 
 # ============================================

@@ -12,7 +12,7 @@ from romance_actions import (
     SEMEN_PARTS, INTERNAL_SEMEN_PARTS,
     SEMEN_AMOUNT_BASE, SEMEN_AMOUNT_MIN, SEMEN_AMOUNT_MAX,
     PULL_OUT_STIM_THRESHOLD, PREPARATION_THRESHOLD,
-    _PENETRATION_TOGGLE_IDS,
+    _THRUST_TOGGLE_IDS,
     VIRGINITY_CLEARING_ACTIONS, VIRGINITY_BONUS_AFFECTION, VIRGINITY_BONUS_EXP,
 )
 import stimulation as stim_mod
@@ -411,52 +411,14 @@ class TestStateDescription:
 
 
 # ============================================
-# _get_active_penetration_part (순수 함수)
-# ============================================
-
-class TestActivePenetrationPart:
-    def test_vaginal_returns_vagina(self):
-        """질삽입 → '음부'"""
-        if "vaginal_penetration" in TOGGLE_ACTIONS:
-            result = rc._get_active_penetration_part({"vaginal_penetration"})
-            assert result == "음부"
-
-    def test_anal_returns_anus(self):
-        """항문삽입 → '항문'"""
-        if "anal_penetration" in TOGGLE_ACTIONS:
-            result = rc._get_active_penetration_part({"anal_penetration"})
-            assert result == "항문"
-
-    def test_fellatio_returns_oral(self):
-        """구강 → '구강'"""
-        if "fellatio" in TOGGLE_ACTIONS:
-            result = rc._get_active_penetration_part({"fellatio"})
-            assert result == "구강"
-
-    def test_no_penetration(self):
-        """삽입 없으면 None"""
-        result = rc._get_active_penetration_part(set())
-        assert result is None
-
-    def test_non_penetration_toggle(self):
-        """비삽입 토글만 → None"""
-        non_pen = [tid for tid in TOGGLE_ACTIONS
-                   if tid not in _PENETRATION_TOGGLE_IDS
-                   and tid != "fellatio"]
-        if non_pen:
-            result = rc._get_active_penetration_part({non_pen[0]})
-            assert result is None
-
-
-# ============================================
 # _has_active_penetration (순수 함수)
 # ============================================
 
 class TestHasActivePenetration:
     def test_with_penetration(self):
         """삽입 토글 활성 → True"""
-        if _PENETRATION_TOGGLE_IDS:
-            tid = list(_PENETRATION_TOGGLE_IDS)[0]
+        if _THRUST_TOGGLE_IDS:
+            tid = list(_THRUST_TOGGLE_IDS)[0]
             assert rc._has_active_penetration({tid}) is True
 
     def test_without_penetration(self):
@@ -465,34 +427,30 @@ class TestHasActivePenetration:
 
     def test_non_penetration_only(self):
         """비삽입 토글만 → False"""
-        non_pen = set(TOGGLE_ACTIONS.keys()) - _PENETRATION_TOGGLE_IDS
+        non_pen = set(TOGGLE_ACTIONS.keys()) - _THRUST_TOGGLE_IDS
         if non_pen:
             tid = list(non_pen)[0]
             assert rc._has_active_penetration({tid}) is False
 
 
 # ============================================
-# _has_active_intercourse (순수 함수)
+# _has_active_intercourse_from_state (순수 함수)
 # ============================================
 
 class TestHasActiveIntercourse:
-    def test_pregnancy_check_toggle(self):
-        """pregnancy_check 토글 → True"""
-        preg_toggles = [tid for tid, tdef in TOGGLE_ACTIONS.items()
-                        if tdef.get("pregnancy_check")]
-        if preg_toggles:
-            assert rc._has_active_intercourse({preg_toggles[0]}, TOGGLE_ACTIONS) is True
+    def test_vaginal_insertion(self):
+        """질 삽입 중 → True"""
+        state = {"insertion": {"active": True, "orifice": "vaginal"}}
+        assert rc._has_active_intercourse_from_state(state) is True
 
-    def test_no_pregnancy_check(self):
-        """pregnancy_check 없는 토글 → False"""
-        non_preg = [tid for tid, tdef in TOGGLE_ACTIONS.items()
-                    if not tdef.get("pregnancy_check")]
-        if non_preg:
-            assert rc._has_active_intercourse({non_preg[0]}, TOGGLE_ACTIONS) is False
+    def test_anal_insertion(self):
+        """항문 삽입 → False (질 삽입만 True)"""
+        state = {"insertion": {"active": True, "orifice": "anal"}}
+        assert rc._has_active_intercourse_from_state(state) is False
 
     def test_empty_toggles(self):
-        """빈 세트 → False"""
-        assert rc._has_active_intercourse(set(), TOGGLE_ACTIONS) is False
+        """삽입 없음 → falsy"""
+        assert not rc._has_active_intercourse_from_state({})
 
 
 # ============================================
@@ -861,10 +819,10 @@ class TestPullOutAvailable:
 
     def test_penetration_low_stim(self):
         """삽입 중이지만 P stim 미달 → False"""
-        if _PENETRATION_TOGGLE_IDS:
+        if _THRUST_TOGGLE_IDS:
             # pregnancy_check 가진 토글 찾기
             preg_id = None
-            for tid in _PENETRATION_TOGGLE_IDS:
+            for tid in _THRUST_TOGGLE_IDS:
                 if TOGGLE_ACTIONS[tid].get("pregnancy_check"):
                     preg_id = tid
                     break
@@ -877,9 +835,9 @@ class TestPullOutAvailable:
 
     def test_penetration_stim_met(self):
         """삽입 중 + P stim ≥ threshold → True"""
-        if _PENETRATION_TOGGLE_IDS:
+        if _THRUST_TOGGLE_IDS:
             preg_id = None
-            for tid in _PENETRATION_TOGGLE_IDS:
+            for tid in _THRUST_TOGGLE_IDS:
                 if TOGGLE_ACTIONS[tid].get("pregnancy_check"):
                     preg_id = tid
                     break
@@ -990,23 +948,25 @@ class TestExtractPreserved:
 
 
 # ============================================
-# _get_penetration_exp_part (순수 함수)
+# get_insertion_exp_part (순수 함수)
 # ============================================
 
 class TestPenetrationExpPart:
     def test_vaginal(self):
-        if "vaginal_penetration" in TOGGLE_ACTIONS:
-            assert rc._get_penetration_exp_part({"vaginal_penetration"}) == "음부"
+        """질 삽입 → '음부'"""
+        state = {"insertion": {"active": True, "orifice": "vaginal"}}
+        assert rc.get_insertion_exp_part(state) == "음부"
 
     def test_anal(self):
-        if "anal_penetration" in TOGGLE_ACTIONS:
-            assert rc._get_penetration_exp_part({"anal_penetration"}) == "엉덩이"
+        """항문 삽입 → '엉덩이'"""
+        state = {"insertion": {"active": True, "orifice": "anal"}}
+        assert rc.get_insertion_exp_part(state) == "엉덩이"
 
     def test_no_match(self):
-        assert rc._get_penetration_exp_part(set()) is None
+        """삽입 없음 → None"""
+        assert rc.get_insertion_exp_part({}) is None
 
-    def test_first_match(self):
-        """여러 삽입 토글 중 첫 번째 매칭"""
-        toggles = {"vaginal_penetration", "anal_penetration"}
-        result = rc._get_penetration_exp_part(toggles)
-        assert result in ("음부", "엉덩이")
+    def test_inactive(self):
+        """삽입 비활성 → None"""
+        state = {"insertion": {"active": False, "orifice": "vaginal"}}
+        assert rc.get_insertion_exp_part(state) is None
