@@ -65,7 +65,7 @@ def get_gender(unit_id):
 
 
 def has_anatomy(unit_id, category):
-    """해당 감각 카테고리 보유 여부
+    """해당 감각 카테고리 보유 여부 (임시 해부학 포함)
 
     Args:
         unit_id: 대상 유닛 ID
@@ -73,6 +73,26 @@ def has_anatomy(unit_id, category):
 
     Returns:
         bool: 해당 카테고리를 보유하면 True
+    """
+    if category in get_anatomy(unit_id):
+        return True
+    # 임시 해부학 (장비에 의한 — 예: 페니스밴드 → 임시해부학:P)
+    if morld.get_unit_prop(unit_id, f"임시해부학:{category}"):
+        return True
+    return False
+
+
+def has_natural_anatomy(unit_id, category):
+    """장비 보정 없는 순수 해부학 카테고리 보유 여부
+
+    사정 등 자연 기능 체크 시 사용 (페니스밴드는 사정 불가).
+
+    Args:
+        unit_id: 대상 유닛 ID
+        category: "M", "B", "A", "V", "C", "P" 중 하나
+
+    Returns:
+        bool: 해당 카테고리를 자연적으로 보유하면 True
     """
     return category in get_anatomy(unit_id)
 

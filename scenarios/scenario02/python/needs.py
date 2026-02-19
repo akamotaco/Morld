@@ -21,6 +21,7 @@ PROP_FATIGUE = "욕구:피로"
 PROP_CLEANLINESS = "욕구:청결"
 PROP_SOCIAL = "욕구:사회"
 PROP_AROUSAL = "상태:성욕"  # romance.py 소유, 읽기+자연증가만
+PROP_CLIMAX = "상태:절정"   # 상시 절정 prop (0-100)
 
 # === 증가율 (시간당) ===
 FATIGUE_RATE = 4              # 각성 중 +4/h (25시간에 100 도달)
@@ -32,6 +33,11 @@ SOCIAL_RATE = 1               # 고립 시 +1/h
 AROUSAL_NATURAL_RATE = 0.5    # 자연 성욕 증가 +0.5/h
 AROUSAL_NATURAL_CAP = 50      # 자연 증가 상한
 SUBMISSION_DECAY_INTERVAL = 2 # 복종 자연 감소 간격 (시간) — 미사용 (항상성으로 대체)
+
+# === 절정 상시 관리 ===
+CLIMAX_NATURAL_DECAY = 3      # 기본 자연 감소 (-3/h, 성인용품 없을 때)
+CLIMAX_PASSIVE_AROUSAL_DROP = 30  # 수동 절정 시 성욕 감소량
+CLIMAX_PASSIVE_FATIGUE = 5    # 수동 절정 시 피로 증가량
 
 # === 순수/욕망 효과 ===
 # 순수 (desire < 40): 성욕 감소, 욕망 (desire >= 40): 성욕 증가 가속
@@ -105,6 +111,11 @@ def get_cleanliness(unit_id):
 def get_social(unit_id):
     """사회 욕구 조회 (0-100)"""
     return morld.get_unit_prop(unit_id, PROP_SOCIAL) or 0
+
+
+def get_climax(unit_id):
+    """절정 수치 조회 (0-100)"""
+    return morld.get_unit_prop(unit_id, PROP_CLIMAX) or 0
 
 
 # ========================================
@@ -231,6 +242,63 @@ def _apply_homeostasis(unit_id, prop_key, basins):
     morld.set_unit_prop(unit_id, prop_key, new_val)
 
 
+def _update_climax(unit_id):
+    """절정 상시 업데이트 (시간당)
+
+    성인용품(삽입물+착용형) 자극 합산 - 자연 감소.
+    100 도달 시 수동 절정 이벤트 발동.
+    """
+    climax = morld.get_unit_prop(unit_id, PROP_CLIMAX) or 0
+
+    # 성인용품 자극 합산
+    try:
+        from assets.items.adult_toys import get_total_climax_rate
+        toy_rate = get_total_climax_rate(unit_id)
+    except ImportError:
+        toy_rate = 0
+
+    # 정력제: 절정 -5/h
+    stamina_active = morld.get_unit_prop(unit_id, "상태:정력제") or 0
+    stamina_mod = -5 if stamina_active else 0
+
+    # 총 변화량: 장비 자극 - 자연 감소 + 정력제
+    delta = toy_rate - CLIMAX_NATURAL_DECAY + stamina_mod
+
+    # 자극원 없으면 0 미만으로 감소만
+    new_climax = max(0, min(100, climax + delta))
+
+    if new_climax >= 100:
+        _trigger_passive_climax(unit_id)
+        new_climax = 0
+
+    morld.set_unit_prop(unit_id, PROP_CLIMAX, new_climax)
+
+
+def _trigger_passive_climax(unit_id):
+    """비로맨스 상태에서 성인용품에 의한 절정 이벤트
+
+    성욕 감소, 피로 증가, 구속:입 없으면 신음 발생.
+    """
+    # 성욕 감소
+    current_arousal = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
+    morld.set_unit_prop(unit_id, PROP_AROUSAL,
+                        max(0, current_arousal - CLIMAX_PASSIVE_AROUSAL_DROP))
+
+    # 피로 증가
+    current_fatigue = morld.get_unit_prop(unit_id, PROP_FATIGUE) or 0
+    morld.set_unit_prop(unit_id, PROP_FATIGUE,
+                        min(100, current_fatigue + CLIMAX_PASSIVE_FATIGUE))
+
+    # 소리 발생 (입이 자유로운 경우만)
+    gagged = morld.get_unit_prop(unit_id, "구속:입")
+    if not gagged:
+        try:
+            import sound
+            sound.emit_sound(unit_id, "moan", 30)
+        except ImportError:
+            pass
+
+
 def _process_hourly(unit_id):
     """캐릭터 1시간 욕구 업데이트"""
     # 피로: 수면 중이면 감소, 아니면 증가
@@ -316,6 +384,30 @@ def _process_hourly(unit_id):
         morld.set_unit_prop(unit_id, PROP_AROUSAL, min(100, current_arousal_a + 5))
         if aphrodisiac_remaining <= 0:
             morld.set_unit_prop(unit_id, "상태:미약", 0)
+
+    # 배란유도제: 남은시간 감소
+    ovulation_remaining = morld.get_unit_prop(unit_id, "상태:배란유도남은시간") or 0
+    if ovulation_remaining > 0:
+        ovulation_remaining -= 1
+        morld.set_unit_prop(unit_id, "상태:배란유도남은시간", ovulation_remaining)
+        if ovulation_remaining <= 0:
+            morld.set_unit_prop(unit_id, "상태:배란유도", 0)
+
+    # 정력제: 남은시간 감소
+    stamina_remaining = morld.get_unit_prop(unit_id, "상태:정력제남은시간") or 0
+    if stamina_remaining > 0:
+        stamina_remaining -= 1
+        morld.set_unit_prop(unit_id, "상태:정력제남은시간", stamina_remaining)
+        # 정력제 활성: 성욕 +3/h (미약과 별도)
+        current_arousal_s = morld.get_unit_prop(unit_id, PROP_AROUSAL) or 0
+        morld.set_unit_prop(unit_id, PROP_AROUSAL, min(100, current_arousal_s + 3))
+        if stamina_remaining <= 0:
+            morld.set_unit_prop(unit_id, "상태:정력제", 0)
+
+    # 절정 상시 관리 (성인용품 자극 + 자연 감소)
+    import settings
+    if settings.is_romance_enabled():
+        _update_climax(unit_id)
 
     # 사회: 혼자이면 증가
     if _is_alone(unit_id):

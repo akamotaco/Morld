@@ -109,6 +109,62 @@ def _resolve_private_location(agent):
 
 
 # ========================================
+# 성인용품 헬퍼
+# ========================================
+
+def _try_use_toy(agent):
+    """자위 시 삽입형 성인용품 사용 시도
+
+    인벤토리에서 삽입형 성인용품이 있으면 사용.
+    삽입물 prop 설정 + 메모리에 기록.
+    """
+    try:
+        from assets.items.adult_toys import INSERTABLE_ORIFICES
+        import gender as gender_mod
+    except ImportError:
+        return
+
+    inventory = morld.get_unit_items(agent.unit_id)
+    if not inventory:
+        return
+
+    for item_id in inventory:
+        item_info = morld.get_item_info(item_id)
+        if not item_info:
+            continue
+        pp = item_info.get("passive_props", {})
+        insertable = pp.get("성인용품:삽입형")
+        if not insertable:
+            continue
+        # 오리피스 선택 (해부학 기반)
+        for orifice in INSERTABLE_ORIFICES:
+            # 해부학 호환 체크
+            if orifice == "음부" and not gender_mod.has_anatomy(agent.unit_id, "V"):
+                continue
+            if orifice == "클리토리스" and not gender_mod.has_anatomy(agent.unit_id, "C"):
+                continue
+            # 이미 삽입물 있으면 스킵
+            if morld.get_unit_prop(agent.unit_id, f"삽입물:{orifice}"):
+                continue
+            # 삽입
+            morld.set_unit_prop(agent.unit_id, f"삽입물:{orifice}", item_id)
+            agent._memory["self_comfort_toy"] = item_id
+            agent._memory["self_comfort_toy_orifice"] = orifice
+            return  # 1개만 사용
+
+
+def _cleanup_toy(agent):
+    """자위 완료 시 삽입물 정리"""
+    toy_id = agent._memory.get("self_comfort_toy")
+    if toy_id:
+        orifice = agent._memory.get("self_comfort_toy_orifice")
+        if orifice:
+            morld.clear_prop(agent.unit_id, f"삽입물:{orifice}")
+        agent._memory.pop("self_comfort_toy", None)
+        agent._memory.pop("self_comfort_toy_orifice", None)
+
+
+# ========================================
 # 자위 핸들러
 # ========================================
 
@@ -148,11 +204,15 @@ def _handle_self_comfort(agent):
             agent._move_to(target, "이동")  # 이동 중엔 발각 안 됨
 
     elif phase == "performing":
+        # 성인용품 보유 여부 체크 → 삽입형 사용
+        _try_use_toy(agent)
         # 15분 자위 job 삽입 — job 완료 후 finishing 단계에서 결과 처리
         agent._memory["self_comfort_phase"] = "finishing"
         agent._do_instant_action("자위", "self_comfort")
 
     elif phase == "finishing":
+        # 성인용품 정리
+        _cleanup_toy(agent)
         # job 완료 → 주변 확인
         loc = agent.get_location()
         alone = True
@@ -166,10 +226,14 @@ def _handle_self_comfort(agent):
                         discovered_by = u
                         break
 
+        # 성인용품 사용 시 효과 증가
+        toy_used = agent._memory.get("self_comfort_toy") is not None
+        base_reduction = 70 if toy_used else 50
+
         if alone:
             # 성공: 성욕 감소 + 정상 쿨다운
             arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
-            morld.set_unit_prop(agent.unit_id, "상태:성욕", max(0, arousal - 50))
+            morld.set_unit_prop(agent.unit_id, "상태:성욕", max(0, arousal - base_reduction))
             agent._memory["self_comfort_phase"] = None
             agent._memory["self_comfort_cooldown"] = agent.get_time()
             agent._do_instant_action("대기", "brief")

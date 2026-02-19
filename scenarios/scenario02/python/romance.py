@@ -305,6 +305,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
         "npc_thrust_trance": False,
     }
 
+    # 신규 세션: 상시 절정 prop → 세션 게이지 동기화
+    if not preserved:
+        climax_prop = morld.get_unit_prop(partner_id, "상태:절정") or 0
+        state["stim"]["climax_gauge"] = climax_prop
+
     # 전환 시 보존 상태 복원
     if preserved:
         state["stim"] = preserved["stim"]
@@ -1853,8 +1858,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     # 종료 처리 - 플레이어 체력 기록 (HP 연동)
     survival.set_health(player_id, state["stamina"])
 
-    # 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
+    # 종료 처리 - 절정 게이지 → 상시 prop 동기화
     partner_id = state["partner_id"]
+    final_climax = state["stim"].get("climax_gauge", 0)
+    morld.set_unit_prop(partner_id, "상태:절정", max(0, min(100, final_climax)))
+
+    # 파트너 스케줄 스택에서 pop (원래 스케줄 복원)
     mode_ctx = state["mode_ctx"]
     cur_mode = mode_ctx["mode"]
     partner_agent = think.get_agent(partner_id)

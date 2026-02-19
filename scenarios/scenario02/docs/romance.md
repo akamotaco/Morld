@@ -11,6 +11,7 @@
 | [romance-actions.md](romance-actions.md) | 스킨십, 데이트, NPC 주도, 감각/자극, 탈의/노출, 은신/발각, 소음, 삽입 |
 | [romance-pregnancy.md](romance-pregnancy.md) | 임신과 출산 (월경/수정/임신/출산/아이 NPC) |
 | [romance-join.md](romance-join.md) | 합류/복수 파트너 시스템 |
+| [adult-toys.md](adult-toys.md) | 성인용품, 구속 시스템, 절정 상시 관리 |
 
 ---
 
@@ -144,6 +145,15 @@
 | ~~은밀 장소 판정~~ | ~~length 기반 은밀 장소 선정~~ | ✅ 완료 (length 기반) |
 | ~~화장실 프라이버시~~ | ~~ROOM_PRIVACY_CONFIG "화장실" 추가~~ | ✅ 완료 (5캐릭터) |
 | ~~NPC-NPC 대화~~ | ~~사회욕 기반 대화 시스템 + describe text~~ | ✅ 완료 (think/__init__.py _handle_socialize) |
+| 성인용품 시스템 (17종) | 착용형/삽입형/소모성 아이템 | ✅ 완료 (adult_toys.py) |
+| 구속 시스템 (로프/수갑) | 행동 제한, 자력 해제, NPC 구출 | ✅ 완료 (restraint.py) |
+| 절정 상시 관리 (`상태:절정`) | 비로맨스 절정 게이지, 세션 동기화 | ✅ 완료 (needs.py) |
+| 로맨스 신규 액션 (6종) | 구속/해제, 성인용품 장착/해제, 강제 투여, 채찍 | ✅ 완료 (romance_actions.py) |
+| 행위 차단 로직 (구속/삽입물) | 입 구속→구강 차단, 삽입물→삽입 차단 | ✅ 완료 (romance_core.py) |
+| 임시 해부학 (페니스밴드) | `has_anatomy` vs `has_natural_anatomy` | ✅ 완료 (gender.py) |
+| NPC 자위 성인용품 사용 | 삽입형 자동 사용 + 효과 증가 | ✅ 완료 (self_comfort.py) |
+| 음식 첨가물 효과 (NPC 식사) | 미약/배란유도제/정력제 첨가 감지 | ✅ 완료 (eat.py) |
+| 구속/성인용품 톤 반응 (10 아키타입) | restrained_idle/passive_climax/toy_equipped | ✅ 완료 (tone_templates/) |
 | NPC-NPC 행위 발각 | 행위 중 플레이어 개입 이벤트 | 미구현 |
 | NPC-NPC 자위 발각 상호작용 | 연인 NPC 발각 시 상호 애정 행위 전환 | 미구현 (현재: NPC 방해 → 짧은 쿨다운) |
 | ~~V 부위 액션~~ | ~~Vaginal 카테고리 액션 추가~~ | ✅ 완료 (V/C 4종 추가) |
@@ -193,8 +203,11 @@ scenarios/scenario02/python/
 ├── npc_initiative.py             # NPC 주도 스킨십 시스템 (행위 마스킹, 캐릭터 필터)
 ├── gender.py                     # 성별/성적지향/체격/음경크기/삽입호환성
 ├── stimulation.py                # 자극 시스템 (절정/여운/연쇄)
+├── restraint.py                  # 구속 시스템 (상태 판별/자력 해제/타인 해제)
 ├── pregnancy.py                  # 임신/출산 시스템 (월경/수정/임신/출산/이벤트)
 ├── assets/
+│   ├── items/
+│   │   └── adult_toys.py         # 성인용품 17종 아이템 정의 + 유틸리티
 │   ├── base.py                   # Character 클래스 + 빌더 함수
 │   │                             # - build_focus_rules(): FOCUS_RULES 아키타입 빌더
 │   │                             # - build_describe_rules(): DESCRIBE_RULES 아키타입 빌더

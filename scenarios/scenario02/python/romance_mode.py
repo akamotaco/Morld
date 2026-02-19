@@ -387,6 +387,14 @@ def check_resistance(mode_ctx, target_id, stim_state=None):
         return {"escaped": False, "resistance_delta": 0,
                 "attempted": False, "is_futile": False, "escape_chance": 0.0}
 
+    # 구속 상태: 탈출 불가 (저항 게이지도 축적 안됨)
+    import restraint
+    if restraint.is_restrained(target_id):
+        mode_ctx["last_escape_chance"] = 0.0
+        mode_ctx["last_is_futile"] = True
+        return {"escaped": False, "resistance_delta": 0,
+                "attempted": False, "is_futile": True, "escape_chance": 0.0}
+
     import random
 
     escape_info = calculate_escape_chance(target_id, stim_state)

@@ -9,6 +9,34 @@ from think.activities.helpers import find_food_in_container as _find_food_in_con
 
 
 # ========================================
+# 첨가물 효과 적용
+# ========================================
+
+def _apply_food_drug_effects(unit_id, food_item_id):
+    """음식에 첨가된 약물 효과를 NPC에 적용"""
+    # 미약
+    if morld.get_unit_prop(food_item_id, "상태:미약첨가") == 1:
+        remaining = morld.get_unit_prop(unit_id, "상태:미약남은시간") or 0
+        if remaining <= 0:
+            morld.set_unit_prop(unit_id, "상태:미약", 1)
+            morld.set_unit_prop(unit_id, "상태:미약남은시간", 6)
+
+    # 배란유도제
+    if morld.get_unit_prop(food_item_id, "상태:배란유도제첨가") == 1:
+        remaining = morld.get_unit_prop(unit_id, "상태:배란유도남은시간") or 0
+        if remaining <= 0:
+            morld.set_unit_prop(unit_id, "상태:배란유도", 1)
+            morld.set_unit_prop(unit_id, "상태:배란유도남은시간", 24)
+
+    # 정력제
+    if morld.get_unit_prop(food_item_id, "상태:정력제첨가") == 1:
+        remaining = morld.get_unit_prop(unit_id, "상태:정력제남은시간") or 0
+        if remaining <= 0:
+            morld.set_unit_prop(unit_id, "상태:정력제", 1)
+            morld.set_unit_prop(unit_id, "상태:정력제남은시간", 6)
+
+
+# ========================================
 # 식사 핸들러 (배고픔 인터럽트)
 # ========================================
 
@@ -70,6 +98,8 @@ def _handle_eat(agent):
         if food:
             import survival
             survival.npc_eat(agent.unit_id, food["satiety"])
+            # 첨가물 효과 (미약/배란유도제/정력제)
+            _apply_food_drug_effects(agent.unit_id, food["item_id"])
             morld.remove_item(agent.unit_id, food["item_id"], 1)
         agent._memory["hunger_phase"] = None
         agent._memory.pop("hunger_target", None)

@@ -293,6 +293,31 @@ class Unit(Asset):
 # FOCUS_RULES 공유 상수 및 빌더
 # ========================================
 
+# 구속 + 성인용품 focus
+_FOCUS_RESTRAINT = [
+    # 구속 + 삽입물 복합
+    ({"restrained": True, "삽입물_음부": True, "절정": 60},
+     "결박당한 채 몸이 떨리고 있다. 참을 수 없는 표정이다."),
+    ({"restrained": True, "gagged": True},
+     "결박당해 입까지 막힌 채 움직이지 못하고 있다."),
+    ({"restrained": True, "blindfolded": True},
+     "결박당해 눈까지 가려진 채 움직이지 못하고 있다."),
+    ({"restrained": True},
+     "결박당해 움직이지 못하고 있다."),
+    # 삽입물 단독 (높은 절정)
+    ({"삽입물_음부": True, "절정": 70},
+     "몸이 달아올라 다리가 떨리고 있다."),
+    ({"삽입물_음부": True},
+     "무언가를 참는 듯한 표정을 하고 있다."),
+    ({"삽입물_항문": True},
+     "자세가 어딘가 부자연스럽다."),
+    # 절정 높음 (성인용품 없어도)
+    ({"절정": 80},
+     "얼굴이 상기되어 참을 수 없는 표정이다."),
+    ({"절정": 50},
+     "약간 상기된 표정이다."),
+]
+
 _FOCUS_SEMEN = [
     ({"정액:얼굴": 10}, "얼굴에 하얀 것이 묻어 있다."),
     ({"정액:가슴": 10}, "가슴에 정액이 묻어 있다."),
@@ -420,7 +445,7 @@ _FOCUS_AFFECTION = {
 }
 
 _DEFAULT_FOCUS_ORDER = [
-    "specials", "semen", "internal_semen",
+    "restraint", "specials", "semen", "internal_semen",
     "activity", "mood", "desire", "affection", "default",
 ]
 
@@ -433,6 +458,7 @@ def build_focus_rules(archetype, activities, default_text,
     정액/체내정액/성욕/호감/mood 묘사를 자동 상속.
     """
     sections = {
+        "restraint": _FOCUS_RESTRAINT,
         "specials": list(specials or []),
         "semen": _FOCUS_SEMEN,
         "internal_semen": _FOCUS_INTERNAL_SEMEN.get(archetype, []),
@@ -451,6 +477,19 @@ def build_focus_rules(archetype, activities, default_text,
 # ========================================
 # DESCRIBE_RULES 공유 상수 및 빌더
 # ========================================
+
+_DESCRIBE_RESTRAINT = [
+    ({"restrained": True, "삽입물_음부": True, "절정": 60},
+     "{name}(이)가 결박당한 채 몸을 떨고 있다. 다리 사이에서 희미한 진동음이 들린다."),
+    ({"restrained": True, "gagged": True},
+     "{name}(이)가 결박당해 입까지 막힌 채 바닥에 꿇려 있다."),
+    ({"restrained": True},
+     "{name}(이)가 결박당해 움직이지 못하고 있다."),
+    ({"삽입물_음부": True, "절정": 70},
+     "{name}(이)가 다리를 꼬고 서 있다. 참을 수 없는 듯 얼굴이 붉다."),
+    ({"절정": 80},
+     "{name}의 얼굴이 상기되어 있다. 숨이 거칠다."),
+]
 
 _DESCRIBE_SEMEN = [
     ({"정액:얼굴": 20}, "{name}의 얼굴에 정액이 묻어 있다."),
@@ -576,7 +615,7 @@ _DESCRIBE_FATIGUE = {
 }
 
 _DEFAULT_DESCRIBE_ORDER = [
-    "specials", "traveling", "activity", "weather", "location",
+    "restraint", "specials", "traveling", "activity", "weather", "location",
     "semen", "internal_semen", "desire", "affection",
     "default", "fatigue",
 ]
@@ -591,6 +630,7 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
     정액/체내정액/성욕/호감/피로도 묘사를 자동 상속.
     """
     sections = {
+        "restraint": _DESCRIBE_RESTRAINT,
         "specials": list(specials or []),
         "traveling": list(traveling or []),
         "activity": [({"activity": k}, v) for k, v in (activities or [])],
@@ -1236,6 +1276,24 @@ class Character(Unit):
         # 플레이어 체력 역전 (HP 낮을수록 높은 값 → >= 비교 편의)
         player_hp = morld.get_unit_prop(player_id, "생존:체력")
         context["피로도_체력"] = max(0, 100 - (player_hp if player_hp is not None else 100))
+
+        # 구속 상태
+        context["restrained"] = bool(props.get("구속:사지")) if props else False
+        context["gagged"] = bool(props.get("구속:입")) if props else False
+        context["blindfolded"] = bool(props.get("구속:눈")) if props else False
+
+        # 절정 수치
+        context["절정"] = props.get("상태:절정", 0) if props else 0
+
+        # 삽입물
+        if props:
+            context["삽입물_음부"] = bool(props.get("삽입물:음부"))
+            context["삽입물_항문"] = bool(props.get("삽입물:항문"))
+            context["삽입물_클리토리스"] = bool(props.get("삽입물:클리토리스"))
+        else:
+            context["삽입물_음부"] = False
+            context["삽입물_항문"] = False
+            context["삽입물_클리토리스"] = False
 
         return context
 

@@ -343,6 +343,45 @@ INSTANT_ACTIONS = {
         "passive_in_npc_initiative": True,
         "npc_initiative_only": True,
     },
+    # ── 구속/성인용품 ────────────────────────────────
+    "restrain_partner": {
+        "name": "구속", "time": 2 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"반발": 3, "복종": 2},
+        "exp_part": None, "affection_req": 0,
+        "requires_inventory_category": "restraint",
+        "resistance_check": True,
+    },
+    "unrestrain_partner": {
+        "name": "구속 해제", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+    },
+    "equip_toy_partner": {
+        "name": "성인용품 장착 (상대)", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"반발": 1, "복종": 1},
+        "exp_part": None, "affection_req": 0,
+        "requires_inventory_category": "adult_toy",
+        "resistance_check": True,
+    },
+    "remove_toy_partner": {
+        "name": "성인용품 해제 (상대)", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+    },
+    "force_feed": {
+        "name": "강제 투여", "time": 1 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {"반발": 2, "복종": 1},
+        "exp_part": None, "affection_req": 0,
+        "requires_inventory_category": "medicine",
+        "requires_no_gag": True,
+    },
+    "use_whip": {
+        "name": "채찍질", "time": 2 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {"반발": 3, "복종": 2, "성욕": 2},
+        "exp_part": "엉덩이", "affection_req": 0,
+        "requires_equipped_prop": "성인용품:채찍",
+        "intensity": 3,
+    },
 }
 
 # ============================================

@@ -1,0 +1,352 @@
+# 성인용품 시스템 (Adult Toys System)
+
+> `assets/items/adult_toys.py`, `restraint.py`, `needs.py` — 순수 Python
+
+성인용품 아이템 정의, 구속 메커니즘, 절정 상시 관리를 통합한 시스템.
+
+**관련 문서**:
+| 문서 | 설명 |
+|------|------|
+| [romance-actions.md](romance-actions.md) | 로맨스 행위 정의 (신규 액션 포함) |
+| [life.md](life.md) | NPC 자위 시 성인용품 사용 |
+| [system-gameplay.md](system-gameplay.md) | 장비 슬롯, 욕구 시스템 |
+
+---
+
+## 1. 아이템 분류
+
+### 착용형 (equip system)
+
+기존 장비 시스템과 동일한 `equip_props` 기반. 캐릭터에 장착하면 C#이 prop을 자동 적용.
+
+| # | unique_id | 이름 | equip_props | 비고 |
+|---|-----------|------|-------------|------|
+| 1 | `penis_band` | 페니스 밴드 | `착용:하체장비`, `임시해부학:P` | V/C 있는 캐릭터만. 임시 P anatomy (사정 불가) |
+| 2 | `ball_gag` | 볼개그 | `착용:구강장비`, `구속:입` | 말하기/구강행위/식사 차단 |
+| 3 | `nipple_clamp` | 니플클램프 | `착용:유두장비`, `성인용품:자극=3` | +3 절정/h |
+| 4 | `blindfold` | 안대 | `착용:안경`, `구속:눈` | 기존 안경 슬롯 공유 |
+| 5 | `collar_leash` | 목줄 | `착용:목장비`, `성인용품:목줄` | 묘사 연출용 |
+| 6 | `rope` | 로프 | `착용:구속`, `구속:사지`, `구속:강도=30` | 해제 난이도 낮음 |
+| 7 | `handcuffs` | 수갑 | `착용:구속`, `구속:사지`, `구속:강도=60` | 해제 난이도 높음 |
+
+### 삽입형 (prop-based 추적)
+
+착용형과 달리 `equip`이 아닌 캐릭터 prop `삽입물:{부위}`에 item_id를 기록.
+해당 오리피스의 자연 삽입(음경 등)을 차단.
+
+| # | unique_id | 이름 | 삽입 가능 부위 | 효과 |
+|---|-----------|------|---------------|------|
+| 8 | `vibrator` | 바이브레이터 | 음부, 항문 | +10 절정/h (진동) |
+| 9 | `dildo` | 딜도 | 음부, 항문 | +3 절정/h |
+| 10 | `rotor` | 로터 | 클리토리스 | +5 절정/h (삽입 비차단) |
+| 11 | `anal_plug` | 항문 플러그 | 항문 | +3 절정/h |
+
+### 사용 도구
+
+| # | unique_id | 이름 | equip_props | 비고 |
+|---|-----------|------|-------------|------|
+| 12 | `whip` | 채찍 | `장착:손`, `성인용품:채찍` | 로맨스 액션 전용 |
+
+### 소모성
+
+| # | unique_id | 이름 | category | 효과 |
+|---|-----------|------|----------|------|
+| 13 | `aphrodisiac` | 미약 | medicine | 6h 성욕 +5/h |
+| 14 | `ovulation_inducer` | 배란유도제 | medicine | 24h 가임 100% |
+| 15 | `stamina_potion` | 정력제 | medicine | 6h 절정 -5/h, 성욕 +3/h |
+| 16 | `lubricant` | 윤활제 | medicine | 즉시 삽입 준비도 100% |
+| 17 | `contraceptive_pill` | 피임약 | medicine | 24h 피임 |
+
+---
+
+## 2. 삽입형 메커니즘
+
+### 삽입/제거
+
+```python
+# 삽입: 캐릭터 prop에 item_id 기록
+morld.set_unit_prop(target_id, f"삽입물:{orifice}", item_id)
+
+# 제거: prop 클리어
+morld.clear_prop(target_id, f"삽입물:{orifice}")
+```
+
+### 오리피스 목록
+
+```python
+INSERTABLE_ORIFICES = ["음부", "항문", "클리토리스"]
+```
+
+### 삽입 차단
+
+삽입형 아이템이 있는 오리피스에는 자연 삽입(질삽입/항문삽입 등) 불가.
+`romance_core.is_action_blocked_by_state()`에서 체크.
+
+```python
+# 예: 음부에 바이브레이터 삽입 상태 → vaginal_insert 차단
+orifice = action_def.get("insertion_orifice")
+if orifice and morld.get_unit_prop(target_id, f"삽입물:{mapped_orifice}"):
+    return True  # 차단
+```
+
+### 유틸리티 함수
+
+```python
+from assets.items.adult_toys import (
+    get_total_climax_rate,    # 삽입물 + 착용형의 총 절정 증가율/h
+    get_insertable_info,      # 삽입형 아이템 정보 조회
+    INSERTABLE_ORIFICES,      # 삽입 가능 부위 목록
+)
+```
+
+---
+
+## 3. 구속 시스템 (Restraint)
+
+> `restraint.py` — 구속 상태 판별, 자력 해제, 타인 해제 API
+
+### 구속 Props
+
+| Prop | 설명 | 설정 주체 |
+|------|------|----------|
+| `구속:사지` | 사지 구속 (이동/행동 차단) | rope, handcuffs의 equip_props |
+| `구속:입` | 입 구속 (말하기/구강/식사 차단) | ball_gag의 equip_props |
+| `구속:눈` | 시각 차단 (감각 효과) | blindfold의 equip_props |
+| `구속:강도` | 해제 난이도 (30=로프, 60=수갑) | equip_props |
+
+### 상태 판별 API
+
+```python
+import restraint
+
+restraint.is_restrained(unit_id)      # 구속:사지 여부
+restraint.is_gagged(unit_id)          # 구속:입 여부
+restraint.is_blindfolded(unit_id)     # 구속:눈 여부
+restraint.get_restraint_strength(unit_id)  # 구속:강도 값
+```
+
+### 자력 해제 (NPC)
+
+```python
+restraint.attempt_self_escape(unit_id)  # True/False
+```
+
+확률 계산:
+```
+power = 근력×2 + 체격×3 + HP비율×50
+difficulty = 구속강도 + 절정×0.3
+chance = min(0.7, max(0.05, power / (difficulty + power)))
+```
+
+### 타인 해제
+
+```python
+restraint.release_unit(unit_id)  # 항상 성공, 모든 구속 prop 해제
+```
+
+### 구속 중 행동 제한
+
+| 상태 | 가능 | 불가 |
+|------|------|------|
+| `구속:사지` | 자력 해제 시도, 소리치기(입 자유 시) | 이동, 아이템, 착의/탈의, 식사, 자위, 일상 전체 |
+| `구속:입` | 위 + 구강 차단 | 말하기, 구강 행위, 식사, 소리치기 |
+| `구속:눈` | 제한 없음 (감각 효과만) | — |
+
+### NPC AI 연동
+
+**Tier 0 (최고 우선순위)**: 구속 상태 → `_handle_restrained()`
+- 3-phase: idle → escaping → waiting
+- 30분마다 자력 해제 시도
+- 입 자유 시 소리 발생 (`sound.emit_sound("scream", 80)`)
+
+**Tier 2 (Reactive)**: 같은 location에 구속된 NPC 발견 → 해제
+- 2-phase: detect → releasing (3분)
+
+---
+
+## 4. 절정 상시 관리
+
+> `needs.py`의 `_update_climax()` — 매시간 호출
+
+### 개요
+
+로맨스 세션 밖에서도 성인용품에 의한 절정 게이지(`상태:절정`)를 지속 추적.
+로맨스 시작/종료 시 세션 게이지(`climax_gauge`)와 양방향 동기화.
+
+### Prop
+
+| Prop | 범위 | 설명 |
+|------|------|------|
+| `상태:절정` | 0-100 | 비로맨스 절정 게이지 |
+
+### 매시간 업데이트
+
+```python
+def _update_climax(unit_id):
+    delta = -3  # 자연 감소
+    delta += adult_toys.get_total_climax_rate(unit_id)  # 삽입물 + 착용형
+    # 정력제 효과: delta -= 5
+
+    if new_climax >= 100:
+        _trigger_passive_climax(unit_id)  # 비로맨스 절정
+        new_climax = 0
+```
+
+### 비로맨스 절정 (`_trigger_passive_climax`)
+
+- 성욕 -30
+- 피로 +5
+- 입 자유 시 신음 소리 발생 (`sound.emit_sound("moan", 30)`)
+
+### 세션 동기화
+
+```python
+# 세션 시작 (romance.py, npc_initiative.py)
+state["stim"]["climax_gauge"] = morld.get_unit_prop(npc_id, "상태:절정") or 0
+
+# 세션 종료
+morld.set_unit_prop(npc_id, "상태:절정", final_climax)
+```
+
+---
+
+## 5. 약물 타이머
+
+### 타이머 Props
+
+| 약물 | 상태 Prop | 타이머 Prop | 지속 | 효과 |
+|------|----------|------------|------|------|
+| 미약 | `상태:미약` | `상태:미약남은시간` | 6h | 성욕 +5/h |
+| 배란유도제 | `상태:배란유도` | `상태:배란유도남은시간` | 24h | 가임 100% |
+| 정력제 | `상태:정력제` | `상태:정력제남은시간` | 6h | 절정 -5/h, 성욕 +3/h |
+| 피임약 | `상태:피임` | `상태:피임남은시간` | 24h | 피임 |
+
+### 음식 첨가
+
+소모성 아이템을 음식에 섞을 수 있음. 음식 prop으로 기록:
+- `상태:미약첨가` = 1
+- `상태:배란유도제첨가` = 1
+- `상태:정력제첨가` = 1
+
+**발동 경로**:
+- 플레이어 식사: `FoodItem.eat()` (food.py)
+- NPC 식사: `_apply_food_drug_effects()` (think/handlers/eat.py)
+
+---
+
+## 6. 로맨스 통합
+
+### 신규 액션 (romance_actions.py)
+
+| ID | 이름 | 시간 | 스태미나 | 비고 |
+|----|------|------|---------|------|
+| `restrain_partner` | 구속 | 2분 | 2 | 저항 체크, 인벤토리 restraint 필요 |
+| `unrestrain_partner` | 구속 해제 | 1분 | 0 | |
+| `equip_toy_partner` | 성인용품 장착 | 2분 | 1 | 저항 체크, 인벤토리 adult_toy 필요 |
+| `remove_toy_partner` | 성인용품 해제 | 1분 | 0 | |
+| `force_feed` | 강제 투여 | 1분 | 1 | 인벤토리 medicine 필요, 입 자유 필요 |
+| `use_whip` | 채찍질 | 2분 | 2 | 채찍 장착 필요, 반발+3/복종+2/성욕+2 |
+
+### 행위 차단 로직 (romance_core.py)
+
+`is_action_blocked_by_state(action_def, target_id)`:
+- `uses_mouth` + 입 구속 → 차단
+- `requires_no_gag` + 입 구속 → 차단
+- `insertion_orifice` + 해당 부위 삽입물 존재 → 차단
+
+### 구속 + 강제 모드
+
+구속 상태에서 `romance_mode.check_resistance()`:
+- 탈출 시도 불가 (`escape_chance = 0`)
+- 항상 futile 판정
+- 반발 수치는 계속 증가
+
+### 임시 해부학 (gender.py)
+
+```python
+gender.has_anatomy(unit_id, "P")         # 자연 + 임시 해부학 포함
+gender.has_natural_anatomy(unit_id, "P") # 자연 해부학만 (사정 체크용)
+```
+
+페니스밴드 착용 시 `임시해부학:P` prop → `has_anatomy()` True, `has_natural_anatomy()` False
+
+---
+
+## 7. NPC 자위 연동
+
+> `think/handlers/self_comfort.py`
+
+### 성인용품 사용
+
+`performing` phase에서 인벤토리의 삽입형 성인용품을 자동 사용:
+1. `_try_use_toy(agent)`: 삽입 가능한 아이템 탐색 → 해부학 호환 오리피스 선택 → prop 설정
+2. 15분 자위 job 실행
+3. `_cleanup_toy(agent)`: 삽입물 prop 해제
+
+### 효과 증가
+
+- 성인용품 사용 시: 성욕 -70 (기본 -50보다 높음)
+
+---
+
+## 8. Describe / Focus 규칙
+
+> `assets/base.py` — `_build_context()` 확장
+
+### Context 키
+
+```python
+ctx["restrained"]     # 구속:사지 여부
+ctx["gagged"]         # 구속:입 여부
+ctx["blindfolded"]    # 구속:눈 여부
+ctx["절정"]           # 상태:절정 수치 (0-100)
+ctx["삽입물_음부"]    # 삽입물:음부 존재 여부
+ctx["삽입물_항문"]    # 삽입물:항문 존재 여부
+ctx["삽입물_클리토리스"] # 삽입물:클리토리스 존재 여부
+```
+
+### 규칙 예시 (FOCUS_RULES)
+
+```python
+_FOCUS_RESTRAINT = [
+    # 구속 + 성인용품 복합
+    ({"restrained": True, "삽입물_음부": True, "절정": (60, None)},
+     "{name}가 결박당한 채 ...에 의해 몸이 떨리고 있다."),
+    # 구속 단독
+    ({"restrained": True, "gagged": True},
+     "{name}가 결박당해 입까지 막힌 채 움직이지 못하고 있다."),
+    # 절정 높음
+    ({"절정": (80, None)},
+     "{name}의 얼굴이 상기되어 참을 수 없는 표정이다."),
+    ...
+]
+```
+
+### 톤 템플릿 반응
+
+10개 아키타입에 3개 상태 반응 키 추가:
+- `"restrained_idle"` — 구속 상태 묘사/대사
+- `"passive_climax"` — 비로맨스 절정 시 반응
+- `"toy_equipped"` — 성인용품 장착 상태 반응
+
+---
+
+## 9. 파일 구조
+
+```
+scenarios/scenario02/python/
+├── assets/items/
+│   └── adult_toys.py          # 17개 아이템 정의 + 유틸리티
+├── restraint.py               # 구속 상태 API
+├── needs.py                   # _update_climax() 절정 상시 관리
+├── gender.py                  # has_natural_anatomy() 임시 해부학
+├── romance_actions.py         # 신규 6개 액션 정의
+├── romance_core.py            # is_action_blocked_by_state()
+├── romance_mode.py            # 구속 시 탈출 불가
+├── think/
+│   ├── __init__.py            # Tier 0 구속 + Tier 2 구출
+│   └── handlers/
+│       ├── self_comfort.py    # NPC 자위 성인용품 연동
+│       └── eat.py             # NPC 식사 약물 첨가 체크
+└── tone_templates/            # 10개 아키타입 × 3개 상태 반응
+```

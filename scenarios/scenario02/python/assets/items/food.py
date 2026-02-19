@@ -67,6 +67,20 @@ class FoodItem(Item):
                 morld.set_unit_prop(player_id, "상태:미약남은시간", 6)
                 yield ui.dialog("...뭔가 이상한 맛이 섞여 있던 것 같다.")
 
+        # 배란유도제 첨가 효과
+        if morld.get_unit_prop(self.instance_id, "상태:배란유도제첨가") == 1:
+            ov_remaining = morld.get_unit_prop(player_id, "상태:배란유도남은시간") or 0
+            if ov_remaining <= 0:
+                morld.set_unit_prop(player_id, "상태:배란유도", 1)
+                morld.set_unit_prop(player_id, "상태:배란유도남은시간", 24)
+
+        # 정력제 첨가 효과
+        if morld.get_unit_prop(self.instance_id, "상태:정력제첨가") == 1:
+            st_remaining = morld.get_unit_prop(player_id, "상태:정력제남은시간") or 0
+            if st_remaining <= 0:
+                morld.set_unit_prop(player_id, "상태:정력제", 1)
+                morld.set_unit_prop(player_id, "상태:정력제남은시간", 6)
+
         # 시간 경과
         morld.advance_time_des(self.eat_time * 60_000)
 

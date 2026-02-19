@@ -1171,6 +1171,11 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         "switch_to": None,
     }
 
+    # 신규 세션: 상시 절정 prop → 세션 게이지 동기화
+    if not preserved:
+        climax_prop = morld.get_unit_prop(npc_id, "상태:절정") or 0
+        state["stim"]["climax_gauge"] = climax_prop
+
     # 전환 시 보존 상태 복원
     if preserved:
         state["stim"] = preserved["stim"]
@@ -1783,6 +1788,10 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
     # 종료 처리 — 플레이어 체력 기록 (HP 연동)
     survival.set_health(player_id, state["stamina"])
+
+    # 종료 처리 — 절정 게이지 → 상시 prop 동기화
+    final_climax = state["stim"].get("climax_gauge", 0)
+    morld.set_unit_prop(npc_id, "상태:절정", max(0, min(100, final_climax)))
 
     # 조건부 쿨다운: 체력 변동이 있었으면(행위 발생) 쿨다운 적용
     if state["stamina"] < state["initial_stamina"]:

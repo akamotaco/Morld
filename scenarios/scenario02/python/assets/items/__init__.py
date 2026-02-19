@@ -43,6 +43,14 @@ from .collectibles import (
 from .consumables import (
     ContraceptivePill, Aphrodisiac, Condom
 )
+from .adult_toys import (
+    AdultToyEquipment, AdultToyInsertable, RestraintEquipment,
+    PenisBand, BallGag, NippleClamp, Blindfold, CollarLeash,
+    RestraintRope, Handcuffs,
+    Vibrator, Dildo, Rotor, AnalPlug,
+    Whip,
+    OvulationInducer, StaminaPotion, Lubricant,
+)
 
 __all__ = [
     # equipment
@@ -75,6 +83,16 @@ __all__ = [
     'PrettyStone', 'OldPendant', 'WoodCarving', 'BrokenWatch', 'OldTeddyBear',
     # consumables
     'ContraceptivePill', 'Aphrodisiac', 'Condom',
+    # adult_toys - equipment
+    'AdultToyEquipment', 'AdultToyInsertable', 'RestraintEquipment',
+    'PenisBand', 'BallGag', 'NippleClamp', 'Blindfold', 'CollarLeash',
+    'RestraintRope', 'Handcuffs',
+    # adult_toys - insertable
+    'Vibrator', 'Dildo', 'Rotor', 'AnalPlug',
+    # adult_toys - tools
+    'Whip',
+    # adult_toys - consumables
+    'OvulationInducer', 'StaminaPotion', 'Lubricant',
 ]
 
 

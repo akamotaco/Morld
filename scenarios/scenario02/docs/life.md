@@ -261,7 +261,15 @@ def _process_hourly(unit_id):
     arousal_cap = _get_arousal_cap(unit_id)  # min(100, 50 + max_desire * 0.5)
     if current < arousal_cap:
         arousal += 0.5
+
+    # 절정 상시 관리 (성인용품 삽입물/착용형)
+    _update_climax(unit_id)  # 삽입물 효과 - 자연감소(3/h), ≥100 → 비로맨스 절정
+
+    # 약물 타이머 (배란유도제, 정력제)
+    # 매시간 남은시간 -1, 소진 시 상태 해제
 ```
+
+> 절정 상시 관리 + 성인용품 상세: [adult-toys.md](adult-toys.md) 참조
 
 ### 연동 시스템
 
@@ -278,7 +286,7 @@ def _process_hourly(unit_id):
 4a. 착의 (_check_clothing): 상의/하의 미착용 → _handle_clothing()
 4b. 배변 (_check_excretion): 욕구:배변 ≥ 70 → _handle_excretion()
 4c. 피로 (_check_fatigue): 욕구:피로 ≥ 80 → _handle_sleep() (2시간 fallback)
-4d. 성욕 (_check_arousal): 성욕 임계값 → _handle_self_comfort() / _handle_seek_player()
+4d. 성욕 (_check_arousal): 성욕 임계값 → _handle_self_comfort() (성인용품 자동 사용) / _handle_seek_player()
 4e. 목욕 (스케줄 OR 청결): 욕구:청결 ≥ 70 → _handle_bath() (30분 fallback)
 4f. 취침: 스케줄 수면 시간 → _handle_sleep()
 ```

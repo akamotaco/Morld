@@ -565,6 +565,116 @@ class BaseAgent:
 
         return False
 
+    # ========================================
+    # 구속 상태 처리 (Tier 0)
+    # ========================================
+
+    RESTRAINED_ESCAPE_INTERVAL = 30 * 60 * 1000  # 30분마다 해제 시도
+
+    def _handle_restrained(self):
+        """구속 상태 처리 — 모든 일상 행동 차단
+
+        3-phase: idle → escaping → waiting
+        - idle: 해제 시도 가능 여부 체크
+        - escaping: 자력 해제 시도
+        - waiting: 대기 (30분마다 재시도). 입 자유 시 소리치기
+        """
+        import restraint
+
+        phase = self._memory.get("restrained_phase", "idle")
+
+        if phase == "idle":
+            # 처음 구속됨 or 대기 후 재시도
+            self._memory["restrained_phase"] = "escaping"
+            self._insert_idle_job("결박 해제 시도", 5 * 60 * 1000)  # 5분 걸림
+            self._action_taken = True
+            return
+
+        if phase == "escaping":
+            if restraint.attempt_self_escape(self.unit_id):
+                # 성공: 사지 구속 해제
+                restraint.release_self(self.unit_id)
+                # 사지 해제 후 입/눈도 해제
+                if not restraint.is_restrained(self.unit_id):
+                    if restraint.is_gagged(self.unit_id):
+                        restraint.release_mouth(self.unit_id)
+                    if restraint.is_blindfolded(self.unit_id):
+                        restraint.release_eyes(self.unit_id)
+                self._memory["restrained_phase"] = "idle"
+                self._insert_idle_job("구속 해제됨", 1 * 60 * 1000)
+            else:
+                # 실패: 대기 상태로 전환
+                self._memory["restrained_phase"] = "waiting"
+                self._memory["restrained_wait_until"] = (
+                    self.get_time() + self.RESTRAINED_ESCAPE_INTERVAL
+                )
+                self._insert_idle_job("결박", self.RESTRAINED_ESCAPE_INTERVAL)
+            self._action_taken = True
+            return
+
+        if phase == "waiting":
+            # 입이 자유로우면 도움 요청
+            if not restraint.is_gagged(self.unit_id):
+                try:
+                    import sound
+                    sound.emit_sound(self.unit_id, "scream", 80)
+                except ImportError:
+                    pass
+
+            wait_until = self._memory.get("restrained_wait_until", 0)
+            if self.get_time() >= wait_until:
+                # 재시도
+                self._memory["restrained_phase"] = "idle"
+            self._insert_idle_job("결박", self.RESTRAINED_ESCAPE_INTERVAL)
+            self._action_taken = True
+            return
+
+    # ========================================
+    # 구속된 동료 발견 + 해제 (Tier 2)
+    # ========================================
+
+    RESCUE_DURATION = 3 * 60 * 1000  # 해제 소요 3분
+
+    def _check_restrained_nearby(self):
+        """같은 location에 구속된 비적대 유닛 발견 시 해제 시도
+
+        Returns:
+            True if action was taken (해제 진행/완료).
+        """
+        import restraint
+
+        phase = self._memory.get("rescue_phase")
+        if phase is None:
+            # 탐색: 같은 location에 구속된 유닛 있는지
+            my_loc = morld.get_unit_location(self.unit_id)
+            if not my_loc:
+                return False
+            restrained = restraint.get_restrained_units_at(my_loc[1])
+            target = None
+            for uid in restrained:
+                if uid != self.unit_id:
+                    target = uid
+                    break
+            if not target:
+                return False
+            self._memory["rescue_phase"] = "releasing"
+            self._memory["rescue_target"] = target
+            self._insert_idle_job("구출", self.RESCUE_DURATION)
+            self._action_taken = True
+            return True
+
+        if phase == "releasing":
+            target = self._memory.get("rescue_target")
+            if target and restraint.is_restrained(target):
+                restraint.release_unit(target)
+            self._memory.pop("rescue_phase", None)
+            self._memory.pop("rescue_target", None)
+            self._insert_idle_job("구출 완료", 1 * 60 * 1000)
+            self._action_taken = True
+            return True
+
+        return False
+
     def _check_tier2_reactive(self):
         """Tier 2: 반응형 (위협, 소리) — 미래 확장 포인트
 
@@ -985,6 +1095,12 @@ class BaseAgent:
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
+        # Tier 0: 구속 (모든 일상 행동 차단)
+        import restraint
+        if restraint.is_restrained(self.unit_id):
+            self._handle_restrained()
+            return None
+
         schedule = self.get_current_schedule()
         if schedule:
             # Tier 1: 비자발적 (기절, 수면 중)
@@ -994,8 +1110,10 @@ class BaseAgent:
                 # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
                 self._ensure_standing()
 
-                # Tier 2: 반응형 (미래 확장)
-                if self._check_tier2_reactive():
+                # Tier 2: 반응형 — 구속된 동료 발견 + 해제
+                if self._check_restrained_nearby():
+                    _tier_reached = 2
+                elif self._check_tier2_reactive():
                     _tier_reached = 2
                 # Tier 3: 생존
                 elif self._check_tier3_survival():
@@ -1017,7 +1135,8 @@ class BaseAgent:
             active_phases = []
             for key in ("hunger_phase", "cold_phase", "hot_phase", "clothing_phase",
                         "excretion_phase", "self_comfort_phase", "seek_player_phase",
-                        "socialize_phase", "gift_phase", "childbirth_phase", "maternal_phase"):
+                        "socialize_phase", "gift_phase", "childbirth_phase", "maternal_phase",
+                        "restrained_phase", "rescue_phase"):
                 val = self._memory.get(key)
                 if val is not None:
                     active_phases.append(f"{key}={val}")
