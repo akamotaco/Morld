@@ -645,6 +645,12 @@ class Sera(Character):
             ({"성욕": 80}, ["...안에... 넣어... 빨리...", "...참을 수 없어... 넣을게..."]),
             ({}, ["...(무의식적으로 허리를 움직이고 있다.)", "...몸이... 제멋대로..."]),
         ],
+
+        # ── NPC 자율 허리흔들기 (trance) ──
+        "npc_thrust_trance:start": [
+            ({"성욕": 80}, ["세라가 이를 악물며 스스로 허리를 흔들기 시작했다.", "세라가 거친 숨을 내쉬며 직접 움직이기 시작했다."]),
+            ({}, ["세라가 참지 못하고 스스로 움직이기 시작했다.", "...세라의 허리가 미세하게 움직이고 있다."]),
+        ],
     }
 
     # ========================================
@@ -657,6 +663,16 @@ class Sera(Character):
         "arousal_threshold": 70,      # 성욕 70 이상
         "affection_threshold": 60,    # 호감도 60 이상
         "cooldown_millis": 480 * _M,   # 8시간 쿨다운
+    }
+
+    # NPC 자율 허리흔들기 설정 (높은 자제력)
+    NPC_THRUST_CONFIG = {
+        "entry_arousal": 65,        # 높은 진입 문턱
+        "entry_gauge": 50,
+        "gentle_arousal": 65,
+        "normal_arousal": 80,
+        "rough_arousal": 95,        # rough는 거의 안 감
+        "escalation_chance": 0.1,   # 느린 에스컬레이션
     }
 
     # 조건별 액션 시퀀스 (위에서부터 매칭)

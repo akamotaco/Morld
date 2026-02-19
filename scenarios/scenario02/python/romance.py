@@ -300,6 +300,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             "who": None,           # "player" or "npc"
             "failed_count": 0,
         },
+        # NPC 자율 허리흔들기 트랜스
+        "npc_thrust_trance": False,
     }
 
     # 전환 시 보존 상태 복원
@@ -320,6 +322,128 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             state["position"] = preserved["position"]
         if "mode_ctx" in preserved:
             state["mode_ctx"] = preserved["mode_ctx"]
+        state["npc_thrust_trance"] = preserved.get("npc_thrust_trance", False)
+
+    # ── NPC Thrust Trance 시스템 ──────────────────────────────
+
+    _DEFAULT_THRUST_CONFIG = {
+        "entry_arousal": 50,
+        "entry_gauge": 30,
+        "gentle_arousal": 50,
+        "normal_arousal": 70,
+        "rough_arousal": 90,
+        "escalation_chance": 0.2,
+    }
+
+    def _get_npc_thrust_config(partner_id):
+        asset = get_partner_asset(partner_id)
+        if asset and hasattr(asset, 'NPC_THRUST_CONFIG') and asset.NPC_THRUST_CONFIG:
+            # 기본값과 병합 (캐릭터가 일부만 오버라이드해도 동작)
+            merged = dict(_DEFAULT_THRUST_CONFIG)
+            merged.update(asset.NPC_THRUST_CONFIG)
+            return merged
+        return _DEFAULT_THRUST_CONFIG
+
+    def _select_thrust_intensity(arousal, config):
+        """성욕 기반 thrust 강도 선택."""
+        if arousal >= config["rough_arousal"]:
+            return "thrust_rough"
+        elif arousal >= config["normal_arousal"]:
+            return "thrust_normal"
+        return "thrust_gentle"
+
+    def _get_partner_name(state):
+        partner_info = morld.get_unit_info(state["partner_id"])
+        return partner_info.get("name", "상대") if partner_info else "상대"
+
+    def _check_npc_thrust_trance(state):
+        """NPC thrust trance 진입 판정.
+        삽입 중 + thrust 비활성 + NPC 조건 충족 시 트랜스 진입.
+        Returns: {"thrust_id": str, "reaction": str} 또는 None
+        """
+        if not state["insertion"]["active"]:
+            return None
+        if state.get("npc_thrust_trance"):
+            return None
+        if any(t in _THRUST_TOGGLE_IDS for t in state["active_toggles"]):
+            return None
+
+        pid = state["partner_id"]
+        config = _get_npc_thrust_config(pid)
+
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        gauge = state["stim"]["climax_gauge"]
+
+        if arousal < config["entry_arousal"] or gauge < config["entry_gauge"]:
+            return None
+
+        thrust_id = _select_thrust_intensity(arousal, config)
+
+        state["npc_thrust_trance"] = True
+        state["active_toggles"].add(thrust_id)
+
+        reaction = _get_mode_reaction("npc_thrust_trance", "start")
+        if not reaction:
+            pname = _get_partner_name(state)
+            reaction = f"{pname}(이)가 스스로 허리를 흔들기 시작했다..."
+        return {"thrust_id": thrust_id, "reaction": reaction}
+
+    def _tick_npc_thrust_trance(state):
+        """트랜스 중 강도 재평가. 매 턴 호출."""
+        if not state.get("npc_thrust_trance"):
+            return
+
+        pid = state["partner_id"]
+        config = _get_npc_thrust_config(pid)
+
+        if random.random() >= config["escalation_chance"]:
+            return
+
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        new_thrust = _select_thrust_intensity(arousal, config)
+
+        current = next((t for t in state["active_toggles"]
+                        if t in _THRUST_TOGGLE_IDS), None)
+        if current and current != new_thrust:
+            state["active_toggles"].discard(current)
+            state["active_toggles"].add(new_thrust)
+
+    def _end_npc_thrust_trance(state):
+        """트랜스 종료 — thrust + sync_thrust 토글 해제."""
+        state["npc_thrust_trance"] = False
+        for tid in list(state["active_toggles"]):
+            if tid in _THRUST_TOGGLE_IDS or tid == "sync_thrust":
+                state["active_toggles"].discard(tid)
+
+    def _check_npc_beg_reaction(state):
+        """삽입+정지 + 트랜스 미진입 시 애원 반응 (대사 전용).
+        Returns: str 또는 None
+        """
+        pid = state["partner_id"]
+        config = _get_npc_thrust_config(pid)
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        beg_threshold = config["entry_arousal"] - 15
+        if arousal >= beg_threshold:
+            return _get_mode_reaction("npc_beg_thrust", "start")
+        return None
+
+    def _try_npc_thrust_after_action(state, action_id):
+        """행위 후 NPC 자율 thrust 체크 (삽입+정지 상태에서).
+        thrust_stop/withdraw 직후에는 호출하지 않음.
+        반환된 반응 텍스트가 있으면 last_reaction에 추가.
+        """
+        if action_id in ("thrust_stop", "withdraw"):
+            return
+        if not state["insertion"]["active"]:
+            return
+        if any(t in _THRUST_TOGGLE_IDS for t in state["active_toggles"]):
+            return
+        npc_action = _check_npc_thrust_trance(state)
+        if npc_action:
+            prev = state.get("last_reaction") or ""
+            state["last_reaction"] = (prev + f"\n{npc_action['reaction']}").strip()
+
+    # ── NPC Thrust Trance 끝 ──────────────────────────────────
 
     def apply_effects(action_def, active_toggle_defs):
         """
@@ -563,6 +687,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             for tid in list(state["active_toggles"]):
                 if tid in _THRUST_TOGGLE_IDS:
                     state["active_toggles"].discard(tid)
+
+            # NPC 절정 시 thrust trance 종료
+            if state.get("npc_thrust_trance"):
+                _end_npc_thrust_trance(state)
 
             # 트랜스 자동 삽입 체크 (절정 후 NPC 비-P 부위 아직 peaked)
             auto_insert = _check_trance_auto_insert(state)
@@ -885,7 +1013,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if not is_pull_out_available(state):
                 return render_romance_ui(state)
             pid = state["partner_id"]
-            # 허리흔들기 토글 해제 + 삽입 상태 해제
+            # NPC thrust trance 종료 + 허리흔들기 토글 해제 + 삽입 상태 해제
+            _end_npc_thrust_trance(state)
             for tid in list(state["active_toggles"]):
                 if tid in _THRUST_TOGGLE_IDS:
                     state["active_toggles"].discard(tid)
@@ -1065,7 +1194,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if action_id == "thrust_stop":
                 if not state["insertion"]["active"]:
                     return render_romance_ui(state)
-                # 허리흔들기 토글 전부 해제
+                # NPC thrust trance 종료 + 허리흔들기 토글 전부 해제
+                _end_npc_thrust_trance(state)
                 for tid in list(state["active_toggles"]):
                     if tid in _THRUST_TOGGLE_IDS:
                         state["active_toggles"].discard(tid)
@@ -1088,6 +1218,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     return render_romance_ui(state)
                 pid = state["partner_id"]
                 orifice = state["insertion"]["orifice"]
+
+                # NPC thrust trance 종료
+                _end_npc_thrust_trance(state)
 
                 # 활성 허리흔들기 토글 해제
                 for tid in list(state["active_toggles"]):
@@ -1152,6 +1285,22 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 npc_action = _check_npc_autonomous_action(state)
                 if npc_action:
                     state["last_reaction"] = npc_action["reaction"]
+
+                # NPC thrust trance 진입 판정 (삽입+정지 상태)
+                if not npc_action:
+                    trance_result = _check_npc_thrust_trance(state)
+                    if trance_result:
+                        state["last_reaction"] = trance_result["reaction"]
+                    elif (state["insertion"]["active"]
+                            and not any(t in _THRUST_TOGGLE_IDS
+                                        for t in state["active_toggles"])):
+                        # 트랜스 미진입 — 애원 반응 (대사 전용)
+                        beg = _check_npc_beg_reaction(state)
+                        if beg:
+                            state["last_reaction"] = beg
+
+                # 트랜스 강도 재평가
+                _tick_npc_thrust_trance(state)
 
                 result = advance_time_and_check(state, action_def["time"])
                 if result["interrupted"]:
@@ -1335,7 +1484,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 pid = state["partner_id"]
                 cur_mode = state["mode_ctx"]["mode"]
 
-                # 허리흔들기 토글 해제 (삽입 상태는 유지)
+                # NPC thrust trance 종료 + 허리흔들기 토글 해제 (삽입 상태는 유지)
+                _end_npc_thrust_trance(state)
                 for tid in list(state["active_toggles"]):
                     if tid in _THRUST_TOGGLE_IDS:
                         state["active_toggles"].discard(tid)
@@ -1485,6 +1635,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if _post_action_mode_check():
                 return True
 
+            # NPC 자율 thrust 체크 (삽입+정지 시 트랜스 진입) + 강도 재평가
+            _try_npc_thrust_after_action(state, action_id)
+            _tick_npc_thrust_trance(state)
+
             return render_romance_ui(state)
 
         # 토글형 행위
@@ -1536,7 +1690,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 # 같은 부위 토글 충돌 해소
                 _remove_conflicting_toggles(action_id, state["active_toggles"])
                 # 허리흔들기 토글끼리 충돌 (하나만 활성)
+                # 플레이어가 직접 thrust 선택 → NPC trance 해제 (플레이어가 제어권 획득)
                 if action_id in _THRUST_TOGGLE_IDS:
+                    if state.get("npc_thrust_trance"):
+                        state["npc_thrust_trance"] = False
+                        state["active_toggles"].discard("sync_thrust")
                     for tid in list(state["active_toggles"]):
                         if tid in _THRUST_TOGGLE_IDS:
                             state["active_toggles"].discard(tid)
@@ -1605,6 +1763,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             # 모드별 후처리 (저항/각성 체크)
             if _post_action_mode_check():
                 return True
+
+            # NPC 자율 thrust 체크 (삽입+정지 시 트랜스 진입) + 강도 재평가
+            _try_npc_thrust_after_action(state, action_id)
+            _tick_npc_thrust_trance(state)
 
             return render_romance_ui(state)
 

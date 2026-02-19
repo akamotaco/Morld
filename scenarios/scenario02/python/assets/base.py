@@ -1996,6 +1996,19 @@ class Character(Unit):
     #   }
 
     INITIATIVE_CONFIG: dict = None
+
+    # NPC 자율 허리흔들기 (thrust trance) 설정
+    # 삽입+정지 상태에서 NPC가 스스로 허리를 흔들기 시작하는 조건.
+    # 서브클래스에서 오버라이드하여 캐릭터별 "갭" 표현 가능.
+    NPC_THRUST_CONFIG: dict = {
+        "entry_arousal": 50,        # 트랜스 진입 최소 성욕
+        "entry_gauge": 30,          # 트랜스 진입 최소 절정 게이지
+        "gentle_arousal": 50,       # gentle 강도 문턱
+        "normal_arousal": 70,       # normal 강도 문턱
+        "rough_arousal": 90,        # rough 강도 문턱
+        "escalation_chance": 0.2,   # 턴당 강도 재평가 확률 (0.0~1.0)
+    }
+
     NPC_INITIATIVE_ACTIONS: list = None
     INITIATIVE_REACTIONS: dict = None
     INITIATIVE_SENSATION_REQS: dict = {

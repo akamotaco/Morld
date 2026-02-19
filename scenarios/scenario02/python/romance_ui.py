@@ -339,6 +339,10 @@ def render_romance_ui(state):
         if action.get("requires_active_insertion") and not is_on:
             if not is_inserted:
                 continue
+        # sync_thrust: NPC thrust trance 중에만 표시
+        if action.get("requires_npc_thrust_trance") and not is_on:
+            if not state.get("npc_thrust_trance"):
+                continue
         # 배면 체위: 입 사용 행위 비활성화 (이미 ON이면 해제 가능)
         if action.get("uses_mouth") and not is_on:
             if position.get_facing(state.get("position", "missionary")) == "back":

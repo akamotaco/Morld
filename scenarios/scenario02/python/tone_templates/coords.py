@@ -157,6 +157,8 @@ ACTION_TO_CATEGORY = {
     "thrust_deep": "penetration", "thrust_slow": "penetration",
     "grind": "penetration", "ejaculate": "penetration",
     "withdraw": "penetration",
+    "thrust_stop": "penetration",
+    "sync_thrust": "penetration",
     # rough
     "thrust_rough": "rough",
 }

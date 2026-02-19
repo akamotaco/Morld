@@ -437,6 +437,15 @@ TOGGLE_ACTIONS = {
         "requires_both_anatomy": "V",
         "requires_exposure": "lower",
     },
+    # 상대 리듬 맞추기 (NPC thrust trance 중에만)
+    "sync_thrust": {
+        "name": "허리 맞추기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 3,
+        "effects": {"호감": 3, "욕망": 3, "성욕": 3},
+        "exp_part": None,
+        "affection_req": 90,
+        "requires_active_insertion": True,
+        "requires_npc_thrust_trance": True,
+    },
 }
 
 # ============================================
@@ -503,6 +512,7 @@ ACTION_DESCRIPTIONS = {
     "anal_insert": "항문에 삽입했다.",
     "withdraw": "천천히 빼냈다.",
     "thrust_stop": "움직임을 멈췄다.",
+    "sync_thrust": "상대의 리듬에 맞춰 허리를 흔든다.",
     "stay_still": "가만히 있는다...",
     "demand_dirty_talk": "음란한 말을 요구한다.",
     "thrust_deep": "깊숙이 밀어넣는다.",
@@ -528,5 +538,6 @@ TOGGLE_DURING_DESCRIPTIONS = {
     "thrust_gentle": "부드럽게 움직이고 있다.",
     "thrust_normal": "허리를 흔들고 있다.",
     "thrust_rough": "거칠게 허리를 흔들고 있다.",
+    "sync_thrust": "서로의 리듬에 맞춰 움직이고 있다.",
     "tribadism": "서로의 은밀한 곳을 맞대고 있다.",
 }
