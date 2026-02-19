@@ -383,6 +383,8 @@ def render_romance_ui(state):
             continue  # 콘돔 액션은 위에서 별도 렌더링
         if action_id in ("hold_back", "ejaculate"):
             continue  # 특수 표시 영역에서 처리
+        if action.get("npc_initiative_only"):
+            continue  # NPC 주도 전용 행위는 일반 모드에서 숨김
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
         # 삽입 시도: 이미 삽입 중이면 숨김

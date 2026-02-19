@@ -79,6 +79,19 @@ INITIATIVE_MIN_HEALTH = 5
 NPC_SATISFACTION_AROUSAL = 20   # 성욕 임계치
 NPC_SATISFACTION_CLIMAX = 1     # 최소 절정 횟수
 
+# 플레이어 행동 제한 (NPC 주도 모드)
+NPC_INITIATIVE_CONSENT_THRESHOLD = 80   # 이 호감 이상이면 합의 (차단 없음)
+NPC_BLOCK_BASE_CHANCE = 0.85            # 기본 85% 차단
+NPC_BLOCK_STRENGTH_BONUS = 0.05         # 근력 1당 -5%
+NPC_BLOCK_BODY_BONUS = {
+    "왜소": 0.05,    # 왜소: 막기 쉬움 (+5%)
+    "보통": 0.0,
+    "장신": -0.05,
+    "거구": -0.15,
+}
+NPC_BLOCK_MIN_CHANCE = 0.30     # 최소 차단 확률
+NPC_BLOCK_MAX_CHANCE = 0.95     # 최대 차단 확률
+
 
 # ============================================
 # 유틸리티 함수
@@ -190,6 +203,50 @@ def calculate_resistance_gain(player_id, npc_id):
     diff = player_power - npc_power
     gain = RESISTANCE_BASE_GAIN + int(diff * 2)
     return max(5, min(40, gain))
+
+
+# ============================================
+# 플레이어 행동 차단 시스템 (NPC 주도 모드)
+# ============================================
+
+def _check_npc_block(player_id, npc_id, action_def, state):
+    """NPC 주도 모드에서 플레이어 능동 행위 차단 판정.
+
+    Returns:
+        (blocked: bool, reaction: str | None)
+    """
+    # 수동 행위는 항상 허용
+    if action_def.get("passive_in_npc_initiative"):
+        return False, None
+
+    # 호감 임계치 이상이면 합의 → 차단 안 함
+    affection = get_affection(npc_id, player_id)
+    if affection >= NPC_INITIATIVE_CONSENT_THRESHOLD:
+        return False, None
+
+    # 차단 확률 계산
+    strength = get_player_strength(player_id)
+    body_type = get_player_body_type(player_id)
+
+    block_chance = NPC_BLOCK_BASE_CHANCE
+    block_chance -= (strength - 5) * NPC_BLOCK_STRENGTH_BONUS
+    block_chance += NPC_BLOCK_BODY_BONUS.get(body_type, 0.0)
+    block_chance = max(NPC_BLOCK_MIN_CHANCE, min(NPC_BLOCK_MAX_CHANCE, block_chance))
+
+    if random.random() < block_chance:
+        # 차단 성공 — NPC 반응 생성
+        npc_asset = get_npc_asset(npc_id)
+        reaction = None
+        if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+            reaction = npc_asset.get_romance_reaction(
+                "npc_block_player", "start", stim_state=state.get("stim"))
+        if not reaction:
+            npc_info = morld.get_unit_info(npc_id)
+            npc_name = npc_info.get("name", "상대") if npc_info else "상대"
+            reaction = f"{npc_name}(이)가 당신의 손을 뿌리쳤다."
+        return True, reaction
+
+    return False, None
 
 
 # ============================================
@@ -729,7 +786,15 @@ def render_npc_initiative_ui(state):
                 continue
             if is_action_available(npc_id, player_id, action):
                 if player_stamina >= action["stamina"]:
-                    lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
+                    # 능동 행위 + 호감 부족 → 제지 가능 표시
+                    is_passive = action.get("passive_in_npc_initiative", False)
+                    if not is_passive and affection < NPC_INITIATIVE_CONSENT_THRESHOLD:
+                        lines.append(
+                            f"  [url=@proc:instant:{action_id}]"
+                            f"[color=yellow]{action['name']}[/color]"
+                            f" [color=gray](제지 가능)[/color][/url]")
+                    else:
+                        lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
                 else:
                     lines.append(f"  [color=gray]{action['name']} (스태미나 부족)[/color]")
             else:
@@ -1079,6 +1144,43 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if npc_asset and hasattr(npc_asset, 'get_initiative_reaction'):
             state["last_reaction"] = npc_asset.get_initiative_reaction("start")
 
+    # ── 여운 반응 헬퍼 ──────────────────────────────────
+    def _get_afterglow_reaction_text():
+        """여운 중 행위 시 추가 반응."""
+        afterglow = state["stim"].get("afterglow", 0)
+        if afterglow <= 0:
+            return None
+        if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+            if afterglow >= 40:
+                key = "afterglow_sensitive"
+            elif afterglow >= 20:
+                key = "afterglow_trembling"
+            else:
+                key = "afterglow_fading"
+            return npc_asset.get_romance_reaction(
+                key, "start", stim_state=state["stim"])
+        return None
+
+    def _append_afterglow_text(ecstasy_reaction, afterglow_result):
+        """여운 반응/종료 반응을 last_reaction에 추가."""
+        if ecstasy_reaction:
+            return  # 절정 반응이 우선
+        parts = []
+        ag_text = _get_afterglow_reaction_text()
+        if ag_text:
+            parts.append(ag_text)
+        if afterglow_result == "ended":
+            if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+                end_text = npc_asset.get_romance_reaction(
+                    "afterglow_end", "start", stim_state=state["stim"])
+                if end_text:
+                    parts.append(end_text)
+        if parts:
+            existing = state.get("last_reaction") or ""
+            combined = "\n".join(p for p in parts if p)
+            state["last_reaction"] = (
+                (existing + "\n" + combined).strip() if existing else combined)
+
     # NPC 행위 자동 진행 (accept / resist에서 공유)
     def _npc_auto_advance(state, npc_id, player_id, npc_asset, forced_reaction=False):
         """NPC가 랜덤으로 행위를 선택하고 효과 적용
@@ -1089,15 +1191,22 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         # 윤활 상태 업데이트
         check_lubrication(npc_id, state)
 
-        # NPC 랜덤 행위 선택
-        new_action = select_random_npc_action(npc_id, player_id, state["active_toggles"],
-                                               lubricated=state["lubricated"],
-                                               cur_position=state.get("position", "missionary"),
-                                               is_inserted=state["insertion"]["active"])
+        # 여운 중: NPC는 새 행위를 선택하지 않음 (기존 토글만 유지)
+        afterglow = state["stim"].get("afterglow", 0)
+        if afterglow > 0:
+            new_action = None
+            new_toggle_def = None
+        else:
+            # NPC 랜덤 행위 선택
+            new_action = select_random_npc_action(
+                npc_id, player_id, state["active_toggles"],
+                lubricated=state["lubricated"],
+                cur_position=state.get("position", "missionary"),
+                is_inserted=state["insertion"]["active"])
 
-        new_toggle_def = None
-        if new_action:
-            new_toggle_def = NPC_TOGGLE_ACTIONS.get(new_action)
+        new_toggle_def = None if afterglow > 0 else (
+            NPC_TOGGLE_ACTIONS.get(new_action) if new_action else None)
+        if new_action and new_toggle_def:
             _remove_conflicting_toggles(new_action, state["active_toggles"], new_toggle_def)
 
         # 스태미나 계산
@@ -1118,8 +1227,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
 
         state["stamina"] -= required_stamina
 
-        # NPC 자동 삽입 시도 (미삽입 + 성욕 ≥ 70 + 윤활 충족)
-        if not state["insertion"]["active"]:
+        # NPC 자동 삽입 시도 (미삽입 + 성욕 ≥ 70 + 윤활 충족 + 여운 아님)
+        if not state["insertion"]["active"] and afterglow <= 0:
             npc_arousal = morld.get_unit_prop(npc_id, "상태:성욕") or 0
             if npc_arousal >= 70 and state["lubricated"]:
                 import gender as gender_mod
@@ -1166,7 +1275,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 if result and not ecstasy_reaction:
                     ecstasy_reaction = result
 
-        stimulation.tick_afterglow(state["stim"])
+        afterglow_result = stimulation.tick_afterglow(state["stim"])
 
         # NPC 만족 체크 (절정 후 성욕 감소 → 임계치 미만)
         stim_state = state["stim"]
@@ -1235,6 +1344,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 if reaction:
                     state["last_reaction"] = f"[color=yellow]{reaction}[/color]"
                     break
+
+        # 여운 반응 추가 (절정 미발생 시)
+        _append_afterglow_text(ecstasy_reaction, afterglow_result)
 
     # proc 콜백
     def proc(action):
@@ -1306,6 +1418,43 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 return None
 
             state["escape_result"] = None
+
+            # NPC 주도 전용 행위 필터 (beg: NPC 주도에서만)
+            if action_def.get("npc_initiative_only"):
+                pass  # NPC 주도 모드이므로 허용
+
+            # NPC 차단 판정 (능동 행위)
+            blocked, block_reaction = _check_npc_block(
+                player_id, npc_id, action_def, state)
+            if blocked:
+                state["last_reaction"] = block_reaction
+                state["stamina"] = max(0, state["stamina"] - 1)
+                check_result = advance_time_and_check_npc_initiative(
+                    state, 2 * MILLIS_PER_MINUTE)
+                if check_result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = check_result["interrupter_id"]
+                    return True
+                return render_npc_initiative_ui(state)
+
+            # beg 전용 처리
+            if action_id == "beg":
+                morld.modify_prop(npc_id, "상태:성욕", 5)
+                state["beg_boost"] = state.get("beg_boost", 0) + 1
+                reaction = None
+                if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+                    reaction = npc_asset.get_romance_reaction(
+                        "beg", "start", stim_state=state.get("stim"))
+                if not reaction:
+                    reaction = "(애원했다...)"
+                state["last_reaction"] = reaction
+                check_result = advance_time_and_check_npc_initiative(
+                    state, action_def["time"])
+                if check_result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = check_result["interrupter_id"]
+                    return True
+                return render_npc_initiative_ui(state)
 
             # 삽입 상태 필요 즉시형: 유효성 + exp_part 동적 오버라이드
             if action_def.get("requires_active_insertion"):
@@ -1517,7 +1666,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                         ecstasy_reaction = ecstasy_result
 
             # 여운 감소 (턴당 1회)
-            stimulation.tick_afterglow(state["stim"])
+            afterglow_result = stimulation.tick_afterglow(state["stim"])
 
             # 소음 발생
             npc_id = state["npc_id"]
@@ -1545,6 +1694,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                     reaction = npc_asset.get_romance_reaction(action_id, "start", stim_state=state.get("stim"))
                     if reaction:
                         state["last_reaction"] = reaction
+
+            # 여운 반응 추가 (절정 미발생 시)
+            _append_afterglow_text(ecstasy_reaction, afterglow_result)
 
             return render_npc_initiative_ui(state)
 

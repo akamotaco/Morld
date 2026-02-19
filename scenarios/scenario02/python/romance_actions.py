@@ -192,7 +192,8 @@ INSTANT_ACTIONS = {
         "name": "삼키기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
         "effects": {"욕망": 2, "복종": 1},
         "exp_part": "입술", "affection_req": 90,
-        "requires_internal_semen": "구강"
+        "requires_internal_semen": "구강",
+        "passive_in_npc_initiative": True,
     },
     # 강도 행위
     "nipple_pinch": {
@@ -260,12 +261,14 @@ INSTANT_ACTIONS = {
         "effects": {},
         "exp_part": None, "affection_req": 0,
         "requires_active_insertion": True,
+        "passive_in_npc_initiative": True,
     },
     "thrust_stop": {
         "name": "멈추기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
         "effects": {},
         "exp_part": None, "affection_req": 0,
         "requires_active_insertion": True,
+        "passive_in_npc_initiative": True,
     },
     "stay_still": {
         "name": "가만히 있기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 0,
@@ -301,12 +304,14 @@ INSTANT_ACTIONS = {
         "effects": {},
         "exp_part": None, "affection_req": 0,
         "requires_player_anatomy_self": "P",
+        "passive_in_npc_initiative": True,
     },
     "ejaculate": {
         "name": "사정하기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
         "effects": {},
         "exp_part": None, "affection_req": 0,
         "requires_player_anatomy_self": "P",
+        "passive_in_npc_initiative": True,
     },
     "change_position": {
         "name": "체위 변경", "time": 2 * MILLIS_PER_MINUTE, "stamina": 1,
@@ -320,6 +325,7 @@ INSTANT_ACTIONS = {
         "exp_part": None, "affection_req": 0,
         "requires_player_anatomy_self": "P",
         "is_condom_action": True,
+        "passive_in_npc_initiative": True,
     },
     "condom_off": {
         "name": "콘돔 제거", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
@@ -327,6 +333,15 @@ INSTANT_ACTIONS = {
         "exp_part": None, "affection_req": 0,
         "requires_player_anatomy_self": "P",
         "is_condom_action": True,
+        "passive_in_npc_initiative": True,
+    },
+    # NPC 주도 전용
+    "beg": {
+        "name": "애원하기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 0,
+        "effects": {"성욕": 2, "욕망": 1},
+        "exp_part": None, "affection_req": 0,
+        "passive_in_npc_initiative": True,
+        "npc_initiative_only": True,
     },
 }
 
@@ -445,6 +460,7 @@ TOGGLE_ACTIONS = {
         "affection_req": 90,
         "requires_active_insertion": True,
         "requires_npc_thrust_trance": True,
+        "passive_in_npc_initiative": True,
     },
 }
 
@@ -518,6 +534,7 @@ ACTION_DESCRIPTIONS = {
     "thrust_deep": "깊숙이 밀어넣는다.",
     "thrust_slow": "천천히 움직인다.",
     "grind": "밀착하여 허리를 흔든다.",
+    "beg": "애원했다...",
 }
 
 # 토글형 행위 묘사 (진행 중 상태)

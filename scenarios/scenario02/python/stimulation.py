@@ -163,15 +163,22 @@ def tick_afterglow(state):
     """행위마다 호출 — 여운/불응기 감소
 
     여운이 0이 되면 연쇄 카운트도 리셋.
+
+    Returns:
+        "ended" if afterglow just ended this tick, else None
     """
+    result = None
     if state["afterglow"] > 0:
         state["afterglow"] = max(0, state["afterglow"] - AFTERGLOW_DECAY)
         if state["afterglow"] <= 0:
             state["chain_count"] = 0
+            result = "ended"
 
     # 불응기 감소 (남성)
     if state.get("refractory", 0) > 0:
         state["refractory"] = max(0, state["refractory"] - REFRACTORY_DECAY)
+
+    return result
 
 
 def get_climax_sensation_gain(rebellion, chain_count=0):

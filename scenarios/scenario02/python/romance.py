@@ -445,6 +445,43 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
     # ── NPC Thrust Trance 끝 ──────────────────────────────────
 
+    def _get_afterglow_reaction():
+        """여운 중 행위 시 추가 반응 (감도 증가 표현)."""
+        afterglow = state["stim"].get("afterglow", 0)
+        if afterglow <= 0:
+            return None
+        partner_asset = get_partner_asset(state["partner_id"])
+        if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+            if afterglow >= 40:
+                key = "afterglow_sensitive"
+            elif afterglow >= 20:
+                key = "afterglow_trembling"
+            else:
+                key = "afterglow_fading"
+            return partner_asset.get_romance_reaction(
+                key, "start", stim_state=state["stim"])
+        return None
+
+    def _append_afterglow_reaction(ecstasy_reaction, afterglow_result):
+        """여운 반응/종료 반응을 last_reaction에 추가."""
+        if ecstasy_reaction:
+            return  # 절정 반응이 우선
+        parts = []
+        ag_reaction = _get_afterglow_reaction()
+        if ag_reaction:
+            parts.append(ag_reaction)
+        if afterglow_result == "ended":
+            partner_asset = get_partner_asset(state["partner_id"])
+            if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
+                end_text = partner_asset.get_romance_reaction(
+                    "afterglow_end", "start", stim_state=state["stim"])
+                if end_text:
+                    parts.append(end_text)
+        if parts:
+            existing = state.get("last_reaction") or ""
+            combined = "\n".join(p for p in parts if p)
+            state["last_reaction"] = (existing + "\n" + combined).strip() if existing else combined
+
     def apply_effects(action_def, active_toggle_defs):
         """
         행위 효과 적용 (즉시형 + 활성 토글들) + 자극 계산
@@ -569,7 +606,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     climax_info = r_p
 
         # 여운 감소 (턴당 1회)
-        stimulation.tick_afterglow(stim_state)
+        afterglow_result = stimulation.tick_afterglow(stim_state)
+        state["_afterglow_result"] = afterglow_result
 
         # 절정 처리 (다중 부위 동시 절정)
         if climax_info:
@@ -1267,6 +1305,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
                 # 활성 토글 효과만 적용 (즉시형 효과 없음)
                 active_toggle_defs = [TOGGLE_ACTIONS[t] for t in state["active_toggles"]]
+                ecstasy = None
                 if active_toggle_defs:
                     ecstasy = apply_effects(
                         {"effects": {}, "exp_part": None, "affection_req": 0,
@@ -1280,6 +1319,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                         state["last_reaction"] = "가만히 있는다..."
                 else:
                     state["last_reaction"] = "가만히 있는다..."
+
+                # 여운 반응 추가 (절정 미발생 시)
+                _append_afterglow_reaction(ecstasy, state.get("_afterglow_result"))
 
                 # NPC 자율 행동 판정
                 npc_action = _check_npc_autonomous_action(state)
@@ -1624,6 +1666,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_romance_sound(state["partner_id"])
 
+            # 여운 반응 추가 (절정 미발생 시)
+            _append_afterglow_reaction(ecstasy_reaction, state.get("_afterglow_result"))
+
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
             if result["interrupted"]:
@@ -1752,6 +1797,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                             "\n[color=red](준비 부족 — 효과 감소)[/color]")
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_romance_sound(state["partner_id"])
+
+            # 여운 반응 추가 (절정 미발생 시)
+            _append_afterglow_reaction(ecstasy_reaction, state.get("_afterglow_result"))
 
             # 시간 경과 + NPC 도착 체크
             result = advance_time_and_check(state, total_time)
