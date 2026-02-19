@@ -65,8 +65,11 @@ class BaseAgent:
         """BaseAgent에 없는 속성 → Character asset에서 조회 (composition delegation)"""
         if name.startswith("_"):
             raise AttributeError(name)
-        from assets.characters import get_instance
-        char = get_instance(self.unit_id)
+        try:
+            from assets.characters import get_instance
+            char = get_instance(self.unit_id)
+        except ImportError:
+            raise AttributeError(name)
         if char is not None:
             return getattr(char, name)
         raise AttributeError(
