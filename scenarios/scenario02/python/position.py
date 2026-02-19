@@ -52,6 +52,9 @@ PLAYER_INIT_POOL = ["missionary", "face_sitting", "standing_face", "doggy", "sta
 # NPC 주도: 정상위/후배위(플레이어 위) 지양
 NPC_INIT_POOL = ["cowgirl", "reverse_cowgirl", "face_sitting", "standing_face", "standing_back"]
 
+# 의식불명: NPC 수동/와위 전용 (능동적 참여 불가)
+UNCONSCIOUS_INIT_POOL = ["missionary", "doggy"]
+
 # ============================================
 # 선호 보너스
 # ============================================
@@ -91,17 +94,23 @@ def can_transition(from_pos, to_pos):
     return to_pos in TRANSITIONS.get(from_pos, set())
 
 
-def select_initial_position(is_npc_initiative, npc_prefs=None):
+def select_initial_position(is_npc_initiative, npc_prefs=None, mode=None):
     """세션 시작 시 초기 체위 선택
 
     Args:
         is_npc_initiative: NPC 주도 세션 여부
         npc_prefs: NPC SEXUAL_PREFERENCES dict (optional)
+        mode: 모드 문자열 ("unconscious" 등, optional)
 
     Returns:
         str: 선택된 체위 ID
     """
-    pool = NPC_INIT_POOL if is_npc_initiative else PLAYER_INIT_POOL
+    if mode == "unconscious":
+        pool = UNCONSCIOUS_INIT_POOL
+    elif is_npc_initiative:
+        pool = NPC_INIT_POOL
+    else:
+        pool = PLAYER_INIT_POOL
 
     # 선호 체위가 풀에 있으면 가중치 부여
     preferred = []

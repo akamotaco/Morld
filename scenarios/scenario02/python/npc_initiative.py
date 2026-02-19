@@ -91,6 +91,19 @@ NPC_BLOCK_BODY_BONUS = {
 }
 NPC_BLOCK_MIN_CHANCE = 0.30     # 최소 차단 확률
 NPC_BLOCK_MAX_CHANCE = 0.95     # 최대 차단 확률
+NPC_BLOCK_AROUSAL_GAIN = 3      # 차단 시 NPC 성욕 기본 증가량
+NPC_BLOCK_PERSONALITY_BONUS = {
+    "stoic": 0.0,        # 과묵: 기본
+    "gentle": -0.15,     # 온화: 차단 잘 안함
+    "cheerful": -0.10,   # 활발: 차단 덜함
+    "timid": -0.05,      # 소심: 약간 덜함 (겁먹어서 못 막음)
+    "cold": 0.05,        # 냉담: 약간 더 차단
+    "seductive": -0.10,  # 유혹: 차단 덜함 (즐기는 중)
+    "fierce": 0.10,      # 격렬: 더 차단
+    "proud": 0.05,       # 오만: 약간 더 차단
+    "innocent": -0.05,   # 순수: 약간 덜함
+    "devoted": -0.20,    # 헌신: 거의 차단 안함
+}
 
 
 # ============================================
@@ -212,6 +225,9 @@ def calculate_resistance_gain(player_id, npc_id):
 def _check_npc_block(player_id, npc_id, action_def, state):
     """NPC 주도 모드에서 플레이어 능동 행위 차단 판정.
 
+    차단 확률 = base - 근력 - 체형 + 성격 - 호감(점진) - 성욕
+    차단 성공 시 NPC 성욕 증가 (반복 시도 → 점진적 무력화)
+
     Returns:
         (blocked: bool, reaction: str | None)
     """
@@ -224,18 +240,48 @@ def _check_npc_block(player_id, npc_id, action_def, state):
     if affection >= NPC_INITIATIVE_CONSENT_THRESHOLD:
         return False, None
 
-    # 차단 확률 계산
+    # --- 차단 확률 계산 ---
     strength = get_player_strength(player_id)
     body_type = get_player_body_type(player_id)
 
     block_chance = NPC_BLOCK_BASE_CHANCE
+
+    # 1) 근력 보정 (기존)
     block_chance -= (strength - 5) * NPC_BLOCK_STRENGTH_BONUS
+
+    # 2) 체형 보정 (기존)
     block_chance += NPC_BLOCK_BODY_BONUS.get(body_type, 0.0)
+
+    # 3) 성격 보정 (아키타입 기반)
+    npc_asset = get_npc_asset(npc_id)
+    archetype = "stoic"
+    if npc_asset:
+        profile = getattr(npc_asset, 'REACTION_PROFILE', {})
+        archetype = profile.get('archetype', 'stoic')
+    block_chance += NPC_BLOCK_PERSONALITY_BONUS.get(archetype, 0.0)
+
+    # 4) 호감도 점진적 감소: 50~80 구간에서 최대 -30%
+    if affection >= 50:
+        affection_reduction = (affection - 50) / 30.0 * 0.30
+        block_chance -= affection_reduction
+
+    # 5) 성욕 보정: 50~100 구간에서 최대 -20%
+    npc_props = morld.get_unit_props(npc_id)
+    arousal = npc_props.get("상태:성욕", 0) if npc_props else 0
+    if arousal >= 50:
+        arousal_reduction = (arousal - 50) / 50.0 * 0.20
+        block_chance -= arousal_reduction
+
     block_chance = max(NPC_BLOCK_MIN_CHANCE, min(NPC_BLOCK_MAX_CHANCE, block_chance))
 
     if random.random() < block_chance:
-        # 차단 성공 — NPC 반응 생성
-        npc_asset = get_npc_asset(npc_id)
+        # 차단 성공 — NPC 성욕 증가 (플레이어의 시도가 자극)
+        arousal_gain = NPC_BLOCK_AROUSAL_GAIN
+        if affection >= 50:
+            arousal_gain += 2  # 호감 높으면 더 자극
+        morld.modify_prop(npc_id, "상태:성욕", arousal_gain)
+
+        # 차단 반응 생성
         reaction = None
         if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
             reaction = npc_asset.get_romance_reaction(

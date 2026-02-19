@@ -249,9 +249,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
     # NPC 성적 선호 조회
     partner_asset_init = get_partner_asset(partner_id)
     npc_prefs = getattr(partner_asset_init, 'SEXUAL_PREFERENCES', None)
-    is_npc_init = (mode != MODE_CONSENSUAL and mode != MODE_FROZEN)
+    # NPC 주도만 NPC 풀, 강제/시간정지/합의는 플레이어 풀, 의식불명은 전용 풀
+    is_npc_init = (mode not in {MODE_CONSENSUAL, MODE_FORCED, MODE_FROZEN, MODE_UNCONSCIOUS})
     initial_position = position.select_initial_position(
-        is_npc_initiative=is_npc_init, npc_prefs=npc_prefs)
+        is_npc_initiative=is_npc_init, npc_prefs=npc_prefs, mode=mode)
 
     state = {
         # 핵심 (세션 수명)
@@ -981,8 +982,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if not position.can_transition(current_pos, target_pos):
                 return render_romance_ui(state)
 
-            # 강제 모드: 체위 변경 실패 가능성
+            # 의식불명 모드: 수동 체위만 허용
             mode_ctx = state["mode_ctx"]
+            if mode_ctx["mode"] == MODE_UNCONSCIOUS and target_pos not in position.UNCONSCIOUS_INIT_POOL:
+                state["last_reaction"] = "의식이 없는 상대방은 그 체위를 취할 수 없다."
+                return render_romance_ui(state)
+
+            # 강제 모드: 체위 변경 실패 가능성
             if mode_ctx["mode"] == MODE_FORCED:
                 import random
                 pid = state["partner_id"]

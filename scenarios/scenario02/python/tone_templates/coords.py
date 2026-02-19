@@ -149,6 +149,7 @@ ACTION_TO_CATEGORY = {
     "genital_caress": "strong", "clit_stimulation": "strong",
     "anal_stimulation": "strong", "rough_finger": "strong",
     "finger_anal_insertion": "strong",
+    "demand_dirty_talk": "strong",
     # penetration
     "vaginal_insert": "penetration",
     "anal_insert": "penetration",
