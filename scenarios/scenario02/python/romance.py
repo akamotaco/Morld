@@ -1481,9 +1481,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     return True
                 return render_romance_ui(state)
 
-            # 옷 강탈 처리
+            # 옷 강탈 처리 (부위별: 장착 해제 + 이동)
             if action_def.get("loot"):
-                item_id = get_next_loot_item(state["partner_id"])
+                is_upper = action_def["loot"] == "upper"
+                item_id, is_equipped = get_next_loot_item(
+                    state["partner_id"], upper=is_upper)
                 if item_id is None:
                     return render_romance_ui(state)
                 # 스태미나 처리
@@ -1495,8 +1497,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     state["exhausted"] = True
                     return True
                 state["stamina"] -= total_stamina
-                # 아이템 이동: NPC → 플레이어
-                perform_loot(state["partner_id"], item_id, player_id)
+                # 아이템 이동: 장착해제(필요시) + NPC → 플레이어
+                perform_loot(state["partner_id"], item_id, player_id,
+                             is_equipped)
                 item_info = morld.get_item_info(item_id)
                 item_name = item_info.get("name", "옷") if item_info else "옷"
                 partner_info = morld.get_unit_info(state["partner_id"])

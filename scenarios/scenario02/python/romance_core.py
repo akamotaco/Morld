@@ -316,25 +316,44 @@ def perform_undress(unit_id, item_id):
 # 강탈
 # ============================================
 
-def get_next_loot_item(unit_id):
-    """다음 강탈 가능한 아이템 반환 (인벤토리에서 장착 해제된 의류)"""
+def get_next_loot_item(unit_id, upper=True):
+    """다음 강탈 대상: 장착 중 우선, 없으면 미장착 인벤토리 의류
+
+    Returns:
+        tuple: (item_id, is_equipped) 또는 (None, False)
+    """
     import equipment
-    equipped = set(equipment.get_equipped_items(unit_id))
+    equipped = equipment.get_equipped_items(unit_id)
+    slots = UNDRESS_UPPER_SLOTS if upper else UNDRESS_LOWER_SLOTS
+
+    # 1차: 장착 중인 아이템 (undress 순서)
+    for slot in slots:
+        for item_id in equipped:
+            info = morld.get_item_info(item_id)
+            if info and info.get("equip_props", {}).get(slot, 0) > 0:
+                return item_id, True
+
+    # 2차: 인벤토리 내 미장착 의류
+    equipped_set = set(equipped)
     inventory = morld.get_unit_inventory(unit_id)
     for item_id in inventory:
-        if item_id in equipped:
+        if item_id in equipped_set:
             continue
         info = morld.get_item_info(item_id)
         if not info:
             continue
         ep = info.get("equip_props", {})
-        if any(k.startswith("착용:") for k in ep):
-            return item_id
-    return None
+        if any(ep.get(s, 0) > 0 for s in slots):
+            return item_id, False
+
+    return None, False
 
 
-def perform_loot(source_id, item_id, target_id):
-    """의류 1개 강탈: source → target (인벤 풀이면 바닥 드롭)"""
+def perform_loot(source_id, item_id, target_id, is_equipped=False):
+    """의류 1개 강탈: 장착 중이면 해제 후 이동"""
+    if is_equipped:
+        import equipment
+        equipment.unequip_item(source_id, item_id)
     morld.remove_item(source_id, item_id, 1)
     import inventory as inv_mod
     return inv_mod.safe_give_item(target_id, item_id, 1)

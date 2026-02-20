@@ -221,7 +221,7 @@ class TestDescriptions:
         """모든 즉시형 행위에 묘사 텍스트 존재 (특수 행위 제외)"""
         special = {"undress_upper", "undress_lower", "hold_back", "ejaculate",
                    "change_position", "condom_on", "condom_off", "swallow_semen",
-                   "loot_clothing",
+                   "loot_upper", "loot_lower",
                    "restrain_partner", "unrestrain_partner",
                    "equip_toy_partner", "remove_toy_partner",
                    "force_feed", "use_whip"}

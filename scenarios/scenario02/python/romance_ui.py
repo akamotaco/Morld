@@ -422,10 +422,12 @@ def render_romance_ui(state):
             from romance_core import get_next_undress_item
             if get_next_undress_item(partner_id, upper=is_upper) is None:
                 continue
-        # 강탈 행위: 강탈 가능한 의류 없으면 숨김
+        # 강탈 행위: 해당 부위에 강탈 가능한 의류 없으면 숨김
         if action.get("loot"):
+            is_upper = action["loot"] == "upper"
             from romance_core import get_next_loot_item
-            if get_next_loot_item(partner_id) is None:
+            item_id, _ = get_next_loot_item(partner_id, upper=is_upper)
+            if item_id is None:
                 continue
         # 노출 필요 행위: 미노출 시 잠금 표시
         req_area = action.get("requires_exposure")
