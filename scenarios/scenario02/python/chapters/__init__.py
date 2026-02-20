@@ -17,6 +17,10 @@ from .persistence import (
 # 현재 로드된 챕터
 _current_chapter = None
 
+# Limbo region 상수 (운반 시스템용 — Gate 없는 격리 공간)
+LIMBO_REGION = 99
+LIMBO_LOCATION = 0
+
 
 def load_chapter(chapter_name: str, preserve_player: bool = True):
     """
@@ -48,6 +52,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     # 2.1. 환경 시스템 리셋 (lazy init 모듈들의 챕터 전환 대응)
     #      clear_world() 후 새 챕터 데이터로 재초기화되어야 함
     import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender, fuel
+    import carry
     temperature.reset()
     humidity.reset()
     congestion.reset()
@@ -57,6 +62,11 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     pregnancy.reset()
     gender.reset_orientation()
     fuel.reset()
+    carry.reset()
+
+    # 2.2. Limbo region 생성 (운반 시스템 — 매 챕터 로드마다 재생성)
+    morld.add_region(LIMBO_REGION, "limbo")
+    morld.add_location(LIMBO_REGION, LIMBO_LOCATION, "limbo", length=1)
 
     # 3. 챕터 모듈 동적 import
     try:

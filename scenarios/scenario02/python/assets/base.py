@@ -610,9 +610,15 @@ _FOCUS_AFFECTION = {
 }
 
 _DEFAULT_FOCUS_ORDER = [
-    "restraint", "climax", "exposure_body", "shame",
+    "carrying", "restraint", "climax", "exposure_body", "shame",
     "specials", "semen", "internal_semen",
     "activity", "mood", "desire", "affection", "default",
+]
+
+# 운반 중 FOCUS 텍스트 (운반자에게 표시)
+# TODO: 운반 방식별 텍스트 분기 (구조→업고 있다, 강제→끌고 있다, 오브젝트→들고 있다)
+_FOCUS_CARRYING = [
+    ({"carrying": True}, "{carried_name}을(를) 업고 있다."),
 ]
 
 
@@ -624,6 +630,7 @@ def build_focus_rules(archetype, activities, default_text,
     정액/체내정액/성욕/호감/mood 묘사를 자동 상속.
     """
     sections = {
+        "carrying": _FOCUS_CARRYING,
         "restraint": _FOCUS_RESTRAINT,
         "climax": _FOCUS_CLIMAX.get(archetype, []),
         "exposure_body": _FOCUS_EXPOSURE_BODY.get(archetype, []),
@@ -941,10 +948,16 @@ _DESCRIBE_FATIGUE = {
 }
 
 _DEFAULT_DESCRIBE_ORDER = [
-    "restraint", "climax", "exposure_body", "shame",
+    "carrying", "restraint", "climax", "exposure_body", "shame",
     "specials", "traveling", "activity", "weather", "location",
     "semen", "internal_semen", "desire", "affection",
     "default", "fatigue",
+]
+
+# 운반 중 DESCRIBE 텍스트 (운반자에게 표시)
+# TODO: 피운반자 시점 묘사 (의식 있는 경우 반응), 운반 방식별 분기
+_DESCRIBE_CARRYING = [
+    ({"carrying": True}, "{name}(이)가 {carried_name}을(를) 업고 있다."),
 ]
 
 
@@ -957,6 +970,7 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
     정액/체내정액/성욕/호감/피로도 묘사를 자동 상속.
     """
     sections = {
+        "carrying": _DESCRIBE_CARRYING,
         "restraint": _DESCRIBE_RESTRAINT,
         "climax": _DESCRIBE_CLIMAX.get(archetype, []),
         "exposure_body": _DESCRIBE_EXPOSURE_BODY.get(archetype, []),
@@ -1377,9 +1391,10 @@ class Character(Unit):
         import settings
         if not settings.is_romance_enabled():
             result = [a for a in result if not self._is_romance_action(a)]
-            return result
+            return self._add_carry_action(result)
 
-        return self._add_casual_affection_actions(result)
+        result = self._add_casual_affection_actions(result)
+        return self._add_carry_action(result)
 
     def _apply_dynamic_action_labels(self, actions, info):
         """동적 라벨 적용 (작업지시에 현재 활동 표시 등)"""
@@ -1442,6 +1457,41 @@ class Character(Unit):
             actions.extend(casual_items)
 
         return actions
+
+    def _add_carry_action(self, actions):
+        """운반 가능 상태면 '들어올리기' 액션 동적 추가"""
+        import carry
+        import survival
+
+        # 이미 운반 중이면 추가하지 않음
+        if carry.is_being_carried(self.instance_id):
+            return actions
+
+        # 기절 OR 하체결박 상태일 때만 표시
+        is_fainted = survival.is_npc_fainted(self.instance_id)
+        if is_fainted:
+            actions.append("call:pick_up_unit:들어올리기")
+            return actions
+
+        import restraint
+        if restraint.is_lower_restrained(self.instance_id):
+            actions.append("call:pick_up_unit:들어올리기")
+
+        return actions
+
+    def pick_up_unit(self):
+        """들어올리기 — 플레이어가 이 캐릭터를 운반"""
+        import carry
+        player_id = morld.get_player_id()
+        ok, reason = carry.can_pick_up(player_id, self.instance_id)
+        if not ok:
+            yield ui.dialog([reason])
+            return
+        success = carry.pick_up(player_id, self.instance_id)
+        if success:
+            yield ui.dialog([f"{self.name}을(를) 들어올렸다."])
+        else:
+            yield ui.dialog(["들어올릴 수 없다."])
 
     def _is_romance_action(self, action: str) -> bool:
         """연애 관련 액션인지 판별"""
@@ -1692,6 +1742,17 @@ class Character(Unit):
         context["상체노출"] = exposure["upper"]   # 0=커버, 1=속옷, 2=누드
         context["하체노출"] = exposure["lower"]   # 0=커버, 1=속옷, 2=누드
         context["수치심"] = min(100, int(exposure["score"] * self.shame_sensitivity))
+
+        # 운반 상태
+        import carry as _carry
+        carried_id = _carry.get_carried_unit(self.instance_id)
+        if carried_id:
+            context["carrying"] = True
+            carried_info = morld.get_unit_info(carried_id)
+            context["carried_name"] = carried_info.get("name", "???") if carried_info else "???"
+        else:
+            context["carrying"] = False
+            context["carried_name"] = ""
 
         return context
 
@@ -3710,6 +3771,27 @@ class Object(Unit):
         player_id = morld.get_player_id()
         # posture는 C# stand_up API에서 자동 초기화됨
         morld.stand_up(player_id)
+
+    # ========================================
+    # 운반 시스템
+    # ========================================
+
+    # TODO: portable=True인 오브젝트 서브클래스 정의 (의자, 상자 등)
+    portable: bool = False  # True인 오브젝트만 운반 가능 (서브클래스에서 오버라이드)
+
+    def pick_up_unit(self):
+        """들어올리기 — 플레이어가 이 오브젝트를 운반"""
+        import carry
+        player_id = morld.get_player_id()
+        ok, reason = carry.can_pick_up(player_id, self.instance_id)
+        if not ok:
+            yield ui.dialog([reason])
+            return
+        success = carry.pick_up(player_id, self.instance_id)
+        if success:
+            yield ui.dialog([f"{self.name}을(를) 들어올렸다."])
+        else:
+            yield ui.dialog(["들어올릴 수 없다."])
 
     # ========================================
     # 컨테이너 시스템

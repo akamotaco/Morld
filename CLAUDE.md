@@ -70,6 +70,7 @@
 | 작업 | 참고 문서 |
 |------|----------|
 | 이벤트 시스템 (on_meet, on_reach, on_leave) | [event.md](scenarios/scenario02/docs/event.md) |
+| 운반 시스템 (Limbo + 포인터 아이템) | [carry.md](scenarios/scenario02/docs/carry.md) |
 | 시간 정지 (Frozen) 상태 | [frozen.md](scenarios/scenario02/docs/frozen.md) |
 | 시간 흐름 (자동 시간 흐름) | [time-flow.md](scenarios/scenario02/docs/time-flow.md) |
 
@@ -107,6 +108,7 @@ scenarios/scenario02/docs/
 ├── clothes.md          # 의류/장비
 ├── food.md             # 음식/요리
 ├── craft.md            # 크래프팅
+├── carry.md            # 운반 시스템 (Limbo + 포인터 아이템)
 ├── event.md            # 이벤트 시스템
 ├── frozen.md           # 시간 정지 상태
 └── time-flow.md        # 시간 흐름 시스템

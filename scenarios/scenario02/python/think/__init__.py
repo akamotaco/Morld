@@ -571,6 +571,38 @@ class BaseAgent:
 
     RESTRAINED_ESCAPE_INTERVAL = 30 * 60 * 1000  # 30분마다 해제 시도
 
+    def _handle_being_carried(self):
+        """운반 중 상태 처리 — Limbo에서 대기
+
+        운반자가 들고 있는 동안 idle job만 삽입.
+        기절 상태가 해제되면 의식 회복 → 비결박 시 자동 해방.
+        """
+        import survival
+        import carry
+
+        # 기절 해제 확인
+        if not survival.is_npc_fainted(self.unit_id):
+            # 의식 회복됨
+            import restraint
+            if not restraint.is_lower_restrained(self.unit_id):
+                # 비결박 → 자동 해방
+                carrier_id = carry.get_carrier(self.unit_id)
+                if carrier_id:
+                    carry.put_down(carrier_id)
+                    info = self.get_info()
+                    name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
+                    print(f"[think] {name}: 의식 회복 → 운반에서 해방")
+                # 해방 후 일반 think 재호출되므로 여기서는 idle만
+                self._insert_idle_job("의식 회복", 60_000)
+                self._action_taken = True
+                return
+            # TODO: 결박 상태 저항 대사 (의식 있음 + 결박 → 운반 계속하되 반응)
+
+        # TODO: 운반 중 NPC 목격 반응 이벤트 발화
+        # 운반 중 대기 (1시간)
+        self._insert_idle_job("운반 중", 3_600_000)
+        self._action_taken = True
+
     def _handle_restrained(self):
         """결박 상태 처리 — 모든 일상 행동 차단
 
@@ -1158,6 +1190,12 @@ class BaseAgent:
         """
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
+
+        # Tier -1: 운반 중 (Limbo에 있음)
+        import carry
+        if carry.is_being_carried(self.unit_id):
+            self._handle_being_carried()
+            return None
 
         # Tier 0: 결박
         import restraint
