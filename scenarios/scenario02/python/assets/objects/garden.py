@@ -525,3 +525,56 @@ class GardenBed(Object):
                 morld.set_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}", 0)
                 return True
         return False
+
+    def npc_fertilize(self, npc_id):
+        """NPC 비료 주기 (non-generator)
+
+        Returns:
+            bool: 성공 여부
+        """
+        import garden
+        from assets.registry import get_or_create_item_id
+
+        fertilizer_id = get_or_create_item_id("fertilizer")
+        if not fertilizer_id or not morld.has_item(npc_id, fertilizer_id):
+            return False
+
+        current = morld.get_unit_prop(self.instance_id, garden.PROP_FERTILIZER)
+        if current >= garden.MAX_FERTILIZER:
+            return False
+
+        morld.lost_item(npc_id, fertilizer_id, 1)
+        new_val = min(garden.MAX_FERTILIZER, current + garden.FERTILIZER_AMOUNT)
+        morld.set_unit_prop(self.instance_id, garden.PROP_FERTILIZER, new_val)
+        return True
+
+    def npc_remove_plant(self, npc_id, furrow_index=None):
+        """NPC 식물 제거 (non-generator)
+
+        Args:
+            furrow_index: 제거할 이랑 인덱스 (None이면 첫 번째 식물)
+        Returns:
+            bool: 성공 여부
+        """
+        import garden
+
+        furrow_count = morld.get_unit_prop(self.instance_id, garden.PROP_FURROW_COUNT) or 0
+
+        if furrow_index is not None:
+            if furrow_index < 0 or furrow_index >= furrow_count:
+                return False
+            seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{furrow_index}")
+            if not seed_code:
+                return False
+            morld.set_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{furrow_index}", 0)
+            morld.set_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{furrow_index}", 0)
+            return True
+
+        # 첫 번째 심어진 이랑 제거
+        for i in range(furrow_count):
+            seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}")
+            if seed_code:
+                morld.set_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}", 0)
+                morld.set_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}", 0)
+                return True
+        return False

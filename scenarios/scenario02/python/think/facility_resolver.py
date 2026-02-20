@@ -224,3 +224,41 @@ def _sort_by_priority(facilities, preferred, home_region_id, cross_region=False)
     if cross_region:
         result += other_region
     return result
+
+
+# ========================================
+# 세탁기/건조기 탐색
+# ========================================
+
+def resolve_washer(agent, cross_region=False):
+    """idle 세탁기 탐색
+
+    Returns:
+        {"region_id", "location_id", "x", "object_id"} or None
+    """
+    home_region = agent._get_home_region()
+    all_washers = _find_facilities_by_unique_id("washing_machine")
+    sorted_washers = _sort_by_priority(all_washers, None, home_region, cross_region)
+    import laundry
+    for w in sorted_washers:
+        state = laundry.get_machine_state(w["object_id"])
+        if state == 0:
+            return w
+    return None
+
+
+def resolve_dryer(agent, cross_region=False):
+    """idle 건조기 탐색
+
+    Returns:
+        {"region_id", "location_id", "x", "object_id"} or None
+    """
+    home_region = agent._get_home_region()
+    all_dryers = _find_facilities_by_unique_id("dryer")
+    sorted_dryers = _sort_by_priority(all_dryers, None, home_region, cross_region)
+    import laundry
+    for d in sorted_dryers:
+        state = laundry.get_machine_state(d["object_id"])
+        if state == 0:
+            return d
+    return None

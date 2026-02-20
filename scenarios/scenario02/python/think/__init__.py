@@ -114,6 +114,11 @@ class BaseAgent:
             "gift_item_id": None,         # 선물할 아이템 ID
             "gift_cooldown": None,        # 마지막 선물 시각 (밀리초)
             "romance_last": None,         # 마지막 애정 행위 기억 {partner_id, region_id, location_id, timestamp, mode}
+            "laundry_phase": None,        # 빨래 단계 (None/going_to_washer/loading/waiting_wash/collecting_wash/going_to_dryer/loading_dry/waiting_dry/collecting_dry)
+            "laundry_washer": None,       # 세탁기 위치 {region_id, location_id, x, object_id}
+            "laundry_dryer": None,        # 건조기 위치
+            "laundry_items": None,        # 세탁 중인 아이템 ID 목록 (re-equip용)
+            "laundry_cooldown": None,     # 마지막 빨래 시각 (밀리초) — 쿨다운 3시간
         }
 
     def set_base_schedule(self, schedule):
@@ -929,6 +934,10 @@ class BaseAgent:
             self._action_taken = True
             return True
 
+        # 4e-2. 빨래 (의류 오염도 기반)
+        if self._check_laundry():
+            return True
+
         # 4f. 출산 인터럽트 (임신 40주+)
         if self._check_childbirth():
             return True
@@ -1151,6 +1160,55 @@ class BaseAgent:
         self._memory["gift_target_id"] = target_id
         self._memory["gift_item_id"] = gift_item_id
         _handle_gift(self)
+        return True
+
+    def _check_laundry(self):
+        """의류 오염도 확인 → 세탁/건조 처리. Returns True if handling."""
+        phase = self._memory["laundry_phase"]
+
+        # 이미 진행 중 — waiting 상태는 False 반환 (NPC 자유)
+        if phase == "waiting_wash":
+            import laundry
+            washer = self._memory["laundry_washer"]
+            if washer and laundry.get_machine_state(washer["object_id"]) == 2:
+                self._memory["laundry_phase"] = "collecting_wash"
+                _handle_laundry(self)
+                return True
+            return False  # 아직 작동 중 → 다른 활동 허용
+        if phase == "waiting_dry":
+            import laundry
+            dryer = self._memory["laundry_dryer"]
+            if dryer and laundry.get_machine_state(dryer["object_id"]) == 2:
+                self._memory["laundry_phase"] = "collecting_dry"
+                _handle_laundry(self)
+                return True
+            return False  # 아직 건조 중 → 다른 활동 허용
+        if phase is not None:
+            _handle_laundry(self)
+            return True
+
+        # 쿨다운 체크 (3시간)
+        cd = self._memory.get("laundry_cooldown")
+        if cd is not None:
+            elapsed = (self.get_time() or 0) - cd
+            if elapsed < 3 * 3_600_000:
+                return False
+
+        # 오염된 착용 의류 체크
+        dirty_items = _find_dirty_equipped_clothing(self.unit_id)
+        if not dirty_items:
+            return False
+
+        # 세탁기 탐색
+        from think.facility_resolver import resolve_washer
+        washer = resolve_washer(self)
+        if not washer:
+            return False
+
+        self._memory["laundry_phase"] = "going_to_washer"
+        self._memory["laundry_washer"] = washer
+        self._memory["laundry_items"] = dirty_items
+        _handle_laundry(self)
         return True
 
     def _can_seek_player(self):
@@ -2152,6 +2210,7 @@ from think.handlers import (
     _find_socialize_target, _find_gift_item, _find_gift_target,
 )
 from think.handlers.self_comfort import _resolve_private_location
+from think.handlers.laundry import _handle_laundry, _find_dirty_equipped_clothing
 
 
 def register_agent(unit_id, agent):

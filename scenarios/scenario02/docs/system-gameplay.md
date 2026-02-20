@@ -566,6 +566,16 @@ laundry.reset_machine(unit_id)                         # 빨래 꺼낸 후 초�
 laundry.get_machine_focus_text(unit_id, machine_type)  # focus_text 생성
 ```
 
+### NPC 자율 사용
+
+NPC는 오염된 의류를 감지하면 자동으로 세탁기/건조기를 사용한다 (Tier 4 인터럽트).
+
+- **트리거**: 장착 의류 중 `오염:수치 > 5` 인 아이템 존재 + 쿨다운 3시간 경과
+- **시설 탐색**: `facility_resolver.resolve_washer/dryer()` — unique_id 기반 + 머신 상태(idle) 필터
+- **비차단 대기**: 세탁/건조 중 NPC는 다른 활동 가능 → 완료 감지 시 수거 재개
+- **오브젝트 메서드**: `npc_load_laundry(npc_id, item_ids)`, `npc_start(npc_id)`, `npc_unload_laundry(npc_id)`
+- **상세**: [life.md#2-D](life.md#2-d-세탁-인터럽트--구현됨-v022)
+
 ---
 
 ## 습도 시스템 (Humidity System)

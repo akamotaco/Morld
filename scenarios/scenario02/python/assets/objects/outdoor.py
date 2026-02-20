@@ -58,27 +58,6 @@ class Well(Object):
 # 뒷마당 오브젝트
 # ========================================
 
-class GardenPlot(Object):
-    unique_id = "garden_plot"
-    name = "텃밭"
-    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
-    focus_text = {
-        "default": "작은 텃밭. 간단한 채소를 기를 수 있을 것 같다.",
-        "봄": "새싹이 돋아나고 있다.",
-        "여름": "채소들이 무성하게 자라고 있다.",
-        "가을": "수확할 채소가 익어가고 있다.",
-        "겨울": "텅 빈 텃밭. 봄을 기다리고 있다."
-    }
-
-    def look(self):
-        """텃밭 살펴보기"""
-        yield ui.dialog([
-            "작은 텃밭이다.",
-            "간단한 채소를 기를 수 있을 것 같다."
-        ])
-        morld.advance_time_des(2 * 60_000)
-
-
 class DryingRack(Object):
     unique_id = "drying_rack"
     name = "빨래 건조대"

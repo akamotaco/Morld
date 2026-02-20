@@ -79,6 +79,47 @@ class WashingMachine(Object):
         laundry.reset_machine(self.instance_id)
         yield ui.dialog("세탁된 빨래를 꺼냈다.")
 
+    # NPC 전용 메서드 (non-generator)
+
+    def npc_load_laundry(self, npc_id, item_ids):
+        """NPC 의류 아이템 목록을 세탁기에 넣기"""
+        import laundry
+        if laundry.is_machine_busy(self.instance_id):
+            return False
+        for item_id in item_ids:
+            if morld.has_item(npc_id, item_id):
+                morld.remove_item(npc_id, item_id, 1)
+                morld.give_item(self.instance_id, item_id, 1)
+        return True
+
+    def npc_start(self, npc_id):
+        """NPC 세탁 시작"""
+        import laundry
+        if laundry.is_machine_busy(self.instance_id):
+            return False
+        inv = morld.get_unit_inventory(self.instance_id)
+        if not inv:
+            return False
+        laundry.start_machine(self.instance_id, "washer")
+        return True
+
+    def npc_unload_laundry(self, npc_id):
+        """NPC 완료된 빨래 꺼내기"""
+        import laundry
+        state = laundry.get_machine_state(self.instance_id)
+        if state != 2:
+            return False
+        inv = morld.get_unit_inventory(self.instance_id)
+        if not inv:
+            laundry.reset_machine(self.instance_id)
+            return True
+        import inventory as inv_module
+        for item_id in list(inv.keys()):
+            morld.lost_item(self.instance_id, item_id)
+            inv_module.safe_give_item(npc_id, item_id)
+        laundry.reset_machine(self.instance_id)
+        return True
+
 
 class Dryer(Object):
     """건조기 — 의류의 젖음(습도:젖음)을 제거"""
@@ -144,3 +185,44 @@ class Dryer(Object):
             inv_module.safe_give_item(player_id, item_id)
         laundry.reset_machine(self.instance_id)
         yield ui.dialog("건조된 빨래를 꺼냈다.")
+
+    # NPC 전용 메서드 (non-generator)
+
+    def npc_load_laundry(self, npc_id, item_ids):
+        """NPC 의류 아이템 목록을 건조기에 넣기"""
+        import laundry
+        if laundry.is_machine_busy(self.instance_id):
+            return False
+        for item_id in item_ids:
+            if morld.has_item(npc_id, item_id):
+                morld.remove_item(npc_id, item_id, 1)
+                morld.give_item(self.instance_id, item_id, 1)
+        return True
+
+    def npc_start(self, npc_id):
+        """NPC 건조 시작"""
+        import laundry
+        if laundry.is_machine_busy(self.instance_id):
+            return False
+        inv = morld.get_unit_inventory(self.instance_id)
+        if not inv:
+            return False
+        laundry.start_machine(self.instance_id, "dryer")
+        return True
+
+    def npc_unload_laundry(self, npc_id):
+        """NPC 완료된 빨래 꺼내기"""
+        import laundry
+        state = laundry.get_machine_state(self.instance_id)
+        if state != 2:
+            return False
+        inv = morld.get_unit_inventory(self.instance_id)
+        if not inv:
+            laundry.reset_machine(self.instance_id)
+            return True
+        import inventory as inv_module
+        for item_id in list(inv.keys()):
+            morld.lost_item(self.instance_id, item_id)
+            inv_module.safe_give_item(npc_id, item_id)
+        laundry.reset_machine(self.instance_id)
+        return True

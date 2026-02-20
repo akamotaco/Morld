@@ -288,6 +288,7 @@ def _process_hourly(unit_id):
 4c. 피로 (_check_fatigue): 욕구:피로 ≥ 80 → _handle_sleep() (2시간 fallback)
 4d. 성욕 (_check_arousal): 성욕 임계값 → _handle_self_comfort() (성인용품 자동 사용) / _handle_seek_player()
 4e. 목욕 (스케줄 OR 청결): 욕구:청결 ≥ 70 → _handle_bath() (30분 fallback)
+4e-2. 세탁 (_check_laundry): 착용 의류 오염 > 5 → _handle_laundry() (비차단 대기)
 4f. 취침: 스케줄 수면 시간 → _handle_sleep()
 ```
 
@@ -371,7 +372,7 @@ Footer에 임계치 근처일 때만 표시:
 Tier 1 (Involuntary): 기절 / 수면 (추위 기상: 체온 ≤ 35.0 → tier 3으로 이관)
 Tier 2 (Reactive): 피격 반응 (미래)
 Tier 3 (Survival): 배고픔 → 추위 → 더위
-Tier 4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 출산 → 모성 → 사회 → 선물 → 수면
+Tier 4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 세탁 → 출산 → 모성 → 사회 → 선물 → 수면
 Tier 5 (Routine): 스케줄 기반 일반 활동 (순찰/산책은 wandering)
 ```
 
@@ -437,6 +438,11 @@ self._memory = {
     "clothing_last_attempt": None,  # 실패 시 쿨다운 타임스탬프
     "excretion_phase": None,     # None/idle/going/using
     "excretion_target": None,    # resolve_toilet() 결과 캐시
+    "laundry_phase": None,       # None/going_to_washer/loading/waiting_wash/collecting_wash/going_to_dryer/loading_dry/waiting_dry/collecting_dry
+    "laundry_washer": None,      # resolve_washer() 결과 캐시
+    "laundry_dryer": None,       # resolve_dryer() 결과 캐시
+    "laundry_items": None,       # 세탁 중인 아이템 item_id 목록
+    "laundry_cooldown": None,    # 세탁 완료 후 3시간 쿨다운
 }
 ```
 
@@ -464,7 +470,47 @@ None → idle → going → taking → equipping → None
 
 ---
 
-## 2-C. 시설 탐색 리졸버 — 구현됨 (v0.2.2)
+## 2-D. 세탁 인터럽트 — 구현됨 (v0.2.2)
+
+> `think/handlers/laundry.py` — 오염 의류 자동 감지 + 세탁/건조 + 비차단 대기
+
+### 트리거 조건 (`_check_laundry`)
+
+1. 장착 중인 의류 `오염:수치 > 5` (DIRTY_THRESHOLD)
+2. `resolve_washer()` 성공 (idle 세탁기 존재)
+3. 3시간 쿨다운 경과 (`_memory["laundry_cooldown"]`)
+
+### 페이즈 흐름 (`_memory["laundry_phase"]`)
+
+```
+None → going_to_washer → loading → waiting_wash → collecting_wash
+     → going_to_dryer → loading_dry → waiting_dry → collecting_dry → None
+```
+
+| 페이즈 | 동작 | 비차단 |
+|--------|------|--------|
+| `going_to_washer` | 세탁기로 이동 | |
+| `loading` | 의류 벗기 + `npc_load_laundry` + `npc_start` | |
+| `waiting_wash` | 세탁 중 대기 (60분) | **O** — `_check_laundry()` → False |
+| `collecting_wash` | `npc_unload_laundry` → 건조기 탐색 | |
+| `going_to_dryer` | 건조기로 이동 (없으면 skip) | |
+| `loading_dry` | `npc_load_laundry` + `npc_start` | |
+| `waiting_dry` | 건조 중 대기 (30분) | **O** — `_check_laundry()` → False |
+| `collecting_dry` | `npc_unload_laundry` → 재장착 → 완료 | |
+
+### 비차단 대기 (Non-blocking Wait)
+
+`waiting_wash`/`waiting_dry` 페이즈에서 `_check_laundry()` → **False** 반환.
+NPC는 다른 tier 인터럽트(배고픔, 스케줄 등)에 자유롭게 응답.
+`laundry.get_machine_state() == 2` (완료) 감지 시 collecting 페이즈로 자동 전환.
+
+### 건조기 없음 처리
+
+건조기가 없으면 `collecting_wash`에서 바로 재장착 + 완료 (건조 생략).
+
+---
+
+## 2-E. 시설 탐색 리졸버 — 구현됨 (v0.2.2)
 
 > `think/facility_resolver.py` — 목욕/화장실/옷장 시설의 prop 기반 동적 탐색 + 선착순 점유
 
@@ -531,6 +577,18 @@ target = resolve_wardrobe(agent)  # 탐색 (소유권 기반)
 점유 감지 없음 (동시 사용 충돌 불가).
 추위/더위/착의 인터럽트의 `_handle_cold`/`_handle_hot`/`_handle_clothing`에서 사용.
 
+### 세탁기/건조기 탐색 (`resolve_washer`, `resolve_dryer`)
+
+```python
+from think.facility_resolver import resolve_washer, resolve_dryer
+
+washer = resolve_washer(agent)  # idle 세탁기 탐색
+dryer = resolve_dryer(agent)    # idle 건조기 탐색
+```
+
+unique_id 기반 탐색 + `laundry.get_machine_state() == 0` (idle) 필터.
+세탁 인터럽트(`_handle_laundry`)에서 사용.
+
 ### 반환값
 
 ```python
@@ -551,6 +609,8 @@ target = resolve_wardrobe(agent)  # 탐색 (소유권 기반)
 | DrumBath, BathroomBath | `action:bath = 1` | 목욕 시설 탐색 |
 | Wardrobe | `wardrobe_owner:{name} = 1` | 소유 옷장 탐색 |
 | Bed, SleepingBag 등 | `bed_owner:{name} = 1` | 소유 침대 탐색, home_region 판정 |
+| WashingMachine | `unique_id == "washing_machine"` | 세탁기 탐색 (idle 상태만) |
+| Dryer | `unique_id == "dryer"` | 건조기 탐색 (idle 상태만) |
 
 ---
 

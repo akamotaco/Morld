@@ -15,7 +15,7 @@ from .furniture import (
     Wardrobe
 )
 from .outdoor import (
-    GardenBench, Well, GardenPlot, DryingRack, FishingSpot
+    GardenBench, Well, DryingRack, FishingSpot
 )
 from .nature import (
     ResourceObject, AppleTree, BerryBush, MushroomPatch,
@@ -45,7 +45,7 @@ __all__ = [
     'CorridorWindow', 'Vase',
     'Wardrobe',
     # outdoor
-    'GardenBench', 'Well', 'GardenPlot', 'DryingRack', 'FishingSpot',
+    'GardenBench', 'Well', 'DryingRack', 'FishingSpot',
     # nature (자원 생성)
     'ResourceObject', 'AppleTree', 'BerryBush', 'MushroomPatch',
     'WildBerryBush', 'WildHerbPatch',

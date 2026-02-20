@@ -102,6 +102,39 @@ def _fill_water_container(source_name: str):
     morld.advance_time_des(5 * 60_000)
 
 
+def _npc_fill_water_container(npc_id):
+    """NPC 인벤토리의 물 용기에 물 채우기 (non-generator 공용 헬퍼)
+
+    Returns:
+        bool: 채운 용기가 있으면 True
+    """
+    from assets.registry import get_unique_id, get_item_class
+    from assets.items.garden_items import PROP_WATER_AMOUNT
+
+    inventory = morld.get_unit_inventory(npc_id)
+    if not inventory:
+        return False
+
+    filled = False
+    for item_id, count in inventory.items():
+        if count <= 0:
+            continue
+        info = morld.get_item_info(item_id)
+        if not info:
+            continue
+        passive = info.get("passive_props") or {}
+        if passive.get("can:water", 0) <= 0:
+            continue
+        uid = get_unique_id(item_id)
+        item_cls = get_item_class(uid) if uid else None
+        capacity = getattr(item_cls, "water_capacity", 1) if item_cls else 1
+        current = morld.get_unit_prop(item_id, PROP_WATER_AMOUNT)
+        if current < capacity:
+            morld.set_unit_prop(item_id, PROP_WATER_AMOUNT, capacity)
+            filled = True
+    return filled
+
+
 # ========================================
 # 거실 오브젝트
 # ========================================
@@ -775,6 +808,42 @@ class Kettle(Object):
         yield ui.dialog(f"{recipe['name']}을(를) 만들었다!")
         morld.advance_time_des(recipe["cook_time"] * 60_000)
 
+    def npc_brew(self, npc_id):
+        """NPC 음료 제조 (non-generator). 주전자 인벤토리 재료 → 레시피 매칭 → NPC 지급."""
+        from recipes import find_matching_recipe
+        from assets.registry import get_or_create_item_id, get_unique_id
+
+        inventory = morld.get_unit_inventory(self.instance_id)
+        if not inventory:
+            return False
+
+        inv_uniques = {}
+        for item_id, count in inventory.items():
+            uid = get_unique_id(item_id)
+            if uid:
+                inv_uniques[uid] = inv_uniques.get(uid, 0) + count
+
+        result = find_matching_recipe(inv_uniques)
+        if not result:
+            return False
+
+        recipe_id, recipe, max_count = result
+
+        # 재료 소비 (주전자에서)
+        for unique_id, needed in recipe["ingredients"].items():
+            item_id = get_or_create_item_id(unique_id)
+            if item_id:
+                morld.lost_item(self.instance_id, item_id, needed)
+
+        # 결과물 → NPC 인벤토리
+        result_unique, result_count = recipe["result"]
+        result_id = get_or_create_item_id(result_unique)
+        if result_id:
+            import inventory as inv_module
+            inv_module.safe_give_item(npc_id, result_id, result_count)
+
+        return True
+
 
 class Cupboard(Object):
     unique_id = "cupboard"
@@ -817,6 +886,17 @@ class Bathtub(Object):
         ])
         morld.advance_time_des(30 * 60_000)
 
+    def npc_use(self, npc_id):
+        """NPC 목욕 (non-generator) — 건조+보온+정액제거"""
+        humidity.dry_unit(npc_id, 100)
+        temperature.warm_character(npc_id, 2.0)
+        try:
+            import romance
+            romance.clear_all_semen(npc_id)
+        except ImportError:
+            pass
+        return True
+
 
 class Washbasin(Object):
     unique_id = "washbasin"
@@ -835,6 +915,10 @@ class Washbasin(Object):
     def fill(self):
         """물 받기 - 물뿌리개/물통에 물 채우기"""
         yield from _fill_water_container(self.name)
+
+    def npc_fill(self, npc_id):
+        """NPC 물 받기 (non-generator)"""
+        return _npc_fill_water_container(npc_id)
 
 
 class KitchenSink(Object):
@@ -856,6 +940,10 @@ class KitchenSink(Object):
         """물 받기 - 물뿌리개/물통에 물 채우기"""
         yield from _fill_water_container(self.name)
 
+    def npc_fill(self, npc_id):
+        """NPC 물 받기 (non-generator)"""
+        return _npc_fill_water_container(npc_id)
+
 
 class WaterTap(Object):
     """수도꼭지 - 도시 물 공급 시설"""
@@ -874,6 +962,10 @@ class WaterTap(Object):
     def fill(self):
         """물 받기 - 물뿌리개/물통/물병에 물 채우기"""
         yield from _fill_water_container(self.name)
+
+    def npc_fill(self, npc_id):
+        """NPC 물 받기 (non-generator)"""
+        return _npc_fill_water_container(npc_id)
 
 
 class DrumBath(Object):
@@ -921,6 +1013,17 @@ class DrumBath(Object):
             "좁지만... 없는 것보단 낫다."
         ])
         morld.advance_time_des(20 * 60_000)
+
+    def npc_use(self, npc_id):
+        """NPC 목욕 (non-generator) — 건조+보온+정액제거"""
+        humidity.dry_unit(npc_id, 100)
+        temperature.warm_character(npc_id, 2.0)
+        try:
+            import romance
+            romance.clear_all_semen(npc_id)
+        except ImportError:
+            pass
+        return True
 
     def load_fuel(self):
         """플레이어가 연료를 넣기"""
