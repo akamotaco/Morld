@@ -132,7 +132,8 @@ class Tree(Object):
         if branch_id is None:
             return False
         if random.random() < self.branch_chance:
-            morld.give_item(npc_id, branch_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(npc_id, branch_id, 1)
             self.set_branch_count(self.get_branch_count() - 1)
             return True
         return False
@@ -145,7 +146,8 @@ class Tree(Object):
         if log_id is None:
             return False
         if random.random() < self.log_chance:
-            morld.give_item(npc_id, log_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(npc_id, log_id, 1)
             self.set_log_count(self.get_log_count() - 1)
             return True
         return False
@@ -213,7 +215,8 @@ class Tree(Object):
                 return
 
             # 통나무 지급 및 자원 감소
-            morld.give_item(player_id, log_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, log_id, 1)
             self.set_log_count(self.get_log_count() - 1)
 
             yield ui.dialog([
@@ -254,7 +257,8 @@ class Tree(Object):
                 return
 
             # 나뭇가지 지급 및 자원 감소
-            morld.give_item(player_id, branch_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, branch_id, 1)
             self.set_branch_count(self.get_branch_count() - 1)
 
             yield ui.dialog([

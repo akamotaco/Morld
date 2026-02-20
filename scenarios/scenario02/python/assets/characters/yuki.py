@@ -1262,6 +1262,13 @@ class YukiAgent(BaseAgent):
     ]
 
     owner_unique_id = "yuki"
+    _inventory_priority = {
+        "tool": 80, "clothing": 70, "food": 60,
+        "food_ingredient": 50, "drink_ingredient": 50,
+        "material": 40, "seed": 30,
+        "garden_tool": 30, "garden_supply": 30,
+        "trinket": 70, "flower": 80,
+    }
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

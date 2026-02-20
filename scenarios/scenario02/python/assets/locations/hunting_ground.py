@@ -1,13 +1,13 @@
 # assets/locations/hunting_ground.py - 사냥터
 
 from assets.base import Location
-from assets.objects.grounds import GroundForest
 
 
 class HuntingGround(Location):
     unique_id = "hunting_ground"
     name = "사냥터"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 0
     length = 1800  # Pi-World: 사냥터 길이
     describe_text = {
@@ -20,6 +20,5 @@ class HuntingGround(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """사냥터 생성 + 숲 바닥 추가"""
+        """사냥터 생성"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())

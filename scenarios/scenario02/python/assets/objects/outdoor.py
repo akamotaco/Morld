@@ -236,7 +236,8 @@ class FishingSpot(Object):
                     yield ui.dialog("물고기를 잡았지만, 놓쳐버렸다.")
                     return
 
-            morld.give_item(player_id, fish_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, fish_id, 1)
             self.set_fish_count(self.get_fish_count() - 1)
             yield ui.dialog([
                 "물고기를 잡았다!",
@@ -257,7 +258,8 @@ class FishingSpot(Object):
         if random.random() < self.fish_chance:
             item_id = get_or_create_item_id("food_fish")
             if item_id:
-                morld.give_item(npc_id, item_id, 1)
+                import inventory as inv_module
+                inv_module.safe_give_item(npc_id, item_id, 1)
                 self.set_fish_count(self.get_fish_count() - 1)
                 return True
         return False

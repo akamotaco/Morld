@@ -1,13 +1,13 @@
 # assets/locations/forest_entrance.py - 숲 입구
 
 from assets.base import Location
-from assets.objects.grounds import GroundForest
 
 
 class ForestEntrance(Location):
     unique_id = "forest_entrance"
     name = "숲 입구"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 5  # 숲 진입 시 지체 시간
     length = 1800  # Pi-World: 숲 길이
     describe_text = {
@@ -21,6 +21,5 @@ class ForestEntrance(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """숲 입구 생성 + 숲 바닥 추가"""
+        """숲 입구 생성"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())

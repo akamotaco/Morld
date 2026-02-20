@@ -17,6 +17,8 @@ morld.get_unit_prop(unit_id, prop_name)     # 단일 prop 값 반환 (없으면 
 morld.get_unit_props_by_type(unit_id, type) # 특정 type의 props dict (예: "can" → {"sleep":1, "bath":1})
 morld.get_unit_prop_types(unit_id)          # prop type 목록 반환
 morld.set_unit(unit_id, field, value)  # name, type 등
+morld.remove_unit(unit_id)                             # 유닛 제거 (인벤토리 포함)
+morld.get_inventory_slot_count(unit_id)                # distinct item_id 수 반환
 
 # ========================================
 # JobList 관련

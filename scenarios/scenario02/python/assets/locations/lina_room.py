@@ -2,7 +2,6 @@
 
 import morld
 from assets.base import Location
-from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import Mirror, Bed, Wardrobe, WallLamp, Window
 
 
@@ -11,6 +10,7 @@ class LinaRoom(Location):
     name = "방"
     owner = "lina"
     is_indoor = True
+    ground_type = "GroundWooden"
     stay_duration = 0
     length = 150  # Pi-World: 침실 (개인 공간)
     describe_text = {
@@ -19,7 +19,6 @@ class LinaRoom(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundWooden())
         self.add_object(Mirror(), x=5)   # 문 옆
         self.add_object(WallLamp(), x=90)
         self.add_object(Window(), x=120)

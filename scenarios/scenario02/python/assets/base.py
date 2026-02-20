@@ -2344,10 +2344,12 @@ class Character(Unit):
                         morld.set_unit_prop(partner_id, "상태:미약남은시간", 6)
             else:
                 # 나중에 먹겠다며 보관
-                morld.give_item(partner_id, item_id)
+                import inventory as inv_module
+                inv_module.safe_give_item(partner_id, item_id)
         else:
             # 음식이 아니면 NPC 인벤토리에 저장
-            morld.give_item(partner_id, item_id)
+            import inventory as inv_module
+            inv_module.safe_give_item(partner_id, item_id)
 
         # 호감도 적용
         if bonus > 0:
@@ -3802,7 +3804,11 @@ class Object(Unit):
         player_id = morld.get_player_id()
         item_id = int(item_id)
         morld.lost_item(self.instance_id, item_id)
-        morld.give_item(player_id, item_id)
+        import inventory as inv_module
+        inv_module.safe_give_item(player_id, item_id)
+        # 동적 바닥이면 빈 상태 체크
+        import ground as ground_module
+        ground_module.check_empty_ground(self.instance_id)
 
     def _can_put_item(self, item_id: int) -> bool:
         """아이템을 이 오브젝트에 넣을 수 있는지 확인"""
@@ -3894,7 +3900,8 @@ class Object(Unit):
         inventory = morld.get_unit_inventory(self.instance_id)
         if inventory and inventory.get(item_id, 0) >= count:
             morld.remove_item(self.instance_id, item_id, count)
-            morld.give_item(npc_id, item_id, count)
+            import inventory as inv_module
+            inv_module.safe_give_item(npc_id, item_id, count)
             return True
         return False
 
@@ -4096,6 +4103,7 @@ class Location(Asset):
     stay_duration: int = 0
     describe_text: dict = None  # 태그 기반 묘사 텍스트
     owner: str = None  # 소유자 unique_id (예: "sera", "mila")
+    ground_type: str = None  # 바닥 종류 (grounds.py 클래스명, 동적 바닥 생성용)
 
     # Pi-World 2D 속성
     geometry: str = "line"  # "line" 또는 "ring"

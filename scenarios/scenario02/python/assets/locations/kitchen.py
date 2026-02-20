@@ -1,7 +1,6 @@
 # assets/locations/kitchen.py - 주방
 
 from assets.base import Location
-from assets.objects.grounds import GroundStone
 from assets.objects.furniture import Stove, Kettle, Cupboard, WallLamp, KitchenFridge, KitchenSink
 
 
@@ -9,6 +8,7 @@ class Kitchen(Location):
     unique_id = "kitchen"
     name = "주방"
     is_indoor = True
+    ground_type = "GroundStone"
     stay_duration = 0
     length = 180  # Pi-World: 주방 길이
     describe_text = {
@@ -19,9 +19,8 @@ class Kitchen(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """주방 생성 + 바닥 + 아궁이 + 주전자 + 찬장 추가"""
+        """주방 생성 + 아궁이 + 주전자 + 찬장 추가"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundStone())
         # 오브젝트 위치 분산 (주방 길이 30)
         self.add_object(Stove(), x=10)    # 아궁이 (중앙 왼쪽)
         self.add_object(Kettle(), x=15)   # 주전자 (아궁이 옆)

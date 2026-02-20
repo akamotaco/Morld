@@ -41,6 +41,9 @@ def initialize():
     # 9. 전 맵 오염도 등록
     _register_pollution()
 
+    # 10. 캐릭터 인벤토리 슬롯 초기화
+    _init_inventory_slots()
+
     print("[chapter_1] Main chapter initialized: full map with NPCs and nature objects")
 
 
@@ -138,16 +141,13 @@ def _instantiate_collectibles():
         (OldTeddyBear,  0, 10),   # 낡은 곰 인형 — 빈 방 1
     ]
 
+    import ground as ground_module
     count = 0
     for item_cls, region_id, location_id in placements:
-        ground_id = morld.get_location_ground_id(region_id, location_id)
-        if not ground_id:
-            print(f"[chapter_1] No ground for R{region_id},L{location_id}, skipping {item_cls.__name__}")
-            continue
-
         item = item_cls()
         item_id = morld.create_id("item")
         item.instantiate(item_id)
+        ground_id = ground_module.ensure_ground_at(region_id, location_id, 0)
         morld.give_item(ground_id, item_id, 1)
         count += 1
 
@@ -168,16 +168,13 @@ def _instantiate_consumables():
         (Aphrodisiac,       0, 5),    # 미약 — 창고
     ]
 
+    import ground as ground_module
     count = 0
     for item_cls, region_id, location_id in placements:
-        ground_id = morld.get_location_ground_id(region_id, location_id)
-        if not ground_id:
-            print(f"[chapter_1] No ground for R{region_id},L{location_id}, skipping {item_cls.__name__}")
-            continue
-
         item = item_cls()
         item_id = morld.create_id("item")
         item.instantiate(item_id)
+        ground_id = ground_module.ensure_ground_at(region_id, location_id, 0)
         morld.give_item(ground_id, item_id, 1)
         count += 1
 
@@ -202,6 +199,23 @@ def _register_pollution():
         pollution.register_location(3, loc_id, max_pollution=20, rate=1)
 
     print("[chapter_1] Pollution registered for all locations")
+
+
+def _init_inventory_slots():
+    """플레이어 + NPC 인벤토리 슬롯 초기화"""
+    import inventory as inv_module
+    import think
+
+    # 플레이어
+    player_id = morld.get_player_id()
+    if player_id:
+        inv_module.init_character_slots(player_id, base=5, multiplier=1.0)
+
+    # 모든 NPC 에이전트
+    for agent in think._agents.values():
+        inv_module.init_character_slots(agent.unit_id, base=5, multiplier=1.0)
+
+    print("[chapter_1] Inventory slots initialized")
 
 
 def _start_chapter_quest():

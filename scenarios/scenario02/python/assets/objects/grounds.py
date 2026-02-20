@@ -91,3 +91,19 @@ class GroundConcrete(Ground):
     unique_id = "ground_concrete"
     name = "콘크리트 바닥"
     focus_text = {"default": "버려진 건물의 콘크리트 바닥. 먼지가 쌓여 있다."}
+
+
+# ========================================
+# 동적 바닥 (ground.py에서 런타임 생성)
+# ========================================
+
+class DynamicGround(Object):
+    """
+    동적 바닥 오브젝트 — 아이템 드롭 시 생성, 비면 자동 소멸.
+    ground.py의 _create_ground()에서 인스턴스 생성.
+    unique_id는 런타임에 "dynamic_ground:{unit_id}" 형태로 설정.
+    """
+    item_visible = True
+    name = "바닥"
+    actions = ["putinobject", "call:debug_props:(디버그) 속성 보기#"]
+    focus_text = {"default": "아이템이 놓여 있다."}

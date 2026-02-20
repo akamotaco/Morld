@@ -601,13 +601,31 @@ namespace SE
 		{
 			var lines = new List<string>();
 
-			lines.Add("[b]소지품[/b]");
-			lines.Add("");
-
 			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
 			var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
 			var inventorySystem = _hub.GetSystem("inventorySystem") as InventorySystem;
 			var player = playerSystem.FindPlayerUnit();
+
+			// 헤더: 슬롯 정보 표시 (인벤토리:기본슬롯 prop이 있을 때만)
+			var slotText = "";
+			if (player != null)
+			{
+				var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
+				try
+				{
+					var maxResult = scriptSystem?.Eval($"import inventory as _inv; _inv.get_max_slots({player.Id})");
+					if (maxResult != null && maxResult is not PyNone)
+					{
+						int maxSlots = maxResult.ToInt();
+						var usedResult = scriptSystem.Eval($"_inv.get_used_slots({player.Id})");
+						int usedSlots = usedResult.ToInt();
+						slotText = $" ({usedSlots}/{maxSlots})";
+					}
+				}
+				catch (System.Exception) { /* prop 미설정 시 무시 */ }
+			}
+			lines.Add($"[b]소지품{slotText}[/b]");
+			lines.Add("");
 
 			if (player == null)
 			{

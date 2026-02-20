@@ -1,7 +1,6 @@
 # assets/locations/corridor_2f.py - 2층 복도
 
 from assets.base import Location
-from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import Candelabra, CorridorWindow
 
 
@@ -9,6 +8,7 @@ class Corridor2F(Location):
     unique_id = "corridor_2f"
     name = "2층 복도"
     is_indoor = True
+    ground_type = "GroundWooden"
     stay_duration = 0
     geometry = "ring"  # Pi-World: 복도는 원형 (순환 가능)
     length = 360  # Pi-World: 복도 둘레 (Gate 위치: 0, 10, 20, 30, 40, 50)
@@ -19,9 +19,8 @@ class Corridor2F(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """2층 복도 생성 + 나무 바닥 추가"""
+        """2층 복도 생성"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundWooden())
         self.add_object(Candelabra(), x=90)
         self.add_object(Candelabra(), x=270)
         self.add_object(CorridorWindow(), x=180)

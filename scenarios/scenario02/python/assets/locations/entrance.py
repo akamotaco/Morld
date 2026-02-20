@@ -1,7 +1,6 @@
 # assets/locations/entrance.py - 현관
 
 from assets.base import Location
-from assets.objects.grounds import GroundStone
 from assets.objects.errand_board import ErrandBoard
 from assets.objects.furniture import WallLamp
 
@@ -10,6 +9,7 @@ class Entrance(Location):
     unique_id = "entrance"
     name = "현관"
     is_indoor = True
+    ground_type = "GroundStone"
     stay_duration = 0
     length = 180  # Pi-World: 현관 길이
     describe_text = {
@@ -19,9 +19,8 @@ class Entrance(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """현관 생성 + 돌바닥 + 심부름 게시판 추가"""
+        """현관 생성 + 심부름 게시판 추가"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundStone())
         # 심부름 게시판 (문 옆, x=5)
         self.add_object(ErrandBoard(), x=5)
         self.add_object(WallLamp(), x=90)

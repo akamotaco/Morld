@@ -1,7 +1,6 @@
 # assets/locations/bathroom.py - 욕실
 
 from assets.base import Location
-from assets.objects.grounds import GroundTile
 from assets.objects.furniture import Mirror, Bathtub, Washbasin, WallLamp
 
 
@@ -9,6 +8,7 @@ class Bathroom(Location):
     unique_id = "bathroom"
     name = "욕실"
     is_indoor = True
+    ground_type = "GroundTile"
     stay_duration = 0
     length = 150  # Pi-World: 욕실 (개인 공간)
     describe_text = {
@@ -20,9 +20,8 @@ class Bathroom(Location):
     activity_capacity = {"목욕": 1, "세수": 1}  # 1명씩만
 
     def instantiate(self, location_id: int, region_id: int):
-        """욕실 생성 + 타일 바닥 + 거울 + 욕조 + 세면대 추가"""
+        """욕실 생성 + 거울 + 욕조 + 세면대 추가"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundTile())
         self.add_object(Mirror(), x=5)      # 문 옆
         self.add_object(Bathtub(), x=15)    # 중앙
         self.add_object(Washbasin(), x=25)  # 안쪽

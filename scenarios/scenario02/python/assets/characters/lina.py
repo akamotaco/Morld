@@ -1475,6 +1475,13 @@ class LinaAgent(BaseAgent):
     ]
 
     owner_unique_id = "lina"
+    _inventory_priority = {
+        "tool": 80, "clothing": 70, "food": 60,
+        "food_ingredient": 80, "drink_ingredient": 80,
+        "material": 40, "seed": 30,
+        "garden_tool": 30, "garden_supply": 30,
+        "trinket": 60, "flower": 10,
+    }
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

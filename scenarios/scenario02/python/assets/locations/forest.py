@@ -9,7 +9,6 @@
 # - 5: 오두막
 
 from assets.base import Location
-from assets.objects.grounds import GroundForest, GroundWooden
 
 
 class ForestEntrance(Location):
@@ -17,6 +16,7 @@ class ForestEntrance(Location):
     unique_id = "forest_entrance_region"
     name = "숲 입구"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 5
     length = 1200  # Pi-World: 숲 입구 길이
     describe_text = {
@@ -30,7 +30,6 @@ class ForestEntrance(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())
 
 
 class PineForest(Location):
@@ -38,6 +37,7 @@ class PineForest(Location):
     unique_id = "pine_forest"
     name = "소나무 숲"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 5
     length = 1800  # Pi-World: 소나무 숲 길이
     describe_text = {
@@ -51,7 +51,6 @@ class PineForest(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())
 
         # 소나무 배치
         from assets.objects.trees import PineTree
@@ -64,6 +63,7 @@ class OakForest(Location):
     unique_id = "oak_forest"
     name = "참나무 숲"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 5
     length = 1800  # Pi-World: 참나무 숲 길이
     describe_text = {
@@ -77,7 +77,6 @@ class OakForest(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())
 
         # 참나무 배치
         from assets.objects.trees import OakTree
@@ -90,6 +89,7 @@ class DeepForest(Location):
     unique_id = "deep_forest"
     name = "숲속"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 5
     length = 2400  # Pi-World: 숲속 길이 (넓음)
     describe_text = {
@@ -103,7 +103,6 @@ class DeepForest(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())
 
         # 토끼 굴 오브젝트 배치
         from assets.objects.nature import RabbitBurrow
@@ -116,6 +115,7 @@ class WolfDen(Location):
     unique_id = "wolf_den"
     name = "늑대굴"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 5
     length = 600  # Pi-World: 늑대굴 길이 (좁음)
     describe_text = {
@@ -129,7 +129,6 @@ class WolfDen(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())
 
 
 class ForestCabin(Location):
@@ -137,6 +136,7 @@ class ForestCabin(Location):
     unique_id = "forest_cabin"
     name = "오두막"
     is_indoor = True
+    ground_type = "GroundWooden"
     stay_duration = 0
     length = 180  # Pi-World: 오두막 길이 (작은 실내)
     describe_text = {
@@ -148,7 +148,6 @@ class ForestCabin(Location):
     def instantiate(self, location_id: int, region_id: int):
         import morld
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundWooden())
 
         # 조명
         from assets.objects.furniture import OilLamp, Window

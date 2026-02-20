@@ -1,7 +1,6 @@
 # assets/locations/dining_room.py - 식당
 
 from assets.base import Location
-from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import DiningChair, Candelabra, Window
 
 
@@ -9,6 +8,7 @@ class DiningRoom(Location):
     unique_id = "dining_room"
     name = "식당"
     is_indoor = True
+    ground_type = "GroundWooden"
     stay_duration = 0
     length = 180  # Pi-World: 식당 길이
     describe_text = {
@@ -19,9 +19,8 @@ class DiningRoom(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """식당 생성 + 나무 바닥 + 의자 추가"""
+        """식당 생성 + 의자 추가"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundWooden())
 
         # 식탁 의자 배치 (테이블 중앙)
         self.add_object(DiningChair(), x=15)

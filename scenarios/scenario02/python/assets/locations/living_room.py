@@ -1,7 +1,6 @@
 # assets/locations/living_room.py - 거실
 
 from assets.base import Location
-from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import LivingSofa, Fireplace, Window, Bookshelf
 
 
@@ -9,6 +8,7 @@ class LivingRoom(Location):
     unique_id = "living_room"
     name = "거실"
     is_indoor = True
+    ground_type = "GroundWooden"
     stay_duration = 0
     geometry = "ring"  # Pi-World: 거실은 원형 (순환 가능, 여러 방 연결)
     length = 360  # Pi-World: 거실 둘레
@@ -20,9 +20,8 @@ class LivingRoom(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """거실 생성 + 나무 바닥 + 소파 추가"""
+        """거실 생성 + 소파 추가"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundWooden())
 
         # 거실 소파 배치 (벽난로 근처, x=35)
         self.add_object(LivingSofa(), x=35)

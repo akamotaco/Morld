@@ -4,7 +4,6 @@
 # 최소한의 가구만 있는 간소한 상태.
 
 from assets.base import Location
-from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import Bed, WallLamp, Window
 
 
@@ -13,6 +12,7 @@ class PlayerRoom(Location):
     name = "방"
     owner = "player"
     is_indoor = True
+    ground_type = "GroundWooden"
     stay_duration = 0
     length = 150  # Pi-World: 침실 (개인 공간)
     describe_text = {
@@ -21,7 +21,6 @@ class PlayerRoom(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundWooden())
         # 침대 (방 안쪽, x=20)
         self.add_object(Bed(), x=20)
         self.add_object(WallLamp(), x=90)

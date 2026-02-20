@@ -91,7 +91,8 @@ def _apply_item_reward(player_id: int, reward: dict) -> bool:
         print(f"[Quest Reward] Unknown item: {item_unique_id}")
         return False
 
-    morld.give_item(player_id, item_id, count)
+    import inventory as inv_module
+    inv_module.safe_give_item(player_id, item_id, count)
     return True
 
 
@@ -161,6 +162,7 @@ def _apply_coin_reward(player_id: int, reward: dict) -> bool:
         return False
 
     # 코인 아이템 지급
-    morld.give_item(player_id, coin_id, value)
+    import inventory as inv_module
+    inv_module.safe_give_item(player_id, coin_id, value)
     print(f"[Quest Reward] Coin +{value} (item_id={coin_id})")
     return True

@@ -5,7 +5,6 @@
 import random
 import morld
 from assets.base import Location
-from assets.objects.grounds import GroundRocky
 from assets.objects.outdoor import FishingSpot
 
 
@@ -13,6 +12,7 @@ class Riverside(Location):
     unique_id = "riverside"
     name = "강가"
     is_indoor = False
+    ground_type = "GroundRocky"
     stay_duration = 0
     length = 1200  # Pi-World: 강가 길이
     describe_text = {
@@ -25,7 +25,6 @@ class Riverside(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """강가 생성 + 바위투성이 바닥 + 낚시터 추가"""
+        """강가 생성 + 낚시터 추가"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundRocky())
         self.add_object(FishingSpot(), x=100)  # 강가 중앙

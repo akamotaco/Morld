@@ -1588,6 +1588,13 @@ class MilaAgent(BaseAgent):
     }
 
     owner_unique_id = "mila"
+    _inventory_priority = {
+        "tool": 80, "clothing": 70, "food": 90,
+        "food_ingredient": 60, "drink_ingredient": 60,
+        "material": 40, "seed": 70,
+        "garden_tool": 50, "garden_supply": 50,
+        "trinket": 10, "flower": 10,
+    }
 
     def __init__(self, unit_id):
         super().__init__(unit_id)

@@ -206,6 +206,86 @@ class BaseAgent:
         return self.schedule_stack[-1]
 
     # ========================================
+    # 인벤토리 선호 비율 (소프트 가이드)
+    # ========================================
+
+    # 카테고리별 우선순위 (높을수록 보존 우선, 서브클래스에서 오버라이드)
+    _inventory_priority = {
+        "tool": 80, "clothing": 70, "food": 60,
+        "food_ingredient": 50, "drink_ingredient": 50,
+        "material": 40, "seed": 30,
+        "garden_tool": 30, "garden_supply": 30,
+        "trinket": 10, "flower": 10,
+    }
+
+    def _find_droppable_item(self):
+        """
+        인벤토리에서 가장 낮은 priority 아이템 찾기 (장착 아이템 제외).
+
+        Returns:
+            (item_id, count) 또는 None (드롭 가능한 아이템 없음)
+        """
+        inventory = morld.get_unit_inventory(self.unit_id)
+        if not inventory:
+            return None
+
+        equipped = morld.get_equipped_items(self.unit_id) if hasattr(morld, 'get_equipped_items') else []
+        equipped_set = set(equipped) if equipped else set()
+
+        from assets.items import get_unique_id, get_item_class
+
+        lowest_priority = 999
+        lowest_item = None
+
+        for item_id, count in inventory.items():
+            if count <= 0:
+                continue
+            if item_id in equipped_set:
+                continue
+
+            # 카테고리 조회
+            uid = get_unique_id(item_id)
+            if not uid:
+                continue
+            cls = get_item_class(uid)
+            category = getattr(cls, 'category', None) if cls else None
+            priority = self._inventory_priority.get(category, 0)
+
+            if priority < lowest_priority:
+                lowest_priority = priority
+                lowest_item = (item_id, count)
+
+        return lowest_item
+
+    def _ensure_slot_for(self, item_id):
+        """
+        슬롯 확보: 빈 곳 있으면 True, 없으면 lowest priority 드롭 후 True.
+        드롭 불가능하면 False.
+
+        Args:
+            item_id: 추가할 아이템 ID
+
+        Returns:
+            bool — True if slot is available
+        """
+        import inventory as inv_module
+
+        if inv_module.has_free_slot(self.unit_id, item_id):
+            return True
+
+        # 드롭 대상 찾기
+        droppable = self._find_droppable_item()
+        if droppable is None:
+            return False
+
+        drop_id, drop_count = droppable
+        import ground as ground_module
+        morld.lost_item(self.unit_id, drop_id)
+        ground_module.drop_item_at(self.unit_id, drop_id, drop_count)
+        print(f"[think] _ensure_slot_for: unit={self.unit_id} dropped item={drop_id} x{drop_count} (priority swap)")
+        return True
+
+    # ========================================
     # 수면 시스템
     # ========================================
 
@@ -1588,7 +1668,8 @@ class BaseAgent:
         item_id = get_or_create_item_id(tool_unique_id)
         if toolbox_id and item_id and morld.has_item(toolbox_id, item_id):
             morld.remove_item(toolbox_id, item_id, 1)
-            morld.give_item(self.unit_id, item_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(self.unit_id, item_id, 1)
             return True
         return False
 

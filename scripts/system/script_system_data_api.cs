@@ -1018,6 +1018,25 @@ namespace SE
                 return PyBool.True;
             });
 
+            // remove_unit: 유닛 제거 (동적 바닥 오브젝트 등)
+            morldModule.ModuleDict["remove_unit"] = new PyBuiltinFunction("remove_unit", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("remove_unit(unit_id) requires 1 argument");
+
+                int unitId = args[0].ToInt();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+
+                _inventorySystem?.ClearInventory(InventorySystem.UnitKey(unitId));
+
+                bool success = _unitSystem?.RemoveUnit(unitId) ?? false;
+
+                Godot.GD.Print($"[morld] remove_unit: id={unitId}, success={success}");
+                return PyBool.FromBool(success);
+            });
+
             // set_unit_props: 유닛 Props 일괄 설정
             morldModule.ModuleDict["set_unit_props"] = new PyBuiltinFunction("set_unit_props", args =>
             {

@@ -24,7 +24,8 @@ from .nature import (
 from .grounds import (
     GroundWooden, GroundStone, GroundMarble, GroundTile,
     GroundDirt, GroundGrass, GroundForest, GroundRocky,
-    GroundAsphalt, GroundConcrete
+    GroundAsphalt, GroundConcrete,
+    DynamicGround
 )
 from .scavenge import (
     ScavengeableObject, GasStationStand, PharmacyShelf, BrokenVendingMachine
@@ -51,7 +52,7 @@ __all__ = [
     # grounds
     'GroundWooden', 'GroundStone', 'GroundMarble', 'GroundTile',
     'GroundDirt', 'GroundGrass', 'GroundForest', 'GroundRocky',
-    'GroundAsphalt', 'GroundConcrete',
+    'GroundAsphalt', 'GroundConcrete', 'DynamicGround',
     # scavenge (비충전 수집)
     'ScavengeableObject', 'GasStationStand', 'PharmacyShelf', 'BrokenVendingMachine',
     # vehicles

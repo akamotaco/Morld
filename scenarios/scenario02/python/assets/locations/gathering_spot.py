@@ -1,13 +1,13 @@
 # assets/locations/gathering_spot.py - 채집터
 
 from assets.base import Location
-from assets.objects.grounds import GroundForest
 
 
 class GatheringSpot(Location):
     unique_id = "gathering_spot"
     name = "채집터"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 0
     length = 900  # Pi-World: 채집터 길이
     describe_text = {
@@ -21,6 +21,5 @@ class GatheringSpot(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """채집터 생성 + 숲 바닥 추가"""
+        """채집터 생성"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())

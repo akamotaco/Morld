@@ -3,7 +3,6 @@
 import morld
 import ui
 from assets.base import Location
-from assets.objects.grounds import GroundWooden
 from assets.objects.furniture import CraftingTable, WallLamp, IngredientStorage
 
 
@@ -46,7 +45,8 @@ class InfiniteSeedBag(object):
                     info = garden.SEED_REGISTRY[state["selected"]]
                     seed_id = get_or_create_item_id(info["seed_unique_id"])
                     if seed_id:
-                        morld.give_item(player_id, seed_id, 5)
+                        import inventory as inv_module
+                        inv_module.safe_give_item(player_id, seed_id, 5)
                         yield ui.dialog(f"{info['name']} 씨앗 5개를 꺼냈다.")
 
         return _SeedBag()
@@ -70,7 +70,8 @@ class InfiniteFertilizerBag(object):
                 player_id = morld.get_player_id()
                 fertilizer_id = get_or_create_item_id("fertilizer")
                 if fertilizer_id:
-                    morld.give_item(player_id, fertilizer_id, 5)
+                    import inventory as inv_module
+                    inv_module.safe_give_item(player_id, fertilizer_id, 5)
                     yield ui.dialog("비료 5개를 꺼냈다.")
 
         return _FertilizerBag()
@@ -115,6 +116,7 @@ class Storage(Location):
     unique_id = "storage"
     name = "창고"
     is_indoor = True
+    ground_type = "GroundWooden"
     stay_duration = 0
     length = 180  # Pi-World: 창고 길이
     describe_text = {
@@ -122,9 +124,8 @@ class Storage(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """창고 생성 + 바닥 + 제작대 + 도구함 추가"""
+        """창고 생성 + 제작대 + 도구함 추가"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundWooden())
         self.add_object(CraftingTable(), x=10)  # 입구 쪽
         lamp_id = self.add_object(WallLamp(), x=90)
         morld.set_unit_prop(lamp_id, "light:on", 0)  # 창고는 어두운 상태로 시작

@@ -242,7 +242,8 @@ def do_harvest(instance_id: int, furrow_index: int, player_id: int) -> dict:
     crop_count = random.randint(seed_info["harvest_min"], seed_info["harvest_max"])
     crop_id = get_or_create_item_id(seed_info["crop_unique_id"])
     if crop_id:
-        morld.give_item(player_id, crop_id, crop_count)
+        import inventory as inv_module
+        inv_module.safe_give_item(player_id, crop_id, crop_count)
 
     # 씨앗 확률 지급
     seed_count = 0
@@ -252,7 +253,8 @@ def do_harvest(instance_id: int, furrow_index: int, player_id: int) -> dict:
         seed_name = f'{seed_info["name"]} 씨앗'
         seed_item_id = get_or_create_item_id(seed_info["seed_unique_id"])
         if seed_item_id:
-            morld.give_item(player_id, seed_item_id, seed_count)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, seed_item_id, seed_count)
 
     # 이랑 초기화
     morld.set_unit_prop(instance_id, f"{PROP_SEED_PREFIX}:{furrow_index}", 0)

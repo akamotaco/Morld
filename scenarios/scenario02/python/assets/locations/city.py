@@ -11,7 +11,6 @@
 
 import morld
 from assets.base import Location
-from assets.objects.grounds import GroundAsphalt, GroundConcrete
 
 
 class CityEntrance(Location):
@@ -19,6 +18,7 @@ class CityEntrance(Location):
     unique_id = "city_entrance"
     name = "도시 입구"
     is_indoor = False
+    ground_type = "GroundAsphalt"
     stay_duration = 5
     # Pi-World: 도시 허브, 여러 방향으로 분기
     geometry = 1  # line
@@ -35,7 +35,6 @@ class CityEntrance(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundAsphalt())
 
         # 버스 정류장 벤치
         from assets.objects.outdoor import StreetBench
@@ -64,6 +63,7 @@ class GasStation(Location):
     unique_id = "gas_station"
     name = "주유소"
     is_indoor = False
+    ground_type = "GroundAsphalt"
     stay_duration = 3
     # Pi-World
     geometry = 1  # line
@@ -78,7 +78,6 @@ class GasStation(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundAsphalt())
 
         # 가판대 (비충전 자원: 생수, 에너지음료)
         from assets.objects.scavenge import GasStationStand
@@ -103,6 +102,7 @@ class ConvenienceStore(Location):
     unique_id = "convenience_store"
     name = "편의점"
     is_indoor = True
+    ground_type = "GroundConcrete"
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
@@ -114,7 +114,6 @@ class ConvenienceStore(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundConcrete())
 
         # 조명 (깨진 유리문으로 빛이 들어옴)
         from assets.objects.furniture import Window
@@ -187,6 +186,7 @@ class Pharmacy(Location):
     unique_id = "pharmacy"
     name = "약국"
     is_indoor = True
+    ground_type = "GroundConcrete"
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
@@ -198,7 +198,6 @@ class Pharmacy(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundConcrete())
 
         from assets.objects.furniture import Window
         self.add_object(Window(), x=90)
@@ -213,6 +212,7 @@ class ParkingLot(Location):
     unique_id = "parking_lot"
     name = "주차장"
     is_indoor = False
+    ground_type = "GroundAsphalt"
     stay_duration = 3
     # Pi-World
     geometry = 1  # line
@@ -227,7 +227,6 @@ class ParkingLot(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundAsphalt())
 
         # 부서진 자판기 (비충전 자원: 캔커피, 콜라)
         from assets.objects.scavenge import BrokenVendingMachine
@@ -274,6 +273,7 @@ class Hideout(Location):
     unique_id = "hideout"
     name = "은신처"
     is_indoor = True
+    ground_type = "GroundConcrete"
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
@@ -286,7 +286,6 @@ class Hideout(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundConcrete())
 
         # 조명 (희미한 촛불)
         from assets.objects.furniture import OilLamp
@@ -358,6 +357,7 @@ class ClothingStore(Location):
     unique_id = "clothing_store"
     name = "의류점"
     is_indoor = True
+    ground_type = "GroundConcrete"
     stay_duration = 0
     # Pi-World
     geometry = 1  # line
@@ -371,7 +371,6 @@ class ClothingStore(Location):
 
     def instantiate(self, location_id: int, region_id: int):
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundConcrete())
 
         # 조명 (깨진 유리창으로 빛이 들어옴)
         from assets.objects.furniture import Window

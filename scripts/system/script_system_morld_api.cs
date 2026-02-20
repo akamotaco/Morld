@@ -221,6 +221,19 @@ namespace SE
                 return result;
             });
 
+            // get_inventory_slot_count: 인벤토리 슬롯 수 (distinct item_id 개수)
+            morldModule.ModuleDict["get_inventory_slot_count"] = new PyBuiltinFunction("get_inventory_slot_count", args =>
+            {
+                if (args.Length < 1)
+                    throw PyTypeError.Create("get_inventory_slot_count(unit_id) requires 1 argument");
+
+                int unitId = args[0].ToInt();
+
+                var _inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                var inventory = _inventorySystem.GetUnitInventory(unitId);
+                return new PyInt(inventory.Count);
+            });
+
             // get_item_info: 아이템 정보 조회
             morldModule.ModuleDict["get_item_info"] = new PyBuiltinFunction("get_item_info", args =>
             {

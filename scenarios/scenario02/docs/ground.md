@@ -1,134 +1,112 @@
-# 바닥(Ground) 시스템 개선 계획
+# 바닥(Ground) 시스템
 
 ## 개요
 
-Location의 "바닥" 오브젝트를 통한 아이템 관리 시스템 개선.
-구조적 일관성(Location은 inventory 없음, Ground Object가 담당)을 유지하면서 UX를 개선한다.
+Location은 inventory를 갖지 않음. "바닥" Object가 떨어진 아이템을 저장.
 
-## 현재 구조
-
-```
-Location (숲 입구)
-  ├─ Object: 바닥 (inventory: [도토리 x3, 나뭇가지 x2])
-  ├─ Object: 사과나무
-  └─ Character: 세라
-```
-
-- Location은 inventory를 갖지 않음
-- "바닥" Object가 떨어진 아이템을 저장
-- 바닥 클릭 → Container Focus로 아이템 조작
+아이템 드롭 시에만 바닥 오브젝트를 동적 생성. Location의 `ground_type` 속성에 따라 적절한 종류로 생성. 인벤토리가 비면 자동 소멸.
 
 ---
 
-## 구현 계획
+## 바닥 종류 (assets/objects/grounds.py)
 
-### 1. Location에 ground_id 필드 추가
-
-**목적:** Location이 자신의 바닥 오브젝트를 참조할 수 있도록 함
-
-**Python (assets/base.py):**
 ```python
-class Location:
-    ground: Object = None      # 바닥 오브젝트 인스턴스 (Python 레벨)
-    ground_id: int = None      # instantiate 후 설정되는 ID
+class Ground(Object):
+    item_visible = True  # 아이템 개수 표시
+    actions = ["putinobject", "call:rough_sleep:노숙하기", ...]
 ```
 
-**C# (Location.cs):**
-```csharp
-public int? GroundUnitId { get; set; }  // 바닥 오브젝트의 Unit ID
-```
+| 실내 | 실외 | 도시 |
+|------|------|------|
+| GroundWooden | GroundDirt | GroundAsphalt |
+| GroundStone | GroundGrass | GroundConcrete |
+| GroundMarble | GroundForest | |
+| GroundTile | GroundRocky | |
 
-**morld API:**
+### Location별 바닥 종류 (ground_type)
+
+각 Location 클래스에 `ground_type` 속성이 정의되어 있음. 동적 바닥 생성 시 참조.
+
+| 실내 | 실외 | 도시 |
+|------|------|------|
+| `GroundWooden` (거실, 침실, 복도) | `GroundGrass` (마당) | `GroundAsphalt` (주유소, 주차장) |
+| `GroundStone` (현관, 주방) | `GroundForest` (숲, 사냥터) | `GroundConcrete` (편의점, 은신처) |
+| `GroundTile` (욕실, 화장실) | `GroundRocky` (강가) | |
+
 ```python
-morld.get_location_ground_id(region_id, location_id)  # 바닥 오브젝트 ID 반환 (없으면 None)
+class Kitchen(Location):
+    ground_type = "GroundStone"  # 동적 바닥 생성 시 이 종류로 생성
 ```
+
+`ground_type` 미설정 → 범용 `DynamicGround("바닥")` fallback.
 
 ---
 
-### 2. 바닥에 버리기 액션
+## 동적 바닥 관리 (ground.py)
 
-**설계 방침:** 특별 취급 (항상 표시, 실행 시 조건 체크)
+> `ground.py` -- 순수 Python
 
-**이유:**
-- "버리기"는 기본 기능으로 사용자가 항상 존재한다고 기대
-- Grey out보다 다이얼로그가 왜 안 되는지 설명 가능
-- 저주 아이템은 `action_props: {"drop_floor": 0}` 또는 별도 prop으로 처리
+### 병합 규칙
 
-**Item Focus에서의 동작:**
+같은 Location 내 X좌표 거리 <= `MERGE_THRESHOLD`(3.0) -> 기존 바닥에 추가.
+이를 초과하면 새 바닥 오브젝트 생성.
+
+### 동작 흐름
+
 ```
-버리기 버튼 클릭 시:
-  1. 아이템이 버릴 수 있는지 체크 (저주 등)
-     → 불가: "이 아이템은 버릴 수 없다" 다이얼로그
-  2. 현재 Location에 ground_id가 있는지 체크
-     → 없음: "여기에는 버릴 수 없다" 다이얼로그
-  3. 정상: 아이템을 바닥 오브젝트의 인벤토리로 이동
-```
+아이템 드롭 요청
+  -> ensure_ground_at(region, location, x)
+     -> 거리 <= 3.0인 기존 바닥? -> 해당 바닥에 give_item
+     -> 없으면 -> _create_ground() -> 새 DynamicGround 유닛 생성
+  -> give_item(ground_id, item_id, count)
 
-**URL 패턴:** `drop_floor` (C# HandleDropFloorAction에서 처리)
-
-**구현 위치:**
-- `MetaActionHandler.Item.cs` - HandleDropFloorAction 추가
-- `describe_system.cs` - GetItemMenuText()에 버리기 버튼 추가
-
----
-
-### 3. Situation 화면에 바닥 아이템 요약 표시
-
-**목적:** 바닥 클릭 없이도 떨어진 아이템 확인 가능
-
-**표시 형식:**
-```
-숲 입구
-
-세라가 주변을 경계하고 있다.
-사과나무가 있다.
-
-[url=toggle:ground]▶바닥[/url]
-[hidden=ground]
-  도토리 x3
-  나뭇가지 x2
-[/hidden=ground]
-
-이동 가능:
-  저택 앞마당 (10분)
+아이템 꺼내기 후
+  -> check_empty_ground(ground_unit_id)
+     -> 인벤토리 비었으면 -> _remove_ground() -> morld.remove_unit()
 ```
 
-**조건:**
-- 바닥 오브젝트가 존재하고 (`ground_id != null`)
-- 바닥에 아이템이 1개 이상 있을 때만 표시
+### DynamicGround 클래스
 
-**토글 동작:**
-- 기존 `toggle:ID` 시스템 그대로 사용
-- 클릭하면 펼침/접힘만 되고 다른 액션 없음
-- 상세 조작은 여전히 바닥 오브젝트 클릭 → Container Focus
+```python
+class DynamicGround(Object):
+    item_visible = True
+    name = "바닥"
+    actions = ["putinobject", ...]
+    focus_text = {"default": "아이템이 놓여 있다."}
+```
 
-**구현 위치:**
-- `describe_system.cs` - GetSituationText()에서 바닥 아이템 요약 섹션 추가
-- 또는 Python `ui.py`의 `get_action_text()`에서 처리
+- `unique_id`는 런타임에 `"dynamic_ground:{unit_id}"` 형태로 설정
+- 정적 `Ground`와 달리 노숙하기 액션 없음
 
----
+### 환경 시스템 연동
 
-## 구현 순서
+동적 바닥도 일반 오브젝트로 생성되므로 `get_objects_at_location()`에 자동 포함.
 
-1. **C# Location.GroundUnitId 필드 추가**
-   - `scripts/morld/terrain/Location.cs`
-   - JSON 직렬화/역직렬화 지원
+- **초기 복사**: 생성 시 `_copy_env_props()`로 오염도/젖음 즉시 복사
+- **이후 동기화**: 매시간 hourly 업데이트에서 자동 적용 (pollution, humidity)
 
-2. **Python Location.ground_id 연동**
-   - `assets/base.py` - Location.instantiate()에서 ground_id 설정
-   - `morld` API - get_location_ground_id() 추가
+### Python API
 
-3. **바닥에 버리기 액션 구현**
-   - `MetaActionHandler.Item.cs` - HandleDropFloorAction
-   - `describe_system.cs` - 버리기 버튼 추가
+```python
+import ground
 
-4. **Situation에 바닥 아이템 표시**
-   - `describe_system.cs` 또는 `ui.py`에서 바닥 아이템 요약 렌더링
+ground.ensure_ground_at(region_id, location_id, x)   # 바닥 확보 (생성 or 기존) -> unit_id
+ground.drop_item_at(unit_id, item_id, count, x=None)  # 유닛 위치에 아이템 드롭 -> ground_unit_id
+ground.check_empty_ground(ground_unit_id)              # 비었으면 제거 -> bool
+ground.get_grounds_at(region_id, location_id)          # 동적 바닥 목록 -> [{"unit_id", "x"}, ...]
+ground.is_dynamic_ground(unit_id)                      # 동적 바닥 여부 -> bool
+ground.register_ground(region_id, location_id, uid, x) # 챕터 초기화용 등록
+ground.reset()                                         # 챕터 전환 초기화
+```
 
----
+### morld API
 
-## 결정 사항
+```python
+morld.set_location_ground_id(region_id, location_id, ground_unit_id)
+morld.get_location_ground_id(region_id, location_id)
+```
 
-- **버리기 액션:** A. 특별 취급 (항상 표시, 실행 시 조건 체크)
-- **버리기 불가 아이템:** `action_props: {"drop_floor": 0}` 또는 별도 prop으로 처리 (추후 결정)
-- **바닥 아이템 표시:** 기존 toggle 시스템 사용 (`toggle:ground` + `[hidden=ground]`)
+### 챕터 전환 대응
+
+`ground.reset()` -- `chapters/__init__.py`의 `load_chapter()`에서 자동 호출.
+레지스트리 초기화 후 챕터 코드에서 `register_ground()`로 재등록.

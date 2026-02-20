@@ -62,23 +62,14 @@ public partial class MetaActionHandler
 		GD.Print($"[MetaActionHandler] 바닥에 버리기: itemId={itemId}, playerId={player.Id}");
 #endif
 
-		// 1. 현재 Location에 바닥이 있는지 체크
-		var terrain = worldSystem.GetTerrain();
-		var location = terrain.GetLocation(player.CurrentLocation);
-		if (location == null || !location.GroundUnitId.HasValue)
-		{
-			_textUISystem?.ShowResult("여기에는 버릴 곳이 없다.");
-			return;
-		}
-
-		// 2. 저주받은 아이템 체크 (action_props의 drop_floor <= 0)
+		// 1. 저주받은 아이템 체크 (action_props의 drop_floor <= 0)
 		if (item.ActionProps.TryGetValue("drop_floor", out int dropValue) && dropValue <= 0)
 		{
 			_textUISystem?.ShowResult("이 아이템은 버릴 수 없다.");
 			return;
 		}
 
-		// 3. 장착 중인 아이템 체크
+		// 2. 장착 중인 아이템 체크
 		var equippedItems = inventorySystem.GetUnitEquippedItems(player.Id);
 		if (equippedItems.Contains(itemId))
 		{
@@ -86,7 +77,39 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		int groundUnitId = location.GroundUnitId.Value;
+		// 3. 바닥 확보: 기존 ground가 있으면 사용, 없으면 동적 생성
+		var terrain = worldSystem.GetTerrain();
+		var location = terrain.GetLocation(player.CurrentLocation);
+		if (location == null)
+		{
+			_textUISystem?.ShowResult("여기에는 버릴 곳이 없다.");
+			return;
+		}
+
+		int groundUnitId;
+		if (location.GroundUnitId.HasValue)
+		{
+			groundUnitId = location.GroundUnitId.Value;
+		}
+		else
+		{
+			// 동적 바닥 생성 (Python ground.ensure_ground_at 호출)
+			var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
+			int regionId = player.CurrentLocation.RegionId;
+			int localId = player.CurrentLocation.LocalId;
+			float posX = player.PositionX;
+			try
+			{
+				var result = scriptSystem.Eval($"import ground; ground.ensure_ground_at({regionId}, {localId}, {posX})");
+				groundUnitId = result.ToInt();
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[MetaActionHandler] Dynamic ground creation failed: {ex.Message}");
+				_textUISystem?.ShowResult("여기에는 버릴 곳이 없다.");
+				return;
+			}
+		}
 
 		// 4. 바닥 유닛이 존재하는지 확인
 		var unitSystem = _world.GetSystem("unitSystem") as UnitSystem;

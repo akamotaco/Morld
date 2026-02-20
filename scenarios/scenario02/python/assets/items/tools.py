@@ -364,7 +364,8 @@ class TrappedRabbit(Item):
         # 토끼 사체 지급
         rabbit_carcass_id = get_or_create_item_id("rabbit_carcass")
         if rabbit_carcass_id:
-            morld.give_item(player_id, rabbit_carcass_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, rabbit_carcass_id, 1)
 
         # 붙잡힌 덫 제거 (부서짐)
         morld.lost_item(player_id, self.instance_id, 1)
@@ -467,12 +468,14 @@ class RabbitCarcass(Item):
         # 토끼 생고기 지급
         raw_meat_id = get_or_create_item_id("raw_rabbit_meat")
         if raw_meat_id:
-            morld.give_item(player_id, raw_meat_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, raw_meat_id, 1)
 
         # 토끼 가죽 지급
         hide_id = get_or_create_item_id("rabbit_hide")
         if hide_id:
-            morld.give_item(player_id, hide_id, 1)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, hide_id, 1)
 
         # 토끼 사체 제거
         morld.lost_item(player_id, self.instance_id, 1)

@@ -80,6 +80,15 @@ namespace SE
 			Godot.GD.Print("[InventorySystem] All inventories cleared.");
 		}
 
+		/// <summary>
+		/// 특정 소유자의 인벤토리 삭제 (동적 유닛 제거 시 사용)
+		/// </summary>
+		public void ClearInventory(string ownerKey)
+		{
+			_inventories.Remove(ownerKey);
+			_equippedItems.Remove(ownerKey);
+		}
+
 		// ===== 키 생성 헬퍼 =====
 
 		/// <summary>

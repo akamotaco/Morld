@@ -89,7 +89,8 @@ def _take_warm_items_from_container(agent, container_id):
             info = morld.get_item_info(item_id)
             if info and info.get("equip_props", {}).get("보온", 0) > 0:
                 morld.remove_item(container_id, item_id, 1)
-                morld.give_item(agent.unit_id, item_id, 1)
+                import inventory as inv_module
+                inv_module.safe_give_item(agent.unit_id, item_id, 1)
         except Exception:
             pass
 
@@ -106,7 +107,8 @@ def _take_waterproof_items_from_container(agent, container_id):
             info = morld.get_item_info(item_id)
             if info and info.get("equip_props", {}).get("방수", 0) > 0:
                 morld.remove_item(container_id, item_id, 1)
-                morld.give_item(agent.unit_id, item_id, 1)
+                import inventory as inv_module
+                inv_module.safe_give_item(agent.unit_id, item_id, 1)
         except Exception:
             pass
 
@@ -326,7 +328,8 @@ def _take_clothing_from_container(agent, container_id, avoid_warm=False):
             fills_bottom = ep.get("착용:하의", 0) > 0
             if (need_top and fills_top) or (need_bottom and fills_bottom):
                 morld.remove_item(container_id, item_id, 1)
-                morld.give_item(agent.unit_id, item_id, 1)
+                import inventory as inv_module
+                inv_module.safe_give_item(agent.unit_id, item_id, 1)
                 if fills_top:
                     need_top = False
                 if fills_bottom:

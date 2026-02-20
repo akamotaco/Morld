@@ -1,13 +1,13 @@
 # assets/locations/deep_forest.py - 숲 깊은 곳
 
 from assets.base import Location
-from assets.objects.grounds import GroundForest
 
 
 class DeepForest(Location):
     unique_id = "deep_forest"
     name = "숲 깊은 곳"
     is_indoor = False
+    ground_type = "GroundForest"
     stay_duration = 0
     length = 1800  # Pi-World: 숲 깊은 곳 길이
     describe_text = {
@@ -19,6 +19,5 @@ class DeepForest(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """숲 깊은 곳 생성 + 숲 바닥 추가"""
+        """숲 깊은 곳 생성"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundForest())

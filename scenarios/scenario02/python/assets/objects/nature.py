@@ -56,7 +56,8 @@ class ResourceObject(Object):
         if item_id is None:
             return 0
         morld.remove_item(self.instance_id, item_id, take)
-        morld.give_item(npc_id, item_id, take)
+        import inventory as inv_module
+        inv_module.safe_give_item(npc_id, item_id, take)
         return take
 
     def has_resource(self) -> bool:

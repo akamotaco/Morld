@@ -628,7 +628,8 @@ class Stove(Object):
                 result_item.instantiate(result_id)
 
         if result_id:
-            morld.give_item(player_id, result_id, result_count)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, result_id, result_count)
 
         # 플레이어 통계: 요리 횟수
         morld.set_unit_prop(player_id, "통계:요리횟수",
@@ -677,7 +678,8 @@ class Stove(Object):
         result_unique, result_count = recipe["result"]
         result_id = get_or_create_item_id(result_unique)
         if result_id:
-            morld.give_item(npc_id, result_id, result_count)
+            import inventory as inv_module
+            inv_module.safe_give_item(npc_id, result_id, result_count)
 
         return True
 
@@ -762,7 +764,8 @@ class Kettle(Object):
                 result_item.instantiate(result_id)
 
         if result_id:
-            morld.give_item(player_id, result_id, result_count)
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, result_id, result_count)
 
         # 플레이어 통계: 요리 횟수
         morld.set_unit_prop(player_id, "통계:요리횟수",
@@ -1033,7 +1036,8 @@ class CraftingTable(Object):
         result_id = get_or_create_item_id(result_uid)
         result_count = recipe.get("result_count", 1)
         if result_id:
-            morld.give_item(npc_id, result_id, result_count)
+            import inventory as inv_module
+            inv_module.safe_give_item(npc_id, result_id, result_count)
         return True
 
 

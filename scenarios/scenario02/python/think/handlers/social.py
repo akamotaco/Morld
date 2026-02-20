@@ -272,7 +272,8 @@ def _handle_gift(agent):
             # 아이템 전달
             if morld.has_item(agent.unit_id, item_id):
                 morld.remove_item(agent.unit_id, item_id)
-                morld.give_item(target_id, item_id)
+                import inventory as inv_module
+                inv_module.safe_give_item(target_id, item_id)
 
             # 호감도 변경 (양측 +3)
             agent_info = morld.get_unit_info(agent.unit_id)

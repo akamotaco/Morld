@@ -1,7 +1,6 @@
 # assets/locations/back_yard.py - 뒷마당
 
 from assets.base import Location
-from assets.objects.grounds import GroundGrass
 from assets.objects.vehicles import Bicycle
 
 
@@ -9,6 +8,7 @@ class BackYard(Location):
     unique_id = "back_yard"
     name = "뒷마당"
     is_indoor = False
+    ground_type = "GroundGrass"
     stay_duration = 0
     length = 600  # Pi-World: 마당 길이
     describe_text = {
@@ -22,11 +22,8 @@ class BackYard(Location):
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """뒷마당 생성 + 잔디 바닥 + 자전거 추가"""
+        """뒷마당 생성 + 자전거 추가"""
         super().instantiate(location_id, region_id)
-
-        # 바닥 오브젝트 생성
-        self.add_ground(GroundGrass())
 
         # 자전거 배치 (마당 한쪽)
         self.add_object(Bicycle(), x=50)

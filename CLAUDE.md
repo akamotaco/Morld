@@ -129,7 +129,7 @@ scenarios/scenario02/docs/
 | Python NPC AI | `scenarios/scenario02/python/think/` |
 | Python 인터럽트 핸들러 | `scenarios/scenario02/python/think/handlers/` (식사/배변/체온/착의/자위/사회/선물) |
 | Python 톤 템플릿 | `scenarios/scenario02/python/tone_templates/` (아키타입별 3D 좌표 대사/묘사) |
-| Python 환경 시스템 | `scenarios/scenario02/python/` (temperature, humidity, congestion, pollution, sound, garden, needs) |
+| Python 환경 시스템 | `scenarios/scenario02/python/` (temperature, humidity, congestion, pollution, sound, garden, needs, inventory, ground) |
 
 ---
 

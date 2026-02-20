@@ -42,23 +42,74 @@ def chop(self, equipment=None):
 
 ## 바닥(Ground) 시스템
 
+> 상세 내용은 [ground.md](ground.md) 참조
+
 Location은 inventory를 갖지 않음. "바닥" Object가 아이템 저장.
+정적 바닥(챕터 초기화)과 동적 바닥(아이템 드롭 시 생성, 비면 자동 소멸)의 두 가지 방식.
 
-```python
-class Ground(Object):
-    item_visible = True  # 아이템 개수 표시
-    actions = ["putinobject"]
+---
 
-class GroundGrass(Ground):
-    unique_id = "ground_grass"
-    name = "잔디"
+## 인벤토리 슬롯 시스템 (Inventory Slot System)
+
+> `inventory.py` -- 순수 Python, C# 변경 없음
+
+캐릭터(플레이어+NPC)는 제한된 인벤토리 슬롯을 가짐. 오브젝트/컨테이너는 무제한.
+
+### 슬롯 계산
+
+```
+max_slots = 기본슬롯 + int(근력 × 배율)
 ```
 
-### morld API
+| Prop | 설명 | 기본값 |
+|------|------|--------|
+| `인벤토리:기본슬롯` | 기본 슬롯 수 | 5 |
+| `인벤토리:배율` | 근력 배율 (×100 정수 저장) | 1.0 (=100) |
+
+- 스택(같은 item_id) = 1슬롯 (수량 무관)
+- prop 미설정 → 무제한 (시나리오03 호환)
+
+### 용량 초과 처리
+
+`safe_give_item()`은 슬롯 여유 체크 후, 꽉 차면 바닥에 동적 드롭:
 
 ```python
-morld.set_location_ground_id(region_id, location_id, ground_unit_id)
-morld.get_location_ground_id(region_id, location_id)
+import inventory
+
+inventory.safe_give_item(unit_id, item_id, count)  # True=인벤토리, False=바닥 드롭
+```
+
+### NPC 우선순위 드롭
+
+NPC(`BaseAgent`)는 `_inventory_priority` dict로 카테고리별 보존 우선순위를 정의.
+슬롯 부족 시 `_find_droppable_item()`이 가장 낮은 priority 아이템을 바닥에 드롭.
+
+```python
+_inventory_priority = {
+    "tool": 80, "clothing": 70, "food": 60,
+    "food_ingredient": 50, "drink_ingredient": 50,
+    "material": 40, "seed": 30,
+    "garden_tool": 30, "garden_supply": 30,
+    "trinket": 10, "flower": 10,
+}
+```
+
+| 메서드 | 설명 |
+|--------|------|
+| `_find_droppable_item()` | 최저 priority 아이템 탐색 (장착 제외) |
+| `_ensure_slot_for(item_id)` | 슬롯 확보 (빈 곳 없으면 priority 드롭) |
+
+### Python API
+
+```python
+import inventory
+
+inventory.get_max_slots(unit_id)                           # → int 또는 None (무제한)
+inventory.get_used_slots(unit_id)                          # → int (distinct item_id 수)
+inventory.get_free_slots(unit_id)                          # → int 또는 None
+inventory.has_free_slot(unit_id, item_id=None)             # → bool (스택 추가 고려)
+inventory.safe_give_item(unit_id, item_id, count)          # → bool (True=성공, False=바닥 드롭)
+inventory.init_character_slots(unit_id, base=5, multiplier=1.0)  # 챕터 초기화용
 ```
 
 ---
@@ -688,6 +739,7 @@ load_chapter("chapter_1") → 35+ location 추가
 ```python
 # load_chapter() step 2.1
 import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender, fuel
+import ground
 temperature.reset()
 humidity.reset()
 congestion.reset()
@@ -697,6 +749,7 @@ needs.reset()
 pregnancy.reset()
 gender.reset_orientation()
 fuel.reset()
+ground.reset()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -714,6 +767,7 @@ fuel.reset()
 | `pregnancy.py` | _registry, _child_registry | V 보유 캐릭터 재등록 필요 |
 | `gender.py` | _orientation_cache | NPC Agent.__init__에서 재등록 |
 | `fuel.py` | _fuel_sources | Fireplace/Stove/PortableStove/DrumBath instantiate에서 재등록 |
+| `ground.py` | _grounds, _ground_locations | 챕터 코드에서 register_ground()로 재등록 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---

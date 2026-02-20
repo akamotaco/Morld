@@ -78,6 +78,12 @@ def initialize():
     # 5. 플레이어만 생성
     _instantiate_player()
 
+    # 6. 플레이어 인벤토리 슬롯 초기화
+    import inventory as inv_module
+    player_id = morld.get_player_id()
+    if player_id:
+        inv_module.init_character_slots(player_id, base=5, multiplier=1.0)
+
     print("[chapter_0] Prologue initialized: 4 locations, player only")
 
 

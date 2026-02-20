@@ -63,7 +63,8 @@ def handle_chop(agent, entry):
             item_id = tool["item_id"]
             if morld.has_item(container_id, item_id):
                 morld.remove_item(container_id, item_id, 1)
-                morld.give_item(agent.unit_id, item_id, 1)
+                import inventory as inv_module
+                inv_module.safe_give_item(agent.unit_id, item_id, 1)
                 agent._activity_phase = "going_to_tree"
                 agent._do_instant_action("도구 준비", "take_item")
             else:

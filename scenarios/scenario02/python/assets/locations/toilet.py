@@ -3,7 +3,6 @@
 import morld
 import ui
 from assets.base import Location, Object
-from assets.objects.grounds import GroundTile
 from assets.objects.furniture import WallLamp
 
 
@@ -89,6 +88,7 @@ class ToiletRoom(Location):
     """화장실 Location - 인스턴스 생성 시 unique_id와 describe_text 지정"""
     name = "화장실"
     is_indoor = True
+    ground_type = "GroundTile"
     stay_duration = 0
     length = 150  # Pi-World: 화장실 (개인 공간)
 
@@ -104,6 +104,5 @@ class ToiletRoom(Location):
     def instantiate(self, location_id: int, region_id: int):
         """화장실 생성"""
         super().instantiate(location_id, region_id)
-        self.add_ground(GroundTile())
         self.add_object(Toilet(), x=15)  # 중앙
         self.add_object(WallLamp(), x=90)

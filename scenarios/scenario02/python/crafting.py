@@ -128,7 +128,8 @@ def craft_item(player_id: int, recipe: dict):
 
     # 결과물 지급
     result_count = recipe.get("result_count", 1)
-    morld.give_item(player_id, result_id, result_count)
+    import inventory as inv_module
+    inv_module.safe_give_item(player_id, result_id, result_count)
 
     # 소유자 설정 (선물 시스템용)
     player_info = morld.get_unit_info(player_id)
