@@ -1363,7 +1363,9 @@ class Character(Unit):
         # 규칙이 없으면 모든 액션 허용
         if rules is None:
             result = self._apply_dynamic_action_labels(list(self.actions), info)
-            return self._add_casual_affection_actions(result)
+            result = self._add_casual_affection_actions(result)
+            result = self._add_carry_action(result)
+            return self._add_loot_clothing_action(result)
 
         # 필터링 적용
         allowed = rules.get("allowed")
@@ -1391,10 +1393,12 @@ class Character(Unit):
         import settings
         if not settings.is_romance_enabled():
             result = [a for a in result if not self._is_romance_action(a)]
-            return self._add_carry_action(result)
+            result = self._add_carry_action(result)
+            return self._add_loot_clothing_action(result)
 
         result = self._add_casual_affection_actions(result)
-        return self._add_carry_action(result)
+        result = self._add_carry_action(result)
+        return self._add_loot_clothing_action(result)
 
     def _apply_dynamic_action_labels(self, actions, info):
         """동적 라벨 적용 (작업지시에 현재 활동 표시 등)"""
@@ -1492,6 +1496,71 @@ class Character(Unit):
             yield ui.dialog([f"{self.name}을(를) 들어올렸다."])
         else:
             yield ui.dialog(["들어올릴 수 없다."])
+
+    def _add_loot_clothing_action(self, actions):
+        """기절/결박 NPC에게 옷 강탈 액션 동적 추가"""
+        import survival
+        import restraint
+
+        # 수면 중이면 강탈 불가 (깨어날 수 있음)
+        info = morld.get_unit_info(self.instance_id)
+        if info and info.get("activity") == "수면":
+            return actions
+
+        is_fainted = survival.is_npc_fainted(self.instance_id)
+        is_restrained = restraint.is_restrained(self.instance_id)
+
+        if not is_fainted and not is_restrained:
+            return actions
+
+        # 장착 중인 의류가 있는지 확인
+        import equipment
+        equipped = equipment.get_equipped_items(self.instance_id)
+        for item_id in equipped:
+            item_info = morld.get_item_info(item_id)
+            if item_info and any(k.startswith("착용:") for k in item_info.get("equip_props", {})):
+                actions.append("call:loot_clothing:옷 강탈#")
+                break
+
+        return actions
+
+    def loot_clothing(self):
+        """옷 강탈 — 기절/결박 상태의 NPC에게서 의류 빼앗기"""
+        import equipment
+        import inventory as inv_mod
+
+        equipped = equipment.get_equipped_items(self.instance_id)
+        clothing_items = []
+        for item_id in equipped:
+            item_info = morld.get_item_info(item_id)
+            if item_info and any(k.startswith("착용:") for k in item_info.get("equip_props", {})):
+                clothing_items.append((item_id, item_info.get("name", "?")))
+
+        if not clothing_items:
+            yield ui.dialog(["빼앗을 옷이 없다."])
+            return
+
+        # 아이템 선택 메뉴
+        lines = [f"[{self.name}]의 장착 의류\n"]
+        for item_id, name in clothing_items:
+            lines.append(f"[url=@ret:{item_id}]{name}[/url]")
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+
+        result = yield ui.dialog(lines, autofill="off")
+        if not result or result == "cancel":
+            return
+
+        item_id = int(result)
+        item_info = morld.get_item_info(item_id)
+        item_name = item_info.get("name", "?") if item_info else "?"
+
+        # 장착 해제 + 인벤토리 이동
+        equipment.unequip_item(self.instance_id, item_id)
+        morld.remove_item(self.instance_id, item_id, 1)
+        player_id = morld.get_player_id()
+        inv_mod.safe_give_item(player_id, item_id, 1)
+
+        yield ui.dialog([f"{self.name}의 {item_name}을(를) 빼앗았다."])
 
     def _is_romance_action(self, action: str) -> bool:
         """연애 관련 액션인지 판별"""

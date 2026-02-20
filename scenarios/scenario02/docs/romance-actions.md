@@ -996,6 +996,36 @@ partner_agent._memory["clothing_last_attempt"] = None
 
 이후 NPC think() → Tier 4a `_check_clothing()` → `_is_dressed()` False 감지 → 착의 인터럽트 발동.
 
+### 옷 강탈 (Clothing Loot)
+
+탈의 후 NPC 인벤토리에 남아있는 **장착 해제된 의류**를 플레이어가 가져갈 수 있음.
+
+**즉시 행위 정의** (`romance_actions.py`):
+```python
+"loot_clothing": {
+    "name": "옷 강탈", "time": 1분, "stamina": 1,
+    "effects": {}, "affection_req": 0, "loot": True,
+}
+```
+
+**동작 흐름**:
+1. 탈의 행위로 옷 벗기기 → 아이템은 NPC 인벤토리에 잔류 (unequipped)
+2. "옷 강탈" 버튼 표시 (강탈 가능 의류 있을 때만)
+3. 클릭 → 자동으로 1개 선택 → NPC → 플레이어 인벤토리 이동
+4. 인벤토리 풀이면 바닥 드롭 (`safe_give_item`)
+
+**헬퍼 함수** (`romance_core.py`):
+- `get_next_loot_item(unit_id)` — 인벤토리에서 장착 해제된 의류 탐색
+- `perform_loot(source_id, item_id, target_id)` — 아이템 이동
+
+**통상 모드 강탈** (`assets/base.py`):
+
+기절(`is_npc_fainted`) 또는 결박(`is_restrained`) 상태의 NPC에게서 **장착 중인 의류**를 강탈 가능.
+수면 중인 NPC는 깨어날 수 있으므로 불가.
+
+- 포커스 메뉴에 "옷 강탈" 동적 추가 (`_add_loot_clothing_action`)
+- 클릭 → 장착 의류 선택 → 장착 해제 + 인벤토리 이동
+
 ---
 
 ## 11. NPC 성욕 행동 시스템

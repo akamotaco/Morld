@@ -313,6 +313,34 @@ def perform_undress(unit_id, item_id):
 
 
 # ============================================
+# 강탈
+# ============================================
+
+def get_next_loot_item(unit_id):
+    """다음 강탈 가능한 아이템 반환 (인벤토리에서 장착 해제된 의류)"""
+    import equipment
+    equipped = set(equipment.get_equipped_items(unit_id))
+    inventory = morld.get_unit_inventory(unit_id)
+    for item_id in inventory:
+        if item_id in equipped:
+            continue
+        info = morld.get_item_info(item_id)
+        if not info:
+            continue
+        ep = info.get("equip_props", {})
+        if any(k.startswith("착용:") for k in ep):
+            return item_id
+    return None
+
+
+def perform_loot(source_id, item_id, target_id):
+    """의류 1개 강탈: source → target (인벤 풀이면 바닥 드롭)"""
+    morld.remove_item(source_id, item_id, 1)
+    import inventory as inv_mod
+    return inv_mod.safe_give_item(target_id, item_id, 1)
+
+
+# ============================================
 # 정액 시스템
 # ============================================
 

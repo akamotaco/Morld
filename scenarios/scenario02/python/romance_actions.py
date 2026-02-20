@@ -188,6 +188,11 @@ INSTANT_ACTIONS = {
         "effects": {"호감": 1},
         "exp_part": None, "affection_req": 80, "undress": "lower"
     },
+    "loot_clothing": {
+        "name": "옷 강탈", "time": 1 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {},
+        "exp_part": None, "affection_req": 0, "loot": True,
+    },
     "swallow_semen": {
         "name": "삼키기", "time": 1 * MILLIS_PER_MINUTE, "stamina": 0,
         "effects": {"욕망": 2, "복종": 1},

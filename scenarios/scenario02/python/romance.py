@@ -47,6 +47,7 @@ from romance_core import (  # noqa: F401 — re-export for external callers
     is_action_available, is_desire_unlocked, is_anatomy_compatible,
     calculate_effects,
     get_exposure_state, get_next_undress_item, perform_undress,
+    get_next_loot_item, perform_loot,
     get_semen_total, _apply_semen, clear_all_semen,
     get_internal_semen, get_internal_semen_total,
     _apply_internal_semen, clear_all_internal_semen,
@@ -1473,6 +1474,34 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 partner_info = morld.get_unit_info(state["partner_id"])
                 p_name = partner_info.get("name", "상대") if partner_info else "상대"
                 state["last_reaction"] = f"{p_name}의 {item_name}을(를) 벗겼다."
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                return render_romance_ui(state)
+
+            # 옷 강탈 처리
+            if action_def.get("loot"):
+                item_id = get_next_loot_item(state["partner_id"])
+                if item_id is None:
+                    return render_romance_ui(state)
+                # 스태미나 처리
+                total_stamina = action_def["stamina"]
+                for toggle_id in state["active_toggles"]:
+                    total_stamina += TOGGLE_ACTIONS[toggle_id]["stamina"]
+                if state["stamina"] <= total_stamina:
+                    state["stamina"] = 1
+                    state["exhausted"] = True
+                    return True
+                state["stamina"] -= total_stamina
+                # 아이템 이동: NPC → 플레이어
+                perform_loot(state["partner_id"], item_id, player_id)
+                item_info = morld.get_item_info(item_id)
+                item_name = item_info.get("name", "옷") if item_info else "옷"
+                partner_info = morld.get_unit_info(state["partner_id"])
+                p_name = partner_info.get("name", "상대") if partner_info else "상대"
+                state["last_reaction"] = f"{p_name}의 {item_name}을(를) 빼앗았다."
                 result = advance_time_and_check(state, action_def["time"])
                 if result["interrupted"]:
                     state["interrupted"] = True
