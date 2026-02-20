@@ -50,6 +50,13 @@ GATES = [
     # === 의류점(6) length=40 ===
     (REGION_ID, 6, 0, 0, REGION_ID, 0, 420),    # 의류점 입구 → 도시 입구
     (REGION_ID, 6, 1, 240, REGION_ID, 2, 180),   # 의류점 안쪽 → 편의점 끝
+
+    # === 성인용품점(7) length=30 ===
+    # Gate는 별도 등록 (conditions_forward 필요)
+
+    # === 코인세탁소(8) length=30 ===
+    (REGION_ID, 0, 5, 540, REGION_ID, 8, 0),    # 도시 입구 → 코인세탁소
+    (REGION_ID, 8, 0, 0, REGION_ID, 0, 540),    # 코인세탁소 → 도시 입구
 ]
 
 # NPC 배치 정보 (참고용 - 실제 ID는 동적 할당)
@@ -68,7 +75,7 @@ def initialize_terrain():
     """도시 Region 초기화"""
     from assets.locations.city import (
         CityEntrance, GasStation, ConvenienceStore, Pharmacy, ParkingLot, Hideout,
-        ClothingStore
+        ClothingStore, AdultToyShop, CoinLaundry
     )
 
     # Region 등록
@@ -84,6 +91,8 @@ def initialize_terrain():
         4: ParkingLot(),      # 주차장
         5: Hideout(),         # 은신처 (유키/엘라)
         6: ClothingStore(),   # 의류점
+        7: AdultToyShop(),   # 성인용품점 (주차장 뒤편, 로맨스 모드 전용)
+        8: CoinLaundry(),    # 코인세탁소
     }
 
     for location_id, loc in locations.items():
@@ -92,6 +101,12 @@ def initialize_terrain():
     # Gate 등록 (Pi-World 연결)
     for region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x in GATES:
         morld.add_gate(region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x)
+
+    # 성인용품점 Gate — 로맨스 모드 전용 (can:romance# → 미충족 시 숨김)
+    morld.add_gate(REGION_ID, 4, 1, 360, REGION_ID, 7, 0,
+                   conditions_forward={"can:romance#": 1},
+                   name="성인용품점")
+    morld.add_gate(REGION_ID, 7, 0, 0, REGION_ID, 4, 360)
 
     print(f"[world.city] Region {REGION_ID} initialized: {len(locations)} locations")
     return locations

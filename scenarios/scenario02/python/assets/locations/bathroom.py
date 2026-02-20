@@ -2,6 +2,7 @@
 
 from assets.base import Location
 from assets.objects.furniture import Mirror, Bathtub, Washbasin, WallLamp
+from assets.objects.appliances import WashingMachine, Dryer
 
 
 class Bathroom(Location):
@@ -25,4 +26,6 @@ class Bathroom(Location):
         self.add_object(Mirror(), x=5)      # 문 옆
         self.add_object(Bathtub(), x=15)    # 중앙
         self.add_object(Washbasin(), x=25)  # 안쪽
+        self.add_object(WashingMachine(), x=50)  # 세탁기
+        self.add_object(Dryer(), x=70)           # 건조기
         self.add_object(WallLamp(), x=90)

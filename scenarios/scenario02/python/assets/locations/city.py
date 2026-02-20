@@ -8,6 +8,8 @@
 # - 4: 주차장 (parking_lot)
 # - 5: 은신처 (hideout) - 유키/엘라가 머무는 곳
 # - 6: 의류점 (clothing_store) - 황폐화된 옷가게
+# - 7: 성인용품점 (adult_toy_shop) - 주차장 뒤편 (로맨스 모드 전용)
+# - 8: 코인세탁소 (coin_laundry) - 도시 입구에서 접근
 
 import morld
 from assets.base import Location
@@ -432,3 +434,82 @@ class ClothingStore(Location):
         item = HoodedCloak(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
         item = RainCoat(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
         item = Umbrella(); item_id = morld.create_id("item"); item.instantiate(item_id); morld.give_item(wardrobe_id, item_id, 1)
+
+
+class AdultToyShop(Location):
+    """성인용품점 - 주차장 뒤편의 은밀한 가게 (로맨스 모드 전용)"""
+    unique_id = "adult_toy_shop"
+    name = "성인용품점"
+    is_indoor = True
+    ground_type = "GroundConcrete"
+    stay_duration = 0
+    geometry = 1
+    length = 180
+
+    describe_text = {
+        "default": "어둑한 조명 아래 진열된 성인용품들. 프라이버시가 보호된 작은 가게다.",
+        "밤": "간판의 불빛이 희미하게 새어나온다."
+    }
+
+    def instantiate(self, location_id: int, region_id: int):
+        super().instantiate(location_id, region_id)
+
+        from assets.objects.furniture import WallLamp, Shelf
+        self.add_object(WallLamp(), x=90)
+
+        # 진열대 (성인용품 보관)
+        shelf = Shelf()
+        shelf.name = "진열대"
+        shelf.focus_text = {"default": "성인용품이 진열되어 있다."}
+        shelf_id = self.add_object(shelf, x=60)
+
+        self._stock_items(shelf_id)
+
+    def _stock_items(self, shelf_id):
+        from assets.items.adult_toys import (
+            PenisBand, BallGag, NippleClamp, Blindfold, CollarLeash, Whip,
+            RestraintRope, Handcuffs, ArmCuffs, LegCuffs, FullBodyRestraint,
+            Vibrator, Dildo, Rotor, AnalPlug,
+            OvulationInducer, StaminaPotion, Lubricant,
+        )
+        from assets.items.consumables import Aphrodisiac, ContraceptivePill
+
+        items = [
+            PenisBand, BallGag, NippleClamp, Blindfold, CollarLeash, Whip,
+            RestraintRope, Handcuffs, ArmCuffs, LegCuffs, FullBodyRestraint,
+            Vibrator, Dildo, Rotor, AnalPlug,
+            Aphrodisiac, OvulationInducer, StaminaPotion, Lubricant, ContraceptivePill,
+        ]
+        for cls in items:
+            item = cls()
+            item_id = morld.create_id("item")
+            item.instantiate(item_id)
+            morld.give_item(shelf_id, item_id, 1)
+
+
+class CoinLaundry(Location):
+    """코인세탁소 - 전기가 통하는 몇 안 되는 장소"""
+    unique_id = "coin_laundry"
+    name = "코인세탁소"
+    is_indoor = True
+    ground_type = "GroundConcrete"
+    stay_duration = 0
+    geometry = 1
+    length = 180
+
+    describe_text = {
+        "default": "황폐한 도시에 남은 코인세탁소. 전기가 통하는 몇 안 되는 장소다.",
+        "밤": "형광등이 깜빡이며 내부를 비추고 있다."
+    }
+
+    def instantiate(self, location_id: int, region_id: int):
+        super().instantiate(location_id, region_id)
+
+        from assets.objects.furniture import WallLamp
+        from assets.objects.appliances import WashingMachine, Dryer
+
+        self.add_object(WallLamp(), x=90)
+        self.add_object(WashingMachine(), x=40)
+        self.add_object(WashingMachine(), x=80)
+        self.add_object(Dryer(), x=120)
+        self.add_object(Dryer(), x=140)

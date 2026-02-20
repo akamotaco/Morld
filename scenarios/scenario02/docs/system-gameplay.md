@@ -517,8 +517,54 @@ idle → getting_tool → going_to_room ↔ (다음 방) → returning_tool
 | Region | Locations | max | rate |
 |--------|-----------|-----|------|
 | 0 (저택) | 0~16, 20~24 (22개) | 20 | 1 |
-| 2 (도시) | 0~6 (7개) | 20 | 1 |
+| 2 (도시) | 0~8 (9개) | 20 | 1 |
 | 3 (숲) | 0~5 (6개) | 20 | 1 |
+
+---
+
+## 세탁/건조 시스템 (Laundry System)
+
+> `laundry.py` + `assets/objects/appliances.py` — 순수 Python, C# 변경 없음
+
+의류의 오염도(세탁기)와 젖음(건조기)을 시간 경과로 제거하는 가전 시스템.
+
+### 워크플로우
+
+```
+빨래 넣기 (put, clothing only) → 작동 시작 → 시간 경과 → 완료 → 빨래 꺼내기
+```
+
+- **세탁기**: 60분 소요, 완료 시 `오염:수치` → 0 (pollution.set_unit_pollution)
+- **건조기**: 30분 소요, 완료 시 `습도:젖음` → 0 (humidity.dry_unit)
+- 작동 중에는 넣기/꺼내기 불가, 남은 시간 표시
+
+### Props
+
+| Prop | 값 | 설명 |
+|------|-----|------|
+| `가전:상태` | 0 / 1 / 2 | 대기 / 작동중 / 완료 |
+| `가전:남은시간` | 분 | 남은 처리 시간 |
+
+### 배치
+
+| Region | Location | 오브젝트 |
+|--------|----------|---------|
+| 0 (저택) | 욕실(4) | 세탁기(x=50), 건조기(x=70) |
+| 2 (도시) | 코인세탁소(8) | 세탁기×2(x=40,80), 건조기×2(x=120,140) |
+
+### API
+
+```python
+import laundry
+
+laundry.register_machine(unit_id, "washer"|"dryer")  # instantiate에서 호출
+laundry.start_machine(unit_id, machine_type)          # 작동 시작
+laundry.is_machine_busy(unit_id)                       # 작동 중 여부
+laundry.get_machine_state(unit_id)                     # 0=대기, 1=작동중, 2=완료
+laundry.get_remaining_time(unit_id)                    # 남은 시간 (분)
+laundry.reset_machine(unit_id)                         # 빨래 꺼낸 후 초기화
+laundry.get_machine_focus_text(unit_id, machine_type)  # focus_text 생성
+```
 
 ---
 
@@ -739,7 +785,7 @@ load_chapter("chapter_1") → 35+ location 추가
 ```python
 # load_chapter() step 2.1
 import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender, fuel
-import ground
+import carry, ground, stealth, laundry
 temperature.reset()
 humidity.reset()
 congestion.reset()
@@ -749,7 +795,10 @@ needs.reset()
 pregnancy.reset()
 gender.reset_orientation()
 fuel.reset()
+carry.reset()
 ground.reset()
+stealth.reset()
+laundry.reset()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -768,6 +817,8 @@ ground.reset()
 | `gender.py` | _orientation_cache | NPC Agent.__init__에서 재등록 |
 | `fuel.py` | _fuel_sources | Fireplace/Stove/PortableStove/DrumBath instantiate에서 재등록 |
 | `ground.py` | _grounds, _ground_locations | 챕터 코드에서 register_ground()로 재등록 |
+| `stealth.py` | _initialized | 30분 주기 감지 구독 해제 |
+| `laundry.py` | _initialized, _machines | 기계 레지스트리 초기화 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---
