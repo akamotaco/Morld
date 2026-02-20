@@ -443,11 +443,10 @@ if (overlapStart <= overlapEnd)
 
 | 자세 | prop 키 | 이름 | 이동 가능 |
 |------|---------|------|----------|
-| standing | (없음) | 서기 | O |
+| standing | (없음) | 통상 | O |
 | sitting | `posture:sitting` | 앉기 | X |
 | lying | `posture:lying` | 눕기 | X |
-| crouch | `posture:crouch` | 웅크리기 | O |
-| prone | `posture:prone` | 엎드리기 | O |
+| crouch | `posture:crouch` | 은신 | O |
 
 **파일:** [scenarios/scenario02/python/ui.py](../python/ui.py) - `POSTURE_INFO`
 

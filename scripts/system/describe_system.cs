@@ -484,7 +484,7 @@ namespace SE
 				return false;
 
 			// posture 관련 메서드 이름 목록
-			var postureActions = new[] { "lie_down", "sit", "sit_down", "crouch", "prone" };
+			var postureActions = new[] { "lie_down", "sit", "sit_down", "crouch" };
 
 			// call: 형식 파싱
 			if (action.StartsWith("call:"))

@@ -422,22 +422,20 @@ def get_footer():
 # 자세 정보 매핑
 # - lying: 눕기 (침구류) - 이동 불가, 오브젝트 필요
 # - sitting: 앉기 (의자류) - 이동 불가, 오브젝트 필요
-# - crouch: 웅크리기 - 이동 가능, 속도 50%
-# - prone: 엎드리기 - 이동 가능, 속도 25%
-# - standing: 서기 (기본) - 이동 가능, 속도 100%
+# - crouch: 은신 - 이동 가능, 속도 50%
+# - standing: 통상 (기본) - 이동 가능, 속도 100%
 #
 # speed: 이동 속도 계수 (100 = 기본)
-# can_toggle: 자세 로테이션에 포함되는지 (standing/crouch/prone만 해당)
+# can_toggle: 통상 ↔ 은신 토글 가능 여부
 POSTURE_INFO = {
-    "standing": {"name": "서기", "can_move": True, "speed": 100, "can_toggle": True},
+    "standing": {"name": "통상", "can_move": True, "speed": 100, "can_toggle": True},
     "lying": {"name": "눕기", "can_move": False, "speed": 0, "can_toggle": False},
     "sitting": {"name": "앉기", "can_move": False, "speed": 0, "can_toggle": False},
-    "crouch": {"name": "웅크리기", "can_move": True, "speed": 50, "can_toggle": True},
-    "prone": {"name": "엎드리기", "can_move": True, "speed": 25, "can_toggle": True},
+    "crouch": {"name": "은신", "can_move": True, "speed": 50, "can_toggle": True},
 }
 
-# 자세 로테이션 순서 (서기 → 웅크리기 → 엎드리기 → 서기)
-POSTURE_ROTATION = ["standing", "crouch", "prone"]
+# 자세 토글 순서 (통상 ↔ 은신)
+POSTURE_ROTATION = ["standing", "crouch"]
 
 
 def get_current_posture() -> str:
@@ -445,7 +443,7 @@ def get_current_posture() -> str:
     플레이어 현재 자세 반환
 
     Returns:
-        str: 자세 키 ("standing", "crouch", "prone", "sitting", "lying")
+        str: 자세 키 ("standing", "crouch", "sitting", "lying")
     """
     player_id = morld.get_player_id()
     if player_id is None:
@@ -462,7 +460,7 @@ def get_posture_speed() -> int:
     현재 자세의 이동 속도 계수 반환 (C#에서 호출)
 
     Returns:
-        int: 속도 계수 (100=기본, 50=웅크리기, 25=엎드리기)
+        int: 속도 계수 (100=통상, 50=은신)
     """
     posture = get_current_posture()
     info = POSTURE_INFO.get(posture)
@@ -481,14 +479,15 @@ def get_posture_speed() -> int:
 # - (없음): 일반 상태
 #
 # 은신 진입 조건:
-# - 자세가 crouch 또는 prone
+# - 자세가 crouch (은신)
 # - 같은 Location에 NPC가 없음
 #
 # 은신 해제 조건:
-# - 자세 변경 (standing)
+# - 자세 변경 (통상)
 # - 발각됨
 # - 휴대 광원 켜기
 # - 수동 해제
+# - 공개 행동 수행 (대화, 거래 등)
 # - Location 이동 (발각 상태만 해제)
 
 def get_stealth_state() -> int | None:
@@ -516,11 +515,11 @@ def is_stealth_posture(posture: str = None) -> bool:
         posture: 확인할 자세 (None이면 현재 자세)
 
     Returns:
-        bool: crouch 또는 prone이면 True
+        bool: crouch이면 True
     """
     if posture is None:
         posture = get_current_posture()
-    return posture in ["crouch", "prone"]
+    return posture == "crouch"
 
 
 def check_stealth_entry() -> bool:
@@ -528,7 +527,7 @@ def check_stealth_entry() -> bool:
     은신 진입 조건 확인 및 상태 설정
 
     조건:
-    - 자세가 crouch 또는 prone
+    - 자세가 crouch (은신)
     - 같은 Location에 NPC가 없음
 
     Returns:
@@ -603,19 +602,19 @@ def on_posture_changed(old_posture: str, new_posture: str):
     """
     # standing으로 변경 → 은신 해제
     if new_posture == "standing":
-        exit_stealth("자세 변경 (서기)")
+        exit_stealth("자세 변경 (통상)")
         return
 
-    # crouch/prone으로 변경 → 은신 진입 시도
+    # crouch로 변경 → 은신 진입 시도
     if is_stealth_posture(new_posture):
         check_stealth_entry()
 
 
 def toggle_posture() -> str:
     """
-    자세 로테이션: 서기 → 웅크리기 → 엎드리기 → 서기
+    자세 토글: 통상 ↔ 은신
 
-    sitting/lying 상태에서는 로테이션 불가 (먼저 일어나야 함)
+    sitting/lying 상태에서는 토글 불가 (먼저 일어나야 함)
     자세 변경 시 은신 상태도 함께 처리됨
 
     Returns:
@@ -663,9 +662,10 @@ def _get_posture_text() -> str:
     플레이어 자세 및 은신 상태 텍스트 반환 (클릭 가능)
 
     표시 형식:
-    - [서기]                    # 일반 상태
-    - [웅크리기]                # 이동 가능 자세, NPC 있음
-    - [웅크리기] [은신 중]      # 은신 상태
+    - [은신] 버튼                       # 통상 상태 → 클릭하면 은신 진입
+    - [은신 해제] [은신 중]             # 은신 상태 → 클릭하면 통상 전환
+    - [은신 해제] [발각!]               # 발각 상태 → 클릭하면 통상 전환
+    - 자세: 앉기 (이동 불가)             # 앉기/눕기
     """
     player_id = morld.get_player_id()
     if player_id is None:
@@ -699,25 +699,29 @@ def _get_posture_text() -> str:
         # 알 수 없는 자세 (fallback)
         return f"[color=gray]자세: {posture}[/color]"
 
-    # 클릭 가능 여부 결정 (can_toggle인 경우만)
-    can_toggle = info.get("can_toggle", False)
+    # 이동 불가 자세 (앉기/눕기)
+    if not info["can_move"]:
+        return f"[color=yellow]자세: {info['name']} (이동 불가)[/color]"
 
     # 은신 상태 확인
     stealth = get_stealth_state()
-    stealth_text = ""
-    if stealth == 1:
-        stealth_text = " [color=cyan][은신 중][/color]"
 
-    # 이동 가능 여부에 따라 색상 표시
-    if info["can_move"]:
-        if can_toggle:
-            # 클릭하면 자세 변경 (posture:toggle 액션)
-            return f"[url=posture:toggle][color=gray]자세: {info['name']}[/color][/url]{stealth_text}"
+    if posture == "standing":
+        # 통상 모드: [은신] 버튼
+        return f"[url=posture:toggle][color=gray][은신][/color][/url]"
+    elif posture == "crouch":
+        # 은신 모드: [은신 해제] 버튼 + 상태 표시
+        toggle_btn = f"[url=posture:toggle][color=gray][은신 해제][/color][/url]"
+        if stealth == 1:
+            status = " [color=cyan][은신 중][/color]"
+        elif stealth == 0:
+            status = " [color=red][발각!][/color]"
         else:
-            return f"[color=gray]자세: {info['name']}[/color]{stealth_text}"
-    else:
-        # 이동 불가 자세는 클릭 불가 (먼저 일어나야 함)
-        return f"[color=yellow]자세: {info['name']} (이동 불가)[/color]"
+            status = ""
+        return f"{toggle_btn}{status}"
+
+    # 기타 이동 가능 자세 (fallback)
+    return f"[color=gray]자세: {info['name']}[/color]"
 
 
 def format_time(millis):

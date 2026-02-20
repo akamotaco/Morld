@@ -440,7 +440,7 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// 자세 액션 처리: posture:toggle
-	/// 서기 → 웅크리기 → 엎드리기 → 서기 로테이션
+	/// 통상 ↔ 은신 토글
 	/// </summary>
 	private void HandlePostureAction(string[] parts)
 	{

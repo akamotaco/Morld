@@ -2137,6 +2137,10 @@ class Character(Unit):
 
     def romance(self):
         """연애 모드 시작 (모드 자동 감지)"""
+        # 공개 행동: 은신 자동 해제
+        import stealth as stealth_mod
+        stealth_mod.auto_exit_stealth_for_interaction()
+
         self._check_instantiated()
         from romance import start_romance, ROMANCE_MIN_HEALTH
         from romance_mode import (
@@ -2224,6 +2228,10 @@ class Character(Unit):
 
     def casual_affection(self, action_type):
         """가벼운 애정 행위 — 포커스 메뉴에서 호출"""
+        # 공개 행동: 은신 자동 해제
+        import stealth as stealth_mod
+        stealth_mod.auto_exit_stealth_for_interaction()
+
         self._check_instantiated()
         import random
 
@@ -2880,6 +2888,9 @@ class Character(Unit):
         - dict 결과: {"pages": [...]} 형태의 간단한 대사
         - str 결과: "_"로 시작하는 메서드명 → 복잡한 대화 처리
         """
+        # 공개 행동: 은신 자동 해제
+        import stealth as stealth_mod
+        stealth_mod.auto_exit_stealth_for_interaction()
         context = self._build_context()
 
         # TALK_TOPICS가 있으면 주제 선택 메뉴 표시

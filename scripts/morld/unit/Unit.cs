@@ -444,21 +444,18 @@ public class Unit : IOwnable
 
 	/// <summary>
 	/// 현재 자세의 이동 속도 계수 반환 (퍼센트)
-	/// - standing (기본): 100
-	/// - crouch: 50
-	/// - prone: 25
+	/// - standing (통상): 100
+	/// - crouch (은신): 50
 	/// - sitting/lying: 0 (이동 불가)
 	/// </summary>
 	public int GetPostureSpeedModifier()
 	{
-		// posture:crouch = 1 또는 posture:prone = 1 형태로 저장됨
+		// posture:crouch = 1 형태로 저장됨
 		if (TraversalContext.GetProp("posture:crouch") > 0)
 			return 50;
-		if (TraversalContext.GetProp("posture:prone") > 0)
-			return 25;
 		if (TraversalContext.GetProp("posture:sitting") > 0 || TraversalContext.GetProp("posture:lying") > 0)
 			return 0;  // 이동 불가
-		return 100;  // standing (기본)
+		return 100;  // standing (통상)
 	}
 
 	/// <summary>

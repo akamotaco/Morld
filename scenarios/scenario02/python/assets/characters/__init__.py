@@ -65,8 +65,12 @@ def get_describe_text(unit_id: int) -> str:
 
 def get_all_describe_texts(unit_ids: list) -> list:
     """여러 캐릭터의 describe text를 한 번에 반환 (C#에서 호출)"""
+    import stealth as stealth_mod
     result = []
     for unit_id in unit_ids:
+        # 은신 NPC는 describe에서 제외
+        if stealth_mod.is_unit_stealthed(unit_id):
+            continue
         text = get_describe_text(unit_id)
         if text:
             result.append(text)

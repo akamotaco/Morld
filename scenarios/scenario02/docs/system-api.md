@@ -394,7 +394,7 @@ morld.sit_on(player_id, chair_id, "front", "sitting")
 | `unit_id` | int | 앉을 캐릭터 ID |
 | `object_id` | int | 대상 오브젝트 ID |
 | `slot` | str | 슬롯 이름 (오브젝트에 정의된 좌석 위치) |
-| `posture` | str | 자세 ("sitting", "lying", "crouch", "prone") |
+| `posture` | str | 자세 ("sitting", "lying", "crouch") |
 
 **반환값:** `True` (성공), `False` (실패 - 슬롯 점유됨 등)
 
@@ -426,11 +426,10 @@ morld.stand_up(player_id)
 
 | 자세 | 이름 | 이동 가능 |
 |------|------|----------|
-| `standing` | 서기 | O (기본 상태, prop 없음) |
+| `standing` | 통상 | O (기본 상태, prop 없음) |
 | `sitting` | 앉기 | X |
 | `lying` | 눕기 | X |
-| `crouch` | 웅크리기 | O |
-| `prone` | 엎드리기 | O |
+| `crouch` | 은신 | O |
 
 ### Props 구조
 

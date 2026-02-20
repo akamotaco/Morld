@@ -411,6 +411,9 @@ namespace SE
 				// 같은 위치에 있는 유닛
 				if (u.CurrentLocation == unit.CurrentLocation)
 				{
+					// 은신 NPC 필터링 (캐릭터만, 오브젝트는 은신 불가)
+					if (!u.IsObject && u.TraversalContext.GetProp("status:stealth") > 0)
+						continue;
 					unitIds.Add(u.Id);
 				}
 			}

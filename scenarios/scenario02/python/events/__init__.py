@@ -222,6 +222,9 @@ def _collect_meet_handlers(player_id, unit_ids):
 
     # 2. 캐릭터별 on_meet_player 핸들러 수집
     for other_id in other_ids:
+        # 은신 NPC는 이벤트에서 제외
+        if stealth.is_unit_stealthed(other_id):
+            continue
         handler = get_character_event_handler(other_id)
         if handler and hasattr(handler, "on_meet_player"):
             handlers.append({
@@ -260,6 +263,9 @@ def _collect_contact_handlers(player_id, unit_ids):
 
     # 2. 캐릭터별 on_contact_player 핸들러 수집
     for other_id in other_ids:
+        # 은신 NPC는 이벤트에서 제외
+        if stealth.is_unit_stealthed(other_id):
+            continue
         handler = get_character_event_handler(other_id)
         if handler and hasattr(handler, "on_contact_player"):
             handlers.append({
@@ -412,15 +418,23 @@ def on_single_event(event):
 
         if unit_id == player_id:
             # 발각 상태 해제 (Location 이동 시 자동 해제)
-            stealth = morld.get_unit_prop(player_id, "status:stealth")
-            if stealth == 0:
+            stealth_state = morld.get_unit_prop(player_id, "status:stealth")
+            if stealth_state == 0:
                 morld.clear_prop(player_id, "status:stealth")
                 print(f"[stealth] 발각 상태 해제 (Location 이동)")
             # 은신 가능 자세면 은신 진입 시도
-            elif stealth is None:
+            elif stealth_state is None:
                 import ui
                 if ui.is_stealth_posture():
                     ui.check_stealth_entry()
+
+            # NPC 은신 감지 시도 + 30분 주기 구독 등록
+            try:
+                import stealth as stealth_mod
+                stealth_mod._ensure_initialized()
+                stealth_mod.detect_stealthed_npcs(region_id, location_id)
+            except ImportError:
+                pass
 
             return registry.handle_reach(player_id, region_id, location_id)
 
