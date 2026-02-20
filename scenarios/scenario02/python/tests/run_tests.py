@@ -95,6 +95,7 @@ def main():
         "test_alias_removal",
         "test_mob_character",
         "test_think_logic",
+        "test_npc_objects",
     ]
 
     if filter_modules:

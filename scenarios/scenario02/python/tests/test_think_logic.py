@@ -139,11 +139,42 @@ sys.modules["romance"] = _romance
 # pollution
 _pollution = sys.modules.get("pollution") or types.ModuleType("pollution")
 _pollution._location_pollution = {}
+_pollution.get_unit_pollution = lambda uid: 0
 sys.modules["pollution"] = _pollution
 
 # congestion
 _congestion = sys.modules.get("congestion") or types.ModuleType("congestion")
 sys.modules["congestion"] = _congestion
+
+# restraint (결박 시스템 stub)
+_restraint = sys.modules.get("restraint") or types.ModuleType("restraint")
+_restraint.is_restrained = lambda uid: False
+_restraint.is_upper_restrained = lambda uid: False
+_restraint.is_lower_restrained = lambda uid: False
+_restraint.is_gagged = lambda uid: False
+_restraint.is_blindfolded = lambda uid: False
+_restraint.get_restrained_units_at = lambda loc: []
+_restraint.release = lambda uid: None
+sys.modules.setdefault("restraint", _restraint)
+
+# carry (운반 시스템 stub)
+_carry = sys.modules.get("carry") or types.ModuleType("carry")
+_carry.is_being_carried = lambda uid: False
+_carry.get_carrier = lambda uid: None
+_carry.is_carrying = lambda uid: False
+_carry.get_carried_unit = lambda uid: None
+_carry.get_carry_method = lambda uid: None
+sys.modules.setdefault("carry", _carry)
+
+# laundry (세탁 시스템 stub)
+_laundry = sys.modules.get("laundry") or types.ModuleType("laundry")
+_laundry.get_machine_state = lambda uid: 0
+_laundry.is_machine_busy = lambda uid: False
+_laundry.start_machine = lambda uid, mtype: None
+_laundry.reset_machine = lambda uid: None
+_laundry.register_machine = lambda uid, mtype: None
+_laundry._machines = {}
+sys.modules.setdefault("laundry", _laundry)
 
 # fuel
 _fuel = sys.modules.get("fuel") or types.ModuleType("fuel")
@@ -230,6 +261,8 @@ _facility = types.ModuleType("think.facility_resolver")
 _facility.resolve_wardrobe = lambda agent, cross_region=False: None
 _facility.resolve_bath = lambda agent, cross_region=False: None
 _facility.resolve_toilet = lambda agent, cross_region=False: None
+_facility.resolve_washer = lambda agent, cross_region=False: None
+_facility.resolve_dryer = lambda agent, cross_region=False: None
 _facility._find_facilities_by_prop = lambda prop, val: []
 _facility._find_facilities_by_unique_id = lambda uid: []
 _facility._sort_by_priority = lambda f, p, h, c=False: f
@@ -325,6 +358,14 @@ def _reset_all():
     # romance — semen total (bath check에서 사용)
     _romance.get_semen_total = lambda uid: 0
 
+    # restraint
+    _restraint.is_restrained = lambda uid: False
+    _restraint.is_upper_restrained = lambda uid: False
+    _restraint.is_lower_restrained = lambda uid: False
+    _restraint.is_gagged = lambda uid: False
+    _restraint.is_blindfolded = lambda uid: False
+    _restraint.get_restrained_units_at = lambda loc: []
+
     # fuel
     _fuel._fuel_sources.clear()
 
@@ -342,6 +383,8 @@ def _reset_all():
     _facility.resolve_wardrobe = lambda agent, cross_region=False: None
     _facility.resolve_bath = lambda agent, cross_region=False: None
     _facility.resolve_toilet = lambda agent, cross_region=False: None
+    _facility.resolve_washer = lambda agent, cross_region=False: None
+    _facility.resolve_dryer = lambda agent, cross_region=False: None
     _facility._find_facilities_by_prop = lambda prop, val: []
 
 

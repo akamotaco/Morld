@@ -65,6 +65,33 @@ _pregnancy_stub.is_pregnant = lambda uid: False
 _pregnancy_stub.check_pending_pregnancy_events = lambda uid: None
 sys.modules.setdefault("pregnancy", _pregnancy_stub)
 
+# equipment stub — _calculate_exposure()에서 lazy import
+_equipment = sys.modules.get("equipment") or types.ModuleType("equipment")
+_equipment.get_equipped_items = lambda uid: [9901, 9902]  # 기본 착의
+_equipment.equip_item = lambda uid, iid: True
+_equipment.unequip_item = lambda uid, iid: True
+sys.modules.setdefault("equipment", _equipment)
+
+# restraint stub — _build_context()에서 lazy import
+_restraint = sys.modules.get("restraint") or types.ModuleType("restraint")
+_restraint.is_restrained = lambda uid: False
+_restraint.is_upper_restrained = lambda uid: False
+_restraint.is_lower_restrained = lambda uid: False
+_restraint.is_gagged = lambda uid: False
+_restraint.is_blindfolded = lambda uid: False
+_restraint.get_restrained_units_at = lambda loc: []
+_restraint.release = lambda uid: None
+sys.modules.setdefault("restraint", _restraint)
+
+# carry stub — _build_context() + think/__init__에서 lazy import
+_carry_stub = sys.modules.get("carry") or types.ModuleType("carry")
+_carry_stub.is_being_carried = lambda uid: False
+_carry_stub.get_carrier = lambda uid: None
+_carry_stub.is_carrying = lambda uid: False
+_carry_stub.get_carried_unit = lambda uid: None
+_carry_stub.get_carry_method = lambda uid: None
+sys.modules.setdefault("carry", _carry_stub)
+
 # now import Character
 from assets.base import Character, build_describe_rules, build_focus_rules
 
@@ -87,6 +114,12 @@ def _create_mob(name="모브", unit_id=100, player_id=1):
     morld.register_unit(unit_id, name=name, location=(0, 0), gender="female")
     morld.register_unit(player_id, name="주인공", location=(0, 0), gender="male")
     morld.register_location(0, 0, is_indoor=True)
+
+    # 기본 의류 등록 (노출도=0 → exposure 규칙 방지)
+    morld.register_item(9901, "기본상의",
+                        equip_props={"착용:상의": 1, "착용:속옷상의": 1})
+    morld.register_item(9902, "기본하의",
+                        equip_props={"착용:하의": 1, "착용:속옷하의": 1})
 
     return mob
 

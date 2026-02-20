@@ -124,10 +124,24 @@ class MockMorld:
         return [uid for uid, u in self._units.items()
                 if u["location"] == (region, location) and u.get("type") != "object"]
 
-    def get_units_at_location(self, region, location, type_filter=None):
+    def get_units_at_location(self, region_or_location, location=None, type_filter=None):
+        # 1-arg: location_id only (region 무시, location_id 일치하면 반환)
+        # 2-arg: (region_id, location_id) 쌍으로 매칭
+        if location is None:
+            loc_id = region_or_location
+            result = []
+            for uid, u in self._units.items():
+                if u["location"][1] != loc_id:
+                    continue
+                if type_filter == "character" and u.get("type") == "object":
+                    continue
+                if type_filter == "object" and u.get("type") != "object":
+                    continue
+                result.append(uid)
+            return result
         result = []
         for uid, u in self._units.items():
-            if u["location"] != (region, location):
+            if u["location"] != (region_or_location, location):
                 continue
             if type_filter == "character" and u.get("type") == "object":
                 continue
@@ -317,3 +331,10 @@ class MockMorld:
     def is_same_building(self, r1, l1, r2, l2):
         """같은 건물 판정 (테스트에서는 항상 True)"""
         return True
+
+    def get_equipped_items(self, unit_id):
+        """장착 아이템 목록 반환 (테스트에서는 빈 리스트)"""
+        u = self._units.get(unit_id)
+        if u:
+            return list(u.get("equipped", []))
+        return []
