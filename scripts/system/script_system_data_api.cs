@@ -228,6 +228,108 @@ namespace SE
                 return PyBool.False;
             });
 
+            // remove_gate(region_id, location_id, gate_id) -> bool
+            // Gate 제거 (동적 건축 시스템용)
+            morldModule.ModuleDict["remove_gate"] = new PyBuiltinFunction("remove_gate", args =>
+            {
+                if (args.Length < 3)
+                    throw PyTypeError.Create("remove_gate(region_id, location_id, gate_id) requires 3 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+                int gateId = args[2].ToInt();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem.GetTerrain();
+                var region = terrain.GetRegion(regionId);
+
+                if (region != null && region.RemoveGate(locationId, gateId))
+                {
+                    Godot.GD.Print($"[morld] remove_gate: {regionId}:{locationId}:Gate{gateId}");
+                    return PyBool.True;
+                }
+                return PyBool.False;
+            });
+
+            // remove_location(region_id, location_id) -> bool
+            // Location 제거 (해당 Location의 Gate도 함께 정리됨)
+            morldModule.ModuleDict["remove_location"] = new PyBuiltinFunction("remove_location", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("remove_location(region_id, location_id) requires 2 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem.GetTerrain();
+                var region = terrain.GetRegion(regionId);
+
+                if (region != null && region.RemoveLocation(locationId))
+                {
+                    Godot.GD.Print($"[morld] remove_location: {regionId}:{locationId}");
+                    return PyBool.True;
+                }
+                return PyBool.False;
+            });
+
+            // set_location_length(region_id, location_id, length) -> bool
+            // Location 크기 변경 (방 확장용)
+            morldModule.ModuleDict["set_location_length"] = new PyBuiltinFunction("set_location_length", args =>
+            {
+                if (args.Length < 3)
+                    throw PyTypeError.Create("set_location_length(region_id, location_id, length) requires 3 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+                float length = args[2].ToFloat();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem.GetTerrain();
+                var location = terrain.GetLocation(new Morld.LocationRef(regionId, locationId));
+
+                if (location != null)
+                {
+                    location.Length = length;
+                    Godot.GD.Print($"[morld] set_location_length: {regionId}:{locationId} -> {length}");
+                    return PyBool.True;
+                }
+                return PyBool.False;
+            });
+
+            // get_location_gates(region_id, location_id) -> list of dicts
+            // Location의 Gate 목록 조회
+            morldModule.ModuleDict["get_location_gates"] = new PyBuiltinFunction("get_location_gates", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("get_location_gates(region_id, location_id) requires 2 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem.GetTerrain();
+                var region = terrain.GetRegion(regionId);
+
+                var result = new PyList();
+                if (region != null)
+                {
+                    foreach (var gate in region.GetGates(locationId))
+                    {
+                        var dict = new PyDict();
+                        dict["gate_id"] = new PyInt(gate.Id);
+                        dict["x"] = new PyFloat(gate.X);
+                        dict["connected_region"] = new PyInt(gate.ConnectedLocation.RegionId);
+                        dict["connected_location"] = new PyInt(gate.ConnectedLocation.LocalId);
+                        dict["arrival_x"] = new PyFloat(gate.ArrivalX);
+                        dict["is_blocked"] = gate.IsBlocked ? PyBool.True : PyBool.False;
+                        dict["name"] = new PyStr(gate.Name ?? "");
+                        result.Append(dict);
+                    }
+                }
+                return result;
+            });
+
             // region_exists: Region 존재 여부 확인 (챕터별 Region 선택적 로드용)
             morldModule.ModuleDict["region_exists"] = new PyBuiltinFunction("region_exists", args =>
             {

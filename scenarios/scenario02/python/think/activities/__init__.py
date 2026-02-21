@@ -18,6 +18,7 @@ from .fuel import handle_fuel
 from .branch_collect import handle_branch_collect
 from .craft import handle_craft
 from .fuel_load import handle_fuel_load
+from .build_activity import handle_build
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
@@ -33,4 +34,5 @@ ACTIVITY_HANDLERS = {
     "난방 연료 수집": handle_branch_collect,
     "제작": handle_craft,
     "연료장전": handle_fuel_load,
+    "건축": handle_build,
 }

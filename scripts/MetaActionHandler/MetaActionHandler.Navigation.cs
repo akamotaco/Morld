@@ -481,6 +481,35 @@ public partial class MetaActionHandler
 		}
 	}
 
+	/// <summary>
+	/// 위치 이동: move_x:targetX
+	/// Location 내 X 좌표 즉시 변경 (시간 소비 없음)
+	/// 건설 위치 지정 등에 사용
+	/// </summary>
+	private void HandleMoveXAction(string[] parts)
+	{
+		if (parts.Length < 2 || !float.TryParse(parts[1],
+				System.Globalization.NumberStyles.Float,
+				System.Globalization.CultureInfo.InvariantCulture,
+				out float targetX))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid move_x format. Expected: move_x:targetX");
+			return;
+		}
+
+		var player = _playerSystem?.FindPlayerUnit();
+		if (player == null) return;
+
+		// 앉은 상태에서는 이동 불가
+		if (player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault().Prop.IsValid)
+			return;
+
+		player.PositionX = targetX;
+		player.CurrentMovement = null;
+
+		_textUISystem?.RequestUpdateDisplay();
+	}
+
 	#region TODO: 조건부 이동 시스템
 
 	// === 이동 조건 체계 설계 ===

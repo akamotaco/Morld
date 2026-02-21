@@ -19,6 +19,9 @@ class MockMorld:
         self._units = {}
         self._items = {}
         self._locations = {}
+        self._regions = {}
+        self._gates = {}
+        self._next_id = 1000
         self._player_id = 1
         self._time = 0
         self._time_frozen = False
@@ -133,9 +136,10 @@ class MockMorld:
             for uid, u in self._units.items():
                 if u["location"][1] != loc_id:
                     continue
-                if type_filter == "character" and u.get("type") == "object":
+                utype = u["info"].get("type", "")
+                if type_filter == "character" and utype == "object":
                     continue
-                if type_filter == "object" and u.get("type") != "object":
+                if type_filter == "object" and utype != "object":
                     continue
                 result.append(uid)
             return result
@@ -143,9 +147,10 @@ class MockMorld:
         for uid, u in self._units.items():
             if u["location"] != (region_or_location, location):
                 continue
-            if type_filter == "character" and u.get("type") == "object":
+            utype = u["info"].get("type", "")
+            if type_filter == "character" and utype == "object":
                 continue
-            if type_filter == "object" and u.get("type") != "object":
+            if type_filter == "object" and utype != "object":
                 continue
             result.append(uid)
         return result
@@ -292,11 +297,11 @@ class MockMorld:
             if u["inventory"][item_id] <= 0:
                 del u["inventory"][item_id]
 
-    def has_item(self, unit_id, item_id):
-        """아이템 보유 확인"""
+    def has_item(self, unit_id, item_id, count=1):
+        """아이템 보유 확인 (count 지정 시 해당 수량 이상 보유 여부)"""
         u = self._units.get(unit_id)
         if u:
-            return u["inventory"].get(item_id, 0) > 0
+            return u["inventory"].get(item_id, 0) >= count
         return False
 
     def set_unit_location(self, unit_id, region_id, location_id):
@@ -338,3 +343,98 @@ class MockMorld:
         if u:
             return list(u.get("equipped", []))
         return []
+
+    # ========================================
+    # morld API — Terrain (Region/Location/Gate)
+    # ========================================
+
+    def add_region(self, region_id, name):
+        """region 생성"""
+        self._regions[region_id] = {"name": name}
+
+    def add_location(self, region_id, location_id, name, **kwargs):
+        """location 생성 (build.py 호환)"""
+        key = (region_id, location_id)
+        self._locations[key] = {
+            "name": name,
+            "length": kwargs.get("length", 1),
+            "owner": kwargs.get("owner", ""),
+            "is_indoor": kwargs.get("indoor", True),
+            "weather": kwargs.get("weather"),
+        }
+
+    def add_gate(self, region_id, location_id, gate_id,
+                 x, conn_region, conn_location, arrival_x):
+        """gate 생성"""
+        key = (region_id, location_id)
+        if key not in self._gates:
+            self._gates[key] = []
+        self._gates[key].append({
+            "gate_id": gate_id,
+            "x": x,
+            "connected_region": conn_region,
+            "connected_location": conn_location,
+            "arrival_x": arrival_x,
+        })
+
+    def get_region_info(self, region_id):
+        """region 정보 반환 (locations 포함)"""
+        if region_id not in self._regions:
+            return None
+        locations = []
+        for (r, l), info in self._locations.items():
+            if r == region_id:
+                locations.append({"id": l, **info})
+        return {"name": self._regions[region_id]["name"], "locations": locations}
+
+    def get_location_gates(self, region_id, location_id):
+        """location의 gate 목록 반환"""
+        key = (region_id, location_id)
+        return list(self._gates.get(key, []))
+
+    def set_location_length(self, region_id, location_id, length):
+        """location length 설정"""
+        key = (region_id, location_id)
+        if key in self._locations:
+            self._locations[key]["length"] = length
+            return True
+        return False
+
+    def remove_location(self, region_id, location_id):
+        """location + 관련 gate 제거"""
+        key = (region_id, location_id)
+        if key not in self._locations:
+            return False
+        # 이 location의 gate 제거
+        self._gates.pop(key, None)
+        # 다른 location에서 이 location을 가리키는 gate 제거
+        for other_key in list(self._gates):
+            self._gates[other_key] = [
+                g for g in self._gates[other_key]
+                if not (g["connected_region"] == region_id
+                        and g["connected_location"] == location_id)
+            ]
+        self._locations.pop(key)
+        return True
+
+    def remove_unit(self, unit_id):
+        """유닛 제거"""
+        self._units.pop(unit_id, None)
+
+    def create_id(self, id_type="unit"):
+        """순차 ID 생성"""
+        self._next_id += 1
+        return self._next_id
+
+    def set_unit_position(self, unit_id, x, y=0):
+        """유닛 X 좌표 설정"""
+        u = self._units.get(unit_id)
+        if u:
+            u["info"]["x"] = x
+            u["info"]["y"] = y
+            return True
+        return False
+
+    def reinitialize_locations(self):
+        """챕터 로드 후 위치 재초기화 (no-op)"""
+        pass

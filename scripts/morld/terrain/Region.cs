@@ -212,6 +212,50 @@ public class Region : IDescribable
     public IReadOnlyCollection<Gate> GetGates(Location location) => GetGates(location.LocalId);
 
     /// <summary>
+    /// Location 제거 (동적 건축 시스템용)
+    /// 해당 Location의 모든 Gate와 다른 Location에서 이 Location을 가리키는 Gate도 함께 제거됨
+    /// </summary>
+    public bool RemoveLocation(int localId)
+    {
+        if (!_locations.TryGetValue(localId, out var location))
+            return false;
+
+        // 1. 이 location의 gate 모두 제거
+        if (_gates.TryGetValue(localId, out var locationGates))
+        {
+            var gatesToRemove = locationGates.Values.ToList();
+            foreach (var gate in gatesToRemove)
+            {
+                _allGates.Remove(gate);
+                gate.OwnerRegion = null;
+            }
+            _gates.Remove(localId);
+        }
+
+        // 2. 다른 location에서 이 location을 가리키는 gate 제거
+        foreach (var kvp in _gates)
+        {
+            var pointing = kvp.Value.Values
+                .Where(g => g.ConnectedLocation.RegionId == Id
+                         && g.ConnectedLocation.LocalId == localId)
+                .ToList();
+            foreach (var g in pointing)
+            {
+                kvp.Value.Remove(g.Id);
+                _allGates.Remove(g);
+                g.OwnerRegion = null;
+            }
+        }
+
+        // 3. location 제거
+        location.ParentRegion = null;
+        _locations.Remove(localId);
+
+        MarkAsChanged();
+        return true;
+    }
+
+    /// <summary>
     /// Gate 제거 (Pi-World)
     /// </summary>
     public bool RemoveGate(int localId, int gateId)

@@ -64,6 +64,7 @@
 | 의류/장비 시스템 | [clothes.md](scenarios/scenario02/docs/clothes.md) |
 | 음식/요리 시스템 | [food.md](scenarios/scenario02/docs/food.md) |
 | 크래프팅 레시피 | [craft.md](scenarios/scenario02/docs/craft.md) |
+| 건축/파괴 시스템 | [build.md](scenarios/scenario02/docs/build.md) |
 
 ### 이벤트/시스템 작업
 
@@ -108,6 +109,7 @@ scenarios/scenario02/docs/
 ├── clothes.md          # 의류/장비
 ├── food.md             # 음식/요리
 ├── craft.md            # 크래프팅
+├── build.md            # 건축/파괴 시스템
 ├── carry.md            # 운반 시스템 (Limbo + 포인터 아이템)
 ├── event.md            # 이벤트 시스템
 ├── frozen.md           # 시간 정지 상태

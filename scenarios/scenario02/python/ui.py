@@ -899,6 +899,38 @@ def get_action_text():
     lines.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]30분[/url]")
     lines.append("[/hidden=idle]")
 
+    # 위치 이동 (location 내 X 좌표 변경)
+    if can_move:
+        time_info = morld.get_time_info()
+        if time_info:
+            loc_length = int(time_info.get("location_length", 0))
+            cur_x = int(time_info.get("position_x", 0))
+            is_ring = time_info.get("geometry", 0) == 0  # 0=ring, 1=line
+
+            if loc_length > 0:
+                lines.append(
+                    f"  [url=toggle:move_x]▶위치 이동 (X={cur_x})[/url]")
+                lines.append("[hidden=move_x]")
+
+                # +/- 스텝 목록
+                steps = [1, 5, 10, 50]
+                steps = [s for s in steps if s <= loc_length]
+
+                for s in steps:
+                    if is_ring:
+                        # ring: 양방향 wrap
+                        minus_x = (cur_x - s) % loc_length
+                        plus_x = (cur_x + s) % loc_length
+                    else:
+                        # line: clamp to [0, length]
+                        minus_x = max(0, cur_x - s)
+                        plus_x = min(loc_length, cur_x + s)
+                    lines.append(
+                        f"    [url=move_x:{minus_x}]-{s}[/url]"
+                        f"  [url=move_x:{plus_x}]+{s}[/url]")
+
+                lines.append("[/hidden=move_x]")
+
     # 시간 기반 조건부 행동
     millis_of_day = morld.get_game_time()  # 밀리초 단위 (0~86,399,999)
     hour = millis_of_day // MILLIS_PER_HOUR

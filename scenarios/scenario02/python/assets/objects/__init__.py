@@ -33,6 +33,7 @@ from .scavenge import (
 from .vehicles import (
     Bicycle, CarDriverSeat, CarPassengerSeat, CarTrunk
 )
+from .construction import ConstructionSite
 
 __all__ = [
     # furniture
@@ -57,6 +58,8 @@ __all__ = [
     'ScavengeableObject', 'GasStationStand', 'PharmacyShelf', 'BrokenVendingMachine',
     # vehicles
     'Bicycle', 'CarDriverSeat', 'CarPassengerSeat', 'CarTrunk',
+    # construction
+    'ConstructionSite',
 ]
 
 

@@ -218,6 +218,9 @@ public partial class MetaActionHandler
 			case "posture":
 				HandlePostureAction(parts);
 				break;
+			case "move_x":
+				HandleMoveXAction(parts);
+				break;
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");
 				break;
