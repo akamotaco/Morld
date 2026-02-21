@@ -96,6 +96,7 @@ def main():
         "test_mob_character",
         "test_think_logic",
         "test_npc_objects",
+        "test_aftermath",
     ]
 
     if filter_modules:

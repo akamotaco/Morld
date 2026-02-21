@@ -1117,15 +1117,6 @@ class Sera(Character):
         elif event_key == "pregnancy:unknown_father":
             yield ui.dialog(f"[{self.name}]\n\"...{week}주차래.\"\n\"...누구 아이인지는... 모르겠어.\"")
 
-    def _handle_mode_aftermath(self, player_id, event_key):
-        """세라 모드 피해 후유증 반응"""
-        if event_key == "forced_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...가까이 오지 마.\"\n세라가 차갑게 노려본다. 눈에 분노와 치욕이 서려 있다.")
-        elif event_key == "unconscious_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...몸이 이상해.\"\n세라가 미간을 찌푸린다. \"...뭔가 있었어...?\"")
-        elif event_key == "frozen_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...시간이 이상하게 흘렀어.\"\n\"...설명해. 지금 당장.\"")
-
     # ========================================
     # 침대 이벤트
     # ========================================

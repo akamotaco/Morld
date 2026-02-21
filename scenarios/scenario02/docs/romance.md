@@ -93,7 +93,7 @@
 | 탈출 시도 메시지 (실패 시) | romance_mode.py (get_escape_attempt_message) | ✅ 완료 |
 | 탈출 확률 UI 표시 | romance_ui.py (저항 바 + 탈출%) | ✅ 완료 |
 | 신체 반응 묘사 (10 아키타입) | romance_body_reaction.py | ✅ 완료 |
-| 모드별 캐릭터 반응 | 전체 NPC (forced_/aftermath) | ✅ 완료 |
+| 후유증 3단계 시스템 | aftermath_templates.py, base.py, think/ | ✅ 완료 |
 | 임신 이벤트 (수정/발표) | pregnancy.py, base.py, 전체 NPC | ✅ 완료 |
 | 모드 사후 이벤트 (on_meet) | base.py, 전체 NPC | ✅ 완료 |
 | HP 통합 (스태미나→생존체력) | romance.py, npc_initiative.py, romance_core.py | ✅ 완료 |

@@ -1160,15 +1160,6 @@ class Lina(Character):
         elif event_key == "pregnancy:unknown_father":
             yield ui.dialog(f"[{self.name}]\n\"{week}주차... 래...\"\n\"...아빠가 누군지... 모르겠어... 무서워...\"")
 
-    def _handle_mode_aftermath(self, player_id, event_key):
-        """리나 모드 피해 후유증 반응"""
-        if event_key == "forced_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...가까이 오지 마...!\"\n리나가 몸을 떨며 뒷걸음친다. 눈에 눈물이 가득하다.")
-        elif event_key == "unconscious_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...이상한 꿈 꿨어...\"\n리나가 불안한 표정으로 몸을 만져본다. \"...몸이 좀 이상해...\"")
-        elif event_key == "frozen_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...어? 시간이 갑자기 건너뛴 것 같아...?\"\n리나가 고개를 갸웃거린다. \"...뭔가 이상해...\"")
-
     # ========================================
     # 침대 이벤트
     # ========================================

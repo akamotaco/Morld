@@ -591,8 +591,9 @@ def apply_deferred_effects(target_id, mode_ctx, actor_id):
     for part, amount in mode_ctx["deferred_internal_semen"].items():
         _apply_internal_semen(target_id, part, amount)
 
-    # 상태 prop 설정 (후속 이벤트 트리거용)
-    morld.set_unit_prop(target_id, "상태:시간정지피해", 1)
+    # 상태 prop 설정 (후속 이벤트 트리거용) — 3단계 aftermath
+    morld.set_unit_prop(target_id, "상태:시간정지피해", 3)
+    morld.modify_prop(target_id, "기억:시간정지피해횟수", 1)
     climax_count = mode_ctx["deferred_climax_count"]
     if climax_count > 0:
         morld.set_unit_prop(target_id, "상태:시간정지절정횟수", climax_count)
@@ -627,8 +628,9 @@ def apply_forced_end_penalty(target_id, mode_ctx, actor_id):
     affection_penalty = max(-15, -5 - action_count)
     morld.modify_prop(target_id, affection_key, affection_penalty)
 
-    # 상태 prop 설정 (후속 이벤트 트리거용)
-    morld.set_unit_prop(target_id, "상태:강제피해", 1)
+    # 상태 prop 설정 (후속 이벤트 트리거용) — 3단계 aftermath
+    morld.set_unit_prop(target_id, "상태:강제피해", 3)
+    morld.modify_prop(target_id, "기억:강제피해횟수", 1)
 
 
 def apply_unconscious_end_state(target_id, mode_ctx):
@@ -637,7 +639,9 @@ def apply_unconscious_end_state(target_id, mode_ctx):
     감정 변화 없음, 물리적 상태만 유지.
     NPC 각성 후 on_meet에서 발견 이벤트 트리거.
     """
-    morld.set_unit_prop(target_id, "상태:무의식피해", 1)
+    # 3단계 aftermath
+    morld.set_unit_prop(target_id, "상태:무의식피해", 3)
+    morld.modify_prop(target_id, "기억:무의식피해횟수", 1)
 
 
 # ============================================

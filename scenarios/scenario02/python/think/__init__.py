@@ -423,6 +423,8 @@ class BaseAgent:
             bed_id = sleep_info.get("bed_object_id")
             if bed_id:
                 self._try_sleep_on_bed(bed_id)
+            # 수면 시작 → aftermath 단계 감소
+            self._process_aftermath_sleep()
             # sleep job 삽입 (침대든 노숙이든)
             _, sleep_entry = self._is_sleep_time()
             if sleep_entry:
@@ -444,6 +446,20 @@ class BaseAgent:
                 "duration": 0,
             })
             self._action_taken = True
+
+    def _process_aftermath_sleep(self):
+        """수면 시작 시 aftermath 단계 감소.
+
+        부호 규약:
+          음수 prop = 이미 표시됨 → abs - 1 → 양수(대기) 또는 0(해제)
+          양수 prop = 미표시 대기 → 변경 없음 (플레이어가 아직 보지 않음)
+        """
+        for prop_key in ("상태:강제피해", "상태:무의식피해", "상태:시간정지피해"):
+            value = morld.get_unit_prop(self.unit_id, prop_key)
+            if value is not None and value < 0:
+                # 음수 = 이미 표시됨 → 감소
+                new_stage = abs(value) - 1
+                morld.set_unit_prop(self.unit_id, prop_key, max(new_stage, 0))
 
     def _ensure_standing(self):
         """앉거나 누워있으면 일어나기 (활동 전 상태 정리)

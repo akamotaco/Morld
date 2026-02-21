@@ -967,15 +967,6 @@ class Yuki(Character):
         elif event_key == "pregnancy:unknown_father":
             yield ui.dialog(f"[{self.name}]\n\"...{week}주차...\"\n\"...아버지가 누군지... 모르겠어요...\"")
 
-    def _handle_mode_aftermath(self, player_id, event_key):
-        """유키 모드 피해 후유증 반응"""
-        if event_key == "forced_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"......\"\n유키가 아무 말 없이 당신을 바라본다. 눈빛이 얼어붙어 있다.")
-        elif event_key == "unconscious_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...몸이... 이상해요...\"\n유키가 불안한 눈으로 자신의 몸을 내려다본다.")
-        elif event_key == "frozen_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...시간이... 빠진 것 같아요...\"\n유키가 조용히 주변을 둘러본다.")
-
     # ========================================
     # 침대 이벤트
     # ========================================

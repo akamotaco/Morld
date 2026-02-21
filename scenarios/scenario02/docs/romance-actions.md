@@ -1868,7 +1868,7 @@ is_futile = suppression >= escape_power   # → chance = 0
 
 **탈출 시도 메시지**: 실패 시 NPC가 저항하는 묘사 (일반/futile 풀 분리).
 
-- 탈출 성공 → 세션 종료, `상태:강제피해` prop 설정
+- 탈출 성공 → 세션 종료, `상태:강제피해` prop=3 설정, `기억:강제피해횟수` +1
 - 탈출 시 NPC 반응: `forced_break_free:start`
 
 #### 신체 반응 (`romance_body_reaction.py`)
@@ -1936,7 +1936,7 @@ is_futile = suppression >= escape_power   # → chance = 0
 
 `apply_deferred_effects(target_id, mode_ctx, player_id)` 호출:
 - 축적된 효과의 **30%만** 실제 적용 (DAMPENING = 0.3)
-- `상태:시간정지피해` prop 설정
+- `상태:시간정지피해` prop=3 설정, `기억:시간정지피해횟수` +1
 
 ### 21.4 NPC→Player 저항 모드
 
@@ -1959,17 +1959,65 @@ resistance_gain = 15 + max(0, (player_power - npc_power)) × 3  # 5~40
 
 NPC는 저항 중에도 자동으로 행위 진행 (`_npc_auto_advance()`), 강제 반응 접두사 사용.
 
-### 21.5 사후 이벤트 (on_meet)
+### 21.5 사후 이벤트 — 후유증 시스템 (on_meet)
 
-강제/무의식/시간정지 세션 종료 후 NPC와 재회 시:
+강제/무의식/시간정지 세션 종료 후 NPC와 재회 시 **3단계 후유증** 반응.
 
-| prop | 트리거 | 처리 |
-|------|--------|------|
-| `상태:강제피해` | 강제 종료 시 | `_handle_mode_aftermath("forced")` |
-| `상태:무의식피해` | 무의식 종료 시 | `_handle_mode_aftermath("unconscious")` |
-| `상태:시간정지피해` | 시간정지 종료 시 | `_handle_mode_aftermath("frozen")` |
+#### Prop 부호 규약
 
-각 캐릭터 파일에서 `_handle_mode_aftermath()` 오버라이드로 성격별 반응.
+단일 prop으로 단계 + 표시 상태를 인코딩:
+
+| 값 | 의미 |
+|----|------|
+| `3/2/1` (양수) | 반응 대기 (미표시) |
+| `-3/-2/-1` (음수) | 이미 표시됨 (수면 시 감소 대상) |
+| `0` | 후유증 없음 |
+
+#### 라이프사이클
+
+```
+사건 발생 → prop=3, 기억:*피해횟수 += 1
+만남 → prop>0 → 반응 표시 → prop 부호 반전 (-3)
+수면 → prop<0 → abs-1 → prop=2 (양수, 대기)
+만남 → 반응 → prop=-2
+수면 → prop=1
+만남 → 반응 → prop=-1
+수면 → abs-1=0 → 해제
+```
+
+- **양수인 채로 수면** → 감소 안 함 (플레이어가 아직 반응을 보지 않았으므로 대기)
+- **진행 중 새 사건** → prop=3 덮어쓰기 (최고 단계 리셋), count +1
+
+#### Prop 목록
+
+| prop | 트리거 | 누적 카운트 |
+|------|--------|------------|
+| `상태:강제피해` | 강제 종료 시 (값=3) | `기억:강제피해횟수` |
+| `상태:무의식피해` | 무의식 종료 시 (값=3) | `기억:무의식피해횟수` |
+| `상태:시간정지피해` | 시간정지 종료 시 (값=3) | `기억:시간정지피해횟수` |
+
+#### 단계별 반응 톤
+
+| 단계 | 이름 | 반응 톤 |
+|------|------|---------|
+| 3 | 충격 | 강한 감정 반응 (공포, 분노, 충격) |
+| 2 | 경계 | 중간 반응 (경계, 불안, 회피) |
+| 1 | 잔향 | 약한 반응 (여운, 미세한 변화) |
+
+- **누적 횟수 ≥ 2**: stage 3에서 반복 전용 템플릿 사용 (체념, 무감각 등)
+
+#### 아키타입 기반 템플릿 (`aftermath_templates.py`)
+
+`REACTION_PROFILE["archetype"]`에 따라 10개 아키타입별 대사 자동 매칭:
+- stoic / gentle / cheerful / timid / cold / seductive / fierce / proud / innocent / devoted
+- 캐릭터별 override 불필요 (base.py fallback으로 통합)
+
+#### 수면 시 단계 감소 (`_process_aftermath_sleep`)
+
+`think/__init__.py`의 `_handle_sleep()` 도착 시점에서 호출:
+- 음수(표시됨) → `abs-1` → 양수(대기) 또는 0(해제)
+- 양수(미표시) → 변경 없음
+- `_check_fatigue()` 경유 비스케줄 수면에서도 동작
 
 ### 21.6 임신 이벤트 (on_meet)
 

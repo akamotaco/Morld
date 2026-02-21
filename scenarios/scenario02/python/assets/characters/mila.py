@@ -1174,15 +1174,6 @@ class Mila(Character):
         elif event_key == "pregnancy:unknown_father":
             yield ui.dialog(f"[{self.name}]\n\"{week}주차... 래요.\"\n\"...아빠가 누구인지는... 모르겠어요...\"")
 
-    def _handle_mode_aftermath(self, player_id, event_key):
-        """밀라 모드 피해 후유증 반응"""
-        if event_key == "forced_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...오지 마세요...\"\n밀라가 몸을 움츠리며 눈물을 흘린다.")
-        elif event_key == "unconscious_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...어젯밤에 뭔가... 이상한 꿈을 꿨어요...\"\n밀라가 불안한 표정을 짓는다.")
-        elif event_key == "frozen_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...어...? 시간이 갑자기...\"\n밀라가 고개를 갸웃거린다. \"...몸이 좀 이상한 것 같아요...\"")
-
     # ========================================
     # 침대 이벤트
     # ========================================

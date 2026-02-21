@@ -3351,11 +3351,20 @@ class Character(Unit):
                 "조심스럽게 옆에 누웠다.",
             ])
 
-    def _check_mode_aftermath(self, player_id):
-        """모드 피해 후유증 체크 — 강제/무의식/시간정지 세션 후 첫 만남
+    # aftermath 누적 횟수 prop 키 매핑
+    _AFTERMATH_COUNT_KEYS = {
+        "forced": "기억:강제피해횟수",
+        "unconscious": "기억:무의식피해횟수",
+        "frozen": "기억:시간정지피해횟수",
+    }
 
-        서브클래스에서 get_mode_aftermath_reaction()을 오버라이드하여
-        캐릭터별 반응을 정의할 수 있습니다.
+    def _check_mode_aftermath(self, player_id):
+        """모드 피해 후유증 체크 — 부호 규약 기반 다단계 시스템
+
+        Prop 부호 규약:
+          양수 (3/2/1) = 반응 대기 (미표시)
+          음수 (-3/-2/-1) = 이미 표시됨 (수면 시 감소 대상)
+          0 = 후유증 없음
 
         Returns:
             Generator or None
@@ -3366,31 +3375,37 @@ class Character(Unit):
 
         # 체크할 피해 상태 목록 (우선순위 순)
         aftermath_keys = [
-            ("상태:강제피해", "forced_aftermath"),
-            ("상태:무의식피해", "unconscious_aftermath"),
-            ("상태:시간정지피해", "frozen_aftermath"),
+            ("상태:강제피해", "forced"),
+            ("상태:무의식피해", "unconscious"),
+            ("상태:시간정지피해", "frozen"),
         ]
 
-        for prop_key, event_key in aftermath_keys:
-            if props.get(prop_key):
-                morld.set_unit_prop(self.instance_id, prop_key, 0)  # 소비
-                return self._handle_mode_aftermath(player_id, event_key)
+        for prop_key, event_type in aftermath_keys:
+            value = props.get(prop_key, 0)
+            if value > 0:  # 양수 = 미표시 대기
+                morld.set_unit_prop(self.instance_id, prop_key, -value)  # 부호 반전 (표시됨)
+                return self._handle_mode_aftermath(player_id, event_type, value)
 
         return None
 
-    def _handle_mode_aftermath(self, player_id, event_key):
-        """모드 피해 후유증 다이얼로그 (기본 구현)
+    def _handle_mode_aftermath(self, player_id, event_type, stage):
+        """모드 피해 후유증 다이얼로그 — 아키타입 기반 템플릿
 
-        서브클래스에서 오버라이드하여 캐릭터별 반응 정의.
+        Args:
+            player_id: 플레이어 유닛 ID
+            event_type: "forced" | "unconscious" | "frozen"
+            stage: 3 (충격) | 2 (경계) | 1 (잔향)
         """
-        _AFTERMATH_TEXT = {
-            "forced_aftermath": f"({self.name}(이)가 겁에 질린 표정으로 당신을 바라본다.)",
-            "unconscious_aftermath": f"({self.name}(이)가 어딘가 이상한 기분이 드는 것 같다...)",
-            "frozen_aftermath": f"({self.name}(이)가 뭔가 이상함을 느끼는 것 같다...)",
-        }
-        text = _AFTERMATH_TEXT.get(event_key, "")
-        if text:
-            yield ui.dialog(text)
+        from aftermath_templates import get_aftermath_text
+
+        profile = getattr(self, 'REACTION_PROFILE', None) or {}
+        archetype = profile.get("archetype", "stoic")
+
+        count_key = self._AFTERMATH_COUNT_KEYS.get(event_type, "")
+        count = max(1, morld.get_unit_prop(self.instance_id, count_key) or 0)
+
+        text = get_aftermath_text(self.name, event_type, stage, archetype, count)
+        yield ui.dialog(text)
 
     def _check_pregnancy_event(self, player_id):
         """임신 이벤트 체크 — 수정 알림, 임신 발표

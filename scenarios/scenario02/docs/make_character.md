@@ -120,7 +120,6 @@ CHARACTER_CLASSES = {
 | 메서드 | 시그니처 | 설명 |
 |--------|----------|------|
 | `_first_meet_handler` | `(self, player_id)` | 첫 만남 이벤트 (generator) |
-| `_handle_mode_aftermath` | `(self, player_id, event_key)` | 강제/무의식/시간정지 후 반응 (generator) |
 | `_handle_pregnancy_event` | `(self, player_id, event_key)` | 임신 관련 이벤트 (generator) |
 | `on_bed_awake` | `(self, bed, player_id, slot, affection, region_id, owner_id)` | 침대 반응 (깨어있을 때, generator) |
 | `on_bed_sleeping` | `(self, bed, player_id, slot, affection, owner_id)` | 침대 반응 (잠자고 있을 때, generator) |
@@ -129,6 +128,7 @@ CHARACTER_CLASSES = {
 
 | 메서드 | 시그니처 | 설명 |
 |--------|----------|------|
+| `_handle_mode_aftermath` | `(self, player_id, event_type, stage)` | 강제/무의식/시간정지 후 반응 (아키타입 fallback 제공, override 선택) |
 | `on_meet_player` | `(self, player_id)` | 매 만남 이벤트 (기본: 첫 만남 + aftermath + pregnancy 체크) |
 | `get_date_accept_text` | `(self)` | 데이트 수락 텍스트 |
 | `get_date_reject_text` | `(self, reason)` | 데이트 거절 텍스트 |
@@ -439,13 +439,14 @@ class Noel(Character):
         ])
         self.mark_first_meet_done(player_id)
 
-    def _handle_mode_aftermath(self, player_id, event_key):
-        texts = {
-            "forced_aftermath": "...무서웠어요...",
-            "unconscious_aftermath": "...이상한 기분이 들어요...",
-            "frozen_aftermath": "...뭔가... 기억이 이상해요...",
-        }
-        yield ui.dialog([f"[{self.name}]", texts.get(event_key, "...")])
+    # _handle_mode_aftermath는 base.py에서 아키타입 기반 fallback 제공
+    # REACTION_PROFILE["archetype"]만 설정하면 자동으로 aftermath_templates.py 매칭
+    # 캐릭터 전용 반응이 필요한 경우에만 override:
+    #
+    # def _handle_mode_aftermath(self, player_id, event_type, stage):
+    #     # event_type: "forced" / "unconscious" / "frozen"
+    #     # stage: 3(충격) / 2(경계) / 1(잔향)
+    #     yield ui.dialog([f"[{self.name}]", "...캐릭터 전용 반응..."])
 
     def _handle_pregnancy_event(self, player_id, event_key):
         yield ui.dialog([f"[{self.name}]", "...저... 할 말이 있어요..."])
@@ -740,7 +741,7 @@ NPC 파일 내 속성 배치 순서를 통일하면 유지보수가 쉬워집니
 - [ ] `unique_id` 고유성 확인
 - [ ] `props`에 필수 키 포함 (성별, 생존:체력/최대체력/포만감/최대포만감)
 - [ ] `_first_meet_handler` 구현 (generator, `mark_first_meet_done()` 호출)
-- [ ] `_handle_mode_aftermath` 구현
+- [ ] `_handle_mode_aftermath` — 기본 아키타입 fallback 제공 (override 선택사항)
 - [ ] `_handle_pregnancy_event` 구현
 - [ ] `on_bed_awake` / `on_bed_sleeping` 구현
 - [ ] `assets/characters/__init__.py`에 등록

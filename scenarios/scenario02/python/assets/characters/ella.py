@@ -1158,15 +1158,6 @@ class Ella(Character):
         elif event_key == "pregnancy:unknown_father":
             yield ui.dialog(f"[{self.name}]\n\"{week}주차...\"\n\"...아버지가 누군지는 모르겠어. 하지만 상관없어.\"")
 
-    def _handle_mode_aftermath(self, player_id, event_key):
-        """엘라 모드 피해 후유증 반응"""
-        if event_key == "forced_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...다음에 이러면 죽여버린다.\"\n엘라가 살기 어린 눈으로 당신을 노려본다.")
-        elif event_key == "unconscious_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...몸이 이상해.\"\n엘라가 미간을 찌푸린다. \"...뭔가 있었나.\"")
-        elif event_key == "frozen_aftermath":
-            yield ui.dialog(f"[{self.name}]\n\"...시간이 이상하게 흘렀어.\"\n\"...설명해. 지금 당장.\"")
-
     # ========================================
     # 침대 이벤트
     # ========================================
