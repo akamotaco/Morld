@@ -1654,6 +1654,90 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 state["available_positions"] = transitions
                 return render_romance_ui(state)
 
+            # 결박 장착 특수 처리
+            if action_id == "restrain_partner":
+                import restraint
+                pid = state["partner_id"]
+                player_id = state["player_id"]
+                # 플레이어 인벤에서 restraint 카테고리 아이템 탐색
+                from assets.items import get_instance as get_item_instance
+                inventory = morld.get_unit_inventory(player_id)
+                restraint_item_id = None
+                if inventory:
+                    for iid in inventory:
+                        inst = get_item_instance(int(iid))
+                        if inst and getattr(inst, 'category', '') == "restraint":
+                            restraint_item_id = int(iid)
+                            break
+                if restraint_item_id is None:
+                    state["last_reaction"] = "결박 장비가 없다."
+                    return render_romance_ui(state)
+                # 스태미나 체크
+                total_stamina = action_def["stamina"]
+                for tid in state["active_toggles"]:
+                    total_stamina += TOGGLE_ACTIONS[tid]["stamina"]
+                if state["stamina"] <= total_stamina:
+                    state["stamina"] = 1
+                    state["exhausted"] = True
+                    return True
+                state["stamina"] -= total_stamina
+                # 아이템 이동: 플레이어→NPC
+                morld.remove_item(player_id, restraint_item_id, 1)
+                morld.give_item(pid, restraint_item_id, 1)
+                # 결박 시도
+                cur_mode = state["mode_ctx"]["mode"]
+                success, message = restraint.attempt_restrain(
+                    player_id, pid, restraint_item_id, mode=cur_mode)
+                if not success:
+                    # 실패: 아이템 되돌리기
+                    morld.remove_item(pid, restraint_item_id, 1)
+                    morld.give_item(player_id, restraint_item_id, 1)
+                    state["last_reaction"] = message
+                else:
+                    # 성공: 효과 적용
+                    reb_key = get_rebellion_key(player_id)
+                    morld.modify_prop(pid, reb_key, action_def["effects"].get("반발", 0))
+                    sub_key = get_submission_key(player_id)
+                    morld.modify_prop(pid, sub_key, action_def["effects"].get("복종", 0))
+                    item_info = morld.get_item_info(restraint_item_id)
+                    item_name = item_info.get("name", "결박 장비") if item_info else "결박 장비"
+                    reaction = _get_mode_reaction("restrain_partner", "start")
+                    state["last_reaction"] = reaction or f"{item_name}을(를) 채웠다."
+                # 시간 진행
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
+
+            # 결박 해제 특수 처리
+            if action_id == "unrestrain_partner":
+                import restraint
+                import inventory as inv_mod
+                pid = state["partner_id"]
+                player_id = state["player_id"]
+                if not restraint.is_any_restrained(pid):
+                    state["last_reaction"] = "결박 상태가 아니다."
+                    return render_romance_ui(state)
+                # 해제 + 아이템 회수
+                released = restraint.release_unit_and_collect(pid)
+                for item_id in released:
+                    morld.remove_item(pid, item_id, 1)
+                    inv_mod.safe_give_item(player_id, item_id, 1)
+                reaction = _get_mode_reaction("unrestrain_partner", "start")
+                state["last_reaction"] = reaction or "결박을 해제했다."
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
+
             # 체력 계산: 즉시형 + 활성 토글들
             total_stamina = action_def["stamina"]
             total_time = action_def["time"]

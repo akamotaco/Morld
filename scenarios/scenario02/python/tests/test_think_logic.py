@@ -122,6 +122,8 @@ sys.modules["needs"] = _needs
 # sound
 _sound = sys.modules.get("sound") or types.ModuleType("sound")
 _sound.emit_sound = lambda uid, stype: None
+_sound.get_heard = lambda uid: []
+_sound.get_heard_by_category = lambda uid, cat: []
 sys.modules["sound"] = _sound
 
 # pregnancy

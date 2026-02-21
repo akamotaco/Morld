@@ -856,18 +856,133 @@ class BaseAgent:
 
         return False
 
-    def _check_tier2_reactive(self):
-        """Tier 2: 반응형 (위협, 소리) — 미래 확장 포인트
+    # 소리 반응 상수
+    SOUND_REACTION_COOLDOWN = 30 * 60 * 1000      # 30분
+    SOUND_REACTION_COOLDOWN_MIN = 5 * 60 * 1000   # 최소 5분
 
-        향후 구현 예정:
-        - sound.get_heard_by_category(unit_id, "전투") → 위협 반응
-        - 전투/도주 판단
-        - 소리에 대한 호기심/경계 반응
+    # 아키타입별 기본 소리 반응 프로필
+    # investigate: 소리 원천으로 이동, cautious: 이동 (경계), avoid: 무시, ignore: 완전 무시
+    _SOUND_REACTION_DEFAULTS = {
+        "stoic":    {"전투": "investigate", "사고": "investigate"},
+        "gentle":   {"전투": "cautious",    "사고": "investigate"},
+        "cheerful": {"전투": "cautious",    "사고": "investigate"},
+        "timid":    {"전투": "avoid",       "사고": "cautious"},
+        "cold":     {"전투": "investigate", "사고": "investigate"},
+    }
+
+    # 서브클래스에서 오버라이드 가능 (dict: category → reaction)
+    _sound_reaction_profile = None
+
+    def _check_tier2_reactive(self):
+        """Tier 2: 소리 반응 (비명, 전투, 사고)
+
+        소리를 감지하고 아키타입에 따라 반응:
+        - scream(비명): 모든 NPC 조사 (sound_type 레벨 오버라이드)
+        - 전투/사고: 아키타입별 investigate/cautious/avoid/ignore
 
         Returns:
             True if action was taken.
         """
-        return False
+        try:
+            import sound
+        except ImportError:
+            return False
+
+        phase = self._memory.get("sound_reaction_phase")
+
+        # --- phase: investigating (이동 완료 → 현장 확인) ---
+        if phase == "investigating":
+            self._memory.pop("sound_reaction_phase", None)
+            self._memory.pop("sound_reaction_target", None)
+            self._insert_idle_job("현장 확인", 1 * 60 * 1000)
+            self._action_taken = True
+            return True
+
+        # --- 쿨다운 체크 ---
+        cooldown = self._memory.get("sound_reaction_cooldown", 0)
+        now = self.get_time()
+        if now < cooldown:
+            # 쿨다운 중 — 긴박한 소리 반복 시 쿨다운 단축
+            heard_urgent = sound.get_heard_by_category(self.unit_id, "전투")
+            if heard_urgent:
+                remaining = cooldown - now
+                if remaining > self.SOUND_REACTION_COOLDOWN_MIN:
+                    new_cooldown = now + max(
+                        self.SOUND_REACTION_COOLDOWN_MIN,
+                        remaining // 2)
+                    self._memory["sound_reaction_cooldown"] = new_cooldown
+            return False
+
+        # --- 소리 수집 ---
+        heard_combat = sound.get_heard_by_category(self.unit_id, "전투")
+        heard_accident = sound.get_heard_by_category(self.unit_id, "사고")
+        all_events = heard_combat + heard_accident
+        if not all_events:
+            return False
+
+        # 같은 location 소리 제외 (시각으로 이미 확인)
+        my_loc = self.get_location()
+        remote = [e for e in all_events if e.source_location != my_loc]
+        if not remote:
+            return False
+
+        # 가장 강한 이벤트
+        strongest = max(remote, key=lambda e: e.intensity)
+
+        # 같은 소스에 이미 반응했으면 무시
+        prev_source = self._memory.get("sound_reaction_source_id")
+        if prev_source == strongest.source_id:
+            return False
+
+        # --- 반응 결정 ---
+        # scream(비명)은 모든 NPC가 조사 (sound_type 레벨 오버라이드)
+        if strongest.sound_type == "scream":
+            reaction = "investigate"
+        else:
+            reaction = self._get_sound_reaction(strongest.category)
+
+        if reaction in ("ignore", "avoid"):
+            # 쿨다운 설정 + 소스 기록
+            self._memory["sound_reaction_cooldown"] = (
+                now + self.SOUND_REACTION_COOLDOWN)
+            self._memory["sound_reaction_source_id"] = strongest.source_id
+            return False
+
+        # investigate / cautious → 소리 원천으로 이동
+        target = {
+            "region_id": strongest.source_location[0],
+            "location_id": strongest.source_location[1],
+        }
+        self._memory["sound_reaction_phase"] = "investigating"
+        self._memory["sound_reaction_target"] = strongest.source_location
+        self._memory["sound_reaction_source_id"] = strongest.source_id
+        self._memory["sound_reaction_cooldown"] = (
+            now + self.SOUND_REACTION_COOLDOWN)
+
+        self._move_to(target, "소리 조사")
+        return True
+
+    def _get_sound_reaction(self, category):
+        """아키타입 기반 소리 반응 결정
+
+        Args:
+            category: 소리 카테고리 ("전투", "사고" 등)
+
+        Returns:
+            "investigate" / "cautious" / "avoid" / "ignore"
+        """
+        # 서브클래스 오버라이드 우선
+        if self._sound_reaction_profile:
+            return self._sound_reaction_profile.get(category, "ignore")
+        # 아키타입에서 조회
+        archetype = "stoic"
+        try:
+            profile = self.REACTION_PROFILE
+            archetype = profile.get("archetype", "stoic")
+        except AttributeError:
+            pass
+        defaults = self._SOUND_REACTION_DEFAULTS.get(archetype, {})
+        return defaults.get(category, "ignore")
 
     def _check_tier3_survival(self):
         """Tier 3: 생존 욕구 (배고픔, 추위, 더위)
@@ -1380,7 +1495,7 @@ class BaseAgent:
             for key in ("hunger_phase", "cold_phase", "hot_phase", "clothing_phase",
                         "excretion_phase", "self_comfort_phase", "seek_player_phase",
                         "socialize_phase", "gift_phase", "childbirth_phase", "maternal_phase",
-                        "restrained_phase", "rescue_phase"):
+                        "restrained_phase", "rescue_phase", "sound_reaction_phase"):
                 val = self._memory.get(key)
                 if val is not None:
                     active_phases.append(f"{key}={val}")

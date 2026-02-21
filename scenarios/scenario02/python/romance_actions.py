@@ -584,6 +584,8 @@ ACTION_DESCRIPTIONS = {
     "thrust_slow": "천천히 움직인다.",
     "grind": "밀착하여 허리를 흔든다.",
     "beg": "애원했다...",
+    "restrain_partner": "결박 장비를 채운다.",
+    "unrestrain_partner": "결박을 해제한다.",
 }
 
 # 토글형 행위 묘사 (진행 중 상태)

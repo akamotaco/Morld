@@ -268,6 +268,22 @@ def release_eyes(unit_id):
             break
 
 
+def release_unit_and_collect(unit_id):
+    """결박 해제 + 해제된 아이템 ID 반환 (회수용)
+
+    Returns:
+        list[int]: 해제된 결박 아이템 ID 리스트
+    """
+    equipped_items = equipment.get_equipped_items(unit_id)
+    released = []
+    for item_id in list(equipped_items):
+        ep = _get_equip_props(item_id)
+        if ep.get("결박:상체") or ep.get("결박:하체") or ep.get("결박:입") or ep.get("결박:눈"):
+            equipment.unequip_item(unit_id, item_id)
+            released.append(item_id)
+    return released
+
+
 # ========================================
 # 유틸리티
 # ========================================

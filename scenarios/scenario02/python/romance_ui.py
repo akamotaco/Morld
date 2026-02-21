@@ -416,6 +416,25 @@ def render_romance_ui(state):
         if req_internal:
             if get_internal_semen(partner_id, req_internal) <= 0:
                 continue
+        # 인벤토리 카테고리 필요 (결박 장비 등): 없으면 숨김
+        req_inv_cat = action.get("requires_inventory_category")
+        if req_inv_cat:
+            from assets.items import get_instance as get_item_instance
+            inv = morld.get_unit_inventory(player_id)
+            found = False
+            if inv:
+                for iid in inv:
+                    inst = get_item_instance(int(iid))
+                    if inst and getattr(inst, 'category', '') == req_inv_cat:
+                        found = True
+                        break
+            if not found:
+                continue
+        # 결박 해제: 결박 상태일 때만 표시
+        if action_id == "unrestrain_partner":
+            import restraint
+            if not restraint.is_any_restrained(partner_id):
+                continue
         # 탈의 행위: 벗을 것 없으면 숨김
         if action.get("undress"):
             is_upper = action["undress"] == "upper"
