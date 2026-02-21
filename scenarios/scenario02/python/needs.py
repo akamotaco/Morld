@@ -511,6 +511,17 @@ def _process_hourly(unit_id):
     if settings.is_romance_enabled():
         _update_climax(unit_id)
 
+        # 플레이어 몽정 체크 (수면 중 + 정액 만수)
+        if _is_sleeping(unit_id):
+            try:
+                import semen as semen_mod
+                if semen_mod.get_semen(unit_id) >= semen_mod.SEMEN_MAX:
+                    semen_mod.process_wet_dream(unit_id)
+                    if unit_id == morld.get_player_id():
+                        morld.set_unit_prop(unit_id, "기억:몽정", 1)
+            except ImportError:
+                pass
+
     # 그리움: 호감 30+ 대상별 축적/감소
     _update_longing(unit_id)
 

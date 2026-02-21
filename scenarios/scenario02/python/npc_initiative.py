@@ -1178,6 +1178,12 @@ def apply_action_effects(state, action_def):
                 _p_holder = npc_id if _gm.has_anatomy(npc_id, "P") else state["player_id"]
                 _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"], state["max_stamina"])
                 _apply_internal_semen(npc_id, ejac_part, _ejac_amt)
+                # 정액 소모
+                try:
+                    import semen as semen_mod
+                    semen_mod.consume_semen(_p_holder, semen_mod.EJACULATION_COST)
+                except ImportError:
+                    pass
 
         # 절정 반응 텍스트
         npc_asset = get_npc_asset(npc_id)
@@ -1794,6 +1800,12 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 stim_state = state["stim"]
                 climax_info = stimulation.force_ejaculate(stim_state)
                 if climax_info and climax_info.get("has_p"):
+                    # 정액 소모
+                    try:
+                        import semen as semen_mod
+                        semen_mod.consume_semen(player_id, semen_mod.EJACULATION_COST)
+                    except ImportError:
+                        pass
                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
                     insertion = state["insertion"]
                     ejac_part = None

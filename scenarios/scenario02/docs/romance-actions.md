@@ -1099,6 +1099,70 @@ on_meet_player() 내 수면 체크 다음:
 | 유키 | 90 | 150 | -3 | 공포+경직 |
 | 엘라 | 85 | 150 | -5 | 냉정한 수습 |
 
+### 정액 연동
+
+NPC 자위 시 P anatomy 캐릭터는 정액 소모 (→ 정액 시스템 참조):
+- **idle 단계**: `can_erect()` false → 자위 포기
+- **finishing 단계**: `can_ejaculate()` true → 정액 소모 + arousal -50, false → arousal -20
+
+### 플레이어 자위
+
+`call:masturbate:자위#` 액션 (연애 모드 ON 시 활성화):
+- 조건: 주변 혼자 + `can_erect()` true
+- `상태:자위중` prop 설정 → 15분 advance_time_des → 상태 해제
+- 사정 가능: 정액 -15 + 성욕 -50, 불가: 성욕 -15
+
+### 플레이어 자위 발각
+
+on_meet_player()에서 `상태:자위중` prop 체크 → `_on_player_masturbation_discovered()`:
+
+| 조건 | 반응 유형 | 효과 |
+|------|----------|------|
+| 호감≥70 + 욕망≥60 + 성욕≥50 | initiate | 욕망+5, NPC 주도 성행위 전환 |
+| 호감≥70 + 욕망≥50 | intimate | 욕망+3 |
+| 호감≥40 | embarrassed | 효과 없음 |
+| 그 외 | disgusted | 호감-5 |
+
+반응 텍스트: `masturbation_templates.py` (4 유형 × 10 아키타입).
+
+---
+
+## 11.5. 정액 시스템 (Semen Gauge)
+
+### 개요
+
+P anatomy 캐릭터(남성/후타나리)의 정액 축적/소모 관리. `semen.py` 모듈.
+연애 시스템 활성화(`settings.is_romance_enabled()`) 시에만 동작.
+
+### 상수
+
+| 상수 | 값 | 설명 |
+|------|-----|------|
+| SEMEN_MAX | 100 | 정액 최대치 |
+| SEMEN_REGEN_RATE | 5 | 시간당 회복 (0→100: 20시간) |
+| SEMEN_MIN_ERECTION | 5 | 발기 최소치 (미만 → 삽입 불가) |
+| SEMEN_MIN_EJACULATION | 10 | 사정 최소치 (미만 → 사정 불가) |
+| EJACULATION_COST | 20 | 사정 1회 소모 |
+| WET_DREAM_COST | 30 | 몽정 시 소모 |
+| MASTURBATION_COST | 15 | 자위 사정 시 소모 |
+
+### 로맨스 연동
+
+- **삽입**: `can_erect()` false → 삽입 차단 (romance.py)
+- **사정**: `can_ejaculate()` false → 사정 차단 (romance.py)
+- **사정량**: 정액 < 50 → 비례 감소 (romance_core.py `calculate_ejaculation_amount`)
+- **사정 후**: EJACULATION_COST 소모 (romance.py, npc_initiative.py)
+
+### 몽정
+
+수면 중 정액 만수(100) 시 자동 발생:
+- **NPC**: `_process_memory_on_sleep()` — 정액 소모 + 성욕 감소 + 외부 정액 적용
+- **플레이어**: `needs.py:_process_hourly()` — 수면 중 체크, 기상 후 `기억:몽정` prop → 연출
+
+### 미등록 캐릭터
+
+정액 시스템에 등록되지 않은 캐릭터는 제한 없음 (SEMEN_MAX 반환).
+
 ---
 
 ## 12. 삽입 행위 시스템 (Intercourse)

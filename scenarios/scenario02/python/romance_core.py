@@ -433,6 +433,14 @@ def calculate_ejaculation_amount(unit_id, stamina, max_stamina=None):
         normalized = stamina
     stamina_bonus = normalized * 2
     amount = base + sensation_bonus + stamina_bonus
+    # 정액 잔량에 따른 스케일링 (50% 미만 → 비례 감소)
+    try:
+        import semen as semen_mod
+        current_semen = semen_mod.get_semen(unit_id)
+        if current_semen < 50:
+            amount = amount * (current_semen / 50)
+    except ImportError:
+        pass
     return max(SEMEN_AMOUNT_MIN, min(SEMEN_AMOUNT_MAX, round(amount)))
 
 

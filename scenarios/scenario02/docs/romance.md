@@ -159,6 +159,12 @@
 | NPC-NPC 자위 발각 상호작용 | 연인 NPC 발각 시 상호 애정 행위 전환 | 미구현 (현재: NPC 방해 → 짧은 쿨다운) |
 | ~~V 부위 액션~~ | ~~Vaginal 카테고리 액션 추가~~ | ✅ 완료 (V/C 4종 추가) |
 | ~~복종 시스템~~ | ~~관계:{name}:복종 prop + 이중 경로 + 자연 증가/감소~~ | ✅ 완료 (romance.py, npc_initiative.py, needs.py) |
+| ~~정액 게이지~~ | ~~P anatomy 정액 축적/소모/회복~~ | ✅ 완료 (semen.py) |
+| ~~몽정~~ | ~~수면 중 정액 만수 → 자동 방출~~ | ✅ 완료 (needs.py, think/__init__.py) |
+| ~~플레이어 자위~~ | ~~통상 자위 액션 + 정액 소모~~ | ✅ 완료 (player.py) |
+| ~~플레이어 자위 발각~~ | ~~NPC 목격 4단계 반응 + 성행위 전환~~ | ✅ 완료 (base.py, masturbation_templates.py) |
+| ~~NPC 봉사 행동~~ | ~~INITIATIVE_ACTION_FILTERS fellatio/paizuri 확장~~ | ✅ 완료 (5캐릭터) |
+| ~~삽입/사정 정액 제약~~ | ~~정액 부족 → 발기/사정 불가~~ | ✅ 완료 (romance.py, npc_initiative.py) |
 
 ---
 

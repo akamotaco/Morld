@@ -132,6 +132,7 @@ class Player(Character):
         "can:give_gift": 1,
         "can:romance": 0,       # 연애 모드 ON 시 settings에서 1로 변경
         "can:force_romance": 0, # 연애 모드 ON 시 settings에서 1로 변경
+        "can:masturbate": 0,    # 연애 모드 ON 시 settings에서 1로 변경
         "can:date": 1,
         "can:end_date": 0,    # 데이트 시작 시 1로 변경
         "can:hold_hands": 0,  # 동적 관리 (date.py에서 조건에 따라 설정)
@@ -142,7 +143,7 @@ class Player(Character):
         "can:errand": 0,  # 동적 관리 (심부름 가능한 퀘스트가 있을 때만 1)
 
     }
-    actions = ["call:rest:휴식", "call:sleep:노숙"]
+    actions = ["call:rest:휴식", "call:sleep:노숙", "call:masturbate:자위#"]
     mood = []
 
     def rest(self):
@@ -156,4 +157,51 @@ class Player(Character):
         import morld
         morld.add_action_log(f"{self.name}이(가) 바닥에서 잠을 청했다.")
         morld.advance_time_des(240 * 60_000)  # DES: NPC 자율 행동
+        # 몽정 연출
+        if morld.get_unit_prop(self.instance_id, "기억:몽정"):
+            morld.clear_prop(self.instance_id, "기억:몽정")
+            morld.add_action_log("...꿈속에서 사정한 것 같다. 하의가 젖어 있다.")
+
+    def masturbate(self):
+        """자위 행위 — 주변에 아무도 없을 때만"""
+        import morld
+        try:
+            import semen as semen_mod
+        except ImportError:
+            return
+
+        # 1. 혼자인지 확인
+        loc = morld.get_unit_location(self.instance_id)
+        if loc:
+            units = morld.get_characters_at_location(loc[0], loc[1])
+            others = [u for u in units if u != self.instance_id]
+            if others:
+                morld.add_action_log("주변에 다른 사람이 있어 할 수 없다.")
+                return
+
+        # 2. 발기 가능 확인
+        if not semen_mod.can_erect(self.instance_id):
+            morld.add_action_log("정액이 부족해 의욕이 나지 않는다.")
+            return
+
+        # 3. 자위 상태 설정 (NPC 발각용)
+        morld.set_unit_prop(self.instance_id, "상태:자위중", 1)
+
+        # 4. 15분 경과 (NPC 이동/이벤트 처리)
+        morld.advance_time_des(15 * 60_000)
+
+        # 5. 상태 해제
+        morld.clear_prop(self.instance_id, "상태:자위중")
+
+        # 6. 효과 적용
+        can_ejac = semen_mod.can_ejaculate(self.instance_id)
+        arousal = morld.get_unit_prop(self.instance_id, "상태:성욕") or 0
+
+        if can_ejac:
+            semen_mod.consume_semen(self.instance_id, semen_mod.MASTURBATION_COST)
+            morld.set_unit_prop(self.instance_id, "상태:성욕", max(0, arousal - 50))
+            morld.add_action_log("사정으로 크게 해소되었다.")
+        else:
+            morld.set_unit_prop(self.instance_id, "상태:성욕", max(0, arousal - 15))
+            morld.add_action_log("사정까지 이르지 못했지만 약간 해소되었다.")
 

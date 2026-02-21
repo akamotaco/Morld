@@ -1177,6 +1177,16 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                     state["last_reaction"] = "이미 삽입 중이다."
                     return render_romance_ui(state)
 
+                # 정액 체크 (삽입자 발기 불가)
+                try:
+                    import semen as semen_mod
+                    inserter_id = state["player_id"]
+                    if not semen_mod.can_erect(inserter_id):
+                        state["last_reaction"] = "발기를 유지할 수 없다."
+                        return render_romance_ui(state)
+                except ImportError:
+                    pass
+
                 # 확정 실패 조건 체크
                 fail_result = _check_insertion_hard_fail(state, action_def, pid)
                 if fail_result:
@@ -1538,6 +1548,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                                     pid = state["partner_id"]
                                     cur_mode = state["mode_ctx"]["mode"]
                                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
+                                    # 정액 소모
+                                    try:
+                                        import semen as semen_mod
+                                        semen_mod.consume_semen(player_id, semen_mod.EJACULATION_COST)
+                                    except ImportError:
+                                        pass
                                     insertion = state["insertion"]
                                     if insertion["active"]:
                                         orifice = insertion["orifice"]
@@ -1570,6 +1586,15 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
 
             # 사정하기 특수 처리
             if action_id == "ejaculate":
+                # 정액 체크
+                try:
+                    import semen as semen_mod
+                    if not semen_mod.can_ejaculate(player_id):
+                        state["last_reaction"] = "사정할 수 없다."
+                        return render_romance_ui(state)
+                except ImportError:
+                    pass
+
                 stim_state = state["stim"]
                 climax_info = stimulation.force_ejaculate(stim_state)
                 pid = state["partner_id"]
@@ -1584,6 +1609,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                 if climax_info and climax_info.get("has_p"):
                     insertion = state["insertion"]
                     ejac_amount = calculate_ejaculation_amount(player_id, state["stamina"], state["max_stamina"])
+                    # 정액 소모
+                    try:
+                        import semen as semen_mod
+                        semen_mod.consume_semen(player_id, semen_mod.EJACULATION_COST)
+                    except ImportError:
+                        pass
 
                     # 삽입 중이면 내부 사정
                     pen_part = None

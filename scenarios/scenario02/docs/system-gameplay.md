@@ -827,7 +827,7 @@ load_chapter("chapter_1") → 35+ location 추가
 ```python
 # load_chapter() step 2.1
 import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender, fuel
-import carry, ground, stealth, laundry
+import carry, ground, stealth, laundry, semen
 temperature.reset()
 humidity.reset()
 congestion.reset()
@@ -841,6 +841,7 @@ carry.reset()
 ground.reset()
 stealth.reset()
 laundry.reset()
+semen.reset()
 ```
 
 각 모듈의 `reset()`: `_initialized = False` + 데이터 dict 초기화 → 다음 접근 시 재초기화.
@@ -861,6 +862,7 @@ laundry.reset()
 | `ground.py` | _grounds, _ground_locations | 챕터 코드에서 register_ground()로 재등록 |
 | `stealth.py` | _initialized | 30분 주기 감지 구독 해제 |
 | `laundry.py` | _initialized, _machines | 기계 레지스트리 초기화 |
+| `semen.py` | _registry, _accumulated | P anatomy 캐릭터 재등록 필요 |
 | `pollution.py` | register_location() 명시적 호출 | lazy init 아님, reset 불필요 |
 
 ---

@@ -98,6 +98,7 @@ def main():
         "test_npc_objects",
         "test_aftermath",
         "test_positive_memory",
+        "test_semen",
     ]
 
     if filter_modules:

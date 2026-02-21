@@ -225,6 +225,17 @@ def _handle_self_comfort(agent):
             agent._memory["self_comfort_phase"] = None
             agent._do_instant_action("대기", "abort")
             return
+        # P anatomy + 정액 부족 → 자위 포기
+        try:
+            import gender as gender_mod
+            import semen as semen_mod
+            if gender_mod.has_natural_anatomy(agent.unit_id, "P"):
+                if not semen_mod.can_erect(agent.unit_id):
+                    agent._memory["self_comfort_phase"] = None
+                    agent._do_instant_action("대기", "abort")
+                    return
+        except ImportError:
+            pass
         target = _resolve_private_location(agent)
         if target is None:
             agent._memory["self_comfort_phase"] = None
@@ -277,7 +288,28 @@ def _handle_self_comfort(agent):
         toy_used = agent._memory.get("self_comfort_toy") is not None
         base_reduction = 70 if toy_used else 50
 
+        # P anatomy: 정액 소모/발기 체크
+        _has_p = False
+        _can_ejac = True
+        try:
+            import gender as gender_mod
+            import semen as semen_mod
+            _has_p = gender_mod.has_natural_anatomy(agent.unit_id, "P")
+            if _has_p:
+                _can_ejac = semen_mod.can_ejaculate(agent.unit_id)
+        except ImportError:
+            pass
+
         if alone:
+            # P anatomy 정액 소모 + 효과 분기
+            if _has_p:
+                if _can_ejac:
+                    try:
+                        semen_mod.consume_semen(agent.unit_id, semen_mod.MASTURBATION_COST)
+                    except Exception:
+                        pass
+                else:
+                    base_reduction = 20  # 사정 불가 → 작은 해소
             # 성공: 성욕 감소 + 정상 쿨다운
             arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
             morld.set_unit_prop(agent.unit_id, "상태:성욕", max(0, arousal - base_reduction))

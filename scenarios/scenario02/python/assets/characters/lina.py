@@ -641,6 +641,7 @@ class Lina(Character):
     # NPC 주도 시 허용 액션 필터
     # 리나는 활발하지만 연애엔 수줍어서 천천히 진행
     INITIATIVE_ACTION_FILTERS = [
+        ({"호감": 95}, ["hug", "deep_kiss", "breast_touch", "penis_touch", "penis_rub", "fellatio"]),
         ({"호감": 90}, ["hug", "deep_kiss", "breast_touch", "penis_touch", "penis_rub"]),
         ({"호감": 80}, ["hug", "deep_kiss", "breast_touch", "penis_touch"]),
         ({"호감": 70}, ["hug", "deep_kiss", "breast_touch"]),

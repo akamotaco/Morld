@@ -33,6 +33,7 @@ def set_romance_enabled(enabled: bool):
         value = 1 if enabled else 0
         morld.set_unit_prop(player_id, "can:romance", value)
         morld.set_unit_prop(player_id, "can:force_romance", value)
+        morld.set_unit_prop(player_id, "can:masturbate", value)
 
 
 # ============================================

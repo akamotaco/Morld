@@ -479,7 +479,7 @@ class Yuki(Character):
     # NPC 주도 시 허용 액션 필터
     # 유키는 매우 수줍어서 애정 높아도 제한적
     INITIATIVE_ACTION_FILTERS = [
-        ({"호감": 98}, ["hug", "deep_kiss", "breast_touch", "genital_caress", "clit_rub", "penis_touch", "penis_rub"]),
+        ({"호감": 98}, ["hug", "deep_kiss", "breast_touch", "genital_caress", "clit_rub", "penis_touch", "penis_rub", "fellatio"]),
         ({"호감": 90}, ["hug", "deep_kiss", "breast_touch", "genital_caress", "penis_touch"]),
         ({"호감": 85}, ["hug", "deep_kiss", "breast_touch"]),
         ({"호감": 60}, ["hug", "deep_kiss"]),

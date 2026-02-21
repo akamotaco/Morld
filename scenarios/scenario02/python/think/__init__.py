@@ -469,6 +469,14 @@ class BaseAgent:
         if pos_mem is not None and pos_mem == -1:
             morld.set_unit_prop(self.unit_id, "기억:긍정기억", 1)
 
+        # 몽정 체크 (P anatomy + 정액 만수)
+        try:
+            import semen as semen_mod
+            if semen_mod.get_semen(self.unit_id) >= semen_mod.SEMEN_MAX:
+                semen_mod.process_wet_dream(self.unit_id)
+        except ImportError:
+            pass
+
     def _ensure_standing(self):
         """앉거나 누워있으면 일어나기 (활동 전 상태 정리)
 

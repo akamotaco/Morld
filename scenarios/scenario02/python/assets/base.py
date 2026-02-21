@@ -3294,10 +3294,17 @@ class Character(Unit):
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
-        # 자위 발각 체크
+        # NPC 자위 발각 체크
         job = morld.get_current_job(self.instance_id)
         if job and job.get("name", "") == "자위":
             return self._on_self_comfort_discovered(player_id)
+
+        # 플레이어 자위 발각 체크
+        player_props = morld.get_unit_props(player_id)
+        if player_props and player_props.get("상태:자위중"):
+            result = self._on_player_masturbation_discovered(player_id)
+            if result is not None:
+                return result
 
         # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
         privacy = self._check_room_privacy(player_id)
@@ -3625,6 +3632,51 @@ class Character(Unit):
                     morld.modify_prop(self.instance_id, f"상태:{key}", value)
                 else:
                     morld.modify_prop(self.instance_id, f"관계:{player_name_for_prop}:{key}", value)
+
+        return handler()
+
+    def _on_player_masturbation_discovered(self, player_id):
+        """플레이어 자위 목격 반응 — 아키타입 기반 4단계"""
+        from masturbation_templates import get_witness_reaction
+
+        profile = getattr(self, 'REACTION_PROFILE', None) or {}
+        archetype = profile.get("archetype", "stoic")
+
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        props = morld.get_unit_props(self.instance_id) or {}
+        affection = props.get(f"관계:{player_name}:호감", 0)
+        desire = props.get(f"관계:{player_name}:욕망", 0)
+        arousal = props.get("상태:성욕", 0)
+
+        # 반응 유형 선택
+        if affection >= 70 and desire >= 60 and arousal >= 50:
+            reaction_type = "initiate"
+        elif affection >= 70 and desire >= 50:
+            reaction_type = "intimate"
+        elif affection >= 40:
+            reaction_type = "embarrassed"
+        else:
+            reaction_type = "disgusted"
+
+        def handler():
+            text = get_witness_reaction(self.name, archetype, reaction_type)
+            yield ui.dialog(text)
+
+            # 관계 효과
+            if reaction_type == "initiate":
+                morld.modify_prop(self.instance_id,
+                    f"관계:{player_name}:욕망", 5)
+                # NPC 주도 성행위 전환
+                from npc_initiative import start_npc_initiative
+                yield from start_npc_initiative(player_id, self.instance_id)
+            elif reaction_type == "intimate":
+                morld.modify_prop(self.instance_id,
+                    f"관계:{player_name}:욕망", 3)
+            elif reaction_type == "disgusted":
+                morld.modify_prop(self.instance_id,
+                    f"관계:{player_name}:호감", -5)
 
         return handler()
 
