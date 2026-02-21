@@ -469,11 +469,13 @@ class BaseAgent:
         if pos_mem is not None and pos_mem == -1:
             morld.set_unit_prop(self.unit_id, "기억:긍정기억", 1)
 
-        # 몽정 체크 (P anatomy + 정액 만수)
+        # 몽정 체크 (P anatomy + 정액 만수, 연애 모드 ON 시만)
         try:
-            import semen as semen_mod
-            if semen_mod.get_semen(self.unit_id) >= semen_mod.SEMEN_MAX:
-                semen_mod.process_wet_dream(self.unit_id)
+            import settings
+            if settings.is_romance_enabled():
+                import semen as semen_mod
+                if semen_mod.get_semen(self.unit_id) >= semen_mod.SEMEN_MAX:
+                    semen_mod.process_wet_dream(self.unit_id)
         except ImportError:
             pass
 

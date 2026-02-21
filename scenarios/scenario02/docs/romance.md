@@ -15,6 +15,39 @@
 
 ---
 
+## 연애 모드 설정
+
+연애 모드가 **OFF**이면 스킨십, 삽입/사정, 정액 회복, 몽정, NPC 자위 등
+모든 성행위 관련 기능이 비활성화된다.
+
+### 게임 내 토글
+
+설정 UI (`settings.py` → `show_settings_ui()`)에서 **연애 모드** ON/OFF 전환 가능.
+
+### 기본값 변경 (게임 시작 시 ON/OFF)
+
+[settings.py](../python/settings.py) 18행의 `_romance_enabled` 변수를 수정:
+
+```python
+# settings.py 18행
+_romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
+```
+
+이 값을 `True`로 바꾸면 게임 시작 시 연애 모드가 자동으로 활성화된다.
+
+### 연동 범위
+
+| 기능 | 가드 위치 | 설명 |
+|------|----------|------|
+| 스킨십/삽입/사정 | `romance.py`, `npc_initiative.py` | `can:romance` prop (settings 연동) |
+| 정액 회복 | `semen.py` `_on_time_elapsed()` | `is_romance_enabled()` 체크 |
+| 플레이어 몽정 | `needs.py` `_process_hourly()` | `is_romance_enabled()` 체크 |
+| NPC 몽정 | `think/__init__.py` `_process_memory_on_sleep()` | `is_romance_enabled()` 체크 |
+| 플레이어 자위 | `player.py` | `can:masturbate` prop (settings 연동) |
+| NPC 성욕 인터럽트 | `think/__init__.py` `_check_self_comfort()` | `is_romance_enabled()` 체크 |
+
+---
+
 ## 구현 상태
 
 ### 완료된 기능
