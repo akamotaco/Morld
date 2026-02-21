@@ -125,6 +125,8 @@ def can_pick_up(carrier_id, target_id):
 
         if survival.is_npc_fainted(target_id):
             return True, ""
+        if survival.is_npc_exhausted(target_id):
+            return True, ""
         if restraint.is_lower_restrained(target_id):
             return True, ""
 

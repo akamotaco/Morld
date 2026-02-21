@@ -369,12 +369,16 @@ Footer에 임계치 근처일 때만 표시:
 ### think() 5-tier 우선순위
 
 ```
-Tier 1 (Involuntary): 기절 / 수면 (추위 기상: 체온 ≤ 35.0 → tier 3으로 이관)
-Tier 2 (Reactive): 피격 반응 (미래)
-Tier 3 (Survival): 배고픔 → 추위 → 더위
-Tier 4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 세탁 → 출산 → 모성 → 사회 → 선물 → 수면
-Tier 5 (Routine): 스케줄 기반 일반 활동 (순찰/산책은 wandering)
+Tier -1: 운반 중 (Limbo 대기)
+Tier  0: 결박 (행동불능이면 탈출 시도 없이 대기)
+Tier  1 (Involuntary): 기절 / 탈진 / 수면 (추위 기상: 체온 ≤ 35.0 → tier 3으로 이관)
+Tier  2 (Reactive): 피격 반응 (미래)
+Tier  3 (Survival): 배고픔 → 추위 → 더위
+Tier  4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 → 세탁 → 출산 → 모성 → 사회 → 선물 → 수면
+Tier  5 (Routine): 스케줄 기반 일반 활동 (순찰/산책은 wandering)
 ```
+
+> **결박 + 행동불능**: 결박(Tier 0)이 기절/탈진/수면(Tier 1)보다 우선이지만, 행동불능 상태(`is_npc_incapacitated()` 또는 수면)이면 결박 탈출 시도 없이 해당 상태 job만 삽입. 상태 해제 후 탈출 재개.
 
 **Safety net**: 모든 tier를 통과했는데 `_action_taken=False`이면 WARNING 출력 (도달한 tier + 활성 phase 정보 포함) 후 "할 일 없음" job 삽입. 이는 알고리즘 약점을 식별하기 위한 진단 시스템입니다.
 

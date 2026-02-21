@@ -90,7 +90,7 @@ carry.can_pick_up(carrier_id, target_id) → (bool, str)
 2. target이 이미 운반 중이 아닌지
 3. 자기 자신이 아닌지
 4. target 상태:
-   - **캐릭터**: 기절 OR 하체결박 상태만 가능
+   - **캐릭터**: 기절 OR 탈진 OR 하체결박 상태만 가능
    - **오브젝트**: 좌석 점유(seated_by) 없음
 
 ### 실행
@@ -129,9 +129,9 @@ carry.reset()  # _carry_registry 초기화
 
 ```
 운반 중 → _handle_being_carried()
-  ├─ 기절 해제 + 비결박 → 자동 put_down (의식 회복)
-  ├─ 기절 해제 + 결박   → 운반 계속 (저항 대사 예정)
-  └─ 기절 중           → "운반 중" idle job (1시간)
+  ├─ 기절/탈진 해제 + 비결박 → 자동 put_down (의식 회복)
+  ├─ 기절/탈진 해제 + 결박   → 운반 계속 (저항 대사 예정)
+  └─ 기절/탈진 중            → "운반 중" idle job (1시간)
 ```
 
 일반 think 로직은 완전 스킵.
@@ -144,7 +144,7 @@ carry.reset()  # _carry_registry 초기화
 
 Character/Object 클래스에 `pick_up_unit()` 메서드.
 
-- **Character**: `_add_carry_action()`이 Focus 메뉴에 동적 추가 (기절 OR 하체결박 시)
+- **Character**: `_add_carry_action()`이 Focus 메뉴에 동적 추가 (기절/탈진 OR 하체결박 시)
 - **Object**: `portable = True`인 서브클래스만 (현재 해당 없음)
 
 ### 내려놓기

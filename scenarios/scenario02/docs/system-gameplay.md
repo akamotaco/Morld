@@ -156,6 +156,23 @@ props = {
 | SATIETY_DECAY_RATE | 1 | 1시간당 포만감 감소 |
 | HEALTH_REGEN_RATE | 1 | 포만감 50+일 때 1시간당 체력 회복 |
 | HEALTH_DECAY_RATE | 2 | 포만감 0일 때 1시간당 체력 감소 |
+| EXHAUSTION_HP_THRESHOLD | 10 | HP ≤ 10 → 자동 탈진 진입 |
+| EXHAUSTION_DURATION_HOURS | 4 | 탈진 기본 지속시간 |
+| FAINT_DURATION_HOURS | 8 | 기절 지속시간 |
+
+### 캐릭터 비활동 상태
+
+| 상태 | 의식 | 대화 | 행동 | 강탈 | 운반 | 결박탈출 | 로맨스 |
+|------|------|------|------|------|------|---------|-------|
+| **탈진** | O | O | X | O | O | X | 강제 모드 |
+| **기절** | X | X | X | O | O | X | 무의식 모드 |
+| **수면** | X | X | X | X | X | X | — |
+
+- **탈진**: HP ≤ 10 자동 진입 또는 외부 `set_exhaustion()`. 4시간 후 해제
+- **기절**: HP = 0 → 8시간. 체력 서서히 회복 (최대의 50%까지)
+- **수면**: 스케줄/피로 기반. 외부 자극(추위 등)에 깨어날 수 있음
+- 기절과 탈진은 배타적 (기절이 우선)
+- 결박 상태에서 행동불능이면 탈출 시도 없이 대기 (해제 후 재개)
 
 ### Python API
 
@@ -170,6 +187,21 @@ survival.add_health(unit_id, -10)
 
 bar = survival.get_status_bar(unit_id)
 # "체력: [color=lime]████████░░[/color] 80  포만감: ..."
+
+# 상태 조회
+survival.is_npc_fainted(unit_id)        # 기절 여부
+survival.is_npc_exhausted(unit_id)      # 탈진 여부
+survival.is_npc_sleeping(unit_id)       # 수면 여부 (activity 기반)
+survival.is_npc_conscious(unit_id)      # 의식 유무 (기절/수면=False, 탈진=True)
+survival.is_npc_incapacitated(unit_id)  # 행동불능 (기절 OR 탈진)
+
+# 탈진 외부 제어
+survival.set_exhaustion(npc_id, duration_hours=4)  # 수동 탈진 진입
+survival.clear_exhaustion(npc_id)                   # 수동 탈진 해제
+
+# DES 연동
+survival.get_faint_remaining_millis(npc_id)       # 기절 남은 시간 (ms)
+survival.get_exhaustion_remaining_millis(npc_id)  # 탈진 남은 시간 (ms)
 ```
 
 ### 활성화 조건

@@ -255,10 +255,13 @@ def can_start_forced(actor_id, target_id):
     for uid in units:
         if uid == actor_id or uid == target_id:
             continue
-        if not survival.is_npc_fainted(uid):
-            unit_info = morld.get_unit_info(uid)
-            name = unit_info.get("name", "누군가") if unit_info else "누군가"
-            return False, f"{name}(이)가 있습니다"
+        if survival.is_npc_fainted(uid):
+            continue
+        if survival.is_npc_sleeping(uid):
+            continue
+        unit_info = morld.get_unit_info(uid)
+        name = unit_info.get("name", "누군가") if unit_info else "누군가"
+        return False, f"{name}(이)가 있습니다"
 
     return True, None
 

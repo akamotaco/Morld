@@ -71,6 +71,9 @@ _survival = sys.modules.get("survival") or types.ModuleType("survival")
 _survival.is_npc_hungry = lambda uid: False
 _survival.is_npc_fainted = lambda uid: False
 _survival.get_faint_remaining_millis = lambda uid: 0
+_survival.is_npc_exhausted = lambda uid: False
+_survival.get_exhaustion_remaining_millis = lambda uid: 0
+_survival.is_npc_sleeping = lambda uid: False
 _survival._eat_log = []
 def _tracking_npc_eat(uid, sat):
     _survival._eat_log.append((uid, sat))
@@ -401,6 +404,9 @@ def _reset_all():
     _survival.is_npc_hungry = lambda uid: False
     _survival.is_npc_fainted = lambda uid: False
     _survival.get_faint_remaining_millis = lambda uid: 0
+    _survival.is_npc_exhausted = lambda uid: False
+    _survival.get_exhaustion_remaining_millis = lambda uid: 0
+    _survival.is_npc_sleeping = lambda uid: False
     _survival._eat_log.clear()
 
     _temperature.is_cold = lambda uid, threshold=35.5: False

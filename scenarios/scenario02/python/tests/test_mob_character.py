@@ -52,6 +52,9 @@ sys.modules.setdefault("sound", _sound_stub)
 # survival stub — should_initiate_skinship()에서 lazy import
 _survival_stub = types.ModuleType("survival")
 _survival_stub.get_survival_stats = lambda uid: {"체력": 100, "최대체력": 100}
+_survival_stub.is_npc_fainted = lambda uid: False
+_survival_stub.is_npc_exhausted = lambda uid: False
+_survival_stub.is_npc_sleeping = lambda uid: False
 sys.modules.setdefault("survival", _survival_stub)
 
 # think stub — date.py에서 import

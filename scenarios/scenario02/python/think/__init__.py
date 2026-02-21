@@ -632,6 +632,13 @@ class BaseAgent:
             self._action_taken = True
             return True
 
+        # 1a-2. 탈진
+        if survival.is_npc_exhausted(self.unit_id):
+            remaining = survival.get_exhaustion_remaining_millis(self.unit_id)
+            self._insert_idle_job("exhaustion", max(remaining, 1))
+            self._action_taken = True
+            return True
+
         # 1b. 이미 침대에서 자는 중
         already_sleeping, sleep_entry = self._is_already_sleeping()
         if already_sleeping:
@@ -665,9 +672,9 @@ class BaseAgent:
         import survival
         import carry
 
-        # 기절 해제 확인
-        if not survival.is_npc_fainted(self.unit_id):
-            # 의식 회복됨
+        # 기절/탈진 해제 확인
+        if not survival.is_npc_fainted(self.unit_id) and not survival.is_npc_exhausted(self.unit_id):
+            # 의식 회복 + 행동 가능
             import restraint
             if not restraint.is_lower_restrained(self.unit_id):
                 # 비결박 → 자동 해방
@@ -697,11 +704,25 @@ class BaseAgent:
         - waiting: 대기 (30분마다 재시도). 입 자유 시 소리치기
         """
         import restraint
+        import survival
 
         # 방어: 외부에서 이미 해제된 경우 (구출 등) — 메모리 정리
         if not restraint.is_restrained(self.unit_id):
             self._memory["restrained_phase"] = None
             self._memory.pop("restrained_wait_until", None)
+            return
+
+        # 행동불능(기절/탈진/수면) → 탈출 시도 없이 대기
+        if survival.is_npc_incapacitated(self.unit_id) or survival.is_npc_sleeping(self.unit_id):
+            if survival.is_npc_fainted(self.unit_id):
+                remaining = survival.get_faint_remaining_millis(self.unit_id)
+                self._insert_idle_job("fainting", max(remaining, 1))
+            elif survival.is_npc_exhausted(self.unit_id):
+                remaining = survival.get_exhaustion_remaining_millis(self.unit_id)
+                self._insert_idle_job("exhaustion", max(remaining, 1))
+            else:
+                self._insert_idle_job("결박", self.RESTRAINED_ESCAPE_INTERVAL)
+            self._action_taken = True
             return
 
         phase = self._memory.get("restrained_phase", "idle")
@@ -770,11 +791,25 @@ class BaseAgent:
         30분마다 자력 해제를 시도한다.
         """
         import restraint
+        import survival
 
         # 방어: 외부에서 이미 해제된 경우 (구출 등) — 메모리 정리
         if not restraint.is_upper_restrained(self.unit_id):
             self._memory["restrained_phase"] = None
             self._memory.pop("restrained_wait_until", None)
+            return
+
+        # 행동불능(기절/탈진/수면) → 탈출 시도 없이 대기
+        if survival.is_npc_incapacitated(self.unit_id) or survival.is_npc_sleeping(self.unit_id):
+            if survival.is_npc_fainted(self.unit_id):
+                remaining = survival.get_faint_remaining_millis(self.unit_id)
+                self._insert_idle_job("fainting", max(remaining, 1))
+            elif survival.is_npc_exhausted(self.unit_id):
+                remaining = survival.get_exhaustion_remaining_millis(self.unit_id)
+                self._insert_idle_job("exhaustion", max(remaining, 1))
+            else:
+                self._insert_idle_job("결박", self.RESTRAINED_ESCAPE_INTERVAL)
+            self._action_taken = True
             return
 
         phase = self._memory.get("restrained_phase", "idle")

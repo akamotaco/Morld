@@ -60,6 +60,9 @@ _survival = sys.modules.get("survival") or types.ModuleType("survival")
 _survival.is_npc_hungry = lambda uid: False
 _survival.is_npc_fainted = lambda uid: False
 _survival.get_faint_remaining_millis = lambda uid: 0
+_survival.is_npc_exhausted = lambda uid: False
+_survival.get_exhaustion_remaining_millis = lambda uid: 0
+_survival.is_npc_sleeping = lambda uid: False
 _survival.npc_eat = lambda uid, sat: None
 _survival._eat_log = []  # 테스트 추적용
 _original_npc_eat = _survival.npc_eat
@@ -334,6 +337,9 @@ def _reset_all():
     _survival.is_npc_hungry = lambda uid: False
     _survival.is_npc_fainted = lambda uid: False
     _survival.get_faint_remaining_millis = lambda uid: 0
+    _survival.is_npc_exhausted = lambda uid: False
+    _survival.get_exhaustion_remaining_millis = lambda uid: 0
+    _survival.is_npc_sleeping = lambda uid: False
     _survival._eat_log.clear()
 
     # temperature

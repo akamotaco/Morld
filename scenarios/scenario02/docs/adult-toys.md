@@ -170,6 +170,7 @@ restraint.release_unit(unit_id)  # 항상 성공, 모든 결박 prop 해제
 ### NPC AI 연동
 
 **Tier 0 (최고 우선순위)**: 결박 상태 분기
+- **행동불능(기절/탈진) 또는 수면 중**: 탈출 시도 없이 해당 상태 job 삽입 → 상태 해제 후 탈출 재개
 - **하체 포함** → `_handle_restrained()`: 3-phase (idle→escaping→waiting), 이동 불가
 - **상체만** → `_handle_upper_restrained()`: 이동 가능, 배회하며 해제 시도
 - 30분마다 자력 해제 시도

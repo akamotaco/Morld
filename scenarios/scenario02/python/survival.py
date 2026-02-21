@@ -1,6 +1,6 @@
-# survival.py - 생존 시스템 (체력, 포만감, 기절)
+# survival.py - 생존 시스템 (체력, 포만감, 기절, 탈진)
 #
-# 시간 경과 시 호출되어 포만감 감소, 체력 증감, 기절 처리
+# 시간 경과 시 호출되어 포만감 감소, 체력 증감, 기절/탈진 처리
 # on_time_elapsed 이벤트 구독 방식으로 동작 (1시간 간격)
 #
 # 기절 규칙:
@@ -9,8 +9,15 @@
 # - 기절 중 → 체력 서서히 회복 (최대체력/2까지), 만복도 0 유지
 # - 기절 종료 → 만복도 0, 체력 = 최대체력/2
 #
+# 탈진 규칙:
+# - 체력 ≤ 10 → 자동 탈진 (4시간)
+# - 외부 시스템(romance 등)에서 수동 set_exhaustion() 가능
+# - 탈진 중: 의식 있음, 대화 가능, 행동 불가, 강탈/운반 가능
+# - 기절과 탈진은 배타적 (기절이 우선)
+#
 # DES 호환 (v0.2.2):
 # - get_faint_remaining_millis(): think()에서 기절 job duration 결정에 사용
+# - get_exhaustion_remaining_millis(): think()에서 탈진 job duration 결정에 사용
 # - min_interval=1h: DES에서 큰 시간 단위가 넘어와도 내부 누적으로 1시간 단위 처리
 
 import morld
@@ -29,6 +36,9 @@ HEALTH_THRESHOLD_DANGER = 20      # 위험 체력
 FAINT_DURATION_HOURS = 8          # 기절 지속시간 (시간)
 FAINT_RECOVERY_RATIO = 0.5       # 기절 후 체력 회복 비율 (최대체력의 절반)
 
+EXHAUSTION_DURATION_HOURS = 4     # 탈진 기본 지속시간 (시간)
+EXHAUSTION_HP_THRESHOLD = 10      # HP ≤ 이 값이면 자동 탈진 진입
+
 # 시간 누적 (1시간 미만의 시간 경과 누적, 밀리초)
 _accumulated_millis = 0
 
@@ -38,6 +48,9 @@ _npc_accumulated = {}          # unit_id -> 누적 밀리초
 
 # NPC 기절 상태: npc_id -> remaining_hours (남은 기절 시간)
 _fainted_npcs = {}
+
+# NPC 탈진 상태: npc_id -> remaining_hours (남은 탈진 시간)
+_exhausted_npcs = {}
 
 # 플레이어 기절 상태
 _player_fainted = False          # 현재 기절 중
@@ -135,6 +148,89 @@ def get_faint_remaining_millis(npc_id: int) -> int:
     """기절 남은 시간 (밀리초). 기절 중이 아니면 0."""
     remaining_hours = _fainted_npcs.get(npc_id, 0)
     return max(0, remaining_hours * MILLIS_PER_HOUR)
+
+
+# ========================================
+# NPC 탈진 관리
+# ========================================
+
+def is_npc_exhausted(unit_id: int) -> bool:
+    """NPC가 탈진 상태인지 확인"""
+    return unit_id in _exhausted_npcs
+
+
+def get_exhaustion_remaining_millis(npc_id: int) -> int:
+    """탈진 남은 시간 (밀리초). 탈진 중이 아니면 0."""
+    remaining_hours = _exhausted_npcs.get(npc_id, 0)
+    return max(0, remaining_hours * MILLIS_PER_HOUR)
+
+
+def set_exhaustion(npc_id: int, duration_hours: int = None):
+    """탈진 상태 진입 (외부 호출용: romance 등)
+
+    기절 중이면 무시 (기절이 우선).
+    이미 탈진 중이면 남은 시간이 더 긴 쪽 유지.
+    """
+    if is_npc_fainted(npc_id):
+        return
+    hours = duration_hours if duration_hours is not None else EXHAUSTION_DURATION_HOURS
+    current = _exhausted_npcs.get(npc_id, 0)
+    if hours > current:
+        _exhausted_npcs[npc_id] = hours
+        print(f"[survival] NPC {npc_id} exhausted ({hours}h)")
+
+
+def clear_exhaustion(npc_id: int):
+    """탈진 상태 해제 (외부 호출용)"""
+    _exhausted_npcs.pop(npc_id, None)
+
+
+def _enter_exhaustion(npc_id: int):
+    """NPC 탈진 상태 자동 진입 (HP 임계치에 의해)"""
+    if is_npc_fainted(npc_id):
+        return
+    if npc_id in _exhausted_npcs:
+        return  # 이미 탈진 중
+    _exhausted_npcs[npc_id] = EXHAUSTION_DURATION_HOURS
+    print(f"[survival] NPC {npc_id} exhausted! (HP threshold, {EXHAUSTION_DURATION_HOURS}h)")
+
+
+def _process_exhaustion(npc_id: int, hours: int):
+    """탈진 중 NPC 처리 (시간 감소 → 해제)"""
+    if npc_id not in _exhausted_npcs:
+        return
+
+    _exhausted_npcs[npc_id] -= hours
+
+    if _exhausted_npcs[npc_id] <= 0:
+        del _exhausted_npcs[npc_id]
+        print(f"[survival] NPC {npc_id} recovered from exhaustion")
+
+
+# ========================================
+# 통합 상태 헬퍼
+# ========================================
+
+def is_npc_conscious(unit_id: int) -> bool:
+    """NPC에게 의식이 있는지 (기절/수면=False, 탈진=True)"""
+    if is_npc_fainted(unit_id):
+        return False
+    if is_npc_sleeping(unit_id):
+        return False
+    return True
+
+
+def is_npc_incapacitated(unit_id: int) -> bool:
+    """NPC가 행동불능인지 (기절 OR 탈진)"""
+    return is_npc_fainted(unit_id) or is_npc_exhausted(unit_id)
+
+
+def is_npc_sleeping(unit_id: int) -> bool:
+    """NPC가 수면 중인지 (activity 기반 판정)"""
+    info = morld.get_unit_info(unit_id)
+    if not info:
+        return False
+    return info.get("activity", "") == "수면"
 
 
 def npc_eat(unit_id: int, satiety_amount: int):
@@ -238,6 +334,12 @@ def _process_npc_time(npc_id: int, millis: int):
         _process_faint(npc_id, hours)
         return
 
+    # 탈진 중이면 탈진 회복 처리 (포만감/체력 정상 처리는 계속)
+    if npc_id in _exhausted_npcs:
+        hours_ex = max(1, millis // MILLIS_PER_HOUR)
+        _process_exhaustion(npc_id, hours_ex)
+        # 탈진 해제 후에도 아래 정상 흐름 계속 (포만감/체력 처리)
+
     # 생존 prop이 없으면 무시 (시나리오03 호환)
     satiety = morld.get_unit_prop(npc_id, "생존:포만감")
     if satiety is None:
@@ -267,10 +369,11 @@ def _process_npc_time(npc_id: int, millis: int):
         health_loss = int(HEALTH_DECAY_RATE * hours)
         if health_loss > 0:
             add_health(npc_id, -health_loss)
-            # 체력 0 이하면 기절
             health = morld.get_unit_prop(npc_id, "생존:체력") or 0
             if health <= 0:
                 _enter_faint(npc_id)
+            elif health <= EXHAUSTION_HP_THRESHOLD:
+                _enter_exhaustion(npc_id)
 
 
 def process_time_elapsed(unit_id: int, millis: int):
@@ -421,6 +524,22 @@ def get_status_bar(unit_id: int) -> str:
         f"체력: [color={health_color}]{health_bar}[/color] {health}  "
         f"포만감: [color={satiety_color}]{satiety_bar}[/color] {satiety}"
     )
+
+
+# ========================================
+# 챕터 전환
+# ========================================
+
+def reset():
+    """챕터 전환 시 리셋"""
+    global _accumulated_millis, _player_fainted, _player_faint_pending
+    _fainted_npcs.clear()
+    _exhausted_npcs.clear()
+    _npc_registry.clear()
+    _npc_accumulated.clear()
+    _accumulated_millis = 0
+    _player_fainted = False
+    _player_faint_pending = False
 
 
 # ========================================

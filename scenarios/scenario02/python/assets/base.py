@@ -1319,7 +1319,7 @@ class Character(Unit):
     ACTION_AVAILABILITY: dict = {
         # 기본 수면 상태 처리 (모든 캐릭터 공통)
         "수면": {
-            "allowed": ["talk", "debug_props", "wake_up"],
+            "allowed": ["debug_props", "wake_up"],
             "blocked_message": "자고 있다...",
         },
     }
@@ -1341,6 +1341,25 @@ class Character(Unit):
         info = morld.get_unit_info(self.instance_id)
         if not info:
             return list(self.actions)
+
+        # === 상태 기반 필터링 (activity보다 우선) ===
+        import survival as _surv
+
+        # 기절: 의식 없음 → debug + 로맨스 + 운반/강탈
+        if _surv.is_npc_fainted(self.instance_id):
+            allowed_set = {"debug_props", "romance", "force_romance"}
+            result = [a for a in self.actions
+                      if self._extract_action_name(a) in allowed_set]
+            result = self._add_carry_action(result)
+            return self._add_loot_clothing_action(result)
+
+        # 탈진: 의식 있음 → 대화 + debug + 로맨스 + 운반/강탈
+        if _surv.is_npc_exhausted(self.instance_id):
+            allowed_set = {"talk", "debug_props", "romance", "force_romance"}
+            result = [a for a in self.actions
+                      if self._extract_action_name(a) in allowed_set]
+            result = self._add_carry_action(result)
+            return self._add_loot_clothing_action(result)
 
         activity = info.get("activity")
         mood = info.get("mood", [])
@@ -1471,9 +1490,10 @@ class Character(Unit):
         if carry.is_being_carried(self.instance_id):
             return actions
 
-        # 기절 OR 하체결박 상태일 때만 표시
+        # 기절/탈진 OR 하체결박 상태일 때만 표시
         is_fainted = survival.is_npc_fainted(self.instance_id)
-        if is_fainted:
+        is_exhausted = survival.is_npc_exhausted(self.instance_id)
+        if is_fainted or is_exhausted:
             actions.append("call:pick_up_unit:들어올리기")
             return actions
 
@@ -1508,9 +1528,10 @@ class Character(Unit):
             return actions
 
         is_fainted = survival.is_npc_fainted(self.instance_id)
+        is_exhausted = survival.is_npc_exhausted(self.instance_id)
         is_restrained = restraint.is_restrained(self.instance_id)
 
-        if not is_fainted and not is_restrained:
+        if not is_fainted and not is_exhausted and not is_restrained:
             return actions
 
         # 장착 중인 의류가 있는지 확인
@@ -2156,10 +2177,16 @@ class Character(Unit):
             yield ui.dialog("몸에 힘이 없어 스킨십할 상태가 아니다.")
             return
 
-        # 자동 모드 감지: 기절 → 무의식, 시간정지 → 시간정지
+        # 자동 모드 감지: 기절 → 무의식, 탈진 → 강제, 시간정지 → 시간정지
         ok, _ = can_start_unconscious(player_id, self.instance_id)
         if ok:
             yield from start_romance(player_id, self.instance_id, mode=MODE_UNCONSCIOUS)
+            return
+
+        import survival as _surv
+        if _surv.is_npc_exhausted(self.instance_id):
+            from romance_mode import MODE_FORCED
+            yield from start_romance(player_id, self.instance_id, mode=MODE_FORCED)
             return
 
         ok, _ = can_start_frozen(player_id, self.instance_id)
@@ -2888,6 +2915,15 @@ class Character(Unit):
         - dict 결과: {"pages": [...]} 형태의 간단한 대사
         - str 결과: "_"로 시작하는 메서드명 → 복잡한 대화 처리
         """
+        # 상태 가드: 기절/수면은 대화 불가 (탈진은 가능)
+        import survival as _surv
+        if _surv.is_npc_fainted(self.instance_id):
+            yield ui.dialog(f"{self.name}(은)는 의식이 없다.")
+            return
+        if _surv.is_npc_sleeping(self.instance_id):
+            yield ui.dialog(f"{self.name}(은)는 자고 있다.")
+            return
+
         # 공개 행동: 은신 자동 해제
         import stealth as stealth_mod
         stealth_mod.auto_exit_stealth_for_interaction()
@@ -3242,7 +3278,12 @@ class Character(Unit):
 
         unit_info = morld.get_unit_info(self.instance_id)
 
-        # 수면 중이면 반응 없음
+        # 기절/탈진/수면 → 반응 없음
+        import survival as _surv
+        if _surv.is_npc_fainted(self.instance_id):
+            return None
+        if _surv.is_npc_exhausted(self.instance_id):
+            return None
         if unit_info and unit_info.get("activity") == "수면":
             return None
 
