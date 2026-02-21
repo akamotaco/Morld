@@ -96,6 +96,7 @@
 | 후유증 3단계 시스템 | aftermath_templates.py, base.py, think/ | ✅ 완료 |
 | 임신 이벤트 (수정/발표) | pregnancy.py, base.py, 전체 NPC | ✅ 완료 |
 | 모드 사후 이벤트 (on_meet) | base.py, 전체 NPC | ✅ 완료 |
+| 긍정 기억 시스템 (선물→수면→반응) | positive_memory_templates.py, base.py, think/ | ✅ 완료 |
 | HP 통합 (스태미나→생존체력) | romance.py, npc_initiative.py, romance_core.py | ✅ 완료 |
 | 조건부 쿨다운 (NPC 주도) | npc_initiative.py, base.py | ✅ 완료 |
 | NPC 만족 종료 | npc_initiative.py | ✅ 완료 |

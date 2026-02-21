@@ -2012,14 +2012,45 @@ NPC는 저항 중에도 자동으로 행위 진행 (`_npc_auto_advance()`), 강�
 - stoic / gentle / cheerful / timid / cold / seductive / fierce / proud / innocent / devoted
 - 캐릭터별 override 불필요 (base.py fallback으로 통합)
 
-#### 수면 시 단계 감소 (`_process_aftermath_sleep`)
+#### 수면 시 기억 처리 (`_process_memory_on_sleep`)
 
-`think/__init__.py`의 `_handle_sleep()` 도착 시점에서 호출:
-- 음수(표시됨) → `abs-1` → 양수(대기) 또는 0(해제)
-- 양수(미표시) → 변경 없음
+`think/__init__.py`의 `_handle_sleep()` 도착 시점에서 호출. 수면을 기억 처리의 중심으로 사용:
+
+1. **aftermath 단계 감소**: 음수(표시됨) → `abs-1` → 양수(대기) 또는 0(해제)
+2. **긍정 기억 활성화**: `-1`(수면 전 대기) → `1`(on_meet 대상)
+
 - `_check_fatigue()` 경유 비스케줄 수면에서도 동작
 
-### 21.6 임신 이벤트 (on_meet)
+### 21.6 긍정 기억 (on_meet)
+
+선물 수령 후 **1회 수면을 거친 뒤** NPC가 재회 시 선물을 기억하고 언급.
+
+#### 라이프사이클
+
+```
+선물 수령 → 기억:긍정기억=-1 (수면 전 대기)
+수면 → -1 → 1 (활성화)
+만남 → 반응 표시 → 0 (해제)
+```
+
+#### Prop 목록
+
+| prop | 설정 시점 | 설명 |
+|------|----------|------|
+| `기억:마지막선물이름` | give_gift() | 아이템 표시 이름 |
+| `기억:마지막선물반응` | give_gift() | `"favorite"` / `"liked"` / `"normal"` |
+| `기억:긍정기억` | give_gift() | `-1`=대기, `1`=활성, `0`=없음 |
+
+- **비호감 선물(disliked)**: 긍정 기억 트리거 안 함
+- **연속 선물**: 최신 선물로 덮어쓰기
+- **favorite 반응**: 아이템명(`{item}`) 직접 언급
+
+#### 아키타입 기반 템플릿 (`positive_memory_templates.py`)
+
+`REACTION_PROFILE["archetype"]`에 따라 10개 아키타입별 자동 매칭.
+gift_favorite / gift_liked / gift_normal 3종 × 10 아키타입.
+
+### 21.7 임신 이벤트 (on_meet)
 
 `pregnancy.check_pending_pregnancy_events(unit_id)` 호출:
 

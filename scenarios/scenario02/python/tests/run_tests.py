@@ -97,6 +97,7 @@ def main():
         "test_think_logic",
         "test_npc_objects",
         "test_aftermath",
+        "test_positive_memory",
     ]
 
     if filter_modules:

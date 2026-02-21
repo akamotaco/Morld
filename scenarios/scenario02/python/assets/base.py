@@ -2468,6 +2468,13 @@ class Character(Unit):
         time_info = morld.get_time_info()
         morld.set_unit_prop(partner_id, "기억:마지막선물일", time_info.get("day", 0))
 
+        # 긍정 기억 트리거 (비호감 선물 제외)
+        # -1 = 수면 전 대기, 수면 시 1로 활성화
+        if reaction != "disliked":
+            morld.set_unit_prop(partner_id, "기억:마지막선물이름", item_name)
+            morld.set_unit_prop(partner_id, "기억:마지막선물반응", reaction)
+            morld.set_unit_prop(partner_id, "기억:긍정기억", -1)
+
         # 반응 대사
         gift_reaction = self._get_gift_reaction(reaction, item_name, food_eaten)
         bonus_text = f" [color=gray](호감 +{bonus})[/color]" if bonus > 0 else " [color=gray](호감 변화 없음)[/color]"
@@ -3307,6 +3314,11 @@ class Character(Unit):
         if preg_event is not None:
             return preg_event
 
+        # 긍정 기억 체크 (선물 기억 등)
+        positive = self._check_positive_memory(player_id)
+        if positive is not None:
+            return positive
+
         # 첫 만남 여부 판정
         if not self.is_first_meet(player_id):
             # NPC 주도 스킨십 체크 (첫 만남 이후에만)
@@ -3405,6 +3417,50 @@ class Character(Unit):
         count = max(1, morld.get_unit_prop(self.instance_id, count_key) or 0)
 
         text = get_aftermath_text(self.name, event_type, stage, archetype, count)
+        yield ui.dialog(text)
+
+    def _check_positive_memory(self, player_id):
+        """긍정 기억 체크 — 선물 기억 등
+
+        Returns:
+            Generator or None
+        """
+        props = morld.get_unit_props(self.instance_id)
+        if not props:
+            return None
+
+        if props.get("기억:긍정기억", 0) != 1:
+            return None
+
+        # 플래그 즉시 해제 (1회성)
+        morld.set_unit_prop(self.instance_id, "기억:긍정기억", 0)
+
+        # 선물 기억 처리
+        reaction = props.get("기억:마지막선물반응")
+        if reaction and reaction != "disliked":
+            item_name = props.get("기억:마지막선물이름", "선물")
+            return self._handle_positive_memory(
+                player_id, f"gift_{reaction}", item_name
+            )
+
+        return None
+
+    def _handle_positive_memory(self, player_id, memory_type, item_name):
+        """긍정 기억 다이얼로그 — 아키타입 기반 템플릿
+
+        Args:
+            player_id: 플레이어 유닛 ID
+            memory_type: "gift_favorite" / "gift_liked" / "gift_normal"
+            item_name: 아이템 표시 이름
+        """
+        from positive_memory_templates import get_positive_memory_text
+
+        profile = getattr(self, 'REACTION_PROFILE', None) or {}
+        archetype = profile.get("archetype", "stoic")
+
+        text = get_positive_memory_text(
+            self.name, memory_type, archetype, item_name
+        )
         yield ui.dialog(text)
 
     def _check_pregnancy_event(self, player_id):
