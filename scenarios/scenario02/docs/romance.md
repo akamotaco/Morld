@@ -144,7 +144,7 @@
 | ~~자위 발각~~ | ~~on_meet 시 자위 중 발각 처리~~ | ✅ 완료 (base.py) |
 | ~~은밀 장소 판정~~ | ~~length 기반 은밀 장소 선정~~ | ✅ 완료 (length 기반) |
 | ~~화장실 프라이버시~~ | ~~ROOM_PRIVACY_CONFIG "화장실" 추가~~ | ✅ 완료 (5캐릭터) |
-| ~~NPC-NPC 대화~~ | ~~사회욕 기반 대화 시스템 + describe text~~ | ✅ 완료 (think/__init__.py _handle_socialize) |
+| ~~NPC-NPC 대화~~ | ~~그리움 기반 대화 시스템 + describe text~~ | ✅ 완료 (think/__init__.py _handle_socialize) |
 | 성인용품 시스템 (17종) | 착용형/삽입형/소모성 아이템 | ✅ 완료 (adult_toys.py) |
 | 결박 시스템 (로프/수갑) | 행동 제한, 자력 해제, NPC 구출 | ✅ 완료 (restraint.py) |
 | 절정 상시 관리 (`상태:절정`) | 비로맨스 절정 게이지, 세션 동기화 | ✅ 완료 (needs.py) |

@@ -285,6 +285,49 @@ def release_unit_and_collect(unit_id):
 
 
 # ========================================
+# 자가 결박 (플레이어 전용)
+# ========================================
+
+def self_restrain(unit_id, item_id):
+    """플레이어가 자기 자신에게 결박 장비 사용 (수갑 등)
+
+    항상 성공. 반발/복종 효과 없음.
+    자가 결박 상태 식별을 위해 '결박:자가' prop 설정.
+
+    Returns:
+        (True, message)
+    """
+    _apply_restraint(unit_id, item_id)
+    morld.set_unit_prop(unit_id, "결박:자가", 1)
+    return True, "스스로 결박 장비를 채웠다."
+
+
+def self_release(unit_id):
+    """자가 결박 해제 — 항상 성공 (열쇠 불필요)
+
+    결박 아이템을 하나씩 해제. 자가 결박 prop 클리어.
+
+    Returns:
+        bool: 해제한 아이템이 있으면 True
+    """
+    equipped_items = equipment.get_equipped_items(unit_id)
+    for item_id in list(equipped_items):
+        ep = _get_equip_props(item_id)
+        if ep.get("결박:상체") or ep.get("결박:하체"):
+            equipment.unequip_item(unit_id, item_id)
+            # 더 이상 결박이 없으면 자가 결박 prop 클리어
+            if not is_any_restrained(unit_id):
+                morld.clear_prop(unit_id, "결박:자가")
+            return True
+    return False
+
+
+def is_self_restrained(unit_id):
+    """자가 결박 상태인지 확인"""
+    return bool(morld.get_unit_prop(unit_id, "결박:자가"))
+
+
+# ========================================
 # 유틸리티
 # ========================================
 

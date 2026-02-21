@@ -1,13 +1,13 @@
 # needs.py - 욕구 시스템
 #
-# NPC/플레이어의 5대 욕구를 수치로 추적.
+# NPC/플레이어의 욕구를 수치로 추적.
 # 매 시간 자동 업데이트 (subscribe_time_elapsed).
 #
 # 욕구 목록:
 #   배변 (욕구:배변) — 식사 시 증가, 화장실 사용 시 0
 #   피로 (욕구:피로) — 각성 중 증가, 수면 중 감소
 #   청결 (욕구:청결) — 오염/젖음 기반 증가, 목욕 시 0
-#   사회 (욕구:사회) — 고립 시 증가, 대화/교류 시 감소
+#   그리움 (그리움:{name}) — 호감 30+ 대상과 떨어져 있으면 증가, 만남 시 해소
 #   성욕 (상태:성욕) — 자연 증가 (50 상한), romance.py 소유
 #
 # DES 호환: subscribe_time_elapsed(min_interval=1h)
@@ -19,7 +19,6 @@ from events import subscribe_time_elapsed
 PROP_EXCRETION = "욕구:배변"
 PROP_FATIGUE = "욕구:피로"
 PROP_CLEANLINESS = "욕구:청결"
-PROP_SOCIAL = "욕구:사회"
 PROP_AROUSAL = "상태:성욕"  # romance.py 소유, 읽기+자연증가만
 PROP_CLIMAX = "상태:절정"   # 상시 절정 prop (0-100)
 
@@ -29,7 +28,9 @@ FATIGUE_SLEEP_RECOVERY = 12   # 수면 중 -12/h (8시간에 ~96 감소)
 CLEANLINESS_BASE_RATE = 1     # 기본 +1/h
 CLEANLINESS_POLLUTION_FACTOR = 0.1  # 오염수치 x 0.1 추가
 CLEANLINESS_WETNESS_FACTOR = 0.05   # 젖음 x 0.05 추가
-SOCIAL_RATE = 1               # 고립 시 +1/h
+LONGING_AFFECTION_MIN = 30    # 그리움 축적 최소 호감도
+LONGING_MAX_RATE = 2.0        # 호감100 시 시간당 그리움 증가율
+LONGING_PROXIMITY_DECAY = 10  # 같은 location에 있을 때 시간당 감소
 AROUSAL_NATURAL_RATE = 0.5    # 자연 성욕 증가 +0.5/h
 AROUSAL_NATURAL_CAP = 50      # 자연 증가 상한
 SUBMISSION_DECAY_INTERVAL = 2 # 복종 자연 감소 간격 (시간) — 미사용 (항상성으로 대체)
@@ -108,9 +109,20 @@ def get_cleanliness(unit_id):
     return morld.get_unit_prop(unit_id, PROP_CLEANLINESS) or 0
 
 
-def get_social(unit_id):
-    """사회 욕구 조회 (0-100)"""
-    return morld.get_unit_prop(unit_id, PROP_SOCIAL) or 0
+def get_longing(unit_id, target_name):
+    """특정 대상에 대한 그리움 조회 (0-100)"""
+    return morld.get_unit_prop(unit_id, f"그리움:{target_name}") or 0
+
+
+def get_max_longing(unit_id):
+    """가장 높은 그리움 값 반환 (사회욕 대용)"""
+    props = morld.get_unit_props(unit_id) or {}
+    max_val = 0
+    for key, val in props.items():
+        if key.startswith("그리움:") and isinstance(val, (int, float)):
+            if val > max_val:
+                max_val = val
+    return max_val
 
 
 def get_climax(unit_id):
@@ -150,10 +162,17 @@ def set_cleanliness(unit_id, value):
     morld.set_unit_prop(unit_id, PROP_CLEANLINESS, max(0, min(100, value)))
 
 
-def reduce_social(unit_id, amount):
-    """사회 욕구 감소 (대화/교류 시)"""
-    current = get_social(unit_id)
-    morld.set_unit_prop(unit_id, PROP_SOCIAL, max(0, current - amount))
+def reduce_longing(unit_id, target_name, amount=None):
+    """특정 대상에 대한 그리움 감소/해소 (대화/교류 시)
+
+    amount가 None이면 0으로 완전 해소.
+    """
+    if amount is None:
+        morld.set_unit_prop(unit_id, f"그리움:{target_name}", 0)
+    else:
+        current = get_longing(unit_id, target_name)
+        morld.set_unit_prop(unit_id, f"그리움:{target_name}",
+                            max(0, current - amount))
 
 
 # ========================================
@@ -207,15 +226,66 @@ def _is_sleeping(unit_id):
     return bool(seated_on)
 
 
-def _is_alone(unit_id):
-    """같은 location에 다른 캐릭터가 없으면 True"""
+def _resolve_unit_by_name(name):
+    """이름으로 unit_id 조회 (NPC + 플레이어)"""
+    player_id = morld.get_player_id()
+    if player_id:
+        player_info = morld.get_unit_info(player_id)
+        if player_info and player_info.get("name") == name:
+            return player_id
+    for uid in _npc_registry:
+        info = morld.get_unit_info(uid)
+        if info and info.get("name") == name:
+            return uid
+    return None
+
+
+def _update_longing(unit_id):
+    """그리움 시간당 업데이트
+
+    호감 30+ 대상과 떨어져 있으면 증가, 같은 location이면 감소.
+    rate = max(0, (호감 - 30) / 70) * LONGING_MAX_RATE
+    """
+    props = morld.get_unit_props(unit_id) or {}
     loc = morld.get_unit_location(unit_id)
-    if not loc:
-        return True
-    units = morld.get_characters_at_location(loc[0], loc[1])
-    if not units:
-        return True
-    return len([u for u in units if u != unit_id]) == 0
+
+    for key, val in props.items():
+        if not key.startswith("관계:") or not key.endswith(":호감"):
+            continue
+        if not isinstance(val, (int, float)) or val < LONGING_AFFECTION_MIN:
+            continue
+        name = key.split(":")[1]
+        affection = val
+        rate = (max(0, (affection - LONGING_AFFECTION_MIN)
+                / (100 - LONGING_AFFECTION_MIN)) * LONGING_MAX_RATE)
+
+        # 평판 효과: 평판 < -30이면 그리움 축적 속도 x0.5
+        try:
+            import reputation
+            rep = reputation.get_reputation(unit_id, name)
+            if rep < -30:
+                rate *= 0.5
+        except ImportError:
+            pass
+
+        # 대상 위치 확인
+        target_id = _resolve_unit_by_name(name)
+        same_location = False
+        if target_id and loc:
+            target_loc = morld.get_unit_location(target_id)
+            if (target_loc
+                    and target_loc[0] == loc[0]
+                    and target_loc[1] == loc[1]):
+                same_location = True
+
+        current = get_longing(unit_id, name)
+        if same_location:
+            new_val = max(0, current - LONGING_PROXIMITY_DECAY)
+        else:
+            new_val = min(100, current + rate)
+
+        if new_val != current:
+            morld.set_unit_prop(unit_id, f"그리움:{name}", new_val)
 
 
 def _apply_homeostasis(unit_id, prop_key, basins):
@@ -441,11 +511,15 @@ def _process_hourly(unit_id):
     if settings.is_romance_enabled():
         _update_climax(unit_id)
 
-    # 사회: 혼자이면 증가
-    if _is_alone(unit_id):
-        current_social = get_social(unit_id)
-        morld.set_unit_prop(unit_id, PROP_SOCIAL,
-                            min(100, current_social + SOCIAL_RATE))
+    # 그리움: 호감 30+ 대상별 축적/감소
+    _update_longing(unit_id)
+
+    # 평판: 자연 감쇠 (0 수렴)
+    try:
+        import reputation
+        reputation.decay_hourly(unit_id)
+    except ImportError:
+        pass
 
     # 성욕: 연애 모드 OFF → 항상 0
     import settings

@@ -698,6 +698,12 @@ class BaseAgent:
         """
         import restraint
 
+        # 방어: 외부에서 이미 해제된 경우 (구출 등) — 메모리 정리
+        if not restraint.is_restrained(self.unit_id):
+            self._memory["restrained_phase"] = None
+            self._memory.pop("restrained_wait_until", None)
+            return
+
         phase = self._memory.get("restrained_phase", "idle")
 
         if phase == "idle":
@@ -765,6 +771,12 @@ class BaseAgent:
         """
         import restraint
 
+        # 방어: 외부에서 이미 해제된 경우 (구출 등) — 메모리 정리
+        if not restraint.is_upper_restrained(self.unit_id):
+            self._memory["restrained_phase"] = None
+            self._memory.pop("restrained_wait_until", None)
+            return
+
         phase = self._memory.get("restrained_phase", "idle")
 
         if phase == "idle":
@@ -801,6 +813,17 @@ class BaseAgent:
             return
 
         if phase == "wandering":
+            # 상체 결박 중 복종 소폭 상승 (+0.3/30분)
+            player_id = morld.get_player_id()
+            if player_id:
+                player_info = morld.get_unit_info(player_id)
+                if player_info:
+                    pname = player_info.get("name", "주인공")
+                    sub_key = f"관계:{pname}:복종"
+                    sub_val = morld.get_unit_prop(self.unit_id, sub_key) or 0
+                    morld.set_unit_prop(self.unit_id, sub_key,
+                                        min(100, sub_val + 0.3))
+
             wait_until = self._memory.get("restrained_wait_until", 0)
             if self.get_time() >= wait_until:
                 self._memory["restrained_phase"] = "idle"
@@ -848,6 +871,12 @@ class BaseAgent:
             target = self._memory.get("rescue_target")
             if target and restraint.is_restrained(target):
                 restraint.release_unit(target)
+                # 구출 대상의 restrained 메모리 정리
+                from think import _agents
+                target_agent = _agents.get(target)
+                if target_agent:
+                    target_agent._memory["restrained_phase"] = None
+                    target_agent._memory.pop("restrained_wait_until", None)
             self._memory.pop("rescue_phase", None)
             self._memory.pop("rescue_target", None)
             self._insert_idle_job("구출 완료", 1 * 60 * 1000)
@@ -1210,7 +1239,7 @@ class BaseAgent:
         return True
 
     def _check_social(self):
-        """사회욕 인터럽트: 다른 NPC 탐색 → 대화. Returns True if handling."""
+        """그리움 인터럽트: 가장 보고싶은 대상 탐색 → 찾아감. Returns True if handling."""
         # 진행 중 → 계속
         if self._memory.get("socialize_phase") is not None:
             _handle_socialize(self)
@@ -1221,17 +1250,8 @@ class BaseAgent:
         if last is not None and self.get_time() - last < 3_600_000:
             return False
 
-        # 사회욕 임계치 (70)
-        try:
-            import needs
-            social = needs.get_social(self.unit_id)
-        except ImportError:
-            return False
-        if social < 70:
-            return False
-
-        # 대화 대상 탐색 (같은 location의 다른 NPC)
-        target_id = _find_socialize_target(self)
+        # 가장 그리운 대상 탐색 (그리움 ≥ 70)
+        target_id, _ = _find_most_missed(self)
         if target_id is None:
             return False
 
@@ -1252,13 +1272,13 @@ class BaseAgent:
         if last is not None and self.get_time() - last < 86_400_000:
             return False
 
-        # 사회욕 80+ 필요
+        # 그리움 80+ 필요
         try:
             import needs
-            social = needs.get_social(self.unit_id)
+            longing = needs.get_max_longing(self.unit_id)
         except ImportError:
             return False
-        if social < 80:
+        if longing < 80:
             return False
 
         # 인벤토리에 선물 가능 아이템 확인
@@ -1494,7 +1514,8 @@ class BaseAgent:
             active_phases = []
             for key in ("hunger_phase", "cold_phase", "hot_phase", "clothing_phase",
                         "excretion_phase", "self_comfort_phase", "seek_player_phase",
-                        "socialize_phase", "gift_phase", "childbirth_phase", "maternal_phase",
+                        "socialize_phase", "gift_phase", "laundry_phase",
+                        "childbirth_phase", "maternal_phase",
                         "restrained_phase", "rescue_phase", "sound_reaction_phase"):
                 val = self._memory.get(key)
                 if val is not None:
@@ -2236,7 +2257,7 @@ class BaseAgent:
         elif condition == "need_social":
             try:
                 import needs
-                return needs.get_social(self.unit_id) >= 50
+                return needs.get_max_longing(self.unit_id) >= 50
             except ImportError:
                 return False
         elif condition == "need_wood_chip":
@@ -2322,7 +2343,7 @@ from think.handlers import (
     _handle_self_comfort, _handle_seek_player,
     _SELF_COMFORT_COOLDOWN_MS,
     _handle_socialize, _handle_gift,
-    _find_socialize_target, _find_gift_item, _find_gift_target,
+    _find_most_missed, _find_gift_item, _find_gift_target,
 )
 from think.handlers.self_comfort import _resolve_private_location
 from think.handlers.laundry import _handle_laundry, _find_dirty_equipped_clothing

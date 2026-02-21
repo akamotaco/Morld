@@ -676,6 +676,8 @@ class Yuki(Character):
     SEXUAL_PREFERENCES = {
         "preferred_positions": ["face_sitting", "missionary"],
         "preferred_parts": ["M", "V"],
+        "dominance": 0.7,
+        "restraint_preference": 0.6,
     }
 
     # ========================================

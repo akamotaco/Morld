@@ -844,6 +844,8 @@ class Lina(Character):
     SEXUAL_PREFERENCES = {
         "preferred_positions": ["cowgirl", "standing_face"],
         "preferred_parts": ["C", "M"],
+        "dominance": 0.2,
+        "restraint_preference": 0.1,
     }
 
     # ========================================

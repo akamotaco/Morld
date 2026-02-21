@@ -108,7 +108,9 @@ _needs = sys.modules.get("needs") or types.ModuleType("needs")
 _needs.is_npc_need_excretion = lambda uid: False
 _needs.is_npc_need_sleep = lambda uid: False
 _needs.is_npc_need_bath = lambda uid: False
-_needs.get_social = lambda uid: 0
+_needs.get_longing = lambda uid, name: 0
+_needs.get_max_longing = lambda uid: 0
+_needs.reduce_longing = lambda uid, name, amount=None: None
 _needs.get_arousal = lambda uid: 0
 _needs.get_fatigue = lambda uid: 0
 _needs.set_excretion = lambda uid, val: None
@@ -155,6 +157,7 @@ _restraint.is_upper_restrained = lambda uid: False
 _restraint.is_lower_restrained = lambda uid: False
 _restraint.is_gagged = lambda uid: False
 _restraint.is_blindfolded = lambda uid: False
+_restraint.can_use_hands = lambda uid: True
 _restraint.get_restrained_units_at = lambda loc: []
 _restraint.release = lambda uid: None
 sys.modules.setdefault("restraint", _restraint)
@@ -352,7 +355,9 @@ def _reset_all():
     _needs.is_npc_need_excretion = lambda uid: False
     _needs.is_npc_need_sleep = lambda uid: False
     _needs.is_npc_need_bath = lambda uid: False
-    _needs.get_social = lambda uid: 0
+    _needs.get_longing = lambda uid, name: 0
+    _needs.get_max_longing = lambda uid: 0
+    _needs.reduce_longing = lambda uid, name, amount=None: None
     _needs.get_arousal = lambda uid: 0
     _needs.get_fatigue = lambda uid: 0
     _needs._excretion_log.clear()
@@ -366,6 +371,7 @@ def _reset_all():
     _restraint.is_lower_restrained = lambda uid: False
     _restraint.is_gagged = lambda uid: False
     _restraint.is_blindfolded = lambda uid: False
+    _restraint.can_use_hands = lambda uid: True
     _restraint.get_restrained_units_at = lambda loc: []
 
     # fuel

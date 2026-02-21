@@ -227,6 +227,12 @@ def _handle_clothing(agent):
     phase = agent._memory["clothing_phase"]
 
     if phase == "idle":
+        # 상체 결박 중이면 착의 불가
+        import restraint
+        if not restraint.can_use_hands(agent.unit_id):
+            agent._memory["clothing_phase"] = None
+            agent._do_instant_action("대기", "abort")
+            return
         # 인벤토리에 착용 가능한 옷이 있으면 바로 장착
         if _has_clothing_in_inventory(agent.unit_id):
             agent._memory["clothing_phase"] = "equipping"

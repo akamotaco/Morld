@@ -871,6 +871,8 @@ class Mila(Character):
     SEXUAL_PREFERENCES = {
         "preferred_positions": ["missionary", "face_sitting"],
         "preferred_parts": ["B", "V"],
+        "dominance": 0.0,
+        "restraint_preference": 0.0,
     }
 
     # ========================================

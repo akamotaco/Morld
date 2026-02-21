@@ -865,6 +865,8 @@ class Ella(Character):
     SEXUAL_PREFERENCES = {
         "preferred_positions": ["doggy", "reverse_cowgirl"],
         "preferred_parts": ["A", "C"],
+        "dominance": 0.5,
+        "restraint_preference": 0.0,
     }
 
     # ========================================

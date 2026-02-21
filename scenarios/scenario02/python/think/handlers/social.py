@@ -1,7 +1,7 @@
 """사회 핸들러 (Tier 4 인터럽트)
 
-NPC-NPC 대화: 대상 탐색 → 이동 → 대화(30분) → 사회욕 감소
-NPC→NPC 선물: 대상 탐색 → 이동 → 전달(5분) → 호감 증가
+NPC-NPC 대화: 그리움 기반 대상 탐색 → 이동 → 대화(30분) → 그리움 해소
+NPC→NPC 선물: 그리움 기반 대상 탐색 → 이동 → 전달(5분) → 호감 증가
 """
 import morld
 
@@ -12,7 +12,6 @@ import morld
 
 _LOVER_AFFECTION_THRESHOLD = 60  # 연인 판정 호감 임계치
 _SOCIALIZE_COOLDOWN_MS = 3_600_000  # 1시간
-_SOCIALIZE_SOCIAL_THRESHOLD = 70    # 사회욕 임계치
 
 
 # ========================================
@@ -54,32 +53,62 @@ def _is_lover_npc(npc_id, other_id):
 
 
 # ========================================
-# NPC-NPC 대화 (사회욕 기반)
+# 이름 → unit_id 조회
 # ========================================
 
-def _find_socialize_target(agent):
-    """대화 대상 NPC 탐색 (같은 location, 수면/기절 중 아닌 NPC)"""
-    my_loc = agent.get_location()
-    if my_loc is None:
-        return None
-
+def _resolve_unit_by_name(name):
+    """이름으로 unit_id 조회 (NPC + 플레이어)"""
+    player_id = morld.get_player_id()
+    if player_id:
+        player_info = morld.get_unit_info(player_id)
+        if player_info and player_info.get("name") == name:
+            return player_id
     from think import _agents
-    for uid, other_agent in _agents.items():
-        if uid == agent.unit_id:
-            continue
-        other_loc = other_agent.get_location()
-        if other_loc is None:
-            continue
-        if other_loc[0] == my_loc[0] and other_loc[1] == my_loc[1]:
-            # 수면/기절 중이면 스킵
-            info = morld.get_unit_info(uid)
-            if info:
-                job_name = info.get("job_name", "")
-                if job_name in ("sleep", "fainting"):
-                    continue
+    for uid in _agents:
+        info = morld.get_unit_info(uid)
+        if info and info.get("name") == name:
             return uid
-
     return None
+
+
+# ========================================
+# 그리움 기반 대상 탐색
+# ========================================
+
+def _find_most_missed(agent, threshold=70):
+    """가장 그리운 대상 탐색 (NPC + 플레이어)
+
+    그리움 ≥ threshold인 대상 중 가장 높은 값의 대상을 반환.
+    수면/기절 중인 대상은 제외.
+
+    Returns: (target_unit_id, longing_value) or (None, 0)
+    """
+    props = morld.get_unit_props(agent.unit_id)
+    if not props:
+        return None, 0
+
+    best_id, best_val = None, 0
+    for key, val in props.items():
+        if not key.startswith("그리움:"):
+            continue
+        if not isinstance(val, (int, float)) or val < threshold:
+            continue
+        if val <= best_val:
+            continue
+        name = key.split(":", 1)[1]
+        uid = _resolve_unit_by_name(name)
+        if uid is None or uid == agent.unit_id:
+            continue
+        # 수면/기절 중 대상 제외
+        info = morld.get_unit_info(uid)
+        if info:
+            job_name = info.get("job_name", "")
+            if job_name in ("sleep", "fainting"):
+                continue
+        best_id = uid
+        best_val = val
+
+    return best_id, best_val
 
 
 def _handle_socialize(agent):
@@ -130,15 +159,28 @@ def _handle_socialize(agent):
             agent._move_to(target, "대화")
 
     elif phase == "talking":
-        # 대화 완료 → 양측 사회욕 감소
+        # 대화 완료 → 양측 그리움 해소
+        target_id = agent._memory.get("socialize_target_id")
         try:
             import needs
-            needs.reduce_social(agent.unit_id, 30)
-            target_id = agent._memory.get("socialize_target_id")
-            if target_id:
-                needs.reduce_social(target_id, 15)  # 상대방은 절반
+            target_info = morld.get_unit_info(target_id) if target_id else None
+            agent_info = morld.get_unit_info(agent.unit_id)
+            if target_info and agent_info:
+                needs.reduce_longing(agent.unit_id,
+                                     target_info.get("name", ""))
+                needs.reduce_longing(target_id,
+                                     agent_info.get("name", ""))
         except ImportError:
             pass
+
+        # 평판 전파 (양방향)
+        if target_id:
+            try:
+                import reputation
+                reputation.propagate(agent.unit_id, target_id)
+                reputation.propagate(target_id, agent.unit_id)
+            except ImportError:
+                pass
 
         agent._memory["socialize_phase"] = None
         agent._memory["socialize_target_id"] = None
@@ -177,46 +219,9 @@ def _find_gift_item(agent):
 
 
 def _find_gift_target(agent):
-    """선물 대상 NPC 탐색 (같은 region, 호감 높은 NPC)"""
-    my_loc = agent.get_location()
-    if my_loc is None:
-        return None
-
-    my_region = my_loc[0]
-    my_name = None
-    my_info = morld.get_unit_info(agent.unit_id)
-    if my_info:
-        my_name = my_info.get("name", "")
-
-    best_target = None
-    best_aff = 0
-
-    from think import _agents
-    for uid, other_agent in _agents.items():
-        if uid == agent.unit_id:
-            continue
-        other_loc = other_agent.get_location()
-        if other_loc is None:
-            continue
-        if other_loc[0] != my_region:
-            continue
-
-        # 수면/기절 중이면 스킵
-        info = morld.get_unit_info(uid)
-        if info:
-            job_name = info.get("job_name", "")
-            if job_name in ("sleep", "fainting"):
-                continue
-
-        # 호감도 확인
-        if my_name:
-            props = morld.get_unit_props(uid) or {}
-            aff = props.get(f"관계:{my_name}:호감", 0)
-            if aff > best_aff:
-                best_aff = aff
-                best_target = uid
-
-    return best_target
+    """선물 대상 탐색 (그리움 ≥ 80, cross-region)"""
+    uid, _ = _find_most_missed(agent, threshold=80)
+    return uid
 
 
 def _handle_gift(agent):

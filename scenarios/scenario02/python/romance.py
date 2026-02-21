@@ -1068,6 +1068,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
             if not is_pull_out_available(state):
                 return render_romance_ui(state)
             pid = state["partner_id"]
+            cur_mode = state["mode_ctx"]["mode"]
             # NPC thrust trance 종료 + 허리흔들기 토글 해제 + 삽입 상태 해제
             _end_npc_thrust_trance(state)
             for tid in list(state["active_toggles"]):
@@ -1531,7 +1532,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL):
                             climax_info = stimulation.force_climax(stim_state)
                             if climax_info:
                                 active_toggle_defs = [TOGGLE_ACTIONS[t] for t in state["active_toggles"]]
-                                ecstasy = apply_effects.__wrapped__(climax_info, active_toggle_defs) if hasattr(apply_effects, '__wrapped__') else None
+                                ecstasy = apply_effects(climax_info, active_toggle_defs)
                                 # 사정 처리 (has_p인 경우)
                                 if climax_info.get("has_p"):
                                     pid = state["partner_id"]

@@ -11,7 +11,7 @@ from .self_comfort import (
 )
 from .social import (
     _handle_socialize, _handle_gift,
-    _find_socialize_target, _find_gift_item, _find_gift_target,
-    _SOCIALIZE_COOLDOWN_MS, _SOCIALIZE_SOCIAL_THRESHOLD,
+    _find_most_missed, _find_gift_item, _find_gift_target,
+    _SOCIALIZE_COOLDOWN_MS,
 )
 from .laundry import _handle_laundry, _find_dirty_equipped_clothing

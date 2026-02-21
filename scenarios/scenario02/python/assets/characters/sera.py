@@ -493,6 +493,8 @@ class Sera(Character):
     SEXUAL_PREFERENCES = {
         "preferred_positions": ["standing_face", "doggy"],
         "preferred_parts": ["V", "A"],
+        "dominance": 0.1,
+        "restraint_preference": 0.0,
     }
 
     # ========================================

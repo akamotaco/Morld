@@ -487,7 +487,7 @@ class BaseAgent:
 | `can_cook` | 요리 가능 | `storage:food_ingredient` 컨테이너에 food_ingredient 카테고리 재료 ≥ 2 |
 | `need_supplies` | 물자 부족 | `storage:food` 컨테이너에 food 카테고리 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 location 존재 |
-| `need_social` | 사교 필요 | `needs.get_social(unit_id) >= 50` |
+| `need_social` | 사교 필요 | `needs.get_max_longing(unit_id) >= 50` (최대 그리움 기반) |
 | `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |
 | `need_fuel_material` | 연료 재료 부족 | `storage:material` 컨테이너에 branch < 기준치 또는 log < 기준치 |
 

@@ -45,6 +45,12 @@ def _handle_eat(agent):
     phase = agent._memory["hunger_phase"]
 
     if phase == "idle":
+        # 상체 결박 중이면 식사 불가
+        import restraint
+        if not restraint.can_use_hands(agent.unit_id):
+            agent._memory["hunger_phase"] = None
+            agent._do_instant_action("대기", "abort")
+            return
         # 인벤토리에 음식이 있으면 바로 식사
         food = _find_npc_food(agent.unit_id)
         if food:

@@ -219,6 +219,12 @@ def _handle_self_comfort(agent):
     phase = agent._memory["self_comfort_phase"]
 
     if phase == "idle":
+        # 상체 결박 중이면 자위 불가
+        import restraint
+        if not restraint.can_use_hands(agent.unit_id):
+            agent._memory["self_comfort_phase"] = None
+            agent._do_instant_action("대기", "abort")
+            return
         target = _resolve_private_location(agent)
         if target is None:
             agent._memory["self_comfort_phase"] = None

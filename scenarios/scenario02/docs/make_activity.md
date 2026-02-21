@@ -450,7 +450,7 @@ candidates는 **순서대로** 평가됩니다. 첫 번째로 조건이 True인 
 | `can_cook` | 요리 가능 | `food_ingredient` 컨테이너에 food_ingredient 카테고리 재료 ≥ 2 |
 | `need_supplies` | 물자 부족 | `food` 컨테이너에 food 카테고리 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 방 존재 |
-| `need_social` | 사교 필요 | `needs.get_social() >= 50` |
+| `need_social` | 사교 필요 | `needs.get_max_longing() >= 50` (최대 그리움 기반) |
 | `need_wood_chip` | 나무조각 부족 | `material` 컨테이너에서 wood_chip < 기준치 |
 | `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |
 | `need_fuel_material` | 연료 재료 부족 | `material` 컨테이너에서 branch < 6 또는 log < 3 |

@@ -105,6 +105,12 @@ NPC_BLOCK_PERSONALITY_BONUS = {
     "devoted": -0.20,    # 헌신: 거의 차단 안함
 }
 
+# NPC 주도 결박 상수
+NPC_RESTRAIN_COOLDOWN_MS = 86_400_000  # 24시간
+NPC_RESTRAIN_MIN_AROUSAL = 60          # 최소 성욕
+NPC_RESTRAIN_MIN_AFFECTION = 60        # 최소 호감
+NPC_RESTRAIN_MIN_SUBMISSION = 40       # 최소 복종 (호감 미충족 시)
+
 
 # ============================================
 # 유틸리티 함수
@@ -396,6 +402,100 @@ def advance_time_and_check_npc_initiative(state, millis):
 
     # 제3자 도착 체크
     return check_third_party_arrival(state)
+
+
+# ============================================
+# NPC 주도 결박 트리거
+# ============================================
+
+def _find_restraint_in_npc_inventory(npc_id):
+    """NPC 인벤토리에서 결박 아이템 탐색"""
+    import equipment as eq
+    inventory = morld.get_unit_inventory(npc_id)
+    if not inventory:
+        return None
+    equipped = set(eq.get_equipped_items(npc_id)) if hasattr(eq, 'get_equipped_items') else set()
+    for item_id, count in inventory.items():
+        item_id_int = int(item_id)
+        if item_id_int in equipped:
+            continue
+        info = morld.get_item_info(item_id_int)
+        if not info:
+            continue
+        ep = info.get("equip_props", {})
+        if ep.get("결박:상체") or ep.get("결박:하체"):
+            return item_id_int
+    return None
+
+
+def check_npc_restrain_trigger(state):
+    """NPC 주도 결박 판정
+
+    조건:
+      1. NPC dominance ≥ 0.3, restraint_preference ≥ 0.2
+      2. NPC 인벤토리에 결박 아이템 보유
+      3. NPC 성욕 ≥ 60
+      4. 플레이어 호감 ≥ 60 OR 복종 ≥ 40
+      5. 쿨다운 24시간
+      6. 확률 = dominance × restraint_pref × (arousal / 100)
+
+    Returns:
+        (should_try, item_id, message)
+    """
+    npc_id = state["npc_id"]
+    player_id = state["player_id"]
+
+    # 이미 결박 중이면 스킵
+    import restraint
+    if restraint.is_any_restrained(player_id):
+        return False, None, ""
+
+    # 1. 성향 체크
+    npc_asset = get_npc_asset(npc_id)
+    prefs = getattr(npc_asset, 'SEXUAL_PREFERENCES', {}) or {}
+    dom = prefs.get("dominance", 0)
+    res_pref = prefs.get("restraint_preference", 0)
+    if dom < 0.3 or res_pref < 0.2:
+        return False, None, ""
+
+    # 2. 인벤토리에 결박 아이템 확인
+    restraint_item = _find_restraint_in_npc_inventory(npc_id)
+    if restraint_item is None:
+        return False, None, ""
+
+    # 3. 성욕 체크
+    arousal = morld.get_unit_prop(npc_id, "상태:성욕") or 0
+    if arousal < NPC_RESTRAIN_MIN_AROUSAL:
+        return False, None, ""
+
+    # 4. 관계 체크 (호감 60+ OR 복종 40+)
+    player_info = morld.get_unit_info(player_id)
+    p_name = player_info.get("name", "주인공") if player_info else "주인공"
+    aff = morld.get_unit_prop(npc_id, f"관계:{p_name}:호감") or 0
+    sub = morld.get_unit_prop(npc_id, f"관계:{p_name}:복종") or 0
+    if aff < NPC_RESTRAIN_MIN_AFFECTION and sub < NPC_RESTRAIN_MIN_SUBMISSION:
+        return False, None, ""
+
+    # 5. 쿨다운 (24h)
+    last = morld.get_unit_prop(npc_id, "NPC주도:결박쿨다운") or 0
+    if morld.get_game_time() - last < NPC_RESTRAIN_COOLDOWN_MS:
+        return False, None, ""
+
+    # 6. 확률 판정
+    chance = dom * res_pref * (arousal / 100)
+    if random.random() > chance:
+        return False, None, ""
+
+    # 반응 메시지 (캐릭터 반응 시스템)
+    msg = ""
+    if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
+        msg = npc_asset.get_romance_reaction(
+            "npc_restrain_attempt", "start",
+            stim_state=state.get("stim")) or ""
+    if not msg:
+        msg = "(결박 장비를 꺼내며 다가온다...)"
+
+    return True, restraint_item, msg
 
 
 # ============================================
@@ -753,9 +853,23 @@ def render_npc_initiative_ui(state):
 
     lines.append("")
 
+    # 결박 상태 표시
+    if state.get("player_restrained"):
+        import restraint
+        parts_restrained = []
+        if restraint.is_upper_restrained(player_id):
+            parts_restrained.append("상체")
+        if restraint.is_lower_restrained(player_id):
+            parts_restrained.append("하체")
+        if parts_restrained:
+            lines.append(f"[color=red]결박: {'+'.join(parts_restrained)}[/color]")
+
     # 탈출 확률 표시
     escape_chance = calculate_escape_chance(player_id, npc_id)
-    lines.append(f"[color=gray]탈출 확률: {int(escape_chance * 100)}%[/color]")
+    import restraint as restraint_mod
+    escape_mult = restraint_mod.get_escape_multiplier(player_id)
+    effective_escape = escape_chance * escape_mult
+    lines.append(f"[color=gray]탈출 확률: {int(effective_escape * 100)}%[/color]")
 
     # 탈출 결과 표시 (있으면)
     if state["escape_result"]:
@@ -879,6 +993,10 @@ def render_npc_initiative_ui(state):
         lines.append("[url=@proc:escape]빠져나가기 시도[/url]")
         lines.append("[url=@proc:resist_start][color=red]저항하기[/color][/url]")
         lines.append("[url=@proc:accept]받아들이기[/url]")
+
+        # 결박 해제 시도 (결박 상태일 때)
+        if state.get("player_restrained"):
+            lines.append("[url=@proc:escape_restraint][color=orange]결박 해제 시도[/color][/url]")
 
         # 공수 전환 버튼 (플레이어 주도로 전환)
         if affection >= ROMANCE_ENTRY_THRESHOLD:
@@ -1242,8 +1360,25 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         # 윤활 상태 업데이트
         check_lubrication(npc_id, state)
 
-        # 여운 중: NPC는 새 행위를 선택하지 않음 (기존 토글만 유지)
+        # NPC 결박 시도 (여운 아닐 때, 미결박 상태)
         afterglow = state["stim"].get("afterglow", 0)
+        if afterglow <= 0 and not state.get("player_restrained"):
+            should_try, r_item, r_msg = check_npc_restrain_trigger(state)
+            if should_try:
+                import restraint
+                success, _ = restraint.attempt_restrain(
+                    npc_id, player_id, r_item, mode="forced")
+                if success:
+                    state["player_restrained"] = True
+                    morld.set_unit_prop(npc_id, "NPC주도:결박쿨다운",
+                                        morld.get_game_time())
+                    state["last_reaction"] = r_msg
+                    return
+                # 실패 시 쿨다운만 설정 (같은 세션 내 재시도 방지)
+                morld.set_unit_prop(npc_id, "NPC주도:결박쿨다운",
+                                    morld.get_game_time())
+
+        # 여운 중: NPC는 새 행위를 선택하지 않음 (기존 토글만 유지)
         if afterglow > 0:
             new_action = None
             new_toggle_def = None
@@ -1423,6 +1558,26 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             else:
                 state["escape_result"] = "빠져나가지 못했다."
 
+            return render_npc_initiative_ui(state)
+
+        # 결박 해제 시도
+        if action == "escape_restraint":
+            state["escape_result"] = None
+            import restraint
+            success = restraint.attempt_self_escape(player_id)
+            if success:
+                # 아직 결박 남아있는지 확인
+                if not restraint.is_any_restrained(player_id):
+                    state["player_restrained"] = False
+                    state["last_reaction"] = "(결박에서 빠져나왔다!)"
+                else:
+                    state["last_reaction"] = "(결박 일부를 풀었다.)"
+            else:
+                state["last_reaction"] = "(결박을 풀지 못했다...)"
+            # NPC는 계속 행위 (시간 경과)
+            _npc_auto_advance(state, npc_id, player_id, npc_asset)
+            if state["exhausted"] or state["interrupted"] or state["npc_satisfied"]:
+                return True
             return render_npc_initiative_ui(state)
 
         # 저항 모드 진입
@@ -1785,6 +1940,14 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         from romance import start_romance
         yield from start_romance(player_id, npc_id, preserved=preserved)
         return
+
+    # 결박 해제 (NPC 성욕 < 30 → 자동 해제)
+    if state.get("player_restrained"):
+        npc_arousal_final = morld.get_unit_prop(npc_id, "상태:성욕") or 0
+        if npc_arousal_final < 30:
+            import restraint
+            restraint.release_unit(player_id)
+            state["player_restrained"] = False
 
     # 종료 처리 — 플레이어 체력 기록 (HP 연동)
     survival.set_health(player_id, state["stamina"])

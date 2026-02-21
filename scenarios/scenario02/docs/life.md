@@ -237,7 +237,7 @@ def find_toilet_location(unit_id):
 | 배변 | `욕구:배변` | 0-100 | 식사 시 `max(5, 포만감/2)` | 화장실 → 0 | 70 |
 | 피로 | `욕구:피로` | 0-100 | +4/h (각성 중) | 수면 중 -12/h | 80 |
 | 청결 | `욕구:청결` | 0-100 | +1 + 오염×0.1 + 젖음×0.05 | 목욕 → 0 | 70 |
-| 사회 | `욕구:사회` | 0-100 | +1/h (고립 시) | 대화/교류 시 감소 | — |
+| 그리움 | `그리움:{name}` | 0-100 | 호감 기반 (대상별) | 대화/만남 시 해소 | 70 (찾아감) |
 | 성욕 | `상태:성욕` | 0-100 | +0.5/h (동적 cap) | 절정 → 0 | — |
 
 ### 매시간 업데이트
@@ -253,9 +253,8 @@ def _process_hourly(unit_id):
     # 청결: 오염 + 젖음 기반 증가
     cleanliness_increase = (1 + pollution × 0.1 + wetness × 0.05)
 
-    # 사회: 같은 location에 다른 캐릭터 없으면 증가
-    if _is_alone(unit_id):
-        add_social(unit_id, SOCIAL_RATE)  # +1/h
+    # 그리움: 호감 30+ 대상별 축적/감소 (대상과 떨어져 있으면 증가)
+    _update_longing(unit_id)
 
     # 성욕: 자연 증가 (욕망 기반 동적 상한)
     arousal_cap = _get_arousal_cap(unit_id)  # min(100, 50 + max_desire * 0.5)
@@ -329,14 +328,15 @@ needs.register_character(unit_id)
 needs.get_excretion(unit_id)     # → float
 needs.get_fatigue(unit_id)       # → float
 needs.get_cleanliness(unit_id)   # → float
-needs.get_social(unit_id)        # → float
+needs.get_longing(unit_id, name)  # → float (대상별 그리움)
+needs.get_max_longing(unit_id)    # → float (최대 그리움)
 
 # 수정
 needs.add_excretion(unit_id, amount)
 needs.set_excretion(unit_id, 0)     # 화장실 사용 시
 needs.set_cleanliness(unit_id, 0)   # 목욕 시
 needs.reduce_fatigue(unit_id, amount)
-needs.reduce_social(unit_id, amount)
+needs.reduce_longing(unit_id, name) # 대화/만남 시 그리움 해소
 
 # NPC 체크
 needs.is_npc_need_excretion(unit_id)  # → bool (≥ 70)
@@ -793,10 +793,9 @@ class NPCInteraction:
 
     # 대화 발동 조건
     TALK_CONDITIONS = {
-        "min_affection": 30,      # 최소 호감도
-        "min_social_need": 40,    # 최소 사회욕
+        "min_longing": 70,        # 최소 그리움 (대상별)
         "cooldown": 60,           # 쿨다운 (분)
-        "same_location": True,    # 같은 위치 필요
+        "cross_region": True,     # 다른 region도 찾아감
     }
 
     # 선물 발동 조건
@@ -813,42 +812,30 @@ class NPCInteraction:
 def check_interaction_opportunity(self, target_id):
     """상호작용 기회 체크"""
 
-    # 같은 위치인지
-    my_loc = morld.get_unit_location(self.unit_id)
-    target_loc = morld.get_unit_location(target_id)
-    if my_loc != target_loc:
+    # 그리움 기반 대상 탐색 (cross-region)
+    from think.handlers.social import _find_most_missed
+    target_id, longing = _find_most_missed(self, threshold=70)
+    if target_id is None:
         return None
-
-    # 호감도
-    affection = self.get_affection_to(target_id)
-
-    # 사회욕
-    social_need = morld.get_unit_prop(self.unit_id, "욕구:사회")
 
     # 쿨다운
-    last_interaction = self.get_last_interaction_time(target_id)
-    if last_interaction and (now - last_interaction) < COOLDOWN:
+    last = self._memory.get("socialize_cooldown")
+    if last and (self.get_time() - last) < 3_600_000:
         return None
 
-    # 대화 조건 체크
-    if (affection >= 30 and social_need >= 40):
-        return "talk"
-
-    # 선물 조건 체크 (더 높은 호감도)
-    if (affection >= 50 and self._has_gift_item()):
-        return "gift"
-
-    return None
+    return "talk"  # 대상 location으로 이동 → 대화
 
 def initiate_interaction(self, target_id, interaction_type):
     """상호작용 시작"""
 
     if interaction_type == "talk":
-        # NPC가 먼저 말 걸기
-        yield morld.dialog(self._get_greeting(target_id))
-
-        # 사회욕 해소
-        morld.add_unit_prop(self.unit_id, "욕구:사회", -30)
+        # NPC가 대상 위치로 이동 → 대화(30분) → 양측 그리움 해소
+        import needs
+        target_info = morld.get_unit_info(target_id)
+        agent_info = morld.get_unit_info(self.unit_id)
+        if target_info and agent_info:
+            needs.reduce_longing(self.unit_id, target_info.get("name", ""))
+            needs.reduce_longing(target_id, agent_info.get("name", ""))
 
     elif interaction_type == "gift":
         gift = self._select_gift_item()
@@ -860,26 +847,15 @@ def initiate_interaction(self, target_id, interaction_type):
 
 ```python
 class Character:
-    # 상호작용 설정
-    INTERACTION_CONFIG = {
-        "talk_threshold": 30,      # 대화 호감도 임계값
-        "social_need_weight": 1.0, # 사회욕 가중치
-        "proactive": 0.5,          # 적극성 (0~1)
-    }
+    # 상호작용은 그리움 시스템으로 자동 결정
+    # 호감 30+ 대상 → 그리움 축적 → 70+ 시 찾아감
+    # rate = (호감 - 30) / 70 * 2.0/h
+    # 호감 100 → +2.0/h (50시간에 100 도달)
+    # 호감 65  → +1.0/h (100시간에 100 도달)
+    # 호감 30  → +0.0/h (그리워하지 않음)
 
-class Sera(Character):
-    INTERACTION_CONFIG = {
-        "talk_threshold": 50,      # 높은 임계값 (과묵)
-        "social_need_weight": 0.5, # 사회욕 영향 적음
-        "proactive": 0.2,          # 소극적
-    }
-
-class Lina(Character):
-    INTERACTION_CONFIG = {
-        "talk_threshold": 20,      # 낮은 임계값 (친근)
-        "social_need_weight": 1.5, # 사회욕 영향 큼
-        "proactive": 0.8,          # 적극적
-    }
+# 캐릭터별 차이는 호감도 축적 속도에 의해 자연 발생
+# (호감이 높은 대상을 더 빨리 그리워함)
 ```
 
 ---
@@ -949,7 +925,7 @@ class LifeAgent(BaseAgent):
 | 2b | 욕구 증가/감소 로직 (배고픔) | 2a | 중간 | **구현됨** (survival.py) |
 | 2c | 긴급 행동 트리거 (배고픔) | 2b, 1b | 중간 | **구현됨** (_check_hunger) |
 | 2d | 추위/더위 인터럽트 | 체온 시스템 | 중간 | **구현됨** (_check_cold/_check_hot) |
-| 2e | 배변/피로/청결/사회욕 수치화 | 2a | 중간 | **구현됨** (needs.py, v0.2.2) |
+| 2e | 배변/피로/청결/그리움 수치화 | 2a | 중간 | **구현됨** (needs.py, v0.2.2) |
 | 3a | 소유물 검색 API | 없음 | 중간 | 미구현 |
 | 3b | 도구 기반 Activity | 3a | 중간 | **구현됨** (벌목 도끼, 낚시대) |
 | 3c | 결과물 저장소 이동 | 3a, 1b | 높음 | **구현됨** (채집→저장, 낚시→저장, 요리→저장) |
@@ -978,8 +954,8 @@ class LifeAgent(BaseAgent):
 10:30 [배변욕 80] 화장실로 긴급 이동
 10:40 [스케줄 복귀] 사냥터로 복귀
       ...
-18:00 [사회욕 60 + 호감도] 플레이어 발견 → NPC 주도 대화
-      "...오늘 사냥은 어땠어?"
+18:00 [그리움 70+] 플레이어 찾아감 → 방문 대화
+      "...잠깐 보러 왔어."
 ```
 
 ### 리나의 하루 (시스템 완성 후)
@@ -995,7 +971,7 @@ class LifeAgent(BaseAgent):
       ... 채집 중 ...
 11:00 [Activity 완료] 산딸기 5개, 버섯 3개 획득
 11:10 [결과물 처리] 주방 저장고로 이동, 보관
-11:30 [사회욕 70] 밀라 발견 → 대화
+11:30 [그리움:밀라 70+] 밀라 찾아감 → 대화
       "밀라 언니~ 채집 다녀왔어요!"
 12:00 [배고픔 60] 점심 식사
       ...
