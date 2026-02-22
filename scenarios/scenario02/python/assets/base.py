@@ -609,10 +609,43 @@ _FOCUS_AFFECTION = {
     ],
 }
 
+_FOCUS_MENSTRUATION = {
+    "stoic": [
+        ({"월경": True}, "몸이 불편해 보이지만 내색하지 않고 있다."),
+    ],
+    "gentle": [
+        ({"월경": True}, "배가 아픈 것 같다. 괜찮냐고 물으면 괜찮다고 웃어 보인다."),
+    ],
+    "cheerful": [
+        ({"월경": True}, "평소의 밝은 기운이 좀 줄어들어 있다."),
+    ],
+    "timid": [
+        ({"월경": True}, "얼굴이 창백하다. 자주 배를 감싸 쥐고 있다."),
+    ],
+    "cold": [
+        ({"월경": True}, "건드리지 마라는 듯한 분위기를 풍기고 있다."),
+    ],
+    "seductive": [
+        ({"월경": True}, "몸이 좋지 않은 모양이다. 살짝 기운이 없어 보인다."),
+    ],
+    "fierce": [
+        ({"월경": True}, "예민한 상태다. 건드리면 물릴 것 같다."),
+    ],
+    "proud": [
+        ({"월경": True}, "체면을 유지하고 있지만 가끔 미간이 찌푸려진다."),
+    ],
+    "innocent": [
+        ({"월경": True}, "배가 아픈 것 같다. 평소보다 얌전하다."),
+    ],
+    "devoted": [
+        ({"월경": True}, "몸이 불편한 듯 조심스럽게 움직이고 있다."),
+    ],
+}
+
 _DEFAULT_FOCUS_ORDER = [
     "carrying", "restraint", "climax", "exposure_body", "shame",
     "specials", "semen", "internal_semen",
-    "activity", "mood", "desire", "affection", "default",
+    "activity", "mood", "desire", "affection", "menstruation", "default",
 ]
 
 # 운반 중 FOCUS 텍스트 (운반자에게 표시)
@@ -642,6 +675,7 @@ def build_focus_rules(archetype, activities, default_text,
         "mood": _FOCUS_MOOD.get(archetype, []),
         "desire": _FOCUS_DESIRE.get(archetype, []),
         "affection": _FOCUS_AFFECTION.get(archetype, []),
+        "menstruation": _FOCUS_MENSTRUATION.get(archetype, []),
         "default": [({}, default_text)],
     }
     rules = []
@@ -1001,6 +1035,39 @@ _DESCRIBE_FATIGUE = {
     ],
 }
 
+_DESCRIBE_MENSTRUATION = {
+    "stoic": [
+        ({"월경": True}, "{name}의 표정이 살짝 굳어 있다. 몸이 불편한 것 같다."),
+    ],
+    "gentle": [
+        ({"월경": True}, "{name}(이)가 조용히 배를 어루만지고 있다."),
+    ],
+    "cheerful": [
+        ({"월경": True}, "{name}(이)가 평소보다 기운이 없어 보인다."),
+    ],
+    "timid": [
+        ({"월경": True}, "{name}(이)가 불편한 듯 몸을 움츠리고 있다."),
+    ],
+    "cold": [
+        ({"월경": True}, "{name}의 표정이 평소보다 더 날카롭다."),
+    ],
+    "seductive": [
+        ({"월경": True}, "{name}(이)가 나른한 듯 몸을 기대고 있다."),
+    ],
+    "fierce": [
+        ({"월경": True}, "{name}(이)가 짜증스러운 듯 미간을 찌푸리고 있다."),
+    ],
+    "proud": [
+        ({"월경": True}, "{name}(이)가 아무렇지 않은 척하지만 가끔 배를 감싸 쥔다."),
+    ],
+    "innocent": [
+        ({"월경": True}, "{name}(이)가 불편한 듯 가만히 앉아 있다."),
+    ],
+    "devoted": [
+        ({"월경": True}, "{name}(이)가 조용히 배를 누르며 참고 있다."),
+    ],
+}
+
 # 기생 상태 DESCRIBE — 부착 물리 묘사
 _DESCRIBE_PARASITE = [
     ({"기생:가슴": True, "기생:음부": True},
@@ -1078,7 +1145,7 @@ _DEFAULT_DESCRIBE_ORDER = [
     "climax", "exposure_body", "shame",
     "specials", "traveling", "activity", "weather", "location",
     "semen", "internal_semen", "desire", "affection",
-    "default", "fatigue",
+    "menstruation", "default", "fatigue",
 ]
 
 # 운반 중 DESCRIBE 텍스트 (운반자에게 표시)
@@ -1113,6 +1180,7 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
         "internal_semen": _DESCRIBE_INTERNAL_SEMEN.get(archetype, []),
         "desire": _DESCRIBE_DESIRE.get(archetype, []),
         "affection": _DESCRIBE_AFFECTION.get(archetype, []),
+        "menstruation": _DESCRIBE_MENSTRUATION.get(archetype, []),
         "default": [({}, default_text)],
         "fatigue": _DESCRIBE_FATIGUE.get(archetype, []),
     }
@@ -2357,6 +2425,15 @@ class Character(Unit):
                     morld.get_unit_prop(unit_id, _slot))
         except ImportError:
             context["기생체"] = False
+
+        # 월경/배란 상태
+        try:
+            import pregnancy as _pregnancy
+            context["월경"] = _pregnancy.is_menstruating(unit_id)
+            context["배란"] = _pregnancy.is_ovulating(unit_id)
+        except Exception:
+            context["월경"] = False
+            context["배란"] = False
 
         # 운반 상태
         import carry as _carry

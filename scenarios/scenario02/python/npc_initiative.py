@@ -1433,6 +1433,11 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                         orifice = "anal"
                     else:
                         orifice = None
+                    # 월경 중 질삽입 차단
+                    if orifice == "vaginal":
+                        import pregnancy as _preg_npc
+                        if _preg_npc.is_menstruating(player_id):
+                            orifice = None
                     if orifice:
                         state["insertion"]["active"] = True
                         state["insertion"]["orifice"] = orifice

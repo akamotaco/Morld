@@ -194,6 +194,9 @@ def render_romance_ui(state):
     if preg_text:
         lines.append(preg_text)
         lines.append("")
+    elif _pregnancy_mod.is_menstruating(partner_id):
+        lines.append("[color=yellow]월경 중[/color]")
+        lines.append("")
 
     # 호감, 욕망, 복종, 반발, 성욕 표시
     affection = partner_props.get(affection_key, 0)
@@ -437,6 +440,22 @@ def render_romance_ui(state):
         req_toggle = action.get("requires_active_toggle")
         if req_toggle and req_toggle not in state.get("active_toggles", set()):
             continue
+        # 월경 중 질삽입: 클릭 가능하되 경고 표시
+        if action_id == "vaginal_insert" and not is_inserted:
+            if _pregnancy_mod.is_menstruating(partner_id):
+                from romance import _get_menstruation_threshold
+                threshold = _get_menstruation_threshold(
+                    partner_id, cur_mode, state)
+                failed = state["insertion"].get("failed_count", 0)
+                if threshold > 0 and failed < threshold:
+                    remaining = threshold - failed
+                    hint = f" ({remaining})" if remaining > 1 else ""
+                    lines.append(
+                        f"  [url=@proc:instant:vaginal_insert]"
+                        f"[color=yellow]{action['name']} (월경 중{hint})"
+                        f"[/color][/url]")
+                    continue
+                # threshold==0 (자발적 수용) 또는 도달: 정상 렌더링
         # 결박/기생체/삽입물에 의한 차단
         blocked_reason = is_action_blocked_by_state(action, partner_id)
         if blocked_reason:

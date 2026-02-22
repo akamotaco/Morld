@@ -129,6 +129,23 @@ def get_cycle_phase(unit_id):
             return "여포기"
 
 
+def is_menstruating(unit_id):
+    """월경 중 여부 (주기일 1-5)"""
+    if morld.get_unit_prop(unit_id, "상태:임신"):
+        return False
+    cycle_day = morld.get_unit_prop(unit_id, "생식:주기일")
+    if cycle_day is None:
+        return False
+    return cycle_day <= 5
+
+
+def is_ovulating(unit_id):
+    """배란기 여부"""
+    if morld.get_unit_prop(unit_id, "상태:임신"):
+        return False
+    return get_cycle_phase(unit_id) == "배란기"
+
+
 # ============================================
 # 수정 판정
 # ============================================

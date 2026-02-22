@@ -1361,6 +1361,19 @@ ROMANCE_REACTIONS = {
 - `ACTION_REACTIONS` (`:during`) → 토글 묘사: `thrust_normal`, `thrust_gentle`, `thrust_rough`
 - `ACTION_LINES` (`:start`) → 즉시형 대사: `vaginal_insert`, `anal_insert`, `thrust_rough`, `genital_caress`, `first_vaginal_insert`, `first_anal_insert`
 
+### 월경 중 삽입 차단 (Menstruation Block)
+
+월경 중(`pregnancy.is_menstruating()`)에는 `vaginal_insert` 실행 시 **소프트 블록** 적용.
+`anal_insert`, 손가락, 구강 등 다른 행위는 영향 없음.
+
+**차단 위치:** `_check_insertion_hard_fail()` — 기생체 체크(#0) 뒤, 윤활 체크(#2) 앞
+
+**동적 임계치:** 아키타입/욕망/성욕/V자극에 따라 0~4 범위.
+- threshold=0: 자발적 수용 → 정상 삽입 + willing 반응 대사
+- threshold>0: `failed_count < threshold` 동안 거부 대사 → 도달 시 강제 삽입 + forced 반응 대사 + 반발+5(합의)
+
+**상세 메커니즘:** [romance-pregnancy.md](romance-pregnancy.md) Section 2 "월경 중 삽입 거부 시스템" 참조
+
 ---
 
 ## 12.5. 절정 묘사 시스템 (Climax Description)

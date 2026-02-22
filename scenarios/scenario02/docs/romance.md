@@ -201,6 +201,12 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | 경험 기록 시스템 (부위별 첫/마지막) | romance_core.py (record_first/last_experience) | ✅ 완료 |
 | Creature 수간 후유증 | aftermath_templates.py (bestiality), creature_agent.py | ✅ 완료 |
 | Player 수간 피해 (기절 중) | survival.py (handle_player_faint 분기) | ✅ 완료 |
+| 월경/배란 표현 (describe/focus) | base.py (10 아키타입별 월경 텍스트) | ✅ 완료 |
+| 월경 중 삽입 거부 (동적 임계치) | romance.py (_get_menstruation_threshold) | ✅ 완료 |
+| 월경 중 강제 삽입 (반복 시도) | romance.py (_check_insertion_hard_fail) | ✅ 완료 |
+| 월경 자발적 수용/강제 반응 (10 아키타입) | romance.py (willing/forced reaction) | ✅ 완료 |
+| 월경 UI 표시 (헤더 + 잔여 횟수) | romance_ui.py | ✅ 완료 |
+| 월경 NPC 자율 삽입 차단 | romance.py, npc_initiative.py | ✅ 완료 |
 
 ---
 

@@ -144,6 +144,70 @@ def _daily_update(unit_id):
     morld.set_unit_prop(unit_id, "생식:주기일", cycle_day)
 ```
 
+### 월경 상태 표현 (Describe / Focus)
+
+월경 중인 캐릭터는 포커스/묘사 규칙에서 아키타입별 텍스트가 표시된다.
+
+**구현 파일:** `assets/base.py` — `_build_context()` + `_DESCRIBE_MENSTRUATION` / `_FOCUS_MENSTRUATION`
+
+- `_build_context()`에서 `pregnancy.is_menstruating()` / `is_ovulating()` 호출 → `context["월경"]`, `context["배란"]`
+- 10 아키타입별 describe/focus 텍스트 (1개씩)
+- `_DEFAULT_DESCRIBE_ORDER` / `_DEFAULT_FOCUS_ORDER`에서 `"menstruation"`은 `"default"` 바로 앞 (낮은 우선순위)
+
+### 월경 중 삽입 거부 시스템
+
+월경 중(`주기일 1-5`)에 `vaginal_insert` 시도 시 NPC가 거부한다.
+단, 반복 시도(동적 임계치)를 통해 강제 삽입 가능. 성격/욕망/흥분도에 따라 거부 강도 변동.
+
+**구현 파일:** `romance.py` — `_check_insertion_hard_fail()`, `_get_menstruation_threshold()`
+
+#### 동적 임계치
+
+```python
+def _get_menstruation_threshold(partner_id, mode, state):
+    # 의식없음/시간정지: 항상 0 (즉시 삽입)
+    # base: 합의 3 / 강제 1
+    # 아키타입 보정: seductive/devoted -1, fierce/cold +1
+    # 욕망 ≥ 60: -1
+    # 성욕 ≥ 50 + V자극 ≥ 40: -1
+    # 최솟값: 0
+```
+
+| 시나리오 | 계산 | 임계치 | 결과 |
+|----------|------|--------|------|
+| 기본 합의 | 3 | 3 | 3회 거부 후 삽입 |
+| 기본 강제 | 1 | 1 | 1회 거부 후 삽입 |
+| seductive + 높은 욕망 + 높은 자극 | 3-1-1-1=0 | 0 | 자발적 수용 |
+| fierce + 낮은 욕망 | 3+1=4 | 4 | 4회 거부 필요 |
+| 의식없음/시간정지 | — | 0 | 즉시 삽입 |
+
+#### 임계치별 분기
+
+- **threshold = 0 (자발적 수용)**: NPC가 월경 중임에도 괘념치 않음. 아키타입별 수용 대사 출력.
+- **0 < failed < threshold (거부)**: 시도 횟수별 아키타입 거부 대사 (최대 3-4단계).
+- **failed ≥ threshold (강제 삽입)**: 삽입 성공 + 아키타입별 reluctant 반응. 합의 모드 시 반발 +5.
+
+#### UI 표시
+
+- 로맨스 헤더: `[color=yellow]월경 중[/color]` (임신 아닌 경우)
+- `vaginal_insert` 버튼: `[color=yellow]삽입 (월경 중{잔여횟수})[/color]` (threshold > 0일 때)
+- threshold = 0: 정상 색상으로 표시 (자발적 수용)
+
+#### NPC 자율 삽입 차단
+
+- `romance.py`: `_check_npc_autonomous_action()` — 월경 중 vaginal 자율 삽입 차단
+- `npc_initiative.py`: NPC 주도 삽입 시 `orifice = None` (질 → 건너뜀)
+
+#### 헬퍼 함수 (pregnancy.py)
+
+```python
+def is_menstruating(unit_id):
+    """월경 중 여부 (주기일 1-5). 임신 중이면 False."""
+
+def is_ovulating(unit_id):
+    """배란기 여부. 임신 중이면 False."""
+```
+
 ---
 
 ## 3. 수정 판정 (Conception)
