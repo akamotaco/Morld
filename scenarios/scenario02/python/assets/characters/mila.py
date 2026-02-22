@@ -464,6 +464,9 @@ class Mila(Character):
         "처녀:항문": 1,
         "근력": 4, "체력": 5,
         "체격": 2, "가슴:크기": 3,
+        # 전투 스탯
+        "전투:공격력": 2, "전투:방어력": 2, "전투:명중": 60,
+        "전투:회피": 5, "전투:치명타": 2, "전투:사거리": 50,
     }
     actions = [
         "call:talk:대화",
@@ -1418,6 +1421,13 @@ class MilaAgent(BaseAgent):
     - 플레이어가 아프면 걱정하며 지켜봄
     - 계절별로 스케줄이 달라짐
     """
+
+    BATTLE_BEHAVIOR = {
+        "combat_style": "evasive",
+        "retreat_threshold": 0.8,
+        "join_combat": False,
+        "protect_player": False,
+    }
 
     # 계절별 스케줄
     # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)

@@ -1383,6 +1383,7 @@ class Character(Unit):
         if rules is None:
             result = self._apply_dynamic_action_labels(list(self.actions), info)
             result = self._add_casual_affection_actions(result)
+            result = self._add_combat_actions(result)
             result = self._add_carry_action(result)
             return self._add_loot_clothing_action(result)
 
@@ -1412,10 +1413,12 @@ class Character(Unit):
         import settings
         if not settings.is_romance_enabled():
             result = [a for a in result if not self._is_romance_action(a)]
+            result = self._add_combat_actions(result)
             result = self._add_carry_action(result)
             return self._add_loot_clothing_action(result)
 
         result = self._add_casual_affection_actions(result)
+        result = self._add_combat_actions(result)
         result = self._add_carry_action(result)
         return self._add_loot_clothing_action(result)
 
@@ -1517,6 +1520,28 @@ class Character(Unit):
         else:
             yield ui.dialog(["들어올릴 수 없다."])
 
+    def _add_combat_actions(self, actions):
+        """적대모드 ON 시 공격/소매치기 + 기절/사망 시 처치/루팅/수확 액션 동적 추가"""
+        import survival as _surv
+
+        is_fainted = _surv.is_npc_fainted(self.instance_id)
+        is_dead = morld.get_unit_prop(self.instance_id, "상태:사망")
+
+        if is_dead:
+            # 사망 시체: 루팅 + 수확
+            actions.append("call:loot:루팅")
+            if getattr(self, 'HARVEST_TABLE', None):
+                actions.append("call:harvest:수확")
+        elif is_fainted:
+            # 기절 상태: 처치 + 루팅
+            actions.append("call:finish_off:숨통 끊기#")
+            actions.append("call:loot:루팅#")
+        else:
+            # 일반 상태: 공격 + 소매치기
+            actions.append("call:attack:공격#")
+            actions.append("call:steal:소매치기#")
+        return actions
+
     def _add_loot_clothing_action(self, actions):
         """기절/결박 NPC에게 옷 강탈 액션 동적 추가"""
         import survival
@@ -1582,6 +1607,199 @@ class Character(Unit):
         inv_mod.safe_give_item(player_id, item_id, 1)
 
         yield ui.dialog([f"{self.name}의 {item_name}을(를) 빼앗았다."])
+
+    def attack(self):
+        """플레이어의 공격을 받는 핸들러 (self = 대상 NPC)"""
+        import combat
+
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "?") if player_info else "?"
+
+        if not combat.is_in_range(player_id, self.instance_id):
+            morld.add_action_log("사거리 밖이다.")
+            return
+
+        result = combat.execute_attack(player_id, self.instance_id)
+        morld.add_action_log(result["message"])
+
+        # 적대도/호감 변화 (몬스터 제외)
+        hostility_type = morld.get_unit_prop(self.instance_id, "전투:적대유형")
+        if hostility_type != combat.HOSTILITY_TYPE_MONSTER:
+            combat.modify_hostility(self.instance_id, player_name,
+                                    combat.HOSTILITY_ON_ATTACK)
+            affection_key = f"관계:{player_name}:호감"
+            morld.modify_prop(self.instance_id, affection_key,
+                              combat.AFFECTION_ON_ATTACK)
+            if result["target_fainted"]:
+                combat.modify_hostility(self.instance_id, player_name,
+                                        combat.HOSTILITY_ON_FAINT)
+                morld.modify_prop(self.instance_id, affection_key,
+                                  combat.AFFECTION_ON_FAINT)
+
+        # 공격 시간 경과
+        weapon_range = combat.get_combat_stat(player_id, "전투:사거리")
+        is_ranged = weapon_range > 100
+        base_dur = (combat.RANGED_ATTACK_DURATION if is_ranged
+                    else combat.MELEE_ATTACK_DURATION)
+        attack_speed = combat.get_combat_stat(player_id, "전투:공격속도")
+        morld.advance_time_des(int(base_dur * attack_speed))
+
+    def steal(self):
+        """소매치기 시도 (self = 대상 NPC)
+
+        성공률 = 손재주 × 3 (%), 기절/수면 +30%
+        성공 → 인벤토리 랜덤 1개 획득
+        실패 → 적대도 +40, 호감 -20
+        """
+        import combat
+        import random as _random
+
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "?") if player_info else "?"
+        player_props = morld.get_actual_props(player_id) or {}
+
+        # 성공률 계산
+        dexterity = player_props.get("손재주", 5)
+        success_chance = dexterity * 3
+
+        import survival as _surv
+        info = morld.get_unit_info(self.instance_id)
+        is_sleeping = info and info.get("activity") == "수면"
+        if _surv.is_npc_fainted(self.instance_id) or is_sleeping:
+            success_chance += 30
+
+        success_chance = min(95, success_chance)
+
+        # 대상 인벤토리 확인
+        inventory = morld.get_inventory(self.instance_id)
+        if not inventory:
+            morld.add_action_log("훔칠 물건이 없다.")
+            morld.advance_time_des(5_000)
+            return
+
+        # 판정
+        roll = _random.randint(1, 100)
+        if roll <= success_chance:
+            # 성공: 랜덤 1개 획득
+            import inventory as inv_mod
+            items = list(inventory.items())
+            target_item_id, count = _random.choice(items)
+            item_info = morld.get_item_info(target_item_id)
+            item_name = item_info.get("name", "?") if item_info else "?"
+
+            morld.remove_item(self.instance_id, target_item_id, 1)
+            inv_mod.safe_give_item(player_id, target_item_id, 1)
+
+            morld.add_action_log(f"{item_name}을(를) 훔쳤다.")
+
+            # 적대도 (성공 시)
+            hostility_type = morld.get_unit_prop(self.instance_id, "전투:적대유형")
+            if hostility_type != combat.HOSTILITY_TYPE_MONSTER:
+                combat.modify_hostility(self.instance_id, player_name,
+                                        combat.HOSTILITY_ON_STEAL_SUCCESS)
+        else:
+            # 실패
+            morld.add_action_log(f"{self.name}에게 들켰다!")
+
+            hostility_type = morld.get_unit_prop(self.instance_id, "전투:적대유형")
+            if hostility_type != combat.HOSTILITY_TYPE_MONSTER:
+                combat.modify_hostility(self.instance_id, player_name,
+                                        combat.HOSTILITY_ON_STEAL_FAIL)
+                affection_key = f"관계:{player_name}:호감"
+                morld.modify_prop(self.instance_id, affection_key,
+                                  combat.AFFECTION_ON_STEAL_FAIL)
+
+        morld.advance_time_des(5_000)
+
+    def finish_off(self):
+        """기절 → 사망 처리 (숨통 끊기)"""
+        import survival as _surv
+        from think import unregister_agent
+
+        # 기절 상태 확인
+        if not _surv.is_npc_fainted(self.instance_id):
+            morld.add_action_log("대상이 기절 상태가 아니다.")
+            return
+
+        original_name = self.name
+
+        # 사망 props 설정
+        morld.set_unit_prop(self.instance_id, "상태:사망", 1)
+        morld.set_unit_prop(self.instance_id, "상태:사망시각", morld.get_current_time())
+
+        # 이름 변경
+        morld.set_unit(self.instance_id, "name", f"{original_name}의 시체")
+
+        # think Agent 해제
+        unregister_agent(self.instance_id)
+
+        # 기절 상태 해제
+        _surv._fainted_npcs.pop(self.instance_id, None)
+
+        morld.add_action_log(f"{original_name}의 숨통을 끊었다.")
+        morld.advance_time_des(5_000)
+
+    def loot(self):
+        """사망/기절 상태에서 인벤토리 루팅"""
+        import inventory as inv_mod
+
+        player_id = morld.get_player_id()
+        inventory = morld.get_inventory(self.instance_id)
+        if not inventory:
+            morld.add_action_log("가진 것이 없다.")
+            return
+
+        looted = 0
+        for item_id, count in list(inventory.items()):
+            item_info = morld.get_item_info(item_id)
+            item_name = item_info.get("name", "?") if item_info else "?"
+            morld.remove_item(self.instance_id, item_id, count)
+            inv_mod.safe_give_item(player_id, item_id, count)
+            morld.add_action_log(f"{item_name} x{count}을(를) 획득했다.")
+            looted += count
+
+        if looted == 0:
+            morld.add_action_log("가진 것이 없다.")
+        else:
+            morld.advance_time_des(5_000)
+
+    def harvest(self):
+        """시체에서 소재 수확 (HARVEST_TABLE 기반)"""
+        from assets.registry import get_or_create_item_id
+
+        harvest_table = getattr(self, 'HARVEST_TABLE', None)
+        if not harvest_table:
+            morld.add_action_log("수확할 수 없는 대상이다.")
+            return
+
+        # 사망 상태 확인
+        if not morld.get_unit_prop(self.instance_id, "상태:사망"):
+            morld.add_action_log("대상이 사망 상태가 아니다.")
+            return
+
+        player_id = morld.get_player_id()
+        player_props = morld.get_actual_props(player_id)
+
+        for prop_key, info in harvest_table.items():
+            amount = morld.get_unit_prop(self.instance_id, prop_key) or 0
+            if amount <= 0:
+                continue
+            # 도구 체크
+            tool_prop = info.get("tool_prop", "")
+            if tool_prop and player_props.get(tool_prop, 0) <= 0:
+                morld.add_action_log(f"{tool_prop} 도구가 필요하다.")
+                return
+            # 수확
+            item_id = get_or_create_item_id(info["item"])
+            morld.give_item(player_id, item_id, 1)
+            morld.set_unit_prop(self.instance_id, prop_key, amount - 1)
+            morld.add_action_log(f"{info['name']}을(를) 수확했다. (남은: {amount - 1})")
+            morld.advance_time_des(info.get("time_ms", 10_000))
+            return
+
+        morld.add_action_log("더 이상 수확할 것이 없다.")
 
     def _is_romance_action(self, action: str) -> bool:
         """연애 관련 액션인지 판별"""
@@ -3293,6 +3511,19 @@ class Character(Unit):
             return None
         if unit_info and unit_info.get("activity") == "수면":
             return None
+
+        # 적대 상태 체크
+        import combat as _combat
+        player_info = morld.get_unit_info(player_id)
+        _player_name = player_info.get("name", "") if player_info else ""
+        if _player_name:
+            _hostility = _combat.get_hostility(self.instance_id, _player_name)
+            if _hostility >= _combat.HOSTILITY_ATTACK_ON_SIGHT:
+                morld.add_action_log(f"{self.name}이(가) 적의를 드러낸다!")
+                return None  # think Tier 2에서 공격 처리
+            if _hostility >= _combat.HOSTILITY_HOSTILE:
+                morld.add_action_log(f"{self.name}이(가) 경계하며 거리를 둔다.")
+                return None
 
         # NPC 자위 발각 체크
         job = morld.get_current_job(self.instance_id)

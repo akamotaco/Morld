@@ -407,7 +407,11 @@ def _process_hourly(unit_id):
     if _is_sleeping(unit_id):
         reduce_fatigue(unit_id, FATIGUE_SLEEP_RECOVERY)
     else:
-        add_fatigue(unit_id, FATIGUE_RATE)
+        fatigue_rate = FATIGUE_RATE
+        # 달리기 중 피로 2배
+        if morld.get_unit_prop(unit_id, "이동:달리기"):
+            fatigue_rate *= 2
+        add_fatigue(unit_id, fatigue_rate)
         # 임신 3분기 피로 보너스
         try:
             import pregnancy

@@ -119,6 +119,10 @@ class BaseAgent:
             "laundry_dryer": None,        # 건조기 위치
             "laundry_items": None,        # 세탁 중인 아이템 ID 목록 (re-equip용)
             "laundry_cooldown": None,     # 마지막 빨래 시각 (밀리초) — 쿨다운 3시간
+            # 전투
+            "combat_phase": None,         # 전투 단계 (None/engaging/attacking/retreating)
+            "combat_target_id": None,     # 전투 대상 unit_id
+            "combat_last_attack_ms": 0,   # 마지막 공격 시각 (밀리초)
         }
 
     def set_base_schedule(self, schedule):
@@ -903,6 +907,201 @@ class BaseAgent:
             return
 
     # ========================================
+    # 전투 위협 감지 + 대응 (Tier 2)
+    # ========================================
+
+    COMBAT_ATTACK_DURATION = 6_000   # NPC 근접 공격 시간 (ms)
+    COMBAT_RETREAT_DURATION = 5_000  # 후퇴 이동 시간 (ms)
+
+    def _check_combat_threat(self) -> bool:
+        """전투 위협 감지 + 대응
+
+        1. 이미 전투 중 (combat_phase != None) → _handle_combat()
+        2. 같은 location에 적대 유닛 → 전투 개시 / 도주
+        3. BATTLE_BEHAVIOR 없으면 False (허수아비/비전투 NPC)
+        """
+        import combat as _combat
+
+        behavior = getattr(self, 'BATTLE_BEHAVIOR', None)
+        if not behavior:
+            return False
+
+        # 진행 중인 전투가 있으면 계속
+        phase = self._memory.get("combat_phase")
+        if phase is not None:
+            self._handle_combat()
+            return True
+
+        # 적 탐색: 같은 location
+        my_loc = morld.get_unit_location(self.unit_id)
+        if not my_loc:
+            return False
+
+        units = morld.get_units_at_location(my_loc[0], my_loc[1])
+        enemy_id = None
+        enemy_dist = float('inf')
+
+        for uid in units:
+            if uid == self.unit_id:
+                continue
+            # 사망 체크
+            if morld.get_unit_prop(uid, "상태:사망"):
+                continue
+            # 몬스터 적대유형 체크
+            hostile_type = morld.get_unit_prop(uid, "전투:적대유형")
+            if hostile_type == _combat.HOSTILITY_TYPE_MONSTER:
+                dist = _combat.get_distance(self.unit_id, uid)
+                detect_range = morld.get_unit_prop(self.unit_id, "전투:감지거리") or 100
+                if dist <= detect_range:
+                    if dist < enemy_dist:
+                        enemy_id = uid
+                        enemy_dist = dist
+                continue
+            # NPC 간 적대도 체크 (플레이어 포함)
+            if _combat.is_hostile_to(self.unit_id, uid):
+                dist = _combat.get_distance(self.unit_id, uid)
+                if dist < enemy_dist:
+                    enemy_id = uid
+                    enemy_dist = dist
+
+        if enemy_id is None:
+            return False
+
+        # 행동 결정 (combat_style)
+        style = behavior.get("combat_style", "aggressive")
+
+        if style == "evasive":
+            # 도주형: retreat_threshold 체크
+            import survival as _surv
+            my_hp = _surv.get_health(self.unit_id)
+            my_max = _surv.get_max_health(self.unit_id)
+            threshold = behavior.get("retreat_threshold", 0.5)
+            if my_hp <= my_max * threshold:
+                # HP 낮으면 무조건 도주
+                self._memory["combat_phase"] = "retreating"
+                self._memory["combat_target_id"] = enemy_id
+                self._handle_combat()
+                return True
+
+        # 전투 개시
+        self._memory["combat_phase"] = "engaging"
+        self._memory["combat_target_id"] = enemy_id
+        self._handle_combat()
+        return True
+
+    def _handle_combat(self):
+        """BATTLE_BEHAVIOR 기반 전투 행동 (phase machine)
+
+        engaging  → 사거리 밖이면 이동, 사거리 안이면 attacking
+        attacking → execute_attack + 대기 job
+        retreating → Gate 방향 이동
+        """
+        import combat as _combat
+        import survival as _surv
+
+        phase = self._memory.get("combat_phase")
+        target_id = self._memory.get("combat_target_id")
+        behavior = getattr(self, 'BATTLE_BEHAVIOR', {})
+
+        # 대상 유효성 검증
+        if target_id is None or not self._is_valid_combat_target(target_id):
+            self._end_combat()
+            self._insert_idle_job("전투 종료", 2_000)
+            self._action_taken = True
+            return
+
+        # HP 기반 후퇴 판정 (매 tick)
+        style = behavior.get("combat_style", "aggressive")
+        threshold = behavior.get("retreat_threshold", 0.2)
+        my_hp = _surv.get_health(self.unit_id)
+        my_max = _surv.get_max_health(self.unit_id)
+        if my_hp <= my_max * threshold and style != "aggressive":
+            phase = "retreating"
+            self._memory["combat_phase"] = phase
+
+        if phase == "engaging":
+            if _combat.is_in_range(self.unit_id, target_id):
+                self._memory["combat_phase"] = "attacking"
+                self._handle_combat()  # 즉시 공격 전환
+                return
+            # 사거리 밖 → 이동
+            target_loc = morld.get_unit_location(target_id)
+            if target_loc:
+                self._move_to(target_loc[0], target_loc[1])
+                self._action_taken = True
+            else:
+                self._end_combat()
+                self._insert_idle_job("대상 이탈", 2_000)
+                self._action_taken = True
+
+        elif phase == "attacking":
+            result = _combat.execute_attack(self.unit_id, target_id)
+            if result.get("message"):
+                morld.add_action_log(result["message"])
+            # 대상 기절/사망 → 전투 종료
+            if result.get("target_fainted"):
+                self._end_combat()
+                self._insert_idle_job("전투 승리", 3_000)
+            else:
+                # 공격 쿨다운
+                speed = _combat.get_combat_stat(self.unit_id, "전투:공격속도") or 1.0
+                duration = int(self.COMBAT_ATTACK_DURATION / speed)
+                self._insert_idle_job("공격", max(1_000, duration))
+                self._memory["combat_last_attack_ms"] = self.get_time()
+            self._action_taken = True
+
+        elif phase == "retreating":
+            # 현재 location에서 Gate 방향으로 이동 시도
+            my_loc = self.get_location()
+            if my_loc:
+                home_region = self._get_home_region()
+                region_info = morld.get_region_info(home_region)
+                if region_info and "locations" in region_info:
+                    # 다른 location으로 도망
+                    candidates = [
+                        loc["id"] for loc in region_info["locations"]
+                        if loc["id"] != my_loc[1]
+                    ]
+                    if candidates:
+                        flee_loc = random.choice(candidates)
+                        self._move_to(home_region, flee_loc)
+                        self._end_combat()
+                        self._action_taken = True
+                        return
+            # 도망 실패 → 어쩔 수 없이 싸움
+            self._memory["combat_phase"] = "attacking"
+            self._handle_combat()
+
+        else:
+            self._end_combat()
+            self._insert_idle_job("전투 종료", 2_000)
+            self._action_taken = True
+
+    def _is_valid_combat_target(self, target_id) -> bool:
+        """전투 대상이 유효한지 확인"""
+        import survival as _surv
+        info = morld.get_unit_info(target_id)
+        if not info:
+            return False
+        if morld.get_unit_prop(target_id, "상태:사망"):
+            return False
+        if _surv.is_npc_fainted(target_id):
+            return False
+        # 같은 location 확인
+        my_loc = morld.get_unit_location(self.unit_id)
+        target_loc = morld.get_unit_location(target_id)
+        if not my_loc or not target_loc:
+            return False
+        if my_loc[0] != target_loc[0] or my_loc[1] != target_loc[1]:
+            return False
+        return True
+
+    def _end_combat(self):
+        """전투 상태 초기화"""
+        self._memory["combat_phase"] = None
+        self._memory["combat_target_id"] = None
+
+    # ========================================
     # 결박된 동료 발견 + 해제 (Tier 2)
     # ========================================
 
@@ -1558,8 +1757,10 @@ class BaseAgent:
                 # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
                 self._ensure_standing()
 
-                # Tier 2: 반응형 — 결박된 동료 발견 + 해제
-                if self._check_restrained_nearby():
+                # Tier 2: 반응형 — 전투 > 결박된 동료 > 소리 반응
+                if self._check_combat_threat():
+                    _tier_reached = 2
+                elif self._check_restrained_nearby():
                     _tier_reached = 2
                 elif self._check_tier2_reactive():
                     _tier_reached = 2
@@ -1651,9 +1852,15 @@ class BaseAgent:
     _home_region_id = None  # lazy cache (bed_owner prop 기반)
 
     def _get_home_region(self):
-        """NPC의 홈 region (bed_owner prop 기반 침대 탐색, 없으면 현재 위치)"""
+        """NPC의 홈 region (전투:홈리전 > bed_owner > 현재 위치)"""
         if self._home_region_id is not None:
             return self._home_region_id
+        # 1. 전투:홈리전 prop (몬스터용)
+        combat_home = morld.get_unit_prop(self.unit_id, "전투:홈리전")
+        if combat_home is not None:
+            self._home_region_id = int(combat_home)
+            return self._home_region_id
+        # 2. bed_owner 로직 (NPC용)
         owner = getattr(self, 'owner_unique_id', None)
         if owner:
             from think.facility_resolver import _find_facilities_by_prop

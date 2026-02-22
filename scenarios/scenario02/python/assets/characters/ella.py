@@ -439,6 +439,9 @@ class Ella(Character):
         "처녀:항문": 1,
         "근력": 5, "체력": 6,
         "체격": 3, "가슴:크기": 2,
+        # 전투 스탯
+        "전투:공격력": 7, "전투:방어력": 6, "전투:명중": 80,
+        "전투:회피": 12, "전투:치명타": 5, "전투:사거리": 60, "전투:공격속도": 1.2,
     }
     actions = [
         "call:talk:대화",
@@ -1393,6 +1396,17 @@ class EllaAgent(BaseAgent):
     - 유키를 보호하고 돌봄
     - 외부인에 대한 불신
     """
+
+    BATTLE_BEHAVIOR = {
+        "combat_style": "defensive",
+        "target_priority": "nearest",
+        "preferred_range": 60,
+        "retreat_threshold": 0.2,
+        "join_combat": True,
+        "join_threshold": 30,
+        "protect_player": False,
+        "can_sprint": True,
+    }
 
     # 도심 은신처 스케줄 (region_id=2)
     SCHEDULE = [

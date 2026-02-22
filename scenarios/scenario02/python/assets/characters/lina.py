@@ -425,6 +425,9 @@ class Lina(Character):
         "처녀:항문": 1,
         "근력": 3, "체력": 4,
         "체격": 1, "가슴:크기": 1,
+        # 전투 스탯
+        "전투:공격력": 4, "전투:방어력": 2, "전투:명중": 80,
+        "전투:회피": 15, "전투:치명타": 10, "전투:사거리": 50,
     }
     actions = [
         "call:talk:대화",
@@ -1442,6 +1445,15 @@ class LinaAgent(BaseAgent):
     - 세라를 리더로 신뢰하고 따름
     - 플레이어 호감도 높으면 근처에 머무름
     """
+
+    BATTLE_BEHAVIOR = {
+        "combat_style": "evasive",
+        "target_priority": "weakest",
+        "retreat_threshold": 0.3,
+        "join_combat": True,
+        "join_threshold": 40,
+        "protect_player": True,
+    }
 
     SCHEDULE = [
         # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)

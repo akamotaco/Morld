@@ -182,3 +182,41 @@ class Condom(Item):
 
         morld.set_unit_prop(self.instance_id, "상태:구멍", 1)
         yield ui.dialog("콘돔에 눈에 띄지 않는 작은 구멍을 뚫었다.")
+
+
+# ========================================
+# 붕대
+# ========================================
+
+@register_item
+class Bandage(Item):
+    """붕대 — 출혈 치료 + HP 소량 회복"""
+    unique_id = "bandage"
+    name = "붕대"
+    category = "medicine"
+    value = 10
+    actions = ["take@ground", "take@container", "call:use:사용@inventory"]
+
+    def get_focus_text(self):
+        return "간단한 상처를 감싸는 붕대다. 출혈을 멈추고 약간의 체력을 회복할 수 있다."
+
+    def use(self):
+        """붕대 사용 — 출혈 치료 + HP 10 회복"""
+        import combat
+        import survival
+
+        player_id = morld.get_player_id()
+
+        # 출혈 치료
+        has_bleeding = morld.get_unit_prop(player_id, "상태:출혈")
+        if has_bleeding:
+            combat.cure_bleeding(player_id)
+            morld.add_action_log("출혈을 멈추었다.")
+
+        # HP 회복
+        survival.add_health(player_id, 10)
+        morld.add_action_log("붕대를 감았다. 체력이 약간 회복되었다.")
+
+        # 아이템 소비
+        morld.lost_item(player_id, self.instance_id)
+        morld.advance_time_des(5_000)

@@ -65,7 +65,7 @@ class KitchenKnife(Item):
     category = "tool"
     owner = "mila"
     passive_props = {}
-    equip_props = {"공격력": 2, "장착:손": 1}
+    equip_props = {"전투:공격력": 2, "전투:사거리": 50, "장착:손": 1}
     value = 15
     actions = ["take@container", "call:use:살펴보기@inventory", "equip@inventory"]
 
@@ -130,7 +130,7 @@ class Axe(Item):
     category = "tool"
     owner = "sera"
     passive_props = {}
-    equip_props = {"can:chop": 1, "공격력": 3, "장착:손": 1, "날붙이": 1}
+    equip_props = {"can:chop": 1, "전투:공격력": 3, "전투:사거리": 60, "장착:손": 1, "날붙이": 1}
     value = 35
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 
@@ -177,7 +177,7 @@ class HuntingBow(Item):
     category = "tool"
     owner = "sera"
     passive_props = {}
-    equip_props = {"공격력": 5, "사거리": 3, "장착:손": 1}
+    equip_props = {"전투:공격력": 5, "전투:사거리": 300, "전투:탄약": "arrow", "전투:장탄수": 1, "장착:손": 1}
     value = 50
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 

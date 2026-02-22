@@ -40,8 +40,17 @@ from .collectibles import (
     WildFlower, DriedFlower,
     PrettyStone, OldPendant, WoodCarving, BrokenWatch, OldTeddyBear
 )
+from .weapons import (
+    Baton, IronSword, Pickaxe, Revolver
+)
+from .shields import (
+    WoodenShield, IronShield
+)
+from .ammo import (
+    Arrow, PistolAmmo
+)
 from .consumables import (
-    ContraceptivePill, Aphrodisiac, Condom
+    ContraceptivePill, Aphrodisiac, Condom, Bandage
 )
 from .adult_toys import (
     AdultToyEquipment, AdultToyInsertable, RestraintEquipment,
@@ -81,8 +90,14 @@ __all__ = [
     # collectibles
     'WildFlower', 'DriedFlower',
     'PrettyStone', 'OldPendant', 'WoodCarving', 'BrokenWatch', 'OldTeddyBear',
+    # weapons
+    'Baton', 'IronSword', 'Pickaxe', 'Revolver',
+    # shields
+    'WoodenShield', 'IronShield',
+    # ammo
+    'Arrow', 'PistolAmmo',
     # consumables
-    'ContraceptivePill', 'Aphrodisiac', 'Condom',
+    'ContraceptivePill', 'Aphrodisiac', 'Condom', 'Bandage',
     # adult_toys - equipment
     'AdultToyEquipment', 'AdultToyInsertable', 'RestraintEquipment',
     'PenisBand', 'BallGag', 'NippleClamp', 'Blindfold', 'CollarLeash',

@@ -232,6 +232,9 @@ class Sera(Character):
         "처녀:항문": 1,
         "근력": 6, "체력": 6,
         "체격": 3, "가슴:크기": 2,
+        # 전투 스탯
+        "전투:공격력": 8, "전투:방어력": 5, "전투:명중": 85,
+        "전투:회피": 10, "전투:치명타": 8, "전투:사거리": 60, "전투:공격속도": 0.8,
     }
     actions = [
         "call:talk:대화",
@@ -1384,6 +1387,17 @@ class SeraAgent(BaseAgent):
     - 사냥과 저택 순찰을 담당
     - 플레이어에게 무관심하지만 위험시 보호
     """
+
+    BATTLE_BEHAVIOR = {
+        "combat_style": "aggressive",
+        "target_priority": "strongest",
+        "preferred_range": 60,
+        "retreat_threshold": 0.15,
+        "join_combat": True,
+        "join_threshold": 20,
+        "protect_player": True,
+        "can_sprint": True,
+    }
 
     SCHEDULES = {
         "평일": [

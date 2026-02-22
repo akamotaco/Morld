@@ -47,7 +47,7 @@ class OldKnife(Blade):
     unique_id = "old_knife"
     name = "낡은 칼"
     passive_props = {"can:skin": 1}
-    equip_props = {"공격": 2, "사냥": 1, "장착:손": 1}
+    equip_props = {"전투:공격력": 2, "전투:사거리": 50, "사냥": 1, "장착:손": 1}
     skin_time = 20  # 낡은 칼은 박피에 20분 소요
     value = 20
 
@@ -67,7 +67,7 @@ class RusticDagger(Blade):
     category = "tool"
     owner = "sera"
     passive_props = {"can:skin": 1}
-    equip_props = {"공격": 3, "사냥": 2, "장착:손": 1}
+    equip_props = {"전투:공격력": 3, "전투:사거리": 60, "사냥": 2, "장착:손": 1}
     skin_time = 15  # 투박한 단검은 박피에 15분 소요
     value = 30
 
@@ -376,7 +376,7 @@ class WoodenSword(Item):
     unique_id = "wooden_sword"
     name = "목검"
     passive_props = {}
-    equip_props = {"공격": 3, "장착:손": 1}
+    equip_props = {"전투:공격력": 3, "전투:사거리": 70, "장착:손": 1}
     value = 15
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 

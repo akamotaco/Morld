@@ -154,6 +154,18 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     romance_status = "[color=lime]ON[/color]" if romance_on else "[color=gray]OFF[/color]"
     lines.append(f"[url=@proc:toggle_romance]연애 모드[/url]: {romance_status}")
 
+    # 적대 모드
+    import combat
+    hostile_on = combat.is_hostile_mode()
+    hostile_status = "[color=red]ON[/color]" if hostile_on else "[color=gray]OFF[/color]"
+    lines.append(f"[url=@proc:toggle_hostile]적대 모드[/url]: {hostile_status}")
+
+    # 달리기
+    player_id = _get_player_id()
+    sprint_on = morld.get_unit_prop(player_id, "이동:달리기") if player_id >= 0 else 0
+    sprint_status = "[color=yellow]ON[/color]" if sprint_on else "[color=gray]OFF[/color]"
+    lines.append(f"[url=@proc:toggle_sprint]달리기[/url]: {sprint_status}")
+
     # 시간 정지
     frozen = morld.is_time_frozen()
     frozen_status = "[color=cyan]정지[/color]" if frozen else "[color=gray]흐름[/color]"
@@ -238,6 +250,29 @@ def show_settings_ui():
             new_state = not is_romance_enabled()
             set_romance_enabled(new_state)
             morld.add_action_log(f"연애 모드: {'ON' if new_state else 'OFF'}")
+            return _render()
+
+        # 적대 모드 토글
+        if action == "toggle_hostile":
+            import combat
+            combat.set_hostile_mode(not combat.is_hostile_mode())
+            status = "ON" if combat.is_hostile_mode() else "OFF"
+            morld.add_action_log(f"적대 모드: {status}")
+            return _render()
+
+        # 달리기 토글
+        if action == "toggle_sprint":
+            player_id = _get_player_id()
+            if player_id >= 0:
+                current = morld.get_unit_prop(player_id, "이동:달리기") or 0
+                if not current:
+                    fatigue = morld.get_unit_prop(player_id, "욕구:피로") or 0
+                    if fatigue >= 90:
+                        morld.add_action_log("너무 피곤해서 달릴 수 없다.")
+                        return _render()
+                morld.set_unit_prop(player_id, "이동:달리기", 0 if current else 1)
+                status = "ON" if not current else "OFF"
+                morld.add_action_log(f"달리기: {status}")
             return _render()
 
         # 시간 정지 토글

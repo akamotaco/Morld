@@ -439,6 +439,18 @@ public class Unit : IOwnable
 		if (congestionSpeed > 0 && congestionSpeed < 100)
 			result = result * congestionSpeed / 100;
 
+		// 부상 감속 (Python combat.py에서 설정)
+		// 이동:부상 = 퍼센트 (50=절반 속도). 0 또는 미설정=감속 없음.
+		var injurySpeed = actualProps.GetProp("이동:부상");
+		if (injurySpeed > 0 && injurySpeed < 100)
+			result = result * injurySpeed / 100;
+
+		// 달리기 가속 (Python settings.py에서 토글)
+		// 이동:달리기 = 1이면 속도 1.5배
+		var sprintMode = actualProps.GetProp("이동:달리기");
+		if (sprintMode > 0)
+			result = result * 150 / 100;
+
 		return Math.Max(result, 10);  // 최소 10%
 	}
 

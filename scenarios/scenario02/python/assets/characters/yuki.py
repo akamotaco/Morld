@@ -260,6 +260,9 @@ class Yuki(Character):
         "처녀:항문": 1,
         "근력": 3, "체력": 4,
         "체격": 1, "가슴:크기": 1,
+        # 전투 스탯
+        "전투:공격력": 3, "전투:방어력": 1, "전투:명중": 70,
+        "전투:회피": 20, "전투:치명타": 5, "전투:사거리": 50,
     }
     actions = [
         "call:talk:대화",
@@ -1234,6 +1237,13 @@ class YukiAgent(BaseAgent):
     - 은신처에서 조용히 지냄
     - 엘라를 의지함
     """
+
+    BATTLE_BEHAVIOR = {
+        "combat_style": "evasive",
+        "retreat_threshold": 0.9,
+        "join_combat": False,
+        "protect_player": False,
+    }
 
     # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처, length=180)
     SCHEDULE = [
