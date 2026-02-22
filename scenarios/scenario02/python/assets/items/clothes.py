@@ -50,12 +50,23 @@ class Clothing(Item):
     passive_props = {}
     equip_props = {}  # 착용:상의, 착용:하의, 착용:외투 등
     value = 10
+    durability = 20  # 기본 내구도 (전체 의류 상속)
     # 기본 액션: 입기/벗기 (equip 핸들러 재사용, 라벨은 C#에서 슬롯 타입으로 결정)
     actions = [
         "take@container",
         "equip@inventory",
         "call:look:살펴보기@inventory"
     ]
+
+    def instantiate(self, instance_id: int):
+        # 슬롯 기반 내구도 자동 결정 (서브클래스에서 명시적 오버라이드 안 한 경우)
+        if "durability" not in type(self).__dict__:
+            eps = self.equip_props or {}
+            if any(k.startswith("착용:속옷") for k in eps):
+                self.durability = 10  # 속옷: 취약
+            elif eps.get("착용:외투") or eps.get("착용:망토"):
+                self.durability = 30  # 외투/망토: 견고
+        super().instantiate(instance_id)
 
     def look(self):
         """의류 살펴보기 - 서브클래스에서 오버라이드"""
@@ -75,6 +86,7 @@ class RaggedClothes(Clothing):
     """
     unique_id = "ragged_clothes"
     name = "누더기"
+    durability = 5  # 이미 해진 옷
     action_props = {} # 못버림
     equip_props = {
         "착용:상의": 1, "착용:하의": 1,  # 일체형
@@ -1420,6 +1432,7 @@ class MilitaryBoots(Clothing):
     """군용 부츠"""
     unique_id = "military_boots"
     name = "군용 부츠"
+    durability = 40  # 군용: 강화
     equip_props = {"착용:신발": 1, "분위기:활동적": 1, "분위기:멋짐": 1}
     value = 55
 
@@ -1432,6 +1445,7 @@ class TacticalVest(Clothing):
     """전술 조끼"""
     unique_id = "tactical_vest"
     name = "전술 조끼"
+    durability = 40  # 군용: 강화
     equip_props = {"착용:외투": 1, "분위기:활동적": 1, "수납": 3}
     value = 60
 
@@ -1444,6 +1458,7 @@ class CamouflagePants(Clothing):
     """위장 바지"""
     unique_id = "camouflage_pants"
     name = "위장 바지"
+    durability = 40  # 군용: 강화
     equip_props = {"착용:하의": 1, "분위기:활동적": 1}
     value = 25
 

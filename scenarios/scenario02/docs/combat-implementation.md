@@ -12,7 +12,7 @@
 - **Part C: 장비/무기** — 6. prop 마이그레이션 / 7. 장비 인스턴스 / 8. 원거리+탄약 / 9. 방패 / 10. 밸런스
 - **Part D: 몬스터** — 11. 몬스터 클래스+드롭 / 12. 스폰 / 13. 패트롤 / 14. 사망+루팅
 - **Part E: NPC AI** — 15. think Tier 2 / 16. NPC 스탯 / 17. on_meet 분기
-- **Part F: 부가** — 18. 디버프 / 19. 엄폐+지형 / 20. 간호+HP
+- **Part F: 부가** — 18. 디버프 / 19. 엄폐+지형 / 20. 간호+HP / 20.3. 내구도
 - **Part G: 콘텐츠** — 21. 경찰서+광산
 - **Part H: 통합** — 22. C# 연동 / 23. 파일 목록 / 24. 구현 순서 / 25. 테스트 / 26. 파티(Phase 2)
 - **부록** — morld API 목록
@@ -1503,6 +1503,99 @@ Phase 3: eating → 음식 꺼내기 + 섭취 (HP += satiety//2, 최소 5)
 
 `_memory` 키: `hp_recovery_phase`, `hp_recovery_target`
 Tier 3 우선순위: 배고픔 → 추위 → 더위 → **HP 회복**
+
+### 20.3 장비 내구도 시스템
+
+> **구현 완료** — `combat.py: degrade_durability(), get_equipped_weapon()`
+
+#### Props
+
+| prop | 설명 | 설정 시점 |
+|------|------|----------|
+| `내구도` | 현재 내구도 (정수) | `Item.instantiate()` 시 `self.durability` 값으로 초기화 |
+| `상태:파손` | 파손 여부 (1=파손) | `degrade_durability()` 에서 내구도 0 시 설정 |
+
+#### 기본 내구도
+
+| 카테고리 | 클래스 | durability | 비고 |
+|---------|--------|-----------|------|
+| 의류 기본 | `Clothing` | 20 | 전체 의류 상속 |
+| 속옷 | `SimpleBra`, `LaceBra` 등 | 10 | 취약 |
+| 외투/코트 | `WarmCoat`, `HoodedCloak` 등 | 30 | 견고 |
+| 군용 | `TacticalVest`, `CamouflagePants` 등 | 40 | 강화 |
+| 누더기 | `RaggedClothes` 등 | 5 | 이미 해진 옷 |
+| 무기/도구 | `Item` (equipment.py) | 50 | 기본값 |
+
+`durability = None` → 내구도 없는 아이템 (시나리오03 호환, 파괴 불가).
+
+#### `degrade_durability(item_id, amount=1, owner_id=None)`
+
+```python
+def degrade_durability(item_id, amount=1, owner_id=None):
+    """내구도 감소. 0이면 장착 해제 + 파손 표시 (인벤토리 유지, 향후 복구 가능)."""
+    current = morld.get_unit_prop(item_id, "내구도")
+    if current is None:
+        return  # 내구도 없는 아이템
+    new_val = max(0, current - amount)
+    morld.set_unit_prop(item_id, "내구도", new_val)
+    if new_val == 0:
+        morld.set_unit_prop(item_id, "상태:파손", 1)
+        item_info = morld.get_item_info(item_id)
+        item_name = item_info.get("name", "아이템") if item_info else "아이템"
+        if owner_id is not None:
+            import equipment
+            if equipment.is_equipped(owner_id, item_id):
+                equipment.unequip_item(owner_id, item_id)
+        morld.add_action_log(f"{item_name}이(가) 파손되었다.")
+```
+
+**핵심:** 파손 시 아이템은 인벤토리에 유지됨 (`lost_item` 미호출). 향후 수리 시스템 대비.
+
+#### `get_equipped_weapon(unit_id)`
+
+```python
+def get_equipped_weapon(unit_id: int):
+    """장착된 무기 item_id 반환 (없으면 None)"""
+    import equipment
+    items = equipment.get_equipped_items(unit_id)
+    for item_id in (items or []):
+        info = morld.get_item_info(item_id)
+        if not info:
+            continue
+        equip_props = info.get("equip_props") or {}
+        if "전투:공격력" in equip_props:
+            return item_id
+    return None
+```
+
+#### 전투 내구도 감소 호출
+
+| 함수 | 호출 방법 |
+|------|----------|
+| `execute_attack()` | `weapon_id = get_equipped_weapon(attacker_id)` → `degrade_durability(weapon_id, 1, attacker_id)` |
+| `execute_aimed_attack()` | 동일 |
+| `harassment.execute_tear()` | 의류 내구도 감소 → `degrade_durability(clothing_id, TEAR_DURABILITY_DAMAGE, target_id)` |
+
+#### 무기 고장 (jam_chance)
+
+내구도 기반 무기 고장 확률:
+```python
+weapon_id = get_equipped_weapon(attacker_id)
+durability = morld.get_unit_prop(weapon_id, "내구도") if weapon_id else 100
+if durability is None:
+    durability = 100
+jam_chance = max(0, (100 - durability) * 0.5 - 10)  # 내구도 80부터 고장 확률 발생
+```
+
+#### 맨손 전투
+
+무기가 없거나 모두 파손된 상태에서도 `DEFAULT_STATS` fallback으로 맨손 전투 가능:
+```python
+DEFAULT_STATS = {
+    "전투:공격력": 1, "전투:방어력": 0, "전투:명중": 80,
+    "전투:회피": 5, "전투:치명타": 2, "전투:사거리": 50,
+}
+```
 
 ---
 

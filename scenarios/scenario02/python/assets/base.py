@@ -831,6 +831,60 @@ _DESCRIBE_SEMEN = [
     ({"정액": 10}, "{name}의 어딘가가 번들거린다."),
 ]
 
+# 플레이어 자발적 노출 목격 시 NPC 반응 (아키타입별)
+_EXPOSURE_REACTION_TEXTS = {
+    "stoic": {
+        "welcome": ["......뭘 보여주려는 거야?", "...원하는 게 있는 거지."],
+        "unwanted": ["...눈이 썩겠군.", "...정신 좀 차려."],
+        "hostile": ["...경고할게. 한 번 더 그러면.", "역겹군."],
+    },
+    "gentle": {
+        "welcome": ["어머, 그런 모습... 귀엽네.", "후후, 보여주고 싶었어?"],
+        "unwanted": ["저기, 그러면 곤란해요...", "그런 건... 좀..."],
+        "hostile": ["그만해요. 더 이상은 참을 수 없어요.", "불쾌해요."],
+    },
+    "cheerful": {
+        "welcome": ["와, 대담하다~! 마음에 드는데?", "뭐야, 유혹하는 거야?"],
+        "unwanted": ["에, 에에?! 뭐 하는 거야?!", "으악, 눈이!"],
+        "hostile": ["뭐 하는 짓이야! 꺼져!", "역겨워!"],
+    },
+    "timid": {
+        "welcome": ["저, 저기... 그런 거... 보여줘도 돼?", "...심장이 두근거려..."],
+        "unwanted": ["히, 히익...! 왜 그런 거...!", "보, 보지 마...!"],
+        "hostile": ["가, 가까이 오지 마...!", "무, 무서워...!"],
+    },
+    "cold": {
+        "welcome": ["...흥, 유혹하려는 거야? 한심한.", "...볼 만하네. 계속해."],
+        "unwanted": ["...뭐 하자는 거지.", "치워."],
+        "hostile": ["눈앞에서 꺼져.", "...한 번 더 하면 후회하게 해줄게."],
+    },
+    "seductive": {
+        "welcome": ["어머~ 먼저 보여주다니? 마음에 들어♡", "응~ 좋은 구경이네♡"],
+        "unwanted": ["후~응? 누구한테 보여주는 거야?", "나한테 보여줘 봤자..."],
+        "hostile": ["재미없어. 꺼져.", "...한심해."],
+    },
+    "fierce": {
+        "welcome": ["뭐야, 꽤 도발적이잖아?", "대담한데? 마음에 드는걸."],
+        "unwanted": ["미쳤어?! 당장 입어!", "뭐하는 짓이야!"],
+        "hostile": ["한 대 맞고 싶어?!", "정신 나간 거 아냐?!"],
+    },
+    "proud": {
+        "welcome": ["...어쩔 수 없지. 봐주지.", "흥, 유혹하려면 더 노력해야지."],
+        "unwanted": ["...품위가 없구나.", "그런 건 혼자 할 때 해."],
+        "hostile": ["천박해. 당장 그만둬.", "...구역질이 나."],
+    },
+    "innocent": {
+        "welcome": ["와, 뭐야 뭐야? 괜찮은 건가...?", "...왜 보여주는 거예요?"],
+        "unwanted": ["어, 어? 왜 옷을...?!", "으에? 추우니까 입어요!"],
+        "hostile": ["이상한 사람! 가까이 오지 마!", "무서워!"],
+    },
+    "devoted": {
+        "welcome": ["주인님... 유혹하시는 건가요...?♡", "...보여주셔서 감사합니다..."],
+        "unwanted": ["주, 주인님?! 그런 건...!", "...부끄러워요..."],
+        "hostile": ["...주인님이라도 이건 안 돼요.", "그만해 주세요..."],
+    },
+}
+
 _DESCRIBE_INTERNAL_SEMEN = {
     "stoic": [
         ({"체내정액:음부": 50}, "{name}의 허벅지 안쪽으로 하얀 것이 흘러내리고 있다."),
@@ -1345,19 +1399,21 @@ class Character(Unit):
         # === 상태 기반 필터링 (activity보다 우선) ===
         import survival as _surv
 
-        # 기절: 의식 없음 → debug + 로맨스 + 운반/강탈
+        # 기절: 의식 없음 → debug + 로맨스 + 운반/강탈 + 성추행
         if _surv.is_npc_fainted(self.instance_id):
             allowed_set = {"debug_props", "romance", "force_romance"}
             result = [a for a in self.actions
                       if self._extract_action_name(a) in allowed_set]
+            result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
             return self._add_loot_clothing_action(result)
 
-        # 탈진: 의식 있음 → 대화 + debug + 로맨스 + 운반/강탈
+        # 탈진: 의식 있음 → 대화 + debug + 로맨스 + 운반/강탈 + 성추행
         if _surv.is_npc_exhausted(self.instance_id):
             allowed_set = {"talk", "debug_props", "romance", "force_romance"}
             result = [a for a in self.actions
                       if self._extract_action_name(a) in allowed_set]
+            result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
             return self._add_loot_clothing_action(result)
 
@@ -1384,6 +1440,7 @@ class Character(Unit):
             result = self._apply_dynamic_action_labels(list(self.actions), info)
             result = self._add_casual_affection_actions(result)
             result = self._add_combat_actions(result)
+            result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
             return self._add_loot_clothing_action(result)
 
@@ -1414,11 +1471,13 @@ class Character(Unit):
         if not settings.is_romance_enabled():
             result = [a for a in result if not self._is_romance_action(a)]
             result = self._add_combat_actions(result)
+            result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
             return self._add_loot_clothing_action(result)
 
         result = self._add_casual_affection_actions(result)
         result = self._add_combat_actions(result)
+        result = self._add_harassment_actions(result)
         result = self._add_carry_action(result)
         return self._add_loot_clothing_action(result)
 
@@ -1543,6 +1602,21 @@ class Character(Unit):
             actions.append("call:aimed_attack_arms:조준: 팔#")
             actions.append("call:aimed_attack_legs:조준: 다리#")
             actions.append("call:steal:소매치기#")
+            # 전투 중 성추행
+            import settings
+            if settings.is_harassment_enabled():
+                actions.append("call:combat_harass:성추행#")
+        return actions
+
+    def _add_harassment_actions(self, actions):
+        """성추행 모드 ON 시 성추행 액션 추가 (비전투)"""
+        import settings
+        if not settings.is_harassment_enabled():
+            return actions
+        player_id = morld.get_player_id()
+        if self.instance_id == player_id:
+            return actions
+        actions.append("call:harass:성추행")
         return actions
 
     def _add_loot_clothing_action(self, actions):
@@ -1610,6 +1684,43 @@ class Character(Unit):
         inv_mod.safe_give_item(player_id, item_id, 1)
 
         yield ui.dialog([f"{self.name}의 {item_name}을(를) 빼앗았다."])
+
+    def harass(self):
+        """비전투 성추행 세션"""
+        import harassment
+        import settings
+        if not settings.is_harassment_enabled():
+            return
+        yield from harassment.harassment_session(morld.get_player_id(), self.instance_id)
+
+    def combat_harass(self):
+        """전투 중 성추행 — 단일 액션 선택"""
+        import harassment
+        import settings
+        if not settings.is_harassment_enabled():
+            return
+        available = harassment.get_available_actions(morld.get_player_id(), self.instance_id)
+        if not available:
+            morld.add_action_log("실행 가능한 행위가 없다.")
+            return
+        # 선택 UI
+        lines = ["[b]성추행 행위 선택[/b]\n"]
+        for aid in available:
+            action = harassment.HARASSMENT_ACTIONS[aid]
+            lines.append(f"[url=@ret:{aid}]{action['name']}[/url]")
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+        choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
+        if not choice or choice == "cancel" or choice not in harassment.HARASSMENT_ACTIONS:
+            return
+        result = harassment.execute_action(morld.get_player_id(), self.instance_id,
+                                           choice, is_combat=True)
+        action_name = harassment.HARASSMENT_ACTIONS[choice]["name"]
+        msg = f"{action_name}: {result.get('message', '실행')}"
+        if result.get("climax_triggered"):
+            msg += " — 절정에 달했다!"
+        morld.add_action_log(msg)
+        if result.get("hostility_triggered"):
+            morld.add_action_log("상대가 적대적으로 변했다!")
 
     def attack(self):
         """플레이어의 공격을 받는 핸들러 (self = 대상 NPC)"""
@@ -1977,6 +2088,12 @@ class Character(Unit):
             lower = 1
         else:
             lower = 0
+
+        # 임시노출 override (성추행 들추기)
+        temp_upper = morld.get_unit_prop(unit_id, "임시노출:상체") or 0
+        temp_lower = morld.get_unit_prop(unit_id, "임시노출:하체") or 0
+        upper = max(upper, temp_upper)
+        lower = max(lower, temp_lower)
 
         # 총합 노출도 (0-100)
         score = upper * 25 + lower * 25 + min(20, sexy_count * 5)
@@ -3582,6 +3699,12 @@ class Character(Unit):
             if result is not None:
                 return result
 
+        # 플레이어 자발적 노출 발견
+        if player_props and player_props.get("상태:자발적노출"):
+            result = self._on_player_exposure_discovered(player_id)
+            if result is not None:
+                return result
+
         # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
         privacy = self._check_room_privacy(player_id)
         if privacy is not None:
@@ -3957,6 +4080,51 @@ class Character(Unit):
                     f"관계:{player_name}:호감", -5)
 
         return handler()
+
+    def _on_player_exposure_discovered(self, player_id):
+        """플레이어 자발적 노출 발견 → 관계 기반 반응"""
+        import harassment
+
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+
+        mode = harassment._get_response_mode(player_id, self.instance_id)
+
+        if mode == "welcome":
+            # 호감 높음 → 성욕 상승
+            morld.modify_prop(self.instance_id, "상태:성욕", 10)
+            profile = getattr(self, 'REACTION_PROFILE', None) or {}
+            archetype = profile.get("archetype", "stoic")
+            texts = _EXPOSURE_REACTION_TEXTS.get(archetype, {}).get("welcome")
+            if texts:
+                import random
+                return lambda: (yield ui.dialog(
+                    f"[{self.name}]\n{random.choice(texts)}"))
+        elif mode == "hostile":
+            # 반발 → 적대치 증가
+            import combat
+            combat.modify_hostility(self.instance_id, player_name, 10)
+            profile = getattr(self, 'REACTION_PROFILE', None) or {}
+            archetype = profile.get("archetype", "stoic")
+            texts = _EXPOSURE_REACTION_TEXTS.get(archetype, {}).get("hostile")
+            if texts:
+                import random
+                return lambda: (yield ui.dialog(
+                    f"[{self.name}]\n{random.choice(texts)}"))
+        else:
+            # 불쾌 → 호감 소폭 감소
+            from romance_core import get_affection_key
+            aff_key = get_affection_key(player_id)
+            morld.modify_prop(self.instance_id, aff_key, -3)
+            profile = getattr(self, 'REACTION_PROFILE', None) or {}
+            archetype = profile.get("archetype", "stoic")
+            texts = _EXPOSURE_REACTION_TEXTS.get(archetype, {}).get("unwanted")
+            if texts:
+                import random
+                return lambda: (yield ui.dialog(
+                    f"[{self.name}]\n{random.choice(texts)}"))
+
+        return None
 
     def on_equip_change(self, player_id, item_id, is_equip):
         """플레이어 장비 변경 시 반응 - EQUIP_CHANGE_REACTIONS 기반"""
@@ -4533,6 +4701,7 @@ class Item(Asset):
     value: int = 0
     owner: str = None  # 소유자 unique_id (예: "sera", "mila")
     category: str = None  # 아이템 카테고리 (필터링용)
+    durability: int = None  # 내구도 (None = 파괴 불가, 시나리오03 호환)
 
     def instantiate(self, instance_id: int):
         """아이템을 morld에 등록"""
@@ -4549,6 +4718,10 @@ class Item(Asset):
             self.unique_id,  # Python unique_id 전달
             self.action_props or {}  # 액션별 활성화 상태
         )
+
+        # 내구도 초기화
+        if self.durability is not None:
+            morld.set_unit_prop(instance_id, "내구도", self.durability)
 
         # 인스턴스 캐시 등록 (call: 액션용)
         from assets.items import register_instance

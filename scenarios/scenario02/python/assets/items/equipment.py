@@ -29,6 +29,7 @@ class Blade(Item):
     """
     passive_props = {"can:skin": 1}
     equip_props = {"장착:손": 1}
+    durability = 50  # 무기/도구 기본 내구도
     skin_time = 15  # 박피 소요 시간 (분) - 서브클래스에서 오버라이드
     actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
 

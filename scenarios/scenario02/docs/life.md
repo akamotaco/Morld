@@ -983,6 +983,94 @@ class LifeAgent(BaseAgent):
 
 ---
 
+## 6. NPC 유혹 행동 (성추행 연동)
+
+> **구현 완료** — `think/__init__.py: _try_self_exposure(), _try_harass_player()`
+> **Settings**: 성추행 모드 ON 필요 (`settings.is_harassment_enabled()`)
+
+### 유혹 (자발적 노출)
+
+높은 성욕 + 호감 NPC가 **다른 NPC가 있는 상황에서** 자발적으로 옷을 들추어 플레이어를 유혹.
+
+**조건:**
+- 성욕 ≥ `self_comfort_threshold` (기본 70)
+- 호감 ≥ `INITIATIVE_CONFIG.affection_threshold` (기본 60)
+- 플레이어와 같은 Location
+- **다른 NPC 존재** (단둘이면 NPC 주도 로맨스가 우선)
+- 이미 노출 상태 아님
+
+**파라미터:**
+| 항목 | 값 | 설명 |
+|------|-----|------|
+| 확률 | 50% | `_SELF_EXPOSURE_CHANCE` |
+| 쿨다운 | 1시간 | `_SELF_EXPOSURE_COOLDOWN_MS` |
+| 성욕 감소 | -10 | `_SELF_EXPOSURE_AROUSAL_RELIEF` |
+
+**동작:** `임시노출:{상체/하체} = 2` + `상태:자발적노출 = 1` → describe/focus 텍스트에 아키타입별 유혹 묘사 표시.
+NPC는 이후 think() Tier 4에서 `_check_exposure_recovery()` → 옷매무새 정리 (1분).
+
+### NPC → 플레이어 성추행 (자발적)
+
+유혹보다 적극적인 행동. 호감 ≥60 NPC가 직접 성추행 액션을 실행.
+
+**조건:** 유혹과 동일 (단, 다른 NPC 유무 무관)
+**쿨다운:** 2시간
+**결과:** `harassment.execute_action()` → 액션 로그 + 반응 텍스트 (welcome 모드)
+
+### think() 성욕 우선순위
+
+```
+0순위: NPC 주도 로맨스 (_can_seek_player) — 다른 Location → 찾아감
+1순위: 유혹 (_try_self_exposure) — 같은 Location + 다른 NPC 있음
+1순위: NPC→플레이어 성추행 (_try_harass_player) — 같은 Location
+2순위: 자위 (_handle_self_comfort) — fallback
+```
+
+---
+
+## 7. NPC 간호 행동
+
+> **구현 완료** — `think/__init__.py: _check_exhausted_nearby(), _handle_nursing()`
+
+### 조건
+
+같은 Location에 탈진(`survival.is_npc_exhausted`) 상태인 캐릭터가 있을 때 발동.
+think() **Tier 2d** (결박 구출 뒤).
+
+**쿨다운:** 1시간 (`nursing_cooldown`)
+
+### 동작
+
+1. 탈진자 발견 → `nursing_phase = "nursing"`
+2. 간호 job 삽입 (30분)
+3. 대상 HP +10 회복
+4. 아키타입별 간호 대사 출력
+
+### 간호 대사 (아키타입별)
+
+| 아키타입 | 대사 예시 |
+|---------|----------|
+| gentle | "괜찮아? 좀 쉬어..." |
+| cheerful | "이런, 무리하면 안 되지!" |
+| stoic | "...쉬어." |
+| timid | "저, 저기... 괜찮으세요...?" |
+| cold | "...바보." |
+| seductive | "이런 모습도 귀엽네~" |
+| fierce | "뭐야, 벌써 쓰러졌어?" |
+| proud | "...어쩔 수 없지, 간호해주지." |
+| innocent | "힘내요! 금방 나을 거예요!" |
+| devoted | "주인님, 괜찮으신가요?!" |
+
+### `_memory` 키
+
+| 키 | 용도 |
+|----|------|
+| `nursing_phase` | 간호 진행 상태 (`None`/`"nursing"`) |
+| `nursing_target` | 간호 대상 unit_id |
+| `nursing_cooldown` | 마지막 간호 시각 (ms) |
+
+---
+
 ## 파일 구조 (예상)
 
 ```

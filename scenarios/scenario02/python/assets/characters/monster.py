@@ -107,6 +107,7 @@ class Wolf(Monster):
     unique_id = "wolf"
     name = "늑대"
     GENDER_DISTRIBUTION = [("male", 0.5), ("female", 0.5)]
+    harassment_chance = 0.4  # 공격적, 무력화 대상에 적극적
 
     props = {
         **Monster.props,
@@ -205,6 +206,7 @@ class Spider(Monster):
     unique_id = "spider"
     name = "거미"
     GENDER_DISTRIBUTION = [("female", 0.7), ("male", 0.3)]
+    harassment_chance = 0.5  # 웹 속박 대상에 높은 확률
 
     props = {
         **Monster.props,

@@ -58,6 +58,29 @@ def set_bestiality_enabled(enabled: bool):
 
 
 # ============================================
+# 성추행 모드
+# ============================================
+
+_harassment_enabled = False
+
+
+def is_harassment_enabled() -> bool:
+    """성추행 모드 활성화 여부"""
+    return _harassment_enabled
+
+
+def set_harassment_enabled(enabled: bool):
+    """성추행 모드 설정"""
+    global _harassment_enabled
+    _harassment_enabled = enabled
+    player_id = _get_player_id()
+    if player_id >= 0:
+        value = 1 if enabled else 0
+        morld.set_unit_prop(player_id, "can:harassment", value)
+        morld.set_unit_prop(player_id, "can:self_expose", value)
+
+
+# ============================================
 # 플레이어 ID 조회
 # ============================================
 
@@ -187,6 +210,11 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     hostile_status = "[color=red]ON[/color]" if hostile_on else "[color=gray]OFF[/color]"
     lines.append(f"[url=@proc:toggle_hostile]적대 모드[/url]: {hostile_status}")
 
+    # 성추행 모드
+    harass_on = is_harassment_enabled()
+    harass_status = "[color=red]ON[/color]" if harass_on else "[color=gray]OFF[/color]"
+    lines.append(f"[url=@proc:toggle_harassment]성추행 모드[/url]: {harass_status}")
+
     # 달리기
     player_id = _get_player_id()
     sprint_on = morld.get_unit_prop(player_id, "이동:달리기") if player_id >= 0 else 0
@@ -292,6 +320,13 @@ def show_settings_ui():
             combat.set_hostile_mode(not combat.is_hostile_mode())
             status = "ON" if combat.is_hostile_mode() else "OFF"
             morld.add_action_log(f"적대 모드: {status}")
+            return _render()
+
+        # 성추행 모드 토글
+        if action == "toggle_harassment":
+            new_state = not is_harassment_enabled()
+            set_harassment_enabled(new_state)
+            morld.add_action_log(f"성추행 모드: {'ON' if new_state else 'OFF'}")
             return _render()
 
         # 달리기 토글

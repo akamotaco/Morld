@@ -159,7 +159,8 @@ class Player(Character):
         "can:errand": 0,  # 동적 관리 (심부름 가능한 퀘스트가 있을 때만 1)
 
     }
-    actions = ["call:rest:휴식", "call:sleep:노숙", "call:masturbate:자위#"]
+    actions = ["call:rest:휴식", "call:sleep:노숙", "call:masturbate:자위#",
+               "call:self_expose:옷 들추기#"]
     mood = []
 
     def rest(self):
@@ -220,4 +221,37 @@ class Player(Character):
         else:
             morld.set_unit_prop(self.instance_id, "상태:성욕", max(0, arousal - 15))
             morld.add_action_log("사정까지 이르지 못했지만 약간 해소되었다.")
+
+    def self_expose(self):
+        """플레이어 자기 노출 — 상체/하체 선택"""
+        import morld
+        import settings
+        if not settings.is_harassment_enabled():
+            morld.add_action_log("성추행 모드가 꺼져 있다.")
+            return
+        import ui
+        lines = ["[b]어느 쪽을 노출할까?[/b]\n"]
+        lines.append("[url=@ret:upper]상체 들추기[/url]")
+        lines.append("[url=@ret:lower]하체 들추기[/url]")
+        # 이미 노출 중이면 복구 옵션
+        upper = morld.get_unit_prop(self.instance_id, "임시노출:상체") or 0
+        lower = morld.get_unit_prop(self.instance_id, "임시노출:하체") or 0
+        if upper or lower:
+            lines.append("[url=@ret:fix]옷매무새 정리[/url]")
+        lines.append("\n[url=@ret:cancel]취소[/url]")
+        choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
+        if not choice or choice == "cancel":
+            return
+        if choice == "fix":
+            morld.clear_prop(self.instance_id, "임시노출:상체")
+            morld.clear_prop(self.instance_id, "임시노출:하체")
+            morld.clear_prop(self.instance_id, "상태:자발적노출")
+            morld.add_action_log("옷매무새를 정리했다.")
+            morld.advance_time_des(1 * 60_000)
+            return
+        part = "상체" if choice == "upper" else "하체"
+        morld.set_unit_prop(self.instance_id, f"임시노출:{part}", 2)
+        morld.set_unit_prop(self.instance_id, "상태:자발적노출", 1)
+        morld.add_action_log(f"{part} 옷을 들추었다.")
+        morld.advance_time_des(1 * 60_000)
 

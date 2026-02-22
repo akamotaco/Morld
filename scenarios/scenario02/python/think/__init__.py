@@ -1151,6 +1151,100 @@ class BaseAgent:
 
         return False
 
+    # ========================================
+    # 탈진자 간호 (Tier 2)
+    # ========================================
+
+    _NURSING_REACTIONS = {
+        "gentle": ["괜찮아? 좀 쉬어...", "내가 옆에 있을게."],
+        "cheerful": ["이런, 무리하면 안 되지!", "금방 나을 거야!"],
+        "stoic": ["...쉬어.", "무리하지 마."],
+        "timid": ["저, 저기... 괜찮으세요...?", "어, 어떡하지..."],
+        "cold": ["...바보.", "쓸데없이 무리해서."],
+        "seductive": ["이런 모습도 귀엽네~", "내가 돌봐줄게♡"],
+        "fierce": ["뭐야, 벌써 쓰러졌어?", "정신 차려!"],
+        "proud": ["...어쩔 수 없지, 간호해주지.", "감사히 여겨."],
+        "innocent": ["힘내요! 금방 나을 거예요!", "옆에 있어줄게요!"],
+        "devoted": ["주인님, 괜찮으신가요?!", "제가 돌봐드릴게요..."],
+    }
+
+    def _check_exhausted_nearby(self):
+        """같은 Location에 탈진된 캐릭터 → 간호"""
+        import survival as _surv
+
+        # 진행 중 → 계속
+        if self._memory.get("nursing_phase") is not None:
+            return self._handle_nursing()
+
+        # 쿨다운 (1시간)
+        now = self.get_time()
+        last = self._memory.get("nursing_cooldown", 0)
+        if now - last < 3_600_000:
+            return False
+
+        # 같은 Location 탈진자 탐색
+        my_loc = morld.get_unit_location(self.unit_id)
+        if not my_loc:
+            return False
+        chars = morld.get_characters_at_location(my_loc[0], my_loc[1])
+        target_id = None
+        for cid in (chars or []):
+            if cid == self.unit_id:
+                continue
+            if morld.get_unit_prop(cid, "상태:사망"):
+                continue
+            if _surv.is_npc_exhausted(cid):
+                target_id = cid
+                break
+
+        if target_id is None:
+            return False
+
+        self._memory["nursing_phase"] = "nursing"
+        self._memory["nursing_target"] = target_id
+        return self._handle_nursing()
+
+    def _handle_nursing(self):
+        """간호 실행 — 단일 phase"""
+        import survival as _surv
+
+        target_id = self._memory.get("nursing_target")
+        if target_id is None:
+            self._memory["nursing_phase"] = None
+            return False
+
+        if not _surv.is_npc_exhausted(target_id):
+            # 대상이 이미 회복됨
+            self._memory["nursing_phase"] = None
+            self._memory["nursing_target"] = None
+            self._memory["nursing_cooldown"] = self.get_time()
+            return False
+
+        # 간호 대사
+        profile = getattr(self, 'REACTION_PROFILE', None) or {}
+        archetype = profile.get("archetype", "stoic")
+        texts = self._NURSING_REACTIONS.get(archetype,
+                                            self._NURSING_REACTIONS["stoic"])
+        import random
+        reaction = random.choice(texts)
+        morld.add_action_log(f"{self.name}: \"{reaction}\"")
+
+        # HP 소폭 회복 (10)
+        target_name = (morld.get_unit_info(target_id) or {}).get("name", "누군가")
+        hp = morld.get_unit_prop(target_id, "생존:체력") or 0
+        max_hp = morld.get_unit_prop(target_id, "생존:최대체력") or 100
+        morld.set_unit_prop(target_id, "생존:체력", min(max_hp, hp + 10))
+
+        # 간호 job (30분)
+        self._insert_idle_job(f"{target_name} 간호", 30 * 60_000)
+
+        # 완료
+        self._memory["nursing_phase"] = None
+        self._memory["nursing_target"] = None
+        self._memory["nursing_cooldown"] = self.get_time()
+        self._action_taken = True
+        return True
+
     # 소리 반응 상수
     SOUND_REACTION_COOLDOWN = 30 * 60 * 1000      # 30분
     SOUND_REACTION_COOLDOWN_MIN = 5 * 60 * 1000   # 최소 5분
@@ -1392,6 +1486,10 @@ class BaseAgent:
         Returns:
             True if action was taken.
         """
+        # 4a-pre. 임시노출 정리 (옷매무새)
+        if self._check_exposure_recovery():
+            return True
+
         # 4a. 착의 인터럽트
         if self._check_clothing():
             return True
@@ -1526,12 +1624,18 @@ class BaseAgent:
         if arousal < threshold:
             return False
 
-        # 1순위: 플레이어 탐색
+        # 0순위: 플레이어 탐색 (단둘 → NPC 주도 로맨스)
         can_seek, target = self._can_seek_player()
         if can_seek:
             self._memory["seek_player_phase"] = "idle"
             self._memory["seek_player_target"] = target
             _handle_seek_player(self)
+            return True
+
+        # 1순위: 유혹 (다른 NPC 있을 때 → 자발적 노출) + NPC→플레이어 성추행
+        if self._try_self_exposure():
+            return True
+        if self._try_harass_player():
             return True
 
         # 2순위: 자위
@@ -1542,6 +1646,103 @@ class BaseAgent:
             return True
 
         return False
+
+    _SELF_EXPOSURE_COOLDOWN_MS = 3_600_000   # 유혹 쿨다운 1시간
+    _SELF_EXPOSURE_CHANCE = 0.5              # 유혹 확률 50%
+    _SELF_EXPOSURE_AROUSAL_RELIEF = 10       # 유혹 후 성욕 감소량
+
+    def _try_self_exposure(self):
+        """높은 성욕 + 호감 + 다른 NPC 있을 때 → 자발적 옷 들추기 (유혹)"""
+        import settings
+        if not settings.is_harassment_enabled():
+            return False
+        player_id = morld.get_player_id()
+        if player_id is None or player_id < 0:
+            return False
+        # 같은 location 확인
+        my_loc = morld.get_unit_location(self.unit_id)
+        pl_loc = morld.get_unit_location(player_id)
+        if not my_loc or not pl_loc or my_loc[:2] != pl_loc[:2]:
+            return False
+        # 쿨다운
+        now = self.get_time()
+        last = self._memory.get("self_exposure_cooldown", 0)
+        if now - last < self._SELF_EXPOSURE_COOLDOWN_MS:
+            return False
+        # 다른 NPC가 있을 때만 유혹 (단둘이면 NPC 주도 로맨스가 우선)
+        chars = morld.get_characters_at_location(my_loc[0], my_loc[1])
+        others = [c for c in (chars or [])
+                  if c != self.unit_id and c != player_id]
+        if not others:
+            return False  # 단둘 → 유혹 대신 플레이어 탐색/성추행 경로
+        # 호감 임계치 (INITIATIVE_CONFIG 재활용)
+        config = getattr(self, 'INITIATIVE_CONFIG', None)
+        if not config:
+            return False
+        player_name = (morld.get_unit_info(player_id) or {}).get("name", "")
+        affection = morld.get_unit_prop(self.unit_id,
+                                        f"관계:{player_name}:호감") or 0
+        if affection < config.get("affection_threshold", 60):
+            return False
+        # 이미 노출 상태면 skip
+        if (morld.get_unit_prop(self.unit_id, "임시노출:상체") or 0) > 0:
+            return False
+        if (morld.get_unit_prop(self.unit_id, "임시노출:하체") or 0) > 0:
+            return False
+        # 확률 판정
+        import random
+        if random.random() > self._SELF_EXPOSURE_CHANCE:
+            self._memory["self_exposure_cooldown"] = now
+            return False
+        # 자발적 노출 설정 (상체 or 하체 랜덤)
+        part = random.choice(["상체", "하체"])
+        morld.set_unit_prop(self.unit_id, f"임시노출:{part}", 2)
+        morld.set_unit_prop(self.unit_id, "상태:자발적노출", 1)
+        # 성욕 감소 (유혹 행위로 약간의 성적 만족감)
+        morld.modify_prop(self.unit_id, "상태:성욕",
+                          -self._SELF_EXPOSURE_AROUSAL_RELIEF)
+        self._memory["self_exposure_cooldown"] = now
+        self._do_instant_action("유혹", "seduce")
+        return True
+
+    def _try_harass_player(self):
+        """NPC가 자발적으로 플레이어를 성추행 (호감 높을 때)"""
+        import settings
+        if not settings.is_harassment_enabled():
+            return False
+        player_id = morld.get_player_id()
+        if player_id is None or player_id < 0:
+            return False
+        # 같은 location 확인
+        my_loc = morld.get_unit_location(self.unit_id)
+        pl_loc = morld.get_unit_location(player_id)
+        if not my_loc or not pl_loc or my_loc[:2] != pl_loc[:2]:
+            return False
+        # 호감 임계치 (환영 모드에서만)
+        player_name = (morld.get_unit_info(player_id) or {}).get("name", "")
+        affection = morld.get_unit_prop(self.unit_id,
+                                        f"관계:{player_name}:호감") or 0
+        if affection < 60:
+            return False
+        # 쿨다운 (2시간)
+        now = self.get_time()
+        last = self._memory.get("harass_player_cooldown", 0)
+        if now - last < 2 * 3_600_000:
+            return False
+        # 랜덤 액션 선택
+        import harassment
+        import random
+        available = harassment.get_available_actions(self.unit_id, player_id)
+        if not available:
+            return False
+        action_id = random.choice(available)
+        result = harassment.execute_action(self.unit_id, player_id,
+                                           action_id, is_combat=False)
+        action_name = harassment.HARASSMENT_ACTIONS[action_id]["name"]
+        morld.add_action_log(f"{self.name}이(가) 당신에게 {action_name}")
+        self._memory["harass_player_cooldown"] = now
+        self._do_instant_action("성추행", "harass_player")
+        return True
 
     def _check_childbirth(self):
         """출산 인터럽트: 임신 40주+ 또는 출산 진행 중. Returns True if handling."""
@@ -1838,10 +2039,12 @@ class BaseAgent:
                 # Tier 1 통과 → 활동 준비: 앉기/눕기 상태 해제
                 self._ensure_standing()
 
-                # Tier 2: 반응형 — 전투 > 결박된 동료 > 소리 반응
+                # Tier 2: 반응형 — 전투 > 결박된 동료 > 탈진자 간호 > 소리 반응
                 if self._check_combat_threat():
                     _tier_reached = 2
                 elif self._check_restrained_nearby():
+                    _tier_reached = 2
+                elif self._check_exhausted_nearby():
                     _tier_reached = 2
                 elif self._check_tier2_reactive():
                     _tier_reached = 2
@@ -2534,6 +2737,21 @@ class BaseAgent:
     # ========================================
 
     CLOTHING_COOLDOWN_MILLIS = 3_600_000  # 착의 실패 후 1시간 쿨다운
+
+    def _check_exposure_recovery(self):
+        """임시노출 → 옷매무새 정리. Returns True if handling."""
+        upper = morld.get_unit_prop(self.unit_id, "임시노출:상체") or 0
+        lower = morld.get_unit_prop(self.unit_id, "임시노출:하체") or 0
+        if not upper and not lower:
+            return False
+        import restraint
+        if not restraint.can_use_hands(self.unit_id):
+            return False
+        morld.clear_prop(self.unit_id, "임시노출:상체")
+        morld.clear_prop(self.unit_id, "임시노출:하체")
+        morld.clear_prop(self.unit_id, "상태:자발적노출")
+        self._do_instant_action("옷매무새 정리", "fix_clothes")
+        return True
 
     def _check_clothing(self):
         """착의 확인 → 옷장 이동. Returns True if handling."""

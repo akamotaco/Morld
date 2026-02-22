@@ -149,6 +149,20 @@ def _get_special_attacks():
     return _SPECIAL_ATTACKS
 
 
+def get_equipped_weapon(unit_id: int):
+    """장착된 무기 item_id 반환 (없으면 None)"""
+    import equipment
+    items = equipment.get_equipped_items(unit_id)
+    for item_id in (items or []):
+        info = morld.get_item_info(item_id)
+        if not info:
+            continue
+        equip_props = info.get("equip_props") or {}
+        if "전투:공격력" in equip_props:
+            return item_id
+    return None
+
+
 # ========================================
 # 스탯 조회
 # ========================================
@@ -331,7 +345,10 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
         # 화기 잼 판정
         ammo_type = get_combat_stat(attacker_id, "전투:탄약")
         if ammo_type and ammo_type != "arrow":
-            durability = morld.get_unit_prop(attacker_id, "내구도") or 100
+            weapon_id = get_equipped_weapon(attacker_id)
+            durability = morld.get_unit_prop(weapon_id, "내구도") if weapon_id else 100
+            if durability is None:
+                durability = 100
             jam_chance = JAM_BASE_CHANCE + max(0, (50 - durability) // 10)
             if random.randint(1, 100) <= jam_chance:
                 morld.set_unit_prop(attacker_id, "상태:잼", 1)
@@ -409,8 +426,10 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
             if msg:
                 result["message"] += f" {msg}"
 
-    # 내구도 감소
-    degrade_durability(attacker_id)
+    # 무기 내구도 감소
+    weapon_id = get_equipped_weapon(attacker_id)
+    if weapon_id is not None:
+        degrade_durability(weapon_id, amount=1, owner_id=attacker_id)
 
     # 소리
     if is_ranged:
@@ -521,7 +540,10 @@ def execute_aimed_attack(attacker_id: int, target_id: int, body_part: str) -> di
         apply_poison(target_id)
         result["message"] += " 독이 퍼진다!"
 
-    degrade_durability(attacker_id)
+    # 무기 내구도 감소
+    weapon_id = get_equipped_weapon(attacker_id)
+    if weapon_id is not None:
+        degrade_durability(weapon_id, amount=1, owner_id=attacker_id)
 
     if is_ranged:
         ammo_type = get_combat_stat(attacker_id, "전투:탄약")
@@ -849,8 +871,8 @@ def get_cover_bonus(unit_id):
 # 내구도
 # ========================================
 
-def degrade_durability(item_id, amount=1):
-    """내구도 감소. 0이면 상태:파손 설정."""
+def degrade_durability(item_id, amount=1, owner_id=None):
+    """내구도 감소. 0이면 장착 해제 + 파손 표시 (인벤토리 유지, 향후 복구 가능)."""
     current = morld.get_unit_prop(item_id, "내구도")
     if current is None:
         return  # 내구도 없는 아이템 (시나리오03 호환)
@@ -858,6 +880,13 @@ def degrade_durability(item_id, amount=1):
     morld.set_unit_prop(item_id, "내구도", new_val)
     if new_val == 0:
         morld.set_unit_prop(item_id, "상태:파손", 1)
+        item_info = morld.get_item_info(item_id)
+        item_name = item_info.get("name", "아이템") if item_info else "아이템"
+        if owner_id is not None:
+            import equipment
+            if equipment.is_equipped(owner_id, item_id):
+                equipment.unequip_item(owner_id, item_id)
+        morld.add_action_log(f"{item_name}이(가) 파손되었다.")
 
 
 # ========================================

@@ -24,6 +24,7 @@ class Baton(Item):
     unique_id = "baton"
     name = "삼단봉"
     category = "weapon"
+    durability = 50
     equip_props = {
         "전투:공격력": 5,
         "전투:사거리": 60,
@@ -46,6 +47,7 @@ class CopperSword(Item):
     unique_id = "copper_sword"
     name = "구리검"
     category = "weapon"
+    durability = 50
     equip_props = {
         "전투:공격력": 5,
         "전투:사거리": 70,
@@ -67,6 +69,7 @@ class IronSword(Item):
     unique_id = "iron_sword"
     name = "철검"
     category = "weapon"
+    durability = 50
     equip_props = {
         "전투:공격력": 7,
         "전투:사거리": 80,
@@ -88,6 +91,7 @@ class Pickaxe(Item):
     unique_id = "pickaxe"
     name = "곡괭이"
     category = "tool"
+    durability = 50
     passive_props = {"can:mine": 1}
     equip_props = {
         "전투:공격력": 4,
@@ -114,6 +118,7 @@ class Revolver(Item):
     unique_id = "revolver"
     name = "리볼버"
     category = "weapon"
+    durability = 50
     equip_props = {
         "전투:공격력": 12,
         "전투:사거리": 200,

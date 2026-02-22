@@ -388,14 +388,92 @@ _FOCUS_RESTRAINT = [
 
 ---
 
-## 9. 파일 구조
+## 9. 성추행 시스템 (Harassment)
+
+> `harassment.py`, `settings.py`, `think/__init__.py` — 순수 Python
+
+전투/비전투 양방향 성추행 시스템. 옷 들추기/찢기 → 신체 노출 → 만지기 → 절정.
+
+### 설정
+
+```python
+# settings.py
+settings.is_harassment_enabled()   # 성추행 모드 ON/OFF
+settings.set_harassment_enabled()  # can:harassment + can:self_expose prop 연동
+```
+
+### 액션 체계
+
+| 타입 | 액션 | 효과 | 비전투 시간 | 전투 시간 |
+|------|------|------|-----------|----------|
+| lift | 상체/하체 옷 들추기 | 임시노출 prop 설정 (지속) | 3분 | 6초 |
+| tear | 상체/하체 옷 찢기 | 최외곽 의류 내구도 -5 | 5분 | 8초 |
+| grope | 가슴/유두/엉덩이/음부 만지기 | 절정 게이지 상승 (노출 필요) | 5분 | 10초 |
+
+### 임시노출 Props
+
+| Prop | 범위 | 설명 |
+|------|------|------|
+| `임시노출:상체` | 0-2 | 0=없음, 1=옷 위로 들추기, 2=완전 노출 |
+| `임시노출:하체` | 0-2 | 동일 |
+| `상태:자발적노출` | 0/1 | NPC 자발적 유혹 여부 (describe 분기용) |
+
+`_calculate_exposure()`에서 `max(실제착의, 임시노출)` 적용.
+
+### 관계 기반 반응 분기
+
+| 모드 | 조건 | 효과 |
+|------|------|------|
+| welcome | 호감 ≥60 | 성욕 상승 (CASUAL_REACTIONS 재활용) |
+| unwanted | 호감 <60 + 반발 <30 | 호감 감소 + 반발 소폭 증가 |
+| hostile | 반발 ≥30 | 적대치 대폭 증가 (전투 유발 가능) |
+
+### NPC 옷매무새 복구
+
+think() Tier 4a-pre에서 임시노출 감지 → 1분 "옷매무새 정리" → prop 클리어.
+결박 상태(`can_use_hands = False`)면 복구 불가.
+
+### NPC 유혹 (자발적 노출)
+
+- think() Tier 4d `_check_arousal()` 내 `_try_self_exposure()`
+- 조건: 성욕 임계 + 호감 ≥60 + 같은 Location + **다른 NPC 있을 때**
+- 확률 50%, 쿨다운 1시간, 성욕 -10 (유혹 만족감)
+- 단둘일 때는 NPC 주도 로맨스(`_can_seek_player`)가 우선
+
+### NPC → 플레이어 성추행
+
+- think() Tier 4d `_try_harass_player()`
+- 조건: 호감 ≥60 + 같은 Location, 쿨다운 2시간
+- 랜덤 액션 선택 → `harassment.execute_action()` → action_log 출력
+
+### 비로맨스 절정 + 탈진
+
+`_trigger_passive_climax()`:
+- 성욕 -30, 피로 +5
+- 입 자유 시 신음 (`sound.emit_sound("moan", 30)`)
+- HP 기반 확률적 짧은 탈진 (1시간): `chance = 1.0 - hp_ratio`
+
+### 플레이어 자기 노출
+
+Player 액션 "옷 들추기#" → 상체/하체 선택 → 임시노출 설정.
+NPC가 `on_meet_player()`에서 `상태:자발적노출` 감지 → 관계 모드별 반응.
+
+### NPC 간호 행동
+
+think() Tier 2에서 탈진된 캐릭터 발견 → 30분 간호 + HP +10.
+아키타입별 간호 대사 (10종).
+
+---
+
+## 10. 파일 구조
 
 ```
 scenarios/scenario02/python/
 ├── assets/items/
 │   └── adult_toys.py          # 17개 아이템 정의 + 유틸리티
+├── harassment.py              # 성추행 시스템 (액션, 관계 분기, 세션 UI)
 ├── restraint.py               # 결박 상태 API
-├── needs.py                   # _update_climax() 절정 상시 관리
+├── needs.py                   # _update_climax() 절정 상시 관리 + 비로맨스 절정/탈진
 ├── gender.py                  # has_natural_anatomy() 임시 해부학
 ├── romance_actions.py         # 신규 6개 액션 정의
 ├── romance_core.py            # is_action_blocked_by_state()

@@ -633,12 +633,57 @@ Fallback: species pool → gauge 한 단계 낮춤 → arousal 한 단계 낮춤
 
 ---
 
+## 10. Creature 성추행 AI (Tier 3.6)
+
+> `think/creature_agent.py` — `_check_harassment_opportunity()`
+
+겁탈(Tier 3.5)과 별개로, 성추행 모드 ON 시 무력화된 대상에게 성추행.
+
+### 조건
+
+1. `settings.is_harassment_enabled()` ON
+2. 생물이 유성 (무성 제외)
+3. 같은 Location에 무력화된 캐릭터 (기절/마비/거미줄)
+4. 쿨다운 2시간 (겁탈 4시간보다 짧음)
+
+### 우선순위: bestiality ON → 겁탈 우선, OFF → 성추행만
+
+```
+Tier 3.5: _check_assault_opportunity()   # bestiality ON 필요
+Tier 3.6: _check_harassment_opportunity() # harassment ON 필요
+```
+
+### 종별 확률 (`harassment_chance`)
+
+| Creature | 확률 | 비고 |
+|----------|------|------|
+| Wolf | 0.4 | 공격적 |
+| Spider | 0.5 | 속박 대상에 적극적 |
+| Bat | 무성 제외 | GENDER_DISTRIBUTION 없음 → 자동 제외 |
+| 기본값 | 0.3 | `getattr(self, 'harassment_chance', 0.3)` |
+
+### 처리 흐름
+
+```
+_check_harassment_opportunity()
+    → 무력화 대상 탐색 → 확률 판정 → 랜덤 액션 선택
+    → harassment.execute_action() → 30분 idle + 쿨다운 2시간
+```
+
+### `_memory` 키
+
+| 키 | 값 | 설명 |
+|----|----|------|
+| `harass_cooldown_until` | ms (절대 시각) | 성추행 쿨다운 종료 시각 |
+
+---
+
 ## 관련 파일
 
 | 파일 | 역할 |
 |------|------|
-| `assets/characters/monster.py` | Monster/Wolf/Bat/Spider Asset 정의 + GENDER_DISTRIBUTION + mate() |
-| `think/creature_agent.py` | CreatureAgent (5-tier think + 겁탈 AI) |
+| `assets/characters/monster.py` | Monster/Wolf/Bat/Spider Asset 정의 + GENDER_DISTRIBUTION + mate() + harassment_chance |
+| `think/creature_agent.py` | CreatureAgent (5-tier think + 겁탈 AI + 성추행 AI) |
 | `spawner.py` | 스폰/디스폰 관리 + 성별 배정 |
 | `combat.py` | 세력 시스템 + 전투 코어 + 마비/거미줄 API |
 | `gender.py` | 생물 성별 표시 (`get_creature_gender_display`) |

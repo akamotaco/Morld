@@ -400,6 +400,19 @@ def _trigger_passive_climax(unit_id):
         except ImportError:
             pass
 
+    # HP 기반 확률적 짧은 탈진
+    import survival
+    if not survival.is_npc_fainted(unit_id) and not survival.is_npc_exhausted(unit_id):
+        hp = morld.get_unit_prop(unit_id, "생존:체력") or 100
+        max_hp = morld.get_unit_prop(unit_id, "생존:최대체력") or 100
+        hp_ratio = hp / max_hp if max_hp > 0 else 1.0
+        # 탈진 확률 = (1 - HP비율). 체력 낮을수록 높음
+        exhaustion_chance = max(0.0, 1.0 - hp_ratio)
+        if exhaustion_chance > 0:
+            import random
+            if random.random() < exhaustion_chance:
+                survival.set_exhaustion(unit_id, duration_hours=1)
+
 
 def _process_hourly(unit_id):
     """캐릭터 1시간 욕구 업데이트"""

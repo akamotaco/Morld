@@ -59,6 +59,10 @@ class CreatureAgent(BaseAgent):
         if self._check_assault_opportunity():
             return
 
+        # Tier 3.6: 성추행 기회 (harassment ON + 무력화 대상)
+        if self._check_harassment_opportunity():
+            return
+
         # Tier 4: 스케줄 기반 행동
         entry = self._get_creature_entry()
         if entry:
@@ -246,3 +250,74 @@ class CreatureAgent(BaseAgent):
         """겁탈 상태 초기화"""
         self._memory.pop("assault_phase", None)
         self._memory.pop("assault_target", None)
+
+    # ========================================
+    # 성추행 AI (Harassment)
+    # ========================================
+
+    def _check_harassment_opportunity(self):
+        """무력화된 캐릭터 감지 → 성추행 시도 (harassment ON)"""
+        import settings
+        if not settings.is_harassment_enabled():
+            return False
+
+        # 무성 생물 제외
+        import gender as gender_mod
+        if gender_mod.get_gender(self.unit_id) == gender_mod.ASEXUAL:
+            return False
+
+        # 쿨다운 (2시간)
+        cooldown_until = self._memory.get("harass_cooldown_until", 0)
+        now = morld.get_current_time()
+        if cooldown_until > 0 and now < cooldown_until:
+            return False
+
+        # 같은 Location 무력화 캐릭터 탐색
+        loc = morld.get_unit_location(self.unit_id)
+        if not loc or loc[0] < 0:
+            return False
+
+        import combat
+        player_id = morld.get_player_id()
+        characters = morld.get_characters_at_location(loc[0], loc[1])
+        targets = []
+        for char_id in (characters or []):
+            if char_id == self.unit_id:
+                continue
+            if morld.get_unit_prop(char_id, "상태:사망"):
+                continue
+            is_fainted = survival.is_npc_fainted(char_id)
+            if not is_fainted and char_id == player_id:
+                is_fainted = survival.is_player_fainted()
+            if (is_fainted or
+                    combat.is_paralyzed(char_id) or
+                    combat.is_web_bound(char_id)):
+                targets.append(char_id)
+
+        if not targets:
+            return False
+
+        import random
+        target_id = random.choice(targets)
+
+        # 개별 스펙 기반 확률 (harassment_chance, 기본 0.3)
+        chance = getattr(self, 'harassment_chance', 0.3)
+        if random.random() > chance:
+            self._memory["harass_cooldown_until"] = now + 2 * 3_600_000
+            return False
+
+        # 액션 선택 + 실행
+        import harassment
+        available = harassment.get_available_actions(self.unit_id, target_id)
+        if not available:
+            return False
+        action_id = random.choice(available)
+        result = harassment.execute_action(self.unit_id, target_id,
+                                           action_id, is_combat=False)
+        action_name = harassment.HARASSMENT_ACTIONS[action_id]["name"]
+        target_name = (morld.get_unit_info(target_id) or {}).get("name", "?")
+        morld.add_action_log(f"{self.name}이(가) {target_name}에게 {action_name}")
+        self._insert_idle_job("성추행 중", 30 * 60_000)
+        self._memory["harass_cooldown_until"] = now + 2 * 3_600_000
+        self._action_taken = True
+        return True
