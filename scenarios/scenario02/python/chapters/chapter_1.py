@@ -6,7 +6,7 @@
 
 import morld
 import equipment
-from world import mansion, city, initialize_world
+from world import mansion, city, mine, initialize_world
 
 
 def initialize():
@@ -15,6 +15,9 @@ def initialize():
 
     # 1. 전체 월드 초기화 (모든 Region + RegionGate)
     initialize_world()
+
+    # 1.5. 광산 몬스터 스폰 등록
+    mine.register_spawn_sources()
 
     # 2. 시간 설정 (아침으로 시작 - initialize_world의 시간 덮어쓰기)
     morld.set_time(1, 4, 2, 8, 0)  # 1년 4월 2일 아침 8시

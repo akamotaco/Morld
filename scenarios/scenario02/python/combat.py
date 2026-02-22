@@ -5,6 +5,7 @@
 
 import random
 import morld
+from events import subscribe_time_elapsed
 
 # ── 전투 스탯 기본값 ──
 DEFAULT_STATS = {
@@ -311,14 +312,48 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
     return result
 
 
-def check_npc_combat_join(location_id: int) -> list:
+def check_npc_combat_join(region_id: int, location_id: int) -> list:
     """같은 Location에서 전투에 합류할 NPC 리스트 반환
 
-    Phase 1: BATTLE_BEHAVIOR.join_combat + join_threshold 체크
-    Phase 2: party-implementation.md Section 13에서 확장
+    BATTLE_BEHAVIOR.join_combat=True인 NPC 중,
+    같은 location + 호감도 >= join_threshold(기본 0) → 합류 대상.
     """
-    # TODO: Phase 5 (NPC AI) 에서 구현
-    return []
+    import think
+    import survival
+
+    joinable = []
+    player_id = morld.get_player_id()
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get("name", "") if player_info else ""
+
+    for unit_id, agent in think.get_all_agents().items():
+        # 같은 location인지 확인
+        loc = morld.get_unit_location(unit_id)
+        if not loc or loc[0] != region_id or loc[1] != location_id:
+            continue
+
+        # 행동불능 체크
+        if survival.is_npc_fainted(unit_id) or survival.is_npc_exhausted(unit_id):
+            continue
+
+        # BATTLE_BEHAVIOR 확인
+        behavior = getattr(agent, 'BATTLE_BEHAVIOR', None)
+        if not behavior:
+            continue
+        if not behavior.get("join_combat", False):
+            continue
+
+        # 이미 전투 중이면 스킵
+        if agent._memory.get("combat_phase") is not None:
+            continue
+
+        # 호감도 체크
+        threshold = behavior.get("join_threshold", 0)
+        affection = morld.get_unit_prop(unit_id, f"관계:{player_name}:호감") or 0
+        if affection >= threshold:
+            joinable.append(unit_id)
+
+    return joinable
 
 
 def can_fight(unit_id: int) -> bool:
@@ -575,3 +610,7 @@ def reset():
     """챕터 전환: 모듈 상태 초기화"""
     global _hostile_mode
     _hostile_mode = False
+
+
+# 모듈 로드 시 이벤트 구독 (1시간 간격)
+subscribe_time_elapsed(_on_time_elapsed, min_interval=3_600_000)

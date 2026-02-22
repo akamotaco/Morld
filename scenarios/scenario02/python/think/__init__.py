@@ -2641,6 +2641,11 @@ def get_agent(unit_id):
     return _agents.get(unit_id)
 
 
+def get_all_agents() -> dict:
+    """등록된 모든 Agent 딕셔너리 반환 (unit_id -> Agent)"""
+    return dict(_agents)
+
+
 def think_all():
     """
     모든 등록된 Agent의 think() 호출

@@ -137,6 +137,38 @@ class Feather(Item):
 
 
 @register_item
+class WolfPelt(Item):
+    """늑대 가죽 — 늑대 시체에서 수확 (날붙이 필요)"""
+    unique_id = "wolf_pelt"
+    name = "늑대 가죽"
+    category = "material"
+    value = 15
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        yield ui.dialog([
+            "두꺼운 늑대 가죽이다.",
+            "방한 장비 제작에 쓸 수 있을 것 같다."
+        ])
+
+
+@register_item
+class WolfFang(Item):
+    """늑대 이빨 — 늑대 시체에서 수확 (날붙이 필요)"""
+    unique_id = "wolf_fang"
+    name = "늑대 이빨"
+    category = "material"
+    value = 8
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        yield ui.dialog([
+            "날카로운 늑대 이빨이다.",
+            "무기나 장신구 재료로 쓸 수 있다."
+        ])
+
+
+@register_item
 class SpiderVenom(Item):
     """거미독 — 거미 시체에서 수확 (날붙이 필요)"""
     unique_id = "spider_venom"

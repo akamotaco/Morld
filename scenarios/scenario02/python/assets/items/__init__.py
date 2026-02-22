@@ -32,7 +32,7 @@ from .clothes import (
 )
 from .materials import (
     Log, Branch, Plank, Cord, Feather,
-    SpiderVenom, SpiderSilk
+    WolfPelt, WolfFang, SpiderVenom, SpiderSilk
 )
 from .ores import (
     CopperOre, IronOre
@@ -89,7 +89,7 @@ __all__ = [
     'SeraHuntingOutfit', 'MilaApron',
     # materials
     'Log', 'Branch', 'Plank', 'Cord', 'Feather',
-    'SpiderVenom', 'SpiderSilk',
+    'WolfPelt', 'WolfFang', 'SpiderVenom', 'SpiderSilk',
     # ores
     'CopperOre', 'IronOre',
     # currency

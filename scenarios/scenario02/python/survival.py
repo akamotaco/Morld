@@ -107,6 +107,16 @@ def add_satiety(unit_id: int, amount: int):
         pass
 
 
+def get_health(unit_id: int) -> int:
+    """체력 조회"""
+    return morld.get_unit_prop(unit_id, "생존:체력") or 0
+
+
+def get_max_health(unit_id: int) -> int:
+    """최대 체력 조회"""
+    return morld.get_unit_prop(unit_id, "생존:최대체력") or 100
+
+
 def add_health(unit_id: int, amount: int):
     """
     체력 추가/감소
