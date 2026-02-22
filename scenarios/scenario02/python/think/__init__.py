@@ -941,26 +941,24 @@ class BaseAgent:
         enemy_id = None
         enemy_dist = float('inf')
 
+        my_faction = morld.get_unit_prop(self.unit_id, "전투:세력")
+        detect_range = morld.get_unit_prop(self.unit_id, "전투:감지거리") or 100
+
         for uid in units:
             if uid == self.unit_id:
                 continue
             # 사망 체크
             if morld.get_unit_prop(uid, "상태:사망"):
                 continue
-            # 몬스터 적대유형 체크
-            hostile_type = morld.get_unit_prop(uid, "전투:적대유형")
-            if hostile_type == _combat.HOSTILITY_TYPE_MONSTER:
+            # 세력 적대 체크
+            their_faction = morld.get_unit_prop(uid, "전투:세력")
+            is_enemy = _combat.is_faction_hostile(my_faction, their_faction)
+            # 관계 적대도 병행 (NPC 간 개인적 적대)
+            if not is_enemy and _combat.is_hostile_to(self.unit_id, uid):
+                is_enemy = True
+            if is_enemy:
                 dist = _combat.get_distance(self.unit_id, uid)
-                detect_range = morld.get_unit_prop(self.unit_id, "전투:감지거리") or 100
-                if dist <= detect_range:
-                    if dist < enemy_dist:
-                        enemy_id = uid
-                        enemy_dist = dist
-                continue
-            # NPC 간 적대도 체크 (플레이어 포함)
-            if _combat.is_hostile_to(self.unit_id, uid):
-                dist = _combat.get_distance(self.unit_id, uid)
-                if dist < enemy_dist:
+                if dist <= detect_range and dist < enemy_dist:
                     enemy_id = uid
                     enemy_dist = dist
 
@@ -2055,12 +2053,15 @@ class BaseAgent:
                 self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))  # 스케줄 잔여 시간 연동 — ACTION_DURATION 대상 아님
                 self._action_taken = True
 
-    def _do_wander(self, entry):
+    def _do_wander(self, entry=None):
         """돌아다니기: 랜덤 location 이동 → 10~30분 체류 → 반복
 
         순찰/산책 공용. home_region 내 랜덤 location을 순회한다.
         남은 시간 5분 미만이면 제자리 대기로 전환.
+        entry=None이면 24시간 순찰 합성 엔트리 사용.
         """
+        if entry is None:
+            entry = {"name": "배회", "start": 0, "end": 86_400_000, "activity": "순찰"}
         remaining = self._remaining_millis_in_entry(entry)
         display = self._get_display_name(entry)
 

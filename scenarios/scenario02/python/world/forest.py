@@ -40,7 +40,7 @@ REGION = {
 # - 1: 소나무 숲 - 300
 # - 2: 참나무 숲 - 300
 # - 3: 숲속 - 400
-# - 4: 늑대굴 - 100
+# - 4: 늑대굴 - 600
 # - 5: 오두막 - 30
 
 GATES = [
@@ -126,3 +126,22 @@ def instantiate_trees():
             register_tree_object(instance_id, unique_id)
 
     print(f"[world.forest] Tree objects registered for resource regeneration")
+
+
+def register_spawn_sources():
+    """숲 생물 스폰 소스 등록"""
+    from spawner import register_spawn_source
+    from assets.characters.monster import Wolf
+
+    # 늑대굴 — 늑대 최대 2마리, 6시간 간격, 수명 3일
+    register_spawn_source(
+        source_id="forest_wolves",
+        monster_class=Wolf,
+        max_count=2,
+        interval_hours=6,
+        region_id=REGION_ID,
+        location_id=4,       # 늑대굴
+        lifespan_hours=72,
+    )
+
+    print("[world.forest] Spawn sources registered: wolves(2)")

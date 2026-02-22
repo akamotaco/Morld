@@ -1623,9 +1623,8 @@ class Character(Unit):
         result = combat.execute_attack(player_id, self.instance_id)
         morld.add_action_log(result["message"])
 
-        # 적대도/호감 변화 (몬스터 제외)
-        hostility_type = morld.get_unit_prop(self.instance_id, "전투:적대유형")
-        if hostility_type != combat.HOSTILITY_TYPE_MONSTER:
+        # 적대도/호감 변화 (생물 제외)
+        if not combat.is_creature_unit(self.instance_id):
             combat.modify_hostility(self.instance_id, player_name,
                                     combat.HOSTILITY_ON_ATTACK)
             affection_key = f"관계:{player_name}:호감"
@@ -1694,17 +1693,15 @@ class Character(Unit):
 
             morld.add_action_log(f"{item_name}을(를) 훔쳤다.")
 
-            # 적대도 (성공 시)
-            hostility_type = morld.get_unit_prop(self.instance_id, "전투:적대유형")
-            if hostility_type != combat.HOSTILITY_TYPE_MONSTER:
+            # 적대도 (성공 시, 생물 제외)
+            if not combat.is_creature_unit(self.instance_id):
                 combat.modify_hostility(self.instance_id, player_name,
                                         combat.HOSTILITY_ON_STEAL_SUCCESS)
         else:
             # 실패
             morld.add_action_log(f"{self.name}에게 들켰다!")
 
-            hostility_type = morld.get_unit_prop(self.instance_id, "전투:적대유형")
-            if hostility_type != combat.HOSTILITY_TYPE_MONSTER:
+            if not combat.is_creature_unit(self.instance_id):
                 combat.modify_hostility(self.instance_id, player_name,
                                         combat.HOSTILITY_ON_STEAL_FAIL)
                 affection_key = f"관계:{player_name}:호감"

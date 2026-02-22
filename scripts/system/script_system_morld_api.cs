@@ -604,7 +604,7 @@ namespace SE
             });
 
             // get_units_at_location(region_id, location_id, type=None) - Location에 있는 유닛 ID 목록 반환
-            // type: "character" = 캐릭터만, "object" = 오브젝트만, 생략 = 전체
+            // type: "character" = 캐릭터만, "object" = 오브젝트만, "creature" = 생물만, 생략 = 전체
             // 이동 중인 유닛 제외
             morldModule.ModuleDict["get_units_at_location"] = new PyBuiltinFunction("get_units_at_location", args =>
             {
@@ -620,9 +620,11 @@ namespace SE
                 var result = new PyList();
                 foreach (var unit in _unitSystem.Units.Values)
                 {
-                    if (typeFilter == "character" && unit.IsObject)
+                    if (typeFilter == "character" && (unit.IsObject || unit.IsCreature))
                         continue;
                     if (typeFilter == "object" && !unit.IsObject)
+                        continue;
+                    if (typeFilter == "creature" && !unit.IsCreature)
                         continue;
 
                     // 이동 중인 유닛 제외
@@ -667,15 +669,15 @@ namespace SE
                 return result;
             });
 
-            // get_all_unit_ids() - 모든 유닛 ID 목록 반환 (캐릭터만, 오브젝트 제외)
-            morldModule.ModuleDict["get_all_unit_ids"] = new PyBuiltinFunction("get_all_unit_ids", args =>
+            // get_actor_ids() - Actor ID 목록 반환 (Character + Creature, Object 제외)
+            morldModule.ModuleDict["get_actor_ids"] = new PyBuiltinFunction("get_actor_ids", args =>
             {
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
                 var result = new PyList();
                 foreach (var unit in _unitSystem.Units.Values)
                 {
-                    // 오브젝트는 제외 (캐릭터만)
+                    // 오브젝트 제외 (캐릭터 + 생물만)
                     if (unit.IsObject)
                         continue;
 

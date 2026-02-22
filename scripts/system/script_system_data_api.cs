@@ -1094,6 +1094,7 @@ namespace SE
                 unit.Type = type.ToLower() switch
                 {
                     "object" => Morld.UnitType.Object,
+                    "creature" => Morld.UnitType.Creature,
                     _ => Morld.UnitType.Character
                 };
                 if (actions != null)
@@ -1390,6 +1391,7 @@ namespace SE
                         unit.Type = typeStr.ToLower() switch
                         {
                             "object" => UnitType.Object,
+                            "creature" => UnitType.Creature,
                             _ => UnitType.Character
                         };
                         Godot.GD.Print($"[morld] set_unit: unit={unitId}, type={typeStr}");

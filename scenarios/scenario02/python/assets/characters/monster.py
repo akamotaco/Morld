@@ -1,9 +1,12 @@
-# assets/characters/monster.py — 몬스터 캐릭터 Asset
+# assets/characters/monster.py — 생물(Creature) 캐릭터 Asset
 #
 # Monster(Character) 기본 클래스 + 구체 서브클래스
+# - type = "creature" → C# UnitType.Creature
+# - 전투:세력 — 세력(faction) 기반 적대 판별
 # - DROP_TABLE: 스폰 시 인벤토리에 아이템 생성 (사망 후 루팅)
 # - HARVEST_TABLE: 시체에서 도구로 수확하는 소재 (props 기반)
-# - BATTLE_BEHAVIOR: think Tier 2 전투 AI 파라미터
+# - BATTLE_BEHAVIOR: think Tier 3 전투 AI 파라미터
+# - SCHEDULE: 종별 라이프사이클 (순찰/휴식/수면/복귀)
 
 import morld
 from assets.base import Character
@@ -11,12 +14,12 @@ from assets.registry import register_item
 
 
 class Monster(Character):
-    """몬스터 기본 클래스 — Character 서브클래스"""
-    type = "character"
+    """생물 기본 클래스 — Character 서브클래스"""
+    type = "creature"
     owner = None
 
     props = {
-        "전투:적대유형": "monster",
+        "전투:세력": "야생",
         "생존:체력": 30,
         "생존:최대체력": 30,
         "전투:공격력": 5,
@@ -48,7 +51,7 @@ class Monster(Character):
     #                    "tool_prop": "날붙이", "time_ms": 10000}}
     HARVEST_TABLE = {}
 
-    # 24시간 순찰 스케줄
+    # 기본 스케줄 (서브클래스에서 오버라이드)
     SCHEDULE = [
         {"name": "순찰", "start": 0, "end": 86_400_000, "activity": "순찰"},
     ]
@@ -75,6 +78,7 @@ class Wolf(Monster):
 
     props = {
         **Monster.props,
+        "전투:세력": "늑대",
         "생존:체력": 40,
         "생존:최대체력": 40,
         "전투:공격력": 8,
@@ -114,6 +118,16 @@ class Wolf(Monster):
         },
     }
 
+    # 늑대 스케줄 — 박명박모성 (새벽/저녁 활동)
+    SCHEDULE = [
+        {"name": "수면",  "start": 0,          "end": 18_000_000,  "activity": "수면"},   # 00:00-05:00
+        {"name": "순찰",  "start": 18_000_000,  "end": 43_200_000,  "activity": "순찰"},  # 05:00-12:00
+        {"name": "휴식",  "start": 43_200_000,  "end": 54_000_000,  "activity": "휴식"},  # 12:00-15:00
+        {"name": "순찰",  "start": 54_000_000,  "end": 75_600_000,  "activity": "순찰"},  # 15:00-21:00
+        {"name": "복귀",  "start": 75_600_000,  "end": 82_800_000,  "activity": "복귀"},  # 21:00-23:00
+        {"name": "수면",  "start": 82_800_000,  "end": 86_400_000,  "activity": "수면"},  # 23:00-24:00
+    ]
+
 
 class Bat(Monster):
     """박쥐 — 폐광산 1층, 빠르고 회피 높지만 약함"""
@@ -122,6 +136,7 @@ class Bat(Monster):
 
     props = {
         **Monster.props,
+        "전투:세력": "박쥐",
         "생존:체력": 15,
         "생존:최대체력": 15,
         "전투:공격력": 3,
@@ -144,6 +159,13 @@ class Bat(Monster):
         {"item": "meat", "chance": 0.5, "count": 1},
     ]
 
+    # 박쥐 스케줄 — 야행성
+    SCHEDULE = [
+        {"name": "수면",  "start": 0,          "end": 64_800_000,  "activity": "수면"},   # 00:00-18:00
+        {"name": "순찰",  "start": 64_800_000,  "end": 82_800_000,  "activity": "순찰"},  # 18:00-23:00
+        {"name": "복귀",  "start": 82_800_000,  "end": 86_400_000,  "activity": "복귀"},  # 23:00-24:00
+    ]
+
 
 class Spider(Monster):
     """거미 — 폐광산 2층/깊은 갱도, 공격적"""
@@ -152,6 +174,7 @@ class Spider(Monster):
 
     props = {
         **Monster.props,
+        "전투:세력": "거미",
         "생존:체력": 50,
         "생존:최대체력": 50,
         "전투:공격력": 6,
@@ -187,6 +210,13 @@ class Spider(Monster):
             "time_ms": 3_000,
         },
     }
+
+    # 거미 스케줄 — 매복형, 주야 순찰
+    SCHEDULE = [
+        {"name": "순찰",  "start": 0,          "end": 43_200_000,  "activity": "순찰"},   # 00:00-12:00
+        {"name": "휴식",  "start": 43_200_000,  "end": 57_600_000,  "activity": "휴식"},  # 12:00-16:00
+        {"name": "순찰",  "start": 57_600_000,  "end": 86_400_000,  "activity": "순찰"},  # 16:00-24:00
+    ]
 
 
 class TrainingDummy(Character):

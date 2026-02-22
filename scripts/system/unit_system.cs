@@ -255,6 +255,7 @@ namespace SE
 			return type.ToLower() switch
 			{
 				"object" => UnitType.Object,
+				"creature" => UnitType.Creature,
 				_ => UnitType.Character // male, female, character 등 모두 캐릭터
 			};
 		}

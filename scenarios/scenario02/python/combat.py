@@ -49,12 +49,32 @@ AFFECTION_ON_FAINT = -25
 AFFECTION_ON_STEAL_FAIL = -20
 AFFECTION_ON_NURSING = 10
 
-# ── 몬스터 적대 유형 ──
-HOSTILITY_TYPE_MONSTER = "monster"
-HOSTILITY_TYPE_AGGRESSIVE = "aggressive"
-HOSTILITY_TYPE_TERRITORIAL = "territorial"
-HOSTILITY_TYPE_PASSIVE = "passive"
-HOSTILITY_TYPE_TIMID = "timid"
+# ── 세력(Faction) 시스템 ──
+# 각 세력이 적대하는 세력 목록 (양방향 체크)
+FACTION_HOSTILITY = {
+    "주민":   set(),               # NPC/플레이어 — BATTLE_BEHAVIOR로 판단
+    "늑대":   {"주민", "거미"},     # 사람+거미 공격
+    "거미":   {"주민", "늑대"},     # 사람+늑대 공격
+    "박쥐":   {"주민"},             # 사람만 공격
+}
+DEFAULT_FACTION = "주민"           # 세력 미설정 시 기본값
+
+
+def is_faction_hostile(faction_a, faction_b):
+    """두 세력이 적대 관계인지 (양방향 체크)"""
+    a = faction_a or DEFAULT_FACTION
+    b = faction_b or DEFAULT_FACTION
+    if a == b:
+        return False
+    return (b in FACTION_HOSTILITY.get(a, set())
+            or a in FACTION_HOSTILITY.get(b, set()))
+
+
+def is_creature_unit(unit_id):
+    """생물(Creature) 유닛인지 — 세력이 주민이 아닌 경우"""
+    faction = morld.get_unit_prop(unit_id, "전투:세력")
+    return faction is not None and faction != DEFAULT_FACTION
+
 
 DEFAULT_AGGRO_RANGE = 100
 DEFAULT_TERRITORY_RANGE = 50

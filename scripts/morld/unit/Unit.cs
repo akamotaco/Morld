@@ -117,6 +117,11 @@ public class Unit : IOwnable
 	public bool IsObject => Type == UnitType.Object;
 
 	/// <summary>
+	/// 생물 여부 (Type == Creature)
+	/// </summary>
+	public bool IsCreature => Type == UnitType.Creature;
+
+	/// <summary>
 	/// 인벤토리 아이템 개수를 이름 옆에 표시할지 여부 (오브젝트용)
 	/// true: "바닥 (아이템 3개)" 형식으로 표시
 	/// false: "서랍" 형식으로 이름만 표시 (기본값)

@@ -159,7 +159,7 @@ def _render_map(state: dict) -> str:
 
     # 이동 중인 캐릭터 조회 (Pi-World: Location 내 이동)
     # Gate를 향해 이동 중인 유닛을 현재 Location에 🚶 표시
-    all_units = morld.get_all_unit_ids()
+    all_units = morld.get_actor_ids()
     for unit_id in all_units:
         if unit_id == player_id:
             continue
