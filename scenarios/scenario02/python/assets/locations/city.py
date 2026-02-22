@@ -10,6 +10,7 @@
 # - 6: 의류점 (clothing_store) - 황폐화된 옷가게
 # - 7: 성인용품점 (adult_toy_shop) - 주차장 뒤편 (로맨스 모드 전용)
 # - 8: 코인세탁소 (coin_laundry) - 도시 입구에서 접근
+# - 9: 폐 경찰서 (abandoned_police_station) - 주유소에서 접근
 
 import morld
 from assets.base import Location
@@ -513,3 +514,72 @@ class CoinLaundry(Location):
         self.add_object(WashingMachine(), x=80)
         self.add_object(Dryer(), x=120)
         self.add_object(Dryer(), x=140)
+
+
+class AbandonedPoliceStation(Location):
+    """폐 경찰서 - 무기/탄약을 루팅할 수 있는 장소"""
+    unique_id = "abandoned_police_station"
+    name = "폐 경찰서"
+    is_indoor = True
+    ground_type = "GroundConcrete"
+    stay_duration = 0
+    geometry = 1  # line
+    length = 400
+
+    describe_text = {
+        "default": "버려진 경찰서. 먼지가 쌓여 있지만 쓸 만한 물건이 남아 있을지 모른다.",
+        "낮": "깨진 창문 사이로 햇빛이 비춘다. 바닥에 유리 파편이 흩어져 있다.",
+        "밤": "칠흑 같은 어둠 속에 경찰서의 윤곽만 보인다.",
+    }
+
+    def instantiate(self, location_id: int, region_id: int):
+        super().instantiate(location_id, region_id)
+
+        # 조명 (깨진 창문)
+        from assets.objects.furniture import Window
+        self.add_object(Window(), x=50)
+
+        # 사무실 서랍 → 리볼버 + 권총탄
+        from assets.objects.furniture import Shelf
+        drawer = Shelf()
+        drawer.name = "사무실 서랍"
+        drawer.focus_text = {"default": "경찰서 사무실의 잠금이 풀린 서랍이다."}
+        drawer_id = self.add_object(drawer, x=120)
+
+        from assets.items.weapons import Revolver
+        from assets.items.ammo import PistolAmmo
+        revolver = Revolver()
+        revolver_id = morld.create_id("item")
+        revolver.instantiate(revolver_id)
+        morld.give_item(drawer_id, revolver_id, 1)
+
+        for _ in range(12):
+            ammo = PistolAmmo()
+            ammo_id = morld.create_id("item")
+            ammo.instantiate(ammo_id)
+            morld.give_item(drawer_id, ammo_id, 1)
+
+        # 장비함 → 삼단봉
+        locker = Shelf()
+        locker.name = "장비함"
+        locker.focus_text = {"default": "경찰 장비가 보관되어 있던 금속 캐비닛이다."}
+        locker_id = self.add_object(locker, x=200)
+
+        from assets.items.weapons import Baton
+        baton = Baton()
+        baton_id = morld.create_id("item")
+        baton.instantiate(baton_id)
+        morld.give_item(locker_id, baton_id, 1)
+
+        # 구급함 → 붕대 3개
+        first_aid = Shelf()
+        first_aid.name = "구급함"
+        first_aid.focus_text = {"default": "벽에 걸린 구급함이다. 기본적인 의료용품이 남아 있다."}
+        first_aid_id = self.add_object(first_aid, x=280)
+
+        from assets.items.consumables import Bandage
+        for _ in range(3):
+            bandage = Bandage()
+            bandage_id = morld.create_id("item")
+            bandage.instantiate(bandage_id)
+            morld.give_item(first_aid_id, bandage_id, 1)

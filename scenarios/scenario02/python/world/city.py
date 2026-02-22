@@ -3,6 +3,7 @@
 # Region 2: 황폐화된 도시
 # - 도시 입구, 주유소, 편의점, 약국, 주차장, 은신처
 # - 유키와 엘라가 은신처(location 5)에 배치됨
+# - 폐 경찰서(location 9) — 무기/탄약 루팅 장소
 
 import morld
 import equipment
@@ -57,6 +58,10 @@ GATES = [
     # === 코인세탁소(8) length=30 ===
     (REGION_ID, 0, 5, 540, REGION_ID, 8, 0),    # 도시 입구 → 코인세탁소
     (REGION_ID, 8, 0, 0, REGION_ID, 0, 540),    # 코인세탁소 → 도시 입구
+
+    # === 폐 경찰서(9) length=400 ===
+    (REGION_ID, 1, 2, 200, REGION_ID, 9, 0),    # 주유소 중간 → 경찰서 입구
+    (REGION_ID, 9, 0, 0, REGION_ID, 1, 200),    # 경찰서 입구 → 주유소
 ]
 
 # NPC 배치 정보 (참고용 - 실제 ID는 동적 할당)
@@ -75,7 +80,7 @@ def initialize_terrain():
     """도시 Region 초기화"""
     from assets.locations.city import (
         CityEntrance, GasStation, ConvenienceStore, Pharmacy, ParkingLot, Hideout,
-        ClothingStore, AdultToyShop, CoinLaundry
+        ClothingStore, AdultToyShop, CoinLaundry, AbandonedPoliceStation
     )
 
     # Region 등록
@@ -93,6 +98,7 @@ def initialize_terrain():
         6: ClothingStore(),   # 의류점
         7: AdultToyShop(),   # 성인용품점 (주차장 뒤편, 로맨스 모드 전용)
         8: CoinLaundry(),    # 코인세탁소
+        9: AbandonedPoliceStation(),  # 폐 경찰서
     }
 
     for location_id, loc in locations.items():

@@ -190,8 +190,8 @@ def _register_pollution():
                    20, 21, 22, 23, 24]:
         pollution.register_location(0, loc_id, max_pollution=20, rate=1)
 
-    # Region 2: 도시
-    for loc_id in range(7):
+    # Region 2: 도시 (0-9: 입구/주유소/편의점/약국/주차장/은신처/의류점/성인용품점/세탁소/경찰서)
+    for loc_id in range(10):
         pollution.register_location(2, loc_id, max_pollution=20, rate=1)
 
     # Region 3: 숲
