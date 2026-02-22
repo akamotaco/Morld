@@ -8,7 +8,7 @@
 
 ## 목차
 
-- **Part A: 기반** — 1. 기존 시스템 연동 / 2. party.py 코어 / 3. Props
+- **Part A: 기반** — 1. 기존 시스템 연동 / 2. party.py 코어 (2.7 헬퍼) / 3. Props
 - **Part B: 플레이어 리더** — 4. 파티 생성 / 5. 명령 체계 (5.5 비전투 명령, 5.6 지시 무시) / 6. 해산 (6.2 귀환)
 - **Part C: NPC 리더** — 7. NPC 주도 파티 (7.2 분대 명령, 7.3 리더 성향 오버라이드) / 8. NPC 리더 AI / 9. 플레이어 참여
 - **Part D: 이동** — 10. follow 통합 / 11. 대기/집결 / 12. Gate 이동
@@ -309,6 +309,53 @@ def reset():
 
 `chapters/__init__.py`의 `load_chapter()`에서 `party.reset()` 호출 추가.
 
+### 2.7 내부 헬퍼
+
+```python
+def _get_name(unit_id):
+    """유닛 이름 조회"""
+    info = morld.get_unit_info(unit_id)
+    return info.get("name", "?") if info else "?"
+
+
+def _get_player_name():
+    return _get_name(morld.get_player_id())
+
+
+def _get_battle_behavior(unit_id):
+    """BATTLE_BEHAVIOR dict 조회 (think agent 경유)"""
+    agent = think.get_agent(unit_id)
+    return getattr(agent, 'BATTLE_BEHAVIOR', {}) if agent else {}
+
+
+def _get_party_behavior(unit_id):
+    """PARTY_BEHAVIOR dict 조회 (think agent 경유)"""
+    agent = think.get_agent(unit_id)
+    return getattr(agent, 'PARTY_BEHAVIOR', {}) if agent else {}
+
+
+def _get_party_leader_behavior(leader_id):
+    """PARTY_LEADER_BEHAVIOR dict 조회"""
+    agent = think.get_agent(leader_id)
+    return getattr(agent, 'PARTY_LEADER_BEHAVIOR', {}) if agent else {}
+
+
+def _get_affection_to_leader(unit_id):
+    """멤버 → 리더 호감도"""
+    if not _party:
+        return 0
+    leader_name = _get_name(_party.leader_id)
+    return morld.get_unit_prop(unit_id, f"관계:{leader_name}:호감") or 0
+
+
+def _get_submission_to_leader(unit_id):
+    """멤버 → 리더 복종도"""
+    if not _party:
+        return 0
+    leader_name = _get_name(_party.leader_id)
+    return morld.get_unit_prop(unit_id, f"관계:{leader_name}:복종") or 0
+```
+
 ---
 
 ## 3. Props
@@ -470,7 +517,7 @@ def recruit_party(self):
 
     # 3. 상태 체크 — 기절/수면/결박/전투 중이면 불가
     import survival
-    if survival.is_fainted(npc_id):
+    if survival.is_npc_fainted(npc_id):
         morld.add_action_log(f"{self.name}은(는) 의식이 없다.")
         return
 
@@ -700,7 +747,7 @@ def _check_command_refusal(unit_id, command):
     """
     # 1. 절대 거부 조건 (상태 기반)
     import survival
-    if survival.is_fainted(unit_id):
+    if survival.is_npc_fainted(unit_id):
         return "의식이 없다"
     if survival.get_health_percent(unit_id) < 20:
         return "체력이 너무 낮다"  # HP < 20% → 후퇴 자동 전환
@@ -851,10 +898,12 @@ def _check_member_leave(unit_id):
     if affection_leave and submission_leave:
         return True
 
-    # 2. 적대 상태
+    # 2. 적대 상태 (combat.py의 관계:{name}:적대 prop 사용)
     if behavior.get("leaves_if_hostile", True):
-        hostility = morld.get_unit_prop(unit_id, "전투:적대도") or 0
-        if hostility >= 80:  # combat-implementation.md 적대도 임계치
+        import combat
+        leader_name = _get_name(_party.leader_id) if _party else ""
+        hostility = combat.get_hostility(unit_id, leader_name)
+        if hostility >= combat.HOSTILITY_ATTACK_ON_SIGHT:  # 80
             return True
 
     return False
@@ -1127,7 +1176,7 @@ def _check_party_leader(self):
     # 1. 기절 멤버 발견 → 잠시 대기
     for mid in p.members:
         import survival
-        if survival.is_fainted(mid):
+        if survival.is_npc_fainted(mid):
             # 간호 (선택적) 또는 대기
             pass
 
@@ -1541,7 +1590,7 @@ def on_combat_end():
 
         # 기절 멤버 처리
         import survival
-        if survival.is_fainted(member_id):
+        if survival.is_npc_fainted(member_id):
             _remove_member(member_id, reason="faint")
             continue
 
@@ -1710,7 +1759,7 @@ def _check_party_follow(self):
     # 리더 기절 상태면 자유행동
     p = party.get_party()
     import survival
-    if survival.is_fainted(p.leader_id):
+    if survival.is_npc_fainted(p.leader_id):
         return False
 
     # 리더 위치 조회
@@ -2004,6 +2053,7 @@ Step 1: party.py 코어
   - _create_party(), _disband_party()
   - _add_member(), _remove_member()
   - 공개 API (is_in_party, get_party 등)
+  - 내부 헬퍼 (_get_name, _get_player_name, _get_*_behavior, _get_*_to_leader)
   - reset()
 
 Step 2: 동행 요청/해제
@@ -2082,6 +2132,36 @@ Step 12: 고급 전투
 ---
 
 ## 23. 테스트 계획
+
+### 23.0 MockMorld 보완
+
+combat/party 테스트를 위해 `tests/mock_morld.py`에 추가 필요:
+
+```python
+# mock_morld.py — 추가 메서드
+
+def get_actual_props(self, unit_id):
+    """base props + 장착 아이템 equip_props 합산 (combat.get_combat_stat 의존)"""
+    unit = self._units.get(unit_id)
+    if not unit:
+        return {}
+    result = dict(unit["props"])
+    for item_id, count in unit.get("inventory", {}).items():
+        item = self._items.get(item_id)
+        if item and item.get("equip_props"):
+            for k, v in item["equip_props"].items():
+                result[k] = result.get(k, 0) + v
+    return result
+
+def set_unit(self, unit_id, key, value):
+    """유닛 속성 변경 (name 등)"""
+    unit = self._units.get(unit_id)
+    if unit:
+        unit["info"][key] = value
+
+def get_current_time(self):
+    return self._time
+```
 
 ### 23.1 단위 테스트
 
@@ -2217,7 +2297,7 @@ def test_party_combat_join():
 | 파일 | 라인 | 내용 |
 |------|------|------|
 | `job_behavior_system.cs` | 137-147 | follow action 처리 |
-| `script_system_npc_api.cs` | 56-68 | set_npc_job follow 기본값 |
+| `script_system_npc_api.cs` | 29-68 | set_npc_job 정의 (29) + follow 처리 (56-68) |
 | `Unit.cs` | 48-81 | 위치/이동 상태 |
 | `Unit.cs` | 423-443 | GetMovementSpeed() |
 
@@ -2238,11 +2318,20 @@ def test_party_combat_join():
 | `think/__init__.py` | 1770-1789 | _move_to() |
 | `think/handlers/social.py` | 114-188 | 핸들러 패턴 예시 |
 
-### D. 전투 시스템
+### D. survival 시스템
+
+| 파일 | 라인 | 내용 |
+|------|------|------|
+| `survival.py` | 142 | `is_npc_fainted(unit_id)` — NPC 기절 여부 |
+| `survival.py` | 241 | `_enter_faint(npc_id)` — NPC 기절 처리 |
+| `survival.py` | 278 | `_enter_player_faint()` — 플레이어 기절 |
+
+### E. 전투 시스템
 
 | 파일 | 참조 |
 |------|------|
 | `combat-implementation.md` | 전체 전투 구현 명세 |
+| Section 2.6 | `check_npc_combat_join()`, `can_fight()` API |
 | Section 15 | think Tier 2 전투 통합 |
 | Section 16 | NPC 전투 스탯 |
 | Section 17 | on_meet 전투 분기 |

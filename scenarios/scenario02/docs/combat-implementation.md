@@ -235,6 +235,21 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
        (sound.py:20 SOUND_INTENSITIES 키 — 영문 사용)
     7. 원거리: 현재탄약 -1
     """
+
+
+def check_npc_combat_join(location_id: int) -> list:
+    """같은 Location에서 전투에 합류할 NPC 리스트 반환
+
+    1. 파티 멤버: 호감도 체크 생략, combat_join_in_party만 확인
+       → party-implementation.md Section 13에서 확장
+    2. 비파티 NPC: BATTLE_BEHAVIOR.join_combat + join_threshold 체크
+
+    Returns: [unit_id, ...]
+    """
+
+
+def can_fight(unit_id: int) -> bool:
+    """전투 가능 상태 확인 (HP > 0, 기절 아님, 사망 아님)"""
 ```
 
 ### 2.7 적대도 API
@@ -499,7 +514,7 @@ if action == "toggle_sprint":
 
 | | 소모품 (기존) | 장비 (신규) |
 |---|---|---|
-| **ID** | 싱글톤 `get_or_create_item_id()` | 개별 `morld.create_id("unit")` |
+| **ID** | 싱글톤 `get_or_create_item_id()` | 개별 `morld.create_id()` |
 | **수량** | 스택 (count) | 1칸 = 1개 |
 | **속성** | 공유 | 개별 props (내구도, 강화) |
 
@@ -511,7 +526,7 @@ item_id = get_or_create_item_id("apple")
 morld.give_item(owner, item_id, count=3)
 
 # 장비:
-item_id = morld.create_id("unit")
+item_id = morld.create_id()  # C#이 인수 무시, 순차 ID 생성
 weapon = Revolver()
 weapon.instantiate_as_item(item_id)
 morld.give_item(owner, item_id, count=1)
@@ -774,7 +789,7 @@ def _populate_inventory(self):
         if entry.get("equipment"):
             # 장비: 개별 ID 생성
             for _ in range(count):
-                item_id = morld.create_id("unit")
+                item_id = morld.create_id()  # C#이 인수 무시, 순차 ID 생성
                 # asset class에서 instantiate_as_item
                 # ... 장비 인스턴스 생성 로직 ...
                 morld.give_item(self.instance_id, item_id, 1)
@@ -904,7 +919,7 @@ def _on_time_elapsed(millis):
     스폰 체크:
     1. 현재 생존 수 < max_count
     2. 마지막 스폰 후 interval_hours 경과
-    3. 몬스터 생성: morld.create_id("unit") → instantiate → _populate_inventory()
+    3. 몬스터 생성: morld.create_id() → instantiate → _populate_inventory()
     4. think agent 등록: think.register_agent(monster_id, MonsterAgent)
 
     시체 정리:
@@ -1006,8 +1021,8 @@ def finish_off(self):
     morld.set_unit_prop(self.instance_id, "상태:사망", 1)
     morld.set_unit_prop(self.instance_id, "상태:사망시각", morld.get_current_time())
 
-    # 이름 변경
-    morld.set_unit_name(self.instance_id, f"{original_name}의 시체")
+    # 이름 변경 (set_unit_name 미존재 → set_unit 사용)
+    morld.set_unit(self.instance_id, "name", f"{original_name}의 시체")
 
     # think Agent 해제
     unregister_agent(self.instance_id)
@@ -1086,6 +1101,11 @@ def _check_combat_threat(self) -> bool:
     1. 전투 중 (combat_phase != None) → _handle_combat()
     2. 같은 location에 적대 유닛 → 전투 개시 / 도주
     3. BATTLE_BEHAVIOR 기반 행동 결정
+
+    적 탐색: morld.get_units_at_location(region_id, location_id)로
+    같은 Location의 유닛 목록 조회 → 적대도/적대유형 필터링.
+
+    BATTLE_BEHAVIOR 없으면 False 반환 (허수아비/비전투 NPC).
     """
 ```
 
@@ -1562,6 +1582,13 @@ Phase 8: 통합
 
 ## 25. 테스트 계획
 
+### MockMorld 보완
+
+`tests/mock_morld.py`에 `get_actual_props()`, `set_unit()`, `get_current_time()` 추가 필요.
+상세 구현은 party-implementation.md Section 23.0 참조.
+
+### 테스트 케이스
+
 ```python
 # ── 스탯 ──
 test_get_combat_stat_default()
@@ -1649,14 +1676,19 @@ test_harvest_requires_tool()
 | `morld.get_player_id()` | 플레이어 ID | O |
 | `morld.advance_time_des(ms)` | DES 시간 경과 | O |
 | `morld.add_action_log(text)` | 액션 로그 | O |
-| `morld.create_id("unit")` | 유닛 ID 생성 | base.py |
+| `morld.create_id()` | 유닛/아이템 ID 생성 (인수 무시됨) | cs:75 |
 | `morld.subscribe_time_elapsed(cb, min)` | 시간 이벤트 구독 | O |
 | `morld.get_inventory(id)` | {item_id: count} dict | O |
 | `morld.give_item(owner, item, count)` | 아이템 부여 | O |
 | `morld.remove_item(owner, item, count)` | 아이템 제거 | O |
 | `morld.lost_item(owner, item)` | 소모품 소비 | O |
 | `morld.set_unit_location(id, r, l)` | 위치 변경 | O |
-| `morld.set_unit_name(id, name)` | 이름 변경 | O |
+| `morld.set_unit(id, key, value)` | 유닛 속성 변경 (name 등) | cs:1367 |
 | `morld.get_current_time()` | 현재 시간 (ms) | O |
+| `morld.get_units_at_location(r, l)` | Location 내 유닛 목록 | O |
 | `sound.emit_sound(id, type, intensity)` | 소리 발생 ("combat"/"gunshot") | sound.py:267 |
+| `survival.is_npc_fainted(id)` | NPC 기절 여부 | survival.py:142 |
+| `survival._enter_faint(id)` | NPC 기절 처리 | survival.py:241 |
+| `survival._enter_player_faint()` | 플레이어 기절 | survival.py:278 |
+| `think.get_agent(id)` | think agent 조회 | think:2432 |
 | `think.unregister_agent(id)` | think agent 해제 | think:2426 |
