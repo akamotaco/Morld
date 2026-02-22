@@ -17,7 +17,8 @@ Region 1: 차량 (vehicle)
 Region 2: 도심 (city)
 Region 3: 숲 (forest)
 Region 4: 폐광산 (mine)        ← 구현 완료 (채광 + 몬스터)
-Region 5+: 던전 (dungeon)      ← 미래 확장
+Region 5: 잊혀진 유적 (test_dungeon) ← 구현 완료 (테스트 던전)
+Region 6+: 던전 (dungeon)      ← 미래 확장
 ```
 
 ### Gate 연결 방식
@@ -443,6 +444,66 @@ scenarios/scenario02/python/
 6. **그래프 던전 확장**
    - 복잡한 던전 레이아웃
    - 퍼즐, 분기, 숨겨진 방
+
+---
+
+## 잊혀진 유적 (Region 5) — 구현 완료
+
+### 개요
+
+깊은 숲(R3:L3)에서 연결되는 그래프 던전. 인간형/기생형 몬스터 테스트용.
+
+### 파일
+
+| 파일 | 역할 |
+|------|------|
+| `world/test_dungeon.py` | R5 지형 정의 + Gate + 스폰 소스 |
+| `assets/locations/test_dungeon.py` | 5개 Location 클래스 |
+
+### 레이아웃
+
+```
+숲속(R3:L3) ─── 15분 도보 ──→ 유적 입구(R5:L0)
+                                  │
+                              1층 회랑(R5:L1) ─── 거미
+                                  │
+                              2층 거미굴(R5:L2) ─── 아라크네 + 유방기생충
+                                  │
+                              3층 기생실(R5:L3) ─── 음부기생충 × 2
+                                  │
+                              유적 심층(R5:L4) ─── 서큐버스 (보스)
+```
+
+### Location 명세
+
+| ID | 이름 | 실내 | 지면 | 길이 | 특이사항 |
+|----|------|------|------|------|---------|
+| 0 | 유적 입구 | X | Dirt | 400 | 기생체 제거제 2개 바닥 배치 |
+| 1 | 1층 회랑 | O | Concrete | 500 | |
+| 2 | 2층 거미굴 | O | Dirt | 400 | |
+| 3 | 3층 기생실 | O | Dirt | 300 | |
+| 4 | 유적 심층 | O | Concrete | 200 | |
+
+### 스폰 소스
+
+| ID | 몬스터 | 최대 수 | 간격 | 위치 |
+|----|--------|---------|------|------|
+| ruin_spiders_1f | Spider | 2 | 4h | R5:L1 |
+| ruin_arachne | Arachne | 1 | 6h | R5:L2 |
+| ruin_parasites_2f | BreastParasiteCreature | 1 | 8h | R5:L2 |
+| ruin_parasites_3f | GenitalParasiteCreature | 2 | 6h | R5:L3 |
+| ruin_boss | Succubus | 1 | 12h | R5:L4 |
+
+### Gate 연결
+
+| 시작 | 끝 | 거리 |
+|------|-----|------|
+| R5:L0 (입구) | R5:L1 (회랑) | 400 |
+| R5:L1 (회랑) | R5:L2 (거미굴) | 500 |
+| R5:L2 (거미굴) | R5:L3 (기생실) | 400 |
+| R5:L3 (기생실) | R5:L4 (심층) | 300 |
+
+모든 Gate는 양방향.
 
 ---
 

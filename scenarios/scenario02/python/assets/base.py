@@ -1001,8 +1001,81 @@ _DESCRIBE_FATIGUE = {
     ],
 }
 
+# 기생 상태 DESCRIBE — 부착 물리 묘사
+_DESCRIBE_PARASITE = [
+    ({"기생:가슴": True, "기생:음부": True},
+     "가슴과 하반신에 기묘한 생물체가 부착되어 꿈틀거리고 있다."),
+    ({"기생:전신": True},
+     "전신을 촉수형 생물이 감싸고 있다. 움직일 수 없어 보인다."),
+    ({"기생:가슴": True},
+     "가슴에 기묘한 생물체가 부착되어 있다. 촉수가 유두를 감싸고 있다."),
+    ({"기생:음부": True},
+     "하반신에 기생 생물체가 부착되어 있다. 촉수가 꿈틀거린다."),
+    ({"기생:항문": True},
+     "엉덩이에 기생 생물체가 달라붙어 있다."),
+    ({"기생:구강": True},
+     "입에 기생 생물체가 부착되어 있다. 말을 할 수 없어 보인다."),
+    ({"기생:페니스": True},
+     "남근에 끈적한 생물체가 감겨 있다."),
+]
+
+# 기생 반응 DESCRIBE — 아키타입별 캐릭터 반응
+_DESCRIBE_PARASITE_REACTION = {
+    "stoic": [
+        ({"기생:가슴": True}, "이를 악물고 자극을 참고 있다."),
+        ({"기생:음부": True}, "표정 없이 불쾌감을 억누르고 있다."),
+        ({"기생체": True}, "담담하게 기생체를 무시하려 한다."),
+    ],
+    "gentle": [
+        ({"기생:가슴": True}, "얼굴을 붉히며 가슴의 자극에 신음을 참고 있다."),
+        ({"기생:음부": True}, "다리를 오므리며 촉수의 움직임에 몸을 떨고 있다."),
+        ({"기생체": True}, "불안한 표정으로 기생체의 감촉을 견디고 있다."),
+    ],
+    "timid": [
+        ({"기생:가슴": True}, "눈물을 글썽이며 가슴의 기생체에 겁먹고 있다."),
+        ({"기생:음부": True}, "공포에 질린 표정으로 하반신을 움켜쥐고 있다."),
+        ({"기생체": True}, "벌벌 떨며 기생체를 두려워하고 있다."),
+    ],
+    "cheerful": [
+        ({"기생:가슴": True}, "'이, 이거 간지럽...' 불안한 웃음을 짓고 있다."),
+        ({"기생:음부": True}, "억지웃음을 지으며 자극을 견디려 한다."),
+        ({"기생체": True}, "어색하게 웃으며 기생체에 적응하려 한다."),
+    ],
+    "cold": [
+        ({"기생:가슴": True}, "차가운 표정 뒤로 미세한 떨림이 보인다."),
+        ({"기생:음부": True}, "무표정하지만 호흡이 거칠어져 있다."),
+        ({"기생체": True}, "감정을 드러내지 않지만 불쾌해하고 있다."),
+    ],
+    "seductive": [
+        ({"기생:가슴": True}, "도발적인 미소로 자극을 즐기는 듯하다."),
+        ({"기생:음부": True}, "입술을 깨물며 촉수의 움직임에 반응하고 있다."),
+        ({"기생체": True}, "여유로운 표정으로 감각을 받아들이고 있다."),
+    ],
+    "fierce": [
+        ({"기생:가슴": True}, "이를 악물며 기생체를 뜯어내려 한다."),
+        ({"기생:음부": True}, "'이 벌레 같은...!' 분노하며 자극에 저항하고 있다."),
+        ({"기생체": True}, "분노에 찬 표정으로 기생체와 싸우고 있다."),
+    ],
+    "proud": [
+        ({"기생:가슴": True}, "굴욕감에 얼굴을 붉히며 고개를 돌리고 있다."),
+        ({"기생:음부": True}, "'이런 치욕...' 자존심이 상한 표정이다."),
+        ({"기생체": True}, "굴욕적인 상황에 입술을 깨물고 있다."),
+    ],
+    "innocent": [
+        ({"기생:가슴": True}, "무슨 일인지 이해 못한 채 당황하고 있다."),
+        ({"기생:음부": True}, "이상한 감각에 혼란스러워하고 있다."),
+        ({"기생체": True}, "무슨 생물인지 신기해하면서도 무서워한다."),
+    ],
+    "devoted": [
+        ({"기생:가슴": True}, "주인을 걱정하며 자극을 참고 있다."),
+        ({"기생:음부": True}, "주인에게 폐가 될까 자극을 감추려 한다."),
+        ({"기생체": True}, "주인만 바라보며 기생체의 자극을 견디고 있다."),
+    ],
+}
+
 _DEFAULT_DESCRIBE_ORDER = [
-    "carrying", "restraint", "climax", "exposure_body", "shame",
+    "carrying", "restraint", "parasite", "parasite_reaction",
+    "climax", "exposure_body", "shame",
     "specials", "traveling", "activity", "weather", "location",
     "semen", "internal_semen", "desire", "affection",
     "default", "fatigue",
@@ -1026,6 +1099,8 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
     sections = {
         "carrying": _DESCRIBE_CARRYING,
         "restraint": _DESCRIBE_RESTRAINT,
+        "parasite": _DESCRIBE_PARASITE,
+        "parasite_reaction": _DESCRIBE_PARASITE_REACTION.get(archetype, []),
         "climax": _DESCRIBE_CLIMAX.get(archetype, []),
         "exposure_body": _DESCRIBE_EXPOSURE_BODY.get(archetype, []),
         "shame": _DESCRIBE_SHAME.get(archetype, []),
@@ -2212,6 +2287,35 @@ class Character(Unit):
         context["상체노출"] = exposure["upper"]   # 0=커버, 1=속옷, 2=누드
         context["하체노출"] = exposure["lower"]   # 0=커버, 1=속옷, 2=누드
         context["수치심"] = min(100, int(exposure["score"] * self.shame_sensitivity))
+
+        # 전투 상태
+        unit_id = self.instance_id
+        hp = morld.get_unit_prop(unit_id, "생존:체력")
+        max_hp = morld.get_unit_prop(unit_id, "생존:최대체력")
+        if hp is not None and max_hp and max_hp > 0:
+            context["hp_ratio"] = hp / max_hp
+        else:
+            context["hp_ratio"] = 1.0
+        context["독"] = bool(morld.get_unit_prop(unit_id, "상태:독"))
+        context["출혈"] = bool(morld.get_unit_prop(unit_id, "상태:출혈"))
+        try:
+            import combat as _combat
+            context["마비"] = bool(_combat.is_paralyzed(unit_id))
+            context["거미줄"] = bool(_combat.is_web_bound(unit_id))
+        except ImportError:
+            context["마비"] = False
+            context["거미줄"] = False
+
+        # 기생 상태
+        try:
+            import parasite as _parasite
+            context["기생체"] = _parasite.has_any_parasite(unit_id)
+            for _slot in _parasite.PARASITE_SLOTS:
+                _part = _slot.split(":")[1]
+                context[f"기생:{_part}"] = bool(
+                    morld.get_unit_prop(unit_id, _slot))
+        except ImportError:
+            context["기생체"] = False
 
         # 운반 상태
         import carry as _carry

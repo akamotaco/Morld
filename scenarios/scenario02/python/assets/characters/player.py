@@ -160,7 +160,8 @@ class Player(Character):
 
     }
     actions = ["call:rest:휴식", "call:sleep:노숙", "call:masturbate:자위#",
-               "call:self_expose:옷 들추기#"]
+               "call:self_expose:옷 들추기#",
+               "call:remove_parasite:기생체 제거#"]
     mood = []
 
     def rest(self):
@@ -254,4 +255,27 @@ class Player(Character):
         morld.set_unit_prop(self.instance_id, "상태:자발적노출", 1)
         morld.add_action_log(f"{part} 옷을 들추었다.")
         morld.advance_time_des(1 * 60_000)
+
+    def remove_parasite(self):
+        """기생체 자력 제거 시도"""
+        import morld
+        import ui
+        import parasite
+
+        attached = parasite.get_attached_parasites(self.instance_id)
+        if not attached:
+            morld.add_action_log("부착된 기생체가 없다.")
+            return
+        # 선택 UI
+        lines = ["[b]제거할 기생체 선택[/b]\n"]
+        for slot, item_id, name in attached:
+            part = slot.split(":")[1]
+            lines.append(f"[url=@ret:{slot}]{name} ({part})[/url]")
+        lines.append("\n[url=@ret:cancel]취소[/url]")
+        choice = yield ui.dialog("\n".join(lines))
+        if choice == "cancel" or not choice:
+            return
+        result = parasite.attempt_self_removal(self.instance_id, choice)
+        morld.add_action_log(result["message"])
+        morld.advance_time_des(5 * 60_000)  # 5분
 

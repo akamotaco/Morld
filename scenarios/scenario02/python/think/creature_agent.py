@@ -63,6 +63,10 @@ class CreatureAgent(BaseAgent):
         if self._check_harassment_opportunity():
             return
 
+        # Tier 3.7: 기생 기회 (parasitic creature + 무력화 대상)
+        if self._check_parasitize_opportunity():
+            return
+
         # Tier 4: 스케줄 기반 행동
         entry = self._get_creature_entry()
         if entry:
@@ -193,11 +197,30 @@ class CreatureAgent(BaseAgent):
             return False
 
         if phase == "assaulting":
+            import random
             import gender as gender_mod
             from romance_core import record_first_experience, record_last_experience
 
             player_id = morld.get_player_id()
             is_player_target = (target_id == player_id)
+            target_name = (morld.get_unit_info(target_id) or {}).get("name", "?")
+
+            # 인간형 겁탈 대사
+            if morld.get_unit_prop(self.unit_id, "is_humanoid"):
+                _HUMANOID_ASSAULT_LINES = {
+                    "fierce": [
+                        f"'{target_name}, 넌 내 먹잇감이야.'",
+                        f"아라크네가 {target_name}을(를) 거미줄로 감싼다.",
+                    ],
+                    "seductive": [
+                        f"'후후... 가만히 있어, {target_name}.'",
+                        f"서큐버스가 {target_name}에게 몸을 밀착한다.",
+                    ],
+                }
+                archetype = getattr(self, 'archetype', 'fierce')
+                lines = _HUMANOID_ASSAULT_LINES.get(archetype, [])
+                if lines:
+                    morld.add_action_log(random.choice(lines))
 
             # NPC만: 성욕 감소 (플레이어는 needs 미등록)
             if not is_player_target:
@@ -321,3 +344,74 @@ class CreatureAgent(BaseAgent):
         self._memory["harass_cooldown_until"] = now + 2 * 3_600_000
         self._action_taken = True
         return True
+
+    # ========================================
+    # 기생 AI (Parasitize)
+    # ========================================
+
+    def _check_parasitize_opportunity(self):
+        """무력화된 캐릭터에 기생체 부착 시도 (is_parasitic 전용)"""
+        if not morld.get_unit_prop(self.unit_id, "is_parasitic"):
+            return False
+
+        # 쿨다운 (4시간)
+        cooldown_until = self._memory.get("parasitize_cooldown_until", 0)
+        now = morld.get_current_time()
+        if cooldown_until > 0 and now < cooldown_until:
+            return False
+
+        # 같은 Location 무력화 캐릭터 탐색
+        loc = morld.get_unit_location(self.unit_id)
+        if not loc or loc[0] < 0:
+            return False
+
+        import combat
+        player_id = morld.get_player_id()
+        characters = morld.get_characters_at_location(loc[0], loc[1])
+        for char_id in (characters or []):
+            if char_id == self.unit_id:
+                continue
+            if morld.get_unit_prop(char_id, "상태:사망"):
+                continue
+            is_fainted = survival.is_npc_fainted(char_id)
+            if not is_fainted and char_id == player_id:
+                is_fainted = survival.is_player_fainted()
+            if not (is_fainted or
+                    combat.is_paralyzed(char_id) or
+                    combat.is_web_bound(char_id)):
+                continue
+
+            # 기생 시도 확률
+            import random
+            chance = getattr(self, 'parasitize_chance', 0.3)
+            if random.random() > chance:
+                continue
+
+            # 기생 아이템 생성 + 부착
+            parasite_uid = getattr(self, 'parasite_item_class', None)
+            if not parasite_uid:
+                continue
+
+            from assets.items.parasites import _PARASITE_REGISTRY
+            item_cls = _PARASITE_REGISTRY.get(parasite_uid)
+            if not item_cls:
+                continue
+
+            item_id = morld.create_id("item")
+            item = item_cls()
+            item.instantiate(item_id)
+
+            import parasite as parasite_mod
+            result = parasite_mod.attach_parasite(char_id, item_id)
+            if result["success"]:
+                target_name = (morld.get_unit_info(char_id) or {}).get(
+                    "name", "?")
+                morld.add_action_log(
+                    f"{self.name}이(가) {target_name}에게 기생했다!")
+                self._insert_idle_job("기생 중", 30 * 60_000)
+                self._memory["parasitize_cooldown_until"] = (
+                    now + 4 * 3_600_000)
+                self._action_taken = True
+                return True
+
+        return False

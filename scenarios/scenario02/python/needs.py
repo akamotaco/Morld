@@ -359,6 +359,40 @@ def _update_climax(unit_id):
                 if stim > 0:
                     morld.modify_prop(unit_id, "경험:유두", max(1, stim // 2))
 
+    # 기생체 자극 합산
+    parasite_active_slots = []
+    try:
+        import parasite as parasite_mod
+        from assets.registry import get_instance as _get_inst
+        for slot in parasite_mod.PARASITE_SLOTS:
+            p_id = morld.get_unit_prop(unit_id, slot)
+            if not p_id:
+                continue
+            parasite_active_slots.append(slot)
+            p_item = _get_inst(p_id)
+            if not p_item:
+                continue
+            stim = getattr(p_item, 'stimulation_rate', 0)
+            clim = getattr(p_item, 'climax_contribution', 0)
+            toy_rate += clim
+            # 감각 경험치 축적
+            exp_part = getattr(p_item, 'exp_part', None)
+            if exp_part and stim > 0:
+                morld.modify_prop(unit_id, f"경험:{exp_part}",
+                                  max(1, stim))
+    except ImportError:
+        pass
+
+    # 기생체 주기적 반응 대사 (~30% 확률)
+    if parasite_active_slots:
+        import random as _rnd
+        if _rnd.random() < 0.3:
+            try:
+                parasite_mod.emit_periodic_reaction(unit_id,
+                                                    parasite_active_slots)
+            except Exception:
+                pass
+
     # 정력제: 절정 -5/h
     stamina_active = morld.get_unit_prop(unit_id, "상태:정력제") or 0
     stamina_mod = -5 if stamina_active else 0

@@ -203,12 +203,38 @@ restraint.release_unit(unit_id)  # 항상 성공, 모든 결박 prop 해제
 def _update_climax(unit_id):
     delta = -3  # 자연 감소
     delta += adult_toys.get_total_climax_rate(unit_id)  # 삽입물 + 착용형
+
+    # 기생체 자극 합산 (parasite.py)
+    for slot in PARASITE_SLOTS:
+        p_item = get_instance(morld.get_unit_prop(unit_id, slot))
+        if p_item:
+            delta += p_item.climax_contribution  # 기생체 절정 기여
+            # 감각 경험치 축적: 경험:{exp_part} += stimulation_rate
+            # ~30% 확률: emit_periodic_reaction() → 아키타입 기반 action_log
+
     # 정력제 효과: delta -= 5
 
     if new_climax >= 100:
         _trigger_passive_climax(unit_id)  # 비로맨스 절정
         new_climax = 0
 ```
+
+### 기생체 자극 (parasite.py 통합)
+
+기생체(`기생:{부위}` 슬롯)도 성인용품과 동일하게 절정 게이지에 기여:
+
+| 기생 아이템 | 자극/h | 절정/h | 경험 부위 |
+|------------|--------|--------|----------|
+| 유방 기생체 | 1 | 1 | 가슴 |
+| 음부 기생체 | 2 | 2 | 음부 |
+| 항문 기생체 | 1 | 1 | 항문 |
+| 구강 기생체 | 1 | 1 | 입 |
+| 남근 기생체 | 2 | 2 | 페니스 |
+| 결박 기생체 | 3 | 3 | 음부 |
+
+- 성인용품 절정과 합산 (동시 부착 시 누적)
+- ~30% 확률로 아키타입 기반 주기적 반응 대사 출력
+- 상세: [creature.md](creature.md) Section 13
 
 ### 비로맨스 절정 (`_trigger_passive_climax`)
 

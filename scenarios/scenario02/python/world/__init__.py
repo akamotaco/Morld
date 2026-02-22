@@ -18,6 +18,7 @@ from . import vehicle   # Region 1: 차량 전용
 from . import city      # Region 2: 황폐화된 도시
 from . import forest    # Region 3: 숲
 from . import mine      # Region 4: 폐광산
+from . import test_dungeon  # Region 5: 잊혀진 유적
 
 # ========================================
 # Region 간 연결 (RegionGate)
@@ -39,6 +40,9 @@ REGION_GATES = [
 
     # 주차장(R2:4) ↔ 광산 입구(R4:0) - ≈30분 도보
     (3, city.REGION_ID, 4, mine.REGION_ID, 0, 1800),
+
+    # 숲속(R3:3) ↔ 유적 입구(R5:0) - ≈15분 도보
+    (4, forest.REGION_ID, 3, test_dungeon.REGION_ID, 0, 900),
 ]
 
 

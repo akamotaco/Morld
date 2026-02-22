@@ -308,6 +308,25 @@ def apply_damage(target_id: int, damage: int, attacker_id: int = None):
 
 
 # ========================================
+# 전투 대사
+# ========================================
+
+def _emit_combat_line(unit_id, line_type):
+    """전투 대사 출력 (COMBAT_LINES 보유 캐릭터만)"""
+    from assets.characters import get_instance
+    char = get_instance(unit_id)
+    if not char:
+        return
+    combat_lines = getattr(char, 'COMBAT_LINES', None)
+    if not combat_lines:
+        return
+    lines = combat_lines.get(line_type, [])
+    if lines:
+        import random as _rnd
+        morld.add_action_log(_rnd.choice(lines))
+
+
+# ========================================
 # 공격 실행
 # ========================================
 
@@ -390,6 +409,15 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
     result["damage"] = damage
     result["target_hp"] = target_hp
     result["target_fainted"] = fainted
+
+    # 전투 대사 — 공격/피격/low_hp/사망
+    _emit_combat_line(attacker_id, "attack")
+    _emit_combat_line(target_id, "hit")
+    target_max_hp = morld.get_unit_prop(target_id, "생존:최대체력") or 1
+    if target_hp > 0 and target_hp / target_max_hp <= 0.3:
+        _emit_combat_line(target_id, "low_hp")
+    if fainted:
+        _emit_combat_line(target_id, "death")
 
     # 메시지
     if crit:

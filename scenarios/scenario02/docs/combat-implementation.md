@@ -935,6 +935,57 @@ class TrainingDummy(Character):
     # BATTLE_BEHAVIOR 없음 → think에서 전투 안 함
 ```
 
+### 11.5 전투 대사 시스템 (구현 완료)
+
+> **파일:** `combat.py` (`_emit_combat_line`), `assets/characters/monster.py` (`COMBAT_LINES`)
+
+몬스터별 `COMBAT_LINES` dict + `combat.py`의 `_emit_combat_line()` 함수로 전투 중 대사 자동 출력.
+
+```python
+# combat.py
+def _emit_combat_line(unit_id, line_type):
+    """전투 대사 출력 (COMBAT_LINES 보유 캐릭터만)"""
+    from assets.characters import get_instance
+    char = get_instance(unit_id)
+    if not char:
+        return
+    combat_lines = getattr(char, 'COMBAT_LINES', None)
+    if not combat_lines:
+        return
+    lines = combat_lines.get(line_type, [])
+    if lines:
+        import random as _rnd
+        morld.add_action_log(_rnd.choice(lines))
+```
+
+**호출 위치:**
+
+| 시점 | 위치 | line_type |
+|------|------|-----------|
+| 적 첫 발견 | `think/__init__.py` `_check_combat_threat()` | `"discover"` |
+| 공격 적중 | `combat.py` `execute_attack()` | `"attack"` |
+| 피격 | `combat.py` `execute_attack()` | `"hit"` |
+| HP ≤ 30% | `combat.py` `execute_attack()` | `"low_hp"` |
+| 사망(기절) | `combat.py` `execute_attack()` | `"death"` |
+| 전투 이탈(도주) | `think/__init__.py` `_end_combat()` | `"flee"` |
+
+- `combat_discovered` memory flag로 발견 대사 중복 방지
+- 전투 종료 시 `_end_combat()`에서 flag 리셋
+
+### 11.6 인간형/기생형 몬스터 (구현 완료)
+
+> 상세: [creature.md](creature.md) Section 12-13
+
+```
+HumanoidCreature(Monster)       ← is_humanoid=1, 아키타입 보유
+├── Arachne                     ← 거미줄+독, fierce, R5:L2
+└── Succubus                    ← 마비(매혹), seductive, R5:L4
+
+ParasiticCreature(Monster)      ← is_parasitic=1, 기생 AI (Tier 3.7)
+├── BreastParasiteCreature      ← breast_parasite, R5:L2
+└── GenitalParasiteCreature     ← genital_parasite, R5:L3
+```
+
 ---
 
 ## 12. 스폰 시스템

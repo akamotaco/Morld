@@ -16,6 +16,10 @@
 - **7. Creature 성별** — 수컷/암컷/무성
 - **8. Bestiality 시스템** — 수간 모드 + 겁탈 AI + 플레이어 교미
 - **9. Creature 반응** — 종별 묘사/대사 풀
+- **10. 성추행 AI (Tier 3.6)**
+- **11. 전투 대사 시스템** — COMBAT_LINES + DESCRIBE_RULES/FOCUS_RULES
+- **12. 인간형 몬스터** — HumanoidCreature (아라크네 / 서큐버스)
+- **13. 기생형 몬스터 + 기생 시스템** — ParasiticCreature + parasite.py
 
 ---
 
@@ -117,11 +121,17 @@ if not is_enemy:
 ### 구조
 
 ```
-Monster(Character)       ← 생물 기본 클래스
-├── Wolf                 ← 늑대 (숲)
-├── Bat                  ← 박쥐 (광산 1층)
-├── Spider               ← 거미 (광산 2-3층)
-└── TrainingDummy        ← 허수아비 (type="character", 테스트용)
+Monster(Character)              ← 생물 기본 클래스
+├── Wolf                        ← 늑대 (숲)
+├── Bat                         ← 박쥐 (광산 1층)
+├── Spider                      ← 거미 (광산 2-3층, 유적 1층)
+├── HumanoidCreature(Monster)   ← 인간형 생물 (아키타입 보유, Section 12)
+│   ├── Arachne                 ← 아라크네/거미 여인 (유적 2층)
+│   └── Succubus               ← 서큐버스/음마 (유적 심층 보스)
+├── ParasiticCreature(Monster)  ← 기생형 생물 (Section 13)
+│   ├── BreastParasiteCreature  ← 유방 기생충 (유적 2층)
+│   └── GenitalParasiteCreature ← 음부 기생충 (유적 3층)
+└── TrainingDummy               ← 허수아비 (type="character", 테스트용)
 ```
 
 ### 파일: `assets/characters/monster.py`
@@ -156,6 +166,15 @@ class Monster(Character):
     # 성별 분포: [(gender_str, weight), ...]
     # None = 무성 고정 (기본)
     GENDER_DISTRIBUTION = None
+
+    # 전투 대사 (서브클래스에서 오버라이드, Section 11)
+    COMBAT_LINES = {
+        "discover": [], "attack": [], "hit": [],
+        "low_hp": [], "death": [], "flee": [],
+    }
+    # HP/상태 기반 describe/focus 규칙 (Section 11)
+    DESCRIBE_RULES = None  # [(conditions, text), ...]
+    FOCUS_RULES = None
 ```
 
 ### DROP_TABLE — 스폰 시 인벤토리 생성
@@ -220,16 +239,18 @@ BaseAgent를 상속하되 survival/needs 등록 없이 단순화된 5-tier think
 | 소멸 | 영구 | 수명 기반 자연 소멸 |
 | 겁탈 | — | bestiality ON + 유성 + 무력화 대상 감지 시 |
 
-### think() 5-tier 흐름
+### think() 7-tier 흐름
 
 ```
-Tier 0: 운반 중      → carry.is_being_carried() → idle 60s
-Tier 1: 사망          → 상태:사망 prop → idle 1h (spawner 디스폰 대기)
-Tier 2: 기절          → survival.is_npc_fainted() → idle (잔여 시간)
-Tier 3: 전투 위협     → _check_combat_threat() → 전투 처리
-Tier 3.5: 겁탈 기회   → _check_assault_opportunity() → 겁탈 AI (Section 8)
-Tier 4: 스케줄        → _get_creature_entry() → 활동별 분기
-Safety net: 할 일 없음 → idle 60s
+Tier 0: 운반 중        → carry.is_being_carried() → idle 60s
+Tier 1: 사망            → 상태:사망 prop → idle 1h (spawner 디스폰 대기)
+Tier 2: 기절            → survival.is_npc_fainted() → idle (잔여 시간)
+Tier 3: 전투 위협       → _check_combat_threat() → 전투 처리
+Tier 3.5: 겁탈 기회     → _check_assault_opportunity() → 겁탈 AI (Section 8)
+Tier 3.6: 성추행 기회   → _check_harassment_opportunity() → 성추행 AI (Section 10)
+Tier 3.7: 기생 기회     → _check_parasitize_opportunity() → 기생 AI (Section 13)
+Tier 4: 스케줄          → _get_creature_entry() → 활동별 분기
+Safety net: 할 일 없음  → idle 60s
 ```
 
 ### 스케줄 활동 분기
@@ -678,23 +699,258 @@ _check_harassment_opportunity()
 
 ---
 
+## 11. 전투 대사 시스템
+
+### 개요
+
+몬스터별 전투 대사를 `COMBAT_LINES` dict로 정의하고, `combat.py`의 `_emit_combat_line()`에서 자동 출력.
+HP/상태 기반 describe/focus도 `DESCRIBE_RULES`/`FOCUS_RULES`로 정의.
+
+### COMBAT_LINES
+
+```python
+class Wolf(Monster):
+    COMBAT_LINES = {
+        "discover": ["늑대가 이빨을 드러내며 으르렁거린다."],
+        "attack": ["늑대가 날카로운 이빨로 물어뜯는다!"],
+        "hit": ["늑대가 비명을 지른다!"],
+        "low_hp": ["늑대가 절뚝거리며 으르렁거린다."],
+        "death": ["늑대가 쓰러져 움직이지 않는다."],
+        "flee": ["늑대가 꼬리를 내리고 도주한다!"],
+    }
+```
+
+### 호출 위치
+
+| 시점 | 함수 | line_type |
+|------|------|-----------|
+| 적 첫 발견 | `think/__init__.py` `_check_combat_threat()` | `"discover"` |
+| 공격 시 | `combat.py` `execute_attack()` | `"attack"` |
+| 피격 시 | `combat.py` `execute_attack()` | `"hit"` |
+| HP ≤ 30% | `combat.py` `execute_attack()` | `"low_hp"` |
+| 사망(기절) | `combat.py` `execute_attack()` | `"death"` |
+| 도주 시 | `think/__init__.py` `_end_combat()` | `"flee"` |
+
+### DESCRIBE_RULES / FOCUS_RULES
+
+`_build_context()` 전투 변수 기반:
+
+| context 키 | 설명 |
+|------------|------|
+| `hp_ratio` | HP / 최대HP (0.0~1.0) |
+| `독` | 독 상태 여부 (bool) |
+| `출혈` | 출혈 상태 여부 (bool) |
+| `마비` | 마비 상태 여부 (bool) |
+| `거미줄` | 거미줄 속박 여부 (bool) |
+
+```python
+class Wolf(Monster):
+    DESCRIBE_RULES = [
+        ({"hp_ratio": 0.0}, "{name}의 시체가 쓰러져 있다."),
+        ({"hp_ratio": 0.3}, "피투성이 {name}(이)가 가쁜 숨을 쉬고 있다."),
+        ({"독": True}, "{name}(이)가 독에 중독되어 몸을 떨고 있다."),
+        ({}, "{name}(이)가 주변을 경계하고 있다."),
+    ]
+```
+
+---
+
+## 12. 인간형 몬스터
+
+### 개요
+
+`HumanoidCreature(Monster)` — 인간형 생물. 아키타입 보유, `is_humanoid` prop, 성행위 반응 가능.
+
+### 파일: `assets/characters/monster.py`
+
+### HumanoidCreature 기본 클래스
+
+```python
+class HumanoidCreature(Monster):
+    archetype = "fierce"
+    props = {
+        **Monster.props,
+        "is_humanoid": 1,  # 인간형 마커
+    }
+```
+
+### 인간형 겁탈 대사
+
+`creature_agent.py`의 `_handle_assault()`에서 `is_humanoid` 체크 후 아키타입 기반 대사 출력:
+
+```python
+if morld.get_unit_prop(self.unit_id, "is_humanoid"):
+    _HUMANOID_ASSAULT_LINES = {
+        "fierce": ["'{target_name}, 넌 내 먹잇감이야.'"],
+        "seductive": ["'후후... 가만히 있어, {target_name}.'"],
+    }
+```
+
+### 구체 인간형 몬스터
+
+#### Arachne (아라크네)
+
+| 항목 | 값 |
+|------|-----|
+| unique_id | `arachne` |
+| 아키타입 | fierce |
+| 성별 | female (100%) |
+| 세력 | 유적 |
+| HP | 70 |
+| 공격력/방어력 | 10/5 |
+| 특수공격 | 거미줄공격 30%, 독공격 20% |
+| harassment_chance | 0.5 |
+| 서식지 | 유적 2층 거미굴 (R5:L2) |
+| 스케줄 | 순찰(0-12h) → 휴식(12-16h) → 순찰(16-24h) |
+
+#### Succubus (서큐버스)
+
+| 항목 | 값 |
+|------|-----|
+| unique_id | `succubus` |
+| 아키타입 | seductive |
+| 성별 | female (100%) |
+| 세력 | 유적 |
+| HP | 100 |
+| 공격력/방어력 | 8/4 |
+| 특수공격 | 마비공격 25% (매혹) |
+| harassment_chance | 0.7 |
+| 서식지 | 유적 심층 (R5:L4) |
+| 스케줄 | 순찰 24시간 |
+
+---
+
+## 13. 기생형 몬스터 + 기생 시스템
+
+### 개요
+
+`ParasiticCreature(Monster)` — 전투 후 무력화된 대상에 기생체를 부착하는 생물.
+`parasite.py` — 부착/제거/조회 + 반응 대사 모듈.
+`assets/items/parasites.py` — 기생 아이템 클래스 (ParasiteItem).
+
+### 기생체 슬롯
+
+기생 슬롯은 의류 슬롯(`착용:*`)과 **완전 독립**:
+
+| 슬롯 | 부위 | 차단 의류 | 노출 조건 |
+|------|------|----------|----------|
+| `기생:가슴` | 가슴 | `착용:속옷상의` | upper ≥ 2 |
+| `기생:음부` | 음부 | `착용:속옷하의` | lower ≥ 2 |
+| `기생:항문` | 항문 | `착용:속옷하의` | lower ≥ 2 |
+| `기생:구강` | 구강 | — | 항상 가능 |
+| `기생:페니스` | 페니스 | `착용:속옷하의` | lower ≥ 2 |
+| `기생:전신` | 전신 | — | 항상 가능 |
+
+### 부착 조건
+
+1. 해당 슬롯 미점유
+2. 신체 노출 (`_calculate_exposure()` ≥ `required_exposure_level`)
+3. **또는** 옷 내구도 ≤ `durability_penetration_threshold` (틈새 침투)
+
+### 제거
+
+| 방법 | 성공률 | 비용 |
+|------|--------|------|
+| 자력 제거 (`attempt_self_removal`) | `근력/(근력+난이도) × 0.5` (최대 50%) | 실패 시 HP -3 |
+| 제거제 (`remove_with_item`) | 100% | 소모품 1개 |
+
+- 옷 위에 기생체 → 옷을 먼저 벗어야 제거 가능
+
+### 기생 AI (CreatureAgent Tier 3.7)
+
+```
+_check_parasitize_opportunity()
+  → is_parasitic prop 확인
+  → 같은 Location 무력화 대상 탐색 (기절/마비/거미줄)
+  → 확률 판정 (parasitize_chance, 기본 0.3)
+  → 기생 아이템 생성 → parasite.attach_parasite()
+  → 30분 idle + 쿨다운 4시간
+```
+
+### 구체 기생형 몬스터
+
+| 종류 | unique_id | 기생 아이템 | 확률 | 서식지 |
+|------|-----------|-----------|------|--------|
+| BreastParasiteCreature | `breast_parasite_creature` | `breast_parasite` | 0.4 | 유적 2층 |
+| GenitalParasiteCreature | `genital_parasite_creature` | `genital_parasite` | 0.3 | 유적 3층 |
+
+### 기생 아이템 (ParasiteItem)
+
+| 아이템 | 슬롯 | 자극/h | 절정/h | 난이도 | 패시브 |
+|--------|------|--------|--------|--------|--------|
+| 유방 기생체 | 기생:가슴 | 1 | 1 | 40 | 체력회복+1 |
+| 음부 기생체 | 기생:음부 | 2 | 2 | 60 | 체력회복+1 |
+| 항문 기생체 | 기생:항문 | 1 | 1 | 50 | — |
+| 구강 기생체 | 기생:구강 | 1 | 1 | 40 | 결박:입+1 |
+| 남근 기생체 | 기생:페니스 | 2 | 2 | 50 | — |
+| 결박 기생체 | 기생:전신 | 3 | 3 | 80 | 결박:상체+1, 결박:하체+1 |
+
+### 시간당 효과 (`needs.py` `_update_climax()` 통합)
+
+- `stimulation_rate` → `경험:{exp_part}` 축적 (감각 경험치)
+- `climax_contribution` → `상태:절정` 게이지 증가 (성인용품과 합산)
+- ~30% 확률로 아키타입 기반 주기적 반응 대사 (`parasite.emit_periodic_reaction()`)
+
+### 반응 대사 시스템
+
+3단계 반응:
+
+| 유형 | 시점 | 소스 |
+|------|------|------|
+| 부착 즉시 반응 | `attach_parasite()` 성공 시 | `parasite._emit_attachment_reaction()` |
+| 주기적 반응 | 매시간 ~30% | `parasite.emit_periodic_reaction()` |
+| describe 묘사 | 항상 (규칙 매칭) | `base.py` `_DESCRIBE_PARASITE` + `_DESCRIBE_PARASITE_REACTION` |
+
+모든 반응은 **10 아키타입** × **슬롯별** 대사 풀 기반.
+
+### describe 컨텍스트
+
+`_build_context()`에 기생 상태 추가:
+
+| context 키 | 설명 |
+|------------|------|
+| `기생체` | 기생체 부착 여부 (bool) |
+| `기생:가슴` | 가슴 기생 여부 (bool) |
+| `기생:음부` | 음부 기생 여부 (bool) |
+| `기생:항문` | 항문 기생 여부 (bool) |
+| `기생:구강` | 구강 기생 여부 (bool) |
+| `기생:페니스` | 페니스 기생 여부 (bool) |
+| `기생:전신` | 전신 기생 여부 (bool) |
+
+### 플레이어 제거 UI
+
+- 자력: `Player.remove_parasite()` — 슬롯 선택 → `attempt_self_removal()` → 5분 경과
+- 제거제: `ParasiteRemover.use_remover()` — 슬롯 선택 → `remove_with_item()` → 소모품 소비
+- 유적 입구(R5:L0)에 제거제 2개 바닥 배치
+
+### `_memory` 키
+
+| 키 | 값 | 설명 |
+|----|----|------|
+| `parasitize_cooldown_until` | ms (절대 시각) | 기생 쿨다운 종료 시각 |
+
+---
+
 ## 관련 파일
 
 | 파일 | 역할 |
 |------|------|
-| `assets/characters/monster.py` | Monster/Wolf/Bat/Spider Asset 정의 + GENDER_DISTRIBUTION + mate() + harassment_chance |
-| `think/creature_agent.py` | CreatureAgent (5-tier think + 겁탈 AI + 성추행 AI) |
+| `assets/characters/monster.py` | Monster/Wolf/Bat/Spider/HumanoidCreature/ParasiticCreature + 전투대사 + describe/focus |
+| `think/creature_agent.py` | CreatureAgent (7-tier think + 겁탈/성추행/기생 AI) |
 | `spawner.py` | 스폰/디스폰 관리 + 성별 배정 |
-| `combat.py` | 세력 시스템 + 전투 코어 + 마비/거미줄 API |
+| `combat.py` | 세력 시스템 + 전투 코어 + `_emit_combat_line()` |
 | `gender.py` | 생물 성별 표시 (`get_creature_gender_display`) |
 | `settings.py` | 수간 모드 토글 |
 | `creature_reactions.py` | 종별 묘사/반응 풀 |
+| `parasite.py` | 기생 시스템 (부착/제거/조회/반응 대사) |
+| `assets/items/parasites.py` | ParasiteItem + 6종 + ParasiteRemover |
 | `romance.py` | `start_romance(is_bestiality=True)` |
 | `romance_ui.py` | bestiality 액션 필터 + creature 반응 통합 |
 | `restraint.py` | `can_move()` 마비/거미줄 체크 |
-| `think/__init__.py` | `_check_combat_threat()` (세력 적대 감지) |
+| `think/__init__.py` | `_check_combat_threat()` (세력 적대 감지 + 발견 대사) |
 | `world/forest.py` | 숲 스폰 소스 등록 |
 | `world/mine.py` | 광산 스폰 소스 등록 |
+| `world/test_dungeon.py` | 유적 스폰 소스 등록 |
 | `chapters/chapter_1.py` | 스폰 호출 |
 | `scripts/morld/unit/UnitType.cs` | UnitType.Creature enum |
 | `scripts/morld/unit/Unit.cs` | IsCreature 속성 |

@@ -975,13 +975,17 @@ class BaseAgent:
             my_max = _surv.get_max_health(self.unit_id)
             threshold = behavior.get("retreat_threshold", 0.5)
             if my_hp <= my_max * threshold:
-                # HP 낮으면 무조건 도주
+                # HP 낮으면 무조건 도주 — 도주 대사
+                _combat._emit_combat_line(self.unit_id, "flee")
                 self._memory["combat_phase"] = "retreating"
                 self._memory["combat_target_id"] = enemy_id
                 self._handle_combat()
                 return True
 
-        # 전투 개시
+        # 전투 개시 — 발견 대사 (최초 1회)
+        if not self._memory.get("combat_discovered"):
+            _combat._emit_combat_line(self.unit_id, "discover")
+            self._memory["combat_discovered"] = True
         self._memory["combat_phase"] = "engaging"
         self._memory["combat_target_id"] = enemy_id
         self._handle_combat()
@@ -1098,6 +1102,7 @@ class BaseAgent:
         """전투 상태 초기화"""
         self._memory["combat_phase"] = None
         self._memory["combat_target_id"] = None
+        self._memory["combat_discovered"] = False
 
     # ========================================
     # 결박된 동료 발견 + 해제 (Tier 2)
