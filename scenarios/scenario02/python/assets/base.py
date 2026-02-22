@@ -642,8 +642,17 @@ _FOCUS_MENSTRUATION = {
     ],
 }
 
+_FOCUS_ASSAULT_VICTIM = [
+    ({"겁탈피해중": True}, "생물에게 공격당하고 있다. 도와줄 수 있을 것 같다."),
+]
+
+_FOCUS_NPC_INTIMACY = [
+    ({"NPC성행위중": True}, "다른 사람과 행위 중인 것 같다. 방해하지 않는 게 좋겠다."),
+]
+
 _DEFAULT_FOCUS_ORDER = [
-    "carrying", "restraint", "climax", "exposure_body", "shame",
+    "carrying", "restraint", "assault_victim", "npc_intimacy",
+    "climax", "exposure_body", "shame",
     "specials", "semen", "internal_semen",
     "activity", "mood", "desire", "affection", "menstruation", "default",
 ]
@@ -665,6 +674,8 @@ def build_focus_rules(archetype, activities, default_text,
     sections = {
         "carrying": _FOCUS_CARRYING,
         "restraint": _FOCUS_RESTRAINT,
+        "assault_victim": _FOCUS_ASSAULT_VICTIM,
+        "npc_intimacy": _FOCUS_NPC_INTIMACY,
         "climax": _FOCUS_CLIMAX.get(archetype, []),
         "exposure_body": _FOCUS_EXPOSURE_BODY.get(archetype, []),
         "shame": _FOCUS_SHAME.get(archetype, []),
@@ -1140,8 +1151,17 @@ _DESCRIBE_PARASITE_REACTION = {
     ],
 }
 
+_DESCRIBE_ASSAULT_VICTIM = [
+    ({"겁탈피해중": True}, "{name}(이)가 생물에게 덮쳐져 꼼짝 못하고 있다."),
+]
+
+_DESCRIBE_NPC_INTIMACY = [
+    ({"NPC성행위중": True}, "{name}(이)가 누군가와 함께 얽혀 있다."),
+]
+
 _DEFAULT_DESCRIBE_ORDER = [
-    "carrying", "restraint", "parasite", "parasite_reaction",
+    "carrying", "restraint", "assault_victim", "npc_intimacy",
+    "parasite", "parasite_reaction",
     "climax", "exposure_body", "shame",
     "specials", "traveling", "activity", "weather", "location",
     "semen", "internal_semen", "desire", "affection",
@@ -1166,6 +1186,8 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
     sections = {
         "carrying": _DESCRIBE_CARRYING,
         "restraint": _DESCRIBE_RESTRAINT,
+        "assault_victim": _DESCRIBE_ASSAULT_VICTIM,
+        "npc_intimacy": _DESCRIBE_NPC_INTIMACY,
         "parasite": _DESCRIBE_PARASITE,
         "parasite_reaction": _DESCRIBE_PARASITE_REACTION.get(archetype, []),
         "climax": _DESCRIBE_CLIMAX.get(archetype, []),
@@ -2434,6 +2456,10 @@ class Character(Unit):
         except Exception:
             context["월경"] = False
             context["배란"] = False
+
+        # 겁탈 피해 중 / NPC 성행위 중
+        context["겁탈피해중"] = bool(morld.get_unit_prop(unit_id, "상태:겁탈피해중"))
+        context["NPC성행위중"] = bool(morld.get_unit_prop(unit_id, "상태:NPC성행위중"))
 
         # 운반 상태
         import carry as _carry
@@ -3909,6 +3935,10 @@ class Character(Unit):
                 morld.add_action_log(f"{self.name}이(가) 경계하며 거리를 둔다.")
                 return None
 
+        # NPC-NPC 성행위 발각 체크
+        if morld.get_unit_prop(self.instance_id, "상태:NPC성행위중"):
+            return self._on_npc_intimacy_discovered(player_id)
+
         # NPC 자위 발각 체크
         job = morld.get_current_job(self.instance_id)
         if job and job.get("name", "") == "자위":
@@ -4223,6 +4253,64 @@ class Character(Unit):
             return handler()
 
         return self._run_discovery_reaction(player_id, config)
+
+    # 아키타입별 NPC-NPC 성행위 발각 대사
+    _NPC_INTIMACY_DISCOVERY_TEXTS = {
+        "stoic": "[{name}]\n......!\n{name}(이)가 재빨리 몸을 일으킨다.",
+        "gentle": "[{name}]\n아...! 저, 이건...\n{name}(이)가 얼굴을 붉히며 몸을 가린다.",
+        "cheerful": "[{name}]\n헉?! 이, 이건 그냥...!\n{name}(이)가 당황해서 손을 흔든다.",
+        "timid": "[{name}]\n히...!\n{name}(이)가 새빨갛게 달아올라 몸을 움츠린다.",
+        "cold": "[{name}]\n...노크를 하는 게 어때.\n{name}(이)가 차갑게 쏘아본다.",
+        "seductive": "[{name}]\n어머, 들켜버렸네.\n{name}(이)가 여유롭게 미소 짓지만 귀가 붉다.",
+        "fierce": "[{name}]\n...뭘 봐!\n{name}(이)가 벌떡 일어나 으르렁거린다.",
+        "proud": "[{name}]\n...지금 뭘 보고 있는 거지?\n{name}(이)가 수치심을 참으며 이불을 끌어당긴다.",
+        "innocent": "[{name}]\n에?! 저, 저기...!!\n{name}(이)가 당황해서 눈물이 그렁그렁하다.",
+        "devoted": "[{name}]\n주, 주인님...!\n{name}(이)가 놀라 몸을 숨기려 한다.",
+    }
+
+    def _on_npc_intimacy_discovered(self, player_id):
+        """NPC-NPC 성행위 발각 반응 (Generator)"""
+        import think
+        agent = think.get_agent(self.instance_id)
+        partner_id = morld.get_unit_prop(self.instance_id, "성행위:상대")
+
+        # 이니시에이터인 경우 → 상태 정리 (강제 종료)
+        if agent and agent._memory.get("npc_intimacy_phase") is not None:
+            from think.handlers.self_comfort import _cleanup_npc_intimacy
+            _cleanup_npc_intimacy(agent)
+            morld.clear_jobs(self.instance_id)
+            agent._insert_idle_job("대기", 60_000)
+            if partner_id:
+                morld.clear_jobs(partner_id)
+                partner_agent = think.get_agent(partner_id)
+                if partner_agent:
+                    partner_agent._insert_idle_job("대기", 60_000)
+        elif partner_id:
+            # 파트너(비이니시에이터)가 발각됨 → 이니시에이터도 정리
+            initiator = think.get_agent(partner_id)
+            if initiator and initiator._memory.get("npc_intimacy_phase") is not None:
+                from think.handlers.self_comfort import _cleanup_npc_intimacy
+                _cleanup_npc_intimacy(initiator)
+                morld.clear_jobs(partner_id)
+                initiator._insert_idle_job("대기", 60_000)
+            # 자기 자신 props 정리
+            morld.clear_prop(self.instance_id, "상태:NPC성행위중")
+            morld.clear_prop(self.instance_id, "성행위:상대")
+            morld.clear_jobs(self.instance_id)
+            if agent:
+                agent._insert_idle_job("대기", 60_000)
+
+        # 아키타입별 발각 대사
+        profile = getattr(self, 'REACTION_PROFILE', None) or {}
+        archetype = profile.get("archetype", "stoic")
+        text = self._NPC_INTIMACY_DISCOVERY_TEXTS.get(
+            archetype,
+            f"[{self.name}]\n...!\n{self.name}(이)가 황급히 몸을 가린다.")
+        text = text.format(name=self.name)
+
+        def handler():
+            yield ui.dialog(text)
+        return handler()
 
     def _run_discovery_reaction(self, player_id, config):
         """발각 반응 실행 (Generator)"""

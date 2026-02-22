@@ -182,7 +182,11 @@ class CreatureAgent(BaseAgent):
         return False
 
     def _handle_assault(self):
-        """겁탈 처리: aftermath + 사정/임신 + 처녀해제 + 경험기록"""
+        """겁탈 처리: 2-phase (assaulting → finishing)
+
+        assaulting: props 설정 + action_log + 30분 job (외부 가시성 확보)
+        finishing:  aftermath 처리 + props 해제 (30분 후 think 재호출)
+        """
         phase = self._memory.get("assault_phase")
         target_id = self._memory.get("assault_target")
 
@@ -190,20 +194,27 @@ class CreatureAgent(BaseAgent):
             self._memory["assault_phase"] = None
             return False
 
-        # 대상이 사망/디스폰 → 중단
+        # 대상이 사망/디스폰 → 중단 + props 정리
         info = morld.get_unit_info(target_id)
         if info is None or morld.get_unit_prop(target_id, "상태:사망"):
+            self._clear_assault_props(target_id)
             self._clear_assault()
             return False
 
         if phase == "assaulting":
             import random
-            import gender as gender_mod
-            from romance_core import record_first_experience, record_last_experience
 
-            player_id = morld.get_player_id()
-            is_player_target = (target_id == player_id)
             target_name = (morld.get_unit_info(target_id) or {}).get("name", "?")
+
+            # 외부 가시성을 위한 prop 설정
+            morld.set_unit_prop(self.unit_id, "상태:겁탈중", 1)
+            morld.set_unit_prop(self.unit_id, "겁탈:대상", target_id)
+            morld.set_unit_prop(target_id, "상태:겁탈피해중", 1)
+            morld.set_unit_prop(target_id, "겁탈:가해자", self.unit_id)
+
+            # action_log (플레이어 위치 무관, 항상 표시)
+            my_name = self.name or "생물"
+            morld.add_action_log(f"{my_name}이(가) {target_name}을(를) 덮쳤다!")
 
             # 인간형 겁탈 대사
             if morld.get_unit_prop(self.unit_id, "is_humanoid"):
@@ -221,6 +232,19 @@ class CreatureAgent(BaseAgent):
                 lines = _HUMANOID_ASSAULT_LINES.get(archetype, [])
                 if lines:
                     morld.add_action_log(random.choice(lines))
+
+            # 30분 job → finishing phase로 전환
+            self._memory["assault_phase"] = "finishing"
+            self._insert_idle_job("겁탈 중", 30 * 60_000)
+            self._action_taken = True
+            return True
+
+        elif phase == "finishing":
+            import gender as gender_mod
+            from romance_core import record_first_experience, record_last_experience
+
+            player_id = morld.get_player_id()
+            is_player_target = (target_id == player_id)
 
             # NPC만: 성욕 감소 (플레이어는 needs 미등록)
             if not is_player_target:
@@ -260,16 +284,19 @@ class CreatureAgent(BaseAgent):
                 penalty = max(1, hp // 5)
                 survival.add_health(target_id, -penalty)
 
-            self._insert_idle_job("겁탈 중", 30 * 60_000)  # 30분
+            # prop 해제
+            self._clear_assault_props(target_id)
+
             # 쿨다운 설정 (절대 시각: 현재 + 4시간)
             self._memory["assault_cooldown_until"] = (
                 morld.get_current_time() + 4 * 3_600_000
             )
             self._clear_assault()
-            self._action_taken = True
+            self._do_instant_action("대기", "brief")
             return True
 
         # 알 수 없는 phase → 초기화
+        self._clear_assault_props(target_id)
         self._clear_assault()
         return False
 
@@ -277,6 +304,14 @@ class CreatureAgent(BaseAgent):
         """겁탈 상태 초기화"""
         self._memory.pop("assault_phase", None)
         self._memory.pop("assault_target", None)
+
+    def _clear_assault_props(self, target_id):
+        """겁탈 관련 외부 가시성 props 해제"""
+        morld.clear_prop(self.unit_id, "상태:겁탈중")
+        morld.clear_prop(self.unit_id, "겁탈:대상")
+        if target_id is not None:
+            morld.clear_prop(target_id, "상태:겁탈피해중")
+            morld.clear_prop(target_id, "겁탈:가해자")
 
     # ========================================
     # 성추행 AI (Harassment)

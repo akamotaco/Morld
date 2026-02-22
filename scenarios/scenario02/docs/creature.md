@@ -535,18 +535,53 @@ def is_bestiality_enabled() -> bool:
 | 마비 | `combat.is_paralyzed(char_id)` |
 | 거미줄 | `combat.is_web_bound(char_id)` |
 
-#### 처리 흐름
+#### 처리 흐름 (2-phase)
 
 ```python
 _check_assault_opportunity()
     → 대상 탐색 (NPC + Player) → assault_phase = "assaulting"
-    → _handle_assault()
+
+_handle_assault()
+    phase == "assaulting":
+        → prop 설정 (외부 가시성)
+        → action_log 출력 ("{생물}이(가) {대상}을(를) 덮쳤다!")
+        → 인간형 겁탈 대사 (is_humanoid 시)
+        → 30분 idle job + assault_phase = "finishing"
+
+    phase == "finishing":  (30분 경과 후 think() 재호출)
         → NPC 대상: 성욕 -30
         → 공통: aftermath (상태:수간피해=3) + 사정/임신 + 처녀해제 + 경험기록
         → Player 대상: HP -20% 추가 감소
-        → 30분 idle + 쿨다운 4시간
-    → _clear_assault()
+        → prop 해제 + 쿨다운 4시간
+        → _clear_assault()
 ```
+
+#### 겁탈 상태 props (외부 가시성)
+
+겁탈 진행 중 (30분) 외부에서 상태를 확인할 수 있도록 prop을 설정한다.
+
+| 대상 | Prop | 값 | 설명 |
+|------|------|----|------|
+| 가해자 (Creature) | `상태:겁탈중` | 1 | 겁탈 진행 중 |
+| 가해자 (Creature) | `겁탈:대상` | unit_id | 겁탈 대상 ID |
+| 피해자 (NPC/Player) | `상태:겁탈피해중` | 1 | 겁탈 당하는 중 |
+| 피해자 (NPC/Player) | `겁탈:가해자` | unit_id | 가해 생물 ID |
+
+finishing phase에서 `_clear_assault_props(target_id)` 호출로 모든 prop 해제.
+대상이 사망/디스폰 시에도 prop 해제 처리.
+
+#### 겁탈 목격 (describe/focus)
+
+플레이어가 같은 Location에 있으면 겁탈 피해 NPC의 describe/focus 텍스트가 표시된다.
+
+| 시스템 | 조건 | 텍스트 |
+|--------|------|--------|
+| describe | `상태:겁탈피해중=1` | "{name}(이)가 생물에게 덮쳐져 꼼짝 못하고 있다." |
+| focus | `상태:겁탈피해중=1` | "생물에게 공격당하고 있다. 도와줄 수 있을 것 같다." |
+
+- describe/focus order: `"restraint"` 뒤, `"parasite"` 앞 (높은 우선순위)
+- 은신 중에도 describe 텍스트는 표시됨 (C#이 location 내 모든 유닛에 호출)
+- on_meet_player는 stealth 게이트 적용 → 은신 성공 시 NPC 미반응
 
 #### aftermath 시스템
 
@@ -579,7 +614,7 @@ Player: 기절 회복 시 (`handle_player_faint()`) 수간 피해 체크 → 회
 
 | 키 | 값 | 설명 |
 |----|----|------|
-| `assault_phase` | `"assaulting"` / `None` | 겁탈 진행 상태 |
+| `assault_phase` | `"assaulting"` / `"finishing"` / `None` | 겁탈 진행 상태 (2-phase) |
 | `assault_target` | unit_id | 겁탈 대상 |
 | `assault_cooldown_until` | ms (절대 시각) | 쿨다운 종료 시각 |
 

@@ -188,7 +188,7 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | NPC 자위 성인용품 사용 | 삽입형 자동 사용 + 효과 증가 | ✅ 완료 (self_comfort.py) |
 | 음식 첨가물 효과 (NPC 식사) | 미약/배란유도제/정력제 첨가 감지 | ✅ 완료 (eat.py) |
 | 결박/성인용품 톤 반응 (10 아키타입) | restrained_idle/passive_climax/toy_equipped | ✅ 완료 (tone_templates/) |
-| NPC-NPC 행위 발각 | 행위 중 플레이어 개입 이벤트 | 미구현 |
+| ~~NPC-NPC 행위 발각~~ | ~~행위 중 플레이어 개입 이벤트~~ | ✅ 완료 (base.py _on_npc_intimacy_discovered) |
 | NPC-NPC 자위 발각 상호작용 | 연인 NPC 발각 시 상호 애정 행위 전환 | 미구현 (현재: NPC 방해 → 짧은 쿨다운) |
 | ~~V 부위 액션~~ | ~~Vaginal 카테고리 액션 추가~~ | ✅ 완료 (V/C 4종 추가) |
 | ~~복종 시스템~~ | ~~관계:{name}:복종 prop + 이중 경로 + 자연 증가/감소~~ | ✅ 완료 (romance.py, npc_initiative.py, needs.py) |
@@ -207,6 +207,10 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | 월경 자발적 수용/강제 반응 (10 아키타입) | romance.py (willing/forced reaction) | ✅ 완료 |
 | 월경 UI 표시 (헤더 + 잔여 횟수) | romance_ui.py | ✅ 완료 |
 | 월경 NPC 자율 삽입 차단 | romance.py, npc_initiative.py | ✅ 완료 |
+| NPC-NPC 성행위 (연인 자율) | self_comfort.py, think/__init__.py | ✅ 완료 |
+| NPC-NPC 성행위 발각 반응 (10 아키타입) | base.py (_on_npc_intimacy_discovered) | ✅ 완료 |
+| 겁탈 목격 묘사 (describe/focus) | base.py, creature_agent.py (2-phase) | ✅ 완료 |
+| 은신 중 겁탈/성행위 관찰 | 자동 지원 (describe = stealth 무관) | ✅ 완료 |
 
 ---
 

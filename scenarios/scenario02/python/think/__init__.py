@@ -113,6 +113,9 @@ class BaseAgent:
             "gift_target_id": None,       # 선물 대상 NPC unit_id
             "gift_item_id": None,         # 선물할 아이템 ID
             "gift_cooldown": None,        # 마지막 선물 시각 (밀리초)
+            "npc_intimacy_phase": None,   # NPC-NPC 성행위 단계 (None/idle/going/performing/finishing)
+            "npc_intimacy_partner": None, # 성행위 파트너 NPC unit_id
+            "npc_intimacy_cooldown": None, # 마지막 성행위 시각 (밀리초)
             "romance_last": None,         # 마지막 애정 행위 기억 {partner_id, region_id, location_id, timestamp, mode}
             "laundry_phase": None,        # 빨래 단계 (None/going_to_washer/loading/waiting_wash/collecting_wash/going_to_dryer/loading_dry/waiting_dry/collecting_dry)
             "laundry_washer": None,       # 세탁기 위치 {region_id, location_id, x, object_id}
@@ -1609,10 +1612,13 @@ class BaseAgent:
         return True
 
     def _check_arousal(self):
-        """성욕 처리: 플레이어 탐색 또는 자위. Returns True if handling."""
+        """성욕 처리: 플레이어 탐색 / NPC-NPC 성행위 / 자위. Returns True if handling."""
         # 진행 중 → 계속
         if self._memory["seek_player_phase"] is not None:
             _handle_seek_player(self)
+            return True
+        if self._memory.get("npc_intimacy_phase") is not None:
+            _handle_npc_intimacy(self)
             return True
         if self._memory["self_comfort_phase"] is not None:
             _handle_self_comfort(self)
@@ -1636,6 +1642,16 @@ class BaseAgent:
             self._memory["seek_player_target"] = target
             _handle_seek_player(self)
             return True
+
+        # 0.5순위: NPC-NPC 성행위 (연인 NPC + 양쪽 성욕 높을 때)
+        npc_int_last = self._memory.get("npc_intimacy_cooldown")
+        if npc_int_last is None or self.get_time() - npc_int_last >= _NPC_INTIMACY_COOLDOWN_MS:
+            partner = _find_npc_lover(self)
+            if partner is not None:
+                self._memory["npc_intimacy_phase"] = "idle"
+                self._memory["npc_intimacy_partner"] = partner
+                _handle_npc_intimacy(self)
+                return True
 
         # 1순위: 유혹 (다른 NPC 있을 때 → 자발적 노출) + NPC→플레이어 성추행
         if self._try_self_exposure():
@@ -2024,6 +2040,13 @@ class BaseAgent:
         if carry.is_being_carried(self.unit_id):
             self._handle_being_carried()
             return None
+
+        # NPC 성행위 파트너 (이니시에이터가 관리 중) → 건너뛰기
+        if morld.get_unit_prop(self.unit_id, "상태:NPC성행위중"):
+            # 이니시에이터가 아닌 파트너는 대기만
+            if self._memory.get("npc_intimacy_phase") is None:
+                self._insert_idle_job("대기", 60_000)
+                return None
 
         # Tier 0: 결박
         import restraint
@@ -2924,6 +2947,8 @@ from think.handlers import (
     _handle_eat, _handle_excretion,
     _handle_cold, _handle_hot, _handle_clothing, _is_dressed,
     _handle_self_comfort, _handle_seek_player,
+    _handle_npc_intimacy, _find_npc_lover,
+    _NPC_INTIMACY_COOLDOWN_MS,
     _SELF_COMFORT_COOLDOWN_MS,
     _handle_socialize, _handle_gift,
     _find_most_missed, _find_gift_item, _find_gift_target,

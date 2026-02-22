@@ -363,3 +363,166 @@ def _handle_seek_player(agent):
             agent._do_instant_action("대기", "brief")
         else:
             agent._move_to(target, "이동")
+
+
+# ========================================
+# NPC-NPC 성행위 핸들러
+# ========================================
+
+_NPC_INTIMACY_COOLDOWN_MS = 7_200_000    # 2시간
+_NPC_INTIMACY_DURATION_MS = 30 * 60_000  # 30분
+
+
+def _find_npc_lover(agent):
+    """같은 location에 있는 연인 NPC 탐색 (양쪽 성욕 높을 때)
+
+    조건:
+    - 같은 location에 있음
+    - 호감 ≥ 60 (양방향 OR)
+    - 대상 성욕 ≥ 60
+    - 대상 수면/기절/겁탈/자위/성행위 중 아님
+    Returns: target_unit_id or None
+    """
+    from .social import _is_lover_npc
+
+    loc = agent.get_location()
+    if not loc:
+        return None
+    chars = morld.get_characters_at_location(loc[0], loc[1])
+    if not chars:
+        return None
+
+    player_id = morld.get_player_id()
+    for char_id in chars:
+        if char_id == agent.unit_id or char_id == player_id:
+            continue
+        if not _is_lover_npc(agent.unit_id, char_id):
+            continue
+        # 상태 확인
+        info = morld.get_unit_info(char_id)
+        if not info:
+            continue
+        job_name = info.get("job_name", "")
+        if job_name in ("sleep", "fainting", "겁탈 중", "자위", "NPC 성행위"):
+            continue
+        # 이미 성행위 중이면 스킵
+        if morld.get_unit_prop(char_id, "상태:NPC성행위중"):
+            continue
+        # 성욕 확인
+        arousal = morld.get_unit_prop(char_id, "상태:성욕") or 0
+        if arousal < 60:
+            continue
+        return char_id
+    return None
+
+
+def _handle_npc_intimacy(agent):
+    """NPC-NPC 성행위: 은밀 장소 이동 → 수행(30분) → 완료
+
+    Phase: idle → going → performing → finishing
+    - 이니시에이터만 핸들러 실행
+    - 파트너는 props로 상태 추적 (think에서 건너뜀)
+    """
+    phase = agent._memory["npc_intimacy_phase"]
+
+    if phase == "idle":
+        partner_id = agent._memory.get("npc_intimacy_partner")
+        if partner_id is None:
+            agent._memory["npc_intimacy_phase"] = None
+            agent._do_instant_action("대기", "abort")
+            return
+
+        # 은밀 장소 탐색 (자위와 동일한 로직)
+        target = _resolve_private_location(agent)
+        if target is None:
+            agent._memory["npc_intimacy_phase"] = None
+            agent._do_instant_action("대기", "abort")
+            return
+
+        if agent._is_at(target):
+            agent._memory["npc_intimacy_phase"] = "performing"
+            _handle_npc_intimacy(agent)
+        else:
+            agent._memory["npc_intimacy_phase"] = "going"
+            # 파트너도 따라오게
+            from think import get_agent
+            partner_agent = get_agent(partner_id)
+            if partner_agent:
+                partner_agent._move_to(target, "이동")
+            agent._move_to(target, "이동")
+
+    elif phase == "going":
+        partner_id = agent._memory.get("npc_intimacy_partner")
+        if partner_id is None:
+            agent._memory["npc_intimacy_phase"] = None
+            agent._do_instant_action("대기", "abort")
+            return
+        target = _resolve_private_location(agent)
+        if target is None:
+            _cleanup_npc_intimacy(agent)
+            agent._do_instant_action("대기", "abort")
+            return
+        if agent._is_at(target):
+            agent._memory["npc_intimacy_phase"] = "performing"
+            _handle_npc_intimacy(agent)
+        else:
+            agent._move_to(target, "이동")
+
+    elif phase == "performing":
+        partner_id = agent._memory.get("npc_intimacy_partner")
+        if partner_id is None:
+            _cleanup_npc_intimacy(agent)
+            agent._do_instant_action("대기", "abort")
+            return
+
+        # props 설정 (describe 가시성)
+        morld.set_unit_prop(agent.unit_id, "상태:NPC성행위중", 1)
+        morld.set_unit_prop(agent.unit_id, "성행위:상대", partner_id)
+        morld.set_unit_prop(partner_id, "상태:NPC성행위중", 1)
+        morld.set_unit_prop(partner_id, "성행위:상대", agent.unit_id)
+
+        # 파트너 job 삽입 (30분)
+        morld.clear_jobs(partner_id)
+        morld.insert_job(partner_id, "NPC 성행위", "stay",
+                         _NPC_INTIMACY_DURATION_MS, 0, 0)
+
+        # 이니시에이터 job
+        agent._memory["npc_intimacy_phase"] = "finishing"
+        agent._do_instant_action("NPC 성행위", "npc_intimacy")
+
+    elif phase == "finishing":
+        partner_id = agent._memory.get("npc_intimacy_partner")
+
+        # 성욕 감소 (양측)
+        if partner_id:
+            for uid in (agent.unit_id, partner_id):
+                arousal = morld.get_unit_prop(uid, "상태:성욕") or 0
+                morld.set_unit_prop(uid, "상태:성욕", max(0, arousal - 50))
+            # 그리움 해소 (양측)
+            try:
+                import needs
+                partner_info = morld.get_unit_info(partner_id)
+                agent_info = morld.get_unit_info(agent.unit_id)
+                if partner_info and agent_info:
+                    needs.reduce_longing(agent.unit_id,
+                                         partner_info.get("name", ""))
+                    needs.reduce_longing(partner_id,
+                                         agent_info.get("name", ""))
+            except ImportError:
+                pass
+
+        _cleanup_npc_intimacy(agent)
+        agent._memory["npc_intimacy_cooldown"] = agent.get_time()
+        agent._do_instant_action("대기", "brief")
+
+
+def _cleanup_npc_intimacy(agent):
+    """NPC-NPC 성행위 상태 정리"""
+    partner_id = agent._memory.get("npc_intimacy_partner")
+    if partner_id:
+        morld.clear_prop(partner_id, "상태:NPC성행위중")
+        morld.clear_prop(partner_id, "성행위:상대")
+    morld.clear_prop(agent.unit_id, "상태:NPC성행위중")
+    morld.clear_prop(agent.unit_id, "성행위:상대")
+    agent._memory["npc_intimacy_phase"] = None
+    agent._memory["npc_intimacy_partner"] = None

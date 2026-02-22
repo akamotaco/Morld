@@ -56,6 +56,7 @@ ACTION_DURATION = {
     # 사회
     "socialize":     30 * 60_000,   # 30분 — 대화
     "gift":           5 * 60_000,   # 5분 — 선물
+    "npc_intimacy":  30 * 60_000,   # 30분 — NPC-NPC 성행위
 
     # 정원
     "water_garden":  10 * 60_000,   # 10분 — 물주기
