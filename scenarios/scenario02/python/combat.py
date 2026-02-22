@@ -86,6 +86,30 @@ BLEEDING_DURATION_HOURS = 3
 SLOW_DURATION_HOURS = 2
 SLOW_SPEED_PERCENT = 50
 
+# ── 독 ──
+POISON_DAMAGE_PER_HOUR = 2
+POISON_DURATION_HOURS = 4
+
+# ── 부위 부상 ──
+BODY_PARTS = ("머리", "팔", "다리", "몸통")
+INJURY_DURATION_HOURS = 4
+INJURY_CHANCE_ON_CRIT = 30        # %
+LEG_INJURY_SPEED = 60             # 이동속도 60%
+ARM_INJURY_ATK_PENALTY = 0.30     # 공격력 30% 감소
+HEAD_INJURY_ACC_PENALTY = 15      # 명중 -15
+
+# ── 조준 공격 ──
+AIMED_ATTACK_ACC_PENALTY = 20     # 명중률 -20
+AIMED_ATTACK_SPEED_MULT = 1.2     # 공격속도 ×1.2 (20% 느림)
+
+# ── 엄폐 ──
+COVER_DISTANCE = 15               # 엄폐 유효 거리 (px)
+COVER_BONUS = {
+    "partial": {"evasion": 10, "damage_reduction": 0.20},
+    "half":    {"evasion": 20, "damage_reduction": 0.40},
+    "full":    {"evasion": 40, "damage_reduction": 0.70},
+}
+
 # ── 탄약 ──
 RELOAD_DURATION = 5_000
 JAM_BASE_CHANCE = 3
@@ -106,11 +130,23 @@ _hostile_mode = False
 # ========================================
 
 def get_combat_stat(unit_id: int, stat_name: str):
-    """전투 스탯 조회 (base prop + equip_props 합산)"""
+    """전투 스탯 조회 (base prop + equip_props 합산 + 부상 페널티)"""
     all_props = morld.get_actual_props(unit_id)
     if all_props and stat_name in all_props:
-        return all_props[stat_name]
-    return DEFAULT_STATS.get(stat_name, 0)
+        value = all_props[stat_name]
+    else:
+        value = DEFAULT_STATS.get(stat_name, 0)
+
+    # 팔 부상 → 공격력 감소
+    if stat_name == "전투:공격력":
+        if morld.get_unit_prop(unit_id, "부상:팔"):
+            value = max(1, int(value * (1 - ARM_INJURY_ATK_PENALTY)))
+    # 머리 부상 → 명중 감소
+    elif stat_name == "전투:명중":
+        if morld.get_unit_prop(unit_id, "부상:머리"):
+            value = value - HEAD_INJURY_ACC_PENALTY
+
+    return value
 
 
 def get_weapon_equip_props(unit_id: int) -> dict:
@@ -154,9 +190,15 @@ def is_in_range(attacker_id: int, target_id: int) -> bool:
 # ========================================
 
 def calculate_hit_chance(attacker_id, target_id) -> int:
-    """명중률 = attacker_명중 - target_회피, clamp(5, 95)"""
+    """명중률 = attacker_명중 - target_회피 - 엄폐보너스, clamp(5, 95)"""
     accuracy = get_combat_stat(attacker_id, "전투:명중")
     evasion = get_combat_stat(target_id, "전투:회피")
+
+    # 엄폐 회피 보너스
+    cover = get_cover_bonus(target_id)
+    if cover:
+        evasion += cover["evasion"]
+
     return max(HIT_CHANCE_MIN, min(HIT_CHANCE_MAX, accuracy - evasion))
 
 
@@ -173,7 +215,7 @@ def roll_hit(attacker_id, target_id) -> tuple:
 
 
 def calculate_damage(attacker_id, target_id, is_crit=False) -> int:
-    """공식: max(1, atk - def//2) × variance × crit_mult"""
+    """공식: max(1, atk - def//2) × variance × crit_mult × 엄폐감소"""
     atk = get_combat_stat(attacker_id, "전투:공격력")
     defense = get_combat_stat(target_id, "전투:방어력")
 
@@ -185,6 +227,11 @@ def calculate_damage(attacker_id, target_id, is_crit=False) -> int:
 
     if is_crit:
         damage *= CRIT_MULTIPLIER
+
+    # 엄폐 피해 감소
+    cover = get_cover_bonus(target_id)
+    if cover:
+        damage = damage * (1 - cover["damage_reduction"])
 
     return max(MIN_DAMAGE, int(damage))
 
@@ -312,6 +359,19 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
         apply_bleeding(target_id)
         result["message"] += " 출혈이 발생했다!"
 
+    # 치명타 + 부위 부상
+    if crit and random.randint(1, 100) <= INJURY_CHANCE_ON_CRIT:
+        part = random.choice(BODY_PARTS)
+        if part != "몸통":
+            apply_body_injury(target_id, part)
+            result["message"] += f" {target_name}의 {part}에 부상!"
+
+    # 독 공격 (attacker의 전투:독공격 prop)
+    poison_chance = morld.get_unit_prop(attacker_id, "전투:독공격") or 0
+    if poison_chance > 0 and hit and random.randint(1, 100) <= poison_chance:
+        apply_poison(target_id)
+        result["message"] += " 독이 퍼진다!"
+
     # 내구도 감소
     degrade_durability(attacker_id)
 
@@ -326,6 +386,115 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
         sound.emit_sound(attacker_id, "combat")
 
     # 원거리 탄약 소모
+    if is_ranged:
+        morld.modify_prop(attacker_id, "전투:현재탄약", -1)
+
+    return result
+
+
+def execute_aimed_attack(attacker_id: int, target_id: int, body_part: str) -> dict:
+    """조준 공격 — 명중률↓ + 명중 시 해당 부위 부상 확정
+
+    Returns: {"hit", "crit", "damage", "target_hp", "target_fainted", "message"}
+    """
+    import sound
+
+    result = {
+        "hit": False, "crit": False, "damage": 0,
+        "target_hp": 0, "target_fainted": False, "message": "",
+    }
+
+    if not is_in_range(attacker_id, target_id):
+        result["message"] = "사거리 밖이다."
+        return result
+
+    weapon_range = get_combat_stat(attacker_id, "전투:사거리")
+    is_ranged = weapon_range > 100
+
+    if is_ranged:
+        current_ammo = morld.get_unit_prop(attacker_id, "전투:현재탄약") or 0
+        if current_ammo <= 0:
+            result["message"] = "탄약이 없다!"
+            return result
+        ammo_type = get_combat_stat(attacker_id, "전투:탄약")
+        if ammo_type and ammo_type != "arrow":
+            durability = morld.get_unit_prop(attacker_id, "내구도") or 100
+            jam_chance = JAM_BASE_CHANCE + max(0, (50 - durability) // 10)
+            if random.randint(1, 100) <= jam_chance:
+                morld.set_unit_prop(attacker_id, "상태:잼", 1)
+                morld.modify_prop(attacker_id, "전투:현재탄약", -1)
+                result["message"] = "잼이 발생했다! 재장전이 필요하다."
+                return result
+
+    attacker_info = morld.get_unit_info(attacker_id)
+    target_info = morld.get_unit_info(target_id)
+    attacker_name = attacker_info.get("name", "?") if attacker_info else "?"
+    target_name = target_info.get("name", "?") if target_info else "?"
+
+    # 조준 공격 명중률 페널티 적용
+    accuracy = get_combat_stat(attacker_id, "전투:명중") - AIMED_ATTACK_ACC_PENALTY
+    evasion = get_combat_stat(target_id, "전투:회피")
+    cover = get_cover_bonus(target_id)
+    if cover:
+        evasion += cover["evasion"]
+    hit_chance = max(HIT_CHANCE_MIN, min(HIT_CHANCE_MAX, accuracy - evasion))
+
+    roll = random.randint(1, 100)
+    if roll > hit_chance:
+        result["message"] = f"{attacker_name}의 조준 공격이 빗나갔다."
+        if is_ranged:
+            morld.modify_prop(attacker_id, "전투:현재탄약", -1)
+        sound.emit_sound(attacker_id, "combat")
+        return result
+
+    crit_chance = get_combat_stat(attacker_id, "전투:치명타")
+    crit = random.randint(1, 100) <= crit_chance
+
+    damage = calculate_damage(attacker_id, target_id, is_crit=crit)
+    fainted = apply_damage(target_id, damage, attacker_id)
+    target_hp = morld.get_unit_prop(target_id, "생존:체력") or 0
+
+    result["hit"] = True
+    result["crit"] = crit
+    result["damage"] = damage
+    result["target_hp"] = target_hp
+    result["target_fainted"] = fainted
+
+    if crit:
+        result["message"] = f"{attacker_name}의 {body_part} 조준 치명타! {target_name}에게 {damage}의 피해."
+    else:
+        result["message"] = f"{attacker_name}이(가) {target_name}의 {body_part}에 {damage}의 피해."
+
+    if fainted:
+        result["message"] += f" {target_name}이(가) 기절했다!"
+
+    # 명중 → 해당 부위 부상 확정 (몸통 제외)
+    if body_part != "몸통":
+        apply_body_injury(target_id, body_part)
+        result["message"] += f" {body_part} 부상!"
+
+    # 치명타 + 출혈 (일반 공격과 동일)
+    if crit and random.randint(1, 100) <= BLEEDING_CHANCE_ON_CRIT:
+        apply_bleeding(target_id)
+        result["message"] += " 출혈이 발생했다!"
+
+    # 독 공격
+    poison_chance = morld.get_unit_prop(attacker_id, "전투:독공격") or 0
+    if poison_chance > 0 and random.randint(1, 100) <= poison_chance:
+        apply_poison(target_id)
+        result["message"] += " 독이 퍼진다!"
+
+    degrade_durability(attacker_id)
+
+    if is_ranged:
+        ammo_type = get_combat_stat(attacker_id, "전투:탄약")
+        if ammo_type and ammo_type != "arrow":
+            sound.emit_sound(attacker_id, "gunshot")
+        else:
+            sound.emit_sound(attacker_id, "combat")
+    else:
+        sound.emit_sound(attacker_id, "combat")
+
     if is_ranged:
         morld.modify_prop(attacker_id, "전투:현재탄약", -1)
 
@@ -473,13 +642,107 @@ def cure_bleeding(unit_id):
 
 
 def apply_slow(unit_id, speed_percent=None, duration_hours=None):
-    """둔화 적용 — 이동:부상 prop (Unit prop, actualProps에서 읽힘)"""
+    """둔화 적용 — 둔화:속도 + 이동:부상 재계산"""
     if speed_percent is None:
         speed_percent = SLOW_SPEED_PERCENT
     if duration_hours is None:
         duration_hours = SLOW_DURATION_HOURS
-    morld.set_unit_prop(unit_id, "이동:부상", speed_percent)
+    morld.set_unit_prop(unit_id, "둔화:속도", speed_percent)
     morld.set_unit_prop(unit_id, "상태:둔화", duration_hours)
+    _recompute_movement_injury(unit_id)
+
+
+# ── 독 API ──
+
+def apply_poison(unit_id, duration_hours=None):
+    """독 적용"""
+    if duration_hours is None:
+        duration_hours = POISON_DURATION_HOURS
+    morld.set_unit_prop(unit_id, "상태:독", duration_hours)
+
+
+def cure_poison(unit_id):
+    """독 치료"""
+    morld.clear_prop(unit_id, "상태:독")
+
+
+# ── 부위 부상 API ──
+
+def apply_body_injury(unit_id, body_part, duration_hours=None):
+    """부위 부상 적용 (몸통은 무효)"""
+    if body_part == "몸통":
+        return
+    if duration_hours is None:
+        duration_hours = INJURY_DURATION_HOURS
+    prop = f"부상:{body_part}"
+    existing = morld.get_unit_prop(unit_id, prop) or 0
+    morld.set_unit_prop(unit_id, prop, max(existing, duration_hours))
+    if body_part == "다리":
+        _recompute_movement_injury(unit_id)
+
+
+def cure_body_injury(unit_id, body_part=None):
+    """부위 부상 치료 (body_part=None이면 전체)"""
+    parts = [body_part] if body_part else ["머리", "팔", "다리"]
+    for p in parts:
+        morld.clear_prop(unit_id, f"부상:{p}")
+    _recompute_movement_injury(unit_id)
+
+
+def _recompute_movement_injury(unit_id):
+    """둔화 + 다리 부상 중 최소 속도를 이동:부상에 반영"""
+    slow_speed = morld.get_unit_prop(unit_id, "둔화:속도")
+    leg_hours = morld.get_unit_prop(unit_id, "부상:다리") or 0
+    sources = []
+    if slow_speed is not None:
+        sources.append(slow_speed)
+    if leg_hours > 0:
+        sources.append(LEG_INJURY_SPEED)
+    if sources:
+        morld.set_unit_prop(unit_id, "이동:부상", min(sources))
+    else:
+        morld.clear_prop(unit_id, "이동:부상")
+
+
+# ── 엄폐 API ──
+
+def get_cover_bonus(unit_id):
+    """웅크리기 + 근처 오브젝트 → 엄폐 보너스 반환
+
+    Returns: {"evasion": int, "damage_reduction": float} or None
+    """
+    if not morld.get_unit_prop(unit_id, "posture:crouch"):
+        return None
+
+    loc = morld.get_unit_location(unit_id)
+    if not loc or loc[0] < 0:
+        return None
+
+    unit_info = morld.get_unit_info(unit_id)
+    if not unit_info:
+        return None
+    unit_x = unit_info.get("x", 0)
+
+    objects = morld.get_units_at_location(loc[0], loc[1], "object")
+    best_cover = None
+    best_dist = float('inf')
+
+    for obj_id in (objects or []):
+        cover_level = morld.get_unit_prop(obj_id, "cover:level")
+        if not cover_level:
+            continue
+        obj_info = morld.get_unit_info(obj_id)
+        if not obj_info:
+            continue
+        obj_x = obj_info.get("x", 0)
+        dist = abs(unit_x - obj_x)
+        if dist <= COVER_DISTANCE and dist < best_dist:
+            best_dist = dist
+            best_cover = cover_level
+
+    if best_cover and best_cover in COVER_BONUS:
+        return COVER_BONUS[best_cover]
+    return None
 
 
 # ========================================
@@ -549,10 +812,66 @@ def reload_weapon(player_id) -> bool:
 # 시간 구독 + 리셋
 # ========================================
 
-def _on_time_elapsed(millis):
-    """매 1시간: 적대도 감소 + 출혈 데미지 + 둔화 회복"""
+def _tick_debuffs(unit_id, is_player=False):
+    """한 유닛의 디버프 1시간 틱 (출혈/독/둔화/부위부상)"""
     import survival
 
+    # 출혈 데미지
+    bleeding = morld.get_unit_prop(unit_id, "상태:출혈") or 0
+    if bleeding > 0:
+        survival.add_health(unit_id, -BLEEDING_DAMAGE_PER_HOUR)
+        if bleeding - 1 <= 0:
+            cure_bleeding(unit_id)
+        else:
+            morld.set_unit_prop(unit_id, "상태:출혈", bleeding - 1)
+
+        hp = morld.get_unit_prop(unit_id, "생존:체력") or 0
+        if hp <= 0:
+            if is_player:
+                survival._enter_player_faint()
+            else:
+                survival._enter_faint(unit_id)
+
+    # 독 데미지
+    poison = morld.get_unit_prop(unit_id, "상태:독") or 0
+    if poison > 0:
+        survival.add_health(unit_id, -POISON_DAMAGE_PER_HOUR)
+        if poison - 1 <= 0:
+            cure_poison(unit_id)
+        else:
+            morld.set_unit_prop(unit_id, "상태:독", poison - 1)
+
+        hp = morld.get_unit_prop(unit_id, "생존:체력") or 0
+        if hp <= 0:
+            if is_player:
+                survival._enter_player_faint()
+            else:
+                survival._enter_faint(unit_id)
+
+    # 둔화 회복
+    slow_remaining = morld.get_unit_prop(unit_id, "상태:둔화") or 0
+    if slow_remaining > 0:
+        if slow_remaining - 1 <= 0:
+            morld.clear_prop(unit_id, "상태:둔화")
+            morld.clear_prop(unit_id, "둔화:속도")
+            _recompute_movement_injury(unit_id)
+        else:
+            morld.set_unit_prop(unit_id, "상태:둔화", slow_remaining - 1)
+
+    # 부위 부상 자연 회복
+    for part in ("머리", "팔", "다리"):
+        remaining = morld.get_unit_prop(unit_id, f"부상:{part}") or 0
+        if remaining > 0:
+            if remaining - 1 <= 0:
+                morld.clear_prop(unit_id, f"부상:{part}")
+                if part == "다리":
+                    _recompute_movement_injury(unit_id)
+            else:
+                morld.set_unit_prop(unit_id, f"부상:{part}", remaining - 1)
+
+
+def _on_time_elapsed(millis):
+    """매 1시간: 적대도 감소 + 디버프 틱 (출혈/독/둔화/부위부상)"""
     hours = millis / 3_600_000
     if hours < 1:
         return
@@ -561,9 +880,6 @@ def _on_time_elapsed(millis):
     player_info = morld.get_unit_info(player_id)
     player_name = player_info.get("name", "") if player_info else ""
 
-    # 모든 캐릭터에 대해 처리
-    # get_units_at_location 대신 전역 처리가 필요하지만,
-    # 현재 API 한계상 think 에이전트에 등록된 NPC들만 처리
     try:
         import think
         agents = think.get_all_agents()
@@ -577,53 +893,10 @@ def _on_time_elapsed(millis):
             if hostility > 0:
                 modify_hostility(unit_id, player_name, -HOSTILITY_DECAY_PER_HOUR)
 
-        # 출혈 데미지
-        bleeding = morld.get_unit_prop(unit_id, "상태:출혈") or 0
-        if bleeding > 0:
-            survival.add_health(unit_id, -BLEEDING_DAMAGE_PER_HOUR)
-            new_bleeding = bleeding - 1
-            if new_bleeding <= 0:
-                cure_bleeding(unit_id)
-            else:
-                morld.set_unit_prop(unit_id, "상태:출혈", new_bleeding)
+        _tick_debuffs(unit_id, is_player=False)
 
-            # 출혈로 HP 0 → 기절
-            hp = morld.get_unit_prop(unit_id, "생존:체력") or 0
-            if hp <= 0:
-                survival._enter_faint(unit_id)
-
-        # 둔화 회복
-        slow_remaining = morld.get_unit_prop(unit_id, "상태:둔화") or 0
-        if slow_remaining > 0:
-            new_slow = slow_remaining - 1
-            if new_slow <= 0:
-                morld.clear_prop(unit_id, "상태:둔화")
-                morld.clear_prop(unit_id, "이동:부상")
-            else:
-                morld.set_unit_prop(unit_id, "상태:둔화", new_slow)
-
-    # 플레이어 출혈/둔화도 처리
-    bleeding = morld.get_unit_prop(player_id, "상태:출혈") or 0
-    if bleeding > 0:
-        survival.add_health(player_id, -BLEEDING_DAMAGE_PER_HOUR)
-        new_bleeding = bleeding - 1
-        if new_bleeding <= 0:
-            cure_bleeding(player_id)
-        else:
-            morld.set_unit_prop(player_id, "상태:출혈", new_bleeding)
-
-        hp = morld.get_unit_prop(player_id, "생존:체력") or 0
-        if hp <= 0:
-            survival._enter_player_faint()
-
-    slow_remaining = morld.get_unit_prop(player_id, "상태:둔화") or 0
-    if slow_remaining > 0:
-        new_slow = slow_remaining - 1
-        if new_slow <= 0:
-            morld.clear_prop(player_id, "상태:둔화")
-            morld.clear_prop(player_id, "이동:부상")
-        else:
-            morld.set_unit_prop(player_id, "상태:둔화", new_slow)
+    # 플레이어 디버프
+    _tick_debuffs(player_id, is_player=True)
 
 
 def reset():

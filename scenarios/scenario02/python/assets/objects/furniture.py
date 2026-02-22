@@ -445,6 +445,7 @@ class DiningTable(Object):
     unique_id = "dining_table"
     name = "긴 식탁"
     actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {"cover:level": "half"}
     focus_text = {"default": "여섯 명이 앉을 수 있는 긴 나무 식탁. 잘 닦여 있다."}
 
     def look(self):

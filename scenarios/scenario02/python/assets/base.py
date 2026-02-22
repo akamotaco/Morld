@@ -1537,8 +1537,11 @@ class Character(Unit):
             actions.append("call:finish_off:숨통 끊기#")
             actions.append("call:loot:루팅#")
         else:
-            # 일반 상태: 공격 + 소매치기
+            # 일반 상태: 공격 + 조준 + 소매치기
             actions.append("call:attack:공격#")
+            actions.append("call:aimed_attack_head:조준: 머리#")
+            actions.append("call:aimed_attack_arms:조준: 팔#")
+            actions.append("call:aimed_attack_legs:조준: 다리#")
             actions.append("call:steal:소매치기#")
         return actions
 
@@ -1643,6 +1646,51 @@ class Character(Unit):
                     else combat.MELEE_ATTACK_DURATION)
         attack_speed = combat.get_combat_stat(player_id, "전투:공격속도")
         morld.advance_time_des(int(base_dur * attack_speed))
+
+    def aimed_attack_head(self):
+        self._do_aimed_attack("머리")
+
+    def aimed_attack_arms(self):
+        self._do_aimed_attack("팔")
+
+    def aimed_attack_legs(self):
+        self._do_aimed_attack("다리")
+
+    def _do_aimed_attack(self, body_part):
+        """조준 공격 (self = 대상 NPC/Creature)"""
+        import combat
+
+        player_id = morld.get_player_id()
+        player_info = morld.get_unit_info(player_id)
+        player_name = player_info.get("name", "?") if player_info else "?"
+
+        if not combat.is_in_range(player_id, self.instance_id):
+            morld.add_action_log("사거리 밖이다.")
+            return
+
+        result = combat.execute_aimed_attack(player_id, self.instance_id, body_part)
+        morld.add_action_log(result["message"])
+
+        # 적대도/호감 변화 (생물 제외)
+        if not combat.is_creature_unit(self.instance_id):
+            combat.modify_hostility(self.instance_id, player_name,
+                                    combat.HOSTILITY_ON_ATTACK)
+            affection_key = f"관계:{player_name}:호감"
+            morld.modify_prop(self.instance_id, affection_key,
+                              combat.AFFECTION_ON_ATTACK)
+            if result["target_fainted"]:
+                combat.modify_hostility(self.instance_id, player_name,
+                                        combat.HOSTILITY_ON_FAINT)
+                morld.modify_prop(self.instance_id, affection_key,
+                                  combat.AFFECTION_ON_FAINT)
+
+        # 조준 공격 시간 경과 (20% 느림)
+        weapon_range = combat.get_combat_stat(player_id, "전투:사거리")
+        is_ranged = weapon_range > 100
+        base_dur = (combat.RANGED_ATTACK_DURATION if is_ranged
+                    else combat.MELEE_ATTACK_DURATION)
+        attack_speed = combat.get_combat_stat(player_id, "전투:공격속도")
+        morld.advance_time_des(int(base_dur * attack_speed * combat.AIMED_ATTACK_SPEED_MULT))
 
     def steal(self):
         """소매치기 시도 (self = 대상 NPC)

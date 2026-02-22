@@ -1264,12 +1264,16 @@ def _on_meet_hostile(self, player_id, hostility):
 
 ## 18. 전투 디버프
 
+> **구현 완료** — `combat.py`, `_tick_debuffs()` 통합 처리
+
 ### 18.1 종류
 
-| 디버프 | prop | 효과 | 지속 | 치료 |
-|--------|------|------|------|------|
-| 출혈 | `상태:출혈` (잔여 h) | HP -3/h | 지정 시간 | 붕대 |
-| 둔화 | `이동:부상` (속도%) | 이동속도 감소 | 지정 시간 | 자연 회복 |
+| 디버프 | prop | 효과 | 지속 | 치료 | 구현 |
+|--------|------|------|------|------|------|
+| 출혈 | `상태:출혈` (잔여 h) | HP -3/h | 3h | 붕대 | O |
+| 둔화 | `둔화:속도` (%) + `상태:둔화` (h) | 이동속도 감소 | 2h | 자연 회복 | O |
+| 독 | `상태:독` (잔여 h) | HP -2/h | 4h | 해독제 | O |
+| 부위 부상 | `부상:{부위}` (잔여 h) | 부위별 페널티 | 4h | 자연 회복 / `cure_body_injury()` | O |
 
 ### 18.2 출혈
 
@@ -1279,35 +1283,66 @@ def _on_meet_hostile(self, player_id, hostility):
 
 ### 18.3 둔화
 
-- `이동:부상` prop = 속도% (50 = 반감)
+- `둔화:속도` prop = 속도% (50 = 반감) — 실제 속도값 추적
 - `상태:둔화` = 잔여 시간 (h)
-- 자연 회복: 매 시간 -1, 0이 되면 prop 제거
+- `이동:부상` = min(둔화:속도, 다리부상속도) — `_recompute_movement_injury()`로 재계산
+- 자연 회복: 매 시간 -1, 0이 되면 `둔화:속도` + `이동:부상` 재계산
 
-### 18.4 치료 아이템: 붕대
+### 18.4 독
 
-```python
-class Bandage(Item):
-    unique_id = "bandage"
-    name = "붕대"
-    category = "medicine"
-    actions = ["call:use*:사용"]
+- 거미 공격 시 `전투:독공격`% (30%) 확률로 발생
+- 매 시간 HP -2, 잔여시간 -1
+- 치료: 해독제 아이템 사용 → `combat.cure_poison()`
 
-    def use(self):
-        player_id = morld.get_player_id()
-        if morld.get_unit_prop(player_id, "상태:출혈"):
-            import combat
-            combat.cure_bleeding(player_id)
-            morld.lost_item(player_id, self.instance_id)
-            morld.add_action_log("붕대로 출혈을 멈췄다.")
-        else:
-            morld.add_action_log("출혈이 없다.")
-```
+### 18.5 부위 부상
 
-### 18.5 C# 연동: `이동:부상`
+치명타 시 `INJURY_CHANCE_ON_CRIT`% (30%) 확률로 랜덤 부위 부상 발생.
+조준 공격 명중 시 해당 부위 부상 **확정**.
+
+| 부위 | prop | 효과 | 적용 방식 |
+|------|------|------|----------|
+| 머리 | `부상:머리` | 명중 -15 | `get_combat_stat()` Python 감산 |
+| 팔 | `부상:팔` | 공격력 -30% | `get_combat_stat()` Python 감산 |
+| 다리 | `부상:다리` | 속도 60% | `이동:부상` → C# `GetMovementSpeed()` |
+| 몸통 | — | 무효 | — |
+
+자연 회복: 매 시간 -1, 0이 되면 prop 제거.
+다리 부상 + 둔화 겹침: `이동:부상 = min(둔화:속도, LEG_INJURY_SPEED)`
+
+### 18.6 조준 공격
+
+| 항목 | 값 |
+|------|-----|
+| 명중률 페널티 | -20 |
+| 공격속도 배율 | ×1.2 (20% 느림) |
+| 부위 부상 | 명중 시 확정 (몸통 제외) |
+
+**UI 액션**: `_add_combat_actions()` → `조준: 머리#` / `조준: 팔#` / `조준: 다리#`
+`#` 접미사 → hostile mode OFF 시 자동 숨김.
+
+### 18.7 치료 아이템
+
+| 아이템 | unique_id | 효과 | 배치 |
+|--------|-----------|------|------|
+| 붕대 | `bandage` | 출혈 치료 + HP 10 | 경찰서 구급함 ×3 |
+| 해독제 | `antidote` | 독 치료 + HP 5 | 경찰서 구급함 ×1 |
+
+**크래프팅**: `antidote` = `spider_venom` ×1 + `food_herb` ×2 (제작대)
+
+### 18.8 디버프 시간 처리
+
+`_tick_debuffs(unit_id, is_player)` — 모든 디버프를 단일 함수에서 처리:
+
+1. 출혈 데미지 → 만료 체크
+2. 독 데미지 → 만료 체크
+3. 둔화 회복 → `_recompute_movement_injury()`
+4. 부위 부상 자연 회복 → 다리 만료 시 `_recompute_movement_injury()`
+
+`_on_time_elapsed()` → NPC 루프 + 플레이어 각각 `_tick_debuffs()` 호출.
+
+### 18.9 C# 연동: `이동:부상`
 
 **파일:** `scripts/morld/unit/Unit.cs:423-443` — `GetMovementSpeed()`
-
-congestion 체크 후 추가:
 
 ```csharp
 // 부상 감속 (Unit prop — actualProps에서 읽음)
@@ -1340,12 +1375,27 @@ Location의 `length`가 자연스러운 전투 환경 결정:
 - 전투 전 은신 상태 → 첫 공격 **기습**: 치명타 + `STEALTH_CRIT_BONUS`% (30%)
 - 전투 시작 시 은신 자동 해제
 
-### 19.3 Phase 2: 엄폐 시스템 (미래)
+### 19.3 간이 엄폐 시스템
 
-battle.md에 상세 설계 존재 (4등급: none/partial/half/full).
-- CoverObject 클래스 (Ground 서브클래스)
-- 엄폐 행동: take_cover(2s) / leave_cover(1s) / attack from cover (3-phase)
-- 무기 속성: `무기:엄폐관통` (%)
+> **구현 완료** — `combat.py: get_cover_bonus()`
+
+battle.md의 풀 엄폐 시스템(CoverObject, take_cover 액션) 대신
+기존 인프라만으로 구현하는 간이 버전:
+
+**조건**: `posture:crouch` (웅크리기) + 가장 가까운 오브젝트 거리 ≤ 15px + `cover:level` prop
+
+| cover:level | 회피 보너스 | 피해 감소 | 예시 오브젝트 |
+|-------------|-----------|----------|-------------|
+| partial | +10 | 20% | 나무, 정원 벤치, 거리 벤치 |
+| half | +20 | 40% | 식탁 |
+| full | +40 | 70% | (미래: 바리케이드) |
+
+**적용 위치**:
+- `calculate_hit_chance()` → 회피에 엄폐 보너스 가산
+- `calculate_damage()` → 최종 데미지에 피해 감소 적용
+
+별도 액션 불필요 — 웅크리기 자세 + 위치만으로 자동 적용.
+공격 시에도 엄폐 유지 (풀 버전의 expose/return_cover 없음).
 
 ---
 
@@ -1361,11 +1411,19 @@ battle.md에 상세 설계 존재 (4등급: none/partial/half/full).
 
 ### 20.2 NPC HP 회복 (think Tier 3)
 
-```python
-def _check_hp_recovery(self) -> bool:
-    """HP < 50% → 음식/포션 섭취"""
-    # Tier 3: 배고픔 → 추위 → 더위 → HP 회복 (신규)
+> **구현 완료** — `think/__init__.py: _check_hp_recovery() + _handle_hp_recovery()`
+
+HP < 50% → 음식 섭취로 HP 회복 (multi-phase).
+NPC는 평소 음식을 소지하지 않으므로 `_handle_eat`과 동일한 패턴:
+
 ```
+Phase 1: idle — 인벤토리 체크 → storage 위치 탐색 (resolve_storage_container)
+Phase 2: going → storage로 이동
+Phase 3: eating → 음식 꺼내기 + 섭취 (HP += satiety//2, 최소 5)
+```
+
+`_memory` 키: `hp_recovery_phase`, `hp_recovery_target`
+Tier 3 우선순위: 배고픔 → 추위 → 더위 → **HP 회복**
 
 ---
 

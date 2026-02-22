@@ -106,6 +106,15 @@ CRAFTING_RECIPES = {
         "result_count": 1,
         "craft_time": 15,
     },
+
+    # === 약품 ===
+    "antidote": {
+        "name": "해독제",
+        "category": "약품",
+        "materials": {"spider_venom": 1, "food_herb": 2},
+        "result_count": 1,
+        "craft_time": 10,
+    },
 }
 
 
@@ -128,6 +137,7 @@ WORKBENCH_RECIPE_LIST = [
     "iron_shield",
     "pickaxe",
     "aphrodisiac",
+    "antidote",
     "rabbit_trap_branch",
     "rabbit_trap_plank",
 ]

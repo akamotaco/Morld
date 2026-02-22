@@ -72,6 +72,9 @@ class Tree(Object):
         self.set_log_count(self.initial_logs)
         self.set_branch_count(self.initial_branches)
 
+        # 엄폐물
+        morld.set_unit_prop(instance_id, "cover:level", "partial")
+
         # resource_agent에 등록 (자동 보충용)
         from think.resource_agent import register_tree_object
         register_tree_object(instance_id, self.unique_id)

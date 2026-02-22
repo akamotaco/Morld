@@ -1280,7 +1280,7 @@ class BaseAgent:
         return defaults.get(category, "ignore")
 
     def _check_tier3_survival(self):
-        """Tier 3: 생존 욕구 (배고픔, 추위, 더위)
+        """Tier 3: 생존 욕구 (배고픔, 추위, 더위, HP 회복)
 
         스케줄보다 우선하는 긴급 욕구.
         기존 _check_hunger/_check_cold/_check_hot 그대로 호출.
@@ -1294,6 +1294,89 @@ class BaseAgent:
             return True
         if self._check_hot():
             return True
+        if self._check_hp_recovery():
+            return True
+        return False
+
+    def _check_hp_recovery(self) -> bool:
+        """HP < 50% → 음식 섭취로 HP 회복 (multi-phase)"""
+        import survival
+        hp = survival.get_health(self.unit_id)
+        max_hp = survival.get_max_health(self.unit_id)
+        if hp <= 0 or max_hp <= 0 or hp >= max_hp * 0.5:
+            # HP 충분하면 진행 중인 phase도 정리
+            if self._memory.get("hp_recovery_phase"):
+                self._memory["hp_recovery_phase"] = None
+                self._memory.pop("hp_recovery_target", None)
+            return False
+        return self._handle_hp_recovery()
+
+    def _handle_hp_recovery(self) -> bool:
+        """HP 회복을 위한 음식 섭취 (multi-phase, _handle_eat 패턴)"""
+        import survival
+        from think.activities.helpers import (
+            find_npc_food, find_food_in_container, resolve_storage_container,
+        )
+        phase = self._memory.get("hp_recovery_phase")
+
+        # Phase 1: idle — 인벤토리 체크 → storage 탐색
+        if phase is None or phase == "idle":
+            food = find_npc_food(self.unit_id)
+            if food:
+                # 이미 소지 중 → 바로 섭취
+                hp_recover = max(5, food["satiety"] // 2)
+                survival.add_health(self.unit_id, hp_recover)
+                survival.npc_eat(self.unit_id, food["satiety"])
+                morld.remove_item(self.unit_id, food["item_id"], 1)
+                self._do_instant_action("응급 식사", "eat")
+                self._memory["hp_recovery_phase"] = None
+                return True
+            # storage 탐색
+            storage = resolve_storage_container(self, "food")
+            if not storage:
+                storage = resolve_storage_container(self, "food_ingredient")
+            if not storage:
+                self._memory["hp_recovery_phase"] = None
+                return False
+            self._memory["hp_recovery_phase"] = "going"
+            self._memory["hp_recovery_target"] = storage
+            self._move_to(storage, "응급 식사")
+            return True
+
+        # Phase 2: going → 도착 시 음식 꺼내기
+        if phase == "going":
+            target = self._memory.get("hp_recovery_target")
+            if target and not self._is_at(target):
+                self._move_to(target, "응급 식사")
+                return True
+            # 도착 — 컨테이너에서 음식 꺼내기
+            container_id = target.get("object_id") if target else None
+            if container_id:
+                food_uid = find_food_in_container(container_id)
+                if food_uid:
+                    from assets.objects import get_instance
+                    obj = get_instance(container_id)
+                    if obj and hasattr(obj, 'npc_take_item'):
+                        obj.npc_take_item(self.unit_id, food_uid, 1)
+            self._memory["hp_recovery_phase"] = "eating"
+            self._do_instant_action("음식 꺼내기", "take_item")
+            return True
+
+        # Phase 3: eating → 섭취
+        if phase == "eating":
+            food = find_npc_food(self.unit_id)
+            if food:
+                hp_recover = max(5, food["satiety"] // 2)
+                survival.add_health(self.unit_id, hp_recover)
+                survival.npc_eat(self.unit_id, food["satiety"])
+                morld.remove_item(self.unit_id, food["item_id"], 1)
+            self._do_instant_action("응급 식사", "eat")
+            self._memory["hp_recovery_phase"] = None
+            self._memory.pop("hp_recovery_target", None)
+            return True
+
+        # unknown phase → reset
+        self._memory["hp_recovery_phase"] = None
         return False
 
     def _check_tier4_comfort(self):

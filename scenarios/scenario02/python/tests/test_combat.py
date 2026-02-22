@@ -92,11 +92,23 @@ def _is_npc_fainted(uid):
 def _is_npc_exhausted(uid):
     return False
 
+def _enter_faint(uid):
+    survival_mod._fainted_npcs[uid] = True
+
+def _enter_player_faint():
+    survival_mod._fainted_npcs[mock._player_id] = True
+
+def _npc_eat(uid, satiety):
+    pass
+
 survival_mod.get_health = _get_health
 survival_mod.get_max_health = _get_max_health
 survival_mod.add_health = _add_health
 survival_mod.is_npc_fainted = _is_npc_fainted
 survival_mod.is_npc_exhausted = _is_npc_exhausted
+survival_mod._enter_faint = _enter_faint
+survival_mod._enter_player_faint = _enter_player_faint
+survival_mod.npc_eat = _npc_eat
 sys.modules["survival"] = survival_mod
 
 # events stub
@@ -472,3 +484,211 @@ class TestReset:
         combat.set_hostile_mode(True)
         combat.reset()
         assert combat.is_hostile_mode() is False
+
+
+# ========================================
+# Tests: 독 디버프
+# ========================================
+
+class TestPoison:
+    def test_apply_poison(self):
+        make_unit(1)
+        combat.apply_poison(1)
+        assert mock.get_unit_prop(1, "상태:독") == combat.POISON_DURATION_HOURS
+
+    def test_cure_poison(self):
+        make_unit(1)
+        combat.apply_poison(1)
+        combat.cure_poison(1)
+        assert mock.get_unit_prop(1, "상태:독") is None
+
+    def test_poison_tick_damage(self):
+        make_unit(1, hp=50)
+        combat.apply_poison(1)
+        think_mod._agents[1] = True
+
+        combat._tick_debuffs(1)
+        hp = mock.get_unit_prop(1, "생존:체력")
+        assert hp == 50 - combat.POISON_DAMAGE_PER_HOUR
+
+    def test_poison_expires(self):
+        make_unit(1, hp=100)
+        combat.apply_poison(1, duration_hours=1)
+        think_mod._agents[1] = True
+
+        combat._tick_debuffs(1)
+        assert mock.get_unit_prop(1, "상태:독") is None
+
+
+# ========================================
+# Tests: 부위 부상
+# ========================================
+
+class TestBodyInjury:
+    def test_leg_injury_applies_movement(self):
+        """다리 부상 → 이동:부상 설정"""
+        make_unit(1)
+        combat.apply_body_injury(1, "다리")
+        assert mock.get_unit_prop(1, "부상:다리") == combat.INJURY_DURATION_HOURS
+        assert mock.get_unit_prop(1, "이동:부상") == combat.LEG_INJURY_SPEED
+
+    def test_arm_injury_reduces_attack(self):
+        """팔 부상 → 공격력 감소"""
+        make_unit(1, atk=10)
+        combat.apply_body_injury(1, "팔")
+        stat = combat.get_combat_stat(1, "전투:공격력")
+        expected = max(1, int(10 * (1 - combat.ARM_INJURY_ATK_PENALTY)))
+        assert stat == expected
+
+    def test_head_injury_reduces_accuracy(self):
+        """머리 부상 → 명중 감소"""
+        make_unit(1, accuracy=80)
+        combat.apply_body_injury(1, "머리")
+        stat = combat.get_combat_stat(1, "전투:명중")
+        assert stat == 80 - combat.HEAD_INJURY_ACC_PENALTY
+
+    def test_body_injury_ignored(self):
+        """몸통 부상 → 무효"""
+        make_unit(1)
+        combat.apply_body_injury(1, "몸통")
+        assert mock.get_unit_prop(1, "부상:몸통") is None
+
+    def test_injury_natural_recovery(self):
+        """부위 부상 자연 회복 (1시간 → 잔여 -1)"""
+        make_unit(1, hp=100)
+        combat.apply_body_injury(1, "팔", duration_hours=2)
+
+        combat._tick_debuffs(1)
+        assert mock.get_unit_prop(1, "부상:팔") == 1
+
+    def test_injury_clears_on_expire(self):
+        """부위 부상 만료 시 prop 제거"""
+        make_unit(1, hp=100)
+        combat.apply_body_injury(1, "머리", duration_hours=1)
+
+        combat._tick_debuffs(1)
+        assert mock.get_unit_prop(1, "부상:머리") is None
+
+    def test_slow_and_leg_injury_overlap(self):
+        """둔화 + 다리 부상 → 이동:부상 = min(둘)"""
+        make_unit(1)
+        combat.apply_slow(1, speed_percent=40)    # 40%
+        combat.apply_body_injury(1, "다리")        # 60%
+        # min(40, 60) = 40
+        assert mock.get_unit_prop(1, "이동:부상") == 40
+
+    def test_cure_body_injury(self):
+        """부위 부상 전체 치료"""
+        make_unit(1)
+        combat.apply_body_injury(1, "머리")
+        combat.apply_body_injury(1, "팔")
+        combat.apply_body_injury(1, "다리")
+
+        combat.cure_body_injury(1)
+        assert mock.get_unit_prop(1, "부상:머리") is None
+        assert mock.get_unit_prop(1, "부상:팔") is None
+        assert mock.get_unit_prop(1, "부상:다리") is None
+        assert mock.get_unit_prop(1, "이동:부상") is None
+
+
+# ========================================
+# Tests: 조준 공격
+# ========================================
+
+class TestAimedAttack:
+    def test_aimed_attack_injury_on_hit(self):
+        """조준 공격 명중 → 해당 부위 부상 확정"""
+        make_unit(1, atk=100, accuracy=100, weapon_range=200, location=(0, 0))
+        make_unit(2, defense=0, evasion=0, hp=200, location=(0, 0))
+        mock.set_unit_position(1, 0)
+        mock.set_unit_position(2, 50)
+
+        result = combat.execute_aimed_attack(1, 2, "다리")
+        if result["hit"]:
+            assert mock.get_unit_prop(2, "부상:다리") is not None
+            assert mock.get_unit_prop(2, "이동:부상") == combat.LEG_INJURY_SPEED
+
+    def test_aimed_attack_accuracy_penalty(self):
+        """조준 공격 명중률 페널티 적용"""
+        make_unit(1, accuracy=50, location=(0, 0))
+        make_unit(2, evasion=0, location=(0, 0))
+
+        # 일반 명중률
+        normal_hit = combat.calculate_hit_chance(1, 2)
+        # 조준 명중률 = accuracy - AIMED_PENALTY - evasion
+        expected = max(5, min(95, 50 - combat.AIMED_ATTACK_ACC_PENALTY - 0))
+        assert normal_hit == max(5, min(95, 50 - 0))
+        assert expected == normal_hit - combat.AIMED_ATTACK_ACC_PENALTY
+
+
+# ========================================
+# Tests: 엄폐 시스템
+# ========================================
+
+class TestCover:
+    def _make_cover_scene(self, cover_level="partial", unit_x=50, obj_x=55):
+        """엄폐 테스트 씬 구성: 유닛 + 엄폐물 오브젝트"""
+        make_unit(1, accuracy=80, location=(0, 0))
+        mock.set_unit_position(1, unit_x)
+        # 웅크리기 자세 설정
+        mock.set_unit_prop(1, "posture:crouch", True)
+
+        # 엄폐물 오브젝트 등록
+        mock.register_unit(100, name="벤치", props={"cover:level": cover_level},
+                           location=(0, 0))
+        # type을 object로 설정 (get_units_at_location 필터용)
+        mock._units[100]["info"]["type"] = "object"
+        mock.set_unit_position(100, obj_x)
+
+    def test_no_cover_without_crouch(self):
+        """웅크리기 없으면 엄폐 없음"""
+        make_unit(1, location=(0, 0))
+        mock.set_unit_position(1, 50)
+        # 웅크리기 없이 오브젝트만 근처에
+        mock.register_unit(100, name="벤치", props={"cover:level": "partial"},
+                           location=(0, 0))
+        mock._units[100]["info"]["type"] = "object"
+        mock.set_unit_position(100, 55)
+
+        assert combat.get_cover_bonus(1) is None
+
+    def test_cover_partial(self):
+        """partial 엄폐 보너스"""
+        self._make_cover_scene("partial")
+        bonus = combat.get_cover_bonus(1)
+        assert bonus is not None
+        assert bonus["evasion"] == 10
+        assert bonus["damage_reduction"] == 0.20
+
+    def test_cover_half(self):
+        """half 엄폐 보너스"""
+        self._make_cover_scene("half")
+        bonus = combat.get_cover_bonus(1)
+        assert bonus is not None
+        assert bonus["evasion"] == 20
+        assert bonus["damage_reduction"] == 0.40
+
+    def test_cover_out_of_range(self):
+        """거리 초과 시 엄폐 없음"""
+        self._make_cover_scene("partial", unit_x=10, obj_x=100)
+        assert combat.get_cover_bonus(1) is None
+
+    def test_cover_affects_hit_chance(self):
+        """엄폐 → 명중률 감소"""
+        make_unit(10, accuracy=80, location=(0, 0))
+        mock.set_unit_position(10, 0)
+
+        # 타겟 (엄폐 없이)
+        make_unit(20, evasion=10, location=(0, 0))
+        mock.set_unit_position(20, 50)
+        hit_normal = combat.calculate_hit_chance(10, 20)
+
+        # 엄폐 설정
+        mock.set_unit_prop(20, "posture:crouch", True)
+        mock.register_unit(200, name="테이블", props={"cover:level": "half"},
+                           location=(0, 0))
+        mock._units[200]["info"]["type"] = "object"
+        mock.set_unit_position(200, 55)
+
+        hit_covered = combat.calculate_hit_chance(10, 20)
+        assert hit_covered < hit_normal

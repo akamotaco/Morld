@@ -577,9 +577,14 @@ class AbandonedPoliceStation(Location):
         first_aid.focus_text = {"default": "벽에 걸린 구급함이다. 기본적인 의료용품이 남아 있다."}
         first_aid_id = self.add_object(first_aid, x=280)
 
-        from assets.items.consumables import Bandage
+        from assets.items.consumables import Bandage, Antidote
         for _ in range(3):
             bandage = Bandage()
             bandage_id = morld.create_id("item")
             bandage.instantiate(bandage_id)
             morld.give_item(first_aid_id, bandage_id, 1)
+
+        antidote = Antidote()
+        antidote_id = morld.create_id("item")
+        antidote.instantiate(antidote_id)
+        morld.give_item(first_aid_id, antidote_id, 1)

@@ -220,3 +220,34 @@ class Bandage(Item):
         # 아이템 소비
         morld.lost_item(player_id, self.instance_id)
         morld.advance_time_des(5_000)
+
+
+@register_item
+class Antidote(Item):
+    """해독제 — 독 치료 + HP 소량 회복"""
+    unique_id = "antidote"
+    name = "해독제"
+    category = "medicine"
+    value = 15
+    actions = ["take@ground", "take@container", "call:use:사용@inventory"]
+
+    def get_focus_text(self):
+        return "약초에서 추출한 해독제다. 독을 해소하고 약간의 체력을 회복할 수 있다."
+
+    def use(self):
+        """해독제 사용 — 독 치료 + HP 5 회복"""
+        import combat
+        import survival
+
+        player_id = morld.get_player_id()
+
+        has_poison = morld.get_unit_prop(player_id, "상태:독")
+        if has_poison:
+            combat.cure_poison(player_id)
+            morld.add_action_log("독을 해소했다.")
+
+        survival.add_health(player_id, 5)
+        morld.add_action_log("해독제를 복용했다. 체력이 약간 회복되었다.")
+
+        morld.lost_item(player_id, self.instance_id)
+        morld.advance_time_des(5_000)

@@ -362,6 +362,7 @@ spawner.reset()   # _spawn_sources, _corpses, _initialized 초기화
 | HP | 50 |
 | 공격력/방어력 | 6 / 4 |
 | 명중/회피/치명타 | 75% / 10% / 8% |
+| 독공격 | 명중 시 30% 확률로 독 부여 (`전투:독공격: 30`) |
 | 세력 | 거미 |
 | 전투 스타일 | aggressive (공격적) |
 | 도주 임계 | HP 15% |
@@ -397,6 +398,7 @@ spawner.reset()   # _spawn_sources, _corpses, _initialized 초기화
 | `생물:탄생시각` | spawner.py | 수명 체크 |
 | `상태:사망` | combat.py | 사망 여부 |
 | `상태:사망시각` | base.py finish_off() | 시체 정리 타이머 |
+| `전투:독공격` | monster.py (Spider) | 명중 시 독 부여 확률 (%) |
 | `소재:{키}` | monster.py props | 수확 가능 수량 |
 
 ---
