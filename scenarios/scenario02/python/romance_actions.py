@@ -591,6 +591,7 @@ ACTION_DESCRIPTIONS = {
     "beg": "애원했다...",
     "restrain_partner": "결박 장비를 채운다.",
     "unrestrain_partner": "결박을 해제한다.",
+    "remove_parasite_partner": "상대에게 부착된 기생체를 제거한다.",
 }
 
 # 토글형 행위 묘사 (진행 중 상태)

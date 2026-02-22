@@ -63,6 +63,8 @@ _survival.get_faint_remaining_millis = lambda uid: 0
 _survival.is_npc_exhausted = lambda uid: False
 _survival.get_exhaustion_remaining_millis = lambda uid: 0
 _survival.is_npc_sleeping = lambda uid: False
+_survival.get_health = lambda uid: 100
+_survival.get_max_health = lambda uid: 100
 _survival.npc_eat = lambda uid, sat: None
 _survival._eat_log = []  # 테스트 추적용
 _original_npc_eat = _survival.npc_eat
@@ -233,17 +235,17 @@ _assets_objects = types.ModuleType("assets.objects")
 _assets_objects._location_objects = {}
 _assets_objects.get_instance = lambda obj_id: None
 _assets_objects.get_location_objects = lambda r, l: []
-sys.modules.setdefault("assets.objects", _assets_objects)
+sys.modules["assets.objects"] = _assets_objects  # 강제 교체 (선행 모듈이 실제 모듈 import 가능)
 
 _assets_objects_furniture = types.ModuleType("assets.objects.furniture")
 class _FakeStove: pass
 _assets_objects_furniture.Stove = _FakeStove
-sys.modules.setdefault("assets.objects.furniture", _assets_objects_furniture)
+sys.modules["assets.objects.furniture"] = _assets_objects_furniture
 
 _assets_objects_garden = types.ModuleType("assets.objects.garden")
 class _FakeGardenBed: pass
 _assets_objects_garden.GardenBed = _FakeGardenBed
-sys.modules.setdefault("assets.objects.garden", _assets_objects_garden)
+sys.modules["assets.objects.garden"] = _assets_objects_garden
 
 for _sub in ["assets.objects.scavenge", "assets.objects.nature",
              "assets.objects.outdoor", "assets.objects.grounds"]:
@@ -340,6 +342,8 @@ def _reset_all():
     _survival.is_npc_exhausted = lambda uid: False
     _survival.get_exhaustion_remaining_millis = lambda uid: 0
     _survival.is_npc_sleeping = lambda uid: False
+    _survival.get_health = lambda uid: 100
+    _survival.get_max_health = lambda uid: 100
     _survival._eat_log.clear()
 
     # temperature

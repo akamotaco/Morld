@@ -187,6 +187,13 @@ class MockMorld:
     def is_time_frozen(self):
         return self._time_frozen
 
+    def get_current_time(self):
+        return self._time
+
+    def register_script(self, func):
+        """데코레이터: 스크립트 함수 등록 (테스트에서는 no-op)"""
+        return func
+
     # ========================================
     # morld API — Job 시스템
     # ========================================
