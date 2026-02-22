@@ -462,7 +462,7 @@ class BaseAgent:
            -1 (수면 전 대기) → 1 (활성, on_meet 대상)
         """
         # aftermath 단계 감소
-        for prop_key in ("상태:강제피해", "상태:무의식피해", "상태:시간정지피해"):
+        for prop_key in ("상태:강제피해", "상태:무의식피해", "상태:시간정지피해", "상태:수간피해"):
             value = morld.get_unit_prop(self.unit_id, prop_key)
             if value is not None and value < 0:
                 new_stage = abs(value) - 1

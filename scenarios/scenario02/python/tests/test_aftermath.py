@@ -28,7 +28,7 @@ ALL_ARCHETYPES = [
     "seductive", "fierce", "proud", "innocent", "devoted",
 ]
 
-ALL_EVENT_TYPES = ["forced", "unconscious", "frozen"]
+ALL_EVENT_TYPES = ["forced", "unconscious", "frozen", "bestiality"]
 
 ALL_STAGES = [3, 2, 1]
 

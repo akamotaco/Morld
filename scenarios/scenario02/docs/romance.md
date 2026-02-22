@@ -126,7 +126,7 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | 탈출 시도 메시지 (실패 시) | romance_mode.py (get_escape_attempt_message) | ✅ 완료 |
 | 탈출 확률 UI 표시 | romance_ui.py (저항 바 + 탈출%) | ✅ 완료 |
 | 신체 반응 묘사 (10 아키타입) | romance_body_reaction.py | ✅ 완료 |
-| 후유증 3단계 시스템 | aftermath_templates.py, base.py, think/ | ✅ 완료 |
+| 후유증 3단계 시스템 (4유형) | aftermath_templates.py, base.py, think/ | ✅ 완료 |
 | 임신 이벤트 (수정/발표) | pregnancy.py, base.py, 전체 NPC | ✅ 완료 |
 | 모드 사후 이벤트 (on_meet) | base.py, 전체 NPC | ✅ 완료 |
 | 긍정 기억 시스템 (선물→수면→반응) | positive_memory_templates.py, base.py, think/ | ✅ 완료 |
@@ -198,6 +198,9 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | ~~플레이어 자위 발각~~ | ~~NPC 목격 4단계 반응 + 성행위 전환~~ | ✅ 완료 (base.py, masturbation_templates.py) |
 | ~~NPC 봉사 행동~~ | ~~INITIATIVE_ACTION_FILTERS fellatio/paizuri 확장~~ | ✅ 완료 (5캐릭터) |
 | ~~삽입/사정 정액 제약~~ | ~~정액 부족 → 발기/사정 불가~~ | ✅ 완료 (romance.py, npc_initiative.py) |
+| 경험 기록 시스템 (부위별 첫/마지막) | romance_core.py (record_first/last_experience) | ✅ 완료 |
+| Creature 수간 후유증 | aftermath_templates.py (bestiality), creature_agent.py | ✅ 완료 |
+| Player 수간 피해 (기절 중) | survival.py (handle_player_faint 분기) | ✅ 완료 |
 
 ---
 

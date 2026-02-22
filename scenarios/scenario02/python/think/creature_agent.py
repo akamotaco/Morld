@@ -153,6 +153,7 @@ class CreatureAgent(BaseAgent):
             return False
 
         import combat
+        player_id = morld.get_player_id()
         characters = morld.get_characters_at_location(loc[0], loc[1])
         for char_id in (characters or []):
             if char_id == self.unit_id:
@@ -160,7 +161,10 @@ class CreatureAgent(BaseAgent):
             if morld.get_unit_prop(char_id, "상태:사망"):
                 continue
             # 무력화 조건: 기절 OR 마비 OR 거미줄
-            if (survival.is_npc_fainted(char_id) or
+            is_fainted = survival.is_npc_fainted(char_id)
+            if not is_fainted and char_id == player_id:
+                is_fainted = survival.is_player_fainted()
+            if (is_fainted or
                     combat.is_paralyzed(char_id) or
                     combat.is_web_bound(char_id)):
                 self._memory["assault_phase"] = "assaulting"
@@ -170,7 +174,7 @@ class CreatureAgent(BaseAgent):
         return False
 
     def _handle_assault(self):
-        """겁탈 multi-phase: assaulting → cooldown"""
+        """겁탈 처리: aftermath + 사정/임신 + 처녀해제 + 경험기록"""
         phase = self._memory.get("assault_phase")
         target_id = self._memory.get("assault_target")
 
@@ -185,9 +189,46 @@ class CreatureAgent(BaseAgent):
             return False
 
         if phase == "assaulting":
-            # NPC 대상 겁탈 (간소화: 30분 소요, 성욕 감소)
-            import needs
-            needs.modify_need(target_id, "욕구:성욕", -30)
+            import gender as gender_mod
+            from romance_core import record_first_experience, record_last_experience
+
+            player_id = morld.get_player_id()
+            is_player_target = (target_id == player_id)
+
+            # NPC만: 성욕 감소 (플레이어는 needs 미등록)
+            if not is_player_target:
+                import needs
+                needs.modify_need(target_id, "욕구:성욕", -30)
+
+            # 수간 aftermath
+            morld.set_unit_prop(target_id, "상태:수간피해", 3)
+            morld.modify_prop(target_id, "기억:수간피해횟수", 1)
+
+            # 사정/임신 (수컷 creature만)
+            if gender_mod.has_anatomy(self.unit_id, "P"):
+                from romance_core import _apply_internal_semen
+                _apply_internal_semen(target_id, "음부", 50)
+                if gender_mod.has_anatomy(target_id, "V"):
+                    import pregnancy
+                    pregnancy.check_conception(
+                        target_id, self.unit_id, father_type="unknown")
+
+            # 처녀 해제 + 부위별 첫경험 기록
+            virginity_prop = "처녀:음부"
+            if morld.get_unit_prop(target_id, virginity_prop):
+                morld.set_unit_prop(target_id, virginity_prop, 0)
+                record_first_experience(
+                    target_id, self.unit_id, "bestiality", "음부")
+
+            # 마지막 경험 기록
+            record_last_experience(target_id, self.unit_id, "bestiality")
+
+            # 플레이어 대상: HP 추가 감소 (20%)
+            if is_player_target:
+                hp = morld.get_unit_prop(target_id, "생존:체력") or 0
+                penalty = max(1, hp // 5)
+                survival.add_health(target_id, -penalty)
+
             self._insert_idle_job("겁탈 중", 30 * 60_000)  # 30분
             # 쿨다운 설정 (절대 시각: 현재 + 4시간)
             self._memory["assault_cooldown_until"] = (

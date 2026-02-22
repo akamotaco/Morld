@@ -3651,6 +3651,7 @@ class Character(Unit):
         "forced": "기억:강제피해횟수",
         "unconscious": "기억:무의식피해횟수",
         "frozen": "기억:시간정지피해횟수",
+        "bestiality": "기억:수간피해횟수",
     }
 
     def _check_mode_aftermath(self, player_id):
@@ -3673,6 +3674,7 @@ class Character(Unit):
             ("상태:강제피해", "forced"),
             ("상태:무의식피해", "unconscious"),
             ("상태:시간정지피해", "frozen"),
+            ("상태:수간피해", "bestiality"),
         ]
 
         for prop_key, event_type in aftermath_keys:
@@ -3688,7 +3690,7 @@ class Character(Unit):
 
         Args:
             player_id: 플레이어 유닛 ID
-            event_type: "forced" | "unconscious" | "frozen"
+            event_type: "forced" | "unconscious" | "frozen" | "bestiality"
             stage: 3 (충격) | 2 (경계) | 1 (잔향)
         """
         from aftermath_templates import get_aftermath_text

@@ -301,6 +301,11 @@ def is_player_faint_pending() -> bool:
     return _player_faint_pending
 
 
+def is_player_fainted() -> bool:
+    """플레이어가 현재 기절 중인지"""
+    return _player_fainted
+
+
 def handle_player_faint():
     """플레이어 기절 다이얼로그 시퀀스 (generator)"""
     global _player_fainted, _player_faint_pending
@@ -324,12 +329,25 @@ def handle_player_faint():
     set_health(player_id, int(max_health * FAINT_RECOVERY_RATIO))
     set_satiety(player_id, 0)
 
-    yield ui.dialog([
-        "......",
-        "...정신이 돌아왔다.",
-        "얼마나 쓰러져 있었던 거지...?",
-        "몸이 아직 무겁지만, 움직일 수는 있다."
-    ])
+    # 수간 피해 체크 (기절 중 creature 겁탈)
+    bestiality_damage = morld.get_unit_prop(player_id, "상태:수간피해")
+    if bestiality_damage and bestiality_damage > 0:
+        morld.set_unit_prop(player_id, "상태:수간피해", -bestiality_damage)
+        yield ui.dialog([
+            "......",
+            "...정신이 돌아왔다.",
+            "온몸이... 이상하다.",
+            "몸 곳곳에 짐승의 흔적이 남아 있다...",
+            "끈적한 무언가가... 몸 안에...",
+            "......무슨 일이 일어났던 거지...?",
+        ])
+    else:
+        yield ui.dialog([
+            "......",
+            "...정신이 돌아왔다.",
+            "얼마나 쓰러져 있었던 거지...?",
+            "몸이 아직 무겁지만, 움직일 수는 있다."
+        ])
 
 
 def _process_npc_time(npc_id: int, millis: int):

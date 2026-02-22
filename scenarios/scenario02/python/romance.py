@@ -56,6 +56,7 @@ from romance_core import (  # noqa: F401 — re-export for external callers
     _has_active_intercourse_from_state, get_insertion_exp_part,
     get_action_exp_part, get_conflicting_toggles, _remove_conflicting_toggles,
     check_and_clear_virginity,
+    record_last_experience,
     is_hold_back_available, is_ejaculate_available, is_pull_out_available,
     check_preparation, check_lubrication,
     calculate_stealth_chance, check_stealth_success,
@@ -766,6 +767,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 # 무반응 모드 (무의식/시간정지): 나레이션
                 return get_silent_climax_narration(cur_mode)
 
+            # creature (bestiality): 종별 절정 반응
+            if state.get("is_bestiality"):
+                import creature_reactions
+                cr = creature_reactions.get_creature_climax_reaction(pid)
+                if cr:
+                    return cr
+
             partner_asset = get_partner_asset(pid)
             if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
                 reactions = getattr(partner_asset, 'ROMANCE_REACTIONS', {})
@@ -1270,12 +1278,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     morld.modify_prop(pid, rebellion_key_pain, 3)
                     morld.set_unit_prop(pid, "크기통증", 1)
 
-                # 처녀 체크
-                first_key = check_and_clear_virginity(pid, player_id, action_id)
-
-                # 마일스톤: 첫 경험
-                if orifice == "vaginal" and not morld.get_unit_prop(pid, "기억:첫경험"):
-                    morld.set_unit_prop(pid, "기억:첫경험", 1)
+                # 처녀 체크 + 부위별 첫경험 기록
+                _virginity_exp_type = "bestiality" if state.get("is_bestiality") else state.get("mode", "consensual")
+                first_key = check_and_clear_virginity(pid, player_id, action_id, exp_type=_virginity_exp_type)
 
                 # 이하 일반 즉시형 처리로 fall-through (stamina/effects/time)
 
@@ -2072,6 +2077,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
     if mode_key:
         mode_count = (morld.get_unit_prop(partner_id, mode_key) or 0) + 1
         morld.set_unit_prop(partner_id, mode_key, mode_count)
+
+    # 마지막 경험 기록
+    _last_exp_type = "bestiality" if state.get("is_bestiality") else cur_mode
+    record_last_experience(partner_id, player_id, _last_exp_type)
 
     # 플레이어 통계: 총 만남/강제 횟수
     morld.set_unit_prop(player_id, "통계:총만남횟수",

@@ -561,8 +561,16 @@ def _remove_conflicting_toggles(new_action_id, active_toggles, new_action_dict=N
 # 처녀(첫경험)
 # ============================================
 
-def check_and_clear_virginity(target_id, player_id, action_id):
-    """처녀 해제 체크. 해제 시 보너스 적용 + first 반응 키 반환."""
+# 처녀 prop → 부위명 매핑
+_VIRGINITY_TO_PART = {
+    "처녀:음부": "음부",
+    "처녀:항문": "항문",
+    "처녀:구강": "구강",
+}
+
+
+def check_and_clear_virginity(target_id, player_id, action_id, exp_type="consensual"):
+    """처녀 해제 체크. 해제 시 보너스 적용 + 부위별 첫경험 기록 + first 반응 키 반환."""
     virginity_prop = VIRGINITY_CLEARING_ACTIONS.get(action_id)
     if not virginity_prop:
         return None
@@ -571,6 +579,10 @@ def check_and_clear_virginity(target_id, player_id, action_id):
         return None
     # 처녀 해제
     morld.set_unit_prop(target_id, virginity_prop, 0)
+    # 부위별 첫경험 기록
+    part = _VIRGINITY_TO_PART.get(virginity_prop)
+    if part:
+        record_first_experience(target_id, player_id, exp_type, part)
     # 보너스: 호감 +5
     affection_key = get_affection_key(player_id)
     morld.modify_prop(target_id, affection_key, VIRGINITY_BONUS_AFFECTION)
@@ -580,6 +592,36 @@ def check_and_clear_virginity(target_id, player_id, action_id):
     if exp_part:
         morld.modify_prop(target_id, f"경험:{exp_part}", VIRGINITY_BONUS_EXP)
     return f"first_{action_id}"
+
+
+# ============================================
+# 경험 기록 (첫경험 + 마지막경험)
+# ============================================
+
+def record_first_experience(target_id, partner_id, exp_type, part):
+    """부위별 첫경험 기록 (최초 1회만). part = '음부'/'항문'/'구강'"""
+    now = morld.get_current_time()
+    # 부위별 첫경험
+    part_key = f"기억:첫경험:{part}"
+    if not morld.get_unit_prop(target_id, part_key):
+        morld.set_unit_prop(target_id, part_key, 1)
+        morld.set_unit_prop(target_id, f"{part_key}:유형", exp_type)
+        morld.set_unit_prop(target_id, f"{part_key}:상대", partner_id)
+        morld.set_unit_prop(target_id, f"{part_key}:시각", now)
+    # 전체 첫경험 (최초 1회만)
+    if not morld.get_unit_prop(target_id, "기억:첫경험"):
+        morld.set_unit_prop(target_id, "기억:첫경험", 1)
+        morld.set_unit_prop(target_id, "기억:첫경험:유형", exp_type)
+        morld.set_unit_prop(target_id, "기억:첫경험:상대", partner_id)
+        morld.set_unit_prop(target_id, "기억:첫경험:시각", now)
+
+
+def record_last_experience(target_id, partner_id, exp_type):
+    """마지막 경험 기록 (항상 갱신)"""
+    now = morld.get_current_time()
+    morld.set_unit_prop(target_id, "기억:마지막경험:유형", exp_type)
+    morld.set_unit_prop(target_id, "기억:마지막경험:상대", partner_id)
+    morld.set_unit_prop(target_id, "기억:마지막경험:시각", now)
 
 
 # ============================================

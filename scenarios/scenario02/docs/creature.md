@@ -509,7 +509,8 @@ def is_bestiality_enabled() -> bool:
 
 | 상태 | 판별 |
 |------|------|
-| 기절 | `survival.is_npc_fainted(char_id)` |
+| 기절 (NPC) | `survival.is_npc_fainted(char_id)` |
+| 기절 (Player) | `survival.is_player_fainted()` |
 | 마비 | `combat.is_paralyzed(char_id)` |
 | 거미줄 | `combat.is_web_bound(char_id)` |
 
@@ -517,12 +518,41 @@ def is_bestiality_enabled() -> bool:
 
 ```python
 _check_assault_opportunity()
-    → 대상 탐색 → assault_phase = "assaulting"
+    → 대상 탐색 (NPC + Player) → assault_phase = "assaulting"
     → _handle_assault()
-        → NPC 대상: 30분 idle + 성욕 -30
-        → 쿨다운: 현재시각 + 4시간 (절대 시각)
+        → NPC 대상: 성욕 -30
+        → 공통: aftermath (상태:수간피해=3) + 사정/임신 + 처녀해제 + 경험기록
+        → Player 대상: HP -20% 추가 감소
+        → 30분 idle + 쿨다운 4시간
     → _clear_assault()
 ```
+
+#### aftermath 시스템
+
+| Prop | 값 | 용도 |
+|------|----|------|
+| `상태:수간피해` | 3→-3→2→-2→1→-1→0 | 3단계 후유증 (수면 시 감소) |
+| `기억:수간피해횟수` | 누적 int | 반복 피해 템플릿 선택용 |
+
+NPC: `on_meet_player`에서 `_check_mode_aftermath()` → `aftermath_templates.py` "bestiality" 템플릿 표시.
+Player: 기절 회복 시 (`handle_player_faint()`) 수간 피해 체크 → 회고적 aftermath 다이얼로그.
+
+#### 사정/임신
+
+- 정액: semen.py 미등록 → `get_semen()` = `SEMEN_MAX(100)` → **무한** (의도적 설계)
+- 사정: 수컷(`has_anatomy("P")`) creature만, 고정량 50 (`_apply_internal_semen`)
+- 임신: 암컷(`has_anatomy("V")`) 대상만, `father_type="unknown"`
+- 처녀 해제: `처녀:음부` 직접 해제 (호감 보너스 없이, `check_and_clear_virginity` 미사용)
+
+#### 경험 기록
+
+겁탈 종료 시 `record_first_experience()` (부위별, 처녀 해제 시만) + `record_last_experience()` (항상).
+
+| Prop | 값 | 설명 |
+|------|----|------|
+| `기억:첫경험:{부위}` | 1 | 부위별 첫경험 유무 (음부/항문/구강) |
+| `기억:첫경험:{부위}:유형/상대/시각` | str/int/int | 부위별 첫경험 상세 |
+| `기억:마지막경험:유형/상대/시각` | str/int/int | 마지막 성행위 상세 |
 
 #### `_memory` 키
 
