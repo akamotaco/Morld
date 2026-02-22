@@ -13,6 +13,9 @@
 - **4. CreatureAgent** — AI 행동 루프
 - **5. 스포너(Spawner)** — 생성/소멸 라이프사이클
 - **6. 종별 명세** — Wolf / Bat / Spider
+- **7. Creature 성별** — 수컷/암컷/무성
+- **8. Bestiality 시스템** — 수간 모드 + 겁탈 AI + 플레이어 교미
+- **9. Creature 반응** — 종별 묘사/대사 풀
 
 ---
 
@@ -129,7 +132,7 @@ Monster(Character)       ← 생물 기본 클래스
 class Monster(Character):
     type = "creature"
     owner = None
-    actions = ["call:attack:공격#"]   # 대화/스킨십 불가
+    actions = ["call:attack:공격#", "call:mate:교미#"]   # 교미 = bestiality
 
     props = {
         "전투:세력": "야생",          # 서브클래스에서 오버라이드
@@ -149,6 +152,10 @@ class Monster(Character):
     DROP_TABLE = []              # 스폰 시 인벤토리 생성
     HARVEST_TABLE = {}           # 시체에서 도구로 수확
     SCHEDULE = [...]             # 라이프사이클
+
+    # 성별 분포: [(gender_str, weight), ...]
+    # None = 무성 고정 (기본)
+    GENDER_DISTRIBUTION = None
 ```
 
 ### DROP_TABLE — 스폰 시 인벤토리 생성
@@ -197,13 +204,13 @@ BATTLE_BEHAVIOR = {
 
 ### 파일: `think/creature_agent.py`
 
-BaseAgent를 상속하되 survival/needs 등록 없이 단순화된 4-tier think 루프.
+BaseAgent를 상속하되 survival/needs 등록 없이 단순화된 5-tier think 루프.
 
 ### NPC(BaseAgent) vs 생물(CreatureAgent)
 
 | 항목 | NPC (BaseAgent) | 생물 (CreatureAgent) |
 |------|----------------|---------------------|
-| think() | 5-tier (기절→전투→생존→쾌적→스케줄) | 4-tier (사망→기절→전투→스케줄) |
+| think() | 5-tier (기절→전투→생존→쾌적→스케줄) | 5-tier (사망→기절→전투→겁탈→스케줄) |
 | survival 등록 | O (포만감/기절) | X (HP는 전투로만 관리) |
 | needs 등록 | O (5개 욕구) | X |
 | 전투 감지 | 세력 적대 + 관계 적대 | 세력 적대 + 관계 적대 |
@@ -211,14 +218,16 @@ BaseAgent를 상속하되 survival/needs 등록 없이 단순화된 4-tier think
 | home region | bed_owner 기반 | `전투:홈리전` prop |
 | 스케줄 | 시간대별 복합 활동 | 종별 패턴 (순찰/휴식/수면/복귀) |
 | 소멸 | 영구 | 수명 기반 자연 소멸 |
+| 겁탈 | — | bestiality ON + 유성 + 무력화 대상 감지 시 |
 
-### think() 4-tier 흐름
+### think() 5-tier 흐름
 
 ```
 Tier 0: 운반 중      → carry.is_being_carried() → idle 60s
 Tier 1: 사망          → 상태:사망 prop → idle 1h (spawner 디스폰 대기)
 Tier 2: 기절          → survival.is_npc_fainted() → idle (잔여 시간)
 Tier 3: 전투 위협     → _check_combat_threat() → 전투 처리
+Tier 3.5: 겁탈 기회   → _check_assault_opportunity() → 겁탈 AI (Section 8)
 Tier 4: 스케줄        → _get_creature_entry() → 활동별 분기
 Safety net: 할 일 없음 → idle 60s
 ```
@@ -281,8 +290,9 @@ register_spawn_source(
 1. `morld.create_id("unit")` → 새 unit_id
 2. `monster_class().instantiate(monster_id, region_id, location_id)` → Asset 등록
 3. `_populate_inventory()` → DROP_TABLE 기반 인벤토리
-4. Props 설정: `전투:홈리전`, `생물:스폰위치`, `생물:탄생시각`
-5. `CreatureAgent(monster_id, schedule=SCHEDULE)` → AI 등록
+4. 성별 배정: `GENDER_DISTRIBUTION`에 따라 랜덤 배정 (None이면 무성)
+5. Props 설정: `전투:홈리전`, `생물:스폰위치`, `생물:탄생시각`
+6. `CreatureAgent(monster_id, schedule=SCHEDULE)` → AI 등록
 
 ### 자연 소멸 (수명)
 
@@ -363,6 +373,7 @@ spawner.reset()   # _spawn_sources, _corpses, _initialized 초기화
 | 공격력/방어력 | 6 / 4 |
 | 명중/회피/치명타 | 75% / 10% / 8% |
 | 독공격 | 명중 시 30% 확률로 독 부여 (`전투:독공격: 30`) |
+| 거미줄공격 | 명중 시 25% 확률로 거미줄 결박 (`전투:거미줄공격: 25`) |
 | 세력 | 거미 |
 | 전투 스타일 | aggressive (공격적) |
 | 도주 임계 | HP 15% |
@@ -399,7 +410,196 @@ spawner.reset()   # _spawn_sources, _corpses, _initialized 초기화
 | `상태:사망` | combat.py | 사망 여부 |
 | `상태:사망시각` | base.py finish_off() | 시체 정리 타이머 |
 | `전투:독공격` | monster.py (Spider) | 명중 시 독 부여 확률 (%) |
+| `전투:거미줄공격` | monster.py (Spider) | 명중 시 거미줄 결박 확률 (%) |
+| `성별` | spawner.py | 생물 성별 (gender_to_int 값) |
+| `상태:마비` | combat.py | 마비 디버프 잔여 시간 (h) |
+| `상태:거미줄` | combat.py | 거미줄 결박 잔여 시간 (h) |
 | `소재:{키}` | monster.py props | 수확 가능 수량 |
+
+---
+
+## 7. Creature 성별
+
+### 파일: `gender.py`, `spawner.py`, `monster.py`
+
+### 성별 종류
+
+기존 NPC 성별 시스템 재사용 (male/female/asexual):
+
+| 값 | NPC 표시 | 생물 표시 |
+|----|---------|----------|
+| `MALE` | 남성 | 수컷 |
+| `FEMALE` | 여성 | 암컷 |
+| `ASEXUAL` | 무성 | 무성 |
+
+### API
+
+```python
+# gender.py
+CREATURE_GENDER_DISPLAY = {MALE: "수컷", FEMALE: "암컷", ASEXUAL: "무성"}
+
+def get_creature_gender_display(unit_id):
+    """생물체 성별 한글 표시"""
+    g = get_gender(unit_id)
+    return CREATURE_GENDER_DISPLAY.get(g, "무성")
+```
+
+`get_gender()` — 생물체에 `성별` prop이 없으면 `ASEXUAL` 반환 (ValueError 대신).
+
+### 종별 성별 분포
+
+```python
+class Wolf(Monster):
+    GENDER_DISTRIBUTION = [("male", 0.5), ("female", 0.5)]
+
+class Bear(Monster):
+    GENDER_DISTRIBUTION = [("male", 0.5), ("female", 0.5)]
+
+class Spider(Monster):
+    GENDER_DISTRIBUTION = [("female", 0.7), ("male", 0.3)]
+
+class Bat(Monster):
+    GENDER_DISTRIBUTION = None   # 무성 고정
+
+class Snake(Monster):
+    GENDER_DISTRIBUTION = [("male", 0.5), ("female", 0.5)]
+```
+
+### 스폰 시 배정 (spawner.py)
+
+```python
+dist = getattr(monster_class, 'GENDER_DISTRIBUTION', None)
+if dist:
+    genders, weights = zip(*dist)
+    chosen = random.choices(genders, weights=weights, k=1)[0]
+    morld.set_unit_prop(monster_id, "성별", gender_to_int(chosen))
+else:
+    morld.set_unit_prop(monster_id, "성별", gender_to_int(ASEXUAL))
+```
+
+---
+
+## 8. Bestiality 시스템
+
+### 파일: `settings.py`, `think/creature_agent.py`, `monster.py`, `romance.py`, `romance_ui.py`
+
+### 8.1 수간 모드 토글
+
+```python
+# settings.py
+_bestiality_enabled = False
+
+def is_bestiality_enabled() -> bool:
+    """수간 모드 — 연애 모드 ON 필수"""
+    return _bestiality_enabled and is_romance_enabled()
+```
+
+설정 UI에서 연애 모드 ON 시에만 수간 모드 토글이 표시됨.
+플레이어 `can:bestiality` prop과 연동.
+
+### 8.2 Creature → Character 겁탈 (CreatureAgent Tier 3.5)
+
+#### 조건
+1. bestiality 모드 ON
+2. 생물이 유성 (수컷/암컷, 무성 제외)
+3. 같은 Location에 무력화된 캐릭터 존재
+4. 쿨다운 완료 (절대 시각 기반 4시간)
+
+#### 무력화 조건
+
+| 상태 | 판별 |
+|------|------|
+| 기절 | `survival.is_npc_fainted(char_id)` |
+| 마비 | `combat.is_paralyzed(char_id)` |
+| 거미줄 | `combat.is_web_bound(char_id)` |
+
+#### 처리 흐름
+
+```python
+_check_assault_opportunity()
+    → 대상 탐색 → assault_phase = "assaulting"
+    → _handle_assault()
+        → NPC 대상: 30분 idle + 성욕 -30
+        → 쿨다운: 현재시각 + 4시간 (절대 시각)
+    → _clear_assault()
+```
+
+#### `_memory` 키
+
+| 키 | 값 | 설명 |
+|----|----|------|
+| `assault_phase` | `"assaulting"` / `None` | 겁탈 진행 상태 |
+| `assault_target` | unit_id | 겁탈 대상 |
+| `assault_cooldown_until` | ms (절대 시각) | 쿨다운 종료 시각 |
+
+### 8.3 Player → Creature 교미
+
+#### 조건
+1. bestiality 모드 ON
+2. 생물체가 무력화 상태 (기절/마비/거미줄)
+
+#### 액션
+
+```python
+# Monster.mate() — 포커스 액션 "교미#" (can:bestiality 필요)
+def mate(self):
+    # 무력화 확인 → romance.start_romance(mode=MODE_FORCED, is_bestiality=True)
+```
+
+### 8.4 로맨스 시스템 Creature 호환
+
+| 항목 | NPC 로맨스 | Creature 로맨스 |
+|------|-----------|----------------|
+| state 플래그 | `is_bestiality=False` | `is_bestiality=True` |
+| 차단 액션 | — | head_pat, french_kiss, lip_kiss, hug 등 11종 |
+| 파트너 반응 | 아키타입 기반 대사 | 종별 묘사 (Section 9) |
+| 콘돔 | 표시 | 숨김 |
+| idle 텍스트 | "당신을 바라보고 있다" | "꿈틀거리고 있다" |
+
+차단 액션 (`_BESTIALITY_BLOCKED_ACTIONS`):
+`head_pat`, `french_kiss`, `lip_kiss`, `hug`, `deep_kiss`, `fellatio`,
+`cunnilingus`, `condom_on`, `condom_off`, `ear_whisper`, `neck_kiss`
+
+---
+
+## 9. Creature 반응
+
+### 파일: `creature_reactions.py`
+
+### 개요
+
+NPC 아키타입 시스템 대신 **종별(species)** 반응 풀 사용.
+`morld.get_unit_info(partner_id)["unique_id"]` → species 결정.
+
+### 종별 풀
+
+| species | unique_id | 특징 |
+|---------|-----------|------|
+| wolf | `wolf` | 거친, 공격적 |
+| spider | `spider` | 기괴한, 곤충적 |
+| bat | `bat` | 날카로운, 날갯짓 |
+| default | (그 외) | 범용 묘사 |
+
+### 반응 종류
+
+| 유형 | 함수 | 용도 |
+|------|------|------|
+| 토글 반응 | `get_creature_toggle_reaction()` | 진행 중인 행위 묘사 (thrust 등) |
+| 즉시 반응 | `get_creature_instant_reaction()` | 행위 시작 대사 (삽입, 애무 등) |
+| 절정 반응 | `get_creature_climax_reaction()` | 절정 묘사 |
+
+### 토글 반응 키
+
+`(arousal_tier, gauge_tier)` 조합:
+- arousal_tier: `"low"` (<30), `"medium"` (30-59), `"high"` (≥60)
+- gauge_tier: `"low"` (<40), `"medium"` (40-69), `"high"` (≥70)
+
+Fallback: species pool → gauge 한 단계 낮춤 → arousal 한 단계 낮춤 → default pool
+
+### 즉시 반응 액션
+
+`vaginal_insert`, `anal_insert`, `thrust_gentle`, `thrust_normal`, `thrust_rough`,
+`genital_caress`, `breast_caress`, `withdraw`
 
 ---
 
@@ -407,10 +607,16 @@ spawner.reset()   # _spawn_sources, _corpses, _initialized 초기화
 
 | 파일 | 역할 |
 |------|------|
-| `assets/characters/monster.py` | Monster/Wolf/Bat/Spider Asset 정의 |
-| `think/creature_agent.py` | CreatureAgent (4-tier think) |
-| `spawner.py` | 스폰/디스폰 관리 |
-| `combat.py` | 세력 시스템 + 전투 코어 |
+| `assets/characters/monster.py` | Monster/Wolf/Bat/Spider Asset 정의 + GENDER_DISTRIBUTION + mate() |
+| `think/creature_agent.py` | CreatureAgent (5-tier think + 겁탈 AI) |
+| `spawner.py` | 스폰/디스폰 관리 + 성별 배정 |
+| `combat.py` | 세력 시스템 + 전투 코어 + 마비/거미줄 API |
+| `gender.py` | 생물 성별 표시 (`get_creature_gender_display`) |
+| `settings.py` | 수간 모드 토글 |
+| `creature_reactions.py` | 종별 묘사/반응 풀 |
+| `romance.py` | `start_romance(is_bestiality=True)` |
+| `romance_ui.py` | bestiality 액션 필터 + creature 반응 통합 |
+| `restraint.py` | `can_move()` 마비/거미줄 체크 |
 | `think/__init__.py` | `_check_combat_threat()` (세력 적대 감지) |
 | `world/forest.py` | 숲 스폰 소스 등록 |
 | `world/mine.py` | 광산 스폰 소스 등록 |

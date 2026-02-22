@@ -70,8 +70,15 @@ def is_any_restrained(unit_id):
 
 
 def can_move(unit_id):
-    """이동 가능 여부 — 하체 결박 시 불가"""
-    return not is_lower_restrained(unit_id)
+    """이동 가능 여부 — 하체 결박 / 마비 / 거미줄 시 불가"""
+    if is_lower_restrained(unit_id):
+        return False
+    import combat
+    if combat.is_paralyzed(unit_id):
+        return False
+    if combat.is_web_bound(unit_id):
+        return False
+    return True
 
 
 def can_use_hands(unit_id):

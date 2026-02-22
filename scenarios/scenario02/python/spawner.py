@@ -123,6 +123,18 @@ def _try_spawn(source_id, source, current_hour, current_time):
     if hasattr(monster, '_populate_inventory'):
         monster._populate_inventory()
 
+    # 성별 배정
+    dist = getattr(monster_class, 'GENDER_DISTRIBUTION', None)
+    if dist:
+        import random
+        from gender import gender_to_int
+        genders, weights = zip(*dist)
+        chosen = random.choices(genders, weights=weights, k=1)[0]
+        morld.set_unit_prop(monster_id, "성별", gender_to_int(chosen))
+    else:
+        from gender import gender_to_int, ASEXUAL
+        morld.set_unit_prop(monster_id, "성별", gender_to_int(ASEXUAL))
+
     # 생물 prop 설정
     morld.set_unit_prop(monster_id, "전투:홈리전", region_id)
     morld.set_unit_prop(monster_id, "생물:스폰위치", location_id)

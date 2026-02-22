@@ -2,8 +2,9 @@
 #
 # BaseAgent를 상속하여 단순화된 스케줄 기반 행동 제공
 # - survival/needs 미등록 (HP는 전투로만 관리)
-# - 4-tier think: 사망 → 기절 → 전투 → 스케줄
+# - 5-tier think: 사망 → 기절 → 전투 → 겁탈 → 스케줄
 # - 활동: 순찰(wander) / 휴식(idle) / 수면(idle) / 복귀(return to lair)
+# - 겁탈: bestiality ON + 유성 생물 + 무력화된 캐릭터 감지 시
 # - 자연 소멸: spawner가 수명 체크 → 디스폰
 
 import morld
@@ -31,7 +32,7 @@ class CreatureAgent(BaseAgent):
             self.set_base_schedule(schedule)
 
     def think(self):
-        """생물 행동 결정 (4-tier)"""
+        """생물 행동 결정 (5-tier)"""
         self._action_taken = False
 
         # Tier 0: 운반 중
@@ -52,6 +53,10 @@ class CreatureAgent(BaseAgent):
 
         # Tier 3: 전투 위협 감지 (BaseAgent._check_combat_threat 재사용)
         if self._check_combat_threat():
+            return
+
+        # Tier 3.5: 겁탈 기회 (bestiality ON + 무력화 대상 감지)
+        if self._check_assault_opportunity():
             return
 
         # Tier 4: 스케줄 기반 행동
@@ -114,3 +119,89 @@ class CreatureAgent(BaseAgent):
         remaining = self._remaining_millis_in_entry(entry)
         self._insert_idle_job(entry["name"], max(remaining, 1_000))
         self._action_taken = True
+
+    # ========================================
+    # 겁탈 AI (Bestiality)
+    # ========================================
+
+    def _check_assault_opportunity(self):
+        """무력화된 캐릭터 감지 → 겁탈 시도"""
+        import settings
+        import gender as gender_mod
+
+        if not settings.is_bestiality_enabled():
+            return False
+
+        # 무성 생물은 겁탈하지 않음
+        creature_gender = gender_mod.get_gender(self.unit_id)
+        if creature_gender == gender_mod.ASEXUAL:
+            return False
+
+        # 이미 겁탈 진행 중이면 계속
+        phase = self._memory.get("assault_phase")
+        if phase is not None:
+            return self._handle_assault()
+
+        # 쿨다운 중이면 패스 (절대 시각 기반)
+        cooldown_until = self._memory.get("assault_cooldown_until", 0)
+        if cooldown_until > 0 and morld.get_current_time() < cooldown_until:
+            return False
+
+        # 같은 Location의 무력화된 캐릭터 탐색
+        loc = morld.get_unit_location(self.unit_id)
+        if not loc or loc[0] < 0:
+            return False
+
+        import combat
+        characters = morld.get_characters_at_location(loc[0], loc[1])
+        for char_id in (characters or []):
+            if char_id == self.unit_id:
+                continue
+            if morld.get_unit_prop(char_id, "상태:사망"):
+                continue
+            # 무력화 조건: 기절 OR 마비 OR 거미줄
+            if (survival.is_npc_fainted(char_id) or
+                    combat.is_paralyzed(char_id) or
+                    combat.is_web_bound(char_id)):
+                self._memory["assault_phase"] = "assaulting"
+                self._memory["assault_target"] = char_id
+                return self._handle_assault()
+
+        return False
+
+    def _handle_assault(self):
+        """겁탈 multi-phase: assaulting → cooldown"""
+        phase = self._memory.get("assault_phase")
+        target_id = self._memory.get("assault_target")
+
+        if target_id is None:
+            self._memory["assault_phase"] = None
+            return False
+
+        # 대상이 사망/디스폰 → 중단
+        info = morld.get_unit_info(target_id)
+        if info is None or morld.get_unit_prop(target_id, "상태:사망"):
+            self._clear_assault()
+            return False
+
+        if phase == "assaulting":
+            # NPC 대상 겁탈 (간소화: 30분 소요, 성욕 감소)
+            import needs
+            needs.modify_need(target_id, "욕구:성욕", -30)
+            self._insert_idle_job("겁탈 중", 30 * 60_000)  # 30분
+            # 쿨다운 설정 (절대 시각: 현재 + 4시간)
+            self._memory["assault_cooldown_until"] = (
+                morld.get_current_time() + 4 * 3_600_000
+            )
+            self._clear_assault()
+            self._action_taken = True
+            return True
+
+        # 알 수 없는 phase → 초기화
+        self._clear_assault()
+        return False
+
+    def _clear_assault(self):
+        """겁탈 상태 초기화"""
+        self._memory.pop("assault_phase", None)
+        self._memory.pop("assault_target", None)

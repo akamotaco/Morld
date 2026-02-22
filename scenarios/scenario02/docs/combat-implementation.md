@@ -912,6 +912,7 @@ class Spider(Monster):
         "전투:공격력": 6, "전투:방어력": 4,
         "전투:명중": 75, "전투:회피": 10, "전투:치명타": 8,
         "전투:사거리": 70, "전투:감지거리": 100,
+        "전투:거미줄공격": 25,   # 명중 시 25% 거미줄 결박
         "소재:독낭": 1, "소재:거미줄": 2,
     }
     BATTLE_BEHAVIOR = {
@@ -1306,6 +1307,8 @@ def _on_meet_hostile(self, player_id, hostility):
 | 둔화 | `둔화:속도` (%) + `상태:둔화` (h) | 이동속도 감소 | 2h | 자연 회복 | O |
 | 독 | `상태:독` (잔여 h) | HP -2/h | 4h | 해독제 | O |
 | 부위 부상 | `부상:{부위}` (잔여 h) | 부위별 페널티 | 4h | 자연 회복 / `cure_body_injury()` | O |
+| 마비 | `상태:마비` (잔여 h) | 이동+전투 불가, 의식 유지 | 2h | 자연 회복 | O |
+| 거미줄 | `상태:거미줄` (잔여 h) | 이동 불가, 자력 탈출 가능 | 2h | 자력 탈출 / 자연 회복 | O |
 
 ### 18.2 출혈
 
@@ -1372,7 +1375,51 @@ def _on_meet_hostile(self, player_id, hostility):
 
 `_on_time_elapsed()` → NPC 루프 + 플레이어 각각 `_tick_debuffs()` 호출.
 
-### 18.9 C# 연동: `이동:부상`
+### 18.9 마비
+
+- 상수: `PARALYSIS_DURATION_HOURS = 2`
+- 특수 공격 (`전투:마비공격` prop)으로 부여 가능
+- 효과: `can_fight()` False, `restraint.can_move()` False, 의식 유지
+- 매 시간 -1, 0이면 `cure_paralysis()`
+
+```python
+def apply_paralysis(unit_id, duration_hours=None)
+def cure_paralysis(unit_id)
+def is_paralyzed(unit_id) -> bool
+```
+
+### 18.10 거미줄 결박
+
+- 상수: `WEB_BIND_DURATION_HOURS = 2`, `WEB_BIND_ESCAPE_DIFFICULTY = 20`
+- Spider `전투:거미줄공격: 25` — 명중 시 25% 확률로 부여
+- 효과: `restraint.can_move()` False
+- 자력 탈출: `attempt_web_escape()` — 근력/체격/HP 비율 기반 확률 (5%-70%)
+- 매 시간 -1, 0이면 `cure_web_bind()`
+
+```python
+def apply_web_bind(unit_id, duration_hours=None)
+def cure_web_bind(unit_id)
+def is_web_bound(unit_id) -> bool
+def attempt_web_escape(unit_id) -> bool
+```
+
+### 18.11 특수 공격 범용 시스템
+
+하드코딩된 독/거미줄 블록 대신 **`SPECIAL_ATTACKS`** dict 패턴:
+
+```python
+SPECIAL_ATTACKS = {
+    "전투:독공격":     lambda tid: apply_poison(tid),
+    "전투:거미줄공격": lambda tid: apply_web_bind(tid),
+    "전투:마비공격":   lambda tid: apply_paralysis(tid),
+    # 향후 확장: "전투:포박공격" 등
+}
+```
+
+`execute_attack()` 내 명중 시 루프로 모든 특수 공격 자동 처리.
+새 능력 추가 = dict에 1줄 + creature props에 확률 1줄.
+
+### 18.12 C# 연동: `이동:부상`
 
 **파일:** `scripts/morld/unit/Unit.cs:423-443` — `GetMovementSpeed()`
 

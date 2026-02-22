@@ -39,8 +39,11 @@ class Monster(Character):
         "retreat_threshold": 0.2,
     }
 
-    # 포커스 시 공격만 가능 (대화/스킨십 불가)
-    actions = ["call:attack:공격#"]
+    # 포커스 시 공격 + 교미 (수간 모드 ON 시 교미 표시)
+    actions = ["call:attack:공격#", "call:mate:교미#"]
+
+    # 성별 분포: [(gender_str, weight), ...] 또는 None (무성 고정)
+    GENDER_DISTRIBUTION = None
 
     # 인벤토리 드롭 테이블
     # 형식: [{"item": "unique_id", "chance": 0.0~1.0, "count": int or (min,max)}]
@@ -70,11 +73,40 @@ class Monster(Character):
             item_id = get_or_create_item_id(entry["item"])
             morld.give_item(self.instance_id, item_id, count)
 
+    def mate(self):
+        """플레이어 → 생물체 교미 (bestiality)"""
+        import settings
+        import survival
+        import combat
+        import romance
+        from romance_mode import MODE_FORCED
+
+        if not settings.is_bestiality_enabled():
+            morld.add_action_log("수간 모드가 꺼져 있다.")
+            return
+
+        # 생물체가 무력화 상태인지 확인
+        target_id = self.instance_id
+        if not (survival.is_npc_fainted(target_id) or
+                combat.is_paralyzed(target_id) or
+                combat.is_web_bound(target_id)):
+            morld.add_action_log("상대가 반항하고 있다. 무력화가 필요하다.")
+            return
+
+        # 로맨스 세션 시작 (forced mode, bestiality)
+        player_id = morld.get_player_id()
+        yield from romance.start_romance(
+            player_id, target_id,
+            mode=MODE_FORCED,
+            is_bestiality=True,
+        )
+
 
 class Wolf(Monster):
     """늑대 — 숲 지역 서식, 공격적"""
     unique_id = "wolf"
     name = "늑대"
+    GENDER_DISTRIBUTION = [("male", 0.5), ("female", 0.5)]
 
     props = {
         **Monster.props,
@@ -133,6 +165,7 @@ class Bat(Monster):
     """박쥐 — 폐광산 1층, 빠르고 회피 높지만 약함"""
     unique_id = "bat"
     name = "박쥐"
+    # GENDER_DISTRIBUTION = None → 무성 (기본값)
 
     props = {
         **Monster.props,
@@ -171,6 +204,7 @@ class Spider(Monster):
     """거미 — 폐광산 2층/깊은 갱도, 공격적"""
     unique_id = "spider"
     name = "거미"
+    GENDER_DISTRIBUTION = [("female", 0.7), ("male", 0.3)]
 
     props = {
         **Monster.props,
@@ -184,7 +218,8 @@ class Spider(Monster):
         "전투:치명타": 8,
         "전투:사거리": 70,
         "전투:감지거리": 100,
-        "전투:독공격": 30,    # 명중 시 30% 확률로 독
+        "전투:독공격": 30,       # 명중 시 30% 확률로 독
+        "전투:거미줄공격": 25,   # 명중 시 25% 확률로 거미줄 결박
         # 수확 가능 소재
         "소재:독낭": 1,
         "소재:거미줄": 2,

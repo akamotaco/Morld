@@ -41,6 +41,23 @@ def _get_partner_archetype(partner_id):
     return "stoic"
 
 
+# 수간(bestiality) 세션에서 사용 불가한 액션 (대화/구강/복잡한 스킨십 제외)
+_BESTIALITY_BLOCKED_ACTIONS = frozenset({
+    "head_pat", "french_kiss", "lip_kiss", "hug",
+    "deep_kiss", "fellatio", "cunnilingus",
+    "condom_on", "condom_off",
+    "ear_whisper", "neck_kiss",
+})
+
+
+def _get_creature_reaction(state):
+    """creature 종별 물리 반응 (토글 행위 during 묘사)"""
+    import creature_reactions
+    return creature_reactions.get_creature_toggle_reaction(
+        state["partner_id"], state.get("stim")
+    )
+
+
 def render_stamina_bar(stamina, max_stamina=100):
     """체력 바 렌더링 (10칸 정규화)"""
     BAR_WIDTH = 10
@@ -147,9 +164,18 @@ def render_romance_ui(state):
             if reaction:
                 lines.append(f"  [color=yellow]{reaction}[/color]")
                 has_toggle_lines = True
+        elif state.get("is_bestiality"):
+            # creature 기본 물리 반응 (대사 없음)
+            creature_reaction = _get_creature_reaction(state)
+            if creature_reaction:
+                lines.append(f"  [color=yellow]{creature_reaction}[/color]")
+                has_toggle_lines = True
 
     if not has_toggle_lines:
-        lines.append(f"({partner_name}(이)가 당신을 바라보고 있다.)")
+        if state.get("is_bestiality"):
+            lines.append(f"({partner_name}(이)가 꿈틀거리고 있다.)")
+        else:
+            lines.append(f"({partner_name}(이)가 당신을 바라보고 있다.)")
 
     # 상태 묘사 (자극 수준 기반)
     stim_state = state.get("stim")
@@ -326,8 +352,11 @@ def render_romance_ui(state):
 
     # 토글 행위
     _intercourse_blocked = _pregnancy_mod.is_intercourse_blocked(partner_id)
+    _is_bestiality = state.get("is_bestiality", False)
     lines.append("[토글 행위]")
     for action_id, action in TOGGLE_ACTIONS.items():
+        if _is_bestiality and action_id in _BESTIALITY_BLOCKED_ACTIONS:
+            continue
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
         # 임신 후기: 삽입 행위 비활성화
@@ -371,14 +400,16 @@ def render_romance_ui(state):
     # 즉시 행위
     lines.append("[즉시 행위]")
 
-    # 콘돔 버튼 (P 해부학 보유 시)
-    if gender_mod.has_anatomy(player_id, "P"):
+    # 콘돔 버튼 (P 해부학 보유 시, 수간 시 숨김)
+    if not _is_bestiality and gender_mod.has_anatomy(player_id, "P"):
         if state.get("condom_active"):
             lines.append(f"  [url=@proc:instant:condom_off][color=cyan]콘돔 제거[/color][/url]")
         else:
             lines.append(f"  [url=@proc:instant:condom_on][color=cyan]콘돔 착용[/color][/url]")
 
     for action_id, action in INSTANT_ACTIONS.items():
+        if _is_bestiality and action_id in _BESTIALITY_BLOCKED_ACTIONS:
+            continue
         if action.get("is_condom_action"):
             continue  # 콘돔 액션은 위에서 별도 렌더링
         if action_id in ("hold_back", "ejaculate"):

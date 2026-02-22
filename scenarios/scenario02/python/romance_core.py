@@ -467,6 +467,28 @@ def get_insertion_exp_part(state):
     return _INSERTION_EXP_MAP.get(insertion.get("orifice"))
 
 
+# ── 삽입 상태 헬퍼 (향후 multi-insertion 확장 대비) ──
+# 현재: state["insertion"] = {"active": bool, "orifice": str, "who": str, ...}
+# 향후: state["insertions"] = list of dicts 로 전환 시 이 함수만 수정
+
+def is_insertion_active(state):
+    """삽입 활성 여부 (향후 multi-insertion 확장 대비)"""
+    ins = state.get("insertion", {})
+    return ins.get("active", False)
+
+
+def get_insertion_orifice(state):
+    """현재 삽입 부위 (향후 list 반환으로 확장 가능)"""
+    ins = state.get("insertion", {})
+    return ins.get("orifice") if ins.get("active") else None
+
+
+def get_insertion_who(state):
+    """현재 삽입 주체 ("player" / "npc" / None)"""
+    ins = state.get("insertion", {})
+    return ins.get("who") if ins.get("active") else None
+
+
 def get_action_exp_part(action_id, action_dict=None):
     """액션의 신체 부위(exp_part) 반환
 

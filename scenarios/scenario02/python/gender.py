@@ -32,6 +32,20 @@ def int_to_gender(gender_int):
     """정수 → 문자열 성별"""
     return _INT_TO_GENDER.get(gender_int, MALE)
 
+# 생물체 성별 한글 표시
+CREATURE_GENDER_DISPLAY = {
+    MALE: "수컷",
+    FEMALE: "암컷",
+    ASEXUAL: "무성",
+}
+
+
+def get_creature_gender_display(unit_id):
+    """생물체 성별 한글 표시"""
+    g = get_gender(unit_id)
+    return CREATURE_GENDER_DISPLAY.get(g, "무성")
+
+
 # 성별별 보유 감각 카테고리
 ANATOMY = {
     MALE:     frozenset({"M", "B", "A", "P"}),
@@ -52,12 +66,17 @@ def get_gender(unit_id):
         str: "male", "female", "futanari", "asexual" 중 하나
 
     Raises:
-        ValueError: "성별" prop이 없을 때 (설정 누락은 반드시 수정 필요)
+        ValueError: 캐릭터에 "성별" prop이 없을 때 (설정 누락은 반드시 수정 필요)
+        (생물체(creature)는 예외 없이 ASEXUAL 반환)
     """
     val = morld.get_unit_prop(unit_id, "성별")
     if val:
         return int_to_gender(int(val))
-    # 성별 prop 없음 → 기본값 반환 대신 에러로 조기 발견
+    # 생물체: 성별 prop 없으면 무성 (ValueError 대신)
+    info = morld.get_unit_info(unit_id)
+    if info and info.get("type") == "creature":
+        return ASEXUAL
+    # 일반 캐릭터: 성별 prop 없음 → 에러로 조기 발견
     raise ValueError(
         f"get_gender(unit_id={unit_id}): '성별' prop이 0 또는 미설정. "
         f"Character.instantiate() 또는 persistence 복원 경로를 확인하세요."

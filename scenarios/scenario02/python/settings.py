@@ -37,6 +37,27 @@ def set_romance_enabled(enabled: bool):
 
 
 # ============================================
+# 수간 모드
+# ============================================
+
+_bestiality_enabled = False
+
+
+def is_bestiality_enabled() -> bool:
+    """수간 모드 활성화 여부 (연애 모드 ON 필수)"""
+    return _bestiality_enabled and _romance_enabled
+
+
+def set_bestiality_enabled(enabled: bool):
+    """수간 모드 설정"""
+    global _bestiality_enabled
+    _bestiality_enabled = enabled
+    player_id = _get_player_id()
+    if player_id >= 0:
+        morld.set_unit_prop(player_id, "can:bestiality", 1 if enabled else 0)
+
+
+# ============================================
 # 플레이어 ID 조회
 # ============================================
 
@@ -154,6 +175,12 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     romance_status = "[color=lime]ON[/color]" if romance_on else "[color=gray]OFF[/color]"
     lines.append(f"[url=@proc:toggle_romance]연애 모드[/url]: {romance_status}")
 
+    # 수간 모드 (연애 모드 ON 시에만 표시)
+    if is_romance_enabled():
+        beast_on = is_bestiality_enabled()
+        beast_status = "[color=red]ON[/color]" if beast_on else "[color=gray]OFF[/color]"
+        lines.append(f"  [url=@proc:toggle_bestiality]수간 모드[/url]: {beast_status}")
+
     # 적대 모드
     import combat
     hostile_on = combat.is_hostile_mode()
@@ -250,6 +277,13 @@ def show_settings_ui():
             new_state = not is_romance_enabled()
             set_romance_enabled(new_state)
             morld.add_action_log(f"연애 모드: {'ON' if new_state else 'OFF'}")
+            return _render()
+
+        # 수간 모드 토글
+        if action == "toggle_bestiality":
+            new_state = not is_bestiality_enabled()
+            set_bestiality_enabled(new_state)
+            morld.add_action_log(f"수간 모드: {'ON' if new_state else 'OFF'}")
             return _render()
 
         # 적대 모드 토글

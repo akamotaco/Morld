@@ -102,6 +102,13 @@ HEAD_INJURY_ACC_PENALTY = 15      # 명중 -15
 AIMED_ATTACK_ACC_PENALTY = 20     # 명중률 -20
 AIMED_ATTACK_SPEED_MULT = 1.2     # 공격속도 ×1.2 (20% 느림)
 
+# ── 마비 ──
+PARALYSIS_DURATION_HOURS = 2
+
+# ── 거미줄 ──
+WEB_BIND_DURATION_HOURS = 2
+WEB_BIND_ESCAPE_DIFFICULTY = 20   # 결박:강도 상당 (로프=30보다 약함)
+
 # ── 엄폐 ──
 COVER_DISTANCE = 15               # 엄폐 유효 거리 (px)
 COVER_BONUS = {
@@ -123,6 +130,23 @@ STEALTH_CRIT_BONUS = 30
 # ========================================
 
 _hostile_mode = False
+
+# ── 특수 공격 테이블 (범용 — 새 능력은 여기에 1줄 추가) ──
+# key = attacker prop, value = 적용 함수 (target_id)
+# 확률은 attacker의 해당 prop 값 (%)
+_SPECIAL_ATTACKS = None   # lazy 초기화
+
+
+def _get_special_attacks():
+    """특수 공격 테이블 lazy 초기화 (순환참조 회피)"""
+    global _SPECIAL_ATTACKS
+    if _SPECIAL_ATTACKS is None:
+        _SPECIAL_ATTACKS = {
+            "전투:독공격":     lambda tid: apply_poison(tid),
+            "전투:거미줄공격": lambda tid: apply_web_bind(tid) if not is_web_bound(tid) else None,
+            "전투:마비공격":   lambda tid: apply_paralysis(tid),
+        }
+    return _SPECIAL_ATTACKS
 
 
 # ========================================
@@ -241,10 +265,11 @@ def calculate_damage(attacker_id, target_id, is_crit=False) -> int:
 # ========================================
 
 def apply_damage(target_id: int, damage: int, attacker_id: int = None):
-    """HP 감소 + 기절 판정
+    """HP 감소 + 기절/탈진 판정
 
     survival.add_health()는 기절을 자동 트리거하지 않으므로
     HP가 0이 되면 명시적으로 기절 함수를 호출한다.
+    HP가 EXHAUSTION_HP_THRESHOLD 이하이면 탈진 상태로 진입한다.
     """
     import survival
 
@@ -260,6 +285,10 @@ def apply_damage(target_id: int, damage: int, attacker_id: int = None):
         else:
             survival._enter_faint(target_id)
         fainted = True
+    elif current_hp <= survival.EXHAUSTION_HP_THRESHOLD:
+        # 탈진 자동 진입 (전투 피해)
+        if target_id != morld.get_player_id():
+            survival._enter_exhaustion(target_id)
 
     return fainted
 
@@ -366,11 +395,19 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
             apply_body_injury(target_id, part)
             result["message"] += f" {target_name}의 {part}에 부상!"
 
-    # 독 공격 (attacker의 전투:독공격 prop)
-    poison_chance = morld.get_unit_prop(attacker_id, "전투:독공격") or 0
-    if poison_chance > 0 and hit and random.randint(1, 100) <= poison_chance:
-        apply_poison(target_id)
-        result["message"] += " 독이 퍼진다!"
+    # 특수 공격 처리 (범용 — 독, 거미줄, 마비 등 확장 가능)
+    _SPECIAL_ATTACK_MESSAGES = {
+        "전투:독공격":     "독이 퍼진다!",
+        "전투:거미줄공격": "거미줄에 묶였다!",
+        "전투:마비공격":   "몸이 마비됐다!",
+    }
+    for prop_key, apply_fn in _get_special_attacks().items():
+        chance = morld.get_unit_prop(attacker_id, prop_key) or 0
+        if chance > 0 and hit and random.randint(1, 100) <= chance:
+            apply_fn(target_id)
+            msg = _SPECIAL_ATTACK_MESSAGES.get(prop_key, "")
+            if msg:
+                result["message"] += f" {msg}"
 
     # 내구도 감소
     degrade_durability(attacker_id)
@@ -546,7 +583,7 @@ def check_npc_combat_join(region_id: int, location_id: int) -> list:
 
 
 def can_fight(unit_id: int) -> bool:
-    """전투 가능 상태 확인 (HP > 0, 기절 아님, 사망 아님)"""
+    """전투 가능 상태 확인 (HP > 0, 기절/탈진/마비/사망 아님)"""
     import survival
 
     hp = morld.get_unit_prop(unit_id, "생존:체력") or 0
@@ -556,7 +593,13 @@ def can_fight(unit_id: int) -> bool:
     if survival.is_npc_fainted(unit_id):
         return False
 
+    if survival.is_npc_exhausted(unit_id):
+        return False
+
     if morld.get_unit_prop(unit_id, "상태:사망"):
+        return False
+
+    if morld.get_unit_prop(unit_id, "상태:마비"):
         return False
 
     return True
@@ -689,6 +732,63 @@ def cure_body_injury(unit_id, body_part=None):
     _recompute_movement_injury(unit_id)
 
 
+# ── 마비 API ──
+
+def apply_paralysis(unit_id, duration_hours=None):
+    """마비 적용 — 이동 불가 + 전투 불가 (의식 유지)"""
+    if duration_hours is None:
+        duration_hours = PARALYSIS_DURATION_HOURS
+    morld.set_unit_prop(unit_id, "상태:마비", duration_hours)
+
+
+def cure_paralysis(unit_id):
+    """마비 치료"""
+    morld.clear_prop(unit_id, "상태:마비")
+
+
+def is_paralyzed(unit_id):
+    """마비 상태 여부"""
+    return bool(morld.get_unit_prop(unit_id, "상태:마비"))
+
+
+# ── 거미줄 API ──
+
+def apply_web_bind(unit_id, duration_hours=None):
+    """거미줄 결박 — 이동 불가 (하체 결박과 별개 트래킹)"""
+    if duration_hours is None:
+        duration_hours = WEB_BIND_DURATION_HOURS
+    morld.set_unit_prop(unit_id, "상태:거미줄", duration_hours)
+
+
+def cure_web_bind(unit_id):
+    """거미줄 결박 해제"""
+    morld.clear_prop(unit_id, "상태:거미줄")
+
+
+def is_web_bound(unit_id):
+    """거미줄 결박 여부"""
+    return bool(morld.get_unit_prop(unit_id, "상태:거미줄"))
+
+
+def attempt_web_escape(unit_id):
+    """거미줄 자력 탈출 — 결박 탈출 공식 재사용"""
+    props = morld.get_unit_props(unit_id) or {}
+    strength = props.get("근력", 5)
+    body_type = props.get("체격", 5)
+    hp = morld.get_unit_prop(unit_id, "생존:체력") or 0
+    max_hp = morld.get_unit_prop(unit_id, "생존:최대체력") or 100
+    hp_ratio = hp / max(1, max_hp)
+
+    power = strength * 2 + body_type * 3 + hp_ratio * 50
+    difficulty = WEB_BIND_ESCAPE_DIFFICULTY
+    chance = min(0.70, max(0.05, power / (difficulty + power)))
+
+    if random.random() < chance:
+        cure_web_bind(unit_id)
+        return True
+    return False
+
+
 def _recompute_movement_injury(unit_id):
     """둔화 + 다리 부상 중 최소 속도를 이동:부상에 반영"""
     slow_speed = morld.get_unit_prop(unit_id, "둔화:속도")
@@ -813,7 +913,7 @@ def reload_weapon(player_id) -> bool:
 # ========================================
 
 def _tick_debuffs(unit_id, is_player=False):
-    """한 유닛의 디버프 1시간 틱 (출혈/독/둔화/부위부상)"""
+    """한 유닛의 디버프 1시간 틱 (출혈/독/둔화/부위부상/마비/거미줄)"""
     import survival
 
     # 출혈 데미지
@@ -868,6 +968,22 @@ def _tick_debuffs(unit_id, is_player=False):
                     _recompute_movement_injury(unit_id)
             else:
                 morld.set_unit_prop(unit_id, f"부상:{part}", remaining - 1)
+
+    # 마비 회복
+    paralysis = morld.get_unit_prop(unit_id, "상태:마비") or 0
+    if paralysis > 0:
+        if paralysis - 1 <= 0:
+            cure_paralysis(unit_id)
+        else:
+            morld.set_unit_prop(unit_id, "상태:마비", paralysis - 1)
+
+    # 거미줄 결박 자연 해제
+    web = morld.get_unit_prop(unit_id, "상태:거미줄") or 0
+    if web > 0:
+        if web - 1 <= 0:
+            cure_web_bind(unit_id)
+        else:
+            morld.set_unit_prop(unit_id, "상태:거미줄", web - 1)
 
 
 def _on_time_elapsed(millis):
