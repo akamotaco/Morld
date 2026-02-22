@@ -1618,13 +1618,19 @@ test_harvest_requires_tool()
 
 ---
 
-## 26. 파티 시스템 (Phase 2 — 별도 세션)
+## 26. 파티 시스템 (Phase 2 — 별도 문서)
 
-- 최대 4인, 리더 = 플레이어
-- `party.py` 신규
-- 가입: 호감 일정 이상 + 비활동 중
+> **상세 구현 명세:** [party-implementation.md](party-implementation.md)
+
+요약:
+- 최대 4인 (리더 포함), 리더 = 플레이어 또는 NPC
+- `party.py` 신규 모듈 (date.py follow 패턴 확장)
+- 가입: 호감 일정 이상 + `PARTY_BEHAVIOR.recruitable`
+- 명령: 따라와 / 대기 / 집결 / 공격해 / 물러나
 - 전투 정책: aggressive / defensive / pacifist
-- 리더 따라다니기 (think에서 이동 우선)
+- think Tier 2.5: 파티 follow (Reactive와 Survival 사이)
+- NPC 리더: 이벤트/퀘스트 기반, 플레이어 참여/이탈
+- combat.py 연동: 파티 멤버 우선 합류 (호감도 체크 생략)
 - Scenario 03 확장: NPC 전용 분대, 거시/미시 명령, 전술 AI
 
 ---
