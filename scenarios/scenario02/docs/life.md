@@ -285,7 +285,7 @@ def _process_hourly(unit_id):
 4a. 착의 (_check_clothing): 상의/하의 미착용 → _handle_clothing()
 4b. 배변 (_check_excretion): 욕구:배변 ≥ 70 → _handle_excretion()
 4c. 피로 (_check_fatigue): 욕구:피로 ≥ 80 → _handle_sleep() (2시간 fallback)
-4d. 성욕 (_check_arousal): 성욕 임계값 → _handle_self_comfort() (성인용품 자동 사용) / _handle_seek_player()
+4d. 성욕 (_check_arousal): 성욕 임계값 → 0순위: _handle_seek_player() / 0.5순위: NPC-NPC 성행위 (합의 or 강제) / 1순위: 유혹/성추행 / 2순위: _handle_self_comfort()
 4e. 목욕 (스케줄 OR 청결): 욕구:청결 ≥ 70 → _handle_bath() (30분 fallback)
 4e-2. 세탁 (_check_laundry): 착용 의류 오염 > 5 → _handle_laundry() (비차단 대기)
 4f. 취침: 스케줄 수면 시간 → _handle_sleep()

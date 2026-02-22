@@ -374,46 +374,77 @@ _NPC_INTIMACY_DURATION_MS = 30 * 60_000  # 30분
 
 
 def _find_npc_lover(agent):
-    """같은 location에 있는 연인 NPC 탐색 (양쪽 성욕 높을 때)
+    """같은 location에 있는 합의/강제 대상 NPC 탐색
 
-    조건:
-    - 같은 location에 있음
-    - 호감 ≥ 60 (양방향 OR)
-    - 대상 성욕 ≥ 60
-    - 대상 수면/기절/겁탈/자위/성행위 중 아님
-    Returns: target_unit_id or None
+    Returns:
+        (target_id, "consensual") — 양방향 호감 + 양쪽 성욕
+        (target_id, "forced")     — 단방향 호감 + 체력 우위
+        (None, None)              — 대상 없음
     """
     from .social import _is_lover_npc
 
     loc = agent.get_location()
     if not loc:
-        return None
+        return None, None
     chars = morld.get_characters_at_location(loc[0], loc[1])
     if not chars:
-        return None
+        return None, None
 
     player_id = morld.get_player_id()
+
+    # Pass 1: 합의 (양방향 호감 + 양쪽 성욕)
     for char_id in chars:
         if char_id == agent.unit_id or char_id == player_id:
             continue
         if not _is_lover_npc(agent.unit_id, char_id):
             continue
-        # 상태 확인
+        if not _is_lover_npc(char_id, agent.unit_id):
+            continue  # 단방향 → pass 2
         info = morld.get_unit_info(char_id)
         if not info:
             continue
         job_name = info.get("job_name", "")
         if job_name in ("sleep", "fainting", "겁탈 중", "자위", "NPC 성행위"):
             continue
-        # 이미 성행위 중이면 스킵
         if morld.get_unit_prop(char_id, "상태:NPC성행위중"):
             continue
-        # 성욕 확인
         arousal = morld.get_unit_prop(char_id, "상태:성욕") or 0
         if arousal < 60:
             continue
-        return char_id
-    return None
+        return char_id, "consensual"
+
+    # Pass 2: 강제 (단방향 호감 + power 우위 + 성추행 모드)
+    import settings
+    if not settings.is_harassment_enabled():
+        return None, None
+
+    from romance_mode import get_unit_power
+    import survival
+
+    for char_id in chars:
+        if char_id == agent.unit_id or char_id == player_id:
+            continue
+        if not _is_lover_npc(agent.unit_id, char_id):
+            continue
+        if _is_lover_npc(char_id, agent.unit_id):
+            continue  # 양방향 → pass 1에서 처리됨
+        # 수면/기절 제외 (의식 있는 상태여야)
+        if survival.is_npc_fainted(char_id) or survival.is_npc_sleeping(char_id):
+            continue
+        info = morld.get_unit_info(char_id)
+        if not info:
+            continue
+        job_name = info.get("job_name", "")
+        if job_name in ("겁탈 중", "자위", "NPC 성행위"):
+            continue
+        if morld.get_unit_prop(char_id, "상태:NPC성행위중"):
+            continue
+        # 능력 체크: 이니시에이터 > 대상
+        if get_unit_power(agent.unit_id) <= get_unit_power(char_id):
+            continue
+        return char_id, "forced"
+
+    return None, None
 
 
 def _handle_npc_intimacy(agent):
@@ -475,11 +506,18 @@ def _handle_npc_intimacy(agent):
             agent._do_instant_action("대기", "abort")
             return
 
+        mode = agent._memory.get("npc_intimacy_mode", "consensual")
+
         # props 설정 (describe 가시성)
         morld.set_unit_prop(agent.unit_id, "상태:NPC성행위중", 1)
         morld.set_unit_prop(agent.unit_id, "성행위:상대", partner_id)
         morld.set_unit_prop(partner_id, "상태:NPC성행위중", 1)
         morld.set_unit_prop(partner_id, "성행위:상대", agent.unit_id)
+
+        # 강제 모드 추가 props
+        if mode == "forced":
+            morld.set_unit_prop(partner_id, "상태:NPC강제피해중", 1)
+            morld.set_unit_prop(agent.unit_id, "상태:NPC강제가해중", 1)
 
         # 파트너 job 삽입 (30분)
         morld.clear_jobs(partner_id)
@@ -492,24 +530,33 @@ def _handle_npc_intimacy(agent):
 
     elif phase == "finishing":
         partner_id = agent._memory.get("npc_intimacy_partner")
+        mode = agent._memory.get("npc_intimacy_mode", "consensual")
 
-        # 성욕 감소 (양측)
         if partner_id:
-            for uid in (agent.unit_id, partner_id):
-                arousal = morld.get_unit_prop(uid, "상태:성욕") or 0
-                morld.set_unit_prop(uid, "상태:성욕", max(0, arousal - 50))
-            # 그리움 해소 (양측)
-            try:
-                import needs
-                partner_info = morld.get_unit_info(partner_id)
-                agent_info = morld.get_unit_info(agent.unit_id)
-                if partner_info and agent_info:
-                    needs.reduce_longing(agent.unit_id,
-                                         partner_info.get("name", ""))
-                    needs.reduce_longing(partner_id,
-                                         agent_info.get("name", ""))
-            except ImportError:
-                pass
+            # 이니시에이터 성욕 감소 (공통)
+            arousal_init = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0
+            morld.set_unit_prop(agent.unit_id, "상태:성욕",
+                                max(0, arousal_init - 50))
+
+            if mode == "consensual":
+                # 대상 성욕 감소 + 그리움 해소
+                arousal_tgt = morld.get_unit_prop(partner_id, "상태:성욕") or 0
+                morld.set_unit_prop(partner_id, "상태:성욕",
+                                    max(0, arousal_tgt - 50))
+                try:
+                    import needs
+                    partner_info = morld.get_unit_info(partner_id)
+                    agent_info = morld.get_unit_info(agent.unit_id)
+                    if partner_info and agent_info:
+                        needs.reduce_longing(agent.unit_id,
+                                             partner_info.get("name", ""))
+                        needs.reduce_longing(partner_id,
+                                             agent_info.get("name", ""))
+                except ImportError:
+                    pass
+            else:
+                # 강제: 피해자 페널티
+                _apply_npc_forced_penalty(agent.unit_id, partner_id)
 
         _cleanup_npc_intimacy(agent)
         agent._memory["npc_intimacy_cooldown"] = agent.get_time()
@@ -522,7 +569,28 @@ def _cleanup_npc_intimacy(agent):
     if partner_id:
         morld.clear_prop(partner_id, "상태:NPC성행위중")
         morld.clear_prop(partner_id, "성행위:상대")
+        morld.clear_prop(partner_id, "상태:NPC강제피해중")
     morld.clear_prop(agent.unit_id, "상태:NPC성행위중")
     morld.clear_prop(agent.unit_id, "성행위:상대")
+    morld.clear_prop(agent.unit_id, "상태:NPC강제가해중")
     agent._memory["npc_intimacy_phase"] = None
     agent._memory["npc_intimacy_partner"] = None
+    agent._memory["npc_intimacy_mode"] = None
+
+
+def _apply_npc_forced_penalty(initiator_id, victim_id):
+    """NPC-NPC 강제 성행위 피해자 페널티
+
+    기존 aftermath 시스템(상태:강제피해 3단계) 재사용.
+    """
+    initiator_info = morld.get_unit_info(initiator_id)
+    initiator_name = initiator_info.get("name", "") if initiator_info else ""
+
+    if initiator_name:
+        # 반발 +15, 호감 -10
+        morld.modify_prop(victim_id, f"관계:{initiator_name}:반발", 15)
+        morld.modify_prop(victim_id, f"관계:{initiator_name}:호감", -10)
+
+    # 기존 aftermath 3단계 재사용 → on_meet_player에서 자동 표시
+    morld.set_unit_prop(victim_id, "상태:강제피해", 3)
+    morld.modify_prop(victim_id, "기억:강제피해횟수", 1)

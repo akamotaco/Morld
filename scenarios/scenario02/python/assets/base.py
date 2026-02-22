@@ -647,6 +647,7 @@ _FOCUS_ASSAULT_VICTIM = [
 ]
 
 _FOCUS_NPC_INTIMACY = [
+    ({"NPC강제피해중": True}, "누군가에게 강제로 당하고 있다. 도와줄 수 있을 것 같다."),
     ({"NPC성행위중": True}, "다른 사람과 행위 중인 것 같다. 방해하지 않는 게 좋겠다."),
 ]
 
@@ -1156,6 +1157,7 @@ _DESCRIBE_ASSAULT_VICTIM = [
 ]
 
 _DESCRIBE_NPC_INTIMACY = [
+    ({"NPC강제피해중": True}, "{name}(이)가 누군가에게 억지로 당하고 있다."),
     ({"NPC성행위중": True}, "{name}(이)가 누군가와 함께 얽혀 있다."),
 ]
 
@@ -2460,6 +2462,7 @@ class Character(Unit):
         # 겁탈 피해 중 / NPC 성행위 중
         context["겁탈피해중"] = bool(morld.get_unit_prop(unit_id, "상태:겁탈피해중"))
         context["NPC성행위중"] = bool(morld.get_unit_prop(unit_id, "상태:NPC성행위중"))
+        context["NPC강제피해중"] = bool(morld.get_unit_prop(unit_id, "상태:NPC강제피해중"))
 
         # 운반 상태
         import carry as _carry
@@ -4268,6 +4271,20 @@ class Character(Unit):
         "devoted": "[{name}]\n주, 주인님...!\n{name}(이)가 놀라 몸을 숨기려 한다.",
     }
 
+    # 아키타입별 NPC-NPC 강제 성행위 발각 대사 (피해자 시점)
+    _NPC_FORCED_INTIMACY_DISCOVERY_TEXTS = {
+        "stoic": "[{name}]\n...!\n{name}(이)가 고통스러운 표정으로 도움을 구하는 눈빛을 보낸다.",
+        "gentle": "[{name}]\n살려... 살려주세요...!\n{name}(이)가 눈물을 흘리며 손을 뻗는다.",
+        "cheerful": "[{name}]\n도, 도와줘...!\n{name}(이)가 공포에 질린 눈으로 애원한다.",
+        "timid": "[{name}]\n히...! 으...!\n{name}(이)가 새파랗게 질려 떨고 있다.",
+        "cold": "[{name}]\n...이 더러운 놈...!\n{name}(이)가 이를 악물며 저항하고 있다.",
+        "seductive": "[{name}]\n...제발... 그만...!\n{name}(이)가 필사적으로 밀어내려 한다.",
+        "fierce": "[{name}]\n놓으라고...!\n{name}(이)가 격렬히 저항하며 으르렁거린다.",
+        "proud": "[{name}]\n...이런 수치를...!\n{name}(이)가 분노와 굴욕으로 떨고 있다.",
+        "innocent": "[{name}]\n아파... 무서워...!\n{name}(이)가 겁에 질려 울고 있다.",
+        "devoted": "[{name}]\n...도와주세요...!\n{name}(이)가 절박한 눈으로 당신을 바라본다.",
+    }
+
     def _on_npc_intimacy_discovered(self, player_id):
         """NPC-NPC 성행위 발각 반응 (Generator)"""
         import think
@@ -4300,12 +4317,21 @@ class Character(Unit):
             if agent:
                 agent._insert_idle_job("대기", 60_000)
 
-        # 아키타입별 발각 대사
+        # 아키타입별 발각 대사 (강제/합의 분기)
         profile = getattr(self, 'REACTION_PROFILE', None) or {}
         archetype = profile.get("archetype", "stoic")
-        text = self._NPC_INTIMACY_DISCOVERY_TEXTS.get(
-            archetype,
-            f"[{self.name}]\n...!\n{self.name}(이)가 황급히 몸을 가린다.")
+
+        is_forced_victim = bool(morld.get_unit_prop(
+            self.instance_id, "상태:NPC강제피해중"))
+
+        if is_forced_victim:
+            text = self._NPC_FORCED_INTIMACY_DISCOVERY_TEXTS.get(
+                archetype,
+                f"[{self.name}]\n...!\n{self.name}(이)가 고통스러운 표정으로 도움을 구한다.")
+        else:
+            text = self._NPC_INTIMACY_DISCOVERY_TEXTS.get(
+                archetype,
+                f"[{self.name}]\n...!\n{self.name}(이)가 황급히 몸을 가린다.")
         text = text.format(name=self.name)
 
         def handler():

@@ -115,6 +115,7 @@ class BaseAgent:
             "gift_cooldown": None,        # 마지막 선물 시각 (밀리초)
             "npc_intimacy_phase": None,   # NPC-NPC 성행위 단계 (None/idle/going/performing/finishing)
             "npc_intimacy_partner": None, # 성행위 파트너 NPC unit_id
+            "npc_intimacy_mode": None,    # "consensual" / "forced" / None
             "npc_intimacy_cooldown": None, # 마지막 성행위 시각 (밀리초)
             "romance_last": None,         # 마지막 애정 행위 기억 {partner_id, region_id, location_id, timestamp, mode}
             "laundry_phase": None,        # 빨래 단계 (None/going_to_washer/loading/waiting_wash/collecting_wash/going_to_dryer/loading_dry/waiting_dry/collecting_dry)
@@ -1643,13 +1644,14 @@ class BaseAgent:
             _handle_seek_player(self)
             return True
 
-        # 0.5순위: NPC-NPC 성행위 (연인 NPC + 양쪽 성욕 높을 때)
+        # 0.5순위: NPC-NPC 성행위 (합의: 양방향 호감+성욕 / 강제: 단방향+power 우위)
         npc_int_last = self._memory.get("npc_intimacy_cooldown")
         if npc_int_last is None or self.get_time() - npc_int_last >= _NPC_INTIMACY_COOLDOWN_MS:
-            partner = _find_npc_lover(self)
+            partner, mode = _find_npc_lover(self)
             if partner is not None:
                 self._memory["npc_intimacy_phase"] = "idle"
                 self._memory["npc_intimacy_partner"] = partner
+                self._memory["npc_intimacy_mode"] = mode
                 _handle_npc_intimacy(self)
                 return True
 
