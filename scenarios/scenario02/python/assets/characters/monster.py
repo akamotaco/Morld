@@ -115,6 +115,80 @@ class Wolf(Monster):
     }
 
 
+class Bat(Monster):
+    """박쥐 — 폐광산 1층, 빠르고 회피 높지만 약함"""
+    unique_id = "bat"
+    name = "박쥐"
+
+    props = {
+        **Monster.props,
+        "생존:체력": 15,
+        "생존:최대체력": 15,
+        "전투:공격력": 3,
+        "전투:방어력": 1,
+        "전투:명중": 65,
+        "전투:회피": 25,
+        "전투:치명타": 5,
+        "전투:사거리": 50,
+        "전투:감지거리": 80,
+    }
+
+    BATTLE_BEHAVIOR = {
+        "combat_style": "evasive",
+        "target_priority": "nearest",
+        "preferred_range": 50,
+        "retreat_threshold": 0.3,
+    }
+
+    DROP_TABLE = [
+        {"item": "meat", "chance": 0.5, "count": 1},
+    ]
+
+
+class Spider(Monster):
+    """거미 — 폐광산 2층/깊은 갱도, 공격적"""
+    unique_id = "spider"
+    name = "거미"
+
+    props = {
+        **Monster.props,
+        "생존:체력": 50,
+        "생존:최대체력": 50,
+        "전투:공격력": 6,
+        "전투:방어력": 4,
+        "전투:명중": 75,
+        "전투:회피": 10,
+        "전투:치명타": 8,
+        "전투:사거리": 70,
+        "전투:감지거리": 100,
+        # 수확 가능 소재
+        "소재:독낭": 1,
+        "소재:거미줄": 2,
+    }
+
+    BATTLE_BEHAVIOR = {
+        "combat_style": "aggressive",
+        "target_priority": "nearest",
+        "preferred_range": 70,
+        "retreat_threshold": 0.15,
+    }
+
+    HARVEST_TABLE = {
+        "소재:독낭": {
+            "item": "spider_venom",
+            "name": "거미독",
+            "tool_prop": "날붙이",
+            "time_ms": 8_000,
+        },
+        "소재:거미줄": {
+            "item": "spider_silk",
+            "name": "거미줄",
+            "tool_prop": None,
+            "time_ms": 3_000,
+        },
+    }
+
+
 class TrainingDummy(Character):
     """훈련용 허수아비 — 반격 없음, HP 999"""
     unique_id = "training_dummy"

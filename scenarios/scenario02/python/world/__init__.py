@@ -17,6 +17,7 @@ from . import mansion   # Region 0: 숲속 저택
 from . import vehicle   # Region 1: 차량 전용
 from . import city      # Region 2: 황폐화된 도시
 from . import forest    # Region 3: 숲
+from . import mine      # Region 4: 폐광산
 
 # ========================================
 # Region 간 연결 (RegionGate)
@@ -35,6 +36,9 @@ REGION_GATES = [
 
     # 숲 입구(R0:20) ↔ 숲 입구(R3:0) - ≈30분 도보
     (2, mansion.REGION_ID, 20, forest.REGION_ID, 0, 1800),
+
+    # 주차장(R2:4) ↔ 광산 입구(R4:0) - ≈30분 도보
+    (3, city.REGION_ID, 4, mine.REGION_ID, 0, 1800),
 ]
 
 
@@ -87,6 +91,7 @@ def initialize_world():
     vehicle.initialize_terrain()
     city.initialize_terrain()
     forest.initialize_terrain()
+    mine.initialize_terrain()
 
     # 시간 설정 (mansion에서 관리)
     mansion.initialize_time()

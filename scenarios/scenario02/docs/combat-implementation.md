@@ -694,7 +694,8 @@ class IronShield(Item):
 | 도끼 | 3 | 70 | 6000 | 0.50 | 벌목 겸용 |
 | 곡괭이 | 4 | 60 | 6000 | 0.67 | 채광 겸용 |
 | 목검 | 3 | 70 | 5000 | 0.60 | |
-| 철검 | 7 | 80 | 5000 | 1.40 | 광석 제작 |
+| 구리검 | 5 | 70 | 5000 | 1.00 | 구리광석 제작 |
+| 철검 | 7 | 80 | 5000 | 1.40 | 철광석 제작 |
 | 활 | 5 | 300 | 10000 | 0.50 | 화살, 조용 |
 | 리볼버 | 12 | 200 | 8000 | 1.50 | 탄약 희소, 잼, 소음 |
 
@@ -860,30 +861,46 @@ def harvest(self):
     morld.add_action_log("더 이상 수확할 것이 없다.")
 ```
 
-### 11.4 구체 몬스터 클래스
+### 11.4 구체 몬스터 클래스 (구현 완료)
 
 ```python
-class Wolf(Monster):
-    unique_id = "wolf"
-    name = "늑대"
+class Bat(Monster):
+    """박쥐 — 약한 몬스터, 광산 1층"""
+    unique_id = "bat"
+    name = "박쥐"
     props = {
         **Monster.props,
-        "생존:체력": 40, "생존:최대체력": 40,
-        "전투:공격력": 8, "전투:방어력": 3,
-        "전투:명중": 75, "전투:회피": 15, "전투:사거리": 70,
-        "전투:감지거리": 120,
-        "소재:가죽": 2, "소재:이빨": 1,
+        "생존:체력": 15, "생존:최대체력": 15,
+        "전투:공격력": 3, "전투:방어력": 1,
+        "전투:명중": 65, "전투:회피": 25, "전투:치명타": 5,
+        "전투:사거리": 50, "전투:감지거리": 80,
+    }
+    BATTLE_BEHAVIOR = {
+        "combat_style": "evasive", "target_priority": "nearest",
+        "preferred_range": 50, "retreat_threshold": 0.3,
+    }
+    DROP_TABLE = [{"item": "meat", "chance": 0.5, "count": 1}]
+
+
+class Spider(Monster):
+    """거미 — 중간 몬스터, 광산 2층/깊은 갱도"""
+    unique_id = "spider"
+    name = "거미"
+    props = {
+        **Monster.props,
+        "생존:체력": 50, "생존:최대체력": 50,
+        "전투:공격력": 6, "전투:방어력": 4,
+        "전투:명중": 75, "전투:회피": 10, "전투:치명타": 8,
+        "전투:사거리": 70, "전투:감지거리": 100,
+        "소재:독낭": 1, "소재:거미줄": 2,
     }
     BATTLE_BEHAVIOR = {
         "combat_style": "aggressive", "target_priority": "nearest",
-        "preferred_range": 70, "retreat_threshold": 0.2,
+        "preferred_range": 70, "retreat_threshold": 0.15,
     }
-    DROP_TABLE = [
-        {"item": "raw_meat", "chance": 0.8, "count": (1, 2)},
-    ]
     HARVEST_TABLE = {
-        "소재:가죽": {"item": "wolf_pelt", "name": "늑대 가죽", "tool_prop": "날붙이", "time_ms": 10_000},
-        "소재:이빨": {"item": "wolf_fang", "name": "늑대 이빨", "tool_prop": "날붙이", "time_ms": 5_000},
+        "소재:독낭": {"item": "spider_venom", "name": "거미독", "tool_prop": "날붙이", "time_ms": 8_000},
+        "소재:거미줄": {"item": "spider_silk", "name": "거미줄", "tool_prop": None, "time_ms": 3_000},
     }
 
 
@@ -1401,60 +1418,65 @@ class Baton(Item):
     }
 ```
 
-### 21.3 광산 Region (신규)
+### 21.3 광산 Region (구현 완료)
 
-**Region 4 — 도시(Region 2)와 Gate 연결:**
+**Region 4 — 도시 주차장(R2:4)에서 Gate 연결 (~30분 도보):**
 
-| Location | 설명 | 특성 |
-|----------|------|------|
-| 광산 입구 | 채광장 | 안전, 제작대 |
-| 1층 갱도 | 일반 광석 | 약한 몬스터 |
-| 2층 갱도 | 희귀 광석 | 중간 몬스터 |
-| 깊은 갱도 | 최상급 광석 | 강한 몬스터 |
+| Location ID | 이름 | length | indoor | 오브젝트 | 몬스터 |
+|-------------|------|--------|--------|---------|--------|
+| 0 | 광산 입구 | 300 | False | 벤치, 곡괭이(바닥) | — |
+| 1 | 1층 갱도 | 500 | True | CopperOreNode×2 | 박쥐 (max 2, 4h) |
+| 2 | 2층 갱도 | 400 | True | CopperOreNode×1, IronOreNode×1 | 거미 (max 1, 6h) |
+| 3 | 깊은 갱도 | 300 | True | IronOreNode×2 | 거미 (max 2, 8h) |
 
-### 21.4 채광 시스템
+**몬스터 (동시 최대 5마리):**
+
+| 몬스터 | HP | ATK | DEF | 명중 | 회피 | 스타일 | 드롭/수확 |
+|--------|-----|-----|-----|------|------|--------|----------|
+| Bat (박쥐) | 15 | 3 | 1 | 65 | 25 | evasive | meat(50%) |
+| Spider (거미) | 50 | 6 | 4 | 75 | 10 | aggressive | 독낭(수확,날붙이), 거미줄(수확,맨손) |
+
+**제작대**: 광산에 배치하지 않음 — 건축 시스템으로 플레이어가 직접 건축하도록 유도.
+
+### 21.4 채광 시스템 (구현 완료)
+
+**OreNode** (`assets/objects/mining.py`): Object 서브클래스, props 기반 자원 관리 + 시간구독 자동 재생.
+
+| 서브클래스 | resource_type | amount/max | regen | 위치 |
+|-----------|---------------|------------|-------|------|
+| CopperOreNode | copper_ore | 5/5 | 24h | 1층(×2), 2층(×1) |
+| IronOreNode | iron_ore | 3/3 | 48h | 2층(×1), 깊은(×2) |
 
 ```python
-class OreNode(Object):
-    unique_id = "ore_node_iron"
-    name = "철광석 노드"
-    props = {
-        "resource:type": "iron_ore",
-        "resource:amount": 5,
-        "resource:regen_hours": 24,
-    }
-
-    def mine(self):
-        """채광 (can:mine equip_prop 필요 = 곡괭이)"""
-        # resource:amount -1, 아이템 생성, 내구도 감소, 5분 경과
-
 class Pickaxe(Item):
     unique_id = "pickaxe"
     name = "곡괭이"
     category = "tool"
+    passive_props = {"can:mine": 1}
     equip_props = {
-        "can:mine": 1, "전투:공격력": 4,
-        "전투:사거리": 60, "장착:손": 1,
+        "전투:공격력": 4, "전투:사거리": 60, "장착:손": 1,
     }
 ```
 
-### 21.5 광석 크래프팅
+### 21.5 광석 크래프팅 (구현 완료)
 
 ```python
-# crafting_recipes.py 추가:
-"iron_sword": {
-    "name": "철검", "materials": {"iron_ore": 3, "branch": 1},
-    "result_count": 1, "craft_time": 20,
-},
-"iron_shield": {
-    "name": "철제 방패", "materials": {"iron_ore": 5},
-    "result_count": 1, "craft_time": 30,
-},
-"pickaxe_recipe": {
-    "name": "곡괭이", "materials": {"iron_ore": 2, "branch": 1},
-    "result_count": 1, "craft_time": 15,
-},
+# crafting_recipes.py — WORKBENCH_RECIPE_LIST에 등록:
+"copper_sword":  {"materials": {"copper_ore": 3, "branch": 1}, "craft_time": 15, "category": "무기"}
+"copper_shield": {"materials": {"copper_ore": 4},               "craft_time": 20, "category": "무기"}
+"iron_sword":    {"materials": {"iron_ore": 3, "branch": 1},    "craft_time": 20, "category": "무기"}
+"iron_shield":   {"materials": {"iron_ore": 5},                 "craft_time": 30, "category": "무기"}
+"pickaxe":       {"materials": {"iron_ore": 2, "branch": 1},    "craft_time": 15, "category": "도구"}
 ```
+
+**무기 등급 비교:**
+
+| 무기 | 공격력 | 사거리 | 특수 |
+|------|--------|--------|------|
+| 구리검 | 5 | 70 | 하위 등급 |
+| 철검 | 7 | 80 | 상위 등급 |
+| 구리방패 | 방어 3, 회피 -5 | — | 하위 등급 |
+| 철제방패 | 방어 5, 회피 -10 | — | 상위 등급 |
 
 ---
 
@@ -1505,11 +1527,14 @@ spawner.reset()
 |------|------|---------|
 | `combat.py` | 전투 코어 | ~350 |
 | `spawner.py` | 몬스터 스폰 | ~120 |
-| `assets/characters/monster.py` | Monster/Wolf/TrainingDummy | ~150 |
-| `assets/items/weapons.py` | Revolver, Baton, IronSword | ~60 |
-| `assets/items/shields.py` | WoodenShield, IronShield | ~30 |
+| `assets/characters/monster.py` | Monster/Bat/Spider/TrainingDummy | ~200 |
+| `assets/items/weapons.py` | Revolver, Baton, CopperSword, IronSword, Pickaxe | ~150 |
+| `assets/items/shields.py` | WoodenShield, CopperShield, IronShield | ~50 |
 | `assets/items/ammo.py` | Arrow, PistolAmmo | ~20 |
-| `assets/objects/mining.py` | OreNode, Pickaxe | ~60 |
+| `assets/items/ores.py` | CopperOre, IronOre | ~50 |
+| `assets/objects/mining.py` | OreNode, CopperOreNode, IronOreNode + regen | ~165 |
+| `assets/locations/mine.py` | MineEntrance, MineFloor1/2, MineDeep | ~130 |
+| `world/mine.py` | Region 4 + spawn 등록 | ~110 |
 | `tests/test_combat.py` | 테스트 | ~200 |
 
 ### 수정 파일

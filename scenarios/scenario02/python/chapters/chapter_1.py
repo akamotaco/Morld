@@ -198,6 +198,10 @@ def _register_pollution():
     for loc_id in range(6):
         pollution.register_location(3, loc_id, max_pollution=20, rate=1)
 
+    # Region 4: 폐광산 (0-3: 입구/1층/2층/깊은갱도)
+    for loc_id in range(4):
+        pollution.register_location(4, loc_id, max_pollution=20, rate=1)
+
     print("[chapter_1] Pollution registered for all locations")
 
 

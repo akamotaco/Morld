@@ -41,6 +41,27 @@ class Baton(Item):
 
 
 @register_item
+class CopperSword(Item):
+    """구리검 — 구리광석 제작, 하위 등급"""
+    unique_id = "copper_sword"
+    name = "구리검"
+    category = "weapon"
+    equip_props = {
+        "전투:공격력": 5,
+        "전투:사거리": 70,
+        "장착:손": 1,
+    }
+    value = 50
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        yield ui.dialog([
+            "구리로 만든 검이다.",
+            "철검보다는 약하지만 쓸 만하다."
+        ])
+
+
+@register_item
 class IronSword(Item):
     """철검 — 광석 제작"""
     unique_id = "iron_sword"

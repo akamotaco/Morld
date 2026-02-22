@@ -134,3 +134,35 @@ class Feather(Item):
             "새의 깃털이다.",
             "화살 깃으로 쓸 수 있겠다."
         ])
+
+
+@register_item
+class SpiderVenom(Item):
+    """거미독 — 거미 시체에서 수확 (날붙이 필요)"""
+    unique_id = "spider_venom"
+    name = "거미독"
+    category = "material"
+    value = 10
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        yield ui.dialog([
+            "거미의 독낭에서 추출한 독이다.",
+            "약품 제작에 쓸 수 있을지 모른다."
+        ])
+
+
+@register_item
+class SpiderSilk(Item):
+    """거미줄 — 거미 시체에서 수확"""
+    unique_id = "spider_silk"
+    name = "거미줄"
+    category = "material"
+    value = 5
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        yield ui.dialog([
+            "질긴 거미줄이다.",
+            "끈 대용으로 쓸 수 있을 것 같다."
+        ])

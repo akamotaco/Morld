@@ -27,6 +27,27 @@ class WoodenShield(Item):
 
 
 @register_item
+class CopperShield(Item):
+    """구리 방패 — 구리광석 제작, 하위 등급"""
+    unique_id = "copper_shield"
+    name = "구리 방패"
+    category = "weapon"
+    equip_props = {
+        "전투:방어력": 3,
+        "전투:회피": -5,
+        "장착:손": 1,
+    }
+    value = 35
+    actions = ["take@container", "equip@inventory", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        yield ui.dialog([
+            "구리로 만든 방패다.",
+            "나무 방패보다 튼튼하다."
+        ])
+
+
+@register_item
 class IronShield(Item):
     """철제 방패 — 광석 제작"""
     unique_id = "iron_shield"

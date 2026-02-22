@@ -15,7 +15,9 @@
 Region 0: 숲속 저택 (mansion)
 Region 1: 차량 (vehicle)
 Region 2: 도심 (city)
-Region 3: 던전 (dungeon)  ← 새로 추가
+Region 3: 숲 (forest)
+Region 4: 폐광산 (mine)        ← 구현 완료 (채광 + 몬스터)
+Region 5+: 던전 (dungeon)      ← 미래 확장
 ```
 
 ### Gate 연결 방식

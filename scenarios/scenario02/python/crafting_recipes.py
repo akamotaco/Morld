@@ -69,6 +69,43 @@ CRAFTING_RECIPES = {
         "result_count": 1,
         "craft_time": 10,
     },
+
+    # === 광석 무기/방패 ===
+    "copper_sword": {
+        "name": "구리검",
+        "category": "무기",
+        "materials": {"copper_ore": 3, "branch": 1},
+        "result_count": 1,
+        "craft_time": 15,
+    },
+    "copper_shield": {
+        "name": "구리방패",
+        "category": "무기",
+        "materials": {"copper_ore": 4},
+        "result_count": 1,
+        "craft_time": 20,
+    },
+    "iron_sword": {
+        "name": "철검",
+        "category": "무기",
+        "materials": {"iron_ore": 3, "branch": 1},
+        "result_count": 1,
+        "craft_time": 20,
+    },
+    "iron_shield": {
+        "name": "철제방패",
+        "category": "무기",
+        "materials": {"iron_ore": 5},
+        "result_count": 1,
+        "craft_time": 30,
+    },
+    "pickaxe": {
+        "name": "곡괭이",
+        "category": "도구",
+        "materials": {"iron_ore": 2, "branch": 1},
+        "result_count": 1,
+        "craft_time": 15,
+    },
 }
 
 
@@ -85,6 +122,11 @@ WORKBENCH_RECIPE_LIST = [
     "plank",
     "wood_chip",
     "wooden_sword",
+    "copper_sword",
+    "copper_shield",
+    "iron_sword",
+    "iron_shield",
+    "pickaxe",
     "aphrodisiac",
     "rabbit_trap_branch",
     "rabbit_trap_plank",

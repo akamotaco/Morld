@@ -31,7 +31,11 @@ from .clothes import (
     SeraHuntingOutfit, MilaApron
 )
 from .materials import (
-    Log, Branch, Plank, Cord, Feather
+    Log, Branch, Plank, Cord, Feather,
+    SpiderVenom, SpiderSilk
+)
+from .ores import (
+    CopperOre, IronOre
 )
 from .currency import (
     Coin
@@ -41,10 +45,10 @@ from .collectibles import (
     PrettyStone, OldPendant, WoodCarving, BrokenWatch, OldTeddyBear
 )
 from .weapons import (
-    Baton, IronSword, Pickaxe, Revolver
+    CopperSword, Baton, IronSword, Pickaxe, Revolver
 )
 from .shields import (
-    WoodenShield, IronShield
+    WoodenShield, CopperShield, IronShield
 )
 from .ammo import (
     Arrow, PistolAmmo
@@ -85,15 +89,18 @@ __all__ = [
     'SeraHuntingOutfit', 'MilaApron',
     # materials
     'Log', 'Branch', 'Plank', 'Cord', 'Feather',
+    'SpiderVenom', 'SpiderSilk',
+    # ores
+    'CopperOre', 'IronOre',
     # currency
     'Coin',
     # collectibles
     'WildFlower', 'DriedFlower',
     'PrettyStone', 'OldPendant', 'WoodCarving', 'BrokenWatch', 'OldTeddyBear',
     # weapons
-    'Baton', 'IronSword', 'Pickaxe', 'Revolver',
+    'CopperSword', 'Baton', 'IronSword', 'Pickaxe', 'Revolver',
     # shields
-    'WoodenShield', 'IronShield',
+    'WoodenShield', 'CopperShield', 'IronShield',
     # ammo
     'Arrow', 'PistolAmmo',
     # consumables
