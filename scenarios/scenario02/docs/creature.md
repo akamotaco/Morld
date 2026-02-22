@@ -853,8 +853,13 @@ if morld.get_unit_prop(self.unit_id, "is_humanoid"):
 |------|--------|------|
 | 자력 제거 (`attempt_self_removal`) | `근력/(근력+난이도) × 0.5` (최대 50%) | 실패 시 HP -3 |
 | 제거제 (`remove_with_item`) | 100% | 소모품 1개 |
+| 타인 제거 (통상) | 100% | 3분 소요 |
+| 타인 제거 (로맨스) | 100% | 3분 소요 |
 
 - 옷 위에 기생체 → 옷을 먼저 벗어야 제거 가능
+- **통상 제거**: NPC 포커스 메뉴 → "기생체 제거" (`base.py` `remove_parasite_by_other()`)
+- **로맨스 제거**: 즉시 행위 "기생체 제거 (상대)" (`remove_parasite_partner`)
+- 모든 제거 경로는 `_force_remove()` → 아키타입별 제거 반응 대사 출력
 
 ### 기생 AI (CreatureAgent Tier 3.7)
 
@@ -891,13 +896,28 @@ _check_parasitize_opportunity()
 - `climax_contribution` → `상태:절정` 게이지 증가 (성인용품과 합산)
 - ~30% 확률로 아키타입 기반 주기적 반응 대사 (`parasite.emit_periodic_reaction()`)
 
+### 상호작용 차단
+
+기생체 부착 부위에 대한 삽입 행위가 **완전 차단**됨:
+
+| 기생 슬롯 | 차단 대상 | 차단 위치 |
+|-----------|----------|----------|
+| `기생:음부` | vaginal_insert, 성인용품 삽입, 생물 겁탈 | romance_ui (gray 표시), romance.py, adult_toys.py, creature_agent.py |
+| `기생:항문` | anal_insert, 성인용품 삽입 | romance_ui (gray 표시), romance.py, adult_toys.py |
+
+- **로맨스 UI**: `is_action_blocked_by_state()` → `[color=gray]행위명 (기생체 부착)[/color]`
+- **삽입 시도**: `_check_insertion_hard_fail()` → "기생체가 {부위}에 부착되어 삽입할 수 없다."
+- **성인용품**: `insert_toy()` → "기생체가 부착되어 {부위}에 삽입할 수 없다."
+- **생물 겁탈**: `_handle_assault()` → 음부 기생 시 삽입 스킵 + "기생체에 막혀 삽입하지 못했다."
+
 ### 반응 대사 시스템
 
-3단계 반응:
+4단계 반응:
 
 | 유형 | 시점 | 소스 |
 |------|------|------|
 | 부착 즉시 반응 | `attach_parasite()` 성공 시 | `parasite._emit_attachment_reaction()` |
+| **제거 즉시 반응** | `_force_remove()` 시 | `parasite._emit_removal_reaction()` |
 | 주기적 반응 | 매시간 ~30% | `parasite.emit_periodic_reaction()` |
 | describe 묘사 | 항상 (규칙 매칭) | `base.py` `_DESCRIBE_PARASITE` + `_DESCRIBE_PARASITE_REACTION` |
 
@@ -922,6 +942,15 @@ _check_parasitize_opportunity()
 - 자력: `Player.remove_parasite()` — 슬롯 선택 → `attempt_self_removal()` → 5분 경과
 - 제거제: `ParasiteRemover.use_remover()` — 슬롯 선택 → `remove_with_item()` → 소모품 소비
 - 유적 입구(R5:L0)에 제거제 2개 바닥 배치
+
+### 타인에 의한 제거
+
+- **통상 모드**: NPC 포커스 메뉴 → "기생체 제거" → 슬롯 선택 UI → `remove_with_item()` → 3분 경과
+  - `base.py` `_add_remove_parasite_action()` → `remove_parasite_by_other()`
+  - `parasite.has_any_parasite()` True인 NPC에게만 표시
+- **로맨스 모드**: 즉시 행위 "기생체 제거 (상대)" → 슬롯 선택 UI → `remove_with_item()` → 3분 경과
+  - `romance_actions.py` `remove_parasite_partner` 액션 정의
+  - 기생체 부착 상태일 때만 표시
 
 ### `_memory` 키
 

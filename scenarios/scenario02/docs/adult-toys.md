@@ -288,15 +288,19 @@ morld.set_unit_prop(npc_id, "상태:절정", final_climax)
 | `unrestrain_partner` | 결박 해제 | 1분 | 0 | |
 | `equip_toy_partner` | 성인용품 장착 | 2분 | 1 | 저항 체크, 인벤토리 adult_toy 필요 |
 | `remove_toy_partner` | 성인용품 해제 | 1분 | 0 | |
+| `remove_parasite_partner` | 기생체 제거 (상대) | 3분 | 1 | 기생체 부착 시만 표시 |
 | `force_feed` | 강제 투여 | 1분 | 1 | 인벤토리 medicine 필요, 입 자유 필요 |
 | `use_whip` | 채찍질 | 2분 | 2 | 채찍 장착 필요, 반발+3/복종+2/성욕+2 |
 
 ### 행위 차단 로직 (romance_core.py)
 
-`is_action_blocked_by_state(action_def, target_id)`:
-- `uses_mouth` + 입 결박 → 차단
-- `requires_no_gag` + 입 결박 → 차단
-- `insertion_orifice` + 해당 부위 삽입물 존재 → 차단
+`is_action_blocked_by_state(action_def, target_id)` → `str|None` (차단 사유 또는 None):
+- `uses_mouth` + 입 결박 → `"입 결박"`
+- `requires_no_gag` + 입 결박 → `"입 결박"`
+- `insertion_orifice` + 해당 부위 삽입물 존재 → `"{부위} 삽입물"`
+- `insertion_orifice` + 해당 부위 기생체 부착 → `"기생체 부착"`
+
+UI에서 차단된 행위는 `[color=gray]행위명 (차단 사유)[/color]`으로 표시.
 
 ### 결박 + 강제 모드
 

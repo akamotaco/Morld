@@ -378,6 +378,11 @@ INSTANT_ACTIONS = {
         "effects": {},
         "exp_part": None, "affection_req": 0,
     },
+    "remove_parasite_partner": {
+        "name": "기생체 제거 (상대)", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {},
+        "exp_part": None, "affection_req": 0,
+    },
     "force_feed": {
         "name": "강제 투여", "time": 1 * MILLIS_PER_MINUTE, "stamina": 1,
         "effects": {"반발": 2, "복종": 1},

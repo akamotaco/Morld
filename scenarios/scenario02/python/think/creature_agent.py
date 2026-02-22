@@ -233,12 +233,16 @@ class CreatureAgent(BaseAgent):
 
             # 사정/임신 (수컷 creature만)
             if gender_mod.has_anatomy(self.unit_id, "P"):
-                from romance_core import _apply_internal_semen
-                _apply_internal_semen(target_id, "음부", 50)
-                if gender_mod.has_anatomy(target_id, "V"):
-                    import pregnancy
-                    pregnancy.check_conception(
-                        target_id, self.unit_id, father_type="unknown")
+                # 기생체 부착 시 삽입 스킵
+                if morld.get_unit_prop(target_id, "기생:음부"):
+                    morld.add_action_log("기생체에 막혀 삽입하지 못했다.")
+                else:
+                    from romance_core import _apply_internal_semen
+                    _apply_internal_semen(target_id, "음부", 50)
+                    if gender_mod.has_anatomy(target_id, "V"):
+                        import pregnancy
+                        pregnancy.check_conception(
+                            target_id, self.unit_id, father_type="unknown")
 
             # 처녀 해제 + 부위별 첫경험 기록
             virginity_prop = "처녀:음부"

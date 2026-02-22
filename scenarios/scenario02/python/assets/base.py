@@ -1481,7 +1481,8 @@ class Character(Unit):
                       if self._extract_action_name(a) in allowed_set]
             result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
-            return self._add_loot_clothing_action(result)
+            result = self._add_loot_clothing_action(result)
+            return self._add_remove_parasite_action(result)
 
         # 탈진: 의식 있음 → 대화 + debug + 로맨스 + 운반/강탈 + 성추행
         if _surv.is_npc_exhausted(self.instance_id):
@@ -1490,7 +1491,8 @@ class Character(Unit):
                       if self._extract_action_name(a) in allowed_set]
             result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
-            return self._add_loot_clothing_action(result)
+            result = self._add_loot_clothing_action(result)
+            return self._add_remove_parasite_action(result)
 
         activity = info.get("activity")
         mood = info.get("mood", [])
@@ -1517,7 +1519,8 @@ class Character(Unit):
             result = self._add_combat_actions(result)
             result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
-            return self._add_loot_clothing_action(result)
+            result = self._add_loot_clothing_action(result)
+            return self._add_remove_parasite_action(result)
 
         # 필터링 적용
         allowed = rules.get("allowed")
@@ -1548,13 +1551,15 @@ class Character(Unit):
             result = self._add_combat_actions(result)
             result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
-            return self._add_loot_clothing_action(result)
+            result = self._add_loot_clothing_action(result)
+            return self._add_remove_parasite_action(result)
 
         result = self._add_casual_affection_actions(result)
         result = self._add_combat_actions(result)
         result = self._add_harassment_actions(result)
         result = self._add_carry_action(result)
-        return self._add_loot_clothing_action(result)
+        result = self._add_loot_clothing_action(result)
+        return self._add_remove_parasite_action(result)
 
     def _apply_dynamic_action_labels(self, actions, info):
         """동적 라벨 적용 (작업지시에 현재 활동 표시 등)"""
@@ -1759,6 +1764,42 @@ class Character(Unit):
         inv_mod.safe_give_item(player_id, item_id, 1)
 
         yield ui.dialog([f"{self.name}의 {item_name}을(를) 빼앗았다."])
+
+    def _add_remove_parasite_action(self, actions):
+        """기생체 부착 NPC에게 '기생체 제거' 액션 동적 추가"""
+        try:
+            import parasite
+            if parasite.has_any_parasite(self.instance_id):
+                actions.append("call:remove_parasite_by_other:기생체 제거#")
+        except ImportError:
+            pass
+        return actions
+
+    def remove_parasite_by_other(self):
+        """타인에 의한 기생체 제거 — 선택 UI + 확실한 제거"""
+        import parasite
+
+        attached = parasite.get_attached_parasites(self.instance_id)
+        if not attached:
+            morld.add_action_log("부착된 기생체가 없다.")
+            return
+
+        if len(attached) == 1:
+            chosen_slot = attached[0][0]
+        else:
+            lines = [f"[b]{self.name}[/b]의 기생체 제거\n"]
+            for slot, item_id, name in attached:
+                part = slot.split(":")[1]
+                lines.append(f"[url=@ret:{slot}]{name} ({part})[/url]")
+            lines.append("\n[url=@ret:cancel]취소[/url]")
+            choice = yield ui.dialog("\n".join(lines))
+            if choice == "cancel" or not choice:
+                return
+            chosen_slot = choice
+
+        result = parasite.remove_with_item(self.instance_id, chosen_slot)
+        morld.add_action_log(result["message"])
+        morld.advance_time_des(3 * 60_000)  # 3분
 
     def harass(self):
         """비전투 성추행 세션"""

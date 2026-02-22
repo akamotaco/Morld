@@ -147,7 +147,7 @@ def remove_with_item(unit_id, slot):
 
 
 def _force_remove(unit_id, slot, item_id):
-    """강제 제거 (패시브 효과 해제 + prop 클리어)"""
+    """강제 제거 (패시브 효과 해제 + prop 클리어 + 반응 대사)"""
     from assets.registry import get_instance
     item = get_instance(item_id)
     if item:
@@ -156,6 +156,8 @@ def _force_remove(unit_id, slot, item_id):
             morld.modify_prop(unit_id, prop_key, -value)
     morld.clear_prop(unit_id, slot)
     morld.lost_item(unit_id, item_id, 1)
+    # 제거 반응 대사
+    _emit_removal_reaction(unit_id, slot)
 
 
 # ========================================
@@ -219,6 +221,39 @@ def _emit_attachment_reaction(target_id, item):
         msg = template.format(name=name, part=part)
     else:
         msg = f"{name}의 {part}에 기생체가 부착되었다."
+    morld.add_action_log(msg)
+
+
+# 제거 즉시 반응 (아키타입별)
+_REMOVAL_REACTIONS = {
+    "stoic": "{name}(이)가 {part}에서 기생체가 떨어지자 안도의 한숨을 내쉰다.",
+    "gentle": "'고, 고마워...' {name}(이)가 {part}의 기생체가 떨어지자 안도한다.",
+    "timid": "'빠, 빠졌어...!' {name}(이)가 눈물을 글썽이며 안심한다.",
+    "cheerful": "'으으... 드디어 빠졌다!' {name}(이)가 안도의 웃음을 짓는다.",
+    "cold": "{name}(이)가 {part}에서 기생체가 떨어지자 표정 없이 몸을 정돈한다.",
+    "seductive": "'후... 끝났네.' {name}(이)가 {part}를 매만지며 한숨을 내쉰다.",
+    "fierce": "'드디어...!' {name}(이)가 떨어진 기생체를 분노에 찬 눈으로 노려본다.",
+    "proud": "{name}(이)가 {part}의 기생체가 제거되자 굴욕감을 추스른다.",
+    "innocent": "'{part}에서 빠졌다...!' {name}(이)가 신기한 듯 기생체를 바라본다.",
+    "devoted": "'감사합니다...' {name}(이)가 안도하며 고개를 숙인다.",
+}
+
+
+def _emit_removal_reaction(unit_id, slot):
+    """기생체 제거 시 즉시 반응 대사"""
+    from assets.characters import get_instance
+    char = get_instance(unit_id)
+    if not char:
+        return
+    archetype = getattr(char, 'archetype', None)
+    name = getattr(char, 'name', '?')
+    part = slot.split(":")[1]
+
+    template = _REMOVAL_REACTIONS.get(archetype)
+    if template:
+        msg = template.format(name=name, part=part)
+    else:
+        msg = f"{name}의 {part}에서 기생체가 제거되었다."
     morld.add_action_log(msg)
 
 

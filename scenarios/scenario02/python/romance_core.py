@@ -178,33 +178,43 @@ def is_anatomy_compatible(action_def, target_id, actor_id=None):
 
 
 def is_action_blocked_by_state(action_def, target_id):
-    """결박/삽입물에 의한 행위 차단 체크
+    """결박/삽입물/기생체에 의한 행위 차단 체크
 
     Args:
         action_def: 행위 정의 dict
         target_id: 대상 유닛 ID (NPC)
 
     Returns:
-        bool: True이면 차단됨 (행위 불가)
+        str or None: None이면 차단 아님, str이면 차단 사유
     """
     import restraint
 
     # 구강 차단: 입 결박 시 구강 행위 불가
     if action_def.get("uses_mouth") and restraint.is_gagged(target_id):
-        return True
+        return "입 결박"
 
     # 입 자유 필요: 강제 투여 등
     if action_def.get("requires_no_gag") and restraint.is_gagged(target_id):
-        return True
+        return "입 결박"
 
-    # 삽입물 차단: 해당 오리피스에 성인용품이 이미 삽입된 경우
+    # 삽입물/기생체 차단
     orifice = action_def.get("insertion_orifice")
     if orifice and action_def.get("is_insertion_attempt"):
         orifice_kr = "음부" if orifice == "vaginal" else "항문"
         if morld.get_unit_prop(target_id, f"삽입물:{orifice_kr}"):
-            return True
+            return f"{orifice_kr} 삽입물"
+        parasite_slot = _ORIFICE_TO_PARASITE_SLOT.get(orifice)
+        if parasite_slot and morld.get_unit_prop(target_id, parasite_slot):
+            return "기생체 부착"
 
-    return False
+    return None
+
+
+# 삽입 오리피스 → 기생 슬롯 매핑
+_ORIFICE_TO_PARASITE_SLOT = {
+    "vaginal": "기생:음부",
+    "anal": "기생:항문",
+}
 
 
 # ============================================

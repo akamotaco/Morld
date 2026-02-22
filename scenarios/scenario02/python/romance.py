@@ -903,6 +903,15 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
     def _check_insertion_hard_fail(state, action_def, partner_id):
         """삽입 확정 실패 조건 체크. 실패 메시지 반환 또는 None."""
+        # 0. 기생체 부착 시 삽입 불가
+        orifice = action_def.get("insertion_orifice")
+        if orifice:
+            from romance_core import _ORIFICE_TO_PARASITE_SLOT
+            parasite_slot = _ORIFICE_TO_PARASITE_SLOT.get(orifice)
+            if parasite_slot and morld.get_unit_prop(partner_id, parasite_slot):
+                part = parasite_slot.split(":")[1]
+                return f"기생체가 {part}에 부착되어 삽입할 수 없다."
+
         # 1. 윤활 조건 미충족 (질삽입 시) → 항상 실패
         if action_def.get("insertion_orifice") == "vaginal":
             if not check_lubrication(partner_id, state):
@@ -1790,6 +1799,46 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 reaction = _get_mode_reaction("unrestrain_partner", "start")
                 state["last_reaction"] = reaction or "결박을 해제했다."
                 result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
+
+            # 기생체 제거 특수 처리
+            if action_id == "remove_parasite_partner":
+                import parasite as parasite_mod
+                pid = state["partner_id"]
+                attached = parasite_mod.get_attached_parasites(pid)
+                if not attached:
+                    state["last_reaction"] = "부착된 기생체가 없다."
+                    return render_romance_ui(state)
+
+                # 선택 UI (1개면 자동 선택)
+                if len(attached) == 1:
+                    chosen_slot = attached[0][0]
+                else:
+                    import ui
+                    sel_lines = ["제거할 기생체 선택\n"]
+                    for slot, item_id, pname in attached:
+                        part = slot.split(":")[1]
+                        sel_lines.append(
+                            f"[url=@ret:{slot}]{pname} ({part})[/url]")
+                    sel_lines.append("\n[url=@ret:cancel]취소[/url]")
+                    choice = yield ui.dialog("\n".join(sel_lines))
+                    if choice == "cancel" or not choice:
+                        return render_romance_ui(state)
+                    chosen_slot = choice
+
+                parasite_mod.remove_with_item(pid, chosen_slot)
+                reaction = _get_mode_reaction(
+                    "remove_parasite_partner", "start")
+                state["last_reaction"] = (
+                    reaction or "기생체를 제거했다.")
+                result = advance_time_and_check(
+                    state, action_def["time"])
                 if result["interrupted"]:
                     state["interrupted"] = True
                     state["interrupter_id"] = result["interrupter_id"]

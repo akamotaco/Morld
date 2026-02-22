@@ -88,6 +88,13 @@ class AdultToyInsertable(Item):
             yield ui.dialog(f"이미 {orifice}에 무언가가 삽입되어 있다.")
             return
 
+        # 기생체 부착 시 삽입 불가
+        _parasite_slot_map = {"음부": "기생:음부", "항문": "기생:항문"}
+        p_slot = _parasite_slot_map.get(orifice)
+        if p_slot and morld.get_unit_prop(player_id, p_slot):
+            yield ui.dialog(f"기생체가 부착되어 {orifice}에 삽입할 수 없다.")
+            return
+
         # 삽입 적용
         morld.set_unit_prop(player_id, f"삽입물:{orifice}", self.instance_id)
         yield ui.dialog(f"{self.name}을(를) {orifice}에 삽입했다.")

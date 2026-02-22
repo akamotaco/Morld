@@ -23,7 +23,7 @@ from romance_core import (
     get_affection_key, get_desire_key,
     get_rebellion_key, get_submission_key,
     get_sensation_level,
-    is_action_available, is_anatomy_compatible,
+    is_action_available, is_anatomy_compatible, is_action_blocked_by_state,
     get_exposure_state,
     get_semen_total, get_internal_semen, get_internal_semen_total,
     is_pull_out_available, is_hold_back_available, is_ejaculate_available,
@@ -372,6 +372,11 @@ def render_romance_ui(state):
         if action.get("requires_npc_thrust_trance") and not is_on:
             if not state.get("npc_thrust_trance"):
                 continue
+        # 결박/기생체/삽입물에 의한 차단 (이미 ON이면 해제 가능)
+        blocked_reason = is_action_blocked_by_state(action, partner_id)
+        if blocked_reason and not is_on:
+            lines.append(f"  [color=gray]{action['name']} ({blocked_reason})[/color]")
+            continue
         # 배면 체위: 입 사용 행위 비활성화 (이미 ON이면 해제 가능)
         if action.get("uses_mouth") and not is_on:
             if position.get_facing(state.get("position", "missionary")) == "back":
@@ -432,6 +437,11 @@ def render_romance_ui(state):
         req_toggle = action.get("requires_active_toggle")
         if req_toggle and req_toggle not in state.get("active_toggles", set()):
             continue
+        # 결박/기생체/삽입물에 의한 차단
+        blocked_reason = is_action_blocked_by_state(action, partner_id)
+        if blocked_reason:
+            lines.append(f"  [color=gray]{action['name']} ({blocked_reason})[/color]")
+            continue
         # 배면 체위: 입 사용 행위 비활성화
         if action.get("uses_mouth"):
             if position.get_facing(state.get("position", "missionary")) == "back":
@@ -465,6 +475,11 @@ def render_romance_ui(state):
         if action_id == "unrestrain_partner":
             import restraint
             if not restraint.is_any_restrained(partner_id):
+                continue
+        # 기생체 제거: 기생체 부착 상태일 때만 표시
+        if action_id == "remove_parasite_partner":
+            import parasite as _parasite_mod
+            if not _parasite_mod.has_any_parasite(partner_id):
                 continue
         # 탈의 행위: 벗을 것 없으면 숨김
         if action.get("undress"):
