@@ -53,6 +53,7 @@
 | 성인용품/결박/절정 시스템 | [adult-toys.md](scenarios/scenario02/docs/adult-toys.md) |
 | 전투 시스템 | [battle.md](scenarios/scenario02/docs/battle.md) |
 | 전투 구현 명세 | [combat-implementation.md](scenarios/scenario02/docs/combat-implementation.md) |
+| 생물(Creature) 시스템 | [creature.md](scenarios/scenario02/docs/creature.md) |
 | 파티 시스템 (구현 명세) | [party-implementation.md](scenarios/scenario02/docs/party-implementation.md) |
 | 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
 | 캐릭터 만들기 (NPC 정의 가이드) | [make_character.md](scenarios/scenario02/docs/make_character.md) |
@@ -101,6 +102,7 @@ scenarios/scenario02/docs/
 ├── life.md             # NPC 생활/욕구/자율행동
 ├── battle.md           # 전투 시스템
 ├── combat-implementation.md  # 전투 구현 명세
+├── creature.md              # 생물(Creature) 시스템 (세력/스포너/CreatureAgent)
 ├── party-implementation.md   # 파티 시스템 구현 명세
 ├── romance.md                # 연애 시스템 (인덱스 + 구현 상태)
 ├── romance-relationship.md   # 연애 관계 (라벨/욕망/해금/대화/성별)
