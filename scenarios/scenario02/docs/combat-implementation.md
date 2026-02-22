@@ -23,6 +23,8 @@
 
 ## 1. 코드베이스 충돌 해결
 
+> **구현 완료**
+
 ### 1.1 HP Prop 통일
 
 | battle.md 설계 | 현재 코드 (survival.py:78) | **결정** |
@@ -83,6 +85,8 @@ C# 코드 확인: `result.SetItem(new PyString("x"), new PyFloat(unit.PositionX)
 ---
 
 ## 2. combat.py — 전투 코어 모듈
+
+> **구현 완료** — `scenarios/scenario02/python/combat.py`
 
 **파일:** `scenarios/scenario02/python/combat.py` (신규)
 
@@ -295,6 +299,8 @@ def reset():
 
 ## 3. 적대도 vs 반발 — 완전 분리
 
+> **구현 완료**
+
 | 구분 | 적대도 (`관계:{name}:적대`) | 반발 (`관계:{name}:반발`) |
 |------|---------------------------|-------------------------|
 | **용도** | 전투 판정 (공격 여부) | 로맨스 저항 (행위 거부) |
@@ -319,6 +325,8 @@ def reset():
 # Part B: 플레이어 전투
 
 ## 4. 플레이어 전투 액션
+
+> **구현 완료** — `assets/base.py: attack(), steal(), _add_combat_actions()`
 
 ### 4.1 액션 시스템 구조
 
@@ -422,6 +430,8 @@ if action == "toggle_hostile":
 
 ## 5. 달리기 시스템
 
+> **구현 완료** — `settings.py`, `needs.py`, C# `Unit.cs`
+
 ### 5.1 개요
 
 토글형 달리기. 활성 시 이동속도 **1.5배**, 피로 증가율 **2배**.
@@ -486,6 +496,8 @@ if action == "toggle_sprint":
 
 ## 6. 무기 prop 마이그레이션
 
+> **구현 완료**
+
 ### 6.1 equipment.py
 
 | 라인 | 아이템 | 변경 전 → 변경 후 |
@@ -509,6 +521,8 @@ if action == "toggle_sprint":
 ---
 
 ## 7. 장비 인스턴스 시스템
+
+> **구현 완료**
 
 ### 7.1 소모품 vs 장비
 
@@ -567,6 +581,8 @@ def degrade_durability(item_id, amount=1):
 ---
 
 ## 8. 원거리 무기 + 탄약
+
+> **구현 완료** — `weapons.py`, `ammo.py`, `combat.py: reload_weapon()`
 
 ### 8.1 분류
 
@@ -649,6 +665,8 @@ def reload_weapon(player_id) -> bool:
 
 ## 9. 방패
 
+> **Phase 1 구현 완료** — `shields.py` (Phase 2 블록은 미래)
+
 ### 9.1 Phase 1: 방어 장비
 
 ```python
@@ -720,6 +738,8 @@ class IronShield(Item):
 # Part D: 몬스터
 
 ## 11. 몬스터 클래스 + 드롭/수확
+
+> **구현 완료** — `assets/characters/monster.py`
 
 ### 11.1 Monster 기본 클래스
 
@@ -918,6 +938,8 @@ class TrainingDummy(Character):
 
 ## 12. 스폰 시스템
 
+> **구현 완료** — `spawner.py`
+
 **파일:** `scenarios/scenario02/python/spawner.py` (신규)
 
 ```python
@@ -952,6 +974,8 @@ def reset():
 ---
 
 ## 13. 몬스터 패트롤
+
+> **구현 완료** — `think/__init__.py: _get_home_region()`, `creature_agent.py`
 
 ### 13.1 `_do_wander()` 재사용
 
@@ -1001,6 +1025,8 @@ MONSTER_SCHEDULE = [
 ---
 
 ## 14. 몬스터 사망 + 루팅
+
+> **구현 완료** — `base.py: finish_off(), loot(), harvest()`
 
 ### 14.1 기본: 기절 재활용
 
@@ -1095,6 +1121,8 @@ spawner.py `_on_time_elapsed()`에서:
 
 ## 15. think Tier 2 통합
 
+> **구현 완료** — `think/__init__.py: _check_combat_threat(), _handle_combat()`
+
 ### 15.1 삽입 위치
 
 **파일:** `think/__init__.py:1562-1565`
@@ -1160,6 +1188,8 @@ def _handle_combat(self):
 ---
 
 ## 16. NPC별 전투 스탯 + BATTLE_BEHAVIOR
+
+> **구현 완료** — sera/mila/lina/yuki/ella.py
 
 ### sera.py (stoic, 전투적)
 
@@ -1230,6 +1260,8 @@ BATTLE_BEHAVIOR = {
 ---
 
 ## 17. on_meet_player 전투 분기
+
+> **구현 완료** — `base.py: on_meet_player(), _on_meet_hostile()`
 
 ### 17.1 삽입 위치
 
@@ -1431,6 +1463,8 @@ Tier 3 우선순위: 배고픔 → 추위 → 더위 → **HP 회복**
 
 ## 21. 폐 경찰서 + 광산
 
+> **구현 완료** — `city.py`, `mine.py`, `mining.py`, `world/mine.py`
+
 ### 21.1 폐 경찰서
 
 **Region 2 (도시)에 Location 추가:**
@@ -1541,6 +1575,8 @@ class Pickaxe(Item):
 # Part H: 통합
 
 ## 22. C# 연동 사항
+
+> **구현 완료** — `Unit.cs: GetMovementSpeed()` (이동:부상, 이동:달리기)
 
 ### 22.1 Unit.GetMovementSpeed() 확장
 
