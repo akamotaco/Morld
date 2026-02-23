@@ -111,10 +111,13 @@ WEB_BIND_ESCAPE_DIFFICULTY = 20   # 결박:강도 상당 (로프=30보다 약함
 
 # ── 엄폐 ──
 COVER_DISTANCE = 15               # 엄폐 유효 거리 (px)
+COVER_PARTIAL = 1                 # 부분 엄폐 (나무, 벤치 등)
+COVER_HALF = 2                    # 절반 엄폐 (식탁, 바리케이드 등)
+COVER_FULL = 3                    # 완전 엄폐 (벽, 대형 구조물 등)
 COVER_BONUS = {
-    "partial": {"evasion": 10, "damage_reduction": 0.20},
-    "half":    {"evasion": 20, "damage_reduction": 0.40},
-    "full":    {"evasion": 40, "damage_reduction": 0.70},
+    COVER_PARTIAL: {"evasion": 10, "damage_reduction": 0.20},
+    COVER_HALF:    {"evasion": 20, "damage_reduction": 0.40},
+    COVER_FULL:    {"evasion": 40, "damage_reduction": 0.70},
 }
 
 # ── 탄약 ──

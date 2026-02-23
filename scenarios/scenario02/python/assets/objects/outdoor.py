@@ -27,7 +27,7 @@ class GardenBench(Object):
         "posture_slots": 2,
         "seated_by:left": -1,
         "seated_by:right": -1,
-        "cover:level": "partial",
+        "cover:level": 1,  # COVER_PARTIAL
     }
     focus_text = {"default": "정원에 놓인 나무 벤치. 앉아서 쉴 수 있다."}
 
@@ -88,7 +88,7 @@ class StreetBench(Object):
         "seated_by:left": -1,
         "seated_by:center": -1,
         "seated_by:right": -1,
-        "cover:level": "partial",
+        "cover:level": 1,  # COVER_PARTIAL
     }
     focus_text = {"default": "거리에 놓인 낡은 벤치. 앉아서 쉴 수 있다."}
 

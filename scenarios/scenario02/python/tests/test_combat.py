@@ -634,6 +634,7 @@ class TestCover:
         mock.set_unit_prop(1, "posture:crouch", True)
 
         # 엄폐물 오브젝트 등록
+        # cover_level: COVER_PARTIAL=1, COVER_HALF=2, COVER_FULL=3
         mock.register_unit(100, name="벤치", props={"cover:level": cover_level},
                            location=(0, 0))
         # type을 object로 설정 (get_units_at_location 필터용)
@@ -645,7 +646,7 @@ class TestCover:
         make_unit(1, location=(0, 0))
         mock.set_unit_position(1, 50)
         # 웅크리기 없이 오브젝트만 근처에
-        mock.register_unit(100, name="벤치", props={"cover:level": "partial"},
+        mock.register_unit(100, name="벤치", props={"cover:level": 1},
                            location=(0, 0))
         mock._units[100]["info"]["type"] = "object"
         mock.set_unit_position(100, 55)
@@ -654,7 +655,7 @@ class TestCover:
 
     def test_cover_partial(self):
         """partial 엄폐 보너스"""
-        self._make_cover_scene("partial")
+        self._make_cover_scene(1)  # COVER_PARTIAL
         bonus = combat.get_cover_bonus(1)
         assert bonus is not None
         assert bonus["evasion"] == 10
@@ -662,7 +663,7 @@ class TestCover:
 
     def test_cover_half(self):
         """half 엄폐 보너스"""
-        self._make_cover_scene("half")
+        self._make_cover_scene(2)  # COVER_HALF
         bonus = combat.get_cover_bonus(1)
         assert bonus is not None
         assert bonus["evasion"] == 20
@@ -670,7 +671,7 @@ class TestCover:
 
     def test_cover_out_of_range(self):
         """거리 초과 시 엄폐 없음"""
-        self._make_cover_scene("partial", unit_x=10, obj_x=100)
+        self._make_cover_scene(1, unit_x=10, obj_x=100)  # COVER_PARTIAL
         assert combat.get_cover_bonus(1) is None
 
     def test_cover_affects_hit_chance(self):
@@ -685,7 +686,7 @@ class TestCover:
 
         # 엄폐 설정
         mock.set_unit_prop(20, "posture:crouch", True)
-        mock.register_unit(200, name="테이블", props={"cover:level": "half"},
+        mock.register_unit(200, name="테이블", props={"cover:level": 2},  # COVER_HALF
                            location=(0, 0))
         mock._units[200]["info"]["type"] = "object"
         mock.set_unit_position(200, 55)
