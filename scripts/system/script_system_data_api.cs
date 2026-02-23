@@ -323,7 +323,7 @@ namespace SE
                         dict["connected_location"] = new PyInt(gate.ConnectedLocation.LocalId);
                         dict["arrival_x"] = new PyFloat(gate.ArrivalX);
                         dict["is_blocked"] = gate.IsBlocked ? PyBool.True : PyBool.False;
-                        dict["name"] = new PyStr(gate.Name ?? "");
+                        dict["name"] = new PyString(gate.Name ?? "");
                         result.Append(dict);
                     }
                 }
@@ -403,38 +403,38 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result.SetItem(new PyString("id"), new PyInt(region.Id));
-                result.SetItem(new PyString("name"), new PyString(region.Name ?? ""));
+                result["id"] = new PyInt(region.Id);
+                result["name"] = new PyString(region.Name ?? "");
 
                 // Location 목록
                 var locationsList = new PyList();
                 foreach (var location in region.Locations)
                 {
                     var locDict = new PyDict();
-                    locDict.SetItem(new PyString("id"), new PyInt(location.LocalId));
-                    locDict.SetItem(new PyString("name"), new PyString(location.Name ?? ""));
-                    locDict.SetItem(new PyString("is_indoor"), location.IsIndoor ? PyBool.True : PyBool.False);
+                    locDict["id"] = new PyInt(location.LocalId);
+                    locDict["name"] = new PyString(location.Name ?? "");
+                    locDict["is_indoor"] = location.IsIndoor ? PyBool.True : PyBool.False;
 
                     // Pi-World: Location 2D 속성
-                    locDict.SetItem(new PyString("length"), new PyFloat(location.Length));
-                    locDict.SetItem(new PyString("geometry"), new PyString(location.Geometry.ToString().ToLower()));
+                    locDict["length"] = new PyFloat(location.Length);
+                    locDict["geometry"] = new PyString(location.Geometry.ToString().ToLower());
 
                     // 이 Location에서 나가는 Gate 목록 (Pi-World)
                     var gatesList = new PyList();
                     foreach (var gate in region.GetGates(location.LocalId))
                     {
                         var gateDict = new PyDict();
-                        gateDict.SetItem(new PyString("id"), new PyInt(gate.Id));
-                        gateDict.SetItem(new PyString("x"), new PyFloat(gate.X));
-                        gateDict.SetItem(new PyString("connected_region"), new PyInt(gate.ConnectedLocation.RegionId));
-                        gateDict.SetItem(new PyString("connected_local"), new PyInt(gate.ConnectedLocation.LocalId));
-                        gateDict.SetItem(new PyString("arrival_x"), new PyFloat(gate.ArrivalX));
-                        gateDict.SetItem(new PyString("arrival_y"), new PyFloat(gate.ArrivalY));
-                        gateDict.SetItem(new PyString("is_blocked"), gate.IsBlocked ? PyBool.True : PyBool.False);
-                        gateDict.SetItem(new PyString("distance"), new PyFloat(gate.Distance));
+                        gateDict["id"] = new PyInt(gate.Id);
+                        gateDict["x"] = new PyFloat(gate.X);
+                        gateDict["connected_region"] = new PyInt(gate.ConnectedLocation.RegionId);
+                        gateDict["connected_local"] = new PyInt(gate.ConnectedLocation.LocalId);
+                        gateDict["arrival_x"] = new PyFloat(gate.ArrivalX);
+                        gateDict["arrival_y"] = new PyFloat(gate.ArrivalY);
+                        gateDict["is_blocked"] = gate.IsBlocked ? PyBool.True : PyBool.False;
+                        gateDict["distance"] = new PyFloat(gate.Distance);
                         gatesList.Append(gateDict);
                     }
-                    locDict.SetItem(new PyString("gates"), gatesList);
+                    locDict["gates"] = gatesList;
 
                     // 이 Location에서 다른 Region으로 가는 RegionGate 목록
                     var regionGatesList = new PyList();
@@ -467,11 +467,11 @@ namespace SE
                             regionGatesList.Append(regionGateTuple);
                         }
                     }
-                    locDict.SetItem(new PyString("region_gates"), regionGatesList);
+                    locDict["region_gates"] = regionGatesList;
 
                     locationsList.Append(locDict);
                 }
-                result.SetItem(new PyString("locations"), locationsList);
+                result["locations"] = locationsList;
 
                 return result;
             });
@@ -1419,7 +1419,7 @@ namespace SE
                     var result = new PyDict();
                     foreach (var (name, value) in unit.TraversalContext.Props.GetNamesByType(type))
                     {
-                        result.SetItem(new PyString(name), new PyInt(value));
+                        result[name] = new PyInt(value);
                     }
                     return result;
                 }
@@ -1489,7 +1489,7 @@ namespace SE
                     var result = new PyDict();
                     foreach (var kv in actualProps.Props)
                     {
-                        result.SetItem(new PyString(kv.Key.FullName), new PyInt(kv.Value));
+                        result[kv.Key.FullName] = new PyInt(kv.Value);
                     }
                     return result;
                 }
@@ -1990,10 +1990,10 @@ namespace SE
                 foreach (var (regionId, locationId, name, travelTime) in destinations)
                 {
                     var dict = new PyDict();
-                    dict.SetItem(new PyString("region_id"), new PyInt(regionId));
-                    dict.SetItem(new PyString("location_id"), new PyInt(locationId));
-                    dict.SetItem(new PyString("name"), new PyString(name));
-                    dict.SetItem(new PyString("travel_time"), new PyInt(travelTime));
+                    dict["region_id"] = new PyInt(regionId);
+                    dict["location_id"] = new PyInt(locationId);
+                    dict["name"] = new PyString(name);
+                    dict["travel_time"] = new PyInt(travelTime);
                     result.Append(dict);
                 }
 
@@ -2012,31 +2012,31 @@ namespace SE
                 int locationId = args[2].ToInt();
 
                 var resultDict = new PyDict();
-                resultDict.SetItem(new PyString("success"), PyBool.False);
-                resultDict.SetItem(new PyString("message"), new PyString("Unknown error"));
-                resultDict.SetItem(new PyString("time_consumed"), new PyInt(0));
+                resultDict["success"] = PyBool.False;
+                resultDict["message"] = new PyString("Unknown error");
+                resultDict["time_consumed"] = new PyInt(0);
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
                 var unit = _unitSystem.FindUnit(unitId);
                 if (unit == null)
                 {
-                    resultDict.SetItem(new PyString("message"), new PyString($"Unit {unitId} not found"));
+                    resultDict["message"] = new PyString($"Unit {unitId} not found");
                     return resultDict;
                 }
 
                 var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
                 if (actionSystem == null)
                 {
-                    resultDict.SetItem(new PyString("message"), new PyString("ActionSystem not found"));
+                    resultDict["message"] = new PyString("ActionSystem not found");
                     return resultDict;
                 }
 
                 var result = actionSystem.ApplyDriveAction(unit, regionId, locationId);
 
-                resultDict.SetItem(new PyString("success"), result.Success ? PyBool.True : PyBool.False);
-                resultDict.SetItem(new PyString("message"), new PyString(result.Message));
-                resultDict.SetItem(new PyString("time_consumed"), new PyInt(result.TimeConsumed));
+                resultDict["success"] = result.Success ? PyBool.True : PyBool.False;
+                resultDict["message"] = new PyString(result.Message);
+                resultDict["time_consumed"] = new PyInt(result.TimeConsumed);
 
                 if (result.Success)
                 {
@@ -2079,12 +2079,12 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result.SetItem(new PyString("year"), new PyInt(time.Year));
-                result.SetItem(new PyString("month"), new PyInt(time.Month));
-                result.SetItem(new PyString("day"), new PyInt(time.Day));
-                result.SetItem(new PyString("weekday"), new PyString(time.WeekdayName));
-                result.SetItem(new PyString("hour"), new PyInt(time.Hour));
-                result.SetItem(new PyString("minute"), new PyInt(time.Minute));
+                result["year"] = new PyInt(time.Year);
+                result["month"] = new PyInt(time.Month);
+                result["day"] = new PyInt(time.Day);
+                result["weekday"] = new PyString(time.WeekdayName);
+                result["hour"] = new PyInt(time.Hour);
+                result["minute"] = new PyInt(time.Minute);
 
                 // 날씨 및 위치 정보: 플레이어 위치 기준
                 string weather = "";
@@ -2123,14 +2123,14 @@ namespace SE
                     // 플레이어 X 좌표
                     positionX = player.PositionX;
                 }
-                result.SetItem(new PyString("weather"), new PyString(weather));
-                result.SetItem(new PyString("region_name"), new PyString(regionName));
-                result.SetItem(new PyString("location_name"), new PyString(locationName));
+                result["weather"] = new PyString(weather);
+                result["region_name"] = new PyString(regionName);
+                result["location_name"] = new PyString(locationName);
 
                 // Pi-World 정보: geometry (0=ring, 1=line)
-                result.SetItem(new PyString("geometry"), new PyInt(geometry));
-                result.SetItem(new PyString("position_x"), new PyFloat(positionX));
-                result.SetItem(new PyString("location_length"), new PyFloat(locationLength));
+                result["geometry"] = new PyInt(geometry);
+                result["position_x"] = new PyFloat(positionX);
+                result["location_length"] = new PyFloat(locationLength);
 
                 return result;
             });

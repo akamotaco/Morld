@@ -384,14 +384,14 @@ namespace SE
         private PyDict JobToPyDict(Morld.Job job)
         {
             var dict = new PyDict();
-            dict.SetItem(new PyString("name"), new PyString(job.Name ?? ""));
-            dict.SetItem(new PyString("action"), new PyString(job.Action ?? "stay"));
-            dict.SetItem(new PyString("region_id"), new PyInt(job.RegionId));
-            dict.SetItem(new PyString("location_id"), new PyInt(job.LocationId));
-            dict.SetItem(new PyString("duration"), new PyInt(job.Duration));
-            dict.SetItem(new PyString("target_id"), job.TargetId.HasValue ? new PyInt(job.TargetId.Value) : PyNone.Instance);
-            dict.SetItem(new PyString("target_x"), new PyFloat(job.TargetX));
-            dict.SetItem(new PyString("target_y"), new PyFloat(job.TargetY));
+            dict["name"] = new PyString(job.Name ?? "");
+            dict["action"] = new PyString(job.Action ?? "stay");
+            dict["region_id"] = new PyInt(job.RegionId);
+            dict["location_id"] = new PyInt(job.LocationId);
+            dict["duration"] = new PyInt(job.Duration);
+            dict["target_id"] = job.TargetId.HasValue ? new PyInt(job.TargetId.Value) : PyNone.Instance;
+            dict["target_x"] = new PyFloat(job.TargetX);
+            dict["target_y"] = new PyFloat(job.TargetY);
             return dict;
         }
 

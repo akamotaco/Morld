@@ -249,28 +249,28 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result.SetItem(new PyString("id"), new PyInt(item.Id));
-                result.SetItem(new PyString("unique_id"), new PyString(item.UniqueId ?? ""));
-                result.SetItem(new PyString("name"), new PyString(item.Name ?? ""));
-                result.SetItem(new PyString("value"), new PyInt(item.Value));
+                result["id"] = new PyInt(item.Id);
+                result["unique_id"] = new PyString(item.UniqueId ?? "");
+                result["name"] = new PyString(item.Name ?? "");
+                result["value"] = new PyInt(item.Value);
 
                 // passive_props
                 var passiveProps = new PyDict();
                 foreach (var kv in item.PassiveProps)
-                    passiveProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
-                result.SetItem(new PyString("passive_props"), passiveProps);
+                    passiveProps[kv.Key] = new PyInt(kv.Value);
+                result["passive_props"] = passiveProps;
 
                 // equip_props
                 var equipProps = new PyDict();
                 foreach (var kv in item.EquipProps)
-                    equipProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
-                result.SetItem(new PyString("equip_props"), equipProps);
+                    equipProps[kv.Key] = new PyInt(kv.Value);
+                result["equip_props"] = equipProps;
 
                 // action_props
                 var actionProps = new PyDict();
                 foreach (var kv in item.ActionProps)
-                    actionProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
-                result.SetItem(new PyString("action_props"), actionProps);
+                    actionProps[kv.Key] = new PyInt(kv.Value);
+                result["action_props"] = actionProps;
 
                 return result;
             });
@@ -300,22 +300,22 @@ namespace SE
                     if (item.PassiveProps.TryGetValue(propName, out int propValue) && propValue > 0)
                     {
                         var itemInfo = new PyDict();
-                        itemInfo.SetItem(new PyString("id"), new PyInt(item.Id));
-                        itemInfo.SetItem(new PyString("unique_id"), new PyString(item.UniqueId ?? ""));
-                        itemInfo.SetItem(new PyString("name"), new PyString(item.Name ?? ""));
-                        itemInfo.SetItem(new PyString("count"), new PyInt(count));
+                        itemInfo["id"] = new PyInt(item.Id);
+                        itemInfo["unique_id"] = new PyString(item.UniqueId ?? "");
+                        itemInfo["name"] = new PyString(item.Name ?? "");
+                        itemInfo["count"] = new PyInt(count);
 
                         // passive_props
                         var passiveProps = new PyDict();
                         foreach (var kv in item.PassiveProps)
-                            passiveProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
-                        itemInfo.SetItem(new PyString("passive_props"), passiveProps);
+                            passiveProps[kv.Key] = new PyInt(kv.Value);
+                        itemInfo["passive_props"] = passiveProps;
 
                         // equip_props
                         var equipProps = new PyDict();
                         foreach (var kv in item.EquipProps)
-                            equipProps.SetItem(new PyString(kv.Key), new PyInt(kv.Value));
-                        itemInfo.SetItem(new PyString("equip_props"), equipProps);
+                            equipProps[kv.Key] = new PyInt(kv.Value);
+                        itemInfo["equip_props"] = equipProps;
 
                         result.Append(itemInfo);
                     }
@@ -429,7 +429,7 @@ namespace SE
                 var result = new PyDict();
                 foreach (var (key, value) in actualProps.Props)
                 {
-                    result.SetItem(new PyString(key), new PyInt(value));
+                    result[key] = new PyInt(value);
                 }
                 return result;
             });
@@ -459,30 +459,30 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result.SetItem(new PyString("name"), new PyString(location.Name ?? ""));
-                result.SetItem(new PyString("region_id"), new PyInt(location.RegionId));
-                result.SetItem(new PyString("location_id"), new PyInt(location.LocalId));
-                result.SetItem(new PyString("is_indoor"), PyBool.FromBool(location.IsIndoor));
-                result.SetItem(new PyString("stay_duration"), new PyInt(location.StayDuration));
+                result["name"] = new PyString(location.Name ?? "");
+                result["region_id"] = new PyInt(location.RegionId);
+                result["location_id"] = new PyInt(location.LocalId);
+                result["is_indoor"] = PyBool.FromBool(location.IsIndoor);
+                result["stay_duration"] = new PyInt(location.StayDuration);
 
                 // 날씨 정보 (실외일 때만 유효)
                 var weather = location.CurrentWeather;
                 if (weather != null)
-                    result.SetItem(new PyString("weather"), new PyString(weather));
+                    result["weather"] = new PyString(weather);
                 else
-                    result.SetItem(new PyString("weather"), PyNone.Instance);
+                    result["weather"] = PyNone.Instance;
 
                 // 소유자 정보
                 if (location.Owner != null)
-                    result.SetItem(new PyString("owner"), new PyString(location.Owner));
+                    result["owner"] = new PyString(location.Owner);
                 else
-                    result.SetItem(new PyString("owner"), PyNone.Instance);
+                    result["owner"] = PyNone.Instance;
 
                 // 바닥 오브젝트 ID
                 if (location.GroundUnitId.HasValue)
-                    result.SetItem(new PyString("ground_unit_id"), new PyInt(location.GroundUnitId.Value));
+                    result["ground_unit_id"] = new PyInt(location.GroundUnitId.Value);
                 else
-                    result.SetItem(new PyString("ground_unit_id"), PyNone.Instance);
+                    result["ground_unit_id"] = PyNone.Instance;
 
                 return result;
             });
@@ -506,65 +506,65 @@ namespace SE
 
                 // 유닛 정보를 PyDict로 반환
                 var result = new PyDict();
-                result.SetItem(new PyString("id"), new PyInt(unit.Id));
-                result.SetItem(new PyString("name"), new PyString(unit.Name ?? ""));
-                result.SetItem(new PyString("is_object"), PyBool.FromBool(unit.IsObject));
+                result["id"] = new PyInt(unit.Id);
+                result["name"] = new PyString(unit.Name ?? "");
+                result["is_object"] = PyBool.FromBool(unit.IsObject);
 
                 // 현재 위치
-                result.SetItem(new PyString("region_id"), new PyInt(unit.CurrentLocation.RegionId));
-                result.SetItem(new PyString("location_id"), new PyInt(unit.CurrentLocation.LocalId));
+                result["region_id"] = new PyInt(unit.CurrentLocation.RegionId);
+                result["location_id"] = new PyInt(unit.CurrentLocation.LocalId);
 
                 // 현재 Job 정보 (JobList 기반)
                 var currentJob = unit.CurrentJob;
                 if (currentJob != null)
                 {
-                    result.SetItem(new PyString("activity"), new PyString(currentJob.Name ?? ""));
-                    result.SetItem(new PyString("schedule_name"), new PyString(currentJob.Name ?? ""));
+                    result["activity"] = new PyString(currentJob.Name ?? "");
+                    result["schedule_name"] = new PyString(currentJob.Name ?? "");
                 }
                 else
                 {
-                    result.SetItem(new PyString("activity"), PyNone.Instance);
-                    result.SetItem(new PyString("schedule_name"), PyNone.Instance);
+                    result["activity"] = PyNone.Instance;
+                    result["schedule_name"] = PyNone.Instance;
                 }
 
                 // 이동 중인지 여부 (Pi-World: CurrentMovement가 있으면 이동 중)
-                result.SetItem(new PyString("is_moving"), PyBool.FromBool(unit.IsMoving));
+                result["is_moving"] = PyBool.FromBool(unit.IsMoving);
 
                 // 목적지로 이동 중인지 여부 (논리적 상태)
-                result.SetItem(new PyString("is_traveling"), PyBool.FromBool(unit.IsTraveling));
+                result["is_traveling"] = PyBool.FromBool(unit.IsTraveling);
 
                 // 이동 중인 경우 최종 목적지 정보 (CurrentJob에서 추출)
                 if (currentJob != null && currentJob.Action == "move")
                 {
-                    result.SetItem(new PyString("dest_region_id"), new PyInt(currentJob.RegionId));
-                    result.SetItem(new PyString("dest_location_id"), new PyInt(currentJob.LocationId));
+                    result["dest_region_id"] = new PyInt(currentJob.RegionId);
+                    result["dest_location_id"] = new PyInt(currentJob.LocationId);
                 }
                 else
                 {
-                    result.SetItem(new PyString("dest_region_id"), PyNone.Instance);
-                    result.SetItem(new PyString("dest_location_id"), PyNone.Instance);
+                    result["dest_region_id"] = PyNone.Instance;
+                    result["dest_location_id"] = PyNone.Instance;
                 }
 
                 // Pi-World: 2D 위치 정보
-                result.SetItem(new PyString("x"), new PyFloat(unit.PositionX));
-                result.SetItem(new PyString("y"), new PyFloat(unit.PositionY));
+                result["x"] = new PyFloat(unit.PositionX);
+                result["y"] = new PyFloat(unit.PositionY);
 
                 // Pi-World: Location 내 이동 중 여부
                 bool isMoving2D = unit.CurrentMovement != null;
-                result.SetItem(new PyString("is_moving_2d"), PyBool.FromBool(isMoving2D));
+                result["is_moving_2d"] = PyBool.FromBool(isMoving2D);
 
                 if (unit.CurrentMovement != null)
                 {
-                    result.SetItem(new PyString("target_gate_id"),
+                    result["target_gate_id"] =
                         unit.CurrentMovement.TargetGateId.HasValue
                             ? new PyInt(unit.CurrentMovement.TargetGateId.Value)
-                            : PyNone.Instance);
-                    result.SetItem(new PyString("movement_progress"), new PyFloat(unit.CurrentMovement.Progress));
+                            : PyNone.Instance;
+                    result["movement_progress"] = new PyFloat(unit.CurrentMovement.Progress);
                 }
                 else
                 {
-                    result.SetItem(new PyString("target_gate_id"), PyNone.Instance);
-                    result.SetItem(new PyString("movement_progress"), PyNone.Instance);
+                    result["target_gate_id"] = PyNone.Instance;
+                    result["movement_progress"] = PyNone.Instance;
                 }
 
                 return result;
@@ -792,11 +792,11 @@ namespace SE
                 {
                     // 침대 발견
                     var result = new PyDict();
-                    result.SetItem(new PyString("bed_object_id"), new PyInt(selectedBed.Id));
-                    result.SetItem(new PyString("region_id"), new PyInt(prefRegion));
-                    result.SetItem(new PyString("location_id"), new PyInt(prefLocation));
-                    result.SetItem(new PyString("x"), new PyFloat(selectedBed.PositionX));
-                    result.SetItem(new PyString("rough"), PyBool.FromBool(false));
+                    result["bed_object_id"] = new PyInt(selectedBed.Id);
+                    result["region_id"] = new PyInt(prefRegion);
+                    result["location_id"] = new PyInt(prefLocation);
+                    result["x"] = new PyFloat(selectedBed.PositionX);
+                    result["rough"] = PyBool.FromBool(false);
                     return result;
                 }
 
@@ -805,21 +805,21 @@ namespace SE
                 if (location != null && location.IsIndoor)
                 {
                     var result = new PyDict();
-                    result.SetItem(new PyString("bed_object_id"), PyNone.Instance);
-                    result.SetItem(new PyString("region_id"), new PyInt(prefRegion));
-                    result.SetItem(new PyString("location_id"), new PyInt(prefLocation));
-                    result.SetItem(new PyString("x"), new PyFloat(0));
-                    result.SetItem(new PyString("rough"), PyBool.FromBool(true));
+                    result["bed_object_id"] = PyNone.Instance;
+                    result["region_id"] = new PyInt(prefRegion);
+                    result["location_id"] = new PyInt(prefLocation);
+                    result["x"] = new PyFloat(0);
+                    result["rough"] = PyBool.FromBool(true);
                     return result;
                 }
 
                 // 우선순위 4: 현재 위치에서 노숙
                 var result4 = new PyDict();
-                result4.SetItem(new PyString("bed_object_id"), PyNone.Instance);
-                result4.SetItem(new PyString("region_id"), new PyInt(npc.CurrentLocation.RegionId));
-                result4.SetItem(new PyString("location_id"), new PyInt(npc.CurrentLocation.LocalId));
-                result4.SetItem(new PyString("x"), new PyFloat(npc.PositionX));
-                result4.SetItem(new PyString("rough"), PyBool.FromBool(true));
+                result4["bed_object_id"] = PyNone.Instance;
+                result4["region_id"] = new PyInt(npc.CurrentLocation.RegionId);
+                result4["location_id"] = new PyInt(npc.CurrentLocation.LocalId);
+                result4["x"] = new PyFloat(npc.PositionX);
+                result4["rough"] = PyBool.FromBool(true);
                 return result4;
             });
 
@@ -975,7 +975,7 @@ namespace SE
                 var result = new PyDict();
                 foreach (var (key, value) in unit.TraversalContext.Props)
                 {
-                    result.SetItem(new PyString(key), new PyInt(value));
+                    result[key] = new PyInt(value);
                 }
                 return result;
             });
@@ -1101,32 +1101,32 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result.SetItem(new PyString("geometry"), new PyString(location.Geometry.ToString().ToLower()));
-                result.SetItem(new PyString("length"), new PyFloat(location.Length));
-                result.SetItem(new PyString("player_x"), new PyFloat(player.PositionX));
+                result["geometry"] = new PyString(location.Geometry.ToString().ToLower());
+                result["length"] = new PyFloat(location.Length);
+                result["player_x"] = new PyFloat(player.PositionX);
 
                 // 앉기/눕기 상태
                 var seatedOnProp = player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault();
                 bool isSeated = seatedOnProp.Prop.IsValid;
-                result.SetItem(new PyString("seated"), isSeated ? PyBool.True : PyBool.False);
+                result["seated"] = isSeated ? PyBool.True : PyBool.False;
 
                 // 경로 목록
                 var routesList = new PyList();
                 foreach (var route in lookResult.Routes)
                 {
                     var routeDict = new PyDict();
-                    routeDict.SetItem(new PyString("name"), new PyString(route.LocationName));
-                    routeDict.SetItem(new PyString("region_name"), new PyString(route.RegionName));
-                    routeDict.SetItem(new PyString("region_id"), new PyInt(route.Destination.RegionId));
-                    routeDict.SetItem(new PyString("local_id"), new PyInt(route.Destination.LocalId));
-                    routeDict.SetItem(new PyString("travel_time"), new PyInt(route.TravelTime));
-                    routeDict.SetItem(new PyString("gate_x"), new PyFloat(route.GateX));
-                    routeDict.SetItem(new PyString("is_region_gate"), route.IsRegionGate ? PyBool.True : PyBool.False);
-                    routeDict.SetItem(new PyString("is_blocked"), route.IsBlocked ? PyBool.True : PyBool.False);
-                    routeDict.SetItem(new PyString("is_hidden"), route.IsHidden ? PyBool.True : PyBool.False);
+                    routeDict["name"] = new PyString(route.LocationName);
+                    routeDict["region_name"] = new PyString(route.RegionName);
+                    routeDict["region_id"] = new PyInt(route.Destination.RegionId);
+                    routeDict["local_id"] = new PyInt(route.Destination.LocalId);
+                    routeDict["travel_time"] = new PyInt(route.TravelTime);
+                    routeDict["gate_x"] = new PyFloat(route.GateX);
+                    routeDict["is_region_gate"] = route.IsRegionGate ? PyBool.True : PyBool.False;
+                    routeDict["is_blocked"] = route.IsBlocked ? PyBool.True : PyBool.False;
+                    routeDict["is_hidden"] = route.IsHidden ? PyBool.True : PyBool.False;
                     routesList.Append(routeDict);
                 }
-                result.SetItem(new PyString("routes"), routesList);
+                result["routes"] = routesList;
 
                 return result;
             });
@@ -1229,15 +1229,15 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result.SetItem(new PyString("name"), new PyString(job.Name ?? ""));
-                result.SetItem(new PyString("action"), new PyString(job.Action ?? "stay"));
-                result.SetItem(new PyString("duration"), new PyInt(job.Duration));
-                result.SetItem(new PyString("region_id"), new PyInt(job.RegionId));
-                result.SetItem(new PyString("location_id"), new PyInt(job.LocationId));
+                result["name"] = new PyString(job.Name ?? "");
+                result["action"] = new PyString(job.Action ?? "stay");
+                result["duration"] = new PyInt(job.Duration);
+                result["region_id"] = new PyInt(job.RegionId);
+                result["location_id"] = new PyInt(job.LocationId);
                 if (job.TargetId.HasValue)
-                    result.SetItem(new PyString("target_id"), new PyInt(job.TargetId.Value));
+                    result["target_id"] = new PyInt(job.TargetId.Value);
                 else
-                    result.SetItem(new PyString("target_id"), PyNone.Instance);
+                    result["target_id"] = PyNone.Instance;
 
                 return result;
             });

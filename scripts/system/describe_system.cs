@@ -614,7 +614,7 @@ namespace SE
 				try
 				{
 					var maxResult = scriptSystem?.Eval($"import inventory as _inv; _inv.get_max_slots({player.Id})");
-					if (maxResult != null && maxResult is not PyNone)
+					if (maxResult != null && maxResult is not SharpPy.PyNone)
 					{
 						int maxSlots = maxResult.ToInt();
 						var usedResult = scriptSystem.Eval($"_inv.get_used_slots({player.Id})");
