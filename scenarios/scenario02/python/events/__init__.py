@@ -417,13 +417,9 @@ def on_single_event(event):
             pass
 
         if unit_id == player_id:
-            # 발각 상태 해제 (Location 이동 시 자동 해제)
+            # 은신 가능 자세면 은신 진입 시도 (새 Location 도착 시)
             stealth_state = morld.get_unit_prop(player_id, "status:stealth")
-            if stealth_state == 0:
-                morld.clear_prop(player_id, "status:stealth")
-                print(f"[stealth] 발각 상태 해제 (Location 이동)")
-            # 은신 가능 자세면 은신 진입 시도
-            elif stealth_state is None:
+            if not stealth_state:  # 통상 상태
                 import ui
                 if ui.is_stealth_posture():
                     ui.check_stealth_entry()

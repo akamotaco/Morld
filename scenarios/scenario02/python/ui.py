@@ -474,30 +474,27 @@ def get_posture_speed() -> int:
 # ========================================
 #
 # status:stealth prop 값:
-# - 1: 은신 중 (NPC 감지 회피 가능)
-# - 0: 발각됨 (현재 Location에서만 유지)
-# - (없음): 일반 상태
+# - 1: 은신 중
+# - 0 (또는 없음): 통상
 #
 # 은신 진입 조건:
-# - 자세가 crouch (은신)
+# - 자세가 crouch
 # - 같은 Location에 NPC가 없음
 #
 # 은신 해제 조건:
 # - 자세 변경 (통상)
-# - 발각됨
+# - 발각됨 (set_detected → clear_prop)
 # - 휴대 광원 켜기
 # - 수동 해제
 # - 공개 행동 수행 (대화, 거래 등)
-# - Location 이동 (발각 상태만 해제)
 
-def get_stealth_state() -> int | None:
+def get_stealth_state() -> int:
     """
     현재 은신 상태 반환
 
     Returns:
         1: 은신 중
-        0: 발각됨
-        None: 일반 상태
+        0: 통상
     """
     player_id = morld.get_player_id()
     if player_id is None:
@@ -541,10 +538,6 @@ def check_stealth_entry() -> bool:
     if get_stealth_state() == 1:
         return True
 
-    # 발각 상태면 진입 불가
-    if get_stealth_state() == 0:
-        return False
-
     # 자세 확인
     posture = get_current_posture()
     if not is_stealth_posture(posture):
@@ -584,7 +577,7 @@ def exit_stealth(reason: str = ""):
         return
 
     stealth = get_stealth_state()
-    if stealth is not None:
+    if stealth:  # 1(은신) 또는 2(발각) — 0은 일반 상태
         morld.clear_prop(player_id, "status:stealth")
         if reason:
             print(f"[stealth] 은신 상태 해제: {reason}")
@@ -662,9 +655,9 @@ def _get_posture_text() -> str:
     플레이어 자세 및 은신 상태 텍스트 반환 (클릭 가능)
 
     표시 형식:
-    - [은신] 버튼                       # 통상 상태 → 클릭하면 은신 진입
-    - [은신 해제] [은신 중]             # 은신 상태 → 클릭하면 통상 전환
-    - [은신 해제] [발각!]               # 발각 상태 → 클릭하면 통상 전환
+    - [통상] 버튼                        # 통상 상태 → 클릭하면 은신 진입
+    - [은신] 은신 중                     # 은신 상태 → 클릭하면 통상 전환
+    - [은신]                             # 웅크렸으나 은신 실패/발각 → 클릭하면 통상 전환
     - 자세: 앉기 (이동 불가)             # 앉기/눕기
     """
     player_id = morld.get_player_id()
@@ -707,15 +700,13 @@ def _get_posture_text() -> str:
     stealth = get_stealth_state()
 
     if posture == "standing":
-        # 통상 모드: [은신] 버튼
-        return f"[url=posture:toggle][color=gray][은신][/color][/url]"
+        # 통상: [웅크리기] 버튼만 표시
+        return f"[url=posture:toggle][color=gray][웅크리기][/color][/url]"
     elif posture == "crouch":
-        # 은신 모드: [은신 해제] 버튼 + 상태 표시
-        toggle_btn = f"[url=posture:toggle][color=gray][은신 해제][/color][/url]"
+        # 웅크린 상태: [일어서기] 버튼 + 은신 중일 때만 (은신 중) 표시
+        toggle_btn = f"[url=posture:toggle][color=gray][일어서기][/color][/url]"
         if stealth == 1:
-            status = " [color=cyan][은신 중][/color]"
-        elif stealth == 0:
-            status = " [color=red][발각!][/color]"
+            status = " [color=cyan](은신 중)[/color]"
         else:
             status = ""
         return f"{toggle_btn}{status}"

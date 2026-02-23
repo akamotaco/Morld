@@ -5,8 +5,9 @@
 #
 # 은신 상태:
 # - status:stealth = 1: 은신 중
-# - status:stealth = 0: 발각됨
-# - (없음): 일반 상태
+# - 0 (또는 없음): 통상 (비은신)
+#
+# NOTE: C# PropSet은 Dictionary<Prop, int>이므로 prop 미존재 시 GetProp이 0을 반환.
 
 import random
 import morld
@@ -231,24 +232,9 @@ def is_player_stealthed() -> bool:
     return stealth == 1
 
 
-def is_player_detected() -> bool:
-    """
-    플레이어가 발각 상태인지 확인
-
-    Returns:
-        bool: status:stealth == 0
-    """
-    player_id = morld.get_player_id()
-    if player_id is None:
-        return False
-
-    stealth = morld.get_unit_prop(player_id, "status:stealth")
-    return stealth == 0
-
-
 def set_detected(npc_id: int = None) -> str:
     """
-    플레이어를 발각 상태로 설정
+    플레이어 발각 처리: 은신 해제 + 메시지 반환
 
     Args:
         npc_id: 발각한 NPC ID (로그용)
@@ -260,7 +246,8 @@ def set_detected(npc_id: int = None) -> str:
     if player_id is None:
         return ""
 
-    morld.set_unit_prop(player_id, "status:stealth", 0)
+    # 은신 해제 (통상 상태로)
+    morld.clear_prop(player_id, "status:stealth")
 
     if npc_id is not None:
         npc_name = morld.get_unit_name(npc_id) or "누군가"
@@ -358,7 +345,7 @@ def exit_unit_stealth(unit_id: int, stand_up: bool = True):
         stand_up: True이면 standing 자세로 복귀
     """
     stealth = morld.get_unit_prop(unit_id, "status:stealth")
-    if stealth is None:
+    if not stealth:  # 0 또는 None = 일반 상태
         return
 
     # 은신 prop 정리
@@ -471,7 +458,7 @@ def auto_exit_stealth_for_interaction():
         return
 
     stealth = morld.get_unit_prop(player_id, "status:stealth")
-    if stealth is None:
+    if not stealth:  # 0 또는 None = 일반 상태
         return
 
     # 은신 상태 해제

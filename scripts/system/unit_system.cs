@@ -413,7 +413,8 @@ namespace SE
 				if (u.CurrentLocation == unit.CurrentLocation)
 				{
 					// 은신 NPC 필터링 (캐릭터만, 오브젝트는 은신 불가)
-					if (!u.IsObject && u.TraversalContext.GetProp("status:stealth") > 0)
+					// status:stealth=1 은신 중만 숨김 (2=발각은 표시)
+					if (!u.IsObject && u.TraversalContext.GetProp("status:stealth") == 1)
 						continue;
 					unitIds.Add(u.Id);
 				}
