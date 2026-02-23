@@ -245,16 +245,27 @@ stealth_mod.auto_exit_stealth_for_interaction()
 은신 해제 (어떤 경로든)
   → morld.clear_player_meetings()
   → C# ClearMeetingsForUnit(playerId)
-  → 다음 스텝: DetectMeetings() → meeting key 없음 → OnMeet Enqueue
+  → C# RequestTimeAdvance(0, "은신 해제")  ← 0ms instant action
+  → 다음 _Process(): HasPendingInstantAction → Step 블록 진입
+  → DetectMeetings() → meeting key 없음 → OnMeet Enqueue
   → FlushEvents() → collect_event_handlers → on_meet_player 호출
 ```
 
+**핵심 메커니즘 — `RequestTimeAdvance(0)` 패턴:**
+
+은신 해제(자세 토글 등)는 시간을 소모하지 않는 즉시 행동이므로, 단순히 meeting key를 제거하는 것만으로는 `DetectMeetings()`가 실행되지 않습니다. `GameEngine._Process()`의 Step 블록은 `HasPendingTime || HasPendingInstantAction` 조건에서만 진입하기 때문입니다.
+
+`RequestTimeAdvance(0)`는 `_hasInstantAction = true`를 설정하여 게임 시간을 소모하지 않으면서도 Step 블록을 실행시킵니다. 이를 통해 `DetectMeetings()`가 자연스럽게 호출됩니다.
+
+> 참고: [event.md — RequestTimeAdvance(0) 패턴](event.md#requesttimeadvance0-패턴)
+
 **서순 보장**: 공개 행동(대화 등)으로 은신이 해제된 경우, 해당 행동의 dialog가 끝난 다음 스텝에서 on_meet이 발생하므로 자연스러운 서순이 유지됩니다.
 
-**호출 위치** (`stealth.py`):
-- `set_detected()` — NPC 발각 시
-- `exit_unit_stealth()` — 자발적 해제 시 (플레이어인 경우)
-- `auto_exit_stealth_for_interaction()` — 공개 행동(대화, 스킨십) 시
+**호출 위치:**
+- `stealth.py` — `set_detected()`: NPC 발각 시
+- `stealth.py` — `exit_unit_stealth()`: 자발적 해제 시 (플레이어인 경우)
+- `stealth.py` — `auto_exit_stealth_for_interaction()`: 공개 행동(대화, 스킨십) 시
+- `ui.py` — `exit_stealth()`: UI 토글(일어서기) 시
 
 ### 6.4 은신 NPC 이벤트 필터
 

@@ -577,8 +577,10 @@ def exit_stealth(reason: str = ""):
         return
 
     stealth = get_stealth_state()
-    if stealth:  # 1(은신) 또는 2(발각) — 0은 일반 상태
+    if stealth:
         morld.clear_prop(player_id, "status:stealth")
+        # 만남 상태 초기화 → 다음 스텝에서 on_meet 재발생
+        morld.clear_player_meetings()
         if reason:
             print(f"[stealth] 은신 상태 해제: {reason}")
         else:

@@ -288,9 +288,42 @@ morld.queue_event("meet", player_id, [player_id, interrupter_id])
 morld.clear_player_meetings()
 ```
 
-**내부 동작:** C# `EventSystem.ClearMeetingsForUnit(playerId)` 호출 → `_lastMeetings`에서 플레이어 포함 키 삭제
+**내부 동작:**
+1. C# `EventSystem.ClearMeetingsForUnit(playerId)` 호출 → `_lastMeetings`에서 플레이어 포함 키 삭제
+2. C# `RequestTimeAdvance(0, "은신 해제")` 호출 → 0ms instant action으로 다음 Step 보장
 
-**사용처:** `stealth.py`의 3개 은신 해제 함수 (`set_detected`, `exit_unit_stealth`, `auto_exit_stealth_for_interaction`)
+**사용처:**
+- `stealth.py` — `set_detected`, `exit_unit_stealth`, `auto_exit_stealth_for_interaction`
+- `ui.py` — `exit_stealth` (UI 토글)
+
+### RequestTimeAdvance(0) 패턴
+
+시간을 소모하지 않는 즉시 행동(자세 토글, 은신 해제 등)이 이벤트 재판정을 필요로 할 때 사용하는 패턴입니다.
+
+**배경:**
+
+`GameEngine._Process()`의 Step 블록은 `HasPendingTime || HasPendingInstantAction` 조건에서만 진입합니다. `DetectMeetings()`, `FlushEvents()` 등 이벤트 처리는 이 Step 블록 안에서만 실행됩니다. 시간을 소모하지 않는 행동(예: 자세 토글)은 Step 블록을 트리거하지 않으므로, 상태가 변경되어도 이벤트가 발생하지 않습니다.
+
+**해결:**
+
+```csharp
+// C#: 0ms instant action 요청
+_playerSystem.RequestTimeAdvance(0, "사유");
+// → _hasInstantAction = true
+// → 다음 _Process(): HasPendingInstantAction 만족 → Step 블록 진입
+// → DetectMeetings() + FlushEvents() 실행
+// → 게임 시간은 소모되지 않음
+```
+
+**적용 기준:**
+
+| 상황 | 필요 여부 | 이유 |
+|------|----------|------|
+| 상태 변경 후 이벤트 재판정 필요 | O | DetectMeetings 등 실행 필요 |
+| 단순 prop 변경 (UI 표시용) | X | 이벤트 재판정 불필요 |
+| 시간 소모 행동 중 (대화, 이동) | X | 이미 Step 블록 내에서 실행 |
+
+**현재 사용처:** `clear_player_meetings()` (은신 해제 → on_meet 재발생)
 
 ### ExcessTime과 이벤트 큐 연동
 

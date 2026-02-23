@@ -94,7 +94,12 @@ def get_cover_coefficient_for(unit_id: int) -> float:
         return COVER_COEFFICIENT_NONE
 
     region_id, location_id = loc
-    unit_x = morld.get_unit_x(unit_id)
+    unit_info = morld.get_unit_info(unit_id)
+    if not unit_info:
+        return COVER_COEFFICIENT_NONE
+    unit_x = unit_info.get("x")
+    if unit_x is None:
+        return COVER_COEFFICIENT_NONE
 
     # Location 내 오브젝트 조회
     objects = morld.get_objects_at_location(region_id, location_id)
@@ -104,7 +109,8 @@ def get_cover_coefficient_for(unit_id: int) -> float:
     # 가장 가까운 오브젝트와의 거리
     min_distance = float('inf')
     for obj_id in objects:
-        obj_x = morld.get_unit_x(obj_id)
+        obj_info = morld.get_unit_info(obj_id)
+        obj_x = obj_info.get("x") if obj_info else None
         if obj_x is not None:
             distance = abs(unit_x - obj_x)
             min_distance = min(min_distance, distance)
