@@ -18,16 +18,17 @@
 ### 1.2 Props 구조
 
 ```python
-# 플레이어/NPC 공통 props
+# 플레이어/NPC 공통 props (2값 시스템)
 status:stealth = 1   # 은신 중
-status:stealth = 0   # 발각됨 (플레이어만)
-# (prop 없음)        # 일반 상태
+# (0 또는 prop 없음)  # 일반 상태
 
 posture:crouch = 1   # 은신 자세 (없으면 standing=통상)
 
 # NPC props (선택)
 perception:base = 100  # 감지력 (100 = 기본, 150 = 세라)
 ```
+
+> **참고:** C# `GetProp()`은 prop이 없으면 `0`을 반환합니다. Python에서는 `0`과 prop 없음 모두 "일반 상태"로 취급합니다.
 
 ---
 
@@ -82,15 +83,11 @@ if is_stealth_posture and no_npcs_in_location:
 
 | 조건 | 동작 | 결과 |
 |------|------|------|
-| 발각됨 | `status:stealth = 0` | [발각!] 표시 |
-| 발각 후 Location 이동 | `status:stealth` 제거 | 일반 상태 복귀 |
-| 자세 변경 (통상) | `status:stealth` 제거 | 일반 상태 |
+| NPC 발각 | `status:stealth` 제거 + `clear_player_meetings` | 일반 상태 + on_meet 재발생 |
+| 자발적 해제 (일어서기) | `status:stealth` 제거 + `clear_player_meetings` | 일반 상태 + on_meet 재발생 |
+| 공개 행동 (대화, 스킨십) | `status:stealth` 제거 + `clear_player_meetings` | 일반 상태 + 행동 종료 후 on_meet |
 | 휴대 광원 켜기 | `status:stealth` 제거 | 일반 상태 |
-| 수동 해제 | `status:stealth` 제거 | 일반 상태 |
-| 공개 행동 (대화, 스킨십) | `status:stealth` 제거 + 통상 전환 | 일반 상태 |
 | 챕터 전환 | `status:stealth` 제거 | 일반 상태 |
-
-> **발각 상태 (`status:stealth = 0`)**: 현재 Location에서만 유지. 다른 Location으로 이동하면 자동 해제.
 
 ### 3.2 NPC 은신
 
@@ -115,9 +112,9 @@ stealth.is_unit_stealthed(npc_id)  # True/False
 ### 3.3 UI 표시 (Footer)
 
 ```
-[은신]                         # 통상 상태 → 클릭하면 은신 진입
-[은신 해제] [은신 중]          # 은신 상태 → 클릭하면 통상 전환
-[은신 해제] [발각!]            # 발각 상태 → 클릭하면 통상 전환
+[웅크리기]                     # standing 상태 → 클릭하면 crouch 진입
+[일어서기] (은신 중)           # crouch + 은신 중 → 클릭하면 standing 복귀
+[일어서기]                     # crouch + 비은신 → 클릭하면 standing 복귀
 자세: 앉기 (이동 불가)          # 앉기/눕기
 ```
 
@@ -236,11 +233,30 @@ stealth_mod.auto_exit_stealth_for_interaction()
 
 [Resolve 순서]
   1. Lina: 은신 판정 성공 → 큐에서 제거, 로그 "들키지 않았다"
-  2. Sera: 은신 판정 실패 → status:stealth=0, 이벤트 진행
+  2. Sera: 은신 판정 실패 → 은신 해제 + clear_player_meetings, 이벤트 진행
   3. Mila: 은신 해제 상태 → 판정 없이 이벤트 진행
 ```
 
-### 6.3 은신 NPC 이벤트 필터
+### 6.3 은신 해제 → on_meet 재발생
+
+은신이 해제되면 `morld.clear_player_meetings()`를 호출하여 C# `_lastMeetings`에서 플레이어의 meeting key를 제거합니다. 이후 다음 스텝에서 `DetectMeetings()`가 "새로운 만남"으로 인식하여 on_meet을 자연스럽게 큐잉합니다.
+
+```
+은신 해제 (어떤 경로든)
+  → morld.clear_player_meetings()
+  → C# ClearMeetingsForUnit(playerId)
+  → 다음 스텝: DetectMeetings() → meeting key 없음 → OnMeet Enqueue
+  → FlushEvents() → collect_event_handlers → on_meet_player 호출
+```
+
+**서순 보장**: 공개 행동(대화 등)으로 은신이 해제된 경우, 해당 행동의 dialog가 끝난 다음 스텝에서 on_meet이 발생하므로 자연스러운 서순이 유지됩니다.
+
+**호출 위치** (`stealth.py`):
+- `set_detected()` — NPC 발각 시
+- `exit_unit_stealth()` — 자발적 해제 시 (플레이어인 경우)
+- `auto_exit_stealth_for_interaction()` — 공개 행동(대화, 스킨십) 시
+
+### 6.4 은신 NPC 이벤트 필터
 
 은신 NPC는 `collect_event_handlers()`에서 meet/contact 핸들러 수집 시 제외됨.
 
@@ -316,6 +332,7 @@ if (prop_name.startswith("posture:") or
 | 30분 주기 판정 | ✅ 완료 | `stealth.py` (`subscribe_time_elapsed`) |
 | NPC 은신 | ✅ 완료 | `stealth.py`, `unit_system.cs` |
 | 공개 행동 자동 해제 | ✅ 완료 | `base.py` (talk, romance, casual_affection) |
+| 은신 해제 → on_meet 재발생 | ✅ 완료 | `stealth.py`, `script_system_morld_api.cs` (`clear_player_meetings`) |
 | 소음 시스템 | 미구현 | - |
 
 ---

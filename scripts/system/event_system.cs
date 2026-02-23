@@ -747,7 +747,7 @@ namespace SE
 		/// <summary>
 		/// 특정 유닛의 만남 상태 제거 (역방향 인덱스 활용)
 		/// </summary>
-		private void ClearMeetingsForUnit(int unitId)
+		public void ClearMeetingsForUnit(int unitId)
 		{
 			if (_unitToMeetings.TryGetValue(unitId, out var keys))
 			{

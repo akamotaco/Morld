@@ -279,6 +279,19 @@ def call_event_handler(handler_info, player_id, unit_ids):
 morld.queue_event("meet", player_id, [player_id, interrupter_id])
 ```
 
+### 만남 상태 초기화
+
+은신 해제 등 "이미 만남 처리된 NPC와 다시 on_meet을 발생시켜야 하는" 상황에서 사용:
+
+```python
+# 플레이어의 meeting key를 제거 → 다음 DetectMeetings()에서 on_meet 재발생
+morld.clear_player_meetings()
+```
+
+**내부 동작:** C# `EventSystem.ClearMeetingsForUnit(playerId)` 호출 → `_lastMeetings`에서 플레이어 포함 키 삭제
+
+**사용처:** `stealth.py`의 3개 은신 해제 함수 (`set_detected`, `exit_unit_stealth`, `auto_exit_stealth_for_interaction`)
+
 ### ExcessTime과 이벤트 큐 연동
 
 ```

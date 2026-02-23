@@ -99,6 +99,10 @@ class MockMorld:
         if u:
             u["props"].pop(key, None)
 
+    def clear_player_meetings(self):
+        """은신 해제 시 만남 상태 초기화 (mock: no-op)"""
+        pass
+
     def get_unit_props_by_type(self, unit_id, prop_type):
         """prop_type 접두사로 시작하는 props 반환 (접두사 제거)"""
         u = self._units.get(unit_id)

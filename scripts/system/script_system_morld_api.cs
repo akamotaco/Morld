@@ -120,6 +120,23 @@ namespace SE
 #endif
                 return PyBool.True;
             });
+
+            // clear_player_meetings() - 플레이어의 만남 상태 초기화
+            // 은신 해제 시 호출하여 다음 DetectMeetings()에서 on_meet이 재발생하도록 함
+            morldModule.ModuleDict["clear_player_meetings"] = new PyBuiltinFunction("clear_player_meetings", args =>
+            {
+                var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+                if (_playerSystem == null || _eventSystem == null)
+                    return PyNone.Instance;
+
+                var playerId = _playerSystem.PlayerId;
+                if (playerId < 0)
+                    return PyNone.Instance;
+
+                _eventSystem.ClearMeetingsForUnit(playerId);
+                return PyNone.Instance;
+            });
         }
 
         /// <summary>

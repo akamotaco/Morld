@@ -249,6 +249,9 @@ def set_detected(npc_id: int = None) -> str:
     # 은신 해제 (통상 상태로)
     morld.clear_prop(player_id, "status:stealth")
 
+    # 만남 상태 초기화 → 다음 스텝에서 on_meet 재발생
+    morld.clear_player_meetings()
+
     if npc_id is not None:
         npc_name = morld.get_unit_name(npc_id) or "누군가"
         return f"{npc_name}에게 발각되었다!"
@@ -350,6 +353,11 @@ def exit_unit_stealth(unit_id: int, stand_up: bool = True):
 
     # 은신 prop 정리
     morld.clear_prop(unit_id, "status:stealth")
+
+    # 플레이어인 경우 만남 상태 초기화 → 다음 스텝에서 on_meet 재발생
+    player_id = morld.get_player_id()
+    if unit_id == player_id:
+        morld.clear_player_meetings()
 
     # standing 자세로 복귀
     if stand_up:
@@ -463,6 +471,9 @@ def auto_exit_stealth_for_interaction():
 
     # 은신 상태 해제
     morld.clear_prop(player_id, "status:stealth")
+
+    # 만남 상태 초기화 → 다음 스텝에서 on_meet 재발생
+    morld.clear_player_meetings()
 
     # standing 자세로 복귀
     posture_props = morld.get_unit_props_by_type(player_id, "posture")
