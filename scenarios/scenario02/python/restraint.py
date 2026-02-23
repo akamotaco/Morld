@@ -355,14 +355,14 @@ def _get_relationship(unit_id, target_id, key):
     return morld.get_unit_prop(unit_id, f"관계:{target_name}:{key}") or 0
 
 
-def get_restrained_units_at(location_id):
+def get_restrained_units_at(region_id, location_id):
     """
     특정 location에 있는 결박된 유닛 목록
 
     Returns:
         list[int]: 결박된 유닛 ID 리스트
     """
-    units = morld.get_units_at_location(location_id)
+    units = morld.get_units_at_location(region_id, location_id)
     if not units:
         return []
     return [uid for uid in units if is_restrained(uid)]

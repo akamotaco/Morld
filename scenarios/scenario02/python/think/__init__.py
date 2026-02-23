@@ -1128,7 +1128,7 @@ class BaseAgent:
             my_loc = morld.get_unit_location(self.unit_id)
             if not my_loc:
                 return False
-            restrained = restraint.get_restrained_units_at(my_loc[1])
+            restrained = restraint.get_restrained_units_at(my_loc[0], my_loc[1])
             target = None
             for uid in restrained:
                 if uid != self.unit_id:

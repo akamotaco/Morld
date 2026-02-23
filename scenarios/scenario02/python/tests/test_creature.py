@@ -148,7 +148,7 @@ sys.modules["stealth"] = stealth_mod
 # restraint stub
 restraint_mod = types.ModuleType("restraint")
 restraint_mod.is_restrained = lambda uid: False
-restraint_mod.get_restrained_units_at = lambda lid: []
+restraint_mod.get_restrained_units_at = lambda rid, lid: []
 sys.modules["restraint"] = restraint_mod
 
 # equipment stub

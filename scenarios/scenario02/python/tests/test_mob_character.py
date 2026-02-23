@@ -82,7 +82,7 @@ _restraint.is_upper_restrained = lambda uid: False
 _restraint.is_lower_restrained = lambda uid: False
 _restraint.is_gagged = lambda uid: False
 _restraint.is_blindfolded = lambda uid: False
-_restraint.get_restrained_units_at = lambda loc: []
+_restraint.get_restrained_units_at = lambda rid, loc: []
 _restraint.release = lambda uid: None
 sys.modules.setdefault("restraint", _restraint)
 
