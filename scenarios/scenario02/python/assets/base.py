@@ -2470,6 +2470,45 @@ class Character(Unit):
         return context
 
     # ========================================
+    # 전투 태세 판정
+    # ========================================
+
+    def _get_combat_stance_info(self) -> tuple:
+        """전투 태세 정보 반환 (적대 유닛만)
+
+        Returns:
+            (is_hostile, is_aggressive)
+            - is_hostile: 플레이어에 대해 적대적인지
+            - is_aggressive: 선공형(전투 태세)인지
+        """
+        player_id = morld.get_player_id()
+        if not player_id or self.instance_id == player_id:
+            return (False, False)
+
+        # 사망 체크
+        hp = morld.get_unit_prop(self.instance_id, "생존:체력")
+        if hp is not None and hp <= 0:
+            return (False, False)
+
+        # 적대 여부 (세력 or 개인 적대도)
+        import combat as _combat
+        my_faction = morld.get_unit_prop(self.instance_id, "전투:세력")
+        player_faction = morld.get_unit_prop(player_id, "전투:세력")
+        is_hostile = False
+        if my_faction:
+            is_hostile = _combat.is_faction_hostile(my_faction, player_faction)
+        if not is_hostile:
+            is_hostile = _combat.is_hostile_to(self.instance_id, player_id)
+
+        if not is_hostile:
+            return (False, False)
+
+        # 전투 태세: combat_style == "aggressive" → 선공형
+        behavior = getattr(self, 'BATTLE_BEHAVIOR', None)
+        is_aggressive = bool(behavior and behavior.get("combat_style") == "aggressive")
+        return (True, is_aggressive)
+
+    # ========================================
     # Rule 기반 텍스트 선택
     # ========================================
 
@@ -2492,12 +2531,22 @@ class Character(Unit):
         context = self._build_context()
         text = TextSelector.select(rules, context)
         if text:
-            return TextSelector.format_result(text, context)
+            text = TextSelector.format_result(text, context)
+        elif context.get("is_traveling"):
+            text = f"{context['name']}(이)가 어딘가로 향하고 있다."
+        else:
+            text = ""
 
-        # 기본값: 이동 중이면 패턴화된 텍스트
-        if context.get("is_traveling"):
-            return f"{context['name']}(이)가 어딘가로 향하고 있다."
-        return ""
+        # 전투 태세 표시 (적대 유닛만)
+        if text:
+            is_hostile, is_aggressive = self._get_combat_stance_info()
+            if is_hostile:
+                if is_aggressive:
+                    text += " [color=red](전투 태세)[/color]"
+                else:
+                    text += " [color=yellow](평화 태세)[/color]"
+
+        return text
 
     def get_focus_text(self) -> str:
         """
@@ -2519,8 +2568,20 @@ class Character(Unit):
         context = self._build_context()
         text = TextSelector.select(rules, context)
         if text:
-            return TextSelector.format_result(text, context)
-        return ""
+            text = TextSelector.format_result(text, context)
+        else:
+            text = ""
+
+        # 전투 태세 표시 (적대 유닛만, focus에서는 선두 행)
+        is_hostile, is_aggressive = self._get_combat_stance_info()
+        if is_hostile and text:
+            if is_aggressive:
+                stance_line = "[color=red]전투 태세[/color] — 선공형"
+            else:
+                stance_line = "[color=yellow]평화 태세[/color] — 반격형"
+            text = stance_line + "\n" + text
+
+        return text
 
     # ========================================
     # 연애 반응 메서드

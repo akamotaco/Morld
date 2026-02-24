@@ -1840,7 +1840,18 @@ namespace SE
                         }
                     }
 
-                    Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}");
+                    // 캐릭터를 오브젝트 X 좌표로 이동
+                    unit.PositionX = obj.PositionX;
+                    unit.CurrentMovement = null;
+
+                    // 은신 상태 해제 (앉기/눕기 시 은신 불가)
+                    if (unit.TraversalContext.Props.Get("status:stealth") != 0)
+                    {
+                        unit.TraversalContext.Props.Set("status:stealth", 0);
+                        Godot.GD.Print($"[morld] sit_on: unit={unitId} stealth cleared (sitting/lying)");
+                    }
+
+                    Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}, x={obj.PositionX}");
                     return PyBool.True;
                 }
                 return PyBool.False;

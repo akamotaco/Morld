@@ -276,7 +276,25 @@ def is_hostile_mode() -> bool
 def set_hostile_mode(enabled: bool)    # can:attack, can:steal 연동
 ```
 
-### 2.9 디버프 API
+### 2.9 전투 태세 표시 (describe/focus)
+
+> **파일:** `assets/base.py` (`_get_combat_stance_info`, `get_describe_text`, `get_focus_text`)
+
+플레이어에 대해 적대적인 유닛의 전투 태세를 describe/focus 텍스트에 자동 표시.
+
+- **선공형** (`combat_style: "aggressive"`): `[color=red](전투 태세)[/color]` — 감지 즉시 공격
+- **반격형** (그 외): `[color=yellow](평화 태세)[/color]` — 공격받아야 반격
+
+판정 순서:
+1. 플레이어 자신 → 미표시
+2. 사망(HP ≤ 0) → 미표시
+3. 세력 적대 OR 개인 적대도 ≥ HOSTILITY_HOSTILE → 표시
+4. `BATTLE_BEHAVIOR.combat_style == "aggressive"` → 전투 태세, 그 외 → 평화 태세
+
+describe: 텍스트 끝에 `(전투 태세)` / `(평화 태세)` 태그 부착
+focus: 텍스트 선두에 `전투 태세 — 선공형` / `평화 태세 — 반격형` 행 추가
+
+### 2.10 디버프 API
 
 ```python
 def apply_bleeding(unit_id, duration_hours=3)
@@ -285,7 +303,7 @@ def apply_slow(unit_id, speed_percent=50, duration_hours=2)
     # 이동:부상 prop (Unit prop — actualProps에서 읽힘)
 ```
 
-### 2.10 시간 구독 + 리셋
+### 2.11 시간 구독 + 리셋
 
 ```python
 def _on_time_elapsed(millis):
