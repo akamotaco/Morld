@@ -1423,6 +1423,7 @@ class MilaAgent(BaseAgent):
         "join_combat": False,
         "protect_player": False,
     }
+    COMBAT_DESPERATE_CHANCE = 1.0   # 포위 시 100% 필사 (숨겨진 고수)
 
     # 계절별 스케줄
     # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)

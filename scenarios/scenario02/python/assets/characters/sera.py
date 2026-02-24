@@ -1393,6 +1393,7 @@ class SeraAgent(BaseAgent):
         "protect_player": True,
         "can_sprint": True,
     }
+    COMBAT_DESPERATE_CHANCE = 0.9   # 포위 시 90% 필사 / 10% 체념
 
     SCHEDULES = {
         "평일": [

@@ -1402,6 +1402,7 @@ class EllaAgent(BaseAgent):
         "protect_player": False,
         "can_sprint": True,
     }
+    COMBAT_DESPERATE_CHANCE = 0.7   # 포위 시 70% 필사 / 30% 체념
 
     # 도심 은신처 스케줄 (region_id=2)
     SCHEDULE = [

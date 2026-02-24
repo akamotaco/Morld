@@ -124,7 +124,7 @@ class BaseAgent:
             "laundry_items": None,        # 세탁 중인 아이템 ID 목록 (re-equip용)
             "laundry_cooldown": None,     # 마지막 빨래 시각 (밀리초) — 쿨다운 3시간
             # 전투
-            "combat_phase": None,         # 전투 단계 (None/engaging/attacking/retreating/regrouping)
+            "combat_phase": None,         # None/engaging/attacking/retreating/regrouping/resignation/desperate
             "combat_target_id": None,     # 전투 대상 unit_id
             "combat_last_attack_ms": 0,   # 마지막 공격 시각 (밀리초)
             "combat_last_enemy_ms": 0,    # 마지막 적 목격/소리 시각 (밀리초)
@@ -920,6 +920,7 @@ class BaseAgent:
     COMBAT_ATTACK_DURATION = 6_000       # NPC 근접 공격 시간 (ms)
     COMBAT_END_COOLDOWN = 10 * 60_000    # 전투 종료 쿨다운 10분 (ms), 서브클래스 override 가능
     COMBAT_REGROUP_HP_THRESHOLD = 0.75   # 정비 종료 HP 비율 (75%), 서브클래스 override 가능
+    COMBAT_DESPERATE_CHANCE = 0.5        # 포위 시 필사의 저항 확률 (0.0~1.0), 서브클래스 override
 
     def _check_combat_threat(self) -> bool:
         """전투 위협 감지 + 대응
@@ -928,7 +929,9 @@ class BaseAgent:
         - engaging: 사거리 밖 이동 → attacking
         - attacking: 공격 실행
         - retreating: 안전 지역으로 이동
-        - regrouping: 정비 중 (이동 → 회복)
+        - regrouping: 정비 중 (회복 대기)
+        - resignation: 체념 (반격/이동 불가, 적 전멸 시 정비 전환)
+        - desperate: 필사의 저항 (도주 불가, 적 전멸 시 정비 전환)
 
         전투 종료 3-조건 (모두 AND):
         1. 현재 location에 적 없음
@@ -943,26 +946,39 @@ class BaseAgent:
 
         phase = self._memory.get("combat_phase")
 
-        # 진행 중인 전투: regrouping/retreating은 적 재감지 수행
+        # 진행 중인 전투
         if phase is not None:
-            if phase in ("regrouping", "retreating"):
-                # 현재 위치에 적이 있으면 전투 재개
+            # 체념/필사: 적 전멸 시 정비 전환
+            if phase in ("resignation", "desperate"):
+                enemy_id = self._scan_nearest_enemy()
+                if enemy_id is None:
+                    self._log_combat_phase("적 전멸 → 정비 전환")
+                    self._memory["combat_phase"] = "regrouping"
+                    self._memory["combat_regroup_phase"] = "recovering"
+                elif phase == "desperate":
+                    self._memory["combat_target_id"] = enemy_id
+                    self._memory["combat_last_enemy_ms"] = self.get_time()
+
+            # regrouping/retreating: 적 재감지
+            elif phase in ("regrouping", "retreating"):
                 enemy_id = self._scan_nearest_enemy()
                 if enemy_id is not None:
                     self._memory["combat_last_enemy_ms"] = self.get_time()
                     style = behavior.get("combat_style", "aggressive")
                     if style == "evasive":
-                        # 도주형: 적 발견해도 계속 도주/정비
-                        pass
+                        pass  # 도주형: 적 발견해도 계속 도주/정비
                     else:
+                        self._log_combat_phase(f"적 재감지(id={enemy_id}) → engaging")
                         self._memory["combat_phase"] = "engaging"
                         self._memory["combat_target_id"] = enemy_id
                 # 전투 종료 판정 (regrouping)
                 if phase == "regrouping" and self._should_end_combat():
+                    self._log_combat_phase("전투 종료 (3-조건 충족)")
                     self._end_combat()
                     self._insert_idle_job("전투 종료", 2_000)
                     self._action_taken = True
                     return True
+
             self._handle_combat()
             return True
 
@@ -986,6 +1002,7 @@ class BaseAgent:
                 _combat._emit_combat_line(self.unit_id, "flee")
                 self._memory["combat_phase"] = "retreating"
                 self._memory["combat_target_id"] = enemy_id
+                self._log_combat_phase("도주 개시")
                 self._handle_combat()
                 return True
 
@@ -995,6 +1012,7 @@ class BaseAgent:
             self._memory["combat_discovered"] = True
         self._memory["combat_phase"] = "engaging"
         self._memory["combat_target_id"] = enemy_id
+        self._log_combat_phase("전투 개시")
         self._handle_combat()
         return True
 
@@ -1074,10 +1092,12 @@ class BaseAgent:
     def _handle_combat(self):
         """BATTLE_BEHAVIOR 기반 전투 행동 (phase machine)
 
-        engaging   → 사거리 밖이면 이동, 안이면 attacking
-        attacking  → execute_attack + 대기 job
-        retreating → 안전 지역으로 이동 → regrouping 전환
-        regrouping → 이동 완료 후 회복 대기
+        engaging    → 사거리 밖이면 이동, 안이면 attacking
+        attacking   → execute_attack + 대기 job
+        retreating  → 안전 지역으로 이동 → regrouping / 포위 시 체념·필사
+        regrouping  → 회복 대기 (HP ≥ 75% 또는 전투 종료 시 해제)
+        resignation → 체념 (반격·이동 불가, 적 전멸 시 정비 전환)
+        desperate   → 필사의 저항 (도주 불가, 적 전멸 시 정비 전환)
         """
         import combat as _combat
         import survival as _surv
@@ -1089,12 +1109,11 @@ class BaseAgent:
         # engaging/attacking: 대상 유효성 검증 (같은 location)
         if phase in ("engaging", "attacking"):
             if target_id is None or not self._is_valid_combat_target(target_id):
-                # 대상이 사라짐 → 전투 종료 판정
                 if self._should_end_combat():
+                    self._log_combat_phase("전투 종료 (대상 이탈 + 3-조건)")
                     self._end_combat()
                     self._insert_idle_job("전투 종료", 2_000)
                 else:
-                    # 아직 위협 남아있음 → 경계 대기
                     self._insert_idle_job("경계", 5_000)
                 self._action_taken = True
                 return
@@ -1109,13 +1128,14 @@ class BaseAgent:
                 _combat._emit_combat_line(self.unit_id, "flee")
                 phase = "retreating"
                 self._memory["combat_phase"] = phase
+                self._log_combat_phase("HP 기반 후퇴")
 
         if phase == "engaging":
             if _combat.is_in_range(self.unit_id, target_id):
                 self._memory["combat_phase"] = "attacking"
+                self._log_combat_phase("사거리 진입 → attacking")
                 self._handle_combat()
                 return
-            # 사거리 밖 → 적 위치로 이동
             target_loc = morld.get_unit_location(target_id)
             if target_loc:
                 target_info = self._make_location_target(
@@ -1138,8 +1158,8 @@ class BaseAgent:
             if result.get("message"):
                 morld.add_action_log(result["message"])
             if result.get("target_fainted"):
-                # 대상 기절/사망 → 전투 종료 판정
                 if self._should_end_combat():
+                    self._log_combat_phase("전투 승리 (3-조건 충족)")
                     self._end_combat()
                     self._insert_idle_job("전투 승리", 3_000)
                 else:
@@ -1152,25 +1172,48 @@ class BaseAgent:
             self._action_taken = True
 
         elif phase == "retreating":
-            # 목적지 고정: 최초 1회만 결정
             flee_target = self._memory.get("combat_flee_target")
             if flee_target is None:
                 flee_target = self._pick_safe_location()
                 if flee_target:
                     self._memory["combat_flee_target"] = flee_target
+                    self._log_combat_phase(
+                        f"도주 목적지 결정: R{flee_target['region_id']}L{flee_target['location_id']}")
                 else:
-                    # 도망 실패 → 어쩔 수 없이 싸움
-                    self._memory["combat_phase"] = "attacking"
-                    self._handle_combat()
+                    # 안전 구역 없음 → 포위 판정
+                    surrounded = self._is_surrounded()
+                    if surrounded:
+                        self._resolve_surrounded()
+                    else:
+                        # 포위는 아니지만 안전 구역 없음 → 강제 전투
+                        self._log_combat_phase("안전 구역 없음 → 강제 전투")
+                        self._memory["combat_phase"] = "attacking"
+                        self._handle_combat()
                     return
 
             my_loc = self.get_location()
             if my_loc and (my_loc[0] == flee_target["region_id"]
                            and my_loc[1] == flee_target["location_id"]):
-                # 도착 → regrouping 전환
+                # 도착했는데 적이 있으면 포위 판정
+                if _combat.has_enemies_at_location(
+                        self.unit_id, my_loc[0], my_loc[1]):
+                    self._memory["combat_last_enemy_ms"] = self.get_time()
+                    if self._is_surrounded():
+                        self._memory.pop("combat_flee_target", None)
+                        self._resolve_surrounded()
+                        return
+                    else:
+                        # 다른 안전 구역 재탐색
+                        self._memory.pop("combat_flee_target", None)
+                        self._log_combat_phase("도착지에 적 → 재탐색")
+                        self._insert_idle_job("후퇴", 2_000)
+                        self._action_taken = True
+                        return
+                # 안전 도착 → regrouping
                 self._memory["combat_phase"] = "regrouping"
                 self._memory["combat_regroup_phase"] = "recovering"
                 self._memory.pop("combat_flee_target", None)
+                self._log_combat_phase("안전 구역 도착 → 정비")
                 self._handle_combat()
                 return
 
@@ -1178,18 +1221,42 @@ class BaseAgent:
             self._action_taken = True
 
         elif phase == "regrouping":
-            # 정비 중: 회복 대기
-            # 체력 충분 → 전투 종료
             my_hp = _surv.get_health(self.unit_id)
             my_max = _surv.get_max_health(self.unit_id)
             if my_hp >= my_max * self.COMBAT_REGROUP_HP_THRESHOLD:
+                self._log_combat_phase("정비 완료 (HP 회복)")
                 self._end_combat()
                 self._insert_idle_job("정비 완료", 2_000)
                 self._action_taken = True
                 return
-
-            # TODO: 음식 소비 등 회복 행동 추가 가능
             self._insert_idle_job("정비", 30_000)
+            self._action_taken = True
+
+        elif phase == "resignation":
+            # 체념: 아무것도 하지 않음 (적 전멸 판정은 _check_combat_threat에서)
+            self._insert_idle_job("체념", 10_000)
+            self._action_taken = True
+
+        elif phase == "desperate":
+            # 필사의 저항: 적에게 공격
+            if target_id is None or not self._is_valid_combat_target(target_id):
+                # 대상 소실 → 새 적 탐색 (전멸 판정은 _check_combat_threat에서)
+                new_enemy = self._scan_nearest_enemy()
+                if new_enemy is not None:
+                    self._memory["combat_target_id"] = new_enemy
+                    target_id = new_enemy
+                else:
+                    self._insert_idle_job("경계", 5_000)
+                    self._action_taken = True
+                    return
+            self._memory["combat_last_enemy_ms"] = self.get_time()
+            result = _combat.execute_attack(self.unit_id, target_id)
+            if result.get("message"):
+                morld.add_action_log(result["message"])
+            speed = _combat.get_combat_stat(
+                self.unit_id, "전투:공격속도") or 1.0
+            duration = int(self.COMBAT_ATTACK_DURATION / speed)
+            self._insert_idle_job("필사", max(1_000, duration))
             self._action_taken = True
 
         else:
@@ -1303,12 +1370,80 @@ class BaseAgent:
 
     def _end_combat(self):
         """전투 상태 초기화"""
+        self._log_combat_phase("전투 상태 초기화")
         self._memory["combat_phase"] = None
         self._memory["combat_target_id"] = None
         self._memory["combat_discovered"] = False
         self._memory.pop("combat_flee_target", None)
         self._memory.pop("combat_regroup_phase", None)
         self._memory.pop("combat_last_enemy_ms", None)
+
+    def _is_surrounded(self) -> bool:
+        """포위 판정: 현재 location에 적 존재 + 인접 모든 location에 적 기척
+
+        포위 = (현재 위치에 적) AND (인접 전부에 전투 소리)
+        """
+        import combat as _combat
+
+        my_loc = morld.get_unit_location(self.unit_id)
+        if not my_loc:
+            return False
+
+        # 조건 1: 현재 location에 적 존재
+        if not _combat.has_enemies_at_location(
+                self.unit_id, my_loc[0], my_loc[1]):
+            return False
+
+        # 조건 2: 인접 모든 location에 전투 소리
+        danger_locs = _combat.get_combat_sound_locations(self.unit_id)
+        home_region = self._get_home_region()
+        region_info = morld.get_region_info(home_region)
+        if not region_info:
+            return True  # 정보 없으면 포위로 간주
+
+        # 현재 location의 인접 gate 목록
+        cur_loc_info = None
+        for loc in region_info.get("locations", []):
+            if loc["id"] == my_loc[1]:
+                cur_loc_info = loc
+                break
+        if not cur_loc_info:
+            return True
+
+        adjacent_ids = set()
+        for gate in cur_loc_info.get("gates", []):
+            cr = gate.get("connected_region", home_region)
+            cl = gate.get("connected_local")
+            if cl is not None:
+                adjacent_ids.add((cr, cl))
+
+        if not adjacent_ids:
+            return True  # 인접 location 없음 = 막다른 곳
+
+        # 모든 인접 location에 전투 소리가 들리는지
+        for adj in adjacent_ids:
+            if adj not in danger_locs:
+                return False  # 하나라도 안전하면 포위 아님
+
+        return True
+
+    def _resolve_surrounded(self):
+        """포위 시 체념/필사 결정"""
+        if random.random() < self.COMBAT_DESPERATE_CHANCE:
+            self._memory["combat_phase"] = "desperate"
+            self._log_combat_phase("포위 → 필사의 저항")
+        else:
+            self._memory["combat_phase"] = "resignation"
+            self._log_combat_phase("포위 → 체념")
+        self._handle_combat()
+
+    def _log_combat_phase(self, detail):
+        """전투 페이즈 디버그 로그"""
+        info = morld.get_unit_info(self.unit_id)
+        name = info.get("name", "?") if info else "?"
+        phase = self._memory.get("combat_phase", "None")
+        print(f"[combat_phase] {name}(id={self.unit_id}) "
+              f"phase={phase} | {detail}")
 
     # ========================================
     # 결박된 동료 발견 + 해제 (Tier 2)

@@ -1213,6 +1213,7 @@ if self._check_combat_threat():
 전투 위협 감지 + 대응. BATTLE_BEHAVIOR 없으면 False (비전투 NPC).
 
 1. 진행 중인 전투 (`combat_phase != None`) → `_handle_combat()`
+   - **resignation/desperate**: `_scan_nearest_enemy()`로 적 전멸 감지 → regrouping 전환
    - **retreating/regrouping**: `_scan_nearest_enemy()`로 적 재감지 수행
    - **regrouping**: `_should_end_combat()` 전투 종료 판정 병행
 2. 새 적 감지 → combat_style에 따라 engaging / retreating 분기
@@ -1220,18 +1221,24 @@ if self._check_combat_threat():
 ### 15.3 `_handle_combat()` Phase Machine
 
 ```
-engaging  → 사거리 밖이면 이동, 안이면 attacking
-attacking → execute_attack() + 공격시간 job
-retreating → 안전 지역으로 이동 (목적지 고정) → regrouping 전환
-regrouping → 회복 대기 (HP ≥ 75% 또는 전투 종료 시 종료)
+engaging    → 사거리 밖이면 이동, 안이면 attacking
+attacking   → execute_attack() + 공격시간 job
+retreating  → 안전 지역으로 이동 → regrouping / 포위 시 체념·필사
+regrouping  → 회복 대기 (HP ≥ 75% 또는 전투 종료 시 종료)
+resignation → 체념 (반격·이동 불가, 적 전멸 시 regrouping)
+desperate   → 필사의 저항 (도주 불가, 적 전멸 시 regrouping)
 ```
 
 - **engaging**: `_make_location_target()`로 적 위치를 dict 변환 → `_move_to()`
 - **attacking**: 공격 후 대상 기절 시 `_should_end_combat()` 판정
 - **retreating**: 최초 1회 `_pick_safe_location()` 결정 → `combat_flee_target`에 고정
-  - 도착 시 regrouping 전환
-  - 도주 실패 (후보 없음) → 어쩔 수 없이 attacking 전환
+  - 안전 도착 → regrouping 전환
+  - 도착지에 적 + 포위 판정 → 체념/필사 전환
+  - 안전 구역 없음 + 포위 → 체념/필사 전환
+  - 안전 구역 없음 + 비포위 → 강제 attacking 전환
 - **regrouping**: HP 충분 → 정비 완료. 적 재감지 시 combat_style에 따라 재개/유지
+- **resignation**: idle job 반복. `_check_combat_threat`에서 적 전멸 감지 시 regrouping 전환
+- **desperate**: 적에게 공격 지속. `_check_combat_threat`에서 적 전멸 감지 시 regrouping 전환
 
 ### 15.4 전투 종료 3-조건 (`_should_end_combat()`)
 
@@ -1249,18 +1256,39 @@ regrouping → 회복 대기 (HP ≥ 75% 또는 전투 종료 시 종료)
 - 전투 소리 들리는 location 제외 (`get_combat_sound_locations()`)
 - 1-hop 우선, 없으면 2-hop, 둘 다 없으면 위험 지역 포함
 
-### 15.6 클래스 변수 (서브클래스 override 가능)
+### 15.6 포위 판정 (`_is_surrounded()`)
+
+포위 조건 (모두 AND):
+1. 현재 location에 적 존재
+2. 인접 **모든** location에서 전투 소리 청취 (`get_combat_sound_locations()`)
+
+포위 시 `COMBAT_DESPERATE_CHANCE` 확률로 필사/체념 분기:
+- 필사의 저항 (`desperate`): 현재 위치에서 전투 지속, 도주 불가
+- 체념 (`resignation`): 반격·이동 불가, idle 상태
+
+### 15.7 클래스 변수 (서브클래스 override 가능)
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `COMBAT_ATTACK_DURATION` | 6,000ms | NPC 근접 공격 시간 |
 | `COMBAT_END_COOLDOWN` | 600,000ms (10분) | 전투 종료 쿨다운 |
 | `COMBAT_REGROUP_HP_THRESHOLD` | 0.75 (75%) | 정비 종료 HP 비율 |
+| `COMBAT_DESPERATE_CHANCE` | 0.5 (50%) | 포위 시 필사의 저항 확률 |
 
-### 15.7 `_memory` 전투 키
+**캐릭터별 COMBAT_DESPERATE_CHANCE:**
+
+| NPC | 확률 | 설명 |
+|-----|------|------|
+| 세라 | 0.9 | 강인하지만 현실적 (90% 필사) |
+| 밀라 | 1.0 | 숨겨진 고수 (100% 필사) |
+| 리나 | 0.5 | 기본값 (50/50) |
+| 유키 | 0.2 | 도주형 (80% 체념) |
+| 엘라 | 0.7 | 방어적이지만 강인 (70% 필사) |
+
+### 15.8 `_memory` 전투 키
 
 ```python
-"combat_phase": None,          # None / "engaging" / "attacking" / "retreating" / "regrouping"
+"combat_phase": None,          # None/engaging/attacking/retreating/regrouping/resignation/desperate
 "combat_target_id": None,      # 전투 대상 unit_id
 "combat_last_attack_ms": 0,    # 마지막 공격 시각 (ms)
 "combat_last_enemy_ms": 0,     # 마지막 적 목격/소리 시각 (ms)
@@ -1268,7 +1296,15 @@ regrouping → 회복 대기 (HP ≥ 75% 또는 전투 종료 시 종료)
 "combat_regroup_phase": None,  # 정비 단계 (None/recovering)
 ```
 
-### 15.8 combat.py 헬퍼
+### 15.9 디버그 로그
+
+`_log_combat_phase(detail)` — 페이즈 전환 시 로그 출력:
+```
+[combat_phase] 리나(id=272) phase=retreating | 도주 개시
+[combat_phase] 리나(id=272) phase=resignation | 포위 → 체념
+```
+
+### 15.10 combat.py 헬퍼
 
 | 함수 | 설명 |
 |------|------|

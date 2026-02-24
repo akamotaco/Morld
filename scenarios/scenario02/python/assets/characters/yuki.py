@@ -1239,6 +1239,7 @@ class YukiAgent(BaseAgent):
         "join_combat": False,
         "protect_player": False,
     }
+    COMBAT_DESPERATE_CHANCE = 0.2   # 포위 시 20% 필사 / 80% 체념
 
     # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처, length=180)
     SCHEDULE = [
