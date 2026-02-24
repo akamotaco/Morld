@@ -1,7 +1,7 @@
 # events/__init__.py - 이벤트 핸들러 패키지
 #
 # 역할:
-# - 게임 이벤트 처리 (game_start, on_reach, on_meet, on_contact, on_time_elapsed, on_equip_change)
+# - 게임 이벤트 처리 (game_start, on_reach, on_meet, on_contact, on_time_elapsed)
 # - 스크립트 함수 자동 등록 (@morld.register_script)
 # - 캐릭터별 이벤트 핸들러 위임
 # - 순차적 on_meet 이벤트 큐 관리
@@ -85,88 +85,6 @@ def _handle_time_elapsed(millis):
                 except Exception as e:
                     print(f"[events] time_elapsed callback error: {e}")
 
-
-# ========================================
-# 장비 변경 이벤트 처리
-# ========================================
-
-def _handle_equip_change(player_id, item_id, is_equip):
-    """
-    장비 변경 이벤트 처리 - 같은 위치의 NPC들에게 알림
-
-    Args:
-        player_id: 플레이어 유닛 ID
-        item_id: 변경된 아이템 ID
-        is_equip: True=장착, False=해제
-
-    Returns:
-        Generator 또는 None
-
-    주의 (잠재적 이슈):
-    - 현재는 같은 위치의 모든 NPC를 순회하지만, 첫 번째 Generator 결과만 반환
-    - 여러 NPC가 on_equip_change를 구현한 경우, 첫 번째 NPC만 이벤트 처리되고 나머지는 소실됨
-    - on_meet과 달리 큐 시스템이 없어서 순차 처리 불가
-    - NPC Focus 상태에서 장비 변경 시 Focus 대상만 처리할지, 모든 NPC를 처리할지 정책 결정 필요
-    - 예: 리나 Focus 상태에서 장비 변경 → 리나만? 리나+밀라 둘 다?
-    """
-    import morld
-
-    # 플레이어 위치 확인
-    player_info = morld.get_unit_info(player_id)
-    if not player_info:
-        return None
-
-    player_region = player_info.get("region_id")
-    player_location = player_info.get("location_id")
-
-    # 같은 위치의 NPC들에게 on_equip_change 호출
-    # TODO: 다중 NPC 이벤트 순차 처리 (on_meet 큐 시스템 참고)
-    for handler in _get_nearby_character_handlers(player_id, player_region, player_location):
-        if hasattr(handler, "on_equip_change"):
-            try:
-                result = handler.on_equip_change(player_id, item_id, is_equip)
-                # 첫 번째 Generator 결과 반환 (있으면)
-                if result is not None:
-                    return result
-            except Exception as e:
-                print(f"[events] on_equip_change error: {e}")
-
-    return None
-
-
-def _get_nearby_character_handlers(player_id, region_id, location_id):
-    """
-    플레이어 위치에 있는 NPC 캐릭터 핸들러 목록 반환
-
-    Args:
-        player_id: 플레이어 ID
-        region_id: 현재 region
-        location_id: 현재 location
-
-    Yields:
-        Character 인스턴스
-    """
-    import morld
-    from assets.characters import _instances
-
-    # 등록된 모든 캐릭터 인스턴스 순회
-    for unit_id, instance in _instances.items():
-        if unit_id == player_id:
-            continue
-
-        # Player 캐릭터는 스킵
-        if instance.unique_id == "player":
-            continue
-
-        unit_info = morld.get_unit_info(unit_id)
-        if not unit_info:
-            continue
-
-        # 같은 위치에 있고, 이동 중이 아닌 캐릭터
-        if (unit_info.get("region_id") == region_id and
-            unit_info.get("location_id") == location_id and
-            not unit_info.get("is_moving", False)):
-            yield instance
 
 
 # ========================================
@@ -461,15 +379,6 @@ def on_single_event(event):
         if survival.is_player_faint_pending():
             return survival.handle_player_faint()
 
-        return None
-
-    elif event_type == "on_equip_change":
-        unit_id = event[1]
-        item_id = event[2]
-        is_equip = event[3]
-
-        if unit_id == player_id:
-            return _handle_equip_change(player_id, item_id, is_equip)
         return None
 
     elif event_type == "on_contact":

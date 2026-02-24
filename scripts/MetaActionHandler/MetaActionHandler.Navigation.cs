@@ -482,6 +482,36 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 전투/평화 스탠스 토글: stance:toggle
+	/// Python ui.toggle_stance() 호출
+	/// </summary>
+	private void HandleStanceAction(string[] parts)
+	{
+		if (parts.Length < 2 || parts[1] != "toggle")
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid stance format. Expected: stance:toggle");
+			return;
+		}
+
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleStanceAction: ScriptSystem not found");
+			return;
+		}
+
+		try
+		{
+			scriptSystem.CallFunctionEx("ui.toggle_stance", System.Array.Empty<string>());
+			_textUISystem?.RequestUpdateDisplay();
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandleStanceAction error: {ex.Message}");
+		}
+	}
+
+	/// <summary>
 	/// 위치 이동: move_x:targetX
 	/// Location 내 X 좌표 즉시 변경 (시간 소비 없음)
 	/// 건설 위치 지정 등에 사용

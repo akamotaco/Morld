@@ -31,7 +31,6 @@
 | `on_leave` | 위치 이탈 | unit_id, region_id, location_id |
 | `on_meet` | 유닛 만남 | unit_id1, unit_id2, ... |
 | `on_time_elapsed` | 시간 경과 | millis |
-| `on_equip_change` | 장비 변경 | unit_id, item_id, is_equip |
 
 ### 1. on_reach (위치 도착)
 플레이어나 NPC가 새로운 위치에 도착했을 때 발생
@@ -157,55 +156,6 @@ class Prologue(GameStartEvent):
 
 ---
 
-### 5. on_equip_change (장비 변경)
-
-플레이어가 장비를 장착하거나 해제했을 때 발생
-
-**C# 이벤트 발생:**
-```csharp
-// MetaActionHandler.Item.cs - 장착/해제 시
-var eventSystem = _world.GetSystem("eventSystem") as EventSystem;
-eventSystem?.Enqueue(GameEvent.OnEquipChange(player.Id, itemId, isEquip));
-eventSystem?.FlushEvents();
-```
-
-**Python 처리 흐름:**
-1. `events/__init__.py`의 `on_single_event()`에서 `on_equip_change` 감지
-2. `_handle_equip_change()`가 플레이어 위치 확인
-3. `_get_nearby_character_handlers()`로 같은 위치 NPC 목록 조회
-4. 각 NPC의 `on_equip_change()` 메서드 호출
-
-**NPC 핸들러 예시:**
-```python
-# assets/characters/sera.py
-class Sera(Character):
-    def on_equip_change(self, player_id, item_id, is_equip):
-        """플레이어 장비 변경 시 반응"""
-        import morld
-
-        item_info = morld.get_item_info(item_id)
-        if not item_info:
-            return None
-
-        # 무기(장착:손) 체크
-        equip_props = item_info.get("equip_props", {})
-        if not equip_props.get("장착:손"):
-            return None  # 무기가 아니면 무시
-
-        if is_equip:
-            morld.add_action_log("세라가 무기를 힐끗 보더니 고개를 끄덕인다.")
-        else:
-            morld.add_action_log("세라가 빈 손을 보고 살짝 고개를 갸웃한다.")
-
-        return None
-```
-
-**특징:**
-- 별도 이벤트 타입으로 `on_meet`과 독립적
-- 같은 위치에서 장착/해제해도 즉시 반응
-- 시간 소모 없이 즉각적인 NPC 반응
-- 이동 중인 NPC는 반응하지 않음
-
 ### 파일 구조
 
 ```
@@ -294,7 +244,8 @@ morld.clear_player_meetings()
 
 **사용처:**
 - `stealth.py` — `set_detected`, `exit_unit_stealth`, `auto_exit_stealth_for_interaction`
-- `ui.py` — `exit_stealth` (UI 토글)
+- `ui.py` — `exit_stealth` (은신 해제 토글)
+- `ui.py` — `toggle_stance` (전투/평화 스탠스 전환)
 
 ### RequestTimeAdvance(0) 패턴
 
@@ -323,7 +274,7 @@ _playerSystem.RequestTimeAdvance(0, "사유");
 | 단순 prop 변경 (UI 표시용) | X | 이벤트 재판정 불필요 |
 | 시간 소모 행동 중 (대화, 이동) | X | 이미 Step 블록 내에서 실행 |
 
-**현재 사용처:** `clear_player_meetings()` (은신 해제 → on_meet 재발생)
+**현재 사용처:** `clear_player_meetings()` — 은신 해제, 전투/평화 스탠스 전환 시 on_meet 재발생
 
 ### ExcessTime과 이벤트 큐 연동
 
@@ -437,7 +388,6 @@ class Sera(Character):
 | on_reach | 정상 동작 (챕터 전환에 필요) |
 | on_leave | 정상 동작 (on_reach와 동일 조건) |
 | on_time_elapsed | 스킵 (시간 진행 없음) |
-| on_equip_change | 정상 동작 (즉시 반응) |
 
 ---
 
@@ -666,9 +616,8 @@ public struct RouteWaypoint
 - `scripts/morld/unit/ActionLog.cs` - MovementProgress 정의
 
 **Python:**
-- `scenarios/scenario02/python/events/__init__.py` - 이벤트 시스템 메인 (on_equip_change 처리 포함)
+- `scenarios/scenario02/python/events/__init__.py` - 이벤트 시스템 메인
 - `scenarios/scenario02/python/events/registry.py` - 이벤트 등록 시스템
 - `scenarios/scenario02/python/events/reach/` - on_reach 핸들러
 - `scenarios/scenario02/python/events/meet/` - on_meet 핸들러
 - `scenarios/scenario02/python/events/game_start/` - game_start 핸들러
-- `scenarios/scenario02/python/assets/characters/` - 캐릭터별 on_equip_change 핸들러

@@ -218,6 +218,9 @@ public partial class MetaActionHandler
 			case "posture":
 				HandlePostureAction(parts);
 				break;
+			case "stance":
+				HandleStanceAction(parts);
+				break;
 			case "move_x":
 				HandleMoveXAction(parts);
 				break;

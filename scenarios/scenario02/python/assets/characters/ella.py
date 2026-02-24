@@ -701,11 +701,6 @@ class Ella(Character):
         "effects": {"호감": 1},  # 함께 위기를 넘겨서 유대감 증가
     }
 
-    EQUIP_CHANGE_REACTIONS = {
-        "equip": "엘라가 무기를 흘끗 보더니 시선을 돌린다.",
-        "unequip": "엘라가 빈 손을 보고 무표정하게 고개를 끄덕인다.",
-    }
-
     FRIENDLY_TALK_CONFIG = {
         "high": {
             "dialog": [

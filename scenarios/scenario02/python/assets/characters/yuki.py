@@ -533,11 +533,6 @@ class Yuki(Character):
         "effects": {"호감": 2},  # 무서워서 더 의지하게 됨
     }
 
-    EQUIP_CHANGE_REACTIONS = {
-        "equip": "유키가 무기를 보고 움찔하며 한 발 물러선다.",
-        "unequip": "유키가 살짝 안심한 듯 다시 다가온다.",
-    }
-
     FRIENDLY_TALK_CONFIG = {
         "high": {
             "dialog": [

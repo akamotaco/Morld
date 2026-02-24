@@ -568,10 +568,6 @@ class TestMiscSafety:
         mob = _create_mob()
         assert mob.SEXUAL_PREFERENCES is None
 
-    def test_equip_change_reactions_default(self):
-        """EQUIP_CHANGE_REACTIONS 기본값 None"""
-        mob = _create_mob()
-        assert mob.EQUIP_CHANGE_REACTIONS is None
 
 
 # ============================================

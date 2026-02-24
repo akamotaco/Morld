@@ -1376,14 +1376,6 @@ class Character(Unit):
 
     STEALTH_REACTIONS: dict = None
 
-    # EQUIP_CHANGE_REACTIONS: 플레이어 장비 변경 시 반응 텍스트
-    #   EQUIP_CHANGE_REACTIONS = {
-    #       "equip": "세라가 무기를 힐끗 보더니 고개를 끄덕인다.",
-    #       "unequip": "세라가 빈 손을 보고 살짝 고개를 갸웃한다.",
-    #   }
-
-    EQUIP_CHANGE_REACTIONS: dict = None
-
     # PROGRESS_DIALOGS: 진척도별 대화 (일회성 플래그)
     #   PROGRESS_DIALOGS = {
     #       1: {"fallback": ["......", "...무슨 일이야?"], "dialog": ["......", "...내 이름은 세라.", ...]},
@@ -3960,6 +3952,12 @@ class Character(Unit):
             if result is not None:
                 return result
 
+        # 플레이어 전투 태세 반응
+        if player_props and player_props.get("can:attack", 0) >= 1:
+            result = self._on_player_combat_stance(player_id)
+            if result is not None:
+                return result
+
         # 프라이버시 체크 (수면 목적으로 자기 방 도착 시)
         privacy = self._check_room_privacy(player_id)
         if privacy is not None:
@@ -4462,24 +4460,8 @@ class Character(Unit):
 
         return None
 
-    def on_equip_change(self, player_id, item_id, is_equip):
-        """플레이어 장비 변경 시 반응 - EQUIP_CHANGE_REACTIONS 기반"""
-        if not self.EQUIP_CHANGE_REACTIONS:
-            return None
-
-        item_info = morld.get_item_info(item_id)
-        if not item_info:
-            return None
-
-        equip_props = item_info.get("equip_props", {})
-        if not equip_props.get("장착:손"):
-            return None  # 무기가 아니면 무시
-
-        key = "equip" if is_equip else "unequip"
-        text = self.EQUIP_CHANGE_REACTIONS.get(key)
-        if text:
-            morld.add_action_log(text)
-
+    def _on_player_combat_stance(self, player_id):
+        """플레이어 전투 태세 반응 — 기본: 무반응. 서브클래스에서 오버라이드."""
         return None
 
     # ========================================

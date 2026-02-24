@@ -792,11 +792,6 @@ class Sera(Character):
         "effects": {"성욕": 5},  # 스릴에 더 흥분
     }
 
-    EQUIP_CHANGE_REACTIONS = {
-        "equip": "세라가 무기를 힐끗 보더니 고개를 끄덕인다.",
-        "unequip": "세라가 빈 손을 보고 살짝 고개를 갸웃한다.",
-    }
-
     FRIENDLY_TALK_CONFIG = {
         "mid": {
             "dialog": ["......", "...무슨 일이야?"],

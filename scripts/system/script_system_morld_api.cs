@@ -137,7 +137,7 @@ namespace SE
                 _eventSystem.ClearMeetingsForUnit(playerId);
 
                 // 0ms instant action 요청 → 다음 _Process()에서 Step → DetectMeetings 실행
-                _playerSystem.RequestTimeAdvance(0, "은신 해제");
+                _playerSystem.RequestTimeAdvance(0, "만남 상태 초기화");
                 return PyNone.Instance;
             });
         }

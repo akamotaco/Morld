@@ -361,11 +361,6 @@ public partial class MetaActionHandler
 
 		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
 		_textUISystem?.Pop();
-
-		// 장비 변경 이벤트 발생 (is_equip = true)
-		var eventSystem = _world.GetSystem("eventSystem") as EventSystem;
-		eventSystem?.Enqueue(GameEvent.OnEquipChange(player.Id, itemId, true));
-		eventSystem?.FlushEvents();
 	}
 
 	/// <summary>
@@ -411,11 +406,6 @@ public partial class MetaActionHandler
 
 		// UI 갱신 (아이템 메뉴 닫고 인벤토리로 돌아가기)
 		_textUISystem?.Pop();
-
-		// 장비 변경 이벤트 발생 (is_equip = false)
-		var eventSystem = _world.GetSystem("eventSystem") as EventSystem;
-		eventSystem?.Enqueue(GameEvent.OnEquipChange(player.Id, itemId, false));
-		eventSystem?.FlushEvents();
 	}
 
 }

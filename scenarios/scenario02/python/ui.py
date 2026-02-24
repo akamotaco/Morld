@@ -411,10 +411,16 @@ def get_footer():
     if env_text:
         lines.append(env_text)
 
-    # 플레이어 자세 정보 (기본 자세가 아닌 경우만 표시)
+    # 스탠스 + 자세 토글 (한 줄)
+    toggle_parts = []
+    stance_text = _get_stance_text()
+    if stance_text:
+        toggle_parts.append(stance_text)
     posture_text = _get_posture_text()
     if posture_text:
-        lines.append(posture_text)
+        toggle_parts.append(posture_text)
+    if toggle_parts:
+        lines.append("  ".join(toggle_parts))
 
     return "\n".join(lines)
 
@@ -650,6 +656,35 @@ def toggle_posture() -> str:
     next_info = POSTURE_INFO.get(next_posture, {})
     print(f"[ui] toggle_posture: {current} -> {next_posture}")
     return next_info.get("name", next_posture)
+
+
+def _get_stance_text() -> str:
+    """전투/평화 스탠스 토글 버튼 텍스트 반환"""
+    import combat
+    if combat.is_hostile_mode():
+        return "[url=stance:toggle][color=red][전투 태세][/color][/url]"
+    else:
+        return "[url=stance:toggle][color=gray][평화][/color][/url]"
+
+
+def toggle_stance() -> str:
+    """
+    전투/평화 스탠스 토글
+
+    전투 스탠스: can:attack, can:steal 활성화 (공격 액션 표시)
+    평화 스탠스: can:attack, can:steal 비활성화 (공격 액션 숨김)
+
+    Returns:
+        str: 새 스탠스 이름
+    """
+    import combat
+    current = combat.is_hostile_mode()
+    combat.set_hostile_mode(not current)
+    new_stance = "전투" if not current else "평화"
+    print(f"[ui] toggle_stance: {'전투' if current else '평화'} -> {new_stance}")
+    # on_meet 재발생 → NPC 반응
+    morld.clear_player_meetings()
+    return new_stance
 
 
 def _get_posture_text() -> str:
