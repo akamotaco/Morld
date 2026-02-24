@@ -1038,24 +1038,6 @@ class Lina(Character):
     # 이벤트 핸들러
     # ========================================
 
-    def _on_player_combat_stance(self, player_id):
-        """전투 태세 반응 — 저택 실내에서 무서워함 (30%)"""
-        import random
-        loc = morld.get_unit_location(self.instance_id)
-        if not loc or loc[0] != 0:
-            return None
-        loc_info = morld.get_location_info(loc[0], loc[1])
-        if not loc_info or not loc_info.get("is_indoor", False):
-            return None
-        if random.random() > 0.3:
-            return None
-        texts = [
-            "리나가 움찔하며 한 발 물러선다.",
-            "리나가 불안한 눈으로 무기를 바라본다.",
-        ]
-        morld.add_action_log(random.choice(texts))
-        return None
-
     def _first_meet_handler(self, player_id):
         """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
         # 누적형 대화 빌더 사용

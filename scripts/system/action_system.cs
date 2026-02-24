@@ -16,6 +16,15 @@ namespace SE
 	/// </summary>
 	public class ActionSystem : ECS.System
 	{
+		/// <summary>
+		/// 적대 행동 메서드명 (빨간색 표시)
+		/// </summary>
+		private static readonly HashSet<string> _hostileMethodNames = new()
+		{
+			"attack", "aimed_attack_head", "aimed_attack_arms", "aimed_attack_legs",
+			"steal", "finish_off", "combat_harass", "harass"
+		};
+
 		public ActionSystem()
 		{
 		}
@@ -315,9 +324,14 @@ namespace SE
 				{
 					var methodName = parts[1];
 					var displayName = parts[2];
-					return enabled
-						? $"  [url=call:{methodName}:{displayName}]{displayName}[/url]"
-						: $"  [color=gray]{displayName}[/color]";
+					if (enabled)
+					{
+						var label = _hostileMethodNames.Contains(methodName)
+							? $"[color=red]{displayName}[/color]"
+							: displayName;
+						return $"  [url=call:{methodName}:{displayName}]{label}[/url]";
+					}
+					return $"  [color=gray]{displayName}[/color]";
 				}
 				else if (parts.Length == 2)
 				{

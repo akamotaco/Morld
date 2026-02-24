@@ -1061,24 +1061,6 @@ class Mila(Character):
     # 이벤트 핸들러
     # ========================================
 
-    def _on_player_combat_stance(self, player_id):
-        """전투 태세 반응 — 저택 실내에서 타이르듯 말림 (30%)"""
-        import random
-        loc = morld.get_unit_location(self.instance_id)
-        if not loc or loc[0] != 0:
-            return None
-        loc_info = morld.get_location_info(loc[0], loc[1])
-        if not loc_info or not loc_info.get("is_indoor", False):
-            return None
-        if random.random() > 0.3:
-            return None
-        texts = [
-            "밀라가 걱정스러운 눈으로 바라본다. \"집 안에서는 위험한 건 넣어두세요...\"",
-            "밀라가 조심스럽게 말한다. \"여기서는 그러지 않으셔도 괜찮아요.\"",
-        ]
-        morld.add_action_log(random.choice(texts))
-        return None
-
     def _first_meet_handler(self, player_id):
         """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
         # 누적형 대화 빌더 사용

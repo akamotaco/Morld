@@ -434,15 +434,25 @@ class TestFactionHostility:
         assert combat.is_faction_hostile(None, None) is False
 
     def test_unknown_faction(self):
-        """테이블에 없는 세력 — set()으로 처리 (양방향 체크)"""
-        # "야생"은 테이블에 없음 → 빈 set → 상대도 빈 set이면 비적대
+        """테이블에 없는 세력 — 같은 세력=우호, 정의 안 된 이종=중립"""
         assert combat.is_faction_hostile("야생", "야생") is False
-        # "야생" vs "주민" — "야생"은 테이블에 없고 "주민"도 비어있음 → 비적대
-        assert combat.is_faction_hostile("야생", "주민") is False
+        # "야생" vs "주민" — FACTION_RELATIONS에 적대 정의됨
+        assert combat.is_faction_hostile("야생", "주민") is True
 
-    def test_citizen_not_hostile_to_anyone(self):
-        """주민 세력은 선제공격 안 함 (테이블 비어있음)"""
-        assert combat.FACTION_HOSTILITY["주민"] == set()
+    def test_citizen_friendly_with_citizen(self):
+        """주민 vs 주민 — 우호 (같은 세력)"""
+        assert combat.get_faction_relation("주민", "주민") == 1
+
+    def test_faction_relation_friendly(self):
+        """같은 세력은 항상 우호"""
+        assert combat.is_faction_friendly("주민", "주민") is True
+        assert combat.is_faction_friendly("늑대", "늑대") is True
+
+    def test_faction_relation_neutral(self):
+        """정의 안 된 이종 세력은 중립"""
+        assert combat.get_faction_relation("박쥐", "늑대") == 0
+        assert combat.is_faction_hostile("박쥐", "늑대") is False
+        assert combat.is_faction_friendly("박쥐", "늑대") is False
 
 
 class TestIsCreatureUnit:

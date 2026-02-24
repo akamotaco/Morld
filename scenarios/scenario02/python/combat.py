@@ -50,24 +50,45 @@ AFFECTION_ON_STEAL_FAIL = -20
 AFFECTION_ON_NURSING = 10
 
 # ── 세력(Faction) 시스템 ──
-# 각 세력이 적대하는 세력 목록 (양방향 체크)
-FACTION_HOSTILITY = {
-    "주민":   set(),               # NPC/플레이어 — BATTLE_BEHAVIOR로 판단
-    "늑대":   {"주민", "거미"},     # 사람+거미 공격
-    "거미":   {"주민", "늑대"},     # 사람+늑대 공격
-    "박쥐":   {"주민"},             # 사람만 공격
+# 관계값: -1=적대, 0=중립, 1=우호
+# 같은 세력 → 우호(1). 정의 안 된 이종 세력 → 중립(0).
+FACTION_RELATIONS = {
+    # 생물 vs 주민 (모두 적대)
+    ("늑대", "주민"): -1,
+    ("거미", "주민"): -1,
+    ("박쥐", "주민"): -1,
+    ("야생", "주민"): -1,
+    ("유적", "주민"): -1,
+    ("기생", "주민"): -1,
+    # 생물 간
+    ("늑대", "거미"): -1,
 }
 DEFAULT_FACTION = "주민"           # 세력 미설정 시 기본값
 
 
-def is_faction_hostile(faction_a, faction_b):
-    """두 세력이 적대 관계인지 (양방향 체크)"""
+def get_faction_relation(faction_a, faction_b):
+    """세력 관계: 1=우호, 0=중립, -1=적대. 같은 세력=우호."""
     a = faction_a or DEFAULT_FACTION
     b = faction_b or DEFAULT_FACTION
     if a == b:
-        return False
-    return (b in FACTION_HOSTILITY.get(a, set())
-            or a in FACTION_HOSTILITY.get(b, set()))
+        return 1
+    rel = FACTION_RELATIONS.get((a, b))
+    if rel is not None:
+        return rel
+    rel = FACTION_RELATIONS.get((b, a))
+    if rel is not None:
+        return rel
+    return 0
+
+
+def is_faction_hostile(faction_a, faction_b):
+    """두 세력이 적대 관계인지"""
+    return get_faction_relation(faction_a, faction_b) < 0
+
+
+def is_faction_friendly(faction_a, faction_b):
+    """두 세력이 우호 관계인지"""
+    return get_faction_relation(faction_a, faction_b) > 0
 
 
 def is_creature_unit(unit_id):

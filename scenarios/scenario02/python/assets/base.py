@@ -2474,11 +2474,11 @@ class Character(Unit):
     # ========================================
 
     def _get_combat_stance_info(self) -> tuple:
-        """전투 태세 정보 반환 (적대 유닛만)
+        """전투 태세 정보 반환
 
         Returns:
             (is_hostile, is_aggressive)
-            - is_hostile: 플레이어에 대해 적대적인지
+            - is_hostile: 전투 태세 표시 대상인지
             - is_aggressive: 선공형(전투 태세)인지
         """
         player_id = morld.get_player_id()
@@ -2499,6 +2499,14 @@ class Character(Unit):
             is_hostile = _combat.is_faction_hostile(my_faction, player_faction)
         if not is_hostile:
             is_hostile = _combat.is_hostile_to(self.instance_id, player_id)
+
+        # 비우호 세력 + 플레이어 전투 태세 → 반응형 전투 태세
+        if not is_hostile:
+            relation = _combat.get_faction_relation(my_faction, player_faction)
+            if relation < 1:  # 중립 또는 적대 (우호 아님)
+                player_combat = morld.get_unit_prop(player_id, "can:attack")
+                if player_combat and player_combat >= 1:
+                    is_hostile = True
 
         if not is_hostile:
             return (False, False)
@@ -4522,7 +4530,14 @@ class Character(Unit):
         return None
 
     def _on_player_combat_stance(self, player_id):
-        """플레이어 전투 태세 반응 — 기본: 무반응. 서브클래스에서 오버라이드."""
+        """플레이어 전투 태세 반응 — 비우호 세력은 경계 로그 출력."""
+        import combat as _combat
+        my_faction = morld.get_unit_prop(self.instance_id, "전투:세력")
+        player_faction = morld.get_unit_prop(player_id, "전투:세력")
+        relation = _combat.get_faction_relation(my_faction, player_faction)
+        if relation >= 1:  # 우호 → 무반응
+            return None
+        morld.add_action_log(f"{self.name}이(가) 경계하며 전투 태세를 취한다.")
         return None
 
     # ========================================

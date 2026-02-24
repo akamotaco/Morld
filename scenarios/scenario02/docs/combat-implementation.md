@@ -289,10 +289,13 @@ def set_hostile_mode(enabled: bool)    # can:attack, can:steal 연동
 1. 플레이어 자신 → 미표시
 2. 사망(HP ≤ 0) → 미표시
 3. 세력 적대 OR 개인 적대도 ≥ HOSTILITY_HOSTILE → 표시
-4. `BATTLE_BEHAVIOR.combat_style == "aggressive"` → 전투 태세, 그 외 → 평화 태세
+4. 비우호 세력(중립/적대) + 플레이어 전투 태세(`can:attack=1`) → 반응형 표시
+5. `BATTLE_BEHAVIOR.combat_style == "aggressive"` → 전투 태세, 그 외 → 평화 태세
 
 describe: 텍스트 끝에 `(전투 태세)` / `(평화 태세)` 태그 부착
 focus: 텍스트 선두에 `전투 태세 — 선공형` / `평화 태세 — 반격형` 행 추가
+
+**적대 행동 빨간색 표시:** 공격/소매치기/숨통 끊기/성추행 등 적대 행동은 focus 액션 목록에서 `[color=red]` 빨간색으로 표시 (`action_system.cs`)
 
 ### 2.10 디버프 API
 

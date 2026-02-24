@@ -368,7 +368,13 @@ namespace SE
 				}
 			}
 
-			lines.Add($"[b]{unitLook.Name}[/b]");
+			// 유닛 이름 + X 좌표
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			var targetUnit = unitSystem?.FindUnit(unitLook.UnitId);
+			if (targetUnit != null)
+				lines.Add($"[b]{unitLook.Name}[/b] [color=gray]X:{(int)targetUnit.PositionX}[/color]");
+			else
+				lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
 
 			// 행동 로그 (ActionLogSystem에서 직접 가져옴)

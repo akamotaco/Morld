@@ -60,18 +60,25 @@ class Monster(Character):
 
 ### 개요
 
-`전투:적대유형` (타입 기반) → `전투:세력` (세력 기반)으로 교체.
-같은 세력끼리는 비적대, 다른 세력은 적대 테이블 참조.
+`전투:세력` prop 기반 3단계 관계 시스템: **적대(-1) / 중립(0) / 우호(1)**.
+- 같은 세력 → 우호(1)
+- 정의 안 된 이종 세력 → 중립(0)
+- `FACTION_RELATIONS` 테이블에 정의된 관계 → 해당 값
 
-### 적대 테이블
+### 관계 테이블
 
 ```python
 # combat.py
-FACTION_HOSTILITY = {
-    "주민":   set(),               # NPC/플레이어 — 기본 비적대
-    "늑대":   {"주민", "거미"},     # 사람+거미 공격
-    "거미":   {"주민", "늑대"},     # 사람+늑대 공격
-    "박쥐":   {"주민"},             # 사람만 공격
+FACTION_RELATIONS = {
+    # 생물 vs 주민 (모두 적대)
+    ("늑대", "주민"): -1,
+    ("거미", "주민"): -1,
+    ("박쥐", "주민"): -1,
+    ("야생", "주민"): -1,
+    ("유적", "주민"): -1,
+    ("기생", "주민"): -1,
+    # 생물 간
+    ("늑대", "거미"): -1,
 }
 DEFAULT_FACTION = "주민"
 ```
@@ -79,29 +86,27 @@ DEFAULT_FACTION = "주민"
 ### 판별 함수
 
 ```python
+def get_faction_relation(faction_a, faction_b) -> int:
+    """세력 관계: 1=우호, 0=중립, -1=적대. 같은 세력=우호."""
+
 def is_faction_hostile(faction_a, faction_b) -> bool:
-    """양방향 적대 체크 — 어느 한쪽이라도 상대를 적대 목록에 포함하면 True"""
-    a = faction_a or DEFAULT_FACTION
-    b = faction_b or DEFAULT_FACTION
-    if a == b:
-        return False
-    return b in FACTION_HOSTILITY.get(a, set()) \
-        or a in FACTION_HOSTILITY.get(b, set())
+    """두 세력이 적대 관계인지 (relation < 0)"""
+
+def is_faction_friendly(faction_a, faction_b) -> bool:
+    """두 세력이 우호 관계인지 (relation > 0)"""
 
 def is_creature_unit(unit_id) -> bool:
     """세력이 주민이 아닌 유닛 = 생물"""
-    faction = morld.get_unit_prop(unit_id, "전투:세력")
-    return faction is not None and faction != DEFAULT_FACTION
 ```
 
-### 적대 매트릭스
+### 관계 매트릭스
 
-| | 주민 | 늑대 | 거미 | 박쥐 |
-|---|:---:|:---:|:---:|:---:|
-| **주민** | - | **적대** | **적대** | **적대** |
-| **늑대** | **적대** | - | **적대** | - |
-| **거미** | **적대** | **적대** | - | - |
-| **박쥐** | **적대** | - | - | - |
+| | 주민 | 늑대 | 거미 | 박쥐 | 야생 | 유적 | 기생 |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **주민** | 우호 | **적대** | **적대** | **적대** | **적대** | **적대** | **적대** |
+| **늑대** | **적대** | 우호 | **적대** | 중립 | 중립 | 중립 | 중립 |
+| **거미** | **적대** | **적대** | 우호 | 중립 | 중립 | 중립 | 중립 |
+| **박쥐** | **적대** | 중립 | 중립 | 우호 | 중립 | 중립 | 중립 |
 
 ### NPC 전투와의 병행
 
@@ -113,6 +118,12 @@ is_enemy = combat.is_faction_hostile(my_faction, their_faction)
 if not is_enemy:
     is_enemy = combat.is_hostile_to(self.unit_id, uid)
 ```
+
+### 반응형 전투 태세
+
+비우호 세력(중립/적대)이 플레이어 전투 태세(`can:attack=1`)를 목격하면:
+- `_on_player_combat_stance()`: 경계 로그 출력
+- `_get_combat_stance_info()`: describe/focus에 전투 태세 표시 (반응형)
 
 ---
 

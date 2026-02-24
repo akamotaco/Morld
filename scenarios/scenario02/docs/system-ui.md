@@ -235,7 +235,7 @@ Gate(0, 2, conditions={"비밀통로#": 1})
 | Focus Type | Header/Footer | 설명 |
 |------------|---------------|------|
 | Situation  | **표시** | 기본 화면 (Python get_header/footer) |
-| Unit       | **표시** | 유닛/오브젝트 살펴보기 |
+| Unit       | **표시** | 유닛/오브젝트 살펴보기 (이름 + X좌표 표시) |
 | Dialog     | **레터박스** | 대화/이벤트 텍스트 |
 | Animation  | **모드별** | normal: 표시, lock: 레터박스, block: 표시 |
 | Inventory  | **레터박스** | 인벤토리 전체화면 |
