@@ -124,9 +124,12 @@ class BaseAgent:
             "laundry_items": None,        # 세탁 중인 아이템 ID 목록 (re-equip용)
             "laundry_cooldown": None,     # 마지막 빨래 시각 (밀리초) — 쿨다운 3시간
             # 전투
-            "combat_phase": None,         # 전투 단계 (None/engaging/attacking/retreating)
+            "combat_phase": None,         # 전투 단계 (None/engaging/attacking/retreating/regrouping)
             "combat_target_id": None,     # 전투 대상 unit_id
             "combat_last_attack_ms": 0,   # 마지막 공격 시각 (밀리초)
+            "combat_last_enemy_ms": 0,    # 마지막 적 목격/소리 시각 (밀리초)
+            "combat_flee_target": None,   # 도주 목적지 dict (고정)
+            "combat_regroup_phase": None, # 정비 단계 (None/recovering)
         }
 
     def set_base_schedule(self, schedule):
@@ -914,15 +917,23 @@ class BaseAgent:
     # 전투 위협 감지 + 대응 (Tier 2)
     # ========================================
 
-    COMBAT_ATTACK_DURATION = 6_000   # NPC 근접 공격 시간 (ms)
-    COMBAT_RETREAT_DURATION = 5_000  # 후퇴 이동 시간 (ms)
+    COMBAT_ATTACK_DURATION = 6_000       # NPC 근접 공격 시간 (ms)
+    COMBAT_END_COOLDOWN = 10 * 60_000    # 전투 종료 쿨다운 10분 (ms), 서브클래스 override 가능
+    COMBAT_REGROUP_HP_THRESHOLD = 0.75   # 정비 종료 HP 비율 (75%), 서브클래스 override 가능
 
     def _check_combat_threat(self) -> bool:
         """전투 위협 감지 + 대응
 
-        1. 이미 전투 중 (combat_phase != None) → _handle_combat()
-        2. 같은 location에 적대 유닛 → 전투 개시 / 도주
-        3. BATTLE_BEHAVIOR 없으면 False (허수아비/비전투 NPC)
+        Phase machine:
+        - engaging: 사거리 밖 이동 → attacking
+        - attacking: 공격 실행
+        - retreating: 안전 지역으로 이동
+        - regrouping: 정비 중 (이동 → 회복)
+
+        전투 종료 3-조건 (모두 AND):
+        1. 현재 location에 적 없음
+        2. 전투 소리 미청취
+        3. 마지막 적 목격/소리 + COMBAT_END_COOLDOWN 경과
         """
         import combat as _combat
 
@@ -930,56 +941,48 @@ class BaseAgent:
         if not behavior:
             return False
 
-        # 진행 중인 전투가 있으면 계속
         phase = self._memory.get("combat_phase")
+
+        # 진행 중인 전투: regrouping/retreating은 적 재감지 수행
         if phase is not None:
+            if phase in ("regrouping", "retreating"):
+                # 현재 위치에 적이 있으면 전투 재개
+                enemy_id = self._scan_nearest_enemy()
+                if enemy_id is not None:
+                    self._memory["combat_last_enemy_ms"] = self.get_time()
+                    style = behavior.get("combat_style", "aggressive")
+                    if style == "evasive":
+                        # 도주형: 적 발견해도 계속 도주/정비
+                        pass
+                    else:
+                        self._memory["combat_phase"] = "engaging"
+                        self._memory["combat_target_id"] = enemy_id
+                # 전투 종료 판정 (regrouping)
+                if phase == "regrouping" and self._should_end_combat():
+                    self._end_combat()
+                    self._insert_idle_job("전투 종료", 2_000)
+                    self._action_taken = True
+                    return True
             self._handle_combat()
             return True
 
         # 적 탐색: 같은 location
-        my_loc = morld.get_unit_location(self.unit_id)
-        if not my_loc:
-            return False
-
-        units = morld.get_units_at_location(my_loc[0], my_loc[1])
-        enemy_id = None
-        enemy_dist = float('inf')
-
-        my_faction = morld.get_unit_prop(self.unit_id, "전투:세력")
-        detect_range = morld.get_unit_prop(self.unit_id, "전투:감지거리") or 100
-
-        for uid in units:
-            if uid == self.unit_id:
-                continue
-            # 사망 체크
-            if morld.get_unit_prop(uid, "상태:사망"):
-                continue
-            # 세력 적대 체크
-            their_faction = morld.get_unit_prop(uid, "전투:세력")
-            is_enemy = _combat.is_faction_hostile(my_faction, their_faction)
-            # 관계 적대도 병행 (NPC 간 개인적 적대)
-            if not is_enemy and _combat.is_hostile_to(self.unit_id, uid):
-                is_enemy = True
-            if is_enemy:
-                dist = _combat.get_distance(self.unit_id, uid)
-                if dist <= detect_range and dist < enemy_dist:
-                    enemy_id = uid
-                    enemy_dist = dist
-
+        enemy_id = self._scan_nearest_enemy()
         if enemy_id is None:
             return False
+
+        # 전투 시작 시간 기록
+        self._memory["combat_last_enemy_ms"] = self.get_time()
 
         # 행동 결정 (combat_style)
         style = behavior.get("combat_style", "aggressive")
 
         if style == "evasive":
-            # 도주형: retreat_threshold 체크
             import survival as _surv
             my_hp = _surv.get_health(self.unit_id)
             my_max = _surv.get_max_health(self.unit_id)
             threshold = behavior.get("retreat_threshold", 0.5)
             if my_hp <= my_max * threshold:
-                # HP 낮으면 무조건 도주 — 도주 대사
                 _combat._emit_combat_line(self.unit_id, "flee")
                 self._memory["combat_phase"] = "retreating"
                 self._memory["combat_target_id"] = enemy_id
@@ -995,12 +998,86 @@ class BaseAgent:
         self._handle_combat()
         return True
 
+    def _scan_nearest_enemy(self):
+        """현재 location에서 가장 가까운 적 unit_id 반환 (없으면 None)"""
+        import combat as _combat
+
+        my_loc = morld.get_unit_location(self.unit_id)
+        if not my_loc:
+            return None
+
+        units = morld.get_units_at_location(my_loc[0], my_loc[1])
+        enemy_id = None
+        enemy_dist = float('inf')
+
+        my_faction = morld.get_unit_prop(self.unit_id, "전투:세력")
+        detect_range = morld.get_unit_prop(self.unit_id, "전투:감지거리") or 100
+
+        for uid in units:
+            if uid == self.unit_id:
+                continue
+            if morld.get_unit_prop(uid, "상태:사망"):
+                continue
+            their_faction = morld.get_unit_prop(uid, "전투:세력")
+            is_enemy = _combat.is_faction_hostile(my_faction, their_faction)
+            if not is_enemy:
+                hostile_to = _combat.is_hostile_to(self.unit_id, uid)
+                uid_info = morld.get_unit_info(uid)
+                uid_name = uid_info.get("name", "?") if uid_info else "?"
+                h = _combat.get_hostility(self.unit_id, uid_name)
+                my_info = morld.get_unit_info(self.unit_id)
+                my_name = my_info.get("name", "?") if my_info else "?"
+                print(f"[DEBUG combat_threat] {my_name}(id={self.unit_id}) vs {uid_name}(id={uid}): faction_hostile=False, hostility={h}, hostile_to={hostile_to}")
+                if hostile_to:
+                    is_enemy = True
+            if is_enemy:
+                import survival as _surv
+                if _surv.is_npc_fainted(uid):
+                    continue
+                dist = _combat.get_distance(self.unit_id, uid)
+                if dist <= detect_range and dist < enemy_dist:
+                    enemy_id = uid
+                    enemy_dist = dist
+
+        return enemy_id
+
+    def _should_end_combat(self) -> bool:
+        """전투 종료 3-조건 판정 (모두 AND)
+
+        1. 현재 location에 적 없음
+        2. 전투 소리 미청취
+        3. 마지막 적 목격/소리 + COMBAT_END_COOLDOWN 경과
+        """
+        import combat as _combat
+
+        my_loc = morld.get_unit_location(self.unit_id)
+        if not my_loc:
+            return True
+
+        # 조건 1: 현재 location에 적 없음
+        if _combat.has_enemies_at_location(self.unit_id, my_loc[0], my_loc[1]):
+            self._memory["combat_last_enemy_ms"] = self.get_time()
+            return False
+
+        # 조건 2: 전투 소리 미청취
+        if _combat.hears_combat_sound(self.unit_id):
+            self._memory["combat_last_enemy_ms"] = self.get_time()
+            return False
+
+        # 조건 3: 쿨다운 경과
+        last_enemy_ms = self._memory.get("combat_last_enemy_ms", 0)
+        if self.get_time() - last_enemy_ms < self.COMBAT_END_COOLDOWN:
+            return False
+
+        return True
+
     def _handle_combat(self):
         """BATTLE_BEHAVIOR 기반 전투 행동 (phase machine)
 
-        engaging  → 사거리 밖이면 이동, 사거리 안이면 attacking
-        attacking → execute_attack + 대기 job
-        retreating → Gate 방향 이동
+        engaging   → 사거리 밖이면 이동, 안이면 attacking
+        attacking  → execute_attack + 대기 job
+        retreating → 안전 지역으로 이동 → regrouping 전환
+        regrouping → 이동 완료 후 회복 대기
         """
         import combat as _combat
         import survival as _surv
@@ -1009,74 +1086,111 @@ class BaseAgent:
         target_id = self._memory.get("combat_target_id")
         behavior = getattr(self, 'BATTLE_BEHAVIOR', {})
 
-        # 대상 유효성 검증
-        if target_id is None or not self._is_valid_combat_target(target_id):
-            self._end_combat()
-            self._insert_idle_job("전투 종료", 2_000)
-            self._action_taken = True
-            return
+        # engaging/attacking: 대상 유효성 검증 (같은 location)
+        if phase in ("engaging", "attacking"):
+            if target_id is None or not self._is_valid_combat_target(target_id):
+                # 대상이 사라짐 → 전투 종료 판정
+                if self._should_end_combat():
+                    self._end_combat()
+                    self._insert_idle_job("전투 종료", 2_000)
+                else:
+                    # 아직 위협 남아있음 → 경계 대기
+                    self._insert_idle_job("경계", 5_000)
+                self._action_taken = True
+                return
 
-        # HP 기반 후퇴 판정 (매 tick)
-        style = behavior.get("combat_style", "aggressive")
-        threshold = behavior.get("retreat_threshold", 0.2)
-        my_hp = _surv.get_health(self.unit_id)
-        my_max = _surv.get_max_health(self.unit_id)
-        if my_hp <= my_max * threshold and style != "aggressive":
-            phase = "retreating"
-            self._memory["combat_phase"] = phase
+        # HP 기반 후퇴 판정 (engaging/attacking에서만)
+        if phase in ("engaging", "attacking"):
+            style = behavior.get("combat_style", "aggressive")
+            threshold = behavior.get("retreat_threshold", 0.2)
+            my_hp = _surv.get_health(self.unit_id)
+            my_max = _surv.get_max_health(self.unit_id)
+            if my_hp <= my_max * threshold and style != "aggressive":
+                _combat._emit_combat_line(self.unit_id, "flee")
+                phase = "retreating"
+                self._memory["combat_phase"] = phase
 
         if phase == "engaging":
             if _combat.is_in_range(self.unit_id, target_id):
                 self._memory["combat_phase"] = "attacking"
-                self._handle_combat()  # 즉시 공격 전환
+                self._handle_combat()
                 return
-            # 사거리 밖 → 이동
+            # 사거리 밖 → 적 위치로 이동
             target_loc = morld.get_unit_location(target_id)
             if target_loc:
-                self._move_to(target_loc[0], target_loc[1])
-                self._action_taken = True
+                target_info = self._make_location_target(
+                    target_loc[0], target_loc[1])
+                if target_info:
+                    self._move_to(target_info, "교전")
+                    self._action_taken = True
+                else:
+                    self._end_combat()
+                    self._insert_idle_job("대상 이탈", 2_000)
+                    self._action_taken = True
             else:
                 self._end_combat()
                 self._insert_idle_job("대상 이탈", 2_000)
                 self._action_taken = True
 
         elif phase == "attacking":
+            self._memory["combat_last_enemy_ms"] = self.get_time()
             result = _combat.execute_attack(self.unit_id, target_id)
             if result.get("message"):
                 morld.add_action_log(result["message"])
-            # 대상 기절/사망 → 전투 종료
             if result.get("target_fainted"):
-                self._end_combat()
-                self._insert_idle_job("전투 승리", 3_000)
+                # 대상 기절/사망 → 전투 종료 판정
+                if self._should_end_combat():
+                    self._end_combat()
+                    self._insert_idle_job("전투 승리", 3_000)
+                else:
+                    self._insert_idle_job("경계", 5_000)
             else:
-                # 공격 쿨다운
-                speed = _combat.get_combat_stat(self.unit_id, "전투:공격속도") or 1.0
+                speed = _combat.get_combat_stat(
+                    self.unit_id, "전투:공격속도") or 1.0
                 duration = int(self.COMBAT_ATTACK_DURATION / speed)
                 self._insert_idle_job("공격", max(1_000, duration))
-                self._memory["combat_last_attack_ms"] = self.get_time()
             self._action_taken = True
 
         elif phase == "retreating":
-            # 현재 location에서 Gate 방향으로 이동 시도
+            # 목적지 고정: 최초 1회만 결정
+            flee_target = self._memory.get("combat_flee_target")
+            if flee_target is None:
+                flee_target = self._pick_safe_location()
+                if flee_target:
+                    self._memory["combat_flee_target"] = flee_target
+                else:
+                    # 도망 실패 → 어쩔 수 없이 싸움
+                    self._memory["combat_phase"] = "attacking"
+                    self._handle_combat()
+                    return
+
             my_loc = self.get_location()
-            if my_loc:
-                home_region = self._get_home_region()
-                region_info = morld.get_region_info(home_region)
-                if region_info and "locations" in region_info:
-                    # 다른 location으로 도망
-                    candidates = [
-                        loc["id"] for loc in region_info["locations"]
-                        if loc["id"] != my_loc[1]
-                    ]
-                    if candidates:
-                        flee_loc = random.choice(candidates)
-                        self._move_to(home_region, flee_loc)
-                        self._end_combat()
-                        self._action_taken = True
-                        return
-            # 도망 실패 → 어쩔 수 없이 싸움
-            self._memory["combat_phase"] = "attacking"
-            self._handle_combat()
+            if my_loc and (my_loc[0] == flee_target["region_id"]
+                           and my_loc[1] == flee_target["location_id"]):
+                # 도착 → regrouping 전환
+                self._memory["combat_phase"] = "regrouping"
+                self._memory["combat_regroup_phase"] = "recovering"
+                self._memory.pop("combat_flee_target", None)
+                self._handle_combat()
+                return
+
+            self._move_to(flee_target, "후퇴")
+            self._action_taken = True
+
+        elif phase == "regrouping":
+            # 정비 중: 회복 대기
+            # 체력 충분 → 전투 종료
+            my_hp = _surv.get_health(self.unit_id)
+            my_max = _surv.get_max_health(self.unit_id)
+            if my_hp >= my_max * self.COMBAT_REGROUP_HP_THRESHOLD:
+                self._end_combat()
+                self._insert_idle_job("정비 완료", 2_000)
+                self._action_taken = True
+                return
+
+            # TODO: 음식 소비 등 회복 행동 추가 가능
+            self._insert_idle_job("정비", 30_000)
+            self._action_taken = True
 
         else:
             self._end_combat()
@@ -1084,7 +1198,7 @@ class BaseAgent:
             self._action_taken = True
 
     def _is_valid_combat_target(self, target_id) -> bool:
-        """전투 대상이 유효한지 확인"""
+        """전투 대상이 유효한지 (같은 location + 생존)"""
         import survival as _surv
         info = morld.get_unit_info(target_id)
         if not info:
@@ -1093,7 +1207,6 @@ class BaseAgent:
             return False
         if _surv.is_npc_fainted(target_id):
             return False
-        # 같은 location 확인
         my_loc = morld.get_unit_location(self.unit_id)
         target_loc = morld.get_unit_location(target_id)
         if not my_loc or not target_loc:
@@ -1102,11 +1215,100 @@ class BaseAgent:
             return False
         return True
 
+    def _make_location_target(self, region_id, location_id):
+        """(region_id, location_id)를 _move_to용 dict로 변환"""
+        region_info = morld.get_region_info(region_id)
+        if not region_info:
+            return None
+        for loc in region_info.get("locations", []):
+            if loc["id"] == location_id:
+                return {
+                    "region_id": region_id,
+                    "location_id": location_id,
+                    "length": loc.get("length", 0),
+                }
+        return None
+
+    def _pick_safe_location(self):
+        """안전한 도주 location 선택 (1~2 hop, 전투 소리 방향 제외)"""
+        import combat as _combat
+
+        my_loc = self.get_location()
+        if not my_loc:
+            return None
+
+        # 전투 소리가 들리는 location (제외 대상)
+        danger_locs = _combat.get_combat_sound_locations(self.unit_id)
+
+        home_region = self._get_home_region()
+        region_info = morld.get_region_info(home_region)
+        if not region_info or "locations" not in region_info:
+            return None
+
+        # Gate 인접 정보로 1-hop 후보 수집
+        loc_map = {}
+        for loc in region_info["locations"]:
+            loc_map[loc["id"]] = loc
+
+        cur_loc_info = loc_map.get(my_loc[1])
+        if not cur_loc_info:
+            return None
+
+        # 1-hop: 현재 location의 gate 연결
+        hop1_ids = set()
+        for gate in cur_loc_info.get("gates", []):
+            cr = gate.get("connected_region", home_region)
+            cl = gate.get("connected_local")
+            if cl is not None and cr == home_region:
+                if (cr, cl) not in danger_locs:
+                    hop1_ids.add(cl)
+
+        # 2-hop: 1-hop location의 gate 연결
+        hop2_ids = set()
+        for lid in hop1_ids:
+            li = loc_map.get(lid)
+            if not li:
+                continue
+            for gate in li.get("gates", []):
+                cr = gate.get("connected_region", home_region)
+                cl = gate.get("connected_local")
+                if cl is not None and cr == home_region:
+                    if cl != my_loc[1] and (cr, cl) not in danger_locs:
+                        hop2_ids.add(cl)
+
+        # 현재 위치 제외
+        hop1_ids.discard(my_loc[1])
+        hop2_ids.discard(my_loc[1])
+        hop2_ids -= hop1_ids  # 중복 제거
+
+        # 1-hop 우선, 없으면 2-hop
+        candidates = list(hop1_ids) or list(hop2_ids)
+        if not candidates:
+            # 위험 지역 포함해서라도 도망
+            candidates = [
+                loc["id"] for loc in region_info["locations"]
+                if loc["id"] != my_loc[1]
+            ]
+
+        if not candidates:
+            return None
+
+        target_lid = random.choice(candidates)
+        target_loc_info = loc_map.get(target_lid, {})
+        return {
+            "region_id": home_region,
+            "location_id": target_lid,
+            "length": target_loc_info.get("length", 0),
+        }
+
     def _end_combat(self):
         """전투 상태 초기화"""
         self._memory["combat_phase"] = None
         self._memory["combat_target_id"] = None
         self._memory["combat_discovered"] = False
+        self._memory.pop("combat_flee_target", None)
+        self._memory.pop("combat_regroup_phase", None)
+        self._memory.pop("combat_last_enemy_ms", None)
 
     # ========================================
     # 결박된 동료 발견 + 해제 (Tier 2)

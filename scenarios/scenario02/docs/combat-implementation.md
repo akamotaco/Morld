@@ -1198,65 +1198,83 @@ spawner.py `_on_time_elapsed()`에서:
 
 ### 15.1 삽입 위치
 
-**파일:** `think/__init__.py:1562-1565`
+**파일:** `think/__init__.py` (Tier 2 Reactive)
 
 ```python
 # ── Tier 2: Reactive ──
 if self._check_restrained_nearby():
     return
-if self._check_combat_threat():    # ← 신규
-    return
-if self._check_tier2_reactive():
+if self._check_combat_threat():
     return
 ```
 
 ### 15.2 `_check_combat_threat()`
 
-```python
-def _check_combat_threat(self) -> bool:
-    """전투 위협 감지 + 대응
+전투 위협 감지 + 대응. BATTLE_BEHAVIOR 없으면 False (비전투 NPC).
 
-    1. 전투 중 (combat_phase != None) → _handle_combat()
-    2. 같은 location에 적대 유닛 → 전투 개시 / 도주
-    3. BATTLE_BEHAVIOR 기반 행동 결정
+1. 진행 중인 전투 (`combat_phase != None`) → `_handle_combat()`
+   - **retreating/regrouping**: `_scan_nearest_enemy()`로 적 재감지 수행
+   - **regrouping**: `_should_end_combat()` 전투 종료 판정 병행
+2. 새 적 감지 → combat_style에 따라 engaging / retreating 분기
 
-    적 탐색: morld.get_units_at_location(region_id, location_id)로
-    같은 Location의 유닛 목록 조회 → 적대도/적대유형 필터링.
+### 15.3 `_handle_combat()` Phase Machine
 
-    BATTLE_BEHAVIOR 없으면 False 반환 (허수아비/비전투 NPC).
-    """
+```
+engaging  → 사거리 밖이면 이동, 안이면 attacking
+attacking → execute_attack() + 공격시간 job
+retreating → 안전 지역으로 이동 (목적지 고정) → regrouping 전환
+regrouping → 회복 대기 (HP ≥ 75% 또는 전투 종료 시 종료)
 ```
 
-### 15.3 `_handle_combat()`
+- **engaging**: `_make_location_target()`로 적 위치를 dict 변환 → `_move_to()`
+- **attacking**: 공격 후 대상 기절 시 `_should_end_combat()` 판정
+- **retreating**: 최초 1회 `_pick_safe_location()` 결정 → `combat_flee_target`에 고정
+  - 도착 시 regrouping 전환
+  - 도주 실패 (후보 없음) → 어쩔 수 없이 attacking 전환
+- **regrouping**: HP 충분 → 정비 완료. 적 재감지 시 combat_style에 따라 재개/유지
+
+### 15.4 전투 종료 3-조건 (`_should_end_combat()`)
+
+모두 AND 충족 시 전투 종료:
+
+1. 현재 location에 적 없음 (`has_enemies_at_location()`)
+2. 전투 소리 미청취 (`hears_combat_sound()`)
+3. 마지막 적 목격/소리 + `COMBAT_END_COOLDOWN` 경과
+
+조건 1, 2 불충족 시 `combat_last_enemy_ms` 자동 갱신.
+
+### 15.5 안전 지역 선택 (`_pick_safe_location()`)
+
+- Gate 기반 1~2 hop 인접 location 탐색 (home_region 내)
+- 전투 소리 들리는 location 제외 (`get_combat_sound_locations()`)
+- 1-hop 우선, 없으면 2-hop, 둘 다 없으면 위험 지역 포함
+
+### 15.6 클래스 변수 (서브클래스 override 가능)
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `COMBAT_ATTACK_DURATION` | 6,000ms | NPC 근접 공격 시간 |
+| `COMBAT_END_COOLDOWN` | 600,000ms (10분) | 전투 종료 쿨다운 |
+| `COMBAT_REGROUP_HP_THRESHOLD` | 0.75 (75%) | 정비 종료 HP 비율 |
+
+### 15.7 `_memory` 전투 키
 
 ```python
-def _handle_combat(self):
-    """BATTLE_BEHAVIOR 기반 전투 행동
-
-    phase: idle → engaging → attacking → retreating
-
-    idle:     적 감지 → combat_style에 따라 분기
-    engaging: 사거리 밖 → _move_to(target)
-    attacking: execute_attack() + 공격시간 job
-    retreating: Gate 방향 이동 → 성공 시 phase 초기화
-
-    BATTLE_BEHAVIOR 읽기:
-        behavior = getattr(self, 'BATTLE_BEHAVIOR', None)
-        if not behavior:
-            return  # 전투 행동 없음 (허수아비 등)
-        style = behavior.get("combat_style", "aggressive")
-    """
+"combat_phase": None,          # None / "engaging" / "attacking" / "retreating" / "regrouping"
+"combat_target_id": None,      # 전투 대상 unit_id
+"combat_last_attack_ms": 0,    # 마지막 공격 시각 (ms)
+"combat_last_enemy_ms": 0,     # 마지막 적 목격/소리 시각 (ms)
+"combat_flee_target": None,    # 도주 목적지 dict (고정)
+"combat_regroup_phase": None,  # 정비 단계 (None/recovering)
 ```
 
-### 15.4 `_memory` 전투 키 추가
+### 15.8 combat.py 헬퍼
 
-**파일:** `think/__init__.py:89-122` (_memory 초기화)
-
-```python
-"combat_phase": None,          # None / "engaging" / "attacking" / "retreating"
-"combat_target_id": None,
-"combat_last_attack_ms": 0,
-```
+| 함수 | 설명 |
+|------|------|
+| `has_enemies_at_location(unit_id, region_id, location_id)` | 해당 location에 적 존재 여부 |
+| `hears_combat_sound(unit_id)` | 전투 소리 청취 여부 |
+| `get_combat_sound_locations(unit_id)` | 전투 소리 source location 집합 |
 
 ---
 

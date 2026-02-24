@@ -242,6 +242,13 @@ Gate(0, 2, conditions={"비밀통로#": 1})
 | Item       | **레터박스** | 아이템 메뉴 |
 | Result     | **레터박스** | 결과 메시지 |
 
+### 포커스 유효성 자동 검사 (PopIfInvalid)
+
+`FlushDisplay()` 호출 시 `PopIfInvalid()`로 현재 포커스의 유효성을 자동 검사:
+
+- **Unit 포커스**: `LookUnit()`이 null 반환 (대상이 다른 위치로 이동) → 자동 Pop
+- **Item 포커스**: 해당 아이템을 더 이상 소유하지 않음 → 자동 Pop
+
 ### 레터박스 스타일 (Dialog)
 
 Dialog 모드에서는 영화 레터박스처럼 Header/Footer에 구분선을 표시하여 Content에 집중:

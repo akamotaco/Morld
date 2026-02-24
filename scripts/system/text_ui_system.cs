@@ -1115,7 +1115,13 @@ namespace SE
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
 
 			var unitLook = _playerSystem.LookUnit(unitId);
-			if (unitLook == null) return "[color=gray]유닛을 찾을 수 없습니다.[/color]\n\n[url=back]뒤로[/url]";
+			if (unitLook == null)
+			{
+				// 대상 유닛이 현재 위치에 없음 → 자동 pop
+				GD.Print($"[TextUISystem] RenderUnit: Unit {unitId} no longer visible, auto-popping");
+				_stack.Pop();
+				return RenderSituation();
+			}
 
 			// Header/Footer는 FlushDisplay()에서 처리
 			// Body: 유닛 정보
@@ -1272,6 +1278,20 @@ namespace SE
 		public void PopIfInvalid()
 		{
 			if (_stack.Current == null) return;
+
+			// Unit 포커스: 대상이 현재 위치에 없으면 Pop
+			if (_stack.Current.Type == FocusType.Unit)
+			{
+				var unitId = _stack.Current.TargetUnitId ?? 0;
+				var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+				var unitLook = _playerSystem?.LookUnit(unitId);
+				if (unitLook == null)
+				{
+					GD.Print($"[TextUISystem] PopIfInvalid: Unit {unitId} no longer visible, popping focus");
+					Pop();
+					return;
+				}
+			}
 
 			if (_stack.Current.Type == FocusType.Item)
 			{

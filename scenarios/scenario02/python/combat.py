@@ -97,6 +97,39 @@ def is_creature_unit(unit_id):
     return faction is not None and faction != DEFAULT_FACTION
 
 
+def has_enemies_at_location(unit_id, region_id, location_id):
+    """해당 location에 unit_id의 적이 존재하는지"""
+    import survival as _surv
+    my_faction = morld.get_unit_prop(unit_id, "전투:세력")
+    units = morld.get_units_at_location(region_id, location_id)
+    for uid in units:
+        if uid == unit_id:
+            continue
+        if morld.get_unit_prop(uid, "상태:사망"):
+            continue
+        if _surv.is_npc_fainted(uid):
+            continue
+        their_faction = morld.get_unit_prop(uid, "전투:세력")
+        if is_faction_hostile(my_faction, their_faction):
+            return True
+        if is_hostile_to(unit_id, uid):
+            return True
+    return False
+
+
+def hears_combat_sound(unit_id):
+    """전투 소리를 듣고 있는지"""
+    import sound
+    return len(sound.get_heard_by_category(unit_id, "전투")) > 0
+
+
+def get_combat_sound_locations(unit_id):
+    """전투 소리가 들리는 source location 집합 반환"""
+    import sound
+    events = sound.get_heard_by_category(unit_id, "전투")
+    return {e.source_location for e in events if e.source_location}
+
+
 DEFAULT_AGGRO_RANGE = 100
 DEFAULT_TERRITORY_RANGE = 50
 
@@ -424,7 +457,7 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
         return result
 
     # 데미지 계산
-    damage = calculate_damage(attacker_id, target_id, is_crit)
+    damage = calculate_damage(attacker_id, target_id, crit)
     fainted = apply_damage(target_id, damage, attacker_id)
     target_hp = morld.get_unit_prop(target_id, "생존:체력") or 0
 

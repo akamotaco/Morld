@@ -1938,9 +1938,13 @@ class Character(Unit):
         morld.add_action_log(result["message"])
 
         # 적대도/호감 변화 (생물 제외)
-        if not combat.is_creature_unit(self.instance_id):
+        is_creature = combat.is_creature_unit(self.instance_id)
+        print(f"[DEBUG attack] target={self.name}(id={self.instance_id}) is_creature={is_creature} hit={result['hit']}")
+        if not is_creature:
             combat.modify_hostility(self.instance_id, player_name,
                                     combat.HOSTILITY_ON_ATTACK)
+            h = combat.get_hostility(self.instance_id, player_name)
+            print(f"[DEBUG attack] hostility={h} (threshold={combat.HOSTILITY_HOSTILE})")
             affection_key = f"관계:{player_name}:호감"
             morld.modify_prop(self.instance_id, affection_key,
                               combat.AFFECTION_ON_ATTACK)
@@ -1956,7 +1960,9 @@ class Character(Unit):
         base_dur = (combat.RANGED_ATTACK_DURATION if is_ranged
                     else combat.MELEE_ATTACK_DURATION)
         attack_speed = combat.get_combat_stat(player_id, "전투:공격속도")
-        morld.advance_time_des(int(base_dur * attack_speed))
+        dur = int(base_dur * attack_speed)
+        print(f"[DEBUG attack] advance_time_des({dur}ms)")
+        morld.advance_time_des(dur)
 
     def aimed_attack_head(self):
         self._do_aimed_attack("머리")
