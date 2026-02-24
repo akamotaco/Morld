@@ -539,7 +539,6 @@ if (isTimeFrozen)
 | `on_meet` | 스킵 |
 | `on_reach` | 정상 동작 |
 | `on_time_elapsed` | 스킵 |
-| `on_equip_change` | 정상 동작 |
 
 ---
 

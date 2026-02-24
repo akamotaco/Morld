@@ -385,6 +385,67 @@ def _get_environment_status_text():
         return ""
 
 
+def _get_movement_arrows() -> str:
+    """
+    Footer용 X축 이동 화살표 (2단계: «50, ‹10, ›10, »50)
+
+    Returns:
+        str: "« ‹ X=50 › »" 형태의 BBCode (빈 문자열이면 표시 안함)
+    """
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return ""
+
+    time_info = morld.get_time_info()
+    if not time_info:
+        return ""
+
+    loc_length = int(time_info.get("location_length", 0))
+    if loc_length <= 0:
+        return ""  # 레거시 점 location → 화살표 불필요
+
+    cur_x = int(time_info.get("position_x", 0))
+    is_ring = time_info.get("geometry", 0) == 0  # 0=ring, 1=line
+
+    # 이동 불가 체크 (앉기/눕기)
+    posture_props = morld.get_unit_props_by_type(player_id, "posture")
+    if posture_props:
+        posture = list(posture_props.keys())[0]
+        if posture in ("sitting", "lying"):
+            return ""
+
+    parts = []
+
+    # 왼쪽 화살표 (큰 스텝 → 작은 스텝 순)
+    for step in [50, 10]:
+        if is_ring:
+            left_x = (cur_x - step) % loc_length
+        else:
+            left_x = max(0, cur_x - step)
+        arrow = "«" if step == 50 else "‹"
+        if left_x != cur_x:
+            parts.append(f"[url=move_x:{left_x}]{arrow}[/url]")
+        else:
+            parts.append(f"[color=gray]{arrow}[/color]")
+
+    # 현재 위치 표시
+    parts.append(f"X={cur_x}")
+
+    # 오른쪽 화살표 (작은 스텝 → 큰 스텝 순)
+    for step in [10, 50]:
+        if is_ring:
+            right_x = (cur_x + step) % loc_length
+        else:
+            right_x = min(loc_length, cur_x + step)
+        arrow = "›" if step == 10 else "»"
+        if right_x != cur_x:
+            parts.append(f"[url=move_x:{right_x}]{arrow}[/url]")
+        else:
+            parts.append(f"[color=gray]{arrow}[/color]")
+
+    return " ".join(parts)
+
+
 def get_footer():
     """
     하단 푸터 반환 (인벤토리 + 상태바 + 환경상태 + 자세)
@@ -421,6 +482,11 @@ def get_footer():
         toggle_parts.append(posture_text)
     if toggle_parts:
         lines.append("  ".join(toggle_parts))
+
+    # X축 이동 화살표
+    movement_text = _get_movement_arrows()
+    if movement_text:
+        lines.append(movement_text)
 
     return "\n".join(lines)
 
@@ -926,38 +992,6 @@ def get_action_text():
     lines.append(f"    [url=idle:{15 * MILLIS_PER_MINUTE}]15분[/url]")
     lines.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]30분[/url]")
     lines.append("[/hidden=idle]")
-
-    # 위치 이동 (location 내 X 좌표 변경)
-    if can_move:
-        time_info = morld.get_time_info()
-        if time_info:
-            loc_length = int(time_info.get("location_length", 0))
-            cur_x = int(time_info.get("position_x", 0))
-            is_ring = time_info.get("geometry", 0) == 0  # 0=ring, 1=line
-
-            if loc_length > 0:
-                lines.append(
-                    f"  [url=toggle:move_x]▶위치 이동 (X={cur_x})[/url]")
-                lines.append("[hidden=move_x]")
-
-                # +/- 스텝 목록
-                steps = [1, 5, 10, 50]
-                steps = [s for s in steps if s <= loc_length]
-
-                for s in steps:
-                    if is_ring:
-                        # ring: 양방향 wrap
-                        minus_x = (cur_x - s) % loc_length
-                        plus_x = (cur_x + s) % loc_length
-                    else:
-                        # line: clamp to [0, length]
-                        minus_x = max(0, cur_x - s)
-                        plus_x = min(loc_length, cur_x + s)
-                    lines.append(
-                        f"    [url=move_x:{minus_x}]-{s}[/url]"
-                        f"  [url=move_x:{plus_x}]+{s}[/url]")
-
-                lines.append("[/hidden=move_x]")
 
     # 시간 기반 조건부 행동
     millis_of_day = morld.get_game_time()  # 밀리초 단위 (0~86,399,999)

@@ -513,8 +513,7 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// 위치 이동: move_x:targetX
-	/// Location 내 X 좌표 즉시 변경 (시간 소비 없음)
-	/// 건설 위치 지정 등에 사용
+	/// Location 내 X 좌표 변경 (거리 기반 시간 소비)
 	/// </summary>
 	private void HandleMoveXAction(string[] parts)
 	{
@@ -534,8 +533,45 @@ public partial class MetaActionHandler
 		if (player.TraversalContext.Props.GetByType("seated_on").FirstOrDefault().Prop.IsValid)
 			return;
 
+		// Location 정보 가져오기
+		var worldSystem = _world.GetSystem("worldSystem") as SE.WorldSystem;
+		var terrain = worldSystem?.GetTerrain();
+		if (terrain == null) return;
+		var location = terrain.GetLocation(player.CurrentLocation);
+		if (location == null) return;
+
+		// X 좌표 정규화 (Ring: 0~360 wrap, Line: 0~Length clamp)
+		targetX = location.NormalizeX(targetX);
+
+		// 거리 계산
+		float distance = location.CalculateDistance(player.PositionX, targetX);
+		if (distance <= 0f)
+		{
+			_textUISystem?.RequestUpdateDisplay();
+			return;
+		}
+
+		// 이동 속도 계수 계산 (장비/자세/혼잡 등 반영)
+		var itemSystem = _world.GetSystem("itemSystem") as SE.ItemSystem;
+		var inventorySystem = _world.GetSystem("inventorySystem") as SE.InventorySystem;
+		var inventory = inventorySystem?.GetUnitInventory(player.Id);
+		var equippedItems = inventorySystem?.GetUnitEquippedItems(player.Id);
+		int movementSpeedPercent = player.GetMovementSpeed(itemSystem, inventory, equippedItems);
+		float speedModifier = movementSpeedPercent / 100f;
+
+		// 이동 시간 계산 (밀리초)
+		int travelTimeMs = location.CalculateTravelTime(player.PositionX, targetX, speedModifier);
+
+		// 플레이어 위치 설정
 		player.PositionX = targetX;
 		player.CurrentMovement = null;
+
+		// 시간 정지 상태면 즉시 이동 (시간 소비 없음)
+		bool isTimeFrozen = worldSystem?.IsTimeFrozen() ?? false;
+		if (!isTimeFrozen && travelTimeMs > 0)
+		{
+			_playerSystem?.RequestTimeAdvance(travelTimeMs, "위치 이동");
+		}
 
 		_textUISystem?.RequestUpdateDisplay();
 	}
