@@ -487,6 +487,12 @@ seated_by:front = 1       # front 슬롯에 unit_id=1이 앉아있음
 
 **파일:** [scripts/system/script_system_data_api.cs](../../../scripts/system/script_system_data_api.cs)
 
+**sit_on 부가 효과:**
+- 캐릭터를 오브젝트 X 좌표로 이동 (`unit.PositionX = obj.PositionX`)
+- 플레이어: 이동 거리 기반 시간 소모 (`CalculateTravelTime` + `RequestTimeAdvance`)
+- 시간 정지: 즉시 이동 (시간 소모 없음)
+- 은신 자동 해제 (`status:stealth → 0`)
+
 ### 4.5 상태 일관성 검사
 
 `ui.py`에서 매 프레임 상태 일관성을 검사합니다:

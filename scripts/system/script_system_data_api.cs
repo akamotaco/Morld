@@ -1840,9 +1840,42 @@ namespace SE
                         }
                     }
 
-                    // 캐릭터를 오브젝트 X 좌표로 이동
-                    unit.PositionX = obj.PositionX;
+                    // 캐릭터를 오브젝트 X 좌표로 이동 (+ 시간 소모)
+                    float fromX = unit.PositionX;
+                    float toX = obj.PositionX;
+                    unit.PositionX = toX;
                     unit.CurrentMovement = null;
+
+                    // 플레이어인 경우 이동 시간 소모
+                    var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+                    if (_playerSystem != null && unitId == _playerSystem.PlayerId)
+                    {
+                        var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                        bool isTimeFrozen = _worldSystem?.IsTimeFrozen() ?? false;
+                        if (!isTimeFrozen)
+                        {
+                            var terrain = _worldSystem?.GetTerrain();
+                            var location = terrain?.GetLocation(unit.CurrentLocation);
+                            if (location != null)
+                            {
+                                float distance = location.CalculateDistance(fromX, toX);
+                                if (distance > 0f)
+                                {
+                                    var itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
+                                    var inventorySystem = this._hub.GetSystem("inventorySystem") as InventorySystem;
+                                    var inventory = inventorySystem?.GetUnitInventory(unit.Id);
+                                    var equippedItems = inventorySystem?.GetUnitEquippedItems(unit.Id);
+                                    int speedPercent = unit.GetMovementSpeed(itemSystem, inventory, equippedItems);
+                                    float speedModifier = speedPercent / 100f;
+                                    int travelTimeMs = location.CalculateTravelTime(fromX, toX, speedModifier);
+                                    if (travelTimeMs > 0)
+                                    {
+                                        _playerSystem.RequestTimeAdvance(travelTimeMs, "이동");
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     // 은신 상태 해제 (앉기/눕기 시 은신 불가)
                     if (unit.TraversalContext.Props.Get("status:stealth") != 0)
@@ -1851,7 +1884,7 @@ namespace SE
                         Godot.GD.Print($"[morld] sit_on: unit={unitId} stealth cleared (sitting/lying)");
                     }
 
-                    Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}, x={obj.PositionX}");
+                    Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}, x={toX}");
                     return PyBool.True;
                 }
                 return PyBool.False;
