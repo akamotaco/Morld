@@ -300,6 +300,19 @@ def my_script(context_unit_id, *args):
 
 ---
 
+## Gate Transit Props (v0.2.3)
+
+| Prop | 타입 | 설명 |
+|------|------|------|
+| `상태:이동중` | int (0/1) | NPC cross-location 이동 중 숨김. Python `_move_to()`에서 설정, C# DES step 5에서 해제 |
+
+transit 중 NPC는 Look/LookUnit/get_characters_at_location/get_units_at_location에서 제외됩니다.
+think()에서 즉시 return하여 모든 AI 로직을 스킵합니다 (자동 식사만 survival.py에서 처리).
+
+상세: [movement-system.md#2.6](movement-system.md#26-gate-transit-system-npc-숨김-이동--v023)
+
+---
+
 ## ThinkSystem과 Agent
 
 ### BaseAgent 구조 (v0.2.2)

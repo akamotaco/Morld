@@ -261,6 +261,71 @@ private void ProcessMoveAction(Unit unit, LocationRef goalLocation, int duration
 2. 목적지가 아니면 지정 시간 동안 대기
 3. 대기 완료 후 다음 Location으로 이동
 
+### 2.6 Gate Transit System (NPC 숨김 이동) — v0.2.3
+
+NPC가 다른 Location으로 이동할 때 (Gate 통과), 이동 시작 시 즉시 숨기고 이동 시간 후 목적지에 텔레포트시킵니다.
+
+#### 배경
+Gate까지 걸어가는 동안 (BaseSpeed=0.001 units/ms) NPC가 노출되어 공격/탈진당할 수 있는 문제를 해결합니다.
+
+#### 동작 흐름
+```
+NPC가 cross-location move job 삽입 (_move_to)
+    ↓
+Python: 상태:이동중 = 1 설정 + 행동 로그 출력
+    ↓
+C#: 이동 시뮬레이션 (이동 시간은 기존과 동일하게 소모)
+    ↓
+DES step 5: 텔레포트 완료 → 상태:이동중 = 0 해제
+    ↓
+다음 think() 호출 → 정상 행동 재개
+```
+
+#### `상태:이동중` Prop
+| 항목 | 설명 |
+|------|------|
+| 설정 | Python `_move_to()` — cross-location 이동 시 |
+| 해제 | C# DES step 5 — 텔레포트 완료 후 |
+| 효과 | Look/LookUnit 필터링, get_characters/units_at_location 제외, think() early return |
+
+#### 가시성 필터링 (C#)
+| 함수 | 파일 | 동작 |
+|------|------|------|
+| `Look()` | unit_system.cs | transit NPC를 목록에서 제외 (절대 감지 불가) |
+| `LookUnit()` | unit_system.cs | transit NPC에 대해 null 반환 → Focus 자동 해제 |
+| `get_characters_at_location` | script_system_morld_api.cs | transit NPC 제외 |
+| `get_units_at_location` | script_system_morld_api.cs | transit 캐릭터 제외 (오브젝트/생물은 해당 없음) |
+
+> **지도 UI**: transit NPC는 `get_actor_ids()` + `is_moving_2d` 경로로 여전히 지도에 표시됩니다 (map_ui.py).
+
+#### Python think() 동작
+transit 중인 NPC는 `think()`에서 즉시 return합니다:
+```python
+# think() 시작부
+if morld.get_unit_prop(self.unit_id, "상태:이동중"):
+    return None  # 도착까지 행동 불가
+```
+- 모든 AI 로직 스킵 (스케줄, 인터럽트, 욕구 등)
+- 자동 식사만 survival.py `_process_npc_time()`에서 처리
+
+#### 행동 로그
+cross-location 이동 시작 시 플레이어가 **같은 Location에 있을 때만** 행동 로그 출력:
+```
+리나이(가) 주방(으)로 이동을 시작했다.
+```
+
+#### 자동 식사
+transit 중 HP < 50% 또는 배고픔 시 인벤토리 음식을 자동 소비합니다:
+1. `_transit_auto_eat()` — 이동 시작 전 (Python `_move_to`)
+2. `_process_npc_time()` — 이동 중 매 time_elapsed (survival.py)
+
+**파일:**
+- [think/__init__.py](../python/think/__init__.py) — `_move_to()`, `_transit_auto_eat()`, think() early return
+- [survival.py](../python/survival.py) — `_process_npc_time()` transit auto-eat
+- [unit_system.cs](../../../scripts/system/unit_system.cs) — Look/LookUnit 필터
+- [script_system_morld_api.cs](../../../scripts/system/script_system_morld_api.cs) — API 필터
+- [script_system_data_api.cs](../../../scripts/system/script_system_data_api.cs) — DES step 5 해제
+
 ---
 
 ## 3. 충돌(만남) 감지 시스템

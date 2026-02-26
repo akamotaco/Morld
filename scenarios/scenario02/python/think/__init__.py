@@ -2374,9 +2374,9 @@ class BaseAgent:
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
-        # Safety: think() 호출 = job 만료 또는 교체 → transit 상태 정리
+        # Gate Transit: 이동중 NPC는 도착까지 행동 불가 (자동 식사는 survival.py에서 처리)
         if morld.get_unit_prop(self.unit_id, "상태:이동중"):
-            morld.clear_prop(self.unit_id, "상태:이동중")
+            return None
 
         # Tier -1: 운반 중 (Limbo에 있음)
         import carry
@@ -2666,9 +2666,7 @@ class BaseAgent:
         )
 
         if is_cross_location:
-            # 이동 전 긴급 식사 (인벤토리만)
             self._transit_auto_eat()
-            # 숨김 처리
             morld.set_unit_prop(self.unit_id, "상태:이동중", 1)
             # 행동 로그: 플레이어와 같은 location일 때만 (목격)
             player_id = morld.get_player_id()

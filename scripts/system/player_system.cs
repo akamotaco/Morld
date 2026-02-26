@@ -94,7 +94,7 @@ namespace SE
 			NextStepDuration = 0;
 			_lastSetDuration = 0;
 #if DEBUG_LOG
-			GD.Print("[PlayerSystem] 대기 시간 초기화 (시간 정지 모드)");
+			GD.Print("[PlayerSystem] 대기 시간 초기화 (즉시 처리)");
 #endif
 		}
 
