@@ -21,10 +21,10 @@ public class PathResult
 	public List<Location> Path { get; init; } = new();
 
 	/// <summary>
-	/// 총 경로 거리 (location units)
-	/// 이동 시간은 Location.DistanceToTime()으로 변환
+	/// 경로 그래프 거리 (Gate.Distance 합, Dijkstra 비용)
+	/// 실제 이동 시간은 Terrain.CalculatePathTravelTime()으로 계산
 	/// </summary>
-	public float TotalDistance { get; init; }
+	public float GraphDistance { get; init; }
 
 	/// <summary>
 	/// 탐색 중 방문한 노드 수
@@ -156,7 +156,7 @@ public class PathFinder
 			{
 				Found = true,
 				Path = new List<Location> { start },
-				TotalDistance = 0,
+				GraphDistance = 0,
 				VisitedNodes = 1,
 				RegionsTraversed = new List<int> { start.RegionId }
 			};
@@ -185,7 +185,7 @@ public class PathFinder
 				{
 					Found = true,
 					Path = ReconstructPath(cameFrom, current),
-					TotalDistance = distMap[current.GlobalId],
+					GraphDistance = distMap[current.GlobalId],
 					VisitedNodes = visitedCount,
 					RegionsTraversed = new List<int> { start.RegionId }
 				};
@@ -338,7 +338,7 @@ public class PathFinder
 		{
 			Found = true,
 			Path = path,
-			TotalDistance = totalTime,
+			GraphDistance = totalTime,
 			VisitedNodes = visitedCount,
 			RegionsTraversed = regions.ToList(),
 			RegionGatesUsed = regionGates

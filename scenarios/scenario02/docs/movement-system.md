@@ -157,7 +157,7 @@ Location 내 이동 중인 캐릭터의 진행 상황을 추적합니다.
 | `StartX` | float | 출발 X 좌표 |
 | `TargetX` | float | 도착 X 좌표 |
 | `TargetGateId` | int? | Gate 통과 시 Gate ID |
-| `TotalDistance` | float | 총 이동 거리 |
+| `TotalDistance` | float | 총 이동 거리 (Location 내 X좌표 기반) |
 | `TraveledDistance` | float | 이동한 거리 |
 | `Speed` | float | 이동 속도 (단위/분) |
 | `ElapsedTime` | int | 경과 시간(분) |

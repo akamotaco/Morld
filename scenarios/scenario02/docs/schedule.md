@@ -763,10 +763,13 @@ advance_time_des(총시간) {
 
 Python에서 move Job을 `duration=0`으로 삽입하면, C#이 자동으로 이동 시간을 계산:
 
-| 조건 | 계산 방법 | 최소값 |
-|------|----------|--------|
-| 같은 Location 내 | `CalculateTravelTime(fromX, toX, speedModifier)` | 1분 |
-| 다른 Location 간 | `PathFinder.FindPath()` + hop당 2분 | 1분 |
+| 조건 | 계산 방법 |
+|------|----------|
+| 같은 Location 내 | `CalculateTravelTime(fromX, toX, speedModifier)` — X좌표 기반 |
+| 다른 Location 간 | `CalculatePathTravelTime()` — 경로 전체 X좌표 기반 |
+| 경로 없음 | 에러 출력 + 0 반환 |
+
+최소값 없음 — 이동 거리가 0이면 0ms를 반환한다.
 
 ```python
 # Python에서는 duration=0으로 삽입 — C#이 자동 계산
@@ -789,7 +792,7 @@ morld.insert_job(unit_id, {
 
 ### C# 구현 위치
 
-- `script_system.cs`: `EstimateMoveTravelTime()` — 이동 시간 추정
+- `script_system.cs`: `EstimateMoveTravelTime()` — X좌표 기반 이동 시간 추정
 - `script_system_data_api.cs`: `AdvanceTimeDES()` — DES 루프, move duration 자동 계산
 
 ---
@@ -831,7 +834,7 @@ agent.push_schedule(work_order)
 - `scripts/morld/schedule/DailySchedule.cs` - 스케줄 파싱
 - `scripts/system/think_system.cs` - Agent.think() 호출
 - `scripts/system/job_behavior_system.cs` - Job 실행
-- `scripts/system/script_system.cs` - EstimateMoveTravelTime (v0.2.2)
+- `scripts/system/script_system.cs` - EstimateMoveTravelTime — X좌표 기반 이동 시간 추정 (v0.2.2)
 - `scripts/system/script_system_data_api.cs` - AdvanceTimeDES, move duration 자동 계산 (v0.2.2)
 
 ### Python

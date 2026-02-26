@@ -181,7 +181,7 @@ advance_time_des(총시간) {
 | `scripts/system/auto_time_flow_system.cs` | 자동 시간 흐름 시스템 |
 | `scripts/GameEngine.cs` | AutoTimeFlowSystem 호출 및 시간 진행 |
 | `scripts/system/text_ui_system.cs` | `CanAutoTimeFlow()` - Focus 기반 허용 여부 |
-| `scripts/system/script_system.cs` | `EstimateMoveTravelTime()` - 이동 시간 추정 (v0.2.2) |
+| `scripts/system/script_system.cs` | `EstimateMoveTravelTime()` - X좌표 기반 이동 시간 추정 (v0.2.2) |
 | `scripts/system/script_system_data_api.cs` | `AdvanceTimeDES()` - DES 루프 (v0.2.2) |
 | `scripts/morld/ui/Focus.cs` | `TimeFlows` 속성 |
 | `scripts/morld/ui/Dialog.cs` | `PyDialogRequest.TimeFlows` 속성 |
