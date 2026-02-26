@@ -2374,6 +2374,10 @@ class BaseAgent:
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
+        # Safety: think() 호출 = job 만료 또는 교체 → transit 상태 정리
+        if morld.get_unit_prop(self.unit_id, "상태:이동중"):
+            morld.clear_prop(self.unit_id, "상태:이동중")
+
         # Tier -1: 운반 중 (Limbo에 있음)
         import carry
         if carry.is_being_carried(self.unit_id):
@@ -2625,13 +2629,56 @@ class BaseAgent:
                 if obj and hasattr(obj, "npc_toggle_switch"):
                     obj.npc_toggle_switch(self.unit_id, target_state=0)
 
+    def _transit_auto_eat(self):
+        """Gate 이동 전 긴급 식사: HP < 50% 또는 배고픔 → 인벤토리 음식 소비"""
+        import survival
+        from think.activities.helpers import find_npc_food
+
+        hp = survival.get_health(self.unit_id)
+        max_hp = survival.get_max_health(self.unit_id)
+        hungry = survival.is_npc_hungry(self.unit_id)
+
+        if (max_hp > 0 and hp < max_hp * 0.5) or hungry:
+            food = find_npc_food(self.unit_id)
+            if food:
+                if max_hp > 0 and hp < max_hp * 0.5:
+                    hp_recover = max(5, food["satiety"] // 2)
+                    survival.add_health(self.unit_id, hp_recover)
+                survival.npc_eat(self.unit_id, food["satiety"])
+                morld.remove_item(self.unit_id, food["item_id"], 1)
+
     def _move_to(self, target, name="이동"):
         """target으로 이동 job 삽입.
 
         Duration은 C#이 거리/속도 기반으로 동적 계산 (ACTION_DURATION 대상 아님).
         매 호출마다 새 move job을 삽입한다 (InsertJobWithClear가 기존 job 정리).
         이전 step에서 이동 미완료 시에도 새 job으로 갱신되어 정상 동작.
+
+        Cross-location 이동(Gate 통과) 시:
+        - NPC를 즉시 숨김 (상태:이동중=1, 절대 감지 불가)
+        - 이동 전 긴급 식사 (인벤토리)
+        - 행동 로그로 플레이어에게 이동 알림
         """
+        loc = self.get_location()
+        is_cross_location = (
+            loc is not None and
+            (loc[0] != target["region_id"] or loc[1] != target["location_id"])
+        )
+
+        if is_cross_location:
+            # 이동 전 긴급 식사 (인벤토리만)
+            self._transit_auto_eat()
+            # 숨김 처리
+            morld.set_unit_prop(self.unit_id, "상태:이동중", 1)
+            # 행동 로그: 플레이어와 같은 location일 때만 (목격)
+            player_id = morld.get_player_id()
+            player_loc = morld.get_unit_location(player_id) if player_id else None
+            if player_loc and player_loc[0] == loc[0] and player_loc[1] == loc[1]:
+                dest_info = morld.get_location_info(target["region_id"], target["location_id"])
+                dest_name = dest_info["name"] if dest_info else "알 수 없는 곳"
+                my_name = self.get_info()["name"]
+                morld.add_action_log(f"{my_name}이(가) {dest_name}(으)로 이동을 시작했다.")
+
         target_x = target.get("x", 0)
         length = int(target.get("length", 0))
         if length > 0 and target_x == 0:

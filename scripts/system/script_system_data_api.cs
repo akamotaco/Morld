@@ -901,6 +901,9 @@ namespace SE
                     unit.PositionX = targetX;
                     unit.CurrentMovement = null;
                     unit.ClearRoute();
+                    // Gate Transit: 이동 완료 → 숨김 해제
+                    if (unit.TraversalContext.GetProp("상태:이동중") == 1)
+                        unit.TraversalContext.Props.Set("상태:이동중", 0);
                 }
 
                 // === 6. GameTime 업데이트 ===

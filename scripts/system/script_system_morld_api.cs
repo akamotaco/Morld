@@ -612,6 +612,9 @@ namespace SE
                     // 이동 중인 유닛 제외 (Location에 도착한 유닛만)
                     if (unit.IsMoving)
                         continue;
+                    // Gate Transit: 이동중 NPC 제외
+                    if (unit.TraversalContext.GetProp("상태:이동중") == 1)
+                        continue;
 
                     // 현재 위치가 일치하는지 확인
                     if (unit.CurrentLocation.RegionId == regionId &&
@@ -649,6 +652,9 @@ namespace SE
 
                     // 이동 중인 유닛 제외
                     if (unit.IsMoving)
+                        continue;
+                    // Gate Transit: 이동중 캐릭터 제외 (오브젝트/생물은 해당 없음)
+                    if (!unit.IsObject && !unit.IsCreature && unit.TraversalContext.GetProp("상태:이동중") == 1)
                         continue;
 
                     if (unit.CurrentLocation.RegionId == regionId &&

@@ -368,6 +368,19 @@ def _process_npc_time(npc_id: int, millis: int):
         _process_exhaustion(npc_id, hours_ex)
         # 탈진 해제 후에도 아래 정상 흐름 계속 (포만감/체력 처리)
 
+    # Gate Transit 중 자동 식사
+    if morld.get_unit_prop(npc_id, "상태:이동중") == 1:
+        hp = get_health(npc_id)
+        max_hp = get_max_health(npc_id)
+        if (max_hp > 0 and hp < max_hp * 0.5) or is_npc_hungry(npc_id):
+            from think.activities.helpers import find_npc_food
+            food = find_npc_food(npc_id)
+            if food:
+                if max_hp > 0 and hp < max_hp * 0.5:
+                    add_health(npc_id, max(5, food["satiety"] // 2))
+                npc_eat(npc_id, food["satiety"])
+                morld.remove_item(npc_id, food["item_id"], 1)
+
     # 생존 prop이 없으면 무시 (시나리오03 호환)
     satiety = morld.get_unit_prop(npc_id, "생존:포만감")
     if satiety is None:

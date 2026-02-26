@@ -416,6 +416,9 @@ namespace SE
 					// status:stealth=1 은신 중만 숨김 (2=발각은 표시)
 					if (!u.IsObject && u.TraversalContext.GetProp("status:stealth") == 1)
 						continue;
+					// Gate Transit: 이동중 NPC 숨김 (절대 감지 불가)
+					if (!u.IsObject && u.TraversalContext.GetProp("상태:이동중") == 1)
+						continue;
 					unitIds.Add(u.Id);
 				}
 			}
@@ -498,6 +501,9 @@ namespace SE
 
 			// 유닛이 같은 위치에 있는지 확인
 			if (unit.CurrentLocation != viewerUnit.CurrentLocation)
+				return null;
+			// Gate Transit: 이동중 NPC는 focus 불가
+			if (!unit.IsObject && unit.TraversalContext.GetProp("상태:이동중") == 1)
 				return null;
 
 			// InventorySystem에서 인벤토리 가져오기
