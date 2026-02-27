@@ -909,6 +909,32 @@ def calculate_npc_stamina_cost(base_cost: int, npc_id: int) -> int:
     return max(1, int(base_cost * const_factor * satiety_factor))
 
 
+# 절정 시 체력 소모 기본값
+CLIMAX_STAMINA_COST = 3
+
+
+def calculate_climax_hp_cost(unit_id: int, is_exhausted: bool) -> int:
+    """절정/사정 시 체력 소모량 계산
+
+    비탈진: 기본 CLIMAX_STAMINA_COST × 체력 보정
+    탈진: 1 (만복도 기반 확률 — 만복도 높으면 감소 확률 낮음)
+
+    Returns:
+        감소량 (0이면 감소 없음)
+    """
+    if is_exhausted:
+        satiety = morld.get_unit_prop(unit_id, "생존:포만감") or 0
+        # 만복도 0 → 100%, 만복도 50 → 67%, 만복도 100 → 33%
+        probability = max(0.3, 1.0 - satiety / 150.0)
+        if random.random() < probability:
+            return 1
+        return 0
+    else:
+        constitution = morld.get_unit_prop(unit_id, "체력") or 5
+        const_factor = 5.0 / max(1, constitution)
+        return max(1, int(CLIMAX_STAMINA_COST * const_factor))
+
+
 def extract_preserved(state):
     """공수 전환 시 보존할 상태 추출"""
     preserved = {

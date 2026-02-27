@@ -1711,11 +1711,14 @@ class Sera(Character):
 | 세션 시작 | 양쪽 `survival.get_survival_stats()` → `health`, `max_health` 읽기 |
 | 진입 가드 | 플레이어 HP ≤ `EXHAUSTION_HP_THRESHOLD`(10) → 진입 차단 |
 | 행위 소비 | 행위마다 양쪽 `stamina` 차감 (NPC는 체력·만복도 보정) |
-| 플레이어 탈진 | `stamina - cost ≤ EXHAUSTION_HP_THRESHOLD` → 세션 종료 |
+| **절정/사정 소비** | **절정 시 양쪽 추가 HP 소모 (CLIMAX_STAMINA_COST=3 × 체력보정)** |
+| 플레이어 탈진 (주도) | `stamina - cost ≤ EXHAUSTION_HP_THRESHOLD` → 세션 종료 |
 | NPC 탈진 (플레이어 주도) | `npc_stamina ≤ EXHAUSTION_HP_THRESHOLD` → 계속 (의식 있음) |
-| NPC 기절 (플레이어 주도) | `npc_stamina ≤ 0` → MODE_UNCONSCIOUS 전환 |
+| **탈진 후 감소** | **행동 기반 차감 중단, 절정에서만 1씩 감소 (만복도 확률)** |
+| NPC 기절 (플레이어 주도) | `npc_stamina ≤ 0` → HP=1로 클램프 → MODE_UNCONSCIOUS 전환 |
 | NPC 탈진 (NPC 주도) | `npc_stamina ≤ EXHAUSTION_HP_THRESHOLD` → 세션 종료 |
-| 세션 종료 | `survival.set_health()` — 양쪽 HP writeback |
+| **기절 HP 하한** | **기절 시 HP=1, 이하 불가 (사망 방지)** |
+| 세션 종료 | `survival.set_health(id, max(1, stamina))` — 양쪽 HP writeback, 최소 1 보장 |
 | think() 가드 | `상태:로맨스중` prop → NPC 생존 인터럽트 차단 |
 
 ### NPC 스태미나 소모 공식
@@ -1741,12 +1744,42 @@ def calculate_npc_stamina_cost(base_cost, npc_id):
 | 리나 | 4 | 30 | 4 |
 | 유키 | 4 | 0 | 5 |
 
+### 절정/사정 시 체력 소모
+
+```python
+CLIMAX_STAMINA_COST = 3  # 기본값
+
+def calculate_climax_hp_cost(unit_id, is_exhausted):
+    if is_exhausted:
+        # 만복도 기반 확률: 낮으면 감소 확률↑, 높으면 감소 확률↓
+        probability = max(0.3, 1.0 - satiety / 150.0)
+        # 만복도 0→100%, 50→67%, 100→33%
+        return 1 if random < probability else 0
+    else:
+        return max(1, int(3 × (5/체력)))  # 체력6=2, 체력5=3, 체력4=3
+```
+
+**NPC 절정(non-P peaked)** → NPC HP 소모, **플레이어 사정(P peaked)** → 플레이어 HP 소모.
+
+### 탈진 후 감소 규칙
+
+| 상태 | 행동 HP 소모 | 절정 HP 소모 |
+|------|-------------|-------------|
+| 정상 (HP > 10) | 매 행동마다 | 절정마다 (체력보정) |
+| 탈진 (HP ≤ 10) | **스킵** | 1씩 (만복도 확률) |
+| 기절 (HP = 1) | 불가 | 불가 (HP 하한) |
+
+**설계 의도**: 탈진 후에도 절정에서만 HP 감소 → 만복도 낮은 캐릭터는 빠르게 기절, 높은 캐릭터는 오래 버팀.
+기준이 10이므로 최대 10회 절정(100% 확률) 가능, 만복도 높으면 더 많은 절정 가능.
+
 ### 탈진/기절 전이 흐름
 
-| 주도자 | NPC HP ≤ 10 (탈진) | NPC HP ≤ 0 (기절) |
+| 주도자 | 대상 HP ≤ 10 (탈진) | 대상 HP ≤ 0 (기절) |
 |--------|---------------------|---------------------|
-| 플레이어 주도 | 계속 (의식O, 1회 알림) | MODE_UNCONSCIOUS 전환 |
-| NPC 주도 | 세션 종료 | 세션 종료 |
+| 플레이어 주도 → NPC | 계속 (의식O, 1회 알림) | HP=1, MODE_UNCONSCIOUS 전환 |
+| 플레이어 주도 → 플레이어 | 세션 종료 | — |
+| NPC 주도 → NPC | 세션 종료 | — |
+| NPC 주도 → 플레이어 | NPC 계속 (절정에서만 감소) | HP=1 클램프 |
 
 ### 체력 바 렌더링
 

@@ -138,6 +138,9 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | 탈진 임계치 통일 (EXHAUSTION_HP_THRESHOLD) | romance.py, npc_initiative.py, base.py | ✅ 완료 |
 | NPC 양방향 체력 소모 | romance.py, npc_initiative.py, romance_core.py | ✅ 완료 |
 | NPC 기절→MODE_UNCONSCIOUS 전이 | romance.py | ✅ 완료 |
+| 절정/사정 시 체력 소모 | romance.py, npc_initiative.py, romance_core.py | ✅ 완료 |
+| 탈진 후 절정 전용 감소 (만복도 확률) | romance.py, npc_initiative.py, romance_core.py | ✅ 완료 |
+| 기절 HP=1 하한선 + 종료 HP≥1 보장 | romance.py, npc_initiative.py | ✅ 완료 |
 | NPC 스태미나 바 (양쪽 표시) | romance_ui.py, npc_initiative.py | ✅ 완료 |
 | think() 로맨스 가드 (상태:로맨스중) | think/__init__.py, romance.py, npc_initiative.py | ✅ 완료 |
 | 대사 generator (3D 좌표 기반) | romance_line_generator.py | ✅ 완료 |

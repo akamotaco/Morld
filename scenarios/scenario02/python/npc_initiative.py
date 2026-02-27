@@ -47,6 +47,7 @@ from romance_core import (
     calculate_stealth_chance, check_stealth_success,
     extract_preserved,
     calculate_npc_stamina_cost,
+    calculate_climax_hp_cost,
 )
 
 # ============================================
@@ -1021,6 +1022,45 @@ def render_npc_initiative_ui(state):
 
 
 # ============================================
+# 절정 시 체력 소모 헬퍼
+# ============================================
+
+def _apply_climax_hp_cost_npc(state, climax_info):
+    """절정/사정 시 양방향 체력 소모 (NPC 주도용)
+
+    NPC 절정(non-P parts peaked) → NPC HP 소모
+    플레이어 사정(P peaked) → 플레이어 HP 소모
+    """
+    non_p_parts = climax_info.get("non_p_parts", [])
+    has_p = climax_info.get("has_p", False)
+    npc_id = state.get("npc_id")
+    player_id = state.get("player_id")
+
+    # NPC 절정 → NPC HP 소모
+    if non_p_parts and npc_id:
+        npc_exhausted = state.get("npc_exhausted", False)
+        cost = calculate_climax_hp_cost(npc_id, npc_exhausted)
+        if cost > 0:
+            state["npc_stamina"] -= cost
+            if state["npc_stamina"] <= 0:
+                state["npc_stamina"] = 1  # 기절 시 HP=1 하한선
+                state["npc_exhausted"] = True
+            elif (state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD
+                    and not state.get("npc_exhausted")):
+                state["npc_exhausted"] = True
+
+    # 플레이어 사정 (P peaked) → 플레이어 HP 소모
+    if has_p and player_id:
+        player_exhausted = (state.get("exhausted", False)
+                            or state.get("stamina", 100) <= EXHAUSTION_HP_THRESHOLD)
+        cost = calculate_climax_hp_cost(player_id, player_exhausted)
+        if cost > 0:
+            state["stamina"] -= cost
+            if state["stamina"] <= 0:
+                state["stamina"] = 1  # HP 하한선
+
+
+# ============================================
 # 효과 적용 함수
 # ============================================
 
@@ -1196,6 +1236,31 @@ def apply_action_effects(state, action_def):
                     semen_mod.consume_semen(_p_holder, semen_mod.EJACULATION_COST)
                 except ImportError:
                     pass
+
+        # ── 절정/사정 시 양방향 체력 소모 ──
+        non_p_parts = climax_info.get("non_p_parts", [])
+        has_p = climax_info.get("has_p", False)
+        # NPC 절정 → NPC HP 소모
+        if non_p_parts:
+            npc_exhausted = state.get("npc_exhausted", False)
+            cost = calculate_climax_hp_cost(npc_id, npc_exhausted)
+            if cost > 0:
+                state["npc_stamina"] -= cost
+                if state["npc_stamina"] <= 0:
+                    state["npc_stamina"] = 1  # 기절 시 HP=1 하한선
+                    state["npc_exhausted"] = True
+                elif (state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD
+                        and not state.get("npc_exhausted")):
+                    state["npc_exhausted"] = True
+        # 플레이어 사정 (P peaked) → 플레이어 HP 소모
+        if has_p:
+            player_exhausted = (state.get("exhausted", False)
+                                or state.get("stamina", 100) <= EXHAUSTION_HP_THRESHOLD)
+            cost = calculate_climax_hp_cost(state["player_id"], player_exhausted)
+            if cost > 0:
+                state["stamina"] -= cost
+                if state["stamina"] <= 0:
+                    state["stamina"] = 1  # HP 하한선
 
         # 절정 반응 텍스트
         npc_asset = get_npc_asset(npc_id)
@@ -1438,16 +1503,18 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if required_stamina == 0:
             required_stamina = 1
 
-        if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
-            state["exhausted"] = True
-            return
+        # 플레이어 HP 차감 (탈진 상태면 행동 기반 차감 스킵 — 절정에서만 감소)
+        if not state.get("exhausted"):
+            if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
+                state["exhausted"] = True
+            else:
+                state["stamina"] -= required_stamina
 
-        state["stamina"] -= required_stamina
         # NPC 스태미나 차감 (NPC 주도 → NPC 탈진 시 세션 종료)
         npc_cost = calculate_npc_stamina_cost(required_stamina, npc_id)
         state["npc_stamina"] -= npc_cost
         if state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD:
-            state["npc_stamina"] = max(0, state["npc_stamina"])
+            state["npc_stamina"] = max(1, state["npc_stamina"])  # HP=1 하한선
             state["npc_exhausted"] = True
             return
 
@@ -1762,14 +1829,16 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                     td = NPC_TOGGLE_ACTIONS.get(tid)
                     if td:
                         required_stamina += td["stamina"]
-                if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
-                    state["exhausted"] = True
-                    return True
-                state["stamina"] -= required_stamina
+                # 플레이어 HP 차감 (탈진이면 스킵)
+                if not state.get("exhausted"):
+                    if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
+                        state["exhausted"] = True
+                        return True
+                    state["stamina"] -= required_stamina
                 npc_cost = calculate_npc_stamina_cost(required_stamina, state["npc_id"])
                 state["npc_stamina"] -= npc_cost
                 if state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD:
-                    state["npc_stamina"] = max(0, state["npc_stamina"])
+                    state["npc_stamina"] = max(1, state["npc_stamina"])
                     state["npc_exhausted"] = True
                     return True
                 perform_undress(npc_id, item_id)
@@ -1831,6 +1900,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                                             pass
                                 elif ejac_part:
                                     _apply_semen(npc_id, ejac_part, ejac_amount)
+                            # 참기 실패 절정 → 체력 소모
+                            if climax_info:
+                                _apply_climax_hp_cost_npc(state, climax_info)
                 check_result = advance_time_and_check_npc_initiative(state, action_def["time"])
                 if check_result["interrupted"]:
                     state["interrupted"] = True
@@ -1877,6 +1949,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                         _apply_semen(npc_id, ejac_part, ejac_amount)
                     state["last_reaction"] = "사정했다."
                     emit_ecstasy_sound(npc_id)
+                # 사정/절정 → 체력 소모
+                if climax_info:
+                    _apply_climax_hp_cost_npc(state, climax_info)
                 check_result = advance_time_and_check_npc_initiative(state, action_def["time"])
                 if check_result["interrupted"]:
                     state["interrupted"] = True
@@ -1896,16 +1971,18 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 if toggle_def:
                     required_stamina += toggle_def["stamina"]
 
-            if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
-                state["exhausted"] = True
-                return True  # 스태미나 부족으로 종료
+            # 플레이어 HP 차감 (탈진이면 스킵)
+            if not state.get("exhausted"):
+                if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
+                    state["exhausted"] = True
+                    return True  # 스태미나 부족으로 종료
+                state["stamina"] -= required_stamina
 
-            # 스태미나 소모
-            state["stamina"] -= required_stamina
+            # NPC 스태미나 소모
             npc_cost = calculate_npc_stamina_cost(required_stamina, state["npc_id"])
             state["npc_stamina"] -= npc_cost
             if state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD:
-                state["npc_stamina"] = max(0, state["npc_stamina"])
+                state["npc_stamina"] = max(1, state["npc_stamina"])
                 state["npc_exhausted"] = True
                 return True
 
@@ -2013,9 +2090,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             restraint.release_unit(player_id)
             state["player_restrained"] = False
 
-    # 종료 처리 — 양쪽 체력 기록 (HP 연동)
-    survival.set_health(player_id, state["stamina"])
-    survival.set_health(npc_id, state["npc_stamina"])
+    # 종료 처리 — 양쪽 체력 기록 (HP 연동, 최소 1 보장)
+    survival.set_health(player_id, max(1, state["stamina"]))
+    survival.set_health(npc_id, max(1, state["npc_stamina"]))
 
     # 종료 처리 — 절정 게이지 → 상시 prop 동기화
     final_climax = state["stim"].get("climax_gauge", 0)

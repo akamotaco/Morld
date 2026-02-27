@@ -1151,6 +1151,9 @@ pregnancy.reset()                        # 챕터 전환
 | 관계 항상성 | `needs.py` | 호감/반발/복종 basin 기반 시간 수렴 (±0.5/h) |
 | 체력 연동 | `romance.py`, `npc_initiative.py` | 양쪽 생존:체력을 스태미나로 사용, 세션 종료 시 HP writeback |
 | NPC 스태미나 | `romance_core.py` | `calculate_npc_stamina_cost()` — 체력 스탯·만복도 보정 |
+| 절정 HP 소모 | `romance_core.py` | `calculate_climax_hp_cost()` — 비탈진: 3×체력보정, 탈진: 1(만복도 확률) |
+| 탈진 후 규칙 | `romance.py`, `npc_initiative.py` | 행동 HP 스킵, 절정에서만 1씩 감소 (만복도 확률) |
+| 기절 HP 하한 | 전체 | HP ≤ 0 → HP=1 클램프, 종료 시 `max(1, stamina)` |
 | 탈진 임계치 | `survival.py` | `EXHAUSTION_HP_THRESHOLD`(10) 통일 — 진입·종료 공통 |
 | 로맨스 가드 | `think/__init__.py` | `상태:로맨스중` prop → think() 생존 인터럽트 차단 |
 | 행위 묘사 | `romance_actions.py` | ACTION_DESCRIPTIONS + TOGGLE_DURING_DESCRIPTIONS |
