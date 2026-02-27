@@ -2089,7 +2089,7 @@ class Character(Unit):
 
         # 사망 props 설정
         morld.set_unit_prop(self.instance_id, "상태:사망", 1)
-        morld.set_unit_prop(self.instance_id, "상태:사망시각", morld.get_current_time())
+        morld.set_unit_prop(self.instance_id, "상태:사망시각", morld.get_game_time())
 
         # 이름 변경
         morld.set_unit(self.instance_id, "name", f"{original_name}의 시체")

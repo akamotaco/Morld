@@ -57,7 +57,7 @@ def _ensure_initialized():
 
 def _on_time_elapsed(millis):
     """매 1시간: 스폰 체크 + 수명 소멸 + 시체 정리"""
-    current_time = morld.get_current_time()
+    current_time = morld.get_game_time()
     current_hour = current_time // MILLIS_PER_HOUR
 
     for source_id, source in _spawn_sources.items():

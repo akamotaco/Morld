@@ -152,7 +152,7 @@ class CreatureAgent(BaseAgent):
 
         # 쿨다운 중이면 패스 (절대 시각 기반)
         cooldown_until = self._memory.get("assault_cooldown_until", 0)
-        if cooldown_until > 0 and morld.get_current_time() < cooldown_until:
+        if cooldown_until > 0 and morld.get_game_time() < cooldown_until:
             return False
 
         # 같은 Location의 무력화된 캐릭터 탐색
@@ -289,7 +289,7 @@ class CreatureAgent(BaseAgent):
 
             # 쿨다운 설정 (절대 시각: 현재 + 4시간)
             self._memory["assault_cooldown_until"] = (
-                morld.get_current_time() + 4 * 3_600_000
+                morld.get_game_time() + 4 * 3_600_000
             )
             self._clear_assault()
             self._do_instant_action("대기", "brief")
@@ -330,7 +330,7 @@ class CreatureAgent(BaseAgent):
 
         # 쿨다운 (2시간)
         cooldown_until = self._memory.get("harass_cooldown_until", 0)
-        now = morld.get_current_time()
+        now = morld.get_game_time()
         if cooldown_until > 0 and now < cooldown_until:
             return False
 
@@ -395,7 +395,7 @@ class CreatureAgent(BaseAgent):
 
         # 쿨다운 (4시간)
         cooldown_until = self._memory.get("parasitize_cooldown_until", 0)
-        now = morld.get_current_time()
+        now = morld.get_game_time()
         if cooldown_until > 0 and now < cooldown_until:
             return False
 

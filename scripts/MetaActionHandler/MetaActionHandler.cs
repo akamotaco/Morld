@@ -130,8 +130,10 @@ public partial class MetaActionHandler
 		// 콘텐츠 변경 전 정리 작업
 		// - 토글은 UI 상태만 변경하므로 로그 읽음 처리 제외
 		// - script 계열은 대화 중이므로 로그 읽음 처리 제외
+		// - look_unit은 조회 행위이며 이벤트(first_meet 등)가 끼어들 수 있으므로 제외
 		bool markLogsAsRead = action != "toggle"
-			&& action != "script";
+			&& action != "script"
+			&& action != "look_unit";
 		_textUISystem?.OnContentChange(markLogsAsRead);
 
 #if DEBUG_LOG

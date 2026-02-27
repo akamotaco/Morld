@@ -610,7 +610,7 @@ def check_and_clear_virginity(target_id, player_id, action_id, exp_type="consens
 
 def record_first_experience(target_id, partner_id, exp_type, part):
     """부위별 첫경험 기록 (최초 1회만). part = '음부'/'항문'/'구강'"""
-    now = morld.get_current_time()
+    now = morld.get_game_time()
     # 부위별 첫경험
     part_key = f"기억:첫경험:{part}"
     if not morld.get_unit_prop(target_id, part_key):
@@ -628,7 +628,7 @@ def record_first_experience(target_id, partner_id, exp_type, part):
 
 def record_last_experience(target_id, partner_id, exp_type):
     """마지막 경험 기록 (항상 갱신)"""
-    now = morld.get_current_time()
+    now = morld.get_game_time()
     morld.set_unit_prop(target_id, "기억:마지막경험:유형", exp_type)
     morld.set_unit_prop(target_id, "기억:마지막경험:상대", partner_id)
     morld.set_unit_prop(target_id, "기억:마지막경험:시각", now)
