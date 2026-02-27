@@ -60,13 +60,14 @@ public void FlushDisplay()
 
 ```python
 # 토글 버튼
-"[url=toggle:idle]▶멍때리기[/url]"
+"[url=toggle:spend_time]▶시간 보내기[/url]"
 
 # 펼침 시 표시되는 내용
-"[hidden=idle]"
-"  [url=idle:15]15분[/url]"
-"  [url=idle:30]30분[/url]"
-"[/hidden=idle]"
+"[hidden=spend_time]"
+"  [url=wait:300000]누군가를 기다리기 (~5분)[/url]"
+"  [url=idle:1800000]멍때리기 (30분)[/url]"
+"  [url=idle:14400000]낮잠자기 (4시간)[/url]"
+"[/hidden=spend_time]"
 ```
 
 ### Python ui.py 예시
@@ -75,13 +76,16 @@ public void FlushDisplay()
 def get_action_text():
     lines = []
 
-    # 멍때리기 (토글 메뉴)
-    lines.append("  [url=toggle:idle]▶멍때리기[/url]")
-    lines.append("[hidden=idle]")
-    lines.append("    [url=idle:15]15분[/url]")
-    lines.append("    [url=idle:30]30분[/url]")
-    lines.append("    [url=idle:60]1시간[/url]")
-    lines.append("[/hidden=idle]")
+    # 시간 보내기 (토글 메뉴)
+    lines.append("  [url=toggle:spend_time]▶시간 보내기[/url]")
+    lines.append("[hidden=spend_time]")
+    lines.append(f"    [url=wait:{5 * MILLIS_PER_MINUTE}]누군가를 기다리기 (~5분)[/url]")
+    lines.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]멍때리기 (30분)[/url]")
+    if 6 <= hour < 18:
+        lines.append(f"    [url=idle:{240 * MILLIS_PER_MINUTE}]낮잠자기 (4시간)[/url]")
+    else:
+        lines.append("    [color=gray]낮잠자기 (4시간)[/color]")
+    lines.append("[/hidden=spend_time]")
 
     return "\n".join(lines)
 ```

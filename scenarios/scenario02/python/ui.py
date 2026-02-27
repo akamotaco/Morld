@@ -983,25 +983,20 @@ def get_action_text():
         obj_name = obj_info.get("name", "오브젝트") if obj_info else "오브젝트"
         lines.append(f"  [url=call:stand_up:{seated_on}]{obj_name}에서 일어나기[/url]")
 
-    # 멍때리기 (시간 선택 토글)
-    # ToggleRenderer가 [hidden=idle]...[/hidden=idle] 영역을 펼침/접힘 처리
-    lines.append("  [url=toggle:idle]▶멍때리기[/url]")
-    lines.append("[hidden=idle]")
-    lines.append(f"    [url=idle:{1 * MILLIS_PER_MINUTE}]1분[/url]")
-    lines.append(f"    [url=idle:{5 * MILLIS_PER_MINUTE}]5분[/url]")
-    lines.append(f"    [url=idle:{15 * MILLIS_PER_MINUTE}]15분[/url]")
-    lines.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]30분[/url]")
-    lines.append("[/hidden=idle]")
-
-    # 시간 기반 조건부 행동
+    # 시간 보내기 (토글)
+    # ToggleRenderer가 [hidden=spend_time]...[/hidden=spend_time] 영역을 펼침/접힘 처리
     millis_of_day = morld.get_game_time()  # 밀리초 단위 (0~86,399,999)
     hour = millis_of_day // MILLIS_PER_HOUR
 
-    # 낮잠 (6시~18시만 가능)
+    lines.append("  [url=toggle:spend_time]▶시간 보내기[/url]")
+    lines.append("[hidden=spend_time]")
+    lines.append(f"    [url=wait:{5 * MILLIS_PER_MINUTE}]누군가를 기다리기 (~5분)[/url]")
+    lines.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]멍때리기 (30분)[/url]")
     if 6 <= hour < 18:
-        lines.append(f"  [url=idle:{240 * MILLIS_PER_MINUTE}]낮잠 (4시간)[/url]")
+        lines.append(f"    [url=idle:{240 * MILLIS_PER_MINUTE}]낮잠자기 (4시간)[/url]")
     else:
-        lines.append("  [color=gray]낮잠 (4시간)[/color]")
+        lines.append("    [color=gray]낮잠자기 (4시간)[/color]")
+    lines.append("[/hidden=spend_time]")
 
     # 지도 (can:map 또는 지역별 지도 prop 보유 시)
     # get_actual_props로 passive_props 포함된 실제 props 조회

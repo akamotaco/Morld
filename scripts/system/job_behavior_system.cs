@@ -296,6 +296,9 @@ namespace SE
 							srcGate.CanTraverseForward(actualProps))
 						{
 							unit.SetLocation2D(goalLocation, srcGate.ArrivalX, srcGate.ArrivalY);
+							// Gate Transit: ECS 경로 도착 → 숨김 해제
+							if (unit.TraversalContext.GetProp("상태:이동중") == 1)
+								unit.TraversalContext.Props.Set("상태:이동중", 0);
 #if DEBUG_LOG
 							GD.Print($"[JobBehaviorSystem] {unit.Name} instant move via Gate: {unit.CurrentLocation} -> {goalLocation} (X={srcGate.ArrivalX})");
 #endif
@@ -311,6 +314,9 @@ namespace SE
 					unit.PositionX = destLocation.NormalizeX(targetX);
 				else
 					unit.PositionX = 0f;
+				// Gate Transit: ECS 경로 도착 → 숨김 해제
+				if (unit.TraversalContext.GetProp("상태:이동중") == 1)
+					unit.TraversalContext.Props.Set("상태:이동중", 0);
 
 #if DEBUG_LOG
 				GD.Print($"[JobBehaviorSystem] {unit.Name} instant move (no gate): -> {goalLocation}");
@@ -498,6 +504,10 @@ namespace SE
 				GD.Print($"[JobBehaviorSystem] {unit.Name} start 2D move: X={fromX:F1} -> Gate{targetGate.Id}(X={toX:F1}), dist={distance:F1}, speed={speed:F1}");
 #endif
 			}
+
+			// Gate Transit: 이동 완료 → 숨김 해제
+			if (unit.CurrentLocation == goalLocation && unit.TraversalContext.GetProp("상태:이동중") == 1)
+				unit.TraversalContext.Props.Set("상태:이동중", 0);
 		}
 
 		/// <summary>

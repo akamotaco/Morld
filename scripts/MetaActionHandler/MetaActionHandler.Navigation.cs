@@ -116,6 +116,21 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 기다리기 액션 처리: wait:millis
+	/// </summary>
+	private void HandleWaitAction(string[] parts)
+	{
+		if (parts.Length >= 2)
+		{
+			_playerSystem?.RequestCommand($"기다리기:{parts[1]}");
+		}
+		else
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid wait format. Expected: wait:millis");
+		}
+	}
+
+	/// <summary>
 	/// 뒤로 가기 처리 (back, confirm, done)
 	/// </summary>
 	private void HandleBackAction()

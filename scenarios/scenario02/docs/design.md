@@ -730,15 +730,19 @@ def get_action_text():
     for action in default_actions:
         lines.append(action)
 
-    # 시간 기반 조건부 행동
-    minute_of_day = morld.get_game_time()  # 분 단위 (0~1439)
-    hour = minute_of_day // 60
+    # 시간 보내기 (토글 메뉴)
+    millis_of_day = morld.get_game_time()  # 밀리초 단위
+    hour = millis_of_day // MILLIS_PER_HOUR
 
-    # 낮잠 (6시~18시만 가능)
+    lines.append("  [url=toggle:spend_time]▶시간 보내기[/url]")
+    lines.append("[hidden=spend_time]")
+    lines.append(f"    [url=wait:{5 * MILLIS_PER_MINUTE}]누군가를 기다리기 (~5분)[/url]")
+    lines.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]멍때리기 (30분)[/url]")
     if 6 <= hour < 18:
-        lines.append("  [url=idle:240]낮잠 (4시간)[/url]")
+        lines.append(f"    [url=idle:{240 * MILLIS_PER_MINUTE}]낮잠자기 (4시간)[/url]")
     else:
-        lines.append("  [color=gray]낮잠 (4시간)[/color]")  # 비활성화
+        lines.append("    [color=gray]낮잠자기 (4시간)[/color]")  # 비활성화
+    lines.append("[/hidden=spend_time]")
 
     return "\n".join(lines)
 ```

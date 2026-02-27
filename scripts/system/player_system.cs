@@ -41,6 +41,16 @@ namespace SE
 		private bool _hasInstantAction = false;
 
 		/// <summary>
+		/// "누군가를 기다리기" 모드 활성 여부
+		/// </summary>
+		private bool _waitMode = false;
+
+		/// <summary>
+		/// 기다리기 시작 시점에 이미 같은 location에 있던 NPC ID 집합
+		/// </summary>
+		private HashSet<int> _waitInitialNpcs = new();
+
+		/// <summary>
 		/// 현재 활성화된 액션 이름 (디버그용)
 		/// </summary>
 		private string _currentAction = "";
@@ -82,6 +92,7 @@ namespace SE
 			}
 #endif
 			_remainingDuration = 0;
+			_waitMode = false;
 		}
 
 		/// <summary>
@@ -91,6 +102,7 @@ namespace SE
 		{
 			_remainingDuration = 0;
 			_hasInstantAction = false;
+			_waitMode = false;
 			NextStepDuration = 0;
 			_lastSetDuration = 0;
 #if DEBUG_LOG
@@ -207,6 +219,12 @@ namespace SE
 						ExecuteIdle(millis);
 					}
 					break;
+				case "기다리기":
+					if (parts.Length >= 2 && int.TryParse(parts[1], out int waitMillis))
+					{
+						ExecuteWait(waitMillis);
+					}
+					break;
 				default:
 #if DEBUG_LOG
 					GD.Print($"[PlayerSystem] 알 수 없는 명령: {action}");
@@ -315,6 +333,39 @@ namespace SE
 #endif
 		}
 
+		/// <summary>
+		/// 기다리기 실행: 현재 location의 NPC를 기록하고 시간 진행
+		/// 새로운 NPC가 도착하면 Proc()에서 자동 중단
+		/// </summary>
+		private void ExecuteWait(int millis)
+		{
+			var player = FindPlayerUnit();
+			if (player == null) return;
+			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+			if (unitSystem == null) return;
+
+			// 현재 location의 캐릭터 목록 저장 (새 도착 감지용)
+			_waitInitialNpcs.Clear();
+			foreach (var unit in unitSystem.Units.Values)
+			{
+				if (unit.Id == player.Id) continue;
+				if (unit.IsObject || unit.IsCreature) continue;
+				if (unit.CurrentLocation == player.CurrentLocation)
+					_waitInitialNpcs.Add(unit.Id);
+			}
+			_waitMode = true;
+
+			var actionLogSystem = _hub.GetSystem("actionLogSystem") as ActionLogSystem;
+			actionLogSystem?.AddLog("누군가를 기다려본다...");
+
+			RequestTimeAdvance(millis, "기다리기");
+
+#if DEBUG_LOG
+			int displayMin = millis / GameTime.MillisPerMinute;
+			GD.Print($"[PlayerSystem] 기다리기 요청: {displayMin}분 ({millis}ms), 현재 NPC {_waitInitialNpcs.Count}명");
+#endif
+		}
+
 		#endregion
 
 
@@ -354,6 +405,38 @@ namespace SE
 #endif
 			}
 
+			// 1-B. 기다리기 모드: 새 NPC 도착 감지
+			if (_waitMode && _remainingDuration > 0)
+			{
+				var player = FindPlayerUnit();
+				var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
+				if (player != null && unitSystem != null)
+				{
+					bool arrived = false;
+					foreach (var unit in unitSystem.Units.Values)
+					{
+						if (unit.Id == player.Id) continue;
+						if (unit.IsObject || unit.IsCreature) continue;
+						if (unit.CurrentLocation == player.CurrentLocation
+							&& !_waitInitialNpcs.Contains(unit.Id))
+						{
+							arrived = true;
+							break;
+						}
+					}
+					if (arrived)
+					{
+						_remainingDuration = 0;
+						_waitMode = false;
+						var als = _hub.GetSystem("actionLogSystem") as ActionLogSystem;
+						als?.AddLog("누군가 다가오는 기척이 느껴졌다.");
+#if DEBUG_LOG
+						GD.Print("[PlayerSystem] 기다리기: 새 NPC 도착 감지 → 중단");
+#endif
+					}
+				}
+			}
+
 			// 2. EventSystem에서 ExcessTime 가져와서 적용
 			{
 				var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
@@ -362,6 +445,17 @@ namespace SE
 				{
 					AddExcessTime(excessTime);
 				}
+			}
+
+			// 2-B. 기다리기 자연 종료 (시간 경과, 아무도 안 옴)
+			if (_waitMode && _remainingDuration <= 0)
+			{
+				_waitMode = false;
+				var als = _hub.GetSystem("actionLogSystem") as ActionLogSystem;
+				als?.AddLog("아무도 오지 않았다.");
+#if DEBUG_LOG
+				GD.Print("[PlayerSystem] 기다리기: 시간 만료 → 자연 종료");
+#endif
 			}
 
 			// 3. 대기 중인 시간이 없으면 시간 정지

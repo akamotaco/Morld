@@ -150,6 +150,9 @@ public partial class MetaActionHandler
 			case "idle":
 				HandleIdleAction(parts);
 				break;
+			case "wait":
+				HandleWaitAction(parts);
+				break;
 			case "back":
 			case "confirm":
 			case "done":

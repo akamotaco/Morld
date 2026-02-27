@@ -276,7 +276,9 @@ Python: 상태:이동중 = 1 설정 + 행동 로그 출력
     ↓
 C#: 이동 시뮬레이션 (이동 시간은 기존과 동일하게 소모)
     ↓
-DES step 5: 텔레포트 완료 → 상태:이동중 = 0 해제
+도착 → 상태:이동중 = 0 해제
+  - DES 경로: step 5 텔레포트 완료 시
+  - ECS 경로: JobBehaviorSystem.ProcessMoveAction2D() goalLocation 도착 시
     ↓
 다음 think() 호출 → 정상 행동 재개
 ```
@@ -285,7 +287,8 @@ DES step 5: 텔레포트 완료 → 상태:이동중 = 0 해제
 | 항목 | 설명 |
 |------|------|
 | 설정 | Python `_move_to()` — cross-location 이동 시 |
-| 해제 | C# DES step 5 — 텔레포트 완료 후 |
+| 해제 (DES) | C# DES step 5 — 텔레포트 완료 후 |
+| 해제 (ECS) | C# `JobBehaviorSystem.ProcessMoveAction2D()` — goalLocation 도착 시 (3곳) |
 | 효과 | Look/LookUnit 필터링, get_characters/units_at_location 제외, think() early return |
 
 #### 가시성 필터링 (C#)
