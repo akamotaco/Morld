@@ -1697,37 +1697,64 @@ class Sera(Character):
 
 ---
 
-## 18. 체력 시스템 (HP 통합)
+## 18. 체력 시스템 (HP 통합 + 양방향 소모)
 
 ### 개요
 
 연애 세션의 스태미나를 전투/생존 체력(`생존:체력`)과 통합.
-별도의 `연애:스태미나` prop을 제거하고, 실제 HP를 소비하는 방식.
+**플레이어와 NPC 양쪽** 모두 체력을 소모하며, 탈진/기절 전이가 발생한다.
 
 ### 핵심 메커니즘
 
 | 항목 | 설명 |
 |------|------|
-| 세션 시작 | `survival.get_survival_stats(player_id)` → `health`, `max_health` 읽기 |
-| 행위 소비 | 행위마다 `state["stamina"]` 차감 (기존과 동일) |
-| 탈진 | `stamina ≤ total_stamina` → `stamina = 1` (HP 1 보존, 기절 방지) |
-| 세션 종료 | `survival.set_health(player_id, state["stamina"])` — HP writeback |
+| 세션 시작 | 양쪽 `survival.get_survival_stats()` → `health`, `max_health` 읽기 |
+| 진입 가드 | 플레이어 HP ≤ `EXHAUSTION_HP_THRESHOLD`(10) → 진입 차단 |
+| 행위 소비 | 행위마다 양쪽 `stamina` 차감 (NPC는 체력·만복도 보정) |
+| 플레이어 탈진 | `stamina - cost ≤ EXHAUSTION_HP_THRESHOLD` → 세션 종료 |
+| NPC 탈진 (플레이어 주도) | `npc_stamina ≤ EXHAUSTION_HP_THRESHOLD` → 계속 (의식 있음) |
+| NPC 기절 (플레이어 주도) | `npc_stamina ≤ 0` → MODE_UNCONSCIOUS 전환 |
+| NPC 탈진 (NPC 주도) | `npc_stamina ≤ EXHAUSTION_HP_THRESHOLD` → 세션 종료 |
+| 세션 종료 | `survival.set_health()` — 양쪽 HP writeback |
+| think() 가드 | `상태:로맨스중` prop → NPC 생존 인터럽트 차단 |
+
+### NPC 스태미나 소모 공식
+
+```python
+def calculate_npc_stamina_cost(base_cost, npc_id):
+    # 체력 스탯 보정: 체력 높으면 소모 감소
+    constitution = morld.get_unit_prop(npc_id, "체력") or 5
+    const_factor = 5.0 / max(1, constitution)  # 체력5=1.0x, 체력3=1.67x, 체력6=0.83x
+
+    # 만복도 보정: 50 이상 보정 없음, 0이면 +50% 소모
+    satiety = morld.get_unit_prop(npc_id, "생존:포만감") or 0
+    satiety_factor = 1.0 + max(0.0, (50 - satiety) / 100.0)
+
+    return max(1, int(base_cost * const_factor * satiety_factor))
+```
+
+**예시 (base_cost=3)**:
+| 캐릭터 | 체력 | 만복도 | 결과 |
+|--------|------|--------|------|
+| 세라 | 6 | 80 | 2 |
+| 밀라 | 5 | 50 | 3 |
+| 리나 | 4 | 30 | 4 |
+| 유키 | 4 | 0 | 5 |
+
+### 탈진/기절 전이 흐름
+
+| 주도자 | NPC HP ≤ 10 (탈진) | NPC HP ≤ 0 (기절) |
+|--------|---------------------|---------------------|
+| 플레이어 주도 | 계속 (의식O, 1회 알림) | MODE_UNCONSCIOUS 전환 |
+| NPC 주도 | 세션 종료 | 세션 종료 |
 
 ### 체력 바 렌더링
 
-10칸 정규화 — HP 범위에 관계없이 일관된 표시:
+10칸 정규화 — 양쪽 HP를 동시 표시:
 
-```python
-def render_stamina_bar(stamina, max_stamina=100):
-    BAR_WIDTH = 10
-    ratio = stamina / max(1, max_stamina)
-    filled = max(0, min(BAR_WIDTH, round(ratio * BAR_WIDTH)))
-    empty = BAR_WIDTH - filled
-    bar = "█" * filled + "░" * empty
-    return f"{bar} {int(stamina)}/{int(max_stamina)}"
 ```
-
-UI 라벨: `체력: ████████░░ 80/100`
+체력: ████████░░ 80/100  세라: ██████░░░░ 60/100
+```
 
 ### 사정량 HP 정규화
 
@@ -1738,9 +1765,8 @@ UI 라벨: `체력: ████████░░ 80/100`
 ### 세션 상태 보존
 
 공수 전환 시 `extract_preserved(state)`:
-- `initial_stamina`: 세션 시작 시점 HP
-- `max_stamina`: 최대 HP
-- `stamina`: 현재 HP
+- `initial_stamina`, `max_stamina`, `stamina`: 플레이어
+- `npc_initial_stamina`, `npc_max_stamina`, `npc_stamina`: NPC
 
 ---
 

@@ -46,6 +46,7 @@ from romance_core import (
     get_action_exp_part,
     calculate_stealth_chance, check_stealth_success,
     extract_preserved,
+    calculate_npc_stamina_cost,
 )
 
 # ============================================
@@ -72,8 +73,9 @@ STAY_SCHEDULE = [
     {"name": "대기", "start": 0, "end": MILLIS_PER_DAY, "activity": "대기"}
 ]
 
-# NPC 주도 최소 체력 (HP 가드)
-INITIATIVE_MIN_HEALTH = 5
+# NPC 주도 최소 체력 (HP 가드) — 탈진 임계치와 통일
+from survival import EXHAUSTION_HP_THRESHOLD
+INITIATIVE_MIN_HEALTH = EXHAUSTION_HP_THRESHOLD
 
 # NPC 만족 종료 조건
 NPC_SATISFACTION_AROUSAL = 20   # 성욕 임계치
@@ -703,7 +705,10 @@ def render_npc_initiative_ui(state):
     pos_name_hdr = position.get_name(cur_pos)
     pos_facing_hdr = "대면" if position.get_facing(cur_pos) == "front" else "배면"
     max_stamina = state.get("max_stamina", 100)
-    lines.append(f"[{npc_name}의 주도]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  체력: {render_stamina_bar(player_stamina, max_stamina)}")
+    npc_stamina = state.get("npc_stamina", 100)
+    npc_max = state.get("npc_max_stamina", 100)
+    lines.append(f"[{npc_name}의 주도]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})")
+    lines.append(f"  체력: {render_stamina_bar(player_stamina, max_stamina)}  {npc_name}: {render_stamina_bar(npc_stamina, npc_max)}")
 
     # 저항 게이지 (저항 모드)
     if resistance_mode:
@@ -727,6 +732,13 @@ def render_npc_initiative_ui(state):
         lines.append("")
         state["near_miss"] = False  # 표시 후 클리어
         state["near_miss_id"] = None
+
+    # NPC 탈진 알림 (1회, 표시 후 클리어)
+    npc_exhaustion_notice = state.get("_npc_exhaustion_notice")
+    if npc_exhaustion_notice:
+        lines.append(npc_exhaustion_notice)
+        lines.append("")
+        state["_npc_exhaustion_notice"] = None
 
     # 마지막 반응 텍스트 (즉시 액션 결과 등)
     last_reaction = state["last_reaction"]
@@ -1235,12 +1247,18 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
     if not schedule_pushed:
         if npc_agent:
             npc_agent.push_schedule(STAY_SCHEDULE)
+        morld.set_unit_prop(npc_id, "상태:로맨스중", 1)
 
     # 플레이어 체력 조회 (생존:체력 기반)
     import survival
     player_stats = survival.get_survival_stats(player_id)
     initial_stamina = player_stats["health"]
     max_stamina = player_stats["max_health"]
+
+    # NPC 체력 조회
+    npc_stats = survival.get_survival_stats(npc_id)
+    npc_initial_stamina = npc_stats["health"]
+    npc_max_stamina = npc_stats["max_health"]
 
     # 상태 초기화
     import gender as gender_mod
@@ -1255,6 +1273,10 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         "stamina": initial_stamina,
         "initial_stamina": initial_stamina,
         "max_stamina": max_stamina,
+        "npc_stamina": npc_initial_stamina,
+        "npc_initial_stamina": npc_initial_stamina,
+        "npc_max_stamina": npc_max_stamina,
+        "npc_exhausted": False,
         "elapsed_time": 0,
         "lubricated": False,
         "stim": stimulation.create_state(
@@ -1309,6 +1331,10 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         state["elapsed_time"] = preserved["elapsed_time"]
         state["lubricated"] = preserved.get("lubricated", False)
         state["checked_npcs"] = preserved.get("checked_npcs", set())
+        if preserved.get("npc_stamina") is not None:
+            state["npc_stamina"] = preserved["npc_stamina"]
+            state["npc_initial_stamina"] = preserved.get("npc_initial_stamina", state["npc_stamina"])
+            state["npc_max_stamina"] = preserved.get("npc_max_stamina", npc_max_stamina)
         if "position" in preserved:
             state["position"] = preserved["position"]
         if "insertion" in preserved:
@@ -1412,12 +1438,18 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if required_stamina == 0:
             required_stamina = 1
 
-        if state["stamina"] <= required_stamina:
-            state["stamina"] = 1  # 최소 1 보존
+        if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
             state["exhausted"] = True
             return
 
         state["stamina"] -= required_stamina
+        # NPC 스태미나 차감 (NPC 주도 → NPC 탈진 시 세션 종료)
+        npc_cost = calculate_npc_stamina_cost(required_stamina, npc_id)
+        state["npc_stamina"] -= npc_cost
+        if state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD:
+            state["npc_stamina"] = max(0, state["npc_stamina"])
+            state["npc_exhausted"] = True
+            return
 
         # NPC 자동 삽입 시도 (미삽입 + 성욕 ≥ 70 + 윤활 충족 + 여운 아님)
         if not state["insertion"]["active"] and afterglow <= 0:
@@ -1730,10 +1762,16 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                     td = NPC_TOGGLE_ACTIONS.get(tid)
                     if td:
                         required_stamina += td["stamina"]
-                if state["stamina"] < required_stamina:
+                if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
                     state["exhausted"] = True
                     return True
                 state["stamina"] -= required_stamina
+                npc_cost = calculate_npc_stamina_cost(required_stamina, state["npc_id"])
+                state["npc_stamina"] -= npc_cost
+                if state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD:
+                    state["npc_stamina"] = max(0, state["npc_stamina"])
+                    state["npc_exhausted"] = True
+                    return True
                 perform_undress(npc_id, item_id)
                 item_info = morld.get_item_info(item_id)
                 item_name = item_info.get("name", "옷") if item_info else "옷"
@@ -1858,12 +1896,18 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 if toggle_def:
                     required_stamina += toggle_def["stamina"]
 
-            if state["stamina"] < required_stamina:
+            if state["stamina"] - required_stamina <= EXHAUSTION_HP_THRESHOLD:
                 state["exhausted"] = True
                 return True  # 스태미나 부족으로 종료
 
             # 스태미나 소모
             state["stamina"] -= required_stamina
+            npc_cost = calculate_npc_stamina_cost(required_stamina, state["npc_id"])
+            state["npc_stamina"] -= npc_cost
+            if state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD:
+                state["npc_stamina"] = max(0, state["npc_stamina"])
+                state["npc_exhausted"] = True
+                return True
 
             # 준비 부족 체크 (강도 행위)
             effective_def = action_def
@@ -1958,6 +2002,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         yield from start_romance(player_id, npc_id, preserved=preserved)
         return
 
+    # 로맨스 세션 종료 — think() 가드 해제
+    morld.clear_prop(npc_id, "상태:로맨스중")
+
     # 결박 해제 (NPC 성욕 < 30 → 자동 해제)
     if state.get("player_restrained"):
         npc_arousal_final = morld.get_unit_prop(npc_id, "상태:성욕") or 0
@@ -1966,8 +2013,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             restraint.release_unit(player_id)
             state["player_restrained"] = False
 
-    # 종료 처리 — 플레이어 체력 기록 (HP 연동)
+    # 종료 처리 — 양쪽 체력 기록 (HP 연동)
     survival.set_health(player_id, state["stamina"])
+    survival.set_health(npc_id, state["npc_stamina"])
 
     # 종료 처리 — 절정 게이지 → 상시 prop 동기화
     final_climax = state["stim"].get("climax_gauge", 0)
@@ -2001,6 +2049,8 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
     elif state.get("interrupted"):
         # 제3자에게 들킴 - 방해 이벤트
         yield from handle_npc_initiative_interruption(state, npc_name)
+    elif state.get("npc_exhausted"):
+        yield ui.dialog(f"({npc_name}(이)가 탈진하여 쓰러졌다...)")
     elif state["exhausted"]:
         yield ui.dialog("몸에 힘이 빠져 더 이상 움직일 수 없다...")
     elif state["npc_satisfied"]:

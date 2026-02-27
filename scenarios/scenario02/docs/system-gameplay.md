@@ -1149,7 +1149,10 @@ pregnancy.reset()                        # 챕터 전환
 | 이중 경로 해금 | `romance.py` | 욕망/복종에 의한 호감 요구치 할인 (최대 50%) |
 | 복종 | `base.py` | `관계:{name}:복종` prop + 관계 항상성 수렴 |
 | 관계 항상성 | `needs.py` | 호감/반발/복종 basin 기반 시간 수렴 (±0.5/h) |
-| 체력 연동 | `romance.py`, `npc_initiative.py` | 생존:체력을 스태미나로 사용, 세션 종료 시 HP writeback |
+| 체력 연동 | `romance.py`, `npc_initiative.py` | 양쪽 생존:체력을 스태미나로 사용, 세션 종료 시 HP writeback |
+| NPC 스태미나 | `romance_core.py` | `calculate_npc_stamina_cost()` — 체력 스탯·만복도 보정 |
+| 탈진 임계치 | `survival.py` | `EXHAUSTION_HP_THRESHOLD`(10) 통일 — 진입·종료 공통 |
+| 로맨스 가드 | `think/__init__.py` | `상태:로맨스중` prop → think() 생존 인터럽트 차단 |
 | 행위 묘사 | `romance_actions.py` | ACTION_DESCRIPTIONS + TOGGLE_DURING_DESCRIPTIONS |
 | 상태 묘사 | `romance_core.py` | 자극 수준 기반 자동 나레이션 (get_state_description) |
 

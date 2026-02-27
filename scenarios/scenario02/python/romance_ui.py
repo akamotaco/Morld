@@ -98,7 +98,10 @@ def render_romance_ui(state):
     pos_name_hdr = position.get_name(cur_pos)
     pos_facing_hdr = "대면" if position.get_facing(cur_pos) == "front" else "배면"
     max_stamina = state.get("max_stamina", 100)
-    lines.append(f"[{partner_name}와 함께]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})  체력: {render_stamina_bar(player_stamina, max_stamina)}")
+    npc_stamina = state.get("npc_stamina", 100)
+    npc_max = state.get("npc_max_stamina", 100)
+    lines.append(f"[{partner_name}와 함께]{mode_label}  체위: {pos_name_hdr}({pos_facing_hdr})")
+    lines.append(f"  체력: {render_stamina_bar(player_stamina, max_stamina)}  {partner_name}: {render_stamina_bar(npc_stamina, npc_max)}")
 
     # 저항 게이지 + 탈출 확률 (강제 모드)
     if cur_mode == "forced" and mode_ctx:
@@ -140,6 +143,13 @@ def render_romance_ui(state):
         lines.append("")
         state["near_miss"] = False  # 표시 후 클리어
         state["near_miss_id"] = None
+
+    # NPC 탈진 알림 (1회, 표시 후 클리어)
+    npc_exhaustion_notice = state.get("_npc_exhaustion_notice")
+    if npc_exhaustion_notice:
+        lines.append(npc_exhaustion_notice)
+        lines.append("")
+        state["_npc_exhaustion_notice"] = None
 
     # 마지막 즉시 액션 반응 (있으면 표시 후 클리어)
     last_reaction = state["last_reaction"]

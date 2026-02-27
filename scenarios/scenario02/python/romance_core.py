@@ -889,6 +889,26 @@ def get_climax_reaction_key(climax_info, active_toggles, toggle_actions, reactio
 # 세션 보존 (공수 전환)
 # ============================================
 
+def calculate_npc_stamina_cost(base_cost: int, npc_id: int) -> int:
+    """NPC 스태미나 소모량 계산
+
+    체력(기본스탯) 높을수록 적게 소모, 만복도 낮을수록 많이 소모
+
+    Args:
+        base_cost: 기본 행동 비용 (action_def["stamina"] 합산)
+        npc_id: NPC unit ID
+    """
+    # 체력 스탯 보정: 기준값 5, 체력 높으면 소모 감소
+    constitution = morld.get_unit_prop(npc_id, "체력") or 5
+    const_factor = 5.0 / max(1, constitution)
+
+    # 만복도 보정: 50 이상이면 보정 없음, 0이면 +50% 소모
+    satiety = morld.get_unit_prop(npc_id, "생존:포만감") or 0
+    satiety_factor = 1.0 + max(0.0, (50 - satiety) / 100.0)
+
+    return max(1, int(base_cost * const_factor * satiety_factor))
+
+
 def extract_preserved(state):
     """공수 전환 시 보존할 상태 추출"""
     preserved = {
@@ -896,6 +916,9 @@ def extract_preserved(state):
         "stamina": state["stamina"],
         "initial_stamina": state.get("initial_stamina", state["stamina"]),
         "max_stamina": state.get("max_stamina", 100),
+        "npc_stamina": state.get("npc_stamina"),
+        "npc_initial_stamina": state.get("npc_initial_stamina"),
+        "npc_max_stamina": state.get("npc_max_stamina"),
         "elapsed_time": state["elapsed_time"],
         "checked_npcs": state.get("checked_npcs", set()),
         "lubricated": state.get("lubricated", False),

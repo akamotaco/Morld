@@ -63,9 +63,11 @@ from romance_core import (  # noqa: F401 — re-export for external callers
     get_excitement_level, emit_romance_sound, emit_ecstasy_sound,
     get_climax_reaction_key,
     extract_preserved,
+    calculate_npc_stamina_cost,
 )
 
-ROMANCE_MIN_HEALTH = 5  # 애정 행위 진입 최소 체력
+from survival import EXHAUSTION_HP_THRESHOLD
+ROMANCE_MIN_HEALTH = EXHAUSTION_HP_THRESHOLD  # 탈진 임계치와 통일
 
 # ============================================
 # 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
@@ -94,7 +96,7 @@ def can_start_romance(player_id, target_id):
     # 0. 플레이어 체력 체크
     import survival
     player_stats = survival.get_survival_stats(player_id)
-    if player_stats["health"] < ROMANCE_MIN_HEALTH:
+    if player_stats["health"] <= ROMANCE_MIN_HEALTH:
         return False, "몸에 힘이 없어 스킨십할 상태가 아니다."
 
     affection_key = get_affection_key(player_id)
@@ -124,6 +126,35 @@ def can_start_romance(player_id, target_id):
             return False, f"{unit_info['name']}(이)가 있어서 분위기가 아닙니다"
 
     return True, None
+
+
+# ============================================
+# NPC 스태미나
+# ============================================
+
+def _deduct_npc_stamina(state, total_stamina):
+    """NPC 스태미나 차감 + 탈진/기절 체크
+
+    Returns: None (정상), "exhausted" (최초 탈진), "fainted" (기절)
+    """
+    npc_id = state.get("partner_id") or state.get("npc_id")
+    if npc_id is None:
+        return None
+    npc_cost = calculate_npc_stamina_cost(total_stamina, npc_id)
+    state["npc_stamina"] -= npc_cost
+
+    if state["npc_stamina"] <= 0:
+        state["npc_stamina"] = 0
+        state["npc_fainted"] = True
+        return "fainted"
+    elif state["npc_stamina"] <= EXHAUSTION_HP_THRESHOLD and not state.get("npc_exhausted"):
+        state["npc_exhausted"] = True
+        # 탈진 알림 (1회, render_romance_ui에서 표시)
+        npc_info = morld.get_unit_info(npc_id)
+        npc_name = npc_info.get("name", "상대") if npc_info else "상대"
+        state["_npc_exhaustion_notice"] = f"[color=yellow]({npc_name}의 몸에서 힘이 빠져간다...)[/color]"
+        return "exhausted"
+    return None
 
 
 # ============================================
@@ -233,18 +264,25 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
     # 파트너 NPC를 현재 위치에 고정 (스킨십 동안 이동 방지)
     # 스케줄 스택에 STAY_SCHEDULE push, 종료 시 pop으로 복원
+    # think() 생존 인터럽트 차단 (상태:로맨스중 prop)
     import think
     partner_agent = think.get_agent(partner_id)
     schedule_pushed = preserved.get("schedule_pushed", False) if preserved else False
     if not schedule_pushed:
         if partner_agent:
             partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
+        morld.set_unit_prop(partner_id, "상태:로맨스중", 1)
 
     # 플레이어 체력 조회 (생존:체력 기반)
     import survival
     player_stats = survival.get_survival_stats(player_id)
     initial_stamina = player_stats["health"]
     max_stamina = player_stats["max_health"]
+
+    # NPC 체력 조회
+    npc_stats = survival.get_survival_stats(partner_id)
+    npc_initial_stamina = npc_stats["health"]
+    npc_max_stamina = npc_stats["max_health"]
 
     # 모드 컨텍스트 생성
     mode_ctx = create_mode_context(mode, player_id, partner_id)
@@ -266,6 +304,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         "stamina": initial_stamina,
         "initial_stamina": initial_stamina,
         "max_stamina": max_stamina,
+        "npc_stamina": npc_initial_stamina,
+        "npc_initial_stamina": npc_initial_stamina,
+        "npc_max_stamina": npc_max_stamina,
+        "npc_exhausted": False,
+        "npc_fainted": False,
+        "npc_faint_transition": False,
         "elapsed_time": 0,
         "lubricated": False,
         "stim": stimulation.create_state(
@@ -340,6 +384,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         state["condom_active"] = preserved.get("condom_active", False)
         state["condom_punctured"] = preserved.get("condom_punctured", False)
         state["condom_removed_in_trance"] = preserved.get("condom_removed_in_trance", False)
+        if preserved.get("npc_stamina") is not None:
+            state["npc_stamina"] = preserved["npc_stamina"]
+            state["npc_initial_stamina"] = preserved.get("npc_initial_stamina", state["npc_stamina"])
+            state["npc_max_stamina"] = preserved.get("npc_max_stamina", npc_max_stamina)
         if "insertion" in preserved:
             state["insertion"] = preserved["insertion"]
         if "position" in preserved:
@@ -1686,11 +1734,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 total_stamina = action_def["stamina"]
                 for toggle_id in state["active_toggles"]:
                     total_stamina += TOGGLE_ACTIONS[toggle_id]["stamina"]
-                if state["stamina"] <= total_stamina:
-                    state["stamina"] = 1  # 최소 1 보존
+                if state["stamina"] - total_stamina <= EXHAUSTION_HP_THRESHOLD:
                     state["exhausted"] = True
                     return True
                 state["stamina"] -= total_stamina
+                npc_result = _deduct_npc_stamina(state, total_stamina)
+                if npc_result == "fainted" and state["mode_ctx"]["mode"] != MODE_UNCONSCIOUS:
+                    state["npc_faint_transition"] = True
+                    return True
                 perform_undress(state["partner_id"], item_id)
                 item_info = morld.get_item_info(item_id)
                 item_name = item_info.get("name", "옷") if item_info else "옷"
@@ -1715,11 +1766,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 total_stamina = action_def["stamina"]
                 for toggle_id in state["active_toggles"]:
                     total_stamina += TOGGLE_ACTIONS[toggle_id]["stamina"]
-                if state["stamina"] <= total_stamina:
-                    state["stamina"] = 1
+                if state["stamina"] - total_stamina <= EXHAUSTION_HP_THRESHOLD:
                     state["exhausted"] = True
                     return True
                 state["stamina"] -= total_stamina
+                npc_result = _deduct_npc_stamina(state, total_stamina)
+                if npc_result == "fainted" and state["mode_ctx"]["mode"] != MODE_UNCONSCIOUS:
+                    state["npc_faint_transition"] = True
+                    return True
                 # 아이템 이동: 장착해제(필요시) + NPC → 플레이어
                 perform_loot(state["partner_id"], item_id, player_id,
                              is_equipped)
@@ -1920,11 +1974,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 total_stamina = action_def["stamina"]
                 for tid in state["active_toggles"]:
                     total_stamina += TOGGLE_ACTIONS[tid]["stamina"]
-                if state["stamina"] <= total_stamina:
-                    state["stamina"] = 1
+                if state["stamina"] - total_stamina <= EXHAUSTION_HP_THRESHOLD:
                     state["exhausted"] = True
                     return True
                 state["stamina"] -= total_stamina
+                npc_result = _deduct_npc_stamina(state, total_stamina)
+                if npc_result == "fainted" and state["mode_ctx"]["mode"] != MODE_UNCONSCIOUS:
+                    state["npc_faint_transition"] = True
+                    return True
                 # 아이템 이동: 플레이어→NPC
                 morld.remove_item(player_id, restraint_item_id, 1)
                 morld.give_item(pid, restraint_item_id, 1)
@@ -2032,9 +2089,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 total_stamina += toggle_def["stamina"]
                 active_toggle_defs.append(toggle_def)
 
-            # 체력 부족 체크 (스태미나 소진 시 props 변화 없이 종료)
-            if state["stamina"] <= total_stamina:
-                state["stamina"] = 1  # 최소 1 보존
+            # 체력 부족 체크 (탈진 임계치 이하로 떨어지면 종료)
+            if state["stamina"] - total_stamina <= EXHAUSTION_HP_THRESHOLD:
                 state["exhausted"] = True
                 return True  # 체력 부족 종료
 
@@ -2053,6 +2109,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
             # 효과 적용 (경험치 시스템 포함)
             state["stamina"] -= total_stamina
+            npc_result = _deduct_npc_stamina(state, total_stamina)
+            if npc_result == "fainted" and state["mode_ctx"]["mode"] != MODE_UNCONSCIOUS:
+                state["npc_faint_transition"] = True
+                return True
             ecstasy_reaction = apply_effects(effective_action_def, active_toggle_defs)
 
             # 마일스톤 기록 (첫 키스)
@@ -2139,8 +2199,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     active_toggle_defs.append(toggle_def)
 
             # 체력 부족 체크 (스태미나 소진 시 props 변화 없이 종료)
-            if state["stamina"] <= total_stamina:
-                state["stamina"] = 1  # 최소 1 보존
+            if state["stamina"] - total_stamina <= EXHAUSTION_HP_THRESHOLD:
                 state["exhausted"] = True
                 return True
 
@@ -2195,6 +2254,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
             # 효과 적용 (경험치 시스템 포함)
             state["stamina"] -= total_stamina
+            npc_result = _deduct_npc_stamina(state, total_stamina)
+            if npc_result == "fainted" and state["mode_ctx"]["mode"] != MODE_UNCONSCIOUS:
+                state["npc_faint_transition"] = True
+                return True
             ecstasy_reaction = apply_effects(effective_toggle_def, active_toggle_defs)
 
             # 행위 묘사 + 반응 결합
@@ -2264,6 +2327,20 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                                  mode=MODE_FORCED)
         return
 
+    # NPC 기절 → MODE_UNCONSCIOUS 전이
+    if state.get("npc_faint_transition"):
+        survival.set_health(player_id, state["stamina"])
+        survival.set_health(partner_id, 0)
+        survival._enter_faint(partner_id)
+        partner_info = morld.get_unit_info(partner_id)
+        partner_name = partner_info.get("name", "상대") if partner_info else "상대"
+        preserved = extract_preserved(state)
+        preserved["mode_ctx"] = create_mode_context(MODE_UNCONSCIOUS, player_id, partner_id)
+        yield ui.dialog(f"({partner_name}(이)가 힘이 빠져 의식을 잃었다...)")
+        yield from start_romance(player_id, partner_id, preserved=preserved,
+                                 mode=MODE_UNCONSCIOUS)
+        return
+
     # 공수 전환 — NPC 주도로 전환
     if state["switch_to"] == "npc":
         preserved = extract_preserved(state)
@@ -2271,8 +2348,12 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         yield from start_npc_initiative(player_id, partner_id, preserved=preserved)
         return
 
-    # 종료 처리 - 플레이어 체력 기록 (HP 연동)
+    # 로맨스 세션 종료 — think() 가드 해제
+    morld.clear_prop(partner_id, "상태:로맨스중")
+
+    # 종료 처리 - 양쪽 체력 기록 (HP 연동)
     survival.set_health(player_id, state["stamina"])
+    survival.set_health(partner_id, state["npc_stamina"])
 
     # 종료 처리 - 절정 게이지 → 상시 prop 동기화
     partner_id = state["partner_id"]

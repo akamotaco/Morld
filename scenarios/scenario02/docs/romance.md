@@ -135,8 +135,11 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | NPC 만족 종료 | npc_initiative.py | ✅ 완료 |
 | 행위 묘사 시스템 | romance_actions.py, romance.py, npc_initiative.py | ✅ 완료 |
 | 자극 상태 자동 묘사 | romance_core.py, romance_ui.py | ✅ 완료 |
-| 탈진 HP 1 보존 | romance.py, npc_initiative.py | ✅ 완료 |
-| 체력 바 10칸 정규화 | romance_ui.py, npc_initiative.py | ✅ 완료 |
+| 탈진 임계치 통일 (EXHAUSTION_HP_THRESHOLD) | romance.py, npc_initiative.py, base.py | ✅ 완료 |
+| NPC 양방향 체력 소모 | romance.py, npc_initiative.py, romance_core.py | ✅ 완료 |
+| NPC 기절→MODE_UNCONSCIOUS 전이 | romance.py | ✅ 완료 |
+| NPC 스태미나 바 (양쪽 표시) | romance_ui.py, npc_initiative.py | ✅ 완료 |
+| think() 로맨스 가드 (상태:로맨스중) | think/__init__.py, romance.py, npc_initiative.py | ✅ 완료 |
 | 대사 generator (3D 좌표 기반) | romance_line_generator.py | ✅ 완료 |
 | 묘사 generator (3D 좌표 기반) | romance_reaction_generator.py | ✅ 완료 |
 | 톤 템플릿 (10 아키타입) | tone_templates/ | ✅ 완료 |

@@ -2871,7 +2871,7 @@ class Character(Unit):
         # HP 가드
         import survival
         player_stats = survival.get_survival_stats(player_id)
-        if player_stats["health"] < ROMANCE_MIN_HEALTH:
+        if player_stats["health"] <= ROMANCE_MIN_HEALTH:
             yield ui.dialog("몸에 힘이 없어 스킨십할 상태가 아니다.")
             return
 
@@ -2909,7 +2909,7 @@ class Character(Unit):
         # HP 가드
         import survival
         player_stats = survival.get_survival_stats(player_id)
-        if player_stats["health"] < ROMANCE_MIN_HEALTH:
+        if player_stats["health"] <= ROMANCE_MIN_HEALTH:
             yield ui.dialog("[!]몸에 힘이 없어 행위할 상태가 아니다.[/!]")
             return
 

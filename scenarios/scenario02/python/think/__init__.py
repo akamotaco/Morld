@@ -2391,6 +2391,11 @@ class BaseAgent:
                 self._insert_idle_job("대기", 60_000)
                 return None
 
+        # 플레이어 로맨스 세션 중 → 생존 인터럽트 차단
+        if morld.get_unit_prop(self.unit_id, "상태:로맨스중"):
+            self._insert_idle_job("대기", 60_000)
+            return None
+
         # Tier 0: 결박
         import restraint
         if restraint.is_restrained(self.unit_id):
