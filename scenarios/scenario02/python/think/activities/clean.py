@@ -1,10 +1,11 @@
 """청소 활동 핸들러 (도구 기반)
 
 빗자루(can:clean)를 사용하여 거처 내 오염된 방을 청소.
-chop.py 패턴 기반 4-phase: idle → getting_tool → going_to_room → returning_tool
+Phase flow: idle → getting_tool → going_to_room → returning_tool
 """
 import morld
 from .helpers import find_polluted_room
+from .tool_activity import phase_getting_tool, phase_returning_tool
 
 
 def handle_clean(agent, entry):
@@ -26,11 +27,7 @@ def handle_clean(agent, entry):
         room = find_polluted_room(agent)
         if not room:
             if tool["source"] == "inventory":
-                # 오염 방 없음 + 도구 소지 → 반납
                 agent._activity_phase = "returning_tool"
-            else:
-                # 오염 방 없음 + 도구 미소지 → "할 일 없음" 폴백
-                return
             return
 
         agent._activity_state["clean_target"] = room
@@ -41,35 +38,7 @@ def handle_clean(agent, entry):
             agent._activity_phase = "getting_tool"
 
     elif phase == "getting_tool":
-        tool = agent._activity_state.get("tool")
-        if not tool:
-            agent._activity_phase = "idle"
-            return
-
-        target = tool.get("location")
-        if not target:
-            from .helpers import resolve_storage_container
-            target = resolve_storage_container(agent, "tool")
-        if not target:
-            agent._do_instant_action("대기", "abort")
-            return
-
-        if agent._is_at(target):
-            container_id = tool.get("container_id") or target.get("object_id")
-            item_id = tool["item_id"]
-            if morld.has_item(container_id, item_id):
-                morld.remove_item(container_id, item_id, 1)
-                import inventory as inv_module
-                inv_module.safe_give_item(agent.unit_id, item_id, 1)
-                agent._activity_phase = "going_to_room"
-                agent._do_instant_action("도구 준비", "take_item")
-            else:
-                # 경합으로 사라짐 → 재탐색
-                agent._activity_state.pop("tool", None)
-                agent._activity_phase = "idle"
-                agent._do_instant_action("대기", "abort")
-        else:
-            agent._move_to(target, "도구 찾기")
+        phase_getting_tool(agent, next_phase="going_to_room")
 
     elif phase == "going_to_room":
         target = agent._activity_state.get("clean_target")
@@ -101,7 +70,6 @@ def handle_clean(agent, entry):
             next_room = find_polluted_room(agent)
             if next_room:
                 agent._activity_state["clean_target"] = next_room
-                # going_to_room 유지 → 다음 think()에서 이동
             else:
                 agent._activity_phase = "returning_tool"
             agent._action_taken = True
@@ -109,21 +77,4 @@ def handle_clean(agent, entry):
             agent._move_to(target, "청소")
 
     elif phase == "returning_tool":
-        tool = agent._activity_state.get("tool")
-        item_id = tool["item_id"] if tool else None
-
-        from .helpers import resolve_storage_container
-        target = resolve_storage_container(agent, "tool")
-        if not target:
-            agent._do_instant_action("대기", "abort")
-            return
-        container_id = target["object_id"]
-
-        if agent._is_at(target):
-            if item_id and container_id:
-                morld.remove_item(agent.unit_id, item_id, 1)
-                morld.give_item(container_id, item_id, 1)
-            agent._activity_phase = "idle"
-            agent._do_instant_action("도구 반납", "store_item")
-        else:
-            agent._move_to(target, "도구 반납")
+        phase_returning_tool(agent)

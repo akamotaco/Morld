@@ -1,55 +1,35 @@
 """채집→저장 활동 핸들러"""
+from .resource_activity import handle_resource_activity
+
+
+def _resolve_target(agent):
+    from think.activity_resolver import resolve_activity_location
+    return resolve_activity_location(
+        agent.unit_id, "채집", agent._get_home_region()
+    )
+
+
+def _do_work(agent, target):
+    from assets.objects import get_instance
+    obj_id = target.get("object_id")
+    if obj_id:
+        obj = get_instance(obj_id)
+        if obj and hasattr(obj, "npc_take_resource"):
+            obj.npc_take_resource(agent.unit_id, count=1)
+
+
+_GATHER_CONFIG = {
+    "activity_name": "채집",
+    "resolve_target": _resolve_target,
+    "do_work": _do_work,
+    "action_key": "gather",
+    "work_label": "채집",
+    "store_categories": ["food", "food_ingredient", "drink_ingredient"],
+    "store_resolve": ["food_ingredient", "food"],
+    "store_label": "재료 저장",
+}
 
 
 def handle_gather_store(agent, entry):
     """채집→저장: 채집 대상 탐색 → 채집 → 저장소에 저장"""
-    phase = agent._activity_phase
-
-    if phase == "idle":
-        from think.activity_resolver import resolve_activity_location
-        target = resolve_activity_location(
-            agent.unit_id, "채집", agent._get_home_region()
-        )
-        if target:
-            agent._activity_state["gather_target"] = target
-            agent._activity_phase = "going_to_resource"
-        else:
-            return  # target 없음 → 디스패치 루프가 "할 일 없음" 폴백
-
-    elif phase == "going_to_resource":
-        target = agent._activity_state.get("gather_target")
-        if not target:
-            agent._activity_phase = "idle"
-            return
-
-        if agent._is_at(target):
-            from assets.objects import get_instance
-            obj_id = target.get("object_id")
-            if obj_id:
-                obj = get_instance(obj_id)
-                if obj and hasattr(obj, "npc_take_resource"):
-                    obj.npc_take_resource(agent.unit_id, count=1)
-            agent._activity_phase = "going_to_storage"
-            agent._do_instant_action("채집", "gather")
-        else:
-            agent._move_to(target, "채집")
-
-    elif phase == "going_to_storage":
-        target = agent._activity_state.get("storage_target")
-        if not target:
-            from .helpers import resolve_storage_container
-            target = resolve_storage_container(agent, "food_ingredient")
-            if not target:
-                target = resolve_storage_container(agent, "food")
-            if not target:
-                agent._do_instant_action("대기", "abort")
-                return
-            agent._activity_state["storage_target"] = target
-
-        if agent._is_at(target):
-            from .helpers import store_npc_items
-            store_npc_items(agent, categories=["food", "food_ingredient", "drink_ingredient"])
-            agent._activity_phase = "idle"
-            agent._do_instant_action("재료 저장", "store_item")
-        else:
-            agent._move_to(target, "재료 저장")
+    handle_resource_activity(agent, entry, _GATHER_CONFIG)
