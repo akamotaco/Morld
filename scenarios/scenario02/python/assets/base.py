@@ -2036,9 +2036,12 @@ class Character(Unit):
 
         success_chance = min(95, success_chance)
 
-        # 대상 인벤토리 확인
+        # 대상 인벤토리 확인 (장착 아이템 제외)
+        import equipment
         inventory = morld.get_inventory(self.instance_id)
-        if not inventory:
+        equipped = set(equipment.get_equipped_items(self.instance_id))
+        stealable = {k: v for k, v in inventory.items() if k not in equipped}
+        if not stealable:
             morld.add_action_log("훔칠 물건이 없다.")
             morld.advance_time_des(5_000)
             return
@@ -2048,7 +2051,7 @@ class Character(Unit):
         if roll <= success_chance:
             # 성공: 랜덤 1개 획득
             import inventory as inv_mod
-            items = list(inventory.items())
+            items = list(stealable.items())
             target_item_id, count = _random.choice(items)
             item_info = morld.get_item_info(target_item_id)
             item_name = item_info.get("name", "?") if item_info else "?"
@@ -2105,9 +2108,16 @@ class Character(Unit):
 
     def loot(self):
         """사망/기절 상태에서 인벤토리 루팅"""
+        import equipment
         import inventory as inv_mod
 
         player_id = morld.get_player_id()
+
+        # 장착 아이템 해제 → 인벤토리로 복귀
+        equipped = list(equipment.get_equipped_items(self.instance_id))
+        for item_id in equipped:
+            equipment.unequip_item(self.instance_id, item_id)
+
         inventory = morld.get_inventory(self.instance_id)
         if not inventory:
             morld.add_action_log("가진 것이 없다.")

@@ -409,11 +409,13 @@ def steal(self):
     """소매치기 시도 (self = 대상)
 
     성공률 = 손재주 × 3 (%), 기절/수면 +30%
-    성공 → 인벤토리 랜덤 1개 획득
+    성공 → 비장착 인벤토리 랜덤 1개 획득
     실패 → 적대도 +40, 호감 -20
     5초 경과
     """
 ```
+
+**장착 아이템 제외**: `equipment.get_equipped_items()`로 장착 목록을 구해 `get_inventory()`에서 필터링. 입고 있는 옷/무기는 소매치기 대상이 아님 (옷 강탈은 `loot_clothing()` 사용).
 
 ### 4.5 player.py 수정
 
@@ -1167,8 +1169,15 @@ if morld.get_unit_prop(self.instance_id, "상태:사망"):
                 break
 
 def loot(self):
-    """시체 인벤토리 루팅 — 전부 획득"""
+    """시체 인벤토리 루팅 — 장착 해제 후 전부 획득"""
+    import equipment
     player_id = morld.get_player_id()
+
+    # 장착 아이템 해제 → 인벤토리로 복귀
+    equipped = list(equipment.get_equipped_items(self.instance_id))
+    for item_id in equipped:
+        equipment.unequip_item(self.instance_id, item_id)
+
     inventory = morld.get_inventory(self.instance_id)
     if not inventory:
         morld.add_action_log("가진 것이 없다.")
@@ -1176,10 +1185,12 @@ def loot(self):
     for item_id, count in inventory.items():
         item_name = morld.get_item_info(item_id)["name"]
         morld.remove_item(self.instance_id, item_id, count)
-        morld.give_item(player_id, item_id, count)
+        safe_give_item(player_id, item_id, count)
         morld.add_action_log(f"{item_name} ×{count} 획득")
     morld.advance_time_des(5_000)
 ```
+
+**장착 해제 선행**: `unequip_item()` 호출 없이 `remove_item()`만 하면 `_equippedItems`에 고아 참조가 남아 정합성이 깨짐. 루팅 전 반드시 장착 해제 처리.
 
 ### 14.5 시체 자동 소멸
 
