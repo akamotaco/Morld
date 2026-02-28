@@ -63,12 +63,35 @@ class LifeState(FSMState):
         return False  # 항상 Life 로직(5-tier)으로 진행
 
 
-class GateTransitState(FSMState):
-    """Gate Transit — cross-location 이동 중 think() 차단
+def _find_gate_x(agent, target):
+    """현재 location에서 target으로 연결되는 Gate의 x좌표 탐색.
 
-    enter(): 상태:이동중=1 설정, 행동 로그, move job 삽입
-    update(): 이동 완료(상태:이동중=0) 감지 시 pop → Life 진행
-    exit(): 안전장치 prop 정리
+    직접 연결 Gate가 없으면 None 반환 (다중 hop 등).
+    """
+    loc = agent.get_location()
+    if not loc:
+        return None
+    region_info = morld.get_region_info(loc[0])
+    if not region_info:
+        return None
+    for loc_info in region_info.get("locations", []):
+        if loc_info["id"] != loc[1]:
+            continue
+        for gate in loc_info.get("gates", []):
+            if (gate["connected_region"] == target["region_id"]
+                    and gate["connected_local"] == target["location_id"]):
+                return gate["x"]
+    return None
+
+
+class GateTransitState(FSMState):
+    """Gate Transit — cross-location 이동 (2-stage)
+
+    Stage 1 (approaching): Gate x좌표로 같은 location 내 이동 (보임)
+    Stage 2 (transiting):  상태:이동중=1 + cross-location move job (숨김)
+
+    Gate까지 걸어가는 동안 NPC가 보이고, Gate 도달 후 숨김 처리.
+    직접 연결 Gate가 없는 경우 approaching 스킵 → 즉시 transiting.
     """
     state_type = "gate_transit"
     level = LV_TRANSIT
@@ -76,9 +99,10 @@ class GateTransitState(FSMState):
     def __init__(self, target, name="이동"):
         self.target = target
         self.name = name
+        self.stage = None  # enter()에서 설정
 
     def enter(self, agent):
-        morld.set_unit_prop(agent.unit_id, "상태:이동중", 1)
+        npc_name = agent.get_info().get("name", agent.unit_id)
 
         # 행동 로그: 플레이어와 같은 location일 때만 (목격)
         player_id = morld.get_player_id()
@@ -88,10 +112,58 @@ class GateTransitState(FSMState):
             dest_info = morld.get_location_info(
                 self.target["region_id"], self.target["location_id"])
             dest_name = dest_info["name"] if dest_info else "알 수 없는 곳"
-            my_name = agent.get_info()["name"]
-            morld.add_action_log(f"{my_name}이(가) {dest_name}(으)로 이동을 시작했다.")
+            morld.add_action_log(f"{npc_name}이(가) {dest_name}(으)로 이동을 시작했다.")
 
-        # Move job 삽입 (duration=0 → C#이 거리/속도 기반 계산)
+        # Gate x좌표 탐색 → approaching 또는 즉시 transiting
+        gate_x = _find_gate_x(agent, self.target)
+        if gate_x is not None:
+            self.stage = "approaching"
+            # 같은 location 내 Gate 위치로 이동 (숨김 X)
+            morld.insert_job(agent.unit_id, {
+                "name": self.name,
+                "action": "move",
+                "region_id": loc[0],
+                "location_id": loc[1],
+                "target_x": gate_x,
+                "duration": 0,
+            })
+            print(f"[FSM] {npc_name}: GateTransit approaching → gate_x={gate_x}")
+        else:
+            # 직접 연결 Gate 없음 (다중 hop 등) → 즉시 transiting
+            self._start_transiting(agent)
+
+        agent._action_taken = True
+
+    def update(self, agent) -> bool:
+        if self.stage == "approaching":
+            # Gate까지의 move job 완료 확인
+            job = morld.get_current_job(agent.unit_id)
+            if job is None or job.get("action") != "move":
+                # Gate 도달 → transiting 전환
+                self._start_transiting(agent)
+                agent._action_taken = True
+                return True
+            # Gate로 이동 중 → job 보존
+            agent._action_taken = True
+            return True
+
+        # stage == "transiting"
+        if not morld.get_unit_prop(agent.unit_id, "상태:이동중"):
+            npc_name = agent.get_info().get("name", agent.unit_id)
+            print(f"[FSM] {npc_name}: GateTransit 도착 → POP")
+            agent._fsm_pop()
+            return False  # Life 로직 진행
+        # transit 중 → job 보존
+        agent._action_taken = True
+        return True
+
+    def _start_transiting(self, agent):
+        """approaching → transiting 전환"""
+        npc_name = agent.get_info().get("name", agent.unit_id)
+        self.stage = "transiting"
+        morld.set_unit_prop(agent.unit_id, "상태:이동중", 1)
+
+        # Cross-location move job 삽입
         target_x = self.target.get("x", 0)
         length = int(self.target.get("length", 0))
         if length > 0 and target_x == 0:
@@ -104,20 +176,8 @@ class GateTransitState(FSMState):
             "target_x": target_x,
             "duration": 0,
         })
-        agent._action_taken = True
-        print(f"[FSM] {agent.get_info().get('name', agent.unit_id)}: "
-              f"GateTransitState ENTER → {self.target['region_id']}:{self.target['location_id']}")
-
-    def update(self, agent) -> bool:
-        # DES step 5가 텔레포트 완료 시 상태:이동중=0 으로 설정
-        if not morld.get_unit_prop(agent.unit_id, "상태:이동중"):
-            print(f"[FSM] {agent.get_info().get('name', agent.unit_id)}: "
-                  f"GateTransitState 도착 → POP")
-            agent._fsm_pop()  # 도착 → pop
-            return False       # Life 로직 진행
-        # 이동 중 → job 보존, 아무것도 안 함
-        agent._action_taken = True
-        return True
+        print(f"[FSM] {npc_name}: GateTransit transiting → "
+              f"R{self.target['region_id']}:L{self.target['location_id']}")
 
     def exit(self, agent):
         # 안전장치: prop 정리 (정상 경로에서는 DES가 이미 해제)
@@ -125,5 +185,5 @@ class GateTransitState(FSMState):
             morld.set_unit_prop(agent.unit_id, "상태:이동중", 0)
 
     def __repr__(self):
-        return (f"<GateTransitState(lv={self.level}) → "
+        return (f"<GateTransitState(lv={self.level}, stage={self.stage}) → "
                 f"R{self.target['region_id']}:L{self.target['location_id']}>")
