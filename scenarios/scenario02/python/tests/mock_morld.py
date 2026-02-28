@@ -391,6 +391,10 @@ class MockMorld:
             "arrival_x": arrival_x,
         })
 
+    def region_exists(self, region_id):
+        """region 존재 여부 확인"""
+        return region_id in self._regions
+
     def get_region_info(self, region_id):
         """region 정보 반환 (locations + gates 포함)"""
         if region_id not in self._regions:

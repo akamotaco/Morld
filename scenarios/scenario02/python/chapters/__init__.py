@@ -51,10 +51,12 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
 
     # 2.1. 환경 시스템 리셋 (lazy init 모듈들의 챕터 전환 대응)
     #      clear_world() 후 새 챕터 데이터로 재초기화되어야 함
+    import region_registry
     import temperature, humidity, congestion, sound, garden, needs, pregnancy, gender, fuel
     import carry, ground, stealth, laundry, reputation, build, survival, semen
     import combat, spawner
     from assets.objects import mining
+    region_registry.reset()
     temperature.reset()
     humidity.reset()
     congestion.reset()

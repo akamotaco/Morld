@@ -58,7 +58,7 @@ INDOOR_HUMIDITY = 35
 WATERPROOF_REDUCTION = 0.4  # 방수 1당 40% 젖음 감소
 
 PROP_WETNESS = "습도:젖음"
-REGION_IDS = [0, 2, 3]
+from region_registry import get_region_ids
 
 
 # === 데이터 저장 ===
@@ -133,7 +133,7 @@ def _ensure_initialized():
     if _initialized:
         return
 
-    for region_id in REGION_IDS:
+    for region_id in get_region_ids():
         try:
             info = morld.get_region_info(region_id)
         except Exception:

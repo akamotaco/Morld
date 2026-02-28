@@ -44,7 +44,7 @@
 import morld
 from events import subscribe_time_elapsed
 
-REGION_IDS = [0, 2, 3]
+from region_registry import get_region_ids
 SPACE_PER_UNIT = 5   # 캐릭터 1명당 점유 공간
 MIN_CAPACITY = 2     # 최소 수용 인원
 
@@ -72,7 +72,7 @@ def _ensure_initialized():
     if _initialized:
         return
 
-    for region_id in REGION_IDS:
+    for region_id in get_region_ids():
         try:
             info = morld.get_region_info(region_id)
         except Exception:

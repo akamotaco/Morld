@@ -60,7 +60,7 @@ ATTENUATION_HALF = 500
 # 실내↔실외 경계 통과 시 추가 감쇠 (0.7 = 30% 감소)
 INDOOR_BOUNDARY_FACTOR = 0.7
 
-REGION_IDS = [0, 2, 3]
+from region_registry import get_region_ids
 
 
 # === 소리 묘사 텍스트 ===
@@ -180,7 +180,7 @@ def _ensure_initialized():
         return
 
     # 1. location 정보 수집
-    for region_id in REGION_IDS:
+    for region_id in get_region_ids():
         try:
             info = morld.get_region_info(region_id)
         except Exception:

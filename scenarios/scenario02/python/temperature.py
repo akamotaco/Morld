@@ -39,8 +39,7 @@ CONVERGENCE_RATE = 0.3
 TEMP_MIN = -30
 TEMP_MAX = 50
 
-# 알려진 Region ID 목록
-REGION_IDS = [0, 2, 3]
+from region_registry import get_region_ids
 
 # === 캐릭터 체온 상수 ===
 
@@ -123,7 +122,7 @@ def _ensure_initialized():
     if _initialized:
         return
 
-    for region_id in REGION_IDS:
+    for region_id in get_region_ids():
         try:
             info = morld.get_region_info(region_id)
         except Exception:
