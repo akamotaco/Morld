@@ -48,9 +48,17 @@ PREGNANCY_EFFECTS = {
     },
 }
 
-# 아이 이름 후보
-CHILD_NAMES_MALE = ["카이", "레오", "유진", "하루", "소라"]
-CHILD_NAMES_FEMALE = ["하나", "미유", "유리", "사쿠라", "린"]
+# 아이 이름 후보 (시나리오 초기화 시 register_child_names()로 등록)
+CHILD_NAMES_MALE = []
+CHILD_NAMES_FEMALE = []
+
+
+def register_child_names(male_names, female_names):
+    """아이 이름 후보 등록 (시나리오 초기화 시 호출)"""
+    CHILD_NAMES_MALE.clear()
+    CHILD_NAMES_MALE.extend(male_names)
+    CHILD_NAMES_FEMALE.clear()
+    CHILD_NAMES_FEMALE.extend(female_names)
 
 # ============================================
 # 레지스트리
@@ -81,6 +89,8 @@ def reset():
     """챕터 전환 시 리셋"""
     _registry.clear()
     _child_registry.clear()
+    CHILD_NAMES_MALE.clear()
+    CHILD_NAMES_FEMALE.clear()
 
 
 # ============================================

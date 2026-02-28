@@ -52,18 +52,24 @@ AFFECTION_ON_NURSING = 10
 # ── 세력(Faction) 시스템 ──
 # 관계값: -1=적대, 0=중립, 1=우호
 # 같은 세력 → 우호(1). 정의 안 된 이종 세력 → 중립(0).
-FACTION_RELATIONS = {
-    # 생물 vs 주민 (모두 적대)
-    ("늑대", "주민"): -1,
-    ("거미", "주민"): -1,
-    ("박쥐", "주민"): -1,
-    ("야생", "주민"): -1,
-    ("유적", "주민"): -1,
-    ("기생", "주민"): -1,
-    # 생물 간
-    ("늑대", "거미"): -1,
-}
+# 시나리오 초기화 시 register_faction_relation()으로 등록
+FACTION_RELATIONS = {}
 DEFAULT_FACTION = "주민"           # 세력 미설정 시 기본값
+
+
+def register_faction_relation(faction_a, faction_b, relation):
+    """세력 관계 등록 (시나리오 초기화 시 호출)
+
+    Args:
+        relation: -1=적대, 0=중립, 1=우호
+    """
+    FACTION_RELATIONS[(faction_a, faction_b)] = relation
+
+
+def set_default_faction(faction):
+    """기본 세력 설정"""
+    global DEFAULT_FACTION
+    DEFAULT_FACTION = faction
 
 
 def get_faction_relation(faction_a, faction_b):
@@ -1133,8 +1139,10 @@ def _on_time_elapsed(millis):
 
 def reset():
     """챕터 전환: 모듈 상태 초기화"""
-    global _hostile_mode
+    global _hostile_mode, DEFAULT_FACTION
     _hostile_mode = False
+    FACTION_RELATIONS.clear()
+    DEFAULT_FACTION = "주민"
 
 
 # 모듈 로드 시 이벤트 구독 (1시간 간격)

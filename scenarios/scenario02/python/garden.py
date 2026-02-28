@@ -15,57 +15,27 @@ MILLIS_PER_HOUR = 3_600_000
 # 씨앗 종류 레지스트리
 # ========================================
 # code → {name, seed_unique_id, crop_unique_id, growth_rate, harvest_min, harvest_max, seed_chance}
+# 시나리오 초기화 시 register_seed()로 등록 (시나리오별 작물 분리)
 
-SEED_REGISTRY = {
-    1: {
-        "name": "감자",
-        "seed_unique_id": "seed_potato",
-        "crop_unique_id": "food_potato",
-        "growth_rate": 3,       # 시간당 성장량
-        "harvest_min": 2,
-        "harvest_max": 4,
-        "seed_chance": 0.30,
-    },
-    2: {
-        "name": "토마토",
-        "seed_unique_id": "seed_tomato",
-        "crop_unique_id": "food_tomato",
-        "growth_rate": 2,
-        "harvest_min": 3,
-        "harvest_max": 5,
-        "seed_chance": 0.25,
-    },
-    3: {
-        "name": "당근",
-        "seed_unique_id": "seed_carrot",
-        "crop_unique_id": "food_carrot",
-        "growth_rate": 4,
-        "harvest_min": 2,
-        "harvest_max": 3,
-        "seed_chance": 0.20,
-    },
-    4: {
-        "name": "약초",
-        "seed_unique_id": "seed_herb",
-        "crop_unique_id": "food_herb",     # 기존 약초 아이템 재사용
-        "growth_rate": 3,
-        "harvest_min": 1,
-        "harvest_max": 3,
-        "seed_chance": 0.35,
-    },
-    5: {
-        "name": "양배추",
-        "seed_unique_id": "seed_cabbage",
-        "crop_unique_id": "food_cabbage",
-        "growth_rate": 2,
-        "harvest_min": 1,
-        "harvest_max": 2,
-        "seed_chance": 0.40,
-    },
-}
+SEED_REGISTRY = {}
 
 # seed_unique_id → code 역매핑
-SEED_CODE_MAP = {v["seed_unique_id"]: k for k, v in SEED_REGISTRY.items()}
+SEED_CODE_MAP = {}
+
+
+def register_seed(code, name, seed_unique_id, crop_unique_id,
+                  growth_rate, harvest_min, harvest_max, seed_chance):
+    """씨앗 종류 등록 (시나리오 초기화 시 호출)"""
+    SEED_REGISTRY[code] = {
+        "name": name,
+        "seed_unique_id": seed_unique_id,
+        "crop_unique_id": crop_unique_id,
+        "growth_rate": growth_rate,
+        "harvest_min": harvest_min,
+        "harvest_max": harvest_max,
+        "seed_chance": seed_chance,
+    }
+    SEED_CODE_MAP[seed_unique_id] = code
 
 # ========================================
 # 상수
@@ -119,6 +89,8 @@ def unregister_garden(instance_id: int):
 def reset():
     """챕터 전환용 초기화"""
     _registered_gardens.clear()
+    SEED_REGISTRY.clear()
+    SEED_CODE_MAP.clear()
     print("[garden] Reset.")
 
 

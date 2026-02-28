@@ -9,9 +9,34 @@ import equipment
 from world import mansion, city, mine, forest, initialize_world
 
 
+def _register_scenario_data():
+    """시나리오02 전용 데이터 등록 (씨앗/세력/아이이름)"""
+    import garden
+    garden.register_seed(1, "감자", "seed_potato", "food_potato", 3, 2, 4, 0.30)
+    garden.register_seed(2, "토마토", "seed_tomato", "food_tomato", 2, 3, 5, 0.25)
+    garden.register_seed(3, "당근", "seed_carrot", "food_carrot", 4, 2, 3, 0.20)
+    garden.register_seed(4, "약초", "seed_herb", "food_herb", 3, 1, 3, 0.35)
+    garden.register_seed(5, "양배추", "seed_cabbage", "food_cabbage", 2, 1, 2, 0.40)
+
+    import combat
+    combat.set_default_faction("주민")
+    for creature_faction in ("늑대", "거미", "박쥐", "야생", "유적", "기생"):
+        combat.register_faction_relation(creature_faction, "주민", -1)
+    combat.register_faction_relation("늑대", "거미", -1)
+
+    import pregnancy
+    pregnancy.register_child_names(
+        male_names=["카이", "레오", "유진", "하루", "소라"],
+        female_names=["하나", "미유", "유리", "사쿠라", "린"],
+    )
+
+
 def initialize():
     """챕터 1 초기화 (정식 맵)"""
     print("[chapter_1] Initializing main chapter...")
+
+    # 0. 시나리오 전용 데이터 등록
+    _register_scenario_data()
 
     # 1. 전체 월드 초기화 (모든 Region + RegionGate)
     initialize_world()
