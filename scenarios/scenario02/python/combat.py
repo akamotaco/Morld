@@ -678,8 +678,8 @@ def check_npc_combat_join(region_id: int, location_id: int) -> list:
         if not behavior.get("join_combat", False):
             continue
 
-        # 이미 전투 중이면 스킵
-        if agent._memory.get("combat_phase") is not None:
+        # 이미 전투 중이면 스킵 (FSM 스택 기반)
+        if any(s.state_type == "combat" for s in agent._fsm_stack):
             continue
 
         # 호감도 체크

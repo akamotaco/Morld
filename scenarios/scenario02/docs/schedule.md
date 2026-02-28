@@ -840,7 +840,7 @@ agent.push_schedule(work_order)
 
 ### Python
 - `think/__init__.py` - BaseAgent, FSM 스택 관리, Phase 시스템, 동적 스케줄, 도구 관리, wandering
-- `think/fsm.py` - 스택 기반 FSM (LifeState, GateTransitState, 레벨 기반 auto-pop)
+- `think/fsm.py` - 스택 기반 FSM (LifeState, GateTransitState, CombatState, FleeState, ResignationState, DesperateState, 레벨 기반 auto-pop)
 - `think/handlers/` - 인터럽트 핸들러 (식사/배변/체온/착의/자위/사회/선물)
 - `think/activities/` - 활동 핸들러 패키지 (10종: 소등/점등/벌목/낚시/채집/요리/청소/물자수집/정원/연료수집)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)

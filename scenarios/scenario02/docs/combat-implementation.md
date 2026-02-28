@@ -509,7 +509,7 @@ if action == "toggle_sprint":
 ### 5.6 전투 연동
 
 - 도주: 달리기 ON + Gate 방향 이동
-- NPC: BATTLE_BEHAVIOR에 `can_sprint` 옵션, `_handle_combat()`에서 토글
+- NPC: BATTLE_BEHAVIOR에 `can_sprint` 옵션, CombatState/FleeState에서 토글
 
 ---
 
@@ -983,15 +983,14 @@ def _emit_combat_line(unit_id, line_type):
 
 | 시점 | 위치 | line_type |
 |------|------|-----------|
-| 적 첫 발견 | `think/__init__.py` `_check_combat_threat()` | `"discover"` |
+| 적 첫 발견 | `think/fsm.py` `CombatState.enter()` | `"discover"` |
 | 공격 적중 | `combat.py` `execute_attack()` | `"attack"` |
 | 피격 | `combat.py` `execute_attack()` | `"hit"` |
 | HP ≤ 30% | `combat.py` `execute_attack()` | `"low_hp"` |
 | 사망(기절) | `combat.py` `execute_attack()` | `"death"` |
-| 전투 이탈(도주) | `think/__init__.py` `_end_combat()` | `"flee"` |
+| 도주 개시 | `think/fsm.py` `CombatState.update()` (HP 후퇴) | `"flee"` |
 
-- `combat_discovered` memory flag로 발견 대사 중복 방지
-- 전투 종료 시 `_end_combat()`에서 flag 리셋
+- `CombatState.discovered` flag로 발견 대사 중복 방지 (State가 직접 소유)
 
 ### 11.6 인간형/기생형 몬스터 (구현 완료)
 
@@ -1192,55 +1191,115 @@ spawner.py `_on_time_elapsed()`에서:
 
 # Part E: NPC 전투 AI
 
-## 15. think Tier 2 통합
+## 15. think 전투 FSM 통합
 
-> **구현 완료** — `think/__init__.py: _check_combat_threat(), _handle_combat()`
+> **구현 완료** — `think/fsm.py: CombatState, FleeState, ResignationState, DesperateState`
+> `think/__init__.py: _check_combat_threat()` (간소화)
 
-### 15.1 삽입 위치
+### 15.1 아키텍처
 
-**파일:** `think/__init__.py` (Tier 2 Reactive)
+전투 로직은 **스택 기반 FSM** (`think/fsm.py`)의 4개 State로 구현.
+기존 `_memory` dict 기반 flat phase machine을 대체하여 중첩 관리가 가능.
+
+**파일:** `think/fsm.py` (FSM States) + `think/__init__.py` (진입점)
 
 ```python
-# ── Tier 2: Reactive ──
-if self._check_restrained_nearby():
-    return
-if self._check_combat_threat():
+# think/__init__.py — Tier: Reactive
+if self._check_combat_threat():   # 적 감지 → CombatState push
     return
 ```
 
-### 15.2 `_check_combat_threat()`
-
-전투 위협 감지 + 대응. BATTLE_BEHAVIOR 없으면 False (비전투 NPC).
-
-1. 진행 중인 전투 (`combat_phase != None`) → `_handle_combat()`
-   - **resignation/desperate**: `_scan_nearest_enemy()`로 적 전멸 감지 → regrouping 전환
-   - **retreating/regrouping**: `_scan_nearest_enemy()`로 적 재감지 수행
-   - **regrouping**: `_should_end_combat()` 전투 종료 판정 병행
-2. 새 적 감지 → combat_style에 따라 engaging / retreating 분기
-
-### 15.3 `_handle_combat()` Phase Machine
+### 15.2 FSM 스택 레벨
 
 ```
-engaging    → 사거리 밖이면 이동, 안이면 attacking
-attacking   → execute_attack() + 공격시간 job
-retreating  → 안전 지역으로 이동 → regrouping / 포위 시 체념·필사
-regrouping  → 회복 대기 (HP ≥ 75% 또는 전투 종료 시 종료)
-resignation → 체념 (반격·이동 불가, 적 전멸 시 regrouping)
-desperate   → 필사의 저항 (도주 불가, 적 전멸 시 regrouping)
+LV_LIFE       =  0   LifeState (root)
+LV_COMBAT     = 10   CombatState
+LV_COMBAT_SUB = 20   FleeState / ResignationState / DesperateState
+LV_TRANSIT    = 30   GateTransitState
 ```
 
-- **engaging**: `_make_location_target()`로 적 위치를 dict 변환 → `_move_to()`
-- **attacking**: 공격 후 대상 기절 시 `_should_end_combat()` 판정
-- **retreating**: 최초 1회 `_pick_safe_location()` 결정 → `combat_flee_target`에 고정
-  - 안전 도착 → regrouping 전환
-  - 도착지에 적 + 포위 판정 → 체념/필사 전환
-  - 안전 구역 없음 + 포위 → 체념/필사 전환
-  - 안전 구역 없음 + 비포위 → 강제 attacking 전환
-- **regrouping**: HP 충분 → 정비 완료. 적 재감지 시 combat_style에 따라 재개/유지
-- **resignation**: idle job 반복. `_check_combat_threat`에서 적 전멸 감지 시 regrouping 전환
-- **desperate**: 적에게 공격 지속. `_check_combat_threat`에서 적 전멸 감지 시 regrouping 전환
+### 15.3 FSM 상태 4개
 
-### 15.4 전투 종료 3-조건 (`_should_end_combat()`)
+#### CombatState (LV_COMBAT=10)
+
+전투 상태 — engaging/attacking 2-phase.
+
+- **enter()**: `last_enemy_ms` 초기화, 발견 대사 emit
+- **update()**: 기절/탈진/사망 → `_check_incapacitated()` 공용 헬퍼 처리
+  - 사망 → pop + False (전투 종료)
+  - 기절/탈진 → idle job + True (전투 유지, 회복 후 재개)
+- **engaging**: 사거리 밖 → `_move_to()`, 사거리 진입 → attacking 전환
+- **attacking**: `execute_attack()` 실행, 대상 기절 시 전투 종료 판정
+- **HP 후퇴**: 비공격적 스타일 + HP 낮음 → FleeState push
+- **적 없음**: `_should_end_combat()` 3-조건 충족 → pop (전투 종료)
+- **대상 무효**: `_is_valid_combat_target()` 실패 → `_scan_nearest_enemy()` 재탐색
+
+#### FleeState (LV_COMBAT_SUB=20)
+
+도주 상태 — fleeing/regrouping 2-phase.
+
+- **fleeing**: `_pick_safe_location()` → 이동
+  - 도착 + 적 없음 → regrouping 전환
+  - 도착 + 적 있음 + 포위 → `_resolve_surrounded()` (체념/필사)
+  - 안전 구역 없음 + 포위 → `_resolve_surrounded()`
+  - 안전 구역 없음 + 미포위 → pop (CombatState.attacking 복귀)
+- **regrouping**: HP 회복 대기
+  - HP ≥ `COMBAT_REGROUP_HP_THRESHOLD` → pop (CombatState 복귀)
+  - 적 재감지 (non-evasive) → pop + CombatState re-engage
+- **`_resolve_surrounded()`**: `COMBAT_DESPERATE_CHANCE` 확률로 DesperateState/ResignationState push
+  - 동일 레벨(LV_COMBAT_SUB=20) push → FleeState auto-pop
+
+#### ResignationState (LV_COMBAT_SUB=20)
+
+체념 — 반격/이동 불가.
+
+- **update()**: 적 전멸 → pop (CombatState 복귀 → 전투 종료 판정)
+- 기절/사망 시 idle job 또는 pop
+
+#### DesperateState (LV_COMBAT_SUB=20)
+
+필사의 저항 — 도주 불가, 공격 지속.
+
+- **update()**: `_scan_nearest_enemy()` → `execute_attack()` 반복
+- 적 전멸 → pop (CombatState 복귀)
+- 대상 무효 시 재탐색
+
+### 15.4 스택 전이 예시
+
+```
+# 기본 전투
+[LifeState] → 적 감지 → [LifeState, CombatState(engaging)]
+→ engaging → attacking → 적 기절 → pop → [LifeState]
+
+# HP 후퇴 → 정비 → 복귀
+[LifeState, CombatState] → HP 낮음
+→ [LifeState, CombatState, FleeState(fleeing)]
+→ 안전 도착 → FleeState(regrouping)
+→ HP 회복 → pop FleeState → [LifeState, CombatState] → re-engage
+
+# 포위 → 체념
+[LifeState, CombatState, FleeState] → 포위 감지
+→ push ResignationState(20) → auto-pop FleeState(20)
+→ [LifeState, CombatState, ResignationState]
+→ 적 전멸 → pop → [LifeState, CombatState] → 전투 종료 → pop
+
+# 도주 중 Gate 이동
+[LifeState, CombatState, FleeState] → cross-location 이동
+→ [LifeState, CombatState, FleeState, GateTransitState]
+→ Gate 도착 → pop GateTransit → [LifeState, CombatState, FleeState]
+```
+
+### 15.5 `_check_combat_threat()` (think/__init__.py)
+
+적 감지 진입점. `_memory` 미사용, FSM 스택 직접 조작.
+
+1. `BATTLE_BEHAVIOR` 없으면 False
+2. 스택에 CombatState 있으면 True (FSM dispatch가 처리)
+3. 적 탐색 (`_scan_nearest_enemy()`)
+4. evasive + HP 낮음 → CombatState + FleeState 동시 push
+5. 그 외 → CombatState push
+
+### 15.6 전투 종료 3-조건 (`_should_end_combat()`)
 
 모두 AND 충족 시 전투 종료:
 
@@ -1248,25 +1307,25 @@ desperate   → 필사의 저항 (도주 불가, 적 전멸 시 regrouping)
 2. 전투 소리 미청취 (`hears_combat_sound()`)
 3. 마지막 적 목격/소리 + `COMBAT_END_COOLDOWN` 경과
 
-조건 1, 2 불충족 시 `combat_last_enemy_ms` 자동 갱신.
+`last_enemy_ms`는 CombatState가 직접 소유 (인자로 전달).
 
-### 15.5 안전 지역 선택 (`_pick_safe_location()`)
+### 15.7 안전 지역 선택 (`_pick_safe_location()`)
 
 - Gate 기반 1~2 hop 인접 location 탐색 (home_region 내)
 - 전투 소리 들리는 location 제외 (`get_combat_sound_locations()`)
 - 1-hop 우선, 없으면 2-hop, 둘 다 없으면 위험 지역 포함
 
-### 15.6 포위 판정 (`_is_surrounded()`)
+### 15.8 포위 판정 (`_is_surrounded()`)
 
 포위 조건 (모두 AND):
 1. 현재 location에 적 존재
 2. 인접 **모든** location에서 전투 소리 청취 (`get_combat_sound_locations()`)
 
 포위 시 `COMBAT_DESPERATE_CHANCE` 확률로 필사/체념 분기:
-- 필사의 저항 (`desperate`): 현재 위치에서 전투 지속, 도주 불가
-- 체념 (`resignation`): 반격·이동 불가, idle 상태
+- 필사의 저항 (`DesperateState`): 현재 위치에서 전투 지속, 도주 불가
+- 체념 (`ResignationState`): 반격·이동 불가, idle 상태
 
-### 15.7 클래스 변수 (서브클래스 override 가능)
+### 15.9 클래스 변수 (서브클래스 override 가능)
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
@@ -1285,32 +1344,44 @@ desperate   → 필사의 저항 (도주 불가, 적 전멸 시 regrouping)
 | 유키 | 0.2 | 도주형 (80% 체념) |
 | 엘라 | 0.7 | 방어적이지만 강인 (70% 필사) |
 
-### 15.8 `_memory` 전투 키
+### 15.10 데이터 소유
 
-```python
-"combat_phase": None,          # None/engaging/attacking/retreating/regrouping/resignation/desperate
-"combat_target_id": None,      # 전투 대상 unit_id
-"combat_last_attack_ms": 0,    # 마지막 공격 시각 (ms)
-"combat_last_enemy_ms": 0,     # 마지막 적 목격/소리 시각 (ms)
-"combat_flee_target": None,    # 도주 목적지 dict (고정)
-"combat_regroup_phase": None,  # 정비 단계 (None/recovering)
-```
+각 FSM State가 자체 필드로 데이터 소유. `_memory` dict 전투 키 **제거됨**.
 
-### 15.9 디버그 로그
+| State | 소유 데이터 |
+|-------|-----------|
+| CombatState | `target_id`, `phase`, `last_enemy_ms`, `discovered` |
+| FleeState | `flee_target`, `phase` |
+| DesperateState | `target_id` |
+| ResignationState | (없음) |
 
-`_log_combat_phase(detail)` — 페이즈 전환 시 로그 출력:
-```
-[combat_phase] 리나(id=272) phase=retreating | 도주 개시
-[combat_phase] 리나(id=272) phase=resignation | 포위 → 체념
-```
-
-### 15.10 combat.py 헬퍼
+### 15.11 공용 헬퍼 (fsm.py)
 
 | 함수 | 설명 |
 |------|------|
-| `has_enemies_at_location(unit_id, region_id, location_id)` | 해당 location에 적 존재 여부 |
-| `hears_combat_sound(unit_id)` | 전투 소리 청취 여부 |
-| `get_combat_sound_locations(unit_id)` | 전투 소리 source location 집합 |
+| `_log_fsm(tag, agent, detail, phase)` | 전투 FSM 디버그 로그 출력 |
+| `_check_incapacitated(agent)` | 사망/기절/탈진 체크 → "dead"/"fainted"/"exhausted"/None |
+
+디버그 로그 예시:
+```
+[combat] 리나(id=272) phase=engaging | 전투 개시
+[flee] 리나(id=272) phase=fleeing | 도주 목적지: R0L5
+[resignation] 리나(id=272) | 체념 시작
+```
+
+### 15.12 BaseAgent 헬퍼 (think/__init__.py — 유지)
+
+| 함수 | 설명 |
+|------|------|
+| `_scan_nearest_enemy()` | 최근접 적대 유닛 탐색 |
+| `_is_valid_combat_target(target_id)` | 전투 대상 유효성 검증 |
+| `_make_location_target(region_id, location_id)` | location dict 생성 |
+| `_pick_safe_location()` | 안전 지역 선택 |
+| `_is_surrounded()` | 포위 판정 |
+| `_should_end_combat(last_enemy_ms)` | 전투 종료 3-조건 판정 |
+| `has_enemies_at_location()` | 해당 location에 적 존재 여부 (combat.py) |
+| `hears_combat_sound()` | 전투 소리 청취 여부 (combat.py) |
+| `get_combat_sound_locations()` | 전투 소리 source location 집합 (combat.py) |
 
 ---
 
@@ -1912,7 +1983,8 @@ spawner.reset()
 | `assets/items/tools.py` | 공격력/사거리→전투: 마이그레이션 |
 | `assets/items/consumables.py` | Bandage 추가 |
 | `settings.py` | 적대모드 + 달리기 토글 |
-| `think/__init__.py` | Tier 2 전투 + _memory 키 + _get_home_region 확장 |
+| `think/__init__.py` | `_check_combat_threat()` (FSM push) + 전투 헬퍼 메서드 |
+| `think/fsm.py` | CombatState, FleeState, ResignationState, DesperateState |
 | `needs.py` | 달리기 피로 2배 |
 | `chapters/__init__.py` | combat.reset() + spawner.reset() |
 | `crafting_recipes.py` | 광석 레시피 |
@@ -1944,7 +2016,7 @@ Phase 4: 몬스터
   12. think _get_home_region 확장 + 패트롤
 
 Phase 5: NPC 전투 AI
-  13. think Tier 2 — _check_combat_threat + _handle_combat
+  13. think 전투 FSM — CombatState/FleeState/ResignationState/DesperateState
   14. NPC별 전투 스탯 + BATTLE_BEHAVIOR (5 캐릭터)
   15. on_meet 전투 분기
 

@@ -201,6 +201,7 @@ class _TestableBaseAgent:
         self._action_taken = False
         self._memory = {}
         self._arrived = False
+        self._fsm_stack = []
 
     def set_base_schedule(self, schedule):
         self.schedule_stack[0] = schedule
@@ -253,15 +254,29 @@ class _TestableBaseAgent:
         })
         self._action_taken = True
 
+    def _fsm_push(self, state):
+        """FSM 스택 push (간략화 — 동일 레벨 auto-pop)"""
+        self._fsm_stack = [s for s in self._fsm_stack
+                           if s.level < state.level]
+        self._fsm_stack.append(state)
+
+    def _fsm_pop(self):
+        """FSM 스택 pop"""
+        if self._fsm_stack:
+            self._fsm_stack.pop()
+
+    def _fsm_top(self):
+        """FSM 스택 top"""
+        return self._fsm_stack[-1] if self._fsm_stack else None
+
     def _check_combat_threat(self):
         """세력 기반 전투 위협 감지 (간략화)"""
         behavior = getattr(self, 'BATTLE_BEHAVIOR', None)
         if not behavior:
             return False
 
-        phase = self._memory.get("combat_phase")
-        if phase is not None:
-            # 이미 전투 중 → idle job으로 대체 (테스트 간략화)
+        # 이미 전투 FSM 상태이면 True
+        if any(s.state_type == "combat" for s in self._fsm_stack):
             self._insert_idle_job("전투", 6_000)
             self._action_taken = True
             return True
@@ -272,7 +287,6 @@ class _TestableBaseAgent:
 
         units = mock.get_units_at_location(my_loc[0], my_loc[1])
         my_faction = mock.get_unit_prop(self.unit_id, "전투:세력")
-        detect_range = mock.get_unit_prop(self.unit_id, "전투:감지거리") or 100
 
         for uid in units:
             if uid == self.unit_id:
@@ -281,8 +295,8 @@ class _TestableBaseAgent:
                 continue
             their_faction = mock.get_unit_prop(uid, "전투:세력")
             if combat.is_faction_hostile(my_faction, their_faction):
-                self._memory["combat_phase"] = "engaging"
-                self._memory["combat_target_id"] = uid
+                from think.fsm import CombatState
+                self._fsm_push(CombatState(uid))
                 self._insert_idle_job("전투", 6_000)
                 self._action_taken = True
                 return True
@@ -522,7 +536,7 @@ class TestCreatureAgentThink:
         make_npc(20, location=(3, 4))  # 주민 (늑대와 적대)
         mock._time = 20_000_000  # 순찰 시간대
         agent.think()
-        assert agent._memory.get("combat_phase") == "engaging"
+        assert any(s.state_type == "combat" for s in agent._fsm_stack)
 
     def test_tier3_no_enemy_different_location(self):
         """다른 location의 유닛은 감지 안 함"""
@@ -531,7 +545,7 @@ class TestCreatureAgentThink:
         make_npc(20, location=(3, 5))  # 다른 location
         mock._time = 20_000_000
         agent.think()
-        assert agent._memory.get("combat_phase") is None
+        assert not any(s.state_type == "combat" for s in agent._fsm_stack)
 
     def test_tier3_skips_dead_enemies(self):
         """사망한 유닛은 적으로 감지 안 함"""
@@ -541,7 +555,7 @@ class TestCreatureAgentThink:
         mock.set_unit_prop(20, "상태:사망", True)
         mock._time = 20_000_000
         agent.think()
-        assert agent._memory.get("combat_phase") is None
+        assert not any(s.state_type == "combat" for s in agent._fsm_stack)
 
     def test_tier3_same_faction_no_fight(self):
         """같은 세력끼리는 전투 안 함"""
@@ -551,7 +565,7 @@ class TestCreatureAgentThink:
                       schedule=WOLF_SCHEDULE)
         mock._time = 20_000_000
         agent.think()
-        assert agent._memory.get("combat_phase") is None
+        assert not any(s.state_type == "combat" for s in agent._fsm_stack)
 
     def test_tier4_schedule_sleep(self):
         """Tier 4: 수면 시간 → 수면 idle job"""
@@ -965,7 +979,9 @@ class TestFactionCombatIntegration:
         make_npc(20, location=(3, 4))
         result = agent._check_combat_threat()
         assert result is True
-        assert agent._memory["combat_target_id"] == 20
+        combat_state = next(s for s in agent._fsm_stack
+                             if s.state_type == "combat")
+        assert combat_state.target_id == 20
 
     def test_wolf_ignores_wolf(self):
         """늑대가 늑대를 무시"""
@@ -1021,7 +1037,7 @@ class TestTierPriority:
         agent.think()
         job = mock.get_current_job(10)
         assert job["name"] == "사망"
-        assert agent._memory.get("combat_phase") is None
+        assert not any(s.state_type == "combat" for s in agent._fsm_stack)
 
     def test_faint_overrides_combat(self):
         """기절 > 전투"""
@@ -1042,5 +1058,5 @@ class TestTierPriority:
         make_npc(20, location=(3, 4))
         mock._time = 5_000_000  # 수면 시간대
         agent.think()
-        # 전투가 우선 → combat_phase 설정
-        assert agent._memory.get("combat_phase") == "engaging"
+        # 전투가 우선 → FSM 스택에 CombatState
+        assert any(s.state_type == "combat" for s in agent._fsm_stack)

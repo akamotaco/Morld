@@ -347,7 +347,7 @@ transit 중 HP < 50% 또는 배고픔 시 인벤토리 음식을 자동 소비�
 2. `_process_npc_time()` — 이동 중 매 time_elapsed (survival.py)
 
 **파일:**
-- [think/fsm.py](../python/think/fsm.py) — FSMState, LifeState, GateTransitState, `_find_path()` (BFS)
+- [think/fsm.py](../python/think/fsm.py) — FSMState, LifeState, GateTransitState, CombatState, FleeState, ResignationState, DesperateState, `_find_path()` (BFS)
 - [think/__init__.py](../python/think/__init__.py) — `_move_to()`, `_transit_auto_eat()`, FSM 스택 관리
 - [survival.py](../python/survival.py) — `_process_npc_time()` transit auto-eat
 - [unit_system.cs](../../../scripts/system/unit_system.cs) — Look/LookUnit 필터

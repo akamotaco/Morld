@@ -12,8 +12,9 @@
 #   LV_COMBAT_SUB = 20  전투 하위 (도주/체념/필사)
 #   LV_TRANSIT    = 30  Gate 이동 (어디서든 push, 아무것도 pop 안 함)
 #
-# 현재 구현: LifeState (root) + GateTransitState (multi-hop)
-# 향후 확장: CombatState, FleeState, ResignState, DesperateState
+# 구현 상태:
+#   LifeState (root) + GateTransitState (multi-hop)
+#   CombatState + FleeState + ResignationState + DesperateState
 
 import morld
 import random
@@ -319,5 +320,407 @@ class GateTransitState(FSMState):
         hop_info = (f"hop {self.hop_index + 1}/{len(self.hops)}"
                     if self.hops else "no path")
         return (f"<GateTransitState(lv={self.level}, stage={self.stage}, "
-                f"{hop_info}) → "
+                f"{hop_info}) -> "
                 f"R{self.target['region_id']}:L{self.target['location_id']}>")
+
+
+# -- CombatState -----------------------------------------------
+
+def _log_fsm(tag, agent, detail, phase=None):
+    """FSM 디버그 로그 (전투 계열 공용)"""
+    info = morld.get_unit_info(agent.unit_id)
+    name = info.get("name", "?") if info else "?"
+    phase_str = f" phase={phase}" if phase else ""
+    print(f"[{tag}] {name}(id={agent.unit_id}){phase_str} | {detail}")
+
+
+def _check_incapacitated(agent):
+    """기절/탈진/사망 체크. 해당 시 idle job 삽입 + True 반환.
+
+    Returns:
+        "dead"      - 사망 (호출자가 pop 해야 함)
+        "fainted"   - 기절 (idle job 삽입됨)
+        "exhausted" - 탈진 (idle job 삽입됨)
+        None        - 정상
+    """
+    import survival as _surv
+
+    if morld.get_unit_prop(agent.unit_id, "상태:사망"):
+        return "dead"
+    if _surv.is_npc_fainted(agent.unit_id):
+        remain = _surv.get_faint_remaining_millis(agent.unit_id)
+        agent._insert_idle_job("기절", max(remain, 1_000))
+        agent._action_taken = True
+        return "fainted"
+    if _surv.is_npc_exhausted(agent.unit_id):
+        remain = _surv.get_exhaustion_remaining_millis(agent.unit_id)
+        agent._insert_idle_job("탈진", max(remain, 1_000))
+        agent._action_taken = True
+        return "exhausted"
+    return None
+
+
+class CombatState(FSMState):
+    """전투 상태 - engaging/attacking
+
+    스택 위치: [LifeState, CombatState]
+    하위 State: FleeState, ResignationState, DesperateState (LV_COMBAT_SUB)
+    """
+    state_type = "combat"
+    level = LV_COMBAT
+
+    def __init__(self, target_id):
+        self.target_id = target_id
+        self.phase = "engaging"   # engaging / attacking
+        self.last_enemy_ms = 0
+        self.discovered = False
+
+    def enter(self, agent):
+        import combat as _combat
+        self.last_enemy_ms = agent.get_time()
+        if not self.discovered:
+            _combat._emit_combat_line(agent.unit_id, "discover")
+            self.discovered = True
+        _log_fsm("combat", agent, "전투 개시", self.phase)
+
+    def update(self, agent) -> bool:
+        import combat as _combat
+        import survival as _surv
+
+        # 기절/탈진/사망 처리
+        status = _check_incapacitated(agent)
+        if status == "dead":
+            agent._fsm_pop()
+            return False
+        if status:
+            return True  # 기절/탈진 - 전투 유지, 대기
+
+        behavior = getattr(agent, 'BATTLE_BEHAVIOR', {})
+
+        # 대상 유효성 검증 -> 무효 시 새 적 탐색
+        if self.target_id and not agent._is_valid_combat_target(self.target_id):
+            self.target_id = None
+        if not self.target_id:
+            self.target_id = agent._scan_nearest_enemy()
+        if self.target_id:
+            self.last_enemy_ms = agent.get_time()
+
+        # 적 없음 -> 전투 종료 판정
+        if not self.target_id:
+            if agent._should_end_combat(self.last_enemy_ms):
+                _log_fsm("combat", agent, "전투 종료 (3-조건 충족)", self.phase)
+                agent._fsm_pop()
+                agent._insert_idle_job("전투 종료", 2_000)
+                agent._action_taken = True
+                return False
+            agent._insert_idle_job("경계", 5_000)
+            agent._action_taken = True
+            return True
+
+        # HP 기반 후퇴 -> FleeState push
+        style = behavior.get("combat_style", "aggressive")
+        if style != "aggressive":
+            threshold = behavior.get("retreat_threshold", 0.2)
+            my_hp = _surv.get_health(agent.unit_id)
+            my_max = _surv.get_max_health(agent.unit_id)
+            if my_hp <= my_max * threshold:
+                _combat._emit_combat_line(agent.unit_id, "flee")
+                _log_fsm("combat", agent,
+                         "HP 기반 후퇴 -> FleeState push", self.phase)
+                agent._fsm_push(FleeState())
+                agent._action_taken = True
+                return True
+
+        # -- engaging: 사거리 접근 --
+        if self.phase == "engaging":
+            if _combat.is_in_range(agent.unit_id, self.target_id):
+                self.phase = "attacking"
+                _log_fsm("combat", agent, "사거리 진입 -> attacking", self.phase)
+                # fall through to attacking
+            else:
+                target_loc = morld.get_unit_location(self.target_id)
+                if target_loc:
+                    target_info = agent._make_location_target(
+                        target_loc[0], target_loc[1])
+                    if target_info:
+                        agent._move_to(target_info, "교전")
+                    else:
+                        agent._insert_idle_job("대상 이탈", 2_000)
+                else:
+                    agent._insert_idle_job("대상 이탈", 2_000)
+                agent._action_taken = True
+                return True
+
+        # -- attacking: 공격 실행 --
+        if self.phase == "attacking":
+            # 사거리 이탈 -> engaging 전환
+            if not _combat.is_in_range(agent.unit_id, self.target_id):
+                self.phase = "engaging"
+                _log_fsm("combat", agent,
+                         "사거리 이탈 -> engaging", self.phase)
+                return self.update(agent)
+
+            result = _combat.execute_attack(agent.unit_id, self.target_id)
+            if result.get("message"):
+                morld.add_action_log(result["message"])
+
+            if result.get("target_fainted"):
+                if agent._should_end_combat(self.last_enemy_ms):
+                    _log_fsm("combat", agent,
+                             "전투 승리 (3-조건 충족)", self.phase)
+                    agent._fsm_pop()
+                    agent._insert_idle_job("전투 승리", 3_000)
+                    agent._action_taken = True
+                    return False
+                agent._insert_idle_job("경계", 5_000)
+            else:
+                speed = (_combat.get_combat_stat(
+                    agent.unit_id, "전투:공격속도") or 1.0)
+                duration = int(agent.COMBAT_ATTACK_DURATION / speed)
+                agent._insert_idle_job("공격", max(1_000, duration))
+            agent._action_taken = True
+            return True
+
+        return True
+
+    def exit(self, agent):
+        _log_fsm("combat", agent, "전투 상태 초기화", self.phase)
+
+    def __repr__(self):
+        return (f"<CombatState(lv={self.level}, phase={self.phase}, "
+                f"target={self.target_id})>")
+
+
+# -- FleeState -------------------------------------------------
+
+class FleeState(FSMState):
+    """도주 상태 - 안전 구역 이동 + 정비
+
+    스택 위치: [LifeState, CombatState, FleeState]
+    pop 후 CombatState로 복귀 (re-engage 또는 전투 종료)
+    포위 시 ResignationState/DesperateState push (동일 레벨 -> FleeState auto-pop)
+    """
+    state_type = "flee"
+    level = LV_COMBAT_SUB
+
+    def __init__(self):
+        self.flee_target = None
+        self.phase = "fleeing"   # fleeing / regrouping
+
+    def enter(self, agent):
+        _log_fsm("flee", agent, "도주 개시", self.phase)
+
+    def update(self, agent) -> bool:
+        import combat as _combat
+        import survival as _surv
+
+        # 기절/탈진 -> 대기 (도주 상태 유지)
+        status = _check_incapacitated(agent)
+        if status == "dead":
+            # 사망 -> 도주 해제, CombatState도 곧 해제됨
+            agent._fsm_pop()
+            return False
+        if status:
+            return True
+
+        if self.phase == "fleeing":
+            return self._update_fleeing(agent, _combat, _surv)
+
+        if self.phase == "regrouping":
+            return self._update_regrouping(agent, _combat, _surv)
+
+        return True
+
+    def _update_fleeing(self, agent, _combat, _surv):
+        """도주 이동 처리"""
+        if not self.flee_target:
+            self.flee_target = agent._pick_safe_location()
+            if self.flee_target:
+                _log_fsm("flee", agent,
+                         f"도주 목적지: R{self.flee_target['region_id']}"
+                         f"L{self.flee_target['location_id']}", self.phase)
+            else:
+                # 안전 구역 없음
+                if agent._is_surrounded():
+                    self._resolve_surrounded(agent)
+                else:
+                    _log_fsm("flee", agent,
+                             "안전 구역 없음 -> 강제 전투", self.phase)
+                    agent._fsm_pop()  # FleeState pop
+                    top = agent._fsm_top()
+                    if hasattr(top, 'phase'):
+                        top.phase = "attacking"
+                    agent._insert_idle_job("후퇴 실패", 2_000)
+                    agent._action_taken = True
+                return True  # push/pop 완료
+
+        # 도착 확인
+        my_loc = agent.get_location()
+        at_target = (my_loc
+                     and my_loc[0] == self.flee_target["region_id"]
+                     and my_loc[1] == self.flee_target["location_id"])
+
+        if at_target:
+            # 도착했는데 적이 있으면 포위 판정
+            if _combat.has_enemies_at_location(
+                    agent.unit_id, my_loc[0], my_loc[1]):
+                if agent._is_surrounded():
+                    self._resolve_surrounded(agent)
+                    return True
+                # 다른 안전 구역 재탐색
+                self.flee_target = None
+                _log_fsm("flee", agent,
+                         "도착지에 적 -> 재탐색", self.phase)
+                agent._insert_idle_job("후퇴", 2_000)
+                agent._action_taken = True
+                return True
+
+            # 안전 도착 -> regrouping
+            self.phase = "regrouping"
+            _log_fsm("flee", agent, "안전 구역 도착 -> 정비", self.phase)
+            return self._update_regrouping(agent, _combat, _surv)
+
+        # 이동 중
+        agent._move_to(self.flee_target, "후퇴")
+        agent._action_taken = True
+        return True
+
+    def _update_regrouping(self, agent, _combat, _surv):
+        """정비 (HP 회복 대기)"""
+        behavior = getattr(agent, 'BATTLE_BEHAVIOR', {})
+        style = behavior.get("combat_style", "aggressive")
+
+        # 적 재감지 (aggressive/defensive -> re-engage, evasive -> 무시)
+        enemy_id = agent._scan_nearest_enemy()
+        if enemy_id and style != "evasive":
+            _log_fsm("flee", agent, "적 재감지 -> re-engage", self.phase)
+            agent._fsm_pop()  # FleeState pop
+            top = agent._fsm_top()
+            if hasattr(top, 'target_id'):
+                top.target_id = enemy_id
+                top.phase = "engaging"
+            return False
+
+        # HP 회복 완료 판정
+        my_hp = _surv.get_health(agent.unit_id)
+        my_max = _surv.get_max_health(agent.unit_id)
+        if my_hp >= my_max * agent.COMBAT_REGROUP_HP_THRESHOLD:
+            _log_fsm("flee", agent, "정비 완료 (HP 회복) -> pop", self.phase)
+            agent._fsm_pop()
+            return False  # CombatState로 복귀
+
+        agent._insert_idle_job("정비", 30_000)
+        agent._action_taken = True
+        return True
+
+    def _resolve_surrounded(self, agent):
+        """포위 시 체념/필사 결정
+
+        ResignationState/DesperateState는 동일 레벨(LV_COMBAT_SUB=20)이므로
+        push 시 FleeState가 auto-pop됨.
+        """
+        if random.random() < agent.COMBAT_DESPERATE_CHANCE:
+            _log_fsm("flee", agent, "포위 -> 필사의 저항", self.phase)
+            agent._fsm_push(DesperateState())
+        else:
+            _log_fsm("flee", agent, "포위 -> 체념", self.phase)
+            agent._fsm_push(ResignationState())
+        agent._action_taken = True
+
+    def exit(self, agent):
+        _log_fsm("flee", agent, "도주 종료", self.phase)
+
+    def __repr__(self):
+        return (f"<FleeState(lv={self.level}, phase={self.phase}, "
+                f"target={self.flee_target})>")
+
+
+# -- ResignationState -------------------------------------------
+
+class ResignationState(FSMState):
+    """체념 - 반격/이동 불가, 적 전멸 시 pop
+
+    pop 후 CombatState가 전투 종료 판정을 수행.
+    """
+    state_type = "resignation"
+    level = LV_COMBAT_SUB
+
+    def enter(self, agent):
+        _log_fsm("resignation", agent, "체념 시작")
+
+    def update(self, agent) -> bool:
+        status = _check_incapacitated(agent)
+        if status == "dead":
+            agent._fsm_pop()
+            return False
+        if status:
+            return True
+
+        # 적 전멸 체크
+        enemy_id = agent._scan_nearest_enemy()
+        if enemy_id is None:
+            _log_fsm("resignation", agent, "적 전멸 -> pop")
+            agent._fsm_pop()
+            return False  # CombatState로 복귀
+        agent._insert_idle_job("체념", 10_000)
+        agent._action_taken = True
+        return True
+
+    def exit(self, agent):
+        _log_fsm("resignation", agent, "체념 종료")
+
+    def __repr__(self):
+        return f"<ResignationState(lv={self.level})>"
+
+
+# -- DesperateState ---------------------------------------------
+
+class DesperateState(FSMState):
+    """필사의 저항 - 도주 불가, 적에게 공격 지속
+
+    pop 후 CombatState가 전투 종료 판정을 수행.
+    """
+    state_type = "desperate"
+    level = LV_COMBAT_SUB
+
+    def __init__(self):
+        self.target_id = None
+
+    def enter(self, agent):
+        _log_fsm("desperate", agent, "필사의 저항 시작")
+
+    def update(self, agent) -> bool:
+        import combat as _combat
+
+        status = _check_incapacitated(agent)
+        if status == "dead":
+            agent._fsm_pop()
+            return False
+        if status:
+            return True
+
+        # 대상 유효성 -> 무효 시 새 적 탐색
+        if self.target_id and not agent._is_valid_combat_target(self.target_id):
+            self.target_id = None
+        if not self.target_id:
+            self.target_id = agent._scan_nearest_enemy()
+        if not self.target_id:
+            _log_fsm("desperate", agent, "적 전멸 -> pop")
+            agent._fsm_pop()
+            return False
+
+        result = _combat.execute_attack(agent.unit_id, self.target_id)
+        if result.get("message"):
+            morld.add_action_log(result["message"])
+        speed = (_combat.get_combat_stat(
+            agent.unit_id, "전투:공격속도") or 1.0)
+        duration = int(agent.COMBAT_ATTACK_DURATION / speed)
+        agent._insert_idle_job("필사", max(1_000, duration))
+        agent._action_taken = True
+        return True
+
+    def exit(self, agent):
+        _log_fsm("desperate", agent, "필사의 저항 종료")
+
+    def __repr__(self):
+        return f"<DesperateState(lv={self.level}, target={self.target_id})>"
