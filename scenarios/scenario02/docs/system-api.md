@@ -304,10 +304,10 @@ def my_script(context_unit_id, *args):
 
 | Prop | 타입 | 설명 |
 |------|------|------|
-| `상태:이동중` | int (0/1) | NPC cross-location 이동 중 숨김. Python `_move_to()`에서 설정, C# DES step 5에서 해제 |
+| `상태:이동중` | int (0/1) | NPC cross-location 이동 중 C# 가시성 숨김. `GateTransitState.enter()`에서 설정, DES step 5에서 해제 |
 
 transit 중 NPC는 Look/LookUnit/get_characters_at_location/get_units_at_location에서 제외됩니다.
-think()에서 즉시 return하여 모든 AI 로직을 스킵합니다 (자동 식사만 survival.py에서 처리).
+think() 차단은 FSM 스택(`GateTransitState`)이 담당하며, `상태:이동중` prop은 C# 가시성 전용입니다.
 
 상세: [movement-system.md#2.6](movement-system.md#26-gate-transit-system-npc-숨김-이동--v023)
 
@@ -325,6 +325,7 @@ class BaseAgent:
     def __init__(self, unit_id):
         self.unit_id = unit_id
         self.schedule_stack = [None]     # [0] = 기본 스케줄
+        self._fsm_stack = [LifeState()]  # FSM: root=생활 (항상 존재)
         self._activity_phase = "idle"    # Phase 시스템
         self._activity_state = {}        # 활동별 임시 데이터
         self._action_taken = False       # 행동 결정 여부 (경고용)
@@ -333,6 +334,7 @@ class BaseAgent:
         """매 step 호출 — 모든 행동 결정
         DES 규칙: 모든 경로에서 반드시 job 삽입 (duration > 0)
         """
+        # 0. FSM 스택 디스패치 (GateTransitState 등)
         # 1. 기절 체크 → 기절 job
         # 2. 배고픔 체크 → _handle_eat
         # 3. 목욕/수면 시간대 → 전용 핸들러

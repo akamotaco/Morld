@@ -268,28 +268,47 @@ NPC가 다른 Location으로 이동할 때 (Gate 통과), 이동 시작 시 즉�
 #### 배경
 Gate까지 걸어가는 동안 (BaseSpeed=0.001 units/ms) NPC가 노출되어 공격/탈진당할 수 있는 문제를 해결합니다.
 
-#### 동작 흐름
+#### FSM 기반 구현 (v0.2.3)
+
+Gate Transit은 **스택 기반 FSM**(`think/fsm.py`)의 `GateTransitState`로 구현됩니다.
+`_move_to()`가 cross-location 이동을 감지하면 FSM 스택에 push하여 think() 로직을 차단합니다.
+
 ```
-NPC가 cross-location move job 삽입 (_move_to)
+_move_to() — cross-location 감지
     ↓
-Python: 상태:이동중 = 1 설정 + 행동 로그 출력
+FSM: GateTransitState push
+  → enter(): 상태:이동중=1, 행동 로그, move job 삽입
     ↓
-C#: 이동 시뮬레이션 (이동 시간은 기존과 동일하게 소모)
+DES step마다 think() 호출
+  → GateTransitState.update(): 상태:이동중 체크 → True (job 보존)
     ↓
-도착 → 상태:이동중 = 0 해제
-  - DES 경로: step 5 텔레포트 완료 시
-  - ECS 경로: JobBehaviorSystem.ProcessMoveAction2D() goalLocation 도착 시
+DES step 5: 텔레포트 + 상태:이동중=0 해제
     ↓
-다음 think() 호출 → 정상 행동 재개
+다음 think() 호출
+  → GateTransitState.update(): 상태:이동중=0 감지 → pop → False
+  → Life 로직(5-tier) 진행
 ```
+
+#### FSM 레벨 계층
+```
+LV_LIFE       =  0  생활 (root, 불변)
+LV_COMBAT     = 10  전투
+LV_COMBAT_SUB = 20  전투 하위 (도주/체념/필사)
+LV_TRANSIT    = 30  Gate 이동 (최상위 — 어디서든 push, 아무것도 pop 안 함)
+```
+GateTransitState는 LV_TRANSIT(30)이므로 어떤 상태 위에도 push 가능합니다.
+예: `[Life, Combat, Flee]` → push GateTransit → `[Life, Combat, Flee, GateTransit]`
 
 #### `상태:이동중` Prop
 | 항목 | 설명 |
 |------|------|
-| 설정 | Python `_move_to()` — cross-location 이동 시 |
+| 설정 | `GateTransitState.enter()` — FSM push 시 |
 | 해제 (DES) | C# DES step 5 — 텔레포트 완료 후 |
 | 해제 (ECS) | C# `JobBehaviorSystem.ProcessMoveAction2D()` — goalLocation 도착 시 (3곳) |
-| 효과 | Look/LookUnit 필터링, get_characters/units_at_location 제외, think() early return |
+| 해제 (안전장치) | `GateTransitState.exit()` — pop 시 잔여 prop 정리 |
+| 효과 | Look/LookUnit 필터링, get_characters/units_at_location 제외 |
+
+> **역할 분리**: `상태:이동중`은 C# 가시성 숨김 전용. think() 차단은 FSM 스택이 담당.
 
 #### 가시성 필터링 (C#)
 | 함수 | 파일 | 동작 |
@@ -301,15 +320,17 @@ C#: 이동 시뮬레이션 (이동 시간은 기존과 동일하게 소모)
 
 > **지도 UI**: transit NPC는 `get_actor_ids()` + `is_moving_2d` 경로로 여전히 지도에 표시됩니다 (map_ui.py).
 
-#### Python think() 동작
-transit 중인 NPC는 `think()`에서 즉시 return합니다:
+#### 동일 location 이동 가드
+`_move_to()`는 동일 location 이동 시 기존 move job이 있으면 보존합니다 (매 step 리셋 방지).
 ```python
-# think() 시작부
-if morld.get_unit_prop(self.unit_id, "상태:이동중"):
-    return None  # 도착까지 행동 불가
+# _move_to() — 동일 location
+job = morld.get_current_job(self.unit_id)
+if job and job.get("action") == "move":
+    self._action_taken = True
+    return  # 기존 job 보존
 ```
-- 모든 AI 로직 스킵 (스케줄, 인터럽트, 욕구 등)
-- 자동 식사만 survival.py `_process_npc_time()`에서 처리
+
+> **NOTE**: 상위 tier 인터럽트로 목적지가 바뀔 경우, 기존 job의 목적지가 다를 수 있음. 전투 등은 별도 State에서 처리 예정.
 
 #### 행동 로그
 cross-location 이동 시작 시 플레이어가 **같은 Location에 있을 때만** 행동 로그 출력:
@@ -323,7 +344,8 @@ transit 중 HP < 50% 또는 배고픔 시 인벤토리 음식을 자동 소비�
 2. `_process_npc_time()` — 이동 중 매 time_elapsed (survival.py)
 
 **파일:**
-- [think/__init__.py](../python/think/__init__.py) — `_move_to()`, `_transit_auto_eat()`, think() early return
+- [think/fsm.py](../python/think/fsm.py) — FSMState, LifeState, GateTransitState
+- [think/__init__.py](../python/think/__init__.py) — `_move_to()`, `_transit_auto_eat()`, FSM 스택 관리
 - [survival.py](../python/survival.py) — `_process_npc_time()` transit auto-eat
 - [unit_system.cs](../../../scripts/system/unit_system.cs) — Look/LookUnit 필터
 - [script_system_morld_api.cs](../../../scripts/system/script_system_morld_api.cs) — API 필터

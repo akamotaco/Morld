@@ -789,7 +789,7 @@ morld.insert_job(unit_id, {
 5. `_insert_idle_job(name, ms)` 헬퍼로 대기 job 삽입
 6. **고정 시간 행동**: `agent._do_instant_action("이름", "key")` — ACTION_DURATION 테이블 조회 + job 삽입 + action_taken 설정을 한 번에 처리. 테이블: `think/activities/helpers.py`
 7. **캐릭터 오버라이드**: `_action_duration_overrides` dict로 NPC별 행동 시간 변경 가능
-8. **Gate Transit** (v0.2.3): `상태:이동중` prop이 설정된 NPC는 think()에서 즉시 return (job 삽입 불필요 — 기존 move job이 진행 중)
+8. **Gate Transit** (v0.2.3): cross-location 이동 시 FSM 스택에 `GateTransitState`(lv=30) push → think() 차단 (기존 move job 보존). 도착 시 자동 pop → Life 로직 재개. 상세: [movement-system.md#2.6](movement-system.md#26-gate-transit-system-npc-숨김-이동--v023)
 
 ### C# 구현 위치
 
@@ -839,7 +839,8 @@ agent.push_schedule(work_order)
 - `scripts/system/script_system_data_api.cs` - AdvanceTimeDES, move duration 자동 계산 (v0.2.2)
 
 ### Python
-- `think/__init__.py` - BaseAgent, Phase 시스템, 동적 스케줄, 도구 관리, wandering
+- `think/__init__.py` - BaseAgent, FSM 스택 관리, Phase 시스템, 동적 스케줄, 도구 관리, wandering
+- `think/fsm.py` - 스택 기반 FSM (LifeState, GateTransitState, 레벨 기반 auto-pop)
 - `think/handlers/` - 인터럽트 핸들러 (식사/배변/체온/착의/자위/사회/선물)
 - `think/activities/` - 활동 핸들러 패키지 (10종: 소등/점등/벌목/낚시/채집/요리/청소/물자수집/정원/연료수집)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)

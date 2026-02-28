@@ -1,20 +1,34 @@
 # think/fsm.py — 스택 기반 FSM (Finite State Machine)
 #
 # NPC AI의 행동 컨텍스트를 스택으로 관리.
-# - 스택 root(index 0)에 LifeState 항상 존재 (pop 불가)
-# - 스택 최상위 State.update() → True 반환 시 하위 로직 차단
-# - push/pop으로 중첩 상태 관리
+# - 스택 root(index 0)에 LifeState 항상 존재
+# - 스택이 비거나 빈 상태에서 pop 시 에러 (로직 버그 감지)
+# - push 시 동일 이상 레벨 자동 pop → change 동작 자연 발생
+# - 레벨 간격 10 단위 (사이 삽입 여유)
+#
+# 레벨 계층:
+#   LV_LIFE       =  0  생활 (root, 불변)
+#   LV_COMBAT     = 10  전투
+#   LV_COMBAT_SUB = 20  전투 하위 (도주/체념/필사)
+#   LV_TRANSIT    = 30  Gate 이동 (어디서든 push, 아무것도 pop 안 함)
 #
 # 현재 구현: LifeState (root) + GateTransitState
-# 향후 확장: CombatState, FleeState
+# 향후 확장: CombatState, FleeState, ResignState, DesperateState
 
 import morld
 import random
+
+# === 레벨 상수 ===
+LV_LIFE = 0
+LV_COMBAT = 10
+LV_COMBAT_SUB = 20
+LV_TRANSIT = 30
 
 
 class FSMState:
     """FSM 상태 기반 클래스"""
     state_type = "base"
+    level = -1  # 서브클래스에서 반드시 오버라이드
 
     def enter(self, agent):
         """스택에 push될 때 호출"""
@@ -34,16 +48,16 @@ class FSMState:
         pass
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}>"
+        return f"<{self.__class__.__name__}(lv={self.level})>"
 
 
 class LifeState(FSMState):
     """생활 상태 — FSM root (항상 스택 최하단)
 
     update()가 항상 False를 반환하여 기존 5-tier think() 로직으로 진행.
-    이 State는 pop할 수 없다 (BaseAgent._fsm_pop에서 보호).
     """
     state_type = "life"
+    level = LV_LIFE
 
     def update(self, agent) -> bool:
         return False  # 항상 Life 로직(5-tier)으로 진행
@@ -57,6 +71,7 @@ class GateTransitState(FSMState):
     exit(): 안전장치 prop 정리
     """
     state_type = "gate_transit"
+    level = LV_TRANSIT
 
     def __init__(self, target, name="이동"):
         self.target = target
@@ -110,5 +125,5 @@ class GateTransitState(FSMState):
             morld.set_unit_prop(agent.unit_id, "상태:이동중", 0)
 
     def __repr__(self):
-        return (f"<GateTransitState → "
+        return (f"<GateTransitState(lv={self.level}) → "
                 f"R{self.target['region_id']}:L{self.target['location_id']}>")

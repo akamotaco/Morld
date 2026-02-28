@@ -140,17 +140,27 @@ class BaseAgent:
     # ========================================
 
     def _fsm_push(self, state):
-        """FSM 상태를 스택에 push (enter() 호출)"""
+        """FSM 상태를 스택에 push.
+
+        동일 이상 레벨의 기존 State를 자동 pop한 뒤 push.
+        이를 통해 change(pop→push) 동작이 자연 발생한다.
+        """
+        # 동일 이상 레벨 자동 pop
+        while self._fsm_stack[-1].level >= state.level:
+            self._fsm_pop()
         state.enter(self)
         self._fsm_stack.append(state)
 
     def _fsm_pop(self):
-        """FSM 스택 최상위 상태를 pop (exit() 호출). root(LifeState)는 보호."""
+        """FSM 스택 최상위 상태를 pop (exit() 호출).
+
+        스택이 비거나 빈 상태에서 pop 시 에러 — 로직 버그 감지용.
+        """
         if len(self._fsm_stack) <= 1:
             info = self.get_info()
             name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
-            print(f"[FSM] ERROR: {name} — root State pop 시도 차단 (stack={self._fsm_stack})")
-            return None
+            raise RuntimeError(
+                f"[FSM] {name} — 스택 비어짐 (pop 불가). stack={self._fsm_stack}")
         state = self._fsm_stack.pop()
         state.exit(self)
         return state
@@ -158,11 +168,6 @@ class BaseAgent:
     def _fsm_top(self):
         """FSM 스택 최상위 상태 반환"""
         return self._fsm_stack[-1]
-
-    def _fsm_clear(self):
-        """FSM 오버레이 상태 전체 정리 (root LifeState 유지)"""
-        while len(self._fsm_stack) > 1:
-            self._fsm_pop()
 
     # ========================================
     # 스케줄 관리
@@ -3444,8 +3449,6 @@ def clear_all():
 
 def clear_agents():
     """모든 Agent 제거 (챕터 전환용 alias)"""
-    for agent in _agents.values():
-        agent._fsm_clear()
     _agents.clear()
     print("[think] All agents cleared.")
 

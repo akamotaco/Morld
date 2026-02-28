@@ -369,7 +369,9 @@ Footer에 임계치 근처일 때만 표시:
 ### think() 5-tier 우선순위
 
 ```
-Pre-check: Gate Transit (상태:이동중) → 즉시 return (v0.2.3)
+FSM 스택 디스패치: 최상위 State.update() → True이면 하위 차단 (v0.2.3)
+  - GateTransitState(lv=30): 이동 중 think 차단, 도착 시 자동 pop
+  - LifeState(lv=0): 항상 False → 아래 5-tier 진행
 Tier -1: 운반 중 (Limbo 대기)
 Tier  0: 결박 (행동불능이면 탈출 시도 없이 대기)
 Tier  1 (Involuntary): 기절 / 탈진 / 수면 (추위 기상: 체온 ≤ 35.0 → tier 3으로 이관)
@@ -379,7 +381,8 @@ Tier  4 (Comfort): 착의 → 배변 → 피로 → 성욕 → 목욕/청결 →
 Tier  5 (Routine): 스케줄 기반 일반 활동 (순찰/산책은 wandering)
 ```
 
-> **Gate Transit** (v0.2.3): `상태:이동중` NPC는 모든 tier보다 먼저 체크하여 즉시 return합니다.
+> **FSM 스택** (v0.2.3): think()는 FSM 스택 최상위 State를 먼저 디스패치합니다.
+> GateTransitState가 push되면 모든 AI 로직을 차단하고, 도착 시 자동 pop하여 Life 로직을 재개합니다.
 > 이동 중 자동 식사는 survival.py `_process_npc_time()`에서 처리 (HP < 50% 또는 배고픔 시 인벤토리 음식 소비).
 > 상세: [movement-system.md#2.6](movement-system.md#26-gate-transit-system-npc-숨김-이동--v023)
 
