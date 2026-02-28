@@ -36,7 +36,8 @@ class MockMorld:
     # ========================================
 
     def register_unit(self, unit_id, name="NPC", props=None,
-                      location=(0, 0), gender="female"):
+                      location=(0, 0), gender="female",
+                      is_creature=False, is_object=False):
         """테스트용 유닛 등록"""
         r, l = location
         self._units[unit_id] = {
@@ -45,6 +46,8 @@ class MockMorld:
                 "activity": None, "mood": [],
                 "is_traveling": False,
                 "region_id": r, "location_id": l,
+                "is_object": is_object,
+                "is_creature": is_creature,
             },
             "props": dict(props or {}),
             "location": location,
@@ -389,13 +392,24 @@ class MockMorld:
         })
 
     def get_region_info(self, region_id):
-        """region 정보 반환 (locations 포함)"""
+        """region 정보 반환 (locations + gates 포함)"""
         if region_id not in self._regions:
             return None
         locations = []
         for (r, l), info in self._locations.items():
             if r == region_id:
-                locations.append({"id": l, **info})
+                loc_data = {"id": l, **info}
+                # Gate 포함 (C# API 키 형식: connected_local)
+                raw_gates = self._gates.get((r, l), [])
+                loc_data["gates"] = [
+                    {
+                        "x": g["x"],
+                        "connected_region": g["connected_region"],
+                        "connected_local": g["connected_location"],
+                    }
+                    for g in raw_gates
+                ]
+                locations.append(loc_data)
         return {"name": self._regions[region_id]["name"], "locations": locations}
 
     def get_location_gates(self, region_id, location_id):

@@ -99,6 +99,7 @@ def main():
         "test_aftermath",
         "test_positive_memory",
         "test_semen",
+        "test_fsm",
     ]
 
     if filter_modules:

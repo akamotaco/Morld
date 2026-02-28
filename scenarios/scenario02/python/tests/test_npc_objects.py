@@ -397,11 +397,22 @@ class TestAgent(BaseAgent):
         self.schedule_stack = [list(self._SCHEDULE)]
 
 
+def _register_test_map():
+    """테스트용 맵 등록 (Region 0, L0~L10 직선 연결)"""
+    morld.add_region(0, "테스트리전")
+    for loc_id in range(11):
+        morld.add_location(0, loc_id, f"테스트방{loc_id}", length=100)
+    # 인접 location 간 양방향 gate
+    for loc_id in range(10):
+        morld.add_gate(0, loc_id, loc_id * 2 + 1, 100, 0, loc_id + 1, 0)
+        morld.add_gate(0, loc_id + 1, loc_id * 2 + 2, 0, 0, loc_id, 100)
+
+
 def _reset_all():
     """모든 mock/stub 상태 초기화"""
     morld.reset()
     morld.register_script = lambda func: func
-    morld.get_region_info = lambda r: {"locations": []}
+    _register_test_map()
 
     _survival.is_npc_hungry = lambda uid: False
     _survival.is_npc_fainted = lambda uid: False

@@ -329,11 +329,22 @@ class TestAgent(BaseAgent):
         self.schedule_stack = [list(self._SCHEDULE)]
 
 
+def _register_test_map():
+    """테스트용 맵 등록 (Region 0, L0~L10 직선 연결)"""
+    morld.add_region(0, "테스트리전")
+    for loc_id in range(11):
+        morld.add_location(0, loc_id, f"테스트방{loc_id}", length=100)
+    # 인접 location 간 양방향 gate
+    for loc_id in range(10):
+        morld.add_gate(0, loc_id, loc_id * 2 + 1, 100, 0, loc_id + 1, 0)
+        morld.add_gate(0, loc_id + 1, loc_id * 2 + 2, 0, 0, loc_id, 100)
+
+
 def _reset_all():
     """모든 mock/stub 상태 초기화"""
     morld.reset()
     morld.register_script = lambda func: func
-    morld.get_region_info = lambda r: {"locations": []}
+    _register_test_map()
 
     # survival
     _survival.is_npc_hungry = lambda uid: False
@@ -1009,16 +1020,22 @@ class TestMemoryManagement:
 
 class TestMovement:
     def test_move_to_inserts_job(self):
-        """_move_to → insert_job 호출 확인"""
+        """_move_to → cross-location: FSM push + approaching job 삽입"""
         agent = _create_agent()
         target = {"region_id": 0, "location_id": 10, "x": 50}
         agent._move_to(target, "테스트이동")
 
+        # FSM: GateTransitState가 push되어 approaching move job 삽입
         job = _last_job(agent)
         assert job is not None
         assert job["action"] == "move"
+        # approaching은 현재 location 내 gate까지 이동
         assert job["region_id"] == 0
-        assert job["location_id"] == 10
+        assert job["location_id"] == 0  # 현재 위치(L0) 내에서 gate로 이동
+        # FSM 스택 확인
+        assert len(agent._fsm_stack) >= 1
+        top = agent._fsm_stack[-1]
+        assert top.state_type == "gate_transit"
 
     def test_is_at_same_location(self):
         """같은 위치 → True"""

@@ -1,4 +1,4 @@
-# think/fsm.py — 스택 기반 FSM (Finite State Machine)
+# think/fsm.py  - 스택 기반 FSM (Finite State Machine)
 #
 # NPC AI의 행동 컨텍스트를 스택으로 관리.
 # - 스택 root(index 0)에 LifeState 항상 존재
@@ -53,7 +53,7 @@ class FSMState:
 
 
 class LifeState(FSMState):
-    """생활 상태 — FSM root (항상 스택 최하단)
+    """생활 상태  - FSM root (항상 스택 최하단)
 
     update()가 항상 False를 반환하여 기존 5-tier think() 로직으로 진행.
     """
@@ -75,11 +75,11 @@ def _find_gate_x(agent, target):
     loc = agent.get_location()
     if not loc:
         raise RuntimeError(
-            f"[FSM] _find_gate_x: {npc_name} — location 없음")
+            f"[FSM] _find_gate_x: {npc_name}  - location 없음")
     region_info = morld.get_region_info(loc[0])
     if not region_info:
         raise RuntimeError(
-            f"[FSM] _find_gate_x: {npc_name} — region_info 없음 "
+            f"[FSM] _find_gate_x: {npc_name}  - region_info 없음 "
             f"(R{loc[0]})")
     for loc_info in region_info.get("locations", []):
         if loc_info["id"] != loc[1]:
@@ -93,12 +93,12 @@ def _find_gate_x(agent, target):
         available = [f"R{g['connected_region']}:L{g['connected_local']}(x={g['x']})"
                      for g in gates]
         raise RuntimeError(
-            f"[FSM] _find_gate_x: {npc_name} — Gate 없음 "
+            f"[FSM] _find_gate_x: {npc_name}  - Gate 없음 "
             f"(R{loc[0]}:L{loc[1]} → R{target['region_id']}:L{target['location_id']}) "
             f"available_gates={available}")
     # location 자체를 못 찾음
     raise RuntimeError(
-        f"[FSM] _find_gate_x: {npc_name} — location 없음 in region_info "
+        f"[FSM] _find_gate_x: {npc_name}  - location 없음 in region_info "
         f"(R{loc[0]}:L{loc[1]})")
 
 
@@ -158,16 +158,16 @@ def _find_path(start_region, start_local, target_region, target_local):
 # ── GateTransitState ───────────────────────────────────────
 
 class GateTransitState(FSMState):
-    """Gate Transit — cross-location 이동 (multi-hop)
+    """Gate Transit  - cross-location 이동 (multi-hop)
 
     BFS로 경로를 탐색하여 여러 location을 경유 가능.
 
     첫 번째 hop:
-      approaching — Gate x좌표로 같은 location 내 이동 (보임)
-      transiting  — 상태:이동중=1 + cross-location move job (숨김)
+      approaching  - Gate x좌표로 같은 location 내 이동 (보임)
+      transiting   - 상태:이동중=1 + cross-location move job (숨김)
 
     중간 hop (2번째~):
-      transiting만 — 숨김 상태 유지, 즉시 텔레포트
+      transiting만  - 숨김 상태 유지, 즉시 텔레포트
 
     최종 hop 도착:
       상태:이동중=0 감지 → POP → Life 로직 진행
@@ -202,7 +202,7 @@ class GateTransitState(FSMState):
 
         if not self.hops:
             # 이미 목적지 (cross-location 체크에서 걸러져야 하지만 안전장치)
-            print(f"[FSM] {npc_name}: GateTransit — 이미 목적지")
+            print(f"[FSM] {npc_name}: GateTransit - 이미 목적지")
             agent._fsm_pop()
             return
 

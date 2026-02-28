@@ -154,8 +154,8 @@ class BaseAgent:
         # 동일 이상 레벨 자동 pop
         while self._fsm_stack[-1].level >= state.level:
             self._fsm_pop()
-        state.enter(self)
         self._fsm_stack.append(state)
+        state.enter(self)
 
     def _fsm_pop(self):
         """FSM 스택 최상위 상태를 pop (exit() 호출).
