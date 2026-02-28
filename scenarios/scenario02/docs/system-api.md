@@ -9,7 +9,7 @@ import morld
 # 유닛 관련
 # ========================================
 morld.get_player_id()
-morld.get_unit_info(unit_id)  # {name, region_id, location_id, activity, is_moving, is_traveling, ...}
+morld.get_unit_info(unit_id)  # {name, region_id, location_id, activity, is_object, is_creature, is_moving, is_traveling, ...}
 morld.get_unit_location(unit_id)
 morld.set_unit_location(unit_id, region_id, location_id)
 morld.get_unit_props(unit_id)               # 모든 props dict 반환

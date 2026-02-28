@@ -543,12 +543,12 @@ NPC가 시설(욕조, 화장실, 옷장)을 사용할 때 **prop 기반 동적 �
 
 ### home_region 판정
 
-`_get_home_region()` — `_is_creature` 플래그로 캐릭터/크리처 분기:
+`_get_home_region()` — `morld.get_unit_info()["is_creature"]` (C# UnitType) 기반 캐릭터/크리처 분기:
 
 | 구분 | 판정 방식 | 실패 시 |
 |------|----------|---------|
-| 캐릭터 (`_is_creature=False`) | `bed_owner:{owner}` prop → 침대의 region_id | RuntimeError (설정 버그) |
-| 크리처 (`_is_creature=True`) | `전투:홈리전` prop (spawner 설정) | 현재 위치 fallback |
+| 캐릭터 (`is_creature=False`) | `bed_owner:{owner}` prop → 침대의 region_id | RuntimeError (설정 버그) |
+| 크리처 (`is_creature=True`) | `전투:홈리전` prop (spawner 설정) | 현재 위치 fallback |
 
 lazy cache (`_home_region_id`)로 한 번만 탐색, 이후 캐시 사용.
 

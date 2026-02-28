@@ -92,9 +92,11 @@ def is_faction_friendly(faction_a, faction_b):
 
 
 def is_creature_unit(unit_id):
-    """생물(Creature) 유닛인지 — 세력이 주민이 아닌 경우"""
-    faction = morld.get_unit_prop(unit_id, "전투:세력")
-    return faction is not None and faction != DEFAULT_FACTION
+    """생물(Creature) 유닛인지 — morld API의 UnitType 기반"""
+    info = morld.get_unit_info(unit_id)
+    if not info:
+        return False
+    return bool(info.get("is_creature", False))
 
 
 def has_enemies_at_location(unit_id, region_id, location_id):

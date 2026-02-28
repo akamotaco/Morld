@@ -24,8 +24,6 @@ class CreatureAgent(BaseAgent):
     - 활동: 순찰/휴식/수면/복귀
     """
 
-    _is_creature = True
-
     def __init__(self, unit_id, schedule=None):
         super().__init__(unit_id)
         # survival.register_npc() 호출 안 함

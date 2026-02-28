@@ -96,7 +96,7 @@ def is_faction_friendly(faction_a, faction_b) -> bool:
     """두 세력이 우호 관계인지 (relation > 0)"""
 
 def is_creature_unit(unit_id) -> bool:
-    """세력이 주민이 아닌 유닛 = 생물"""
+    """morld API UnitType 기반 생물 판정"""
 ```
 
 ### 관계 매트릭스
@@ -238,7 +238,7 @@ BaseAgent를 상속하되 survival/needs 등록 없이 단순화된 5-tier think
 
 ### NPC(BaseAgent) vs 생물(CreatureAgent)
 
-| 항목 | NPC (`BaseAgent`, `_is_creature=False`) | 생물 (`CreatureAgent`, `_is_creature=True`) |
+| 항목 | NPC (`BaseAgent`) | 생물 (`CreatureAgent`) |
 |------|----------------|---------------------|
 | think() | 5-tier (기절→전투→생존→쾌적→스케줄) | 5-tier (사망→기절→전투→겁탈→스케줄) |
 | survival 등록 | O (포만감/기절) | X (HP는 전투로만 관리) |

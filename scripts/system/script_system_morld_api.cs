@@ -529,6 +529,7 @@ namespace SE
                 result["id"] = new PyInt(unit.Id);
                 result["name"] = new PyString(unit.Name ?? "");
                 result["is_object"] = PyBool.FromBool(unit.IsObject);
+                result["is_creature"] = PyBool.FromBool(unit.IsCreature);
 
                 // 현재 위치
                 result["region_id"] = new PyInt(unit.CurrentLocation.RegionId);

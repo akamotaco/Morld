@@ -2051,7 +2051,7 @@ test_harvest_requires_tool()
 
 | API | 용도 | 확인 |
 |-----|------|------|
-| `morld.get_unit_info(id)` | name, region_id, location_id, x | cs:549 |
+| `morld.get_unit_info(id)` | name, region_id, location_id, x, is_object, is_creature | cs:549 |
 | `morld.get_unit_prop(id, key)` | 단일 prop 조회 | O |
 | `morld.set_unit_prop(id, key, val)` | prop 설정 | O |
 | `morld.modify_prop(id, key, delta)` | prop 증감 | O |

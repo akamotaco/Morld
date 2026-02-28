@@ -59,7 +59,6 @@ class BaseAgent:
 
     # (보관소는 storage:{category} prop 기반 동적 탐색 — resolve_storage_container)
 
-    _is_creature = False             # CreatureAgent에서 True로 오버라이드
     _action_duration_overrides = {}  # 서브클래스에서 오버라이드 가능
 
     def __getattr__(self, name):
@@ -76,6 +75,12 @@ class BaseAgent:
         raise AttributeError(
             f"'{type(self).__name__}' object has no attribute '{name}'"
         )
+
+    @property
+    def _is_creature(self):
+        """morld API 기반 creature 판정 (C# UnitType)"""
+        info = morld.get_unit_info(self.unit_id)
+        return bool(info.get("is_creature", False)) if info else False
 
     def __init__(self, unit_id):
         self.unit_id = unit_id
@@ -2570,13 +2575,13 @@ class BaseAgent:
     _home_region_id = None  # lazy cache (bed_owner prop 기반)
 
     def _get_home_region(self):
-        """NPC의 홈 region — 캐릭터/크리처 분기
+        """NPC의 홈 region — 캐릭터/크리처 분기 (morld API UnitType 기반)
 
-        캐릭터 (_is_creature=False):
+        캐릭터 (is_creature=False):
             bed_owner:{owner} prop → 침대의 region_id
             침대 없으면 RuntimeError (설정 버그)
 
-        크리처 (_is_creature=True):
+        크리처 (is_creature=True):
             전투:홈리전 prop → 해당 region_id
             NOTE: get_unit_prop()은 prop 미존재 시 0 반환 (None 아님).
                   전투:홈리전=0은 R0 소속으로 유효.
