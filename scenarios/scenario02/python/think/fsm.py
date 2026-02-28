@@ -234,9 +234,23 @@ class GateTransitState(FSMState):
                 self._start_transiting(agent)
                 agent._action_taken = True
                 return True
-            # 최종 도착 → POP
+            # 최종 도착 → 행동 로그 + POP
             npc_name = agent.get_info().get("name", agent.unit_id)
             print(f"[FSM] {npc_name}: GateTransit 도착 → POP")
+
+            # 도착 로그: 플레이어와 같은 location일 때 (목격)
+            player_id = morld.get_player_id()
+            player_loc = (morld.get_unit_location(player_id)
+                          if player_id else None)
+            loc = agent.get_location()
+            if (player_loc and loc
+                    and player_loc[0] == loc[0]
+                    and player_loc[1] == loc[1]):
+                loc_info = morld.get_location_info(loc[0], loc[1])
+                loc_name = loc_info["name"] if loc_info else "이곳"
+                morld.add_action_log(
+                    f"{npc_name}이(가) {loc_name}에 도착했다.")
+
             agent._fsm_pop()
             return False  # Life 로직 진행
         # transit 중 → job 보존
