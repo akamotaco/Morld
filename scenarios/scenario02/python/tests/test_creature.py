@@ -339,6 +339,11 @@ def setup():
     if not hasattr(mock, 'get_inventory'):
         mock.get_inventory = _get_inventory
     combat.reset()
+    # 세력 데이터 재등록 (reset이 FACTION_RELATIONS를 clear하므로)
+    combat.set_default_faction("주민")
+    for _cf in ("늑대", "거미", "박쥐", "야생", "유적", "기생"):
+        combat.register_faction_relation(_cf, "주민", -1)
+    combat.register_faction_relation("늑대", "거미", -1)
     survival_mod._fainted_npcs = {}
     survival_mod._faint_end = {}
     think_mod._agents.clear()
@@ -375,7 +380,8 @@ def make_creature(uid, name="늑대", faction="늑대", hp=40,
         "전투:감지거리": detect_range,
         "전투:공격속도": 1.0,
     }
-    mock.register_unit(uid, name=name, props=props, location=location)
+    mock.register_unit(uid, name=name, props=props, location=location,
+                        is_creature=True)
     mock.set_unit_position(uid, 50)
     agent = CreatureAgent(uid, schedule=schedule)
     agent.BATTLE_BEHAVIOR = {
