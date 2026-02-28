@@ -59,6 +59,7 @@ class BaseAgent:
 
     # (보관소는 storage:{category} prop 기반 동적 탐색 — resolve_storage_container)
 
+    _is_creature = False             # CreatureAgent에서 True로 오버라이드
     _action_duration_overrides = {}  # 서브클래스에서 오버라이드 가능
 
     def __getattr__(self, name):
@@ -2539,41 +2540,79 @@ class BaseAgent:
         """
         if "location_id" in entry:
             # 고정 장소 모드
-            return {
+            result = {
                 "region_id": entry.get("region_id", self._get_home_region()),
                 "location_id": entry["location_id"],
                 "x": entry.get("x", 0),
             }
+            # # DEBUG
+            # npc_name = self.get_info().get("name", self.unit_id)
+            # print(f"[DEBUG _resolve_target] {npc_name}: 고정 → "
+            #       f"R{result['region_id']}:L{result['location_id']} "
+            #       f"activity={entry.get('activity')} "
+            #       f"entry_region={entry.get('region_id', 'NONE')}")
+            return result
 
         # 동적 탐색 (캐시)
         if self._activity_target is None:
+            home = self._get_home_region()
             from think.activity_resolver import resolve_activity_location
             self._activity_target = resolve_activity_location(
-                self.unit_id, entry.get("activity"), self._get_home_region()
+                self.unit_id, entry.get("activity"), home
             )
+            # # DEBUG
+            # npc_name = self.get_info().get("name", self.unit_id)
+            # print(f"[DEBUG _resolve_target] {npc_name}: 동적 → "
+            #       f"{self._activity_target} "
+            #       f"activity={entry.get('activity')} home_region={home}")
         return self._activity_target
 
     _home_region_id = None  # lazy cache (bed_owner prop 기반)
 
     def _get_home_region(self):
-        """NPC의 홈 region (전투:홈리전 > bed_owner > 현재 위치)"""
+        """NPC의 홈 region — 캐릭터/크리처 분기
+
+        캐릭터 (_is_creature=False):
+            bed_owner:{owner} prop → 침대의 region_id
+            침대 없으면 RuntimeError (설정 버그)
+
+        크리처 (_is_creature=True):
+            전투:홈리전 prop → 해당 region_id
+            NOTE: get_unit_prop()은 prop 미존재 시 0 반환 (None 아님).
+                  전투:홈리전=0은 R0 소속으로 유효.
+            fallback: 현재 위치의 region_id
+        """
         if self._home_region_id is not None:
             return self._home_region_id
-        # 1. 전투:홈리전 prop (몬스터용)
-        combat_home = morld.get_unit_prop(self.unit_id, "전투:홈리전")
-        if combat_home is not None:
-            self._home_region_id = int(combat_home)
+        npc_name = self.get_info().get("name", self.unit_id)
+
+        if self._is_creature:
+            # 크리처: 전투:홈리전 prop (spawner가 설정)
+            # get_unit_prop()은 prop 없으면 0 반환 → R0 소속으로 유효
+            combat_home = morld.get_unit_prop(self.unit_id, "전투:홈리전")
+            if combat_home is not None:
+                self._home_region_id = int(combat_home)
+                return self._home_region_id
+            # fallback: 현재 위치
+            loc = self.get_location()
+            self._home_region_id = loc[0] if loc else 0
             return self._home_region_id
-        # 2. bed_owner 로직 (NPC용)
-        owner = getattr(self, 'owner_unique_id', None)
-        if owner:
+        else:
+            # 캐릭터: bed_owner prop 기반
+            owner = getattr(self, 'owner_unique_id', None)
+            if not owner:
+                raise RuntimeError(
+                    f"[_get_home_region] {npc_name}: "
+                    f"캐릭터인데 owner_unique_id가 없음")
             from think.facility_resolver import _find_facilities_by_prop
             beds = _find_facilities_by_prop(f"bed_owner:{owner}", 1)
             if beds:
                 self._home_region_id = beds[0]["region_id"]
                 return self._home_region_id
-        loc = self.get_location()
-        return loc[0] if loc else 0
+            raise RuntimeError(
+                f"[_get_home_region] {npc_name}: "
+                f"owner_unique_id='{owner}' 이지만 "
+                f"bed_owner:{owner} prop을 가진 침대가 없음")
 
     # 조명 3-phase 시간 경계 (밀리초)
     _EVENING_START = 1080 * 60_000   # 18:00 — 점등 시작
@@ -2714,6 +2753,12 @@ class BaseAgent:
         )
 
         if is_cross_location:
+            # # DEBUG: 이동 경로 추적
+            # npc_name = self.get_info().get("name", self.unit_id)
+            # print(f"[DEBUG _move_to] {npc_name}: "
+            #       f"R{loc[0]}:L{loc[1]} → R{target['region_id']}:L{target['location_id']} "
+            #       f"name='{name}' phase={getattr(self, '_activity_phase', '?')}")
+
             self._transit_auto_eat()
             # FSM: GateTransitState push (enter에서 prop + job + action_log 처리)
             from think.fsm import GateTransitState

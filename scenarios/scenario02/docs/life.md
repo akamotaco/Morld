@@ -543,8 +543,17 @@ NPC가 시설(욕조, 화장실, 옷장)을 사용할 때 **prop 기반 동적 �
 
 ### home_region 판정
 
-`_get_home_region()` — `bed_owner:{owner_unique_id}` prop으로 소유 침대 위치에서 region 판정.
+`_get_home_region()` — `_is_creature` 플래그로 캐릭터/크리처 분기:
+
+| 구분 | 판정 방식 | 실패 시 |
+|------|----------|---------|
+| 캐릭터 (`_is_creature=False`) | `bed_owner:{owner}` prop → 침대의 region_id | RuntimeError (설정 버그) |
+| 크리처 (`_is_creature=True`) | `전투:홈리전` prop (spawner 설정) | 현재 위치 fallback |
+
 lazy cache (`_home_region_id`)로 한 번만 탐색, 이후 캐시 사용.
+
+> **NOTE**: `morld.get_unit_prop()`은 prop 미존재 시 0 반환 (None 아님).
+> `전투:홈리전=0`은 R0 소속으로 유효. 캐릭터는 이 prop을 참조하지 않음.
 
 ### 목욕 시설 탐색 (`resolve_bath`)
 

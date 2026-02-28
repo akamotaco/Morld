@@ -238,14 +238,14 @@ BaseAgent를 상속하되 survival/needs 등록 없이 단순화된 5-tier think
 
 ### NPC(BaseAgent) vs 생물(CreatureAgent)
 
-| 항목 | NPC (BaseAgent) | 생물 (CreatureAgent) |
+| 항목 | NPC (`BaseAgent`, `_is_creature=False`) | 생물 (`CreatureAgent`, `_is_creature=True`) |
 |------|----------------|---------------------|
 | think() | 5-tier (기절→전투→생존→쾌적→스케줄) | 5-tier (사망→기절→전투→겁탈→스케줄) |
 | survival 등록 | O (포만감/기절) | X (HP는 전투로만 관리) |
 | needs 등록 | O (5개 욕구) | X |
 | 전투 감지 | 세력 적대 + 관계 적대 | 세력 적대 + 관계 적대 |
 | 세력 | "주민" (기본) | 종별 ("늑대"/"거미"/"박쥐") |
-| home region | bed_owner 기반 | `전투:홈리전` prop |
+| home region | `bed_owner:{owner}` 기반 (없으면 RuntimeError) | `전투:홈리전` prop (fallback: 현재 위치) |
 | 스케줄 | 시간대별 복합 활동 | 종별 패턴 (순찰/휴식/수면/복귀) |
 | 소멸 | 영구 | 수명 기반 자연 소멸 |
 | 겁탈 | — | bestiality ON + 유성 + 무력화 대상 감지 시 |

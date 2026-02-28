@@ -273,20 +273,23 @@ Gate까지 걸어가는 동안 (BaseSpeed=0.001 units/ms) NPC가 노출되어 �
 Gate Transit은 **스택 기반 FSM**(`think/fsm.py`)의 `GateTransitState`로 구현됩니다.
 `_move_to()`가 cross-location 이동을 감지하면 FSM 스택에 push하여 think() 로직을 차단합니다.
 
+직접 Gate 연결이 없는 경우 **BFS multi-hop 경로탐색**(`_find_path()`)으로 경유지를 자동 계산합니다.
+예: `R2:L5 → R2:L0` (직통 Gate 없음) → `R2:L5 → R2:L3 → R2:L0` (2-hop)
+
 ```
 _move_to() — cross-location 감지
     ↓
 FSM: GateTransitState push
-  → enter(): 상태:이동중=1, 행동 로그, move job 삽입
+  → enter(): BFS 경로 탐색, 행동 로그, 첫 hop approaching 시작
     ↓
-DES step마다 think() 호출
-  → GateTransitState.update(): 상태:이동중 체크 → True (job 보존)
+첫 hop approaching: Gate x좌표로 같은 location 내 이동 (보임)
+  → Gate 도달 → transiting: 상태:이동중=1 + cross-location move job (숨김)
     ↓
 DES step 5: 텔레포트 + 상태:이동중=0 해제
     ↓
 다음 think() 호출
-  → GateTransitState.update(): 상태:이동중=0 감지 → pop → False
-  → Life 로직(5-tier) 진행
+  → 중간 hop 있으면: 상태:이동중=1 재설정, 다음 hop 즉시 transit (숨김 유지)
+  → 최종 도착이면: pop → False → Life 로직(5-tier) 진행
 ```
 
 #### FSM 레벨 계층
@@ -302,7 +305,7 @@ GateTransitState는 LV_TRANSIT(30)이므로 어떤 상태 위에도 push 가능�
 #### `상태:이동중` Prop
 | 항목 | 설명 |
 |------|------|
-| 설정 | `GateTransitState.enter()` — FSM push 시 |
+| 설정 | `GateTransitState._start_transiting()` — 첫 hop approaching 완료 후 |
 | 해제 (DES) | C# DES step 5 — 텔레포트 완료 후 |
 | 해제 (ECS) | C# `JobBehaviorSystem.ProcessMoveAction2D()` — goalLocation 도착 시 (3곳) |
 | 해제 (안전장치) | `GateTransitState.exit()` — pop 시 잔여 prop 정리 |
@@ -344,7 +347,7 @@ transit 중 HP < 50% 또는 배고픔 시 인벤토리 음식을 자동 소비�
 2. `_process_npc_time()` — 이동 중 매 time_elapsed (survival.py)
 
 **파일:**
-- [think/fsm.py](../python/think/fsm.py) — FSMState, LifeState, GateTransitState
+- [think/fsm.py](../python/think/fsm.py) — FSMState, LifeState, GateTransitState, `_find_path()` (BFS)
 - [think/__init__.py](../python/think/__init__.py) — `_move_to()`, `_transit_auto_eat()`, FSM 스택 관리
 - [survival.py](../python/survival.py) — `_process_npc_time()` transit auto-eat
 - [unit_system.cs](../../../scripts/system/unit_system.cs) — Look/LookUnit 필터
