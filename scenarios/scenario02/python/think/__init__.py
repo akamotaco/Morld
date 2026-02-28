@@ -86,6 +86,9 @@ class BaseAgent:
         self._activity_phase = "idle"   # 활동 내 단계
         self._activity_state = {}       # 활동별 임시 데이터
         self._action_taken = False      # think() 내 행동 결정 여부 (경고용)
+        # === FSM 스택 (행동 컨텍스트 관리) ===
+        from think.fsm import LifeState
+        self._fsm_stack = [LifeState()]  # root: 생활 (항상 존재, pop 불가)
         # === 지속 기억 (활동 간 유지, 향후 세이브/로드 대상) ===
         self._memory = {
             "hunger_phase": None,   # 식사 단계 (None/idle/going_to_storage/taking_food/eating)
@@ -131,6 +134,39 @@ class BaseAgent:
             "combat_flee_target": None,   # 도주 목적지 dict (고정)
             "combat_regroup_phase": None, # 정비 단계 (None/recovering)
         }
+
+    # ========================================
+    # FSM 스택 관리
+    # ========================================
+
+    def _fsm_push(self, state):
+        """FSM 상태를 스택에 push (enter() 호출)"""
+        state.enter(self)
+        self._fsm_stack.append(state)
+
+    def _fsm_pop(self):
+        """FSM 스택 최상위 상태를 pop (exit() 호출). root(LifeState)는 보호."""
+        if len(self._fsm_stack) <= 1:
+            info = self.get_info()
+            name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
+            print(f"[FSM] ERROR: {name} — root State pop 시도 차단 (stack={self._fsm_stack})")
+            return None
+        state = self._fsm_stack.pop()
+        state.exit(self)
+        return state
+
+    def _fsm_top(self):
+        """FSM 스택 최상위 상태 반환"""
+        return self._fsm_stack[-1]
+
+    def _fsm_clear(self):
+        """FSM 오버레이 상태 전체 정리 (root LifeState 유지)"""
+        while len(self._fsm_stack) > 1:
+            self._fsm_pop()
+
+    # ========================================
+    # 스케줄 관리
+    # ========================================
 
     def set_base_schedule(self, schedule):
         """
@@ -2374,9 +2410,12 @@ class BaseAgent:
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
-        # Gate Transit: 이동중 NPC는 도착까지 행동 불가 (자동 식사는 survival.py에서 처리)
-        if morld.get_unit_prop(self.unit_id, "상태:이동중"):
-            return None
+        # FSM 스택: 최상위 State가 처리하면 하위 로직 차단
+        if self._fsm_stack:
+            top = self._fsm_stack[-1]
+            if top.update(self):
+                return None  # State가 처리 완료
+            # update() False = State가 pop됨 → 아래 Life 로직 진행
 
         # Tier -1: 운반 중 (Limbo에 있음)
         import carry
@@ -2660,9 +2699,8 @@ class BaseAgent:
         이전 step에서 이동 미완료 시에도 새 job으로 갱신되어 정상 동작.
 
         Cross-location 이동(Gate 통과) 시:
-        - NPC를 즉시 숨김 (상태:이동중=1, 절대 감지 불가)
+        - FSM: GateTransitState push (think 차단 + prop + job + 행동 로그)
         - 이동 전 긴급 식사 (인벤토리)
-        - 행동 로그로 플레이어에게 이동 알림
         """
         loc = self.get_location()
         is_cross_location = (
@@ -2672,29 +2710,32 @@ class BaseAgent:
 
         if is_cross_location:
             self._transit_auto_eat()
-            morld.set_unit_prop(self.unit_id, "상태:이동중", 1)
-            # 행동 로그: 플레이어와 같은 location일 때만 (목격)
-            player_id = morld.get_player_id()
-            player_loc = morld.get_unit_location(player_id) if player_id else None
-            if player_loc and player_loc[0] == loc[0] and player_loc[1] == loc[1]:
-                dest_info = morld.get_location_info(target["region_id"], target["location_id"])
-                dest_name = dest_info["name"] if dest_info else "알 수 없는 곳"
-                my_name = self.get_info()["name"]
-                morld.add_action_log(f"{my_name}이(가) {dest_name}(으)로 이동을 시작했다.")
+            # FSM: GateTransitState push (enter에서 prop + job + action_log 처리)
+            from think.fsm import GateTransitState
+            self._fsm_push(GateTransitState(target, name))
+            # _action_taken은 enter()에서 설정됨
+        else:
+            # 동일 location 이동: 기존 move job 있으면 보존 (매 step 리셋 방지)
+            # NOTE: 상위 tier 인터럽트로 목적지가 바뀔 경우, 기존 job의 목적지가
+            #       다를 수 있음. 전투 등은 별도 State에서 처리 예정.
+            job = morld.get_current_job(self.unit_id)
+            if job and job.get("action") == "move":
+                self._action_taken = True
+                return
 
-        target_x = target.get("x", 0)
-        length = int(target.get("length", 0))
-        if length > 0 and target_x == 0:
-            target_x = random.randint(0, length)
-        morld.insert_job(self.unit_id, {
-            "name": name,
-            "action": "move",
-            "region_id": target["region_id"],
-            "location_id": target["location_id"],
-            "target_x": target_x,
-            "duration": 0,
-        })
-        self._action_taken = True
+            target_x = target.get("x", 0)
+            length = int(target.get("length", 0))
+            if length > 0 and target_x == 0:
+                target_x = random.randint(0, length)
+            morld.insert_job(self.unit_id, {
+                "name": name,
+                "action": "move",
+                "region_id": target["region_id"],
+                "location_id": target["location_id"],
+                "target_x": target_x,
+                "duration": 0,
+            })
+            self._action_taken = True
 
     def _get_display_name(self, entry):
         """스케줄 항목의 표시용 이름 (동적 활동 포함)"""
@@ -3403,6 +3444,8 @@ def clear_all():
 
 def clear_agents():
     """모든 Agent 제거 (챕터 전환용 alias)"""
+    for agent in _agents.values():
+        agent._fsm_clear()
     _agents.clear()
     print("[think] All agents cleared.")
 

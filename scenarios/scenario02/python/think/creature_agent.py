@@ -35,6 +35,13 @@ class CreatureAgent(BaseAgent):
         """생물 행동 결정 (5-tier)"""
         self._action_taken = False
 
+        # FSM 스택: 최상위 State가 처리하면 하위 로직 차단
+        if self._fsm_stack:
+            top = self._fsm_stack[-1]
+            if top.update(self):
+                return
+            # update() False = State가 pop됨 → 아래 로직 진행
+
         # Tier 0: 운반 중
         if carry.is_being_carried(self.unit_id):
             self._insert_idle_job("운반 중", 60_000)
