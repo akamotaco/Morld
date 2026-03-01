@@ -56,6 +56,10 @@ _exhausted_npcs = {}
 _player_fainted = False          # 현재 기절 중
 _player_faint_pending = False    # 기절 다이얼로그 대기
 
+# 플레이어 탈진 상태
+_player_exhausted = False           # 현재 탈진 중
+_player_exhausted_remaining = 0.0   # 남은 탈진 시간 (시간)
+
 # 시간 상수 (밀리초)
 MILLIS_PER_HOUR = 3_600_000
 
@@ -306,6 +310,44 @@ def is_player_fainted() -> bool:
     return _player_fainted
 
 
+def is_player_exhausted() -> bool:
+    """플레이어가 현재 탈진 중인지"""
+    return _player_exhausted
+
+
+def _enter_player_exhaustion():
+    """플레이어 탈진 상태 진입 (HP 임계치 또는 외부 호출)"""
+    global _player_exhausted, _player_exhausted_remaining
+    if _player_exhausted or _player_fainted:
+        return
+    _player_exhausted = True
+    _player_exhausted_remaining = float(EXHAUSTION_DURATION_HOURS)
+    player_id = morld.get_player_id()
+    if player_id is not None:
+        morld.set_unit_prop(player_id, "상태:탈진", 1)
+        morld.set_unit_prop(player_id, "status:stealth", 0)  # 은신 해제
+    print(f"[survival] Player exhausted! ({EXHAUSTION_DURATION_HOURS}h)")
+
+
+def _exit_player_exhaustion():
+    """플레이어 탈진 상태 해제"""
+    global _player_exhausted, _player_exhausted_remaining
+    _player_exhausted = False
+    _player_exhausted_remaining = 0.0
+    player_id = morld.get_player_id()
+    if player_id is not None:
+        morld.set_unit_prop(player_id, "상태:탈진", 0)
+    print(f"[survival] Player recovered from exhaustion")
+
+
+def _process_player_exhaustion(hours: int):
+    """탈진 카운트다운 — 시간 만료 시 자동 해제"""
+    global _player_exhausted_remaining
+    _player_exhausted_remaining -= hours
+    if _player_exhausted_remaining <= 0:
+        _exit_player_exhaustion()
+
+
 def handle_player_faint():
     """플레이어 기절 다이얼로그 시퀀스 (generator)"""
     global _player_fainted, _player_faint_pending
@@ -328,6 +370,9 @@ def handle_player_faint():
     max_health = morld.get_unit_prop(player_id, "생존:최대체력") or 100
     set_health(player_id, int(max_health * FAINT_RECOVERY_RATIO))
     set_satiety(player_id, 0)
+    # 탈진 중이었다면 함께 해제 (8시간 기절로 충분히 쉰 것으로 간주)
+    if _player_exhausted:
+        _exit_player_exhaustion()
 
     # 수간 피해 체크 (기절 중 creature 겁탈)
     bestiality_damage = morld.get_unit_prop(player_id, "상태:수간피해")
@@ -453,6 +498,11 @@ def process_time_elapsed(unit_id: int, millis: int):
     hours_to_process = _accumulated_millis // MILLIS_PER_HOUR
     _accumulated_millis = _accumulated_millis % MILLIS_PER_HOUR
 
+    # 탈진 중이면 카운트다운만 처리
+    if _player_exhausted:
+        _process_player_exhaustion(hours_to_process)
+        return
+
     satiety = stats["satiety"]
 
     # 1. 포만감 감소 (시간에 비례)
@@ -472,10 +522,12 @@ def process_time_elapsed(unit_id: int, millis: int):
         health_loss = int(HEALTH_DECAY_RATE * hours_to_process)
         if health_loss > 0:
             add_health(unit_id, -health_loss)
-            # 체력 0 이하면 기절
+            # 체력 0 이하면 기절, 임계치 이하면 탈진
             health = morld.get_unit_prop(unit_id, "생존:체력") or 0
             if health <= 0:
                 _enter_player_faint()
+            elif health <= EXHAUSTION_HP_THRESHOLD:
+                _enter_player_exhaustion()
 
 
 def get_status_message(unit_id: int) -> str:
@@ -574,6 +626,7 @@ def get_status_bar(unit_id: int) -> str:
 def reset():
     """챕터 전환 시 리셋"""
     global _accumulated_millis, _player_fainted, _player_faint_pending
+    global _player_exhausted, _player_exhausted_remaining
     _fainted_npcs.clear()
     _exhausted_npcs.clear()
     _npc_registry.clear()
@@ -581,6 +634,8 @@ def reset():
     _accumulated_millis = 0
     _player_fainted = False
     _player_faint_pending = False
+    _player_exhausted = False
+    _player_exhausted_remaining = 0.0
 
 
 # ========================================

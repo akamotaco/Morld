@@ -174,6 +174,29 @@ props = {
 - 기절과 탈진은 배타적 (기절이 우선)
 - 결박 상태에서 행동불능이면 탈출 시도 없이 대기 (해제 후 재개)
 
+### 플레이어 탈진 (Player Exhaustion)
+
+플레이어는 NPC와 동일한 HP 임계치(≤ 10)에서 탈진 상태에 진입한다.
+
+**진입 조건**: HP ≤ `EXHAUSTION_HP_THRESHOLD` (10), 기절 중이 아닌 경우
+
+**탈진 중 제한** (UI `상태:탈진` prop 기반):
+
+| 행동 | 상태 |
+|------|------|
+| 이동 | Grey out (불가) |
+| 자세 변경 (웅크리기/일어서기) | Grey out (불가) |
+| 인벤토리 / 퀘스트 | Grey out (불가) |
+| 은신 | 진입 시 즉시 해제 |
+| 대화 / 설정 | 정상 |
+| 시간 보내기 | 정상 (쉬며 회복 대기) |
+
+**회복 경로**:
+- 4시간 경과 → 자동 해제 (`상태:탈진=0` + prop clear)
+- 기절(HP=0)로 전환 → 8시간 기절 후 함께 해제 (기절로 충분히 쉰 것으로 간주)
+
+**챕터 전환**: `상태:탈진` prop은 persistence skip list에 포함 — 탈진 중 챕터 전환 후 영구 잠금 방지
+
 ### Python API
 
 ```python
@@ -188,16 +211,20 @@ survival.add_health(unit_id, -10)
 bar = survival.get_status_bar(unit_id)
 # "체력: [color=lime]████████░░[/color] 80  포만감: ..."
 
-# 상태 조회
+# NPC 상태 조회
 survival.is_npc_fainted(unit_id)        # 기절 여부
 survival.is_npc_exhausted(unit_id)      # 탈진 여부
 survival.is_npc_sleeping(unit_id)       # 수면 여부 (activity 기반)
 survival.is_npc_conscious(unit_id)      # 의식 유무 (기절/수면=False, 탈진=True)
 survival.is_npc_incapacitated(unit_id)  # 행동불능 (기절 OR 탈진)
 
-# 탈진 외부 제어
+# NPC 탈진 외부 제어
 survival.set_exhaustion(npc_id, duration_hours=4)  # 수동 탈진 진입
 survival.clear_exhaustion(npc_id)                   # 수동 탈진 해제
+
+# 플레이어 상태 조회
+survival.is_player_fainted()    # 기절 여부
+survival.is_player_exhausted()  # 탈진 여부
 
 # DES 연동
 survival.get_faint_remaining_millis(npc_id)       # 기절 남은 시간 (ms)

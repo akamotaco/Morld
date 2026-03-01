@@ -461,7 +461,12 @@ def get_footer():
         return ""
 
     lines = []
-    lines.append("[url=inventory]인벤토리[/url]  [url=quest]퀘스트[/url]  [url=settings]설정[/url]")
+    player_id = morld.get_player_id()
+    _exhausted = player_id is not None and morld.get_unit_prop(player_id, "상태:탈진")
+    if _exhausted:
+        lines.append("[color=gray]인벤토리  퀘스트[/color]  [url=settings]설정[/url]")
+    else:
+        lines.append("[url=inventory]인벤토리[/url]  [url=quest]퀘스트[/url]  [url=settings]설정[/url]")
 
     status_text = get_status_text()
     if status_text:
@@ -795,6 +800,10 @@ def _get_posture_text() -> str:
         # 알 수 없는 자세 (fallback)
         return f"[color=gray]자세: {posture}[/color]"
 
+    # 탈진 중 자세 변경 불가
+    if morld.get_unit_prop(player_id, "상태:탈진"):
+        return "[color=gray][자세 변경 불가][/color]"
+
     # 이동 불가 자세 (앉기/눕기)
     if not info["can_move"]:
         return f"[color=yellow]자세: {info['name']} (이동 불가)[/color]"
@@ -867,6 +876,9 @@ def _render_movement(info: dict) -> list:
     if player_id is not None:
         props = morld.get_actual_props(player_id)
         hiding = props.get("hiding", 0) >= 1
+        # 탈진 중 이동 불가
+        if props.get("상태:탈진", 0):
+            seated = True
 
     # 표시할 경로 필터링 (is_hidden 제외) 및 gate_x 순 정렬
     routes = [r for r in info["routes"] if not r["is_hidden"]]

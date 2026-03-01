@@ -352,12 +352,14 @@ def restore_player_data(data):
         restored_count = 0
         skipped_props = []
         for prop_name, value in data["props"].items():
-            # posture:*, seated_on:*, status:stealth props는 복원하지 않음
+            # posture:*, seated_on:*, status:stealth, 상태:탈진 props는 복원하지 않음
             # - posture/seated_on: 이전 챕터의 오브젝트 ID가 새 챕터에서 유효하지 않을 수 있음
             # - status:stealth: 챕터 전환 시 은신 상태 초기화
+            # - 상태:탈진: survival.reset()이 내부 상태를 초기화하므로 prop도 초기화
             if (prop_name.startswith("posture:") or
                 prop_name.startswith("seated_on:") or
-                prop_name == "status:stealth"):
+                prop_name == "status:stealth" or
+                prop_name == "상태:탈진"):
                 skipped_props.append(prop_name)
                 continue
             morld.set_unit_prop(player_id, prop_name, value)
