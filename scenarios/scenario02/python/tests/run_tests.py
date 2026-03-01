@@ -63,6 +63,8 @@ def run_test_module(module_name, verbose=False):
             full_name = f"{cls_name}.{method_name}"
             try:
                 instance = cls()
+                if hasattr(instance, 'setUp'):
+                    instance.setUp()
                 getattr(instance, method_name)()
                 passed += 1
                 if verbose:
@@ -99,6 +101,9 @@ def main():
         "test_aftermath",
         "test_positive_memory",
         "test_semen",
+        "test_combat",
+        "test_creature",
+        "test_build",
         "test_fsm",
     ]
 

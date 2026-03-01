@@ -11,17 +11,13 @@
 import sys
 import os
 import types
-import pytest
 
 # ========================================
 # 1. Mock morld 주입
 # ========================================
 
 sys.path.insert(0, os.path.dirname(__file__))
-from mock_morld import MockMorld
-
-mock = MockMorld()
-sys.modules["morld"] = mock
+import morld as mock
 
 # ========================================
 # 2. Stub 모듈 구성
@@ -161,6 +157,11 @@ def _reset_all():
     _next_item_id[0] = 100
 
 
+class _T:
+    def __init__(self):
+        _reset_all()
+
+
 def _setup_builder(unit_id=10, name="세라", region_id=0, location_id=5):
     """건축자 유닛 등록"""
     mock.register_unit(unit_id, name=name, location=(region_id, location_id))
@@ -198,11 +199,8 @@ def _give_materials(unit_id, materials):
 # ========================================
 
 
-class TestRecipe:
+class TestRecipe(_T):
     """레시피 등록/조회 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def test_register_and_get(self):
         recipe = _make_recipe()
@@ -230,11 +228,8 @@ class TestRecipe:
         assert len(saw_recipes) == 1
 
 
-class TestBuildObject:
+class TestBuildObject(_T):
     """오브젝트 건축 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def test_success(self):
         uid = _setup_builder()
@@ -276,11 +271,8 @@ class TestBuildObject:
         assert owner == "세라"
 
 
-class TestBuildLocationFrame:
+class TestBuildLocationFrame(_T):
     """방 건설 (뼈대) 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def test_creates_location_and_gates(self):
         uid = _setup_builder()
@@ -359,11 +351,8 @@ class TestBuildLocationFrame:
         assert new_id == 2
 
 
-class TestBuildLocationProgress:
+class TestBuildLocationProgress(_T):
     """방 건설 (진척도) 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def _setup_site(self, progress=0, progress_per_build=25):
         """건설현장 세팅"""
@@ -434,11 +423,8 @@ class TestBuildLocationProgress:
         assert mock.get_unit_prop(site_id, "건설:진척도") == 0
 
 
-class TestExpandLocation:
+class TestExpandLocation(_T):
     """방 확장 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def test_success(self):
         uid = _setup_builder()
@@ -465,11 +451,8 @@ class TestExpandLocation:
         assert "재료 부족" in msg
 
 
-class TestDestroyObject:
+class TestDestroyObject(_T):
     """오브젝트 파괴 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def _setup_object(self, owner_name="세라"):
         """파괴 대상 오브젝트 세팅"""
@@ -523,11 +506,8 @@ class TestDestroyObject:
         assert obj_id not in _location_objects.get((0, 5), [])
 
 
-class TestDestroyLocation:
+class TestDestroyLocation(_T):
     """방 파괴 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def _setup_room(self):
         """파괴 대상 방 세팅 (gate 1개, 유닛 없음)"""
@@ -596,11 +576,8 @@ class TestDestroyLocation:
         assert "밖" in msg or "안" in msg
 
 
-class TestHelpers:
+class TestHelpers(_T):
     """헬퍼 함수 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def test_get_construction_progress(self):
         site_id = 500
@@ -620,11 +597,8 @@ class TestHelpers:
         assert build.is_construction_complete(site_id) is True
 
 
-class TestReset:
+class TestReset(_T):
     """챕터 전환 리셋 테스트"""
-
-    def setup_method(self):
-        _reset_all()
 
     def test_clears_recipes(self):
         recipe = _make_recipe()

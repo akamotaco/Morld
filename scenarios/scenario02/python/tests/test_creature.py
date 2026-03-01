@@ -8,50 +8,43 @@
 import sys
 import os
 import types
-import pytest
 
 # ========================================
 # 1. Mock morld 주입
 # ========================================
 
 sys.path.insert(0, os.path.dirname(__file__))
-from mock_morld import MockMorld
-
-mock = MockMorld()
-sys.modules["morld"] = mock
+import morld as mock
 
 # MockMorld에 없는 API 추가
-if not hasattr(mock, 'get_actual_props'):
-    def _get_actual_props(unit_id):
-        u = mock._units.get(unit_id)
-        if not u:
-            return {}
-        result = dict(u["props"])
-        for item_id in u.get("equipped", []):
-            item = mock._items.get(item_id)
-            if item:
-                for k, v in item.get("equip_props", {}).items():
-                    result[k] = result.get(k, 0) + v
-        return result
-    mock.get_actual_props = _get_actual_props
+def _get_actual_props(unit_id):
+    u = mock._units.get(unit_id)
+    if not u:
+        return {}
+    result = dict(u["props"])
+    for item_id in u.get("equipped", []):
+        item = mock._items.get(item_id)
+        if item:
+            for k, v in item.get("equip_props", {}).items():
+                result[k] = result.get(k, 0) + v
+    return result
 
-if not hasattr(mock, 'get_current_time'):
-    def _get_current_time():
-        return mock._time
-    mock.get_current_time = _get_current_time
+def _get_current_time():
+    return mock._time
 
-if not hasattr(mock, 'set_unit'):
-    def _set_unit(unit_id, key, value):
-        u = mock._units.get(unit_id)
-        if u:
-            u["info"][key] = value
-    mock.set_unit = _set_unit
+def _set_unit(unit_id, key, value):
+    u = mock._units.get(unit_id)
+    if u:
+        u["info"][key] = value
 
-if not hasattr(mock, 'get_inventory'):
-    def _get_inventory(unit_id):
-        u = mock._units.get(unit_id)
-        return dict(u["inventory"]) if u else {}
-    mock.get_inventory = _get_inventory
+def _get_inventory(unit_id):
+    u = mock._units.get(unit_id)
+    return dict(u["inventory"]) if u else {}
+
+mock.get_actual_props = _get_actual_props
+mock.get_current_time = _get_current_time
+mock.set_unit = _set_unit
+mock.get_inventory = _get_inventory
 
 # ========================================
 # 2. Stub 모듈 구성
@@ -286,14 +279,14 @@ class _TestableBaseAgent:
             return False
 
         units = mock.get_units_at_location(my_loc[0], my_loc[1])
-        my_faction = mock.get_unit_prop(self.unit_id, "전투:세력")
+        my_faction = mock.get_unit_prop(self.unit_id, "세력")
 
         for uid in units:
             if uid == self.unit_id:
                 continue
             if mock.get_unit_prop(uid, "상태:사망"):
                 continue
-            their_faction = mock.get_unit_prop(uid, "전투:세력")
+            their_faction = mock.get_unit_prop(uid, "세력")
             if combat.is_faction_hostile(my_faction, their_faction):
                 from think.fsm import CombatState
                 self._fsm_push(CombatState(uid))
@@ -323,24 +316,18 @@ from think.creature_agent import CreatureAgent
 
 
 # ========================================
-# Fixtures
+# setUp
 # ========================================
 
-@pytest.fixture(autouse=True)
-def setup():
+def _setup():
     """각 테스트 전 상태 초기화"""
     mock.reset()
-    if not hasattr(mock, 'get_actual_props'):
-        mock.get_actual_props = _get_actual_props
-    if not hasattr(mock, 'get_current_time'):
-        mock.get_current_time = _get_current_time
-    if not hasattr(mock, 'set_unit'):
-        mock.set_unit = _set_unit
-    if not hasattr(mock, 'get_inventory'):
-        mock.get_inventory = _get_inventory
+    mock.get_actual_props = _get_actual_props
+    mock.get_current_time = _get_current_time
+    mock.set_unit = _set_unit
+    mock.get_inventory = _get_inventory
     combat.reset()
-    # 세력 데이터 재등록 (reset이 FACTION_RELATIONS를 clear하므로)
-    combat.set_default_faction("주민")
+    # 세력 데이터 재등록 (reset이 GLOBAL_FACTION_RELATIONS를 clear하므로)
     for _cf in ("늑대", "거미", "박쥐", "야생", "유적", "기생"):
         combat.register_faction_relation(_cf, "주민", -1)
     combat.register_faction_relation("늑대", "거미", -1)
@@ -348,7 +335,11 @@ def setup():
     survival_mod._faint_end = {}
     think_mod._agents.clear()
     spawner.reset()
-    yield
+
+
+class _T:
+    def __init__(self):
+        _setup()
 
 
 # ========================================
@@ -365,11 +356,11 @@ WOLF_SCHEDULE = [
 ]
 
 
-def make_creature(uid, name="늑대", faction="늑대", hp=40,
+def make_creature(uid, name="늑대", faction="야생 동물", hp=40,
                   location=(3, 4), schedule=None, detect_range=120):
     """테스트용 생물 유닛 생성"""
     props = {
-        "전투:세력": faction,
+        "세력": faction,
         "생존:체력": hp,
         "생존:최대체력": hp,
         "전투:공격력": 8,
@@ -407,7 +398,7 @@ def make_npc(uid, name="NPC", faction=None, hp=100, location=(3, 4)):
         "전투:공격속도": 1.0,
     }
     if faction:
-        props["전투:세력"] = faction
+        props["세력"] = faction
     mock.register_unit(uid, name=name, props=props, location=location)
     mock.set_unit_position(uid, 100)
 
@@ -416,7 +407,7 @@ def make_npc(uid, name="NPC", faction=None, hp=100, location=(3, 4)):
 # Tests: 세력 시스템 (combat.py)
 # ========================================
 
-class TestFactionHostility:
+class TestFactionHostility(_T):
     """is_faction_hostile() 양방향 적대 판정"""
 
     def test_same_faction_not_hostile(self):
@@ -447,10 +438,10 @@ class TestFactionHostility:
         """박쥐 vs 거미 — 비적대"""
         assert combat.is_faction_hostile("박쥐", "거미") is False
 
-    def test_none_faction_defaults_to_citizen(self):
-        """세력 미설정(None) → '주민'으로 취급"""
-        assert combat.is_faction_hostile(None, "늑대") is True
-        assert combat.is_faction_hostile("늑대", None) is True
+    def test_none_faction_defaults_to_neutral(self):
+        """세력 미설정(None) → 중립 (적대 아님)"""
+        assert combat.is_faction_hostile(None, "늑대") is False
+        assert combat.is_faction_hostile("늑대", None) is False
         assert combat.is_faction_hostile(None, None) is False
 
     def test_unknown_faction(self):
@@ -475,7 +466,7 @@ class TestFactionHostility:
         assert combat.is_faction_friendly("박쥐", "늑대") is False
 
 
-class TestIsCreatureUnit:
+class TestIsCreatureUnit(_T):
     """is_creature_unit() — 세력 기반 생물 판별"""
 
     def test_wolf_is_creature(self):
@@ -500,7 +491,7 @@ class TestIsCreatureUnit:
 # Tests: CreatureAgent think() 4-tier
 # ========================================
 
-class TestCreatureAgentThink:
+class TestCreatureAgentThink(_T):
     """CreatureAgent.think() 계층 우선순위"""
 
     def test_tier0_carried(self):
@@ -539,7 +530,7 @@ class TestCreatureAgentThink:
         """Tier 3: 같은 location에 적대 세력 → 전투 개시"""
         agent = make_creature(10, faction="늑대", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, location=(3, 4))  # 주민 (늑대와 적대)
+        make_npc(20, faction="주민", location=(3, 4))  # 주민 (늑대와 적대)
         mock._time = 20_000_000  # 순찰 시간대
         agent.think()
         assert any(s.state_type == "combat" for s in agent._fsm_stack)
@@ -636,7 +627,7 @@ class TestCreatureAgentThink:
 # Tests: CreatureAgent 복귀 행동
 # ========================================
 
-class TestCreatureReturn:
+class TestCreatureReturn(_T):
     """_do_return_to_lair — spawn location 복귀"""
 
     def test_return_moves_when_away(self):
@@ -671,7 +662,7 @@ class TestCreatureReturn:
 # Tests: CreatureAgent 스케줄 탐색
 # ========================================
 
-class TestCreatureScheduleEntry:
+class TestCreatureScheduleEntry(_T):
     """_get_creature_entry — 현재 시간에 맞는 스케줄 entry"""
 
     def test_finds_correct_entry(self):
@@ -736,7 +727,7 @@ class _MockMonsterClass:
     type = "creature"
     owner = None
     props = {
-        "전투:세력": "늑대",
+        "세력": "야생 동물",
         "생존:체력": 40,
         "생존:최대체력": 40,
     }
@@ -755,7 +746,7 @@ class _MockMonsterClass:
         pass
 
 
-class TestSpawnerRegister:
+class TestSpawnerRegister(_T):
     """register_spawn_source + _try_spawn"""
 
     def test_register_creates_source(self):
@@ -843,7 +834,7 @@ class TestSpawnerRegister:
 # Tests: Spawner 수명 + 시체 정리
 # ========================================
 
-class TestSpawnerLifecycle:
+class TestSpawnerLifecycle(_T):
     """수명 만료 자연 소멸 + 시체 정리"""
 
     def test_natural_despawn_at_spawn_location(self):
@@ -954,7 +945,7 @@ class TestSpawnerLifecycle:
         assert loc == (-1, -1)
 
 
-class TestSpawnerReset:
+class TestSpawnerReset(_T):
     """spawner.reset() 챕터 전환"""
 
     def test_reset_clears_all(self):
@@ -975,14 +966,14 @@ class TestSpawnerReset:
 # Tests: 세력 + 전투 감지 통합
 # ========================================
 
-class TestFactionCombatIntegration:
+class TestFactionCombatIntegration(_T):
     """_check_combat_threat가 세력 시스템을 올바르게 사용하는지"""
 
     def test_wolf_detects_citizen(self):
         """늑대가 주민을 적으로 감지"""
         agent = make_creature(10, faction="늑대", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, location=(3, 4))
+        make_npc(20, faction="주민", location=(3, 4))
         result = agent._check_combat_threat()
         assert result is True
         combat_state = next(s for s in agent._fsm_stack
@@ -1030,7 +1021,7 @@ class TestFactionCombatIntegration:
 # Tests: 우선순위 (tier 순서)
 # ========================================
 
-class TestTierPriority:
+class TestTierPriority(_T):
     """상위 tier가 하위 tier보다 우선"""
 
     def test_dead_overrides_combat(self):
@@ -1061,7 +1052,7 @@ class TestTierPriority:
         """전투 > 스케줄: 적이 있으면 수면 안 하고 전투"""
         agent = make_creature(10, faction="늑대", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, location=(3, 4))
+        make_npc(20, faction="주민", location=(3, 4))
         mock._time = 5_000_000  # 수면 시간대
         agent.think()
         # 전투가 우선 → FSM 스택에 CombatState

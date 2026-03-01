@@ -12,52 +12,45 @@
 import sys
 import os
 import types
-import pytest
 
 # ========================================
 # 1. Mock morld 주입
 # ========================================
 
 sys.path.insert(0, os.path.dirname(__file__))
-from mock_morld import MockMorld
-
-mock = MockMorld()
-sys.modules["morld"] = mock
+import morld as mock
 
 # MockMorld에 없는 API 추가
-if not hasattr(mock, 'get_actual_props'):
-    def _get_actual_props(unit_id):
-        """base props + equipped item equip_props 합산"""
-        u = mock._units.get(unit_id)
-        if not u:
-            return {}
-        result = dict(u["props"])
-        # 장비 equip_props 합산 (간략화)
-        for item_id in u.get("equipped", []):
-            item = mock._items.get(item_id)
-            if item:
-                for k, v in item.get("equip_props", {}).items():
-                    result[k] = result.get(k, 0) + v
-        return result
-    mock.get_actual_props = _get_actual_props
+def _get_actual_props(unit_id):
+    """base props + equipped item equip_props 합산"""
+    u = mock._units.get(unit_id)
+    if not u:
+        return {}
+    result = dict(u["props"])
+    # 장비 equip_props 합산 (간략화)
+    for item_id in u.get("equipped", []):
+        item = mock._items.get(item_id)
+        if item:
+            for k, v in item.get("equip_props", {}).items():
+                result[k] = result.get(k, 0) + v
+    return result
 
-if not hasattr(mock, 'get_current_time'):
-    def _get_current_time():
-        return mock._time
-    mock.get_current_time = _get_current_time
+def _get_current_time():
+    return mock._time
 
-if not hasattr(mock, 'set_unit'):
-    def _set_unit(unit_id, key, value):
-        u = mock._units.get(unit_id)
-        if u:
-            u["info"][key] = value
-    mock.set_unit = _set_unit
+def _set_unit(unit_id, key, value):
+    u = mock._units.get(unit_id)
+    if u:
+        u["info"][key] = value
 
-if not hasattr(mock, 'get_inventory'):
-    def _get_inventory(unit_id):
-        u = mock._units.get(unit_id)
-        return dict(u["inventory"]) if u else {}
-    mock.get_inventory = _get_inventory
+def _get_inventory(unit_id):
+    u = mock._units.get(unit_id)
+    return dict(u["inventory"]) if u else {}
+
+mock.get_actual_props = _get_actual_props
+mock.get_current_time = _get_current_time
+mock.set_unit = _set_unit
+mock.get_inventory = _get_inventory
 
 # ========================================
 # 2. Stub 모듈 구성
@@ -185,25 +178,23 @@ import combat
 
 
 # ========================================
-# Fixtures
+# setUp
 # ========================================
 
-@pytest.fixture(autouse=True)
-def setup():
+def _setup():
     """각 테스트 전 상태 초기화"""
     mock.reset()
-    # get_actual_props 재바인딩 (reset으로 사라지지 않게)
-    if not hasattr(mock, 'get_actual_props'):
-        mock.get_actual_props = _get_actual_props
-    if not hasattr(mock, 'get_current_time'):
-        mock.get_current_time = _get_current_time
-    if not hasattr(mock, 'set_unit'):
-        mock.set_unit = _set_unit
-    if not hasattr(mock, 'get_inventory'):
-        mock.get_inventory = _get_inventory
+    mock.get_actual_props = _get_actual_props
+    mock.get_current_time = _get_current_time
+    mock.set_unit = _set_unit
+    mock.get_inventory = _get_inventory
     combat.reset()
     survival_mod._fainted_npcs = {}
-    yield
+
+
+class _T:
+    def __init__(self):
+        _setup()
 
 
 def make_unit(uid, name="Unit", hp=100, atk=5, defense=2, accuracy=80,
@@ -229,7 +220,7 @@ def make_unit(uid, name="Unit", hp=100, atk=5, defense=2, accuracy=80,
 # Tests: 스탯 조회
 # ========================================
 
-class TestCombatStat:
+class TestCombatStat(_T):
     def test_get_combat_stat_returns_prop(self):
         make_unit(1, atk=10)
         assert combat.get_combat_stat(1, "전투:공격력") == 10
@@ -249,7 +240,7 @@ class TestCombatStat:
 # Tests: 거리
 # ========================================
 
-class TestDistance:
+class TestDistance(_T):
     def test_same_location(self):
         make_unit(1, location=(0, 0))
         make_unit(2, location=(0, 0))
@@ -281,7 +272,7 @@ class TestDistance:
 # Tests: 명중/데미지
 # ========================================
 
-class TestHitDamage:
+class TestHitDamage(_T):
     def test_hit_chance_clamp(self):
         make_unit(1, accuracy=100)
         make_unit(2, evasion=0)
@@ -311,7 +302,7 @@ class TestHitDamage:
 # Tests: 적대도
 # ========================================
 
-class TestHostility:
+class TestHostility(_T):
     def test_get_set_hostility(self):
         make_unit(1)
         combat.set_hostility(1, "player", 50)
@@ -365,7 +356,7 @@ class TestHostility:
 # Tests: 적대모드
 # ========================================
 
-class TestHostileMode:
+class TestHostileMode(_T):
     def test_toggle(self):
         mock._player_id = 1
         make_unit(1)
@@ -390,7 +381,7 @@ class TestHostileMode:
 # Tests: 공격 실행
 # ========================================
 
-class TestExecuteAttack:
+class TestExecuteAttack(_T):
     def test_out_of_range(self):
         make_unit(1, weapon_range=10, location=(0, 0))
         make_unit(2, location=(0, 0))
@@ -429,7 +420,7 @@ class TestExecuteAttack:
 # Tests: 디버프
 # ========================================
 
-class TestDebuffs:
+class TestDebuffs(_T):
     def test_apply_bleeding(self):
         make_unit(1)
         combat.apply_bleeding(1)
@@ -451,7 +442,7 @@ class TestDebuffs:
 # Tests: 시간 처리
 # ========================================
 
-class TestTimeElapsed:
+class TestTimeElapsed(_T):
     def test_hostility_decay(self):
         make_unit(1)
         mock._player_id = 99
@@ -479,7 +470,7 @@ class TestTimeElapsed:
 # Tests: 리셋
 # ========================================
 
-class TestReset:
+class TestReset(_T):
     def test_reset_clears_hostile_mode(self):
         combat.set_hostile_mode(True)
         combat.reset()
@@ -490,7 +481,7 @@ class TestReset:
 # Tests: 독 디버프
 # ========================================
 
-class TestPoison:
+class TestPoison(_T):
     def test_apply_poison(self):
         make_unit(1)
         combat.apply_poison(1)
@@ -524,7 +515,7 @@ class TestPoison:
 # Tests: 부위 부상
 # ========================================
 
-class TestBodyInjury:
+class TestBodyInjury(_T):
     def test_leg_injury_applies_movement(self):
         """다리 부상 → 이동:부상 설정"""
         make_unit(1)
@@ -595,7 +586,7 @@ class TestBodyInjury:
 # Tests: 조준 공격
 # ========================================
 
-class TestAimedAttack:
+class TestAimedAttack(_T):
     def test_aimed_attack_injury_on_hit(self):
         """조준 공격 명중 → 해당 부위 부상 확정"""
         make_unit(1, atk=100, accuracy=100, weapon_range=200, location=(0, 0))
@@ -625,7 +616,7 @@ class TestAimedAttack:
 # Tests: 엄폐 시스템
 # ========================================
 
-class TestCover:
+class TestCover(_T):
     def _make_cover_scene(self, cover_level="partial", unit_x=50, obj_x=55):
         """엄폐 테스트 씬 구성: 유닛 + 엄폐물 오브젝트"""
         make_unit(1, accuracy=80, location=(0, 0))
