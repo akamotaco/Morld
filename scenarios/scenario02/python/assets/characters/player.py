@@ -158,6 +158,10 @@ class Player(Character):
         # 퀘스트
         "can:errand": 0,  # 동적 관리 (심부름 가능한 퀘스트가 있을 때만 1)
 
+        # 세력 — 방문자: 숲속 저택/도시와 우호, 생물과 적대
+        # (세라 개인은 sera.props의 관계:방문자:세력도 = 0 override로 중립)
+        "세력": "방문자",
+
     }
     actions = ["call:rest:휴식", "call:sleep:노숙", "call:masturbate:자위#",
                "call:self_expose:옷 들추기#",

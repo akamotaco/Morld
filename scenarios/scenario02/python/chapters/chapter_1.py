@@ -19,10 +19,31 @@ def _register_scenario_data():
     garden.register_seed(5, "양배추", "seed_cabbage", "food_cabbage", 2, 1, 2, 0.40)
 
     import combat
-    combat.set_default_faction("주민")
-    for creature_faction in ("늑대", "거미", "박쥐", "야생", "유적", "기생"):
-        combat.register_faction_relation(creature_faction, "주민", -1)
-    combat.register_faction_relation("늑대", "거미", -1)
+
+    # ── 세력 구조 ──
+    # 방문자  : 플레이어
+    # 숲속 저택: 밀라, 리나, 세라 (저택 주민/경비)
+    #   └ 세라는 "숲속 저택" 소속이지만 개인 override로 방문자와 중립
+    # 도시    : 유키, 엘라 (도시 거주자)
+    # 야생 동물: 늑대, 박쥐 (야생 생물 통합)
+    # 거미    : 거미 (야생 동물과 별도 — 늑대↔거미 적대)
+    # 유적    : 유적 생물
+    # 기생    : 기생체
+
+    # 생물 세력 → 인간 세력 전체 적대 (전역)
+    _human_factions = ("방문자", "숲속 저택", "도시")
+    for _cf in ("야생 동물", "거미", "유적", "기생"):
+        for _hf in _human_factions:
+            combat.register_faction_relation(_cf, _hf, -1)
+    combat.register_faction_relation("야생 동물", "거미", -1)  # 늑대 ↔ 거미 적대
+
+    # 방문자(플레이어) ↔ NPC 세력 관계 (전역)
+    # 세라의 방문자 중립은 sera.props의 개인 override로 처리
+    combat.register_faction_relation("방문자", "숲속 저택", 1)  # 밀라/리나: 우호
+    combat.register_faction_relation("방문자", "도시", 1)       # 유키/엘라: 우호
+
+    # NPC 세력 간 관계 (전역)
+    combat.register_faction_relation("숲속 저택", "도시", 1)    # 저택 ↔ 도시: 우호
 
     import pregnancy
     pregnancy.register_child_names(

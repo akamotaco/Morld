@@ -69,7 +69,7 @@ class CombatMixin:
         enemy_id = None
         enemy_dist = float('inf')
 
-        my_faction = morld.get_unit_prop(self.unit_id, "전투:세력")
+        region_id = my_loc[0]
         detect_range = morld.get_unit_prop(self.unit_id, "전투:감지거리") or 100
 
         for uid in units:
@@ -77,17 +77,10 @@ class CombatMixin:
                 continue
             if morld.get_unit_prop(uid, "상태:사망"):
                 continue
-            their_faction = morld.get_unit_prop(uid, "전투:세력")
-            is_enemy = _combat.is_faction_hostile(my_faction, their_faction)
+            relation = _combat.get_unit_relation(self.unit_id, uid, region_id)
+            is_enemy = relation < 0
             if not is_enemy:
-                hostile_to = _combat.is_hostile_to(self.unit_id, uid)
-                uid_info = morld.get_unit_info(uid)
-                uid_name = uid_info.get("name", "?") if uid_info else "?"
-                h = _combat.get_hostility(self.unit_id, uid_name)
-                my_info = morld.get_unit_info(self.unit_id)
-                my_name = my_info.get("name", "?") if my_info else "?"
-                print(f"[DEBUG combat_threat] {my_name}(id={self.unit_id}) vs {uid_name}(id={uid}): faction_hostile=False, hostility={h}, hostile_to={hostile_to}")
-                if hostile_to:
+                if _combat.is_hostile_to(self.unit_id, uid):
                     is_enemy = True
             if is_enemy:
                 import survival as _surv

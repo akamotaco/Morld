@@ -2,7 +2,7 @@
 #
 # Monster(Character) 기본 클래스 + 구체 서브클래스
 # - type = "creature" → C# UnitType.Creature
-# - 전투:세력 — 세력(faction) 기반 적대 판별
+# - 세력 — 세력(faction) 기반 적대 판별
 # - DROP_TABLE: 스폰 시 인벤토리에 아이템 생성 (사망 후 루팅)
 # - HARVEST_TABLE: 시체에서 도구로 수확하는 소재 (props 기반)
 # - BATTLE_BEHAVIOR: think Tier 3 전투 AI 파라미터
@@ -19,7 +19,7 @@ class Monster(Character):
     owner = None
 
     props = {
-        "전투:세력": "야생",
+        "세력": "야생 동물",
         "생존:체력": 30,
         "생존:최대체력": 30,
         "전투:공격력": 5,
@@ -125,7 +125,7 @@ class Wolf(Monster):
 
     props = {
         **Monster.props,
-        "전투:세력": "늑대",
+        "세력": "야생 동물",
         "생존:체력": 40,
         "생존:최대체력": 40,
         "전투:공격력": 8,
@@ -209,7 +209,7 @@ class Bat(Monster):
 
     props = {
         **Monster.props,
-        "전투:세력": "박쥐",
+        "세력": "야생 동물",
         "생존:체력": 15,
         "생존:최대체력": 15,
         "전투:공격력": 3,
@@ -272,7 +272,7 @@ class Spider(Monster):
 
     props = {
         **Monster.props,
-        "전투:세력": "거미",
+        "세력": "거미",
         "생존:체력": 50,
         "생존:최대체력": 50,
         "전투:공격력": 6,
@@ -378,7 +378,7 @@ class Arachne(HumanoidCreature):
 
     props = {
         **HumanoidCreature.props,
-        "전투:세력": "유적",
+        "세력": "유적",
         "생존:체력": 70,
         "생존:최대체력": 70,
         "전투:공격력": 10,
@@ -449,7 +449,7 @@ class Succubus(HumanoidCreature):
 
     props = {
         **HumanoidCreature.props,
-        "전투:세력": "유적",
+        "세력": "유적",
         "생존:체력": 100,
         "생존:최대체력": 100,
         "전투:공격력": 8,
@@ -532,7 +532,7 @@ class BreastParasiteCreature(ParasiticCreature):
 
     props = {
         **ParasiticCreature.props,
-        "전투:세력": "기생",
+        "세력": "기생",
         "생존:체력": 20,
         "생존:최대체력": 20,
         "전투:공격력": 3,
@@ -578,7 +578,7 @@ class GenitalParasiteCreature(ParasiticCreature):
 
     props = {
         **ParasiticCreature.props,
-        "전투:세력": "기생",
+        "세력": "기생",
         "생존:체력": 25,
         "생존:최대체력": 25,
         "전투:공격력": 4,

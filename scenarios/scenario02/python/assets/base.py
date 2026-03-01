@@ -2508,17 +2508,15 @@ class Character(Unit):
 
         # 적대 여부 (세력 or 개인 적대도)
         import combat as _combat
-        my_faction = morld.get_unit_prop(self.instance_id, "전투:세력")
-        player_faction = morld.get_unit_prop(player_id, "전투:세력")
-        is_hostile = False
-        if my_faction:
-            is_hostile = _combat.is_faction_hostile(my_faction, player_faction)
+        loc = morld.get_unit_location(self.instance_id)
+        region_id = loc[0] if loc else None
+        relation = _combat.get_unit_relation(self.instance_id, player_id, region_id)
+        is_hostile = relation < 0
         if not is_hostile:
             is_hostile = _combat.is_hostile_to(self.instance_id, player_id)
 
         # 비우호 세력 + 플레이어 전투 태세 → 반응형 전투 태세
         if not is_hostile:
-            relation = _combat.get_faction_relation(my_faction, player_faction)
             if relation < 1:  # 중립 또는 적대 (우호 아님)
                 player_combat = morld.get_unit_prop(player_id, "can:attack")
                 if player_combat and player_combat >= 1:
@@ -4548,9 +4546,9 @@ class Character(Unit):
     def _on_player_combat_stance(self, player_id):
         """플레이어 전투 태세 반응 — 비우호 세력은 경계 로그 출력."""
         import combat as _combat
-        my_faction = morld.get_unit_prop(self.instance_id, "전투:세력")
-        player_faction = morld.get_unit_prop(player_id, "전투:세력")
-        relation = _combat.get_faction_relation(my_faction, player_faction)
+        loc = morld.get_unit_location(self.instance_id)
+        region_id = loc[0] if loc else None
+        relation = _combat.get_unit_relation(self.instance_id, player_id, region_id)
         if relation >= 1:  # 우호 → 무반응
             return None
         morld.add_action_log(f"{self.name}이(가) 경계하며 전투 태세를 취한다.")

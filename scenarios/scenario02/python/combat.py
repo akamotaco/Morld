@@ -51,48 +51,98 @@ AFFECTION_ON_NURSING = 10
 
 # ── 세력(Faction) 시스템 ──
 # 관계값: -1=적대, 0=중립, 1=우호
-# 같은 세력 → 우호(1). 정의 안 된 이종 세력 → 중립(0).
-# 시나리오 초기화 시 register_faction_relation()으로 등록
-FACTION_RELATIONS = {}
-DEFAULT_FACTION = "주민"           # 세력 미설정 시 기본값
+# 같은 세력 → 우호(1). 세력 미설정(None) → 중립(0).
+#
+# 해석 순서 (get_unit_relation):
+#   ① 두 유닛의 세력 prop("세력") 조회
+#   ② Region 테이블 → Global 테이블 → 기본값(중립) 순으로 세력 관계 조회
+#   ③ 개인 세력 override: 관계:{target_faction}:세력도
+#   ④ 개인 유닛 override: 관계:{target_unique_id}:세력도 (최우선)
+
+GLOBAL_FACTION_RELATIONS = {}   # {(faction_a, faction_b): relation}
+REGION_FACTION_RELATIONS = {}   # {region_id: {(faction_a, faction_b): relation}}
 
 
-def register_faction_relation(faction_a, faction_b, relation):
+def register_faction_relation(faction_a, faction_b, relation, region_id=None):
     """세력 관계 등록 (시나리오 초기화 시 호출)
 
     Args:
+        faction_a, faction_b: 세력 이름
         relation: -1=적대, 0=중립, 1=우호
+        region_id: 지정 시 해당 Region에만 적용, None이면 전역(global)
     """
-    FACTION_RELATIONS[(faction_a, faction_b)] = relation
+    if region_id is not None:
+        REGION_FACTION_RELATIONS.setdefault(region_id, {})[(faction_a, faction_b)] = relation
+    else:
+        GLOBAL_FACTION_RELATIONS[(faction_a, faction_b)] = relation
 
 
-def set_default_faction(faction):
-    """기본 세력 설정"""
-    global DEFAULT_FACTION
-    DEFAULT_FACTION = faction
+def get_faction_relation(faction_a, faction_b, region_id=None) -> int:
+    """세력 관계 조회: 1=우호, 0=중립, -1=적대.
+
+    해석 순서: Region 테이블 → Global 테이블 → 기본값(중립)
+    같은 세력끼리는 우호(1). 세력 미설정(None)이면 중립(0).
+    """
+    if faction_a and faction_b and faction_a == faction_b:
+        return 1  # 같은 세력 = 우호
+    # Region 우선
+    if region_id is not None:
+        region_table = REGION_FACTION_RELATIONS.get(region_id, {})
+        if faction_a and faction_b:
+            rel = region_table.get((faction_a, faction_b))
+            if rel is None:
+                rel = region_table.get((faction_b, faction_a))
+            if rel is not None:
+                return rel
+    # Global fallback
+    if faction_a and faction_b:
+        rel = GLOBAL_FACTION_RELATIONS.get((faction_a, faction_b))
+        if rel is None:
+            rel = GLOBAL_FACTION_RELATIONS.get((faction_b, faction_a))
+        if rel is not None:
+            return rel
+    return 0  # 세력 정보 없으면 중립
 
 
-def get_faction_relation(faction_a, faction_b):
-    """세력 관계: 1=우호, 0=중립, -1=적대. 같은 세력=우호."""
-    a = faction_a or DEFAULT_FACTION
-    b = faction_b or DEFAULT_FACTION
-    if a == b:
-        return 1
-    rel = FACTION_RELATIONS.get((a, b))
-    if rel is not None:
-        return rel
-    rel = FACTION_RELATIONS.get((b, a))
-    if rel is not None:
-        return rel
-    return 0
+def get_unit_relation(unit_id, target_id, region_id=None) -> int:
+    """두 유닛 간 최종 관계도 (-1/0/1).
+
+    해석 순서:
+      1. 두 유닛의 세력(세력 prop) 조회
+      2. Region → Global 세력 관계 조회 (없으면 중립)
+      3. unit의 개인 세력 override: 관계:{target_faction}:세력도
+      4. unit의 개인 유닛 override: 관계:{target_unique_id}:세력도 (최우선)
+    """
+    my_faction = morld.get_unit_prop(unit_id, "세력")
+    target_faction = morld.get_unit_prop(target_id, "세력")
+
+    # 기본 세력 관계
+    result = get_faction_relation(my_faction, target_faction, region_id)
+
+    # 개인 세력 override
+    if target_faction:
+        override = morld.get_unit_prop(unit_id, f"관계:{target_faction}:세력도")
+        if override is not None:
+            result = int(override)
+
+    # 개인 유닛 override (최우선)
+    target_info = morld.get_unit_info(target_id)
+    if target_info:
+        target_unique = target_info.get("unique_id") or ""
+        if target_unique:
+            override = morld.get_unit_prop(unit_id, f"관계:{target_unique}:세력도")
+            if override is not None:
+                return int(override)
+
+    return result
 
 
-def is_faction_hostile(faction_a, faction_b):
+def is_faction_hostile(faction_a, faction_b) -> bool:
     """두 세력이 적대 관계인지"""
     return get_faction_relation(faction_a, faction_b) < 0
 
 
-def is_faction_friendly(faction_a, faction_b):
+def is_faction_friendly(faction_a, faction_b) -> bool:
     """두 세력이 우호 관계인지"""
     return get_faction_relation(faction_a, faction_b) > 0
 
@@ -108,7 +158,6 @@ def is_creature_unit(unit_id):
 def has_enemies_at_location(unit_id, region_id, location_id):
     """해당 location에 unit_id의 적이 존재하는지"""
     import survival as _surv
-    my_faction = morld.get_unit_prop(unit_id, "전투:세력")
     units = morld.get_units_at_location(region_id, location_id)
     for uid in units:
         if uid == unit_id:
@@ -117,8 +166,7 @@ def has_enemies_at_location(unit_id, region_id, location_id):
             continue
         if _surv.is_npc_fainted(uid):
             continue
-        their_faction = morld.get_unit_prop(uid, "전투:세력")
-        if is_faction_hostile(my_faction, their_faction):
+        if get_unit_relation(unit_id, uid, region_id) < 0:
             return True
         if is_hostile_to(unit_id, uid):
             return True
@@ -1139,10 +1187,10 @@ def _on_time_elapsed(millis):
 
 def reset():
     """챕터 전환: 모듈 상태 초기화"""
-    global _hostile_mode, DEFAULT_FACTION
+    global _hostile_mode
     _hostile_mode = False
-    FACTION_RELATIONS.clear()
-    DEFAULT_FACTION = "주민"
+    GLOBAL_FACTION_RELATIONS.clear()
+    REGION_FACTION_RELATIONS.clear()
 
 
 # 모듈 로드 시 이벤트 구독 (1시간 간격)
