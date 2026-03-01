@@ -194,15 +194,20 @@ public partial class GameEngine : Node
 			if (unit == null || unit.IsObject)
 				return; // 캐릭터가 아니면 로그 생략
 
+			// TODO: NPC 로그가 너무 많으면 플레이어만 표기하도록 필터링 고려
+			//   if (unitId != _playerSystem?.PlayerId) return;
+			bool isPlayer = unitId == _playerSystem?.PlayerId;
+			string prefix = isPlayer ? "" : $"{unit.Name}이(가) ";
+
 			var itemName = itemSystem?.FindItem(evt.ItemId)?.Name ?? "아이템";
 			var countText = evt.Count > 1 ? $" x{evt.Count}" : "";
 
 			string? message = evt.Type switch
 			{
-				InventoryEventType.ItemAdded => $"{itemName}{countText}을(를) 획득했습니다",
-				InventoryEventType.ItemRemoved => $"{itemName}{countText}을(를) 잃었습니다",
-				InventoryEventType.ItemEquipped => $"{itemName}을(를) 장착했습니다",
-				InventoryEventType.ItemUnequipped => $"{itemName}을(를) 장착 해제했습니다",
+				InventoryEventType.ItemAdded => $"{prefix}{itemName}{countText}을(를) 획득했습니다",
+				InventoryEventType.ItemRemoved => $"{prefix}{itemName}{countText}을(를) 잃었습니다",
+				InventoryEventType.ItemEquipped => $"{prefix}{itemName}을(를) 장착했습니다",
+				InventoryEventType.ItemUnequipped => $"{prefix}{itemName}을(를) 장착 해제했습니다",
 				_ => null
 			};
 
