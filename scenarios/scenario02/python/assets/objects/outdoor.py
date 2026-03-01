@@ -244,3 +244,177 @@ class FishingSpot(Object):
                 self.set_fish_count(self.get_fish_count() - 1)
                 return True
         return False
+
+
+# ========================================
+# 자판기
+# ========================================
+
+class VendingMachine(Object):
+    """
+    음료 자판기 — 코인으로 음료 구매
+
+    재고 관리: props 기반 (FishingSpot 패턴)
+      "상점:재고:{unique_id}" — 각 아이템별 현재 재고
+      "상점:리젠"            — 1=리젠 ON, 0=OFF
+
+    리젠: resource_agent에 등록, 시간 경과마다 재고 보충
+    """
+    unique_id = "working_vending_machine"
+    name = "음료 자판기"
+
+    # 카탈로그: {unique_id: (표시명, 가격_코인, 최대재고)}
+    CATALOG = {
+        "drink_water":         ("생수",          3, 5),
+        "drink_canned_cola":   ("캔 콜라",       5, 4),
+        "drink_canned_coffee": ("캔 커피",       5, 4),
+        "drink_green_tea":     ("녹차",          4, 3),
+        "drink_sports":        ("스포츠 음료",   6, 3),
+        "drink_energy":        ("에너지 드링크", 8, 3),
+    }
+
+    actions = [
+        "call:look:살펴보기",
+        "call:buy:구매",
+        "call:debug_props:(디버그) 속성 보기#",
+    ]
+
+    def instantiate(self, instance_id: int, region_id: int = None, location_id: int = None):
+        super().instantiate(instance_id, region_id, location_id)
+
+        # 초기 재고 설정 (이미 설정된 경우 유지)
+        for uid, (_, _, max_stock) in self.CATALOG.items():
+            if morld.get_unit_prop(instance_id, f"상점:재고:{uid}") is None:
+                morld.set_unit_prop(instance_id, f"상점:재고:{uid}", max_stock)
+
+        # 리젠 기본값 ON
+        if morld.get_unit_prop(instance_id, "상점:리젠") is None:
+            morld.set_unit_prop(instance_id, "상점:리젠", 1)
+
+        # resource_agent에 등록
+        from think.resource_agent import register_vending_machine
+        register_vending_machine(instance_id, self.unique_id)
+
+    # ── 재고 조회/설정 ──
+
+    def get_stock(self, uid: str) -> int:
+        if not self._instantiated:
+            return 0
+        return morld.get_unit_prop(self.instance_id, f"상점:재고:{uid}") or 0
+
+    def set_stock(self, uid: str, count: int):
+        max_stock = self.CATALOG[uid][2]
+        morld.set_unit_prop(self.instance_id, f"상점:재고:{uid}",
+                            max(0, min(count, max_stock)))
+
+    def get_focus_text(self):
+        available = []
+        for uid, (name, price, _) in self.CATALOG.items():
+            if self.get_stock(uid) > 0:
+                available.append(f"{name}({price}코인)")
+        if available:
+            return f"음료 자판기. {', '.join(available)} 구매 가능."
+        return "음료 자판기. 재고가 없다."
+
+    # ── 액션 ──
+
+    def look(self):
+        """자판기 재고 목록 표시"""
+        lines = ["[음료 자판기 재고]"]
+        for uid, (name, price, _) in self.CATALOG.items():
+            stock = self.get_stock(uid)
+            if stock > 0:
+                lines.append(f"· {name} — {price}코인  (재고: {stock})")
+            else:
+                lines.append(f"· {name} — 품절")
+        yield ui.dialog(lines)
+        morld.advance_time_des(1 * 60_000)
+
+    def buy(self):
+        """음료 구매 — 코인 차감 후 아이템 지급"""
+        player_id = morld.get_player_id()
+        coins = self._get_coin_count(player_id)
+
+        lines = [f"보유 코인: {coins}개\n구매할 음료를 선택하세요.\n"]
+        for uid, (name, price, _) in self.CATALOG.items():
+            stock = self.get_stock(uid)
+            if stock <= 0:
+                lines.append(f"{name} — 품절")
+            elif coins >= price:
+                lines.append(f"[url=@ret:{uid}]{name} — {price}코인 (재고: {stock})[/url]")
+            else:
+                lines.append(f"{name} — {price}코인 (코인 부족)")
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+
+        result = yield ui.dialog("\n".join(lines), autofill="off")
+        if not result or result == "cancel":
+            return
+
+        uid = result
+        if uid not in self.CATALOG:
+            return
+
+        name, price, _ = self.CATALOG[uid]
+        stock = self.get_stock(uid)
+
+        if stock <= 0:
+            yield ui.dialog(f"{name}의 재고가 없다.")
+            return
+        if coins < price:
+            yield ui.dialog(f"코인이 부족하다. ({coins}/{price})")
+            return
+
+        # 코인 차감
+        if not self._remove_coins(player_id, price):
+            yield ui.dialog("코인 차감에 실패했다.")
+            return
+
+        # 재고 차감 + 아이템 지급
+        self.set_stock(uid, stock - 1)
+        from assets.registry import get_or_create_item_id
+        item_id = get_or_create_item_id(uid)
+        if item_id:
+            import inventory as inv_module
+            inv_module.safe_give_item(player_id, item_id, 1)
+            yield ui.dialog(f"{name}을(를) 구매했다. (코인: {coins - price}개 남음)")
+        else:
+            # 아이템 ID 없으면 코인 환불
+            self._give_coins(player_id, price)
+            yield ui.dialog("오류: 아이템을 찾을 수 없다.")
+
+        morld.advance_time_des(30_000)
+
+    # ── 코인 헬퍼 ──
+
+    def _get_coin_count(self, unit_id: int) -> int:
+        inventory = morld.get_unit_inventory(unit_id)
+        if not inventory:
+            return 0
+        total = 0
+        for item_id, count in inventory.items():
+            info = morld.get_item_info(item_id)
+            if info and info.get("unique_id") == "coin":
+                total += count
+        return total
+
+    def _remove_coins(self, unit_id: int, amount: int) -> bool:
+        inventory = morld.get_unit_inventory(unit_id)
+        if not inventory:
+            return False
+        remaining = amount
+        for item_id, count in list(inventory.items()):
+            info = morld.get_item_info(item_id)
+            if info and info.get("unique_id") == "coin":
+                take = min(count, remaining)
+                morld.remove_item(unit_id, int(item_id), take)
+                remaining -= take
+                if remaining <= 0:
+                    break
+        return remaining == 0
+
+    def _give_coins(self, unit_id: int, amount: int):
+        from assets.registry import get_or_create_item_id
+        coin_id = get_or_create_item_id("coin")
+        if coin_id:
+            import inventory as inv_module
+            inv_module.safe_give_item(unit_id, coin_id, amount)

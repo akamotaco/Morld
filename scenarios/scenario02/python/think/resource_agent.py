@@ -47,6 +47,19 @@ FISHING_SPOT_CONFIG = {
     "fishing_spot": (360 * MILLIS_PER_MINUTE, 5),  # 6시간마다, 최대 5마리
 }
 
+# === 자판기 재고 설정 (props 기반) ===
+# unique_id: {item_uid: (spawn_interval, max_stock)}
+VENDING_MACHINE_CONFIG = {
+    "working_vending_machine": {
+        "drink_water":         (360 * MILLIS_PER_MINUTE, 5),  # 6시간마다, 최대 5
+        "drink_canned_cola":   (480 * MILLIS_PER_MINUTE, 4),  # 8시간마다, 최대 4
+        "drink_canned_coffee": (480 * MILLIS_PER_MINUTE, 4),  # 8시간마다, 최대 4
+        "drink_green_tea":     (480 * MILLIS_PER_MINUTE, 3),  # 8시간마다, 최대 3
+        "drink_sports":        (600 * MILLIS_PER_MINUTE, 3),  # 10시간마다, 최대 3
+        "drink_energy":        (720 * MILLIS_PER_MINUTE, 3),  # 12시간마다, 최대 3
+    },
+}
+
 # 오브젝트별 누적 시간 (인벤토리 기반): instance_id -> accumulated_millis
 _accumulated_time = {}
 
@@ -64,6 +77,12 @@ _fishing_accumulated_time = {}
 
 # 등록된 낚시터 오브젝트: instance_id -> unique_id
 _registered_fishing_spots = {}
+
+# 자판기 재고 누적 시간: instance_id -> {item_uid: millis}
+_vending_accumulated_time = {}
+
+# 등록된 자판기 오브젝트: instance_id -> unique_id
+_registered_vending_machines = {}
 
 
 def register_resource_object(instance_id: int, unique_id: str):
@@ -146,6 +165,34 @@ def unregister_fishing_spot(instance_id: int):
         del _fishing_accumulated_time[instance_id]
 
 
+def register_vending_machine(instance_id: int, unique_id: str):
+    """
+    자판기 오브젝트 등록 (instantiate 시 호출)
+
+    Args:
+        instance_id: 자판기 인스턴스 ID
+        unique_id: 자판기 타입 (working_vending_machine 등)
+    """
+    if unique_id not in VENDING_MACHINE_CONFIG:
+        return
+
+    _ensure_subscribed()
+
+    _registered_vending_machines[instance_id] = unique_id
+    _vending_accumulated_time[instance_id] = {
+        uid: 0 for uid in VENDING_MACHINE_CONFIG[unique_id]
+    }
+    print(f"[resource_agent] Registered vending machine: {unique_id} (id={instance_id})")
+
+
+def unregister_vending_machine(instance_id: int):
+    """자판기 오브젝트 등록 해제"""
+    if instance_id in _registered_vending_machines:
+        del _registered_vending_machines[instance_id]
+    if instance_id in _vending_accumulated_time:
+        del _vending_accumulated_time[instance_id]
+
+
 def clear_all():
     """모든 등록 정보 초기화 (챕터 전환용)"""
     _registered_objects.clear()
@@ -154,6 +201,8 @@ def clear_all():
     _tree_accumulated_time.clear()
     _registered_fishing_spots.clear()
     _fishing_accumulated_time.clear()
+    _registered_vending_machines.clear()
+    _vending_accumulated_time.clear()
     print("[resource_agent] All registrations cleared.")
 
 
@@ -318,6 +367,49 @@ def _process_fishing_spawn(instance_id: int, millis: int):
             print(f"[resource_agent] Fish spawned: {unique_id} (id={instance_id})")
 
 
+def _process_vending_spawn(instance_id: int, millis: int):
+    """
+    자판기 재고 보충 처리
+
+    "상점:리젠" prop이 0이면 리젠 정지.
+    아이템별 독립 누적 시간, 최대 재고 도달 시 누적 리셋.
+    """
+    unique_id = _registered_vending_machines.get(instance_id)
+    if not unique_id:
+        return
+
+    config = VENDING_MACHINE_CONFIG.get(unique_id, {})
+
+    obj = get_instance(instance_id)
+    if obj is None:
+        return
+
+    # 리젠 ON 체크 ("상점:리젠" prop)
+    if not morld.get_unit_prop(instance_id, "상점:리젠"):
+        return
+
+    for uid, (interval, max_stock) in config.items():
+        current = obj.get_stock(uid) if hasattr(obj, 'get_stock') else 0
+
+        if current >= max_stock:
+            _vending_accumulated_time[instance_id][uid] = 0
+            continue
+
+        _vending_accumulated_time[instance_id][uid] += millis
+
+        while _vending_accumulated_time[instance_id][uid] >= interval:
+            _vending_accumulated_time[instance_id][uid] -= interval
+
+            current = obj.get_stock(uid) if hasattr(obj, 'get_stock') else 0
+            if current >= max_stock:
+                _vending_accumulated_time[instance_id][uid] = 0
+                break
+
+            if hasattr(obj, 'set_stock'):
+                obj.set_stock(uid, current + 1)
+                print(f"[resource_agent] Vending restocked: {uid} (id={instance_id})")
+
+
 def _on_time_elapsed(millis: int):
     """
     OnTimeElapsed 이벤트 핸들러
@@ -335,6 +427,10 @@ def _on_time_elapsed(millis: int):
     # props 기반 낚시터 자원 (물고기)
     for instance_id in list(_registered_fishing_spots.keys()):
         _process_fishing_spawn(instance_id, millis)
+
+    # props 기반 자판기 재고
+    for instance_id in list(_registered_vending_machines.keys()):
+        _process_vending_spawn(instance_id, millis)
 
 
 # ========================================

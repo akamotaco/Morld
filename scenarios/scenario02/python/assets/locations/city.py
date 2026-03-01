@@ -46,6 +46,12 @@ class CityEntrance(Location):
         bench.focus_text = {"default": "버스 정류장에 남은 낡은 벤치. 버스는 더 이상 오지 않는다."}
         self.add_object(bench, x=200)
 
+        # 음료 자판기 (작동 중 — 코인으로 구매)
+        from assets.objects.outdoor import VendingMachine
+        vending = VendingMachine()
+        vending.focus_text = {"default": "도로변에 세워진 낡은 음료 자판기. 전력이 살아있는지 작동 중이다."}
+        self.add_object(vending, x=150)
+
         # 도시 입구 가로수 (버려진 도시에 남은 나무)
         from assets.objects.trees import Tree
         from think.resource_agent import register_tree_object
