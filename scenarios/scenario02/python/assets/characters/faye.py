@@ -334,6 +334,9 @@ class Faye(Character):
 
     actions = [
         "call:talk:대화",
+        "call:buy_items:구매",
+        "call:sell_items:판매",
+        "call:buyback_items:재구매",
         "call:give_gift:선물하기",
         "call:romance:스킨십#",
         "call:force_romance:강제 행위#",
@@ -358,7 +361,6 @@ class Faye(Character):
     TALK_TOPICS = [
         "잡담",
         "본인에 대해",
-        "거래",
     ]
 
     # ========================================
@@ -398,10 +400,6 @@ class Faye(Character):
                 "페이.",
                 "상인이야. 그 이상은 딱히 없어.",
             ]}),
-        ],
-        "거래": [
-            ({"activity": "수면"}, {"pages": ["(자고 있다)"]}),
-            ({}, "_show_trade_menu"),
         ],
     }
 
@@ -745,7 +743,7 @@ class Faye(Character):
 
         conv.respond("what",
             "씨앗이랑... 뭐, 이것저것.",
-            "필요한 거 있으면 대화에서 '거래' 눌러봐.",
+            "필요한 거 있으면 '구매' 눌러봐.",
             "매일 아침 새 물건 들어오니까 자주 와도 돼."
         )
 
@@ -762,220 +760,188 @@ class Faye(Character):
         self.mark_first_meet_done(player_id)
 
     # ========================================
-    # 거래 UI
+    # 거래 UI (focus 직접 액션 — while 루프형)
     # ========================================
-    def _show_trade_menu(self, context):
-        """거래 메뉴 — 구매 / 판매 / 재구매 선택"""
-        result = yield ui.dialog(
-            "[페이]\n뭘 하려고?\n\n"
-            "[url=@ret:buy]구매[/url]\n"
-            "[url=@ret:sell]판매[/url]\n"
-            "[url=@ret:buyback]재구매[/url]\n"
-            "[url=@ret:]닫기[/url]",
-            autofill="off",
-        )
-        if result == "buy":
-            yield from self._show_buy_ui(context)
-        elif result == "sell":
-            yield from self._show_sell_ui(context)
-        elif result == "buyback":
-            yield from self._show_buyback_ui(context)
-
-    def _show_buy_ui(self, context):
-        """구매 UI — 페이 인벤토리 기반 아이템 판매"""
+    def buy_items(self, context):
+        """구매 UI — 닫기 전까지 반복 거래 가능"""
         player_id = morld.get_player_id()
         if not player_id:
-            yield ui.dialog("...")
             return
 
-        player_gold = morld.get_unit_prop(player_id, "소지금") or 0
+        while True:
+            player_gold = morld.get_unit_prop(player_id, "소지금") or 0
+            inventory   = morld.get_unit_inventory(self.instance_id) or {}
 
-        # 재고 확인
-        inventory = morld.get_unit_inventory(self.instance_id) or {}
-        if not inventory:
-            yield ui.dialog(f"[페이]\n...오늘 재고가 다 나갔어. 내일 다시 와.")
-            return
+            item_entries = []
+            for item_id_str, count in inventory.items():
+                item_id = int(item_id_str)
+                info = morld.get_item_info(item_id)
+                if not info:
+                    continue
+                uid   = info.get("unique_id", "")
+                name  = info.get("name", "???")
+                price = _TRADE_PRICES.get(uid, info.get("value", 10))
+                item_entries.append((item_id, uid, name, price, count))
 
-        # 아이템 목록 빌드
-        from assets.registry import get_instance
-        lines = [f"[페이]\n소지금: {player_gold}G\n"]
+            if not item_entries:
+                morld.add_action_log("페이: ...오늘 재고가 다 나갔어. 내일 다시 와.")
+                return
 
-        item_entries = []  # [(item_id, unique_id, name, price, count)]
-        for item_id_str, count in inventory.items():
-            item_id = int(item_id_str)
-            info = morld.get_item_info(item_id)
+            lines = [f"[페이]\n소지금: {player_gold}G\n"]
+            for item_id, uid, name, price, count in item_entries:
+                affordable = "★" if player_gold >= price else "  "
+                lines.append(f"{affordable}[url=@ret:{item_id}]{name}[/url] — {price}G (x{count})")
+            lines.append("\n[url=@ret:]닫기[/url]")
+
+            result = yield ui.dialog("\n".join(lines), autofill="off")
+            if not result:
+                return
+
+            selected_id = int(result)
+            info = morld.get_item_info(selected_id)
             if not info:
                 continue
-            uid = info.get("unique_id", "")
-            name = info.get("name", "???")
+
+            uid   = info.get("unique_id", "")
+            name  = info.get("name", "???")
             price = _TRADE_PRICES.get(uid, info.get("value", 10))
-            item_entries.append((item_id, uid, name, price, count))
 
-        if not item_entries:
-            yield ui.dialog(f"[페이]\n...오늘 재고가 다 나갔어. 내일 다시 와.")
-            return
+            player_gold = morld.get_unit_prop(player_id, "소지금") or 0
+            if player_gold < price:
+                morld.add_action_log(f"페이: 소지금이 부족해. {price}G 필요해.")
+                continue
 
-        for item_id, uid, name, price, count in item_entries:
-            affordable = "★" if player_gold >= price else "  "
-            lines.append(f"{affordable}[url=@ret:{item_id}]{name}[/url] — {price}G (x{count})")
+            if not morld.has_item(self.instance_id, selected_id):
+                morld.add_action_log("페이: ...방금 다 팔렸어. 내일 다시 와.")
+                continue
 
-        lines.append("\n[url=@ret:]닫기[/url]")
+            morld.set_unit_prop(player_id, "소지금", player_gold - price)
+            morld.remove_item(self.instance_id, selected_id, 1)
+            morld.give_item(player_id, selected_id, 1)
+            morld.add_action_log(f"[구매] {name} — {price}G 지불. 페이: \"...좋은 선택이네.\"")
 
-        result = yield ui.dialog("\n".join(lines), autofill="off")
-
-        if not result:
-            return
-
-        # 구매 처리
-        selected_id = int(result)
-        info = morld.get_item_info(selected_id)
-        if not info:
-            return
-
-        uid = info.get("unique_id", "")
-        name = info.get("name", "???")
-        price = _TRADE_PRICES.get(uid, info.get("value", 10))
-
-        player_gold = morld.get_unit_prop(player_id, "소지금") or 0
-        if player_gold < price:
-            yield ui.dialog(f"[페이]\n소지금이 부족해. {price}G 필요해.")
-            return
-
-        if not morld.has_item(self.instance_id, selected_id):
-            yield ui.dialog(f"[페이]\n...방금 다 팔렸어. 내일 다시 와.")
-            return
-
-        morld.set_unit_prop(player_id, "소지금", player_gold - price)
-        morld.remove_item(self.instance_id, selected_id, 1)
-        morld.give_item(player_id, selected_id, 1)
-
-        yield ui.dialog(f"[페이]\n{name} 1개, {price}G야.\n...좋은 선택이네.")
-
-    def _show_sell_ui(self, context):
-        """판매 UI — 플레이어 인벤토리 아이템을 페이에게 판매"""
+    def sell_items(self, context):
+        """판매 UI — 닫기 전까지 반복 거래 가능"""
         player_id = morld.get_player_id()
         if not player_id:
-            yield ui.dialog("...")
             return
 
-        player_gold = morld.get_unit_prop(player_id, "소지금") or 0
-        inventory   = morld.get_unit_inventory(player_id) or {}
+        while True:
+            player_gold = morld.get_unit_prop(player_id, "소지금") or 0
+            inventory   = morld.get_unit_inventory(player_id) or {}
 
-        sellable = []
-        for item_id_str, count in inventory.items():
-            item_id = int(item_id_str)
-            info = morld.get_item_info(item_id)
-            if not info:
+            sellable = []
+            for item_id_str, count in inventory.items():
+                item_id = int(item_id_str)
+                info = morld.get_item_info(item_id)
+                if not info:
+                    continue
+                uid = info.get("unique_id", "")
+                if uid in _TRADE_STOCK_IDS:
+                    continue  # 페이 재고 아이템은 판매 불가
+                name       = info.get("name", "???")
+                base_price = _TRADE_PRICES.get(uid, info.get("value", 10) or 10)
+                sell_price = max(1, int(base_price * _BUYBACK_SELL_RATIO))
+                sellable.append((item_id, uid, name, sell_price, count))
+
+            if not sellable:
+                morld.add_action_log("페이: ...팔 물건이 없는 것 같은데.")
+                return
+
+            lines = [f"[페이]\n소지금: {player_gold}G\n"]
+            for item_id, uid, name, sell_price, count in sellable:
+                lines.append(f"[url=@ret:{item_id}]{name}[/url] — {sell_price}G (x{count})")
+            lines.append("\n[url=@ret:]닫기[/url]")
+
+            result = yield ui.dialog("\n".join(lines), autofill="off")
+            if not result:
+                return
+
+            selected_id = int(result)
+            info = morld.get_item_info(selected_id)
+            if not info or not morld.has_item(player_id, selected_id):
                 continue
-            uid = info.get("unique_id", "")
-            if uid in _TRADE_STOCK_IDS:
-                continue  # 페이 재고 아이템은 판매 불가
+
+            uid        = info.get("unique_id", "")
             name       = info.get("name", "???")
             base_price = _TRADE_PRICES.get(uid, info.get("value", 10) or 10)
             sell_price = max(1, int(base_price * _BUYBACK_SELL_RATIO))
-            sellable.append((item_id, uid, name, sell_price, count))
 
-        if not sellable:
-            yield ui.dialog("[페이]\n...팔 물건이 없는 것 같은데.")
-            return
+            player_gold = morld.get_unit_prop(player_id, "소지금") or 0
+            morld.remove_item(player_id, selected_id, 1)
+            morld.give_item(self.instance_id, selected_id, 1)
+            morld.set_unit_prop(player_id, "소지금", player_gold + sell_price)
 
-        lines = [f"[페이]\n소지금: {player_gold}G\n"]
-        for item_id, uid, name, sell_price, count in sellable:
-            lines.append(
-                f"[url=@ret:{item_id}]{name}[/url] — {sell_price}G (x{count})"
-            )
-        lines.append("\n[url=@ret:]닫기[/url]")
+            is_quest = (morld.get_unit_prop(selected_id, "quest") or 0) > 0
+            self._add_buyback_item(selected_id, is_quest)
+            morld.add_action_log(f"[판매] {name} — {sell_price}G 수령. 페이: \"...언제든 되살 수 있어.\"")
 
-        result = yield ui.dialog("\n".join(lines), autofill="off")
-        if not result:
-            return
-
-        selected_id = int(result)
-        info = morld.get_item_info(selected_id)
-        if not info or not morld.has_item(player_id, selected_id):
-            return
-
-        uid        = info.get("unique_id", "")
-        name       = info.get("name", "???")
-        base_price = _TRADE_PRICES.get(uid, info.get("value", 10) or 10)
-        sell_price = max(1, int(base_price * _BUYBACK_SELL_RATIO))
-
-        morld.remove_item(player_id, selected_id, 1)
-        morld.give_item(self.instance_id, selected_id, 1)
-        morld.set_unit_prop(player_id, "소지금", player_gold + sell_price)
-
-        is_quest = (morld.get_unit_prop(selected_id, "quest") or 0) > 0
-        self._add_buyback_item(selected_id, is_quest)
-
-        yield ui.dialog(f"[페이]\n{name} 1개, {sell_price}G.\n...언제든 되살 수 있어.")
-
-    def _show_buyback_ui(self, context):
-        """재구매 UI — 판매한 아이템을 페이에게서 되사기"""
+    def buyback_items(self, context):
+        """재구매 UI — 닫기 전까지 반복 거래 가능"""
         player_id = morld.get_player_id()
         if not player_id:
-            yield ui.dialog("...")
             return
 
-        all_buyback = list(self._buyback_quest_ids) + list(self._buyback_queue)
-        if not all_buyback:
-            yield ui.dialog("[페이]\n...맡겨둔 물건이 없어.")
-            return
+        while True:
+            all_buyback = list(self._buyback_quest_ids) + list(self._buyback_queue)
+            if not all_buyback:
+                morld.add_action_log("페이: ...맡겨둔 물건이 없어.")
+                return
 
-        player_gold = morld.get_unit_prop(player_id, "소지금") or 0
-        lines = [f"[페이]\n소지금: {player_gold}G\n맡겨둔 물건:\n"]
-        shown = []
-        for item_id in all_buyback:
-            if not morld.has_item(self.instance_id, item_id):
+            player_gold = morld.get_unit_prop(player_id, "소지금") or 0
+            lines = [f"[페이]\n소지금: {player_gold}G\n맡겨둔 물건:\n"]
+            shown = []
+            for item_id in all_buyback:
+                if not morld.has_item(self.instance_id, item_id):
+                    continue
+                info = morld.get_item_info(item_id)
+                if not info:
+                    continue
+                uid           = info.get("unique_id", "")
+                name          = info.get("name", "???")
+                is_quest      = item_id in self._buyback_quest_ids
+                base_price    = _TRADE_PRICES.get(uid, info.get("value", 10) or 10)
+                buyback_price = max(1, int(base_price * _BUYBACK_SELL_RATIO))
+                affordable    = "★" if player_gold >= buyback_price else "  "
+                quest_tag     = "[퀘] " if is_quest else ""
+                lines.append(
+                    f"{affordable}[url=@ret:{item_id}]{quest_tag}{name}[/url]"
+                    f" — {buyback_price}G"
+                )
+                shown.append(item_id)
+
+            if not shown:
+                morld.add_action_log("페이: ...맡겨둔 물건이 없어.")
+                return
+
+            lines.append("\n[url=@ret:]닫기[/url]")
+            result = yield ui.dialog("\n".join(lines), autofill="off")
+            if not result:
+                return
+
+            selected_id = int(result)
+            info = morld.get_item_info(selected_id)
+            if not info or not morld.has_item(self.instance_id, selected_id):
                 continue
-            info = morld.get_item_info(item_id)
-            if not info:
-                continue
-            uid          = info.get("unique_id", "")
-            name         = info.get("name", "???")
-            is_quest     = item_id in self._buyback_quest_ids
-            base_price   = _TRADE_PRICES.get(uid, info.get("value", 10) or 10)
+
+            uid           = info.get("unique_id", "")
+            name          = info.get("name", "???")
+            base_price    = _TRADE_PRICES.get(uid, info.get("value", 10) or 10)
             buyback_price = max(1, int(base_price * _BUYBACK_SELL_RATIO))
-            affordable   = "★" if player_gold >= buyback_price else "  "
-            quest_tag    = "[퀘] " if is_quest else ""
-            lines.append(
-                f"{affordable}[url=@ret:{item_id}]{quest_tag}{name}[/url]"
-                f" — {buyback_price}G"
-            )
-            shown.append(item_id)
 
-        if not shown:
-            yield ui.dialog("[페이]\n...맡겨둔 물건이 없어.")
-            return
+            player_gold = morld.get_unit_prop(player_id, "소지금") or 0
+            if player_gold < buyback_price:
+                morld.add_action_log(f"페이: 소지금이 부족해. {buyback_price}G 필요해.")
+                continue
 
-        lines.append("\n[url=@ret:]닫기[/url]")
-        result = yield ui.dialog("\n".join(lines), autofill="off")
-        if not result:
-            return
+            morld.remove_item(self.instance_id, selected_id, 1)
+            morld.give_item(player_id, selected_id, 1)
+            morld.set_unit_prop(player_id, "소지금", player_gold - buyback_price)
 
-        selected_id = int(result)
-        info = morld.get_item_info(selected_id)
-        if not info or not morld.has_item(self.instance_id, selected_id):
-            return
-
-        uid          = info.get("unique_id", "")
-        name         = info.get("name", "???")
-        base_price   = _TRADE_PRICES.get(uid, info.get("value", 10) or 10)
-        buyback_price = max(1, int(base_price * _BUYBACK_SELL_RATIO))
-
-        player_gold = morld.get_unit_prop(player_id, "소지금") or 0
-        if player_gold < buyback_price:
-            yield ui.dialog(f"[페이]\n소지금이 부족해. {buyback_price}G 필요해.")
-            return
-
-        morld.remove_item(self.instance_id, selected_id, 1)
-        morld.give_item(player_id, selected_id, 1)
-        morld.set_unit_prop(player_id, "소지금", player_gold - buyback_price)
-
-        self._buyback_quest_ids.discard(selected_id)
-        if selected_id in self._buyback_queue:
-            self._buyback_queue.remove(selected_id)
-
-        yield ui.dialog(f"[페이]\n{name} 1개, {buyback_price}G야.\n...잘 쓰게.")
+            self._buyback_quest_ids.discard(selected_id)
+            if selected_id in self._buyback_queue:
+                self._buyback_queue.remove(selected_id)
+            morld.add_action_log(f"[재구매] {name} — {buyback_price}G 지불. 페이: \"...잘 쓰게.\"")
 
 
 # ========================================
