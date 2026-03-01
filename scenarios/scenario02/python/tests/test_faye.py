@@ -381,3 +381,158 @@ class TestResetTradeItems:
         count_2 = len(morld.get_unit_inventory(self.faye_id))
         assert count_1 == count_2, \
             f"두 번째 리셋 후 아이템 수 달라짐: {count_1} → {count_2}"
+
+
+# ============================================
+# _reset_trade_items (keep_item_ids 버전) 인라인 정의
+# ============================================
+
+BUYBACK_MAX_ITEMS = 10  # faye.py와 동일
+_TRADE_STOCK_IDS  = {uid for uid, _, _ in TRADE_STOCK}
+
+
+def _reset_trade_items_with_keep(unit_id, keep_item_ids=None):
+    """faye.py의 _reset_trade_items(keep_item_ids=...) 반영"""
+    max_hp = morld.get_unit_prop(unit_id, "생존:최대체력") or 100
+    morld.set_unit_prop(unit_id, "생존:체력", max_hp)
+    keep = keep_item_ids or set()
+    inv = morld.get_unit_inventory(unit_id) or {}
+    for item_id_str, count in list(inv.items()):
+        item_id = int(item_id_str)
+        if item_id not in keep:
+            morld.remove_item(unit_id, item_id, count)
+    from assets.registry import get_or_create_item_id
+    for unique_id, count, _price in TRADE_STOCK:
+        item_id = get_or_create_item_id(unique_id)
+        if item_id:
+            morld.give_item(unit_id, item_id, count)
+
+
+# ============================================
+# TestBuyback: 재구매(Buyback) 시스템 검증
+# ============================================
+
+class TestBuyback:
+    """
+    buyback 큐/퀘스트 아이템 추적, trim, 리셋 연동 검증
+    Faye/FayeAgent 직접 import 없이 동작 알고리즘만 인라인 검증
+    """
+
+    def setUp(self):
+        self.faye_id = 600
+        morld.register_unit(
+            self.faye_id,
+            name="페이",
+            props={"생존:최대체력": 80, "생존:체력": 80},
+        )
+        self._buyback_queue    = []
+        self._buyback_quest_ids = set()
+
+    def _add_item(self, item_id: int, is_quest: bool):
+        if is_quest:
+            self._buyback_quest_ids.add(item_id)
+        else:
+            self._buyback_queue.append(item_id)
+
+    def _trim(self):
+        """FayeAgent._trim_buyback 로직 인라인"""
+        while len(self._buyback_queue) > BUYBACK_MAX_ITEMS:
+            old_id = self._buyback_queue.pop(0)
+            inv = morld.get_unit_inventory(self.faye_id) or {}
+            if old_id in inv:
+                morld.remove_item(self.faye_id, old_id, 1)
+
+    # ── 큐 / quest_ids 분리 ──
+
+    def test_normal_item_goes_to_queue(self):
+        """일반 아이템 → _buyback_queue에 추가"""
+        self._add_item(1001, is_quest=False)
+        assert 1001 in self._buyback_queue
+        assert 1001 not in self._buyback_quest_ids
+
+    def test_quest_item_goes_to_quest_ids(self):
+        """퀘스트 아이템 → _buyback_quest_ids에 추가"""
+        self._add_item(2001, is_quest=True)
+        assert 2001 in self._buyback_quest_ids
+        assert 2001 not in self._buyback_queue
+
+    def test_multiple_normal_items_ordered(self):
+        """일반 아이템 FIFO 순서 유지"""
+        for i in [10, 20, 30]:
+            self._add_item(i, is_quest=False)
+        assert self._buyback_queue == [10, 20, 30]
+
+    # ── trim (한도 초과 제거) ──
+
+    def test_trim_removes_oldest_when_over_limit(self):
+        """한도(10) 초과 시 가장 오래된 아이템부터 제거"""
+        for i in range(12):
+            item_id = 3000 + i
+            morld.add_to_inventory(self.faye_id, item_id, 1)
+            self._add_item(item_id, is_quest=False)
+        self._trim()
+        assert len(self._buyback_queue) == BUYBACK_MAX_ITEMS
+        assert 3000 not in self._buyback_queue
+        assert 3001 not in self._buyback_queue
+        assert 3002 in self._buyback_queue
+
+    def test_trim_within_limit_no_change(self):
+        """한도 이하면 trim 후 큐 변화 없음"""
+        for i in range(5):
+            self._add_item(4000 + i, is_quest=False)
+        before = list(self._buyback_queue)
+        self._trim()
+        assert self._buyback_queue == before
+
+    def test_trim_does_not_affect_quest_ids(self):
+        """trim은 _buyback_quest_ids를 건드리지 않음"""
+        for i in range(12):
+            self._add_item(5000 + i, is_quest=False)
+        self._add_item(9999, is_quest=True)
+        self._trim()
+        assert 9999 in self._buyback_quest_ids
+
+    # ── _reset_trade_items + keep_item_ids 연동 ──
+
+    def test_reset_keeps_buyback_item(self):
+        """리셋 시 buyback 큐 아이템은 인벤토리 유지"""
+        buyback_id = 7001
+        morld.add_to_inventory(self.faye_id, buyback_id, 1)
+        self._add_item(buyback_id, is_quest=False)
+
+        keep_ids = set(self._buyback_quest_ids) | set(self._buyback_queue)
+        _reset_trade_items_with_keep(self.faye_id, keep_item_ids=keep_ids)
+
+        inv = morld.get_unit_inventory(self.faye_id)
+        assert buyback_id in inv, "buyback 아이템은 리셋 후에도 유지되어야 함"
+
+    def test_reset_keeps_quest_item(self):
+        """리셋 시 퀘스트 아이템은 인벤토리 유지"""
+        quest_id = 7002
+        morld.add_to_inventory(self.faye_id, quest_id, 1)
+        self._add_item(quest_id, is_quest=True)
+
+        keep_ids = set(self._buyback_quest_ids) | set(self._buyback_queue)
+        _reset_trade_items_with_keep(self.faye_id, keep_item_ids=keep_ids)
+
+        inv = morld.get_unit_inventory(self.faye_id)
+        assert quest_id in inv, "퀘스트 아이템은 리셋 후에도 유지되어야 함"
+
+    def test_reset_removes_junk_not_in_keep(self):
+        """리셋 시 keep에 없는 잡동사니는 삭제"""
+        junk_id = 7003
+        morld.add_to_inventory(self.faye_id, junk_id, 1)
+        # buyback에 추가 안 함 → keep에 없음
+
+        _reset_trade_items_with_keep(self.faye_id, keep_item_ids=set())
+
+        inv = morld.get_unit_inventory(self.faye_id)
+        assert junk_id not in inv, "잡동사니는 리셋 시 삭제되어야 함"
+
+    def test_reset_no_keep_clears_all_except_trade_stock(self):
+        """keep_item_ids=None이면 기존 아이템 전체 삭제 후 TRADE_STOCK만 지급"""
+        morld.add_to_inventory(self.faye_id, 8001, 3)
+        _reset_trade_items_with_keep(self.faye_id)
+        inv = morld.get_unit_inventory(self.faye_id)
+        assert 8001 not in inv
+        assert len(inv) == len(TRADE_STOCK)
