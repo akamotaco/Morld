@@ -1464,3 +1464,15 @@ class CamouflagePants(Clothing):
 
     def look(self):
         yield ui.dialog("위장 무늬의 바지다.")
+
+
+@register_item
+class MerchantJacket(Clothing):
+    """상인 자켓 — 페이(Faye) 전용 낡은 가죽 자켓"""
+    unique_id = "merchant_jacket"
+    name = "상인 자켓"
+    equip_props = {"착용:외투": 1, "보온": 1, "분위기:활동적": 1, "분위기:멋짐": 1}
+    value = 35
+
+    def look(self):
+        yield ui.dialog("곳곳이 닳아있지만 제법 멋스러운 낡은 가죽 자켓이다.")

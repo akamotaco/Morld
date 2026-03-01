@@ -18,7 +18,8 @@ from . import vehicle   # Region 1: 차량 전용
 from . import city      # Region 2: 황폐화된 도시
 from . import forest    # Region 3: 숲
 from . import mine      # Region 4: 폐광산
-from . import test_dungeon  # Region 5: 잊혀진 유적
+from . import test_dungeon      # Region 5: 잊혀진 유적
+from . import merchant_limbo    # Region 10: 상인 대기소 (Gate 없음 — 페이 오프 시간 전용)
 
 # ========================================
 # Region 간 연결 (RegionGate)
@@ -96,6 +97,7 @@ def initialize_world():
     city.initialize_terrain()
     forest.initialize_terrain()
     mine.initialize_terrain()
+    merchant_limbo.initialize_terrain()
 
     # 시간 설정 (mansion에서 관리)
     mansion.initialize_time()

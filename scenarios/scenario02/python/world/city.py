@@ -108,11 +108,7 @@ def initialize_terrain():
     for region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x in GATES:
         morld.add_gate(region_id, location_id, gate_id, x, conn_region, conn_location, arrival_x)
 
-    # 성인용품점 Gate — 로맨스 모드 전용 (can:romance# → 미충족 시 숨김)
-    morld.add_gate(REGION_ID, 4, 1, 360, REGION_ID, 7, 0,
-                   conditions_forward={"can:romance#": 1},
-                   name="성인용품점")
-    morld.add_gate(REGION_ID, 7, 0, 0, REGION_ID, 4, 360)
+    # 성인용품점(Location 7) Gate 제거 — 페이(행상) NPC가 성인용품 판매 대체
 
     print(f"[world.city] Region {REGION_ID} initialized: {len(locations)} locations")
     return locations

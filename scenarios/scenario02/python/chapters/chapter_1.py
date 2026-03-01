@@ -82,6 +82,7 @@ def initialize():
     # 4. NPC 인스턴스화 + Agent 등록
     mansion.instantiate_npcs()
     city.instantiate_npcs()  # 도심 NPC (유키, 엘라)
+    _instantiate_faye()      # 행상 NPC (페이)
 
     # 5. 음식 아이템 등록 (자연 오브젝트보다 먼저)
     mansion.instantiate_food_items()
@@ -127,6 +128,11 @@ def post_restore():
     # 누더기 제거 + 일반 옷 지급
     _replace_ragged_clothes(player_id)
 
+    # 시작 소지금 (처음 챕터 1 진입 시에만 100G 지급)
+    if morld.get_unit_prop(player_id, "소지금") is None:
+        morld.set_unit_prop(player_id, "소지금", 100)
+        print("[chapter_1] Player given starting gold: 100G")
+
     # 생존 시스템 활성화
     morld.set_unit_prop(player_id, "생존:활성화", 1)
     print("[chapter_1] Survival system enabled")
@@ -166,6 +172,36 @@ def _replace_ragged_clothes(player_id):
     equipment.equip_item(player_id, pants_id)
 
     print(f"[chapter_1] Player now wearing shirt (id={shirt_id}) and pants (id={pants_id})")
+
+
+def _instantiate_faye():
+    """페이(행상) NPC 인스턴스화 + Agent 등록 + 옷 착용"""
+    from assets.characters.faye import Faye
+    from assets.items.clothes import MerchantJacket, SimplePants, SimpleBra, SimplePanties
+    from think import register_agent, create_agent_for
+
+    npc = Faye()
+    instance_id = morld.create_id("unit")
+    npc.instantiate(instance_id, city.REGION_ID, 0)  # 도시 입구에서 시작
+
+    agent = create_agent_for("faye", instance_id)
+    if agent:
+        register_agent(instance_id, agent)
+
+    # 의상 착용
+    def _equip(clothes_class):
+        item = clothes_class()
+        item_id = morld.create_id("item")
+        item.instantiate(item_id)
+        morld.give_item(instance_id, item_id, 1)
+        equipment.equip_item(instance_id, item_id)
+
+    _equip(MerchantJacket)
+    _equip(SimplePants)
+    _equip(SimpleBra)
+    _equip(SimplePanties)
+
+    print(f"[chapter_1] Faye instantiated (id={instance_id})")
 
 
 def _instantiate_player():
@@ -216,12 +252,10 @@ def _instantiate_consumables():
     from assets.items.consumables import ContraceptivePill, Aphrodisiac, Condom
 
     # (아이템 클래스, region_id, location_id)
+    # 도시(R2) 성인용품 배치 제거 — 페이(행상) NPC가 대체 판매
     placements = [
         (ContraceptivePill, 0, 4),    # 피임약 — 욕실
-        (ContraceptivePill, 2, 3),    # 피임약 — 약국
         (Condom,            0, 4),    # 콘돔 — 욕실
-        (Condom,            2, 2),    # 콘돔 — 편의점
-        (Condom,            2, 3),    # 콘돔 — 약국
         (Aphrodisiac,       0, 5),    # 미약 — 창고
     ]
 

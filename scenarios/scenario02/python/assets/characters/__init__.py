@@ -11,6 +11,7 @@ from .sera import Sera
 from .mila import Mila
 from .yuki import Yuki
 from .ella import Ella
+from .faye import Faye
 from .monster import Monster, Wolf, Bat, Spider, TrainingDummy
 
 # 캐릭터 클래스 매핑 (unique_id → 클래스)
@@ -21,6 +22,7 @@ CHARACTER_CLASSES = {
     "mila": Mila,
     "yuki": Yuki,
     "ella": Ella,
+    "faye": Faye,
     "wolf": Wolf,
     "bat": Bat,
     "spider": Spider,
