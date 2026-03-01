@@ -12,11 +12,18 @@ from world import mansion, city, mine, forest, initialize_world
 def _register_scenario_data():
     """시나리오02 전용 데이터 등록 (씨앗/세력/아이이름)"""
     import garden
-    garden.register_seed(1, "감자", "seed_potato", "food_potato", 3, 2, 4, 0.30)
-    garden.register_seed(2, "토마토", "seed_tomato", "food_tomato", 2, 3, 5, 0.25)
-    garden.register_seed(3, "당근", "seed_carrot", "food_carrot", 4, 2, 3, 0.20)
-    garden.register_seed(4, "약초", "seed_herb", "food_herb", 3, 1, 3, 0.35)
-    garden.register_seed(5, "양배추", "seed_cabbage", "food_cabbage", 2, 1, 2, 0.40)
+    # 기존 5종 (계절 추가)
+    garden.register_seed(1, "감자",   "seed_potato",  "food_potato",  3, 2, 4, 0.30, seasons=["봄", "가을"])
+    garden.register_seed(2, "토마토", "seed_tomato",  "food_tomato",  2, 3, 5, 0.25, seasons=["여름"])
+    garden.register_seed(3, "당근",   "seed_carrot",  "food_carrot",  4, 2, 3, 0.20, seasons=["봄", "가을"])
+    garden.register_seed(4, "약초",   "seed_herb",    "food_herb",    3, 1, 3, 0.35)  # 사계절
+    garden.register_seed(5, "양배추", "seed_cabbage", "food_cabbage", 2, 1, 2, 0.40, seasons=["봄", "가을"])
+    # 신규 5종
+    garden.register_seed(6,  "고구마", "seed_sweet_potato", "food_sweet_potato", 2, 2, 4, 0.35, seasons=["여름", "가을"])
+    garden.register_seed(7,  "옥수수", "seed_corn",         "food_corn",         2, 2, 4, 0.25, seasons=["여름"])
+    garden.register_seed(8,  "마늘",   "seed_garlic",       "food_garlic",       3, 2, 5, 0.40, seasons=["봄", "가을"])
+    garden.register_seed(9,  "양파",   "seed_onion",        "food_onion",        2, 2, 4, 0.35, seasons=["봄", "가을"])
+    garden.register_seed(10, "호박",   "seed_pumpkin",      "food_pumpkin",      1, 1, 2, 0.30, seasons=["여름", "가을"])
 
     import combat
 

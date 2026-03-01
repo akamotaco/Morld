@@ -66,6 +66,46 @@ class CabbageSeed(SeedItem):
     seed_description = "양배추를 키울 수 있는 씨앗이다. 텃밭에 심으면 자란다."
 
 
+@register_item
+class SweetPotatoSeed(SeedItem):
+    unique_id = "seed_sweet_potato"
+    name = "고구마 씨앗"
+    value = 4
+    seed_description = "고구마를 키울 수 있는 씨앗이다. 여름~가을이 제철이다."
+
+
+@register_item
+class CornSeed(SeedItem):
+    unique_id = "seed_corn"
+    name = "옥수수 씨앗"
+    value = 4
+    seed_description = "옥수수를 키울 수 있는 씨앗이다. 여름에 잘 자란다."
+
+
+@register_item
+class GarlicSeed(SeedItem):
+    unique_id = "seed_garlic"
+    name = "마늘 씨앗"
+    value = 5
+    seed_description = "마늘을 키울 수 있는 씨앗이다. 봄과 가을이 제철이다."
+
+
+@register_item
+class OnionSeed(SeedItem):
+    unique_id = "seed_onion"
+    name = "양파 씨앗"
+    value = 3
+    seed_description = "양파를 키울 수 있는 씨앗이다. 봄과 가을이 제철이다."
+
+
+@register_item
+class PumpkinSeed(SeedItem):
+    unique_id = "seed_pumpkin"
+    name = "호박 씨앗"
+    value = 4
+    seed_description = "호박을 키울 수 있는 씨앗이다. 여름~가을이 제철이다."
+
+
 # ========================================
 # 작물 아이템 (수확물)
 # ========================================
@@ -128,6 +168,93 @@ class Cabbage(FoodItem):
         "아삭한 식감이 좋다."
     ]
     eat_time = 2
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class SweetPotato(FoodItem):
+    unique_id = "food_sweet_potato"
+    name = "고구마"
+    category = "food_ingredient"
+    value = 7
+    food_satiety = 35
+    eat_message = [
+        "고구마를 먹었다.",
+        "달콤하고 든든하다. 몸이 따뜻해지는 느낌이다."
+    ]
+    eat_time = 3
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+    def on_eat_effect(self, player_id):
+        """온기 효과 — 2시간 체온 유지"""
+        remaining = morld.get_unit_prop(player_id, "상태:온기남은시간") or 0
+        morld.set_unit_prop(player_id, "상태:온기", 1)
+        morld.set_unit_prop(player_id, "상태:온기남은시간", max(remaining, 2))
+
+
+@register_item
+class Corn(FoodItem):
+    unique_id = "food_corn"
+    name = "옥수수"
+    category = "food_ingredient"
+    value = 5
+    food_satiety = 25
+    eat_message = [
+        "옥수수를 하나씩 뜯어 먹었다.",
+        "고소하고 달콤한 맛이다."
+    ]
+    eat_time = 3
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class Garlic(FoodItem):
+    unique_id = "food_garlic"
+    name = "마늘"
+    category = "food_ingredient"
+    value = 4
+    food_satiety = 10
+    eat_message = [
+        "마늘을 씹어 먹었다.",
+        "강한 향이 입안에 퍼진다. 독에 강해지는 느낌이다."
+    ]
+    eat_time = 1
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+    def on_eat_effect(self, player_id):
+        """독 저항 효과 — 12시간"""
+        remaining = morld.get_unit_prop(player_id, "상태:독저항남은시간") or 0
+        morld.set_unit_prop(player_id, "상태:독저항", 1)
+        morld.set_unit_prop(player_id, "상태:독저항남은시간", max(remaining, 12))
+
+
+@register_item
+class Onion(FoodItem):
+    unique_id = "food_onion"
+    name = "양파"
+    category = "food_ingredient"
+    value = 4
+    food_satiety = 10
+    eat_message = [
+        "양파를 베어 물었다.",
+        "매운 향이 눈물을 자극한다."
+    ]
+    eat_time = 2
+    actions = ["take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class Pumpkin(FoodItem):
+    unique_id = "food_pumpkin"
+    name = "호박"
+    category = "food_ingredient"
+    value = 6
+    food_satiety = 40
+    eat_message = [
+        "호박을 잘라 먹었다.",
+        "부드럽고 달달한 맛이 든든하다."
+    ]
+    eat_time = 4
     actions = ["take@container", "call:eat:먹기@inventory"]
 
 

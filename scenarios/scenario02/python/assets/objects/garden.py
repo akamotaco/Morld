@@ -24,7 +24,7 @@ class GardenBed(Object):
         "call:water:물 주기",
         "call:fertilize:비료 주기",
         "call:harvest:수확하기",
-        "call:remove_plant:식물 제거",
+        "call:till:갈아 엎기",
         "call:debug_props:(디버그) 속성 보기#",
     ]
     focus_text = {"default": "잘 정돈된 텃밭이다. 이랑이 줄지어 나 있다."}
@@ -58,13 +58,17 @@ class GardenBed(Object):
         # 이랑 상태 요약
         planted = 0
         harvestable = 0
+        withered = 0
         for i in range(furrow_count):
             seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}")
             if seed_code:
                 planted += 1
-                growth = morld.get_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}")
-                if growth >= garden.MAX_GROWTH:
-                    harvestable += 1
+                if garden.is_withered(self.instance_id, i):
+                    withered += 1
+                else:
+                    growth = morld.get_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}")
+                    if growth >= garden.MAX_GROWTH:
+                        harvestable += 1
 
         moisture_text = garden.get_moisture_text(moisture)
         parts = [f"텃밭 — 이랑 {furrow_count}개"]
@@ -72,6 +76,8 @@ class GardenBed(Object):
             parts.append(f"재배 중 {planted}개")
         if harvestable > 0:
             parts.append(f"수확 가능 {harvestable}개")
+        if withered > 0:
+            parts.append(f"시든 작물 {withered}개")
         parts.append(f"수분: {moisture_text}")
         if fertilizer > 0:
             parts.append(f"비료: {fertilizer}")
@@ -98,6 +104,10 @@ class GardenBed(Object):
         lines.append(f"  비료: {fertilizer}/100")
         lines.append("")
 
+        current_season = garden.get_current_season()
+        lines.append(f"  현재 계절: {current_season}")
+        lines.append("")
+
         for i in range(furrow_count):
             seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}")
             if not seed_code:
@@ -105,8 +115,15 @@ class GardenBed(Object):
             else:
                 growth = morld.get_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}")
                 name = garden.get_seed_name(seed_code)
-                stage = garden.get_growth_stage_text(growth)
-                lines.append(f"  이랑 {i + 1}: {name} — {stage} ({growth}%)")
+                if garden.is_withered(self.instance_id, i):
+                    lines.append(f"  이랑 {i + 1}: {name} — [color=red]시들었음[/color] (갈아 엎기 필요)")
+                else:
+                    stage = garden.get_growth_stage_text(growth)
+                    seasons = garden.get_seed_seasons(seed_code)
+                    season_note = ""
+                    if seasons and current_season not in seasons:
+                        season_note = f" [color=orange](비수기 — 성장 정지)[/color]"
+                    lines.append(f"  이랑 {i + 1}: {name} — {stage} ({growth}%){season_note}")
 
         yield ui.dialog("\n".join(lines))
 
@@ -157,10 +174,23 @@ class GardenBed(Object):
         # 씨앗 선택 → 이랑 선택
         state = {"seed": None, "furrow": None}
 
+        current_season = garden.get_current_season()
+
         def build_seed_menu():
             lines = ["어떤 씨앗을 심을까?", ""]
             for s in seeds:
-                lines.append(f"  [url=@proc:seed:{s['code']}]{s['name']}[/url] [color=gray](x{s['count']})[/color]")
+                seed_info = garden.SEED_REGISTRY.get(s["code"], {})
+                seasons = seed_info.get("seasons")
+                if seasons and current_season not in seasons:
+                    season_str = "/".join(seasons)
+                    lines.append(
+                        f"  [url=@proc:seed:{s['code']}]"
+                        f"[color=orange]{s['name']}[/color][/url] "
+                        f"[color=gray](비수기: {season_str})[/color] "
+                        f"[color=gray](x{s['count']})[/color]"
+                    )
+                else:
+                    lines.append(f"  [url=@proc:seed:{s['code']}]{s['name']}[/url] [color=gray](x{s['count']})[/color]")
             lines.append("")
             lines.append("[url=@ret:cancel]취소[/url]")
             return "\n".join(lines)
@@ -355,18 +385,28 @@ class GardenBed(Object):
         player_id = morld.get_player_id()
         furrow_count = morld.get_unit_prop(self.instance_id, garden.PROP_FURROW_COUNT) or 0
 
-        # 수확 가능한 이랑 찾기
+        # 수확 가능한 이랑 찾기 (시든 작물 제외)
         harvestable = []
+        withered_count = 0
         for i in range(furrow_count):
             seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}")
             if not seed_code:
+                continue
+            if garden.is_withered(self.instance_id, i):
+                withered_count += 1
                 continue
             growth = morld.get_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}")
             if growth >= garden.MAX_GROWTH:
                 harvestable.append(i)
 
         if not harvestable:
-            yield ui.dialog("수확할 작물이 없다.")
+            if withered_count > 0:
+                yield ui.dialog([
+                    "수확할 작물이 없다.",
+                    f"시든 작물이 {withered_count}개 있다. '갈아 엎기'를 사용해야 한다.",
+                ])
+            else:
+                yield ui.dialog("수확할 작물이 없다.")
             return
 
         # 모든 수확 가능 이랑 수확
@@ -388,10 +428,11 @@ class GardenBed(Object):
         morld.advance_time_des(20 * 60_000)
 
     # ========================================
-    # 식물 제거
+    # 갈아 엎기
     # ========================================
 
-    def remove_plant(self):
+    def till(self):
+        """갈아 엎기 — 작물 제거, 수확 가능하거나 시든 경우 비료 보너스"""
         import garden
 
         furrow_count = morld.get_unit_prop(self.instance_id, garden.PROP_FURROW_COUNT) or 0
@@ -403,11 +444,23 @@ class GardenBed(Object):
             if seed_code:
                 growth = morld.get_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}")
                 name = garden.get_seed_name(seed_code)
-                stage = garden.get_growth_stage_text(growth)
-                planted.append({"index": i, "name": name, "stage": stage, "growth": growth})
+                withered = garden.is_withered(self.instance_id, i)
+                can_bonus = withered or (growth >= garden.MAX_GROWTH)
+                if withered:
+                    stage = "시들었음"
+                else:
+                    stage = garden.get_growth_stage_text(growth)
+                planted.append({
+                    "index": i,
+                    "name": name,
+                    "stage": stage,
+                    "growth": growth,
+                    "can_bonus": can_bonus,
+                    "withered": withered,
+                })
 
         if not planted:
-            yield ui.dialog("제거할 식물이 없다.")
+            yield ui.dialog("갈아 엎을 식물이 없다.")
             return
 
         state = {"furrow": None}
@@ -420,9 +473,15 @@ class GardenBed(Object):
                 return True
             return None
 
-        lines = ["어떤 식물을 제거할까? (씨앗은 돌아오지 않습니다)", ""]
+        lines = ["어떤 작물을 갈아 엎을까?", "(수확 가능하거나 시든 작물은 비료 보너스를 줍니다.)", ""]
         for p in planted:
-            lines.append(f"  [url=@proc:furrow:{p['index']}]이랑 {p['index'] + 1}: {p['name']} — {p['stage']} ({p['growth']}%)[/url]")
+            if p["withered"]:
+                label = f"이랑 {p['index'] + 1}: {p['name']} — [color=red]{p['stage']}[/color]  [비료+{garden.TILL_FERTILIZER_BONUS}]"
+            elif p["can_bonus"]:
+                label = f"이랑 {p['index'] + 1}: {p['name']} — {p['stage']}  [비료+{garden.TILL_FERTILIZER_BONUS}]"
+            else:
+                label = f"이랑 {p['index'] + 1}: {p['name']} — {p['stage']}"
+            lines.append(f"  [url=@proc:furrow:{p['index']}]{label}[/url]")
         lines.append("")
         lines.append("[url=@ret:cancel]취소[/url]")
 
@@ -430,14 +489,23 @@ class GardenBed(Object):
 
         if state["furrow"] is not None:
             fi = state["furrow"]
-            name = garden.get_seed_name(
-                morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{fi}")
-            )
-            morld.set_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{fi}", 0)
-            morld.set_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{fi}", 0)
+            plant_data = next((p for p in planted if p["index"] == fi), None)
+            if not plant_data:
+                return
 
-            yield ui.dialog(f"이랑 {fi + 1}의 {name}을(를) 뽑아냈다.")
-            morld.advance_time_des(5 * 60_000)
+            name = plant_data["name"]
+            bonus_applied = garden.do_till(self.instance_id, fi)
+
+            if bonus_applied:
+                current_fert = morld.get_unit_prop(self.instance_id, garden.PROP_FERTILIZER) or 0
+                yield ui.dialog([
+                    f"이랑 {fi + 1}의 {name}을(를) 갈아 엎었다.",
+                    f"비료 성분이 땅에 녹아들었다. (비료: {current_fert}/100)",
+                ])
+            else:
+                yield ui.dialog(f"이랑 {fi + 1}의 {name}을(를) 갈아 엎었다.")
+
+            morld.advance_time_des(10 * 60_000)
 
     # ========================================
     # NPC 전용 메서드 (non-generator)
@@ -548,11 +616,11 @@ class GardenBed(Object):
         morld.set_unit_prop(self.instance_id, garden.PROP_FERTILIZER, new_val)
         return True
 
-    def npc_remove_plant(self, npc_id, furrow_index=None):
-        """NPC 식물 제거 (non-generator)
+    def npc_till(self, npc_id, furrow_index=None):
+        """NPC 갈아 엎기 (non-generator) — 시든/수확가능 이랑 우선 처리
 
         Args:
-            furrow_index: 제거할 이랑 인덱스 (None이면 첫 번째 식물)
+            furrow_index: 갈아 엎을 이랑 인덱스 (None이면 시든 것 우선 자동 선택)
         Returns:
             bool: 성공 여부
         """
@@ -566,15 +634,18 @@ class GardenBed(Object):
             seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{furrow_index}")
             if not seed_code:
                 return False
-            morld.set_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{furrow_index}", 0)
-            morld.set_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{furrow_index}", 0)
+            garden.do_till(self.instance_id, furrow_index)
             return True
 
-        # 첫 번째 심어진 이랑 제거
+        # 시든 이랑 우선, 없으면 첫 번째 심어진 이랑
+        for i in range(furrow_count):
+            seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}")
+            if seed_code and garden.is_withered(self.instance_id, i):
+                garden.do_till(self.instance_id, i)
+                return True
         for i in range(furrow_count):
             seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}")
             if seed_code:
-                morld.set_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}", 0)
-                morld.set_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}", 0)
+                garden.do_till(self.instance_id, i)
                 return True
         return False

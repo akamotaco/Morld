@@ -3,6 +3,8 @@
 # 텃밭(GardenBed) 오브젝트의 매시간 성장 처리
 # - 수분 감소, 비료 감소, 식물 성장 진행
 # - 비 오면 자동 수분 공급
+# - 계절 제한: 비수기엔 성장 정지
+# - 시듦 메커니즘: 수확 가능 상태로 방치 시 시들어 갈아 엎어야 함
 #
 # 패턴: resource_agent.py / temperature.py와 동일한 subscribe_time_elapsed 방식
 
@@ -14,7 +16,8 @@ MILLIS_PER_HOUR = 3_600_000
 # ========================================
 # 씨앗 종류 레지스트리
 # ========================================
-# code → {name, seed_unique_id, crop_unique_id, growth_rate, harvest_min, harvest_max, seed_chance}
+# code → {name, seed_unique_id, crop_unique_id, growth_rate, harvest_min, harvest_max,
+#          seed_chance, seasons}
 # 시나리오 초기화 시 register_seed()로 등록 (시나리오별 작물 분리)
 
 SEED_REGISTRY = {}
@@ -24,8 +27,13 @@ SEED_CODE_MAP = {}
 
 
 def register_seed(code, name, seed_unique_id, crop_unique_id,
-                  growth_rate, harvest_min, harvest_max, seed_chance):
-    """씨앗 종류 등록 (시나리오 초기화 시 호출)"""
+                  growth_rate, harvest_min, harvest_max, seed_chance,
+                  seasons=None):
+    """씨앗 종류 등록 (시나리오 초기화 시 호출)
+
+    Args:
+        seasons: 재배 가능 계절 리스트 (["봄", "여름"] 등). None이면 사계절.
+    """
     SEED_REGISTRY[code] = {
         "name": name,
         "seed_unique_id": seed_unique_id,
@@ -34,6 +42,7 @@ def register_seed(code, name, seed_unique_id, crop_unique_id,
         "harvest_min": harvest_min,
         "harvest_max": harvest_max,
         "seed_chance": seed_chance,
+        "seasons": seasons,
     }
     SEED_CODE_MAP[seed_unique_id] = code
 
@@ -50,6 +59,9 @@ MAX_MOISTURE = 100
 MAX_FERTILIZER = 100
 MAX_GROWTH = 100
 
+WITHER_HOURS = 72                   # 수확 가능 상태 유지 시간 → 초과 시 시듦 (3일)
+TILL_FERTILIZER_BONUS = 20          # 갈아 엎기 비료 보너스 (수확 가능/시든 작물)
+
 # 비에 의한 수분 공급량
 RAIN_MOISTURE = {
     "가랑비": 5,
@@ -64,6 +76,8 @@ PROP_MOISTURE = "수분"
 PROP_FERTILIZER = "비료"
 PROP_SEED_PREFIX = "씨앗"           # "씨앗:0", "씨앗:1", ...
 PROP_GROWTH_PREFIX = "성장"         # "성장:0", "성장:1", ...
+PROP_WITHER_PREFIX = "시듦"         # "시듦:0", "시듦:1", ...  (1=시든 상태)
+PROP_WITHER_TIMER_PREFIX = "시듦시간"  # "시듦시간:0" (수확 가능 후 경과 시간)
 
 
 # ========================================
@@ -104,12 +118,13 @@ def _on_time_elapsed(millis: int):
 
     is_rain = humidity.is_raining()
     intensity = humidity.get_intensity() if is_rain else None
+    current_season = get_current_season()
 
     for instance_id in list(_registered_gardens.keys()):
-        _process_garden(instance_id, is_rain, intensity)
+        _process_garden(instance_id, is_rain, intensity, current_season)
 
 
-def _process_garden(instance_id: int, is_rain: bool, intensity):
+def _process_garden(instance_id: int, is_rain: bool, intensity, current_season: str):
     """개별 텃밭의 매시간 처리"""
     # 현재 수분/비료 읽기
     moisture = morld.get_unit_prop(instance_id, PROP_MOISTURE)
@@ -124,7 +139,7 @@ def _process_garden(instance_id: int, is_rain: bool, intensity):
         rain_amount = RAIN_MOISTURE.get(intensity, RAIN_MOISTURE_DEFAULT)
         moisture = min(MAX_MOISTURE, moisture + rain_amount)
 
-    # 식물 성장 처리 (수분 충분할 때만)
+    # 식물 성장/시듦 처리
     has_plants = False
     for i in range(furrow_count):
         seed_code = morld.get_unit_prop(instance_id, f"{PROP_SEED_PREFIX}:{i}")
@@ -133,12 +148,31 @@ def _process_garden(instance_id: int, is_rain: bool, intensity):
 
         has_plants = True
         growth = morld.get_unit_prop(instance_id, f"{PROP_GROWTH_PREFIX}:{i}")
+        withered = morld.get_unit_prop(instance_id, f"{PROP_WITHER_PREFIX}:{i}")
+
+        if withered:
+            continue  # 이미 시든 작물 — 갈아 엎기 전까지 처리 없음
 
         if growth >= MAX_GROWTH:
-            continue    # 이미 수확 가능 상태
+            # 수확 가능 상태: 시듦 타이머 증가
+            wither_timer = (morld.get_unit_prop(instance_id, f"{PROP_WITHER_TIMER_PREFIX}:{i}") or 0) + 1
+            if wither_timer >= WITHER_HOURS:
+                morld.set_unit_prop(instance_id, f"{PROP_WITHER_PREFIX}:{i}", 1)
+                morld.set_unit_prop(instance_id, f"{PROP_WITHER_TIMER_PREFIX}:{i}", 0)
+                print(f"[garden] 작물 시듦: 이랑 {i} (id={instance_id})")
+            else:
+                morld.set_unit_prop(instance_id, f"{PROP_WITHER_TIMER_PREFIX}:{i}", wither_timer)
+            continue  # 수확 가능/시든 상태 — 성장 처리 불필요
 
+        # 계절 확인
+        seed_info = SEED_REGISTRY.get(seed_code)
+        if seed_info:
+            seasons = seed_info.get("seasons")
+            if seasons and current_season not in seasons:
+                continue  # 비수기 — 성장 정지
+
+        # 성장 처리
         if moisture >= MOISTURE_THRESHOLD:
-            seed_info = SEED_REGISTRY.get(seed_code)
             if seed_info:
                 base_rate = seed_info["growth_rate"]
                 fertilizer_bonus = 1.0 + fertilizer / 100.0
@@ -159,6 +193,31 @@ def _process_garden(instance_id: int, is_rain: bool, intensity):
 # ========================================
 # Public API
 # ========================================
+
+def get_current_season() -> str:
+    """현재 계절 반환 (봄/여름/가을/겨울)"""
+    time_info = morld.get_time_info()
+    month = time_info.get("month", 1) if time_info else 1
+    if month in (3, 4, 5):
+        return "봄"
+    elif month in (6, 7, 8):
+        return "여름"
+    elif month in (9, 10, 11):
+        return "가을"
+    else:
+        return "겨울"
+
+
+def is_withered(instance_id: int, furrow_index: int) -> bool:
+    """해당 이랑이 시든 상태인지 확인"""
+    return morld.get_unit_prop(instance_id, f"{PROP_WITHER_PREFIX}:{furrow_index}") == 1
+
+
+def get_seed_seasons(code: int):
+    """씨앗 코드 → 계절 리스트 (None이면 사계절)"""
+    info = SEED_REGISTRY.get(code)
+    return info.get("seasons") if info else None
+
 
 def get_seed_name(code: int) -> str:
     """씨앗 코드 → 이름"""
@@ -228,9 +287,11 @@ def do_harvest(instance_id: int, furrow_index: int, player_id: int) -> dict:
             import inventory as inv_module
             inv_module.safe_give_item(player_id, seed_item_id, seed_count)
 
-    # 이랑 초기화
+    # 이랑 초기화 (시듦 관련 prop 포함)
     morld.set_unit_prop(instance_id, f"{PROP_SEED_PREFIX}:{furrow_index}", 0)
     morld.set_unit_prop(instance_id, f"{PROP_GROWTH_PREFIX}:{furrow_index}", 0)
+    morld.set_unit_prop(instance_id, f"{PROP_WITHER_PREFIX}:{furrow_index}", 0)
+    morld.set_unit_prop(instance_id, f"{PROP_WITHER_TIMER_PREFIX}:{furrow_index}", 0)
 
     return {
         "crop_name": seed_info["name"],
@@ -238,6 +299,31 @@ def do_harvest(instance_id: int, furrow_index: int, player_id: int) -> dict:
         "seed_name": seed_name,
         "seed_count": seed_count,
     }
+
+
+def do_till(instance_id: int, furrow_index: int) -> bool:
+    """
+    갈아 엎기 실행 — 비료 보너스 판정 후 이랑 초기화
+
+    Returns:
+        True if fertilizer bonus was applied
+    """
+    growth = morld.get_unit_prop(instance_id, f"{PROP_GROWTH_PREFIX}:{furrow_index}")
+    withered = morld.get_unit_prop(instance_id, f"{PROP_WITHER_PREFIX}:{furrow_index}")
+    can_bonus = withered or (growth >= MAX_GROWTH)
+
+    if can_bonus:
+        current = morld.get_unit_prop(instance_id, PROP_FERTILIZER) or 0
+        morld.set_unit_prop(instance_id, PROP_FERTILIZER,
+                            min(MAX_FERTILIZER, current + TILL_FERTILIZER_BONUS))
+
+    # 이랑 초기화
+    morld.set_unit_prop(instance_id, f"{PROP_SEED_PREFIX}:{furrow_index}", 0)
+    morld.set_unit_prop(instance_id, f"{PROP_GROWTH_PREFIX}:{furrow_index}", 0)
+    morld.set_unit_prop(instance_id, f"{PROP_WITHER_PREFIX}:{furrow_index}", 0)
+    morld.set_unit_prop(instance_id, f"{PROP_WITHER_TIMER_PREFIX}:{furrow_index}", 0)
+
+    return can_bonus
 
 
 # ========================================

@@ -93,6 +93,49 @@ RECIPES = {
         "result": ("food_mixed_stew", 1),
         "cook_time": 15,
     },
+
+    # === 농사 작물 요리 ===
+    "food_roasted_sweet_potato": {
+        "name": "구운 고구마",
+        "ingredients": {"food_sweet_potato": 1},
+        "result": ("food_roasted_sweet_potato", 1),
+        "cook_time": 15,
+    },
+
+    "food_corn_soup": {
+        "name": "옥수수 스프",
+        "ingredients": {"food_corn": 2},
+        "result": ("food_corn_soup", 1),
+        "cook_time": 15,
+    },
+
+    "food_garlic_soup": {
+        "name": "마늘 스프",
+        "ingredients": {"food_garlic": 3},
+        "result": ("food_garlic_soup", 1),
+        "cook_time": 10,
+    },
+
+    "food_pumpkin_porridge": {
+        "name": "호박 죽",
+        "ingredients": {"food_pumpkin": 1},
+        "result": ("food_pumpkin_porridge", 1),
+        "cook_time": 20,
+    },
+
+    "food_vegetable_stir_fry": {
+        "name": "야채볶음",
+        "ingredients": {"food_tomato": 2, "food_potato": 1},
+        "result": ("food_vegetable_stir_fry", 1),
+        "cook_time": 15,
+    },
+
+    "food_onion_soup": {
+        "name": "양파 수프",
+        "ingredients": {"food_onion": 2},
+        "result": ("food_onion_soup", 1),
+        "cook_time": 10,
+    },
 }
 
 

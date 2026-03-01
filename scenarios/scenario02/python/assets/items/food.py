@@ -28,6 +28,10 @@ class FoodItem(Item):
     eat_message = ["음식을 먹었다."]
     eat_time = 1
 
+    def on_eat_effect(self, player_id):
+        """특수 섭취 효과 — 서브클래스에서 오버라이드"""
+        pass
+
     def eat(self):
         """
         음식 먹기 - 포만감 회복 후 아이템 소비
@@ -58,6 +62,9 @@ class FoodItem(Item):
 
         # 메시지 표시
         yield ui.dialog(self.eat_message)
+
+        # 특수 섭취 효과 (서브클래스 오버라이드)
+        self.on_eat_effect(player_id)
 
         # 미약 효과 적용
         if has_aphrodisiac:
@@ -447,3 +454,115 @@ class GreenTea(FoodItem):
     ]
     eat_time = 1
     actions = ["take@container", "call:eat:마시기@inventory"]
+
+
+# ========================================
+# 농사 작물 요리
+# ========================================
+
+@register_item
+class RoastedSweetPotato(FoodItem):
+    """구운 고구마 — 포만감 높음 + 온기 효과"""
+    unique_id = "food_roasted_sweet_potato"
+    name = "구운 고구마"
+    category = "food"
+    value = 12
+    food_satiety = 55
+    eat_message = [
+        "구운 고구마를 먹었다.",
+        "달콤하고 포근한 맛이다. 몸 속까지 따뜻해진다."
+    ]
+    eat_time = 5
+    actions = ["take@ground", "take@container", "call:eat:먹기@inventory"]
+
+    def on_eat_effect(self, player_id):
+        """온기 효과 — 4시간"""
+        remaining = morld.get_unit_prop(player_id, "상태:온기남은시간") or 0
+        morld.set_unit_prop(player_id, "상태:온기", 1)
+        morld.set_unit_prop(player_id, "상태:온기남은시간", max(remaining, 4))
+
+
+@register_item
+class CornSoup(FoodItem):
+    """옥수수 스프 — 고소하고 든든"""
+    unique_id = "food_corn_soup"
+    name = "옥수수 스프"
+    category = "food"
+    value = 10
+    food_satiety = 35
+    eat_message = [
+        "옥수수 스프를 마셨다.",
+        "걸쭉하고 고소한 맛이다."
+    ]
+    eat_time = 4
+    actions = ["take@ground", "take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class GarlicSoup(FoodItem):
+    """마늘 스프 — 독 저항 24시간"""
+    unique_id = "food_garlic_soup"
+    name = "마늘 스프"
+    category = "food"
+    value = 10
+    food_satiety = 25
+    eat_message = [
+        "마늘 스프를 마셨다.",
+        "진한 마늘 향이 온몸으로 퍼지며 생기가 돈다."
+    ]
+    eat_time = 3
+    actions = ["take@ground", "take@container", "call:eat:먹기@inventory"]
+
+    def on_eat_effect(self, player_id):
+        """독 저항 효과 — 24시간"""
+        remaining = morld.get_unit_prop(player_id, "상태:독저항남은시간") or 0
+        morld.set_unit_prop(player_id, "상태:독저항", 1)
+        morld.set_unit_prop(player_id, "상태:독저항남은시간", max(remaining, 24))
+
+
+@register_item
+class PumpkinPorridge(FoodItem):
+    """호박 죽 — 포만감 최고"""
+    unique_id = "food_pumpkin_porridge"
+    name = "호박 죽"
+    category = "food"
+    value = 14
+    food_satiety = 65
+    eat_message = [
+        "따뜻한 호박 죽을 먹었다.",
+        "부드럽게 넘어가며 배가 가득 찬다."
+    ]
+    eat_time = 6
+    actions = ["take@ground", "take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class VegetableStirFry(FoodItem):
+    """야채볶음 — 균형 잡힌 한 끼"""
+    unique_id = "food_vegetable_stir_fry"
+    name = "야채볶음"
+    category = "food"
+    value = 11
+    food_satiety = 45
+    eat_message = [
+        "야채볶음을 먹었다.",
+        "채소의 단맛과 고소한 맛이 어우러진다."
+    ]
+    eat_time = 4
+    actions = ["take@ground", "take@container", "call:eat:먹기@inventory"]
+
+
+@register_item
+class OnionSoup(FoodItem):
+    """양파 수프 — 따뜻하고 감칠맛"""
+    unique_id = "food_onion_soup"
+    name = "양파 수프"
+    category = "food"
+    value = 9
+    food_satiety = 30
+    eat_message = [
+        "양파 수프를 마셨다.",
+        "달콤하고 감칠맛 나는 국물이 속을 데운다."
+    ]
+    eat_time = 3
+    actions = ["take@ground", "take@container", "call:eat:먹기@inventory"]
