@@ -525,8 +525,9 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
 
     # 전투 대사 — 공격/피격/low_hp/사망
     _emit_combat_line(attacker_id, "attack")
-    _emit_combat_line(target_id, "hit")
     target_max_hp = morld.get_unit_prop(target_id, "생존:최대체력") or 1
+    from combat_reactions import emit_hit_reaction
+    emit_hit_reaction(target_id, damage, target_max_hp, crit)
     if target_hp > 0 and target_hp / target_max_hp <= 0.3:
         _emit_combat_line(target_id, "low_hp")
     if fainted:
