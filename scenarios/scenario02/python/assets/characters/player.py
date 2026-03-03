@@ -137,6 +137,11 @@ class Player(Character):
         # 제작
         "can:craft": 1,
 
+        # 거래 (페이 상점)
+        "can:buy_items": 1,
+        "can:sell_items": 1,
+        "can:buyback_items": 1,
+
         # 연애
         "can:give_gift": 1,
         "can:romance": 0,       # 연애 모드 ON 시 settings에서 1로 변경

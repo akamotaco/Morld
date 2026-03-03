@@ -194,9 +194,16 @@ public partial class GameEngine : Node
 			if (unit == null || unit.IsObject)
 				return; // 캐릭터가 아니면 로그 생략
 
-			// TODO: NPC 로그가 너무 많으면 플레이어만 표기하도록 필터링 고려
-			//   if (unitId != _playerSystem?.PlayerId) return;
 			bool isPlayer = unitId == _playerSystem?.PlayerId;
+
+			// NPC 인벤토리 변동: 플레이어와 같은 위치일 때만 로그 표시
+			if (!isPlayer)
+			{
+				var playerUnit = unitSystem?.FindUnit(_playerSystem?.PlayerId ?? 0);
+				if (playerUnit == null || unit.CurrentLocation != playerUnit.CurrentLocation)
+					return;
+			}
+
 			string prefix = isPlayer ? "" : $"{unit.Name}이(가) ";
 
 			var itemName = itemSystem?.FindItem(evt.ItemId)?.Name ?? "아이템";
