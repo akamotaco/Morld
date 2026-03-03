@@ -655,6 +655,7 @@ _DEFAULT_FOCUS_ORDER = [
     "carrying", "restraint", "assault_victim", "npc_intimacy",
     "climax", "exposure_body", "shame",
     "specials", "semen", "internal_semen",
+    "idle_flavor",  # flavor가 있으면 activity보다 먼저 매칭
     "activity", "mood", "desire", "affection", "menstruation", "default",
 ]
 
@@ -683,6 +684,9 @@ def build_focus_rules(archetype, activities, default_text,
         "specials": list(specials or []),
         "semen": _FOCUS_SEMEN,
         "internal_semen": _FOCUS_INTERNAL_SEMEN.get(archetype, []),
+        "idle_flavor": (
+            _DESCRIBE_IDLE_ARCHETYPE.get(archetype, []) + _DESCRIBE_IDLE_COMMON
+        ),
         "activity": [({"activity": k}, v) for k, v in activities],
         "mood": _FOCUS_MOOD.get(archetype, []),
         "desire": _FOCUS_DESIRE.get(archetype, []),
@@ -1161,11 +1165,78 @@ _DESCRIBE_NPC_INTIMACY = [
     ({"NPC성행위중": True}, "{name}(이)가 누군가와 함께 얽혀 있다."),
 ]
 
+# ========================================
+# idle flavor 묘사 (공통 + 아키타입 전용)
+# ========================================
+
+# 공통 묘사 (모든 아키타입 fallback)
+_DESCRIBE_IDLE_COMMON = [
+    ({"flavor": "기지개"}, "{name}가 기지개를 켜고 있다."),
+    ({"flavor": "앉아쉬기"}, "{name}가 앉아서 쉬고 있다."),
+    ({"flavor": "스트레칭"}, "{name}가 몸을 풀고 있다."),
+    ({"flavor": "두리번"}, "{name}가 두리번거리고 있다."),
+    ({"flavor": "불멍"}, "{name}가 불을 바라보고 있다."),
+    ({"flavor": "온기"}, "{name}가 열원 곁에서 손을 녹이고 있다."),
+    ({"flavor": "창밖구경"}, "{name}가 창밖을 바라보고 있다."),
+    ({"flavor": "하늘구경"}, "{name}가 하늘을 올려다보고 있다."),
+    ({"flavor": "바람쐬기"}, "{name}가 바람을 쐬고 있다."),
+    ({"flavor": "정리"}, "{name}가 주변을 정리하고 있다."),
+    ({"flavor": "콧노래"}, "{name}가 콧노래를 흥얼거리고 있다."),
+]
+
+# 아키타입 전용 묘사 (공통보다 앞에 배치 → override)
+_DESCRIBE_IDLE_ARCHETYPE = {
+    "stoic": [
+        ({"flavor": "기지개"}, "{name}가 가만히 기지개를 켜고 있다."),
+        ({"flavor": "두리번"}, "{name}가 경계하듯 주위를 살피고 있다."),
+        ({"flavor": "경계"}, "{name}가 날카로운 눈으로 주변을 살피고 있다."),
+        ({"flavor": "명상"}, "{name}가 조용히 눈을 감고 서 있다."),
+        ({"flavor": "장비점검"}, "{name}가 장비를 점검하고 있다."),
+        ({"flavor": "벽기대"}, "{name}가 벽에 기대어 쉬고 있다."),
+    ],
+    "gentle": [
+        ({"flavor": "기지개"}, "{name}가 살며시 기지개를 켜고 있다."),
+        ({"flavor": "콧노래"}, "{name}가 즐거운 콧노래를 흥얼거리고 있다."),
+        ({"flavor": "미소"}, "{name}가 미소를 짓고 있다."),
+        ({"flavor": "차마시기"}, "{name}가 따뜻한 차를 마시고 있다."),
+        ({"flavor": "정리"}, "{name}가 정성스럽게 주변을 정리하고 있다."),
+    ],
+    "timid": [
+        ({"flavor": "기지개"}, "{name}가 조심스럽게 기지개를 켜고 있다."),
+        ({"flavor": "두리번"}, "{name}가 불안한 듯 두리번거리고 있다."),
+        ({"flavor": "가만히앉기"}, "{name}가 구석에 조용히 앉아 있다."),
+        ({"flavor": "읽기"}, "{name}가 조용히 무언가를 읽고 있다."),
+        ({"flavor": "기다림"}, "{name}가 누군가를 기다리는 듯하다."),
+    ],
+    "cold": [
+        ({"flavor": "기지개"}, "{name}가 무심하게 기지개를 켜고 있다."),
+        ({"flavor": "두리번"}, "{name}가 차가운 눈으로 주위를 훑고 있다."),
+        ({"flavor": "벽기대"}, "{name}가 벽에 기대어 시선을 피하고 있다."),
+        ({"flavor": "무표정"}, "{name}가 무표정으로 서 있다."),
+        ({"flavor": "시선"}, "{name}가 어딘가를 응시하고 있다."),
+        ({"flavor": "경계"}, "{name}가 주변을 경계하고 있다."),
+    ],
+    "cheerful": [
+        ({"flavor": "기지개"}, "{name}가 크게 기지개를 켜며 하품하고 있다."),
+        ({"flavor": "콧노래"}, "{name}가 신나게 콧노래를 부르고 있다."),
+        ({"flavor": "장난"}, "{name}가 장난을 치며 놀고 있다."),
+        ({"flavor": "산책구경"}, "{name}가 주변을 구경하고 있다."),
+    ],
+    "proud": [
+        ({"flavor": "기지개"}, "{name}가 우아하게 기지개를 켜고 있다."),
+        ({"flavor": "자세정리"}, "{name}가 옷매무새를 가다듬고 있다."),
+        ({"flavor": "시선"}, "{name}가 의미심장하게 어딘가를 바라보고 있다."),
+        ({"flavor": "경계"}, "{name}가 경계하듯 주변을 둘러보고 있다."),
+    ],
+}
+
 _DEFAULT_DESCRIBE_ORDER = [
     "carrying", "restraint", "assault_victim", "npc_intimacy",
     "parasite", "parasite_reaction",
     "climax", "exposure_body", "shame",
-    "specials", "traveling", "activity", "weather", "location",
+    "specials", "traveling",
+    "idle_flavor",  # flavor가 있으면 activity보다 먼저 매칭
+    "activity", "weather", "location",
     "semen", "internal_semen", "desire", "affection",
     "menstruation", "default", "fatigue",
 ]
@@ -1197,6 +1268,9 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
         "shame": _DESCRIBE_SHAME.get(archetype, []),
         "specials": list(specials or []),
         "traveling": list(traveling or []),
+        "idle_flavor": (
+            _DESCRIBE_IDLE_ARCHETYPE.get(archetype, []) + _DESCRIBE_IDLE_COMMON
+        ),
         "activity": [({"activity": k}, v) for k, v in (activities or [])],
         "location": list(locations or []),
         "weather": list(weather or []),
@@ -2389,6 +2463,28 @@ class Character(Unit):
         if location_info:
             context["weather"] = location_info.get("weather")
             context["is_indoor"] = location_info.get("is_indoor", True)
+
+        # idle flavor (think 시스템에서 설정)
+        from think.idle_flavors import get_flavor
+        context["flavor"] = get_flavor(self.instance_id)
+
+        # 근처 오브젝트 인식
+        from assets.objects import get_location_objects
+        r_id = context["region_id"]
+        l_id = context["location_id"]
+        if r_id is not None and l_id is not None:
+            nearby = []
+            obj_ids = get_location_objects(r_id, l_id)
+            for obj_id in obj_ids:
+                if morld.get_unit_prop(obj_id, "heat:output"):
+                    nearby.append("열원")
+                if morld.get_unit_prop(obj_id, "can:cook"):
+                    nearby.append("조리대")
+                if morld.get_unit_prop(obj_id, "can:sit"):
+                    nearby.append("좌석")
+            context["nearby"] = nearby
+        else:
+            context["nearby"] = []
 
         # 데이트 상태 확인
         from date import is_on_date, get_date_partner

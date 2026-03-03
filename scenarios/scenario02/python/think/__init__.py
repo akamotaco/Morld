@@ -738,6 +738,10 @@ class BaseAgent(
         self._action_taken = False
         _tier_reached = 0  # 도달한 최고 tier (디버그용)
 
+        # idle flavor 클리어 (flavored idle에서만 재설정됨)
+        from think.idle_flavors import clear_flavor
+        clear_flavor(self.unit_id)
+
         # FSM 스택: 최상위 State가 처리하면 하위 로직 차단
         if self._fsm_stack:
             top = self._fsm_stack[-1]

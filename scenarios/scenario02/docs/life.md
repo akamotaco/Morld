@@ -936,6 +936,73 @@ class LifeAgent(BaseAgent):
 
 ---
 
+## 5-B. Idle Flavor 시스템 (v0.2.3)
+
+NPC가 대기/순찰 중 쉬는 시간에 다양한 행동 묘사를 제공하는 시스템입니다.
+
+### 문제
+
+하나의 긴 idle job → 40분 동안 같은 묘사 반복 ("순찰하고 있다").
+
+### 해결
+
+**DES 자연 재호출 활용**: 5~15분 짧은 idle 삽입 → 만료 → think() 재호출 → 다른 묘사 선택.
+
+- `flavor`는 `activity`와 **완전히 별도의 키**로 관리 (이름 충돌 없음)
+- job name은 원래 스케줄 활동명 유지 (activity 불변)
+- flavor는 Python 모듈 딕셔너리에 저장, `_build_context()`에서 `context["flavor"]`로 전달
+
+### 흐름
+
+```
+think() 시작 → clear_flavor(unit_id)  # 매번 클리어
+  ↓
+Tier 5 → _insert_flavored_idle("순찰", remaining_ms)
+  ├─ pick_idle_flavor() → 3-tier 우선순위로 flavor 선택 → set_flavor()
+  ├─ duration = 5~15분 (짧게)
+  └─ _insert_idle_job("순찰", duration)  # job name = 원래 활동
+  ↓
+플레이어가 NPC를 볼 때:
+  context = {activity: "순찰", flavor: "기지개", ...}
+  → idle_flavor 섹션 매칭 → "기지개를 켜고 있다."
+  ↓
+10분 후 think() 재호출 → flavor 클리어 → 새 flavor "콧노래" → 다른 묘사
+```
+
+### 3-tier flavor 선택 (`pick_idle_flavor()`)
+
+| Tier | 조건 | 예시 |
+|------|------|------|
+| 1 | 오브젝트 prop (heat:output, can:sit) | 벽난로 → "불멍"/"온기" |
+| 2 | 실내/실외 (is_indoor) | 실내 → "창밖구경", 실외 → "하늘구경" |
+| 3 | 공통 + 아키타입 전용 | 공통 "기지개" + stoic "경계"/"명상" |
+
+전체 후보에서 랜덤 1개 선택. 아키타입별 묘사 규칙은 공통보다 앞에 배치되어 자연스럽게 override.
+
+### 환경 인식: `nearby` 컨텍스트
+
+`_build_context()`에서 현재 위치 오브젝트 prop을 스캔하여 `context["nearby"]` 리스트 생성:
+
+| prop | nearby 값 |
+|------|-----------|
+| `heat:output` | `"열원"` |
+| `can:cook` | `"조리대"` |
+| `can:sit` | `"좌석"` |
+
+TALK_RULES/DESCRIBE_RULES에서 `{"nearby": "열원"}` 조건으로 환경 반응 가능.
+
+### 파일
+
+| 파일 | 역할 |
+|------|------|
+| `think/idle_flavors.py` | 상태 관리 (set/get/clear/reset) + flavor 풀 + pick 로직 |
+| `think/movement_mixin.py` | `_insert_flavored_idle()` 메서드 |
+| `think/__init__.py` | think() 시작 시 `clear_flavor()` 호출 |
+| `assets/base.py` | idle_flavor 묘사 데이터 + `_build_context()` flavor/nearby 키 |
+| `chapters/__init__.py` | 챕터 전환 시 `idle_flavors.reset()` |
+
+---
+
 ## 구현 우선순위
 
 | 단계 | 내용 | 의존성 | 난이도 | 상태 |

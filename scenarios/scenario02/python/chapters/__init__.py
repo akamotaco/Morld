@@ -56,6 +56,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import carry, ground, stealth, laundry, reputation, build, survival, semen
     import combat, spawner
     from assets.objects import mining
+    from think import idle_flavors
     region_registry.reset()
     temperature.reset()
     humidity.reset()
@@ -77,6 +78,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     combat.reset()
     spawner.reset()
     mining.reset()
+    idle_flavors.reset()
 
     # 2.2. Limbo region 생성 (운반 시스템 — 매 챕터 로드마다 재생성)
     morld.add_region(LIMBO_REGION, "limbo")

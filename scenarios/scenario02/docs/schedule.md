@@ -119,6 +119,33 @@ _WANDER_ACTIVITIES = frozenset({"순찰", "산책"})
 
 **그 외 활동** (벌목, 낚시, 채집 등): target=None이면 현재 위치에서 대기 (wandering 하지 않음).
 
+### Idle Flavor 시스템 (v0.2.3)
+
+NPC가 대기/순찰 휴식 중일 때, 하나의 긴 idle 대신 **5~15분 짧은 idle을 반복**하여 다양한 행동 묘사를 제공합니다. DES의 자연 재호출(job 만료 → think())을 활용합니다.
+
+```
+think() → flavor 클리어
+  ↓
+Tier 5: _insert_flavored_idle("순찰", 40분)
+  ├─ job name = "순찰" (activity 불변)
+  ├─ flavor = "기지개" (모듈 딕셔너리 저장)
+  └─ duration = 10분 (짧게)
+  ↓
+10분 후 job 만료 → think() 재호출 → flavor = "콧노래"
+```
+
+**flavor 선택 3-tier 우선순위:**
+1. **오브젝트 근접**: 벽난로(heat:output) → "불멍"/"온기", 의자(can:sit) → "앉아쉬기"
+2. **실내/실외**: 실내 → "창밖구경"/"정리", 실외 → "하늘구경"/"바람쐬기"
+3. **공통 + 아키타입**: "기지개"/"스트레칭" 등 공통 + stoic="경계"/"명상" 등 전용
+
+**적용 범위:**
+- 순찰/산책 wandering 도착 후 휴식 (`_do_wander` → 10~30분 체류)
+- 비순찰 활동의 실행 후 나머지 시간 대기
+- target=None인 비순찰 활동의 제자리 대기
+
+**적용 제외:** sleep, bath, faint, 인터럽트 핸들러의 idle
+
 ### Safety net 원인 추적
 
 think()의 safety net은 `_action_taken=False`일 때 WARNING을 출력하며, 진단 정보를 포함합니다:
@@ -839,9 +866,11 @@ agent.push_schedule(work_order)
 - `scripts/system/script_system_data_api.cs` - AdvanceTimeDES, move duration 자동 계산 (v0.2.2)
 
 ### Python
-- `think/__init__.py` - BaseAgent, FSM 스택 관리, Phase 시스템, 동적 스케줄, 도구 관리, wandering
+- `think/__init__.py` - BaseAgent, FSM 스택 관리, Phase 시스템, 동적 스케줄, 도구 관리, wandering, flavor 클리어
+- `think/idle_flavors.py` - Idle flavor 시스템 (상태 관리 + 3-tier 선택 + flavor 풀 데이터)
 - `think/fsm.py` - 스택 기반 FSM (LifeState, GateTransitState, CombatState, FleeState, ResignationState, DesperateState, 레벨 기반 auto-pop)
 - `think/handlers/` - 인터럽트 핸들러 (식사/배변/체온/착의/자위/사회/선물)
+- `think/movement_mixin.py` - 이동 + 활동 디스패치 + Tier 5 루틴, _insert_flavored_idle()
 - `think/activities/` - 활동 핸들러 패키지 (10종: 소등/점등/벌목/낚시/채집/요리/청소/물자수집/정원/연료수집)
 - `think/activities/helpers.py` - 핸들러 공용 헬퍼 (resolve_storage_container, store_npc_items, find_npc_food 등)
 - `think/activity_resolver.py` - 활동별 동적 위치 탐색 (채집/사냥/순찰/벌목/낚시/독서/물자수집)

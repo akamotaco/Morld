@@ -181,6 +181,39 @@ class MovementMixin:
         return name
 
     # ========================================
+    # Flavored idle (다양한 묘사)
+    # ========================================
+
+    def _insert_flavored_idle(self, base_activity, remaining_millis):
+        """짧은 idle + 다양한 묘사 삽입 (DES 자연 재호출 활용).
+
+        job name은 base_activity 유지 (activity 불변).
+        flavor만 모듈 딕셔너리에 설정 → _build_context()의 flavor 키로 전달.
+        5분 미만이면 기본 idle로 대체.
+        """
+        if remaining_millis < 5 * 60_000:
+            self._insert_idle_job(base_activity, max(remaining_millis, 1))
+            self._action_taken = True
+            return
+
+        from think.idle_flavors import pick_idle_flavor
+        from assets.characters import get_instance
+        char = get_instance(self.unit_id)
+        archetype = getattr(char, '_DEFAULT_ARCHETYPE', 'stoic') if char else 'stoic'
+
+        loc = self.get_location()
+        pick_idle_flavor(
+            self.unit_id, base_activity,
+            region_id=loc[0] if loc else None,
+            location_id=loc[1] if loc else None,
+            archetype=archetype,
+        )
+
+        duration = min(random.randint(5, 15) * 60_000, remaining_millis)
+        self._insert_idle_job(base_activity, duration)
+        self._action_taken = True
+
+    # ========================================
     # 기본 활동 핸들러
     # ========================================
 
@@ -207,8 +240,7 @@ class MovementMixin:
             else:
                 # 기타 활동: 목표 없으면 제자리 대기
                 remaining = self._remaining_millis_in_entry(entry)
-                self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
-                self._action_taken = True
+                self._insert_flavored_idle(self._get_display_name(entry), max(remaining, 1))
             return
 
         # 2. 도착 여부
@@ -229,8 +261,7 @@ class MovementMixin:
                 # 기타 활동: 실행 후 스케줄 끝까지 대기
                 self._execute_activity(activity, target)
                 remaining = self._remaining_millis_in_entry(entry)
-                self._insert_idle_job(self._get_display_name(entry), max(remaining, 1))
-                self._action_taken = True
+                self._insert_flavored_idle(self._get_display_name(entry), max(remaining, 1))
 
     def _do_wander(self, entry=None):
         """돌아다니기: 랜덤 location 이동 → 10~30분 체류 → 반복
@@ -253,11 +284,10 @@ class MovementMixin:
         wander_target = self._activity_state.get("wander_target")
         if wander_target is not None:
             if self._is_at(wander_target):
-                # 도착 → 10~30분 체류 후 다음 이동
+                # 도착 → 체류 (flavored idle로 다양한 묘사)
                 self._activity_state.pop("wander_target", None)
                 rest = min(random.randint(10, 30) * 60_000, remaining)
-                self._insert_idle_job(display, max(rest, 1))
-                self._action_taken = True
+                self._insert_flavored_idle(display, max(rest, 1))
             else:
                 self._move_to(wander_target, display)
         else:

@@ -349,7 +349,7 @@ DESCRIBE_RULES = build_describe_rules(
 ```
 
 **빌더 섹션 순서** (기본):
-`specials → traveling → activity → weather → location → semen → internal_semen → desire → affection → default → fatigue`
+`specials → traveling → idle_flavor → activity → weather → location → semen → internal_semen → desire → affection → default → fatigue`
 
 **특징:**
 - `{name}` 플레이스홀더 자동 치환
@@ -380,7 +380,70 @@ FOCUS_RULES = build_focus_rules(
 ```
 
 **빌더 섹션 순서** (기본):
-`specials → semen → internal_semen → activity → mood → desire → affection → default`
+`specials → semen → internal_semen → idle_flavor → activity → mood → desire → affection → default`
+
+---
+
+### Idle Flavor 묘사 (v0.2.3)
+
+NPC가 idle 중일 때 다양한 행동을 묘사합니다. `flavor`는 `activity`와 완전히 별도의 컨텍스트 키로, 같은 단어가 양쪽에 있어도 충돌하지 않습니다.
+
+**동작 원리:**
+- `think()` 시작 시 flavor 클리어 → 실제 활동 중에는 항상 빈 문자열
+- `_insert_flavored_idle()` 호출 시에만 flavor 설정 (5~15분 짧은 idle)
+- idle job 만료 → think() 재호출 → 새로운 flavor 선택 → 묘사 변경
+
+**빌더에 자동 포함되는 idle_flavor 섹션:**
+```python
+# build_describe_rules("stoic", ...) 호출 시 자동 생성:
+"idle_flavor": [
+    # 아키타입 전용 (앞에 위치 → 공통 override)
+    ({"flavor": "기지개"}, "{name}가 가만히 기지개를 켜고 있다."),  # stoic 스타일
+    ({"flavor": "경계"}, "{name}가 날카로운 눈으로 주변을 살피고 있다."),
+    ...
+    # 공통 fallback
+    ({"flavor": "기지개"}, "{name}가 기지개를 켜고 있다."),
+    ({"flavor": "앉아쉬기"}, "{name}가 앉아서 쉬고 있다."),
+    ...
+]
+```
+
+**우선순위:** `idle_flavor`는 `activity` 앞에 위치. flavor가 설정되면 idle_flavor 섹션에서 먼저 매칭되고, 빈 문자열이면 불일치 → activity 섹션으로 넘어감.
+
+### 컨텍스트 키: `flavor`
+
+| 키 | 타입 | 설명 |
+|----|------|------|
+| `flavor` | `str` | 현재 idle flavor (빈 문자열이면 idle 아님) |
+
+**flavor 값 예시:** `기지개`, `콧노래`, `불멍`, `경계`, `명상`, `두리번`, `앉아쉬기` 등
+
+TALK_RULES에서 사용:
+```python
+TALK_RULES = {
+    "잡담": [
+        ({"flavor": "불멍"}, {"pages": ["......", "...불이 좋군."]}),
+        ({"flavor": "경계"}, {"pages": ["...뭐야, 이상한 소리 들린 건 아니야."]}),
+        # ...
+        ({}, {"pages": ["..."]}),  # 기본 폴백
+    ]
+}
+```
+
+### 컨텍스트 키: `nearby`
+
+| 키 | 타입 | 설명 |
+|----|------|------|
+| `nearby` | `list[str]` | 현재 위치의 오브젝트 종류 |
+
+**nearby 값:** `열원` (heat:output), `조리대` (can:cook), `좌석` (can:sit)
+
+TextSelector의 list `in` 매칭으로 동작:
+```python
+# {"nearby": "열원"} → context["nearby"]에 "열원"이 포함되면 매칭
+({"nearby": "열원", "weather": "눈"}, {"pages": ["...밖에 눈이 오는군.", "...안에 있는 게 낫겠어."]}),
+({"nearby": "조리대"}, {"pages": ["...좋은 냄새가 나는군."]}),
+```
 
 ---
 
@@ -416,7 +479,8 @@ result = TextSelector.select(rules, context)  # "result_b"
 | 파일 | 내용 |
 |------|------|
 | `python/ui.py` | Lines, Sequence, Conversation 클래스 |
-| `python/assets/base.py` | TextSelector, Character, build_focus_rules(), build_describe_rules() |
+| `python/assets/base.py` | TextSelector, Character, build_focus_rules(), build_describe_rules(), idle flavor 묘사 데이터 |
+| `python/think/idle_flavors.py` | Idle flavor 상태 관리 (set/get/clear/pick), flavor 풀 데이터, 3-tier 선택 로직 |
 | `python/assets/characters/*.py` | 캐릭터별 RULES 정의 (빌더 호출 + 특수 조건) |
 | `python/romance_line_generator.py` | :start 1인칭 대사 Generator (3D 좌표 기반) |
 | `python/romance_reaction_generator.py` | :during 3인칭 묘사 Generator (3D 좌표 기반) |
@@ -441,5 +505,6 @@ result = TextSelector.select(rules, context)  # "result_b"
 
 묘사 (Description)
 ├── DESCRIBE_RULES ─────── 장소에서 보이는 묘사 (build_describe_rules 빌더)
+│   └── idle_flavor ────── idle 중 다양한 행동 묘사 (아키타입별 + 공통)
 └── FOCUS_RULES ────────── 클릭 시 상세 묘사 (build_focus_rules 빌더)
 ```

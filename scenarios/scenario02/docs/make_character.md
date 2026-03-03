@@ -72,7 +72,7 @@ CHARACTER_CLASSES = {
 | `FOCUS_RULES` | `None` | 포커스 묘사 규칙 (None이면 아키타입 기반 자동 생성) |
 | `TALK_TOPICS` | `None` | 대화 주제 목록 (None이면 주제 선택 없이 바로 대화) |
 | `TALK_RULES` | `None` | 대화 규칙 dict/list (None이면 기본 대사) |
-| `_DEFAULT_ARCHETYPE` | `"stoic"` | 텍스트 자동생성 아키타입 |
+| `_DEFAULT_ARCHETYPE` | `"stoic"` | 텍스트 자동생성 아키타입 (idle flavor 선택 + 묘사에도 사용) |
 
 #### 연애 시스템
 
@@ -285,6 +285,13 @@ class Noel(Character):
     TALK_RULES = {
         "잡담": [
             ({"mood": "분노"}, {"pages": ["...지금은 말 걸지 마세요..."]}),
+            # flavor 기반 반응 (idle 중 행동에 따른 대사)
+            ({"flavor": "콧노래"}, {"pages": ["♪~...어머, 말 걸었어?"]}),
+            ({"flavor": "불멍"}, {"pages": ["...불을 보고 있었어요.", "...따뜻하네요."]}),
+            # nearby 기반 반응 (주변 오브젝트에 따른 대사)
+            ({"nearby": "열원", "weather": "눈"}, {"pages": ["...밖에 눈이 오네요.", "...안에 있는 게 좋겠어요."]}),
+            ({"nearby": "조리대"}, {"pages": ["...좋은 냄새가 나요."]}),
+            # 기본
             ({"호감": 50}, {"pages": ["...오늘 날씨가 좋네요.", "...같이 걸을래요?"]}),
             ({}, {"pages": ["...안녕하세요.", "...무슨 일이세요?"]}),
         ],
