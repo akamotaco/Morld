@@ -54,6 +54,7 @@ update() → True:  "처리 완료, 멈춤" (스택 유지)
 - FSM 전체를 pass-through로 변경 (기존 CombatState/FleeState 포함)
 - push/pop은 명시적으로, pass-through는 True/False로
 - 기존 상태들은 완료 시 명시적 pop() 호출로 종료
+- **동일 레벨 auto-pop 유지**: `_fsm_push()` 시 동일/상위 레벨 자동 pop (전투 상태 교체에 활용, 예: Flee→Desperate)
 
 ### 2.2 think() 루프 구조 ✅ 확정
 
@@ -188,10 +189,12 @@ Phase가 True를 반환해서 욕구를 억제하면:
 ### 4.2 2계층 명령 체계
 
 ```
-┌─ 계층 1: 지휘 (Directive) ─── 플레이어 → 분대 ───────────┐
-│ 매크로 자세: 공세 / 통상 / 은밀                             │
-│ (분대 객체의 player_directive에 저장)                       │
-└─────────────────────────────────────────────────────────┘
+┌─ 계층 1: 지휘 (Directive) ─── 플레이어 → 분대 ──────────────────────┐
+│ 7종 자세:                                                          │
+│   auto / search / combat_stealth / combat_normal /                 │
+│   combat_aggressive / retreat / wait                               │
+│ (분대 객체의 player_directive에 저장)                                │
+└──────────────────────────────────────────────────────────────────┘
           ↓ 분대장이 지휘를 해석
 ┌─ 계층 2: 지시 (Order) ─── 분대장 → 분대원 ─────────────────┐
 │ 구체적 행동: 수색 / 경계 / 수집 / 이동 / 대기 등             │
@@ -290,7 +293,7 @@ Phase가 True를 반환해서 욕구를 억제하면:
 ### 6.2 분대장 AI ✅ 확정
 - 분대 객체(Squad)에 명령 저장 (섹션 4.1에 반영)
 - 분대장 성격 → 분대 성격으로 투영, 교체 시 전체 갱신
-- 2계층: 플레이어 지휘(공세/통상/은밀) → 분대장 지시(구체적 행동)
+- 2계층: 플레이어 지휘(7종) → 분대장 지시(구체적 행동)
 - 불복/이탈: 성향 불일치 시 지시 무시, 극단 조건에서 분대 이탈
 - think() 내 통합: 별도 pre-think 불필요, 분대 객체 지속 저장
 
@@ -335,3 +338,37 @@ Phase가 True를 반환해서 욕구를 억제하면:
 - **B 방식**: 기존 문서 폐기, party-design-notes.md를 새 명세로 발전
 - 신규 문서와 현재 코드를 비교 검토하며 완성도를 높인 뒤 한번에 구현
 - 기존 party-implementation.md에서 살릴 부분은 검토 시 선별 반영
+
+---
+
+## 7. 코드 검토 — 누락/보완 필요 항목
+
+> 기존 party-implementation.md 및 현재 코드와 비교하여 발견된 항목.
+> 구현 시점에 순차적으로 반영.
+
+### 7.1 FSM 구현 시 주의사항
+
+| 항목 | 내용 |
+|------|------|
+| **think() 루프 변경** | 현재 `top.update()` 1회 → 스택 위→아래 순회로 변경 |
+| **LifePhase.update()** | 기존 5-tier inline 로직을 update() 내부로 이동, 항상 True 반환 |
+| **"pop + return False" 패턴** | 기존 전투 상태들의 패턴 유지 가능 (의미만 변경: "pop 후 아래로 위임") |
+| **동일 레벨 auto-pop** | 유지 (Flee→Desperate 등 전투 상태 교체에 활용) |
+| **CombatState 재귀 호출** | L461 `return self.update(agent)` — 스택 순회로 대체 검토 |
+
+### 7.2 기존 명세에서 보완할 상세 메커니즘
+
+| 항목 | 중요도 | 출처 | 내용 |
+|------|--------|------|------|
+| **작업 명령 (Task Commands)** | HIGH | impl 5.5 | 파티 중 벌목/청소/제작 가능 (follow만이 아님). 임시 스케줄 교체 |
+| **귀환 메커니즘** | HIGH | impl 6.2 | 파티 해산 시 NPC → home_region 입구 자동 귀환 (소프트락 방지) |
+| **PARTY_BEHAVIOR dict** | HIGH | impl 3.2 | 캐릭터별 설정: recruitable, follow_distance, combat_join_in_party, leaves_if_hostile 등 |
+| **명령 거부 공식** | MEDIUM | impl 5.6 | `refusal_chance = rebellion * 0.008 - submission * 0.005` |
+| **NPC 리더 override 규칙** | MEDIUM | impl 7.3 | PARTY_LEADER_BEHAVIOR: auto_style + override_rules + override_chance |
+| **Region 텔레포트 동기화** | MEDIUM | impl 12.2 | 리더 RegionGate 통과 시 파티원 자동 동기화 |
+| **가입 이중경로** | MEDIUM | impl 4.3 | 호감도 경로 (자발) vs 복종도 경로 (강제, 반발 위험) |
+| **비전투 파티원** | MEDIUM | impl 13.1 | combat_join_in_party=False 옵션 (리나 등) |
+| **date.py 상호배제** | LOW | impl 1.3 | 파티 중 데이트 불가 |
+| **on_meet 쿨다운** | LOW | impl 20.2 | 파티원 인사 1시간 쿨다운 |
+| **same-location idle** | LOW | impl 10.1 | 리더와 같은 위치 도착 시 brief idle 삽입 (시각적 안정) |
+| **챕터 전환 reset** | LOW | impl 21.2 | chapters/__init__.py에 party.reset() 추가 |
