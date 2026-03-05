@@ -54,7 +54,8 @@
 | 전투 시스템 | [battle.md](scenarios/scenario02/docs/battle.md) |
 | 전투 구현 명세 | [combat-implementation.md](scenarios/scenario02/docs/combat-implementation.md) |
 | 생물(Creature) 시스템 | [creature.md](scenarios/scenario02/docs/creature.md) |
-| 파티 시스템 (구현 명세) | [party-implementation.md](scenarios/scenario02/docs/party-implementation.md) |
+| 파티 시스템 (설계+구현 명세) | [party-design-notes.md](scenarios/scenario02/docs/party-design-notes.md) |
+| 파티 시스템 (v1, 대체됨) | [party-implementation.md](scenarios/scenario02/docs/party-implementation.md) |
 | 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
 | 캐릭터 만들기 (NPC 정의 가이드) | [make_character.md](scenarios/scenario02/docs/make_character.md) |
 | 활동 만들기 (Activity 핸들러 가이드) | [make_activity.md](scenarios/scenario02/docs/make_activity.md) |

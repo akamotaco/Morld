@@ -1,6 +1,17 @@
-# 파티 시스템 구현 명세
+# 파티 시스템 구현 명세 (v1 — 대체됨)
 
-> **이 문서만으로 구현이 가능한 수준의 상세 명세서입니다.**
+> **상태: 대체됨 — 아래 문서를 참고하세요.**
+>
+> 이 문서는 초기 설계 명세(v1)입니다. 이후 설계 논의를 거쳐 아래 문서로 대체되었습니다:
+>
+> - **[party-design-notes.md](party-design-notes.md) Section 8** — 최신 구현 명세 (v2)
+>   - FSM pass-through 스택, 분대(Squad) 시스템, Disposition 2D, 개별 Gate transit 등
+>
+> 이 문서의 내용 중 일부(date.py follow 패턴, C# follow 동작 등)는 여전히 참고 가치가 있습니다.
+
+---
+
+> ~~이 문서만으로 구현이 가능한 수준의 상세 명세서입니다.~~
 > combat-implementation.md Section 26의 Phase 2 파티 시스템을 독립 설계합니다.
 > 기존 date.py의 follow 패턴을 확장하여 다인 파티를 구현합니다.
 
