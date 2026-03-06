@@ -716,6 +716,8 @@ def check_npc_combat_join(region_id: int, location_id: int) -> list:
     player_info = morld.get_unit_info(player_id)
     player_name = player_info.get("name", "") if player_info else ""
 
+    import party as _party
+
     for unit_id, agent in think.get_all_agents().items():
         # 같은 location인지 확인
         loc = morld.get_unit_location(unit_id)
@@ -726,15 +728,26 @@ def check_npc_combat_join(region_id: int, location_id: int) -> list:
         if survival.is_npc_fainted(unit_id) or survival.is_npc_exhausted(unit_id):
             continue
 
-        # BATTLE_BEHAVIOR 확인
+        # 이미 전투 중이면 스킵 (FSM 스택 기반)
+        if any(s.state_type == "combat" for s in agent._fsm_stack):
+            continue
+
+        # 파티 멤버: order 기반 합류 판정 (G1)
+        squad = _party.get_squad_by_unit(unit_id)
+        if squad:
+            order = _party.get_order_for_unit(unit_id)
+            if order:
+                main_type = order.main_type()
+                if main_type in ("전투", "경계"):
+                    joinable.append(unit_id)
+                # 수집/대기/이동/follow → 합류 안 함
+            continue  # 파티 멤버는 BATTLE_BEHAVIOR 무시
+
+        # 비파티: 기존 BATTLE_BEHAVIOR 로직
         behavior = getattr(agent, 'BATTLE_BEHAVIOR', None)
         if not behavior:
             continue
         if not behavior.get("join_combat", False):
-            continue
-
-        # 이미 전투 중이면 스킵 (FSM 스택 기반)
-        if any(s.state_type == "combat" for s in agent._fsm_stack):
             continue
 
         # 호감도 체크

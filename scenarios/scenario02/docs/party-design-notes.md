@@ -1,6 +1,6 @@
 # 파티 시스템 설계 노트
 
-> **상태: Phase 4 구현 완료 (플레이어 UI — can: props, 모집/지시/해산 액션, 109개 테스트)**
+> **상태: Phase 5 구현 완료 (연동/마무리 — 전투 합류, 데이트 상호 배제, 불복 판정, 116개 테스트)**
 >
 > 이 문서는 파티 시스템의 설계 논의(Section 1~7) + 구현 명세(Section 8)를 포함합니다.
 > 기존 `party-implementation.md`(v1)을 대체하는 최신 명세입니다.
@@ -9,8 +9,8 @@
 > - Phase 1 ✅: FSM pass-through 변환, party.py 모듈, party_config.py, 챕터 리셋, 53개 테스트
 > - Phase 2 ✅: Order 핸들러 6종 (order_handlers.py), FSM push/pop 통합 (set_order/remove_member), 72개 테스트
 > - Phase 3 ✅: follow 스케줄 (E1), order 전환 (E2), gate 동기화 (E3), 귀환 (E4), 92개 테스트
-> - Phase 4 ⬜: 플레이어 UI (모집/지시 액션)
-> - Phase 5 ⬜: 연동/마무리 (전투 합류, 데이트 상호 배제, 불복, 리더 승계)
+> - Phase 4 ✅: 플레이어 UI (can: props, 모집/지시/해산 액션, 109개 테스트)
+> - Phase 5 ✅: 연동/마무리 (전투 합류 G1, 데이트 상호 배제 G2, 불복 판정 F2, 116개 테스트)
 
 ---
 
@@ -1797,9 +1797,9 @@ Phase 4 — 플레이어 UI ✅ 완료
   17. ✅ 모집/지시/해산/지휘 액션 (C4 + F5) + 전 NPC actions 등록
   18. ✅ 테스트: 109개 파티 테스트, 841/841 전체 통과
 
-Phase 5 — 연동/마무리
-  19. 전투 합류 연동 (G1)
-  20. 데이트 상호 배제 (G2)
-  21. 불복 판정 (F2)
-  22. 통합 테스트
+Phase 5 — 연동/마무리 ✅ 완료
+  19. ✅ 전투 합류 연동 (G1) — 파티 멤버: 전투/경계 order → 합류, 나머지 → 불참
+  20. ✅ 데이트 상호 배제 (G2) — party.add_member + date.can_request_date 양방향 차단
+  21. ✅ 불복 판정 (F2) — CommandPhase에서 handler 디스패치 전 check_disobedience 호출
+  22. ✅ 테스트: 116개 파티 테스트, 848/848 전체 통과
 ```

@@ -134,9 +134,9 @@ def check_disobedience(unit_id, leader_id, order):
     if submission >= 80:
         return False
 
-    # 후퇴는 거부하지 않음
+    # follow/후퇴는 거부하지 않음
     main_type = order.order_type.split(":")[0] if hasattr(order, 'order_type') else ""
-    if main_type == "후퇴":
+    if main_type in ("후퇴", "follow"):
         return False
 
     # 기본 거부 확률: (반발 - 복종) / 200

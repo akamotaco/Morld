@@ -7,6 +7,7 @@ party.py + think/party_config.py + FSM pass-through 테스트
 - Phase 2: Order 핸들러 (follow/이동/대기/경계/수색/수집), FSM push/pop 통합
 - Phase 3: Follow 스케줄, Gate 동기화, Order 전환, 귀환 메커니즘
 - Phase 4: 플레이어 UI (can: props, update_party_props, 모집 판정)
+- Phase 5: 연동/마무리 (전투 합류, 데이트 상호 배제, 불복 판정 통합)
 """
 import sys
 import os
@@ -58,6 +59,12 @@ sys.modules.setdefault("needs", _NeedsStub())
 
 # think.registry stub (party._get_agent 연동용)
 import types as _types
+
+# date stub (G2: 데이트 상호 배제)
+_date_mod = _types.ModuleType("date")
+_date_active = set()  # 데이트 중인 unit_id 집합
+_date_mod.is_on_date = lambda uid: uid in _date_active
+sys.modules["date"] = _date_mod
 _registry = _types.ModuleType("think.registry")
 _registry._agents = {}
 _registry.get_agent = lambda uid: _registry._agents.get(uid)
@@ -97,6 +104,7 @@ def _setup():
     morld.reset()
     _party_mod.reset()
     _registry._agents.clear()
+    _date_active.clear()
 
     # 기본 유닛 등록 (플레이어 + NPC 6명)
     morld._player_id = 1
@@ -1655,3 +1663,148 @@ class TestDisobedience(_T):
         order = Order("대기")
         for _ in range(100):
             assert _party_config.check_disobedience(10, 1, order) is False
+
+
+# ============================================
+# Phase 5: 데이트 상호 배제 테스트 (G2)
+# ============================================
+
+class TestDateMutualExclusion(_T):
+
+    def test_add_member_blocked_during_date(self):
+        """데이트 중인 NPC → add_member 실패"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+
+        _date_active.add(10)  # 세라가 데이트 중
+
+        result = _party_mod.add_member(sid, 10)
+        assert result is False
+
+    def test_add_member_ok_after_date(self):
+        """데이트 종료 후 → add_member 성공"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+
+        _date_active.add(10)
+        assert _party_mod.add_member(sid, 10) is False
+
+        _date_active.discard(10)
+        assert _party_mod.add_member(sid, 10) is True
+
+    def test_add_member_non_date_ok(self):
+        """데이트 아닌 NPC → add_member 정상"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+
+        result = _party_mod.add_member(sid, 10)
+        assert result is True
+
+
+# ============================================
+# Phase 5: 불복 판정 통합 테스트 (F2)
+# ============================================
+
+class TestDisobedienceIntegration(_T):
+
+    def test_command_phase_disobey_high_rebellion(self):
+        """높은 반발 + 전투 order → 불복 가능"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("전투"))
+
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:반발", 100)
+        morld.set_unit_prop(10, f"관계:{player_name}:복종", 0)
+
+        # 100회 시행 — 최소 1회 이상 불복 발생해야 함
+        disobeyed = False
+        for _ in range(100):
+            morld.clear_jobs(10)
+            agent._action_taken = False
+            cmd = [s for s in agent._fsm_stack if s.state_type == "command"][0]
+            cmd.update(agent)
+            jobs = morld.get_all_jobs(10)
+            if jobs and jobs[-1]["name"] == "불복":
+                disobeyed = True
+                break
+
+        assert disobeyed is True
+
+    def test_command_phase_no_disobey_high_submission(self):
+        """높은 복종 → 절대 불복 없음"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("전투"))
+
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:반발", 50)
+        morld.set_unit_prop(10, f"관계:{player_name}:복종", 85)
+
+        for _ in range(100):
+            morld.clear_jobs(10)
+            agent._action_taken = False
+            cmd = [s for s in agent._fsm_stack if s.state_type == "command"][0]
+            cmd.update(agent)
+            jobs = morld.get_all_jobs(10)
+            assert not any(j["name"] == "불복" for j in jobs)
+
+    def test_command_phase_follow_no_disobey(self):
+        """follow order → 불복 판정 자체 없음 (follow는 _ORDER_HANDLERS 경유)"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:반발", 100)
+        morld.set_unit_prop(10, f"관계:{player_name}:복종", 0)
+
+        # follow는 check_disobedience 내부에서 후퇴와 동일하게 거부 안 함
+        # (main_type == "follow" → _ORDER_RISK.get("follow", 0.0))
+        for _ in range(100):
+            morld.clear_jobs(10)
+            agent._action_taken = False
+            cmd = [s for s in agent._fsm_stack if s.state_type == "command"][0]
+            cmd.update(agent)
+            jobs = morld.get_all_jobs(10)
+            assert not any(j["name"] == "불복" for j in jobs)
+
+    def test_command_phase_leader_no_disobey(self):
+        """리더 본인 → 불복 판정 없음"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 10)
+        _party_mod.add_member(sid, 11)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("경계"))
+
+        # 리더의 반발이 높아도 자기 자신에겐 불복 없음
+        morld.set_unit_prop(10, f"관계:세라:반발", 100)
+
+        for _ in range(100):
+            morld.clear_jobs(10)
+            agent._action_taken = False
+            cmd = [s for s in agent._fsm_stack if s.state_type == "command"][0]
+            cmd.update(agent)
+            jobs = morld.get_all_jobs(10)
+            assert not any(j["name"] == "불복" for j in jobs)

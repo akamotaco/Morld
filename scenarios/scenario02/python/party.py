@@ -209,6 +209,14 @@ def add_member(squad_id, unit_id):
     if unit_id in _unit_squad:
         return False  # 이미 다른 분대 소속
 
+    # G2: 데이트 중 모집 불가
+    try:
+        from date import is_on_date
+        if is_on_date(unit_id):
+            return False
+    except ImportError:
+        pass
+
     squad.members.append(unit_id)
     _unit_squad[unit_id] = squad_id
 

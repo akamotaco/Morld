@@ -126,6 +126,14 @@ def can_request_date(player_id, partner_id):
     if is_on_date(player_id):
         return False, "이미 데이트 중이다."
 
+    # G2: 파티 소속이면 데이트 불가
+    try:
+        import party as _party
+        if _party.is_in_squad(partner_id):
+            return False, "분대 활동 중에는 함께할 수 없다."
+    except ImportError:
+        pass
+
     # 같은 위치 확인
     player_loc = morld.get_unit_location(player_id)
     partner_loc = morld.get_unit_location(partner_id)
