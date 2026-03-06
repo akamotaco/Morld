@@ -93,7 +93,7 @@ namespace SE
                 if (args.Length < 3)
                     throw PyTypeError.Create("queue_event(event_type, player_id, unit_ids) requires 3 arguments");
 
-                string eventType = args[0] is PyString pyStr ? pyStr.Value : args[0].ToString();
+                string eventType = args[0] is PyStr pyStr ? pyStr.Value : args[0].ToString();
                 int playerId = args[1].ToInt();
 
                 // unit_ids는 리스트
@@ -270,8 +270,8 @@ namespace SE
 
                 var result = new PyDict();
                 result["id"] = new PyInt(item.Id);
-                result["unique_id"] = new PyString(item.UniqueId ?? "");
-                result["name"] = new PyString(item.Name ?? "");
+                result["unique_id"] = new PyStr(item.UniqueId ?? "");
+                result["name"] = new PyStr(item.Name ?? "");
                 result["value"] = new PyInt(item.Value);
 
                 // passive_props
@@ -321,8 +321,8 @@ namespace SE
                     {
                         var itemInfo = new PyDict();
                         itemInfo["id"] = new PyInt(item.Id);
-                        itemInfo["unique_id"] = new PyString(item.UniqueId ?? "");
-                        itemInfo["name"] = new PyString(item.Name ?? "");
+                        itemInfo["unique_id"] = new PyStr(item.UniqueId ?? "");
+                        itemInfo["name"] = new PyStr(item.Name ?? "");
                         itemInfo["count"] = new PyInt(count);
 
                         // passive_props
@@ -479,7 +479,7 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result["name"] = new PyString(location.Name ?? "");
+                result["name"] = new PyStr(location.Name ?? "");
                 result["region_id"] = new PyInt(location.RegionId);
                 result["location_id"] = new PyInt(location.LocalId);
                 result["is_indoor"] = PyBool.FromBool(location.IsIndoor);
@@ -488,13 +488,13 @@ namespace SE
                 // 날씨 정보 (실외일 때만 유효)
                 var weather = location.CurrentWeather;
                 if (weather != null)
-                    result["weather"] = new PyString(weather);
+                    result["weather"] = new PyStr(weather);
                 else
                     result["weather"] = PyNone.Instance;
 
                 // 소유자 정보
                 if (location.Owner != null)
-                    result["owner"] = new PyString(location.Owner);
+                    result["owner"] = new PyStr(location.Owner);
                 else
                     result["owner"] = PyNone.Instance;
 
@@ -527,7 +527,7 @@ namespace SE
                 // 유닛 정보를 PyDict로 반환
                 var result = new PyDict();
                 result["id"] = new PyInt(unit.Id);
-                result["name"] = new PyString(unit.Name ?? "");
+                result["name"] = new PyStr(unit.Name ?? "");
                 result["is_object"] = PyBool.FromBool(unit.IsObject);
                 result["is_creature"] = PyBool.FromBool(unit.IsCreature);
 
@@ -539,8 +539,8 @@ namespace SE
                 var currentJob = unit.CurrentJob;
                 if (currentJob != null)
                 {
-                    result["activity"] = new PyString(currentJob.Name ?? "");
-                    result["schedule_name"] = new PyString(currentJob.Name ?? "");
+                    result["activity"] = new PyStr(currentJob.Name ?? "");
+                    result["schedule_name"] = new PyStr(currentJob.Name ?? "");
                 }
                 else
                 {
@@ -896,7 +896,7 @@ namespace SE
                 int value;
 
                 // 첫 번째 인자가 문자열이면 레거시 모드 (플레이어 대상)
-                if (args[0] is PyString)
+                if (args[0] is PyStr)
                 {
                     unitId = _playerSystem.PlayerId;
                     propName = args[0].AsString();
@@ -933,7 +933,7 @@ namespace SE
                 string propName;
 
                 // 첫 번째 인자가 문자열이면 레거시 모드 (플레이어 대상)
-                if (args[0] is PyString)
+                if (args[0] is PyStr)
                 {
                     unitId = _playerSystem.PlayerId;
                     propName = args[0].AsString();
@@ -966,7 +966,7 @@ namespace SE
                 string propName;
 
                 // 첫 번째 인자가 문자열이면 레거시 모드 (플레이어 대상)
-                if (args[0] is PyString)
+                if (args[0] is PyStr)
                 {
                     unitId = _playerSystem.PlayerId;
                     propName = args[0].AsString();
@@ -1041,19 +1041,19 @@ namespace SE
             morldModule.ModuleDict["get_scenario_path"] = new PyBuiltinFunction("get_scenario_path", args =>
             {
                 // 시나리오 기본 경로 반환 (res://scenarios/scenario01/)
-                return new PyString(_scenarioPath);
+                return new PyStr(_scenarioPath);
             });
 
             morldModule.ModuleDict["get_scenario_data_path"] = new PyBuiltinFunction("get_scenario_data_path", args =>
             {
                 // 시나리오 데이터 폴더 경로 반환 (res://scenarios/scenario01/data/)
-                return new PyString(_scenarioPath + "data/");
+                return new PyStr(_scenarioPath + "data/");
             });
 
             morldModule.ModuleDict["get_scenario_python_path"] = new PyBuiltinFunction("get_scenario_python_path", args =>
             {
                 // 시나리오 Python 폴더 경로 반환 (res://scenarios/scenario01/python/)
-                return new PyString(ScenarioPythonPath);
+                return new PyStr(ScenarioPythonPath);
             });
         }
 
@@ -1101,7 +1101,7 @@ namespace SE
                 var pyList = new PyList();
                 foreach (var item in actionItems)
                 {
-                    pyList.Append(new PyString(item));
+                    pyList.Append(new PyStr(item));
                 }
                 return pyList;
             });
@@ -1128,7 +1128,7 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result["geometry"] = new PyString(location.Geometry.ToString().ToLower());
+                result["geometry"] = new PyStr(location.Geometry.ToString().ToLower());
                 result["length"] = new PyFloat(location.Length);
                 result["player_x"] = new PyFloat(player.PositionX);
 
@@ -1142,8 +1142,8 @@ namespace SE
                 foreach (var route in lookResult.Routes)
                 {
                     var routeDict = new PyDict();
-                    routeDict["name"] = new PyString(route.LocationName);
-                    routeDict["region_name"] = new PyString(route.RegionName);
+                    routeDict["name"] = new PyStr(route.LocationName);
+                    routeDict["region_name"] = new PyStr(route.RegionName);
                     routeDict["region_id"] = new PyInt(route.Destination.RegionId);
                     routeDict["local_id"] = new PyInt(route.Destination.LocalId);
                     routeDict["travel_time"] = new PyInt(route.TravelTime);
@@ -1256,8 +1256,8 @@ namespace SE
                     return PyNone.Instance;
 
                 var result = new PyDict();
-                result["name"] = new PyString(job.Name ?? "");
-                result["action"] = new PyString(job.Action ?? "stay");
+                result["name"] = new PyStr(job.Name ?? "");
+                result["action"] = new PyStr(job.Action ?? "stay");
                 result["duration"] = new PyInt(job.Duration);
                 result["region_id"] = new PyInt(job.RegionId);
                 result["location_id"] = new PyInt(job.LocationId);
@@ -1363,7 +1363,7 @@ namespace SE
                 if (kwargs != null)
                 {
                     // autofill 파라미터
-                    var autofillKey = new PyString("autofill");
+                    var autofillKey = new PyStr("autofill");
                     var autofillValue = kwargs.Get(autofillKey);
                     if (autofillValue != null && !(autofillValue is PyNone))
                     {
@@ -1378,7 +1378,7 @@ namespace SE
                     }
 
                     // proc 파라미터
-                    var procKey = new PyString("proc");
+                    var procKey = new PyStr("proc");
                     var procValue = kwargs.Get(procKey);
                     if (procValue != null && !(procValue is PyNone))
                     {
@@ -1386,7 +1386,7 @@ namespace SE
                     }
 
                     // result 파라미터
-                    var resultKey = new PyString("result");
+                    var resultKey = new PyStr("result");
                     var resultValue = kwargs.Get(resultKey);
                     if (resultValue != null && !(resultValue is PyNone))
                     {
@@ -1394,7 +1394,7 @@ namespace SE
                     }
 
                     // time_flows 파라미터 - 자동 시간 흐름 허용 여부
-                    var timeFlowsKey = new PyString("time_flows");
+                    var timeFlowsKey = new PyStr("time_flows");
                     var timeFlowsValue = kwargs.Get(timeFlowsKey);
                     if (timeFlowsValue != null && !(timeFlowsValue is PyNone))
                     {
@@ -1464,7 +1464,7 @@ namespace SE
                 if (kwargs != null)
                 {
                     // scale 파라미터
-                    var scaleKey = new PyString("scale");
+                    var scaleKey = new PyStr("scale");
                     var scaleValue = kwargs.Get(scaleKey);
                     if (scaleValue != null && !(scaleValue is PyNone))
                     {
@@ -1472,7 +1472,7 @@ namespace SE
                     }
 
                     // mode 파라미터
-                    var modeKey = new PyString("mode");
+                    var modeKey = new PyStr("mode");
                     var modeValue = kwargs.Get(modeKey);
                     if (modeValue != null && !(modeValue is PyNone))
                     {
@@ -1507,38 +1507,38 @@ namespace SE
                 var step = new AnimlogStep();
 
                 // type
-                var typeObj = dict.Get(new PyString("type"));
-                step.Type = typeObj is PyString typeStr ? typeStr.Value : "text";
+                var typeObj = dict.Get(new PyStr("type"));
+                step.Type = typeObj is PyStr typeStr ? typeStr.Value : "text";
 
                 switch (step.Type)
                 {
                     case "text":
                         // content
-                        var contentObj = dict.Get(new PyString("content"));
-                        step.Content = contentObj is PyString contentStr ? contentStr.Value : "";
+                        var contentObj = dict.Get(new PyStr("content"));
+                        step.Content = contentObj is PyStr contentStr ? contentStr.Value : "";
 
                         // delay (optional)
-                        var delayObj = dict.Get(new PyString("delay"));
+                        var delayObj = dict.Get(new PyStr("delay"));
                         if (delayObj != null && !(delayObj is PyNone))
                         {
                             step.Delay = PyObjectToFloat(delayObj, 0f);
                         }
 
                         // speed
-                        var speedObj = dict.Get(new PyString("speed"));
+                        var speedObj = dict.Get(new PyStr("speed"));
                         if (speedObj != null && !(speedObj is PyNone))
                         {
                             step.Speed = PyObjectToFloat(speedObj, 50f);
                         }
 
                         // append
-                        var appendObj = dict.Get(new PyString("append"));
+                        var appendObj = dict.Get(new PyStr("append"));
                         step.Append = appendObj == null || appendObj is PyNone || appendObj.IsTrue();
                         break;
 
                     case "wait":
                         // duration
-                        var durationObj = dict.Get(new PyString("duration"));
+                        var durationObj = dict.Get(new PyStr("duration"));
                         if (durationObj != null && !(durationObj is PyNone))
                         {
                             step.Duration = PyObjectToFloat(durationObj, 0f);
@@ -1547,9 +1547,9 @@ namespace SE
 
                     case "callback":
                         // func
-                        step.CallbackFunc = dict.Get(new PyString("func"));
-                        step.CallbackArgs = dict.Get(new PyString("args"));
-                        step.CallbackKwargs = dict.Get(new PyString("kwargs"));
+                        step.CallbackFunc = dict.Get(new PyStr("func"));
+                        step.CallbackArgs = dict.Get(new PyStr("args"));
+                        step.CallbackKwargs = dict.Get(new PyStr("kwargs"));
                         break;
 
                     case "clear":

@@ -101,7 +101,7 @@ namespace SE
                 string name = args[2].AsString();
                 int stayDurationMin = args.Length >= 4 ? args[3].ToInt() : 0; // Python: 분 단위
                 bool isIndoor = args.Length >= 5 ? args[4].IsTrue() : true;
-                string owner = args.Length >= 6 && args[5] is PyString ownerStr ? ownerStr.Value : null;
+                string owner = args.Length >= 6 && args[5] is PyStr ownerStr ? ownerStr.Value : null;
                 var describeText = args.Length >= 7 && args[6] is PyDict descDict
                     ? PyDictToStringDict(descDict)
                     : null;
@@ -197,7 +197,7 @@ namespace SE
                     ? PyDictToIntDict(condBwdDict)
                     : null;
                 bool isBlocked = args.Length > conditionsStartIdx + 2 && args[conditionsStartIdx + 2].IsTrue();
-                string name = args.Length > conditionsStartIdx + 3 && args[conditionsStartIdx + 3] is PyString nameStr ? nameStr.Value : "";
+                string name = args.Length > conditionsStartIdx + 3 && args[conditionsStartIdx + 3] is PyStr nameStr ? nameStr.Value : "";
                 float gateDistance = args.Length > conditionsStartIdx + 4 ? (float)args[conditionsStartIdx + 4].ToDouble() : 0f; // Python: location units
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
@@ -323,7 +323,7 @@ namespace SE
                         dict["connected_location"] = new PyInt(gate.ConnectedLocation.LocalId);
                         dict["arrival_x"] = new PyFloat(gate.ArrivalX);
                         dict["is_blocked"] = gate.IsBlocked ? PyBool.True : PyBool.False;
-                        dict["name"] = new PyString(gate.Name ?? "");
+                        dict["name"] = new PyStr(gate.Name ?? "");
                         result.Append(dict);
                     }
                 }
@@ -404,7 +404,7 @@ namespace SE
 
                 var result = new PyDict();
                 result["id"] = new PyInt(region.Id);
-                result["name"] = new PyString(region.Name ?? "");
+                result["name"] = new PyStr(region.Name ?? "");
 
                 // Location 목록
                 var locationsList = new PyList();
@@ -412,12 +412,12 @@ namespace SE
                 {
                     var locDict = new PyDict();
                     locDict["id"] = new PyInt(location.LocalId);
-                    locDict["name"] = new PyString(location.Name ?? "");
+                    locDict["name"] = new PyStr(location.Name ?? "");
                     locDict["is_indoor"] = location.IsIndoor ? PyBool.True : PyBool.False;
 
                     // Pi-World: Location 2D 속성
                     locDict["length"] = new PyFloat(location.Length);
-                    locDict["geometry"] = new PyString(location.Geometry.ToString().ToLower());
+                    locDict["geometry"] = new PyStr(location.Geometry.ToString().ToLower());
 
                     // 이 Location에서 나가는 Gate 목록 (Pi-World)
                     var gatesList = new PyList();
@@ -461,7 +461,7 @@ namespace SE
                             var regionGateTuple = new PyTuple(new PyObject[] {
                                 new PyInt(toRegionId.Value),
                                 new PyInt(toLocalId.Value),
-                                new PyString(regionName),
+                                new PyStr(regionName),
                                 new PyFloat(regionGate.Distance)
                             });
                             regionGatesList.Append(regionGateTuple);
@@ -986,7 +986,7 @@ namespace SE
                 var region = terrain.GetRegion(regionId);
                 if (region != null)
                 {
-                    return new PyString(region.CurrentWeather);
+                    return new PyStr(region.CurrentWeather);
                 }
                 return PyNone.Instance;
             });
@@ -1035,8 +1035,8 @@ namespace SE
                 var equipProps = args.Length >= 4 && args[3] is PyDict etDict ? PyDictToIntDict(etDict) : null;
                 int value = args.Length >= 5 ? args[4].ToInt() : 0;
                 var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
-                string owner = args.Length >= 7 && args[6] is PyString ownerStr ? ownerStr.Value : null;
-                string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
+                string owner = args.Length >= 7 && args[6] is PyStr ownerStr ? ownerStr.Value : null;
+                string uniqueId = args.Length >= 8 && args[7] is PyStr uidStr ? uidStr.Value : null;
                 var actionProps = args.Length >= 9 && args[8] is PyDict apDict ? PyDictToIntDict(apDict) : null;
 
                 var _itemSystem = this._hub.GetSystem("itemSystem") as ItemSystem;
@@ -1084,9 +1084,9 @@ namespace SE
                 string type = args.Length >= 5 ? args[4].AsString() : "male";
                 var actions = args.Length >= 6 && args[5] is PyList actList ? PyListToStringList(actList) : null;
                 var mood = args.Length >= 7 && args[6] is PyList moodList ? PyListToStringList(moodList) : null;
-                string uniqueId = args.Length >= 8 && args[7] is PyString uidStr ? uidStr.Value : null;
+                string uniqueId = args.Length >= 8 && args[7] is PyStr uidStr ? uidStr.Value : null;
                 var actionProps = args.Length >= 9 && args[8] is PyDict apDict ? PyDictToIntDict(apDict) : null;
-                string owner = args.Length >= 10 && args[9] is PyString ownerStr ? ownerStr.Value : null;
+                string owner = args.Length >= 10 && args[9] is PyStr ownerStr ? ownerStr.Value : null;
                 bool itemVisible = args.Length >= 11 && args[10].IsTrue();
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
@@ -1445,7 +1445,7 @@ namespace SE
                 {
                     foreach (var type in unit.TraversalContext.Props.GetTypes())
                     {
-                        result.Append(new PyString(type));
+                        result.Append(new PyStr(type));
                     }
                     return result;
                 }
@@ -2039,7 +2039,7 @@ namespace SE
                     var dict = new PyDict();
                     dict["region_id"] = new PyInt(regionId);
                     dict["location_id"] = new PyInt(locationId);
-                    dict["name"] = new PyString(name);
+                    dict["name"] = new PyStr(name);
                     dict["travel_time"] = new PyInt(travelTime);
                     result.Append(dict);
                 }
@@ -2060,7 +2060,7 @@ namespace SE
 
                 var resultDict = new PyDict();
                 resultDict["success"] = PyBool.False;
-                resultDict["message"] = new PyString("Unknown error");
+                resultDict["message"] = new PyStr("Unknown error");
                 resultDict["time_consumed"] = new PyInt(0);
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
@@ -2068,21 +2068,21 @@ namespace SE
                 var unit = _unitSystem.FindUnit(unitId);
                 if (unit == null)
                 {
-                    resultDict["message"] = new PyString($"Unit {unitId} not found");
+                    resultDict["message"] = new PyStr($"Unit {unitId} not found");
                     return resultDict;
                 }
 
                 var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
                 if (actionSystem == null)
                 {
-                    resultDict["message"] = new PyString("ActionSystem not found");
+                    resultDict["message"] = new PyStr("ActionSystem not found");
                     return resultDict;
                 }
 
                 var result = actionSystem.ApplyDriveAction(unit, regionId, locationId);
 
                 resultDict["success"] = result.Success ? PyBool.True : PyBool.False;
-                resultDict["message"] = new PyString(result.Message);
+                resultDict["message"] = new PyStr(result.Message);
                 resultDict["time_consumed"] = new PyInt(result.TimeConsumed);
 
                 if (result.Success)
@@ -2129,7 +2129,7 @@ namespace SE
                 result["year"] = new PyInt(time.Year);
                 result["month"] = new PyInt(time.Month);
                 result["day"] = new PyInt(time.Day);
-                result["weekday"] = new PyString(time.WeekdayName);
+                result["weekday"] = new PyStr(time.WeekdayName);
                 result["hour"] = new PyInt(time.Hour);
                 result["minute"] = new PyInt(time.Minute);
 
@@ -2170,9 +2170,9 @@ namespace SE
                     // 플레이어 X 좌표
                     positionX = player.PositionX;
                 }
-                result["weather"] = new PyString(weather);
-                result["region_name"] = new PyString(regionName);
-                result["location_name"] = new PyString(locationName);
+                result["weather"] = new PyStr(weather);
+                result["region_name"] = new PyStr(regionName);
+                result["location_name"] = new PyStr(locationName);
 
                 // Pi-World 정보: geometry (0=ring, 1=line)
                 result["geometry"] = new PyInt(geometry);

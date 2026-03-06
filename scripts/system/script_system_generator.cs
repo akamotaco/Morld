@@ -69,7 +69,7 @@ namespace SE
                 {
                     return ParseDictResult(dict);
                 }
-                else if (returnValue is PyString pyStr)
+                else if (returnValue is PyStr pyStr)
                 {
                     return new ScriptResult { Type = "message", Message = pyStr.Value };
                 }
@@ -92,7 +92,7 @@ namespace SE
                 Godot.GD.Print($"[ScriptSystem] Resuming generator with result: {result}");
 
                 // 결과를 Python 문자열로 변환하여 send()
-                var pyResult = new PyString(result);
+                var pyResult = new PyStr(result);
                 var yieldedValue = generator.Send(pyResult);
 
                 Godot.GD.Print($"[ScriptSystem] Generator resumed, yielded: {yieldedValue.GetType().Name ?? "null"}");
@@ -138,7 +138,7 @@ namespace SE
                 {
                     return ParseDictResult(dict);
                 }
-                else if (returnValue is PyString pyStr)
+                else if (returnValue is PyStr pyStr)
                 {
                     return new ScriptResult { Type = "message", Message = pyStr.Value };
                 }
@@ -210,7 +210,7 @@ namespace SE
                 {
                     return ParseDictResult(dict);
                 }
-                else if (returnValue is PyString pyStr)
+                else if (returnValue is PyStr pyStr)
                 {
                     return new ScriptResult { Type = "message", Message = pyStr.Value };
                 }
@@ -246,7 +246,7 @@ namespace SE
                 Godot.GD.Print($"[ScriptSystem] Calling proc callback with value: {value}");
 
                 // Python 함수 호출
-                var pyValue = new PyString(value);
+                var pyValue = new PyStr(value);
                 var result = procCallback.Call(new PyObject[] { pyValue }, null);
 
                 // 결과 처리:

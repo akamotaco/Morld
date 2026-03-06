@@ -234,15 +234,15 @@ public class PyDialogRequest : PyObject
 
     public override string GetTypeName() => "DialogRequest";
 
-    public override PyString ToStr()
+    public override PyStr ToStr()
     {
         var preview = RawText.Length > 50 ? RawText.Substring(0, 50) + "..." : RawText;
         var pageInfo = Pages.Count > 1 ? $" ({CurrentPageIndex + 1}/{Pages.Count})" : "";
-        return new PyString($"<DialogRequest{pageInfo} autofill={Autofill} text='{preview}'>");
+        return new PyStr($"<DialogRequest{pageInfo} autofill={Autofill} text='{preview}'>");
     }
 
-    public override PyString ToRepr()
+    public override PyStr ToRepr()
     {
-        return new PyString($"DialogRequest(pages={Pages.Count}, autofill={Autofill}, returnValue='{ReturnValue ?? "None"}')");
+        return new PyStr($"DialogRequest(pages={Pages.Count}, autofill={Autofill}, returnValue='{ReturnValue ?? "None"}')");
     }
 }

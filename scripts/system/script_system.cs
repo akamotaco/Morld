@@ -60,11 +60,11 @@ namespace SE
                 if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
                 {
                     // 시나리오 루트 경로 추가 (entities 등 다른 폴더 접근용)
-                    pathList.Insert(0, new PyString(_scenarioPath));
+                    pathList.Insert(0, new PyStr(_scenarioPath));
                     Godot.GD.Print($"[ScriptSystem] Added scenario root path to sys.path: {_scenarioPath}");
 
                     // 시나리오 Python 경로를 맨 앞에 추가 (최우선)
-                    pathList.Insert(0, new PyString(ScenarioPythonPath));
+                    pathList.Insert(0, new PyStr(ScenarioPythonPath));
                     Godot.GD.Print($"[ScriptSystem] Added scenario Python path to sys.path: {ScenarioPythonPath}");
                 }
             }
@@ -87,7 +87,7 @@ namespace SE
                 if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
                 {
                     // sharpPy Lib 경로만 추가 (Python 표준 라이브러리)
-                    pathList.Insert(0, new PyString("res://util/sharpPy/Lib"));
+                    pathList.Insert(0, new PyStr("res://util/sharpPy/Lib"));
                     Godot.GD.Print("[ScriptSystem] Added sharpPy Lib to sys.path");
                 }
             }
@@ -109,9 +109,9 @@ namespace SE
             for (int i = 0; i < keys.Length(); i++)
             {
                 var key = keys.GetItem(i);
-                var keyStr = key is PyString ks ? ks.Value : key.ToString();
+                var keyStr = key is PyStr ks ? ks.Value : key.ToString();
                 var value = dict.GetItem(key);
-                var valueStr = value is PyString vs ? vs.Value : value.ToString() ?? "";
+                var valueStr = value is PyStr vs ? vs.Value : value.ToString() ?? "";
                 result[keyStr] = valueStr;
             }
             return result;
@@ -127,7 +127,7 @@ namespace SE
             for (int i = 0; i < keys.Length(); i++)
             {
                 var key = keys.GetItem(i);
-                var keyStr = key is PyString ks ? ks.Value : key.ToString();
+                var keyStr = key is PyStr ks ? ks.Value : key.ToString();
                 var value = dict.GetItem(key);
                 var valueInt = value is PyBool vb ? (vb.IsTrue() ? 1 : 0)
                              : value is PyInt vi ? (int)vi.Value : 0;
@@ -148,41 +148,41 @@ namespace SE
             var job = new Morld.Job();
 
             // name (필수)
-            if (dict.Contains(new PyString("name")).Value)
+            if (dict.Contains(new PyStr("name")).Value)
             {
-                var nameObj = dict.GetItem(new PyString("name"));
-                job.Name = nameObj is PyString ps ? ps.Value : nameObj.ToString() ?? "";
+                var nameObj = dict.GetItem(new PyStr("name"));
+                job.Name = nameObj is PyStr ps ? ps.Value : nameObj.ToString() ?? "";
             }
 
             // action (기본값 "stay")
-            if (dict.Contains(new PyString("action")).Value)
+            if (dict.Contains(new PyStr("action")).Value)
             {
-                var actionObj = dict.GetItem(new PyString("action"));
-                job.Action = actionObj is PyString ps ? ps.Value : actionObj.ToString() ?? "stay";
+                var actionObj = dict.GetItem(new PyStr("action"));
+                job.Action = actionObj is PyStr ps ? ps.Value : actionObj.ToString() ?? "stay";
             }
 
             // region_id
-            if (dict.Contains(new PyString("region_id")).Value)
+            if (dict.Contains(new PyStr("region_id")).Value)
             {
-                job.RegionId = dict.GetItem(new PyString("region_id")).ToInt();
+                job.RegionId = dict.GetItem(new PyStr("region_id")).ToInt();
             }
 
             // location_id
-            if (dict.Contains(new PyString("location_id")).Value)
+            if (dict.Contains(new PyStr("location_id")).Value)
             {
-                job.LocationId = dict.GetItem(new PyString("location_id")).ToInt();
+                job.LocationId = dict.GetItem(new PyStr("location_id")).ToInt();
             }
 
             // duration (필수)
-            if (dict.Contains(new PyString("duration")).Value)
+            if (dict.Contains(new PyStr("duration")).Value)
             {
-                job.Duration = dict.GetItem(new PyString("duration")).ToInt();
+                job.Duration = dict.GetItem(new PyStr("duration")).ToInt();
             }
 
             // target_id (optional)
-            if (dict.Contains(new PyString("target_id")).Value)
+            if (dict.Contains(new PyStr("target_id")).Value)
             {
-                var targetObj = dict.GetItem(new PyString("target_id"));
+                var targetObj = dict.GetItem(new PyStr("target_id"));
                 if (targetObj != null && targetObj is not PyNone)
                 {
                     job.TargetId = targetObj.ToInt();
@@ -190,21 +190,21 @@ namespace SE
             }
 
             // start_offset (optional, Merge용)
-            if (dict.Contains(new PyString("start_offset")).Value)
+            if (dict.Contains(new PyStr("start_offset")).Value)
             {
-                job.StartOffset = dict.GetItem(new PyString("start_offset")).ToInt();
+                job.StartOffset = dict.GetItem(new PyStr("start_offset")).ToInt();
             }
 
             // target_x (optional, Pi-World)
-            if (dict.Contains(new PyString("target_x")).Value)
+            if (dict.Contains(new PyStr("target_x")).Value)
             {
-                job.TargetX = dict.GetItem(new PyString("target_x")).ToFloat();
+                job.TargetX = dict.GetItem(new PyStr("target_x")).ToFloat();
             }
 
             // target_y (optional, Pi-World 확장용)
-            if (dict.Contains(new PyString("target_y")).Value)
+            if (dict.Contains(new PyStr("target_y")).Value)
             {
-                job.TargetY = dict.GetItem(new PyString("target_y")).ToFloat();
+                job.TargetY = dict.GetItem(new PyStr("target_y")).ToFloat();
             }
 
             return job;
@@ -282,67 +282,67 @@ namespace SE
 
                 // name
                 string name = "";
-                if (dict.Contains(new PyString("name")).Value)
+                if (dict.Contains(new PyStr("name")).Value)
                 {
-                    var nameObj = dict.GetItem(new PyString("name"));
-                    name = nameObj is PyString ps ? ps.Value : nameObj.ToString() ?? "";
+                    var nameObj = dict.GetItem(new PyStr("name"));
+                    name = nameObj is PyStr ps ? ps.Value : nameObj.ToString() ?? "";
                 }
 
                 // region_id
                 int regionId = 0;
-                if (dict.Contains(new PyString("region_id")).Value)
+                if (dict.Contains(new PyStr("region_id")).Value)
                 {
-                    regionId = dict.GetItem(new PyString("region_id")).ToInt();
+                    regionId = dict.GetItem(new PyStr("region_id")).ToInt();
                 }
                 // regionId 대체 키
-                if (dict.Contains(new PyString("regionId")).Value)
+                if (dict.Contains(new PyStr("regionId")).Value)
                 {
-                    regionId = dict.GetItem(new PyString("regionId")).ToInt();
+                    regionId = dict.GetItem(new PyStr("regionId")).ToInt();
                 }
 
                 // location_id
                 int locationId = 0;
-                if (dict.Contains(new PyString("location_id")).Value)
+                if (dict.Contains(new PyStr("location_id")).Value)
                 {
-                    locationId = dict.GetItem(new PyString("location_id")).ToInt();
+                    locationId = dict.GetItem(new PyStr("location_id")).ToInt();
                 }
                 // locationId 대체 키
-                if (dict.Contains(new PyString("locationId")).Value)
+                if (dict.Contains(new PyStr("locationId")).Value)
                 {
-                    locationId = dict.GetItem(new PyString("locationId")).ToInt();
+                    locationId = dict.GetItem(new PyStr("locationId")).ToInt();
                 }
 
                 // start
                 int start = 0;
-                if (dict.Contains(new PyString("start")).Value)
+                if (dict.Contains(new PyStr("start")).Value)
                 {
-                    start = dict.GetItem(new PyString("start")).ToInt();
+                    start = dict.GetItem(new PyStr("start")).ToInt();
                 }
 
                 // end
                 int end = 0;
-                if (dict.Contains(new PyString("end")).Value)
+                if (dict.Contains(new PyStr("end")).Value)
                 {
-                    end = dict.GetItem(new PyString("end")).ToInt();
+                    end = dict.GetItem(new PyStr("end")).ToInt();
                 }
 
                 // activity
                 string activity = "";
-                if (dict.Contains(new PyString("activity")).Value)
+                if (dict.Contains(new PyStr("activity")).Value)
                 {
-                    var actObj = dict.GetItem(new PyString("activity"));
-                    activity = actObj is PyString ps ? ps.Value : actObj.ToString() ?? "";
+                    var actObj = dict.GetItem(new PyStr("activity"));
+                    activity = actObj is PyStr ps ? ps.Value : actObj.ToString() ?? "";
                 }
 
                 // location_id가 명시되었는지 여부
-                bool hasLocationId = dict.Contains(new PyString("location_id")).Value
-                                  || dict.Contains(new PyString("locationId")).Value;
+                bool hasLocationId = dict.Contains(new PyStr("location_id")).Value
+                                  || dict.Contains(new PyStr("locationId")).Value;
 
                 // x (location_id가 있으면 필수)
                 float targetX = 0f;
-                if (dict.Contains(new PyString("x")).Value)
+                if (dict.Contains(new PyStr("x")).Value)
                 {
-                    targetX = dict.GetItem(new PyString("x")).ToFloat();
+                    targetX = dict.GetItem(new PyStr("x")).ToFloat();
                 }
                 else if (hasLocationId)
                 {
@@ -352,9 +352,9 @@ namespace SE
 
                 // y (optional, Pi-World 확장용)
                 float targetY = 0f;
-                if (dict.Contains(new PyString("y")).Value)
+                if (dict.Contains(new PyStr("y")).Value)
                 {
-                    targetY = dict.GetItem(new PyString("y")).ToFloat();
+                    targetY = dict.GetItem(new PyStr("y")).ToFloat();
                 }
 
                 var entry = new Morld.ScheduleEntry(name, regionId, locationId, start, end, activity);
@@ -372,8 +372,8 @@ namespace SE
         private PyDict JobToPyDict(Morld.Job job)
         {
             var dict = new PyDict();
-            dict["name"] = new PyString(job.Name ?? "");
-            dict["action"] = new PyString(job.Action ?? "stay");
+            dict["name"] = new PyStr(job.Name ?? "");
+            dict["action"] = new PyStr(job.Action ?? "stay");
             dict["region_id"] = new PyInt(job.RegionId);
             dict["location_id"] = new PyInt(job.LocationId);
             dict["duration"] = new PyInt(job.Duration);
@@ -392,7 +392,7 @@ namespace SE
             for (int i = 0; i < list.Length(); i++)
             {
                 var item = list.GetItem(i);
-                result.Add(item is PyString ps ? ps.Value : item.ToString() ?? "");
+                result.Add(item is PyStr ps ? ps.Value : item.ToString() ?? "");
             }
             return result;
         }
@@ -798,7 +798,7 @@ __init__.initialize_scenario()
                     return ParseDictResult(dict);
                 }
                 // 문자열 결과
-                else if (result is PyString pyStr)
+                else if (result is PyStr pyStr)
                 {
                     return new ScriptResult { Type = "message", Message = pyStr.Value };
                 }
@@ -875,7 +875,7 @@ __init__.initialize_scenario()
                     return ParseDictResult(dict);
                 }
                 // 문자열 결과
-                else if (result is PyString pyStr)
+                else if (result is PyStr pyStr)
                 {
                     return new ScriptResult { Type = "message", Message = pyStr.Value };
                 }
@@ -906,15 +906,15 @@ __init__.initialize_scenario()
         /// </summary>
         private ScriptResult ParseDictResult(PyDict dict)
         {
-            var typeObj = dict.Get(new PyString("type"));
-            var type = (typeObj as PyString)?.Value ?? "message";
+            var typeObj = dict.Get(new PyStr("type"));
+            var type = (typeObj as PyStr)?.Value ?? "message";
 
             // 메시지 결과 - Get()으로 안전하게 조회
-            var messageObj = dict.Get(new PyString("message"));
-            var message = (messageObj as PyString)?.Value ?? "";
+            var messageObj = dict.Get(new PyStr("message"));
+            var message = (messageObj as PyStr)?.Value ?? "";
 
             // pop_to_situation 플래그 확인
-            var popToSituationObj = dict.Get(new PyString("pop_to_situation"));
+            var popToSituationObj = dict.Get(new PyStr("pop_to_situation"));
             var popToSituation = popToSituationObj is PyBool pyBool && pyBool.IsTrue();
 
             return new ScriptResult { Type = type, Message = message, PopToSituation = popToSituation };
@@ -949,6 +949,45 @@ __init__.initialize_scenario()
                 Godot.GD.PrintErr($"[ScriptSystem] CallModuleFunction error ({moduleName}.{functionName}): {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 모듈 함수 호출 (가변 인자)
+        /// PyObject를 Python 리터럴로 변환하여 Eval
+        /// 예: CallModuleFunction("ui", "get_max_tab", new PyStr("npc"), new PyInt(10))
+        ///   → import ui; ui.get_max_tab("npc", 10)
+        /// </summary>
+        public PyObject CallModuleFunction(string moduleName, string functionName, params PyObject[] args)
+        {
+            try
+            {
+                var argStrs = new string[args.Length];
+                for (int i = 0; i < args.Length; i++)
+                {
+                    argStrs[i] = PyObjectToLiteral(args[i]);
+                }
+                var argsStr = string.Join(", ", argStrs);
+                var code = $"import {moduleName}; {moduleName}.{functionName}({argsStr})";
+                return Eval(code);
+            }
+            catch (System.Exception ex)
+            {
+                Godot.GD.PrintErr($"[ScriptSystem] CallModuleFunction error ({moduleName}.{functionName}): {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// PyObject → Python 리터럴 문자열 변환
+        /// </summary>
+        private static string PyObjectToLiteral(PyObject obj)
+        {
+            if (obj is PyNone) return "None";
+            if (obj is PyBool pyBool) return pyBool.Value ? "True" : "False";
+            if (obj is PyInt pyInt) return pyInt.Value.ToString();
+            if (obj is PyFloat pyFloat) return pyFloat.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (obj is PyStr pyStr) return $"\"{pyStr.Value.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
+            return obj.AsString();
         }
 
         /// <summary>
@@ -1072,7 +1111,7 @@ def calculate(a, b):
                     for (int i = 0; i < pyList.Length(); i++)
                     {
                         var item = pyList.GetItem(i);
-                        if (item is PyString pyStr)
+                        if (item is PyStr pyStr)
                         {
                             result.Add(pyStr.Value);
                         }
@@ -1107,7 +1146,7 @@ def calculate(a, b):
                     for (int i = 0; i < pyList.Length(); i++)
                     {
                         var item = pyList.GetItem(i);
-                        if (item is PyString pyStr)
+                        if (item is PyStr pyStr)
                         {
                             result.Add(pyStr.Value);
                         }
@@ -1149,7 +1188,7 @@ def calculate(a, b):
                     var actions = new System.Collections.Generic.List<string>();
                     foreach (var item in pyList.Items)
                     {
-                        if (item is PyString pyStr)
+                        if (item is PyStr pyStr)
                         {
                             actions.Add(pyStr.Value);
                         }
@@ -1179,7 +1218,7 @@ def calculate(a, b):
                 var code = $"assets.get_action_blocked_message({unitId})";
                 var result = Eval(code);
 
-                if (result is PyString pyStr)
+                if (result is PyStr pyStr)
                 {
                     return pyStr.Value;
                 }

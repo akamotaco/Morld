@@ -848,16 +848,16 @@ namespace SE
 
 		private static string? GetDictString(SharpPy.PyDict dict, string key)
 		{
-			var pyKey = new SharpPy.PyString(key);
+			var pyKey = new SharpPy.PyStr(key);
 			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
-			if (value is SharpPy.PyString pyStr)
+			if (value is SharpPy.PyStr pyStr)
 				return pyStr.Value;
 			return null;
 		}
 
 		private static int GetDictInt(SharpPy.PyDict dict, string key, int defaultValue = 0)
 		{
-			var pyKey = new SharpPy.PyString(key);
+			var pyKey = new SharpPy.PyStr(key);
 			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
 			if (value is SharpPy.PyInt pyInt)
 				return (int)pyInt.Value;
@@ -866,7 +866,7 @@ namespace SE
 
 		private static int? GetDictIntOrNull(SharpPy.PyDict dict, string key)
 		{
-			var pyKey = new SharpPy.PyString(key);
+			var pyKey = new SharpPy.PyStr(key);
 			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
 			if (value is SharpPy.PyInt pyInt)
 				return (int)pyInt.Value;
@@ -875,7 +875,7 @@ namespace SE
 
 		private static bool GetDictBool(SharpPy.PyDict dict, string key, bool defaultValue = false)
 		{
-			var pyKey = new SharpPy.PyString(key);
+			var pyKey = new SharpPy.PyStr(key);
 			var value = dict.Get(pyKey, SharpPy.PyNone.Instance);
 			if (value is SharpPy.PyBool pyBool)
 				return pyBool.Value;

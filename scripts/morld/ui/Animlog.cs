@@ -88,15 +88,15 @@ public class PyAnimlogRequest : PyObject
 
     public override string GetTypeName() => "AnimlogRequest";
 
-    public override PyString ToStr()
+    public override PyStr ToStr()
     {
         var modeStr = Mode.ToString().ToLower();
-        return new PyString($"<AnimlogRequest steps={Steps.Count} scale={Scale} mode={modeStr}>");
+        return new PyStr($"<AnimlogRequest steps={Steps.Count} scale={Scale} mode={modeStr}>");
     }
 
-    public override PyString ToRepr()
+    public override PyStr ToRepr()
     {
-        return new PyString($"AnimlogRequest(steps={Steps.Count}, scale={Scale}, mode={Mode})");
+        return new PyStr($"AnimlogRequest(steps={Steps.Count}, scale={Scale}, mode={Mode})");
     }
 }
 

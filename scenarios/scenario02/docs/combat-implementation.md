@@ -47,7 +47,7 @@
 |----------------|-------------------------------------------|---------|
 | `position_x` | `get_unit_info(unit_id)["x"]` | **`"x"` 사용** |
 
-C# 코드 확인: `result.SetItem(new PyString("x"), new PyFloat(unit.PositionX))`
+C# 코드 확인: `result.SetItem(new PyStr("x"), new PyFloat(unit.PositionX))`
 
 ### 1.4 무기 equip_props 통일
 
