@@ -578,72 +578,223 @@ private string RenderFocusContent(Focus focus) {
 def get_max_tab(focus_type, target_unit_id=None):
     """해당 Focus에서 사용 가능한 최대 탭 인덱스 (0 = 탭 없음)"""
     if focus_type == "Situation":
-        import party
-        return 1 if party.has_any_squad() else 0
+        return 2 if _has_squad() else 1   # 주변/지도/(분대)
     elif focus_type == "Unit":
-        import party
-        return 1 if party.is_in_squad(target_unit_id) else 0
+        if _is_character(target_unit_id):
+            return 1                       # 대화/스탯
+        return 0
     return 0
 
 def get_tab_content(focus_type, tab, target_unit_id=None):
     """탭별 콘텐츠 (None → 기존 렌더링 사용)"""
-    if focus_type == "Situation" and tab == 1:
-        return _render_squad_overview()
-    elif focus_type == "Unit" and tab == 1:
-        return _render_member_detail(target_unit_id)
+    if focus_type == "Situation":
+        if tab == 0: return None           # 기존 RenderSituation
+        if tab == 1: return _render_map_tab()
+        if tab == 2: return _render_squad_tab()
+    elif focus_type == "Unit":
+        if tab == 0: return None           # 기존 RenderUnit
+        if tab == 1: return _render_stat_tab(target_unit_id)
     return None
 
 def get_tab_labels(focus_type, target_unit_id=None):
     """Header에 표시할 탭 라벨 리스트"""
     if focus_type == "Situation":
-        labels = ["상황"]
-        import party
-        if party.has_any_squad():
+        labels = ["주변", "지도"]
+        if _has_squad():
             labels.append("분대")
         return labels
     elif focus_type == "Unit":
-        labels = ["정보"]
-        import party
-        if party.is_in_squad(target_unit_id):
-            labels.append("분대원")
-        return labels
+        if _is_character(target_unit_id):
+            return ["대화", "스탯"]
+        return []
     return []
 ```
 
-### 화면 예시
+### 탭 구성 상세
+
+#### Situation Focus — 3탭
+
+| Tab | 이름 | 콘텐츠 | 소스 |
+|-----|------|--------|------|
+| 0 | **주변** | 현재 화면 그대로 (묘사 + 이동 + 행동) | 기존 `RenderSituation()` |
+| 1 | **지도** | Region 지도 (위치/NPC/이동시간) | 기존 `map_ui.py` 재활용 |
+| 2 | **분대** | 분대 현황 (멤버/지시/상태) | 신규 `party_ui.py` |
 
 ```
-Situation Tab 0 (기본):           Situation Tab 1 (분대):
+Tab 0 [▶주변] [지도] [분대]       Tab 1 [주변] [▶지도] [분대]
 ┌──────────────────────┐         ┌──────────────────────┐
-│ [▶상황] [분대]        │         │ [상황] [▶분대]        │
+│ 저택 거실.            │         │  ┌ 현관 (2분)        │
+│ 벽난로에 불이 타고...  │         │  ├ 거실 ← 현재      │
+│                      │         │  │ ├ 부엌 (1분)       │
+│ *세라가 벽에 기대어... │         │  │ └ 2층 복도 (3분)   │
+│                      │         │  │   ├ 세라 방        │
+│ ▶현관 (2분)          │         │  │   └ 밀라 방        │
+│ ▶부엌 (1분)          │         │  └ [마을] (15분)     │
+│ ▶2층 복도 (3분)       │         │                      │
+│ ▶시간 보내기          │         │  세라: 2층 복도       │
+│                      │         │  밀라: 부엌           │
 ├──────────────────────┤         ├──────────────────────┤
-│ 저택 거실.            │         │ ■ 1분대 (세라 지휘)   │
-│ 벽난로에 불이 타고...  │         │   세라 — 경계 (85%) │
-│                      │         │   밀라 — 수집 (92%) │
-│ ▶이동               │         │   리나 — 휴식        │
-│ ▶살펴보기            │         │                      │
+│ [Tab] 인벤토리 설정   │         │ [Tab] 인벤토리 설정   │
+└──────────────────────┘         └──────────────────────┘
+
+Tab 2 [주변] [지도] [▶분대]
+┌──────────────────────┐
+│ ■ 1분대 (세라 지휘)   │
+│   세라  경계    85%  │
+│   밀라  수집:재료 92% │
+│   리나  휴식         │
+│                      │
+│ ■ 2분대 (리더 없음)   │
+│   유키  대기         │
+│                      │
+│ ▶분대 편성           │
+│ ▶지휘 변경           │
+├──────────────────────┤
+│ [Tab] 인벤토리 설정   │
+└──────────────────────┘
+```
+
+**지도 탭 구현 노트:**
+- 기존 `map_ui.py._render_map()` → Dialog 표시 → **탭 콘텐츠로 전환**
+- `show_map()` (dialog 경유)는 하위 호환을 위해 유지
+- 탭에서는 `_render_map_tab()` 호출 (dialog 래핑 없이 순수 텍스트 반환)
+- 지도 내 이동 링크(`[url=move:...]`)는 탭에서도 동작 (C# MetaActionHandler 공용)
+
+#### Unit (캐릭터) Focus — 2탭
+
+| Tab | 이름 | 콘텐츠 | 소스 |
+|-----|------|--------|------|
+| 0 | **대화** | 현재 화면 그대로 (NPC 정보 + 액션) | 기존 `RenderUnit()` |
+| 1 | **스탯** | 캐릭터 상세 정보 | 신규 렌더링 |
+
+```
+Tab 0 [▶대화] [스탯]              Tab 1 [대화] [▶스탯]
+┌──────────────────────┐         ┌──────────────────────┐
+│ [b]세라[/b] X:45     │         │ [b]세라[/b]          │
+│                      │         │                      │
+│ *벽에 기대어 서 있다.  │         │ ── 상태 ──           │
+│                      │         │ 체력   ████████░░ 85 │
+│ ▶대화                │         │ 포만감 ██████░░░░ 62 │
+│ ▶분대 모집           │         │ 피로   ███░░░░░░░ 28 │
+│ ▶분대장 지정          │         │ 청결   ██████░░░░ 55 │
+│ ▶(디버그) 속성 보기   │         │                      │
+│                      │         │ ── 장비 ──           │
+│ ◁뒤로                │         │ 머리: 없음            │
+│                      │         │ 상의: 방한 재킷 (보온2)│
+│                      │         │ 하의: 긴 바지         │
+│                      │         │                      │
+│                      │         │ ── 관계 ──           │
+│                      │         │ 호감 45  반발 5      │
+│                      │         │ 복종 12  욕망 8      │
+│                      │         │                      │
+│                      │         │ ◁뒤로                │
 ├──────────────────────┤         ├──────────────────────┤
 │ [Tab] 인벤토리 설정   │         │ [Tab] 인벤토리 설정   │
 └──────────────────────┘         └──────────────────────┘
 ```
 
-### 탭 지원 Focus 타입 (예상)
+**스탯 탭 콘텐츠:**
+```python
+def _render_stat_tab(unit_id):
+    """캐릭터 스탯 탭"""
+    lines = []
+    info = morld.get_unit_info(unit_id)
+    name = info.get("name", "???")
+    lines.append(f"[b]{name}[/b]")
+    lines.append("")
 
-| Focus | Tab 0 (기본) | Tab 1+ (확장) | 활성화 조건 |
-|-------|-------------|--------------|------------|
-| Situation | 상황 화면 | 분대 현황 | 분대 존재 시 |
-| Unit | NPC 정보 | 분대원 상태 | 분대 멤버 시 |
-| Inventory | 내 인벤토리 | (향후 확장) | - |
-| Dialog | 대화 | 탭 없음 | - |
-| Animation | 연출 | 탭 없음 | - |
+    # 상태 (needs + survival)
+    lines.append("[color=gray]── 상태 ──[/color]")
+    import survival, needs
+    lines.append(f"  체력   {_bar(survival.get_health(unit_id), 100)}")
+    lines.append(f"  포만감 {_bar(survival.get_hunger(unit_id), 100)}")
+    for need_name in ["피로", "청결", "사회", "성욕"]:
+        val = needs.get_need(unit_id, need_name)
+        lines.append(f"  {need_name}   {_bar(val, 100)}")
+    lines.append("")
+
+    # 장비
+    lines.append("[color=gray]── 장비 ──[/color]")
+    equip = morld.get_equipped_items(unit_id)
+    for slot, item in equip.items():
+        item_name = item.get("name", "없음") if item else "없음"
+        lines.append(f"  {slot}: {item_name}")
+    lines.append("")
+
+    # 관계 (플레이어와의)
+    lines.append("[color=gray]── 관계 ──[/color]")
+    props = morld.get_unit_props(unit_id) or {}
+    player_name = "주인공"
+    aff = props.get(f"관계:{player_name}:호감", 0)
+    reb = props.get(f"관계:{player_name}:반발", 0)
+    sub = props.get(f"관계:{player_name}:복종", 0)
+    des = props.get(f"관계:{player_name}:욕망", 0)
+    lines.append(f"  호감 {aff}  반발 {reb}")
+    lines.append(f"  복종 {sub}  욕망 {des}")
+    lines.append("")
+
+    # 뒤로 버튼
+    lines.append("[url=back]◁뒤로[/url]")
+
+    return "\n".join(lines)
+```
+
+#### 탭 비적용 Focus
+
+| Focus | 탭 | 이유 |
+|-------|-----|------|
+| Dialog | 없음 | 대화 흐름 집중, 탭 전환 혼란 |
+| Animation | 없음 | 실시간 연출, 입력 차단 |
+| Inventory | 없음 (향후 확장 가능) | 현재 단일 뷰 충분 |
+| Item | 없음 | 단일 아이템 메뉴 |
+| Result | 없음 | 일시적 메시지 |
+
+### 탭 전환과 Header/Footer
+
+| 구분 | 탭 전환 시 동작 |
+|------|---------------|
+| **Header** | 탭 라벨 표시 (`[▶주변] [지도] [분대]`) + 기존 위치/시간 |
+| **Footer** | 변경 없음 (모든 탭에서 동일한 footer) |
+| **Content** | 탭에 따라 완전히 교체 |
+
+**Header 렌더링:**
+```python
+def get_header(tab=0):
+    """기존 header + 탭 라벨"""
+    header = _get_location_time_text()   # 기존 위치/시간
+
+    # 탭 라벨 추가
+    labels = get_tab_labels(current_focus_type)
+    if len(labels) > 1:
+        tab_line = "  ".join(
+            f"[▶{l}]" if i == tab else f"[{l}]"
+            for i, l in enumerate(labels)
+        )
+        header = f"{tab_line}\n{header}"
+
+    return header
+```
 
 ### 구현 순서
 
-파티 시스템 Phase 4 (플레이어 UI)에 포함:
+**Phase 0 — Tab 메커니즘 (파티 무관, 선행 가능)**
 1. `Focus.cs`에 `ViewTab` 추가
 2. `text_ui_system.cs`에 Tab 입력 + 렌더 디스패치
-3. Python `ui.py`에 `get_max_tab` / `get_tab_content` / `get_tab_labels`
-4. 분대 현황 탭 콘텐츠 구현 (`party_ui.py`)
+3. Python `ui.py`에 `get_max_tab` / `get_tab_content` / `get_tab_labels` 골격
+4. Situation Tab 0 (주변) 동작 확인 — 기존과 동일해야 함
+
+**Phase 1 — 지도 탭**
+5. `map_ui.py`에서 `_render_map_tab()` 분리 (dialog 래핑 없는 순수 텍스트)
+6. Situation Tab 1 (지도) 연결
+7. 지도 내 이동 링크 동작 확인
+
+**Phase 2 — 스탯 탭**
+8. Unit Tab 1 (스탯) `_render_stat_tab()` 구현
+9. needs/survival/equipment 정보 조합
+
+**Phase 3 — 분대 탭 (파티 시스템 Phase 4와 병행)**
+10. Situation Tab 2 (분대) `_render_squad_tab()` 구현
+11. 분대 관리 액션 연결
 
 ---
 
