@@ -727,6 +727,11 @@ NPC 리더 분대:
 
 #### C3. UI 배치
 
+**Tab 뷰 전환 (신규 — [system-ui.md](system-ui.md#tab-뷰-전환-시스템-계획) 참조):**
+- Situation Tab 1: 분대 현황 (전체 분대 목록, 멤버 상태)
+- Unit Tab 1: 분대원 상세 (해당 NPC의 지시/상태/disposition)
+- Focus 유지, Tab 키로 콘텐츠만 전환
+
 **분대 관리 (footer / situation UI + dialog):**
 - 분대 편성/해산
 - 지휘 변경 (NPC 리더 분대)

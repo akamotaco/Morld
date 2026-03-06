@@ -517,6 +517,136 @@ ui.set_ui_lock(False)  # 일반 모드
 
 ---
 
+---
+
+## Tab 뷰 전환 시스템 (계획)
+
+> **상태: 설계 완료, 미구현**
+>
+> Focus 내에서 Tab 키로 콘텐츠를 전환하는 기능.
+> 윈도우 탭과 유사 — Focus 스택 변경 없이 같은 Focus 내에서 출력만 전환.
+
+### 설계 원칙
+
+- **C# = 메커니즘**: 탭 상태 저장, 입력 처리, Python 호출
+- **Python = 콘텐츠**: 탭 개수, 탭별 렌더링, 탭 라벨 전부 Python이 결정
+- **하위 호환**: Python이 `get_max_tab() → 0` 반환 시 탭 비활성화 (기존 동작 유지)
+
+### C# 변경
+
+#### Focus.cs — 상태 추가
+
+```csharp
+public class Focus {
+    ...
+    public int ViewTab { get; set; } = 0;   // 현재 탭 인덱스
+}
+```
+
+#### text_ui_system.cs — 입력 + 렌더링
+
+```csharp
+void OnTabPressed() {
+    var current = _stack.Current;
+    if (current == null) return;
+
+    int maxTab = GetMaxTabFromPython(current.Type, current.TargetUnitId);
+    if (maxTab <= 0) return;  // 탭 1개 → 전환 불필요
+
+    current.ViewTab = (current.ViewTab + 1) % (maxTab + 1);
+    RequestUpdateDisplay();
+}
+
+private string RenderFocusContent(Focus focus) {
+    // tab > 0이면 Python에 탭 콘텐츠 질의
+    if (focus.ViewTab > 0) {
+        var tabContent = GetTabContentFromPython(focus.Type, focus.ViewTab, focus.TargetUnitId);
+        if (tabContent != null) return tabContent;
+    }
+    // tab == 0 또는 Python이 None → 기존 렌더링
+    return focus.Type switch {
+        FocusType.Situation => RenderSituation(),
+        FocusType.Unit      => RenderUnit(focus.TargetUnitId ?? 0),
+        ...
+    };
+}
+```
+
+### Python API (ui.py)
+
+```python
+def get_max_tab(focus_type, target_unit_id=None):
+    """해당 Focus에서 사용 가능한 최대 탭 인덱스 (0 = 탭 없음)"""
+    if focus_type == "Situation":
+        import party
+        return 1 if party.has_any_squad() else 0
+    elif focus_type == "Unit":
+        import party
+        return 1 if party.is_in_squad(target_unit_id) else 0
+    return 0
+
+def get_tab_content(focus_type, tab, target_unit_id=None):
+    """탭별 콘텐츠 (None → 기존 렌더링 사용)"""
+    if focus_type == "Situation" and tab == 1:
+        return _render_squad_overview()
+    elif focus_type == "Unit" and tab == 1:
+        return _render_member_detail(target_unit_id)
+    return None
+
+def get_tab_labels(focus_type, target_unit_id=None):
+    """Header에 표시할 탭 라벨 리스트"""
+    if focus_type == "Situation":
+        labels = ["상황"]
+        import party
+        if party.has_any_squad():
+            labels.append("분대")
+        return labels
+    elif focus_type == "Unit":
+        labels = ["정보"]
+        import party
+        if party.is_in_squad(target_unit_id):
+            labels.append("분대원")
+        return labels
+    return []
+```
+
+### 화면 예시
+
+```
+Situation Tab 0 (기본):           Situation Tab 1 (분대):
+┌──────────────────────┐         ┌──────────────────────┐
+│ [▶상황] [분대]        │         │ [상황] [▶분대]        │
+├──────────────────────┤         ├──────────────────────┤
+│ 저택 거실.            │         │ ■ 1분대 (세라 지휘)   │
+│ 벽난로에 불이 타고...  │         │   세라 — 경계 (85%) │
+│                      │         │   밀라 — 수집 (92%) │
+│ ▶이동               │         │   리나 — 휴식        │
+│ ▶살펴보기            │         │                      │
+├──────────────────────┤         ├──────────────────────┤
+│ [Tab] 인벤토리 설정   │         │ [Tab] 인벤토리 설정   │
+└──────────────────────┘         └──────────────────────┘
+```
+
+### 탭 지원 Focus 타입 (예상)
+
+| Focus | Tab 0 (기본) | Tab 1+ (확장) | 활성화 조건 |
+|-------|-------------|--------------|------------|
+| Situation | 상황 화면 | 분대 현황 | 분대 존재 시 |
+| Unit | NPC 정보 | 분대원 상태 | 분대 멤버 시 |
+| Inventory | 내 인벤토리 | (향후 확장) | - |
+| Dialog | 대화 | 탭 없음 | - |
+| Animation | 연출 | 탭 없음 | - |
+
+### 구현 순서
+
+파티 시스템 Phase 4 (플레이어 UI)에 포함:
+1. `Focus.cs`에 `ViewTab` 추가
+2. `text_ui_system.cs`에 Tab 입력 + 렌더 디스패치
+3. Python `ui.py`에 `get_max_tab` / `get_tab_content` / `get_tab_labels`
+4. 분대 현황 탭 콘텐츠 구현 (`party_ui.py`)
+
+---
+
 ## 파일 위치
 
 - `scripts/system/text_ui_system.cs` - TextUISystem
