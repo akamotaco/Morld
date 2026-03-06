@@ -74,6 +74,11 @@ class MovementMixin:
         )
 
         if is_cross_location:
+            # E3: 리더인 경우 분대에 목적지 기록
+            import party as _party
+            if _party.is_squad_leader(self.unit_id):
+                _party.on_leader_move(self.unit_id, target)
+
             self._transit_auto_eat()
             # FSM: GateTransitState push (enter에서 prop + job + action_log 처리)
             from think.fsm import GateTransitState

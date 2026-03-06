@@ -1,6 +1,6 @@
 # 파티 시스템 설계 노트
 
-> **상태: Phase 2 구현 완료 (FSM Phase 실동작 — Order 핸들러 + push/pop 통합)**
+> **상태: Phase 3 구현 완료 (이동/동기화 — follow 스케줄, gate 동기화, 귀환)**
 >
 > 이 문서는 파티 시스템의 설계 논의(Section 1~7) + 구현 명세(Section 8)를 포함합니다.
 > 기존 `party-implementation.md`(v1)을 대체하는 최신 명세입니다.
@@ -8,9 +8,9 @@
 > **구현 현황:**
 > - Phase 1 ✅: FSM pass-through 변환, party.py 모듈, party_config.py, 챕터 리셋, 53개 테스트
 > - Phase 2 ✅: Order 핸들러 6종 (order_handlers.py), FSM push/pop 통합 (set_order/remove_member), 72개 테스트
-> - Phase 3 ⬜: 이동/동기화 (follow, gate 동기화, 귀환)
+> - Phase 3 ✅: follow 스케줄 (E1), order 전환 (E2), gate 동기화 (E3), 귀환 (E4), 92개 테스트
 > - Phase 4 ⬜: 플레이어 UI (모집/지시 액션)
-> - Phase 5 ⬜: 연동/마무리 (전투 합류, 데이트 상호 배제, 불복)
+> - Phase 5 ⬜: 연동/마무리 (전투 합류, 데이트 상호 배제, 불복, 리더 승계)
 
 ---
 

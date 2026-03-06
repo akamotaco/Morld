@@ -7,6 +7,14 @@
 
 import morld
 
+MILLIS_PER_DAY = 86_400_000
+
+# 분대원 follow 스케줄 (24시간, CommandPhase가 행동 결정)
+PARTY_FOLLOW_SCHEDULE = [
+    {"name": "따라가기", "action": "follow", "start": 0,
+     "end": MILLIS_PER_DAY, "activity": "분대행동"}
+]
+
 # ========================================
 # 데이터 클래스
 # ========================================
@@ -304,12 +312,23 @@ def set_order(squad_id, unit_id, order):
 
     FSM에 StandbyPhase/CommandPhase가 없으면 push.
     이미 있으면 데이터만 갱신 (다음 think()에서 반영).
+    이전 order → 새 order 전환 시 follow 스케줄 정리/설정.
     """
     squad = _squads.get(squad_id)
     if not squad:
         return False
     if unit_id not in squad.members and unit_id != squad.leader_id:
         return False
+
+    old_order = squad.orders.get(unit_id)
+    old_type = old_order.main_type() if old_order else None
+    new_type = order.main_type()
+
+    # follow 스케줄 전환
+    if old_type == "follow" and new_type != "follow":
+        _stop_follow(unit_id)
+    elif old_type != "follow" and new_type == "follow":
+        _start_follow(unit_id)
 
     squad.orders[unit_id] = order
     _ensure_party_phases(unit_id)
@@ -321,7 +340,9 @@ def clear_order(squad_id, unit_id):
     squad = _squads.get(squad_id)
     if not squad:
         return False
-    squad.orders.pop(unit_id, None)
+    old_order = squad.orders.pop(unit_id, None)
+    if old_order and old_order.main_type() == "follow":
+        _stop_follow(unit_id)
     return True
 
 
@@ -350,8 +371,8 @@ def on_member_added(squad_id, unit_id):
 
 
 def on_member_removed(squad_id, unit_id):
-    """멤버 제거 후 FSM 정리"""
-    _remove_party_phases(unit_id)
+    """멤버 제거 후 일상 복귀 (E4)"""
+    _return_to_life(unit_id)
 
 
 def on_leader_changed(squad_id, old_leader_id, new_leader_id):
@@ -369,6 +390,68 @@ def on_directive_changed(squad_id, old_directive, new_directive):
 # ========================================
 # 내부 유틸
 # ========================================
+
+def _start_follow(unit_id):
+    """멤버에게 follow 스케줄 push (E1)"""
+    agent = _get_agent(unit_id)
+    if agent:
+        agent.push_schedule(PARTY_FOLLOW_SCHEDULE)
+
+
+def _stop_follow(unit_id):
+    """follow 스케줄 pop (E1)"""
+    agent = _get_agent(unit_id)
+    if not agent:
+        return
+    # 스택 최상단이 follow 스케줄인 경우에만 pop
+    if len(agent.schedule_stack) > 1:
+        top = agent.schedule_stack[-1]
+        if top is PARTY_FOLLOW_SCHEDULE:
+            agent.pop_schedule()
+
+
+def _return_to_life(unit_id):
+    """분대 이탈 → 일상 복귀 (E4)
+
+    FSM 파티 phase 제거 + follow 스케줄 pop.
+    이후 기존 스케줄의 think()가 자연 재개.
+    """
+    _remove_party_phases(unit_id)
+    _stop_follow(unit_id)
+
+
+# ========================================
+# E3. Gate 동기화
+# ========================================
+
+def on_leader_move(leader_id, target):
+    """리더 cross-location 이동 시 분대에 목적지 기록 (E3)
+
+    movement_mixin._move_to()에서 호출.
+    멤버는 다음 think()에서 leader_destination을 감지하여 따라감.
+    """
+    squad = get_squad_by_unit(leader_id)
+    if not squad or squad.leader_id != leader_id:
+        return
+    squad.leader_destination = {
+        "region_id": target["region_id"],
+        "location_id": target["location_id"],
+    }
+    # 멤버들에게 파티 phase 보장 (destination 감지 가능하도록)
+    for member_id in squad.members:
+        _ensure_party_phases(member_id)
+
+
+def on_leader_arrived(leader_id):
+    """리더 도착 시 목적지 클리어 (E3)
+
+    GateTransitState 최종 도착 시 호출.
+    """
+    squad = get_squad_by_unit(leader_id)
+    if not squad or squad.leader_id != leader_id:
+        return
+    squad.leader_destination = None
+
 
 def _get_unique_id(unit_id):
     """unit_id → unique_id 변환"""

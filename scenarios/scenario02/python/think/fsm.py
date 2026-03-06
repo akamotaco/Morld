@@ -249,6 +249,10 @@ class GateTransitState(FSMState):
             npc_name = agent.get_info().get("name", agent.unit_id)
             print(f"[FSM] {npc_name}: GateTransit 도착 → POP")
 
+            # E3: 리더 도착 시 목적지 클리어
+            import party as _party
+            _party.on_leader_arrived(agent.unit_id)
+
             # 도착 로그: 플레이어와 같은 location일 때 (목격)
             player_id = morld.get_player_id()
             player_loc = (morld.get_unit_location(player_id)
@@ -738,6 +742,37 @@ class DesperateState(FSMState):
 
 # ── 파티 Phase ────────────────────────────────────────────
 
+_EXCLUDED_REGIONS = {10}  # merchant_limbo 등 특수 region
+
+
+def _check_leader_destination(agent):
+    """리더 목적지 확인 → 다른 region이면 따라감 (E3)
+
+    CommandPhase/StandbyPhase의 update() 선행 체크.
+    리더가 cross-region 이동 중이면 멤버도 따라감.
+    """
+    import party as _party
+    squad = _party.get_squad_by_unit(agent.unit_id)
+    if not squad or not squad.leader_destination:
+        return False
+
+    # 리더는 스스로 이동 중이므로 체크 불필요
+    if squad.leader_id == agent.unit_id:
+        return False
+
+    dest = squad.leader_destination
+    if dest["region_id"] in _EXCLUDED_REGIONS:
+        return False
+
+    loc = agent.get_location()
+    if loc and loc[0] == dest["region_id"]:
+        return False  # 이미 같은 region
+
+    agent._move_to(dest, "이동")
+    agent._action_taken = True
+    return True
+
+
 class StandbyPhase(FSMState):
     """분대 대기 — 소속이지만 지시 없는 상태
 
@@ -759,6 +794,10 @@ class StandbyPhase(FSMState):
         import party as _party
         if not _party.is_in_squad(agent.unit_id):
             return False   # 분대 아님 → 생활로
+
+        # E3: 리더 cross-region 이동 감지 → 따라감
+        if _check_leader_destination(agent):
+            return True
 
         if self._needs_critical(agent):
             return False   # 욕구 위험 → 생활에서 처리
@@ -812,6 +851,11 @@ class CommandPhase(FSMState):
 
     def update(self, agent) -> bool:
         import party as _party
+
+        # E3: 리더 cross-region 이동 감지 → 따라감 (order보다 우선)
+        if _check_leader_destination(agent):
+            return True
+
         order = _party.get_order_for_unit(agent.unit_id)
         if order is None:
             return False   # 지시 없음 → 아래로 위임

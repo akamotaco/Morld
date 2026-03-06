@@ -5,6 +5,7 @@ party.py + think/party_config.py + FSM pass-through 테스트
 테스트 범위:
 - Phase 1: 데이터 구조, 생명주기, 멤버/리더, 지휘/지시, party_config, FSM pass-through
 - Phase 2: Order 핸들러 (follow/이동/대기/경계/수색/수집), FSM push/pop 통합
+- Phase 3: Follow 스케줄, Gate 동기화, Order 전환, 귀환 메커니즘
 """
 import sys
 import os
@@ -806,6 +807,7 @@ class FakeAgentWithOrders(FakeAgent, OrderHandlerMixin):
     def __init__(self, unit_id):
         super().__init__(unit_id)
         self._move_log = []  # 이동 기록 [(target, name), ...]
+        self.schedule_stack = [[]]  # 기본 스케줄 (빈 리스트)
 
     def _move_to(self, target, name="이동"):
         """이동 기록 (실제 이동 대신)"""
@@ -816,6 +818,15 @@ class FakeAgentWithOrders(FakeAgent, OrderHandlerMixin):
         loc = self.get_location()
         return (loc and loc[0] == target["region_id"]
                 and loc[1] == target["location_id"])
+
+    def push_schedule(self, schedule):
+        self.schedule_stack.append(schedule)
+        morld.clear_jobs(self.unit_id)
+
+    def pop_schedule(self):
+        if len(self.schedule_stack) > 1:
+            return self.schedule_stack.pop()
+        return None
 
 
 def _register_agent(agent):
@@ -1094,3 +1105,361 @@ class TestFSMPushPop(_T):
                 break
 
         assert handled is True  # StandbyPhase가 처리
+
+
+# ============================================
+# Phase 3: Follow 스케줄 테스트
+# ============================================
+
+class TestFollowSchedule(_T):
+
+    def test_follow_order_pushes_schedule(self):
+        """follow order → follow 스케줄 push"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+
+        assert len(agent.schedule_stack) == 2
+        assert agent.schedule_stack[-1] is _party_mod.PARTY_FOLLOW_SCHEDULE
+
+    def test_non_follow_order_no_schedule(self):
+        """non-follow order → 스케줄 push 없음"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+
+        assert len(agent.schedule_stack) == 1  # 기본 스케줄만
+
+    def test_order_change_follow_to_wait(self):
+        """follow → 대기: follow 스케줄 pop"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        assert len(agent.schedule_stack) == 2
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+        assert len(agent.schedule_stack) == 1
+
+    def test_order_change_wait_to_follow(self):
+        """대기 → follow: follow 스케줄 push"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+        assert len(agent.schedule_stack) == 1
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        assert len(agent.schedule_stack) == 2
+
+    def test_order_change_follow_to_follow(self):
+        """follow → follow: 스케줄 변경 없음"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        assert len(agent.schedule_stack) == 2
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        assert len(agent.schedule_stack) == 2  # 변경 없음
+
+    def test_clear_follow_order_pops_schedule(self):
+        """follow order clear → follow 스케줄 pop"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        assert len(agent.schedule_stack) == 2
+
+        _party_mod.clear_order(sid, 10)
+        assert len(agent.schedule_stack) == 1
+
+    def test_clear_non_follow_order_no_pop(self):
+        """non-follow order clear → 스케줄 변경 없음"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+        _party_mod.clear_order(sid, 10)
+        assert len(agent.schedule_stack) == 1
+
+
+# ============================================
+# Phase 3: 귀환 메커니즘 테스트 (E4)
+# ============================================
+
+class TestReturnToLife(_T):
+
+    def test_remove_member_pops_follow_schedule(self):
+        """remove_member → follow 스케줄 pop + FSM 정리"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        assert len(agent.schedule_stack) == 2
+        assert len(agent._fsm_stack) == 3  # life + standby + command
+
+        _party_mod.remove_member(sid, 10)
+
+        assert len(agent.schedule_stack) == 1  # follow 스케줄 pop
+        assert len(agent._fsm_stack) == 1  # FSM 정리
+        assert agent._fsm_stack[0].state_type == "life"
+
+    def test_disband_pops_follow_for_all(self):
+        """disband → 전체 멤버 follow 스케줄 + FSM 정리"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+        _party_mod.add_member(sid, 11)
+
+        agent10 = FakeAgentWithOrders(10)
+        agent11 = FakeAgentWithOrders(11)
+        _register_agent(agent10)
+        _register_agent(agent11)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        _party_mod.set_order(sid, 11, Order("경계"))
+
+        assert len(agent10.schedule_stack) == 2  # follow
+        assert len(agent11.schedule_stack) == 1  # non-follow
+
+        _party_mod.disband_squad(sid)
+
+        assert len(agent10.schedule_stack) == 1
+        assert len(agent10._fsm_stack) == 1
+        assert len(agent11.schedule_stack) == 1
+        assert len(agent11._fsm_stack) == 1
+
+    def test_remove_non_follow_member(self):
+        """non-follow 멤버 제거 → FSM만 정리, 스케줄 변경 없음"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("경계"))
+        assert len(agent.schedule_stack) == 1
+        assert len(agent._fsm_stack) == 3
+
+        _party_mod.remove_member(sid, 10)
+
+        assert len(agent.schedule_stack) == 1  # 변경 없음
+        assert len(agent._fsm_stack) == 1
+
+
+# ============================================
+# Phase 3: Leader Destination 테스트 (E3)
+# ============================================
+
+class TestLeaderDestination(_T):
+
+    def test_on_leader_move_sets_destination(self):
+        """on_leader_move → squad.leader_destination 설정"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        target = {"region_id": 3, "location_id": 0}
+        _party_mod.on_leader_move(1, target)
+
+        squad = _party_mod.get_squad(sid)
+        assert squad.leader_destination is not None
+        assert squad.leader_destination["region_id"] == 3
+        assert squad.leader_destination["location_id"] == 0
+
+    def test_on_leader_move_ensures_member_phases(self):
+        """on_leader_move → 멤버에게 파티 phase 보장"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+        assert len(agent._fsm_stack) == 1  # LifeState만
+
+        target = {"region_id": 3, "location_id": 0}
+        _party_mod.on_leader_move(1, target)
+
+        # 멤버에게 StandbyPhase + CommandPhase push됨
+        types = [s.state_type for s in agent._fsm_stack]
+        assert "standby" in types
+        assert "command" in types
+
+    def test_on_leader_arrived_clears_destination(self):
+        """on_leader_arrived → leader_destination 클리어"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+
+        _party_mod.on_leader_move(1, {"region_id": 3, "location_id": 0})
+        squad = _party_mod.get_squad(sid)
+        assert squad.leader_destination is not None
+
+        _party_mod.on_leader_arrived(1)
+        assert squad.leader_destination is None
+
+    def test_on_leader_move_non_leader_ignored(self):
+        """non-leader의 on_leader_move → 무시"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        _party_mod.on_leader_move(10, {"region_id": 3, "location_id": 0})
+
+        squad = _party_mod.get_squad(sid)
+        assert squad.leader_destination is None
+
+    def test_on_leader_arrived_non_leader_ignored(self):
+        """non-leader의 on_leader_arrived → 무시"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        _party_mod.on_leader_move(1, {"region_id": 3, "location_id": 0})
+        _party_mod.on_leader_arrived(10)  # 멤버가 도착 → 무시
+
+        squad = _party_mod.get_squad(sid)
+        assert squad.leader_destination is not None  # 클리어 안 됨
+
+
+# ============================================
+# Phase 3: FSM leader_destination 감지 테스트
+# ============================================
+
+class TestFSMLeaderDestination(_T):
+
+    def test_command_phase_detects_leader_destination(self):
+        """CommandPhase → leader_destination 감지 → 이동"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("경계"))
+
+        # 리더가 다른 region으로 이동
+        _party_mod.on_leader_move(1, {"region_id": 3, "location_id": 0})
+
+        # CommandPhase update → leader_destination 감지
+        cmd = [s for s in agent._fsm_stack if s.state_type == "command"][0]
+        agent._action_taken = False
+        result = cmd.update(agent)
+
+        assert result is True
+        assert agent._action_taken is True
+        assert len(agent._move_log) == 1
+        assert agent._move_log[0][0]["region_id"] == 3
+
+    def test_standby_phase_detects_leader_destination(self):
+        """StandbyPhase → leader_destination 감지 → 이동"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        # order 없이 phase만 있는 상태
+        _party_mod.on_leader_move(1, {"region_id": 3, "location_id": 0})
+
+        standby = [s for s in agent._fsm_stack if s.state_type == "standby"][0]
+        agent._action_taken = False
+        result = standby.update(agent)
+
+        assert result is True
+        assert len(agent._move_log) == 1
+        assert agent._move_log[0][0]["region_id"] == 3
+
+    def test_same_region_no_detection(self):
+        """같은 region의 leader_destination → 감지 안 함"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("경계"))
+
+        # 같은 region (0) 내 다른 location
+        _party_mod.on_leader_move(1, {"region_id": 0, "location_id": 5})
+
+        cmd = [s for s in agent._fsm_stack if s.state_type == "command"][0]
+        agent._action_taken = False
+        result = cmd.update(agent)
+
+        # leader_destination 무시 → 경계 order 처리
+        assert result is True
+        assert len(agent._move_log) == 0  # 이동 아닌 idle
+
+    def test_leader_not_affected_by_own_destination(self):
+        """리더 자신은 leader_destination에 영향 안 받음"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 10)  # NPC가 리더
+        _party_mod.add_member(sid, 11)
+
+        agent_leader = FakeAgentWithOrders(10)
+        _register_agent(agent_leader)
+
+        _party_mod.set_order(sid, 10, Order("경계"))
+        _party_mod.on_leader_move(10, {"region_id": 3, "location_id": 0})
+
+        cmd = [s for s in agent_leader._fsm_stack if s.state_type == "command"][0]
+        agent_leader._action_taken = False
+        result = cmd.update(agent_leader)
+
+        # 리더 자신은 경계 order 처리 (destination 무시)
+        assert result is True
+        assert len(agent_leader._move_log) == 0  # 이동 아닌 idle
+
+    def test_no_destination_no_detection(self):
+        """leader_destination 없음 → 정상 order 처리"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+
+        cmd = [s for s in agent._fsm_stack if s.state_type == "command"][0]
+        agent._action_taken = False
+        result = cmd.update(agent)
+
+        assert result is True
+        assert len(agent._move_log) == 0  # idle job, 이동 아님
