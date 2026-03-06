@@ -189,6 +189,15 @@ class BaseAgent(
         """FSM 스택 최상위 상태 반환"""
         return self._fsm_stack[-1]
 
+    def _fsm_pop_by_type(self, state_type):
+        """특정 state_type의 State를 스택에서 제거 (분대 해산 등)"""
+        for i in range(len(self._fsm_stack) - 1, 0, -1):  # index 0 = LifeState 보호
+            if self._fsm_stack[i].state_type == state_type:
+                state = self._fsm_stack.pop(i)
+                state.exit(self)
+                return state
+        return None
+
     # ========================================
     # 스케줄 관리
     # ========================================
@@ -742,12 +751,11 @@ class BaseAgent(
         from think.idle_flavors import clear_flavor
         clear_flavor(self.unit_id)
 
-        # FSM 스택: 최상위 State가 처리하면 하위 로직 차단
-        if self._fsm_stack:
-            top = self._fsm_stack[-1]
-            if top.update(self):
-                return None  # State가 처리 완료
-            # update() False = State가 pop됨 → 아래 Life 로직 진행
+        # FSM 스택: 위→아래 순회 (pass-through)
+        # True = 처리 완료, False = 스택 유지 + 아래 phase로 위임
+        for _state in reversed(list(self._fsm_stack)):
+            if _state.update(self):
+                return None  # 첫 True에서 멈춤
 
         # Tier -1: 운반 중 (Limbo에 있음)
         import carry

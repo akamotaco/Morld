@@ -1,9 +1,16 @@
 # 파티 시스템 설계 노트
 
-> **상태: 구현 명세 작성 완료 (코드 작업 미착수, 검토 예정)**
+> **상태: Phase 1 구현 완료 (골격 — FSM pass-through + 데이터 레이어)**
 >
 > 이 문서는 파티 시스템의 설계 논의(Section 1~7) + 구현 명세(Section 8)를 포함합니다.
 > 기존 `party-implementation.md`(v1)을 대체하는 최신 명세입니다.
+>
+> **구현 현황:**
+> - Phase 1 ✅: FSM pass-through 변환, party.py 모듈, party_config.py, 챕터 리셋, 53개 테스트
+> - Phase 2 ⬜: FSM Phase 연동 (StandbyPhase/CommandPhase 실제 동작)
+> - Phase 3 ⬜: 이동/동기화 (follow, gate 동기화, 귀환)
+> - Phase 4 ⬜: 플레이어 UI (모집/지시 액션)
+> - Phase 5 ⬜: 연동/마무리 (전투 합류, 데이트 상호 배제, 불복)
 
 ---
 
@@ -1763,18 +1770,19 @@ LifeState.update():
 ### 8.8 구현 순서 제안
 
 ```
-Phase 1 — 골격 (FSM 변경 + 데이터)
-  1. fsm.py pass-through 변환 (G6 마이그레이션)
-  2. party.py 모듈 (A4 레지스트리 + B1-B5 API)
-  3. party_config.py (A1 disposition + F1-F3)
-  4. chapters/__init__.py reset 등록 (G4)
-  5. 테스트: 기존 동작 회귀 확인
+Phase 1 — 골격 (FSM 변경 + 데이터) ✅ 완료
+  1. ✅ fsm.py pass-through 변환 + LV_STANDBY/LV_COMMAND 추가
+  2. ✅ party.py 모듈 (Squad/Order + 레지스트리 + B1-B5 API)
+  3. ✅ party_config.py (disposition + 모집조건 + 불복 + 리더특성)
+  4. ✅ chapters/__init__.py reset 등록
+  5. ✅ think() 루프 pass-through 변환 + _fsm_pop_by_type 추가
+  6. ✅ StandbyPhase/CommandPhase 골격 (fsm.py)
+  7. ✅ test_party.py (53개 테스트, 785/785 전체 회귀 통과)
 
-Phase 2 — FSM Phase
-  6. StandbyPhase 구현 (D5)
-  7. CommandPhase 구현 (D3-D4)
-  8. think() 루프에 phase 연동 (G6)
-  9. 테스트: 분대 생성 → 지시 → 동작 확인
+Phase 2 — FSM Phase 실동작
+  8. order_handlers.py (follow/수색/경계/수집/이동/대기 핸들러)
+  9. think() 루프에 phase 실 연동
+  10. 테스트: 분대 생성 → 지시 → 동작 확인
 
 Phase 3 — 이동/동기화
   10. follow 메커니즘 (E1)

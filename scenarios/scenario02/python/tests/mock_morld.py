@@ -40,6 +40,7 @@ class MockMorld:
                       is_creature=False, is_object=False):
         """테스트용 유닛 등록"""
         r, l = location
+        props_dict = dict(props or {})
         self._units[unit_id] = {
             "info": {
                 "name": name, "type": gender,
@@ -48,8 +49,9 @@ class MockMorld:
                 "region_id": r, "location_id": l,
                 "is_object": is_object,
                 "is_creature": is_creature,
+                "unique_id": props_dict.get("unique_id"),
             },
-            "props": dict(props or {}),
+            "props": props_dict,
             "location": location,
             "inventory": {},
         }

@@ -4,16 +4,23 @@
 # - 스택 root(index 0)에 LifeState 항상 존재
 # - 스택이 비거나 빈 상태에서 pop 시 에러 (로직 버그 감지)
 # - push 시 동일 이상 레벨 자동 pop → change 동작 자연 발생
-# - 레벨 간격 10 단위 (사이 삽입 여유)
+#
+# Pass-Through 스택:
+#   update() → True:  "처리 완료, 멈춤" (스택 유지)
+#            → False: "스택 유지 + 아래 phase로 넘김" (pass-through)
+#            → 종료:   명시적 pop 호출 필요
 #
 # 레벨 계층:
-#   LV_LIFE       =  0  생활 (root, 불변)
-#   LV_COMBAT     = 10  전투
-#   LV_COMBAT_SUB = 20  전투 하위 (도주/체념/필사)
-#   LV_TRANSIT    = 30  Gate 이동 (어디서든 push, 아무것도 pop 안 함)
+#   LV_LIFE        =  0  생활 (root, 불변)
+#   LV_STANDBY     =  3  분대 대기
+#   LV_COMMAND     =  5  분대 지시
+#   LV_COMBAT      = 10  전투
+#   LV_COMBAT_SUB  = 20  전투 하위 (도주/체념/필사)
+#   LV_TRANSIT     = 30  Gate 이동
 #
 # 구현 상태:
-#   LifeState (root) + GateTransitState (multi-hop)
+#   LifeState (root) + StandbyPhase + CommandPhase
+#   GateTransitState (multi-hop)
 #   CombatState + FleeState + ResignationState + DesperateState
 
 import morld
@@ -22,6 +29,8 @@ from collections import deque
 
 # === 레벨 상수 ===
 LV_LIFE = 0
+LV_STANDBY = 3
+LV_COMMAND = 5
 LV_COMBAT = 10
 LV_COMBAT_SUB = 20
 LV_TRANSIT = 30
@@ -41,7 +50,8 @@ class FSMState:
 
         Returns:
             True  = 처리 완료 (하위 로직 차단)
-            False = 이 State가 pop됨, 하위 로직 진행
+            False = 스택 유지 + 아래 phase로 위임 (pass-through)
+            종료 시 명시적 agent._fsm_pop() 호출 필요
         """
         return False
 
@@ -724,3 +734,104 @@ class DesperateState(FSMState):
 
     def __repr__(self):
         return f"<DesperateState(lv={self.level}, target={self.target_id})>"
+
+
+# ── 파티 Phase ────────────────────────────────────────────
+
+class StandbyPhase(FSMState):
+    """분대 대기 — 소속이지만 지시 없는 상태
+
+    기본 동작: 현위치 idle 유지, 생활 차단.
+    욕구 위험 시 False → 생활(LifePhase)로 위임.
+    분대 미소속 시 False → 생활로 위임.
+    """
+    state_type = "standby"
+    level = LV_STANDBY
+
+    # 욕구 임계치 (기존 tier 3-4와 동일)
+    _NEEDS_THRESHOLDS = {
+        "배변": 70,
+        "피로": 80,
+        "청결": 70,
+    }
+
+    def update(self, agent) -> bool:
+        import party as _party
+        if not _party.is_in_squad(agent.unit_id):
+            return False   # 분대 아님 → 생활로
+
+        if self._needs_critical(agent):
+            return False   # 욕구 위험 → 생활에서 처리
+
+        agent._insert_idle_job("대기", 5 * 60_000)
+        agent._action_taken = True
+        return True
+
+    def _needs_critical(self, agent):
+        """기존 tier 3-4 임계치 기반 욕구 위험 체크"""
+        try:
+            import needs as _needs
+        except ImportError:
+            return False
+
+        npc_id = agent.unit_id
+        for need_name, threshold in self._NEEDS_THRESHOLDS.items():
+            if need_name == "배변":
+                val = _needs.get_excretion(npc_id) if hasattr(_needs, 'get_excretion') else 0
+            elif need_name == "피로":
+                val = _needs.get_fatigue(npc_id) if hasattr(_needs, 'get_fatigue') else 0
+            elif need_name == "청결":
+                val = _needs.get_cleanliness(npc_id) if hasattr(_needs, 'get_cleanliness') else 0
+            else:
+                val = 0
+            if val >= threshold:
+                return True
+        return False
+
+    def __repr__(self):
+        return f"<StandbyPhase(lv={self.level})>"
+
+
+class CommandPhase(FSMState):
+    """분대 지시 수행 — Order 기반 행동
+
+    order 없으면 False → 아래(Standby/Life)로 위임.
+    order 있으면 handler 호출 → True/False 반환.
+    """
+    state_type = "command"
+    level = LV_COMMAND
+
+    _ORDER_HANDLERS = {
+        "follow":  "_handle_order_follow",
+        "수색":    "_handle_order_search",
+        "경계":    "_handle_order_guard",
+        "수집":    "_handle_order_collect",
+        "이동":    "_handle_order_move",
+        "대기":    "_handle_order_wait",
+    }
+
+    def update(self, agent) -> bool:
+        import party as _party
+        order = _party.get_order_for_unit(agent.unit_id)
+        if order is None:
+            return False   # 지시 없음 → 아래로 위임
+
+        main_type = order.main_type()
+        handler_name = self._ORDER_HANDLERS.get(main_type)
+        if handler_name is None:
+            return False
+
+        handler = getattr(agent, handler_name, None)
+        if handler is None:
+            return False
+
+        return handler(order)
+
+    def exit(self, agent):
+        # order 관련 _memory 정리
+        for key in list(agent._memory):
+            if key.startswith("order_"):
+                agent._memory[key] = None
+
+    def __repr__(self):
+        return f"<CommandPhase(lv={self.level})>"
