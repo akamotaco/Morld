@@ -310,6 +310,9 @@ namespace SE
 				return;
 			}
 
+			// 탭 렌더 컨텍스트 설정 (Python get_header에서 탭 라벨 표시용)
+			SetRenderContextToPython(_stack.Current);
+
 			// Focus 타입별 header/footer 결정
 			var focusType = _stack.Current.Type;
 			string headerText = "";
@@ -898,6 +901,14 @@ namespace SE
 		/// </summary>
 		private string RenderFocusContent(Focus focus)
 		{
+			// Tab > 0이면 Python에 탭 콘텐츠 질의
+			if (focus.ViewTab > 0)
+			{
+				var tabContent = GetTabContentFromPython(focus);
+				if (tabContent != null) return tabContent;
+				// Python이 None 반환 → 기존 렌더링으로 폴백
+			}
+
 			return focus.Type switch
 			{
 				FocusType.Situation => RenderSituation(),
@@ -1108,6 +1119,111 @@ namespace SE
 			}
 
 			return false; // 기본값: Lock 아님
+		}
+
+		// ============================================
+		// Tab 뷰 전환 시스템
+		// ============================================
+
+		/// <summary>
+		/// Tab 키 입력 처리 — 현재 Focus의 ViewTab을 순환
+		/// Python get_max_tab()으로 탭 개수를 질의하고, 범위 내에서 순환
+		/// </summary>
+		public void OnTabPressed()
+		{
+			var current = _stack.Current;
+			if (current == null) return;
+
+			int maxTab = GetMaxTabFromPython(current);
+			if (maxTab <= 0) return; // 탭 1개 이하 → 전환 불필요
+
+			current.ViewTab = (current.ViewTab + 1) % (maxTab + 1);
+			GD.Print($"[TextUISystem] Tab pressed: ViewTab={current.ViewTab}/{maxTab} (FocusType={current.Type})");
+			RequestUpdateDisplay();
+		}
+
+		/// <summary>
+		/// Python ui.get_max_tab() 호출 — 해당 Focus에서 사용 가능한 최대 탭 인덱스
+		/// 0 = 탭 없음 (기본 뷰만), 1 = 2개 탭 (0,1), 2 = 3개 탭 (0,1,2)
+		/// </summary>
+		private int GetMaxTabFromPython(Focus focus)
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var focusTypeStr = focus.Type.ToString();
+				var args = new List<SharpPy.PyObject> { new SharpPy.PyStr(focusTypeStr) };
+				if (focus.TargetUnitId.HasValue)
+					args.Add(new SharpPy.PyInt(focus.TargetUnitId.Value));
+
+				var result = _scriptSystem.CallModuleFunction("ui", "get_max_tab", args.ToArray());
+				if (result is SharpPy.PyInt pyInt)
+				{
+					return (int)pyInt.Value;
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python get_max_tab() error: {ex.Message}");
+			}
+
+			return 0;
+		}
+
+		/// <summary>
+		/// Python ui._set_render_context() 호출 — 렌더링 전 현재 Focus 정보 전달
+		/// get_header()에서 탭 라벨을 표시하기 위해 필요
+		/// </summary>
+		private void SetRenderContextToPython(Focus focus)
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				_scriptSystem.CallModuleFunction("ui", "_set_render_context",
+					new SharpPy.PyStr(focus.Type.ToString()),
+					new SharpPy.PyInt(focus.ViewTab),
+					focus.TargetUnitId.HasValue ? new SharpPy.PyInt(focus.TargetUnitId.Value) : SharpPy.PyNone.Instance
+				);
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python _set_render_context() error: {ex.Message}");
+			}
+		}
+
+		/// <summary>
+		/// Python ui.get_tab_content() 호출 — 탭별 콘텐츠
+		/// None 반환 시 기존 렌더링 사용
+		/// </summary>
+		private string? GetTabContentFromPython(Focus focus)
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var focusTypeStr = focus.Type.ToString();
+				var args = new List<SharpPy.PyObject>
+				{
+					new SharpPy.PyStr(focusTypeStr),
+					new SharpPy.PyInt(focus.ViewTab)
+				};
+				if (focus.TargetUnitId.HasValue)
+					args.Add(new SharpPy.PyInt(focus.TargetUnitId.Value));
+
+				var result = _scriptSystem.CallModuleFunction("ui", "get_tab_content", args.ToArray());
+				if (result != null && result is not SharpPy.PyNone)
+				{
+					return result.AsString();
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python get_tab_content() error: {ex.Message}");
+			}
+
+			return null;
 		}
 
 		private string RenderUnit(int unitId)

@@ -110,6 +110,337 @@ def is_ui_locked() -> bool:
 
 
 # ========================================
+# Tab 뷰 전환 시스템
+# ========================================
+# C#에서 호출하는 탭 관련 Python 훅
+# - get_max_tab(focus_type, target_unit_id?): 최대 탭 인덱스 (0=탭 없음)
+# - get_tab_content(focus_type, tab, target_unit_id?): 탭 콘텐츠 (None→기존 렌더링)
+# - get_tab_labels(focus_type, target_unit_id?): 탭 라벨 리스트
+
+# 현재 렌더 컨텍스트 (C#에서 FlushDisplay 시작 시 설정)
+_render_context = {
+    "focus_type": "Situation",
+    "view_tab": 0,
+    "target_unit_id": None,
+}
+
+
+def _set_render_context(focus_type, view_tab, target_unit_id=None):
+    """C#에서 FlushDisplay 시 호출 — 현재 Focus 정보 저장 (header 탭 라벨용)"""
+    _render_context["focus_type"] = focus_type
+    _render_context["view_tab"] = view_tab
+    _render_context["target_unit_id"] = target_unit_id
+
+
+def get_max_tab(focus_type, target_unit_id=None):
+    """
+    해당 Focus에서 사용 가능한 최대 탭 인덱스 (0 = 탭 없음)
+
+    Args:
+        focus_type: Focus 타입 문자열 ("Situation", "Unit" 등)
+        target_unit_id: 대상 유닛 ID (Unit Focus에서 사용)
+
+    Returns:
+        int: 최대 탭 인덱스 (0이면 탭 비활성화)
+    """
+    if focus_type == "Situation":
+        return 1  # 주변(0) / 지도(1)  — 분대 탭은 파티 구현 후 추가
+    elif focus_type == "Unit":
+        if target_unit_id is not None and _is_character(target_unit_id):
+            return 1  # 대화(0) / 스탯(1)
+    return 0
+
+
+def get_tab_content(focus_type, tab, target_unit_id=None):
+    """
+    탭별 콘텐츠 반환 (None → 기존 C# 렌더링 사용)
+
+    Args:
+        focus_type: Focus 타입 문자열
+        tab: 탭 인덱스
+        target_unit_id: 대상 유닛 ID
+
+    Returns:
+        str or None: 탭 콘텐츠 BBCode 문자열, None이면 기존 렌더링
+    """
+    if focus_type == "Situation":
+        if tab == 0:
+            return None  # 기존 RenderSituation
+        if tab == 1:
+            return _render_map_tab()
+    elif focus_type == "Unit":
+        if tab == 0:
+            return None  # 기존 RenderUnit
+        if tab == 1:
+            return _render_stat_tab(target_unit_id)
+    return None
+
+
+def get_tab_labels(focus_type, target_unit_id=None):
+    """
+    Header에 표시할 탭 라벨 리스트
+
+    Args:
+        focus_type: Focus 타입 문자열
+        target_unit_id: 대상 유닛 ID
+
+    Returns:
+        list[str]: 탭 라벨 리스트 (비어있으면 탭 표시 안함)
+    """
+    if focus_type == "Situation":
+        return ["주변", "지도"]  # 분대 탭은 파티 구현 후 추가
+    elif focus_type == "Unit":
+        if target_unit_id is not None and _is_character(target_unit_id):
+            return ["대화", "스탯"]
+    return []
+
+
+def _is_character(unit_id):
+    """유닛이 캐릭터(NPC)인지 확인"""
+    try:
+        info = morld.get_unit_info(unit_id)
+        if info and not info.get("is_object", False):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _render_map_tab():
+    """
+    지도 탭 콘텐츠
+
+    map_ui._render_map()은 Dialog proc 방식(@proc: URL)이므로 탭에서 사용 불가.
+    탭용으로는 move: URL을 직접 사용하는 별도 렌더링을 수행.
+    """
+    try:
+        import map_ui
+        player_id = morld.get_player_id()
+        if player_id is None:
+            return "[!]지도를 표시할 수 없습니다.[/!]"
+
+        current_loc = morld.get_unit_location(player_id)
+        if current_loc is None:
+            return "[!]현재 위치를 알 수 없습니다.[/!]"
+
+        region_id, current_local = current_loc
+
+        # 플레이어 X 위치
+        player_pos_x = 0
+        player_info = morld.get_unit_info(player_id)
+        if player_info:
+            player_pos_x = player_info.get("x", 0)
+
+        region_info = morld.get_region_info(region_id)
+        if not region_info:
+            return "[!]지역 정보를 불러올 수 없습니다.[/!]"
+
+        lines = []
+        lines.append(f"[b]지도 - {region_info['name']}[/b]")
+        lines.append("")
+
+        # 각 장소의 캐릭터 조회 (플레이어 제외)
+        location_characters = {}
+        for loc in region_info["locations"]:
+            loc_id = loc["id"]
+            unit_ids = morld.get_characters_at_location(region_id, loc_id)
+            characters = []
+            for uid in unit_ids:
+                if uid == player_id:
+                    continue
+                info = morld.get_unit_info(uid)
+                if info and not info.get("is_object", False):
+                    name = info.get("name", "???")
+                    characters.append(name)
+            location_characters[loc_id] = characters
+
+        # 위치 목록 (id 순)
+        locations = sorted(region_info["locations"], key=lambda x: x["id"])
+
+        # 인접 관계 빌드 (tree 구조용)
+        adjacency = {}
+        for loc in locations:
+            loc_id = loc["id"]
+            adjacency[loc_id] = set()
+            for gate in loc.get("gates", []):
+                if gate.get("connected_region") == region_id:
+                    to_local = gate.get("connected_local")
+                    if to_local is not None:
+                        adjacency[loc_id].add(to_local)
+
+        # BFS tree
+        visited = set()
+        tree_lines = []
+
+        def build_tree(loc_id, depth=0):
+            if loc_id in visited:
+                return
+            visited.add(loc_id)
+
+            loc_info = None
+            for loc in locations:
+                if loc["id"] == loc_id:
+                    loc_info = loc
+                    break
+            if not loc_info:
+                return
+
+            indent = "  " * depth
+            chars = location_characters.get(loc_id, [])
+            char_text = f" [color=lime][{', '.join(chars)}][/color]" if chars else ""
+
+            if loc_id == current_local:
+                loc_length = loc_info.get("length", 0)
+                pos_text = f"X:{int(player_pos_x)}/{int(loc_length)}" if loc_length > 0 else ""
+                pos_suffix = f" [color=gray](현재 위치{', ' + pos_text if pos_text else ''})[/color]"
+                tree_lines.append(f"{indent}[color=yellow]> {loc_info['name']}[/color]{char_text}{pos_suffix}")
+            else:
+                travel_time_millis = morld.get_travel_time(
+                    region_id, current_local,
+                    region_id, loc_id,
+                    player_id
+                )
+                if travel_time_millis > 0:
+                    time_text = map_ui._format_time(travel_time_millis)
+                    tree_lines.append(
+                        f"{indent}- [url=move:{region_id}:{loc_id}]{loc_info['name']}[/url] "
+                        f"[color=gray]({time_text})[/color]{char_text}"
+                    )
+                elif travel_time_millis == 0:
+                    tree_lines.append(f"{indent}- {loc_info['name']}{char_text}")
+                else:
+                    tree_lines.append(f"{indent}- [color=gray]{loc_info['name']} (도달 불가)[/color]{char_text}")
+
+            # 다른 region 연결
+            for region_gate in loc_info.get("region_gates", []):
+                to_region, to_local, region_name, *_ = region_gate
+                child_indent = "  " * (depth + 1)
+                tree_lines.append(f"{child_indent}[color=cyan]-> {region_name}[/color]")
+
+            # 인접 장소 재귀
+            neighbors = list(adjacency.get(loc_id, []))
+            neighbor_times = []
+            for nid in neighbors:
+                t = morld.get_travel_time(region_id, current_local, region_id, nid, player_id)
+                neighbor_times.append((nid, t if t >= 0 else 999999))
+            neighbor_times.sort(key=lambda x: x[1])
+            for nid, _ in neighbor_times:
+                build_tree(nid, depth + 1)
+
+        build_tree(current_local)
+        for loc in locations:
+            if loc["id"] not in visited:
+                build_tree(loc["id"], 0)
+
+        lines.extend(tree_lines)
+
+        # 전체 즉시 출력
+        return "[!]" + "\n".join(lines) + "[/!]"
+    except Exception as e:
+        print(f"[ui] _render_map_tab error: {e}")
+        return f"[!]지도 오류: {e}[/!]"
+
+
+def _render_stat_tab(unit_id):
+    """캐릭터 스탯 탭 콘텐츠"""
+    try:
+        info = morld.get_unit_info(unit_id)
+        if not info:
+            return "[!]유닛 정보를 불러올 수 없습니다.[/!]"
+
+        name = info.get("name", "???")
+        lines = []
+        lines.append(f"[!][b]{name}[/b]")
+        lines.append("")
+
+        # 상태 (survival + needs)
+        lines.append("[color=gray]── 상태 ──[/color]")
+        try:
+            import survival
+            stats = survival.get_survival_stats(unit_id)
+            hp = stats.get("health", 0)
+            max_hp = stats.get("max_health", 100)
+            sat = stats.get("satiety", 0)
+            max_sat = stats.get("max_satiety", 100)
+            lines.append(f"  체력   {_stat_bar(hp, max_hp)} {hp:.0f}")
+            lines.append(f"  포만감 {_stat_bar(sat, max_sat)} {sat:.0f}")
+        except (ImportError, Exception):
+            pass
+
+        try:
+            import needs as needs_mod
+            fatigue = needs_mod.get_fatigue(unit_id)
+            cleanliness = needs_mod.get_cleanliness(unit_id)
+            excretion = needs_mod.get_excretion(unit_id)
+            lines.append(f"  피로   {_stat_bar(fatigue, 100)} {fatigue:.0f}")
+            lines.append(f"  불결   {_stat_bar(cleanliness, 100)} {cleanliness:.0f}")
+            lines.append(f"  배변욕 {_stat_bar(excretion, 100)} {excretion:.0f}")
+        except (ImportError, Exception):
+            pass
+        lines.append("")
+
+        # 장비
+        lines.append("[color=gray]── 장비 ──[/color]")
+        try:
+            equipped_ids = morld.get_equipped_items(unit_id)
+            if equipped_ids:
+                for item_id in equipped_ids:
+                    item_info = morld.get_item_info(item_id)
+                    if item_info:
+                        item_name = item_info.get("name", "???")
+                        slot = item_info.get("equip_slot", "")
+                        if slot:
+                            lines.append(f"  {slot}: {item_name}")
+                        else:
+                            lines.append(f"  {item_name}")
+            else:
+                lines.append("  (장비 없음)")
+        except Exception:
+            lines.append("  (장비 정보 없음)")
+        lines.append("")
+
+        # 관계 (플레이어와의)
+        lines.append("[color=gray]── 관계 ──[/color]")
+        try:
+            props = morld.get_unit_props(unit_id) or {}
+            # 관계 prop 탐색
+            aff = _find_relation_prop(props, "호감")
+            reb = _find_relation_prop(props, "반발")
+            sub = _find_relation_prop(props, "복종")
+            des = _find_relation_prop(props, "욕망")
+            lines.append(f"  호감 {aff}  반발 {reb}")
+            lines.append(f"  복종 {sub}  욕망 {des}")
+        except Exception:
+            lines.append("  (관계 정보 없음)")
+        lines.append("")
+
+        # 뒤로 버튼
+        lines.append("[url=back]◁뒤로[/url][/!]")
+
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[ui] _render_stat_tab error: {e}")
+        return f"[!]스탯 오류: {e}[/!]"
+
+
+def _stat_bar(value, max_val, length=10):
+    """값을 막대 바로 변환 (████░░░░)"""
+    if value is None or max_val <= 0:
+        return "░" * length
+    ratio = max(0, min(1, value / max_val))
+    filled = int(ratio * length)
+    return "█" * filled + "░" * (length - filled)
+
+
+def _find_relation_prop(props, relation_type):
+    """관계 prop에서 값 찾기 (관계:플레이어:호감 등)"""
+    for key, val in props.items():
+        if key.startswith("관계:") and key.endswith(f":{relation_type}"):
+            return int(val) if val else 0
+    return 0
+
+
+# ========================================
 # Header / Footer 시스템
 # ========================================
 
@@ -249,6 +580,35 @@ def _get_brightness_text() -> str:
         return ""
 
 
+def _get_tab_label_line():
+    """
+    현재 Focus의 탭 라벨 줄 반환
+
+    탭이 2개 이상일 때만 표시.
+    현재 활성 탭은 [▶이름] 형식, 나머지는 [이름] 형식.
+    [Tab] 키 안내도 포함.
+
+    Returns:
+        str: "[▶주변]  [지도]  [Tab]" 형식 또는 빈 문자열
+    """
+    focus_type = _render_context["focus_type"]
+    view_tab = _render_context["view_tab"]
+    target_unit_id = _render_context["target_unit_id"]
+
+    labels = get_tab_labels(focus_type, target_unit_id)
+    if len(labels) <= 1:
+        return ""
+
+    parts = []
+    for i, label in enumerate(labels):
+        if i == view_tab:
+            parts.append(f"[color=white][▶{label}][/color]")
+        else:
+            parts.append(f"[color=gray][{label}][/color]")
+
+    return "  ".join(parts) + "  [color=dim_gray][Tab][/color]"
+
+
 def get_header():
     """
     상단 헤더 반환 (위치 + 시간/날씨 정보)
@@ -307,6 +667,11 @@ def get_header():
         # 시간 정지 상태 표시
         if morld.is_time_frozen():
             lines.append("[color=cyan][시간 정지][/color]")
+
+        # 탭 라벨 (Tab 뷰 전환 시스템)
+        tab_line = _get_tab_label_line()
+        if tab_line:
+            lines.append(tab_line)
 
         return "\n".join(lines)
     except Exception as e:

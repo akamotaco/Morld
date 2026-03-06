@@ -519,12 +519,17 @@ ui.set_ui_lock(False)  # 일반 모드
 
 ---
 
-## Tab 뷰 전환 시스템 (계획)
+## Tab 뷰 전환 시스템
 
-> **상태: 설계 완료, 미구현**
+> **상태: Phase 0~2 구현 완료 (지도 탭 + 스탯 탭)**
 >
 > Focus 내에서 Tab 키로 콘텐츠를 전환하는 기능.
 > 윈도우 탭과 유사 — Focus 스택 변경 없이 같은 Focus 내에서 출력만 전환.
+>
+> - Phase 0 (메커니즘): Focus.ViewTab + C# Tab 입력 + Python API 골격 ✅
+> - Phase 1 (지도 탭): Situation Tab 1 — move: URL 직접 사용 ✅
+> - Phase 2 (스탯 탭): Unit Tab 1 — survival/needs/장비/관계 표시 ✅
+> - Phase 3 (분대 탭): 파티 시스템 구현 후 추가 예정
 
 ### 설계 원칙
 
@@ -532,93 +537,84 @@ ui.set_ui_lock(False)  # 일반 모드
 - **Python = 콘텐츠**: 탭 개수, 탭별 렌더링, 탭 라벨 전부 Python이 결정
 - **하위 호환**: Python이 `get_max_tab() → 0` 반환 시 탭 비활성화 (기존 동작 유지)
 
-### C# 변경
+### C# 구현
 
-#### Focus.cs — 상태 추가
+#### Focus.cs — ViewTab 상태
 
 ```csharp
-public class Focus {
-    ...
-    public int ViewTab { get; set; } = 0;   // 현재 탭 인덱스
+public int ViewTab { get; set; } = 0;   // 현재 탭 인덱스 (0=기본 뷰)
+```
+
+#### GameEngine.cs — Tab 키 입력
+
+```csharp
+public override void _UnhandledInput(InputEvent @event) {
+    if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo) {
+        if (keyEvent.Keycode == Key.Tab) {
+            _textUISystem?.OnTabPressed();
+            _textUISystem?.FlushDisplay();
+        }
+    }
 }
 ```
 
-#### text_ui_system.cs — 입력 + 렌더링
+#### text_ui_system.cs — 탭 전환 + 렌더 디스패치
 
 ```csharp
-void OnTabPressed() {
+// Tab 키 처리
+public void OnTabPressed() {
     var current = _stack.Current;
     if (current == null) return;
-
-    int maxTab = GetMaxTabFromPython(current.Type, current.TargetUnitId);
-    if (maxTab <= 0) return;  // 탭 1개 → 전환 불필요
-
+    int maxTab = GetMaxTabFromPython(current);  // Python ui.get_max_tab() 호출
+    if (maxTab <= 0) return;
     current.ViewTab = (current.ViewTab + 1) % (maxTab + 1);
     RequestUpdateDisplay();
 }
 
+// RenderFocusContent — tab > 0이면 Python 콘텐츠 우선
 private string RenderFocusContent(Focus focus) {
-    // tab > 0이면 Python에 탭 콘텐츠 질의
     if (focus.ViewTab > 0) {
-        var tabContent = GetTabContentFromPython(focus.Type, focus.ViewTab, focus.TargetUnitId);
+        var tabContent = GetTabContentFromPython(focus);  // Python ui.get_tab_content()
         if (tabContent != null) return tabContent;
     }
-    // tab == 0 또는 Python이 None → 기존 렌더링
-    return focus.Type switch {
-        FocusType.Situation => RenderSituation(),
-        FocusType.Unit      => RenderUnit(focus.TargetUnitId ?? 0),
-        ...
-    };
+    return focus.Type switch { /* 기존 렌더링 */ };
 }
+
+// FlushDisplay 시작 시 렌더 컨텍스트 전달 (header 탭 라벨용)
+SetRenderContextToPython(_stack.Current);  // Python ui._set_render_context()
 ```
 
 ### Python API (ui.py)
 
 ```python
+# 렌더 컨텍스트 (C#에서 FlushDisplay 시 설정, header 탭 라벨 표시용)
+_render_context = {"focus_type": "Situation", "view_tab": 0, "target_unit_id": None}
+
+def _set_render_context(focus_type, view_tab, target_unit_id=None):
+    """C# FlushDisplay에서 호출 — 현재 Focus 정보 저장"""
+
 def get_max_tab(focus_type, target_unit_id=None):
-    """해당 Focus에서 사용 가능한 최대 탭 인덱스 (0 = 탭 없음)"""
-    if focus_type == "Situation":
-        return 2 if _has_squad() else 1   # 주변/지도/(분대)
-    elif focus_type == "Unit":
-        if _is_character(target_unit_id):
-            return 1                       # 대화/스탯
-        return 0
-    return 0
+    """최대 탭 인덱스 (0=탭 없음). Situation→1, Unit(캐릭터)→1"""
 
 def get_tab_content(focus_type, tab, target_unit_id=None):
-    """탭별 콘텐츠 (None → 기존 렌더링 사용)"""
-    if focus_type == "Situation":
-        if tab == 0: return None           # 기존 RenderSituation
-        if tab == 1: return _render_map_tab()
-        if tab == 2: return _render_squad_tab()
-    elif focus_type == "Unit":
-        if tab == 0: return None           # 기존 RenderUnit
-        if tab == 1: return _render_stat_tab(target_unit_id)
-    return None
+    """탭 콘텐츠 (None→기존 C# 렌더링). tab 0은 항상 None"""
 
 def get_tab_labels(focus_type, target_unit_id=None):
-    """Header에 표시할 탭 라벨 리스트"""
-    if focus_type == "Situation":
-        labels = ["주변", "지도"]
-        if _has_squad():
-            labels.append("분대")
-        return labels
-    elif focus_type == "Unit":
-        if _is_character(target_unit_id):
-            return ["대화", "스탯"]
-        return []
-    return []
+    """탭 라벨 리스트. Situation→["주변","지도"], Unit→["대화","스탯"]"""
+
+def _get_tab_label_line():
+    """Header용 탭 라벨 줄: [▶주변]  [지도]  [Tab]"""
 ```
 
 ### 탭 구성 상세
 
-#### Situation Focus — 3탭
+#### Situation Focus — 2탭 (분대 탭은 파티 구현 후 추가)
 
-| Tab | 이름 | 콘텐츠 | 소스 |
-|-----|------|--------|------|
-| 0 | **주변** | 현재 화면 그대로 (묘사 + 이동 + 행동) | 기존 `RenderSituation()` |
-| 1 | **지도** | Region 지도 (위치/NPC/이동시간) | 기존 `map_ui.py` 재활용 |
-| 2 | **분대** | 분대 현황 (멤버/지시/상태) | 신규 `party_ui.py` |
+| Tab | 이름 | 콘텐츠 | 소스 | 상태 |
+|-----|------|--------|------|------|
+| 0 | **주변** | 현재 화면 그대로 (묘사 + 이동 + 행동) | 기존 `RenderSituation()` | ✅ |
+| 1 | **지도** | Region 지도 (위치/NPC/이동시간) | `ui._render_map_tab()` | ✅ |
+| 2 | **분대** | 분대 현황 (멤버/지시/상태) | 신규 `party_ui.py` | 미구현 |
 
 ```
 Tab 0 [▶주변] [지도] [분대]       Tab 1 [주변] [▶지도] [분대]
@@ -655,10 +651,11 @@ Tab 2 [주변] [지도] [▶분대]
 ```
 
 **지도 탭 구현 노트:**
-- 기존 `map_ui.py._render_map()` → Dialog 표시 → **탭 콘텐츠로 전환**
-- `show_map()` (dialog 경유)는 하위 호환을 위해 유지
-- 탭에서는 `_render_map_tab()` 호출 (dialog 래핑 없이 순수 텍스트 반환)
-- 지도 내 이동 링크(`[url=move:...]`)는 탭에서도 동작 (C# MetaActionHandler 공용)
+- `ui._render_map_tab()`: Dialog 경유 없이 직접 `move:` URL 사용
+  - Dialog 방식(`map_ui.show_map()`)은 `@proc:` URL → proc 콜백 필요
+  - 탭 방식은 `move:{region}:{local}` URL → C# MetaActionHandler 직접 처리
+- `map_ui.show_map()` (dialog 경유)는 행동 메뉴의 "지도" 액션용으로 유지
+- 이동 후 ViewTab 유지 → 지도 탭에서 새 위치 확인 가능 (Tab으로 주변 복귀)
 
 #### Unit (캐릭터) Focus — 2탭
 
@@ -693,51 +690,11 @@ Tab 0 [▶대화] [스탯]              Tab 1 [대화] [▶스탯]
 └──────────────────────┘         └──────────────────────┘
 ```
 
-**스탯 탭 콘텐츠:**
-```python
-def _render_stat_tab(unit_id):
-    """캐릭터 스탯 탭"""
-    lines = []
-    info = morld.get_unit_info(unit_id)
-    name = info.get("name", "???")
-    lines.append(f"[b]{name}[/b]")
-    lines.append("")
-
-    # 상태 (needs + survival)
-    lines.append("[color=gray]── 상태 ──[/color]")
-    import survival, needs
-    lines.append(f"  체력   {_bar(survival.get_health(unit_id), 100)}")
-    lines.append(f"  포만감 {_bar(survival.get_hunger(unit_id), 100)}")
-    for need_name in ["피로", "청결", "사회", "성욕"]:
-        val = needs.get_need(unit_id, need_name)
-        lines.append(f"  {need_name}   {_bar(val, 100)}")
-    lines.append("")
-
-    # 장비
-    lines.append("[color=gray]── 장비 ──[/color]")
-    equip = morld.get_equipped_items(unit_id)
-    for slot, item in equip.items():
-        item_name = item.get("name", "없음") if item else "없음"
-        lines.append(f"  {slot}: {item_name}")
-    lines.append("")
-
-    # 관계 (플레이어와의)
-    lines.append("[color=gray]── 관계 ──[/color]")
-    props = morld.get_unit_props(unit_id) or {}
-    player_name = "주인공"
-    aff = props.get(f"관계:{player_name}:호감", 0)
-    reb = props.get(f"관계:{player_name}:반발", 0)
-    sub = props.get(f"관계:{player_name}:복종", 0)
-    des = props.get(f"관계:{player_name}:욕망", 0)
-    lines.append(f"  호감 {aff}  반발 {reb}")
-    lines.append(f"  복종 {sub}  욕망 {des}")
-    lines.append("")
-
-    # 뒤로 버튼
-    lines.append("[url=back]◁뒤로[/url]")
-
-    return "\n".join(lines)
-```
+**스탯 탭 콘텐츠 (`ui._render_stat_tab`):**
+- 상태: `survival.get_survival_stats()` (체력/포만감) + `needs` (피로/불결/배변욕)
+- 장비: `morld.get_equipped_items()` → item ID 리스트 → `get_item_info()` 조합
+- 관계: `morld.get_unit_props()` → `관계:*:호감/반발/복종/욕망` prop 탐색
+- 전체 `[!]...[/!]` 래핑 (즉시 출력, 타이핑 없음)
 
 #### 탭 비적용 Focus
 
@@ -758,43 +715,29 @@ def _render_stat_tab(unit_id):
 | **Content** | 탭에 따라 완전히 교체 |
 
 **Header 렌더링:**
-```python
-def get_header(tab=0):
-    """기존 header + 탭 라벨"""
-    header = _get_location_time_text()   # 기존 위치/시간
+- C#이 `FlushDisplay` 시작 시 `_set_render_context(focus_type, view_tab, target_unit_id)` 호출
+- `get_header()`가 기존 위치/시간 정보 끝에 `_get_tab_label_line()` 추가
+- 탭 라벨: `[▶주변]  [지도]  [Tab]` (활성 탭=white, 비활성=gray, [Tab] 안내=dim_gray)
 
-    # 탭 라벨 추가
-    labels = get_tab_labels(current_focus_type)
-    if len(labels) > 1:
-        tab_line = "  ".join(
-            f"[▶{l}]" if i == tab else f"[{l}]"
-            for i, l in enumerate(labels)
-        )
-        header = f"{tab_line}\n{header}"
+### 구현 상태
 
-    return header
-```
+**Phase 0 — Tab 메커니즘 ✅**
+- `Focus.cs`: `ViewTab` 프로퍼티 추가
+- `GameEngine.cs`: `_UnhandledInput`에서 Tab 키 감지 → `OnTabPressed()`
+- `text_ui_system.cs`: `OnTabPressed()`, `GetMaxTabFromPython()`, `GetTabContentFromPython()`, `SetRenderContextToPython()`
+- `ui.py`: `get_max_tab()`, `get_tab_content()`, `get_tab_labels()`, `_set_render_context()`, `_get_tab_label_line()`
 
-### 구현 순서
+**Phase 1 — 지도 탭 ✅**
+- `ui._render_map_tab()`: `move:` URL 직접 사용 (Dialog proc 미경유)
+- BFS tree 구조, NPC 위치 표시, 이동 시간 표시
 
-**Phase 0 — Tab 메커니즘 (파티 무관, 선행 가능)**
-1. `Focus.cs`에 `ViewTab` 추가
-2. `text_ui_system.cs`에 Tab 입력 + 렌더 디스패치
-3. Python `ui.py`에 `get_max_tab` / `get_tab_content` / `get_tab_labels` 골격
-4. Situation Tab 0 (주변) 동작 확인 — 기존과 동일해야 함
+**Phase 2 — 스탯 탭 ✅**
+- `ui._render_stat_tab()`: survival/needs/장비/관계 표시
+- `_stat_bar()`: 막대 바 (████░░░░) 렌더링
 
-**Phase 1 — 지도 탭**
-5. `map_ui.py`에서 `_render_map_tab()` 분리 (dialog 래핑 없는 순수 텍스트)
-6. Situation Tab 1 (지도) 연결
-7. 지도 내 이동 링크 동작 확인
-
-**Phase 2 — 스탯 탭**
-8. Unit Tab 1 (스탯) `_render_stat_tab()` 구현
-9. needs/survival/equipment 정보 조합
-
-**Phase 3 — 분대 탭 (파티 시스템 Phase 4와 병행)**
-10. Situation Tab 2 (분대) `_render_squad_tab()` 구현
-11. 분대 관리 액션 연결
+**Phase 3 — 분대 탭 (파티 시스템 구현 후)**
+- Situation Tab 2 (분대) `_render_squad_tab()` 구현 예정
+- `get_max_tab("Situation")`에서 분대 존재 시 2 반환하도록 수정
 
 ---
 

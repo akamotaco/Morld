@@ -267,6 +267,20 @@ public partial class GameEngine : Node
 	}
 #endif
 
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo)
+		{
+			if (keyEvent.Keycode == Key.Tab)
+			{
+				var _textUISystem = this._world.GetSystem("textUISystem") as TextUISystem;
+				_textUISystem?.OnTabPressed();
+				// lazy update 즉시 반영
+				_textUISystem?.FlushDisplay();
+			}
+		}
+	}
+
 	public override void _Process(double delta)
 	{
 		var _playerSystem = this._world.GetSystem("playerSystem") as PlayerSystem;

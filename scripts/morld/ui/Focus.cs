@@ -83,6 +83,14 @@ public class Focus
 	/// </summary>
 	public PyAnimlogRequest? AnimlogRequest { get; set; }
 
+	/// <summary>
+	/// 현재 탭 인덱스 (Tab 뷰 전환용)
+	/// - 0: 기본 뷰 (기존 렌더링)
+	/// - 1~N: Python이 제공하는 탭 콘텐츠
+	/// Python get_max_tab()이 0 반환 시 탭 비활성화
+	/// </summary>
+	public int ViewTab { get; set; } = 0;
+
 	// 팩토리 메서드들
 	public static Focus Situation() => new() { Type = FocusType.Situation };
 	public static Focus Unit(int unitId) => new() { Type = FocusType.Unit, TargetUnitId = unitId };
