@@ -3429,10 +3429,13 @@ class Character(Unit):
             return
 
         # G2: 데이트 중이면 거부
-        from date import is_on_date
-        if is_on_date(self.instance_id):
-            yield ui.dialog(f"{self.name}은(는) 지금은 함께할 수 없다.")
-            return
+        try:
+            from date import is_on_date
+            if is_on_date(player_id):
+                yield ui.dialog(f"{self.name}은(는) 지금은 함께할 수 없다.")
+                return
+        except ImportError:
+            pass
 
         # 플레이어 분대 찾기 (빈자리 있는 분대)
         squads = _party.get_all_squads()

@@ -1393,6 +1393,7 @@ _ORDER_RISK = {
     "경계": 0.1,
     "전투": 0.2,       # 위험
     "후퇴": -0.1,      # 안전해지므로 거부 감소
+    "follow": 0.0,     # follow는 면제 대상
 }
 ```
 
@@ -1405,13 +1406,13 @@ order = squad.orders[unit_id]
 check_disobedience() → True (거부)
   ↓
 1. 불복 리액션 (대사 출력, 향후)
-2. return False → 생활 phase로 위임 (잠시 쉬는 것처럼 보임)
+2. idle_job("불복", 5분) + return True → 5분간 대기 후 재판정
 3. 다음 think()에서 다시 판정 (매번 새 확률 → 결국 수행할 수도)
 ```
 
 **불복 불가 조건 (무조건 복종):**
 - `복종 >= 80`: 절대 복종 (거부 확률 항상 0%)
-- `order_type == "후퇴"`: 도망은 거부하지 않음
+- `order_type == "후퇴"` 또는 `"follow"`: 후퇴/추적은 거부하지 않음
 
 #### F3. party_config.py 전체 구조
 
@@ -1605,23 +1606,24 @@ def check_npc_combat_join(region_id, location_id):
 파티원에게 데이트 시도 → 거절 (파티 우선) 또는 일시 이탈
 ```
 
-**구현:**
+**구현 (3곳):**
 ```python
-# date.py — 모집 차단
-def _start_date(player_id, partner_id):
-    # 파티 멤버 체크
+# date.py — 파티원 데이트 차단
+def can_request_date(player_id, partner_id):
     if party.is_in_squad(partner_id):
-        # 선택지: 데이트 거절 OR 파티 일시 이탈
-        # 우선은 거절 (단순)
-        return False
-    ...
+        return False, "분대 활동 중에는 함께할 수 없다."
 
-# party.py — 데이트 중 차단
+# party.py — 데이트 상대 모집 차단
 def add_member(squad_id, unit_id):
-    import date
-    if date.is_on_date(unit_id):
-        return False   # 데이트 중 모집 불가
-    ...
+    from date import is_on_date, get_date_partner
+    player_id = morld.get_player_id()
+    if player_id and is_on_date(player_id) and get_date_partner(player_id) == unit_id:
+        return False   # 데이트 상대 모집 불가
+
+# base.py recruit() — 데이트 중 모집 UI 차단
+def recruit(self):
+    if is_on_date(player_id):
+        return  # 데이트 중에는 모집 메뉴 자체 차단
 ```
 
 **향후 확장**: 파티 일시 이탈 → 데이트 → 데이트 종료 → 파티 복귀.

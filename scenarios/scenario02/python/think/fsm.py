@@ -856,13 +856,13 @@ class CommandPhase(FSMState):
         if _check_leader_destination(agent):
             return True
 
-        order = _party.get_order_for_unit(agent.unit_id)
+        squad = _party.get_squad_by_unit(agent.unit_id)
+        order = squad.orders.get(agent.unit_id) if squad else None
         if order is None:
             return False   # 지시 없음 → 아래로 위임
 
         # F2: 불복 판정 (handler 디스패치 전)
-        squad = _party.get_squad_by_unit(agent.unit_id)
-        if squad and squad.leader_id and squad.leader_id != agent.unit_id:
+        if squad.leader_id and squad.leader_id != agent.unit_id:
             from think.party_config import check_disobedience
             if check_disobedience(agent.unit_id, squad.leader_id, order):
                 agent._insert_idle_job("불복", 5 * 60_000)

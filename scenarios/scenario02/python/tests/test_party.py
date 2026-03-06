@@ -62,8 +62,9 @@ import types as _types
 
 # date stub (G2: 데이트 상호 배제)
 _date_mod = _types.ModuleType("date")
-_date_active = set()  # 데이트 중인 unit_id 집합
-_date_mod.is_on_date = lambda uid: uid in _date_active
+_date_partner = {}  # {player_id: partner_id} — 실제 date.py와 동일 구조
+_date_mod.is_on_date = lambda pid: pid in _date_partner
+_date_mod.get_date_partner = lambda pid: _date_partner.get(pid)
 sys.modules["date"] = _date_mod
 _registry = _types.ModuleType("think.registry")
 _registry._agents = {}
@@ -104,7 +105,7 @@ def _setup():
     morld.reset()
     _party_mod.reset()
     _registry._agents.clear()
-    _date_active.clear()
+    _date_partner.clear()
 
     # 기본 유닛 등록 (플레이어 + NPC 6명)
     morld._player_id = 1
@@ -1676,7 +1677,7 @@ class TestDateMutualExclusion(_T):
         sid = _party_mod.create_squad()
         _party_mod.assign_leader(sid, 1)
 
-        _date_active.add(10)  # 세라가 데이트 중
+        _date_partner[1] = 10  # 플레이어(1)가 세라(10)와 데이트 중
 
         result = _party_mod.add_member(sid, 10)
         assert result is False
@@ -1686,10 +1687,10 @@ class TestDateMutualExclusion(_T):
         sid = _party_mod.create_squad()
         _party_mod.assign_leader(sid, 1)
 
-        _date_active.add(10)
+        _date_partner[1] = 10
         assert _party_mod.add_member(sid, 10) is False
 
-        _date_active.discard(10)
+        del _date_partner[1]
         assert _party_mod.add_member(sid, 10) is True
 
     def test_add_member_non_date_ok(self):

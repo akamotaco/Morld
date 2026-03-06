@@ -211,8 +211,9 @@ def add_member(squad_id, unit_id):
 
     # G2: 데이트 중 모집 불가
     try:
-        from date import is_on_date
-        if is_on_date(unit_id):
+        from date import is_on_date, get_date_partner
+        player_id = morld.get_player_id()
+        if player_id and is_on_date(player_id) and get_date_partner(player_id) == unit_id:
             return False
     except ImportError:
         pass
