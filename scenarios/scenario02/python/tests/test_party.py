@@ -3,15 +3,8 @@
 party.py + think/party_config.py + FSM pass-through 테스트
 
 테스트 범위:
-- Squad/Order 데이터 구조
-- 생명주기 API (create/disband)
-- 멤버 관리 (add/remove)
-- 리더 관리 (assign/remove/change)
-- 지휘/지시 API (directive/order)
-- 모집 조건 (party_config.can_recruit)
-- 불복 판정 (party_config.check_disobedience)
-- FSM pass-through 스택 순회
-- StandbyPhase / CommandPhase 기본 동작
+- Phase 1: 데이터 구조, 생명주기, 멤버/리더, 지휘/지시, party_config, FSM pass-through
+- Phase 2: Order 핸들러 (follow/이동/대기/경계/수색/수집), FSM push/pop 통합
 """
 import sys
 import os
@@ -47,6 +40,12 @@ _party_config = _load_module(
     os.path.join(_python_dir, "think", "party_config.py"),
 )
 
+# order_handlers 로드
+_order_handlers = _load_module(
+    "think.order_handlers",
+    os.path.join(_python_dir, "think", "order_handlers.py"),
+)
+
 # needs stub (StandbyPhase가 lazy import)
 class _NeedsStub:
     def get_excretion(self, uid): return 0
@@ -54,6 +53,13 @@ class _NeedsStub:
     def get_cleanliness(self, uid): return 0
 
 sys.modules.setdefault("needs", _NeedsStub())
+
+# think.registry stub (party._get_agent 연동용)
+import types as _types
+_registry = _types.ModuleType("think.registry")
+_registry._agents = {}
+_registry.get_agent = lambda uid: _registry._agents.get(uid)
+sys.modules["think.registry"] = _registry
 
 # party stub도 StandbyPhase/CommandPhase가 lazy import하므로 등록
 import party as _party_mod
@@ -67,6 +73,8 @@ CommandPhase = _fsm.CommandPhase
 LV_LIFE = _fsm.LV_LIFE
 LV_STANDBY = _fsm.LV_STANDBY
 LV_COMMAND = _fsm.LV_COMMAND
+
+OrderHandlerMixin = _order_handlers.OrderHandlerMixin
 
 Squad = _party_mod.Squad
 Order = _party_mod.Order
@@ -86,6 +94,7 @@ def _setup():
     """테스트 상태 초기화"""
     morld.reset()
     _party_mod.reset()
+    _registry._agents.clear()
 
     # 기본 유닛 등록 (플레이어 + NPC 6명)
     morld._player_id = 1
@@ -785,3 +794,303 @@ class TestIntegration(_T):
         agent._fsm_pop_by_type("standby")
         assert len(agent._fsm_stack) == 1
         assert agent._fsm_stack[0].state_type == "life"
+
+
+# ============================================
+# Phase 2: Order Handler 테스트용 Agent
+# ============================================
+
+class FakeAgentWithOrders(FakeAgent, OrderHandlerMixin):
+    """Order 핸들러를 포함한 FakeAgent"""
+
+    def __init__(self, unit_id):
+        super().__init__(unit_id)
+        self._move_log = []  # 이동 기록 [(target, name), ...]
+
+    def _move_to(self, target, name="이동"):
+        """이동 기록 (실제 이동 대신)"""
+        self._move_log.append((target, name))
+        self._action_taken = True
+
+    def _is_at(self, target):
+        loc = self.get_location()
+        return (loc and loc[0] == target["region_id"]
+                and loc[1] == target["location_id"])
+
+
+def _register_agent(agent):
+    """테스트용 agent 레지스트리에 등록"""
+    _registry._agents[agent.unit_id] = agent
+
+
+# ============================================
+# Phase 2: Order Handler 테스트
+# ============================================
+
+class TestOrderHandlerFollow(_T):
+
+    def test_follow_same_location(self):
+        """리더와 같은 location → idle 대기"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        order = Order("follow")
+        result = agent._handle_order_follow(order)
+
+        assert result is True
+        assert agent._action_taken is True
+        assert len(agent._move_log) == 0  # 이동 없음
+
+    def test_follow_different_location(self):
+        """리더와 다른 location → 이동"""
+        morld.set_unit_location(1, 0, 5)  # 리더를 다른 location으로
+
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        order = Order("follow")
+        result = agent._handle_order_follow(order)
+
+        assert result is True
+        assert len(agent._move_log) == 1
+        assert agent._move_log[0][0]["region_id"] == 0
+        assert agent._move_log[0][0]["location_id"] == 5
+
+    def test_follow_no_leader(self):
+        """리더 없음 → False"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        order = Order("follow")
+        result = agent._handle_order_follow(order)
+
+        assert result is False
+
+
+class TestOrderHandlerMove(_T):
+
+    def test_move_to_target(self):
+        """목표 지점 이동"""
+        target = {"region_id": 0, "location_id": 3}
+        agent = FakeAgentWithOrders(10)
+        order = Order("이동", target=target)
+        result = agent._handle_order_move(order)
+
+        assert result is True
+        assert len(agent._move_log) == 1
+        assert agent._move_log[0][0] == target
+
+    def test_move_at_target(self):
+        """이미 목표 지점 → idle 대기"""
+        target = {"region_id": 0, "location_id": 0}  # 세라 초기 위치
+        agent = FakeAgentWithOrders(10)
+        order = Order("이동", target=target)
+        result = agent._handle_order_move(order)
+
+        assert result is True
+        assert len(agent._move_log) == 0  # 이동 없음
+
+    def test_move_no_target(self):
+        """target 없음 → False"""
+        agent = FakeAgentWithOrders(10)
+        order = Order("이동")
+        result = agent._handle_order_move(order)
+
+        assert result is False
+
+
+class TestOrderHandlerWait(_T):
+
+    def test_wait_basic(self):
+        """대기 → idle"""
+        agent = FakeAgentWithOrders(10)
+        order = Order("대기")
+        result = agent._handle_order_wait(order)
+
+        assert result is True
+        assert agent._action_taken is True
+
+    def test_wait_rest(self):
+        """대기:휴식 → False (생활 위임)"""
+        agent = FakeAgentWithOrders(10)
+        order = Order("대기:휴식")
+        result = agent._handle_order_wait(order)
+
+        assert result is False
+
+
+class TestOrderHandlerGuard(_T):
+
+    def test_guard(self):
+        """경계 → idle"""
+        agent = FakeAgentWithOrders(10)
+        order = Order("경계")
+        result = agent._handle_order_guard(order)
+
+        assert result is True
+        assert agent._action_taken is True
+
+
+class TestOrderHandlerSearch(_T):
+
+    def test_search(self):
+        """수색 → idle"""
+        agent = FakeAgentWithOrders(10)
+        order = Order("수색")
+        result = agent._handle_order_search(order)
+
+        assert result is True
+
+    def test_search_sub_type(self):
+        """수색:적 → idle"""
+        agent = FakeAgentWithOrders(10)
+        order = Order("수색:적")
+        result = agent._handle_order_search(order)
+
+        assert result is True
+
+
+class TestOrderHandlerCollect(_T):
+
+    def test_collect(self):
+        """수집 → idle"""
+        agent = FakeAgentWithOrders(10)
+        order = Order("수집:재료")
+        result = agent._handle_order_collect(order)
+
+        assert result is True
+
+
+# ============================================
+# Phase 2: FSM push/pop 통합 테스트
+# ============================================
+
+class TestFSMPushPop(_T):
+
+    def test_set_order_pushes_phases(self):
+        """set_order → StandbyPhase + CommandPhase push"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+
+        types = [s.state_type for s in agent._fsm_stack]
+        assert "standby" in types
+        assert "command" in types
+
+    def test_set_order_no_duplicate_push(self):
+        """이미 phase가 있으면 중복 push 안 함"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+        _party_mod.set_order(sid, 10, Order("경계"))  # 재설정
+
+        # phase는 여전히 하나씩
+        standby_count = sum(1 for s in agent._fsm_stack if s.state_type == "standby")
+        command_count = sum(1 for s in agent._fsm_stack if s.state_type == "command")
+        assert standby_count == 1
+        assert command_count == 1
+
+    def test_remove_member_pops_phases(self):
+        """remove_member → Command/Standby phase pop"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+        assert len(agent._fsm_stack) == 3
+
+        _party_mod.remove_member(sid, 10)
+
+        assert len(agent._fsm_stack) == 1
+        assert agent._fsm_stack[0].state_type == "life"
+
+    def test_disband_pops_all_members(self):
+        """disband → 전체 멤버 FSM 정리"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+        _party_mod.add_member(sid, 11)
+
+        agent10 = FakeAgentWithOrders(10)
+        agent11 = FakeAgentWithOrders(11)
+        _register_agent(agent10)
+        _register_agent(agent11)
+
+        _party_mod.set_order(sid, 10, Order("follow"))
+        _party_mod.set_order(sid, 11, Order("경계"))
+
+        _party_mod.disband_squad(sid)
+
+        assert len(agent10._fsm_stack) == 1
+        assert len(agent11._fsm_stack) == 1
+
+    def test_add_member_no_fsm_push(self):
+        """add_member → FSM 변경 없음"""
+        sid = _party_mod.create_squad()
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.add_member(sid, 10)
+
+        assert len(agent._fsm_stack) == 1  # LifeState만
+
+    def test_full_flow_with_handlers(self):
+        """전체 흐름: set_order → CommandPhase dispatch → 핸들러 실행"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+
+        # FSM 순회
+        handled = False
+        for state in reversed(list(agent._fsm_stack)):
+            if state.update(agent):
+                handled = True
+                break
+
+        assert handled is True
+        assert agent._action_taken is True
+        # CommandPhase → _handle_order_wait → idle job 삽입
+        jobs = morld.get_all_jobs(10)
+        assert len(jobs) >= 1
+        assert jobs[-1]["name"] == "대기"
+
+    def test_clear_order_passthrough(self):
+        """clear_order → CommandPhase가 False 반환 → StandbyPhase가 처리"""
+        sid = _party_mod.create_squad()
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        _party_mod.set_order(sid, 10, Order("대기"))
+        _party_mod.clear_order(sid, 10)
+
+        # FSM 순회 — CommandPhase False → StandbyPhase True
+        handled = False
+        for state in reversed(list(agent._fsm_stack)):
+            if state.update(agent):
+                handled = True
+                break
+
+        assert handled is True  # StandbyPhase가 처리

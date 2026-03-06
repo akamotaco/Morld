@@ -300,7 +300,11 @@ def get_directive(squad_id):
 
 
 def set_order(squad_id, unit_id, order):
-    """분대원 지시 설정"""
+    """분대원 지시 설정
+
+    FSM에 StandbyPhase/CommandPhase가 없으면 push.
+    이미 있으면 데이터만 갱신 (다음 think()에서 반영).
+    """
     squad = _squads.get(squad_id)
     if not squad:
         return False
@@ -308,6 +312,7 @@ def set_order(squad_id, unit_id, order):
         return False
 
     squad.orders[unit_id] = order
+    _ensure_party_phases(unit_id)
     return True
 
 
@@ -345,7 +350,8 @@ def on_member_added(squad_id, unit_id):
 
 
 def on_member_removed(squad_id, unit_id):
-    pass
+    """멤버 제거 후 FSM 정리"""
+    _remove_party_phases(unit_id)
 
 
 def on_leader_changed(squad_id, old_leader_id, new_leader_id):
@@ -377,3 +383,40 @@ def _get_unique_id(unit_id):
     if props:
         return props.get("unique_id", "")
     return ""
+
+
+def _get_agent(unit_id):
+    """think 레지스트리에서 agent 조회 (없으면 None)"""
+    try:
+        from think.registry import get_agent
+        return get_agent(unit_id)
+    except ImportError:
+        return None
+
+
+def _ensure_party_phases(unit_id):
+    """FSM에 StandbyPhase/CommandPhase가 없으면 push"""
+    agent = _get_agent(unit_id)
+    if not agent:
+        return
+
+    has_standby = any(s.state_type == "standby" for s in agent._fsm_stack)
+    has_command = any(s.state_type == "command" for s in agent._fsm_stack)
+
+    if not has_standby:
+        from think.fsm import StandbyPhase
+        agent._fsm_push(StandbyPhase())
+
+    if not has_command:
+        from think.fsm import CommandPhase
+        agent._fsm_push(CommandPhase())
+
+
+def _remove_party_phases(unit_id):
+    """FSM에서 Command/Standby phase 제거"""
+    agent = _get_agent(unit_id)
+    if not agent:
+        return
+
+    agent._fsm_pop_by_type("command")
+    agent._fsm_pop_by_type("standby")

@@ -46,6 +46,7 @@ from think.interrupt_mixin import InterruptMixin
 from think.movement_mixin import MovementMixin
 from think.environment_mixin import EnvironmentMixin
 from think.schedule_mixin import ScheduleResolverMixin
+from think.order_handlers import OrderHandlerMixin
 
 
 class BaseAgent(
@@ -54,6 +55,7 @@ class BaseAgent(
     MovementMixin,
     EnvironmentMixin,
     ScheduleResolverMixin,
+    OrderHandlerMixin,
 ):
     """
     NPC AI 기본 클래스
