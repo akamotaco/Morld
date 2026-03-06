@@ -3410,6 +3410,124 @@ class Character(Unit):
         return f"[{self.name}]\n\"...뭐 하는 거야?\""
 
     # ========================================
+    # 파티(분대) 시스템
+    # ========================================
+
+    def recruit(self):
+        """분대 모집 — NPC를 플레이어 분대에 편입"""
+        self._check_instantiated()
+        import party as _party
+        from think.party_config import can_recruit
+
+        player_id = morld.get_player_id()
+        if not player_id:
+            return
+
+        # 이미 분대 소속이면 거부
+        if _party.is_in_squad(self.instance_id):
+            yield ui.dialog(f"{self.name}은(는) 이미 분대에 소속되어 있다.")
+            return
+
+        # 플레이어 분대 찾기 (빈자리 있는 분대)
+        squads = _party.get_all_squads()
+        target_squad = None
+        for sq in squads:
+            if not sq.is_full():
+                target_squad = sq
+                break
+
+        if not target_squad:
+            yield ui.dialog("빈자리가 있는 분대가 없다.")
+            return
+
+        # 모집 조건 판정
+        if not can_recruit(self.instance_id, player_id):
+            text = self.get_recruit_reject_text()
+            yield ui.dialog(text)
+            return
+
+        # 수락
+        _party.add_member(target_squad.squad_id, self.instance_id)
+        # follow order 기본 부여
+        _party.set_order(target_squad.squad_id, self.instance_id,
+                         _party.Order("follow"))
+
+        text = self.get_recruit_accept_text()
+        yield ui.dialog(text)
+
+    def get_recruit_accept_text(self):
+        """모집 수락 텍스트 — 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"...알겠어.\"\n\n{self.name}이(가) 분대에 합류했다."
+
+    def get_recruit_reject_text(self):
+        """모집 거절 텍스트 — 서브클래스에서 오버라이드"""
+        return f"[{self.name}]\n\"...싫어.\""
+
+    def assign_leader(self):
+        """분대장 지정 — 이 NPC를 리더 없는 분대의 리더로 지정"""
+        self._check_instantiated()
+        import party as _party
+
+        # 이미 분대 소속이면 거부
+        if _party.is_in_squad(self.instance_id):
+            yield ui.dialog(f"{self.name}은(는) 이미 분대에 소속되어 있다.")
+            return
+
+        # 리더 없는 분대 찾기
+        squads = _party.get_all_squads()
+        target_squad = None
+        for sq in squads:
+            if sq.leader_id is None:
+                target_squad = sq
+                break
+
+        if not target_squad:
+            yield ui.dialog("리더를 지정할 수 있는 분대가 없다.")
+            return
+
+        _party.assign_leader(target_squad.squad_id, self.instance_id)
+        yield ui.dialog(f"{self.name}이(가) 분대장으로 지정되었다.")
+
+    def set_order(self):
+        """분대원 지시 — 이 NPC에게 지시를 내림"""
+        self._check_instantiated()
+        import party as _party
+
+        squad = _party.get_squad_by_unit(self.instance_id)
+        if not squad:
+            yield ui.dialog(f"{self.name}은(는) 분대원이 아니다.")
+            return
+
+        # 플레이어가 리더인지 확인
+        player_id = morld.get_player_id()
+        if squad.leader_id != player_id:
+            yield ui.dialog("직접 지시는 플레이어 리더 분대에서만 가능하다.")
+            return
+
+        # 지시 선택 UI
+        lines = ["[b]지시를 선택하세요.[/b]\n"]
+        order_options = [
+            ("follow", "따라오기"),
+            ("대기", "대기"),
+            ("경계", "경계"),
+            ("수색", "수색"),
+            ("수집", "수집"),
+        ]
+        for order_type, label in order_options:
+            lines.append(f"[url=@ret:{order_type}]{label}[/url]")
+        lines.append("\n[url=@ret:cancel]취소[/url]")
+
+        choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
+        if not choice or choice == "cancel":
+            return
+
+        order = _party.Order(choice)
+        _party.set_order(squad.squad_id, self.instance_id, order)
+
+        label = dict(order_options).get(choice, choice)
+        yield ui.dialog(f"{self.name}에게 '{label}' 지시를 내렸다.")
+
+    # ========================================
     # NPC 주도 스킨십 시스템
     # ========================================
     # 서브클래스에서 오버라이드하여 캐릭터별 설정 정의

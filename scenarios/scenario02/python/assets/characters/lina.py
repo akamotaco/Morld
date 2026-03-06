@@ -435,6 +435,9 @@ class Lina(Character):
         "call:talk:대화",
         "call:errand:심부름#",         # 퀘스트 제안 가능 시만 표시
         "call:give_gift:선물하기",
+        "call:recruit:분대 모집#",
+        "call:assign_leader:분대장 지정#",
+        "call:set_order:지시#",
         "call:romance:스킨십#",
         "call:force_romance:강제 행위#",
         "call:debug_props:(디버그) 속성 보기#",

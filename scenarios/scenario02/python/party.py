@@ -93,6 +93,7 @@ def create_squad():
     squad_id = _next_id
     _next_id += 1
     _squads[squad_id] = Squad(squad_id)
+    update_party_props()
     return squad_id
 
 
@@ -363,28 +364,80 @@ def get_order_for_unit(unit_id):
 
 
 # ========================================
-# B6. 이벤트 훅 (향후 확장)
+# B6. 이벤트 훅
 # ========================================
 
 def on_member_added(squad_id, unit_id):
-    pass
+    update_party_props()
 
 
 def on_member_removed(squad_id, unit_id):
     """멤버 제거 후 일상 복귀 (E4)"""
     _return_to_life(unit_id)
+    update_party_props()
 
 
 def on_leader_changed(squad_id, old_leader_id, new_leader_id):
-    pass
+    update_party_props()
 
 
 def on_squad_disbanded(squad_id):
-    pass
+    update_party_props()
 
 
 def on_directive_changed(squad_id, old_directive, new_directive):
     pass
+
+
+# ========================================
+# B7. 플레이어 can: props 갱신
+# ========================================
+
+def update_party_props():
+    """파티 상태에 따라 플레이어 can: props 갱신
+
+    분대 생성/해산/멤버 추가·제거/리더 변경 시 호출.
+    """
+    player_id = morld.get_player_id()
+    if not player_id:
+        return
+
+    squads = get_all_squads()
+
+    # 분대 존재 여부
+    has_squad = len(squads) > 0
+
+    # 플레이어 리더 분대 (직접 지시 가능)
+    player_leader_squad = None
+    # NPC 리더 분대 (지휘 가능)
+    npc_leader_squad = None
+    # 리더 없는 분대
+    leaderless_squad = None
+    # 빈자리 있는 분대
+    has_vacancy = False
+
+    for sq in squads:
+        if sq.leader_id == player_id:
+            player_leader_squad = sq
+        elif sq.leader_id is not None:
+            npc_leader_squad = sq
+        else:
+            leaderless_squad = sq
+
+        if not sq.is_full():
+            has_vacancy = True
+
+    # can: props 갱신
+    morld.set_unit_prop(player_id, "can:disband_squad",
+                        1 if has_squad else 0)
+    morld.set_unit_prop(player_id, "can:assign_leader",
+                        1 if leaderless_squad else 0)
+    morld.set_unit_prop(player_id, "can:set_directive",
+                        1 if npc_leader_squad else 0)
+    morld.set_unit_prop(player_id, "can:set_order",
+                        1 if player_leader_squad else 0)
+    morld.set_unit_prop(player_id, "can:recruit",
+                        1 if has_vacancy else 0)
 
 
 # ========================================

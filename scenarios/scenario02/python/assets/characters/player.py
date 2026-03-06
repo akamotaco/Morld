@@ -163,6 +163,14 @@ class Player(Character):
         # 퀘스트
         "can:errand": 0,  # 동적 관리 (심부름 가능한 퀘스트가 있을 때만 1)
 
+        # 파티(분대) — 동적 관리 (party.py에서 조건에 따라 설정)
+        "can:create_squad": 1,       # 분대 생성 (항상 가능)
+        "can:disband_squad": 0,      # 해산 (분대 존재 시 1)
+        "can:assign_leader": 0,      # 리더 지정 (리더 없는 분대 존재 시 1)
+        "can:set_directive": 0,      # 지휘 변경 (NPC 리더 분대 존재 시 1)
+        "can:set_order": 0,          # 지시 (플레이어 리더 분대 존재 시 1)
+        "can:recruit": 0,            # 모집 (분대에 빈자리 시 1)
+
         # 세력 — 방문자: 숲속 저택/도시와 우호, 생물과 적대
         # (세라 개인은 sera.props의 관계:방문자:세력도 = 0 override로 중립)
         "세력": "방문자",
@@ -170,7 +178,10 @@ class Player(Character):
     }
     actions = ["call:rest:휴식", "call:sleep:노숙", "call:masturbate:자위#",
                "call:self_expose:옷 들추기#",
-               "call:remove_parasite:기생체 제거#"]
+               "call:remove_parasite:기생체 제거#",
+               "call:create_squad:분대 편성#",
+               "call:disband_squad:분대 해산#",
+               "call:set_directive:지휘 변경#"]
     mood = []
 
     def rest(self):
@@ -287,4 +298,117 @@ class Player(Character):
         result = parasite.attempt_self_removal(self.instance_id, choice)
         morld.add_action_log(result["message"])
         morld.advance_time_des(5 * 60_000)  # 5분
+
+    # ========================================
+    # 분대 관리 (플레이어 전용 액션)
+    # ========================================
+
+    def create_squad(self):
+        """분대 편성 — 새 분대 생성 + 플레이어를 리더로 지정"""
+        import morld
+        import party as _party
+
+        # 플레이어 리더 분대가 이미 있으면 거부
+        for sq in _party.get_all_squads():
+            if sq.leader_id == self.instance_id:
+                morld.add_action_log("이미 분대를 이끌고 있다.")
+                return
+
+        squad_id = _party.create_squad()
+        _party.assign_leader(squad_id, self.instance_id)
+        morld.add_action_log("분대를 편성했다.")
+
+    def disband_squad(self):
+        """분대 해산"""
+        import morld
+        import ui
+        import party as _party
+
+        squads = _party.get_all_squads()
+        if not squads:
+            morld.add_action_log("해산할 분대가 없다.")
+            return
+
+        # 분대가 1개면 즉시 해산, 복수면 선택
+        if len(squads) == 1:
+            target = squads[0]
+        else:
+            lines = ["[b]해산할 분대를 선택하세요.[/b]\n"]
+            for sq in squads:
+                leader_name = "리더 없음"
+                if sq.leader_id is not None:
+                    info = morld.get_unit_info(sq.leader_id)
+                    leader_name = info.get("name", "???") if info else "???"
+                member_count = len(sq.members)
+                lines.append(
+                    f"[url=@ret:{sq.squad_id}]"
+                    f"분대 {sq.squad_id} ({leader_name}, 멤버 {member_count}명)"
+                    f"[/url]")
+            lines.append("\n[url=@ret:cancel]취소[/url]")
+            choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
+            if not choice or choice == "cancel":
+                return
+            target = _party.get_squad(int(choice))
+            if not target:
+                return
+
+        _party.disband_squad(target.squad_id)
+        morld.add_action_log("분대를 해산했다.")
+
+    def set_directive(self):
+        """지휘 변경 — NPC 리더 분대의 지휘 자세 변경"""
+        import morld
+        import ui
+        import party as _party
+
+        # NPC 리더 분대 찾기
+        npc_squads = [sq for sq in _party.get_all_squads()
+                      if sq.leader_id is not None
+                      and sq.leader_id != self.instance_id]
+        if not npc_squads:
+            morld.add_action_log("지휘할 수 있는 분대가 없다.")
+            return
+
+        # 분대 선택 (1개면 생략)
+        if len(npc_squads) == 1:
+            target = npc_squads[0]
+        else:
+            lines = ["[b]분대를 선택하세요.[/b]\n"]
+            for sq in npc_squads:
+                info = morld.get_unit_info(sq.leader_id)
+                leader_name = info.get("name", "???") if info else "???"
+                lines.append(
+                    f"[url=@ret:{sq.squad_id}]"
+                    f"{leader_name} 분대[/url]")
+            lines.append("\n[url=@ret:cancel]취소[/url]")
+            choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
+            if not choice or choice == "cancel":
+                return
+            target = _party.get_squad(int(choice))
+            if not target:
+                return
+
+        # 지휘 자세 선택
+        directives = [
+            ("auto", "자동"),
+            ("search", "수색"),
+            ("combat_stealth", "은밀 전투"),
+            ("combat_normal", "일반 전투"),
+            ("combat_aggressive", "공격적 전투"),
+            ("retreat", "후퇴"),
+            ("wait", "대기"),
+        ]
+        lines = [f"[b]지휘 자세를 선택하세요.[/b]\n현재: {target.player_directive}\n"]
+        for key, label in directives:
+            marker = " ◀" if key == target.player_directive else ""
+            lines.append(f"[url=@ret:{key}]{label}{marker}[/url]")
+        lines.append("\n[url=@ret:cancel]취소[/url]")
+
+        choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
+        if not choice or choice == "cancel":
+            return
+
+        _party.set_directive(target.squad_id, choice)
+        label = dict(directives).get(choice, choice)
+        morld.add_action_log(f"지휘 자세를 '{label}'(으)로 변경했다.")
 

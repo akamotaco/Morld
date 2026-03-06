@@ -6,6 +6,7 @@ party.py + think/party_config.py + FSM pass-through 테스트
 - Phase 1: 데이터 구조, 생명주기, 멤버/리더, 지휘/지시, party_config, FSM pass-through
 - Phase 2: Order 핸들러 (follow/이동/대기/경계/수색/수집), FSM push/pop 통합
 - Phase 3: Follow 스케줄, Gate 동기화, Order 전환, 귀환 메커니즘
+- Phase 4: 플레이어 UI (can: props, update_party_props, 모집 판정)
 """
 import sys
 import os
@@ -1463,3 +1464,194 @@ class TestFSMLeaderDestination(_T):
 
         assert result is True
         assert len(agent._move_log) == 0  # idle job, 이동 아님
+
+
+# ============================================
+# Phase 4: update_party_props 테스트
+# ============================================
+
+class TestUpdatePartyProps(_T):
+
+    def test_create_squad_updates_props(self):
+        """create_squad → can:disband_squad=1, can:recruit=1"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:disband_squad") == 1
+        assert props.get("can:set_order") == 1  # 플레이어 리더 분대
+        assert props.get("can:recruit") == 1     # 빈자리 있음
+
+    def test_create_squad_no_leader(self):
+        """리더 없는 분대 → can:assign_leader=1"""
+        _party_mod.create_squad()
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:assign_leader") == 1
+        assert props.get("can:set_order") == 0  # 플레이어 리더 아님
+
+    def test_disband_clears_props(self):
+        """disband → can: props 초기화"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.disband_squad(sid)
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:disband_squad") == 0
+        assert props.get("can:recruit") == 0
+        assert props.get("can:set_order") == 0
+        assert props.get("can:assign_leader") == 0
+
+    def test_add_member_updates_recruit(self):
+        """멤버 3명 추가 → can:recruit=0 (정원 초과)"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+        _party_mod.add_member(sid, 11)
+        _party_mod.add_member(sid, 12)
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:recruit") == 0  # 정원 초과
+
+    def test_remove_member_updates_recruit(self):
+        """멤버 제거 → can:recruit=1 (빈자리 생김)"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+        _party_mod.add_member(sid, 11)
+        _party_mod.add_member(sid, 12)
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:recruit") == 0
+
+        _party_mod.remove_member(sid, 12)
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:recruit") == 1
+
+    def test_npc_leader_squad_directive(self):
+        """NPC 리더 분대 → can:set_directive=1"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 10)  # NPC 리더
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:set_directive") == 1
+        assert props.get("can:set_order") == 0  # 플레이어 리더 아님
+
+    def test_change_leader_updates_props(self):
+        """리더 교체 → props 갱신"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)  # 플레이어 리더
+        _party_mod.add_member(sid, 10)
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:set_order") == 1
+        assert props.get("can:set_directive") == 0
+
+        _party_mod.change_leader(sid, 10)  # NPC로 교체
+
+        props = morld.get_unit_props(1) or {}
+        assert props.get("can:set_order") == 0
+        assert props.get("can:set_directive") == 1
+
+
+# ============================================
+# Phase 4: 모집 판정 통합 테스트
+# ============================================
+
+class TestRecruitFlow(_T):
+
+    def test_recruit_success_with_affection(self):
+        """호감 충분 → 모집 성공"""
+        # 세라의 모집 조건: affection >= 50
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:호감", 60)
+
+        assert _party_config.can_recruit(10, 1) is True
+
+    def test_recruit_fail_low_affection(self):
+        """호감 부족 → 모집 실패"""
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:호감", 20)
+
+        assert _party_config.can_recruit(10, 1) is False
+
+    def test_recruit_success_with_submission(self):
+        """복종 충분 → 모집 성공 (호감 부족해도)"""
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:호감", 10)
+        morld.set_unit_prop(10, f"관계:{player_name}:복종", 60)
+
+        assert _party_config.can_recruit(10, 1) is True
+
+    def test_recruit_fail_high_rebellion(self):
+        """반발 초과 → 모집 실패 (호감 충분해도)"""
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:호감", 60)
+        morld.set_unit_prop(10, f"관계:{player_name}:반발", 55)
+
+        assert _party_config.can_recruit(10, 1) is False
+
+    def test_recruit_already_in_squad(self):
+        """이미 분대 소속 → 모집 불가"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        # add_member는 이미 소속이면 False
+        assert _party_mod.add_member(sid, 10) is False
+
+    def test_recruit_condition_override(self):
+        """캐릭터별 오버라이드 확인 (유키: affection=30)"""
+        # 유키(12) 모집 조건: affection >= 30
+        condition = _party_config.get_recruit_condition("yuki")
+        assert condition["affection"] == 30
+
+    def test_recruit_full_squad(self):
+        """정원 초과 → 모집 불가"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+        _party_mod.add_member(sid, 11)
+        _party_mod.add_member(sid, 12)
+
+        assert _party_mod.add_member(sid, 13) is False
+
+
+# ============================================
+# Phase 4: 불복 판정 테스트
+# ============================================
+
+class TestDisobedience(_T):
+
+    def test_high_submission_no_disobey(self):
+        """복종 80+ → 절대 복종"""
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:복종", 85)
+        morld.set_unit_prop(10, f"관계:{player_name}:반발", 50)
+
+        order = Order("전투")
+        # 100회 시행 — 한 번도 거부하지 않아야 함
+        for _ in range(100):
+            assert _party_config.check_disobedience(10, 1, order) is False
+
+    def test_retreat_no_disobey(self):
+        """후퇴 → 거부 안 함"""
+        player_info = morld.get_unit_info(1)
+        player_name = player_info.get("name", "")
+        morld.set_unit_prop(10, f"관계:{player_name}:반발", 80)
+        morld.set_unit_prop(10, f"관계:{player_name}:복종", 0)
+
+        order = Order("후퇴")
+        for _ in range(100):
+            assert _party_config.check_disobedience(10, 1, order) is False
+
+    def test_zero_rebellion_no_disobey(self):
+        """반발 0 + 복종 0 → 거부 확률 0"""
+        order = Order("대기")
+        for _ in range(100):
+            assert _party_config.check_disobedience(10, 1, order) is False
