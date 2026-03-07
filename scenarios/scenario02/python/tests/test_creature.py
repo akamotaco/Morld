@@ -327,10 +327,16 @@ def _setup():
     mock.set_unit = _set_unit
     mock.get_inventory = _get_inventory
     combat.reset()
-    # 세력 데이터 재등록 (reset이 GLOBAL_FACTION_RELATIONS를 clear하므로)
-    for _cf in ("늑대", "거미", "박쥐", "야생", "유적", "기생"):
-        combat.register_faction_relation(_cf, "주민", -1)
-    combat.register_faction_relation("늑대", "거미", -1)
+    # 세력 데이터 재등록 — chapter_1.py와 동일한 실제 세력 이름 사용
+    _creature_factions = ("야생 동물", "거미", "유적", "기생")
+    _human_factions = ("방문자", "숲속 저택", "도시")
+    for _cf in _creature_factions:
+        for _hf in _human_factions:
+            combat.register_faction_relation(_cf, _hf, -1)
+    combat.register_faction_relation("야생 동물", "거미", -1)
+    combat.register_faction_relation("방문자", "숲속 저택", 1)
+    combat.register_faction_relation("방문자", "도시", 1)
+    combat.register_faction_relation("숲속 저택", "도시", 1)
     survival_mod._fainted_npcs = {}
     survival_mod._faint_end = {}
     think_mod._agents.clear()
@@ -408,73 +414,72 @@ def make_npc(uid, name="NPC", faction=None, hp=100, location=(3, 4)):
 # ========================================
 
 class TestFactionHostility(_T):
-    """is_faction_hostile() 양방향 적대 판정"""
+    """is_faction_hostile() — 실제 chapter_1.py 세력 데이터 기반 검증"""
 
     def test_same_faction_not_hostile(self):
         """같은 세력끼리는 적대 아님"""
-        assert combat.is_faction_hostile("늑대", "늑대") is False
-        assert combat.is_faction_hostile("주민", "주민") is False
+        assert combat.is_faction_hostile("야생 동물", "야생 동물") is False
+        assert combat.is_faction_hostile("숲속 저택", "숲속 저택") is False
         assert combat.is_faction_hostile("거미", "거미") is False
 
-    def test_wolf_vs_citizen(self):
-        """늑대 vs 주민 — 적대"""
-        assert combat.is_faction_hostile("늑대", "주민") is True
-        assert combat.is_faction_hostile("주민", "늑대") is True
+    def test_wildlife_vs_mansion(self):
+        """야생 동물 vs 숲속 저택 NPC — 적대"""
+        assert combat.is_faction_hostile("야생 동물", "숲속 저택") is True
+        assert combat.is_faction_hostile("숲속 저택", "야생 동물") is True
 
-    def test_wolf_vs_spider(self):
-        """늑대 vs 거미 — 적대"""
-        assert combat.is_faction_hostile("늑대", "거미") is True
-        assert combat.is_faction_hostile("거미", "늑대") is True
+    def test_wildlife_vs_city(self):
+        """야생 동물 vs 도시 NPC — 적대"""
+        assert combat.is_faction_hostile("야생 동물", "도시") is True
+        assert combat.is_faction_hostile("도시", "야생 동물") is True
 
-    def test_bat_vs_citizen(self):
-        """박쥐 vs 주민 — 적대"""
-        assert combat.is_faction_hostile("박쥐", "주민") is True
+    def test_wildlife_vs_player(self):
+        """야생 동물 vs 방문자(플레이어) — 적대"""
+        assert combat.is_faction_hostile("야생 동물", "방문자") is True
+        assert combat.is_faction_hostile("방문자", "야생 동물") is True
 
-    def test_bat_vs_wolf_not_hostile(self):
-        """박쥐 vs 늑대 — 비적대 (테이블에 없음)"""
-        assert combat.is_faction_hostile("박쥐", "늑대") is False
+    def test_wildlife_vs_spider(self):
+        """야생 동물(늑대/박쥐) vs 거미 — 적대"""
+        assert combat.is_faction_hostile("야생 동물", "거미") is True
+        assert combat.is_faction_hostile("거미", "야생 동물") is True
 
-    def test_bat_vs_spider_not_hostile(self):
-        """박쥐 vs 거미 — 비적대"""
-        assert combat.is_faction_hostile("박쥐", "거미") is False
+    def test_human_factions_friendly(self):
+        """인간 세력 간 우호 관계"""
+        assert combat.is_faction_friendly("방문자", "숲속 저택") is True
+        assert combat.is_faction_friendly("방문자", "도시") is True
+        assert combat.is_faction_friendly("숲속 저택", "도시") is True
 
     def test_none_faction_defaults_to_neutral(self):
         """세력 미설정(None) → 중립 (적대 아님)"""
-        assert combat.is_faction_hostile(None, "늑대") is False
-        assert combat.is_faction_hostile("늑대", None) is False
+        assert combat.is_faction_hostile(None, "야생 동물") is False
+        assert combat.is_faction_hostile("야생 동물", None) is False
         assert combat.is_faction_hostile(None, None) is False
 
-    def test_unknown_faction(self):
-        """테이블에 없는 세력 — 같은 세력=우호, 정의 안 된 이종=중립"""
-        assert combat.is_faction_hostile("야생", "야생") is False
-        # "야생" vs "주민" — FACTION_RELATIONS에 적대 정의됨
-        assert combat.is_faction_hostile("야생", "주민") is True
+    def test_creature_factions_neutral_to_each_other(self):
+        """정의 안 된 생물 이종 세력 — 중립 (유적 vs 기생 등)"""
+        assert combat.get_faction_relation("유적", "기생") == 0
+        assert combat.is_faction_hostile("유적", "기생") is False
+        assert combat.is_faction_friendly("유적", "기생") is False
 
-    def test_citizen_friendly_with_citizen(self):
-        """주민 vs 주민 — 우호 (같은 세력)"""
-        assert combat.get_faction_relation("주민", "주민") == 1
-
-    def test_faction_relation_friendly(self):
+    def test_same_faction_friendly(self):
         """같은 세력은 항상 우호"""
-        assert combat.is_faction_friendly("주민", "주민") is True
-        assert combat.is_faction_friendly("늑대", "늑대") is True
+        assert combat.get_faction_relation("숲속 저택", "숲속 저택") == 1
+        assert combat.is_faction_friendly("야생 동물", "야생 동물") is True
 
-    def test_faction_relation_neutral(self):
-        """정의 안 된 이종 세력은 중립"""
-        assert combat.get_faction_relation("박쥐", "늑대") == 0
-        assert combat.is_faction_hostile("박쥐", "늑대") is False
-        assert combat.is_faction_friendly("박쥐", "늑대") is False
+    def test_unknown_faction_neutral(self):
+        """미등록 세력 — 이종 중립, 동종 우호"""
+        assert combat.is_faction_hostile("미지세력", "미지세력") is False
+        assert combat.get_faction_relation("미지세력", "야생 동물") == 0
 
 
 class TestIsCreatureUnit(_T):
-    """is_creature_unit() — 세력 기반 생물 판별"""
+    """is_creature_unit() — UnitType 기반 생물 판별"""
 
     def test_wolf_is_creature(self):
-        make_creature(10, faction="늑대")
+        make_creature(10, faction="야생 동물")
         assert combat.is_creature_unit(10) is True
 
-    def test_citizen_not_creature(self):
-        make_npc(20, faction="주민")
+    def test_npc_not_creature(self):
+        make_npc(20, faction="숲속 저택")
         assert combat.is_creature_unit(20) is False
 
     def test_no_faction_not_creature(self):
@@ -528,16 +533,16 @@ class TestCreatureAgentThink(_T):
 
     def test_tier3_combat_detects_enemy(self):
         """Tier 3: 같은 location에 적대 세력 → 전투 개시"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, faction="주민", location=(3, 4))  # 주민 (늑대와 적대)
+        make_npc(20, faction="숲속 저택", location=(3, 4))  # 저택 NPC (야생 동물과 적대)
         mock._time = 20_000_000  # 순찰 시간대
         agent.think()
         assert any(s.state_type == "combat" for s in agent._fsm_stack)
 
     def test_tier3_no_enemy_different_location(self):
         """다른 location의 유닛은 감지 안 함"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
         make_npc(20, location=(3, 5))  # 다른 location
         mock._time = 20_000_000
@@ -546,7 +551,7 @@ class TestCreatureAgentThink(_T):
 
     def test_tier3_skips_dead_enemies(self):
         """사망한 유닛은 적으로 감지 안 함"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
         make_npc(20, location=(3, 4))
         mock.set_unit_prop(20, "상태:사망", True)
@@ -556,9 +561,9 @@ class TestCreatureAgentThink(_T):
 
     def test_tier3_same_faction_no_fight(self):
         """같은 세력끼리는 전투 안 함"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_creature(20, faction="늑대", location=(3, 4),
+        make_creature(20, faction="야생 동물", location=(3, 4),
                       schedule=WOLF_SCHEDULE)
         mock._time = 20_000_000
         agent.think()
@@ -969,50 +974,50 @@ class TestSpawnerReset(_T):
 class TestFactionCombatIntegration(_T):
     """_check_combat_threat가 세력 시스템을 올바르게 사용하는지"""
 
-    def test_wolf_detects_citizen(self):
-        """늑대가 주민을 적으로 감지"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+    def test_wildlife_detects_mansion_npc(self):
+        """야생 동물이 숲속 저택 NPC를 적으로 감지"""
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, faction="주민", location=(3, 4))
+        make_npc(20, faction="숲속 저택", location=(3, 4))
         result = agent._check_combat_threat()
         assert result is True
         combat_state = next(s for s in agent._fsm_stack
                              if s.state_type == "combat")
         assert combat_state.target_id == 20
 
-    def test_wolf_ignores_wolf(self):
-        """늑대가 늑대를 무시"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+    def test_same_faction_no_fight(self):
+        """같은 세력(야생 동물) 끼리 전투 안 함 — 늑대+박쥐 동일 세력"""
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_creature(20, faction="늑대", location=(3, 4),
+        make_creature(20, faction="야생 동물", location=(3, 4),
                       schedule=WOLF_SCHEDULE)
         result = agent._check_combat_threat()
         assert result is False
 
-    def test_wolf_detects_spider(self):
-        """늑대가 거미를 적으로 감지"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+    def test_wildlife_detects_spider(self):
+        """야생 동물이 거미를 적으로 감지"""
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
         make_creature(20, faction="거미", location=(3, 4),
                       schedule=WOLF_SCHEDULE)
         result = agent._check_combat_threat()
         assert result is True
 
-    def test_bat_ignores_wolf(self):
-        """박쥐가 늑대를 무시 (적대 관계 아님)"""
-        agent = make_creature(10, faction="박쥐", location=(3, 4),
+    def test_ruins_ignores_parasite(self):
+        """유적 vs 기생 — 중립 (적대 아님)"""
+        agent = make_creature(10, faction="유적", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_creature(20, faction="늑대", location=(3, 4),
+        make_creature(20, faction="기생", location=(3, 4),
                       schedule=WOLF_SCHEDULE)
         result = agent._check_combat_threat()
         assert result is False
 
     def test_no_battle_behavior_returns_false(self):
         """BATTLE_BEHAVIOR 없으면 전투 감지 안 함"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
         agent.BATTLE_BEHAVIOR = None
-        make_npc(20, location=(3, 4))
+        make_npc(20, faction="숲속 저택", location=(3, 4))
         result = agent._check_combat_threat()
         assert result is False
 
@@ -1026,9 +1031,9 @@ class TestTierPriority(_T):
 
     def test_dead_overrides_combat(self):
         """사망 > 전투: 사망 상태면 적이 있어도 전투 안 함"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, location=(3, 4))
+        make_npc(20, faction="숲속 저택", location=(3, 4))
         mock.set_unit_prop(10, "상태:사망", True)
         mock._time = 20_000_000
         agent.think()
@@ -1038,9 +1043,9 @@ class TestTierPriority(_T):
 
     def test_faint_overrides_combat(self):
         """기절 > 전투"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, location=(3, 4))
+        make_npc(20, faction="숲속 저택", location=(3, 4))
         survival_mod._fainted_npcs[10] = True
         survival_mod._faint_end[10] = 30_000
         mock._time = 20_000_000
@@ -1050,9 +1055,9 @@ class TestTierPriority(_T):
 
     def test_combat_overrides_schedule(self):
         """전투 > 스케줄: 적이 있으면 수면 안 하고 전투"""
-        agent = make_creature(10, faction="늑대", location=(3, 4),
+        agent = make_creature(10, faction="야생 동물", location=(3, 4),
                               schedule=WOLF_SCHEDULE)
-        make_npc(20, faction="주민", location=(3, 4))
+        make_npc(20, faction="숲속 저택", location=(3, 4))
         mock._time = 5_000_000  # 수면 시간대
         agent.think()
         # 전투가 우선 → FSM 스택에 CombatState
