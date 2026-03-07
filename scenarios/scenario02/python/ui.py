@@ -132,6 +132,39 @@ def _set_render_context(focus_type, view_tab, target_unit_id=None):
     _render_context["target_unit_id"] = target_unit_id
 
 
+def _can_use_map():
+    """플레이어가 지도를 사용할 수 있는지 확인 (can:map 또는 지역별 지도 보유)"""
+    try:
+        player_id = morld.get_player_id()
+        if player_id is None:
+            return False
+        props = morld.get_actual_props(player_id)
+        if props.get("can:map", 0) >= 1:
+            return True
+        current_loc = morld.get_unit_location(player_id)
+        if current_loc:
+            region_map_props = {
+                0: "can:map:mansion",
+                1: "can:map:forest",
+                2: "can:map:city",
+            }
+            map_prop = region_map_props.get(current_loc[0])
+            if map_prop and props.get(map_prop, 0) >= 1:
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _get_situation_tabs():
+    """Situation Focus의 탭 목록 (동적: 지도 아이템 보유 시만 지도 탭 추가)"""
+    tabs = [("주변", None)]  # (라벨, 렌더 함수 또는 None=기존 렌더링)
+    if _can_use_map():
+        tabs.append(("지도", _render_map_tab))
+    # 분대 탭은 파티 구현 후 추가
+    return tabs
+
+
 def get_max_tab(focus_type, target_unit_id=None):
     """
     해당 Focus에서 사용 가능한 최대 탭 인덱스 (0 = 탭 없음)
@@ -144,7 +177,7 @@ def get_max_tab(focus_type, target_unit_id=None):
         int: 최대 탭 인덱스 (0이면 탭 비활성화)
     """
     if focus_type == "Situation":
-        return 1  # 주변(0) / 지도(1)  — 분대 탭은 파티 구현 후 추가
+        return len(_get_situation_tabs()) - 1
     elif focus_type == "Unit":
         if target_unit_id is not None and _is_character(target_unit_id):
             return 1  # 대화(0) / 스탯(1)
@@ -164,10 +197,10 @@ def get_tab_content(focus_type, tab, target_unit_id=None):
         str or None: 탭 콘텐츠 BBCode 문자열, None이면 기존 렌더링
     """
     if focus_type == "Situation":
-        if tab == 0:
-            return None  # 기존 RenderSituation
-        if tab == 1:
-            return _render_map_tab()
+        tabs = _get_situation_tabs()
+        if 0 <= tab < len(tabs):
+            render_fn = tabs[tab][1]
+            return render_fn() if render_fn else None
     elif focus_type == "Unit":
         if tab == 0:
             return None  # 기존 RenderUnit
@@ -178,7 +211,7 @@ def get_tab_content(focus_type, tab, target_unit_id=None):
 
 def get_tab_labels(focus_type, target_unit_id=None):
     """
-    Header에 표시할 탭 라벨 리스트
+    콘텐츠 상단에 표시할 탭 라벨 리스트
 
     Args:
         focus_type: Focus 타입 문자열
@@ -188,7 +221,7 @@ def get_tab_labels(focus_type, target_unit_id=None):
         list[str]: 탭 라벨 리스트 (비어있으면 탭 표시 안함)
     """
     if focus_type == "Situation":
-        return ["주변", "지도"]  # 분대 탭은 파티 구현 후 추가
+        return [label for label, _ in _get_situation_tabs()]
     elif focus_type == "Unit":
         if target_unit_id is not None and _is_character(target_unit_id):
             return ["대화", "스탯"]
@@ -584,28 +617,31 @@ def _get_tab_label_line():
     현재 Focus의 탭 라벨 줄 반환
 
     탭이 2개 이상일 때만 표시.
-    현재 활성 탭은 [▶이름] 형식, 나머지는 [이름] 형식.
-    [Tab] 키 안내도 포함.
+    현재 활성 탭은 [▶이름] 형식 (클릭 불가),
+    비활성 탭은 [이름] 형식 (클릭으로 전환).
 
     Returns:
-        str: "[▶주변]  [지도]  [Tab]" 형식 또는 빈 문자열
+        str: "[▶주변]  [지도]" 형식 또는 빈 문자열
     """
     focus_type = _render_context["focus_type"]
     view_tab = _render_context["view_tab"]
     target_unit_id = _render_context["target_unit_id"]
 
     labels = get_tab_labels(focus_type, target_unit_id)
-    if len(labels) <= 1:
+    if len(labels) == 0:
         return ""
+    # TODO: 탭 1개일 때도 표시할지 검토 (현재는 1개여도 표시)
+    # if len(labels) <= 1:
+    #     return ""
 
     parts = []
     for i, label in enumerate(labels):
         if i == view_tab:
             parts.append(f"[color=white][▶{label}][/color]")
         else:
-            parts.append(f"[color=gray][{label}][/color]")
+            parts.append(f"[url=tab:{i}][{label}][/url]")
 
-    return "  ".join(parts) + "  [color=dim_gray][Tab][/color]"
+    return "  ".join(parts)
 
 
 def get_header():
@@ -1370,31 +1406,8 @@ def get_action_text():
     lines.append("[/hidden=spend_time]")
 
     # 지도 (can:map 또는 지역별 지도 prop 보유 시)
-    # get_actual_props로 passive_props 포함된 실제 props 조회
-    if player_id is not None:
-        player_actual_props = morld.get_actual_props(player_id)
-        can_use_map = False
-
-        # 나침반(can:map) - 모든 지역에서 사용 가능
-        if player_actual_props.get("can:map", 0) >= 1:
-            can_use_map = True
-        else:
-            # 지역별 지도 - 현재 region에서만 사용 가능
-            current_loc = morld.get_unit_location(player_id)
-            if current_loc:
-                current_region_id = current_loc[0]
-                # Region ID → 지도 prop 매핑
-                region_map_props = {
-                    0: "can:map:mansion",   # 저택 지역
-                    1: "can:map:forest",    # 숲 지역
-                    2: "can:map:city",      # 도시 지역
-                }
-                map_prop = region_map_props.get(current_region_id)
-                if map_prop and player_actual_props.get(map_prop, 0) >= 1:
-                    can_use_map = True
-
-        if can_use_map:
-            lines.append("  [url=map:open]지도[/url]")
+    if _can_use_map():
+        lines.append("  [url=map:open]지도[/url]")
 
     # 상태바는 get_footer()로 분리됨 (C#에서 별도 호출)
 

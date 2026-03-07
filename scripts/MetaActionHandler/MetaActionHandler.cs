@@ -133,7 +133,8 @@ public partial class MetaActionHandler
 		// - look_unit은 조회 행위이며 이벤트(first_meet 등)가 끼어들 수 있으므로 제외
 		bool markLogsAsRead = action != "toggle"
 			&& action != "script"
-			&& action != "look_unit";
+			&& action != "look_unit"
+			&& action != "tab";
 		_textUISystem?.OnContentChange(markLogsAsRead);
 
 #if DEBUG_LOG
@@ -228,6 +229,9 @@ public partial class MetaActionHandler
 				break;
 			case "move_x":
 				HandleMoveXAction(parts);
+				break;
+			case "tab":
+				HandleTabAction(parts);
 				break;
 			default:
 				GD.PrintErr($"[MetaActionHandler] Unknown action: {action}");

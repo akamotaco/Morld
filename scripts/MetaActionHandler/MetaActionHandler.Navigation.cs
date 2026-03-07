@@ -627,4 +627,24 @@ public partial class MetaActionHandler
 	// }
 
 	#endregion
+
+	/// <summary>
+	/// 탭 전환 액션: tab:인덱스
+	/// 클릭으로 탭을 직접 전환
+	/// </summary>
+	private void HandleTabAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int tabIndex))
+		{
+			GD.PrintErr("[MetaActionHandler] Invalid tab format. Expected: tab:index");
+			return;
+		}
+
+		var current = _textUISystem?.CurrentFocus;
+		if (current == null) return;
+
+		current.ViewTab = tabIndex;
+		_textUISystem?.RequestUpdateDisplay();
+		_textUISystem?.FlushDisplay();
+	}
 }

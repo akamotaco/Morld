@@ -602,28 +602,38 @@ _render_context = {"focus_type": "Situation", "view_tab": 0, "target_unit_id": N
 def _set_render_context(focus_type, view_tab, target_unit_id=None):
     """C# FlushDisplay에서 호출 — 현재 Focus 정보 저장"""
 
+def _can_use_map():
+    """지도 사용 가능 여부 (can:map 또는 can:map:{region} 보유)"""
+
+def _get_situation_tabs():
+    """Situation 탭 목록 (동적: 지도 아이템 보유 시만 지도 탭 추가)"""
+
 def get_max_tab(focus_type, target_unit_id=None):
-    """최대 탭 인덱스 (0=탭 없음). Situation→1, Unit(캐릭터)→1"""
+    """최대 탭 인덱스 (0=탭 없음). Situation→동적, Unit(캐릭터)→1"""
 
 def get_tab_content(focus_type, tab, target_unit_id=None):
     """탭 콘텐츠 (None→기존 C# 렌더링). tab 0은 항상 None"""
 
 def get_tab_labels(focus_type, target_unit_id=None):
-    """탭 라벨 리스트. Situation→["주변","지도"], Unit→["대화","스탯"]"""
+    """탭 라벨 리스트. Situation→동적, Unit→["대화","스탯"]"""
 
 def _get_tab_label_line():
-    """콘텐츠 상단 탭 라벨 줄: [▶주변]  [지도]  [Tab]"""
+    """콘텐츠 상단 탭 라벨 줄: [▶주변]  [지도] (클릭으로 전환)"""
 ```
 
 ### 탭 구성 상세
 
-#### Situation Focus — 2탭 (분대 탭은 파티 구현 후 추가)
+#### Situation Focus — 동적 탭 (지도 아이템 보유 시 추가)
 
-| Tab | 이름 | 콘텐츠 | 소스 | 상태 |
-|-----|------|--------|------|------|
-| 0 | **주변** | 현재 화면 그대로 (묘사 + 이동 + 행동) | 기존 `RenderSituation()` | ✅ |
-| 1 | **지도** | Region 지도 (위치/NPC/이동시간) | `ui._render_map_tab()` | ✅ |
-| 2 | **분대** | 분대 현황 (멤버/지시/상태) | 신규 `party_ui.py` | 미구현 |
+| Tab | 이름 | 조건 | 콘텐츠 | 소스 | 상태 |
+|-----|------|------|--------|------|------|
+| 0 | **주변** | 항상 | 현재 화면 그대로 (묘사 + 이동 + 행동) | 기존 `RenderSituation()` | ✅ |
+| +1 | **지도** | `can:map` 또는 `can:map:{region}` 보유 | Region 지도 (위치/NPC/이동시간) | `ui._render_map_tab()` | ✅ |
+| +N | **분대** | 파티 존재 시 (미구현) | 분대 현황 (멤버/지시/상태) | 신규 `party_ui.py` | 미구현 |
+
+- `_get_situation_tabs()`: 조건부로 탭 리스트 구성
+- `_can_use_map()`: `can:map` (나침반, 전역) 또는 `can:map:{region}` (지역별 지도) 보유 확인
+- 지도 아이템 미보유 시 탭 라벨에 "지도" 미표시
 
 ```
 Tab 0                             Tab 1
@@ -709,7 +719,7 @@ Tab 0                             Tab 1
 - 상태: `survival.get_survival_stats()` (체력/포만감) + `needs` (피로/불결/배변욕)
 - 장비: `morld.get_equipped_items()` → item ID 리스트 → `get_item_info()` 조합
 - 관계: `morld.get_unit_props()` → `관계:*:호감/반발/복종/욕망` prop 탐색
-- 전체 `[!]...[/!]` 래핑 (즉시 출력, 타이핑 없음)
+- Panel 모드 기본 즉시 출력 (`[!][/!]` 불필요)
 
 #### 탭 비적용 Focus
 
@@ -730,7 +740,7 @@ Tab 0                             Tab 1
 | **Animation** | 별도 제어 | 모드별 | 없음 | Animation |
 
 - `IsPanelMode(FocusType)`: Dialog/Animation이 아닌 모든 Focus → Panel
-- Panel 모드에서만 Tab 키 입력 허용, 탭 라벨 표시
+- Panel 모드에서만 탭 전환 허용 (Tab 키 + 마우스 클릭), 탭 라벨 표시
 
 ### 탭 전환과 Header/Footer/Content
 
@@ -743,7 +753,7 @@ Tab 0                             Tab 1
 **콘텐츠 렌더링:**
 - C#이 `FlushDisplay` 시작 시 `_set_render_context(focus_type, view_tab, target_unit_id)` 호출
 - `RenderFocusContent()`가 Panel 모드일 때 콘텐츠 상단에 `_get_tab_label_line()` 삽입
-- 탭 라벨: `[▶주변]  [지도]  [Tab]` (활성 탭=white, 비활성=gray, [Tab] 안내=dim_gray)
+- 탭 라벨: `[▶주변]  [지도]` (활성 탭=white, 비활성=클릭 가능 URL, hover 시 노란색)
 
 ### 구현 상태
 
@@ -751,8 +761,10 @@ Tab 0                             Tab 1
 - `Focus.cs`: `ViewTab` 프로퍼티 추가
 - `GameEngine.cs`: `_UnhandledInput`에서 Tab 키 감지 → `OnTabPressed()`
 - `text_ui_system.cs`: `IsPanelMode()`, `OnTabPressed()` (Panel 가드), `GetMaxTabFromPython()`, `GetTabContentFromPython()`, `GetTabLabelLineFromPython()`, `SetRenderContextToPython()`
-- `ui.py`: `get_max_tab()`, `get_tab_content()`, `get_tab_labels()`, `_set_render_context()`, `_get_tab_label_line()`
+- `MetaActionHandler.Navigation.cs`: `HandleTabAction()` — `tab:{index}` URL 클릭으로 탭 직접 전환
+- `ui.py`: `_can_use_map()`, `_get_situation_tabs()`, `get_max_tab()`, `get_tab_content()`, `get_tab_labels()`, `_set_render_context()`, `_get_tab_label_line()`
 - 탭 라벨: header가 아닌 콘텐츠 상단에 표시 (`RenderFocusContent`에서 삽입)
+- 탭 전환: Tab 키 + 마우스 클릭 (`[url=tab:{i}]` URL), hover 시 노란색
 
 **Phase 1 — 지도 탭 ✅**
 - `ui._render_map_tab()`: `move:` URL 직접 사용 (Dialog proc 미경유)
