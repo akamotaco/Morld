@@ -28,6 +28,7 @@ def handle_clean(agent, entry):
         if not room:
             if tool["source"] == "inventory":
                 agent._activity_phase = "returning_tool"
+                agent._do_instant_action("청소", "brief")
             return
 
         agent._activity_state["clean_target"] = room
@@ -36,6 +37,7 @@ def handle_clean(agent, entry):
             agent._activity_phase = "going_to_room"
         else:
             agent._activity_phase = "getting_tool"
+        agent._do_instant_action("청소", "brief")
 
     elif phase == "getting_tool":
         phase_getting_tool(agent, next_phase="going_to_room")

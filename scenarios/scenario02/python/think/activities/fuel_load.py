@@ -38,6 +38,7 @@ def handle_fuel_load(agent, entry):
         agent._activity_state["fuel_target"] = target_source
         agent._activity_state["storage_target"] = storage
         agent._activity_phase = "going_to_storage"
+        agent._do_instant_action("연료장전", "brief")
 
     elif phase == "going_to_storage":
         target = agent._activity_state.get("storage_target")

@@ -11,6 +11,7 @@ def handle_cook(agent, entry):
     if phase == "idle":
         # 식재료 보관소로 이동
         agent._activity_phase = "checking_fridge"
+        agent._do_instant_action("요리 준비", "brief")
 
     elif phase == "checking_fridge":
         target = agent._activity_state.get("fridge_target")
