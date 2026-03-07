@@ -558,36 +558,45 @@ public override void _UnhandledInput(InputEvent @event) {
 }
 ```
 
-#### text_ui_system.cs — 탭 전환 + 렌더 디스패치
+#### text_ui_system.cs — 출력 모드 + 탭 전환 + 렌더 디스패치
 
 ```csharp
-// Tab 키 처리
+// 출력 모드 판별: Panel (즉시 출력 + 탭) vs Narrative (타이핑 + 탭 없음)
+private static bool IsPanelMode(FocusType type)
+    => type != FocusType.Dialog && type != FocusType.Animation;
+
+// Tab 키 처리 — Panel 모드에서만 동작
 public void OnTabPressed() {
     var current = _stack.Current;
     if (current == null) return;
-    int maxTab = GetMaxTabFromPython(current);  // Python ui.get_max_tab() 호출
+    if (!IsPanelMode(current.Type)) return;  // Dialog/Animation에서 탭 차단
+    int maxTab = GetMaxTabFromPython(current);
     if (maxTab <= 0) return;
     current.ViewTab = (current.ViewTab + 1) % (maxTab + 1);
     RequestUpdateDisplay();
 }
 
-// RenderFocusContent — tab > 0이면 Python 콘텐츠 우선
+// RenderFocusContent — tab 콘텐츠 + 탭 라벨을 콘텐츠 상단에 삽입
 private string RenderFocusContent(Focus focus) {
-    if (focus.ViewTab > 0) {
-        var tabContent = GetTabContentFromPython(focus);  // Python ui.get_tab_content()
-        if (tabContent != null) return tabContent;
+    string content = /* tab > 0이면 Python 콘텐츠, 아니면 기존 렌더링 */;
+
+    // Panel 모드: 콘텐츠 상단에 탭 라벨 삽입
+    if (IsPanelMode(focus.Type)) {
+        var tabLine = GetTabLabelLineFromPython();  // Python ui._get_tab_label_line()
+        if (!string.IsNullOrEmpty(tabLine))
+            content = tabLine + "\n" + content;
     }
-    return focus.Type switch { /* 기존 렌더링 */ };
+    return content;
 }
 
-// FlushDisplay 시작 시 렌더 컨텍스트 전달 (header 탭 라벨용)
+// FlushDisplay 시작 시 렌더 컨텍스트 전달 (콘텐츠 탭 라벨용)
 SetRenderContextToPython(_stack.Current);  // Python ui._set_render_context()
 ```
 
 ### Python API (ui.py)
 
 ```python
-# 렌더 컨텍스트 (C#에서 FlushDisplay 시 설정, header 탭 라벨 표시용)
+# 렌더 컨텍스트 (C#에서 FlushDisplay 시 설정, 콘텐츠 탭 라벨 표시용)
 _render_context = {"focus_type": "Situation", "view_tab": 0, "target_unit_id": None}
 
 def _set_render_context(focus_type, view_tab, target_unit_id=None):
@@ -603,7 +612,7 @@ def get_tab_labels(focus_type, target_unit_id=None):
     """탭 라벨 리스트. Situation→["주변","지도"], Unit→["대화","스탯"]"""
 
 def _get_tab_label_line():
-    """Header용 탭 라벨 줄: [▶주변]  [지도]  [Tab]"""
+    """콘텐츠 상단 탭 라벨 줄: [▶주변]  [지도]  [Tab]"""
 ```
 
 ### 탭 구성 상세
@@ -617,8 +626,10 @@ def _get_tab_label_line():
 | 2 | **분대** | 분대 현황 (멤버/지시/상태) | 신규 `party_ui.py` | 미구현 |
 
 ```
-Tab 0 [▶주변] [지도] [분대]       Tab 1 [주변] [▶지도] [분대]
+Tab 0                             Tab 1
 ┌──────────────────────┐         ┌──────────────────────┐
+│ [▶주변] [지도] [분대] │         │ [주변] [▶지도] [분대] │
+│                      │         │                      │
 │ 저택 거실.            │         │  ┌ 현관 (2분)        │
 │ 벽난로에 불이 타고...  │         │  ├ 거실 ← 현재      │
 │                      │         │  │ ├ 부엌 (1분)       │
@@ -633,8 +644,10 @@ Tab 0 [▶주변] [지도] [분대]       Tab 1 [주변] [▶지도] [분대]
 │ [Tab] 인벤토리 설정   │         │ [Tab] 인벤토리 설정   │
 └──────────────────────┘         └──────────────────────┘
 
-Tab 2 [주변] [지도] [▶분대]
+Tab 2
 ┌──────────────────────┐
+│ [주변] [지도] [▶분대] │
+│                      │
 │ ■ 1분대 (세라 지휘)   │
 │   세라  경계    85%  │
 │   밀라  수집:재료 92% │
@@ -665,8 +678,10 @@ Tab 2 [주변] [지도] [▶분대]
 | 1 | **스탯** | 캐릭터 상세 정보 | 신규 렌더링 |
 
 ```
-Tab 0 [▶대화] [스탯]              Tab 1 [대화] [▶스탯]
+Tab 0                             Tab 1
 ┌──────────────────────┐         ┌──────────────────────┐
+│ [▶대화] [스탯]        │         │ [대화] [▶스탯]        │
+│                      │         │                      │
 │ [b]세라[/b] X:45     │         │ [b]세라[/b]          │
 │                      │         │                      │
 │ *벽에 기대어 서 있다.  │         │ ── 상태 ──           │
@@ -706,17 +721,28 @@ Tab 0 [▶대화] [스탯]              Tab 1 [대화] [▶스탯]
 | Item | 없음 | 단일 아이템 메뉴 |
 | Result | 없음 | 일시적 메시지 |
 
-### 탭 전환과 Header/Footer
+### 출력 모드 (Panel / Narrative / Animation)
+
+| 모드 | 타이핑 | Header | 탭 | Focus 타입 |
+|------|--------|--------|-----|-----------|
+| **Panel** | X (즉시) | 위치/시간 | 콘텐츠 상단에 표시 | Situation, Unit, Inventory, Item, Result |
+| **Narrative** | O (타이핑) | 레터박스 | 없음 | Dialog |
+| **Animation** | 별도 제어 | 모드별 | 없음 | Animation |
+
+- `IsPanelMode(FocusType)`: Dialog/Animation이 아닌 모든 Focus → Panel
+- Panel 모드에서만 Tab 키 입력 허용, 탭 라벨 표시
+
+### 탭 전환과 Header/Footer/Content
 
 | 구분 | 탭 전환 시 동작 |
 |------|---------------|
-| **Header** | 탭 라벨 표시 (`[▶주변] [지도] [분대]`) + 기존 위치/시간 |
+| **Header** | 위치/시간 정보만 (탭 라벨 없음) |
+| **Content** | 상단에 탭 라벨 (`[▶주변] [지도] [분대]`) + 탭별 콘텐츠 |
 | **Footer** | 변경 없음 (모든 탭에서 동일한 footer) |
-| **Content** | 탭에 따라 완전히 교체 |
 
-**Header 렌더링:**
+**콘텐츠 렌더링:**
 - C#이 `FlushDisplay` 시작 시 `_set_render_context(focus_type, view_tab, target_unit_id)` 호출
-- `get_header()`가 기존 위치/시간 정보 끝에 `_get_tab_label_line()` 추가
+- `RenderFocusContent()`가 Panel 모드일 때 콘텐츠 상단에 `_get_tab_label_line()` 삽입
 - 탭 라벨: `[▶주변]  [지도]  [Tab]` (활성 탭=white, 비활성=gray, [Tab] 안내=dim_gray)
 
 ### 구현 상태
@@ -724,8 +750,9 @@ Tab 0 [▶대화] [스탯]              Tab 1 [대화] [▶스탯]
 **Phase 0 — Tab 메커니즘 ✅**
 - `Focus.cs`: `ViewTab` 프로퍼티 추가
 - `GameEngine.cs`: `_UnhandledInput`에서 Tab 키 감지 → `OnTabPressed()`
-- `text_ui_system.cs`: `OnTabPressed()`, `GetMaxTabFromPython()`, `GetTabContentFromPython()`, `SetRenderContextToPython()`
+- `text_ui_system.cs`: `IsPanelMode()`, `OnTabPressed()` (Panel 가드), `GetMaxTabFromPython()`, `GetTabContentFromPython()`, `GetTabLabelLineFromPython()`, `SetRenderContextToPython()`
 - `ui.py`: `get_max_tab()`, `get_tab_content()`, `get_tab_labels()`, `_set_render_context()`, `_get_tab_label_line()`
+- 탭 라벨: header가 아닌 콘텐츠 상단에 표시 (`RenderFocusContent`에서 삽입)
 
 **Phase 1 — 지도 탭 ✅**
 - `ui._render_map_tab()`: `move:` URL 직접 사용 (Dialog proc 미경유)

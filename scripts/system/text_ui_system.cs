@@ -297,7 +297,20 @@ namespace SE
 			if (!_needsUpdateDisplay) return;
 			_needsUpdateDisplay = false;
 
-			Godot.GD.Print($"[TextUISystem] FlushDisplay: stack={_stack.Current?.Type}, hoveredMeta={_hoveredMeta ?? "null"}");
+			// Focus 스택 디버그 출력
+			{
+				var stackList = _stack.ToList();
+				var entries = new System.Text.StringBuilder();
+				for (int i = 0; i < stackList.Count; i++)
+				{
+					var f = stackList[i];
+					var mode = IsPanelMode(f.Type) ? "Panel" : (f.Type == FocusType.Animation ? "Anim" : "Narrative");
+					if (i > 0) entries.Append(" → ");
+					entries.Append($"{f.Type}({mode})");
+					if (f.ViewTab > 0) entries.Append($"[tab={f.ViewTab}]");
+				}
+				Godot.GD.Print($"[TextUISystem] FlushDisplay: [{_stack.Count}] {entries}  hovered={_hoveredMeta ?? "null"}");
+			}
 
 			if (_stack.Current == null)
 			{
@@ -901,15 +914,21 @@ namespace SE
 		/// </summary>
 		private string RenderFocusContent(Focus focus)
 		{
+			string content;
+
 			// Tab > 0이면 Python에 탭 콘텐츠 질의
 			if (focus.ViewTab > 0)
 			{
 				var tabContent = GetTabContentFromPython(focus);
-				if (tabContent != null) return tabContent;
+				if (tabContent != null)
+				{
+					content = tabContent;
+					goto PrependTabLabel;
+				}
 				// Python이 None 반환 → 기존 렌더링으로 폴백
 			}
 
-			return focus.Type switch
+			content = focus.Type switch
 			{
 				FocusType.Situation => RenderSituation(),
 				FocusType.Unit => RenderUnit(focus.TargetUnitId ?? 0),
@@ -919,6 +938,19 @@ namespace SE
 				FocusType.Dialog => RenderDialog(focus),
 				_ => ""
 			};
+
+			PrependTabLabel:
+			// Panel 모드: 콘텐츠 상단에 탭 라벨 삽입
+			if (IsPanelMode(focus.Type))
+			{
+				var tabLine = GetTabLabelLineFromPython();
+				if (!string.IsNullOrEmpty(tabLine))
+				{
+					content = tabLine + "\n" + content;
+				}
+			}
+
+			return content;
 		}
 
 		/// <summary>
@@ -1126,13 +1158,21 @@ namespace SE
 		// ============================================
 
 		/// <summary>
+		/// Panel 모드 판별 — Tab 전환 + 즉시 출력이 가능한 Focus 타입
+		/// Narrative (Dialog) = 타이핑 효과 + 탭 없음, Animation = 별도 제어
+		/// </summary>
+		private static bool IsPanelMode(FocusType type)
+			=> type != FocusType.Dialog && type != FocusType.Animation;
+
+		/// <summary>
 		/// Tab 키 입력 처리 — 현재 Focus의 ViewTab을 순환
-		/// Python get_max_tab()으로 탭 개수를 질의하고, 범위 내에서 순환
+		/// Panel 모드에서만 동작. Python get_max_tab()으로 탭 개수를 질의하고, 범위 내에서 순환
 		/// </summary>
 		public void OnTabPressed()
 		{
 			var current = _stack.Current;
 			if (current == null) return;
+			if (!IsPanelMode(current.Type)) return;
 
 			int maxTab = GetMaxTabFromPython(current);
 			if (maxTab <= 0) return; // 탭 1개 이하 → 전환 불필요
@@ -1173,7 +1213,7 @@ namespace SE
 
 		/// <summary>
 		/// Python ui._set_render_context() 호출 — 렌더링 전 현재 Focus 정보 전달
-		/// get_header()에서 탭 라벨을 표시하기 위해 필요
+		/// 콘텐츠 영역 탭 라벨 표시를 위해 필요
 		/// </summary>
 		private void SetRenderContextToPython(Focus focus)
 		{
@@ -1191,6 +1231,30 @@ namespace SE
 			{
 				Godot.GD.PrintErr($"[TextUISystem] Python _set_render_context() error: {ex.Message}");
 			}
+		}
+
+		/// <summary>
+		/// Python ui._get_tab_label_line() 호출 — 콘텐츠 상단 탭 라벨 줄
+		/// Panel 모드에서만 호출. 탭이 1개 이하면 빈 문자열 반환
+		/// </summary>
+		private string GetTabLabelLineFromPython()
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var result = _scriptSystem.CallModuleFunction("ui", "_get_tab_label_line");
+				if (result != null && result is not SharpPy.PyNone)
+				{
+					return result.AsString();
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python _get_tab_label_line() error: {ex.Message}");
+			}
+
+			return "";
 		}
 
 		/// <summary>

@@ -217,11 +217,11 @@ def _render_map_tab():
         import map_ui
         player_id = morld.get_player_id()
         if player_id is None:
-            return "[!]지도를 표시할 수 없습니다.[/!]"
+            return "지도를 표시할 수 없습니다."
 
         current_loc = morld.get_unit_location(player_id)
         if current_loc is None:
-            return "[!]현재 위치를 알 수 없습니다.[/!]"
+            return "현재 위치를 알 수 없습니다."
 
         region_id, current_local = current_loc
 
@@ -233,7 +233,7 @@ def _render_map_tab():
 
         region_info = morld.get_region_info(region_id)
         if not region_info:
-            return "[!]지역 정보를 불러올 수 없습니다.[/!]"
+            return "지역 정보를 불러올 수 없습니다."
 
         lines = []
         lines.append(f"[b]지도 - {region_info['name']}[/b]")
@@ -334,11 +334,10 @@ def _render_map_tab():
 
         lines.extend(tree_lines)
 
-        # 전체 즉시 출력
-        return "[!]" + "\n".join(lines) + "[/!]"
+        return "\n".join(lines)
     except Exception as e:
         print(f"[ui] _render_map_tab error: {e}")
-        return f"[!]지도 오류: {e}[/!]"
+        return f"지도 오류: {e}"
 
 
 def _render_stat_tab(unit_id):
@@ -346,11 +345,11 @@ def _render_stat_tab(unit_id):
     try:
         info = morld.get_unit_info(unit_id)
         if not info:
-            return "[!]유닛 정보를 불러올 수 없습니다.[/!]"
+            return "유닛 정보를 불러올 수 없습니다."
 
         name = info.get("name", "???")
         lines = []
-        lines.append(f"[!][b]{name}[/b]")
+        lines.append(f"[b]{name}[/b]")
         lines.append("")
 
         # 상태 (survival + needs)
@@ -415,12 +414,12 @@ def _render_stat_tab(unit_id):
         lines.append("")
 
         # 뒤로 버튼
-        lines.append("[url=back]◁뒤로[/url][/!]")
+        lines.append("[url=back]◁뒤로[/url]")
 
         return "\n".join(lines)
     except Exception as e:
         print(f"[ui] _render_stat_tab error: {e}")
-        return f"[!]스탯 오류: {e}[/!]"
+        return f"스탯 오류: {e}"
 
 
 def _stat_bar(value, max_val, length=10):
@@ -667,11 +666,6 @@ def get_header():
         # 시간 정지 상태 표시
         if morld.is_time_frozen():
             lines.append("[color=cyan][시간 정지][/color]")
-
-        # 탭 라벨 (Tab 뷰 전환 시스템)
-        tab_line = _get_tab_label_line()
-        if tab_line:
-            lines.append(tab_line)
 
         return "\n".join(lines)
     except Exception as e:
