@@ -105,6 +105,7 @@ def _phase_idle(agent, entry):
         # 인벤토리에 이미 있으면 즉시 반납
         if _has_item(agent, need["item_uid"]):
             agent._activity_phase = "supply_delivering"
+            agent._do_instant_action("점검", "brief")
             return
 
         # 수집 시작
@@ -118,6 +119,7 @@ def _phase_idle(agent, entry):
                 agent._activity_phase = "supply_going"
             else:
                 agent._activity_phase = "supply_getting_tool"
+            agent._do_instant_action("점검", "brief")
             return
 
         elif cfg["type"] == "resource":
@@ -127,6 +129,7 @@ def _phase_idle(agent, entry):
                 continue
             agent._activity_state["work_target"] = target
             agent._activity_phase = "supply_going"
+            agent._do_instant_action("점검", "brief")
             return
 
         elif cfg["type"] == "craft":
@@ -137,6 +140,7 @@ def _phase_idle(agent, entry):
                 continue
             agent._activity_state["work_target"] = craft_target
             agent._activity_phase = "supply_going"
+            agent._do_instant_action("점검", "brief")
             return
 
     # 모든 need 처리 불가 → 대기

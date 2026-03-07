@@ -51,6 +51,7 @@ def _phase_idle(agent, entry, cfg):
 
     agent._activity_state["work_target"] = target
     agent._activity_phase = "going_to_work"
+    agent._do_instant_action(cfg["activity_name"], "brief")
 
 
 def _phase_going_to_work(agent, cfg):

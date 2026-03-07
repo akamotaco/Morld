@@ -184,6 +184,7 @@ def _phase_idle(agent, entry, cfg):
         if not target:
             if tool["source"] == "inventory":
                 agent._activity_phase = "returning_tool"
+                agent._do_instant_action(cfg["activity_name"], "brief")
             # else: "할 일 없음" 폴백
             return
         agent._activity_state["work_target"] = target
@@ -192,6 +193,7 @@ def _phase_idle(agent, entry, cfg):
         agent._activity_phase = "going_to_work"
     else:
         agent._activity_phase = "getting_tool"
+    agent._do_instant_action(cfg["activity_name"], "brief")
 
 
 def _phase_going_to_work(agent, cfg):
