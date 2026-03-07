@@ -59,6 +59,7 @@
 | 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
 | 캐릭터 만들기 (NPC 정의 가이드) | [make_character.md](scenarios/scenario02/docs/make_character.md) |
 | 활동 만들기 (Activity 핸들러 가이드) | [make_activity.md](scenarios/scenario02/docs/make_activity.md) |
+| 행동 제어 가이드 (BaseAgent/CreatureAgent/FayeAgent) | [behavior-guide.md](scenarios/scenario02/docs/behavior-guide.md) |
 | 시나리오 설계 (세계관, 캐릭터) | [design.md](scenarios/scenario02/docs/design.md) |
 
 ### 아이템 작업
@@ -112,6 +113,7 @@ scenarios/scenario02/docs/
 ├── adult-toys.md             # 성인용품/결박/절정 시스템
 ├── make_character.md         # 캐릭터 만들기 가이드
 ├── make_activity.md          # 활동(Activity) 핸들러 만들기 가이드
+├── behavior-guide.md         # 행동 제어 가이드 (BaseAgent/CreatureAgent/FayeAgent)
 ├── quest.md            # 퀘스트 시스템
 ├── clothes.md          # 의류/장비
 ├── food.md             # 음식/요리
