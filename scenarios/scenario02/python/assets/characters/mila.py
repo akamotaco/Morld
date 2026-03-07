@@ -1445,6 +1445,9 @@ class MilaAgent(BaseAgent):
     }
     COMBAT_DESPERATE_CHANCE = 1.0   # 포위 시 100% 필사 (숨겨진 고수)
 
+    _responsibility = 0.8
+    _collectible_items = {"branch"}
+
     # 계절별 스케줄
     # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
     # 밀라방(180), 주방(180), 식당(180), 거실(360), 뒷마당(600)
@@ -1453,8 +1456,8 @@ class MilaAgent(BaseAgent):
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
             {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 345 * _M, "activity": "준비"},
             {"name": "아침 소등", "start": 345 * _M, "end": 360 * _M, "activity": "소등"},
-            {"name": "아침준비", "start": 360 * _M, "end": 420 * _M, "dynamic": True, "candidates": [
-                {"activity": "연료장전", "condition": "need_fuel"},
+            {"name": "물자점검", "region_id": 0, "location_id": 16, "x": 90, "start": 360 * _M, "end": 380 * _M, "activity": "점검"},
+            {"name": "아침준비", "start": 380 * _M, "end": 420 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},
@@ -1491,8 +1494,8 @@ class MilaAgent(BaseAgent):
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 240 * _M, "end": 270 * _M, "activity": "목욕"},
             {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 270 * _M, "end": 285 * _M, "activity": "준비"},  # 여름: 일찍 기상
             {"name": "아침 소등", "start": 285 * _M, "end": 300 * _M, "activity": "소등"},
-            {"name": "아침준비", "start": 300 * _M, "end": 360 * _M, "dynamic": True, "candidates": [
-                {"activity": "연료장전", "condition": "need_fuel"},
+            {"name": "물자점검", "region_id": 0, "location_id": 16, "x": 90, "start": 300 * _M, "end": 320 * _M, "activity": "점검"},
+            {"name": "아침준비", "start": 320 * _M, "end": 360 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},
@@ -1530,8 +1533,8 @@ class MilaAgent(BaseAgent):
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
             {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 330 * _M, "end": 345 * _M, "activity": "준비"},
             {"name": "아침 소등", "start": 345 * _M, "end": 360 * _M, "activity": "소등"},
-            {"name": "아침준비", "start": 360 * _M, "end": 420 * _M, "dynamic": True, "candidates": [
-                {"activity": "연료장전", "condition": "need_fuel"},
+            {"name": "물자점검", "region_id": 0, "location_id": 16, "x": 90, "start": 360 * _M, "end": 380 * _M, "activity": "점검"},
+            {"name": "아침준비", "start": 380 * _M, "end": 420 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},
@@ -1573,8 +1576,8 @@ class MilaAgent(BaseAgent):
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 360 * _M, "end": 390 * _M, "activity": "목욕"},
             {"name": "기상", "region_id": 0, "location_id": 9, "x": 120, "start": 390 * _M, "end": 405 * _M, "activity": "준비"},  # 겨울: 늦게 기상
             {"name": "아침 소등", "start": 405 * _M, "end": 420 * _M, "activity": "소등"},
-            {"name": "아침준비", "start": 420 * _M, "end": 480 * _M, "dynamic": True, "candidates": [
-                {"activity": "연료장전", "condition": "need_fuel"},
+            {"name": "물자점검", "region_id": 0, "location_id": 16, "x": 90, "start": 420 * _M, "end": 440 * _M, "activity": "점검"},
+            {"name": "아침준비", "start": 440 * _M, "end": 480 * _M, "dynamic": True, "candidates": [
                 {"activity": "요리", "condition": "can_cook"},
                 {"activity": "청소", "condition": "should_clean"},
                 {"activity": "휴식", "condition": None},

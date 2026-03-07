@@ -1261,13 +1261,17 @@ class YukiAgent(BaseAgent):
     }
     COMBAT_DESPERATE_CHANCE = 0.2   # 포위 시 20% 필사 / 80% 체념
 
+    _responsibility = 0.5
+    _collectible_items = set()
+
     # 도심 은신처 스케줄 (region_id=2, location_id=5=은신처, length=180)
     SCHEDULE = [
         {"name": "목욕", "region_id": 2, "location_id": 5, "x": 150, "start": 420 * _M, "end": 450 * _M, "activity": "목욕"},
         {"name": "기상", "region_id": 2, "location_id": 5, "x": 90, "start": 450 * _M, "end": 480 * _M, "activity": "준비"},
         {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "식사"},
         {"name": "청소", "region_id": 2, "location_id": 5, "x": 60, "start": 540 * _M, "end": 660 * _M, "activity": "청소"},
-        {"name": "오전활동", "start": 660 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
+        {"name": "점검", "region_id": 2, "location_id": 5, "x": 120, "start": 660 * _M, "end": 675 * _M, "activity": "점검"},
+        {"name": "오전활동", "start": 675 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
             {"activity": "요리", "condition": "can_cook"},
             {"activity": "독서", "condition": None, "region_id": 2, "location_id": 5, "x": 120},
         ]},

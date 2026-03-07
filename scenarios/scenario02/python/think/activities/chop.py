@@ -18,3 +18,11 @@ _CHOP_CONFIG = {
 def handle_chop(agent, entry):
     """벌목: 도구 탐색(can:chop) → 가져오기 → 나무 이동 → 벌목 → 저장 → 반납"""
     handle_tool_activity(agent, entry, _CHOP_CONFIG)
+
+
+_CHOP_HOBBY_CONFIG = {**_CHOP_CONFIG, "mode": "hobby"}
+
+
+def handle_chop_hobby(agent, entry):
+    """취미 벌목: 벌목 → 수확물 인벤토리 보관 → 도구 반납"""
+    handle_tool_activity(agent, entry, _CHOP_HOBBY_CONFIG)

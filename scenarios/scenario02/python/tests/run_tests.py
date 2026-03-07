@@ -107,6 +107,7 @@ def main():
         "test_fsm",
         "test_faye",
         "test_party",
+        "test_inspect",
     ]
 
     if filter_modules:

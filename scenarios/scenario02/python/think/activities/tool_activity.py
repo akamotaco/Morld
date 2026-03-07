@@ -143,20 +143,26 @@ def handle_tool_activity(agent, entry, cfg):
     elif phase == "going_to_work":
         _phase_going_to_work(agent, cfg)
     elif phase == "storing":
-        phase_storing(agent, cfg["store_categories"], cfg["store_resolve"],
-                      cfg["store_label"], next_phase="returning_tool")
+        if cfg.get("mode") == "hobby":
+            # 취미 모드: 수확물은 인벤토리에 유지 → 도구 반납으로 직행
+            agent._activity_phase = "returning_tool"
+            agent._do_instant_action(cfg["activity_name"], "brief")
+        else:
+            phase_storing(agent, cfg["store_categories"], cfg["store_resolve"],
+                          cfg["store_label"], next_phase="returning_tool")
     elif phase == "returning_tool":
         phase_returning_tool(agent)
 
 
 def _phase_idle(agent, entry, cfg):
-    # 충분성 체크
-    cat, uid, threshold = cfg["storage_need"]
-    if not agent._check_storage_need(cat, uid, threshold):
-        remaining = agent._remaining_millis_in_entry(entry)
-        agent._insert_idle_job(cfg["activity_name"], max(remaining, 1))
-        agent._action_taken = True
-        return
+    # hobby 모드에서는 storage_need 체크 스킵
+    if cfg.get("mode") != "hobby":
+        cat, uid, threshold = cfg["storage_need"]
+        if not agent._check_storage_need(cat, uid, threshold):
+            remaining = agent._remaining_millis_in_entry(entry)
+            agent._insert_idle_job(cfg["activity_name"], max(remaining, 1))
+            agent._action_taken = True
+            return
 
     # 도구 탐색
     capability = cfg["capability"]

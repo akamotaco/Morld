@@ -287,9 +287,11 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 05:30 기상(준비)  → 세라방
 06:00 아침순찰    → 앞마당
 07:00 아침식사    → 식당
-09:00 오전활동    → (동적: 낚시 > 벌목 > 순찰)   ← v0.2.1 동적 스케줄
+08:00 훈련        → 뒷마당
+09:00 물자점검    → 2층 창고 (점검 30분)             ← v0.2.4
+09:30 오전활동    → 취미낚시 (수확물 인벤토리 보관)    ← v0.2.4
 12:00 점심식사    → 식당
-14:00 오후활동    → (동적: 벌목 > 낚시 > 순찰)   ← v0.2.1 동적 스케줄
+14:00 오후활동    → 취미벌목 (수확물 인벤토리 보관)    ← v0.2.4
 17:00 저녁순찰    → 숲 입구
 18:30 저녁식사    → 식당
 20:00 장비정비    → 세라방
@@ -304,16 +306,17 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 → 18:30 저녁식사 → 21:00 소등 → 21:30 수면
 ```
 
-### 리나 (채집 담당) — 동적 채집/독서
+### 리나 (채집 담당) — 점검 + 취미채집
 
 ```
 06:00 아침목욕    → 욕실
 06:30 기상(준비)  → 리나방
 07:00 아침식사    → 식당
 08:00 빨래        → 뒷마당
-09:00 오전활동    → (동적: 채집 if need_food > 독서)  ← v0.2.1
+09:00 물자확인    → 2층 창고 (점검 15분)             ← v0.2.4
+09:15 오전활동    → 취미채집 (수확물 인벤토리 보관)    ← v0.2.4
 12:00 점심식사    → 식당
-14:00 오후활동    → (동적: 채집 if need_food > 독서)  ← v0.2.1
+14:00 오후활동    → 취미채집 (수확물 인벤토리 보관)    ← v0.2.4
 17:00 빨래걷기    → 뒷마당
 18:30 저녁식사    → 식당
 19:30 자유시간    → 거실
@@ -321,7 +324,7 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 22:00 수면        → 리나방
 ```
 
-> 채집 시 `_handle_gather_store`: 자원 채집 → `storage:food_ingredient` 컨테이너에 동적 보관.
+> 취미채집: 수확물은 인벤토리에 보관 (보관소 반납 안 함). 점검 시 need 감지하면 수집 → 반납.
 
 ### 밀라 (요리 담당, 계절별 SCHEDULES) — 동적 요리/청소
 
@@ -332,14 +335,15 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 ```
 05:00 아침목욕    → 욕실
 05:30 기상(준비)  → 밀라방
-06:00 아침준비    → (동적: 요리 if can_cook > 청소 if should_clean > 휴식)  ← v0.2.2
+06:00 물자점검    → 2층 창고 (점검 20분)                               ← v0.2.4
+06:20 아침준비    → (동적: 요리 if can_cook > 청소 if should_clean > 휴식)
 07:00 아침식사    → 식당
 08:00 설거지      → 주방
-09:00 청소        → (동적: 청소 if should_clean > 휴식)  ← v0.2.2
-11:00 점심준비    → (동적: 요리 if can_cook > 청소 if should_clean > 휴식)  ← v0.2.2
+09:00 청소        → (동적: 청소 if should_clean > 휴식)
+11:00 점심준비    → (동적: 연료장전 if need_fuel > 요리 if can_cook > 휴식)
 12:00 점심식사    → 식당
 13:00 정원가꾸기  → 뒷마당 (봄 한정)
-17:00 저녁준비    → (동적: 요리 if can_cook > 청소 if should_clean > 휴식)  ← v0.2.2
+17:00 저녁준비    → (동적: 연료장전 if need_fuel > 요리 if can_cook > 휴식)
 18:30 저녁식사    → 식당
 19:30 정리        → 주방
 21:30 저택 소등   → (동적 탐색)
@@ -354,32 +358,34 @@ v0.2.1에서 `SCHEDULES` dict로 변경. `think()`에서 `morld.get_time_info()[
 | 가을 | 05:00 | 저장식품준비 | 21:30/22:00 |
 | 겨울 | 06:00 | 실내휴식 | 20:30/21:00 |
 
-### 엘라 (정찰병, 도시) — 동적 물자수집
+### 엘라 (정찰병, 도시) — 점검 + 관리
 
 ```
 06:00 기상       → 은신처
 06:30 목욕       → 은신처 드럼통
 07:00 아침식사   → 은신처
 08:00 정찰(약국) → 약국
-09:30 오전활동   → (동적: 물자수집 if need_supplies > 순찰)  ← v0.2.1
+11:00 물자점검   → 은신처 (점검 30분)                ← v0.2.4
+11:30 순찰       → 도시입구 (30분)
 12:00 점심식사   → 은신처
-14:00 관리       → 은신처
+13:00 관리       → 은신처 (고정)                     ← v0.2.4 동적 제거
 16:00 정찰(도시입구) → 도시입구
 18:30 저녁식사   → 은신처
 20:00 휴식       → 은신처
 22:00 수면       → 은신처
 ```
 
-> 보관소: `storage:food` prop 기반 동적 탐색. 물자수집: ScavengeableObject 탐색.
+> 보관소: `storage:food` prop 기반 동적 탐색.
 
-### 유키 (요리사, 도시) — 동적 요리/독서
+### 유키 (요리사, 도시) — 점검 + 동적 요리
 
 ```
-06:00 목욕       → 은신처 드럼통
-06:30 기상       → 은신처
-07:00 아침식사   → 은신처
-08:00 청소       → 은신처
-09:30 오전활동   → (동적: 요리 if can_cook > 독서)  ← v0.2.1
+07:00 목욕       → 은신처 드럼통
+07:30 기상       → 은신처
+08:00 아침식사   → 은신처
+09:00 청소       → 은신처
+11:00 점검       → 은신처 (점검 15분)                ← v0.2.4
+11:15 오전활동   → (동적: 요리 if can_cook > 독서)
 12:00 점심식사   → 은신처
 13:00 정원       → 은신처 텃밭 (2이랑)  ← v0.2.2
 15:00 휴식       → 은신처
@@ -475,7 +481,7 @@ class BaseAgent:
 - NPC용 생존 시스템 (포만감 추적, 시간 경과 감소)
 - `_check_hunger()`: 포만감 30 이하 → 식사 인터럽트
 - `_resolve_dynamic_entry()`: 조건 기반 동적 활동 선택
-- `_evaluate_condition()`: need_fish, need_logs, need_food, can_cook, need_supplies, should_clean, need_fuel, need_fuel_material
+- `_evaluate_condition()`: can_cook, should_clean, need_social, need_fuel
 - 도구 자동 관리 (도끼, 낚시대, 빗자루)
 
 **미구현:**
@@ -497,30 +503,25 @@ class BaseAgent:
 스케줄 entry에 `"dynamic": True`와 `"candidates"` 리스트 추가:
 
 ```python
-{"name": "오전활동", "start": 9*H, "end": 12*H,
+{"name": "아침준비", "start": 380*_M, "end": 420*_M,
  "dynamic": True, "candidates": [
-     {"activity": "낚시", "condition": "need_fish", "priority": 2},
-     {"activity": "벌목", "condition": "need_logs", "priority": 1},
-     {"activity": "순찰", "condition": None, "priority": 0},  # fallback
+     {"activity": "요리", "condition": "can_cook"},
+     {"activity": "청소", "condition": "should_clean"},
+     {"activity": "휴식", "condition": None},     # fallback
  ]}
 ```
 
 조건 평가 (`_evaluate_condition`):
 | 조건 | 의미 | 체크 방법 |
 |------|------|----------|
-| `need_fish` | 물고기 부족 | `storage:food_ingredient` 컨테이너에 food_fish < 기준치 |
-| `need_logs` | 통나무 부족 | `storage:material` 컨테이너에 log < 기준치 |
-| `need_food` | 식량 부족 | `storage:food_ingredient` 컨테이너에 food_ingredient 카테고리 아이템 < 기준치 |
 | `can_cook` | 요리 가능 | `storage:food_ingredient` 컨테이너에 food_ingredient 카테고리 재료 ≥ 2 |
-| `need_supplies` | 물자 부족 | `storage:food` 컨테이너에 food 카테고리 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 location 존재 |
 | `need_social` | 사교 필요 | `needs.get_max_longing(unit_id) >= 50` (최대 그리움 기반) |
 | `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |
-| `need_fuel_material` | 연료 재료 부족 | `storage:material` 컨테이너에 branch < 기준치 또는 log < 기준치 |
 
-> **기준치 결정**: 컨테이너에 `need:{item_uid}` prop이 설정되어 있으면 해당 값을 기준치로 사용.
-> 없으면 코드의 fallback 값 사용 (예: need_fish → 3, need_logs → 5).
-> 상세: [make_activity.md](make_activity.md#보관-시스템-storage-system)
+> **v0.2.4 변경**: 이전의 `need_fish`, `need_logs`, `need_food`, `need_supplies`, `need_wood_chip`, `need_fuel_material` 조건은
+> **점검 활동**으로 대체되었습니다. NPC가 점검 스케줄에서 세력 매칭 오브젝트의 need를 스캔하여 수집합니다.
+> 상세: [make_activity.md](make_activity.md#점검-활동-inspect)
 
 ---
 
@@ -696,11 +697,8 @@ idle → going_to_tree → going_to_heat_source → idle
 | `going_to_tree` | 나무로 이동 → 도착 시 `npc_gather_branch()` ×3 → `going_to_heat_source` |
 | `going_to_heat_source` | 열원으로 이동 → 도착 시 `_load_all_fuel()` (인벤토리의 branch/log 전부 장전) → `idle` |
 
-**스케줄 조건**:
-- `need_fuel` — `_check_heat_source_needs_fuel()`로 거처 내 연료 부족 열원 확인.
-- `need_fuel_material` — `material` 컨테이너에서 branch/log 부족 확인 (prop 기반 기준치).
-
-엘라 스케줄에서 물자수집/관리 시간대에 dynamic 후보로 등록.
+**v0.2.4 변경**: 엘라의 연료수집은 점검 활동으로 대체됨. 점검 핸들러가 세력 매칭 오브젝트의
+`need:branch`, `need:log` 등을 감지하여 자동 수집.
 
 ### 난방 연료 수집 Phase 흐름 (v0.2.2)
 
@@ -715,7 +713,7 @@ idle → going_to_tree → going_to_storage → idle
 | `going_to_storage` | `resolve_storage_container(agent, "material")` → 보관소로 이동 → `store_npc_items(categories=["material"])` → `idle` |
 
 **연료수집과의 차이**: 연료수집은 열원에 직접 장전, 난방 연료 수집은 material 컨테이너에 비축.
-엘라 스케줄에서 `need_fuel_material` 조건으로 dynamic 후보 등록.
+v0.2.4에서 엘라의 동적 후보 등록은 점검 활동으로 대체됨.
 
 > 활동 핸들러 작성 가이드: [make_activity.md](make_activity.md)
 

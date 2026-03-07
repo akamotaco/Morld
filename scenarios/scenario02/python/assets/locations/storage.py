@@ -97,6 +97,7 @@ class Toolbox(object):
                 "storage:material": 1,
                 "need:branch": 6,
                 "need:log": 3,
+                "세력": "숲속 저택",
             }
             actions = ["container#", "call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
             focus_text = {"default": "여러 도구가 정리된 나무 상자. 열어서 도구를 꺼낼 수 있다."}

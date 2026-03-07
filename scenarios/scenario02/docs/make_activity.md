@@ -429,11 +429,11 @@ elif phase == "going_to_storage":
 ### 형식
 
 ```python
-{"name": "오전활동", "start": 540*_M, "end": 720*_M,
+{"name": "아침준비", "start": 380*_M, "end": 420*_M,
  "dynamic": True, "candidates": [
-     {"activity": "낚시", "condition": "need_fish"},
-     {"activity": "벌목", "condition": "need_logs"},
-     {"activity": "순찰", "condition": None},     # fallback (항상 True)
+     {"activity": "요리", "condition": "can_cook"},
+     {"activity": "청소", "condition": "should_clean"},
+     {"activity": "휴식", "condition": None},     # fallback (항상 True)
  ]}
 ```
 
@@ -444,33 +444,82 @@ candidates는 **순서대로** 평가됩니다. 첫 번째로 조건이 True인 
 
 | 조건 | 의미 | 판정 방법 |
 |------|------|----------|
-| `need_fish` | 물고기 부족 | `food_ingredient` 컨테이너에서 food_fish < 기준치 |
-| `need_logs` | 통나무 부족 | `material` 컨테이너에서 log < 기준치 |
-| `need_food` | 식재료 부족 | `food_ingredient` 컨테이너에 food_ingredient 카테고리 아이템 < 기준치 |
 | `can_cook` | 요리 가능 | `food_ingredient` 컨테이너에 food_ingredient 카테고리 재료 ≥ 2 |
-| `need_supplies` | 물자 부족 | `food` 컨테이너에 food 카테고리 아이템 < 기준치 |
 | `should_clean` | 청소 필요 | 거처 내 오염도 > 0인 방 존재 |
 | `need_social` | 사교 필요 | `needs.get_max_longing() >= 50` (최대 그리움 기반) |
-| `need_wood_chip` | 나무조각 부족 | `material` 컨테이너에서 wood_chip < 기준치 |
 | `need_fuel` | 연료 부족 | 거처 내 열원에 연료 부족 |
-| `need_fuel_material` | 연료 재료 부족 | `material` 컨테이너에서 branch < 6 또는 log < 3 |
 
-> 기준치는 컨테이너의 `need:{item_uid}` prop 값을 우선 사용하며, 없으면 코드의 fallback 값을 사용합니다.
+> **v0.2.4 변경**: 이전의 자원 부족 조건 (`need_fish`, `need_logs`, `need_food`, `need_supplies`,
+> `need_wood_chip`, `need_fuel_material`)은 **점검 활동**으로 대체되었습니다.
+> 점검 핸들러가 세력 매칭 오브젝트의 `need:{item_uid}` prop을 스캔하여 자동 수집합니다.
 
 ### 신규 조건 추가하기
 
-`think/__init__.py`의 `_evaluate_condition()` 메서드에 조건을 추가합니다:
+`think/schedule_mixin.py`의 `_evaluate_condition()` 메서드에 조건을 추가합니다:
 
 ```python
 def _evaluate_condition(self, condition):
     """동적 스케줄 조건 평가 (True=활동 필요)"""
-    if condition == "need_fish":
-        return self._check_storage_need("food_ingredient", "food_fish", 3)
+    if condition == "can_cook":
+        return not self._check_storage_need("food_ingredient", None, 2)
     # ...기존 조건들...
     elif condition == "my_new_condition":
         return self._check_storage_need("category", "item_uid", fallback_threshold)
     return False
 ```
+
+---
+
+## 점검 활동 (Inspect)
+
+v0.2.4에서 추가된 세력 기반 자원 수집 시스템입니다.
+
+### 개요
+
+NPC가 보관소 위치를 방문하면 같은 세력 오브젝트의 `need:{item_uid}` prop을 스캔합니다.
+부족한 아이템을 발견하면 성격(`_responsibility`) 확률로 수집을 결정합니다.
+
+### NPC 속성
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| `_responsibility` | float | 수집 확률 (0.0~1.0, 기본 0.7) |
+| `_collectible_items` | set/None | 수집 가능한 item_uid 집합 (None=제한 없음) |
+
+### Phase 흐름
+
+```
+idle → (스캔 → 확률 체크)
+  → 인벤에 있으면: supply_delivering
+  → 도구 활동: supply_getting_tool → supply_going → supply_delivering → supply_returning
+  → 자원 활동: supply_going → supply_delivering
+  → need 없거나 확률 미통과: idle 대기
+```
+
+### 소프트 예약
+
+중복 수집 방지를 위해 prop 기반 예약 시스템 사용:
+- `예약:{item_uid}` — 수집 중인 NPC의 unit_id
+- `예약시간:{item_uid}` — 예약 시각 (total_millis)
+- 2시간 만료 자동 해제
+
+### 취미 활동과의 차이
+
+| | 취미 활동 | 점검 활동 |
+|--|----------|----------|
+| 트리거 | 스케줄 (무조건) | 세력 need 스캔 |
+| 수확물 | 인벤토리 보관 | trigger 오브젝트에 반납 |
+| 조건 | 없음 | `_responsibility` 확률 |
+| 핸들러 | 기존 tool/resource_activity | inspect.py 자체 phase |
+
+### 수집 가능 아이템
+
+| item_uid | 타입 | 활동 |
+|----------|------|------|
+| `food_fish` | tool | 낚시 (can:fish) |
+| `log` | tool | 벌목 (can:chop) |
+| `branch` | resource | 난방 연료 수집 |
+| `wood_chip` | craft | 제작 |
 
 ---
 

@@ -1470,6 +1470,9 @@ class LinaAgent(BaseAgent):
         "protect_player": True,
     }
 
+    _responsibility = 0.3
+    _collectible_items = {"food_fish"}
+
     SCHEDULE = [
         # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
         # terrain.md 참고: 리나방 침대(x=120), 식당 식탁(x=90), 뒷마당 length=600, 채집터 length=900, 거실 소파(x=210)
@@ -1477,16 +1480,11 @@ class LinaAgent(BaseAgent):
         {"name": "기상", "region_id": 0, "location_id": 7, "x": 120, "start": 390 * _M, "end": 420 * _M, "activity": "준비"},
         {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "빨래", "region_id": 0, "location_id": 13, "x": 300, "start": 480 * _M, "end": 540 * _M, "activity": "빨래"},  # 뒷마당
-        {"name": "오전활동", "start": 540 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
-            {"activity": "채집", "condition": "need_food"},
-            {"activity": "독서", "condition": None},
-        ]},
+        {"name": "물자확인", "region_id": 0, "location_id": 16, "x": 90, "start": 540 * _M, "end": 555 * _M, "activity": "점검"},
+        {"name": "오전활동", "start": 555 * _M, "end": 720 * _M, "activity": "취미채집"},
         {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
         {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 780 * _M, "end": 840 * _M, "activity": "휴식"},  # 거실
-        {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "dynamic": True, "candidates": [
-            {"activity": "채집", "condition": "need_food"},
-            {"activity": "독서", "condition": None},
-        ]},
+        {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "activity": "취미채집"},
         {"name": "빨래걷기", "region_id": 0, "location_id": 13, "x": 300, "start": 1020 * _M, "end": 1080 * _M, "activity": "빨래"},  # 뒷마당
         {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1080 * _M, "end": 1110 * _M, "activity": "휴식"},  # 거실
         {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},

@@ -37,17 +37,9 @@ class ScheduleResolverMixin:
 
     def _evaluate_condition(self, condition):
         """동적 스케줄 조건 평가 (True=활동 필요)"""
-        if condition == "need_fish":
-            return self._check_storage_need("food_ingredient", "food_fish", 3)
-        elif condition == "need_logs":
-            return self._check_storage_need("material", "log", 5)
-        elif condition == "need_food":
-            return self._check_storage_need("food_ingredient", None, 10)
-        elif condition == "can_cook":
+        if condition == "can_cook":
             # 보관소에 재료 2개 이상이면 요리 가능
             return not self._check_storage_need("food_ingredient", None, 2)
-        elif condition == "need_supplies":
-            return self._check_storage_need("food", None, 5)
         elif condition == "should_clean":
             return self._check_has_pollution()
         elif condition == "need_social":
@@ -56,13 +48,8 @@ class ScheduleResolverMixin:
                 return needs.get_max_longing(self.unit_id) >= 50
             except ImportError:
                 return False
-        elif condition == "need_wood_chip":
-            return self._check_storage_need("material", "wood_chip", 8)
         elif condition == "need_fuel":
             return self._check_heat_source_needs_fuel()
-        elif condition == "need_fuel_material":
-            return (self._check_storage_need("material", "branch", 6) or
-                    self._check_storage_need("material", "log", 3))
         return False
 
     def _check_has_pollution(self):

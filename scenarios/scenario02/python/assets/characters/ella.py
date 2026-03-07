@@ -1424,6 +1424,9 @@ class EllaAgent(BaseAgent):
     }
     COMBAT_DESPERATE_CHANCE = 0.7   # 포위 시 70% 필사 / 30% 체념
 
+    _responsibility = 0.8
+    _collectible_items = {"branch", "log"}
+
     # 도심 은신처 스케줄 (region_id=2)
     SCHEDULE = [
         # x: Location 내 목표 좌표 (Pi-World, 1unit/sec 기준)
@@ -1433,17 +1436,10 @@ class EllaAgent(BaseAgent):
         {"name": "아침식사", "region_id": 2, "location_id": 5, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
         {"name": "준비", "region_id": 2, "location_id": 5, "x": 90, "start": 480 * _M, "end": 540 * _M, "activity": "준비"},  # 은신처
         {"name": "정찰", "region_id": 2, "location_id": 3, "x": 90, "start": 540 * _M, "end": 660 * _M, "activity": "순찰"},  # 약국
-        {"name": "물자수집", "start": 660 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
-            {"activity": "연료수집", "condition": "need_fuel"},
-            {"activity": "난방 연료 수집", "condition": "need_fuel_material"},
-            {"activity": "물자수집", "condition": "need_supplies"},
-            {"activity": "순찰", "condition": None},
-        ]},
+        {"name": "물자점검", "region_id": 2, "location_id": 5, "x": 120, "start": 660 * _M, "end": 690 * _M, "activity": "점검"},
+        {"name": "순찰", "region_id": 2, "location_id": 0, "x": 300, "start": 690 * _M, "end": 720 * _M, "activity": "순찰"},
         {"name": "점심식사", "region_id": 2, "location_id": 5, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
-        {"name": "관리", "start": 780 * _M, "end": 960 * _M, "dynamic": True, "candidates": [
-            {"activity": "연료수집", "condition": "need_fuel"},
-            {"activity": "관리", "condition": None, "region_id": 2, "location_id": 5, "x": 90},
-        ]},
+        {"name": "관리", "region_id": 2, "location_id": 5, "x": 90, "start": 780 * _M, "end": 960 * _M, "activity": "관리"},
         {"name": "정찰", "region_id": 2, "location_id": 0, "x": 300, "start": 960 * _M, "end": 1020 * _M, "activity": "순찰"},  # 도시입구
         {"name": "자유시간", "region_id": 2, "location_id": 5, "x": 90, "start": 1020 * _M, "end": 1080 * _M, "activity": "휴식"},  # 은신처
         {"name": "저녁식사", "region_id": 2, "location_id": 5, "x": 90, "start": 1080 * _M, "end": 1140 * _M, "activity": "식사"},

@@ -126,7 +126,11 @@ class MockMorld:
 
     def get_unit_info(self, unit_id):
         u = self._units.get(unit_id)
-        return dict(u["info"]) if u else None
+        if not u:
+            return None
+        result = dict(u["info"])
+        result["props"] = dict(u["props"])
+        return result
 
     def get_unit_location(self, unit_id):
         u = self._units.get(unit_id)
@@ -198,6 +202,9 @@ class MockMorld:
 
     def get_current_time(self):
         return self._time
+
+    def get_time_info(self):
+        return {"total_millis": self._time, "day": 0, "hour": 0, "minute": 0}
 
     def register_script(self, func):
         """데코레이터: 스크립트 함수 등록 (테스트에서는 no-op)"""

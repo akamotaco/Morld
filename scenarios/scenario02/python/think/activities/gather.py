@@ -33,3 +33,11 @@ _GATHER_CONFIG = {
 def handle_gather_store(agent, entry):
     """채집→저장: 채집 대상 탐색 → 채집 → 저장소에 저장"""
     handle_resource_activity(agent, entry, _GATHER_CONFIG)
+
+
+_GATHER_HOBBY_CONFIG = {**_GATHER_CONFIG, "mode": "hobby"}
+
+
+def handle_gather_hobby(agent, entry):
+    """취미 채집: 채집 → 수확물 인벤토리 보관"""
+    handle_resource_activity(agent, entry, _GATHER_HOBBY_CONFIG)

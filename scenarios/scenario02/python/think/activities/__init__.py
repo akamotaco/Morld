@@ -7,9 +7,9 @@
 ACTIVITY_HANDLERS를 통해 자동으로 핸들러가 호출됩니다.
 """
 from .lights import handle_lights_off, handle_lights_on
-from .chop import handle_chop
-from .fish import handle_fish
-from .gather import handle_gather_store
+from .chop import handle_chop, handle_chop_hobby
+from .fish import handle_fish, handle_fish_hobby
+from .gather import handle_gather_store, handle_gather_hobby
 from .cook import handle_cook
 from .clean import handle_clean
 from .scavenge import handle_scavenge
@@ -19,6 +19,7 @@ from .branch_collect import handle_branch_collect
 from .craft import handle_craft
 from .fuel_load import handle_fuel_load
 from .build_activity import handle_build
+from .inspect import handle_inspect
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
@@ -35,4 +36,8 @@ ACTIVITY_HANDLERS = {
     "제작": handle_craft,
     "연료장전": handle_fuel_load,
     "건축": handle_build,
+    "점검": handle_inspect,
+    "취미낚시": handle_fish_hobby,
+    "취미벌목": handle_chop_hobby,
+    "취미채집": handle_gather_hobby,
 }

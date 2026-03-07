@@ -26,8 +26,13 @@ def handle_resource_activity(agent, entry, cfg):
     elif phase == "going_to_work":
         _phase_going_to_work(agent, cfg)
     elif phase == "storing":
-        phase_storing(agent, cfg["store_categories"], cfg["store_resolve"],
-                      cfg["store_label"], next_phase="idle")
+        if cfg.get("mode") == "hobby":
+            # 취미 모드: 수확물은 인벤토리에 유지
+            agent._activity_phase = "idle"
+            agent._do_instant_action(cfg["activity_name"], "brief")
+        else:
+            phase_storing(agent, cfg["store_categories"], cfg["store_resolve"],
+                          cfg["store_label"], next_phase="idle")
 
 
 def _phase_idle(agent, entry, cfg):

@@ -215,6 +215,86 @@ def store_npc_items(agent, categories=None):
     return stored
 
 
+# ========================================
+# 세력 기반 need 스캔 + 소프트 예약
+# ========================================
+
+def scan_faction_needs(agent):
+    """같은 세력 오브젝트의 부족 아이템 목록 반환
+
+    현재 location의 오브젝트만 스캔 (NPC가 도착해야 체크).
+
+    Returns:
+        list of {"object_id", "item_uid", "current", "threshold",
+                 "region_id", "location_id", "x"}
+    """
+    faction = morld.get_unit_prop(agent.unit_id, "세력")
+    if not faction:
+        return []
+
+    loc = morld.get_unit_location(agent.unit_id)
+    if not loc:
+        return []
+    r, l = loc[0], loc[1]
+
+    from assets.objects import _location_objects, get_instance
+    obj_ids = _location_objects.get((r, l), [])
+
+    needs = []
+    for obj_id in obj_ids:
+        if morld.get_unit_prop(obj_id, "세력") != faction:
+            continue
+        obj = get_instance(obj_id)
+        if not obj:
+            continue
+        info = morld.get_unit_info(obj_id)
+        props = info.get("props", {}) if info else {}
+        for key, threshold in props.items():
+            if not key.startswith("need:"):
+                continue
+            item_uid = key[5:]
+            current = obj.get_item_count(item_uid)
+            if current >= threshold:
+                continue
+            if is_need_reserved(obj_id, item_uid, agent.unit_id):
+                continue
+            needs.append({
+                "object_id": obj_id, "item_uid": item_uid,
+                "current": current, "threshold": threshold,
+                "region_id": r, "location_id": l,
+                "x": get_object_x_from_info(obj_id),
+            })
+    return needs
+
+
+def reserve_need(obj_id, item_uid, npc_unit_id):
+    """수집 예약 설정"""
+    morld.set_unit_prop(obj_id, f"예약:{item_uid}", npc_unit_id)
+    time_info = morld.get_time_info()
+    morld.set_unit_prop(obj_id, f"예약시간:{item_uid}",
+                        time_info.get("total_millis", 0))
+
+
+def release_need(obj_id, item_uid):
+    """수집 예약 해제"""
+    morld.set_unit_prop(obj_id, f"예약:{item_uid}", None)
+    morld.set_unit_prop(obj_id, f"예약시간:{item_uid}", None)
+
+
+def is_need_reserved(obj_id, item_uid, my_unit_id):
+    """예약 확인 (자신은 통과, 2시간 만료 자동 해제)"""
+    reserved_by = morld.get_unit_prop(obj_id, f"예약:{item_uid}")
+    if not reserved_by or reserved_by == my_unit_id:
+        return False
+    reserved_time = morld.get_unit_prop(obj_id, f"예약시간:{item_uid}")
+    if reserved_time is not None:
+        current_ms = morld.get_time_info().get("total_millis", 0)
+        if current_ms - reserved_time > 2 * 3_600_000:
+            release_need(obj_id, item_uid)
+            return False
+    return True
+
+
 def find_stove_location(agent):
     """화로/아궁이 위치 탐색 (거처 내)"""
     from assets.objects import _location_objects, get_instance

@@ -412,8 +412,9 @@ fuel.reset()                                                # 챕터 전환 초�
 
 **NPC 연료 관련 활동**:
 - `think/activities/fuel.py` (연료수집) — 엘라: 나뭇가지 수집 → 열원 직접 장전
-- `think/activities/craft.py` (제작) — 세라: 통나무 → 나무조각 제작 (제작대, need_wood_chip 조건)
+- `think/activities/craft.py` (제작) — 세라: 통나무 → 나무조각 제작 (제작대)
 - `think/activities/fuel_load.py` (연료장전) — 밀라: 보관소 연료 → 벽난로/아궁이 장전 (need_fuel 조건)
+- `think/activities/inspect.py` (점검) — 세력 매칭 오브젝트 need 스캔 → 수집 → 반납 (v0.2.4)
 
 **요리와 연료**: 아궁이(Stove)에 연료가 소진되면(`light:on=0`) `npc_cook()` → False → 요리 중단. 밀라가 연료장전 후 복구.
 

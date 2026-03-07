@@ -1415,6 +1415,9 @@ class SeraAgent(BaseAgent):
     }
     COMBAT_DESPERATE_CHANCE = 0.9   # 포위 시 90% 필사 / 10% 체념
 
+    _responsibility = 0.9
+    _collectible_items = {"food_fish", "log", "wood_chip"}
+
     SCHEDULES = {
         "평일": [
             {"name": "아침목욕", "region_id": 0, "location_id": 4, "x": 15, "start": 300 * _M, "end": 330 * _M, "activity": "목욕"},
@@ -1422,20 +1425,11 @@ class SeraAgent(BaseAgent):
             {"name": "아침순찰", "region_id": 0, "location_id": 12, "x": 300, "start": 360 * _M, "end": 420 * _M, "activity": "순찰"},
             {"name": "아침식사", "region_id": 0, "location_id": 3, "x": 90, "start": 420 * _M, "end": 480 * _M, "activity": "식사"},
             {"name": "훈련", "region_id": 0, "location_id": 13, "x": 300, "start": 480 * _M, "end": 540 * _M, "activity": "훈련"},  # 뒷마당
-            {"name": "오전활동", "start": 540 * _M, "end": 720 * _M, "dynamic": True, "candidates": [
-                {"activity": "낚시", "condition": "need_fish"},
-                {"activity": "벌목", "condition": "need_logs"},
-                {"activity": "제작", "condition": "need_wood_chip"},
-                {"activity": "순찰", "condition": None},
-            ]},
+            {"name": "물자점검", "region_id": 0, "location_id": 16, "x": 90, "start": 540 * _M, "end": 570 * _M, "activity": "점검"},
+            {"name": "오전활동", "start": 570 * _M, "end": 720 * _M, "activity": "취미낚시"},
             {"name": "점심식사", "region_id": 0, "location_id": 3, "x": 90, "start": 720 * _M, "end": 780 * _M, "activity": "식사"},
             {"name": "휴식", "region_id": 0, "location_id": 1, "x": 210, "start": 780 * _M, "end": 840 * _M, "activity": "휴식"},  # 거실
-            {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "dynamic": True, "candidates": [
-                {"activity": "벌목", "condition": "need_logs"},
-                {"activity": "제작", "condition": "need_wood_chip"},
-                {"activity": "낚시", "condition": "need_fish"},
-                {"activity": "순찰", "condition": None},
-            ]},
+            {"name": "오후활동", "start": 840 * _M, "end": 1020 * _M, "activity": "취미벌목"},
             {"name": "저녁순찰", "region_id": 0, "location_id": 20, "x": 900, "start": 1020 * _M, "end": 1080 * _M, "activity": "순찰"},
             {"name": "자유시간", "region_id": 0, "location_id": 1, "x": 210, "start": 1080 * _M, "end": 1110 * _M, "activity": "휴식"},  # 거실
             {"name": "저녁식사", "region_id": 0, "location_id": 3, "x": 90, "start": 1110 * _M, "end": 1170 * _M, "activity": "식사"},
