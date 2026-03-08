@@ -6,6 +6,10 @@ Part C: 부품 데미지 (가중 랜덤 분배, 상태 전환)
 Part D: 수리 시스템
 Part E: 탑승자 조회
 Part F: 유틸리티 (parse_interior_key 등)
+Part G: 탑승/하차 시스템
+Part H: control_target + vehicle_move_to
+Part I: 주유 시스템
+Part J: 전투 연동 (attack_vehicle)
 """
 import sys
 import os
@@ -52,6 +56,27 @@ sys.modules.setdefault("ui", _ui)
 _sound = sys.modules.get("sound") or types.ModuleType("sound")
 _sound.emit_sound = lambda *a, **kw: None
 sys.modules.setdefault("sound", _sound)
+
+# survival stub (combat.apply_damage 의존)
+_survival = sys.modules.get("survival") or types.ModuleType("survival")
+if not hasattr(_survival, "add_health"):
+    _survival.add_health = lambda unit_id, amount: None
+    _survival._enter_faint = lambda unit_id: None
+    _survival._enter_exhaustion = lambda unit_id: None
+    _survival.EXHAUSTION_HP_THRESHOLD = 5
+sys.modules.setdefault("survival", _survival)
+
+# combat stub (attack_vehicle에서 import)
+_combat = sys.modules.get("combat") or types.ModuleType("combat")
+if not hasattr(_combat, "apply_damage"):
+    def _combat_apply_damage(target_id, damage, attacker_id=None):
+        """stub: HP 감소만 수행, faint 반환"""
+        hp = morld.get_unit_prop(target_id, "생존:체력") or 0
+        new_hp = max(0, hp - damage)
+        morld.set_unit_prop(target_id, "생존:체력", new_hp)
+        return new_hp <= 0
+    _combat.apply_damage = _combat_apply_damage
+sys.modules.setdefault("combat", _combat)
 
 
 # ============================================
@@ -903,3 +928,127 @@ class TestRefuelLogic(_T):
         assert result["amount"] == 3
         assert result["remaining_jerrycan_fuel"] == 0
         assert vehicle.get_fuel(vid) == 33
+
+
+# ============================================
+# Part J: 전투 연동 (attack_vehicle)
+# ============================================
+
+def _make_character(cid=100, hp=50, location=(2, 4)):
+    """테스트용 캐릭터 등록"""
+    morld.register_unit(cid, name=f"Char{cid}", props={
+        "생존:체력": hp,
+        "생존:최대체력": hp,
+    }, location=location)
+    return cid
+
+
+class TestAttackVehicle(_T):
+    """attack_vehicle() — exposed 판정 + 탑승자/부품 데미지"""
+
+    def test_protected_vehicle_damages_part(self):
+        """exposed=0: 차체 부품에 데미지"""
+        vid = _make_vehicle(vtype="car")  # exposed=0
+        result = vehicle.attack_vehicle(vid, 10)
+        assert result["target_type"] == "vehicle"
+        assert result["damage"] == 10
+        assert result["part_result"] is not None
+        assert result["passenger_id"] is None
+        # 총 HP 감소 확인
+        assert morld.get_unit_prop(vid, "vehicle:hp") < 200
+
+    def test_exposed_vehicle_no_passengers_fallback(self):
+        """exposed=1 + 탑승자 없음 → 차체 fallback"""
+        vid = _make_vehicle(vtype="motorcycle")  # exposed=1
+        result = vehicle.attack_vehicle(vid, 10)
+        assert result["target_type"] == "vehicle"
+        assert result["part_result"] is not None
+
+    def test_exposed_vehicle_hits_passenger(self):
+        """exposed=1 + 탑승자 있음 → 탑승자에게 데미지"""
+        vid = _make_vehicle(vtype="motorcycle")
+        cid = _make_character(100, hp=50, location=(2, 4))
+        # 탑승
+        morld.sit_on(cid, vid, "driver")
+        result = vehicle.attack_vehicle(vid, 15)
+        assert result["target_type"] == "passenger"
+        assert result["passenger_id"] == cid
+        assert result["damage"] == 15
+        # 캐릭터 HP 감소
+        assert morld.get_unit_prop(cid, "생존:체력") == 35
+
+    def test_passenger_fainted(self):
+        """탑승자 HP 0 → fainted=True"""
+        vid = _make_vehicle(vtype="motorcycle")
+        cid = _make_character(100, hp=10, location=(2, 4))
+        morld.sit_on(cid, vid, "driver")
+        result = vehicle.attack_vehicle(vid, 20)
+        assert result["passenger_fainted"] is True
+        assert morld.get_unit_prop(cid, "생존:체력") == 0
+
+    def test_car_becomes_exposed_at_half_hp(self):
+        """자동차 HP 50% 이하 → exposed=1 전환"""
+        vid = _make_vehicle(vtype="car")  # hp=200, exposed=0
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 0
+        # 큰 데미지로 HP 50% 이하로 떨어뜨림
+        for _ in range(15):
+            vehicle.apply_damage(vid, 10)
+        hp = morld.get_unit_prop(vid, "vehicle:hp")
+        assert hp <= 100  # 50% 이하
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+
+    def test_car_exposed_then_hits_passenger(self):
+        """자동차가 exposed 전환 후 → 탑승자 피격"""
+        vid = _make_vehicle(vtype="car")
+        cid = _make_character(100, hp=50, location=(2, 4))
+        morld.sit_on(cid, vid, "driver")
+        # exposed 강제 설정
+        morld.set_unit_prop(vid, "vehicle:exposed", 1)
+        result = vehicle.attack_vehicle(vid, 10)
+        assert result["target_type"] == "passenger"
+        assert result["passenger_id"] == cid
+
+    def test_multiple_passengers_random_target(self):
+        """탑승자 여러 명 → 랜덤 선택 (누구든 맞아야 함)"""
+        vid = _make_vehicle(vtype="motorcycle")
+        c1 = _make_character(101, hp=50, location=(2, 4))
+        c2 = _make_character(102, hp=50, location=(2, 4))
+        morld.sit_on(c1, vid, "driver")
+        morld.sit_on(c2, vid, "passenger1")
+        result = vehicle.attack_vehicle(vid, 5)
+        assert result["target_type"] == "passenger"
+        assert result["passenger_id"] in (101, 102)
+
+    def test_wrecked_vehicle(self):
+        """전체 HP 0 → wrecked 상태"""
+        vid = _make_vehicle(vtype="car")
+        for _ in range(50):
+            vehicle.apply_damage(vid, 20)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "wrecked"
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+
+    def test_disabled_vehicle(self):
+        """필수 부품 HP 0 → disabled"""
+        vid = _make_vehicle(vtype="car")
+        # 엔진 직접 파괴
+        morld.set_unit_prop(vid, "vehicle:part:engine", 0)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "disabled"
+
+    def test_attack_vehicle_returns_vehicle_status(self):
+        """결과에 vehicle_status 포함"""
+        vid = _make_vehicle(vtype="car")
+        result = vehicle.attack_vehicle(vid, 5)
+        assert "vehicle_status" in result
+        assert result["vehicle_status"] == "normal"
+
+    def test_attack_vehicle_with_attacker_id(self):
+        """attacker_id 전달 확인 (exposed + passenger)"""
+        vid = _make_vehicle(vtype="motorcycle")
+        cid = _make_character(100, hp=50, location=(2, 4))
+        morld.sit_on(cid, vid, "driver")
+        attacker = _make_character(200, hp=50, location=(2, 4))
+        result = vehicle.attack_vehicle(vid, 10, attacker_id=attacker)
+        assert result["target_type"] == "passenger"
+        assert result["damage"] == 10

@@ -220,6 +220,55 @@ def apply_damage(vehicle_id, damage):
     return {"part_id": target, "name": name, "damage": hp - new_hp, "new_hp": new_hp}
 
 
+def attack_vehicle(vehicle_id, damage, attacker_id=None):
+    """차량 공격 처리 (전투 시스템에서 호출)
+
+    exposed=0: 차체 부품에 데미지
+    exposed=1: 탑승자에게 직접 데미지 (없으면 차체 fallback)
+
+    Returns:
+        dict: {
+            "target_type": "vehicle" | "passenger",
+            "damage": int,
+            "part_result": dict or None,      # 차체 피격 시
+            "passenger_id": int or None,       # 탑승자 피격 시
+            "passenger_fainted": bool,         # 탑승자 기절 여부
+            "vehicle_status": str,             # 차량 상태
+        }
+    """
+    import random
+
+    exposed = morld.get_unit_prop(vehicle_id, "vehicle:exposed") or 0
+
+    if exposed == 1:
+        # 노출 상태: 탑승자에게 직접 데미지
+        passengers = get_passengers(vehicle_id)
+        if passengers:
+            target_passenger = random.choice(passengers)
+            from combat import apply_damage as combat_apply_damage
+            fainted = combat_apply_damage(target_passenger, damage, attacker_id)
+            return {
+                "target_type": "passenger",
+                "damage": damage,
+                "part_result": None,
+                "passenger_id": target_passenger,
+                "passenger_fainted": fainted,
+                "vehicle_status": morld.get_unit_prop(vehicle_id, "vehicle:status") or "normal",
+            }
+        # 탑승자 없으면 차체에 fallback
+
+    # 보호 상태 또는 탑승자 없음: 차체 부품에 데미지
+    part_result = apply_damage(vehicle_id, damage)
+    return {
+        "target_type": "vehicle",
+        "damage": damage,
+        "part_result": part_result,
+        "passenger_id": None,
+        "passenger_fainted": False,
+        "vehicle_status": morld.get_unit_prop(vehicle_id, "vehicle:status") or "normal",
+    }
+
+
 def _recalculate_total_hp(vehicle_id):
     """부품 HP 합산으로 전체 HP 갱신"""
     total = 0

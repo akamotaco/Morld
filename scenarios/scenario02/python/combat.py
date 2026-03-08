@@ -514,59 +514,109 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
 
     # 데미지 계산
     damage = calculate_damage(attacker_id, target_id, crit)
-    fainted = apply_damage(target_id, damage, attacker_id)
-    target_hp = morld.get_unit_prop(target_id, "생존:체력") or 0
 
-    result["hit"] = True
-    result["crit"] = crit
-    result["damage"] = damage
-    result["target_hp"] = target_hp
-    result["target_fainted"] = fainted
+    # 차량 대상 분기
+    import vehicle as vehicle_mod
+    if vehicle_mod.is_vehicle(target_id):
+        vresult = vehicle_mod.attack_vehicle(target_id, damage, attacker_id)
+        result["hit"] = True
+        result["crit"] = crit
+        result["damage"] = damage
+        result["vehicle_result"] = vresult
 
-    # 전투 대사 — 공격/피격/low_hp/사망
-    _emit_combat_line(attacker_id, "attack")
-    target_max_hp = morld.get_unit_prop(target_id, "생존:최대체력") or 1
-    from combat_reactions import emit_hit_reaction
-    emit_hit_reaction(target_id, damage, target_max_hp, crit)
-    if target_hp > 0 and target_hp / target_max_hp <= 0.3:
-        _emit_combat_line(target_id, "low_hp")
-    if fainted:
-        _emit_combat_line(target_id, "death")
-
-    # 메시지
-    if crit:
-        result["message"] = f"{attacker_name}의 치명타! {target_name}에게 {damage}의 피해를 입혔다."
+        if vresult["target_type"] == "passenger":
+            # 탑승자 피격
+            pid = vresult["passenger_id"]
+            p_info = morld.get_unit_info(pid)
+            p_name = p_info.get("name", "?") if p_info else "?"
+            result["target_hp"] = morld.get_unit_prop(pid, "생존:체력") or 0
+            result["target_fainted"] = vresult["passenger_fainted"]
+            if crit:
+                result["message"] = f"{attacker_name}의 치명타! {target_name}의 탑승자 {p_name}에게 {damage}의 피해를 입혔다."
+            else:
+                result["message"] = f"{attacker_name}이(가) {target_name}의 탑승자 {p_name}에게 {damage}의 피해를 입혔다."
+            if vresult["passenger_fainted"]:
+                result["message"] += f" {p_name}이(가) 기절했다!"
+            # 탑승자에 대한 전투 대사
+            _emit_combat_line(attacker_id, "attack")
+            p_max_hp = morld.get_unit_prop(pid, "생존:최대체력") or 1
+            from combat_reactions import emit_hit_reaction
+            emit_hit_reaction(pid, damage, p_max_hp, crit)
+        else:
+            # 차체 피격
+            pr = vresult["part_result"]
+            result["target_hp"] = morld.get_unit_prop(target_id, "vehicle:hp") or 0
+            result["target_fainted"] = False
+            if pr:
+                part_name = pr["name"]
+                if crit:
+                    result["message"] = f"{attacker_name}의 치명타! {target_name}의 {part_name}에 {damage}의 피해를 입혔다."
+                else:
+                    result["message"] = f"{attacker_name}이(가) {target_name}의 {part_name}에 {damage}의 피해를 입혔다."
+                if pr["new_hp"] <= 0:
+                    result["message"] += f" {part_name}이(가) 파손되었다!"
+                if vresult["vehicle_status"] == "disabled":
+                    result["message"] += " 차량이 기동 불가 상태가 되었다!"
+                elif vresult["vehicle_status"] == "wrecked":
+                    result["message"] += " 차량이 완파되었다!"
+            else:
+                result["message"] = f"{attacker_name}이(가) {target_name}에 공격했지만 효과가 없다."
+            _emit_combat_line(attacker_id, "attack")
     else:
-        result["message"] = f"{attacker_name}이(가) {target_name}에게 {damage}의 피해를 입혔다."
+        # 기존 캐릭터/생물 데미지 처리
+        fainted = apply_damage(target_id, damage, attacker_id)
+        target_hp = morld.get_unit_prop(target_id, "생존:체력") or 0
 
-    if fainted:
-        result["message"] += f" {target_name}이(가) 기절했다!"
+        result["hit"] = True
+        result["crit"] = crit
+        result["damage"] = damage
+        result["target_hp"] = target_hp
+        result["target_fainted"] = fainted
 
-    # 치명타 + 출혈
-    if crit and random.randint(1, 100) <= BLEEDING_CHANCE_ON_CRIT:
-        apply_bleeding(target_id)
-        result["message"] += " 출혈이 발생했다!"
+        # 전투 대사 — 공격/피격/low_hp/사망
+        _emit_combat_line(attacker_id, "attack")
+        target_max_hp = morld.get_unit_prop(target_id, "생존:최대체력") or 1
+        from combat_reactions import emit_hit_reaction
+        emit_hit_reaction(target_id, damage, target_max_hp, crit)
+        if target_hp > 0 and target_hp / target_max_hp <= 0.3:
+            _emit_combat_line(target_id, "low_hp")
+        if fainted:
+            _emit_combat_line(target_id, "death")
 
-    # 치명타 + 부위 부상
-    if crit and random.randint(1, 100) <= INJURY_CHANCE_ON_CRIT:
-        part = random.choice(BODY_PARTS)
-        if part != "몸통":
-            apply_body_injury(target_id, part)
-            result["message"] += f" {target_name}의 {part}에 부상!"
+        # 메시지
+        if crit:
+            result["message"] = f"{attacker_name}의 치명타! {target_name}에게 {damage}의 피해를 입혔다."
+        else:
+            result["message"] = f"{attacker_name}이(가) {target_name}에게 {damage}의 피해를 입혔다."
 
-    # 특수 공격 처리 (범용 — 독, 거미줄, 마비 등 확장 가능)
-    _SPECIAL_ATTACK_MESSAGES = {
-        "전투:독공격":     "독이 퍼진다!",
-        "전투:거미줄공격": "거미줄에 묶였다!",
-        "전투:마비공격":   "몸이 마비됐다!",
-    }
-    for prop_key, apply_fn in _get_special_attacks().items():
-        chance = morld.get_unit_prop(attacker_id, prop_key) or 0
-        if chance > 0 and hit and random.randint(1, 100) <= chance:
-            apply_fn(target_id)
-            msg = _SPECIAL_ATTACK_MESSAGES.get(prop_key, "")
-            if msg:
-                result["message"] += f" {msg}"
+        if fainted:
+            result["message"] += f" {target_name}이(가) 기절했다!"
+
+        # 치명타 + 출혈
+        if crit and random.randint(1, 100) <= BLEEDING_CHANCE_ON_CRIT:
+            apply_bleeding(target_id)
+            result["message"] += " 출혈이 발생했다!"
+
+        # 치명타 + 부위 부상
+        if crit and random.randint(1, 100) <= INJURY_CHANCE_ON_CRIT:
+            part = random.choice(BODY_PARTS)
+            if part != "몸통":
+                apply_body_injury(target_id, part)
+                result["message"] += f" {target_name}의 {part}에 부상!"
+
+        # 특수 공격 처리 (범용 — 독, 거미줄, 마비 등 확장 가능)
+        _SPECIAL_ATTACK_MESSAGES = {
+            "전투:독공격":     "독이 퍼진다!",
+            "전투:거미줄공격": "거미줄에 묶였다!",
+            "전투:마비공격":   "몸이 마비됐다!",
+        }
+        for prop_key, apply_fn in _get_special_attacks().items():
+            chance = morld.get_unit_prop(attacker_id, prop_key) or 0
+            if chance > 0 and hit and random.randint(1, 100) <= chance:
+                apply_fn(target_id)
+                msg = _SPECIAL_ATTACK_MESSAGES.get(prop_key, "")
+                if msg:
+                    result["message"] += f" {msg}"
 
     # 무기 내구도 감소
     weapon_id = get_equipped_weapon(attacker_id)
