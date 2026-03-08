@@ -1,0 +1,524 @@
+# test_vehicle.py — 차량 시스템 유틸리티 테스트
+"""
+Part A: relocate_object (오브젝트 위치 이동 인덱스)
+Part B: 연료 시스템 (소비/충전/이동가능 판정)
+Part C: 부품 데미지 (가중 랜덤 분배, 상태 전환)
+Part D: 수리 시스템
+Part E: 탑승자 조회
+Part F: 유틸리티 (parse_interior_key 등)
+"""
+import sys
+import os
+import types
+
+# ============================================
+# 1. 경로 설정
+# ============================================
+
+_tests_dir = os.path.dirname(os.path.abspath(__file__))
+_python_dir = os.path.abspath(os.path.join(_tests_dir, ".."))
+
+if _python_dir not in sys.path:
+    sys.path.insert(0, _python_dir)
+if _tests_dir not in sys.path:
+    sys.path.insert(0, _tests_dir)
+
+# ============================================
+# 2. morld mock
+# ============================================
+
+import morld
+
+# ============================================
+# 3. 외부 모듈 stub
+# ============================================
+
+_events = sys.modules.get("events") or types.ModuleType("events")
+_events.subscribe_time_elapsed = lambda callback, min_interval=0: None
+_events.on_game_start = lambda f: f
+_events.on_reach = lambda f: f
+_events.on_leave = lambda f: f
+sys.modules.setdefault("events", _events)
+for _sub in ["events.game_start", "events.scripts",
+             "events.game_start.prologue", "events.scripts.player_creation"]:
+    sys.modules.setdefault(_sub, types.ModuleType(_sub))
+
+# ui stub
+_ui = sys.modules.get("ui") or types.ModuleType("ui")
+_ui.dialog = lambda *a, **kw: None
+sys.modules.setdefault("ui", _ui)
+
+# sound stub
+_sound = sys.modules.get("sound") or types.ModuleType("sound")
+_sound.emit_sound = lambda *a, **kw: None
+sys.modules.setdefault("sound", _sound)
+
+
+# ============================================
+# 4. Import
+# ============================================
+
+# assets.objects 내부 dict 직접 참조 (다른 테스트의 import 캐시 회피)
+try:
+    from assets.objects import (
+        _instances, _location_objects,
+        register_location_object, get_location_objects, relocate_object
+    )
+except ImportError:
+    # 다른 테스트가 assets.objects를 부분 로드한 경우 → 내부 dict 직접 구성
+    _instances = {}
+    _location_objects = {}
+
+    def register_location_object(region_id, location_id, instance_id):
+        key = (region_id, location_id)
+        if key not in _location_objects:
+            _location_objects[key] = []
+        _location_objects[key].append(instance_id)
+
+    def get_location_objects(region_id, location_id):
+        return _location_objects.get((region_id, location_id), [])
+
+    def relocate_object(instance_id, old_r, old_l, new_r, new_l):
+        if instance_id not in _instances:
+            return False
+        old_key = (old_r, old_l)
+        new_key = (new_r, new_l)
+        old_list = _location_objects.get(old_key)
+        if old_list and instance_id in old_list:
+            old_list.remove(instance_id)
+        if new_key not in _location_objects:
+            _location_objects[new_key] = []
+        if instance_id not in _location_objects[new_key]:
+            _location_objects[new_key].append(instance_id)
+        return True
+
+import vehicle
+
+
+# ============================================
+# 테스트 기반
+# ============================================
+
+class _T:
+    def __init__(self):
+        _setup()
+
+
+def _setup():
+    morld.reset()
+    _instances.clear()
+    _location_objects.clear()
+
+
+# ============================================
+# Part A: relocate_object
+# ============================================
+
+class TestRelocateObject(_T):
+
+    def test_basic_relocate(self):
+        """오브젝트를 (0,1) → (2,4)로 이동"""
+        obj_id = 300
+        # 인스턴스 등록 (간단한 더미)
+        _instances[obj_id] = "dummy_vehicle"
+        register_location_object(0, 1, obj_id)
+
+        assert obj_id in get_location_objects(0, 1)
+
+        result = relocate_object(obj_id, 0, 1, 2, 4)
+        assert result is True
+        assert obj_id not in get_location_objects(0, 1)
+        assert obj_id in get_location_objects(2, 4)
+
+    def test_relocate_unregistered_instance(self):
+        """미등록 인스턴스는 False"""
+        result = relocate_object(999, 0, 0, 1, 1)
+        assert result is False
+
+    def test_relocate_not_in_old_location(self):
+        """이전 location에 없어도 새 location에는 추가"""
+        obj_id = 301
+        _instances[obj_id] = "dummy"
+        # old location에 등록하지 않음
+
+        result = relocate_object(obj_id, 0, 0, 2, 4)
+        assert result is True
+        assert obj_id in get_location_objects(2, 4)
+
+    def test_relocate_idempotent(self):
+        """같은 위치로 이동해도 중복 추가 안 됨"""
+        obj_id = 302
+        _instances[obj_id] = "dummy"
+        register_location_object(0, 1, obj_id)
+
+        relocate_object(obj_id, 0, 1, 0, 1)  # 같은 곳
+        count = get_location_objects(0, 1).count(obj_id)
+        assert count == 1
+
+    def test_multiple_objects_in_location(self):
+        """여러 오브젝트 중 하나만 이동"""
+        _instances[310] = "a"
+        _instances[311] = "b"
+        register_location_object(0, 1, 310)
+        register_location_object(0, 1, 311)
+
+        relocate_object(310, 0, 1, 2, 4)
+        assert 310 not in get_location_objects(0, 1)
+        assert 311 in get_location_objects(0, 1)
+        assert 310 in get_location_objects(2, 4)
+
+
+# ============================================
+# Part B: 연료 시스템
+# ============================================
+
+def _make_vehicle(vid=500, fuel=40, fuel_max=40, fuel_rate=0.5,
+                  status="normal", vtype="car", parts=True):
+    """테스트용 차량 등록"""
+    props = {
+        "vehicle:type": vtype,
+        "vehicle:fuel": fuel,
+        "vehicle:fuel_max": fuel_max,
+        "vehicle:fuel_rate": fuel_rate,
+        "vehicle:speed": 3.0,
+        "vehicle:seats": 4,
+        "vehicle:status": status,
+        "vehicle:exposed": 1 if vtype == "motorcycle" else 0,
+        "seated_by:driver": -1,
+        "seated_by:passenger1": -1,
+    }
+    if parts:
+        props.update({
+            "vehicle:hp": 200,
+            "vehicle:hp_max": 200,
+            "vehicle:part:engine": 60,
+            "vehicle:part:engine_max": 60,
+            "vehicle:part:tire": 40,
+            "vehicle:part:tire_max": 40,
+            "vehicle:part:body": 60,
+            "vehicle:part:body_max": 60,
+            "vehicle:part:window": 20,
+            "vehicle:part:window_max": 20,
+            "vehicle:part:fuel_tank": 20,
+            "vehicle:part:fuel_tank_max": 20,
+        })
+    morld.register_unit(vid, name="TestVehicle", props=props,
+                        location=(2, 4), is_object=True)
+    return vid
+
+
+class TestFuel(_T):
+
+    def test_get_fuel(self):
+        vid = _make_vehicle(fuel=25)
+        assert vehicle.get_fuel(vid) == 25
+        assert vehicle.get_fuel_max(vid) == 40
+
+    def test_estimate_fuel_cost(self):
+        vid = _make_vehicle(fuel_rate=0.5)
+        cost = vehicle.estimate_fuel_cost(vid, 20)
+        assert cost == 10.0  # 20 * 0.5
+
+    def test_fuel_cost_with_damaged_tank(self):
+        """연료탱크 50% 미만 손상 시 소비 2배"""
+        vid = _make_vehicle(fuel_rate=0.5)
+        # tank_max=20, 50%=10 미만으로 설정
+        morld.set_unit_prop(vid, "vehicle:part:fuel_tank", 5)
+        cost = vehicle.estimate_fuel_cost(vid, 20)
+        assert cost == 20.0  # 20 * 0.5 * 2
+
+    def test_can_travel_normal(self):
+        vid = _make_vehicle(fuel=40, fuel_rate=0.5)
+        ok, reason = vehicle.can_travel(vid, 60)
+        assert ok is True  # 소비 30, 잔량 40
+
+    def test_can_travel_insufficient_fuel(self):
+        vid = _make_vehicle(fuel=10, fuel_rate=0.5)
+        ok, reason = vehicle.can_travel(vid, 60)
+        assert ok is False
+        assert "연료" in reason
+
+    def test_can_travel_disabled(self):
+        vid = _make_vehicle(status="disabled")
+        ok, reason = vehicle.can_travel(vid, 10)
+        assert ok is False
+        assert "기동" in reason
+
+    def test_can_travel_wrecked(self):
+        vid = _make_vehicle(status="wrecked")
+        ok, reason = vehicle.can_travel(vid, 10)
+        assert ok is False
+
+    def test_consume_fuel(self):
+        vid = _make_vehicle(fuel=40, fuel_rate=0.5)
+        consumed = vehicle.consume_fuel(vid, 20)
+        assert consumed == 10.0
+        assert vehicle.get_fuel(vid) == 30.0
+
+    def test_consume_fuel_clamp_zero(self):
+        """연료가 비용보다 적어도 0으로 클램프"""
+        vid = _make_vehicle(fuel=5, fuel_rate=0.5)
+        consumed = vehicle.consume_fuel(vid, 20)
+        assert vehicle.get_fuel(vid) == 0
+
+    def test_refuel(self):
+        vid = _make_vehicle(fuel=10, fuel_max=40)
+        actual = vehicle.refuel(vid, 20)
+        assert actual == 20
+        assert vehicle.get_fuel(vid) == 30
+
+    def test_refuel_clamp_max(self):
+        vid = _make_vehicle(fuel=35, fuel_max=40)
+        actual = vehicle.refuel(vid, 20)
+        assert actual == 5
+        assert vehicle.get_fuel(vid) == 40
+
+    def test_refuel_already_full(self):
+        vid = _make_vehicle(fuel=40, fuel_max=40)
+        actual = vehicle.refuel(vid, 10)
+        assert actual == 0
+
+    def test_prepare_move_success(self):
+        vid = _make_vehicle(fuel=40, fuel_rate=0.5)
+        ok, msg, consumed = vehicle.prepare_move(vid, 20)
+        assert ok is True
+        assert consumed == 10.0
+        assert vehicle.get_fuel(vid) == 30.0
+
+    def test_prepare_move_fail(self):
+        vid = _make_vehicle(fuel=5, fuel_rate=0.5)
+        ok, msg, consumed = vehicle.prepare_move(vid, 60)
+        assert ok is False
+        assert consumed == 0
+        assert vehicle.get_fuel(vid) == 5  # 변화 없음
+
+
+# ============================================
+# Part C: 부품 데미지
+# ============================================
+
+class TestDamage(_T):
+
+    def test_apply_damage_reduces_part(self):
+        vid = _make_vehicle()
+        import random
+        random.seed(42)
+        result = vehicle.apply_damage(vid, 10)
+        assert result is not None
+        assert result["damage"] == 10
+        assert result["new_hp"] >= 0
+
+    def test_apply_damage_recalculates_total(self):
+        vid = _make_vehicle()
+        import random
+        random.seed(42)
+        vehicle.apply_damage(vid, 10)
+        total = morld.get_unit_prop(vid, "vehicle:hp")
+        assert total == 190  # 200 - 10
+
+    def test_damage_causes_disabled(self):
+        """필수 부품 HP 0 → disabled"""
+        vid = _make_vehicle()
+        # 엔진 직접 파괴
+        morld.set_unit_prop(vid, "vehicle:part:engine", 0)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "disabled"
+
+    def test_damage_causes_exposed(self):
+        """HP 50% 이하 → exposed (자동차)"""
+        vid = _make_vehicle()
+        # 전체 HP를 100 이하로 (max=200)
+        morld.set_unit_prop(vid, "vehicle:part:engine", 20)
+        morld.set_unit_prop(vid, "vehicle:part:body", 20)
+        morld.set_unit_prop(vid, "vehicle:part:tire", 20)
+        morld.set_unit_prop(vid, "vehicle:part:window", 10)
+        morld.set_unit_prop(vid, "vehicle:part:fuel_tank", 10)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        assert morld.get_unit_prop(vid, "vehicle:hp") == 80
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+
+    def test_motorcycle_always_exposed(self):
+        """오토바이는 update_status에서 exposed 변경 안 함"""
+        vid = _make_vehicle(vtype="motorcycle")
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+        vehicle.update_status(vid)
+        # motorcycle은 exposed 로직 스킵 → 초기값 유지
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+
+    def test_wrecked_status(self):
+        """전체 HP 0 → wrecked"""
+        vid = _make_vehicle()
+        for part_id in vehicle.VEHICLE_PARTS:
+            morld.set_unit_prop(vid, f"vehicle:part:{part_id}", 0)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "wrecked"
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+
+    def test_damage_all_parts_zero_returns_none(self):
+        """모든 부품 HP 0 → apply_damage returns None"""
+        vid = _make_vehicle()
+        for part_id in vehicle.VEHICLE_PARTS:
+            morld.set_unit_prop(vid, f"vehicle:part:{part_id}", 0)
+        result = vehicle.apply_damage(vid, 10)
+        assert result is None
+
+    def test_parts_status_query(self):
+        vid = _make_vehicle()
+        parts = vehicle.get_vehicle_parts_status(vid)
+        assert len(parts) == 5
+        for p in parts:
+            assert p["status"] == "양호"
+
+    def test_damaged_parts_query(self):
+        vid = _make_vehicle()
+        morld.set_unit_prop(vid, "vehicle:part:tire", 0)
+        damaged = vehicle.get_damaged_parts(vid)
+        assert len(damaged) == 1
+        assert damaged[0]["part_id"] == "tire"
+        assert damaged[0]["status"] == "파손"
+
+    def test_no_window_motorcycle(self):
+        """오토바이: window 부품 없으면 parts_status에서 제외"""
+        vid = _make_vehicle(vtype="motorcycle")
+        # window 제거
+        morld.set_unit_prop(vid, "vehicle:part:window_max", 0)
+        parts = vehicle.get_vehicle_parts_status(vid)
+        part_ids = [p["part_id"] for p in parts]
+        assert "window" not in part_ids
+
+
+# ============================================
+# Part D: 수리 시스템
+# ============================================
+
+class TestRepair(_T):
+
+    def test_repair_restores_hp(self):
+        vid = _make_vehicle()
+        morld.set_unit_prop(vid, "vehicle:part:engine", 20)
+        vehicle._recalculate_total_hp(vid)
+
+        result = vehicle.repair_part(vid, "engine")
+        assert result is not None
+        assert result["old_hp"] == 20
+        assert result["new_hp"] == 50  # 20 + 30(restore)
+        assert result["hp_max"] == 60
+
+    def test_repair_clamp_max(self):
+        vid = _make_vehicle()
+        morld.set_unit_prop(vid, "vehicle:part:engine", 50)
+
+        result = vehicle.repair_part(vid, "engine")
+        assert result["new_hp"] == 60  # min(50+30, 60)
+
+    def test_repair_full_hp_returns_none(self):
+        vid = _make_vehicle()
+        result = vehicle.repair_part(vid, "engine")
+        assert result is None  # 이미 최대
+
+    def test_repair_invalid_part(self):
+        vid = _make_vehicle()
+        result = vehicle.repair_part(vid, "nonexistent")
+        assert result is None
+
+    def test_repair_restores_status(self):
+        """엔진 파손 → disabled → 수리 → normal"""
+        vid = _make_vehicle()
+        morld.set_unit_prop(vid, "vehicle:part:engine", 0)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "disabled"
+
+        vehicle.repair_part(vid, "engine")
+        assert morld.get_unit_prop(vid, "vehicle:status") == "normal"
+
+    def test_repair_restores_exposed(self):
+        """HP 50% 이하 → exposed → 수리로 50% 초과 → 보호 복원"""
+        vid = _make_vehicle()
+        # HP를 100 이하로 (max=200, 50%=100)
+        morld.set_unit_prop(vid, "vehicle:part:body", 0)    # -60
+        morld.set_unit_prop(vid, "vehicle:part:window", 0)  # -20
+        morld.set_unit_prop(vid, "vehicle:part:engine", 20) # -40
+        vehicle._recalculate_total_hp(vid)
+        # HP = 20+40+0+0+20 = 80 < 100
+        vehicle.update_status(vid)
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+
+        # body 수리 (0 → 30), engine 수리 (20 → 50)
+        vehicle.repair_part(vid, "body")
+        vehicle.repair_part(vid, "engine")
+        # HP = 50+40+30+0+20 = 140 > 100 → 보호
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 0
+
+    def test_repair_updates_total_hp(self):
+        vid = _make_vehicle()
+        morld.set_unit_prop(vid, "vehicle:part:tire", 0)
+        vehicle._recalculate_total_hp(vid)
+        assert morld.get_unit_prop(vid, "vehicle:hp") == 160
+
+        vehicle.repair_part(vid, "tire")
+        assert morld.get_unit_prop(vid, "vehicle:hp") == 185  # 160 + 25
+
+
+# ============================================
+# Part E: 탑승자 조회
+# ============================================
+
+class TestPassengers(_T):
+
+    def test_no_passengers(self):
+        vid = _make_vehicle()
+        assert vehicle.get_passengers(vid) == []
+
+    def test_with_passengers(self):
+        vid = _make_vehicle()
+        morld.set_unit_prop(vid, "seated_by:driver", 100)
+        morld.set_unit_prop(vid, "seated_by:passenger1", 101)
+        passengers = vehicle.get_passengers(vid)
+        assert 100 in passengers
+        assert 101 in passengers
+        assert len(passengers) == 2
+
+    def test_empty_seats_counted(self):
+        vid = _make_vehicle()
+        assert vehicle.get_seat_count(vid) == 4
+        assert vehicle.get_empty_seat_count(vid) == 4
+
+        morld.set_unit_prop(vid, "seated_by:driver", 100)
+        assert vehicle.get_empty_seat_count(vid) == 3
+
+    def test_is_driver(self):
+        vid = _make_vehicle()
+        morld.set_unit_prop(vid, "seated_by:driver", 100)
+        assert vehicle.is_driver(vid, 100) is True
+        assert vehicle.is_driver(vid, 101) is False
+
+
+# ============================================
+# Part F: 유틸리티
+# ============================================
+
+class TestUtility(_T):
+
+    def test_is_vehicle(self):
+        vid = _make_vehicle()
+        assert vehicle.is_vehicle(vid) is True
+        morld.register_unit(600, name="NotVehicle")
+        assert vehicle.is_vehicle(600) is False
+
+    def test_get_speed(self):
+        vid = _make_vehicle()
+        assert vehicle.get_speed(vid) == 3.0
+
+    def test_parse_interior_key(self):
+        assert vehicle.parse_interior_key("R4:L10") == (4, 10)
+        assert vehicle.parse_interior_key("R0:L0") == (0, 0)
+        assert vehicle.parse_interior_key(None) is None
+        assert vehicle.parse_interior_key("") is None
+        assert vehicle.parse_interior_key("invalid") is None
+
+    def test_parse_interior_key_edge(self):
+        assert vehicle.parse_interior_key("R12:L99") == (12, 99)

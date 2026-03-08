@@ -108,6 +108,7 @@ def main():
         "test_faye",
         "test_party",
         "test_inspect",
+        "test_vehicle",
     ]
 
     if filter_modules:

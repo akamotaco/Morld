@@ -116,6 +116,37 @@ def get_location_objects(region_id: int, location_id: int) -> list:
     return _location_objects.get((region_id, location_id), [])
 
 
+def relocate_object(instance_id: int,
+                    old_region: int, old_location: int,
+                    new_region: int, new_location: int):
+    """오브젝트를 다른 location으로 이동 (인덱스 갱신)
+
+    C# set_unit_location()과 함께 호출해야 함.
+    _location_objects 인덱스만 갱신하며, C# 위치 변경은 별도 수행.
+
+    Returns:
+        bool: 성공 여부 (인스턴스 미등록이면 False)
+    """
+    if instance_id not in _instances:
+        return False
+
+    old_key = (old_region, old_location)
+    new_key = (new_region, new_location)
+
+    # 이전 location에서 제거
+    old_list = _location_objects.get(old_key)
+    if old_list and instance_id in old_list:
+        old_list.remove(instance_id)
+
+    # 새 location에 추가
+    if new_key not in _location_objects:
+        _location_objects[new_key] = []
+    if instance_id not in _location_objects[new_key]:
+        _location_objects[new_key].append(instance_id)
+
+    return True
+
+
 def clear_location_objects():
     """location 인덱스 초기화 (챕터 전환 시)"""
     _location_objects.clear()
