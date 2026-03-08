@@ -21,12 +21,13 @@ class ConstructionSite(Object):
 
     def get_focus_text(self):
         progress = morld.get_unit_prop(self.instance_id, "건설:진척도") or 0
-        owner = morld.get_unit_prop(self.instance_id, "건설:소유자") or "불명"
         if progress >= 100:
-            status = "완성"
-        else:
-            status = f"건설 중 ({progress}%)"
-        return f"[건설현장] {status}\n소유자: {owner}"
+            return "건설이 완료된 구역. 정리가 필요하다."
+        if progress > 50:
+            return f"건설 중인 구역. 절반 이상 진행되었다. ({progress}%)"
+        if progress > 0:
+            return f"건설이 시작된 구역. 아직 갈 길이 멀다. ({progress}%)"
+        return "건설이 지정된 구역. 아직 착공하지 않았다."
 
     def build_progress(self):
         """건설 액션 핸들러 (call:build_progress)"""

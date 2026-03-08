@@ -51,6 +51,7 @@ build.register_recipe(BuildRecipe(
 # 조회
 recipe = build.get_recipe("cabin")
 recipes = build.get_recipes_for_tool("construction")
+all_recipes = build.get_all_recipes()  # {unique_id: BuildRecipe}
 ```
 
 ---
@@ -84,12 +85,17 @@ success, obj_id, msg = build.build_object(
 ### 3-1. 뼈대 건설
 
 ```python
-success, region_id, location_id, msg = build.build_location_frame(
-    builder_id,
+success, region_id, location_id, site_id, msg = build.build_location_frame(
+    builder_id,                      # 건축자 unit_id (None이면 원격 지정)
     source_region, source_location,  # 출입구가 생기는 위치
     gate_x,                          # gate X 좌표
     recipe_id="cabin",               # 레시피 (선택)
     room_name="오두막",               # 방 이름 (선택)
+)
+
+# 원격 건축 지정 (builder_id=None) — 시나리오03 공유 패턴
+success, r, l, site_id, msg = build.designate_build(
+    "cabin", source_region, source_location, gate_x
 )
 ```
 
@@ -98,6 +104,7 @@ success, region_id, location_id, msg = build.build_location_frame(
 2. 양방향 gate 생성 (source ↔ new)
 3. ConstructionSite 오브젝트 자동 배치
 4. Props 설정: `건설:진척도=0`, `건설:소유자`, `건설:레시피`
+5. `builder_id=None`이면 소유자를 "operator"로 설정
 
 ### 3-2. 재료 투입 (진척도 상승)
 
@@ -129,6 +136,7 @@ class ConstructionSite(Object):
 
 - `build_progress()`: 재료 목록 표시 → 확인 → `build.build_location_progress()` 호출
 - `check_progress()`: 현재 진척도/소유자/필요 재료 표시
+- `get_focus_text()`: 4단계 묘사 (미착공/초반/절반 이상/완료)
 
 ---
 
@@ -235,6 +243,8 @@ move_x:{targetX} → player.PositionX = targetX (즉시, 시간 소비 없음)
 ```python
 build.get_construction_progress(site_id)  # 진척도 (0-100)
 build.is_construction_complete(site_id)   # 완료 여부 (bool)
+build.get_all_recipes()                   # 전체 레시피 dict
+build.designate_build(recipe_id, ...)     # 원격 건축 지정
 ```
 
 ---

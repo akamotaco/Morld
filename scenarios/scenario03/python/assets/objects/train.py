@@ -125,7 +125,7 @@ class CRTConsole(Object):
 
         lines = ["[b]건축 지정[/b]\n\n건설할 시설을 선택하세요.\n"]
         for recipe_id, recipe in recipes.items():
-            mat_text = ", ".join(f"{k} x{v}" for k, v in recipe.materials.items())
+            mat_text = ", ".join(f"{uid} x{cnt}" for uid, cnt in recipe.materials)
             lines.append(f"[url=@proc:{recipe_id}]{recipe.name}[/url] ({mat_text})")
         lines.append("\n[url=@proc:cancel]취소[/url]")
 

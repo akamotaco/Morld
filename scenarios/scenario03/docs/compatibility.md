@@ -42,6 +42,7 @@
 | **보급/배급** | `time_elapsed` 이벤트 | 시간 이벤트 → `give_item` + 인력 생성 |
 | **취조** | Dialog 시스템 | 상담실 변형 — Dialog + 판정 로직 |
 | **사후 보고서** | Dialog/TextUI | prop 집계 → 텍스트 출력 |
+| **건축 시스템** | `build.py` | 동일 인터페이스 (BuildRecipe, build_location_frame 등) + 원격 건축 지정 (designate_build) |
 | **동적 맵 생성** | Region/Location/Gate | 2D 레이아웃 생성 → Location/Gate 변환 ([mapgen.md](mapgen.md) 참조) |
 
 ### 시나리오02 전용 (시나리오03에서 미사용)
@@ -54,7 +55,6 @@
 | combat.py (직접 전투) | 시나리오02 플레이어 직접 전투, 시나리오03은 간접 지휘 |
 | garden.py (텃밭) | 시나리오03 세계관과 무관 |
 | vehicle.py (차량) | 시나리오03은 열차(지저철)를 별도 설계 |
-| build.py (건축) | 시나리오03은 플랫폼 확장으로 대체 |
 
 ---
 

@@ -61,6 +61,31 @@ class MockMorld:
             **kwargs,
         }
 
+    def get_location_gates(self, region_id, location_id):
+        result = []
+        for (r, l, gid), data in self._gates.items():
+            if r == region_id and l == location_id:
+                result.append({
+                    "gate_id": gid,
+                    "x": data["x"],
+                    "connected_region": data["conn_region"],
+                    "connected_location": data["conn_location"],
+                    "arrival_x": data["arrival_x"],
+                })
+        return result
+
+    def set_location_length(self, region_id, location_id, length):
+        key = (region_id, location_id)
+        if key in self._locations:
+            self._locations[key]["length"] = length
+
+    def remove_location(self, region_id, location_id):
+        self._locations.pop((region_id, location_id), None)
+        # remove associated gates
+        to_remove = [k for k in self._gates if k[0] == region_id and k[1] == location_id]
+        for k in to_remove:
+            del self._gates[k]
+
     def add_region_gate(self, region_a, loc_a, region_b, loc_b, distance=0):
         self._region_gates.append((region_a, loc_a, region_b, loc_b, distance))
 
@@ -134,6 +159,10 @@ class MockMorld:
                 if type_filter is None or u["type"] == type_filter:
                     result.append(uid)
         return result
+
+    def remove_unit(self, unit_id):
+        self._units.pop(unit_id, None)
+        self._inventories.pop(unit_id, None)
 
     # === Item ===
     def add_item(self, item_id, name, equip_props=None, **kwargs):

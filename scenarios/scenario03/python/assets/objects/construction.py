@@ -2,6 +2,7 @@
 #
 # 건설 중인 Location에 자동 배치되는 오브젝트.
 # 진척도 추적 + 플레이어/NPC 건설 액션 제공.
+# 시나리오02와 동일한 인터페이스 (build_progress + check_progress).
 
 import morld
 import ui
@@ -12,44 +13,70 @@ class ConstructionSite(Object):
     """건설현장 - 건설 진행 추적용 오브젝트"""
     unique_id = "construction_site"
     name = "건설현장"
+    category = "structure"
     actions = [
+        "call:build_progress:건설",
         "call:check_progress:진척도 확인",
     ]
     props = {}
 
-    def check_progress(self):
-        """진척도 확인 UI"""
-        progress = morld.get_unit_prop(self.instance_id, "건설:진척도") or 0
-        recipe_id = morld.get_unit_prop(self.instance_id, "건설:레시피") or ""
-        owner = morld.get_unit_prop(self.instance_id, "건설:소유자") or "?"
+    def build_progress(self):
+        """건설 액션 핸들러 (call:build_progress)"""
+        import build
 
-        # 레시피 정보
-        recipe_name = recipe_id
-        materials_text = ""
-        try:
-            import build as build_module
+        progress = build.get_construction_progress(self.instance_id)
+        if progress >= 100:
+            yield ui.dialog(["이미 완성된 건물이다."])
+            return
+
+        recipe_id = morld.get_unit_prop(self.instance_id, "건설:레시피") or ""
+        recipe = build.get_recipe(recipe_id)
+
+        if recipe is None:
+            yield ui.dialog(["건설 정보를 확인할 수 없다."])
+            return
+
+        # 필요 재료 표시
+        lines = [f"건설 진척도: {progress}%", ""]
+        lines.append("필요 재료:")
+        for item_uid, count in recipe.materials:
+            lines.append(f"  - {item_uid} x{count}")
+        lines.append("")
+        lines.append("[url=@ret:confirm]재료를 투입한다[/url]")
+        lines.append("[url=@ret:cancel]그만둔다[/url]")
+
+        choice = yield ui.dialog(lines, autofill="off")
+        if choice != "confirm":
+            return
+
+        player_id = morld.get_player_id()
+        success, new_progress, msg = build.build_location_progress(
+            player_id, self.instance_id, recipe.materials
+        )
+        yield ui.dialog([msg])
+
+    def check_progress(self):
+        """진척도 확인 핸들러 (call:check_progress)"""
+        import build as build_module
+
+        progress = build_module.get_construction_progress(self.instance_id)
+        owner = morld.get_unit_prop(self.instance_id, "건설:소유자") or "불명"
+
+        lines = [f"건설현장 - 소유자: {owner}"]
+        if progress >= 100:
+            lines.append("상태: 완성")
+        else:
+            lines.append(f"진척도: {progress}%")
+
+            recipe_id = morld.get_unit_prop(self.instance_id, "건설:레시피") or ""
             recipe = build_module.get_recipe(recipe_id)
             if recipe:
-                recipe_name = recipe.name
-                mat_lines = []
-                for item_uid, count in recipe.materials.items():
-                    mat_lines.append(f"  {item_uid}: {count}")
-                materials_text = "\n".join(mat_lines)
-        except ImportError:
-            pass
+                lines.append("")
+                lines.append("필요 재료:")
+                for item_uid, count in recipe.materials:
+                    lines.append(f"  - {item_uid} x{count}")
 
-        lines = [
-            f"[b]{recipe_name} - 건설현장[/b]\n",
-            f"  진척도: {progress}%",
-            f"  지정자: {owner}",
-        ]
-        if materials_text:
-            lines.append(f"\n  필요 자재 (1회분):\n{materials_text}")
-
-        if progress >= 100:
-            lines.append("\n[i]건설이 완료되었습니다.[/i]")
-
-        yield ui.dialog("\n".join(lines))
+        yield ui.dialog(lines)
 
     def get_focus_text(self):
         """포커스 묘사"""

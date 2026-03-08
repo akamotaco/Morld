@@ -46,28 +46,28 @@ DEMO_QUESTS = {
 BUILD_RECIPES = {
     "barracks": {
         "name": "임시 막사",
-        "materials": {"plank": 5, "concrete_block": 3},
+        "materials": [("plank", 5), ("concrete_block", 3)],
         "progress_per_input": 10,  # 10%씩 진행
         "result_length": 60,       # 완성 시 Location 길이
         "description": "4인용 침실. 간이 침대와 사물함.",
     },
     "storage_room": {
         "name": "보관소",
-        "materials": {"metal_pipe": 3, "plank": 3},
+        "materials": [("metal_pipe", 3), ("plank", 3)],
         "progress_per_input": 10,
         "result_length": 50,
         "description": "자재/장비 보관 공간.",
     },
     "med_bay": {
         "name": "의료실",
-        "materials": {"metal_pipe": 2, "wire": 3, "plank": 2},
+        "materials": [("metal_pipe", 2), ("wire", 3), ("plank", 2)],
         "progress_per_input": 10,
         "result_length": 40,
         "description": "치료 및 약물 관리.",
     },
     "armory": {
         "name": "무기고",
-        "materials": {"metal_pipe": 5, "concrete_block": 2},
+        "materials": [("metal_pipe", 5), ("concrete_block", 2)],
         "progress_per_input": 10,
         "result_length": 50,
         "description": "장비 보관 및 정비.",

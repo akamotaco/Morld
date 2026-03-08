@@ -5,6 +5,9 @@ import morld
 class _T:
     def __init__(self):
         morld.reset()
+        from assets.objects import _instances, _location_objects
+        _instances.clear()
+        _location_objects.clear()
 
 
 class TestBuildRecipes(_T):
@@ -17,7 +20,7 @@ class TestBuildRecipes(_T):
         recipe = build_module.BuildRecipe(
             unique_id="test_room",
             name="테스트 방",
-            materials={"plank": 3},
+            materials=[("plank", 3)],
             base_length=40,
         )
         build_module.register_recipe(recipe)
@@ -26,8 +29,8 @@ class TestBuildRecipes(_T):
 
     def test_get_all_recipes(self):
         import build as build_module
-        r1 = build_module.BuildRecipe("a", "A", {"plank": 1})
-        r2 = build_module.BuildRecipe("b", "B", {"pipe": 2})
+        r1 = build_module.BuildRecipe("a", "A", materials=[("plank", 1)])
+        r2 = build_module.BuildRecipe("b", "B", materials=[("pipe", 2)])
         build_module.register_recipe(r1)
         build_module.register_recipe(r2)
         all_recipes = build_module.get_all_recipes()
@@ -38,7 +41,7 @@ class TestBuildRecipes(_T):
     def test_reset_clears_recipes(self):
         import build as build_module
         build_module.register_recipe(
-            build_module.BuildRecipe("x", "X", {})
+            build_module.BuildRecipe("x", "X")
         )
         build_module.reset()
         assert build_module.get_recipe("x") is None

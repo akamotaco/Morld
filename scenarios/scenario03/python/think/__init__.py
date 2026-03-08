@@ -62,6 +62,33 @@ class BaseAgent:
         self._insert_idle_job(job_name, duration)
         self._action_taken = True
 
+    def _is_at(self, target):
+        """target 위치에 있는지 확인"""
+        import morld
+        loc = morld.get_unit_location(self.unit_id)
+        if not loc:
+            return False
+        return (loc[0] == target.get("region_id")
+                and loc[1] == target.get("location_id"))
+
+    def _move_to(self, target, job_name="이동"):
+        """target 위치로 이동 job 삽입"""
+        import morld
+        morld.set_unit_location(
+            self.unit_id,
+            target["region_id"],
+            target["location_id"],
+        )
+        self._insert_idle_job(job_name, 60_000)
+        self._action_taken = True
+
+    def _remaining_millis_in_entry(self, entry):
+        """스케줄 엔트리 남은 시간"""
+        import morld
+        current = morld.get_game_time()
+        end = entry.get("end", 0)
+        return max(0, end - current)
+
 
 # 시나리오03 Agent 임포트 (자동 등록)
 from . import agents

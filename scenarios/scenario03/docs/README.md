@@ -66,6 +66,7 @@
 | 동적 맵 생성 | Region/Location/Gate API | BSP → Location/Gate 변환 파이프라인 |
 | 약물/인간성/성장 | needs.py + equip_props | prop 기반 확장 |
 | MIA/보급/헌납 | survival.py + inventory.py | prop + 이벤트 확장 |
+| 건축 시스템 | build.py | 동일 인터페이스 + 원격 건축 지정 (designate_build) |
 
 상세: [compatibility.md](compatibility.md)
 

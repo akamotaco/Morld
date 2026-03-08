@@ -55,6 +55,11 @@ def get_recipes_for_tool(tool_category):
     return [r for r in _recipes.values() if r.tool_category == tool_category]
 
 
+def get_all_recipes():
+    """등록된 전체 레시피 반환"""
+    return dict(_recipes)
+
+
 # ========================================
 # 오브젝트 건축
 # ========================================
@@ -112,15 +117,22 @@ def build_location_frame(builder_id, source_region, source_location, gate_x,
     2. 양방향 gate 생성 (source ↔ new)
     3. 건설현장 오브젝트 배치
 
-    Returns: (success, new_region_id, new_location_id, message)
+    Args:
+        builder_id: 건설자 unit_id (None이면 원격 지정)
+
+    Returns: (success, new_region_id, new_location_id, site_id, message)
     """
     recipe = get_recipe(recipe_id) if recipe_id else None
 
-    builder_info = morld.get_unit_info(builder_id)
-    owner_name = builder_info.get("name", "") if builder_info else ""
+    owner_name = ""
+    if builder_id:
+        builder_info = morld.get_unit_info(builder_id)
+        owner_name = builder_info.get("name", "") if builder_info else ""
 
     # 방 이름
-    name = room_name or (f"{owner_name}의 방" if owner_name else "새 방")
+    name = room_name or (recipe.name if recipe else None) or (
+        f"{owner_name}의 방" if owner_name else "새 방"
+    )
 
     # 다음 사용 가능한 location ID
     new_local_id = _next_location_id(source_region)
@@ -153,11 +165,11 @@ def build_location_frame(builder_id, source_region, source_location, gate_x,
     register_location_object(source_region, new_local_id, site_id)
 
     morld.set_unit_prop(site_id, "건설:진척도", 0)
-    morld.set_unit_prop(site_id, "건설:소유자", owner_name)
+    morld.set_unit_prop(site_id, "건설:소유자", owner_name or "operator")
     if recipe_id:
         morld.set_unit_prop(site_id, "건설:레시피", recipe_id)
 
-    return True, source_region, new_local_id, "뼈대 건설 완료"
+    return True, source_region, new_local_id, site_id, "뼈대 건설 완료"
 
 
 # ========================================
@@ -337,6 +349,20 @@ def get_construction_progress(site_id):
 def is_construction_complete(site_id):
     """건설 완료 여부"""
     return get_construction_progress(site_id) >= 100
+
+
+def designate_build(recipe_id, source_region, source_location, gate_x,
+                    room_name=None):
+    """원격 건축 지정 (builder_id=None)
+
+    오퍼레이터/플레이어가 위치를 지정하고, NPC가 실행.
+
+    Returns: (success, region_id, location_id, site_id, msg)
+    """
+    return build_location_frame(
+        None, source_region, source_location, gate_x,
+        recipe_id=recipe_id, room_name=room_name,
+    )
 
 
 # ========================================

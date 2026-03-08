@@ -284,12 +284,13 @@ class TestBuildLocationFrame(_T):
         )
         build.register_recipe(recipe)
 
-        success, region_id, new_loc_id, msg = build.build_location_frame(
+        success, region_id, new_loc_id, site_id, msg = build.build_location_frame(
             uid, 0, 5, 100, recipe_id="room_recipe", room_name="세라의 방"
         )
 
         assert success is True
         assert region_id == 0
+        assert site_id is not None
         assert msg == "뼈대 건설 완료"
 
         # 새 location 생성 확인
@@ -320,7 +321,7 @@ class TestBuildLocationFrame(_T):
         recipe = _make_recipe(unique_id="room_recipe", recipe_type="location")
         build.register_recipe(recipe)
 
-        success, _, new_loc_id, _ = build.build_location_frame(
+        success, _, new_loc_id, _site_id, _ = build.build_location_frame(
             uid, 0, 5, 100, recipe_id="room_recipe"
         )
 
@@ -345,7 +346,7 @@ class TestBuildLocationFrame(_T):
         recipe = _make_recipe(unique_id="r", recipe_type="location")
         build.register_recipe(recipe)
 
-        success, _, new_id, _ = build.build_location_frame(uid, 0, 5, 50, recipe_id="r")
+        success, _, new_id, _site_id, _ = build.build_location_frame(uid, 0, 5, 50, recipe_id="r")
         assert success is True
         # 0, 1, 5 이미 사용 중 → 2가 선택됨
         assert new_id == 2
