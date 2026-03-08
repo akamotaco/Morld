@@ -428,6 +428,25 @@ class MockMorld:
         """
         return list(getattr(self, '_vehicle_destinations', {}).get(vehicle_id, []))
 
+    def reconnect_interior_gate(self, int_region, int_local,
+                                new_ext_region, new_ext_local):
+        """내부 Location Gate 재연결 (C# API 모사)
+
+        _region_gate_connections에 기록하여 테스트에서 확인 가능.
+        """
+        if not hasattr(self, '_region_gate_connections'):
+            self._region_gate_connections = {}
+        self._region_gate_connections[(int_region, int_local)] = (
+            new_ext_region, new_ext_local)
+        return True
+
+    def add_region_gate(self, region_a, loc_a, region_b, loc_b, distance):
+        """RegionGate 등록 (C# API 모사)"""
+        if not hasattr(self, '_region_gate_connections'):
+            self._region_gate_connections = {}
+        self._region_gate_connections[(region_a, loc_a)] = (region_b, loc_b)
+        self._region_gate_connections[(region_b, loc_b)] = (region_a, loc_a)
+
     def is_same_building(self, r1, l1, r2, l2):
         """같은 건물 판정 (테스트에서는 항상 True)"""
         return True

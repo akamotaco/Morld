@@ -1,6 +1,6 @@
 # 차량 시스템 설계
 
-> **상태: Phase 9 마이그레이션 완료 (Region 1 폐기, Object 기반 전환)**
+> **상태: Phase 7 대형 차량 완료 (OldBus + BusInterior + Gate 재연결)**
 >
 > 기존 Region 방식(OldCar)을 폐기하고 Object 중심으로 재설계.
 >
@@ -11,6 +11,7 @@
 > - Phase 4: 연료 시스템 (주유소 + 제리캔) + 테스트 81개
 > - Phase 5: 전투 연동 (부품 데미지 + 노출 + 탑승자 피격) + 테스트 92개
 > - Phase 6: 수리 시스템 (재료 체크/소비 + 부품 선택 UI) + 테스트 102개
+> - Phase 7: 대형 차량 (OldBus + BusInterior + Gate 재연결 + Region 1 재활용) + 테스트 128개
 > - Phase 8: NPC 운전 Activity (5-phase 핸들러 + 도보 fallback) + 테스트 112개
 > - Phase 9: 마이그레이션 (OldCar→SedanCar, Region 1 폐기, C# API 교체) + 테스트 118개
 
@@ -712,12 +713,13 @@ def fill_jerrycan(self):
 
 | 파일 | 역할 |
 |------|------|
-| `assets/objects/vehicles.py` | Vehicle 기반 클래스 + 구체 차량 (Motorcycle, Car, Bus) |
+| `assets/objects/vehicles.py` | Vehicle 기반 클래스 + 구체 차량 (Motorcycle, SedanCar, OldBus) |
 | `assets/items/tools.py` | JerryCan 아이템 |
-| `assets/objects/city_objects.py` (또는 별도) | GasStationPump 오브젝트 |
-| `assets/locations/vehicles.py` | 대형 차량 내부 Location (재활용) |
+| `assets/objects/vehicles.py` (GasStationPump) | 주유기 오브젝트 |
+| `assets/locations/vehicles.py` | 대형 차량 내부 Location (BusInterior, BusSeat, BusCargo) |
+| `world/vehicle.py` | Region 1 초기화 (대형 차량 내부) |
 | `think/activities/drive.py` | NPC 운전 Activity 핸들러 |
-| `vehicle.py` (신규, 모듈) | 차량 유틸: 이동/연료소비/데미지/수리 공용 함수 |
+| `vehicle.py` | 차량 유틸: 이동/연료소비/데미지/수리/Gate 재연결 |
 | `combat.py` | 차량 전투 연동 (데미지 분배/노출 판정) |
 
 ---
@@ -728,13 +730,13 @@ def fill_jerrycan(self):
 
 | 현재 | 변경 후 |
 |------|---------|
-| Region 1 (차량) | **삭제** |
-| OldCar Location (R1:L0) | **삭제** |
-| CarDriverSeat Object | OldCar Vehicle Object에 통합 |
-| CarPassengerSeat Object | OldCar Vehicle Object에 통합 |
-| CarTrunk Object | OldCar Vehicle Object 인벤토리로 대체 |
+| Region 1 (OldCar 전용) | Region 1 (대형 차량 내부 — BusInterior) |
+| OldCar Location (R1:L0) | BusInterior Location (R1:L0) |
+| CarDriverSeat Object | SedanCar Vehicle Object에 통합 |
+| CarPassengerSeat Object | SedanCar Vehicle Object에 통합 |
+| CarTrunk Object | SedanCar Vehicle Object 인벤토리로 대체 |
 | Bicycle Object | Vehicle 기반으로 리팩토링 |
-| Gate R2:L4 ↔ R1:L0 | **삭제** (차량이 Object로 주차장에 직접 배치) |
+| Gate R2:L4 ↔ R1:L0 | 유지 (버스 내부 ↔ 주차장 연결) |
 
 ---
 
@@ -764,8 +766,8 @@ def fill_jerrycan(self):
 | 1 | `_location_objects` 갱신 | 높음 | `relocate_object()` 추가 | **완료** |
 | 2 | 전투 Object 미지원 | 중간 | 차량 전용 데미지 함수 분리 | 대기 |
 | 3 | 조작 방식 | 설계 | control_target 전환 방식 채택 | **확정** |
-| 4 | `set_unit_location` 자동 하차 | 높음 | C# 전용 API 필수 | 대기 |
-| 5 | Gate 연결점 변경 API | 중간 | ExecuteDrive 로직 일반화 | 대기 |
+| 4 | `set_unit_location` 자동 하차 | 높음 | C# `VehicleRelocate` API | **완료** |
+| 5 | Gate 연결점 변경 API | 중간 | C# `ReconnectInteriorGate` API | **완료** |
 | 6 | 탑승 중 전투 | 설계 | 후순위 (미정) | 대기 |
 | 7 | NPC 차량 판단 | 낮음 | 스케줄 명시 | 대기 |
 
@@ -781,7 +783,7 @@ def fill_jerrycan(self):
 | 4 | 연료 시스템 (소비 + 주유소 + 제리캔) | Phase 3 | **완료** |
 | 5 | 전투 연동 (부품 데미지 + 노출) | Phase 1 | **완료** |
 | 6 | 수리 시스템 | Phase 5 | **완료** |
-| 7 | 대형 차량 (내부 Location + Gate 재연결) | Phase 3 | 대기 |
+| 7 | 대형 차량 (내부 Location + Gate 재연결) | Phase 3 | **완료** |
 | 8 | NPC 운전 Activity | Phase 3 | **완료** |
 | 9 | 기존 코드 마이그레이션 | Phase 1~4 | **완료** |
 

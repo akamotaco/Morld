@@ -13,6 +13,7 @@ Part J: 전투 연동 (attack_vehicle)
 Part K: 수리 재료 (체크/소비)
 Part L: NPC 운전 핸들러
 Part M: get_vehicle_destinations + vehicle_relocate (C# API 연동)
+Part N: 대형 차량 (OldBus + BusInterior + interior Gate 재연결)
 """
 import sys
 import os
@@ -81,6 +82,14 @@ if not hasattr(_combat, "apply_damage"):
     _combat.apply_damage = _combat_apply_damage
 sys.modules.setdefault("combat", _combat)
 
+# 추가 stub (think.activities import chain 해소)
+for _stub_name in ["equipment", "temperature", "humidity", "congestion",
+                   "pollution", "fuel", "garden", "needs", "ground",
+                   "pregnancy", "gender", "inventory", "tone_templates"]:
+    if _stub_name not in sys.modules:
+        _stub = types.ModuleType(_stub_name)
+        sys.modules[_stub_name] = _stub
+
 # assets.registry stub (수리 재료 체크용) — 강제 교체
 _REGISTRY_MAP = {}
 _REGISTRY_NEXT_ID = [5000]
@@ -106,38 +115,50 @@ sys.modules["assets.registry"] = _registry  # 강제 교체
 # ============================================
 
 # assets.objects 내부 dict 직접 참조 (다른 테스트의 import 캐시 회피)
-try:
-    from assets.objects import (
-        _instances, _location_objects,
-        register_location_object, get_location_objects, relocate_object
-    )
-except ImportError:
-    # 다른 테스트가 assets.objects를 부분 로드한 경우 → 내부 dict 직접 구성
-    _instances = {}
-    _location_objects = {}
+_instances = {}
+_location_objects = {}
 
-    def register_location_object(region_id, location_id, instance_id):
-        key = (region_id, location_id)
-        if key not in _location_objects:
-            _location_objects[key] = []
-        _location_objects[key].append(instance_id)
 
-    def get_location_objects(region_id, location_id):
-        return _location_objects.get((region_id, location_id), [])
+def register_location_object(region_id, location_id, instance_id):
+    key = (region_id, location_id)
+    if key not in _location_objects:
+        _location_objects[key] = []
+    _location_objects[key].append(instance_id)
 
-    def relocate_object(instance_id, old_r, old_l, new_r, new_l):
-        if instance_id not in _instances:
-            return False
-        old_key = (old_r, old_l)
-        new_key = (new_r, new_l)
-        old_list = _location_objects.get(old_key)
-        if old_list and instance_id in old_list:
-            old_list.remove(instance_id)
-        if new_key not in _location_objects:
-            _location_objects[new_key] = []
-        if instance_id not in _location_objects[new_key]:
-            _location_objects[new_key].append(instance_id)
-        return True
+
+def get_location_objects(region_id, location_id):
+    return _location_objects.get((region_id, location_id), [])
+
+
+def get_instance(instance_id):
+    return _instances.get(instance_id)
+
+
+def relocate_object(instance_id, old_r, old_l, new_r, new_l):
+    if instance_id not in _instances:
+        return False
+    old_key = (old_r, old_l)
+    new_key = (new_r, new_l)
+    old_list = _location_objects.get(old_key)
+    if old_list and instance_id in old_list:
+        old_list.remove(instance_id)
+    if new_key not in _location_objects:
+        _location_objects[new_key] = []
+    if instance_id not in _location_objects[new_key]:
+        _location_objects[new_key].append(instance_id)
+    return True
+
+
+# assets.objects stub 등록 (garden_activity 등 import chain 해소)
+if "assets.objects" not in sys.modules:
+    _assets_objects = types.ModuleType("assets.objects")
+    _assets_objects._instances = _instances
+    _assets_objects._location_objects = _location_objects
+    _assets_objects.register_location_object = register_location_object
+    _assets_objects.get_location_objects = get_location_objects
+    _assets_objects.get_instance = get_instance
+    _assets_objects.relocate_object = relocate_object
+    sys.modules["assets.objects"] = _assets_objects
 
 import vehicle
 
@@ -1449,3 +1470,167 @@ class TestVehicleDestinations(_T):
         r2 = morld.get_vehicle_destinations(601)
         assert r1[0]["name"] == "A"
         assert r2[0]["name"] == "B"
+
+
+# ============================================
+# Part N: 대형 차량 (OldBus + BusInterior + interior Gate 재연결)
+# ============================================
+
+def _make_bus(vid=700, fuel=80, status="normal"):
+    """테스트용 대형 차량(버스) 등록"""
+    props = {
+        "vehicle:type": "bus",
+        "vehicle:fuel": fuel,
+        "vehicle:fuel_max": 80,
+        "vehicle:fuel_rate": 0.8,
+        "vehicle:speed": 2.0,
+        "vehicle:seats": 2,
+        "vehicle:status": status,
+        "vehicle:exposed": 0,
+        "driver_seat": 1,
+        "vehicle:interior": "R1:L0",
+        "vehicle:hp": 300,
+        "vehicle:hp_max": 300,
+        "vehicle:part:engine": 80,
+        "vehicle:part:engine_max": 80,
+        "vehicle:part:tire": 50,
+        "vehicle:part:tire_max": 50,
+        "vehicle:part:body": 100,
+        "vehicle:part:body_max": 100,
+        "vehicle:part:window": 30,
+        "vehicle:part:window_max": 30,
+        "vehicle:part:fuel_tank": 40,
+        "vehicle:part:fuel_tank_max": 40,
+        "seated_by:driver": -1,
+        "seated_by:passenger1": -1,
+    }
+    morld.register_unit(vid, name="TestBus", props=props,
+                        location=(2, 4), is_object=True)
+    return vid
+
+
+class TestLargeVehicle(_T):
+    """Part N: 대형 차량"""
+
+    def test_old_bus_class_props(self):
+        """OldBus 클래스 props 확인"""
+        # _make_bus 로 검증 (assets.objects.vehicles import 불가 — stub 환경)
+        vid = _make_bus()
+        assert morld.get_unit_prop(vid, "vehicle:type") == "bus"
+        assert morld.get_unit_prop(vid, "vehicle:interior") == "R1:L0"
+        assert morld.get_unit_prop(vid, "vehicle:seats") == 2
+        assert morld.get_unit_prop(vid, "vehicle:speed") == 2.0
+        assert morld.get_unit_prop(vid, "vehicle:fuel_max") == 80
+        assert morld.get_unit_prop(vid, "vehicle:fuel_rate") == 0.8
+
+    def test_old_bus_initial_disabled(self):
+        """OldBus 초기 상태: disabled (엔진 파손)"""
+        vid = _make_bus(status="disabled", fuel=0)
+        morld.set_unit_prop(vid, "vehicle:part:engine", 0)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "disabled"
+        assert morld.get_unit_prop(vid, "vehicle:part:engine") == 0
+        assert morld.get_unit_prop(vid, "vehicle:fuel") == 0
+        # can_travel should fail
+        ok, reason = vehicle.can_travel(vid, 10)
+        assert ok is False
+        assert reason == "기동 불가"
+
+    def test_parse_interior_key(self):
+        """vehicle:interior → (region_id, location_id) 파싱"""
+        assert vehicle.parse_interior_key("R1:L0") == (1, 0)
+        assert vehicle.parse_interior_key("R4:L10") == (4, 10)
+        assert vehicle.parse_interior_key(None) is None
+        assert vehicle.parse_interior_key("invalid") is None
+
+    def test_bus_move_reconnects_interior_gate(self):
+        """버스 이동 시 내부 Location Gate 재연결"""
+        vid = _make_bus()
+        pid = morld.create_id("unit")
+        morld._units[pid] = {
+            "info": {"region_id": 2, "location_id": 4},
+            "props": {}, "inventory": {}, "location": (2, 4),
+        }
+        morld.sit_on(pid, vid, "driver")
+
+        # 이동 실행
+        result = vehicle.vehicle_move_to(vid, 0, 20, 10)
+        assert result["success"] is True
+
+        # 차량 이동 확인
+        assert morld.get_unit_location(vid) == (0, 20)
+
+        # interior Gate 재연결 확인
+        gate_conn = morld._region_gate_connections.get((1, 0))
+        assert gate_conn == (0, 20), f"Gate should reconnect to (0, 20), got {gate_conn}"
+
+    def test_bus_move_no_gate_without_interior(self):
+        """interior prop 없는 차량은 Gate 재연결 하지 않음"""
+        vid = _make_vehicle()  # 일반 차량 (no interior)
+        pid = morld.create_id("unit")
+        morld._units[pid] = {
+            "info": {"region_id": 2, "location_id": 4},
+            "props": {}, "inventory": {}, "location": (2, 4),
+        }
+        morld.sit_on(pid, vid, "driver")
+        morld._region_gate_connections = {}
+
+        vehicle.vehicle_move_to(vid, 0, 20, 10)
+
+        # 일반 차량은 interior 없으므로 Gate 재연결 없음
+        gate_conn = morld._region_gate_connections.get((1, 0))
+        assert gate_conn is None
+
+    def test_bus_interior_passengers_stay(self):
+        """버스 이동 시 내부 Location 승객은 Location 안에 머무름"""
+        vid = _make_bus()
+        pid = morld.create_id("unit")
+        morld._units[pid] = {
+            "info": {"region_id": 2, "location_id": 4},
+            "props": {}, "inventory": {}, "location": (2, 4),
+        }
+        morld.sit_on(pid, vid, "driver")
+
+        # 내부 승객 (R1:L0에 있음)
+        interior_pid = morld.create_id("unit")
+        morld._units[interior_pid] = {
+            "info": {"region_id": 1, "location_id": 0},
+            "props": {}, "inventory": {}, "location": (1, 0),
+        }
+
+        result = vehicle.vehicle_move_to(vid, 0, 20, 10)
+        assert result["success"] is True
+
+        # 내부 승객은 이동하지 않음 (Location 안에 있으므로)
+        assert morld.get_unit_location(interior_pid) == (1, 0)
+
+    def test_bus_fuel_consumption(self):
+        """버스 연료 소비율 (0.8 × 거리)"""
+        vid = _make_bus(fuel=80)
+        cost = vehicle.estimate_fuel_cost(vid, 10)
+        assert cost == 8.0  # 0.8 × 10
+
+    def test_bus_speed(self):
+        """버스 속도 배율"""
+        vid = _make_bus()
+        speed = vehicle.get_speed(vid)
+        assert speed == 2.0
+
+    def test_reconnect_interior_gate_mock(self):
+        """mock_morld reconnect_interior_gate 동작 확인"""
+        result = morld.reconnect_interior_gate(1, 0, 3, 5)
+        assert result is True
+        assert morld._region_gate_connections[(1, 0)] == (3, 5)
+
+    def test_bus_disabled_cannot_move(self):
+        """기동 불가 버스는 이동 실패"""
+        vid = _make_bus(status="disabled")
+        pid = morld.create_id("unit")
+        morld._units[pid] = {
+            "info": {"region_id": 2, "location_id": 4},
+            "props": {}, "inventory": {}, "location": (2, 4),
+        }
+        morld.sit_on(pid, vid, "driver")
+
+        result = vehicle.vehicle_move_to(vid, 0, 20, 10)
+        assert result["success"] is False
+        assert "기동 불가" in result["message"]

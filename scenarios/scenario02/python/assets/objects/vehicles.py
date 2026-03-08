@@ -244,6 +244,54 @@ class Motorcycle(Vehicle):
     focus_text = {"default": "상태가 나쁘지 않은 오토바이. 빠르게 이동할 수 있을 것 같다."}
 
 
+class OldBus(Vehicle):
+    """낡은 버스 — 대형 차량, 내부 Location 연결
+
+    외부 Object (운전석 + 조수석) + 내부 Location (R1:L0, 별도 Region).
+    RegionGate로 내부↔외부 연결, 차량 이동 시 Gate 재연결.
+    """
+    unique_id = "old_bus"
+    name = "낡은 버스"
+    actions = [
+        "sit@driver:운전석 탑승",
+        "sit@passenger1:조수석 탑승",
+        "call:drive:운전",
+        "call:inspect:점검",
+        "call:refuel:주유@near",
+        "call:repair:수리@near",
+        "call:debug_props:(디버그) 속성 보기#",
+    ]
+    props = {
+        "vehicle:type": "bus",
+        "vehicle:seats": 2,         # 외부 직접 탑승분 (운전석+조수석)
+        "vehicle:speed": 2.0,
+        "vehicle:exposed": 0,
+        "driver_seat": 1,
+        "vehicle:hp": 300,
+        "vehicle:hp_max": 300,
+        "vehicle:status": "disabled",  # 디버그용: 초기 기동 불가
+        "vehicle:part:engine": 0,      # 엔진 파손 (기동 불가 원인)
+        "vehicle:part:engine_max": 80,
+        "vehicle:part:tire": 50,
+        "vehicle:part:tire_max": 50,
+        "vehicle:part:body": 100,
+        "vehicle:part:body_max": 100,
+        "vehicle:part:window": 30,
+        "vehicle:part:window_max": 30,
+        "vehicle:part:fuel_tank": 40,
+        "vehicle:part:fuel_tank_max": 40,
+        "vehicle:fuel": 0,
+        "vehicle:fuel_max": 80,
+        "vehicle:fuel_rate": 0.8,      # 대형 = 연비 나쁨
+        "vehicle:interior": "R1:L0",   # 내부 Location (Region 1)
+        "seated_by:driver": -1,
+        "seated_by:passenger1": -1,
+    }
+    focus_text = {
+        "default": "도로변에 버려진 낡은 버스. 녹이 심하지만 골격은 튼튼해 보인다.",
+    }
+
+
 class SedanCar(Vehicle):
     """승용차 — 4인승, 차체 보호"""
     unique_id = "sedan_car"

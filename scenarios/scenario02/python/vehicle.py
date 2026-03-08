@@ -679,6 +679,14 @@ def vehicle_move_to(vehicle_id, dest_region, dest_location, distance):
         _relocate(vehicle_id, old_region, old_location,
                   dest_region, dest_location)
 
+    # 5.5. 대형 차량: 내부 Location Gate 재연결
+    interior = morld.get_unit_prop(vehicle_id, "vehicle:interior")
+    if interior:
+        int_loc = parse_interior_key(interior)
+        if int_loc:
+            morld.reconnect_interior_gate(
+                int_loc[0], int_loc[1], dest_region, dest_location)
+
     # 6. 이동시간 계산 (속도 기반)
     speed = get_speed(vehicle_id)
     # 기본 도보 이동시간 = distance * 1분, 차량은 속도만큼 단축

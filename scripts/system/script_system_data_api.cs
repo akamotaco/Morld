@@ -2039,6 +2039,25 @@ namespace SE
                 int movedCount = actionSystem.VehicleRelocate(vehicleId, regionId, locationId);
                 return new PyInt(movedCount);
             });
+
+            // reconnect_interior_gate: 대형 차량 내부 Location의 Gate 외부 연결점 변경
+            // reconnect_interior_gate(int_region, int_local, new_ext_region, new_ext_local) → bool
+            morldModule.ModuleDict["reconnect_interior_gate"] = new PyBuiltinFunction("reconnect_interior_gate", args =>
+            {
+                if (args.Length < 4)
+                    throw PyTypeError.Create("reconnect_interior_gate(int_region, int_local, new_ext_region, new_ext_local) requires 4 arguments");
+
+                int intRegion = args[0].ToInt();
+                int intLocal = args[1].ToInt();
+                int newExtRegion = args[2].ToInt();
+                int newExtLocal = args[3].ToInt();
+
+                var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
+                if (actionSystem == null) return PyBool.False;
+
+                bool ok = actionSystem.ReconnectInteriorGate(intRegion, intLocal, newExtRegion, newExtLocal);
+                return ok ? PyBool.True : PyBool.False;
+            });
         }
 
         #endregion

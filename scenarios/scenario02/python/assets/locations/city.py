@@ -280,6 +280,10 @@ class ParkingLot(Location):
         from assets.objects.vehicles import SedanCar
         self.add_object(SedanCar(), x=50)
 
+        # 낡은 버스 (대형 차량 — 디버그용, 초기 기동 불가)
+        from assets.objects.vehicles import OldBus
+        self.add_object(OldBus(), x=160)
+
 
 class Hideout(Location):
     """은신처 - 도심 생존자들의 거처 (유키/엘라)"""

@@ -1,9 +1,8 @@
-# world/vehicle.py - 차량 전용 Region
+# world/vehicle.py - 대형 차량 내부 Region
 #
-# Region 1: 차량 관리 전용
-# - 밀폐형 탈것 (자동차 등)은 별도 Region에서 관리
-# - RegionGate로 외부 Location과 연결
-# - 운전 시 RegionGate의 LocationA가 변경됨
+# Region 1: 대형 차량 내부
+# - OldBus의 interior Location (R1:L0)
+# - RegionGate로 외부 Location과 연결 (초기: 주차장 R2:L4)
 
 import morld
 
@@ -15,8 +14,8 @@ REGION_ID = 1
 
 REGION = {
     "id": REGION_ID,
-    "name": "차량",
-    "describe_text": {"default": "탈것들이 관리되는 공간."},
+    "name": "차량 내부",
+    "describe_text": {"default": "대형 차량의 내부 공간."},
     "weather": "맑음"
 }
 
@@ -25,16 +24,16 @@ REGION = {
 # ========================================
 
 def initialize_terrain():
-    """차량 Region 초기화"""
-    from assets.locations.vehicles import OldCar
+    """대형 차량 내부 Region 초기화"""
+    from assets.locations.vehicles import BusInterior
 
     # Region 등록
     r = REGION
     morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])
 
-    # 차량 Location
+    # 내부 Location
     locations = {
-        0: OldCar(),  # 낡은 자동차 (Region 1, Location 0)
+        0: BusInterior(),  # 버스 내부 (Region 1, Location 0)
     }
 
     for location_id, loc in locations.items():

@@ -1,41 +1,64 @@
-# assets/locations/vehicles.py - 차량 Location (밀폐형 탈것)
+# assets/locations/vehicles.py - 대형 차량 내부 Location
 #
-# Region 1 (차량 전용 Region) 사용
-# - Location 0: 낡은 자동차 (old_car)
+# Region 1: 대형 차량 내부
+# - Location 0: 버스 내부 (bus_interior)
 #
-# 자동차는 밀폐형 탈것으로 Location 타입
-# - 별도의 Region(Region 1)에 속함
-# - RegionGate로 외부 Location과 연결
-# - 운전 시 RegionGate의 LocationA(외부 Region 쪽)가 변경됨
-# - 자동차 Location 자체는 변하지 않음
-# - 탑승자들은 자동차 Location에 계속 머무름
+# 대형 차량은 외부 Object + 내부 Location 구조:
+# - 외부 Object (OldBus): 운전석, 조수석 — 실외에 배치
+# - 내부 Location (BusInterior): 승객 좌석, 화물칸 — 별도 Region
+# - RegionGate로 외부↔내부 연결
+# - 차량 이동 시 Gate 재연결 (morld.reconnect_interior_gate)
 
-from assets.base import Location
-from assets.objects.vehicles import CarDriverSeat, CarPassengerSeat, CarTrunk
+import morld
+from assets.base import Location, Object
 
 
-class OldCar(Location):
+class BusSeat(Object):
+    """버스 좌석 — 내부 승객용"""
+    unique_id = "bus_seat"
+    name = "버스 좌석"
+    actions = ["sit@seat:앉기", "call:debug_props:(디버그) 속성 보기#"]
+    props = {"seated_by:seat": -1}
+    focus_text = {"default": "낡은 천 시트. 스프링이 좀 빠져 있지만 앉을 수 있다."}
+
+
+class BusCargo(Object):
+    """버스 화물칸 — 아이템 보관"""
+    unique_id = "bus_cargo"
+    name = "화물칸"
+    actions = ["call:look:살펴보기", "call:debug_props:(디버그) 속성 보기#"]
+    focus_text = {"default": "버스 뒤쪽의 화물 공간. 짐을 실을 수 있다."}
+
+    def look(self):
+        import ui
+        yield ui.dialog("화물칸을 열어보았다. 물건을 넣거나 꺼낼 수 있겠다.")
+
+
+class BusInterior(Location):
+    """버스 내부 — 대형 차량의 실내 공간
+
+    Region 1, Location 0에 배치.
+    좌석 4개 + 화물칸 1개.
     """
-    낡은 자동차 - 주차장에서 발견
-
-    밀폐형 탈것 (Location 타입)
-    - 항상 실내 취급
-    - 외부 정보 차단 (날씨 등)
-    - 운전석에서 "운전" 액션으로 이동
-    """
-    unique_id = "old_car"
-    name = "낡은 자동차"
+    unique_id = "bus_interior"
+    name = "버스 내부"
     is_indoor = True
     stay_duration = 0
+    geometry = 1  # line
+    length = 200
     describe_text = {
-        "default": "오래된 세단형 자동차. 시동이 걸릴지 모르겠다."
+        "default": "낡은 버스의 내부. 좌석이 몇 줄 남아 있고, 뒤쪽에 화물 공간이 있다.",
     }
 
     def instantiate(self, location_id: int, region_id: int):
-        """자동차 생성 + 내부 오브젝트 배치"""
         super().instantiate(location_id, region_id)
 
-        # 내부 오브젝트 배치 (바닥 대신)
-        self.add_object(CarDriverSeat())
-        self.add_object(CarPassengerSeat())
-        self.add_object(CarTrunk())
+        # 승객 좌석 4개
+        for i, x in enumerate([30, 60, 90, 120]):
+            seat = BusSeat()
+            seat.unique_id = f"bus_seat_{i}"
+            seat.name = f"버스 좌석 {i + 1}"
+            self.add_object(seat, x=x)
+
+        # 화물칸
+        self.add_object(BusCargo(), x=170)

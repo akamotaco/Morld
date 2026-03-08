@@ -14,8 +14,7 @@
 import morld
 
 from . import mansion   # Region 0: 숲속 저택
-# Region 1 (차량 전용)은 v2 마이그레이션으로 폐기됨
-# 차량은 Object 기반으로 각 Location에 직접 배치
+from . import vehicle   # Region 1: 대형 차량 내부 (버스 interior)
 from . import city      # Region 2: 황폐화된 도시
 from . import forest    # Region 3: 숲
 from . import mine      # Region 4: 폐광산
@@ -34,7 +33,8 @@ REGION_GATES = [
     # 숲 입구(R0:20) ↔ 도시 입구(R2:0) - ≈2시간 도보
     (0, mansion.REGION_ID, 20, city.REGION_ID, 0, 7200),
 
-    # Gate #1: 폐기됨 (Region 1 차량 전용 Region 제거, Object 기반 차량으로 대체)
+    # 버스 내부(R1:L0) ↔ 주차장(R2:L4) - 즉시 (Gate 0: 하차/탑승)
+    (1, vehicle.REGION_ID, 0, city.REGION_ID, 4, 0),
 
     # 숲 입구(R0:20) ↔ 숲 입구(R3:0) - ≈30분 도보
     (2, mansion.REGION_ID, 20, forest.REGION_ID, 0, 1800),
@@ -93,7 +93,7 @@ def initialize_world():
     """월드 초기화 (지형 + 시간 + RegionGate)"""
     # 각 Region 초기화
     mansion.initialize_terrain()
-    # vehicle.initialize_terrain() — Region 1 폐기 (Object 기반 차량으로 대체)
+    vehicle.initialize_terrain()  # Region 1: 대형 차량 내부
     city.initialize_terrain()
     forest.initialize_terrain()
     mine.initialize_terrain()

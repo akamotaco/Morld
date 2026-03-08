@@ -554,6 +554,47 @@ namespace SE
 			return movedCount;
 		}
 
+		/// <summary>
+		/// 대형 차량 내부 Location의 RegionGate 연결점을 새 외부 Location으로 변경
+		///
+		/// 차량 이동 시 내부 Location의 Gate가 가리키는 외부 위치를 갱신.
+		/// 내부 Location 측(interiorRef)은 고정, 반대편(외부)만 변경.
+		/// </summary>
+		/// <param name="interiorRegionId">내부 Location의 Region ID</param>
+		/// <param name="interiorLocalId">내부 Location의 Local ID</param>
+		/// <param name="newExtRegionId">새 외부 Region ID</param>
+		/// <param name="newExtLocalId">새 외부 Location ID</param>
+		/// <returns>성공 여부</returns>
+		public bool ReconnectInteriorGate(int interiorRegionId, int interiorLocalId,
+			int newExtRegionId, int newExtLocalId)
+		{
+			if (_hub.GetSystem("worldSystem") is not WorldSystem worldSystem) return false;
+
+			var terrain = worldSystem.GetTerrain();
+			var interiorRef = new LocationRef(interiorRegionId, interiorLocalId);
+
+			// 내부 Location에서 나가는 RegionGate 찾기
+			foreach (var rGate in terrain.GetRegionGatesFrom(interiorRef))
+			{
+				// 외부 쪽(반대편) 연결점 변경
+				var newExtRef = new LocationRef(newExtRegionId, newExtLocalId);
+				if (rGate.LocationA == interiorRef)
+				{
+					rGate.LocationB = newExtRef;
+				}
+				else
+				{
+					rGate.LocationA = newExtRef;
+				}
+
+				GD.Print($"[ActionSystem] ReconnectInteriorGate: {interiorRegionId}:{interiorLocalId} -> ext {newExtRegionId}:{newExtLocalId}");
+				return true;
+			}
+
+			GD.PrintErr($"[ActionSystem] ReconnectInteriorGate: no gate from {interiorRegionId}:{interiorLocalId}");
+			return false;
+		}
+
 		#endregion
 
 		/// <summary>
@@ -563,7 +604,7 @@ namespace SE
 		{
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 			GD.Print("  ActionSystem 로드됨");
-			GD.Print("  지원: GetVehicleDestinations, VehicleRelocate");
+			GD.Print("  지원: GetVehicleDestinations, VehicleRelocate, ReconnectInteriorGate");
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		}
 	}
