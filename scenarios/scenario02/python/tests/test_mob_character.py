@@ -575,14 +575,19 @@ class TestMiscSafety:
 # ============================================
 
 class TestBedReactions:
-    def test_on_bed_awake_high_affection(self):
-        """깨어있을 때 높은 호감도 반응"""
-        mob = _create_mob()
-        morld.register_unit(1, "Player")
+    def _make_bed(self):
+        """FakeBed를 mock에 등록 (sit_on이 target 조회 가능하도록)"""
+        morld.register_unit(999, "FakeBed", location=(0, 0), is_object=True)
+        morld.set_unit_prop(999, "seated_by:0", -1)
 
         class FakeBed:
             instance_id = 999
-        bed = FakeBed()
+        return FakeBed()
+
+    def test_on_bed_awake_high_affection(self):
+        """깨어있을 때 높은 호감도 반응"""
+        mob = _create_mob()
+        bed = self._make_bed()
         gen = mob.on_bed_awake(bed, 1, 0, 60, 0, mob.instance_id)
         results = list(gen)
         assert len(results) > 0
@@ -590,11 +595,7 @@ class TestBedReactions:
     def test_on_bed_awake_low_affection(self):
         """깨어있을 때 낮은 호감도 반응"""
         mob = _create_mob()
-        morld.register_unit(1, "Player")
-
-        class FakeBed:
-            instance_id = 999
-        bed = FakeBed()
+        bed = self._make_bed()
         gen = mob.on_bed_awake(bed, 1, 0, 20, 0, mob.instance_id)
         results = list(gen)
         assert len(results) > 0
@@ -602,11 +603,7 @@ class TestBedReactions:
     def test_on_bed_sleeping(self):
         """잠자고 있을 때 기본 반응"""
         mob = _create_mob()
-        morld.register_unit(1, "Player")
-
-        class FakeBed:
-            instance_id = 999
-        bed = FakeBed()
+        bed = self._make_bed()
         gen = mob.on_bed_sleeping(bed, 1, 0, 50, mob.instance_id)
         results = list(gen)
         assert len(results) > 0
