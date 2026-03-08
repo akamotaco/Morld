@@ -11,7 +11,8 @@ from .tools import (
     Torch, Rope,
     KitchenKnife, AlarmClock, FishingRod, HuntingBow, HerbPouch, CookingPot,
     Diary, ManagementLedger,
-    Lantern, WaterBottle
+    Lantern, WaterBottle,
+    CommanderBadge, Radio
 )
 from .resources import (
     Flour, Rice, Water, Bread, Berry, Meat,
@@ -73,6 +74,7 @@ __all__ = [
     'KitchenKnife', 'AlarmClock', 'FishingRod', 'HuntingBow', 'HerbPouch', 'CookingPot',
     'Diary', 'ManagementLedger',
     'Lantern', 'WaterBottle',
+    'CommanderBadge', 'Radio',
     # resources
     'Flour', 'Rice', 'Water', 'Bread', 'Berry', 'Meat',
     'Wood', 'Cloth',

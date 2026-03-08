@@ -313,13 +313,15 @@ class TestMemberManagement(_T):
         result = _party_mod.add_member(sid, 13)  # 4번째
         assert result is False
 
-    def test_add_member_duplicate_squad(self):
-        """이미 다른 분대 소속이면 실패"""
+    def test_add_member_auto_transfer(self):
+        """이미 다른 분대 소속이면 자동 전환"""
         s0 = _party_mod.create_squad()
         s1 = _party_mod.create_squad()
         _party_mod.add_member(s0, 10)
         result = _party_mod.add_member(s1, 10)
-        assert result is False
+        assert result is True
+        assert 10 not in _party_mod.get_squad_members(s0)
+        assert 10 in _party_mod.get_squad_members(s1)
 
     def test_remove_member(self):
         sid = _party_mod.create_squad()
@@ -1809,3 +1811,256 @@ class TestDisobedienceIntegration(_T):
             cmd.update(agent)
             jobs = morld.get_all_jobs(10)
             assert not any(j["name"] == "불복" for j in jobs)
+
+
+# ============================================
+# combat stub (세력 관계 테스트용)
+# ============================================
+
+_faction_relations = {}  # {(a, b): relation}
+
+
+def _combat_get_faction_relation(a, b, region_id=None):
+    if a is None or b is None:
+        return 0
+    if a == b:
+        return 1
+    key = (a, b) if a <= b else (b, a)
+    return _faction_relations.get(key, 0)
+
+
+# 기존 combat stub가 있으면 속성 추가, 없으면 새로 생성
+_combat_mod = sys.modules.get("combat")
+if _combat_mod is None:
+    _combat_mod = _types.ModuleType("combat")
+    sys.modules["combat"] = _combat_mod
+_combat_mod.get_faction_relation = _combat_get_faction_relation
+_combat_mod.is_faction_friendly = lambda a, b: _combat_get_faction_relation(a, b) > 0
+_combat_mod.is_faction_hostile = lambda a, b: _combat_get_faction_relation(a, b) < 0
+_combat_mod.register_faction_relation = lambda a, b, r: _faction_relations.__setitem__(
+    (a, b) if a <= b else (b, a), r
+)
+_combat_mod.GLOBAL_FACTION_RELATIONS = _faction_relations
+
+
+def _reset_combat():
+    _faction_relations.clear()
+
+
+# ============================================
+# Phase 6: 분대 자동 전환 테스트
+# ============================================
+
+class TestSquadAutoTransfer(_T):
+
+    def test_member_auto_transfer(self):
+        """다른 분대 멤버 → 새 분대로 자동 전환"""
+        sid1 = _party_mod.create_squad()
+        sid2 = _party_mod.create_squad()
+        _party_mod.assign_leader(sid1, 1)
+        _party_mod.assign_leader(sid2, 15)
+        _party_mod.add_member(sid1, 10)
+
+        assert _party_mod.is_in_squad(10)
+        assert _party_mod.get_squad_by_unit(10).squad_id == sid1
+
+        # 분대2로 전환
+        result = _party_mod.add_member(sid2, 10)
+        assert result is True
+        assert _party_mod.get_squad_by_unit(10).squad_id == sid2
+        assert 10 not in _party_mod.get_squad_members(sid1)
+        assert 10 in _party_mod.get_squad_members(sid2)
+
+    def test_leader_auto_transfer_to_member(self):
+        """다른 분대 리더 → 새 분대 멤버로 전환"""
+        sid1 = _party_mod.create_squad()
+        sid2 = _party_mod.create_squad()
+        _party_mod.assign_leader(sid1, 10)
+        _party_mod.assign_leader(sid2, 1)
+
+        # 세라(10)가 sid1의 리더인데 sid2의 멤버로 전환
+        result = _party_mod.add_member(sid2, 10)
+        assert result is True
+        sq1 = _party_mod.get_squad(sid1)
+        assert sq1.leader_id is None  # 리더 해제됨
+        assert 10 in _party_mod.get_squad_members(sid2)
+
+    def test_same_squad_member_returns_false(self):
+        """같은 분대에 이미 소속 → False"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        result = _party_mod.add_member(sid, 10)
+        assert result is False
+
+    def test_same_squad_leader_returns_false(self):
+        """같은 분대 리더를 멤버로 추가 → False"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+
+        result = _party_mod.add_member(sid, 1)
+        assert result is False
+
+    def test_date_blocks_auto_transfer_without_orphan(self):
+        """데이트 중 자동 전환 시도 → 실패, 기존 분대 유지 (고아 방지)"""
+        sid1 = _party_mod.create_squad()
+        sid2 = _party_mod.create_squad()
+        _party_mod.assign_leader(sid1, 1)
+        _party_mod.assign_leader(sid2, 15)
+        _party_mod.add_member(sid1, 10)
+
+        # 데이트 설정
+        _date_partner[1] = 10
+
+        # 자동 전환 시도 → 데이트로 인해 실패
+        result = _party_mod.add_member(sid2, 10)
+        assert result is False
+        # 기존 분대 소속 유지 (고아 아님)
+        assert _party_mod.get_squad_by_unit(10).squad_id == sid1
+        assert 10 in _party_mod.get_squad_members(sid1)
+
+        _date_partner.clear()
+
+
+# ============================================
+# Phase 6: 뱃지 기반 무조건 모집 테스트
+# ============================================
+
+class TestCommanderBadgeRecruit(_T):
+
+    def setUp(self):
+        _reset_combat()
+        # 세력 설정: 방문자 ↔ 숲속 저택 = 우호
+        _combat_mod.register_faction_relation("방문자", "숲속 저택", 1)
+        _combat_mod.register_faction_relation("방문자", "도시", 1)
+        # 플레이어 세력
+        morld.set_unit_prop(1, "세력", "방문자")
+        # NPC 세력
+        morld.set_unit_prop(10, "세력", "숲속 저택")  # 세라
+        morld.set_unit_prop(13, "세력", "도시")       # 유키
+
+    def test_badge_friendly_recruit_no_affection(self):
+        """뱃지 + 우호 세력 → 호감 없이 모집 가능"""
+        morld.set_unit_prop(1, "can:squad_manage", 1)
+        assert _party_config.can_recruit(10, 1) is True
+
+    def test_badge_friendly_recruit_ignores_rebellion(self):
+        """뱃지 + 우호 세력 → 반발 무시"""
+        morld.set_unit_prop(1, "can:squad_manage", 1)
+        morld.set_unit_prop(10, "관계:플레이어:반발", 99)
+        assert _party_config.can_recruit(10, 1) is True
+
+    def test_no_badge_needs_affection(self):
+        """뱃지 없음 → 기존 호감/복종 조건 적용"""
+        # can:squad_manage 미설정
+        assert _party_config.can_recruit(10, 1) is False
+        # 호감 설정 후 성공
+        morld.set_unit_prop(10, "관계:플레이어:호감", 50)
+        assert _party_config.can_recruit(10, 1) is True
+
+    def test_badge_neutral_faction_needs_affection(self):
+        """뱃지 보유해도 중립 세력 → 기존 조건 적용"""
+        morld.set_unit_prop(1, "can:squad_manage", 1)
+        morld.set_unit_prop(10, "세력", "중립세력")  # 관계 미등록 = 중립
+        assert _party_config.can_recruit(10, 1) is False
+
+    def test_badge_different_friendly_faction(self):
+        """뱃지 + 도시 세력(우호) → 모집 가능"""
+        morld.set_unit_prop(1, "can:squad_manage", 1)
+        assert _party_config.can_recruit(13, 1) is True
+
+    def test_has_commander_badge_false(self):
+        """can:squad_manage 미설정 → False"""
+        assert _party_config.has_commander_badge(1) is False
+
+    def test_has_commander_badge_true(self):
+        """can:squad_manage=1 → True"""
+        morld.set_unit_prop(1, "can:squad_manage", 1)
+        assert _party_config.has_commander_badge(1) is True
+
+    def test_is_faction_friendly_to(self):
+        """우호 세력 판정"""
+        assert _party_config.is_faction_friendly_to(1, 10) is True
+
+    def test_is_faction_friendly_to_neutral(self):
+        """중립 세력 판정"""
+        morld.set_unit_prop(10, "세력", "중립")
+        assert _party_config.is_faction_friendly_to(1, 10) is False
+
+
+# ============================================
+# Phase 6: Order 기간제 테스트
+# ============================================
+
+class TestOrderDuration(_T):
+
+    def test_order_duration_fields(self):
+        """Order에 duration_ms, started_at, completed 필드"""
+        order = Order("수색", duration_ms=5 * 3600_000)
+        assert order.duration_ms == 5 * 3600_000
+        assert order.started_at is None
+        assert order.completed is False
+
+    def test_order_no_duration(self):
+        """duration_ms=None → 무제한"""
+        order = Order("follow")
+        assert order.duration_ms is None
+        assert order.is_expired(999_999_999) is False
+
+    def test_order_is_expired(self):
+        """시간 초과 → is_expired True"""
+        order = Order("수색", duration_ms=5 * 3600_000)
+        order.started_at = 100_000
+        # 5시간 미만 → 미만료
+        assert order.is_expired(100_000 + 4 * 3600_000) is False
+        # 5시간 정확히 → 만료
+        assert order.is_expired(100_000 + 5 * 3600_000) is True
+        # 5시간 초과 → 만료
+        assert order.is_expired(100_000 + 6 * 3600_000) is True
+
+    def test_order_completed_flag(self):
+        """completed 플래그 토글"""
+        order = Order("수집:재료", duration_ms=3600_000)
+        assert order.completed is False
+        order.completed = True
+        assert order.completed is True
+
+    def test_set_order_auto_started_at(self):
+        """set_order() 시 started_at 자동 기록"""
+        morld._time = 10_000_000  # mock 시간 설정
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        order = Order("수색", duration_ms=3600_000)
+        _party_mod.set_order(sid, 10, order)
+
+        saved = _party_mod.get_order(sid, 10)
+        assert saved.started_at == 10_000_000
+
+    def test_set_order_preserves_explicit_started_at(self):
+        """started_at 명시 설정 시 유지"""
+        sid = _party_mod.create_squad()
+        _party_mod.assign_leader(sid, 1)
+        _party_mod.add_member(sid, 10)
+
+        agent = FakeAgentWithOrders(10)
+        _register_agent(agent)
+
+        order = Order("수색")
+        order.started_at = 5_000_000
+        _party_mod.set_order(sid, 10, order)
+
+        saved = _party_mod.get_order(sid, 10)
+        assert saved.started_at == 5_000_000
+
+    def test_long_duration_24h_plus(self):
+        """24시간 이상 기간도 지원"""
+        order = Order("경계", duration_ms=48 * 3600_000)
+        order.started_at = 0
+        assert order.is_expired(47 * 3600_000) is False
+        assert order.is_expired(48 * 3600_000) is True

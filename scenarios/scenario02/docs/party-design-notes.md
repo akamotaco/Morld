@@ -1,6 +1,6 @@
 # 파티 시스템 설계 노트
 
-> **상태: Phase 5 구현 완료 (연동/마무리 — 전투 합류, 데이트 상호 배제, 불복 판정, 116개 테스트)**
+> **상태: Phase 6 구현 완료 (지휘관의뱃지, 분대 자동 전환, 기간제 Order, 136개 테스트)**
 >
 > 이 문서는 파티 시스템의 설계 논의(Section 1~7) + 구현 명세(Section 8)를 포함합니다.
 > 기존 `party-implementation.md`(v1)을 대체하는 최신 명세입니다.
@@ -11,6 +11,7 @@
 > - Phase 3 ✅: follow 스케줄 (E1), order 전환 (E2), gate 동기화 (E3), 귀환 (E4), 92개 테스트
 > - Phase 4 ✅: 플레이어 UI (can: props, 모집/지시/해산 액션, 109개 테스트)
 > - Phase 5 ✅: 연동/마무리 (전투 합류 G1, 데이트 상호 배제 G2, 불복 판정 F2, 116개 테스트)
+> - Phase 6 ✅: 지휘관의뱃지 (H1), 분대 자동 전환 (H2), 기간제 Order (H3), 무전기 아이템 (H4), 136개 테스트
 
 ---
 
@@ -1804,4 +1805,155 @@ Phase 5 — 연동/마무리 ✅ 완료
   20. ✅ 데이트 상호 배제 (G2) — party.add_member + date.can_request_date 양방향 차단
   21. ✅ 불복 판정 (F2) — CommandPhase에서 handler 디스패치 전 check_disobedience 호출
   22. ✅ 테스트: 116개 파티 테스트, 848/848 전체 통과
+
+Phase 6 — 지휘관의뱃지 + 기간제 Order ✅ 완료
+  23. ✅ 지휘관의뱃지 아이템 (H1) — can:squad_manage prop, 우호 세력 무조건 모집
+  24. ✅ 무전기 아이템 (H4) — can:radio prop (무전 탭 활성화 준비)
+  25. ✅ 분대 자동 전환 (H2) — add_member()가 기존 분대에서 자동 제거 후 편입
+  26. ✅ 기간제 Order (H3) — duration_ms, started_at, completed, is_expired()
+  27. ✅ 챕터 1 배치 — 2층 창고(R0,L5)에 뱃지+무전기 배치
+  28. ✅ 테스트: 136개 파티 테스트, 886/886 전체 통과
 ```
+
+---
+
+### 8.9 Section H: 지휘관의뱃지 + 기간제 Order
+
+#### H1. 지휘관의뱃지 (Commander Badge)
+
+분대 테스트용 핵심 아이템. 인벤토리 보유만으로 분대 관리 기능 활성화.
+
+```python
+# assets/items/tools.py
+
+class CommanderBadge(Item):
+    unique_id = "commander_badge"
+    name = "지휘관의 뱃지"
+    category = "key_item"
+    passive_props = {"can:squad_manage": 1}
+```
+
+**뱃지 효과:**
+- `can:squad_manage` prop → 분대 관리 탭 활성화 (UI 조건)
+- 우호 세력 캐릭터 → **호감/복종/반발 무시**, 무조건 모집 가능
+
+**모집 판정 변경 (party_config.py):**
+```python
+def can_recruit(unit_id, recruiter_id):
+    # 뱃지 + 우호 세력 → 무조건 수락 (기존 조건 건너뜀)
+    if has_commander_badge(recruiter_id) and is_faction_friendly_to(recruiter_id, unit_id):
+        return True
+    # 기존 호감/복종 판정 ...
+
+def has_commander_badge(unit_id):
+    val = morld.get_unit_prop(unit_id, "can:squad_manage")
+    return val is not None and val >= 1
+
+def is_faction_friendly_to(unit_a, unit_b):
+    from combat import get_faction_relation
+    faction_a = morld.get_unit_prop(unit_a, "세력")
+    faction_b = morld.get_unit_prop(unit_b, "세력")
+    return get_faction_relation(faction_a, faction_b) > 0
+```
+
+**배치:** 2층 창고(R0,L5) — chapter_1.py `_instantiate_squad_items()`
+
+#### H2. 분대 자동 전환
+
+캐릭터는 동시에 하나의 분대에만 소속 가능. `add_member()` 호출 시 이미 다른 분대에 소속이면 **자동 제거 후 편입**.
+
+```python
+def add_member(squad_id, unit_id):
+    # 같은 분대 → False
+    if _unit_squad.get(unit_id) == squad_id:
+        return False
+
+    # 다른 분대 소속 → 자동 제거
+    if unit_id in _unit_squad:
+        old_squad = _squads.get(_unit_squad[unit_id])
+        if old_squad.leader_id == unit_id:
+            remove_leader(old_squad_id)    # 리더였으면 리더 해제
+        else:
+            remove_member(old_squad_id, unit_id)
+    # ... 새 분대에 등록
+```
+
+**이전 동작과의 차이:**
+| 상황 | 이전 (Phase 5) | 현재 (Phase 6) |
+|------|---------------|---------------|
+| 다른 분대 멤버 | `return False` | 자동 제거 → 새 분대 편입 |
+| 다른 분대 리더 | `return False` | 리더 해제 → 새 분대 멤버로 편입 |
+| 같은 분대 멤버/리더 | `return False` | `return False` (변경 없음) |
+
+#### H3. 기간제 Order
+
+버그 방지를 위한 지시 타임아웃. 모든 지시에 선택적 제한 시간 부여.
+
+```python
+class Order:
+    def __init__(self, order_type, target=None,
+                 priority=0.0, stealth=0.0,
+                 duration_ms=None):          # 제한 시간 (None=무제한)
+        ...
+        self.duration_ms = duration_ms
+        self.started_at = None               # set_order() 시 자동 기록
+        self.completed = False               # 목표 달성 시 True
+
+    def is_expired(self, current_time_ms):
+        if self.duration_ms is None or self.started_at is None:
+            return False
+        return (current_time_ms - self.started_at) >= self.duration_ms
+```
+
+**`set_order()` 자동 기록:**
+```python
+def set_order(squad_id, unit_id, order):
+    ...
+    if order.started_at is None:
+        time_info = morld.get_time_info()
+        if time_info:
+            order.started_at = time_info.get("total_millis", 0)
+    ...
+```
+
+**완료 보고 흐름 (향후 CommandPhase에서 구현):**
+```
+분대원 think():
+  order 목표 달성 → order.completed = True
+
+분대장 think():
+  pending = [m for m in members if orders[m].completed]
+  if all completed:
+      현재 지시 세트 종료 → 다음 지시 생성
+  timeout 도달:
+      자동 종료 (clear_order)
+```
+
+**사용 예시:**
+```python
+# 5시간 아이템 탐색
+order = Order("수색", duration_ms=5 * 3600_000)
+
+# 24시간 경계 근무
+order = Order("경계", duration_ms=24 * 3600_000)
+
+# 무제한 따라가기
+order = Order("follow")  # duration_ms=None
+```
+
+#### H4. 무전기 (Radio)
+
+분대원 간 원거리 통신용 아이템. 무전 탭 활성화.
+
+```python
+class Radio(Item):
+    unique_id = "radio"
+    name = "무전기"
+    category = "key_item"
+    passive_props = {"can:radio": 1}
+```
+
+**무전 시스템 (향후 구현):**
+- `can:radio` prop → 무전 탭 활성화
+- 분대원 간 대화 = 무전 로그에 누적 (행동 로그와 별도 채널)
+- 무전기 미소유 분대원 → 무전 불가, 직접 대면 보고만 가능

@@ -49,11 +49,15 @@ class Order:
     """분대장 → 분대원 지시"""
 
     def __init__(self, order_type, target=None,
-                 priority=0.0, stealth=0.0):
+                 priority=0.0, stealth=0.0,
+                 duration_ms=None):
         self.order_type = order_type    # "주타입" 또는 "주타입:부타입"
         self.target = target            # {region_id, location_id} 또는 None
         self.priority = priority        # -1.0 아이템 수집 ↔ +1.0 적 퇴치
         self.stealth = stealth          # 0.0 노출 ↔ 1.0 은밀
+        self.duration_ms = duration_ms  # 제한 시간 (None=무제한)
+        self.started_at = None          # set_order() 시 자동 기록 (ms)
+        self.completed = False          # 분대원이 목표 달성 시 True
 
     def main_type(self):
         return self.order_type.split(":")[0]
@@ -62,8 +66,20 @@ class Order:
         parts = self.order_type.split(":")
         return parts[1] if len(parts) > 1 else "*"
 
+    def is_expired(self, current_time_ms):
+        """기간제 타임아웃 여부"""
+        if self.duration_ms is None or self.started_at is None:
+            return False
+        return (current_time_ms - self.started_at) >= self.duration_ms
+
     def __repr__(self):
-        return f"<Order({self.order_type}, priority={self.priority}, stealth={self.stealth})>"
+        parts = [f"Order({self.order_type}, priority={self.priority}, stealth={self.stealth}"]
+        if self.duration_ms is not None:
+            parts.append(f", duration={self.duration_ms}ms")
+        if self.completed:
+            parts.append(", completed")
+        parts.append(")")
+        return f"<{''.join(parts)}>"
 
 
 # ========================================
@@ -198,7 +214,11 @@ def change_leader(squad_id, new_leader_id):
 # ========================================
 
 def add_member(squad_id, unit_id):
-    """멤버 등록 (FSM push 하지 않음 — 지시 부여 시 push)"""
+    """멤버 등록 (FSM push 하지 않음 — 지시 부여 시 push)
+
+    이미 다른 분대 소속이면 기존 분대에서 자동 제거 후 편입.
+    같은 분대에 이미 소속이면 False.
+    """
     squad = _squads.get(squad_id)
     if not squad:
         return False
@@ -206,10 +226,7 @@ def add_member(squad_id, unit_id):
     if squad.is_full():
         return False
 
-    if unit_id in _unit_squad:
-        return False  # 이미 다른 분대 소속
-
-    # G2: 데이트 중 모집 불가
+    # G2: 데이트 중 모집 불가 (상태 변경 전에 체크)
     try:
         from date import is_on_date, get_date_partner
         player_id = morld.get_player_id()
@@ -217,6 +234,20 @@ def add_member(squad_id, unit_id):
             return False
     except ImportError:
         pass
+
+    # 이미 같은 분대 소속 (리더 포함)
+    existing_squad_id = _unit_squad.get(unit_id)
+    if existing_squad_id == squad_id:
+        return False
+
+    # 다른 분대 소속 → 자동 제거 후 전환
+    if existing_squad_id is not None:
+        old_squad = _squads.get(existing_squad_id)
+        if old_squad:
+            if old_squad.leader_id == unit_id:
+                remove_leader(existing_squad_id)
+            else:
+                remove_member(existing_squad_id, unit_id)
 
     squad.members.append(unit_id)
     _unit_squad[unit_id] = squad_id
@@ -339,6 +370,12 @@ def set_order(squad_id, unit_id, order):
         _stop_follow(unit_id)
     elif old_type != "follow" and new_type == "follow":
         _start_follow(unit_id)
+
+    # started_at 자동 기록
+    if order.started_at is None:
+        time_info = morld.get_time_info()
+        if time_info:
+            order.started_at = time_info.get("total_millis", 0)
 
     squad.orders[unit_id] = order
     _ensure_party_phases(unit_id)

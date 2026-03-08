@@ -96,10 +96,13 @@ def initialize():
     # 8. 소비 아이템 배치
     _instantiate_consumables()
 
-    # 9. 전 맵 오염도 등록
+    # 9. 분대 관련 아이템 배치
+    _instantiate_squad_items()
+
+    # 10. 전 맵 오염도 등록
     _register_pollution()
 
-    # 10. 캐릭터 인벤토리 슬롯 초기화
+    # 11. 캐릭터 인벤토리 슬롯 초기화
     _init_inventory_slots()
 
     print("[chapter_1] Main chapter initialized: full map with NPCs and nature objects")
@@ -270,6 +273,22 @@ def _instantiate_consumables():
         count += 1
 
     print(f"[chapter_1] {count} consumable items placed")
+
+
+def _instantiate_squad_items():
+    """분대 관련 아이템 (지휘관의뱃지, 무전기) 생성 및 배치 — 2층 창고(R0,L5)"""
+    from assets.items.tools import CommanderBadge, Radio
+
+    import ground as ground_module
+    ground_id = ground_module.ensure_ground_at(0, 5, 0)
+
+    for item_cls in [CommanderBadge, Radio]:
+        item = item_cls()
+        item_id = morld.create_id("item")
+        item.instantiate(item_id)
+        morld.give_item(ground_id, item_id, 1)
+
+    print("[chapter_1] Squad items placed at 2F storage (R0,L5)")
 
 
 def _register_pollution():

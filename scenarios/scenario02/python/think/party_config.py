@@ -84,12 +84,17 @@ def can_recruit(unit_id, recruiter_id):
     """모집 가능 여부 판정
 
     판정:
+    - 지휘관의뱃지 보유 + 우호 세력 → 무조건 수락
     - 반발 >= rebellion_max → 거절 (무조건)
     - 호감 >= affection OR 복종 >= submission → 수락
     """
     info = morld.get_unit_info(unit_id)
     if not info:
         return False
+
+    # 뱃지 보유 + 우호 세력 → 무조건 모집 가능
+    if has_commander_badge(recruiter_id) and is_faction_friendly_to(recruiter_id, unit_id):
+        return True
 
     unique_id = info.get("unique_id") or info.get("name", "")
     condition = get_recruit_condition(unique_id)
@@ -111,6 +116,23 @@ def can_recruit(unit_id, recruiter_id):
 
     # 호감 OR 복종 충족 → 수락
     return affection >= condition["affection"] or submission >= condition["submission"]
+
+
+def has_commander_badge(unit_id):
+    """지휘관의뱃지 보유 여부 (can:squad_manage prop 체크)"""
+    val = morld.get_unit_prop(unit_id, "can:squad_manage")
+    return val is not None and val >= 1
+
+
+def is_faction_friendly_to(unit_a, unit_b):
+    """두 유닛이 우호 세력인지 (세력 관계 > 0)"""
+    try:
+        from combat import get_faction_relation
+        faction_a = morld.get_unit_prop(unit_a, "세력")
+        faction_b = morld.get_unit_prop(unit_b, "세력")
+        return get_faction_relation(faction_a, faction_b) > 0
+    except ImportError:
+        return False
 
 
 def check_disobedience(unit_id, leader_id, order):

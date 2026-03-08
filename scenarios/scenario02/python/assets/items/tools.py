@@ -587,3 +587,54 @@ class Broom(Item):
             yield ui.dialog("조금 깨끗해진 것 같다.")
 
 
+# ========================================
+# 분대 관련 아이템
+# ========================================
+
+class CommanderBadge(Item):
+    """
+    지휘관의 뱃지
+
+    인벤토리 보유 시 분대 관리 기능 활성화.
+    우호 세력 캐릭터를 조건 없이 분대원으로 임명 가능.
+    """
+    unique_id = "commander_badge"
+    name = "지휘관의 뱃지"
+    category = "key_item"
+    passive_props = {"can:squad_manage": 1}
+    equip_props = {}
+    value = 0
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """지휘관의 뱃지 살펴보기"""
+        yield ui.dialog([
+            "금속 재질의 오래된 뱃지다.",
+            "이것을 가지고 있으면 분대를 편성하고 지휘할 수 있다.",
+            "우호적인 세력의 인물이라면 조건 없이 분대에 임명할 수 있다."
+        ])
+
+
+class Radio(Item):
+    """
+    무전기
+
+    인벤토리 보유 시 무전 탭 활성화.
+    분대원 간 원거리 통신 가능.
+    """
+    unique_id = "radio"
+    name = "무전기"
+    category = "key_item"
+    passive_props = {"can:radio": 1}
+    equip_props = {}
+    value = 0
+    actions = ["take@container", "call:look:살펴보기@inventory"]
+
+    def look(self):
+        """무전기 살펴보기"""
+        yield ui.dialog([
+            "휴대용 무전기다.",
+            "분대원들과 원거리에서도 소통할 수 있다."
+        ])
+
+
