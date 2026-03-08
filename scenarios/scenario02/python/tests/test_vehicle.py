@@ -10,6 +10,9 @@ Part G: 탑승/하차 시스템
 Part H: control_target + vehicle_move_to
 Part I: 주유 시스템
 Part J: 전투 연동 (attack_vehicle)
+Part K: 수리 재료 (체크/소비)
+Part L: NPC 운전 핸들러
+Part M: get_vehicle_destinations + vehicle_relocate (C# API 연동)
 """
 import sys
 import os
@@ -1359,3 +1362,90 @@ class TestNpcDrive(_T):
         handle_drive(agent, entry)
         assert agent._activity_phase == "idle"
         assert any(j[0] == "move" for j in agent._jobs)
+
+
+# ============================================
+# Part M: get_vehicle_destinations + vehicle_relocate (C# API 연동)
+# ============================================
+
+class TestVehicleDestinations(_T):
+    """C# get_vehicle_destinations API 모사 테스트"""
+
+    def test_get_vehicle_destinations_empty(self):
+        """목적지 미설정 → 빈 리스트"""
+        vid = _make_vehicle()
+        result = morld.get_vehicle_destinations(vid)
+        assert result == []
+
+    def test_get_vehicle_destinations_set(self):
+        """목적지 설정 → 반환"""
+        vid = _make_vehicle()
+        dests = [
+            {"region_id": 2, "location_id": 1, "name": "주유소", "distance": 300},
+            {"region_id": 4, "location_id": 0, "name": "광산 입구", "distance": 1800},
+        ]
+        morld._vehicle_destinations = {vid: dests}
+        result = morld.get_vehicle_destinations(vid)
+        assert len(result) == 2
+        assert result[0]["name"] == "주유소"
+        assert result[1]["distance"] == 1800
+
+    def test_vehicle_relocate_moves_vehicle(self):
+        """vehicle_relocate → 차량 위치 변경"""
+        vid = _make_vehicle()
+        morld.vehicle_relocate(vid, 4, 0)
+        loc = morld.get_unit_location(vid)
+        assert loc[0] == 4 and loc[1] == 0
+
+    def test_vehicle_relocate_moves_passengers(self):
+        """vehicle_relocate → 탑승자도 같이 이동 (seated 유지)"""
+        vid = _make_vehicle()
+        pid = morld.create_id("unit")
+        morld._units[pid] = {
+            "info": {"region_id": 2, "location_id": 4},
+            "props": {},
+            "inventory": {},
+            "location": (2, 4),
+        }
+        morld.sit_on(pid, vid, "driver")
+        # 탑승 확인
+        assert morld.get_unit_prop(vid, "seated_by:driver") == pid
+        # 이동
+        morld.vehicle_relocate(vid, 0, 20)
+        # 차량/탑승자 모두 이동
+        assert morld.get_unit_location(vid) == (0, 20)
+        assert morld.get_unit_location(pid) == (0, 20)
+        # seated 유지
+        assert morld.get_unit_prop(vid, "seated_by:driver") == pid
+
+    def test_vehicle_move_to_uses_relocate(self):
+        """vehicle_move_to → vehicle_relocate 호출 (통합 테스트)"""
+        vid = _make_vehicle()
+        pid = morld.create_id("unit")
+        morld._units[pid] = {
+            "info": {"region_id": 2, "location_id": 4},
+            "props": {},
+            "inventory": {},
+            "location": (2, 4),
+        }
+        morld.sit_on(pid, vid, "driver")
+        # vehicle_move_to
+        result = vehicle.vehicle_move_to(vid, 0, 20, 10)
+        assert result["success"] is True
+        # 차량 이동 확인
+        assert morld.get_unit_location(vid) == (0, 20)
+        # 탑승자도 이동 (vehicle_relocate 사용)
+        assert morld.get_unit_location(pid) == (0, 20)
+
+    def test_destinations_independent_per_vehicle(self):
+        """차량별 독립적 목적지"""
+        vid1 = _make_vehicle(vid=600)
+        vid2 = _make_vehicle(vid=601)
+        morld._vehicle_destinations = {
+            600: [{"region_id": 2, "location_id": 1, "name": "A", "distance": 100}],
+            601: [{"region_id": 3, "location_id": 0, "name": "B", "distance": 200}],
+        }
+        r1 = morld.get_vehicle_destinations(600)
+        r2 = morld.get_vehicle_destinations(601)
+        assert r1[0]["name"] == "A"
+        assert r2[0]["name"] == "B"

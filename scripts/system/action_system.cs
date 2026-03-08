@@ -461,124 +461,97 @@ namespace SE
 		#region Vehicle Actions
 
 		/// <summary>
-		/// 유닛이 운전 가능한 상태인지 확인
-		/// 운전석에 앉아있고 차량이 있어야 함
+		/// 차량 위치에서 직접 연결된 실외 Location 목록 반환
+		///
+		/// 같은 Region 내 LocationGate + 다른 Region의 RegionGate 모두 탐색.
+		/// 실내(IsIndoor) Location은 제외.
 		/// </summary>
-		public bool CanDrive(Unit unit)
+		/// <param name="vehicleId">차량 Object의 Unit ID</param>
+		/// <returns>목적지 리스트: (regionId, locationId, name, distance)</returns>
+		public List<(int regionId, int locationId, string name, float distance)> GetVehicleDestinations(int vehicleId)
 		{
-			// seated_on prop으로 앉아있는 오브젝트 확인
-			var seatedOnProps = unit.TraversalContext.Props.GetByType("seated_on").ToList();
-			if (seatedOnProps.Count == 0) return false;
+			var destinations = new List<(int, int, string, float)>();
 
-			var seatedOnValue = seatedOnProps.First().Value;
-			if (seatedOnValue <= 0) return false;
-
-			// 앉아있는 오브젝트가 driver_seat인지 확인
-			if (_hub.GetSystem("unitSystem") is not UnitSystem unitSystem) return false;
-
-			var seat = unitSystem.FindUnit(seatedOnValue);
-			if (seat == null) return false;
-
-			// driver_seat prop 확인
-			return seat.TraversalContext.HasProp("driver_seat");
-		}
-
-		/// <summary>
-		/// 운전 가능한 목적지 목록 가져오기
-		/// 차량 Location에서 RegionGate로 연결된 외부 Location들을 반환
-		/// </summary>
-		public List<(int regionId, int locationId, string name, int travelTime)> GetDrivableDestinations(Unit unit)
-		{
-			var destinations = new List<(int, int, string, int)>();
-
+			if (_hub.GetSystem("unitSystem") is not UnitSystem unitSystem) return destinations;
 			if (_hub.GetSystem("worldSystem") is not WorldSystem worldSystem) return destinations;
 
-			var terrain = worldSystem.GetTerrain();
-			var currentLoc = unit.CurrentLocation;
+			var vehicle = unitSystem.FindUnit(vehicleId);
+			if (vehicle == null) return destinations;
 
-			// 현재 위치에서 RegionGate를 통해 연결된 외부 Location 찾기
-			// 차량은 별도 Region에 있고, RegionGate로 외부와 연결됨
-			foreach (var (rGate, destination, distance) in terrain.GetRegionExits(currentLoc, unit.TraversalContext))
+			var terrain = worldSystem.GetTerrain();
+			var currentLoc = vehicle.CurrentLocation;
+			var region = terrain.GetRegion(currentLoc.RegionId);
+			if (region == null) return destinations;
+
+			// 1. 같은 Region 내 LocationGate 이웃 (실외만)
+			var location = region.GetLocation(currentLoc.LocalId);
+			if (location != null)
 			{
-				// 목적지 정보 가져오기
+				foreach (var (neighbor, distance) in region.GetTraversableNeighbors(location))
+				{
+					if (neighbor.IsIndoor) continue;
+					var name = neighbor.Name ?? $"Location {neighbor.LocalId}";
+					destinations.Add((currentLoc.RegionId, neighbor.LocalId, name, distance));
+				}
+			}
+
+			// 2. 다른 Region의 RegionGate 이웃 (실외만)
+			foreach (var (rGate, destination, distance) in terrain.GetRegionExits(currentLoc))
+			{
 				var destRegion = terrain.GetRegion(destination.RegionId);
 				if (destRegion == null) continue;
 
 				var destLocation = destRegion.GetLocation(destination.LocalId);
 				if (destLocation == null) continue;
 
-				// 실내는 차량 이동 불가
 				if (destLocation.IsIndoor) continue;
 
 				var name = destLocation.Name ?? $"Location {destination.LocalId}";
-				destinations.Add((destination.RegionId, destination.LocalId, name, Location.DistanceToTime(distance)));
+				destinations.Add((destination.RegionId, destination.LocalId, name, distance));
 			}
 
 			return destinations;
 		}
 
 		/// <summary>
-		/// 운전 액션 적용 (이동 시작)
+		/// 차량 + 탑승자 일괄 위치 이동 (seated 상태 유지)
+		///
+		/// set_unit_location과 달리 stand_up 하지 않음.
+		/// 탑승자의 seated_on/seated_by prop을 유지한 채 이동.
 		/// </summary>
-		public ActionResult ApplyDriveAction(Unit unit, int destRegionId, int destLocationId)
+		/// <param name="vehicleId">차량 Object ID</param>
+		/// <param name="destRegionId">목적지 Region</param>
+		/// <param name="destLocationId">목적지 Location</param>
+		/// <returns>이동된 유닛 수 (차량 포함)</returns>
+		public int VehicleRelocate(int vehicleId, int destRegionId, int destLocationId)
 		{
-			// 운전 가능한지 확인
-			if (!CanDrive(unit))
-				return ActionResult.Fail("운전석에 앉아있지 않습니다.");
+			if (_hub.GetSystem("unitSystem") is not UnitSystem unitSystem) return 0;
 
-			// 목적지가 유효한지 확인
-			var destinations = GetDrivableDestinations(unit);
-			var dest = destinations.Find(d => d.regionId == destRegionId && d.locationId == destLocationId);
-			if (dest == default)
-				return ActionResult.Fail("해당 목적지로 운전할 수 없습니다.");
+			var vehicle = unitSystem.FindUnit(vehicleId);
+			if (vehicle == null) return 0;
 
-			// 운전 실행
-			return ExecuteDrive(unit, destRegionId, destLocationId, dest.travelTime);
-		}
+			var destRef = new LocationRef(destRegionId, destLocationId);
+			int movedCount = 0;
 
-		/// <summary>
-		/// 실제 운전 실행 (RegionGate의 LocationA 변경)
-		/// 차량 이동 = RegionGate의 외부 연결 지점 변경
-		/// </summary>
-		private ActionResult ExecuteDrive(Unit driver, int destRegionId, int destLocationId, int travelTime)
-		{
-			if (_hub.GetSystem("worldSystem") is not WorldSystem worldSystem)
-				return ActionResult.Fail("WorldSystem을 찾을 수 없습니다.");
-
-			// 목적지 이름 가져오기
-			var terrain = worldSystem.GetTerrain();
-			var destRegion = terrain.GetRegion(destRegionId);
-			var destLocation = destRegion.GetLocation(destLocationId);
-			var destName = destLocation.Name ?? $"Location {destLocationId}";
-
-			// 현재 위치 (차량 Location)
-			var currentLoc = driver.CurrentLocation;
-
-			// 현재 연결된 RegionGate 찾기
-			var regionGates = terrain.GetRegionGatesFrom(currentLoc).ToList();
-			if (regionGates.Count == 0)
-				return ActionResult.Fail("차량이 연결된 경로를 찾을 수 없습니다.");
-
-			// 첫 번째 RegionGate의 외부 Location을 목적지로 변경
-			var rGate = regionGates.First();
-
-			// RegionGate의 외부 쪽(LocationA 또는 LocationB) 변경
-			// 차량 Region 쪽이 아닌 외부 Region 쪽을 변경
-			if (rGate.LocationA.RegionId == currentLoc.RegionId)
+			// 1. 탑승자 이동 (seated 유지 — stand_up 없음)
+			var seatedByProps = vehicle.TraversalContext.Props.GetByType("seated_by").ToList();
+			foreach (var (prop, value) in seatedByProps)
 			{
-				// LocationA가 차량 쪽 → LocationB를 변경
-				rGate.LocationB = new LocationRef(destRegionId, destLocationId);
-			}
-			else
-			{
-				// LocationB가 차량 쪽 → LocationA를 변경
-				rGate.LocationA = new LocationRef(destRegionId, destLocationId);
+				if (value <= 0) continue;
+
+				var passenger = unitSystem.FindUnit(value);
+				if (passenger == null) continue;
+
+				passenger.SetLocation2D(destRef, 0, 0);
+				movedCount++;
 			}
 
-			// 탑승자들은 차량 Location에 계속 머무름 (위치 변경 없음)
-			// RegionGate만 변경되므로 탑승자 처리 불필요
+			// 2. 차량 자체 이동
+			vehicle.SetLocation2D(destRef, 0, 0);
+			movedCount++;
 
-			return ActionResult.Ok($"{destName}(으)로 이동했다.", timeConsumed: travelTime);
+			GD.Print($"[ActionSystem] VehicleRelocate: vehicle={vehicleId} -> {destRegionId}:{destLocationId} ({movedCount} units moved)");
+			return movedCount;
 		}
 
 		#endregion
@@ -589,8 +562,8 @@ namespace SE
 		public void DebugPrint()
 		{
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-			GD.Print("  ActionSystem 로드됨 (차량 전용)");
-			GD.Print("  지원: CanDrive, GetDrivableDestinations, ApplyDriveAction");
+			GD.Print("  ActionSystem 로드됨");
+			GD.Print("  지원: GetVehicleDestinations, VehicleRelocate");
 			GD.Print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 		}
 	}

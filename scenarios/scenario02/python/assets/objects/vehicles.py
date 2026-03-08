@@ -25,6 +25,77 @@ class Vehicle(Object):
     vehicle.py 모듈의 유틸 함수와 연동.
     """
 
+    def drive(self):
+        """운전 — 목적지 선택 → 이동"""
+        import vehicle as veh
+        player_id = morld.get_player_id()
+
+        # 운전석 탑승 확인
+        if not veh.is_driver(self.instance_id, player_id):
+            yield ui.dialog("운전석에 앉아야 운전할 수 있다.")
+            return
+
+        # 차량 상태 확인
+        status = morld.get_unit_prop(self.instance_id, "vehicle:status") or "normal"
+        if status == "wrecked":
+            yield ui.dialog("차량이 완파되어 운전할 수 없다.")
+            return
+        if status == "disabled":
+            yield ui.dialog("차량이 고장나 운전할 수 없다.")
+            return
+
+        # 목적지 목록 조회 (C# 탐색: 직접 연결된 실외 Location)
+        destinations = morld.get_vehicle_destinations(self.instance_id)
+        if not destinations:
+            yield ui.dialog("갈 수 있는 곳이 없다.")
+            return
+
+        # 연료 확인 후 목적지 표시
+        fuel = veh.get_fuel(self.instance_id)
+
+        state = {"dest": None}
+
+        def handle_choice(action):
+            if action == "init":
+                return None
+            if action == "cancel":
+                return True
+            state["dest"] = action
+            return True
+
+        lines = ["[b]어디로 갈까?[/b]\n"]
+        for i, dest in enumerate(destinations):
+            distance = dest["distance"]
+            fuel_cost = veh.estimate_fuel_cost(self.instance_id, distance)
+            speed = veh.get_speed(self.instance_id)
+            travel_min = int(distance * 60_000 / max(speed, 0.1)) // 60_000
+            fuel_tag = f" (연료 {fuel_cost:.1f}L)" if fuel_cost > 0 else ""
+            if fuel < fuel_cost:
+                lines.append(f"[color=gray]{dest['name']} ({travel_min}분){fuel_tag} — 연료 부족[/color]")
+            else:
+                lines.append(f"[url=@proc:{i}]{dest['name']} ({travel_min}분){fuel_tag}[/url]")
+        lines.append(f"\n현재 연료: {fuel:.0f}/{veh.get_fuel_max(self.instance_id):.0f}L")
+        lines.append("\n[url=@proc:cancel]취소[/url]")
+
+        yield ui.dialog("\n".join(lines), autofill="off", proc=handle_choice, result=state)
+
+        if state["dest"] is not None and state["dest"] != "cancel":
+            idx = int(state["dest"])
+            dest = destinations[idx]
+            distance = dest["distance"]
+
+            # 이동 실행
+            result = veh.vehicle_move_to(
+                self.instance_id,
+                dest["region_id"], dest["location_id"], distance)
+
+            if result["success"]:
+                travel_ms = result.get("travel_time_ms", 5 * 60_000)
+                morld.advance_time_des(travel_ms)
+                yield ui.dialog(f"{dest['name']}(으)로 이동했다.")
+            else:
+                yield ui.dialog(f"이동 실패: {result['message']}")
+
     def inspect(self):
         """차량 상태 점검"""
         import vehicle as veh
@@ -141,6 +212,7 @@ class Motorcycle(Vehicle):
     actions = [
         "sit@driver:운전석 탑승",
         "sit@passenger1:뒷좌석 탑승",
+        "call:drive:운전",
         "call:inspect:점검",
         "call:refuel:주유@near",
         "call:repair:수리@near",
@@ -181,6 +253,7 @@ class SedanCar(Vehicle):
         "sit@passenger1:조수석 탑승",
         "sit@passenger2:뒷좌석(좌) 탑승",
         "sit@passenger3:뒷좌석(우) 탑승",
+        "call:drive:운전",
         "call:inspect:점검",
         "call:refuel:주유@near",
         "call:repair:수리@near",

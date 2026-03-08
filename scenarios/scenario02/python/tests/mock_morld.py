@@ -420,6 +420,14 @@ class MockMorld:
                     passenger["info"]["region_id"] = dest_region
                     passenger["info"]["location_id"] = dest_location
 
+    def get_vehicle_destinations(self, vehicle_id):
+        """차량 위치에서 직접 연결된 실외 Location 목록 (C# API 모사)
+
+        테스트용: _vehicle_destinations dict에 설정된 값 반환.
+        설정 안 되어 있으면 빈 리스트.
+        """
+        return list(getattr(self, '_vehicle_destinations', {}).get(vehicle_id, []))
+
     def is_same_building(self, r1, l1, r2, l2):
         """같은 건물 판정 (테스트에서는 항상 True)"""
         return True

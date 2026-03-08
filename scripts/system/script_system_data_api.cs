@@ -1994,107 +1994,50 @@ namespace SE
         /// </summary>
         private void RegisterVehicleAPI(PyModule morldModule)
         {
-            // can_drive: 유닛이 현재 운전 가능한 상태인지 확인
-            // can_drive(unit_id) → True/False
-            morldModule.ModuleDict["can_drive"] = new PyBuiltinFunction("can_drive", args =>
+            // get_vehicle_destinations: 차량 위치에서 직접 연결된 실외 Location 목록
+            // get_vehicle_destinations(vehicle_id) → [{region_id, location_id, name, distance}, ...]
+            morldModule.ModuleDict["get_vehicle_destinations"] = new PyBuiltinFunction("get_vehicle_destinations", args =>
             {
                 if (args.Length < 1)
-                    throw PyTypeError.Create("can_drive(unit_id) requires 1 argument");
+                    throw PyTypeError.Create("get_vehicle_destinations(vehicle_id) requires 1 argument");
 
-                int unitId = args[0].ToInt();
-
-                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
-
-                var unit = _unitSystem.FindUnit(unitId);
-                if (unit == null) return PyBool.False;
-
-                var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
-                if (actionSystem == null) return PyBool.False;
-
-                return actionSystem.CanDrive(unit) ? PyBool.True : PyBool.False;
-            });
-
-            // get_drivable_destinations: 운전 가능한 목적지 목록 가져오기
-            // get_drivable_destinations(unit_id) → [{region_id, location_id, name, travel_time(밀리초)}, ...]
-            morldModule.ModuleDict["get_drivable_destinations"] = new PyBuiltinFunction("get_drivable_destinations", args =>
-            {
-                if (args.Length < 1)
-                    throw PyTypeError.Create("get_drivable_destinations(unit_id) requires 1 argument");
-
-                int unitId = args[0].ToInt();
+                int vehicleId = args[0].ToInt();
 
                 var result = new PyList();
-
-                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
-
-                var unit = _unitSystem.FindUnit(unitId);
-                if (unit == null) return result;
 
                 var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
                 if (actionSystem == null) return result;
 
-                var destinations = actionSystem.GetDrivableDestinations(unit);
-                foreach (var (regionId, locationId, name, travelTime) in destinations)
+                var destinations = actionSystem.GetVehicleDestinations(vehicleId);
+                foreach (var (regionId, locationId, name, distance) in destinations)
                 {
                     var dict = new PyDict();
                     dict["region_id"] = new PyInt(regionId);
                     dict["location_id"] = new PyInt(locationId);
                     dict["name"] = new PyStr(name);
-                    dict["travel_time"] = new PyInt(travelTime);
+                    dict["distance"] = new PyFloat(distance);
                     result.Append(dict);
                 }
 
                 return result;
             });
 
-            // drive_to: 차량 운전하여 목적지로 이동
-            // drive_to(unit_id, region_id, location_id) → {success, message, time_consumed(밀리초)}
-            morldModule.ModuleDict["drive_to"] = new PyBuiltinFunction("drive_to", args =>
+            // vehicle_relocate: 차량 + 탑승자 일괄 이동 (seated 유지)
+            // vehicle_relocate(vehicle_id, region_id, location_id) → int (이동된 유닛 수)
+            morldModule.ModuleDict["vehicle_relocate"] = new PyBuiltinFunction("vehicle_relocate", args =>
             {
                 if (args.Length < 3)
-                    throw PyTypeError.Create("drive_to(unit_id, region_id, location_id) requires 3 arguments");
+                    throw PyTypeError.Create("vehicle_relocate(vehicle_id, region_id, location_id) requires 3 arguments");
 
-                int unitId = args[0].ToInt();
+                int vehicleId = args[0].ToInt();
                 int regionId = args[1].ToInt();
                 int locationId = args[2].ToInt();
 
-                var resultDict = new PyDict();
-                resultDict["success"] = PyBool.False;
-                resultDict["message"] = new PyStr("Unknown error");
-                resultDict["time_consumed"] = new PyInt(0);
-
-                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
-
-                var unit = _unitSystem.FindUnit(unitId);
-                if (unit == null)
-                {
-                    resultDict["message"] = new PyStr($"Unit {unitId} not found");
-                    return resultDict;
-                }
-
                 var actionSystem = _hub.GetSystem("actionSystem") as ActionSystem;
-                if (actionSystem == null)
-                {
-                    resultDict["message"] = new PyStr("ActionSystem not found");
-                    return resultDict;
-                }
+                if (actionSystem == null) return new PyInt(0);
 
-                var result = actionSystem.ApplyDriveAction(unit, regionId, locationId);
-
-                resultDict["success"] = result.Success ? PyBool.True : PyBool.False;
-                resultDict["message"] = new PyStr(result.Message);
-                resultDict["time_consumed"] = new PyInt(result.TimeConsumed);
-
-                if (result.Success)
-                {
-                    Godot.GD.Print($"[morld] drive_to: unit={unitId} drove to region={regionId}, location={locationId}");
-                }
-                else
-                {
-                    Godot.GD.PrintErr($"[morld] drive_to: failed - {result.Message}");
-                }
-
-                return resultDict;
+                int movedCount = actionSystem.VehicleRelocate(vehicleId, regionId, locationId);
+                return new PyInt(movedCount);
             });
         }
 

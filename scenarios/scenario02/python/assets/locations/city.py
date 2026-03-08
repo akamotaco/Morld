@@ -276,6 +276,10 @@ class ParkingLot(Location):
         tree_id = self.add_object(urban_tree, x=300)
         register_tree_object(tree_id, "urban_tree")
 
+        # 낡은 승용차 (Object 기반 차량)
+        from assets.objects.vehicles import SedanCar
+        self.add_object(SedanCar(), x=50)
+
 
 class Hideout(Location):
     """은신처 - 도심 생존자들의 거처 (유키/엘라)"""

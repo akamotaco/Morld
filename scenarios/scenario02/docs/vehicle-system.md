@@ -1,6 +1,6 @@
 # 차량 시스템 설계
 
-> **상태: Phase 8 Python 구현 완료 (C# 연동 대기)**
+> **상태: Phase 9 마이그레이션 완료 (Region 1 폐기, Object 기반 전환)**
 >
 > 기존 Region 방식(OldCar)을 폐기하고 Object 중심으로 재설계.
 >
@@ -12,6 +12,7 @@
 > - Phase 5: 전투 연동 (부품 데미지 + 노출 + 탑승자 피격) + 테스트 92개
 > - Phase 6: 수리 시스템 (재료 체크/소비 + 부품 선택 UI) + 테스트 102개
 > - Phase 8: NPC 운전 Activity (5-phase 핸들러 + 도보 fallback) + 테스트 112개
+> - Phase 9: 마이그레이션 (OldCar→SedanCar, Region 1 폐기, C# API 교체) + 테스트 118개
 
 ---
 
@@ -782,7 +783,7 @@ def fill_jerrycan(self):
 | 6 | 수리 시스템 | Phase 5 | **완료** |
 | 7 | 대형 차량 (내부 Location + Gate 재연결) | Phase 3 | 대기 |
 | 8 | NPC 운전 Activity | Phase 3 | **완료** |
-| 9 | 기존 코드 마이그레이션 | Phase 1~4 | 대기 |
+| 9 | 기존 코드 마이그레이션 | Phase 1~4 | **완료** |
 
 ---
 
@@ -792,11 +793,14 @@ def fill_jerrycan(self):
 |------|------|------|
 | `vehicle.py` | 차량 유틸: 연료/부품/수리/탑승/이동/control_target/주유 | **구현** |
 | `assets/objects/__init__.py` | `relocate_object()` + Vehicle/GasStationPump import | **구현** |
-| `tests/test_vehicle.py` | 차량 유틸 테스트 102개 (11파트) | **구현** |
-| `assets/objects/vehicles.py` | Vehicle 기반 클래스 + Motorcycle/SedanCar + GasStationPump | **구현** |
+| `tests/test_vehicle.py` | 차량 유틸 테스트 118개 (13파트) | **구현** |
+| `assets/objects/vehicles.py` | Vehicle 기반 클래스 + drive/inspect/refuel/repair + GasStationPump | **구현** |
 | `assets/items/tools.py` | JerryCan 아이템 | **구현** |
-| `assets/locations/vehicles.py` | 대형 차량 내부 Location | 대기 |
-| `think/activities/drive.py` | NPC 운전 Activity 핸들러 | 대기 |
+| `assets/locations/vehicles.py` | 레거시 OldCar Location (폐기 예정) | **폐기** |
+| `think/activities/drive.py` | NPC 운전 Activity 핸들러 | **구현** |
+| `assets/locations/city.py` | 주차장에 SedanCar 배치 | **구현** |
+| `scripts/system/action_system.cs` | GetVehicleDestinations + VehicleRelocate | **구현** |
+| `scripts/system/script_system_data_api.cs` | get_vehicle_destinations + vehicle_relocate API | **구현** |
 | `combat.py` | 차량 전투 연동 (execute_attack 차량 분기) | **구현** |
 
 ---
