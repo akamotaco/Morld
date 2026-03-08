@@ -401,6 +401,29 @@ class MockMorld:
                     if seat_key in target["props"]:
                         target["props"][seat_key] = -1
 
+    def vehicle_relocate(self, vehicle_id, dest_region, dest_location):
+        """차량+탑승자 일괄 이동 (자동하차 없음)
+
+        C# 전용 API 모사. set_unit_location과 달리 seated_on/seated_by를
+        해제하지 않고 차량과 모든 탑승자를 동시에 이동.
+        """
+        # 차량 위치 변경
+        v = self._units.get(vehicle_id)
+        if not v:
+            return
+        v["location"] = (dest_region, dest_location)
+        v["info"]["region_id"] = dest_region
+        v["info"]["location_id"] = dest_location
+
+        # 탑승자 위치도 함께 변경 (하차하지 않음)
+        for key, val in v["props"].items():
+            if key.startswith("seated_by:") and val is not None and val > 0:
+                passenger = self._units.get(val)
+                if passenger:
+                    passenger["location"] = (dest_region, dest_location)
+                    passenger["info"]["region_id"] = dest_region
+                    passenger["info"]["location_id"] = dest_location
+
     def is_same_building(self, r1, l1, r2, l2):
         """같은 건물 판정 (테스트에서는 항상 True)"""
         return True

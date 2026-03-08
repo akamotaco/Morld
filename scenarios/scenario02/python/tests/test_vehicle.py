@@ -108,6 +108,8 @@ def _setup():
     morld.reset()
     _instances.clear()
     _location_objects.clear()
+    # vehicle.py가 relocate_object를 찾을 수 있도록 주입
+    vehicle.set_relocate_object(relocate_object)
 
 
 # ============================================
@@ -653,3 +655,153 @@ class TestMount(_T):
         morld.register_unit(100, name="A", location=(2, 4))
         vehicle.mount(100, vid, seat_name="driver")
         assert vehicle.can_drive(vid) is True  # 운전석 점유
+
+
+# ============================================
+# Part H: control_target + 차량 이동
+# ============================================
+
+class TestControlTarget(_T):
+
+    def test_set_and_get_control_target(self):
+        """control_target prop 설정/조회"""
+        morld.register_unit(1, name="Player")
+        vid = _make_vehicle()
+
+        assert vehicle.get_control_target(1) is None
+        vehicle.set_control_target(1, vid)
+        assert vehicle.get_control_target(1) == vid
+        vehicle.clear_control_target(1)
+        assert vehicle.get_control_target(1) is None
+
+    def test_player_mount_auto_control_target(self):
+        """플레이어가 운전석 탑승 시 control_target 자동 전환"""
+        vid = _make_vehicle()
+        morld.register_unit(1, name="Player", location=(2, 4))
+
+        ok, seat = vehicle.player_mount(1, vid)
+        assert ok is True
+        assert seat == "driver"
+        assert vehicle.get_control_target(1) == vid
+
+    def test_player_mount_passenger_no_control(self):
+        """플레이어가 동승석 탑승 시 control_target 변경 안 됨"""
+        vid = _make_vehicle()
+        morld.register_unit(1, name="Player", location=(2, 4))
+
+        ok, seat = vehicle.player_mount(1, vid, seat_name="passenger1")
+        assert ok is True
+        assert seat == "passenger1"
+        assert vehicle.get_control_target(1) is None
+
+    def test_player_dismount_clears_control_target(self):
+        """플레이어 하차 시 control_target 해제"""
+        vid = _make_vehicle()
+        morld.register_unit(1, name="Player", location=(2, 4))
+
+        vehicle.player_mount(1, vid)
+        assert vehicle.get_control_target(1) == vid
+
+        vehicle.player_dismount(1, vid)
+        assert vehicle.get_control_target(1) is None
+
+
+class TestVehicleMoveTo(_T):
+
+    def _setup_driving(self, vid=500, fuel=40, driver_id=100):
+        """운전 준비된 차량 반환"""
+        vid = _make_vehicle(vid=vid, fuel=fuel)
+        _instances[vid] = "vehicle_obj"  # relocate_object용
+        register_location_object(2, 4, vid)
+        morld.register_unit(driver_id, name="Driver", location=(2, 4))
+        vehicle.mount(driver_id, vid, seat_name="driver")
+        return vid
+
+    def test_move_basic(self):
+        """기본 이동 — 차량+운전자 위치 변경"""
+        vid = self._setup_driving()
+        result = vehicle.vehicle_move_to(vid, 3, 1, 20)
+
+        assert result["success"] is True
+        assert result["fuel_consumed"] > 0
+        assert result["travel_time_ms"] > 0
+
+        # 차량 위치 확인
+        loc = morld.get_unit_location(vid)
+        assert loc[0] == 3 and loc[1] == 1
+
+        # 운전자 위치도 같이 이동
+        driver_loc = morld.get_unit_location(100)
+        assert driver_loc[0] == 3 and driver_loc[1] == 1
+
+    def test_move_with_passengers(self):
+        """탑승자 전원 함께 이동"""
+        vid = self._setup_driving()
+        morld.register_unit(101, name="Passenger", location=(2, 4))
+        vehicle.mount(101, vid, seat_name="passenger1")
+
+        vehicle.vehicle_move_to(vid, 3, 1, 20)
+
+        # 탑승자도 이동
+        p_loc = morld.get_unit_location(101)
+        assert p_loc[0] == 3 and p_loc[1] == 1
+
+        # 탑승 상태 유지 (하차 안 됨)
+        assert morld.get_unit_prop(vid, "seated_by:driver") == 100
+        assert morld.get_unit_prop(vid, "seated_by:passenger1") == 101
+
+    def test_move_no_driver(self):
+        """운전자 없으면 이동 실패"""
+        vid = _make_vehicle()
+        result = vehicle.vehicle_move_to(vid, 3, 1, 20)
+        assert result["success"] is False
+        assert "운전자" in result["message"]
+
+    def test_move_insufficient_fuel(self):
+        """연료 부족 시 이동 실패 + 연료 미소비"""
+        vid = self._setup_driving(fuel=1, driver_id=100)
+        result = vehicle.vehicle_move_to(vid, 3, 1, 100)  # 큰 거리
+
+        assert result["success"] is False
+        assert "연료" in result["message"]
+        assert result["fuel_consumed"] == 0
+        # 위치 변경 없음
+        loc = morld.get_unit_location(vid)
+        assert loc[0] == 2 and loc[1] == 4
+
+    def test_move_disabled_vehicle(self):
+        """기동불가 차량 이동 실패"""
+        vid = self._setup_driving()
+        morld.set_unit_prop(vid, "vehicle:status", "disabled")
+
+        result = vehicle.vehicle_move_to(vid, 3, 1, 20)
+        assert result["success"] is False
+
+    def test_move_fuel_consumption(self):
+        """이동 거리에 비례한 연료 소비"""
+        vid = self._setup_driving(fuel=40)
+        result = vehicle.vehicle_move_to(vid, 3, 1, 20)
+
+        # fuel_rate=0.5, distance=20 → cost=10
+        assert result["fuel_consumed"] == 10.0
+        assert vehicle.get_fuel(vid) == 30.0
+
+    def test_move_travel_time_speed(self):
+        """속도에 반비례하는 이동시간"""
+        vid = self._setup_driving()
+        result = vehicle.vehicle_move_to(vid, 3, 1, 20)
+
+        # speed=3.0, distance=20 → base=20*60000=1200000ms
+        # travel_time = 1200000 / 3.0 = 400000ms
+        assert result["travel_time_ms"] == 400_000
+
+    def test_move_updates_location_index(self):
+        """이동 후 location_objects 인덱스 갱신"""
+        vid = self._setup_driving()
+
+        assert vid in get_location_objects(2, 4)
+
+        vehicle.vehicle_move_to(vid, 3, 1, 20)
+
+        assert vid not in get_location_objects(2, 4)
+        assert vid in get_location_objects(3, 1)

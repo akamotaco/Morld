@@ -475,6 +475,53 @@ def can_drive(vehicle_id):
 
 
 # ========================================
+# 조작 대상 전환 (control_target)
+# ========================================
+
+def set_control_target(player_id, target_id):
+    """플레이어 조작 대상을 target_id로 전환
+
+    탑승 시 차량 Object로, 시나리오03에서는 CCTV로 전환.
+    C# 측에서 이 prop을 읽어 UI/카메라/입력을 라우팅.
+    """
+    morld.set_unit_prop(player_id, "control_target", target_id)
+
+
+def get_control_target(player_id):
+    """현재 조작 대상 (None이면 자기 자신)"""
+    return morld.get_unit_prop(player_id, "control_target")
+
+
+def clear_control_target(player_id):
+    """조작 대상 해제 (자기 자신으로 복원)"""
+    morld.set_unit_prop(player_id, "control_target", None)
+
+
+def player_mount(player_id, vehicle_id, seat_name=None):
+    """플레이어 차량 탑승 (mount + control_target 자동 전환)
+
+    Returns:
+        (bool, str): mount()와 동일
+    """
+    ok, result = mount(player_id, vehicle_id, seat_name)
+    if ok and result == "driver":
+        set_control_target(player_id, vehicle_id)
+    return ok, result
+
+
+def player_dismount(player_id, vehicle_id):
+    """플레이어 차량 하차 (dismount + control_target 자동 해제)
+
+    Returns:
+        bool: dismount()와 동일
+    """
+    result = dismount(player_id, vehicle_id)
+    if result:
+        clear_control_target(player_id)
+    return result
+
+
+# ========================================
 # 차량 이동 (Python 로직 — C# API 호출 전 검증)
 # ========================================
 
@@ -494,6 +541,63 @@ def prepare_move(vehicle_id, distance):
     return True, "", consumed
 
 
+def vehicle_move_to(vehicle_id, dest_region, dest_location, distance):
+    """차량 이동 실행 (검증 + 연료소비 + 위치변경)
+
+    1. 이동 가능 판정 (상태/연료)
+    2. 연료 소비
+    3. 차량 Object 위치 변경 (C# vehicle_relocate)
+    4. _location_objects 인덱스 갱신
+    5. 이동시간 계산
+
+    Args:
+        vehicle_id: 차량 Object ID
+        dest_region: 목적지 region_id
+        dest_location: 목적지 location_id
+        distance: 이동 거리
+
+    Returns:
+        dict: {success, message, fuel_consumed, travel_time_ms}
+    """
+    # 1. 운전자 확인
+    if not can_drive(vehicle_id):
+        return {"success": False, "message": "운전자가 없습니다.",
+                "fuel_consumed": 0, "travel_time_ms": 0}
+
+    # 2. 이동 가능 판정 + 연료 소비
+    ok, reason, consumed = prepare_move(vehicle_id, distance)
+    if not ok:
+        return {"success": False, "message": reason,
+                "fuel_consumed": 0, "travel_time_ms": 0}
+
+    # 3. 현재 위치 조회
+    loc = morld.get_unit_location(vehicle_id)
+    if not loc:
+        return {"success": False, "message": "차량 위치 불명",
+                "fuel_consumed": consumed, "travel_time_ms": 0}
+    old_region, old_location = loc[0], loc[1]
+
+    # 4. C# API로 차량+탑승자 일괄 이동 (자동하차 없음)
+    morld.vehicle_relocate(vehicle_id, dest_region, dest_location)
+
+    # 5. Python 인덱스 갱신
+    _relocate = _get_relocate_object()
+    if _relocate:
+        _relocate(vehicle_id, old_region, old_location,
+                  dest_region, dest_location)
+
+    # 6. 이동시간 계산 (속도 기반)
+    speed = get_speed(vehicle_id)
+    # 기본 도보 이동시간 = distance * 1분, 차량은 속도만큼 단축
+    base_time_ms = distance * 60_000
+    travel_time_ms = int(base_time_ms / max(speed, 0.1))
+
+    return {"success": True,
+            "message": f"목적지에 도착했습니다.",
+            "fuel_consumed": consumed,
+            "travel_time_ms": travel_time_ms}
+
+
 # ========================================
 # 유틸리티
 # ========================================
@@ -502,6 +606,27 @@ def is_vehicle(unit_id):
     """차량 Object인지 판정 (vehicle:type prop 존재 여부)"""
     vtype = morld.get_unit_prop(unit_id, "vehicle:type")
     return vtype is not None
+
+
+# relocate_object 함수 참조 (테스트에서 주입 가능)
+_relocate_object_fn = None
+
+
+def set_relocate_object(fn):
+    """relocate_object 함수 주입 (테스트용)"""
+    global _relocate_object_fn
+    _relocate_object_fn = fn
+
+
+def _get_relocate_object():
+    """relocate_object 함수 반환 (주입 우선, 없으면 assets.objects에서 가져옴)"""
+    if _relocate_object_fn:
+        return _relocate_object_fn
+    try:
+        from assets.objects import relocate_object
+        return relocate_object
+    except (ImportError, AttributeError):
+        return None
 
 
 def get_speed(vehicle_id):
