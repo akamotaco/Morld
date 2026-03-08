@@ -356,6 +356,50 @@ def repair_part(vehicle_id, part_id):
             "old_hp": hp, "new_hp": new_hp, "hp_max": hp_max}
 
 
+def check_repair_materials(player_id, part_id):
+    """수리 재료 보유 여부 체크
+
+    Returns:
+        (bool, list): (전부 있으면 True, 부족 목록 [{uid, name, need, have}])
+    """
+    recipe = REPAIR_RECIPES.get(part_id)
+    if not recipe:
+        return False, []
+
+    from assets.registry import get_or_create_item_id
+    inv = morld.get_unit_inventory(player_id) or {}
+
+    missing = []
+    all_ok = True
+    for mat_uid, need in recipe["materials"].items():
+        item_id = get_or_create_item_id(mat_uid)
+        have = inv.get(item_id, 0) if item_id else 0
+        if have < need:
+            all_ok = False
+            missing.append({"uid": mat_uid, "need": need, "have": have})
+
+    return all_ok, missing
+
+
+def consume_repair_materials(player_id, part_id):
+    """수리 재료 소비
+
+    Returns:
+        bool: 성공 여부 (재료 부족이면 False)
+    """
+    ok, _ = check_repair_materials(player_id, part_id)
+    if not ok:
+        return False
+
+    recipe = REPAIR_RECIPES[part_id]
+    from assets.registry import get_or_create_item_id
+    for mat_uid, need in recipe["materials"].items():
+        item_id = get_or_create_item_id(mat_uid)
+        if item_id:
+            morld.remove_item(player_id, item_id, need)
+    return True
+
+
 # ========================================
 # 탑승자 조회
 # ========================================

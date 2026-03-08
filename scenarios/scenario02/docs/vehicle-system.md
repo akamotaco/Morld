@@ -1,6 +1,6 @@
 # 차량 시스템 설계
 
-> **상태: Phase 5 Python 구현 완료 (C# 연동 대기)**
+> **상태: Phase 6 Python 구현 완료 (C# 연동 대기)**
 >
 > 기존 Region 방식(OldCar)을 폐기하고 Object 중심으로 재설계.
 >
@@ -10,6 +10,7 @@
 > - Phase 3: control_target + vehicle_move_to + 테스트 69개
 > - Phase 4: 연료 시스템 (주유소 + 제리캔) + 테스트 81개
 > - Phase 5: 전투 연동 (부품 데미지 + 노출 + 탑승자 피격) + 테스트 92개
+> - Phase 6: 수리 시스템 (재료 체크/소비 + 부품 선택 UI) + 테스트 102개
 
 ---
 
@@ -785,7 +786,7 @@ def fill_jerrycan(self):
 | 3 | control_target + 이동 API (Python 완료, C# 대기) | Phase 2 | **Python 완료** |
 | 4 | 연료 시스템 (소비 + 주유소 + 제리캔) | Phase 3 | **완료** |
 | 5 | 전투 연동 (부품 데미지 + 노출) | Phase 1 | **완료** |
-| 6 | 수리 시스템 | Phase 5 | 대기 |
+| 6 | 수리 시스템 | Phase 5 | **완료** |
 | 7 | 대형 차량 (내부 Location + Gate 재연결) | Phase 3 | 대기 |
 | 8 | NPC 운전 Activity | Phase 3 | 대기 |
 | 9 | 기존 코드 마이그레이션 | Phase 1~4 | 대기 |
@@ -798,7 +799,7 @@ def fill_jerrycan(self):
 |------|------|------|
 | `vehicle.py` | 차량 유틸: 연료/부품/수리/탑승/이동/control_target/주유 | **구현** |
 | `assets/objects/__init__.py` | `relocate_object()` + Vehicle/GasStationPump import | **구현** |
-| `tests/test_vehicle.py` | 차량 유틸 테스트 92개 (10파트) | **구현** |
+| `tests/test_vehicle.py` | 차량 유틸 테스트 102개 (11파트) | **구현** |
 | `assets/objects/vehicles.py` | Vehicle 기반 클래스 + Motorcycle/SedanCar + GasStationPump | **구현** |
 | `assets/items/tools.py` | JerryCan 아이템 | **구현** |
 | `assets/locations/vehicles.py` | 대형 차량 내부 Location | 대기 |

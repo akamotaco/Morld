@@ -91,21 +91,47 @@ class Vehicle(Object):
                        f"{fuel_max:.0f}L)")
 
     def repair(self):
-        """차량 수리 — 부품 선택 → 수리"""
+        """차량 수리 — 부품 선택 → 재료 체크 → 수리"""
         import vehicle as veh
+        player_id = morld.get_player_id()
+
         damaged = veh.get_damaged_parts(self.instance_id)
         if not damaged:
             yield ui.dialog("수리", "수리할 부분이 없습니다.")
             return
 
-        # TODO: 재료 체크 + 소비 (Phase 6에서 구현)
-        # 현재는 첫 번째 손상 부품 자동 수리 (테스트용)
-        part = damaged[0]
-        result = veh.repair_part(self.instance_id, part["part_id"])
+        # 부품 선택 메뉴
+        options = []
+        for p in damaged:
+            status_tag = "파손" if p["hp"] <= 0 else "손상"
+            recipe = veh.REPAIR_RECIPES.get(p["part_id"], {})
+            mat_text = ", ".join(f"{uid}×{cnt}" for uid, cnt in recipe.get("materials", {}).items())
+            options.append(f"{p['name']} [{status_tag}] ({p['hp']}/{p['hp_max']}) — 재료: {mat_text}")
+
+        choice = yield ui.select("수리할 부품을 선택하세요.", options)
+        if choice is None:
+            return
+
+        part = damaged[choice]
+        part_id = part["part_id"]
+
+        # 재료 체크
+        ok, missing = veh.check_repair_materials(player_id, part_id)
+        if not ok:
+            lines = ["재료가 부족합니다:"]
+            for m in missing:
+                lines.append(f"  {m['uid']}: {m['have']}/{m['need']}")
+            yield ui.dialog("수리", "\n".join(lines))
+            return
+
+        # 재료 소비 + 수리
+        veh.consume_repair_materials(player_id, part_id)
+        result = veh.repair_part(self.instance_id, part_id)
         if result:
+            time_min = veh.REPAIR_RECIPES[part_id]["time_min"]
+            morld.advance_time_des(time_min * 60_000)
             yield ui.dialog("수리", f"{result['name']} 수리 완료. "
                           f"({result['new_hp']}/{result['hp_max']})")
-            morld.advance_time_des(veh.REPAIR_RECIPES[part["part_id"]]["time_min"] * 60_000)
 
 
 class Motorcycle(Vehicle):

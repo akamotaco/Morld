@@ -78,6 +78,25 @@ if not hasattr(_combat, "apply_damage"):
     _combat.apply_damage = _combat_apply_damage
 sys.modules.setdefault("combat", _combat)
 
+# assets.registry stub (수리 재료 체크용) — 강제 교체
+_REGISTRY_MAP = {}
+_REGISTRY_NEXT_ID = [5000]
+
+def _get_or_create_item_id(unique_id):
+    if unique_id not in _REGISTRY_MAP:
+        _REGISTRY_MAP[unique_id] = _REGISTRY_NEXT_ID[0]
+        _REGISTRY_NEXT_ID[0] += 1
+    return _REGISTRY_MAP[unique_id]
+
+_registry = types.ModuleType("assets.registry")
+_registry.get_or_create_item_id = _get_or_create_item_id
+_registry.get_unique_id = lambda item_id: next(
+    (uid for uid, iid in _REGISTRY_MAP.items() if iid == item_id), None)
+
+if "assets" not in sys.modules:
+    sys.modules["assets"] = types.ModuleType("assets")
+sys.modules["assets.registry"] = _registry  # 강제 교체
+
 
 # ============================================
 # 4. Import
@@ -1052,3 +1071,143 @@ class TestAttackVehicle(_T):
         result = vehicle.attack_vehicle(vid, 10, attacker_id=attacker)
         assert result["target_type"] == "passenger"
         assert result["damage"] == 10
+
+
+# ============================================
+# Part K: 수리 시스템 (재료 체크 + 소비)
+# ============================================
+
+def _give_materials(player_id, materials):
+    """테스트용 재료 아이템 지급"""
+    from assets.registry import get_or_create_item_id
+    for uid, count in materials.items():
+        item_id = get_or_create_item_id(uid)
+        morld.give_item(player_id, item_id, count)
+
+
+class TestRepairMaterials(_T):
+    """check_repair_materials / consume_repair_materials 테스트"""
+
+    def setUp(self):
+        # 레지스트리 초기화
+        _REGISTRY_MAP.clear()
+        _REGISTRY_NEXT_ID[0] = 5000
+
+    def test_check_materials_all_present(self):
+        """엔진 수리 재료 전부 있으면 True"""
+        pid = _make_character(100, hp=50)
+        _give_materials(pid, {"iron_ore": 2, "copper_ore": 1})
+        ok, missing = vehicle.check_repair_materials(pid, "engine")
+        assert ok is True
+        assert len(missing) == 0
+
+    def test_check_materials_missing(self):
+        """재료 부족 시 False + 부족 목록"""
+        pid = _make_character(100, hp=50)
+        _give_materials(pid, {"iron_ore": 1})  # 2개 필요한데 1개
+        ok, missing = vehicle.check_repair_materials(pid, "engine")
+        assert ok is False
+        assert len(missing) >= 1
+        # iron_ore는 1/2, copper_ore는 0/1
+        uids = [m["uid"] for m in missing]
+        assert "iron_ore" in uids or "copper_ore" in uids
+
+    def test_check_materials_no_inventory(self):
+        """인벤토리 없으면 전부 부족"""
+        pid = _make_character(100, hp=50)
+        ok, missing = vehicle.check_repair_materials(pid, "engine")
+        assert ok is False
+        assert len(missing) == 2  # iron_ore, copper_ore
+
+    def test_check_materials_invalid_part(self):
+        """존재하지 않는 부품이면 False"""
+        pid = _make_character(100, hp=50)
+        ok, missing = vehicle.check_repair_materials(pid, "nonexistent")
+        assert ok is False
+
+    def test_consume_materials_success(self):
+        """재료 소비 성공"""
+        pid = _make_character(100, hp=50)
+        _give_materials(pid, {"iron_ore": 3, "copper_ore": 2})
+        ok = vehicle.consume_repair_materials(pid, "engine")
+        assert ok is True
+        # iron_ore: 3-2=1, copper_ore: 2-1=1
+        from assets.registry import get_or_create_item_id
+        inv = morld.get_unit_inventory(pid)
+        iron_id = get_or_create_item_id("iron_ore")
+        copper_id = get_or_create_item_id("copper_ore")
+        assert inv.get(iron_id, 0) == 1
+        assert inv.get(copper_id, 0) == 1
+
+    def test_consume_materials_fail(self):
+        """재료 부족이면 소비 안 함"""
+        pid = _make_character(100, hp=50)
+        _give_materials(pid, {"iron_ore": 1})  # 부족
+        ok = vehicle.consume_repair_materials(pid, "engine")
+        assert ok is False
+        # 재료 그대로 유지
+        from assets.registry import get_or_create_item_id
+        inv = morld.get_unit_inventory(pid)
+        iron_id = get_or_create_item_id("iron_ore")
+        assert inv.get(iron_id, 0) == 1
+
+    def test_repair_with_materials(self):
+        """재료 있을 때 repair_part 성공"""
+        pid = _make_character(100, hp=50)
+        vid = _make_vehicle(vtype="car")
+        # 엔진 손상
+        morld.set_unit_prop(vid, "vehicle:part:engine", 20)
+        vehicle._recalculate_total_hp(vid)
+
+        # 재료 지급
+        _give_materials(pid, {"iron_ore": 2, "copper_ore": 1})
+
+        # 재료 소비 + 수리
+        ok = vehicle.consume_repair_materials(pid, "engine")
+        assert ok is True
+        result = vehicle.repair_part(vid, "engine")
+        assert result is not None
+        assert result["new_hp"] == 50  # 20 + restore(30) = 50
+        assert result["old_hp"] == 20
+
+    def test_repair_already_full(self):
+        """이미 최대 HP면 수리 불가"""
+        vid = _make_vehicle(vtype="car")
+        result = vehicle.repair_part(vid, "engine")
+        assert result is None  # 60/60 = 이미 최대
+
+    def test_repair_restores_status(self):
+        """disabled → 엔진 수리 → normal 복귀"""
+        vid = _make_vehicle(vtype="car")
+        # 엔진 파괴 → disabled
+        morld.set_unit_prop(vid, "vehicle:part:engine", 0)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "disabled"
+
+        # 수리
+        result = vehicle.repair_part(vid, "engine")
+        assert result is not None
+        assert result["new_hp"] == 30  # 0 + restore(30)
+        assert morld.get_unit_prop(vid, "vehicle:status") == "normal"
+
+    def test_repair_restores_exposed(self):
+        """exposed=1 → HP 50% 초과로 수리 → exposed=0 복귀"""
+        vid = _make_vehicle(vtype="car")  # hp=200
+        # HP 50% 이하로 차체 손상
+        morld.set_unit_prop(vid, "vehicle:part:body", 0)
+        morld.set_unit_prop(vid, "vehicle:part:window", 0)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        # hp = 60+40+0+0+20 = 120, 120/200 = 60% > 50% → still not exposed
+        # 더 파괴
+        morld.set_unit_prop(vid, "vehicle:part:tire", 0)
+        vehicle._recalculate_total_hp(vid)
+        vehicle.update_status(vid)
+        # hp = 60+0+0+0+20 = 80, 80/200 = 40% → exposed
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 1
+
+        # tire 수리
+        vehicle.repair_part(vid, "tire")
+        # hp = 60+25+0+0+20 = 105, 105/200 = 52.5% > 50% → exposed=0
+        assert morld.get_unit_prop(vid, "vehicle:exposed") == 0
