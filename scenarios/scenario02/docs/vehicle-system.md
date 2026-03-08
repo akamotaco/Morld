@@ -1,6 +1,6 @@
 # 차량 시스템 설계
 
-> **상태: Phase 6 Python 구현 완료 (C# 연동 대기)**
+> **상태: Phase 8 Python 구현 완료 (C# 연동 대기)**
 >
 > 기존 Region 방식(OldCar)을 폐기하고 Object 중심으로 재설계.
 >
@@ -11,6 +11,7 @@
 > - Phase 4: 연료 시스템 (주유소 + 제리캔) + 테스트 81개
 > - Phase 5: 전투 연동 (부품 데미지 + 노출 + 탑승자 피격) + 테스트 92개
 > - Phase 6: 수리 시스템 (재료 체크/소비 + 부품 선택 UI) + 테스트 102개
+> - Phase 8: NPC 운전 Activity (5-phase 핸들러 + 도보 fallback) + 테스트 112개
 
 ---
 
@@ -612,51 +613,43 @@ def update_gate_connection(interior_r, interior_l, new_ext_r, new_ext_l, new_ext
 
 ## 8. NPC 운전
 
+> **상태: 구현 완료** — `think/activities/drive.py`, 테스트 11개
+
 ### 8.1 Activity Phase
 
 ```
-idle → finding_vehicle → going_to_vehicle → mounting → driving → dismounting
+idle → going_to_vehicle → mounting → driving → dismounting → idle
 ```
 
 ### 8.2 핸들러 구조
 
 ```python
 # think/activities/drive.py
+# 스케줄 entry: {"activity": "운전", "dest_region": int, "dest_location": int, "distance": float}
 
 def handle_drive(agent, entry):
     phase = agent._activity_phase
-    if phase == "idle":
-        _phase_idle(agent, entry)
-    elif phase == "finding_vehicle":
-        _phase_finding(agent)
-    elif phase == "going_to_vehicle":
-        _phase_going(agent)
-    elif phase == "mounting":
-        _phase_mounting(agent)
-    elif phase == "driving":
-        _phase_driving(agent, entry)
-    elif phase == "dismounting":
-        _phase_dismounting(agent)
-
-def _phase_idle(agent, entry):
-    """목적지가 멀면 차량 사용 고려"""
-    dest = entry.get("dest_region"), entry.get("dest_location")
-    distance = estimate_distance(agent, dest)
-
-    # 차량 사용 임계값 (도보 30분 이상)
-    if distance < VEHICLE_THRESHOLD:
-        # 도보로 충분 → 일반 이동
-        agent._activity_phase = "idle"
-        return
-
-    vehicle = find_available_vehicle(agent)
-    if vehicle:
-        agent._activity_state["vehicle"] = vehicle
-        agent._activity_phase = "going_to_vehicle"
-    else:
-        # 차량 없음 → 도보 fallback
-        pass
+    if phase == "idle":       _phase_idle(agent, entry)
+    elif phase == "going_to_vehicle": _phase_going_to_vehicle(agent)
+    elif phase == "mounting":  _phase_mounting(agent)
+    elif phase == "driving":   _phase_driving(agent, entry)
+    elif phase == "dismounting": _phase_dismounting(agent)
 ```
+
+### 8.3 idle → 차량 탐색 로직
+
+1. 목적지 없음 → 대기
+2. 이미 목적지 → 대기
+3. `find_nearby_vehicle()` → 차량 없음 → **도보 fallback** (`_move_to`)
+4. 차량 `disabled`/`wrecked` → 도보 fallback
+5. `can_travel()` 연료 부족 → 도보 fallback
+6. 차량과 같은 location → 즉시 `mounting`
+7. 차량이 다른 location → `going_to_vehicle` (이동)
+
+### 8.4 도보 Fallback
+
+차량 사용 불가 시 `_move_to(dest, "이동")`으로 자연스럽게 도보 이동.
+NPC 스케줄에서 `"운전"` activity를 지정해도 차량 없으면 도보로 동작.
 
 ---
 
@@ -788,7 +781,7 @@ def fill_jerrycan(self):
 | 5 | 전투 연동 (부품 데미지 + 노출) | Phase 1 | **완료** |
 | 6 | 수리 시스템 | Phase 5 | **완료** |
 | 7 | 대형 차량 (내부 Location + Gate 재연결) | Phase 3 | 대기 |
-| 8 | NPC 운전 Activity | Phase 3 | 대기 |
+| 8 | NPC 운전 Activity | Phase 3 | **완료** |
 | 9 | 기존 코드 마이그레이션 | Phase 1~4 | 대기 |
 
 ---

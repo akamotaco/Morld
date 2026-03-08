@@ -1211,3 +1211,151 @@ class TestRepairMaterials(_T):
         vehicle.repair_part(vid, "tire")
         # hp = 60+25+0+0+20 = 105, 105/200 = 52.5% > 50% → exposed=0
         assert morld.get_unit_prop(vid, "vehicle:exposed") == 0
+
+
+# ============================================
+# Part L: NPC 운전 (handle_drive)
+# ============================================
+
+from think.activities.drive import handle_drive
+
+
+class _FakeAgent:
+    """handle_drive 테스트용 최소 Agent"""
+
+    def __init__(self, unit_id):
+        self.unit_id = unit_id
+        self._activity_phase = "idle"
+        self._activity_state = {}
+        self._action_taken = False
+        self._jobs = []
+
+    def _remaining_millis_in_entry(self, entry):
+        return entry.get("remaining", 30 * 60_000)
+
+    def _insert_idle_job(self, name, duration):
+        self._jobs.append(("idle", name, duration))
+        self._action_taken = True
+
+    def _move_to(self, target, name="이동"):
+        self._jobs.append(("move", name, target))
+        self._action_taken = True
+
+    def _is_at(self, target):
+        loc = morld.get_unit_location(self.unit_id)
+        if not loc:
+            return False
+        return loc[0] == target["region_id"] and loc[1] == target["location_id"]
+
+    def _do_instant_action(self, name, key):
+        self._jobs.append(("action", name, key))
+        self._action_taken = True
+
+
+class TestNpcDrive(_T):
+    """handle_drive() — NPC 운전 활동 핸들러"""
+
+    def _make_agent(self, cid=100, location=(0, 1)):
+        morld.register_unit(cid, name=f"NPC{cid}", props={}, location=location)
+        return _FakeAgent(cid)
+
+    def test_idle_no_dest(self):
+        """목적지 없으면 대기"""
+        agent = self._make_agent()
+        entry = {"activity": "운전"}
+        handle_drive(agent, entry)
+        assert agent._activity_phase == "idle"
+        assert agent._action_taken is True
+
+    def test_idle_already_at_dest(self):
+        """이미 목적지에 있으면 대기"""
+        agent = self._make_agent(location=(2, 4))
+        entry = {"activity": "운전", "dest_region": 2, "dest_location": 4}
+        handle_drive(agent, entry)
+        assert agent._activity_phase == "idle"
+        assert agent._action_taken is True
+
+    def test_idle_no_vehicle_walks(self):
+        """차량 없으면 도보 이동"""
+        agent = self._make_agent(location=(0, 1))
+        entry = {"activity": "운전", "dest_region": 2, "dest_location": 4, "distance": 50}
+        handle_drive(agent, entry)
+        assert agent._activity_phase == "idle"
+        assert any(j[0] == "move" for j in agent._jobs)
+
+    def test_idle_finds_vehicle_same_location(self):
+        """같은 location에 차량 있으면 mounting으로 전환"""
+        agent = self._make_agent(location=(2, 4))
+        vid = _make_vehicle(vid=500, fuel=40, fuel_max=40, status="normal")
+        entry = {"activity": "운전", "dest_region": 0, "dest_location": 1, "distance": 10}
+        handle_drive(agent, entry)
+        assert agent._activity_phase == "mounting"
+        assert agent._activity_state["vehicle_id"] == 500
+
+    def test_mounting_success(self):
+        """탑승 성공 → driving"""
+        agent = self._make_agent(location=(2, 4))
+        vid = _make_vehicle(vid=500)
+        agent._activity_phase = "mounting"
+        agent._activity_state = {"vehicle_id": 500, "dest_region": 0, "dest_location": 1, "distance": 10}
+        handle_drive(agent, {})
+        assert agent._activity_phase == "driving"
+
+    def test_mounting_fail(self):
+        """운전석 점유 → idle 복귀"""
+        agent = self._make_agent(location=(2, 4))
+        vid = _make_vehicle(vid=500)
+        other = _make_character(200, hp=50, location=(2, 4))
+        morld.sit_on(200, 500, "driver")
+        agent._activity_phase = "mounting"
+        agent._activity_state = {"vehicle_id": 500}
+        handle_drive(agent, {})
+        assert agent._activity_phase == "idle"
+
+    def test_driving_success(self):
+        """운전 성공 → dismounting + 이동 시간"""
+        agent = self._make_agent(location=(2, 4))
+        vid = _make_vehicle(vid=500, fuel=40, fuel_max=40)
+        morld.sit_on(agent.unit_id, 500, "driver")
+        agent._activity_phase = "driving"
+        agent._activity_state = {"vehicle_id": 500, "dest_region": 0, "dest_location": 1, "distance": 10}
+        entry = {"activity": "운전", "dest_region": 0, "dest_location": 1, "distance": 10}
+        handle_drive(agent, entry)
+        assert agent._activity_phase == "dismounting"
+        assert agent._action_taken is True
+        # 차량이 목적지로 이동했는지
+        v_loc = morld.get_unit_location(500)
+        assert v_loc[0] == 0 and v_loc[1] == 1
+
+    def test_driving_fail_no_fuel(self):
+        """연료 부족 → dismounting"""
+        agent = self._make_agent(location=(2, 4))
+        vid = _make_vehicle(vid=500, fuel=0, fuel_max=40)
+        morld.sit_on(agent.unit_id, 500, "driver")
+        agent._activity_phase = "driving"
+        agent._activity_state = {"vehicle_id": 500, "dest_region": 0, "dest_location": 1, "distance": 10}
+        entry = {"activity": "운전"}
+        handle_drive(agent, entry)
+        assert agent._activity_phase == "dismounting"
+
+    def test_dismounting(self):
+        """하차 → idle + state 클리어"""
+        agent = self._make_agent(location=(2, 4))
+        vid = _make_vehicle(vid=500)
+        morld.sit_on(agent.unit_id, 500, "driver")
+        agent._activity_phase = "dismounting"
+        agent._activity_state = {"vehicle_id": 500}
+        handle_drive(agent, {})
+        assert agent._activity_phase == "idle"
+        assert len(agent._activity_state) == 0
+        # 하차 확인 (seated_by:driver 빔)
+        assert morld.get_unit_prop(500, "seated_by:driver") == -1
+
+    def test_disabled_vehicle_walks(self):
+        """고장 차량 → 도보"""
+        agent = self._make_agent(location=(2, 4))
+        vid = _make_vehicle(vid=500, status="disabled")
+        entry = {"activity": "운전", "dest_region": 0, "dest_location": 1, "distance": 10}
+        handle_drive(agent, entry)
+        assert agent._activity_phase == "idle"
+        assert any(j[0] == "move" for j in agent._jobs)

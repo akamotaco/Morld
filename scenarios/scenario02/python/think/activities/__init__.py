@@ -20,6 +20,7 @@ from .craft import handle_craft
 from .fuel_load import handle_fuel_load
 from .build_activity import handle_build
 from .inspect import handle_inspect
+from .drive import handle_drive
 
 ACTIVITY_HANDLERS = {
     "소등": handle_lights_off,
@@ -40,4 +41,5 @@ ACTIVITY_HANDLERS = {
     "취미낚시": handle_fish_hobby,
     "취미벌목": handle_chop_hobby,
     "취미채집": handle_gather_hobby,
+    "운전": handle_drive,
 }
