@@ -342,6 +342,139 @@ def is_driver(vehicle_id, unit_id):
 
 
 # ========================================
+# 탑승 / 하차
+# ========================================
+
+# 좌석 이름 우선순위 (빈 좌석 탐색 시 사용)
+_SEAT_PRIORITY = ["driver", "passenger1", "passenger2", "passenger3",
+                  "front", "rear"]
+
+
+def _get_seat_names(vehicle_id):
+    """차량에 정의된 좌석 이름 목록 (seated_by:* prop에서 추출)"""
+    props = morld.get_unit_props(vehicle_id)
+    if not props:
+        return []
+    return [k.split(":", 1)[1] for k in props if k.startswith("seated_by:")]
+
+
+def find_empty_seat(vehicle_id, prefer_driver=False):
+    """빈 좌석 탐색
+
+    Args:
+        prefer_driver: True면 driver 우선, False면 passenger 우선
+
+    Returns:
+        str or None: 좌석 이름 (e.g. "driver", "passenger1")
+    """
+    seats = _get_seat_names(vehicle_id)
+    if not seats:
+        return None
+
+    # 우선순위 정렬
+    if prefer_driver:
+        ordered = sorted(seats, key=lambda s: _SEAT_PRIORITY.index(s)
+                         if s in _SEAT_PRIORITY else 99)
+    else:
+        # passenger 우선
+        ordered = sorted(seats, key=lambda s: (
+            0 if s != "driver" else 1,
+            _SEAT_PRIORITY.index(s) if s in _SEAT_PRIORITY else 99
+        ))
+
+    for seat in ordered:
+        val = morld.get_unit_prop(vehicle_id, f"seated_by:{seat}")
+        if val is None or val <= 0:
+            return seat
+    return None
+
+
+def mount(unit_id, vehicle_id, seat_name=None):
+    """차량 탑승
+
+    Args:
+        unit_id: 탑승할 캐릭터
+        vehicle_id: 차량 Object
+        seat_name: 좌석 지정 (None이면 자동 배정, driver 우선)
+
+    Returns:
+        (bool, str): (성공, 실패 사유 또는 배정된 좌석명)
+    """
+    if not is_vehicle(vehicle_id):
+        return False, "차량이 아님"
+
+    # 좌석 결정
+    if seat_name is None:
+        seat_name = find_empty_seat(vehicle_id, prefer_driver=True)
+    if seat_name is None:
+        return False, "빈 좌석 없음"
+
+    # 해당 좌석이 비어있는지 확인
+    current = morld.get_unit_prop(vehicle_id, f"seated_by:{seat_name}")
+    if current is not None and current > 0:
+        return False, "좌석 점유"
+
+    # C# sit_on 호출 (prop 설정 포함)
+    result = morld.sit_on(unit_id, vehicle_id, seat_name)
+    if not result:
+        return False, "탑승 실패"
+
+    return True, seat_name
+
+
+def dismount(unit_id, vehicle_id):
+    """차량 하차
+
+    Args:
+        unit_id: 하차할 캐릭터
+        vehicle_id: 차량 Object
+
+    Returns:
+        bool: 성공 여부
+    """
+    # 탑승 중인지 확인
+    passengers = get_passengers(vehicle_id)
+    if unit_id not in passengers:
+        return False
+
+    # C# stand_up 호출
+    morld.stand_up(unit_id)
+    return True
+
+
+def dismount_all(vehicle_id):
+    """전원 하차
+
+    Returns:
+        list: 하차한 unit_id 목록
+    """
+    passengers = get_passengers(vehicle_id)
+    for pid in passengers:
+        morld.stand_up(pid)
+    return passengers
+
+
+def get_driver(vehicle_id):
+    """운전자 unit_id 반환 (없으면 None)"""
+    driver = morld.get_unit_prop(vehicle_id, "seated_by:driver")
+    if driver is not None and driver > 0:
+        return driver
+    # front 좌석도 driver_seat 역할 (자전거 호환)
+    front = morld.get_unit_prop(vehicle_id, "seated_by:front")
+    if front is not None and front > 0:
+        return front
+    return None
+
+
+def can_drive(vehicle_id):
+    """운전 가능 여부 (운전자 있음 + driver_seat prop)"""
+    has_seat = morld.get_unit_prop(vehicle_id, "driver_seat")
+    if not has_seat:
+        return False
+    return get_driver(vehicle_id) is not None
+
+
+# ========================================
 # 차량 이동 (Python 로직 — C# API 호출 전 검증)
 # ========================================
 

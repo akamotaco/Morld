@@ -184,6 +184,7 @@ def _make_vehicle(vid=500, fuel=40, fuel_max=40, fuel_rate=0.5,
         "vehicle:seats": 4,
         "vehicle:status": status,
         "vehicle:exposed": 1 if vtype == "motorcycle" else 0,
+        "driver_seat": 1,
         "seated_by:driver": -1,
         "seated_by:passenger1": -1,
     }
@@ -522,3 +523,133 @@ class TestUtility(_T):
 
     def test_parse_interior_key_edge(self):
         assert vehicle.parse_interior_key("R12:L99") == (12, 99)
+
+
+# ============================================
+# Part G: 탑승/하차 (mount/dismount)
+# ============================================
+
+class TestMount(_T):
+
+    def test_mount_basic(self):
+        """기본 탑승 — 빈 좌석에 자동 배정"""
+        vid = _make_vehicle()
+        char_id = 100
+        morld.register_unit(char_id, name="Driver", location=(2, 4))
+
+        ok, seat = vehicle.mount(char_id, vid)
+        assert ok is True
+        assert seat == "driver"  # prefer_driver=True
+        assert morld.get_unit_prop(vid, "seated_by:driver") == char_id
+
+    def test_mount_second_passenger(self):
+        """운전석 점유 → 다음 빈 좌석 배정"""
+        vid = _make_vehicle()
+        morld.register_unit(100, name="Driver", location=(2, 4))
+        morld.register_unit(101, name="Passenger", location=(2, 4))
+
+        vehicle.mount(100, vid)
+        ok, seat = vehicle.mount(101, vid)
+        assert ok is True
+        assert seat == "passenger1"
+
+    def test_mount_specific_seat(self):
+        """특정 좌석 지정 탑승"""
+        vid = _make_vehicle()
+        morld.register_unit(100, name="Char", location=(2, 4))
+
+        ok, seat = vehicle.mount(100, vid, seat_name="passenger1")
+        assert ok is True
+        assert seat == "passenger1"
+        assert morld.get_unit_prop(vid, "seated_by:passenger1") == 100
+
+    def test_mount_occupied_seat(self):
+        """점유된 좌석 지정 시 실패"""
+        vid = _make_vehicle()
+        morld.register_unit(100, name="A", location=(2, 4))
+        morld.register_unit(101, name="B", location=(2, 4))
+
+        vehicle.mount(100, vid, seat_name="driver")
+        ok, reason = vehicle.mount(101, vid, seat_name="driver")
+        assert ok is False
+        assert "점유" in reason
+
+    def test_mount_full_vehicle(self):
+        """만석 시 탑승 실패"""
+        vid = _make_vehicle()  # seats=4, but only driver+passenger1 props
+        # 2좌석만 prop 등록되어 있으므로 2명이면 만석
+        morld.register_unit(100, name="A", location=(2, 4))
+        morld.register_unit(101, name="B", location=(2, 4))
+        morld.register_unit(102, name="C", location=(2, 4))
+
+        vehicle.mount(100, vid)
+        vehicle.mount(101, vid)
+        ok, reason = vehicle.mount(102, vid)
+        assert ok is False
+        assert "빈 좌석" in reason
+
+    def test_mount_not_vehicle(self):
+        """차량이 아닌 유닛에 탑승 시도"""
+        morld.register_unit(600, name="NotVehicle")
+        morld.register_unit(100, name="Char", location=(0, 0))
+        ok, reason = vehicle.mount(100, 600)
+        assert ok is False
+        assert "차량" in reason
+
+    def test_dismount_basic(self):
+        """기본 하차"""
+        vid = _make_vehicle()
+        morld.register_unit(100, name="Driver", location=(2, 4))
+        vehicle.mount(100, vid)
+
+        result = vehicle.dismount(100, vid)
+        assert result is True
+        assert morld.get_unit_prop(vid, "seated_by:driver") == -1
+
+    def test_dismount_not_passenger(self):
+        """탑승하지 않은 캐릭터 하차 시도"""
+        vid = _make_vehicle()
+        morld.register_unit(100, name="Char", location=(2, 4))
+        result = vehicle.dismount(100, vid)
+        assert result is False
+
+    def test_dismount_all(self):
+        """전원 하차"""
+        vid = _make_vehicle()
+        morld.register_unit(100, name="A", location=(2, 4))
+        morld.register_unit(101, name="B", location=(2, 4))
+        vehicle.mount(100, vid)
+        vehicle.mount(101, vid)
+
+        ejected = vehicle.dismount_all(vid)
+        assert len(ejected) == 2
+        assert 100 in ejected
+        assert 101 in ejected
+        assert vehicle.get_passengers(vid) == []
+
+    def test_find_empty_seat_prefer_driver(self):
+        """빈 좌석 탐색 — 운전석 우선"""
+        vid = _make_vehicle()
+        seat = vehicle.find_empty_seat(vid, prefer_driver=True)
+        assert seat == "driver"
+
+    def test_find_empty_seat_no_prefer(self):
+        """빈 좌석 탐색 — passenger 우선"""
+        vid = _make_vehicle()
+        seat = vehicle.find_empty_seat(vid, prefer_driver=False)
+        assert seat == "passenger1"  # passenger 우선
+
+    def test_get_driver(self):
+        """운전자 조회"""
+        vid = _make_vehicle()
+        assert vehicle.get_driver(vid) is None
+        morld.set_unit_prop(vid, "seated_by:driver", 100)
+        assert vehicle.get_driver(vid) == 100
+
+    def test_can_drive(self):
+        """운전 가능 여부 (운전석 점유 + driver_seat prop)"""
+        vid = _make_vehicle()
+        assert vehicle.can_drive(vid) is False  # 운전석 비어있음
+        morld.register_unit(100, name="A", location=(2, 4))
+        vehicle.mount(100, vid, seat_name="driver")
+        assert vehicle.can_drive(vid) is True  # 운전석 점유

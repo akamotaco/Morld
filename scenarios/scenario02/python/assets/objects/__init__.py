@@ -31,6 +31,7 @@ from .scavenge import (
     ScavengeableObject, GasStationStand, PharmacyShelf, BrokenVendingMachine
 )
 from .vehicles import (
+    Vehicle, Motorcycle, SedanCar,
     Bicycle, CarDriverSeat, CarPassengerSeat, CarTrunk
 )
 from .construction import ConstructionSite
@@ -57,6 +58,7 @@ __all__ = [
     # scavenge (비충전 수집)
     'ScavengeableObject', 'GasStationStand', 'PharmacyShelf', 'BrokenVendingMachine',
     # vehicles
+    'Vehicle', 'Motorcycle', 'SedanCar',
     'Bicycle', 'CarDriverSeat', 'CarPassengerSeat', 'CarTrunk',
     # construction
     'ConstructionSite',

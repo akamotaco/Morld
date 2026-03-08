@@ -343,18 +343,63 @@ class MockMorld:
         """다이얼로그 표시 (테스트에서는 content 반환)"""
         return content
 
-    def sit_on(self, unit_id, target_id, slot=0):
-        """앉기 (테스트에서는 항상 성공)"""
+    def sit_on(self, unit_id, target_id, seat_name="seat"):
+        """앉기 (C# 모사: seated_on/seated_by prop 양방향 설정)
+
+        Args:
+            unit_id: 앉는 캐릭터
+            target_id: 앉을 오브젝트
+            seat_name: 좌석 이름 ("driver", "front", "seat" 등)
+
+        Returns:
+            bool: 성공 여부 (좌석이 이미 점유되었으면 False)
+        """
+        target = self._units.get(target_id)
+        if not target:
+            return False
+        # 좌석 점유 체크
+        seat_key = f"seated_by:{seat_name}"
+        current = target["props"].get(seat_key)
+        if current is not None and current > 0:
+            return False  # 이미 점유
+
+        u = self._units.get(unit_id)
+        if not u:
+            return False
+
+        # 이미 다른 곳에 앉아있으면 먼저 일어남
+        for k in list(u["props"]):
+            if k.startswith("seated_on:"):
+                self.stand_up(unit_id)
+                break
+
+        # 양방향 prop 설정
+        target["props"][seat_key] = unit_id
+        u["props"][f"seated_on:{target_id}"] = seat_name
         return True
 
     def stand_up(self, unit_id):
-        """일어서기 (seated_on 해제)"""
+        """일어서기 (seated_on/seated_by 양방향 해제)"""
         u = self._units.get(unit_id)
-        if u:
-            # seated_on:* prop 모두 제거
-            to_remove = [k for k in u["props"] if k.startswith("seated_on:")]
-            for k in to_remove:
+        if not u:
+            return
+        # seated_on:{target_id} = seat_name 찾기
+        for k in list(u["props"]):
+            if k.startswith("seated_on:"):
+                target_id_str = k.split(":", 1)[1]
+                try:
+                    target_id = int(target_id_str)
+                except ValueError:
+                    del u["props"][k]
+                    continue
+                seat_name = u["props"][k]
                 del u["props"][k]
+                # 오브젝트의 seated_by 해제
+                target = self._units.get(target_id)
+                if target:
+                    seat_key = f"seated_by:{seat_name}"
+                    if seat_key in target["props"]:
+                        target["props"][seat_key] = -1
 
     def is_same_building(self, r1, l1, r2, l2):
         """같은 건물 판정 (테스트에서는 항상 True)"""
