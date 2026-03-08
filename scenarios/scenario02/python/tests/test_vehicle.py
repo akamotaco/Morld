@@ -805,3 +805,101 @@ class TestVehicleMoveTo(_T):
 
         assert vid not in get_location_objects(2, 4)
         assert vid in get_location_objects(3, 1)
+
+
+# ============================================
+# Part I: 주유 시스템 (find_nearby + refuel)
+# ============================================
+
+class TestFindNearbyVehicle(_T):
+
+    def test_find_vehicle_same_location(self):
+        """같은 location의 차량 탐색"""
+        vid = _make_vehicle()
+        morld.register_unit(1, name="Player", location=(2, 4))
+        found = vehicle.find_nearby_vehicle(1)
+        assert found == vid
+
+    def test_find_vehicle_different_location(self):
+        """다른 location이면 None"""
+        _make_vehicle()  # (2, 4)
+        morld.register_unit(1, name="Player", location=(0, 0))
+        found = vehicle.find_nearby_vehicle(1)
+        assert found is None
+
+    def test_find_vehicle_seated(self):
+        """탑승 중이면 탑승 차량 반환"""
+        vid = _make_vehicle()
+        morld.register_unit(1, name="Player", location=(2, 4))
+        vehicle.mount(1, vid, seat_name="driver")
+        found = vehicle.find_nearby_vehicle(1)
+        assert found == vid
+
+    def test_find_vehicle_no_vehicles(self):
+        """차량 없으면 None"""
+        morld.register_unit(1, name="Player", location=(0, 0))
+        found = vehicle.find_nearby_vehicle(1)
+        assert found is None
+
+
+class TestRefuelLogic(_T):
+
+    def test_calculate_refuel_cost(self):
+        """주유 비용 계산"""
+        vid = _make_vehicle(fuel=10, fuel_max=40)
+        needed, cost = vehicle.calculate_refuel_cost(vid)
+        assert needed == 30
+        assert cost == 60  # 30 * 2(FUEL_PRICE_PER_LITER)
+
+    def test_calculate_refuel_cost_full(self):
+        """만탱이면 0"""
+        vid = _make_vehicle(fuel=40, fuel_max=40)
+        needed, cost = vehicle.calculate_refuel_cost(vid)
+        assert needed == 0
+        assert cost == 0
+
+    def test_refuel_from_pump(self):
+        """주유소 주유 — 만탱"""
+        vid = _make_vehicle(fuel=10, fuel_max=40)
+        result = vehicle.refuel_from_pump(vid)
+        assert result is not None
+        assert result["amount"] == 30
+        assert result["cost"] == 60
+        assert vehicle.get_fuel(vid) == 40
+
+    def test_refuel_from_pump_already_full(self):
+        """만탱이면 None"""
+        vid = _make_vehicle(fuel=40, fuel_max=40)
+        result = vehicle.refuel_from_pump(vid)
+        assert result is None
+
+    def test_refuel_from_jerrycan_basic(self):
+        """제리캔 주유 — 기본 10L"""
+        vid = _make_vehicle(fuel=25, fuel_max=40)
+        result = vehicle.refuel_from_jerrycan(vid)
+        assert result["amount"] == 10
+        assert result["remaining_jerrycan_fuel"] == 0
+        assert vehicle.get_fuel(vid) == 35
+
+    def test_refuel_from_jerrycan_partial(self):
+        """제리캔 주유 — 남은 용량 < 제리캔"""
+        vid = _make_vehicle(fuel=35, fuel_max=40)
+        result = vehicle.refuel_from_jerrycan(vid)
+        assert result["amount"] == 5  # 5L만 충전 가능
+        assert result["remaining_jerrycan_fuel"] == 5
+        assert vehicle.get_fuel(vid) == 40
+
+    def test_refuel_from_jerrycan_full(self):
+        """만탱이면 0"""
+        vid = _make_vehicle(fuel=40, fuel_max=40)
+        result = vehicle.refuel_from_jerrycan(vid)
+        assert result["amount"] == 0
+        assert result["remaining_jerrycan_fuel"] == 10
+
+    def test_refuel_from_jerrycan_custom_fuel(self):
+        """제리캔 잔량 지정"""
+        vid = _make_vehicle(fuel=30, fuel_max=40)
+        result = vehicle.refuel_from_jerrycan(vid, jerrycan_fuel=3)
+        assert result["amount"] == 3
+        assert result["remaining_jerrycan_fuel"] == 0
+        assert vehicle.get_fuel(vid) == 33

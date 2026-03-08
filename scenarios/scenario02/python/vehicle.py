@@ -634,6 +634,96 @@ def get_speed(vehicle_id):
     return morld.get_unit_prop(vehicle_id, "vehicle:speed") or 1.0
 
 
+def find_nearby_vehicle(unit_id):
+    """유닛과 같은 location에 있는 차량 ID 반환 (첫 번째)
+
+    플레이어가 탑승 중이면 탑승 차량 우선 반환.
+
+    Returns:
+        int or None: 차량 unit_id
+    """
+    # 탑승 중인 차량 확인
+    props = morld.get_unit_props(unit_id)
+    if props:
+        for key in props:
+            if key.startswith("seated_on:"):
+                target_id = int(key.split(":", 1)[1])
+                if is_vehicle(target_id):
+                    return target_id
+
+    # 같은 location의 오브젝트 탐색
+    loc = morld.get_unit_location(unit_id)
+    if not loc:
+        return None
+    objects = morld.get_units_at_location(loc[0], loc[1], "object")
+    for obj_id in objects:
+        if is_vehicle(obj_id):
+            return obj_id
+    return None
+
+
+# ========================================
+# 주유 시스템
+# ========================================
+
+# 제리캔 연료량
+JERRYCAN_FUEL = 10  # 리터
+
+# 주유소 주유 시간 (밀리초)
+PUMP_REFUEL_TIME_MS = 5 * 60_000   # 5분
+JERRYCAN_REFUEL_TIME_MS = 2 * 60_000  # 2분
+
+
+def calculate_refuel_cost(vehicle_id):
+    """주유소 주유 비용 계산
+
+    Returns:
+        (float, int): (필요량L, 비용코인) — 이미 만탱이면 (0, 0)
+    """
+    fuel = get_fuel(vehicle_id)
+    fuel_max = get_fuel_max(vehicle_id)
+    needed = fuel_max - fuel
+    if needed <= 0:
+        return 0, 0
+    cost = int(needed * FUEL_PRICE_PER_LITER)
+    return needed, cost
+
+
+def refuel_from_pump(vehicle_id):
+    """주유소에서 만탱 주유 (코인 체크 없이 로직만)
+
+    Returns:
+        dict: {success, amount, cost} or None (이미 만탱)
+    """
+    needed, cost = calculate_refuel_cost(vehicle_id)
+    if needed <= 0:
+        return None
+    actual = refuel(vehicle_id, needed)
+    return {"success": True, "amount": actual, "cost": cost}
+
+
+def refuel_from_jerrycan(vehicle_id, jerrycan_fuel=None):
+    """제리캔으로 주유
+
+    Args:
+        jerrycan_fuel: 제리캔 연료량 (None이면 기본 JERRYCAN_FUEL)
+
+    Returns:
+        dict: {amount, remaining_jerrycan_fuel}
+    """
+    if jerrycan_fuel is None:
+        jerrycan_fuel = JERRYCAN_FUEL
+    fuel = get_fuel(vehicle_id)
+    fuel_max = get_fuel_max(vehicle_id)
+    space = fuel_max - fuel
+    transfer = min(jerrycan_fuel, space)
+    if transfer <= 0:
+        return {"amount": 0, "remaining_jerrycan_fuel": jerrycan_fuel}
+    refuel(vehicle_id, transfer)
+    return {"amount": transfer,
+            "remaining_jerrycan_fuel": jerrycan_fuel - transfer}
+
+
 def parse_interior_key(key_str):
     """'R{n}:L{n}' 형식 파싱 → (region_id, location_id) or None"""
     if not key_str:

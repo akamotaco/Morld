@@ -32,7 +32,8 @@ from .scavenge import (
 )
 from .vehicles import (
     Vehicle, Motorcycle, SedanCar,
-    Bicycle, CarDriverSeat, CarPassengerSeat, CarTrunk
+    Bicycle, CarDriverSeat, CarPassengerSeat, CarTrunk,
+    GasStationPump
 )
 from .construction import ConstructionSite
 
@@ -60,6 +61,7 @@ __all__ = [
     # vehicles
     'Vehicle', 'Motorcycle', 'SedanCar',
     'Bicycle', 'CarDriverSeat', 'CarPassengerSeat', 'CarTrunk',
+    'GasStationPump',
     # construction
     'ConstructionSite',
 ]

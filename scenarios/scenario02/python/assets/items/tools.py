@@ -638,3 +638,66 @@ class Radio(Item):
         ])
 
 
+# ========================================
+# 차량 관련 도구
+# ========================================
+
+class JerryCan(Item):
+    """제리캔 — 연료 10L 분량, 차량에 주유 가능"""
+    unique_id = "jerry_can"
+    name = "제리캔"
+    category = "tool"
+    passive_props = {}
+    equip_props = {}
+    value = 30
+    actions = [
+        "take@container",
+        "call:use:차량에 주유@inventory",
+        "call:look:살펴보기@inventory",
+    ]
+
+    def look(self):
+        """제리캔 살펴보기"""
+        import vehicle as veh
+        fuel = morld.get_unit_prop(self.instance_id, "jerrycan:fuel")
+        if fuel is None:
+            fuel = veh.JERRYCAN_FUEL
+        yield ui.dialog([
+            "플라스틱 제리캔이다.",
+            f"연료가 {fuel:.0f}L 들어있다." if fuel > 0
+            else "비어 있다.",
+        ])
+
+    def use(self):
+        """인벤토리에서 사용 → 근처 차량에 주유"""
+        import vehicle as veh
+        player_id = morld.get_player_id()
+        target = veh.find_nearby_vehicle(player_id)
+        if not target:
+            yield ui.dialog("제리캔", "근처에 차량이 없습니다.")
+            return
+
+        fuel = morld.get_unit_prop(self.instance_id, "jerrycan:fuel")
+        if fuel is None:
+            fuel = veh.JERRYCAN_FUEL
+        if fuel <= 0:
+            yield ui.dialog("제리캔", "빈 제리캔입니다.")
+            return
+
+        result = veh.refuel_from_jerrycan(target, fuel)
+        if result["amount"] <= 0:
+            yield ui.dialog("제리캔", "차량 연료가 이미 가득 찼습니다.")
+            return
+
+        # 제리캔 잔량 업데이트
+        remaining = result["remaining_jerrycan_fuel"]
+        if remaining <= 0:
+            # 빈 제리캔 → 제거
+            morld.remove_item(player_id, self.instance_id, 1)
+        else:
+            morld.set_unit_prop(self.instance_id, "jerrycan:fuel", remaining)
+
+        morld.advance_time_des(veh.JERRYCAN_REFUEL_TIME_MS)
+        yield ui.dialog("제리캔", f"{result['amount']:.0f}L 주유 완료.")
+
+

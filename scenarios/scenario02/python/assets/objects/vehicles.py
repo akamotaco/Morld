@@ -48,6 +48,48 @@ class Vehicle(Object):
 
         yield ui.dialog(f"{self.name} 점검", "\n".join(lines))
 
+    def refuel(self):
+        """제리캔으로 주유 (인벤토리의 제리캔 자동 탐색)"""
+        import vehicle as veh
+        player_id = morld.get_player_id()
+
+        fuel = veh.get_fuel(self.instance_id)
+        fuel_max = veh.get_fuel_max(self.instance_id)
+        if fuel >= fuel_max:
+            yield ui.dialog("주유", "연료가 이미 가득 찼습니다.")
+            return
+
+        # 인벤토리에서 제리캔 탐색
+        from assets.registry import get_or_create_item_id
+        jerry_id = get_or_create_item_id("jerry_can")
+        inv = morld.get_unit_inventory(player_id)
+        if not inv or jerry_id not in inv or inv[jerry_id] <= 0:
+            yield ui.dialog("주유", "제리캔이 없습니다.")
+            return
+
+        jerry_fuel = morld.get_unit_prop(jerry_id, "jerrycan:fuel")
+        if jerry_fuel is None:
+            jerry_fuel = veh.JERRYCAN_FUEL
+        if jerry_fuel <= 0:
+            yield ui.dialog("주유", "빈 제리캔입니다.")
+            return
+
+        result = veh.refuel_from_jerrycan(self.instance_id, jerry_fuel)
+        if result["amount"] <= 0:
+            yield ui.dialog("주유", "연료가 이미 가득 찼습니다.")
+            return
+
+        remaining = result["remaining_jerrycan_fuel"]
+        if remaining <= 0:
+            morld.remove_item(player_id, jerry_id, 1)
+        else:
+            morld.set_unit_prop(jerry_id, "jerrycan:fuel", remaining)
+
+        morld.advance_time_des(veh.JERRYCAN_REFUEL_TIME_MS)
+        yield ui.dialog("주유", f"{result['amount']:.0f}L 주유 완료. "
+                       f"(연료: {veh.get_fuel(self.instance_id):.0f}/"
+                       f"{fuel_max:.0f}L)")
+
     def repair(self):
         """차량 수리 — 부품 선택 → 수리"""
         import vehicle as veh
@@ -74,6 +116,7 @@ class Motorcycle(Vehicle):
         "sit@driver:운전석 탑승",
         "sit@passenger1:뒷좌석 탑승",
         "call:inspect:점검",
+        "call:refuel:주유@near",
         "call:repair:수리@near",
         "call:debug_props:(디버그) 속성 보기#",
     ]
@@ -113,6 +156,7 @@ class SedanCar(Vehicle):
         "sit@passenger2:뒷좌석(좌) 탑승",
         "sit@passenger3:뒷좌석(우) 탑승",
         "call:inspect:점검",
+        "call:refuel:주유@near",
         "call:repair:수리@near",
         "call:look:트렁크 살펴보기",
         "call:debug_props:(디버그) 속성 보기#",
@@ -295,3 +339,122 @@ class CarTrunk(Object):
             "물건을 넣거나 꺼낼 수 있겠다."
         ])
         morld.advance_time_des(1 * 60_000)
+
+
+# ========================================
+# 주유기 (주유소 오브젝트)
+# ========================================
+
+class GasStationPump(Object):
+    """주유기 — 주유소(R2:L1)에 배치, 차량 주유 및 제리캔 구매"""
+    unique_id = "gas_pump"
+    name = "주유기"
+    position_x = 100
+    props = {"fuel:supply": 1}
+    actions = [
+        "call:refuel_vehicle:차량 주유@near",
+        "call:buy_jerrycan:제리캔 구매@near",
+        "call:fill_jerrycan:제리캔 충전@near",
+        "call:debug_props:(디버그) 속성 보기#",
+    ]
+    focus_text = {"default": "오래됐지만 아직 작동하는 주유기. 연료를 넣을 수 있다."}
+
+    def refuel_vehicle(self):
+        """차량 직접 주유 (만탱, 코인 소비)"""
+        import vehicle as veh
+        player_id = morld.get_player_id()
+        target = veh.find_nearby_vehicle(player_id)
+        if not target:
+            yield ui.dialog("주유", "근처에 차량이 없습니다.")
+            return
+
+        needed, cost = veh.calculate_refuel_cost(target)
+        if needed <= 0:
+            yield ui.dialog("주유", "연료가 이미 가득 찼습니다.")
+            return
+
+        # 코인 확인
+        coin_count = _get_coin_count(player_id)
+        if coin_count < cost:
+            yield ui.dialog("주유",
+                            f"코인이 부족합니다. (필요: {cost}, 보유: {coin_count})")
+            return
+
+        # 주유 실행
+        _spend_coins(player_id, cost)
+        veh.refuel_from_pump(target)
+        morld.advance_time_des(veh.PUMP_REFUEL_TIME_MS)
+        yield ui.dialog("주유", f"{needed:.0f}L 주유 완료. ({cost} 코인)")
+
+    def buy_jerrycan(self):
+        """제리캔 구매"""
+        import vehicle as veh
+        player_id = morld.get_player_id()
+        cost = 20  # 코인
+
+        coin_count = _get_coin_count(player_id)
+        if coin_count < cost:
+            yield ui.dialog("구매",
+                            f"코인이 부족합니다. (필요: {cost}, 보유: {coin_count})")
+            return
+
+        _spend_coins(player_id, cost)
+
+        from assets.registry import get_or_create_item_id
+        jerry_id = get_or_create_item_id("jerry_can")
+        morld.give_item(player_id, jerry_id, 1)
+        morld.advance_time_des(1 * 60_000)
+        yield ui.dialog("구매", "제리캔을 구매했습니다. (20 코인)")
+
+    def fill_jerrycan(self):
+        """빈 제리캔 충전"""
+        import vehicle as veh
+        player_id = morld.get_player_id()
+        cost = 15  # 구매보다 저렴
+
+        # 빈 제리캔 탐색
+        jerry_id = _find_empty_jerrycan(player_id)
+        if not jerry_id:
+            yield ui.dialog("충전", "빈 제리캔이 없습니다.")
+            return
+
+        coin_count = _get_coin_count(player_id)
+        if coin_count < cost:
+            yield ui.dialog("충전",
+                            f"코인이 부족합니다. (필요: {cost}, 보유: {coin_count})")
+            return
+
+        _spend_coins(player_id, cost)
+        morld.set_unit_prop(jerry_id, "jerrycan:fuel", veh.JERRYCAN_FUEL)
+        morld.advance_time_des(2 * 60_000)
+        yield ui.dialog("충전", f"제리캔 충전 완료. ({cost} 코인)")
+
+
+def _get_coin_count(player_id):
+    """플레이어의 코인 보유량"""
+    from assets.registry import get_or_create_item_id
+    coin_id = get_or_create_item_id("coin")
+    inv = morld.get_unit_inventory(player_id)
+    if not inv:
+        return 0
+    return inv.get(coin_id, 0)
+
+
+def _spend_coins(player_id, amount):
+    """코인 소비"""
+    from assets.registry import get_or_create_item_id
+    coin_id = get_or_create_item_id("coin")
+    morld.remove_item(player_id, coin_id, amount)
+
+
+def _find_empty_jerrycan(player_id):
+    """빈 제리캔 아이템 ID 탐색"""
+    from assets.registry import get_or_create_item_id
+    jerry_id = get_or_create_item_id("jerry_can")
+    inv = morld.get_unit_inventory(player_id)
+    if not inv or jerry_id not in inv or inv[jerry_id] <= 0:
+        return None
+    fuel = morld.get_unit_prop(jerry_id, "jerrycan:fuel")
+    if fuel is not None and fuel > 0:
+        return None  # 아직 연료가 있음
+    return jerry_id

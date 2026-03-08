@@ -143,30 +143,26 @@ class MockMorld:
     def get_units_at_location(self, region_or_location, location=None, type_filter=None):
         # 1-arg: location_id only (region 무시, location_id 일치하면 반환)
         # 2-arg: (region_id, location_id) 쌍으로 매칭
+        def _match_filter(u):
+            if type_filter is None:
+                return True
+            # is_object 플래그 우선, 없으면 info["type"] fallback (레거시 호환)
+            is_obj = u["info"].get("is_object", False)
+            if not is_obj and u["info"].get("type") == "object":
+                is_obj = True
+            if type_filter == "object":
+                return is_obj
+            if type_filter == "character":
+                return not is_obj
+            return True
+
         if location is None:
             loc_id = region_or_location
-            result = []
-            for uid, u in self._units.items():
-                if u["location"][1] != loc_id:
-                    continue
-                utype = u["info"].get("type", "")
-                if type_filter == "character" and utype == "object":
-                    continue
-                if type_filter == "object" and utype != "object":
-                    continue
-                result.append(uid)
-            return result
-        result = []
-        for uid, u in self._units.items():
-            if u["location"] != (region_or_location, location):
-                continue
-            utype = u["info"].get("type", "")
-            if type_filter == "character" and utype == "object":
-                continue
-            if type_filter == "object" and utype != "object":
-                continue
-            result.append(uid)
-        return result
+            return [uid for uid, u in self._units.items()
+                    if u["location"][1] == loc_id and _match_filter(u)]
+        return [uid for uid, u in self._units.items()
+                if u["location"] == (region_or_location, location)
+                and _match_filter(u)]
 
     def get_player_id(self):
         return self._player_id
