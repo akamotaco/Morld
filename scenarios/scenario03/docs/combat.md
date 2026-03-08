@@ -8,6 +8,68 @@
 
 ---
 
+## 구현 기반: DES + FSM
+
+마이크로턴 전투는 **신규 시스템이 아니라** 시나리오02의 DES(이산 사건 시뮬레이션) + FSM(유한 상태 기계) 위에서 동작한다.
+
+### 시나리오02 전투 흐름 (기존)
+
+```
+advance_time_des(millis)
+  → think_all()
+    → _check_combat_threat() (tier 2)
+      → CombatState push to FSM
+        → 공격 job 삽입 (6초/10초)
+          → DES가 시간 진행
+```
+
+### 시나리오03 마이크로턴 흐름 (확장)
+
+```
+advance_time_des(millis)
+  → think_all()
+    → _check_combat_threat() (tier 2)
+      → MicroTurnCombatState push to FSM
+        → 턴 시퀀스 실행 (1~2초/턴)
+          → 대열 순번(Rank)에 따른 행동 순서 결정
+          → DES가 시간 진행 (동일)
+```
+
+### 차이점은 설정일 뿐
+
+| 항목 | 시나리오02 | 시나리오03 |
+|------|-----------|-----------|
+| 전투 참여 | 플레이어 직접 | 분대원 자율 + 오퍼레이터 간접 |
+| 공격 duration | 6~10초 고정 | 1~2초 마이크로턴 |
+| 전투 중 입력 | 플레이어 액션 선택 | 공세레벨/약물/해킹 지시 |
+| FSM 상태 | CombatState | MicroTurnCombatState (서브클래스) |
+| DES 루프 | 동일 | 동일 |
+| AutoTimeFlow | ON 가능 | 적극 활용 |
+
+### 구현 방식
+
+```python
+class MicroTurnCombatState(CombatState):
+    """마이크로턴 전투 FSM 상태
+
+    CombatState를 상속하여 턴 시퀀스 로직 추가.
+    기존 DES 루프 안에서 동작하며, 엔진 변경 없음.
+    """
+    MICRO_TURN_DURATION_MS = 1500  # 1.5초/턴
+
+    def update(self, agent):
+        # 1) 대열 순번에 따른 행동 순서 결정
+        # 2) 각 분대원의 행동 결정 (AI 또는 오퍼레이터 지시)
+        # 3) 피해 판정 + 적용
+        # 4) 사망/패배/승리 체크
+        # 5) job 삽입 (MICRO_TURN_DURATION_MS)
+        ...
+```
+
+C# 변경 없음 — 순수 Python 확장.
+
+---
+
 ## 대열 순번 (Rank)
 
 1D 공간에서 '누가 앞에 서는가'가 전술의 핵심이다.
@@ -22,6 +84,17 @@
 
 분대 구성의 상세는 [squad.md](squad.md) 참조.
 
+### 대열과 DES의 관계
+
+대열 순번(Rank)은 `party.py` Squad의 멤버 속성으로 관리된다. 1D Location 내에서 분대원의 X좌표가 곧 전투 위치이며, DES의 이동 시스템이 그대로 적용된다.
+
+```python
+# party.py 확장 — 멤버에 rank 속성 추가
+squad.set_member_rank(unit_id, rank=1)  # 전위
+squad.set_member_rank(unit_id, rank=2)  # 중위
+squad.set_member_rank(unit_id, rank=3)  # 후위
+```
+
 ---
 
 ## 브레이크의 권한
@@ -32,16 +105,24 @@
 
 단, 인간성이 바닥난 대원은 사선 확보를 방해한다며 앞의 동료를 밀쳐버리거나 예측 불가능한 행동을 할 수 있다. 1D 공간의 제약상 시스템적 표현과 서사적 표현은 분리하여 처리한다.
 
+### FSM 연동
+
+브레이크 개입은 FSM 스택 조작으로 구현된다:
+
+- **공세 레벨 변경**: `Squad.player_directive` 변경 → 분대원 think() 시 반영
+- **약물 투여**: equip_props 즉시 적용 → 다음 마이크로턴에 반영
+- **강제 후퇴**: `Order` 변경 → CommandPhase에서 후퇴 행동
+
 ---
 
 ## 오퍼레이터 개입 수단
 
-| 수단 | 설명 |
-|------|------|
-| 공세 레벨 조정 | '적극적 공격'부터 '후퇴'까지 분대 전체의 공세 수준 조정 |
-| 해킹 | 탐사 지역의 보안 설비 해제, 조명 관제, 문 개방 등 |
-| 약물 원격 투여 | 분대원 수트를 통한 각종 약물 주입 (성능 vs 인간성 트레이드오프) |
-| 좌표 지정 | 우회로 제시, 집결 지점 설정 |
+| 수단 | 설명 | 구현 기반 |
+|------|------|----------|
+| 공세 레벨 조정 | '적극적 공격'부터 '후퇴'까지 분대 전체의 공세 수준 조정 | `Squad.player_directive` (party.py) |
+| 해킹 | 탐사 지역의 보안 설비 해제, 조명 관제, 문 개방 등 | Gate conditions + prop 변경 |
+| 약물 원격 투여 | 분대원 수트를 통한 각종 약물 주입 (성능 vs 인간성 트레이드오프) | equip_props + humanity prop |
+| 좌표 지정 | 우회로 제시, 집결 지점 설정 | `Order.target` (party.py) |
 
 약물 시스템 상세는 [agent.md](agent.md) 약물 시스템 절 참조.
 
@@ -52,6 +133,13 @@
 ### 설계 원칙
 
 외계인이나 판타지적 요소는 배제한다. 과학적 근거에 기반한 현실적 위협만을 다룬다. ("고도로 발달된 과학은 마법과 비슷하다"는 여지는 남겨둔다.)
+
+### 구현 기반
+
+적 유닛은 시나리오02의 `CreatureAgent` 패턴을 재활용한다:
+- `spawner.py` — 스포너를 통한 적 생성 (동적 맵 생성과 연동)
+- `creature_agent.py` — 생존/욕구 없는 단순화된 AI
+- `BATTLE_BEHAVIOR` props — 적 행동 패턴 (aggressive/territorial/passive/timid)
 
 ### 위협 분류 체계
 

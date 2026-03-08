@@ -4,6 +4,16 @@
 
 **플랫폼**은 분대원이 탐사 외 시간에 생활하는 공간이다. 객관적으로는 암반층의 낡은 역사에 불과하지만, 분대원에게는 유일한 안식처이다. 플레이어는 **CRT 모니터/CCTV 스타일**로 분대원의 생활을 관찰한다.
 
+### 구현 기반
+
+플랫폼은 시나리오02의 시스템을 그대로 사용한다:
+
+- **Location/Object**: 수동 정의 (시나리오02 패턴 동일, 탐사 지역만 동적 생성)
+- **분대원 자율 행동**: `BaseAgent` + `schedule_mixin.py` (일과 패턴)
+- **시설**: `facility_resolver.py` (prop 기반 동적 탐색)
+- **환경**: `temperature/humidity/pollution/congestion.py` (등록만 하면 자동)
+- **시간 흐름**: `advance_time_des()` + AutoTimeFlow
+
 ---
 
 ## 관찰 시스템

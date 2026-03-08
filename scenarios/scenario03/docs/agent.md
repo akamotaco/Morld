@@ -6,6 +6,21 @@
 
 캐릭터의 기본 설정(백지객, 시리얼 번호, 유일성 원칙)은 [design.md](design.md) 제4장 참조.
 
+### 구현 기반
+
+에이전트 시스템은 시나리오02의 `think/` 패키지를 확장하여 구현한다:
+
+| 시나리오03 기능 | 기반 코드 | 확장 내용 |
+|---------------|----------|----------|
+| 자율 행동 | `BaseAgent` (think/__init__.py) | 5-tier think() 그대로, tier 2에 마이크로턴 전투 추가 |
+| 약물 효과 | `equipment.py` equip_props | `drug:*` equip_props + 시간 경과 효과 |
+| 인간성 | `needs.py` 욕구 패턴 | `humanity` prop + 임계치별 행동 분기 |
+| Vita/Sapientia | prop 기반 | 성장 prop 2개 + 풀 한계 제약 |
+| 관계 시스템 | 기존 NPC 관계 prop | `동조율` prop 추가 |
+| 부상/사망 | `survival.py` | HP/기절/사망 동일, `mia_status` prop 추가 |
+
+시스템 매핑 상세: [compatibility.md](compatibility.md)
+
 ---
 
 ## 성장 시스템: 두 그루의 나무
