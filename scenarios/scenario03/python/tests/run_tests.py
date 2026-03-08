@@ -89,6 +89,11 @@ TEST_MODULES = [
     "test_quest",
     "test_progression",
     "test_build",
+    "test_squad",
+    "test_mapgen",
+    "test_expedition",
+    "test_combat",
+    "test_integration",
 ]
 
 

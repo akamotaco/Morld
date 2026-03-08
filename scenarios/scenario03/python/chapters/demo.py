@@ -46,6 +46,14 @@ def initialize():
     build_module.reset()
     build_module.register_demo_recipes()
 
+    # 6. 분대/원정/맵 초기화
+    import squad
+    squad.reset()
+    import expedition
+    expedition.reset()
+    import mapgen
+    mapgen.reset()
+
     print("[demo] Demo chapter initialized: 2 regions, 4 locations, 1 NPC")
 
 

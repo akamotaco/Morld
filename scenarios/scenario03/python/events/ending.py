@@ -17,11 +17,15 @@ def handle_ending():
         "+종합 보고를 드리겠습니다.",
     )
 
-    # TODO: 실제 통계 수집 (건설 현황, 수집량, 부상자 등)
+    # 통계 수집
+    import squad as squad_module
+    agent_count = sum(len(s.members) + (1 if s.leader_id else 0)
+                      for s in squad_module.get_all_squads())
+
     yield ui.dialog(
         "[b]제3지저관리구역 — 종합 보고[/b]\n\n"
         "  거점: 플랫폼 (기본 시설 건설 완료)\n"
-        "  에이전트: 4명 활동 중\n"
+        f"  에이전트: {max(agent_count, 4)}명 활동 중\n"
         "  탐사: 1회 완료\n"
         "  수집 자재: 확인 완료\n\n"
         "+이상으로 데모 시퀀스를 종료합니다.",

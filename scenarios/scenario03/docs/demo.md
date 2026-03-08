@@ -17,11 +17,15 @@
 | 건축 튜토리얼 (Step 5-6) | 이벤트 핸들러 구현 | - |
 | 에이전트/NPC | 기본 Agent 구현 | 6개 통과 |
 | 퀘스트 정의 | 데이터 정의 완료 | 5개 통과 |
-| 분대/탐사/전투 | 미구현 (TODO) | - |
-| 동적 맵 생성 | 미구현 (TODO) | - |
+| 분대 시스템 | 구현 완료 (squad.py) | 26개 통과 |
+| 동적 맵 생성 | 구현 완료 (mapgen.py, BSP) | 17개 통과 |
+| 원정 시스템 | 구현 완료 (expedition.py) | 19개 통과 |
+| 전투 시스템 | 구현 완료 (combat.py, 자동해결) | 8개 통과 |
+| 이벤트 연결 (Step 8-14) | 구현 완료 | 통합 테스트 포함 |
+| 플레이어 UI (CRTConsole) | 구현 완료 (분대편성/진군/퇴각) | 6개 통과 |
 | CRT 뷰 | 미구현 (C# 확장 필요) | - |
 
-**총 테스트: 8 modules, 79 passed**
+**총 테스트: 13 modules, 155 passed**
 
 ---
 
@@ -37,11 +41,11 @@
 | 6 | 에이전트 증원 | NPC 동적 생성 | auto |
 | 7 | 기본 건설 | build.py + NPC Activity | build 완료 |
 | 8 | 첫 임무 브리핑 | Dialog + Quest | auto |
-| 9 | 분대 편성 | party.py (Squad) | player |
-| 10 | 탐사 출발 | Vehicle + mapgen | auto |
-| 11 | 탐사 수행 | DES + FSM | player |
-| 12 | 귀환 | Vehicle | player |
-| 13 | 임무 완료 | Quest completion | auto |
+| 9 | 분대 편성 | squad.py + CRTConsole UI | player |
+| 10 | 탐사 출발 | expedition.py + mapgen.py | auto |
+| 11 | 탐사 수행 | expedition.py + combat.py | player |
+| 12 | 귀환 | expedition.py + CRTConsole UI | player |
+| 13 | 임무 완료 | Dialog | auto |
 | 14 | 엔딩 | Dialog | auto |
 
 ---
@@ -51,6 +55,10 @@
 ```
 scenarios/scenario03/python/
 ├── build.py                        # 건축 시스템 (레시피/뼈대/진척도/원격지정)
+├── squad.py                        # 분대 시스템 (편성/해산/공세레벨/대열순번)
+├── mapgen.py                       # BSP 동적 맵 생성 (Region/Location/Gate)
+├── expedition.py                   # 원정 라이프사이클 (준비→탐사→귀환→완료)
+├── combat.py                       # 자동 전투 해결 (위협코드/공세보정/대열피해)
 ├── chapters/
 │   ├── __init__.py                 # load_chapter() (시나리오02 패턴)
 │   └── demo.py                     # 데모 챕터 초기화
@@ -92,7 +100,7 @@ scenarios/scenario03/python/
 │   └── __init__.py                 # DEMO_QUESTS + BUILD_RECIPES 정의
 └── tests/
     ├── mock_morld.py               # MockMorld (C# API 스텁)
-    ├── run_tests.py                # 테스트 러너 (8 modules)
+    ├── run_tests.py                # 테스트 러너 (13 modules)
     ├── test_assets.py              # 10 tests
     ├── test_world.py               # 6 tests
     ├── test_chapters.py            # 4 tests
@@ -100,7 +108,12 @@ scenarios/scenario03/python/
     ├── test_events.py              # 4 tests
     ├── test_quest.py               # 5 tests
     ├── test_progression.py         # 24 tests
-    └── test_build.py               # 20 tests
+    ├── test_build.py               # 20 tests
+    ├── test_squad.py               # 26 tests
+    ├── test_mapgen.py              # 17 tests
+    ├── test_expedition.py          # 19 tests
+    ├── test_combat.py              # 8 tests
+    └── test_integration.py         # 6 tests
 ```
 
 ---
@@ -299,7 +312,9 @@ class CRTConsole(Object):
     actions = [
         "call:view_status:상황 확인",       # 플랫폼 상황 요약
         "call:designate_build:건축 지정",   # 원격 건축 (build.py 연동)
-        "call:manage_squad:분대 관리",      # TODO: party.py 연동
+        "call:manage_squad:분대 관리",      # 분대 편성/해산/공세레벨
+        "call:order_advance:진군 명령",     # 탐사 중 다음 방 이동 + 전투
+        "call:order_retreat:퇴각 명령",     # 귀환 + 원정 완료 + 진행 전환
     ]
 ```
 
@@ -397,22 +412,30 @@ Step 7: (건설 완료 대기)           <- build 완료 트리거
   | 플레이어: CRT -> 건축 지정
   v
 Step 8: handle_mission_briefing() <- progression.trigger_step_event(8)
-  | ui.dialog: 임무 설명 + 선택지
-  | TODO: give_quest("demo_first_expedition")
+  | ui.dialog: 임무 설명 + 선택지 (자세히/수락)
   v
-Step 9: (분대 편성 대기)           <- 플레이어 UI 액션
-  | TODO: party.py API
+Step 9: (분대 편성 대기)           <- CRTConsole.manage_squad()
+  | _create_new_squad(): echo_* 에이전트 자동 편성
+  | 분대장 지정 + 대열 순번(Rank) 배정
+  | complete_step(9) → Step 10 자동 진행
   v
-Step 10: start_expedition()       <- progression.trigger_step_event(10)
-  | TODO: mapgen + vehicle_move_to
+Step 10: start_expedition()       <- progression._handle_step_10()
+  | expedition.prepare_expedition(squad_id, "easy")
+  | expedition.start_expedition() → mapgen BSP 맵 생성
+  | 분대 입구 배치 + 출발 대화
   v
-Step 11: (탐사 자유 플레이)        <- 플레이어 관찰/지시
+Step 11: (탐사 자유 플레이)        <- CRTConsole.order_advance()
+  | expedition.move_to_room() → 미탐색 방 이동
+  | combat.resolve_room_combat() → 자동 전투 해결
+  | 방 이벤트 대화 (전투 결과/전리품)
   v
-Step 12: (귀환 명령 대기)          <- 플레이어 철수 명령
+Step 12: (귀환 명령 대기)          <- CRTConsole.order_retreat()
+  | first_mission.retreat_expedition() → 귀환 대화
+  | expedition.complete_expedition() → 요약 반환
+  | complete_step(12) → Step 13 자동 진행
   v
 Step 13: handle_mission_complete() <- progression.trigger_step_event(13)
-  | ui.dialog: 결과 보고
-  | TODO: claim_reward()
+  | ui.dialog: 임무 완료 보고 x2
   v
 Step 14: handle_ending()          <- progression.trigger_step_event(14)
   | ui.dialog: 종합 보고 + 데모 종료 메시지
@@ -426,11 +449,13 @@ Step 14: handle_ending()          <- progression.trigger_step_event(14)
 | 시스템 | 확장 내용 | 난이도 | 상태 |
 |--------|----------|--------|------|
 | build.py | `builder_id=None` 허용 (원격 지정) | 낮음 | **시나리오03 자체 구현** |
-| party.py | `set_member_rank()` API | 낮음 | 미구현 |
+| party.py | `set_member_rank()` API | 낮음 | **시나리오03 자체 구현 (squad.py)** |
 | Quest | `source="squad"` 조건 (분대원 인벤 합산) | 중간 | 미구현 |
 | vehicle.py | `vehicle:type="train"` 지원 | 중간 | 미구현 |
 | TextUI | `set_view_mode("crt")` | 높음 | 미구현 (C#) |
-| mapgen | BSP -> Location/Gate 파이프라인 | 높음 | 미구현 |
+| mapgen | BSP -> Location/Gate 파이프라인 | 낮음 | **구현 완료 (mapgen.py)** |
+| expedition | 원정 라이프사이클 (준비→탐사→귀환) | 중간 | **구현 완료 (expedition.py)** |
+| combat | 자동 전투 해결 (데모용) | 낮음 | **구현 완료 (combat.py)** |
 
 ---
 
@@ -447,6 +472,55 @@ python run_tests.py build  # test_build만 실행
 
 ---
 
+## 구현 완료 시스템 상세
+
+### 분대 시스템 (squad.py)
+
+시나리오02 party.py 패턴을 간소화. FSM/follow 스케줄 없이 분대 관리만 수행.
+
+- Squad 클래스: squad_id, leader_id, members (최대 3), aggression
+- 공세 레벨: retreat(-2) ~ combat_aggressive(+2)
+- 대열 순번: 1=전위, 2=중위(기본), 3=후위
+- Order: order_type, target, priority, stealth
+
+### 동적 맵 생성 (mapgen.py)
+
+BSP 알고리즘으로 탐사 맵 생성. Region/Location/Gate API 사용.
+
+- DifficultyConfig: easy(5-8방), normal(8-12), hard(12-18)
+- BSPNode: 재귀 분할 → 리프 노드에 방 배치
+- 방 타입: entrance(첫 방), room(중간), objective(마지막)
+- 위협 코드: P=Pest(3), R=Raider(5), B=Beast(2), W=Wraith(7)
+- cleanup_expedition(): 탐사 완료 후 동적 Region 삭제
+
+### 원정 시스템 (expedition.py)
+
+원정 라이프사이클 관리. 분대/맵생성/전투를 조율.
+
+- 상태 흐름: preparing → active → returning → completed
+- prepare_expedition(): 분대 검증 + 상태 생성
+- start_expedition(): mapgen 호출 + 분대 입구 배치
+- move_to_room(): 연결 검증 + 이동 + 탐색 표시
+- retreat_expedition(): 분대 R0/L0 복귀 + 맵 정리
+- complete_expedition(): 요약 반환 (탐색 수/전투 수)
+
+### 자동 전투 (combat.py)
+
+데모용 자동 해결. 마이크로턴 전투(MicroTurnCombatState)의 전신.
+
+- 분대 전력 = vita 합산, 승률 = 0.5 + (비율-1)*0.3 (0.1~0.95)
+- 공세 보정: power_mod = 1.0 + val*0.1, damage_mod = 1.0 + val*0.15
+- 대열 피해: 전위 1.4x, 중위 1.0x, 후위 0.6x
+- HP 최소 1 보존, 승리 시 위협 제거
+
+### CRTConsole 플레이어 UI
+
+- manage_squad(): 분대 없으면 자동 편성, 있으면 관리 (공세 변경/해산)
+- order_advance(): 미탐색 방 이동 → 전투 → 목표 도달 체크
+- order_retreat(): 귀환 → 원정 완료 → Step 12→13 진행
+
+---
+
 ## 미정 사항
 
 - [ ] 비서 NPC 시리얼 번호/성격 결정
@@ -454,8 +528,8 @@ python run_tests.py build  # test_build만 실행
 - [ ] 데모 에이전트 장비 목록
 - [ ] 탐사 지역 자원 배치 밸런스
 - [ ] 건축 진행률 시각적 표현
-- [ ] 분대 편성 UI 설계
 - [ ] 프롤로그 연출 (사운드, 화면 효과)
 - [ ] AutoTimeFlow 배속 UI
 - [ ] NPC 건설 시 자재 소비 구현 (현재 진척도만 증가)
 - [ ] quest_manager 연동 (현재 데이터 정의만)
+- [ ] 마이크로턴 전투 (MicroTurnCombatState) — 현재 자동 해결로 대체

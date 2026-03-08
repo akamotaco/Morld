@@ -86,6 +86,8 @@ class CRTConsole(Object):
         "call:view_status:상황 확인",
         "call:designate_build:건축 지정",
         "call:manage_squad:분대 관리",
+        "call:order_advance:진군 명령",
+        "call:order_retreat:퇴각 명령",
     ]
     props = {}
 
@@ -164,9 +166,238 @@ class CRTConsole(Object):
             yield ui.dialog(f"건설 지정 실패: {msg}")
 
     def manage_squad(self):
-        """분대 관리"""
-        # TODO: party.py API 연동 — 분대 편성/해산/명령
-        yield ui.dialog("분대 관리 시스템은 아직 준비되지 않았습니다.\n(에이전트 도착 후 사용 가능)")
+        """분대 편성/해산/공세 레벨 설정"""
+        import squad as squad_module
+        from think import get_all_agents
+
+        squads = squad_module.get_all_squads()
+
+        if squads:
+            yield from self._manage_existing_squad(squads[0])
+        else:
+            yield from self._create_new_squad()
+
+    def _create_new_squad(self):
+        """새 분대 편성"""
+        import squad as squad_module
+        from think import get_all_agents
+
+        # 사용 가능한 에이전트 목록
+        agents = get_all_agents()
+        available = []
+        for uid, agent in agents.items():
+            if squad_module.is_in_squad(uid):
+                continue
+            info = morld.get_unit_info(uid)
+            if info and info.get("unique_id", "").startswith("echo_"):
+                available.append((uid, info.get("name", f"Unit-{uid}")))
+
+        if len(available) < 2:
+            yield ui.dialog(
+                "[b]분대 편성[/b]\n\n"
+                "편성 가능한 에이전트가 부족합니다.\n"
+                "(최소 리더 1 + 멤버 1 필요)",
+            )
+            return
+
+        # 자동 편성 (데모: 전원 편입)
+        sid = squad_module.create_squad()
+        squad_module.assign_leader(sid, available[0][0])
+        for uid, name in available[1:]:
+            squad_module.add_member(sid, uid)
+
+        # 대열 배치
+        all_ids = squad_module.get_all_unit_ids(sid)
+        for i, uid in enumerate(all_ids):
+            rank = min(i + 1, 3)
+            squad_module.set_member_rank(sid, uid, rank)
+
+        names = [name for _, name in available]
+        yield ui.dialog(
+            "[b]분대 편성 완료[/b]\n\n"
+            f"  분대장: {available[0][1]}\n"
+            f"  대원: {', '.join(names[1:])}\n"
+            f"  공세 레벨: 유지 (hold)\n\n"
+            "+탐사 준비가 완료되었습니다.",
+        )
+
+        # 분대 편성 완료 → Step 9 → Step 10 자동 진행
+        from events.progression import complete_step
+        complete_step(9)
+
+    def _manage_existing_squad(self, sq):
+        """기존 분대 관리 (공세 레벨 변경/해산)"""
+        import squad as squad_module
+        import expedition as exp_module
+
+        state = {"result": None}
+
+        def handle_choice(action):
+            if action == "init":
+                return None
+            state["result"] = action
+            return True
+
+        # 분대 상태 표시
+        all_ids = sq.all_unit_ids()
+        member_lines = []
+        for uid in all_ids:
+            info = morld.get_unit_info(uid)
+            name = info.get("name", f"Unit-{uid}") if info else f"Unit-{uid}"
+            rank = squad_module.get_member_rank(sq.squad_id, uid)
+            rank_label = {1: "전위", 2: "중위", 3: "후위"}.get(rank, "?")
+            is_leader = uid == sq.leader_id
+            role = " (분대장)" if is_leader else ""
+            member_lines.append(f"  [{rank_label}] {name}{role}")
+
+        aggression_label = {
+            "retreat": "전면 후퇴",
+            "defensive": "방어 우선",
+            "hold": "현 위치 유지",
+            "combat_normal": "교전 허가",
+            "combat_aggressive": "적극 공격",
+        }.get(sq.aggression, sq.aggression)
+
+        lines = [
+            "[b]분대 관리[/b]\n",
+            *member_lines,
+            f"\n  공세 레벨: {aggression_label}\n",
+        ]
+
+        # 원정 중이면 추가 정보
+        exp_state = exp_module.get_expedition_by_squad(sq.squad_id)
+        if exp_state and exp_state.status == "active":
+            lines.append(
+                f"  탐사 중: {len(exp_state.explored_rooms)}/{len(exp_state.rooms)} 구역 탐색\n"
+            )
+
+        lines.append("[url=@proc:aggression]공세 레벨 변경[/url]")
+        lines.append("[url=@proc:disband]해산[/url]")
+        lines.append("[url=@proc:close]닫기[/url]")
+
+        yield ui.dialog(
+            "\n".join(lines),
+            autofill="off",
+            proc=handle_choice,
+            result=state,
+        )
+
+        if state["result"] == "aggression":
+            yield from self._change_aggression(sq)
+        elif state["result"] == "disband":
+            squad_module.disband_squad(sq.squad_id)
+            yield ui.dialog("분대가 해산되었습니다.")
+
+    def _change_aggression(self, sq):
+        """공세 레벨 변경"""
+        import squad as squad_module
+
+        state = {"result": None}
+
+        def handle_choice(action):
+            if action == "init":
+                return None
+            state["result"] = action
+            return True
+
+        yield ui.dialog(
+            "[b]공세 레벨 설정[/b]\n\n"
+            "[url=@proc:retreat]전면 후퇴[/url]\n"
+            "[url=@proc:defensive]방어 우선[/url]\n"
+            "[url=@proc:hold]현 위치 유지[/url]\n"
+            "[url=@proc:combat_normal]교전 허가[/url]\n"
+            "[url=@proc:combat_aggressive]적극 공격[/url]",
+            autofill="off",
+            proc=handle_choice,
+            result=state,
+        )
+
+        if state["result"] and state["result"] in squad_module.AGGRESSION_LEVELS:
+            squad_module.set_aggression(sq.squad_id, state["result"])
+            label = {
+                "retreat": "전면 후퇴",
+                "defensive": "방어 우선",
+                "hold": "현 위치 유지",
+                "combat_normal": "교전 허가",
+                "combat_aggressive": "적극 공격",
+            }.get(state["result"], state["result"])
+            yield ui.dialog(f"공세 레벨이 [{label}]로 변경되었습니다.")
+
+    def order_advance(self):
+        """진군 명령 — 다음 미탐색 방으로 이동"""
+        import squad as squad_module
+        import expedition as exp_module
+        from events.first_mission import handle_room_entered
+
+        squads = squad_module.get_all_squads()
+        if not squads:
+            yield ui.dialog("편성된 분대가 없습니다.")
+            return
+
+        sq = squads[0]
+        exp_state = exp_module.get_expedition_by_squad(sq.squad_id)
+        if not exp_state or exp_state.status != "active":
+            yield ui.dialog("진행 중인 탐사가 없습니다.")
+            return
+
+        # 이동 가능한 방 목록
+        explorable = exp_module.get_explorable_rooms(exp_state.expedition_id)
+        if not explorable:
+            yield ui.dialog("더 이상 이동할 수 있는 구역이 없습니다.\n퇴각을 고려하세요.")
+            return
+
+        # 미탐색 방 우선, 없으면 아무 방
+        unexplored = [r for r in explorable if not r["explored"]]
+        target = unexplored[0] if unexplored else explorable[0]
+
+        success, room, msg = exp_module.move_to_room(
+            exp_state.expedition_id, target["id"])
+        if not success:
+            yield ui.dialog(f"이동 실패: {msg}")
+            return
+
+        # 방 이벤트 (전투/전리품) 처리
+        gen = handle_room_entered(exp_state.expedition_id, target["id"])
+        if gen:
+            yield from gen
+
+        # 목표 지점 도달 체크
+        if room and room.get("type") == "objective":
+            yield ui.dialog(
+                "[b]비서[/b]\n\n"
+                "목표 지점에 도달했습니다.\n"
+                "+필요한 자재를 수집한 뒤 퇴각하세요.",
+            )
+
+    def order_retreat(self):
+        """퇴각 명령"""
+        import squad as squad_module
+        import expedition as exp_module
+        from events.first_mission import retreat_expedition
+        from events.progression import complete_step, is_step
+
+        squads = squad_module.get_all_squads()
+        if not squads:
+            yield ui.dialog("편성된 분대가 없습니다.")
+            return
+
+        sq = squads[0]
+        exp_state = exp_module.get_expedition_by_squad(sq.squad_id)
+        if not exp_state or exp_state.status != "active":
+            yield ui.dialog("진행 중인 탐사가 없습니다.")
+            return
+
+        gen = retreat_expedition(sq.squad_id)
+        if gen:
+            yield from gen
+
+        # 완료 처리
+        exp_module.complete_expedition(exp_state.expedition_id)
+
+        # Step 12 → 13 → 14 진행
+        if is_step(11) or is_step(12):
+            complete_step(12)
+            complete_step(13)
 
     def get_focus_text(self):
         """포커스 묘사"""

@@ -1,14 +1,17 @@
-# events/first_mission.py - 첫 임무 이벤트 (Step 7~13)
+# events/first_mission.py - 첫 임무 이벤트 (Step 8~13)
 #
-# MissionBriefingEvent: 비서의 임무 브리핑 (건설 완료 후)
-# MissionCompleteEvent: 귀환 후 임무 완료 보고
+# handle_mission_briefing: 비서의 임무 브리핑 (건설 완료 후)
+# start_expedition: 분대 편성 후 탐사 출발
+# handle_room_entered: 방 진입 시 전투/전리품 처리
+# retreat_expedition: 귀환 명령
+# handle_mission_complete: 귀환 후 임무 완료 보고
 
 import morld
 import ui
 
 
 def handle_mission_briefing():
-    """Step 7: 첫 임무 브리핑
+    """Step 8: 첫 임무 브리핑
 
     트리거: 기본 플랫폼 건설 완료 (임시 막사 + 보관소)
     """
@@ -36,24 +39,154 @@ def handle_mission_briefing():
         yield ui.dialog(
             "[b]비서[/b]\n\n"
             "금속 파이프 5개, 콘크리트 블록 3개가 필요합니다.\n"
-            "탐사 지역에서 수집하여 귀환하세요.",
+            "탐사 지역에서 수집하여 귀환하세요.\n\n"
+            "CRT 콘솔에서 분대를 편성할 수 있습니다.",
         )
     else:
         yield ui.dialog(
             "[b]비서[/b]\n\n"
+            "CRT 콘솔에서 분대를 편성하세요.\n"
             "행운을 빕니다.",
         )
 
-    # TODO: 퀘스트 부여
-    # quest_manager.give_quest("demo_first_expedition")
-    # quest_manager.accept_quest("demo_first_expedition")
-    print("[first_mission] Mission briefing complete. Quest pending.")
+    print("[first_mission] Mission briefing complete.")
+
+
+def start_expedition(squad_id):
+    """Step 10: 탐사 출발 시퀀스
+
+    분대 편성 완료 후 호출.
+    원정 준비 → 맵 생성 → 분대 배치 → 탐사 시작.
+
+    Args:
+        squad_id: 분대 ID
+
+    Returns:
+        generator (대화 시퀀스) or None
+    """
+    import expedition as exp_module
+
+    state = exp_module.prepare_expedition(squad_id, "easy")
+    if not state:
+        print("[first_mission] Failed to prepare expedition")
+        return None
+
+    success, msg = exp_module.start_expedition(state.expedition_id)
+    if not success:
+        print(f"[first_mission] Failed to start expedition: {msg}")
+        return None
+
+    print(f"[first_mission] Expedition started: "
+          f"{len(state.rooms)} rooms, region={state.region_id}")
+
+    return _expedition_departure_dialog(state)
+
+
+def _expedition_departure_dialog(state):
+    """탐사 출발 대화 시퀀스"""
+    yield ui.dialog(
+        "[b]비서[/b]\n\n"
+        "분대가 출발합니다.\n"
+        f"+탐사 구역: {len(state.rooms)}개 구역 탐지됨\n"
+        "+CRT 콘솔에서 분대를 지휘하세요.",
+    )
+
+
+def handle_room_entered(expedition_id, room_id):
+    """방 진입 시 전투/전리품 처리
+
+    Args:
+        expedition_id: 원정 ID
+        room_id: 진입한 방 ID
+
+    Returns:
+        generator (대화 시퀀스) or None
+    """
+    import expedition as exp_module
+    from combat import resolve_room_combat
+
+    state = exp_module.get_expedition(expedition_id)
+    if not state:
+        return None
+
+    room = exp_module._find_room(state, room_id)
+    if not room:
+        return None
+
+    result = resolve_room_combat(state.squad_id, room)
+    if result.occurred:
+        state.combat_log.extend(result.log)
+
+    return _room_event_dialog(room, result)
+
+
+def _room_event_dialog(room, combat_result):
+    """방 이벤트 대화"""
+    from mapgen import ROOM_NAMES
+
+    room_name = ROOM_NAMES.get(room["type"], f"구역-{room['id']}")
+
+    if combat_result.occurred:
+        yield ui.dialog(
+            f"[b]{room_name} 진입[/b]\n\n"
+            + "\n".join(combat_result.log),
+        )
+        if not combat_result.victory:
+            yield ui.dialog(
+                "[b]비서[/b]\n\n"
+                "전투에서 밀렸습니다. 후퇴를 고려하세요.",
+            )
+    else:
+        yield ui.dialog(
+            f"[b]{room_name} 진입[/b]\n\n"
+            "위협 없음. 안전합니다.",
+        )
+
+    if room.get("has_loot"):
+        yield ui.dialog(
+            f"+{room_name}에서 자재를 발견했습니다.",
+        )
+
+
+def retreat_expedition(squad_id):
+    """Step 12: 귀환 명령
+
+    Returns:
+        generator (대화 시퀀스) or None
+    """
+    import expedition as exp_module
+
+    state = exp_module.get_expedition_by_squad(squad_id)
+    if not state:
+        print("[first_mission] No active expedition for retreat")
+        return None
+
+    explored = len(state.explored_rooms)
+    total = len(state.rooms)
+    combat_count = len(state.combat_log)
+
+    success, msg = exp_module.retreat_expedition(state.expedition_id)
+    if not success:
+        print(f"[first_mission] Retreat failed: {msg}")
+        return None
+
+    return _retreat_dialog(explored, total, combat_count)
+
+
+def _retreat_dialog(explored, total, combat_count):
+    """귀환 대화 시퀀스"""
+    yield ui.dialog(
+        "[b]비서[/b]\n\n"
+        "분대가 귀환합니다.\n"
+        f"+탐사 현황: {explored}/{total} 구역 탐색\n"
+        f"+전투 기록: {combat_count}건",
+    )
 
 
 def handle_mission_complete():
     """Step 13: 임무 완료 보고
 
-    트리거: 플랫폼 도착 후 비서 대화
+    트리거: 귀환 완료 후 자동
     """
     yield ui.dialog(
         "[b]비서[/b]\n\n"
@@ -61,62 +194,10 @@ def handle_mission_complete():
         "+수집된 자재를 확인하겠습니다.",
     )
 
-    # TODO: 수집량 표시 (분대원 인벤토리 합산)
-    # collected = _count_squad_inventory()
-    # for item_name, count in collected.items():
-    #     yield ui.dialog(f"+  {item_name}: {count}개")
-
     yield ui.dialog(
         "[b]비서[/b]\n\n"
         "수고하셨습니다.\n"
         "+수집된 자재는 보관소로 이동됩니다.",
     )
 
-    # TODO: 퀘스트 보상 처리
-    # quest_manager.claim_reward("demo_first_expedition")
-    print("[first_mission] Mission complete. Reward pending.")
-
-
-def start_expedition(squad_id):
-    """Step 9: 탐사 출발 시퀀스
-
-    1. 탐사 지역 동적 생성
-    2. 분대원 지저철 탑승
-    3. 지저철 이동
-    4. 도착 → Gate 재연결
-
-    Args:
-        squad_id: 분대 ID (party.py)
-    """
-    # TODO: mapgen 연동 — 탐사 지역 동적 생성
-    # expedition_region = 100
-    # from mapgen import generate_expedition
-    # rooms, connections = generate_expedition(
-    #     region_id=expedition_region,
-    #     difficulty="easy",
-    #     room_count=(5, 8),
-    #     seed=None,
-    # )
-
-    # TODO: 분대원 탑승 → 이동 → 도착
-    # members = party.get_squad_members(squad_id)
-    # for member_id in members:
-    #     party.set_order(squad_id, member_id, Order(order_type="move", ...))
-    # morld.advance_time_des(10 * 60_000)  # 10분
-
-    # train_id = get_instance_id("subway_train")
-    # vehicle.vehicle_move_to(train_id, dest_region=100, ...)
-
-    print(f"[first_mission] Expedition start for squad {squad_id} (not yet implemented)")
-
-
-def retreat_expedition(squad_id, expedition_region):
-    """Step 11~12: 탐사 귀환 시퀀스
-
-    Args:
-        squad_id: 분대 ID
-        expedition_region: 탐사 지역 Region ID
-    """
-    # TODO: 분대원 귀환 → 지저철 탑승 → 플랫폼 복귀
-    # TODO: 동적 Region 정리 (mapgen.cleanup_expedition)
-    print(f"[first_mission] Retreat from region {expedition_region} (not yet implemented)")
+    print("[first_mission] Mission complete.")

@@ -185,10 +185,15 @@ def _handle_step_8():
 
 def _handle_step_10():
     """Step 10: 탐사 출발"""
-    # TODO: squad_id 결정 로직
+    import squad as squad_module
     from events.first_mission import start_expedition
-    start_expedition(squad_id=0)
-    return None
+
+    # 활성 분대 중 첫 번째 사용
+    squads = squad_module.get_all_squads()
+    if not squads:
+        print("[progression] No squad available for expedition")
+        return None
+    return start_expedition(squads[0].squad_id)
 
 
 def _handle_step_13():
