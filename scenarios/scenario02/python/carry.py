@@ -108,9 +108,9 @@ def can_pick_up(carrier_id, target_id):
     if not target_info:
         return False, "대상을 찾을 수 없다."
 
-    target_type = target_info.get("type", "character")
+    is_object = target_info.get("is_object", False)
 
-    if target_type == "object":
+    if is_object:
         # 오브젝트: 사용 중(좌석 점유)이면 불가
         seated_by = morld.get_unit_props_by_type(target_id, "seated_by")
         if seated_by:
@@ -158,8 +158,8 @@ def pick_up(carrier_id, target_id, method=None):
     # 자동 방식 판정
     if method is None:
         target_info = morld.get_unit_info(target_id)
-        target_type = target_info.get("type", "character") if target_info else "character"
-        if target_type == "object":
+        is_object = target_info.get("is_object", False) if target_info else False
+        if is_object:
             method = METHOD_OBJECT
         else:
             import restraint
