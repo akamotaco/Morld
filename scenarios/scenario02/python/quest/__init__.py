@@ -793,12 +793,12 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
     finished = [q for q in quest_manager.get_quests_by_status(QuestStatus.FINISHED)
                 if not q.repeatable]
     if finished:
-        lines.append(f"[url=toggle:finished][color=gray]▶ 완료된 퀘스트 ({len(finished)})[/color][/url]")
-        lines.append("[hidden=finished]")
+        finished_items = []
         for quest in finished:
             # 클릭하면 결과 텍스트(기록) 보기
-            lines.append(f"  [url=@proc:select:{quest.unique_id}][color=gray]{quest.name}[/color][/url]")
-        lines.append("[/hidden=finished]")
+            finished_items.append(f"  [url=@proc:select:{quest.unique_id}][color=gray]{quest.name}[/color][/url]")
+        finished_content = "\n".join(finished_items)
+        lines.append(f"[toggle key=finished][color=gray]완료된 퀘스트 ({len(finished)})[/color][content]{finished_content}[/toggle]")
         lines.append("")
 
     # 디버그 모드일 때만 수락 가능 퀘스트 표시

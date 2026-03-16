@@ -5,6 +5,7 @@ using System.Text.Json;
 using ECS;
 using Godot;
 using Morld;
+using Morld.TextUI;
 
 namespace SE
 {
@@ -22,6 +23,9 @@ namespace SE
 		private ActionSystem _actionSystem;
 		private ActionLogSystem _actionLogSystem;
 		private string? _hoveredMeta = null;
+
+		// InteractiveTextUI 렌더러 (모든 텍스트 출력이 이 파이프라인을 거침)
+		private readonly Morld.TextUI.InteractiveTextUI _interactiveTextUI = new();
 
 		// Lazy update 플래그
 		private bool _needsUpdateDisplay = false;
@@ -395,14 +399,13 @@ namespace SE
 				_textUiFooter.Text = cleanFooter;
 			}
 
-			// Content 렌더링
+			// Content 렌더링: InteractiveTextUI 파이프라인
 			var text = RenderFocusContent(_stack.Current);
 
-			var renderedText = ToggleRenderer.Render(
-				text,
-				_stack.Current.ExpandedToggles,
-				_hoveredMeta
-			);
+			// Focus의 토글 상태를 InteractiveTextUI에 동기화
+			SyncToggleStatesToRenderer(_stack.Current);
+
+			var renderedText = _interactiveTextUI.RenderMarkup(text, _hoveredMeta);
 
 			// Dialog Focus인 경우 타이핑 효과 적용
 			if (_stack.Current.Type == FocusType.Dialog)
@@ -1541,18 +1544,48 @@ namespace SE
 
 		/// <summary>
 		/// 토글 펼침/접힘 전환
+		/// InteractiveTextUI의 상태를 변경하고 Focus의 ExpandedToggles도 동기화
 		/// </summary>
 		public void ToggleExpand(string toggleId)
 		{
 			if (_stack.Current == null) return;
 
+			// Focus의 ExpandedToggles도 동기화 (하위 호환)
 			var toggles = _stack.Current.ExpandedToggles;
 			if (toggles.Contains(toggleId))
 				toggles.Remove(toggleId);
 			else
 				toggles.Add(toggleId);
 
+			// InteractiveTextUI 상태도 동기화
+			_interactiveTextUI.SetToggleState(toggleId, toggles.Contains(toggleId));
+
 			RequestUpdateDisplay();
+		}
+
+		/// <summary>
+		/// Focus의 ExpandedToggles → InteractiveTextUI 상태 동기화
+		/// FlushDisplay()에서 렌더링 전 호출
+		/// </summary>
+		private void SyncToggleStatesToRenderer(Focus focus)
+		{
+			// 현재 InteractiveTextUI 토글 상태를 Focus 기준으로 덮어쓰기
+			var expanded = focus.ExpandedToggles;
+			var currentToggles = _interactiveTextUI.State.GetAllToggles();
+
+			foreach (var kv in currentToggles)
+			{
+				bool shouldBeOpen = expanded.Contains(kv.Key);
+				if (kv.Value != shouldBeOpen)
+					_interactiveTextUI.SetToggleState(kv.Key, shouldBeOpen);
+			}
+
+			// Focus에는 있지만 InteractiveTextUI에는 아직 없는 토글도 등록
+			foreach (var id in expanded)
+			{
+				if (!currentToggles.ContainsKey(id))
+					_interactiveTextUI.SetToggleState(id, true);
+			}
 		}
 
 		/// <summary>

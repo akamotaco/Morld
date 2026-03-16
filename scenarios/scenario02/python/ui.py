@@ -1339,9 +1339,8 @@ def get_action_text():
     - [이동] morld.get_movement_info()로 경로 데이터 → Python에서 렌더링
     - [행동:] Python에서 생성 (멍때리기, 낮잠 등)
 
-    토글 마크업 형식:
-    - [url=toggle:ID]▶텍스트[/url] - 토글 버튼
-    - [hidden=ID]...[/hidden=ID] - 펼침 시 표시되는 내용
+    토글 마크업 형식 (InteractiveTextUI):
+    - [toggle key=ID]헤더[content]내용[/toggle]
 
     Returns:
         str: 행동 옵션 BBCode 문자열 (줄바꿈으로 구분)
@@ -1391,19 +1390,18 @@ def get_action_text():
         lines.append(f"  [url=call:stand_up:{seated_on}]{obj_name}에서 일어나기[/url]")
 
     # 시간 보내기 (토글)
-    # ToggleRenderer가 [hidden=spend_time]...[/hidden=spend_time] 영역을 펼침/접힘 처리
     millis_of_day = morld.get_game_time()  # 밀리초 단위 (0~86,399,999)
     hour = millis_of_day // MILLIS_PER_HOUR
 
-    lines.append("  [url=toggle:spend_time]▶시간 보내기[/url]")
-    lines.append("[hidden=spend_time]")
-    lines.append(f"    [url=wait:{5 * MILLIS_PER_MINUTE}]누군가를 기다리기 (~5분)[/url]")
-    lines.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]멍때리기 (30분)[/url]")
+    spend_time_content = []
+    spend_time_content.append(f"    [url=wait:{5 * MILLIS_PER_MINUTE}]누군가를 기다리기 (~5분)[/url]")
+    spend_time_content.append(f"    [url=idle:{30 * MILLIS_PER_MINUTE}]멍때리기 (30분)[/url]")
     if 6 <= hour < 18:
-        lines.append(f"    [url=idle:{240 * MILLIS_PER_MINUTE}]낮잠자기 (4시간)[/url]")
+        spend_time_content.append(f"    [url=idle:{240 * MILLIS_PER_MINUTE}]낮잠자기 (4시간)[/url]")
     else:
-        lines.append("    [color=gray]낮잠자기 (4시간)[/color]")
-    lines.append("[/hidden=spend_time]")
+        spend_time_content.append("    [color=gray]낮잠자기 (4시간)[/color]")
+    content_str = "\n".join(spend_time_content)
+    lines.append(f"  [toggle key=spend_time]시간 보내기[content]{content_str}[/toggle]")
 
     # 지도 (can:map 또는 지역별 지도 prop 보유 시)
     if _can_use_map():

@@ -253,6 +253,8 @@ namespace SE
                 // - None/null/False: 변경 없음, 다이얼로그 유지
                 // - True: 다이얼로그 종료
                 // - str: 텍스트 업데이트, 다이얼로그 유지
+                Godot.GD.Print($"[ScriptSystem] proc callback result: type={result?.GetType().Name}, PyType={result?.GetTypeName()}, value={result}");
+
                 if (result is PyNone || result == null)
                 {
                     Godot.GD.Print("[ScriptSystem] proc callback returned None");
@@ -264,6 +266,15 @@ namespace SE
                     bool boolValue = pyBool.IsTrue();
                     Godot.GD.Print($"[ScriptSystem] proc callback returned bool: {boolValue}");
                     return (null, boolValue);  // True면 종료, False면 유지
+                }
+
+                // PyInt(0/1)도 bool로 처리 (Python에서 True/False는 int 서브클래스)
+                // SharpPy 캐시 등에서 True가 PyInt(1)로 반환될 수 있음
+                if (result is PyInt pyInt && (pyInt.Value == 0 || pyInt.Value == 1))
+                {
+                    bool boolValue = pyInt.Value == 1;
+                    Godot.GD.Print($"[ScriptSystem] proc callback returned int as bool: {boolValue}");
+                    return (null, boolValue);
                 }
 
                 var newText = result.AsString();
