@@ -400,12 +400,11 @@ namespace SE
 			}
 
 			// Content 렌더링: InteractiveTextUI 파이프라인
+			// [!]...[/!]는 파서가 Instant 노드로 변환, 렌더러가 태그 제거 + 구간 맵 생성
 			var text = RenderFocusContent(_stack.Current);
 
 			// Focus의 토글 상태를 InteractiveTextUI에 동기화
 			SyncToggleStatesToRenderer(_stack.Current);
-
-			var renderedText = _interactiveTextUI.RenderMarkup(text, _hoveredMeta);
 
 			// Dialog Focus인 경우 타이핑 효과 적용
 			if (_stack.Current.Type == FocusType.Dialog)
@@ -413,57 +412,66 @@ namespace SE
 				// 같은 소스 텍스트면 스타일만 업데이트 (hover 등으로 인한 재렌더링)
 				if (text == _typingSourceText)
 				{
-					// [!]...[/!] 태그 제거 (hover 스타일만 다를 뿐 내용은 동일)
-					var (cleanText, _) = ParseInstantTags(renderedText);
+					// hover만 변경 — AST 재파싱 불필요, 구간 맵 불변
+					var cleanText = _interactiveTextUI.RenderWithHover(_hoveredMeta);
 					// 깜박임 방지: 현재 상태 유지하면서 Text만 교체
 					int prevVisible = _textUiContent.VisibleCharacters;
-					_textUiContent.VisibleCharacters = -1;  // 전체 표시로 잠깐 전환
+					_textUiContent.VisibleCharacters = -1;
 					_textUiContent.Text = cleanText;
 					_totalCharacters = _textUiContent.GetTotalCharacterCount();
-					_textUiContent.VisibleCharacters = prevVisible;  // 원래 상태로 복원
+					_textUiContent.VisibleCharacters = prevVisible;
 
 					if (_isTyping)
 					{
-						// 타이핑 진행 중: 현재 진행률로 표시 문자 수 재계산
 						_visibleCharacters = CalculateVisibleCharsAtProgress(_typedCharacters);
 						_textUiContent.VisibleCharacters = _visibleCharacters;
-						Godot.GD.Print($"[TextUISystem] FlushDisplay: hover update during typing at {_visibleCharacters}/{_totalCharacters}");
 					}
 					else
 					{
-						// 타이핑 완료: 전체 표시 유지
 						_textUiContent.VisibleCharacters = -1;
-						Godot.GD.Print($"[TextUISystem] FlushDisplay: hover update after typing complete");
 					}
 				}
 				else
 				{
-					// 새 콘텐츠: 타이핑 시작
+					// 새 콘텐츠: 파싱 + 렌더링 + 구간 맵 생성 → 타이핑 시작
 					_typingSourceText = text;
-					StartTyping(renderedText);
-					Godot.GD.Print($"[TextUISystem] FlushDisplay: started typing for Dialog, textLen={renderedText.Length}");
+					var (renderedText, segments) = _interactiveTextUI.RenderMarkupWithSegments(text, _hoveredMeta);
+					StartTypingWithSegments(renderedText, segments);
 				}
 			}
 			// Animation Focus인 경우 - UpdateAnimation에서 처리하므로 여기서는 현재 텍스트만 표시
 			else if (_stack.Current.Type == FocusType.Animation)
 			{
 				var animText = RenderAnimation();
-				var (cleanText, _) = ParseInstantTags(animText);
+				var (cleanText, _) = ParseInstantTags(animText); // Animlog 레거시 경로
 				_textUiContent.Text = cleanText;
 				_textUiContent.VisibleCharacters = -1;
 				_isTyping = false;
 				_typingSourceText = "";
-				Godot.GD.Print($"[TextUISystem] FlushDisplay: animation frame, textLen={cleanText.Length}");
 			}
 			else
 			{
 				// 다른 Focus는 즉시 표시
-				// [!]...[/!] 태그는 제거해야 함 (타이핑 효과용 마커이므로)
-				var (cleanText, _) = ParseInstantTags(renderedText);
-				_textUiContent.Text = cleanText;
+				// InteractiveTextUI가 [!]...[/!]를 이미 제거 → clean BBCode
+				var renderedText = _interactiveTextUI.RenderMarkup(text, _hoveredMeta);
+
+				// 스크롤 점프 방지: 내용이 같으면 Text 재할당 스킵
+				if (renderedText != _textUiContent.Text)
+				{
+					// 스크롤 위치 보존
+					var vscroll = _textUiContent.GetVScrollBar();
+					double savedScrollPos = vscroll?.Value ?? 0;
+
+					_textUiContent.Text = renderedText;
+
+					// 스크롤 위치 복원 (Text 재할당으로 리셋되므로)
+					if (vscroll != null && savedScrollPos > 0)
+						vscroll.Value = System.Math.Min(savedScrollPos, vscroll.MaxValue);
+				}
+
 				_textUiContent.VisibleCharacters = -1;
 				_isTyping = false;
-				_typingSourceText = "";  // Dialog 벗어날 때 초기화
+				_typingSourceText = "";
 			}
 
 			Godot.GD.Print($"[TextUISystem] FlushDisplay: rendered {_stack.Current.Type}, textLen={_textUiContent.Text.Length}");
@@ -483,23 +491,39 @@ namespace SE
 		// ============================================
 
 		/// <summary>
-		/// 타이핑 효과 시작 (Dialog Focus 전용)
-		/// [!]...[/!] 태그를 파싱하여 instant 구간을 추출하고, 태그 제거 후 표시
+		/// 타이핑 효과 시작 — InteractiveTextUI 파이프라인 경로.
+		/// 렌더러가 이미 [!] 태그를 제거하고 구간 맵을 생성했으므로 그대로 사용.
 		/// </summary>
-		/// <param name="text">전체 텍스트 (BBCode 포함, [!]...[/!] 태그 포함)</param>
+		/// <param name="cleanBBCode">렌더링된 BBCode ([!] 태그 없음)</param>
+		/// <param name="segments">즉시 구간 맵 (렌더러가 생성)</param>
+		private void StartTypingWithSegments(string cleanBBCode, List<(int start, int length)> segments)
+		{
+			_instantSegments = segments;
+			StartTypingInternal(cleanBBCode);
+		}
+
+		/// <summary>
+		/// 타이핑 효과 시작 — 레거시 경로 (Animlog 등).
+		/// [!]...[/!] 태그를 직접 파싱하여 instant 구간을 추출.
+		/// </summary>
 		private void StartTyping(string text)
 		{
-			// [!]...[/!] 태그 파싱 및 제거
 			var (cleanText, segments) = ParseInstantTags(text);
 			_instantSegments = segments;
+			StartTypingInternal(cleanText);
+		}
 
+		/// <summary>
+		/// 타이핑 효과 공통 로직. clean BBCode + _instantSegments 설정 후 호출.
+		/// </summary>
+		private void StartTypingInternal(string cleanBBCode)
+		{
 			// 타이핑 중 자동 스크롤 활성화
 			_textUiContent.ScrollFollowing = true;
 
 			// 깜박임 방지: Text 설정 전에 먼저 전체 표시 상태로 설정
-			// 이후 필요한 경우 VisibleCharacters를 다시 조정
 			_textUiContent.VisibleCharacters = -1;
-			_textUiContent.Text = cleanText;
+			_textUiContent.Text = cleanBBCode;
 
 			// 타이핑 속도 0이면 즉시 출력
 			if (_typingSpeed <= 0)
@@ -510,7 +534,7 @@ namespace SE
 			}
 
 			_totalCharacters = _textUiContent.GetTotalCharacterCount();
-			_totalTypingCharacters = CalculateTotalTypingCharacters(cleanText);
+			_totalTypingCharacters = CalculateTotalTypingCharacters(cleanBBCode);
 
 			// 타이핑 대상이 없으면 (모두 instant) 즉시 출력 유지
 			if (_totalTypingCharacters == 0)

@@ -82,6 +82,10 @@ public static class TextUIParser
 			if (bk + 1 < markup.Length && markup[bk + 1] == '/')
 			{ pos = bk + 1; continue; }
 
+			// ── [!]...[/!] 즉시 표시 ──
+			if (TryParseInstant(markup, bk, nodes, ref pos, ref textStart, stopTag))
+				continue;
+
 			// ── [url=...] 링크 ──
 			if (TryParseLink(markup, bk, nodes, ref pos, ref textStart, stopTag))
 				continue;
@@ -195,6 +199,34 @@ public static class TextUIParser
 
 		endPos = pos;
 		return nodes;
+	}
+
+	// ─── Link 파싱: [url=meta]...[/url] ───
+
+	// ─── Instant 파싱: [!]...[/!] ───
+
+	private static bool TryParseInstant(string markup, int bk, List<AstNode> nodes,
+		ref int pos, ref int textStart, string stopTag)
+	{
+		if (!MatchAt(markup, bk, "[!]"))
+			return false;
+
+		int innerStart = bk + "[!]".Length;
+
+		FlushText(nodes, markup, textStart, bk);
+
+		// 내부를 재귀 파싱 ([!] 안에 [url], [color], 다른 [!] 등 중첩 가능)
+		var children = Parse(markup, innerStart, out int afterClose, "!");
+
+		nodes.Add(new AstNode
+		{
+			Type = NodeType.Instant,
+			Children = children,
+		});
+
+		pos = afterClose;
+		textStart = pos;
+		return true;
 	}
 
 	// ─── Link 파싱: [url=meta]...[/url] ───

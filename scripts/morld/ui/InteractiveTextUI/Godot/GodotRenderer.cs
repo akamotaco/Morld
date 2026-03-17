@@ -6,10 +6,10 @@ namespace Morld.TextUI;
 
 /// <summary>
 /// Godot RichTextLabel용 BBCode 렌더러.
-/// AST + 상태 → BBCode 문자열 생성.
+/// AST + 상태 → BBCode 문자열 + 즉시 구간 맵 생성.
 ///
 /// 모든 텍스트 스타일링은 여기서 테마 기반으로 적용.
-/// Python/C#은 의미 마크업만 생성, 색상은 렌더러가 결정.
+/// 즉시 구간 맵은 타이핑 연출 시스템(text_ui_system.cs)이 소비.
 /// </summary>
 public class GodotRenderer : ITextUIRenderer
 {
@@ -17,16 +17,51 @@ public class GodotRenderer : ITextUIRenderer
 
 	public string RenderedText { get; private set; } = "";
 
+	/// <summary>
+	/// 즉시 표시 구간 맵 (visible char 기준 start, length).
+	/// [!]...[/!] 노드와 [url=...] Link 노드가 등록됨.
+	/// 타이핑 연출 시 이 구간은 한 번에 표시됨.
+	/// </summary>
+	public List<(int start, int length)> InstantSegments { get; private set; } = new();
+
+	// ── 렌더링 컨텍스트 (AST 순회 중 상태 추적) ──
+	private class RenderCtx
+	{
+		public readonly StringBuilder Sb = new();
+		public readonly WidgetStateStore State;
+		public readonly TextUIThemeBase Theme;
+		public readonly string HoveredMeta;
+		public readonly List<(int start, int length)> Segments = new();
+
+		/// <summary>현재까지의 visible char 수 (BBCode 태그 제외)</summary>
+		public int VisibleCharCount;
+
+		/// <summary>Instant 노드 진입 시의 visible char 위치 (null = 밖)</summary>
+		public int? InstantStart;
+
+		/// <summary>Instant 중첩 깊이 (중첩 [!] 내부에서 외부만 기록)</summary>
+		public int InstantDepth;
+
+		public RenderCtx(WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+		{
+			State = state;
+			Theme = theme;
+			HoveredMeta = hoveredMeta;
+		}
+	}
+
 	public void Render(List<AstNode> ast, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta = null)
 	{
-		var sb = new StringBuilder();
-		RenderNodes(sb, ast, state, theme, hoveredMeta, 0);
-		RenderedText = sb.ToString();
+		var ctx = new RenderCtx(state, theme, hoveredMeta);
+		RenderNodes(ctx, ast, 0);
+		RenderedText = ctx.Sb.ToString();
+		InstantSegments = ctx.Segments;
 	}
 
 	public void Clear()
 	{
 		RenderedText = "";
+		InstantSegments = new();
 	}
 
 	/// <summary>외부에서 MetaClicked 이벤트를 전달할 때 호출</summary>
@@ -35,83 +70,152 @@ public class GodotRenderer : ITextUIRenderer
 		WidgetClicked?.Invoke(meta);
 	}
 
+	// ── BBCode 출력 + visible char 카운팅 ──
+
+	/// <summary>BBCode 태그 출력 (visible char 카운트 안 함)</summary>
+	private static void AppendTag(RenderCtx ctx, string tag)
+	{
+		ctx.Sb.Append(tag);
+	}
+
+	/// <summary>보이는 텍스트 출력 (visible char 카운트 증가)</summary>
+	private static void AppendVisible(RenderCtx ctx, string text)
+	{
+		ctx.Sb.Append(text);
+		// BBCode가 아닌 문자만 카운트
+		bool inTag = false;
+		foreach (char c in text)
+		{
+			if (c == '[') { inTag = true; continue; }
+			if (c == ']') { inTag = false; continue; }
+			if (!inTag) ctx.VisibleCharCount++;
+		}
+	}
+
+	/// <summary>raw 텍스트 출력 (BBCode 포함 가능 — visible char만 카운트)</summary>
+	private static void AppendRaw(RenderCtx ctx, string rawText)
+	{
+		ctx.Sb.Append(rawText);
+		bool inTag = false;
+		foreach (char c in rawText)
+		{
+			if (c == '[') { inTag = true; continue; }
+			if (c == ']') { inTag = false; continue; }
+			if (!inTag) ctx.VisibleCharCount++;
+		}
+	}
+
 	// ── 재귀 렌더링 ──
 
-	private void RenderNodes(StringBuilder sb, List<AstNode> nodes,
-		WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta, int depth)
+	private void RenderNodes(RenderCtx ctx, List<AstNode> nodes, int depth)
 	{
 		foreach (var n in nodes)
 		{
 			switch (n.Type)
 			{
 				case NodeType.Text:
-					sb.Append(n.RawText);
+					AppendRaw(ctx, n.RawText);
+					break;
+				case NodeType.Instant:
+					RenderInstant(ctx, n, depth);
 					break;
 				case NodeType.Link:
-					RenderLink(sb, n, state, theme, hoveredMeta, depth);
+					RenderLink(ctx, n, depth);
 					break;
 				case NodeType.Style:
-					RenderStyle(sb, n, state, theme, hoveredMeta, depth);
+					RenderStyle(ctx, n, depth);
 					break;
 				case NodeType.Todo:
-					sb.Append(RenderTodo(n, state, theme, hoveredMeta));
+					AppendVisible(ctx, RenderTodo(n, ctx.State, ctx.Theme, ctx.HoveredMeta));
 					break;
 				case NodeType.Button:
-					sb.Append(RenderButton(n, state, theme, hoveredMeta));
+					AppendVisible(ctx, RenderButton(n, ctx.State, ctx.Theme, ctx.HoveredMeta));
 					break;
 				case NodeType.Toggle:
-					RenderToggle(sb, n, state, theme, hoveredMeta, depth);
+					RenderToggle(ctx, n, depth);
 					break;
 				case NodeType.Radio:
-					sb.Append(RenderRadio(n, state, theme, hoveredMeta));
+					AppendVisible(ctx, RenderRadio(n, ctx.State, ctx.Theme, ctx.HoveredMeta));
 					break;
 				case NodeType.Choice:
-					RenderChoice(sb, n, state, theme, hoveredMeta, depth);
+					RenderChoice(ctx, n, depth);
 					break;
 			}
 		}
 	}
 
-	// ── Link 렌더링 ──
+	// ── Instant 렌더링 ──
 
-	private void RenderLink(StringBuilder sb, AstNode n,
-		WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta, int depth)
+	private void RenderInstant(RenderCtx ctx, AstNode n, int depth)
 	{
-		bool hovered = IsHovered(hoveredMeta, n.Meta);
-		string color = TextUIThemeBase.ToHex(
-			hovered ? theme.LinkHoverColor : theme.LinkColor);
+		// 중첩 [!] 처리: 외부 [!]만 구간 기록
+		bool isOutermost = ctx.InstantDepth == 0;
+		if (isOutermost)
+			ctx.InstantStart = ctx.VisibleCharCount;
 
-		sb.Append($"[url={n.Meta}][color={color}]");
+		ctx.InstantDepth++;
+
+		// children 렌더링 ([!] 태그 자체는 출력하지 않음)
+		RenderNodes(ctx, n.Children, depth);
+
+		ctx.InstantDepth--;
+
+		if (isOutermost && ctx.InstantStart.HasValue)
+		{
+			int length = ctx.VisibleCharCount - ctx.InstantStart.Value;
+			if (length > 0)
+				ctx.Segments.Add((ctx.InstantStart.Value, length));
+			ctx.InstantStart = null;
+		}
+	}
+
+	// ── Link 렌더링 (즉시 구간으로도 등록) ──
+
+	private void RenderLink(RenderCtx ctx, AstNode n, int depth)
+	{
+		bool hovered = IsHovered(ctx.HoveredMeta, n.Meta);
+		string color = TextUIThemeBase.ToHex(
+			hovered ? ctx.Theme.LinkHoverColor : ctx.Theme.LinkColor);
+
+		// Link는 즉시 구간으로 등록 (Instant 내부가 아닐 때만 — 중복 방지)
+		bool registerAsInstant = ctx.InstantDepth == 0;
+		int linkStart = ctx.VisibleCharCount;
+
+		AppendTag(ctx, $"[url={n.Meta}][color={color}]");
 
 		if (n.Children.Count > 0)
-			RenderNodes(sb, n.Children, state, theme, hoveredMeta, depth);
+			RenderNodes(ctx, n.Children, depth);
 		else
-			sb.Append(n.Label);
+			AppendVisible(ctx, n.Label);
 
-		sb.Append("[/color][/url]");
+		AppendTag(ctx, "[/color][/url]");
+
+		if (registerAsInstant)
+		{
+			int length = ctx.VisibleCharCount - linkStart;
+			if (length > 0)
+				ctx.Segments.Add((linkStart, length));
+		}
 	}
 
 	// ── Style 렌더링 ──
 
-	private void RenderStyle(StringBuilder sb, AstNode n,
-		WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta, int depth)
+	private void RenderStyle(RenderCtx ctx, AstNode n, int depth)
 	{
-		// StyleTag: "b", "i", "s", "color=#ff0000", "font_size=20", etc.
-		sb.Append($"[{n.StyleTag}]");
+		AppendTag(ctx, $"[{n.StyleTag}]");
 
 		if (n.Children.Count > 0)
-			RenderNodes(sb, n.Children, state, theme, hoveredMeta, depth);
+			RenderNodes(ctx, n.Children, depth);
 
-		// 닫기 태그: "color=#ff0000" → "color", "b" → "b"
 		string closeTag = n.StyleTag;
 		int eqIdx = closeTag.IndexOf('=');
 		if (eqIdx >= 0) closeTag = closeTag[..eqIdx];
-		sb.Append($"[/{closeTag}]");
+		AppendTag(ctx, $"[/{closeTag}]");
 	}
 
 	// ── 위젯 렌더링 ──
 
-	private string RenderTodo(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+	private static string RenderTodo(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
 	{
 		bool on = state.GetTodo(n.Key);
 		string icon = on ? theme.TodoCheckedIcon : theme.TodoUncheckedIcon;
@@ -122,7 +226,7 @@ public class GodotRenderer : ITextUIRenderer
 			: $"[url=todo:{n.Key}][color={color}]{icon} {label}[/color][/url]";
 	}
 
-	private string RenderButton(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+	private static string RenderButton(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
 	{
 		bool on = state.GetButton(n.Key);
 		string icon = on ? theme.ButtonOnIcon : theme.ButtonOffIcon;
@@ -135,27 +239,26 @@ public class GodotRenderer : ITextUIRenderer
 			: $"[url=button:{n.Key}][color={color}]{icon} {text}[/color][/url]";
 	}
 
-	private void RenderToggle(StringBuilder sb, AstNode n, WidgetStateStore state,
-		TextUIThemeBase theme, string hoveredMeta, int depth)
+	private void RenderToggle(RenderCtx ctx, AstNode n, int depth)
 	{
-		bool open = state.GetToggle(n.Key);
-		string arrow = open ? theme.ToggleOpenIcon : theme.ToggleClosedIcon;
+		bool open = ctx.State.GetToggle(n.Key);
+		string arrow = open ? ctx.Theme.ToggleOpenIcon : ctx.Theme.ToggleClosedIcon;
 		string meta = $"toggle:{n.Key}";
-		string hColor = IsHovered(hoveredMeta, meta)
-			? TextUIThemeBase.ToHex(theme.HoverColor)
-			: TextUIThemeBase.ToHex(open ? theme.ActiveColor : theme.InactiveColor);
+		string hColor = IsHovered(ctx.HoveredMeta, meta)
+			? TextUIThemeBase.ToHex(ctx.Theme.HoverColor)
+			: TextUIThemeBase.ToHex(open ? ctx.Theme.ActiveColor : ctx.Theme.InactiveColor);
 
-		sb.Append($"[url={meta}][color={hColor}]{arrow}{n.Label}[/color][/url]");
+		AppendVisible(ctx, $"[url={meta}][color={hColor}]{arrow}{n.Label}[/color][/url]");
 
 		if (open && n.Children.Count > 0)
 		{
-			sb.Append("\n[indent]");
-			RenderNodes(sb, n.Children, state, theme, hoveredMeta, depth + 1);
-			sb.Append("[/indent]");
+			AppendTag(ctx, "\n[indent]");
+			RenderNodes(ctx, n.Children, depth + 1);
+			AppendTag(ctx, "[/indent]");
 		}
 	}
 
-	private string RenderRadio(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+	private static string RenderRadio(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
 	{
 		string sel = state.GetRadio(n.Key);
 		bool on = sel == n.Value;
@@ -167,10 +270,9 @@ public class GodotRenderer : ITextUIRenderer
 			: $"[url={meta}][color={color}]{icon} {n.Label}[/color][/url]";
 	}
 
-	private void RenderChoice(StringBuilder sb, AstNode n, WidgetStateStore state,
-		TextUIThemeBase theme, string hoveredMeta, int depth)
+	private void RenderChoice(RenderCtx ctx, AstNode n, int depth)
 	{
-		string choiceVal = state.GetChoice(n.Key);
+		string choiceVal = ctx.State.GetChoice(n.Key);
 		bool chosen = !string.IsNullOrEmpty(choiceVal);
 
 		foreach (var opt in n.Children)
@@ -182,15 +284,15 @@ public class GodotRenderer : ITextUIRenderer
 				string meta = $"choice:{n.Key}:{opt.Value}";
 				if (opt.Disabled)
 				{
-					string dColor = TextUIThemeBase.ToHex(theme.DisabledColor);
-					sb.Append($"[color={dColor}]{theme.ChoiceIcon} {opt.Label}[/color]\n");
+					string dColor = TextUIThemeBase.ToHex(ctx.Theme.DisabledColor);
+					AppendVisible(ctx, $"[color={dColor}]{ctx.Theme.ChoiceIcon} {opt.Label}[/color]\n");
 				}
 				else
 				{
-					string cColor = IsHovered(hoveredMeta, meta)
-						? TextUIThemeBase.ToHex(theme.HoverColor)
-						: TextUIThemeBase.ToHex(theme.ChoiceColor);
-					sb.Append($"[url={meta}][color={cColor}]{theme.ChoiceIcon} {opt.Label}[/color][/url]\n");
+					string cColor = IsHovered(ctx.HoveredMeta, meta)
+						? TextUIThemeBase.ToHex(ctx.Theme.HoverColor)
+						: TextUIThemeBase.ToHex(ctx.Theme.ChoiceColor);
+					AppendVisible(ctx, $"[url={meta}][color={cColor}]{ctx.Theme.ChoiceIcon} {opt.Label}[/color][/url]\n");
 				}
 			}
 			else
@@ -201,32 +303,32 @@ public class GodotRenderer : ITextUIRenderer
 					case "hide":
 						if (isThis)
 						{
-							string aColor = TextUIThemeBase.ToHex(theme.ActiveColor);
-							sb.Append($"[color={aColor}]{theme.ChoiceSelectedIcon} {opt.Label}[/color]\n");
+							string aColor = TextUIThemeBase.ToHex(ctx.Theme.ActiveColor);
+							AppendVisible(ctx, $"[color={aColor}]{ctx.Theme.ChoiceSelectedIcon} {opt.Label}[/color]\n");
 						}
 						break;
 					case "fade":
 						if (isThis)
 						{
-							string aColor = TextUIThemeBase.ToHex(theme.ActiveColor);
-							sb.Append($"[color={aColor}]{theme.ChoiceSelectedIcon} {opt.Label}[/color]\n");
+							string aColor = TextUIThemeBase.ToHex(ctx.Theme.ActiveColor);
+							AppendVisible(ctx, $"[color={aColor}]{ctx.Theme.ChoiceSelectedIcon} {opt.Label}[/color]\n");
 						}
 						else
 						{
-							string fColor = TextUIThemeBase.ToHex(theme.ChoiceFadeColor);
-							sb.Append($"[color={fColor}][s]{theme.ChoiceIcon} {opt.Label}[/s][/color]\n");
+							string fColor = TextUIThemeBase.ToHex(ctx.Theme.ChoiceFadeColor);
+							AppendVisible(ctx, $"[color={fColor}][s]{ctx.Theme.ChoiceIcon} {opt.Label}[/s][/color]\n");
 						}
 						break;
 					case "keep":
 						if (isThis)
 						{
-							string aColor = TextUIThemeBase.ToHex(theme.ActiveColor);
-							sb.Append($"[color={aColor}][b]{theme.ChoiceIcon} {opt.Label}[/b][/color]\n");
+							string aColor = TextUIThemeBase.ToHex(ctx.Theme.ActiveColor);
+							AppendVisible(ctx, $"[color={aColor}][b]{ctx.Theme.ChoiceIcon} {opt.Label}[/b][/color]\n");
 						}
 						else
 						{
-							string iColor = TextUIThemeBase.ToHex(theme.InactiveColor);
-							sb.Append($"[color={iColor}]{theme.ChoiceIcon} {opt.Label}[/color]\n");
+							string iColor = TextUIThemeBase.ToHex(ctx.Theme.InactiveColor);
+							AppendVisible(ctx, $"[color={iColor}]{ctx.Theme.ChoiceIcon} {opt.Label}[/color]\n");
 						}
 						break;
 				}

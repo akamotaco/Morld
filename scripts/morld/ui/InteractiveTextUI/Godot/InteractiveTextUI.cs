@@ -64,6 +64,18 @@ public class InteractiveTextUI
 	}
 
 	/// <summary>
+	/// 마크업 렌더링 + 즉시 구간 맵 반환.
+	/// Dialog 타이핑 연출에서 사용 — ParseInstantTags() 대체.
+	/// </summary>
+	public (string bbcode, System.Collections.Generic.List<(int start, int length)> segments)
+		RenderMarkupWithSegments(string markup, string hoveredMeta = null)
+	{
+		_controller.SetMarkup(markup);
+		_controller.SetHoveredMeta(hoveredMeta);
+		return (_renderer.RenderedText, _renderer.InstantSegments);
+	}
+
+	/// <summary>
 	/// 이전과 동일한 마크업에서 hover만 변경 시 (재파싱 없이 렌더링만)
 	/// </summary>
 	public string RenderWithHover(string hoveredMeta)
@@ -71,6 +83,10 @@ public class InteractiveTextUI
 		_controller.SetHoveredMeta(hoveredMeta);
 		return _renderer.RenderedText;
 	}
+
+	/// <summary>최근 렌더링의 즉시 구간 맵</summary>
+	public System.Collections.Generic.List<(int start, int length)> InstantSegments
+		=> _renderer.InstantSegments;
 
 	/// <summary>
 	/// MetaClicked 이벤트 처리.

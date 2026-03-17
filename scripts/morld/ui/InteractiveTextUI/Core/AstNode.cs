@@ -25,6 +25,8 @@ public enum NodeType
 	Choice,
 	/// <summary>선택지 항목 (Choice의 자식)</summary>
 	Option,
+	/// <summary>즉시 표시 구간 [!]...[/!] — 타이핑 연출 시 한 번에 표시</summary>
+	Instant,
 }
 
 /// <summary>
