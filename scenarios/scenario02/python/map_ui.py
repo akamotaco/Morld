@@ -7,6 +7,7 @@
 
 import morld
 import ui
+from ui_style import style_success, style_muted, style_highlight, style_info
 
 
 def show_map():
@@ -221,20 +222,20 @@ def _render_map(state: dict) -> str:
         chars = location_characters.get(loc_id, [])
         char_text = ""
         if chars:
-            char_text = f" [color=lime][{', '.join(chars)}][/color]"
+            char_text = f" {style_success(f'[{", ".join(chars)}]')}"
 
         # 현재 위치 표시 (Pi-World: X 좌표 포함)
         if loc_id == current_local:
-            marker = "[color=yellow]>[/color] "
+            marker = f"{style_highlight('>')} "
             # Location 길이 조회 (Pi-World)
             loc_length = loc_info.get("length", 0)
             if loc_length > 0:
                 # Pi-World 모드: X 좌표 표시
                 pos_text = f"X:{int(player_pos_x)}/{int(loc_length)}"
-                name_display = f"[color=yellow]{loc_info['name']}[/color]{char_text} [color=gray](현재 위치, {pos_text})[/color]"
+                name_display = f"{style_highlight(loc_info['name'])}{char_text} {style_muted(f'(현재 위치, {pos_text})')}"
             else:
                 # Legacy 모드: 좌표 없이 표시
-                name_display = f"[color=yellow]{loc_info['name']}[/color]{char_text} [color=gray](현재 위치)[/color]"
+                name_display = f"{style_highlight(loc_info['name'])}{char_text} {style_muted('(현재 위치)')}"
             tree_lines.append(f"{indent}{marker}{name_display}")
         else:
             # 이동 가능 표시 (클릭 가능)
@@ -248,21 +249,22 @@ def _render_map(state: dict) -> str:
                 time_text = _format_time(travel_time_millis)
                 tree_lines.append(
                     f"{indent}{marker}[url=@proc:{region_id}:{loc_id}]{loc_info['name']}[/url] "
-                    f"[color=gray]({time_text})[/color]{char_text}"
+                    f"{style_muted(f'({time_text})')}{char_text}"
                 )
             elif travel_time_millis == 0:
                 # 바로 옆 (이미 같은 위치 - shouldn't happen)
                 tree_lines.append(f"{indent}{marker}{loc_info['name']}{char_text}")
             else:
                 # 도달 불가
-                tree_lines.append(f"{indent}{marker}[color=gray]{loc_info['name']} (도달 불가)[/color]{char_text}")
+                loc_name = loc_info['name']
+                tree_lines.append(f"{indent}{marker}{style_muted(f'{loc_name} (도달 불가)')}{char_text}")
 
         # 다른 region으로 가는 연결 표시
         for region_gate in loc_info.get("region_gates", []):
             to_region, to_local, region_name, *_ = region_gate
             child_indent = "  " * (depth + 1)
             tree_lines.append(
-                f"{child_indent}[color=cyan]-> {region_name}[/color]"
+                f"{child_indent}{style_info(f'-> {region_name}')}"
             )
 
         # 인접 장소 재귀 (이미 방문하지 않은 것만, 이동 시간 순 정렬)

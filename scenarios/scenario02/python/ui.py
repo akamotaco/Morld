@@ -8,6 +8,12 @@
 
 import morld
 import lighting
+from ui_style import (
+    MUTED, HIGHLIGHT, INFO, DANGER, SUCCESS, WARNING, ACCENT,
+    STAT_NORMAL, STAT_CAUTION, STAT_DANGER,
+    c, style_muted, style_highlight, style_info,
+    style_danger, style_success, style_warning, style_section,
+)
 
 MILLIS_PER_MINUTE = 60_000
 MILLIS_PER_HOUR = 3_600_000
@@ -17,7 +23,7 @@ MILLIS_PER_HOUR = 3_600_000
 # 구분선 (즉시 출력)
 # ========================================
 
-def divider(color: str = "gray", length: int = 20) -> str:
+def divider(color: str = MUTED, length: int = 20) -> str:
     """
     구분선 반환 (즉시 출력 태그 포함)
 
@@ -320,13 +326,13 @@ def _render_map_tab():
 
             indent = "  " * depth
             chars = location_characters.get(loc_id, [])
-            char_text = f" [color=lime][{', '.join(chars)}][/color]" if chars else ""
+            char_text = f" {style_success(f'[{", ".join(chars)}]')}" if chars else ""
 
             if loc_id == current_local:
                 loc_length = loc_info.get("length", 0)
                 pos_text = f"X:{int(player_pos_x)}/{int(loc_length)}" if loc_length > 0 else ""
-                pos_suffix = f" [color=gray](현재 위치{', ' + pos_text if pos_text else ''})[/color]"
-                tree_lines.append(f"{indent}[color=yellow]> {loc_info['name']}[/color]{char_text}{pos_suffix}")
+                pos_suffix = f" {style_muted(f'(현재 위치{", " + pos_text if pos_text else ""})')}"
+                tree_lines.append(f"{indent}{style_highlight(f'> {loc_info["name"]}')}{char_text}{pos_suffix}")
             else:
                 travel_time_millis = morld.get_travel_time(
                     region_id, current_local,
@@ -337,18 +343,18 @@ def _render_map_tab():
                     time_text = map_ui._format_time(travel_time_millis)
                     tree_lines.append(
                         f"{indent}- [url=move:{region_id}:{loc_id}]{loc_info['name']}[/url] "
-                        f"[color=gray]({time_text})[/color]{char_text}"
+                        f"{style_muted(f'({time_text})')}{char_text}"
                     )
                 elif travel_time_millis == 0:
                     tree_lines.append(f"{indent}- {loc_info['name']}{char_text}")
                 else:
-                    tree_lines.append(f"{indent}- [color=gray]{loc_info['name']} (도달 불가)[/color]{char_text}")
+                    tree_lines.append(f"{indent}- {style_muted(f'{loc_info["name"]} (도달 불가)')}{char_text}")
 
             # 다른 region 연결
             for region_gate in loc_info.get("region_gates", []):
                 to_region, to_local, region_name, *_ = region_gate
                 child_indent = "  " * (depth + 1)
-                tree_lines.append(f"{child_indent}[color=cyan]-> {region_name}[/color]")
+                tree_lines.append(f"{child_indent}{style_info(f'-> {region_name}')}")
 
             # 인접 장소 재귀
             neighbors = list(adjacency.get(loc_id, []))
@@ -386,7 +392,7 @@ def _render_stat_tab(unit_id):
         lines.append("")
 
         # 상태 (survival + needs)
-        lines.append("[color=gray]── 상태 ──[/color]")
+        lines.append(style_section("상태"))
         try:
             import survival
             stats = survival.get_survival_stats(unit_id)
@@ -412,7 +418,7 @@ def _render_stat_tab(unit_id):
         lines.append("")
 
         # 장비
-        lines.append("[color=gray]── 장비 ──[/color]")
+        lines.append(style_section("장비"))
         try:
             equipped_ids = morld.get_equipped_items(unit_id)
             if equipped_ids:
@@ -432,7 +438,7 @@ def _render_stat_tab(unit_id):
         lines.append("")
 
         # 관계 (플레이어와의)
-        lines.append("[color=gray]── 관계 ──[/color]")
+        lines.append(style_section("관계"))
         try:
             props = morld.get_unit_props(unit_id) or {}
             # 관계 prop 탐색
@@ -543,7 +549,7 @@ def get_time_weather_text():
             if loc:
                 cong = congestion.get_congestion(loc[0], loc[1])
                 if cong > 1.0:
-                    congestion_text = f" [color=yellow]혼잡x{cong:.1f}[/color]"
+                    congestion_text = f" {style_highlight(f'혼잡x{cong:.1f}')}"
                 elif cong > 0.5:
                     congestion_text = f" 혼잡x{cong:.1f}"
         except ImportError:
@@ -604,9 +610,9 @@ def _get_brightness_text() -> str:
         if level == "밝음":
             return "[밝음]"
         elif level == "어두움":
-            return "[color=yellow][어두움][/color]"
+            return style_highlight("[어두움]")
         else:  # 암흑
-            return "[color=red][암흑][/color]"
+            return style_danger("[암흑]")
     except Exception as e:
         print(f"[ui] _get_brightness_text error: {e}")
         return ""
@@ -637,7 +643,7 @@ def _get_tab_label_line():
     parts = []
     for i, label in enumerate(labels):
         if i == view_tab:
-            parts.append(f"[color=white][▶{label}][/color]")
+            parts.append(c(ACCENT, f"[▶{label}]"))
         else:
             parts.append(f"[url=tab:{i}][{label}][/url]")
 
@@ -697,11 +703,11 @@ def get_header():
         location_length = time_info.get("location_length", 0)
         position_x = time_info.get("position_x", 0)
         geo_text = "선" if geometry == 1 else "원"
-        lines.append(f"[color=gray][{geo_text}] X:{int(position_x)}/{int(location_length)}[/color]")
+        lines.append(style_muted(f"[{geo_text}] X:{int(position_x)}/{int(location_length)}"))
 
         # 시간 정지 상태 표시
         if morld.is_time_frozen():
-            lines.append("[color=cyan][시간 정지][/color]")
+            lines.append(style_info("[시간 정지]"))
 
         return "\n".join(lines)
     except Exception as e:
@@ -728,9 +734,9 @@ def _get_environment_status_text():
             import temperature
             body_temp = temperature.get_body_temperature(player_id)
             if body_temp < 35.5:
-                parts.append(f"[color=cyan]체온 {body_temp:.1f}℃[/color]")
+                parts.append(style_info(f"체온 {body_temp:.1f}℃"))
             elif body_temp > 37.5:
-                parts.append(f"[color=red]체온 {body_temp:.1f}℃[/color]")
+                parts.append(style_danger(f"체온 {body_temp:.1f}℃"))
             else:
                 parts.append(f"체온 {body_temp:.1f}℃")
         except ImportError:
@@ -741,7 +747,7 @@ def _get_environment_status_text():
             import humidity
             wetness = humidity.get_unit_wetness(player_id)
             if wetness and wetness > 0:
-                parts.append(f"[color=cyan]젖음 {wetness:.0f}%[/color]")
+                parts.append(style_info(f"젖음 {wetness:.0f}%"))
         except ImportError:
             pass
 
@@ -750,7 +756,7 @@ def _get_environment_status_text():
             import pollution
             pol = pollution.get_unit_pollution(player_id)
             if pol and pol > 0:
-                parts.append(f"[color=orange]오염 {pol:.0f}[/color]")
+                parts.append(style_warning(f"오염 {pol:.0f}"))
         except ImportError:
             pass
 
@@ -759,18 +765,18 @@ def _get_environment_status_text():
             import needs
             excretion = needs.get_excretion(player_id)
             if excretion >= 50:
-                color = "red" if excretion >= 70 else "yellow"
-                parts.append(f"[color={color}]배변 {excretion:.0f}[/color]")
+                clr = STAT_DANGER if excretion >= 70 else STAT_CAUTION
+                parts.append(c(clr, f"배변 {excretion:.0f}"))
 
             fatigue = needs.get_fatigue(player_id)
             if fatigue >= 50:
-                color = "red" if fatigue >= 80 else "yellow"
-                parts.append(f"[color={color}]피로 {fatigue:.0f}[/color]")
+                clr = STAT_DANGER if fatigue >= 80 else STAT_CAUTION
+                parts.append(c(clr, f"피로 {fatigue:.0f}"))
 
             cleanliness = needs.get_cleanliness(player_id)
             if cleanliness >= 50:
-                color = "red" if cleanliness >= 70 else "yellow"
-                parts.append(f"[color={color}]불결 {cleanliness:.0f}[/color]")
+                clr = STAT_DANGER if cleanliness >= 70 else STAT_CAUTION
+                parts.append(c(clr, f"불결 {cleanliness:.0f}"))
         except ImportError:
             pass
 
@@ -821,7 +827,7 @@ def _get_movement_arrows() -> str:
         if left_x != cur_x:
             parts.append(f"[url=move_x:{left_x}]{arrow}[/url]")
         else:
-            parts.append(f"[color=gray]{arrow}[/color]")
+            parts.append(style_muted(arrow))
 
     # 현재 위치 표시
     parts.append(f"X={cur_x}")
@@ -836,7 +842,7 @@ def _get_movement_arrows() -> str:
         if right_x != cur_x:
             parts.append(f"[url=move_x:{right_x}]{arrow}[/url]")
         else:
-            parts.append(f"[color=gray]{arrow}[/color]")
+            parts.append(style_muted(arrow))
 
     return " ".join(parts)
 
@@ -859,7 +865,7 @@ def get_footer():
     player_id = morld.get_player_id()
     _exhausted = player_id is not None and morld.get_unit_prop(player_id, "상태:탈진")
     if _exhausted:
-        lines.append("[color=gray]인벤토리  퀘스트[/color]  [url=settings]설정[/url]")
+        lines.append(f"{style_muted('인벤토리  퀘스트')}  [url=settings]설정[/url]")
     else:
         lines.append("[url=inventory]인벤토리[/url]  [url=quest]퀘스트[/url]  [url=settings]설정[/url]")
 
@@ -1128,9 +1134,9 @@ def _get_stance_text() -> str:
     """전투/평화 스탠스 토글 버튼 텍스트 반환"""
     import combat
     if combat.is_hostile_mode():
-        return "[url=stance:toggle][color=red][전투 태세][/color][/url]"
+        return f"[url=stance:toggle]{style_danger('[전투 태세]')}[/url]"
     else:
-        return "[url=stance:toggle][color=gray][평화][/color][/url]"
+        return f"[url=stance:toggle]{style_muted('[평화]')}[/url]"
 
 
 def toggle_stance() -> str:
@@ -1193,33 +1199,33 @@ def _get_posture_text() -> str:
     info = POSTURE_INFO.get(posture)
     if info is None:
         # 알 수 없는 자세 (fallback)
-        return f"[color=gray]자세: {posture}[/color]"
+        return style_muted(f"자세: {posture}")
 
     # 탈진 중 자세 변경 불가
     if morld.get_unit_prop(player_id, "상태:탈진"):
-        return "[color=gray][자세 변경 불가][/color]"
+        return style_muted("[자세 변경 불가]")
 
     # 이동 불가 자세 (앉기/눕기)
     if not info["can_move"]:
-        return f"[color=yellow]자세: {info['name']} (이동 불가)[/color]"
+        return style_highlight(f"자세: {info['name']} (이동 불가)")
 
     # 은신 상태 확인
     stealth = get_stealth_state()
 
     if posture == "standing":
         # 통상: [웅크리기] 버튼만 표시
-        return f"[url=posture:toggle][color=gray][웅크리기][/color][/url]"
+        return f"[url=posture:toggle]{style_muted('[웅크리기]')}[/url]"
     elif posture == "crouch":
         # 웅크린 상태: [일어서기] 버튼 + 은신 중일 때만 (은신 중) 표시
-        toggle_btn = f"[url=posture:toggle][color=gray][일어서기][/color][/url]"
+        toggle_btn = f"[url=posture:toggle]{style_muted('[일어서기]')}[/url]"
         if stealth == 1:
-            status = " [color=cyan](은신 중)[/color]"
+            status = f" {style_info('(은신 중)')}"
         else:
             status = ""
         return f"{toggle_btn}{status}"
 
     # 기타 이동 가능 자세 (fallback)
-    return f"[color=gray]자세: {info['name']}[/color]"
+    return style_muted(f"자세: {info['name']}")
 
 
 def format_time(millis):
@@ -1283,13 +1289,13 @@ def _render_movement(info: dict) -> list:
         return lines
 
     # 헤더
-    lines.append("[color=cyan]이동 가능 지역:[/color]")
+    lines.append(style_info("이동 가능 지역:"))
 
     # 상단 구분선
     if geometry == "ring":
-        lines.append("[color=gray]-vvv-----------[/color]")
+        lines.append(style_muted("-vvv-----------"))
     else:
-        lines.append("[color=gray]---------------[/color]")
+        lines.append(style_muted("---------------"))
 
     # 플레이어 마커 결정
     if seated:
@@ -1308,14 +1314,14 @@ def _render_movement(info: dict) -> list:
 
     for i, route in enumerate(routes):
         is_closest = (i == closest_idx)
-        prefix = f"[color=yellow]{marker}[/color]" if is_closest else "●"
+        prefix = style_highlight(marker) if is_closest else "●"
 
         # 앉은 상태 또는 blocked → grey out (클릭 불가)
         if seated or route["is_blocked"]:
             if is_closest:
-                lines.append(f"  {prefix}[color=gray]{route['name']}[/color]")
+                lines.append(f"  {prefix}{style_muted(route['name'])}")
             else:
-                lines.append(f"  [color=gray]- {route['name']}[/color]")
+                lines.append(f"  {style_muted(f'- {route["name"]}')}")
         else:
             region_tag = f" [{route['region_name']}]" if route["is_region_gate"] else ""
             travel_min = route["travel_time"] // MILLIS_PER_MINUTE
@@ -1324,9 +1330,9 @@ def _render_movement(info: dict) -> list:
 
     # 하단 구분선
     if geometry == "ring":
-        lines.append("[color=gray]-^^^-----------[/color]")
+        lines.append(style_muted("-^^^-----------"))
     else:
-        lines.append("[color=gray]---------------[/color]")
+        lines.append(style_muted("---------------"))
 
     return lines
 
@@ -1380,7 +1386,7 @@ def get_action_text():
 
     # 행동 섹션 헤더
     lines.append("")
-    lines.append("[color=cyan]행동:[/color]")
+    lines.append(style_info("행동:"))
 
     # 눕기/앉기 상태 → "일어나기" 행동 추가 (맨 위에)
     if not can_move and seated_on is not None:
@@ -1399,7 +1405,7 @@ def get_action_text():
     if 6 <= hour < 18:
         spend_time_content.append(f"    [url=idle:{240 * MILLIS_PER_MINUTE}]낮잠자기 (4시간)[/url]")
     else:
-        spend_time_content.append("    [color=gray]낮잠자기 (4시간)[/color]")
+        spend_time_content.append(f"    {style_muted('낮잠자기 (4시간)')}")
     content_str = "\n".join(spend_time_content)
     lines.append(f"  [toggle key=spend_time]시간 보내기[content]{content_str}[/toggle]")
 
@@ -1919,7 +1925,7 @@ class Conversation:
                             if value == selected:
                                 if text:
                                     text += "\n\n"
-                                text += f"[color=gray]> {label}[/color]"
+                                text += style_muted(f"> {label}")
                                 break
                     else:
                         # 아직 선택 안 됨 - 선택지 표시
@@ -2000,7 +2006,7 @@ class Conversation:
                         # _render와 동일한 형식으로: text가 있을 때만 \n\n 추가
                         if history_text:
                             history_text += "\n\n"
-                        history_text += f"[color=gray]> {selected_label}[/color]"
+                        history_text += style_muted(f"> {selected_label}")
                     state["history"] = history_text
 
                     # 선택 반영

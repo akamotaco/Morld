@@ -13,6 +13,7 @@ import morld
 import ui
 from assets.base import Item
 from assets.registry import register_item
+from ui_style import style_danger, style_muted, style_success
 
 
 # ========================================
@@ -183,22 +184,22 @@ class PortableCraftingKit(Item):
                             if owned >= required:
                                 mat_parts.append(f"{mat_name} {owned}/{required}")
                             else:
-                                mat_parts.append(f"{mat_name} [color=red]{owned}/{required}[/color]")
+                                mat_parts.append(f"{mat_name} {style_danger(f'{owned}/{required}')}")
                         mat_text = ", ".join(mat_parts)
 
                         if can_craft:
-                            lines.append(f"    [url=@proc:{recipe['unique_id']}:{i}]{mat_text}[/url] [color=gray]({craft_time}분)[/color]")
+                            lines.append(f"    [url=@proc:{recipe['unique_id']}:{i}]{mat_text}[/url] {style_muted(f'({craft_time}분)')}")
                         else:
-                            lines.append(f"    [color=gray]{mat_text} ({craft_time}분)[/color]")
+                            lines.append(f"    {style_muted(f'{mat_text} ({craft_time}분)')}")
                 else:
                     # 단일 레시피
                     can_craft, missing, have = check_materials(player_id, recipe)
                     craft_time = recipe.get("craft_time", 10)
 
                     if can_craft:
-                        lines.append(f"  [url=@proc:{recipe['unique_id']}]{name}[/url] [color=gray]({craft_time}분)[/color]")
+                        lines.append(f"  [url=@proc:{recipe['unique_id']}]{name}[/url] {style_muted(f'({craft_time}분)')}")
                     else:
-                        lines.append(f"  [color=gray]{name} ({craft_time}분)[/color]")
+                        lines.append(f"  {style_muted(f'{name} ({craft_time}분)')}")
 
             lines.append("")
             lines.append("[url=@ret:cancel]돌아가기[/url]")

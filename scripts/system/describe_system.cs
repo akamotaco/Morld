@@ -1,7 +1,9 @@
 using ECS;
 using Morld;
+using Morld.TextUI;
 using System.Collections.Generic;
 using System.Linq;
+using static Morld.TextUI.UIStyle;
 
 namespace SE
 {
@@ -111,7 +113,7 @@ namespace SE
 			{
 				foreach (var log in actionLogs)
 				{
-					lines.Add($"[color=yellow]*{log.Message}[/color]");
+					lines.Add(StyleHighlight($"*{log.Message}"));
 				}
 			}
 
@@ -182,7 +184,7 @@ namespace SE
 			// 캐릭터 표시
 			if (characters.Count > 0)
 			{
-				lines.Add("[color=yellow]주변 인물:[/color]");
+				lines.Add(StyleHighlight("주변 인물:"));
 				foreach (var character in characters)
 				{
 					// 현재 Job의 Name을 activity로 표시
@@ -197,8 +199,8 @@ namespace SE
 						var jobLoc = currentJob.GetLocationRef();
 						bool isAtDestination = isStay || (currentLoc.RegionId == jobLoc.RegionId && currentLoc.LocalId == jobLoc.LocalId);
 						activityText = isAtDestination
-							? $" [color=gray]({activity} 중)[/color]"
-							: $" [color=gray]({activity}-이동 중)[/color]";
+							? $" {StyleMuted($"({activity} 중)")}"
+							: $" {StyleMuted($"({activity}-이동 중)")}";
 					}
 					lines.Add($"  [url=look_unit:{character.Id}]{character.Name}[/url]{activityText}");
 				}
@@ -208,7 +210,7 @@ namespace SE
 			// 오브젝트 표시 (바닥 오브젝트도 포함 - 클릭해서 Container Focus로 조작)
 			if (objects.Count > 0)
 			{
-				lines.Add("[color=orange]오브젝트:[/color]");
+				lines.Add(StyleWarning("오브젝트:"));
 				foreach (var obj in objects)
 				{
 					// ItemVisible이 true면 아이템 개수 표시
@@ -222,7 +224,7 @@ namespace SE
 							foreach (var kvp in inventory)
 								totalCount += kvp.Value;
 							if (totalCount > 0)
-								itemCountText = $" [color=gray](아이템 {totalCount}개)[/color]";
+								itemCountText = $" {StyleMuted($"(아이템 {totalCount}개)")}";
 						}
 					}
 					lines.Add($"  [url=look_unit:{obj.Id}]{obj.Name}[/url]{itemCountText}");
@@ -372,7 +374,7 @@ namespace SE
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
 			var targetUnit = unitSystem?.FindUnit(unitLook.UnitId);
 			if (targetUnit != null)
-				lines.Add($"[b]{unitLook.Name}[/b] [color=gray]X:{(int)targetUnit.PositionX}[/color]");
+				lines.Add($"[b]{unitLook.Name}[/b] {StyleMuted($"X:{(int)targetUnit.PositionX}")}");
 			else
 				lines.Add($"[b]{unitLook.Name}[/b]");
 			lines.Add("");
@@ -384,7 +386,7 @@ namespace SE
 			{
 				foreach (var log in actionLogs)
 				{
-					lines.Add($"[color=yellow]*{log.Message}[/color]");
+					lines.Add(StyleHighlight($"*{log.Message}"));
 				}
 				lines.Add("");
 			}
@@ -397,7 +399,7 @@ namespace SE
 					var itemSystem = _hub.GetSystem("itemSystem") as ItemSystem;
 					if (itemSystem != null)
 					{
-						lines.Add("[color=lime]보관된 아이템:[/color]");
+						lines.Add(StyleSuccess("보관된 아이템:"));
 						foreach (var (itemId, count) in unitLook.Inventory)
 						{
 							var item = itemSystem.FindItem(itemId);
@@ -414,7 +416,7 @@ namespace SE
 				}
 				else
 				{
-					lines.Add("[color=gray]비어 있다.[/color]");
+					lines.Add(StyleMuted("비어 있다."));
 					lines.Add("");
 				}
 
@@ -423,7 +425,7 @@ namespace SE
 			// 상태 차단 메시지 표시 (수면 중 등)
 			if (!string.IsNullOrEmpty(unitLook.BlockedMessage))
 			{
-				lines.Add($"[color=gray]{unitLook.BlockedMessage}[/color]");
+				lines.Add(StyleMuted(unitLook.BlockedMessage));
 				lines.Add("");
 			}
 
@@ -444,7 +446,7 @@ namespace SE
 			var partition = actionSystem.PartitionActionsByActor(actionsToShow, player);
 			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0 || addStandUpAction)
 			{
-				lines.Add("[color=yellow]행동:[/color]");
+				lines.Add(StyleHighlight("행동:"));
 
 				// 일어나기 액션 추가 (가장 위에)
 				if (addStandUpAction)
@@ -469,7 +471,7 @@ namespace SE
 			{
 				if (!unitLook.IsObject)
 				{
-					lines.Add("[color=gray]특별한 상호작용이 없다.[/color]");
+					lines.Add(StyleMuted("특별한 상호작용이 없다."));
 					lines.Add("");
 				}
 			}
@@ -528,7 +530,7 @@ namespace SE
 
 			var ownerName = GetOwnerName(ownable.Owner);
 			if (!string.IsNullOrEmpty(ownerName))
-				return $"{ownable.Name} [color=gray]({ownerName} 소유)[/color]";
+				return $"{ownable.Name} {StyleMuted($"({ownerName} 소유)")}";
 
 			return ownable.Name;
 		}
@@ -635,7 +637,7 @@ namespace SE
 
 			if (player == null)
 			{
-				lines.Add("[color=gray]인벤토리를 확인할 수 없습니다.[/color]");
+				lines.Add(StyleMuted("인벤토리를 확인할 수 없습니다."));
 				lines.Add("");
 				lines.Add("[url=back]뒤로[/url]");
 				return string.Join("\n", lines);
@@ -646,7 +648,7 @@ namespace SE
 
 			if (inventory.Count == 0)
 			{
-				lines.Add("[color=gray]소지품이 없다.[/color]");
+				lines.Add(StyleMuted("소지품이 없다."));
 			}
 			else
 			{
@@ -695,7 +697,7 @@ namespace SE
 			if (equippedItems.Count > 0)
 			{
 				lines.Add("");
-				lines.Add("[color=cyan]장착 중:[/color]");
+				lines.Add(StyleInfo("장착 중:"));
 				foreach (var itemId in equippedItems)
 				{
 					var item = itemSystem.FindItem(itemId);
@@ -720,7 +722,7 @@ namespace SE
 		{
 			if (items.Count == 0) return;
 
-			lines.Add($"[color=yellow]{categoryName}[/color]");
+			lines.Add(StyleHighlight(categoryName));
 			foreach (var (itemId, count, item) in items)
 			{
 				var countText = count > 1 ? $" x{count}" : "";
@@ -748,7 +750,7 @@ namespace SE
 
 			if (player == null)
 			{
-				lines.Add("[color=gray]장비 정보를 확인할 수 없습니다.[/color]");
+				lines.Add(StyleMuted("장비 정보를 확인할 수 없습니다."));
 				lines.Add("");
 				lines.Add("[url=back]뒤로[/url]");
 				return string.Join("\n", lines);
@@ -758,7 +760,7 @@ namespace SE
 
 			if (equippedItems.Count == 0)
 			{
-				lines.Add("[color=gray]장착 중인 장비가 없다.[/color]");
+				lines.Add(StyleMuted("장착 중인 장비가 없다."));
 			}
 			else
 			{
@@ -800,7 +802,7 @@ namespace SE
 
 			if (item == null)
 			{
-				lines.Add("[color=gray]아이템을 찾을 수 없습니다.[/color]");
+				lines.Add(StyleMuted("아이템을 찾을 수 없습니다."));
 				lines.Add("");
 				lines.Add("[url=back]뒤로[/url]");
 				return string.Join("\n", lines);
@@ -819,7 +821,7 @@ namespace SE
 				var unit = unitSystem.FindUnit(targetUnitId.Value);
 				if (unit != null)
 				{
-					lines.Add($"[color=gray]{unit.Name}에서[/color]");
+					lines.Add(StyleMuted($"{unit.Name}에서"));
 				}
 			}
 			lines.Add("");
@@ -833,7 +835,7 @@ namespace SE
 			var partition = actionSystem.PartitionActionsByActor(actionPropsFiltered, player);
 			if (partition.Enabled.Count > 0 || partition.Disabled.Count > 0)
 			{
-				lines.Add("[color=yellow]행동:[/color]");
+				lines.Add(StyleHighlight("행동:"));
 				// 활성화된 액션 (링크)
 				foreach (var action in partition.Enabled)
 				{
@@ -844,7 +846,7 @@ namespace SE
 				foreach (var action in partition.Disabled)
 				{
 					var (_, label) = actionSystem.GetActionUrlAndLabel(action, itemId, targetUnitId, context);
-					lines.Add($"  [color=gray]{label}[/color]");
+					lines.Add($"  {StyleMuted(label)}");
 				}
 			}
 

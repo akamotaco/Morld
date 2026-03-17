@@ -1,8 +1,10 @@
 using ECS;
 using Godot;
 using Morld;
+using Morld.TextUI;
 using System;
 using System.Collections.Generic;
+using static Morld.TextUI.UIStyle;
 using System.Linq;
 
 namespace SE
@@ -313,7 +315,7 @@ namespace SE
 			{
 				return enabled
 					? "  [url=call:put]넣기[/url]"
-					: "  [color=gray]넣기[/color]";
+					: $"  {StyleMuted("넣기")}";
 			}
 
 			// call:메서드명:표시명 형식
@@ -327,30 +329,30 @@ namespace SE
 					if (enabled)
 					{
 						var label = _hostileMethodNames.Contains(methodName)
-							? $"[color=red]{displayName}[/color]"
+							? StyleDanger(displayName)
 							: displayName;
 						return $"  [url=call:{methodName}:{displayName}]{label}[/url]";
 					}
-					return $"  [color=gray]{displayName}[/color]";
+					return $"  {StyleMuted(displayName)}";
 				}
 				else if (parts.Length == 2)
 				{
 					var methodName = parts[1];
 					return enabled
 						? $"  [url=call:{methodName}:{methodName}]{methodName}[/url]"
-						: $"  [color=gray]{methodName}[/color]";
+						: $"  {StyleMuted(methodName)}";
 				}
 				else
 				{
 					GD.PrintErr($"[ActionSystem] Invalid call action format: '{action}'");
-					return $"  [color=red][오류: {action}][/color]";
+					return $"  {StyleDanger($"[오류: {action}]")}";
 				}
 			}
 
 			// 다른 액션은 그대로 표시
 			return enabled
 				? $"  [url=action:{action}:{unitId}]{action}[/url]"
-				: $"  [color=gray]{action}[/color]";
+				: $"  {StyleMuted(action)}";
 		}
 
 		/// <summary>
@@ -441,7 +443,7 @@ namespace SE
 						var seatName = seatObject.Name ?? "오브젝트";
 
 						items.Add("");
-						items.Add($"[color=lime][앉음: {seatName}][/color]");
+						items.Add(StyleSuccess($"[앉음: {seatName}]"));
 						items.Add($"  [url=call:stand_up:{objectId}]일어나기[/url]");
 
 						// 운전석이면 운전 액션도 표시 (TODO: drive 메서드 구현 필요)

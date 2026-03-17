@@ -22,6 +22,7 @@
 
 import morld
 from events import subscribe_time_elapsed
+from ui_style import c, DANGER, WARNING, HIGHLIGHT, SUCCESS, INFO
 
 
 # === 상수 ===
@@ -545,17 +546,17 @@ def get_status_message(unit_id: int) -> str:
 
     # 포만감 상태 메시지
     if satiety <= 0:
-        messages.append("[color=red]굶주리고 있다![/color]")
+        messages.append(c(DANGER, "굶주리고 있다!"))
     elif satiety <= SATIETY_THRESHOLD_STARVING:
-        messages.append("[color=orange]매우 배고프다.[/color]")
+        messages.append(c(WARNING, "매우 배고프다."))
     elif satiety <= SATIETY_THRESHOLD_HUNGRY:
-        messages.append("[color=yellow]배가 고프다.[/color]")
+        messages.append(c(HIGHLIGHT, "배가 고프다."))
 
     # 체력 상태 메시지
     if health <= 0:
-        messages.append("[color=red]쓰러질 것 같다...[/color]")
+        messages.append(c(DANGER, "쓰러질 것 같다..."))
     elif health <= HEALTH_THRESHOLD_DANGER:
-        messages.append("[color=red]몸이 너무 힘들다.[/color]")
+        messages.append(c(DANGER, "몸이 너무 힘들다."))
 
     return "\n".join(messages)
 
@@ -596,26 +597,26 @@ def get_status_bar(unit_id: int) -> str:
 
     # 체력 색상: 낮으면 빨간색, 중간 노란색, 높으면 녹색
     if health <= 20:
-        health_color = "red"
+        health_color = DANGER
     elif health <= 50:
-        health_color = "yellow"
+        health_color = HIGHLIGHT
     else:
-        health_color = "lime"
+        health_color = SUCCESS
 
     # 포만감 색상: 낮으면 빨간색, 중간 주황색, 높으면 청록색
     if satiety <= 10:
-        satiety_color = "red"
+        satiety_color = DANGER
     elif satiety <= 30:
-        satiety_color = "orange"
+        satiety_color = WARNING
     else:
-        satiety_color = "cyan"
+        satiety_color = INFO
 
     health_bar = _make_bar(health, max_health)
     satiety_bar = _make_bar(satiety, max_satiety)
 
     return (
-        f"체력: [color={health_color}]{health_bar}[/color] {health}  "
-        f"포만감: [color={satiety_color}]{satiety_bar}[/color] {satiety}"
+        f"체력: {c(health_color, health_bar)} {health}  "
+        f"포만감: {c(satiety_color, satiety_bar)} {satiety}"
     )
 
 

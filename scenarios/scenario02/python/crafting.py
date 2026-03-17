@@ -10,6 +10,7 @@
 import morld
 import ui
 from assets.registry import get_item_class, get_or_create_item_id
+from ui_style import style_success, style_danger, style_muted
 from crafting_recipes import (
     CRAFTING_RECIPES,
     get_recipe,
@@ -220,11 +221,11 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작", preview: 
             can_craft, _, _ = check_materials(player_id, recipe)
 
             if can_craft:
-                lines.append(f"[url=@proc:recipe:{recipe['unique_id']}]{name}[/url] [color=gray]({craft_time}분)[/color]")
+                lines.append(f"[url=@proc:recipe:{recipe['unique_id']}]{name}[/url] {style_muted(f'({craft_time}분)')}")
             elif preview:
                 # preview=True: 재료 부족해도 grey out으로 표시
                 mat_text = _format_materials_short(recipe["materials"])
-                lines.append(f"[color=gray]{name}[/color] [color=#666666]({mat_text})[/color]")
+                lines.append(f"{style_muted(name)} [color=#666666]({mat_text})[/color]")
             # preview=False: 제작 불가능하면 표시하지 않음
 
         lines.append("")
@@ -244,9 +245,9 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작", preview: 
             owned = have.get(mat_uid, 0)
 
             if owned >= required:
-                lines.append(f"  {mat_name}: {owned}/{required} [color=lime]✓[/color]")
+                lines.append(f"  {mat_name}: {owned}/{required} {style_success('✓')}")
             else:
-                lines.append(f"  {mat_name}: {owned}/{required} [color=red]✗[/color]")
+                lines.append(f"  {mat_name}: {owned}/{required} {style_danger('✗')}")
 
         lines.append("")
 
@@ -263,7 +264,7 @@ def open_craft_menu(recipe_source: list = None, title: str = "제작", preview: 
         if can_craft:
             lines.append("[url=@proc:craft]제작하기[/url]")
         else:
-            lines.append("[color=gray]재료가 부족합니다[/color]")
+            lines.append(style_muted("재료가 부족합니다"))
 
         lines.append("[url=@proc:back]◀ 뒤로[/url]")
         return "\n".join(lines)

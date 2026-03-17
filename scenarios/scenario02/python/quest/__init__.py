@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Any
 import morld
 import ui
+from ui_style import style_success, style_muted, style_highlight, style_info
 
 from .conditions import check_condition, get_condition_description
 from .rewards import apply_reward
@@ -762,7 +763,7 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
                 progress = quest_manager.get_quest_progress(selected_quest_id)
                 lines.append("[조건]")
                 for cond_info in progress["conditions"]:
-                    cond_status = "[color=lime]✓[/color]" if cond_info["is_met"] else "[color=gray]○[/color]"
+                    cond_status = style_success("✓") if cond_info["is_met"] else style_muted("○")
                     lines.append(f"  {cond_status} {cond_info['description']}")
                 lines.append("")
 
@@ -772,7 +773,7 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
     # 진행 중 퀘스트
     in_progress = quest_manager.get_quests_by_status(QuestStatus.IN_PROGRESS)
     if in_progress:
-        lines.append("[color=yellow][진행 중][/color]")
+        lines.append(style_highlight("[진행 중]"))
         for quest in in_progress:
             # 클릭하면 세부 정보 표시
             lines.append(f"  [url=@proc:select:{quest.unique_id}]{quest.name}[/url]")
@@ -781,7 +782,7 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
     # 완료 퀘스트 (보상 대기)
     completed = quest_manager.get_quests_by_status(QuestStatus.COMPLETED)
     if completed:
-        lines.append("[color=lime][완료 - 보상 수령 가능][/color]")
+        lines.append(style_success("[완료 - 보상 수령 가능]"))
         for quest in completed:
             if quest.reporter:
                 lines.append(f"  [b]{quest.name}[/b] - {quest.reporter}에게 보고")
@@ -796,16 +797,16 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
         finished_items = []
         for quest in finished:
             # 클릭하면 결과 텍스트(기록) 보기
-            finished_items.append(f"  [url=@proc:select:{quest.unique_id}][color=gray]{quest.name}[/color][/url]")
+            finished_items.append(f"  [url=@proc:select:{quest.unique_id}]{style_muted(quest.name)}[/url]")
         finished_content = "\n".join(finished_items)
-        lines.append(f"[toggle key=finished][color=gray]완료된 퀘스트 ({len(finished)})[/color][content]{finished_content}[/toggle]")
+        lines.append(f"[toggle key=finished]{style_muted(f'완료된 퀘스트 ({len(finished)})')}[content]{finished_content}[/toggle]")
         lines.append("")
 
     # 디버그 모드일 때만 수락 가능 퀘스트 표시
     if debug_mode:
         available = quest_manager.get_quests_by_status(QuestStatus.AVAILABLE)
         if available:
-            lines.append("[color=cyan][수락 가능 - DEBUG][/color]")
+            lines.append(style_info("[수락 가능 - DEBUG]"))
             for quest in available:
                 if quest.giver:
                     lines.append(f"  {quest.name} - {quest.giver}에게서")
@@ -815,7 +816,7 @@ def render_quest_ui(selected_quest_id: str = None, debug_mode: bool = False) -> 
 
     # 퀘스트가 없을 때
     if not in_progress and not completed:
-        lines.append("[color=gray]진행 중인 퀘스트가 없습니다.[/color]")
+        lines.append(style_muted("진행 중인 퀘스트가 없습니다."))
         lines.append("")
 
     lines.append("[url=@finish]닫기[/url]")

@@ -8,6 +8,7 @@
 
 import morld
 import ui
+from ui_style import style_success, style_muted, style_danger, style_highlight, style_info
 
 
 # ============================================
@@ -183,65 +184,65 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
 
     # 게임 종료 확인 다이얼로그
     if confirm_quit:
-        lines.append("[color=yellow]게임을 종료하시겠습니까?[/color]")
+        lines.append(style_highlight("게임을 종료하시겠습니까?"))
         lines.append("")
         lines.append("[url=@proc:quit_yes]예[/url]  [url=@proc:quit_no]아니오[/url]")
         return "[!]" + "\n".join(lines) + "[/!]"
 
     # 디버그 모드
     debug_on = is_debug_mode()
-    debug_status = "[color=lime]ON[/color]" if debug_on else "[color=gray]OFF[/color]"
+    debug_status = style_success("ON") if debug_on else style_muted("OFF")
     lines.append(f"[url=@proc:toggle_debug]디버그 모드[/url]: {debug_status}")
 
     # 연애 모드
     romance_on = is_romance_enabled()
-    romance_status = "[color=lime]ON[/color]" if romance_on else "[color=gray]OFF[/color]"
+    romance_status = style_success("ON") if romance_on else style_muted("OFF")
     lines.append(f"[url=@proc:toggle_romance]연애 모드[/url]: {romance_status}")
 
     # 수간 모드 (연애 모드 ON 시에만 표시)
     if is_romance_enabled():
         beast_on = is_bestiality_enabled()
-        beast_status = "[color=red]ON[/color]" if beast_on else "[color=gray]OFF[/color]"
+        beast_status = style_danger("ON") if beast_on else style_muted("OFF")
         lines.append(f"  [url=@proc:toggle_bestiality]수간 모드[/url]: {beast_status}")
 
     # 적대 모드
     import combat
     hostile_on = combat.is_hostile_mode()
-    hostile_status = "[color=red]ON[/color]" if hostile_on else "[color=gray]OFF[/color]"
+    hostile_status = style_danger("ON") if hostile_on else style_muted("OFF")
     lines.append(f"[url=@proc:toggle_hostile]적대 모드[/url]: {hostile_status}")
 
     # 성추행 모드
     harass_on = is_harassment_enabled()
-    harass_status = "[color=red]ON[/color]" if harass_on else "[color=gray]OFF[/color]"
+    harass_status = style_danger("ON") if harass_on else style_muted("OFF")
     lines.append(f"[url=@proc:toggle_harassment]성추행 모드[/url]: {harass_status}")
 
     # 달리기
     player_id = _get_player_id()
     sprint_on = morld.get_unit_prop(player_id, "이동:달리기") if player_id >= 0 else 0
-    sprint_status = "[color=yellow]ON[/color]" if sprint_on else "[color=gray]OFF[/color]"
+    sprint_status = style_highlight("ON") if sprint_on else style_muted("OFF")
     lines.append(f"[url=@proc:toggle_sprint]달리기[/url]: {sprint_status}")
 
     # 시간 정지
     frozen = morld.is_time_frozen()
-    frozen_status = "[color=cyan]정지[/color]" if frozen else "[color=gray]흐름[/color]"
+    frozen_status = style_info("정지") if frozen else style_muted("흐름")
     lines.append(f"[url=@proc:toggle_frozen]시간 정지[/url]: {frozen_status}")
 
     # 시간 자동 흐름
     auto_on = is_auto_time_flow()
-    auto_status = "[color=lime]ON[/color]" if auto_on else "[color=gray]OFF[/color]"
+    auto_status = style_success("ON") if auto_on else style_muted("OFF")
     lines.append(f"[url=@proc:toggle_auto_time]시간 자동 흐름[/url]: {auto_status}")
 
     # 시간 간격 설정 (토글 메뉴)
     preset_name = get_current_preset_name()
     toggle_icon = "▼" if show_interval_menu else "▶"
-    lines.append(f"  [url=@proc:toggle_interval_menu]{toggle_icon} 시간 간격[/url]: [color=yellow]{preset_name}[/color]")
+    lines.append(f"  [url=@proc:toggle_interval_menu]{toggle_icon} 시간 간격[/url]: {style_highlight(preset_name)}")
 
     if show_interval_menu:
         for name, real_sec, game_millis in AUTO_TIME_PRESETS:
             game_sec = game_millis // 1000
             # 현재 선택된 프리셋은 하이라이트
             if name == preset_name:
-                lines.append(f"    [color=lime]● {name}[/color] ({real_sec}초 → {game_sec}초)")
+                lines.append(f"    {style_success(f'● {name}')} ({real_sec}초 → {game_sec}초)")
             else:
                 lines.append(f"    [url=@proc:set_interval:{real_sec}:{game_millis}]○ {name}[/url] ({real_sec}초 → {game_sec}초)")
 
@@ -250,13 +251,13 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     # 타이핑 속도 설정 (토글 메뉴)
     typing_preset = get_typing_speed_preset_name()
     typing_icon = "▼" if show_typing_menu else "▶"
-    lines.append(f"[url=@proc:toggle_typing_menu]{typing_icon} 타이핑 속도[/url]: [color=yellow]{typing_preset}[/color]")
+    lines.append(f"[url=@proc:toggle_typing_menu]{typing_icon} 타이핑 속도[/url]: {style_highlight(typing_preset)}")
 
     if show_typing_menu:
         current_speed = morld.get_typing_speed()
         for name, speed in TYPING_SPEED_PRESETS:
             if speed == current_speed:
-                lines.append(f"  [color=lime]● {name}[/color]")
+                lines.append(f"  {style_success(f'● {name}')}")
             else:
                 lines.append(f"  [url=@proc:set_typing_speed:{speed}]○ {name}[/url]")
 

@@ -12,6 +12,7 @@ import morld
 import ui
 from assets.base import Object
 from quest import quest_manager, QuestStatus
+from ui_style import style_highlight, style_info, style_success, style_muted
 
 
 # 일일 납품 퀘스트 unique_id 목록
@@ -55,13 +56,13 @@ class ErrandBoard(Object):
 
         # 메시지가 있으면 표시
         if message:
-            lines.append(f"[color=yellow]{message}[/color]")
+            lines.append(style_highlight(message))
             lines.append("")
 
         # 게시판에 넣어둔 아이템 표시
         board_inv = self._get_board_inventory_by_unique()
         if board_inv:
-            lines.append("[color=cyan]납품 대기 아이템:[/color]")
+            lines.append(style_info("납품 대기 아이템:"))
             from quest.conditions import _get_item_name
             for unique_id, count in board_inv.items():
                 item_name = _get_item_name(unique_id)
@@ -84,7 +85,7 @@ class ErrandBoard(Object):
                 # 진행 중 - 납품 가능 여부 체크 (게시판 인벤토리 기준)
                 progress = quest_manager.get_quest_progress(quest_id)
                 if progress.get("all_met"):
-                    lines.append(f"  [color=lime]✓[/color] {quest.description} ({reward_text}) - 완료!")
+                    lines.append(f"  {style_success('✓')} {quest.description} ({reward_text}) - 완료!")
                 else:
                     # 게시판 인벤토리에서 납품 가능한 아이템 체크
                     can_deliver, deliver_info = self._check_can_deliver_from_board(quest)
@@ -95,19 +96,19 @@ class ErrandBoard(Object):
                         # 필요 아이템 표시
                         required_text = self._get_required_items_text(quest)
                         lines.append(f"  → {quest.description} ({reward_text})")
-                        lines.append(f"    [color=gray]{required_text}[/color]")
+                        lines.append(f"    {style_muted(required_text)}")
             elif status == QuestStatus.COMPLETED:
                 # 보상 수령 대기
-                lines.append(f"  [color=lime]✓[/color] {quest.description} ({reward_text})")
+                lines.append(f"  {style_success('✓')} {quest.description} ({reward_text})")
                 lines.append(f"    [url=@proc:claim:{quest_id}]보상 받기[/url]")
             elif status == QuestStatus.FINISHED:
                 # 오늘 완료됨
-                lines.append(f"  [color=gray]✓ {quest.description} (완료)[/color]")
+                lines.append(f"  {style_muted(f'✓ {quest.description} (완료)')}")
 
         if not any(quest_manager.get_quest_status(q) != QuestStatus.FINISHED
                    for q in DAILY_DELIVERY_QUESTS):
             lines.append("")
-            lines.append("[color=gray]오늘의 모든 의뢰를 완료했습니다.[/color]")
+            lines.append(style_muted("오늘의 모든 의뢰를 완료했습니다."))
 
         lines.append("")
         lines.append("[url=@finish]닫기[/url]")

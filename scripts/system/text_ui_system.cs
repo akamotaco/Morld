@@ -97,7 +97,7 @@ namespace SE
 		/// UI 구분선 (즉시 출력 태그 포함)
 		/// Python의 ui.divider()와 동일
 		/// </summary>
-		public const string Divider = "[!][color=gray]────────────────────[/color][/!]";
+		public static readonly string Divider = $"[!]{Morld.TextUI.UIStyle.StyleMuted("────────────────────")}[/!]";
 
 		// ============================================
 		// 애니메이션 시스템
@@ -217,7 +217,7 @@ namespace SE
 
 				// BBCode 색상 포함, 2줄 (레터박스 효과)
 				var line = new string('─', charCount);
-				_cachedHorizontalRule = $"[color=gray]{line}\n{line}[/color]";
+				_cachedHorizontalRule = Morld.TextUI.UIStyle.StyleMuted($"{line}\n{line}");
 			}
 			catch (System.Exception)
 			{

@@ -5,6 +5,7 @@
 import morld
 import ui
 from assets.base import Object
+from ui_style import style_muted, style_danger, style_warning, style_success
 
 DEFAULT_FURROW_COUNT = 4
 
@@ -111,18 +112,18 @@ class GardenBed(Object):
         for i in range(furrow_count):
             seed_code = morld.get_unit_prop(self.instance_id, f"{garden.PROP_SEED_PREFIX}:{i}")
             if not seed_code:
-                lines.append(f"  이랑 {i + 1}: [color=gray](비어있음)[/color]")
+                lines.append(f"  이랑 {i + 1}: {style_muted('(비어있음)')}")
             else:
                 growth = morld.get_unit_prop(self.instance_id, f"{garden.PROP_GROWTH_PREFIX}:{i}")
                 name = garden.get_seed_name(seed_code)
                 if garden.is_withered(self.instance_id, i):
-                    lines.append(f"  이랑 {i + 1}: {name} — [color=red]시들었음[/color] (갈아 엎기 필요)")
+                    lines.append(f"  이랑 {i + 1}: {name} — {style_danger('시들었음')} (갈아 엎기 필요)")
                 else:
                     stage = garden.get_growth_stage_text(growth)
                     seasons = garden.get_seed_seasons(seed_code)
                     season_note = ""
                     if seasons and current_season not in seasons:
-                        season_note = f" [color=orange](비수기 — 성장 정지)[/color]"
+                        season_note = f" {style_warning('(비수기 — 성장 정지)')}"
                     lines.append(f"  이랑 {i + 1}: {name} — {stage} ({growth}%){season_note}")
 
         yield ui.dialog("\n".join(lines))
@@ -183,14 +184,16 @@ class GardenBed(Object):
                 seasons = seed_info.get("seasons")
                 if seasons and current_season not in seasons:
                     season_str = "/".join(seasons)
+                    cnt = s['count']
                     lines.append(
                         f"  [url=@proc:seed:{s['code']}]"
-                        f"[color=orange]{s['name']}[/color][/url] "
-                        f"[color=gray](비수기: {season_str})[/color] "
-                        f"[color=gray](x{s['count']})[/color]"
+                        f"{style_warning(s['name'])}[/url] "
+                        f"{style_muted(f'(비수기: {season_str})')} "
+                        f"{style_muted(f'(x{cnt})')}"
                     )
                 else:
-                    lines.append(f"  [url=@proc:seed:{s['code']}]{s['name']}[/url] [color=gray](x{s['count']})[/color]")
+                    cnt = s['count']
+                    lines.append(f"  [url=@proc:seed:{s['code']}]{s['name']}[/url] {style_muted(f'(x{cnt})')}")
             lines.append("")
             lines.append("[url=@ret:cancel]취소[/url]")
             return "\n".join(lines)
@@ -279,7 +282,8 @@ class GardenBed(Object):
 
             lines = ["어떤 도구로 물을 줄까?", ""]
             for wi in water_items:
-                lines.append(f"  [url=@proc:{wi['id']}]{wi['name']}[/url] [color=gray](물 {wi['water']}/{wi['capacity']})[/color]")
+                water_amt, cap = wi['water'], wi['capacity']
+                lines.append(f"  [url=@proc:{wi['id']}]{wi['name']}[/url] {style_muted(f'(물 {water_amt}/{cap})')}")
             lines.append("")
             lines.append("[url=@ret:cancel]취소[/url]")
 
@@ -476,7 +480,7 @@ class GardenBed(Object):
         lines = ["어떤 작물을 갈아 엎을까?", "(수확 가능하거나 시든 작물은 비료 보너스를 줍니다.)", ""]
         for p in planted:
             if p["withered"]:
-                label = f"이랑 {p['index'] + 1}: {p['name']} — [color=red]{p['stage']}[/color]  [비료+{garden.TILL_FERTILIZER_BONUS}]"
+                label = f"이랑 {p['index'] + 1}: {p['name']} — {style_danger(p['stage'])}  [비료+{garden.TILL_FERTILIZER_BONUS}]"
             elif p["can_bonus"]:
                 label = f"이랑 {p['index'] + 1}: {p['name']} — {p['stage']}  [비료+{garden.TILL_FERTILIZER_BONUS}]"
             else:
