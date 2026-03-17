@@ -12,6 +12,7 @@
 import morld
 import ui
 from assets.base import Object
+from ui_style import style_muted
 
 
 # ========================================
@@ -71,7 +72,7 @@ class Vehicle(Object):
             travel_min = int(distance * 60_000 / max(speed, 0.1)) // 60_000
             fuel_tag = f" (연료 {fuel_cost:.1f}L)" if fuel_cost > 0 else ""
             if fuel < fuel_cost:
-                lines.append(f"[color=gray]{dest['name']} ({travel_min}분){fuel_tag} — 연료 부족[/color]")
+                lines.append(style_muted(f"{dest['name']} ({travel_min}분){fuel_tag} — 연료 부족"))
             else:
                 lines.append(f"[url=@proc:{i}]{dest['name']} ({travel_min}분){fuel_tag}[/url]")
         lines.append(f"\n현재 연료: {fuel:.0f}/{veh.get_fuel_max(self.instance_id):.0f}L")

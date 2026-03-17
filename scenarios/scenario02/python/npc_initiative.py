@@ -15,6 +15,7 @@ import think
 import ui
 import stimulation
 import position
+from ui_style import c, style_muted, style_info, style_danger, style_success, style_warning, style_highlight
 from romance_actions import (
     INSTANT_ACTIONS as PLAYER_INSTANT_ACTIONS,
     TOGGLE_ACTIONS as NPC_TOGGLE_ACTIONS,
@@ -701,7 +702,7 @@ def render_npc_initiative_ui(state):
 
     # 헤더 - NPC 이름 + 스태미나
     resistance_mode = state.get("resistance_mode", False)
-    mode_label = " [color=red][저항 중][/color]" if resistance_mode else ""
+    mode_label = (" " + style_danger("[저항 중]")) if resistance_mode else ""
     cur_pos = state.get("position", "missionary")
     pos_name_hdr = position.get_name(cur_pos)
     pos_facing_hdr = "대면" if position.get_facing(cur_pos) == "front" else "배면"
@@ -714,7 +715,7 @@ def render_npc_initiative_ui(state):
     # 저항 게이지 (저항 모드)
     if resistance_mode:
         meter = state.get("resistance_meter", 0)
-        lines.append(f"[color=red]저항: {'█' * (meter // 10)}{'░' * (10 - meter // 10)} {meter}/{RESISTANCE_MAX}[/color]")
+        lines.append(style_danger(f"저항: {'█' * (meter // 10)}{'░' * (10 - meter // 10)} {meter}/{RESISTANCE_MAX}"))
     lines.append("")
 
     # 근접 경고 (누군가 지나갔지만 들키지 않음)
@@ -722,12 +723,12 @@ def render_npc_initiative_ui(state):
         near_miss_id = state["near_miss_id"]
         near_info = morld.get_unit_info(near_miss_id) if near_miss_id else None
         near_name = near_info.get("name", "누군가") if near_info else "누군가"
-        lines.append(f"[color=orange]({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)[/color]")
+        lines.append(style_warning(f"({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)"))
 
         # NPC의 은신 성공 반응 (캐릭터별 특별 대사)
         stealth_reaction = state["stealth_reaction"]
         if stealth_reaction:
-            lines.append(f"[color=cyan][{npc_name}] {stealth_reaction}[/color]")
+            lines.append(style_info(f"[{npc_name}] {stealth_reaction}"))
             state["stealth_reaction"] = None  # 표시 후 클리어
 
         lines.append("")
@@ -783,7 +784,7 @@ def render_npc_initiative_ui(state):
         from romance_core import get_state_description
         state_descs = get_state_description(stim_state_desc, npc_anatomy_desc)
         for sd in state_descs:
-            lines.append(f"[color=gray]{sd}[/color]")
+            lines.append(style_muted(sd))
 
     lines.append("")
 
@@ -807,18 +808,18 @@ def render_npc_initiative_ui(state):
                 continue
             val = stim_state["stim"].get(cat, 0)
             if val >= stimulation.STIM_MAX:
-                stim_parts.append(f"[color=yellow]{cat}:{val}★[/color]")
+                stim_parts.append(style_highlight(f"{cat}:{val}★"))
             else:
                 stim_parts.append(f"{cat}:{val}")
         stim_line = f"자극: {' '.join(stim_parts)}"
         if stim_state.get("refractory", 0) > 0:
-            stim_line += f"  [color=red][불응기][/color]"
+            stim_line += f"  {style_danger('[불응기]')}"
         elif stim_state["afterglow"] > 0:
             chain = stim_state["chain_count"]
             if chain > 0:
-                stim_line += f"  [color=pink][여운 ×{chain + 1}][/color]"
+                stim_line += f"  {c('pink', f'[여운 ×{chain + 1}]')}"
             else:
-                stim_line += f"  [color=pink][여운][/color]"
+                stim_line += f"  {c('pink', '[여운]')}"
         if stim_state["climax_total"] > 0:
             stim_line += f"  절정: {stim_state['climax_total']}"
         lines.append(stim_line)
@@ -828,17 +829,17 @@ def render_npc_initiative_ui(state):
         gauge_empty = 10 - gauge_filled
         gauge_line = f"절정: {'█' * gauge_filled}{'░' * gauge_empty} {int(gauge)}/{stimulation.CLIMAX_GAUGE_MAX}"
         if stimulation.is_trance(stim_state):
-            gauge_line += "  [color=magenta][트랜스][/color]"
+            gauge_line += f"  {c('magenta', '[트랜스]')}"
         if stimulation.is_p_peaked(stim_state):
-            gauge_line += "  [color=red][사정감][/color]"
+            gauge_line += f"  {style_danger('[사정감]')}"
         lines.append(gauge_line)
     # 노출 상태 표시
     exposure = get_exposure_state(npc_id)
     exposure_parts = []
     if exposure["upper_exposed"]:
-        exposure_parts.append("[color=pink]상체 노출[/color]")
+        exposure_parts.append(c("pink", "상체 노출"))
     if exposure["lower_exposed"]:
-        exposure_parts.append("[color=pink]하체 노출[/color]")
+        exposure_parts.append(c("pink", "하체 노출"))
     if exposure_parts:
         lines.append(f"복장: {' '.join(exposure_parts)}")
 
@@ -852,17 +853,17 @@ def render_npc_initiative_ui(state):
             if val > 0:
                 internal_parts.append(f"{ip}: {val}")
         if internal_parts:
-            lines.append(f"[color=pink]체내 정액: {', '.join(internal_parts)}[/color]")
+            lines.append(c("pink", f"체내 정액: {', '.join(internal_parts)}"))
 
     # 윤활 상태 표시
     import gender as gender_mod
 
     if gender_mod.has_anatomy(npc_id, "V"):
         if state["lubricated"]:
-            lines.append("[color=green]윤활: 충분[/color]")
+            lines.append(style_success("윤활: 충분"))
         else:
             arousal = morld.get_unit_prop(npc_id, "상태:성욕") or 0
-            lines.append(f"[color=red]윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})[/color]")
+            lines.append(style_danger(f"윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})"))
 
     lines.append("")
 
@@ -875,18 +876,18 @@ def render_npc_initiative_ui(state):
         if restraint.is_lower_restrained(player_id):
             parts_restrained.append("하체")
         if parts_restrained:
-            lines.append(f"[color=red]결박: {'+'.join(parts_restrained)}[/color]")
+            lines.append(style_danger(f"결박: {'+'.join(parts_restrained)}"))
 
     # 탈출 확률 표시
     escape_chance = calculate_escape_chance(player_id, npc_id)
     import restraint as restraint_mod
     escape_mult = restraint_mod.get_escape_multiplier(player_id)
     effective_escape = escape_chance * escape_mult
-    lines.append(f"[color=gray]탈출 확률: {int(effective_escape * 100)}%[/color]")
+    lines.append(style_muted(f"탈출 확률: {int(effective_escape * 100)}%"))
 
     # 탈출 결과 표시 (있으면)
     if state["escape_result"]:
-        lines.append(f"[color=red]{state['escape_result']}[/color]")
+        lines.append(style_danger(state['escape_result']))
 
     lines.append("")
     lines.append(ui.divider())
@@ -932,7 +933,8 @@ def render_npc_initiative_ui(state):
             # 배면 체위: 입 사용 행위 비활성화
             if action.get("uses_mouth"):
                 if position.get_facing(state.get("position", "missionary")) == "back":
-                    lines.append(f"  [color=gray]{action['name']} (배면 체위)[/color]")
+                    _aname = action['name']
+                    lines.append(f"  {style_muted(_aname + ' (배면 체위)')}")
                     continue
             # 체내 정액 필요 행위: 해당 부위 체내 정액 없으면 숨김
             req_internal = action.get("requires_internal_semen")
@@ -947,36 +949,40 @@ def render_npc_initiative_ui(state):
             # 노출 필요 행위: 미노출 시 잠금
             req_area = action.get("requires_exposure")
             if req_area and not exposure.get(f"{req_area}_exposed"):
+                _aname = action['name']
                 if is_action_available(npc_id, player_id, action):
-                    lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
+                    lines.append(f"  {style_muted(_aname + ' (탈의 필요)')}")
                 else:
                     desire_key = affection_key.replace(":호감", ":욕망")
                     submission_key = affection_key.replace(":호감", ":복종")
                     eff_req = get_effective_affection_req(action["affection_req"],
                         npc_props.get(desire_key, 0) if npc_props else 0,
                         npc_props.get(submission_key, 0) if npc_props else 0)
-                    lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
+                    lines.append(f"  {style_muted(_aname + ' (호감 ' + str(eff_req) + ' 필요)')}")
                 continue
             if is_action_available(npc_id, player_id, action):
                 if player_stamina >= action["stamina"]:
                     # 능동 행위 + 호감 부족 → 제지 가능 표시
                     is_passive = action.get("passive_in_npc_initiative", False)
                     if not is_passive and affection < NPC_INITIATIVE_CONSENT_THRESHOLD:
+                        _aname = action['name']
                         lines.append(
                             f"  [url=@proc:instant:{action_id}]"
-                            f"[color=yellow]{action['name']}[/color]"
-                            f" [color=gray](제지 가능)[/color][/url]")
+                            f"{style_highlight(_aname)}"
+                            f" {style_muted('(제지 가능)')}[/url]")
                     else:
                         lines.append(f"  [url=@proc:instant:{action_id}]{action['name']}[/url]")
                 else:
-                    lines.append(f"  [color=gray]{action['name']} (스태미나 부족)[/color]")
+                    _aname = action['name']
+                    lines.append(f"  {style_muted(_aname + ' (스태미나 부족)')}")
             else:
+                _aname = action['name']
                 desire_key = affection_key.replace(":호감", ":욕망")
                 submission_key = affection_key.replace(":호감", ":복종")
                 eff_req = get_effective_affection_req(action["affection_req"],
                     npc_props.get(desire_key, 0) if npc_props else 0,
                     npc_props.get(submission_key, 0) if npc_props else 0)
-                lines.append(f"  [color=gray]{action['name']} (호감 {eff_req} 필요)[/color]")
+                lines.append(f"  {style_muted(_aname + ' (호감 ' + str(eff_req) + ' 필요)')}")
         # 참기 (peaked 부위 존재 + 게이지 > 0)
         if is_hold_back_available(state):
             import gender as gender_mod
@@ -1000,23 +1006,23 @@ def render_npc_initiative_ui(state):
     if resistance_mode:
         # 저항 모드: 저항/포기만 가능
         gain = calculate_resistance_gain(player_id, npc_id)
-        lines.append(f"[url=@proc:resist][color=red]저항하기 (+{gain})[/color][/url]")
+        lines.append(f"[url=@proc:resist]{style_danger('저항하기 (+' + str(gain) + ')')}[/url]")
         lines.append("[url=@proc:surrender]포기하기[/url]")
     else:
         lines.append("[url=@proc:escape]빠져나가기 시도[/url]")
-        lines.append("[url=@proc:resist_start][color=red]저항하기[/color][/url]")
+        lines.append(f"[url=@proc:resist_start]{style_danger('저항하기')}[/url]")
         lines.append("[url=@proc:accept]받아들이기[/url]")
 
         # 결박 해제 시도 (결박 상태일 때)
         if state.get("player_restrained"):
-            lines.append("[url=@proc:escape_restraint][color=orange]결박 해제 시도[/color][/url]")
+            lines.append(f"[url=@proc:escape_restraint]{style_warning('결박 해제 시도')}[/url]")
 
         # 공수 전환 버튼 (플레이어 주도로 전환)
         if affection >= ROMANCE_ENTRY_THRESHOLD:
             lines.append("[url=@proc:switch]주도권 빼앗기[/url]")
 
     lines.append("")
-    lines.append("[url=@proc:exit][color=gray]나가기[/color][/url]")
+    lines.append(f"[url=@proc:exit]{style_muted('나가기')}[/url]")
 
     return "\n".join(lines)
 

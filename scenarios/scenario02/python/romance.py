@@ -13,6 +13,7 @@ import morld
 import stimulation
 import position
 import ui
+from ui_style import style_highlight, style_danger
 from romance_actions import (
     MILLIS_PER_MINUTE, SEMEN_PARTS,
     INTERNAL_SEMEN_PARTS,  # noqa: F401 — re-export (needs.py)
@@ -159,7 +160,7 @@ def _deduct_npc_stamina(state, total_stamina):
         # 탈진 알림 (1회, render_romance_ui에서 표시)
         npc_info = morld.get_unit_info(npc_id)
         npc_name = npc_info.get("name", "상대") if npc_info else "상대"
-        state["_npc_exhaustion_notice"] = f"[color=yellow]({npc_name}의 몸에서 힘이 빠져간다...)[/color]"
+        state["_npc_exhaustion_notice"] = style_highlight(f"({npc_name}의 몸에서 힘이 빠져간다...)")
         return "exhausted"
     return None
 
@@ -194,7 +195,7 @@ def _apply_climax_hp_cost(state, climax_info):
                 npc_info = morld.get_unit_info(npc_id)
                 npc_name = npc_info.get("name", "상대") if npc_info else "상대"
                 state["_npc_exhaustion_notice"] = (
-                    f"[color=yellow]({npc_name}의 몸에서 힘이 빠져간다...)[/color]")
+                    style_highlight(f"({npc_name}의 몸에서 힘이 빠져간다...)"))
 
     # 플레이어 사정 (P peaked) → 플레이어 HP 소모
     if has_p and player_id:
@@ -1583,7 +1584,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 state["last_reaction"] = "움직임을 멈췄다."
                 reaction = _get_mode_reaction("thrust_stop", "start")
                 if reaction:
-                    state["last_reaction"] += f"\n[color=yellow]{reaction}[/color]"
+                    state["last_reaction"] += "\n" + style_highlight(reaction)
                 result = advance_time_and_check(state, action_def["time"])
                 if result["interrupted"]:
                     state["interrupted"] = True
@@ -1631,7 +1632,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
                 reaction = _get_mode_reaction("withdraw", "start")
                 if reaction:
-                    state["last_reaction"] += f"\n[color=yellow]{reaction}[/color]"
+                    state["last_reaction"] += "\n" + style_highlight(reaction)
 
                 result = advance_time_and_check(state, action_def["time"])
                 if result["interrupted"]:
@@ -2214,14 +2215,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 else:
                     reaction = _get_mode_reaction(action_id, "start")
                 if desc and reaction:
-                    state["last_reaction"] = f"[color=silver]{desc}[/color]\n[color=yellow]{reaction}[/color]"
+                    state["last_reaction"] = f"[color=silver]{desc}[/color]\n" + style_highlight(reaction)
                 elif desc:
                     state["last_reaction"] = f"[color=silver]{desc}[/color]"
                 elif reaction:
-                    state["last_reaction"] = f"[color=yellow]{reaction}[/color]"
+                    state["last_reaction"] = style_highlight(reaction)
                 if unprepared:
                     state["last_reaction"] = (state.get("last_reaction", "") +
-                        "\n[color=red](준비 부족 — 효과 감소)[/color]")
+                        "\n" + style_danger("(준비 부족 — 효과 감소)"))
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_romance_sound(state["partner_id"])
 
@@ -2354,14 +2355,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     if not reaction:
                         reaction = _get_mode_reaction(action_id, "start")
                     if desc and reaction:
-                        state["last_reaction"] = f"[color=silver]{desc}[/color]\n[color=yellow]{reaction}[/color]"
+                        state["last_reaction"] = f"[color=silver]{desc}[/color]\n" + style_highlight(reaction)
                     elif desc:
                         state["last_reaction"] = f"[color=silver]{desc}[/color]"
                     elif reaction:
-                        state["last_reaction"] = f"[color=yellow]{reaction}[/color]"
+                        state["last_reaction"] = style_highlight(reaction)
                     if unprepared_toggle:
                         state["last_reaction"] = (state.get("last_reaction", "") +
-                            "\n[color=red](준비 부족 — 효과 감소)[/color]")
+                            "\n" + style_danger("(준비 부족 — 효과 감소)"))
                 if should_emit_sound(state["mode_ctx"]["mode"]):
                     emit_romance_sound(state["partner_id"])
 
@@ -2506,7 +2507,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         last_reaction = state.get("last_reaction")
         if last_reaction:
             escape_lines.append(last_reaction)
-        escape_lines.append("\n[color=red]상대가 빠져나갔다...![/color]")
+        escape_lines.append("\n" + style_danger("상대가 빠져나갔다...!"))
         yield ui.dialog("\n".join(escape_lines))
         morld.pop_to_situation()
     elif state["exhausted"]:

@@ -7,6 +7,7 @@
 import random
 
 import morld
+from ui_style import style_highlight
 
 # ========================================
 # 상수
@@ -344,7 +345,7 @@ def _build_session_ui(target_id, available, last_msg):
 
     if last_msg:
         lines.append("")
-        lines.append(f"[color=yellow]{last_msg}[/color]")
+        lines.append(style_highlight(last_msg))
 
     lines.append("")
 

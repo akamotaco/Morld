@@ -14,6 +14,7 @@ import ui
 import temperature
 import humidity
 from assets.base import Object
+from ui_style import style_muted
 
 
 # ========================================
@@ -82,7 +83,7 @@ def _fill_water_container(source_name: str):
 
         lines = ["어떤 용기에 물을 받을까?", ""]
         for c in fillable:
-            lines.append(f"  [url=@proc:{c['id']}]{c['name']}[/url] [color=gray]({c['current']}/{c['capacity']})[/color]")
+            lines.append(f"  [url=@proc:{c['id']}]{c['name']}[/url] " + style_muted(f"({c['current']}/{c['capacity']})"))
         lines.append("")
         lines.append("[url=@ret:cancel]취소[/url]")
 

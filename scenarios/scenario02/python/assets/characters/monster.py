@@ -11,6 +11,7 @@
 import morld
 from assets.base import Character
 from assets.registry import register_item
+from ui_style import c, style_danger
 
 
 class Monster(Character):
@@ -187,8 +188,8 @@ class Wolf(Monster):
     ]
 
     FOCUS_RULES = [
-        ({"hp_ratio": 0.3}, "[color=red]심각한 부상[/color] — 피를 흘리며 위협적으로 으르렁거린다."),
-        ({"독": True}, "[color=purple]중독[/color] — 몸을 떨고 있다."),
+        ({"hp_ratio": 0.3}, style_danger("심각한 부상") + " — 피를 흘리며 위협적으로 으르렁거린다."),
+        ({"독": True}, c("purple", "중독") + " — 몸을 떨고 있다."),
         ({}, "날카로운 이빨과 발톱을 가진 야생 늑대."),
     ]
 
@@ -255,7 +256,7 @@ class Bat(Monster):
     ]
 
     FOCUS_RULES = [
-        ({"hp_ratio": 0.3}, "[color=red]심각한 부상[/color] — 비행이 불안정하다."),
+        ({"hp_ratio": 0.3}, style_danger("심각한 부상") + " — 비행이 불안정하다."),
         ({}, "작지만 빠른 박쥐. 어둠 속에서 움직인다."),
     ]
 
@@ -337,8 +338,8 @@ class Spider(Monster):
     ]
 
     FOCUS_RULES = [
-        ({"hp_ratio": 0.3}, "[color=red]심각한 부상[/color] — 체액을 흘리며 위협적으로 독니를 드러낸다."),
-        ({"독": True}, "[color=purple]중독[/color] — 자신의 독에 오염되어 있다."),
+        ({"hp_ratio": 0.3}, style_danger("심각한 부상") + " — 체액을 흘리며 위협적으로 독니를 드러낸다."),
+        ({"독": True}, c("purple", "중독") + " — 자신의 독에 오염되어 있다."),
         ({}, "독니와 거미줄을 가진 거대한 거미. 매복형 포식자다."),
     ]
 
@@ -436,7 +437,7 @@ class Arachne(HumanoidCreature):
     ]
 
     FOCUS_RULES = [
-        ({"hp_ratio": 0.3}, "[color=red]심각한 부상[/color] — 상반신에서 피가 흐르고 있다."),
+        ({"hp_ratio": 0.3}, style_danger("심각한 부상") + " — 상반신에서 피가 흐르고 있다."),
         ({}, "상반신은 아름다운 여인, 하반신은 거대한 거미. 8개의 다리가 위협적이다."),
     ]
 
@@ -502,7 +503,7 @@ class Succubus(HumanoidCreature):
     ]
 
     FOCUS_RULES = [
-        ({"hp_ratio": 0.3}, "[color=red]심각한 부상[/color] — 날개에서 피가 떨어지고 있다."),
+        ({"hp_ratio": 0.3}, style_danger("심각한 부상") + " — 날개에서 피가 떨어지고 있다."),
         ({}, "박쥐 날개와 뿔을 가진 아름다운 여인. 위험한 매력을 풍긴다."),
     ]
 

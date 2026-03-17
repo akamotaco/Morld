@@ -14,6 +14,7 @@ import morld
 import ui
 from assets.base import Item
 from assets.registry import register_item
+from ui_style import style_muted
 
 
 # ========================================
@@ -443,7 +444,7 @@ class RabbitCarcass(Item):
             # 선택지 텍스트 생성 (도구별 소요 시간 표시)
             lines = ["어떤 도구로 박피할까?", ""]
             for tool in skin_tools:
-                lines.append(f"  [url=@proc:{tool['id']}]{tool['name']}[/url] [color=gray]({tool['skin_time']}분)[/color]")
+                lines.append(f"  [url=@proc:{tool['id']}]{tool['name']}[/url] " + style_muted(f"({tool['skin_time']}분)"))
 
             yield ui.dialog("\n".join(lines), autofill="off", proc=on_select, result=state)
 

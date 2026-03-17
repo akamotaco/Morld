@@ -10,6 +10,7 @@ import morld
 import stimulation
 import position
 import ui
+from ui_style import c, style_muted, style_info, style_danger, style_success, style_warning, style_highlight
 from romance_actions import (
     SEMEN_PARTS, INTERNAL_SEMEN_PARTS,
     LUBRICATION_THRESHOLD,
@@ -89,9 +90,9 @@ def render_romance_ui(state):
     # 헤더
     partner_name = partner_info['name']
     _MODE_LABELS = {
-        "consensual": "", "forced": " [color=red][강제][/color]",
-        "unconscious": " [color=gray][무의식][/color]",
-        "frozen": " [color=cyan][시간정지][/color]",
+        "consensual": "", "forced": f" {style_danger('[강제]')}",
+        "unconscious": f" {style_muted('[무의식]')}",
+        "frozen": f" {style_info('[시간정지]')}",
     }
     mode_label = _MODE_LABELS.get(cur_mode, "")
     cur_pos = state.get("position", "missionary")
@@ -110,10 +111,10 @@ def render_romance_ui(state):
         is_futile = mode_ctx.get("last_is_futile", False)
         escape_chance = mode_ctx.get("last_escape_chance", 0.0)
         if is_futile:
-            escape_text = "[color=gray]불가능[/color]"
+            escape_text = style_muted("불가능")
         else:
             escape_text = f"{int(escape_chance * 100)}%"
-        lines.append(f"[color=red]저항: {bar} {resistance}/100  탈출: {escape_text}[/color]")
+        lines.append(style_danger(f"저항: {bar} {resistance}/100  탈출: {escape_text}"))
 
         # 신체 반응 묘사
         from romance_body_reaction import get_body_reaction
@@ -132,12 +133,12 @@ def render_romance_ui(state):
         near_miss_id = state["near_miss_id"]
         near_info = morld.get_unit_info(near_miss_id) if near_miss_id else None
         near_name = near_info.get("name", "누군가") if near_info else "누군가"
-        lines.append(f"[color=orange]({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)[/color]")
+        lines.append(style_warning(f"({near_name}(이)가 근처를 지나갔다... 들키지 않았다.)"))
 
         # 파트너의 은신 성공 반응 (캐릭터별 특별 대사)
         stealth_reaction = state["stealth_reaction"]
         if stealth_reaction:
-            lines.append(f"[color=cyan][{partner_name}] {stealth_reaction}[/color]")
+            lines.append(style_info(f"[{partner_name}] {stealth_reaction}"))
             state["stealth_reaction"] = None  # 표시 후 클리어
 
         lines.append("")
@@ -194,7 +195,7 @@ def render_romance_ui(state):
         partner_anatomy = gender_mod_desc.get_anatomy(partner_id)
         state_descs = get_state_description(stim_state, partner_anatomy)
         for sd in state_descs:
-            lines.append(f"[color=gray]{sd}[/color]")
+            lines.append(style_muted(sd))
 
     lines.append("")
 
@@ -205,7 +206,7 @@ def render_romance_ui(state):
         lines.append(preg_text)
         lines.append("")
     elif _pregnancy_mod.is_menstruating(partner_id):
-        lines.append("[color=yellow]월경 중[/color]")
+        lines.append(style_warning("월경 중"))
         lines.append("")
 
     # 호감, 욕망, 복종, 반발, 성욕 표시
@@ -238,18 +239,18 @@ def render_romance_ui(state):
                 continue
             val = stim_state["stim"].get(cat, 0)
             if val >= stimulation.STIM_MAX:
-                stim_parts.append(f"[color=yellow]{cat}:{val}★[/color]")
+                stim_parts.append(style_highlight(f"{cat}:{val}★"))
             else:
                 stim_parts.append(f"{cat}:{val}")
         stim_line = f"자극: {' '.join(stim_parts)}"
         if stim_state.get("refractory", 0) > 0:
-            stim_line += f"  [color=red][불응기][/color]"
+            stim_line += f"  {style_danger('[불응기]')}"
         elif stim_state["afterglow"] > 0:
             chain = stim_state["chain_count"]
             if chain > 0:
-                stim_line += f"  [color=pink][여운 ×{chain + 1}][/color]"
+                stim_line += f"  {c('pink', f'[여운 ×{chain + 1}]')}"
             else:
-                stim_line += f"  [color=pink][여운][/color]"
+                stim_line += f"  {c('pink', '[여운]')}"
         if stim_state["climax_total"] > 0:
             stim_line += f"  절정: {stim_state['climax_total']}"
         lines.append(stim_line)
@@ -259,9 +260,9 @@ def render_romance_ui(state):
         gauge_empty = 10 - gauge_filled
         gauge_line = f"절정: {'█' * gauge_filled}{'░' * gauge_empty} {int(gauge)}/{stimulation.CLIMAX_GAUGE_MAX}"
         if stimulation.is_trance(stim_state):
-            gauge_line += "  [color=magenta][트랜스][/color]"
+            gauge_line += f"  {c('magenta', '[트랜스]')}"
         if stimulation.is_p_peaked(stim_state):
-            gauge_line += "  [color=red][사정감][/color]"
+            gauge_line += f"  {style_danger('[사정감]')}"
         lines.append(gauge_line)
 
     # 감각 레벨 표시 (1 이상인 것만, 대상 성별 기반)
@@ -279,9 +280,9 @@ def render_romance_ui(state):
     exposure = get_exposure_state(partner_id)
     exposure_parts = []
     if exposure["upper_exposed"]:
-        exposure_parts.append("[color=pink]상체 노출[/color]")
+        exposure_parts.append(c("pink", "상체 노출"))
     if exposure["lower_exposed"]:
-        exposure_parts.append("[color=pink]하체 노출[/color]")
+        exposure_parts.append(c("pink", "하체 노출"))
     if exposure_parts:
         lines.append(f"복장: {' '.join(exposure_parts)}")
 
@@ -289,16 +290,16 @@ def render_romance_ui(state):
     semen_total = get_semen_total(partner_id)
     if semen_total > 0:
         if semen_total >= 60:
-            lines.append("[color=pink]정액이 온몸에 흥건하다[/color]")
+            lines.append(c("pink", "정액이 온몸에 흥건하다"))
         elif semen_total >= 30:
-            lines.append("[color=pink]정액이 묻어 있다[/color]")
+            lines.append(c("pink", "정액이 묻어 있다"))
         else:
             semen_detail = []
             for sp in SEMEN_PARTS:
                 if (morld.get_unit_prop(partner_id, f"오염물:정액:{sp}") or 0) > 0:
                     semen_detail.append(sp)
             if semen_detail:
-                lines.append(f"[color=pink]정액: {', '.join(semen_detail)}[/color]")
+                lines.append(c("pink", f"정액: {', '.join(semen_detail)}"))
 
     # 체내 정액 표시
     internal_total = get_internal_semen_total(partner_id)
@@ -309,22 +310,22 @@ def render_romance_ui(state):
             if val > 0:
                 internal_parts.append(f"{ip}: {val}")
         if internal_parts:
-            lines.append(f"[color=pink]체내 정액: {', '.join(internal_parts)}[/color]")
+            lines.append(c("pink", f"체내 정액: {', '.join(internal_parts)}"))
 
     # 윤활 상태 표시
     if gender_mod.has_anatomy(partner_id, "V"):
         if state["lubricated"]:
-            lines.append("[color=green]윤활: 충분[/color]")
+            lines.append(style_success("윤활: 충분"))
         else:
             arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
-            lines.append(f"[color=red]윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})[/color]")
+            lines.append(style_danger(f"윤활: 건조 (성욕 {int(arousal)}/{LUBRICATION_THRESHOLD})"))
 
     # 콘돔 상태 표시
     if state.get("condom_active"):
         if state.get("condom_punctured"):
-            lines.append("[color=yellow]콘돔 착용 중 (구멍)[/color]")
+            lines.append(style_warning("콘돔 착용 중 (구멍)"))
         else:
-            lines.append("[color=green]콘돔 착용 중[/color]")
+            lines.append(style_success("콘돔 착용 중"))
 
     # 삽입 상태 표시
     insertion = state.get("insertion", {})
@@ -332,7 +333,7 @@ def render_romance_ui(state):
     if is_inserted:
         orifice_name = {"vaginal": "질", "anal": "항문"}.get(insertion.get("orifice"), "?")
         who_name = "플레이어" if insertion.get("who") == "player" else partner_name
-        lines.append(f"[color=red]삽입 중 ({orifice_name}) — {who_name}[/color]")
+        lines.append(style_danger(f"삽입 중 ({orifice_name}) — {who_name}"))
         # 현재 허리흔들기 강도
         active_thrust = None
         for tid in state["active_toggles"]:
@@ -342,7 +343,7 @@ def render_romance_ui(state):
         if active_thrust:
             lines.append(f"  └ {active_thrust}")
         else:
-            lines.append(f"  └ [color=gray]정지 (허리흔들기 선택 필요)[/color]")
+            lines.append(f"  └ {style_muted('정지 (허리흔들기 선택 필요)')}")
 
     # NPC 애원 표시 (미삽입 + 높은 절정게이지/성욕/욕망)
     if not is_inserted:
@@ -354,7 +355,7 @@ def render_romance_ui(state):
                 beg_desire_key = get_desire_key(player_id)
                 beg_desire = morld.get_unit_prop(partner_id, beg_desire_key) or 0
                 if beg_desire >= DES_LABEL_THRESHOLD:
-                    lines.append(f"[color=magenta]{partner_name}(이)가 삽입을 애원하고 있다...[/color]")
+                    lines.append(c("magenta", f"{partner_name}(이)가 삽입을 애원하고 있다..."))
 
     lines.append("")
     lines.append(ui.divider())
@@ -374,7 +375,8 @@ def render_romance_ui(state):
             continue
         # 임신 후기: 삽입 행위 비활성화
         if _intercourse_blocked and action.get("pregnancy_check"):
-            lines.append(f"  [color=gray]{action['name']} (임신 후기)[/color]")
+            _aname = action['name']
+            lines.append(f"  {style_muted(_aname + ' (임신 후기)')}")
             continue
         is_on = action_id in state["active_toggles"]
         # 허리흔들기 토글: 삽입 상태가 아니면 숨김 (이미 ON이면 해제 가능)
@@ -388,20 +390,24 @@ def render_romance_ui(state):
         # 결박/기생체/삽입물에 의한 차단 (이미 ON이면 해제 가능)
         blocked_reason = is_action_blocked_by_state(action, partner_id)
         if blocked_reason and not is_on:
-            lines.append(f"  [color=gray]{action['name']} ({blocked_reason})[/color]")
+            _aname = action['name']
+            lines.append(f"  {style_muted(_aname + ' (' + blocked_reason + ')')}")
             continue
         # 배면 체위: 입 사용 행위 비활성화 (이미 ON이면 해제 가능)
         if action.get("uses_mouth") and not is_on:
             if position.get_facing(state.get("position", "missionary")) == "back":
-                lines.append(f"  [color=gray]{action['name']} (배면 체위)[/color]")
+                _aname = action['name']
+                lines.append(f"  {style_muted(_aname + ' (배면 체위)')}")
                 continue
         # 노출 필요 행위: 미노출 시 잠금 표시
         req_area = action.get("requires_exposure")
         if req_area and not exposure.get(f"{req_area}_exposed") and not is_on:
+            _aname = action['name']
             if _bypass_affection or is_action_available(partner_id, player_id, action):
-                lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
+                lines.append(f"  {style_muted(_aname + ' (탈의 필요)')}")
             else:
-                lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
+                _areq = action['affection_req']
+                lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
             continue
         if _bypass_affection or is_action_available(partner_id, player_id, action):
             prefix = "■" if is_on else "▶"
@@ -409,10 +415,12 @@ def render_romance_ui(state):
             # 노출 보너스 힌트
             bonus_area = action.get("exposure_bonus")
             if bonus_area and exposure.get(f"{bonus_area}_exposed"):
-                name_text += " [color=pink]×1.5[/color]"
-            lines.append(f"  [url=@proc:toggle:{action_id}][color=pink]{prefix} {name_text}[/color][/url]")
+                name_text += " " + c('pink', '×1.5')
+            lines.append(f"  [url=@proc:toggle:{action_id}]{c('pink', prefix + ' ' + name_text)}[/url]")
         else:
-            lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
+            _aname = action['name']
+            _areq = action['affection_req']
+            lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
     lines.append("")
 
     # 즉시 행위
@@ -421,9 +429,9 @@ def render_romance_ui(state):
     # 콘돔 버튼 (P 해부학 보유 시, 수간 시 숨김)
     if not _is_bestiality and gender_mod.has_anatomy(player_id, "P"):
         if state.get("condom_active"):
-            lines.append(f"  [url=@proc:instant:condom_off][color=cyan]콘돔 제거[/color][/url]")
+            lines.append(f"  [url=@proc:instant:condom_off]{style_info('콘돔 제거')}[/url]")
         else:
-            lines.append(f"  [url=@proc:instant:condom_on][color=cyan]콘돔 착용[/color][/url]")
+            lines.append(f"  [url=@proc:instant:condom_on]{style_info('콘돔 착용')}[/url]")
 
     for action_id, action in INSTANT_ACTIONS.items():
         if _is_bestiality and action_id in _BESTIALITY_BLOCKED_ACTIONS:
@@ -460,21 +468,24 @@ def render_romance_ui(state):
                 if threshold > 0 and failed < threshold:
                     remaining = threshold - failed
                     hint = f" ({remaining})" if remaining > 1 else ""
+                    _aname = action['name']
                     lines.append(
                         f"  [url=@proc:instant:vaginal_insert]"
-                        f"[color=yellow]{action['name']} (월경 중{hint})"
-                        f"[/color][/url]")
+                        f"{style_warning(_aname + ' (월경 중' + hint + ')')}"
+                        f"[/url]")
                     continue
                 # threshold==0 (자발적 수용) 또는 도달: 정상 렌더링
         # 결박/기생체/삽입물에 의한 차단
         blocked_reason = is_action_blocked_by_state(action, partner_id)
         if blocked_reason:
-            lines.append(f"  [color=gray]{action['name']} ({blocked_reason})[/color]")
+            _aname = action['name']
+            lines.append(f"  {style_muted(_aname + ' (' + blocked_reason + ')')}")
             continue
         # 배면 체위: 입 사용 행위 비활성화
         if action.get("uses_mouth"):
             if position.get_facing(state.get("position", "missionary")) == "back":
-                lines.append(f"  [color=gray]{action['name']} (배면 체위)[/color]")
+                _aname = action['name']
+                lines.append(f"  {style_muted(_aname + ' (배면 체위)')}")
                 continue
         # 플레이어 자신의 해부학 요구사항 (hold_back 등)
         player_self_req = action.get("requires_player_anatomy_self")
@@ -526,16 +537,20 @@ def render_romance_ui(state):
         # 노출 필요 행위: 미노출 시 잠금 표시
         req_area = action.get("requires_exposure")
         if req_area and not exposure.get(f"{req_area}_exposed"):
+            _aname = action['name']
             if _bypass_affection or is_action_available(partner_id, player_id, action):
-                lines.append(f"  [color=gray]{action['name']} (탈의 필요)[/color]")
+                lines.append(f"  {style_muted(_aname + ' (탈의 필요)')}")
             else:
-                lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
+                _areq = action['affection_req']
+                lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
             continue
         if _bypass_affection or is_action_available(partner_id, player_id, action):
             name_text = action['name']
-            lines.append(f"  [url=@proc:instant:{action_id}][color=pink]{name_text}[/color][/url]")
+            lines.append(f"  [url=@proc:instant:{action_id}]{c('pink', name_text)}[/url]")
         else:
-            lines.append(f"  [color=gray]{action['name']} (호감 {action['affection_req']} 필요)[/color]")
+            _aname = action['name']
+            _areq = action['affection_req']
+            lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
     # 질외사정 (삽입 중 + P 자극 ≥ 임계값)
     if is_pull_out_available(state):
         lines.append("")

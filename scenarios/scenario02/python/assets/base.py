@@ -32,6 +32,9 @@
 import morld
 import ui
 from typing import Optional
+from ui_style import (
+    style_muted, style_highlight, style_info, style_danger, style_success,
+)
 
 # 나체 발각 추가 페널티 (on_romance_discovered에서 파트너 노출 시 적용)
 EXPOSURE_DISCOVERY_PENALTY = {"호감": -3, "반발": 5}
@@ -3020,14 +3023,14 @@ class Character(Unit):
         # 1:1 상황 체크
         can_force, reason = can_start_forced(player_id, partner_id)
         if not can_force:
-            yield ui.dialog(f"[!][color=red]{reason}[/color][/!]")
+            yield ui.dialog(f"[!]{style_danger(reason)}[/!]")
             return
 
         # 성공 확률 표시 + 확인
         chance = calculate_force_chance(player_id, partner_id)
         chance_pct = int(chance * 100)
         stealth = morld.get_unit_prop(player_id, "status:stealth")
-        stealth_hint = " [color=cyan](은신 기습 +20%)[/color]" if stealth == 1 else ""
+        stealth_hint = " " + style_info("(은신 기습 +20%)") if stealth == 1 else ""
         choice = yield ui.dialog(
             f"[!]제압 성공률: {chance_pct}%{stealth_hint}\n\n"
             f"[url=@ret:confirm]시도한다[/url]\n"
@@ -3050,9 +3053,9 @@ class Character(Unit):
             morld.modify_prop(partner_id, aff_key, -10)
             morld.modify_prop(partner_id, reb_key, 15)
             yield ui.dialog(
-                f"[!][color=red]제압에 실패했다![/color]\n"
+                f"[!]{style_danger('제압에 실패했다!')}\n"
                 f"({self.name}(이)가 필사적으로 저항하여 벗어났다.)\n"
-                f"[color=gray]호감 -10, 반발 +15[/color][/!]"
+                f"{style_muted('호감 -10, 반발 +15')}[/!]"
             )
 
     def casual_affection(self, action_type):
@@ -3279,7 +3282,7 @@ class Character(Unit):
 
         # 반응 대사
         gift_reaction = self._get_gift_reaction(reaction, item_name, food_eaten)
-        bonus_text = f" [color=gray](호감 +{bonus})[/color]" if bonus > 0 else " [color=gray](호감 변화 없음)[/color]"
+        bonus_text = " " + style_muted(f"(호감 +{bonus})") if bonus > 0 else " " + style_muted("(호감 변화 없음)")
         yield ui.dialog(f"{gift_reaction}{bonus_text}")
 
         # 5분 시간 경과
@@ -3945,7 +3948,7 @@ class Character(Unit):
         for quest in available_quests:
             lines.append(f"[url=@ret:{quest.unique_id}]{quest.name}[/url]")
             if quest.description:
-                lines.append(f"  [color=gray]{quest.description[:30]}...[/color]" if len(quest.description) > 30 else f"  [color=gray]{quest.description}[/color]")
+                lines.append("  " + style_muted(f"{quest.description[:30]}...") if len(quest.description) > 30 else "  " + style_muted(quest.description))
 
         lines.append("")
         lines.append("[url=@ret:cancel]취소[/url]")
@@ -5372,33 +5375,33 @@ class Item(Asset):
         # Passive Props
         passive_props = item_info.get("passive_props", {})
         if passive_props:
-            lines.append("[color=cyan]Passive Props:[/color]")
+            lines.append(style_info("Passive Props:"))
             for key, value in passive_props.items():
                 lines.append(f"  {key}: {value}")
         else:
-            lines.append("[color=gray]Passive Props: 없음[/color]")
+            lines.append(style_muted("Passive Props: 없음"))
 
         lines.append("")
 
         # Equip Props
         equip_props = item_info.get("equip_props", {})
         if equip_props:
-            lines.append("[color=lime]Equip Props:[/color]")
+            lines.append(style_success("Equip Props:"))
             for key, value in equip_props.items():
                 lines.append(f"  {key}: {value}")
         else:
-            lines.append("[color=gray]Equip Props: 없음[/color]")
+            lines.append(style_muted("Equip Props: 없음"))
 
         lines.append("")
 
         # Action Props
         action_props = item_info.get("action_props", {})
         if action_props:
-            lines.append("[color=yellow]Action Props:[/color]")
+            lines.append(style_highlight("Action Props:"))
             for key, value in action_props.items():
                 lines.append(f"  {key}: {value}")
         else:
-            lines.append("[color=gray]Action Props: 없음[/color]")
+            lines.append(style_muted("Action Props: 없음"))
 
         yield ui.dialog("\n".join(lines))
 

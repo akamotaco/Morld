@@ -2,6 +2,7 @@
 
 import morld
 import ui
+from ui_style import style_highlight
 
 
 def _get_all_unit_props(unit_id):
@@ -28,7 +29,7 @@ def _format_props_text(unit_name, all_props):
     # 타입별로 정렬해서 표시
     for prop_type in sorted(all_props.keys()):
         props = all_props[prop_type]
-        lines.append(f"[color=yellow][{prop_type}][/color]")
+        lines.append(style_highlight(f"[{prop_type}]"))
 
         # 속성명으로 정렬
         for name in sorted(props.keys()):
