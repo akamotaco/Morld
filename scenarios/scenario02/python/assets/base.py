@@ -1635,13 +1635,33 @@ class Character(Unit):
         # === 상태 기반 필터링 (activity보다 우선) ===
         import survival as _surv
 
-        # 기절: 의식 없음 → debug + 로맨스 + 운반/강탈 + 성추행
+        # 기절: 의식 없음 → debug + 로맨스 + 운반/강탈 + 성추행 + 확인사살 + 결박
         if _surv.is_npc_fainted(self.instance_id):
-            allowed_set = {"debug_props", "romance", "force_romance"}
+            allowed_set = {"debug_props", "romance", "force_romance",
+                           "finish", "restrain"}
             result = [a for a in self.actions
                       if self._extract_action_name(a) in allowed_set]
             result = self._add_harassment_actions(result)
             result = self._add_carry_action(result)
+            result = self._add_loot_clothing_action(result)
+            return self._add_remove_parasite_action(result)
+
+        # 결박(상체 or 하체): 의식 있음 → 대화 + 선물 + 로맨스 + 성추행
+        # 회유(대화/선물/음식) + 복종(강제 행위) 모두 가능
+        import restraint as _rst
+        if _rst.is_restrained(self.instance_id):
+            allowed_set = {
+                "talk", "give_gift", "errand",           # 회유 계열
+                "romance", "force_romance",              # 복종 계열
+                "debug_props", "debug_affection_up", "debug_affection_down",
+                "debug_submission_up", "debug_submission_down",
+            }
+            result = [a for a in self.actions
+                      if self._extract_action_name(a) in allowed_set]
+            result = self._add_harassment_actions(result)
+            # 전신결박 아니면 운반 불가 (저항 가능)
+            if _rst.is_fully_restrained(self.instance_id):
+                result = self._add_carry_action(result)
             result = self._add_loot_clothing_action(result)
             return self._add_remove_parasite_action(result)
 
