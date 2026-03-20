@@ -4,3 +4,5 @@
 nul
 .claude/
 **/**.pyc
+**/__sharppy_cache__/
+QA.txt
