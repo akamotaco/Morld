@@ -5,8 +5,10 @@
 - 단둘이 판정 (굴복 루트 전제 조건)
 - 발각 판정 (굴복 루트 위험 요소)
 - 약점 플래그 관리
+- 피로 + 강제 수면 + 퀘스트 시간제한
 
 이주 안전: location ID 하드코딩 없음. prop 기반 동적 탐색.
+DES 호환: subscribe_time_elapsed(min_interval=1h)
 """
 
 import morld
@@ -553,3 +555,46 @@ def can_recruit_faye(player_id, method):
         return debt > 0
 
     return False
+
+
+# ========================================
+# 매시간 자동 처리 (subscribe_time_elapsed)
+# ========================================
+
+# 세라 일일 퀘스트 ID 목록 (SeraAgent.DAILY_QUEST_IDS와 동기화)
+_DAILY_QUEST_IDS = [
+    "daily_gather_herb", "daily_gather_berry", "daily_firewood",
+    "daily_fishing", "daily_clean", "daily_water_garden", "daily_deliver_food",
+]
+
+
+def _on_time_elapsed(elapsed_millis):
+    """
+    매시간 호출 — 퀘스트 시간제한 + 알파 체크.
+
+    subscribe_time_elapsed로 등록되어 시간 흐름에 자연스럽게 녹아듦.
+    플레이어가 수면 중이든 활동 중이든 동일하게 동작.
+    """
+    player_id = morld.get_player_id()
+    if not player_id:
+        return
+
+    time_info = morld.get_time_info()
+    if not time_info:
+        return
+
+    current_hour = time_info.get("hour", 0)
+
+    # ── 일일 퀘스트 시간제한 자동 실패 ──
+    for quest_id in _DAILY_QUEST_IDS:
+        if check_quest_timeout(player_id, quest_id, current_hour):
+            effects = apply_quest_failure(player_id, quest_id)
+            morld.add_action_log(f"[일일 심부름] '{quest_id}' 시간 초과 — 실패 처리됨 (신뢰 {effects['trust_loss']})")
+
+
+# ── 시간 구독 등록 (모듈 로드 시) ──
+try:
+    from events import subscribe_time_elapsed
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=3_600_000)  # 1시간
+except ImportError:
+    pass  # 테스트 환경에서는 events 모듈 없음

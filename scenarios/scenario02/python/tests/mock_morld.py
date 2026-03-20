@@ -200,6 +200,8 @@ class MockMorld:
         return self._time
 
     def get_time_info(self):
+        if hasattr(self, '_time_info') and self._time_info:
+            return self._time_info
         return {"total_millis": self._time, "day": 0, "hour": 0, "minute": 0}
 
     def register_script(self, func):

@@ -452,6 +452,43 @@ class TestQuestTimeout(_T):
         apply_quest_failure(1, "daily_gather_herb")
         assert mock.get_unit_prop(1, "관계:세라:신뢰") == 0
 
+    def test_auto_fail_integration(self):
+        """통합: _on_time_elapsed가 18시에 진행 중 일일퀘스트를 자동 실패시킴"""
+        from story import _on_time_elapsed
+        mock.set_unit_prop(1, "관계:세라:신뢰", 5)
+        mock.set_unit_prop(1, "퀘스트:daily_gather_herb:상태", 2)  # IN_PROGRESS
+        mock.set_unit_prop(1, "퀘스트:daily_fishing:상태", 2)      # IN_PROGRESS
+        mock._time_info = {"hour": 18, "day": 1, "month": 1, "year": 1, "minute": 0}
+
+        _on_time_elapsed(3_600_000)
+
+        # 두 퀘스트 모두 실패 → 신뢰 -2
+        assert mock.get_unit_prop(1, "관계:세라:신뢰") == 3
+        assert mock.get_unit_prop(1, "퀘스트:daily_gather_herb:상태") == 0
+        assert mock.get_unit_prop(1, "퀘스트:daily_fishing:상태") == 0
+
+    def test_auto_fail_skips_completed(self):
+        """완료된 퀘스트는 자동 실패 안 함"""
+        from story import _on_time_elapsed
+        mock.set_unit_prop(1, "관계:세라:신뢰", 5)
+        mock.set_unit_prop(1, "퀘스트:daily_gather_herb:상태", 3)  # COMPLETED
+        mock._time_info = {"hour": 18, "day": 1, "month": 1, "year": 1, "minute": 0}
+
+        _on_time_elapsed(3_600_000)
+
+        assert mock.get_unit_prop(1, "관계:세라:신뢰") == 5  # 변동 없음
+
+    def test_auto_fail_before_deadline(self):
+        """마감 전에는 실패 안 함"""
+        from story import _on_time_elapsed
+        mock.set_unit_prop(1, "관계:세라:신뢰", 5)
+        mock.set_unit_prop(1, "퀘스트:daily_gather_herb:상태", 2)
+        mock._time_info = {"hour": 17, "day": 1, "month": 1, "year": 1, "minute": 0}
+
+        _on_time_elapsed(3_600_000)
+
+        assert mock.get_unit_prop(1, "관계:세라:신뢰") == 5  # 변동 없음
+
 
 # ========================================
 # 유키·엘라 합류 테스트
