@@ -31,6 +31,21 @@ ALPHA_SUBMISSION_THRESHOLD = 70  # 굴복 루트: 복종 >= 70
 # 저택 거주 캐릭터 (알파 판정 대상)
 MANSION_MEMBERS = ["세라", "밀라", "리나"]
 
+# 이름 → unique_id 매핑 (세력도 prop 변경 시 NPC unit_id 조회용)
+_NAME_TO_UNIQUE = {"세라": "sera", "밀라": "mila", "리나": "lina"}
+
+
+def _resolve_npc_id(member_name):
+    """캐릭터 이름 → unit_id 조회 (registry 기반)"""
+    unique_id = _NAME_TO_UNIQUE.get(member_name)
+    if not unique_id:
+        return None
+    try:
+        from assets.registry import get_instance_id
+        return get_instance_id(unique_id)
+    except ImportError:
+        return None
+
 # 약점 prop 키
 WEAKNESS_PREFIX = "약점:"
 # 예: 약점:세라:자위발각 = 1, 약점:리나:성인용품 = 1
@@ -268,9 +283,11 @@ def apply_expulsion(player_id):
     효과:
     - 추방 플래그 설정
     - 저택 멤버 전원 호감 하락 + 반발 상승
+    - 저택 멤버 세력도 → 적대 (-1)
     """
     morld.set_unit_prop(player_id, PROP_EXPELLED, 1)
 
+    # NPC별 관계 악화 + 세력 적대화
     for member in MANSION_MEMBERS:
         # 호감 하락
         current_aff = morld.get_unit_prop(player_id, f"관계:{member}:호감") or 0
@@ -278,6 +295,10 @@ def apply_expulsion(player_id):
         # 반발 상승
         current_reb = morld.get_unit_prop(player_id, f"관계:{member}:반발") or 0
         morld.set_unit_prop(player_id, f"관계:{member}:반발", min(100, current_reb + 20))
+        # 세력 적대화: NPC의 관계:방문자:세력도 → -1
+        npc_id = _resolve_npc_id(member)
+        if npc_id:
+            morld.set_unit_prop(npc_id, "관계:방문자:세력도", -1)
 
 
 def is_expelled(player_id):
@@ -293,9 +314,16 @@ def apply_mansion_conquest(player_id):
     효과:
     - 점령 플래그 설정
     - 추방 플래그 해제
+    - 저택 멤버 세력도 → 중립 (0) 복원
     """
     morld.set_unit_prop(player_id, PROP_MANSION_CONQUERED, 1)
     morld.set_unit_prop(player_id, PROP_EXPELLED, 0)
+
+    # 세력 적대 해제
+    for member in MANSION_MEMBERS:
+        npc_id = _resolve_npc_id(member)
+        if npc_id:
+            morld.set_unit_prop(npc_id, "관계:방문자:세력도", 0)
 
 
 # ========================================

@@ -538,6 +538,41 @@ class TestExpulsion(_T):
         assert mock.get_unit_prop(1, "관계:리나:호감") == 5
         assert mock.get_unit_prop(1, "관계:세라:반발") == 20
 
+    def test_expulsion_faction_hostile(self):
+        """추방 시 세력 적대화 (-1)"""
+        from story import apply_expulsion, _NAME_TO_UNIQUE
+        # mock registry 주입
+        import sys
+        mock_registry = type(sys)("mock_registry")
+        mock_registry.get_instance_id = lambda uid: {"sera": 10, "mila": 11, "lina": 12}.get(uid)
+        sys.modules["assets.registry"] = mock_registry
+
+        apply_expulsion(1)
+
+        assert mock.get_unit_prop(10, "관계:방문자:세력도") == -1
+        assert mock.get_unit_prop(11, "관계:방문자:세력도") == -1
+        assert mock.get_unit_prop(12, "관계:방문자:세력도") == -1
+
+        del sys.modules["assets.registry"]
+
+    def test_conquest_restores_faction(self):
+        """점령 시 세력 중립 복원 (0)"""
+        from story import apply_expulsion, apply_mansion_conquest
+        import sys
+        mock_registry = type(sys)("mock_registry")
+        mock_registry.get_instance_id = lambda uid: {"sera": 10, "mila": 11, "lina": 12}.get(uid)
+        sys.modules["assets.registry"] = mock_registry
+
+        apply_expulsion(1)
+        assert mock.get_unit_prop(10, "관계:방문자:세력도") == -1
+
+        apply_mansion_conquest(1)
+        assert mock.get_unit_prop(10, "관계:방문자:세력도") == 0
+        assert mock.get_unit_prop(11, "관계:방문자:세력도") == 0
+        assert mock.get_unit_prop(12, "관계:방문자:세력도") == 0
+
+        del sys.modules["assets.registry"]
+
     def test_expulsion_affection_floor(self):
         """추방 시 호감 0 미만 방지"""
         from story import apply_expulsion
