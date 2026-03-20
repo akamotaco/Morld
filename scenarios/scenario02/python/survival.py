@@ -611,12 +611,28 @@ def get_status_bar(unit_id: int) -> str:
     else:
         satiety_color = INFO
 
+    # 피로도
+    try:
+        import needs
+        fatigue = needs.get_fatigue(unit_id)
+    except (ImportError, Exception):
+        fatigue = 0
+
+    if fatigue >= 80:
+        fatigue_color = DANGER
+    elif fatigue >= 50:
+        fatigue_color = HIGHLIGHT
+    else:
+        fatigue_color = SUCCESS
+
     health_bar = _make_bar(health, max_health)
     satiety_bar = _make_bar(satiety, max_satiety)
+    fatigue_bar = _make_bar(fatigue, 100)
 
     return (
         f"체력: {c(health_color, health_bar)} {health}  "
-        f"포만감: {c(satiety_color, satiety_bar)} {satiety}"
+        f"포만감: {c(satiety_color, satiety_bar)} {satiety}  "
+        f"피로: {c(fatigue_color, fatigue_bar)} {fatigue:.0f}"
     )
 
 
