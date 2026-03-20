@@ -46,11 +46,14 @@ def think_all():
         try:
             agent.think()
         except Exception as e:
-            import traceback
             info = agent.get_info()
             name = info.get("name", str(unit_id)) if info else str(unit_id)
-            print(f"[think] EXCEPTION in {name}(id={unit_id}): {e}")
-            traceback.print_exc()
+            print(f"[think] EXCEPTION in {name}(id={unit_id}): {type(e).__name__}: {e}")
+            try:
+                import traceback
+                traceback.print_exc()
+            except Exception:
+                pass  # SharpPy traceback 호환 문제 방지
             # 예외 발생 시에도 safety net job 보장 (DES 무한루프 방지)
             try:
                 agent._insert_idle_job("에러복구", agent._get_action_duration("safety_net"))
