@@ -121,3 +121,24 @@ def get_dungeon_for_region(region_id):
         if info["region_id"] == region_id:
             return did, info
     return None, None
+
+
+def is_dungeon_occupied(dungeon_id):
+    """
+    던전 내에 캐릭터(플레이어 포함)가 있는지 확인.
+    1명이라도 있으면 True.
+    """
+    info = _active_dungeons.get(dungeon_id)
+    if not info:
+        return False
+
+    region_id = info["region_id"]
+    for loc_id in info["locations"].values():
+        units = morld.get_units_at_location(region_id, loc_id)
+        if not units:
+            continue
+        for uid in units:
+            unit_info = morld.get_unit_info(uid)
+            if unit_info and not unit_info.get("is_object"):
+                return True
+    return False

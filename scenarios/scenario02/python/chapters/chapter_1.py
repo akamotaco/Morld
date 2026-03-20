@@ -105,6 +105,9 @@ def initialize():
     # 11. 캐릭터 인벤토리 슬롯 초기화
     _init_inventory_slots()
 
+    # 12. 인스턴트 던전 스케줄러 등록 (매일 09~22시 동굴 생성)
+    import instant_dungeon.scheduler  # noqa: F401 — 모듈 로드 시 subscribe_time_elapsed 자동 등록
+
     print("[chapter_1] Main chapter initialized: full map with NPCs and nature objects")
 
 

@@ -231,3 +231,133 @@ class TestManager(_T):
 
         reset()
         assert len(get_active_dungeons()) == 0
+
+    def test_is_dungeon_occupied_empty(self):
+        """빈 던전 → 비점유"""
+        from instant_dungeon.manager import create_dungeon, is_dungeon_occupied
+
+        did = create_dungeon("빈 던전", seed=42)
+        assert is_dungeon_occupied(did) == False
+
+    def test_is_dungeon_occupied_player(self):
+        """플레이어가 내부에 있으면 점유"""
+        from instant_dungeon.manager import create_dungeon, is_dungeon_occupied, get_dungeon_info
+
+        did = create_dungeon("점유 테스트", seed=42)
+        info = get_dungeon_info(did)
+        region_id = info["region_id"]
+
+        mock.set_unit_location(1, region_id, 0)
+        assert is_dungeon_occupied(did) == True
+
+
+# ========================================
+# 스케줄러 테스트
+# ========================================
+
+class TestScheduler(_T):
+
+    def setUp(self):
+        from instant_dungeon import scheduler
+        scheduler.reset()
+
+    def test_create_at_9am(self):
+        """09:00에 던전 생성"""
+        from instant_dungeon import scheduler
+        scheduler.reset()
+
+        mock._time_info = {"hour": 9, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+
+        assert scheduler.get_active_dungeon_id() is not None
+
+    def test_no_create_before_9am(self):
+        """09:00 전에는 생성 안 함"""
+        from instant_dungeon import scheduler
+        scheduler.reset()
+
+        mock._time_info = {"hour": 8, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+
+        assert scheduler.get_active_dungeon_id() is None
+
+    def test_destroy_at_22pm_empty(self):
+        """22:00에 빈 던전 삭제"""
+        from instant_dungeon import scheduler
+        scheduler.reset()
+
+        # 생성
+        mock._time_info = {"hour": 9, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        assert scheduler.get_active_dungeon_id() is not None
+
+        # 삭제
+        mock._time_info = {"hour": 22, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        assert scheduler.get_active_dungeon_id() is None
+
+    def test_no_destroy_if_occupied(self):
+        """22:00이지만 내부에 플레이어 → 삭제 안 함"""
+        from instant_dungeon import scheduler
+        from instant_dungeon.manager import get_dungeon_info
+        scheduler.reset()
+
+        # 생성
+        mock._time_info = {"hour": 9, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        did = scheduler.get_active_dungeon_id()
+        info = get_dungeon_info(did)
+        region_id = info["region_id"]
+
+        # 플레이어 내부 이동
+        mock.set_unit_location(1, region_id, 0)
+
+        # 삭제 시도 → 점유 상태라 유지
+        mock._time_info = {"hour": 22, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        assert scheduler.get_active_dungeon_id() == did  # 아직 존재
+
+        # 플레이어 퇴장
+        mock.set_unit_location(1, 0, 0)
+
+        # 다시 시도 → 삭제
+        mock._time_info = {"hour": 23, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        assert scheduler.get_active_dungeon_id() is None
+
+    def test_no_duplicate_creation(self):
+        """같은 날 중복 생성 방지"""
+        from instant_dungeon import scheduler
+        scheduler.reset()
+
+        mock._time_info = {"hour": 9, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        did1 = scheduler.get_active_dungeon_id()
+
+        mock._time_info = {"hour": 10, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        did2 = scheduler.get_active_dungeon_id()
+
+        assert did1 == did2  # 같은 던전
+
+    def test_new_day_new_dungeon(self):
+        """다음 날 → 새 던전"""
+        from instant_dungeon import scheduler
+        scheduler.reset()
+
+        # Day 1
+        mock._time_info = {"hour": 9, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        did1 = scheduler.get_active_dungeon_id()
+
+        # 22시 삭제
+        mock._time_info = {"hour": 22, "day": 1, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+
+        # Day 2
+        mock._time_info = {"hour": 9, "day": 2, "month": 1, "year": 1, "minute": 0}
+        scheduler._on_time_elapsed(3_600_000)
+        did2 = scheduler.get_active_dungeon_id()
+
+        assert did2 is not None
+        assert did2 != did1
