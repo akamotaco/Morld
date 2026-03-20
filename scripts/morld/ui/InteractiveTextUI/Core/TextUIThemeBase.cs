@@ -34,6 +34,10 @@ public class TextUIThemeBase
 	public (float R, float G, float B, float A) LinkDisabledColor = (0.5f, 0.5f, 0.5f, 1f);
 	/// <summary>hover 중인 링크 색상</summary>
 	public (float R, float G, float B, float A) LinkHoverColor    = (1.0f, 1.0f, 0.0f, 1f);
+	/// <summary>암흑에서 마스킹된 링크 색상 (희미하게 존재감만)</summary>
+	public (float R, float G, float B, float A) LinkMaskedColor   = (0.25f, 0.25f, 0.3f, 1f);
+	/// <summary>눈부심에서 마스킹된 링크 색상 (하얗게 날아감)</summary>
+	public (float R, float G, float B, float A) LinkGlareColor    = (0.9f, 0.9f, 0.85f, 1f);
 
 	// ── 텍스트 기본 색상 ──
 	/// <summary>일반 텍스트 색상</summary>

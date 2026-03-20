@@ -122,6 +122,12 @@ public class InteractiveTextUI
 		_controller.State.SetToggle(key, value);
 	}
 
+	/// <summary>어둠 레벨 설정: 0=밝음, 1=어두움(■+원래색), 2=암흑(■+어둡게)</summary>
+	public void SetDarknessLevel(int level)
+	{
+		_controller.SetDarknessLevel(level);
+	}
+
 	/// <summary>상태 초기화</summary>
 	public void Clear() => _controller.Clear();
 

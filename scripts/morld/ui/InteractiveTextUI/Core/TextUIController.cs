@@ -15,6 +15,7 @@ public class TextUIController
 	private List<AstNode> _ast = new();
 	private readonly ITextUIRenderer _renderer;
 	private string _hoveredMeta;
+	private int _darknessLevel;
 
 	// ── 이벤트 ──
 	public event Action<string, bool>   TodoChanged;
@@ -45,10 +46,16 @@ public class TextUIController
 		Render();
 	}
 
+	/// <summary>어둠 레벨 설정: 0=밝음, 1=어두움(■+원래색), 2=암흑(■+어둡게)</summary>
+	public void SetDarknessLevel(int level)
+	{
+		_darknessLevel = level;
+	}
+
 	/// <summary>상태 변경 후 재렌더링 트리거</summary>
 	public void Render()
 	{
-		_renderer.Render(_ast, State, Theme, _hoveredMeta);
+		_renderer.Render(_ast, State, Theme, _hoveredMeta, _darknessLevel);
 	}
 
 	/// <summary>렌더링 결과 BBCode 문자열 (Godot용)</summary>

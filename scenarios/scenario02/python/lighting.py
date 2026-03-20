@@ -247,12 +247,14 @@ def get_brightness_level(brightness: float = None) -> str:
         brightness: 밝기 (None이면 현재 위치 밝기)
 
     Returns:
-        str: "밝음", "어두움", "암흑"
+        str: "눈부심", "밝음", "어두움", "암흑"
     """
     if brightness is None:
         brightness = get_location_brightness()
 
-    if brightness >= 0.6:
+    if brightness >= 1.5:
+        return "눈부심"
+    elif brightness >= 0.6:
         return "밝음"
     elif brightness >= 0.2:
         return "어두움"

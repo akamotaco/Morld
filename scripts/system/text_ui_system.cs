@@ -401,6 +401,12 @@ namespace SE
 
 			// Content 렌더링: InteractiveTextUI 파이프라인
 			// [!]...[/!]는 파서가 Instant 노드로 변환, 렌더러가 태그 제거 + 구간 맵 생성
+			// 어둠 레벨 확인 → Situation에서만 링크 마스킹 활성화
+			// 다른 Focus(Dialog, Unit 등)에서도 필요하면 조건 추가 가능
+			// Python override: ui.set_darkness_masking(False) — GetDarknessLevelFromPython() 주석 참고
+			int darknessLevel = focusType == FocusType.Situation ? GetDarknessLevelFromPython() : 0;
+			_interactiveTextUI.SetDarknessLevel(darknessLevel);
+
 			var text = RenderFocusContent(_stack.Current);
 
 			// Focus의 토글 상태를 InteractiveTextUI에 동기화
@@ -1178,6 +1184,38 @@ namespace SE
 			}
 
 			return false; // 기본값: Lock 아님
+		}
+
+		/// <summary>
+		/// Python에서 어둠 레벨 결정: 0=밝음, 1=어두움, 2=암흑, 3=눈부심
+		/// Focus 타입 필터링은 FlushDisplay에서 처리 (현재 Situation만 적용)
+		///
+		/// [미사용] Python ui.is_darkness_masking_enabled() override API 존재:
+		///   ui.set_darkness_masking(False)로 마스킹 강제 해제 가능 (프롤로그 등)
+		///   필요 시 이 메서드에서 CallModuleFunction("ui", "is_darkness_masking_enabled") 호출 후
+		///   False이면 return 0으로 처리
+		/// </summary>
+		private int GetDarknessLevelFromPython()
+		{
+			var _scriptSystem = this._hub.GetSystem("scriptSystem") as ScriptSystem;
+
+			try
+			{
+				var result = _scriptSystem.CallModuleFunction("lighting", "get_brightness_level");
+				if (result != null && result is not SharpPy.PyNone)
+				{
+					string level = result.AsString();
+					if (level == "암흑") return 2;
+					if (level == "눈부심") return 3;
+					if (level == "어두움") return 1;
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[TextUISystem] Python get_darkness_level() error: {ex.Message}");
+			}
+
+			return 0; // 기본값: 밝음 (마스킹 없음)
 		}
 
 		// ============================================

@@ -71,6 +71,7 @@ def loading_screen(callback, text="로딩 중..."):
 _show_header = True
 _show_footer = True
 _ui_locked = False
+_darkness_masking_enabled = True
 
 
 def set_show_header(show: bool):
@@ -113,6 +114,25 @@ def set_ui_lock(locked: bool):
 def is_ui_locked() -> bool:
     """UI Lock 상태 여부"""
     return _ui_locked
+
+
+def set_darkness_masking(enabled: bool):
+    """
+    어둠 마스킹 on/off 설정
+
+    어두운 곳에서 링크/선택지를 ■로 마스킹하는 기능의 활성화 여부.
+    프롤로그나 특정 Dialog 등에서 False로 설정하면 밝기와 무관하게 마스킹 해제.
+
+    Args:
+        enabled: True면 활성화 (기본값), False면 비활성화
+    """
+    global _darkness_masking_enabled
+    _darkness_masking_enabled = enabled
+
+
+def is_darkness_masking_enabled() -> bool:
+    """어둠 마스킹 활성화 여부"""
+    return _darkness_masking_enabled
 
 
 # ========================================

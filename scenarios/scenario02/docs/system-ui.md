@@ -52,6 +52,18 @@ public void FlushDisplay()
 - `FlushDisplay()`는 `_Process`에서만 호출
 - 즉시 flush 시 무한 루프 발생 가능
 
+### 어둠/눈부심 링크 마스킹
+
+암흑(밝기 <0.2) 또는 눈부심(밝기 ≥1.5) 환경에서 Situation Focus의 클릭 가능 링크가 ■■■로 마스킹됨.
+마우스 hover 시 원문 드러남.
+
+- **darknessLevel**: 0=밝음, 1=어두움(미사용), 2=암흑, 3=눈부심
+- **적용**: Situation Focus만 (`FlushDisplay`에서 Focus 타입 필터링)
+- **렌더러**: `GodotRenderer.RenderCtx.DarknessLevel` → `[url=...]` 내부만 ■ 치환
+- **색상**: `TextUIThemeBase.LinkMaskedColor`(암흑), `LinkGlareColor`(눈부심)
+- **Python override**: `ui.set_darkness_masking(False)` (현재 C# 미연결, 인프라만 존재)
+- 상세: [lighting.md §6.3](lighting.md)
+
 ---
 
 ## 토글 메뉴 시스템

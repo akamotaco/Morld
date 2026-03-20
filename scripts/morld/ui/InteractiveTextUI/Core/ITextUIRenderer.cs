@@ -10,7 +10,7 @@ namespace Morld.TextUI;
 public interface ITextUIRenderer
 {
 	/// <summary>AST를 현재 상태에 맞게 렌더링한다.</summary>
-	void Render(List<AstNode> ast, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta = null);
+	void Render(List<AstNode> ast, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta = null, int darknessLevel = 0);
 
 	/// <summary>표시 내용을 모두 지운다.</summary>
 	void Clear();

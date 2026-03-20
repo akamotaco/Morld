@@ -31,6 +31,8 @@ public class GodotRenderer : ITextUIRenderer
 		public readonly WidgetStateStore State;
 		public readonly TextUIThemeBase Theme;
 		public readonly string HoveredMeta;
+		/// <summary>어둠 레벨: 0=밝음, 1=어두움(미사용), 2=암흑(■+어둡게), 3=눈부심(■+밝게)</summary>
+		public readonly int DarknessLevel;
 		public readonly List<(int start, int length)> Segments = new();
 
 		/// <summary>현재까지의 visible char 수 (BBCode 태그 제외)</summary>
@@ -42,17 +44,18 @@ public class GodotRenderer : ITextUIRenderer
 		/// <summary>Instant 중첩 깊이 (중첩 [!] 내부에서 외부만 기록)</summary>
 		public int InstantDepth;
 
-		public RenderCtx(WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+		public RenderCtx(WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta, int darknessLevel)
 		{
 			State = state;
 			Theme = theme;
 			HoveredMeta = hoveredMeta;
+			DarknessLevel = darknessLevel;
 		}
 	}
 
-	public void Render(List<AstNode> ast, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta = null)
+	public void Render(List<AstNode> ast, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta = null, int darknessLevel = 0)
 	{
-		var ctx = new RenderCtx(state, theme, hoveredMeta);
+		var ctx = new RenderCtx(state, theme, hoveredMeta, darknessLevel);
 		RenderNodes(ctx, ast, 0);
 		RenderedText = ctx.Sb.ToString();
 		InstantSegments = ctx.Segments;
@@ -126,16 +129,16 @@ public class GodotRenderer : ITextUIRenderer
 					RenderStyle(ctx, n, depth);
 					break;
 				case NodeType.Todo:
-					AppendVisible(ctx, RenderTodo(n, ctx.State, ctx.Theme, ctx.HoveredMeta));
+					AppendVisible(ctx, RenderTodo(n, ctx.State, ctx.Theme, ctx.HoveredMeta, ctx.DarknessLevel));
 					break;
 				case NodeType.Button:
-					AppendVisible(ctx, RenderButton(n, ctx.State, ctx.Theme, ctx.HoveredMeta));
+					AppendVisible(ctx, RenderButton(n, ctx.State, ctx.Theme, ctx.HoveredMeta, ctx.DarknessLevel));
 					break;
 				case NodeType.Toggle:
 					RenderToggle(ctx, n, depth);
 					break;
 				case NodeType.Radio:
-					AppendVisible(ctx, RenderRadio(n, ctx.State, ctx.Theme, ctx.HoveredMeta));
+					AppendVisible(ctx, RenderRadio(n, ctx.State, ctx.Theme, ctx.HoveredMeta, ctx.DarknessLevel));
 					break;
 				case NodeType.Choice:
 					RenderChoice(ctx, n, depth);
@@ -174,8 +177,10 @@ public class GodotRenderer : ITextUIRenderer
 	private void RenderLink(RenderCtx ctx, AstNode n, int depth)
 	{
 		bool hovered = IsHovered(ctx.HoveredMeta, n.Meta);
-		string color = TextUIThemeBase.ToHex(
-			hovered ? ctx.Theme.LinkHoverColor : ctx.Theme.LinkColor);
+		bool masked = ctx.DarknessLevel >= 2 && !hovered;
+		string color = hovered ? TextUIThemeBase.ToHex(ctx.Theme.LinkHoverColor)
+			: masked ? GetMaskedColor(ctx.DarknessLevel, ctx.Theme)
+			: TextUIThemeBase.ToHex(ctx.Theme.LinkColor);
 
 		// Link는 즉시 구간으로 등록 (Instant 내부가 아닐 때만 — 중복 방지)
 		bool registerAsInstant = ctx.InstantDepth == 0;
@@ -183,10 +188,20 @@ public class GodotRenderer : ITextUIRenderer
 
 		AppendTag(ctx, $"[url={n.Meta}][color={color}]");
 
-		if (n.Children.Count > 0)
-			RenderNodes(ctx, n.Children, depth);
+		if (masked)
+		{
+			int charCount = n.Children.Count > 0
+				? CountNodeTreeVisibleChars(n.Children)
+				: n.Label.Length;
+			AppendVisible(ctx, new string('■', charCount));
+		}
 		else
-			AppendVisible(ctx, n.Label);
+		{
+			if (n.Children.Count > 0)
+				RenderNodes(ctx, n.Children, depth);
+			else
+				AppendVisible(ctx, n.Label);
+		}
 
 		AppendTag(ctx, "[/color][/url]");
 
@@ -215,28 +230,49 @@ public class GodotRenderer : ITextUIRenderer
 
 	// ── 위젯 렌더링 ──
 
-	private static string RenderTodo(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+	private static string RenderTodo(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta, int darknessLevel)
 	{
 		bool on = state.GetTodo(n.Key);
 		string icon = on ? theme.TodoCheckedIcon : theme.TodoUncheckedIcon;
-		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, $"todo:{n.Key}");
+		string meta = $"todo:{n.Key}";
+
+		if (darknessLevel >= 2 && !n.Disabled && !IsHovered(hoveredMeta, meta))
+		{
+			int charCount = icon.Length + 1 + n.Label.Length;
+			string mc = GetMaskedColor(darknessLevel, theme);
+			return $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]";
+		}
+
+		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, meta);
 		string label = on ? $"[s]{n.Label}[/s]" : n.Label;
 		return n.Disabled
 			? $"[color={color}]{icon} {label}[/color]"
-			: $"[url=todo:{n.Key}][color={color}]{icon} {label}[/color][/url]";
+			: $"[url={meta}][color={color}]{icon} {label}[/color][/url]";
 	}
 
-	private static string RenderButton(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+	private static string RenderButton(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta, int darknessLevel)
 	{
 		bool on = state.GetButton(n.Key);
 		string icon = on ? theme.ButtonOnIcon : theme.ButtonOffIcon;
-		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, $"button:{n.Key}");
-		string text = on
+		string meta = $"button:{n.Key}";
+
+		if (darknessLevel >= 2 && !n.Disabled && !IsHovered(hoveredMeta, meta))
+		{
+			string text = on
+				? (!string.IsNullOrEmpty(n.OnText) ? n.OnText : n.Label)
+				: (!string.IsNullOrEmpty(n.OffText) ? n.OffText : n.Label);
+			int charCount = icon.Length + 1 + text.Length;
+			string mc = GetMaskedColor(darknessLevel, theme);
+			return $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]";
+		}
+
+		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, meta);
+		string btnText = on
 			? (!string.IsNullOrEmpty(n.OnText) ? n.OnText : n.Label)
 			: (!string.IsNullOrEmpty(n.OffText) ? n.OffText : n.Label);
 		return n.Disabled
-			? $"[color={color}]{icon} {text}[/color]"
-			: $"[url=button:{n.Key}][color={color}]{icon} {text}[/color][/url]";
+			? $"[color={color}]{icon} {btnText}[/color]"
+			: $"[url={meta}][color={color}]{icon} {btnText}[/color][/url]";
 	}
 
 	private void RenderToggle(RenderCtx ctx, AstNode n, int depth)
@@ -244,11 +280,23 @@ public class GodotRenderer : ITextUIRenderer
 		bool open = ctx.State.GetToggle(n.Key);
 		string arrow = open ? ctx.Theme.ToggleOpenIcon : ctx.Theme.ToggleClosedIcon;
 		string meta = $"toggle:{n.Key}";
-		string hColor = IsHovered(ctx.HoveredMeta, meta)
+		bool hovered = IsHovered(ctx.HoveredMeta, meta);
+		bool masked = ctx.DarknessLevel >= 2 && !hovered;
+		string hColor = hovered
 			? TextUIThemeBase.ToHex(ctx.Theme.HoverColor)
-			: TextUIThemeBase.ToHex(open ? ctx.Theme.ActiveColor : ctx.Theme.InactiveColor);
+			: masked
+				? GetMaskedColor(ctx.DarknessLevel, ctx.Theme)
+				: TextUIThemeBase.ToHex(open ? ctx.Theme.ActiveColor : ctx.Theme.InactiveColor);
 
-		AppendVisible(ctx, $"[url={meta}][color={hColor}]{arrow}{n.Label}[/color][/url]");
+		if (masked)
+		{
+			int charCount = arrow.Length + n.Label.Length;
+			AppendVisible(ctx, $"[url={meta}][color={hColor}]{new string('■', charCount)}[/color][/url]");
+		}
+		else
+		{
+			AppendVisible(ctx, $"[url={meta}][color={hColor}]{arrow}{n.Label}[/color][/url]");
+		}
 
 		if (open && n.Children.Count > 0)
 		{
@@ -258,12 +306,20 @@ public class GodotRenderer : ITextUIRenderer
 		}
 	}
 
-	private static string RenderRadio(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta)
+	private static string RenderRadio(AstNode n, WidgetStateStore state, TextUIThemeBase theme, string hoveredMeta, int darknessLevel)
 	{
 		string sel = state.GetRadio(n.Key);
 		bool on = sel == n.Value;
 		string icon = on ? theme.RadioSelectedIcon : theme.RadioUnselectedIcon;
 		string meta = $"radio:{n.Key}:{n.Value}";
+
+		if (darknessLevel >= 2 && !n.Disabled && !IsHovered(hoveredMeta, meta))
+		{
+			int charCount = icon.Length + 1 + n.Label.Length;
+			string mc = GetMaskedColor(darknessLevel, theme);
+			return $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]";
+		}
+
 		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, meta);
 		return n.Disabled
 			? $"[color={color}]{icon} {n.Label}[/color]"
@@ -289,10 +345,22 @@ public class GodotRenderer : ITextUIRenderer
 				}
 				else
 				{
-					string cColor = IsHovered(ctx.HoveredMeta, meta)
-						? TextUIThemeBase.ToHex(ctx.Theme.HoverColor)
-						: TextUIThemeBase.ToHex(ctx.Theme.ChoiceColor);
-					AppendVisible(ctx, $"[url={meta}][color={cColor}]{ctx.Theme.ChoiceIcon} {opt.Label}[/color][/url]\n");
+					bool hovered = IsHovered(ctx.HoveredMeta, meta);
+					bool masked = ctx.DarknessLevel >= 2 && !hovered;
+
+					if (masked)
+					{
+						int charCount = ctx.Theme.ChoiceIcon.Length + 1 + opt.Label.Length;
+						string mc = GetMaskedColor(ctx.DarknessLevel, ctx.Theme);
+						AppendVisible(ctx, $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]\n");
+					}
+					else
+					{
+						string cColor = hovered
+							? TextUIThemeBase.ToHex(ctx.Theme.HoverColor)
+							: TextUIThemeBase.ToHex(ctx.Theme.ChoiceColor);
+						AppendVisible(ctx, $"[url={meta}][color={cColor}]{ctx.Theme.ChoiceIcon} {opt.Label}[/color][/url]\n");
+					}
 				}
 			}
 			else
@@ -337,6 +405,39 @@ public class GodotRenderer : ITextUIRenderer
 	}
 
 	// ── 헬퍼 ──
+
+	/// <summary>AST 노드 트리의 visible char 수를 재귀적으로 카운트</summary>
+	private static int CountNodeTreeVisibleChars(List<AstNode> nodes)
+	{
+		int count = 0;
+		foreach (var n in nodes)
+		{
+			switch (n.Type)
+			{
+				case NodeType.Text:
+					// BBCode 태그 제외한 visible char만 카운트
+					bool inTag = false;
+					foreach (char c in n.RawText)
+					{
+						if (c == '[') { inTag = true; continue; }
+						if (c == ']') { inTag = false; continue; }
+						if (!inTag) count++;
+					}
+					break;
+				default:
+					if (n.Children.Count > 0)
+						count += CountNodeTreeVisibleChars(n.Children);
+					else if (!string.IsNullOrEmpty(n.Label))
+						count += n.Label.Length;
+					break;
+			}
+		}
+		return count;
+	}
+
+	/// <summary>어둠 레벨에 따른 마스킹 색상 (2=암흑, 3=눈부심)</summary>
+	private static string GetMaskedColor(int darknessLevel, TextUIThemeBase theme)
+		=> TextUIThemeBase.ToHex(darknessLevel == 3 ? theme.LinkGlareColor : theme.LinkMaskedColor);
 
 	private static bool IsHovered(string hoveredMeta, string widgetMeta)
 		=> !string.IsNullOrEmpty(hoveredMeta) && hoveredMeta == widgetMeta;
