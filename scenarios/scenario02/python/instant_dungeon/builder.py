@@ -50,15 +50,14 @@ def build_dungeon(rooms, corridors, region_id, dungeon_name="던전",
         name = ROOM_NAMES.get(room.room_type, f"방 {room.id}")
         desc = ROOM_DESCRIPTIONS.get(room.room_type, "어두운 공간이다.")
 
-        morld.add_location(region_id, loc_id, name, length=room.w)
-
-        # 2D 좌표 저장 (지도 표시용)
-        morld.set_location_prop(region_id, loc_id, "던전:x", room.x)
-        morld.set_location_prop(region_id, loc_id, "던전:y", room.y)
-        morld.set_location_prop(region_id, loc_id, "던전:w", room.w)
-        morld.set_location_prop(region_id, loc_id, "던전:h", room.h)
-        morld.set_location_prop(region_id, loc_id, "던전:타입", room.room_type)
-        morld.set_location_prop(region_id, loc_id, "describe_text", desc)
+        # add_location: positional args (kwargs 미지원 — PyBuiltinFunction 제약)
+        # (region_id, local_id, name, stay_duration, indoor, owner,
+        #  describe_text, ground_id, geometry, length)
+        describe_dict = {"default": desc}
+        morld.add_location(region_id, loc_id, name,
+                           0, False, None,        # stay=0, indoor=False(던전), owner=None
+                           describe_dict, None,    # describe_text, ground_id
+                           "line", room.w)         # geometry, length
 
         locations[room.id] = loc_id
 
