@@ -71,18 +71,26 @@ def check_alpha_status(player_id=None):
     if player_id is None:
         player_id = morld.get_player_id()
 
-    # 경로 2: 점령
+    # 경로 1: 점령 플래그
     if (morld.get_unit_prop(player_id, "스토리:저택점령") or 0) >= 1:
         return True
 
-    # 경로 1: 전원 신뢰/복종
+    # 경로 2: 전원 신뢰/복종
     player_info = morld.get_unit_info(player_id)
     player_name = player_info.get("name", "주인공") if player_info else "주인공"
-
+    all_subdued = True
     for member in MANSION_MEMBERS:
         if not _check_member_status(player_id, player_name, member):
-            return False
-    return True
+            all_subdued = False
+            break
+    if all_subdued:
+        return True
+
+    # 경로 3: 세력 소멸 — 숲속 저택 세력의 활동 가능 인원이 0
+    if count_active_faction_members("숲속 저택") == 0:
+        return True
+
+    return False
 
 
 def get_alpha_progress(player_id=None):
@@ -382,6 +390,169 @@ def check_majority_against(player_id, target_name):
 
     # 대상 외 2명 모두 플레이어 편
     return allies >= 2
+
+
+# ========================================
+# 세력 인원 카운트
+# ========================================
+
+def count_active_faction_members(faction_name):
+    """
+    특정 세력의 활동 가능 인원 수 반환.
+    사망/구금 상태의 캐릭터는 제외.
+
+    Args:
+        faction_name: 세력 이름 (예: "숲속 저택")
+
+    Returns:
+        int: 활동 가능 인원 수
+    """
+    count = 0
+    for name in MANSION_MEMBERS:
+        npc_id = _resolve_npc_id(name)
+        if not npc_id:
+            count += 1  # 조회 실패 = 활동 중으로 간주 (안전)
+            continue
+        # 사망 체크
+        if (morld.get_unit_prop(npc_id, "상태:사망") or 0):
+            continue
+        # 구금 체크
+        if (morld.get_unit_prop(npc_id, "상태:구금") or 0):
+            continue
+        # 세력 확인
+        if morld.get_unit_prop(npc_id, "세력") == faction_name:
+            count += 1
+    return count
+
+
+# ========================================
+# 사망 시스템
+# ========================================
+
+def execute_finish(player_id, target_id):
+    """
+    확인사살 — 기절 상태의 캐릭터를 사망시킴.
+
+    전제조건: 대상이 기절 중 (HP = 0, 상태:사망 아님)
+    단둘이일 필요 없음 (전투 후 상황이므로).
+
+    Args:
+        player_id: 실행자
+        target_id: 대상 NPC
+
+    Returns:
+        dict: {"success": bool, "reason": str}
+    """
+    target_hp = morld.get_unit_prop(target_id, "생존:체력") or 0
+    is_dead = morld.get_unit_prop(target_id, "상태:사망") or 0
+
+    if is_dead:
+        return {"success": False, "reason": "already_dead"}
+
+    if target_hp > 0:
+        return {"success": False, "reason": "not_fainted"}
+
+    # 사망 처리
+    morld.set_unit_prop(target_id, "상태:사망", 1)
+    game_time = morld.get_game_time() if hasattr(morld, 'get_game_time') else 0
+    morld.set_unit_prop(target_id, "상태:사망시각", game_time)
+
+    target_info = morld.get_unit_info(target_id)
+    target_name = target_info.get("name", "???") if target_info else "???"
+    morld.add_action_log(f"{target_name}이(가) 사망했다.")
+
+    return {"success": True, "reason": "killed"}
+
+
+def is_dead(unit_id):
+    """사망 상태 확인"""
+    return (morld.get_unit_prop(unit_id, "상태:사망") or 0) >= 1
+
+
+# ========================================
+# 구금 시스템
+# ========================================
+
+# 구금 장소: "감옥:수용" prop이 있는 location (prop 기반, 이주 안전)
+
+def imprison(player_id, target_id):
+    """
+    구금 — 기절 상태의 캐릭터를 감옥에 가둠.
+
+    전제조건: 대상이 기절 중 (HP = 0, 상태:사망/구금 아님)
+    감옥 location이 존재해야 함.
+
+    Args:
+        player_id: 실행자
+        target_id: 대상 NPC
+
+    Returns:
+        dict: {"success": bool, "reason": str, "prison_location": tuple|None}
+    """
+    target_hp = morld.get_unit_prop(target_id, "생존:체력") or 0
+    if (morld.get_unit_prop(target_id, "상태:사망") or 0):
+        return {"success": False, "reason": "dead", "prison_location": None}
+    if (morld.get_unit_prop(target_id, "상태:구금") or 0):
+        return {"success": False, "reason": "already_imprisoned", "prison_location": None}
+    if target_hp > 0:
+        return {"success": False, "reason": "not_fainted", "prison_location": None}
+
+    # 감옥 location 탐색 (prop 기반)
+    prison = _find_prison_location()
+    if not prison:
+        return {"success": False, "reason": "no_prison", "prison_location": None}
+
+    # 구금 처리
+    morld.set_unit_prop(target_id, "상태:구금", 1)
+    morld.set_unit_location(target_id, prison[0], prison[1])
+
+    target_info = morld.get_unit_info(target_id)
+    target_name = target_info.get("name", "???") if target_info else "???"
+    morld.add_action_log(f"{target_name}을(를) 가두었다.")
+
+    return {"success": True, "reason": "imprisoned", "prison_location": prison}
+
+
+def release_prisoner(target_id):
+    """구금 해제"""
+    morld.set_unit_prop(target_id, "상태:구금", 0)
+
+
+def is_imprisoned(unit_id):
+    """구금 상태 확인"""
+    return (morld.get_unit_prop(unit_id, "상태:구금") or 0) >= 1
+
+
+def _find_prison_location():
+    """
+    감옥 location 탐색 — "감옥:수용" prop이 있는 location.
+    이주 안전: prop 기반 동적 탐색.
+
+    Returns:
+        tuple: (region_id, location_id) or None
+    """
+    # 플레이어의 home region 내에서 탐색
+    player_id = morld.get_player_id()
+    player_loc = morld.get_unit_location(player_id)
+    if not player_loc:
+        return None
+
+    region_id = player_loc[0]
+    region_info = morld.get_region_info(region_id)
+    if not region_info:
+        return None
+
+    locations = region_info.get("locations", [])
+    for loc in locations:
+        loc_id = loc.get("id", loc.get("location_id"))
+        if loc_id is None:
+            continue
+        # location prop에서 감옥:수용 확인
+        loc_info = morld.get_location_info(region_id, loc_id)
+        if loc_info and loc_info.get("감옥:수용"):
+            return (region_id, loc_id)
+
+    return None
 
 
 # ========================================

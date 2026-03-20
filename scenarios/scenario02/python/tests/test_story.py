@@ -604,6 +604,51 @@ class TestConquest(_T):
         apply_mansion_conquest(1)
         assert check_alpha_status(1) == True
 
+    def test_alpha_by_faction_elimination(self):
+        """세력 소멸 → 알파 (전원 사망 or 구금)"""
+        from story import check_alpha_status
+        import sys
+        mock_registry = type(sys)("mock_registry")
+        mock_registry.get_instance_id = lambda uid: {"sera": 10, "mila": 11, "lina": 12}.get(uid)
+        sys.modules["assets.registry"] = mock_registry
+
+        # NPC에 세력 prop 설정
+        mock.set_unit_prop(10, "세력", "숲속 저택")
+        mock.set_unit_prop(11, "세력", "숲속 저택")
+        mock.set_unit_prop(12, "세력", "숲속 저택")
+
+        assert check_alpha_status(1) == False
+
+        # 전원 사망
+        mock.set_unit_prop(10, "상태:사망", 1)
+        mock.set_unit_prop(11, "상태:사망", 1)
+        mock.set_unit_prop(12, "상태:사망", 1)
+        assert check_alpha_status(1) == True
+
+        del sys.modules["assets.registry"]
+
+    def test_alpha_by_mixed_death_imprison(self):
+        """혼합: 2명 사망 + 1명 구금 → 알파"""
+        from story import check_alpha_status
+        import sys
+        mock_registry = type(sys)("mock_registry")
+        mock_registry.get_instance_id = lambda uid: {"sera": 10, "mila": 11, "lina": 12}.get(uid)
+        sys.modules["assets.registry"] = mock_registry
+
+        mock.set_unit_prop(10, "세력", "숲속 저택")
+        mock.set_unit_prop(11, "세력", "숲속 저택")
+        mock.set_unit_prop(12, "세력", "숲속 저택")
+
+        mock.set_unit_prop(10, "상태:사망", 1)
+        mock.set_unit_prop(11, "상태:구금", 1)
+        # 리나는 활동 중
+        assert check_alpha_status(1) == False
+
+        mock.set_unit_prop(12, "상태:구금", 1)
+        assert check_alpha_status(1) == True
+
+        del sys.modules["assets.registry"]
+
     def test_conquest_clears_expulsion(self):
         """점령 시 추방 플래그 해제"""
         from story import apply_mansion_conquest, is_expelled
@@ -611,6 +656,92 @@ class TestConquest(_T):
         assert is_expelled(1) == True
         apply_mansion_conquest(1)
         assert is_expelled(1) == False
+
+
+# ========================================
+# 사망 시스템 테스트
+# ========================================
+
+class TestFinish(_T):
+
+    def test_finish_fainted(self):
+        """기절 상태에서 확인사살 → 사망"""
+        from story import execute_finish, is_dead
+        mock.set_unit_prop(10, "생존:체력", 0)  # 세라 기절
+        result = execute_finish(1, 10)
+        assert result["success"] == True
+        assert is_dead(10) == True
+
+    def test_finish_not_fainted(self):
+        """HP > 0이면 확인사살 불가"""
+        from story import execute_finish
+        mock.set_unit_prop(10, "생존:체력", 50)
+        result = execute_finish(1, 10)
+        assert result["success"] == False
+        assert result["reason"] == "not_fainted"
+
+    def test_finish_already_dead(self):
+        """이미 사망이면 중복 불가"""
+        from story import execute_finish
+        mock.set_unit_prop(10, "생존:체력", 0)
+        mock.set_unit_prop(10, "상태:사망", 1)
+        result = execute_finish(1, 10)
+        assert result["success"] == False
+        assert result["reason"] == "already_dead"
+
+
+# ========================================
+# 구금 시스템 테스트
+# ========================================
+
+class TestImprison(_T):
+
+    def test_imprison_fainted(self):
+        """기절 상태에서 구금"""
+        from story import imprison, is_imprisoned
+        mock.set_unit_prop(10, "생존:체력", 0)
+        # 감옥 location 설정 + region에 locations 목록 제공
+        mock.register_location(0, 99)
+        mock._locations[(0, 99)]["감옥:수용"] = 1
+        mock._regions[0] = {"name": "숲속 저택"}
+
+        result = imprison(1, 10)
+        assert result["success"] == True
+        assert is_imprisoned(10) == True
+        assert result["prison_location"] == (0, 99)
+
+    def test_imprison_not_fainted(self):
+        """HP > 0이면 구금 불가"""
+        from story import imprison
+        mock.set_unit_prop(10, "생존:체력", 50)
+        result = imprison(1, 10)
+        assert result["success"] == False
+        assert result["reason"] == "not_fainted"
+
+    def test_imprison_dead(self):
+        """사망 상태면 구금 불가"""
+        from story import imprison
+        mock.set_unit_prop(10, "생존:체력", 0)
+        mock.set_unit_prop(10, "상태:사망", 1)
+        result = imprison(1, 10)
+        assert result["success"] == False
+        assert result["reason"] == "dead"
+
+    def test_imprison_no_prison(self):
+        """감옥 없으면 구금 불가"""
+        from story import imprison
+        mock.set_unit_prop(10, "생존:체력", 0)
+        result = imprison(1, 10)
+        assert result["success"] == False
+        assert result["reason"] == "no_prison"
+
+    def test_release(self):
+        """구금 해제"""
+        from story import release_prisoner, is_imprisoned
+        mock.set_unit_prop(10, "상태:구금", 1)
+        assert is_imprisoned(10) == True
+        release_prisoner(10)
+        assert is_imprisoned(10) == False
 
     def test_quest_fail_leads_to_expulsion(self):
         """시나리오: 퀘스트 4회 실패 → 신뢰 1→-3 → 추방"""
