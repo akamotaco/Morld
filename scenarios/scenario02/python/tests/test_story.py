@@ -627,8 +627,8 @@ class TestConquest(_T):
 
         del sys.modules["assets.registry"]
 
-    def test_alpha_by_mixed_death_imprison(self):
-        """혼합: 2명 사망 + 1명 구금 → 알파"""
+    def test_alpha_by_mixed_death_restrain(self):
+        """혼합: 2명 사망 + 1명 전신결박 → 알파"""
         from story import check_alpha_status
         import sys
         mock_registry = type(sys)("mock_registry")
@@ -640,12 +640,38 @@ class TestConquest(_T):
         mock.set_unit_prop(12, "세력", "숲속 저택")
 
         mock.set_unit_prop(10, "상태:사망", 1)
-        mock.set_unit_prop(11, "상태:구금", 1)
+        # 밀라: 전신결박 (상체+하체)
+        mock.set_unit_prop(11, "결박:상체", 1)
+        mock.set_unit_prop(11, "결박:하체", 1)
         # 리나는 활동 중
         assert check_alpha_status(1) == False
 
-        mock.set_unit_prop(12, "상태:구금", 1)
+        # 리나도 전신결박
+        mock.set_unit_prop(12, "결박:상체", 1)
+        mock.set_unit_prop(12, "결박:하체", 1)
         assert check_alpha_status(1) == True
+
+        del sys.modules["assets.registry"]
+
+    def test_partial_restrain_still_active(self):
+        """부분 결박(하체만)은 활동 가능 → 세력 인원 유지"""
+        from story import count_active_faction_members
+        import sys
+        mock_registry = type(sys)("mock_registry")
+        mock_registry.get_instance_id = lambda uid: {"sera": 10, "mila": 11, "lina": 12}.get(uid)
+        sys.modules["assets.registry"] = mock_registry
+
+        mock.set_unit_prop(10, "세력", "숲속 저택")
+        mock.set_unit_prop(11, "세력", "숲속 저택")
+        mock.set_unit_prop(12, "세력", "숲속 저택")
+
+        # 하체만 결박 → 이동 불가하지만 세력 인원에서 제외 안 됨
+        mock.set_unit_prop(10, "결박:하체", 1)
+        assert count_active_faction_members("숲속 저택") == 3
+
+        # 상체+하체 → 전신결박 → 제외
+        mock.set_unit_prop(10, "결박:상체", 1)
+        assert count_active_faction_members("숲속 저택") == 2
 
         del sys.modules["assets.registry"]
 
@@ -689,59 +715,6 @@ class TestFinish(_T):
         assert result["success"] == False
         assert result["reason"] == "already_dead"
 
-
-# ========================================
-# 구금 시스템 테스트
-# ========================================
-
-class TestImprison(_T):
-
-    def test_imprison_fainted(self):
-        """기절 상태에서 구금"""
-        from story import imprison, is_imprisoned
-        mock.set_unit_prop(10, "생존:체력", 0)
-        # 감옥 location 설정 + region에 locations 목록 제공
-        mock.register_location(0, 99)
-        mock._locations[(0, 99)]["감옥:수용"] = 1
-        mock._regions[0] = {"name": "숲속 저택"}
-
-        result = imprison(1, 10)
-        assert result["success"] == True
-        assert is_imprisoned(10) == True
-        assert result["prison_location"] == (0, 99)
-
-    def test_imprison_not_fainted(self):
-        """HP > 0이면 구금 불가"""
-        from story import imprison
-        mock.set_unit_prop(10, "생존:체력", 50)
-        result = imprison(1, 10)
-        assert result["success"] == False
-        assert result["reason"] == "not_fainted"
-
-    def test_imprison_dead(self):
-        """사망 상태면 구금 불가"""
-        from story import imprison
-        mock.set_unit_prop(10, "생존:체력", 0)
-        mock.set_unit_prop(10, "상태:사망", 1)
-        result = imprison(1, 10)
-        assert result["success"] == False
-        assert result["reason"] == "dead"
-
-    def test_imprison_no_prison(self):
-        """감옥 없으면 구금 불가"""
-        from story import imprison
-        mock.set_unit_prop(10, "생존:체력", 0)
-        result = imprison(1, 10)
-        assert result["success"] == False
-        assert result["reason"] == "no_prison"
-
-    def test_release(self):
-        """구금 해제"""
-        from story import release_prisoner, is_imprisoned
-        mock.set_unit_prop(10, "상태:구금", 1)
-        assert is_imprisoned(10) == True
-        release_prisoner(10)
-        assert is_imprisoned(10) == False
 
     def test_quest_fail_leads_to_expulsion(self):
         """시나리오: 퀘스트 4회 실패 → 신뢰 1→-3 → 추방"""
