@@ -25,8 +25,8 @@ TEST_DUNGEON_CONFIG = {
     "height": 400,
     "min_size": 60,
     "max_depth": 4,
-    # 입구: 숲 깊은 곳 (R3:L5) — 기존 고정 지형
-    # 없으면 저택 앞마당 (R0:L13) 사용
+    "floors": 3,  # 3층 던전
+    # 입구: 뒷마당 (R0:L13)
     "entrance_gate": {
         "region_id": 0,
         "location_id": 13,
@@ -75,6 +75,7 @@ def _on_time_elapsed(elapsed_millis):
                 max_depth=TEST_DUNGEON_CONFIG["max_depth"],
                 seed=seed,
                 entrance_gate=TEST_DUNGEON_CONFIG["entrance_gate"],
+                floors=TEST_DUNGEON_CONFIG.get("floors", 1),
             )
             _scheduled_dungeon_id = did
             _last_checked_day = current_day

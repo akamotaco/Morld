@@ -335,6 +335,25 @@ def on_single_event(event):
             pass
 
         if unit_id == player_id:
+            # 던전 Fog of War 업데이트
+            try:
+                from instant_dungeon.manager import get_dungeon_for_region, get_floor_for_region
+                dungeon_id, dungeon_info = get_dungeon_for_region(region_id)
+                if dungeon_info:
+                    from instant_dungeon import fog
+                    # 다층: 현재 층 데이터 추출
+                    floor_info = get_floor_for_region(dungeon_id, region_id)
+                    if floor_info:
+                        floor_locations = floor_info.get("locations", {})
+                        floor_num = floor_info.get("floor")
+                        fog_id = f"{dungeon_id}_F{floor_num}" if floor_num is not None else dungeon_id
+                        for rid, lid in floor_locations.items():
+                            if lid == location_id:
+                                fog.update_fog(fog_id, rid)
+                                break
+            except ImportError:
+                pass
+
             # 은신 가능 자세면 은신 진입 시도 (새 Location 도착 시)
             stealth_state = morld.get_unit_prop(player_id, "status:stealth")
             if not stealth_state:  # 통상 상태

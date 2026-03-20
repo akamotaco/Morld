@@ -8,17 +8,21 @@ from .generator import Room, Corridor
 
 # 방 타입별 이름/묘사
 ROOM_NAMES = {
-    "start":    "던전 입구",
-    "boss":     "심층",
-    "treasure": "보물방",
-    "normal":   "통로",
+    "start":       "던전 입구",
+    "boss":        "심층",
+    "treasure":    "보물방",
+    "normal":      "통로",
+    "stairs_down": "하층 계단",
+    "stairs_up":   "상층 계단",
 }
 
 ROOM_DESCRIPTIONS = {
-    "start":    "던전의 입구다. 돌아갈 수 있는 출구가 보인다.",
-    "boss":     "깊은 곳에서 강한 기운이 느껴진다.",
-    "treasure": "뭔가 반짝이는 것이 보인다.",
-    "normal":   "어둡고 습한 통로다.",
+    "start":       "던전의 입구다. 돌아갈 수 있는 출구가 보인다.",
+    "boss":        "깊은 곳에서 강한 기운이 느껴진다.",
+    "treasure":    "뭔가 반짝이는 것이 보인다.",
+    "normal":      "어둡고 습한 통로다.",
+    "stairs_down": "아래층으로 내려가는 계단이 보인다.",
+    "stairs_up":   "위층으로 올라가는 계단이 보인다.",
 }
 
 
@@ -98,4 +102,81 @@ def build_dungeon(rooms, corridors, region_id, dungeon_name="던전",
         "region_id": region_id,
         "locations": locations,
         "entrance_location": entrance_loc,
+    }
+
+
+def build_multi_floor(floor_data, base_region_id, dungeon_name="던전",
+                      entrance_gate=None):
+    """
+    다층 던전 빌드 — 층별 Region + 계단 RegionGate.
+
+    Args:
+        floor_data: generate_multi_floor() 결과 (list[dict])
+        base_region_id: 첫 층 Region ID (이후 +1씩)
+        dungeon_name: 던전 이름
+        entrance_gate: 외부 연결 정보
+
+    Returns:
+        dict: {
+            "floors": [{
+                "floor": int,
+                "region_id": int,
+                "locations": {room_id: loc_id},
+                "rooms": list[Room],
+                "corridors": list[Corridor],
+            }],
+            "entrance_region_id": int,
+            "entrance_location": int,
+        }
+    """
+    floors_info = []
+
+    for i, fd in enumerate(floor_data):
+        floor_num = fd["floor"]
+        rooms = fd["rooms"]
+        corridors = fd["corridors"]
+        region_id = base_region_id + i
+        floor_label = f"{dungeon_name} {floor_num + 1}F"
+
+        # 이 층의 Region + Location + Gate 등록
+        info = build_dungeon(rooms, corridors, region_id, floor_label,
+                             entrance_gate=entrance_gate if i == 0 else None)
+        info["floor"] = floor_num
+        info["rooms"] = rooms
+        info["corridors"] = corridors
+        floors_info.append(info)
+
+    # 층간 계단 연결 (RegionGate)
+    for i in range(len(floors_info) - 1):
+        upper = floors_info[i]
+        lower = floors_info[i + 1]
+
+        # stairs_down 방 찾기 (upper층)
+        stairs_down_loc = None
+        for room in upper["rooms"]:
+            if room.room_type == "stairs_down":
+                stairs_down_loc = upper["locations"].get(room.id)
+                break
+
+        # stairs_up 방 찾기 (lower층)
+        stairs_up_loc = None
+        for room in lower["rooms"]:
+            if room.room_type == "stairs_up":
+                stairs_up_loc = lower["locations"].get(room.id)
+                break
+
+        if stairs_down_loc is not None and stairs_up_loc is not None:
+            morld.add_region_gate(
+                upper["region_id"], stairs_down_loc,
+                lower["region_id"], stairs_up_loc,
+                30  # 계단 이동 30초
+            )
+            print(f"[builder] Stairs: {upper['region_id']}:L{stairs_down_loc} "
+                  f"↔ {lower['region_id']}:L{stairs_up_loc}")
+
+    entrance_info = floors_info[0] if floors_info else {}
+    return {
+        "floors": floors_info,
+        "entrance_region_id": entrance_info.get("region_id", base_region_id),
+        "entrance_location": entrance_info.get("entrance_location", 0),
     }

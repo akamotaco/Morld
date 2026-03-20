@@ -125,6 +125,66 @@ def generate_dungeon(width=400, height=400, min_size=60, max_depth=4,
     return rooms, corridors
 
 
+def generate_multi_floor(floors=3, width=400, height=400, min_size=60,
+                         max_depth=4, room_padding=8, seed=None):
+    """
+    다층 던전 생성.
+
+    층별로 독립 BSP → 계단(stairs_up/stairs_down)으로 연결.
+    1층 입구(start), 최하층 보스(boss).
+
+    Args:
+        floors: 층 수
+        나머지: generate_dungeon과 동일
+
+    Returns:
+        list[dict]: 층별 {"floor": int, "rooms": list[Room], "corridors": list[Corridor]}
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    result = []
+    for floor in range(floors):
+        floor_seed = (seed * 100 + floor + 1) if seed else None
+        rooms, corridors = generate_dungeon(
+            width=width, height=height,
+            min_size=min_size, max_depth=max_depth,
+            room_padding=room_padding, seed=floor_seed
+        )
+
+        # 타입 재할당 (다층용)
+        for room in rooms:
+            room.room_type = "normal"
+
+        if rooms:
+            if floor == 0:
+                rooms[0].room_type = "start"        # 1층 입구
+            if floor == floors - 1:
+                rooms[-1].room_type = "boss"         # 최하층 보스
+
+            # 보물방: 각 층 중간 1개
+            if len(rooms) > 3:
+                rooms[len(rooms) // 2].room_type = "treasure"
+
+            # 계단: 마지막 방 = stairs_down (최하층 제외)
+            if floor < floors - 1:
+                stairs_down_room = rooms[-1] if rooms[-1].room_type == "normal" else rooms[-2]
+                stairs_down_room.room_type = "stairs_down"
+
+            # 계단: 첫 번째 방 = stairs_up (1층 제외)
+            if floor > 0:
+                stairs_up_room = rooms[0] if rooms[0].room_type == "normal" else rooms[1]
+                stairs_up_room.room_type = "stairs_up"
+
+        result.append({
+            "floor": floor,
+            "rooms": rooms,
+            "corridors": corridors,
+        })
+
+    return result
+
+
 def _split(node, min_size, max_depth, depth):
     """재귀 BSP 분할"""
     if depth >= max_depth:

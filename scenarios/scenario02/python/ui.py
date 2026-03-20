@@ -159,15 +159,27 @@ def _set_render_context(focus_type, view_tab, target_unit_id=None):
 
 
 def _can_use_map():
-    """플레이어가 지도를 사용할 수 있는지 확인 (can:map 또는 지역별 지도 보유)"""
+    """플레이어가 지도를 사용할 수 있는지 확인 (can:map 또는 지역별 지도 보유 또는 던전)"""
     try:
         player_id = morld.get_player_id()
         if player_id is None:
             return False
+
+        current_loc = morld.get_unit_location(player_id)
+
+        # 던전 region이면 항상 맵 사용 가능
+        if current_loc:
+            try:
+                from instant_dungeon.manager import get_dungeon_for_region
+                dungeon_id, _ = get_dungeon_for_region(current_loc[0])
+                if dungeon_id is not None:
+                    return True
+            except ImportError:
+                pass
+
         props = morld.get_actual_props(player_id)
         if props.get("can:map", 0) >= 1:
             return True
-        current_loc = morld.get_unit_location(player_id)
         if current_loc:
             region_map_props = {
                 0: "can:map:mansion",
@@ -271,6 +283,7 @@ def _render_map_tab():
 
     map_ui._render_map()은 Dialog proc 방식(@proc: URL)이므로 탭에서 사용 불가.
     탭용으로는 move: URL을 직접 사용하는 별도 렌더링을 수행.
+    던전 region에서는 던전 맵 렌더러로 분기.
     """
     try:
         import map_ui
@@ -283,6 +296,16 @@ def _render_map_tab():
             return "현재 위치를 알 수 없습니다."
 
         region_id, current_local = current_loc
+
+        # 던전 region → 던전 맵 렌더러
+        try:
+            from instant_dungeon.manager import get_dungeon_for_region
+            dungeon_id, dungeon_info = get_dungeon_for_region(region_id)
+            if dungeon_info:
+                return _render_dungeon_map_tab(dungeon_info, dungeon_id,
+                                                region_id, current_local, player_id)
+        except ImportError:
+            pass
 
         # 플레이어 X 위치
         player_pos_x = 0
@@ -397,6 +420,371 @@ def _render_map_tab():
     except Exception as e:
         print(f"[ui] _render_map_tab error: {e}")
         return f"지도 오류: {e}"
+
+
+# ========================================
+# 던전 맵 렌더러
+# ========================================
+
+# 방 타입별 기호 (BBCode 태그 충돌 방지 — 대괄호 사용 안 함)
+_ROOM_SYMBOLS = {
+    "start":       "◇",  # 입구
+    "boss":        "★",  # 보스
+    "treasure":    "◆",  # 보물
+    "normal":      "●",  # 일반
+    "stairs_down": "▽",  # 하층 계단
+    "stairs_up":   "△",  # 상층 계단
+}
+
+# 그리드 크기
+_GRID_W = 50
+_GRID_H = 25
+
+
+def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, player_id):
+    """
+    던전 맵 탭 — 2D 그리드 기반 BBCode 렌더링
+
+    BSP 좌표 → 텍스트 그리드 매핑 → FoW 적용 → BBCode 출력
+    다층 던전: 현재 층 렌더링 + 층 전환 헤더
+    캐릭터는 코드네임(A,B,C...)으로 맵에 표시, 아래 범례에 풀네임
+    """
+    try:
+        from instant_dungeon import fog
+        from instant_dungeon.fog import HIDDEN, VISIBLE, REVEALED
+        from instant_dungeon.manager import get_floor_for_region
+
+        # 다층 던전: 현재 층 데이터 추출
+        floors_data = dungeon_info.get("floors")
+        current_floor = None
+        if floors_data:
+            floor_info = get_floor_for_region(dungeon_id, region_id)
+            if floor_info:
+                rooms = floor_info.get("rooms", [])
+                corridors = floor_info.get("corridors", [])
+                locations = floor_info.get("locations", {})
+                current_floor = floor_info.get("floor", 0)
+                fog_id = f"{dungeon_id}_F{current_floor}"
+            else:
+                return "현재 층 정보를 찾을 수 없습니다."
+        else:
+            rooms = dungeon_info.get("rooms", [])
+            corridors = dungeon_info.get("corridors", [])
+            locations = dungeon_info.get("locations", {})
+            fog_id = dungeon_id
+
+        if not rooms:
+            return "던전 정보가 없습니다."
+
+        # 현재 방 ID (location_id → room_id 역매핑)
+        current_room_id = None
+        loc_to_room = {}
+        for rid, lid in locations.items():
+            loc_to_room[lid] = rid
+            if lid == current_local:
+                current_room_id = rid
+
+        # FoW 갱신 + 상태 조회 (다층: fog_id = dungeon_id_F{floor})
+        if current_room_id is not None:
+            fog.update_fog(fog_id, current_room_id)
+        fog_state = fog.get_fog_state(fog_id)
+        adjacency = fog.get_adjacency(fog_id)
+
+        # BSP 범위 계산
+        bsp_max_x = max(r.x + r.w for r in rooms)
+        bsp_max_y = max(r.y + r.h for r in rooms)
+        bsp_max_x = max(bsp_max_x, 1)
+        bsp_max_y = max(bsp_max_y, 1)
+
+        # 방 중심 → 그리드 좌표 매핑
+        positions = {}
+        for room in rooms:
+            cx = (room.x + room.w // 2)
+            cy = (room.y + room.h // 2)
+            gx = int(cx * (_GRID_W - 6) / bsp_max_x) + 3
+            gy = int(cy * (_GRID_H - 4) / bsp_max_y) + 2
+            gx = max(3, min(_GRID_W - 4, gx))
+            gy = max(1, min(_GRID_H - 2, gy))
+            positions[room.id] = (gx, gy)
+
+        # 충돌 해결 (같은 좌표에 여러 방 → 밀어내기)
+        occupied = {}
+        for room_id, (gx, gy) in list(positions.items()):
+            key = (gx, gy)
+            while key in occupied:
+                gx += 4
+                if gx >= _GRID_W - 4:
+                    gx = 3
+                    gy += 2
+                key = (gx, gy)
+            occupied[key] = room_id
+            positions[room_id] = (gx, gy)
+
+        # ── 캐릭터 조회 + 코드네임 할당 ──
+        # VISIBLE 방에 있는 캐릭터 수집, 순서대로 A, B, C... 할당
+        room_chars = {}      # room_id → [(name, is_creature, codename)]
+        codename_legend = [] # [(codename, name, is_creature)]
+        codename_idx = 0
+
+        for room in rooms:
+            vis = fog_state.get(room.id, HIDDEN)
+            if vis < VISIBLE:
+                continue
+            loc_id = locations.get(room.id)
+            if loc_id is None:
+                continue
+            unit_ids = morld.get_characters_at_location(region_id, loc_id)
+            chars = []
+            for uid in unit_ids:
+                if uid == player_id:
+                    continue
+                info = morld.get_unit_info(uid)
+                if info and not info.get("is_object", False):
+                    name = info.get("name", "?")
+                    is_creature = info.get("is_creature", False)
+                    codename = chr(ord('A') + codename_idx) if codename_idx < 26 else '?'
+                    codename_idx += 1
+                    chars.append((name, is_creature, codename))
+                    codename_legend.append((codename, name, is_creature))
+            if chars:
+                room_chars[room.id] = chars
+
+        # ── 그리드 초기화 ──
+        grid = [[' '] * _GRID_W for _ in range(_GRID_H)]
+        # 메타: 각 셀의 정보 (렌더링 시 색상/URL 결정용)
+        # None 또는 ("room", room_id, is_current, is_adjacent, vis)
+        grid_meta = [[None] * _GRID_W for _ in range(_GRID_H)]
+
+        # ── 복도 그리기 (발견된 복도만 — 방문 이력 포함) ──
+        for corr in corridors:
+            vis_a = fog_state.get(corr.room_a, HIDDEN)
+            vis_b = fog_state.get(corr.room_b, HIDDEN)
+            # 양쪽 다 VISIBLE이거나, 한 번이라도 발견된 복도면 그리기
+            both_visible = vis_a >= VISIBLE and vis_b >= VISIBLE
+            was_revealed = fog.is_corridor_revealed(fog_id, corr.room_a, corr.room_b)
+            if both_visible or was_revealed:
+                ax, ay = positions.get(corr.room_a, (0, 0))
+                bx, by = positions.get(corr.room_b, (0, 0))
+                dim = not both_visible  # 현재 안 보이면 흐리게
+                _draw_corridor(grid, ax, ay, bx, by, dim=dim)
+
+        # ── 방 그리기 (모든 방 — HIDDEN은 ·, REVEALED은 흐리게, VISIBLE은 밝게) ──
+        for room in rooms:
+            vis = fog_state.get(room.id, HIDDEN)
+            gx, gy = positions[room.id]
+            is_current = (room.id == current_room_id)
+            is_adjacent = room.id in adjacency.get(current_room_id, set()) if current_room_id is not None else False
+
+            if vis == HIDDEN:
+                symbol = "·"
+            elif is_current:
+                symbol = "@"
+            else:
+                symbol = _ROOM_SYMBOLS.get(room.room_type, "?")
+
+            # 방 기호 배치
+            if 0 <= gx < _GRID_W and 0 <= gy < _GRID_H:
+                grid[gy][gx] = symbol
+                grid_meta[gy][gx] = ("room", room.id, is_current, is_adjacent, vis)
+
+            # 캐릭터 코드네임 (방 기호 오른쪽에 배치)
+            if room.id in room_chars:
+                offset = 1
+                for _name, _is_creature, codename in room_chars[room.id]:
+                    cx = gx + offset
+                    if 0 <= cx < _GRID_W and 0 <= gy < _GRID_H and grid[gy][cx] == ' ':
+                        grid[gy][cx] = codename
+                        grid_meta[gy][cx] = ("char", room.id, _is_creature, False, vis)
+                    offset += 1
+
+        # ── BBCode 생성 ──
+        lines = []
+        fog_mode = fog.get_fog_mode(dungeon_id)
+        mode_label = {"volatile": "안개", "permanent": "탐험", "none": "전체"}.get(fog_mode, fog_mode)
+        room_count = sum(1 for v in fog_state.values() if v >= VISIBLE)
+        # 헤더 — 층 전환 UI
+        header = "[!][b]던전 지도[/b]"
+        if floors_data and len(floors_data) > 1:
+            floor_tabs = []
+            for fd in floors_data:
+                f_num = fd["floor"]
+                label = f"{f_num + 1}F"
+                if f_num == current_floor:
+                    floor_tabs.append(c("#ffff00", f"▶{label}"))
+                else:
+                    # 다른 층의 입구 location으로 이동 (계단 통해야 하지만 맵에서 조회용)
+                    floor_tabs.append(style_muted(label))
+            header += "  " + " ".join(floor_tabs)
+        header += f"  {style_muted(f'{mode_label} | 발견 {room_count}/{len(rooms)}')}"
+        lines.append(header)
+
+        for y in range(_GRID_H):
+            row = ""
+            for x in range(_GRID_W):
+                meta = grid_meta[y][x]
+                ch = grid[y][x]
+
+                if meta is None:
+                    # 복도 문자 (dim 여부에 따라 색상 변경)
+                    if ch in ('─', '│', '┐', '└', '┘', '┌', '├', '┤', '┬', '┴', '┼'):
+                        row += c("#555555", ch)
+                    elif ch in ('╌', '╎'):
+                        # dim 복도 (흐리게)
+                        row += c("#333333", ch.replace('╌', '─').replace('╎', '│'))
+                    else:
+                        row += ch
+                elif meta[0] == "room":
+                    _, room_id, is_current, is_adjacent, vis = meta
+                    loc_id = locations.get(room_id)
+
+                    if vis == HIDDEN:
+                        # 미발견 방: 흐린 점
+                        row += c("#333333", ch)
+                    elif is_current:
+                        row += c("#ffff00", ch)
+                    elif is_adjacent and loc_id is not None:
+                        row += f"[url=move:{region_id}:{loc_id}]{c('#66ccff', ch)}[/url]"
+                    elif vis == REVEALED:
+                        row += c("#666666", ch)
+                    else:
+                        row += c("#aaaaaa", ch)
+                elif meta[0] == "char":
+                    _, _room_id, is_creature, _, _ = meta
+                    color = "#ff6666" if is_creature else "#66ff66"
+                    row += c(color, ch)
+                else:
+                    row += ch
+
+            # 오른쪽 공백 제거
+            row = row.rstrip()
+            if row:
+                lines.append(row)
+
+        # ── 범례 ──
+        lines.append("")
+        legend = (
+            f"  {c('#ffff00', '@')}현재  "
+            f"{c('#66ccff', '●')}인접  "
+            f"{c('#aaaaaa', '◇')}입구  "
+            f"{c('#ff6666', '★')}보스  "
+            f"{c('#66ff66', '◆')}보물  "
+            f"{c('#cccccc', '▽')}하층  "
+            f"{c('#cccccc', '△')}상층"
+        )
+        lines.append(legend)
+
+        # 캐릭터 범례
+        if codename_legend:
+            char_parts = []
+            for codename, name, is_creature in codename_legend:
+                color = "#ff6666" if is_creature else "#66ff66"
+                char_parts.append(f"{c(color, codename)}={name}")
+            lines.append("  " + "  ".join(char_parts))
+
+        # 층간 이동 + 나가기 링크
+        if current_room_id is not None:
+            current_room = None
+            for room in rooms:
+                if room.id == current_room_id:
+                    current_room = room
+                    break
+
+            if current_room:
+                action_links = []
+
+                # 계단: 내려가기 (stairs_down → 아래 층의 stairs_up)
+                if current_room.room_type == "stairs_down" and floors_data and current_floor is not None:
+                    next_floor = current_floor + 1
+                    for fd in floors_data:
+                        if fd["floor"] == next_floor:
+                            # 아래 층의 stairs_up 방 찾기
+                            for r in fd["rooms"]:
+                                if r.room_type == "stairs_up":
+                                    target_loc = fd["locations"].get(r.id)
+                                    if target_loc is not None:
+                                        action_links.append(
+                                            f"[url=move:{fd['region_id']}:{target_loc}]"
+                                            f"{c('#ccccff', f'▽ {next_floor + 1}F로 내려가기')}[/url]"
+                                        )
+                                    break
+                            break
+
+                # 계단: 올라가기 (stairs_up → 위 층의 stairs_down)
+                if current_room.room_type == "stairs_up" and floors_data and current_floor is not None:
+                    prev_floor = current_floor - 1
+                    for fd in floors_data:
+                        if fd["floor"] == prev_floor:
+                            for r in fd["rooms"]:
+                                if r.room_type == "stairs_down":
+                                    target_loc = fd["locations"].get(r.id)
+                                    if target_loc is not None:
+                                        action_links.append(
+                                            f"[url=move:{fd['region_id']}:{target_loc}]"
+                                            f"{c('#ccccff', f'△ {prev_floor + 1}F로 올라가기')}[/url]"
+                                        )
+                                    break
+                            break
+
+                # 입구: 나가기
+                if current_room.room_type == "start":
+                    ext_r = dungeon_info.get("_entrance_ext_region")
+                    ext_l = dungeon_info.get("_entrance_ext_location")
+                    if ext_r is not None and ext_l is not None:
+                        action_links.append(
+                            f"[url=move:{ext_r}:{ext_l}]{c('#ffcc00', '◇ 던전에서 나가기')}[/url]"
+                        )
+
+                if action_links:
+                    lines.append("")
+                    for link in action_links:
+                        lines.append(f"  {link}")
+
+        lines.append("[/!]")
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[ui] _render_dungeon_map_tab error: {e}")
+        import traceback
+        try:
+            traceback.print_exc()
+        except Exception:
+            pass
+        return f"던전 지도 오류: {e}"
+
+
+def _draw_corridor(grid, ax, ay, bx, by, dim=False):
+    """두 점 사이 L자형 복도 그리기 (box-drawing 문자)"""
+    h = _GRID_H
+    w = _GRID_W
+    h_char = '─' if not dim else '╌'
+    v_char = '│' if not dim else '╎'
+
+    # 수평 이동 (ax → bx, y=ay)
+    x = ax
+    step = 1 if bx > ax else -1
+    while x != bx:
+        if 0 <= x < w and 0 <= ay < h and grid[ay][x] == ' ':
+            grid[ay][x] = h_char
+        x += step
+
+    # 수직 이동 (bx, ay → by)
+    y = ay
+    step = 1 if by > ay else -1
+    while y != by:
+        if 0 <= bx < w and 0 <= y < h and grid[y][bx] == ' ':
+            grid[y][bx] = v_char
+        y += step
+
+    # 꺾이는 지점
+    if ax != bx and ay != by:
+        if 0 <= bx < w and 0 <= ay < h and grid[ay][bx] == ' ':
+            if (bx > ax and by > ay):
+                grid[ay][bx] = '┐'
+            elif (bx > ax and by < ay):
+                grid[ay][bx] = '┘'
+            elif (bx < ax and by > ay):
+                grid[ay][bx] = '┌'
+            elif (bx < ax and by < ay):
+                grid[ay][bx] = '└'
 
 
 def _render_stat_tab(unit_id):
