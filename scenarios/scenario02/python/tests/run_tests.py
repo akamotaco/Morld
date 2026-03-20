@@ -109,6 +109,7 @@ def main():
         "test_party",
         "test_inspect",
         "test_vehicle",
+        "test_story",
     ]
 
     if filter_modules:

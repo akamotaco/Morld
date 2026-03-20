@@ -275,6 +275,57 @@ class Sera(Character):
     }
 
     # ========================================
+    # 심부름 (errand) 오버라이드 — 일일 퀘스트 필터링
+    # ========================================
+
+    def errand(self):
+        """세라의 심부름: 일일 퀘스트는 오늘 선택된 3개만 표시"""
+        from quest import quest_manager
+        from think import get_agent_for
+        from assets.base import style_muted
+
+        available_quests = quest_manager.get_available_quests_from(self.unique_id)
+        if not available_quests:
+            yield ui.dialog(f"[{self.name}]\n\"...부탁할 일은 없어.\"")
+            return
+
+        # 오늘의 일일 퀘스트 ID 조회
+        agent = get_agent_for(self.instance_id)
+        today_daily = agent.get_today_daily_quests() if agent else []
+
+        # 필터: daily 카테고리는 오늘 선택된 것만, 나머지는 전부 표시
+        filtered = []
+        for quest in available_quests:
+            if quest.category == "daily":
+                if quest.unique_id in today_daily:
+                    filtered.append(quest)
+            else:
+                filtered.append(quest)
+
+        if not filtered:
+            yield ui.dialog(f"[{self.name}]\n\"...오늘은 딱히 없어.\"")
+            return
+
+        lines = [f"[b]{self.name}[/b]의 심부름", ""]
+        for quest in filtered:
+            lines.append(f"[url=@ret:{quest.unique_id}]{quest.name}[/url]")
+            if quest.description:
+                desc = quest.description[:30] + "..." if len(quest.description) > 30 else quest.description
+                lines.append("  " + style_muted(desc))
+        lines.append("")
+        lines.append("[url=@ret:cancel]취소[/url]")
+
+        result = yield ui.dialog("\n".join(lines), autofill="off")
+
+        if result and result != "cancel":
+            quest_id = result
+            quest = quest_manager._get_quest_instance(quest_id)
+            if quest:
+                accept_result = yield from quest.offer_dialog()
+                if accept_result == "accept":
+                    quest_manager.accept_quest(quest_id)
+
+    # ========================================
     # 대화 주제 목록 (주제 선택 메뉴)
     # ========================================
     TALK_TOPICS = [
@@ -1466,9 +1517,17 @@ class SeraAgent(BaseAgent):
         "trinket": 10, "flower": 10,
     }
 
+    # 일일 퀘스트 풀 (quest unique_id 목록)
+    DAILY_QUEST_IDS = [
+        "daily_gather_herb", "daily_gather_berry", "daily_firewood",
+        "daily_fishing", "daily_clean", "daily_water_garden", "daily_deliver_food",
+    ]
+    DAILY_QUEST_COUNT = 3  # 매일 제공할 퀘스트 수
+
     def __init__(self, unit_id):
         super().__init__(unit_id)
         self._memory["current_day_type"] = None
+        self._memory["daily_quest_day"] = -1  # 마지막 일일퀘스트 선택일
         import survival
         survival.register_npc(unit_id)
         import temperature
@@ -1478,14 +1537,36 @@ class SeraAgent(BaseAgent):
         import pregnancy
         pregnancy.register_character(unit_id)
 
+    def _select_daily_quests(self, day):
+        """매일 아침 일일 퀘스트 3개 랜덤 선택 → prop 저장"""
+        import random
+        selected = random.sample(self.DAILY_QUEST_IDS, self.DAILY_QUEST_COUNT)
+        # 세라 prop에 오늘의 퀘스트 저장 (쉼표 구분)
+        morld.set_unit_prop(self.unit_id, "일일퀘스트:오늘", ",".join(selected))
+        self._memory["daily_quest_day"] = day
+
+    def get_today_daily_quests(self):
+        """오늘 활성화된 일일 퀘스트 ID 목록 반환"""
+        raw = morld.get_unit_prop(self.unit_id, "일일퀘스트:오늘")
+        if raw and isinstance(raw, str):
+            return [q.strip() for q in raw.split(",") if q.strip()]
+        return []
+
     def think(self):
-        """주말/평일 감지 → 스케줄 전환"""
+        """주말/평일 감지 + 일일 퀘스트 선택"""
         time_info = morld.get_time_info()
         day = time_info.get("day", 0)
+
+        # 주말/평일 스케줄 전환
         day_type = "주말" if day % 7 >= 5 else "평일"
         if self._memory["current_day_type"] != day_type:
             self._memory["current_day_type"] = day_type
             self.set_base_schedule(self.SCHEDULES[day_type])
+
+        # 일일 퀘스트 선택 (날짜 변경 시 1회)
+        if self._memory["daily_quest_day"] != day:
+            self._select_daily_quests(day)
+
         return super().think()
 
 
@@ -1646,6 +1727,239 @@ Sera.CHARACTER_QUESTS = [
                 "...너한테 주고 싶었어.",
                 "......",
                 "...잃어버리지 마.",
+            ],
+        },
+    },
+
+    # ========================================
+    # 일일 퀘스트 (Daily) — 반복 가능
+    # ========================================
+    # 세라가 매일 하나씩 부여하는 심부름.
+    # repeatable=True → 완료 후 다음 날 자동 리셋.
+    # location 하드코딩 없음 (이주 안전).
+
+    {
+        "unique_id": "daily_gather_herb",
+        "name": "약초 채집",
+        "description": "약초를 채집해 와.",
+        "category": "daily",
+        "repeatable": True,
+
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "collect", "item": "herb", "count": 3},
+        ],
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+        ],
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "...약초가 떨어졌어.",
+                "...3개만 구해올 수 있어?",
+            ],
+            "accept": ["[세라]", "...부탁한다."],
+            "decline": ["[세라]", "......", "...알겠어."],
+            "progress": ["[세라]", "...약초는?"],
+            "complete": [
+                "[세라]",
+                "...잘 구해왔군.",
+                "(세라가 약초를 받아 든다)",
+            ],
+        },
+    },
+    {
+        "unique_id": "daily_gather_berry",
+        "name": "열매 채집",
+        "description": "먹을 열매를 모아 와.",
+        "category": "daily",
+        "repeatable": True,
+
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "collect", "item": "wild_berry", "count": 5},
+        ],
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+        ],
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "...식량이 부족해.",
+                "...숲에서 열매 5개 정도 모아와.",
+            ],
+            "accept": ["[세라]", "...빨리 갔다 와."],
+            "decline": ["[세라]", "......"],
+            "progress": ["[세라]", "...아직이야?"],
+            "complete": [
+                "[세라]",
+                "...됐어.",
+                "(세라가 열매를 확인한다)",
+            ],
+        },
+    },
+    {
+        "unique_id": "daily_firewood",
+        "name": "장작 모으기",
+        "description": "나뭇가지를 모아 와.",
+        "category": "daily",
+        "repeatable": True,
+
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "collect", "item": "branch", "count": 5},
+        ],
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+        ],
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "...연료가 부족해.",
+                "...나뭇가지 5개만 주워올 수 있어?",
+            ],
+            "accept": ["[세라]", "...고맙군."],
+            "decline": ["[세라]", "...쓸모없군."],
+            "progress": ["[세라]", "...아직 못 모았어?"],
+            "complete": [
+                "[세라]",
+                "...이 정도면 되겠군.",
+                "(세라가 나뭇가지를 받는다)",
+            ],
+        },
+    },
+    {
+        "unique_id": "daily_fishing",
+        "name": "물고기 잡기",
+        "description": "물고기를 잡아 와.",
+        "category": "daily",
+        "repeatable": True,
+
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "collect", "item": "fish", "count": 2},
+        ],
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+        ],
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "...오늘 저녁 재료가 필요해.",
+                "...물고기 2마리 잡아올 수 있지?",
+            ],
+            "accept": ["[세라]", "...연못에 가면 된다."],
+            "decline": ["[세라]", "......"],
+            "progress": ["[세라]", "...아직?"],
+            "complete": [
+                "[세라]",
+                "...됐어.",
+                "(세라가 물고기를 받아 든다)",
+                "...밀라한테 전해줘도 되고.",
+            ],
+        },
+    },
+    {
+        "unique_id": "daily_clean",
+        "name": "저택 청소",
+        "description": "더러운 곳을 청소해.",
+        "category": "daily",
+        "repeatable": True,
+
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "wait", "hours": 1},  # 청소 행동 시간 대용
+        ],
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+        ],
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "...저택이 더럽다.",
+                "...좀 치워.",
+            ],
+            "accept": ["[세라]", "...빗자루는 알아서 찾아."],
+            "decline": ["[세라]", "...게으른 녀석."],
+            "progress": ["[세라]", "...아직 안 끝났어?"],
+            "complete": [
+                "[세라]",
+                "......",
+                "...나쁘지 않군.",
+            ],
+        },
+    },
+    {
+        "unique_id": "daily_water_garden",
+        "name": "텃밭 물주기",
+        "description": "텃밭에 물을 줘.",
+        "category": "daily",
+        "repeatable": True,
+
+        "giver": "sera",
+        "reporter": "sera",
+
+        "conditions": [
+            {"type": "wait", "hours": 1},  # 물주기 행동 시간 대용
+        ],
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+        ],
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "...텃밭이 말라가고 있어.",
+                "...물 좀 줘.",
+            ],
+            "accept": ["[세라]", "...물통은 수도 근처에 있을 거다."],
+            "decline": ["[세라]", "......"],
+            "progress": ["[세라]", "...텃밭 갔다 왔어?"],
+            "complete": [
+                "[세라]",
+                "...수고했어.",
+            ],
+        },
+    },
+    {
+        "unique_id": "daily_deliver_food",
+        "name": "식재료 전달",
+        "description": "식재료를 밀라에게 전달해.",
+        "category": "daily",
+        "repeatable": True,
+
+        "giver": "sera",
+        "reporter": "mila",  # 밀라에게 보고
+
+        "conditions": [
+            {"type": "deliver", "item": "wild_berry", "target": "mila", "count": 3},
+        ],
+        "rewards": [
+            {"type": "prop", "target": "player", "prop": "관계:세라:신뢰", "value": 1},
+            {"type": "prop", "target": "player", "prop": "관계:밀라:호감", "value": 2},
+        ],
+        "dialogs": {
+            "offer": [
+                "[세라]",
+                "...열매를 좀 따서 밀라한테 갖다 줘.",
+                "...3개면 돼.",
+            ],
+            "accept": ["[세라]", "...밀라가 부엌에 있을 거다."],
+            "decline": ["[세라]", "...쓸모없는 녀석."],
+            "progress": ["[세라]", "...밀라한테 갖다 줬어?"],
+            "complete": [
+                "[밀라]",
+                "...고마워, 이거 쓸게.",
+                "(밀라가 열매를 받으며 미소 짓는다)",
             ],
         },
     },

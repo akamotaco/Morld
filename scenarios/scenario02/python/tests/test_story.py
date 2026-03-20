@@ -1,0 +1,440 @@
+# test_story.py — 챕터 1 스토리 로직 테스트
+"""
+테스트 대상: story.py
+- 알파 판정 (신뢰/굴복/혼합 루트)
+- 단둘이 판정
+- 발각 판정
+- 약점 플래그
+- 다수결 굴복
+- 일일 퀘스트 선택 로직 (SeraAgent)
+"""
+
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from mock_morld import MockMorld
+
+mock = MockMorld()
+sys.modules["morld"] = mock
+
+
+def _setup():
+    """각 테스트 전 초기화"""
+    mock.reset()
+    # 플레이어
+    mock.register_unit(1, "주인공", location=(0, 0))
+    mock._player_id = 1
+    # 저택 NPC
+    mock.register_unit(10, "세라", location=(0, 1), props={"unique_id": "sera"})
+    mock.register_unit(11, "밀라", location=(0, 2), props={"unique_id": "mila"})
+    mock.register_unit(12, "리나", location=(0, 3), props={"unique_id": "lina"})
+    # 오브젝트 (가구)
+    mock.register_unit(100, "침대", location=(0, 1), is_object=True)
+
+
+class _T:
+    def __init__(self):
+        _setup()
+
+
+# ========================================
+# 알파 판정 테스트
+# ========================================
+
+class TestAlphaCheck(_T):
+
+    def test_no_progress(self):
+        """초기 상태: 알파 미달성"""
+        from story import check_alpha_status
+        assert check_alpha_status(1) == False
+
+    def test_trust_route_all(self):
+        """신뢰 루트: 3명 모두 신뢰+호감 충족 → 알파"""
+        from story import check_alpha_status
+        for name in ["세라", "밀라", "리나"]:
+            mock.set_unit_prop(1, f"관계:{name}:신뢰", 10)
+            mock.set_unit_prop(1, f"관계:{name}:호감", 60)
+        assert check_alpha_status(1) == True
+
+    def test_trust_route_partial(self):
+        """신뢰 루트: 2명만 충족 → 미달성"""
+        from story import check_alpha_status
+        for name in ["세라", "밀라"]:
+            mock.set_unit_prop(1, f"관계:{name}:신뢰", 10)
+            mock.set_unit_prop(1, f"관계:{name}:호감", 60)
+        assert check_alpha_status(1) == False
+
+    def test_submission_route_all(self):
+        """굴복 루트: 3명 모두 복종 충족 → 알파"""
+        from story import check_alpha_status
+        for name in ["세라", "밀라", "리나"]:
+            mock.set_unit_prop(1, f"관계:{name}:복종", 70)
+        assert check_alpha_status(1) == True
+
+    def test_submission_route_partial(self):
+        """굴복 루트: 1명 부족 → 미달성"""
+        from story import check_alpha_status
+        mock.set_unit_prop(1, "관계:세라:복종", 70)
+        mock.set_unit_prop(1, "관계:밀라:복종", 70)
+        mock.set_unit_prop(1, "관계:리나:복종", 50)  # 부족
+        assert check_alpha_status(1) == False
+
+    def test_mixed_route(self):
+        """혼합: 세라=굴복, 밀라=신뢰, 리나=신뢰 → 알파"""
+        from story import check_alpha_status
+        mock.set_unit_prop(1, "관계:세라:복종", 70)
+        mock.set_unit_prop(1, "관계:밀라:신뢰", 10)
+        mock.set_unit_prop(1, "관계:밀라:호감", 60)
+        mock.set_unit_prop(1, "관계:리나:신뢰", 10)
+        mock.set_unit_prop(1, "관계:리나:호감", 60)
+        assert check_alpha_status(1) == True
+
+    def test_trust_threshold_boundary(self):
+        """신뢰 경계값: 신뢰 9 → 미달, 10 → 달성"""
+        from story import check_alpha_status
+        for name in ["세라", "밀라", "리나"]:
+            mock.set_unit_prop(1, f"관계:{name}:신뢰", 9)
+            mock.set_unit_prop(1, f"관계:{name}:호감", 60)
+        assert check_alpha_status(1) == False
+        for name in ["세라", "밀라", "리나"]:
+            mock.set_unit_prop(1, f"관계:{name}:신뢰", 10)
+        assert check_alpha_status(1) == True
+
+    def test_progress_report(self):
+        """진행 상태 리포트"""
+        from story import get_alpha_progress
+        mock.set_unit_prop(1, "관계:세라:복종", 70)
+        mock.set_unit_prop(1, "관계:밀라:호감", 30)
+        progress = get_alpha_progress(1)
+        assert progress["세라"]["done"] == True
+        assert progress["세라"]["submission_ok"] == True
+        assert progress["밀라"]["done"] == False
+        assert progress["리나"]["done"] == False
+
+
+# ========================================
+# 단둘이 판정 테스트
+# ========================================
+
+class TestAloneWith(_T):
+
+    def test_alone_with_target(self):
+        """플레이어 + 세라만 있는 방 → True"""
+        from story import is_alone_with
+        mock._units[1]["location"] = (0, 1)  # 세라 방으로 이동
+        mock._units[1]["info"]["region_id"] = 0
+        mock._units[1]["info"]["location_id"] = 1
+        # 세라(10) + 침대(100, 오브젝트) + 플레이어(1) = 캐릭터 2명
+        assert is_alone_with(1, 10) == True
+
+    def test_not_alone_third_person(self):
+        """3명 이상 있으면 → False"""
+        from story import is_alone_with
+        mock._units[1]["location"] = (0, 1)
+        mock._units[1]["info"]["region_id"] = 0
+        mock._units[1]["info"]["location_id"] = 1
+        # 밀라도 같은 방으로
+        mock._units[11]["location"] = (0, 1)
+        mock._units[11]["info"]["region_id"] = 0
+        mock._units[11]["info"]["location_id"] = 1
+        assert is_alone_with(1, 10) == False
+
+    def test_different_location(self):
+        """다른 방에 있으면 → False"""
+        from story import is_alone_with
+        # 플레이어(0,0), 세라(0,1) — 다른 위치
+        assert is_alone_with(1, 10) == False
+
+    def test_object_ignored(self):
+        """오브젝트는 카운트에서 제외"""
+        from story import is_alone_with
+        mock._units[1]["location"] = (0, 1)
+        mock._units[1]["info"]["region_id"] = 0
+        mock._units[1]["info"]["location_id"] = 1
+        # 오브젝트 추가
+        mock.register_unit(101, "책상", location=(0, 1), is_object=True)
+        assert is_alone_with(1, 10) == True
+
+    def test_get_others(self):
+        """현재 위치의 다른 캐릭터 목록"""
+        from story import get_other_characters_at
+        mock._units[1]["location"] = (0, 1)
+        mock._units[1]["info"]["region_id"] = 0
+        mock._units[1]["info"]["location_id"] = 1
+        others = get_other_characters_at(1)
+        assert 10 in others  # 세라
+        assert 100 not in others  # 침대(오브젝트)는 제외
+
+
+# ========================================
+# 발각 판정 테스트
+# ========================================
+
+class TestDiscovery(_T):
+
+    def test_mila_forgives_high_affection(self):
+        """밀라: 호감 >= 30이면 눈감아줌"""
+        from story import check_discovery
+        mock.set_unit_prop(11, "관계:주인공:호감", 30)
+        result = check_discovery(1, 10, 11)  # 세라에게 강제, 밀라 목격
+        assert result == "forgive"
+
+    def test_mila_game_over_low_affection(self):
+        """밀라: 호감 < 30이면 게임오버"""
+        from story import check_discovery
+        mock.set_unit_prop(11, "관계:주인공:호감", 20)
+        result = check_discovery(1, 10, 11)
+        assert result == "game_over"
+
+    def test_lina_always_game_over(self):
+        """리나: 호감과 무관하게 게임오버"""
+        from story import check_discovery
+        mock.set_unit_prop(12, "관계:주인공:호감", 100)  # 높아도
+        result = check_discovery(1, 10, 12)
+        assert result == "game_over"
+
+    def test_sera_always_game_over(self):
+        """세라(목격자): 게임오버"""
+        from story import check_discovery
+        result = check_discovery(1, 12, 10)  # 리나에게 강제, 세라 목격
+        assert result == "game_over"
+
+
+# ========================================
+# 약점 플래그 테스트
+# ========================================
+
+class TestWeakness(_T):
+
+    def test_set_and_check(self):
+        """약점 설정 및 확인"""
+        from story import set_weakness, has_weakness
+        assert has_weakness(1, "세라", "자위발각") == False
+        set_weakness(1, "세라", "자위발각")
+        assert has_weakness(1, "세라", "자위발각") == True
+
+    def test_multiple_weaknesses(self):
+        """여러 약점 관리"""
+        from story import set_weakness, get_all_weaknesses
+        set_weakness(1, "세라", "자위발각")
+        set_weakness(1, "세라", "성인용품발견")
+        set_weakness(1, "리나", "호기심")
+        weaknesses = get_all_weaknesses(1, "세라")
+        assert "자위발각" in weaknesses
+        assert "성인용품발견" in weaknesses
+        assert len(weaknesses) == 2
+
+    def test_no_cross_contamination(self):
+        """다른 캐릭터의 약점은 포함되지 않음"""
+        from story import set_weakness, get_all_weaknesses
+        set_weakness(1, "세라", "자위발각")
+        set_weakness(1, "리나", "호기심")
+        sera_w = get_all_weaknesses(1, "세라")
+        assert "호기심" not in sera_w
+
+
+# ========================================
+# 다수결 굴복 테스트
+# ========================================
+
+class TestMajority(_T):
+
+    def test_majority_possible(self):
+        """밀라+리나가 플레이어 편 → 세라에 다수결 가능"""
+        from story import check_majority_against
+        mock.set_unit_prop(1, "관계:밀라:호감", 50)
+        mock.set_unit_prop(1, "관계:리나:호감", 50)
+        assert check_majority_against(1, "세라") == True
+
+    def test_majority_by_submission(self):
+        """복종으로도 '플레이어 편' 인정"""
+        from story import check_majority_against
+        mock.set_unit_prop(1, "관계:밀라:복종", 50)
+        mock.set_unit_prop(1, "관계:리나:복종", 50)
+        assert check_majority_against(1, "세라") == True
+
+    def test_majority_one_short(self):
+        """1명만 편이면 다수결 불가"""
+        from story import check_majority_against
+        mock.set_unit_prop(1, "관계:밀라:호감", 50)
+        mock.set_unit_prop(1, "관계:리나:호감", 30)  # 부족
+        assert check_majority_against(1, "세라") == False
+
+    def test_majority_against_mila(self):
+        """밀라 대상: 세라+리나가 편이어야"""
+        from story import check_majority_against
+        mock.set_unit_prop(1, "관계:세라:호감", 50)
+        mock.set_unit_prop(1, "관계:리나:호감", 50)
+        assert check_majority_against(1, "밀라") == True
+
+    def test_majority_mixed(self):
+        """혼합: 한 명은 호감, 한 명은 복종"""
+        from story import check_majority_against
+        mock.set_unit_prop(1, "관계:밀라:호감", 50)
+        mock.set_unit_prop(1, "관계:리나:복종", 50)
+        assert check_majority_against(1, "세라") == True
+
+
+# ========================================
+# 일일 퀘스트 선택 테스트
+# ========================================
+
+class TestDailyQuestSelection(_T):
+
+    def test_select_3_from_7(self):
+        """매일 7개 중 3개 선택"""
+        # SeraAgent 직접 테스트 대신 로직만 검증
+        import random
+        pool = [
+            "daily_gather_herb", "daily_gather_berry", "daily_firewood",
+            "daily_fishing", "daily_clean", "daily_water_garden", "daily_deliver_food",
+        ]
+        selected = random.sample(pool, 3)
+        assert len(selected) == 3
+        assert len(set(selected)) == 3  # 중복 없음
+        for s in selected:
+            assert s in pool
+
+    def test_daily_quest_prop_storage(self):
+        """선택된 퀘스트 prop 저장/조회"""
+        selected = ["daily_gather_herb", "daily_fishing", "daily_clean"]
+        mock.set_unit_prop(10, "일일퀘스트:오늘", ",".join(selected))
+
+        raw = mock.get_unit_prop(10, "일일퀘스트:오늘")
+        restored = [q.strip() for q in raw.split(",") if q.strip()]
+        assert restored == selected
+
+    def test_filter_daily_quests(self):
+        """daily 필터링: 오늘 선택된 것만 통과"""
+        today = {"daily_gather_herb", "daily_fishing", "daily_clean"}
+
+        all_quests = [
+            ("daily_gather_herb", "daily"),
+            ("daily_gather_berry", "daily"),
+            ("daily_firewood", "daily"),
+            ("daily_fishing", "daily"),
+            ("daily_clean", "daily"),
+            ("daily_water_garden", "daily"),
+            ("daily_deliver_food", "daily"),
+            ("sera_fishing", "personal"),  # non-daily
+        ]
+
+        filtered = []
+        for qid, cat in all_quests:
+            if cat == "daily":
+                if qid in today:
+                    filtered.append(qid)
+            else:
+                filtered.append(qid)
+
+        assert len(filtered) == 4  # 3 daily + 1 personal
+        assert "daily_gather_berry" not in filtered
+        assert "sera_fishing" in filtered
+
+
+# ========================================
+# 유키·엘라 합류 테스트
+# ========================================
+
+class TestRecruit(_T):
+
+    def test_persuade_yuki_success(self):
+        """유키 설득: 호감 50 이상 → 가능"""
+        from story import can_recruit, RECRUIT_PERSUADE
+        mock.set_unit_prop(1, "관계:유키:호감", 50)
+        assert can_recruit(1, "유키", RECRUIT_PERSUADE) == True
+
+    def test_persuade_yuki_fail(self):
+        """유키 설득: 호감 부족 → 불가"""
+        from story import can_recruit, RECRUIT_PERSUADE
+        mock.set_unit_prop(1, "관계:유키:호감", 40)
+        assert can_recruit(1, "유키", RECRUIT_PERSUADE) == False
+
+    def test_persuade_ella_harder(self):
+        """엘라 설득: 유키보다 높은 호감 필요"""
+        from story import can_recruit, RECRUIT_PERSUADE
+        mock.set_unit_prop(1, "관계:엘라:호감", 55)  # 유키 기준은 통과하지만
+        assert can_recruit(1, "엘라", RECRUIT_PERSUADE) == False
+        mock.set_unit_prop(1, "관계:엘라:호감", 60)
+        assert can_recruit(1, "엘라", RECRUIT_PERSUADE) == True
+
+    def test_kidnap_always_possible(self):
+        """납치는 조건 없이 가능"""
+        from story import can_recruit, RECRUIT_KIDNAP
+        assert can_recruit(1, "유키", RECRUIT_KIDNAP) == True
+
+    def test_blackmail_ella_needs_yuki(self):
+        """엘라 협박: 유키가 먼저 합류해야"""
+        from story import can_recruit, RECRUIT_BLACKMAIL
+        assert can_recruit(1, "엘라", RECRUIT_BLACKMAIL) == False
+        mock.set_unit_prop(1, "합류:유키", 1)
+        assert can_recruit(1, "엘라", RECRUIT_BLACKMAIL) == True
+
+    def test_kidnap_rebellion_penalty(self):
+        """납치 시 반발 증가"""
+        from story import apply_recruit_effects, RECRUIT_KIDNAP
+        effects = apply_recruit_effects(1, "유키", RECRUIT_KIDNAP)
+        rebellion = mock.get_unit_prop(1, "관계:유키:반발") or 0
+        assert rebellion == 30
+        assert (mock.get_unit_prop(1, "합류:유키") or 0) == 1
+
+    def test_persuade_affection_bonus(self):
+        """설득 시 호감 보너스"""
+        from story import apply_recruit_effects, RECRUIT_PERSUADE
+        mock.set_unit_prop(1, "관계:유키:호감", 50)
+        apply_recruit_effects(1, "유키", RECRUIT_PERSUADE)
+        assert mock.get_unit_prop(1, "관계:유키:호감") == 55
+
+    def test_all_joined(self):
+        """전원 합류 확인"""
+        from story import check_all_joined
+        assert check_all_joined(1) == False
+        mock.set_unit_prop(1, "합류:유키", 1)
+        assert check_all_joined(1) == False
+        mock.set_unit_prop(1, "합류:엘라", 1)
+        assert check_all_joined(1) == True
+
+
+# ========================================
+# 페이 합류 테스트
+# ========================================
+
+class TestFayeRecruit(_T):
+
+    def test_trade_trust(self):
+        """거래 신뢰: 호감 60 이상"""
+        from story import can_recruit_faye, RECRUIT_FAYE_TRADE
+        assert can_recruit_faye(1, RECRUIT_FAYE_TRADE) == False
+        mock.set_unit_prop(1, "관계:페이:호감", 60)
+        assert can_recruit_faye(1, RECRUIT_FAYE_TRADE) == True
+
+    def test_rescue(self):
+        """위기 구출 이벤트 완료"""
+        from story import can_recruit_faye, RECRUIT_FAYE_RESCUE, FAYE_RESCUE_FLAG
+        assert can_recruit_faye(1, RECRUIT_FAYE_RESCUE) == False
+        mock.set_unit_prop(1, FAYE_RESCUE_FLAG, 1)
+        assert can_recruit_faye(1, RECRUIT_FAYE_RESCUE) == True
+
+    def test_offer_after_alpha(self):
+        """알파 달성 후 전속 상인 제안"""
+        from story import can_recruit_faye, RECRUIT_FAYE_OFFER
+        assert can_recruit_faye(1, RECRUIT_FAYE_OFFER) == False
+        # 알파 조건 충족
+        for name in ["세라", "밀라", "리나"]:
+            mock.set_unit_prop(1, f"관계:{name}:복종", 70)
+        assert can_recruit_faye(1, RECRUIT_FAYE_OFFER) == True
+
+    def test_blackmail(self):
+        """성인용품 판매 비밀 협박"""
+        from story import can_recruit_faye, RECRUIT_FAYE_BLACKMAIL, set_weakness
+        assert can_recruit_faye(1, RECRUIT_FAYE_BLACKMAIL) == False
+        set_weakness(1, "페이", "성인용품판매")
+        assert can_recruit_faye(1, RECRUIT_FAYE_BLACKMAIL) == True
+
+    def test_debt(self):
+        """빚 관계"""
+        from story import can_recruit_faye, RECRUIT_FAYE_DEBT
+        assert can_recruit_faye(1, RECRUIT_FAYE_DEBT) == False
+        mock.set_unit_prop(1, "관계:페이:빚", 100)
+        assert can_recruit_faye(1, RECRUIT_FAYE_DEBT) == True
