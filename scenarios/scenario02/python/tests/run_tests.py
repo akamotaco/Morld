@@ -110,6 +110,7 @@ def main():
         "test_inspect",
         "test_vehicle",
         "test_story",
+        "test_instant_dungeon",
     ]
 
     if filter_modules:

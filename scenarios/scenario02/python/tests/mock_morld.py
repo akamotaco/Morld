@@ -464,9 +464,15 @@ class MockMorld:
     # morld API — Terrain (Region/Location/Gate)
     # ========================================
 
-    def add_region(self, region_id, name):
+    def add_region(self, region_id, name, describe_text=None, weather=None):
         """region 생성"""
         self._regions[region_id] = {"name": name}
+
+    def set_location_prop(self, region_id, location_id, key, value):
+        """location prop 설정"""
+        loc_key = (region_id, location_id)
+        if loc_key in self._locations:
+            self._locations[loc_key][key] = value
 
     def add_location(self, region_id, location_id, name, **kwargs):
         """location 생성 (build.py 호환)"""
