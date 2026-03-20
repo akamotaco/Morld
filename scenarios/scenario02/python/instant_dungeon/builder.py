@@ -83,20 +83,16 @@ def build_dungeon(rooms, corridors, region_id, dungeon_name="던전",
         morld.add_gate(region_id, loc_b, gate_id_b, gate_x_b,
                        region_id, loc_a, gate_x_a)
 
-    # 외부 입구 연결
+    # 외부 입구 연결 — cross-region은 RegionGate 사용 (add_gate는 같은 region 내부 전용)
+    # CPython 기존 월드: REGION_GATES → add_region_gate(region_a, loc_a, region_b, loc_b, distance)
     entrance_loc = locations.get(0, 0)  # start room
     if entrance_gate:
         ext_r = entrance_gate["region_id"]
         ext_l = entrance_gate["location_id"]
-        ext_gx = entrance_gate.get("gate_x", 400)
-        arr_x = entrance_gate.get("arrival_x", 0)
+        distance = entrance_gate.get("distance", 60)  # 기본 1분 도보
 
-        # 외부 → 던전 입구
-        morld.add_gate(ext_r, ext_l, 900 + region_id, ext_gx,
-                       region_id, entrance_loc, 10)
-        # 던전 입구 → 외부
-        morld.add_gate(region_id, entrance_loc, 999, 0,
-                       ext_r, ext_l, arr_x)
+        # 외부 ↔ 던전 입구 (양방향 RegionGate)
+        morld.add_region_gate(ext_r, ext_l, region_id, entrance_loc, distance)
 
     return {
         "region_id": region_id,

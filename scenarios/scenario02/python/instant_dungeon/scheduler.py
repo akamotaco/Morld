@@ -30,8 +30,7 @@ TEST_DUNGEON_CONFIG = {
     "entrance_gate": {
         "region_id": 0,
         "location_id": 13,
-        "gate_x": 280,
-        "arrival_x": 10,
+        "distance": 60,  # 1분 도보
     },
 }
 
@@ -51,10 +50,12 @@ def _on_time_elapsed(elapsed_millis):
 
     time_info = morld.get_time_info()
     if not time_info:
+        print("[dungeon_scheduler] WARNING: get_time_info() returned None")
         return
 
     current_hour = time_info.get("hour", 0)
     current_day = time_info.get("day", 0)
+    print(f"[dungeon_scheduler] tick: day={current_day} hour={current_hour} dungeon={_scheduled_dungeon_id} last_day={_last_checked_day}")
 
     # ── 생성: 09:00 + 오늘 아직 안 만들었으면 ──
     if (current_hour >= DUNGEON_OPEN_HOUR
@@ -62,24 +63,31 @@ def _on_time_elapsed(elapsed_millis):
             and current_day != _last_checked_day
             and _scheduled_dungeon_id is None):
 
-        _last_checked_day = current_day
-
         # 시드: 날짜 기반 (같은 날 같은 던전)
         seed = current_day * 1000 + 42
 
-        did = manager.create_dungeon(
-            name=TEST_DUNGEON_CONFIG["name"],
-            width=TEST_DUNGEON_CONFIG["width"],
-            height=TEST_DUNGEON_CONFIG["height"],
-            min_size=TEST_DUNGEON_CONFIG["min_size"],
-            max_depth=TEST_DUNGEON_CONFIG["max_depth"],
-            seed=seed,
-            entrance_gate=TEST_DUNGEON_CONFIG["entrance_gate"],
-        )
-
-        _scheduled_dungeon_id = did
-        _pending_destroy = False
-        morld.add_action_log("[던전] 숲 근처에 동굴 입구가 발견되었다.")
+        try:
+            did = manager.create_dungeon(
+                name=TEST_DUNGEON_CONFIG["name"],
+                width=TEST_DUNGEON_CONFIG["width"],
+                height=TEST_DUNGEON_CONFIG["height"],
+                min_size=TEST_DUNGEON_CONFIG["min_size"],
+                max_depth=TEST_DUNGEON_CONFIG["max_depth"],
+                seed=seed,
+                entrance_gate=TEST_DUNGEON_CONFIG["entrance_gate"],
+            )
+            _scheduled_dungeon_id = did
+            _last_checked_day = current_day
+            _pending_destroy = False
+            morld.add_action_log("[던전] 숲 근처에 동굴 입구가 발견되었다.")
+            print(f"[dungeon_scheduler] Created dungeon: {did}")
+        except Exception as e:
+            print(f"[dungeon_scheduler] ERROR creating dungeon: {type(e).__name__}: {e}")
+            import traceback
+            try:
+                traceback.print_exc()
+            except Exception:
+                pass
 
     # ── 삭제: 22:00 이후 + 던전 존재 + 내부에 아무도 없으면 ──
     if (current_hour >= DUNGEON_CLOSE_HOUR
@@ -117,5 +125,8 @@ def reset():
 try:
     from events import subscribe_time_elapsed
     subscribe_time_elapsed(_on_time_elapsed, min_interval=3_600_000)  # 1시간
+    print("[dungeon_scheduler] Registered time_elapsed subscriber (1h interval)")
 except ImportError:
-    pass  # 테스트 환경
+    print("[dungeon_scheduler] WARNING: events module not available (test env?)")
+except Exception as e:
+    print(f"[dungeon_scheduler] ERROR registering subscriber: {e}")
