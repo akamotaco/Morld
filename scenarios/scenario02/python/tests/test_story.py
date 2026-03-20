@@ -180,25 +180,25 @@ class TestDiscovery(_T):
         result = check_discovery(1, 10, 11)  # 세라에게 강제, 밀라 목격
         assert result == "forgive"
 
-    def test_mila_game_over_low_affection(self):
-        """밀라: 호감 < 30이면 게임오버"""
+    def test_mila_expulsion_low_affection(self):
+        """밀라: 호감 < 30이면 추방"""
         from story import check_discovery
         mock.set_unit_prop(11, "관계:주인공:호감", 20)
         result = check_discovery(1, 10, 11)
-        assert result == "game_over"
+        assert result == "expulsion"
 
-    def test_lina_always_game_over(self):
-        """리나: 호감과 무관하게 게임오버"""
+    def test_lina_always_expulsion(self):
+        """리나: 호감과 무관하게 추방"""
         from story import check_discovery
         mock.set_unit_prop(12, "관계:주인공:호감", 100)  # 높아도
         result = check_discovery(1, 10, 12)
-        assert result == "game_over"
+        assert result == "expulsion"
 
-    def test_sera_always_game_over(self):
-        """세라(목격자): 게임오버"""
+    def test_sera_always_expulsion(self):
+        """세라(목격자): 추방"""
         from story import check_discovery
         result = check_discovery(1, 12, 10)  # 리나에게 강제, 세라 목격
-        assert result == "game_over"
+        assert result == "expulsion"
 
 
 # ========================================
@@ -445,12 +445,12 @@ class TestQuestTimeout(_T):
         assert mock.get_unit_prop(1, "퀘스트:daily_gather_herb:상태") == 0
         assert effects["trust_loss"] == -1
 
-    def test_quest_failure_trust_floor(self):
-        """신뢰 0 미만 방지"""
+    def test_quest_failure_trust_goes_negative(self):
+        """신뢰 음수 허용 (추방 트리거용)"""
         from story import apply_quest_failure
         mock.set_unit_prop(1, "관계:세라:신뢰", 0)
         apply_quest_failure(1, "daily_gather_herb")
-        assert mock.get_unit_prop(1, "관계:세라:신뢰") == 0
+        assert mock.get_unit_prop(1, "관계:세라:신뢰") == -1
 
     def test_auto_fail_integration(self):
         """통합: _on_time_elapsed가 18시에 진행 중 일일퀘스트를 자동 실패시킴"""
@@ -488,6 +488,104 @@ class TestQuestTimeout(_T):
         _on_time_elapsed(3_600_000)
 
         assert mock.get_unit_prop(1, "관계:세라:신뢰") == 5  # 변동 없음
+
+
+# ========================================
+# 추방 시스템 테스트
+# ========================================
+
+class TestExpulsion(_T):
+
+    def test_expulsion_trigger(self):
+        """신뢰 -3 이하 → 추방 트리거"""
+        from story import check_expulsion_trigger
+        mock.set_unit_prop(1, "관계:세라:신뢰", -3)
+        assert check_expulsion_trigger(1) == True
+
+    def test_no_expulsion_above_threshold(self):
+        """신뢰 -2 → 추방 안 됨"""
+        from story import check_expulsion_trigger
+        mock.set_unit_prop(1, "관계:세라:신뢰", -2)
+        assert check_expulsion_trigger(1) == False
+
+    def test_no_expulsion_if_already_expelled(self):
+        """이미 추방된 상태면 중복 추방 안 됨"""
+        from story import check_expulsion_trigger
+        mock.set_unit_prop(1, "관계:세라:신뢰", -5)
+        mock.set_unit_prop(1, "스토리:추방됨", 1)
+        assert check_expulsion_trigger(1) == False
+
+    def test_no_expulsion_if_alpha(self):
+        """알파 달성 후에는 추방 안 됨"""
+        from story import check_expulsion_trigger
+        mock.set_unit_prop(1, "관계:세라:신뢰", -5)
+        # 알파 조건 충족 (점령)
+        mock.set_unit_prop(1, "스토리:저택점령", 1)
+        assert check_expulsion_trigger(1) == False
+
+    def test_apply_expulsion_effects(self):
+        """추방 효과: 플래그 + 호감 -15 + 반발 +20"""
+        from story import apply_expulsion, is_expelled
+        mock.set_unit_prop(1, "관계:세라:호감", 30)
+        mock.set_unit_prop(1, "관계:밀라:호감", 50)
+        mock.set_unit_prop(1, "관계:리나:호감", 20)
+
+        apply_expulsion(1)
+
+        assert is_expelled(1) == True
+        assert mock.get_unit_prop(1, "관계:세라:호감") == 15
+        assert mock.get_unit_prop(1, "관계:밀라:호감") == 35
+        assert mock.get_unit_prop(1, "관계:리나:호감") == 5
+        assert mock.get_unit_prop(1, "관계:세라:반발") == 20
+
+    def test_expulsion_affection_floor(self):
+        """추방 시 호감 0 미만 방지"""
+        from story import apply_expulsion
+        mock.set_unit_prop(1, "관계:세라:호감", 5)
+        apply_expulsion(1)
+        assert mock.get_unit_prop(1, "관계:세라:호감") == 0
+
+    def test_auto_expulsion_via_time(self):
+        """통합: 신뢰 바닥 → _on_time_elapsed에서 자동 추방"""
+        from story import _on_time_elapsed, is_expelled
+        mock.set_unit_prop(1, "관계:세라:신뢰", -3)
+        mock._time_info = {"hour": 10, "day": 1, "month": 1, "year": 1, "minute": 0}
+
+        _on_time_elapsed(3_600_000)
+
+        assert is_expelled(1) == True
+
+
+# ========================================
+# 점령 + 알파 테스트
+# ========================================
+
+class TestConquest(_T):
+
+    def test_conquest_alpha(self):
+        """점령 → 알파 달성"""
+        from story import check_alpha_status, apply_mansion_conquest
+        assert check_alpha_status(1) == False
+        apply_mansion_conquest(1)
+        assert check_alpha_status(1) == True
+
+    def test_conquest_clears_expulsion(self):
+        """점령 시 추방 플래그 해제"""
+        from story import apply_mansion_conquest, is_expelled
+        mock.set_unit_prop(1, "스토리:추방됨", 1)
+        assert is_expelled(1) == True
+        apply_mansion_conquest(1)
+        assert is_expelled(1) == False
+
+    def test_quest_fail_leads_to_expulsion(self):
+        """시나리오: 퀘스트 4회 실패 → 신뢰 1→-3 → 추방"""
+        from story import apply_quest_failure, check_expulsion_trigger
+        mock.set_unit_prop(1, "관계:세라:신뢰", 1)
+        for i in range(4):
+            apply_quest_failure(1, f"daily_test_{i}")
+        # 신뢰: 1 - 4 = -3
+        assert mock.get_unit_prop(1, "관계:세라:신뢰") == -3
+        assert check_expulsion_trigger(1) == True
 
 
 # ========================================

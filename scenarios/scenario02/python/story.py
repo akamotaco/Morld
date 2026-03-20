@@ -47,9 +47,8 @@ def check_alpha_status(player_id=None):
     """
     플레이어가 '알파' 조건을 달성했는지 확인.
 
-    조건: 저택 3명 모두에 대해 (신뢰 루트 OR 굴복 루트) 충족.
-    - 신뢰 루트: 신뢰 >= 10 AND 호감 >= 60
-    - 굴복 루트: 복종 >= 70
+    경로 1: 저택 3명 모두 (신뢰 OR 굴복) 충족
+    경로 2: 추방 후 귀환하여 저택 점령 (전투/다수결)
 
     Returns:
         bool: 알파 달성 여부
@@ -57,6 +56,11 @@ def check_alpha_status(player_id=None):
     if player_id is None:
         player_id = morld.get_player_id()
 
+    # 경로 2: 점령
+    if (morld.get_unit_prop(player_id, "스토리:저택점령") or 0) >= 1:
+        return True
+
+    # 경로 1: 전원 신뢰/복종
     player_info = morld.get_unit_info(player_id)
     player_name = player_info.get("name", "주인공") if player_info else "주인공"
 
@@ -197,17 +201,19 @@ def check_discovery(player_id, victim_id, witness_id):
     """
     강제 행위 중 목격자가 있을 때 결과 판정.
 
+    게임오버 없음 — 발각 시 추방(expulsion) 또는 용서(forgive).
+
     Args:
         player_id: 플레이어
         victim_id: 피해자 NPC
         witness_id: 목격자 NPC
 
     Returns:
-        str: "forgive" (밀라 눈감아줌), "game_over" (게임오버)
+        str: "forgive" (밀라 눈감아줌), "expulsion" (추방)
     """
     witness_info = morld.get_unit_info(witness_id)
     if not witness_info:
-        return "game_over"
+        return "expulsion"
 
     witness_name = witness_info.get("name", "")
 
@@ -219,7 +225,77 @@ def check_discovery(player_id, victim_id, witness_id):
         if affection >= MILA_FORGIVE_AFFECTION:
             return "forgive"
 
-    return "game_over"
+    return "expulsion"
+
+
+# ========================================
+# 추방 시스템
+# ========================================
+
+# 추방 판정 임계치
+EXPULSION_TRUST_THRESHOLD = -3  # 세라 신뢰가 이 이하이면 추방
+
+# 추방 상태 prop
+PROP_EXPELLED = "스토리:추방됨"
+# 저택 점령 prop (추방 후 귀환 시 전투/다수결로 점령)
+PROP_MANSION_CONQUERED = "스토리:저택점령"
+
+
+def check_expulsion_trigger(player_id):
+    """
+    추방 조건 확인 (매시간 체크 — _on_time_elapsed에서 호출).
+
+    조건: 세라의 신뢰가 -3 이하.
+    이미 추방된 상태이거나, 알파 달성 후에는 무시.
+
+    Returns:
+        bool: 추방이 발동되어야 하면 True
+    """
+    # 이미 추방됨 or 알파 달성 → 무시
+    if is_expelled(player_id):
+        return False
+    if check_alpha_status(player_id):
+        return False
+
+    trust = morld.get_unit_prop(player_id, "관계:세라:신뢰") or 0
+    return trust <= EXPULSION_TRUST_THRESHOLD
+
+
+def apply_expulsion(player_id):
+    """
+    추방 처리 — prop 변경만. 이벤트/텔레포트는 호출자가 처리.
+
+    효과:
+    - 추방 플래그 설정
+    - 저택 멤버 전원 호감 하락 + 반발 상승
+    """
+    morld.set_unit_prop(player_id, PROP_EXPELLED, 1)
+
+    for member in MANSION_MEMBERS:
+        # 호감 하락
+        current_aff = morld.get_unit_prop(player_id, f"관계:{member}:호감") or 0
+        morld.set_unit_prop(player_id, f"관계:{member}:호감", max(0, current_aff - 15))
+        # 반발 상승
+        current_reb = morld.get_unit_prop(player_id, f"관계:{member}:반발") or 0
+        morld.set_unit_prop(player_id, f"관계:{member}:반발", min(100, current_reb + 20))
+
+
+def is_expelled(player_id):
+    """추방 상태인지 확인"""
+    return (morld.get_unit_prop(player_id, PROP_EXPELLED) or 0) >= 1
+
+
+def apply_mansion_conquest(player_id):
+    """
+    저택 점령 — 추방 후 귀환하여 점령 성공 시.
+    기존 시스템(전투 승리 / 다수결)에 의해 호출됨.
+
+    효과:
+    - 점령 플래그 설정
+    - 추방 플래그 해제
+    """
+    morld.set_unit_prop(player_id, PROP_MANSION_CONQUERED, 1)
+    morld.set_unit_prop(player_id, PROP_EXPELLED, 0)
 
 
 # ========================================
@@ -408,9 +484,9 @@ def apply_quest_failure(player_id, quest_id):
     """
     effects = {"quest_id": quest_id}
 
-    # 신뢰 하락 (세라 기준)
+    # 신뢰 하락 (세라 기준) — 음수 허용 (추방 트리거에 사용)
     trust = morld.get_unit_prop(player_id, "관계:세라:신뢰") or 0
-    new_trust = max(0, trust - 1)
+    new_trust = trust - 1
     morld.set_unit_prop(player_id, "관계:세라:신뢰", new_trust)
     effects["trust_loss"] = -1
 
@@ -590,6 +666,11 @@ def _on_time_elapsed(elapsed_millis):
         if check_quest_timeout(player_id, quest_id, current_hour):
             effects = apply_quest_failure(player_id, quest_id)
             morld.add_action_log(f"[일일 심부름] '{quest_id}' 시간 초과 — 실패 처리됨 (신뢰 {effects['trust_loss']})")
+
+    # ── 추방 체크 (신뢰 바닥 → 추방) ──
+    if check_expulsion_trigger(player_id):
+        apply_expulsion(player_id)
+        morld.add_action_log("[스토리] 저택에서 추방당했다.")
 
 
 # ── 시간 구독 등록 (모듈 로드 시) ──
