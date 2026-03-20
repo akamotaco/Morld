@@ -462,11 +462,12 @@ class Mila(Character):
         "처녀:구강": 1,
         "처녀:음부": 1,
         "처녀:항문": 1,
-        "근력": 4, "체력": 5,
+        "근력": 7, "체력": 7,
         "체격": 2, "가슴:크기": 3,
-        # 전투 스탯
-        "전투:공격력": 2, "전투:방어력": 2, "전투:명중": 60,
-        "전투:회피": 5, "전투:치명타": 2, "전투:사거리": 50,
+        # 전투 스탯 — 은퇴한 전설의 전사. 평소 숨기지만 본기를 내면 최강.
+        # 외부에서 저택을 공격할 경우의 최종 장벽.
+        "전투:공격력": 12, "전투:방어력": 8, "전투:명중": 90,
+        "전투:회피": 15, "전투:치명타": 12, "전투:사거리": 50,
         # 세력
         "세력": "숲속 저택",
     }
@@ -1437,11 +1438,15 @@ class MilaAgent(BaseAgent):
     - 계절별로 스케줄이 달라짐
     """
 
+    # 전투 AI — 은퇴한 전설의 전사
+    # 평소: 전투 회피. 하지만 저택이 공격받으면(적대 세력 감지) 본기 발동.
+    # 본기 시 aggressive + 후퇴 안 함 → 외부 침입의 최종 장벽.
     BATTLE_BEHAVIOR = {
-        "combat_style": "evasive",
-        "retreat_threshold": 0.8,
-        "join_combat": False,
-        "protect_player": False,
+        "combat_style": "aggressive",    # 본기: 공격적
+        "retreat_threshold": 0.05,       # 거의 후퇴 안 함
+        "join_combat": True,             # 동료 위기 시 참전
+        "join_threshold": 30,
+        "protect_player": False,         # 추방 후에는 적대
     }
     COMBAT_DESPERATE_CHANCE = 1.0   # 포위 시 100% 필사 (숨겨진 고수)
 
