@@ -11,6 +11,12 @@ public class TraversalContext
 {
     private readonly PropSet _props = new();
 
+    /// <summary>
+    /// 문자열 Prop 저장소 (세력, vehicle:status 등 문자열 값용)
+    /// int PropSet과 병렬 — lazy 초기화
+    /// </summary>
+    private Dictionary<string, string>? _stringProps;
+
     public static TraversalContext Empty { get; } = new();
 
     /// <summary>
@@ -98,9 +104,66 @@ public class TraversalContext
     public bool MeetsConditions(Dictionary<string, int>? conditions) =>
         _props.MeetsConditions(conditions);
 
+    #region String Props
+
+    /// <summary>
+    /// 문자열 Prop 설정 ("타입:이름" 형식)
+    /// null 또는 빈 문자열이면 삭제
+    /// </summary>
+    public TraversalContext SetStringProp(string fullName, string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            _stringProps?.Remove(fullName);
+            return this;
+        }
+        _stringProps ??= new Dictionary<string, string>();
+        _stringProps[fullName] = value;
+        return this;
+    }
+
+    /// <summary>
+    /// 문자열 Prop 값 가져오기 (없으면 null)
+    /// </summary>
+    public string? GetStringProp(string fullName)
+    {
+        if (_stringProps == null) return null;
+        return _stringProps.TryGetValue(fullName, out var value) ? value : null;
+    }
+
+    /// <summary>
+    /// 문자열 Prop 존재 여부
+    /// </summary>
+    public bool HasStringProp(string fullName)
+    {
+        return _stringProps != null && _stringProps.ContainsKey(fullName);
+    }
+
+    /// <summary>
+    /// 문자열 Prop 삭제
+    /// </summary>
+    public bool RemoveStringProp(string fullName)
+    {
+        return _stringProps?.Remove(fullName) ?? false;
+    }
+
+    /// <summary>
+    /// 모든 문자열 Prop (없으면 null)
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? StringProps => _stringProps;
+
+    #endregion
+
     public override string ToString()
     {
-        if (_props.IsEmpty) return "Context[]";
-        return $"Context[{_props}]";
+        var intPart = _props.IsEmpty ? "" : _props.ToString();
+        var strCount = _stringProps?.Count ?? 0;
+        if (intPart == "" && strCount == 0) return "Context[]";
+        var strPart = strCount > 0
+            ? string.Join(", ", _stringProps!.Select(kv => $"{kv.Key}=\"{kv.Value}\""))
+            : "";
+        if (intPart != "" && strPart != "")
+            return $"Context[{intPart}, {strPart}]";
+        return $"Context[{(intPart != "" ? intPart : strPart)}]";
     }
 }

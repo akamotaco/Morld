@@ -38,7 +38,7 @@ METHOD_OBJECT = "carry_object"      # 오브젝트 운반
 # Props
 PROP_CARRIED_BY = "운반:운반자"     # 피운반자에 설정 (value = carrier unit_id)
 PROP_CARRYING = "운반:대상"         # 운반자에 설정 (value = carried unit_id)
-PROP_CARRY_METHOD = "운반:방식"     # 운반자에 설정 (value = method hash)
+PROP_CARRY_METHOD = "운반:방식"     # 운반자에 설정 (value = method 문자열)
 
 # 포인터 아이템 레지스트리: item_id → carried unit_id
 _carry_registry = {}
@@ -76,8 +76,8 @@ def get_carried_unit(carrier_id):
 
 
 def get_carry_method(carrier_id):
-    """carrier의 운반 방식 (hash → string 변환은 향후)"""
-    return morld.get_unit_prop(carrier_id, PROP_CARRY_METHOD)
+    """carrier의 운반 방식 (문자열: carry_rescue/carry_forced/carry_object)"""
+    return morld.get_unit_prop(carrier_id, PROP_CARRY_METHOD) or None
 
 
 # ========================================
@@ -189,7 +189,7 @@ def pick_up(carrier_id, target_id, method=None):
 
     # 4. Props 설정
     morld.set_unit_prop(carrier_id, PROP_CARRYING, target_id)
-    morld.set_unit_prop(carrier_id, PROP_CARRY_METHOD, hash(method) % 1000)
+    morld.set_unit_prop(carrier_id, PROP_CARRY_METHOD, method)
     morld.set_unit_prop(target_id, PROP_CARRIED_BY, carrier_id)
 
     print(f"[carry] pick_up: carrier={carrier_id} target={target_id} method={method}")

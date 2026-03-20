@@ -981,12 +981,14 @@ namespace SE
                 if (unit == null)
                     return PyBool.False;
 
+                // int prop과 string prop 모두 제거
                 unit.TraversalContext.SetProp(propName, 0);
+                unit.TraversalContext.RemoveStringProp(propName);
                 Godot.GD.Print($"[morld] clear_prop: unit={unitId}, {propName}");
                 return PyBool.True;
             });
 
-            // get_unit_props: 유닛의 모든 Props 반환
+            // get_unit_props: 유닛의 모든 Props 반환 (int + string 병합)
             morldModule.ModuleDict["get_unit_props"] = new PyBuiltinFunction("get_unit_props", args =>
             {
                 if (args.Length < 1)
@@ -1000,9 +1002,19 @@ namespace SE
                     return new PyDict();
 
                 var result = new PyDict();
+                // int props
                 foreach (var (key, value) in unit.TraversalContext.Props)
                 {
                     result[key] = new PyInt(value);
+                }
+                // string props
+                var strProps = unit.TraversalContext.StringProps;
+                if (strProps != null)
+                {
+                    foreach (var (key, value) in strProps)
+                    {
+                        result[key] = new PyStr(value);
+                    }
                 }
                 return result;
             });

@@ -1143,26 +1143,46 @@ namespace SE
                 return PyBool.FromBool(success);
             });
 
-            // set_unit_props: 유닛 Props 일괄 설정
+            // set_unit_props: 유닛 Props 일괄 설정 (int + string 혼합 지원)
             morldModule.ModuleDict["set_unit_props"] = new PyBuiltinFunction("set_unit_props", args =>
             {
                 if (args.Length < 2)
                     throw PyTypeError.Create("set_unit_props(unit_id, props) requires 2 arguments");
 
                 int unitId = args[0].ToInt();
-                var props = args[1] is PyDict propDict ? PyDictToIntDict(propDict) : null;
+                var propDict = args[1] as PyDict;
+                if (propDict == null) return PyBool.False;
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
-                if (props != null)
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit != null)
                 {
-                    var unit = _unitSystem.FindUnit(unitId);
-                    if (unit != null)
+                    var keys = propDict.Keys();
+                    int count = 0;
+                    for (int i = 0; i < keys.Length(); i++)
                     {
-                        unit.TraversalContext.SetProps(props);
-                        Godot.GD.Print($"[morld] set_unit_props: unit={unitId}, props={props.Count}");
-                        return PyBool.True;
+                        var key = keys.GetItem(i);
+                        var keyStr = key is PyStr ks ? ks.Value : key.ToString();
+                        var value = propDict.GetItem(key);
+
+                        if (value is PyStr strVal)
+                        {
+                            unit.TraversalContext.SetStringProp(keyStr, strVal.Value);
+                            unit.TraversalContext.SetProp(keyStr, 0);  // 동일 키 int 제거
+                        }
+                        else
+                        {
+                            var valueInt = value is PyBool vb ? (vb.IsTrue() ? 1 : 0)
+                                         : value is PyInt vi ? (int)vi.Value
+                                         : value is PyNone ? 0 : 0;
+                            unit.TraversalContext.SetProp(keyStr, valueInt);
+                            unit.TraversalContext.RemoveStringProp(keyStr);  // 동일 키 string 제거
+                        }
+                        count++;
                     }
+                    Godot.GD.Print($"[morld] set_unit_props: unit={unitId}, props={count}");
+                    return PyBool.True;
                 }
                 return PyBool.False;
             });
@@ -1276,7 +1296,7 @@ namespace SE
             });
 
             // set_unit_prop: 단일 Prop 설정 ("타입:이름" 형식)
-            // Note: prop 값은 항상 정수. None이 전달되면 0으로 처리 (의미론적으로 동등)
+            // int 값은 PropSet에, 문자열 값은 StringProps에 저장
             morldModule.ModuleDict["set_unit_prop"] = new PyBuiltinFunction("set_unit_prop", args =>
             {
                 if (args.Length < 3)
@@ -1284,22 +1304,35 @@ namespace SE
 
                 int unitId = args[0].ToInt();
                 string propName = args[1].AsString();
-                // None은 0으로 처리 (prop은 항상 정수, 0 이하는 "없음"과 동등)
-                int value = args[2] is PyNone ? 0 : args[2].ToInt();
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
                 var unit = _unitSystem.FindUnit(unitId);
                 if (unit != null)
                 {
-                    unit.TraversalContext.SetProp(propName, value);
-                    Godot.GD.Print($"[morld] set_unit_prop: unit={unitId}, {propName}={value}");
+                    if (args[2] is PyStr strVal)
+                    {
+                        // 문자열 값 → StringProps 저장 (동일 키 int prop 제거)
+                        unit.TraversalContext.SetStringProp(propName, strVal.Value);
+                        unit.TraversalContext.SetProp(propName, 0);
+                        Godot.GD.Print($"[morld] set_unit_prop(str): unit={unitId}, {propName}=\"{strVal.Value}\"");
+                    }
+                    else
+                    {
+                        // 정수 값 → PropSet 저장 (동일 키 string prop 제거, None은 0 = 삭제)
+                        int value = args[2] is PyNone ? 0 : args[2].ToInt();
+                        unit.TraversalContext.SetProp(propName, value);
+                        unit.TraversalContext.RemoveStringProp(propName);
+                        Godot.GD.Print($"[morld] set_unit_prop: unit={unitId}, {propName}={value}");
+                    }
                     return PyBool.True;
                 }
                 return PyBool.False;
             });
 
             // get_unit_prop: Prop 값 조회 ("타입:이름" 형식)
+            // 문자열 prop이 있으면 PyStr 반환, 없으면 int prop → PyInt 반환 (기본값 0)
+            // 호환성: int prop이 없을 때 0 반환 유지 (기존 코드에서 > 비교 등 사용)
             morldModule.ModuleDict["get_unit_prop"] = new PyBuiltinFunction("get_unit_prop", args =>
             {
                 if (args.Length < 2)
@@ -1313,6 +1346,12 @@ namespace SE
                 var unit = _unitSystem.FindUnit(unitId);
                 if (unit != null)
                 {
+                    // 문자열 prop 우선 조회
+                    var strVal = unit.TraversalContext.GetStringProp(propName);
+                    if (strVal != null)
+                        return new PyStr(strVal);
+
+                    // int prop 조회 (없으면 0 — 기존 호환성 유지)
                     return new PyInt(unit.TraversalContext.GetProp(propName));
                 }
                 return new PyInt(0);
@@ -1404,7 +1443,7 @@ namespace SE
                 }
             });
 
-            // get_unit_props_by_type: 특정 타입의 Prop만 조회
+            // get_unit_props_by_type: 특정 타입의 Prop만 조회 (int + string 병합)
             // 예: get_unit_props_by_type(unit_id, "스탯") → {"힘": 10, "민첩": 8}
             morldModule.ModuleDict["get_unit_props_by_type"] = new PyBuiltinFunction("get_unit_props_by_type", args =>
             {
@@ -1420,9 +1459,24 @@ namespace SE
                 if (unit != null)
                 {
                     var result = new PyDict();
+                    // int props
                     foreach (var (name, value) in unit.TraversalContext.Props.GetNamesByType(type))
                     {
                         result[name] = new PyInt(value);
+                    }
+                    // string props (key = "타입:이름" 형식에서 타입 매칭)
+                    var strProps = unit.TraversalContext.StringProps;
+                    if (strProps != null)
+                    {
+                        string prefix = type + ":";
+                        foreach (var (fullName, strVal) in strProps)
+                        {
+                            if (fullName.StartsWith(prefix))
+                            {
+                                var name = fullName.Substring(prefix.Length);
+                                result[name] = new PyStr(strVal);
+                            }
+                        }
                     }
                     return result;
                 }

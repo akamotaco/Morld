@@ -1538,19 +1538,15 @@ class SeraAgent(BaseAgent):
         pregnancy.register_character(unit_id)
 
     def _select_daily_quests(self, day):
-        """매일 아침 일일 퀘스트 3개 랜덤 선택 → prop 저장"""
+        """매일 아침 일일 퀘스트 3개 랜덤 선택 → _memory 저장"""
         import random
         selected = random.sample(self.DAILY_QUEST_IDS, self.DAILY_QUEST_COUNT)
-        # 세라 prop에 오늘의 퀘스트 저장 (쉼표 구분)
-        morld.set_unit_prop(self.unit_id, "일일퀘스트:오늘", ",".join(selected))
+        self._memory["daily_quest_list"] = selected
         self._memory["daily_quest_day"] = day
 
     def get_today_daily_quests(self):
         """오늘 활성화된 일일 퀘스트 ID 목록 반환"""
-        raw = morld.get_unit_prop(self.unit_id, "일일퀘스트:오늘")
-        if raw and isinstance(raw, str):
-            return [q.strip() for q in raw.split(",") if q.strip()]
-        return []
+        return list(self._memory.get("daily_quest_list", []))
 
     def think(self):
         """주말/평일 감지 + 일일 퀘스트 선택"""

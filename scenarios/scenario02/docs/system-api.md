@@ -12,8 +12,8 @@ morld.get_player_id()
 morld.get_unit_info(unit_id)  # {name, region_id, location_id, activity, is_object, is_creature, is_moving, is_traveling, ...}
 morld.get_unit_location(unit_id)
 morld.set_unit_location(unit_id, region_id, location_id)
-morld.get_unit_props(unit_id)               # 모든 props dict 반환
-morld.get_unit_prop(unit_id, prop_name)     # 단일 prop 값 반환 (없으면 None)
+morld.get_unit_props(unit_id)               # 모든 props dict 반환 (int + string 병합)
+morld.get_unit_prop(unit_id, prop_name)     # 단일 prop 값 반환 (아래 Prop 시스템 참고)
 morld.get_unit_props_by_type(unit_id, type) # 특정 type의 props dict (예: "can" → {"sleep":1, "bath":1})
 morld.get_unit_prop_types(unit_id)          # prop type 목록 반환
 morld.set_unit(unit_id, field, value)  # name, type 등
@@ -297,6 +297,152 @@ def my_script(context_unit_id, *args):
 |------|------|------|
 | `call:메서드명:표시명` | Asset 메서드 호출 | `call:talk:대화` |
 | `call:메서드명:인자:표시명` | 인자 있는 메서드 | `call:sit:front:앉기` |
+
+---
+
+## Prop 시스템 (v0.2.6)
+
+### 개요
+
+Prop은 유닛(캐릭터/오브젝트/아이템)에 부여되는 키-값 속성입니다.
+키는 `"타입:이름"` 형식 (예: `"스탯:힘"`, `"상태:이동중"`, `"세력"`).
+
+**v0.2.6부터 int 값과 string 값을 모두 지원합니다.**
+
+### 저장 구조
+
+| 저장소 | 타입 | 용도 | 예시 |
+|--------|------|------|------|
+| PropSet (int) | `Dictionary<Prop, int>` | 수치, 플래그, 스탯 | `"스탯:힘"=10`, `"light:on"=1` |
+| StringProps (string) | `Dictionary<string, string>` | 이름, 상태문자열, ID | `"세력"="숲속 저택"`, `"vehicle:status"="normal"` |
+
+두 저장소는 같은 키를 공유하지 않습니다. 같은 키로 타입을 전환하면 이전 타입의 값은 자동 삭제됩니다.
+
+### set_unit_prop(unit_id, prop_name, value)
+
+값의 Python 타입에 따라 자동으로 저장소가 결정됩니다.
+
+```python
+# int 값 → PropSet 저장
+morld.set_unit_prop(npc_id, "스탯:힘", 10)
+
+# string 값 → StringProps 저장
+morld.set_unit_prop(npc_id, "세력", "숲속 저택")
+
+# 0 또는 None → int prop 삭제 (PropSet에서 value=0은 "없음")
+morld.set_unit_prop(npc_id, "스탯:힘", 0)
+morld.set_unit_prop(npc_id, "세력", 0)      # string prop도 제거됨
+
+# 빈 문자열 → string prop 삭제
+morld.set_unit_prop(npc_id, "세력", "")
+```
+
+### get_unit_prop(unit_id, prop_name) — 반환 규칙
+
+| 상태 | 반환값 | 타입 |
+|------|--------|------|
+| string prop 존재 | `"숲속 저택"` | `str` |
+| int prop 존재 (값 ≠ 0) | `10` | `int` |
+| prop 미존재 (int/string 모두 없음) | `0` | `int` |
+
+**string prop이 우선 조회됩니다.** 같은 키에 string과 int가 동시에 존재할 수 없으므로 (set 시 자동 정리) 충돌은 발생하지 않습니다.
+
+**호환성:** prop이 없을 때 `0`을 반환하는 기존 동작이 유지됩니다. `None`을 반환하지 않습니다.
+
+```python
+# int prop — 기존과 동일
+hp = morld.get_unit_prop(npc_id, "스탯:체력")    # int (없으면 0)
+if hp > 50:
+    ...
+
+# string prop — 문자열 반환
+faction = morld.get_unit_prop(npc_id, "세력")     # str (예: "숲속 저택")
+if faction == "숲속 저택":
+    ...
+
+# 미설정 prop — 0 반환 (int 기본값)
+# string을 기대하는 경우 or 패턴 사용 권장:
+owner = morld.get_unit_prop(item_id, "소유자") or ""
+status = morld.get_unit_prop(vid, "vehicle:status") or "normal"
+```
+
+### 타입 비교 시 주의사항
+
+prop이 없을 때 `0` (int)이 반환되므로, string prop을 비교할 때 주의가 필요합니다.
+
+```python
+faction = morld.get_unit_prop(npc_id, "세력")
+
+# OK: == 비교는 다른 타입 간에도 에러 없음 (항상 False)
+faction == "숲속 저택"   # prop 있으면 True, 없으면 0 == "숲속 저택" → False
+faction == 0             # prop 없으면 True
+
+# 위험: 산술 비교는 str과 int 간 TypeError 발생
+faction > 0              # prop이 string이면 TypeError!
+
+# 안전한 패턴:
+if faction and faction == "숲속 저택":   # 0은 falsy → 건너뜀
+    ...
+
+# 또는 or 패턴으로 기본값 보장:
+faction = morld.get_unit_prop(npc_id, "세력") or ""
+if faction == "숲속 저택":
+    ...
+```
+
+### set_unit_props(unit_id, props_dict) — 일괄 설정
+
+dict 값의 타입에 따라 자동 분류됩니다.
+
+```python
+# 캐릭터 props (int + string 혼합)
+morld.set_unit_props(npc_id, {
+    "스탯:힘": 10,           # → int PropSet
+    "스탯:민첩": 8,          # → int PropSet
+    "세력": "숲속 저택",      # → string StringProps
+    "성별": 2,               # → int PropSet (enum은 int 유지)
+})
+```
+
+### prop 삭제
+
+| 방법 | 코드 | 동작 |
+|------|------|------|
+| `clear_prop` | `morld.clear_prop(npc_id, "세력")` | int + string 모두 제거 |
+| 0 설정 | `morld.set_unit_prop(npc_id, "세력", 0)` | string 제거 + int=0 (= 삭제) |
+| 빈 문자열 | `morld.set_unit_prop(npc_id, "세력", "")` | string 제거 |
+| None 설정 | `morld.set_unit_prop(npc_id, "세력", None)` | 0과 동일 |
+
+삭제 후 `get_unit_prop`하면 `0` (int) 반환.
+
+### 현재 string prop 사용처
+
+| prop 키 | 값 예시 | 시스템 |
+|---------|---------|--------|
+| `세력` | "숲속 저택", "도시", "야생 동물" | 전투/파티/스토리 |
+| `vehicle:status` | "normal", "disabled", "wrecked" | 차량 |
+| `소유자` | unique_id 문자열 | 크래프팅 |
+| `건설:소유자` | NPC 이름 | 건축 |
+| `건설:레시피` | recipe_id 문자열 | 건축 |
+| `상태:아이아버지` | NPC 이름 | 임신 |
+| `운반:방식` | "carry_rescue", "carry_forced", "carry_object" | 운반 |
+
+### enum류 prop은 int 유지 (권장)
+
+고정된 선택지가 있는 속성은 int 매핑이 더 효율적입니다.
+
+```python
+# GOOD: enum → int (성별, 성적지향, 체형 등)
+"성별": 2          # FEMALE
+"성적지향": 1      # HETEROSEXUAL
+
+# GOOD: 플래그 → int
+"light:on": 1
+
+# GOOD: 자유 텍스트 → string
+"세력": "숲속 저택"
+"vehicle:status": "disabled"
+```
 
 ---
 
