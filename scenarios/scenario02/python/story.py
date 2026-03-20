@@ -11,6 +11,12 @@
 
 import morld
 
+# 의존 모듈 (런타임에만 존재, 테스트에서는 mock)
+try:
+    import needs as _needs
+except ImportError:
+    _needs = None
+
 # ========================================
 # 상수
 # ========================================
@@ -270,6 +276,147 @@ def check_majority_against(player_id, target_name):
 
     # 대상 외 2명 모두 플레이어 편
     return allies >= 2
+
+
+# ========================================
+# 플레이어 피로 + 강제 수면
+# ========================================
+
+PLAYER_FORCED_SLEEP_THRESHOLD = 95   # 이 이상이면 강제 수면
+PLAYER_SLEEP_WARNING_THRESHOLD = 80  # 경고 표시 임계치
+
+# 행동별 피로 증가량 (기본 시간당 +4는 needs.py에서 처리)
+ACTION_FATIGUE = {
+    "달리기": 4,     # 시간당 추가 +4 (needs.py에서 이미 2배 처리)
+    "전투": 10,      # 전투 1회당
+    "채집": 3,       # 채집 1회당
+    "벌목": 5,       # 벌목 1회당
+    "청소": 2,       # 청소 1회당
+    "낚시": 1,       # 낚시 1회당 (앉아서 하므로 낮음)
+}
+
+
+def check_player_fatigue(player_id=None):
+    """
+    플레이어 피로 상태 확인.
+
+    Returns:
+        str: "normal" / "warning" / "forced_sleep"
+    """
+    if player_id is None:
+        player_id = morld.get_player_id()
+
+    fatigue = morld.get_unit_prop(player_id, "욕구:피로") or 0
+
+    if fatigue >= PLAYER_FORCED_SLEEP_THRESHOLD:
+        return "forced_sleep"
+    elif fatigue >= PLAYER_SLEEP_WARNING_THRESHOLD:
+        return "warning"
+    return "normal"
+
+
+def add_action_fatigue(player_id, action_key):
+    """행동에 따른 피로 증가"""
+    amount = ACTION_FATIGUE.get(action_key, 0)
+    if amount > 0:
+        current = morld.get_unit_prop(player_id, "욕구:피로") or 0
+        new_val = min(100, current + amount)
+        morld.set_unit_prop(player_id, "욕구:피로", new_val)
+    return amount
+
+
+# ========================================
+# 수면 중 강제 기상
+# ========================================
+
+# 침대 주인의 호감이 이 미만이면 쫓아냄
+BED_KICK_AFFECTION_THRESHOLD = 30
+
+
+def should_kick_from_bed(player_id, bed_owner_name):
+    """
+    플레이어가 남의 침대에서 자고 있을 때 쫓아낼지 판정.
+
+    조건: 침대 주인의 호감 < 30
+    (자기 침대이거나 주인 없는 침대면 False)
+
+    Args:
+        player_id: 플레이어 ID
+        bed_owner_name: 침대 주인 이름 (None이면 무주)
+
+    Returns:
+        bool: 쫓아내야 하면 True
+    """
+    if not bed_owner_name:
+        return False
+
+    # 플레이어 자신의 침대면 OK
+    player_info = morld.get_unit_info(player_id)
+    player_name = player_info.get("name", "") if player_info else ""
+    if bed_owner_name == player_name:
+        return False
+
+    affection = morld.get_unit_prop(player_id, f"관계:{bed_owner_name}:호감") or 0
+    return affection < BED_KICK_AFFECTION_THRESHOLD
+
+
+# ========================================
+# 퀘스트 시간제한 + 자동 실패
+# ========================================
+
+DAILY_QUEST_DEADLINE_HOURS = 18  # 18시까지 (오후 6시)
+
+
+def check_quest_timeout(player_id, quest_id, current_hour):
+    """
+    퀘스트 시간제한 초과 여부 확인.
+
+    일일 퀘스트: 당일 18시까지 미완료 시 실패.
+
+    Args:
+        player_id: 플레이어 ID
+        quest_id: 퀘스트 ID
+        current_hour: 현재 시간 (0~23)
+
+    Returns:
+        bool: 시간 초과 여부
+    """
+    # daily_ 로 시작하는 퀘스트만 시간제한 적용
+    if not quest_id.startswith("daily_"):
+        return False
+
+    # IN_PROGRESS 상태인 경우만 (미수락이면 타임아웃 아님)
+    status = morld.get_unit_prop(player_id, f"퀘스트:{quest_id}:상태") or 0
+    if status != 2:  # QuestStatus.IN_PROGRESS = 2
+        return False
+
+    return current_hour >= DAILY_QUEST_DEADLINE_HOURS
+
+
+def apply_quest_failure(player_id, quest_id):
+    """
+    퀘스트 실패 처리: 신뢰 -1, 퀘스트 상태 리셋.
+
+    Args:
+        player_id: 플레이어 ID
+        quest_id: 퀘스트 ID
+
+    Returns:
+        dict: 실패 효과 요약
+    """
+    effects = {"quest_id": quest_id}
+
+    # 신뢰 하락 (세라 기준)
+    trust = morld.get_unit_prop(player_id, "관계:세라:신뢰") or 0
+    new_trust = max(0, trust - 1)
+    morld.set_unit_prop(player_id, "관계:세라:신뢰", new_trust)
+    effects["trust_loss"] = -1
+
+    # 퀘스트 상태 → LOCKED (0) — 다음 날 리셋 대기
+    morld.set_unit_prop(player_id, f"퀘스트:{quest_id}:상태", 0)
+    effects["status"] = "reset"
+
+    return effects
 
 
 # ========================================

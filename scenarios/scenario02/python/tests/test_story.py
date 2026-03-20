@@ -334,6 +334,126 @@ class TestDailyQuestSelection(_T):
 
 
 # ========================================
+# 플레이어 피로 테스트
+# ========================================
+
+class TestPlayerFatigue(_T):
+
+    def test_normal(self):
+        """피로 0 → normal"""
+        from story import check_player_fatigue
+        assert check_player_fatigue(1) == "normal"
+
+    def test_warning(self):
+        """피로 80 → warning"""
+        from story import check_player_fatigue
+        mock.set_unit_prop(1, "욕구:피로", 80)
+        assert check_player_fatigue(1) == "warning"
+
+    def test_forced_sleep(self):
+        """피로 95 → forced_sleep"""
+        from story import check_player_fatigue
+        mock.set_unit_prop(1, "욕구:피로", 95)
+        assert check_player_fatigue(1) == "forced_sleep"
+
+    def test_action_fatigue(self):
+        """행동별 피로 증가"""
+        from story import add_action_fatigue
+        mock.set_unit_prop(1, "욕구:피로", 50)
+        add_action_fatigue(1, "전투")
+        assert mock.get_unit_prop(1, "욕구:피로") == 60
+
+    def test_action_fatigue_cap(self):
+        """피로 100 초과 방지"""
+        from story import add_action_fatigue
+        mock.set_unit_prop(1, "욕구:피로", 98)
+        add_action_fatigue(1, "전투")  # +10
+        assert mock.get_unit_prop(1, "욕구:피로") == 100
+
+    def test_unknown_action(self):
+        """미등록 행동 → 증가 없음"""
+        from story import add_action_fatigue
+        mock.set_unit_prop(1, "욕구:피로", 50)
+        result = add_action_fatigue(1, "독서")
+        assert result == 0
+        assert mock.get_unit_prop(1, "욕구:피로") == 50
+
+
+# ========================================
+# 수면 중 강제 기상 테스트
+# ========================================
+
+class TestBedKick(_T):
+
+    def test_kick_low_affection(self):
+        """호감 < 30인 침대에서 자면 쫓겨남"""
+        from story import should_kick_from_bed
+        mock.set_unit_prop(1, "관계:세라:호감", 10)
+        assert should_kick_from_bed(1, "세라") == True
+
+    def test_no_kick_high_affection(self):
+        """호감 >= 30이면 OK"""
+        from story import should_kick_from_bed
+        mock.set_unit_prop(1, "관계:세라:호감", 30)
+        assert should_kick_from_bed(1, "세라") == False
+
+    def test_no_kick_own_bed(self):
+        """자기 침대면 쫓기지 않음"""
+        from story import should_kick_from_bed
+        assert should_kick_from_bed(1, "주인공") == False
+
+    def test_no_kick_unowned(self):
+        """주인 없는 침대는 자유"""
+        from story import should_kick_from_bed
+        assert should_kick_from_bed(1, None) == False
+
+
+# ========================================
+# 퀘스트 시간제한 테스트
+# ========================================
+
+class TestQuestTimeout(_T):
+
+    def test_daily_timeout(self):
+        """일일 퀘스트: 18시 이후 미완료 → 타임아웃"""
+        from story import check_quest_timeout
+        mock.set_unit_prop(1, "퀘스트:daily_gather_herb:상태", 2)  # IN_PROGRESS
+        assert check_quest_timeout(1, "daily_gather_herb", 17) == False
+        assert check_quest_timeout(1, "daily_gather_herb", 18) == True
+
+    def test_non_daily_no_timeout(self):
+        """비일일 퀘스트: 시간제한 없음"""
+        from story import check_quest_timeout
+        mock.set_unit_prop(1, "퀘스트:sera_fishing:상태", 2)
+        assert check_quest_timeout(1, "sera_fishing", 23) == False
+
+    def test_not_in_progress_no_timeout(self):
+        """진행 중이 아니면 타임아웃 아님"""
+        from story import check_quest_timeout
+        mock.set_unit_prop(1, "퀘스트:daily_gather_herb:상태", 1)  # AVAILABLE
+        assert check_quest_timeout(1, "daily_gather_herb", 20) == False
+
+    def test_quest_failure_effects(self):
+        """퀘스트 실패: 신뢰 -1 + 상태 리셋"""
+        from story import apply_quest_failure
+        mock.set_unit_prop(1, "관계:세라:신뢰", 5)
+        mock.set_unit_prop(1, "퀘스트:daily_gather_herb:상태", 2)
+
+        effects = apply_quest_failure(1, "daily_gather_herb")
+
+        assert mock.get_unit_prop(1, "관계:세라:신뢰") == 4
+        assert mock.get_unit_prop(1, "퀘스트:daily_gather_herb:상태") == 0
+        assert effects["trust_loss"] == -1
+
+    def test_quest_failure_trust_floor(self):
+        """신뢰 0 미만 방지"""
+        from story import apply_quest_failure
+        mock.set_unit_prop(1, "관계:세라:신뢰", 0)
+        apply_quest_failure(1, "daily_gather_herb")
+        assert mock.get_unit_prop(1, "관계:세라:신뢰") == 0
+
+
+# ========================================
 # 유키·엘라 합류 테스트
 # ========================================
 
