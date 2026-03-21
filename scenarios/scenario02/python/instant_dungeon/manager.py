@@ -73,6 +73,14 @@ def create_dungeon_entrance(spec, seed, entrance_gate=None):
                        {"default": ROOM_DESCRIPTIONS["start"]}, None,
                        "line", 100)
 
+    # 온도 시스템에 입구 등록
+    try:
+        import temperature
+        temp_mod = spec.get("environment", {}).get("temperature_mod", 0)
+        temperature.register_dynamic_location(region_id, entrance_loc, env_indoor, temp_mod)
+    except ImportError:
+        pass
+
     # 외부 ↔ 입구 Gate
     if entrance_gate:
         ext_r = entrance_gate["region_id"]
@@ -200,6 +208,17 @@ def expand_floor(dungeon_id, floor_num):
     fog_id = f"{dungeon_id}_F{floor_num}"
     fog.init_fog(fog_id, rooms, corridors + [type(corridors[0])(b.room_a, b.room_b) for b in bridges] if corridors and bridges else corridors, mode="volatile")
 
+    # 온도 시스템에 동적 등록
+    try:
+        import temperature
+        temp_mod = env_config.get("temperature_mod", 0)
+        from .builder import _resolve_indoor
+        for room in rooms:
+            indoor = _resolve_indoor(room, floor_num, env_config)
+            temperature.register_dynamic_location(region_id, room.id, indoor, temp_mod)
+    except ImportError:
+        pass
+
     print(f"[instant_dungeon] Expanded floor {floor_num + 1}F "
           f"(id={dungeon_id}, region={region_id}, rooms={len(rooms)}, bridges={len(bridges)})")
 
@@ -223,6 +242,14 @@ def _create_floor_stub(info, floor_num, from_region_id, from_location_id):
                        0, stub_indoor, None,
                        {"default": ROOM_DESCRIPTIONS["stairs_up"]}, None,
                        "line", 80)
+
+    # 온도 시스템에 stub 등록
+    try:
+        import temperature
+        temp_mod = env_config.get("temperature_mod", 0)
+        temperature.register_dynamic_location(stub_region_id, stub_loc, stub_indoor, temp_mod)
+    except ImportError:
+        pass
 
     # 계단 Gate: 이전 층 stairs_down ↔ 이 층 stub
     morld.add_region_gate(from_region_id, from_location_id,
@@ -357,8 +384,22 @@ def destroy_dungeon(dungeon_id):
 
     # FoW 정리
     from . import fog
-    for fnum in info["floors_generated"]:
+    for fnum, fdata in info["floors_generated"].items():
         fog.destroy_fog(f"{dungeon_id}_F{fnum}")
+        # 온도 시스템 해제
+        try:
+            import temperature
+            temperature.unregister_dynamic_locations(fdata["region_id"])
+        except ImportError:
+            pass
+
+    # stub region 온도도 해제
+    try:
+        import temperature
+        for stub in info["floor_stubs"].values():
+            temperature.unregister_dynamic_locations(stub["region_id"])
+    except ImportError:
+        pass
 
     del _active_dungeons[dungeon_id]
     print(f"[instant_dungeon] Destroyed '{dungeon_id}'")

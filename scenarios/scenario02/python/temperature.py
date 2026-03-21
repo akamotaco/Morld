@@ -116,6 +116,51 @@ def reset():
     _tracked_characters.clear()
 
 
+def register_dynamic_location(region_id, location_id, is_indoor=True, temperature_mod=0):
+    """
+    동적 생성 location 등록 (인스턴트 던전 등).
+
+    _ensure_initialized() 이후에 생성된 location을 온도 시스템에 추가.
+    초기 온도 = 현재 실외 온도 + temperature_mod.
+
+    Args:
+        region_id: Region ID
+        location_id: Location ID
+        is_indoor: 실내 여부
+        temperature_mod: 온도 보정 (실외 대비, 음수=서늘)
+    """
+    key = (region_id, location_id)
+    if key in _location_temps:
+        return  # 이미 등록됨
+
+    _location_indoor[key] = is_indoor
+    _location_transfer_rate[key] = INDOOR_TRANSFER_RATE if is_indoor else OUTDOOR_TRANSFER_RATE
+
+    # 현재 실외 온도 기반 초기값
+    time_info = morld.get_time_info()
+    if time_info:
+        month = time_info.get("month", 3)
+        hour = time_info.get("hour", 12)
+        weather = time_info.get("weather", "흐림")
+        season = _get_season(month)
+        outdoor = _get_outdoor_temp(season, weather, hour)
+    else:
+        outdoor = 15.0
+
+    _location_temps[key] = float(outdoor + temperature_mod)
+
+
+def unregister_dynamic_locations(region_id):
+    """동적 location 일괄 해제 (던전 파괴 시)"""
+    to_remove = [k for k in _location_temps if k[0] == region_id]
+    for k in to_remove:
+        _location_temps.pop(k, None)
+        _adjacency.pop(k, None)
+        _heat_sources.pop(k, None)
+        _location_indoor.pop(k, None)
+        _location_transfer_rate.pop(k, None)
+
+
 def _ensure_initialized():
     """lazy init: get_region_info()로 인접 그래프 + 초기 온도 구축"""
     global _initialized
