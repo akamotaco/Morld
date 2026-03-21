@@ -941,8 +941,15 @@ __init__.initialize_scenario()
         {
             try
             {
-                var code = $"import {moduleName}; {moduleName}.{functionName}()";
-                return Eval(code);
+                // 모듈에서 함수를 직접 가져와 호출 (Eval multi-statement 남용 제거)
+                // CPython: sys.modules[name].func()
+                var module = _interpreter.ImportModule(moduleName);
+                if (module == null)
+                    throw new System.Exception($"Module '{moduleName}' not found");
+                var func = module.GetAttribute(functionName);
+                if (func == null)
+                    throw new System.Exception($"Function '{functionName}' not found in module '{moduleName}'");
+                return func.Call(System.Array.Empty<PyObject>(), null);
             }
             catch (System.Exception ex)
             {
@@ -953,22 +960,20 @@ __init__.initialize_scenario()
 
         /// <summary>
         /// 모듈 함수 호출 (가변 인자)
-        /// PyObject를 Python 리터럴로 변환하여 Eval
+        /// 모듈에서 함수를 직접 가져와 호출 (Eval 남용 제거)
         /// 예: CallModuleFunction("ui", "get_max_tab", new PyStr("npc"), new PyInt(10))
-        ///   → import ui; ui.get_max_tab("npc", 10)
         /// </summary>
         public PyObject CallModuleFunction(string moduleName, string functionName, params PyObject[] args)
         {
             try
             {
-                var argStrs = new string[args.Length];
-                for (int i = 0; i < args.Length; i++)
-                {
-                    argStrs[i] = PyObjectToLiteral(args[i]);
-                }
-                var argsStr = string.Join(", ", argStrs);
-                var code = $"import {moduleName}; {moduleName}.{functionName}({argsStr})";
-                return Eval(code);
+                var module = _interpreter.ImportModule(moduleName);
+                if (module == null)
+                    throw new System.Exception($"Module '{moduleName}' not found");
+                var func = module.GetAttribute(functionName);
+                if (func == null)
+                    throw new System.Exception($"Function '{functionName}' not found in module '{moduleName}'");
+                return func.Call(args, null);
             }
             catch (System.Exception ex)
             {
