@@ -67,8 +67,9 @@ def create_dungeon_entrance(spec, seed, entrance_gate=None):
                      {"default": f"{name} — 동적 생성된 던전"},
                      "맑음")
     entrance_loc = 0
+    env_indoor = spec.get("environment", {}).get("indoor", True)
     morld.add_location(region_id, entrance_loc, "던전 입구",
-                       0, False, None,
+                       0, env_indoor, None,
                        {"default": ROOM_DESCRIPTIONS["start"]}, None,
                        "line", 100)
 
@@ -162,12 +163,15 @@ def expand_floor(dungeon_id, floor_num):
 
     # Location/Gate 등록
     from .builder import build_floor_interior, ROOM_DESCRIPTIONS
+    env_config = spec.get("environment", {"indoor": True})
     floor_info = build_floor_interior(
         rooms, corridors, bridges, region_id,
         f"{spec.get('name', '던전')} {floor_num + 1}F",
         skip_start=(floor_num == 0),  # 1층 입구는 이미 생성
         skip_stairs_up=(floor_num > 0 and floor_num in info["floor_stubs"]),
         seed=seed + floor_num * 100,
+        floor_num=floor_num,
+        env_config=env_config,
     )
 
     # stairs_down → 다음 층 stub 생성
@@ -210,8 +214,13 @@ def _create_floor_stub(info, floor_num, from_region_id, from_location_id):
     morld.add_region(stub_region_id, f"{name} {floor_num + 1}F",
                      {"default": f"{name} — 동적 생성된 던전"},
                      "맑음")
+    env_config = info["spec"].get("environment", {})
+    from .builder import _resolve_indoor
+    from .generator import Room
+    stub_room = Room(0, 0, 0, 80, 80, "stairs_up")
+    stub_indoor = _resolve_indoor(stub_room, floor_num, env_config)
     morld.add_location(stub_region_id, stub_loc, "상층 계단",
-                       0, False, None,
+                       0, stub_indoor, None,
                        {"default": ROOM_DESCRIPTIONS["stairs_up"]}, None,
                        "line", 80)
 

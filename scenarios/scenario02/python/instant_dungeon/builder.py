@@ -96,8 +96,25 @@ def _generate_room_description(room, name):
         return f"{name}. 어둡고 습한 공기가 감돈다."
 
 
+def _resolve_indoor(room, floor_num, env_config):
+    """방의 실내/실외 판정 (우선순위: room_type > floor > 기본)"""
+    # room_type 오버라이드
+    rt_overrides = env_config.get("room_type_overrides", {})
+    if room.room_type in rt_overrides:
+        return rt_overrides[room.room_type].get("indoor", env_config.get("indoor", True))
+
+    # floor 오버라이드
+    fl_overrides = env_config.get("floor_overrides", {})
+    if floor_num in fl_overrides:
+        return fl_overrides[floor_num].get("indoor", env_config.get("indoor", True))
+
+    # 기본값
+    return env_config.get("indoor", True)
+
+
 def build_floor_interior(rooms, corridors, bridges, region_id, floor_label,
-                         skip_start=False, skip_stairs_up=False, seed=0):
+                         skip_start=False, skip_stairs_up=False, seed=0,
+                         floor_num=0, env_config=None):
     """
     한 층의 내부를 morld에 등록 (Lazy Generation Phase 2).
 
@@ -114,10 +131,15 @@ def build_floor_interior(rooms, corridors, bridges, region_id, floor_label,
         skip_start: start room skip 여부
         skip_stairs_up: stairs_up room skip 여부
         seed: 이름 생성용 시드
+        floor_num: 현재 층 번호 (실내외 판정용)
+        env_config: spec["environment"] dict (실내외/온도 설정)
 
     Returns:
         {"region_id": int, "locations": {room_id: loc_id}}
     """
+    if env_config is None:
+        env_config = {"indoor": True}
+
     locations = {}
 
     for room in rooms:
@@ -139,9 +161,11 @@ def build_floor_interior(rooms, corridors, bridges, region_id, floor_label,
             locations[room.id] = loc_id
             continue
 
+        indoor = _resolve_indoor(room, floor_num, env_config)
+
         # add_location: positional args (kwargs 미지원 — PyBuiltinFunction 제약)
         morld.add_location(region_id, loc_id, name,
-                           0, False, None,
+                           0, indoor, None,
                            describe_dict, None,
                            "line", room.w)
         locations[room.id] = loc_id

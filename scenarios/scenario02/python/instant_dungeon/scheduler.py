@@ -29,6 +29,12 @@ TEST_DUNGEON_SPEC = {
         "max_depth": 4,
     },
 
+    "environment": {
+        "indoor": True,          # 기본 실내 (동굴)
+        "temperature_mod": -3,   # 외부보다 3도 낮음
+        "brightness": 0.2,
+    },
+
     "connections": {
         "type": "linear",
         "stairs_per_floor": 1,
