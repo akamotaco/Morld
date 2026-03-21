@@ -1648,7 +1648,7 @@ Lina.CHARACTER_QUESTS = [
         "reporter": "lina",
 
         "conditions": [
-            {"type": "reach", "region_id": 0, "location_id": 7},  # 리나의 방
+            {"type": "reach", "location_unique_id": "lina_room"},  # 리나의 방 (이주 안전)
         ],
 
         "rewards": [

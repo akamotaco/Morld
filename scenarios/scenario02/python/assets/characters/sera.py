@@ -1644,7 +1644,7 @@ Sera.CHARACTER_QUESTS = [
         "conditions": [
             {"type": "all", "conditions": [
                 {"type": "meet", "target": "sera"},
-                {"type": "reach", "region_id": 0, "location_id": 24},  # 숲 깊은 곳
+                {"type": "reach", "location_unique_id": "hunting_ground"},  # 사냥터 (이주 안전)
             ]},
         ],
 

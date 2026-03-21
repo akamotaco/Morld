@@ -124,15 +124,31 @@ def get_condition_description(condition: dict) -> str:
 # ============================================
 
 def _check_reach(player_id: int, condition: dict) -> bool:
-    """위치 도착 조건 체크"""
-    target_region = condition.get("region_id")
-    target_location = condition.get("location_id")
+    """위치 도착 조건 체크
 
+    조건 형태:
+      {"type": "reach", "region_id": 0, "location_id": 5}  — 고정 위치
+      {"type": "reach", "location_unique_id": "hunting_ground"}  — unique_id 기반 (이주 안전)
+      {"type": "reach", "region_id": 0}  — region만 지정
+    """
     player_loc = morld.get_unit_location(player_id)
     if not player_loc:
         return False
 
     current_region, current_location = player_loc
+
+    # unique_id 기반 동적 탐색 — 기존 registry 활용
+    location_uid = condition.get("location_unique_id")
+    if location_uid:
+        from assets.registry import get_instance_id
+        loc_id = get_instance_id(location_uid)
+        if loc_id is None:
+            return False
+        # registry는 location_id를 반환, region은 get_unit_location으로 비교
+        return current_location == loc_id
+
+    target_region = condition.get("region_id")
+    target_location = condition.get("location_id")
 
     # region_id만 지정된 경우
     if target_location is None:
