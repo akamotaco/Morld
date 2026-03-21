@@ -5,14 +5,10 @@ using Morld;
 namespace SE
 {
     /// <summary>
-    /// WeatherSystem - 매일 자정에 랜덤으로 날씨 변경
+    /// WeatherSystem - 자정 전환 시 랜덤으로 날씨 변경
     ///
-    /// 역할:
-    /// - 자정(00:00)에 모든 Region의 날씨를 랜덤으로 변경
-    /// - Region.WeatherTypes 배열에서 랜덤 선택
-    ///
-    /// 실행 순서:
-    /// JobBehaviorSystem → EventSystem → WeatherSystem → ThinkSystem
+    /// 시간이 자정(00시)으로 넘어가는 순간 모든 Region의 날씨를 변경.
+    /// 시간이 흐르지 않으면 날씨도 바뀌지 않음.
     /// </summary>
     public class WeatherSystem : ECS.System
     {
@@ -20,44 +16,32 @@ namespace SE
         private Random _random = new Random();
 
         /// <summary>
-        /// 마지막으로 날씨를 변경한 날짜 (중복 변경 방지)
+        /// 이전 Step의 시각 (자정 전환 감지용)
         /// </summary>
-        private int _lastWeatherChangeDay = -1;
+        private int _prevHour = -1;
 
-        /// <summary>
-        /// 시스템 참조 설정
-        /// </summary>
         public void SetSystemReferences(WorldSystem worldSystem)
         {
             _worldSystem = worldSystem;
         }
 
-        /// <summary>
-        /// 매 Step마다 호출 - 자정에 날씨 변경
-        /// </summary>
         protected override void Proc(int step, Span<Component[]> allComponents)
         {
             if (_worldSystem == null)
                 return;
 
             var time = _worldSystem.GetTime();
-            var currentDay = time.Day;
+            var hour = time.Hour;
 
-            // 이미 오늘 날씨를 변경했으면 스킵
-            if (currentDay == _lastWeatherChangeDay)
-                return;
-
-            // 자정(00:00~00:59) 또는 첫 실행 시 날씨 변경
-            if (time.Hour == 0 || _lastWeatherChangeDay == -1)
+            // 자정 전환 감지: 이전 시각이 0이 아닌데 현재 0이면 → 날짜가 바뀜
+            if (hour == 0 && _prevHour != 0 && _prevHour != -1)
             {
                 ChangeAllRegionsWeather();
-                _lastWeatherChangeDay = currentDay;
             }
+
+            _prevHour = hour;
         }
 
-        /// <summary>
-        /// 모든 Region의 날씨를 랜덤으로 변경
-        /// </summary>
         private void ChangeAllRegionsWeather()
         {
             var terrain = _worldSystem.GetTerrain();
