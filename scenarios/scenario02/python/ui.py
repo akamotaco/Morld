@@ -71,7 +71,7 @@ def loading_screen(callback, text="로딩 중..."):
 _show_header = True
 _show_footer = True
 _ui_locked = False
-_darkness_masking_enabled = True
+_darkness_masking_enabled = False  # 기본 비활성화, 챕터에서 명시적으로 활성화
 
 
 def set_show_header(show: bool):
