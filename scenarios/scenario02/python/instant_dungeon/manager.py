@@ -1,19 +1,18 @@
-# manager.py — 인스턴트 던전 라이프사이클 관리
+# manager.py — 인스턴트 던전 라이프사이클 관리 (v2)
 """
-던전 생성/삭제/조회.
-Region ID 100번대 auto-increment.
+Spec + seed 기반 동적 던전.
+층별 Lazy Generation: 입구만 생성 → 진입 시 BSP 확장.
 """
 
 import morld
-from .generator import generate_dungeon
-from .builder import build_dungeon
+from .generator import generate_floor
 
 # 동적 Region 시작 ID (고정 지형과 충돌 방지)
 _REGION_START = 100
 _next_region_id = _REGION_START
 
 # 활성 던전 목록
-_active_dungeons = {}  # {dungeon_id: {"region_id": int, "locations": dict, ...}}
+_active_dungeons = {}  # {dungeon_id: dungeon_info}
 _dungeon_counter = 0
 
 
@@ -27,134 +26,239 @@ def reset():
     fog.reset()
 
 
-def create_dungeon(name="던전", width=400, height=400, min_size=60,
-                   max_depth=4, seed=None, entrance_gate=None, floors=1):
+def _alloc_region_id():
+    """Region ID 할당"""
+    global _next_region_id
+    rid = _next_region_id
+    _next_region_id += 1
+    return rid
+
+
+# ========================================
+# Phase 1: 입구만 생성 (스케줄러 호출)
+# ========================================
+
+def create_dungeon_entrance(spec, seed, entrance_gate=None):
     """
-    인스턴트 던전 생성.
+    Phase 1: 입구만 생성 (가벼움).
+
+    Region + 입구 Location 1개 + 외부 Gate만 등록.
+    내부는 expand_floor()에서 생성.
 
     Args:
-        name: 던전 이름
-        width, height: BSP 공간 크기
-        min_size: 최소 방 크기
-        max_depth: BSP 분할 깊이 (깊을수록 방 많음)
-        seed: 랜덤 시드
-        entrance_gate: 외부 연결 {"region_id", "location_id", "distance"}
-        floors: 층 수 (1이면 단층, 2+ 다층)
+        spec: 던전 Spec dict
+        seed: base seed
+        entrance_gate: {"region_id", "location_id", "distance"}
 
     Returns:
         str: dungeon_id
     """
-    global _next_region_id, _dungeon_counter
+    global _dungeon_counter
 
-    base_region_id = _next_region_id
-    _next_region_id += floors  # 층 수만큼 region ID 예약
+    region_id = _alloc_region_id()
     _dungeon_counter += 1
     dungeon_id = f"dungeon_{_dungeon_counter}"
 
-    from . import fog
+    name = spec.get("name", "던전")
 
-    if floors <= 1:
-        # ── 단층 (기존 로직) ──
-        rooms, corridors = generate_dungeon(
-            width=width, height=height,
-            min_size=min_size, max_depth=max_depth,
-            seed=seed
-        )
-        info = build_dungeon(rooms, corridors, base_region_id, name,
-                             entrance_gate=entrance_gate)
-        info["dungeon_id"] = dungeon_id
-        info["rooms"] = rooms
-        info["corridors"] = corridors
-        info["floors"] = None  # 단층 표시
-        info["_entrance_ext_region"] = entrance_gate["region_id"] if entrance_gate else None
-        info["_entrance_ext_location"] = entrance_gate["location_id"] if entrance_gate else None
-        _active_dungeons[dungeon_id] = info
+    # 입구 Region + Location 등록
+    from .builder import ROOM_DESCRIPTIONS
+    morld.add_region(region_id, f"{name} 1F",
+                     {"default": f"{name} — 동적 생성된 던전"},
+                     "맑음")
+    entrance_loc = 0
+    morld.add_location(region_id, entrance_loc, "던전 입구",
+                       0, False, None,
+                       {"default": ROOM_DESCRIPTIONS["start"]}, None,
+                       "line", 100)
 
-        fog.init_fog(dungeon_id, rooms, corridors, mode="volatile")
-        total_rooms = len(rooms)
-    else:
-        # ── 다층 ──
-        from .generator import generate_multi_floor
-        from .builder import build_multi_floor
+    # 외부 ↔ 입구 Gate
+    if entrance_gate:
+        ext_r = entrance_gate["region_id"]
+        ext_l = entrance_gate["location_id"]
+        distance = entrance_gate.get("distance", 60)
+        morld.add_region_gate(ext_r, ext_l, region_id, entrance_loc, distance)
 
-        floor_data = generate_multi_floor(
-            floors=floors, width=width, height=height,
-            min_size=min_size, max_depth=max_depth,
-            seed=seed
-        )
+    # dungeon_info 초기화
+    info = {
+        "dungeon_id": dungeon_id,
+        "base_region_id": region_id,
+        "entrance_location": entrance_loc,
+        "spec": spec,
+        "base_seed": seed,
 
-        multi_info = build_multi_floor(
-            floor_data, base_region_id, name,
-            entrance_gate=entrance_gate
-        )
+        # 층별 생성 상태
+        "floors_generated": {},
+        # {floor_num: {
+        #     "region_id": int, "rooms": [], "corridors": [], "bridges": [],
+        #     "locations": {room_id: loc_id}, "has_stairs_down": bool
+        # }}
 
-        # dungeon_info 구성
-        info = {
-            "dungeon_id": dungeon_id,
-            "region_id": multi_info["entrance_region_id"],
-            "entrance_location": multi_info["entrance_location"],
-            "floors": multi_info["floors"],
-            # 하위 호환: 단층 필드도 유지 (첫 층 기준)
-            "rooms": multi_info["floors"][0]["rooms"] if multi_info["floors"] else [],
-            "corridors": multi_info["floors"][0]["corridors"] if multi_info["floors"] else [],
-            "locations": multi_info["floors"][0]["locations"] if multi_info["floors"] else {},
-            # 외부 나가기 링크용
-            "_entrance_ext_region": entrance_gate["region_id"] if entrance_gate else None,
-            "_entrance_ext_location": entrance_gate["location_id"] if entrance_gate else None,
-        }
-        _active_dungeons[dungeon_id] = info
+        # 다음 층 stub
+        "floor_stubs": {},
+        # {floor_num: {"region_id": int, "stub_location": int}}
 
-        # 층별 FoW 초기화
-        total_rooms = 0
-        for fd in multi_info["floors"]:
-            floor_fog_id = f"{dungeon_id}_F{fd['floor']}"
-            fog.init_fog(floor_fog_id, fd["rooms"], fd["corridors"], mode="volatile")
-            total_rooms += len(fd["rooms"])
+        # 외부 연결
+        "_entrance_ext_region": entrance_gate["region_id"] if entrance_gate else None,
+        "_entrance_ext_location": entrance_gate["location_id"] if entrance_gate else None,
+    }
+    _active_dungeons[dungeon_id] = info
 
-    print(f"[instant_dungeon] Created '{name}' (id={dungeon_id}, "
-          f"floors={floors}, regions={base_region_id}-{base_region_id+floors-1}, "
-          f"rooms={total_rooms})")
-
+    print(f"[instant_dungeon] Entrance created '{name}' (id={dungeon_id}, region={region_id})")
     return dungeon_id
 
 
-def destroy_dungeon(dungeon_id):
-    """
-    인스턴트 던전 삭제.
+# ========================================
+# Phase 2: 층 확장 (on_reach 트리거)
+# ========================================
 
-    내부 유닛 제거 → Location 제거 → Region 제거.
-    플레이어가 내부에 있으면 입구 외부로 텔레포트.
+def expand_floor(dungeon_id, floor_num):
+    """
+    Phase 2: 한 층 BSP 확장.
+
+    BSP 생성 → Location/Gate 추가 → Bridge → FoW 초기화.
+    이미 확장된 층이면 무시.
+
+    Args:
+        dungeon_id: 던전 ID
+        floor_num: 확장할 층 번호
     """
     info = _active_dungeons.get(dungeon_id)
     if not info:
-        print(f"[instant_dungeon] Dungeon '{dungeon_id}' not found")
         return
+    if floor_num in info["floors_generated"]:
+        return  # 이미 확장됨
 
-    region_id = info["region_id"]
+    spec = info["spec"]
+    seed = info["base_seed"]
+    max_floors = spec.get("max_floors")
+    conn = spec.get("connections", {})
+    stairs_per_floor = conn.get("stairs_per_floor", 1)
 
-    # 플레이어 탈출 처리
-    player_id = morld.get_player_id()
-    if player_id:
-        player_loc = morld.get_unit_location(player_id)
-        if player_loc and player_loc[0] == region_id:
-            # 입구 외부로 텔레포트 (gate 999의 연결 대상)
-            # 간단히 Region 0, Location 0으로 이동
-            morld.set_unit_location(player_id, 0, 0)
-            morld.add_action_log("던전이 붕괴하여 밖으로 빠져나왔다.")
+    # floor_overrides 적용
+    base_cfg = dict(spec.get("base", {}))
+    base_cfg["connections"] = conn
+    if "floor_scaling" in spec:
+        base_cfg["floor_scaling"] = spec["floor_scaling"]
+    overrides = spec.get("floor_overrides", {}).get(floor_num, {})
+    base_cfg.update(overrides)
 
-    # Location 제거 (역순)
-    for loc_id in sorted(info["locations"].values(), reverse=True):
-        try:
-            morld.remove_location(region_id, loc_id)
-        except Exception:
-            pass
+    # BSP 생성
+    rooms, corridors, bridges = generate_floor(
+        base_cfg, floor_num, seed,
+        max_floors=max_floors,
+        stairs_per_floor=stairs_per_floor,
+    )
 
-    # FoW 정리
+    # Region 결정
+    if floor_num == 0:
+        region_id = info["base_region_id"]
+    else:
+        stub = info["floor_stubs"].get(floor_num)
+        if stub:
+            region_id = stub["region_id"]
+        else:
+            region_id = _alloc_region_id()
+
+    # Location/Gate 등록
+    from .builder import build_floor_interior, ROOM_DESCRIPTIONS
+    floor_info = build_floor_interior(
+        rooms, corridors, bridges, region_id,
+        f"{spec.get('name', '던전')} {floor_num + 1}F",
+        skip_start=(floor_num == 0),  # 1층 입구는 이미 생성
+        skip_stairs_up=(floor_num > 0 and floor_num in info["floor_stubs"]),
+    )
+
+    # stairs_down → 다음 층 stub 생성
+    has_stairs_down = False
+    for room in rooms:
+        if room.room_type == "stairs_down":
+            has_stairs_down = True
+            next_floor = floor_num + 1
+            if next_floor not in info["floor_stubs"] and next_floor not in info["floors_generated"]:
+                _create_floor_stub(info, next_floor, region_id, floor_info["locations"][room.id])
+
+    # 기록
+    floor_data = {
+        "region_id": region_id,
+        "rooms": rooms,
+        "corridors": corridors,
+        "bridges": bridges,
+        "locations": floor_info["locations"],
+        "has_stairs_down": has_stairs_down,
+        "floor": floor_num,
+    }
+    info["floors_generated"][floor_num] = floor_data
+
+    # FoW 초기화
     from . import fog
-    fog.destroy_fog(dungeon_id)
+    fog_id = f"{dungeon_id}_F{floor_num}"
+    fog.init_fog(fog_id, rooms, corridors + [type(corridors[0])(b.room_a, b.room_b) for b in bridges] if corridors and bridges else corridors, mode="volatile")
 
-    del _active_dungeons[dungeon_id]
-    print(f"[instant_dungeon] Destroyed '{dungeon_id}'")
+    print(f"[instant_dungeon] Expanded floor {floor_num + 1}F "
+          f"(id={dungeon_id}, region={region_id}, rooms={len(rooms)}, bridges={len(bridges)})")
+
+
+def _create_floor_stub(info, floor_num, from_region_id, from_location_id):
+    """다음 층 stub 생성: Region + stairs_up Location 1개 + 계단 Gate"""
+    name = info["spec"].get("name", "던전")
+    stub_region_id = _alloc_region_id()
+    stub_loc = 0  # stairs_up 위치
+
+    from .builder import ROOM_DESCRIPTIONS
+    morld.add_region(stub_region_id, f"{name} {floor_num + 1}F",
+                     {"default": f"{name} — 동적 생성된 던전"},
+                     "맑음")
+    morld.add_location(stub_region_id, stub_loc, "상층 계단",
+                       0, False, None,
+                       {"default": ROOM_DESCRIPTIONS["stairs_up"]}, None,
+                       "line", 80)
+
+    # 계단 Gate: 이전 층 stairs_down ↔ 이 층 stub
+    morld.add_region_gate(from_region_id, from_location_id,
+                          stub_region_id, stub_loc, 30)
+
+    info["floor_stubs"][floor_num] = {
+        "region_id": stub_region_id,
+        "stub_location": stub_loc,
+    }
+
+    print(f"[instant_dungeon] Stub created: {floor_num + 1}F (region={stub_region_id})")
+
+
+# ========================================
+# 조회 API
+# ========================================
+
+def is_floor_expanded(dungeon_id, floor_num):
+    """해당 층이 BSP 확장됐는지"""
+    info = _active_dungeons.get(dungeon_id)
+    if not info:
+        return False
+    return floor_num in info["floors_generated"]
+
+
+def get_floor_num_for_region(dungeon_id, region_id):
+    """region_id → floor_num (없으면 None)"""
+    info = _active_dungeons.get(dungeon_id)
+    if not info:
+        return None
+
+    # 생성된 층에서 찾기
+    for fnum, fdata in info["floors_generated"].items():
+        if fdata["region_id"] == region_id:
+            return fnum
+
+    # stub에서 찾기
+    for fnum, stub in info["floor_stubs"].items():
+        if stub["region_id"] == region_id:
+            return fnum
+
+    # base_region (0층 입구)
+    if info["base_region_id"] == region_id:
+        return 0
+
+    return None
 
 
 def get_dungeon_info(dungeon_id):
@@ -169,63 +273,82 @@ def get_active_dungeons():
 
 def get_dungeon_for_region(region_id):
     """
-    Region ID로 던전 조회 (다층 지원).
+    Region ID로 던전 조회.
 
     Returns:
         (dungeon_id, dungeon_info) 또는 (None, None)
     """
     for did, info in _active_dungeons.items():
-        # 단층: region_id 직접 비교
-        if info["region_id"] == region_id:
+        if info["base_region_id"] == region_id:
             return did, info
-        # 다층: 각 층의 region_id 비교
-        if info.get("floors"):
-            for fd in info["floors"]:
-                if fd["region_id"] == region_id:
-                    return did, info
+        for fdata in info["floors_generated"].values():
+            if fdata["region_id"] == region_id:
+                return did, info
+        for stub in info["floor_stubs"].values():
+            if stub["region_id"] == region_id:
+                return did, info
     return None, None
 
 
 def get_floor_for_region(dungeon_id, region_id):
-    """
-    Region ID로 해당 층 정보 반환 (다층 던전용).
-
-    Returns:
-        floor_info dict 또는 None
-    """
+    """region_id → floor_info dict (없으면 None)"""
     info = _active_dungeons.get(dungeon_id)
     if not info:
         return None
 
-    # 단층
-    if not info.get("floors"):
-        if info["region_id"] == region_id:
-            return info
-        return None
-
-    # 다층
-    for fd in info["floors"]:
-        if fd["region_id"] == region_id:
-            return fd
+    for fdata in info["floors_generated"].values():
+        if fdata["region_id"] == region_id:
+            return fdata
     return None
 
 
 def is_dungeon_occupied(dungeon_id):
-    """
-    던전 내에 캐릭터(플레이어 포함)가 있는지 확인.
-    1명이라도 있으면 True.
-    """
+    """던전 내에 캐릭터가 있는지"""
     info = _active_dungeons.get(dungeon_id)
     if not info:
         return False
 
-    region_id = info["region_id"]
-    for loc_id in info["locations"].values():
-        units = morld.get_units_at_location(region_id, loc_id)
-        if not units:
-            continue
-        for uid in units:
-            unit_info = morld.get_unit_info(uid)
-            if unit_info and not unit_info.get("is_object"):
-                return True
+    # 생성된 모든 층 체크
+    for fdata in info["floors_generated"].values():
+        region_id = fdata["region_id"]
+        for loc_id in fdata["locations"].values():
+            units = morld.get_units_at_location(region_id, loc_id)
+            if not units:
+                continue
+            for uid in units:
+                unit_info = morld.get_unit_info(uid)
+                if unit_info and not unit_info.get("is_object"):
+                    return True
     return False
+
+
+# ========================================
+# 삭제
+# ========================================
+
+def destroy_dungeon(dungeon_id):
+    """인스턴트 던전 삭제 — 생성된 층만 정리"""
+    info = _active_dungeons.get(dungeon_id)
+    if not info:
+        print(f"[instant_dungeon] Dungeon '{dungeon_id}' not found")
+        return
+
+    # 플레이어 탈출 처리
+    player_id = morld.get_player_id()
+    if player_id:
+        player_loc = morld.get_unit_location(player_id)
+        if player_loc:
+            _, dungeon_check = get_dungeon_for_region(player_loc[0])
+            if dungeon_check and dungeon_check["dungeon_id"] == dungeon_id:
+                ext_r = info.get("_entrance_ext_region", 0)
+                ext_l = info.get("_entrance_ext_location", 0)
+                morld.set_unit_location(player_id, ext_r or 0, ext_l or 0)
+                morld.add_action_log("던전이 붕괴하여 밖으로 빠져나왔다.")
+
+    # FoW 정리
+    from . import fog
+    for fnum in info["floors_generated"]:
+        fog.destroy_fog(f"{dungeon_id}_F{fnum}")
+
+    del _active_dungeons[dungeon_id]
+    print(f"[instant_dungeon] Destroyed '{dungeon_id}'")

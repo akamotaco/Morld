@@ -241,6 +241,187 @@ def _connect_siblings(node, corridors):
         _connect_siblings(node.right, corridors)
 
 
+class Bridge:
+    """BSP tree 위의 추가 간선 (루프 생성)"""
+    __slots__ = ("room_a", "room_b")
+
+    def __init__(self, room_a_id, room_b_id):
+        self.room_a = room_a_id
+        self.room_b = room_b_id
+
+    def __repr__(self):
+        return f"Bridge({self.room_a} <-> {self.room_b})"
+
+
+def generate_bridges(rooms, corridors, max_bridges=2, max_distance=200, seed=None):
+    """
+    BSP tree 위에 추가 간선(bridge)을 생성하여 루프를 만듦.
+
+    Args:
+        rooms: 방 목록
+        corridors: 기존 corridor 목록
+        max_bridges: 최대 bridge 수
+        max_distance: 후보 최대 유클리디안 거리
+        seed: 랜덤 시드
+
+    Returns:
+        list[Bridge]
+    """
+    if max_bridges <= 0 or len(rooms) < 3:
+        return []
+
+    if seed is not None:
+        random.seed(seed)
+
+    # 기존 연결 집합
+    connected = set()
+    for c in corridors:
+        connected.add((min(c.room_a, c.room_b), max(c.room_a, c.room_b)))
+
+    # 방 중심 좌표
+    centers = {r.id: r.center() for r in rooms}
+
+    # 기존 간선 선분 목록 (교차 검사용)
+    existing_segments = []
+    for c in corridors:
+        existing_segments.append((centers[c.room_a], centers[c.room_b]))
+
+    # 후보: 비연결 + 거리 내
+    candidates = []
+    room_ids = [r.id for r in rooms]
+    for i in range(len(room_ids)):
+        for j in range(i + 1, len(room_ids)):
+            a, b = room_ids[i], room_ids[j]
+            key = (min(a, b), max(a, b))
+            if key in connected:
+                continue
+            ca, cb = centers[a], centers[b]
+            dist = ((ca[0] - cb[0]) ** 2 + (ca[1] - cb[1]) ** 2) ** 0.5
+            if dist <= max_distance:
+                candidates.append((dist, a, b))
+
+    candidates.sort()
+
+    bridges = []
+    bridge_segments = []
+
+    for dist, a, b in candidates:
+        if len(bridges) >= max_bridges:
+            break
+
+        seg = (centers[a], centers[b])
+
+        # 교차 검사: 기존 corridor + 이미 추가된 bridge
+        crosses = False
+        for existing in existing_segments + bridge_segments:
+            if _segments_intersect(seg[0], seg[1], existing[0], existing[1]):
+                crosses = True
+                break
+
+        if not crosses:
+            bridges.append(Bridge(a, b))
+            bridge_segments.append(seg)
+            connected.add((min(a, b), max(a, b)))
+
+    return bridges
+
+
+def _segments_intersect(p1, p2, p3, p4):
+    """두 선분의 교차 여부 (유클리디안, 끝점 공유 제외)"""
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    # 끝점 공유 시 교차 아님
+    if p1 == p3 or p1 == p4 or p2 == p3 or p2 == p4:
+        return False
+
+    d1 = cross(p3, p4, p1)
+    d2 = cross(p3, p4, p2)
+    d3 = cross(p1, p2, p3)
+    d4 = cross(p1, p2, p4)
+
+    if ((d1 > 0 and d2 < 0) or (d1 < 0 and d2 > 0)) and \
+       ((d3 > 0 and d4 < 0) or (d3 < 0 and d4 > 0)):
+        return True
+    return False
+
+
+def generate_floor(spec_base, floor_num, seed, max_floors=None,
+                   stairs_per_floor=1):
+    """
+    단일 층 BSP 생성 (Lazy Generation용).
+
+    Args:
+        spec_base: {"width", "height", "min_size", "max_depth"} + floor_scaling
+        floor_num: 현재 층 번호 (0-indexed)
+        seed: base_seed (floor_num 기반 파생)
+        max_floors: 최대 층수 (None=무한)
+        stairs_per_floor: 계단 수
+
+    Returns:
+        (rooms, corridors, bridges)
+    """
+    floor_seed = seed + floor_num * 100
+
+    # floor_scaling 적용
+    width = spec_base["width"]
+    height = spec_base["height"]
+    min_size = spec_base["min_size"]
+    max_depth = spec_base["max_depth"]
+
+    scaling = spec_base.get("floor_scaling", {})
+    width += int(scaling.get("width_per_floor", 0) * floor_num)
+    height += int(scaling.get("height_per_floor", 0) * floor_num)
+    max_depth += int(scaling.get("max_depth_per_floor", 0) * floor_num)
+
+    rooms, corridors = generate_dungeon(
+        width=width, height=height,
+        min_size=min_size, max_depth=max_depth,
+        seed=floor_seed
+    )
+
+    # 타입 재할당
+    for room in rooms:
+        room.room_type = "normal"
+
+    if rooms:
+        # 입구 (1층만)
+        if floor_num == 0:
+            rooms[0].room_type = "start"
+
+        # stairs_up (1층 이외)
+        if floor_num > 0:
+            rooms[0].room_type = "stairs_up"
+
+        # 보물방
+        if len(rooms) > 3:
+            rooms[len(rooms) // 2].room_type = "treasure"
+
+        # 보스 (마지막 층)
+        is_last_floor = max_floors is not None and floor_num >= max_floors - 1
+        if is_last_floor:
+            rooms[-1].room_type = "boss"
+        else:
+            # stairs_down
+            for count in range(stairs_per_floor):
+                # 마지막 방부터 역순으로 stairs_down 배치
+                idx = -(1 + count)
+                if abs(idx) <= len(rooms) and rooms[idx].room_type == "normal":
+                    rooms[idx].room_type = "stairs_down"
+
+    # Bridge 생성
+    bridge_seed = seed + floor_num * 100 + 99
+    bridge_cfg = spec_base.get("connections", {})
+    bridges = generate_bridges(
+        rooms, corridors,
+        max_bridges=bridge_cfg.get("bridges_per_floor", 0),
+        max_distance=bridge_cfg.get("bridge_max_distance", 200),
+        seed=bridge_seed,
+    )
+
+    return rooms, corridors, bridges
+
+
 def render_ascii(rooms, corridors, width, height, scale=1):
     """
     디버그용 ASCII 맵 렌더링.

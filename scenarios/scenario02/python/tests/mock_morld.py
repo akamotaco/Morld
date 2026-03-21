@@ -474,15 +474,19 @@ class MockMorld:
         if loc_key in self._locations:
             self._locations[loc_key][key] = value
 
-    def add_location(self, region_id, location_id, name, **kwargs):
-        """location 생성 (build.py 호환)"""
+    def add_location(self, region_id, location_id, name,
+                     stay_duration=0, indoor=True, owner=None,
+                     describe_text=None, ground_id=None,
+                     geometry="line", length=0):
+        """location 생성 (positional args 호환)"""
         key = (region_id, location_id)
         self._locations[key] = {
             "name": name,
-            "length": kwargs.get("length", 1),
-            "owner": kwargs.get("owner", ""),
-            "is_indoor": kwargs.get("indoor", True),
-            "weather": kwargs.get("weather"),
+            "length": length,
+            "owner": owner or "",
+            "is_indoor": indoor,
+            "describe_text": describe_text,
+            "geometry": geometry,
         }
 
     def add_gate(self, region_id, location_id, gate_id,

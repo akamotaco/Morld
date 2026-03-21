@@ -335,18 +335,27 @@ def on_single_event(event):
             pass
 
         if unit_id == player_id:
-            # 던전 Fog of War 업데이트
+            # 던전 진입 + 층별 Lazy Expand + FoW 업데이트
             try:
-                from instant_dungeon.manager import get_dungeon_for_region, get_floor_for_region
+                from instant_dungeon.manager import (
+                    get_dungeon_for_region, get_floor_for_region,
+                    get_floor_num_for_region, is_floor_expanded, expand_floor,
+                )
+                from instant_dungeon import fog
+
                 dungeon_id, dungeon_info = get_dungeon_for_region(region_id)
                 if dungeon_info:
-                    from instant_dungeon import fog
-                    # 다층: 현재 층 데이터 추출
+                    # Phase 2: 미확장 층 진입 시 BSP 생성
+                    floor_num = get_floor_num_for_region(dungeon_id, region_id)
+                    if floor_num is not None and not is_floor_expanded(dungeon_id, floor_num):
+                        expand_floor(dungeon_id, floor_num)
+
+                    # Fog of War 업데이트
                     floor_info = get_floor_for_region(dungeon_id, region_id)
                     if floor_info:
                         floor_locations = floor_info.get("locations", {})
-                        floor_num = floor_info.get("floor")
-                        fog_id = f"{dungeon_id}_F{floor_num}" if floor_num is not None else dungeon_id
+                        floor_n = floor_info.get("floor")
+                        fog_id = f"{dungeon_id}_F{floor_n}" if floor_n is not None else dungeon_id
                         for rid, lid in floor_locations.items():
                             if lid == location_id:
                                 fog.update_fog(fog_id, rid)
