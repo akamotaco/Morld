@@ -363,14 +363,12 @@ def get_humidity(region_id, location_id):
     Returns:
         float 또는 None (초기화 전)
 
-    Raises:
-        KeyError: 초기화 완료 후 해당 location이 등록되지 않은 경우
+    Returns:
+        float 또는 None (초기화 전 또는 미등록 location)
     """
     _ensure_initialized()
     key = (region_id, location_id)
-    if _initialized and key not in _location_humidity:
-        raise KeyError(f"[humidity] Unknown location {key}. {len(_location_humidity)} locations registered")
-    return _location_humidity.get(key)
+    return _location_humidity.get(key)  # 미등록 → None (동적 지형 호환)
 
 
 def get_unit_wetness(unit_id):

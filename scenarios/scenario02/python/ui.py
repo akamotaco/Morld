@@ -454,27 +454,28 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         from instant_dungeon.fog import HIDDEN, VISIBLE, REVEALED
         from instant_dungeon.manager import get_floor_for_region
 
-        # 다층 던전: 현재 층 데이터 추출
-        floors_data = dungeon_info.get("floors")
+        # v2: floors_generated dict 기반
+        floors_generated = dungeon_info.get("floors_generated", {})
         current_floor = None
-        if floors_data:
-            floor_info = get_floor_for_region(dungeon_id, region_id)
-            if floor_info:
-                rooms = floor_info.get("rooms", [])
-                corridors = floor_info.get("corridors", [])
-                locations = floor_info.get("locations", {})
-                current_floor = floor_info.get("floor", 0)
-                fog_id = f"{dungeon_id}_F{current_floor}"
-            else:
-                return "현재 층 정보를 찾을 수 없습니다."
+        floor_info = get_floor_for_region(dungeon_id, region_id)
+
+        if floor_info:
+            rooms = floor_info.get("rooms", [])
+            corridors = floor_info.get("corridors", [])
+            locations = floor_info.get("locations", {})
+            current_floor = floor_info.get("floor", 0)
+            fog_id = f"{dungeon_id}_F{current_floor}"
+        elif not floors_generated:
+            # 입구만 생성된 상태 (아직 expand 안 됨)
+            return "던전 내부를 탐색 중..."
         else:
-            rooms = dungeon_info.get("rooms", [])
-            corridors = dungeon_info.get("corridors", [])
-            locations = dungeon_info.get("locations", {})
-            fog_id = dungeon_id
+            return "현재 층 정보를 찾을 수 없습니다."
 
         if not rooms:
             return "던전 정보가 없습니다."
+
+        # 다층 데이터 (층 전환 UI용)
+        floors_data = sorted(floors_generated.values(), key=lambda f: f.get("floor", 0)) if floors_generated else None
 
         # 현재 방 ID (location_id → room_id 역매핑)
         current_room_id = None
@@ -974,9 +975,9 @@ def get_time_weather_text():
             import congestion
             if loc:
                 cong = congestion.get_congestion(loc[0], loc[1])
-                if cong > 1.0:
+                if cong is not None and cong > 1.0:
                     congestion_text = f" {style_highlight(f'혼잡x{cong:.1f}')}"
-                elif cong > 0.5:
+                elif cong is not None and cong > 0.5:
                     congestion_text = f" 혼잡x{cong:.1f}"
         except ImportError:
             pass

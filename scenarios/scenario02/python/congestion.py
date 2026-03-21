@@ -184,16 +184,18 @@ def _apply_congestion(key):
 
 
 def _check_location(key):
-    """초기화 완료 후 location 존재 여부 검증"""
+    """초기화 완료 후 location 존재 여부 검증 — 미등록 시 False 반환"""
     if _initialized and key not in _capacity:
-        raise KeyError(f"[congestion] Unknown location {key}. {len(_capacity)} locations registered")
+        return False
+    return True
 
 
 def get_congestion(region_id, location_id):
-    """혼잡도 반환 (1.0 = 정상, 2.0 = 2배 혼잡)"""
+    """혼잡도 반환 (1.0 = 정상, 2.0 = 2배 혼잡, None = 미등록)"""
     _ensure_initialized()
     key = (region_id, location_id)
-    _check_location(key)
+    if not _check_location(key):
+        return None
     pop = _population.get(key, 0)
     cap = _capacity.get(key, MIN_CAPACITY)
     if cap <= 0:
@@ -205,7 +207,8 @@ def get_population(region_id, location_id):
     """현재 인구 반환"""
     _ensure_initialized()
     key = (region_id, location_id)
-    _check_location(key)
+    if not _check_location(key):
+        return 0
     return _population.get(key, 0)
 
 
@@ -213,7 +216,8 @@ def get_capacity(region_id, location_id):
     """수용력 반환"""
     _ensure_initialized()
     key = (region_id, location_id)
-    _check_location(key)
+    if not _check_location(key):
+        return MIN_CAPACITY
     return _capacity.get(key, MIN_CAPACITY)
 
 
