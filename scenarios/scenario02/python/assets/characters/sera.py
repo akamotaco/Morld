@@ -284,13 +284,19 @@ class Sera(Character):
         from think import get_agent_for
         from assets.base import style_muted
 
+        # 일일퀘스트 disabled 체크
+        agent = get_agent_for(self.instance_id)
+        daily_disabled = agent.is_daily_quest_disabled() if agent else False
+
         available_quests = quest_manager.get_available_quests_from(self.unique_id)
         if not available_quests:
-            yield ui.dialog(f"[{self.name}]\n\"...부탁할 일은 없어.\"")
+            if daily_disabled:
+                yield ui.dialog(f"[{self.name}]\n\"...이제 네 능력은 인정한다. 알아서 해라.\"")
+            else:
+                yield ui.dialog(f"[{self.name}]\n\"...부탁할 일은 없어.\"")
             return
 
-        # 오늘의 일일 퀘스트 ID 조회
-        agent = get_agent_for(self.instance_id)
+        # 오늘의 일일 퀘스트 ID 조회 (disabled면 빈 리스트)
         today_daily = agent.get_today_daily_quests() if agent else []
 
         # 필터: daily 카테고리는 오늘 선택된 것만, 나머지는 전부 표시
@@ -303,7 +309,10 @@ class Sera(Character):
                 filtered.append(quest)
 
         if not filtered:
-            yield ui.dialog(f"[{self.name}]\n\"...오늘은 딱히 없어.\"")
+            if daily_disabled:
+                yield ui.dialog(f"[{self.name}]\n\"...이제 심부름은 없다. 알아서 해.\"")
+            else:
+                yield ui.dialog(f"[{self.name}]\n\"...오늘은 딱히 없어.\"")
             return
 
         lines = [f"[b]{self.name}[/b]의 심부름", ""]
@@ -1034,11 +1043,96 @@ class Sera(Character):
         yield ui.dialog([f"[{self.name}]", message])
 
     def _first_meet_handler(self, player_id):
-        """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
-        # 누적형 대화 빌더 사용
+        """첫 만남 이벤트 핸들러 - 호감도 분기 (Conversation)"""
+        affection = morld.get_unit_prop(player_id, "관계:세라:호감") or 0
+
+        if affection < 0:
+            yield from self._first_meet_cold(player_id)
+        else:
+            yield from self._first_meet_neutral(player_id)
+
+        # 시간 경과 처리
+        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
+        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
+
+        # 첫 만남 완료 처리 (관계:세라:진척도 = 1)
+        self.mark_first_meet_done(player_id)
+
+    def _first_meet_cold(self, player_id):
+        """첫 만남: 저호감 — 냉담하고 모욕적"""
         conv = ui.Conversation("세라")
 
-        # 도입: 세라가 플레이어를 발견
+        conv.narration(
+            "......",
+            "눈앞에 낯선 여성이 서 있다.",
+            "긴 흑발을 묶은 과묵한 인상. 날카로운 눈이 이쪽을 노려본다.",
+            "적의까지는 아니지만, 분명한 경계심."
+        )
+
+        conv.say(
+            "...일어났군.",
+            "......",
+            "...밀라가 데려온 거지. 쓸데없이."
+        )
+
+        conv.ask([
+            ("기억이 없다", "no_memory"),
+            ("여기가 어디야?", "where"),
+        ])
+
+        conv.respond("no_memory",
+            "......",
+            "...그래서?",
+            "기억이 없다고 해서 동정받을 거라고 생각하지 마라.",
+            "...여긴 그런 여유가 없다."
+        )
+
+        conv.respond("where",
+            "...알 필요 없다.",
+            "...네가 오래 있을 곳이 아니니까."
+        )
+
+        conv.say(
+            "...세라다.",
+            "이 저택을 관리하고 있다.",
+            "......",
+            "...솔직히 말하지.",
+        )
+
+        conv.say(
+            "...여기엔 남는 식량도, 남는 방도 없다.",
+            "...밀라가 데려왔으니 당장 내쫓지는 않겠지만,",
+            "...쓸모가 없으면 나가야 한다.",
+        )
+
+        conv.ask([
+            ("...알겠어", "accept"),
+            ("쓸모라니...", "protest"),
+        ])
+
+        conv.respond("accept",
+            "...이해가 빠르군.",
+            "...내일부터 할 일을 줄 테니 그걸로 증명해라."
+        )
+
+        conv.respond("protest",
+            "...마음에 안 들면 지금 당장 나가도 좋다.",
+            "...숲에서 혼자 살아남을 수 있다면.",
+            "......",
+            "...내일부터 할 일을 줄 테니 그걸로 증명해라."
+        )
+
+        conv.say(
+            "...밀라한테 필요한 건 물어봐라.",
+            "...나한테는 말 걸지 마."
+        )
+
+        yield conv.end()
+
+    def _first_meet_neutral(self, player_id):
+        """첫 만남: 중립 이상 — 과묵하지만 담담한 톤 (기존)"""
+        conv = ui.Conversation("세라")
+
         conv.narration(
             "......",
             "눈앞에 낯선 여성이 서 있다.",
@@ -1051,7 +1145,6 @@ class Sera(Character):
             "...기억은 있나?"
         )
 
-        # 첫 번째 선택지: 기억에 대해 (세라는 선택지 적게)
         conv.ask([
             ("기억이 없다", "no_memory"),
             ("여기가 어디야?", "where"),
@@ -1069,14 +1162,12 @@ class Sera(Character):
             "...밀라가 널 데려왔다."
         )
 
-        # 세라 자기소개
         conv.say(
             "......",
             "...세라다.",
             "...이 저택에서 사냥을 맡고 있다."
         )
 
-        # 두 번째 선택지: 추가 질문
         conv.say("...질문이 있으면 해라.")
 
         conv.ask([
@@ -1095,22 +1186,13 @@ class Sera(Character):
             "...그래."
         )
 
-        # 마무리
         conv.say(
             "...무리하지 마라.",
             "......",
             "...필요한 게 있으면 밀라에게 말해라."
         )
 
-        # 누적형 대화 시작
         yield conv.end()
-
-        # 시간 경과 처리
-        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
-        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
-
-        # 첫 만남 완료 처리 (관계:세라:진척도 = 1)
-        self.mark_first_meet_done(player_id)
 
     # ========================================
     # 데이트 반응
@@ -1544,8 +1626,19 @@ class SeraAgent(BaseAgent):
         self._memory["daily_quest_list"] = selected
         self._memory["daily_quest_day"] = day
 
+    def is_daily_quest_disabled(self):
+        """일일퀘스트 영구 비활성화 여부 (호감>=0 or 복종>=50)"""
+        player_id = morld.get_player_id()
+        if player_id is None:
+            return False
+        affection = morld.get_unit_prop(player_id, "관계:세라:호감") or 0
+        submission = morld.get_unit_prop(player_id, "관계:세라:복종") or 0
+        return affection >= 0 or submission >= 50
+
     def get_today_daily_quests(self):
-        """오늘 활성화된 일일 퀘스트 ID 목록 반환"""
+        """오늘 활성화된 일일 퀘스트 ID 목록 반환 (disabled면 빈 리스트)"""
+        if self.is_daily_quest_disabled():
+            return []
         return list(self._memory.get("daily_quest_list", []))
 
     def think(self):

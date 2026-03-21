@@ -143,6 +143,14 @@ def post_restore():
     morld.set_unit_prop(player_id, "생존:활성화", 1)
     print("[chapter_1] Survival system enabled")
 
+    # 초기 호감도 설정 (첫 진입 시에만)
+    if not morld.get_unit_prop(player_id, "챕터1:초기화완료"):
+        morld.set_unit_prop(player_id, "관계:세라:호감", -20)  # 불신, 적대적
+        morld.set_unit_prop(player_id, "관계:밀라:호감", 5)    # 약간의 호감 (데려온 당사자)
+        morld.set_unit_prop(player_id, "관계:리나:호감", -5)   # 낯가림, 외부인 배척
+        morld.set_unit_prop(player_id, "챕터1:초기화완료", 1)
+        print("[chapter_1] Initial affection set: sera=-20, mila=+5, lina=-5")
+
     # 챕터 1 시작 퀘스트 자동 부여
     _start_chapter_quest()
 

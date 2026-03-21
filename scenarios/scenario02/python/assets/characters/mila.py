@@ -1083,11 +1083,106 @@ class Mila(Character):
     # ========================================
 
     def _first_meet_handler(self, player_id):
-        """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
-        # 누적형 대화 빌더 사용
+        """첫 만남 이벤트 핸들러 - 호감도 분기 (Conversation)"""
+        affection = morld.get_unit_prop(player_id, "관계:밀라:호감") or 0
+
+        if affection < 10:
+            yield from self._first_meet_reserved(player_id)
+        else:
+            yield from self._first_meet_warm(player_id)
+
+        # 시간 경과 처리
+        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
+        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
+
+        # 첫 만남 완료 처리 (관계:밀라:진척도 = 1)
+        self.mark_first_meet_done(player_id)
+
+    def _first_meet_reserved(self, player_id):
+        """첫 만남: 저호감 — 데려온 당사자지만 내색 최소화, 사무적"""
         conv = ui.Conversation("밀라")
 
-        # 도입: 밀라가 플레이어를 발견
+        conv.narration(
+            "눈앞에 갈색 머리의 여성이 있다.",
+            "다정한 인상이지만, 어딘가 조심스러운 눈빛."
+        )
+
+        conv.say(
+            "깨어나셨군요.",
+            "......",
+            "몸 상태는 어때요?"
+        )
+
+        conv.ask([
+            ("괜찮아요", "fine"),
+            ("무슨 일이 있었던 거죠?", "what_happened"),
+            ("당신은 누구예요?", "who"),
+            ("(헤어지기)", "@exit"),
+        ])
+
+        conv.respond("fine",
+            "...다행이네요.",
+            "숲에서 쓰러져 있는 걸 발견했어요.",
+            "그냥 두면 위험할 것 같아서... 데려왔어요."
+        )
+
+        conv.respond("what_happened",
+            "저도 자세히는 몰라요.",
+            "숲 근처에서 쓰러져 계신 걸 발견했어요.",
+            "...일단 데려오긴 했는데,"
+        )
+
+        conv.respond("who",
+            "아..."
+        )
+
+        conv.say(
+            "밀라예요.",
+            "이 저택에서 살림을 맡고 있어요.",
+            "......",
+            "...솔직히 말씀드리면, 세라가 좀 꺼려할 거예요.",
+            "외부 사람을 경계하는 편이라서."
+        )
+
+        conv.ask([
+            ("다른 사람도 있어요?", "others"),
+            ("기억이 없어요...", "memory"),
+            ("폐를 끼치고 싶지 않아요", "humble"),
+            ("(헤어지기)", "@exit"),
+        ])
+
+        conv.respond("others",
+            "세라랑 리나가 있어요.",
+            "세라는... 여기 리더예요. 좀 엄격하지만...",
+            "리나는 어린 편이에요. 낯을 좀 가려요.",
+            "...처음엔 어색할 수 있어요."
+        )
+
+        conv.respond("memory",
+            "......",
+            "...저희도 그래요.",
+            "기억이 없는 건... 여기선 특별한 일이 아니에요.",
+            "하지만 그렇다고 바로 동료가 되는 건 아니에요."
+        )
+
+        conv.respond("humble",
+            "...그런 마음이면 다행이에요.",
+            "세라한테도 좋은 인상을 줄 수 있을 거예요.",
+            "...아마도요."
+        )
+
+        conv.say(
+            "일단 쉬세요.",
+            "필요한 게 있으면 저한테 물어보세요.",
+            "...세라한테는 제가 잘 말해볼게요."
+        )
+
+        yield conv.end()
+
+    def _first_meet_warm(self, player_id):
+        """첫 만남: 고호감 — 따뜻하고 다정한 톤 (기존)"""
+        conv = ui.Conversation("밀라")
+
         conv.narration(
             "눈앞에 따뜻한 인상의 여성이 있다.",
             "갈색 머리에 다정한 눈빛. 걱정스러운 표정으로 이쪽을 바라본다."
@@ -1099,7 +1194,6 @@ class Mila(Character):
             "몸은 괜찮으세요? 아픈 데는 없어요?"
         )
 
-        # 첫 번째 선택지: 상태에 대해
         conv.ask([
             ("괜찮아요", "fine"),
             ("무슨 일이 있었던 거죠?", "what_happened"),
@@ -1123,13 +1217,11 @@ class Mila(Character):
             "아, 저도 소개를 안 했네요!"
         )
 
-        # 밀라 자기소개
         conv.say(
             "저는 밀라예요.",
             "이 저택에서 요리랑 살림을 맡고 있어요."
         )
 
-        # 두 번째 선택지: 추가 질문
         conv.say("궁금한 거 있으시면 말씀해 주세요~")
 
         conv.ask([
@@ -1160,22 +1252,13 @@ class Mila(Character):
             "혼자 쓰러져 계시는데 그냥 지나칠 수 없잖아요."
         )
 
-        # 마무리
         conv.say(
             "천천히 회복하세요.",
             "필요한 게 있으시면 언제든 말씀해 주세요!",
             "밥 먹을 시간에 부를게요~"
         )
 
-        # 누적형 대화 시작
         yield conv.end()
-
-        # 시간 경과 처리
-        morld.set_npc_time_consume(self.instance_id, "stay", 1 * _M)
-        morld.set_npc_job(self.instance_id, "stay", 2 * _M)
-
-        # 첫 만남 완료 처리 (관계:밀라:진척도 = 1)
-        self.mark_first_meet_done(player_id)
 
     # ========================================
     # 임신/모드 후유증 반응

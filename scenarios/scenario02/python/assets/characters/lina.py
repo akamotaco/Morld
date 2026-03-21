@@ -1059,11 +1059,74 @@ class Lina(Character):
     # ========================================
 
     def _first_meet_handler(self, player_id):
-        """첫 만남 이벤트 핸들러 - 누적형 대화 (Conversation)"""
-        # 누적형 대화 빌더 사용
+        """첫 만남 이벤트 핸들러 - 호감도 분기 (Conversation)"""
+        affection = morld.get_unit_prop(player_id, "관계:리나:호감") or 0
+
+        if affection < 0:
+            yield from self._first_meet_shy(player_id)
+        else:
+            yield from self._first_meet_bright(player_id)
+
+        # 첫 만남 완료 처리 (관계:리나:진척도 = 1)
+        self.mark_first_meet_done(player_id)
+
+    def _first_meet_shy(self, player_id):
+        """첫 만남: 저호감 — 낯가림, 경계, 피하려 함"""
         conv = ui.Conversation("리나")
 
-        # 도입: 리나가 플레이어를 발견
+        conv.narration(
+            "복도 저편에서 금발의 소녀가 이쪽을 훔쳐본다.",
+            "눈이 마주치자 움찔하며 뒤로 물러선다."
+        )
+
+        conv.say(
+            "...!",
+            "......",
+            "...누, 누구야...?"
+        )
+
+        conv.ask([
+            ("기억이 없어...", "dont_know"),
+            ("너야말로 누구야?", "who"),
+            ("무서워하지 마", "calm"),
+            ("(헤어지기)", "@exit"),
+        ])
+
+        conv.respond("dont_know",
+            "......",
+            "...밀라 언니가 데려온 사람...?",
+            "...세라 언니가 화낼 텐데..."
+        )
+
+        conv.respond("who",
+            "...!",
+            "...리, 리나...",
+            "...그런데 왜 이쪽으로 와...",
+        )
+
+        conv.respond("calm",
+            "......",
+            "...무섭진 않은데...",
+            "...그냥... 모르는 사람이랑은..."
+        )
+
+        conv.say(
+            "......",
+            "...나 갈게.",
+            "...밀라 언니한테 물어봐... 나한테 묻지 말고..."
+        )
+
+        conv.narration(
+            "리나가 종종걸음으로 사라진다.",
+            "...당분간은 거리를 두는 편이 좋겠다."
+        )
+
+        yield conv.end()
+
+    def _first_meet_bright(self, player_id):
+        """첫 만남: 중립 이상 — 밝고 호기심 가득 (기존)"""
+        conv = ui.Conversation("리나")
+
         conv.narration(
             "눈앞에 밝은 소녀가 서 있다.",
             "금발 단발머리에 녹색 눈. 호기심 가득한 표정으로 이쪽을 쳐다본다."
@@ -1081,7 +1144,6 @@ class Lina(Character):
             "처음 보는 얼굴인데... 어디서 왔어?"
         )
 
-        # 첫 번째 선택지: 자기소개
         conv.ask([
             ("모르겠어...", "dont_know"),
             ("너야말로 누구야?", "who"),
@@ -1109,14 +1171,12 @@ class Lina(Character):
             "걱정하지 마, 여긴 안전해!"
         )
 
-        # 리나 자기소개
         conv.say(
             "아, 나는 리나야!",
             "여기서 채집이랑 빨래 담당하고 있어!",
             "에헤헤~ 잘 부탁해!"
         )
 
-        # 두 번째 선택지: 추가 질문
         conv.say("뭐뭐 궁금한 거 있어?")
 
         conv.ask([
@@ -1145,21 +1205,13 @@ class Lina(Character):
             "...그래도 나중에 물어봐! 뭐든 알려줄게!"
         )
 
-        # 마무리
         conv.say(
             "앞으로 잘 지내자!",
             "심심하면 놀러 와! 나 여기저기 돌아다니니까!",
             "에헤헤~ 친구 생겨서 좋다!"
         )
 
-        # 누적형 대화 시작
         yield conv.end()
-
-        # 시간 경과 처리 (first meet은 0초)
-        # morld.set_npc_job(self.instance_id, "stay", 2 * _M) # 머무르지 않고 바로 이동하기 위해 주석처리
-
-        # 첫 만남 완료 처리 (관계:리나:진척도 = 1)
-        self.mark_first_meet_done(player_id)
 
     # ========================================
     # 임신/모드 후유증 반응
