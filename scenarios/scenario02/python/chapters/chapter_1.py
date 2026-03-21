@@ -126,6 +126,7 @@ def post_restore():
 
     import ui
     ui.set_ui_lock(False)  # 인벤토리/퀘스트/설정 메뉴 활성화
+    ui.set_darkness_masking(True)  # 챕터 1부터 어둠 마스킹 활성화
 
     player_id = morld.get_player_id()
     if player_id is None:

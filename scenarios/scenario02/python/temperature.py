@@ -415,16 +415,11 @@ def get_temperature(region_id, location_id):
     현재 location 온도 조회 (ui.py에서 호출)
 
     Returns:
-        float 또는 None (초기화 전)
-
-    Raises:
-        KeyError: 초기화 완료 후 해당 location이 등록되지 않은 경우
+        float 또는 None (초기화 전 또는 미등록 location)
     """
     _ensure_initialized()
     key = (region_id, location_id)
-    if _initialized and key not in _location_temps:
-        raise KeyError(f"[temperature] Unknown location {key}. {len(_location_temps)} locations registered")
-    return _location_temps.get(key)
+    return _location_temps.get(key)  # 미등록 location → None (던전 등 동적 지형 호환)
 
 
 def set_location_transfer_rate(region_id, location_id, rate):

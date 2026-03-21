@@ -59,6 +59,7 @@ def initialize():
 
     import ui
     ui.set_ui_lock(True)  # 인벤토리/퀘스트/설정 메뉴 가림
+    ui.set_darkness_masking(False)  # 프롤로그는 연출이므로 어둠 마스킹 비활성화
 
     # 1. Region 등록
     r = REGION

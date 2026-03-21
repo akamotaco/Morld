@@ -1201,6 +1201,11 @@ namespace SE
 
 			try
 			{
+				// Python override: ui.set_darkness_masking(False)로 강제 해제
+				var maskingEnabled = _scriptSystem.CallModuleFunction("ui", "is_darkness_masking_enabled");
+				if (maskingEnabled != null && maskingEnabled is SharpPy.PyBool b && !b.Value)
+					return 0;
+
 				var result = _scriptSystem.CallModuleFunction("lighting", "get_brightness_level");
 				if (result != null && result is not SharpPy.PyNone)
 				{
