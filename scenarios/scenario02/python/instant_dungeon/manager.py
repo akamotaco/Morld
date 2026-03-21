@@ -167,6 +167,7 @@ def expand_floor(dungeon_id, floor_num):
         f"{spec.get('name', '던전')} {floor_num + 1}F",
         skip_start=(floor_num == 0),  # 1층 입구는 이미 생성
         skip_stairs_up=(floor_num > 0 and floor_num in info["floor_stubs"]),
+        seed=seed + floor_num * 100,
     )
 
     # stairs_down → 다음 층 stub 생성

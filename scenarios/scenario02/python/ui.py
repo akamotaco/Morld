@@ -555,18 +555,26 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         # None 또는 ("room", room_id, is_current, is_adjacent, vis)
         grid_meta = [[None] * _GRID_W for _ in range(_GRID_H)]
 
-        # ── 복도 그리기 (발견된 복도만 — 방문 이력 포함) ──
-        for corr in corridors:
-            vis_a = fog_state.get(corr.room_a, HIDDEN)
-            vis_b = fog_state.get(corr.room_b, HIDDEN)
-            # 양쪽 다 VISIBLE이거나, 한 번이라도 발견된 복도면 그리기
+        # ── 복도 + Bridge 그리기 (발견된 것만) ──
+        bridges = floor_info.get("bridges", []) if floors_data else dungeon_info.get("bridges", [])
+        all_connections = list(corridors) + list(bridges or [])
+        current_adj = adjacency.get(current_room_id, set()) if current_room_id is not None else set()
+        for conn in all_connections:
+            vis_a = fog_state.get(conn.room_a, HIDDEN)
+            vis_b = fog_state.get(conn.room_b, HIDDEN)
             both_visible = vis_a >= VISIBLE and vis_b >= VISIBLE
-            was_revealed = fog.is_corridor_revealed(fog_id, corr.room_a, corr.room_b)
+            was_revealed = fog.is_corridor_revealed(fog_id, conn.room_a, conn.room_b)
             if both_visible or was_revealed:
-                ax, ay = positions.get(corr.room_a, (0, 0))
-                bx, by = positions.get(corr.room_b, (0, 0))
-                dim = not both_visible  # 현재 안 보이면 흐리게
-                _draw_corridor(grid, ax, ay, bx, by, dim=dim)
+                ax, ay = positions.get(conn.room_a, (0, 0))
+                bx, by = positions.get(conn.room_b, (0, 0))
+                dim = not both_visible
+                # 현재 방 ↔ 인접 방 경로 하이라이트
+                is_active = (
+                    current_room_id is not None
+                    and ((conn.room_a == current_room_id and conn.room_b in current_adj)
+                         or (conn.room_b == current_room_id and conn.room_a in current_adj))
+                )
+                _draw_corridor(grid, ax, ay, bx, by, dim=dim, highlight=is_active)
 
         # ── 방 그리기 (모든 방 — HIDDEN은 ·, REVEALED은 흐리게, VISIBLE은 밝게) ──
         for room in rooms:
@@ -626,11 +634,14 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
 
                 if meta is None:
                     # 복도 문자 (dim 여부에 따라 색상 변경)
-                    if ch in ('─', '│', '┐', '└', '┘', '┌', '├', '┤', '┬', '┴', '┼'):
-                        row += c("#555555", ch)
+                    if ch in ('═', '║'):
+                        # 하이라이트 복도 (현재 방 ↔ 인접 방)
+                        row += c("#66ccff", ch.replace('═', '─').replace('║', '│'))
+                    elif ch in ('─', '│', '┐', '└', '┘', '┌', '├', '┤', '┬', '┴', '┼'):
+                        row += c("#888888", ch)
                     elif ch in ('╌', '╎'):
-                        # dim 복도 (흐리게)
-                        row += c("#333333", ch.replace('╌', '─').replace('╎', '│'))
+                        # dim 복도 (흐리게 — 방문 이력)
+                        row += c("#555555", ch.replace('╌', '─').replace('╎', '│'))
                     else:
                         row += ch
                 elif meta[0] == "room":
@@ -751,12 +762,19 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         return f"던전 지도 오류: {e}"
 
 
-def _draw_corridor(grid, ax, ay, bx, by, dim=False):
+def _draw_corridor(grid, ax, ay, bx, by, dim=False, highlight=False):
     """두 점 사이 L자형 복도 그리기 (box-drawing 문자)"""
     h = _GRID_H
     w = _GRID_W
-    h_char = '─' if not dim else '╌'
-    v_char = '│' if not dim else '╎'
+    if highlight:
+        h_char = '═'
+        v_char = '║'
+    elif dim:
+        h_char = '╌'
+        v_char = '╎'
+    else:
+        h_char = '─'
+        v_char = '│'
 
     # 수평 이동 (ax → bx, y=ay)
     x = ax
