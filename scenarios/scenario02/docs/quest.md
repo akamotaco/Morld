@@ -150,10 +150,20 @@ class FindSera(Quest):
 ### 4.1 위치 도착 (reach)
 
 ```python
+# 고정 위치 (region_id + location_id)
 {"type": "reach", "region_id": 0, "location_id": 5}
+
+# region만 지정 (해당 region 어디든)
+{"type": "reach", "region_id": 1}
+
+# unique_id 기반 (이주 안전 — location_id 하드코딩 불필요)
+{"type": "reach", "location_unique_id": "hunting_ground"}
 ```
 
 특정 위치에 도착하면 충족됩니다.
+
+`location_unique_id`는 `assets.registry.get_instance_id()`로 동적 매핑하여
+location이 재배치되어도 동작합니다 (이주 안전).
 
 **이벤트 연동:** `on_reach` 이벤트에서 체크
 
