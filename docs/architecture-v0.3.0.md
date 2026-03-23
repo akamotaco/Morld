@@ -257,6 +257,50 @@ public class CollisionSystem : ECS.System
 ThinkSystem → EventPredictionSystem → CollisionSystem → EventSystem → ...
 ```
 
+### Ring Geometry Edge 처리
+
+Ring(원통형) Location에서는 X축이 wrap-around한다 (0 = 360).
+오딘 스피어와 같은 구조: 직진하면 한 바퀴 돌아 제자리.
+
+```
+Ring 세계:   [----A----B--------]
+              0                360
+
+플레이어(350)의 뷰포트가 edge를 넘을 때:
+렌더링:  ...B--------A--[@]--A'--------B'...
+                             ↑ 가상 복제(ghost)
+```
+
+#### 렌더링 (시나리오 04)
+- 카메라 뷰포트가 edge(0 or 360)를 넘으면, 반대쪽 오브젝트를 **ghost로 복제** 표시
+- ghost는 렌더링 전용 — 실제 Entity가 아님
+- 뷰포트 폭 이내의 오브젝트만 ghost 생성 (성능)
+
+#### 충돌
+- Ring Location 내 거리 계산은 **wrap-around 최단 거리** 사용
+  - 기존 `Location.CalculateDistance()`가 이미 처리
+- edge 근처(예: X=355) 유닛의 충돌 판정 시, X=5 유닛과의 거리 = 10 (360-355+5)
+- AABB 충돌도 wrap-around 고려: 박스가 edge를 걸치면 **양쪽에서 판정**
+
+```
+충돌 판정 (Ring):
+  A.X=355, A.width=20 → 실제 범위: [345, 360) + [0, 15)
+  B.X=5 → A와 B 충돌!
+```
+
+#### 물리
+- 투사체/이동이 X > 360이면 `X %= 360` (기존 `NormalizeX()`)
+- 중력(Y축)은 Ring과 무관 — Y는 항상 Line 방식
+
+#### 시나리오별 차이
+
+| | 시나리오 02/03 (텍스트) | 시나리오 04 (플랫포머) |
+|---|---|---|
+| Ring 거리 | `CalculateDistance()` (기존) | 동일 |
+| Ring 렌더링 | 불필요 (텍스트) | ghost 복제 필요 |
+| Ring 충돌 | X축 거리만 (abstract) | AABB wrap-around |
+| Ring 물리 | 없음 | `NormalizeX()` wrap |
+
 ### Phase 3: 물리 시스템 (PhysicsSystem)
 
 시나리오 04 전용. 중력/점프/낙하.
