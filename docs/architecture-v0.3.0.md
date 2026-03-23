@@ -303,7 +303,100 @@ Ring 세계:   [----A----B--------]
 
 ### Phase 3: 물리 시스템 (PhysicsSystem)
 
-시나리오 04 전용. 중력/점프/낙하.
+시나리오 04 전용. 캐주얼 플랫포머 물리 (마리오/오딘 스피어 스타일).
+
+#### 속도 모델
+
+| 항목 | 방식 |
+|------|------|
+| X 이동 | 즉시 최대 속도 (or 약간의 가감속) |
+| Y 중력 | 고정 가속도 + 최대 낙하 속도 캡 |
+| 점프 | 초기 Y속도, 버튼 홀드로 높이 조절 (가변 점프) |
+| 착지 | 발 위치가 Platform Line 위 → Y속도 0 |
+
+#### 충돌 2종 분리
+
+```
+CollisionSystem
+  ├─ AABB 판정: 유닛↔유닛, 유닛↔벽 (X축 차단)
+  └─ Line 판정: 캐릭터 발 위치↔Platform (Y축 착지)
+
+PhysicsSystem
+  ├─ 중력 적용 (Y 속도)
+  ├─ 점프 (초기 Y속도 + 가변 높이)
+  └─ CollisionSystem 결과로 착지/벽 정지 처리
+```
+
+#### Platform 데이터 구조
+
+```csharp
+public class Platform
+{
+    public Vec2 Start { get; }   // 선분 시작
+    public Vec2 End { get; }     // 선분 끝
+    public bool OneWay { get; }  // true = semi-solid (반투과)
+}
+```
+
+#### Platform 타입
+
+```
+━━━━━━━━━━━  Solid (OneWay=false)
+             위아래 모두 차단. 올라갈 수 없고, 내려갈 수 없음.
+
+──────────── Semi-solid (OneWay=true)
+             아래에서 점프 → 관통 → 착지 가능.
+             ↓+점프 → 관통 낙하 가능.
+```
+
+#### 판정 규칙
+
+| Platform 타입 | 상승 중 (점프) | 하강 중 | ↓+점프 |
+|---|---|---|---|
+| Solid | 차단 (머리 부딪힘) | 착지 | 불가 |
+| Semi-solid | 관통 (올라감) | 착지 | 관통 (내려감) |
+
+```csharp
+bool ShouldCollide(Unit unit, Platform platform)
+{
+    if (platform.OneWay)
+    {
+        if (unit.VelocityY > 0)  return false;  // 상승 → 관통
+        if (unit.IsDropping)     return false;  // ↓+점프 → 관통
+        return unit.FootY >= platform.Y - epsilon;  // 발이 위에 있을 때만
+    }
+    return true;  // Solid: 항상 충돌
+}
+```
+
+#### ↓+점프 (Drop-through) 구현
+
+1. 플레이어 ↓ + 점프 입력
+2. `Unit.IsDropping = true`
+3. 현재 밟고 있는 Semi-solid 플랫폼 무시
+4. 발이 플랫폼 아래로 완전히 빠지면 `IsDropping = false` 해제
+
+#### 경사/계단
+
+경사 Line segment로 자연스러운 2층 구현:
+
+```
+        ╱─── 2층 플랫폼
+       ╱ ← 경사 Line (계단)
+──────╱
+ 1층 바닥
+```
+
+캐릭터 발 위치 X가 경사 Line 위에 있으면,
+Y를 해당 X의 Line 높이로 고정 (지면 추종).
+
+#### 실행 순서
+
+```
+ThinkSystem → ... → CollisionSystem (AABB + Line) → PhysicsSystem (중력/점프) → ...
+```
+
+PhysicsSystem은 CollisionSystem 결과를 읽어 착지/벽 정지를 처리한다.
 
 ```csharp
 public class PhysicsSystem : ECS.System
@@ -311,12 +404,12 @@ public class PhysicsSystem : ECS.System
     protected override void Proc(int step, Span<Component[]> allComponents)
     {
         if (!_scenarioConfig.PhysicsEnabled) return;
-        // 중력 적용, 낙하 처리, 지면 판정
+        // 1. 중력 적용 (VelocityY += gravity * dt)
+        // 2. 위치 갱신 (Position += Velocity * dt)
+        // 3. CollisionSystem 결과 반영 (착지 → VelocityY=0, 벽 → VelocityX=0)
     }
 }
 ```
-
-**실행 위치**: CollisionSystem 뒤 (물리 → 충돌 재판정)
 
 ### Python API 확장
 
