@@ -314,6 +314,60 @@ Ring 세계:   [----A----B--------]
 | 점프 | 초기 Y속도, 버튼 홀드로 높이 조절 (가변 점프) |
 | 착지 | 발 위치가 Platform Line 위 → Y속도 0 |
 
+#### 물리 상수 (튜닝 가능)
+
+```csharp
+// 간단한 중력 가속도 — 리얼하지 않지만 자연스러운 포물선
+const float Gravity      = 800f;   // 픽셀/초² (가속)
+const float MaxFallSpeed = 400f;   // 픽셀/초 (캡 — 터널링 방지 + 공기저항 모사)
+const float JumpVelocity = -350f;  // 픽셀/초 (위로, 음수)
+
+// 매 프레임:
+VelocityY += Gravity * dt;                       // 가속
+VelocityY = MathF.Min(VelocityY, MaxFallSpeed);  // 캡
+Position.Y += VelocityY * dt;
+```
+
+가속도가 있으면 점프 커브가 포물선이 되어 자연스럽다:
+```
+가속도 있음 (채택):     고정 속도 (부자연):
+     ╱╲                    ┌──┐
+    ╱  ╲                   │  │
+   ╱    ╲                  │  │
+  ╱      ╲                 │  │
+```
+
+#### 터널링 방지 (Swept 검사)
+
+고속 낙하/투사체가 1프레임에 플랫폼을 뚫는 문제:
+
+```
+프레임 N:    ●  prevPos (Y=100)
+             │
+━━━━━━━━━━━━━╋━  바닥 (Y=120) → 교차점에서 착지!
+             │
+프레임 N+1:  ○  currPos (Y=150) ← 여기까지 안 감
+```
+
+**전략: 캐릭터(A) + 투사체(B) 분리**
+
+| 대상 | 방법 | 이유 |
+|------|------|------|
+| 캐릭터 | MaxFallSpeed 캡 | 속도 제한으로 터널링 원천 차단 |
+| 투사체 | Swept AABB | 빠른 속도, 캡 불가 → 경로 교차 검사 |
+
+```csharp
+// Swept 검사: 이전→현재 이동 경로가 Platform Line과 교차하는지
+bool SweptCheck(Vec2 prevPos, Vec2 currPos, Platform platform)
+{
+    return LineSegmentIntersect(
+        prevPos, currPos,             // 이동 경로 (선분)
+        platform.Start, platform.End  // 플랫폼 (선분)
+    );
+    // 교차점이 있으면 → 해당 위치에서 충돌 처리
+}
+```
+
 #### 충돌 2종 분리
 
 ```
