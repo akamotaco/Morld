@@ -1295,6 +1295,50 @@ namespace SE
                 return PyBool.False;
             });
 
+            // get_location_size: Location 크기 조회
+            // get_location_size(region_id, location_id) -> (width, height)
+            morldModule.ModuleDict["get_location_size"] = new PyBuiltinFunction("get_location_size", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("get_location_size(region_id, location_id) requires 2 arguments");
+
+                int regionId = args[0].ToInt();
+                int locationId = args[1].ToInt();
+
+                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
+                var terrain = _worldSystem.GetTerrain();
+                var location = terrain?.GetLocation(new LocationRef(regionId, locationId));
+                if (location != null)
+                {
+                    return new PyTuple(new PyObject[]
+                    {
+                        new PyFloat(location.Length),
+                        new PyFloat(location.HeightMax - location.HeightMin)
+                    });
+                }
+                return PyNone.Instance;
+            });
+
+            // set_collision_enabled: Unit 충돌 활성화/비활성화
+            // set_collision_enabled(unit_id, enabled)
+            morldModule.ModuleDict["set_collision_enabled"] = new PyBuiltinFunction("set_collision_enabled", args =>
+            {
+                if (args.Length < 2)
+                    throw PyTypeError.Create("set_collision_enabled(unit_id, enabled) requires 2 arguments");
+
+                int unitId = args[0].ToInt();
+                bool enabled = args[1].IsTrue();
+
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var unit = _unitSystem.FindUnit(unitId);
+                if (unit != null)
+                {
+                    unit.CollisionEnabled = enabled;
+                    return PyBool.True;
+                }
+                return PyBool.False;
+            });
+
             // set_unit_prop: 단일 Prop 설정 ("타입:이름" 형식)
             // int 값은 PropSet에, 문자열 값은 StringProps에 저장
             morldModule.ModuleDict["set_unit_prop"] = new PyBuiltinFunction("set_unit_prop", args =>
