@@ -2,6 +2,7 @@ namespace Morld;
 
 using System;
 using System.Collections.Generic;
+using Vec2 = Godot.Vector2;
 
 /// <summary>
 /// Location 내의 통과 지점 (Pi-World)
@@ -24,15 +25,27 @@ public class Gate
     public LocationRef OwnerLocation { get; }
 
     /// <summary>
-    /// Gate의 X 좌표 (Location 내 위치)
-    /// Line: 거리, Ring: 각도
+    /// Gate의 2D 좌표 (Location 내 위치)
     /// </summary>
-    public float X { get; set; }
+    public Vec2 Position { get; set; } = Vec2.Zero;
 
     /// <summary>
-    /// Gate의 Y 좌표 (확장용, 현재 미사용)
+    /// Gate의 X 좌표 — Position.X 래퍼 (하위 호환)
     /// </summary>
-    public float Y { get; set; } = 0f;
+    public float X
+    {
+        get => Position.X;
+        set => Position = new Vec2(value, Position.Y);
+    }
+
+    /// <summary>
+    /// Gate의 Y 좌표 — Position.Y 래퍼 (하위 호환)
+    /// </summary>
+    public float Y
+    {
+        get => Position.Y;
+        set => Position = new Vec2(Position.X, value);
+    }
 
     /// <summary>
     /// 연결된 Location
@@ -40,14 +53,27 @@ public class Gate
     public LocationRef ConnectedLocation { get; }
 
     /// <summary>
-    /// Gate 통과 시 도착 X 좌표
+    /// Gate 통과 시 도착 2D 좌표
     /// </summary>
-    public float ArrivalX { get; set; }
+    public Vec2 ArrivalPosition { get; set; } = Vec2.Zero;
 
     /// <summary>
-    /// Gate 통과 시 도착 Y 좌표 (확장용, 기본값 0)
+    /// Gate 통과 시 도착 X 좌표 — ArrivalPosition.X 래퍼 (하위 호환)
     /// </summary>
-    public float ArrivalY { get; set; } = 0f;
+    public float ArrivalX
+    {
+        get => ArrivalPosition.X;
+        set => ArrivalPosition = new Vec2(value, ArrivalPosition.Y);
+    }
+
+    /// <summary>
+    /// Gate 통과 시 도착 Y 좌표 — ArrivalPosition.Y 래퍼 (하위 호환)
+    /// </summary>
+    public float ArrivalY
+    {
+        get => ArrivalPosition.Y;
+        set => ArrivalPosition = new Vec2(ArrivalPosition.X, value);
+    }
 
     /// <summary>
     /// Forward 방향 (이 Gate → 연결된 Gate) 통과 조건
@@ -111,10 +137,9 @@ public class Gate
     {
         Id = id;
         OwnerLocation = ownerLocation;
-        X = x;
+        Position = new Vec2(x, 0f);
         ConnectedLocation = connectedLocation;
-        ArrivalX = arrivalX;
-        ArrivalY = arrivalY;
+        ArrivalPosition = new Vec2(arrivalX, arrivalY);
     }
 
     /// <summary>
