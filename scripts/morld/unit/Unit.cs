@@ -3,6 +3,7 @@ namespace Morld;
 using System;
 using System.Collections.Generic;
 using SE;
+using Vec2 = Godot.Vector2;
 
 /// <summary>
 /// Unit (유닛) - 캐릭터와 오브젝트 통합
@@ -48,20 +49,38 @@ public class Unit : IOwnable
 	#region Pi-World 2D 위치
 
 	/// <summary>
-	/// Location 내 X 좌표 (Pi-World)
+	/// Location 내 2D 위치 (Pi-World)
 	/// 이동 중이면 보간된 현재 위치, 정지 상태면 저장된 위치 반환
+	/// </summary>
+	public Vec2 Position
+	{
+		get
+		{
+			float x = _currentMovement?.CurrentX ?? _position.X;
+			float y = _position.Y;  // Y는 보간 없음 (v0.3.0 Phase 1)
+			return new Vec2(x, y);
+		}
+		set => _position = value;
+	}
+	private Vec2 _position = Vec2.Zero;
+
+	/// <summary>
+	/// Location 내 X 좌표 — Position.X 래퍼 (하위 호환)
 	/// </summary>
 	public float PositionX
 	{
-		get => _currentMovement?.CurrentX ?? _positionX;
-		set => _positionX = value;
+		get => Position.X;
+		set => _position = new Vec2(value, _position.Y);
 	}
-	private float _positionX = 0f;
 
 	/// <summary>
-	/// Location 내 Y 좌표 (확장용, 현재 미사용)
+	/// Location 내 Y 좌표 — Position.Y 래퍼 (하위 호환)
 	/// </summary>
-	public float PositionY { get; set; } = 0f;
+	public float PositionY
+	{
+		get => Position.Y;
+		set => _position = new Vec2(_position.X, value);
+	}
 
 	/// <summary>
 	/// 2D 이동 진행 정보 (Pi-World)
@@ -297,8 +316,7 @@ public class Unit : IOwnable
 	public void SetLocation2D(LocationRef location, float x, float y = 0f)
 	{
 		SetLocation(location);
-		PositionX = x;
-		PositionY = y;
+		Position = new Vec2(x, y);
 	}
 
 	/// <summary>
