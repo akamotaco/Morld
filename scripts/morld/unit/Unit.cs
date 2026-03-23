@@ -83,6 +83,17 @@ public class Unit : IOwnable
 	}
 
 	/// <summary>
+	/// AABB 충돌 크기 (Pi-World 2D)
+	/// 캐릭터 기본값: (30, 60), 오브젝트는 개별 설정
+	/// </summary>
+	public Vec2 CollisionSize { get; set; } = new Vec2(30f, 60f);
+
+	/// <summary>
+	/// 충돌 활성화 여부
+	/// </summary>
+	public bool CollisionEnabled { get; set; } = false;
+
+	/// <summary>
 	/// 2D 이동 진행 정보 (Pi-World)
 	/// null이면 이동 중이 아님
 	/// </summary>
