@@ -1,5 +1,7 @@
 namespace Morld;
 
+using Vec2 = Godot.Vector2;
+
 /// <summary>
 /// 유닛의 단일 행동 기록
 /// </summary>
@@ -65,24 +67,50 @@ public class ActionLog
 public class MovementProgress
 {
 	/// <summary>
-	/// 출발 X 좌표
+	/// 출발 2D 좌표
 	/// </summary>
-	public float StartX { get; set; }
+	public Vec2 Start { get; set; } = Vec2.Zero;
 
 	/// <summary>
-	/// 출발 Y 좌표 (확장용)
+	/// 출발 X 좌표 — Start.X 래퍼 (하위 호환)
 	/// </summary>
-	public float StartY { get; set; } = 0f;
+	public float StartX
+	{
+		get => Start.X;
+		set => Start = new Vec2(value, Start.Y);
+	}
 
 	/// <summary>
-	/// 목표 X 좌표
+	/// 출발 Y 좌표 — Start.Y 래퍼 (하위 호환)
 	/// </summary>
-	public float TargetX { get; set; }
+	public float StartY
+	{
+		get => Start.Y;
+		set => Start = new Vec2(Start.X, value);
+	}
 
 	/// <summary>
-	/// 목표 Y 좌표 (확장용)
+	/// 목표 2D 좌표
 	/// </summary>
-	public float TargetY { get; set; } = 0f;
+	public Vec2 Target { get; set; } = Vec2.Zero;
+
+	/// <summary>
+	/// 목표 X 좌표 — Target.X 래퍼 (하위 호환)
+	/// </summary>
+	public float TargetX
+	{
+		get => Target.X;
+		set => Target = new Vec2(value, Target.Y);
+	}
+
+	/// <summary>
+	/// 목표 Y 좌표 — Target.Y 래퍼 (하위 호환)
+	/// </summary>
+	public float TargetY
+	{
+		get => Target.Y;
+		set => Target = new Vec2(Target.X, value);
+	}
 
 	/// <summary>
 	/// 목표 Gate ID (Gate 통과 이동 시)
@@ -126,14 +154,19 @@ public class MovementProgress
 	public float Progress => TotalDistance > 0 ? TraveledDistance / TotalDistance : 1f;
 
 	/// <summary>
-	/// 현재 X 좌표 (선형 보간)
+	/// 현재 2D 좌표 (선형 보간)
 	/// </summary>
-	public float CurrentX => StartX + (TargetX - StartX) * Progress;
+	public Vec2 Current => Start + (Target - Start) * Progress;
 
 	/// <summary>
-	/// 현재 Y 좌표 (선형 보간, 확장용)
+	/// 현재 X 좌표 — Current.X 래퍼 (하위 호환)
 	/// </summary>
-	public float CurrentY => StartY + (TargetY - StartY) * Progress;
+	public float CurrentX => Current.X;
+
+	/// <summary>
+	/// 현재 Y 좌표 — Current.Y 래퍼 (하위 호환)
+	/// </summary>
+	public float CurrentY => Current.Y;
 
 	/// <summary>
 	/// 이동 완료 여부
