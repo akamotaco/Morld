@@ -436,13 +436,16 @@ _ROOM_SYMBOLS = {
     "stairs_up":   "△",  # 상층 계단
 }
 
-# 내부 그리드 (큰 맵)
-_INTERNAL_W = 80
-_INTERNAL_H = 40
+# 맵 모노스페이스 폰트 (D2Coding — 한글=2칸, 영문=1칸)
+_MAP_FONT = "res://assets/fonts/D2Coding-Ver1.3.2-20180524-all.ttc"
+
+# 내부 그리드 (컴팩트)
+_INTERNAL_W = 50
+_INTERNAL_H = 20
 
 # 뷰포트 (표시 영역)
-_VIEW_W = 38
-_VIEW_H = 13
+_VIEW_W = 36
+_VIEW_H = 12
 _SCROLL_STEP = 5
 _ZOOM_LEVELS = [1, 2, 3]  # 1=축소, 2=기본, 3=확대
 
@@ -489,6 +492,36 @@ def map_zoom(direction):
         elif direction == "out" and vp["zoom"] > 0:
             vp["zoom"] -= 1
         break
+
+
+def _char_width(ch):
+    """모노스페이스 폰트에서 문자 표시 폭 (한글=2, 그 외=1)"""
+    cp = ord(ch)
+    # CJK 범위: 한글, 한자, 가나
+    if (0xAC00 <= cp <= 0xD7AF or   # 한글 음절
+        0x3000 <= cp <= 0x303F or   # CJK 기호
+        0x3040 <= cp <= 0x309F or   # 히라가나
+        0x30A0 <= cp <= 0x30FF or   # 카타카나
+        0x4E00 <= cp <= 0x9FFF or   # CJK 통합 한자
+        0xFF00 <= cp <= 0xFFEF):    # 전각
+        return 2
+    return 1
+
+
+def _str_width(s):
+    """문자열 표시 폭 (한글=2칸, 영문=1칸)"""
+    return sum(_char_width(ch) for ch in s)
+
+
+def _truncate_to_width(s, max_width):
+    """표시 폭 기준으로 문자열 잘라내기"""
+    w = 0
+    for i, ch in enumerate(s):
+        cw = _char_width(ch)
+        if w + cw > max_width:
+            return s[:i]
+        w += cw
+    return s
 
 
 def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, player_id):
@@ -552,11 +585,11 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         for room in rooms:
             cx = (room.x + room.w // 2)
             cy = (room.y + room.h // 2)
-            # 테두리(1) + 패딩(2) = 3셀 마진, 하단은 이름용 추가 여유(+2)
-            gx = int(cx * (_INTERNAL_W - 8) / bsp_max_x) + 4
-            gy = int(cy * (_INTERNAL_H - 8) / bsp_max_y) + 3
-            gx = max(4, min(_INTERNAL_W - 5, gx))
-            gy = max(2, min(_INTERNAL_H - 4, gy))
+            # 가장자리 1셀 마진만 유지
+            gx = int(cx * (_INTERNAL_W - 2) / bsp_max_x) + 1
+            gy = int(cy * (_INTERNAL_H - 2) / bsp_max_y) + 1
+            gx = max(1, min(_INTERNAL_W - 2, gx))
+            gy = max(1, min(_INTERNAL_H - 2, gy))
             positions[room.id] = (gx, gy)
 
         # 충돌 해결 (같은 좌표에 여러 방 → 밀어내기)
@@ -601,27 +634,25 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             if chars:
                 room_chars[room.id] = chars
 
-        # ── 그리드 초기화 (테두리 포함) ──
+        # ── 그리드 초기화 + 지도 외곽선 ──
         grid = [[' '] * _INTERNAL_W for _ in range(_INTERNAL_H)]
         grid_meta = [[None] * _INTERNAL_W for _ in range(_INTERNAL_H)]
 
-        # 테두리 그리기
+        # 지도 외곽선 (내부 그리드 가장자리)
         for x in range(1, _INTERNAL_W - 1):
             grid[0][x] = '─'
             grid[_INTERNAL_H - 1][x] = '─'
-            grid_meta[0][x] = ("border", 0, False, False, 0)
-            grid_meta[_INTERNAL_H - 1][x] = ("border", 0, False, False, 0)
+            grid_meta[0][x] = ("map_border", 0, False, False, 0)
+            grid_meta[_INTERNAL_H - 1][x] = ("map_border", 0, False, False, 0)
         for y in range(1, _INTERNAL_H - 1):
             grid[y][0] = '│'
             grid[y][_INTERNAL_W - 1] = '│'
-            grid_meta[y][0] = ("border", 0, False, False, 0)
-            grid_meta[y][_INTERNAL_W - 1] = ("border", 0, False, False, 0)
+            grid_meta[y][0] = ("map_border", 0, False, False, 0)
+            grid_meta[y][_INTERNAL_W - 1] = ("map_border", 0, False, False, 0)
         grid[0][0] = '┌'; grid[0][_INTERNAL_W - 1] = '┐'
         grid[_INTERNAL_H - 1][0] = '└'; grid[_INTERNAL_H - 1][_INTERNAL_W - 1] = '┘'
-        grid_meta[0][0] = ("border", 0, False, False, 0)
-        grid_meta[0][_INTERNAL_W - 1] = ("border", 0, False, False, 0)
-        grid_meta[_INTERNAL_H - 1][0] = ("border", 0, False, False, 0)
-        grid_meta[_INTERNAL_H - 1][_INTERNAL_W - 1] = ("border", 0, False, False, 0)
+        for corner in [(0, 0), (0, _INTERNAL_W - 1), (_INTERNAL_H - 1, 0), (_INTERNAL_H - 1, _INTERNAL_W - 1)]:
+            grid_meta[corner[0]][corner[1]] = ("map_border", 0, False, False, 0)
 
         # ── 복도 + Bridge 그리기 (발견된 것만) ──
         bridges = floor_info.get("bridges", []) if floors_data else dungeon_info.get("bridges", [])
@@ -663,46 +694,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 grid[gy][gx] = symbol
                 grid_meta[gy][gx] = ("room", room.id, is_current, is_adjacent, vis)
 
-            # 방 이름 표시 (오른쪽 우선, 여유 없으면 아래줄)
-            if vis >= REVEALED and 0 <= gy < _INTERNAL_H:
-                loc_id = locations.get(room.id)
-                _loc_info = morld.get_location_info(region_id, loc_id) if loc_id is not None else None
-                room_name = _loc_info.get("name", "") if _loc_info else ""
-                if room_name:
-                    # 오른쪽 여유 공간 계산
-                    avail_right = 0
-                    for check_x in range(gx + 1, min(gx + 20, _INTERNAL_W - 1)):
-                        if grid[gy][check_x] != ' ':
-                            break
-                        avail_right += 1
-
-                    # 아래줄 여유 공간 계산
-                    avail_below = 0
-                    if gy + 1 < _INTERNAL_H - 1:  # 테두리 안쪽
-                        for check_x in range(gx, min(gx + 20, _INTERNAL_W - 1)):
-                            if grid[gy + 1][check_x] != ' ':
-                                break
-                            avail_below += 1
-
-                    # 배치 위치 결정: 오른쪽 우선, 실패 시 아래줄
-                    if avail_right >= 3:
-                        name_y, name_x = gy, gx + 1
-                        avail = avail_right
-                    elif avail_below >= 3:
-                        name_y, name_x = gy + 1, gx
-                        avail = avail_below
-                    else:
-                        name_y, name_x, avail = -1, -1, 0
-
-                    if avail >= 3:
-                        display_name = room_name if len(room_name) <= avail else room_name[:avail - 1] + "."
-                        for i, ch in enumerate(display_name):
-                            nx = name_x + i
-                            if 0 <= nx < _INTERNAL_W - 1 and 0 <= name_y < _INTERNAL_H - 1:
-                                grid[name_y][nx] = ch
-                                grid_meta[name_y][nx] = ("label", room.id, is_current, is_adjacent, vis)
-
-            # 캐릭터 코드네임 (이름 뒤에 배치)
+            # 캐릭터 코드네임 (방 기호 오른쪽에 배치)
             if room.id in room_chars:
                 # 이름 끝 위치 찾기
                 offset = 1
@@ -753,28 +745,56 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             vp["cam_y"] = py - _VIEW_H // 2
 
         # 뷰포트 범위 클램핑
-        vp["cam_x"] = max(0, min(_INTERNAL_W - _VIEW_W, vp["cam_x"]))
-        vp["cam_y"] = max(0, min(_INTERNAL_H - _VIEW_H, vp["cam_y"]))
+        # 뷰포트 절반만큼 오버스크롤 허용 (가장자리가 중앙까지)
+        half_w = _VIEW_W // 2
+        half_h = _VIEW_H // 2
+        vp["cam_x"] = max(-half_w, min(_INTERNAL_W - half_w, vp["cam_x"]))
+        vp["cam_y"] = max(-half_h, min(_INTERNAL_H - half_h, vp["cam_y"]))
         vx, vy = vp["cam_x"], vp["cam_y"]
 
-        # 스크롤/줌 컨트롤
+        # 스크롤 컨트롤 (한계 도달 시 회색)
+        half_w = _VIEW_W // 2
+        half_h = _VIEW_H // 2
+        can_left = vx > -half_w
+        can_right = vx < _INTERNAL_W - half_w
+        can_up = vy > -half_h
+        can_down = vy < _INTERNAL_H - half_h
+
+        def _scroll_btn(direction, symbol, can):
+            if can:
+                return f"[url=map:scroll:{direction}]{symbol}[/url]"
+            return c("#555555", symbol)
+
         ctrl = (
-            f"  [url=map:scroll:left]◀[/url]"
-            f" [url=map:scroll:up]▲[/url]"
-            f" [url=map:scroll:down]▼[/url]"
-            f" [url=map:scroll:right]▶[/url]"
-            f"  [url=map:scroll:center]{c('#aaaaaa', '◎')}"
-            f"[/url]"
+            f"  {_scroll_btn('left', '◀', can_left)}"
+            f" {_scroll_btn('up', '▲', can_up)}"
+            f" {_scroll_btn('down', '▼', can_down)}"
+            f" {_scroll_btn('right', '▶', can_right)}"
+            f"  [url=map:scroll:center]{c('#aaaaaa', '◎')}[/url]"
         )
         lines.append(ctrl)
 
-        for y in range(vy, min(vy + _VIEW_H, _INTERNAL_H)):
+        border_color = "#999999"
+
+        # 모노스페이스 폰트 시작 (맵 그리드 정렬용)
+        lines.append(f"[font={_MAP_FONT}]")
+
+        # 뷰포트 상단 테두리
+        lines.append(c(border_color, "┌" + "─" * _VIEW_W + "┐"))
+
+        for y in range(vy, vy + _VIEW_H):
             row = ""
-            for x in range(vx, min(vx + _VIEW_W, _INTERNAL_W)):
+            for x in range(vx, vx + _VIEW_W):
+                # 그리드 밖이면 빈 칸
+                if x < 0 or x >= _INTERNAL_W or y < 0 or y >= _INTERNAL_H:
+                    row += " "
+                    continue
                 meta = grid_meta[y][x]
                 ch = grid[y][x]
 
-                if meta is None:
+                if meta is not None and meta[0] == "map_border":
+                    row += c("#666666", ch)
+                elif meta is None:
                     # 복도 문자 (dim 여부에 따라 색상 변경)
                     if ch in ('═', '║'):
                         # 하이라이트 복도 (현재 방 ↔ 인접 방)
@@ -801,18 +821,6 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                         row += c("#666666", ch)
                     else:
                         row += c("#aaaaaa", ch)
-                elif meta[0] == "border":
-                    row += c("#444444", ch)
-                elif meta[0] == "label":
-                    _, room_id, is_current, is_adjacent, vis = meta
-                    if is_current:
-                        row += c("#ffff00", ch)
-                    elif vis == REVEALED:
-                        row += c("#666666", ch)
-                    elif is_adjacent:
-                        row += c("#66ccff", ch)
-                    else:
-                        row += c("#aaaaaa", ch)
                 elif meta[0] == "char":
                     _, _room_id, is_creature, _, _ = meta
                     color = "#ff6666" if is_creature else "#66ff66"
@@ -820,11 +828,16 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 else:
                     row += ch
 
-            # 빈 줄도 유지 (뷰포트 크기 고정)
-            lines.append(row.rstrip() or " ")
+            # 좌우 테두리 (항상 _VIEW_W 폭)
+            lines.append(c(border_color, "│") + row + c(border_color, "│"))
+
+        # 뷰포트 하단 테두리
+        lines.append(c(border_color, "└" + "─" * _VIEW_W + "┘"))
+
+        # 모노스페이스 폰트 끝
+        lines.append("[/font]")
 
         # ── 범례 ──
-        lines.append("")
         legend = (
             f"  {c('#ffff00', '@')}현재  "
             f"{c('#66ccff', '●')}인접  "
@@ -843,6 +856,41 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 color = "#ff6666" if is_creature else "#66ff66"
                 char_parts.append(f"{c(color, codename)}={name}")
             lines.append("  " + "  ".join(char_parts))
+
+        # ── 뷰포트 내 보이는 방 목록 ──
+        visible_in_vp = []
+        for room in rooms:
+            vis = fog_state.get(room.id, HIDDEN)
+            if vis < REVEALED:
+                continue
+            if room.id not in positions:
+                continue
+            rgx, rgy = positions[room.id]
+            # 뷰포트 내인지 체크
+            if not (vx <= rgx < vx + _VIEW_W and vy <= rgy < vy + _VIEW_H):
+                continue
+            loc_id = locations.get(room.id)
+            _loc_info = morld.get_location_info(region_id, loc_id) if loc_id is not None else None
+            room_name = _loc_info.get("name", "") if _loc_info else ""
+            if not room_name:
+                continue
+            is_current = (room.id == current_room_id)
+            is_adjacent = room.id in adjacency.get(current_room_id, set()) if current_room_id is not None else False
+            symbol = _ROOM_SYMBOLS.get(room.room_type, "?")
+            if is_current:
+                symbol = "@"
+            visible_in_vp.append((symbol, room_name, is_current, is_adjacent, vis, room.id, loc_id))
+
+        if visible_in_vp:
+            for symbol, room_name, is_current, is_adjacent, vis, rid, lid in visible_in_vp:
+                if is_current:
+                    lines.append(f"  {c('#ffff00', symbol)} {c('#ffff00', room_name)}")
+                elif is_adjacent and lid is not None:
+                    lines.append(f"  [url=move:{region_id}:{lid}]{c('#66ccff', symbol)} {c('#66ccff', room_name)}[/url]")
+                elif vis == REVEALED:
+                    lines.append(f"  {c('#666666', symbol)} {c('#666666', room_name)}")
+                else:
+                    lines.append(f"  {c('#aaaaaa', symbol)} {c('#aaaaaa', room_name)}")
 
         # 층간 이동 + 나가기 링크
         if current_room_id is not None:
