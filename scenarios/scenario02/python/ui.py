@@ -444,12 +444,30 @@ _VIEW_W = 36
 _VIEW_H = 12
 _SCROLL_STEP = 5
 
-# 줌 레벨별 내부 그리드 크기 (줌 아웃=큰 그리드, 줌 인=작은 그리드)
-_ZOOM_CONFIGS = [
-    {"grid_w": 80, "grid_h": 35, "label": "-"},   # 줌 아웃 (넓게)
-    {"grid_w": 50, "grid_h": 20, "label": "○"},   # 기본
-    {"grid_w": 30, "grid_h": 14, "label": "+"},   # 줌 인 (가깝게)
-]
+# 줌 레벨 기본 배율 (1.0 = 뷰포트와 동일 크기)
+_ZOOM_SCALES = [3.5, 2.5, 1.5, 1.0, 0.7]
+_ZOOM_DEFAULT_INDEX = 2  # 기본 줌 레벨 (1.5배)
+
+
+def _build_zoom_configs(room_count):
+    """던전 방 수에 비례하여 줌 레벨 생성.
+    최대 줌아웃(scale 0.7) 시 전체 맵이 뷰포트에 딱 들어옴.
+    """
+    # 방 수 기반 + 뷰포트 비율 유지
+    # 긴 쪽 기준으로 비율 맞춤 + 마진 20%
+    aspect = _VIEW_W / max(_VIEW_H, 1)  # 가로/세로 비율 (약 3:1)
+    base = max(room_count * 4, 20)      # 기본 크기 (방 수 비례)
+
+    configs = []
+    for scale in _ZOOM_SCALES:
+        s = max(1, int(base * scale))
+        gw = int(s * aspect)
+        gh = s
+        configs.append({"grid_w": max(_VIEW_W, gw), "grid_h": max(_VIEW_H, gh)})
+
+    # 마지막(최대 줌아웃)은 뷰포트 크기로 강제 — 전체 맵이 딱 들어옴
+    configs[-1] = {"grid_w": _VIEW_W, "grid_h": _VIEW_H}
+    return configs
 
 # 뷰포트 상태 (던전별)
 _map_viewport = {
@@ -462,7 +480,7 @@ def _get_viewport(dungeon_id):
     if dungeon_id not in _map_viewport:
         _map_viewport[dungeon_id] = {
             "cam_x": 0, "cam_y": 0,
-            "zoom": 1,  # index into _ZOOM_CONFIGS
+            "zoom": _ZOOM_DEFAULT_INDEX,
             "auto_center": True,
         }
     return _map_viewport[dungeon_id]
@@ -492,9 +510,10 @@ def map_zoom(direction):
     out(-) = 축소 = 작은 그리드 (방 간격 좁아짐) = index 증가
     """
     for did, vp in _map_viewport.items():
+        max_zoom = len(vp.get("_zoom_configs", _ZOOM_SCALES)) - 1
         if direction == "in" and vp["zoom"] > 0:
             vp["zoom"] -= 1
-        elif direction == "out" and vp["zoom"] < len(_ZOOM_CONFIGS) - 1:
+        elif direction == "out" and vp["zoom"] < max_zoom:
             vp["zoom"] += 1
         break
 
@@ -579,9 +598,11 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         fog_state = fog.get_fog_state(fog_id)
         adjacency = fog.get_adjacency(fog_id)
 
-        # 줌 레벨에 따른 그리드 크기
+        # 줌 레벨에 따른 그리드 크기 (던전 크기 비례)
+        _zoom_configs = _build_zoom_configs(len(rooms))
         _vp_temp = _get_viewport(dungeon_id)
-        _zoom_cfg = _ZOOM_CONFIGS[_vp_temp["zoom"]]
+        _vp_temp["_zoom_configs"] = _zoom_configs  # 렌더링 중 참조용
+        _zoom_cfg = _zoom_configs[min(_vp_temp["zoom"], len(_zoom_configs) - 1)]
         grid_w = _zoom_cfg["grid_w"]
         grid_h = _zoom_cfg["grid_h"]
 
@@ -707,7 +728,6 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
 
             # 캐릭터 코드네임 (방 기호 오른쪽에 배치)
             if room.id in room_chars:
-                # 이름 끝 위치 찾기
                 offset = 1
                 while gx + offset < grid_w and grid_meta[gy][gx + offset] is not None:
                     offset += 1
@@ -750,7 +770,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
 
         # ── 뷰포트 계산 ──
         vp = _get_viewport(dungeon_id)
-        zoom_cfg = _ZOOM_CONFIGS[vp["zoom"]]
+        zoom_cfg = _zoom_configs[min(vp["zoom"], len(_zoom_configs) - 1)]
         grid_w = zoom_cfg["grid_w"]
         grid_h = zoom_cfg["grid_h"]
         if vp["auto_center"] and current_room_id is not None and current_room_id in positions:
@@ -779,8 +799,8 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 return f"[url=map:scroll:{direction}%]{symbol}[/url]"
             return c("#555555", symbol)
 
-        can_zoom_in = vp["zoom"] > 0                       # + = 큰 그리드 방향
-        can_zoom_out = vp["zoom"] < len(_ZOOM_CONFIGS) - 1  # - = 작은 그리드 방향
+        can_zoom_in = vp["zoom"] > 0                          # + = 큰 그리드 방향
+        can_zoom_out = vp["zoom"] < len(_zoom_configs) - 1   # - = 작은 그리드 방향
 
         def _zoom_btn(direction, symbol, can):
             if can:
@@ -835,7 +855,6 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                     loc_id = locations.get(room_id)
 
                     if vis == HIDDEN:
-                        # 미발견 방: 흐린 점
                         row += c("#333333", ch)
                     elif is_current:
                         row += c("#ffff00", ch)
@@ -845,6 +864,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                         row += c("#666666", ch)
                     else:
                         row += c("#aaaaaa", ch)
+
                 elif meta[0] == "char":
                     _, _room_id, is_creature, _, _ = meta
                     color = "#ff6666" if is_creature else "#66ff66"
