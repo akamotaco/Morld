@@ -436,9 +436,59 @@ _ROOM_SYMBOLS = {
     "stairs_up":   "△",  # 상층 계단
 }
 
-# 그리드 크기
-_GRID_W = 50
-_GRID_H = 25
+# 내부 그리드 (큰 맵)
+_INTERNAL_W = 80
+_INTERNAL_H = 40
+
+# 뷰포트 (표시 영역)
+_VIEW_W = 38
+_VIEW_H = 13
+_SCROLL_STEP = 5
+_ZOOM_LEVELS = [1, 2, 3]  # 1=축소, 2=기본, 3=확대
+
+# 뷰포트 상태 (던전별)
+_map_viewport = {
+    # dungeon_id: {"cam_x": int, "cam_y": int, "zoom": int, "auto_center": bool}
+}
+
+
+def _get_viewport(dungeon_id):
+    """뷰포트 상태 가져오기 (없으면 생성)"""
+    if dungeon_id not in _map_viewport:
+        _map_viewport[dungeon_id] = {
+            "cam_x": 0, "cam_y": 0,
+            "zoom": 1,  # index into _ZOOM_LEVELS
+            "auto_center": True,
+        }
+    return _map_viewport[dungeon_id]
+
+
+def map_scroll(direction):
+    """맵 스크롤 (URL 핸들러에서 호출)"""
+    # 현재 활성 던전 찾기
+    for did, vp in _map_viewport.items():
+        vp["auto_center"] = False
+        if direction == "left":
+            vp["cam_x"] -= _SCROLL_STEP
+        elif direction == "right":
+            vp["cam_x"] += _SCROLL_STEP
+        elif direction == "up":
+            vp["cam_y"] -= _SCROLL_STEP
+        elif direction == "down":
+            vp["cam_y"] += _SCROLL_STEP
+        elif direction == "center":
+            vp["auto_center"] = True
+        break
+
+
+def map_zoom(direction):
+    """맵 줌 (URL 핸들러에서 호출)"""
+    for did, vp in _map_viewport.items():
+        if direction == "in" and vp["zoom"] < len(_ZOOM_LEVELS) - 1:
+            vp["zoom"] += 1
+        elif direction == "out" and vp["zoom"] > 0:
+            vp["zoom"] -= 1
+        break
 
 
 def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, player_id):
@@ -503,10 +553,10 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             cx = (room.x + room.w // 2)
             cy = (room.y + room.h // 2)
             # 테두리(1) + 패딩(2) = 3셀 마진, 하단은 이름용 추가 여유(+2)
-            gx = int(cx * (_GRID_W - 8) / bsp_max_x) + 4
-            gy = int(cy * (_GRID_H - 8) / bsp_max_y) + 3
-            gx = max(4, min(_GRID_W - 5, gx))
-            gy = max(2, min(_GRID_H - 4, gy))
+            gx = int(cx * (_INTERNAL_W - 8) / bsp_max_x) + 4
+            gy = int(cy * (_INTERNAL_H - 8) / bsp_max_y) + 3
+            gx = max(4, min(_INTERNAL_W - 5, gx))
+            gy = max(2, min(_INTERNAL_H - 4, gy))
             positions[room.id] = (gx, gy)
 
         # 충돌 해결 (같은 좌표에 여러 방 → 밀어내기)
@@ -515,7 +565,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             key = (gx, gy)
             while key in occupied:
                 gx += 4
-                if gx >= _GRID_W - 4:
+                if gx >= _INTERNAL_W - 4:
                     gx = 3
                     gy += 2
                 key = (gx, gy)
@@ -552,26 +602,26 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 room_chars[room.id] = chars
 
         # ── 그리드 초기화 (테두리 포함) ──
-        grid = [[' '] * _GRID_W for _ in range(_GRID_H)]
-        grid_meta = [[None] * _GRID_W for _ in range(_GRID_H)]
+        grid = [[' '] * _INTERNAL_W for _ in range(_INTERNAL_H)]
+        grid_meta = [[None] * _INTERNAL_W for _ in range(_INTERNAL_H)]
 
         # 테두리 그리기
-        for x in range(1, _GRID_W - 1):
+        for x in range(1, _INTERNAL_W - 1):
             grid[0][x] = '─'
-            grid[_GRID_H - 1][x] = '─'
+            grid[_INTERNAL_H - 1][x] = '─'
             grid_meta[0][x] = ("border", 0, False, False, 0)
-            grid_meta[_GRID_H - 1][x] = ("border", 0, False, False, 0)
-        for y in range(1, _GRID_H - 1):
+            grid_meta[_INTERNAL_H - 1][x] = ("border", 0, False, False, 0)
+        for y in range(1, _INTERNAL_H - 1):
             grid[y][0] = '│'
-            grid[y][_GRID_W - 1] = '│'
+            grid[y][_INTERNAL_W - 1] = '│'
             grid_meta[y][0] = ("border", 0, False, False, 0)
-            grid_meta[y][_GRID_W - 1] = ("border", 0, False, False, 0)
-        grid[0][0] = '┌'; grid[0][_GRID_W - 1] = '┐'
-        grid[_GRID_H - 1][0] = '└'; grid[_GRID_H - 1][_GRID_W - 1] = '┘'
+            grid_meta[y][_INTERNAL_W - 1] = ("border", 0, False, False, 0)
+        grid[0][0] = '┌'; grid[0][_INTERNAL_W - 1] = '┐'
+        grid[_INTERNAL_H - 1][0] = '└'; grid[_INTERNAL_H - 1][_INTERNAL_W - 1] = '┘'
         grid_meta[0][0] = ("border", 0, False, False, 0)
-        grid_meta[0][_GRID_W - 1] = ("border", 0, False, False, 0)
-        grid_meta[_GRID_H - 1][0] = ("border", 0, False, False, 0)
-        grid_meta[_GRID_H - 1][_GRID_W - 1] = ("border", 0, False, False, 0)
+        grid_meta[0][_INTERNAL_W - 1] = ("border", 0, False, False, 0)
+        grid_meta[_INTERNAL_H - 1][0] = ("border", 0, False, False, 0)
+        grid_meta[_INTERNAL_H - 1][_INTERNAL_W - 1] = ("border", 0, False, False, 0)
 
         # ── 복도 + Bridge 그리기 (발견된 것만) ──
         bridges = floor_info.get("bridges", []) if floors_data else dungeon_info.get("bridges", [])
@@ -609,27 +659,27 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 symbol = _ROOM_SYMBOLS.get(room.room_type, "?")
 
             # 방 기호 배치
-            if 0 <= gx < _GRID_W and 0 <= gy < _GRID_H:
+            if 0 <= gx < _INTERNAL_W and 0 <= gy < _INTERNAL_H:
                 grid[gy][gx] = symbol
                 grid_meta[gy][gx] = ("room", room.id, is_current, is_adjacent, vis)
 
             # 방 이름 표시 (오른쪽 우선, 여유 없으면 아래줄)
-            if vis >= REVEALED and 0 <= gy < _GRID_H:
+            if vis >= REVEALED and 0 <= gy < _INTERNAL_H:
                 loc_id = locations.get(room.id)
                 _loc_info = morld.get_location_info(region_id, loc_id) if loc_id is not None else None
                 room_name = _loc_info.get("name", "") if _loc_info else ""
                 if room_name:
                     # 오른쪽 여유 공간 계산
                     avail_right = 0
-                    for check_x in range(gx + 1, min(gx + 20, _GRID_W - 1)):
+                    for check_x in range(gx + 1, min(gx + 20, _INTERNAL_W - 1)):
                         if grid[gy][check_x] != ' ':
                             break
                         avail_right += 1
 
                     # 아래줄 여유 공간 계산
                     avail_below = 0
-                    if gy + 1 < _GRID_H - 1:  # 테두리 안쪽
-                        for check_x in range(gx, min(gx + 20, _GRID_W - 1)):
+                    if gy + 1 < _INTERNAL_H - 1:  # 테두리 안쪽
+                        for check_x in range(gx, min(gx + 20, _INTERNAL_W - 1)):
                             if grid[gy + 1][check_x] != ' ':
                                 break
                             avail_below += 1
@@ -648,7 +698,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                         display_name = room_name if len(room_name) <= avail else room_name[:avail - 1] + "."
                         for i, ch in enumerate(display_name):
                             nx = name_x + i
-                            if 0 <= nx < _GRID_W - 1 and 0 <= name_y < _GRID_H - 1:
+                            if 0 <= nx < _INTERNAL_W - 1 and 0 <= name_y < _INTERNAL_H - 1:
                                 grid[name_y][nx] = ch
                                 grid_meta[name_y][nx] = ("label", room.id, is_current, is_adjacent, vis)
 
@@ -656,11 +706,11 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             if room.id in room_chars:
                 # 이름 끝 위치 찾기
                 offset = 1
-                while gx + offset < _GRID_W and grid_meta[gy][gx + offset] is not None:
+                while gx + offset < _INTERNAL_W and grid_meta[gy][gx + offset] is not None:
                     offset += 1
                 for _name, _is_creature, codename in room_chars[room.id]:
                     cx = gx + offset
-                    if 0 <= cx < _GRID_W and 0 <= gy < _GRID_H and grid[gy][cx] == ' ':
+                    if 0 <= cx < _INTERNAL_W and 0 <= gy < _INTERNAL_H and grid[gy][cx] == ' ':
                         grid[gy][cx] = codename
                         grid_meta[gy][cx] = ("char", room.id, _is_creature, False, vis)
                     offset += 1
@@ -695,9 +745,32 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 if cur_name:
                     lines.append(f"  {c('#ffff00', '@')} {c('#ffff00', cur_name)}")
 
-        for y in range(_GRID_H):
+        # ── 뷰포트 계산 ──
+        vp = _get_viewport(dungeon_id)
+        if vp["auto_center"] and current_room_id is not None and current_room_id in positions:
+            px, py = positions[current_room_id]
+            vp["cam_x"] = px - _VIEW_W // 2
+            vp["cam_y"] = py - _VIEW_H // 2
+
+        # 뷰포트 범위 클램핑
+        vp["cam_x"] = max(0, min(_INTERNAL_W - _VIEW_W, vp["cam_x"]))
+        vp["cam_y"] = max(0, min(_INTERNAL_H - _VIEW_H, vp["cam_y"]))
+        vx, vy = vp["cam_x"], vp["cam_y"]
+
+        # 스크롤/줌 컨트롤
+        ctrl = (
+            f"  [url=map:scroll:left]◀[/url]"
+            f" [url=map:scroll:up]▲[/url]"
+            f" [url=map:scroll:down]▼[/url]"
+            f" [url=map:scroll:right]▶[/url]"
+            f"  [url=map:scroll:center]{c('#aaaaaa', '◎')}"
+            f"[/url]"
+        )
+        lines.append(ctrl)
+
+        for y in range(vy, min(vy + _VIEW_H, _INTERNAL_H)):
             row = ""
-            for x in range(_GRID_W):
+            for x in range(vx, min(vx + _VIEW_W, _INTERNAL_W)):
                 meta = grid_meta[y][x]
                 ch = grid[y][x]
 
@@ -747,10 +820,8 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 else:
                     row += ch
 
-            # 오른쪽 공백 제거
-            row = row.rstrip()
-            if row:
-                lines.append(row)
+            # 빈 줄도 유지 (뷰포트 크기 고정)
+            lines.append(row.rstrip() or " ")
 
         # ── 범례 ──
         lines.append("")
@@ -845,8 +916,8 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
 
 def _draw_corridor(grid, ax, ay, bx, by, dim=False, highlight=False):
     """두 점 사이 L자형 복도 그리기 (box-drawing 문자)"""
-    h = _GRID_H
-    w = _GRID_W
+    h = _INTERNAL_H
+    w = _INTERNAL_W
     if highlight:
         h_char = '═'
         v_char = '║'

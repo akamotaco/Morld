@@ -1339,6 +1339,173 @@ namespace SE
                 return PyBool.False;
             });
 
+            // get_map_viewport: 던전 맵 뷰포트 데이터 조회
+            // get_map_viewport(rooms_data, corridors_data, fog_data, player_room_id, cam_x, cam_y, view_w, view_h, bsp_w, bsp_h)
+            // rooms_data: [{id, x, y, w, h, type, name}], corridors_data: [(a,b)], fog_data: {id: vis}
+            // Returns: {rooms: [{id,gx,gy,type,name,vis,is_current,is_adjacent}], corridors: [{ax,ay,bx,by,dim,highlight}], cam_x, cam_y}
+            morldModule.ModuleDict["get_map_viewport"] = new PyBuiltinFunction("get_map_viewport", args =>
+            {
+                if (args.Length < 10)
+                    throw PyTypeError.Create("get_map_viewport requires 10 arguments");
+
+                var roomsList = args[0] as PyList;
+                var corrList = args[1] as PyList;
+                var fogDict = args[2] as PyDict;
+                int playerRoomId = args[3].ToInt();
+                int camX = args[4].ToInt();
+                int camY = args[5].ToInt();
+                int viewW = args[6].ToInt();
+                int viewH = args[7].ToInt();
+                int bspW = args[8].ToInt();
+                int bspH = args[9].ToInt();
+
+                if (roomsList == null || corrList == null || fogDict == null)
+                    return PyNone.Instance;
+
+                // 내부 그리드 크기 (뷰포트보다 넉넉하게)
+                int gridW = System.Math.Max(viewW * 3, 80);
+                int gridH = System.Math.Max(viewH * 3, 40);
+                bspW = System.Math.Max(bspW, 1);
+                bspH = System.Math.Max(bspH, 1);
+
+                // Room 파싱 + 그리드 좌표 매핑
+                var roomPositions = new System.Collections.Generic.Dictionary<int, (int gx, int gy)>();
+                var roomData = new System.Collections.Generic.List<(int id, int gx, int gy, string type, string name, int vis)>();
+                var adjacency = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.HashSet<int>>();
+
+                foreach (PyObject item in roomsList.Items)
+                {
+                    if (item is PyDict rd)
+                    {
+                        int id = rd["id"]?.ToInt() ?? 0;
+                        int rx = rd["x"]?.ToInt() ?? 0;
+                        int ry = rd["y"]?.ToInt() ?? 0;
+                        int rw = rd["w"]?.ToInt() ?? 0;
+                        int rh = rd["h"]?.ToInt() ?? 0;
+                        string rtype = rd["type"]?.AsString() ?? "normal";
+                        string rname = rd["name"]?.AsString() ?? "";
+
+                        // BSP → 그리드 좌표
+                        int cx = rx + rw / 2;
+                        int cy = ry + rh / 2;
+                        int gx = cx * (gridW - 8) / bspW + 4;
+                        int gy = cy * (gridH - 8) / bspH + 3;
+                        gx = System.Math.Clamp(gx, 4, gridW - 5);
+                        gy = System.Math.Clamp(gy, 2, gridH - 4);
+
+                        // fog 상태
+                        int vis = 0;
+                        var idKey = new PyInt(id);
+                        if (fogDict.InternalDict.TryGetValue(idKey, out var visObj))
+                            vis = visObj.ToInt();
+
+                        roomPositions[id] = (gx, gy);
+                        roomData.Add((id, gx, gy, rtype, rname, vis));
+                    }
+                }
+
+                // Corridor 파싱 + adjacency 생성
+                var corrData = new System.Collections.Generic.List<(int roomA, int roomB)>();
+                foreach (PyObject item in corrList.Items)
+                {
+                    if (item is PyTuple t && t.Items.Length >= 2)
+                    {
+                        int a = t.Items[0].ToInt();
+                        int b = t.Items[1].ToInt();
+                        corrData.Add((a, b));
+                        if (!adjacency.ContainsKey(a)) adjacency[a] = new();
+                        if (!adjacency.ContainsKey(b)) adjacency[b] = new();
+                        adjacency[a].Add(b);
+                        adjacency[b].Add(a);
+                    }
+                }
+
+                // 자동 센터링: 플레이어 위치 기준
+                if (camX == -1 && camY == -1 && roomPositions.ContainsKey(playerRoomId))
+                {
+                    var (px, py) = roomPositions[playerRoomId];
+                    camX = px - viewW / 2;
+                    camY = py - viewH / 2;
+                }
+                camX = System.Math.Clamp(camX, 0, System.Math.Max(0, gridW - viewW));
+                camY = System.Math.Clamp(camY, 0, System.Math.Max(0, gridH - viewH));
+
+                // 뷰포트 내 rooms 필터링
+                var resultRooms = new PyList();
+                foreach (var (id, gx, gy, rtype, rname, vis) in roomData)
+                {
+                    // 뷰포트 좌표로 변환
+                    int vgx = gx - camX;
+                    int vgy = gy - camY;
+
+                    // 뷰포트 밖이면 스킵 (여유 2칸)
+                    if (vgx < -2 || vgx >= viewW + 2 || vgy < -2 || vgy >= viewH + 2)
+                        continue;
+
+                    bool isCurrent = (id == playerRoomId);
+                    bool isAdj = adjacency.ContainsKey(playerRoomId)
+                        && adjacency[playerRoomId].Contains(id);
+
+                    var rd = new PyDict();
+                    rd["id"] = new PyInt(id);
+                    rd["gx"] = new PyInt(vgx);
+                    rd["gy"] = new PyInt(vgy);
+                    rd["type"] = new PyStr(rtype);
+                    rd["name"] = new PyStr(rname);
+                    rd["vis"] = new PyInt(vis);
+                    rd["is_current"] = PyBool.FromBool(isCurrent);
+                    rd["is_adjacent"] = PyBool.FromBool(isAdj);
+                    resultRooms.Append(rd);
+                }
+
+                // 뷰포트 내 corridors 필터링
+                var resultCorrs = new PyList();
+                foreach (var (roomA, roomB) in corrData)
+                {
+                    if (!roomPositions.ContainsKey(roomA) || !roomPositions.ContainsKey(roomB))
+                        continue;
+                    var (ax, ay) = roomPositions[roomA];
+                    var (bx, by) = roomPositions[roomB];
+                    int vax = ax - camX, vay = ay - camY;
+                    int vbx = bx - camX, vby = by - camY;
+
+                    // 양쪽 다 뷰포트 밖이면 스킵
+                    bool aIn = vax >= -2 && vax < viewW + 2 && vay >= -2 && vay < viewH + 2;
+                    bool bIn = vbx >= -2 && vbx < viewW + 2 && vby >= -2 && vby < viewH + 2;
+                    if (!aIn && !bIn) continue;
+
+                    int visA = 0, visB = 0;
+                    var kaKey = new PyInt(roomA);
+                    var kbKey = new PyInt(roomB);
+                    if (fogDict.InternalDict.TryGetValue(kaKey, out var va)) visA = va.ToInt();
+                    if (fogDict.InternalDict.TryGetValue(kbKey, out var vb)) visB = vb.ToInt();
+
+                    bool bothVisible = visA >= 2 && visB >= 2;  // VISIBLE=2
+                    bool dim = !bothVisible;
+                    bool highlight = (roomA == playerRoomId || roomB == playerRoomId)
+                        && adjacency.ContainsKey(playerRoomId)
+                        && (adjacency[playerRoomId].Contains(roomA) || adjacency[playerRoomId].Contains(roomB));
+
+                    var cd = new PyDict();
+                    cd["ax"] = new PyInt(vax);
+                    cd["ay"] = new PyInt(vay);
+                    cd["bx"] = new PyInt(vbx);
+                    cd["by"] = new PyInt(vby);
+                    cd["dim"] = PyBool.FromBool(dim);
+                    cd["highlight"] = PyBool.FromBool(highlight);
+                    resultCorrs.Append(cd);
+                }
+
+                var result = new PyDict();
+                result["rooms"] = resultRooms;
+                result["corridors"] = resultCorrs;
+                result["cam_x"] = new PyInt(camX);
+                result["cam_y"] = new PyInt(camY);
+                result["grid_w"] = new PyInt(gridW);
+                result["grid_h"] = new PyInt(gridH);
+                return result;
+            });
+
             // set_unit_prop: 단일 Prop 설정 ("타입:이름" 형식)
             // int 값은 PropSet에, 문자열 값은 StringProps에 저장
             morldModule.ModuleDict["set_unit_prop"] = new PyBuiltinFunction("set_unit_prop", args =>

@@ -294,6 +294,14 @@ namespace SE
 		}
 
 		/// <summary>
+		/// UI 갱신 요청 (다음 FlushDisplay에서 반영)
+		/// </summary>
+		public void RequestRefresh()
+		{
+			_needsUpdateDisplay = true;
+		}
+
+		/// <summary>
 		/// 대기 중인 UI 업데이트 수행 (lazy update 적용)
 		/// </summary>
 		public void FlushDisplay()

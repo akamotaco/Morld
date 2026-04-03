@@ -446,6 +446,21 @@ public partial class MetaActionHandler
 				// 장거리 이동 요청 (threshold 0으로 즉시 이동)
 				_playerSystem?.RequestCommand($"이동:{regionId}:{localId}");
 			}
+			else if (subAction == "scroll" && parts.Length >= 3)
+			{
+				// map:scroll:left/right/up/down/center → Python ui.map_scroll(direction)
+				var direction = parts[2];
+				scriptSystem.CallModuleFunction("ui", "map_scroll", new SharpPy.PyStr(direction));
+				// 탭 재렌더링 트리거
+				_textUISystem?.RequestRefresh();
+			}
+			else if (subAction == "zoom" && parts.Length >= 3)
+			{
+				// map:zoom:in/out → Python ui.map_zoom(direction)
+				var direction = parts[2];
+				scriptSystem.CallModuleFunction("ui", "map_zoom", new SharpPy.PyStr(direction));
+				_textUISystem?.RequestRefresh();
+			}
 		}
 		catch (System.Exception ex)
 		{
