@@ -866,7 +866,14 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
 
         for y in range(vy, vy + _VIEW_H):
             row = ""
+            _name_skip = 0  # 이름이 차지한 칸 수 (빈 칸 skip용)
+
             for x in range(vx, vx + _VIEW_W):
+                # 이름이 차지한 빈 칸 건너뛰기
+                if _name_skip > 0:
+                    _name_skip -= 1
+                    continue
+
                 # 그리드 밖이면 빈 칸
                 if x < 0 or x >= grid_w or y < 0 or y >= grid_h:
                     row += " "
@@ -877,14 +884,11 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 if meta is not None and meta[0] == "map_border":
                     row += c("#666666", ch)
                 elif meta is None:
-                    # 복도 문자 (dim 여부에 따라 색상 변경)
                     if ch in ('═', '║'):
-                        # 하이라이트 복도 (현재 방 ↔ 인접 방)
                         row += c("#66ccff", ch.replace('═', '─').replace('║', '│'))
                     elif ch in ('─', '│', '┐', '└', '┘', '┌', '├', '┤', '┬', '┴', '┼'):
                         row += c("#888888", ch)
                     elif ch in ('╌', '╎'):
-                        # dim 복도 (흐리게 — 방문 이력)
                         row += c("#555555", ch.replace('╌', '─').replace('╎', '│'))
                     else:
                         row += ch
@@ -902,6 +906,40 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                         row += c("#666666", ch)
                     else:
                         row += c("#aaaaaa", ch)
+
+                    # ── 방 기호 직후: 오른쪽 빈 칸에 한글 이름 ──
+                    if vis >= REVEALED:
+                        # 이 방 뒤 빈 칸 수 (VISIBLE/인접 방에 의해서만 차단)
+                        avail = 0
+                        for _cx in range(x + 1, vx + _VIEW_W):
+                            if 0 <= _cx < grid_w and 0 <= y < grid_h:
+                                _cm = grid_meta[y][_cx]
+                                # VISIBLE/인접 방 또는 캐릭터만 차단
+                                if _cm is not None and _cm[0] == "room":
+                                    _rv = _cm[4]  # vis
+                                    if _rv >= REVEALED:  # 밝혀진 방만 차단
+                                        break
+                                elif _cm is not None and _cm[0] == "char":
+                                    break
+                            avail += 1
+                        if avail >= 4:  # 한글 2자 = 4 mono칸
+                            _ri = morld.get_location_info(region_id, loc_id) if loc_id is not None else None
+                            _rname = _ri.get("name", "") if _ri else ""
+                            if _rname:
+                                if _str_width(_rname) <= avail:
+                                    trunc = _rname  # 풀네임
+                                else:
+                                    trunc = _truncate_to_width(_rname, avail - 2) + ".."  # 잘림 표시
+                                name_w = _str_width(trunc)
+                                if is_current:
+                                    row += c("#ffff00", trunc)
+                                elif is_adjacent:
+                                    row += c("#66ccff", trunc)
+                                elif vis == REVEALED:
+                                    row += c("#666666", trunc)
+                                else:
+                                    row += c("#aaaaaa", trunc)
+                                _name_skip = name_w  # 이름이 차지한 mono 칸만큼 skip
 
                 elif meta[0] == "char":
                     _, _room_id, is_creature, _, _ = meta
