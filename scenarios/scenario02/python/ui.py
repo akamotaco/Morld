@@ -449,20 +449,33 @@ _ZOOM_SCALES = [3.5, 2.5, 1.5, 1.0, 0.7]
 _ZOOM_DEFAULT_INDEX = 2  # 기본 줌 레벨 (1.5배)
 
 
-def _build_zoom_configs(room_count):
-    """던전 방 수에 비례하여 줌 레벨 생성.
-    최대 줌아웃(scale 0.7) 시 전체 맵이 뷰포트에 딱 들어옴.
+def _build_zoom_configs(room_count, bsp_w=400, bsp_h=400):
+    """던전 크기 비례 줌 레벨 생성.
+    BSP 실제 비율을 유지하며, 최대 줌아웃 시 전체 맵이 뷰포트에 딱 들어옴.
+
+    Args:
+        room_count: 방 수 (그리드 크기 기준)
+        bsp_w, bsp_h: BSP 실제 범위 (지도 가로/세로 비율 결정)
+
+    # 향후: spec에서 map_zoom 설정으로 오버라이드 가능
     """
-    # 방 수 기반 + 뷰포트 비율 유지
-    # 긴 쪽 기준으로 비율 맞춤 + 마진 20%
-    aspect = _VIEW_W / max(_VIEW_H, 1)  # 가로/세로 비율 (약 3:1)
-    base = max(room_count * 4, 20)      # 기본 크기 (방 수 비례)
+    # BSP 비율 기반 (지도 자체의 가로/세로 비율 유지)
+    map_aspect = max(bsp_w, 1) / max(bsp_h, 1)
+
+    # 방 수 기반 기본 크기
+    base = max(room_count * 4, 20)
 
     configs = []
     for scale in _ZOOM_SCALES:
         s = max(1, int(base * scale))
-        gw = int(s * aspect)
-        gh = s
+        if map_aspect >= 1.0:
+            # 가로가 긴 맵 → 가로 기준
+            gw = int(s * map_aspect)
+            gh = s
+        else:
+            # 세로가 긴 맵 → 세로 기준
+            gw = s
+            gh = int(s / map_aspect)
         configs.append({"grid_w": max(_VIEW_W, gw), "grid_h": max(_VIEW_H, gh)})
 
     # 마지막(최대 줌아웃)은 뷰포트 크기로 강제 — 전체 맵이 딱 들어옴
@@ -598,19 +611,19 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         fog_state = fog.get_fog_state(fog_id)
         adjacency = fog.get_adjacency(fog_id)
 
-        # 줌 레벨에 따른 그리드 크기 (던전 크기 비례)
-        _zoom_configs = _build_zoom_configs(len(rooms))
-        _vp_temp = _get_viewport(dungeon_id)
-        _vp_temp["_zoom_configs"] = _zoom_configs  # 렌더링 중 참조용
-        _zoom_cfg = _zoom_configs[min(_vp_temp["zoom"], len(_zoom_configs) - 1)]
-        grid_w = _zoom_cfg["grid_w"]
-        grid_h = _zoom_cfg["grid_h"]
-
-        # BSP 범위 계산
+        # BSP 범위 계산 (줌 configs보다 먼저 — 비율 결정에 필요)
         bsp_max_x = max(r.x + r.w for r in rooms)
         bsp_max_y = max(r.y + r.h for r in rooms)
         bsp_max_x = max(bsp_max_x, 1)
         bsp_max_y = max(bsp_max_y, 1)
+
+        # 줌 레벨에 따른 그리드 크기 (BSP 실제 비율 반영)
+        _zoom_configs = _build_zoom_configs(len(rooms), bsp_max_x, bsp_max_y)
+        _vp_temp = _get_viewport(dungeon_id)
+        _vp_temp["_zoom_configs"] = _zoom_configs
+        _zoom_cfg = _zoom_configs[min(_vp_temp["zoom"], len(_zoom_configs) - 1)]
+        grid_w = _zoom_cfg["grid_w"]
+        grid_h = _zoom_cfg["grid_h"]
 
         # 방 중심 → 그리드 좌표 매핑
         positions = {}
