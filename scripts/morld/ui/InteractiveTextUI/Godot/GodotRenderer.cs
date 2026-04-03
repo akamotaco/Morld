@@ -5,6 +5,49 @@ using System.Text;
 namespace Morld.TextUI;
 
 /// <summary>
+/// URL meta에서 플래그를 파싱하여 분리.
+/// 플래그 문자(%, # 등)는 meta 끝에 붙이며, 순서 무관, 중복 가능.
+///
+/// 예: "map:scroll:left%" → PureMeta="map:scroll:left", DisableMask=true
+///     "action:do#"       → PureMeta="action:do", HideWhenDisabled=true
+///     "action:do%#"      → PureMeta="action:do", DisableMask=true, HideWhenDisabled=true
+/// </summary>
+public class MetaFlags
+{
+	public string PureMeta { get; }
+	public bool DisableMask { get; }       // % — 어둠 마스킹 무시
+	public bool HideWhenDisabled { get; }  // # — 조건 불충족 시 숨김
+
+	private MetaFlags(string pureMeta, bool disableMask, bool hideWhenDisabled)
+	{
+		PureMeta = pureMeta;
+		DisableMask = disableMask;
+		HideWhenDisabled = hideWhenDisabled;
+	}
+
+	public static MetaFlags Parse(string rawMeta)
+	{
+		if (string.IsNullOrEmpty(rawMeta))
+			return new MetaFlags(rawMeta ?? "", false, false);
+
+		bool disableMask = false;
+		bool hideWhenDisabled = false;
+		int end = rawMeta.Length;
+
+		while (end > 0)
+		{
+			char last = rawMeta[end - 1];
+			if (last == '%') disableMask = true;
+			else if (last == '#') hideWhenDisabled = true;
+			else break;
+			end--;
+		}
+
+		return new MetaFlags(rawMeta[..end], disableMask, hideWhenDisabled);
+	}
+}
+
+/// <summary>
 /// Godot RichTextLabel용 BBCode 렌더러.
 /// AST + 상태 → BBCode 문자열 + 즉시 구간 맵 생성.
 ///
@@ -176,8 +219,9 @@ public class GodotRenderer : ITextUIRenderer
 
 	private void RenderLink(RenderCtx ctx, AstNode n, int depth)
 	{
+		var flags = MetaFlags.Parse(n.Meta);
 		bool hovered = IsHovered(ctx.HoveredMeta, n.Meta);
-		bool masked = ctx.DarknessLevel >= 2 && !hovered;
+		bool masked = ctx.DarknessLevel >= 2 && !hovered && !flags.DisableMask;
 		string color = hovered ? TextUIThemeBase.ToHex(ctx.Theme.LinkHoverColor)
 			: masked ? GetMaskedColor(ctx.DarknessLevel, ctx.Theme)
 			: TextUIThemeBase.ToHex(ctx.Theme.LinkColor);
@@ -280,8 +324,9 @@ public class GodotRenderer : ITextUIRenderer
 		bool open = ctx.State.GetToggle(n.Key);
 		string arrow = open ? ctx.Theme.ToggleOpenIcon : ctx.Theme.ToggleClosedIcon;
 		string meta = $"toggle:{n.Key}";
+		var toggleFlags = MetaFlags.Parse(meta);
 		bool hovered = IsHovered(ctx.HoveredMeta, meta);
-		bool masked = ctx.DarknessLevel >= 2 && !hovered;
+		bool masked = ctx.DarknessLevel >= 2 && !hovered && !toggleFlags.DisableMask;
 		string hColor = hovered
 			? TextUIThemeBase.ToHex(ctx.Theme.HoverColor)
 			: masked
@@ -345,8 +390,9 @@ public class GodotRenderer : ITextUIRenderer
 				}
 				else
 				{
+					var radioFlags = MetaFlags.Parse(meta);
 					bool hovered = IsHovered(ctx.HoveredMeta, meta);
-					bool masked = ctx.DarknessLevel >= 2 && !hovered;
+					bool masked = ctx.DarknessLevel >= 2 && !hovered && !radioFlags.DisableMask;
 
 					if (masked)
 					{

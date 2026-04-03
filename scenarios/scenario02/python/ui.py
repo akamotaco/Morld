@@ -439,15 +439,17 @@ _ROOM_SYMBOLS = {
 # 맵 모노스페이스 폰트 (D2Coding — 한글=2칸, 영문=1칸)
 _MAP_FONT = "res://assets/fonts/D2Coding-Ver1.3.2-20180524-all.ttc"
 
-# 내부 그리드 (컴팩트)
-_INTERNAL_W = 50
-_INTERNAL_H = 20
-
-# 뷰포트 (표시 영역)
+# 뷰포트 (표시 영역 — 고정)
 _VIEW_W = 36
 _VIEW_H = 12
 _SCROLL_STEP = 5
-_ZOOM_LEVELS = [1, 2, 3]  # 1=축소, 2=기본, 3=확대
+
+# 줌 레벨별 내부 그리드 크기 (줌 아웃=큰 그리드, 줌 인=작은 그리드)
+_ZOOM_CONFIGS = [
+    {"grid_w": 80, "grid_h": 35, "label": "-"},   # 줌 아웃 (넓게)
+    {"grid_w": 50, "grid_h": 20, "label": "○"},   # 기본
+    {"grid_w": 30, "grid_h": 14, "label": "+"},   # 줌 인 (가깝게)
+]
 
 # 뷰포트 상태 (던전별)
 _map_viewport = {
@@ -460,7 +462,7 @@ def _get_viewport(dungeon_id):
     if dungeon_id not in _map_viewport:
         _map_viewport[dungeon_id] = {
             "cam_x": 0, "cam_y": 0,
-            "zoom": 1,  # index into _ZOOM_LEVELS
+            "zoom": 1,  # index into _ZOOM_CONFIGS
             "auto_center": True,
         }
     return _map_viewport[dungeon_id]
@@ -485,12 +487,15 @@ def map_scroll(direction):
 
 
 def map_zoom(direction):
-    """맵 줌 (URL 핸들러에서 호출)"""
+    """맵 줌 (URL 핸들러에서 호출)
+    in(+) = 확대 = 큰 그리드 (방 간격 넓어짐) = index 감소
+    out(-) = 축소 = 작은 그리드 (방 간격 좁아짐) = index 증가
+    """
     for did, vp in _map_viewport.items():
-        if direction == "in" and vp["zoom"] < len(_ZOOM_LEVELS) - 1:
-            vp["zoom"] += 1
-        elif direction == "out" and vp["zoom"] > 0:
+        if direction == "in" and vp["zoom"] > 0:
             vp["zoom"] -= 1
+        elif direction == "out" and vp["zoom"] < len(_ZOOM_CONFIGS) - 1:
+            vp["zoom"] += 1
         break
 
 
@@ -574,6 +579,12 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         fog_state = fog.get_fog_state(fog_id)
         adjacency = fog.get_adjacency(fog_id)
 
+        # 줌 레벨에 따른 그리드 크기
+        _vp_temp = _get_viewport(dungeon_id)
+        _zoom_cfg = _ZOOM_CONFIGS[_vp_temp["zoom"]]
+        grid_w = _zoom_cfg["grid_w"]
+        grid_h = _zoom_cfg["grid_h"]
+
         # BSP 범위 계산
         bsp_max_x = max(r.x + r.w for r in rooms)
         bsp_max_y = max(r.y + r.h for r in rooms)
@@ -586,10 +597,10 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             cx = (room.x + room.w // 2)
             cy = (room.y + room.h // 2)
             # 가장자리 1셀 마진만 유지
-            gx = int(cx * (_INTERNAL_W - 2) / bsp_max_x) + 1
-            gy = int(cy * (_INTERNAL_H - 2) / bsp_max_y) + 1
-            gx = max(1, min(_INTERNAL_W - 2, gx))
-            gy = max(1, min(_INTERNAL_H - 2, gy))
+            gx = int(cx * (grid_w - 2) / bsp_max_x) + 1
+            gy = int(cy * (grid_h - 2) / bsp_max_y) + 1
+            gx = max(1, min(grid_w - 2, gx))
+            gy = max(1, min(grid_h - 2, gy))
             positions[room.id] = (gx, gy)
 
         # 충돌 해결 (같은 좌표에 여러 방 → 밀어내기)
@@ -598,7 +609,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             key = (gx, gy)
             while key in occupied:
                 gx += 4
-                if gx >= _INTERNAL_W - 4:
+                if gx >= grid_w - 4:
                     gx = 3
                     gy += 2
                 key = (gx, gy)
@@ -635,23 +646,23 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 room_chars[room.id] = chars
 
         # ── 그리드 초기화 + 지도 외곽선 ──
-        grid = [[' '] * _INTERNAL_W for _ in range(_INTERNAL_H)]
-        grid_meta = [[None] * _INTERNAL_W for _ in range(_INTERNAL_H)]
+        grid = [[' '] * grid_w for _ in range(grid_h)]
+        grid_meta = [[None] * grid_w for _ in range(grid_h)]
 
         # 지도 외곽선 (내부 그리드 가장자리)
-        for x in range(1, _INTERNAL_W - 1):
+        for x in range(1, grid_w - 1):
             grid[0][x] = '─'
-            grid[_INTERNAL_H - 1][x] = '─'
+            grid[grid_h - 1][x] = '─'
             grid_meta[0][x] = ("map_border", 0, False, False, 0)
-            grid_meta[_INTERNAL_H - 1][x] = ("map_border", 0, False, False, 0)
-        for y in range(1, _INTERNAL_H - 1):
+            grid_meta[grid_h - 1][x] = ("map_border", 0, False, False, 0)
+        for y in range(1, grid_h - 1):
             grid[y][0] = '│'
-            grid[y][_INTERNAL_W - 1] = '│'
+            grid[y][grid_w - 1] = '│'
             grid_meta[y][0] = ("map_border", 0, False, False, 0)
-            grid_meta[y][_INTERNAL_W - 1] = ("map_border", 0, False, False, 0)
-        grid[0][0] = '┌'; grid[0][_INTERNAL_W - 1] = '┐'
-        grid[_INTERNAL_H - 1][0] = '└'; grid[_INTERNAL_H - 1][_INTERNAL_W - 1] = '┘'
-        for corner in [(0, 0), (0, _INTERNAL_W - 1), (_INTERNAL_H - 1, 0), (_INTERNAL_H - 1, _INTERNAL_W - 1)]:
+            grid_meta[y][grid_w - 1] = ("map_border", 0, False, False, 0)
+        grid[0][0] = '┌'; grid[0][grid_w - 1] = '┐'
+        grid[grid_h - 1][0] = '└'; grid[grid_h - 1][grid_w - 1] = '┘'
+        for corner in [(0, 0), (0, grid_w - 1), (grid_h - 1, 0), (grid_h - 1, grid_w - 1)]:
             grid_meta[corner[0]][corner[1]] = ("map_border", 0, False, False, 0)
 
         # ── 복도 + Bridge 그리기 (발견된 것만) ──
@@ -673,7 +684,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                     and ((conn.room_a == current_room_id and conn.room_b in current_adj)
                          or (conn.room_b == current_room_id and conn.room_a in current_adj))
                 )
-                _draw_corridor(grid, ax, ay, bx, by, dim=dim, highlight=is_active)
+                _draw_corridor(grid, ax, ay, bx, by, dim=dim, highlight=is_active, grid_w=grid_w, grid_h=grid_h)
 
         # ── 방 그리기 (모든 방 — HIDDEN은 ·, REVEALED은 흐리게, VISIBLE은 밝게) ──
         for room in rooms:
@@ -690,7 +701,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 symbol = _ROOM_SYMBOLS.get(room.room_type, "?")
 
             # 방 기호 배치
-            if 0 <= gx < _INTERNAL_W and 0 <= gy < _INTERNAL_H:
+            if 0 <= gx < grid_w and 0 <= gy < grid_h:
                 grid[gy][gx] = symbol
                 grid_meta[gy][gx] = ("room", room.id, is_current, is_adjacent, vis)
 
@@ -698,11 +709,11 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             if room.id in room_chars:
                 # 이름 끝 위치 찾기
                 offset = 1
-                while gx + offset < _INTERNAL_W and grid_meta[gy][gx + offset] is not None:
+                while gx + offset < grid_w and grid_meta[gy][gx + offset] is not None:
                     offset += 1
                 for _name, _is_creature, codename in room_chars[room.id]:
                     cx = gx + offset
-                    if 0 <= cx < _INTERNAL_W and 0 <= gy < _INTERNAL_H and grid[gy][cx] == ' ':
+                    if 0 <= cx < grid_w and 0 <= gy < grid_h and grid[gy][cx] == ' ':
                         grid[gy][cx] = codename
                         grid_meta[gy][cx] = ("char", room.id, _is_creature, False, vis)
                     offset += 1
@@ -739,6 +750,9 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
 
         # ── 뷰포트 계산 ──
         vp = _get_viewport(dungeon_id)
+        zoom_cfg = _ZOOM_CONFIGS[vp["zoom"]]
+        grid_w = zoom_cfg["grid_w"]
+        grid_h = zoom_cfg["grid_h"]
         if vp["auto_center"] and current_room_id is not None and current_room_id in positions:
             px, py = positions[current_room_id]
             vp["cam_x"] = px - _VIEW_W // 2
@@ -748,21 +762,29 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         # 뷰포트 절반만큼 오버스크롤 허용 (가장자리가 중앙까지)
         half_w = _VIEW_W // 2
         half_h = _VIEW_H // 2
-        vp["cam_x"] = max(-half_w, min(_INTERNAL_W - half_w, vp["cam_x"]))
-        vp["cam_y"] = max(-half_h, min(_INTERNAL_H - half_h, vp["cam_y"]))
+        vp["cam_x"] = max(-half_w, min(grid_w - half_w, vp["cam_x"]))
+        vp["cam_y"] = max(-half_h, min(grid_h - half_h, vp["cam_y"]))
         vx, vy = vp["cam_x"], vp["cam_y"]
 
         # 스크롤 컨트롤 (한계 도달 시 회색)
         half_w = _VIEW_W // 2
         half_h = _VIEW_H // 2
         can_left = vx > -half_w
-        can_right = vx < _INTERNAL_W - half_w
+        can_right = vx < grid_w - half_w
         can_up = vy > -half_h
-        can_down = vy < _INTERNAL_H - half_h
+        can_down = vy < grid_h - half_h
 
         def _scroll_btn(direction, symbol, can):
             if can:
-                return f"[url=map:scroll:{direction}]{symbol}[/url]"
+                return f"[url=map:scroll:{direction}%]{symbol}[/url]"
+            return c("#555555", symbol)
+
+        can_zoom_in = vp["zoom"] > 0                       # + = 큰 그리드 방향
+        can_zoom_out = vp["zoom"] < len(_ZOOM_CONFIGS) - 1  # - = 작은 그리드 방향
+
+        def _zoom_btn(direction, symbol, can):
+            if can:
+                return f"[url=map:zoom:{direction}%]{symbol}[/url]"
             return c("#555555", symbol)
 
         ctrl = (
@@ -770,7 +792,9 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             f" {_scroll_btn('up', '▲', can_up)}"
             f" {_scroll_btn('down', '▼', can_down)}"
             f" {_scroll_btn('right', '▶', can_right)}"
-            f"  [url=map:scroll:center]{c('#aaaaaa', '◎')}[/url]"
+            f"  [url=map:scroll:center%]{c('#aaaaaa', '◎')}[/url]"
+            f"  {_zoom_btn('in', '+', can_zoom_in)}"
+            f" {_zoom_btn('out', '−', can_zoom_out)}"
         )
         lines.append(ctrl)
 
@@ -786,7 +810,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             row = ""
             for x in range(vx, vx + _VIEW_W):
                 # 그리드 밖이면 빈 칸
-                if x < 0 or x >= _INTERNAL_W or y < 0 or y >= _INTERNAL_H:
+                if x < 0 or x >= grid_w or y < 0 or y >= grid_h:
                     row += " "
                     continue
                 meta = grid_meta[y][x]
@@ -962,10 +986,10 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         return f"던전 지도 오류: {e}"
 
 
-def _draw_corridor(grid, ax, ay, bx, by, dim=False, highlight=False):
+def _draw_corridor(grid, ax, ay, bx, by, dim=False, highlight=False, grid_w=50, grid_h=20):
     """두 점 사이 L자형 복도 그리기 (box-drawing 문자)"""
-    h = _INTERNAL_H
-    w = _INTERNAL_W
+    h = grid_h
+    w = grid_w
     if highlight:
         h_char = '═'
         v_char = '║'
