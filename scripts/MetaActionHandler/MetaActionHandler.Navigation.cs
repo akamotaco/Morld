@@ -393,7 +393,7 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		var subAction = parts[1];
+		var subAction = Morld.TextUI.MetaFlags.Parse(parts[1]).PureMeta;
 
 		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
 		if (scriptSystem == null)
@@ -459,6 +459,12 @@ public partial class MetaActionHandler
 				// map:zoom:in%/out% → Python ui.map_zoom(direction)
 				var direction = Morld.TextUI.MetaFlags.Parse(parts[2]).PureMeta;
 				scriptSystem.CallModuleFunction("ui", "map_zoom", new SharpPy.PyStr(direction));
+				_textUISystem?.RequestRefresh();
+			}
+			else if (subAction == "toggle_names")
+			{
+				// map:toggle_names% → Python ui.map_toggle_names()
+				scriptSystem.CallModuleFunction("ui", "map_toggle_names");
 				_textUISystem?.RequestRefresh();
 			}
 		}

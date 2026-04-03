@@ -495,6 +495,7 @@ def _get_viewport(dungeon_id):
             "cam_x": 0, "cam_y": 0,
             "zoom": _ZOOM_DEFAULT_INDEX,
             "auto_center": True,
+            "show_names": True,
         }
     return _map_viewport[dungeon_id]
 
@@ -514,6 +515,13 @@ def map_scroll(direction):
             vp["cam_y"] += _SCROLL_STEP
         elif direction == "center":
             vp["auto_center"] = True
+        break
+
+
+def map_toggle_names():
+    """지형 명칭 표시 토글 (URL 핸들러에서 호출)"""
+    for did, vp in _map_viewport.items():
+        vp["show_names"] = not vp.get("show_names", True)
         break
 
 
@@ -845,6 +853,9 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 return f"[url=map:zoom:{direction}%]{symbol}[/url]"
             return c("#555555", symbol)
 
+        _show_names = vp.get("show_names", True)
+        _names_icon = c("#66ccff", "Aa") if _show_names else c("#888888", "Aa")
+
         ctrl = (
             f"  {_scroll_btn('left', '◀', can_left)}"
             f" {_scroll_btn('up', '▲', can_up)}"
@@ -853,6 +864,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             f"  [url=map:scroll:center%]{c('#aaaaaa', '◎')}[/url]"
             f"  {_zoom_btn('in', '+', can_zoom_in)}"
             f" {_zoom_btn('out', '−', can_zoom_out)}"
+            f"  [url=map:toggle_names%]{_names_icon}[/url]"
         )
         lines.append(ctrl)
 
@@ -908,7 +920,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                         row += c("#aaaaaa", ch)
 
                     # ── 방 기호 직후: 오른쪽 빈 칸에 한글 이름 ──
-                    if vis >= REVEALED:
+                    if vis >= REVEALED and _show_names:
                         # 이 방 뒤 빈 칸 수 (VISIBLE/인접 방에 의해서만 차단)
                         avail = 0
                         for _cx in range(x + 1, vx + _VIEW_W):
