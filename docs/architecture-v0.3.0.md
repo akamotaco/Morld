@@ -235,26 +235,101 @@ public string Geometry { get; }   // "line" | "ring"
 public int Height { get; }       // Y축 높이 (시나리오 02/03: 0)
 ```
 
-### Phase 2: 충돌 시스템 (CollisionSystem)
+### Phase 2: 物理 4-시스템 분리
 
-새 ECS.System. `Proc()`에서 매 Step마다 충돌 판정.
+물리를 단일 책임으로 분리한다. 각 시스템은 ECS.System 기반.
+
+```
+GravitySystem      — 속도에 중력 가산
+MovementSystem     — 속도 → 위치 갱신
+CollisionSystem    — 충돌 감지 (AABB + Line segment)
+ResolveSystem      — 충돌 응답 (밀어내기, 착지, 벽 정지)
+```
+
+**실행 순서:**
+
+```
+ThinkSystem (AI)
+  → EventPredictionSystem
+  → GravitySystem        ← 속도에 중력 가산
+  → MovementSystem       ← 속도 → 위치 갱신 (이전 위치 보존)
+  → CollisionSystem      ← 겹침/교차 감지, 결과 저장
+  → ResolveSystem        ← 겹침 해소, 착지/벽 정지 처리
+  → EventSystem (만남/도착)
+  → JobBehaviorSystem
+  → PlayerSystem
+  → WeatherSystem
+  → TextUISystem
+```
+
+**시나리오별 활성화:**
+
+| 시스템 | 02/03 (텍스트) | 04 (플랫포머) |
+|--------|---------------|--------------|
+| GravitySystem | 비활성 | 활성 |
+| MovementSystem | 기존 이동 유지 | 활성 |
+| CollisionSystem | LogOnly/Disabled | Full |
+| ResolveSystem | 비활성 | 활성 |
+
+#### GravitySystem
+
+```csharp
+public class GravitySystem : ECS.System
+{
+    protected override void Proc(int step, Span<Component[]> allComponents)
+    {
+        if (!_enabled) return;
+        // VelocityY += Gravity * dt
+        // VelocityY = Min(VelocityY, MaxFallSpeed)  // 캡
+    }
+}
+```
+
+#### MovementSystem
+
+```csharp
+public class MovementSystem : ECS.System
+{
+    protected override void Proc(int step, Span<Component[]> allComponents)
+    {
+        if (!_enabled) return;
+        // PrevPosition = Position  (Swept 검사용 보존)
+        // Position += Velocity * dt
+        // Ring: NormalizeX()
+    }
+}
+```
+
+#### CollisionSystem
 
 ```csharp
 public class CollisionSystem : ECS.System
 {
     protected override void Proc(int step, Span<Component[]> allComponents)
     {
-        // 시나리오 config에 따라:
-        // - abstract: X축 거리 기반 (기존 EventSystem의 만남 판정 확장)
-        // - full: AABB 2D 충돌
+        // AABB: 유닛↔유닛, 유닛↔벽
+        // Line: 캐릭터 발 위치↔Platform (하강 시만)
+        // Swept: 투사체 경로↔Platform 교차
+        // Ring wrap-around 고려
+        // 결과 → CollisionResult 리스트에 저장
     }
 }
 ```
 
-**실행 위치**: EventSystem 앞 (충돌 결과를 이벤트가 활용)
+#### ResolveSystem
 
-```
-ThinkSystem → EventPredictionSystem → CollisionSystem → EventSystem → ...
+```csharp
+public class ResolveSystem : ECS.System
+{
+    protected override void Proc(int step, Span<Component[]> allComponents)
+    {
+        if (!_enabled) return;
+        // CollisionResult 소비:
+        // - 바닥 충돌 → 착지 (VelocityY=0, Position.Y=바닥)
+        // - 벽 충돌 → 정지 (VelocityX=0, Position.X=벽)
+        // - 천장 충돌 → 반전 (VelocityY=0)
+    }
+}
 ```
 
 ### Ring Geometry Edge 처리
@@ -444,26 +519,14 @@ bool ShouldCollide(Unit unit, Platform platform)
 캐릭터 발 위치 X가 경사 Line 위에 있으면,
 Y를 해당 X의 Line 높이로 고정 (지면 추종).
 
-#### 실행 순서
+#### 실행 순서 (4-시스템)
 
 ```
-ThinkSystem → ... → CollisionSystem (AABB + Line) → PhysicsSystem (중력/점프) → ...
+GravitySystem (속도 가산) → MovementSystem (위치 갱신)
+  → CollisionSystem (감지) → ResolveSystem (응답)
 ```
 
-PhysicsSystem은 CollisionSystem 결과를 읽어 착지/벽 정지를 처리한다.
-
-```csharp
-public class PhysicsSystem : ECS.System
-{
-    protected override void Proc(int step, Span<Component[]> allComponents)
-    {
-        if (!_scenarioConfig.PhysicsEnabled) return;
-        // 1. 중력 적용 (VelocityY += gravity * dt)
-        // 2. 위치 갱신 (Position += Velocity * dt)
-        // 3. CollisionSystem 결과 반영 (착지 → VelocityY=0, 벽 → VelocityX=0)
-    }
-}
-```
+각 시스템은 단일 책임. 디버그 시 어느 단계에서 문제인지 바로 파악 가능.
 
 ### Python API 확장
 
@@ -483,16 +546,18 @@ morld.get_location_size(region_id, loc_id) # → (width, height)
 
 ## 구현 순서
 
-| 순서 | 작업 | 검증 |
-|------|------|------|
-| 1 | Unit.Position → Vec2 + PositionX 래퍼 | 시나리오 02 기존 동작 확인 |
-| 2 | MovementProgress 2D 확장 + 1D 래퍼 | 이동/Gate 전환 동작 확인 |
-| 3 | Gate.Position → Vec2 + X 래퍼 | Gate 이동 동작 확인 |
-| 4 | Location.Height 추가 | 기존 Location은 Height=0 |
-| 5 | CollisionSystem 추가 (abstract 모드) | 시나리오 02 이벤트 동작 확인 |
-| 6 | Python API 확장 | morld.get_unit_position 테스트 |
-| 7 | PhysicsSystem 추가 (비활성 기본) | 시나리오 02 영향 없음 확인 |
-| 8 | 시나리오 04 프로토타입 | 중력/점프/충돌 통합 테스트 |
+| 순서 | 작업 | 상태 | 검증 |
+|------|------|------|------|
+| 1 | Unit.Position → Vec2 + PositionX 래퍼 | ✅ 완료 | 시나리오 02 동작 확인 |
+| 2 | MovementProgress 2D 확장 + 1D 래퍼 | ✅ 완료 | 이동/Gate 전환 확인 |
+| 3 | Gate.Position → Vec2 + X 래퍼 | ✅ 완료 | 던전 Gate 이동 확인 |
+| 4 | Location.Height 추가 | ✅ 기존 존재 | — |
+| 5 | CollisionSystem (AABB, LogOnly) | ✅ 완료 | 빌드 확인 (Disabled) |
+| 6 | Python API 확장 | 진행 중 | get_location_size 등 |
+| 7 | GravitySystem (비활성 기본) | 미착수 | 시나리오 02 영향 없음 |
+| 8 | MovementSystem (비활성 기본) | 미착수 | 기존 이동 유지 확인 |
+| 9 | ResolveSystem (비활성 기본) | 미착수 | 시나리오 02 영향 없음 |
+| 10 | 시나리오 04 프로토타입 | 미착수 | 중력/점프/충돌 통합 |
 
 **핵심**: 매 단계마다 시나리오 02를 실행하여 기존 동작을 검증한다.
 
