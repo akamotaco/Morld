@@ -5,7 +5,7 @@ Spec + seed 기반 동적 던전.
 """
 
 import morld
-from .generator import generate_floor
+from dungeon.generator import generate_floor
 
 # 동적 Region 시작 ID (고정 지형과 충돌 방지)
 _REGION_START = 100
@@ -152,11 +152,29 @@ def expand_floor(dungeon_id, floor_num):
     overrides = spec.get("floor_overrides", {}).get(floor_num, {})
     base_cfg.update(overrides)
 
+    # 타입 할당 콜백 (시나리오 02: 다층 던전용)
+    def _assign_dungeon_types(rooms, fn):
+        if not rooms:
+            return
+        if fn == 0:
+            rooms[0].room_type = "start"
+        if fn > 0:
+            rooms[0].room_type = "stairs_up"
+        if len(rooms) > 3:
+            rooms[len(rooms) // 2].room_type = "treasure"
+        is_last = max_floors is not None and fn >= max_floors - 1
+        if is_last:
+            rooms[-1].room_type = "boss"
+        else:
+            for count in range(stairs_per_floor):
+                idx = -(1 + count)
+                if abs(idx) <= len(rooms) and rooms[idx].room_type == "normal":
+                    rooms[idx].room_type = "stairs_down"
+
     # BSP 생성
     rooms, corridors, bridges = generate_floor(
         base_cfg, floor_num, seed,
-        max_floors=max_floors,
-        stairs_per_floor=stairs_per_floor,
+        assign_types=_assign_dungeon_types,
     )
 
     # Region 결정
@@ -235,7 +253,7 @@ def _create_floor_stub(info, floor_num, from_region_id, from_location_id):
                      "맑음")
     env_config = info["spec"].get("environment", {})
     from .builder import _resolve_indoor
-    from .generator import Room
+    from dungeon.generator import Room
     stub_room = Room(0, 0, 0, 80, 80, "stairs_up")
     stub_indoor = _resolve_indoor(stub_room, floor_num, env_config)
     morld.add_location(stub_region_id, stub_loc, "상층 계단",

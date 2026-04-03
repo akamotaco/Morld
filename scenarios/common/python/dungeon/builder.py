@@ -6,7 +6,7 @@ generator.py가 만든 Room/Corridor/Bridge를 morld API로 실제 게임 지형
 import random
 
 import morld
-from dungeon.generator import Room, Corridor, Bridge
+from .generator import Room, Corridor, Bridge
 
 # 방 타입별 이름/묘사 (특수 방 — 고정)
 ROOM_NAMES = {

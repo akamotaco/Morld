@@ -596,9 +596,32 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 grid[gy][gx] = symbol
                 grid_meta[gy][gx] = ("room", room.id, is_current, is_adjacent, vis)
 
-            # 캐릭터 코드네임 (방 기호 오른쪽에 배치)
+            # 방 이름 표시 (심볼 오른쪽, 여유 공간만큼)
+            if vis >= REVEALED and 0 <= gy < _GRID_H:
+                loc_id = locations.get(room.id)
+                _loc_info = morld.get_location_info(region_id, loc_id) if loc_id is not None else None
+                room_name = _loc_info.get("name", "") if _loc_info else ""
+                if room_name:
+                    # 오른쪽 여유 공간 계산 (다음 비공백까지)
+                    avail = 0
+                    for check_x in range(gx + 1, min(gx + 20, _GRID_W)):
+                        if grid[gy][check_x] != ' ':
+                            break
+                        avail += 1
+                    if avail >= 3:  # 최소 3칸 이상이면 이름 표시
+                        display_name = room_name if len(room_name) <= avail else room_name[:avail - 1] + "."
+                        for i, ch in enumerate(display_name):
+                            nx = gx + 1 + i
+                            if nx < _GRID_W:
+                                grid[gy][nx] = ch
+                                grid_meta[gy][nx] = ("label", room.id, is_current, is_adjacent, vis)
+
+            # 캐릭터 코드네임 (이름 뒤에 배치)
             if room.id in room_chars:
+                # 이름 끝 위치 찾기
                 offset = 1
+                while gx + offset < _GRID_W and grid_meta[gy][gx + offset] is not None:
+                    offset += 1
                 for _name, _is_creature, codename in room_chars[room.id]:
                     cx = gx + offset
                     if 0 <= cx < _GRID_W and 0 <= gy < _GRID_H and grid[gy][cx] == ' ':
@@ -626,6 +649,15 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             header += "  " + " ".join(floor_tabs)
         header += f"  {style_muted(f'{mode_label} | 발견 {room_count}/{len(rooms)}')}"
         lines.append(header)
+
+        # 현재 위치 풀네임 표시
+        if current_room_id is not None:
+            cur_loc_id = locations.get(current_room_id)
+            if cur_loc_id is not None:
+                cur_info = morld.get_location_info(region_id, cur_loc_id)
+                cur_name = cur_info.get("name", "") if cur_info else ""
+                if cur_name:
+                    lines.append(f"  {c('#ffff00', '@')} {c('#ffff00', cur_name)}")
 
         for y in range(_GRID_H):
             row = ""
@@ -658,6 +690,16 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                         row += f"[url=move:{region_id}:{loc_id}]{c('#66ccff', ch)}[/url]"
                     elif vis == REVEALED:
                         row += c("#666666", ch)
+                    else:
+                        row += c("#aaaaaa", ch)
+                elif meta[0] == "label":
+                    _, room_id, is_current, is_adjacent, vis = meta
+                    if is_current:
+                        row += c("#ffff00", ch)
+                    elif vis == REVEALED:
+                        row += c("#666666", ch)
+                    elif is_adjacent:
+                        row += c("#66ccff", ch)
                     else:
                         row += c("#aaaaaa", ch)
                 elif meta[0] == "char":

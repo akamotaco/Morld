@@ -113,76 +113,8 @@ def generate_dungeon(width=400, height=400, min_size=60, max_depth=4,
     corridors = []
     _connect_siblings(root, corridors)
 
-    # 방 타입 할당
-    if rooms:
-        rooms[0].room_type = "start"
-        rooms[-1].room_type = "boss"
-        # 보물방: 중간쯤 1개
-        if len(rooms) > 3:
-            treasure_idx = len(rooms) // 2
-            rooms[treasure_idx].room_type = "treasure"
-
+    # 모든 방은 "normal" — 타입 할당은 호출자(시나리오)가 담당
     return rooms, corridors
-
-
-def generate_multi_floor(floors=3, width=400, height=400, min_size=60,
-                         max_depth=4, room_padding=8, seed=None):
-    """
-    다층 던전 생성.
-
-    층별로 독립 BSP → 계단(stairs_up/stairs_down)으로 연결.
-    1층 입구(start), 최하층 보스(boss).
-
-    Args:
-        floors: 층 수
-        나머지: generate_dungeon과 동일
-
-    Returns:
-        list[dict]: 층별 {"floor": int, "rooms": list[Room], "corridors": list[Corridor]}
-    """
-    if seed is not None:
-        random.seed(seed)
-
-    result = []
-    for floor in range(floors):
-        floor_seed = (seed * 100 + floor + 1) if seed else None
-        rooms, corridors = generate_dungeon(
-            width=width, height=height,
-            min_size=min_size, max_depth=max_depth,
-            room_padding=room_padding, seed=floor_seed
-        )
-
-        # 타입 재할당 (다층용)
-        for room in rooms:
-            room.room_type = "normal"
-
-        if rooms:
-            if floor == 0:
-                rooms[0].room_type = "start"        # 1층 입구
-            if floor == floors - 1:
-                rooms[-1].room_type = "boss"         # 최하층 보스
-
-            # 보물방: 각 층 중간 1개
-            if len(rooms) > 3:
-                rooms[len(rooms) // 2].room_type = "treasure"
-
-            # 계단: 마지막 방 = stairs_down (최하층 제외)
-            if floor < floors - 1:
-                stairs_down_room = rooms[-1] if rooms[-1].room_type == "normal" else rooms[-2]
-                stairs_down_room.room_type = "stairs_down"
-
-            # 계단: 첫 번째 방 = stairs_up (1층 제외)
-            if floor > 0:
-                stairs_up_room = rooms[0] if rooms[0].room_type == "normal" else rooms[1]
-                stairs_up_room.room_type = "stairs_up"
-
-        result.append({
-            "floor": floor,
-            "rooms": rooms,
-            "corridors": corridors,
-        })
-
-    return result
 
 
 def _split(node, min_size, max_depth, depth):
@@ -346,17 +278,18 @@ def _segments_intersect(p1, p2, p3, p4):
     return False
 
 
-def generate_floor(spec_base, floor_num, seed, max_floors=None,
-                   stairs_per_floor=1):
+def generate_floor(spec_base, floor_num, seed, assign_types=None):
     """
-    단일 층 BSP 생성 (Lazy Generation용).
+    단일 층 BSP 생성 + Bridge.
+
+    BSP 코어 + floor_scaling + Bridge 생성.
+    방 타입 할당은 assign_types 콜백에 위임.
 
     Args:
-        spec_base: {"width", "height", "min_size", "max_depth"} + floor_scaling
+        spec_base: {"width", "height", "min_size", "max_depth"} + floor_scaling + connections
         floor_num: 현재 층 번호 (0-indexed)
         seed: base_seed (floor_num 기반 파생)
-        max_floors: 최대 층수 (None=무한)
-        stairs_per_floor: 계단 수
+        assign_types: callable(rooms, floor_num) — 방 타입 할당 콜백 (None이면 전부 "normal")
 
     Returns:
         (rooms, corridors, bridges)
@@ -380,34 +313,9 @@ def generate_floor(spec_base, floor_num, seed, max_floors=None,
         seed=floor_seed
     )
 
-    # 타입 재할당
-    for room in rooms:
-        room.room_type = "normal"
-
-    if rooms:
-        # 입구 (1층만)
-        if floor_num == 0:
-            rooms[0].room_type = "start"
-
-        # stairs_up (1층 이외)
-        if floor_num > 0:
-            rooms[0].room_type = "stairs_up"
-
-        # 보물방
-        if len(rooms) > 3:
-            rooms[len(rooms) // 2].room_type = "treasure"
-
-        # 보스 (마지막 층)
-        is_last_floor = max_floors is not None and floor_num >= max_floors - 1
-        if is_last_floor:
-            rooms[-1].room_type = "boss"
-        else:
-            # stairs_down
-            for count in range(stairs_per_floor):
-                # 마지막 방부터 역순으로 stairs_down 배치
-                idx = -(1 + count)
-                if abs(idx) <= len(rooms) and rooms[idx].room_type == "normal":
-                    rooms[idx].room_type = "stairs_down"
+    # 타입 할당 (시나리오 콜백)
+    if assign_types:
+        assign_types(rooms, floor_num)
 
     # Bridge 생성
     bridge_seed = seed + floor_num * 100 + 99

@@ -59,11 +59,16 @@ namespace SE
                 var sysModule = PyImportSystem.Import("sys");
                 if (sysModule.ModuleDict.TryGetValue("path", out PyObject pathObj) && pathObj is PyList pathList)
                 {
+                    // 공통 Python 경로 추가 (시나리오 간 공유 모듈)
+                    var commonPath = "res://scenarios/common/python";
+                    pathList.Insert(0, new PyStr(commonPath));
+                    Godot.GD.Print($"[ScriptSystem] Added common Python path to sys.path: {commonPath}");
+
                     // 시나리오 루트 경로 추가 (entities 등 다른 폴더 접근용)
                     pathList.Insert(0, new PyStr(_scenarioPath));
                     Godot.GD.Print($"[ScriptSystem] Added scenario root path to sys.path: {_scenarioPath}");
 
-                    // 시나리오 Python 경로를 맨 앞에 추가 (최우선)
+                    // 시나리오 Python 경로를 맨 앞에 추가 (최우선, 공통 오버라이드 가능)
                     pathList.Insert(0, new PyStr(ScenarioPythonPath));
                     Godot.GD.Print($"[ScriptSystem] Added scenario Python path to sys.path: {ScenarioPythonPath}");
                 }
