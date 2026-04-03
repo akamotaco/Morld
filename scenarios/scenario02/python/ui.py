@@ -502,10 +502,11 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         for room in rooms:
             cx = (room.x + room.w // 2)
             cy = (room.y + room.h // 2)
-            gx = int(cx * (_GRID_W - 6) / bsp_max_x) + 3
-            gy = int(cy * (_GRID_H - 4) / bsp_max_y) + 2
-            gx = max(3, min(_GRID_W - 4, gx))
-            gy = max(1, min(_GRID_H - 2, gy))
+            # 테두리(1) + 패딩(2) = 3셀 마진, 하단은 이름용 추가 여유(+2)
+            gx = int(cx * (_GRID_W - 8) / bsp_max_x) + 4
+            gy = int(cy * (_GRID_H - 8) / bsp_max_y) + 3
+            gx = max(4, min(_GRID_W - 5, gx))
+            gy = max(2, min(_GRID_H - 4, gy))
             positions[room.id] = (gx, gy)
 
         # 충돌 해결 (같은 좌표에 여러 방 → 밀어내기)
@@ -550,11 +551,27 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             if chars:
                 room_chars[room.id] = chars
 
-        # ── 그리드 초기화 ──
+        # ── 그리드 초기화 (테두리 포함) ──
         grid = [[' '] * _GRID_W for _ in range(_GRID_H)]
-        # 메타: 각 셀의 정보 (렌더링 시 색상/URL 결정용)
-        # None 또는 ("room", room_id, is_current, is_adjacent, vis)
         grid_meta = [[None] * _GRID_W for _ in range(_GRID_H)]
+
+        # 테두리 그리기
+        for x in range(1, _GRID_W - 1):
+            grid[0][x] = '─'
+            grid[_GRID_H - 1][x] = '─'
+            grid_meta[0][x] = ("border", 0, False, False, 0)
+            grid_meta[_GRID_H - 1][x] = ("border", 0, False, False, 0)
+        for y in range(1, _GRID_H - 1):
+            grid[y][0] = '│'
+            grid[y][_GRID_W - 1] = '│'
+            grid_meta[y][0] = ("border", 0, False, False, 0)
+            grid_meta[y][_GRID_W - 1] = ("border", 0, False, False, 0)
+        grid[0][0] = '┌'; grid[0][_GRID_W - 1] = '┐'
+        grid[_GRID_H - 1][0] = '└'; grid[_GRID_H - 1][_GRID_W - 1] = '┘'
+        grid_meta[0][0] = ("border", 0, False, False, 0)
+        grid_meta[0][_GRID_W - 1] = ("border", 0, False, False, 0)
+        grid_meta[_GRID_H - 1][0] = ("border", 0, False, False, 0)
+        grid_meta[_GRID_H - 1][_GRID_W - 1] = ("border", 0, False, False, 0)
 
         # ── 복도 + Bridge 그리기 (발견된 것만) ──
         bridges = floor_info.get("bridges", []) if floors_data else dungeon_info.get("bridges", [])
@@ -596,25 +613,44 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 grid[gy][gx] = symbol
                 grid_meta[gy][gx] = ("room", room.id, is_current, is_adjacent, vis)
 
-            # 방 이름 표시 (심볼 오른쪽, 여유 공간만큼)
+            # 방 이름 표시 (오른쪽 우선, 여유 없으면 아래줄)
             if vis >= REVEALED and 0 <= gy < _GRID_H:
                 loc_id = locations.get(room.id)
                 _loc_info = morld.get_location_info(region_id, loc_id) if loc_id is not None else None
                 room_name = _loc_info.get("name", "") if _loc_info else ""
                 if room_name:
-                    # 오른쪽 여유 공간 계산 (다음 비공백까지)
-                    avail = 0
-                    for check_x in range(gx + 1, min(gx + 20, _GRID_W)):
+                    # 오른쪽 여유 공간 계산
+                    avail_right = 0
+                    for check_x in range(gx + 1, min(gx + 20, _GRID_W - 1)):
                         if grid[gy][check_x] != ' ':
                             break
-                        avail += 1
-                    if avail >= 3:  # 최소 3칸 이상이면 이름 표시
+                        avail_right += 1
+
+                    # 아래줄 여유 공간 계산
+                    avail_below = 0
+                    if gy + 1 < _GRID_H - 1:  # 테두리 안쪽
+                        for check_x in range(gx, min(gx + 20, _GRID_W - 1)):
+                            if grid[gy + 1][check_x] != ' ':
+                                break
+                            avail_below += 1
+
+                    # 배치 위치 결정: 오른쪽 우선, 실패 시 아래줄
+                    if avail_right >= 3:
+                        name_y, name_x = gy, gx + 1
+                        avail = avail_right
+                    elif avail_below >= 3:
+                        name_y, name_x = gy + 1, gx
+                        avail = avail_below
+                    else:
+                        name_y, name_x, avail = -1, -1, 0
+
+                    if avail >= 3:
                         display_name = room_name if len(room_name) <= avail else room_name[:avail - 1] + "."
                         for i, ch in enumerate(display_name):
-                            nx = gx + 1 + i
-                            if nx < _GRID_W:
-                                grid[gy][nx] = ch
-                                grid_meta[gy][nx] = ("label", room.id, is_current, is_adjacent, vis)
+                            nx = name_x + i
+                            if 0 <= nx < _GRID_W - 1 and 0 <= name_y < _GRID_H - 1:
+                                grid[name_y][nx] = ch
+                                grid_meta[name_y][nx] = ("label", room.id, is_current, is_adjacent, vis)
 
             # 캐릭터 코드네임 (이름 뒤에 배치)
             if room.id in room_chars:
@@ -692,6 +728,8 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                         row += c("#666666", ch)
                     else:
                         row += c("#aaaaaa", ch)
+                elif meta[0] == "border":
+                    row += c("#444444", ch)
                 elif meta[0] == "label":
                     _, room_id, is_current, is_adjacent, vis = meta
                     if is_current:
