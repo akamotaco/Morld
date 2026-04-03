@@ -779,20 +779,45 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
             vp["cam_y"] = py - _VIEW_H // 2
 
         # 뷰포트 범위 클램핑
-        # 뷰포트 절반만큼 오버스크롤 허용 (가장자리가 중앙까지)
-        half_w = _VIEW_W // 2
-        half_h = _VIEW_H // 2
-        vp["cam_x"] = max(-half_w, min(grid_w - half_w, vp["cam_x"]))
-        vp["cam_y"] = max(-half_h, min(grid_h - half_h, vp["cam_y"]))
+        # 그리드가 뷰포트보다 작으면 자동 중앙 (스크롤 불가)
+        # 그리드가 뷰포트보다 크면 그리드 내에서만 이동 (빈 공간 진입 불가)
+        # overscroll=True 시 뷰포트 절반만큼 오버스크롤 허용
+        _overscroll = False  # 옵션: True면 가장자리가 중앙까지 올 수 있음
+        if grid_w <= _VIEW_W:
+            vp["cam_x"] = (grid_w - _VIEW_W) // 2  # 중앙 고정
+        elif _overscroll:
+            half_w = _VIEW_W // 2
+            vp["cam_x"] = max(-half_w, min(grid_w - half_w, vp["cam_x"]))
+        else:
+            vp["cam_x"] = max(0, min(grid_w - _VIEW_W, vp["cam_x"]))
+
+        if grid_h <= _VIEW_H:
+            vp["cam_y"] = (grid_h - _VIEW_H) // 2  # 중앙 고정
+        elif _overscroll:
+            half_h = _VIEW_H // 2
+            vp["cam_y"] = max(-half_h, min(grid_h - half_h, vp["cam_y"]))
+        else:
+            vp["cam_y"] = max(0, min(grid_h - _VIEW_H, vp["cam_y"]))
         vx, vy = vp["cam_x"], vp["cam_y"]
 
-        # 스크롤 컨트롤 (한계 도달 시 회색)
-        half_w = _VIEW_W // 2
-        half_h = _VIEW_H // 2
-        can_left = vx > -half_w
-        can_right = vx < grid_w - half_w
-        can_up = vy > -half_h
-        can_down = vy < grid_h - half_h
+        # 스크롤 컨트롤 (한계 도달 또는 그리드≤뷰포트 시 회색)
+        if grid_w <= _VIEW_W:
+            can_left = can_right = False
+        elif _overscroll:
+            can_left = vx > -(_VIEW_W // 2)
+            can_right = vx < grid_w - (_VIEW_W // 2)
+        else:
+            can_left = vx > 0
+            can_right = vx < grid_w - _VIEW_W
+
+        if grid_h <= _VIEW_H:
+            can_up = can_down = False
+        elif _overscroll:
+            can_up = vy > -(_VIEW_H // 2)
+            can_down = vy < grid_h - (_VIEW_H // 2)
+        else:
+            can_up = vy > 0
+            can_down = vy < grid_h - _VIEW_H
 
         def _scroll_btn(direction, symbol, can):
             if can:
