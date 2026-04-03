@@ -93,6 +93,25 @@ public class Unit : IOwnable
 	/// </summary>
 	public bool CollisionEnabled { get; set; } = false;
 
+	#region Physics (v0.3.0 Phase 2)
+
+	/// <summary>속도 X (픽셀/초)</summary>
+	public float VelocityX { get; set; } = 0f;
+
+	/// <summary>속도 Y (픽셀/초, 양수=하강)</summary>
+	public float VelocityY { get; set; } = 0f;
+
+	/// <summary>이전 프레임 위치 (Swept 충돌 검사용)</summary>
+	public Vec2 PrevPosition { get; set; } = Vec2.Zero;
+
+	/// <summary>지면 위에 있는지 여부</summary>
+	public bool IsGrounded { get; set; } = true;
+
+	/// <summary>↓+점프 관통 중 (Semi-solid drop-through)</summary>
+	public bool IsDropping { get; set; } = false;
+
+	#endregion
+
 	/// <summary>
 	/// 2D 이동 진행 정보 (Pi-World)
 	/// null이면 이동 중이 아님

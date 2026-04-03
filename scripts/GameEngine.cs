@@ -106,10 +106,13 @@ public partial class GameEngine : Node
 		// EventPredictionSystem (ThinkSystem 후, EventSystem 전: 이벤트 예측 및 시간 조정)
 		this._world.AddSystem(new EventPredictionSystem(), "eventPredictionSystem");
 
-		// CollisionSystem (EventSystem 전: AABB 충돌 판정)
+		// Physics 4-시스템 (v0.3.0): Gravity → Movement → Collision → Resolve
+		this._world.AddSystem(new GravitySystem(), "gravitySystem");
+		this._world.AddSystem(new MovementSystem(), "movementSystem");
 		this._world.AddSystem(new CollisionSystem(), "collisionSystem");
+		this._world.AddSystem(new ResolveSystem(), "resolveSystem");
 
-		// EventSystem (EventPredictionSystem 후, JobBehaviorSystem 전: 이벤트 감지 및 처리)
+		// EventSystem (Physics 후, JobBehaviorSystem 전: 이벤트 감지 및 처리)
 		this._world.AddSystem(new EventSystem(), "eventSystem");
 
 		this._world.AddSystem(new JobBehaviorSystem(), "jobBehaviorSystem");
