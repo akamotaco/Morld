@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://d3dbj5x5cb3eo"]
+
+[ext_resource type="Script" uid="uid://bo740ps3q78ee" path="res://scenes/minigame/MiniScripter.cs" id="1_ig7p4"]
+
+[node name="MiniMonologue" type="Node2D"]
+
+[node name="RichTextLabel" type="RichTextLabel" parent="."]
+offset_right = 1492.0
+offset_bottom = 789.0
+text = "mini game text"
+
+[node name="MiniScripter" type="Node" parent="."]
+script = ExtResource("1_ig7p4")

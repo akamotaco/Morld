@@ -4,6 +4,8 @@
 
 [node name="Main" type="Node2D"]
 
+[node name="MiniGameContainer" type="Node" parent="."]
+
 [node name="Control" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 6
