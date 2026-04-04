@@ -614,7 +614,8 @@ except (ImportError, AttributeError):
             try
             {
                 // entities 폴더 존재 여부 확인 (Python 측에서)
-                var checkCode = @"
+                // Execute(문장)로 실행 후, Eval(표현식)로 결과 조회
+                var setupCode = @"
 try:
     import entities
     entities.load_all_entities()
@@ -624,9 +625,9 @@ except ImportError:
 except Exception as e:
     print(f'[entities] Load error: {e}')
     _entities_loaded = False
-_entities_loaded
 ";
-                var result = Eval(checkCode);
+                Execute(setupCode);
+                var result = Eval("_entities_loaded");
 
                 if (result is PyBool pyBool && pyBool.Value)
                 {

@@ -539,34 +539,8 @@ def map_zoom(direction):
         break
 
 
-def _char_width(ch):
-    """모노스페이스 폰트에서 문자 표시 폭 (한글=2, 그 외=1)"""
-    cp = ord(ch)
-    # CJK 범위: 한글, 한자, 가나
-    if (0xAC00 <= cp <= 0xD7AF or   # 한글 음절
-        0x3000 <= cp <= 0x303F or   # CJK 기호
-        0x3040 <= cp <= 0x309F or   # 히라가나
-        0x30A0 <= cp <= 0x30FF or   # 카타카나
-        0x4E00 <= cp <= 0x9FFF or   # CJK 통합 한자
-        0xFF00 <= cp <= 0xFFEF):    # 전각
-        return 2
-    return 1
-
-
-def _str_width(s):
-    """문자열 표시 폭 (한글=2칸, 영문=1칸)"""
-    return sum(_char_width(ch) for ch in s)
-
-
-def _truncate_to_width(s, max_width):
-    """표시 폭 기준으로 문자열 잘라내기"""
-    w = 0
-    for i, ch in enumerate(s):
-        cw = _char_width(ch)
-        if w + cw > max_width:
-            return s[:i]
-        w += cw
-    return s
+# 텍스트 유틸 — common/text_utils.py에서 가져옴 (하위 호환 래핑)
+from text_utils import char_width as _char_width, str_width as _str_width, truncate_to_width as _truncate_to_width
 
 
 def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, player_id):

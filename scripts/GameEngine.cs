@@ -16,6 +16,7 @@ public partial class GameEngine : Node
 	// 시나리오 경로 (res:// 기준)
 	// "scenario02" 또는 "scenario04" 등 — Godot 에디터에서 변경 가능
 	[Export] private string _scenarioName = "scenario04";
+	// [Export] private string _scenarioName = "scenario02";
 	private string _scenarioPath => $"res://scenarios/{_scenarioName}/";
 	private string DataPath => _scenarioPath + "data/";
 

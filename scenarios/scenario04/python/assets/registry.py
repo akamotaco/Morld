@@ -53,8 +53,8 @@ def instantiate_character(unique_id: str, region_id: int, location_id: int, x: i
     _instance_map[unique_id] = unit_id
     _reverse_map[unit_id] = unique_id
 
-    # C# 측 유닛 생성
-    morld.add_character(unit_id, cls.name, region_id, location_id, x)
+    # C# 측 유닛 생성 (unique_id 전달 — "player"이면 자동 PlayerId 설정)
+    morld.add_character(unit_id, cls.name, region_id, location_id, x, unique_id=unique_id)
 
     # props 적용
     if hasattr(cls, 'props') and cls.props:

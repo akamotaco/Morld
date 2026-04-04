@@ -116,13 +116,11 @@ def initialize():
         morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])
 
     # 2. Location 등록
+    import village_map
     for loc_id, name, length, indoor, map_x, map_y in VILLAGE_LOCATIONS:
         morld.add_location(VILLAGE_REGION_ID, loc_id, name, length=length, indoor=indoor)
-        # 2D 좌표 prop (마을 지도용)
-        unit_id = morld.get_location_unit_id(VILLAGE_REGION_ID, loc_id)
-        if unit_id:
-            morld.set_unit_prop(unit_id, "map:x", map_x)
-            morld.set_unit_prop(unit_id, "map:y", map_y)
+        # 2D 좌표 등록 (Python dict 기반)
+        village_map.register_location(VILLAGE_REGION_ID, loc_id, map_x, map_y)
 
     for loc_id, name, length, indoor in FIELD_LOCATIONS:
         morld.add_location(FIELD_REGION_ID, loc_id, name, length=length, indoor=indoor)
