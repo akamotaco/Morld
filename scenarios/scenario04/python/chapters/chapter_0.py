@@ -139,6 +139,10 @@ def initialize():
     # 5. 플레이어 생성
     _instantiate_player()
 
+    # 6. 마을 NPC 스케줄 초기화
+    import village_schedule
+    village_schedule.initialize()
+
     print(f"[chapter_0] Initialized: {len(VILLAGE_LOCATIONS)} village + {len(FIELD_LOCATIONS)} field locations")
 
 
