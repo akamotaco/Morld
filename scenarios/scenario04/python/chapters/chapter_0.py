@@ -147,6 +147,7 @@ def _instantiate_player():
     from assets.registry import instantiate_character
     import survival
     import economy
+    import party
 
     player_id = instantiate_character("player", VILLAGE_REGION_ID, 0, x=150)
     morld.set_player(player_id)
@@ -156,5 +157,8 @@ def _instantiate_player():
 
     # 경제 초기화
     economy.init_money(player_id)
+
+    # 파티 초기화 (플레이어만)
+    party.initialize_party(player_id)
 
     print(f"[chapter_0] Player spawned at village square (id={player_id})")
