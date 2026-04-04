@@ -279,14 +279,14 @@ def _is_character(unit_id):
 
 def _render_map_tab():
     """
-    지도 탭 콘텐츠
+    지도 탭 콘텐츠 — 2D 뷰포트 기반 맵
 
-    map_ui._render_map()은 Dialog proc 방식(@proc: URL)이므로 탭에서 사용 불가.
-    탭용으로는 move: URL을 직접 사용하는 별도 렌더링을 수행.
+    map_coords의 2D 좌표를 사용하여 그리드 렌더링.
+    좌표가 없는 region은 기존 텍스트 리스트로 폴백.
     던전 region에서는 던전 맵 렌더러로 분기.
     """
     try:
-        import map_ui
+        import map_coords
         player_id = morld.get_player_id()
         if player_id is None:
             return "지도를 표시할 수 없습니다."
@@ -307,119 +307,311 @@ def _render_map_tab():
         except ImportError:
             pass
 
-        # 플레이어 X 위치
-        player_pos_x = 0
-        player_info = morld.get_unit_info(player_id)
-        if player_info:
-            player_pos_x = player_info.get("x", 0)
+        # 2D 좌표 조회
+        all_coords = map_coords.get_all(region_id)
+        if not all_coords:
+            return _render_map_tab_fallback(region_id, current_local, player_id)
 
-        region_info = morld.get_region_info(region_id)
-        if not region_info:
-            return "지역 정보를 불러올 수 없습니다."
-
-        lines = []
-        lines.append(f"[b]지도 - {region_info['name']}[/b]")
-        lines.append("")
-
-        # 각 장소의 캐릭터 조회 (플레이어 제외)
-        location_characters = {}
-        for loc in region_info["locations"]:
-            loc_id = loc["id"]
-            unit_ids = morld.get_characters_at_location(region_id, loc_id)
-            characters = []
-            for uid in unit_ids:
-                if uid == player_id:
-                    continue
-                info = morld.get_unit_info(uid)
-                if info and not info.get("is_object", False):
-                    name = info.get("name", "???")
-                    characters.append(name)
-            location_characters[loc_id] = characters
-
-        # 위치 목록 (id 순)
-        locations = sorted(region_info["locations"], key=lambda x: x["id"])
-
-        # 인접 관계 빌드 (tree 구조용)
-        adjacency = {}
-        for loc in locations:
-            loc_id = loc["id"]
-            adjacency[loc_id] = set()
-            for gate in loc.get("gates", []):
-                if gate.get("connected_region") == region_id:
-                    to_local = gate.get("connected_local")
-                    if to_local is not None:
-                        adjacency[loc_id].add(to_local)
-
-        # BFS tree
-        visited = set()
-        tree_lines = []
-
-        def build_tree(loc_id, depth=0):
-            if loc_id in visited:
-                return
-            visited.add(loc_id)
-
-            loc_info = None
-            for loc in locations:
-                if loc["id"] == loc_id:
-                    loc_info = loc
-                    break
-            if not loc_info:
-                return
-
-            indent = "  " * depth
-            chars = location_characters.get(loc_id, [])
-            char_text = f" {style_success(f'[{", ".join(chars)}]')}" if chars else ""
-
-            if loc_id == current_local:
-                loc_length = loc_info.get("length", 0)
-                pos_text = f"X:{int(player_pos_x)}/{int(loc_length)}" if loc_length > 0 else ""
-                pos_suffix = f" {style_muted(f'(현재 위치{", " + pos_text if pos_text else ""})')}"
-                tree_lines.append(f"{indent}{style_highlight(f'> {loc_info["name"]}')}{char_text}{pos_suffix}")
-            else:
-                travel_time_millis = morld.get_travel_time(
-                    region_id, current_local,
-                    region_id, loc_id,
-                    player_id
-                )
-                if travel_time_millis > 0:
-                    time_text = map_ui._format_time(travel_time_millis)
-                    tree_lines.append(
-                        f"{indent}- [url=move:{region_id}:{loc_id}]{loc_info['name']}[/url] "
-                        f"{style_muted(f'({time_text})')}{char_text}"
-                    )
-                elif travel_time_millis == 0:
-                    tree_lines.append(f"{indent}- {loc_info['name']}{char_text}")
-                else:
-                    tree_lines.append(f"{indent}- {style_muted(f'{loc_info["name"]} (도달 불가)')}{char_text}")
-
-            # 다른 region 연결
-            for region_gate in loc_info.get("region_gates", []):
-                to_region, to_local, region_name, *_ = region_gate
-                child_indent = "  " * (depth + 1)
-                tree_lines.append(f"{child_indent}{style_info(f'-> {region_name}')}")
-
-            # 인접 장소 재귀
-            neighbors = list(adjacency.get(loc_id, []))
-            neighbor_times = []
-            for nid in neighbors:
-                t = morld.get_travel_time(region_id, current_local, region_id, nid, player_id)
-                neighbor_times.append((nid, t if t >= 0 else 999999))
-            neighbor_times.sort(key=lambda x: x[1])
-            for nid, _ in neighbor_times:
-                build_tree(nid, depth + 1)
-
-        build_tree(current_local)
-        for loc in locations:
-            if loc["id"] not in visited:
-                build_tree(loc["id"], 0)
-
-        lines.extend(tree_lines)
-
-        return "\n".join(lines)
+        return _render_region_map(region_id, current_local, player_id, all_coords)
     except Exception as e:
         print(f"[ui] _render_map_tab error: {e}")
         return f"지도 오류: {e}"
+
+
+def _render_map_tab_fallback(region_id, current_local, player_id):
+    """좌표가 없는 region용 텍스트 리스트 폴백"""
+    region_info = morld.get_region_info(region_id)
+    if not region_info:
+        return "지역 정보를 불러올 수 없습니다."
+
+    lines = [f"[b]지도 - {region_info['name']}[/b]", ""]
+    for loc in sorted(region_info["locations"], key=lambda x: x["id"]):
+        loc_id = loc["id"]
+        name = loc.get("name", "???")
+        if loc_id == current_local:
+            lines.append(f"  {style_highlight(f'> {name}')} {style_muted('(현재 위치)')}")
+        else:
+            lines.append(f"  - [url=move:{region_id}:{loc_id}]{name}[/url]")
+    return "\n".join(lines)
+
+
+def _render_region_map(region_id, current_local, player_id, all_coords):
+    """2D 뷰포트 기반 region 맵 렌더링"""
+    from text_utils import str_width as _str_width, truncate_to_width as _truncate_to_width
+
+    region_info = morld.get_region_info(region_id)
+    if not region_info:
+        return "지역 정보를 불러올 수 없습니다."
+
+    # Location 데이터 수집 (좌표 있는 것만)
+    locations = {}  # loc_id -> {name, map_x, map_y}
+    loc_name_map = {}
+    for loc in region_info["locations"]:
+        loc_id = loc["id"]
+        if loc_id in all_coords:
+            mx, my = all_coords[loc_id]
+            locations[loc_id] = {"name": loc.get("name", "???"), "map_x": mx, "map_y": my}
+            loc_name_map[loc_id] = loc.get("name", "???")
+
+    if not locations:
+        return _render_map_tab_fallback(region_id, current_local, player_id)
+
+    # Gate 연결 수집 (같은 region 내)
+    connections = set()
+    for loc_id in locations:
+        gates = morld.get_location_gates(region_id, loc_id)
+        if not gates:
+            continue
+        for gate in gates:
+            conn_region = gate.get("connected_region")
+            conn_loc = gate.get("connected_location") or gate.get("connected_local")
+            if conn_region == region_id and conn_loc in locations:
+                connections.add(tuple(sorted([loc_id, conn_loc])))
+
+    # 그리드 범위
+    min_x = min(loc["map_x"] for loc in locations.values())
+    max_x = max(loc["map_x"] for loc in locations.values())
+    min_y = min(loc["map_y"] for loc in locations.values())
+    max_y = max(loc["map_y"] for loc in locations.values())
+
+    # 셀 크기 (그리드 좌표 → 텍스트 좌표 변환)
+    CELL_W = 10
+    CELL_H = 3
+
+    map_w = (max_x - min_x + 1) * CELL_W
+    map_h = (max_y - min_y + 1) * CELL_H
+
+    # 뷰포트
+    vp_id = f"region_map_{region_id}"
+    from grid_viewport import get_viewport, build_zoom_configs, scroll as _scroll, zoom as _zoom
+    vp = get_viewport(vp_id)
+    zoom_configs = build_zoom_configs(len(locations), map_w, map_h)
+    vp["_zoom_configs"] = zoom_configs
+
+    # 기본 = 최대 줌아웃
+    if vp.get("_initialized") is None:
+        vp["zoom"] = len(zoom_configs) - 1
+        vp["_initialized"] = True
+    if vp["zoom"] >= len(zoom_configs):
+        vp["zoom"] = len(zoom_configs) - 1
+
+    zoom_cfg = zoom_configs[vp["zoom"]]
+    grid_w = zoom_cfg["grid_w"]
+    grid_h = zoom_cfg["grid_h"]
+
+    # 그리드 생성
+    grid = [[' '] * grid_w for _ in range(grid_h)]
+    grid_meta = [[None] * grid_w for _ in range(grid_h)]
+
+    # 위치 매핑 (맵 좌표 → 그리드 좌표)
+    positions = {}
+    for loc_id, loc in locations.items():
+        cx = (loc["map_x"] - min_x + 0.5) / (max_x - min_x + 1)
+        cy = (loc["map_y"] - min_y + 0.5) / (max_y - min_y + 1)
+        gx = max(1, min(grid_w - 2, int(cx * (grid_w - 2)) + 1))
+        gy = max(1, min(grid_h - 2, int(cy * (grid_h - 2)) + 1))
+        positions[loc_id] = (gx, gy)
+
+    # 연결선
+    for (loc_a, loc_b) in connections:
+        if loc_a in positions and loc_b in positions:
+            ax, ay = positions[loc_a]
+            bx, by = positions[loc_b]
+            is_current_path = (loc_a == current_local or loc_b == current_local)
+            _draw_map_line(grid, ax, ay, bx, by, grid_w, grid_h,
+                           highlight=is_current_path)
+
+    # Location 심볼
+    for loc_id in locations:
+        gx, gy = positions[loc_id]
+        is_current = (loc_id == current_local)
+        symbol = "@" if is_current else "●"
+        if 0 <= gx < grid_w and 0 <= gy < grid_h:
+            grid[gy][gx] = symbol
+            grid_meta[gy][gx] = ("location", loc_id, is_current)
+
+    # 캐릭터 수집 (플레이어 제외)
+    location_characters = {}
+    for loc_id in locations:
+        unit_ids = morld.get_characters_at_location(region_id, loc_id)
+        chars = []
+        for uid in unit_ids:
+            if uid == player_id:
+                continue
+            info = morld.get_unit_info(uid)
+            if info and not info.get("is_object", False):
+                chars.append(info.get("name", "???"))
+        if chars:
+            location_characters[loc_id] = chars
+
+    # 뷰포트 카메라
+    if vp["auto_center"] and current_local in positions:
+        px, py = positions[current_local]
+        vp["cam_x"] = px - _VIEW_W // 2
+        vp["cam_y"] = py - _VIEW_H // 2
+
+    # 클램핑
+    if grid_w <= _VIEW_W:
+        vp["cam_x"] = (grid_w - _VIEW_W) // 2
+    else:
+        vp["cam_x"] = max(0, min(grid_w - _VIEW_W, vp["cam_x"]))
+    if grid_h <= _VIEW_H:
+        vp["cam_y"] = (grid_h - _VIEW_H) // 2
+    else:
+        vp["cam_y"] = max(0, min(grid_h - _VIEW_H, vp["cam_y"]))
+
+    vx, vy = vp["cam_x"], vp["cam_y"]
+
+    # 스크롤/줌 컨트롤
+    can_left = vx > 0 if grid_w > _VIEW_W else False
+    can_right = vx < grid_w - _VIEW_W if grid_w > _VIEW_W else False
+    can_up = vy > 0 if grid_h > _VIEW_H else False
+    can_down = vy < grid_h - _VIEW_H if grid_h > _VIEW_H else False
+    can_zoom_in = vp["zoom"] > 0
+    can_zoom_out = vp["zoom"] < len(zoom_configs) - 1
+
+    def _scroll_btn(direction, symbol, can):
+        if can:
+            return f"[url=map:scroll:{direction}%]{symbol}[/url]"
+        return c("#555555", symbol)
+
+    def _zoom_btn(direction, symbol, can):
+        if can:
+            return f"[url=map:zoom:{direction}%]{symbol}[/url]"
+        return c("#555555", symbol)
+
+    _show_names = vp.get("show_names", True)
+    _names_icon = c("#66ccff", "Aa") if _show_names else c("#888888", "Aa")
+
+    lines = ["[!]"]
+
+    ctrl = (
+        f"  {_scroll_btn('left', '◀', can_left)}"
+        f" {_scroll_btn('up', '▲', can_up)}"
+        f" {_scroll_btn('down', '▼', can_down)}"
+        f" {_scroll_btn('right', '▶', can_right)}"
+        f"  [url=map:scroll:center%]{c('#aaaaaa', '◎')}[/url]"
+        f"  {_zoom_btn('in', '+', can_zoom_in)}"
+        f" {_zoom_btn('out', '−', can_zoom_out)}"
+        f"  [url=map:toggle_names%]{_names_icon}[/url]"
+    )
+    lines.append(ctrl)
+
+    # BBCode 그리드 렌더링
+    border_color = "#999999"
+    lines.append(f"[font={_MAP_FONT}]")
+    lines.append(c(border_color, "┌" + "─" * _VIEW_W + "┐"))
+
+    for y in range(vy, vy + _VIEW_H):
+        row = c(border_color, "│")
+        _name_skip = 0
+
+        for x in range(vx, vx + _VIEW_W):
+            if _name_skip > 0:
+                _name_skip -= 1
+                continue
+
+            if x < 0 or x >= grid_w or y < 0 or y >= grid_h:
+                row += " "
+                continue
+
+            meta = grid_meta[y][x]
+            ch = grid[y][x]
+
+            if meta is not None and meta[0] == "location":
+                loc_id = meta[1]
+                is_current = meta[2]
+                if is_current:
+                    row += c("#ffff00", ch)
+                else:
+                    row += f"[url=move:{region_id}:{loc_id}]{c('#66ccff', ch)}[/url]"
+
+                # 이름 표시
+                if _show_names:
+                    name = locations[loc_id]["name"]
+                    avail = 0
+                    for _cx in range(x + 1, min(vx + _VIEW_W, grid_w)):
+                        _cm = grid_meta[y][_cx]
+                        if _cm is not None and _cm[0] == "location":
+                            break
+                        avail += 1
+                    if avail >= 2:
+                        trunc = _truncate_to_width(name, avail)
+                        if is_current:
+                            row += c("#ffff00", trunc)
+                        else:
+                            row += f"[url=move:{region_id}:{loc_id}]{c('#66ccff', trunc)}[/url]"
+                        _name_skip = _str_width(trunc)
+
+            elif ch in ('═', '║'):
+                row += c("#66ccff", ch.replace('═', '─').replace('║', '│'))
+            elif ch in ('─', '│', '┐', '└', '┘', '┌'):
+                row += c("#888888", ch)
+            else:
+                row += ch
+
+        row += c(border_color, "│")
+        lines.append(row)
+
+    lines.append(c(border_color, "└" + "─" * _VIEW_W + "┘"))
+    lines.append("[/font]")
+
+    # 범례
+    lines.append(
+        f"  {c('#ffff00', '@')}현재  "
+        f"{c('#66ccff', '●')}이동 가능"
+    )
+
+    # 하단 Location 링크 리스트
+    for loc_id, loc in sorted(locations.items(),
+                               key=lambda x: (x[1]["map_y"], x[1]["map_x"])):
+        name = loc["name"]
+        gx, gy = positions[loc_id]
+        in_viewport = (vx <= gx < vx + _VIEW_W and vy <= gy < vy + _VIEW_H)
+
+        chars = location_characters.get(loc_id, [])
+        char_text = f" {style_success(f'[{", ".join(chars)}]')}" if chars else ""
+
+        if loc_id == current_local:
+            lines.append(f"  {c('#ffff00', '@')} {c('#ffff00', name)}{char_text}")
+        elif in_viewport:
+            lines.append(f"  [url=move:{region_id}:{loc_id}]{c('#66ccff', '●')} {c('#66ccff', name)}[/url]{char_text}")
+        else:
+            lines.append(f"  {c('#aaaaaa', '●')} {c('#aaaaaa', name)}{char_text}")
+
+    lines.append("[/!]")
+    return "\n".join(lines)
+
+
+def _draw_map_line(grid, ax, ay, bx, by, grid_w, grid_h, highlight=False):
+    """그리드에 L자형 연결선"""
+    h_char = '═' if highlight else '─'
+    v_char = '║' if highlight else '│'
+
+    x = ax
+    step = 1 if bx > ax else -1
+    while x != bx:
+        if 0 <= x < grid_w and 0 <= ay < grid_h and grid[ay][x] == ' ':
+            grid[ay][x] = h_char
+        x += step
+
+    y = ay
+    step = 1 if by > ay else -1
+    while y != by:
+        if 0 <= bx < grid_w and 0 <= y < grid_h and grid[y][bx] == ' ':
+            grid[y][bx] = v_char
+        y += step
+
+    if ax != bx and ay != by:
+        if 0 <= bx < grid_w and 0 <= ay < grid_h and grid[ay][bx] == ' ':
+            if bx > ax and by > ay:
+                grid[ay][bx] = '┐'
+            elif bx > ax and by < ay:
+                grid[ay][bx] = '┘'
+            elif bx < ax and by > ay:
+                grid[ay][bx] = '┌'
+            else:
+                grid[ay][bx] = '└'
 
 
 # ========================================
@@ -500,29 +692,50 @@ def _get_viewport(dungeon_id):
     return _map_viewport[dungeon_id]
 
 
+def _get_active_map_viewport():
+    """현재 활성 맵 뷰포트 반환 (던전 또는 region 맵)"""
+    # 던전 뷰포트가 있으면 우선
+    if _map_viewport:
+        for did, vp in _map_viewport.items():
+            return vp
+
+    # region 맵 뷰포트
+    player_id = morld.get_player_id()
+    if player_id:
+        current_loc = morld.get_unit_location(player_id)
+        if current_loc:
+            from grid_viewport import get_viewport
+            vp_id = f"region_map_{current_loc[0]}"
+            vp = get_viewport(vp_id)
+            if vp.get("_initialized"):
+                return vp
+    return None
+
+
 def map_scroll(direction):
     """맵 스크롤 (URL 핸들러에서 호출)"""
-    # 현재 활성 던전 찾기
-    for did, vp in _map_viewport.items():
-        vp["auto_center"] = False
-        if direction == "left":
-            vp["cam_x"] -= _SCROLL_STEP
-        elif direction == "right":
-            vp["cam_x"] += _SCROLL_STEP
-        elif direction == "up":
-            vp["cam_y"] -= _SCROLL_STEP
-        elif direction == "down":
-            vp["cam_y"] += _SCROLL_STEP
-        elif direction == "center":
-            vp["auto_center"] = True
-        break
+    vp = _get_active_map_viewport()
+    if vp is None:
+        return
+    vp["auto_center"] = False
+    if direction == "left":
+        vp["cam_x"] -= _SCROLL_STEP
+    elif direction == "right":
+        vp["cam_x"] += _SCROLL_STEP
+    elif direction == "up":
+        vp["cam_y"] -= _SCROLL_STEP
+    elif direction == "down":
+        vp["cam_y"] += _SCROLL_STEP
+    elif direction == "center":
+        vp["auto_center"] = True
 
 
 def map_toggle_names():
     """지형 명칭 표시 토글 (URL 핸들러에서 호출)"""
-    for did, vp in _map_viewport.items():
-        vp["show_names"] = not vp.get("show_names", True)
-        break
+    vp = _get_active_map_viewport()
+    if vp is None:
+        return
+    vp["show_names"] = not vp.get("show_names", True)
 
 
 def map_zoom(direction):
@@ -530,13 +743,14 @@ def map_zoom(direction):
     in(+) = 확대 = 큰 그리드 (방 간격 넓어짐) = index 감소
     out(-) = 축소 = 작은 그리드 (방 간격 좁아짐) = index 증가
     """
-    for did, vp in _map_viewport.items():
-        max_zoom = len(vp.get("_zoom_configs", _ZOOM_SCALES)) - 1
-        if direction == "in" and vp["zoom"] > 0:
-            vp["zoom"] -= 1
-        elif direction == "out" and vp["zoom"] < max_zoom:
-            vp["zoom"] += 1
-        break
+    vp = _get_active_map_viewport()
+    if vp is None:
+        return
+    max_zoom = len(vp.get("_zoom_configs", _ZOOM_SCALES)) - 1
+    if direction == "in" and vp["zoom"] > 0:
+        vp["zoom"] -= 1
+    elif direction == "out" and vp["zoom"] < max_zoom:
+        vp["zoom"] += 1
 
 
 # 텍스트 유틸 — common/text_utils.py에서 가져옴 (하위 호환 래핑)

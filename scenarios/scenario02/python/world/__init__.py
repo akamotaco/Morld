@@ -12,6 +12,7 @@
 # - 예: 챕터 2에서 mansion + forest만 로드하면, city 연결 Gate는 무시됨
 
 import morld
+import map_coords
 
 from . import mansion   # Region 0: 숲속 저택
 from . import vehicle   # Region 1: 대형 차량 내부 (버스 interior)
@@ -90,7 +91,7 @@ def initialize_region_gates():
 # ========================================
 
 def initialize_world():
-    """월드 초기화 (지형 + 시간 + RegionGate)"""
+    """월드 초기화 (지형 + 시간 + RegionGate + 맵 좌표)"""
     # 각 Region 초기화
     mansion.initialize_terrain()
     vehicle.initialize_terrain()  # Region 1: 대형 차량 내부
@@ -104,6 +105,9 @@ def initialize_world():
 
     # Region 간 연결 (RegionGate) - 안전한 등록
     initialize_region_gates()
+
+    # 맵 2D 좌표 등록
+    _register_map_coordinates()
 
 
 def instantiate_player():
@@ -119,3 +123,34 @@ def instantiate_npcs():
 def instantiate_all():
     """모든 유닛 인스턴스화 (플레이어 + NPC + 오브젝트 + 아이템)"""
     mansion.instantiate()
+
+
+# ========================================
+# 맵 2D 좌표 자동 배치
+# ========================================
+#
+# Gate 그래프 기반 자동 배치. 수동 좌표 불필요.
+# 건축/파괴 시 rebuild()로 전체 재조정.
+
+def _register_map_coordinates():
+    """각 Region의 Location을 등록하고 Gate 기반 2D 좌표 자동 계산"""
+    region_ids = [
+        mansion.REGION_ID,       # 0
+        city.REGION_ID,          # 2
+        forest.REGION_ID,        # 3
+        mine.REGION_ID,          # 4
+        test_dungeon.REGION_ID,  # 5
+    ]
+
+    total = 0
+    for rid in region_ids:
+        region_info = morld.get_region_info(rid)
+        if not region_info:
+            continue
+        for loc in region_info.get("locations", []):
+            loc_id = loc["id"] if isinstance(loc, dict) else int(loc)
+            map_coords.register(rid, loc_id)
+        map_coords.rebuild(rid)
+        total += len(map_coords.get_all(rid))
+
+    print(f"[world] Map coordinates auto-placed: {total} locations across {len(region_ids)} regions")

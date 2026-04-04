@@ -17,11 +17,15 @@ import traceback
 
 _tests_dir = os.path.dirname(os.path.abspath(__file__))
 _python_dir = os.path.abspath(os.path.join(_tests_dir, ".."))
+_common_dir = os.path.abspath(os.path.join(_tests_dir, "..", "..", "..", "common", "python"))
 
 if _python_dir not in sys.path:
     sys.path.insert(0, _python_dir)
 if _tests_dir not in sys.path:
     sys.path.insert(0, _tests_dir)
+# common은 scenario 뒤에 추가 (scenario 모듈 우선)
+if os.path.isdir(_common_dir) and _common_dir not in sys.path:
+    sys.path.append(_common_dir)
 
 from mock_morld import MockMorld
 

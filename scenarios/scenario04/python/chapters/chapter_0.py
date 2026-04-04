@@ -27,19 +27,19 @@ FIELD_REGION = {
 
 # --- Location 정의 ---
 # 마을 (Region 0)
-# 2D 좌표는 prop으로 부여 (map_x, map_y) — 마을 지도 시스템용
+# 2D 좌표는 map_coords.rebuild()로 Gate 그래프 기반 자동 계산
 
 VILLAGE_LOCATIONS = [
-    # (loc_id, name, length, indoor, map_x, map_y)
-    (0,  "마을 광장",   300, False, 5, 3),
-    (1,  "여관",        200, True,  3, 2),
-    (2,  "대장간",      150, True,  5, 2),
-    (3,  "잡화점",      150, True,  7, 2),
-    (4,  "술집",        200, True,  3, 4),
-    (5,  "구호소",      150, True,  7, 4),
-    (6,  "정화소",      100, True,  9, 3),
-    (7,  "던전 입구",   100, False, 5, 6),
-    (8,  "마을 출구",   100, False, 1, 3),
+    # (loc_id, name, length, indoor)
+    (0,  "마을 광장",   300, False),
+    (1,  "여관",        200, True),
+    (2,  "대장간",      150, True),
+    (3,  "잡화점",      150, True),
+    (4,  "술집",        200, True),
+    (5,  "구호소",      150, True),
+    (6,  "정화소",      100, True),
+    (7,  "던전 입구",   100, False),
+    (8,  "마을 출구",   100, False),
 ]
 
 # 자원 채취 필드 (Region 1)
@@ -116,19 +116,23 @@ def initialize():
         morld.add_region(r["id"], r["name"], r["describe_text"], r["weather"])
 
     # 2. Location 등록
-    import village_map
-    for loc_id, name, length, indoor, map_x, map_y in VILLAGE_LOCATIONS:
+    import map_coords
+    for loc_id, name, length, indoor in VILLAGE_LOCATIONS:
         morld.add_location(VILLAGE_REGION_ID, loc_id, name, length=length, indoor=indoor)
-        # 2D 좌표 등록 (Python dict 기반)
-        village_map.register_location(VILLAGE_REGION_ID, loc_id, map_x, map_y)
+        map_coords.register(VILLAGE_REGION_ID, loc_id)
 
     for loc_id, name, length, indoor in FIELD_LOCATIONS:
         morld.add_location(FIELD_REGION_ID, loc_id, name, length=length, indoor=indoor)
+        map_coords.register(FIELD_REGION_ID, loc_id)
 
     # 3. Gate 등록
     for gate_data in VILLAGE_GATES + FIELD_GATES:
         region_id, loc_id, gate_id, x, conn_region, conn_loc, arrival_x = gate_data
         morld.add_gate(region_id, loc_id, gate_id, x, conn_region, conn_loc, arrival_x)
+
+    # 4. 지도 좌표 자동 계산 (Gate 완성 후)
+    map_coords.rebuild(VILLAGE_REGION_ID)
+    map_coords.rebuild(FIELD_REGION_ID)
 
     # 4. 시간 설정
     t = TIME_SETTINGS

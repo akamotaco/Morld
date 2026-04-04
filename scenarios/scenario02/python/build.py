@@ -7,6 +7,7 @@
 # 방 파괴: 소유 확인 → 유닛 없음 + gate 1개 → gate + location 제거
 
 import morld
+import map_coords
 from assets.registry import get_or_create_item_id
 
 
@@ -168,6 +169,10 @@ def build_location_frame(builder_id, source_region, source_location, gate_x,
     morld.set_unit_prop(site_id, "건설:소유자", owner_name or "operator")
     if recipe_id:
         morld.set_unit_prop(site_id, "건설:레시피", recipe_id)
+
+    # 지도 좌표 자동 배치 + 전체 재조정
+    map_coords.register(source_region, new_local_id)
+    map_coords.rebuild(source_region)
 
     return True, source_region, new_local_id, site_id, "뼈대 건설 완료"
 
@@ -331,8 +336,14 @@ def destroy_location(destroyer_id, region_id, location_id):
     key = (region_id, location_id)
     _location_objects.pop(key, None)
 
+    # 지도 좌표 삭제 + 전체 재조정
+    map_coords.remove(region_id, location_id)
+
     # location 제거 (C# API가 gate도 함께 정리)
     morld.remove_location(region_id, location_id)
+
+    # 남은 좌표 재조정
+    map_coords.rebuild(region_id)
 
     return True, "방 파괴 완료"
 

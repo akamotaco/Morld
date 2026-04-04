@@ -281,7 +281,7 @@ public partial class MetaActionHandler
 			try
 			{
 				// Python의 check_initiative_event() 호출
-				scriptSystem.Eval("from assets import check_initiative_event");
+				scriptSystem.Execute("from assets import check_initiative_event");
 				var result = scriptSystem.Eval($"check_initiative_event({unitId})");
 
 				if (result is SharpPy.PyGenerator generator)

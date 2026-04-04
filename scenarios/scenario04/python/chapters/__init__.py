@@ -34,6 +34,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import erosion, economy, morale, trust, quirk
     import party, npc_generator, dungeon
     import building, business, taming, corrosion, carry
+    import map_coords
     import npc_party_ai, village_schedule, village_map
     import world_knowledge, reputation
 
@@ -66,6 +67,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     npc_party_ai.reset()
     village_schedule.reset()
     village_map.reset()
+    map_coords.reset()
 
     # 세계관
     world_knowledge.reset()
