@@ -234,10 +234,10 @@ public class GodotRenderer : ITextUIRenderer
 
 		if (masked)
 		{
-			int charCount = n.Children.Count > 0
-				? CountNodeTreeVisibleChars(n.Children)
-				: n.Label.Length;
-			AppendVisible(ctx, new string('■', charCount));
+			int monoWidth = n.Children.Count > 0
+				? CountNodeTreeVisibleWidth(n.Children)
+				: CountStringWidth(n.Label);
+			AppendVisible(ctx, new string('_', monoWidth));
 		}
 		else
 		{
@@ -282,9 +282,9 @@ public class GodotRenderer : ITextUIRenderer
 
 		if (darknessLevel >= 2 && !n.Disabled && !IsHovered(hoveredMeta, meta))
 		{
-			int charCount = icon.Length + 1 + n.Label.Length;
+			int charCount = CountStringWidth(icon) + 1 + CountStringWidth(n.Label);
 			string mc = GetMaskedColor(darknessLevel, theme);
-			return $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]";
+			return $"[url={meta}][color={mc}]{new string('_', charCount)}[/color][/url]";
 		}
 
 		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, meta);
@@ -305,9 +305,9 @@ public class GodotRenderer : ITextUIRenderer
 			string text = on
 				? (!string.IsNullOrEmpty(n.OnText) ? n.OnText : n.Label)
 				: (!string.IsNullOrEmpty(n.OffText) ? n.OffText : n.Label);
-			int charCount = icon.Length + 1 + text.Length;
+			int charCount = CountStringWidth(icon) + 1 + CountStringWidth(text);
 			string mc = GetMaskedColor(darknessLevel, theme);
-			return $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]";
+			return $"[url={meta}][color={mc}]{new string('_', charCount)}[/color][/url]";
 		}
 
 		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, meta);
@@ -335,8 +335,8 @@ public class GodotRenderer : ITextUIRenderer
 
 		if (masked)
 		{
-			int charCount = arrow.Length + n.Label.Length;
-			AppendVisible(ctx, $"[url={meta}][color={hColor}]{new string('■', charCount)}[/color][/url]");
+			int charCount = CountStringWidth(arrow) + CountStringWidth(n.Label);
+			AppendVisible(ctx, $"[url={meta}][color={hColor}]{new string('_', charCount)}[/color][/url]");
 		}
 		else
 		{
@@ -360,9 +360,9 @@ public class GodotRenderer : ITextUIRenderer
 
 		if (darknessLevel >= 2 && !n.Disabled && !IsHovered(hoveredMeta, meta))
 		{
-			int charCount = icon.Length + 1 + n.Label.Length;
+			int charCount = CountStringWidth(icon) + 1 + CountStringWidth(n.Label);
 			string mc = GetMaskedColor(darknessLevel, theme);
-			return $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]";
+			return $"[url={meta}][color={mc}]{new string('_', charCount)}[/color][/url]";
 		}
 
 		string color = GetWidgetColor(n.Disabled, on, theme, hoveredMeta, meta);
@@ -396,9 +396,9 @@ public class GodotRenderer : ITextUIRenderer
 
 					if (masked)
 					{
-						int charCount = ctx.Theme.ChoiceIcon.Length + 1 + opt.Label.Length;
+						int charCount = CountStringWidth(ctx.Theme.ChoiceIcon) + 1 + CountStringWidth(opt.Label);
 						string mc = GetMaskedColor(ctx.DarknessLevel, ctx.Theme);
-						AppendVisible(ctx, $"[url={meta}][color={mc}]{new string('■', charCount)}[/color][/url]\n");
+						AppendVisible(ctx, $"[url={meta}][color={mc}]{new string('_', charCount)}[/color][/url]\n");
 					}
 					else
 					{
@@ -452,33 +452,62 @@ public class GodotRenderer : ITextUIRenderer
 
 	// ── 헬퍼 ──
 
-	/// <summary>AST 노드 트리의 visible char 수를 재귀적으로 카운트</summary>
-	private static int CountNodeTreeVisibleChars(List<AstNode> nodes)
+	/// <summary>AST 노드 트리의 모노스페이스 표시 폭 카운트 (한글/CJK=2, 그 외=1)</summary>
+	private static int CountNodeTreeVisibleWidth(List<AstNode> nodes)
 	{
-		int count = 0;
+		int width = 0;
 		foreach (var n in nodes)
 		{
 			switch (n.Type)
 			{
 				case NodeType.Text:
-					// BBCode 태그 제외한 visible char만 카운트
+					// BBCode 태그 제외한 visible char의 모노스페이스 폭
 					bool inTag = false;
 					foreach (char c in n.RawText)
 					{
 						if (c == '[') { inTag = true; continue; }
 						if (c == ']') { inTag = false; continue; }
-						if (!inTag) count++;
+						if (!inTag) width += IsWideChar(c) ? 2 : 1;
 					}
 					break;
 				default:
 					if (n.Children.Count > 0)
-						count += CountNodeTreeVisibleChars(n.Children);
+						width += CountNodeTreeVisibleWidth(n.Children);
 					else if (!string.IsNullOrEmpty(n.Label))
-						count += n.Label.Length;
+					{
+						foreach (char c in n.Label)
+							width += IsWideChar(c) ? 2 : 1;
+					}
 					break;
 			}
 		}
-		return count;
+		return width;
+	}
+
+	/// <summary>모노스페이스 전각 문자 판정 (한글/CJK/가나/전각)</summary>
+	private static bool IsWideChar(char c)
+	{
+		// 한글 음절
+		if (c >= 0xAC00 && c <= 0xD7AF) return true;
+		// CJK 기호
+		if (c >= 0x3000 && c <= 0x303F) return true;
+		// 히라가나/카타카나
+		if (c >= 0x3040 && c <= 0x30FF) return true;
+		// CJK 통합 한자
+		if (c >= 0x4E00 && c <= 0x9FFF) return true;
+		// 전각 영문/기호
+		if (c >= 0xFF00 && c <= 0xFFEF) return true;
+		return false;
+	}
+
+	/// <summary>문자열의 모노스페이스 표시 폭</summary>
+	private static int CountStringWidth(string s)
+	{
+		if (string.IsNullOrEmpty(s)) return 0;
+		int w = 0;
+		foreach (char c in s)
+			w += IsWideChar(c) ? 2 : 1;
+		return w;
 	}
 
 	/// <summary>어둠 레벨에 따른 마스킹 색상 (2=암흑, 3=눈부심)</summary>
