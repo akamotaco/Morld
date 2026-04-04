@@ -113,7 +113,7 @@ def get_or_create_item_id(unique_id: str) -> Optional[int]:
 
     if hasattr(cls, 'props') and cls.props:
         for key, value in cls.props.items():
-            morld.set_item_prop(new_id, key, value)
+            morld.set_unit_prop(new_id, key, value)
 
     print(f"[registry] Created item: {unique_id} (id={new_id})")
     return new_id

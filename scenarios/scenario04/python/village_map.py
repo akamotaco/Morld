@@ -111,7 +111,7 @@ def _collect_connections(region_id: int, locations: dict) -> set:
     """같은 region 내 Gate 연결 수집 (중복 제거)"""
     connections = set()
     for loc_id in locations:
-        gates = morld.get_gates(region_id, loc_id)
+        gates = morld.get_location_gates(region_id, loc_id)
         if not gates:
             continue
         for gate in gates:

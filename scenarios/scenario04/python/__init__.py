@@ -6,6 +6,9 @@
 # - (향후) think/: NPC Agent 시스템
 # - (향후) minigame/: 미니게임 모듈 (전투, 낚시 등)
 
+# morld API 호환 레이어 (누락 API 설치, 반드시 최초 import)
+import morld_compat
+
 import events
 import survival
 import temperature
