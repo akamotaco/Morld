@@ -1,0 +1,47 @@
+# assets/characters/npc_c.py - 정규 NPC C: 트라우마/부활
+#
+# 던전 내 조우 (5~10F). 체류자 출신.
+# 파티 전멸 후 삶의 의미 상실. 과묵, 체념적.
+# 케어하면 과거의 강력한 전투력 부활 (AP 스킬 최강).
+# 방치하면 자살 암시.
+
+from assets.base import Character
+from assets.registry import register_character
+
+
+@register_character
+class NpcC(Character):
+    unique_id = "npc_c"
+    name = "레이"  # 임시 이름
+
+    base_str = 16   # 잠재 전투력 최강
+    base_agi = 14
+    base_vit = 15
+    base_mnd = 7    # 정신 낮음 (트라우마)
+
+    character_class = "타격수"  # 부활 시 최강 근접
+    is_special = False
+
+    props = {
+        "성격": "체념",
+        "성별": "여",
+        "정규NPC": "C",
+        "C:상태": "무기력",     # 무기력 → 회복 → 부활
+        "C:신뢰축적": 0,        # 플레이어 케어 누적
+        "C:부활임계": 50,       # 이 값 도달 시 전투력 부활
+    }
+
+    def get_describe_text(self):
+        state = self.props.get("C:상태", "무기력")
+        if state == "무기력":
+            return "텅 빈 눈으로 벽을 바라보는 사람이 있다."
+        elif state == "회복":
+            return "조금은 생기가 돌아온 표정의 여자가 앉아 있다."
+        else:
+            return "날카로운 눈빛의 전사가 무기를 점검하고 있다."
+
+    def get_focus_text(self):
+        return (
+            f"{self.name}. 한때 강했던 흔적이 몸 곳곳에 남아 있다. "
+            "하지만 지금은 모든 것을 포기한 눈빛."
+        )

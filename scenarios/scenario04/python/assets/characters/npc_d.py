@@ -1,0 +1,48 @@
+# assets/characters/npc_d.py - 정규 NPC D: 거울/진실
+#
+# 던전 내 조우 (10F+ 권장). 특수 존재 (플레이어와 동일).
+# 외유내강, 내성적, 비밀 많음.
+# 던전의 힘 = 플레이어보다 압도적으로 강하지만 안 씀 (두려움).
+# D 실신 = 재편성 트리거. D 사망 = 영구 삭제 (진실 루트 차단).
+# 스토리 이벤트: 꺾기 완료 후 트리거.
+
+from assets.base import Character
+from assets.registry import register_character
+
+
+@register_character
+class NpcD(Character):
+    unique_id = "npc_d"
+    name = "유이"  # 임시 이름
+
+    base_str = 10
+    base_agi = 11
+    base_vit = 10
+    base_mnd = 20   # 정신 극강 (침식 내성 최고)
+
+    character_class = None  # 미정 (다양하게 가능)
+    is_special = True  # 던전의 힘 사용 가능 + 실신=재편성
+
+    props = {
+        "성격": "내성적",
+        "성별": "여",
+        "정규NPC": "D",
+        "특수:존재": 1,
+        "D:힘공개": 0,          # 0=숨김, 1=일부공개, 2=완전공개
+        "D:진실단계": 0,        # 스토리 진행도
+    }
+
+    def get_describe_text(self):
+        power_revealed = self.props.get("D:힘공개", 0)
+        if power_revealed == 0:
+            return "조용히 웅크리고 있는 소녀가 있다. 혼자인 것 같다."
+        elif power_revealed == 1:
+            return "어딘가 범상치 않은 기운을 풍기는 소녀가 있다."
+        else:
+            return "강대한 힘이 느껴지지만, 그 눈에는 두려움이 담겨 있다."
+
+    def get_focus_text(self):
+        return (
+            f"{self.name}. 겉으로는 평범해 보이지만, "
+            "가까이 갈수록 설명할 수 없는 압도감이 느껴진다."
+        )

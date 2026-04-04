@@ -4,3 +4,5 @@
 from . import player
 from . import npc_a
 from . import npc_b
+from . import npc_c
+from . import npc_d

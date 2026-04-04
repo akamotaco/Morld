@@ -33,7 +33,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import temperature, humidity, pollution, survival
     import erosion, economy, morale, trust, quirk
     import party, npc_generator, dungeon
-    import building, business, taming, corrosion
+    import building, business, taming, corrosion, carry
     import world_knowledge, reputation
 
     # 환경
@@ -61,6 +61,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     business.reset()
     taming.reset()
     corrosion.reset()
+    carry.reset()
 
     # 세계관
     world_knowledge.reset()
