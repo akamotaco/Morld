@@ -59,6 +59,23 @@ def build_content():
     return "\n".join(lines)
 
 
+def build_map_tab():
+    """지도 탭 콘텐츠"""
+    player_id = morld.get_player_id()
+    if not player_id:
+        return "지도를 표시할 수 없습니다."
+
+    current_loc = morld.get_unit_location(player_id)
+    if not current_loc:
+        return "현재 위치를 알 수 없습니다."
+
+    region_id = current_loc[0]
+
+    # 마을 region → 마을 지도
+    from village_map import render_village_map
+    return render_village_map(region_id)
+
+
 def build_footer():
     """푸터 텍스트 (캐릭터 상태)"""
     return ""
