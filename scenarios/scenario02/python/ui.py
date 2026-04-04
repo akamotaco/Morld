@@ -361,129 +361,65 @@ _ROOM_SYMBOLS = {
     "stairs_up":   "△",  # 상층 계단
 }
 
-# 맵 모노스페이스 폰트 (D2Coding — 한글=2칸, 영문=1칸)
-_MAP_FONT = "res://assets/fonts/D2Coding-Ver1.3.2-20180524-all.ttc"
-
-# 뷰포트 (표시 영역 — 고정)
-_VIEW_W = 36
-_VIEW_H = 12
-_SCROLL_STEP = 5
-
-# 줌 레벨 기본 배율 (1.0 = 뷰포트와 동일 크기)
-_ZOOM_SCALES = [3.5, 2.5, 1.5, 1.0, 0.7]
-_ZOOM_DEFAULT_INDEX = 2  # 기본 줌 레벨 (1.5배)
+# 공통 뷰포트/렌더링 상수 (grid_viewport/grid_renderer에서 가져옴)
+from grid_viewport import (
+    get_viewport as _gv_get_viewport, build_zoom_configs as _gv_build_zoom_configs,
+    scroll as _gv_scroll, zoom as _gv_zoom, toggle_names as _gv_toggle_names,
+    DEFAULT_VIEW_W as _VIEW_W, DEFAULT_VIEW_H as _VIEW_H,
+    DEFAULT_SCROLL_STEP as _SCROLL_STEP,
+)
+from grid_renderer import MAP_FONT as _MAP_FONT
 
 
-def _build_zoom_configs(room_count, bsp_w=400, bsp_h=400):
-    """던전 크기 비례 줌 레벨 생성.
-    BSP 실제 비율을 유지하며, 최대 줌아웃 시 전체 맵이 뷰포트에 딱 들어옴.
+def _get_active_map_viewport_id():
+    """현재 활성 맵 뷰포트 ID 반환 (던전 또는 region 맵)"""
+    player_id = morld.get_player_id()
+    if not player_id:
+        return None
+    current_loc = morld.get_unit_location(player_id)
+    if not current_loc:
+        return None
+    region_id = current_loc[0]
 
-    Args:
-        room_count: 방 수 (그리드 크기 기준)
-        bsp_w, bsp_h: BSP 실제 범위 (지도 가로/세로 비율 결정)
-
-    # 향후: spec에서 map_zoom 설정으로 오버라이드 가능
-    """
-    # BSP 비율 기반 (지도 자체의 가로/세로 비율 유지)
-    map_aspect = max(bsp_w, 1) / max(bsp_h, 1)
-
-    # 방 수 기반 기본 크기
-    base = max(room_count * 4, 20)
-
-    configs = []
-    for scale in _ZOOM_SCALES:
-        s = max(1, int(base * scale))
-        if map_aspect >= 1.0:
-            # 가로가 긴 맵 → 가로 기준
-            gw = int(s * map_aspect)
-            gh = s
-        else:
-            # 세로가 긴 맵 → 세로 기준
-            gw = s
-            gh = int(s / map_aspect)
-        configs.append({"grid_w": max(_VIEW_W, gw), "grid_h": max(_VIEW_H, gh)})
-
-    # 마지막(최대 줌아웃)은 뷰포트 크기로 강제 — 전체 맵이 딱 들어옴
-    configs[-1] = {"grid_w": _VIEW_W, "grid_h": _VIEW_H}
-    return configs
-
-# 뷰포트 상태 (던전별)
-_map_viewport = {
-    # dungeon_id: {"cam_x": int, "cam_y": int, "zoom": int, "auto_center": bool}
-}
-
-
-def _get_viewport(dungeon_id):
-    """뷰포트 상태 가져오기 (없으면 생성)"""
-    if dungeon_id not in _map_viewport:
-        _map_viewport[dungeon_id] = {
-            "cam_x": 0, "cam_y": 0,
-            "zoom": _ZOOM_DEFAULT_INDEX,
-            "auto_center": True,
-            "show_names": True,
-        }
-    return _map_viewport[dungeon_id]
-
-
-def _get_active_map_viewport():
-    """현재 활성 맵 뷰포트 반환 (던전 또는 region 맵)"""
-    # 던전 뷰포트가 있으면 우선
-    if _map_viewport:
-        for did, vp in _map_viewport.items():
-            return vp
+    # 던전 region이면 던전 뷰포트
+    try:
+        from instant_dungeon.manager import get_dungeon_for_region
+        dungeon_id, dungeon_info = get_dungeon_for_region(region_id)
+        if dungeon_info:
+            vp_id = f"dungeon_{dungeon_id}"
+            vp = _gv_get_viewport(vp_id)
+            if vp.get("_initialized"):
+                return vp_id
+    except ImportError:
+        pass
 
     # region 맵 뷰포트
-    player_id = morld.get_player_id()
-    if player_id:
-        current_loc = morld.get_unit_location(player_id)
-        if current_loc:
-            from grid_viewport import get_viewport
-            vp_id = f"region_map_{current_loc[0]}"
-            vp = get_viewport(vp_id)
-            if vp.get("_initialized"):
-                return vp
+    vp_id = f"region_map_{region_id}"
+    vp = _gv_get_viewport(vp_id)
+    if vp.get("_initialized"):
+        return vp_id
     return None
 
 
 def map_scroll(direction):
     """맵 스크롤 (URL 핸들러에서 호출)"""
-    vp = _get_active_map_viewport()
-    if vp is None:
-        return
-    vp["auto_center"] = False
-    if direction == "left":
-        vp["cam_x"] -= _SCROLL_STEP
-    elif direction == "right":
-        vp["cam_x"] += _SCROLL_STEP
-    elif direction == "up":
-        vp["cam_y"] -= _SCROLL_STEP
-    elif direction == "down":
-        vp["cam_y"] += _SCROLL_STEP
-    elif direction == "center":
-        vp["auto_center"] = True
+    vp_id = _get_active_map_viewport_id()
+    if vp_id:
+        _gv_scroll(vp_id, direction)
 
 
 def map_toggle_names():
     """지형 명칭 표시 토글 (URL 핸들러에서 호출)"""
-    vp = _get_active_map_viewport()
-    if vp is None:
-        return
-    vp["show_names"] = not vp.get("show_names", True)
+    vp_id = _get_active_map_viewport_id()
+    if vp_id:
+        _gv_toggle_names(vp_id)
 
 
 def map_zoom(direction):
-    """맵 줌 (URL 핸들러에서 호출)
-    in(+) = 확대 = 큰 그리드 (방 간격 넓어짐) = index 감소
-    out(-) = 축소 = 작은 그리드 (방 간격 좁아짐) = index 증가
-    """
-    vp = _get_active_map_viewport()
-    if vp is None:
-        return
-    max_zoom = len(vp.get("_zoom_configs", _ZOOM_SCALES)) - 1
-    if direction == "in" and vp["zoom"] > 0:
-        vp["zoom"] -= 1
-    elif direction == "out" and vp["zoom"] < max_zoom:
-        vp["zoom"] += 1
+    """맵 줌 (URL 핸들러에서 호출)"""
+    vp_id = _get_active_map_viewport_id()
+    if vp_id:
+        _gv_zoom(vp_id, direction)
 
 
 # 텍스트 유틸 — common/text_utils.py에서 가져옴 (하위 호환 래핑)
@@ -547,9 +483,12 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
         bsp_max_y = max(bsp_max_y, 1)
 
         # 줌 레벨에 따른 그리드 크기 (BSP 실제 비율 반영)
-        _zoom_configs = _build_zoom_configs(len(rooms), bsp_max_x, bsp_max_y)
-        _vp_temp = _get_viewport(dungeon_id)
+        _zoom_configs = _gv_build_zoom_configs(len(rooms), bsp_max_x, bsp_max_y)
+        _vp_id = f"dungeon_{dungeon_id}"
+        _vp_temp = _gv_get_viewport(_vp_id)
         _vp_temp["_zoom_configs"] = _zoom_configs
+        if _vp_temp.get("_initialized") is None:
+            _vp_temp["_initialized"] = True
         _zoom_cfg = _zoom_configs[min(_vp_temp["zoom"], len(_zoom_configs) - 1)]
         grid_w = _zoom_cfg["grid_w"]
         grid_h = _zoom_cfg["grid_h"]
@@ -711,7 +650,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                     lines.append(f"  {c('#ffff00', '@')} {c('#ffff00', cur_name)}")
 
         # ── 뷰포트 계산 ──
-        vp = _get_viewport(dungeon_id)
+        vp = _gv_get_viewport(_vp_id)
         zoom_cfg = _zoom_configs[min(vp["zoom"], len(_zoom_configs) - 1)]
         grid_w = zoom_cfg["grid_w"]
         grid_h = zoom_cfg["grid_h"]
