@@ -145,7 +145,12 @@ def initialize():
 def _instantiate_player():
     """플레이어 캐릭터 생성"""
     from assets.registry import instantiate_character
+    import survival
 
     player_id = instantiate_character("player", VILLAGE_REGION_ID, 0, x=150)
     morld.set_player(player_id)
+
+    # 생존 시스템 등록
+    survival.register_character(player_id)
+
     print(f"[chapter_0] Player spawned at village square (id={player_id})")
