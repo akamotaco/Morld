@@ -9,6 +9,11 @@ import random
 
 # === 기벽 데이터 ===
 
+def reset():
+    """챕터 전환 시 리셋"""
+    _player_action_counts.clear()
+
+
 QUIRKS = {
     # 자잘한 (침식 50+)
     "잠꼬대":    {"grade": "minor",    "type": "negative", "effect": "긴 휴식 시 파티원 수면 방해"},

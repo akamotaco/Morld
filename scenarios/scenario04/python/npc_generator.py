@@ -174,6 +174,12 @@ def _spawn_random_npc():
     import economy
     economy.init_money(unit_id, random.randint(5000, 30000))
 
+    # 시스템 초기화
+    import survival, morale, trust
+    survival.register_character(unit_id)
+    morale.set_morale(unit_id, morale.MORALE_DEFAULT)
+    trust.set_trust(unit_id, trust.TRUST_DEFAULT)
+
     # 등록
     _village_npcs[unit_id] = {
         "name": name,

@@ -54,6 +54,15 @@ def add_member(unit_id: int) -> bool:
     import npc_generator
     npc_generator.remove_from_village(unit_id)
 
+    # 시스템 등록
+    import survival, erosion, morale, trust
+    survival.register_character(unit_id)
+    erosion.register(unit_id)
+    if morale.get_morale(unit_id) == morale.MORALE_DEFAULT:
+        morale.set_morale(unit_id, morale.MORALE_DEFAULT)
+    if trust.get_trust(unit_id) == trust.TRUST_DEFAULT:
+        trust.set_trust(unit_id, trust.TRUST_DEFAULT)
+
     name = morld.get_unit_info(unit_id).get("name", "???") if morld.get_unit_info(unit_id) else "???"
     print(f"[party] Joined: {name} (id={unit_id}, slot={order})")
     return True
@@ -120,13 +129,28 @@ def handle_faint(unit_id: int):
     """
     파티원 실신 처리.
     자동 이탈 + 해당 Location에 잔류.
+    플레이어 실신 = 재편성 트리거.
     """
     if not is_member(unit_id):
         return
 
     if unit_id == get_leader():
-        # 플레이어 실신 = 재편성 트리거 (별도 처리)
+        # 플레이어 실신 = 재편성 트리거
         print("[party] Leader fainted! Triggering reorganization...")
+        import dungeon
+        dungeon.reorganize()
+        # 플레이어는 마을 구호소에서 깨어남
+        morld.set_unit_location(unit_id, 0, 5, x=50)  # 구호소
+        return
+
+    # D 실신 체크 (특수 존재 = 재편성 트리거)
+    if morld.get_unit_prop(unit_id, "특수:존재"):
+        print(f"[party] Special entity fainted! Triggering reorganization...")
+        remove_member(unit_id, reason="실신")
+        morld.set_unit_prop(unit_id, "상태:실신", 1)
+        import dungeon
+        dungeon.reorganize()
+        # D는 던전 내 랜덤 재배치 (dungeon.reorganize에서 처리)
         return
 
     remove_member(unit_id, reason="실신")

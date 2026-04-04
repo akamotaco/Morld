@@ -43,7 +43,7 @@ COST_TABLE = {
 
 def reset():
     """챕터 전환 시 리셋"""
-    pass
+    pass  # 소지금은 prop 기반이므로 clear_world()로 초기화됨
 
 
 def init_money(unit_id: int, amount: int = None):

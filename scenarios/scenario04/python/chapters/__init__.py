@@ -29,12 +29,42 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     if _current_chapter is not None:
         morld.clear_world()
 
-    # 2. 환경 시스템 리셋
+    # 2. 전체 시스템 리셋
     import temperature, humidity, pollution, survival
+    import erosion, economy, morale, trust, quirk
+    import party, npc_generator, dungeon
+    import building, business, taming, corrosion
+    import world_knowledge, reputation
+
+    # 환경
     temperature.reset()
     humidity.reset()
     pollution.reset()
+
+    # 생존/경제
     survival.reset()
+    economy.reset()
+
+    # 파티/NPC
+    party.reset()
+    npc_generator.reset()
+    morale.reset()
+    trust.reset()
+    quirk.reset()
+
+    # 던전
+    dungeon.reset()
+    erosion.reset()
+
+    # 경영
+    building.reset()
+    business.reset()
+    taming.reset()
+    corrosion.reset()
+
+    # 세계관
+    world_knowledge.reset()
+    reputation.reset()
 
     # 3. Limbo region 생성 (운반 시스템)
     morld.add_region(LIMBO_REGION, "limbo")

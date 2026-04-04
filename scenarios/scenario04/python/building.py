@@ -134,6 +134,15 @@ def build(template_name: str, map_x: int, map_y: int,
     morld.add_gate(region_id, loc_id, 0, 0,
                   region_id, 0, 150)
 
+    # 오염 시스템 등록 (마을이므로 오염도 0)
+    import pollution
+    pollution.register_location(region_id, loc_id, 0)
+
+    # 경영 등록 (해당되는 시설만)
+    if template_name in ("여관", "상점", "농장"):
+        import business
+        business.register_business(loc_id, template_name)
+
     # 등록
     _built_facilities[loc_id] = {
         "name": name,

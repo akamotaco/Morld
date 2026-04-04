@@ -57,6 +57,17 @@ def imprison(unit_id: int, facility_loc_id: int = None):
     }
 
     morld.set_unit_prop(unit_id, "상태:감금", 1)
+
+    # 평판 영향
+    import reputation
+    reputation.modify_reputation("마을주민", -5, "NPC 감금")
+    reputation.modify_reputation("모험가길드", -10, "NPC 감금")
+
+    # 파티원 신뢰 영향 (목격자)
+    import party, trust
+    for mid in party.get_non_leader_members():
+        trust.on_witnessed_cruelty(mid)
+
     print(f"[taming] Imprisoned: {name} (id={unit_id}, submission={submission})")
 
 

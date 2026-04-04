@@ -13,6 +13,11 @@ TRUST_DISCONTENT_THRESHOLD = 30  # 불만
 TRUST_HOSTILE_THRESHOLD = 10     # 적대
 
 
+def reset():
+    """챕터 전환 시 리셋"""
+    pass  # 신뢰도는 prop 기반이므로 clear_world()로 초기화됨
+
+
 def get_trust(unit_id: int) -> int:
     """신뢰도 조회"""
     val = morld.get_unit_prop(unit_id, "신뢰도")

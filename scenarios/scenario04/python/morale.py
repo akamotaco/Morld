@@ -19,6 +19,11 @@ MORALE_DANGER = 20      # 위험
 MORALE_COLLAPSE = 0     # 붕괴
 
 
+def reset():
+    """챕터 전환 시 리셋"""
+    pass  # 개인 사기는 prop 기반이므로 clear_world()로 초기화됨
+
+
 def get_morale(unit_id: int) -> int:
     """개인 사기 조회"""
     val = morld.get_unit_prop(unit_id, "사기")
