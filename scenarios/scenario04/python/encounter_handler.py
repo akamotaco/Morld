@@ -11,7 +11,6 @@ import trust
 import survival
 import erosion
 import reputation
-import pollution
 import quirk
 
 
@@ -34,8 +33,8 @@ def start_encounter(enemy_data: list) -> dict:
     # 3. 전투 실행
     result = encounter.run_encounter(allies, enemies)
 
-    # 4. 결과 반영
-    _apply_result(result)
+    # 4. 결과 반영 (원본 enemy_data 전달 — 침식 계산용)
+    _apply_result(result, enemy_data)
 
     return result
 
@@ -89,7 +88,7 @@ def _package_enemies(enemy_data: list) -> list:
     return enemies
 
 
-def _apply_result(result: dict):
+def _apply_result(result: dict, enemy_data: list = None):
     """전투 결과를 게임 시스템에 반영"""
 
     # 1. 사기 변동
@@ -114,14 +113,10 @@ def _apply_result(result: dict):
             # 신뢰: 파티원들에게 영향 (방치?)
             # → 이건 플레이어 선택에 따라 나중에
 
-    # 4. 전투 중 location 오염도 증가
-    player_id = morld.get_player_id()
-    if player_id:
-        loc = morld.get_unit_location(player_id)
-        if loc:
-            region_id, loc_id = loc
-            # 전투 = 오염도 +2
-            pollution.add_pollution(region_id, loc_id, 2)
+    # 4. 전투 결과 기반 침식 적용
+    #    - 피격 시 erosion_on_hit (적 데이터에서)
+    #    - 처치 시 erosion_on_death (음수면 정화 효과)
+    _apply_erosion_from_combat(result, enemy_data)
 
     # 5. 플레이어 실신 → 재편성
     if party.get_leader() in result["fainted"]:
@@ -131,3 +126,43 @@ def _apply_result(result: dict):
     # 6. 전투 로그 출력 (mini_monologue용)
     for line in result["log"]:
         print(line)
+
+
+def _apply_erosion_from_combat(result, enemy_data):
+    """전투 결과 기반 침식 적용
+
+    - 피격당한 아군: 적의 erosion_on_hit만큼 침식 증가
+    - 처치한 적: erosion_on_death만큼 파티 전원 침식 변동 (음수=정화)
+    """
+    if not enemy_data:
+        return
+
+    # 처치된 적의 erosion_on_death 합산
+    total_death_erosion = 0
+    fainted_enemies = [uid for uid in result.get("fainted", []) if uid < 0]  # 음수 ID = 적
+    for i, data in enumerate(enemy_data):
+        enemy_uid = -(i + 1)
+        if enemy_uid in fainted_enemies:
+            total_death_erosion += data.get("erosion_on_death", 0)
+
+    # 피격 침식: 전투 중 받은 총 대미지 기반 (간이 계산)
+    # 적의 erosion_on_hit × 피격 횟수를 정확히 추적하려면 encounter 내부 수정 필요
+    # 현재: 적 중 erosion_on_hit > 0인 적이 있으면 파티 전원에 기본 침식
+    hit_erosion = 0
+    for data in enemy_data:
+        eoh = data.get("erosion_on_hit", 0)
+        if eoh > 0:
+            hit_erosion += eoh
+
+    # 파티 전원에 적용
+    members = party.get_members()
+    for mid in members:
+        total = hit_erosion + total_death_erosion
+        if total != 0:
+            try:
+                if total > 0:
+                    erosion.add_erosion(mid, total)
+                else:
+                    erosion.reduce_erosion(mid, abs(total))
+            except Exception:
+                pass
