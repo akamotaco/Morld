@@ -271,41 +271,6 @@ def get_header():
 # Footer (S04 전용)
 # ========================================
 
-def _get_environment_status_text():
-    try:
-        player_id = morld.get_player_id()
-        if not player_id:
-            return ""
-        parts = []
-
-        # 체온
-        try:
-            import temperature
-            body_temp = temperature.get_body_temperature(player_id)
-            if body_temp < 35.5:
-                parts.append(style_info(f"체온 {body_temp:.1f}℃"))
-            elif body_temp > 37.5:
-                parts.append(style_danger(f"체온 {body_temp:.1f}℃"))
-            else:
-                parts.append(f"체온 {body_temp:.1f}℃")
-        except ImportError:
-            pass
-
-        # 욕구 (임계치 근처만) — 침식/소지금은 파티 패널에 표시
-        try:
-            import needs
-            fatigue = needs.get_fatigue(player_id)
-            if fatigue >= 50:
-                clr = STAT_DANGER if fatigue >= 80 else STAT_CAUTION
-                parts.append(c(clr, f"피로 {fatigue:.0f}"))
-        except ImportError:
-            pass
-
-        return " | ".join(parts) if parts else ""
-    except Exception as e:
-        print(f"[ui] _get_environment_status_text error: {e}")
-        return ""
-
 
 def _get_movement_arrows():
     player_id = morld.get_player_id()
@@ -363,11 +328,6 @@ def get_footer():
     party_text = _get_party_display()
     if party_text:
         lines.append(party_text)
-
-    # 환경 상태
-    env_text = _get_environment_status_text()
-    if env_text:
-        lines.append(env_text)
 
     return "\n".join(lines)
 
@@ -444,9 +404,7 @@ def _get_party_display():
         rows.append("[/font]")
         return "\n".join(rows)
     except Exception as e:
-        import traceback
         print(f"[ui] _get_party_display error: {e}")
-        traceback.print_exc()
         return ""
 
 
@@ -519,16 +477,13 @@ def _render_player_viewport(unit_id, width):
         pass
     lines.append(pw("  ".join(parts2), width))
 
-    # 줄 3: 자세/은신 + 무기 + X축 이동
+    # 줄 3: 자세/은신 + X축 이동
     parts3 = []
     parts3.append(_get_posture_stealth_text(unit_id))
-    equip_text = _get_player_weapon_text(unit_id)
-    if equip_text:
-        parts3.append(equip_text)
     move_text = _get_movement_arrows()
     if move_text:
         parts3.append(move_text)
-    lines.append(pw("  ".join([p for p in parts3 if p]), width))
+    lines.append(pw("  ".join(p for p in parts3 if p), width))
 
     return lines
 
