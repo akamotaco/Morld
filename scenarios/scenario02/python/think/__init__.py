@@ -29,13 +29,14 @@ import morld
 MILLIS_PER_DAY = 86_400_000
 
 # ========================================
-# 레지스트리 re-export (하위 호환)
+# 레지스트리 re-export (engine/think.py 기반)
 # ========================================
-from think.registry import (
+from engine.think import (
     _agents, _agent_classes,
     register_agent, unregister_agent, get_agent, get_all_agents,
     think_all, clear_all, clear_agents,
     register_agent_class, create_agent_for, get_registered_agent_ids,
+    reset,
 )
 
 # ========================================
@@ -49,6 +50,9 @@ from think.schedule_mixin import ScheduleResolverMixin
 from think.order_handlers import OrderHandlerMixin
 
 
+from engine.think_base import BaseAgent as _EngineBaseAgent
+
+
 class BaseAgent(
     CombatMixin,
     InterruptMixin,
@@ -56,6 +60,7 @@ class BaseAgent(
     EnvironmentMixin,
     ScheduleResolverMixin,
     OrderHandlerMixin,
+    _EngineBaseAgent,
 ):
     """
     NPC AI 기본 클래스
