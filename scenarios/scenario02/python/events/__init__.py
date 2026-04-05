@@ -320,10 +320,9 @@ def on_single_event(event):
             except ImportError:
                 pass
 
-            # NPC 은신 감지 시도 + 30분 주기 구독 등록
+            # NPC 은신 감지 시도
             try:
                 import stealth as stealth_mod
-                stealth_mod._ensure_initialized()
                 stealth_mod.detect_stealthed_npcs(region_id, location_id)
             except ImportError:
                 pass
