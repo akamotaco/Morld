@@ -148,7 +148,8 @@ def initialize():
     t = TIME_SETTINGS
     morld.set_time(t["year"], t["month"], t["day"], t["hour"], t.get("minute", 0))
 
-    # 5. 어둠 마스킹 활성화
+    # 5. 시간 흐름 활성화 + 어둠 마스킹
+    morld.set_time_frozen(False)
     import ui
     ui.set_darkness_masking(True)
 

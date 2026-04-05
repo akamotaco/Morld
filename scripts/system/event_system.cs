@@ -616,15 +616,20 @@ namespace SE
 			// 1. 누적된 on_time_elapsed 이벤트 먼저 처리
 			if (_accumulatedTimeElapsed > 0)
 			{
+				Godot.GD.Print($"[EventSystem] FlushEvents: on_time_elapsed accumulated={_accumulatedTimeElapsed}ms");
 				var timeEvent = GameEvent.OnTimeElapsed(_accumulatedTimeElapsed);
 				_accumulatedTimeElapsed = 0;
 
-				var timeResult = _scriptSystem.CallSingleEventHandler(timeEvent);
+				var timeResult = _scriptSystem?.CallSingleEventHandler(timeEvent);
 				// on_time_elapsed 결과 처리 (플레이어 기절 등 다이얼로그 발생 가능)
 				if (ProcessEventResult(timeResult))
 				{
 					return true;
 				}
+			}
+			else
+			{
+				Godot.GD.Print($"[EventSystem] FlushEvents: no accumulated time_elapsed");
 			}
 
 			// 2. 대기 중인 핸들러가 있으면 먼저 처리

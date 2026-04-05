@@ -316,14 +316,8 @@ def on_room_enter_prepare(region_id, location_id):
         return
 
     import creature_pool
-    import morld
 
-    # 리스폰 체크
-    time_info = morld.get_time_info()
-    current_ms = time_info.get("total_millis", 0) if time_info else 0
-    creature_pool.check_respawn(floor, location_id, current_ms)
-
-    # 조우 판정
+    # 조우 판정 (리스폰은 on_time_elapsed 카운트다운으로 자동 처리)
     enemies = creature_pool.get_encounter(floor, location_id)
     if not enemies:
         return

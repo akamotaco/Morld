@@ -172,13 +172,15 @@ def _weighted_random(pool):
 
 
 # ========================================
-# 리스폰 관리
+# 리스폰 관리 (카운트다운 방식)
 # ========================================
+# on_time_elapsed에서 시간 차감. 0 이하 → 리스폰.
 
-# {(floor, room_id): {"slots": [...], "elite_cleared": bool}}
 _room_state = {}
 
 RESPAWN_INTERVAL_MS = 10_800_000  # 3시간
+
+_initialized = False
 
 
 def reset():
@@ -186,15 +188,27 @@ def reset():
     _room_state.clear()
 
 
+def _ensure_initialized():
+    """시간 구독 등록 (lazy init)"""
+    global _initialized
+    if _initialized:
+        return
+    _initialized = True
+    from events import subscribe_time_elapsed
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=60_000)  # 1분마다
+    print("[creature_pool] Subscribed to time_elapsed (1min interval)")
+
+
 def init_room(floor, room_id, has_monster, is_boss_room=False):
     """방 초기 몬스터 상태 등록"""
+    _ensure_initialized()
     key = (floor, room_id)
     if has_monster or is_boss_room:
         _room_state[key] = {
             "has_encounter": True,
             "is_boss_room": is_boss_room,
             "alive": True,
-            "killed_at": None,
+            "respawn_remaining": 0,
             "elite_cleared": False,
         }
     else:
@@ -224,45 +238,43 @@ def get_encounter(floor, room_id):
 
 
 def mark_cleared(floor, room_id, enemies):
-    """전투 승리 후 방 클리어 기록"""
-    import morld
+    """전투 승리 후 방 클리어 → 리스폰 카운트다운 시작"""
     key = (floor, room_id)
     state = _room_state.get(key)
     if not state:
         return
 
-    # 엘리트/보스면 리스폰 불가
     has_non_respawnable = any(not e.get("respawnable", True) for e in enemies)
 
     if has_non_respawnable:
         state["alive"] = False
-        state["killed_at"] = None  # 리스폰 안 함
+        state["respawn_remaining"] = -1  # 리스폰 안 함
         state["elite_cleared"] = True
+        print(f"[creature_pool] Elite/Boss cleared: floor={floor}, room={room_id} (no respawn)")
     else:
-        time_info = morld.get_time_info()
-        current_ms = time_info.get("total_millis", 0) if time_info else 0
         state["alive"] = False
-        state["killed_at"] = current_ms
+        state["respawn_remaining"] = RESPAWN_INTERVAL_MS
+        print(f"[creature_pool] Cleared: floor={floor}, room={room_id} (respawn in {RESPAWN_INTERVAL_MS // 60000}min)")
 
 
-def check_respawn(floor, room_id, current_time_ms):
-    """리스폰 체크 — 시간 경과 후 일반 몬스터 부활"""
-    key = (floor, room_id)
-    state = _room_state.get(key)
-    if not state or not state.get("has_encounter"):
-        return
+def _on_time_elapsed(millis):
+    """시간 경과 → 모든 죽은 방의 리스폰 카운트다운 차감"""
+    for key, state in _room_state.items():
+        if not state.get("has_encounter"):
+            continue
+        if state["alive"]:
+            continue
+        if state.get("elite_cleared"):
+            continue
 
-    if state["alive"]:
-        return  # 이미 살아있음
+        remaining = state.get("respawn_remaining", 0)
+        if remaining <= 0:
+            continue
 
-    if state.get("elite_cleared"):
-        return  # 엘리트/보스 — 리스폰 없음
-
-    killed_at = state.get("killed_at")
-    if killed_at is None:
-        return
-
-    if current_time_ms - killed_at >= RESPAWN_INTERVAL_MS:
-        state["alive"] = True
-        state["killed_at"] = None
-        print(f"[creature_pool] Respawned: floor={floor}, room={room_id}")
+        remaining -= millis
+        if remaining <= 0:
+            state["alive"] = True
+            state["respawn_remaining"] = 0
+            print(f"[creature_pool] Respawned: floor={key[0]}, room={key[1]}")
+        else:
+            state["respawn_remaining"] = remaining
