@@ -125,6 +125,7 @@ def reset():
     _location_indoor.clear()
     _current_intensity = None
     _last_weather = None
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
 
 
 def _ensure_initialized():
@@ -419,6 +420,4 @@ def get_intensity():
     return _current_intensity
 
 
-# === 모듈 로드 시 이벤트 구독 (1시간 간격) ===
-
-subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
+# NOTE: subscribe_time_elapsed는 reset()에서 호출 (모듈 로드 시 구독 제거)

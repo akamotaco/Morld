@@ -291,34 +291,13 @@ def _get_environment_status_text():
         except ImportError:
             pass
 
-        # 침식 (S04 핵심)
-        try:
-            import erosion
-            ero = erosion.get_erosion(player_id)
-            if ero >= 100:
-                parts.append(style_danger(f"침식 {ero}"))
-            elif ero >= 50:
-                parts.append(c(STAT_CAUTION, f"침식 {ero}"))
-            elif ero > 0:
-                parts.append(f"침식 {ero}")
-        except ImportError:
-            pass
-
-        # 욕구 (임계치 근처만)
+        # 욕구 (임계치 근처만) — 침식/소지금은 파티 패널에 표시
         try:
             import needs
             fatigue = needs.get_fatigue(player_id)
             if fatigue >= 50:
                 clr = STAT_DANGER if fatigue >= 80 else STAT_CAUTION
                 parts.append(c(clr, f"피로 {fatigue:.0f}"))
-        except ImportError:
-            pass
-
-        # 소지금
-        try:
-            import economy
-            money = economy.get_money(player_id)
-            parts.append(f"소지금:{money:,}원")
         except ImportError:
             pass
 
@@ -390,53 +369,274 @@ def get_footer():
     if env_text:
         lines.append(env_text)
 
-    # X축 이동 화살표
-    movement_text = _get_movement_arrows()
-    if movement_text:
-        lines.append(movement_text)
-
     return "\n".join(lines)
 
 
 def _get_party_display():
-    """파티원 목록 — 위자드리 스타일 (이름 + HP바, 클릭으로 focus)"""
+    """파티 패널 — 위자드리 스타일 뷰포트 병합
+
+    플레이어(좌 절반, 가로 배치) + 파티원(우 절반, 균등 분배)
+    각 뷰포트를 독립 렌더링 후 줄 단위 병합.
+    """
     try:
         import party
         import survival
+        from text_utils import str_width, truncate_to_width, pad_to_width
 
         members = party.get_members()
         if not members:
             return ""
 
-        parts = []
-        for mid in members:
-            info = morld.get_unit_info(mid)
-            if not info:
-                continue
-            name = info.get("name", "???")
-            hp = survival.get_health(mid)
-            max_hp = morld.get_unit_prop(mid, "생존:최대체력") or 100
+        leader_id = party.get_leader()
+        others = [m for m in members if m != leader_id]
 
-            # HP 비율에 따른 색상
-            ratio = hp / max_hp if max_hp > 0 else 0
-            if ratio > 0.5:
-                hp_text = f"{hp:.0f}"
-            elif ratio > 0.2:
-                hp_text = c(STAT_CAUTION, f"{hp:.0f}")
-            else:
-                hp_text = c(STAT_DANGER, f"{hp:.0f}")
+        # --- 폭 계산 (외곽선 포함) ---
+        TOTAL_WIDTH = 140
+        BORDER_COLOR = "#999999"
+        # 내부 콘텐츠 폭 = 전체 - 좌우 외곽(2) - 내부 구분선(파티원 수)
+        num_seps = len(others)  # 플레이어│멤1│멤2 → 구분선 = 파티원 수
+        inner_w = TOTAL_WIDTH - 2 - num_seps
+        if others:
+            player_w = inner_w // 2
+            remaining_w = inner_w - player_w
+            member_w = remaining_w // len(others)
+        else:
+            player_w = inner_w
+            member_w = 0
 
-            bar = stat_bar(hp, max_hp, length=6)
+        # --- 뷰포트 렌더링 ---
+        player_lines = _render_player_viewport(leader_id, player_w)
+        member_viewports = [_render_member_viewport(mid, member_w) for mid in others]
 
-            # 클릭으로 focus
-            is_leader = (mid == party.get_leader())
-            marker = "◆" if is_leader else "◇"
-            parts.append(f"[url=look_unit:{mid}]{marker}{name}[/url] {bar} {hp_text}")
+        PANEL_HEIGHT = 3
+        _pad_viewport(player_lines, PANEL_HEIGHT, player_w)
+        for vp in member_viewports:
+            _pad_viewport(vp, PANEL_HEIGHT, member_w)
 
-        return " | ".join(parts)
+        # --- 외곽선 + 줄 단위 병합 ---
+        from grid_renderer import MAP_FONT
+        bc = lambda s: c(BORDER_COLOR, s)
+        rows = []
+        rows.append(f"[font={MAP_FONT}]")
+
+        # 상단: ┌───┬───┬───┐
+        top = "┌" + "─" * player_w
+        for _ in others:
+            top += "┬" + "─" * member_w
+        top += "┐"
+        rows.append(bc(top))
+
+        # 본문: │내용│내용│내용│
+        for i in range(PANEL_HEIGHT):
+            row = bc("│") + player_lines[i]
+            for vp in member_viewports:
+                row += bc("│") + vp[i]
+            row += bc("│")
+            rows.append(row)
+
+        # 하단: └───┴───┴───┘
+        bot = "└" + "─" * player_w
+        for _ in others:
+            bot += "┴" + "─" * member_w
+        bot += "┘"
+        rows.append(bc(bot))
+
+        rows.append("[/font]")
+        return "\n".join(rows)
     except Exception as e:
+        import traceback
         print(f"[ui] _get_party_display error: {e}")
+        traceback.print_exc()
         return ""
+
+
+def _render_player_viewport(unit_id, width):
+    """플레이어 뷰포트 — 4줄 가로 배치"""
+    import survival
+    from text_utils import str_width, truncate_to_width, pad_to_width
+
+    info = morld.get_unit_info(unit_id)
+    name = info.get("name", "???") if info else "???"
+    hp = survival.get_health(unit_id)
+    max_hp = morld.get_unit_prop(unit_id, "생존:최대체력") or 100
+    hp_ratio = hp / max_hp if max_hp > 0 else 0
+
+    lines = []
+    pw = pad_to_width
+
+    # 줄 1: ◆이름  HP ████░░ 80/100  포만:100  피로:0
+    bar = stat_bar(hp, max_hp, length=8)
+    hp_val = f"{hp:.0f}/{max_hp:.0f}"
+    if hp_ratio <= 0.2:
+        hp_val = c(STAT_DANGER, hp_val)
+    elif hp_ratio <= 0.5:
+        hp_val = c(STAT_CAUTION, hp_val)
+    line1 = f"[url=look_unit:{unit_id}]◆{name}[/url]  HP {bar} {hp_val}"
+    try:
+        stats = survival.get_survival_stats(unit_id)
+        sat = stats.get("satiety", 0)
+        if sat <= 20:
+            line1 += "  " + c(STAT_DANGER, f"포만:{sat:.0f}")
+        elif sat <= 50:
+            line1 += "  " + c(STAT_CAUTION, f"포만:{sat:.0f}")
+        else:
+            line1 += f"  포만:{sat:.0f}"
+    except Exception:
+        pass
+    try:
+        import needs
+        fatigue = needs.get_fatigue(unit_id)
+        if fatigue >= 80:
+            line1 += "  " + c(STAT_DANGER, f"피로:{fatigue:.0f}")
+        elif fatigue >= 50:
+            line1 += "  " + c(STAT_CAUTION, f"피로:{fatigue:.0f}")
+        else:
+            line1 += f"  피로:{fatigue:.0f}"
+    except (ImportError, Exception):
+        pass
+    lines.append(pw(line1, width))
+
+    # 줄 2: Lv.N  사기:높음  침식:25
+    parts2 = []
+    lv = morld.get_unit_prop(unit_id, "level") or 1
+    parts2.append(f"Lv.{lv}")
+    try:
+        import morale
+        m = morale.get_morale(unit_id)
+        parts2.append(f"사기:{m}")
+    except (ImportError, Exception):
+        pass
+    try:
+        import erosion
+        ero = erosion.get_erosion(unit_id)
+        if ero >= 100:
+            parts2.append(c(STAT_DANGER, f"침식:{ero}"))
+        elif ero >= 50:
+            parts2.append(c(STAT_CAUTION, f"침식:{ero}"))
+        else:
+            parts2.append(f"침식:{ero}")
+    except (ImportError, Exception):
+        pass
+    lines.append(pw("  ".join(parts2), width))
+
+    # 줄 3: 자세/은신 + 무기 + X축 이동
+    parts3 = []
+    parts3.append(_get_posture_stealth_text(unit_id))
+    equip_text = _get_player_weapon_text(unit_id)
+    if equip_text:
+        parts3.append(equip_text)
+    move_text = _get_movement_arrows()
+    if move_text:
+        parts3.append(move_text)
+    lines.append(pw("  ".join([p for p in parts3 if p]), width))
+
+    return lines
+
+
+def _render_member_viewport(unit_id, width):
+    """파티원 뷰포트 — 4줄 compact"""
+    import survival
+    from text_utils import str_width, truncate_to_width, pad_to_width
+
+    info = morld.get_unit_info(unit_id)
+    name = info.get("name", "???") if info else "???"
+    hp = survival.get_health(unit_id)
+    max_hp = morld.get_unit_prop(unit_id, "생존:최대체력") or 100
+    hp_ratio = hp / max_hp if max_hp > 0 else 0
+
+    # 이름 말줄임
+    display_name = name
+    name_w = str_width(name)
+    avail = width - 2  # ◇ + 여백
+    if name_w > avail:
+        display_name = truncate_to_width(name, avail - 2) + ".."
+
+    lines = []
+    pw = pad_to_width
+
+    # 줄 1: ◇이름
+    lines.append(pw(f"[url=look_unit:{unit_id}]◇{display_name}[/url]", width))
+
+    # 줄 2: HP ████░░
+    bar_len = max(4, width - 4)  # "HP " + bar
+    bar = stat_bar(hp, max_hp, length=bar_len)
+    if hp_ratio <= 0.2:
+        bar = c(STAT_DANGER, bar)
+    elif hp_ratio <= 0.5:
+        bar = c(STAT_CAUTION, bar)
+    lines.append(pw(f"HP {bar}", width))
+
+    # 줄 3: 침식 + 사기
+    parts3 = []
+    try:
+        import erosion
+        ero = erosion.get_erosion(unit_id)
+        if ero >= 100:
+            parts3.append(c(STAT_DANGER, f"침식:{ero}"))
+        elif ero >= 50:
+            parts3.append(c(STAT_CAUTION, f"침식:{ero}"))
+        else:
+            parts3.append(f"침식:{ero}")
+    except (ImportError, Exception):
+        pass
+    try:
+        import morale
+        m = morale.get_morale(unit_id)
+        parts3.append(f"사기:{m}")
+    except (ImportError, Exception):
+        pass
+    lines.append(pw(" ".join(parts3), width))
+
+    return lines
+
+
+def _get_player_weapon_text(unit_id):
+    """플레이어 장비 무기 텍스트"""
+    try:
+        equipped = morld.get_equipped_items(unit_id)
+        if not equipped:
+            return ""
+        for item_id in equipped:
+            item_info = morld.get_item_info(item_id)
+            if item_info and item_info.get("slot") == "weapon":
+                name = item_info.get("name", "???")
+                corrosion = morld.get_unit_prop(item_id, "부식") or 0
+                if corrosion > 0:
+                    return f"무기: {name} [부식:{corrosion}]"
+                return f"무기: {name}"
+        return ""
+    except Exception:
+        return ""
+
+
+def _get_posture_stealth_text(unit_id):
+    """자세/은신 토글 텍스트 (S02 스타일)"""
+    try:
+        posture_props = morld.get_unit_props_by_type(unit_id, "posture")
+        posture = list(posture_props.keys())[0] if posture_props else "standing"
+
+        if posture == "standing":
+            return f"[url=posture:toggle]{style_muted('[웅크리기]')}[/url]"
+        elif posture == "crouch":
+            toggle_btn = f"[url=posture:toggle]{style_muted('[일어서기]')}[/url]"
+            try:
+                import stealth as stealth_mod
+                if stealth_mod.is_player_stealthed() or stealth_mod.is_party_stealthed():
+                    return f"{toggle_btn} {c(SUCCESS, '(은신 중)')}"
+            except (ImportError, Exception):
+                pass
+            return toggle_btn
+        else:
+            return ""
+    except Exception:
+        return ""
+
+
+def _pad_viewport(lines, target_height, width):
+    """뷰포트 줄 수를 target_height에 맞춰 빈 줄 패딩"""
+    from text_utils import pad_to_width
+    while len(lines) < target_height:
+        lines.append(pad_to_width("", width))
 
 
 # ========================================

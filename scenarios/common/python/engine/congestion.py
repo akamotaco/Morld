@@ -64,6 +64,7 @@ def reset():
     _capacity.clear()
     _population.clear()
     _last_sync_day = -1
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
 
 
 def _ensure_initialized():
@@ -221,6 +222,4 @@ def get_capacity(region_id, location_id):
     return _capacity.get(key, MIN_CAPACITY)
 
 
-# === 모듈 로드 시 이벤트 구독 (1시간 간격) ===
-
-subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
+# NOTE: subscribe_time_elapsed는 reset()에서 호출 (모듈 로드 시 구독 제거)

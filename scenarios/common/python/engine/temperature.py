@@ -114,6 +114,7 @@ def reset():
     _location_indoor.clear()
     _location_transfer_rate.clear()
     _tracked_characters.clear()
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
 
 
 def register_dynamic_location(region_id, location_id, is_indoor=True, temperature_mod=0):
@@ -499,6 +500,4 @@ def get_insulation_total(unit_id):
     return _get_equip_prop_total(unit_id, "보온")
 
 
-# === 모듈 로드 시 이벤트 구독 (1시간 간격) ===
-
-subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
+# NOTE: subscribe_time_elapsed는 reset()에서 호출 (모듈 로드 시 구독 제거)

@@ -3,9 +3,16 @@
 # 모노스페이스 폰트 기반 문자 폭 계산.
 # D2Coding: 한글=2칸, 영문=1칸.
 
+import re
+
+_BBCODE_TAG = re.compile(r'\[/?[a-z_]+(?:=[^\]]*)?\]')
+
 
 def char_width(ch):
-    """모노스페이스 폰트에서 문자 표시 폭 (한글=2, 그 외=1)"""
+    """모노스페이스 폰트에서 문자 표시 폭 (한글=2, 그 외=1)
+
+    D2Coding 기준: 한글/CJK = 2칸, Box Drawing/Block Elements 등 = 1칸
+    """
     cp = ord(ch)
     if (0xAC00 <= cp <= 0xD7AF or   # 한글 음절
         0x3000 <= cp <= 0x303F or   # CJK 기호
@@ -31,3 +38,17 @@ def truncate_to_width(s, max_width):
             return s[:i]
         w += cw
     return s
+
+
+def visible_width(s):
+    """BBCode 태그 제외 표시 폭"""
+    stripped = _BBCODE_TAG.sub('', s)
+    return str_width(stripped)
+
+
+def pad_to_width(s, target_width):
+    """표시 폭 기준으로 공백 패딩 (BBCode 태그 제외)"""
+    current = visible_width(s)
+    if current >= target_width:
+        return s
+    return s + " " * (target_width - current)
