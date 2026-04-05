@@ -768,50 +768,42 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                     _, room_id, is_current, is_adjacent, vis = meta
                     loc_id = locations.get(room_id)
 
-                    if vis == HIDDEN:
-                        row += c("#333333", ch)
-                    elif is_current:
-                        row += c("#ffff00", ch)
-                    elif is_adjacent and loc_id is not None:
-                        row += f"[url=move:{region_id}:{loc_id}]{c('#66ccff', ch)}[/url]"
-                    elif vis == REVEALED:
-                        row += c("#666666", ch)
-                    else:
-                        row += c("#aaaaaa", ch)
-
-                    # ── 방 기호 직후: 오른쪽 빈 칸에 한글 이름 ──
+                    # ── 이름 수집 (심볼+이름을 하나의 URL로) ──
+                    name_text = ""
                     if vis >= REVEALED and _show_names:
-                        # 이 방 뒤 빈 칸 수 (VISIBLE/인접 방에 의해서만 차단)
                         avail = 0
                         for _cx in range(x + 1, vx + _VIEW_W):
                             if 0 <= _cx < grid_w and 0 <= y < grid_h:
                                 _cm = grid_meta[y][_cx]
-                                # VISIBLE/인접 방 또는 캐릭터만 차단
                                 if _cm is not None and _cm[0] == "room":
-                                    _rv = _cm[4]  # vis
-                                    if _rv >= REVEALED:  # 밝혀진 방만 차단
+                                    _rv = _cm[4]
+                                    if _rv >= REVEALED:
                                         break
                                 elif _cm is not None and _cm[0] == "char":
                                     break
                             avail += 1
-                        if avail >= 4:  # 한글 2자 = 4 mono칸
+                        if avail >= 4:
                             _ri = morld.get_location_info(region_id, loc_id) if loc_id is not None else None
                             _rname = _ri.get("name", "") if _ri else ""
                             if _rname:
                                 if _str_width(_rname) <= avail:
-                                    trunc = _rname  # 풀네임
+                                    name_text = _rname
                                 else:
-                                    trunc = _truncate_to_width(_rname, avail - 2) + ".."  # 잘림 표시
-                                name_w = _str_width(trunc)
-                                if is_current:
-                                    row += c("#ffff00", trunc)
-                                elif is_adjacent:
-                                    row += c("#66ccff", trunc)
-                                elif vis == REVEALED:
-                                    row += c("#666666", trunc)
-                                else:
-                                    row += c("#aaaaaa", trunc)
-                                _name_skip = name_w  # 이름이 차지한 mono 칸만큼 skip
+                                    name_text = _truncate_to_width(_rname, avail - 2) + ".."
+                                _name_skip = _str_width(name_text)
+
+                    # ── 심볼 + 이름 출력 ──
+                    display = ch + name_text
+                    if vis == HIDDEN:
+                        row += c("#333333", ch)
+                    elif is_current:
+                        row += c("#ffff00", display)
+                    elif is_adjacent and loc_id is not None:
+                        row += f"[url=move:{region_id}:{loc_id}%]{display}[/url]"
+                    elif vis == REVEALED:
+                        row += c("#666666", display)
+                    else:
+                        row += c("#aaaaaa", display)
 
                 elif meta[0] == "char":
                     _, _room_id, is_creature, _, _ = meta
@@ -878,7 +870,7 @@ def _render_dungeon_map_tab(dungeon_info, dungeon_id, region_id, current_local, 
                 if is_current:
                     lines.append(f"  {c('#ffff00', symbol)} {c('#ffff00', room_name)}")
                 elif is_adjacent and lid is not None:
-                    lines.append(f"  [url=move:{region_id}:{lid}]{c('#66ccff', symbol)} {c('#66ccff', room_name)}[/url]")
+                    lines.append(f"  [url=move:{region_id}:{lid}%]{symbol} {room_name}[/url]")
                 elif vis == REVEALED:
                     lines.append(f"  {c('#666666', symbol)} {c('#666666', room_name)}")
                 else:
@@ -1263,7 +1255,7 @@ def _get_tab_label_line():
         if i == view_tab:
             parts.append(c(ACCENT, f"[▶{label}]"))
         else:
-            parts.append(f"[url=tab:{i}][{label}][/url]")
+            parts.append(f"[url=tab:{i}%][{label}][/url]")
 
     return "  ".join(parts)
 

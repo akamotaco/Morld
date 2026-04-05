@@ -124,7 +124,9 @@ public partial class MetaActionHandler
 			return;
 		}
 
-		var parts = metaString.Split(':');
+		// MetaFlags suffix (%, #) 제거 — 렌더러용 플래그이므로 액션 처리에서는 불필요
+		var cleanMeta = metaString.TrimEnd('%', '#');
+		var parts = cleanMeta.Split(':');
 		var action = parts[0];
 
 		// 콘텐츠 변경 전 정리 작업

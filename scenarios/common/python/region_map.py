@@ -161,12 +161,9 @@ def render_region_map(region_id, current_local, player_id, all_coords,
             if meta is not None and meta[0] == "location":
                 loc_id = meta[1]
                 is_current = meta[2]
-                if is_current:
-                    row += c("#ffff00", ch)
-                else:
-                    row += f"[url=move:{region_id}:{loc_id}]{c('#66ccff', ch)}[/url]"
 
-                # 이름 표시
+                # 이름 수집
+                name_text = ""
                 if vp.get("show_names", True):
                     name = locations[loc_id]["name"]
                     avail = 0
@@ -176,12 +173,15 @@ def render_region_map(region_id, current_local, player_id, all_coords,
                             break
                         avail += 1
                     if avail >= 2:
-                        trunc = _truncate_to_width(name, avail)
-                        if is_current:
-                            row += c("#ffff00", trunc)
-                        else:
-                            row += f"[url=move:{region_id}:{loc_id}]{c('#66ccff', trunc)}[/url]"
-                        _name_skip = _str_width(trunc)
+                        name_text = _truncate_to_width(name, avail)
+                        _name_skip = _str_width(name_text)
+
+                # 심볼 + 이름 출력 (색상은 테마가 결정 — hover 시 노란색)
+                display = ch + name_text
+                if is_current:
+                    row += c("#ffff00", display)
+                else:
+                    row += f"[url=move:{region_id}:{loc_id}%]{display}[/url]"
 
             elif ch in ('═', '║'):
                 row += c("#66ccff", ch.replace('═', '─').replace('║', '│'))
@@ -218,7 +218,7 @@ def render_region_map(region_id, current_local, player_id, all_coords,
         if loc_id == current_local:
             lines.append(f"  {c('#ffff00', '@')} {c('#ffff00', name)}{char_text}")
         elif in_viewport:
-            lines.append(f"  [url=move:{region_id}:{loc_id}]{c('#66ccff', '●')} {c('#66ccff', name)}[/url]{char_text}")
+            lines.append(f"  [url=move:{region_id}:{loc_id}%]● {name}[/url]{char_text}")
         else:
             lines.append(f"  {c('#aaaaaa', '●')} {c('#aaaaaa', name)}{char_text}")
 
