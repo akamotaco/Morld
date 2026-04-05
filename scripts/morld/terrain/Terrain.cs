@@ -624,27 +624,8 @@ public class Terrain
 
             if (targetGate == null)
             {
-                // Gate가 없으면 RegionGate (다른 Region 연결) 확인
-                bool foundRegionGate = false;
-                foreach (var rGate in GetRegionGatesFrom(fromLocRef))
-                {
-                    var dest = rGate.GetOtherLocation(fromLocRef);
-                    if (dest == toLocRef && (context == null || rGate.CanTraverse(fromLocRef, context)))
-                    {
-                        totalTime += Location.DistanceToTime(rGate.Distance, speedModifier);
-                        foundRegionGate = true;
-                        break;
-                    }
-                }
-
-                if (!foundRegionGate)
-                {
-                    throw new System.InvalidOperationException(
-                        $"[Terrain.CalculatePathTravelTime] No Gate or RegionGate found from {fromLocRef} to {toLocRef}");
-                }
-
-                currentX = 0f;
-                continue;
+                throw new System.InvalidOperationException(
+                    $"[Terrain.CalculatePathTravelTime] No Gate found from {fromLocRef} to {toLocRef}");
             }
 
             // Gate까지 이동 시간 + Gate 통과 거리→시간 변환 (밀리초)

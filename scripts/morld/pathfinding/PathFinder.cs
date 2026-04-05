@@ -263,23 +263,26 @@ public class PathFinder
 				}
 			}
 
-			// 2. 다른 Region으로 이동 (RegionGate)
-			var currentRef = new LocationRef(current.Location);
-			foreach ((RegionGate regionGate, LocationRef destRef, float gateDistance) in _terrain.GetRegionExits(currentRef, context))
+			// 2. 다른 Region으로 이동 (Gate의 cross-region 연결)
+			var gates = currentRegion.GetGates(current.Location.LocalId);
+			foreach (var gate in gates)
 			{
-				var destLocation = _terrain.GetLocation(destRef);
-				if (destLocation == null)
-					continue;
+				if (gate.IsBlocked) continue;
+				if (gate.ConnectedLocation.RegionId == current.Location.RegionId) continue; // same-region은 #1에서 처리
+
+				if (context != null && !gate.CanTraverseForward(context)) continue;
+
+				var destLocation = _terrain.GetLocation(gate.ConnectedLocation);
+				if (destLocation == null) continue;
 
 				var destNode = new SearchNode(destLocation);
-				if (closedSet.Contains(destNode.Id))
-					continue;
+				if (closedSet.Contains(destNode.Id)) continue;
 
-				float tentativeDist = distMap[current.Id] + gateDistance;
+				float tentativeDist = distMap[current.Id] + gate.Distance;
 
 				if (!distMap.ContainsKey(destNode.Id) || tentativeDist < distMap[destNode.Id])
 				{
-					cameFrom[destNode.Id] = (current, regionGate.Id);
+					cameFrom[destNode.Id] = (current, null);
 					distMap[destNode.Id] = tentativeDist;
 					openSet.Enqueue(destNode, tentativeDist);
 				}
