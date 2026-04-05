@@ -483,6 +483,7 @@ S02/S04 공통으로 쓸 수 있는 부분:
 |------|------|------|--------|
 | `fame` | int | 0~100 | 0 |
 | `morality` | int | -100~+100 | +20 |
+| `shame` | int | 0~100 | 70 |
 | `orientation` | str | hetero/homo/bi/ace | hetero |
 | `gender` | str | male/female | (선택) |
 
@@ -491,6 +492,7 @@ S02/S04 공통으로 쓸 수 있는 부분:
 |------|------|------|--------|
 | `fame` | int | 0~100 | 0 |
 | `morality` | int | -100~+100 | (개별) |
+| `shame` | int | 0~100 | (개별) |
 | `orientation` | str | hetero/homo/bi/ace | (개별) |
 | `gender` | str | male/female | (개별) |
 | `aggression` | float | -1.0~+1.0 | 0.0 |
@@ -498,3 +500,12 @@ S02/S04 공통으로 쓸 수 있는 부분:
 | `loyalty_tendency` | float | 0.0~1.0 | 0.5 |
 | `libido` | float | 0.0~1.0 | 0.3 |
 | `independence` | float | 0.0~1.0 | 0.5 |
+
+### 장비 상태
+| Prop | 타입 | 범위 | 기본값 |
+|------|------|------|--------|
+| `corrosion` | int | 0~100 | 0 |
+| `blood` | int | 0~3 | 0 |
+| `filth` | int | 0~3 | 0 |
+| `torn` | int | 0~3 | 0 |
+| `wet` | int | 0~3 | 0 |
