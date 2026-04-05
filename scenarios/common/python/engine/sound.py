@@ -481,6 +481,25 @@ def get_heard_texts(unit_id):
     return texts
 
 
+# === stance 연동 ===
+
+# stance → 이동 소리 매핑
+_STANCE_SOUND = {
+    "crouch": ("footstep_crouch", 10),
+    "walk": ("footstep", 20),
+    "run": ("footstep_run", 40),
+}
+
+
+def get_movement_sound(unit_id):
+    """유닛의 현재 stance에 따른 이동 소리 (type, intensity) 반환"""
+    if morld.get_unit_prop(unit_id, "stance:crouch"):
+        return _STANCE_SOUND["crouch"]
+    if morld.get_unit_prop(unit_id, "stance:run") or morld.get_unit_prop(unit_id, "이동:달리기"):
+        return _STANCE_SOUND["run"]
+    return _STANCE_SOUND["walk"]
+
+
 # === 의류 소음 보정 ===
 
 # 장비 소음 속성의 영향을 받는 소리 타입

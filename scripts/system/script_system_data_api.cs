@@ -2163,7 +2163,7 @@ namespace SE
                     // 앉기/눕기 소리 발생 → 은신 자동 판정 (sound 시스템)
                     try
                     {
-                        _scriptSystem.Eval($"__import__('sound').emit_sound({unitId}, 'sit_down')");
+                        this.Eval($"__import__('sound').emit_sound({unitId}, 'sit_down')");
                     }
                     catch (System.Exception ex)
                     {

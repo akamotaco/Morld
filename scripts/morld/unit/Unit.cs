@@ -482,9 +482,13 @@ public class Unit : IOwnable
 		var baseSpeed = actualProps.GetProp("이동:속도");
 		if (baseSpeed <= 0) baseSpeed = 100;  // 기본값 100
 
-		// 자세별 속도 계수 적용
-		int postureModifier = GetPostureSpeedModifier();
-		int result = baseSpeed * postureModifier / 100;
+		// 가구 자세 (sitting/lying): 이동 불가
+		if (TraversalContext.GetProp("posture:sitting") > 0 || TraversalContext.GetProp("posture:lying") > 0)
+			return 0;
+
+		// stance 속도 계수 적용 (crouch=50, walk=100, run=150)
+		int stanceModifier = GetStanceSpeedModifier();
+		int result = baseSpeed * stanceModifier / 100;
 
 		// 혼잡도 감속 (Python congestion.py에서 설정)
 		// 이동:혼잡 = 퍼센트 (100=보통, 50=반감). 0 또는 미설정=감속 없음.
@@ -498,29 +502,23 @@ public class Unit : IOwnable
 		if (injurySpeed > 0 && injurySpeed < 100)
 			result = result * injurySpeed / 100;
 
-		// 달리기 가속 (Python settings.py에서 토글)
-		// 이동:달리기 = 1이면 속도 1.5배
-		var sprintMode = actualProps.GetProp("이동:달리기");
-		if (sprintMode > 0)
-			result = result * 150 / 100;
-
 		return Math.Max(result, 10);  // 최소 10%
 	}
 
 	/// <summary>
-	/// 현재 자세의 이동 속도 계수 반환 (퍼센트)
-	/// - standing (통상): 100
-	/// - crouch (은신): 50
-	/// - sitting/lying: 0 (이동 불가)
+	/// 이동 모드(stance)의 속도 계수 반환 (퍼센트)
+	/// - stance:crouch = 1 → 50% (앉아 이동)
+	/// - stance:run = 1 → 150% (뛰기)
+	/// - 기본 (둘 다 없음) → 100% (걷기)
+	/// 레거시 호환: 이동:달리기 = 1 → run 취급
 	/// </summary>
-	public int GetPostureSpeedModifier()
+	public int GetStanceSpeedModifier()
 	{
-		// posture:crouch = 1 형태로 저장됨
-		if (TraversalContext.GetProp("posture:crouch") > 0)
+		if (TraversalContext.GetProp("stance:crouch") > 0)
 			return 50;
-		if (TraversalContext.GetProp("posture:sitting") > 0 || TraversalContext.GetProp("posture:lying") > 0)
-			return 0;  // 이동 불가
-		return 100;  // standing (통상)
+		if (TraversalContext.GetProp("stance:run") > 0 || TraversalContext.GetProp("이동:달리기") > 0)
+			return 150;
+		return 100;  // walk (기본)
 	}
 
 	/// <summary>
