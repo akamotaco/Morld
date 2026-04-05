@@ -2160,11 +2160,12 @@ namespace SE
                         }
                     }
 
-                    // 은신 상태 해제 (앉기/눕기 시 은신 불가)
+                    // 은신 상태 해제 (앉기/눕기 = 자세 변경이므로 crouch 해제)
+                    // NOTE: sit_on은 C#에서 posture를 직접 설정하므로 Python on_posture_changed 미호출
                     if (unit.TraversalContext.Props.Get("status:stealth") != 0)
                     {
                         unit.TraversalContext.Props.Set("status:stealth", 0);
-                        Godot.GD.Print($"[morld] sit_on: unit={unitId} stealth cleared (sitting/lying)");
+                        Godot.GD.Print($"[morld] sit_on: unit={unitId} stealth cleared (posture change)");
                     }
 
                     Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}, x={toX}");

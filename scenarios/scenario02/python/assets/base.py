@@ -2995,9 +2995,9 @@ class Character(_CharacterBase):
 
     def romance(self):
         """연애 모드 시작 (모드 자동 감지)"""
-        # 공개 행동: 은신 자동 해제
-        import stealth as stealth_mod
-        stealth_mod.auto_exit_stealth_for_interaction()
+        # 소리 발생 → 은신 자동 판정 (sound 시스템)
+        import sound
+        sound.emit_sound(morld.get_player_id(), "moan", 35)
 
         self._check_instantiated()
         from romance import start_romance, ROMANCE_MIN_HEALTH
@@ -3092,9 +3092,9 @@ class Character(_CharacterBase):
 
     def casual_affection(self, action_type):
         """가벼운 애정 행위 — 포커스 메뉴에서 호출"""
-        # 공개 행동: 은신 자동 해제
-        import stealth as stealth_mod
-        stealth_mod.auto_exit_stealth_for_interaction()
+        # 소리 발생 → 은신 자동 판정 (sound 시스템)
+        import sound
+        sound.emit_sound(morld.get_player_id(), "talk")
 
         self._check_instantiated()
         import random
@@ -3895,9 +3895,9 @@ class Character(_CharacterBase):
             yield ui.dialog(f"{self.name}(은)는 자고 있다.")
             return
 
-        # 공개 행동: 은신 자동 해제
-        import stealth as stealth_mod
-        stealth_mod.auto_exit_stealth_for_interaction()
+        # 소리 발생 → 은신 자동 판정 (sound 시스템)
+        import sound
+        sound.emit_sound(morld.get_player_id(), "talk")
         context = self._build_context()
 
         # TALK_TOPICS가 있으면 주제 선택 메뉴 표시

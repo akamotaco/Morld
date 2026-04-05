@@ -58,6 +58,9 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     needs.reset()
     economy.reset()
     stealth.reset()
+    # S04: 소음 은신 해제 시 파티 전체 해제
+    from engine import stealth as _engine_stealth
+    _engine_stealth.set_noise_callback(lambda uid, intensity: stealth.exit_party_stealth())
 
     # 파티/NPC
     party.reset()
