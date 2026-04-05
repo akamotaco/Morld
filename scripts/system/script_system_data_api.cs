@@ -2160,12 +2160,14 @@ namespace SE
                         }
                     }
 
-                    // 은신 상태 해제 (앉기/눕기 = 자세 변경이므로 crouch 해제)
-                    // NOTE: sit_on은 C#에서 posture를 직접 설정하므로 Python on_posture_changed 미호출
-                    if (unit.TraversalContext.Props.Get("status:stealth") != 0)
+                    // 앉기/눕기 소리 발생 → 은신 자동 판정 (sound 시스템)
+                    try
                     {
-                        unit.TraversalContext.Props.Set("status:stealth", 0);
-                        Godot.GD.Print($"[morld] sit_on: unit={unitId} stealth cleared (posture change)");
+                        _scriptSystem.Eval($"__import__('sound').emit_sound({unitId}, 'sit_down')");
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Godot.GD.PrintErr($"[morld] sit_on emit_sound error: {ex.Message}");
                     }
 
                     Godot.GD.Print($"[morld] sit_on: unit={unitId} sat on object={objectId}, seat={seatName}, x={toX}");

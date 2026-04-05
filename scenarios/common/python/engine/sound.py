@@ -36,7 +36,7 @@ SOUND_INTENSITIES = {
     "talk": 15,
     "whisper": 5,
     "stand_up": 35,
-    "sit_down": 25,
+    "sit_down": 30,
     "pickup": 15,
     "equip": 20,
     "eat": 10,
