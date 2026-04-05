@@ -109,7 +109,7 @@ def _ensure_initialized():
     if _initialized:
         return
     _initialized = True
-    from events import subscribe_time_elapsed
+    from engine.event_core import subscribe_time_elapsed
     subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
     print("[laundry] 시간 구독 등록")
 

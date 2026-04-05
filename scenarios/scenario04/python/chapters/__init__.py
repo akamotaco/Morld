@@ -31,6 +31,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
 
     # 2. 전체 시스템 리셋
     import temperature, humidity, pollution, survival
+    import needs, congestion, stealth
     import erosion, economy, morale, trust, quirk
     import party, npc_generator, dungeon
     import building, business, taming, corrosion, carry
@@ -42,10 +43,13 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     temperature.reset()
     humidity.reset()
     pollution.reset()
+    congestion.reset()
 
     # 생존/경제
     survival.reset()
+    needs.reset()
     economy.reset()
+    stealth.reset()
 
     # 파티/NPC
     party.reset()
