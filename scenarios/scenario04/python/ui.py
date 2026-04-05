@@ -587,6 +587,46 @@ def _get_posture_stealth_text(unit_id):
         return ""
 
 
+# 자세 토글 순서 (통상 ↔ 은신)
+_POSTURE_ROTATION = ["standing", "crouch"]
+
+
+def toggle_posture():
+    """자세 토글: 통상 ↔ 은신 (C#에서 호출)"""
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return "플레이어를 찾을 수 없습니다."
+
+    # 현재 자세
+    posture_props = morld.get_unit_props_by_type(player_id, "posture")
+    current = list(posture_props.keys())[0] if posture_props else "standing"
+
+    # 다음 자세
+    try:
+        idx = _POSTURE_ROTATION.index(current)
+        next_posture = _POSTURE_ROTATION[(idx + 1) % len(_POSTURE_ROTATION)]
+    except ValueError:
+        next_posture = "standing"
+
+    # 기존 posture prop 제거
+    for prop_name in posture_props:
+        morld.clear_prop(player_id, f"posture:{prop_name}")
+
+    # 새 posture prop 설정
+    if next_posture != "standing":
+        morld.set_unit_prop(player_id, f"posture:{next_posture}", 1)
+
+    # 은신 상태 처리
+    import stealth as stealth_mod
+    if next_posture == "standing":
+        stealth_mod.exit_party_stealth()
+    elif next_posture == "crouch":
+        stealth_mod.enter_party_stealth()
+
+    print(f"[ui] toggle_posture: {current} -> {next_posture}")
+    return next_posture
+
+
 def _pad_viewport(lines, target_height, width):
     """뷰포트 줄 수를 target_height에 맞춰 빈 줄 패딩"""
     from text_utils import pad_to_width

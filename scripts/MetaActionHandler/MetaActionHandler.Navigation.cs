@@ -503,10 +503,7 @@ public partial class MetaActionHandler
 		try
 		{
 			// Python ui 모듈의 toggle_posture() 호출
-			var result = scriptSystem.CallFunctionEx("ui.toggle_posture", System.Array.Empty<string>());
-#if DEBUG_LOG
-			GD.Print($"[MetaActionHandler] toggle_posture result: {result?.Message}");
-#endif
+			scriptSystem.CallModuleFunction("ui", "toggle_posture");
 
 			// UI 갱신
 			_textUISystem?.RequestUpdateDisplay();
@@ -538,7 +535,7 @@ public partial class MetaActionHandler
 
 		try
 		{
-			scriptSystem.CallFunctionEx("ui.toggle_stance", System.Array.Empty<string>());
+			scriptSystem.CallModuleFunction("ui", "toggle_stance");
 			_textUISystem?.RequestUpdateDisplay();
 		}
 		catch (System.Exception ex)
