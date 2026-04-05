@@ -16,23 +16,12 @@ DEFAULT_LIFESPAN_HOURS = 72       # 기본 수명 (3일)
 #              "spawned": [unit_id, ...], "last_spawn_hour": 0}}
 _spawn_sources = {}
 _corpses = []     # 사망 유닛 추적 (시체 정리 대기)
-_initialized = False
 
 
 def register_spawn_source(source_id, monster_class, max_count,
                           interval_hours, region_id, location_id,
                           lifespan_hours=DEFAULT_LIFESPAN_HOURS):
-    """스폰 소스 등록
-
-    Args:
-        source_id: 고유 식별자 (str)
-        monster_class: 몬스터 Asset 클래스 (예: Wolf)
-        max_count: 최대 동시 존재 수
-        interval_hours: 스폰 간격 (시간)
-        region_id: 스폰 Region
-        location_id: 스폰 Location
-        lifespan_hours: 수명 (시간, 기본 72h=3일)
-    """
+    """스폰 소스 등록"""
     _spawn_sources[source_id] = {
         "class": monster_class,
         "max": max_count,
@@ -43,16 +32,6 @@ def register_spawn_source(source_id, monster_class, max_count,
         "spawned": [],
         "last_spawn_hour": 0,
     }
-    _ensure_initialized()
-
-
-def _ensure_initialized():
-    """시간 구독 초기화 (lazy)"""
-    global _initialized
-    if _initialized:
-        return
-    _initialized = True
-    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
 
 
 def _on_time_elapsed(millis):
@@ -178,7 +157,7 @@ def _cleanup_corpses(current_time):
 
 def reset():
     """챕터 전환 시 초기화"""
-    global _spawn_sources, _corpses, _initialized
+    global _spawn_sources, _corpses
     _spawn_sources = {}
     _corpses = []
-    _initialized = False
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)

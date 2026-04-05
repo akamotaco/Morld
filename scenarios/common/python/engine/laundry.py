@@ -15,6 +15,7 @@
 #   가전:남은시간 — 분 단위
 
 import morld
+from engine.event_core import subscribe_time_elapsed
 
 MILLIS_PER_HOUR = 3_600_000
 
@@ -37,12 +38,10 @@ STATE_DONE = 2
 # ========================================
 
 _machines = {}  # {unit_id: {"type": "washer"|"dryer"}}
-_initialized = False
 
 
 def register_machine(unit_id, machine_type):
     """오브젝트 instantiate에서 호출"""
-    _ensure_initialized()
     _machines[unit_id] = {"type": machine_type}
 
 
@@ -103,15 +102,6 @@ def get_machine_focus_text(unit_id, machine_type):
 # 시간 구독
 # ========================================
 
-def _ensure_initialized():
-    """lazy init — 매시간 구독 등록"""
-    global _initialized
-    if _initialized:
-        return
-    _initialized = True
-    from engine.event_core import subscribe_time_elapsed
-    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
-    print("[laundry] 시간 구독 등록")
 
 
 def _on_time_elapsed(millis):
@@ -162,7 +152,7 @@ def _complete_machine(unit_id):
 
 def reset():
     """챕터 전환 초기화"""
-    global _initialized, _machines
-    _initialized = False
+    global _machines
     _machines = {}
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
     print("[laundry] reset")

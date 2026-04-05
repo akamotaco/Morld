@@ -12,6 +12,9 @@
 import random
 import morld
 from engine import lighting
+from engine.event_core import subscribe_time_elapsed
+
+MILLIS_PER_HOUR = 3_600_000
 
 
 # ========================================
@@ -493,20 +496,6 @@ def auto_exit_stealth_for_interaction():
 # 30분 주기 감지 (시간 구독)
 # ========================================
 
-_initialized = False
-
-
-def _ensure_initialized():
-    """lazy init — 30분 주기 구독 등록"""
-    global _initialized
-    if _initialized:
-        return
-    _initialized = True
-    from events import subscribe_time_elapsed
-    subscribe_time_elapsed(_on_stealth_check, min_interval=1_800_000)  # 30분
-    print("[stealth] 30분 주기 감지 구독 등록")
-
-
 def _on_stealth_check(millis):
     """30분마다 플레이어 위치의 은신 NPC 감지 재판정"""
     player_id = morld.get_player_id()
@@ -520,6 +509,4 @@ def _on_stealth_check(millis):
 
 def reset():
     """챕터 전환 초기화"""
-    global _initialized
-    _initialized = False
-    print("[stealth] reset")
+    subscribe_time_elapsed(_on_stealth_check, min_interval=MILLIS_PER_HOUR // 2)

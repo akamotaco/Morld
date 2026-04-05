@@ -30,25 +30,14 @@ DEFAULT_FUEL_MAX = 24   # 기본 최대 연료 (24시간)
 # 등록된 소비형 열원: {unit_id: {"region_id", "location_id"}}
 _fuel_sources = {}
 
-_initialized = False
-
-
 def register_fuel_source(unit_id, region_id, location_id):
     """소비형 열원 등록 (PortableStove/DrumBath instantiate에서 호출)"""
-    _ensure_initialized()
     _fuel_sources[unit_id] = {
         "region_id": region_id,
         "location_id": location_id,
     }
     print(f"[fuel] Fuel source registered: unit={unit_id} at ({region_id},{location_id})")
 
-
-def _ensure_initialized():
-    global _initialized
-    if _initialized:
-        return
-    _initialized = True
-    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
 
 
 def _on_time_elapsed(millis):
@@ -176,6 +165,5 @@ def get_sources_in_region(region_id):
 
 def reset():
     """챕터 전환 시 초기화"""
-    global _initialized
     _fuel_sources.clear()
-    _initialized = False
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)
