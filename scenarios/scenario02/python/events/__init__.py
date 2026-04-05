@@ -14,33 +14,12 @@ from . import registry
 # ========================================
 # 시간 경과 이벤트 구독 시스템
 # ========================================
+# engine/event_core.py에서 제공. 하위 호환을 위해 re-export.
 # NOTE: subscribe_time_elapsed는 다른 모듈에서 모듈 로드 시점에
 # from events import subscribe_time_elapsed 로 사용하므로,
 # 순환 import를 피하기 위해 서브모듈 import보다 먼저 정의해야 함.
 
-_time_elapsed_subscribers = []
-
-
-def subscribe_time_elapsed(callback, min_interval=None):
-    """
-    시간 경과 이벤트 구독
-
-    Args:
-        callback: 콜백 함수 (millis) -> None
-        min_interval: 최소 호출 간격 (밀리초). None이면 매 호출마다 실행
-
-    Example:
-        # 매번 호출
-        subscribe_time_elapsed(lambda ms: print(f"{ms}ms 경과"))
-
-        # 60분(3,600,000ms)마다 호출
-        subscribe_time_elapsed(my_hourly_callback, min_interval=3_600_000)
-    """
-    _time_elapsed_subscribers.append({
-        "callback": callback,
-        "min_interval": min_interval,
-        "accumulated": 0,
-    })
+from engine.event_core import subscribe_time_elapsed  # re-export
 
 
 # 이벤트 클래스 import (자동 등록)
@@ -59,31 +38,9 @@ import stealth
 
 
 def _handle_time_elapsed(millis):
-    """
-    시간 경과 이벤트 처리 - 모든 구독자에게 알림
-
-    Args:
-        millis: 경과 시간 (밀리초)
-    """
-    for subscriber in _time_elapsed_subscribers:
-        callback = subscriber["callback"]
-        min_interval = subscriber["min_interval"]
-
-        if min_interval is None:
-            # 매번 호출
-            try:
-                callback(millis)
-            except Exception as e:
-                print(f"[events] time_elapsed callback error: {e}")
-        else:
-            # 누적 시간 기반 호출
-            subscriber["accumulated"] += millis
-            while subscriber["accumulated"] >= min_interval:
-                subscriber["accumulated"] -= min_interval
-                try:
-                    callback(min_interval)
-                except Exception as e:
-                    print(f"[events] time_elapsed callback error: {e}")
+    """시간 경과 이벤트 처리 — engine/event_core로 위임"""
+    from engine.event_core import dispatch_time_elapsed
+    dispatch_time_elapsed(millis)
 
 
 
