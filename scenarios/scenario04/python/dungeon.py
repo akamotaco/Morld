@@ -184,9 +184,13 @@ def enter_dungeon(floor: int = 1, spawn_player: bool = True) -> bool:
         morld.add_gate(region_id, r2["id"], 1, 10,
                       region_id, r1["id"], r1["length"] - 10)
 
-    # 입구와 마을 연결
+    # 입구와 마을 양방향 연결
     if floor == 1:
         first_room = floor_data["rooms"][0]
+        # 마을 던전입구(loc 7) → F1 첫 방
+        morld.add_gate(DUNGEON_ENTRANCE_REGION, DUNGEON_ENTRANCE_LOCATION, 8, 90,
+                      region_id, first_room["id"], 10)
+        # F1 첫 방 → 마을 던전입구
         morld.add_gate(region_id, first_room["id"], 2, 0,
                       DUNGEON_ENTRANCE_REGION, DUNGEON_ENTRANCE_LOCATION, 50)
 

@@ -241,6 +241,36 @@ namespace SE
                             gate.AddConditionBackward(key, value);
                     }
 
+                    // cross-region Gate → 자동 RegionGate 등록
+                    // 시나리오에서 add_region_gate를 별도 호출할 필요 없음
+                    if (connectedRegion != regionId)
+                    {
+                        // 중복 등록 방지: 이미 존재하는 RegionGate인지 확인
+                        bool exists = false;
+                        foreach (var rg in terrain.RegionGates)
+                        {
+                            if ((rg.FromRegionId == regionId && rg.FromLocationId == locationId &&
+                                 rg.ToRegionId == connectedRegion && rg.ToLocationId == connectedLocation) ||
+                                (rg.FromRegionId == connectedRegion && rg.FromLocationId == connectedLocation &&
+                                 rg.ToRegionId == regionId && rg.ToLocationId == locationId))
+                            {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists)
+                        {
+                            var regionGate = new Morld.RegionGate(
+                                terrain.RegionGates.Count,
+                                regionId, locationId,
+                                connectedRegion, connectedLocation
+                            );
+                            regionGate.SetDistance(gateDistance > 0 ? gateDistance : 60f);
+                            terrain.AddRegionGate(regionGate);
+                            Godot.GD.Print($"[morld] add_gate: auto RegionGate {regionId}:{locationId} <-> {connectedRegion}:{connectedLocation}");
+                        }
+                    }
+
                     Godot.GD.Print($"[morld] add_gate: {regionId}:{locationId}:Gate{gateId}(X={x}) -> {connectedRegion}:{connectedLocation}(X={arrivalX})");
                     return PyBool.True;
                 }
