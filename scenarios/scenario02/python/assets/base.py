@@ -36,6 +36,18 @@ from ui_style import (
     style_muted, style_highlight, style_info, style_danger, style_success,
 )
 
+# Pi-World Engine 베이스 클래스
+from engine.asset_base import (
+    TextSelector as _EngineTextSelector,
+    select_text as _engine_select_text,
+    Asset as _EngineAsset,
+    Unit as _EngineUnit,
+    CharacterBase as _CharacterBase,
+    ObjectBase as _ObjectBase,
+    ItemBase as _ItemBase,
+    LocationBase as _LocationBase,
+)
+
 # 나체 발각 추가 페널티 (on_romance_discovered에서 파트너 노출 시 적용)
 EXPOSURE_DISCOVERY_PENALTY = {"호감": -3, "반발": 5}
 
@@ -1291,9 +1303,9 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
     return rules
 
 
-class Character(Unit):
+class Character(_CharacterBase):
     """
-    캐릭터 클래스 (NPC, 플레이어)
+    캐릭터 클래스 (NPC, 플레이어) — S02 확장
 
     Rule 기반 텍스트 선택 시스템:
     - DESCRIBE_RULES: 장소에서 보이는 묘사 규칙
@@ -5040,9 +5052,9 @@ class Character(Unit):
         return handler()
 
 
-class Object(Unit):
+class Object(_ObjectBase):
     """
-    오브젝트 클래스 (가구, 바닥 등)
+    오브젝트 클래스 (가구, 바닥 등) — S02 확장
 
     메서드 오버라이드:
     - get_focus_text(): Focus 상태일 때 묘사 (클릭했을 때)
@@ -5325,9 +5337,9 @@ class Object(Unit):
         register_instance(instance_id, self)
 
 
-class Item(Asset):
+class Item(_ItemBase):
     """
-    아이템 클래스
+    아이템 클래스 — S02 확장
 
     클래스 속성:
     - passive_props: 소유 효과
@@ -5426,9 +5438,9 @@ class Item(Asset):
         yield ui.dialog("\n".join(lines))
 
 
-class Location(Asset):
+class Location(_LocationBase):
     """
-    Location 클래스
+    Location 클래스 — S02 확장
 
     클래스 속성:
     - is_indoor: 실내 여부
