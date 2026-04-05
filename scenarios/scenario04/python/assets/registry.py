@@ -126,3 +126,11 @@ def get_or_create_item_id(unique_id: str) -> Optional[int]:
 def clear():
     _instance_map.clear()
     _reverse_map.clear()
+
+
+def reset():
+    """챕터 전환 시 리셋"""
+    clear()
+    _item_classes.clear()
+    _object_classes.clear()
+    _character_classes.clear()

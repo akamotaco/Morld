@@ -235,6 +235,13 @@ def _on_time_elapsed(millis):
                         morld.set_unit_prop(item_id, PROP_POLLUTION, new_char_pol)
 
 
+# === 리셋 ===
+
+def reset():
+    """챕터 전환 시 리셋"""
+    _location_pollution.clear()
+
+
 # === 모듈 로드 시 이벤트 구독 (1시간 간격) ===
 
 subscribe_time_elapsed(_on_time_elapsed, min_interval=MILLIS_PER_HOUR)

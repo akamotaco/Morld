@@ -277,3 +277,8 @@ def get_detection_brightness() -> float:
         float: 0.0 ~ 1.0
     """
     return get_location_brightness()
+
+
+def reset():
+    """챕터 전환 시 리셋 (상태 없음 — 인터페이스 통일)"""
+    pass

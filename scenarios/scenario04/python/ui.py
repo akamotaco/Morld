@@ -146,7 +146,7 @@ def _get_tab_label_line():
         if i == view_tab:
             parts.append(c(ACCENT, f"[▶{label}]"))
         else:
-            parts.append(f"[url=tab:{i}][{label}][/url]")
+            parts.append(f"[url=tab:{i}%][{label}][/url]")
     return "  ".join(parts)
 
 
@@ -156,7 +156,6 @@ def _get_tab_label_line():
 
 def _render_map_tab():
     try:
-        import map_coords
         player_id = morld.get_player_id()
         if not player_id:
             return "지도를 표시할 수 없습니다."
@@ -164,17 +163,8 @@ def _render_map_tab():
         if not current_loc:
             return "현재 위치를 알 수 없습니다."
 
-        region_id = current_loc[0]
-        all_coords = map_coords.get_all(region_id)
-        if not all_coords:
-            return _render_map_tab_fallback(region_id, current_loc[1], player_id)
-
-        import region_map
-        result = region_map.render_region_map(
-            region_id, current_loc[1], player_id, all_coords,
-            show_characters=False
-        )
-        return result or _render_map_tab_fallback(region_id, current_loc[1], player_id)
+        from village_map import render_village_map
+        return render_village_map(current_loc[0])
     except Exception as e:
         print(f"[ui] _render_map_tab error: {e}")
         return f"지도 오류: {e}"

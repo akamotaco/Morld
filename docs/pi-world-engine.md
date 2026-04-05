@@ -143,6 +143,60 @@ class Character(CharacterBase):
 
 ---
 
+## 엔진 모듈 공통 인터페이스
+
+모든 엔진 모듈은 다음 인터페이스를 **반드시** 제공한다.
+
+### 필수: `reset()`
+
+```python
+def reset():
+    """챕터 전환 시 모듈 상태 초기화"""
+```
+
+- 모든 내부 상태(`_registry`, `_accumulated`, `_initialized` 등)를 초기값으로 복원
+- 상태가 없는 모듈(equipment, lighting)도 빈 `reset()` 제공 (인터페이스 통일)
+- 시나리오의 `chapters/__init__.py`에서 `module.reset()` 호출을 보장
+
+**왜 필수인가**: 시나리오가 엔진 모듈을 `import` 후 `reset()` 호출하는 것은 **보편적 계약**이다.
+S02에서 호출하지 않더라도 S04에서 호출할 수 있고, 향후 시나리오도 마찬가지.
+`reset()` 없으면 `AttributeError`로 초기화 실패 → 전체 시나리오 부팅 차단.
+
+### 권장: `register_*()`
+
+시나리오가 데이터를 주입하는 등록 함수. 모듈에 따라 이름이 다름:
+
+```python
+# survival.py
+def register_character(unit_id): ...
+
+# pollution.py
+def register_location(region_id, loc_id, max, rate): ...
+
+# spawner.py
+def register_spawn_source(source_id, ...): ...
+```
+
+### 권장: 시간 구독
+
+시간 기반 업데이트가 필요한 모듈은 모듈 로드 시 자동 구독:
+
+```python
+from engine.event_core import subscribe_time_elapsed
+subscribe_time_elapsed(_on_time_elapsed, min_interval=3_600_000)
+```
+
+### 인터페이스 체크리스트
+
+새 엔진 모듈 추가 시:
+- [ ] `reset()` 함수 있는가?
+- [ ] `from engine.event_core import subscribe_time_elapsed` 사용하는가? (시간 의존 시)
+- [ ] `from engine.region_registry import get_region_ids` 사용하는가? (region 순회 시)
+- [ ] 시나리오 콘텐츠를 import하지 않는가?
+- [ ] 내부 상태는 `_` prefix로 private인가?
+
+---
+
 ## S02 래퍼 패턴
 
 S02의 기존 모듈은 engine으로 이동 후 **sys.modules 교체 래퍼**로 대체:

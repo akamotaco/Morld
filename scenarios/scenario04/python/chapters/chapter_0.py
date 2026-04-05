@@ -138,10 +138,14 @@ def initialize():
     t = TIME_SETTINGS
     morld.set_time(t["year"], t["month"], t["day"], t["hour"], t.get("minute", 0))
 
-    # 5. 플레이어 생성
+    # 5. 어둠 마스킹 활성화
+    import ui
+    ui.set_darkness_masking(True)
+
+    # 6. 플레이어 생성
     _instantiate_player()
 
-    # 6. 마을 NPC 스케줄 초기화
+    # 7. 마을 NPC 스케줄 초기화
     import village_schedule
     village_schedule.initialize()
 

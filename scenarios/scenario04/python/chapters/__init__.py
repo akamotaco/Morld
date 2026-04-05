@@ -30,6 +30,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
         morld.clear_world()
 
     # 2. 전체 시스템 리셋
+    from engine import event_core
     import temperature, humidity, pollution, survival
     import needs, congestion, stealth
     import erosion, economy, morale, trust, quirk
@@ -38,6 +39,9 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import map_coords
     import npc_party_ai, village_schedule, village_map
     import world_knowledge, reputation
+
+    # 엔진
+    event_core.reset()
 
     # 환경
     temperature.reset()

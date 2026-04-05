@@ -139,9 +139,24 @@ def add_health(unit_id: int, amount: int):
 # ========================================
 
 def register_npc(unit_id: int):
-    """NPC를 만복도 추적 대상에 등록 (Agent __init__에서 호출)"""
+    """NPC를 만복도 추적 대상에 등록 (Agent __init__에서 호출)
+
+    prop이 없으면 기본값으로 초기화 (선택적 속성 원칙).
+    """
     _npc_registry.add(unit_id)
     _npc_accumulated[unit_id] = 0
+
+    # 기본 prop 초기화 (없으면)
+    if morld.get_unit_prop(unit_id, "생존:포만감") is None:
+        morld.set_unit_prop(unit_id, "생존:포만감", 80)
+    if morld.get_unit_prop(unit_id, "생존:체력") is None:
+        morld.set_unit_prop(unit_id, "생존:체력", 100)
+    if morld.get_unit_prop(unit_id, "생존:최대체력") is None:
+        morld.set_unit_prop(unit_id, "생존:최대체력", 100)
+
+
+# alias — 시나리오 호환 (S04는 register_character 사용)
+register_character = register_npc
 
 
 def is_npc_hungry(unit_id: int, threshold: int = 30) -> bool:

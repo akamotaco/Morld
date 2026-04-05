@@ -210,6 +210,11 @@ def clear():
     _reverse_map.clear()
 
 
+def reset():
+    """챕터 전환 시 리셋 (clear와 동일 — 엔진 공통 인터페이스)"""
+    clear()
+
+
 def get_stats() -> dict:
     """등록 통계 반환"""
     return {

@@ -74,3 +74,8 @@ def get_equipped_items(unit_id: int) -> list:
         장착 아이템 ID 리스트
     """
     return morld.get_equipped_items(unit_id)
+
+
+def reset():
+    """챕터 전환 시 리셋 (상태 없음 — 인터페이스 통일)"""
+    pass
