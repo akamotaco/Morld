@@ -15,18 +15,32 @@ import morld
 
 # 소리 강도 (소리 타입별 기본 강도)
 SOUND_INTENSITIES = {
+    # 이동
     "footstep": 20,
     "footstep_run": 40,
+    "footstep_crouch": 10,
+    # 전투
     "combat": 80,
     "scream": 100,
     "gunshot": 120,
+    # 작업
     "chop": 50,
     "cooking": 10,
     "splash": 25,
+    "craft": 35,
+    # 사고/환경
     "animal": 60,
     "crash": 70,
+    # 생활
     "door": 30,
     "talk": 15,
+    "whisper": 5,
+    "stand_up": 35,
+    "sit_down": 25,
+    "pickup": 15,
+    "equip": 20,
+    "eat": 10,
+    # 친밀
     "moan": 20,
 }
 
@@ -34,16 +48,24 @@ SOUND_INTENSITIES = {
 SOUND_CATEGORIES = {
     "footstep": "이동",
     "footstep_run": "이동",
+    "footstep_crouch": "이동",
     "combat": "전투",
     "scream": "전투",
     "gunshot": "전투",
     "chop": "작업",
     "cooking": "작업",
     "splash": "작업",
+    "craft": "작업",
     "animal": "자연",
     "crash": "사고",
     "door": "생활",
     "talk": "생활",
+    "whisper": "생활",
+    "stand_up": "생활",
+    "sit_down": "생활",
+    "pickup": "생활",
+    "equip": "생활",
+    "eat": "생활",
     "moan": "친밀",
 }
 
@@ -53,6 +75,9 @@ HEARING_THRESHOLD = {
     "normal": 15,
     "dull": 30,
 }
+
+# 은신 자동 해제 threshold (이 강도 이상의 소리를 내면 은신 해제)
+STEALTH_BREAK_THRESHOLD = 30
 
 # 감쇠 상수: 이 거리에서 강도 절반 (location units)
 ATTENUATION_HALF = 500
@@ -270,6 +295,13 @@ def emit_sound(source_id, sound_type, intensity=None, location=None):
     if intensity is None:
         intensity = SOUND_INTENSITIES.get(sound_type, 20)
 
+    # 의류 소음 보정: 이동/자세 계열 소리는 장비 소음 속성에 따라 강도 변동
+    if sound_type in _EQUIPMENT_NOISE_TYPES:
+        intensity = _apply_equipment_noise(source_id, intensity)
+
+    # 은신 자동 판정: 소리 발생자가 은신 중이고 강도가 threshold 이상이면 해제
+    _check_stealth_break(source_id, intensity)
+
     # source 위치 확인
     if location is None:
         info = morld.get_unit_info(source_id)
@@ -447,3 +479,56 @@ def get_heard_texts(unit_id):
             texts.append(text)
 
     return texts
+
+
+# === 의류 소음 보정 ===
+
+# 장비 소음 속성의 영향을 받는 소리 타입
+_EQUIPMENT_NOISE_TYPES = {
+    "footstep", "footstep_run", "footstep_crouch",
+    "stand_up", "sit_down",
+}
+
+
+def _apply_equipment_noise(unit_id, base_intensity):
+    """장비 소음 속성으로 강도 보정
+
+    equip_props '소음' 합산:
+      0 (기본/맨몸): 보정 없음
+      양수 (갑옷/금속): 강도 증가 (1당 +10%)
+      음수 (천/가죽): 강도 감소 (1당 -10%)
+    """
+    try:
+        equipped = morld.get_equipped_items(unit_id)
+        if not equipped:
+            return base_intensity
+        noise_mod = 0
+        for item_id in equipped:
+            info = morld.get_item_info(item_id)
+            if info:
+                noise_mod += info.get("equip_props", {}).get("소음", 0)
+        if noise_mod == 0:
+            return base_intensity
+        # 1당 ±10%, 최소 10% 유지
+        factor = max(0.1, 1.0 + noise_mod * 0.1)
+        return int(base_intensity * factor)
+    except Exception:
+        return base_intensity
+
+
+# === 은신 연동 ===
+
+def _check_stealth_break(source_id, intensity):
+    """소리 강도가 threshold 이상이면 은신 자동 해제
+
+    소리의 물리적 결과로 은신이 깨지는 시스템.
+    시나리오별 확장은 stealth.on_stealth_noise() 콜백으로 위임.
+    """
+    if intensity < STEALTH_BREAK_THRESHOLD:
+        return
+
+    from engine import stealth
+    if not stealth.is_unit_stealthed(source_id):
+        return
+
+    stealth.on_stealth_noise(source_id, intensity)

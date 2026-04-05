@@ -507,6 +507,15 @@ def _on_stealth_check(millis):
     detect_stealthed_npcs(loc[0], loc[1])
 
 
+def on_stealth_noise(source_id: int, intensity: float):
+    """소리에 의한 은신 해제 콜백 (sound.py에서 호출)
+
+    기본 구현: 개인 은신 해제.
+    시나리오별 오버라이드 가능 (S04: 파티 은신 해제).
+    """
+    exit_unit_stealth(source_id)
+
+
 def reset():
     """챕터 전환 초기화"""
     subscribe_time_elapsed(_on_stealth_check, min_interval=MILLIS_PER_HOUR // 2)
