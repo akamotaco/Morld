@@ -86,8 +86,7 @@ class MockMorld:
         for k in to_remove:
             del self._gates[k]
 
-    def add_region_gate(self, region_a, loc_a, region_b, loc_b, distance=0):
-        self._region_gates.append((region_a, loc_a, region_b, loc_b, distance))
+    # add_region_gate 삭제 — cross-region은 add_gate로 통일
 
     def reinitialize_locations(self):
         pass

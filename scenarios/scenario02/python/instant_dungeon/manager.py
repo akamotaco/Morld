@@ -81,12 +81,19 @@ def create_dungeon_entrance(spec, seed, entrance_gate=None):
     except ImportError:
         pass
 
-    # 외부 ↔ 입구 Gate
+    # 외부 ↔ 입구 양방향 Gate (add_gate)
     if entrance_gate:
         ext_r = entrance_gate["region_id"]
         ext_l = entrance_gate["location_id"]
-        distance = entrance_gate.get("distance", 60)
-        morld.add_region_gate(ext_r, ext_l, region_id, entrance_loc, distance)
+        # 외부 Location 길이 조회 → 끝에 Gate 배치
+        ext_info = morld.get_location_info(ext_r, ext_l)
+        ext_length = ext_info.get("length", 100) if ext_info else 100
+        # 외부→던전 입구
+        morld.add_gate(ext_r, ext_l, 100, max(0, ext_length - 10),
+                       region_id, entrance_loc, 10)
+        # 던전 입구→외부
+        morld.add_gate(region_id, entrance_loc, 100, 10,
+                       ext_r, ext_l, max(0, ext_length - 10))
 
     # dungeon_info 초기화
     info = {
@@ -269,9 +276,13 @@ def _create_floor_stub(info, floor_num, from_region_id, from_location_id):
     except ImportError:
         pass
 
-    # 계단 Gate: 이전 층 stairs_down ↔ 이 층 stub
-    morld.add_region_gate(from_region_id, from_location_id,
-                          stub_region_id, stub_loc, 30)
+    # 계단 Gate: 이전 층 stairs_down ↔ 이 층 stub (양방향 add_gate)
+    from_info = morld.get_location_info(from_region_id, from_location_id)
+    from_length = from_info.get("length", 100) if from_info else 100
+    morld.add_gate(from_region_id, from_location_id, 101, max(0, from_length - 10),
+                   stub_region_id, stub_loc, 10)
+    morld.add_gate(stub_region_id, stub_loc, 101, 10,
+                   from_region_id, from_location_id, max(0, from_length - 10))
 
     info["floor_stubs"][floor_num] = {
         "region_id": stub_region_id,

@@ -1243,25 +1243,8 @@ public class Terrain
             });
         }
 
-        // RegionGate (Legacy support)
-        foreach (var regionGate in GetRegionGatesFrom(from))
-        {
-            if (regionGate.IsBlocked) continue;
-
-            var conditions = regionGate.GetConditions(from);
-            var (canPass, blockedReason, isHidden) = CheckConditionsWithHiddenMarker(conditions, actualProps);
-
-            var destination = regionGate.GetOtherLocation(from);
-            routes.Add(new RawRouteInfo
-            {
-                Destination = destination,
-                TravelTime = Location.DistanceToTime(regionGate.Distance, speedModifier),
-                IsRegionGate = true,
-                IsBlocked = !canPass,
-                BlockedReason = blockedReason,
-                IsHidden = isHidden
-            });
-        }
+        // RegionGate 레거시 제거 — cross-region은 Gate에서 직접 처리
+        // (Gate의 ConnectedLocation.RegionId != from.RegionId → isRegionGate=true)
 
         return routes;
     }

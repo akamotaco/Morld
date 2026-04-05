@@ -208,17 +208,8 @@ def _ensure_initialized():
                 gate_dist = gate.get("distance", 0)
                 _adjacency[key].append((cr, cl, gate_dist))
 
-            # RegionGate 기반 인접 (다른 region)
-            region_gates = loc.get("region_gates", [])
-            for rg in region_gates:
-                if len(rg) >= 4:
-                    cr, cl, _name, rg_dist = rg[0], rg[1], rg[2], rg[3]
-                elif len(rg) >= 3:
-                    cr, cl, _name = rg[0], rg[1], rg[2]
-                    rg_dist = 0
-                else:
-                    continue
-                _adjacency[key].append((cr, cl, rg_dist))
+            # RegionGate 레거시 제거 — cross-region도 Gate에서 처리
+            # (Gate의 connected_region이 다른 region이면 자동으로 인접 등록됨)
 
     # region 데이터가 없으면 초기화 연기 (다음 호출 시 재시도)
     if not _location_info:

@@ -165,30 +165,8 @@ namespace SE
             });
 
             // add_region_gate
-            morldModule.ModuleDict["add_region_gate"] = new PyBuiltinFunction("add_region_gate", args =>
-            {
-                if (args.Length < 4)
-                    throw PyTypeError.Create("add_region_gate(from_region, from_local, to_region, to_local, distance_ab=1800, distance_ba=distance_ab) requires at least 4 arguments");
-
-                int fromRegion = args[0].ToInt();
-                int fromLocal = args[1].ToInt();
-                int toRegion = args[2].ToInt();
-                int toLocal = args[3].ToInt();
-                float distance = args.Length >= 5 ? (float)args[4].ToDouble() : 1800f; // Python: location units
-
-                var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
-
-                var terrain = _worldSystem.GetTerrain();
-                var regionGate = new Morld.RegionGate(
-                    terrain.RegionGates.Count,
-                    fromRegion, fromLocal,
-                    toRegion, toLocal
-                );
-                regionGate.SetDistance(distance);
-                terrain.AddRegionGate(regionGate);
-                Godot.GD.Print($"[morld] add_region_gate: {fromRegion}:{fromLocal} <-> {toRegion}:{toLocal} (distance={distance})");
-                return PyBool.True;
-            });
+            // add_region_gate 삭제 — cross-region은 add_gate로 통일
+            // Gate의 connected_region != region_id이면 자동으로 cross-region 처리
 
             // add_gate: Pi-World Gate 추가 (Location 간 연결)
             // add_gate(region_id, location_id, gate_id, x, connected_region, connected_location, arrival_x,

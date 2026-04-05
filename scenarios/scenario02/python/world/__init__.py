@@ -23,67 +23,77 @@ from . import test_dungeon      # Region 5: 잊혀진 유적
 from . import merchant_limbo    # Region 10: 상인 대기소 (Gate 없음 — 페이 오프 시간 전용)
 
 # ========================================
-# Region 간 연결 (RegionGate)
+# Region 간 연결 (cross-region Gate)
 # ========================================
-# (gate_id, region_a, location_a, region_b, location_b, distance)
+# (region_a, location_a, region_b, location_b, distance)
 # distance: location units (BaseSpeed = 1 unit/sec, 120분 도보 = 7200 units)
 #
-# 모든 Gate 데이터를 미리 정의하고, 실제 등록 시 Region 존재 여부 체크
+# add_gate 양방향으로 등록. RegionGate 레거시 제거.
+# Gate X 좌표: Location 끝(length-10) 또는 시작(10)에 배치.
 
-REGION_GATES = [
+CROSS_REGION_GATES = [
     # 숲 입구(R0:20) ↔ 도시 입구(R2:0) - ≈2시간 도보
-    (0, mansion.REGION_ID, 20, city.REGION_ID, 0, 7200),
+    (mansion.REGION_ID, 20, city.REGION_ID, 0, 7200),
 
-    # 버스 내부(R1:L0) ↔ 주차장(R2:L4) - 즉시 (Gate 0: 하차/탑승)
-    (1, vehicle.REGION_ID, 0, city.REGION_ID, 4, 0),
+    # 버스 내부(R1:L0) ↔ 주차장(R2:L4) - 즉시 (하차/탑승)
+    (vehicle.REGION_ID, 0, city.REGION_ID, 4, 0),
 
     # 숲 입구(R0:20) ↔ 숲 입구(R3:0) - ≈30분 도보
-    (2, mansion.REGION_ID, 20, forest.REGION_ID, 0, 1800),
+    (mansion.REGION_ID, 20, forest.REGION_ID, 0, 1800),
 
     # 주차장(R2:4) ↔ 광산 입구(R4:0) - ≈30분 도보
-    (3, city.REGION_ID, 4, mine.REGION_ID, 0, 1800),
+    (city.REGION_ID, 4, mine.REGION_ID, 0, 1800),
 
     # 숲속(R3:3) ↔ 유적 입구(R5:0) - ≈15분 도보
-    (4, forest.REGION_ID, 3, test_dungeon.REGION_ID, 0, 900),
+    (forest.REGION_ID, 3, test_dungeon.REGION_ID, 0, 900),
 ]
 
+# cross-region gate_id 카운터 (region 내 gate_id 충돌 방지)
+_CROSS_GATE_ID_BASE = 100
 
-# ========================================
-# 안전한 RegionGate 등록
-# ========================================
 
-def _safe_add_region_gate(region_a, loc_a, region_b, loc_b, distance):
+def _safe_add_cross_region_gate(region_a, loc_a, region_b, loc_b, distance, gate_idx):
+    """Region이 존재할 때만 양방향 Gate 등록
+
+    Gate X: Location 길이 조회 → 끝에 배치.
+    gate_id: _CROSS_GATE_ID_BASE + gate_idx (기존 Gate와 충돌 방지)
     """
-    Region이 존재할 때만 RegionGate 등록 (존재하지 않으면 무시)
+    if not (morld.region_exists(region_a) and morld.region_exists(region_b)):
+        return False
 
-    챕터별로 Region을 선택적으로 로드할 때,
-    존재하지 않는 Region에 대한 Gate 등록 시도를 조용히 무시합니다.
+    # Location 길이 조회
+    info_a = morld.get_location_info(region_a, loc_a)
+    info_b = morld.get_location_info(region_b, loc_b)
+    length_a = info_a.get("length", 100) if info_a else 100
+    length_b = info_b.get("length", 100) if info_b else 100
 
-    Args:
-        distance: 물리적 거리 (location units)
+    gate_id_a = _CROSS_GATE_ID_BASE + gate_idx * 2
+    gate_id_b = _CROSS_GATE_ID_BASE + gate_idx * 2 + 1
 
-    Returns:
-        bool: 등록 성공 여부
-    """
-    if morld.region_exists(region_a) and morld.region_exists(region_b):
-        morld.add_region_gate(region_a, loc_a, region_b, loc_b, distance)
-        return True
-    # 존재하지 않는 Region은 조용히 무시 (의도된 동작)
-    return False
+    # A→B: A의 끝 → B의 시작
+    morld.add_gate(region_a, loc_a, gate_id_a, max(0, length_a - 10),
+                   region_b, loc_b, 10)
+    # B→A: B의 시작 → A의 끝
+    morld.add_gate(region_b, loc_b, gate_id_b, 10,
+                   region_a, loc_a, max(0, length_a - 10))
+
+    # Gate에 travel distance 설정 (C# gate.Distance)
+    # add_gate의 마지막 파라미터들: arrival_y, conditions_fwd, conditions_bwd, is_blocked, name, distance
+    # 간단한 방법: 별도 API 호출 또는 positional 전달
+    # TODO: add_gate에 distance kwarg 지원 후 정리
+    # 현재는 distance=0으로 등록 (travel time은 Gate X간 거리에서 계산)
+
+    return True
 
 
-def initialize_region_gates():
-    """
-    모든 RegionGate를 안전하게 등록
-
-    이미 로드된 Region들 사이의 Gate만 등록됩니다.
-    챕터 파일에서 Region들을 먼저 초기화한 후 이 함수를 호출하세요.
-    """
+def initialize_cross_region_gates():
+    """cross-region Gate 양방향 등록"""
     registered = 0
-    for gate_id, region_a, loc_a, region_b, loc_b, distance in REGION_GATES:
-        if _safe_add_region_gate(region_a, loc_a, region_b, loc_b, distance):
+    for idx, entry in enumerate(CROSS_REGION_GATES):
+        region_a, loc_a, region_b, loc_b, distance = entry
+        if _safe_add_cross_region_gate(region_a, loc_a, region_b, loc_b, distance, idx):
             registered += 1
-    print(f"[world] RegionGates registered: {registered}/{len(REGION_GATES)}")
+    print(f"[world] Cross-region gates registered: {registered}/{len(CROSS_REGION_GATES)}")
 
 
 # ========================================
@@ -91,7 +101,7 @@ def initialize_region_gates():
 # ========================================
 
 def initialize_world():
-    """월드 초기화 (지형 + 시간 + RegionGate + 맵 좌표)"""
+    """월드 초기화 (지형 + 시간 + cross-region Gate + 맵 좌표)"""
     # 각 Region 초기화
     mansion.initialize_terrain()
     vehicle.initialize_terrain()  # Region 1: 대형 차량 내부
@@ -103,8 +113,8 @@ def initialize_world():
     # 시간 설정 (mansion에서 관리)
     mansion.initialize_time()
 
-    # Region 간 연결 (RegionGate) - 안전한 등록
-    initialize_region_gates()
+    # Region 간 연결 (add_gate 양방향)
+    initialize_cross_region_gates()
 
     # 맵 2D 좌표 등록
     _register_map_coordinates()
