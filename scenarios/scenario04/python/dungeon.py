@@ -101,23 +101,32 @@ def _generate_floor(floor: int) -> dict:
     """
     # 방 개수: 상층 3~5, 중층 5~7, 하층 6~8, 심층 7~10
     if floor <= 5:
-        room_count = random.randint(3, 5)
+        room_count = random.randint(5, 8)
     elif floor <= 10:
-        room_count = random.randint(5, 7)
-    elif floor <= 15:
-        room_count = random.randint(6, 8)
-    else:
         room_count = random.randint(7, 10)
+    elif floor <= 15:
+        room_count = random.randint(8, 12)
+    else:
+        room_count = random.randint(10, 14)
 
     rooms = []
+    monster_placed = False
     for i in range(room_count):
         # 방 크기 (length): 좁은/중간/넓은
         size = random.choices(
             ["narrow", "medium", "wide"],
-            weights=[40, 40, 20],
+            weights=[30, 45, 25],
             k=1
         )[0]
         length = {"narrow": 100, "medium": 250, "wide": 500}[size]
+
+        is_boss = (i == room_count - 1 and floor in BOSS_FLOORS)
+        # 적 출현: 60% 확률, 마지막 방 전에 최소 1마리 보장
+        has_monster = random.random() < 0.6
+        if not monster_placed and i >= room_count // 2 and not has_monster:
+            has_monster = True  # 중반까지 적 없으면 강제 배치
+        if has_monster:
+            monster_placed = True
 
         rooms.append({
             "id": i,
@@ -125,8 +134,8 @@ def _generate_floor(floor: int) -> dict:
             "length": length,
             "size": size,
             "pollution": FLOOR_POLLUTION.get(floor, 10),
-            "has_boss": (i == room_count - 1 and floor in BOSS_FLOORS),
-            "has_monster": random.random() < 0.4,
+            "has_boss": is_boss,
+            "has_monster": has_monster or is_boss,
         })
 
     return {
@@ -184,15 +193,20 @@ def enter_dungeon(floor: int = 1, spawn_player: bool = True) -> bool:
         morld.add_gate(region_id, r2["id"], 1, 10,
                       region_id, r1["id"], r1["length"] - 10)
 
-    # 입구와 마을 양방향 연결
+    # 마을 던전입구(loc 7) ↔ F1 첫 방 양방향 연결
+    # 마을 → 던전 직행 (중간 단계 없음)
     if floor == 1:
         first_room = floor_data["rooms"][0]
-        # 마을 던전입구(loc 7) → F1 첫 방
+        # 마을 던전입구 → F1 첫 방 (입구 X=90 → 방 시작 X=10)
         morld.add_gate(DUNGEON_ENTRANCE_REGION, DUNGEON_ENTRANCE_LOCATION, 8, 90,
                       region_id, first_room["id"], 10)
-        # F1 첫 방 → 마을 던전입구
+        # F1 첫 방 → 마을 던전입구 (방 시작 X=0 → 입구 X=50)
         morld.add_gate(region_id, first_room["id"], 2, 0,
                       DUNGEON_ENTRANCE_REGION, DUNGEON_ENTRANCE_LOCATION, 50)
+
+    # 숏컷 층도 마을과 직접 연결
+    if floor in SHORTCUT_FLOORS and floor in _shortcuts_unlocked:
+        _connect_shortcut(floor)
 
     # 플레이어 이동
     if spawn_player:
