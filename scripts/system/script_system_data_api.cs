@@ -249,10 +249,10 @@ namespace SE
                         bool exists = false;
                         foreach (var rg in terrain.RegionGates)
                         {
-                            if ((rg.FromRegionId == regionId && rg.FromLocationId == locationId &&
-                                 rg.ToRegionId == connectedRegion && rg.ToLocationId == connectedLocation) ||
-                                (rg.FromRegionId == connectedRegion && rg.FromLocationId == connectedLocation &&
-                                 rg.ToRegionId == regionId && rg.ToLocationId == locationId))
+                            if ((rg.LocationA.RegionId == regionId && rg.LocationA.LocalId == locationId &&
+                                 rg.LocationB.RegionId == connectedRegion && rg.LocationB.LocalId == connectedLocation) ||
+                                (rg.LocationA.RegionId == connectedRegion && rg.LocationA.LocalId == connectedLocation &&
+                                 rg.LocationB.RegionId == regionId && rg.LocationB.LocalId == locationId))
                             {
                                 exists = true;
                                 break;
