@@ -13,13 +13,9 @@ MILLIS_PER_HOUR = 3_600_000
 
 _initialized = False
 
-# === 자세별 탐지 계수 ===
-POSTURE_COEFFICIENTS = {
-    "standing": 1.0,
-    "crouch": 0.5,
-    "lying": 0.3,
-    "sitting": 0.8,
-}
+# === 은신 가시도 ===
+STEALTH_VISIBILITY_HIDDEN = 0.3
+STEALTH_VISIBILITY_VISIBLE = 1.0
 
 # 척후 클래스 파티 보정 (파티에 척후가 있으면 전체 탐지율 x배)
 SCOUT_PARTY_MODIFIER = 0.6
@@ -48,17 +44,15 @@ def _ensure_initialized():
 # 탐지율 계산
 # ========================================
 
-def get_posture_coefficient(unit_id=None):
-    """자세 기반 탐지 계수"""
+def get_stealth_visibility(unit_id=None):
+    """은신 상태에 따른 가시도 반환 (0.3=은신, 1.0=비은신)"""
     if unit_id is None:
         unit_id = morld.get_player_id()
     if unit_id is None:
-        return 1.0
-    posture_props = morld.get_unit_props_by_type(unit_id, "posture")
-    if posture_props:
-        posture = list(posture_props.keys())[0]
-        return POSTURE_COEFFICIENTS.get(posture, 1.0)
-    return 1.0
+        return STEALTH_VISIBILITY_VISIBLE
+    if is_unit_stealthed(unit_id):
+        return STEALTH_VISIBILITY_HIDDEN
+    return STEALTH_VISIBILITY_VISIBLE
 
 
 def get_cover_coefficient(unit_id=None):
@@ -127,11 +121,11 @@ def calculate_detection_rate(unit_id=None, npc_id=None):
         return 1.0
 
     brightness = lighting.get_detection_brightness()
-    posture = get_posture_coefficient(unit_id)
+    visibility = get_stealth_visibility(unit_id)
     cover = get_cover_coefficient(unit_id)
     perception = get_npc_perception(npc_id) if npc_id else 1.0
 
-    rate = brightness * posture * cover * perception
+    rate = brightness * visibility * cover * perception
     return max(0.0, min(1.0, rate))
 
 
@@ -328,9 +322,9 @@ def detect_stealthed_npcs(region_id, location_id):
             continue
 
         brightness = lighting.get_detection_brightness()
-        npc_posture = get_posture_coefficient(uid)
+        npc_visibility = get_stealth_visibility(uid)
         npc_cover = get_cover_coefficient(uid)
-        rate = brightness * npc_posture * npc_cover * player_perception
+        rate = brightness * npc_visibility * npc_cover * player_perception
 
         if random.random() < rate:
             exit_unit_stealth(uid)
