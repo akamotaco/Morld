@@ -591,6 +591,18 @@ namespace SE
                 return result;
             });
 
+            // get_unit_name(unit_id) - 유닛 이름 반환 (없으면 빈 문자열)
+            morldModule.ModuleDict["get_unit_name"] = new PyBuiltinFunction("get_unit_name", args =>
+            {
+                if (args.Length < 1 || args[0] is PyNone)
+                    return new PyStr("");
+
+                int unitId = args[0].ToInt();
+                var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+                var unit = _unitSystem.FindUnit(unitId);
+                return new PyStr(unit?.Name ?? "");
+            });
+
             // get_characters_at_location(region_id, location_id) - Location에 있는 캐릭터 ID 목록 반환
             // 캐릭터만 반환 (IsObject=false), 이동 중인 유닛 제외
             morldModule.ModuleDict["get_characters_at_location"] = new PyBuiltinFunction("get_characters_at_location", args =>
