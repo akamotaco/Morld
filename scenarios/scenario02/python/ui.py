@@ -1791,8 +1791,7 @@ def get_action_text():
             seated_on = int(list(seated_on_props.keys())[0])  # object_id
 
     # 이동 불가 자세 확인 (눕기/앉기)
-    posture_info = POSTURE_INFO.get(player_posture)
-    can_move = posture_info["can_move"] if posture_info else True
+    can_move = player_posture not in ("sitting", "lying")
 
     # 이동 UI 항상 표시 (이동 불가 시 grey out)
     movement_info = morld.get_movement_info()
