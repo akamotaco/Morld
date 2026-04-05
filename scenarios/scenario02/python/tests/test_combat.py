@@ -622,7 +622,7 @@ class TestCover(_T):
         make_unit(1, accuracy=80, location=(0, 0))
         mock.set_unit_position(1, unit_x)
         # 웅크리기 자세 설정
-        mock.set_unit_prop(1, "posture:crouch", True)
+        mock.set_unit_prop(1, "stance:crouch", True)
 
         # 엄폐물 오브젝트 등록
         # cover_level: COVER_PARTIAL=1, COVER_HALF=2, COVER_FULL=3
@@ -676,7 +676,7 @@ class TestCover(_T):
         hit_normal = combat.calculate_hit_chance(10, 20)
 
         # 엄폐 설정
-        mock.set_unit_prop(20, "posture:crouch", True)
+        mock.set_unit_prop(20, "stance:crouch", True)
         mock.register_unit(200, name="테이블", props={"cover:level": 2},  # COVER_HALF
                            location=(0, 0))
         mock._units[200]["info"]["type"] = "object"

@@ -1035,11 +1035,11 @@ def _recompute_movement_injury(unit_id):
 # ── 엄폐 API ──
 
 def get_cover_bonus(unit_id):
-    """웅크리기 + 근처 오브젝트 → 엄폐 보너스 반환
+    """앉기(stance:crouch) + 근처 오브젝트 → 엄폐 보너스 반환
 
     Returns: {"evasion": int, "damage_reduction": float} or None
     """
-    if not morld.get_unit_prop(unit_id, "posture:crouch"):
+    if not morld.get_unit_prop(unit_id, "stance:crouch"):
         return None
 
     loc = morld.get_unit_location(unit_id)
