@@ -230,18 +230,30 @@ def clear_floor(floor: int):
     print(f"[dungeon] Floor {floor} cleared! (highest: {_highest_floor})")
 
 
-# === 방 진입 조우 ===
+# === 방 진입 조우 (2단계) ===
+#
+# 1D 공간: 방 진입 ≠ 즉시 전투.
+# 적은 방 내 특정 X에 존재. 플레이어 X가 감지 거리 내 접근 시 전투.
+#
+# Phase 1: on_room_enter_prepare() — 방 진입 시 적 존재 등록
+# Phase 2: engage_encounter() — 플레이어가 접근/전투 선택 시 호출
 
-def on_room_enter(region_id, location_id):
-    """방 진입 시 조우 판정 (on_reach 이벤트에서 호출)
+# 현재 방의 대기 중인 적 데이터
+_pending_encounter = None   # {"floor", "room_id", "enemies", "enemy_x"}
 
-    Returns:
-        dict: encounter 결과 또는 None (조우 없음)
+
+def on_room_enter_prepare(region_id, location_id):
+    """방 진입 시 적 존재 확인 + 대기 등록 (Phase 1)
+
+    전투를 즉시 시작하지 않음 — UI에 "적 발견" 선택지 표시를 위해 대기.
     """
+    global _pending_encounter
+    _pending_encounter = None
+
     # 던전 region인지 확인
     floor = region_id - DUNGEON_REGION_BASE
     if floor < 1 or floor > 20:
-        return None
+        return
 
     import creature_pool
     import morld
@@ -254,17 +266,97 @@ def on_room_enter(region_id, location_id):
     # 조우 판정
     enemies = creature_pool.get_encounter(floor, location_id)
     if not enemies:
+        return
+
+    # 적 X 좌표 결정 (방 중앙~후반부)
+    import random
+    floor_data = _current_dungeon["floors"].get(floor) if _current_dungeon else None
+    room_length = 250  # 기본값
+    if floor_data:
+        for room in floor_data["rooms"]:
+            if room["id"] == location_id:
+                room_length = room["length"]
+                break
+    enemy_x = random.randint(room_length // 3, room_length * 2 // 3)
+
+    _pending_encounter = {
+        "floor": floor,
+        "room_id": location_id,
+        "enemies": enemies,
+        "enemy_x": enemy_x,
+        "room_length": room_length,
+    }
+
+    # 행동 이름 (UI의 combat_lines.discover 활용)
+    discover_line = ""
+    if enemies and enemies[0].get("combat_lines"):
+        lines = enemies[0]["combat_lines"].get("discover", [])
+        if lines:
+            discover_line = random.choice(lines)
+
+    if discover_line:
+        print(f"[dungeon] {discover_line}")
+    else:
+        print(f"[dungeon] 전방에 무언가 있다. (X≈{enemy_x})")
+
+
+def has_pending_encounter():
+    """현재 방에 대기 중인 적이 있는가 (UI에서 확인)"""
+    return _pending_encounter is not None
+
+
+def get_pending_encounter_info():
+    """대기 중인 적 정보 (UI 표시용)
+
+    Returns:
+        dict: {"enemy_x", "enemy_names", "discover_text"} 또는 None
+    """
+    if not _pending_encounter:
         return None
+
+    import random
+    enemies = _pending_encounter["enemies"]
+    names = [e["name"] for e in enemies]
+
+    discover_text = ""
+    if enemies and enemies[0].get("combat_lines"):
+        lines = enemies[0]["combat_lines"].get("discover", [])
+        if lines:
+            discover_text = random.choice(lines)
+
+    return {
+        "enemy_x": _pending_encounter["enemy_x"],
+        "enemy_names": names,
+        "enemy_count": len(enemies),
+        "discover_text": discover_text,
+    }
+
+
+def engage_encounter():
+    """대기 중인 적과 전투 개시 (Phase 2 — 플레이어 선택 시 호출)
+
+    Returns:
+        dict: encounter 결과 또는 None
+    """
+    global _pending_encounter
+
+    if not _pending_encounter:
+        return None
+
+    enemies = _pending_encounter["enemies"]
+    floor = _pending_encounter["floor"]
+    room_id = _pending_encounter["room_id"]
+    _pending_encounter = None
 
     # 은신 판정
     import stealth as stealth_mod
+    stealth_success = False
     if stealth_mod.is_party_stealthed():
         rate = stealth_mod.calculate_party_detection_rate()
         import random
         if random.random() > rate:
-            # 미감지 → 선제 공격 or 우회 선택 (UI에서 처리)
-            print(f"[dungeon] Stealth success — enemies not alerted")
-            return {"type": "stealth_success", "enemies": enemies}
+            stealth_success = True
+            print(f"[dungeon] Stealth success — preemptive strike available")
 
     # 전투 개시
     import encounter_handler
@@ -272,17 +364,43 @@ def on_room_enter(region_id, location_id):
 
     # 전투 승리 → 방 클리어 기록
     if result and result.get("result") == "victory":
-        creature_pool.mark_cleared(floor, location_id, enemies)
+        import creature_pool
+        creature_pool.mark_cleared(floor, room_id, enemies)
 
         # 보스 방이면 층 클리어
         floor_data = _current_dungeon["floors"].get(floor) if _current_dungeon else None
         if floor_data:
             for room in floor_data["rooms"]:
-                if room["id"] == location_id and room.get("has_boss"):
+                if room["id"] == room_id and room.get("has_boss"):
                     clear_floor(floor)
                     break
 
     return result
+
+
+def skip_encounter():
+    """대기 중인 적을 회피 (수비형/회피형 적, 또는 우회 선택)
+
+    Returns:
+        bool: True=회피 성공
+    """
+    global _pending_encounter
+
+    if not _pending_encounter:
+        return False
+
+    enemies = _pending_encounter["enemies"]
+    behavior = enemies[0].get("behavior", "aggressive") if enemies else "aggressive"
+
+    # 선공형/잠복형은 회피 불가 (접근 시 강제 전투)
+    if behavior in ("aggressive", "ambush"):
+        print(f"[dungeon] Cannot skip — {behavior} enemy blocks the way")
+        return False
+
+    # 수비형/회피형/군집은 우회 가능
+    _pending_encounter = None
+    print(f"[dungeon] Encounter skipped — moved around {behavior} enemy")
+    return True
 
 
 # === 재편성 ===

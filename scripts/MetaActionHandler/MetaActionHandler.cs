@@ -155,6 +155,9 @@ public partial class MetaActionHandler
 			case "idle":
 				HandleIdleAction(parts);
 				break;
+			case "dungeon":
+				HandleDungeonAction(parts);
+				break;
 			case "wait":
 				HandleWaitAction(parts);
 				break;

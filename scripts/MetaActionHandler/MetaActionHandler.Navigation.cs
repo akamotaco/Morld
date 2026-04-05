@@ -650,6 +650,29 @@ public partial class MetaActionHandler
 	#endregion
 
 	/// <summary>
+	/// 던전 액션: dungeon:engage (전투 돌입), dungeon:skip (우회 시도)
+	/// Python dungeon.engage_encounter() / skip_encounter() 호출
+	/// </summary>
+	private void HandleDungeonAction(string[] parts)
+	{
+		if (parts.Length < 2) return;
+		string subAction = parts[1];
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null) return;
+
+		if (subAction == "engage")
+		{
+			scriptSystem.Execute("import dungeon; dungeon.engage_encounter()");
+		}
+		else if (subAction == "skip")
+		{
+			scriptSystem.Execute("import dungeon; dungeon.skip_encounter()");
+		}
+
+		_textUISystem?.RequestUpdateDisplay();
+	}
+
+	/// <summary>
 	/// 탭 전환 액션: tab:인덱스
 	/// 클릭으로 탭을 직접 전환
 	/// </summary>

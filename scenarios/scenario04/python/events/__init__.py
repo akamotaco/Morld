@@ -24,6 +24,17 @@ def on_reach(unit_id, region_id, location_id):
     except Exception:
         pass
 
+    # 던전 방 진입 → 적 존재 여부 등록 (플레이어만)
+    # 실제 전투는 플레이어가 접근 선택 시 발동 (X 거리 기반)
+    try:
+        import morld
+        player_id = morld.get_player_id()
+        if unit_id == player_id:
+            import dungeon
+            dungeon.on_room_enter_prepare(region_id, location_id)
+    except Exception as e:
+        print(f"[events] on_reach dungeon error: {e}")
+
 
 def on_leave(unit_id, region_id, location_id):
     """유닛이 Location을 떠날 때"""

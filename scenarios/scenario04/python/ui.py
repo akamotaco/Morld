@@ -472,6 +472,25 @@ def get_action_text():
     for action in default_actions:
         lines.append(action)
 
+    # 던전 조우 — 적 발견 시 전투/회피 선택지
+    try:
+        import dungeon
+        if dungeon.has_pending_encounter():
+            enc_info = dungeon.get_pending_encounter_info()
+            if enc_info:
+                lines.append("")
+                lines.append(style_danger("⚠ 전방에 적 발견:"))
+                if enc_info["discover_text"]:
+                    lines.append(f"  {style_muted(enc_info['discover_text'])}")
+                names = enc_info["enemy_names"]
+                count = enc_info["enemy_count"]
+                name_text = names[0] if count == 1 else f"{names[0]} x{count}"
+                lines.append(f"  {name_text} (X≈{enc_info['enemy_x']})")
+                lines.append(f"  [url=dungeon:engage]{style_danger('전투 돌입')}[/url]")
+                lines.append(f"  [url=dungeon:skip]우회 시도[/url]")
+    except Exception as e:
+        print(f"[ui] dungeon encounter display error: {e}")
+
     # 행동 섹션
     lines.append("")
     lines.append(style_info("행동:"))
