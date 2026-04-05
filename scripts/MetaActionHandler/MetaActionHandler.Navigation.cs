@@ -673,6 +673,22 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 파티 영입: recruit:unit_id
+	/// Python party.add_member(unit_id) 호출
+	/// </summary>
+	private void HandleRecruitAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int unitId)) return;
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null) return;
+
+		scriptSystem.Execute($"import party; party.add_member({unitId})");
+		// Focus 해제 → 상황 화면으로
+		var focusStack = _world.GetSystem("eventSystem") as SE.EventSystem;
+		_textUISystem?.RequestUpdateDisplay();
+	}
+
+	/// <summary>
 	/// 탭 전환 액션: tab:인덱스
 	/// 클릭으로 탭을 직접 전환
 	/// </summary>

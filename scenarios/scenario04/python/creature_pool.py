@@ -180,28 +180,15 @@ _room_state = {}
 
 RESPAWN_INTERVAL_MS = 10_800_000  # 3시간
 
-_initialized = False
-
-
 def reset():
-    """던전 리셋 시 전체 초기화"""
+    """던전 리셋 시 전체 초기화 + 이벤트 재구독"""
     _room_state.clear()
-
-
-def _ensure_initialized():
-    """시간 구독 등록 (lazy init)"""
-    global _initialized
-    if _initialized:
-        return
-    _initialized = True
     from events import subscribe_time_elapsed
-    subscribe_time_elapsed(_on_time_elapsed, min_interval=60_000)  # 1분마다
-    print("[creature_pool] Subscribed to time_elapsed (1min interval)")
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=60_000)
 
 
 def init_room(floor, room_id, has_monster, is_boss_room=False):
     """방 초기 몬스터 상태 등록"""
-    _ensure_initialized()
     key = (floor, room_id)
     if has_monster or is_boss_room:
         _room_state[key] = {

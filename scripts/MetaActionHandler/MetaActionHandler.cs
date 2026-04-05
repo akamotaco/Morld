@@ -158,6 +158,9 @@ public partial class MetaActionHandler
 			case "dungeon":
 				HandleDungeonAction(parts);
 				break;
+			case "recruit":
+				HandleRecruitAction(parts);
+				break;
 			case "wait":
 				HandleWaitAction(parts);
 				break;

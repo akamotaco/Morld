@@ -17,7 +17,7 @@ from assets.registry import register_character
 
 MAX_VILLAGE_NPC = 5           # 최대 동시 체류
 SPAWN_CHECK_INTERVAL = 3600000  # 1시간마다 스폰 체크
-SPAWN_CHANCE_PER_HOUR = 0.08  # 시간당 스폰 확률 (~2명/일)
+SPAWN_CHANCE_PER_HOUR = 0.80  # 시간당 스폰 확률 (테스트용 — 원래 0.08)
 DEFAULT_STAY_HOURS = 48       # 기본 체류 시간 (48시간)
 
 # 여관 위치 (Region 0, Location 1)
@@ -59,11 +59,13 @@ _next_id_counter = 1000  # NPC unique_id 카운터
 
 
 def reset():
-    """챕터 전환 시 리셋"""
+    """챕터 전환 시 리셋 + 이벤트 재구독"""
     global _accumulated_millis, _next_id_counter
     _village_npcs.clear()
     _accumulated_millis = 0
     _next_id_counter = 1000
+    # event_core.reset() 이후 재구독 필요
+    subscribe_time_elapsed(_on_time_elapsed, min_interval=SPAWN_CHECK_INTERVAL)
 
 
 def _on_time_elapsed(millis: int):
