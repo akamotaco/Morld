@@ -41,7 +41,7 @@ text = "hello world (header)"
 [node name="TextUiFooter" type="RichTextLabel" parent="Control"]
 layout_mode = 0
 offset_left = -852.0
-offset_top = 606.0
+offset_top = 799.0
 offset_right = 1056.0
 offset_bottom = 1057.0
 bbcode_enabled = true
