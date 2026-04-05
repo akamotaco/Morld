@@ -10,6 +10,7 @@ from . import npc_a
 from . import npc_b
 from . import npc_c
 from . import npc_d
+from . import creatures
 
 # 인스턴스 캐시: unit_id → Character 인스턴스
 _instances = {}

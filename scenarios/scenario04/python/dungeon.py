@@ -187,6 +187,15 @@ def enter_dungeon(floor: int = 1) -> bool:
         first_room = floor_data["rooms"][0]
         morld.set_unit_location(player_id, region_id, first_room["id"], x=10)
 
+    # 생물 풀 초기화 (방별 몬스터 상태 등록)
+    import creature_pool
+    for room in floor_data["rooms"]:
+        creature_pool.init_room(
+            floor, room["id"],
+            has_monster=room.get("has_monster", False),
+            is_boss_room=room.get("has_boss", False),
+        )
+
     # 침식 시스템에 등록
     import erosion
     import party
@@ -221,6 +230,61 @@ def clear_floor(floor: int):
     print(f"[dungeon] Floor {floor} cleared! (highest: {_highest_floor})")
 
 
+# === 방 진입 조우 ===
+
+def on_room_enter(region_id, location_id):
+    """방 진입 시 조우 판정 (on_reach 이벤트에서 호출)
+
+    Returns:
+        dict: encounter 결과 또는 None (조우 없음)
+    """
+    # 던전 region인지 확인
+    floor = region_id - DUNGEON_REGION_BASE
+    if floor < 1 or floor > 20:
+        return None
+
+    import creature_pool
+    import morld
+
+    # 리스폰 체크
+    time_info = morld.get_time_info()
+    current_ms = time_info.get("total_millis", 0) if time_info else 0
+    creature_pool.check_respawn(floor, location_id, current_ms)
+
+    # 조우 판정
+    enemies = creature_pool.get_encounter(floor, location_id)
+    if not enemies:
+        return None
+
+    # 은신 판정
+    import stealth as stealth_mod
+    if stealth_mod.is_party_stealthed():
+        rate = stealth_mod.calculate_party_detection_rate()
+        import random
+        if random.random() > rate:
+            # 미감지 → 선제 공격 or 우회 선택 (UI에서 처리)
+            print(f"[dungeon] Stealth success — enemies not alerted")
+            return {"type": "stealth_success", "enemies": enemies}
+
+    # 전투 개시
+    import encounter_handler
+    result = encounter_handler.start_encounter(enemies)
+
+    # 전투 승리 → 방 클리어 기록
+    if result and result.get("result") == "victory":
+        creature_pool.mark_cleared(floor, location_id, enemies)
+
+        # 보스 방이면 층 클리어
+        floor_data = _current_dungeon["floors"].get(floor) if _current_dungeon else None
+        if floor_data:
+            for room in floor_data["rooms"]:
+                if room["id"] == location_id and room.get("has_boss"):
+                    clear_floor(floor)
+                    break
+
+    return result
+
+
 # === 재편성 ===
 
 def reorganize():
@@ -232,7 +296,11 @@ def reorganize():
 
     print("[dungeon] === REORGANIZATION ===")
 
-    # 잔류 NPC → 잔류자 처리 (TODO: 잔류자 시스템 연동)
+    # 잔�� NPC → 잔류자 처리 (TODO: 잔류자 시스템 연동)
+
+    # 생물 풀 초기화
+    import creature_pool
+    creature_pool.reset()
 
     # 새 던전 생성
     generate_dungeon()

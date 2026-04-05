@@ -69,6 +69,8 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     # 던전
     dungeon.reset()
     erosion.reset()
+    import creature_pool
+    creature_pool.reset()
 
     # 경영
     building.reset()
