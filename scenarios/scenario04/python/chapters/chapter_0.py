@@ -40,6 +40,9 @@ VILLAGE_LOCATIONS = [
     (6,  "정화소",      100, True),
     (7,  "던전 입구",   100, False),
     (8,  "마을 출구",   100, False),
+    (9,  "잠긴 통로 A", 50,  True),   # F5 숏컷 (해금 전 잠김)
+    (10, "잠긴 통로 B", 50,  True),   # F10 숏컷
+    (11, "잠긴 통로 C", 50,  True),   # F15 숏컷
 ]
 
 # 자원 채취 필드 (Region 1)
@@ -82,6 +85,13 @@ VILLAGE_GATES = [
     # 마을 출구(8) ↔ 필드 숲길(R1,0)
     (0, 8, 1, 0,   1, 0, 490),
     (1, 0, 0, 490, 0, 8, 0),
+    # 던전 입구(7) ↔ 잠긴 통로들 (숏컷 해금 전에는 진입 불가 — Gate는 미리 배치)
+    (0, 7, 1, 60,  0, 9, 0),
+    (0, 9, 0, 0,   0, 7, 60),
+    (0, 7, 2, 70,  0, 10, 0),
+    (0, 10, 0, 0,  0, 7, 70),
+    (0, 7, 3, 80,  0, 11, 0),
+    (0, 11, 0, 0,  0, 7, 80),
 ]
 
 FIELD_GATES = [
@@ -149,7 +159,26 @@ def initialize():
     import village_schedule
     village_schedule.initialize()
 
+    # 8. 던전 초기화 — F1 생성 + 마을 입구 Gate 연결
+    _initialize_dungeon()
+
     print(f"[chapter_0] Initialized: {len(VILLAGE_LOCATIONS)} village + {len(FIELD_LOCATIONS)} field locations")
+
+
+def _initialize_dungeon():
+    """던전 생성 + 마을 입구 Gate 연결"""
+    import dungeon
+
+    # 던전 전체 구조 생성 (20층)
+    dungeon.generate_dungeon()
+
+    # F1 Region/Location/Gate 등록 (C# 측)
+    dungeon.enter_dungeon(floor=1, spawn_player=False)
+
+    # 마을 던전입구(loc 7) ↔ F1 첫 방 Gate 연결은
+    # enter_dungeon() 내부에서 처리됨 (floor==1일 때)
+
+    print("[chapter_0] Dungeon initialized — F1 connected to village entrance")
 
 
 def _instantiate_player():

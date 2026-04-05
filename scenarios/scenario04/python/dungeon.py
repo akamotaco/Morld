@@ -28,6 +28,13 @@ FLOOR_POLLUTION = {
 # 숏컷 해금 층
 SHORTCUT_FLOORS = {5, 10, 15}
 
+# 숏컷 층 → 마을 잠긴 통로 Location ID 매핑
+SHORTCUT_VILLAGE_LOCATIONS = {
+    5: 9,    # 잠긴 통로 A
+    10: 10,  # 잠긴 통로 B
+    15: 11,  # 잠긴 통로 C
+}
+
 # 보스 층
 BOSS_FLOORS = {5, 10, 15, 20}
 
@@ -42,7 +49,11 @@ _twist_triggered = False  # 꺾기 이벤트 발생 여부
 
 
 def reset():
-    """챕터 전환 시 리셋"""
+    """던전 리셋 — 로그라이크 요소 전부 초기화 (사망/챕터 전환)
+
+    숏컷/보스 처치/던전 구조 모두 리셋.
+    마을(로그라이트)과 달리 던전은 매번 새로 시작.
+    """
     global _current_dungeon, _highest_floor, _twist_triggered
     _current_dungeon = None
     _highest_floor = 0
@@ -78,9 +89,6 @@ def generate_dungeon():
 
     for floor in range(1, TOTAL_FLOORS + 1):
         _current_dungeon["floors"][floor] = _generate_floor(floor)
-
-    # 숏컷 리셋
-    _shortcuts_unlocked.clear()
 
     print(f"[dungeon] Generated dungeon (seed={_current_dungeon['seed']}, "
           f"{TOTAL_FLOORS} floors)")
@@ -130,12 +138,13 @@ def _generate_floor(floor: int) -> dict:
 
 # === 던전 진입 ===
 
-def enter_dungeon(floor: int = 1) -> bool:
+def enter_dungeon(floor: int = 1, spawn_player: bool = True) -> bool:
     """
-    던전 진입.
+    던전 층 진입 — Region/Location/Gate 등록.
 
     Args:
         floor: 진입 층 (1 또는 해금된 숏컷 층)
+        spawn_player: True면 플레이어를 F1 첫 방으로 이동
 
     Returns:
         True: 진입 성공
@@ -143,8 +152,8 @@ def enter_dungeon(floor: int = 1) -> bool:
     if _current_dungeon is None:
         generate_dungeon()
 
-    # 숏컷 체크
-    if floor > 1 and floor not in _shortcuts_unlocked:
+    # 숏컷 체크 (spawn_player=False는 초기화 용도이므로 체크 스킵)
+    if spawn_player and floor > 1 and floor not in _shortcuts_unlocked:
         print(f"[dungeon] Floor {floor} shortcut not unlocked")
         return False
 
@@ -182,10 +191,11 @@ def enter_dungeon(floor: int = 1) -> bool:
                       DUNGEON_ENTRANCE_REGION, DUNGEON_ENTRANCE_LOCATION, 50)
 
     # 플레이어 이동
-    player_id = morld.get_player_id()
-    if player_id:
-        first_room = floor_data["rooms"][0]
-        morld.set_unit_location(player_id, region_id, first_room["id"], x=10)
+    if spawn_player:
+        player_id = morld.get_player_id()
+        if player_id:
+            first_room = floor_data["rooms"][0]
+            morld.set_unit_location(player_id, region_id, first_room["id"], x=10)
 
     # 생물 풀 초기화 (방별 몬스터 상태 등록)
     import creature_pool
@@ -215,9 +225,10 @@ def clear_floor(floor: int):
     if floor > _highest_floor:
         _highest_floor = floor
 
-    # 숏컷 해금
-    if floor in SHORTCUT_FLOORS:
+    # 숏컷 해금 — 잠긴 통로 ↔ 해당 층 Gate 연결 (다크소울식)
+    if floor in SHORTCUT_FLOORS and floor not in _shortcuts_unlocked:
         _shortcuts_unlocked.add(floor)
+        _connect_shortcut(floor)
         print(f"[dungeon] Shortcut unlocked: floor {floor}")
 
     # 꺾기 이벤트
@@ -228,6 +239,37 @@ def clear_floor(floor: int):
         morale.on_twist_revealed()
 
     print(f"[dungeon] Floor {floor} cleared! (highest: {_highest_floor})")
+
+
+# === 숏컷 Gate 연결 ===
+
+def _connect_shortcut(floor):
+    """숏컷 해금 — 마을 잠긴 통로 ↔ 던전 해당 층 Gate 연결
+
+    다크소울식: 던전 측에서 잠금 해제 → 마을에서도 접근 가능.
+    """
+    village_loc = SHORTCUT_VILLAGE_LOCATIONS.get(floor)
+    if village_loc is None:
+        return
+
+    floor_data = _current_dungeon["floors"].get(floor) if _current_dungeon else None
+    if not floor_data:
+        return
+
+    region_id = floor_data["region_id"]
+    first_room = floor_data["rooms"][0]
+
+    # 잠긴 통로(마을) ↔ 해당 층 첫 방 Gate
+    morld.add_gate(DUNGEON_ENTRANCE_REGION, village_loc, 1, 40,
+                   region_id, first_room["id"], 10)
+    morld.add_gate(region_id, first_room["id"], 2, 0,
+                   DUNGEON_ENTRANCE_REGION, village_loc, 40)
+
+    # 해당 층 Region/Location이 아직 없으면 생성
+    # (enter_dungeon으로 이미 생성된 층이면 무시)
+
+    morld.add_action_log(f"[던전] 통로가 열렸다 — {floor}층으로의 지름길!")
+    print(f"[dungeon] Shortcut gate connected: village loc {village_loc} ↔ F{floor}")
 
 
 # === 방 진입 조우 (2단계) ===
@@ -420,7 +462,11 @@ def reorganize():
     import creature_pool
     creature_pool.reset()
 
-    # 새 던전 생성
-    generate_dungeon()
+    # 던전 전체 리셋 (로그라이크 — 숏컷 포함 전부 초기화)
+    reset()
 
-    print("[dungeon] Dungeon reorganized. Shortcuts reset.")
+    # 새 던전 생성 + F1 Gate 연결
+    generate_dungeon()
+    enter_dungeon(floor=1, spawn_player=False)
+
+    print("[dungeon] Dungeon reorganized. Full reset (roguelike).")
