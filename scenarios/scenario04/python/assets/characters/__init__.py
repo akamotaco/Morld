@@ -42,8 +42,12 @@ def get_describe_text(unit_id):
 def get_all_describe_texts(unit_ids):
     """여러 캐릭터의 describe text를 한 번에 반환 (C#에서 호출)"""
     import stealth as stealth_mod
+    import party
     result = []
     for unit_id in unit_ids:
+        # 파티원은 주변 인물에서 제외 (하나의 그룹)
+        if party.is_member(unit_id):
+            continue
         # 은신 NPC는 describe에서 제외
         if stealth_mod.is_unit_stealthed(unit_id):
             continue

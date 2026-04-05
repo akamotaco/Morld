@@ -689,6 +689,20 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
+	/// 파티 이탈: dismiss:unit_id
+	/// </summary>
+	private void HandleDismissAction(string[] parts)
+	{
+		if (parts.Length < 2 || !int.TryParse(parts[1], out int unitId)) return;
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null) return;
+
+		scriptSystem.Execute($"import party; party.remove_member({unitId})");
+		// Focus 해제
+		_textUISystem?.RequestUpdateDisplay();
+	}
+
+	/// <summary>
 	/// 탭 전환 액션: tab:인덱스
 	/// 클릭으로 탭을 직접 전환
 	/// </summary>

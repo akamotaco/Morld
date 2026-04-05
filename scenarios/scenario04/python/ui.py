@@ -380,10 +380,10 @@ def get_footer():
     # 메뉴
     lines.append("[url=inventory]인벤토리[/url]  [url=settings]설정[/url]")
 
-    # 상태바
-    status_text = get_status_text()
-    if status_text:
-        lines.append(status_text)
+    # 파티 정보 (위자드리 스타일)
+    party_text = _get_party_display()
+    if party_text:
+        lines.append(party_text)
 
     # 환경 상태
     env_text = _get_environment_status_text()
@@ -396,6 +396,47 @@ def get_footer():
         lines.append(movement_text)
 
     return "\n".join(lines)
+
+
+def _get_party_display():
+    """파티원 목록 — 위자드리 스타일 (이름 + HP바, 클릭으로 focus)"""
+    try:
+        import party
+        import survival
+
+        members = party.get_members()
+        if not members:
+            return ""
+
+        parts = []
+        for mid in members:
+            info = morld.get_unit_info(mid)
+            if not info:
+                continue
+            name = info.get("name", "???")
+            hp = survival.get_health(mid)
+            max_hp = morld.get_unit_prop(mid, "생존:최대체력") or 100
+
+            # HP 비율에 따른 색상
+            ratio = hp / max_hp if max_hp > 0 else 0
+            if ratio > 0.5:
+                hp_text = f"{hp:.0f}"
+            elif ratio > 0.2:
+                hp_text = c(STAT_CAUTION, f"{hp:.0f}")
+            else:
+                hp_text = c(STAT_DANGER, f"{hp:.0f}")
+
+            bar = stat_bar(hp, max_hp, length=6)
+
+            # 클릭으로 focus
+            is_leader = (mid == party.get_leader())
+            marker = "◆" if is_leader else "◇"
+            parts.append(f"[url=look_unit:{mid}]{marker}{name}[/url] {bar} {hp_text}")
+
+        return " | ".join(parts)
+    except Exception as e:
+        print(f"[ui] _get_party_display error: {e}")
+        return ""
 
 
 # ========================================

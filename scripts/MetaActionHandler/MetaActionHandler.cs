@@ -161,6 +161,9 @@ public partial class MetaActionHandler
 			case "recruit":
 				HandleRecruitAction(parts);
 				break;
+			case "dismiss":
+				HandleDismissAction(parts);
+				break;
 			case "wait":
 				HandleWaitAction(parts);
 				break;

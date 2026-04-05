@@ -37,16 +37,20 @@ def get_available_actions(unit_id):
     # 인스턴스가 없는 NPC (npc_generator 생성 등) — prop 기반 액션
     actions = []
 
-    # 파티 초대 가능 여부
+    # 파티 관련 액션
     import party
-    can_recruit = morld.get_unit_prop(unit_id, "파티후보")
-    if can_recruit and not party.is_member(unit_id) and not party.is_full():
-        actions.append(f"[url=recruit:{unit_id}]파티 초대[/url]")
+    if party.is_member(unit_id) and unit_id != party.get_leader():
+        # 파티원 → 이탈 액션
+        actions.append(f"[url=dismiss:{unit_id}]파티 이탈[/url]")
+    elif not party.is_member(unit_id):
+        # 비파티원 → 초대 액션
+        can_recruit = morld.get_unit_prop(unit_id, "파티후보")
+        if can_recruit and not party.is_full():
+            actions.append(f"[url=recruit:{unit_id}]파티 초대[/url]")
 
     # 대화 (모든 NPC)
     info = morld.get_unit_info(unit_id)
     if info and not info.get("is_object", False):
-        name = info.get("name", "???")
         actions.append(f"[url=talk:{unit_id}]대화하기[/url]")
 
     return actions if actions else None
