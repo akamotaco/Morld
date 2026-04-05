@@ -56,6 +56,12 @@ def instantiate_character(unique_id: str, region_id: int, location_id: int, x: i
     # C# 측 유닛 생성 (unique_id 전달 — "player"이면 자동 PlayerId 설정)
     morld.add_character(unit_id, cls.name, region_id, location_id, x, unique_id=unique_id)
 
+    # 인스턴스 생성 + 등록 (describe_text/focus_text 지원)
+    instance = cls()
+    instance.instance_id = unit_id
+    from assets.characters import register_instance
+    register_instance(unit_id, instance)
+
     # props 적용
     if hasattr(cls, 'props') and cls.props:
         for key, value in cls.props.items():

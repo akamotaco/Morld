@@ -1,7 +1,6 @@
 # ui.py - S04 TextUI
 #
-# S02 ui.py와 동일한 C# 인터페이스.
-# S04 전용 시스템 (침식/신뢰/사기/파티) 반영.
+# engine.ui_base 기반 + S04 전용 시스템 (침식/신뢰/사기/파티) 반영.
 
 import morld
 import lighting
@@ -11,79 +10,39 @@ from ui_style import (
     c, style_muted, style_highlight, style_info,
     style_danger, style_success, style_warning, style_section,
 )
-
-MILLIS_PER_MINUTE = 60_000
-MILLIS_PER_HOUR = 3_600_000
-
-# 연쇄 출력 접두사
-CHAIN_PREFIX = "+"
+from engine.ui_base import (
+    MILLIS_PER_MINUTE, MILLIS_PER_HOUR, CHAIN_PREFIX,
+    divider,
+    stat_bar, is_character,
+    format_time, dialog,
+    render_page,
+    set_show_header, set_show_footer,
+    is_header_visible, is_footer_visible,
+    set_ui_lock, is_ui_locked,
+    set_render_context as _set_render_context,
+    get_render_context as _get_render_context,
+    get_time_weather_text,
+    get_status_text,
+    get_tab_label_line,
+)
 
 
 # ========================================
-# 구분선 (즉시 출력)
+# Darkness masking — engine/lighting에 위임
 # ========================================
-
-def divider(color=MUTED, length=20):
-    line = "─" * length
-    return f"[!][color={color}]{line}[/color][/!]"
-
-
-# ========================================
-# UI 상태
-# ========================================
-
-_show_header = True
-_show_footer = True
-_ui_locked = False
-_darkness_masking_enabled = False
-
-_render_context = {
-    "focus_type": "Situation",
-    "view_tab": 0,
-    "target_unit_id": None,
-}
-
-
-def set_show_header(show):
-    global _show_header
-    _show_header = show
-
-def set_show_footer(show):
-    global _show_footer
-    _show_footer = show
-
-def is_header_visible():
-    return _show_header
-
-def is_footer_visible():
-    return _show_footer
-
-def set_ui_lock(locked):
-    global _ui_locked
-    _ui_locked = locked
-
-def is_ui_locked():
-    return _ui_locked
 
 def set_darkness_masking(enabled):
-    global _darkness_masking_enabled
-    _darkness_masking_enabled = enabled
+    lighting.set_darkness_masking(enabled)
 
 def is_darkness_masking_enabled():
-    return _darkness_masking_enabled
-
-def _set_render_context(focus_type, view_tab, target_unit_id=None):
-    _render_context["focus_type"] = focus_type
-    _render_context["view_tab"] = view_tab
-    _render_context["target_unit_id"] = target_unit_id
+    return lighting.is_darkness_masking_enabled()
 
 
 # ========================================
-# 탭 시스템
+# 탭 시스템 (S04 전용 구성)
 # ========================================
 
 def _can_use_map():
-    """지도 사용 가능 여부 (S04: 항상 가능)"""
     return morld.get_player_id() is not None
 
 
@@ -98,7 +57,7 @@ def get_max_tab(focus_type, target_unit_id=None):
     if focus_type == "Situation":
         return len(_get_situation_tabs()) - 1
     elif focus_type == "Unit":
-        if target_unit_id is not None and _is_character(target_unit_id):
+        if target_unit_id is not None and is_character(target_unit_id):
             return 1
     return 0
 
@@ -119,35 +78,15 @@ def get_tab_labels(focus_type, target_unit_id=None):
     if focus_type == "Situation":
         return [label for label, _ in _get_situation_tabs()]
     elif focus_type == "Unit":
-        if target_unit_id is not None and _is_character(target_unit_id):
+        if target_unit_id is not None and is_character(target_unit_id):
             return ["대화", "스탯"]
     return []
 
 
-def _is_character(unit_id):
-    try:
-        info = morld.get_unit_info(unit_id)
-        if info and not info.get("is_object", False):
-            return True
-    except Exception:
-        pass
-    return False
-
-
 def _get_tab_label_line():
-    focus_type = _render_context["focus_type"]
-    view_tab = _render_context["view_tab"]
-    target_unit_id = _render_context["target_unit_id"]
-    labels = get_tab_labels(focus_type, target_unit_id)
-    if not labels:
-        return ""
-    parts = []
-    for i, label in enumerate(labels):
-        if i == view_tab:
-            parts.append(c(ACCENT, f"[▶{label}]"))
-        else:
-            parts.append(f"[url=tab:{i}%][{label}][/url]")
-    return "  ".join(parts)
+    ctx = _get_render_context()
+    labels = get_tab_labels(ctx["focus_type"], ctx["target_unit_id"])
+    return get_tab_label_line(labels=labels, view_tab=ctx["view_tab"])
 
 
 # ========================================
@@ -200,7 +139,7 @@ def map_toggle_names():
 
 
 # ========================================
-# NPC 스탯 탭
+# NPC 스탯 탭 (S04 전용)
 # ========================================
 
 def _render_stat_tab(unit_id):
@@ -219,8 +158,8 @@ def _render_stat_tab(unit_id):
             hp = survival.get_health(unit_id)
             max_hp = morld.get_unit_prop(unit_id, "생존:최대체력") or 100
             sat = survival.get_satiety(unit_id)
-            lines.append(f"  체력   {_stat_bar(hp, max_hp)} {hp:.0f}")
-            lines.append(f"  포만감 {_stat_bar(sat, 100)} {sat:.0f}")
+            lines.append(f"  체력   {stat_bar(hp, max_hp)} {hp:.0f}")
+            lines.append(f"  포만감 {stat_bar(sat, 100)} {sat:.0f}")
         except (ImportError, Exception):
             pass
 
@@ -228,8 +167,8 @@ def _render_stat_tab(unit_id):
             import needs
             fatigue = needs.get_fatigue(unit_id)
             cleanliness = needs.get_cleanliness(unit_id)
-            lines.append(f"  피로   {_stat_bar(fatigue, 100)} {fatigue:.0f}")
-            lines.append(f"  불결   {_stat_bar(cleanliness, 100)} {cleanliness:.0f}")
+            lines.append(f"  피로   {stat_bar(fatigue, 100)} {fatigue:.0f}")
+            lines.append(f"  불결   {stat_bar(cleanliness, 100)} {cleanliness:.0f}")
         except (ImportError, Exception):
             pass
 
@@ -237,7 +176,7 @@ def _render_stat_tab(unit_id):
         try:
             import erosion
             ero = erosion.get_erosion(unit_id)
-            lines.append(f"  침식   {_stat_bar(ero, 200)} {ero:.0f}/200")
+            lines.append(f"  침식   {stat_bar(ero, 200)} {ero:.0f}/200")
         except (ImportError, Exception):
             pass
         lines.append("")
@@ -275,85 +214,12 @@ def _render_stat_tab(unit_id):
         return f"스탯 오류: {e}"
 
 
-def _stat_bar(value, max_val, length=10):
-    if value is None or max_val <= 0:
-        return "░" * length
-    ratio = max(0, min(1, value / max_val))
-    filled = int(ratio * length)
-    return "█" * filled + "░" * (length - filled)
-
-
 # ========================================
 # Header
 # ========================================
 
-def get_time_weather_text():
-    try:
-        time_info = morld.get_time_info()
-        if not time_info:
-            return ""
-
-        year = time_info.get("year", 1)
-        month = time_info.get("month", 1)
-        day = time_info.get("day", 1)
-        weekday = time_info.get("weekday", "")
-        hour = time_info.get("hour", 0)
-        minute = time_info.get("minute", 0)
-        time_str = f"{year}년 {month}월 {day}일 ({weekday}) {hour:02d}:{minute:02d}"
-
-        weather = time_info.get("weather", "")
-
-        # 온도
-        temp_text = ""
-        try:
-            import temperature
-            loc = None
-            player_id = morld.get_player_id()
-            if player_id:
-                loc = morld.get_unit_location(player_id)
-            if loc:
-                temp = temperature.get_temperature(loc[0], loc[1])
-                if temp is not None:
-                    temp_text = f" {temp:.0f}℃"
-        except ImportError:
-            pass
-
-        # 혼잡도
-        congestion_text = ""
-        try:
-            import congestion
-            if player_id:
-                loc = morld.get_unit_location(player_id)
-                if loc:
-                    cong = congestion.get_congestion(loc[0], loc[1])
-                    if cong is not None and cong > 1.0:
-                        congestion_text = f" {style_highlight(f'혼잡x{cong:.1f}')}"
-        except ImportError:
-            pass
-
-        if weather:
-            return f"{time_str} / {weather}{temp_text}{congestion_text}"
-        return f"{time_str}{temp_text}{congestion_text}"
-    except Exception as e:
-        print(f"[ui] get_time_weather_text error: {e}")
-        return ""
-
-
-def _get_brightness_text():
-    try:
-        level = lighting.get_brightness_level()
-        if level == "밝음":
-            return "[밝음]"
-        elif level == "어두움":
-            return style_highlight("[어두움]")
-        else:
-            return style_danger("[암흑]")
-    except Exception:
-        return ""
-
-
 def get_header():
-    if not _show_header:
+    if not is_header_visible():
         return ""
     try:
         time_info = morld.get_time_info()
@@ -379,7 +245,7 @@ def get_header():
 
         # 시간/날씨 + 밝기
         time_text = get_time_weather_text()
-        brightness_text = _get_brightness_text()
+        brightness_text = lighting.get_brightness_text()
         if time_text and brightness_text:
             lines.append(f"{time_text} {brightness_text}")
         elif time_text:
@@ -402,30 +268,8 @@ def get_header():
 
 
 # ========================================
-# Footer
+# Footer (S04 전용)
 # ========================================
-
-def get_status_text():
-    try:
-        import survival
-        player_id = morld.get_player_id()
-        if not player_id:
-            return ""
-
-        lines = []
-        status_bar = survival.get_status_bar(player_id)
-        if status_bar:
-            lines.append(status_bar)
-        status_msg = survival.get_status_message(player_id)
-        if status_msg:
-            lines.append(status_msg)
-        return "\n".join(lines)
-    except ImportError:
-        return ""
-    except Exception as e:
-        print(f"[ui] get_status_text error: {e}")
-        return ""
-
 
 def _get_environment_status_text():
     try:
@@ -528,11 +372,10 @@ def _get_movement_arrows():
 
 
 def get_footer():
-    if not _show_footer:
+    if not is_footer_visible():
         return ""
 
     lines = []
-    player_id = morld.get_player_id()
 
     # 메뉴
     lines.append("[url=inventory]인벤토리[/url]  [url=settings]설정[/url]")
@@ -645,81 +488,10 @@ def get_action_text():
 
 
 # ========================================
-# 유틸리티
+# C# 호출용 호환 함수
 # ========================================
-
-def format_time(millis):
-    total_minutes = millis // MILLIS_PER_MINUTE
-    if total_minutes < 60:
-        return f"{total_minutes}분"
-    hours = total_minutes // 60
-    mins = total_minutes % 60
-    if mins > 0:
-        return f"{hours}시간 {mins}분"
-    return f"{hours}시간"
-
 
 def ui_get_move_confirm_message(travel_time_millis):
-    time_text = format_time(int(travel_time_millis))
-    return f"이동하는 데 {time_text}이 걸립니다. 이동하시겠습니까?"
-
-
-# ========================================
-# 다이얼로그
-# ========================================
-
-def _render_page(pages, state):
-    idx = state["page"]
-    page = pages[idx]
-
-    if page.startswith("\\+"):
-        page = page[1:]
-        state["accumulated"] = page
-        text = page
-    elif page.startswith(CHAIN_PREFIX):
-        new_text = page[len(CHAIN_PREFIX):]
-        if state["accumulated"]:
-            text = f"[!]{state['accumulated']}\n[/!]{new_text}"
-            state["accumulated"] = state["accumulated"] + "\n" + new_text
-        else:
-            text = new_text
-            state["accumulated"] = new_text
-    else:
-        text = page
-        state["accumulated"] = page
-
-    if idx < len(pages) - 1:
-        text += "\n\n[url=@proc:next]다음[/url]"
-    else:
-        text += "\n\n[url=@proc:finish]확인[/url]"
-
-    return text
-
-
-def dialog(content, **kwargs):
-    """다이얼로그 — 문자열 또는 리스트(다페이지) 지원"""
-    if isinstance(content, str):
-        return morld.dialog(content, **kwargs)
-
-    if "autofill" in kwargs and kwargs["autofill"] not in ("off", None):
-        return morld.dialog(content, **kwargs)
-
-    pages = content
-    state = {"page": 0, "accumulated": ""}
-
-    def handler(action):
-        if action == "init":
-            return _render_page(pages, state)
-        if action == "next":
-            state["page"] += 1
-            if state["page"] < len(pages):
-                return _render_page(pages, state)
-            return True
-        if action == "finish":
-            return True
-        return None
-
-    return morld.dialog(
-        _render_page(pages, state),
-        autofill="off", proc=handler, **kwargs
-    )
+    """이동 확인 메시지 — engine.ui_base.get_move_confirm_message 위임"""
+    from engine.ui_base import get_move_confirm_message
+    return get_move_confirm_message(travel_time_millis)

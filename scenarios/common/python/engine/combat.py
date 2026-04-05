@@ -782,16 +782,17 @@ def check_npc_combat_join(region_id: int, location_id: int) -> list:
         if any(s.state_type == "combat" for s in agent._fsm_stack):
             continue
 
-        # 파티 멤버: order 기반 합류 판정 (G1)
-        squad = _party.get_squad_by_unit(unit_id)
-        if squad:
-            order = _party.get_order_for_unit(unit_id)
-            if order:
-                main_type = order.main_type()
-                if main_type in ("전투", "경계"):
-                    joinable.append(unit_id)
-                # 수집/대기/이동/follow → 합류 안 함
-            continue  # 파티 멤버는 BATTLE_BEHAVIOR 무시
+        # 파티 멤버: order 기반 합류 판정 (G1, Squad 전용)
+        if hasattr(_party, "get_squad_by_unit"):
+            squad = _party.get_squad_by_unit(unit_id)
+            if squad:
+                order = _party.get_order_for_unit(unit_id)
+                if order:
+                    main_type = order.main_type()
+                    if main_type in ("전투", "경계"):
+                        joinable.append(unit_id)
+                    # 수집/대기/이동/follow → 합류 안 함
+                continue  # 파티 멤버는 BATTLE_BEHAVIOR 무시
 
         # 비파티: 기존 BATTLE_BEHAVIOR 로직
         behavior = getattr(agent, 'BATTLE_BEHAVIOR', None)

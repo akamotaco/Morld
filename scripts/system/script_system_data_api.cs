@@ -91,7 +91,7 @@ namespace SE
             // add_location (Pi-World 2D 속성 확장)
             // add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None,
             //              describe_text=None, ground_id=None, geometry="line", length=0)
-            morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", args =>
+            morldModule.ModuleDict["add_location"] = new PyBuiltinFunction("add_location", (args, kwargs) =>
             {
                 if (args.Length < 3)
                     throw PyTypeError.Create("add_location(region_id, local_id, name, stay_duration=0, indoor=True, owner=None, describe_text=None, ground_id=None, geometry='line', length=0) requires at least 3 arguments");
@@ -99,17 +99,36 @@ namespace SE
                 int regionId = args[0].ToInt();
                 int localId = args[1].ToInt();
                 string name = args[2].AsString();
-                int stayDurationMin = args.Length >= 4 ? args[3].ToInt() : 0; // Python: 분 단위
+                int stayDurationMin = args.Length >= 4 ? args[3].ToInt() : 0;
                 bool isIndoor = args.Length >= 5 ? args[4].IsTrue() : true;
                 string owner = args.Length >= 6 && args[5] is PyStr ownerStr ? ownerStr.Value : null;
                 var describeText = args.Length >= 7 && args[6] is PyDict descDict
                     ? PyDictToStringDict(descDict)
                     : null;
                 int? groundId = args.Length >= 8 && args[7] != PyNone.Instance ? args[7].ToInt() : null;
-
-                // Pi-World 2D 속성
                 string geometry = args.Length >= 9 ? args[8].AsString() : "line";
                 float length = args.Length >= 10 ? args[9].ToFloat() : 0f;
+
+                // kwargs 지원 — positional로 지정되지 않은 인자를 kwargs에서 추출
+                if (kwargs != null)
+                {
+                    foreach (var kv in kwargs.InternalDict)
+                    {
+                        var key = kv.Key is PyStr ps ? ps.Value : kv.Key.ToString();
+                        switch (key)
+                        {
+                            case "stay_duration": stayDurationMin = kv.Value.ToInt(); break;
+                            case "indoor": isIndoor = kv.Value.IsTrue(); break;
+                            case "owner": owner = kv.Value is PyStr os ? os.Value : null; break;
+                            case "describe_text": describeText = kv.Value is PyDict dd ? PyDictToStringDict(dd) : null; break;
+                            case "ground_id": groundId = kv.Value != PyNone.Instance ? kv.Value.ToInt() : null; break;
+                            case "geometry": geometry = kv.Value.AsString(); break;
+                            case "length": length = kv.Value.ToFloat(); break;
+                            default:
+                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for add_location()");
+                        }
+                    }
+                }
 
                 var _worldSystem = this._hub.GetSystem("worldSystem") as WorldSystem;
 
@@ -1190,7 +1209,7 @@ namespace SE
             // set_unit_location (Pi-World 2D 위치 확장)
             // set_unit_location(unit_id, region_id, location_id, x=0, y=0)
             // 강제 이동 시 자동으로 stand_up 처리 (posture/seated_on 정리)
-            morldModule.ModuleDict["set_unit_location"] = new PyBuiltinFunction("set_unit_location", args =>
+            morldModule.ModuleDict["set_unit_location"] = new PyBuiltinFunction("set_unit_location", (args, kwargs) =>
             {
                 if (args.Length < 3)
                     throw PyTypeError.Create("set_unit_location(unit_id, region_id, location_id, x=0, y=0) requires at least 3 arguments");
@@ -1200,6 +1219,21 @@ namespace SE
                 int locationId = args[2].ToInt();
                 float x = args.Length >= 4 ? args[3].ToFloat() : 0f;
                 float y = args.Length >= 5 ? args[4].ToFloat() : 0f;
+
+                if (kwargs != null)
+                {
+                    foreach (var kv in kwargs.InternalDict)
+                    {
+                        var key = kv.Key is PyStr ps ? ps.Value : kv.Key.ToString();
+                        switch (key)
+                        {
+                            case "x": x = kv.Value.ToFloat(); break;
+                            case "y": y = kv.Value.ToFloat(); break;
+                            default:
+                                throw PyTypeError.Create($"'{key}' is an invalid keyword argument for set_unit_location()");
+                        }
+                    }
+                }
 
                 var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
                 var unit = _unitSystem.FindUnit(unitId);

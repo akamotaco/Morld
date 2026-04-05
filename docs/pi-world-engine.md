@@ -73,11 +73,15 @@ scenarios/common/python/
 │   ├── ground.py                   # 바닥 아이템
 │   ├── spawner.py                  # 유닛 스폰
 │   ├── combat.py                   # 전투 코어
-│   ├── party.py                    # 파티/분대 관리
+│   ├── party_squad.py              # 분대(Squad) — 다중 스쿼드, 명령/지시, FSM 연동
+│   ├── party_group.py              # 파티(Group) — 단일 파티, 공유 소비, 콜백 확장
 │   ├── reputation.py               # 평판/세력
 │   ├── garden.py                   # 텃밭/농업
 │   ├── laundry.py                  # 세탁
 │   ├── region_registry.py          # Region ID 동적 탐색
+│   │
+│   ├── # ── UI 프레임워크 ──
+│   ├── ui_base.py                  # 공통 UI (상태/탭/대화/유틸)
 │   │
 │   ├── # ── 에셋 프레임워크 ──
 │   ├── asset_base.py               # Asset/Unit/CharacterBase/ObjectBase/ItemBase/LocationBase
@@ -368,7 +372,8 @@ class Location(LocationBase):
 |-------------|----------|----------|
 | 텍스트 어드벤처 | event_core, survival | lighting, stealth |
 | 생존 시뮬레이션 | event_core, survival, needs, temperature, humidity | garden, fuel, build |
-| JRPG 던전 탐험 | event_core, survival, combat, party | stealth, spawner |
+| JRPG 던전 탐험 | event_core, survival, combat, party_group | stealth, spawner |
+| CRPG 분대 운용 | event_core, survival, combat, party_squad | stealth, spawner |
 | 연애 시뮬레이션 | event_core, survival, needs | (romance 엔진) |
 | 도시 경영 | event_core, survival, congestion, reputation | build, garden |
 
@@ -396,10 +401,12 @@ class Location(LocationBase):
 | | ground | 바닥 아이템 | morld |
 | | spawner | 유닛 스폰 | event_core |
 | | combat | 전투 코어 | event_core |
-| | party | 파티/분대 | morld |
+| | party_squad | 분대(다중, 명령/지시) | morld |
+| | party_group | 파티(단일, 콜백 확장) | morld |
 | | reputation | 평판/세력 | morld |
 | | garden | 텃밭/농업 | morld |
 | | laundry | 세탁 | event_core |
 | | region_registry | Region ID 탐색 | morld |
+| **UI** | ui_base | 공통 UI 프레임워크 | morld, ui_style |
 | **에셋** | asset_base | 에셋 클래스 계층 | morld |
 | | asset_registry | ID 레지스트리 | morld |

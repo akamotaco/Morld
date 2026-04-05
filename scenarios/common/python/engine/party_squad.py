@@ -1,9 +1,11 @@
-# party.py — 파티(분대) 시스템
+# party_squad.py — 분대(Squad) 시스템
 #
 # Squad/Order 데이터 구조 + 레지스트리 + 생명주기/멤버/지시 API
 # - S02: 플레이어 파티 1개 (플레이어 리더)
 # - S03: NPC 분대 × N (NPC 리더)
 # - 구조적으로 동일, 데이터 레이어에서 분대 수 제한 없음
+#
+# 같은 시나리오에서 party_group과 독립 공존 가능
 
 import morld
 

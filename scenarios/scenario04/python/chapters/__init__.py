@@ -31,6 +31,8 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
 
     # 2. 전체 시스템 리셋
     from engine import event_core
+    import lighting
+    from engine import ui_base
     import temperature, humidity, pollution, survival
     import needs, congestion, stealth
     import erosion, economy, morale, trust, quirk
@@ -42,6 +44,8 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
 
     # 엔진
     event_core.reset()
+    lighting.reset()
+    ui_base.reset()
 
     # 환경
     temperature.reset()

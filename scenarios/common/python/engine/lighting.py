@@ -279,6 +279,54 @@ def get_detection_brightness() -> float:
     return get_location_brightness()
 
 
+# ========================================
+# 어둠 마스킹 상태 관리
+# ========================================
+
+_darkness_masking_enabled = False
+
+
+def set_darkness_masking(enabled):
+    """어둠 마스킹 on/off 설정
+
+    어두운 곳에서 링크/선택지를 마스킹하는 기능의 활성화 여부.
+    프롤로그나 특정 Dialog 등에서 False로 설정하면 밝기와 무관하게 마스킹 해제.
+    """
+    global _darkness_masking_enabled
+    _darkness_masking_enabled = enabled
+
+
+def is_darkness_masking_enabled():
+    """어둠 마스킹 활성화 여부"""
+    return _darkness_masking_enabled
+
+
+# ========================================
+# 밝기 레벨 텍스트 (UI용)
+# ========================================
+
+def get_brightness_text():
+    """현재 위치의 밝기 레벨 텍스트 반환
+
+    Returns:
+        str: "[밝음]", "[눈부심]", "[color=yellow][어두��][/color]",
+             "[color=red][암흑][/color]", 또는 "" (에러 시)
+    """
+    try:
+        from ui_style import style_highlight, style_danger
+        level = get_brightness_level()
+        if level == "밝음" or level == "눈부심":
+            return f"[{level}]"
+        elif level == "어두움":
+            return style_highlight("[어두움]")
+        elif level == "암흑":
+            return style_danger("[암흑]")
+        return ""
+    except Exception:
+        return ""
+
+
 def reset():
-    """챕터 전환 시 리셋 (상태 없음 — 인터페이스 통일)"""
-    pass
+    """챕터 전환 시 리셋"""
+    global _darkness_masking_enabled
+    _darkness_masking_enabled = False
