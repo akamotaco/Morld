@@ -146,12 +146,12 @@ def register_npc(unit_id: int):
     _npc_registry.add(unit_id)
     _npc_accumulated[unit_id] = 0
 
-    # 기본 prop 초기화 (없으면)
-    if morld.get_unit_prop(unit_id, "생존:포만감") is None:
+    # 기본 prop 초기화 (없거나 0이면)
+    if not morld.get_unit_prop(unit_id, "생존:포만감"):
         morld.set_unit_prop(unit_id, "생존:포만감", 80)
-    if morld.get_unit_prop(unit_id, "생존:체력") is None:
+    if not morld.get_unit_prop(unit_id, "생존:체력"):
         morld.set_unit_prop(unit_id, "생존:체력", 100)
-    if morld.get_unit_prop(unit_id, "생존:최대체력") is None:
+    if not morld.get_unit_prop(unit_id, "생존:최대체력"):
         morld.set_unit_prop(unit_id, "생존:최대체력", 100)
 
 
