@@ -241,35 +241,8 @@ namespace SE
                             gate.AddConditionBackward(key, value);
                     }
 
-                    // cross-region Gate → 자동 RegionGate 등록
-                    // 시나리오에서 add_region_gate를 별도 호출할 필요 없음
-                    if (connectedRegion != regionId)
-                    {
-                        // 중복 등록 방지: 이미 존재하는 RegionGate인지 확인
-                        bool exists = false;
-                        foreach (var rg in terrain.RegionGates)
-                        {
-                            if ((rg.LocationA.RegionId == regionId && rg.LocationA.LocalId == locationId &&
-                                 rg.LocationB.RegionId == connectedRegion && rg.LocationB.LocalId == connectedLocation) ||
-                                (rg.LocationA.RegionId == connectedRegion && rg.LocationA.LocalId == connectedLocation &&
-                                 rg.LocationB.RegionId == regionId && rg.LocationB.LocalId == locationId))
-                            {
-                                exists = true;
-                                break;
-                            }
-                        }
-                        if (!exists)
-                        {
-                            var regionGate = new Morld.RegionGate(
-                                terrain.RegionGates.Count,
-                                regionId, locationId,
-                                connectedRegion, connectedLocation
-                            );
-                            regionGate.SetDistance(gateDistance > 0 ? gateDistance : 60f);
-                            terrain.AddRegionGate(regionGate);
-                            Godot.GD.Print($"[morld] add_gate: auto RegionGate {regionId}:{locationId} <-> {connectedRegion}:{connectedLocation}");
-                        }
-                    }
+                    // cross-region도 Gate만으로 이동 가능 (BuildRawRoutes가 Gate에서 직접 처리)
+                    // RegionGate 자동 생성 불필요 — RegionGate는 레거시 호환용
 
                     Godot.GD.Print($"[morld] add_gate: {regionId}:{locationId}:Gate{gateId}(X={x}) -> {connectedRegion}:{connectedLocation}(X={arrivalX})");
                     return PyBool.True;
