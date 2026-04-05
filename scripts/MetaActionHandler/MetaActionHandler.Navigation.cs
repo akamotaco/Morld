@@ -475,24 +475,11 @@ public partial class MetaActionHandler
 	}
 
 	/// <summary>
-	/// 자세 액션 처리: posture:toggle
-	/// 통상 ↔ 은신 토글
+	/// 이동 모드 순환: posture:cycle
+	/// 앉기 → 걷기 → 뛰기 순환
 	/// </summary>
 	private void HandlePostureAction(string[] parts)
 	{
-		if (parts.Length < 2)
-		{
-			GD.PrintErr("[MetaActionHandler] Invalid posture format. Expected: posture:toggle");
-			return;
-		}
-
-		var subAction = parts[1];
-		if (subAction != "toggle")
-		{
-			GD.PrintErr($"[MetaActionHandler] Unknown posture action: {subAction}");
-			return;
-		}
-
 		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
 		if (scriptSystem == null)
 		{
@@ -502,15 +489,35 @@ public partial class MetaActionHandler
 
 		try
 		{
-			// Python ui 모듈의 toggle_posture() 호출
-			scriptSystem.CallModuleFunction("ui", "toggle_posture");
-
-			// UI 갱신
+			scriptSystem.CallModuleFunction("ui", "cycle_stance");
 			_textUISystem?.RequestUpdateDisplay();
 		}
 		catch (System.Exception ex)
 		{
 			GD.PrintErr($"[MetaActionHandler] HandlePostureAction error: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// 은신 토글: stealth:toggle
+	/// </summary>
+	private void HandleStealthAction(string[] parts)
+	{
+		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
+		if (scriptSystem == null)
+		{
+			GD.PrintErr("[MetaActionHandler] HandleStealthAction: ScriptSystem not found");
+			return;
+		}
+
+		try
+		{
+			scriptSystem.CallModuleFunction("ui", "toggle_stealth");
+			_textUISystem?.RequestUpdateDisplay();
+		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MetaActionHandler] HandleStealthAction error: {ex.Message}");
 		}
 	}
 

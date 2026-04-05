@@ -479,7 +479,7 @@ def _render_player_viewport(unit_id, width):
 
     # 줄 3: 자세/은신 + X축 이동
     parts3 = []
-    parts3.append(_get_posture_stealth_text(unit_id))
+    parts3.append(_get_stealth_stance_text(unit_id))
     move_text = _get_movement_arrows()
     if move_text:
         parts3.append(move_text)
@@ -564,67 +564,88 @@ def _get_player_weapon_text(unit_id):
         return ""
 
 
-def _get_posture_stealth_text(unit_id):
-    """자세/은신 토글 텍스트 (S02 스타일)"""
+def _get_stealth_stance_text(unit_id):
+    """은신 토글 + 이동 모드 표시"""
     try:
-        posture_props = morld.get_unit_props_by_type(unit_id, "posture")
-        posture = list(posture_props.keys())[0] if posture_props else "standing"
+        parts = []
 
-        if posture == "standing":
-            return f"[url=posture:toggle]{style_muted('[웅크리기]')}[/url]"
-        elif posture == "crouch":
-            toggle_btn = f"[url=posture:toggle]{style_muted('[일어서기]')}[/url]"
-            try:
-                import stealth as stealth_mod
-                if stealth_mod.is_player_stealthed() or stealth_mod.is_party_stealthed():
-                    return f"{toggle_btn} {c(SUCCESS, '(은신 중)')}"
-            except (ImportError, Exception):
-                pass
-            return toggle_btn
+        # 은신 토글
+        from engine import stealth
+        if stealth.is_unit_stealthed(unit_id):
+            parts.append(f"[url=stealth:toggle]{c(SUCCESS, '[은신 해제]')}[/url]")
         else:
-            return ""
+            parts.append(f"[url=stealth:toggle]{style_muted('[은신]')}[/url]")
+
+        # 이동 모드 (앉기/걷기/뛰기)
+        stance = _get_current_stance(unit_id)
+        stance_labels = {"crouch": "앉기", "walk": "걷기", "run": "뛰기"}
+        label = stance_labels.get(stance, "걷기")
+        parts.append(f"[url=posture:cycle]{style_muted(f'[{label}]')}[/url]")
+
+        return "  ".join(parts)
     except Exception:
         return ""
 
 
-# 자세 토글 순서 (통상 ↔ 은신)
-_POSTURE_ROTATION = ["standing", "crouch"]
+# 이동 모드 순환 순서
+_STANCE_ROTATION = ["walk", "crouch", "run"]
 
 
-def toggle_posture():
-    """자세 토글: 통상 ↔ 은신 (C#에서 호출)"""
+def _get_current_stance(unit_id):
+    """현재 이동 모드 반환"""
+    if morld.get_unit_prop(unit_id, "stance:crouch"):
+        return "crouch"
+    if morld.get_unit_prop(unit_id, "stance:run") or morld.get_unit_prop(unit_id, "이동:달리기"):
+        return "run"
+    return "walk"
+
+
+def cycle_stance():
+    """이동 모드 순환: 걷기 → 앉기 → 뛰기 (C#에서 호출)"""
     player_id = morld.get_player_id()
     if player_id is None:
-        return "플레이어를 찾을 수 없습니다."
+        return ""
 
-    # 현재 자세
-    posture_props = morld.get_unit_props_by_type(player_id, "posture")
-    current = list(posture_props.keys())[0] if posture_props else "standing"
+    current = _get_current_stance(player_id)
 
-    # 다음 자세
+    # 기존 stance prop 제거
+    morld.clear_prop(player_id, "stance:crouch")
+    morld.clear_prop(player_id, "stance:run")
+    morld.clear_prop(player_id, "이동:달리기")
+
+    # 다음 모드
     try:
-        idx = _POSTURE_ROTATION.index(current)
-        next_posture = _POSTURE_ROTATION[(idx + 1) % len(_POSTURE_ROTATION)]
+        idx = _STANCE_ROTATION.index(current)
+        next_stance = _STANCE_ROTATION[(idx + 1) % len(_STANCE_ROTATION)]
     except ValueError:
-        next_posture = "standing"
+        next_stance = "walk"
 
-    # 기존 posture prop 제거
-    for prop_name in posture_props:
-        morld.clear_prop(player_id, f"posture:{prop_name}")
+    # 새 stance prop 설정 (walk은 기본이므로 prop 없음)
+    if next_stance == "crouch":
+        morld.set_unit_prop(player_id, "stance:crouch", 1)
+    elif next_stance == "run":
+        morld.set_unit_prop(player_id, "stance:run", 1)
 
-    # 새 posture prop 설정
-    if next_posture != "standing":
-        morld.set_unit_prop(player_id, f"posture:{next_posture}", 1)
+    print(f"[ui] cycle_stance: {current} -> {next_stance}")
+    return next_stance
 
-    # 은신 상태 처리
-    import stealth as stealth_mod
-    if next_posture == "standing":
+
+def toggle_stealth():
+    """은신 ON/OFF 토글 (C#에서 호출)"""
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return ""
+
+    from engine import stealth
+    if stealth.is_unit_stealthed(player_id):
+        # S04: 파티 은신 해제
+        import stealth as stealth_mod
         stealth_mod.exit_party_stealth()
-    elif next_posture == "crouch":
+        return "은신 해제"
+    else:
+        import stealth as stealth_mod
         stealth_mod.enter_party_stealth()
-
-    print(f"[ui] toggle_posture: {current} -> {next_posture}")
-    return next_posture
+        return "은신"
 
 
 def _pad_viewport(lines, target_height, width):

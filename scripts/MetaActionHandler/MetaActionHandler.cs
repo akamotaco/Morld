@@ -238,6 +238,9 @@ public partial class MetaActionHandler
 			case "stance":
 				HandleStanceAction(parts);
 				break;
+			case "stealth":
+				HandleStealthAction(parts);
+				break;
 			case "move_x":
 				HandleMoveXAction(parts);
 				break;

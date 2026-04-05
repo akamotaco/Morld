@@ -202,26 +202,25 @@ def is_unit_stealthed(unit_id):
 
 
 def enter_stealth(unit_id):
-    """은신 진입"""
-    # 자세를 crouch로 변경
-    posture_props = morld.get_unit_props_by_type(unit_id, "posture")
-    if posture_props:
-        for key in posture_props:
-            morld.clear_prop(unit_id, f"posture:{key}")
-    morld.set_unit_prop(unit_id, "posture:crouch", 1)
+    """은신 진입 (자세 변경 없음)"""
+    if is_unit_stealthed(unit_id):
+        return True
     morld.set_unit_prop(unit_id, "status:stealth", 1)
+    name = morld.get_unit_name(unit_id) or str(unit_id)
+    print(f"[stealth] {name} 은신 진입")
     return True
 
 
-def exit_unit_stealth(unit_id, stand_up=True):
-    """은신 해제"""
+def exit_unit_stealth(unit_id):
+    """은신 해제 (자세 유지)"""
+    if not morld.get_unit_prop(unit_id, "status:stealth"):
+        return
     morld.clear_prop(unit_id, "status:stealth")
-    if stand_up:
-        posture_props = morld.get_unit_props_by_type(unit_id, "posture")
-        if posture_props:
-            for key in posture_props:
-                morld.clear_prop(unit_id, f"posture:{key}")
-        morld.set_unit_prop(unit_id, "posture:standing", 1)
+    player_id = morld.get_player_id()
+    if unit_id == player_id:
+        morld.clear_player_meetings()
+    name = morld.get_unit_name(unit_id) or str(unit_id)
+    print(f"[stealth] {name} 은신 해제")
 
 
 def enter_party_stealth():
