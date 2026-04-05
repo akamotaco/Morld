@@ -320,13 +320,6 @@ def on_single_event(event):
             except ImportError:
                 pass
 
-            # 은신 가능 자세면 은신 진입 시도 (새 Location 도착 시)
-            stealth_state = morld.get_unit_prop(player_id, "status:stealth")
-            if not stealth_state:  # 통상 상태
-                import ui
-                if ui.is_stealth_posture():
-                    ui.check_stealth_entry()
-
             # NPC 은신 감지 시도 + 30분 주기 구독 등록
             try:
                 import stealth as stealth_mod

@@ -1507,237 +1507,83 @@ def get_footer():
     return "\n".join(lines)
 
 
-# 자세 정보 매핑
-# - lying: 눕기 (침구류) - 이동 불가, 오브젝트 필요
-# - sitting: 앉기 (의자류) - 이동 불가, 오브젝트 필요
-# - crouch: 은신 - 이동 가능, 속도 50%
-# - standing: 통상 (기본) - 이동 가능, 속도 100%
-#
-# speed: 이동 속도 계수 (100 = 기본)
-# can_toggle: 통상 ↔ 은신 토글 가능 여부
-POSTURE_INFO = {
-    "standing": {"name": "통상", "can_move": True, "speed": 100, "can_toggle": True},
-    "lying": {"name": "눕기", "can_move": False, "speed": 0, "can_toggle": False},
-    "sitting": {"name": "앉기", "can_move": False, "speed": 0, "can_toggle": False},
-    "crouch": {"name": "은신", "can_move": True, "speed": 50, "can_toggle": True},
-}
-
-# 자세 토글 순서 (통상 ↔ 은신)
-POSTURE_ROTATION = ["standing", "crouch"]
-
-
-def get_current_posture() -> str:
-    """
-    플레이어 현재 자세 반환
-
-    Returns:
-        str: 자세 키 ("standing", "crouch", "sitting", "lying")
-    """
-    player_id = morld.get_player_id()
-    if player_id is None:
-        return "standing"
-
-    posture_props = morld.get_unit_props_by_type(player_id, "posture")
-    if not posture_props:
-        return "standing"
-    return list(posture_props.keys())[0]
-
-
-def get_posture_speed() -> int:
-    """
-    현재 자세의 이동 속도 계수 반환 (C#에서 호출)
-
-    Returns:
-        int: 속도 계수 (100=통상, 50=은신)
-    """
-    posture = get_current_posture()
-    info = POSTURE_INFO.get(posture)
-    if info is None:
-        return 100
-    return info.get("speed", 100)
-
-
 # ========================================
-# 은신 시스템 (Stealth)
+# 이동 모드 (stance) + 은신 (stealth) — 분리 시스템
 # ========================================
 #
-# status:stealth prop 값:
-# - 1: 은신 중
-# - 0 (또는 없음): 통상
+# stance: 이동 중 자세 (crouch/walk/run)
+#   - stance:crouch = 1 → 50% 속도, 소음 10
+#   - 기본 (없음) = walk → 100% 속도, 소음 20
+#   - stance:run = 1 → 150% 속도, 소음 40
 #
-# 은신 진입 조건:
-# - 자세가 crouch
-# - 같은 Location에 NPC가 없음
+# stealth: 독립 ON/OFF (status:stealth)
+#   - 소리 기반 자동 해제 (sound._check_stealth_break)
 #
-# 은신 해제 조건:
-# - 자세 변경 (통상)
-# - 발각됨 (set_detected → clear_prop)
-# - 휴대 광원 켜기
-# - 수동 해제
-# - 공개 행동 수행 (대화, 거래 등)
+# posture: 가구 전용 (sitting/lying) — 이동 불가, 기존 유지
 
-def get_stealth_state() -> int:
-    """
-    현재 은신 상태 반환
+_STANCE_ROTATION = ["walk", "crouch", "run"]
 
-    Returns:
-        1: 은신 중
-        0: 통상
-    """
+
+def _get_current_stance(unit_id=None):
+    """현재 이동 모드 반환"""
+    if unit_id is None:
+        unit_id = morld.get_player_id()
+    if unit_id is None:
+        return "walk"
+    if morld.get_unit_prop(unit_id, "stance:crouch"):
+        return "crouch"
+    if morld.get_unit_prop(unit_id, "stance:run") or morld.get_unit_prop(unit_id, "이동:달리기"):
+        return "run"
+    return "walk"
+
+
+def cycle_stance():
+    """이동 모드 순환: 걷기 → 앉기 → 뛰기 (C#에서 호출)"""
     player_id = morld.get_player_id()
     if player_id is None:
-        return None
+        return ""
 
-    stealth = morld.get_unit_prop(player_id, "status:stealth")
-    return stealth
+    current = _get_current_stance(player_id)
 
+    # 가구에 앉아있으면 변경 불가
+    seated_on = morld.get_unit_props_by_type(player_id, "seated_on")
+    if seated_on:
+        return "이동 불가"
 
-def is_stealth_posture(posture: str = None) -> bool:
-    """
-    은신 가능한 자세인지 확인
+    # 기존 stance prop 제거
+    morld.clear_prop(player_id, "stance:crouch")
+    morld.clear_prop(player_id, "stance:run")
+    morld.clear_prop(player_id, "이동:달리기")
 
-    Args:
-        posture: 확인할 자세 (None이면 현재 자세)
-
-    Returns:
-        bool: crouch이면 True
-    """
-    if posture is None:
-        posture = get_current_posture()
-    return posture == "crouch"
-
-
-def check_stealth_entry() -> bool:
-    """
-    은신 진입 조건 확인 및 상태 설정
-
-    조건:
-    - 자세가 crouch (은신)
-    - 같은 Location에 NPC가 없음
-
-    Returns:
-        bool: 은신 진입 성공 여부
-    """
-    player_id = morld.get_player_id()
-    if player_id is None:
-        return False
-
-    # 이미 은신 중이면 스킵
-    if get_stealth_state() == 1:
-        return True
-
-    # 자세 확인
-    posture = get_current_posture()
-    if not is_stealth_posture(posture):
-        return False
-
-    # 현재 Location 확인
-    player_loc = morld.get_unit_location(player_id)
-    if player_loc is None:
-        return False
-
-    # 같은 Location에 NPC가 있는지 확인
-    # get_characters_at_location은 캐릭터만 반환 (IsObject=false), 이동 중인 유닛 제외
-    region_id, local_id = player_loc
-    npcs = morld.get_characters_at_location(region_id, local_id)
-    if npcs is None:
-        npcs = []
-    # 플레이어 제외
-    npc_count = len([u for u in npcs if u != player_id])
-    if npc_count > 0:
-        return False
-
-    # 은신 진입
-    morld.set_unit_prop(player_id, "status:stealth", 1)
-    print(f"[stealth] 은신 상태 진입")
-    return True
-
-
-def exit_stealth(reason: str = ""):
-    """
-    은신 상태 해제
-
-    Args:
-        reason: 해제 사유 (로그용)
-    """
-    player_id = morld.get_player_id()
-    if player_id is None:
-        return
-
-    stealth = get_stealth_state()
-    if stealth:
-        morld.clear_prop(player_id, "status:stealth")
-        # 만남 상태 초기화 → 다음 스텝에서 on_meet 재발생
-        morld.clear_player_meetings()
-        if reason:
-            print(f"[stealth] 은신 상태 해제: {reason}")
-        else:
-            print(f"[stealth] 은신 상태 해제")
-
-
-def on_posture_changed(old_posture: str, new_posture: str):
-    """
-    자세 변경 시 은신 상태 처리
-
-    Args:
-        old_posture: 이전 자세
-        new_posture: 새 자세
-    """
-    # standing으로 변경 → 은신 해제
-    if new_posture == "standing":
-        exit_stealth("자세 변경 (통상)")
-        return
-
-    # crouch로 변경 → 은신 진입 시도
-    if is_stealth_posture(new_posture):
-        check_stealth_entry()
-
-
-def toggle_posture() -> str:
-    """
-    자세 토글: 통상 ↔ 은신
-
-    sitting/lying 상태에서는 토글 불가 (먼저 일어나야 함)
-    자세 변경 시 은신 상태도 함께 처리됨
-
-    Returns:
-        str: 새 자세 이름 또는 에러 메시지
-    """
-    player_id = morld.get_player_id()
-    if player_id is None:
-        return "플레이어를 찾을 수 없습니다."
-
-    current = get_current_posture()
-    info = POSTURE_INFO.get(current)
-
-    # sitting/lying은 로테이션 불가
-    if info and not info.get("can_toggle", False):
-        return f"현재 자세({info['name']})에서는 자세를 바꿀 수 없습니다. 먼저 일어나세요."
-
-    # 다음 자세 결정
+    # 다음 모드
     try:
-        idx = POSTURE_ROTATION.index(current)
-        next_idx = (idx + 1) % len(POSTURE_ROTATION)
-        next_posture = POSTURE_ROTATION[next_idx]
+        idx = _STANCE_ROTATION.index(current)
+        next_stance = _STANCE_ROTATION[(idx + 1) % len(_STANCE_ROTATION)]
     except ValueError:
-        # 현재 자세가 rotation에 없으면 standing으로
-        next_posture = "standing"
+        next_stance = "walk"
 
-    # 기존 posture prop 제거
-    posture_props = morld.get_unit_props_by_type(player_id, "posture")
-    for prop_name in posture_props:
-        morld.clear_prop(player_id, f"posture:{prop_name}")
+    if next_stance == "crouch":
+        morld.set_unit_prop(player_id, "stance:crouch", 1)
+    elif next_stance == "run":
+        morld.set_unit_prop(player_id, "stance:run", 1)
 
-    # 새 posture prop 설정 (standing이면 prop 없음)
-    if next_posture != "standing":
-        morld.set_unit_prop(player_id, f"posture:{next_posture}", 1)
+    print(f"[ui] cycle_stance: {current} -> {next_stance}")
+    return next_stance
 
-    # 은신 상태 처리
-    on_posture_changed(current, next_posture)
 
-    next_info = POSTURE_INFO.get(next_posture, {})
-    print(f"[ui] toggle_posture: {current} -> {next_posture}")
-    return next_info.get("name", next_posture)
+def toggle_stealth():
+    """은신 ON/OFF 토글 (C#에서 호출)"""
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return ""
+
+    from engine import stealth
+    if stealth.is_unit_stealthed(player_id):
+        stealth.exit_unit_stealth(player_id)
+        return "은신 해제"
+    else:
+        stealth.enter_stealth(player_id)
+        return "은신"
 
 
 def _get_stance_text() -> str:
@@ -1770,72 +1616,39 @@ def toggle_stance() -> str:
 
 
 def _get_posture_text() -> str:
-    """
-    플레이어 자세 및 은신 상태 텍스트 반환 (클릭 가능)
-
-    표시 형식:
-    - [통상] 버튼                        # 통상 상태 → 클릭하면 은신 진입
-    - [은신] 은신 중                     # 은신 상태 → 클릭하면 통상 전환
-    - [은신]                             # 웅크렸으나 은신 실패/발각 → 클릭하면 통상 전환
-    - 자세: 앉기 (이동 불가)             # 앉기/눕기
-    """
+    """은신 토글 + 이동 모드 표시"""
     player_id = morld.get_player_id()
     if player_id is None:
         return ""
 
-    posture = get_current_posture()
-
-    # posture는 posture:sitting = 1 형태로 저장됨
+    # 가구에 앉아있으면 자세만 표시
     posture_props = morld.get_unit_props_by_type(player_id, "posture")
+    if posture_props:
+        posture = list(posture_props.keys())[0]
+        if posture in ("sitting", "lying"):
+            posture_names = {"sitting": "앉기", "lying": "눕기"}
+            return style_highlight(f"자세: {posture_names.get(posture, posture)} (이동 불가)")
 
-    # seated_on 상태 확인
-    seated_on_props = morld.get_unit_props_by_type(player_id, "seated_on")
-    has_seated_on = bool(seated_on_props)
-
-    # === 상태 불일치 검증 ===
-    # posture가 이동 불가 자세인데 seated_on이 없음 → 버그
-    posture_info = POSTURE_INFO.get(posture)
-    if posture_info and not posture_info["can_move"] and not has_seated_on:
-        print(f"[ui] WARNING: posture={posture} but seated_on is missing! (inconsistent state)")
-
-    # seated_on이 있는데 posture가 standing → 버그
-    if has_seated_on and posture == "standing":
-        print(f"[ui] WARNING: seated_on is set but posture=standing! (inconsistent state)")
-
-    # posture prop이 2개 이상 → 버그
-    if len(posture_props) >= 2:
-        print(f"[ui] ERROR: Multiple posture props detected: {list(posture_props.keys())}!")
-
-    info = POSTURE_INFO.get(posture)
-    if info is None:
-        # 알 수 없는 자세 (fallback)
-        return style_muted(f"자세: {posture}")
-
-    # 탈진 중 자세 변경 불가
+    # 탈진 중 변경 불가
     if morld.get_unit_prop(player_id, "상태:탈진"):
-        return style_muted("[자세 변경 불가]")
+        return style_muted("[변경 불가]")
 
-    # 이동 불가 자세 (앉기/눕기)
-    if not info["can_move"]:
-        return style_highlight(f"자세: {info['name']} (이동 불가)")
+    parts = []
 
-    # 은신 상태 확인
-    stealth = get_stealth_state()
+    # 은신 토글
+    from engine import stealth
+    if stealth.is_unit_stealthed(player_id):
+        parts.append(f"[url=stealth:toggle]{c('#55ff55', '[은신 해제]')}[/url]")
+    else:
+        parts.append(f"[url=stealth:toggle]{style_muted('[은신]')}[/url]")
 
-    if posture == "standing":
-        # 통상: [웅크리기] 버튼만 표시
-        return f"[url=posture:toggle]{style_muted('[웅크리기]')}[/url]"
-    elif posture == "crouch":
-        # 웅크린 상태: [일어서기] 버튼 + 은신 중일 때만 (은신 중) 표시
-        toggle_btn = f"[url=posture:toggle]{style_muted('[일어서기]')}[/url]"
-        if stealth == 1:
-            status = f" {style_info('(은신 중)')}"
-        else:
-            status = ""
-        return f"{toggle_btn}{status}"
+    # 이동 모드 (앉기/걷기/뛰기)
+    stance = _get_current_stance(player_id)
+    stance_labels = {"crouch": "앉기", "walk": "걷기", "run": "뛰기"}
+    label = stance_labels.get(stance, "걷기")
+    parts.append(f"[url=posture:cycle]{style_muted(f'[{label}]')}[/url]")
 
-    # 기타 이동 가능 자세 (fallback)
-    return style_muted(f"자세: {info['name']}")
+    return "  ".join(parts)
 
 
 def format_time(millis):
