@@ -3,7 +3,9 @@
 # 엔진 party_group에 S04 전용 콜백 등록.
 # 콜백은 플레이어 파티에만 적용 (몬스터 파티에는 영향 없음).
 #
-# - 파티:소속/순서 prop 관리
+# - 파티:소속/순서/리더 prop 관리
+#   · 파티:리더 = 해당 파티의 리더 unit_id
+#     (본인 id와 같으면 리더, 다르면 파티원, 없으면 미소속)
 # - 마을 NPC 목록 제거
 # - survival/erosion/morale/trust 시스템 연동
 # - 던전 재편성 트리거
@@ -26,10 +28,18 @@ def _is_player_party(party):
 # S04 콜백 정의
 # ========================================
 
+def _sync_leader_prop(party):
+    """파티 전원에게 '파티:리더' = 리더 unit_id 갱신."""
+    leader_id = party.get_leader()
+    for mid in party.get_members():
+        morld.set_unit_prop(mid, "파티:리더", leader_id)
+
+
 def _on_initialized(player_id, party):
     """파티 초기화 시 prop 설정"""
     morld.set_unit_prop(player_id, "파티:소속", 1)
     morld.set_unit_prop(player_id, "파티:순서", 0)
+    morld.set_unit_prop(player_id, "파티:리더", player_id)
 
 
 def _on_member_added(unit_id, party):
@@ -42,6 +52,9 @@ def _on_member_added(unit_id, party):
     order = members.index(unit_id) if unit_id in members else 0
     morld.set_unit_prop(unit_id, "파티:소속", 1)
     morld.set_unit_prop(unit_id, "파티:순서", order)
+
+    # 리더 prop은 파티 전체 갱신 (리더가 바뀌지 않더라도 신규 멤버에게 주입 필요)
+    _sync_leader_prop(party)
 
     # 마을 NPC 목록에서 제거
     try:
@@ -85,10 +98,12 @@ def _on_member_removed(unit_id, party, reason):
 
     morld.set_unit_prop(unit_id, "파티:소속", 0)
     morld.set_unit_prop(unit_id, "파티:순서", -1)
+    morld.set_unit_prop(unit_id, "파티:리더", 0)  # 미소속
 
-    # 순서 재정렬
+    # 순서 재정렬 + 리더 동기화 (리더 승계된 경우 반영)
     for i, mid in enumerate(party.get_members()):
         morld.set_unit_prop(mid, "파티:순서", i)
+    _sync_leader_prop(party)
 
 
 def _on_faint(unit_id, party):
@@ -149,9 +164,17 @@ def _on_faint(unit_id, party):
 # 콜백 등록
 # ========================================
 
+def _on_leader_changed(old_leader, new_leader, party):
+    """리더 교체 시 파티 전원의 '파티:리더' prop 갱신."""
+    if not _is_player_party(party):
+        return
+    _sync_leader_prop(party)
+
+
 _m.set_callbacks(
     on_initialized=_on_initialized,
     on_member_added=_on_member_added,
     on_member_removed=_on_member_removed,
     on_faint=_on_faint,
+    on_leader_changed=_on_leader_changed,
 )

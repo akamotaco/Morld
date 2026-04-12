@@ -69,15 +69,23 @@ def call_instance_method(instance_id: int, method_name: str, args=None, equipmen
         print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
         return None
 
-    # equipment 파라미터 지원 여부 확인 (간이)
-    try:
-        import inspect
-        sig = inspect.signature(method)
-        if equipment is not None and 'equipment' in sig.parameters:
-            return method(*args, equipment=equipment)
-    except (ValueError, TypeError):
-        pass
+    # TODO: SharpPy가 inspect 모듈을 지원하지 않아 __code__.co_varnames로 우회.
+    #       SharpPy에 inspect 지원이 추가되면 inspect.signature 기반으로 교체하는 게 깔끔.
+    if equipment is not None and _method_accepts_equipment(method):
+        return method(*args, equipment=equipment)
     return method(*args)
+
+
+def _method_accepts_equipment(method) -> bool:
+    """메서드가 equipment 키워드 인자를 받는지 확인 (SharpPy 호환)."""
+    try:
+        code = getattr(method, "__code__", None)
+        if code is None:
+            return False
+        varnames = code.co_varnames[:code.co_argcount]
+        return "equipment" in varnames
+    except Exception:
+        return False
 
 
 def get_action_blocked_message(unit_id):
