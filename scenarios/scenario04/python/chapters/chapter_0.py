@@ -183,14 +183,26 @@ def _initialize_dungeon():
 
 
 def _instantiate_player():
-    """플레이어 캐릭터 생성"""
+    """플레이어 캐릭터 생성
+
+    테스트 단계: 스탯/성격/성별/기벽/태그를 랜덤화한다.
+    정식 캐릭터 생성 UI는 추후 구현.
+    """
     from assets.registry import instantiate_character
     import survival
     import economy
     import party
+    import character_randomizer as randomizer
 
     player_id = instantiate_character("player", VILLAGE_REGION_ID, 0, x=150)
     morld.set_player(player_id)
+
+    # 임시 랜덤 속성 적용 (클래스는 플레이어 선택 여지 유지 → 미부여)
+    applied = randomizer.apply_random_character(
+        player_id,
+        assign_class=False,
+        assign_quirks=True,
+    )
 
     # 생존 시스템 등록
     survival.register_character(player_id)
@@ -201,4 +213,6 @@ def _instantiate_player():
     # 파티 초기화 (플레이어만)
     party.initialize_party(player_id)
 
-    print(f"[chapter_0] Player spawned at village square (id={player_id})")
+    sex_label = "남" if applied["is_male"] else "여"
+    print(f"[chapter_0] Player spawned at village square (id={player_id}, "
+          f"{sex_label}/{applied['personality']}, stats={applied['stats']})")

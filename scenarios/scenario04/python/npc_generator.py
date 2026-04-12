@@ -10,8 +10,7 @@
 import morld
 import random
 from events import subscribe_time_elapsed
-from assets.base import Character
-from assets.registry import register_character
+import character_randomizer as randomizer
 
 # === 상수 ===
 
@@ -23,33 +22,6 @@ DEFAULT_STAY_HOURS = 48       # 기본 체류 시간 (48시간)
 # 여관 위치 (Region 0, Location 1)
 INN_REGION = 0
 INN_LOCATION = 1
-
-# === 이름풀 (임시, 세계관 확정 후 교체) ===
-
-_NAME_POOL_MALE = [
-    "카이", "렌", "아키", "진", "하루", "소라", "유진", "태호",
-    "마루", "건우", "세진", "도윤", "현", "리오", "준",
-]
-
-_NAME_POOL_FEMALE = [
-    "미카", "사나", "유나", "하나", "리나", "세이", "아야", "나츠",
-    "수아", "지안", "서연", "다은", "채원", "하윤", "예린",
-]
-
-# 성격 풀
-_PERSONALITY_POOL = [
-    "호쾌", "과묵", "조심성", "낙천적", "신경질", "차분", "수다쟁이",
-    "의심많은", "충직", "탐욕", "겁쟁이", "용감", "영악", "순진",
-]
-
-# 클래스 목록
-_CLASS_POOL = ["척후", "타격수", "사수", "방패잡이", "약사", "기술자", "거간꾼"]
-_CLASS_RARE = ["오염술사"]  # 희귀 (낮은 확률)
-
-# 선천 기벽 풀 (숨겨진 상태로 부여)
-_QUIRK_POOL_MINOR = ["잠꼬대", "코골이", "편식", "수집벽", "혼잣말"]
-_QUIRK_POOL_MODERATE = ["도벽", "대식", "겁쟁이", "의심병"]
-_QUIRK_POOL_POSITIVE = ["충직", "자기희생"]
 
 # === 상태 ===
 
@@ -113,64 +85,34 @@ def _spawn_random_npc():
     # 타입 결정 (60% 파티 후보, 40% 생활형)
     is_party_candidate = random.random() < 0.6
 
-    # 성별
-    is_male = random.random() < 0.5
-    name_pool = _NAME_POOL_MALE if is_male else _NAME_POOL_FEMALE
-    name = random.choice(name_pool)
-
-    # 중복 이름 방지
     existing_names = {info["name"] for info in _village_npcs.values()}
-    attempts = 0
-    while name in existing_names and attempts < 10:
-        name = random.choice(name_pool)
-        attempts += 1
-
-    # 성격
-    personality = random.choice(_PERSONALITY_POOL)
-
-    # 스탯 (랜덤 범위)
-    stats = _generate_stats()
-
-    # 클래스 (파티 후보만)
-    npc_class = None
-    if is_party_candidate:
-        if random.random() < 0.05:  # 5% 확률로 희귀 클래스
-            npc_class = random.choice(_CLASS_RARE)
-        else:
-            npc_class = random.choice(_CLASS_POOL)
-
-    # 선천 기벽 (0~2개, 숨겨진 상태)
-    quirks = _generate_quirks()
-
-    # 체류 시간
-    stay_hours = DEFAULT_STAY_HOURS + random.randint(-12, 24)
 
     # unique_id 생성
     unique_id = f"npc_{_next_id_counter}"
     _next_id_counter += 1
 
+    # 랜더마이저로 이름만 먼저 뽑아서 add_character에 사용
+    is_male = randomizer.roll_gender()
+    name = randomizer.roll_name(is_male, avoid=existing_names)
+
     # C# 측 유닛 생성
     unit_id = morld.create_id("character")
     morld.add_character(unit_id, name, INN_REGION, INN_LOCATION, x=random.randint(10, 180))
 
-    # props 설정
-    morld.set_unit_prop(unit_id, "성격", personality)
-    morld.set_unit_prop(unit_id, "성별", "남" if is_male else "여")
-    morld.set_unit_prop(unit_id, "스탯:근력", stats["str"])
-    morld.set_unit_prop(unit_id, "스탯:민첩", stats["agi"])
-    morld.set_unit_prop(unit_id, "스탯:체력", stats["vit"])
-    morld.set_unit_prop(unit_id, "스탯:정신", stats["mnd"])
+    # 랜덤 속성 적용 (성별은 위에서 결정한 값 고정)
+    applied = randomizer.apply_random_character(
+        unit_id,
+        is_male=is_male,
+        assign_class=is_party_candidate,
+        assign_quirks=True,
+    )
 
-    if npc_class:
-        morld.set_unit_prop(unit_id, "클래스", npc_class)
-
+    # 파티 후보 플래그
     if is_party_candidate:
         morld.set_unit_prop(unit_id, "파티후보", 1)
 
-    # 기벽 (숨겨진 prop)
-    for i, quirk in enumerate(quirks):
-        morld.set_unit_prop(unit_id, f"기벽:선천:{i}", quirk)
-        morld.set_unit_prop(unit_id, f"기벽:발각:{i}", 0)  # 0=미발각
+    # 체류 시간
+    stay_hours = DEFAULT_STAY_HOURS + random.randint(-12, 24)
 
     # 소지금 (랜덤)
     import economy
@@ -188,36 +130,13 @@ def _spawn_random_npc():
         "unique_id": unique_id,
         "type": "party_candidate" if is_party_candidate else "civilian",
         "stay_remaining": stay_hours,
-        "class": npc_class,
+        "class": applied["class"],
     }
 
     npc_type = "파티 후보" if is_party_candidate else "생활형"
-    class_str = f", 클래스={npc_class}" if npc_class else ""
+    class_str = f", 클래스={applied['class']}" if applied["class"] else ""
     print(f"[npc_gen] NPC spawned: {name} ({npc_type}{class_str}, "
           f"체류 {stay_hours}h, id={unit_id})")
-
-
-def _generate_stats() -> dict:
-    """랜덤 스탯 생성 (8~15 범위)"""
-    return {
-        "str": random.randint(8, 15),
-        "agi": random.randint(8, 15),
-        "vit": random.randint(8, 15),
-        "mnd": random.randint(8, 15),
-    }
-
-
-def _generate_quirks() -> list:
-    """선천 기벽 0~2개 생성"""
-    quirks = []
-    count = random.choices([0, 1, 2], weights=[50, 35, 15])[0]
-
-    pool = _QUIRK_POOL_MINOR + _QUIRK_POOL_MODERATE + _QUIRK_POOL_POSITIVE
-    for _ in range(count):
-        q = random.choice(pool)
-        if q not in quirks:
-            quirks.append(q)
-    return quirks
 
 
 # === 조회 API ===
