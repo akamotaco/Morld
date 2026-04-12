@@ -62,25 +62,66 @@ FLOOR_BOSSES = {
 
 
 # ========================================
+# 층별 파티 프리셋
+# ========================================
+# 각 프리셋은 {"leader": Class, "minions": [(Class, count), ...]} 형태.
+# 랜덤 선택으로 파티 구성 결정.
+# MAX_PARTY_SIZE(4) 이내로만 정의.
+
+FLOOR_PARTY_PRESETS = {
+    1: [
+        {"leader": BlindRat,    "minions": [(BlindRat, 2)]},        # 쥐 3마리
+        {"leader": Fangdog,     "minions": []},                     # 개 단독
+        {"leader": Slimeworm,   "minions": [(BlindRat, 1)]},        # 슬라임+쥐
+    ],
+    2: [
+        {"leader": Fangdog,     "minions": [(BlindRat, 2)]},        # 개+쥐2
+        {"leader": BlindRat,    "minions": [(BlindRat, 3)]},        # 쥐 4마리 (풀)
+        {"leader": Petraspider, "minions": []},
+        {"leader": Slimeworm,   "minions": [(BlindRat, 2)]},
+    ],
+    3: [
+        {"leader": Fangdog,     "minions": [(Fangdog, 1), (BlindRat, 1)]},
+        {"leader": Petraspider, "minions": [(Petraspider, 1)]},
+        {"leader": GreaterPetraspider, "minions": [(Petraspider, 2)]},  # 엘리트+부하
+    ],
+    4: [
+        {"leader": Fangdog,     "minions": [(Fangdog, 2), (BlindRat, 1)]},
+        {"leader": Petraspider, "minions": [(Petraspider, 2)]},
+        {"leader": GreaterPetraspider, "minions": [(Fangdog, 2)]},
+        {"leader": Slimeworm,   "minions": [(Petraspider, 2)]},
+    ],
+    5: [
+        {"leader": GreaterPetraspider, "minions": [(Petraspider, 3)]},
+        {"leader": Fangdog,     "minions": [(Fangdog, 2), (Petraspider, 1)]},
+    ],
+}
+
+# 보스 파티 (보스 방 전용)
+FLOOR_BOSS_PARTIES = {
+    5: {"leader": Plaguedog, "minions": [(Fangdog, 2)]},  # 보스+부하2
+}
+
+
+# ========================================
 # 적 데이터 생성
 # ========================================
 
 def generate_encounter(floor, is_boss_room=False):
-    """방의 적 그룹 생성 → encounter_handler용 enemy_data 리스트
+    """방의 적 파티 생성 → encounter_handler용 enemy_data 리스트
 
     Args:
         floor: 던전 층
         is_boss_room: 보스 방 여부
 
     Returns:
-        list[dict] — [{"name", "stats", "skills", "exp", "drop_table", ...}, ...]
-        또는 None (생물 없음)
+        list[dict] — [{"name", "stats", ..., "is_leader": bool}, ...]
+        첫 번째 요소가 파티 리더. 없으면 None.
     """
-    # 보스 방
     if is_boss_room:
-        boss_cls = FLOOR_BOSSES.get(floor)
-        if boss_cls:
-            return [_make_enemy_data(boss_cls, floor)]
+        preset = FLOOR_BOSS_PARTIES.get(floor)
+        if preset:
+            return _build_party_from_preset(preset, floor)
         # 보스 미정의 → 일반 전투
         return _generate_normal_encounter(floor)
 
@@ -88,38 +129,36 @@ def generate_encounter(floor, is_boss_room=False):
 
 
 def _generate_normal_encounter(floor):
-    """일반 방 전투 생성"""
-    pool = FLOOR_POOLS.get(floor)
-    if not pool:
-        # 풀 미정의 → 가장 가까운 하위 층 풀 사용
+    """일반 방 전투 생성 — 파티 프리셋에서 랜덤 선택"""
+    presets = FLOOR_PARTY_PRESETS.get(floor)
+    if not presets:
+        # 프리셋 미정의 → 가장 가까운 하위 층 프리셋 사용
         for f in range(floor - 1, 0, -1):
-            if f in FLOOR_POOLS:
-                pool = FLOOR_POOLS[f]
+            if f in FLOOR_PARTY_PRESETS:
+                presets = FLOOR_PARTY_PRESETS[f]
                 break
-    if not pool:
+    if not presets:
         return None
 
-    # 가중치 랜덤 선택
-    entry = _weighted_random(pool)
-    cls = entry["class"]
+    preset = random.choice(presets)
+    return _build_party_from_preset(preset, floor)
 
-    # 출현 수
-    if cls.behavior == "swarm":
-        count = random.randint(*cls.spawn_count)
-    else:
-        count = 1
 
-    # 층 보정 (깊을수록 강함)
+def _build_party_from_preset(preset, floor):
+    """프리셋 → enemy_data 리스트. 리더는 첫 요소."""
     floor_modifier = 1.0 + (floor - 1) * 0.05
 
-    enemies = []
-    for _ in range(count):
-        enemies.append(_make_enemy_data(cls, floor, floor_modifier))
+    leader_cls = preset["leader"]
+    members = [_make_enemy_data(leader_cls, floor, floor_modifier, is_leader=True)]
 
-    return enemies
+    for minion_cls, count in preset.get("minions", []):
+        for _ in range(count):
+            members.append(_make_enemy_data(minion_cls, floor, floor_modifier))
+
+    return members
 
 
-def _make_enemy_data(cls, floor, floor_modifier=1.0):
+def _make_enemy_data(cls, floor, floor_modifier=1.0, is_leader=False):
     """Creature 클래스 → encounter_handler용 dict 변환"""
     props = cls.props if hasattr(cls, 'props') and cls.props else {}
 
@@ -156,6 +195,7 @@ def _make_enemy_data(cls, floor, floor_modifier=1.0):
         "erosion_on_hit": cls.erosion_on_hit,
         "respawnable": cls.respawnable,
         "is_elite": cls.is_elite,
+        "is_leader": is_leader,
     }
 
 

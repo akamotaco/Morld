@@ -1,6 +1,8 @@
 # party.py - S04 파티 시스템 (engine.party_group wrapper)
 #
-# 엔진 party_group에 S04 전용 콜백 등록:
+# 엔진 party_group에 S04 전용 콜백 등록.
+# 콜백은 플레이어 파티에만 적용 (몬스터 파티에는 영향 없음).
+#
 # - 파티:소속/순서 prop 관리
 # - 마을 NPC 목록 제거
 # - survival/erosion/morale/trust 시스템 연동
@@ -12,18 +14,32 @@ from engine import party_group as _m
 sys.modules[__name__] = _m
 
 
+def _is_player_party(party):
+    """해당 파티가 플레이어 파티인지 확인"""
+    if party is None:
+        return False
+    player_id = morld.get_player_id()
+    return player_id is not None and party.is_member(player_id)
+
+
 # ========================================
 # S04 콜백 정의
 # ========================================
 
-def _on_initialized(player_id):
+def _on_initialized(player_id, party):
     """파티 초기화 시 prop 설정"""
     morld.set_unit_prop(player_id, "파티:소속", 1)
     morld.set_unit_prop(player_id, "파티:순서", 0)
 
 
-def _on_member_added(unit_id, order):
-    """멤버 합류 시 S04 시스템 등록"""
+def _on_member_added(unit_id, party):
+    """멤버 합류 시 S04 시스템 등록 (플레이어 파티만)"""
+    if not _is_player_party(party):
+        return
+
+    # 순서 = 파티 내 index
+    members = party.get_members()
+    order = members.index(unit_id) if unit_id in members else 0
     morld.set_unit_prop(unit_id, "파티:소속", 1)
     morld.set_unit_prop(unit_id, "파티:순서", order)
 
@@ -62,23 +78,28 @@ def _on_member_added(unit_id, order):
         pass
 
 
-def _on_member_removed(unit_id, reason):
-    """멤버 이탈 시 prop 정리 + 순서 재정렬"""
+def _on_member_removed(unit_id, party, reason):
+    """멤버 이탈 시 prop 정리 + 순서 재정렬 (플레이어 파티만)"""
+    if not _is_player_party(party):
+        return
+
     morld.set_unit_prop(unit_id, "파티:소속", 0)
     morld.set_unit_prop(unit_id, "파티:순서", -1)
 
     # 순서 재정렬
-    members = _m.get_members()
-    for i, mid in enumerate(members):
+    for i, mid in enumerate(party.get_members()):
         morld.set_unit_prop(mid, "파티:순서", i)
 
 
-def _on_faint(unit_id):
-    """실신 처리 — S04 던전 재편성 포함
+def _on_faint(unit_id, party):
+    """실신 처리 — S04 던전 재편성 포함 (플레이어 파티만)
 
-    Returns: True (항상 S04가 처리)
+    Returns: True (플레이어 파티) / False (몬스터 파티는 기본 처리)
     """
-    leader = _m.get_leader()
+    if not _is_player_party(party):
+        return False  # 기본 처리 (remove)
+
+    leader = party.get_leader()
 
     if unit_id == leader:
         # 플레이어 실신 = 재편성 트리거
