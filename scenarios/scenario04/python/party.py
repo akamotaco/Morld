@@ -94,16 +94,19 @@ def _on_member_removed(unit_id, party, reason):
 def _on_faint(unit_id, party):
     """실신 처리 — S04 던전 재편성 포함 (플레이어 파티만)
 
+    설계(design.md): 플레이어는 리더/파티원 무관 실신 시 재편성 발동.
+    플레이어 외 특수 존재(D 등)도 동일.
+
     Returns: True (플레이어 파티) / False (몬스터 파티는 기본 처리)
     """
     if not _is_player_party(party):
         return False  # 기본 처리 (remove)
 
-    leader = party.get_leader()
+    player_id = morld.get_player_id()
 
-    if unit_id == leader:
-        # 플레이어 실신 = 재편성 트리거
-        print("[party] Leader fainted! Triggering reorganization...")
+    # 플레이어 실신 → 모드 무관 재편성
+    if unit_id == player_id:
+        print("[party] Player fainted! Triggering reorganization...")
         try:
             import dungeon
             dungeon.reorganize()
@@ -125,7 +128,18 @@ def _on_faint(unit_id, party):
             pass
         return True
 
-    # 일반 멤버 실신
+    # 리더(NPC) 실신 — Party.remove()가 자동 리더 승계 (members[0]이 새 리더)
+    if unit_id == party.get_leader():
+        party.remove(unit_id)
+        morld.set_unit_prop(unit_id, "상태:실신", 1)
+        new_leader = party.get_leader()
+        print(f"[party] Leader NPC fainted — succession: new leader = {new_leader}")
+        # 플레이어가 새 리더가 되면 → 경로 4 "리더 승계" 분기
+        if new_leader == player_id:
+            print("[party] Player has taken leadership (경로 4)")
+        return True
+
+    # 일반 파티원 실신
     _m.remove_member(unit_id, reason="실신")
     morld.set_unit_prop(unit_id, "상태:실신", 1)
     return True
