@@ -16,6 +16,9 @@ from assets.registry import register_character
 class Creature(Character):
     """던전 생물 기반 클래스"""
 
+    # 몬스터는 파티 초대 대상 아님
+    actions = []
+
     # 생물 공통
     faction = "던전:상층"    # 세력 (층별 재정의)
     behavior = "aggressive"  # aggressive/defensive/evasive/ambush/swarm

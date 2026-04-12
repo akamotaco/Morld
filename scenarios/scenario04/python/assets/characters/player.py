@@ -20,6 +20,9 @@ class Player(Character):
     character_class = None  # 플레이어 선택 (향후)
     is_special = True  # 던전의 힘 사용 가능
 
+    # 플레이어는 자기 자신을 초대할 수 없으므로 액션 비움
+    actions = []
+
     props = {
         "특수:존재": 1,
     }

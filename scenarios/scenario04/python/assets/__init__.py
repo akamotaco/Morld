@@ -24,16 +24,60 @@ from .registry import (
 def get_available_actions(unit_id):
     """유닛의 사용 가능 액션 목록 (C#에서 호출)
 
-    인스턴스가 get_available_actions()를 정의한 경우에만 호출.
-    그 외에는 빈 리스트 반환 (액션 없음).
-
-    Returns: 액션 리스트 (없으면 [])
+    우선순위:
+      1) 인스턴스가 get_available_actions()를 정의하면 그 결과
+      2) 인스턴스에 actions 속성이 있으면 그 리스트
+      3) 둘 다 없으면 빈 리스트
     """
     from assets import characters
     instance = characters.get_instance(unit_id)
-    if instance is not None and hasattr(instance, 'get_available_actions'):
-        return instance.get_available_actions()
+    if instance is None:
+        return []
+    if hasattr(instance, 'get_available_actions'):
+        return list(instance.get_available_actions())
+    if hasattr(instance, 'actions') and instance.actions:
+        return list(instance.actions)
     return []
+
+
+def call_instance_method(instance_id: int, method_name: str, args=None, equipment=None):
+    """Asset 인스턴스 메서드 호출 (call: 액션용).
+
+    C# MetaActionHandler가 `action:call:methodName:...:unitId` URL을 처리할 때
+    이 함수를 거쳐 Python 측 인스턴스 메서드를 실행한다.
+
+    Args:
+        instance_id: 대상 unit_id (또는 item_id)
+        method_name: 호출할 메서드 이름
+        args: 인자 리스트 (None=빈 리스트)
+        equipment: can: prop을 제공한 장비 dict 또는 None
+
+    Returns:
+        메서드 반환값 (Generator/dict/None 등)
+    """
+    if args is None:
+        args = []
+
+    from assets import characters
+    instance = characters.get_instance(instance_id)
+    if instance is None:
+        print(f"[assets] No instance for id={instance_id}, method={method_name}")
+        return None
+
+    method = getattr(instance, method_name, None)
+    if method is None:
+        print(f"[assets] Method not found: {method_name} on {instance.__class__.__name__}")
+        return None
+
+    # equipment 파라미터 지원 여부 확인 (간이)
+    try:
+        import inspect
+        sig = inspect.signature(method)
+        if equipment is not None and 'equipment' in sig.parameters:
+            return method(*args, equipment=equipment)
+    except (ValueError, TypeError):
+        pass
+    return method(*args)
 
 
 def get_action_blocked_message(unit_id):

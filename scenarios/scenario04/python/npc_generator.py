@@ -99,6 +99,14 @@ def _spawn_random_npc():
     unit_id = morld.create_id("character")
     morld.add_character(unit_id, name, INN_REGION, INN_LOCATION, x=random.randint(10, 180))
 
+    # 공용 Character 인스턴스 등록 (focus 액션 제공용)
+    from assets.base import Character
+    from assets.characters import register_instance
+    instance = Character()
+    instance.instance_id = unit_id
+    instance.name = name
+    register_instance(unit_id, instance)
+
     # 랜덤 속성 적용 (성별은 위에서 결정한 값 고정)
     applied = randomizer.apply_random_character(
         unit_id,
