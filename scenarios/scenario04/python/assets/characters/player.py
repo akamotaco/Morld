@@ -25,6 +25,7 @@ class Player(Character):
 
     props = {
         "특수:존재": 1,
+        "can:invite_to_party": 1,   # NPC에게 "파티 초대" 액션 수행 권한
     }
 
     def get_describe_text(self) -> str:
