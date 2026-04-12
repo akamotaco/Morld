@@ -106,7 +106,8 @@ def get_log() -> list:
 def process_current_node(*, on_battle=None, on_rest=None):
     """현재 노드의 타입별 처리를 실행.
 
-    on_battle/on_rest 콜백이 주어지면 호출 (None이면 기본 로그만).
+    on_battle/on_rest 콜백이 주어지면 호출.
+    콜백이 None이면 기본 처리(default_battle/default_rest)를 시도 (의존성 import).
     EXIT/BRANCH는 여기서 처리하지 않음 (caller가 branch_decision/exit_to_village 호출).
     """
     node = get_current_node()
@@ -116,17 +117,70 @@ def process_current_node(*, on_battle=None, on_rest=None):
     t = node["type"]
     if t == NODE_BATTLE:
         _log(f"[dungeon] Battle node (floor={node['floor']})")
-        if on_battle:
-            on_battle(node)
+        handler = on_battle or default_battle_handler
+        handler(node)
     elif t == NODE_REST:
         _log(f"[dungeon] Rest node (floor={node['floor']})")
-        if on_rest:
-            on_rest(node)
+        handler = on_rest or default_rest_handler
+        handler(node)
     elif t == NODE_BRANCH:
         _log(f"[dungeon] Branch node (floor={node['floor']})")
     elif t == NODE_EXIT:
         _log(f"[dungeon] Exit node (floor={node['floor']})")
     return node
+
+
+# ========================================
+# 기본 노드 핸들러
+# ========================================
+
+def default_battle_handler(node) -> dict:
+    """Battle 노드: creature_pool → encounter_handler 연결.
+
+    의존성이 테스트 환경에 없을 수 있으므로 import 실패/ 빈 데이터는 경고만."""
+    floor = node.get("floor", 1)
+    try:
+        import creature_pool
+        import encounter_handler
+    except ImportError as e:
+        _log(f"[dungeon]   WARN: battle skipped — {e}")
+        return None
+
+    enemy_data = creature_pool.generate_encounter(floor)
+    if not enemy_data:
+        _log(f"[dungeon]   WARN: no enemy data for floor {floor}")
+        return None
+
+    result = encounter_handler.start_encounter(enemy_data)
+    _log(f"[dungeon]   battle result: {result.get('result')}")
+    return result
+
+
+def default_rest_handler(node) -> None:
+    """Rest 노드: 전 파티원 체력/피로 회복."""
+    from engine import party_group as _pg
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return
+    party = _pg.get_party_of(player_id)
+    if party is None:
+        return
+
+    try:
+        import survival
+    except ImportError:
+        survival = None
+
+    for uid in party.get_members():
+        # 피로 감소
+        cur_fatigue = morld.get_unit_prop(uid, "피로:수면") or 0
+        morld.set_unit_prop(uid, "피로:수면", max(0, int(cur_fatigue) - 30))
+        # 체력 회복
+        if survival is not None:
+            cur_hp = survival.get_health(uid)
+            max_hp = survival.get_max_health(uid)
+            survival.set_health(uid, min(max_hp, cur_hp + 20))
+    _log(f"[dungeon]   rest applied to {party.get_size()} members")
 
 
 def advance_to_next():
