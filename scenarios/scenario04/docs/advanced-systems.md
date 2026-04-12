@@ -7,6 +7,91 @@
 
 ---
 
+## 0. 성인 모드 (Adult Mode) — 모듈 분리
+
+### 0.1 원칙
+
+S04는 성인 컨텐츠(§3 매춘, §4.4 야간 습격, §7 애정 행위, §7.2 에로 함정, 조교/복종 등)를 포함하지만, 이를 **bool 토글로 on/off**할 수 있어야 한다. 토글 off 시 해당 컨텐츠 코드는 **로드되지 않거나 no-op 처리**되어, 빌드를 재구성할 필요 없이 스위치 하나로 건전판/성인판을 구분할 수 있어야 한다.
+
+**이유:**
+- 향후 상용 배포 시 플랫폼별 버전 분리 용이 (Steam 건전판 + 외부 패치 모델)
+- 테스트 단계에서 성인 컨텐츠 무관 코드 디버깅 시 노이즈 제거
+- 시나리오03(Mind The Gap) 등 타 시나리오와 공유 엔진 사용 시 오염 방지
+
+### 0.2 토글
+
+```python
+# scenarios/scenario04/python/config.py
+ADULT_MODE_ENABLED: bool = True
+```
+
+또는 런타임 설정 (game_settings)에서 읽기. 챕터 로드 시점에 확정되며 세션 중 변경 불가.
+
+### 0.3 대상 모듈 (분리)
+
+성인 컨텐츠 관련 코드는 `scenarios/scenario04/python/adult/` 네임스페이스로 분리:
+
+```
+scenarios/scenario04/python/
+├── adult/                          # ← 토글 off 시 미임포트
+│   ├── __init__.py                 # if not ADULT_MODE_ENABLED: raise ImportError
+│   ├── prostitution.py             # §3
+│   ├── sexual_ambush.py            # §4.4 A
+│   ├── intimacy.py                 # §7 애정 행위
+│   ├── erotic_traps.py             # §7.2
+│   ├── breaking.py                 # 조교/복종
+│   └── preferences.py              # 태그 시스템 중 성적 선호 부분
+├── chapters/
+├── encounter_handler.py            # adult 미의존
+└── ...
+```
+
+비성인 핵심 모듈(party_group, encounter, trust, erosion, morale 등)은 **adult에 의존하지 않는다** — 단방향 의존.
+
+### 0.4 진입 지점 가드
+
+핵심 모듈에서 성인 이벤트를 트리거하는 지점마다 가드:
+
+```python
+# 예: think() 중 야간 습격 체크
+def _check_night_ambush(self, ...):
+    if not config.ADULT_MODE_ENABLED:
+        return  # 성인 모드 off면 아예 호출 안 됨
+    from adult import sexual_ambush
+    sexual_ambush.try_trigger(...)
+```
+
+또는 **이벤트 구독 패턴**: adult 모듈이 자체적으로 hook에 구독 → off면 모듈 자체가 로드되지 않아 hook에 등록되지 않음.
+
+### 0.5 태그 시스템의 이중 용도
+
+성적 지향 태그 시스템(§3 "태그 병기")은 성인 모드와 무관하게 유효한 **일반 취향 시스템**으로도 동작한다:
+
+| 적용 | 성인 모드 필요 |
+|------|-------------|
+| 파티 호감도/반감도 판정 (연령/종족 기반 선호) | ✗ 불필요 |
+| 매춘 거래 매칭 | ✓ 필요 |
+| 합의 성행위 매칭 | ✓ 필요 |
+| 연애 감정 발생 (감정 단계만) | ✗ 불필요 |
+| 성적 습격 조건 | ✓ 필요 |
+
+즉 태그 시스템 자체는 코어에 두고, 성인 전용 판정만 adult/ 모듈에 격리한다.
+
+### 0.6 대체 컨텐츠 (토글 off)
+
+성인 컨텐츠가 필수 스토리 요소일 경우(예: 챕터 0 프롤로그의 배신 사건이 성적 맥락 포함 가능) 대체 표현 준비:
+
+| 성인 모드 | 비성인 모드 |
+|---------|----------|
+| 성적 습격 | 물리적 습격 + 약탈 |
+| 매춘 거래 | 일반 의뢰/청부 |
+| 에로 함정 | 일반 환각/독 함정 |
+| 조교 = 성적 복종 | 정신 조작 / 부채 예속 |
+
+게임플레이 핵심 루프(파티 → 던전 → 배신/생환)는 토글 무관하게 유지되어야 한다.
+
+---
+
 ## 1. 자물쇠 따기 (Lockpicking)
 
 ### 개요
@@ -165,16 +250,81 @@ else:
 플레이어는 구매자 또는 판매자가 될 수 있다.
 NPC에게도 성적 지향과 욕구가 존재한다.
 
-### NPC 성적 지향 (Orientation)
+### 성적 지향 — 태그 병기 시스템
 
-| 값 | 설명 | 대상 |
+성적 지향은 **단일 라벨이 아니라 태그 조합**으로 표현된다. 선호 태그에 `sex:male`/`sex:female`을 직접 기술하므로 "동성애/이성애"라는 파생 라벨은 불필요 (본인의 `self_tags`와 `preferences`를 비교하면 저절로 파생됨). 이 구조는 연령/종족/상황 기반 취향에도 동일하게 확장된다.
+
+#### 두 축
+
+| 축 | 타입 | 의미 |
 |---|---|---|
-| hetero | 이성애 | 반대 성별만 |
-| homo | 동성애 | 같은 성별만 |
-| bi | 양성애 | 성별 무관 |
-| ace | 무성애 | 성적 거래 거부 |
+| `preferences` | set[str] | 선호 (좋아하는 것) — 매력 발생 |
+| `aversions` | set[str] | 비선호 (싫어하는 것) — 혐오 발생, 즉시 차단 |
 
-prop: `orientation` (캐릭터 생성 시 설정)
+상위 개념으로서의 "선호/비선호"는 S04 전반의 취향 시스템에도 재사용된다 (음식 선호, 환경 선호 등).
+
+#### 태그 카테고리 (네임스페이스 `{cat}:{value}` 형식)
+
+| 카테고리 | 예시 태그 |
+|---|---|
+| 성별 | `sex:male`, `sex:female`, `sex:futa` |
+| 연령 | `age:young`, `age:adult`, `age:mature` |
+| 종족 | `species:human`, `species:demi`, `species:beast` |
+| 상황 | `situation:stranger`, `situation:bound`, `situation:public` |
+| 상태 | `state:dominant`, `state:submissive` |
+
+카테고리는 확장 가능. 캐릭터 본인도 동일 태그 체계로 **self_tags**를 보유 (매칭용).
+
+#### 표현 예시
+
+본인이 남성(`self_tags: {sex:male, ...}`)인 경우:
+
+| 개념 | preferences 태그 | self_tags와의 관계 |
+|---|---|---|
+| 남성을 좋아함 (결과적으로 동성애) | `{sex:male}` | self와 겹침 |
+| 여성을 좋아함 (결과적으로 이성애) | `{sex:female}` | self와 다름 |
+| 남녀 모두 (결과적으로 양성애) | `{sex:male, sex:female}` | 일부 겹침 |
+| 아무도 성적으로 끌리지 않음 (무성애) | `{}` | 매력 없음 |
+| 수인 성향 | `{species:beast}` | — |
+| 연상 여성 성향 | `{sex:female, age:mature}` | — |
+| 수인 + 연상 + 여성 복합 | `{sex:female, age:mature, species:beast}` | — |
+
+"동성애"/"이성애"라는 용어는 본인과 상대의 성별 태그를 비교한 **결과**이지, 데이터 자체가 아니다. 따라서 태그에는 `sex:male`/`sex:female`만 존재하며, "동성/이성" 같은 관계 라벨은 저장되지 않는다.
+
+#### 매칭 규칙
+
+```python
+def get_attraction(observer, target) -> str:
+    """returns 'aversion' | 'neutral' | 'attraction'"""
+    target_tags = target.self_tags
+
+    # 비선호가 하나라도 걸리면 즉시 혐오 (차단)
+    if target_tags & observer.aversions:
+        return "aversion"
+
+    # 선호 교집합이 있으면 매력
+    shared = target_tags & observer.preferences
+    if not shared:
+        return "neutral"
+    return "attraction"
+```
+
+| 결과 | 매춘 거래 | 합의 성행위 | 강제/습격 피해자 판정 |
+|---|---|---|---|
+| aversion | 거부 | 거부 | 저항 강화 + 트라우마 |
+| neutral | 가능 (금전만) | 불발 (libido 반응 없음) | 일반 |
+| attraction | 가능 (+가격 보정) | 가능 | 혼란(피해자) |
+
+#### prop 형식
+
+```python
+# 캐릭터 생성 시 설정
+preferences: set[str]   # 예: {"sex:male", "age:mature"}
+aversions:  set[str]    # 예: {"species:beast", "age:young"}
+self_tags:  set[str]    # 본인 태그 (매칭용). 예: {"sex:female", "age:adult", "species:human"}
+```
+
+Python prop으로는 **공백 구분 문자열**로 직렬화 (`"sex:male age:mature"`). 조회 시 `set(value.split())`으로 복원.
 
 ### 거래 조건
 
@@ -187,7 +337,7 @@ prop: `orientation` (캐릭터 생성 시 설정)
 | 도덕성 | < +50 | < +30 |
 | 장소 | 술집, 사창가, 은밀한 곳 | 동일 |
 | 비용 | 소지금 충분 | - (수입 발생) |
-| NPC 지향 | 플레이어 성별과 일치 | 상대 성별과 일치 |
+| NPC 지향 | `get_attraction(NPC, 플레이어) != "aversion"` | `get_attraction(상대, NPC) != "aversion"` |
 | NPC 상태 | 거부 가능 (호감도, 도덕성) | - |
 
 ### 가격 체계
@@ -326,7 +476,7 @@ def check_voluntary_leave(existing_npc, new_member, party):
 조건:
 ```
 libido > 0.6
-AND 성적 지향이 플레이어와 일치
+AND get_attraction(NPC, 플레이어) == "attraction"
 AND 침식 > 50 (던전의 부패가 억제력 약화)
 AND 신뢰 < 40 OR 도덕성 < -20
 AND 은신 판정 성공 (파티원 감시 회피)
@@ -385,6 +535,98 @@ chance = greed × (1 - loyalty_tendency) × (1 - trust / 100)
 | 독립적 | 상황 관망 → 개입 | 개입 |
 | 탐욕 높음 | 무시 (거래 제안?) | 가담 가능 |
 | 도덕 높음 | 즉시 저지 + 분노 | 즉시 저지 |
+
+→ 보초의 반응은 더 일반적인 **목격자 판정 시스템** (§4.6)의 특수 케이스.
+
+### 4.6 목격자 반응 시스템 (judge_reaction)
+
+**대칭 구조**: 플레이어가 누군가를 공격/성적 접근하는 경우와, 반대로 NPC가 플레이어 또는 다른 NPC에게 그렇게 하는 경우 **모두 같은 판정 규칙**을 쓴다. 플레이어가 저지를 수 있는 일은 NPC도 할 수 있고, 그 반대도 성립한다.
+
+#### 개요
+
+3자 상황 — 공격자(aggressor), 피해자(victim), 목격자(witness) — 에서 목격자가 어떻게 반응할지 결정하는 판정.
+
+```python
+def judge_reaction(witness, aggressor, victim, context) -> str:
+    """returns 'help_victim' | 'join_aggressor' | 'watch' | 'flee'"""
+```
+
+#### 반응 4종
+
+| 결과 | 설명 |
+|------|------|
+| `help_victim` | 피해자 편에 가담 → 공격자 저지 시도 |
+| `join_aggressor` | 공격자 편에 가담 → 피해자 추가 공격/약탈 |
+| `watch` | 방관 (관망 또는 무력한 목격) |
+| `flee` | 도주 (자기 보신 우선) |
+
+#### 입력
+
+| 항목 | 의미 |
+|------|------|
+| `witness.aggression` | 공격성 — 높으면 가담 성향 |
+| `witness.loyalty_tendency` | 충성도 — 공격자/피해자에 대한 개인적 친밀도와 함께 작용 |
+| `witness.npc_morality` | 도덕성 — 피해자 편 가담 압력 |
+| `witness.greed` | 탐욕 — 약탈 맥락에서 join_aggressor 확률 ↑ |
+| `witness.independence` | 독립성 — 낮으면 리더에게 동조, 높으면 자기 판단 |
+| `trust(witness, aggressor)` | 공격자와의 신뢰 |
+| `trust(witness, victim)` | 피해자와의 신뢰 |
+| `romance(witness, victim)` | 피해자가 연인이면 강력한 help_victim 압력 (치정 트리거) |
+| `romance(witness, aggressor)` | 공격자가 연인이면 join 또는 watch 압력 |
+| `power_gap` | 위협도 — 승산 낮으면 flee 압력 |
+| `context.type` | `"attack"` / `"sexual"` / `"theft"` / `"kill"` |
+| `context.is_sleeping` | 피해자 수면 중 → 저항 불가 → 도덕성 반응 강화 |
+
+#### 판정 로직 (개요)
+
+```python
+def judge_reaction(witness, aggressor, victim, ctx):
+    # 1. 연인 관계 우선 판정 (치정)
+    if romance_bond(witness, victim):
+        return "help_victim"  # 연인 보호
+    if romance_bond(witness, aggressor) and ctx.type != "sexual":
+        return "join_aggressor"  # 연인 편
+
+    # 2. 위협 평가 → 도주 판정
+    if power_gap(witness, aggressor) < threshold_flee:
+        if witness.independence > 0.5:
+            return "flee"
+
+    # 3. 도덕/탐욕/신뢰 가중합
+    help_score  = witness.npc_morality / 100
+    help_score += trust(witness, victim) / 100
+    help_score -= trust(witness, aggressor) / 100
+    help_score += 0.3 if ctx.is_sleeping else 0   # 수면 중 피해자 편향
+    help_score += 0.3 if ctx.type == "kill" else 0
+
+    join_score  = witness.aggression
+    join_score += witness.greed if ctx.type == "theft" else 0
+    join_score += trust(witness, aggressor) / 100
+    join_score -= witness.npc_morality / 100
+
+    # 4. 가장 높은 점수로 결정 (임계값 미달 시 watch)
+    if help_score > join_score and help_score > threshold:
+        return "help_victim"
+    if join_score > threshold:
+        return "join_aggressor"
+    return "watch"
+```
+
+#### 적용 예시
+
+| 상황 | 목격자 | 대표 결과 |
+|------|-------|----------|
+| 플레이어가 파티원 C를 공격, A/B가 목격 | A (C의 연인) | `help_victim` |
+| 플레이어가 파티원 C를 공격, A/B가 목격 | B (도덕 낮음 + 탐욕 높음) | `join_aggressor` |
+| 플레이어가 취침 중인 NPC 소매치기, 보초 D가 감지 | D (충성 높음) | `help_victim` (제지) |
+| NPC 리더가 플레이어를 공격, 다른 파티원들이 목격 | — | 위 규칙 대칭 적용 (플레이어가 victim) |
+| 야심파 NPC가 플레이어(리더) 배신 시도 | 동요파 NPC | 성향별 분기 |
+
+#### 대칭성의 함의
+
+- 플레이어 = "특별한 존재" 아님. **동일한 규칙이 플레이어에게도 적용됨**
+- 플레이어가 리더여도, 리더가 NPC여도 판정 구조는 동일
+- 챕터 1 엔딩(배신 활성화) 이후 이 판정이 상시 작동
 
 ---
 
@@ -505,7 +747,8 @@ S02에 구축된 시스템을 S04 컨텍스트에 맞게 가져온다.
 ```python
 def can_trigger_intimate_event(npc_a, npc_b):
     # 둘 다 깨어있음
-    # 성적 지향 일치 (orientation 호환)
+    # 양방향 매력 성립: get_attraction(a, b) == "attraction"
+    #                   AND get_attraction(b, a) == "attraction"
     # libido 양쪽 모두 > 0.5
     # 신뢰 > 30 (최소한의 관계)
     # 적대 관계 아님
@@ -536,7 +779,9 @@ def check_orgy_conditions(party_members):
     # 전원 libido > 0.7
     # 전원 shame < 40 (수치심 낮음)
     # 전원 trust 상호 > 40 (최소 친밀도)
-    # 전원 orientation 호환 (적어도 bi 또는 상호 호환)
+    # 태그 매칭: 모든 페어 (a, b)에 대해
+    #   get_attraction(a, b) != "aversion"
+    #   (선호 교집합 없는 중립은 허용 — 분위기 휩쓸림)
     # 침식 > 50 (던전의 부패가 억제력 약화)
     # 파티원 3명 이상
     return all_conditions_met
@@ -557,7 +802,8 @@ def check_orgy_conditions(party_members):
 **억제 요인:**
 - shame > 40인 멤버가 한 명이라도 있으면 불발
 - 적대 관계 멤버 존재 → 불발
-- ace(무성애) 멤버 존재 → 해당 멤버 제외 (3명 미만이면 불발)
+- 누구 한 명이 타 멤버에게 `aversion` 판정 → 불발
+- `preferences`가 공집합(무성애 경향)인 멤버 존재 → 해당 멤버 제외 (3명 미만이면 불발)
 
 #### NPC 간 이벤트 (플레이어 수면 중)
 
@@ -602,8 +848,9 @@ S02/S04 공통으로 쓸 수 있는 부분:
 | `fame` | int | 0~100 | 0 |
 | `morality` | int | -100~+100 | +20 |
 | `shame` | int | 0~100 | 70 |
-| `orientation` | str | hetero/homo/bi/ace | hetero |
-| `gender` | str | male/female | (선택) |
+| `preferences` | str (공백구분) | 태그 조합 | (선택) |
+| `aversions` | str (공백구분) | 태그 조합 | "" |
+| `self_tags` | str (공백구분) | 본인 태그 | (선택) |
 
 ### NPC
 | Prop | 타입 | 범위 | 기본값 |
@@ -611,13 +858,16 @@ S02/S04 공통으로 쓸 수 있는 부분:
 | `fame` | int | 0~100 | 0 |
 | `morality` | int | -100~+100 | (개별) |
 | `shame` | int | 0~100 | (개별) |
-| `orientation` | str | hetero/homo/bi/ace | (개별) |
-| `gender` | str | male/female | (개별) |
+| `preferences` | str (공백구분) | 태그 조합 | (개별) |
+| `aversions` | str (공백구분) | 태그 조합 | (개별) |
+| `self_tags` | str (공백구분) | 본인 태그 | (개별) |
 | `aggression` | float | -1.0~+1.0 | 0.0 |
 | `greed` | float | 0.0~1.0 | 0.3 |
 | `loyalty_tendency` | float | 0.0~1.0 | 0.5 |
 | `libido` | float | 0.0~1.0 | 0.3 |
 | `independence` | float | 0.0~1.0 | 0.5 |
+
+> 주의: `gender`는 별도 prop으로 두지 않고 `self_tags`의 `sex:*`로 통합 표현한다. 성별 다형성(`sex:futa` 등) 확장이 자연스러워진다.
 
 ### 장비 상태
 | Prop | 타입 | 범위 | 기본값 |
