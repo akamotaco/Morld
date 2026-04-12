@@ -402,23 +402,16 @@ namespace SE
 				LocationRef = unit.CurrentLocation
 			};
 
-			// 2. 같은 위치에 있는 유닛들 (viewer 제외)
-			// Pi-World: CurrentMovement가 있어도 같은 Location이면 표시
+			// 2. 같은 위치에 있는 유닛들
+			// Python ui.get_surrounding_exclude()로 필터링 대상 ID 조회
+			var excludedIds = GetExcludedUnitIds(viewerUnitId);
+
 			var unitIds = new List<int>();
 			foreach (var u in _units.Values)
 			{
-				if (u.Id == viewerUnitId) continue;
-
-				// 같은 위치에 있는 유닛
+				if (excludedIds.Contains(u.Id)) continue;
 				if (u.CurrentLocation == unit.CurrentLocation)
 				{
-					// 은신 NPC 필터링 (캐릭터만, 오브젝트는 은신 불가)
-					// status:stealth=1 은신 중만 숨김 (2=발각은 표시)
-					if (!u.IsObject && u.TraversalContext.GetProp("status:stealth") == 1)
-						continue;
-					// Gate Transit: 이동중 NPC 숨김 (절대 감지 불가)
-					if (!u.IsObject && u.TraversalContext.GetProp("상태:이동중") == 1)
-						continue;
 					unitIds.Add(u.Id);
 				}
 			}
@@ -432,6 +425,38 @@ namespace SE
 				UnitIds = unitIds,
 				Routes = routes
 			};
+		}
+
+		/// <summary>
+		/// Python ui.get_surrounding_exclude()로 제외할 유닛 ID 조회
+		/// 실패 시 빈 HashSet 반환 (모든 유닛 표시)
+		/// </summary>
+		private HashSet<int> GetExcludedUnitIds(int viewerUnitId)
+		{
+			var result = new HashSet<int>();
+			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
+			if (scriptSystem == null) return result;
+
+			try
+			{
+				var pyResult = scriptSystem.CallModuleFunction(
+					"ui", "get_surrounding_exclude",
+					new SharpPy.PyInt(viewerUnitId)
+				);
+				if (pyResult is SharpPy.PyList list)
+				{
+					foreach (var item in list.Items)
+					{
+						if (item is SharpPy.PyInt pyInt)
+							result.Add((int)pyInt.Value);
+					}
+				}
+			}
+			catch (System.Exception ex)
+			{
+				Godot.GD.PrintErr($"[UnitSystem] GetExcludedUnitIds error: {ex.Message}");
+			}
+			return result;
 		}
 
 		/// <summary>

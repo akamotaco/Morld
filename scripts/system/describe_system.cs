@@ -127,17 +127,14 @@ namespace SE
 		{
 			var result = new List<string>();
 
-			// 플레이어 제외한 캐릭터 ID 목록
+			// Python unit_filter가 이미 플레이어/파티원/은신/이동 필터링 완료
+			// 여기서는 캐릭터(non-object)만 분리
 			var unitSystem = _hub.GetSystem("unitSystem") as UnitSystem;
-			var playerSystem = _hub.GetSystem("playerSystem") as PlayerSystem;
 			var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
-
-			var playerId = playerSystem.PlayerId;
 			var characterIds = new List<int>();
 
 			foreach (var unitId in lookResult.UnitIds)
 			{
-				if (unitId == playerId) continue;
 				var unit = unitSystem.FindUnit(unitId);
 				if (unit != null && !unit.IsObject)
 				{

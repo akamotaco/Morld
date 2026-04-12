@@ -771,3 +771,29 @@ def ui_get_move_confirm_message(travel_time_millis):
     """이동 확인 메시지 — engine.ui_base.get_move_confirm_message 위임"""
     from engine.ui_base import get_move_confirm_message
     return get_move_confirm_message(travel_time_millis)
+
+
+# ========================================
+# 유닛 가시성 필터 (C# 호출)
+# ========================================
+
+def get_surrounding_exclude(observer_id):
+    """주변 인물 표시용 exclude list 반환
+
+    S04: 플레이어 + 파티원 + 은신/이동 중 유닛 제외
+    """
+    from engine import unit_filter
+    exclude_ids = [observer_id]
+    try:
+        import party
+        exclude_ids.extend(party.get_members())
+    except Exception:
+        pass
+
+    location = morld.get_unit_location(observer_id)
+    return unit_filter.get_exclude_list(
+        observer_id,
+        unit_ids=exclude_ids,
+        presets=["stealthed", "in_transit"],
+        location=location,
+    )

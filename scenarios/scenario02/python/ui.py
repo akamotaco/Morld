@@ -1680,6 +1680,21 @@ def ui_get_move_confirm_message(travel_time_millis):
     return f"이동하는 데 {time_text}이 걸립니다. 이동하시겠습니까?"
 
 
+def get_surrounding_exclude(observer_id):
+    """주변 인물 표시용 exclude list 반환
+
+    S02: 플레이어 자신 + 은신/이동 중 유닛 제외 (파티 개념 없음)
+    """
+    from engine import unit_filter
+    location = morld.get_unit_location(observer_id)
+    return unit_filter.get_exclude_list(
+        observer_id,
+        unit_ids=[observer_id],
+        presets=["stealthed", "in_transit"],
+        location=location,
+    )
+
+
 def _render_movement(info: dict) -> list:
     """
     이동 UI 렌더링 - Gate X 순서로 나열, 플레이어 위치 삽입
