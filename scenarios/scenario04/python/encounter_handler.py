@@ -140,12 +140,8 @@ def _apply_result(result: dict, enemy_data: list = None):
     #    - 처치 시 erosion_on_death (음수면 정화 효과)
     _apply_erosion_from_combat(result, enemy_data)
 
-    # 5. 플레이어 실신 → 재편성
-    if party.get_leader() in result["fainted"]:
-        import dungeon
-        dungeon.reorganize()
-
-    # 6. 전투 로그 출력 (mini_monologue용)
+    # 5. 전투 로그 출력 (mini_monologue용)
+    #    실신 → 재편성 트리거는 제거됨. 재편성은 사망 이벤트(party.handle_death)에서만.
     for line in result["log"]:
         print(line)
 

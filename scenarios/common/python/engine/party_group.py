@@ -97,6 +97,7 @@ _callbacks = {
     "on_member_added": None,     # (unit_id, party) -> None
     "on_member_removed": None,   # (unit_id, party, reason) -> None
     "on_faint": None,            # (unit_id, party) -> bool (True = 시나리오가 처리함)
+    "on_death": None,            # (unit_id, party) -> bool (True = 시나리오가 처리함)
     "on_leader_changed": None,   # (old_leader, new_leader, party) -> None
 }
 
@@ -404,6 +405,24 @@ def handle_faint(unit_id):
     # 기본: 리더가 아니면 제거 (솔로 파티로 분리)
     if unit_id != party.leader_id:
         split(party.party_id, [unit_id])
+
+
+def handle_death(unit_id):
+    """파티원 사망 처리 (어느 파티든).
+
+    실신과 구분되는 별개 이벤트. 실신 상태에서 구출 실패·시간 경과로
+    전환되거나, 즉사 상황에서 직접 호출.
+    """
+    party = get_party_of(unit_id)
+    if party is None:
+        return
+
+    cb_result = _fire("on_death", unit_id, party)
+    if cb_result:
+        return  # 시나리오가 처리함
+
+    # 기본: 파티에서 제거
+    remove_member(unit_id, reason="사망")
 
 
 # ========================================

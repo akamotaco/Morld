@@ -10,10 +10,15 @@
 # - survival/erosion/morale/trust 시스템 연동
 # - 던전 재편성 트리거
 
+import random
 import sys
 import morld
 from engine import party_group as _m
 sys.modules[__name__] = _m
+
+
+# 사망 직전 통행인 구출 이벤트 확률 (0.0 ~ 1.0)
+RESCUE_CHANCE = 0.10
 
 
 def _is_player_party(party):
@@ -121,56 +126,64 @@ def _on_member_removed(unit_id, party, reason):
 
 
 def _on_faint(unit_id, party):
-    """실신 처리 — S04 던전 재편성 포함 (플레이어 파티만)
+    """실신 처리 — 파티 이탈(split)만. 재편성은 사망 시.
 
-    설계(design.md): 플레이어는 리더/파티원 무관 실신 시 재편성 발동.
-    플레이어 외 특수 존재(D 등)도 동일.
+    모든 캐릭터(플레이어 포함) 실신 → 파티에서 분리.
+    플레이어 실신 후 경로(차후 구현):
+      - NPC 구출(생존+관계성) → 구호소 이동
+      - 구출 실패 + 시간 경과 → 사망 → 재편성
 
     Returns: True (플레이어 파티) / False (몬스터 파티는 기본 처리)
     """
     if not _is_player_party(party):
         return False  # 기본 처리 (remove)
 
-    player_id = morld.get_player_id()
-
-    # 플레이어 실신 → 모드 무관 재편성
-    if unit_id == player_id:
-        print("[party] Player fainted! Triggering reorganization...")
-        try:
-            import dungeon
-            dungeon.reorganize()
-        except ImportError:
-            pass
-        # 플레이어는 마을 구호소에서 깨어남
-        morld.set_unit_location(unit_id, 0, 5, x=50)
-        return True
-
-    # 특수 존재 실신 = 재편성 트리거
-    if morld.get_unit_prop(unit_id, "특수:존재"):
-        print(f"[party] Special entity fainted! Triggering reorganization...")
-        _m.remove_member(unit_id, reason="실신")
-        morld.set_unit_prop(unit_id, "상태:실신", 1)
-        try:
-            import dungeon
-            dungeon.reorganize()
-        except ImportError:
-            pass
-        return True
-
-    # 리더(NPC) 실신 — Party.remove()가 자동 리더 승계 (members[0]이 새 리더)
-    if unit_id == party.get_leader():
-        party.remove(unit_id)
-        morld.set_unit_prop(unit_id, "상태:실신", 1)
-        new_leader = party.get_leader()
-        print(f"[party] Leader NPC fainted — succession: new leader = {new_leader}")
-        # 플레이어가 새 리더가 되면 → 경로 4 "리더 승계" 분기
-        if new_leader == player_id:
-            print("[party] Player has taken leadership (경로 4)")
-        return True
-
-    # 일반 파티원 실신
-    _m.remove_member(unit_id, reason="실신")
     morld.set_unit_prop(unit_id, "상태:실신", 1)
+
+    # 리더(플레이어 or 승계 NPC) 실신 → 솔로 파티로 분리
+    # 엔진 기본 split은 리더를 대상으로 하지 않으므로 명시 처리.
+    if unit_id == party.get_leader():
+        _m.split(party.party_id, [unit_id])
+        print(f"[party] Leader fainted — split to solo party: {unit_id}")
+        return True
+
+    # 일반 파티원 → 엔진 기본 split 경로 사용
+    return False
+
+
+def _on_death(unit_id, party):
+    """사망 처리 — 재편성 + 생존 파티원 광장 이동.
+
+    실신과 별개 이벤트. 실신 상태에서 구출 실패·시간 경과로 전환되거나
+    즉사 상황에서 호출.
+
+    사망 직전 낮은 확률로 통행인 구출 이벤트 발생 — 구호소로 이송되어 생존.
+    """
+    if not _is_player_party(party):
+        return False
+
+    # 통행인 구출 이벤트 (낮은 확률)
+    if random.random() < RESCUE_CHANCE:
+        morld.set_unit_location(unit_id, 0, 5, x=50)  # 구호소
+        print(f"[party] Rescue event! {unit_id} saved by a passerby → 구호소")
+        return True  # 사망 처리 skip, 실신 상태 유지
+
+    morld.set_unit_prop(unit_id, "상태:사망", 1)
+    _m.remove_member(unit_id, reason="사망")
+
+    try:
+        import dungeon
+        dungeon.reorganize()
+    except ImportError:
+        pass
+
+    # 플레이어 파티 생존자 전원 광장(R0/L0)으로 이동
+    player_id = morld.get_player_id()
+    player_party = _m.get_party_of(player_id) if player_id is not None else None
+    if player_party is not None:
+        for mid in player_party.get_members():
+            morld.set_unit_location(mid, 0, 0, x=150)
+
     return True
 
 
@@ -190,5 +203,6 @@ _m.set_callbacks(
     on_member_added=_on_member_added,
     on_member_removed=_on_member_removed,
     on_faint=_on_faint,
+    on_death=_on_death,
     on_leader_changed=_on_leader_changed,
 )

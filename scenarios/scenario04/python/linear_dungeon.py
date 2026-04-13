@@ -23,9 +23,9 @@ NODE_EXIT = "exit"
 OPTION_RETURN = "return_village"
 
 
-# 마을 귀환 위치 (기본: 마을 광장 근처 구호소)
+# 마을 귀환 위치 (던전 입구 오브젝트 위치와 동일: chapter_0.py)
 VILLAGE_REGION = 0
-VILLAGE_LOCATION = 5
+VILLAGE_LOCATION = 7
 VILLAGE_X = 50
 
 
