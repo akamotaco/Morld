@@ -83,6 +83,12 @@ def instantiate_object(unique_id: str, region_id: int, location_id: int, x: int 
 
     morld.add_object(unit_id, cls.name, region_id, location_id, x)
 
+    # 인스턴스 등록 (focus/액션용)
+    instance = cls()
+    instance.instance_id = unit_id
+    from assets.objects import register_instance
+    register_instance(unit_id, instance)
+
     if hasattr(cls, 'props') and cls.props:
         for key, value in cls.props.items():
             morld.set_unit_prop(unit_id, key, value)

@@ -15,6 +15,7 @@ from .registry import (
     get_or_create_item_id,
     clear,
 )
+# 자식 패키지(characters/objects/items)는 scenario04/__init__.py에서 명시 import.
 
 
 # ========================================
@@ -28,9 +29,14 @@ def get_available_actions(unit_id):
       1) 인스턴스가 get_available_actions()를 정의하면 그 결과
       2) 인스턴스에 actions 속성이 있으면 그 리스트
       3) 둘 다 없으면 빈 리스트
+
+    Characters 레지스트리를 먼저, 없으면 Objects 조회.
     """
     from assets import characters
     instance = characters.get_instance(unit_id)
+    if instance is None:
+        from assets import objects
+        instance = objects.get_instance(unit_id)
     if instance is None:
         return []
     if hasattr(instance, 'get_available_actions'):
@@ -58,8 +64,12 @@ def call_instance_method(instance_id: int, method_name: str, args=None, equipmen
     if args is None:
         args = []
 
+    # Characters → Objects 순으로 인스턴스 조회
     from assets import characters
     instance = characters.get_instance(instance_id)
+    if instance is None:
+        from assets import objects
+        instance = objects.get_instance(instance_id)
     if instance is None:
         print(f"[assets] No instance for id={instance_id}, method={method_name}")
         return None

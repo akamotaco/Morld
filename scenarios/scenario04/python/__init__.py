@@ -11,6 +11,7 @@ import morld_compat
 
 # 에셋 로드 (데코레이터 등록 → 반드시 chapters 전에)
 import assets.characters
+import assets.objects
 import assets.items
 
 import events

@@ -56,6 +56,20 @@ def _on_member_added(unit_id, party):
     # 리더 prop은 파티 전체 갱신 (리더가 바뀌지 않더라도 신규 멤버에게 주입 필요)
     _sync_leader_prop(party)
 
+    # 임시 follow: 신규 멤버를 리더 위치로 즉시 이동 (정식 follow 로직은 추후)
+    leader_id = party.get_leader()
+    if leader_id != unit_id:
+        loc = morld.get_unit_location(leader_id)
+        if loc is not None:
+            try:
+                # get_unit_location 반환 형식 확인: tuple(region, location, x) 가정
+                if isinstance(loc, (tuple, list)) and len(loc) >= 2:
+                    region, location = loc[0], loc[1]
+                    x = loc[2] if len(loc) > 2 else 0
+                    morld.set_unit_location(unit_id, region, location, x=x)
+            except Exception as e:
+                print(f"[party] follow teleport failed for {unit_id}: {e}")
+
     # 마을 NPC 목록에서 제거
     try:
         import npc_generator

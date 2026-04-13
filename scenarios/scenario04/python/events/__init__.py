@@ -35,6 +35,19 @@ def on_reach(unit_id, region_id, location_id):
     except Exception as e:
         print(f"[events] on_reach dungeon error: {e}")
 
+    # 플레이어 이동 시 파티원 follow (임시 텔레포트)
+    try:
+        import morld
+        player_id = morld.get_player_id()
+        if unit_id == player_id:
+            import party
+            for member_id in party.get_members():
+                if member_id == player_id:
+                    continue
+                morld.set_unit_location(member_id, region_id, location_id, x=0)
+    except Exception as e:
+        print(f"[events] on_reach party-follow error: {e}")
+
 
 def on_leave(unit_id, region_id, location_id):
     """유닛이 Location을 떠날 때"""

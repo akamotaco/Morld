@@ -163,6 +163,10 @@ def initialize():
     # 8. 던전 초기화 — F1 생성 + 마을 입구 Gate 연결
     _initialize_dungeon()
 
+    # 9. 던전 입구 오브젝트 spawn (디버그: 일자형 테스트 던전 진입용)
+    from assets.registry import instantiate_object
+    instantiate_object("dungeon_entrance", VILLAGE_REGION_ID, 7, x=50)
+
     print(f"[chapter_0] Initialized: {len(VILLAGE_LOCATIONS)} village + {len(FIELD_LOCATIONS)} field locations")
 
 

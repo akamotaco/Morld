@@ -85,7 +85,7 @@ def _try_recruit(max_count: int, log_fn) -> list:
 
 
 def _auto_progress(log_fn) -> str:
-    """던전 노드를 자동 진행 (분기는 항상 continue 선택)."""
+    """던전 노드를 자동 진행 (분기는 첫 옵션 선택, 전투 패배 시 abort)."""
     max_iters = 50
     for _ in range(max_iters):
         if not ld.is_active():
@@ -96,19 +96,37 @@ def _auto_progress(log_fn) -> str:
             return "aborted"
 
         t = node["type"]
-        ld.process_current_node()
 
+        # EXIT: 마을 귀환
         if t == ld.NODE_EXIT:
             ld.exit_to_village(reason="cleared_end")
             return "cleared"
 
+        # BRANCH: 첫 path 선택 후 다수결
         if t == ld.NODE_BRANCH:
-            # 플레이어는 항상 next 선택 — NPC는 랜덤 (모듈 기본)
-            r = ld.make_branch_decision(player_choice=ld.OPTION_NEXT)
-            if r["action"] == "return":
+            first_path = node["paths"][0] if node["paths"] else None
+            r = ld.make_branch_decision(player_choice_id=first_path)
+            if r.get("action") == "return":
                 return "returned"
-        else:
-            ld.advance_to_next()
+            continue
+
+        # BATTLE/REST: 노드 처리 → 결과 확인 → advance
+        result = ld.process_current_node()
+        node_result = result.get("result")
+
+        if t == ld.NODE_BATTLE:
+            if node_result != "victory":
+                log_fn(f"[debug_pipeline] battle not won (result={node_result}) — abort")
+                return "aborted"
+
+        # 다음 노드로 진행 (paths[0])
+        if not node["paths"]:
+            log_fn("[debug_pipeline] dead-end node — abort")
+            return "aborted"
+        adv = ld.advance(node["paths"][0])
+        if not adv["ok"]:
+            log_fn(f"[debug_pipeline] advance failed: {adv['reason']} — abort")
+            return "aborted"
 
     log_fn("[debug_pipeline] max iterations reached — abort")
     return "aborted"
