@@ -5,6 +5,8 @@
 #
 # 설계: docs/design.md — 파티 시스템, NPC 모집
 
+import random
+
 import morld
 import trust as trust_module
 from engine import party_group as _pg
@@ -64,7 +66,7 @@ def recruit(npc_id: int) -> dict:
 def _judge_accept(npc_id: int, player_id: int) -> bool:
     """NPC가 플레이어 모집 제안을 수락하는지 판정.
 
-    현재: 신뢰도 ≥ 30이면 수락 (기본값이 50이므로 대부분 수락).
+    신뢰도 기반 확률 roll: random(0~100) < 신뢰도 → 수락.
     향후 확장: 성향 충돌, 도덕성 차이, 명성 임계.
     """
-    return trust_module.get_trust(npc_id) >= 30
+    return random.random() * 100 < trust_module.get_trust(npc_id)

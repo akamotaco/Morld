@@ -118,6 +118,96 @@ def _default_npc_choice(voter_id: int, options: list) -> str:
 
 
 # ========================================
+# 분기 5단계 플로우 (선호 수집 → 플레이어 선택 → 호감도 flip)
+# ========================================
+
+def gather_preferences(voters: list, advance_opt: str, return_opt: str,
+                       preference_fn=None) -> dict:
+    """각 voter의 1차 선호(advance/return) 수집 → 옵션 맵핑.
+
+    Args:
+        voters: 플레이어를 제외한 투표자 unit_id 리스트.
+        advance_opt: "advance" 선호에 대응하는 옵션 문자열.
+        return_opt: "return" 선호에 대응하는 옵션 문자열.
+        preference_fn: (voter_id) -> "advance" or "return".
+                       None이면 npc_dialogue.get_preference 사용.
+
+    Returns: {voter_id: option}
+    """
+    if preference_fn is None:
+        import npc_dialogue
+        preference_fn = npc_dialogue.get_preference
+
+    prefs = {}
+    for vid in voters:
+        pref = preference_fn(vid)
+        prefs[vid] = advance_opt if pref == "advance" else return_opt
+    return prefs
+
+
+def resolve_with_player_influence(preferences: dict, player_id: int,
+                                  player_choice: str, options: list,
+                                  affinity_fn=None) -> dict:
+    """플레이어 선택 이후 NPC 최종 투표 결정.
+
+    각 NPC마다: random.random()*100 < affinity_fn(npc_id) → 플레이어 선택으로 flip.
+    아니면 선호 유지.
+
+    Args:
+        preferences: gather_preferences 결과.
+        player_id: 플레이어 unit_id.
+        player_choice: 플레이어가 고른 옵션.
+        options: 전체 옵션 리스트 (tally 초기화용).
+        affinity_fn: (unit_id) -> 0~100 값. None이면 trust 모듈 사용.
+
+    Returns: {winner, tallies, tiebreaker, votes, flipped(list)}
+    """
+    if affinity_fn is None:
+        import trust as trust_module
+        affinity_fn = trust_module.get_trust
+
+    if player_choice not in options:
+        player_choice = options[0]
+
+    tallies = {opt: 0 for opt in options}
+    votes = {player_id: player_choice}
+    tallies[player_choice] += 1
+
+    flipped = []
+    for npc_id, original in preferences.items():
+        if original != player_choice:
+            affinity = affinity_fn(npc_id)
+            if random.random() * 100 < affinity:
+                final = player_choice
+                flipped.append(npc_id)
+            else:
+                final = original
+        else:
+            final = original
+        votes[npc_id] = final
+        tallies[final] += 1
+
+    max_votes = max(tallies.values())
+    winners = [opt for opt, cnt in tallies.items() if cnt == max_votes]
+
+    tiebreaker = False
+    if len(winners) == 1:
+        winner = winners[0]
+    else:
+        tiebreaker = True
+        # 동점 → 플레이어(리더 가정) 선택 우선
+        winner = player_choice if player_choice in winners else winners[0]
+
+    return {
+        "winner": winner,
+        "tallies": tallies,
+        "tiebreaker": tiebreaker,
+        "votes": votes,
+        "flipped": flipped,
+    }
+
+
+# ========================================
 # 편의 함수: 파티 투표 실행
 # ========================================
 

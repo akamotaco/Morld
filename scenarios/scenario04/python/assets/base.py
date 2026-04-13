@@ -36,15 +36,7 @@ class Character(CharacterBase):
     # ========================================
 
     def get_available_actions(self):
-        """focus 시 노출될 액션 목록. '파티:리더' prop 기반으로 초대/이탈 토글.
-
-        규칙:
-          - 대상의 '파티:리더' == 플레이어 id → 플레이어 파티원 → "파티 이탈"
-          - 플레이어의 '파티:리더' == 플레이어 id → 플레이어가 리더 → "파티 초대"
-          - 그 외: 액션 없음
-
-        액션에 '#'를 붙여 actor(플레이어)의 can: prop 검증으로 이중 확인 (추가 방어).
-        """
+        """focus 시 노출될 액션 목록. '파티:리더' prop 기반 초대/이탈 토글."""
         import morld
 
         uid = self.instance_id
@@ -67,52 +59,67 @@ class Character(CharacterBase):
 
         return []
 
+    def get_focus_text(self):
+        """Focus 시 NPC 반응 — 최근 거절했으면 거절 라인, 아니면 인삿말."""
+        import morld
+        import npc_dialogue
+
+        uid = self.instance_id
+        if uid is None:
+            return super().get_focus_text()
+
+        if morld.get_unit_prop(uid, "최근:거절"):
+            line = npc_dialogue.get_line(uid, "invite_decline", name=self.name)
+        else:
+            line = npc_dialogue.get_line(uid, "greeting", name=self.name)
+        return f"[{self.name}] \"{line}\""
+
     # ========================================
     # 공용 액션 메서드
     # ========================================
 
-    # NPC 거절/수락 대사 — UI에서 실제 도달 가능한 사유만.
-    # 나머지(already_member/self/not_leader 등)는 get_available_actions가 필터링하므로
-    # 도달하면 로직 오류로 간주하고 에러 로그.
-    INVITE_LINES = {
-        "accepted": "좋아. 함께 가자.",
-        "party_full": "미안해. 내가 들어갈 자리는 없는 것 같네.",
-        "declined": "...미안, 너랑은 같이 가고 싶지 않아.",
+    # recruit.recruit() 반환 사유 → npc_dialogue 상황 키 매핑
+    _INVITE_REASON_TO_SITUATION = {
+        "recruited":  "invite_accept",
+        "declined":   "invite_decline",
+        "party_full": "invite_full",
     }
 
     def invite_to_party(self):
-        """플레이어 파티에 합류 요청. recruit 모듈로 위임. Generator — 결과 메시지 표시."""
+        """플레이어 파티에 합류 요청. recruit 위임 + 아키타입 대사. Generator."""
+        import morld
+        import npc_dialogue
         import recruit
         import ui
 
-        unit_id = self.instance_id
-        if unit_id is None:
+        uid = self.instance_id
+        if uid is None:
             return
 
-        result = recruit.recruit(unit_id)
+        result = recruit.recruit(uid)
         reason = result["result"]
-
-        line = self.INVITE_LINES.get(reason)
-        if line:
-            yield ui.dialog(f"[{self.name}]\n\"{line}\"")
+        situation = self._INVITE_REASON_TO_SITUATION.get(reason)
+        if situation is None:
+            print(f"[invite] LOGIC ERROR: unreachable reason={reason} on {self.name}")
             return
 
-        # 여기 도달하면 get_available_actions 필터를 우회한 상태 → 로직 오류
-        print(f"[invite] LOGIC ERROR: unreachable reason={reason} on {self.name}")
+        # focus 텍스트 반영: 거절 → 최근:거절=1, 수락 → 해제
+        if reason == "declined":
+            morld.set_unit_prop(uid, "최근:거절", 1)
+        elif reason == "recruited":
+            morld.set_unit_prop(uid, "최근:거절", 0)
 
-    # 이탈 시 NPC 대사 (서브클래스에서 오버라이드 가능)
-    DISMISS_LINES = {
-        "accepted": "...알겠어. 각자의 길을 가자.",
-    }
+        line = npc_dialogue.get_line(uid, situation, name=self.name)
+        yield ui.dialog(f"[{self.name}]\n\"{line}\"")
 
     def dismiss_from_party(self):
         """플레이어 파티에서 이 NPC를 내보낸다. Generator.
 
         UI 노출 조건(get_available_actions)이 이미 필터링하므로
         여기 도달했다면 대상은 플레이어 파티원 + 플레이어는 리더인 상태 전제.
-        그 외 상태는 로직 오류로 로그.
         """
         import morld
+        import npc_dialogue
         import ui
         from engine import party_group as _pg
 
@@ -123,7 +130,6 @@ class Character(CharacterBase):
         player_id = morld.get_player_id()
         party = _pg.get_party_of(player_id) if player_id else None
 
-        # 도달 불가 상태 가드 (로직 오류 감지)
         if (
             party is None
             or uid == player_id
@@ -135,7 +141,7 @@ class Character(CharacterBase):
 
         ok = _pg.remove_member(uid, reason="이탈")
         if ok:
-            line = self.DISMISS_LINES.get("accepted", "")
+            line = npc_dialogue.get_line(uid, "dismiss_leave", name=self.name)
             yield ui.dialog(f"[{self.name}]\n\"{line}\"")
         else:
             print(f"[dismiss] remove_member failed on {self.name}")
