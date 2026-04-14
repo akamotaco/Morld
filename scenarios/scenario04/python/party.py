@@ -150,22 +150,32 @@ def _on_dissolved(party_id, reason):
 
 
 def _on_faint(unit_id, party):
-    """실신 처리 — 파티 이탈(split)만. 재편성은 사망 시.
+    """실신 처리 — 파티 이탈(split) + 구출 시도 + 타이머 등록.
 
     모든 캐릭터(플레이어 포함) 실신 → 파티에서 분리.
-    플레이어 실신 후 경로(차후 구현):
-      - NPC 구출(생존+관계성) → 구호소 이동
-      - 구출 실패 + 시간 경과 → 사망 → 재편성
+    플레이어 실신 시: 파티 NPC가 관계성 기반 구출 시도 → 성공 시 구호소.
+    구출 실패 또는 NPC 실신 → faint_timer로 타임아웃 → 사망 전환.
 
     Returns: True (플레이어 파티) / False (몬스터 파티는 기본 처리)
     """
     if not _is_player_party(party):
-        return False  # 기본 처리 (remove)
+        return False
 
     morld.set_unit_prop(unit_id, "상태:실신", 1)
 
-    # 리더(플레이어 or 승계 NPC) 실신 → 솔로 파티로 분리
-    # 엔진 기본 split은 리더를 대상으로 하지 않으므로 명시 처리.
+    # 플레이어 실신 → 파티 NPC가 즉시 구출 시도 (성공 시 구호소 이동)
+    player_id = morld.get_player_id()
+    if unit_id == player_id:
+        _try_party_rescue(unit_id, party)
+
+    # 타이머 등록 — 구호소에 있으면 timer가 타임아웃 정지 + 의사 치료 가능
+    try:
+        import faint_timer
+        faint_timer.register(unit_id)
+    except ImportError:
+        pass
+
+    # 리더 실신 → 솔로 파티로 분리 (엔진 기본 split은 리더 대상 아님)
     if unit_id == party.get_leader():
         _m.split(party.party_id, [unit_id])
         print(f"[party] Leader fainted — split to solo party: {unit_id}")
@@ -175,39 +185,85 @@ def _on_faint(unit_id, party):
     return False
 
 
-def _on_death(unit_id, party):
-    """사망 처리 — 재편성 + 생존 파티원 광장 이동.
+def _try_party_rescue(fainted_id, party):
+    """파티 NPC가 실신한 플레이어를 구출. 성공 시 구호소 이동.
 
-    실신과 별개 이벤트. 실신 상태에서 구출 실패·시간 경과로 전환되거나
-    즉사 상황에서 호출.
-
-    사망 직전 낮은 확률로 통행인 구출 이벤트 발생 — 구호소로 이송되어 생존.
+    각 생존 NPC가 MAX(신뢰, 복종) 기반 roll. 첫 성공자로 구출.
     """
-    if not _is_player_party(party):
-        return False
+    import trust as trust_module
+    import obedience as obedience_module
 
-    # 통행인 구출 이벤트 (낮은 확률)
-    if random.random() < RESCUE_CHANCE:
+    for npc_id in party.get_members():
+        if npc_id == fainted_id:
+            continue
+        if morld.get_unit_prop(npc_id, "상태:실신"):
+            continue
+        affinity = max(
+            trust_module.get_trust(npc_id),
+            obedience_module.get_obedience(npc_id),
+        )
+        if random.random() * 100 < affinity:
+            morld.set_unit_location(fainted_id, 0, 5, x=50)  # 구호소
+            print(f"[party] NPC {npc_id} rescued player {fainted_id} → 구호소")
+            return True
+    return False
+
+
+def _on_death(unit_id, party, cause="unknown"):
+    """사망 처리 — cause별 분기.
+
+    cause:
+      - "neglect": 실신 방치로 타임아웃 → 통행인 구출 roll 발동
+      - 그 외 (combat/attack_while_fainted/unknown): 즉시 사망 (구출 불가)
+
+    플레이어 파티 소속이면 재편성 + 광장 이동, 그 외(잔류 NPC)는 MIA 처리.
+    """
+    is_player_party = _is_player_party(party)
+    player_id = morld.get_player_id()
+    is_player = (unit_id == player_id)
+
+    # 방치 사망만 통행인 구출 roll (전투/피격 사망은 즉시 사망)
+    if cause == "neglect" and random.random() < RESCUE_CHANCE:
         morld.set_unit_location(unit_id, 0, 5, x=50)  # 구호소
+        # 타이머 재등록 (구호소에 있으니 timeout 없고, 의사 치료 가능)
+        try:
+            import faint_timer
+            faint_timer.register(unit_id)
+        except ImportError:
+            pass
         print(f"[party] Rescue event! {unit_id} saved by a passerby → 구호소")
-        return True  # 사망 처리 skip, 실신 상태 유지
+        return True
 
-    morld.set_unit_prop(unit_id, "상태:사망", 1)
-    _m.remove_member(unit_id, reason="사망")
-
+    # 사망 확정 → 타이머 정리
     try:
-        import dungeon
-        dungeon.reorganize()
+        import faint_timer
+        faint_timer.unregister(unit_id)
     except ImportError:
         pass
 
-    # 플레이어 파티 생존자 전원 광장(R0/L0)으로 이동
-    player_id = morld.get_player_id()
-    player_party = _m.get_party_of(player_id) if player_id is not None else None
-    if player_party is not None:
-        for mid in player_party.get_members():
-            morld.set_unit_location(mid, 0, 0, x=150)
+    # 사망 확정
+    morld.set_unit_prop(unit_id, "상태:사망", 1)
+    morld.set_unit_prop(unit_id, "상태:실신", 0)
 
+    # 플레이어 파티 케이스: 재편성 + 생존자 광장 이동
+    if is_player_party:
+        _m.remove_member(unit_id, reason="사망")
+        try:
+            import dungeon
+            dungeon.reorganize()
+        except ImportError:
+            pass
+        player_party = _m.get_party_of(player_id) if player_id is not None else None
+        if player_party is not None:
+            for mid in player_party.get_members():
+                morld.set_unit_location(mid, 0, 0, x=150)
+        return True
+
+    # 그 외(솔로 파티 잔류 NPC 등): MIA 처리 — 파티 해체, 유닛은 그대로 방치
+    # (향후: 시체 처리, 아이템 드롭 등)
+    if party is not None:
+        _m.dissolve_party(party.party_id)
+    print(f"[party] NPC {unit_id} died (MIA, cause={cause})")
     return True
 
 

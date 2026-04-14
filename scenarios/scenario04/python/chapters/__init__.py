@@ -36,7 +36,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import temperature, humidity, pollution, survival
     import needs, congestion, stealth
     import erosion, economy, morale, trust, quirk
-    import party, npc_generator, dungeon
+    import party, npc_generator, dungeon, faint_timer
     import building, business, taming, corrosion, carry
     import map_coords
     import npc_party_ai, village_schedule, village_map
@@ -65,6 +65,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     # 파티/NPC
     party.reset()
     npc_generator.reset()
+    faint_timer.reset()
     morale.reset()
     trust.reset()
     quirk.reset()

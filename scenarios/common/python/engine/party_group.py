@@ -97,7 +97,7 @@ _callbacks = {
     "on_member_added": None,     # (unit_id, party) -> None
     "on_member_removed": None,   # (unit_id, party, reason) -> None
     "on_faint": None,            # (unit_id, party) -> bool (True = 시나리오가 처리함)
-    "on_death": None,            # (unit_id, party) -> bool (True = 시나리오가 처리함)
+    "on_death": None,            # (unit_id, party, cause) -> bool (True = 시나리오가 처리함)
     "on_leader_changed": None,   # (old_leader, new_leader, party) -> None
     "on_dissolved": None,        # (party_id, reason) -> None (자격자 없어 해산된 경우)
     "leadership_fn": None,       # (unit_id) -> int (0 = 리더 불가, N = 본인+N 통솔)
@@ -474,19 +474,24 @@ def ensure_valid_leadership(party_id):
     return {"result": result, "new_leader": current_leader}
 
 
-def handle_death(unit_id):
+def handle_death(unit_id, cause="unknown"):
     """파티원 사망 처리 (어느 파티든).
 
-    실신과 구분되는 별개 이벤트. 실신 상태에서 구출 실패·시간 경과로
-    전환되거나, 즉사 상황에서 직접 호출.
+    실신과 구분되는 별개 이벤트.
+
+    Args:
+        unit_id: 대상 유닛
+        cause: 사망 경로 — "neglect"(실신 방치 타임아웃) / "combat"(전투 즉사) /
+               "attack_while_fainted"(실신 중 피격) / "unknown" 등.
+               시나리오 콜백이 이를 보고 구출 이벤트 발동 여부 결정.
     """
     party = get_party_of(unit_id)
     if party is None:
         return
 
-    cb_result = _fire("on_death", unit_id, party)
+    cb_result = _fire("on_death", unit_id, party, cause)
     if cb_result:
-        return  # 시나리오가 처리함
+        return
 
     # 기본: 파티에서 제거
     remove_member(unit_id, reason="사망")
