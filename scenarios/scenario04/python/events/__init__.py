@@ -41,9 +41,12 @@ def on_reach(unit_id, region_id, location_id):
         player_id = morld.get_player_id()
         if unit_id == player_id and region_id == 0 and location_id == 12:
             import linear_dungeon as ld
+            print(f"[events] on_reach(side-effect) L12 — before try_auto_enter: is_active()={ld.is_active()}")
             if ld.try_auto_enter():
                 node = ld.get_current_node()
                 print(f"[events] Auto-entered linear dungeon — first node={node['type']}")
+            else:
+                print(f"[events] try_auto_enter returned False — dungeon already active?")
     except Exception as e:
         print(f"[events] on_reach linear_dungeon error: {e}")
 
@@ -98,8 +101,12 @@ def on_single_event(event):
             uid, region, loc = event[1], event[2], event[3]
             if uid == player_id and region == 0 and loc == 12:
                 import linear_dungeon as ld
+                print(f"[events] on_reach L12 — ld.is_active()={ld.is_active()}")
                 if ld.is_active():
+                    print(f"[events] on_reach L12 — returning auto_run generator")
                     return ld.auto_run()
+                else:
+                    print(f"[events] on_reach L12 — NOT returning generator (dungeon inactive)")
         except Exception as e:
             print(f"[events] on_reach auto_run error: {e}")
         return None
