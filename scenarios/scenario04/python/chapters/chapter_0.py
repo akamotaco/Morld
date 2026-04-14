@@ -43,6 +43,7 @@ VILLAGE_LOCATIONS = [
     (9,  "잠긴 통로 A", 50,  True),   # F5 숏컷 (해금 전 잠김)
     (10, "잠긴 통로 B", 50,  True),   # F10 숏컷
     (11, "잠긴 통로 C", 50,  True),   # F15 숏컷
+    (12, "테스트 리니어 던전", 100, False),  # 던전 입구(7)에서 진입 — on_reach로 자동 입장
 ]
 
 # 자원 채취 필드 (Region 1)
@@ -92,6 +93,9 @@ VILLAGE_GATES = [
     (0, 10, 0, 0,  0, 7, 70),
     (0, 7, 3, 80,  0, 11, 0),
     (0, 11, 0, 0,  0, 7, 80),
+    # 던전 입구(7) ↔ 테스트 리니어 던전(12)
+    (0, 7, 4, 90,  0, 12, 0),
+    (0, 12, 0, 0, 0, 7, 90),
 ]
 
 FIELD_GATES = [
@@ -163,9 +167,8 @@ def initialize():
     # 8. 던전 초기화 — F1 생성 + 마을 입구 Gate 연결
     _initialize_dungeon()
 
-    # 9. 던전 입구 오브젝트 spawn (디버그: 일자형 테스트 던전 진입용)
-    from assets.registry import instantiate_object
-    instantiate_object("dungeon_entrance", VILLAGE_REGION_ID, 7, x=50)
+    # 9. 일자 던전 자동 입장: L7 도착 시 events.on_reach에서 linear_dungeon.try_auto_enter()
+    #    별도 오브젝트 없음 (플레이어가 파티원 모드에서 사용할 흐름과 동일)
 
     print(f"[chapter_0] Initialized: {len(VILLAGE_LOCATIONS)} village + {len(FIELD_LOCATIONS)} field locations")
 

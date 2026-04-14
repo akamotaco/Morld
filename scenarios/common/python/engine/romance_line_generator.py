@@ -12,13 +12,13 @@ override → 행위별 좌표 → 카테고리 좌표 (3단계).
 """
 import random
 
-from romance_reaction_generator import resolve_tone, resolve_arousal_tier
+from engine.romance_reaction_generator import resolve_tone, resolve_arousal_tier
 
-from tone_templates import (
+from engine.tone_templates import (
     LINE_TEMPLATES, ACTION_LINE_TEMPLATES,
     calc_coordinates, select_by_coord,
 )
-from tone_templates.coords import ACTION_TO_CATEGORY
+from engine.tone_templates.coords import ACTION_TO_CATEGORY
 
 # ─────────────────────────────────────────────
 # 말투 상수 + 아키타입 기본 매핑

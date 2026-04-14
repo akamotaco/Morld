@@ -13,11 +13,11 @@
 """
 import random
 
-from tone_templates import (
+from engine.tone_templates import (
     CATEGORY_TEMPLATES, ARCHETYPE_TEMPLATES,
     calc_coordinates, select_by_coord,
 )
-from tone_templates.coords import ACTION_TO_CATEGORY
+from engine.tone_templates.coords import ACTION_TO_CATEGORY
 
 
 # ─────────────────────────────────────────────

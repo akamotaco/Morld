@@ -46,7 +46,7 @@ def run(*, dungeon_length: int = 5, max_recruits: int = 2, verbose: bool = True)
     _p(f"[debug_pipeline] Recruited {len(recruited)} NPCs: {recruited}")
 
     # 2. 일자 던전 진입
-    ld.enter(length=dungeon_length)
+    ld.enter(depth=dungeon_length)
 
     # 3. 노드 자동 진행
     outcome = _auto_progress(_p)
@@ -102,12 +102,12 @@ def _auto_progress(log_fn) -> str:
             ld.exit_to_village(reason="cleared_end")
             return "cleared"
 
-        # BRANCH: 첫 path 선택 후 다수결
-        if t == ld.NODE_BRANCH:
-            first_path = node["paths"][0] if node["paths"] else None
-            r = ld.make_branch_decision(player_choice_id=first_path)
-            if r.get("action") == "return":
-                return "returned"
+        # START: 이벤트 없음, 다음 노드로 진행
+        if t == ld.NODE_START:
+            if not node["paths"]:
+                log_fn("[debug_pipeline] START dead-end — abort")
+                return "aborted"
+            ld.advance(node["paths"][0])
             continue
 
         # BATTLE/REST: 노드 처리 → 결과 확인 → advance

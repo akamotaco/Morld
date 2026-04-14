@@ -39,147 +39,138 @@ class Player(Character):
         return "나 자신이다."
 
     def get_available_actions(self):
-        """플레이어 셀프 focus 시 노출 액션. 던전 활성 시 노드 진행 액션."""
+        """플레이어 셀프 focus 시 노출 액션. 던전 활성 시 항상 진행 액션 노출
+        (auto_run이 대부분 처리하지만 fallback 용도)."""
         import linear_dungeon as ld
 
         if not ld.is_active():
             return []
-
-        node = ld.get_current_node()
-        if node is None:
+        if ld.get_current_node() is None:
             return []
-
-        t = node["type"]
-        if t == ld.NODE_EXIT:
-            return ["call:dungeon_proceed:던전 나가기"]
-        if t == ld.NODE_BATTLE:
-            label = "다음으로 진행" if node.get("cleared") else "전투!"
-            return [f"call:dungeon_proceed:{label}"]
-        if t == ld.NODE_REST:
-            return ["call:dungeon_proceed:휴식하고 진행"]
-        if t == ld.NODE_BRANCH:
-            return ["call:dungeon_proceed:파티 회의 (다수결)"]
-        return []
+        return ["call:dungeon_proceed:진행"]
 
     def dungeon_proceed(self):
-        """던전의 현재 노드를 처리하고 다음으로 진행."""
+        """던전 현재 노드 이벤트 → 다음 선택(다수결) → advance.
+
+        모든 노드는 동일 흐름:
+          1. 이벤트 실행 (START/EXIT은 서술만, BATTLE/REST는 실행)
+          2. 선택지 = node.paths (EXIT은 가상 option "village")
+             라벨은 각 방 타입 ("[전투방]", "[휴식방]", "[마을로 돌아간다]")
+          3. NPC 선호(랜덤) + 대사 출력 — 대사는 선호 방 타입별
+          4. 플레이어 선택 (UI 미구현: 첫 옵션)
+          5. 호감도 flip → winner → advance (winner == "village"면 exit)
+        """
+        import morld
         import linear_dungeon as ld
+        import npc_dialogue
+        import party_vote
+        import random
         import ui
+        from engine import party_group as _pg
 
         if not ld.is_active():
             return
-
         node = ld.get_current_node()
         if node is None:
             return
 
         t = node["type"]
 
-        # 마을 귀환
-        if t == ld.NODE_EXIT:
-            ld.exit_to_village(reason="cleared_end")
-            yield ui.dialog("던전 출구를 통해 마을로 돌아왔다.")
-            return
+        # 1. 이벤트 텍스트
+        event_text = ""
+        if t == ld.NODE_START:
+            event_text = "던전에 들어섰다."
+        elif t == ld.NODE_BATTLE:
+            result = ld.process_current_node()
+            r = result.get("result")
+            if r == "victory":
+                event_text = "전투 승리."
+            elif r == "defeat":
+                event_text = "전투 패배..."
+            else:
+                event_text = "전투를 시도했지만 결판이 나지 않았다."
+        elif t == ld.NODE_REST:
+            ld.process_current_node()
+            event_text = "휴식했다."
+        elif t == ld.NODE_EXIT:
+            event_text = "던전 끝에 도달했다."
 
-        # 노드 처리
-        result = ld.process_current_node()
-        node_result = result.get("result")
+        # 던전 ambient (50%): 파티원 랜덤 코멘트
+        player_id = morld.get_player_id()
+        party = _pg.get_party_of(player_id) if player_id else None
+        members = party.get_members() if party else ([player_id] if player_id else [])
+        npcs = [m for m in members if m != player_id]
 
-        # 던전 ambient: 50% 확률로 파티원 코멘트 덧붙임 (Phase 1: 랜덤)
-        def _ambient_suffix():
-            import morld
-            import npc_dialogue
-            import random
-            from engine import party_group as _pg
-            player_id = morld.get_player_id()
-            party = _pg.get_party_of(player_id) if player_id else None
-            if party is None:
-                return ""
-            npcs = [m for m in party.get_members() if m != player_id]
-            if not npcs or random.random() < 0.5:
-                return ""
+        if npcs and random.random() >= 0.5 and t in (ld.NODE_BATTLE, ld.NODE_REST):
             npc_id = random.choice(npcs)
             name = morld.get_unit_name(npc_id) or f"id={npc_id}"
-            line = npc_dialogue.get_line(npc_id, "dungeon_ambient")
-            return f"\n\n[{name}] \"{line}\""
+            ambient = npc_dialogue.get_line(npc_id, "dungeon_ambient")
+            event_text += f"\n\n[{name}] \"{ambient}\""
 
-        # Battle: 결과별 처리
-        if t == ld.NODE_BATTLE:
-            if node_result == "victory":
-                next_id = node["paths"][0] if node["paths"] else None
-                if next_id is not None:
-                    ld.advance(next_id)
-                    yield ui.dialog("전투 승리. 다음으로 진행한다." + _ambient_suffix())
-                else:
-                    yield ui.dialog("전투 승리. 막다른 길이다.")
-            elif node_result == "defeat":
-                yield ui.dialog("전투 패배...")
-            else:
-                yield ui.dialog("전투를 시도했지만 결판이 나지 않았다.")
-            return
+        # 2. 선택지 결정
+        if t == ld.NODE_EXIT:
+            options = ["village"]
+            labels = ["[마을로 돌아간다]"]
+            # 대사 매핑용: 각 옵션 id → room_type_key
+            option_room_type = {"village": "exit"}
+            advance_map = {"village": "__exit__"}
+        else:
+            paths = node["paths"]
+            if not paths:
+                yield ui.dialog(f"{event_text}\n\n(갈 곳이 없다.)")
+                return
+            options = [str(p) for p in paths]
+            labels = list(node["labels"])
+            option_room_type = {
+                str(p): ld._state["nodes"][p]["type"] for p in paths
+            }
+            advance_map = {str(p): p for p in paths}
 
-        # Rest: 회복 후 자동 진행
-        if t == ld.NODE_REST:
-            next_id = node["paths"][0] if node["paths"] else None
-            if next_id is not None:
-                ld.advance(next_id)
-            yield ui.dialog("휴식했다. 다음으로 진행한다." + _ambient_suffix())
-            return
+        # 3. NPC 선호 + 대사
+        preferences = {npc_id: random.choice(options) for npc_id in npcs}
 
-        # Branch: 5단계 다수결 플로우 (선호 수집 → 플레이어 선택 → 호감도 flip)
-        if t == ld.NODE_BRANCH:
-            import morld
-            import npc_dialogue
-            import party_vote
-            from engine import party_group as _pg
-
-            advance_opt = str(node["paths"][0])
-            return_opt = ld.OPTION_RETURN
-            options = [advance_opt, return_opt]
-
-            player_id = morld.get_player_id()
-            party = _pg.get_party_of(player_id) if player_id else None
-            members = party.get_members() if party else [player_id]
-            npcs = [m for m in members if m != player_id]
-
-            # 1-2단계: NPC 선호 1차 결정 + 힌트 대사 동시 표시
-            preferences = party_vote.gather_preferences(
-                npcs, advance_opt, return_opt
-            )
-            lines = ["파티원들이 각자 의견을 낸다..."]
+        lines = [event_text]
+        if options:
+            lines.append("")
+            lines.append("선택지:")
+            for i, opt in enumerate(options):
+                lines.append(f"  - {labels[i]}")
+        if npcs:
+            lines.append("")
+            lines.append("파티원 의견:")
             for npc_id in npcs:
                 pref_opt = preferences[npc_id]
-                situation = "vote_advance" if pref_opt == advance_opt else "vote_return"
+                pref_idx = options.index(pref_opt)
+                pref_label = labels[pref_idx]
+                room_type = option_room_type[pref_opt]
+                situation_key = {
+                    ld.NODE_BATTLE: "room_pref_battle",
+                    ld.NODE_REST:   "room_pref_rest",
+                    ld.NODE_EXIT:   "room_pref_exit",
+                }.get(room_type, "room_pref_battle")
                 name = morld.get_unit_name(npc_id) or f"id={npc_id}"
-                line = npc_dialogue.get_line(npc_id, situation)
-                lines.append(f"[{name}] \"{line}\"")
-            yield ui.dialog("\n".join(lines))
+                line = npc_dialogue.get_line(npc_id, situation_key)
+                lines.append(f"  [{name}] {pref_label} — \"{line}\"")
+        yield ui.dialog("\n".join(lines))
 
-            # 3단계: 플레이어 선택 (UI 미구현 — 임시로 advance 고정, 차후 선택지 UI)
-            player_choice = advance_opt
+        # 4. 플레이어 선택 (UI 미구현: 첫 옵션)
+        player_choice = options[0]
 
-            # 4-5단계: 호감도 roll로 flip → 집계
-            result = party_vote.resolve_with_player_influence(
-                preferences, player_id, player_choice, options
-            )
-            winner = result["winner"]
-            tallies = result["tallies"]
-            flipped = result["flipped"]
+        # 5. Flip + 집계
+        result = party_vote.resolve_with_player_influence(
+            preferences, player_id, player_choice, options
+        )
+        winner = result["winner"]
+        winner_idx = options.index(winner)
+        winner_label = labels[winner_idx]
+        flipped = result["flipped"]
+        flip_note = f" ({len(flipped)}명이 너의 결정을 따른다.)" if flipped else ""
 
-            flip_note = (
-                f"\n({len(flipped)}명이 너의 결정을 따른다.)" if flipped else ""
-            )
+        yield ui.dialog(f"파티는 {winner_label}으로 결정했다.{flip_note}")
 
-            if winner == return_opt:
-                ld.exit_to_village(reason="party_vote")
-                yield ui.dialog(
-                    f"파티 다수결로 마을로 돌아간다.\n득표: {tallies}{flip_note}"
-                )
-            else:
-                ld.advance(int(winner))
-                new_node = ld.get_current_node()
-                yield ui.dialog(
-                    f"파티가 길을 결정했다.\n득표: {tallies}{flip_note}\n"
-                    f"다음 노드: {new_node['type'] if new_node else '?'}"
-                )
-            return
+        target = advance_map[winner]
+        if target == "__exit__":
+            ld.exit_to_village(reason="cleared_end")
+        else:
+            ld.advance(target)
+        return

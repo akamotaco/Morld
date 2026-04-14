@@ -18,6 +18,7 @@ NODE_BATTLE = "battle"
 NODE_REST = "rest"
 NODE_BRANCH = "branch"
 NODE_EXIT = "exit"
+NODE_START = "start"
 
 # 분기 옵션 id 접두
 OPTION_RETURN = "return_village"
@@ -52,75 +53,103 @@ def reset():
 # 던전 생성
 # ========================================
 
-def generate_nodes(length: int = 5, *, branch_count: int = 1) -> list:
-    """노드 그래프 생성. 메인 라인 + 사이드 분기 합류식.
+def generate_nodes(depth: int = 6, *, max_width: int = 3) -> list:
+    """STS 스타일 DAG 생성 (레벨 = depth, 레벨당 1~max_width개 방).
 
-    구조: 0 → 1 → 2 → ... → (length-1: EXIT)
-    branch_count 만큼 메인 노드 중 일부가 BRANCH 타입이 되어, 사이드 노드 1개를
-    거친 뒤 메인의 다음 노드로 다시 합류한다.
+    구조:
+      - Level 0: START (1방 고정)
+      - Level 1 ~ depth-2: 1~max_width개 방 (랜덤 BATTLE/REST)
+      - Level depth-1: EXIT (1방 고정)
+      - 각 노드는 다음 레벨의 1~2개 노드로 paths 연결 (forward-only DAG)
+      - NODE_BRANCH 타입은 별도 사용하지 않음 — paths 길이 ≥ 2면 자동 분기
 
     노드 dict 필드:
-      - id: int (인덱스)
-      - type: str (battle/rest/branch/exit)
-      - floor: int
-      - paths: list[int]   (다음 노드 후보 id들. branch면 길이 ≥ 2)
-      - labels: list[str]  (paths의 표시명. paths와 같은 길이)
-      - side: bool         (사이드 노드 표시, 선택)
+      - id: int                (global index)
+      - type: start|battle|rest|exit
+      - floor: int             (level = floor)
+      - paths: list[int]       (다음 노드 id들)
+      - labels: list[str]      (paths별 표시명 — "[전투방]" 등)
     """
-    # 1. 메인 라인 생성 (길이 length, 마지막은 EXIT)
-    nodes = []
-    for i in range(length - 1):
-        nodes.append({
-            "id": i,
-            "type": NODE_BATTLE if i % 2 == 0 else NODE_REST,
-            "floor": i + 1,
-            "paths": [i + 1],
-            "labels": ["계속"],
-        })
-    nodes.append({
-        "id": length - 1,
-        "type": NODE_EXIT,
-        "floor": length,
-        "paths": [],
-        "labels": [],
-    })
+    if depth < 3:
+        depth = 3  # 최소: START + 1 컨텐츠 + EXIT
 
-    # 2. 분기 삽입: 메인 중간 노드를 BRANCH로 만들고 사이드 노드 추가
-    main_count = length - 1
-    if main_count >= 3 and branch_count > 0:
-        # 분기 가능 위치: 1 ~ main_count-2 (양 끝 제외)
-        candidates = list(range(1, main_count - 1))
-        random.shuffle(candidates)
-        for branch_pos in candidates[:branch_count]:
-            branch_node = nodes[branch_pos]
-            next_main = branch_pos + 1
-            # 사이드 노드를 끝에 추가 (인덱스 = len(nodes))
-            side_id = len(nodes)
-            side_type = random.choice([NODE_BATTLE, NODE_REST])
-            side_node = {
-                "id": side_id,
-                "type": side_type,
-                "floor": branch_node["floor"],
-                "paths": [next_main],   # 사이드도 다시 메인 합류
-                "labels": ["메인 복귀"],
-                "side": True,
-            }
-            nodes.append(side_node)
-            # 메인 노드를 BRANCH로 변환
-            branch_node["type"] = NODE_BRANCH
-            branch_node["paths"] = [next_main, side_id]
-            branch_node["labels"] = ["정면 길", "옆길"]
+    # 1. 레벨별 노드 배치
+    levels = []  # levels[i] = [node_id, ...]
+    nodes = []
+
+    def _new_node(type_, floor):
+        nid = len(nodes)
+        nodes.append({
+            "id": nid,
+            "type": type_,
+            "floor": floor,
+            "paths": [],
+            "labels": [],
+        })
+        return nid
+
+    # Level 0: START
+    levels.append([_new_node(NODE_START, 0)])
+
+    # Level 1 ~ depth-2: 랜덤 너비
+    for lvl in range(1, depth - 1):
+        width = random.randint(1, max_width)
+        row = []
+        for _ in range(width):
+            t = random.choice([NODE_BATTLE, NODE_REST])
+            row.append(_new_node(t, lvl))
+        levels.append(row)
+
+    # Level depth-1: EXIT
+    levels.append([_new_node(NODE_EXIT, depth - 1)])
+
+    # 2. 노드 간 path 연결 (forward-only, 각 노드 → 다음 레벨 1~2개)
+    for lvl in range(len(levels) - 1):
+        current = levels[lvl]
+        next_level = levels[lvl + 1]
+        next_max = min(2, len(next_level))
+
+        # 먼저 각 노드에서 1개씩 랜덤 연결 (reachability 보장용)
+        for nid in current:
+            target = random.choice(next_level)
+            nodes[nid]["paths"].append(target)
+            # 일부 노드는 추가 path 하나 더 (branch 생성)
+            if len(next_level) >= 2 and random.random() < 0.35:
+                alt = random.choice([t for t in next_level if t != target])
+                nodes[nid]["paths"].append(alt)
+
+        # 모든 next-level 노드가 최소 1개 이상의 incoming을 갖도록 보강
+        incoming = {nid: 0 for nid in next_level}
+        for nid in current:
+            for p in nodes[nid]["paths"]:
+                incoming[p] = incoming.get(p, 0) + 1
+        for nid in next_level:
+            if incoming[nid] == 0:
+                # 임의의 current 노드에 연결
+                src = random.choice(current)
+                if nid not in nodes[src]["paths"]:
+                    nodes[src]["paths"].append(nid)
+
+    # 3. labels 생성 (각 path의 대상 노드 타입 표시)
+    type_label = {
+        NODE_BATTLE: "전투방",
+        NODE_REST: "휴식방",
+        NODE_EXIT: "출구",
+        NODE_START: "시작방",
+    }
+    for node in nodes:
+        node["labels"] = [f"[{type_label.get(nodes[p]['type'], '?')}]" for p in node["paths"]]
 
     return nodes
 
 
-def enter(nodes: list = None, length: int = 5, *, branch_count: int = 1):
-    """던전 진입 → 첫 노드 활성화."""
+def enter(nodes: list = None, depth: int = 6, *, max_width: int = 3):
+    """던전 진입 → 첫 노드(START) 활성화."""
     reset()
-    _state["nodes"] = nodes if nodes is not None else generate_nodes(length, branch_count=branch_count)
+    _state["nodes"] = nodes if nodes is not None else generate_nodes(depth, max_width=max_width)
     _state["index"] = 0
     _state["active"] = True
-    _log(f"[dungeon] Enter linear dungeon — {len(_state['nodes'])} nodes")
+    _log(f"[dungeon] Enter linear dungeon — {len(_state['nodes'])} nodes (depth={depth})")
     return get_current_node()
 
 
@@ -322,10 +351,12 @@ def make_branch_decision(player_choice_id: int = None, npc_choice_fn=None) -> di
 # ========================================
 
 def exit_to_village(reason: str = "clear"):
-    """모든 파티원을 마을로 이동."""
+    """모든 파티원을 던전 입구(R0/L7)로 이동."""
     from engine import party_group as _pg
     player_id = morld.get_player_id()
     party = _pg.get_party_of(player_id) if player_id else None
+
+    reset()
 
     if party is not None:
         for uid in party.get_members():
@@ -334,7 +365,42 @@ def exit_to_village(reason: str = "clear"):
         morld.set_unit_location(player_id, VILLAGE_REGION, VILLAGE_LOCATION, x=VILLAGE_X)
 
     _log(f"[dungeon] Exit to village — reason={reason}")
-    reset()
+
+
+def try_auto_enter():
+    """리니어 던전 location(R0/L12) on_reach 시 호출 — 비활성이면 자동 진입.
+
+    Returns: True (진입함) / False (스킵 — 이미 활성)
+    """
+    if _state["active"]:
+        return False
+    enter(depth=6, max_width=3)
+    return True
+
+
+def auto_run():
+    """던전 종료까지 연속 진행하는 generator.
+
+    on_reach L12로 자동 입장 후 호출 — Player.dungeon_proceed()를 반복 실행하여
+    각 노드의 dialog를 yield. 노드가 모두 소진(exit_to_village로 비활성)되면 종료.
+    """
+    from assets import characters
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return
+    p = characters.get_instance(player_id)
+    if p is None or not hasattr(p, "dungeon_proceed"):
+        return
+
+    # 무한 루프 방지 (던전 길이 + 분기 여유)
+    safety = 30
+    while _state["active"] and safety > 0:
+        safety -= 1
+        gen = p.dungeon_proceed()
+        if gen is None:
+            return
+        for item in gen:
+            yield item
 
 
 # ========================================

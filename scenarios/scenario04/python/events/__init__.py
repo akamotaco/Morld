@@ -35,6 +35,18 @@ def on_reach(unit_id, region_id, location_id):
     except Exception as e:
         print(f"[events] on_reach dungeon error: {e}")
 
+    # 플레이어가 테스트 리니어 던전 Location(R0/L12)에 도착 → 자동 입장
+    try:
+        import morld
+        player_id = morld.get_player_id()
+        if unit_id == player_id and region_id == 0 and location_id == 12:
+            import linear_dungeon as ld
+            if ld.try_auto_enter():
+                node = ld.get_current_node()
+                print(f"[events] Auto-entered linear dungeon — first node={node['type']}")
+    except Exception as e:
+        print(f"[events] on_reach linear_dungeon error: {e}")
+
     # 플레이어 이동 시 파티원 follow (임시 텔레포트)
     try:
         import morld
@@ -58,6 +70,7 @@ def on_leave(unit_id, region_id, location_id):
         pass
 
 
+
 def on_meet(unit_a, unit_b):
     """두 유닛이 만났을 때"""
     pass
@@ -78,6 +91,17 @@ def on_single_event(event):
 
     elif event_type == "on_reach":
         on_reach(event[1], event[2], event[3])
+        # 플레이어가 리니어 던전 location(L12)에 도착 → 자동 진행 generator 반환
+        try:
+            import morld
+            player_id = morld.get_player_id()
+            uid, region, loc = event[1], event[2], event[3]
+            if uid == player_id and region == 0 and loc == 12:
+                import linear_dungeon as ld
+                if ld.is_active():
+                    return ld.auto_run()
+        except Exception as e:
+            print(f"[events] on_reach auto_run error: {e}")
         return None
 
     elif event_type == "on_leave":
