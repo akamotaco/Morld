@@ -59,6 +59,18 @@ NODE_LABELS = {
     NODE_START:    "시작방",
 }
 
+# 방 타입 → family (인접 제약용: 같은 family 부모-자식 금지)
+# STS 스타일 "no consecutive same type" 제약의 일반화.
+NODE_FAMILIES = {
+    NODE_BATTLE:   "combat",
+    NODE_ELITE:    "combat",
+    NODE_REST:     "rest",
+    NODE_CAMP:     "rest",
+    NODE_TREASURE: "misc",
+    NODE_EMPTY:    "misc",
+    NODE_UNKNOWN:  "unknown",
+}
+
 # 분기 옵션 id 접두
 OPTION_RETURN = "return_village"
 
@@ -173,6 +185,10 @@ def generate_nodes(depth: int = 6, *, max_width: int = 3) -> list:
                 if nid not in nodes[src]["paths"]:
                     nodes[src]["paths"].append(nid)
 
+    # 2.5. family 충돌 재롤 — STS식 "부모와 같은 family 방지"
+    # 컨텐츠 노드만 대상 (START/EXIT 제외).
+    _reroll_family_conflicts(nodes)
+
     # 3. labels 생성 (각 path의 대상 노드 타입 표시)
     for node in nodes:
         node["labels"] = [f"[{NODE_LABELS.get(nodes[p]['type'], '?')}]" for p in node["paths"]]
@@ -180,11 +196,56 @@ def generate_nodes(depth: int = 6, *, max_width: int = 3) -> list:
     return nodes
 
 
-def _roll_content_type():
-    """컨텐츠 노드 타입 가중 랜덤."""
-    types = [t for (t, _) in _CONTENT_TYPE_WEIGHTS]
-    weights = [w for (_, w) in _CONTENT_TYPE_WEIGHTS]
+def _roll_content_type(exclude_families=None):
+    """컨텐츠 노드 타입 가중 랜덤. exclude_families에 포함된 family는 제외."""
+    types = []
+    weights = []
+    for t, w in _CONTENT_TYPE_WEIGHTS:
+        if exclude_families and NODE_FAMILIES.get(t) in exclude_families:
+            continue
+        types.append(t)
+        weights.append(w)
+    if not types:
+        # 모든 family 제외되는 edge case — 원래 분포로 fallback
+        return random.choices(
+            [t for (t, _) in _CONTENT_TYPE_WEIGHTS],
+            weights=[w for (_, w) in _CONTENT_TYPE_WEIGHTS],
+            k=1,
+        )[0]
     return random.choices(types, weights=weights, k=1)[0]
+
+
+def _reroll_family_conflicts(nodes):
+    """각 컨텐츠 노드가 부모 노드들과 family 겹치면 재롤.
+
+    STS식 제약: "부모와 같은 family 방지" → 휴식-휴식-캠프 같은 클러스터 완화.
+    최대 10회 시도, 실패 시 현재 유지.
+    """
+    # 역방향 인덱스: child_id → parent_ids
+    parents = {n["id"]: [] for n in nodes}
+    for n in nodes:
+        for p in n["paths"]:
+            parents[p].append(n["id"])
+
+    content_types = {NODE_BATTLE, NODE_REST, NODE_ELITE, NODE_CAMP,
+                     NODE_TREASURE, NODE_EMPTY, NODE_UNKNOWN}
+
+    for node in nodes:
+        if node["type"] not in content_types:
+            continue
+        parent_ids = parents[node["id"]]
+        if not parent_ids:
+            continue
+        parent_families = {NODE_FAMILIES.get(nodes[pid]["type"]) for pid in parent_ids}
+        current_family = NODE_FAMILIES.get(node["type"])
+        if current_family not in parent_families:
+            continue  # 이미 부모와 다른 family
+        # 재롤 (최대 10회) — 부모 family 배제
+        for _ in range(10):
+            new_type = _roll_content_type(exclude_families=parent_families)
+            if NODE_FAMILIES.get(new_type) not in parent_families:
+                node["type"] = new_type
+                break
 
 
 def reveal_unknown_node():
