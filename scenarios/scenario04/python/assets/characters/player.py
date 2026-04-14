@@ -79,31 +79,48 @@ class Player(Character):
 
         t = node["type"]
 
+        # UNKNOWN 방 공개: 진입 시 실제 타입으로 변환 후 그 타입으로 처리
+        unknown_prefix = ""
+        if t == ld.NODE_UNKNOWN:
+            revealed = ld.reveal_unknown_node()
+            t = revealed
+            label = ld.NODE_LABELS.get(t, "?")
+            unknown_prefix = f"미지의 방이었다. 실제로는 [{label}]이다.\n\n"
+
         # 1. 이벤트 텍스트
         event_text = ""
         if t == ld.NODE_START:
             event_text = "던전에 들어섰다."
-        elif t == ld.NODE_BATTLE:
+        elif t in (ld.NODE_BATTLE, ld.NODE_ELITE):
             result = ld.process_current_node()
             r = result.get("result")
+            battle_label = "엘리트 전투" if t == ld.NODE_ELITE else "전투"
             if r == "victory":
-                event_text = "전투 승리."
+                event_text = f"{battle_label} 승리."
             elif r == "defeat":
-                # 패배: 노드가 cleared 안 되어 advance 차단 → 무한 루프 방지
-                # 던전 포기하고 입구로 귀환
-                yield ui.dialog("전투 패배... 던전을 빠져나간다.")
+                yield ui.dialog(f"{unknown_prefix}{battle_label} 패배... 던전을 빠져나간다.")
                 ld.exit_to_village(reason="defeated")
                 return
             else:
-                # 결판 안 남 (무승부/중단) — 패배와 동일하게 귀환 처리
-                yield ui.dialog("전투를 시도했지만 결판이 나지 않았다. 물러난다.")
+                yield ui.dialog(f"{unknown_prefix}{battle_label}의 결판이 나지 않았다. 물러난다.")
                 ld.exit_to_village(reason="battle_inconclusive")
                 return
         elif t == ld.NODE_REST:
             ld.process_current_node()
             event_text = "휴식했다."
+        elif t == ld.NODE_CAMP:
+            ld.process_current_node()
+            event_text = "캠프에서 긴 휴식을 취했다."
+        elif t == ld.NODE_TREASURE:
+            ld.process_current_node()
+            event_text = "보물의 방이다. 누군가 먼저 다녀간 듯, 텅 비어있다."
+        elif t == ld.NODE_EMPTY:
+            ld.process_current_node()
+            event_text = "빈 방이다. 지나친다."
         elif t == ld.NODE_EXIT:
             event_text = "던전 끝에 도달했다."
+
+        event_text = unknown_prefix + event_text
 
         # 던전 ambient (50%): 파티원 랜덤 코멘트
         player_id = morld.get_player_id()

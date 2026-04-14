@@ -19,6 +19,45 @@ NODE_REST = "rest"
 NODE_BRANCH = "branch"
 NODE_EXIT = "exit"
 NODE_START = "start"
+NODE_ELITE = "elite"       # 강력한 적
+NODE_CAMP = "camp"         # 긴 휴식
+NODE_TREASURE = "treasure" # 보물방 (현재는 빈 방)
+NODE_EMPTY = "empty"       # 빈 방
+NODE_UNKNOWN = "unknown"   # 미지의 방 (진입 시 랜덤 공개)
+
+# 컨텐츠 노드 타입 분포 (generate_nodes의 가중 랜덤)
+_CONTENT_TYPE_WEIGHTS = [
+    (NODE_BATTLE, 35),
+    (NODE_REST, 15),
+    (NODE_ELITE, 5),
+    (NODE_CAMP, 10),
+    (NODE_TREASURE, 10),
+    (NODE_EMPTY, 15),
+    (NODE_UNKNOWN, 10),
+]
+
+# UNKNOWN 공개 시 실제로 바뀔 수 있는 타입 풀 (UNKNOWN/START/EXIT 제외)
+_UNKNOWN_REVEAL_WEIGHTS = [
+    (NODE_BATTLE, 35),
+    (NODE_REST, 15),
+    (NODE_ELITE, 5),
+    (NODE_CAMP, 10),
+    (NODE_TREASURE, 10),
+    (NODE_EMPTY, 25),  # 빈 방 비중 ↑ (다른 쪽은 이미 UNKNOWN 아닌 경우로 커버되므로)
+]
+
+# 방 타입 → 라벨 매핑 (UI 표시용)
+NODE_LABELS = {
+    NODE_BATTLE:   "전투방",
+    NODE_REST:     "휴식방",
+    NODE_ELITE:    "엘리트 전투방",
+    NODE_CAMP:     "캠프",
+    NODE_TREASURE: "보물방",
+    NODE_EMPTY:    "빈방",
+    NODE_UNKNOWN:  "???",
+    NODE_EXIT:     "출구",
+    NODE_START:    "시작방",
+}
 
 # 분기 옵션 id 접두
 OPTION_RETURN = "return_village"
@@ -95,12 +134,12 @@ def generate_nodes(depth: int = 6, *, max_width: int = 3) -> list:
     # Level 0: START
     levels.append([_new_node(NODE_START, 0)])
 
-    # Level 1 ~ depth-2: 랜덤 너비
+    # Level 1 ~ depth-2: 랜덤 너비 + 가중 랜덤 타입
     for lvl in range(1, depth - 1):
         width = random.randint(1, max_width)
         row = []
         for _ in range(width):
-            t = random.choice([NODE_BATTLE, NODE_REST])
+            t = _roll_content_type()
             row.append(_new_node(t, lvl))
         levels.append(row)
 
@@ -135,16 +174,34 @@ def generate_nodes(depth: int = 6, *, max_width: int = 3) -> list:
                     nodes[src]["paths"].append(nid)
 
     # 3. labels 생성 (각 path의 대상 노드 타입 표시)
-    type_label = {
-        NODE_BATTLE: "전투방",
-        NODE_REST: "휴식방",
-        NODE_EXIT: "출구",
-        NODE_START: "시작방",
-    }
     for node in nodes:
-        node["labels"] = [f"[{type_label.get(nodes[p]['type'], '?')}]" for p in node["paths"]]
+        node["labels"] = [f"[{NODE_LABELS.get(nodes[p]['type'], '?')}]" for p in node["paths"]]
 
     return nodes
+
+
+def _roll_content_type():
+    """컨텐츠 노드 타입 가중 랜덤."""
+    types = [t for (t, _) in _CONTENT_TYPE_WEIGHTS]
+    weights = [w for (_, w) in _CONTENT_TYPE_WEIGHTS]
+    return random.choices(types, weights=weights, k=1)[0]
+
+
+def reveal_unknown_node():
+    """현재 노드가 UNKNOWN이면 실제 타입으로 공개.
+
+    Returns: 공개된 타입 (UNKNOWN이 아닌 경우 현재 타입 그대로 반환).
+    """
+    node = get_current_node()
+    if node is None or node["type"] != NODE_UNKNOWN:
+        return node["type"] if node else None
+
+    types = [t for (t, _) in _UNKNOWN_REVEAL_WEIGHTS]
+    weights = [w for (_, w) in _UNKNOWN_REVEAL_WEIGHTS]
+    revealed = random.choices(types, weights=weights, k=1)[0]
+    node["type"] = revealed
+    node["was_unknown"] = True
+    return revealed
 
 
 def enter(nodes: list = None, depth: int = 6, *, max_width: int = 3):
@@ -175,11 +232,11 @@ def get_log() -> list:
 
 
 def is_current_cleared() -> bool:
-    """현재 노드가 진행 가능 상태인지. 전투 미해결이면 False."""
+    """현재 노드가 진행 가능 상태인지. 전투(일반/엘리트) 미해결이면 False."""
     node = get_current_node()
     if node is None:
         return False
-    if node["type"] == NODE_BATTLE and not node.get("cleared"):
+    if node["type"] in (NODE_BATTLE, NODE_ELITE) and not node.get("cleared"):
         return False
     return True
 
@@ -202,19 +259,29 @@ def process_current_node(*, on_battle=None, on_rest=None) -> dict:
     t = node["type"]
     result = None
 
-    if t == NODE_BATTLE:
-        _log(f"[dungeon] Battle node (floor={node['floor']})")
+    if t in (NODE_BATTLE, NODE_ELITE):
+        _log(f"[dungeon] {t.title()} node (floor={node['floor']})")
         handler = on_battle or default_battle_handler
+        # ELITE: 향후 강적 생성 — 현재는 동일 encounter + 플래그만
+        if t == NODE_ELITE:
+            node["elite"] = True
         battle_result = handler(node)
         if battle_result is not None:
             result = battle_result.get("result")
             if result == "victory":
                 node["cleared"] = True
-    elif t == NODE_REST:
-        _log(f"[dungeon] Rest node (floor={node['floor']})")
+    elif t in (NODE_REST, NODE_CAMP):
+        _log(f"[dungeon] {t.title()} node (floor={node['floor']})")
         handler = on_rest or default_rest_handler
+        # CAMP: 향후 긴 회복 — 현재는 동일 처리
         handler(node)
         result = "rested"
+    elif t == NODE_TREASURE:
+        _log(f"[dungeon] Treasure node (floor={node['floor']}) — empty (TODO: rewards)")
+        # 이벤트 없음 (현재)
+    elif t == NODE_EMPTY:
+        _log(f"[dungeon] Empty node (floor={node['floor']})")
+        # 이벤트 없음
     elif t == NODE_BRANCH:
         _log(f"[dungeon] Branch node (floor={node['floor']})")
     elif t == NODE_EXIT:

@@ -142,7 +142,10 @@ class TestGenerateNodes:
                     # 라벨은 각 방 타입 이름 포함 (종료/계속 같은 일반어 금지)
                     assert any(
                         room_name in label
-                        for room_name in ("전투방", "휴식방", "출구", "시작방")
+                        for room_name in (
+                            "전투방", "휴식방", "출구", "시작방",
+                            "엘리트 전투방", "캠프", "보물방", "빈방", "???",
+                        )
                     ), f"seed={seed} bad label '{label}'"
                     # "계속", "종료" 금지
                     assert "계속" not in label and "종료" not in label
@@ -199,8 +202,11 @@ class TestAdvance:
             if node["type"] == ld.NODE_EXIT:
                 # 테스트는 여기서 끝 (exit_to_village는 morld 의존 많아 생략)
                 break
-            # BATTLE은 cleared=True로 강제 (실제 전투 없이)
-            if node["type"] == ld.NODE_BATTLE:
+            # BATTLE/ELITE/UNKNOWN은 advance 차단 가능 — cleared=True 강제
+            if node["type"] in (ld.NODE_BATTLE, ld.NODE_ELITE):
+                node["cleared"] = True
+            elif node["type"] == ld.NODE_UNKNOWN:
+                # UNKNOWN은 실전에선 reveal로 바뀌지만 테스트는 그대로 통과시킴
                 node["cleared"] = True
             paths = node["paths"]
             assert paths, f"dead-end at {node['id']}"
