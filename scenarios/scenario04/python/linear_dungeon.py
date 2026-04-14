@@ -29,6 +29,10 @@ VILLAGE_REGION = 0
 VILLAGE_LOCATION = 7
 VILLAGE_X = 50
 
+# 리니어 던전 진입 트리거 위치 (chapter_0.py의 "테스트 리니어 던전" location)
+ENTRANCE_REGION = 0
+ENTRANCE_LOCATION = 12
+
 
 # ========================================
 # 상태
@@ -368,7 +372,7 @@ def exit_to_village(reason: str = "clear"):
 
 
 def try_auto_enter():
-    """리니어 던전 location(R0/L12) on_reach 시 호출 — 비활성이면 자동 진입.
+    """리니어 던전 진입 location(R0/L12) on_reach 시 호출 — 비활성이면 자동 진입.
 
     Returns: True (진입함) / False (스킵 — 이미 활성)
     """
@@ -376,6 +380,23 @@ def try_auto_enter():
         return False
     enter(depth=6, max_width=3)
     return True
+
+
+def _on_entrance_reach(unit_id, region, loc):
+    """event_core에 등록되는 on_reach handler — 플레이어 진입 시 던전 시작."""
+    if not try_auto_enter():
+        return None
+    node = get_current_node()
+    _log(f"[dungeon] Auto-entered via on_reach — first node={node['type']}")
+    return auto_run()
+
+
+def register_location_handlers():
+    """chapter load 시 호출 — 던전 진입 location의 on_reach handler 등록."""
+    from engine import event_core
+    event_core.subscribe_on_reach(
+        ENTRANCE_REGION, ENTRANCE_LOCATION, _on_entrance_reach, player_only=True
+    )
 
 
 def auto_run():

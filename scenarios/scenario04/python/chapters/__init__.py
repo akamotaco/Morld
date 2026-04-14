@@ -76,6 +76,10 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import creature_pool
     creature_pool.reset()
 
+    # 리니어 던전 진입 location handler 등록 (event_core.reset() 이후)
+    import linear_dungeon
+    linear_dungeon.register_location_handlers()
+
     # 경영
     building.reset()
     business.reset()
