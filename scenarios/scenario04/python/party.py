@@ -188,8 +188,13 @@ def _on_faint(unit_id, party):
 def _try_party_rescue(fainted_id, party):
     """파티 NPC가 실신한 플레이어를 구출. 성공 시 구호소 이동.
 
+    구호소가 없으면 구출 로직 전체 비활성 (마을 발전 전 상태).
     각 생존 NPC가 MAX(신뢰, 복종) 기반 roll. 첫 성공자로 구출.
     """
+    import facility
+    if not facility.has_infirmary():
+        return False
+
     import trust as trust_module
     import obedience as obedience_module
 
@@ -223,7 +228,9 @@ def _on_death(unit_id, party, cause="unknown"):
     is_player = (unit_id == player_id)
 
     # 방치 사망만 통행인 구출 roll (전투/피격 사망은 즉시 사망)
-    if cause == "neglect" and random.random() < RESCUE_CHANCE:
+    # 구호소가 없으면 구출 불가능 — 바로 사망 경로.
+    import facility
+    if cause == "neglect" and facility.has_infirmary() and random.random() < RESCUE_CHANCE:
         morld.set_unit_location(unit_id, 0, 5, x=50)  # 구호소
         # 타이머 재등록 (구호소에 있으니 timeout 없고, 의사 치료 가능)
         try:

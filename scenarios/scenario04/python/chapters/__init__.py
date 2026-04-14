@@ -36,7 +36,7 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import temperature, humidity, pollution, survival
     import needs, congestion, stealth
     import erosion, economy, morale, trust, quirk
-    import party, npc_generator, dungeon, faint_timer
+    import party, npc_generator, dungeon, faint_timer, facility
     import building, business, taming, corrosion, carry
     import map_coords
     import npc_party_ai, village_schedule, village_map
@@ -61,6 +61,9 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     # S04: 소음 은신 해제 시 파티 전체 해제
     from engine import stealth as _engine_stealth
     _engine_stealth.set_noise_callback(lambda uid, intensity: stealth.exit_party_stealth())
+
+    # 시설 (구출/치료 로직 게이트)
+    facility.reset()
 
     # 파티/NPC
     party.reset()
