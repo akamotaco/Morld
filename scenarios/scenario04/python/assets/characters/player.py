@@ -89,9 +89,16 @@ class Player(Character):
             if r == "victory":
                 event_text = "전투 승리."
             elif r == "defeat":
-                event_text = "전투 패배..."
+                # 패배: 노드가 cleared 안 되어 advance 차단 → 무한 루프 방지
+                # 던전 포기하고 입구로 귀환
+                yield ui.dialog("전투 패배... 던전을 빠져나간다.")
+                ld.exit_to_village(reason="defeated")
+                return
             else:
-                event_text = "전투를 시도했지만 결판이 나지 않았다."
+                # 결판 안 남 (무승부/중단) — 패배와 동일하게 귀환 처리
+                yield ui.dialog("전투를 시도했지만 결판이 나지 않았다. 물러난다.")
+                ld.exit_to_village(reason="battle_inconclusive")
+                return
         elif t == ld.NODE_REST:
             ld.process_current_node()
             event_text = "휴식했다."
