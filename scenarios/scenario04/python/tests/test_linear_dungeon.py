@@ -144,7 +144,7 @@ class TestGenerateNodes:
                         room_name in label
                         for room_name in (
                             "전투방", "휴식방", "출구", "시작방",
-                            "엘리트 전투방", "캠프", "보물방", "빈방", "???",
+                            "엘리트 전투방", "캠프", "보물방", "이벤트방", "빈방", "???",
                         )
                     ), f"seed={seed} bad label '{label}'"
                     # "계속", "종료" 금지

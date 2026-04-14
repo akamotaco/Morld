@@ -114,6 +114,9 @@ class Player(Character):
         elif t == ld.NODE_TREASURE:
             ld.process_current_node()
             event_text = "보물의 방이다. 누군가 먼저 다녀간 듯, 텅 비어있다."
+        elif t == ld.NODE_EVENT:
+            ld.process_current_node()
+            event_text = "이벤트 방이다. 아직은 아무 일도 일어나지 않는다."
         elif t == ld.NODE_EMPTY:
             ld.process_current_node()
             event_text = "빈 방이다. 지나친다."

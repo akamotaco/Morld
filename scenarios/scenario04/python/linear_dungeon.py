@@ -21,29 +21,33 @@ NODE_EXIT = "exit"
 NODE_START = "start"
 NODE_ELITE = "elite"       # 강력한 적
 NODE_CAMP = "camp"         # 긴 휴식
-NODE_TREASURE = "treasure" # 보물방 (현재는 빈 방)
-NODE_EMPTY = "empty"       # 빈 방
+NODE_TREASURE = "treasure" # 보물방 (현재는 빈 처리, 향후 보상)
+NODE_EVENT = "event"       # 이벤트방 (현재는 빈 처리, 향후 이벤트 트리거)
+NODE_EMPTY = "empty"       # 빈 방 (이벤트 없음)
 NODE_UNKNOWN = "unknown"   # 미지의 방 (진입 시 랜덤 공개)
 
 # 컨텐츠 노드 타입 분포 (generate_nodes의 가중 랜덤)
+# STS 참고: Monster ~45%, Event ~22%, Elite ~16%, Rest ~12%, Shop ~3%
 _CONTENT_TYPE_WEIGHTS = [
-    (NODE_BATTLE, 35),
-    (NODE_REST, 15),
-    (NODE_ELITE, 5),
-    (NODE_CAMP, 10),
-    (NODE_TREASURE, 10),
-    (NODE_EMPTY, 15),
+    (NODE_BATTLE, 40),
+    (NODE_REST, 12),
+    (NODE_ELITE, 8),
+    (NODE_CAMP, 5),
+    (NODE_TREASURE, 8),
+    (NODE_EVENT, 10),
+    (NODE_EMPTY, 7),
     (NODE_UNKNOWN, 10),
 ]
 
 # UNKNOWN 공개 시 실제로 바뀔 수 있는 타입 풀 (UNKNOWN/START/EXIT 제외)
 _UNKNOWN_REVEAL_WEIGHTS = [
-    (NODE_BATTLE, 35),
-    (NODE_REST, 15),
-    (NODE_ELITE, 5),
-    (NODE_CAMP, 10),
+    (NODE_BATTLE, 40),
+    (NODE_REST, 12),
+    (NODE_ELITE, 8),
+    (NODE_CAMP, 5),
     (NODE_TREASURE, 10),
-    (NODE_EMPTY, 25),  # 빈 방 비중 ↑ (다른 쪽은 이미 UNKNOWN 아닌 경우로 커버되므로)
+    (NODE_EVENT, 15),
+    (NODE_EMPTY, 10),
 ]
 
 # 방 타입 → 라벨 매핑 (UI 표시용)
@@ -53,23 +57,35 @@ NODE_LABELS = {
     NODE_ELITE:    "엘리트 전투방",
     NODE_CAMP:     "캠프",
     NODE_TREASURE: "보물방",
+    NODE_EVENT:    "이벤트방",
     NODE_EMPTY:    "빈방",
     NODE_UNKNOWN:  "???",
     NODE_EXIT:     "출구",
     NODE_START:    "시작방",
 }
 
-# 방 타입 → family (인접 제약용: 같은 family 부모-자식 금지)
-# STS 스타일 "no consecutive same type" 제약의 일반화.
+# 방 타입 → family (인접 제약용)
+# STS 참고:
+#   - rest(REST/CAMP): 같은 family 연속 금지
+#   - event(TREASURE/EVENT/EMPTY): 같은 family 연속 금지
+#   - elite: 자기 자신과만 연속 금지 (type-level, combat family BATTLE은 자유)
+#   - combat(BATTLE): 제약 없음 → 전투 클러스터 허용
 NODE_FAMILIES = {
     NODE_BATTLE:   "combat",
     NODE_ELITE:    "combat",
     NODE_REST:     "rest",
     NODE_CAMP:     "rest",
-    NODE_TREASURE: "misc",
-    NODE_EMPTY:    "misc",
+    NODE_TREASURE: "event",
+    NODE_EVENT:    "event",
+    NODE_EMPTY:    "event",
     NODE_UNKNOWN:  "unknown",
 }
+
+# 연속 배치 금지 family — 자기 family가 부모 family에 있으면 재롤
+_NO_CONSECUTIVE_FAMILIES = {"rest", "event"}
+
+# 연속 배치 금지 type — 자기 type이 부모 type들에 있으면 재롤 (family 무관)
+_NO_CONSECUTIVE_TYPES = {NODE_ELITE}
 
 # 분기 옵션 id 접두
 OPTION_RETURN = "return_village"
@@ -196,17 +212,19 @@ def generate_nodes(depth: int = 6, *, max_width: int = 3) -> list:
     return nodes
 
 
-def _roll_content_type(exclude_families=None):
-    """컨텐츠 노드 타입 가중 랜덤. exclude_families에 포함된 family는 제외."""
+def _roll_content_type(exclude_families=None, exclude_types=None):
+    """컨텐츠 노드 타입 가중 랜덤. 제외 family/type 지원."""
     types = []
     weights = []
     for t, w in _CONTENT_TYPE_WEIGHTS:
+        if exclude_types and t in exclude_types:
+            continue
         if exclude_families and NODE_FAMILIES.get(t) in exclude_families:
             continue
         types.append(t)
         weights.append(w)
     if not types:
-        # 모든 family 제외되는 edge case — 원래 분포로 fallback
+        # 모든 후보 제외되는 edge case — 원래 분포로 fallback
         return random.choices(
             [t for (t, _) in _CONTENT_TYPE_WEIGHTS],
             weights=[w for (_, w) in _CONTENT_TYPE_WEIGHTS],
@@ -216,19 +234,22 @@ def _roll_content_type(exclude_families=None):
 
 
 def _reroll_family_conflicts(nodes):
-    """각 컨텐츠 노드가 부모 노드들과 family 겹치면 재롤.
+    """각 컨텐츠 노드를 STS 스타일 인접 제약에 맞춰 재롤.
 
-    STS식 제약: "부모와 같은 family 방지" → 휴식-휴식-캠프 같은 클러스터 완화.
+    제약:
+      - node.type이 _NO_CONSECUTIVE_TYPES에 있고 부모 type 중 하나와 같음 → 재롤
+      - node family가 _NO_CONSECUTIVE_FAMILIES에 있고 부모 family 중 하나와 같음 → 재롤
+      - BATTLE은 제약 없음 (연속 허용) → 전투 클러스터 OK
+
     최대 10회 시도, 실패 시 현재 유지.
     """
-    # 역방향 인덱스: child_id → parent_ids
     parents = {n["id"]: [] for n in nodes}
     for n in nodes:
         for p in n["paths"]:
             parents[p].append(n["id"])
 
     content_types = {NODE_BATTLE, NODE_REST, NODE_ELITE, NODE_CAMP,
-                     NODE_TREASURE, NODE_EMPTY, NODE_UNKNOWN}
+                     NODE_TREASURE, NODE_EVENT, NODE_EMPTY, NODE_UNKNOWN}
 
     for node in nodes:
         if node["type"] not in content_types:
@@ -236,16 +257,35 @@ def _reroll_family_conflicts(nodes):
         parent_ids = parents[node["id"]]
         if not parent_ids:
             continue
-        parent_families = {NODE_FAMILIES.get(nodes[pid]["type"]) for pid in parent_ids}
-        current_family = NODE_FAMILIES.get(node["type"])
-        if current_family not in parent_families:
-            continue  # 이미 부모와 다른 family
-        # 재롤 (최대 10회) — 부모 family 배제
+        parent_types = {nodes[pid]["type"] for pid in parent_ids}
+        parent_families = {NODE_FAMILIES.get(t) for t in parent_types}
+
+        if not _has_adjacency_conflict(node["type"], parent_types, parent_families):
+            continue
+
+        # 재롤 — 충돌하는 family/type을 피하도록
+        forbidden_families = parent_families & _NO_CONSECUTIVE_FAMILIES
+        forbidden_types = parent_types & _NO_CONSECUTIVE_TYPES
         for _ in range(10):
-            new_type = _roll_content_type(exclude_families=parent_families)
-            if NODE_FAMILIES.get(new_type) not in parent_families:
+            new_type = _roll_content_type(
+                exclude_families=forbidden_families,
+                exclude_types=forbidden_types,
+            )
+            if not _has_adjacency_conflict(new_type, parent_types, parent_families):
                 node["type"] = new_type
                 break
+
+
+def _has_adjacency_conflict(node_type, parent_types, parent_families):
+    """node_type이 주어진 parent 집합과 인접 제약을 위반하는지."""
+    # type-level 제약 (ELITE 같은 것)
+    if node_type in _NO_CONSECUTIVE_TYPES and node_type in parent_types:
+        return True
+    # family-level 제약 (rest, event)
+    node_family = NODE_FAMILIES.get(node_type)
+    if node_family in _NO_CONSECUTIVE_FAMILIES and node_family in parent_families:
+        return True
+    return False
 
 
 def reveal_unknown_node():
@@ -339,6 +379,9 @@ def process_current_node(*, on_battle=None, on_rest=None) -> dict:
         result = "rested"
     elif t == NODE_TREASURE:
         _log(f"[dungeon] Treasure node (floor={node['floor']}) — empty (TODO: rewards)")
+        # 이벤트 없음 (현재)
+    elif t == NODE_EVENT:
+        _log(f"[dungeon] Event node (floor={node['floor']}) — empty (TODO: event trigger)")
         # 이벤트 없음 (현재)
     elif t == NODE_EMPTY:
         _log(f"[dungeon] Empty node (floor={node['floor']})")
