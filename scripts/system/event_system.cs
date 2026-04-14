@@ -128,6 +128,32 @@ namespace SE
 		}
 
 		/// <summary>
+		/// 단일 유닛의 위치 변경 감지 + 이벤트 큐잉 (즉시 호출).
+		/// 텔레포트(set_unit_location)처럼 Step 없이 위치가 바뀌는 경우 사용.
+		/// DetectLocationChanges는 Step 이후에만 돌아 _lastLocations가 stale해지는 문제 방지.
+		/// </summary>
+		public void NotifyLocationChange(int unitId)
+		{
+			if (!_initialized) return;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
+			var unit = _unitSystem?.FindUnit(unitId);
+			if (unit == null || !unit.GeneratesEvents) return;
+
+			var currentLoc = unit.CurrentLocation;
+			if (_lastLocations.TryGetValue(unitId, out var lastLoc))
+			{
+				if (currentLoc != lastLoc)
+				{
+					Enqueue(GameEvent.OnLeave(unitId, lastLoc.RegionId, lastLoc.LocalId));
+					Enqueue(GameEvent.OnReach(unitId, currentLoc.RegionId, currentLoc.LocalId));
+					ClearMeetingsForUnit(unitId);
+					ClearContactsForUnit(unitId);
+				}
+			}
+			_lastLocations[unitId] = currentLoc;
+		}
+
+		/// <summary>
 		/// 위치 초기화 (게임 시작 시 호출)
 		/// 현재 모든 유닛의 위치를 기록하여 첫 Step에서 OnReach 발생 방지
 		/// </summary>

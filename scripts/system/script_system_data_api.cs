@@ -1258,6 +1258,12 @@ namespace SE
 
                     unit.SetLocation2D(new Morld.LocationRef(regionId, locationId), x, y);
                     Godot.GD.Print($"[morld] set_unit_location: unit={unitId} -> {regionId}:{locationId} (X={x}, Y={y})");
+
+                    // 텔레포트 시 EventSystem의 _lastLocations가 stale해지지 않도록 즉시 동기화
+                    // (Step 없이 set_unit_location만 호출되는 경로 — 예: dungeon exit 후 마을 텔레포트)
+                    var _eventSystem = this._hub.GetSystem("eventSystem") as EventSystem;
+                    _eventSystem?.NotifyLocationChange(unitId);
+
                     return PyBool.True;
                 }
                 return PyBool.False;
