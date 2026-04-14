@@ -25,6 +25,7 @@ class Player(Character):
 
     props = {
         "특수:존재": 1,
+        "리더십": 3,                    # MAX_PARTY_SIZE(4)-1 — 파티 풀 가득 통솔 가능
         "can:invite_to_party": 1,       # NPC에게 "파티 초대" 액션 권한
         "can:dismiss_from_party": 1,    # 파티원 NPC에게 "파티 이탈" 액션 권한
         "can:enter_test_dungeon": 1,    # 던전 입구 오브젝트의 진입 액션 (Player가 actor)

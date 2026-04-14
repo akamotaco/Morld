@@ -23,6 +23,16 @@ DEFAULT_STAY_HOURS = 48       # 기본 체류 시간 (48시간)
 INN_REGION = 0
 INN_LOCATION = 1
 
+# 마을 체류 NPC가 돌아다닐 수 있는 장소 (region, location)
+# 여관 / 광장 / 술집 / 잡화점
+ROAM_LOCATIONS = [
+    (0, 1),  # 여관
+    (0, 0),  # 광장
+    (0, 4),  # 술집
+    (0, 3),  # 잡화점
+]
+ROAM_CHANCE_PER_HOUR = 0.30  # 시간당 이동 확률
+
 # === 상태 ===
 
 _village_npcs = {}  # unit_id -> {name, type, stay_remaining, ...}
@@ -52,7 +62,22 @@ def _on_time_elapsed(millis: int):
 
     for _ in range(hours):
         _update_stay_times()
+        _update_roam()
         _check_spawn()
+
+
+def _update_roam():
+    """파티 미소속 체류 NPC의 간이 랜덤 이동.
+
+    파티 합류 시 remove_from_village로 _village_npcs에서 빠지므로
+    여기 남아있는 유닛은 모두 idle 상태로 간주.
+    """
+    for unit_id in _village_npcs:
+        if random.random() >= ROAM_CHANCE_PER_HOUR:
+            continue
+        region, location = random.choice(ROAM_LOCATIONS)
+        x = random.randint(20, 150)
+        morld.set_unit_location(unit_id, region, location, x=x)
 
 
 def _update_stay_times():

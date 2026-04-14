@@ -35,6 +35,10 @@ QUIRK_POOL_MINOR = ["잠꼬대", "코골이", "편식", "수집벽", "혼잣말"
 QUIRK_POOL_MODERATE = ["도벽", "대식", "겁쟁이", "의심병"]
 QUIRK_POOL_POSITIVE = ["충직", "자기희생"]
 
+# 리더십 분포: [0=부하, 1=소규모 리더(본인+1), 2=고리더(본인+2)]
+# 향후 밸런싱: 고정 NPC/플레이어 경로에 따라 조정 가능
+LEADERSHIP_WEIGHTS = (70, 25, 5)
+
 
 # ========================================
 # 단위 롤 함수
@@ -74,6 +78,14 @@ def roll_class(rare_chance: float = 0.05) -> str:
     if random.random() < rare_chance:
         return random.choice(CLASS_RARE)
     return random.choice(CLASS_POOL)
+
+
+def roll_leadership() -> int:
+    """리더십 수치(0/1/2) 롤. LEADERSHIP_WEIGHTS 분포 사용."""
+    return random.choices(
+        list(range(len(LEADERSHIP_WEIGHTS))),
+        weights=list(LEADERSHIP_WEIGHTS),
+    )[0]
 
 
 def roll_quirks(count_weights=(50, 35, 15)) -> list:
@@ -122,6 +134,7 @@ def apply_random_character(
     stats = roll_stats(*stats_range)
     npc_class = roll_class() if assign_class else None
     quirks = roll_quirks() if assign_quirks else []
+    leadership = roll_leadership()
 
     # prop 적용
     morld.set_unit_prop(unit_id, "성격", personality)
@@ -130,6 +143,7 @@ def apply_random_character(
     morld.set_unit_prop(unit_id, "스탯:민첩", stats["agi"])
     morld.set_unit_prop(unit_id, "스탯:체력", stats["vit"])
     morld.set_unit_prop(unit_id, "스탯:정신", stats["mnd"])
+    morld.set_unit_prop(unit_id, "리더십", leadership)
     if npc_class:
         morld.set_unit_prop(unit_id, "클래스", npc_class)
     for i, quirk in enumerate(quirks):
@@ -147,4 +161,5 @@ def apply_random_character(
         "stats": stats,
         "class": npc_class,
         "quirks": quirks,
+        "leadership": leadership,
     }

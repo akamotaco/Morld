@@ -111,18 +111,42 @@ def _on_member_added(unit_id, party):
 
 
 def _on_member_removed(unit_id, party, reason):
-    """멤버 이탈 시 prop 정리 + 순서 재정렬 (플레이어 파티만)"""
-    if not _is_player_party(party):
-        return
-
+    """멤버 이탈 시 prop 정리 + 순서 재정렬 + 리더 자격 검증."""
+    # 이탈 당사자 prop 초기화 (파티 소속 여부와 무관하게)
     morld.set_unit_prop(unit_id, "파티:소속", 0)
     morld.set_unit_prop(unit_id, "파티:순서", -1)
-    morld.set_unit_prop(unit_id, "파티:리더", 0)  # 미소속
+    morld.set_unit_prop(unit_id, "파티:리더", 0)
 
-    # 순서 재정렬 + 리더 동기화 (리더 승계된 경우 반영)
+    if party is None or party.get_size() == 0:
+        return
+
+    # 순서 재정렬 + 리더 동기화
     for i, mid in enumerate(party.get_members()):
         morld.set_unit_prop(mid, "파티:순서", i)
     _sync_leader_prop(party)
+
+    # 리더 자격 검증 (자격 없는 리더 → 승계, 자격자 없음 → 해산, 초과 → 분리)
+    _m.ensure_valid_leadership(party.party_id)
+
+
+def _leadership_fn(unit_id):
+    """리더십 prop 조회 — 미설정 시 0."""
+    val = morld.get_unit_prop(unit_id, "리더십")
+    return int(val) if val is not None else 0
+
+
+def _leadership_priority_fn(unit_id):
+    """승계 우선순위: 신뢰도 (높을수록 선순위)."""
+    try:
+        import trust as trust_module
+        return trust_module.get_trust(unit_id)
+    except ImportError:
+        return 0
+
+
+def _on_dissolved(party_id, reason):
+    """파티 해산 콜백 — 로그만 출력 (대사/UI는 차후)."""
+    print(f"[party] Party {party_id} dissolved — reason={reason}")
 
 
 def _on_faint(unit_id, party):
@@ -205,4 +229,7 @@ _m.set_callbacks(
     on_faint=_on_faint,
     on_death=_on_death,
     on_leader_changed=_on_leader_changed,
+    on_dissolved=_on_dissolved,
+    leadership_fn=_leadership_fn,
+    leadership_priority_fn=_leadership_priority_fn,
 )

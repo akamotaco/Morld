@@ -80,9 +80,11 @@ class Character(CharacterBase):
 
     # recruit.recruit() 반환 사유 → npc_dialogue 상황 키 매핑
     _INVITE_REASON_TO_SITUATION = {
-        "recruited":  "invite_accept",
-        "declined":   "invite_decline",
-        "party_full": "invite_full",
+        "recruited":        "invite_accept",
+        "switched":         "invite_switch",
+        "declined":         "invite_decline",
+        "loyalty_declined": "invite_loyalty_decline",
+        "party_full":       "invite_full",
     }
 
     def invite_to_party(self):
@@ -103,10 +105,10 @@ class Character(CharacterBase):
             print(f"[invite] LOGIC ERROR: unreachable reason={reason} on {self.name}")
             return
 
-        # focus 텍스트 반영: 거절 → 최근:거절=1, 수락 → 해제
-        if reason == "declined":
+        # focus 텍스트 반영: 거절 → 최근:거절=1, 수락/이적 → 해제
+        if reason in ("declined", "loyalty_declined"):
             morld.set_unit_prop(uid, "최근:거절", 1)
-        elif reason == "recruited":
+        elif reason in ("recruited", "switched"):
             morld.set_unit_prop(uid, "최근:거절", 0)
 
         line = npc_dialogue.get_line(uid, situation, name=self.name)

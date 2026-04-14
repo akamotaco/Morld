@@ -164,7 +164,12 @@ def resolve_with_player_influence(preferences: dict, player_id: int,
     """
     if affinity_fn is None:
         import trust as trust_module
-        affinity_fn = trust_module.get_trust
+        import obedience as obedience_module
+        # flip 판정: MAX(신뢰도, 복종도) — 낮은 신뢰여도 높은 복종이면 따름
+        affinity_fn = lambda uid: max(
+            trust_module.get_trust(uid),
+            obedience_module.get_obedience(uid),
+        )
 
     if player_choice not in options:
         player_choice = options[0]

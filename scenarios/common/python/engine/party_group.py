@@ -99,6 +99,9 @@ _callbacks = {
     "on_faint": None,            # (unit_id, party) -> bool (True = 시나리오가 처리함)
     "on_death": None,            # (unit_id, party) -> bool (True = 시나리오가 처리함)
     "on_leader_changed": None,   # (old_leader, new_leader, party) -> None
+    "on_dissolved": None,        # (party_id, reason) -> None (자격자 없어 해산된 경우)
+    "leadership_fn": None,       # (unit_id) -> int (0 = 리더 불가, N = 본인+N 통솔)
+    "leadership_priority_fn": None,  # (unit_id) -> int (승계 tiebreak, 예: trust)
 }
 
 
@@ -405,6 +408,70 @@ def handle_faint(unit_id):
     # 기본: 리더가 아니면 제거 (솔로 파티로 분리)
     if unit_id != party.leader_id:
         split(party.party_id, [unit_id])
+
+
+def _get_leadership(unit_id):
+    """리더십 값 조회. leadership_fn 미등록 시 기본 1 (모두 자격 있음 — 하위호환)."""
+    fn = _callbacks.get("leadership_fn")
+    return fn(unit_id) if fn else 1
+
+
+def _get_leadership_priority(unit_id):
+    """승계 우선순위 (높을수록 선순위). 미등록 시 0."""
+    fn = _callbacks.get("leadership_priority_fn")
+    return fn(unit_id) if fn else 0
+
+
+def ensure_valid_leadership(party_id):
+    """리더 자격 검증 + 필요 시 승계·초과 분리·해산.
+
+    호출 시점: 리더 변동 가능한 이벤트 후 (멤버 제거, split 등).
+
+    동작:
+      1. 남은 멤버 중 리더십 ≥1 자격자 없음 → dissolve (전원 솔로).
+      2. 현재 리더가 자격자 아니면 최고 리더십 멤버로 승계 (동률은 priority_fn).
+      3. 리더의 부하 수가 리더십 cap 초과 → priority 낮은 멤버부터 솔로 분리.
+
+    Returns: dict (result: ok | succeeded | reorganized | dissolved, new_leader: int|None)
+    """
+    party = _parties.get(party_id)
+    if party is None or party.get_size() == 0:
+        return {"result": "invalid", "new_leader": None}
+
+    members = party.get_members()
+    eligible = [m for m in members if _get_leadership(m) >= 1]
+
+    # 1. 자격자 전무 → 해산
+    if not eligible:
+        dissolve_party(party_id)
+        _fire("on_dissolved", party_id, "no_eligible_leader")
+        return {"result": "dissolved", "new_leader": None}
+
+    current_leader = party.get_leader()
+    result = "ok"
+
+    # 2. 리더가 자격 없으면 승계
+    if _get_leadership(current_leader) < 1:
+        eligible.sort(key=lambda m: (
+            -_get_leadership(m), -_get_leadership_priority(m)
+        ))
+        new_leader = eligible[0]
+        if party.transfer_leader(new_leader):
+            _fire("on_leader_changed", current_leader, new_leader, party)
+            current_leader = new_leader
+            result = "succeeded"
+
+    # 3. capacity 초과 → 초과 멤버 솔로 분리
+    capacity = _get_leadership(current_leader)
+    followers = [m for m in members if m != current_leader and m in party.get_members()]
+    if len(followers) > capacity:
+        followers.sort(key=lambda m: -_get_leadership_priority(m))
+        excess = followers[capacity:]
+        for m in excess:
+            split(party_id, [m])
+        result = "reorganized"
+
+    return {"result": result, "new_leader": current_leader}
 
 
 def handle_death(unit_id):
