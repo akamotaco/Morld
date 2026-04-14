@@ -392,6 +392,27 @@ def get_non_leader_members():
 
 
 # ========================================
+# 역할 판별 헬퍼 (하드코딩된 player_id 비교 대체용)
+# ========================================
+
+def is_party_leader(unit_id):
+    """주어진 유닛이 속한 파티의 리더인지.
+
+    NPC 리더든 플레이어 리더든 동일하게 True 반환.
+    `unit_id == party.get_leader()` 패턴의 일반화.
+    """
+    p = get_party_of(unit_id)
+    return p is not None and p.get_leader() == unit_id
+
+
+def is_in_same_party(a, b):
+    """두 유닛이 같은 파티에 속하는지."""
+    pa = get_party_of(a)
+    pb = get_party_of(b)
+    return pa is not None and pb is not None and pa.party_id == pb.party_id
+
+
+# ========================================
 # 실신 처리
 # ========================================
 

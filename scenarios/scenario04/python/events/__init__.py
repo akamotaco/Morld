@@ -39,14 +39,15 @@ def on_reach(unit_id, region_id, location_id):
     # — 여기서는 generator를 반환할 수 없으므로, side-effect 전용 경로는 사용하지 않음.
     # 실제 dispatch는 on_single_event에서 수행.
 
-    # 플레이어 이동 시 파티원 follow (임시 텔레포트)
+    # 리더 이동 시 파티원 follow (임시 텔레포트)
+    # 플레이어든 NPC 리더든 동일하게 동작 — party_group.is_party_leader로 일반화
     try:
         import morld
-        player_id = morld.get_player_id()
-        if unit_id == player_id:
-            import party
-            for member_id in party.get_members():
-                if member_id == player_id:
+        from engine import party_group as _pg
+        if _pg.is_party_leader(unit_id):
+            p = _pg.get_party_of(unit_id)
+            for member_id in p.get_members():
+                if member_id == unit_id:
                     continue
                 morld.set_unit_location(member_id, region_id, location_id, x=0)
     except Exception as e:
