@@ -21,9 +21,6 @@ class Character(CharacterBase):
     # 클래스
     character_class = None  # "척후", "타격수" 등
 
-    # 특수 존재 여부 (던전의 힘 사용 가능)
-    is_special = False
-
     # 무게
     weight = 70.0
 

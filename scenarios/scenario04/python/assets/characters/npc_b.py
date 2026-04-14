@@ -21,7 +21,6 @@ class NpcB(Character):
     base_mnd = 10
 
     character_class = "타격수"
-    is_special = False
 
     props = {
         "성격": "정의감",

@@ -77,9 +77,10 @@ def add_erosion(unit_id: int, amount: float):
     resistance = mnd * 0.02  # 정신 10 = 20% 감소
     amount *= max(0.1, 1.0 - resistance)
 
-    # 특수 존재 내성
-    if morld.get_unit_prop(unit_id, "특수:존재"):
-        amount *= SPECIAL_RESISTANCE_MULT
+    # 침식 저항 배수 (1.0=보통, 0.5=50%만 축적 등) — 원자 능력 prop
+    resist_mult = morld.get_unit_prop(unit_id, "침식:저항배수")
+    if resist_mult is not None:
+        amount *= float(resist_mult)
 
     # 사기 보정
     import morale

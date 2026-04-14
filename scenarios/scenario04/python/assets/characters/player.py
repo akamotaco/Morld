@@ -18,13 +18,16 @@ class Player(Character):
     base_mnd = 15  # 침식 저항 높음
 
     character_class = None  # 플레이어 선택 (향후)
-    is_special = True  # 던전의 힘 사용 가능
+    # 능력은 props의 "침식:저항배수", "던전:힘사용" 등으로 표현 (is_special 단일 플래그 제거)
 
     # 액션은 던전 상태에 따라 동적 (get_available_actions 참조)
     actions = []
 
     props = {
-        "특수:존재": 1,
+        # 능력 (원자 props — 기존 "특수:존재" 단일 플래그 대체)
+        "침식:저항배수": 0.5,           # 침식 50%만 축적
+        "던전:힘사용": 1,               # 던전의 힘 사용 가능 (향후 시스템용)
+        # 파티/액션
         "리더십": 3,                    # MAX_PARTY_SIZE(4)-1 — 파티 풀 가득 통솔 가능
         "can:invite_to_party": 1,       # NPC에게 "파티 초대" 액션 권한
         "can:dismiss_from_party": 1,    # 파티원 NPC에게 "파티 이탈" 액션 권한

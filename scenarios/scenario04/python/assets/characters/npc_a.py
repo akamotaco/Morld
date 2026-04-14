@@ -19,7 +19,6 @@ class NpcA(Character):
     base_mnd = 13
 
     character_class = "거간꾼"
-    is_special = False
 
     props = {
         "성격": "탐욕",

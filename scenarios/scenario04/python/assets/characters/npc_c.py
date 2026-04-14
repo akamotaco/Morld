@@ -20,7 +20,6 @@ class NpcC(Character):
     base_mnd = 7    # 정신 낮음 (트라우마)
 
     character_class = "타격수"  # 부활 시 최강 근접
-    is_special = False
 
     props = {
         "성격": "체념",
