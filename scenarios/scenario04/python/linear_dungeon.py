@@ -50,6 +50,23 @@ _UNKNOWN_REVEAL_WEIGHTS = [
     (NODE_EMPTY, 10),
 ]
 
+# 노드별 소모 시간 (ms) — 수정 가능
+_MS_MIN = 60_000
+_MS_HOUR = 3_600_000
+NODE_TIME_COST = {
+    NODE_BATTLE:   15 * _MS_MIN,
+    NODE_ELITE:    30 * _MS_MIN,
+    NODE_REST:     2 * _MS_HOUR,
+    NODE_CAMP:     8 * _MS_HOUR,
+    NODE_TREASURE: 10 * _MS_MIN,
+    NODE_EVENT:    10 * _MS_MIN,
+    NODE_EMPTY:    10 * _MS_MIN,
+    NODE_UNKNOWN:  0,  # 공개 후 실제 타입으로 소모됨
+    NODE_START:    0,
+    NODE_EXIT:     0,
+    NODE_BRANCH:   0,
+}
+
 # 방 타입 → 라벨 매핑 (UI 표시용)
 NODE_LABELS = {
     NODE_BATTLE:   "전투방",
@@ -390,6 +407,11 @@ def process_current_node(*, on_battle=None, on_rest=None) -> dict:
         _log(f"[dungeon] Branch node (floor={node['floor']})")
     elif t == NODE_EXIT:
         _log(f"[dungeon] Exit node (floor={node['floor']})")
+
+    # 시간 소모
+    time_cost = NODE_TIME_COST.get(t, 0)
+    if time_cost > 0:
+        morld.advance_time_des(time_cost)
 
     return {"node": node, "result": result}
 
