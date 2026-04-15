@@ -160,11 +160,6 @@ class Player(Character):
         preferences = {npc_id: random.choice(options) for npc_id in npcs}
 
         lines = [event_text]
-        if options:
-            lines.append("")
-            lines.append("선택지:")
-            for i, opt in enumerate(options):
-                lines.append(f"  - {labels[i]}")
         if npcs:
             lines.append("")
             lines.append("파티원 의견:")
@@ -181,10 +176,36 @@ class Player(Character):
                 name = morld.get_unit_name(npc_id) or f"id={npc_id}"
                 line = npc_dialogue.get_line(npc_id, situation_key)
                 lines.append(f"  [{name}] {pref_label} — \"{line}\"")
-        yield ui.dialog("\n".join(lines))
 
-        # 4. 플레이어 선택 (UI 미구현: 첫 옵션)
-        player_choice = options[0]
+        # 4. 선택지 (실제 클릭)
+        lines.append("")
+        lines.append("선택:")
+        for i, label in enumerate(labels):
+            lines.append(f"  [url=@proc:{i}]{label}[/url]")
+
+        choice_state = {"idx": None}
+
+        def _handle_choice(action):
+            if action == "init":
+                return None
+            try:
+                idx = int(action)
+            except (ValueError, TypeError):
+                return None
+            if 0 <= idx < len(options):
+                choice_state["idx"] = idx
+                return True
+            return None
+
+        yield morld.dialog(
+            "\n".join(lines),
+            autofill="off",
+            proc=_handle_choice,
+            result=choice_state,
+        )
+
+        chosen_idx = choice_state["idx"] if choice_state["idx"] is not None else 0
+        player_choice = options[chosen_idx]
 
         # 5. Flip + 집계
         result = party_vote.resolve_with_player_influence(
@@ -193,10 +214,23 @@ class Player(Character):
         winner = result["winner"]
         winner_idx = options.index(winner)
         winner_label = labels[winner_idx]
-        flipped = result["flipped"]
-        flip_note = f" ({len(flipped)}명이 너의 결정을 따른다.)" if flipped else ""
 
-        yield ui.dialog(f"파티는 {winner_label}으로 결정했다.{flip_note}")
+        # 플레이어와 동일한 최종 선택을 한 NPC 이름 목록
+        from engine import korean
+        votes = result.get("votes", {})
+        aligned_names = []
+        for npc_id in npcs:
+            if votes.get(npc_id) == player_choice:
+                name = morld.get_unit_name(npc_id) or f"id={npc_id}"
+                aligned_names.append(name)
+        if aligned_names:
+            joined = ", ".join(aligned_names)
+            particle = korean.이_가(aligned_names[-1])
+            align_note = f" ({joined}{particle} 너의 결정을 따른다.)"
+        else:
+            align_note = ""
+
+        yield ui.dialog(f"파티는 {winner_label}으로 결정했다.{align_note}")
 
         target = advance_map[winner]
         if target == "__exit__":

@@ -182,7 +182,9 @@ def resolve_with_player_influence(preferences: dict, player_id: int,
     for npc_id, original in preferences.items():
         if original != player_choice:
             affinity = affinity_fn(npc_id)
-            if random.random() * 100 < affinity:
+            # 임계값 방식: affinity 40 미만 0%, 40 이상 선형 (2배 가산, 100 캡)
+            flip_prob = max(0, (affinity - 40)) * 2
+            if random.random() * 100 < flip_prob:
                 final = player_choice
                 flipped.append(npc_id)
             else:

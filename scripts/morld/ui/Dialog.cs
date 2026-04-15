@@ -166,7 +166,7 @@ public class PyDialogRequest : PyObject
         {
             case DialogAutofill.Next:
                 if (isLastPage)
-                    sb.Append("[url=@finish]종료[/url]");
+                    sb.Append("[url=@finish]확인[/url]");
                 else
                     sb.Append("[url=@next]다음[/url]");
                 break;
@@ -175,7 +175,7 @@ public class PyDialogRequest : PyObject
                 if (isFirstPage)
                 {
                     if (isLastPage)
-                        sb.Append("[url=@finish]종료[/url]");
+                        sb.Append("[url=@finish]확인[/url]");
                     else
                         sb.Append("[url=@next]다음[/url]");
                 }
@@ -183,7 +183,7 @@ public class PyDialogRequest : PyObject
                 {
                     sb.Append("[url=@prev]이전[/url]  ");
                     if (isLastPage)
-                        sb.Append("[url=@finish]종료[/url]");
+                        sb.Append("[url=@finish]확인[/url]");
                     else
                         sb.Append("[url=@next]다음[/url]");
                 }
