@@ -31,7 +31,7 @@ class Player(Character):
         "리더십": 3,                    # MAX_PARTY_SIZE(4)-1 — 파티 풀 가득 통솔 가능
         "can:invite_to_party": 1,       # NPC에게 "파티 초대" 액션 권한
         "can:dismiss_from_party": 1,    # 파티원 NPC에게 "파티 이탈" 액션 권한
-        "can:enter_test_dungeon": 1,    # 던전 입구 오브젝트의 진입 액션 (Player가 actor)
+        "can:browse_quests": 1,         # 게시판 의뢰 확인 액션
         "can:dungeon_proceed": 1,       # 던전 노드 진행
     }
 
@@ -42,15 +42,58 @@ class Player(Character):
         return "나 자신이다."
 
     def get_available_actions(self):
-        """플레이어 셀프 focus 시 노출 액션. 던전 활성 시 항상 진행 액션 노출
-        (auto_run이 대부분 처리하지만 fallback 용도)."""
-        import linear_dungeon as ld
+        """플레이어 셀프 focus 시 노출 액션."""
+        actions = ["call:show_quests:퀘스트 확인"]
 
-        if not ld.is_active():
-            return []
-        if ld.get_current_node() is None:
-            return []
-        return ["call:dungeon_proceed:진행"]
+        import linear_dungeon as ld
+        if ld.is_active() and ld.get_current_node() is not None:
+            actions.append("call:dungeon_proceed:진행")
+
+        return actions
+
+    def show_quests(self):
+        """퀘스트 현황 UI (Generator)"""
+        import morld
+        import ui
+        from engine.quest import get_quest_manager, QuestStatus, get_condition_description
+        mgr = get_quest_manager()
+
+        lines = ["[b]퀘스트[/b]", ""]
+
+        # 진행 중
+        active = mgr.get_active_quests()
+        if active:
+            for q in active:
+                lines.append("[진행 중] " + q.name)
+                lines.append("  " + q.description)
+                progress = mgr.get_quest_progress(q.unique_id)
+                for ci in progress["conditions"]:
+                    mark = "✓" if ci["is_met"] else "○"
+                    lines.append("  " + mark + " " + ci["description"])
+
+                # 남은 시간 (시간 제한 퀘스트)
+                props = morld.get_unit_props(morld.get_player_id()) or {}
+                accept_time = props.get("퀘스트:" + q.unique_id + ":수락시각", 0)
+                if accept_time > 0:
+                    import quest_board
+                    elapsed_h = (morld.get_game_time() - accept_time) / 3_600_000
+                    remain_h = max(0, quest_board.QUEST_TIME_LIMIT_HOURS - elapsed_h)
+                    remain_d = int(remain_h // 24)
+                    remain_hr = int(remain_h % 24)
+                    lines.append("  기한: " + str(remain_d) + "일 " + str(remain_hr) + "시간 남음")
+                lines.append("")
+        else:
+            lines.append("진행 중인 퀘스트가 없다.")
+            lines.append("")
+
+        # 완료 대기
+        completed = mgr.get_quests_by_status(QuestStatus.COMPLETED)
+        if completed:
+            for q in completed:
+                lines.append("[완료] " + q.name)
+            lines.append("")
+
+        yield ui.dialog("\n".join(lines))
 
     def dungeon_proceed(self):
         """던전 현재 노드 이벤트 → 다음 선택(다수결) → advance.

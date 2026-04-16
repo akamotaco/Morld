@@ -131,10 +131,17 @@ _state = {
 
 
 def reset():
+    was_active = _state["active"]
     _state["active"] = False
     _state["nodes"] = []
     _state["index"] = -1
     _state["log"] = []
+
+    # 던전 퇴장: 파티 이탈 잠금 해제
+    if was_active:
+        player_id = morld.get_player_id()
+        if player_id is not None:
+            morld.modify_prop(player_id, "can:dismiss_from_party", 1)
 
 
 # ========================================
@@ -328,6 +335,15 @@ def enter(nodes: list = None, depth: int = 6, *, max_width: int = 3):
     _state["nodes"] = nodes if nodes is not None else generate_nodes(depth, max_width=max_width)
     _state["index"] = 0
     _state["active"] = True
+
+    # 던전 UI: header/footer 표시 + 파티 이탈 잠금
+    from engine.ui_base import set_show_header, set_show_footer
+    set_show_header(True)
+    set_show_footer(True)
+    player_id = morld.get_player_id()
+    if player_id is not None:
+        morld.modify_prop(player_id, "can:dismiss_from_party", -1)
+
     _log(f"[dungeon] Enter linear dungeon — {len(_state['nodes'])} nodes (depth={depth})")
     return get_current_node()
 
@@ -563,22 +579,38 @@ def exit_to_village(reason: str = "clear"):
 
     _log(f"[dungeon] Exit to village — reason={reason}")
 
+    # 퀘스트 연동: 클리어 시 퀘스트 완료 트리거
+    if reason == "cleared_end":
+        try:
+            import quest_board
+            quest = quest_board.get_active_board_quest()
+            if quest:
+                quest_board.mark_dungeon_cleared(quest.unique_id)
+        except ImportError:
+            pass
+
 
 def try_auto_enter():
-    """리니어 던전 진입 location(R0/L12) on_reach 시 호출 — 비활성이면 자동 진입.
+    """리니어 던전 진입 location(R0/L12) on_reach 시 호출.
 
-    Returns: True (진입함) / False (스킵 — 이미 활성)
+    게시판 퀘스트가 활성이어야 진입 허용.
+    퀘스트 수락 시 on_quest_accepted에서 enter() 호출되므로
+    여기서는 _state["active"] 체크만.
+
+    Returns: True (진입함) / False (스킵)
     """
     if _state["active"]:
-        return False
-    enter(depth=6, max_width=3)
-    return True
+        return True  # 이미 생성된 던전에 진입
+    # 퀘스트 없이는 진입 불가
+    return False
 
 
 def _on_entrance_reach(unit_id, region, loc):
-    """event_core에 등록되는 on_reach handler — 플레이어 진입 시 던전 시작."""
+    """event_core에 등록되는 on_reach handler — 퀘스트 활성 시 던전 시작."""
     if not try_auto_enter():
-        return None
+        # 퀘스트 미수락 → 안내 메시지
+        import ui
+        return ui.dialog("게시판에서 의뢰를 수락해야 던전에 진입할 수 있다.")
     node = get_current_node()
     _log(f"[dungeon] Auto-entered via on_reach — first node={node['type']}")
     return auto_run()

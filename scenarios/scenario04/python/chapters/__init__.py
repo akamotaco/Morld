@@ -79,7 +79,11 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import creature_pool
     creature_pool.reset()
 
-    # 리니어 던전 진입 location handler 등록 (event_core.reset() 이후)
+    # 퀘스트 시스템 리셋 (event_core.reset() 이후)
+    import quest_board
+    quest_board.reset()
+
+    # 리니어 던전 on_reach L12 핸들러 등록 (퀘스트 활성 시에만 진입)
     import linear_dungeon
     linear_dungeon.register_location_handlers()
 

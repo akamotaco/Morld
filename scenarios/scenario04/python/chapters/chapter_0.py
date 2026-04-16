@@ -40,7 +40,7 @@ VILLAGE_LOCATIONS = [
     (6,  "정화소",      100, True),
     (7,  "던전 입구",   100, False),
     (8,  "마을 출구",   100, False),
-    (12, "테스트 리니어 던전", 100, False),  # 던전 입구(7)에서 진입 — on_reach로 자동 입장
+    (12, "퀘스트 던전", 100, False),  # 퀘스트 수락 후 진입 가능
 ]
 
 # 자원 채취 필드 (Region 1)
@@ -83,7 +83,7 @@ VILLAGE_GATES = [
     # 마을 출구(8) ↔ 필드 숲길(R1,0)
     (0, 8, 1, 0,   1, 0, 490),
     (1, 0, 0, 490, 0, 8, 0),
-    # 던전 입구(7) ↔ 테스트 리니어 던전(12)
+    # 던전 입구(7) ↔ 퀘스트 던전(12)
     (0, 7, 4, 90,  0, 12, 0),
     (0, 12, 0, 0, 0, 7, 90),
 ]
@@ -157,8 +157,15 @@ def initialize():
     # 8. (2D 던전 초기화 비활성화 — 향후 재활성화)
     #    _initialize_dungeon()은 호출하지 않음. dungeon.py 내부 로직은 유지.
 
-    # 9. 일자 던전 자동 입장: L7 도착 시 events.on_reach에서 linear_dungeon.try_auto_enter()
-    #    별도 오브젝트 없음 (플레이어가 파티원 모드에서 사용할 흐름과 동일)
+    # 9. 퀘스트 게시판 초기화 + 게시판 오브젝트 배치 (L7 던전 입구)
+    import quest_board
+    quest_board.initialize()
+
+    from assets.registry import instantiate_object
+    instantiate_object("quest_board", VILLAGE_REGION_ID, 7, x=50)
+
+    # 10. 리니어 던전: on_reach L12 핸들러는 chapters/__init__.py에서 등록
+    #     퀘스트 수락 후에만 진입 가능 (try_auto_enter에서 퀘스트 게이트)
 
     print(f"[chapter_0] Initialized: {len(VILLAGE_LOCATIONS)} village + {len(FIELD_LOCATIONS)} field locations")
 

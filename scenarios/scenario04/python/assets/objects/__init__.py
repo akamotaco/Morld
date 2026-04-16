@@ -3,7 +3,7 @@
 # 인스턴스 캐시 제공 (focus/액션용).
 
 # 오브젝트 모듈들을 import하여 @register_object 데코레이터 실행
-# 현재는 등록할 오브젝트 없음 (dungeon_entrance 제거: on_reach 자동 입장으로 대체)
+from . import quest_board  # noqa: F401
 
 # 인스턴스 캐시: unit_id → Object 인스턴스
 _instances = {}

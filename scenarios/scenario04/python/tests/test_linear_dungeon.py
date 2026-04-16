@@ -39,6 +39,8 @@ class _StubMorld:
     def set_unit_location(self, *a, **kw): pass
     def get_unit_prop(self, *a, **kw): return None
     def set_unit_prop(self, *a, **kw): pass
+    def modify_prop(self, *a, **kw): pass
+    def advance_time_des(self, *a, **kw): pass
     def get_unit_name(self, uid): return f"U{uid}"
 
 
