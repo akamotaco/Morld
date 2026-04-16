@@ -47,6 +47,7 @@ sys.modules.setdefault("npc_initiative", _npc_init_stub)
 # sound stub — instantiate()에서 lazy import
 _sound_stub = types.ModuleType("sound")
 _sound_stub.register_hearing = lambda uid, ht: None
+_sound_stub.emit_sound = lambda *a, **kw: None
 sys.modules.setdefault("sound", _sound_stub)
 
 # survival stub — should_initiate_skinship()에서 lazy import
