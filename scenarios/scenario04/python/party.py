@@ -109,9 +109,23 @@ def _on_member_added(unit_id, party):
     except ImportError:
         pass
 
+    # Agent 등록 (think_all 대상)
+    try:
+        import s04_agent
+        s04_agent.register_agent(unit_id)
+    except ImportError:
+        pass
+
 
 def _on_member_removed(unit_id, party, reason):
     """멤버 이탈 시 prop 정리 + 순서 재정렬 + 리더 자격 검증."""
+    # Agent 해제
+    try:
+        import s04_agent
+        s04_agent.unregister_agent(unit_id)
+    except ImportError:
+        pass
+
     # 이탈 당사자 prop 초기화 (파티 소속 여부와 무관하게)
     morld.set_unit_prop(unit_id, "파티:소속", 0)
     morld.set_unit_prop(unit_id, "파티:순서", -1)

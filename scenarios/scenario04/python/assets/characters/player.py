@@ -199,8 +199,17 @@ class Player(Character):
             }
             advance_map = {str(p): p for p in paths}
 
-        # 3. NPC 선호 + 대사
-        preferences = {npc_id: random.choice(options) for npc_id in npcs}
+        # 3. NPC 선호 + 대사 (Agent 경유 — 모든 NPC는 Agent 필수)
+        from engine import think as _think
+        preferences = {}
+        for npc_id in npcs:
+            agent = _think.get_agent(npc_id)
+            if agent is None:
+                raise RuntimeError(
+                    "[dungeon_proceed] NPC id=" + str(npc_id)
+                    + " (" + str(morld.get_unit_name(npc_id))
+                    + ") has no registered Agent")
+            preferences[npc_id] = agent.dungeon_choose(options)
 
         lines = [event_text]
         if npcs:
