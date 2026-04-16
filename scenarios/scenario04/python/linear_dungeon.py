@@ -137,11 +137,51 @@ def reset():
     _state["index"] = -1
     _state["log"] = []
 
-    # 던전 퇴장: 파티 이탈 잠금 해제
+    # 던전 퇴장: 파티 이탈 잠금 해제 + DungeonState pop
     if was_active:
         player_id = morld.get_player_id()
         if player_id is not None:
             morld.modify_prop(player_id, "can:dismiss_from_party", 1)
+        _pop_dungeon_state_from_party()
+
+
+# ========================================
+# FSM: 파티원 DungeonState 관리
+# ========================================
+
+def _push_dungeon_state_to_party():
+    """파티원 NPC에 DungeonState push (Agent 등록된 경우에만)"""
+    from engine import think as _think
+    from engine import party_group as _pg
+    from engine.fsm_dungeon import DungeonState
+
+    player_id = morld.get_player_id()
+    party = _pg.get_party_of(player_id) if player_id else None
+    if party is None:
+        return
+    for uid in party.get_members():
+        if uid == player_id:
+            continue
+        agent = _think.get_agent(uid)
+        if agent and hasattr(agent, '_fsm_push'):
+            agent._fsm_push(DungeonState())
+
+
+def _pop_dungeon_state_from_party():
+    """파티원 NPC에서 DungeonState pop"""
+    from engine import think as _think
+    from engine import party_group as _pg
+
+    player_id = morld.get_player_id()
+    party = _pg.get_party_of(player_id) if player_id else None
+    if party is None:
+        return
+    for uid in party.get_members():
+        if uid == player_id:
+            continue
+        agent = _think.get_agent(uid)
+        if agent and hasattr(agent, '_fsm_pop_by_type'):
+            agent._fsm_pop_by_type("dungeon")
 
 
 # ========================================
@@ -343,6 +383,9 @@ def enter(nodes: list = None, depth: int = 6, *, max_width: int = 3):
     player_id = morld.get_player_id()
     if player_id is not None:
         morld.modify_prop(player_id, "can:dismiss_from_party", -1)
+
+    # 파티원 NPC에 DungeonState push (일반 생활 차단)
+    _push_dungeon_state_to_party()
 
     _log(f"[dungeon] Enter linear dungeon — {len(_state['nodes'])} nodes (depth={depth})")
     return get_current_node()
