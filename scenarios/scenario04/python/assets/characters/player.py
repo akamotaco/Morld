@@ -168,8 +168,34 @@ class Player(Character):
 
         event_text = unknown_prefix + event_text
 
-        # 던전 ambient (50%): 파티원 랜덤 코멘트
+        # 플레이어 실신 체크 (시간 경과에 의한 실신 — 전투 패배는 위에서 처리)
         player_id = morld.get_player_id()
+        if player_id is not None and morld.get_unit_prop(player_id, "상태:실신"):
+            party = _pg.get_party_of(player_id) if player_id else None
+            survivors = []
+            if party:
+                for uid in party.get_members():
+                    if uid != player_id and not morld.get_unit_prop(uid, "상태:실신"):
+                        if morld.get_unit_prop(uid, "dungeon:구출의사"):
+                            survivors.append(uid)
+            if survivors:
+                # NPC가 구출 결정 (DungeonState.update에서 판정됨)
+                from engine import korean
+                rescuer_id = survivors[0]
+                rescuer_name = morld.get_unit_name(rescuer_id) or str(rescuer_id)
+                particle = korean.이_가(rescuer_name)
+                yield ui.dialog(
+                    "의식이 흐려진다...\n\n"
+                    + rescuer_name + particle + " 당신을 끌고 던전을 빠져나왔다.")
+                ld.exit_to_village(reason="rescued")
+                return
+            else:
+                # 구출자 없음 — 전원 실신
+                yield ui.dialog("의식이 흐려진다... 아무도 도와줄 수 없다.")
+                ld.exit_to_village(reason="all_fainted")
+                return
+
+        # 던전 ambient (50%): 파티원 랜덤 코멘트
         party = _pg.get_party_of(player_id) if player_id else None
         members = party.get_members() if party else ([player_id] if player_id else [])
         npcs = [m for m in members if m != player_id]

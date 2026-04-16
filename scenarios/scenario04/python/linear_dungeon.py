@@ -472,7 +472,13 @@ def process_current_node(*, on_battle=None, on_rest=None) -> dict:
     if time_cost > 0:
         morld.advance_time_des(time_cost)
 
-    return {"node": node, "result": result}
+    # 시간 경과 후 플레이어 실신 체크
+    player_fainted = False
+    player_id = morld.get_player_id()
+    if player_id is not None and morld.get_unit_prop(player_id, "상태:실신"):
+        player_fainted = True
+
+    return {"node": node, "result": result, "player_fainted": player_fainted}
 
 
 # ========================================
