@@ -1,17 +1,23 @@
 # think_base.py — BaseAgent 골격
 #
 # 모든 NPC Agent의 기반 클래스.
-# Job 삽입, safety net, 기본 유틸리티 제공.
+# FSM 스택 + Job 삽입 + safety net + 기본 유틸리티 제공.
 # 시나리오별 서브클래스에서 _on_think()을 구현하여 행동 결정.
+#
+# FSM 스택:
+#   think() 진입 → FSM 스택 역순회 → update()=True면 차단
+#   모두 False면 → _on_think() 진행 (5-tier 등)
 #
 # 실행 순서: ThinkSystem → Agent.think() → Job 삽입 → JobBehaviorSystem 실행
 
 import morld
+from engine.fsm import LifeState
 
 
 class BaseAgent:
     """NPC AI 기반 클래스
 
+    FSM 스택으로 행동 컨텍스트를 관리.
     서브클래스에서 _on_think()을 오버라이드하여 행동 결정 로직 구현.
     think()가 끝난 후 _action_taken이 False면 safety net job 삽입.
     """
@@ -25,10 +31,21 @@ class BaseAgent:
     def __init__(self, unit_id):
         self.unit_id = unit_id
         self._action_taken = False
+        self._fsm_stack = [LifeState()]
 
     def think(self):
-        """매 Step 호출 — 서브클래스는 _on_think()을 구현"""
+        """매 Step 호출 — FSM 스택 → _on_think()"""
         self._action_taken = False
+
+        # FSM 스택 역순회 (최상위 → 최하위)
+        for _state in reversed(list(self._fsm_stack)):
+            if _state.update(self):
+                # 처리 완료 — 아래 로직 차단
+                if not self._action_taken:
+                    self._insert_idle_job("할 일 없음", self.SAFETY_NET_DURATION)
+                return
+
+        # FSM이 모두 False → _on_think (5-tier 등)
         self._on_think()
         if not self._action_taken:
             self._insert_idle_job("할 일 없음", self.SAFETY_NET_DURATION)
@@ -36,6 +53,41 @@ class BaseAgent:
     def _on_think(self):
         """서브클래스에서 구현: 행동 결정 로직"""
         pass
+
+    # ========================================
+    # FSM 스택 관리
+    # ========================================
+
+    def _fsm_push(self, state):
+        """FSM 상태를 스택에 push (동일 이상 레벨 자동 pop)"""
+        while self._fsm_stack[-1].level >= state.level:
+            self._fsm_pop()
+        self._fsm_stack.append(state)
+        state.enter(self)
+
+    def _fsm_pop(self):
+        """FSM 스택 최상위 pop (LifeState 보호)"""
+        if len(self._fsm_stack) <= 1:
+            info = self.get_info()
+            name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
+            raise RuntimeError(
+                "[FSM] " + str(name) + " — 스택 비어짐 (pop 불가). stack=" + str(self._fsm_stack))
+        state = self._fsm_stack.pop()
+        state.exit(self)
+        return state
+
+    def _fsm_top(self):
+        """FSM 스택 최상위 상태 반환"""
+        return self._fsm_stack[-1]
+
+    def _fsm_pop_by_type(self, state_type):
+        """특정 state_type의 State를 스택에서 제거"""
+        for i in range(len(self._fsm_stack) - 1, 0, -1):
+            if self._fsm_stack[i].state_type == state_type:
+                state = self._fsm_stack.pop(i)
+                state.exit(self)
+                return state
+        return None
 
     # ========================================
     # Job 삽입 헬퍼

@@ -162,48 +162,8 @@ class BaseAgent(
             "combat_discovered": False,   # 발견 대사 중복 방지 (CombatState에서 관리하지만 하위 호환용)
         }
 
-    # ========================================
-    # FSM 스택 관리
-    # ========================================
-
-    def _fsm_push(self, state):
-        """FSM 상태를 스택에 push.
-
-        동일 이상 레벨의 기존 State를 자동 pop한 뒤 push.
-        이를 통해 change(pop→push) 동작이 자연 발생한다.
-        """
-        # 동일 이상 레벨 자동 pop
-        while self._fsm_stack[-1].level >= state.level:
-            self._fsm_pop()
-        self._fsm_stack.append(state)
-        state.enter(self)
-
-    def _fsm_pop(self):
-        """FSM 스택 최상위 상태를 pop (exit() 호출).
-
-        스택이 비거나 빈 상태에서 pop 시 에러 — 로직 버그 감지용.
-        """
-        if len(self._fsm_stack) <= 1:
-            info = self.get_info()
-            name = info.get("name", str(self.unit_id)) if info else str(self.unit_id)
-            raise RuntimeError(
-                f"[FSM] {name} — 스택 비어짐 (pop 불가). stack={self._fsm_stack}")
-        state = self._fsm_stack.pop()
-        state.exit(self)
-        return state
-
-    def _fsm_top(self):
-        """FSM 스택 최상위 상태 반환"""
-        return self._fsm_stack[-1]
-
-    def _fsm_pop_by_type(self, state_type):
-        """특정 state_type의 State를 스택에서 제거 (분대 해산 등)"""
-        for i in range(len(self._fsm_stack) - 1, 0, -1):  # index 0 = LifeState 보호
-            if self._fsm_stack[i].state_type == state_type:
-                state = self._fsm_stack.pop(i)
-                state.exit(self)
-                return state
-        return None
+    # FSM 스택 관리: engine/think_base.py BaseAgent에서 상속
+    # (_fsm_push, _fsm_pop, _fsm_top, _fsm_pop_by_type)
 
     # ========================================
     # 스케줄 관리
