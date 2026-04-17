@@ -171,6 +171,18 @@ def reset():
 # FSM: 파티원 DungeonState 관리
 # ========================================
 
+def _move_party_to_node(region_id, node_id):
+    """파티 전원을 던전 Region 내 특정 노드(Location)로 이동"""
+    from engine import party_group as _pg
+    player_id = morld.get_player_id()
+    party = _pg.get_party_of(player_id) if player_id else None
+    if party is not None:
+        for uid in party.get_members():
+            morld.set_unit_location(uid, region_id, node_id, x=10)
+    elif player_id is not None:
+        morld.set_unit_location(player_id, region_id, node_id, x=10)
+
+
 def _push_dungeon_state_to_party():
     """파티원 NPC에 DungeonState push (Agent 등록된 경우에만)"""
     from engine import think as _think
@@ -189,8 +201,51 @@ def _push_dungeon_state_to_party():
             agent._fsm_push(DungeonState())
 
 
+def _switch_party_to_explore():
+    """파티원 NPC를 DungeonExploreState로 전환 (이동/탐색 구간)"""
+    from engine import think as _think
+    from engine import party_group as _pg
+    from engine.fsm_dungeon import DungeonExploreState
+
+    player_id = morld.get_player_id()
+    party = _pg.get_party_of(player_id) if player_id else None
+    if party is None:
+        return
+    for uid in party.get_members():
+        if uid == player_id:
+            continue
+        agent = _think.get_agent(uid)
+        if agent and hasattr(agent, '_fsm_push'):
+            # DungeonExploreState(lv=6) push → 기존 DungeonState(lv=8)가 있으면 유지
+            # (레벨이 낮으므로 auto-pop 안 됨, 스택에 공존)
+            # 먼저 기존 dungeon 상태를 정리하고 explore로 교체
+            agent._fsm_pop_by_type("dungeon")
+            agent._fsm_pop_by_type("dungeon_explore")
+            agent._fsm_push(DungeonExploreState())
+
+
+def _switch_party_to_dungeon():
+    """파티원 NPC를 DungeonState로 전환 (이벤트 처리 구간)"""
+    from engine import think as _think
+    from engine import party_group as _pg
+    from engine.fsm_dungeon import DungeonState
+
+    player_id = morld.get_player_id()
+    party = _pg.get_party_of(player_id) if player_id else None
+    if party is None:
+        return
+    for uid in party.get_members():
+        if uid == player_id:
+            continue
+        agent = _think.get_agent(uid)
+        if agent and hasattr(agent, '_fsm_push'):
+            agent._fsm_pop_by_type("dungeon_explore")
+            agent._fsm_pop_by_type("dungeon")
+            agent._fsm_push(DungeonState())
+
+
 def _pop_dungeon_state_from_party():
-    """파티원 NPC에서 DungeonState pop"""
+    """파티원 NPC에서 던전 관련 State 모두 pop"""
     from engine import think as _think
     from engine import party_group as _pg
 
@@ -204,6 +259,7 @@ def _pop_dungeon_state_from_party():
         agent = _think.get_agent(uid)
         if agent and hasattr(agent, '_fsm_pop_by_type'):
             agent._fsm_pop_by_type("dungeon")
+            agent._fsm_pop_by_type("dungeon_explore")
 
 
 # ========================================
@@ -521,9 +577,12 @@ def process_current_node(*, on_battle=None, on_rest=None) -> dict:
     """현재 노드의 타입별 처리를 실행하고 결과 반환.
 
     Returns:
-        {"node": dict, "result": str|None}
+        {"node": dict, "result": str|None, "player_fainted": bool}
         result는 battle: 'victory'/'defeat'/None / rest: 'rested' / 그 외 None.
     """
+    # 노드 이벤트 시작 → NPC를 DungeonState(차단)로 전환
+    _switch_party_to_dungeon()
+
     node = get_current_node()
     if node is None:
         return {"node": None, "result": None}
@@ -634,6 +693,7 @@ def advance(target_id: int) -> dict:
 
     Battle 노드는 cleared=True여야 진행 가능.
     target_id가 paths에 없으면 차단.
+    물리 이동: 파티 전원을 다음 Location으로 텔레포트.
     """
     node = get_current_node()
     if node is None:
@@ -646,6 +706,15 @@ def advance(target_id: int) -> dict:
         return {"ok": False, "reason": "invalid_target"}
 
     _state["index"] = target_id
+
+    # 물리 이동: 파티 전원을 다음 Location으로
+    region_id = _state.get("region_id")
+    if region_id is not None:
+        _move_party_to_node(region_id, target_id)
+
+    # 이동 후 탐색 모드 (감각/판단 허용)
+    _switch_party_to_explore()
+
     return {"ok": True, "node": get_current_node()}
 
 
