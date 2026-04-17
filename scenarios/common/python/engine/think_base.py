@@ -1,12 +1,14 @@
 # think_base.py — BaseAgent 골격
 #
 # 모든 NPC Agent의 기반 클래스.
-# FSM 스택 + Job 삽입 + safety net + 기본 유틸리티 제공.
+# FSM 스택 + 감각 수집 + Job 삽입 + safety net + 기본 유틸리티 제공.
 # 시나리오별 서브클래스에서 _on_think()을 구현하여 행동 결정.
 #
-# FSM 스택:
-#   think() 진입 → FSM 스택 역순회 → update()=True면 차단
-#   모두 False면 → _on_think() 진행 (5-tier 등)
+# think 파이프라인:
+#   1. FSM 스택 역순회 → update()=True면 차단
+#   2. _perceive() → 감각 정보 수집 (self.perception에 저장)
+#   3. _evaluate() → 상황 평가 (위험도 등 self.evaluation에 저장)
+#   4. _on_think() → 행동 결정 (perception/evaluation 참조)
 #
 # 실행 순서: ThinkSystem → Agent.think() → Job 삽입 → JobBehaviorSystem 실행
 
@@ -18,7 +20,7 @@ class BaseAgent:
     """NPC AI 기반 클래스
 
     FSM 스택으로 행동 컨텍스트를 관리.
-    서브클래스에서 _on_think()을 오버라이드하여 행동 결정 로직 구현.
+    _perceive → _evaluate → _on_think 파이프라인.
     think()가 끝난 후 _action_taken이 False면 safety net job 삽입.
     """
 
@@ -32,26 +34,79 @@ class BaseAgent:
         self.unit_id = unit_id
         self._action_taken = False
         self._fsm_stack = [LifeState()]
+        self.perception = {}    # _perceive()에서 채워짐
+        self.evaluation = {}    # _evaluate()에서 채워짐
 
     def think(self):
-        """매 Step 호출 — FSM 스택 → _on_think()"""
+        """매 Step 호출 — FSM → perceive → evaluate → _on_think"""
         self._action_taken = False
 
-        # FSM 스택 역순회 (최상위 → 최하위)
+        # 1. FSM 스택 역순회 (최상위 → 최하위)
         for _state in reversed(list(self._fsm_stack)):
             if _state.update(self):
-                # 처리 완료 — 아래 로직 차단
                 if not self._action_taken:
                     self._insert_idle_job("할 일 없음", self.SAFETY_NET_DURATION)
                 return
 
-        # FSM이 모두 False → _on_think (5-tier 등)
+        # 2. 감각 수집
+        self.perception = self._perceive()
+
+        # 3. 상황 평가
+        self.evaluation = self._evaluate()
+
+        # 4. 행동 결정 (5-tier 등)
         self._on_think()
         if not self._action_taken:
             self._insert_idle_job("할 일 없음", self.SAFETY_NET_DURATION)
 
+    def _perceive(self):
+        """감각 수집. 서브클래스에서 확장 가능.
+
+        기본: engine/perception.py의 perceive_all() 호출.
+
+        Returns:
+            dict: {"hearing": [...], "sight": [...], "intuition": [...]}
+        """
+        try:
+            from engine import perception
+            return perception.perceive_all(self.unit_id)
+        except (ImportError, Exception):
+            return {}
+
+    def _evaluate(self):
+        """상황 평가. 서브클래스에서 확장 가능.
+
+        기본: 청각 이벤트로 위험도 판정.
+
+        Returns:
+            dict: {"danger_level": 0~100, "heard_combat": bool, ...}
+        """
+        danger = 0
+        heard_combat = False
+
+        hearing = self.perception.get("hearing", [])
+        for h in hearing:
+            if h.get("category") == "전투":
+                heard_combat = True
+                danger = max(danger, 50)
+            elif h.get("category") == "사고":
+                danger = max(danger, 30)
+
+        intuition = self.perception.get("intuition", [])
+        for i in intuition:
+            if i.get("subtype") == "danger":
+                danger = max(danger, 70)
+
+        return {
+            "danger_level": danger,
+            "heard_combat": heard_combat,
+        }
+
     def _on_think(self):
-        """서브클래스에서 구현: 행동 결정 로직"""
+        """서브클래스에서 구현: 행동 결정 로직
+
+        self.perception과 self.evaluation을 참조하여 판단.
+        """
         pass
 
     # ========================================
