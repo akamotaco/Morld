@@ -655,11 +655,11 @@ def try_auto_enter():
 
 
 def _on_entrance_reach(unit_id, region, loc):
-    """event_core에 등록되는 on_reach handler — 퀘스트 활성 시 던전 시작."""
+    """event_core에 등록되는 on_reach handler — 퀘스트 활성 시 던전 시작.
+    Gate 조건(can:enter_dungeon#)으로 미수락 시 L12 자체가 안 보이므로
+    여기에 도달하면 퀘스트가 있다고 전제."""
     if not try_auto_enter():
-        # 퀘스트 미수락 → 안내 메시지
-        import ui
-        return ui.dialog("게시판에서 의뢰를 수락해야 던전에 진입할 수 있다.")
+        return None  # 비정상 도달 — 무시
     node = get_current_node()
     _log(f"[dungeon] Auto-entered via on_reach — first node={node['type']}")
     return auto_run()

@@ -33,6 +33,13 @@ _BOARD_QUESTS = [
         "conditions": [{"type": "dungeon_cleared"}],
         "rewards": [],
         "repeatable": True,
+        # 던전 Gate 정보: 수락 시 생성, 종료 시 삭제
+        "gate": {
+            "region": 0, "loc": 7, "gate_id": 4, "x": 90,
+            "conn_region": 0, "conn_loc": 12, "arrival_x": 0,
+            "back_gate_id": 0, "back_x": 0, "back_arrival_x": 90,
+        },
+        "dungeon": {"depth": 6, "max_width": 3},
     },
 ]
 
@@ -75,22 +82,68 @@ class S04QuestManager(QuestManager):
 
     def on_quest_accepted(self, quest_id, quest):
         if quest.category == "board":
+            # 던전 생성
+            dungeon_cfg = _get_quest_data(quest_id, "dungeon") or {}
             import linear_dungeon
             if not linear_dungeon.is_active():
-                linear_dungeon.enter(depth=6, max_width=3)
-            print("[quest_board] Dungeon generated for quest: " + quest_id)
+                linear_dungeon.enter(
+                    depth=dungeon_cfg.get("depth", 6),
+                    max_width=dungeon_cfg.get("max_width", 3))
+            # Gate 생성
+            _create_quest_gate(quest_id)
+            print("[quest_board] Dungeon + gate created for quest: " + quest_id)
 
     def on_quest_completed(self, quest_id, quest):
         if quest.category == "board":
             import linear_dungeon
             linear_dungeon.reset()
-            print("[quest_board] Dungeon cleared, quest completed: " + quest_id)
+            _remove_quest_gate(quest_id)
+            print("[quest_board] Quest completed, gate removed: " + quest_id)
 
     def on_quest_failed(self, quest_id, quest, reason):
         if quest.category == "board":
             import linear_dungeon
             linear_dungeon.reset()
-            print("[quest_board] Quest failed (" + reason + "): " + quest_id)
+            _remove_quest_gate(quest_id)
+            print("[quest_board] Quest failed (" + reason + "), gate removed: " + quest_id)
+
+
+# ============================================
+# 시간초과 체크 (매 시간)
+# ============================================
+
+# ============================================
+# Gate 동적 생성/삭제
+# ============================================
+
+def _get_quest_data(quest_id, key):
+    """퀘스트 정의에서 추가 데이터 조회 (gate, dungeon 등)"""
+    for qdata in _BOARD_QUESTS:
+        if qdata["unique_id"] == quest_id:
+            return qdata.get(key)
+    return None
+
+
+def _create_quest_gate(quest_id):
+    """퀘스트의 Gate 정보로 양방향 Gate 생성"""
+    gate = _get_quest_data(quest_id, "gate")
+    if not gate:
+        return
+    # 정방향: 던전 입구 → 퀘스트 던전
+    morld.add_gate(gate["region"], gate["loc"], gate["gate_id"], gate["x"],
+                   gate["conn_region"], gate["conn_loc"], gate["arrival_x"])
+    # 역방향: 퀘스트 던전 → 던전 입구
+    morld.add_gate(gate["conn_region"], gate["conn_loc"], gate["back_gate_id"],
+                   gate["back_x"], gate["region"], gate["loc"], gate["back_arrival_x"])
+
+
+def _remove_quest_gate(quest_id):
+    """퀘스트의 Gate 양방향 삭제"""
+    gate = _get_quest_data(quest_id, "gate")
+    if not gate:
+        return
+    morld.remove_gate(gate["region"], gate["loc"], gate["gate_id"])
+    morld.remove_gate(gate["conn_region"], gate["conn_loc"], gate["back_gate_id"])
 
 
 # ============================================

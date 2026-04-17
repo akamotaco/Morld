@@ -1,6 +1,6 @@
 # assets/objects/quest_board.py — 퀘스트 게시판
 #
-# 던전 입구(L7)에 배치. 퀘스트 수락 → 리니어 던전 생성.
+# 던전 입구(L7)에 배치. 퀘스트 수락/확인/포기.
 
 import morld
 from assets.base import Object
@@ -23,7 +23,6 @@ class QuestBoard(Object):
 
         lines = ["[b]의뢰 게시판[/b]", ""]
 
-        # 진행 중인 퀘스트
         active = mgr.get_active_quests()
         board_active = [q for q in active if q.category == "board"]
         if board_active:
@@ -38,61 +37,131 @@ class QuestBoard(Object):
         return "\n".join(lines)
 
     def browse_quests(self):
-        """의뢰 목록 표시 + 수락"""
+        """의뢰 목록/진행 중 확인 — 단일 proc dialog로 처리"""
         import ui
-        from engine.quest import get_quest_manager, QuestStatus
+        from engine.quest import get_quest_manager, QuestStatus, get_condition_description
         mgr = get_quest_manager()
 
-        # 이미 진행 중인 게시판 퀘스트
         active = mgr.get_active_quests()
         board_active = [q for q in active if q.category == "board"]
-        if board_active:
-            q = board_active[0]
-            yield ui.dialog("이미 수행 중인 의뢰가 있다: " + q.name)
-            return
 
-        # 수락 가능한 게시판 퀘스트
         available = mgr.get_quests_by_status(QuestStatus.AVAILABLE)
         board_available = [q for q in available if q.category == "board"]
 
-        if not board_available:
-            yield ui.dialog("현재 수락 가능한 의뢰가 없다.")
-            return
+        state = {"page": "list", "selected_idx": None, "result": None}
 
-        # 선택지 생성
-        state = {"choice_idx": None}
+        def _render():
+            if state["page"] == "detail_available":
+                return _render_detail_available(board_available, state["selected_idx"])
+            if state["page"] == "detail_active":
+                return _render_detail_active(mgr, board_active, state["selected_idx"])
+            return _render_list(board_available, board_active)
+
+        def _render_list(avail, active_list):
+            lines = ["[b]의뢰 게시판[/b]", ""]
+            if active_list:
+                lines.append("[진행 중]")
+                for i, q in enumerate(active_list):
+                    progress = mgr.get_quest_progress(q.unique_id)
+                    lines.append("  [url=@proc:active:" + str(i) + "]" + q.name
+                                 + " (" + str(progress["current"]) + "/" + str(progress["total"]) + ")[/url]")
+                lines.append("")
+            if avail:
+                lines.append("[수락 가능]")
+                for i, q in enumerate(avail):
+                    lines.append("  [url=@proc:avail:" + str(i) + "]" + q.name + "[/url]")
+                lines.append("")
+            if not active_list and not avail:
+                lines.append("게시된 의뢰가 없다.")
+                lines.append("")
+            lines.append("[url=@finish]닫기[/url]")
+            return "\n".join(lines)
+
+        def _render_detail_available(avail, idx):
+            q = avail[idx]
+            lines = ["[b]" + q.name + "[/b]", ""]
+            lines.append(q.description)
+            lines.append("")
+            lines.append("[url=@proc:accept:" + str(idx) + "]수락[/url]  [url=@proc:back]거절[/url]")
+            return "\n".join(lines)
+
+        def _render_detail_active(mgr_ref, active_list, idx):
+            q = active_list[idx]
+            progress = mgr_ref.get_quest_progress(q.unique_id)
+            lines = ["[b]" + q.name + "[/b]", ""]
+            lines.append(q.description)
+            lines.append("")
+            lines.append("[조건]")
+            for ci in progress["conditions"]:
+                mark = "✓" if ci["is_met"] else "○"
+                lines.append("  " + mark + " " + ci["description"])
+            lines.append("")
+
+            # 남은 시간
+            player_id = morld.get_player_id()
+            if player_id:
+                props = morld.get_unit_props(player_id) or {}
+                accept_time = props.get("퀘스트:" + q.unique_id + ":수락시각", 0)
+                if accept_time > 0:
+                    import quest_board as qb
+                    elapsed_h = (morld.get_game_time() - accept_time) / 3_600_000
+                    remain_h = max(0, qb.QUEST_TIME_LIMIT_HOURS - elapsed_h)
+                    remain_d = int(remain_h // 24)
+                    remain_hr = int(remain_h % 24)
+                    lines.append("기한: " + str(remain_d) + "일 " + str(remain_hr) + "시간 남음")
+                    lines.append("")
+
+            lines.append("[url=@proc:abandon:" + str(idx) + "]포기[/url]  [url=@proc:back]돌아가기[/url]")
+            return "\n".join(lines)
 
         def _handle(action):
             if action == "init":
-                return None
-            try:
-                idx = int(action)
-            except (ValueError, TypeError):
-                return None
-            if 0 <= idx < len(board_available):
-                state["choice_idx"] = idx
-                return True
+                return _render()
+
+            # 목록 → 상세
+            if action.startswith("avail:"):
+                idx = int(action.split(":")[1])
+                state["page"] = "detail_available"
+                state["selected_idx"] = idx
+                return _render()
+
+            if action.startswith("active:"):
+                idx = int(action.split(":")[1])
+                state["page"] = "detail_active"
+                state["selected_idx"] = idx
+                return _render()
+
+            # 수락
+            if action.startswith("accept:"):
+                idx = int(action.split(":")[1])
+                q = board_available[idx]
+                ok = mgr.accept_quest(q.unique_id)
+                if ok:
+                    state["result"] = "accepted"
+                    return True  # dialog 종료
+                state["page"] = "list"
+                return _render()
+
+            # 포기
+            if action.startswith("abandon:"):
+                idx = int(action.split(":")[1])
+                q = board_active[idx]
+                mgr.fail_quest(q.unique_id, reason="포기")
+                state["result"] = "abandoned"
+                return True  # dialog 종료
+
+            # 돌아가기
+            if action == "back":
+                state["page"] = "list"
+                state["selected_idx"] = None
+                return _render()
+
             return None
 
-        lines = ["[b]의뢰 목록[/b]", ""]
-        for i, q in enumerate(board_available):
-            lines.append("[url=@proc:" + str(i) + "]" + q.name + "[/url]")
-            lines.append("  " + q.description)
-            lines.append("")
+        yield morld.dialog("", autofill="off", proc=_handle, result=state)
 
-        yield morld.dialog(
-            "\n".join(lines),
-            autofill="off",
-            proc=_handle,
-            result=state,
-        )
-
-        if state["choice_idx"] is None:
-            return
-
-        quest = board_available[state["choice_idx"]]
-        ok = mgr.accept_quest(quest.unique_id)
-        if ok:
-            yield ui.dialog("의뢰 '" + quest.name + "'을 수락했다.\n\n퀘스트 던전으로 이동하면 진입할 수 있다.")
-        else:
-            yield ui.dialog("의뢰를 수락할 수 없다.")
+        # dialog 종료 후 메시지
+        if state["result"] == "accepted":
+            yield ui.dialog("의뢰를 수락했다.\n\n퀘스트 던전으로 이동하면 진입할 수 있다.")
+        elif state["result"] == "abandoned":
+            yield ui.dialog("의뢰를 포기했다.")
