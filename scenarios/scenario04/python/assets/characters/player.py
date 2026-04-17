@@ -139,11 +139,49 @@ class Player(Character):
             r = result.get("result")
             battle_label = "엘리트 전투" if t == ld.NODE_ELITE else "전투"
             if r == "victory":
-                event_text = f"{battle_label} 승리."
+                # 승리 후 실신 NPC 체크
+                fainted_npcs = _get_fainted_party_npcs(player_id, _pg)
+                if fainted_npcs:
+                    names = ", ".join(morld.get_unit_name(uid) or str(uid) for uid in fainted_npcs)
+                    event_text = f"{battle_label} 승리. 하지만 {names}이(가) 쓰러졌다."
+                else:
+                    event_text = f"{battle_label} 승리."
             elif r == "defeat":
-                yield ui.dialog(f"{unknown_prefix}{battle_label} 패배... 던전을 빠져나간다.")
-                ld.exit_to_village(reason="defeated")
-                return
+                # 패배 정식 경로: 플레이어 실신 체크
+                player_fainted = morld.get_unit_prop(player_id, "상태:실신")
+                survivors = _get_surviving_party_npcs(player_id, _pg)
+                if player_fainted and survivors:
+                    # 생존 NPC가 구출
+                    from engine import korean
+                    rescuer = survivors[0]
+                    rname = morld.get_unit_name(rescuer) or str(rescuer)
+                    particle = korean.이_가(rname)
+                    yield ui.dialog(
+                        f"{unknown_prefix}{battle_label} 패배.\n\n"
+                        f"의식이 흐려진다...\n"
+                        f"{rname}{particle} 당신을 끌고 던전을 빠져나왔다.")
+                    ld.exit_to_village(reason="rescued")
+                    return
+                elif player_fainted:
+                    # 전원 실신
+                    yield ui.dialog(
+                        f"{unknown_prefix}{battle_label} 패배.\n\n"
+                        f"의식이 흐려진다... 아무도 도와줄 수 없다.")
+                    ld.exit_to_village(reason="all_fainted")
+                    _trigger_player_death_event()
+                    return
+                else:
+                    # 플레이어 생존, NPC 실신 — 플레이어가 판단
+                    fainted = _get_fainted_party_npcs(player_id, _pg)
+                    if fainted:
+                        names = ", ".join(morld.get_unit_name(uid) or str(uid) for uid in fainted)
+                        yield ui.dialog(
+                            f"{unknown_prefix}{battle_label} 패배.\n\n"
+                            f"{names}이(가) 쓰러졌다. 후퇴한다.")
+                    else:
+                        yield ui.dialog(f"{unknown_prefix}{battle_label} 패배... 후퇴한다.")
+                    ld.exit_to_village(reason="defeated")
+                    return
             else:
                 yield ui.dialog(f"{unknown_prefix}{battle_label}의 결판이 나지 않았다. 물러난다.")
                 ld.exit_to_village(reason="battle_inconclusive")
@@ -210,7 +248,6 @@ class Player(Character):
         if t == ld.NODE_EXIT:
             options = ["village"]
             labels = ["[마을로 돌아간다]"]
-            # 대사 매핑용: 각 옵션 id → room_type_key
             option_room_type = {"village": "exit"}
             advance_map = {"village": "__exit__"}
         else:
@@ -224,6 +261,13 @@ class Player(Character):
                 str(p): ld._state["nodes"][p]["type"] for p in paths
             }
             advance_map = {str(p): p for p in paths}
+
+            # 캠프 노드: 마을 귀환 옵션 추가 (후퇴 — 던전 리셋)
+            if t == ld.NODE_CAMP:
+                options.append("retreat")
+                labels.append("[마을로 후퇴한다]")
+                option_room_type["retreat"] = "exit"
+                advance_map["retreat"] = "__retreat__"
 
         # 3. NPC 선호 + 대사 (Agent 경유 — 모든 NPC는 Agent 필수)
         from engine import think as _think
@@ -313,6 +357,95 @@ class Player(Character):
         target = advance_map[winner]
         if target == "__exit__":
             ld.exit_to_village(reason="cleared_end")
+        elif target == "__retreat__":
+            _handle_camp_retreat(player_id, _pg, ld, ui)
         else:
             ld.advance(target)
         return
+
+
+# ============================================
+# 던전 전투 헬퍼 (모듈 레벨)
+# ============================================
+
+def _get_fainted_party_npcs(player_id, _pg):
+    """파티 내 실신 NPC 목록 (플레이어 제외)"""
+    import morld
+    party = _pg.get_party_of(player_id)
+    if party is None:
+        return []
+    result = []
+    for uid in party.get_members():
+        if uid == player_id:
+            continue
+        if morld.get_unit_prop(uid, "상태:실신"):
+            result.append(uid)
+    return result
+
+
+def _get_surviving_party_npcs(player_id, _pg):
+    """파티 내 생존 NPC 목록 (플레이어 제외, 실신 아닌)"""
+    import morld
+    party = _pg.get_party_of(player_id)
+    if party is None:
+        return []
+    result = []
+    for uid in party.get_members():
+        if uid == player_id:
+            continue
+        if not morld.get_unit_prop(uid, "상태:실신"):
+            result.append(uid)
+    return result
+
+
+def _handle_camp_retreat(player_id, _pg, ld, ui):
+    """캠프에서 마을 후퇴 — 던전 리셋 + 구호소/던전입구로 이동"""
+    import morld
+
+    # 실신 멤버 확인
+    fainted = _get_fainted_party_npcs(player_id, _pg)
+
+    # 던전 리셋 (후퇴 = 처음부터 다시)
+    ld.exit_to_village(reason="retreat")
+
+    # 귀환 목적지: 구호소 존재 시 구호소, 아니면 던전 입구
+    try:
+        import facility
+        has_infirmary = facility.has_infirmary()
+    except (ImportError, Exception):
+        has_infirmary = False
+
+    party = _pg.get_party_of(player_id)
+    members = party.get_members() if party else [player_id]
+
+    if has_infirmary and fainted:
+        # 실신 멤버 포함 → 구호소로
+        INFIRMARY_REGION = 0
+        INFIRMARY_LOCATION = 5
+        for uid in members:
+            morld.set_unit_location(uid, INFIRMARY_REGION, INFIRMARY_LOCATION, x=50)
+        print("[player] Camp retreat → infirmary (fainted members)")
+    # 실신 없거나 구호소 없으면 기본 위치 (exit_to_village가 이미 L7으로 이동)
+
+
+def _trigger_player_death_event():
+    """플레이어 사망 이벤트 (임시 — 로그라이크 리셋용)
+
+    게임 오버가 아님. 던전 실패 → 마을 귀환 → 페널티 후 계속.
+    향후: 침식 누적, 아이템 손실, 시간 경과 등.
+    """
+    import morld
+    player_id = morld.get_player_id()
+    if player_id is None:
+        return
+
+    # 임시: 실신 해제 + 체력 절반 회복
+    try:
+        import survival
+        morld.set_unit_prop(player_id, "상태:실신", 0)
+        max_hp = survival.get_max_health(player_id)
+        survival.set_health(player_id, max(1, max_hp // 2))
+    except (ImportError, Exception):
+        pass
+
+    print("[player] Death event triggered — roguelike reset (temp)")

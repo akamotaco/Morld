@@ -144,6 +144,9 @@ def apply_random_character(
     morld.set_unit_prop(unit_id, "스탯:체력", stats["vit"])
     morld.set_unit_prop(unit_id, "스탯:정신", stats["mnd"])
     morld.set_unit_prop(unit_id, "리더십", leadership)
+    # 동정심 (1~10, 기본 5) — 구출/파티 합류 등 NPC 판단에 영향
+    compassion = random.randint(1, 10)
+    morld.set_unit_prop(unit_id, "동정심", compassion)
     if npc_class:
         morld.set_unit_prop(unit_id, "클래스", npc_class)
     for i, quirk in enumerate(quirks):
@@ -162,4 +165,5 @@ def apply_random_character(
         "class": npc_class,
         "quirks": quirks,
         "leadership": leadership,
+        "compassion": compassion,
     }

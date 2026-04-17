@@ -777,20 +777,40 @@ def make_branch_decision(player_choice_id: int = None, npc_choice_fn=None) -> di
 # ========================================
 
 def exit_to_village(reason: str = "clear"):
-    """모든 파티원을 던전 입구(R0/L7)로 이동."""
+    """모든 파티원을 귀환시킴.
+
+    reason별 목적지:
+    - rescued/all_fainted + 구호소 → 구호소(R0/L5)
+    - 그 외 → 던전 입구(R0/L7)
+    """
     from engine import party_group as _pg
     player_id = morld.get_player_id()
     party = _pg.get_party_of(player_id) if player_id else None
 
     reset()
 
+    # 목적지 결정
+    dest_region = VILLAGE_REGION
+    dest_location = VILLAGE_LOCATION
+    dest_x = VILLAGE_X
+
+    if reason in ("rescued", "all_fainted"):
+        try:
+            import facility
+            if facility.has_infirmary():
+                dest_location = 5  # 구호소
+                dest_x = 50
+        except (ImportError, Exception):
+            pass
+
     if party is not None:
         for uid in party.get_members():
-            morld.set_unit_location(uid, VILLAGE_REGION, VILLAGE_LOCATION, x=VILLAGE_X)
+            morld.set_unit_location(uid, dest_region, dest_location, x=dest_x)
     elif player_id is not None:
-        morld.set_unit_location(player_id, VILLAGE_REGION, VILLAGE_LOCATION, x=VILLAGE_X)
+        morld.set_unit_location(player_id, dest_region, dest_location, x=dest_x)
 
-    _log(f"[dungeon] Exit to village — reason={reason}")
+    _log("[dungeon] Exit to village — reason=" + reason
+         + " dest=R" + str(dest_region) + ":L" + str(dest_location))
 
     # 퀘스트 연동: 클리어 시 퀘스트 완료 트리거
     if reason == "cleared_end":

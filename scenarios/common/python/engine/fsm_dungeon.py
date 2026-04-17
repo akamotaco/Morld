@@ -6,10 +6,29 @@
 # 레벨: LV_DUNGEON = 8 (LV_COMBAT=10 미만 → 전투 발생 시 전투가 우선)
 
 import morld
+import random
 from engine.fsm import FSMState
 
 LV_DUNGEON = 8
 LV_DUNGEON_EXPLORE = 6
+
+# 구출 판정 임계값
+_RESCUE_BASE_THRESHOLD = 50  # 기본: random*100 < threshold면 구출
+_COMPASSION_WEIGHT = 5       # 동정심 1당 +5%
+_TRUST_WEIGHT = 0.3          # 신뢰도의 30%를 가산
+
+
+def _should_rescue(npc_id):
+    """NPC가 실신한 리더를 구출할지 판정.
+
+    판정식: random*100 < (동정심 * 5) + (신뢰도 * 0.3)
+    동정심 10 + 신뢰도 50 → 50+15 = 65% 구출
+    동정심 1 + 신뢰도 20 → 5+6 = 11% 구출
+    """
+    compassion = morld.get_unit_prop(npc_id, "동정심") or 5
+    trust = morld.get_unit_prop(npc_id, "신뢰도") or 50
+    threshold = (compassion * _COMPASSION_WEIGHT) + (trust * _TRUST_WEIGHT)
+    return random.random() * 100 < threshold
 
 
 class DungeonState(FSMState):
@@ -33,8 +52,13 @@ class DungeonState(FSMState):
             if fainted:
                 my_fainted = morld.get_unit_prop(agent.unit_id, "상태:실신")
                 if not my_fainted:
-                    morld.set_unit_prop(agent.unit_id, "dungeon:구출의사", 1)
-                    agent._insert_idle_job("구출 준비", 300_000)
+                    # 구출 판정: 동정심 + 신뢰도 기반
+                    if _should_rescue(agent.unit_id):
+                        morld.set_unit_prop(agent.unit_id, "dungeon:구출의사", 1)
+                        agent._insert_idle_job("구출 준비", 300_000)
+                    else:
+                        morld.set_unit_prop(agent.unit_id, "dungeon:구출의사", 0)
+                        agent._insert_idle_job("방관", 300_000)
                     agent._action_taken = True
                     return True
 
