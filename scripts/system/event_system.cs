@@ -642,7 +642,9 @@ namespace SE
 			// 1. 누적된 on_time_elapsed 이벤트 먼저 처리
 			if (_accumulatedTimeElapsed > 0)
 			{
+#if DEBUG_LOG
 				Godot.GD.Print($"[EventSystem] FlushEvents: on_time_elapsed accumulated={_accumulatedTimeElapsed}ms");
+#endif
 				var timeEvent = GameEvent.OnTimeElapsed(_accumulatedTimeElapsed);
 				_accumulatedTimeElapsed = 0;
 
@@ -652,10 +654,6 @@ namespace SE
 				{
 					return true;
 				}
-			}
-			else
-			{
-				Godot.GD.Print($"[EventSystem] FlushEvents: no accumulated time_elapsed");
 			}
 
 			// 2. 대기 중인 핸들러가 있으면 먼저 처리
