@@ -280,6 +280,29 @@ def _attenuate(intensity, distance):
     return intensity / (1.0 + distance / ATTENUATION_HALF)
 
 
+# stance → footstep sound_type 매핑
+_STANCE_FOOTSTEP = {
+    "crouch": "footstep_crouch",
+    "run": "footstep_run",
+}
+
+
+def emit_footstep(unit_id, location=None):
+    """stance prop 기반 발소리 emit.
+
+    stance:crouch → footstep_crouch (10)
+    stance:run    → footstep_run (40)
+    기본(walk)    → footstep (20)
+    """
+    stance = None
+    if morld.get_unit_prop(unit_id, "stance:crouch"):
+        stance = "crouch"
+    elif morld.get_unit_prop(unit_id, "stance:run"):
+        stance = "run"
+    sound_type = _STANCE_FOOTSTEP.get(stance, "footstep")
+    emit_sound(unit_id, sound_type, location=location)
+
+
 def emit_sound(source_id, sound_type, intensity=None, location=None):
     """
     소리 발생 및 BFS 전파

@@ -263,10 +263,10 @@ def on_single_event(event):
         region_id = event[2]
         location_id = event[3]
 
-        # 발소리 (캐릭터 이동 시 소리 전파)
+        # 발소리 (stance 기반: walk/crouch/run)
         try:
             import sound
-            sound.emit_sound(unit_id, "footstep", location=(region_id, location_id))
+            sound.emit_footstep(unit_id, location=(region_id, location_id))
         except ImportError:
             pass
 

@@ -18,6 +18,13 @@ def _handle_time_elapsed(millis):
 
 def on_reach(unit_id, region_id, location_id):
     """유닛이 Location에 도착했을 때"""
+    # 발소리 (stance 기반: walk/crouch/run)
+    try:
+        import sound
+        sound.emit_footstep(unit_id, location=(region_id, location_id))
+    except (ImportError, Exception):
+        pass
+
     try:
         import congestion
         congestion.on_unit_reach(unit_id, region_id, location_id)
