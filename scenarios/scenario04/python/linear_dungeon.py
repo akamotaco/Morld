@@ -113,9 +113,27 @@ VILLAGE_REGION = 0
 VILLAGE_LOCATION = 7
 VILLAGE_X = 50
 
-# 리니어 던전 진입 트리거 위치 (chapter_0.py의 "테스트 리니어 던전" location)
+# 리니어 던전 진입 트리거 위치 (chapter_0.py의 "퀘스트 던전" location)
 ENTRANCE_REGION = 0
 ENTRANCE_LOCATION = 12
+
+# 동적 Region (리니어 던전 전용)
+_DUNGEON_REGION_BASE = 200
+_dungeon_region_counter = 0
+
+# 노드 타입별 Location 길이
+_NODE_LENGTH = {
+    NODE_START: 100,
+    NODE_BATTLE: 300,
+    NODE_ELITE: 300,
+    NODE_REST: 150,
+    NODE_CAMP: 200,
+    NODE_TREASURE: 150,
+    NODE_EVENT: 150,
+    NODE_EMPTY: 100,
+    NODE_UNKNOWN: 150,
+    NODE_EXIT: 100,
+}
 
 
 # ========================================
@@ -127,18 +145,22 @@ _state = {
     "nodes": [],
     "index": -1,
     "log": [],
+    "region_id": None,  # 동적 Region ID (물리 공간)
 }
 
 
 def reset():
     was_active = _state["active"]
+    old_region = _state.get("region_id")
     _state["active"] = False
     _state["nodes"] = []
     _state["index"] = -1
     _state["log"] = []
+    _state["region_id"] = None
 
-    # 던전 퇴장: 파티 이탈 잠금 해제 + DungeonState pop
+    # 던전 퇴장: 물리 Region 파괴 + 파티 이탈 잠금 해제 + DungeonState pop
     if was_active:
+        destroy_linear_region(old_region)
         player_id = morld.get_player_id()
         if player_id is not None:
             morld.modify_prop(player_id, "can:dismiss_from_party", 1)
@@ -182,6 +204,67 @@ def _pop_dungeon_state_from_party():
         agent = _think.get_agent(uid)
         if agent and hasattr(agent, '_fsm_pop_by_type'):
             agent._fsm_pop_by_type("dungeon")
+
+
+# ========================================
+# 물리 공간 빌더
+# ========================================
+
+def _alloc_region_id():
+    """리니어 던전 전용 Region ID 할당"""
+    global _dungeon_region_counter
+    rid = _DUNGEON_REGION_BASE + _dungeon_region_counter
+    _dungeon_region_counter += 1
+    return rid
+
+
+def build_linear_region(nodes):
+    """노드 그래프 → 물리 Region/Location/Gate 생성.
+
+    1 Region + 노드당 1 Location + DAG paths → 단방향 Gate.
+    마을과 감각 격리 (별도 Region, Gate 미연결).
+
+    Returns: region_id
+    """
+    from engine import region_registry
+
+    region_id = _alloc_region_id()
+    morld.add_region(region_id, "리니어 던전",
+                     {"default": "동적 생성된 리니어 던전"}, "맑음")
+    region_registry.register_dynamic(region_id)
+
+    # Location 생성 (노드당 1개)
+    for node in nodes:
+        nid = node["id"]
+        label = NODE_LABELS.get(node["type"], "방")
+        length = _NODE_LENGTH.get(node["type"], 150)
+        morld.add_location(region_id, nid, label, length=length, indoor=True)
+
+    # Gate 생성 (forward-only, DAG paths 기반)
+    gate_counter = 0
+    for node in nodes:
+        for target_id in node["paths"]:
+            target_node = nodes[target_id]
+            target_length = _NODE_LENGTH.get(target_node["type"], 150)
+            # 현재 노드 끝 → 다음 노드 입구
+            src_length = _NODE_LENGTH.get(node["type"], 150)
+            morld.add_gate(region_id, node["id"], gate_counter,
+                           max(0, src_length - 10),
+                           region_id, target_id, 10)
+            gate_counter += 1
+
+    _log("[dungeon] Built region R" + str(region_id) + " — "
+         + str(len(nodes)) + " locations, " + str(gate_counter) + " gates")
+    return region_id
+
+
+def destroy_linear_region(region_id):
+    """리니어 던전 Region 정리 (region_registry 해제)"""
+    if region_id is None:
+        return
+    from engine import region_registry
+    region_registry.unregister_dynamic(region_id)
+    _log("[dungeon] Destroyed region R" + str(region_id))
 
 
 # ========================================
@@ -370,24 +453,36 @@ def reveal_unknown_node():
 
 
 def enter(nodes: list = None, depth: int = 6, *, max_width: int = 3):
-    """던전 진입 → 첫 노드(START) 활성화."""
+    """던전 진입 → 물리 Region 생성 + 첫 노드(START) 활성화."""
     reset()
     _state["nodes"] = nodes if nodes is not None else generate_nodes(depth, max_width=max_width)
     _state["index"] = 0
     _state["active"] = True
 
+    # 물리 공간 생성
+    _state["region_id"] = build_linear_region(_state["nodes"])
+
+    # 파티를 던전 시작 Location으로 이동
+    from engine import party_group as _pg
+    player_id = morld.get_player_id()
+    party = _pg.get_party_of(player_id) if player_id else None
+    if party is not None:
+        for uid in party.get_members():
+            morld.set_unit_location(uid, _state["region_id"], 0, x=10)
+    elif player_id is not None:
+        morld.set_unit_location(player_id, _state["region_id"], 0, x=10)
+
     # 던전 UI: header/footer 표시 + 파티 이탈 잠금
     from engine.ui_base import set_show_header, set_show_footer
     set_show_header(True)
     set_show_footer(True)
-    player_id = morld.get_player_id()
     if player_id is not None:
         morld.modify_prop(player_id, "can:dismiss_from_party", -1)
 
     # 파티원 NPC에 DungeonState push (일반 생활 차단)
     _push_dungeon_state_to_party()
 
-    _log(f"[dungeon] Enter linear dungeon — {len(_state['nodes'])} nodes (depth={depth})")
+    _log(f"[dungeon] Enter linear dungeon — {len(_state['nodes'])} nodes (depth={depth}), region=R{_state['region_id']}")
     return get_current_node()
 
 

@@ -41,7 +41,11 @@ class _StubMorld:
     def set_unit_prop(self, *a, **kw): pass
     def modify_prop(self, *a, **kw): pass
     def advance_time_des(self, *a, **kw): pass
-    def get_unit_name(self, uid): return f"U{uid}"
+    def get_unit_name(self, uid): return "U" + str(uid)
+    def add_region(self, *a, **kw): pass
+    def add_location(self, *a, **kw): pass
+    def add_gate(self, *a, **kw): pass
+    def region_exists(self, rid): return rid == 0
 
 
 sys.modules.setdefault("morld", _StubMorld())
