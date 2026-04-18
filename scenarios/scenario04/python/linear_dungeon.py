@@ -964,11 +964,14 @@ def make_branch_decision(player_choice_id: int = None, npc_choice_fn=None) -> di
 # 귀환
 # ========================================
 
+_RECOVERY_REASONS = {"rescued", "self_rescued", "all_fainted", "death"}
+
+
 def exit_to_village(reason: str = "clear"):
     """모든 파티원을 귀환시킴.
 
     reason별 목적지:
-    - rescued/all_fainted + 구호소 → 구호소(R0/L5)
+    - 구출/탈출/사망(재편성) + 구호소 존재 → 구호소(R0/L5)
     - 그 외 → 던전 입구(R0/L7)
     """
     from engine import party_group as _pg
@@ -982,7 +985,7 @@ def exit_to_village(reason: str = "clear"):
     dest_location = VILLAGE_LOCATION
     dest_x = VILLAGE_X
 
-    if reason in ("rescued", "all_fainted"):
+    if reason in _RECOVERY_REASONS:
         try:
             import facility
             if facility.has_infirmary():

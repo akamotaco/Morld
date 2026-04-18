@@ -8,6 +8,7 @@
 
 from assets.base import Character
 from assets.registry import register_character
+from engine.character_props import COMMON_ACTION_PROPS
 
 
 @register_character
@@ -24,6 +25,7 @@ class NpcD(Character):
     # 능력은 props의 "침식:저항배수", "던전:힘사용"으로 표현 (is_special 단일 플래그 제거)
 
     props = {
+        **COMMON_ACTION_PROPS,
         "성격": "내성적",
         "성별": "여",
         "정규NPC": "D",

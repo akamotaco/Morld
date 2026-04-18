@@ -6,6 +6,7 @@
 
 from assets.base import Character
 from assets.registry import register_character
+from engine.character_props import COMMON_ACTION_PROPS
 
 
 @register_character
@@ -21,6 +22,7 @@ class NpcA(Character):
     character_class = "거간꾼"
 
     props = {
+        **COMMON_ACTION_PROPS,
         "성격": "탐욕",
         "성별": "남",
         "정규NPC": "A",

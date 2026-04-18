@@ -4,6 +4,20 @@
 
 from assets.base import Character
 from assets.registry import register_character
+from engine.character_props import COMMON_ACTION_PROPS, COMMON_LEADER_PROPS
+
+
+# 플레이어 고유 props (원자 능력 + 플레이어 전용 can: 액션)
+_PLAYER_UNIQUE_PROPS = {
+    # 원자 능력 (특수 존재의 속성)
+    "침식:저항배수": 0.5,           # 침식 50%만 축적
+    "던전:힘사용": 1,               # 던전의 힘 사용 가능 (향후 시스템용)
+    "리더십": 3,                    # MAX_PARTY_SIZE(4)-1 — 파티 풀 가득 통솔 가능
+    # 플레이어 전용 액션 권한
+    "can:browse_quests": 1,         # 게시판 의뢰 확인
+    "can:report_quests": 1,         # 게시판 완료 보고
+    "can:show_quests": 1,           # 셀프 focus '퀘스트 확인'
+}
 
 
 @register_character
@@ -18,23 +32,15 @@ class Player(Character):
     base_mnd = 15  # 침식 저항 높음
 
     character_class = None  # 플레이어 선택 (향후)
-    # 능력은 props의 "침식:저항배수", "던전:힘사용" 등으로 표현 (is_special 단일 플래그 제거)
 
     # 액션은 던전 상태에 따라 동적 (get_available_actions 참조)
     actions = []
 
+    # 권한 구성: 공통 행동 + 리더 권한 + 플레이어 고유
     props = {
-        # 능력 (원자 props — 기존 "특수:존재" 단일 플래그 대체)
-        "침식:저항배수": 0.5,           # 침식 50%만 축적
-        "던전:힘사용": 1,               # 던전의 힘 사용 가능 (향후 시스템용)
-        # 파티/액션
-        "리더십": 3,                    # MAX_PARTY_SIZE(4)-1 — 파티 풀 가득 통솔 가능
-        "can:invite_to_party": 1,       # NPC에게 "파티 초대" 액션 권한
-        "can:dismiss_from_party": 1,    # 파티원 NPC에게 "파티 이탈" 액션 권한
-        "can:browse_quests": 1,         # 게시판 의뢰 확인 액션
-        "can:report_quests": 1,         # 게시판 완료 보고 액션
-        "can:show_quests": 1,           # 셀프 focus '퀘스트 확인' 액션
-        "can:dungeon_proceed": 1,       # 던전 노드 진행
+        **COMMON_ACTION_PROPS,
+        **COMMON_LEADER_PROPS,
+        **_PLAYER_UNIQUE_PROPS,
     }
 
     def get_describe_text(self) -> str:
@@ -160,31 +166,17 @@ class Player(Character):
                 else:
                     event_text = f"{battle_label} 승리."
             elif r == "defeat":
-                # 패배 정식 경로: 플레이어 실신 체크
+                # 패배: 플레이어 실신 여부에 따라 분기
                 player_fainted = morld.get_unit_prop(player_id, "상태:실신")
-                survivors = _get_surviving_party_npcs(player_id, _pg)
-                if player_fainted and survivors:
-                    # 생존 NPC가 구출
-                    from engine import korean
-                    rescuer = survivors[0]
-                    rname = morld.get_unit_name(rescuer) or str(rescuer)
-                    particle = korean.이_가(rname)
+                if player_fainted:
+                    # 실신 → 구출/탈출/사망 사이클 위임
+                    import faint_rescue
                     yield ui.dialog(
-                        f"{unknown_prefix}{battle_label} 패배.\n\n"
-                        f"의식이 흐려진다...\n"
-                        f"{rname}{particle} 당신을 끌고 던전을 빠져나왔다.")
-                    ld.exit_to_village(reason="rescued")
-                    return
-                elif player_fainted:
-                    # 전원 실신
-                    yield ui.dialog(
-                        f"{unknown_prefix}{battle_label} 패배.\n\n"
-                        f"의식이 흐려진다... 아무도 도와줄 수 없다.")
-                    ld.exit_to_village(reason="all_fainted")
-                    _trigger_player_death_event()
+                        f"{unknown_prefix}{battle_label} 패배.\n\n정신이 아득해진다...")
+                    yield from faint_rescue.run_faint_cycle()
                     return
                 else:
-                    # 플레이어 생존, NPC 실신 — 플레이어가 판단
+                    # 플레이어 생존, NPC 실신 가능 — 플레이어가 후퇴 결정
                     fainted = _get_fainted_party_npcs(player_id, _pg)
                     if fainted:
                         names = ", ".join(morld.get_unit_name(uid) or str(uid) for uid in fainted)
@@ -221,29 +213,9 @@ class Player(Character):
 
         # 플레이어 실신 체크 (시간 경과에 의한 실신 — 전투 패배는 위에서 처리)
         if player_id is not None and morld.get_unit_prop(player_id, "상태:실신"):
-            party = _pg.get_party_of(player_id) if player_id else None
-            survivors = []
-            if party:
-                for uid in party.get_members():
-                    if uid != player_id and not morld.get_unit_prop(uid, "상태:실신"):
-                        if morld.get_unit_prop(uid, "dungeon:구출의사"):
-                            survivors.append(uid)
-            if survivors:
-                # NPC가 구출 결정 (DungeonState.update에서 판정됨)
-                from engine import korean
-                rescuer_id = survivors[0]
-                rescuer_name = morld.get_unit_name(rescuer_id) or str(rescuer_id)
-                particle = korean.이_가(rescuer_name)
-                yield ui.dialog(
-                    "의식이 흐려진다...\n\n"
-                    + rescuer_name + particle + " 당신을 끌고 던전을 빠져나왔다.")
-                ld.exit_to_village(reason="rescued")
-                return
-            else:
-                # 구출자 없음 — 전원 실신
-                yield ui.dialog("의식이 흐려진다... 아무도 도와줄 수 없다.")
-                ld.exit_to_village(reason="all_fainted")
-                return
+            import faint_rescue
+            yield from faint_rescue.run_faint_cycle()
+            return
 
         # 던전 ambient (50%): 파티원 랜덤 코멘트
         party = _pg.get_party_of(player_id) if player_id else None
@@ -424,21 +396,6 @@ def _get_fainted_party_npcs(player_id, _pg):
     return result
 
 
-def _get_surviving_party_npcs(player_id, _pg):
-    """파티 내 생존 NPC 목록 (플레이어 제외, 실신 아닌)"""
-    import morld
-    party = _pg.get_party_of(player_id)
-    if party is None:
-        return []
-    result = []
-    for uid in party.get_members():
-        if uid == player_id:
-            continue
-        if not morld.get_unit_prop(uid, "상태:실신"):
-            result.append(uid)
-    return result
-
-
 def _handle_camp_retreat(player_id, _pg, ld, ui):
     """캠프에서 마을 후퇴 — 던전 리셋 + 구호소/던전입구로 이동"""
     import morld
@@ -469,24 +426,4 @@ def _handle_camp_retreat(player_id, _pg, ld, ui):
     # 실신 없거나 구호소 없으면 기본 위치 (exit_to_village가 이미 L7으로 이동)
 
 
-def _trigger_player_death_event():
-    """플레이어 사망 이벤트 (임시 — 로그라이크 리셋용)
-
-    게임 오버가 아님. 던전 실패 → 마을 귀환 → 페널티 후 계속.
-    향후: 침식 누적, 아이템 손실, 시간 경과 등.
-    """
-    import morld
-    player_id = morld.get_player_id()
-    if player_id is None:
-        return
-
-    # 임시: 실신 해제 + 체력 절반 회복
-    try:
-        import survival
-        morld.set_unit_prop(player_id, "상태:실신", 0)
-        max_hp = survival.get_max_health(player_id)
-        survival.set_health(player_id, max(1, max_hp // 2))
-    except (ImportError, Exception):
-        pass
-
-    print("[player] Death event triggered — roguelike reset (temp)")
+# _trigger_player_death_event 제거됨 — faint_rescue.run_faint_cycle로 이관
