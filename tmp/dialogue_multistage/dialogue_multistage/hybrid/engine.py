@@ -6,22 +6,25 @@
   - 조립 단계 없음 → 어색한 문법 조합 원천 차단
   - 다양성은 (template 수) × (slot 조합) × anti-repetition 으로 확보
 
-Prior 레이어 (현재 구현):
-  1. Template state-bias softmax (state 근접 선호)
+로딩 모드 (Option C, 아키타입 공유):
+  HybridEngine.load(character="시호", context="daily", dialogue_root=...)
+    → characters/시호.yaml (프로필) + archetype_dialogues/tsundere/daily.yaml (공용 대사)
+    → character의 dialogue_overrides[context] 병합
+  또는 단일 yaml: HybridEngine.from_yaml(path)
+
+Prior 레이어:
+  1. Template state-bias / inner-bias softmax (outer/inner 이중 매칭)
   2. Slot token feature softmax (feature 제공 시)
   3. Anti-repetition penalty (최근 턴 감점)
-
-미구현 (향후):
-  - Slot-slot compatibility
-  - 자동 feature inference
 """
 from __future__ import annotations
+import copy
 import math
 import random
 import re
 from collections import deque
 from pathlib import Path
-from typing import Deque, Dict, List, Optional, Tuple, Union
+from typing import Any, Deque, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -61,8 +64,60 @@ def _softmax_sample(rng: random.Random, options: List, logits: List[float],
     return len(options) - 1
 
 
+def _merge_intents(base: Dict[str, Dict], overrides: Dict[str, Dict]) -> Dict[str, Dict]:
+    """archetype intents 위에 캐릭터 overrides 병합.
+
+    Override 연산자:
+      add_templates:     base.templates + (append)
+      replace_templates: 같은 id 찾아 교체
+      disable_templates: 리스트의 id 제거
+      add_slots:         slot pool 합집합 (append, 중복 제거 안 함)
+
+    새 intent면 그냥 추가됨.
+    """
+    result = copy.deepcopy(base) if base else {}
+    if not overrides:
+        return result
+
+    for intent_name, ov in overrides.items():
+        if intent_name not in result:
+            # 새 intent — override dict 그대로 넣되 연산자 키 정리
+            new_intent = {
+                "templates": list(ov.get("add_templates", []) or ov.get("templates", []) or []),
+                "slots": dict(ov.get("add_slots", {}) or ov.get("slots", {}) or {}),
+            }
+            result[intent_name] = new_intent
+            continue
+
+        intent = result[intent_name]
+        templates = list(intent.get("templates", []) or [])
+        slots = dict(intent.get("slots", {}) or {})
+
+        disable = set(ov.get("disable_templates", []) or [])
+        if disable:
+            templates = [t for t in templates if t.get("id") not in disable]
+
+        replace_map = {t.get("id"): t for t in (ov.get("replace_templates", []) or []) if t.get("id")}
+        if replace_map:
+            templates = [replace_map.get(t.get("id"), t) for t in templates]
+
+        add = list(ov.get("add_templates", []) or [])
+        if add:
+            templates.extend(add)
+
+        add_slots = ov.get("add_slots", {}) or {}
+        for slot_name, new_values in add_slots.items():
+            existing = list(slots.get(slot_name, []) or [])
+            slots[slot_name] = existing + list(new_values)
+
+        intent["templates"] = templates
+        intent["slots"] = slots
+
+    return result
+
+
 class HybridEngine:
-    def __init__(self, yaml_path: str,
+    def __init__(self, data_or_path: Union[str, Path, Dict[str, Any]],
                  template_sigma: float = 0.6,
                  template_temp: float = 0.5,
                  slot_sigma: float = 0.6,
@@ -71,12 +126,17 @@ class HybridEngine:
                  repetition_penalty: float = 1.5,
                  seed: int = 0):
         """
+        data_or_path: yaml 경로 또는 이미 로드된 dict.
         template_sigma/temp: state-bias 가우시안 bandwidth + softmax 온도.
         slot_sigma/temp: slot 선택에서 동일 역할 (feature 있는 슬롯만 적용).
         history_size: anti-repetition 히스토리 길이 (최근 N턴).
         repetition_penalty: logit 감점 (0 = 비활성, 1~2 권장).
         """
-        data = yaml.safe_load(Path(yaml_path).read_text(encoding="utf-8"))
+        if isinstance(data_or_path, (str, Path)):
+            data = yaml.safe_load(Path(data_or_path).read_text(encoding="utf-8"))
+        else:
+            data = data_or_path
+
         self.character: str = data["character"]
         self.archetype: str = data.get("archetype", "")
         self.era: str = data.get("era", "modern")
@@ -93,11 +153,48 @@ class HybridEngine:
         self.repetition_penalty = repetition_penalty
         self.rng = random.Random(seed)
 
-        # Anti-repetition 히스토리
-        # template_history: [(intent, template_id), ...]
-        # slot_history: [(slot_name, value), ...]
         self._template_history: Deque[Tuple[str, str]] = deque(maxlen=history_size)
         self._slot_history: Deque[Tuple[str, str]] = deque(maxlen=history_size * 3)
+
+    # ==================== 로딩 진입점 ====================
+    @classmethod
+    def load(cls, character: str, context: str,
+             dialogue_root: Union[str, Path] = "dialogues",
+             **engine_kwargs) -> "HybridEngine":
+        """Option C 로더: characters/{name}.yaml + archetype_dialogues/{archetype}/{context}.yaml 병합.
+
+        캐릭터의 dialogue_overrides[context].intents가 있으면 overlay 적용.
+        """
+        root = Path(dialogue_root)
+        char_path = root / "characters" / f"{character}.yaml"
+        if not char_path.exists():
+            raise FileNotFoundError(f"character yaml not found: {char_path}")
+        char_data = yaml.safe_load(char_path.read_text(encoding="utf-8"))
+
+        archetype = char_data.get("archetype", "stoic")
+        arch_path = root / "archetype_dialogues" / archetype / f"{context}.yaml"
+        if not arch_path.exists():
+            raise FileNotFoundError(
+                f"archetype dialogue not found: {arch_path} "
+                f"(character={character}, archetype={archetype}, context={context})")
+        arch_data = yaml.safe_load(arch_path.read_text(encoding="utf-8"))
+
+        base_intents = arch_data.get("intents", {}) or {}
+        overrides = ((char_data.get("dialogue_overrides") or {})
+                     .get(context, {}) or {}).get("intents", {}) or {}
+        merged_intents = _merge_intents(base_intents, overrides)
+
+        merged_data = {
+            "character": char_data.get("character", character),
+            "archetype": archetype,
+            "era": char_data.get("era", "modern"),
+            "sex": char_data.get("sex", "F"),
+            "outer_profile": char_data.get("outer_profile", {}) or {},
+            "inner_profile": char_data.get("inner_profile", {}) or {},
+            "interactions": char_data.get("interactions", []) or [],
+            "intents": merged_intents,
+        }
+        return cls(merged_data, **engine_kwargs)
 
     # -------------------- 히스토리 --------------------
     def reset_history(self):

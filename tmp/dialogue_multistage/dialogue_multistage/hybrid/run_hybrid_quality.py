@@ -154,16 +154,14 @@ def test_latency(eng, intent, n_runs=500):
 # ------------- 메인 -------------
 
 def main():
-    characters = [
-        ("시호", "shiho_hybrid.yaml"),
-        ("유카", "yuka_hybrid.yaml"),
-        ("린",   "rin_hybrid.yaml"),
-    ]
+    characters = ["시호", "유카", "린"]
     intents_common = ["greet", "thank", "complain"]
+    dialogue_root = HERE / "dialogues"
 
     engines = {}
-    for name, yaml_name in characters:
-        engines[name] = HybridEngine(str(HERE / "examples" / yaml_name))
+    for name in characters:
+        engines[name] = HybridEngine.load(
+            character=name, context="daily", dialogue_root=dialogue_root)
 
     results = {}
 

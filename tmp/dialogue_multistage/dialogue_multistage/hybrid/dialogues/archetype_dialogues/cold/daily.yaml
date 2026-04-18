@@ -1,0 +1,276 @@
+# cold archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+
+archetype: cold
+context: daily
+intents:
+  greet:
+    templates:
+    - id: plain_formal
+      pattern: 안녕하십니까{end}
+      state_bias:
+        affinity: 0.3
+    - id: confirm
+      pattern: '{scan}{end}'
+      state_bias:
+        confidence: 0.5
+    - id: acknowledge
+      pattern: 오셨군요{end}
+      state_bias:
+        affinity: 0.6
+    - id: soft_miss
+      pattern: '...{miss_expr}{end}'
+      state_bias:
+        affinity: 0.85
+        trust: 0.7
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.5
+        verbosity: -0.1
+    - id: concern
+      pattern: '...{concern_expr}?'
+      state_bias:
+        affinity: 0.75
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.4
+    - id: terse_greeting
+      pattern: '{terse}{end}'
+      state_bias:
+        affinity: 0.2
+    - id: mission_ready
+      pattern: '{ready_mode} 완료{end}'
+      state_bias:
+        confidence: 0.65
+    - id: warm_rare
+      pattern: '...오늘도 수고 많으십니다{end}'
+      state_bias:
+        affinity: 0.7
+        trust: 0.6
+      inner_bias:
+        affinity: 0.75
+        warmth: 0.4
+    - id: low_power
+      pattern: '{low_status}. {short_apology}{end}'
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.5
+      inner_bias:
+        fatigue: 0.7
+        warmth: 0.1
+    - id: formal_bow
+      pattern: 문안 인사드립니다{end}
+      state_bias:
+        formality: 0.7
+    - id: scan_alert
+      pattern: '{alert_word} 감지{end}'
+      state_bias:
+        arousal: 0.6
+        confidence: 0.5
+    slots:
+      scan:
+      - token: 접속 확인
+        feature:
+          confidence: 0.6
+      - token: 인증 완료
+        feature:
+          formality: 0.5
+      - token: 연결 확인
+        feature:
+          confidence: 0.4
+      miss_expr:
+      - 보고 싶었습니다
+      - 기다렸습니다
+      - 돌아오셨군요
+      concern_expr:
+      - 괜찮으십니까
+      - 별일 없으셨습니까
+      terse:
+      - 확인
+      - 접속
+      - 인식
+      ready_mode:
+      - 작동 확인
+      - 시스템 점검
+      - 대기 상태 해제
+      low_status:
+      - 절전 모드
+      - 저전력 상태
+      - 최소 응답만 가능
+      short_apology:
+      - 양해 부탁드립니다
+      - 죄송합니다
+      - 이해 부탁드립니다
+      alert_word:
+      - 대상
+      - 접근자
+      - 시각 정보
+      end:
+      - .
+      - ..
+      - '...'
+  thank:
+    templates:
+    - id: formal_thanks
+      pattern: 감사합니다{end}
+      state_bias:
+        affinity: 0.3
+    - id: minimal
+      pattern: 감사{end}
+      state_bias:
+        affinity: 0.2
+    - id: functional
+      pattern: '{effect}{end}'
+      state_bias:
+        affinity: 0.5
+    - id: sincere
+      pattern: '...{emph_adv}, 고맙습니다{end}'
+      state_bias:
+        affinity: 0.85
+        trust: 0.8
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.5
+        trust: 0.7
+    - id: log_style
+      pattern: '{log_phrase} 처리 완료{end}'
+      state_bias:
+        confidence: 0.5
+    - id: cool_ack
+      pattern: 수고하셨습니다{end}
+      state_bias:
+        affinity: 0.4
+    - id: cooperation
+      pattern: 협조 감사드립니다{end}
+      state_bias:
+        affinity: 0.5
+        trust: 0.5
+    - id: data_registered
+      pattern: 기록에 남겨두겠습니다{end}
+      state_bias:
+        formality: 0.6
+        affinity: 0.5
+    - id: mutual_growth
+      pattern: '...{bond_phrase}. 감사합니다{end}'
+      state_bias:
+        affinity: 0.75
+        trust: 0.7
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.4
+    - id: humble
+      pattern: 과분한 도움이었습니다{end}
+      state_bias:
+        affinity: 0.7
+        formality: 0.6
+      inner_bias:
+        affinity: 0.75
+        warmth: 0.3
+    slots:
+      effect:
+      - 도움이 되었습니다
+      - 유용했습니다
+      - 큰 도움이 되었습니다
+      emph_adv:
+      - 정말로
+      - 진심으로
+      - 무척
+      log_phrase:
+      - 수령
+      - 인수
+      - 데이터 동기화
+      bond_phrase:
+      - 저 혼자로는 무리였습니다
+      - 이런 건 처음이었습니다
+      - 기록에 남기고 싶은 일입니다
+      end:
+      - .
+      - ..
+      - '...'
+  complain:
+    templates:
+    - id: load_report
+      pattern: '{metric} 임계치 근접{end}'
+      state_bias:
+        fatigue: 0.7
+    - id: efficiency
+      pattern: 효율이 떨어지고 있습니다{end}
+      state_bias:
+        fatigue: 0.6
+    - id: short
+      pattern: 부하가 높습니다{end}
+      state_bias:
+        fatigue: 0.65
+    - id: request_rest
+      pattern: '...{rest_req}{end}'
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.6
+      inner_bias:
+        fatigue: 0.7
+        affinity: 0.65
+        warmth: 0.3
+    - id: uncertain
+      pattern: 판단 보류{end}
+      state_bias:
+        confidence: -0.3
+    - id: thermal
+      pattern: '{heat_sym} 이상 감지{end}'
+      state_bias:
+        fatigue: 0.65
+        arousal: 0.4
+    - id: sensor_down
+      pattern: '{sensor} 반응 둔화{end}'
+      state_bias:
+        fatigue: 0.7
+    - id: log_overflow
+      pattern: 로그가 많습니다. 요약 불가{end}
+      state_bias:
+        fatigue: 0.6
+        confidence: -0.2
+    - id: brief_sigh
+      pattern: '...{sigh_word}{end}'
+      state_bias:
+        fatigue: 0.5
+        affinity: 0.5
+      inner_bias:
+        fatigue: 0.5
+        warmth: 0.2
+    - id: minor_note
+      pattern: 미세 조정 필요{end}
+      state_bias:
+        confidence: 0.3
+    - id: quiet_tired
+      pattern: 오늘은 여기까지만 하고 싶습니다{end}
+      state_bias:
+        fatigue: 0.8
+        affinity: 0.6
+      inner_bias:
+        fatigue: 0.8
+        affinity: 0.7
+        warmth: 0.3
+    slots:
+      metric:
+      - 피로도
+      - 연산 부하
+      - 자원 소모량
+      rest_req:
+      - 조금 쉬고 싶습니다
+      - 잠시 대기 요청
+      - 재충전이 필요합니다
+      heat_sym:
+      - 발열
+      - 냉각 부족
+      - 코어 온도
+      sensor:
+      - 센서
+      - 감각 회로
+      - 판별 모듈
+      sigh_word:
+      - 한계입니다
+      - 벅찹니다
+      - 과부하입니다
+      end:
+      - .
+      - ..
+      - '...'
