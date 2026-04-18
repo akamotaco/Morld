@@ -123,9 +123,16 @@ def get_or_create_item_id(unique_id: str) -> Optional[int]:
     _instance_map[unique_id] = new_id
     _reverse_map[new_id] = unique_id
 
-    if hasattr(cls, 'props') and cls.props:
-        for key, value in cls.props.items():
-            morld.set_unit_prop(new_id, key, value)
+    # Item.instantiate()로 C# ItemSystem에 아이템 정의 등록
+    # (name/value/actions/props 모두 여기서 설정됨)
+    instance = cls()
+    if hasattr(instance, 'instantiate'):
+        instance.instantiate(new_id)
+    else:
+        # 레거시 fallback (instantiate 없는 아이템 클래스)
+        if hasattr(cls, 'props') and cls.props:
+            for key, value in cls.props.items():
+                morld.set_unit_prop(new_id, key, value)
 
     print(f"[registry] Created item: {unique_id} (id={new_id})")
     return new_id

@@ -32,6 +32,8 @@ class Player(Character):
         "can:invite_to_party": 1,       # NPC에게 "파티 초대" 액션 권한
         "can:dismiss_from_party": 1,    # 파티원 NPC에게 "파티 이탈" 액션 권한
         "can:browse_quests": 1,         # 게시판 의뢰 확인 액션
+        "can:report_quests": 1,         # 게시판 완료 보고 액션
+        "can:show_quests": 1,           # 셀프 focus '퀘스트 확인' 액션
         "can:dungeon_proceed": 1,       # 던전 노드 진행
     }
 
@@ -120,6 +122,7 @@ class Player(Character):
         if node is None:
             return
 
+        player_id = morld.get_player_id()
         t = node["type"]
 
         # UNKNOWN 방 공개: 진입 시 실제 타입으로 변환 후 그 타입으로 처리
@@ -133,11 +136,21 @@ class Player(Character):
         # 1. 이벤트 텍스트
         event_text = ""
         if t == ld.NODE_START:
-            event_text = "던전에 들어섰다."
-        elif t in (ld.NODE_BATTLE, ld.NODE_ELITE):
+            cur_floor, total_floors = ld.get_floor_info()
+            if total_floors > 1:
+                event_text = f"던전 {cur_floor}층에 들어섰다."
+            else:
+                event_text = "던전에 들어섰다."
+        elif t in (ld.NODE_BATTLE, ld.NODE_ELITE, ld.NODE_BOSS):
             result = ld.process_current_node()
             r = result.get("result")
-            battle_label = "엘리트 전투" if t == ld.NODE_ELITE else "전투"
+            if t == ld.NODE_BOSS:
+                boss_cfg = node.get("boss_config") or {}
+                battle_label = "최종 보스전" if boss_cfg.get("is_final") else "보스전"
+            elif t == ld.NODE_ELITE:
+                battle_label = "엘리트 전투"
+            else:
+                battle_label = "전투"
             if r == "victory":
                 # 승리 후 실신 NPC 체크
                 fainted_npcs = _get_fainted_party_npcs(player_id, _pg)
@@ -207,7 +220,6 @@ class Player(Character):
         event_text = unknown_prefix + event_text
 
         # 플레이어 실신 체크 (시간 경과에 의한 실신 — 전투 패배는 위에서 처리)
-        player_id = morld.get_player_id()
         if player_id is not None and morld.get_unit_prop(player_id, "상태:실신"):
             party = _pg.get_party_of(player_id) if player_id else None
             survivors = []
@@ -245,7 +257,34 @@ class Player(Character):
             event_text += f"\n\n[{name}] \"{ambient}\""
 
         # 2. 선택지 결정
-        if t == ld.NODE_EXIT:
+        # 층 끝(EXIT / 클리어된 BOSS) → 다음 층 있으면 "다음 층 / 마을 귀환", 없으면 자동 귀환
+        is_final_boss = (t == ld.NODE_BOSS
+                         and (node.get("boss_config") or {}).get("is_final"))
+        is_floor_end = (t == ld.NODE_EXIT
+                        or (t == ld.NODE_BOSS and node.get("cleared")))
+
+        # 마지막 층 EXIT(보스 아님) → 선택지 없이 자동 귀환 (UI 한 번으로 종료)
+        if t == ld.NODE_EXIT and not ld.has_next_floor():
+            yield ui.dialog(event_text)
+            ld.exit_to_village(reason="cleared_end")
+            return
+
+        if is_final_boss:
+            # 최종 보스 클리어 = 던전 클리어
+            options = ["village"]
+            labels = ["[마을로 개선한다]"]
+            option_room_type = {"village": "exit"}
+            advance_map = {"village": "__exit__"}
+        elif is_floor_end and ld.has_next_floor():
+            # 다음 층 있음 → 투표
+            cur_floor, total_floors = ld.get_floor_info()
+            options = ["next_floor", "village"]
+            labels = [f"[다음 층({cur_floor + 1}/{total_floors})으로 내려간다]",
+                      "[마을로 돌아간다]"]
+            option_room_type = {"next_floor": "battle", "village": "exit"}
+            advance_map = {"next_floor": "__next_floor__", "village": "__exit__"}
+        elif is_floor_end:
+            # 마지막 층 종료 (EXIT 또는 보스 중간형이지만 다음 층 없음)
             options = ["village"]
             labels = ["[마을로 돌아간다]"]
             option_room_type = {"village": "exit"}
@@ -357,6 +396,8 @@ class Player(Character):
         target = advance_map[winner]
         if target == "__exit__":
             ld.exit_to_village(reason="cleared_end")
+        elif target == "__next_floor__":
+            ld.advance_to_next_floor()
         elif target == "__retreat__":
             _handle_camp_retreat(player_id, _pg, ld, ui)
         else:

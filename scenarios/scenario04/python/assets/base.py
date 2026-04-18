@@ -155,6 +155,32 @@ class Item(ItemBase):
     """S04 아이템"""
     weight = 1.0
     category = "misc"
+    props = None  # 단일 props dict — instantiate에서 set_unit_prop로 개별 설정
+
+    def instantiate(self, instance_id: int):
+        """morld.add_item으로 C# ItemSystem에 아이템 정의 등록.
+        이후 get_item_id_by_unique/give_item이 정상 동작.
+        """
+        import morld
+        super().instantiate(instance_id)
+        morld.add_item(
+            instance_id,
+            self.name,
+            getattr(self, "passive_props", None) or {},
+            getattr(self, "equip_props", None) or {},
+            getattr(self, "value", 0),
+            getattr(self, "actions", None) or [],
+            getattr(self, "owner", None),
+            self.unique_id,
+            getattr(self, "action_props", None) or {"put": 1},
+        )
+        # S04 스타일 단일 props dict → unit_prop로 개별 설정
+        if self.props:
+            for key, value in self.props.items():
+                morld.set_unit_prop(instance_id, key, value)
+        # 내구도 초기화 (선택적)
+        if getattr(self, "durability", None) is not None:
+            morld.set_unit_prop(instance_id, "내구도", self.durability)
 
 
 class Location(LocationBase):

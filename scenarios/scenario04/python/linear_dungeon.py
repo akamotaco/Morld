@@ -25,6 +25,7 @@ NODE_TREASURE = "treasure" # 보물방 (현재는 빈 처리, 향후 보상)
 NODE_EVENT = "event"       # 이벤트방 (현재는 빈 처리, 향후 이벤트 트리거)
 NODE_EMPTY = "empty"       # 빈 방 (이벤트 없음)
 NODE_UNKNOWN = "unknown"   # 미지의 방 (진입 시 랜덤 공개)
+NODE_BOSS = "boss"         # 보스방 (중간/최종 겸용 — boss_config로 구분)
 
 # 컨텐츠 노드 타입 분포 (generate_nodes의 가중 랜덤)
 # STS 참고: Monster ~45%, Event ~22%, Elite ~16%, Rest ~12%, Shop ~3%
@@ -56,6 +57,7 @@ _MS_HOUR = 3_600_000
 NODE_TIME_COST = {
     NODE_BATTLE:   15 * _MS_MIN,
     NODE_ELITE:    30 * _MS_MIN,
+    NODE_BOSS:     60 * _MS_MIN,
     NODE_REST:     2 * _MS_HOUR,
     NODE_CAMP:     8 * _MS_HOUR,
     NODE_TREASURE: 10 * _MS_MIN,
@@ -72,6 +74,7 @@ NODE_LABELS = {
     NODE_BATTLE:   "전투방",
     NODE_REST:     "휴식방",
     NODE_ELITE:    "엘리트 전투방",
+    NODE_BOSS:     "보스방",
     NODE_CAMP:     "캠프",
     NODE_TREASURE: "보물방",
     NODE_EVENT:    "이벤트방",
@@ -90,6 +93,7 @@ NODE_LABELS = {
 NODE_FAMILIES = {
     NODE_BATTLE:   "combat",
     NODE_ELITE:    "combat",
+    NODE_BOSS:     "combat",
     NODE_REST:     "rest",
     NODE_CAMP:     "rest",
     NODE_TREASURE: "event",
@@ -113,19 +117,27 @@ VILLAGE_REGION = 0
 VILLAGE_LOCATION = 7
 VILLAGE_X = 50
 
-# 리니어 던전 진입 트리거 위치 (chapter_0.py의 "퀘스트 던전" location)
-ENTRANCE_REGION = 0
-ENTRANCE_LOCATION = 12
+# 리니어 던전 전용 영구 Region (chapter init 시 1회 생성, 던전 수명과 무관하게 유지)
+# 마을(R0)과 감각 격리 + Region 객체 누수 방지 (remove_region API 없음)
+DUNGEON_REGION_ID = 200
+_region_initialized = False
 
-# 동적 Region (리니어 던전 전용)
-_DUNGEON_REGION_BASE = 200
-_dungeon_region_counter = 0
+# 퀘스트별 진입점 Location (영구 생성, R200 내 고정 ID — 동적 노드는 id 0~N)
+# quest_board의 _QUEST_LOCATIONS와 loc_id 동기화 필수.
+ENTRANCE_LOCATIONS = [
+    # (loc_id, name, length)
+    (1000, "동굴 입구",         150),  # cave
+    (1001, "깊은 동굴 입구",    150),  # deep
+    (1002, "수호수 둥지 입구",  200),  # guardian
+]
+_ENTRANCE_LOC_IDS = {loc_id for (loc_id, _, _) in ENTRANCE_LOCATIONS}
 
 # 노드 타입별 Location 길이
 _NODE_LENGTH = {
     NODE_START: 100,
     NODE_BATTLE: 300,
     NODE_ELITE: 300,
+    NODE_BOSS: 400,
     NODE_REST: 150,
     NODE_CAMP: 200,
     NODE_TREASURE: 150,
@@ -145,22 +157,31 @@ _state = {
     "nodes": [],
     "index": -1,
     "log": [],
-    "region_id": None,  # 동적 Region ID (물리 공간)
+    "region_id": None,        # 사실상 DUNGEON_REGION_ID 고정
+    "floors_config": [],      # [{"depth", "max_width", "boss"}, ...]
+    "floor_index": 0,         # 현재 층 (0-indexed)
+    "location_ids": [],       # 현재 활성 Location ID들 (cleanup 대상)
 }
 
 
 def reset():
     was_active = _state["active"]
-    old_region = _state.get("region_id")
+
+    # 던전 활성 중이면 먼저 Location 정리 (Gate 자동 정리)
+    if was_active:
+        clear_floor_locations()
+
     _state["active"] = False
     _state["nodes"] = []
     _state["index"] = -1
     _state["log"] = []
     _state["region_id"] = None
+    _state["floors_config"] = []
+    _state["floor_index"] = 0
+    _state["location_ids"] = []
 
-    # 던전 퇴장: 물리 Region 파괴 + 파티 이탈 잠금 해제 + DungeonState pop
+    # 던전 퇴장: 파티 이탈 잠금 해제 + DungeonState pop
     if was_active:
-        destroy_linear_region(old_region)
         player_id = morld.get_player_id()
         if player_id is not None:
             morld.modify_prop(player_id, "can:dismiss_from_party", 1)
@@ -266,66 +287,134 @@ def _pop_dungeon_state_from_party():
 # 물리 공간 빌더
 # ========================================
 
-def _alloc_region_id():
-    """리니어 던전 전용 Region ID 할당"""
-    global _dungeon_region_counter
-    rid = _DUNGEON_REGION_BASE + _dungeon_region_counter
-    _dungeon_region_counter += 1
-    return rid
+def initialize():
+    """chapter init 시 1회 호출 — 영구 던전 Region 생성 + registry 등록.
 
+    같은 Region을 던전 수명과 무관하게 유지:
+      - 감각 격리 (R0 마을 != R200 던전)
+      - Region 객체 누수 방지 (remove_region API 없음)
+      - 던전 진입/종료 = Location 생성/제거로 관리
 
-def build_linear_region(nodes):
-    """노드 그래프 → 물리 Region/Location/Gate 생성.
-
-    1 Region + 노드당 1 Location + DAG paths → 단방향 Gate.
-    마을과 감각 격리 (별도 Region, Gate 미연결).
-
-    Returns: region_id
+    챕터 전환 시 morld.clear_world()로 Region이 삭제되므로
+    모듈 플래그(_region_initialized)는 chapter_reset()으로 리셋 후 호출.
     """
+    global _region_initialized
+    if _region_initialized:
+        return
     from engine import region_registry
+    morld.add_region(DUNGEON_REGION_ID, "리니어 던전",
+                     {"default": "던전 내부. 바깥 세상과 단절되어 있다."},
+                     "맑음")
+    region_registry.register_dynamic(DUNGEON_REGION_ID)
 
-    region_id = _alloc_region_id()
-    morld.add_region(region_id, "리니어 던전",
-                     {"default": "동적 생성된 리니어 던전"}, "맑음")
-    region_registry.register_dynamic(region_id)
+    # 퀘스트별 진입점 Location 영구 생성 (동적 노드 id와 겹치지 않도록 1000+)
+    for loc_id, name, length in ENTRANCE_LOCATIONS:
+        morld.add_location(DUNGEON_REGION_ID, loc_id, name,
+                           length=length, indoor=True)
 
-    # Location 생성 (노드당 1개)
+    _region_initialized = True
+    print("[dungeon] Permanent dungeon Region R"
+          + str(DUNGEON_REGION_ID) + " initialized with "
+          + str(len(ENTRANCE_LOCATIONS)) + " entrance locations")
+
+
+def chapter_reset():
+    """챕터 전환 시 호출 — 진행 중인 던전 상태 + Region 플래그 초기화.
+
+    load_chapter에서 morld.clear_world()가 Region을 쓸어낸 직후 호출 필요.
+    이후 initialize()로 R200을 재생성.
+    """
+    global _region_initialized
+    # 진행 중 던전 정리 (Location 제거 시도 — Region이 이미 날아갔을 수 있음, 무시)
+    try:
+        reset()
+    except Exception:
+        pass
+    _state["location_ids"] = []
+    _state["active"] = False
+    _region_initialized = False
+
+
+def build_floor_locations(nodes):
+    """현재 층의 노드 그래프 → Location + Gate 생성 (DUNGEON_REGION_ID 안).
+
+    노드당 1 Location, DAG paths → 단방향 Gate.
+    생성된 Location ID는 _state["location_ids"]에 누적.
+    """
     for node in nodes:
         nid = node["id"]
         label = NODE_LABELS.get(node["type"], "방")
         length = _NODE_LENGTH.get(node["type"], 150)
-        morld.add_location(region_id, nid, label, length=length, indoor=True)
+        morld.add_location(DUNGEON_REGION_ID, nid, label,
+                           length=length, indoor=True)
+        _state["location_ids"].append(nid)
 
-    # Gate 생성 (forward-only, DAG paths 기반)
+    # Gate 생성 (forward-only)
     gate_counter = 0
     for node in nodes:
         for target_id in node["paths"]:
-            target_node = nodes[target_id]
-            target_length = _NODE_LENGTH.get(target_node["type"], 150)
-            # 현재 노드 끝 → 다음 노드 입구
             src_length = _NODE_LENGTH.get(node["type"], 150)
-            morld.add_gate(region_id, node["id"], gate_counter,
+            morld.add_gate(DUNGEON_REGION_ID, node["id"], gate_counter,
                            max(0, src_length - 10),
-                           region_id, target_id, 10)
+                           DUNGEON_REGION_ID, target_id, 10)
             gate_counter += 1
 
-    _log("[dungeon] Built region R" + str(region_id) + " — "
-         + str(len(nodes)) + " locations, " + str(gate_counter) + " gates")
-    return region_id
+    floor = _state["floor_index"] + 1
+    total = max(1, len(_state["floors_config"]))
+    _log("[dungeon] Built floor " + str(floor) + "/" + str(total)
+         + " — " + str(len(nodes)) + " locations, "
+         + str(gate_counter) + " gates")
 
 
-def destroy_linear_region(region_id):
-    """리니어 던전 Region 정리 (region_registry 해제)"""
-    if region_id is None:
+def clear_floor_locations():
+    """현재 층의 모든 Location 제거 (Gate도 자동 정리)."""
+    if not _state["location_ids"]:
         return
-    from engine import region_registry
-    region_registry.unregister_dynamic(region_id)
-    _log("[dungeon] Destroyed region R" + str(region_id))
+    for nid in _state["location_ids"]:
+        morld.remove_location(DUNGEON_REGION_ID, nid)
+    count = len(_state["location_ids"])
+    _state["location_ids"] = []
+    _log("[dungeon] Cleared " + str(count) + " locations")
 
 
 # ========================================
 # 던전 생성
 # ========================================
+
+def generate_floor(depth: int = 6, *, max_width: int = 3, boss: dict = None) -> list:
+    """단일 층 노드 그래프 생성. boss 지정 시 마지막 EXIT을 BOSS로 치환.
+
+    Args:
+        depth, max_width: generate_nodes와 동일.
+        boss: None → EXIT로 종료.
+              dict → 마지막 레벨 노드를 BOSS로 치환.
+                    {"is_final": bool, "tier": int, "boss_id": str|None}
+
+    Returns: 노드 그래프 (generate_nodes 포맷 + boss 노드 필드).
+    """
+    nodes = generate_nodes(depth, max_width=max_width)
+    if boss is None:
+        return nodes
+
+    # 마지막 EXIT 노드를 BOSS로 치환
+    for node in nodes:
+        if node["type"] == NODE_EXIT:
+            node["type"] = NODE_BOSS
+            node["boss_config"] = {
+                "is_final": bool(boss.get("is_final", False)),
+                "tier": int(boss.get("tier", 1)),
+                "boss_id": boss.get("boss_id"),
+            }
+            break
+
+    # 부모 노드들의 라벨을 BOSS로 반영 (치환 후 재계산)
+    for node in nodes:
+        node["labels"] = [
+            f"[{NODE_LABELS.get(nodes[p]['type'], '?')}]"
+            for p in node["paths"]
+        ]
+    return nodes
+
 
 def generate_nodes(depth: int = 6, *, max_width: int = 3) -> list:
     """STS 스타일 DAG 생성 (레벨 = depth, 레벨당 1~max_width개 방).
@@ -508,38 +597,135 @@ def reveal_unknown_node():
     return revealed
 
 
-def enter(nodes: list = None, depth: int = 6, *, max_width: int = 3):
-    """던전 진입 → 물리 Region 생성 + 첫 노드(START) 활성화."""
+def enter(floors_config: list = None, *, nodes: list = None,
+          depth: int = 6, max_width: int = 3):
+    """던전 진입 → 첫 층 Location 생성 + START 활성화.
+
+    Args:
+        floors_config: [{"depth", "max_width", "boss"}, ...] per-floor configs.
+            boss: None (EXIT 종료) | {"is_final": bool, "tier": int, "boss_id": str|None}
+        nodes: 레거시 — 직접 생성한 노드 그래프 (단층). floors_config보다 우선.
+        depth, max_width: 레거시 단층 기본값. floors_config/nodes 없을 때.
+    """
     reset()
-    _state["nodes"] = nodes if nodes is not None else generate_nodes(depth, max_width=max_width)
+
+    # 영구 Region 미초기화면 fallback (chapter init 미호출 방어)
+    if not _region_initialized:
+        initialize()
+
+    # floors_config 정규화 (레거시 단층 경로 포함)
+    if floors_config is None and nodes is None:
+        floors_config = [{"depth": depth, "max_width": max_width, "boss": None}]
+    elif floors_config is None:
+        # nodes 직접 지정 — 단층 구성
+        floors_config = [{"depth": depth, "max_width": max_width, "boss": None}]
+
+    _state["floors_config"] = floors_config
+    _state["floor_index"] = 0
+    _state["region_id"] = DUNGEON_REGION_ID
+
+    # 첫 층 생성
+    if nodes is None:
+        cfg = floors_config[0]
+        nodes = generate_floor(
+            cfg.get("depth", 6),
+            max_width=cfg.get("max_width", 3),
+            boss=cfg.get("boss"),
+        )
+    _state["nodes"] = nodes
     _state["index"] = 0
     _state["active"] = True
 
-    # 물리 공간 생성
-    _state["region_id"] = build_linear_region(_state["nodes"])
+    # 물리 공간 생성 (영구 Region 내 Location)
+    build_floor_locations(nodes)
 
     # 파티를 던전 시작 Location으로 이동
-    from engine import party_group as _pg
-    player_id = morld.get_player_id()
-    party = _pg.get_party_of(player_id) if player_id else None
-    if party is not None:
-        for uid in party.get_members():
-            morld.set_unit_location(uid, _state["region_id"], 0, x=10)
-    elif player_id is not None:
-        morld.set_unit_location(player_id, _state["region_id"], 0, x=10)
+    _teleport_party_to_start()
 
     # 던전 UI: header/footer 표시 + 파티 이탈 잠금
     from engine.ui_base import set_show_header, set_show_footer
     set_show_header(True)
     set_show_footer(True)
+    player_id = morld.get_player_id()
     if player_id is not None:
         morld.modify_prop(player_id, "can:dismiss_from_party", -1)
 
     # 파티원 NPC에 DungeonState push (일반 생활 차단)
     _push_dungeon_state_to_party()
 
-    _log(f"[dungeon] Enter linear dungeon — {len(_state['nodes'])} nodes (depth={depth}), region=R{_state['region_id']}")
+    _log("[dungeon] Enter dungeon — floor 1/"
+         + str(len(floors_config))
+         + ", " + str(len(nodes)) + " nodes")
     return get_current_node()
+
+
+def _teleport_party_to_start():
+    """파티 전원(또는 플레이어)을 현재 층 START(id=0)로 텔레포트."""
+    from engine import party_group as _pg
+    player_id = morld.get_player_id()
+    party = _pg.get_party_of(player_id) if player_id else None
+    if party is not None:
+        for uid in party.get_members():
+            morld.set_unit_location(uid, DUNGEON_REGION_ID, 0, x=10)
+    elif player_id is not None:
+        morld.set_unit_location(player_id, DUNGEON_REGION_ID, 0, x=10)
+
+
+def advance_to_next_floor():
+    """다음 층으로 전환 — 현재 층 Location 정리 + 다음 층 생성 + 파티 이동."""
+    if not has_next_floor():
+        _log("[dungeon] advance_to_next_floor blocked — no next floor")
+        return False
+
+    # 현재 층 정리
+    clear_floor_locations()
+
+    # 다음 층 생성
+    _state["floor_index"] += 1
+    cfg = _state["floors_config"][_state["floor_index"]]
+    nodes = generate_floor(
+        cfg.get("depth", 6),
+        max_width=cfg.get("max_width", 3),
+        boss=cfg.get("boss"),
+    )
+    _state["nodes"] = nodes
+    _state["index"] = 0
+    build_floor_locations(nodes)
+
+    # 파티 이동
+    _teleport_party_to_start()
+    _switch_party_to_explore()
+
+    _log("[dungeon] Advanced to floor " + str(_state["floor_index"] + 1)
+         + "/" + str(len(_state["floors_config"]))
+         + " — " + str(len(nodes)) + " nodes")
+    return True
+
+
+def has_next_floor() -> bool:
+    """현재 층 다음에 층이 더 있는가."""
+    return _state["floor_index"] + 1 < len(_state["floors_config"])
+
+
+def get_floor_info() -> tuple:
+    """(current_floor_1idx, total_floors) 반환."""
+    total = max(1, len(_state["floors_config"]))
+    return (_state["floor_index"] + 1, total)
+
+
+def is_on_boss_node() -> bool:
+    """현재 노드가 BOSS 타입인가."""
+    node = get_current_node()
+    return node is not None and node["type"] == NODE_BOSS
+
+
+def is_on_final_boss() -> bool:
+    """현재 노드가 최종 보스(is_final=True)인가."""
+    node = get_current_node()
+    if node is None or node["type"] != NODE_BOSS:
+        return False
+    boss_cfg = node.get("boss_config") or {}
+    return bool(boss_cfg.get("is_final"))
 
 
 def get_current_node() -> dict:
@@ -560,11 +746,11 @@ def get_log() -> list:
 
 
 def is_current_cleared() -> bool:
-    """현재 노드가 진행 가능 상태인지. 전투(일반/엘리트) 미해결이면 False."""
+    """현재 노드가 진행 가능 상태인지. 전투(일반/엘리트/보스) 미해결이면 False."""
     node = get_current_node()
     if node is None:
         return False
-    if node["type"] in (NODE_BATTLE, NODE_ELITE) and not node.get("cleared"):
+    if node["type"] in (NODE_BATTLE, NODE_ELITE, NODE_BOSS) and not node.get("cleared"):
         return False
     return True
 
@@ -590,12 +776,14 @@ def process_current_node(*, on_battle=None, on_rest=None) -> dict:
     t = node["type"]
     result = None
 
-    if t in (NODE_BATTLE, NODE_ELITE):
+    if t in (NODE_BATTLE, NODE_ELITE, NODE_BOSS):
         _log(f"[dungeon] {t.title()} node (floor={node['floor']})")
         handler = on_battle or default_battle_handler
-        # ELITE: 향후 강적 생성 — 현재는 동일 encounter + 플래그만
+        # ELITE/BOSS: 향후 강적 생성 — 현재는 동일 encounter + 플래그만
         if t == NODE_ELITE:
             node["elite"] = True
+        elif t == NODE_BOSS:
+            node["boss"] = True
         battle_result = handler(node)
         if battle_result is not None:
             result = battle_result.get("result")
@@ -812,49 +1000,63 @@ def exit_to_village(reason: str = "clear"):
     _log("[dungeon] Exit to village — reason=" + reason
          + " dest=R" + str(dest_region) + ":L" + str(dest_location))
 
-    # 퀘스트 연동: 클리어 시 퀘스트 완료 트리거
+    # 퀘스트 연동: 클리어 시 모든 활성 보드 퀘스트에 브로드캐스트
+    # (dungeon_cleared prop 설정 + on_dungeon_clear 훅 실행 + 조건 재평가)
     if reason == "cleared_end":
         try:
             import quest_board
-            quest = quest_board.get_active_board_quest()
-            if quest:
-                quest_board.mark_dungeon_cleared(quest.unique_id)
+            quest_board.on_dungeon_clear()
         except ImportError:
             pass
 
 
-def try_auto_enter():
-    """리니어 던전 진입 location(R0/L12) on_reach 시 호출.
-
-    게시판 퀘스트가 활성이어야 진입 허용.
-    퀘스트 수락 시 on_quest_accepted에서 enter() 호출되므로
-    여기서는 _state["active"] 체크만.
-
-    Returns: True (진입함) / False (스킵)
-    """
-    if _state["active"]:
-        return True  # 이미 생성된 던전에 진입
-    # 퀘스트 없이는 진입 불가
-    return False
-
-
 def _on_entrance_reach(unit_id, region, loc):
-    """event_core에 등록되는 on_reach handler — 퀘스트 활성 시 던전 시작.
-    Gate 조건(can:enter_dungeon#)으로 미수락 시 L12 자체가 안 보이므로
-    여기에 도달하면 퀘스트가 있다고 전제."""
-    if not try_auto_enter():
-        return None  # 비정상 도달 — 무시
+    """event_core에 등록되는 on_reach handler — R200의 진입점 Location 도달 시 호출.
+
+    Location ID로 장소(location_key) 역매핑 → quest_board에서 해당 장소의
+    floors_config 조회 → enter() 실행 → auto_run().
+    진입점 Gate는 퀘스트 수락 시 ref-count로 생성되므로 도달 = 활성 퀘스트 있음.
+    """
+    # 진입점이 아니면 무시
+    if loc not in _ENTRANCE_LOC_IDS:
+        return None
+
+    # 이미 던전 진행 중이면 재입장 (auto_run만 실행)
+    if _state["active"]:
+        return auto_run()
+
+    try:
+        import quest_board
+    except ImportError:
+        return None
+
+    location_key = quest_board.get_location_key_by_loc_id(loc)
+    if location_key is None:
+        _log("[dungeon] Entrance loc=" + str(loc) + " has no location_key")
+        return None
+
+    # 해당 장소의 활성 퀘스트 → floors_config 조회
+    floors_config = quest_board.get_floors_config_for_location(location_key)
+    if floors_config is None:
+        _log("[dungeon] No active quest for location_key=" + location_key)
+        return None
+
+    enter(floors_config=floors_config)
+
     node = get_current_node()
-    _log(f"[dungeon] Auto-entered via on_reach — first node={node['type']}")
+    _log("[dungeon] Entered via on_reach — location=" + location_key
+         + ", floors=" + str(len(floors_config))
+         + ", first node=" + (node["type"] if node else "?"))
     return auto_run()
 
 
 def register_location_handlers():
-    """chapter load 시 호출 — 던전 진입 location의 on_reach handler 등록."""
+    """chapter load 시 호출 — 퀘스트별 진입점 Location의 on_reach handler 등록."""
     from engine import event_core
-    event_core.subscribe_on_reach(
-        ENTRANCE_REGION, ENTRANCE_LOCATION, _on_entrance_reach, player_only=True
-    )
+    for loc_id, _, _ in ENTRANCE_LOCATIONS:
+        event_core.subscribe_on_reach(
+            DUNGEON_REGION_ID, loc_id, _on_entrance_reach, player_only=True
+        )
 
 
 def auto_run():

@@ -83,8 +83,11 @@ def load_chapter(chapter_name: str, preserve_player: bool = True):
     import quest_board
     quest_board.reset()
 
-    # 리니어 던전 on_reach L12 핸들러 등록 (퀘스트 활성 시에만 진입)
+    # 리니어 던전: 모듈 플래그 리셋 → 영구 Region 생성 → on_reach L12 핸들러
+    # (morld.clear_world로 R200이 날아갔으므로 재생성 필요)
     import linear_dungeon
+    linear_dungeon.chapter_reset()
+    linear_dungeon.initialize()
     linear_dungeon.register_location_handlers()
 
     # 경영

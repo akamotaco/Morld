@@ -106,8 +106,9 @@ class Quest:
     rewards = []         # 보상 dict 리스트
 
     giver = None         # 퀘스트 지급자 unique_id (None → 이벤트/게시판)
-    reporter = None      # 완료 보고 대상 (None → 자동 완료)
+    reporter = None      # 완료 보고 대상 (None → 자동 완료; 값 있으면 보고 대기)
     dialogs = {}         # 상황별 대사 {"offer": [...], "accept": [...], ...}
+    on_confirm = []      # 보고 확인 시 실행할 액션 리스트 (consume_item 등)
 
     repeatable = False
     visibility_conditions = {}  # prop 기반 표시 조건
@@ -126,6 +127,7 @@ class Quest:
         q.giver = data.get("giver")
         q.reporter = data.get("reporter")
         q.dialogs = data.get("dialogs", {})
+        q.on_confirm = data.get("on_confirm", [])
         q.repeatable = data.get("repeatable", False)
         q.visibility_conditions = data.get("visibility_conditions", {})
         return q
@@ -177,7 +179,7 @@ def register_quest_instance(quest_instance):
         pass
     for attr in ("unique_id", "name", "description", "category", "prerequisites",
                  "conditions", "rewards", "giver", "reporter", "dialogs",
-                 "repeatable", "visibility_conditions"):
+                 "on_confirm", "repeatable", "visibility_conditions"):
         setattr(_Wrapper, attr, getattr(quest_instance, attr))
     _quest_registry[quest_instance.unique_id] = _Wrapper
 

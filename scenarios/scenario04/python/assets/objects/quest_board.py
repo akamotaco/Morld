@@ -12,16 +12,38 @@ class QuestBoard(Object):
     unique_id = "quest_board"
     name = "의뢰 게시판"
 
+    # 동적 액션 — get_available_actions에서 보고 대기 퀘스트 유무에 따라 "완료 보고" 노출
     actions = ["call:browse_quests:의뢰 확인"]
+
+    def get_available_actions(self):
+        """기본 '의뢰 확인' + 보고 대기 퀘스트 있으면 '완료 보고' 추가."""
+        from engine import quest_reporter
+        acts = ["call:browse_quests:의뢰 확인"]
+        # focus 시점 재평가 포함 (recheck_first=True)
+        if quest_reporter.has_reportable("quest_board"):
+            acts.append("call:report_quests:완료 보고")
+        return acts
 
     def get_describe_text(self):
         return "던전 탐사 의뢰가 게시되어 있다."
 
     def get_focus_text(self):
         from engine.quest import get_quest_manager, QuestStatus
+        from engine import quest_reporter
         mgr = get_quest_manager()
 
+        # focus 시 조건 재평가 (보고 방식 퀘스트 COMPLETED 승격 기회)
+        quest_reporter.recheck("quest_board")
+
         lines = ["[b]의뢰 게시판[/b]", ""]
+
+        # 보고 대기 중인 퀘스트 먼저 표시
+        reportable = quest_reporter.get_reportable("quest_board")
+        if reportable:
+            lines.append("[완료 — 확인 대기]")
+            for q in reportable:
+                lines.append("  " + q.name)
+            lines.append("")
 
         active = mgr.get_active_quests()
         board_active = [q for q in active if q.category == "board"]
@@ -35,6 +57,11 @@ class QuestBoard(Object):
 
         lines.append("의뢰를 수락하면 던전에 진입할 수 있다.")
         return "\n".join(lines)
+
+    def report_quests(self):
+        """완료 보고 UI — 공용 quest_reporter 모듈 사용"""
+        from engine import quest_reporter
+        return quest_reporter.render_report_dialog("quest_board", "의뢰 게시판")
 
     def browse_quests(self):
         """의뢰 목록/진행 중 확인 — 단일 proc dialog로 처리"""

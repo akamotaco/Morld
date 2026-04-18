@@ -40,7 +40,8 @@ VILLAGE_LOCATIONS = [
     (6,  "정화소",      100, True),
     (7,  "던전 입구",   100, False),
     (8,  "마을 출구",   100, False),
-    (12, "퀘스트 던전", 100, False),  # 퀘스트 수락 후 진입 가능
+    # 퀘스트 던전 진입점(동굴/심층/수호수 둥지)은 R200에 영구 생성됨 (linear_dungeon.initialize)
+    # L7에서 각 진입점으로의 Gate는 퀘스트 수락 시 quest_board가 ref-count로 관리
 ]
 
 # 자원 채취 필드 (Region 1)
@@ -83,7 +84,7 @@ VILLAGE_GATES = [
     # 마을 출구(8) ↔ 필드 숲길(R1,0)
     (0, 8, 1, 0,   1, 0, 490),
     (1, 0, 0, 490, 0, 8, 0),
-    # 던전 입구(7) ↔ 퀘스트 던전(12): 퀘스트 수락 시 동적 Gate 생성 (quest_board.py)
+    # 던전 입구(7) → R200의 퀘스트별 진입점: quest_board가 ref-count로 동적 생성/삭제
 ]
 
 FIELD_GATES = [

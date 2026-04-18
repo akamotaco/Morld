@@ -65,6 +65,16 @@ class Ration(Item):
 
 
 @register_item
+class CaveMoss(Item):
+    unique_id = "cave_moss"
+    name = "동굴 이끼"
+    weight = 0.2
+    value = 200
+    category = "food"
+    props = {"소모품:유형": "식량", "소모품:포만감": 8}
+
+
+@register_item
 class MoralePill(Item):
     unique_id = "morale_pill"
     name = "진정제"

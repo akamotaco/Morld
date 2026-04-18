@@ -45,6 +45,8 @@ class _StubMorld:
     def add_region(self, *a, **kw): pass
     def add_location(self, *a, **kw): pass
     def add_gate(self, *a, **kw): pass
+    def remove_location(self, *a, **kw): pass
+    def remove_gate(self, *a, **kw): pass
     def region_exists(self, rid): return rid == 0
 
 
@@ -224,12 +226,130 @@ class TestAdvance:
         ld.reset()
 
 
+class TestGenerateFloor:
+
+    def test_floor_without_boss_ends_with_exit(self):
+        """boss=None → 마지막 레벨은 EXIT."""
+        random.seed(0)
+        nodes = ld.generate_floor(depth=5, max_width=2, boss=None)
+        assert any(n["type"] == ld.NODE_EXIT for n in nodes)
+        assert not any(n["type"] == ld.NODE_BOSS for n in nodes)
+
+    def test_floor_with_mid_boss(self):
+        """boss={is_final:False} → 마지막 EXIT이 BOSS로 치환, is_final=False."""
+        random.seed(0)
+        nodes = ld.generate_floor(
+            depth=5, max_width=2,
+            boss={"is_final": False, "tier": 2},
+        )
+        boss_nodes = [n for n in nodes if n["type"] == ld.NODE_BOSS]
+        assert len(boss_nodes) == 1
+        assert boss_nodes[0]["boss_config"]["is_final"] is False
+        assert boss_nodes[0]["boss_config"]["tier"] == 2
+        # EXIT는 없음 (BOSS로 치환됨)
+        assert not any(n["type"] == ld.NODE_EXIT for n in nodes)
+
+    def test_floor_with_final_boss(self):
+        """boss={is_final:True} → is_final=True 보스."""
+        random.seed(0)
+        nodes = ld.generate_floor(
+            depth=5, max_width=2,
+            boss={"is_final": True, "tier": 3},
+        )
+        boss_nodes = [n for n in nodes if n["type"] == ld.NODE_BOSS]
+        assert len(boss_nodes) == 1
+        assert boss_nodes[0]["boss_config"]["is_final"] is True
+
+    def test_boss_labels_propagate(self):
+        """BOSS로 치환된 노드를 가리키는 부모 라벨에 '보스방' 포함."""
+        random.seed(0)
+        nodes = ld.generate_floor(
+            depth=5, max_width=2,
+            boss={"is_final": False},
+        )
+        boss_id = next(n["id"] for n in nodes if n["type"] == ld.NODE_BOSS)
+        # 부모 노드 찾기
+        parents = [n for n in nodes if boss_id in n["paths"]]
+        assert parents, "BOSS has no parent"
+        for parent in parents:
+            idx = parent["paths"].index(boss_id)
+            assert "보스방" in parent["labels"][idx], (
+                f"label {parent['labels'][idx]} missing '보스방'"
+            )
+
+
+class TestMultiFloor:
+
+    def test_single_floor_legacy(self):
+        """floors_config 미지정 시 depth/max_width 기반 단층."""
+        random.seed(0)
+        ld.enter(depth=5, max_width=2)
+        assert ld.get_floor_info() == (1, 1)
+        assert not ld.has_next_floor()
+        ld.reset()
+
+    def test_multi_floor_enter(self):
+        """floors_config=3층 → 첫 층 1/3, has_next_floor=True."""
+        random.seed(0)
+        ld.enter(floors_config=[
+            {"depth": 5, "max_width": 2, "boss": None},
+            {"depth": 5, "max_width": 2, "boss": None},
+            {"depth": 5, "max_width": 2, "boss": None},
+        ])
+        assert ld.get_floor_info() == (1, 3)
+        assert ld.has_next_floor()
+        ld.reset()
+
+    def test_advance_to_next_floor(self):
+        """advance_to_next_floor → 층 변경 + Location 재생성."""
+        random.seed(0)
+        ld.enter(floors_config=[
+            {"depth": 5, "max_width": 2, "boss": None},
+            {"depth": 5, "max_width": 2, "boss": None},
+        ])
+        floor1_nodes = list(ld._state["nodes"])
+        ok = ld.advance_to_next_floor()
+        assert ok
+        assert ld.get_floor_info() == (2, 2)
+        assert not ld.has_next_floor()
+        # 새 층은 새 노드 그래프
+        floor2_nodes = ld._state["nodes"]
+        # 두 그래프의 내용이 완전히 같을 수 없음 (랜덤 생성)
+        assert floor1_nodes is not floor2_nodes
+        ld.reset()
+
+    def test_advance_to_next_floor_blocked_on_last(self):
+        """마지막 층에서는 advance_to_next_floor 실패."""
+        random.seed(0)
+        ld.enter(floors_config=[{"depth": 5, "max_width": 2, "boss": None}])
+        assert not ld.advance_to_next_floor()
+        ld.reset()
+
+    def test_final_boss_detection(self):
+        """is_final=True 보스 층에서 is_on_final_boss 동작."""
+        random.seed(0)
+        ld.enter(floors_config=[
+            {"depth": 5, "max_width": 2, "boss": {"is_final": True, "tier": 3}},
+        ])
+        # START에서는 final boss가 아님
+        assert not ld.is_on_final_boss()
+        # BOSS 노드로 직접 이동 후 확인
+        boss_id = next(
+            n["id"] for n in ld._state["nodes"] if n["type"] == ld.NODE_BOSS
+        )
+        ld._state["index"] = boss_id
+        assert ld.is_on_boss_node()
+        assert ld.is_on_final_boss()
+        ld.reset()
+
+
 # ============================================
 # 테스트 러너
 # ============================================
 
 def _run():
-    test_classes = [TestGenerateNodes, TestRandomWalkCompletion, TestAdvance]
+    test_classes = [TestGenerateNodes, TestRandomWalkCompletion, TestAdvance,
+                    TestGenerateFloor, TestMultiFloor]
     passed = failed = errors = 0
     for cls in test_classes:
         instance = cls()
