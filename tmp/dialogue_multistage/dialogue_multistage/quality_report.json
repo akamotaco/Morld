@@ -1,0 +1,177 @@
+{
+  "inner_outer_ablation": {
+    "시호": {
+      "normal": {
+        "n": 80,
+        "avg_len": 2.46,
+        "std_len": 2.01,
+        "distinct_2": 0.769,
+        "self_bleu": 0.05,
+        "unique_ratio": 0.613
+      },
+      "ablated": {
+        "n": 80,
+        "avg_len": 2.72,
+        "std_len": 1.99,
+        "distinct_2": 0.812,
+        "self_bleu": 0.05,
+        "unique_ratio": 0.713
+      }
+    },
+    "유카": {
+      "normal": {
+        "n": 80,
+        "avg_len": 1.4,
+        "std_len": 1.11,
+        "distinct_2": 0.781,
+        "self_bleu": 0.0,
+        "unique_ratio": 0.463
+      },
+      "ablated": {
+        "n": 80,
+        "avg_len": 1.5,
+        "std_len": 1.26,
+        "distinct_2": 0.7,
+        "self_bleu": 0.0,
+        "unique_ratio": 0.525
+      }
+    },
+    "린": {
+      "normal": {
+        "n": 80,
+        "avg_len": 1.58,
+        "std_len": 1.21,
+        "distinct_2": 0.783,
+        "self_bleu": 0.0,
+        "unique_ratio": 0.537
+      },
+      "ablated": {
+        "n": 80,
+        "avg_len": 1.58,
+        "std_len": 1.21,
+        "distinct_2": 0.783,
+        "self_bleu": 0.0,
+        "unique_ratio": 0.537
+      }
+    }
+  },
+  "state_sensitivity": {
+    "시호": {
+      "greet": {
+        "mean_edit": 6.29,
+        "unique_outputs": 3
+      },
+      "thank": {
+        "mean_edit": 6.57,
+        "unique_outputs": 4
+      },
+      "complain": {
+        "mean_edit": 10.38,
+        "unique_outputs": 5
+      }
+    },
+    "유카": {
+      "greet": {
+        "mean_edit": 4.1,
+        "unique_outputs": 3
+      },
+      "thank": {
+        "mean_edit": 2.57,
+        "unique_outputs": 3
+      },
+      "complain": {
+        "mean_edit": 10.19,
+        "unique_outputs": 4
+      }
+    },
+    "린": {
+      "greet": {
+        "mean_edit": 3.71,
+        "unique_outputs": 2
+      },
+      "thank": {
+        "mean_edit": 3.57,
+        "unique_outputs": 3
+      },
+      "complain": {
+        "mean_edit": 5.38,
+        "unique_outputs": 4
+      }
+    }
+  },
+  "diversity": {
+    "시호": {
+      "n_total": 66,
+      "n_unique": 61,
+      "distinct_1": 0.513,
+      "distinct_2": 0.819,
+      "self_bleu_3": 0.039,
+      "avg_len_words": 3.42
+    },
+    "유카": {
+      "n_total": 69,
+      "n_unique": 52,
+      "distinct_1": 0.614,
+      "distinct_2": 0.933,
+      "self_bleu_3": 0.0,
+      "avg_len_words": 1.65
+    },
+    "린": {
+      "n_total": 78,
+      "n_unique": 60,
+      "distinct_1": 0.617,
+      "distinct_2": 0.855,
+      "self_bleu_3": 0.0,
+      "avg_len_words": 1.71
+    }
+  },
+  "latency": {
+    "시호": {
+      "stage1_us": 591.0,
+      "stage1+2_us": 814.8,
+      "stage1+2+3_us": 922.3,
+      "full_us": 830.7,
+      "s2_delta_us": 223.7,
+      "s3_delta_us": 107.6,
+      "s4_delta_us": -91.6
+    },
+    "유카": {
+      "stage1_us": 383.8,
+      "stage1+2_us": 539.7,
+      "stage1+2+3_us": 672.6,
+      "full_us": 654.5,
+      "s2_delta_us": 155.9,
+      "s3_delta_us": 133.0,
+      "s4_delta_us": -18.2
+    },
+    "린": {
+      "stage1_us": 366.4,
+      "stage1+2_us": 427.4,
+      "stage1+2+3_us": 626.3,
+      "full_us": 726.8,
+      "s2_delta_us": 61.1,
+      "s3_delta_us": 198.9,
+      "s4_delta_us": 100.5
+    }
+  },
+  "divergence_structure": {
+    "시호": {
+      "divergence": 0.906,
+      "avg_class_len": 3.9,
+      "interj_ratio": 0.019,
+      "addr_ratio": 0.0
+    },
+    "유카": {
+      "divergence": 0.424,
+      "avg_class_len": 2.57,
+      "interj_ratio": 0.0,
+      "addr_ratio": 0.0
+    },
+    "린": {
+      "divergence": 0.0,
+      "avg_class_len": 3.22,
+      "interj_ratio": 0.078,
+      "addr_ratio": 0.0
+    }
+  }
+}

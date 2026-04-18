@@ -1,0 +1,207 @@
+# =============================================================
+# 유카 (Yuka) — Kuudere
+# =============================================================
+# 근미래 도시의 AI 비서. 무표정 담담한 존댓말. 상태 변화에 둔감.
+# 핵심: verbosity 매우 낮음, interaction term 거의 없음
+#       → 상태가 변해도 문장 길이·어조가 크게 변하지 않음.
+character: 유카
+archetype: kuudere
+era: near_future
+sex: F
+
+outer_profile:
+  formality: 0.5       # 일관된 존대
+  warmth: -0.5         # 차가움
+  aggression: -0.3
+  verbosity: -0.7      # 짧은 답변
+  maturity: 0.6
+
+# 내면: 외면보다 약간 따뜻, 약간 더 말하고 싶음 (속정)
+# Stage 1 이 이걸 반영: affinity 가 높아지면 호칭/긴 구조 조금씩 증가
+inner_profile:
+  formality: 0.5
+  warmth: -0.2           # 외면보다 +0.3
+  aggression: -0.3
+  verbosity: -0.4        # 외면보다 +0.3
+  maturity: 0.6
+
+interactions:
+  # 유카는 상태에 거의 영향을 안 받는다. 오직 큰 affinity 시에만 살짝 따뜻해짐.
+  - name: "장벽 해제"
+    conditions:
+      - { axis: affinity, min: 0.8 }
+      - { axis: trust,    min: 0.7 }
+    boost:
+      warmth: +0.6
+      verbosity: +0.2
+
+samples:
+
+  # ===== greet =====
+  - text: "안녕하십니까."
+    intent: greet
+    state: {}
+
+  - text: "접속 확인."
+    intent: greet
+    state: { confidence: 0.5 }
+
+  - text: "오셨군요."
+    intent: greet
+    state: { affinity: 0.6 }
+
+  - text: "...보고 싶었습니다."
+    intent: greet
+    state: { affinity: 0.9, trust: 0.8 }
+
+  # ===== farewell =====
+  - text: "이만."
+    intent: farewell
+    state: {}
+
+  - text: "다음에 뵙겠습니다."
+    intent: farewell
+    state: { affinity: 0.5 }
+
+  - text: "안전히 가십시오."
+    intent: farewell
+    state: { affinity: 0.7, trust: 0.6 }
+
+  - text: "...기다리겠습니다."
+    intent: farewell
+    state: { affinity: 0.9, trust: 0.8 }
+
+  # ===== refuse_quest =====
+  - text: "불가합니다."
+    intent: refuse_quest
+    state: {}
+
+  - text: "권장하지 않습니다."
+    intent: refuse_quest
+    state: { confidence: 0.7 }
+
+  - text: "그 요청은 수행할 수 없습니다."
+    intent: refuse_quest
+    state: { formality: 0.6 }
+
+  - text: "거절합니다. 이유는 묻지 마십시오."
+    intent: refuse_quest
+    state: { hostility: 0.3 }
+
+  # ===== accept_quest =====
+  - text: "수락."
+    intent: accept_quest
+    state: {}
+
+  - text: "알겠습니다."
+    intent: accept_quest
+    state: { affinity: 0.5 }
+
+  - text: "처리하겠습니다."
+    intent: accept_quest
+    state: { confidence: 0.6 }
+
+  - text: "...당신이라면."
+    intent: accept_quest
+    state: { affinity: 0.8, trust: 0.7 }
+
+  # ===== complain =====
+  - text: "부하가 높습니다."
+    intent: complain
+    state: { fatigue: 0.7 }
+
+  - text: "피로도 임계치 근접."
+    intent: complain
+    state: { fatigue: 0.8 }
+
+  - text: "...조금 쉬고 싶습니다."
+    intent: complain
+    state: { fatigue: 0.7, affinity: 0.7 }
+
+  - text: "효율이 떨어지고 있습니다."
+    intent: complain
+    state: { fatigue: 0.6 }
+
+  # ===== warn =====
+  - text: "위험."
+    intent: warn
+    state: {}
+
+  - text: "접근 금지 구역입니다."
+    intent: warn
+    state: { confidence: 0.7 }
+
+  - text: "물러나십시오."
+    intent: warn
+    state: { arousal: 0.4 }
+
+  - text: "...다치실 겁니다."
+    intent: warn
+    state: { affinity: 0.8, arousal: 0.5 }
+
+  # ===== ask_price =====
+  - text: "가격."
+    intent: ask_price
+    state: {}
+
+  - text: "비용을 알려주십시오."
+    intent: ask_price
+    state: { formality: 0.6 }
+
+  - text: "이 품목의 단가는?"
+    intent: ask_price
+    state: {}
+
+  - text: "얼마입니까."
+    intent: ask_price
+    state: {}
+
+  # ===== thank =====
+  - text: "감사합니다."
+    intent: thank
+    state: {}
+
+  - text: "감사."
+    intent: thank
+    state: {}
+
+  - text: "도움이 되었습니다."
+    intent: thank
+    state: { affinity: 0.5 }
+
+  - text: "...고맙습니다. 정말로."
+    intent: thank
+    state: { affinity: 0.9, trust: 0.8 }
+
+  # ===== 추가 =====
+  - text: "확인."
+    intent: accept_quest
+    state: {}
+
+  - text: "오류. 재요청 바랍니다."
+    intent: refuse_quest
+    state: { confidence: 0.6 }
+
+  - text: "주의해 주십시오."
+    intent: warn
+    state: { affinity: 0.4 }
+
+  - text: "...괜찮으십니까?"
+    intent: greet
+    state: { affinity: 0.8 }
+
+  - text: "동행합니다."
+    intent: accept_quest
+    state: { affinity: 0.7, trust: 0.6 }
+
+  - text: "이상 보고 끝."
+    intent: farewell
+    state: {}
+
+  - text: "...곁에 있겠습니다."
+    intent: accept_quest
+    state: { affinity: 0.95, trust: 0.9 }
+
+  - text: "판단 보류."
+    intent: complain
+    state: { confidence: -0.3 }

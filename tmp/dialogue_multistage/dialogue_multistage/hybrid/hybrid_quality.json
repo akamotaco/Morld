@@ -1,0 +1,83 @@
+{
+  "state_sensitivity": {
+    "시호": {
+      "greet": {
+        "mean_edit": 2.86,
+        "unique_outputs": 2
+      },
+      "thank": {
+        "mean_edit": 6.67,
+        "unique_outputs": 3
+      },
+      "complain": {
+        "mean_edit": 10.52,
+        "unique_outputs": 4
+      }
+    },
+    "유카": {
+      "greet": {
+        "mean_edit": 4.0,
+        "unique_outputs": 2
+      },
+      "thank": {
+        "mean_edit": 3.14,
+        "unique_outputs": 2
+      },
+      "complain": {
+        "mean_edit": 2.57,
+        "unique_outputs": 2
+      }
+    },
+    "린": {
+      "greet": {
+        "mean_edit": 3.43,
+        "unique_outputs": 2
+      },
+      "thank": {
+        "mean_edit": 0.0,
+        "unique_outputs": 1
+      },
+      "complain": {
+        "mean_edit": 4.0,
+        "unique_outputs": 2
+      }
+    }
+  },
+  "diversity": {
+    "시호": {
+      "n_total": 45,
+      "n_unique": 40,
+      "distinct_1": 0.459,
+      "distinct_2": 0.57,
+      "self_bleu_3": 0.298,
+      "avg_len_words": 4.36
+    },
+    "유카": {
+      "n_total": 45,
+      "n_unique": 30,
+      "distinct_1": 0.558,
+      "distinct_2": 0.625,
+      "self_bleu_3": 0.0,
+      "avg_len_words": 1.71
+    },
+    "린": {
+      "n_total": 45,
+      "n_unique": 39,
+      "distinct_1": 0.462,
+      "distinct_2": 0.575,
+      "self_bleu_3": 0.217,
+      "avg_len_words": 2.93
+    }
+  },
+  "latency": {
+    "시호": {
+      "full_us": 45.8
+    },
+    "유카": {
+      "full_us": 36.5
+    },
+    "린": {
+      "full_us": 39.4
+    }
+  }
+}

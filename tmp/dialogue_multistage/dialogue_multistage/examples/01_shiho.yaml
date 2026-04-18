@@ -1,0 +1,238 @@
+# =============================================================
+# 시호 (Shiho) — Tsundere
+# =============================================================
+# 현대 학생회 부회장. 부끄러움을 공격으로 가리는 고전적 츤데레.
+# 핵심: embarrassment + affinity 동시 높음 → aggression/verbosity 증폭
+#       (평소엔 의외로 조용하고 깐깐함)
+character: 시호
+archetype: tsundere
+era: modern
+sex: F
+
+# 기본 성격 (trait 축들의 고정값) — 외면
+outer_profile:
+  formality: -0.3      # 반말 기본
+  warmth: -0.1         # 표면상 차가움
+  aggression: 0.3
+  verbosity: 0.1       # 평소는 평범, 부끄러울 때 폭발
+  maturity: 0.2
+
+# 내면 (Stage 1 N-gram 이 참조) — 실제로는 관심 많고 말하고 싶음
+# Stage 1 이 이걸 반영하면: 호칭 자주, 문장 길게, addr slot 더 많이
+inner_profile:
+  formality: 0.1        # 내심은 덜 거침
+  warmth: 0.4           # 속으론 따뜻
+  aggression: -0.1      # 속으론 공격적이지 않음
+  verbosity: 0.6        # 사실은 할 말 많음
+  maturity: 0.2
+
+# 상호작용 규칙 (interaction term)
+# 2개 축의 곱이 threshold 이상일 때 다른 축들을 boost
+interactions:
+  - name: "츤모드 발동"
+    conditions:
+      - { axis: embarrassment, min: 0.5 }
+      - { axis: affinity,      min: 0.4 }
+    boost:
+      aggression: +0.6
+      verbosity:  +0.4
+      formality:  -0.2
+
+  - name: "호감 순간 솔직"
+    conditions:
+      - { axis: affinity,       min: 0.7 }
+      - { axis: embarrassment,  max: 0.3 }
+    boost:
+      warmth: +0.5
+
+samples:
+
+  # ===== greet =====
+  - text: "어. 왔어?"
+    intent: greet
+    state: { affinity: 0.3, arousal: 0.2 }
+
+  - text: "왜 자꾸 말 거는 건데."
+    intent: greet
+    state: { embarrassment: 0.5, affinity: 0.4 }
+
+  - text: "...늦었잖아. 기다렸... 아니, 별로 안 기다렸어."
+    intent: greet
+    state: { affinity: 0.7, embarrassment: 0.6 }
+    inner: { affinity: 0.8, warmth: 0.6, verbosity: 0.8 }
+
+  - text: "흥, 또 왔네."
+    intent: greet
+    state: { affinity: 0.5, aggression: 0.3 }
+    inner: { affinity: 0.5, warmth: 0.3 }
+
+  # ===== farewell =====
+  - text: "간다."
+    intent: farewell
+    state: { affinity: 0.3 }
+
+  - text: "가. 잘 가. 아니 빨리 가라고."
+    intent: farewell
+    state: { embarrassment: 0.7, affinity: 0.6 }
+    inner: { affinity: 0.7, warmth: 0.5, verbosity: 0.7 }
+
+  - text: "...조심해서 가."
+    intent: farewell
+    state: { affinity: 0.8, embarrassment: 0.3, trust: 0.6 }
+    inner: { affinity: 0.8, warmth: 0.6, trust: 0.7 }
+
+  - text: "꺼져. 보기 싫어."
+    intent: farewell
+    state: { hostility: 0.8, aggression: 0.7 }
+    inner: { hostility: 0.7, warmth: -0.3, aggression: 0.5 }
+
+  # ===== refuse_quest =====
+  - text: "싫어. 내가 왜."
+    intent: refuse_quest
+    state: { affinity: 0.3 }
+
+  - text: "뭐야, 너 때문은 아니거든? 그냥 바빠서야."
+    intent: refuse_quest
+    state: { embarrassment: 0.7, affinity: 0.5 }
+    inner: { affinity: 0.8, warmth: 0.6, verbosity: 0.8 }
+
+  - text: "말했잖아. 안 한다고."
+    intent: refuse_quest
+    state: { aggression: 0.5, hostility: 0.3 }
+
+  - text: "지금은... 안 돼. 미안."
+    intent: refuse_quest
+    state: { affinity: 0.6, fatigue: 0.6 }
+    inner: { affinity: 0.7, warmth: 0.5, fatigue: 0.7 }
+
+  # ===== accept_quest =====
+  - text: "...해줄게. 딱 한 번만이야."
+    intent: accept_quest
+    state: { affinity: 0.6, embarrassment: 0.4 }
+    inner: { affinity: 0.7, warmth: 0.5, verbosity: 0.5 }
+
+  - text: "너 혼자는 못 할 것 같아서 도와주는 거야. 착각하지 마."
+    intent: accept_quest
+    state: { embarrassment: 0.7, affinity: 0.6 }
+    inner: { affinity: 0.8, warmth: 0.7, verbosity: 0.8 }
+
+  - text: "알았어."
+    intent: accept_quest
+    state: { affinity: 0.5, confidence: 0.6 }
+
+  - text: "어쩔 수 없네. 해주긴 할게."
+    intent: accept_quest
+    state: { affinity: 0.4, aggression: 0.2 }
+
+  # ===== complain =====
+  - text: "아, 진짜 짜증나."
+    intent: complain
+    state: { arousal: 0.6, aggression: 0.5 }
+
+  - text: "오늘 좀 피곤해. 말 걸지 마."
+    intent: complain
+    state: { fatigue: 0.7, verbosity: -0.2 }
+    inner: { fatigue: 0.8, warmth: -0.2, verbosity: -0.3 }
+
+  - text: "왜 다들 나한테만 시키는 거야."
+    intent: complain
+    state: { aggression: 0.5, verbosity: 0.4 }
+
+  - text: "...그냥, 좀 힘들어서 그래."
+    intent: complain
+    state: { fatigue: 0.6, affinity: 0.5, embarrassment: 0.4 }
+    inner: { fatigue: 0.6, affinity: 0.6, warmth: 0.4, verbosity: 0.4 }
+
+  # ===== warn =====
+  - text: "조심해. 위험해."
+    intent: warn
+    state: { affinity: 0.5, confidence: 0.6 }
+
+  - text: "야, 그쪽으로 가지 마!"
+    intent: warn
+    state: { arousal: 0.7, affinity: 0.6 }
+
+  - text: "멈춰. 한 발짝만 더 가면 후회할걸."
+    intent: warn
+    state: { aggression: 0.6, confidence: 0.7 }
+
+  - text: "그런 짓 하다간 다쳐."
+    intent: warn
+    state: { affinity: 0.4 }
+
+  # ===== ask_price =====
+  - text: "이거 얼마야?"
+    intent: ask_price
+    state: {}
+
+  - text: "비싸 보이는데. 얼마?"
+    intent: ask_price
+    state: { money: 0.5, aggression: 0.3 }
+
+  - text: "...이거 사고 싶은데. 얼마야."
+    intent: ask_price
+    state: { embarrassment: 0.5, money: 0.4 }
+
+  - text: "얼마인데. 말해."
+    intent: ask_price
+    state: { aggression: 0.4 }
+
+  # ===== thank =====
+  - text: "고마워."
+    intent: thank
+    state: { affinity: 0.6 }
+
+  - text: "이거 받긴 할게. 고맙다고는 안 해."
+    intent: thank
+    state: { embarrassment: 0.8, affinity: 0.6 }
+    inner: { affinity: 0.8, warmth: 0.6, verbosity: 0.7 }
+
+  - text: "...정말, 고마워. 진짜로."
+    intent: thank
+    state: { affinity: 0.8, trust: 0.7, embarrassment: 0.3 }
+    inner: { affinity: 0.9, warmth: 0.7, trust: 0.7 }
+
+  - text: "딱히 받고 싶진 않았지만... 뭐, 받을게."
+    intent: thank
+    state: { embarrassment: 0.7, affinity: 0.5, verbosity: 0.4 }
+    inner: { affinity: 0.7, warmth: 0.5, verbosity: 0.7 }
+
+  - text: "어, 어... 고, 고마워..."
+    intent: thank
+    state: { embarrassment: 0.9, affinity: 0.7 }
+    inner: { affinity: 0.9, warmth: 0.7, verbosity: 0.8 }
+
+  # ===== 추가 샘플 (다양성 확보) =====
+  - text: "무, 무슨 말이야. 난 아무렇지도 않아."
+    intent: refuse_quest
+    state: { embarrassment: 0.9, affinity: 0.6 }
+    inner: { affinity: 0.8, warmth: 0.5, verbosity: 0.8 }
+
+  - text: "...가까이 오지 마."
+    intent: warn
+    state: { embarrassment: 0.7, affinity: 0.5 }
+    inner: { affinity: 0.7, warmth: 0.4, verbosity: 0.3 }
+
+  - text: "정신 좀 차려!"
+    intent: warn
+    state: { arousal: 0.8, affinity: 0.6, aggression: 0.4 }
+
+  - text: "응."
+    intent: accept_quest
+    state: { affinity: 0.8, trust: 0.8, embarrassment: 0.2 }
+
+  - text: "안녕."
+    intent: greet
+    state: { affinity: 0.5, embarrassment: 0.2 }
+
+  - text: "그게 뭐가 중요해."
+    intent: complain
+    state: { aggression: 0.3 }
+
+  - text: "별로 궁금하지도 않거든."
+    intent: refuse_quest
+    state: { embarrassment: 0.4, affinity: 0.4 }
+
+  - text: "내일 또 봐."
+    intent: farewell
+    state: { affinity: 0.6, trust: 0.5 }

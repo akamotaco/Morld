@@ -1,0 +1,1438 @@
+{
+  "archetype": "kuudere",
+  "tokens": [
+    {
+      "text": "안녕하십니까",
+      "tclass": "body_greet",
+      "morph": "V",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": ".",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "affinity": 0.276,
+        "trust": 0.154
+      },
+      "base_w": 4.688879454113936,
+      "intents": [
+        "accept_quest",
+        "ask_price",
+        "complain",
+        "farewell",
+        "greet",
+        "refuse_quest",
+        "thank",
+        "warn"
+      ]
+    },
+    {
+      "text": "접속",
+      "tclass": "body_greet",
+      "morph": "C_reg",
+      "feature": {
+        "confidence": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "확인.",
+      "tclass": "end",
+      "morph": "C_n",
+      "feature": {
+        "confidence": 0.25
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "accept_quest",
+        "greet"
+      ]
+    },
+    {
+      "text": "오셨군요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "...",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "warmth": 0.3,
+        "affinity": 0.844,
+        "trust": 0.5
+      },
+      "base_w": 3.1972245773362196,
+      "intents": [
+        "accept_quest",
+        "complain",
+        "farewell",
+        "greet",
+        "thank",
+        "warn"
+      ]
+    },
+    {
+      "text": "보고",
+      "tclass": "body_greet",
+      "morph": "V",
+      "feature": {
+        "warmth": 0.3,
+        "affinity": 0.45,
+        "trust": 0.4
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "farewell",
+        "greet"
+      ]
+    },
+    {
+      "text": "싶었습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "warmth": 0.6,
+        "verbosity": 0.2,
+        "affinity": 0.9,
+        "trust": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "이만",
+      "tclass": "body_farewell",
+      "morph": "C_n",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "다음에",
+      "tclass": "body_farewell",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "뵙겠습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "안전히",
+      "tclass": "body_farewell",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.7,
+        "trust": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "가십시오",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.7,
+        "trust": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "기다리겠습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "warmth": 0.6,
+        "verbosity": 0.2,
+        "affinity": 0.9,
+        "trust": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "불가합니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "권장하지",
+      "tclass": "body_refuse_quest",
+      "morph": "V",
+      "feature": {
+        "confidence": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "않습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "confidence": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "그",
+      "tclass": "body_refuse_quest",
+      "morph": "V",
+      "feature": {
+        "formality": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "요청은",
+      "tclass": "body_refuse_quest",
+      "morph": "C_n",
+      "feature": {
+        "formality": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "수행할",
+      "tclass": "body_refuse_quest",
+      "morph": "C_l",
+      "feature": {
+        "formality": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "수",
+      "tclass": "body_refuse_quest",
+      "morph": "V",
+      "feature": {
+        "formality": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "없습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "거절합니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "hostility": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "이유는",
+      "tclass": "body_refuse_quest",
+      "morph": "C_n",
+      "feature": {
+        "hostility": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "묻지",
+      "tclass": "body_refuse_quest",
+      "morph": "V",
+      "feature": {
+        "hostility": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "마십시오",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "hostility": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "수락",
+      "tclass": "body_accept_quest",
+      "morph": "C_reg",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "알겠습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "처리하겠습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "당신이라면",
+      "tclass": "body_accept_quest",
+      "morph": "C_n",
+      "feature": {
+        "affinity": 0.8,
+        "trust": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "부하가",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "높습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "피로도",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "임계치",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "근접",
+      "tclass": "body_complain",
+      "morph": "C_reg",
+      "feature": {
+        "fatigue": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "조금",
+      "tclass": "body_complain",
+      "morph": "C_reg",
+      "feature": {
+        "fatigue": 0.7,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "쉬고",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.7,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "싶습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.7,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "효율이",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "떨어지고",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "있습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "fatigue": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "위험",
+      "tclass": "body_warn",
+      "morph": "C_reg",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "접근",
+      "tclass": "body_warn",
+      "morph": "C_n",
+      "feature": {
+        "confidence": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "금지",
+      "tclass": "body_warn",
+      "morph": "V",
+      "feature": {
+        "confidence": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "구역입니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "confidence": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "물러나십시오",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "arousal": 0.4
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "다치실",
+      "tclass": "body_warn",
+      "morph": "C_l",
+      "feature": {
+        "arousal": 0.5,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "겁니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "arousal": 0.5,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "가격",
+      "tclass": "body_ask_price",
+      "morph": "C_reg",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "비용을",
+      "tclass": "body_ask_price",
+      "morph": "C_l",
+      "feature": {
+        "formality": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "알려주십시오",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "이",
+      "tclass": "body_ask_price",
+      "morph": "V",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "품목의",
+      "tclass": "body_ask_price",
+      "morph": "V",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "단가는",
+      "tclass": "body_ask_price",
+      "morph": "C_n",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "?",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "affinity": 0.4
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price",
+        "greet"
+      ]
+    },
+    {
+      "text": "얼마입니까",
+      "tclass": "body_ask_price",
+      "morph": "V",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "감사합니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "감사",
+      "tclass": "body_thank",
+      "morph": "V",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "도움이",
+      "tclass": "body_thank",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "되었습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "고맙습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "warmth": 0.6,
+        "verbosity": 0.2,
+        "affinity": 0.9,
+        "trust": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "정말로",
+      "tclass": "body_thank",
+      "morph": "V",
+      "feature": {
+        "warmth": 0.6,
+        "verbosity": 0.2,
+        "affinity": 0.9,
+        "trust": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "오류",
+      "tclass": "body_refuse_quest",
+      "morph": "V",
+      "feature": {
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "재요청",
+      "tclass": "body_refuse_quest",
+      "morph": "C_reg",
+      "feature": {
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "바랍니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "주의해",
+      "tclass": "body_warn",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.4
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "주십시오",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.4
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "괜찮으십니까",
+      "tclass": "body_greet",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "동행합니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "affinity": 0.7,
+        "trust": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "이상",
+      "tclass": "body_farewell",
+      "morph": "C_reg",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "끝",
+      "tclass": "body_farewell",
+      "morph": "C_reg",
+      "feature": {},
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "곁에",
+      "tclass": "body_accept_quest",
+      "morph": "V",
+      "feature": {
+        "warmth": 0.6,
+        "verbosity": 0.2,
+        "affinity": 0.95,
+        "trust": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "있겠습니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "warmth": 0.6,
+        "verbosity": 0.2,
+        "affinity": 0.95,
+        "trust": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "판단",
+      "tclass": "body_complain",
+      "morph": "C_n",
+      "feature": {
+        "confidence": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "보류",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "confidence": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "<S>",
+      "tclass": "S",
+      "morph": "none",
+      "feature": {
+        "verbosity": -0.3
+      },
+      "base_w": 1.0,
+      "intents": []
+    },
+    {
+      "text": "<EOS>",
+      "tclass": "EOS",
+      "morph": "none",
+      "feature": {
+        "verbosity": -0.3
+      },
+      "base_w": 1.0,
+      "intents": []
+    }
+  ],
+  "adjacency": {
+    "<S>": {
+      "안녕하십니까": 1,
+      "접속": 1,
+      "오셨군요": 1,
+      "...": 8,
+      "이만": 1,
+      "다음에": 1,
+      "안전히": 1,
+      "불가합니다": 1,
+      "권장하지": 1,
+      "그": 1,
+      "거절합니다": 1,
+      "수락": 1,
+      "알겠습니다": 1,
+      "처리하겠습니다": 1,
+      "부하가": 1,
+      "피로도": 1,
+      "효율이": 1,
+      "위험": 1,
+      "접근": 1,
+      "물러나십시오": 1,
+      "가격": 1,
+      "비용을": 1,
+      "이": 1,
+      "얼마입니까": 1,
+      "감사합니다": 1,
+      "감사": 1,
+      "도움이": 1,
+      "확인.": 1,
+      "오류": 1,
+      "주의해": 1,
+      "동행합니다": 1,
+      "이상": 1,
+      "판단": 1
+    },
+    "안녕하십니까": {
+      ".": 1
+    },
+    ".": {
+      "<EOS>": 36,
+      "이유는": 1,
+      "정말로": 1,
+      "재요청": 1
+    },
+    "접속": {
+      "확인.": 1
+    },
+    "확인.": {
+      "<EOS>": 2
+    },
+    "오셨군요": {
+      ".": 1
+    },
+    "...": {
+      "보고": 1,
+      "기다리겠습니다": 1,
+      "당신이라면": 1,
+      "조금": 1,
+      "다치실": 1,
+      "고맙습니다": 1,
+      "괜찮으십니까": 1,
+      "곁에": 1
+    },
+    "보고": {
+      "싶었습니다": 1,
+      "끝": 1
+    },
+    "싶었습니다": {
+      ".": 1
+    },
+    "이만": {
+      ".": 1
+    },
+    "다음에": {
+      "뵙겠습니다": 1
+    },
+    "뵙겠습니다": {
+      ".": 1
+    },
+    "안전히": {
+      "가십시오": 1
+    },
+    "가십시오": {
+      ".": 1
+    },
+    "기다리겠습니다": {
+      ".": 1
+    },
+    "불가합니다": {
+      ".": 1
+    },
+    "권장하지": {
+      "않습니다": 1
+    },
+    "않습니다": {
+      ".": 1
+    },
+    "그": {
+      "요청은": 1
+    },
+    "요청은": {
+      "수행할": 1
+    },
+    "수행할": {
+      "수": 1
+    },
+    "수": {
+      "없습니다": 1
+    },
+    "없습니다": {
+      ".": 1
+    },
+    "거절합니다": {
+      ".": 1
+    },
+    "이유는": {
+      "묻지": 1
+    },
+    "묻지": {
+      "마십시오": 1
+    },
+    "마십시오": {
+      ".": 1
+    },
+    "수락": {
+      ".": 1
+    },
+    "알겠습니다": {
+      ".": 1
+    },
+    "처리하겠습니다": {
+      ".": 1
+    },
+    "당신이라면": {
+      ".": 1
+    },
+    "부하가": {
+      "높습니다": 1
+    },
+    "높습니다": {
+      ".": 1
+    },
+    "피로도": {
+      "임계치": 1
+    },
+    "임계치": {
+      "근접": 1
+    },
+    "근접": {
+      ".": 1
+    },
+    "조금": {
+      "쉬고": 1
+    },
+    "쉬고": {
+      "싶습니다": 1
+    },
+    "싶습니다": {
+      ".": 1
+    },
+    "효율이": {
+      "떨어지고": 1
+    },
+    "떨어지고": {
+      "있습니다": 1
+    },
+    "있습니다": {
+      ".": 1
+    },
+    "위험": {
+      ".": 1
+    },
+    "접근": {
+      "금지": 1
+    },
+    "금지": {
+      "구역입니다": 1
+    },
+    "구역입니다": {
+      ".": 1
+    },
+    "물러나십시오": {
+      ".": 1
+    },
+    "다치실": {
+      "겁니다": 1
+    },
+    "겁니다": {
+      ".": 1
+    },
+    "가격": {
+      ".": 1
+    },
+    "비용을": {
+      "알려주십시오": 1
+    },
+    "알려주십시오": {
+      ".": 1
+    },
+    "이": {
+      "품목의": 1
+    },
+    "품목의": {
+      "단가는": 1
+    },
+    "단가는": {
+      "?": 1
+    },
+    "?": {
+      "<EOS>": 2
+    },
+    "얼마입니까": {
+      ".": 1
+    },
+    "감사합니다": {
+      ".": 1
+    },
+    "감사": {
+      ".": 1
+    },
+    "도움이": {
+      "되었습니다": 1
+    },
+    "되었습니다": {
+      ".": 1
+    },
+    "고맙습니다": {
+      ".": 1
+    },
+    "정말로": {
+      ".": 1
+    },
+    "오류": {
+      ".": 1
+    },
+    "재요청": {
+      "바랍니다": 1
+    },
+    "바랍니다": {
+      ".": 1
+    },
+    "주의해": {
+      "주십시오": 1
+    },
+    "주십시오": {
+      ".": 1
+    },
+    "괜찮으십니까": {
+      "?": 1
+    },
+    "동행합니다": {
+      ".": 1
+    },
+    "이상": {
+      "보고": 1
+    },
+    "끝": {
+      ".": 1
+    },
+    "곁에": {
+      "있겠습니다": 1
+    },
+    "있겠습니다": {
+      ".": 1
+    },
+    "판단": {
+      "보류": 1
+    },
+    "보류": {
+      ".": 1
+    }
+  },
+  "schemas": {
+    "greet": [
+      [
+        "body_greet",
+        "punct"
+      ],
+      [
+        "body_greet",
+        "end"
+      ],
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "body_greet",
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "body_greet",
+        "punct"
+      ]
+    ],
+    "farewell": [
+      [
+        "body_farewell",
+        "punct"
+      ],
+      [
+        "body_farewell",
+        "end",
+        "punct"
+      ],
+      [
+        "body_farewell",
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "body_farewell",
+        "body_farewell",
+        "body_farewell",
+        "punct"
+      ]
+    ],
+    "refuse_quest": [
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "body_refuse_quest",
+        "end",
+        "punct"
+      ],
+      [
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "end",
+        "punct"
+      ],
+      [
+        "body_refuse_quest",
+        "punct",
+        "body_refuse_quest",
+        "end",
+        "punct"
+      ]
+    ],
+    "accept_quest": [
+      [
+        "body_accept_quest",
+        "punct"
+      ],
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "body_accept_quest",
+        "punct"
+      ],
+      [
+        "end"
+      ],
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "body_accept_quest",
+        "end",
+        "punct"
+      ]
+    ],
+    "complain": [
+      [
+        "body_complain",
+        "end",
+        "punct"
+      ],
+      [
+        "body_complain",
+        "body_complain",
+        "body_complain",
+        "punct"
+      ],
+      [
+        "punct",
+        "body_complain",
+        "body_complain",
+        "end",
+        "punct"
+      ],
+      [
+        "body_complain",
+        "body_complain",
+        "end",
+        "punct"
+      ],
+      [
+        "body_complain",
+        "body_complain",
+        "punct"
+      ]
+    ],
+    "warn": [
+      [
+        "body_warn",
+        "punct"
+      ],
+      [
+        "body_warn",
+        "body_warn",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "body_warn",
+        "end",
+        "punct"
+      ],
+      [
+        "body_warn",
+        "end",
+        "punct"
+      ]
+    ],
+    "ask_price": [
+      [
+        "body_ask_price",
+        "punct"
+      ],
+      [
+        "body_ask_price",
+        "end",
+        "punct"
+      ],
+      [
+        "body_ask_price",
+        "body_ask_price",
+        "body_ask_price",
+        "punct"
+      ],
+      [
+        "body_ask_price",
+        "punct"
+      ]
+    ],
+    "thank": [
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "body_thank",
+        "punct"
+      ],
+      [
+        "body_thank",
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "end",
+        "punct",
+        "body_thank",
+        "punct"
+      ]
+    ]
+  }
+}

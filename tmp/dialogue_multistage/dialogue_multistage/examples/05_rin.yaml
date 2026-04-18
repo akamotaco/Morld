@@ -1,0 +1,195 @@
+# =============================================================
+# 린 (Rin) — Genki / Deredere
+# =============================================================
+# 현대 아이돌 지망생. 표리일체의 밝은 성격.
+# 핵심: 감정이 상태에 직접 비례. interaction term 없음.
+#       → 호감 높으면 그냥 사랑스럽게, 화나면 바로 삐침.
+#       → state_sensitivity 가 매우 높을 것으로 예상.
+character: 린
+archetype: deredere
+era: modern
+sex: F
+
+default_trait:
+  formality: -0.2      # 캐주얼
+  warmth: 0.7          # 기본적으로 따뜻
+  aggression: -0.3
+  verbosity: 0.5       # 감탄사·수식어 많음
+  maturity: -0.3       # 귀여운 쪽
+
+# 린은 표리일체 → inner_profile 생략
+# (state_ms.py 는 inner 없으면 outer 와 동일하게 처리)
+
+# 표리일체 → interaction term 없음 (혹은 아주 약하게)
+interactions: []
+
+samples:
+
+  # ===== greet =====
+  - text: "안녕하세요!"
+    intent: greet
+    state: { arousal: 0.5 }
+
+  - text: "와! 오셨어요! 반가워요!"
+    intent: greet
+    state: { affinity: 0.8, arousal: 0.8 }
+
+  - text: "헤헤, 기다리고 있었어요~"
+    intent: greet
+    state: { affinity: 0.7 }
+
+  - text: "어서 오세요! 오늘도 힘내요!"
+    intent: greet
+    state: { arousal: 0.7, confidence: 0.6 }
+
+  # ===== farewell =====
+  - text: "안녕히 가세요~"
+    intent: farewell
+    state: { affinity: 0.5 }
+
+  - text: "또 봐요! 꼭이요!"
+    intent: farewell
+    state: { affinity: 0.8, arousal: 0.7 }
+
+  - text: "잘 가요! 조심해서요!"
+    intent: farewell
+    state: { affinity: 0.7 }
+
+  - text: "...벌써 가시는 거예요?"
+    intent: farewell
+    state: { affinity: 0.9, arousal: -0.2 }
+
+  # ===== refuse_quest =====
+  - text: "으, 그건 좀 어려울 것 같아요..."
+    intent: refuse_quest
+    state: { confidence: -0.3 }
+
+  - text: "아, 미안해요! 지금은 못 해요 ㅠㅠ"
+    intent: refuse_quest
+    state: { affinity: 0.6, fatigue: 0.5 }
+
+  - text: "에엣, 저는... 잘 못할 것 같은데..."
+    intent: refuse_quest
+    state: { confidence: -0.5 }
+
+  - text: "그건 좀 싫어요!"
+    intent: refuse_quest
+    state: { aggression: 0.4 }
+
+  # ===== accept_quest =====
+  - text: "네! 할게요!"
+    intent: accept_quest
+    state: { arousal: 0.7, confidence: 0.5 }
+
+  - text: "와아! 맡겨 주세요!"
+    intent: accept_quest
+    state: { affinity: 0.7, arousal: 0.8 }
+
+  - text: "좋아요! 해볼래요!"
+    intent: accept_quest
+    state: { arousal: 0.6 }
+
+  - text: "저, 저 할 수 있어요! 아마도요!"
+    intent: accept_quest
+    state: { confidence: 0.3, arousal: 0.5 }
+
+  # ===== complain =====
+  - text: "힘들어요..."
+    intent: complain
+    state: { fatigue: 0.7 }
+
+  - text: "아 진짜, 왜 이렇게 안 돼요..."
+    intent: complain
+    state: { fatigue: 0.6, aggression: 0.3 }
+
+  - text: "배고파요! 밥 먹고 싶어요!"
+    intent: complain
+    state: { fatigue: 0.4, arousal: 0.5 }
+
+  - text: "오늘 너무 피곤해요 ㅠㅠ"
+    intent: complain
+    state: { fatigue: 0.8 }
+
+  # ===== warn =====
+  - text: "어! 조심하세요!"
+    intent: warn
+    state: { arousal: 0.7 }
+
+  - text: "위험해요! 저쪽으로 가지 마세요!"
+    intent: warn
+    state: { arousal: 0.8, affinity: 0.7 }
+
+  - text: "앗, 그건 안 돼요!"
+    intent: warn
+    state: { arousal: 0.6 }
+
+  - text: "제발 조심히 해주세요..."
+    intent: warn
+    state: { affinity: 0.8, confidence: -0.2 }
+
+  # ===== ask_price =====
+  - text: "이거 얼마예요?"
+    intent: ask_price
+    state: {}
+
+  - text: "앗, 이거 사고 싶은데 얼마예요?"
+    intent: ask_price
+    state: { arousal: 0.6 }
+
+  - text: "이거 비싸요?"
+    intent: ask_price
+    state: { money: 0.3 }
+
+  - text: "얼마인지 알려주세요~"
+    intent: ask_price
+    state: {}
+
+  # ===== thank =====
+  - text: "고마워요!"
+    intent: thank
+    state: { affinity: 0.6 }
+
+  - text: "와아! 정말 정말 감사합니다!"
+    intent: thank
+    state: { affinity: 0.9, arousal: 0.9 }
+
+  - text: "헤헤, 고마워요~ 좋아해요!"
+    intent: thank
+    state: { affinity: 0.8 }
+
+  - text: "흑, 너무 감동이에요..."
+    intent: thank
+    state: { affinity: 0.9, arousal: 0.5 }
+
+  # ===== 추가 =====
+  - text: "네!"
+    intent: accept_quest
+    state: { confidence: 0.7 }
+
+  - text: "으응... 잘 모르겠어요."
+    intent: complain
+    state: { confidence: -0.4 }
+
+  - text: "짱이에요!"
+    intent: thank
+    state: { arousal: 0.8, affinity: 0.7 }
+
+  - text: "반가워요~"
+    intent: greet
+    state: { affinity: 0.5 }
+
+  - text: "에헤헤, 기뻐요!"
+    intent: thank
+    state: { affinity: 0.8 }
+
+  - text: "무리예요. 진짜로요."
+    intent: refuse_quest
+    state: { confidence: -0.6 }
+
+  - text: "와, 이거 얼마예요? 꼭 사고 싶어요!"
+    intent: ask_price
+    state: { arousal: 0.8 }
+
+  - text: "잠깐! 거기 멈춰요!"
+    intent: warn
+    state: { arousal: 0.7, aggression: 0.3 }

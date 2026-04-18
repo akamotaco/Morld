@@ -1,0 +1,2576 @@
+{
+  "archetype": "deredere",
+  "tokens": [
+    {
+      "text": "안녕하세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "!",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.239,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.535,
+        "affinity": 0.384
+      },
+      "base_w": 4.465735902799727,
+      "intents": [
+        "accept_quest",
+        "complain",
+        "farewell",
+        "greet",
+        "refuse_quest",
+        "thank",
+        "warn"
+      ]
+    },
+    {
+      "text": "와",
+      "tclass": "interj",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.4
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price",
+        "greet"
+      ]
+    },
+    {
+      "text": "오셨어요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "반가워요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.4,
+        "affinity": 0.65
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "헤헤,",
+      "tclass": "interj",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.75
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "greet",
+        "thank"
+      ]
+    },
+    {
+      "text": "기다리고",
+      "tclass": "body_greet",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "있었어요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "~",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.5
+      },
+      "base_w": 2.791759469228055,
+      "intents": [
+        "ask_price",
+        "farewell",
+        "greet",
+        "thank"
+      ]
+    },
+    {
+      "text": "어서",
+      "tclass": "body_greet",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "오세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "오늘도",
+      "tclass": "body_greet",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "힘내요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "confidence": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "greet"
+      ]
+    },
+    {
+      "text": "안녕히",
+      "tclass": "body_farewell",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "가세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "또",
+      "tclass": "body_farewell",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "봐요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "꼭이요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "잘",
+      "tclass": "body_farewell",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "가요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "조심해서요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "...",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.214,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.186,
+        "affinity": 0.371
+      },
+      "base_w": 3.0794415416798357,
+      "intents": [
+        "complain",
+        "farewell",
+        "refuse_quest",
+        "thank",
+        "warn"
+      ]
+    },
+    {
+      "text": "벌써",
+      "tclass": "body_farewell",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": -0.2,
+        "affinity": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "가시는",
+      "tclass": "body_farewell",
+      "morph": "C_n",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": -0.2,
+        "affinity": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "거예요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": -0.2,
+        "affinity": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "farewell"
+      ]
+    },
+    {
+      "text": "?",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.45,
+        "money": 0.15
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price",
+        "farewell"
+      ]
+    },
+    {
+      "text": "으",
+      "tclass": "interj",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": ",그건",
+      "tclass": "body_refuse_quest",
+      "morph": "C_n",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.3,
+        "confidence": -0.15
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "refuse_quest",
+        "warn"
+      ]
+    },
+    {
+      "text": "좀",
+      "tclass": "body_refuse_quest",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.15
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "어려울",
+      "tclass": "body_refuse_quest",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "것",
+      "tclass": "body_refuse_quest",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.4
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "같아요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "아",
+      "tclass": "interj",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.55,
+        "affinity": 0.3
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "complain",
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": ",",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.225,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.3,
+        "affinity": 0.287
+      },
+      "base_w": 3.1972245773362196,
+      "intents": [
+        "accept_quest",
+        "ask_price",
+        "complain",
+        "refuse_quest",
+        "thank"
+      ]
+    },
+    {
+      "text": "미안해요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.5,
+        "affinity": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "지금은",
+      "tclass": "body_refuse_quest",
+      "morph": "C_n",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.5,
+        "affinity": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "못",
+      "tclass": "body_refuse_quest",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.5,
+        "affinity": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "해요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.5,
+        "affinity": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "ㅠㅠ",
+      "tclass": "end",
+      "morph": "none",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.65,
+        "affinity": 0.3
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "complain",
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "에엣",
+      "tclass": "body_refuse_quest",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "저는",
+      "tclass": "body_refuse_quest",
+      "morph": "C_n",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "...잘",
+      "tclass": "body_refuse_quest",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.45
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "complain",
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "못할",
+      "tclass": "body_refuse_quest",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "같은데",
+      "tclass": "body_refuse_quest",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "그건",
+      "tclass": "body_refuse_quest",
+      "morph": "C_n",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.4,
+        "verbosity": 0.5,
+        "maturity": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "싫어요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.4,
+        "verbosity": 0.5,
+        "maturity": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "네!",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.35,
+        "confidence": 0.6
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "할게요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7,
+        "confidence": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "와아!",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.85,
+        "affinity": 0.8
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "accept_quest",
+        "thank"
+      ]
+    },
+    {
+      "text": "맡겨",
+      "tclass": "body_accept_quest",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "주세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "좋아요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "해볼래요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "저",
+      "tclass": "body_accept_quest",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5,
+        "confidence": 0.3
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "할",
+      "tclass": "body_accept_quest",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5,
+        "confidence": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "수",
+      "tclass": "body_accept_quest",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5,
+        "confidence": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "있어요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5,
+        "confidence": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "아마도요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5,
+        "confidence": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "accept_quest"
+      ]
+    },
+    {
+      "text": "힘들어요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "진짜",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "왜",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "이렇게",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "안돼요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.3,
+        "arousal": 0.3
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "complain",
+        "warn"
+      ]
+    },
+    {
+      "text": "배고파요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.4,
+        "arousal": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "밥",
+      "tclass": "body_complain",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.4,
+        "arousal": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "먹고",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.4,
+        "arousal": 0.5
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "싶어요!",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.2,
+        "arousal": 0.65
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price",
+        "complain"
+      ]
+    },
+    {
+      "text": "오늘",
+      "tclass": "body_complain",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "너무",
+      "tclass": "body_complain",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.4,
+        "arousal": 0.25,
+        "affinity": 0.45
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "complain",
+        "thank"
+      ]
+    },
+    {
+      "text": "피곤해요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "fatigue": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "어",
+      "tclass": "interj",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "조심하세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "위험해요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "저쪽으로",
+      "tclass": "body_warn",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "가지",
+      "tclass": "body_warn",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "마세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "앗",
+      "tclass": "interj",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.6
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price",
+        "warn"
+      ]
+    },
+    {
+      "text": "제발",
+      "tclass": "body_warn",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.2,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "조심히",
+      "tclass": "body_warn",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.2,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "해주세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.2,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "이거얼마예요?",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.4
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "이거",
+      "tclass": "body_ask_price",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.3,
+        "money": 0.15
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "사고",
+      "tclass": "body_ask_price",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "싶은데",
+      "tclass": "body_ask_price",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "얼마예요?",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "비싸요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "money": 0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "얼마인지",
+      "tclass": "body_ask_price",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "알려주세요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "고마워요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.7
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "정말",
+      "tclass": "body_thank",
+      "morph": "C_l",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.9,
+        "affinity": 0.9
+      },
+      "base_w": 2.09861228866811,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "감사합니다",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.9,
+        "affinity": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "좋아해요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "흑",
+      "tclass": "body_thank",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5,
+        "affinity": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "감동이에요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.5,
+        "affinity": 0.9
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "으응",
+      "tclass": "body_complain",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.4
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": "모르겠어요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.4
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "complain"
+      ]
+    },
+    {
+      "text": ".",
+      "tclass": "punct",
+      "morph": "none",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.533
+      },
+      "base_w": 2.386294361119891,
+      "intents": [
+        "complain",
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "짱이에요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8,
+        "affinity": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "에헤헤",
+      "tclass": "interj",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "기뻐요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "affinity": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "thank"
+      ]
+    },
+    {
+      "text": "무리예요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "진짜로요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "confidence": -0.6
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "refuse_quest"
+      ]
+    },
+    {
+      "text": "꼭",
+      "tclass": "body_ask_price",
+      "morph": "C_reg",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": -0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.8
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "ask_price"
+      ]
+    },
+    {
+      "text": "잠깐",
+      "tclass": "body_warn",
+      "morph": "C_n",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "거기",
+      "tclass": "body_warn",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "멈춰요",
+      "tclass": "end",
+      "morph": "V",
+      "feature": {
+        "formality": -0.2,
+        "warmth": 0.7,
+        "aggression": 0.3,
+        "verbosity": 0.5,
+        "maturity": -0.3,
+        "arousal": 0.7
+      },
+      "base_w": 1.6931471805599454,
+      "intents": [
+        "warn"
+      ]
+    },
+    {
+      "text": "<S>",
+      "tclass": "S",
+      "morph": "none",
+      "feature": {
+        "verbosity": -0.3
+      },
+      "base_w": 1.0,
+      "intents": []
+    },
+    {
+      "text": "<EOS>",
+      "tclass": "EOS",
+      "morph": "none",
+      "feature": {
+        "verbosity": -0.3
+      },
+      "base_w": 1.0,
+      "intents": []
+    }
+  ],
+  "adjacency": {
+    "<S>": {
+      "안녕하세요": 1,
+      "와": 2,
+      "헤헤,": 2,
+      "어서": 1,
+      "안녕히": 1,
+      "또": 1,
+      "잘": 1,
+      "...": 1,
+      "으": 1,
+      "아": 2,
+      "에엣": 1,
+      "그건": 1,
+      "네!": 2,
+      "와아!": 2,
+      "좋아요": 1,
+      "저": 1,
+      "힘들어요": 1,
+      "배고파요": 1,
+      "오늘": 1,
+      "어": 1,
+      "위험해요": 1,
+      "앗": 2,
+      "제발": 1,
+      "이거얼마예요?": 1,
+      "이거": 1,
+      "얼마인지": 1,
+      "고마워요": 1,
+      "흑": 1,
+      "으응": 1,
+      "짱이에요": 1,
+      "반가워요": 1,
+      "에헤헤": 1,
+      "무리예요": 1,
+      "잠깐": 1
+    },
+    "안녕하세요": {
+      "!": 1
+    },
+    "!": {
+      "<EOS>": 19,
+      "오셨어요": 1,
+      "반가워요": 1,
+      "오늘도": 1,
+      "꼭이요": 1,
+      "조심해서요": 1,
+      "지금은": 1,
+      "해볼래요": 1,
+      "아마도요": 1,
+      "밥": 1,
+      "조심하세요": 1,
+      "저쪽으로": 1,
+      "거기": 1
+    },
+    "와": {
+      "!": 1,
+      ",": 1
+    },
+    "오셨어요": {
+      "!": 1
+    },
+    "반가워요": {
+      "!": 1,
+      "~": 1
+    },
+    "헤헤,": {
+      "기다리고": 1,
+      "고마워요": 1
+    },
+    "기다리고": {
+      "있었어요": 1
+    },
+    "있었어요": {
+      "~": 1
+    },
+    "~": {
+      "<EOS>": 4,
+      "좋아해요": 1
+    },
+    "어서": {
+      "오세요": 1
+    },
+    "오세요": {
+      "!": 1
+    },
+    "오늘도": {
+      "힘내요": 1
+    },
+    "힘내요": {
+      "!": 1
+    },
+    "안녕히": {
+      "가세요": 1
+    },
+    "가세요": {
+      "~": 1
+    },
+    "또": {
+      "봐요": 1
+    },
+    "봐요": {
+      "!": 1
+    },
+    "꼭이요": {
+      "!": 1
+    },
+    "잘": {
+      "가요": 1
+    },
+    "가요": {
+      "!": 1
+    },
+    "조심해서요": {
+      "!": 1
+    },
+    "...": {
+      "벌써": 1,
+      "<EOS>": 6
+    },
+    "벌써": {
+      "가시는": 1
+    },
+    "가시는": {
+      "거예요": 1
+    },
+    "거예요": {
+      "?": 1
+    },
+    "?": {
+      "<EOS>": 2
+    },
+    "으": {
+      ",그건": 1
+    },
+    ",그건": {
+      "좀": 1,
+      "안돼요": 1
+    },
+    "좀": {
+      "어려울": 1,
+      "싫어요": 1
+    },
+    "어려울": {
+      "것": 1
+    },
+    "것": {
+      "같아요": 1,
+      "같은데": 1
+    },
+    "같아요": {
+      "...": 1
+    },
+    "아": {
+      ",": 1,
+      "진짜": 1
+    },
+    ",": {
+      "미안해요": 1,
+      "저는": 1,
+      "저": 1,
+      "왜": 1,
+      "이거": 1,
+      "너무": 1,
+      "기뻐요": 1,
+      "이거얼마예요?": 1
+    },
+    "미안해요": {
+      "!": 1
+    },
+    "지금은": {
+      "못": 1
+    },
+    "못": {
+      "해요": 1
+    },
+    "해요": {
+      "ㅠㅠ": 1
+    },
+    "ㅠㅠ": {
+      "<EOS>": 2
+    },
+    "에엣": {
+      ",": 1
+    },
+    "저는": {
+      "...잘": 1
+    },
+    "...잘": {
+      "못할": 1,
+      "모르겠어요": 1
+    },
+    "못할": {
+      "것": 1
+    },
+    "같은데": {
+      "...": 1
+    },
+    "그건": {
+      "좀": 1
+    },
+    "싫어요": {
+      "!": 1
+    },
+    "네!": {
+      "할게요": 1,
+      "<EOS>": 1
+    },
+    "할게요": {
+      "!": 1
+    },
+    "와아!": {
+      "맡겨": 1,
+      "정말": 1
+    },
+    "맡겨": {
+      "주세요": 1
+    },
+    "주세요": {
+      "!": 1
+    },
+    "좋아요": {
+      "!": 1
+    },
+    "해볼래요": {
+      "!": 1
+    },
+    "저": {
+      ",": 1,
+      "할": 1
+    },
+    "할": {
+      "수": 1
+    },
+    "수": {
+      "있어요": 1
+    },
+    "있어요": {
+      "!": 1
+    },
+    "아마도요": {
+      "!": 1
+    },
+    "힘들어요": {
+      "...": 1
+    },
+    "진짜": {
+      ",": 1
+    },
+    "왜": {
+      "이렇게": 1
+    },
+    "이렇게": {
+      "안돼요": 1
+    },
+    "안돼요": {
+      "...": 1,
+      "!": 1
+    },
+    "배고파요": {
+      "!": 1
+    },
+    "밥": {
+      "먹고": 1
+    },
+    "먹고": {
+      "싶어요!": 1
+    },
+    "싶어요!": {
+      "<EOS>": 2
+    },
+    "오늘": {
+      "너무": 1
+    },
+    "너무": {
+      "피곤해요": 1,
+      "감동이에요": 1
+    },
+    "피곤해요": {
+      "ㅠㅠ": 1
+    },
+    "어": {
+      "!": 1
+    },
+    "조심하세요": {
+      "!": 1
+    },
+    "위험해요": {
+      "!": 1
+    },
+    "저쪽으로": {
+      "가지": 1
+    },
+    "가지": {
+      "마세요": 1
+    },
+    "마세요": {
+      "!": 1
+    },
+    "앗": {
+      ",그건": 1,
+      ",": 1
+    },
+    "제발": {
+      "조심히": 1
+    },
+    "조심히": {
+      "해주세요": 1
+    },
+    "해주세요": {
+      "...": 1
+    },
+    "이거얼마예요?": {
+      "<EOS>": 1,
+      "꼭": 1
+    },
+    "이거": {
+      "사고": 1,
+      "비싸요": 1
+    },
+    "사고": {
+      "싶은데": 1,
+      "싶어요!": 1
+    },
+    "싶은데": {
+      "얼마예요?": 1
+    },
+    "얼마예요?": {
+      "<EOS>": 1
+    },
+    "비싸요": {
+      "?": 1
+    },
+    "얼마인지": {
+      "알려주세요": 1
+    },
+    "알려주세요": {
+      "~": 1
+    },
+    "고마워요": {
+      "!": 1,
+      "~": 1
+    },
+    "정말": {
+      "정말": 1,
+      "감사합니다": 1
+    },
+    "감사합니다": {
+      "!": 1
+    },
+    "좋아해요": {
+      "!": 1
+    },
+    "흑": {
+      ",": 1
+    },
+    "감동이에요": {
+      "...": 1
+    },
+    "으응": {
+      "...잘": 1
+    },
+    "모르겠어요": {
+      ".": 1
+    },
+    ".": {
+      "<EOS>": 2,
+      "진짜로요": 1
+    },
+    "짱이에요": {
+      "!": 1
+    },
+    "에헤헤": {
+      ",": 1
+    },
+    "기뻐요": {
+      "!": 1
+    },
+    "무리예요": {
+      ".": 1
+    },
+    "진짜로요": {
+      ".": 1
+    },
+    "꼭": {
+      "사고": 1
+    },
+    "잠깐": {
+      "!": 1
+    },
+    "거기": {
+      "멈춰요": 1
+    },
+    "멈춰요": {
+      "!": 1
+    }
+  },
+  "schemas": {
+    "greet": [
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "punct",
+        "end",
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "body_greet",
+        "end",
+        "punct"
+      ],
+      [
+        "body_greet",
+        "end",
+        "punct",
+        "body_greet",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct"
+      ]
+    ],
+    "farewell": [
+      [
+        "body_farewell",
+        "end",
+        "punct"
+      ],
+      [
+        "body_farewell",
+        "end",
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "body_farewell",
+        "end",
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "punct",
+        "body_farewell",
+        "body_farewell",
+        "end",
+        "punct"
+      ]
+    ],
+    "refuse_quest": [
+      [
+        "interj",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "punct",
+        "end",
+        "punct",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "end",
+        "end"
+      ],
+      [
+        "body_refuse_quest",
+        "punct",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "punct"
+      ],
+      [
+        "body_refuse_quest",
+        "body_refuse_quest",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct",
+        "end",
+        "punct"
+      ]
+    ],
+    "accept_quest": [
+      [
+        "end",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "body_accept_quest",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "body_accept_quest",
+        "punct",
+        "body_accept_quest",
+        "body_accept_quest",
+        "body_accept_quest",
+        "end",
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "end"
+      ]
+    ],
+    "complain": [
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "body_complain",
+        "punct",
+        "body_complain",
+        "body_complain",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct",
+        "body_complain",
+        "body_complain",
+        "end"
+      ],
+      [
+        "body_complain",
+        "body_complain",
+        "end",
+        "end"
+      ],
+      [
+        "body_complain",
+        "body_complain",
+        "end",
+        "punct"
+      ]
+    ],
+    "warn": [
+      [
+        "interj",
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct",
+        "body_warn",
+        "body_warn",
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "body_warn",
+        "end",
+        "punct"
+      ],
+      [
+        "body_warn",
+        "body_warn",
+        "end",
+        "punct"
+      ],
+      [
+        "body_warn",
+        "punct",
+        "body_warn",
+        "end",
+        "punct"
+      ]
+    ],
+    "ask_price": [
+      [
+        "end"
+      ],
+      [
+        "interj",
+        "punct",
+        "body_ask_price",
+        "body_ask_price",
+        "body_ask_price",
+        "end"
+      ],
+      [
+        "body_ask_price",
+        "end",
+        "punct"
+      ],
+      [
+        "body_ask_price",
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "punct",
+        "end",
+        "body_ask_price",
+        "body_ask_price",
+        "end"
+      ]
+    ],
+    "thank": [
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "body_thank",
+        "body_thank",
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "end",
+        "punct",
+        "end",
+        "punct"
+      ],
+      [
+        "body_thank",
+        "punct",
+        "body_thank",
+        "end",
+        "punct"
+      ],
+      [
+        "end",
+        "punct"
+      ],
+      [
+        "interj",
+        "punct",
+        "end",
+        "punct"
+      ]
+    ]
+  }
+}

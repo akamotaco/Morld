@@ -1,0 +1,128 @@
+# =============================================================
+# 시호 (Shiho) — Tsundere — Hybrid Template+Slot 포맷
+# =============================================================
+# 핵심: 각 template = 완성된 자연 문장, slot만 {name}으로 표기
+# 설계 규칙:
+#   - state_bias 는 "이 template이 가장 잘 맞는 상태"
+#   - slot pool 은 character 단위로 공유 or intent 단위로 오버라이드 가능
+#     (이 예시는 intent 단위로 정의)
+
+character: 시호
+archetype: tsundere
+era: modern
+sex: F
+
+outer_profile:
+  formality: -0.3
+  warmth: -0.1
+  aggression: 0.3
+  verbosity: 0.1
+  maturity: 0.2
+
+inner_profile:
+  formality: 0.1
+  warmth: 0.4
+  aggression: -0.1
+  verbosity: 0.6
+  maturity: 0.2
+
+# =============================================================
+# Intents
+# =============================================================
+intents:
+
+  # ===== greet =====
+  greet:
+    templates:
+      - id: plain_cool
+        pattern: "{interj}. 왔어{end}"
+        state_bias: { affinity: 0.3, arousal: 0.2 }
+      - id: annoyed
+        pattern: "{interj}, 또 왔네{end}"
+        state_bias: { affinity: 0.5, aggression: 0.3 }
+      - id: why_ask
+        pattern: "왜 {freq} 말 거는 건데{end}"
+        state_bias: { embarrassment: 0.5, affinity: 0.4 }
+      - id: tsun_wait
+        pattern: "...{wait_verb}. 기다렸... 아니, {deny}{end}"
+        state_bias: { affinity: 0.7, embarrassment: 0.6 }
+      - id: short_hi
+        pattern: "안녕{end}"
+        state_bias: { affinity: 0.5, embarrassment: 0.2 }
+    slots:
+      interj:
+        - { token: "어",   feature: { affinity: 0.3 } }
+        - { token: "응",   feature: { affinity: 0.4, warmth: 0.2 } }
+        - { token: "흥",   feature: { aggression: 0.4, affinity: 0.3 } }
+        - { token: "...아", feature: { embarrassment: 0.4 } }
+      freq: [ "자꾸", "매번", "계속" ]
+      wait_verb: [ "늦었잖아", "왜 이제 와", "한참 찾았잖아" ]
+      deny:
+        - "별로 안 기다렸어"
+        - "뭐 기다린 건 아니지만"
+        - "아니, 신경 안 썼어"
+      end: [ ".", "..", "..." ]
+
+  # ===== thank =====
+  thank:
+    templates:
+      - id: plain
+        pattern: "고마워{end}"
+        state_bias: { affinity: 0.6, embarrassment: 0.1 }
+      - id: emph_thanks
+        pattern: "{emph}, 고마워{end}"
+        state_bias: { affinity: 0.6, embarrassment: 0.3 }
+      - id: tsun_accept
+        pattern: "{hedge} 받긴 할게. {refusal}{end}"
+        state_bias: { embarrassment: 0.8, affinity: 0.6 }
+      - id: sincere
+        pattern: "...정말, 고마워. {strength}로{end}"
+        state_bias: { affinity: 0.8, trust: 0.7, embarrassment: 0.2 }
+      - id: long_tsun
+        pattern: "{hedge} 받고 싶진 않았지만... {accept}{end}"
+        state_bias: { embarrassment: 0.7, affinity: 0.5, verbosity: 0.4 }
+      - id: stutter
+        pattern: "{stutter}고, 고마워{end}"
+        state_bias: { embarrassment: 0.9, affinity: 0.7 }
+    slots:
+      emph:
+        - { token: "딱히",   feature: { embarrassment: 0.6, warmth: -0.1 } }
+        - { token: "별로",   feature: { embarrassment: 0.5, aggression: 0.2 } }
+        - { token: "뭐",     feature: { embarrassment: 0.3 } }
+        - { token: "...진짜", feature: { embarrassment: 0.4, affinity: 0.6 } }
+      hedge: [ "그냥", "아무튼", "이거" ]
+      refusal:
+        - "고맙다고는 안 해"
+        - "착각하지 마"
+        - "기대하진 마"
+      stutter: [ "어, 어... ", "그, ", "우, " ]
+      end: [ ".", "..", "..." ]
+      strength: [ "진짜", "정말", "확실히" ]
+      accept: [ "뭐, 받을게", "받긴 할게", "그래도 받을게" ]
+
+  # ===== complain =====
+  complain:
+    templates:
+      - id: short_angry
+        pattern: "아, 진짜 짜증나{end}"
+        state_bias: { arousal: 0.6, aggression: 0.5 }
+      - id: tired
+        pattern: "오늘 좀 피곤해. {dismiss}{end}"
+        state_bias: { fatigue: 0.7, verbosity: -0.2 }
+      - id: unfair
+        pattern: "왜 {scope} 나한테만 시키는 거야{end}"
+        state_bias: { aggression: 0.5, verbosity: 0.4 }
+      - id: soft_vent
+        pattern: "...그냥, {reason}{end}"
+        state_bias: { fatigue: 0.6, affinity: 0.5, embarrassment: 0.4 }
+      - id: dismiss
+        pattern: "그게 뭐가 중요해{end}"
+        state_bias: { aggression: 0.3 }
+    slots:
+      dismiss: [ "말 걸지 마", "좀 가만히 둬", "내버려 둬" ]
+      scope:   [ "다들", "매번", "항상" ]
+      reason:
+        - "좀 힘들어서 그래"
+        - "오늘은 그런 기분이야"
+        - "아무것도 하기 싫어"
+      end: [ ".", "..", "...", "!" ]
