@@ -175,8 +175,8 @@ public partial class MetaActionHandler
 
 		try
 		{
-			// Python quest 모듈의 show_quest_ui() 호출
-			scriptSystem.Eval("import quest");
+			// Python quest 모듈의 show_quest_ui() 호출 — import는 Execute로
+			scriptSystem.Execute("import quest");
 			var result = scriptSystem.Eval("quest.show_quest_ui()");
 
 			if (result is SharpPy.PyGenerator generator)
@@ -223,8 +223,8 @@ public partial class MetaActionHandler
 
 		try
 		{
-			// Python settings 모듈의 show_settings_ui() 호출
-			scriptSystem.Eval("import settings");
+			// Python settings 모듈의 show_settings_ui() 호출 — import는 Execute로
+			scriptSystem.Execute("import settings");
 			var result = scriptSystem.Eval("settings.show_settings_ui()");
 
 			if (result is SharpPy.PyGenerator generator)
@@ -406,8 +406,8 @@ public partial class MetaActionHandler
 		{
 			if (subAction == "open")
 			{
-				// 지도 UI 열기 - Python map_ui.show_map() 호출
-				scriptSystem.Eval("import map_ui");
+				// 지도 UI 열기 - Python map_ui.show_map() 호출 — import는 Execute로
+				scriptSystem.Execute("import map_ui");
 				var result = scriptSystem.Eval("map_ui.show_map()");
 
 				if (result is SharpPy.PyGenerator generator)

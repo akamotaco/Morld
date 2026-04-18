@@ -618,7 +618,10 @@ namespace SE
 				var scriptSystem = _hub.GetSystem("scriptSystem") as ScriptSystem;
 				try
 				{
-					var maxResult = scriptSystem?.Eval($"import inventory as _inv; _inv.get_max_slots({player.Id})");
+					// Eval은 단일 expression만 받음 — import는 Execute로 선행
+					// (S04 등 inventory 모듈 없는 시나리오는 ImportError로 catch 되어 조용히 스킵)
+					scriptSystem?.Execute("import inventory as _inv");
+					var maxResult = scriptSystem?.Eval($"_inv.get_max_slots({player.Id})");
 					if (maxResult != null && maxResult is not SharpPy.PyNone)
 					{
 						int maxSlots = maxResult.ToInt();
@@ -627,7 +630,7 @@ namespace SE
 						slotText = $" ({usedSlots}/{maxSlots})";
 					}
 				}
-				catch (System.Exception) { /* prop 미설정 시 무시 */ }
+				catch (System.Exception) { /* prop 미설정 또는 inventory 모듈 없음 — 무시 */ }
 			}
 			lines.Add($"[b]소지품{slotText}[/b]");
 			lines.Add("");

@@ -21,6 +21,55 @@ import morld
 
 MERGE_THRESHOLD = 3.0   # X좌표 거리 이내면 기존 바닥에 병합
 
+# === 자동 바닥 생성 플래그 (계층: region override → 엔진 전역) ===
+#
+# 목적: 1D 생활 시뮬 엔진 공용 — 시나리오 무관하게 drop 경로가 동작.
+# 특수 Region(Limbo/던전 등)에서만 필요 시 off.
+
+AUTO_GROUND_GLOBAL_DEFAULT = True    # 엔진 전역 기본 — 시나리오가 set_auto_ground_default로 변경 가능
+_region_flags = {}                   # {region_id: bool} — 지역별 override
+
+
+def set_auto_ground_default(enabled):
+    """엔진 전역 default 변경 (chapter init 등에서 호출)"""
+    global AUTO_GROUND_GLOBAL_DEFAULT
+    AUTO_GROUND_GLOBAL_DEFAULT = bool(enabled)
+
+
+def set_region_auto_ground(region_id, enabled):
+    """Region 단위 override. None 전달 시 제거(전역 default로 복귀)."""
+    if enabled is None:
+        _region_flags.pop(region_id, None)
+    else:
+        _region_flags[region_id] = bool(enabled)
+
+
+def can_auto_generate(region_id, location_id=None):
+    """현재 위치가 자동 바닥 생성을 허용하는가 — region 우선, 없으면 전역 default."""
+    if region_id in _region_flags:
+        return _region_flags[region_id]
+    return AUTO_GROUND_GLOBAL_DEFAULT
+
+
+# === 엔진 내장 Fallback 바닥 클래스 ===
+#
+# 시나리오에 assets/objects/grounds.py 또는 DynamicGround가 없을 때 사용.
+# 최소 속성만 보유 — 시나리오가 커스터마이징 원하면 자체 grounds.py 정의.
+
+class _EngineDynamicGround:
+    """엔진 내장 기본 동적 바닥 — 시나리오별 grounds.py 없을 때 대체."""
+    name = "바닥"
+    actions = ["putinobject"]
+    unique_id = "engine_dynamic_ground"
+    focus_text = {"default": "아이템이 놓여 있다."}
+    item_visible = True
+
+    def __init__(self):
+        self.instance_id = None
+        self.region_id = None
+        self.location_id = None
+
+
 # === 레지스트리 ===
 
 # (region_id, location_id) → [{"unit_id": int, "x": float}, ...]
@@ -35,9 +84,14 @@ _ground_locations = {}
 # ========================================
 
 def reset():
-    """챕터 전환 시 레지스트리 초기화"""
+    """챕터 전환 시 레지스트리 초기화.
+
+    _region_flags는 시나리오 chapter init에서 다시 설정하므로 여기서 초기화.
+    AUTO_GROUND_GLOBAL_DEFAULT는 엔진 기본값이므로 유지.
+    """
     _grounds.clear()
     _ground_locations.clear()
+    _region_flags.clear()
     print("[ground] reset")
 
 
@@ -65,14 +119,14 @@ def ensure_ground_at(region_id, location_id, x):
     """
     해당 위치에 바닥 확보. 병합 가능하면 기존 반환, 없으면 새로 생성.
 
-    Args:
-        region_id: Region ID
-        location_id: Location ID
-        x: X좌표
-
     Returns:
         int — 바닥 오브젝트 unit_id
+        None — 이 region에서 자동 생성 비활성화 (drop 경로는 '버릴 곳 없다' 표시)
     """
+    # 자동 바닥 생성 플래그 체크 (region override → 전역 default)
+    if not can_auto_generate(region_id, location_id):
+        return None
+
     key = (region_id, location_id)
     entries = _grounds.get(key, [])
 
@@ -93,23 +147,41 @@ def ensure_ground_at(region_id, location_id, x):
 
 
 def _resolve_ground_class(region_id, location_id):
-    """Location의 ground_type에 맞는 Ground 클래스와 인스턴스 반환"""
-    from assets.objects import grounds as grounds_module
-    from assets.objects.grounds import DynamicGround
-    from assets.registry import get_unique_id, get_location_class
+    """Location에 맞는 Ground 클래스와 인스턴스를 fallback 체인으로 결정.
 
-    # location_id → unique_id → Location 클래스 → ground_type
-    unique_id = get_unique_id(location_id)
-    if unique_id:
-        loc_cls = get_location_class(unique_id)
-        if loc_cls:
-            ground_type_name = getattr(loc_cls, "ground_type", None)
-            if ground_type_name:
-                ground_cls = getattr(grounds_module, ground_type_name, None)
-                if ground_cls:
-                    return ground_cls, ground_cls()
+    순서:
+      1. Location class의 ground_type prop (시나리오 grounds.py의 특정 클래스)
+      2. 시나리오의 기본 DynamicGround (assets.objects.grounds)
+      3. 엔진 내장 _EngineDynamicGround (시나리오에 grounds.py 없어도 동작)
+    """
+    # 1. Location별 ground_type 오버라이드
+    try:
+        from assets.registry import get_unique_id, get_location_class
+        unique_id = get_unique_id(location_id)
+        if unique_id:
+            loc_cls = get_location_class(unique_id)
+            if loc_cls:
+                ground_type_name = getattr(loc_cls, "ground_type", None)
+                if ground_type_name:
+                    try:
+                        from assets.objects import grounds as grounds_module
+                        ground_cls = getattr(grounds_module, ground_type_name, None)
+                        if ground_cls:
+                            return ground_cls, ground_cls()
+                    except ImportError:
+                        pass
+    except (ImportError, Exception):
+        pass
 
-    return DynamicGround, DynamicGround()
+    # 2. 시나리오 기본 DynamicGround
+    try:
+        from assets.objects.grounds import DynamicGround
+        return DynamicGround, DynamicGround()
+    except ImportError:
+        pass
+
+    # 3. 엔진 내장 fallback (1D 생활 시뮬 엔진 공용)
+    return _EngineDynamicGround, _EngineDynamicGround()
 
 
 def _copy_env_props(ground_id, region_id, location_id):

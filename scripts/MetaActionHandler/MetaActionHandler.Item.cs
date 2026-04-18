@@ -100,7 +100,15 @@ public partial class MetaActionHandler
 			float posX = player.PositionX;
 			try
 			{
-				var result = scriptSystem.Eval($"import ground; ground.ensure_ground_at({regionId}, {localId}, {posX})");
+				// Eval은 단일 expression만 받음 — import는 Execute로 선행
+				scriptSystem.Execute("import ground");
+				var result = scriptSystem.Eval($"ground.ensure_ground_at({regionId}, {localId}, {posX})");
+				// 해당 region에서 자동 바닥 생성 비활성화 시 None 반환
+				if (result == null || result is SharpPy.PyNone)
+				{
+					_textUISystem?.ShowResult("여기에는 버릴 곳이 없다.");
+					return;
+				}
 				groundUnitId = result.ToInt();
 			}
 			catch (System.Exception ex)
@@ -337,7 +345,8 @@ public partial class MetaActionHandler
 			{
 				try
 				{
-					scriptSystem.Eval($"import equipment; equipment.unequip_item({player.Id}, {unequipId})");
+					scriptSystem.Execute("import equipment");
+					scriptSystem.Eval($"equipment.unequip_item({player.Id}, {unequipId})");
 				}
 				catch (Exception ex)
 				{
@@ -396,7 +405,8 @@ public partial class MetaActionHandler
 		var scriptSystem = _world.GetSystem("scriptSystem") as ScriptSystem;
 		try
 		{
-			scriptSystem.Eval($"import equipment; equipment.unequip_item({player.Id}, {itemId})");
+			scriptSystem.Execute("import equipment");
+			scriptSystem.Eval($"equipment.unequip_item({player.Id}, {itemId})");
 		}
 		catch (Exception ex)
 		{
