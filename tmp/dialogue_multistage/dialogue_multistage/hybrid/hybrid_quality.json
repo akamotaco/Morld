@@ -2,82 +2,82 @@
   "state_sensitivity": {
     "시호": {
       "greet": {
-        "mean_edit": 2.86,
-        "unique_outputs": 2
+        "mean_edit": 13.33,
+        "unique_outputs": 5
       },
       "thank": {
-        "mean_edit": 6.67,
-        "unique_outputs": 3
+        "mean_edit": 13.1,
+        "unique_outputs": 5
       },
       "complain": {
-        "mean_edit": 10.52,
-        "unique_outputs": 4
+        "mean_edit": 11.0,
+        "unique_outputs": 5
       }
     },
     "유카": {
       "greet": {
-        "mean_edit": 4.0,
-        "unique_outputs": 2
+        "mean_edit": 5.24,
+        "unique_outputs": 6
       },
       "thank": {
-        "mean_edit": 3.14,
-        "unique_outputs": 2
+        "mean_edit": 6.9,
+        "unique_outputs": 5
       },
       "complain": {
-        "mean_edit": 2.57,
-        "unique_outputs": 2
+        "mean_edit": 6.48,
+        "unique_outputs": 5
       }
     },
     "린": {
       "greet": {
-        "mean_edit": 3.43,
-        "unique_outputs": 2
+        "mean_edit": 11.71,
+        "unique_outputs": 6
       },
       "thank": {
-        "mean_edit": 0.0,
-        "unique_outputs": 1
+        "mean_edit": 11.52,
+        "unique_outputs": 5
       },
       "complain": {
-        "mean_edit": 4.0,
-        "unique_outputs": 2
+        "mean_edit": 12.33,
+        "unique_outputs": 5
       }
     }
   },
   "diversity": {
     "시호": {
       "n_total": 45,
-      "n_unique": 40,
-      "distinct_1": 0.459,
-      "distinct_2": 0.57,
-      "self_bleu_3": 0.298,
-      "avg_len_words": 4.36
+      "n_unique": 37,
+      "distinct_1": 0.632,
+      "distinct_2": 0.758,
+      "self_bleu_3": 0.183,
+      "avg_len_words": 3.02
     },
     "유카": {
       "n_total": 45,
-      "n_unique": 30,
-      "distinct_1": 0.558,
-      "distinct_2": 0.625,
-      "self_bleu_3": 0.0,
-      "avg_len_words": 1.71
+      "n_unique": 40,
+      "distinct_1": 0.688,
+      "distinct_2": 0.745,
+      "self_bleu_3": 0.333,
+      "avg_len_words": 2.13
     },
     "린": {
       "n_total": 45,
-      "n_unique": 39,
-      "distinct_1": 0.462,
-      "distinct_2": 0.575,
-      "self_bleu_3": 0.217,
-      "avg_len_words": 2.93
+      "n_unique": 42,
+      "distinct_1": 0.722,
+      "distinct_2": 0.886,
+      "self_bleu_3": 0.042,
+      "avg_len_words": 2.96
     }
   },
   "latency": {
     "시호": {
-      "full_us": 45.8
+      "full_us": 149.0
     },
     "유카": {
-      "full_us": 36.5
+      "full_us": 133.9
     },
     "린": {
-      "full_us": 39.4
+      "full_us": 122.2
     }
   }
 }

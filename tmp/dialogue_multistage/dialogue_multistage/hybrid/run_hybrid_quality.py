@@ -91,6 +91,7 @@ def test_state_sensitivity(eng, intent):
         {"hostility": 0.7},
         {"confidence": -0.6},
     ]
+    eng.reset_history()
     outs = []
     for sv in state_variations:
         eng.set_seed(12345)
@@ -109,6 +110,7 @@ def test_state_sensitivity(eng, intent):
 def test_diversity(eng, intents, n_trials=15):
     """Test 4: 다양한 state 에서 다양성 측정."""
     import random
+    eng.reset_history()
     outs = []
     for intent in intents:
         for trial in range(n_trials):
