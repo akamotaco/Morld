@@ -1,0 +1,266 @@
+# cold archetype — action_reactions context
+# 자동 변환: S02 cold.py / ACTION_REACTIONS
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: cold
+context: action_reactions
+_source: S02 cold.py:ACTION_REACTIONS
+intents:
+  fellatio:
+    templates:
+    - id: fellatio_80_30_0_0
+      pattern: '{name}가 담담하게 하고 있다. 귀만 빨갛다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    - id: fellatio_30_60_0_0
+      pattern: '{name}가 냉정함을 잃고 점점 빠져들고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+    - id: fellatio_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차가운 눈으로 노려보며 마지못해 하고 있다.'
+      state_bias: &id001
+        affinity: -0.3
+        arousal: 0.0
+    - id: fellatio_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 구역질을 참으며 이를 악물고 있다.'
+      state_bias: *id001
+    - id: fellatio_rebellion_high_-60_30_0_0
+      pattern: '{name}가 이빨을 세워 깨물려는 살기를 드러내고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: fellatio_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 기침하며 머리를 격렬하게 흔들고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: fellatio_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}가 눈빛에 순수한 살의만 남아 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: fellatio_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 모든 감정이 사라진 채 비어 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  thrust_gentle:
+    templates:
+    - id: thrust_gentle_80_30_0_0
+      pattern: '{name}가 눈을 감은 채 미동 없이 받아들이고 있다.'
+      state_bias: &id002
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_gentle_80_30_0_1
+      pattern: '{name}가 무표정하지만 힘이 빠져 있다.'
+      state_bias: *id002
+    - id: thrust_gentle_30_60_0_0
+      pattern: '{name}의 호흡이 미세하게 흔들리고 있다.'
+      state_bias: &id003
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_gentle_30_60_0_1
+      pattern: '{name}가 냉정한 가면 아래로 감각이 스미고 있다.'
+      state_bias: *id003
+    - id: thrust_gentle_30_0_0_0
+      pattern: '{name}가 무심한 듯 눈을 감고 있다.'
+      state_bias: &id004
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_gentle_30_0_0_1
+      pattern: '{name}가 담담하게 느린 움직임을 허용하고 있다.'
+      state_bias: *id004
+    - id: thrust_gentle_-30_60_0_0
+      pattern: '{name}가 부드러운 움직임에도 몸이 미세하게 떨리고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: thrust_gentle_-30_0_0_0
+      pattern: '{name}가 이를 악물고 고개를 돌린 채 참고 있다.'
+      state_bias: &id005
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_gentle_-30_0_0_1
+      pattern: '{name}가 차가운 눈으로 천장을 응시하며 견디고 있다.'
+      state_bias: *id005
+    - id: thrust_gentle_-60_30_0_0
+      pattern: '{name}가 부드러워도 분노를 억누르며 견디고 있다.'
+      state_bias: &id006
+        affinity: -0.6
+        arousal: 0.3
+    - id: thrust_gentle_-60_30_0_1
+      pattern: '{name}가 냉담한 눈으로 참고 있다.'
+      state_bias: *id006
+    - id: thrust_gentle_-80_0_0_0
+      pattern: '{name}가 감정이 사라진 채 인형처럼 누워 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  sync_thrust:
+    templates:
+    - id: sync_thrust_80_30_0_0
+      pattern: '{name}가 자기도 모르게 허리를 맞추고 있다.'
+      state_bias: &id007
+        affinity: 0.8
+        arousal: 0.3
+    - id: sync_thrust_80_30_0_1
+      pattern: '{name}의 몸이 무의식적으로 리듬을 따르고 있다.'
+      state_bias: *id007
+    - id: sync_thrust_80_30_0_2
+      pattern: '{name}가 무표정하지만 허리가 당신에게 맞춰지고 있다.'
+      state_bias: *id007
+    - id: sync_thrust_30_60_0_0
+      pattern: '{name}가 리듬에 맞춰 숨이 거칠어지고 있다.'
+      state_bias: &id008
+        affinity: 0.3
+        arousal: 0.6
+    - id: sync_thrust_30_60_0_1
+      pattern: '{name}가 인정하지 않으려 하지만 몸이 저절로 맞추고 있다.'
+      state_bias: *id008
+    - id: sync_thrust_30_0_0_0
+      pattern: '{name}가 조용히 당신의 움직임에 허리를 맞추고 있다.'
+      state_bias: &id009
+        affinity: 0.3
+        arousal: 0.0
+    - id: sync_thrust_30_0_0_1
+      pattern: '{name}가 눈을 감은 채 리듬을 따르고 있다.'
+      state_bias: *id009
+    - id: sync_thrust_-30_0_0_0
+      pattern: '{name}가 리듬을 거부하려 하지만 몸이 저절로 반응하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    - id: sync_thrust_-60_30_0_0
+      pattern: '{name}가 자기도 모르게 맞추는 자신에게 이를 악물고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  hug:
+    templates:
+    - id: hug_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차갑게 어깨를 밀어내고 있다.'
+      state_bias: &id010
+        affinity: -0.3
+        arousal: 0.0
+    - id: hug_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 눈도 마주치지 않고 몸을 비틀고 있다.'
+      state_bias: *id010
+    - id: hug_rebellion_high_-60_30_0_0
+      pattern: '{name}가 이를 악물고 팔꿈치로 밀어내고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: hug_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 살기 어린 눈으로 노려보며 밀치고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: hug_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}가 손톱으로 살을 파며 저항하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: hug_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 눈빛이 완전히 꺼진 채 굳어 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  deep_kiss:
+    templates:
+    - id: deep_kiss_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차갑게 고개를 돌리며 입술을 피하고 있다.'
+      state_bias: &id011
+        affinity: -0.3
+        arousal: 0.0
+    - id: deep_kiss_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 이를 악물고 입을 열지 않고 있다.'
+      state_bias: *id011
+    - id: deep_kiss_rebellion_high_-60_30_0_0
+      pattern: '{name}가 상대의 입술을 깨물어 찢으려 하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: deep_kiss_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 구역질하며 침을 뱉고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: deep_kiss_rebellion_extreme_-60_30_0_0
+      pattern: '{name}가 상대의 혀를 깨물어 피를 맛보고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: deep_kiss_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 눈빛이 완전히 죽은 채 멍하게 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  genital_caress:
+    templates:
+    - id: genital_caress_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차가운 눈으로 다리를 오므리고 있다.'
+      state_bias: &id012
+        affinity: -0.3
+        arousal: 0.0
+    - id: genital_caress_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 이를 악물며 손을 비틀어 잡고 있다.'
+      state_bias: *id012
+    - id: genital_caress_rebellion_high_-60_30_0_0
+      pattern: '{name}가 무릎으로 가격하며 저항하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: genital_caress_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 살기를 드러내며 할퀴고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: genital_caress_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}가 모든 감정이 사라진 채 인형처럼 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: genital_caress_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 눈빛에 살의만 남아 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  thrust_normal:
+    templates:
+    - id: thrust_normal_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 이를 악물고 고통을 참으며 눈물이 흐르고 있다.'
+      state_bias: &id013
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_normal_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 차가운 눈으로 노려보며 견디고 있다.'
+      state_bias: *id013
+    - id: thrust_normal_rebellion_high_-60_30_0_0
+      pattern: '{name}가 살기 어린 눈으로 손톱을 세워 할퀴고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: thrust_normal_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 이를 악물고 머리를 들이받으려 하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: thrust_normal_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}가 눈빛이 완전히 죽은 채 미동도 없다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: thrust_normal_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 해리된 채 허공을 응시하고 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
