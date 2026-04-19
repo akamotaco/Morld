@@ -1,0 +1,14 @@
+# 린 (Rin) — cheerful (deredere) 프로필
+# 표리일체 — inner_profile 생략
+
+character: 린
+archetype: cheerful
+era: modern
+sex: F
+
+outer_profile:
+  formality: -0.2
+  warmth: 0.7
+  aggression: -0.3
+  verbosity: 0.5
+  maturity: -0.3

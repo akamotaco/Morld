@@ -1,0 +1,281 @@
+# devoted archetype — action_reactions context
+# 자동 변환: S02 devoted.py / ACTION_REACTIONS
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: devoted
+context: action_reactions
+_source: S02 devoted.py:ACTION_REACTIONS
+intents:
+  hug:
+    templates:
+    - id: hug_80_30_0_0
+      pattern: '{name}가 감사한 듯 가슴에 얼굴을 묻고 있다.'
+      state_bias: &id001
+        affinity: 0.8
+        arousal: 0.3
+    - id: hug_80_30_0_1
+      pattern: '{name}가 행복하게 체온을 나누며 안겨 있다.'
+      state_bias: *id001
+    - id: hug_80_-30_0_0
+      pattern: '{name}가 황송한 듯 조심스럽게 안기고 있다.'
+      state_bias: &id002
+        affinity: 0.8
+        arousal: -0.3
+    - id: hug_80_-30_0_1
+      pattern: '{name}가 자격이 없다는 듯 쭈뼛거리며 안기고 있다.'
+      state_bias: *id002
+    - id: hug_-30_0_0_0
+      pattern: '{name}가 상처받은 눈으로 조심스럽게 밀어내고 있다.'
+      state_bias: &id003
+        affinity: -0.3
+        arousal: 0.0
+    - id: hug_-30_0_0_1
+      pattern: '{name}가 배신당한 표정으로 몸을 움츠리고 있다.'
+      state_bias: *id003
+    - id: hug_-60_30_0_0
+      pattern: '{name}가 울면서 ''왜 이러세요''라고 외치고 있다.'
+      state_bias: &id004
+        affinity: -0.6
+        arousal: 0.3
+    - id: hug_-60_30_0_1
+      pattern: '{name}가 눈물범벅이 되어 양손으로 밀어내고 있다.'
+      state_bias: *id004
+    - id: hug_-80_0_0_0
+      pattern: '{name}가 영혼이 빠진 듯 축 늘어져 있다.'
+      state_bias: &id005
+        affinity: -0.8
+        arousal: 0.0
+    - id: hug_-80_0_0_1
+      pattern: '{name}가 체념한 듯 텅 빈 눈으로 안겨 있다.'
+      state_bias: *id005
+    slots: {}
+  deep_kiss:
+    templates:
+    - id: deep_kiss_80_30_0_0
+      pattern: '{name}가 감사한 듯 부드럽게 입술을 맞추고 있다.'
+      state_bias: &id006
+        affinity: 0.8
+        arousal: 0.3
+    - id: deep_kiss_80_30_0_1
+      pattern: '{name}가 눈물을 글썽이며 키스에 응하고 있다.'
+      state_bias: *id006
+    - id: deep_kiss_30_60_0_0
+      pattern: '{name}가 숨을 삼키며 더 깊이 키스하고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+    - id: deep_kiss_-30_0_0_0
+      pattern: '{name}가 상처받은 표정으로 고개를 젓고 있다.'
+      state_bias: &id007
+        affinity: -0.3
+        arousal: 0.0
+    - id: deep_kiss_-30_0_0_1
+      pattern: '{name}가 눈물을 흘리며 얼굴을 돌리고 있다.'
+      state_bias: *id007
+    - id: deep_kiss_-60_30_0_0
+      pattern: '{name}가 울면서 입을 막고 있다.'
+      state_bias: &id008
+        affinity: -0.6
+        arousal: 0.3
+    - id: deep_kiss_-60_30_0_1
+      pattern: '{name}가 배신감에 구역질하며 얼굴을 돌리고 있다.'
+      state_bias: *id008
+    - id: deep_kiss_-80_0_0_0
+      pattern: '{name}가 의식이 멀어진 듯 반응 없이 입을 벌리고 있다.'
+      state_bias: &id009
+        affinity: -0.8
+        arousal: 0.0
+    - id: deep_kiss_-80_0_0_1
+      pattern: '{name}가 텅 빈 눈으로 아무 반응도 하지 않고 있다.'
+      state_bias: *id009
+    slots: {}
+  fellatio:
+    templates:
+    - id: fellatio_80_30_0_0
+      pattern: '{name}가 기쁘게 해드리려는 듯 정성껏 하고 있다.'
+      state_bias: &id010
+        affinity: 0.8
+        arousal: 0.3
+    - id: fellatio_80_30_0_1
+      pattern: '{name}가 당신의 반응을 살피며 열심히 하고 있다.'
+      state_bias: *id010
+    - id: fellatio_30_60_0_0
+      pattern: '{name}가 간절한 듯 점점 열심히 하고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+    - id: fellatio_-30_0_0_0
+      pattern: '{name}가 상처받은 채 울면서 마지못해 하고 있다.'
+      state_bias: &id011
+        affinity: -0.3
+        arousal: 0.0
+    - id: fellatio_-30_0_0_1
+      pattern: '{name}가 눈물을 흘리며 구역질을 참고 있다.'
+      state_bias: *id011
+    - id: fellatio_-60_30_0_0
+      pattern: '{name}가 숨이 막혀 기침하며 울고 있다.'
+      state_bias: &id012
+        affinity: -0.6
+        arousal: 0.3
+    - id: fellatio_-60_30_0_1
+      pattern: '{name}가 배신감에 구토하며 흐느끼고 있다.'
+      state_bias: *id012
+    - id: fellatio_-80_0_0_0
+      pattern: '{name}가 의식을 잃은 듯 축 늘어져 있다.'
+      state_bias: &id013
+        affinity: -0.8
+        arousal: 0.0
+    - id: fellatio_-80_0_0_1
+      pattern: '{name}가 눈물도 마른 채 인형처럼 있다.'
+      state_bias: *id013
+    slots: {}
+  genital_caress:
+    templates:
+    - id: genital_caress_80_30_0_0
+      pattern: '{name}가 부끄러워하면서도 기꺼이 다리를 열고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    - id: genital_caress_-30_0_0_0
+      pattern: '{name}가 상처받은 채 울면서 다리를 닫으려 하고 있다.'
+      state_bias: &id014
+        affinity: -0.3
+        arousal: 0.0
+    - id: genital_caress_-30_0_0_1
+      pattern: '{name}가 배신당한 표정으로 손을 밀어내려 하고 있다.'
+      state_bias: *id014
+    - id: genital_caress_-60_30_0_0
+      pattern: '{name}가 울부짖으며 왜 이러시냐고 간청하고 있다.'
+      state_bias: &id015
+        affinity: -0.6
+        arousal: 0.3
+    - id: genital_caress_-60_30_0_1
+      pattern: '{name}가 절규하며 온몸으로 막아내려 하고 있다.'
+      state_bias: *id015
+    - id: genital_caress_-80_0_0_0
+      pattern: '{name}가 의식이 흐려져 축 늘어져 있다.'
+      state_bias: &id016
+        affinity: -0.8
+        arousal: 0.0
+    - id: genital_caress_-80_0_0_1
+      pattern: '{name}가 눈물도 마른 채 멍하게 있다.'
+      state_bias: *id016
+    slots: {}
+  thrust_normal:
+    templates:
+    - id: thrust_normal_80_30_0_0
+      pattern: '{name}가 감사한 듯 당신을 감싸안으며 받아들이고 있다.'
+      state_bias: &id017
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_normal_80_30_0_1
+      pattern: '{name}가 황홀한 눈으로 당신과 하나가 되고 있다.'
+      state_bias: *id017
+    - id: thrust_normal_-30_0_0_0
+      pattern: '{name}가 배신감에 아파서 울면서 왜 이러시냐고 하고 있다.'
+      state_bias: &id018
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_normal_-30_0_0_1
+      pattern: '{name}가 상처받은 채 눈물범벅이 되어 견디고 있다.'
+      state_bias: *id018
+    - id: thrust_normal_-60_30_0_0
+      pattern: '{name}가 절규하며 왜 이런 일을 하시냐고 간청하고 있다.'
+      state_bias: &id019
+        affinity: -0.6
+        arousal: 0.3
+    - id: thrust_normal_-60_30_0_1
+      pattern: '{name}가 울부짖으며 필사적으로 도망치려 하고 있다.'
+      state_bias: *id019
+    - id: thrust_normal_-80_0_0_0
+      pattern: '{name}가 실신하여 축 늘어져 있다.'
+      state_bias: &id020
+        affinity: -0.8
+        arousal: 0.0
+    - id: thrust_normal_-80_0_0_1
+      pattern: '{name}가 눈물도 말라 빈 눈으로 멍하게 있다.'
+      state_bias: *id020
+    slots: {}
+  thrust_gentle:
+    templates:
+    - id: thrust_gentle_80_30_0_0
+      pattern: '{name}가 부드러운 움직임에 감사한 듯 눈을 감고 받아들이고 있다.'
+      state_bias: &id021
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_gentle_80_30_0_1
+      pattern: '{name}가 천천히 오는 감각에 감격의 눈물을 글썽이고 있다.'
+      state_bias: *id021
+    - id: thrust_gentle_30_60_0_0
+      pattern: '{name}가 당신을 기쁘게 하려는 듯 부드럽게 허리를 맡기고 있다.'
+      state_bias: &id022
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_gentle_30_60_0_1
+      pattern: '{name}가 감사하며 천천히 당신을 깊이 받아들이고 있다.'
+      state_bias: *id022
+    - id: thrust_gentle_30_0_0_0
+      pattern: '{name}가 기꺼이 천천히 느끼며 감사하고 있다.'
+      state_bias: &id023
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_gentle_30_0_0_1
+      pattern: '{name}가 순종적으로 부드러운 움직임을 받아들이고 있다.'
+      state_bias: *id023
+    - id: thrust_gentle_-30_0_0_0
+      pattern: '{name}가 부드럽게 해줘도 상처받은 눈으로 떨고 있다.'
+      state_bias: &id024
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_gentle_-30_0_0_1
+      pattern: '{name}가 눈물을 참으며 마지못해 받아들이고 있다.'
+      state_bias: *id024
+    - id: thrust_gentle_-60_30_0_0
+      pattern: '{name}가 울면서도 배신감에 왜 다정하게 하시냐고 떨고 있다.'
+      state_bias: &id025
+        affinity: -0.6
+        arousal: 0.3
+    - id: thrust_gentle_-60_30_0_1
+      pattern: '{name}가 부드러운 움직임에 더 상처받는 듯 흐느끼고 있다.'
+      state_bias: *id025
+    slots: {}
+  sync_thrust:
+    templates:
+    - id: sync_thrust_80_30_0_0
+      pattern: '{name}가 당신의 리듬에 감사한 듯 정성껏 맞추고 있다.'
+      state_bias: &id026
+        affinity: 0.8
+        arousal: 0.3
+    - id: sync_thrust_80_30_0_1
+      pattern: '{name}가 당신과 하나가 되려는 듯 허리를 맞추며 감격하고 있다.'
+      state_bias: *id026
+    - id: sync_thrust_30_60_0_0
+      pattern: '{name}가 당신을 기쁘게 하려고 열심히 리듬을 맞추고 있다.'
+      state_bias: &id027
+        affinity: 0.3
+        arousal: 0.6
+    - id: sync_thrust_30_60_0_1
+      pattern: '{name}가 간절한 눈으로 당신의 움직임을 따르고 있다.'
+      state_bias: *id027
+    - id: sync_thrust_30_0_0_0
+      pattern: '{name}가 기꺼이 당신의 호흡에 맞추고 있다.'
+      state_bias: &id028
+        affinity: 0.3
+        arousal: 0.0
+    - id: sync_thrust_30_0_0_1
+      pattern: '{name}가 순종적으로 당신의 리듬을 따르고 있다.'
+      state_bias: *id028
+    - id: sync_thrust_-30_0_0_0
+      pattern: '{name}가 상처받은 채로도 몸이 당신에게 맞춰지는 것에 울고 있다.'
+      state_bias: &id029
+        affinity: -0.3
+        arousal: 0.0
+    - id: sync_thrust_-30_0_0_1
+      pattern: '{name}가 맞추고 싶지 않은데 몸이 따르는 것에 수치심을 느끼고 있다.'
+      state_bias: *id029
+    - id: sync_thrust_-60_30_0_0
+      pattern: '{name}가 배신감에 울면서도 몸이 당신을 따르는 것에 절망하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}

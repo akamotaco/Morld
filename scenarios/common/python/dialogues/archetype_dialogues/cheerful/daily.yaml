@@ -1,0 +1,303 @@
+# cheerful archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+
+archetype: cheerful
+context: daily
+intents:
+  greet:
+    templates:
+    - id: plain_bright
+      pattern: 안녕하세요{emph}
+      state_bias:
+        arousal: 0.4
+        affinity: 0.4
+    - id: welcome_energy
+      pattern: '{interj}! 오셨어요! 반가워요{emph}'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+    - id: cute_wait
+      pattern: '{soft_interj}, 기다리고 있었어요{soft_end}'
+      state_bias:
+        affinity: 0.7
+    - id: cheer
+      pattern: 어서 오세요! 오늘도 {cheer_phrase}{emph}
+      state_bias:
+        arousal: 0.7
+        confidence: 0.5
+    - id: short_hello
+      pattern: 반가워요{soft_end}
+      state_bias:
+        affinity: 0.5
+    - id: sparkle
+      pattern: '{star_interj}! {sparkle_expr}{emph}'
+      state_bias:
+        arousal: 0.8
+        affinity: 0.9
+    - id: quiet_hello
+      pattern: '{soft_interj}... 왔네요{soft_end}'
+      state_bias:
+        affinity: 0.6
+        arousal: -0.2
+    - id: singy
+      pattern: 안녕~ 안녕~{soft_end}
+      state_bias:
+        arousal: 0.6
+        affinity: 0.7
+    - id: shy_welcome
+      pattern: '{shy_interj}... 오랜만이에요{soft_end}'
+      state_bias:
+        affinity: 0.7
+        arousal: 0.3
+    - id: pumped
+      pattern: 좋은 아침이에요! 오늘 날씨 {weather_adj}{emph}
+      state_bias:
+        arousal: 0.7
+        confidence: 0.5
+    slots:
+      interj:
+      - token: 와
+        feature:
+          arousal: 0.7
+      - token: 앗
+        feature:
+          arousal: 0.6
+      - token: 우와
+        feature:
+          arousal: 0.8
+      soft_interj:
+      - 헤헤
+      - 에헤헤
+      - 후후
+      cheer_phrase:
+      - 힘내요
+      - 파이팅이에요
+      - 잘 부탁드려요
+      emph:
+      - '!'
+      - '!!'
+      - '~'
+      soft_end:
+      - '~'
+      - ..
+      - '!'
+      star_interj:
+      - 와앗
+      - 꺄아
+      - 우와아
+      sparkle_expr:
+      - 꿈같아요
+      - 진짜 좋아요
+      - 너무 행복해요
+      shy_interj:
+      - 아
+      - 에헤
+      - 앗
+      weather_adj:
+      - 좋죠
+      - 최고예요
+      - 딱이에요
+  thank:
+    templates:
+    - id: plain_happy
+      pattern: 고마워요{emph}
+      state_bias:
+        affinity: 0.6
+        arousal: 0.4
+    - id: super_excited
+      pattern: '{interj}! 정말 정말 {thank_phrase}{emph}'
+      state_bias:
+        affinity: 0.9
+        arousal: 0.85
+    - id: cute_thank
+      pattern: '{soft_interj}, 고마워요~ {extra}{emph}'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.5
+    - id: moved
+      pattern: '{sob}, 너무 감동이에요{soft_end}'
+      state_bias:
+        affinity: 0.85
+        arousal: 0.5
+    - id: short_praise
+      pattern: 짱이에요{emph}
+      state_bias:
+        arousal: 0.7
+        affinity: 0.6
+    - id: teary
+      pattern: '{sob}... 정말 {teary_word}{soft_end}'
+      state_bias:
+        affinity: 0.9
+        arousal: 0.4
+    - id: playful
+      pattern: '{soft_interj}! {playful_reaction}{emph}'
+      state_bias:
+        affinity: 0.7
+        arousal: 0.6
+    - id: hug_feel
+      pattern: 꼬옥 {hug_verb}{emph}
+      state_bias:
+        affinity: 0.85
+        arousal: 0.5
+    - id: quiet_thanks
+      pattern: '...고마워요. {quiet_add}{soft_end}'
+      state_bias:
+        affinity: 0.75
+        arousal: -0.1
+    - id: energy_thanks
+      pattern: '{pump}! 감사해요 감사해요{emph}'
+      state_bias:
+        arousal: 0.8
+        affinity: 0.6
+    slots:
+      interj:
+      - token: 와아
+        feature:
+          arousal: 0.85
+      - token: 아아
+        feature:
+          arousal: 0.7
+      - token: 우와
+        feature:
+          arousal: 0.8
+      soft_interj:
+      - 헤헤
+      - 에헤헤
+      - 후훗
+      thank_phrase:
+      - 감사합니다
+      - 고마워요
+      - 감사해요
+      extra:
+      - 좋아해요
+      - 최고예요
+      - 행복해요
+      sob:
+      - 흑
+      - 히잉
+      - 흐응
+      emph:
+      - '!'
+      - '!!'
+      - '~'
+      soft_end:
+      - '...'
+      - ..
+      - '~'
+      teary_word:
+      - 감사해요
+      - 고마워요
+      - 잊지 못할 거예요
+      playful_reaction:
+      - 이거 좋아요
+      - 너무 재밌었어요
+      - 최고의 선물이에요
+      hug_verb:
+      - 안아주고 싶어요
+      - 안기고 싶어요
+      - 안아드릴게요
+      quiet_add:
+      - 진심으로요
+      - 정말이에요
+      - 항상이요
+      pump:
+      - 히히
+      - 야호
+      - 예압
+  complain:
+    templates:
+    - id: tired_short
+      pattern: 힘들어요{soft_end}
+      state_bias:
+        fatigue: 0.7
+    - id: frustration
+      pattern: 아 진짜, 왜 이렇게 {fail_verb}{soft_end}
+      state_bias:
+        fatigue: 0.6
+        aggression: 0.3
+    - id: hungry
+      pattern: 배고파요! {food_want}{emph}
+      state_bias:
+        fatigue: 0.4
+        arousal: 0.5
+    - id: exhausted
+      pattern: 오늘 너무 피곤해요{soft_end}
+      state_bias:
+        fatigue: 0.8
+    - id: uncertain
+      pattern: 으응... 잘 {unsure_verb}{soft_end}
+      state_bias:
+        confidence: -0.4
+    - id: whine_long
+      pattern: 아아... {whine_expr}{soft_end}
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.5
+    - id: loud_complaint
+      pattern: 이거 진짜 {loud_adj}! {loud_tail}{emph}
+      state_bias:
+        aggression: 0.4
+        arousal: 0.6
+    - id: cute_whimper
+      pattern: 우에에... {whimper_expr}{soft_end}
+      state_bias:
+        fatigue: 0.5
+        confidence: -0.3
+    - id: sleep_sleep
+      pattern: 졸려요... {sleep_add}{soft_end}
+      state_bias:
+        fatigue: 0.8
+    - id: bug_found
+      pattern: '{bug_interj}... {bug_expr}{soft_end}'
+      state_bias:
+        arousal: 0.5
+        aggression: 0.3
+    slots:
+      fail_verb:
+      - 안 돼요
+      - 안 풀려요
+      - 이게 안 되는 거죠
+      food_want:
+      - 밥 먹고 싶어요
+      - 간식 먹고 싶어요
+      - 뭐라도 먹어야겠어요
+      unsure_verb:
+      - 모르겠어요
+      - 기억이 안 나요
+      - 이해가 안 돼요
+      whine_expr:
+      - 정말 힘들어요
+      - 왜 이래요
+      - 저 한계예요
+      loud_adj:
+      - 이상해요
+      - 짜증나요
+      - 말도 안 돼요
+      loud_tail:
+      - 누가 이렇게 만들었어요
+      - 다시 해야 해요
+      - 진짜 못 참아요
+      whimper_expr:
+      - 무서워요
+      - 못하겠어요
+      - 포기하고 싶어요
+      sleep_add:
+      - 조금만 쉬게 해주세요
+      - 눈이 감겨요
+      - 자고 싶어요
+      bug_interj:
+      - 읏
+      - 앗차
+      - 헉
+      bug_expr:
+      - 저거 벌레에요
+      - 이상한 소리가 들려요
+      - 거기 뭐 있어요
+      emph:
+      - '!'
+      - '!!'
+      - '~'
+      soft_end:
+      - ㅠㅠ
+      - '...'
+      - ..

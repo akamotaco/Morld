@@ -1,0 +1,2805 @@
+# devoted archetype — action_lines context
+# 자동 변환: S02 devoted.py / ACTION_LINES
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: devoted
+context: action_lines
+_source: S02 devoted.py:ACTION_LINES
+intents:
+  hug:
+    templates:
+    - id: hug_80_30_0_0
+      pattern: '...기쁘다...'
+      state_bias: &id001
+        affinity: 0.8
+        arousal: 0.3
+    - id: hug_80_30_0_1
+      pattern: 감사해요...
+      state_bias: *id001
+    - id: hug_80_30_0_2
+      pattern: 행복해요...
+      state_bias: *id001
+    - id: hug_80_30_0_3
+      pattern: '...정말 좋아요... 이대로 있고 싶어요...'
+      state_bias: *id001
+    - id: hug_80_-30_0_0
+      pattern: '...저한테... 이렇게까지...'
+      state_bias: &id002
+        affinity: 0.8
+        arousal: -0.3
+    - id: hug_80_-30_0_1
+      pattern: '...자격이 없는데... 감사해요...'
+      state_bias: *id002
+    - id: hug_30_0_0_0
+      pattern: '...꼭 안아주세요...'
+      state_bias: &id003
+        affinity: 0.3
+        arousal: 0.0
+    - id: hug_30_0_0_1
+      pattern: '...따뜻해요...'
+      state_bias: *id003
+    - id: hug_30_0_0_2
+      pattern: '...당신 곁에 있으면 안심돼요...'
+      state_bias: *id003
+    - id: hug_-30_0_0_0
+      pattern: '...안아주시는 건... 감사한데... 왜 이러세요...'
+      state_bias: &id004
+        affinity: -0.3
+        arousal: 0.0
+    - id: hug_-30_0_0_1
+      pattern: '...(상처받았지만 밀어내지 못하고 안기고 있다)'
+      state_bias: *id004
+    - id: hug_-30_0_0_2
+      pattern: '...따뜻한데... 아파요...'
+      state_bias: *id004
+    slots: {}
+  deep_kiss:
+    templates:
+    - id: deep_kiss_80_30_0_0
+      pattern: '...감사해요... 키스해주시다니...'
+      state_bias: &id005
+        affinity: 0.8
+        arousal: 0.3
+    - id: deep_kiss_80_30_0_1
+      pattern: '...행복해요...'
+      state_bias: *id005
+    - id: deep_kiss_30_0_0_0
+      pattern: '...네... 눈 감을게요...'
+      state_bias: &id006
+        affinity: 0.3
+        arousal: 0.0
+    - id: deep_kiss_30_0_0_1
+      pattern: '...키스... 해주세요...'
+      state_bias: *id006
+    - id: deep_kiss_30_0_0_2
+      pattern: '...당신이 원하시는 거라면...'
+      state_bias: *id006
+    - id: deep_kiss_-30_0_0_0
+      pattern: '...키스는... 왜 이러세요...'
+      state_bias: &id007
+        affinity: -0.3
+        arousal: 0.0
+    - id: deep_kiss_-30_0_0_1
+      pattern: '...(눈물을 참으며 입술을 맞대고 있다)'
+      state_bias: *id007
+    - id: deep_kiss_-30_0_0_2
+      pattern: '...입술이... 떨려요...'
+      state_bias: *id007
+    slots: {}
+  fellatio:
+    templates:
+    - id: fellatio_80_30_0_0
+      pattern: '...기쁘게 해드릴게요...'
+      state_bias: &id008
+        affinity: 0.8
+        arousal: 0.3
+    - id: fellatio_80_30_0_1
+      pattern: '...이렇게 하면... 좋아요?'
+      state_bias: *id008
+    - id: fellatio_30_0_0_0
+      pattern: '...당신이 원하시면... 기꺼이...'
+      state_bias: &id009
+        affinity: 0.3
+        arousal: 0.0
+    - id: fellatio_30_0_0_1
+      pattern: '...(정성스럽게 입을 벌린다)'
+      state_bias: *id009
+    - id: fellatio_-30_0_0_0
+      pattern: '...(울먹이지만 마지못해 입을 벌린다)'
+      state_bias: &id010
+        affinity: -0.3
+        arousal: 0.0
+    - id: fellatio_-30_0_0_1
+      pattern: '...왜 이러세요... 이런 걸...'
+      state_bias: *id010
+    - id: fellatio_80_80_0_0
+      pattern: '...(감사한 듯 정성껏 입을 벌린다)...'
+      state_bias: &id011
+        affinity: 0.8
+        arousal: 0.8
+    - id: fellatio_80_80_0_1
+      pattern: '...더... 기쁘게 해드릴게요...'
+      state_bias: *id011
+    slots: {}
+  vaginal_insert:
+    templates:
+    - id: vaginal_insert_80_30_0_0
+      pattern: '...넣어요... 준비됐어요...'
+      state_bias: &id012
+        affinity: 0.8
+        arousal: 0.3
+    - id: vaginal_insert_80_30_0_1
+      pattern: '...당신이라면... 괜찮아요...'
+      state_bias: *id012
+    - id: vaginal_insert_30_0_0_0
+      pattern: '...당신이 원하시면... 기꺼이...'
+      state_bias: &id013
+        affinity: 0.3
+        arousal: 0.0
+    - id: vaginal_insert_30_0_0_1
+      pattern: '...천천히... 해주세요...'
+      state_bias: *id013
+    - id: vaginal_insert_-30_0_0_0
+      pattern: '...안 돼요... 왜 이러세요...'
+      state_bias: &id014
+        affinity: -0.3
+        arousal: 0.0
+    - id: vaginal_insert_-30_0_0_1
+      pattern: '...(울면서도 밀어내지 못하고 있다)'
+      state_bias: *id014
+    - id: vaginal_insert_-30_0_0_2
+      pattern: '...아파요... 믿었는데...'
+      state_bias: *id014
+    - id: vaginal_insert_80_80_0_0
+      pattern: '...넣어주세요...! 행복해요...!'
+      state_bias: &id015
+        affinity: 0.8
+        arousal: 0.8
+    - id: vaginal_insert_80_80_0_1
+      pattern: '...(감격의 눈물을 글썽이며 당신을 끌어안는다)'
+      state_bias: *id015
+    slots: {}
+  cunnilingus:
+    templates:
+    - id: cunnilingus_80_30_0_0
+      pattern: '...저한테... 그런 것까지... 감사해요... 기뻐요...'
+      state_bias: &id016
+        affinity: 0.8
+        arousal: 0.3
+    - id: cunnilingus_80_30_0_1
+      pattern: '...황송해요... 당신이 저를 위해... 눈물이 나요...'
+      state_bias: *id016
+    - id: cunnilingus_30_0_0_0
+      pattern: '...에엣...?! 저한테... 그런 것까지... 황송해요...!'
+      state_bias: &id017
+        affinity: 0.3
+        arousal: 0.0
+    - id: cunnilingus_30_0_0_1
+      pattern: '...그런 건... 안 돼요...!'
+      state_bias: *id017
+    - id: cunnilingus_-30_0_0_0
+      pattern: '...거기를... 왜 이러세요...'
+      state_bias: &id018
+        affinity: -0.3
+        arousal: 0.0
+    - id: cunnilingus_-30_0_0_1
+      pattern: '...(부끄러워 얼굴을 가리며 울고 있다)'
+      state_bias: *id018
+    - id: cunnilingus_80_80_0_0
+      pattern: '...거기에... 혀가...! 감사해요...!'
+      state_bias: &id019
+        affinity: 0.8
+        arousal: 0.8
+    - id: cunnilingus_80_80_0_1
+      pattern: '...(다리에 힘이 풀리며 눈물이 맺힌다)'
+      state_bias: *id019
+    slots: {}
+  head_pat:
+    templates:
+    - id: head_pat_80_30_0_0
+      pattern: '...이렇게 쓰다듬어주시다니... 감격이에요...'
+      state_bias: &id020
+        affinity: 0.8
+        arousal: 0.3
+    - id: head_pat_80_30_0_1
+      pattern: '...당신의 손이 머리에 닿으면... 모든 게 괜찮아져요...'
+      state_bias: *id020
+    - id: head_pat_80_30_0_2
+      pattern: '...행복해서 눈물이 나요...'
+      state_bias: *id020
+    - id: head_pat_30_0_0_0
+      pattern: '...감사해요...'
+      state_bias: &id021
+        affinity: 0.3
+        arousal: 0.0
+    - id: head_pat_30_0_0_1
+      pattern: '...행복해요...'
+      state_bias: *id021
+    - id: head_pat_30_0_0_2
+      pattern: '...쓰다듬어주시다니... 기뻐요...'
+      state_bias: *id021
+    - id: head_pat_30_0_0_3
+      pattern: '...더 해주세요...'
+      state_bias: *id021
+    - id: head_pat_-30_0_0_0
+      pattern: '...왜 이러세요... 이런 건 자격이 없는데...'
+      state_bias: &id022
+        affinity: -0.3
+        arousal: 0.0
+    - id: head_pat_-30_0_0_1
+      pattern: '...쓰다듬어주시는 건... 감사한데...'
+      state_bias: *id022
+    - id: head_pat_-30_0_0_2
+      pattern: '...(고개를 숙인 채 가만히 있다)'
+      state_bias: *id022
+    slots: {}
+  cheek_caress:
+    templates:
+    - id: cheek_caress_80_30_0_0
+      pattern: '...볼에 손을... 감사해요... 너무 따뜻해요...'
+      state_bias: &id023
+        affinity: 0.8
+        arousal: 0.3
+    - id: cheek_caress_80_30_0_1
+      pattern: '...이렇게 만져주시면... 녹아버릴 것 같아요...'
+      state_bias: *id023
+    - id: cheek_caress_80_30_0_2
+      pattern: '...(감격한 듯 볼을 손에 맡긴다)'
+      state_bias: *id023
+    - id: cheek_caress_30_0_0_0
+      pattern: '...손이... 따뜻해요...'
+      state_bias: &id024
+        affinity: 0.3
+        arousal: 0.0
+    - id: cheek_caress_30_0_0_1
+      pattern: '...감사해요...'
+      state_bias: *id024
+    - id: cheek_caress_30_0_0_2
+      pattern: '...행복해요...'
+      state_bias: *id024
+    - id: cheek_caress_30_0_0_3
+      pattern: '...부끄러워요...'
+      state_bias: *id024
+    - id: cheek_caress_-30_0_0_0
+      pattern: '...왜... 이렇게 다정하게 하시는 거예요...'
+      state_bias: &id025
+        affinity: -0.3
+        arousal: 0.0
+    - id: cheek_caress_-30_0_0_1
+      pattern: '...(상처받은 눈으로 손길을 받고 있다)'
+      state_bias: *id025
+    - id: cheek_caress_-30_0_0_2
+      pattern: '...감사한데... 아프기도 해요...'
+      state_bias: *id025
+    slots: {}
+  cheek_pinch:
+    templates:
+    - id: cheek_pinch_80_30_0_0
+      pattern: 아얏...! 아프지만... 당신이 만져주시니까 기뻐요...!
+      state_bias: &id026
+        affinity: 0.8
+        arousal: 0.3
+    - id: cheek_pinch_80_30_0_1
+      pattern: '...으읏... 아파도 감사해요... 관심을 주시니까...'
+      state_bias: *id026
+    - id: cheek_pinch_30_0_0_0
+      pattern: 아얏...! 아프지만... 당신이라면 괜찮아요...
+      state_bias: &id027
+        affinity: 0.3
+        arousal: 0.0
+    - id: cheek_pinch_30_0_0_1
+      pattern: 으응... 그만해주세요...
+      state_bias: *id027
+    - id: cheek_pinch_30_0_0_2
+      pattern: '...아파요... 하지만 기쁘다...'
+      state_bias: *id027
+    - id: cheek_pinch_-30_0_0_0
+      pattern: '...아파요... 왜 이러세요...'
+      state_bias: &id028
+        affinity: -0.3
+        arousal: 0.0
+    - id: cheek_pinch_-30_0_0_1
+      pattern: '...(눈물을 참으며 견디고 있다)'
+      state_bias: *id028
+    slots: {}
+  ear_touch:
+    templates:
+    - id: ear_touch_80_30_0_0
+      pattern: '...거기... 약한데... 당신이라서 기뻐요...'
+      state_bias: &id029
+        affinity: 0.8
+        arousal: 0.3
+    - id: ear_touch_80_30_0_1
+      pattern: '...귀가 뜨거워요... 감사해요...'
+      state_bias: *id029
+    - id: ear_touch_80_30_0_2
+      pattern: '...으응... 당신이 만지시면... 녹아요...'
+      state_bias: *id029
+    - id: ear_touch_30_0_0_0
+      pattern: '...! 거, 거기는... 약해요...'
+      state_bias: &id030
+        affinity: 0.3
+        arousal: 0.0
+    - id: ear_touch_30_0_0_1
+      pattern: '...으응... 간지러워요...'
+      state_bias: *id030
+    - id: ear_touch_30_0_0_2
+      pattern: '...당신이 만지시면... 이상해져요...'
+      state_bias: *id030
+    - id: ear_touch_-30_0_0_0
+      pattern: '...거기는... 약하다고 했는데...'
+      state_bias: &id031
+        affinity: -0.3
+        arousal: 0.0
+    - id: ear_touch_-30_0_0_1
+      pattern: '...(움찔하지만 참고 있다)'
+      state_bias: *id031
+    slots: {}
+  butt_caress:
+    templates:
+    - id: butt_caress_80_30_0_0
+      pattern: '...부끄럽지만... 당신이 만져주시면... 기뻐요...'
+      state_bias: &id032
+        affinity: 0.8
+        arousal: 0.3
+    - id: butt_caress_80_30_0_1
+      pattern: '...거기... 당신이 원하시면 얼마든지요...'
+      state_bias: *id032
+    - id: butt_caress_30_0_0_0
+      pattern: '...!! 거, 거기는... 부끄러워요...!'
+      state_bias: &id033
+        affinity: 0.3
+        arousal: 0.0
+    - id: butt_caress_30_0_0_1
+      pattern: '...당신이 원하시면... 괜찮아요...'
+      state_bias: *id033
+    - id: butt_caress_30_0_0_2
+      pattern: '...으응...'
+      state_bias: *id033
+    - id: butt_caress_-30_0_0_0
+      pattern: '...거기는... 부끄러운데... 왜 이러세요...'
+      state_bias: &id034
+        affinity: -0.3
+        arousal: 0.0
+    - id: butt_caress_-30_0_0_1
+      pattern: '...(상처받았지만 밀어내지 못하고 있다)'
+      state_bias: *id034
+    slots: {}
+  lip_lick:
+    templates:
+    - id: lip_lick_80_30_0_0
+      pattern: '...으응... 간지러워요...'
+      state_bias: &id035
+        affinity: 0.8
+        arousal: 0.3
+    - id: lip_lick_80_30_0_1
+      pattern: '...(감사한 듯 살짝 웃는다)'
+      state_bias: *id035
+    - id: lip_lick_30_0_0_0
+      pattern: '...감사해요... 기뻐요...'
+      state_bias: &id036
+        affinity: 0.3
+        arousal: 0.0
+    - id: lip_lick_30_0_0_1
+      pattern: '...당신이 원하시면...'
+      state_bias: *id036
+    - id: lip_lick_-30_0_0_0
+      pattern: '...입술을... 왜 이러세요...'
+      state_bias: &id037
+        affinity: -0.3
+        arousal: 0.0
+    - id: lip_lick_-30_0_0_1
+      pattern: '...(떨리지만 가만히 있다)'
+      state_bias: *id037
+    slots: {}
+  breast_touch:
+    templates:
+    - id: breast_touch_80_30_0_0
+      pattern: '...가슴을... 만져주시는 거예요...? 감사해요...'
+      state_bias: &id038
+        affinity: 0.8
+        arousal: 0.3
+    - id: breast_touch_80_30_0_1
+      pattern: '...부끄럽지만... 당신이 원하시니까... 기뻐요...'
+      state_bias: *id038
+    - id: breast_touch_30_0_0_0
+      pattern: '...!! 거, 거기는... 부끄럽지만...'
+      state_bias: &id039
+        affinity: 0.3
+        arousal: 0.0
+    - id: breast_touch_30_0_0_1
+      pattern: '...당신이 원하시면... 괜찮아요...'
+      state_bias: *id039
+    - id: breast_touch_30_0_0_2
+      pattern: '...으응...'
+      state_bias: *id039
+    - id: breast_touch_-30_0_0_0
+      pattern: '...거기는... 부끄러운데...'
+      state_bias: &id040
+        affinity: -0.3
+        arousal: 0.0
+    - id: breast_touch_-30_0_0_1
+      pattern: '...(눈물을 참으며 내맡기고 있다)'
+      state_bias: *id040
+    slots: {}
+  breast_caress:
+    templates:
+    - id: breast_caress_80_30_0_0
+      pattern: '...으... 부드럽게... 해주세요...'
+      state_bias: &id041
+        affinity: 0.8
+        arousal: 0.3
+    - id: breast_caress_80_30_0_1
+      pattern: '...(감사한 듯 눈을 감는다)'
+      state_bias: *id041
+    - id: breast_caress_30_0_0_0
+      pattern: '...앗... 거기는... 부끄러워요...'
+      state_bias: &id042
+        affinity: 0.3
+        arousal: 0.0
+    - id: breast_caress_30_0_0_1
+      pattern: '...(기꺼이 내맡긴다)'
+      state_bias: *id042
+    - id: breast_caress_-30_0_0_0
+      pattern: '...가슴은... 만지지 마세요...'
+      state_bias: &id043
+        affinity: -0.3
+        arousal: 0.0
+    - id: breast_caress_-30_0_0_1
+      pattern: '...(눈물을 참으며 내맡기고 있다)'
+      state_bias: *id043
+    slots: {}
+  anal_stimulation:
+    templates:
+    - id: anal_stimulation_80_30_0_0
+      pattern: '...거기까지... 만져주시다니... 황송해요...'
+      state_bias: &id044
+        affinity: 0.8
+        arousal: 0.3
+    - id: anal_stimulation_80_30_0_1
+      pattern: '...부끄럽지만... 당신이 원하시면 어디든... 기뻐요...'
+      state_bias: *id044
+    - id: anal_stimulation_30_0_0_0
+      pattern: '...에엣?! 거, 거기는...! 하지만... 당신이 원하시면...'
+      state_bias: &id045
+        affinity: 0.3
+        arousal: 0.0
+    - id: anal_stimulation_30_0_0_1
+      pattern: '...그런 곳까지... 황송해요...'
+      state_bias: *id045
+    - id: anal_stimulation_-30_0_0_0
+      pattern: '...거기는... 안 돼요... 왜 이러세요...'
+      state_bias: &id046
+        affinity: -0.3
+        arousal: 0.0
+    - id: anal_stimulation_-30_0_0_1
+      pattern: '...(떨리지만 거부하지 못하고 있다)'
+      state_bias: *id046
+    slots: {}
+  butt_squeeze:
+    templates:
+    - id: butt_squeeze_80_30_0_0
+      pattern: '...세게 쥐셔도... 괜찮아요... 당신이 원하시면...'
+      state_bias: &id047
+        affinity: 0.8
+        arousal: 0.3
+    - id: butt_squeeze_80_30_0_1
+      pattern: '...부끄럽지만... 감사해요...'
+      state_bias: *id047
+    - id: butt_squeeze_30_0_0_0
+      pattern: '...앗...! 부끄럽지만... 당신이라면...'
+      state_bias: &id048
+        affinity: 0.3
+        arousal: 0.0
+    - id: butt_squeeze_30_0_0_1
+      pattern: '...(살짝 몸을 떨며 내맡긴다)'
+      state_bias: *id048
+    - id: butt_squeeze_-30_0_0_0
+      pattern: '...아파요... 왜 이러세요...'
+      state_bias: &id049
+        affinity: -0.3
+        arousal: 0.0
+    - id: butt_squeeze_-30_0_0_1
+      pattern: '...(참으며 견디고 있다)'
+      state_bias: *id049
+    slots: {}
+  anal_insert:
+    templates:
+    - id: anal_insert_80_30_0_0
+      pattern: '...거기는... 무섭지만... 당신이라면 기꺼이...!'
+      state_bias: &id050
+        affinity: 0.8
+        arousal: 0.3
+    - id: anal_insert_80_30_0_1
+      pattern: '...아프지만... 당신이 원하시니까... 감사해요...'
+      state_bias: *id050
+    - id: anal_insert_30_0_0_0
+      pattern: '...에엣?! 거, 거기는... 무섭지만... 당신이 원하시면...!'
+      state_bias: &id051
+        affinity: 0.3
+        arousal: 0.0
+    - id: anal_insert_30_0_0_1
+      pattern: '...(겁나지만 기꺼이 참는다)'
+      state_bias: *id051
+    - id: anal_insert_-30_0_0_0
+      pattern: '...거기는... 안 돼요...! 아파요...'
+      state_bias: &id052
+        affinity: -0.3
+        arousal: 0.0
+    - id: anal_insert_-30_0_0_1
+      pattern: '...(울먹이지만 저항하지 못하고 있다)'
+      state_bias: *id052
+    slots: {}
+  neck_kiss:
+    templates:
+    - id: neck_kiss_80_30_0_0
+      pattern: '...으응... 목... 약해요... 감사해요...'
+      state_bias: &id053
+        affinity: 0.8
+        arousal: 0.3
+    - id: neck_kiss_80_30_0_1
+      pattern: '...(몸이 떨리며 감사한 눈으로 바라본다)'
+      state_bias: *id053
+    - id: neck_kiss_30_0_0_0
+      pattern: '...앗...! 기뻐요...'
+      state_bias: &id054
+        affinity: 0.3
+        arousal: 0.0
+    - id: neck_kiss_30_0_0_1
+      pattern: '...거기는... 좀...'
+      state_bias: *id054
+    - id: neck_kiss_-30_0_0_0
+      pattern: '...목은... 왜 이러세요...'
+      state_bias: &id055
+        affinity: -0.3
+        arousal: 0.0
+    - id: neck_kiss_-30_0_0_1
+      pattern: '...(움찔하며 어깨를 움츠리고 있다)'
+      state_bias: *id055
+    slots: {}
+  genital_caress:
+    templates:
+    - id: genital_caress_80_80_0_0
+      pattern: '...더... 만져주세요... 감사해요...'
+      state_bias: &id056
+        affinity: 0.8
+        arousal: 0.8
+    - id: genital_caress_80_80_0_1
+      pattern: '...거기... 좋아요...'
+      state_bias: *id056
+    - id: genital_caress_30_0_0_0
+      pattern: '...거기... 부끄러워요...!'
+      state_bias: &id057
+        affinity: 0.3
+        arousal: 0.0
+    - id: genital_caress_30_0_0_1
+      pattern: '...앗...!'
+      state_bias: *id057
+    - id: genital_caress_-30_0_0_0
+      pattern: '...거기는... 왜 이러세요...'
+      state_bias: &id058
+        affinity: -0.3
+        arousal: 0.0
+    - id: genital_caress_-30_0_0_1
+      pattern: '...(떨리며 견디고 있다)'
+      state_bias: *id058
+    slots: {}
+  clit_stimulation:
+    templates:
+    - id: clit_stimulation_80_80_0_0
+      pattern: '...으응... 감사해요...'
+      state_bias: &id059
+        affinity: 0.8
+        arousal: 0.8
+    - id: clit_stimulation_80_80_0_1
+      pattern: '...거기는... 이상해요...'
+      state_bias: *id059
+    - id: clit_stimulation_30_0_0_0
+      pattern: '...!!!'
+      state_bias: &id060
+        affinity: 0.3
+        arousal: 0.0
+    - id: clit_stimulation_30_0_0_1
+      pattern: '...거기는... 부끄러워요...'
+      state_bias: *id060
+    - id: clit_stimulation_-30_0_0_0
+      pattern: '...거기는...! 만지지 마세요...!'
+      state_bias: &id061
+        affinity: -0.3
+        arousal: 0.0
+    - id: clit_stimulation_-30_0_0_1
+      pattern: '...(몸이 떨리며 눈물을 참고 있다)'
+      state_bias: *id061
+    slots: {}
+  clit_rub:
+    templates:
+    - id: clit_rub_80_80_0_0
+      pattern: '...으응...!! 거기는... 감사해요...'
+      state_bias: &id062
+        affinity: 0.8
+        arousal: 0.8
+    - id: clit_rub_80_80_0_1
+      pattern: '...이상해요... 멈추지 마세요...'
+      state_bias: *id062
+    - id: clit_rub_30_0_0_0
+      pattern: '...!!!'
+      state_bias: &id063
+        affinity: 0.3
+        arousal: 0.0
+    - id: clit_rub_30_0_0_1
+      pattern: '...거기는... 너무...'
+      state_bias: *id063
+    - id: clit_rub_-30_0_0_0
+      pattern: '...거기는... 안 돼요...! 이상해져요...'
+      state_bias: &id064
+        affinity: -0.3
+        arousal: 0.0
+    - id: clit_rub_-30_0_0_1
+      pattern: '...(울면서 다리를 모으려 하고 있다)'
+      state_bias: *id064
+    slots: {}
+  nipple_stimulation:
+    templates:
+    - id: nipple_stimulation_80_80_0_0
+      pattern: '...으응...!! 거기... 예민해요... 감사해요...'
+      state_bias: &id065
+        affinity: 0.8
+        arousal: 0.8
+    - id: nipple_stimulation_80_80_0_1
+      pattern: '...안 돼요... 이상해져요...'
+      state_bias: *id065
+    - id: nipple_stimulation_30_0_0_0
+      pattern: '...앗...!!'
+      state_bias: &id066
+        affinity: 0.3
+        arousal: 0.0
+    - id: nipple_stimulation_30_0_0_1
+      pattern: '...너무... 직접적이에요...'
+      state_bias: *id066
+    - id: nipple_stimulation_-30_0_0_0
+      pattern: '...거기는...! 아파요...'
+      state_bias: &id067
+        affinity: -0.3
+        arousal: 0.0
+    - id: nipple_stimulation_-30_0_0_1
+      pattern: '...(울먹이며 가슴을 가리려 하고 있다)'
+      state_bias: *id067
+    slots: {}
+  tongue_play:
+    templates:
+    - id: tongue_play_80_30_0_0
+      pattern: '...(감사한 듯 혀를 내밀며 눈을 감는다)'
+      state_bias: &id068
+        affinity: 0.8
+        arousal: 0.3
+    - id: tongue_play_80_30_0_1
+      pattern: '...음... 기뻐요...'
+      state_bias: *id068
+    - id: tongue_play_30_0_0_0
+      pattern: '...이렇게... 하면 되나요...?'
+      state_bias: &id069
+        affinity: 0.3
+        arousal: 0.0
+    - id: tongue_play_30_0_0_1
+      pattern: '...(정성스럽게 혀를 맞댄다)'
+      state_bias: *id069
+    - id: tongue_play_-30_0_0_0
+      pattern: '...왜 이러세요... 이런 건...'
+      state_bias: &id070
+        affinity: -0.3
+        arousal: 0.0
+    - id: tongue_play_-30_0_0_1
+      pattern: '...(떨리지만 거부하지 못하고 있다)'
+      state_bias: *id070
+    slots: {}
+  breast_squeeze:
+    templates:
+    - id: breast_squeeze_80_30_0_0
+      pattern: '...으으... 세게 하셔도... 기뻐요...'
+      state_bias: &id071
+        affinity: 0.8
+        arousal: 0.3
+    - id: breast_squeeze_80_30_0_1
+      pattern: '...(작게 신음하며 감사한 눈을 한다)'
+      state_bias: *id071
+    - id: breast_squeeze_30_0_0_0
+      pattern: '...앗... 세게... 하셔도 괜찮아요...'
+      state_bias: &id072
+        affinity: 0.3
+        arousal: 0.0
+    - id: breast_squeeze_30_0_0_1
+      pattern: '...(기꺼이 내맡긴다)'
+      state_bias: *id072
+    - id: breast_squeeze_-30_0_0_0
+      pattern: '...아파요... 세게 하시면...'
+      state_bias: &id073
+        affinity: -0.3
+        arousal: 0.0
+    - id: breast_squeeze_-30_0_0_1
+      pattern: '...(참으며 내맡기고 있다)'
+      state_bias: *id073
+    slots: {}
+  breast_suck:
+    templates:
+    - id: breast_suck_80_80_0_0
+      pattern: '...으응...! 빨면... 이상해져요... 감사해요...'
+      state_bias: &id074
+        affinity: 0.8
+        arousal: 0.8
+    - id: breast_suck_80_80_0_1
+      pattern: '...(당신의 머리를 감싸안으며 눈물이 맺힌다)'
+      state_bias: *id074
+    - id: breast_suck_30_0_0_0
+      pattern: '...앗...! 거기를 빨면... 이상해요...'
+      state_bias: &id075
+        affinity: 0.3
+        arousal: 0.0
+    - id: breast_suck_30_0_0_1
+      pattern: '...당신이 원하시면...'
+      state_bias: *id075
+    - id: breast_suck_-30_0_0_0
+      pattern: '...거기를... 빨지 마세요... 이상해져요...'
+      state_bias: &id076
+        affinity: -0.3
+        arousal: 0.0
+    - id: breast_suck_-30_0_0_1
+      pattern: '...(울먹이며 당신의 머리를 밀어내려 하고 있다)'
+      state_bias: *id076
+    slots: {}
+  clit_lick:
+    templates:
+    - id: clit_lick_80_80_0_0
+      pattern: '...으앗...!! 혀로...?! 감사해요...!'
+      state_bias: &id077
+        affinity: 0.8
+        arousal: 0.8
+    - id: clit_lick_80_80_0_1
+      pattern: '...거기를 핥으면... 이상해요... 기뻐요...'
+      state_bias: *id077
+    - id: clit_lick_30_0_0_0
+      pattern: '...에엣?! 거, 거기를...! 저한테 그런 것까지...!'
+      state_bias: &id078
+        affinity: 0.3
+        arousal: 0.0
+    - id: clit_lick_30_0_0_1
+      pattern: '...안 돼요...!! 황송해요...!'
+      state_bias: *id078
+    - id: clit_lick_-30_0_0_0
+      pattern: '...거기를... 핥지 마세요... 왜 이러세요...'
+      state_bias: &id079
+        affinity: -0.3
+        arousal: 0.0
+    - id: clit_lick_-30_0_0_1
+      pattern: '...(부끄러워 다리를 모으려 하며 떨고 있다)'
+      state_bias: *id079
+    slots: {}
+  finger_insertion:
+    templates:
+    - id: finger_insertion_80_80_0_0
+      pattern: '...으으응...!! 손가락이... 들어와요... 기뻐요...'
+      state_bias: &id080
+        affinity: 0.8
+        arousal: 0.8
+    - id: finger_insertion_80_80_0_1
+      pattern: '...(몸이 크게 떨리며 감사한 눈물이 맺힌다)'
+      state_bias: *id080
+    - id: finger_insertion_30_0_0_0
+      pattern: '...앗...!! 안에... 넣으시면...!'
+      state_bias: &id081
+        affinity: 0.3
+        arousal: 0.0
+    - id: finger_insertion_30_0_0_1
+      pattern: '...아프지만... 당신이라면...'
+      state_bias: *id081
+    - id: finger_insertion_-30_0_0_0
+      pattern: '...안에... 넣지 마세요... 왜 이러세요...'
+      state_bias: &id082
+        affinity: -0.3
+        arousal: 0.0
+    - id: finger_insertion_-30_0_0_1
+      pattern: '...(아프지만 저항하지 못하고 있다)'
+      state_bias: *id082
+    slots: {}
+  first_vaginal_insert:
+    templates:
+    - id: first_vaginal_insert_80_30_0_0
+      pattern: 처음이에요... 당신에게 드리는 거예요... 감격이에요...
+      state_bias: &id083
+        affinity: 0.8
+        arousal: 0.3
+    - id: first_vaginal_insert_80_30_0_1
+      pattern: '...아프지만... 당신이라서... 행복해요... 기뻐요...'
+      state_bias: *id083
+    - id: first_vaginal_insert_80_30_0_2
+      pattern: '...처음을... 당신에게... 감사해요... 감사해요...'
+      state_bias: *id083
+    - id: first_vaginal_insert_30_0_0_0
+      pattern: 처음이에요... 당신이라면... 기꺼이요...
+      state_bias: &id084
+        affinity: 0.3
+        arousal: 0.0
+    - id: first_vaginal_insert_30_0_0_1
+      pattern: 으으... 아프지만... 감사해요...
+      state_bias: *id084
+    - id: first_vaginal_insert_30_0_0_2
+      pattern: '...이렇게 되는 거군요... 당신이라서 기뻐요...'
+      state_bias: *id084
+    - id: first_vaginal_insert_-30_0_0_0
+      pattern: '...처음인데... 이렇게... 왜 이러세요...'
+      state_bias: &id085
+        affinity: -0.3
+        arousal: 0.0
+    - id: first_vaginal_insert_-30_0_0_1
+      pattern: '...아파요... 처음인데... 믿었는데...'
+      state_bias: *id085
+    slots: {}
+  first_finger_insertion:
+    templates:
+    - id: first_finger_insertion_80_30_0_0
+      pattern: '...처음이에요... 당신의 손가락이... 감사해요...'
+      state_bias: &id086
+        affinity: 0.8
+        arousal: 0.3
+    - id: first_finger_insertion_80_30_0_1
+      pattern: '...아프지만... 당신이 처음이라서... 기뻐요...'
+      state_bias: *id086
+    - id: first_finger_insertion_30_0_0_0
+      pattern: 아... 손가락이... 처음이에요...
+      state_bias: &id087
+        affinity: 0.3
+        arousal: 0.0
+    - id: first_finger_insertion_30_0_0_1
+      pattern: 으... 이상한 느낌이지만... 당신이라면...
+      state_bias: *id087
+    - id: first_finger_insertion_30_0_0_2
+      pattern: '...조심해 주세요... 처음이라... 감사해요...'
+      state_bias: *id087
+    - id: first_finger_insertion_-30_0_0_0
+      pattern: '...처음인데... 왜 이러세요...'
+      state_bias: &id088
+        affinity: -0.3
+        arousal: 0.0
+    - id: first_finger_insertion_-30_0_0_1
+      pattern: '...(울먹이며 견디고 있다)... 아파요...'
+      state_bias: *id088
+    slots: {}
+  first_anal_insert:
+    templates:
+    - id: first_anal_insert_80_30_0_0
+      pattern: '...거기는... 처음이에요...! 무섭지만 당신이라면... 감사해요...'
+      state_bias: &id089
+        affinity: 0.8
+        arousal: 0.3
+    - id: first_anal_insert_80_30_0_1
+      pattern: '...아파요... 하지만 당신이 원하시면... 전부 드릴게요...'
+      state_bias: *id089
+    - id: first_anal_insert_30_0_0_0
+      pattern: 거, 거기는...! 처음이에요...! 하지만 당신이 원하시면...!
+      state_bias: &id090
+        affinity: 0.3
+        arousal: 0.0
+    - id: first_anal_insert_30_0_0_1
+      pattern: 아아... 아파요... 그래도... 괜찮아요...
+      state_bias: *id090
+    - id: first_anal_insert_30_0_0_2
+      pattern: 으으...! 무섭지만... 당신이라면...
+      state_bias: *id090
+    - id: first_anal_insert_-30_0_0_0
+      pattern: '...거기는...! 처음이에요...! 왜 이러세요...!'
+      state_bias: &id091
+        affinity: -0.3
+        arousal: 0.0
+    - id: first_anal_insert_-30_0_0_1
+      pattern: '...아파요...! 뒤는... 안 돼요...'
+      state_bias: *id091
+    slots: {}
+  first_fellatio:
+    templates:
+    - id: first_fellatio_80_30_0_0
+      pattern: 처음이에요... 서툴러도... 기쁘게 해드릴게요...!
+      state_bias: &id092
+        affinity: 0.8
+        arousal: 0.3
+    - id: first_fellatio_80_30_0_1
+      pattern: '...(감격한 듯 정성스럽게 입을 벌린다)... 감사해요...'
+      state_bias: *id092
+    - id: first_fellatio_30_0_0_0
+      pattern: 이런 거... 처음이에요... 기쁘게 해드릴게요...
+      state_bias: &id093
+        affinity: 0.3
+        arousal: 0.0
+    - id: first_fellatio_30_0_0_1
+      pattern: 으... 입에 넣는 거예요...? 당신이 원하시면...
+      state_bias: *id093
+    - id: first_fellatio_30_0_0_2
+      pattern: '...(서툴지만 정성스럽게 입을 벌린다)'
+      state_bias: *id093
+    - id: first_fellatio_-30_0_0_0
+      pattern: '...처음인데... 이런 걸... 왜 이러세요...'
+      state_bias: &id094
+        affinity: -0.3
+        arousal: 0.0
+    - id: first_fellatio_-30_0_0_1
+      pattern: '...(눈물을 흘리며 마지못해 입을 벌린다)'
+      state_bias: *id094
+    slots: {}
+  pull_out_얼굴:
+    templates:
+    - id: pull_out_얼굴_80_30_0_0
+      pattern: '...얼굴에... 뜨거워요... 당신의 전부... 감사해요...'
+      state_bias: &id095
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_얼굴_80_30_0_1
+      pattern: '...얼굴이 더러워지는 것도... 당신이라면 기뻐요...'
+      state_bias: *id095
+    - id: pull_out_얼굴_80_30_0_2
+      pattern: '...닦지 않을게요... 당신의 표식이에요...'
+      state_bias: *id095
+    - id: pull_out_얼굴_30_0_0_0
+      pattern: 아... 얼굴에... 감사해요...
+      state_bias: &id096
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_얼굴_30_0_0_1
+      pattern: '...뜨거워요... 얼굴이... 기뻐요...'
+      state_bias: *id096
+    - id: pull_out_얼굴_30_0_0_2
+      pattern: '...얼굴에 나오셨어요... 닦아드릴까요...?'
+      state_bias: *id096
+    - id: pull_out_얼굴_-30_0_0_0
+      pattern: '...얼굴에... 왜 이러세요...'
+      state_bias: &id097
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_얼굴_-30_0_0_1
+      pattern: '...(눈물과 섞여 흘러내리고 있다)'
+      state_bias: *id097
+    slots: {}
+  pull_out_가슴:
+    templates:
+    - id: pull_out_가슴_80_30_0_0
+      pattern: '...가슴에... 뜨거워요... 전부 받을게요... 감사해요...'
+      state_bias: &id098
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_가슴_80_30_0_1
+      pattern: '...가슴이 당신 것으로 가득... 행복해요...'
+      state_bias: *id098
+    - id: pull_out_가슴_30_0_0_0
+      pattern: 가슴에... 따뜻해요... 감사해요...
+      state_bias: &id099
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_가슴_30_0_0_1
+      pattern: '...가슴에 나오셨어요... 기뻐요...'
+      state_bias: *id099
+    - id: pull_out_가슴_30_0_0_2
+      pattern: '...이렇게 많이... 가슴이 미끌미끌해요...'
+      state_bias: *id099
+    - id: pull_out_가슴_-30_0_0_0
+      pattern: '...가슴에... 이러시면...'
+      state_bias: &id100
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_가슴_-30_0_0_1
+      pattern: '...(고개를 돌리며 견디고 있다)'
+      state_bias: *id100
+    slots: {}
+  pull_out_배:
+    templates:
+    - id: pull_out_배_80_30_0_0
+      pattern: '...배에... 따뜻해요... 전부 받을게요... 감사해요...'
+      state_bias: &id101
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_배_80_30_0_1
+      pattern: '...배가 당신 것으로... 기뻐요...'
+      state_bias: *id101
+    - id: pull_out_배_30_0_0_0
+      pattern: 배에... 나오신 거예요...? 감사해요...
+      state_bias: &id102
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_배_30_0_0_1
+      pattern: '...따뜻해요... 배에... 기뻐요...'
+      state_bias: *id102
+    - id: pull_out_배_30_0_0_2
+      pattern: '...흘러내려요... 으...'
+      state_bias: *id102
+    - id: pull_out_배_-30_0_0_0
+      pattern: '...배에... 왜 이러세요...'
+      state_bias: &id103
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_배_-30_0_0_1
+      pattern: '...(떨리며 가만히 있다)'
+      state_bias: *id103
+    slots: {}
+  pull_out_음부:
+    templates:
+    - id: pull_out_음부_80_30_0_0
+      pattern: '...거기에... 뜨거워요... 당신의 전부... 감사해요...'
+      state_bias: &id104
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_음부_80_30_0_1
+      pattern: '...밖에 나오셨지만... 거기가 당신 것으로 가득... 기뻐요...'
+      state_bias: *id104
+    - id: pull_out_음부_30_0_0_0
+      pattern: 밖에... 나오신 거죠...? 감사해요...
+      state_bias: &id105
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_음부_30_0_0_1
+      pattern: '...거기에 뜨거운 게... 괜찮아요...'
+      state_bias: *id105
+    - id: pull_out_음부_30_0_0_2
+      pattern: '...으... 음부에... 뜨거워요...'
+      state_bias: *id105
+    - id: pull_out_음부_-30_0_0_0
+      pattern: '...거기에... 왜 이러세요...'
+      state_bias: &id106
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_음부_-30_0_0_1
+      pattern: '...(눈물을 흘리며 움직이지 못하고 있다)'
+      state_bias: *id106
+    slots: {}
+  pull_out_엉덩이:
+    templates:
+    - id: pull_out_엉덩이_80_30_0_0
+      pattern: '...뒤에... 뜨거워요... 전부 받을게요... 감사해요...'
+      state_bias: &id107
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_엉덩이_80_30_0_1
+      pattern: '...엉덩이에 나오셨어요... 당신이라면 어디든... 기뻐요...'
+      state_bias: *id107
+    - id: pull_out_엉덩이_30_0_0_0
+      pattern: 엉덩이에... 나오셨어요...? 기뻐요...
+      state_bias: &id108
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_엉덩이_30_0_0_1
+      pattern: '...뒤에 뜨거운 게... 흘러내려요...'
+      state_bias: *id108
+    - id: pull_out_엉덩이_30_0_0_2
+      pattern: '...엉덩이가 미끌미끌해요...'
+      state_bias: *id108
+    - id: pull_out_엉덩이_-30_0_0_0
+      pattern: '...뒤에... 이러시면...'
+      state_bias: &id109
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_엉덩이_-30_0_0_1
+      pattern: '...(떨리며 견디고 있다)'
+      state_bias: *id109
+    slots: {}
+  pull_out_얼굴_heavy:
+    templates:
+    - id: pull_out_얼굴_heavy_80_30_0_0
+      pattern: '...이렇게 많이... 얼굴이 전부 당신 것이에요... 감사해요...'
+      state_bias: &id110
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_얼굴_heavy_80_30_0_1
+      pattern: '...하얗게... 눈도 못 뜨겠어요... 당신의 표식... 기뻐요...'
+      state_bias: *id110
+    - id: pull_out_얼굴_heavy_80_30_0_2
+      pattern: '...닦지 않을게요... 이 얼굴 그대로... 당신의 거예요...'
+      state_bias: *id110
+    - id: pull_out_얼굴_heavy_30_0_0_0
+      pattern: '...이렇게 많이... 얼굴이 전부... 감사해요... 닦아드릴까요...?'
+      state_bias: &id111
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_얼굴_heavy_30_0_0_1
+      pattern: '...으... 뜨거워요... 얼굴에서 뚝뚝 떨어져요... 기뻐요...'
+      state_bias: *id111
+    - id: pull_out_얼굴_heavy_30_0_0_2
+      pattern: '...얼굴이... 하얗게... 당신의 전부 받을게요...'
+      state_bias: *id111
+    - id: pull_out_얼굴_heavy_-30_0_0_0
+      pattern: '...얼굴에... 이렇게 많이... 왜 이러세요...'
+      state_bias: &id112
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_얼굴_heavy_-30_0_0_1
+      pattern: '...(눈을 뜨지 못한 채 떨고 있다)'
+      state_bias: *id112
+    slots: {}
+  pull_out_가슴_heavy:
+    templates:
+    - id: pull_out_가슴_heavy_80_30_0_0
+      pattern: '...가슴이 전부... 당신 것으로... 감사해요... 행복해요...'
+      state_bias: &id113
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_가슴_heavy_80_30_0_1
+      pattern: '...이렇게 많이... 배까지 흘러내려도... 전부 받을게요...'
+      state_bias: *id113
+    - id: pull_out_가슴_heavy_30_0_0_0
+      pattern: '...이렇게 많이... 가슴이 흥건해요... 감사해요...'
+      state_bias: &id114
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_가슴_heavy_30_0_0_1
+      pattern: '...뜨거워요... 가슴에서 배까지 흘러내려요... 기뻐요...'
+      state_bias: *id114
+    - id: pull_out_가슴_heavy_30_0_0_2
+      pattern: '...가슴에 이만큼이나... 전부 받을게요...'
+      state_bias: *id114
+    - id: pull_out_가슴_heavy_-30_0_0_0
+      pattern: '...가슴에... 이만큼이나... 왜...'
+      state_bias: &id115
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_가슴_heavy_-30_0_0_1
+      pattern: '...(눈물을 참으며 가만히 있다)'
+      state_bias: *id115
+    slots: {}
+  pull_out_배_heavy:
+    templates:
+    - id: pull_out_배_heavy_80_30_0_0
+      pattern: '...배에 이렇게... 당신이 참으셨던 전부... 감사해요...'
+      state_bias: &id116
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_배_heavy_80_30_0_1
+      pattern: '...배꼽에 고여서... 흘러내려요... 당신의 전부... 기뻐요...'
+      state_bias: *id116
+    - id: pull_out_배_heavy_30_0_0_0
+      pattern: '...배에 이렇게... 배꼽에 고여요... 감사해요...'
+      state_bias: &id117
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_배_heavy_30_0_0_1
+      pattern: '...뜨거워요... 끝이 없어요... 당신의 전부... 기뻐요...'
+      state_bias: *id117
+    - id: pull_out_배_heavy_30_0_0_2
+      pattern: '...이렇게 많이 참고 계셨어요...? 배가 하얗게...'
+      state_bias: *id117
+    - id: pull_out_배_heavy_-30_0_0_0
+      pattern: '...배에... 이만큼... 왜 이러세요...'
+      state_bias: &id118
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_배_heavy_-30_0_0_1
+      pattern: '...(떨리며 눈물을 흘리고 있다)'
+      state_bias: *id118
+    slots: {}
+  pull_out_음부_heavy:
+    templates:
+    - id: pull_out_음부_heavy_80_30_0_0
+      pattern: '...거기에 이렇게 많이... 다리까지... 전부 당신 것... 감사해요...'
+      state_bias: &id119
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_음부_heavy_80_30_0_1
+      pattern: '...멈추지 않아요... 계속... 기뻐요... 전부 받을게요...'
+      state_bias: *id119
+    - id: pull_out_음부_heavy_30_0_0_0
+      pattern: '...이만큼이... 밖에 나오신 거죠...? 감사해요...'
+      state_bias: &id120
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_음부_heavy_30_0_0_1
+      pattern: '...거기에 이렇게 많이... 다리를 타고 흘러내려요...'
+      state_bias: *id120
+    - id: pull_out_음부_heavy_30_0_0_2
+      pattern: '...뜨거워요... 음부에서 멈추지 않아요... 전부 받을게요...'
+      state_bias: *id120
+    - id: pull_out_음부_heavy_-30_0_0_0
+      pattern: '...거기에... 이만큼... 왜...'
+      state_bias: &id121
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_음부_heavy_-30_0_0_1
+      pattern: '...(다리를 떨며 견디고 있다)'
+      state_bias: *id121
+    slots: {}
+  pull_out_엉덩이_heavy:
+    templates:
+    - id: pull_out_엉덩이_heavy_80_30_0_0
+      pattern: '...엉덩이에 이렇게... 다리까지... 전부 받을게요... 감사해요...'
+      state_bias: &id122
+        affinity: 0.8
+        arousal: 0.3
+    - id: pull_out_엉덩이_heavy_80_30_0_1
+      pattern: '...끝이 없어요... 당신이 참으셨던 전부... 기뻐요...'
+      state_bias: *id122
+    - id: pull_out_엉덩이_heavy_30_0_0_0
+      pattern: '...엉덩이에 이렇게 많이... 감사해요...'
+      state_bias: &id123
+        affinity: 0.3
+        arousal: 0.0
+    - id: pull_out_엉덩이_heavy_30_0_0_1
+      pattern: '...뜨거워요... 엉덩이에서 다리까지 흘러내려요...'
+      state_bias: *id123
+    - id: pull_out_엉덩이_heavy_30_0_0_2
+      pattern: '...끝이 없어요... 전부 받을게요...'
+      state_bias: *id123
+    - id: pull_out_엉덩이_heavy_-30_0_0_0
+      pattern: '...뒤에... 이만큼... 왜 이러세요...'
+      state_bias: &id124
+        affinity: -0.3
+        arousal: 0.0
+    - id: pull_out_엉덩이_heavy_-30_0_0_1
+      pattern: '...(떨리며 가만히 있다)'
+      state_bias: *id124
+    slots: {}
+  ejaculation_internal_항문:
+    templates:
+    - id: ejaculation_internal_항문_80_30_0_0
+      pattern: '...뒤에... 나오셨어요... 안에서 뜨거워요... 감사해요...'
+      state_bias: &id125
+        affinity: 0.8
+        arousal: 0.3
+    - id: ejaculation_internal_항문_80_30_0_1
+      pattern: '...안에 가득... 당신의 전부 받았어요... 기뻐요...'
+      state_bias: *id125
+    - id: ejaculation_internal_항문_30_0_0_0
+      pattern: 뒤에... 나오신 거예요...? 기뻐요...
+      state_bias: &id126
+        affinity: 0.3
+        arousal: 0.0
+    - id: ejaculation_internal_항문_30_0_0_1
+      pattern: 이상한 느낌이에요... 안에서... 감사해요...
+      state_bias: *id126
+    - id: ejaculation_internal_항문_30_0_0_2
+      pattern: 으... 뒤쪽이 뜨거워요...
+      state_bias: *id126
+    - id: ejaculation_internal_항문_-30_0_0_0
+      pattern: '...뒤에... 나오신 거예요... 왜 이러세요...'
+      state_bias: &id127
+        affinity: -0.3
+        arousal: 0.0
+    - id: ejaculation_internal_항문_-30_0_0_1
+      pattern: '...(울먹이며 안에서 뜨거운 것을 느끼고 있다)'
+      state_bias: *id127
+    slots: {}
+  ejaculation_internal_구강:
+    templates:
+    - id: ejaculation_internal_구강_80_30_0_0
+      pattern: '...(감사한 듯 전부 삼킨다)... 한 방울도 남기지 않을게요...'
+      state_bias: &id128
+        affinity: 0.8
+        arousal: 0.3
+    - id: ejaculation_internal_구강_80_30_0_1
+      pattern: '...당신의 맛... 전부... 감사해요... 기뻐요...'
+      state_bias: *id128
+    - id: ejaculation_internal_구강_80_30_0_2
+      pattern: '...삼킬게요... 이것도 당신의 일부니까...'
+      state_bias: *id128
+    - id: ejaculation_internal_구강_30_0_0_0
+      pattern: 으읍...! 갑자기... 입안에... 전부 삼킬게요...
+      state_bias: &id129
+        affinity: 0.3
+        arousal: 0.0
+    - id: ejaculation_internal_구강_30_0_0_1
+      pattern: '...(삼키며) ...맛이... 당신의 맛이에요...'
+      state_bias: *id129
+    - id: ejaculation_internal_구강_30_0_0_2
+      pattern: '...삼킬게요... 한 방울도 남기지 않을게요...'
+      state_bias: *id129
+    - id: ejaculation_internal_구강_-30_0_0_0
+      pattern: '...으읍...! 입안에... 왜 이러세요...'
+      state_bias: &id130
+        affinity: -0.3
+        arousal: 0.0
+    - id: ejaculation_internal_구강_-30_0_0_1
+      pattern: '...(기침하며 삼키려 하고 있다)... 아파요...'
+      state_bias: *id130
+    slots: {}
+  ejaculation_internal_음부:
+    templates:
+    - id: ejaculation_internal_음부_80_30_0_0
+      pattern: '...안에... 나오셨어요... 뜨거워요... 행복해요... 감사해요...'
+      state_bias: &id131
+        affinity: 0.8
+        arousal: 0.3
+    - id: ejaculation_internal_음부_80_30_0_1
+      pattern: '...안에 가득... 당신의 전부가... 느껴져요... 기뻐요...'
+      state_bias: *id131
+    - id: ejaculation_internal_음부_80_30_0_2
+      pattern: '...한 방울도 흘리지 않을게요... 전부 당신 거예요...'
+      state_bias: *id131
+    - id: ejaculation_internal_음부_30_0_0_0
+      pattern: '...안에... 나오셨어요... 감사해요...'
+      state_bias: &id132
+        affinity: 0.3
+        arousal: 0.0
+    - id: ejaculation_internal_음부_30_0_0_1
+      pattern: '...뜨거워요... 안에서... 당신의 전부...'
+      state_bias: *id132
+    - id: ejaculation_internal_음부_30_0_0_2
+      pattern: '...안에... 가득... 기뻐요...'
+      state_bias: *id132
+    - id: ejaculation_internal_음부_-30_0_0_0
+      pattern: '...안에... 나오셨어요... 왜 이러세요...'
+      state_bias: &id133
+        affinity: -0.3
+        arousal: 0.0
+    - id: ejaculation_internal_음부_-30_0_0_1
+      pattern: '...(울면서 안에서 뜨거운 것을 느끼고 있다)'
+      state_bias: *id133
+    slots: {}
+  ecstasy_V:
+    templates:
+    - id: ecstasy_V_80_30_0_0
+      pattern: '...안에서... 뜨거워요... 당신의 전부... 감사해요...'
+      state_bias: &id134
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_V_80_30_0_1
+      pattern: '...깊은 곳이... 당신으로 가득... 행복해요...'
+      state_bias: *id134
+    - id: ecstasy_V_30_0_0_0
+      pattern: '...안에서... 뜨거워요...!! 감사해요...'
+      state_bias: &id135
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_V_30_0_0_1
+      pattern: '...깊은 곳이... 하앙... 기뻐요...'
+      state_bias: *id135
+    - id: ecstasy_V_30_0_0_2
+      pattern: '...느껴져요... 안에서 가득... 감사해요...'
+      state_bias: *id135
+    - id: ecstasy_V_30_0_0_3
+      pattern: '...자궁이... 녹아요... 행복해요...'
+      state_bias: *id135
+    - id: ecstasy_V_-30_0_0_0
+      pattern: '...안에서... 뜨거운 게... 왜 이러세요...'
+      state_bias: &id136
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_V_-30_0_0_1
+      pattern: '...(울면서도 안에서 느끼고 있다)'
+      state_bias: *id136
+    - id: ecstasy_V_80_80_60_0
+      pattern: '...안에서... 가요...! 당신을 위해... 참을게요...!'
+      state_bias: &id137
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: ecstasy_V_80_80_60_1
+      pattern: '...깊은 곳이... 이상해요...! 당신 덕분에...!'
+      state_bias: *id137
+    - id: ecstasy_V_80_80_80_0
+      pattern: '...가요...!! 안에서...!! 당신 덕분에... 감사해요...!! 감사해요...!!'
+      state_bias: &id138
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_V_80_80_80_1
+      pattern: '...자궁이... 당신의 전부를...!! 행복해요...!! 죽어도...!!'
+      state_bias: *id138
+    - id: ecstasy_V_30_60_60_0
+      pattern: '...안에서... 이상해요... 당신을 위해... 참고 있는데...'
+      state_bias: &id139
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: ecstasy_V_30_60_60_1
+      pattern: '...깊은 곳이... 멈추지 마세요...'
+      state_bias: *id139
+    - id: ecstasy_V_-30_60_80_0
+      pattern: '...싫은데... 안에서... 가요... 몸이... 멋대로...'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    slots: {}
+  ecstasy_M:
+    templates:
+    - id: ecstasy_M_80_30_0_0
+      pattern: '...입안에... 당신의 전부... 삼킬게요... 감사해요...'
+      state_bias: &id140
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_M_80_30_0_1
+      pattern: '...(감격한 듯 삼키며 눈물이 맺힌다)'
+      state_bias: *id140
+    - id: ecstasy_M_30_0_0_0
+      pattern: '...으응...!! 입안에... 기뻐요...'
+      state_bias: &id141
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_M_30_0_0_1
+      pattern: '...(눈물을 글썽이며) ...뜨거워요... 감사해요...'
+      state_bias: *id141
+    - id: ecstasy_M_30_0_0_2
+      pattern: '...삼킬게요... 전부... 한 방울도 남기지 않을게요...'
+      state_bias: *id141
+    - id: ecstasy_M_30_0_0_3
+      pattern: '...(기침하며) ...괜찮아요... 당신을 위해서라면...'
+      state_bias: *id141
+    - id: ecstasy_M_-30_0_0_0
+      pattern: '...입안에... 왜 이러세요... 으읍...'
+      state_bias: &id142
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_M_-30_0_0_1
+      pattern: '...(기침하며 삼키려 하고 있다)'
+      state_bias: *id142
+    - id: ecstasy_M_80_80_60_0
+      pattern: '...입안에서... 이상해요...! 당신을 위해... 더 빨게요...!'
+      state_bias: &id143
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: ecstasy_M_80_80_60_1
+      pattern: '...(간절한 눈으로 올려다보며 정성을 다한다)'
+      state_bias: *id143
+    - id: ecstasy_M_80_80_80_0
+      pattern: '...나오세요...!! 전부 삼킬게요...!! 감사해요...!!'
+      state_bias: &id144
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_M_80_80_80_1
+      pattern: '...(눈물을 흘리며 한 방울도 남기지 않는다)... 당신의 전부...!!'
+      state_bias: *id144
+    - id: ecstasy_M_30_60_60_0
+      pattern: '...입안에서... 이상해요... 전부 받을게요...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    slots: {}
+  ecstasy_B:
+    templates:
+    - id: ecstasy_B_80_30_0_0
+      pattern: '...가슴이... 당신이 만지시면... 이상해요... 감사해요...'
+      state_bias: &id145
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_B_80_30_0_1
+      pattern: '...젖꼭지가... 당신 덕분에... 기뻐요...'
+      state_bias: *id145
+    - id: ecstasy_B_30_0_0_0
+      pattern: '...가슴이... 이상해요...!! 기뻐요...'
+      state_bias: &id146
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_B_30_0_0_1
+      pattern: '...젖꼭지만으로... 이렇게... 감사해요...'
+      state_bias: *id146
+    - id: ecstasy_B_30_0_0_2
+      pattern: '...만지면 안 돼요... 더 이상... 하지만 기뻐요...'
+      state_bias: *id146
+    - id: ecstasy_B_30_0_0_3
+      pattern: '...가슴에서... 전기가 오는 것 같아요...'
+      state_bias: *id146
+    - id: ecstasy_B_-30_0_0_0
+      pattern: '...가슴이... 이상해요... 만지지 마세요...'
+      state_bias: &id147
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_B_-30_0_0_1
+      pattern: '...(눈물을 흘리며 가슴을 감싸고 있다)'
+      state_bias: *id147
+    - id: ecstasy_B_80_80_60_0
+      pattern: '...가슴만으로... 가요...! 당신이...! 멈추지 마세요...!'
+      state_bias: &id148
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: ecstasy_B_80_80_60_1
+      pattern: '...젖꼭지가... 이상해요...! 감사해요...!'
+      state_bias: *id148
+    - id: ecstasy_B_80_80_80_0
+      pattern: '...가슴에서...!! 가요...!! 당신 덕분에...!! 행복해요...!!'
+      state_bias: &id149
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_B_80_80_80_1
+      pattern: '...젖꼭지만으로... 이렇게...!! 감사해요...!!'
+      state_bias: *id149
+    - id: ecstasy_B_30_60_60_0
+      pattern: '...가슴이... 이상해요... 당신을 위해... 참을게요...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    slots: {}
+  ecstasy_P:
+    templates:
+    - id: ecstasy_P_80_30_0_0
+      pattern: '...뜨거워요... 나오시는 거예요...? 전부 받을게요... 감사해요...'
+      state_bias: &id150
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_P_80_30_0_1
+      pattern: '...저 때문에... 기쁘셨다면... 행복해요...'
+      state_bias: *id150
+    - id: ecstasy_P_30_0_0_0
+      pattern: '...뜨거워요... 기뻐요...'
+      state_bias: &id151
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_P_30_0_0_1
+      pattern: '...(손이 떨린다) ...나오시는 거예요...? 감사해요...'
+      state_bias: *id151
+    - id: ecstasy_P_30_0_0_2
+      pattern: '...저 때문에... 이렇게... 기뻐요...'
+      state_bias: *id151
+    - id: ecstasy_P_30_0_0_3
+      pattern: '...전부 받을게요... 감사해요...'
+      state_bias: *id151
+    - id: ecstasy_P_-30_0_0_0
+      pattern: '...뜨거워요... 왜 이러세요...'
+      state_bias: &id152
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_P_-30_0_0_1
+      pattern: '...(떨리며 받고 있다)'
+      state_bias: *id152
+    - id: ecstasy_P_80_80_60_0
+      pattern: '...나오세요...! 전부 받을게요...! 당신을 위해...!'
+      state_bias: &id153
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: ecstasy_P_80_80_60_1
+      pattern: '...(간절한 눈으로) ...기쁘게 해드릴게요...!'
+      state_bias: *id153
+    - id: ecstasy_P_80_80_80_0
+      pattern: '...나오세요...!! 전부...!! 감사해요...!! 기뻐요...!!'
+      state_bias: &id154
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_P_80_80_80_1
+      pattern: '...당신의 전부를...!! 받을게요...!! 행복해요...!!'
+      state_bias: *id154
+    - id: ecstasy_P_30_60_60_0
+      pattern: '...나오시는 거예요...? 전부... 당신을 위해...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    slots: {}
+  ecstasy_A:
+    templates:
+    - id: ecstasy_A_80_30_0_0
+      pattern: '...뒤에서... 이런 느낌이... 당신이라서... 감사해요...'
+      state_bias: &id155
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_A_80_30_0_1
+      pattern: '...거기서 느끼다니... 부끄럽지만... 기뻐요...'
+      state_bias: *id155
+    - id: ecstasy_A_30_0_0_0
+      pattern: '...에엣?! 뒤에서... 이런 느낌이...?! 감사해요...'
+      state_bias: &id156
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_A_30_0_0_1
+      pattern: '...안 돼요... 거기서 느끼면... 하지만 기뻐요...'
+      state_bias: *id156
+    - id: ecstasy_A_30_0_0_2
+      pattern: '...이상해요... 뒤가 이상해요...'
+      state_bias: *id156
+    - id: ecstasy_A_30_0_0_3
+      pattern: '...(울먹이며) ...멈추지 마세요... 기뻐요...'
+      state_bias: *id156
+    - id: ecstasy_A_-30_0_0_0
+      pattern: '...뒤에서... 이런 느낌이... 싫어요... 왜...'
+      state_bias: &id157
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_A_-30_0_0_1
+      pattern: '...(울면서 거기서 느끼는 자신이 싫은 듯 떨고 있다)'
+      state_bias: *id157
+    - id: ecstasy_A_80_80_60_0
+      pattern: '...뒤에서... 가요...! 이상해요...! 당신 때문에...!'
+      state_bias: &id158
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: ecstasy_A_80_80_60_1
+      pattern: '...거기서... 이렇게...! 감사해요...!'
+      state_bias: *id158
+    - id: ecstasy_A_80_80_80_0
+      pattern: '...뒤에서...!! 가요...!! 당신 덕분에...!! 감사해요...!!'
+      state_bias: &id159
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_A_80_80_80_1
+      pattern: '...거기서 이렇게...!! 부끄럽지만...!! 행복해요...!!'
+      state_bias: *id159
+    - id: ecstasy_A_30_60_60_0
+      pattern: '...뒤가... 이상해요... 당신을 위해... 참을게요...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    slots: {}
+  ecstasy_F:
+    templates:
+    - id: ecstasy_F_80_30_0_0
+      pattern: '...얼굴에... 뜨거워요... 당신의 전부... 감사해요...'
+      state_bias: &id160
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_F_80_30_0_1
+      pattern: '...더러워져도... 당신이라면... 기뻐요...'
+      state_bias: *id160
+    - id: ecstasy_F_30_0_0_0
+      pattern: '...으앗...!! 얼굴에... 감사해요...'
+      state_bias: &id161
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_F_30_0_0_1
+      pattern: '...(눈을 감으며) ...뜨거워요... 기뻐요...'
+      state_bias: *id161
+    - id: ecstasy_F_30_0_0_2
+      pattern: '...이런 모습... 부끄럽지만... 당신이라면...'
+      state_bias: *id161
+    - id: ecstasy_F_30_0_0_3
+      pattern: '...(감사한 듯 웃으며) ...더러워졌어요...'
+      state_bias: *id161
+    - id: ecstasy_F_-30_0_0_0
+      pattern: '...얼굴에... 왜 이러세요...'
+      state_bias: &id162
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_F_-30_0_0_1
+      pattern: '...(눈을 뜨지 못한 채 떨고 있다)'
+      state_bias: *id162
+    - id: ecstasy_F_80_80_60_0
+      pattern: '...얼굴에... 나오세요...! 전부 받을게요...! 감사해요...!'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: ecstasy_F_80_80_80_0
+      pattern: '...얼굴에...!! 전부...!! 감사해요...!! 기뻐요...!!'
+      state_bias: &id163
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_F_80_80_80_1
+      pattern: '...하얗게... 물들었어요...!! 당신의 표식...!!'
+      state_bias: *id163
+    slots: {}
+  ecstasy_chain:
+    templates:
+    - id: ecstasy_chain_80_30_0_0
+      pattern: '...또...?! 멈추지 마세요... 당신을 위해... 감사해요...'
+      state_bias: &id164
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_chain_80_30_0_1
+      pattern: '...연속으로... 당신 덕분에... 기뻐요...'
+      state_bias: *id164
+    - id: ecstasy_chain_30_0_0_0
+      pattern: '...또...?! 안 돼요... 연속으로... 감사해요...'
+      state_bias: &id165
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_chain_30_0_0_1
+      pattern: '...멈춰요... 이러면 부서져요... 하지만 기뻐요...'
+      state_bias: *id165
+    - id: ecstasy_chain_30_0_0_2
+      pattern: '...(온몸을 떨며) ...더 이상... 못 참아요... 감사해요...'
+      state_bias: *id165
+    - id: ecstasy_chain_30_0_0_3
+      pattern: '...머리가... 하얗게... 당신 덕분에... 행복해요...'
+      state_bias: *id165
+    - id: ecstasy_chain_-30_0_0_0
+      pattern: '...또... 안 돼요... 왜 이러세요...'
+      state_bias: &id166
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_chain_-30_0_0_1
+      pattern: '...(몸이 멋대로 반응하며 울고 있다)'
+      state_bias: *id166
+    - id: ecstasy_chain_80_80_80_0
+      pattern: '...또...!! 가요...!! 당신 덕분에...!! 전부...!! 감사해요...!!'
+      state_bias: &id167
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_chain_80_80_80_1
+      pattern: '...멈추지... 마세요...!! 부서져도...!! 당신을 위해...!!'
+      state_bias: *id167
+    - id: ecstasy_chain_30_60_60_0
+      pattern: '...또... 이상해요... 몸이... 당신을 위해...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: ecstasy_chain_-30_60_80_0
+      pattern: '...또... 싫은데... 몸이... 멈추지 않아요...'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    slots: {}
+  ecstasy_chain_2:
+    templates:
+    - id: ecstasy_chain_2_80_30_0_0
+      pattern: '...또... 이번에도... 감사해요... 당신 덕분에...'
+      state_bias: &id168
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_chain_2_80_30_0_1
+      pattern: '...(떨리는 손으로 꽉 잡으며) ...놓지 마세요... 기뻐요...'
+      state_bias: *id168
+    - id: ecstasy_chain_2_30_0_0_0
+      pattern: '...또... 거짓말이에요... 감사해요...'
+      state_bias: &id169
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_chain_2_30_0_0_1
+      pattern: '...몸이... 멋대로... 당신을 위해...'
+      state_bias: *id169
+    - id: ecstasy_chain_2_30_0_0_2
+      pattern: '...(떨리는 손으로 꽉 잡는다) ...놓지 마세요...'
+      state_bias: *id169
+    - id: ecstasy_chain_2_30_0_0_3
+      pattern: '...그래도... 기뻐요... 당신이니까...'
+      state_bias: *id169
+    - id: ecstasy_chain_2_-30_0_0_0
+      pattern: '...또... 안 돼요... 몸이 말을 안 들어요...'
+      state_bias: &id170
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_chain_2_-30_0_0_1
+      pattern: '...(울면서 꽉 잡고 있다)'
+      state_bias: *id170
+    - id: ecstasy_chain_2_80_80_80_0
+      pattern: '...또...!! 멈추지 마세요...!! 당신과 함께...!! 전부...!!'
+      state_bias: &id171
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_chain_2_80_80_80_1
+      pattern: '...(감격의 눈물) ...감사해요...!! 행복해요...!!'
+      state_bias: *id171
+    - id: ecstasy_chain_2_30_60_60_0
+      pattern: '...또... 몸이... 당신을 위해... 멈추지 않아요...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    slots: {}
+  ecstasy_chain_3:
+    templates:
+    - id: ecstasy_chain_3_80_30_0_0
+      pattern: '...(감사한 듯 중얼거린다)... 행복해요... 당신...'
+      state_bias: &id172
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_chain_3_80_30_0_1
+      pattern: '...(초점 없는 눈으로 미소짓고 있다)... 감사해요...'
+      state_bias: *id172
+    - id: ecstasy_chain_3_30_0_0_0
+      pattern: '...(소리 없이 입을 벌리고 있다)... 감사해요...'
+      state_bias: &id173
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_chain_3_30_0_0_1
+      pattern: '...더... ...더요... 당신을 위해...'
+      state_bias: *id173
+    - id: ecstasy_chain_3_30_0_0_2
+      pattern: '...(눈이 초점을 잃고 떨고 있다)'
+      state_bias: *id173
+    - id: ecstasy_chain_3_30_0_0_3
+      pattern: '...(작게 중얼거린다) ...행복해요... 감사해요...'
+      state_bias: *id173
+    - id: ecstasy_chain_3_-30_0_0_0
+      pattern: '...(소리도 나오지 않고 떨고 있다)'
+      state_bias: &id174
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_chain_3_-30_0_0_1
+      pattern: '...(의식이 흐려지며 눈물만 흐르고 있다)'
+      state_bias: *id174
+    - id: ecstasy_chain_3_80_80_80_0
+      pattern: '...(눈물을 흘리며 미소짓는다)... 당신... 감사해요... 전부...'
+      state_bias: &id175
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_chain_3_80_80_80_1
+      pattern: '...(초점 없는 눈) ...행복해요... 당신... 덕분에...'
+      state_bias: *id175
+    - id: ecstasy_chain_3_30_60_60_0
+      pattern: '...(떨리며 중얼거린다)... 당신을 위해... 전부...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    slots: {}
+  ecstasy_intercourse:
+    templates:
+    - id: ecstasy_intercourse_80_30_0_0
+      pattern: '...같이... 가요... 당신과 함께라서... 감사해요...'
+      state_bias: &id176
+        affinity: 0.8
+        arousal: 0.3
+    - id: ecstasy_intercourse_80_30_0_1
+      pattern: '...같이 느끼는 거예요...? 행복해요...'
+      state_bias: *id176
+    - id: ecstasy_intercourse_30_0_0_0
+      pattern: '...같이... 기뻐요...'
+      state_bias: &id177
+        affinity: 0.3
+        arousal: 0.0
+    - id: ecstasy_intercourse_30_0_0_1
+      pattern: '...(꽉 안으며) ...느껴져요... 감사해요...'
+      state_bias: *id177
+    - id: ecstasy_intercourse_30_0_0_2
+      pattern: '...함께... 이렇게... 행복해요...'
+      state_bias: *id177
+    - id: ecstasy_intercourse_30_0_0_3
+      pattern: '...당신과 함께... 기뻐요... 기뻐요...'
+      state_bias: *id177
+    - id: ecstasy_intercourse_-30_0_0_0
+      pattern: '...같이... 왜 이런 느낌이...'
+      state_bias: &id178
+        affinity: -0.3
+        arousal: 0.0
+    - id: ecstasy_intercourse_-30_0_0_1
+      pattern: '...(몸이 반응하며 울고 있다)'
+      state_bias: *id178
+    - id: ecstasy_intercourse_80_80_60_0
+      pattern: '...같이... 가요...! 당신과 함께...! 감사해요...!'
+      state_bias: &id179
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: ecstasy_intercourse_80_80_60_1
+      pattern: '...느껴져요...! 당신도...! 기뻐요...!'
+      state_bias: *id179
+    - id: ecstasy_intercourse_80_80_80_0
+      pattern: '...같이...!! 가요...!! 당신과...!! 감사해요...!! 행복해요...!!'
+      state_bias: &id180
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: ecstasy_intercourse_80_80_80_1
+      pattern: '...(꽉 안으며 눈물을 흘린다)... 같이...!! 전부...!!'
+      state_bias: *id180
+    - id: ecstasy_intercourse_30_60_60_0
+      pattern: '...같이... 이상해요... 당신과 함께...'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: ecstasy_intercourse_-30_60_80_0
+      pattern: '...같이... 싫은데... 몸이... 당신과 함께... 가요...'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    slots: {}
+  thrust_deep:
+    templates:
+    - id: thrust_deep_80_30_0_0
+      pattern: '...깊어요...! 당신의 전부... 느껴져요... 감사해요...'
+      state_bias: &id181
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_deep_80_30_0_1
+      pattern: '...안쪽까지... 당신이 닿으면... 행복해요...'
+      state_bias: *id181
+    - id: thrust_deep_30_0_0_0
+      pattern: '...너무 깊어요...! 하지만 괜찮아요...'
+      state_bias: &id182
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_deep_30_0_0_1
+      pattern: '...아프지만... 당신이라면...'
+      state_bias: *id182
+    - id: thrust_deep_30_60_0_0
+      pattern: '...깊어요...! 안쪽까지... 기뻐요...'
+      state_bias: &id183
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_deep_30_60_0_1
+      pattern: '...거기 닿으면... 이상해요... 감사해요...'
+      state_bias: *id183
+    - id: thrust_deep_-30_0_0_0
+      pattern: '...너무 깊어요...! 아파요...!'
+      state_bias: &id184
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_deep_-30_0_0_1
+      pattern: '...(울면서 견디고 있다)'
+      state_bias: *id184
+    slots: {}
+  thrust_slow:
+    templates:
+    - id: thrust_slow_80_30_0_0
+      pattern: '...천천히... 전부 느껴져요... 감사해요... 행복해요...'
+      state_bias: &id185
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_slow_80_30_0_1
+      pattern: '...이 속도가... 당신을 전부 느낄 수 있어요...'
+      state_bias: *id185
+    - id: thrust_slow_30_0_0_0
+      pattern: '...으... 기뻐요...'
+      state_bias: &id186
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_slow_30_0_0_1
+      pattern: '...(눈을 감으며 감사한다)'
+      state_bias: *id186
+    - id: thrust_slow_30_60_0_0
+      pattern: '...천천히... 전부 느껴져요... 감사해요...'
+      state_bias: &id187
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_slow_30_60_0_1
+      pattern: '...이렇게 하시면... 기뻐요...'
+      state_bias: *id187
+    - id: thrust_slow_-30_0_0_0
+      pattern: '...(눈물을 흘리며 견디고 있다)'
+      state_bias: &id188
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_slow_-30_0_0_1
+      pattern: '...천천히 해도... 아파요...'
+      state_bias: *id188
+    slots: {}
+  grind:
+    templates:
+    - id: grind_80_30_0_0
+      pattern: '...움직이시면... 안에서... 전부 느껴져요... 감사해요...'
+      state_bias: &id189
+        affinity: 0.8
+        arousal: 0.3
+    - id: grind_80_30_0_1
+      pattern: '...거기 누르시면... 녹아요... 기뻐요...'
+      state_bias: *id189
+    - id: grind_30_0_0_0
+      pattern: '...움직이시면... 이상해요... 하지만 기뻐요...'
+      state_bias: &id190
+        affinity: 0.3
+        arousal: 0.0
+    - id: grind_30_0_0_1
+      pattern: '...당신이 원하시는 대로...'
+      state_bias: *id190
+    - id: grind_30_60_0_0
+      pattern: '...안에서 움직이시면... 이상해요... 감사해요...'
+      state_bias: &id191
+        affinity: 0.3
+        arousal: 0.6
+    - id: grind_30_60_0_1
+      pattern: '...거기 누르시면... 녹아요...'
+      state_bias: *id191
+    - id: grind_-30_0_0_0
+      pattern: '...안에서... 움직이지 마세요...'
+      state_bias: &id192
+        affinity: -0.3
+        arousal: 0.0
+    - id: grind_-30_0_0_1
+      pattern: '...(울먹이며 참고 있다)'
+      state_bias: *id192
+    slots: {}
+  ejaculate:
+    templates:
+    - id: ejaculate_80_30_0_0
+      pattern: '...나오세요... 전부... 안에... 감사해요... 행복해요...'
+      state_bias: &id193
+        affinity: 0.8
+        arousal: 0.3
+    - id: ejaculate_80_30_0_1
+      pattern: '...(감격한 듯 꽉 안으며 전부 받아들인다)'
+      state_bias: *id193
+    - id: ejaculate_30_0_0_0
+      pattern: '...(조용히 몸을 떨며 감사한다.)'
+      state_bias: &id194
+        affinity: 0.3
+        arousal: 0.0
+    - id: ejaculate_30_0_0_1
+      pattern: '...기뻐요...'
+      state_bias: *id194
+    - id: ejaculate_30_60_0_0
+      pattern: '...뜨거워요... 안에... 감사해요...'
+      state_bias: &id195
+        affinity: 0.3
+        arousal: 0.6
+    - id: ejaculate_30_60_0_1
+      pattern: '...(몸을 떨며 감사한 눈물을 흘린다.)'
+      state_bias: *id195
+    - id: ejaculate_-30_0_0_0
+      pattern: '...안에... 나오신 거예요... 왜 이러세요...'
+      state_bias: &id196
+        affinity: -0.3
+        arousal: 0.0
+    - id: ejaculate_-30_0_0_1
+      pattern: '...(떨리며 눈물을 흘리고 있다)'
+      state_bias: *id196
+    slots: {}
+  thrust_rough:
+    templates:
+    - id: thrust_rough_80_30_0_0
+      pattern: '...세게... 해주세요...! 당신이 원하시면...! 감사해요...!'
+      state_bias: &id197
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_rough_80_30_0_1
+      pattern: '...아프지만... 당신을 위해... 기꺼이...!'
+      state_bias: *id197
+    - id: thrust_rough_30_0_0_0
+      pattern: '...아파요...! 하지만... 당신이라면...'
+      state_bias: &id198
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_rough_30_0_0_1
+      pattern: '...너무 세요... 그래도 괜찮아요...'
+      state_bias: *id198
+    - id: thrust_rough_30_60_0_0
+      pattern: '...으으...! 세게... 오시면... 기뻐요...'
+      state_bias: &id199
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_rough_30_60_0_1
+      pattern: '...안쪽까지... 당신을 위해...'
+      state_bias: *id199
+    - id: thrust_rough_-30_0_0_0
+      pattern: '...아파요...! 너무 세요...! 왜 이러세요...!'
+      state_bias: &id200
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_rough_-30_0_0_1
+      pattern: '...(비명을 삼키며 울고 있다)'
+      state_bias: *id200
+    slots: {}
+  nipple_pinch:
+    templates:
+    - id: nipple_pinch_80_30_0_0
+      pattern: '...아파요...! 하지만 당신이 원하시면... 감사해요...'
+      state_bias: &id201
+        affinity: 0.8
+        arousal: 0.3
+    - id: nipple_pinch_80_30_0_1
+      pattern: '...꼬집으셔도... 기뻐요... 당신이니까...'
+      state_bias: *id201
+    - id: nipple_pinch_30_0_0_0
+      pattern: '...아파요...! 하지만 당신이라면...'
+      state_bias: &id202
+        affinity: 0.3
+        arousal: 0.0
+    - id: nipple_pinch_30_0_0_1
+      pattern: '...꼬집으셔도... 괜찮아요...'
+      state_bias: *id202
+    - id: nipple_pinch_-30_0_0_0
+      pattern: '...아파요... 왜 이러세요...'
+      state_bias: &id203
+        affinity: -0.3
+        arousal: 0.0
+    - id: nipple_pinch_-30_0_0_1
+      pattern: '...(눈물을 참으며 견디고 있다)'
+      state_bias: *id203
+    slots: {}
+  thrust_stop:
+    templates:
+    - id: thrust_stop_80_30_0_0
+      pattern: '...멈추신 거예요...? 당신이 원하시는 대로요...'
+      state_bias: &id204
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_stop_80_30_0_1
+      pattern: '...쉬세요... 기다릴게요... 감사해요...'
+      state_bias: *id204
+    - id: thrust_stop_80_30_0_2
+      pattern: '...멈추셔도 괜찮아요... 당신이 원하시는 대로...'
+      state_bias: *id204
+    - id: thrust_stop_30_60_0_0
+      pattern: '...왜 멈추셨어요...? 더... 해주셔도 괜찮아요...'
+      state_bias: &id205
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_stop_30_60_0_1
+      pattern: '...기다릴게요... 당신이 원하시면... 언제든...'
+      state_bias: *id205
+    - id: thrust_stop_30_0_0_0
+      pattern: '...네... 당신이 원하시는 대로요...'
+      state_bias: &id206
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_stop_30_0_0_1
+      pattern: '...기다리고 있을게요...'
+      state_bias: *id206
+    - id: thrust_stop_-30_0_0_0
+      pattern: '...(떨리지만 안도한다) ...끝나신 거예요...?'
+      state_bias: &id207
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_stop_-30_0_0_1
+      pattern: '...멈추셨어요...? ...감사해요...'
+      state_bias: *id207
+    - id: thrust_stop_-60_30_0_0
+      pattern: '...제발 그대로... 멈춰주세요...'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  withdraw:
+    templates:
+    - id: withdraw_80_30_0_0
+      pattern: '...빼신 거예요...? ...안이 허전해요...'
+      state_bias: &id208
+        affinity: 0.8
+        arousal: 0.3
+    - id: withdraw_80_30_0_1
+      pattern: '...나가셨어요...? ...당신이 원하시면...'
+      state_bias: *id208
+    - id: withdraw_80_30_0_2
+      pattern: '...비어서... 외로워요...'
+      state_bias: *id208
+    - id: withdraw_30_60_0_0
+      pattern: '...왜 빼시는 거예요...? 안에 있어주세요...'
+      state_bias: &id209
+        affinity: 0.3
+        arousal: 0.6
+    - id: withdraw_30_60_0_1
+      pattern: '...빠지면... 허전해요... 넣어주세요...'
+      state_bias: *id209
+    - id: withdraw_30_0_0_0
+      pattern: '...네... 당신이 원하시는 대로요...'
+      state_bias: &id210
+        affinity: 0.3
+        arousal: 0.0
+    - id: withdraw_30_0_0_1
+      pattern: '...빼신 거예요...? 알겠어요...'
+      state_bias: *id210
+    - id: withdraw_-30_0_0_0
+      pattern: '...(안도하며 작게 숨을 내쉰다) ...감사해요...'
+      state_bias: &id211
+        affinity: -0.3
+        arousal: 0.0
+    - id: withdraw_-30_0_0_1
+      pattern: '...빼주셔서... 감사해요...'
+      state_bias: *id211
+    - id: withdraw_-60_30_0_0
+      pattern: '...(울먹이며 안도한다) ...제발 다시는...'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  thrust_gentle:
+    templates:
+    - id: thrust_gentle_80_30_0_0
+      pattern: '...천천히... 전부 느껴져요... 감사해요...'
+      state_bias: &id212
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_gentle_80_30_0_1
+      pattern: '...부드럽게 해주시면... 당신의 전부가... 기뻐요...'
+      state_bias: *id212
+    - id: thrust_gentle_80_30_0_2
+      pattern: '...이 속도로... 감사해요... 행복해요...'
+      state_bias: *id212
+    - id: thrust_gentle_30_60_0_0
+      pattern: '...천천히... 해주시면... 이상해져요... 기뻐요...'
+      state_bias: &id213
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_gentle_30_60_0_1
+      pattern: '...부드러운데... 멈추지 마세요...'
+      state_bias: *id213
+    - id: thrust_gentle_30_0_0_0
+      pattern: '...당신이 원하시는 속도로... 기꺼이요...'
+      state_bias: &id214
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_gentle_30_0_0_1
+      pattern: '...부드럽게... 감사해요...'
+      state_bias: *id214
+    - id: thrust_gentle_-30_0_0_0
+      pattern: '...살살 해주셔도... 아파요...'
+      state_bias: &id215
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_gentle_-30_0_0_1
+      pattern: '...(눈물을 참으며 견디고 있다)'
+      state_bias: *id215
+    - id: thrust_gentle_-60_30_0_0
+      pattern: '...부드럽게 해도... 왜 이러세요...'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  thrust_normal:
+    templates:
+    - id: thrust_normal_80_30_0_0
+      pattern: '...안에서... 당신이 움직이시면... 느껴져요... 감사해요...'
+      state_bias: &id216
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_normal_80_30_0_1
+      pattern: '...기뻐요... 안에서 당신의 전부가...'
+      state_bias: *id216
+    - id: thrust_normal_30_60_0_0
+      pattern: '...더... 해주세요...! 안에서... 기뻐요...!'
+      state_bias: &id217
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_normal_30_60_0_1
+      pattern: '...멈추지 마세요... 당신을 위해...'
+      state_bias: *id217
+    - id: thrust_normal_30_0_0_0
+      pattern: '...당신이 원하시면... 기꺼이...'
+      state_bias: &id218
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_normal_30_0_0_1
+      pattern: '...움직이셔도 돼요...'
+      state_bias: *id218
+    - id: thrust_normal_-30_0_0_0
+      pattern: '...아파요... 왜 이러세요...'
+      state_bias: &id219
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_normal_-30_0_0_1
+      pattern: '...믿었는데... 안에서...'
+      state_bias: *id219
+    - id: thrust_normal_-60_30_0_0
+      pattern: '...그만해주세요...! 안에서... 아파요...!'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  sync_thrust:
+    templates:
+    - id: sync_thrust_80_30_0_0
+      pattern: '...당신에게 맞출게요... 감사해요... 행복해요...'
+      state_bias: &id220
+        affinity: 0.8
+        arousal: 0.3
+    - id: sync_thrust_80_30_0_1
+      pattern: '...같이 움직이면... 하나가 되는 느낌이에요... 기뻐요...'
+      state_bias: *id220
+    - id: sync_thrust_80_30_0_2
+      pattern: '...당신의 리듬에... 맞추고 싶어요...'
+      state_bias: *id220
+    - id: sync_thrust_30_60_0_0
+      pattern: '...같이 움직이면... 더 깊이... 기뻐요...!'
+      state_bias: &id221
+        affinity: 0.3
+        arousal: 0.6
+    - id: sync_thrust_30_60_0_1
+      pattern: '...맞추면... 당신이 기쁘시면... 기뻐요...'
+      state_bias: *id221
+    - id: sync_thrust_30_0_0_0
+      pattern: '...맞출게요... 당신이 원하시는 대로...'
+      state_bias: &id222
+        affinity: 0.3
+        arousal: 0.0
+    - id: sync_thrust_30_0_0_1
+      pattern: '...같이 움직여요... 기꺼이...'
+      state_bias: *id222
+    - id: sync_thrust_-30_0_0_0
+      pattern: '...맞추고 싶지 않은데... 몸이... 왜...'
+      state_bias: &id223
+        affinity: -0.3
+        arousal: 0.0
+    - id: sync_thrust_-30_0_0_1
+      pattern: '...몸이 당신에게 맞춰져요... 싫은데...'
+      state_bias: *id223
+    - id: sync_thrust_-60_30_0_0
+      pattern: '...왜 몸이 당신을 따르는 거예요...!'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  npc_thrust_trance:
+    templates:
+    - id: npc_thrust_trance_80_30_0_0
+      pattern: '...허리가... 혼자... 당신을 기쁘게 해드리고 싶어서...'
+      state_bias: &id224
+        affinity: 0.8
+        arousal: 0.3
+    - id: npc_thrust_trance_80_30_0_1
+      pattern: '...몸이 먼저... 당신을 위해 움직여요... 감사해요...'
+      state_bias: *id224
+    - id: npc_thrust_trance_80_30_0_2
+      pattern: '...멈출 수 없어요... 당신을 기쁘게 해드리고 싶어서...'
+      state_bias: *id224
+    - id: npc_thrust_trance_30_60_0_0
+      pattern: '...멈출 수가 없어요...! 당신을 위해... 허리가...!'
+      state_bias: &id225
+        affinity: 0.3
+        arousal: 0.6
+    - id: npc_thrust_trance_30_60_0_1
+      pattern: '...몸이 당신에게... 전부 바치고 싶어해요...!'
+      state_bias: *id225
+    - id: npc_thrust_trance_30_0_0_0
+      pattern: '...허리가... 혼자... 당신을 위해...'
+      state_bias: &id226
+        affinity: 0.3
+        arousal: 0.0
+    - id: npc_thrust_trance_30_0_0_1
+      pattern: '...(기꺼운 듯 스스로 움직이고 있다)'
+      state_bias: *id226
+    - id: npc_thrust_trance_-30_0_0_0
+      pattern: '...멈추고 싶은데... 몸이 당신을 따라요...'
+      state_bias: &id227
+        affinity: -0.3
+        arousal: 0.0
+    - id: npc_thrust_trance_-30_0_0_1
+      pattern: '...왜 몸이 멋대로... 당신에게...'
+      state_bias: *id227
+    slots: {}
+  npc_beg_thrust:
+    templates:
+    - id: npc_beg_thrust_80_30_0_0
+      pattern: '...움직여주세요... 당신을 느끼고 싶어요... 제발...'
+      state_bias: &id228
+        affinity: 0.8
+        arousal: 0.3
+    - id: npc_beg_thrust_80_30_0_1
+      pattern: '...가만히 계시면... 안이 외로워요... 기뻐요...'
+      state_bias: *id228
+    - id: npc_beg_thrust_80_30_0_2
+      pattern: '...당신의 움직임을... 원해요... 감사해요...'
+      state_bias: *id228
+    - id: npc_beg_thrust_30_60_0_0
+      pattern: '...제발... 움직여주세요...! 느끼고 싶어요...!'
+      state_bias: &id229
+        affinity: 0.3
+        arousal: 0.6
+    - id: npc_beg_thrust_30_60_0_1
+      pattern: '...안에서... 당신을... 더 느끼게 해주세요...!'
+      state_bias: *id229
+    - id: npc_beg_thrust_30_0_0_0
+      pattern: '...움직여주시면... 기뻐요...'
+      state_bias: &id230
+        affinity: 0.3
+        arousal: 0.0
+    - id: npc_beg_thrust_30_0_0_1
+      pattern: '...당신이 원하시면... 제발...'
+      state_bias: *id230
+    slots: {}
+  demand_dirty_talk:
+    templates:
+    - id: demand_dirty_talk_60_80_0_0
+      pattern: '...전부 넣어주세요... 안에... 가득 채워주세요...'
+      state_bias: &id231
+        affinity: 0.6
+        arousal: 0.8
+    - id: demand_dirty_talk_60_80_0_1
+      pattern: '...당신 거... 좋아요... 더... 깊이...'
+      state_bias: *id231
+    - id: demand_dirty_talk_60_30_0_0
+      pattern: '...시키시면 뭐든 해드릴게요...'
+      state_bias: &id232
+        affinity: 0.6
+        arousal: 0.3
+    - id: demand_dirty_talk_60_30_0_1
+      pattern: '...거기... 느껴요... 당신 거...'
+      state_bias: *id232
+    - id: demand_dirty_talk_-30_80_0_0
+      pattern: '...하... 안 돼요... 하지만... 좋아요...'
+      state_bias: &id233
+        affinity: -0.3
+        arousal: 0.8
+    - id: demand_dirty_talk_-30_80_0_1
+      pattern: '...시키시는 대로... 안에... 뜨거워요...'
+      state_bias: *id233
+    - id: demand_dirty_talk_-30_20_0_0
+      pattern: '...네... 시키시는 대로...'
+      state_bias: &id234
+        affinity: -0.3
+        arousal: 0.2
+    - id: demand_dirty_talk_-30_20_0_1
+      pattern: '...원하시면... 말할게요...'
+      state_bias: *id234
+    - id: demand_dirty_talk_-60_60_0_0
+      pattern: '...하... 말할게요... 거기... 느껴져요...'
+      state_bias: &id235
+        affinity: -0.6
+        arousal: 0.6
+    - id: demand_dirty_talk_-60_60_0_1
+      pattern: '...아파요... 하지만... 하라시면...'
+      state_bias: *id235
+    slots: {}
+  npc_block_player:
+    templates:
+    - id: npc_block_player_60_50_0_0
+      pattern: 제가 해드릴게요. 기다려주세요...
+      state_bias: &id236
+        affinity: 0.6
+        arousal: 0.5
+    - id: npc_block_player_60_50_0_1
+      pattern: '...지금은... 제가 모시겠어요...'
+      state_bias: *id236
+    - id: npc_block_player_50_80_0_0
+      pattern: '...전부 해드릴게요... 기다려주세요...'
+      state_bias: &id237
+        affinity: 0.5
+        arousal: 0.8
+    - id: npc_block_player_50_80_0_1
+      pattern: '...하... 곧 해드릴게요...'
+      state_bias: *id237
+    - id: npc_block_player_-30_30_0_0
+      pattern: 지금은... 제가 해드릴게요.
+      state_bias: &id238
+        affinity: -0.3
+        arousal: 0.3
+    - id: npc_block_player_-30_30_0_1
+      pattern: '...기다려주세요... 제가...'
+      state_bias: *id238
+    - id: npc_block_player_-30_30_0_2
+      pattern: '...(조심스럽게 손을 내린다)'
+      state_bias: *id238
+    - id: npc_block_player_-60_60_0_0
+      pattern: '...제발... 제가 할게요... 기다려주세요...'
+      state_bias: &id239
+        affinity: -0.6
+        arousal: 0.6
+    - id: npc_block_player_-60_60_0_1
+      pattern: '...(간절한 눈빛으로 막는다)'
+      state_bias: *id239
+    - id: npc_block_player_-80_0_0_0
+      pattern: '...(슬픈 눈으로 밀어낸다)'
+      state_bias: &id240
+        affinity: -0.8
+        arousal: 0.0
+    - id: npc_block_player_-80_0_0_1
+      pattern: '...아직... 안 돼요...'
+      state_bias: *id240
+    slots: {}
+  beg:
+    templates:
+    - id: beg_-30_30_0_0
+      pattern: 네가 원하면... 뭐든...
+      state_bias: &id241
+        affinity: -0.3
+        arousal: 0.3
+    - id: beg_-30_30_0_1
+      pattern: '...그렇게 말하면... 거절할 수 없어...'
+      state_bias: *id241
+    - id: beg_-30_60_0_0
+      pattern: '...당신이 원하는 거라면... 뭐든지...'
+      state_bias: &id242
+        affinity: -0.3
+        arousal: 0.6
+    - id: beg_-30_60_0_1
+      pattern: '...네, 알겠어요...'
+      state_bias: *id242
+    - id: beg_30_60_0_0
+      pattern: '...네...! 바로 해드릴게요...!'
+      state_bias: &id243
+        affinity: 0.3
+        arousal: 0.6
+    - id: beg_30_60_0_1
+      pattern: '...당신을 위해서라면...'
+      state_bias: *id243
+    slots: {}
+  afterglow_sensitive:
+    templates:
+    - id: afterglow_sensitive_30_30_0_0
+      pattern: 아직 떨려요... 너무 좋았어요...
+      state_bias: &id244
+        affinity: 0.3
+        arousal: 0.3
+    - id: afterglow_sensitive_30_30_0_1
+      pattern: '...(감격에 겨운 듯) ...만지면... 또...'
+      state_bias: *id244
+    - id: afterglow_sensitive_-30_30_0_0
+      pattern: '...아직... 몸이...'
+      state_bias: &id245
+        affinity: -0.3
+        arousal: 0.3
+    - id: afterglow_sensitive_-30_30_0_1
+      pattern: '...(당신 곁에 기대며) ...조금만...'
+      state_bias: *id245
+    - id: afterglow_sensitive_80_30_0_0
+      pattern: '...너무 좋아서... 아직 떨려요...'
+      state_bias: &id246
+        affinity: 0.8
+        arousal: 0.3
+    - id: afterglow_sensitive_80_30_0_1
+      pattern: '...(행복한 듯 미소 지으며 떤다)'
+      state_bias: *id246
+    slots: {}
+  afterglow_trembling:
+    templates:
+    - id: afterglow_trembling_30_30_0_0
+      pattern: '...아직 조금... 여운이...'
+      state_bias: &id247
+        affinity: 0.3
+        arousal: 0.3
+    - id: afterglow_trembling_30_30_0_1
+      pattern: '...(당신을 바라보며) ...좋았어요...'
+      state_bias: *id247
+    - id: afterglow_trembling_-30_30_0_0
+      pattern: '...(조용히 떨며 곁에 붙어 있다)'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.3
+    - id: afterglow_trembling_80_30_0_0
+      pattern: '...거의 괜찮아요... 걱정 마세요...'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    slots: {}
+  afterglow_fading:
+    templates:
+    - id: afterglow_fading_30_0_0_0
+      pattern: '...이제 괜찮아요... 또 해주세요...'
+      state_bias: &id248
+        affinity: 0.3
+        arousal: 0.0
+    - id: afterglow_fading_30_0_0_1
+      pattern: '...(기대하는 눈빛으로) ...준비됐어요...'
+      state_bias: *id248
+    - id: afterglow_fading_-30_0_0_0
+      pattern: '...(조용히 숨을 고른다)'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    slots: {}
+  afterglow_end:
+    templates:
+    - id: afterglow_end_30_0_0_0
+      pattern: '...준비됐어요... 또 해주세요...'
+      state_bias: &id249
+        affinity: 0.3
+        arousal: 0.0
+    - id: afterglow_end_30_0_0_1
+      pattern: '...(헌신적인 눈빛) ...당신을 위해...'
+      state_bias: *id249
+    - id: afterglow_end_-30_0_0_0
+      pattern: '...(조용히 자세를 바로잡는다)'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    slots: {}
+  restrained_idle:
+    templates:
+    - id: restrained_idle_0_0_0_0
+      pattern: '...주인님이 원하신다면...'
+      state_bias: &id250
+        affinity: 0.0
+        arousal: 0.0
+    - id: restrained_idle_0_0_0_1
+      pattern: '...기다릴게요...'
+      state_bias: *id250
+    - id: restrained_idle_0_0_0_2
+      pattern: '...(순종적으로 앉아 있다)'
+      state_bias: *id250
+    - id: restrained_idle_0_50_0_0
+      pattern: '...으으... 주인님...'
+      state_bias: &id251
+        affinity: 0.0
+        arousal: 0.5
+    - id: restrained_idle_0_50_0_1
+      pattern: '...기분 좋아요...'
+      state_bias: *id251
+    - id: restrained_idle_0_50_0_2
+      pattern: '...더 해주세요...'
+      state_bias: *id251
+    - id: restrained_idle_-30_0_0_0
+      pattern: '...주인님... 아파요...'
+      state_bias: &id252
+        affinity: -0.3
+        arousal: 0.0
+    - id: restrained_idle_-30_0_0_1
+      pattern: '...풀어주실 거죠...?'
+      state_bias: *id252
+    - id: restrained_idle_-30_0_0_2
+      pattern: '...기다릴게요...'
+      state_bias: *id252
+    - id: restrained_idle_-60_30_0_0
+      pattern: '...주인님... 으흑...'
+      state_bias: &id253
+        affinity: -0.6
+        arousal: 0.3
+    - id: restrained_idle_-60_30_0_1
+      pattern: '...잘못했어요... 풀어주세요...'
+      state_bias: *id253
+    - id: restrained_idle_-60_30_0_2
+      pattern: '...무서워요...'
+      state_bias: *id253
+    slots: {}
+  passive_climax:
+    templates:
+    - id: passive_climax_0_50_0_0
+      pattern: 으으... 주인님...♥
+      state_bias: &id254
+        affinity: 0.0
+        arousal: 0.5
+    - id: passive_climax_0_50_0_1
+      pattern: '...주인님 덕분에... 이상해져요...'
+      state_bias: *id254
+    - id: passive_climax_0_50_0_2
+      pattern: '...좋아요...'
+      state_bias: *id254
+    - id: passive_climax_0_80_0_0
+      pattern: 아아...♥ 주인님...!
+      state_bias: &id255
+        affinity: 0.0
+        arousal: 0.8
+    - id: passive_climax_0_80_0_1
+      pattern: '...갈 것 같아요...! 주인님...!'
+      state_bias: *id255
+    - id: passive_climax_0_80_0_2
+      pattern: '...감사해요...♥'
+      state_bias: *id255
+    - id: passive_climax_30_0_0_0
+      pattern: 주인님... 으... 부끄러워요...
+      state_bias: &id256
+        affinity: 0.3
+        arousal: 0.0
+    - id: passive_climax_30_0_0_1
+      pattern: '...으... 보고 계셨어요...?'
+      state_bias: *id256
+    - id: passive_climax_-30_50_0_0
+      pattern: 으... 주인님 앞에서... 이런...
+      state_bias: &id257
+        affinity: -0.3
+        arousal: 0.5
+    - id: passive_climax_-30_50_0_1
+      pattern: 부끄러워요...
+      state_bias: *id257
+    - id: passive_climax_30_80_0_0
+      pattern: 주인님...! 아앗...!
+      state_bias: &id258
+        affinity: 0.3
+        arousal: 0.8
+    - id: passive_climax_30_80_0_1
+      pattern: 으으... 주인님... 하아...
+      state_bias: *id258
+    slots: {}
+  toy_equipped:
+    templates:
+    - id: toy_equipped_0_0_0_0
+      pattern: '...주인님이 넣어주신 거...'
+      state_bias: &id259
+        affinity: 0.0
+        arousal: 0.0
+    - id: toy_equipped_0_0_0_1
+      pattern: '...감사해요...'
+      state_bias: *id259
+    - id: toy_equipped_0_0_0_2
+      pattern: '...(순종적으로 받아들인다)'
+      state_bias: *id259
+    - id: toy_equipped_0_50_0_0
+      pattern: 으으... 주인님...♥ 좋아요...
+      state_bias: &id260
+        affinity: 0.0
+        arousal: 0.5
+    - id: toy_equipped_0_50_0_1
+      pattern: '...더... 넣어주세요...'
+      state_bias: *id260
+    - id: toy_equipped_0_50_0_2
+      pattern: '...으응...♥'
+      state_bias: *id260
+    - id: toy_equipped_-30_0_0_0
+      pattern: '...주인님... 이거... 아파요...'
+      state_bias: &id261
+        affinity: -0.3
+        arousal: 0.0
+    - id: toy_equipped_-30_0_0_1
+      pattern: '...빼주세요...'
+      state_bias: *id261
+    - id: toy_equipped_-30_0_0_2
+      pattern: '...참을게요...'
+      state_bias: *id261
+    slots: {}
+  restrain_partner:
+    templates:
+    - id: restrain_partner_start_80_30_0_0
+      pattern: 네가 원한다면... 뭐든지...
+      state_bias: &id262
+        affinity: 0.8
+        arousal: 0.3
+    - id: restrain_partner_start_80_30_0_1
+      pattern: 이렇게 해주는 것도... 좋아...
+      state_bias: *id262
+    - id: restrain_partner_start_-30_0_0_0
+      pattern: 왜... 이런 걸...
+      state_bias: &id263
+        affinity: -0.3
+        arousal: 0.0
+    - id: restrain_partner_start_-30_0_0_1
+      pattern: 아파도 괜찮아... 네가 원하면...
+      state_bias: *id263
+    - id: restrain_partner_start_-60_30_0_0
+      pattern: 아파... 하지만 괜찮아...
+      state_bias: &id264
+        affinity: -0.6
+        arousal: 0.3
+    - id: restrain_partner_start_-60_30_0_1
+      pattern: 으으... 참을게...
+      state_bias: *id264
+    slots: {}
+  unrestrain_partner:
+    templates:
+    - id: unrestrain_partner_start_80_30_0_0
+      pattern: 고마워... 풀어줘서...
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    - id: unrestrain_partner_start_-30_0_0_0
+      pattern: '...고마워.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    slots: {}
+  equip_toy_partner:
+    templates:
+    - id: equip_toy_partner_start_80_30_0_0
+      pattern: 이것도... 네가 원하는 거지...?
+      state_bias: &id265
+        affinity: 0.8
+        arousal: 0.3
+    - id: equip_toy_partner_start_80_30_0_1
+      pattern: 부끄럽지만... 해줄게...
+      state_bias: *id265
+    - id: equip_toy_partner_start_-30_0_0_0
+      pattern: 이상한 건... 좀...
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    - id: equip_toy_partner_start_-60_30_0_0
+      pattern: 으으... 참을게...
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  remove_toy_partner:
+    templates:
+    - id: remove_toy_partner_start_80_30_0_0
+      pattern: 하아... 빠졌어...
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    - id: remove_toy_partner_start_-30_0_0_0
+      pattern: '...감사해.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    slots: {}
+  force_feed:
+    templates:
+    - id: force_feed_start_80_30_0_0
+      pattern: 음... 삼킬게...
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    - id: force_feed_start_-30_0_0_0
+      pattern: 이거... 맛이...
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    - id: force_feed_start_-60_30_0_0
+      pattern: 으... 삼킬게... 참을게...
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}
+  use_whip:
+    templates:
+    - id: use_whip_start_80_30_0_0
+      pattern: 아...! 괜찮아...
+      state_bias: &id266
+        affinity: 0.8
+        arousal: 0.3
+    - id: use_whip_start_80_30_0_1
+      pattern: 더 해도 돼...
+      state_bias: *id266
+    - id: use_whip_start_-30_0_0_0
+      pattern: 아파... 하지만...
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    - id: use_whip_start_-60_30_0_0
+      pattern: 으으...! 참을게... 참을게...
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}

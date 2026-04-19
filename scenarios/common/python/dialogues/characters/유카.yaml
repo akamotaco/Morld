@@ -1,0 +1,20 @@
+# 유카 (Yuka) — cold (kuudere) 프로필
+
+character: 유카
+archetype: cold
+era: near_future
+sex: F
+
+outer_profile:
+  formality: 0.5
+  warmth: -0.5
+  aggression: -0.3
+  verbosity: -0.7
+  maturity: 0.6
+
+inner_profile:
+  formality: 0.5
+  warmth: -0.2
+  aggression: -0.3
+  verbosity: -0.4
+  maturity: 0.6

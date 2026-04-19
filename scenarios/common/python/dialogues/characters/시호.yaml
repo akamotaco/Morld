@@ -1,0 +1,37 @@
+# 시호 (Shiho) — tsundere 프로필
+# 대사는 archetype_dialogues/tsundere/{context}.yaml 사용
+
+character: 시호
+archetype: tsundere
+era: modern
+sex: F
+
+outer_profile:
+  formality: -0.3
+  warmth: -0.1
+  aggression: 0.3
+  verbosity: 0.1
+  maturity: 0.2
+
+inner_profile:
+  formality: 0.1
+  warmth: 0.4
+  aggression: -0.1
+  verbosity: 0.6
+  maturity: 0.2
+
+# 캐릭터 고유 override — 4 연산자 실증
+dialogue_overrides:
+  daily:
+    intents:
+      greet:
+        # (1) 추가: 아키타입에 없던 시호 고유 인사
+        add_templates:
+          - id: shiho_specific_wait
+            pattern: "{shiho_wait_expr}, 너 {shiho_late_note}{end}"
+            state_bias: { affinity: 0.75, embarrassment: 0.5 }
+            inner_bias: { affinity: 0.85, warmth: 0.7, verbosity: 0.8 }
+        # (2) 슬롯 풀 확장: 시호만의 감탄사
+        add_slots:
+          shiho_wait_expr: [ "...한참 기다렸잖아", "...늦었다니까", "...왜 이렇게 늦어" ]
+          shiho_late_note: [ "또 어디 가 있었어", "연락이라도 좀 해줘", "걱정했잖아" ]

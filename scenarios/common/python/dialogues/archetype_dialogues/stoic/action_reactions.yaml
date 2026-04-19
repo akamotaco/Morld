@@ -1,0 +1,288 @@
+# stoic archetype — action_reactions context
+# 자동 변환: S02 stoic.py / ACTION_REACTIONS
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: stoic
+context: action_reactions
+_source: S02 stoic.py:ACTION_REACTIONS
+intents:
+  hug:
+    templates:
+    - id: hug_80_30_0_0
+      pattern: '{name}가 당신에게 기대어 있다.'
+      state_bias: &id001
+        affinity: 0.8
+        arousal: 0.3
+    - id: hug_80_30_0_1
+      pattern: '{name}가 편안하게 안겨 있다.'
+      state_bias: *id001
+    - id: hug_-30_0_0_0
+      pattern: '{name}가 뻣뻣하게 서 있다.'
+      state_bias: &id002
+        affinity: -0.3
+        arousal: 0.0
+    - id: hug_-30_0_0_1
+      pattern: '{name}가 어색하게 서 있다.'
+      state_bias: *id002
+    - id: hug_-30_0_0_2
+      pattern: '{name}가 뻣뻣하게 경직되어 밀어내고 있다.'
+      state_bias: *id002
+    - id: hug_-30_0_0_3
+      pattern: '{name}가 불쾌한 듯 몸을 비틀고 있다.'
+      state_bias: *id002
+    - id: hug_-60_30_0_0
+      pattern: '{name}가 양 팔로 강하게 밀어내고 있다.'
+      state_bias: &id003
+        affinity: -0.6
+        arousal: 0.3
+    - id: hug_-60_30_0_1
+      pattern: '{name}가 주먹으로 가슴팍을 치고 있다.'
+      state_bias: *id003
+    - id: hug_-80_0_0_0
+      pattern: '{name}가 이빨로 어깨를 물어뜯고 있다.'
+      state_bias: &id004
+        affinity: -0.8
+        arousal: 0.0
+    - id: hug_-80_0_0_1
+      pattern: '{name}가 돌처럼 굳어 아무 반응도 보이지 않고 있다.'
+      state_bias: *id004
+    slots: {}
+  deep_kiss:
+    templates:
+    - id: deep_kiss_80_30_0_0
+      pattern: '{name}와 깊은 키스를 나누고 있다. {name}가 눈을 감고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    - id: deep_kiss_30_60_0_0
+      pattern: '{name}가 거칠게 숨을 몰아쉬며 키스에 빠져 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+    - id: deep_kiss_-30_0_0_0
+      pattern: '{name}가 고개를 돌려 입술을 피하고 있다.'
+      state_bias: &id005
+        affinity: -0.3
+        arousal: 0.0
+    - id: deep_kiss_-30_0_0_1
+      pattern: '{name}가 입을 꾹 다문 채 견디고 있다.'
+      state_bias: *id005
+    - id: deep_kiss_-60_30_0_0
+      pattern: '{name}가 입술을 깨물어 피가 맺히고 있다.'
+      state_bias: &id006
+        affinity: -0.6
+        arousal: 0.3
+    - id: deep_kiss_-60_30_0_1
+      pattern: '{name}가 격렬하게 고개를 흔들며 거부하고 있다.'
+      state_bias: *id006
+    - id: deep_kiss_-80_0_0_0
+      pattern: '{name}가 상대의 혀를 이빨로 물어뜯고 있다.'
+      state_bias: &id007
+        affinity: -0.8
+        arousal: 0.0
+    - id: deep_kiss_-80_0_0_1
+      pattern: '{name}가 눈이 풀린 채 입을 벌리고 있다.'
+      state_bias: *id007
+    slots: {}
+  fellatio:
+    templates:
+    - id: fellatio_80_30_0_0
+      pattern: '{name}가 서툴지만 열심히 하고 있다.'
+      state_bias: &id008
+        affinity: 0.8
+        arousal: 0.3
+    - id: fellatio_80_30_0_1
+      pattern: '{name}가 때때로 당신을 올려다본다.'
+      state_bias: *id008
+    - id: fellatio_-30_0_0_0
+      pattern: '{name}가 눈을 피하며 하고 있다.'
+      state_bias: &id009
+        affinity: -0.3
+        arousal: 0.0
+    - id: fellatio_-30_0_0_1
+      pattern: '{name}가 묵묵히 따르고 있다.'
+      state_bias: *id009
+    - id: fellatio_-30_0_0_2
+      pattern: '{name}가 마지못해 하면서 구역질을 참고 있다.'
+      state_bias: *id009
+    - id: fellatio_-30_0_0_3
+      pattern: '{name}가 눈물을 글썽이며 억지로 하고 있다.'
+      state_bias: *id009
+    - id: fellatio_-60_30_0_0
+      pattern: '{name}가 이빨로 깨물려고 하며 격렬하게 거부하고 있다.'
+      state_bias: &id010
+        affinity: -0.6
+        arousal: 0.3
+    - id: fellatio_-60_30_0_1
+      pattern: '{name}가 구역질하며 머리를 빼려고 발버둥치고 있다.'
+      state_bias: *id010
+    - id: fellatio_-80_0_0_0
+      pattern: '{name}가 완전히 무너져 멍하게 입을 벌리고 있다.'
+      state_bias: &id011
+        affinity: -0.8
+        arousal: 0.0
+    - id: fellatio_-80_0_0_1
+      pattern: '{name}가 의식이 끊긴 듯 아무 반응 없이 있다.'
+      state_bias: *id011
+    slots: {}
+  thrust_normal:
+    templates:
+    - id: thrust_normal_80_30_0_0
+      pattern: '{name}가 편안하게 몸을 맡기고 있다.'
+      state_bias: &id012
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_normal_80_30_0_1
+      pattern: '{name}가 허리를 맞추고 있다.'
+      state_bias: *id012
+    - id: thrust_normal_-30_0_0_0
+      pattern: '{name}가 이를 악물며 견디고 있다.'
+      state_bias: &id013
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_normal_-30_0_0_1
+      pattern: '{name}가 얼굴을 묻고 있다.'
+      state_bias: *id013
+    - id: thrust_normal_-30_0_0_2
+      pattern: '{name}가 고통에 이를 악물며 눈물을 참고 있다.'
+      state_bias: *id013
+    - id: thrust_normal_-30_0_0_3
+      pattern: '{name}가 부드럽게 해달라고 간신히 말하고 있다.'
+      state_bias: *id013
+    - id: thrust_normal_-60_30_0_0
+      pattern: '{name}가 비명을 지르며 밀어내고 있다.'
+      state_bias: &id014
+        affinity: -0.6
+        arousal: 0.3
+    - id: thrust_normal_-60_30_0_1
+      pattern: '{name}가 온몸으로 저항하며 발버둥치고 있다.'
+      state_bias: *id014
+    - id: thrust_normal_-80_0_0_0
+      pattern: '{name}가 의식이 끊긴 듯 눈이 풀려 있다.'
+      state_bias: &id015
+        affinity: -0.8
+        arousal: 0.0
+    - id: thrust_normal_-80_0_0_1
+      pattern: '{name}가 영혼이 빠진 채 인형처럼 있다.'
+      state_bias: *id015
+    slots: {}
+  genital_caress:
+    templates:
+    - id: genital_caress_-30_0_0_0
+      pattern: '{name}가 다리를 꽉 오므리며 거부하고 있다.'
+      state_bias: &id016
+        affinity: -0.3
+        arousal: 0.0
+    - id: genital_caress_-30_0_0_1
+      pattern: '{name}가 눈물을 참으며 몸을 움츠리고 있다.'
+      state_bias: *id016
+    - id: genital_caress_-60_30_0_0
+      pattern: '{name}가 발로 걷어차며 저항하고 있다.'
+      state_bias: &id017
+        affinity: -0.6
+        arousal: 0.3
+    - id: genital_caress_-60_30_0_1
+      pattern: '{name}가 비명을 지르며 손목을 비틀고 있다.'
+      state_bias: *id017
+    - id: genital_caress_-80_0_0_0
+      pattern: '{name}가 눈빛이 꺼진 채 아무 반응도 없다.'
+      state_bias: &id018
+        affinity: -0.8
+        arousal: 0.0
+    - id: genital_caress_-80_0_0_1
+      pattern: '{name}가 해리된 듯 천장만 바라보고 있다.'
+      state_bias: *id018
+    slots: {}
+  thrust_gentle:
+    templates:
+    - id: thrust_gentle_80_30_0_0
+      pattern: '{name}가 눈을 감은 채 천천히 받아들이고 있다.'
+      state_bias: &id019
+        affinity: 0.8
+        arousal: 0.3
+    - id: thrust_gentle_80_30_0_1
+      pattern: '{name}가 힘을 빼고 당신의 움직임에 맡기고 있다.'
+      state_bias: *id019
+    - id: thrust_gentle_30_60_0_0
+      pattern: '{name}가 느린 움직임에 입술을 깨물고 있다.'
+      state_bias: &id020
+        affinity: 0.3
+        arousal: 0.6
+    - id: thrust_gentle_30_60_0_1
+      pattern: '{name}의 호흡이 움직임에 맞춰 깊어지고 있다.'
+      state_bias: *id020
+    - id: thrust_gentle_30_0_0_0
+      pattern: '{name}가 가만히 눈을 감고 받아들이고 있다.'
+      state_bias: &id021
+        affinity: 0.3
+        arousal: 0.0
+    - id: thrust_gentle_30_0_0_1
+      pattern: '{name}가 미동 없이 느끼고 있다.'
+      state_bias: *id021
+    - id: thrust_gentle_-30_60_0_0
+      pattern: '{name}가 부드러운 움직임에도 몸이 미세하게 떨리고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: thrust_gentle_-30_0_0_0
+      pattern: '{name}가 이를 악물며 견디고 있다.'
+      state_bias: &id022
+        affinity: -0.3
+        arousal: 0.0
+    - id: thrust_gentle_-30_0_0_1
+      pattern: '{name}가 고개를 돌린 채 참고 있다.'
+      state_bias: *id022
+    - id: thrust_gentle_-60_30_0_0
+      pattern: '{name}가 부드러워도 분노를 억누르며 견디고 있다.'
+      state_bias: &id023
+        affinity: -0.6
+        arousal: 0.3
+    - id: thrust_gentle_-60_30_0_1
+      pattern: '{name}가 살의 어린 눈으로 참고 있다.'
+      state_bias: *id023
+    - id: thrust_gentle_-80_0_0_0
+      pattern: '{name}가 감정을 죽인 채 인형처럼 누워 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  sync_thrust:
+    templates:
+    - id: sync_thrust_80_30_0_0
+      pattern: '{name}가 당신과 리듬을 맞추며 허리를 움직이고 있다.'
+      state_bias: &id024
+        affinity: 0.8
+        arousal: 0.3
+    - id: sync_thrust_80_30_0_1
+      pattern: '{name}의 표정이 미세하게 풀려 있다.'
+      state_bias: *id024
+    - id: sync_thrust_80_30_0_2
+      pattern: '{name}가 무의식적으로 당신의 움직임에 맞추고 있다.'
+      state_bias: *id024
+    - id: sync_thrust_30_60_0_0
+      pattern: '{name}가 당신의 리듬에 몸을 맡기며 숨이 거칠어지고 있다.'
+      state_bias: &id025
+        affinity: 0.3
+        arousal: 0.6
+    - id: sync_thrust_30_60_0_1
+      pattern: '{name}가 리듬에 맞춰 조여오고 있다.'
+      state_bias: *id025
+    - id: sync_thrust_30_0_0_0
+      pattern: '{name}가 조용히 당신의 움직임에 허리를 맞추고 있다.'
+      state_bias: &id026
+        affinity: 0.3
+        arousal: 0.0
+    - id: sync_thrust_30_0_0_1
+      pattern: '{name}가 눈을 감은 채 리듬을 따르고 있다.'
+      state_bias: *id026
+    - id: sync_thrust_-30_0_0_0
+      pattern: '{name}가 리듬을 거부하려 하지만 몸이 저절로 맞추고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    - id: sync_thrust_-60_30_0_0
+      pattern: '{name}가 자기도 모르게 맞추는 몸에 이를 악물고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    slots: {}

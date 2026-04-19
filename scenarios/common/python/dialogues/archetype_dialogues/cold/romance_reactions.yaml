@@ -1,0 +1,547 @@
+# cold archetype — romance_reactions context
+# 자동 변환: S02 cold.py / REACTIONS
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: cold
+context: romance_reactions
+_source: S02 cold.py:REACTIONS
+intents:
+  light:
+    templates:
+    - id: light_80_30_0_0
+      pattern: '{name}가 조용히 허용하고 있다.'
+      state_bias: &id001
+        affinity: 0.8
+        arousal: 0.3
+    - id: light_80_30_0_1
+      pattern: '{name}의 표정이 미세하게 풀려 있다.'
+      state_bias: *id001
+    - id: light_80_-30_0_0
+      pattern: '{name}가 의미를 이해 못한 듯 미간을 찌푸리고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: -0.3
+    - id: light_30_60_0_0
+      pattern: '{name}의 호흡이 미세하게 흔들리고 있다.'
+      state_bias: &id002
+        affinity: 0.3
+        arousal: 0.6
+    - id: light_30_60_0_1
+      pattern: '{name}가 태연한 척하고 있다.'
+      state_bias: *id002
+    - id: light_30_0_0_0
+      pattern: '{name}가 무표정하게 받아들이고 있다.'
+      state_bias: &id003
+        affinity: 0.3
+        arousal: 0.0
+    - id: light_30_0_0_1
+      pattern: '{name}가 담담히 서 있다.'
+      state_bias: *id003
+    - id: light_30_0_0_2
+      pattern: '{name}가 무심한 듯 시선을 돌리고 있다.'
+      state_bias: *id003
+    - id: light_-30_0_0_0
+      pattern: '{name}가 차가운 눈으로 바라보고 있다.'
+      state_bias: &id004
+        affinity: -0.3
+        arousal: 0.0
+    - id: light_-30_0_0_1
+      pattern: '{name}가 가만히 서 있다.'
+      state_bias: *id004
+    - id: light_high_80_80_60_0
+      pattern: '{name}의 경어가 흔들리고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: light_high_30_60_60_0
+      pattern: '{name}가 가드를 유지하려 애쓰고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: light_extreme_80_80_80_0
+      pattern: '{name}의 목소리가 떨리고 있다.'
+      state_bias: &id005
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: light_extreme_80_80_80_1
+      pattern: '{name}의 냉정함이 무너지고 있다.'
+      state_bias: *id005
+    - id: light_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차가운 눈으로 당신의 손을 바라보고 있다.'
+      state_bias: &id006
+        affinity: -0.3
+        arousal: 0.0
+    - id: light_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 미동도 없이 서 있다.'
+      state_bias: *id006
+    - id: light_rebellion_high_-60_30_0_0
+      pattern: '{name}가 살기 어린 눈으로 당신을 바라보고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: light_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 얼음장 같은 목소리로 경고하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: light_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}의 눈에서 살의가 느껴진다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: light_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 죽은 듯한 눈으로 당신을 관통하고 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  medium:
+    templates:
+    - id: medium_80_30_0_0
+      pattern: '{name}가 눈을 감고 허용하고 있다.'
+      state_bias: &id007
+        affinity: 0.8
+        arousal: 0.3
+    - id: medium_80_30_0_1
+      pattern: '{name}의 표정이 미세하게 변하고 있다.'
+      state_bias: *id007
+    - id: medium_80_-30_0_0
+      pattern: '{name}가 아무렇지 않은 척 눈을 돌리고 있다.'
+      state_bias: &id008
+        affinity: 0.8
+        arousal: -0.3
+    - id: medium_80_-30_0_1
+      pattern: '{name}가 동요하지 않으려 애쓰고 있다.'
+      state_bias: *id008
+    - id: medium_30_60_0_0
+      pattern: '{name}의 호흡이 흔들리고 있다.'
+      state_bias: &id009
+        affinity: 0.3
+        arousal: 0.6
+    - id: medium_30_60_0_1
+      pattern: '{name}가 냉정을 유지하려 애쓰고 있다.'
+      state_bias: *id009
+    - id: medium_30_0_0_0
+      pattern: '{name}가 무표정하게 참고 있다.'
+      state_bias: &id010
+        affinity: 0.3
+        arousal: 0.0
+    - id: medium_30_0_0_1
+      pattern: '{name}가 감정을 숨기고 있다.'
+      state_bias: *id010
+    - id: medium_-30_0_0_0
+      pattern: '{name}가 차가운 시선으로 제지하고 있다.'
+      state_bias: &id011
+        affinity: -0.3
+        arousal: 0.0
+    - id: medium_-30_0_0_1
+      pattern: '{name}가 손목을 잡고 있다.'
+      state_bias: *id011
+    - id: medium_high_80_80_60_0
+      pattern: '{name}의 표정에 균열이 가고 있다.'
+      state_bias: &id012
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: medium_high_80_80_60_1
+      pattern: '{name}가 경어를 유지하지 못하고 있다.'
+      state_bias: *id012
+    - id: medium_extreme_80_80_80_0
+      pattern: '{name}의 냉정함이 완전히 무너졌다.'
+      state_bias: &id013
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: medium_extreme_80_80_80_1
+      pattern: '{name}가 정신을 놓고 있다.'
+      state_bias: *id013
+    - id: medium_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차가운 시선으로 손목을 잡으며 제지하고 있다.'
+      state_bias: &id014
+        affinity: -0.3
+        arousal: 0.0
+    - id: medium_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 경고하듯 눈빛을 보내고 있다.'
+      state_bias: *id014
+    - id: medium_rebellion_high_-60_30_0_0
+      pattern: '{name}가 살기 어린 눈으로 당신의 손목을 꺾으려 하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: medium_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 얼음장 같은 목소리로 죽여버리겠다고 하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: medium_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}의 눈에서 인간적인 감정이 완전히 사라졌다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: medium_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 당신을 죽일 방법을 생각하고 있는 눈빛이다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  strong:
+    templates:
+    - id: strong_80_30_0_0
+      pattern: '{name}가 감정을 숨기려 하지만 숨소리가 흔들리고 있다.'
+      state_bias: &id015
+        affinity: 0.8
+        arousal: 0.3
+    - id: strong_80_30_0_1
+      pattern: '{name}가 눈을 감고 허용하고 있다.'
+      state_bias: *id015
+    - id: strong_80_-30_0_0
+      pattern: '{name}가 감정을 드러내지 않으려 이를 악물고 있다.'
+      state_bias: &id016
+        affinity: 0.8
+        arousal: -0.3
+    - id: strong_80_-30_0_1
+      pattern: '{name}가 초연한 척 눈을 감고 있다.'
+      state_bias: *id016
+    - id: strong_30_60_0_0
+      pattern: '{name}의 냉정한 가면에 균열이 가고 있다.'
+      state_bias: &id017
+        affinity: 0.3
+        arousal: 0.6
+    - id: strong_30_60_0_1
+      pattern: '{name}가 경어를 잃어가고 있다.'
+      state_bias: *id017
+    - id: strong_30_0_0_0
+      pattern: '{name}가 무표정을 유지하려 애쓰고 있다.'
+      state_bias: &id018
+        affinity: 0.3
+        arousal: 0.0
+    - id: strong_30_0_0_1
+      pattern: '{name}가 자세를 바로잡고 있다.'
+      state_bias: *id018
+    - id: strong_-30_0_0_0
+      pattern: '{name}가 차갑게 손목을 잡고 있다.'
+      state_bias: &id019
+        affinity: -0.3
+        arousal: 0.0
+    - id: strong_-30_0_0_1
+      pattern: '{name}가 눈빛으로 경고하고 있다.'
+      state_bias: *id019
+    - id: strong_80_80_60_0
+      pattern: '{name}의 입술이 미세하게 떨리고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: strong_80_30_60_0
+      pattern: '{name}의 호흡이 불규칙해지고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.6
+    - id: strong_30_60_60_0
+      pattern: '{name}가 이를 악물고 있지만 어깨가 떨리고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: strong_-30_60_60_0
+      pattern: '{name}가 저항하면서도 몸이 경련하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: strong_-30_0_60_0
+      pattern: '{name}가 냉정한 표정 뒤로 호흡이 거칠어지고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.6
+    - id: strong_80_80_80_0
+      pattern: '{name}의 냉정함이 산산이 부서지고 있다.'
+      state_bias: &id020
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: strong_80_80_80_1
+      pattern: '{name}가 자신에게 화를 내듯 입술을 깨물고 있다.'
+      state_bias: *id020
+    - id: strong_80_30_80_0
+      pattern: '{name}가 ''...!'' 하고 짧은 소리를 내고 말았다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.8
+    - id: strong_30_60_80_0
+      pattern: '{name}가 의지와 무관하게 소리를 내고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: strong_-30_60_80_0
+      pattern: '{name}가 분노에 찬 눈으로 자신의 몸을 원망하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: strong_-30_0_80_0
+      pattern: '{name}가 치욕스러운 듯 얼굴을 돌리며 경련하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.8
+    - id: strong_high_80_80_60_0
+      pattern: '{name}의 경어가 완전히 무너지고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: strong_high_30_60_60_0
+      pattern: '{name}가 참으려 하지만 몸이 반응하고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: strong_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 눈빛으로 살의를 드러내며 견디고 있다.'
+      state_bias: &id021
+        affinity: -0.3
+        arousal: 0.0
+    - id: strong_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 차갑게 굳은 채 참고 있다.'
+      state_bias: *id021
+    - id: strong_rebellion_high_-60_30_0_0
+      pattern: '{name}가 살기 어린 눈으로 죽여버리겠다고 속삭이고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: strong_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 빙점 이하의 눈빛으로 당신을 꿰뚫고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: strong_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}가 인간의 감정을 완전히 버린 눈빛이다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: strong_rebellion_extreme_-80_0_0_0
+      pattern: '{name}가 죽은 듯 고요하지만 살의만 남아 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  penetration:
+    templates:
+    - id: penetration_80_30_0_0
+      pattern: '{name}가 눈을 감고 당신에게 맡기고 있다.'
+      state_bias: &id022
+        affinity: 0.8
+        arousal: 0.3
+    - id: penetration_80_30_0_1
+      pattern: '{name}가 미세하게 허리를 맞추고 있다.'
+      state_bias: *id022
+    - id: penetration_80_-30_0_0
+      pattern: '{name}가 감정 없는 눈으로 참고 있다.'
+      state_bias: &id023
+        affinity: 0.8
+        arousal: -0.3
+    - id: penetration_80_-30_0_1
+      pattern: '{name}가 아무렇지 않은 척 천장을 보고 있다.'
+      state_bias: *id023
+    - id: penetration_30_60_0_0
+      pattern: '{name}의 냉정함이 완전히 무너지고 있다.'
+      state_bias: &id024
+        affinity: 0.3
+        arousal: 0.6
+    - id: penetration_30_60_0_1
+      pattern: '{name}가 참지 못하고 소리를 내고 있다.'
+      state_bias: *id024
+    - id: penetration_30_0_0_0
+      pattern: '{name}가 무표정하게 받아들이고 있다.'
+      state_bias: &id025
+        affinity: 0.3
+        arousal: 0.0
+    - id: penetration_30_0_0_1
+      pattern: '{name}가 태연한 척하고 있다.'
+      state_bias: *id025
+    - id: penetration_-30_0_0_0
+      pattern: '{name}가 차갑게 견디고 있다.'
+      state_bias: &id026
+        affinity: -0.3
+        arousal: 0.0
+    - id: penetration_-30_0_0_1
+      pattern: '{name}가 천장을 바라보고 있다.'
+      state_bias: *id026
+    - id: penetration_80_80_60_0
+      pattern: '{name}의 경어가 흔들리며 손가락이 시트를 움켜쥐고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: penetration_80_30_60_0
+      pattern: '{name}가 태연한 척하지만 허리가 미세하게 맞추고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.6
+    - id: penetration_30_60_60_0
+      pattern: '{name}가 입술을 깨물어 소리를 참고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: penetration_-30_60_60_0
+      pattern: '{name}가 거부하면서도 몸이 반응하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: penetration_-30_0_60_0
+      pattern: '{name}가 차가운 눈빛 속에 호흡이 거칠어지고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.6
+    - id: penetration_80_80_80_0
+      pattern: '{name}가 ''...!'' 짧은 비명을 삼키며 냉정함이 부서지고 있다.'
+      state_bias: &id027
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: penetration_80_80_80_1
+      pattern: '{name}가 모든 방어가 무너져 당신에게 매달리고 있다.'
+      state_bias: *id027
+    - id: penetration_80_30_80_0
+      pattern: '{name}가 자기도 모르게 짧은 신음을 내고 자신에게 분노하고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.8
+    - id: penetration_30_60_80_0
+      pattern: '{name}가 참을 수 없다는 듯 고개를 젖히고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: penetration_-30_60_80_0
+      pattern: '{name}가 치욕에 이를 악물면서도 몸이 떨리고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: penetration_-30_0_80_0
+      pattern: '{name}가 얼음장 같은 표정이 깨지며 짧은 소리가 새어 나오고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.8
+    - id: penetration_high_80_80_60_0
+      pattern: '{name}가 처음으로 이름을 불러주고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: penetration_high_30_60_60_0
+      pattern: '{name}가 완전히 무너져 소리를 내고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: penetration_extreme_80_80_80_0
+      pattern: '{name}가 모든 벽을 허물고 당신에게 매달리고 있다.'
+      state_bias: &id028
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: penetration_extreme_80_80_80_1
+      pattern: '{name}가 원래 모습을 잃고 본능에 맡기고 있다.'
+      state_bias: *id028
+    - id: penetration_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차갑게 천장을 바라보며 견디고 있다.'
+      state_bias: &id029
+        affinity: -0.3
+        arousal: 0.0
+    - id: penetration_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 감정을 완전히 차단한 채 참고 있다.'
+      state_bias: *id029
+    - id: penetration_rebellion_high_-60_30_0_0
+      pattern: '{name}가 빙점 이하의 살의를 눈에 담고 견디고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: penetration_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 죽음보다 차가운 눈빛으로 당신을 보고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: penetration_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}가 인간이기를 포기한 눈빛으로 누워 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: penetration_rebellion_extreme_-80_0_0_0
+      pattern: '{name}의 눈에 살의만 남은 채 모든 감정이 사라졌다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}
+  rough:
+    templates:
+    - id: rough_80_30_0_0
+      pattern: '{name}가 무너지지 않으려 이를 악물고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+    - id: rough_30_60_0_0
+      pattern: '{name}의 냉정함이 완전히 깨지고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+    - id: rough_30_0_0_0
+      pattern: '{name}가 고통을 느끼지 않는 척하고 있다.'
+      state_bias: &id030
+        affinity: 0.3
+        arousal: 0.0
+    - id: rough_30_0_0_1
+      pattern: '{name}가 고통을 숨기려 이를 악물고 있다.'
+      state_bias: *id030
+    - id: rough_30_0_0_2
+      pattern: '{name}가 감정 없는 표정으로 버티고 있다.'
+      state_bias: *id030
+    - id: rough_-30_0_0_0
+      pattern: '{name}가 차가운 눈으로 당신을 노려보고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    - id: rough_rebellion_mild_-30_0_0_0
+      pattern: '{name}가 차가운 분노를 담은 눈으로 견디고 있다.'
+      state_bias: &id031
+        affinity: -0.3
+        arousal: 0.0
+    - id: rough_rebellion_mild_-30_0_0_1
+      pattern: '{name}가 감정을 완전히 차단하고 참고 있다.'
+      state_bias: *id031
+    - id: rough_rebellion_high_-60_30_0_0
+      pattern: '{name}가 살의만 남은 눈빛으로 당신을 꿰뚫고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: rough_rebellion_high_-60_-30_0_0
+      pattern: '{name}가 모든 고통을 기억에 새기고 있다는 눈빛이다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: rough_rebellion_extreme_-60_-30_0_0
+      pattern: '{name}가 인간이기를 완전히 포기한 눈빛으로 누워 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: rough_rebellion_extreme_-80_0_0_0
+      pattern: '{name}의 눈에 감정이라곤 살의 하나만 남아 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.0
+    slots: {}

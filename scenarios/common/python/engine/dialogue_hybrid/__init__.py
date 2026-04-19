@@ -34,5 +34,12 @@ from engine.dialogue_hybrid.engine import (
     HybridEngine,
     ACTION_TO_CATEGORY,
 )
+from engine.dialogue_hybrid.s02_adapter import (
+    LineGenerator,
+    ReactionGenerator,
+)
 
-__all__ = ["HybridEngine", "ACTION_TO_CATEGORY"]
+__all__ = [
+    "HybridEngine", "ACTION_TO_CATEGORY",
+    "LineGenerator", "ReactionGenerator",  # S02 호환 어댑터
+]

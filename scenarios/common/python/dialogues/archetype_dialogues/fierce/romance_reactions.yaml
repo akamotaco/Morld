@@ -1,0 +1,502 @@
+# fierce archetype — romance_reactions context
+# 자동 변환: S02 fierce.py / REACTIONS
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: fierce
+context: romance_reactions
+_source: S02 fierce.py:REACTIONS
+intents:
+  light:
+    templates:
+    - id: light_80_80_0_0
+      pattern: '{name}가 이를 악물며 당신을 끌어당기고 있다.'
+      state_bias: &id001
+        affinity: 0.8
+        arousal: 0.8
+    - id: light_80_80_0_1
+      pattern: '{name}가 숨을 거칠게 몰아쉬며 매달리고 있다.'
+      state_bias: *id001
+    - id: light_80_80_0_2
+      pattern: '{name}가 거칠게 헐떡이고 있다.'
+      state_bias: *id001
+    - id: light_80_80_0_3
+      pattern: '{name}의 손톱이 당신의 팔에 파고들고 있다.'
+      state_bias: *id001
+    - id: light_80_30_0_0
+      pattern: '{name}가 당신을 세게 끌어당기고 있다.'
+      state_bias: &id002
+        affinity: 0.8
+        arousal: 0.3
+    - id: light_80_30_0_1
+      pattern: '{name}가 힘을 주어 안기고 있다.'
+      state_bias: *id002
+    - id: light_80_30_0_2
+      pattern: '{name}가 거친 숨을 내쉬며 기대고 있다.'
+      state_bias: *id002
+    - id: light_80_-30_0_0
+      pattern: '{name}가 순간 힘이 빠졌다가 다시 세게 잡고 있다.'
+      state_bias: &id003
+        affinity: 0.8
+        arousal: -0.3
+    - id: light_80_-30_0_1
+      pattern: '{name}가 눈을 피하며 귀끝이 빨개져 있다.'
+      state_bias: *id003
+    - id: light_30_60_0_0
+      pattern: '{name}가 거칠게 숨쉬고 있다.'
+      state_bias: &id004
+        affinity: 0.3
+        arousal: 0.6
+    - id: light_30_60_0_1
+      pattern: '{name}가 안절부절못하며 몸을 비틀고 있다.'
+      state_bias: *id004
+    - id: light_30_0_0_0
+      pattern: '{name}가 팔짱을 끼고 서 있다.'
+      state_bias: &id005
+        affinity: 0.3
+        arousal: 0.0
+    - id: light_30_0_0_1
+      pattern: '{name}가 건방진 표정으로 서 있다.'
+      state_bias: *id005
+    - id: light_30_0_0_2
+      pattern: '{name}가 코웃음 치며 서 있다.'
+      state_bias: *id005
+    - id: light_-30_60_0_0
+      pattern: '{name}가 거부하면서도 몸이 달아오르고 있다.'
+      state_bias: &id006
+        affinity: -0.3
+        arousal: 0.6
+    - id: light_-30_60_0_1
+      pattern: '{name}가 이를 드러내며 몸의 반응에 화내고 있다.'
+      state_bias: *id006
+    - id: light_-30_0_0_0
+      pattern: '{name}가 당신의 손을 세게 쳐내고 있다.'
+      state_bias: &id007
+        affinity: -0.3
+        arousal: 0.0
+    - id: light_-30_0_0_1
+      pattern: '{name}가 험악한 눈으로 노려보고 있다.'
+      state_bias: *id007
+    - id: light_-30_0_0_2
+      pattern: '{name}가 이를 드러내며 경고하고 있다.'
+      state_bias: *id007
+    - id: light_-60_30_0_0
+      pattern: '{name}가 주먹을 휘두르며 밀어내고 있다.'
+      state_bias: &id008
+        affinity: -0.6
+        arousal: 0.3
+    - id: light_-60_30_0_1
+      pattern: '{name}가 이빨을 드러내고 물어뜯으려 하고 있다.'
+      state_bias: *id008
+    - id: light_-60_-30_0_0
+      pattern: '{name}가 야수처럼 으르렁거리고 있다.'
+      state_bias: &id009
+        affinity: -0.6
+        arousal: -0.3
+    - id: light_-60_-30_0_1
+      pattern: '{name}가 살기를 띤 눈으로 이를 악물고 있다.'
+      state_bias: *id009
+    - id: light_-80_0_0_0
+      pattern: '{name}가 살의가 가득한 눈으로 이빨을 드러내고 있다.'
+      state_bias: &id010
+        affinity: -0.8
+        arousal: 0.0
+    - id: light_-80_0_0_1
+      pattern: '{name}가 당신을 물어뜯으려 몸부림치고 있다.'
+      state_bias: *id010
+    slots: {}
+  medium:
+    templates:
+    - id: medium_80_80_0_0
+      pattern: '{name}가 거칠게 당신을 끌어당기고 있다.'
+      state_bias: &id011
+        affinity: 0.8
+        arousal: 0.8
+    - id: medium_80_80_0_1
+      pattern: '{name}가 이성을 잃어가며 할퀴고 있다.'
+      state_bias: *id011
+    - id: medium_80_80_0_2
+      pattern: '{name}의 숨소리가 맹수처럼 거칠어지고 있다.'
+      state_bias: *id011
+    - id: medium_80_30_0_0
+      pattern: '{name}가 거칠게 당신을 끌어당기고 있다.'
+      state_bias: &id012
+        affinity: 0.8
+        arousal: 0.3
+    - id: medium_80_30_0_1
+      pattern: '{name}가 이를 드러내며 숨쉬고 있다.'
+      state_bias: *id012
+    - id: medium_80_30_0_2
+      pattern: '{name}가 손톱으로 당신의 등을 긁고 있다.'
+      state_bias: *id012
+    - id: medium_80_-30_0_0
+      pattern: '{name}가 잠깐 멈칫하더니 시선을 돌리고 있다.'
+      state_bias: &id013
+        affinity: 0.8
+        arousal: -0.3
+    - id: medium_80_-30_0_1
+      pattern: '{name}가 얼굴을 감추려 고개를 돌리고 있다.'
+      state_bias: *id013
+    - id: medium_30_60_0_0
+      pattern: '{name}가 거칠게 반응하며 헐떡이고 있다.'
+      state_bias: &id014
+        affinity: 0.3
+        arousal: 0.6
+    - id: medium_30_60_0_1
+      pattern: '{name}가 이를 악물면서도 몸이 반응하고 있다.'
+      state_bias: *id014
+    - id: medium_30_0_0_0
+      pattern: '{name}가 입꼬리를 올리며 비웃고 있다.'
+      state_bias: &id015
+        affinity: 0.3
+        arousal: 0.0
+    - id: medium_30_0_0_1
+      pattern: '{name}가 콧방귀를 뀌며 서 있다.'
+      state_bias: *id015
+    - id: medium_-30_60_0_0
+      pattern: '{name}가 거부하면서도 거친 숨소리를 내고 있다.'
+      state_bias: &id016
+        affinity: -0.3
+        arousal: 0.6
+    - id: medium_-30_60_0_1
+      pattern: '{name}가 몸의 반응에 이를 갈고 있다.'
+      state_bias: *id016
+    - id: medium_-30_0_0_0
+      pattern: '{name}가 세게 밀어내고 있다.'
+      state_bias: &id017
+        affinity: -0.3
+        arousal: 0.0
+    - id: medium_-30_0_0_1
+      pattern: '{name}가 손톱을 세우며 경고하고 있다.'
+      state_bias: *id017
+    - id: medium_-60_30_0_0
+      pattern: '{name}가 할퀴며 저항하고 있다.'
+      state_bias: &id018
+        affinity: -0.6
+        arousal: 0.3
+    - id: medium_-60_30_0_1
+      pattern: '{name}가 주먹으로 가슴팍을 치고 있다.'
+      state_bias: *id018
+    - id: medium_-60_-30_0_0
+      pattern: '{name}가 온몸을 비틀며 발악하고 있다.'
+      state_bias: &id019
+        affinity: -0.6
+        arousal: -0.3
+    - id: medium_-60_-30_0_1
+      pattern: '{name}가 광기 어린 눈으로 이를 갈고 있다.'
+      state_bias: *id019
+    - id: medium_-80_0_0_0
+      pattern: '{name}가 물어뜯으며 미친 듯이 저항하고 있다.'
+      state_bias: &id020
+        affinity: -0.8
+        arousal: 0.0
+    - id: medium_-80_0_0_1
+      pattern: '{name}가 살의만 남은 눈으로 발버둥치고 있다.'
+      state_bias: *id020
+    slots: {}
+  strong:
+    templates:
+    - id: strong_80_80_0_0
+      pattern: '{name}가 물어뜯으며 매달리고 있다.'
+      state_bias: &id021
+        affinity: 0.8
+        arousal: 0.8
+    - id: strong_80_80_0_1
+      pattern: '{name}가 이성을 잃어가고 있다.'
+      state_bias: *id021
+    - id: strong_80_80_0_2
+      pattern: '{name}가 거칠게 할퀴며 소리를 내고 있다.'
+      state_bias: *id021
+    - id: strong_80_30_0_0
+      pattern: '{name}가 이를 드러내며 거칠게 반응하고 있다.'
+      state_bias: &id022
+        affinity: 0.8
+        arousal: 0.3
+    - id: strong_80_30_0_1
+      pattern: '{name}가 손톱을 세우며 숨을 참고 있다.'
+      state_bias: *id022
+    - id: strong_80_-30_0_0
+      pattern: '{name}가 순간 힘이 빠졌다. 귀끝이 새빨갛다.'
+      state_bias:
+        affinity: 0.8
+        arousal: -0.3
+    - id: strong_30_60_0_0
+      pattern: '{name}가 이를 악물면서도 몸이 떨리고 있다.'
+      state_bias: &id023
+        affinity: 0.3
+        arousal: 0.6
+    - id: strong_30_60_0_1
+      pattern: '{name}가 거칠게 숨쉬며 버티고 있다.'
+      state_bias: *id023
+    - id: strong_30_0_0_0
+      pattern: '{name}가 으르렁거리며 참고 있다.'
+      state_bias: &id024
+        affinity: 0.3
+        arousal: 0.0
+    - id: strong_30_0_0_1
+      pattern: '{name}가 이를 악물고 견디고 있다.'
+      state_bias: *id024
+    - id: strong_-30_60_0_0
+      pattern: '{name}가 혐오하면서도 거칠게 몸이 반응하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: strong_-30_0_0_0
+      pattern: '{name}가 발로 걷어차며 저항하고 있다.'
+      state_bias: &id025
+        affinity: -0.3
+        arousal: 0.0
+    - id: strong_-30_0_0_1
+      pattern: '{name}가 손톱으로 피가 나도록 할퀴고 있다.'
+      state_bias: *id025
+    - id: strong_-60_30_0_0
+      pattern: '{name}가 이빨로 물어뜯으며 미친 듯이 발버둥치고 있다.'
+      state_bias: &id026
+        affinity: -0.6
+        arousal: 0.3
+    - id: strong_-60_30_0_1
+      pattern: '{name}가 머리를 들이받으며 저항하고 있다.'
+      state_bias: *id026
+    - id: strong_-60_-30_0_0
+      pattern: '{name}가 짐승처럼 으르렁거리며 벗어나려 하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: strong_-80_0_0_0
+      pattern: '{name}가 온몸으로 물어뜯고 할퀴며 발악하고 있다.'
+      state_bias: &id027
+        affinity: -0.8
+        arousal: 0.0
+    - id: strong_-80_0_0_1
+      pattern: '{name}가 죽여도 저항을 멈추지 않겠다는 눈빛이다.'
+      state_bias: *id027
+    - id: strong_80_80_60_0
+      pattern: '{name}가 이를 악물지만 온몸이 불규칙하게 떨리고 있다.'
+      state_bias: &id028
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: strong_80_80_60_1
+      pattern: '{name}가 손톱을 세우며 거칠게 당신에게 매달리고 있다.'
+      state_bias: *id028
+    - id: strong_80_80_80_0
+      pattern: '{name}가 물어뜯으며 짐승 같은 비명을 지르고 있다.'
+      state_bias: &id029
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: strong_80_80_80_1
+      pattern: '{name}가 당신을 할퀴며 통제 불능으로 몸을 떨고 있다.'
+      state_bias: *id029
+    - id: strong_80_30_60_0
+      pattern: '{name}가 이를 드러내며 절정을 참으려 발버둥치고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.6
+    - id: strong_30_60_60_0
+      pattern: '{name}가 이를 악물면서도 허리가 제멋대로 움직이고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: strong_-30_60_80_0
+      pattern: '{name}가 거부하면서도 맹렬히 절정에 휩쓸리고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: strong_-30_0_60_0
+      pattern: '{name}가 이를 악물지만 몸이 제멋대로 떨리고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.6
+    slots: {}
+  penetration:
+    templates:
+    - id: penetration_80_80_0_0
+      pattern: '{name}가 소유하듯 안으며 이를 악물고 있다.'
+      state_bias: &id030
+        affinity: 0.8
+        arousal: 0.8
+    - id: penetration_80_80_0_1
+      pattern: '{name}가 물어뜯으며 매달리고 있다.'
+      state_bias: *id030
+    - id: penetration_80_80_0_2
+      pattern: '{name}가 거칠게 허리를 맞추고 있다.'
+      state_bias: *id030
+    - id: penetration_80_30_0_0
+      pattern: '{name}가 거칠게 당신을 끌어안고 있다.'
+      state_bias: &id031
+        affinity: 0.8
+        arousal: 0.3
+    - id: penetration_80_30_0_1
+      pattern: '{name}가 이를 악물며 허리를 움직이고 있다.'
+      state_bias: *id031
+    - id: penetration_80_-30_0_0
+      pattern: '{name}가 순간 힘이 빠진 채 당신에게 기대어 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: -0.3
+    - id: penetration_30_60_0_0
+      pattern: '{name}가 공격적으로 매달리고 있다.'
+      state_bias: &id032
+        affinity: 0.3
+        arousal: 0.6
+    - id: penetration_30_60_0_1
+      pattern: '{name}가 이를 드러내며 허리를 맞추고 있다.'
+      state_bias: *id032
+    - id: penetration_30_0_0_0
+      pattern: '{name}가 이를 악물며 받아들이고 있다.'
+      state_bias: &id033
+        affinity: 0.3
+        arousal: 0.0
+    - id: penetration_30_0_0_1
+      pattern: '{name}가 거친 숨을 내쉬며 버티고 있다.'
+      state_bias: *id033
+    - id: penetration_-30_60_0_0
+      pattern: '{name}가 혐오하면서도 안에서 몸이 반응하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: penetration_-30_0_0_0
+      pattern: '{name}가 이를 악물며 할퀴고 있다.'
+      state_bias: &id034
+        affinity: -0.3
+        arousal: 0.0
+    - id: penetration_-30_0_0_1
+      pattern: '{name}가 물어뜯으며 견디고 있다.'
+      state_bias: *id034
+    - id: penetration_-60_30_0_0
+      pattern: '{name}가 미친 듯이 할퀴며 밀어내려 하고 있다.'
+      state_bias: &id035
+        affinity: -0.6
+        arousal: 0.3
+    - id: penetration_-60_30_0_1
+      pattern: '{name}가 물어뜯으며 발악하고 있다.'
+      state_bias: *id035
+    - id: penetration_-60_-30_0_0
+      pattern: '{name}가 야수처럼 발버둥치며 저항하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: penetration_-80_0_0_0
+      pattern: '{name}가 저항이 멈추지 않는다. 이빨과 손톱이 무기다.'
+      state_bias: &id036
+        affinity: -0.8
+        arousal: 0.0
+    - id: penetration_-80_0_0_1
+      pattern: '{name}가 피가 나도록 물어뜯으며 살의를 드러내고 있다.'
+      state_bias: *id036
+    - id: penetration_80_80_60_0
+      pattern: '{name}가 물어뜯으며 미친 듯이 허리를 맞추고 있다.'
+      state_bias: &id037
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: penetration_80_80_60_1
+      pattern: '{name}가 이를 악물지만 안에서 격렬하게 조여오고 있다.'
+      state_bias: *id037
+    - id: penetration_80_80_80_0
+      pattern: '{name}가 당신을 할퀴며 짐승 같은 절규를 터뜨리고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: penetration_80_30_80_0
+      pattern: '{name}가 이를 드러내며 안에서 격렬하게 절정에 달하고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.8
+    - id: penetration_30_60_60_0
+      pattern: '{name}가 이를 악물며 안에서 불규칙하게 조이고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: penetration_-30_60_80_0
+      pattern: '{name}가 거부하면서도 안에서 폭발하듯 절정에 달하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: penetration_-30_0_60_0
+      pattern: '{name}가 이를 악물지만 안에서 제멋대로 떨리고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.6
+    slots: {}
+  rough:
+    templates:
+    - id: rough_80_80_0_0
+      pattern: '{name}가 거칠게 당신을 끌어당기고 있다.'
+      state_bias: &id038
+        affinity: 0.8
+        arousal: 0.8
+    - id: rough_80_80_0_1
+      pattern: '{name}가 이성을 잃어가고 있다.'
+      state_bias: *id038
+    - id: rough_80_80_0_2
+      pattern: '{name}가 물어뜯으며 미친 듯이 매달리고 있다.'
+      state_bias: *id038
+    - id: rough_80_30_0_0
+      pattern: '{name}가 이를 악물며 받아들이고 있다.'
+      state_bias: &id039
+        affinity: 0.8
+        arousal: 0.3
+    - id: rough_80_30_0_1
+      pattern: '{name}가 손톱을 세우며 허리를 맞추고 있다.'
+      state_bias: *id039
+    - id: rough_30_60_0_0
+      pattern: '{name}가 거칠수록 더 격렬하게 반응하고 있다.'
+      state_bias: &id040
+        affinity: 0.3
+        arousal: 0.6
+    - id: rough_30_60_0_1
+      pattern: '{name}가 이를 드러내며 거칠게 매달리고 있다.'
+      state_bias: *id040
+    - id: rough_30_0_0_0
+      pattern: '{name}가 이를 악물며 참고 있다.'
+      state_bias: &id041
+        affinity: 0.3
+        arousal: 0.0
+    - id: rough_30_0_0_1
+      pattern: '{name}가 거칠게 으르렁거리며 견디고 있다.'
+      state_bias: *id041
+    - id: rough_-30_60_0_0
+      pattern: '{name}가 고통 속에서도 몸이 거칠게 달아오르고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: rough_-30_0_0_0
+      pattern: '{name}가 피가 나도록 물어뜯으며 저항하고 있다.'
+      state_bias: &id042
+        affinity: -0.3
+        arousal: 0.0
+    - id: rough_-30_0_0_1
+      pattern: '{name}가 손톱으로 살을 파며 발악하고 있다.'
+      state_bias: *id042
+    - id: rough_-60_30_0_0
+      pattern: '{name}가 이빨을 세워 살점을 물어뜯으려 하고 있다.'
+      state_bias: &id043
+        affinity: -0.6
+        arousal: 0.3
+    - id: rough_-60_30_0_1
+      pattern: '{name}가 온 힘을 다해 머리를 들이받고 있다.'
+      state_bias: *id043
+    - id: rough_-60_-30_0_0
+      pattern: '{name}가 광기 어린 눈으로 물어뜯고 할퀴고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: rough_-80_0_0_0
+      pattern: '{name}가 죽어도 저항을 멈추지 않겠다는 듯 발악하고 있다.'
+      state_bias: &id044
+        affinity: -0.8
+        arousal: 0.0
+    - id: rough_-80_0_0_1
+      pattern: '{name}가 살의만 남은 눈으로 물어뜯고 있다.'
+      state_bias: *id044
+    slots: {}
