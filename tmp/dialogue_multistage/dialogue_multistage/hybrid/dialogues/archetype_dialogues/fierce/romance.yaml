@@ -1,0 +1,705 @@
+# fierce archetype — romance context
+# 자동 변환: S02 fierce.py / LINES
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: fierce
+context: romance
+_source: S02 fierce.py:LINES
+intents:
+  light:
+    templates:
+    - id: light_80_80_0_0
+      pattern: '...멈추면 죽는다.'
+      state_bias: &id001
+        affinity: 0.8
+        arousal: 0.8
+    - id: light_80_80_0_1
+      pattern: '...더 세게.'
+      state_bias: *id001
+    - id: light_80_80_0_2
+      pattern: '...놓지 마... 놓으면 죽여.'
+      state_bias: *id001
+    - id: light_80_80_0_3
+      pattern: '...좋아... 더...!'
+      state_bias: *id001
+    - id: light_80_30_0_0
+      pattern: '...훗, 좋아.'
+      state_bias: &id002
+        affinity: 0.8
+        arousal: 0.3
+    - id: light_80_30_0_1
+      pattern: '...세게 잡아.'
+      state_bias: *id002
+    - id: light_80_30_0_2
+      pattern: '...놓지 마.'
+      state_bias: *id002
+    - id: light_80_-30_0_0
+      pattern: '...뭐야... 뭘 봐.'
+      state_bias: &id003
+        affinity: 0.8
+        arousal: -0.3
+    - id: light_80_-30_0_1
+      pattern: '...시끄러워. ...나쁘지 않다고.'
+      state_bias: *id003
+    - id: light_80_-30_0_2
+      pattern: '......(귀끝이 빨개진다)'
+      state_bias: *id003
+    - id: light_30_60_0_0
+      pattern: '...더 세게 안아.'
+      state_bias: &id004
+        affinity: 0.3
+        arousal: 0.6
+    - id: light_30_60_0_1
+      pattern: '...야, 힘 좀 줘.'
+      state_bias: *id004
+    - id: light_30_60_0_2
+      pattern: '...놓으면 죽는다.'
+      state_bias: *id004
+    - id: light_30_0_0_0
+      pattern: '...훗.'
+      state_bias: &id005
+        affinity: 0.3
+        arousal: 0.0
+    - id: light_30_0_0_1
+      pattern: '...뭐야.'
+      state_bias: *id005
+    - id: light_30_0_0_2
+      pattern: '...시시하군.'
+      state_bias: *id005
+    - id: light_30_0_0_3
+      pattern: '...그래서?'
+      state_bias: *id005
+    - id: light_-30_60_0_0
+      pattern: '...건드리지 마... 근데 왜...'
+      state_bias: &id006
+        affinity: -0.3
+        arousal: 0.6
+    - id: light_-30_60_0_1
+      pattern: '...싫은데... 씨발...'
+      state_bias: *id006
+    - id: light_-30_0_0_0
+      pattern: '...건들지 마.'
+      state_bias: &id007
+        affinity: -0.3
+        arousal: 0.0
+    - id: light_-30_0_0_1
+      pattern: '...손 치워.'
+      state_bias: *id007
+    - id: light_-30_0_0_2
+      pattern: '...한 번 더 만지면 이빨 뽑는다.'
+      state_bias: *id007
+    - id: light_-60_30_0_0
+      pattern: '...죽고 싶냐!'
+      state_bias: &id008
+        affinity: -0.6
+        arousal: 0.3
+    - id: light_-60_30_0_1
+      pattern: '...손 치워! 물어뜯는다!'
+      state_bias: *id008
+    - id: light_-60_30_0_2
+      pattern: '...한 번 더 건드려 봐.'
+      state_bias: *id008
+    - id: light_-60_-30_0_0
+      pattern: '...가까이 오면 죽인다.'
+      state_bias: &id009
+        affinity: -0.6
+        arousal: -0.3
+    - id: light_-60_-30_0_1
+      pattern: '...건드리면 이빨로 찢는다.'
+      state_bias: *id009
+    - id: light_-80_0_0_0
+      pattern: '...(이를 드러내며) ...죽인다...'
+      state_bias: &id010
+        affinity: -0.8
+        arousal: 0.0
+    - id: light_-80_0_0_1
+      pattern: '...(물어뜯으려 한다)'
+      state_bias: *id010
+    - id: light_-80_0_0_2
+      pattern: '...반드시 죽인다...'
+      state_bias: *id010
+    slots: {}
+  medium:
+    templates:
+    - id: medium_80_80_0_0
+      pattern: '...더 세게... 약하게 하면 죽여.'
+      state_bias: &id011
+        affinity: 0.8
+        arousal: 0.8
+    - id: medium_80_80_0_1
+      pattern: '...이를 악물며) ...거기... 더...!'
+      state_bias: *id011
+    - id: medium_80_80_0_2
+      pattern: '...멈추면 안 돼... 더...!'
+      state_bias: *id011
+    - id: medium_80_30_0_0
+      pattern: '...(거칠게 입술을 잡는다)'
+      state_bias: &id012
+        affinity: 0.8
+        arousal: 0.3
+    - id: medium_80_30_0_1
+      pattern: '...세게.'
+      state_bias: *id012
+    - id: medium_80_30_0_2
+      pattern: '...더 해. 약하게 하지 마.'
+      state_bias: *id012
+    - id: medium_80_-30_0_0
+      pattern: '...뭐야... 그만 봐...!'
+      state_bias: &id013
+        affinity: 0.8
+        arousal: -0.3
+    - id: medium_80_-30_0_1
+      pattern: '...시끄러워...! (얼굴이 빨갛다)'
+      state_bias: *id013
+    - id: medium_30_60_0_0
+      pattern: '...더 해.'
+      state_bias: &id014
+        affinity: 0.3
+        arousal: 0.6
+    - id: medium_30_60_0_1
+      pattern: '...세게 해.'
+      state_bias: *id014
+    - id: medium_30_60_0_2
+      pattern: '...약하게 하면 물어뜯는다.'
+      state_bias: *id014
+    - id: medium_30_0_0_0
+      pattern: '...뭐하냐.'
+      state_bias: &id015
+        affinity: 0.3
+        arousal: 0.0
+    - id: medium_30_0_0_1
+      pattern: '...그게 다야?'
+      state_bias: *id015
+    - id: medium_30_0_0_2
+      pattern: '...시시하군.'
+      state_bias: *id015
+    - id: medium_-30_60_0_0
+      pattern: '...건드리지 마... 근데 왜 이런...!'
+      state_bias: &id016
+        affinity: -0.3
+        arousal: 0.6
+    - id: medium_-30_60_0_1
+      pattern: '...싫다고... 몸이 왜...'
+      state_bias: *id016
+    - id: medium_-30_0_0_0
+      pattern: '...거기 건드리지 마.'
+      state_bias: &id017
+        affinity: -0.3
+        arousal: 0.0
+    - id: medium_-30_0_0_1
+      pattern: '...손 치워.'
+      state_bias: *id017
+    - id: medium_-30_0_0_2
+      pattern: '...한 번 더 만지면 이빨 뽑는다.'
+      state_bias: *id017
+    - id: medium_-60_30_0_0
+      pattern: '...건드리면 죽인다!'
+      state_bias: &id018
+        affinity: -0.6
+        arousal: 0.3
+    - id: medium_-60_30_0_1
+      pattern: '...물어뜯긴 싫으면 손 치워!'
+      state_bias: *id018
+    - id: medium_-60_-30_0_0
+      pattern: '...죽인다... 반드시...'
+      state_bias: &id019
+        affinity: -0.6
+        arousal: -0.3
+    - id: medium_-60_-30_0_1
+      pattern: '...가까이 오면 물어뜯는다...'
+      state_bias: *id019
+    - id: medium_-80_0_0_0
+      pattern: '...(이를 악물고 할퀸다)'
+      state_bias: &id020
+        affinity: -0.8
+        arousal: 0.0
+    - id: medium_-80_0_0_1
+      pattern: '...죽인다...'
+      state_bias: *id020
+    - id: medium_-80_0_0_2
+      pattern: '...(미친 듯이 발악한다)'
+      state_bias: *id020
+    slots: {}
+  strong:
+    templates:
+    - id: strong_80_80_0_0
+      pattern: '...뭐하는... 거기...! ...멈추지 마!'
+      state_bias: &id021
+        affinity: 0.8
+        arousal: 0.8
+    - id: strong_80_80_0_1
+      pattern: '...더...! 세게...! ...약하게 하면 죽인다...!'
+      state_bias: *id021
+    - id: strong_80_80_0_2
+      pattern: '...간다...! ...멈추면 안 돼...!'
+      state_bias: *id021
+    - id: strong_80_30_0_0
+      pattern: '...뭐하는... 거기...!'
+      state_bias: &id022
+        affinity: 0.8
+        arousal: 0.3
+    - id: strong_80_30_0_1
+      pattern: '...멈추지 마.'
+      state_bias: *id022
+    - id: strong_80_30_0_2
+      pattern: '...세게... 해.'
+      state_bias: *id022
+    - id: strong_80_-30_0_0
+      pattern: '...뭐 봐...! ...시끄러워...!'
+      state_bias:
+        affinity: 0.8
+        arousal: -0.3
+    - id: strong_30_60_0_0
+      pattern: '...더 세게 해.'
+      state_bias: &id023
+        affinity: 0.3
+        arousal: 0.6
+    - id: strong_30_60_0_1
+      pattern: '...약하게 하면 물어뜯는다.'
+      state_bias: *id023
+    - id: strong_30_60_0_2
+      pattern: '...멈추지 마.'
+      state_bias: *id023
+    - id: strong_30_0_0_0
+      pattern: '...뭐하는 거냐.'
+      state_bias: &id024
+        affinity: 0.3
+        arousal: 0.0
+    - id: strong_30_0_0_1
+      pattern: '...그만둬.'
+      state_bias: *id024
+    - id: strong_30_0_0_2
+      pattern: '...이상한 짓 하지 마.'
+      state_bias: *id024
+    - id: strong_30_0_0_3
+      pattern: '...뭔데... 이런 느낌은...'
+      state_bias: *id024
+    - id: strong_-30_60_0_0
+      pattern: '...싫다니까... 왜 몸이...!'
+      state_bias: &id025
+        affinity: -0.3
+        arousal: 0.6
+    - id: strong_-30_60_0_1
+      pattern: '...건드리지 마...! 씨발...!'
+      state_bias: *id025
+    - id: strong_-30_0_0_0
+      pattern: '...거기 건드리지 마!'
+      state_bias: &id026
+        affinity: -0.3
+        arousal: 0.0
+    - id: strong_-30_0_0_1
+      pattern: '...물어뜯긴 싫으면 그만둬.'
+      state_bias: *id026
+    - id: strong_-30_0_0_2
+      pattern: '...죽고 싶냐.'
+      state_bias: *id026
+    - id: strong_-60_30_0_0
+      pattern: '...손 치워! 죽인다!'
+      state_bias: &id027
+        affinity: -0.6
+        arousal: 0.3
+    - id: strong_-60_30_0_1
+      pattern: '...건드리면 이빨로 찢는다!'
+      state_bias: *id027
+    - id: strong_-60_-30_0_0
+      pattern: '...반드시 죽인다...'
+      state_bias: &id028
+        affinity: -0.6
+        arousal: -0.3
+    - id: strong_-60_-30_0_1
+      pattern: '...이빨이 남아 있는 한 물어뜯는다...'
+      state_bias: *id028
+    - id: strong_-80_0_0_0
+      pattern: '...(물어뜯으며 발악한다)'
+      state_bias: &id029
+        affinity: -0.8
+        arousal: 0.0
+    - id: strong_-80_0_0_1
+      pattern: '...'
+      state_bias: *id029
+    - id: strong_-80_0_0_2
+      pattern: '...(살의만 남은 눈)'
+      state_bias: *id029
+    - id: strong_80_80_60_0
+      pattern: '...이 자식...! 멈추면 안 돼...! 간다...!'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: strong_80_80_80_0
+      pattern: '...간다...!! 이 자식...!! 멈추면 죽인다...!!'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: strong_80_30_60_0
+      pattern: '...으으... 이상해...! 참을 수 없어...!'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.6
+    - id: strong_30_60_80_0
+      pattern: '...으으...!! ...(할퀴며 소리를 지른다)'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: strong_-30_60_60_0
+      pattern: '...싫은데... 왜...! 간다...! 씨발...!'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: strong_-30_0_80_0
+      pattern: '...이 자식...! ...(이를 악물지만 몸이 경련한다)'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.8
+    slots: {}
+  penetration:
+    templates:
+    - id: penetration_80_80_0_0
+      pattern: '...더 세게! ...빨리!'
+      state_bias: &id030
+        affinity: 0.8
+        arousal: 0.8
+    - id: penetration_80_80_0_1
+      pattern: '...약하게 하면 죽인다!'
+      state_bias: *id030
+    - id: penetration_80_80_0_2
+      pattern: '...깊이... 더 깊이...!'
+      state_bias: *id030
+    - id: penetration_80_80_0_3
+      pattern: '...간다...! 멈추면 안 돼...!'
+      state_bias: *id030
+    - id: penetration_80_30_0_0
+      pattern: '...넣어. 각오해.'
+      state_bias: &id031
+        affinity: 0.8
+        arousal: 0.3
+    - id: penetration_80_30_0_1
+      pattern: '...빨리.'
+      state_bias: *id031
+    - id: penetration_80_30_0_2
+      pattern: '...안에서... 느껴진다.'
+      state_bias: *id031
+    - id: penetration_80_-30_0_0
+      pattern: '...뭐야... 이 느낌은... (눈을 피한다)'
+      state_bias:
+        affinity: 0.8
+        arousal: -0.3
+    - id: penetration_30_60_0_0
+      pattern: '...빨리 넣어.'
+      state_bias: &id032
+        affinity: 0.3
+        arousal: 0.6
+    - id: penetration_30_60_0_1
+      pattern: '...세게 해.'
+      state_bias: *id032
+    - id: penetration_30_60_0_2
+      pattern: '...약하게 하면 물어뜯는다.'
+      state_bias: *id032
+    - id: penetration_30_0_0_0
+      pattern: '...넣으려면 넣어.'
+      state_bias: &id033
+        affinity: 0.3
+        arousal: 0.0
+    - id: penetration_30_0_0_1
+      pattern: '...뭐하냐.'
+      state_bias: *id033
+    - id: penetration_30_0_0_2
+      pattern: '...아파... 천천히 해.'
+      state_bias: *id033
+    - id: penetration_30_0_0_3
+      pattern: '...안에서... 이상하다.'
+      state_bias: *id033
+    - id: penetration_-30_60_0_0
+      pattern: '...싫은데... 몸이 왜...!'
+      state_bias: &id034
+        affinity: -0.3
+        arousal: 0.6
+    - id: penetration_-30_60_0_1
+      pattern: '...빼라... 이상해...!'
+      state_bias: *id034
+    - id: penetration_-30_0_0_0
+      pattern: '...빼.'
+      state_bias: &id035
+        affinity: -0.3
+        arousal: 0.0
+    - id: penetration_-30_0_0_1
+      pattern: '...넣지 마.'
+      state_bias: *id035
+    - id: penetration_-30_0_0_2
+      pattern: '...빼지 않으면 물어뜯는다.'
+      state_bias: *id035
+    - id: penetration_-60_30_0_0
+      pattern: '...빼라! 죽인다!'
+      state_bias: &id036
+        affinity: -0.6
+        arousal: 0.3
+    - id: penetration_-60_30_0_1
+      pattern: '...물어뜯긴 싫으면 빼!'
+      state_bias: *id036
+    - id: penetration_-60_-30_0_0
+      pattern: '...반드시... 죽여준다...'
+      state_bias: &id037
+        affinity: -0.6
+        arousal: -0.3
+    - id: penetration_-60_-30_0_1
+      pattern: '...기억해둔다...'
+      state_bias: *id037
+    - id: penetration_-80_0_0_0
+      pattern: '...(이빨로 살을 물어뜯는다)'
+      state_bias: &id038
+        affinity: -0.8
+        arousal: 0.0
+    - id: penetration_-80_0_0_1
+      pattern: '...(살의만 남은 눈으로 할퀸다)'
+      state_bias: *id038
+    - id: penetration_-80_0_0_2
+      pattern: '...죽인다...'
+      state_bias: *id038
+    - id: penetration_80_80_80_0
+      pattern: '...간다...!! 안에서...!! 멈추면 죽인다...!!'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: penetration_80_30_60_0
+      pattern: '...안에서... 이상해...! 참을 수 없어...!'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.6
+    - id: penetration_30_60_80_0
+      pattern: '...으으...!! 안에서...!! ...(할퀴며 절규한다)'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: penetration_-30_60_60_0
+      pattern: '...빼라... 왜 안에서...! 간다... 씨발...!'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: penetration_-30_0_60_0
+      pattern: '...빼... 몸이 왜 이러는...!'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.6
+    slots: {}
+  rough:
+    templates:
+    - id: rough_80_80_0_0
+      pattern: '...더 세게! 그게 다야?!'
+      state_bias: &id039
+        affinity: 0.8
+        arousal: 0.8
+    - id: rough_80_80_0_1
+      pattern: '...좋아... 더...! 세게...!'
+      state_bias: *id039
+    - id: rough_80_80_0_2
+      pattern: '...멈추면 죽인다...! 더...!'
+      state_bias: *id039
+    - id: rough_80_30_0_0
+      pattern: '...훗... 이 정도야?'
+      state_bias: &id040
+        affinity: 0.8
+        arousal: 0.3
+    - id: rough_80_30_0_1
+      pattern: '...더 세게 해. 약하다.'
+      state_bias: *id040
+    - id: rough_80_30_0_2
+      pattern: '...아파... 근데 좋아.'
+      state_bias: *id040
+    - id: rough_30_60_0_0
+      pattern: '...더 세게.'
+      state_bias: &id041
+        affinity: 0.3
+        arousal: 0.6
+    - id: rough_30_60_0_1
+      pattern: '...그게 다냐?'
+      state_bias: *id041
+    - id: rough_30_60_0_2
+      pattern: '...멈추지 마... 더!'
+      state_bias: *id041
+    - id: rough_30_0_0_0
+      pattern: '...아파... 약하게 해.'
+      state_bias: &id042
+        affinity: 0.3
+        arousal: 0.0
+    - id: rough_30_0_0_1
+      pattern: '...이 자식... 세게 하지 마...'
+      state_bias: *id042
+    - id: rough_30_0_0_2
+      pattern: '...으...'
+      state_bias: *id042
+    - id: rough_-30_60_0_0
+      pattern: '...싫은데... 왜... 이런...!'
+      state_bias: &id043
+        affinity: -0.3
+        arousal: 0.6
+    - id: rough_-30_60_0_1
+      pattern: '...그만둬... 씨발...!'
+      state_bias: *id043
+    - id: rough_-30_0_0_0
+      pattern: '...그만둬.'
+      state_bias: &id044
+        affinity: -0.3
+        arousal: 0.0
+    - id: rough_-30_0_0_1
+      pattern: '...아파... 이 자식...'
+      state_bias: *id044
+    - id: rough_-30_0_0_2
+      pattern: '...세게 하면 물어뜯는다.'
+      state_bias: *id044
+    - id: rough_-60_30_0_0
+      pattern: '...멈춰! 죽인다!'
+      state_bias: &id045
+        affinity: -0.6
+        arousal: 0.3
+    - id: rough_-60_30_0_1
+      pattern: '...물어뜯긴 싫으면 그만둬!'
+      state_bias: *id045
+    - id: rough_-60_-30_0_0
+      pattern: '...반드시... 죽인다...'
+      state_bias: &id046
+        affinity: -0.6
+        arousal: -0.3
+    - id: rough_-60_-30_0_1
+      pattern: '...기억해둔다... 반드시...'
+      state_bias: *id046
+    - id: rough_-80_0_0_0
+      pattern: '...(이빨을 세우며 발악한다)'
+      state_bias: &id047
+        affinity: -0.8
+        arousal: 0.0
+    - id: rough_-80_0_0_1
+      pattern: '...(살의만 남은 눈)'
+      state_bias: *id047
+    - id: rough_-80_0_0_2
+      pattern: '...죽인다...'
+      state_bias: *id047
+    slots: {}
+  restrained_idle:
+    templates:
+    - id: restrained_idle_0_0_0_0
+      pattern: '{name}가 결박당한 채 이를 악물고 노려보고 있다.'
+      state_bias: &id048
+        affinity: 0.0
+        arousal: 0.0
+    - id: restrained_idle_0_0_0_1
+      pattern: '{name}가 묶인 팔을 거칠게 당기며 으르렁거리고 있다.'
+      state_bias: *id048
+    - id: restrained_idle_0_50_0_0
+      pattern: '{name}가 결박 속에서 분노와 쾌감이 뒤섞인 표정을 하고 있다.'
+      state_bias: &id049
+        affinity: 0.0
+        arousal: 0.5
+    - id: restrained_idle_0_50_0_1
+      pattern: '{name}가 이를 악물면서도 거친 숨을 내쉬고 있다.'
+      state_bias: *id049
+    - id: restrained_idle_-30_0_0_0
+      pattern: '{name}가 결박된 채 살기 어린 눈으로 위협하고 있다.'
+      state_bias: &id050
+        affinity: -0.3
+        arousal: 0.0
+    - id: restrained_idle_-30_0_0_1
+      pattern: '{name}가 묶인 채로 맹수처럼 노려보고 있다.'
+      state_bias: *id050
+    - id: restrained_idle_-60_30_0_0
+      pattern: '{name}가 온 힘을 다해 결박을 끊으려 몸부림치고 있다.'
+      state_bias: &id051
+        affinity: -0.6
+        arousal: 0.3
+    - id: restrained_idle_-60_30_0_1
+      pattern: '{name}가 포효하며 결박을 당기고 있다.'
+      state_bias: *id051
+    slots: {}
+  passive_climax:
+    templates:
+    - id: passive_climax_0_50_0_0
+      pattern: '{name}가 이를 악물었지만 거친 신음이 새어 나오고 있다.'
+      state_bias: &id052
+        affinity: 0.0
+        arousal: 0.5
+    - id: passive_climax_0_50_0_1
+      pattern: '{name}의 몸이 거칠게 떨리며 분노 섞인 표정을 하고 있다.'
+      state_bias: *id052
+    - id: passive_climax_0_80_0_0
+      pattern: '{name}가 포효하듯 신음하며 몸이 경련하고 있다.'
+      state_bias: &id053
+        affinity: 0.0
+        arousal: 0.8
+    - id: passive_climax_0_80_0_1
+      pattern: '{name}가 거칠게 몸을 비틀며 절정에 달하고 있다.'
+      state_bias: *id053
+    - id: passive_climax_-30_0_0_0
+      pattern: '{name}가 분노에 찬 표정으로 쾌감을 거부하려 하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+    - id: passive_climax_30_0_0_0
+      pattern: '{name}가 이를 악물며 거친 숨을 토해내고 있다. 부끄러운 듯 고개를 돌렸다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.0
+    - id: passive_climax_-30_50_0_0
+      pattern: '{name}가 분노에 찬 눈으로 노려보지만 몸의 경련을 막지 못하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.5
+    - id: passive_climax_30_80_0_0
+      pattern: '{name}가 으르렁거리듯 신음하며 몸을 격하게 떨고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.8
+    slots: {}
+  toy_equipped:
+    templates:
+    - id: toy_equipped_0_0_0_0
+      pattern: '{name}가 이를 악물며 도구를 견디고 있다.'
+      state_bias: &id054
+        affinity: 0.0
+        arousal: 0.0
+    - id: toy_equipped_0_0_0_1
+      pattern: '{name}가 거칠게 숨을 내쉬며 도구를 무시하려 하고 있다.'
+      state_bias: *id054
+    - id: toy_equipped_0_50_0_0
+      pattern: '{name}가 이를 악물며 도구의 자극에 맞서고 있다.'
+      state_bias: &id055
+        affinity: 0.0
+        arousal: 0.5
+    - id: toy_equipped_0_50_0_1
+      pattern: '{name}가 분노 섞인 신음을 흘리며 몸을 떨고 있다.'
+      state_bias: *id055
+    - id: toy_equipped_-30_0_0_0
+      pattern: '{name}가 도구를 노려보며 으르렁거리고 있다.'
+      state_bias: &id056
+        affinity: -0.3
+        arousal: 0.0
+    - id: toy_equipped_-30_0_0_1
+      pattern: '{name}가 거칠게 몸을 비틀며 도구를 거부하고 있다.'
+      state_bias: *id056
+    slots: {}
+  restrain_partner:
+    templates: []
+    slots: {}
+  unrestrain_partner:
+    templates: []
+    slots: {}
+  equip_toy_partner:
+    templates: []
+    slots: {}
+  remove_toy_partner:
+    templates: []
+    slots: {}
+  force_feed:
+    templates: []
+    slots: {}
+  use_whip:
+    templates: []
+    slots: {}

@@ -1,0 +1,531 @@
+# seductive archetype — romance_reactions context
+# 자동 변환: S02 seductive.py / REACTIONS
+# 수정 시 다음 재변환에서 덮어쓰임 — 커스텀은 character override로.
+
+archetype: seductive
+context: romance_reactions
+_source: S02 seductive.py:REACTIONS
+intents:
+  light:
+    templates:
+    - id: light_80_80_0_0
+      pattern: '{name}가 도발적인 미소를 지으며 당신을 끌어당기고 있다.'
+      state_bias: &id001
+        affinity: 0.8
+        arousal: 0.8
+    - id: light_80_80_0_1
+      pattern: '{name}가 몸을 감싸듯 밀착하고 있다.'
+      state_bias: *id001
+    - id: light_80_80_0_2
+      pattern: '{name}가 당신의 귀에 숨을 불어넣으며 웃고 있다.'
+      state_bias: *id001
+    - id: light_80_30_0_0
+      pattern: '{name}가 당신의 귓볼에 숨을 불어넣고 있다.'
+      state_bias: &id002
+        affinity: 0.8
+        arousal: 0.3
+    - id: light_80_30_0_1
+      pattern: '{name}가 노골적으로 밀착하고 있다.'
+      state_bias: *id002
+    - id: light_80_30_0_2
+      pattern: '{name}가 느긋하게 당신에게 기대어 있다.'
+      state_bias: *id002
+    - id: light_80_-30_0_0
+      pattern: '{name}의 눈가가 살짝 풀려 있다.'
+      state_bias: &id003
+        affinity: 0.8
+        arousal: -0.3
+    - id: light_80_-30_0_1
+      pattern: '{name}가 평소와 달리 조용히 기대어 있다.'
+      state_bias: *id003
+    - id: light_30_60_0_0
+      pattern: '{name}가 노골적으로 밀착하고 있다.'
+      state_bias: &id004
+        affinity: 0.3
+        arousal: 0.6
+    - id: light_30_60_0_1
+      pattern: '{name}의 호흡이 의도적으로 느려지고 있다.'
+      state_bias: *id004
+    - id: light_30_60_0_2
+      pattern: '{name}가 당신의 반응을 즐기고 있다.'
+      state_bias: *id004
+    - id: light_30_0_0_0
+      pattern: '{name}가 여유로운 미소로 받아들이고 있다.'
+      state_bias: &id005
+        affinity: 0.3
+        arousal: 0.0
+    - id: light_30_0_0_1
+      pattern: '{name}가 장난스럽게 당신을 바라보고 있다.'
+      state_bias: *id005
+    - id: light_-30_60_0_0
+      pattern: '{name}가 거부하면서도 몸이 반응하고 있다.'
+      state_bias: &id006
+        affinity: -0.3
+        arousal: 0.6
+    - id: light_-30_60_0_1
+      pattern: '{name}가 입술을 깨물며 참고 있다.'
+      state_bias: *id006
+    - id: light_-30_0_0_0
+      pattern: '{name}가 차갑게 웃으며 밀어내고 있다.'
+      state_bias: &id007
+        affinity: -0.3
+        arousal: 0.0
+    - id: light_-30_0_0_1
+      pattern: '{name}가 시큰둥하게 눈을 돌리고 있다.'
+      state_bias: *id007
+    - id: light_-30_0_0_2
+      pattern: '{name}가 비아냥거리는 눈빛으로 보고 있다.'
+      state_bias: *id007
+    - id: light_-60_30_0_0
+      pattern: '{name}가 비웃으며 당신의 손을 쳐내고 있다.'
+      state_bias: &id008
+        affinity: -0.6
+        arousal: 0.3
+    - id: light_-60_30_0_1
+      pattern: '{name}가 경멸하는 눈빛으로 노려보고 있다.'
+      state_bias: *id008
+    - id: light_-60_-30_0_0
+      pattern: '{name}의 눈에서 분노가 타오르고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: light_-80_0_0_0
+      pattern: '{name}가 살기 어린 눈으로 당신을 노려보고 있다.'
+      state_bias: &id009
+        affinity: -0.8
+        arousal: 0.0
+    - id: light_-80_0_0_1
+      pattern: '{name}가 모든 유혹을 거두고 얼어붙어 있다.'
+      state_bias: *id009
+    slots: {}
+  medium:
+    templates:
+    - id: medium_80_80_0_0
+      pattern: '{name}가 더 깊이 끌어들이고 있다.'
+      state_bias: &id010
+        affinity: 0.8
+        arousal: 0.8
+    - id: medium_80_80_0_1
+      pattern: '{name}가 거칠게 당신을 탐하고 있다.'
+      state_bias: *id010
+    - id: medium_80_80_0_2
+      pattern: '{name}가 숨소리를 노골적으로 들려주고 있다.'
+      state_bias: *id010
+    - id: medium_80_30_0_0
+      pattern: '{name}가 만족스러운 숨소리를 내고 있다.'
+      state_bias: &id011
+        affinity: 0.8
+        arousal: 0.3
+    - id: medium_80_30_0_1
+      pattern: '{name}가 노골적으로 유혹하고 있다.'
+      state_bias: *id011
+    - id: medium_80_-30_0_0
+      pattern: '{name}가 평소의 대담함을 잃고 눈을 내리깔고 있다.'
+      state_bias: &id012
+        affinity: 0.8
+        arousal: -0.3
+    - id: medium_80_-30_0_1
+      pattern: '{name}의 볼이 살짝 상기되어 있다.'
+      state_bias: *id012
+    - id: medium_30_60_0_0
+      pattern: '{name}가 의도적으로 당신을 자극하고 있다.'
+      state_bias: &id013
+        affinity: 0.3
+        arousal: 0.6
+    - id: medium_30_60_0_1
+      pattern: '{name}가 능숙하게 반응을 유도하고 있다.'
+      state_bias: *id013
+    - id: medium_30_0_0_0
+      pattern: '{name}가 여유로운 미소를 지으며 받아들이고 있다.'
+      state_bias: &id014
+        affinity: 0.3
+        arousal: 0.0
+    - id: medium_30_0_0_1
+      pattern: '{name}가 당신의 반응을 관찰하고 있다.'
+      state_bias: *id014
+    - id: medium_-30_60_0_0
+      pattern: '{name}가 싫다면서도 몸이 능숙하게 반응하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: medium_-30_0_0_0
+      pattern: '{name}가 비아냥거리며 밀어내고 있다.'
+      state_bias: &id015
+        affinity: -0.3
+        arousal: 0.0
+    - id: medium_-30_0_0_1
+      pattern: '{name}가 손목을 잡고 차갑게 웃고 있다.'
+      state_bias: *id015
+    - id: medium_-60_30_0_0
+      pattern: '{name}가 경멸하는 눈빛으로 당신의 손을 비틀고 있다.'
+      state_bias: &id016
+        affinity: -0.6
+        arousal: 0.3
+    - id: medium_-60_30_0_1
+      pattern: '{name}가 이를 악물며 저항하고 있다.'
+      state_bias: *id016
+    - id: medium_-60_-30_0_0
+      pattern: '{name}의 얼굴에서 유혹이 완전히 사라지고 분노만 남아 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: medium_-80_0_0_0
+      pattern: '{name}가 모든 표정을 지우고 당신을 노려보고 있다.'
+      state_bias: &id017
+        affinity: -0.8
+        arousal: 0.0
+    - id: medium_-80_0_0_1
+      pattern: '{name}가 자존심이 무너진 채 분노로 떨고 있다.'
+      state_bias: *id017
+    slots: {}
+  strong:
+    templates:
+    - id: strong_80_80_0_0
+      pattern: '{name}가 더 과감하게 이끌고 있다.'
+      state_bias: &id018
+        affinity: 0.8
+        arousal: 0.8
+    - id: strong_80_80_0_1
+      pattern: '{name}가 거칠게 당신을 탐하고 있다.'
+      state_bias: *id018
+    - id: strong_80_80_0_2
+      pattern: '{name}가 능숙하게 주도하며 소리를 내고 있다.'
+      state_bias: *id018
+    - id: strong_80_80_60_0
+      pattern: '{name}가 절정이 가까워지며 더 대담하게 탐하고 있다.'
+      state_bias: &id019
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: strong_80_80_60_1
+      pattern: '{name}가 달아오른 숨결로 당신을 주도하고 있다.'
+      state_bias: *id019
+    - id: strong_80_80_80_0
+      pattern: '{name}가 절정 직전, 몸 전체로 당신을 감싸며 떨고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: strong_80_30_0_0
+      pattern: '{name}가 능숙하게 리드하고 있다.'
+      state_bias: &id020
+        affinity: 0.8
+        arousal: 0.3
+    - id: strong_80_30_0_1
+      pattern: '{name}가 거칠게 욕구를 드러내고 있다.'
+      state_bias: *id020
+    - id: strong_80_30_60_0
+      pattern: '{name}가 절정이 가까워지며 여유를 잃어가고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.6
+    - id: strong_80_30_80_0
+      pattern: '{name}가 절정을 앞두고 거친 숨을 참지 못하고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.8
+    - id: strong_80_-30_0_0
+      pattern: '{name}가 대담함을 잃고 당신에게 의지하고 있다.'
+      state_bias: &id021
+        affinity: 0.8
+        arousal: -0.3
+    - id: strong_80_-30_0_1
+      pattern: '{name}가 처음 보는 연약한 표정을 짓고 있다.'
+      state_bias: *id021
+    - id: strong_30_60_0_0
+      pattern: '{name}가 노골적으로 소리를 내며 즐기고 있다.'
+      state_bias: &id022
+        affinity: 0.3
+        arousal: 0.6
+    - id: strong_30_60_0_1
+      pattern: '{name}가 당신의 손을 원하는 곳으로 이끌고 있다.'
+      state_bias: *id022
+    - id: strong_30_60_60_0
+      pattern: '{name}가 절정에 가까워지며 소리를 참지 못하고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: strong_30_60_80_0
+      pattern: '{name}가 절정 직전, 당신에게 매달리며 거친 숨을 내쉬고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: strong_30_0_0_0
+      pattern: '{name}가 담담하게 받아들이고 있다.'
+      state_bias: &id023
+        affinity: 0.3
+        arousal: 0.0
+    - id: strong_30_0_0_1
+      pattern: '{name}가 여유 있는 표정으로 참고 있다.'
+      state_bias: *id023
+    - id: strong_-30_60_0_0
+      pattern: '{name}가 분노하면서도 몸이 정직하게 반응하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: strong_-30_60_60_0
+      pattern: '{name}가 분노하면서도 절정의 파도에 몸이 반응하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: strong_-30_60_80_0
+      pattern: '{name}가 분노 속에서도 절정에 이끌려 몸을 떨고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: strong_-30_0_0_0
+      pattern: '{name}가 날카로운 비웃음을 흘리며 견디고 있다.'
+      state_bias: &id024
+        affinity: -0.3
+        arousal: 0.0
+    - id: strong_-30_0_0_1
+      pattern: '{name}가 상처받은 자존심으로 이를 악물고 있다.'
+      state_bias: *id024
+    - id: strong_-30_0_60_0
+      pattern: '{name}가 자존심을 지키려 하지만 몸이 절정을 향해 떨고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.6
+    - id: strong_-30_0_80_0
+      pattern: '{name}가 이를 악물지만 절정에 굴복하듯 몸이 달아오르고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.8
+    - id: strong_-60_30_0_0
+      pattern: '{name}가 격렬하게 발버둥치며 저항하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: strong_-60_-30_0_0
+      pattern: '{name}가 자존심이 완전히 부서진 채 분노로 떨고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: strong_-80_0_0_0
+      pattern: '{name}가 모든 감정을 잃고 텅 빈 눈으로 있다.'
+      state_bias: &id025
+        affinity: -0.8
+        arousal: 0.0
+    - id: strong_-80_0_0_1
+      pattern: '{name}가 부서진 자존심 위에 살의만 남아 있다.'
+      state_bias: *id025
+    slots: {}
+  penetration:
+    templates:
+    - id: penetration_80_80_0_0
+      pattern: '{name}가 당신을 깊이 받아들이며 미소짓고 있다.'
+      state_bias: &id026
+        affinity: 0.8
+        arousal: 0.8
+    - id: penetration_80_80_0_1
+      pattern: '{name}가 거칠게 당신을 조이고 있다.'
+      state_bias: *id026
+    - id: penetration_80_80_0_2
+      pattern: '{name}가 능숙하게 허리를 맞추며 이끌고 있다.'
+      state_bias: *id026
+    - id: penetration_80_80_60_0
+      pattern: '{name}가 거칠어진 숨을 감추지 않으며 허리를 맞추고 있다.'
+      state_bias: &id027
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.6
+    - id: penetration_80_80_60_1
+      pattern: '{name}가 도발적인 눈빛 그대로 당신을 조이고 있다.'
+      state_bias: *id027
+    - id: penetration_80_80_80_0
+      pattern: '{name}가 절정 직전의 열기를 숨기지 않으며 미소짓고 있다.'
+      state_bias: &id028
+        affinity: 0.8
+        arousal: 0.8
+        climax: 0.8
+    - id: penetration_80_80_80_1
+      pattern: '{name}가 몸 전체로 당신을 감싸며 달아올라 있다.'
+      state_bias: *id028
+    - id: penetration_80_30_0_0
+      pattern: '{name}가 능숙하게 허리를 맞추고 있다.'
+      state_bias: &id029
+        affinity: 0.8
+        arousal: 0.3
+    - id: penetration_80_30_0_1
+      pattern: '{name}가 당신을 거칠게 이끌고 있다.'
+      state_bias: *id029
+    - id: penetration_80_30_60_0
+      pattern: '{name}가 숨이 거칠어진 채 능숙하게 이끌고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.6
+    - id: penetration_80_30_80_0
+      pattern: '{name}가 절정을 앞두고 더 대담하게 허리를 맞추고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: 0.3
+        climax: 0.8
+    - id: penetration_80_-30_0_0
+      pattern: '{name}가 유혹의 가면을 벗고 진심으로 느끼고 있다.'
+      state_bias: &id030
+        affinity: 0.8
+        arousal: -0.3
+    - id: penetration_80_-30_0_1
+      pattern: '{name}가 평소와 다른 약한 모습을 보이고 있다.'
+      state_bias: *id030
+    - id: penetration_30_60_0_0
+      pattern: '{name}가 적극적으로 허리를 움직이고 있다.'
+      state_bias: &id031
+        affinity: 0.3
+        arousal: 0.6
+    - id: penetration_30_60_0_1
+      pattern: '{name}가 노골적인 소리를 내며 이끌고 있다.'
+      state_bias: *id031
+    - id: penetration_30_60_60_0
+      pattern: '{name}가 절정이 가까워지며 더 노골적으로 허리를 흔들고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: penetration_30_60_80_0
+      pattern: '{name}가 절정 직전, 거친 숨을 참지 못하며 당신을 조이고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: penetration_30_0_0_0
+      pattern: '{name}가 담담하게 받아들이고 있다.'
+      state_bias: &id032
+        affinity: 0.3
+        arousal: 0.0
+    - id: penetration_30_0_0_1
+      pattern: '{name}가 여유 있게 당신을 바라보고 있다.'
+      state_bias: *id032
+    - id: penetration_-30_60_0_0
+      pattern: '{name}가 거부하면서도 허리가 본능적으로 맞추고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: penetration_-30_60_60_0
+      pattern: '{name}가 거부하면서도 절정의 파도에 몸을 떨고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.6
+    - id: penetration_-30_60_80_0
+      pattern: '{name}가 분노하면서도 절정에 이끌려 소리를 참지 못하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+        climax: 0.8
+    - id: penetration_-30_0_0_0
+      pattern: '{name}가 차갑게 천장을 바라보며 견디고 있다.'
+      state_bias: &id033
+        affinity: -0.3
+        arousal: 0.0
+    - id: penetration_-30_0_0_1
+      pattern: '{name}가 굴욕감에 입술을 깨물고 있다.'
+      state_bias: *id033
+    - id: penetration_-30_0_60_0
+      pattern: '{name}가 굴욕감 속에서도 몸이 절정을 향해 달아오르고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.6
+    - id: penetration_-30_0_80_0
+      pattern: '{name}가 자존심이 무너지듯 절정에 떨며 입술을 깨물고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.0
+        climax: 0.8
+    - id: penetration_-60_30_0_0
+      pattern: '{name}가 자존심이 무너지며 격렬하게 저항하고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: penetration_-60_-30_0_0
+      pattern: '{name}의 눈에서 모든 유혹이 사라지고 증오만 남아 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: penetration_-80_0_0_0
+      pattern: '{name}가 완전히 부서진 채 텅 빈 눈으로 누워 있다.'
+      state_bias: &id034
+        affinity: -0.8
+        arousal: 0.0
+    - id: penetration_-80_0_0_1
+      pattern: '{name}가 자존심의 잔해 위에 살의만 남아 있다.'
+      state_bias: *id034
+    slots: {}
+  rough:
+    templates:
+    - id: rough_80_80_0_0
+      pattern: '{name}가 당신을 깊이 받아들이며 미소짓고 있다.'
+      state_bias: &id035
+        affinity: 0.8
+        arousal: 0.8
+    - id: rough_80_80_0_1
+      pattern: '{name}가 거칠게 당신을 조이며 이끌고 있다.'
+      state_bias: *id035
+    - id: rough_80_30_0_0
+      pattern: '{name}가 거칠수록 더 능숙하게 반응하고 있다.'
+      state_bias: &id036
+        affinity: 0.8
+        arousal: 0.3
+    - id: rough_80_30_0_1
+      pattern: '{name}가 도발적으로 웃으며 맞서고 있다.'
+      state_bias: *id036
+    - id: rough_80_-30_0_0
+      pattern: '{name}가 유혹의 가면이 깨지며 울먹이고 있다.'
+      state_bias:
+        affinity: 0.8
+        arousal: -0.3
+    - id: rough_30_60_0_0
+      pattern: '{name}가 거칠수록 더 노골적으로 소리를 내고 있다.'
+      state_bias:
+        affinity: 0.3
+        arousal: 0.6
+    - id: rough_30_0_0_0
+      pattern: '{name}가 이를 악물며 여유를 유지하려 하고 있다.'
+      state_bias: &id037
+        affinity: 0.3
+        arousal: 0.0
+    - id: rough_30_0_0_1
+      pattern: '{name}가 도발적으로 웃으며 참고 있다.'
+      state_bias: *id037
+    - id: rough_-30_60_0_0
+      pattern: '{name}가 거칠수록 몸이 반응하는 것에 분노하고 있다.'
+      state_bias:
+        affinity: -0.3
+        arousal: 0.6
+    - id: rough_-30_0_0_0
+      pattern: '{name}가 상처받은 자존심으로 날카롭게 노려보고 있다.'
+      state_bias: &id038
+        affinity: -0.3
+        arousal: 0.0
+    - id: rough_-30_0_0_1
+      pattern: '{name}가 비웃으며 고통을 참고 있다.'
+      state_bias: *id038
+    - id: rough_-60_30_0_0
+      pattern: '{name}가 격렬하게 발버둥치며 할퀴고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.3
+    - id: rough_-60_-30_0_0
+      pattern: '{name}가 완전히 부서진 자존심 위에 증오만 남아 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: -0.3
+    - id: rough_-80_0_0_0
+      pattern: '{name}가 텅 빈 눈으로 미동도 없다.'
+      state_bias: &id039
+        affinity: -0.8
+        arousal: 0.0
+    - id: rough_-80_0_0_1
+      pattern: '{name}가 부서진 채 살의만 남아 있다.'
+      state_bias: *id039
+    slots: {}
