@@ -5,6 +5,7 @@
 | 문서 | 설명 |
 |------|------|
 | [architecture-v0.3.0.md](docs/architecture-v0.3.0.md) | v0.3.0 아키텍처 설계 — 텍스트+플랫포머 통합 |
+| [dialogue-hybrid.md](docs/dialogue-hybrid.md) | Hybrid 대화 엔진 — 아키타입 공용 풀 + 캐릭터 override + S02 호환 adapter |
 
 ---
 
