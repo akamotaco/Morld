@@ -305,10 +305,15 @@ class HybridEngine:
 
     # -------------------- 메인 --------------------
     def generate(self, intent: str, state: Optional[Dict[str, float]] = None,
+                 context: Optional[Dict[str, Any]] = None,
                  record: bool = True) -> str:
         """generate 한 문장 반환.
 
-        record=False 면 히스토리에 기록 안 함 (ablation / 탐색용).
+        state: 런타임 축 값 (affinity, arousal 등) — template/slot 선택에 사용.
+        context: 런타임 치환 값 (name, target 등) — slot pool 우선권 1위.
+          context에 slot_name이 있으면 yaml pool 무시하고 바로 사용.
+          {name}, {target_name} 같은 런타임 주입에 사용.
+        record=False 면 anti-repetition 히스토리에 기록 안 함.
         """
         intent_data = self.intents.get(intent)
         if not intent_data:
@@ -328,10 +333,13 @@ class HybridEngine:
 
         def _fill(match):
             slot_name = match.group(1)
+            # 1) context 우선 (런타임 주입)
+            if context is not None and slot_name in context:
+                return str(context[slot_name])
+            # 2) yaml slot pool
             pool = slots.get(slot_name)
             if pool is None:
                 return ""
-            # Slot token은 outer state 기준 (외면에 드러나는 어휘)
             value = self._pick_slot_token(slot_name, pool, outer_state)
             chosen_slots.append((slot_name, value))
             return value
