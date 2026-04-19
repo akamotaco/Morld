@@ -34,6 +34,11 @@ from engine.dialogue_hybrid.engine import (
     HybridEngine,
     ACTION_TO_CATEGORY,
 )
+from engine.dialogue_hybrid.stateless import (
+    generate_line,
+    generate_reaction,
+    clear_cache,
+)
 from engine.dialogue_hybrid.s02_adapter import (
     LineGenerator,
     ReactionGenerator,
@@ -41,5 +46,6 @@ from engine.dialogue_hybrid.s02_adapter import (
 
 __all__ = [
     "HybridEngine", "ACTION_TO_CATEGORY",
+    "generate_line", "generate_reaction", "clear_cache",  # stateless API
     "LineGenerator", "ReactionGenerator",  # S02 호환 어댑터
 ]
