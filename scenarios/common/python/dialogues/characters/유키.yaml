@@ -1,0 +1,9 @@
+# 유키 (Yuki) — timid 프로필
+# S02 소심하고 수줍은 여성. 말끝 흐림·작은 목소리.
+# Hybrid 어댑터 entry point. 현재는 archetype 공용 풀만 사용.
+# 고유 override 는 dialogue_overrides 섹션에 추가.
+
+character: 유키
+archetype: timid
+era: modern
+sex: F

@@ -1,0 +1,9 @@
+# 엘라 (Ella) — cold 프로필
+# S02 은신처 생존자. 차분한 절제·차가운 거리감.
+# Hybrid 어댑터 entry point. 현재는 archetype 공용 풀만 사용.
+# 고유 override 는 dialogue_overrides 섹션에 추가.
+
+character: 엘라
+archetype: cold
+era: modern
+sex: F

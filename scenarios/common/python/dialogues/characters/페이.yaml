@@ -1,0 +1,9 @@
+# 페이 (Faye) — proud 프로필
+# S02 자존심 높은 여성. 도도함·품위·체면 중시.
+# Hybrid 어댑터 entry point. 현재는 archetype 공용 풀만 사용.
+# 고유 override 는 dialogue_overrides 섹션에 추가.
+
+character: 페이
+archetype: proud
+era: modern
+sex: F

@@ -1,0 +1,9 @@
+# 리나 (Lina) — cheerful 프로필
+# S02 밝고 활기찬 요리사. 경쾌한 말투·애교.
+# Hybrid 어댑터 entry point. 현재는 archetype 공용 풀만 사용.
+# 고유 override 는 dialogue_overrides 섹션에 추가.
+
+character: 리나
+archetype: cheerful
+era: modern
+sex: F
