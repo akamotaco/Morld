@@ -31,6 +31,42 @@ import yaml
 _SLOT_RE = re.compile(r"\{(\w+)\}")
 
 
+# S02 와 동일. action 이름 → 상위 category.
+# Hybrid 엔진의 intent fallback (hug 없으면 light 로) 에 사용.
+ACTION_TO_CATEGORY: Dict[str, str] = {
+    # light
+    "hug": "light", "deep_kiss": "light", "tongue_play": "light",
+    "french_kiss": "light", "kiss": "light",
+    "head_pat": "light", "cheek_caress": "light", "cheek_pinch": "light",
+    "lip_lick": "light", "whisper": "light",
+    # medium
+    "breast_touch": "medium", "breast_squeeze": "medium",
+    "butt_squeeze": "medium", "breast_suck": "medium",
+    "nipple_suck": "medium", "paizuri": "medium",
+    "face_touch": "medium", "neck_touch": "medium",
+    "ear_touch": "medium", "neck_kiss": "medium",
+    "butt_caress": "medium", "breast_caress": "medium",
+    "nipple_stimulation": "medium", "nipple_lick": "medium",
+    "nipple_pinch": "medium", "breast_grab": "medium",
+    # strong
+    "clit_rub": "strong", "clit_lick": "strong", "cunnilingus": "strong",
+    "finger_insertion": "strong", "fellatio": "strong",
+    "penis_touch": "strong", "penis_rub": "strong",
+    "genital_caress": "strong", "clit_stimulation": "strong",
+    "anal_stimulation": "strong", "rough_finger": "strong",
+    "finger_anal_insertion": "strong", "demand_dirty_talk": "strong",
+    # penetration
+    "vaginal_insert": "penetration", "anal_insert": "penetration",
+    "thrust_gentle": "penetration", "thrust_normal": "penetration",
+    "thrust_deep": "penetration", "thrust_slow": "penetration",
+    "grind": "penetration", "ejaculate": "penetration",
+    "withdraw": "penetration", "thrust_stop": "penetration",
+    "sync_thrust": "penetration",
+    # rough
+    "thrust_rough": "rough",
+}
+
+
 def _state_distance(state: Dict[str, float], bias: Dict[str, float]) -> float:
     """L2 거리. bias에 명시된 축 + state에 명시된 축의 합집합에서 계산."""
     keys = set(state.keys()) | set(bias.keys())
@@ -196,6 +232,61 @@ class HybridEngine:
         }
         return cls(merged_data, **engine_kwargs)
 
+    @classmethod
+    def load_composite(cls, character: str, contexts: List[str],
+                       dialogue_root: Union[str, Path] = "dialogues",
+                       **engine_kwargs) -> "HybridEngine":
+        """여러 context yaml 병합 — action → category fallback 가능하게.
+
+        예: contexts=["romance", "action_lines"] →
+            LINES("light") + ACTION_LINES("hug") 모두 탑재.
+            generate("hug") 시 없으면 ACTION_TO_CATEGORY["hug"]="light" 로 fallback.
+
+        같은 intent 이름 충돌 시 템플릿/슬롯이 append 방식으로 누적.
+        """
+        root = Path(dialogue_root)
+        char_path = root / "characters" / f"{character}.yaml"
+        if not char_path.exists():
+            raise FileNotFoundError(f"character yaml not found: {char_path}")
+        char_data = yaml.safe_load(char_path.read_text(encoding="utf-8"))
+        archetype = char_data.get("archetype", "stoic")
+
+        all_intents: Dict[str, Dict] = {}
+        for context in contexts:
+            arch_path = root / "archetype_dialogues" / archetype / f"{context}.yaml"
+            if not arch_path.exists():
+                continue
+            arch_data = yaml.safe_load(arch_path.read_text(encoding="utf-8"))
+            ctx_intents = arch_data.get("intents", {}) or {}
+            for intent_name, intent_data in ctx_intents.items():
+                if intent_name in all_intents:
+                    # append 방식 병합
+                    all_intents[intent_name].setdefault("templates", []).extend(
+                        intent_data.get("templates", []) or [])
+                    for sn, sp in (intent_data.get("slots", {}) or {}).items():
+                        all_intents[intent_name].setdefault("slots", {}) \
+                            .setdefault(sn, []).extend(sp)
+                else:
+                    all_intents[intent_name] = copy.deepcopy(intent_data)
+
+        # context별 character override 모두 적용
+        for context in contexts:
+            overrides = ((char_data.get("dialogue_overrides") or {})
+                         .get(context, {}) or {}).get("intents", {}) or {}
+            all_intents = _merge_intents(all_intents, overrides)
+
+        merged_data = {
+            "character": char_data.get("character", character),
+            "archetype": archetype,
+            "era": char_data.get("era", "modern"),
+            "sex": char_data.get("sex", "F"),
+            "outer_profile": char_data.get("outer_profile", {}) or {},
+            "inner_profile": char_data.get("inner_profile", {}) or {},
+            "interactions": char_data.get("interactions", []) or [],
+            "intents": all_intents,
+        }
+        return cls(merged_data, **engine_kwargs)
+
     # -------------------- 히스토리 --------------------
     def reset_history(self):
         self._template_history.clear()
@@ -316,6 +407,13 @@ class HybridEngine:
         record=False 면 anti-repetition 히스토리에 기록 안 함.
         """
         intent_data = self.intents.get(intent)
+        effective_intent = intent
+        if not intent_data or not (intent_data.get("templates") or []):
+            # Fallback: action → category 매핑 시도
+            fallback_cat = ACTION_TO_CATEGORY.get(intent)
+            if fallback_cat and fallback_cat in self.intents:
+                intent_data = self.intents[fallback_cat]
+                effective_intent = fallback_cat
         if not intent_data:
             return ""
         templates = intent_data.get("templates") or []
@@ -325,7 +423,7 @@ class HybridEngine:
 
         outer_state = self._outer_effective(state)
         inner_state = self._inner_effective(state)
-        tpl = self._pick_template(templates, intent, outer_state, inner_state)
+        tpl = self._pick_template(templates, effective_intent, outer_state, inner_state)
         pattern = tpl.get("pattern", "")
         tid = tpl.get("id", pattern)
 
@@ -347,7 +445,7 @@ class HybridEngine:
         output = _SLOT_RE.sub(_fill, pattern)
 
         if record:
-            self._template_history.append((intent, tid))
+            self._template_history.append((effective_intent, tid))
             for s in chosen_slots:
                 self._slot_history.append(s)
 
