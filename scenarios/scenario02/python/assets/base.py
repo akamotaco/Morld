@@ -2774,17 +2774,15 @@ class Character(_CharacterBase):
         reactions = getattr(self, 'ROMANCE_REACTIONS', {})
         key = f"{action_id}:{timing}"
         if key not in reactions:
-            raise DialogueCoverageError(
-                f"[{self.name}] ROMANCE_REACTIONS[{key!r}] 미정의 — "
-                f"명시적 rule 또는 ({{}}, \"_generate_dialogue\") catch-all 필요")
+            # MVP soft-mode: 로그만 찍고 None 반환 (향후 strict-mode 전환 가능)
+            print(f"[DialogueCoverage] MISSING {self.name!r} ROMANCE_REACTIONS[{key!r}]")
+            return None
         rules = reactions[key]
         seen = stim_state.get("_seen_reactions") if stim_state else None
         result = self._resolve_reaction_rules(
             rules, seen=seen, rule_key=key, stim_state=stim_state)
         if result is None:
-            raise DialogueCoverageError(
-                f"[{self.name}] ROMANCE_REACTIONS[{key!r}] — 매치된 rule 없음, "
-                f"catch-all (({{}}, ...)) 추가 필요")
+            print(f"[DialogueCoverage] NO-MATCH {self.name!r} ROMANCE_REACTIONS[{key!r}] (catch-all 필요)")
         return result
 
     def _generate_dialogue(self, action_id, timing, stim_state=None):
