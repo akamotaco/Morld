@@ -52,6 +52,18 @@ from engine.asset_base import (
 EXPOSURE_DISCOVERY_PENALTY = {"호감": -3, "반발": 5}
 
 
+class DialogueCoverageError(LookupError):
+    """ROMANCE_REACTIONS 커버리지 누락 — 해당 action:timing 에 대한
+    rule 이 없거나, 있어도 매치되는 rule 이 없고 catch-all 도 없는 경우.
+
+    작가는 명시적으로 아래 중 하나를 추가해야 함:
+        ({}, ["...고정 대사..."])           # default value: 고정 텍스트
+        ({}, "_generate_dialogue")        # default value: Hybrid 호출
+        ({}, "_custom_method_name")       # default value: 커스텀 메서드
+    """
+    pass
+
+
 class TextSelector:
     """
     조건 기반 텍스트 선택기
@@ -2761,35 +2773,53 @@ class Character(_CharacterBase):
 
         reactions = getattr(self, 'ROMANCE_REACTIONS', {})
         key = f"{action_id}:{timing}"
-        rules = reactions.get(key)
+        if key not in reactions:
+            raise DialogueCoverageError(
+                f"[{self.name}] ROMANCE_REACTIONS[{key!r}] 미정의 — "
+                f"명시적 rule 또는 ({{}}, \"_generate_dialogue\") catch-all 필요")
+        rules = reactions[key]
+        seen = stim_state.get("_seen_reactions") if stim_state else None
+        result = self._resolve_reaction_rules(
+            rules, seen=seen, rule_key=key, stim_state=stim_state)
+        if result is None:
+            raise DialogueCoverageError(
+                f"[{self.name}] ROMANCE_REACTIONS[{key!r}] — 매치된 rule 없음, "
+                f"catch-all (({{}}, ...)) 추가 필요")
+        return result
 
-        if rules:
-            seen = stim_state.get("_seen_reactions") if stim_state else None
-            result = self._resolve_reaction_rules(rules, seen=seen, rule_key=key)
-            if result:
-                return result
+    def _generate_dialogue(self, action_id, timing, stim_state=None):
+        """Hybrid 대화 시스템 호출 — ROMANCE_REACTIONS rule 의 default value 로 사용.
 
-        # Generator fallback — timing별 분기
+        사용 예:
+            ROMANCE_REACTIONS = {
+                "hug:start": [
+                    ({"once": True, "호감": 50}, ["...오늘은 특별히..."]),
+                    ({}, "_generate_dialogue"),   # catch-all: Hybrid 호출
+                ],
+            }
+        """
+        from engine.dialogue_hybrid.s02_adapter import LineGenerator, ReactionGenerator
+        profile = getattr(self, 'REACTION_PROFILE', None)
+        if not profile:
+            raise DialogueCoverageError(
+                f"[{self.name}] REACTION_PROFILE 미정의 — _generate_dialogue 사용 불가")
+        state = self._build_reaction_state(stim_state)
         if timing == "start":
-            generator = self._get_line_generator()
-            if generator:
-                state = self._build_reaction_state(stim_state)
-                return generator.generate(action_id, state)
-        else:
-            generator = self._get_reaction_generator()
-            if generator:
-                state = self._build_reaction_state(stim_state)
-                return generator.generate(action_id, timing, state)
+            return LineGenerator(profile).generate(action_id, state)
+        return ReactionGenerator(profile).generate(action_id, timing, state)
 
-        return None
-
-    def _resolve_reaction_rules(self, rules, *, seen=None, rule_key=""):
+    def _resolve_reaction_rules(self, rules, *, seen=None, rule_key="", stim_state=None):
         """ROMANCE_REACTIONS 규칙 해석 — first-match + 2D nearest
 
         Args:
             rules: 규칙 리스트
             seen: _seen_reactions set (once 소모 추적, None이면 무시)
             rule_key: 규칙 식별용 키 (e.g. "hug:start")
+            stim_state: 런타임 자극 상태 (method delegate 에 전달)
+
+        반환값 타입:
+            - str / list[str]: 일반 텍스트
+            - "_method_name": 해당 메서드 호출 결과
         """
         import random
 
@@ -2805,6 +2835,9 @@ class Character(_CharacterBase):
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get('name', '주인공') if player_info else '주인공'
 
+        # 빈 dict catch-all 은 defer — 다른 rule/2D 좌표 모두 미스한 경우만 사용
+        deferred_catchall = None
+
         for idx, item in enumerate(rules):
             if not isinstance(item, tuple) or len(item) != 2:
                 continue
@@ -2817,6 +2850,12 @@ class Character(_CharacterBase):
 
             # dict 조건: ({"성욕": 70}, [...])
             if isinstance(key_part, dict):
+                # 빈 dict catch-all → 최후 default value 로 defer
+                if not key_part:
+                    if deferred_catchall is None:
+                        deferred_catchall = texts
+                    continue
+
                 # once 처리: 이미 소모된 규칙 스킵
                 is_once = key_part.get("once", False)
                 if is_once and seen is not None:
@@ -2838,10 +2877,7 @@ class Character(_CharacterBase):
                     if result:
                         return result
                     continue
-                # 일반 텍스트 리스트
-                if isinstance(texts, list):
-                    return random.choice(texts)
-                return texts
+                return self._resolve_texts(texts, rule_key, stim_state)
 
         # top-level 2D 좌표 nearest
         coord_entries = []
@@ -2851,9 +2887,35 @@ class Character(_CharacterBase):
                 if isinstance(key_part, tuple) and len(key_part) in (2, 3) and all(isinstance(v, (int, float)) for v in key_part):
                     coord_entries.append(item)
         if coord_entries:
-            return self._nearest_2d_raw(coord_entries, props, player_name)
+            result = self._nearest_2d_raw(coord_entries, props, player_name)
+            if result:
+                return result
+
+        # 최후 default value
+        if deferred_catchall is not None:
+            return self._resolve_texts(deferred_catchall, rule_key, stim_state)
 
         return None
+
+    def _resolve_texts(self, texts, rule_key, stim_state):
+        """rule 의 value 부 해석 — str(메서드델리게이트) / list / plain str 처리."""
+        import random
+        # 메서드 델리게이트: "_method_name" → self.method(action_id, timing, stim_state)
+        if isinstance(texts, str) and texts.startswith("_"):
+            method = getattr(self, texts, None)
+            if method is None:
+                raise DialogueCoverageError(
+                    f"[{self.name}] rule_key={rule_key!r} → 메서드 "
+                    f"{texts!r} 가 {type(self).__name__} 에 정의되지 않음")
+            if ":" in rule_key:
+                action_id, timing = rule_key.split(":", 1)
+            else:
+                action_id, timing = rule_key, ""
+            return method(action_id, timing, stim_state)
+        # 일반 텍스트 리스트
+        if isinstance(texts, list):
+            return random.choice(texts) if texts else None
+        return texts
 
     def _nearest_2d(self, entries, props, player_name):
         """좌표 리스트 내에서 nearest-neighbor 선택."""
@@ -2892,36 +2954,6 @@ class Character(_CharacterBase):
     def _nearest_2d_raw(self, coord_entries, props, player_name):
         """top-level 좌표 리스트에서 nearest-neighbor 선택."""
         return self._nearest_2d(coord_entries, props, player_name)
-
-    def _get_reaction_generator(self):
-        """REACTION_PROFILE 기반 ReactionGenerator 반환 (캐싱)."""
-        if hasattr(self, '_reaction_generator_cache'):
-            return self._reaction_generator_cache
-
-        profile = getattr(self, 'REACTION_PROFILE', None)
-        if not profile:
-            self._reaction_generator_cache = None
-            return None
-
-        from romance_reaction_generator import ReactionGenerator
-        gen = ReactionGenerator(profile)
-        self._reaction_generator_cache = gen
-        return gen
-
-    def _get_line_generator(self):
-        """REACTION_PROFILE 기반 LineGenerator 반환 (캐싱)."""
-        if hasattr(self, '_line_generator_cache'):
-            return self._line_generator_cache
-
-        profile = getattr(self, 'REACTION_PROFILE', None)
-        if not profile:
-            self._line_generator_cache = None
-            return None
-
-        from romance_line_generator import LineGenerator
-        gen = LineGenerator(profile)
-        self._line_generator_cache = gen
-        return gen
 
     def _build_reaction_state(self, stim_state=None):
         """generator용 현재 상태 dict."""
@@ -3120,18 +3152,13 @@ class Character(_CharacterBase):
         else:
             style = "default"
 
-        # CASUAL_REACTIONS 우선 → generator fallback
+        # CASUAL_REACTIONS — 캐릭터가 정의했으면 사용, 없으면 "......"
         text = None
         reactions = getattr(self, 'CASUAL_REACTIONS', {})
         action_reactions = reactions.get(action_type, {})
         if action_reactions:
             texts = action_reactions.get(style, action_reactions.get("default", []))
             text = random.choice(texts) if texts else None
-
-        if text is None:
-            generator = self._get_line_generator()
-            if generator:
-                text = generator.generate_casual(action_type, style)
 
         if text is None:
             text = "......"
@@ -4584,11 +4611,6 @@ class Character(_CharacterBase):
             agent._insert_idle_job("대기", 60_000)
 
         config = self.SELF_COMFORT_DISCOVERY_REACTIONS
-        if not config:
-            generator = self._get_line_generator()
-            if generator:
-                config = generator.get_discovery_config()
-
         if not config:
             def handler():
                 yield ui.dialog(f"[{self.name}]\n...!\n{self.name}(이)가 황급히 멈춘다.")
