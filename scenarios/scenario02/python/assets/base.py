@@ -2006,12 +2006,28 @@ class Character(_CharacterBase):
         morld.advance_time_des(3 * 60_000)  # 3분
 
     def harass(self):
-        """비전투 성추행 세션"""
+        """비전투 성추행 세션 — NPC 이동 고정 + think 인터럽트 차단"""
         import harassment
         import settings
+        import think
         if not settings.is_harassment_enabled():
             return
-        yield from harassment.harassment_session(morld.get_player_id(), self.instance_id)
+
+        player_id = morld.get_player_id()
+        partner_id = self.instance_id
+        partner_agent = think.get_agent(partner_id)
+
+        # 행위 도중 NPC 이동 방지 (romance와 동일한 락 메커니즘)
+        if partner_agent:
+            partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
+        morld.set_unit_prop(partner_id, "상태:로맨스중", 1)
+
+        try:
+            yield from harassment.harassment_session(player_id, partner_id)
+        finally:
+            morld.clear_prop(partner_id, "상태:로맨스중")
+            if partner_agent:
+                partner_agent.pop_schedule()
 
     def combat_harass(self):
         """전투 중 성추행 — 단일 액션 선택"""
