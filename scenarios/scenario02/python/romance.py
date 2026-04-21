@@ -481,6 +481,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         if partner_agent:
             partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
         morld.set_unit_prop(partner_id, "상태:로맨스중", 1)
+        # FSM GateTransit 잔재 클리어 (LookUnit 가시성 복원)
+        morld.set_unit_prop(partner_id, "상태:이동중", 0)
 
     # 플레이어 체력 조회 (생존:체력 기반)
     import survival

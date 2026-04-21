@@ -22,7 +22,8 @@ from collections import deque
 # ============================================
 
 LV_LIFE = 0       # 생활 (root, 불변)
-LV_TRANSIT = 30   # Gate 이동 (최상위)
+LV_TRANSIT = 30   # Gate 이동
+LV_HOLD = 40      # Focus 상호작용 동결 (대화/harass/romance — 최상위)
 
 
 # ============================================
@@ -65,6 +66,32 @@ class LifeState(FSMState):
 
     def update(self, agent):
         return False
+
+
+class HoldState(FSMState):
+    """Focus 상호작용 중 NPC 동결 (대화/harass/romance 등)
+
+    스택 최상위로 push되며 update()가 항상 True를 반환.
+    → 하위 FSM 및 think() 생존/스케줄 로직 전체 차단.
+    enter() 시 진행 중 이동/작업을 모두 중단하여 일관된 정지 상태 보장.
+    """
+    state_type = "hold"
+    level = LV_HOLD
+
+    def enter(self, agent):
+        # GateTransit 중이었으면 pop — 잔존 시 HoldState pop 후 재개 못 함
+        agent._fsm_pop_by_type("gate_transit")
+        # 진행 중 job 전부 취소 (이동/작업 중단)
+        morld.clear_jobs(agent.unit_id)
+        # GateTransit이 설정한 이동중 플래그 확실히 해제
+        morld.set_unit_prop(agent.unit_id, "상태:이동중", 0)
+
+    def update(self, agent):
+        # 모든 하위 로직 차단 + DES 유지용 idle job 삽입
+        agent._action_taken = True
+        if morld.get_current_job(agent.unit_id) is None:
+            agent._insert_idle_job("focus", 60_000)
+        return True
 
 
 # ============================================

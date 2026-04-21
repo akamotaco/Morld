@@ -145,6 +145,23 @@ class BaseAgent:
         return None
 
     # ========================================
+    # Focus Hold (대화/harass/romance 등 상호작용 동결)
+    # ========================================
+
+    def begin_hold(self):
+        """Focus 상호작용 시작 — HoldState를 스택 최상위에 push.
+
+        NPC의 모든 FSM 행동 및 think() 생존/스케줄 로직 차단.
+        GateTransit 중이었으면 취소되고 현재 위치에 고정.
+        """
+        from engine.fsm import HoldState
+        self._fsm_push(HoldState())
+
+    def end_hold(self):
+        """Focus 상호작용 종료 — HoldState pop."""
+        self._fsm_pop_by_type("hold")
+
+    # ========================================
     # Job 삽입 헬퍼
     # ========================================
 
