@@ -1292,9 +1292,33 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
         return arousal >= DES_LABEL_THRESHOLD
 
+    def _do_parasite_removal(state, chosen_slot):
+        """기생체 제거 실행 (선택 후 공통 경로)"""
+        import parasite as parasite_mod
+        pid = state["partner_id"]
+        action_def = INSTANT_ACTIONS["remove_parasite_partner"]
+        parasite_mod.remove_with_item(pid, chosen_slot)
+        reaction = _get_mode_reaction("remove_parasite_partner", "start")
+        state["last_reaction"] = reaction or "기생체를 제거했다."
+        result = advance_time_and_check(state, action_def["time"])
+        if result["interrupted"]:
+            state["interrupted"] = True
+            state["interrupter_id"] = result["interrupter_id"]
+            return True
+        if _post_action_mode_check():
+            return True
+        return render_romance_ui(state)
+
     def proc(action):
         if action == "init":
             return render_romance_ui(state)
+
+        # 기생체 제거 선택 (proc 재진입)
+        if action == "parasite_cancel":
+            return render_romance_ui(state)
+        if action.startswith("parasite_select:"):
+            chosen_slot = action.split(":", 1)[1]
+            return _do_parasite_removal(state, chosen_slot)
 
         # 체위 변경 확정
         if action.startswith("position:"):
@@ -2114,36 +2138,17 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     state["last_reaction"] = "부착된 기생체가 없다."
                     return render_romance_ui(state)
 
-                # 선택 UI (1개면 자동 선택)
+                # 선택 UI (1개면 자동 선택, 다수면 proc 재진입으로 선택 받기)
                 if len(attached) == 1:
-                    chosen_slot = attached[0][0]
-                else:
-                    import ui
-                    sel_lines = ["제거할 기생체 선택\n"]
-                    for slot, item_id, pname in attached:
-                        part = slot.split(":")[1]
-                        sel_lines.append(
-                            f"[url=@ret:{slot}]{pname} ({part})[/url]")
-                    sel_lines.append("\n[url=@ret:cancel]취소[/url]")
-                    choice = yield ui.dialog("\n".join(sel_lines))
-                    if choice == "cancel" or not choice:
-                        return render_romance_ui(state)
-                    chosen_slot = choice
+                    return _do_parasite_removal(state, attached[0][0])
 
-                parasite_mod.remove_with_item(pid, chosen_slot)
-                reaction = _get_mode_reaction(
-                    "remove_parasite_partner", "start")
-                state["last_reaction"] = (
-                    reaction or "기생체를 제거했다.")
-                result = advance_time_and_check(
-                    state, action_def["time"])
-                if result["interrupted"]:
-                    state["interrupted"] = True
-                    state["interrupter_id"] = result["interrupter_id"]
-                    return True
-                if _post_action_mode_check():
-                    return True
-                return render_romance_ui(state)
+                sel_lines = ["제거할 기생체 선택\n"]
+                for slot, item_id, pname in attached:
+                    part = slot.split(":")[1]
+                    sel_lines.append(
+                        f"[url=@proc:parasite_select:{slot}]{pname} ({part})[/url]")
+                sel_lines.append("\n[url=@proc:parasite_cancel]취소[/url]")
+                return "\n".join(sel_lines)
 
             # 체력 계산: 즉시형 + 활성 토글들
             total_stamina = action_def["stamina"]
