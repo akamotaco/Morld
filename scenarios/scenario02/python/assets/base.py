@@ -1812,7 +1812,7 @@ class Character(_CharacterBase):
         if not casual_items:
             return actions
 
-        # "call:romance:스킨십" 앞에 삽입
+        # "call:romance:애정행위" 앞에 삽입
         insert_idx = None
         for i, act in enumerate(actions):
             if "romance" in act and "force_romance" not in act:
@@ -2305,7 +2305,7 @@ class Character(_CharacterBase):
         Examples:
             "call:talk:대화" → "talk"
             "call:sit:front:앉기" → "sit"
-            "call:romance:스킨십#" → "romance"
+            "call:romance:애정행위#" → "romance"
             "take@container" → "take"
             "rest" → "rest"
         """

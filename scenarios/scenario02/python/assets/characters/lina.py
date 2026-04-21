@@ -119,7 +119,7 @@ class Lina(Character):
         "call:recruit:분대 모집#",
         "call:assign_leader:분대장 지정#",
         "call:set_order:지시#",
-        "call:romance:스킨십#",
+        "call:romance:애정행위#",
         "call:force_romance:강제 행위#",
         "call:debug_props:(디버그) 속성 보기#",
         "call:debug_affection_up:(디버그) 호감도 +10#",

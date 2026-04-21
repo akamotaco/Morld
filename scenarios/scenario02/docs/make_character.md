@@ -181,7 +181,7 @@ actions = [
     "call:give_gift:선물하기",
 
     # 연애
-    "call:romance:스킨십",
+    "call:romance:애정행위",
     "call:force_romance:강제 행위",
 
     # 데이트 (선택)
@@ -237,7 +237,7 @@ class Noel(Character):
     actions = [
         "call:talk:대화",
         "call:give_gift:선물하기",
-        "call:romance:스킨십",
+        "call:romance:애정행위",
         "call:force_romance:강제 행위",
         "call:debug_props:(디버그) 속성 보기#",
     ]
