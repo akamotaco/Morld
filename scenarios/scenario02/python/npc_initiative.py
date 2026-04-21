@@ -1306,12 +1306,12 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
     npc_info = morld.get_unit_info(npc_id)
     npc_name = npc_info.get('name', '그녀') if npc_info else '그녀'
 
-    # NPC 스케줄 push (움직이지 않도록, 전환 시 스킵)
+    # NPC 동결 (HoldState: FSM + 스케줄 + 이동중 일괄 차단)
     npc_agent = think.get_agent(npc_id)
     schedule_pushed = preserved.get("schedule_pushed", False) if preserved else False
     if not schedule_pushed:
         if npc_agent:
-            npc_agent.push_schedule(STAY_SCHEDULE)
+            npc_agent.begin_hold()
         morld.set_unit_prop(npc_id, "상태:로맨스중", 1)
 
     # 플레이어 체력 조회 (생존:체력 기반)
@@ -2118,7 +2118,7 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         # 마지막 경험 기록
         from romance_core import record_last_experience
         record_last_experience(npc_id, player_id, "consensual")
-        npc_agent.pop_schedule()
+        npc_agent.end_hold()
 
     # 종료 반응
     if state["player_escaped"]:

@@ -478,11 +478,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
     partner_agent = think.get_agent(partner_id)
     schedule_pushed = preserved.get("schedule_pushed", False) if preserved else False
     if not schedule_pushed:
+        # HoldState: FSM + 스케줄 + 이동중 플래그 일괄 동결
         if partner_agent:
-            partner_agent.push_schedule(think.BaseAgent.STAY_SCHEDULE)
+            partner_agent.begin_hold()
+        # 기타 시스템 하위 호환용 prop (think() 체크/스탯 표시 등)
         morld.set_unit_prop(partner_id, "상태:로맨스중", 1)
-        # FSM GateTransit 잔재 클리어 (LookUnit 가시성 복원)
-        morld.set_unit_prop(partner_id, "상태:이동중", 0)
 
     # 플레이어 체력 조회 (생존:체력 기반)
     import survival
@@ -2504,7 +2504,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
     if state["escaped"]:
         # NPC 저항 탈출 (강제 모드)
         if partner_agent:
-            partner_agent.pop_schedule()
+            partner_agent.end_hold()
         # 마지막 행위 로그 포함 (탈출 직전 진행된 내용 표시)
         escape_lines = []
         last_reaction = state.get("last_reaction")
@@ -2516,7 +2516,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
     elif state["exhausted"]:
         # 비정상 종료: 체력 소진
         if partner_agent:
-            partner_agent.pop_schedule()
+            partner_agent.end_hold()
         yield ui.dialog("몸에 힘이 빠져 더 이상 움직일 수 없다...")
         morld.pop_to_situation()
     elif state["interrupted"]:
@@ -2540,7 +2540,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
     else:
         # 정상 종료(exit 클릭): NPC focus로 복귀
         if partner_agent:
-            partner_agent.pop_schedule()
+            partner_agent.end_hold()
 
 
 def handle_interruption(state):
@@ -2565,4 +2565,4 @@ def handle_interruption(state):
     import think
     partner_agent = think.get_agent(partner_id)
     if partner_agent:
-        partner_agent.pop_schedule()
+        partner_agent.end_hold()
