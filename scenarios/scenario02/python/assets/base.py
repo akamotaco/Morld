@@ -1788,12 +1788,11 @@ class Character(_CharacterBase):
         if not player_id:
             return actions
 
-        from romance_core import get_affection_key, get_desire_key
+        from romance_core import get_affection_key
         props = morld.get_unit_props(self.instance_id) or {}
         aff_key = get_affection_key(player_id)
-        des_key = get_desire_key(player_id)
         affection = props.get(aff_key, 0)
-        desire = props.get(des_key, 0)
+        arousal = props.get("상태:성욕", 0)
 
         # NPC 성별 확인 (정수: 1=male, 2=female)
         npc_gender = props.get("성별", 2)
@@ -1806,8 +1805,8 @@ class Character(_CharacterBase):
             if action_type == "casual_genital" and npc_gender == 1:
                 continue
 
-            # 호감 OR 욕망 중 하나만 충족하면 해금
-            if affection >= aff_req or desire >= des_req:
+            # 호감 OR 성욕 중 하나만 충족하면 해금
+            if affection >= aff_req or arousal >= des_req:
                 casual_items.append(f"call:casual_affection:{action_type}:{label}")
 
         if not casual_items:
@@ -2480,7 +2479,6 @@ class Character(_CharacterBase):
 
         if props:
             context["호감"] = props.get(f"관계:{player_name}:호감", 0)
-            context["욕망"] = props.get(f"관계:{player_name}:욕망", 0)
             context["진척도"] = props.get(f"관계:{player_name}:진척도", 0)
             context["성욕"] = props.get("상태:성욕", 0)
             # 정액 오염
@@ -2925,7 +2923,7 @@ class Character(_CharacterBase):
         pname = player_info.get('name', '주인공') if player_info else '주인공'
 
         affection = props.get(f"관계:{pname}:호감", 0) if props else 0
-        desire = props.get(f"관계:{pname}:욕망", 0) if props else 0
+        arousal = props.get("상태:성욕", 0) if props else 0
 
         best_dist = float("inf")
         best_texts = []
@@ -2935,7 +2933,7 @@ class Character(_CharacterBase):
             coord, texts = item
             if not isinstance(coord, tuple) or len(coord) not in (2, 3):
                 continue
-            d = math.hypot(affection - coord[0], desire - coord[1])
+            d = math.hypot(affection - coord[0], arousal - coord[1])
             if d < best_dist - 0.01:
                 best_dist = d
                 best_texts = texts if isinstance(texts, list) else [texts]
@@ -2963,7 +2961,6 @@ class Character(_CharacterBase):
 
         result = {
             "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
-            "욕망": props.get(f"관계:{player_name}:욕망", 0) if props else 0,
             "성욕": props.get("상태:성욕", 0) if props else 0,
             "반발": props.get(f"관계:{player_name}:반발", 0) if props else 0,
             "archetype": profile.get("archetype", "stoic"),
@@ -3134,16 +3131,15 @@ class Character(_CharacterBase):
             return
         _label, _aff_req, _des_req, arousal_gain = action_def
 
-        # 반응 스타일 결정: 욕망 >= 70 → addicted, 호감 >= 80 → flirty, 그 외 → default
+        # 반응 스타일 결정: 성욕 >= 70 → addicted, 호감 >= 80 → flirty, 그 외 → default
         player_id = morld.get_player_id()
-        from romance_core import get_affection_key, get_desire_key
+        from romance_core import get_affection_key
         props = morld.get_unit_props(self.instance_id) or {}
         aff_key = get_affection_key(player_id)
-        des_key = get_desire_key(player_id)
-        desire = props.get(des_key, 0)
+        arousal = props.get("상태:성욕", 0)
         affection = props.get(aff_key, 0)
 
-        if desire >= 70:
+        if arousal >= 70:
             style = "addicted"
         elif affection >= 80:
             style = "flirty"
@@ -3699,18 +3695,11 @@ class Character(_CharacterBase):
             if current_time - last_initiative < cooldown:
                 return False
 
-        # 성욕 체크
+        # 성욕 체크 (상태:성욕이 DES_LABEL_THRESHOLD/arousal_threshold 이상)
+        from romance_actions import DES_LABEL_THRESHOLD
         arousal_threshold = self.INITIATIVE_CONFIG.get("arousal_threshold", 70)
         arousal = props.get("상태:성욕", 0) if props else 0
-        if arousal < arousal_threshold:
-            return False
-
-        # 욕망 체크 (필수 — 순수하면 NPC 주도 없음)
-        from romance_actions import DES_LABEL_THRESHOLD
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-        desire = props.get(f"관계:{player_name}:욕망", 0) if props else 0
-        if desire < DES_LABEL_THRESHOLD:
+        if arousal < max(arousal_threshold, DES_LABEL_THRESHOLD):
             return False
 
         # 단둘이 체크 (플레이어와 NPC 둘만 있어야 함)
@@ -3832,7 +3821,7 @@ class Character(_CharacterBase):
         context = {
             "성욕": props.get("상태:성욕", 0) if props else 0,
             "호감": props.get(f"관계:{player_name}:호감", 0) if props else 0,
-            "욕망": props.get(f"관계:{player_name}:욕망", 0) if props else 0,
+            "성욕": props.get("상태:성욕", 0) if props else 0,
             "복종": props.get(f"관계:{player_name}:복종", 0) if props else 0,
             "반발": props.get(f"관계:{player_name}:반발", 0) if props else 0,
         }
@@ -4743,13 +4732,12 @@ class Character(_CharacterBase):
 
         props = morld.get_unit_props(self.instance_id) or {}
         affection = props.get(f"관계:{player_name}:호감", 0)
-        desire = props.get(f"관계:{player_name}:욕망", 0)
         arousal = props.get("상태:성욕", 0)
 
-        # 반응 유형 선택
-        if affection >= 70 and desire >= 60 and arousal >= 50:
+        # 반응 유형 선택 (Phase 0: 욕망 → 상태:성욕 통합)
+        if affection >= 70 and arousal >= 60:
             reaction_type = "initiate"
-        elif affection >= 70 and desire >= 50:
+        elif affection >= 70 and arousal >= 50:
             reaction_type = "intimate"
         elif affection >= 40:
             reaction_type = "embarrassed"
@@ -4760,16 +4748,14 @@ class Character(_CharacterBase):
             text = get_witness_reaction(self.name, archetype, reaction_type)
             yield ui.dialog(text)
 
-            # 관계 효과
+            # 관계 효과 (욕망 prop 제거 — 상태:성욕으로 이관)
             if reaction_type == "initiate":
-                morld.modify_prop(self.instance_id,
-                    f"관계:{player_name}:욕망", 5)
+                morld.modify_prop(self.instance_id, "상태:성욕", 5)
                 # NPC 주도 성행위 전환
                 from npc_initiative import start_npc_initiative
                 yield from start_npc_initiative(player_id, self.instance_id)
             elif reaction_type == "intimate":
-                morld.modify_prop(self.instance_id,
-                    f"관계:{player_name}:욕망", 3)
+                morld.modify_prop(self.instance_id, "상태:성욕", 3)
             elif reaction_type == "disgusted":
                 morld.modify_prop(self.instance_id,
                     f"관계:{player_name}:호감", -5)

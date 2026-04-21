@@ -844,15 +844,15 @@ class InterruptMixin:
         if not player_info:
             return False, None
 
-        # 호감/욕망 체크
+        # 호감/성욕 체크 (desire_threshold → 상태:성욕으로 이관, Phase 0)
         player_name = player_info.get("name", "주인공")
         affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
         if affection < self.INITIATIVE_CONFIG.get("affection_threshold", 60):
             return False, None
         desire_th = self.INITIATIVE_CONFIG.get("desire_threshold", 0)
         if desire_th > 0:
-            desire = props.get(f"관계:{player_name}:욕망", 0) if props else 0
-            if desire < desire_th:
+            arousal = props.get("상태:성욕", 0) if props else 0
+            if arousal < desire_th:
                 return False, None
 
         # 같은 region만 (교차 리전 이동 미지원)

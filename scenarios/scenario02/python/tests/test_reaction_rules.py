@@ -24,7 +24,7 @@ sys.path.insert(0, str(HERE.parent.parent.parent / "common" / "python"))
 
 
 # ─── morld mock ───
-_mock_props = {"관계:플레이어:호감": 80, "관계:플레이어:욕망": 70, "상태:성욕": 40}
+_mock_props = {"관계:플레이어:호감": 80, "상태:성욕": 70}
 
 
 def _mock_get_unit_props(uid):
@@ -85,7 +85,7 @@ class FakeChar:
     _check_reaction_condition = base.Character._check_reaction_condition
 
     def _build_reaction_state(self, stim_state=None):
-        return {"호감": 80, "욕망": 70, "성욕": 40, "반발": 0}
+        return {"호감": 80, "성욕": 70, "반발": 0}
 
     def _generate_dialogue(self, action_id, timing, stim_state):
         # 테스트에서는 실제 Hybrid 대신 고정 시그니처 반환

@@ -681,15 +681,15 @@ REACTION_PROFILE = {
 | 친구 (호감↑ + 순수↑) | ✅ 허용 | ❌ 거절 | ❌ 없음 | 정상 |
 | 타인 (반발↑ + 순수↑) | ❌ 거절 | ❌ 거절 | ❌ 없음 | 정상 |
 
-**경계값**: 호감 ≥ 50 (ROMANCE_ENTRY_THRESHOLD), 욕망 ≥ 40 (DES_LABEL_THRESHOLD)
+**경계값**: 호감 ≥ 50 (ROMANCE_ENTRY_THRESHOLD), 성욕 ≥ 40 (DES_LABEL_THRESHOLD — Phase 0 이후 `상태:성욕` 참조)
 
 ### 적용 위치
 
 | 파일 | 함수 | 게이팅 |
 |------|------|--------|
-| `romance.py` | `can_start_romance()` | 욕망 < 40 → 스킨십 진입 거절 |
-| `npc_initiative.py` | `calculate_resistance_gain()` | 욕망 ≥ 40 → 강제 저항 0 |
-| `base.py` | `should_initiate_skinship()` | 욕망 < 40 → NPC 주도 불가 |
+| `romance.py` | `can_start_romance()` | 상태:성욕 < 40 → 스킨십 진입 거절 |
+| `npc_initiative.py` | `calculate_resistance_gain()` | 상태:성욕 ≥ 40 → 강제 저항 0 |
+| `base.py` | `should_initiate_skinship()` | 상태:성욕 < 40 → NPC 주도 불가 |
 | `date.py` | `will_accept_date()` | 반발 ≥ 50 → 데이트 거절 |
 
 ---

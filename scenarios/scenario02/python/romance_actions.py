@@ -81,9 +81,9 @@ AFF_LABEL_THRESHOLD = 50
 DES_LABEL_THRESHOLD = 40
 
 
-def get_relationship_label(affection, desire):
-    """호감+욕망 기반 관계 라벨 반환"""
-    return RELATIONSHIP_LABELS[(affection >= AFF_LABEL_THRESHOLD, desire >= DES_LABEL_THRESHOLD)]
+def get_relationship_label(affection, arousal):
+    """호감+성욕 기반 관계 라벨 반환 (Phase 0: desire → arousal 이관)"""
+    return RELATIONSHIP_LABELS[(affection >= AFF_LABEL_THRESHOLD, arousal >= DES_LABEL_THRESHOLD)]
 
 
 # ============================================

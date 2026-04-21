@@ -41,11 +41,11 @@ from romance_mode import (
 # 공유 핵심 로직: romance_core.py에서 import (+ 외부 모듈 호환 re-export)
 from romance_core import (  # noqa: F401 — re-export for external callers
     get_character_asset as get_partner_asset,
-    _get_relationship_key, get_affection_key, get_desire_key,
+    _get_relationship_key, get_affection_key,
     get_rebellion_key, get_submission_key,
     get_effective_affection_req,
     get_sensation_level,
-    is_action_available, is_desire_unlocked, is_anatomy_compatible,
+    is_action_available, is_lust_unlocked, is_anatomy_compatible,
     calculate_effects,
     get_exposure_state, get_next_undress_item, perform_undress,
     get_next_loot_item, perform_loot,
@@ -103,11 +103,10 @@ def can_start_romance(player_id, target_id):
 
     affection_key = get_affection_key(player_id)
 
-    # 1. 대상 욕망 체크 (순수하면 애정행동 거절)
+    # 1. 대상 성욕 체크 (흥분 낮으면 애정행동 거절)
     target_props = morld.get_unit_props(target_id)
-    desire_key = get_desire_key(player_id)
-    desire = target_props.get(desire_key, 0)
-    if desire < DES_LABEL_THRESHOLD:
+    arousal = target_props.get("상태:성욕", 0)
+    if arousal < DES_LABEL_THRESHOLD:
         return False, "아직 그런 분위기가 아닙니다."
 
     # 2. 같은 Location 확인
@@ -651,6 +650,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
             if stat in ("성욕", "성적절정"):
                 prop_key = f"상태:{stat}"
+            elif stat == "욕망":
+                # 욕망 deprecated → 상태:성욕으로 통합 (Phase 0)
+                prop_key = "상태:성욕"
             else:
                 prop_key = affection_key.replace(":호감", f":{stat}")
             morld.modify_prop(pid, prop_key, value)
@@ -993,9 +995,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         if state["insertion"]["active"]:
             return None
         pid = state["partner_id"]
-        desire_key = get_desire_key(state["player_id"])
-        desire = morld.get_unit_prop(pid, desire_key) or 0
-        if desire < 50:
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        if arousal < 50:
             return None
         # NPC 자동 삽입 (기승위) — 삽입 상태 활성화 + 허리흔들기
         state["insertion"]["active"] = True
@@ -1034,18 +1035,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         archetype = _get_archetype(partner_id)
         base += _MENSTRUATION_ARCHETYPE_MOD.get(archetype, 0)
 
-        # 욕망 보정: 높은 욕망 → 거부 약화
-        player_id = state["player_id"]
-        player_info = morld.get_unit_info(player_id)
-        player_name = player_info.get("name", "주인공") if player_info else "주인공"
-        desire = morld.get_unit_prop(
-            partner_id, f"관계:{player_name}:욕망") or 0
-        if desire >= 60:
-            base -= 1
-
-        # 성욕 + V 자극 보정: 이미 흥분 상태 → 거부 약화
+        # 성욕 + V 자극 보정: 흥분 상태 → 거부 약화
         arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
         v_stim = state["stim"]["stim"].get("V", 0)
+        if arousal >= 60:
+            base -= 1
         if arousal >= 50 and v_stim >= 40:
             base -= 1
 
@@ -1288,11 +1282,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             return False
         pid = state["partner_id"]
         arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
-        if arousal < 50:
-            return False
-        desire_key = get_desire_key(state["player_id"])
-        desire = morld.get_unit_prop(pid, desire_key) or 0
-        return desire >= DES_LABEL_THRESHOLD
+        return arousal >= DES_LABEL_THRESHOLD
 
     def proc(action):
         if action == "init":

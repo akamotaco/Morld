@@ -211,13 +211,11 @@ def calculate_resistance_gain(player_id, npc_id):
     Returns:
         int: 저항 축적량 (RESISTANCE_MAX 도달 시 탈출)
     """
-    # 욕망이 높으면 저항 불가 (정욕 quadrant)
+    # 성욕이 높으면 저항 불가 (정욕 quadrant)
     from romance_actions import DES_LABEL_THRESHOLD
-    player_info = morld.get_unit_info(player_id)
-    player_name = player_info.get("name", "주인공") if player_info else "주인공"
     npc_props = morld.get_unit_props(npc_id)
-    desire = npc_props.get(f"관계:{player_name}:욕망", 0) if npc_props else 0
-    if desire >= DES_LABEL_THRESHOLD:
+    arousal = npc_props.get("상태:성욕", 0) if npc_props else 0
+    if arousal >= DES_LABEL_THRESHOLD:
         return 0
 
     from romance_mode import get_unit_power
@@ -788,14 +786,12 @@ def render_npc_initiative_ui(state):
 
     lines.append("")
 
-    # 호감/욕망/성욕 표시
+    # 호감/성욕 표시
     affection = npc_props.get(affection_key, 0) if npc_props else 0
-    desire_key = affection_key.replace(":호감", ":욕망")
-    desire = npc_props.get(desire_key, 0) if npc_props else 0
     arousal = npc_props.get(arousal_key, 0) if npc_props else 0
     from romance_actions import get_relationship_label
-    rel_label = get_relationship_label(affection, desire)
-    lines.append(f"[{rel_label}] 호감: {affection}  욕망: {desire}  성욕: {arousal}")
+    rel_label = get_relationship_label(affection, arousal)
+    lines.append(f"[{rel_label}] 호감: {affection}  성욕: {arousal}")
 
     # 자극 표시 (세션 스코프, 대상 성별 기반)
     stim_state = state.get("stim")
@@ -953,10 +949,9 @@ def render_npc_initiative_ui(state):
                 if is_action_available(npc_id, player_id, action):
                     lines.append(f"  {style_muted(_aname + ' (탈의 필요)')}")
                 else:
-                    desire_key = affection_key.replace(":호감", ":욕망")
                     submission_key = affection_key.replace(":호감", ":복종")
                     eff_req = get_effective_affection_req(action["affection_req"],
-                        npc_props.get(desire_key, 0) if npc_props else 0,
+                        npc_props.get("상태:성욕", 0) if npc_props else 0,
                         npc_props.get(submission_key, 0) if npc_props else 0)
                     lines.append(f"  {style_muted(_aname + ' (호감 ' + str(eff_req) + ' 필요)')}")
                 continue
@@ -977,10 +972,9 @@ def render_npc_initiative_ui(state):
                     lines.append(f"  {style_muted(_aname + ' (스태미나 부족)')}")
             else:
                 _aname = action['name']
-                desire_key = affection_key.replace(":호감", ":욕망")
                 submission_key = affection_key.replace(":호감", ":복종")
                 eff_req = get_effective_affection_req(action["affection_req"],
-                    npc_props.get(desire_key, 0) if npc_props else 0,
+                    npc_props.get("상태:성욕", 0) if npc_props else 0,
                     npc_props.get(submission_key, 0) if npc_props else 0)
                 lines.append(f"  {style_muted(_aname + ' (호감 ' + str(eff_req) + ' 필요)')}")
         # 참기 (peaked 부위 존재 + 게이지 > 0)

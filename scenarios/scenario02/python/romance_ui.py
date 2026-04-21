@@ -21,7 +21,7 @@ from romance_actions import (
 from romance_actions import TOGGLE_DURING_DESCRIPTIONS
 from romance_core import (
     get_character_asset as get_partner_asset,
-    get_affection_key, get_desire_key,
+    get_affection_key,
     get_rebellion_key, get_submission_key,
     get_sensation_level,
     is_action_available, is_anatomy_compatible, is_action_blocked_by_state,
@@ -209,19 +209,17 @@ def render_romance_ui(state):
         lines.append(style_warning("월경 중"))
         lines.append("")
 
-    # 호감, 욕망, 복종, 반발, 성욕 표시
+    # 호감, 복종, 반발, 성욕 표시
     affection = partner_props.get(affection_key, 0)
-    desire_key = get_desire_key(player_id)
-    desire = partner_props.get(desire_key, 0)
     submission_key = get_submission_key(player_id)
     submission = partner_props.get(submission_key, 0)
     rebellion_key = get_rebellion_key(player_id)
     rebellion = partner_props.get(rebellion_key, 0)
     arousal = partner_props.get(arousal_key, 0)
 
-    # 관계 라벨
-    rel_label = get_relationship_label(affection, desire)
-    stat_line = f"[{rel_label}] 호감: {affection}  욕망: {desire}  성욕: {arousal}"
+    # 관계 라벨 (호감 + 성욕 기반)
+    rel_label = get_relationship_label(affection, arousal)
+    stat_line = f"[{rel_label}] 호감: {affection}  성욕: {arousal}"
     if submission > 0:
         stat_line += f"  복종: {submission}"
     if rebellion > 0:
@@ -349,13 +347,10 @@ def render_romance_ui(state):
     if not is_inserted:
         stim_beg = state.get("stim")
         if stim_beg and stim_beg.get("climax_gauge", 0) >= 70:
+            from romance_actions import DES_LABEL_THRESHOLD
             beg_arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
-            if beg_arousal >= 50:
-                from romance_actions import DES_LABEL_THRESHOLD
-                beg_desire_key = get_desire_key(player_id)
-                beg_desire = morld.get_unit_prop(partner_id, beg_desire_key) or 0
-                if beg_desire >= DES_LABEL_THRESHOLD:
-                    lines.append(c("magenta", f"{partner_name}(이)가 삽입을 애원하고 있다..."))
+            if beg_arousal >= max(50, DES_LABEL_THRESHOLD):
+                lines.append(c("magenta", f"{partner_name}(이)가 삽입을 애원하고 있다..."))
 
     lines.append("")
     lines.append(ui.divider())

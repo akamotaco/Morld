@@ -66,11 +66,6 @@ def get_affection_key(player_id):
     return _get_relationship_key(player_id, "호감")
 
 
-def get_desire_key(player_id):
-    """플레이어에 대한 욕망 prop 키 생성"""
-    return _get_relationship_key(player_id, "욕망")
-
-
 def get_rebellion_key(player_id):
     """플레이어에 대한 반발 prop 키 생성"""
     return _get_relationship_key(player_id, "반발")
@@ -81,16 +76,16 @@ def get_submission_key(player_id):
     return _get_relationship_key(player_id, "복종")
 
 
-def get_effective_affection_req(req, desire=0, submission=0):
-    """유효 호감 요구치 (욕망/복종 할인 적용)
+def get_effective_affection_req(req, arousal=0, submission=0):
+    """유효 호감 요구치 (성욕/복종 할인 적용)
 
     각 요소: 최대 30% 할인
     합산: 최대 50% 할인
     절대 최소: 20
     """
-    desire_discount = min(req * 0.3, desire * 0.3)
+    arousal_discount = min(req * 0.3, arousal * 0.3)
     submission_discount = min(req * 0.3, submission * 0.3)
-    total = min(req * 0.5, desire_discount + submission_discount)
+    total = min(req * 0.5, arousal_discount + submission_discount)
     return max(20, req - total)
 
 
@@ -126,17 +121,16 @@ def is_action_available(partner_id, player_id, action_def):
     affection_key = get_affection_key(player_id)
     props = morld.get_unit_props(partner_id)
     affection = props.get(affection_key, 0) if props else 0
-    desire_key = get_desire_key(player_id)
-    desire = props.get(desire_key, 0) if props else 0
+    arousal = props.get("상태:성욕", 0) if props else 0
     submission_key = get_submission_key(player_id)
     submission = props.get(submission_key, 0) if props else 0
-    eff_req = get_effective_affection_req(action_def["affection_req"], desire, submission)
+    eff_req = get_effective_affection_req(action_def["affection_req"], arousal, submission)
     return affection >= eff_req
 
 
-def is_desire_unlocked(affection, action_def, desire, submission=0):
-    """욕망/복종에 의한 해금인지 (정상 호감 미달이지만 욕망/복종으로 보완)"""
-    return affection < action_def["affection_req"] and (desire > 0 or submission > 0)
+def is_lust_unlocked(affection, action_def, arousal, submission=0):
+    """성욕/복종에 의한 해금인지 (정상 호감 미달이지만 성욕/복종으로 보완)"""
+    return affection < action_def["affection_req"] and (arousal > 0 or submission > 0)
 
 
 def is_anatomy_compatible(action_def, target_id, actor_id=None):

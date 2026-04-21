@@ -123,11 +123,11 @@ class TestSensationLevel:
 # ============================================
 
 class TestIsActionAvailable:
-    def _setup_partner(self, affection=0, desire=0, submission=0):
+    def _setup_partner(self, affection=0, arousal=0, submission=0):
         morld.register_unit(1, name="주인공")
         morld.register_unit(2, props={
             "관계:주인공:호감": affection,
-            "관계:주인공:욕망": desire,
+            "상태:성욕": arousal,
             "관계:주인공:복종": submission,
         })
 
@@ -143,14 +143,14 @@ class TestIsActionAvailable:
         action_def = {"affection_req": 50, "effects": {}}
         assert rc.is_action_available(2, 1, action_def) is False
 
-    def test_desire_discount_unlocks(self):
-        """호감 미달이지만 욕망으로 할인 → True"""
-        # req=50, desire=100
-        # desire_discount = min(50*0.3, 100*0.3) = min(15, 30) = 15
+    def test_arousal_discount_unlocks(self):
+        """호감 미달이지만 성욕으로 할인 → True"""
+        # req=50, arousal=100
+        # arousal_discount = min(50*0.3, 100*0.3) = min(15, 30) = 15
         # total = min(50*0.5, 15) = 15
         # eff_req = max(20, 50-15) = 35
         # affection 35 >= 35 → True
-        self._setup_partner(affection=35, desire=100)
+        self._setup_partner(affection=35, arousal=100)
         action_def = {"affection_req": 50, "effects": {}}
         assert rc.is_action_available(2, 1, action_def) is True
 
@@ -592,11 +592,6 @@ class TestRelationshipKeys:
         morld.register_unit(1, name="주인공")
         key = rc.get_affection_key(1)
         assert key == "관계:주인공:호감"
-
-    def test_desire_key(self):
-        morld.register_unit(1, name="테스터")
-        key = rc.get_desire_key(1)
-        assert key == "관계:테스터:욕망"
 
     def test_rebellion_key(self):
         morld.register_unit(1, name="A")
