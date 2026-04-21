@@ -35,6 +35,41 @@ morld에는 **두 개의 독립된 인격 축**이 존재한다. 같은 캐릭�
 
 `persona.py` 엔진은 `아키타입` prop 이름 사용 (기존 10종 리스트). 개념적으로 "페르소나"와 동일. 본 문서는 개념은 **페르소나**, 기존 코드 식별자는 **아키타입** 유지.
 
+### 성격 → 이벤트 → 대사 매개 관계
+
+성격이 대사 내용을 **직접** 결정하지 않는다. 매개 레이어가 있다:
+
+```
+성격·상태 매칭 → 이벤트 발동 → 페르소나 템플릿에서 대사 선택
+```
+
+- **성격** = 어떤 이벤트가 일어나는가
+- **페르소나** = 일어난 이벤트를 어떻게 말하는가
+
+예시 — 같은 이벤트, 페르소나별 다른 대사:
+```
+조건: 성격:츤데레=1 AND 호감 ≥ 50 AND 반발 ≥ 30
+  → "표리 반전" 이벤트 발동
+  
+페르소나별 대사:
+  tsundere : "아... 좋, 좋아. 너만 특별히..."  (inner_bias 풍부)
+  fierce   : "흥! 생각해 볼게."                (담백)
+  stoic    : "...그래."                          (미니멀)
+```
+
+**꼬임 방지 메커니즘**:
+- 전역 이벤트 레지스트리 (priority 정의)
+- Intent fallback chain (페르소나가 특정 intent 없으면 상위 fallback)
+- Turn counter jitter + 캐릭터별 ring buffer (중복 감소, 경량 유지)
+
+### 기존 `성격` (단일 prop) — Deprecated
+
+과거 `성격` (단일 문자열 prop, "낙천적"/"과묵" 등 14종)은 S04 Tier 3 랜덤 생성에만 사용되던 페르소나 유도 메커니즘. **단일 스키마 이식 방침에 따라 deprecated**.
+
+- **공존 없음**: S02에서 본 문서의 체계(`아키타입` + `성격:*` + `성향:*`) 확립
+- **S04 이식 시 (Phase 6)**: character_randomizer 재작성 — 페르소나 직접 선택, `성격:*` 7 trait 직접 생성
+- **최종 상태**: `성격` (단일) prop 제거, `PERSONALITY_TO_ARCHETYPE` 매핑 제거
+
 ---
 
 ## 1. 네임스페이스 체계
@@ -459,6 +494,7 @@ get_children(unit) -> [child_id, ...]
 | seductive | **1** | 0 | 0 | 0 | 0 | **-1** | 0 |
 | proud | **1** | **1** | **1** | **1** | 0 | **1** | 0 |
 | devoted | 0 | **-1** | **-1** | 0 | 0 | 0 | 0 |
+| **tsundere** | 0 | **1** | 0 | **1** | **1** | **1** | 0 |
 
 **특별 케이스**:
 - **츤데레**: 어느 아키타입에도 기본 0. 네임드 NPC 명시적 지정 (예: Lina override = 1).
@@ -479,6 +515,7 @@ get_children(unit) -> [child_id, ...]
 | seductive | **30** | **20** |
 | proud | **80** | 70 |
 | devoted | 60 | 50 |
+| **tsundere** | **70** | **70** |
 
 ### 7.4 성향 — 성애 (8)
 
@@ -494,6 +531,7 @@ get_children(unit) -> [child_id, ...]
 | seductive | 0 | **1** | 10 | 10 | **30** | **40** | 0 | 0 |
 | proud | 0 | 0 | 20 | 0 | 0 | 0 | 0 | 0 |
 | devoted | 0 | 0 | 0 | **20** | 0 | 0 | 0 | 0 |
+| **tsundere** | 0 | **-1** | 0 | 10 | 0 | 0 | 0 | 0 |
 
 *대부분 0, 아키타입 identity를 드러내는 값만 굵게 표시.*
 
@@ -511,6 +549,7 @@ get_children(unit) -> [child_id, ...]
 | seductive | 0 | **30** | 0 | **1** | 0 |
 | proud | 0 | 0 | 0 | **1** | **1** |
 | devoted | **30** | 0 | **1** | **-1** | 0 |
+| **tsundere** | 0 | 0 | 0 | 0 | **1** |
 
 ### 7.6 성향 — 매력·조교 + 체질·욕구 (8)
 
@@ -526,6 +565,7 @@ get_children(unit) -> [child_id, ...]
 | seductive | **1** | **1** | 0 | 0 | 0 | **1** | 0 | 0 |
 | proud | **1** | 0 | 0 | 0 | **-1** | 0 | 0 | 0 |
 | devoted | 0 | 0 | **1** | 0 | 0 | 0 | 0 | 0 |
+| **tsundere** | 0 | 0 | 0 | **1** | 0 | 0 | 0 | 0 |
 
 ### 7.7 Variance 적용 규칙 (Tier 3 랜덤 생성)
 
@@ -555,7 +595,22 @@ get_children(unit) -> [child_id, ...]
   (3 인간불신은 특수, 수동 지정만)
 ```
 
-### 7.8 Tier 2+ 네임드 NPC Override 예시
+### 7.8 S02 6 NPC 초기 프리셋 (Phase 1 도입 시)
+
+Phase 1에서 전 NPC에 `성향:자제심/수치심` 필수 부여. 페르소나 기본값 + 개별 override.
+
+| NPC | 페르소나 | 자제심 | 수치심 | 비고 |
+|---|---|---|---|---|
+| 리나 | cheerful | **50** | **70** | cheerful 기본(40/30) + 겁 많음 override |
+| 유키 | timid | 70 | 80 | timid 기본값 유지 |
+| 밀라 | gentle | 60 | 60 | gentle 기본값 유지 |
+| 세라 | stoic | 70 | 50 | stoic 기본값 유지 (마조 성향은 Phase 2) |
+| 페이 | proud | 80 | 70 | proud 기본값 유지 |
+| 엘라 | cold | 60 | 40 | cold 기본값 유지 (감정결여/자기애는 Phase 2) |
+
+Phase 2부터 성격 7 trait + 성향 성애·병리 추가. 페이(proud)는 츤데레 아님 — proud→devoted 서사적 반전 구조.
+
+### 7.9 Tier 2+ 네임드 NPC Override 예시
 
 **Lina (cheerful 베이스, 겁 많은 밝은 소녀)**:
 ```python
@@ -599,7 +654,7 @@ Sera.disposition_override = {
 }
 ```
 
-### 7.9 적용 흐름
+### 7.10 적용 흐름
 
 ```
 [NPC 생성]
@@ -614,7 +669,7 @@ Sera.disposition_override = {
   - 성향:* 변경은 조교/경험으로 점진적
 ```
 
-### 7.10 Phase별 도입
+### 7.11 Phase별 도입
 
 | Phase | 도입 |
 |---|---|
@@ -629,7 +684,99 @@ Sera.disposition_override = {
 
 ---
 
-## 8. 관련 문서
+## 8. 묘사 시스템 로드맵
+
+### 8.1 현재 상태
+
+- 위치: `scripts/scenario02/python/assets/base.py` (~30개 dict, line 324~1273)
+- 목록: `_FOCUS_*` (클릭 묘사) 12종 + `_DESCRIBE_*` (위치 묘사) 15종
+- 파티션: 페르소나(아키타입) 중심, 조건(성욕/호감/mood) 분기
+- 호출: `build_focus_rules(archetype, ...)` / `build_describe_rules(archetype, ...)` 빌더
+
+### 8.2 한계
+
+- **성격:* trait 미반영**: 현재 묘사는 페르소나만으로 분기. "대범한 성격 + 소심한 페르소나" mismatch 묘사 불가.
+- **중복 데이터**: 페르소나별 유사 표현 반복 (예: "얼굴이 붉어졌다" 5개 페르소나 각각 다른 버전).
+- **Hybrid 엔진과 분리**: 대사는 경량 yaml, 묘사는 dict 하드코딩 → 일관성 저하.
+
+### 8.3 목표 (Phase 2 후반 ~ 3)
+
+**중복 최소화 + 콘텐츠 추가 용이성**을 최우선으로 Hybrid 엔진에 편입.
+
+구조:
+```
+dialogues/
+├── common/
+│   └── slots.yaml                   # 페르소나 무관 공통 slot pool
+└── archetype_dialogues/{arch}/
+    └── descriptions.yaml            # 신규 context
+```
+
+엔진 확장:
+- Hybrid `trait_bias` 도입 (기존 `state_bias`와 별개)
+- 템플릿 매칭 시 성격/성향 trait 거리 계산 → softmax 선택
+
+예시:
+```yaml
+# dialogues/common/slots.yaml
+face_flush: [볼이, 얼굴이, 볼과 귀가]
+flush_degree: [살짝 붉어져, 빨갛게 달아올라, 발그레하게]
+body_react: [시선을 피하고, 손가락을 만지작거리며, 입술을 달싹이며]
+
+# dialogues/archetype_dialogues/timid/descriptions.yaml
+intents:
+  desire:
+    templates:
+      - pattern: "{face_flush} {flush_degree} 있다. {body_react}..."
+        state_bias:
+          성욕: 0.8
+        trait_bias:
+          성향:수치심: 0.7
+          성격:담력: -1
+      - pattern: "{face_flush} {flush_degree} 있지만, 시선은 정면을 향한 채 숨을 고르고 있다."
+        state_bias:
+          성욕: 0.8
+        trait_bias:
+          성향:수치심: 0.7
+          성격:담력: 1    # mismatch 케이스
+```
+
+효과:
+- 새 페르소나 추가 = 폴더 + 3~5 템플릿만 작성
+- 공통 표현 (`face_flush` 등) 한 곳에서 관리
+- 성격 trait이 자동으로 mismatch 케이스 분기
+
+### 8.4 마이그레이션 계획
+
+| Phase | 작업 |
+|---|---|
+| Phase 0~2 전반 | 기존 dict 유지. 새 스탯은 대사·행위에만 반영. |
+| **Phase 2 후반** | Hybrid 엔진 `trait_bias` 지원 추가 |
+| **Phase 2 후반** | 공통 slot pool 도입 (`common/slots.yaml`) |
+| **Phase 2 후반** | 시험: 1개 페르소나(timid)의 `_FOCUS_DESIRE` + `_FOCUS_AFFECTION` yaml 변환 |
+| **Phase 3 전반** | 자동 변환 스크립트 + 수동 튜닝으로 30 dict 전체 yaml 이관 |
+| **Phase 3 전반** | `build_focus_rules/build_describe_rules` → Hybrid 호출로 전환 |
+| **Phase 3 후반** | 기존 dict 제거 (~500 줄 삭제) |
+| Phase 6 (S04 이식) | 단일 묘사 시스템 확정 |
+
+### 8.5 비용 vs 이득
+
+**1회 비용**:
+- Hybrid 엔진 `trait_bias` 확장: ~200줄
+- 공통 slot pool 설계: ~150줄 yaml
+- 변환 스크립트: ~300줄 python
+- 수동 튜닝: 3~5일 작업
+- 기존 dict 제거: ~500줄 삭제
+
+**지속 이득**:
+- 페르소나 추가 비용: 80줄 → 5줄
+- 새 감정/상황 추가: slot pool에 어휘만 추가
+- 성격·페르소나 mismatch 자동 처리
+- 대사 시스템과 구조 통일 → 유지보수성 향상
+
+---
+
+## 9. 관련 문서
 - [romance-expansion-design.md](romance-expansion-design.md) — 전체 Phase 계획
 - [romance-trajectory-analysis.md](romance-trajectory-analysis.md) — 31 궤적 아크타입
 - [era-series-analysis.md](era-series-analysis.md) — era 원본 분석
