@@ -292,6 +292,163 @@ def advance_time_and_check(state, millis):
 
 
 # ============================================
+# 월경 중 삽입 거부 시스템 (모듈 레벨 — romance_ui에서 import)
+# ============================================
+
+def _get_archetype(unit_id):
+    """캐릭터 아키타입 조회"""
+    from assets.characters import get_instance
+    char = get_instance(unit_id)
+    return getattr(char, 'archetype', None) if char else None
+
+
+# 아키타입별 임계치 보정
+_MENSTRUATION_ARCHETYPE_MOD = {
+    "seductive": -1,  # 성적으로 개방적
+    "devoted": -1,    # 순종적
+    "fierce": 1,      # 강한 성격
+    "cold": 1,        # 거부감
+}
+
+
+def _get_menstruation_threshold(partner_id, mode, state):
+    """월경 중 삽입 거부 임계치 (0 = 자발적 수용, 높을수록 강한 거부)"""
+    if mode in ("unconscious", "frozen"):
+        return 0
+
+    base = 1 if mode == "forced" else 3
+
+    # 아키타입 보정
+    archetype = _get_archetype(partner_id)
+    base += _MENSTRUATION_ARCHETYPE_MOD.get(archetype, 0)
+
+    # 성욕 + V 자극 보정: 흥분 상태 → 거부 약화
+    arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
+    v_stim = state["stim"]["stim"].get("V", 0)
+    if arousal >= 60:
+        base -= 1
+    if arousal >= 50 and v_stim >= 40:
+        base -= 1
+
+    return max(0, base)
+
+
+# 월경 중 삽입 거부 대사 (아키타입별, 시도 횟수별)
+_MENSTRUATION_REFUSAL = {
+    "stoic": [
+        "{name}(이)가 조용히 손을 밀어낸다. '...오늘은 안 돼.'",
+        "{name}(이)가 단호하게 고개를 젓는다.",
+        "{name}(이)가 이를 악물고 버티고 있다.",
+    ],
+    "gentle": [
+        "'저... 오늘은 그게... 좀 곤란해...' {name}(이)가 수줍게 거절한다.",
+        "'미안해... 정말 지금은...' {name}(이)가 눈을 내리깔며 말한다.",
+        "'으...' {name}(이)가 더 이상 말하지 못하고 눈을 감는다.",
+    ],
+    "cheerful": [
+        "'아, 오늘은 좀~! 다음에 하자!' {name}(이)가 밝게 거절한다.",
+        "'아니 진짜로! 오늘은 진짜 안 돼!' {name}(이)가 손을 흔든다.",
+        "'......' {name}(이)가 입을 다문다.",
+    ],
+    "timid": [
+        "'아... 지, 지금은...' {name}(이)가 다리를 오므리며 떨고 있다.",
+        "'안... 안 돼요, 제발...' {name}(이)가 눈물을 글썽인다.",
+        "{name}(이)가 더 이상 말하지 못하고 고개를 돌린다.",
+    ],
+    "cold": [
+        "'안 돼.' {name}(이)가 차갑게 거절한다.",
+        "'들리지 않았어? 안 된다고 했어.' {name}(이)가 눈을 가늘게 뜬다.",
+        "{name}(이)가 입술을 깨물며 침묵한다.",
+    ],
+    "seductive": [
+        "'음~ 오늘은 안 되는 날이야.' {name}(이)가 손가락으로 가슴을 밀어낸다.",
+        "'진짜로 안 돼. 다른 걸로 해줄까?' {name}(이)가 눈짓한다.",
+        "'......하아.' {name}(이)가 체념한 듯 한숨을 내쉰다.",
+    ],
+    "fierce": [
+        "'지금 하지 마. 조건이 안 돼.' {name}(이)가 손목을 잡아 막는다.",
+        "'한 번 더 시도하면 진짜 화낸다.' {name}(이)가 이를 드러낸다.",
+        "{name}(이)가 분노에 찬 눈으로 노려보지만 힘이 빠져 있다.",
+        "{name}(이)가 결국 힘이 풀려 더 이상 저항하지 못한다.",
+    ],
+    "proud": [
+        "'오늘은 좀 쉬어줄 수 없겠어?' {name}(이)가 눈을 돌린다.",
+        "'...부탁이야.' {name}(이)가 처음으로 약한 모습을 보인다.",
+        "{name}(이)가 굴욕감을 참으며 눈을 감는다.",
+    ],
+    "innocent": [
+        "'에? 저... 오늘은 좀...' {name}(이)가 얼굴을 붉히며 손을 흔든다.",
+        "'그, 그게... 설명하기 어려운데...' {name}(이)가 눈을 피한다.",
+        "{name}(이)가 두 눈을 질끈 감는다.",
+    ],
+    "devoted": [
+        "'주인님... 오늘은... 죄송해요.' {name}(이)가 고개를 숙인다.",
+        "'제발... 오늘만은...' {name}(이)가 간청하듯 올려다본다.",
+        "'......네.' {name}(이)가 결국 체념한 듯 고개를 떨군다.",
+    ],
+}
+
+
+def _get_menstruation_refusal(partner_id, failed_count):
+    """월경 중 삽입 거부 메시지 (아키타입별 + 시도 횟수별)"""
+    archetype = _get_archetype(partner_id)
+    pool = _MENSTRUATION_REFUSAL.get(archetype)
+    if not pool:
+        return "지금은 안 된다고 거절한다."
+    idx = min(failed_count, len(pool) - 1)
+    name_info = morld.get_unit_info(partner_id)
+    name = name_info.get("name", "상대") if name_info else "상대"
+    return pool[idx].format(name=name)
+
+
+# 강제 삽입 성공 반응 (threshold > 0이었으나 극복)
+_MENSTRUATION_FORCED_REACTION = {
+    "stoic": "{name}(이)가 이를 악물고 고개를 돌린다. 눈가가 붉어져 있다.",
+    "gentle": "'아...' {name}(이)가 고통스러운 듯 작은 신음을 흘린다.",
+    "cheerful": "{name}의 밝은 표정이 사라지고 입술을 깨물고 있다.",
+    "timid": "{name}(이)가 소리 없이 눈물을 흘린다.",
+    "cold": "{name}(이)가 눈을 감고 아무 말도 하지 않는다.",
+    "seductive": "'...거칠게 나오네.' {name}(이)가 작게 한숨을 내쉰다.",
+    "fierce": "{name}(이)가 분노에 찬 눈으로 올려다보고 있다.",
+    "proud": "{name}의 눈에 굴욕감과 분노가 서려 있다.",
+    "innocent": "{name}(이)가 무슨 일이 일어나는지 이해하지 못한 채 몸을 떨고 있다.",
+    "devoted": "'...알겠습니다.' {name}(이)가 고통을 참으며 순종한다.",
+}
+
+
+# 자발적 수용 반응 (threshold == 0, 성욕/자극이 높거나 성격상 수용)
+_MENSTRUATION_WILLING_REACTION = {
+    "stoic": "{name}(이)가 살짝 눈을 돌리며 '...상관없어.'라고 중얼거린다.",
+    "gentle": "'그... 괜찮아, 그냥... 해도 돼...' {name}(이)가 수줍게 속삭인다.",
+    "cheerful": "'에이, 어차피 이렇게 된 거~' {name}(이)가 얼굴을 붉히며 웃는다.",
+    "timid": "'저... 괜찮아요... 괜찮으니까...' {name}(이)가 작은 목소리로 허락한다.",
+    "cold": "'...좋을 대로 해.' {name}(이)가 시선을 피하며 힘없이 말한다.",
+    "seductive": "'음... 이런 날도 나쁘진 않지.' {name}(이)가 도발하듯 미소 짓는다.",
+    "fierce": "'...한 번만이야. 알겠어?' {name}(이)가 얼굴을 붉히며 으르렁거린다.",
+    "proud": "'...특별히 허락하는 거야.' {name}(이)가 시선을 돌리며 말한다.",
+    "innocent": "'괜... 괜찮은 거지...?' {name}(이)가 불안하면서도 거부하지 않는다.",
+    "devoted": "'주인님이 원하시면... 괜찮아요.' {name}(이)가 순순히 받아들인다.",
+}
+
+
+def _get_menstruation_insertion_reaction(partner_id, forced, willing):
+    """월경 중 삽입 성공 시 반응"""
+    archetype = _get_archetype(partner_id)
+    if willing:
+        pool = _MENSTRUATION_WILLING_REACTION
+        fallback = "상관없다는 듯 받아들인다."
+    elif forced:
+        pool = _MENSTRUATION_FORCED_REACTION
+        fallback = "고통스러운 표정을 짓고 있다."
+    else:
+        return None
+    template = pool.get(archetype, fallback)
+    name_info = morld.get_unit_info(partner_id)
+    name = name_info.get("name", "상대") if name_info else "상대"
+    return template.format(name=name)
+
+
+# ============================================
 # 메인 연애 함수
 # ============================================
 
@@ -1005,155 +1162,6 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         state["active_toggles"].add("thrust_normal")
         state["position"] = "cowgirl"
         return "npc_auto_insert"
-
-    # ========================================
-    # 월경 중 삽입 거부 시스템
-    # ========================================
-
-    def _get_archetype(unit_id):
-        """캐릭터 아키타입 조회"""
-        from assets.characters import get_instance
-        char = get_instance(unit_id)
-        return getattr(char, 'archetype', None) if char else None
-
-    # 아키타입별 임계치 보정
-    _MENSTRUATION_ARCHETYPE_MOD = {
-        "seductive": -1,  # 성적으로 개방적
-        "devoted": -1,    # 순종적
-        "fierce": 1,      # 강한 성격
-        "cold": 1,        # 거부감
-    }
-
-    def _get_menstruation_threshold(partner_id, mode, state):
-        """월경 중 삽입 거부 임계치 (0 = 자발적 수용, 높을수록 강한 거부)"""
-        if mode in ("unconscious", "frozen"):
-            return 0
-
-        base = 1 if mode == "forced" else 3
-
-        # 아키타입 보정
-        archetype = _get_archetype(partner_id)
-        base += _MENSTRUATION_ARCHETYPE_MOD.get(archetype, 0)
-
-        # 성욕 + V 자극 보정: 흥분 상태 → 거부 약화
-        arousal = morld.get_unit_prop(partner_id, "상태:성욕") or 0
-        v_stim = state["stim"]["stim"].get("V", 0)
-        if arousal >= 60:
-            base -= 1
-        if arousal >= 50 and v_stim >= 40:
-            base -= 1
-
-        return max(0, base)
-
-    # 월경 중 삽입 거부 대사 (아키타입별, 시도 횟수별)
-    _MENSTRUATION_REFUSAL = {
-        "stoic": [
-            "{name}(이)가 조용히 손을 밀어낸다. '...오늘은 안 돼.'",
-            "{name}(이)가 단호하게 고개를 젓는다.",
-            "{name}(이)가 이를 악물고 버티고 있다.",
-        ],
-        "gentle": [
-            "'저... 오늘은 그게... 좀 곤란해...' {name}(이)가 수줍게 거절한다.",
-            "'미안해... 정말 지금은...' {name}(이)가 눈을 내리깔며 말한다.",
-            "'으...' {name}(이)가 더 이상 말하지 못하고 눈을 감는다.",
-        ],
-        "cheerful": [
-            "'아, 오늘은 좀~! 다음에 하자!' {name}(이)가 밝게 거절한다.",
-            "'아니 진짜로! 오늘은 진짜 안 돼!' {name}(이)가 손을 흔든다.",
-            "'......' {name}(이)가 입을 다문다.",
-        ],
-        "timid": [
-            "'아... 지, 지금은...' {name}(이)가 다리를 오므리며 떨고 있다.",
-            "'안... 안 돼요, 제발...' {name}(이)가 눈물을 글썽인다.",
-            "{name}(이)가 더 이상 말하지 못하고 고개를 돌린다.",
-        ],
-        "cold": [
-            "'안 돼.' {name}(이)가 차갑게 거절한다.",
-            "'들리지 않았어? 안 된다고 했어.' {name}(이)가 눈을 가늘게 뜬다.",
-            "{name}(이)가 입술을 깨물며 침묵한다.",
-        ],
-        "seductive": [
-            "'음~ 오늘은 안 되는 날이야.' {name}(이)가 손가락으로 가슴을 밀어낸다.",
-            "'진짜로 안 돼. 다른 걸로 해줄까?' {name}(이)가 눈짓한다.",
-            "'......하아.' {name}(이)가 체념한 듯 한숨을 내쉰다.",
-        ],
-        "fierce": [
-            "'지금 하지 마. 조건이 안 돼.' {name}(이)가 손목을 잡아 막는다.",
-            "'한 번 더 시도하면 진짜 화낸다.' {name}(이)가 이를 드러낸다.",
-            "{name}(이)가 분노에 찬 눈으로 노려보지만 힘이 빠져 있다.",
-            "{name}(이)가 결국 힘이 풀려 더 이상 저항하지 못한다.",
-        ],
-        "proud": [
-            "'오늘은 좀 쉬어줄 수 없겠어?' {name}(이)가 눈을 돌린다.",
-            "'...부탁이야.' {name}(이)가 처음으로 약한 모습을 보인다.",
-            "{name}(이)가 굴욕감을 참으며 눈을 감는다.",
-        ],
-        "innocent": [
-            "'에? 저... 오늘은 좀...' {name}(이)가 얼굴을 붉히며 손을 흔든다.",
-            "'그, 그게... 설명하기 어려운데...' {name}(이)가 눈을 피한다.",
-            "{name}(이)가 두 눈을 질끈 감는다.",
-        ],
-        "devoted": [
-            "'주인님... 오늘은... 죄송해요.' {name}(이)가 고개를 숙인다.",
-            "'제발... 오늘만은...' {name}(이)가 간청하듯 올려다본다.",
-            "'......네.' {name}(이)가 결국 체념한 듯 고개를 떨군다.",
-        ],
-    }
-
-    def _get_menstruation_refusal(partner_id, failed_count):
-        """월경 중 삽입 거부 메시지 (아키타입별 + 시도 횟수별)"""
-        archetype = _get_archetype(partner_id)
-        pool = _MENSTRUATION_REFUSAL.get(archetype)
-        if not pool:
-            return "지금은 안 된다고 거절한다."
-        idx = min(failed_count, len(pool) - 1)
-        name_info = morld.get_unit_info(partner_id)
-        name = name_info.get("name", "상대") if name_info else "상대"
-        return pool[idx].format(name=name)
-
-    # 강제 삽입 성공 반응 (threshold > 0이었으나 극복)
-    _MENSTRUATION_FORCED_REACTION = {
-        "stoic": "{name}(이)가 이를 악물고 고개를 돌린다. 눈가가 붉어져 있다.",
-        "gentle": "'아...' {name}(이)가 고통스러운 듯 작은 신음을 흘린다.",
-        "cheerful": "{name}의 밝은 표정이 사라지고 입술을 깨물고 있다.",
-        "timid": "{name}(이)가 소리 없이 눈물을 흘린다.",
-        "cold": "{name}(이)가 눈을 감고 아무 말도 하지 않는다.",
-        "seductive": "'...거칠게 나오네.' {name}(이)가 작게 한숨을 내쉰다.",
-        "fierce": "{name}(이)가 분노에 찬 눈으로 올려다보고 있다.",
-        "proud": "{name}의 눈에 굴욕감과 분노가 서려 있다.",
-        "innocent": "{name}(이)가 무슨 일이 일어나는지 이해하지 못한 채 몸을 떨고 있다.",
-        "devoted": "'...알겠습니다.' {name}(이)가 고통을 참으며 순종한다.",
-    }
-
-    # 자발적 수용 반응 (threshold == 0, 욕망/자극이 높거나 성격상 수용)
-    _MENSTRUATION_WILLING_REACTION = {
-        "stoic": "{name}(이)가 살짝 눈을 돌리며 '...상관없어.'라고 중얼거린다.",
-        "gentle": "'그... 괜찮아, 그냥... 해도 돼...' {name}(이)가 수줍게 속삭인다.",
-        "cheerful": "'에이, 어차피 이렇게 된 거~' {name}(이)가 얼굴을 붉히며 웃는다.",
-        "timid": "'저... 괜찮아요... 괜찮으니까...' {name}(이)가 작은 목소리로 허락한다.",
-        "cold": "'...좋을 대로 해.' {name}(이)가 시선을 피하며 힘없이 말한다.",
-        "seductive": "'음... 이런 날도 나쁘진 않지.' {name}(이)가 도발하듯 미소 짓는다.",
-        "fierce": "'...한 번만이야. 알겠어?' {name}(이)가 얼굴을 붉히며 으르렁거린다.",
-        "proud": "'...특별히 허락하는 거야.' {name}(이)가 시선을 돌리며 말한다.",
-        "innocent": "'괜... 괜찮은 거지...?' {name}(이)가 불안하면서도 거부하지 않는다.",
-        "devoted": "'주인님이 원하시면... 괜찮아요.' {name}(이)가 순순히 받아들인다.",
-    }
-
-    def _get_menstruation_insertion_reaction(partner_id, forced, willing):
-        """월경 중 삽입 성공 시 반응"""
-        archetype = _get_archetype(partner_id)
-        if willing:
-            pool = _MENSTRUATION_WILLING_REACTION
-            fallback = "상관없다는 듯 받아들인다."
-        elif forced:
-            pool = _MENSTRUATION_FORCED_REACTION
-            fallback = "고통스러운 표정을 짓고 있다."
-        else:
-            return None
-        template = pool.get(archetype, fallback)
-        name_info = morld.get_unit_info(partner_id)
-        name = name_info.get("name", "상대") if name_info else "상대"
-        return template.format(name=name)
 
     def _check_insertion_hard_fail(state, action_def, partner_id):
         """삽입 확정 실패 조건 체크. 실패 메시지 반환 또는 None."""
