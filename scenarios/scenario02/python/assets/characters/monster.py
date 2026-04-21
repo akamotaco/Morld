@@ -148,7 +148,7 @@ class Wolf(Monster):
     }
 
     DROP_TABLE = [
-        {"item": "meat", "chance": 0.8, "count": (1, 2)},
+        {"item": "food_meat", "chance": 0.8, "count": (1, 2)},
     ]
 
     HARVEST_TABLE = {
@@ -232,7 +232,7 @@ class Bat(Monster):
     }
 
     DROP_TABLE = [
-        {"item": "meat", "chance": 0.5, "count": 1},
+        {"item": "food_meat", "chance": 0.5, "count": 1},
     ]
 
     COMBAT_LINES = {

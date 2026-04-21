@@ -2046,7 +2046,6 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             if action_id == "restrain_partner":
                 import restraint
                 pid = state["partner_id"]
-                player_id = state["player_id"]
                 # 플레이어 인벤에서 restraint 카테고리 아이템 탐색
                 from assets.items import get_instance as get_item_instance
                 inventory = morld.get_unit_inventory(player_id)
@@ -2109,7 +2108,6 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 import restraint
                 import inventory as inv_mod
                 pid = state["partner_id"]
-                player_id = state["player_id"]
                 if not restraint.is_any_restrained(pid):
                     state["last_reaction"] = "결박 상태가 아니다."
                     return render_romance_ui(state)

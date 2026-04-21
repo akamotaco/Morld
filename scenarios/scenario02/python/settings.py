@@ -77,7 +77,7 @@ def set_harassment_enabled(enabled: bool):
     player_id = _get_player_id()
     if player_id >= 0:
         value = 1 if enabled else 0
-        morld.set_unit_prop(player_id, "can:harassment", value)
+        morld.set_unit_prop(player_id, "can:harass", value)
         morld.set_unit_prop(player_id, "can:self_expose", value)
 
 
