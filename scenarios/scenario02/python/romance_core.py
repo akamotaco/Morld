@@ -116,18 +116,85 @@ def get_sensation_level(unit_id, category):
 # 가용 / 호환 판정
 # ============================================
 
+# ============================================
+# Phase 1: 자제심/수치심 모디파이어 (내면/사회 억제)
+# ============================================
+
+# 자제심 페널티 계수 (자제심 1당 점수 -N)
+RESTRAINT_PENALTY_FACTOR = 0.3
+# 수치심 페널티 계수 (수치심 1당 점수 -N, 관객 있을 때만)
+SHAME_PENALTY_FACTOR = 0.2
+
+
+def get_restraint_modifier(partner_id):
+    """자제심 → 점수 페널티 (영구 억제, 내면)
+
+    자제심 100 → -30점 (호감 요구치 30 상승과 동등).
+    아키타입/성격 기반 기본값 + 훈련으로 변동 예정.
+
+    Why: era TW의 자제심(自制心) Talent 20 — "성적욕망 억제, 매각 요구 높음".
+         morld에선 점수 합산 모델에 모디파이어로 반영.
+    """
+    props = morld.get_unit_props(partner_id) or {}
+    restraint = props.get("성격:자제심", 0)
+    return -restraint * RESTRAINT_PENALTY_FACTOR
+
+
+def get_audience_factor(partner_id):
+    """관객 계수 — 같은 location의 의식 있는 제3자 존재 여부.
+
+    0.0 (단독 상황) ~ 1.0 (관객 있음).
+    플레이어/파트너 자신/기절·수면 NPC는 관객 아님.
+
+    TODO (Phase 1.5): 관객 수에 따른 점진 증가, 친밀도 가중치.
+    """
+    location = morld.get_unit_location(partner_id)
+    if not location:
+        return 0.0
+    chars = morld.get_characters_at_location(location[0], location[1]) or []
+    player_id = morld.get_player_id()
+
+    try:
+        import survival
+        _is_out = lambda cid: (survival.is_npc_fainted(cid)
+                               or survival.is_npc_sleeping(cid))
+    except Exception:
+        _is_out = lambda _cid: False
+
+    for cid in chars:
+        if cid == partner_id or cid == player_id:
+            continue
+        if _is_out(cid):
+            continue
+        return 1.0
+    return 0.0
+
+
+def get_shame_modifier(partner_id):
+    """수치심 × 관객 계수 → 점수 페널티 (상황적 억제, 사회)
+
+    수치심 100 + 관객 있음 → -20점.
+    관객이 없으면 효과 0 (단둘이면 수치심 덜 작용).
+    """
+    props = morld.get_unit_props(partner_id) or {}
+    shame = props.get("상태:수치심", 0)
+    audience = get_audience_factor(partner_id)
+    return -shame * SHAME_PENALTY_FACTOR * audience
+
+
 def calculate_availability_score(partner_id, player_id, action_def):
     """액션 가용성 점수 — 베이스라인 + 모디파이어 합산
 
     Returns 0 이상 → 합의 가능, 미만 → 강제 필요 (또는 거부).
 
-    현재 모디파이어:
+    모디파이어 (점수 가감):
     - 호감 (베이스라인)
-    - 성욕 할인 (get_effective_affection_req 경유)
-    - 복종 할인 (get_effective_affection_req 경유)
+    - 성욕/복종 할인 (get_effective_affection_req 경유)
+    - 자제심 페널티 (영구 내면 억제)
+    - 수치심 × 관객 페널티 (상황 억제)
 
     Why: era TW GET_SUCCESS_RATE 패턴 — 모든 가감 요소를 점수로 통합.
-         이후 성격/각인/자제심 모디파이어가 더해질 여지를 열어둠.
+         이후 성격/각인 추가 모디파이어가 더해질 여지를 열어둠.
     """
     props = morld.get_unit_props(partner_id) or {}
     affection = props.get(get_affection_key(player_id), 0)
@@ -135,7 +202,11 @@ def calculate_availability_score(partner_id, player_id, action_def):
     submission = props.get(get_submission_key(player_id), 0)
     eff_req = get_effective_affection_req(
         action_def.get("affection_req", 0), arousal, submission)
-    return affection - eff_req
+    baseline = affection - eff_req
+    # Phase 1 모디파이어
+    baseline += get_restraint_modifier(partner_id)
+    baseline += get_shame_modifier(partner_id)
+    return baseline
 
 
 def check_physical_req(action_def, partner_id, player_id):

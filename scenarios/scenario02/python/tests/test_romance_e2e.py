@@ -662,3 +662,153 @@ class TestGenderCombos:
         assert gender_mod.has_anatomy(1, "P") is True
         assert gender_mod.has_anatomy(1, "V") is True
         assert gender_mod.has_anatomy(1, "C") is True
+
+
+# ============================================
+# Phase 1: 자제심/수치심 이중축
+# ============================================
+
+class TestRestraintAndShame:
+    """자제심/수치심 모디파이어 — 내면 억제 + 사회 억제.
+
+    영구 성격(자제심)과 상황 상태(수치심)를 점수 합산에 반영.
+    """
+
+    def _setup(self, affection=50, arousal=0, submission=0,
+               restraint=0, shame=0, loc=(0, 0)):
+        morld.register_location(*loc)
+        morld.register_unit(1, name="주인공", props={"근력": 5, "성별": 1},
+                            location=loc)
+        morld.register_unit(2, props={
+            "관계:주인공:호감": affection,
+            "관계:주인공:복종": submission,
+            "상태:성욕": arousal,
+            "성격:자제심": restraint,
+            "상태:수치심": shame,
+            "근력": 5,
+            "성별": 2,
+        }, location=loc)
+
+    def test_no_restraint_no_penalty(self):
+        """자제심 0 → 모디파이어 0"""
+        self._setup(restraint=0)
+        assert rc.get_restraint_modifier(2) == 0
+
+    def test_high_restraint_reduces_score(self):
+        """자제심 100 → -30점 (기존 호감 50 - req 30 = +20 → -10 로 역전)"""
+        self._setup(affection=50, restraint=100)
+        action = {"affection_req": 30, "effects": {}}
+        score = rc.calculate_availability_score(2, 1, action)
+        # baseline = 50 - 30 = 20
+        # restraint penalty = -100 * 0.3 = -30
+        # total = -10
+        assert score == -10
+        # forced로 판정됨
+        assert rc.resolve_action_mode(2, 1, action) == "forced"
+
+    def test_restraint_blocks_lust_route(self):
+        """자제심 높음 → 성욕 할인으로도 consensual 달성 어려움"""
+        # req 50, arousal 200, restraint 100
+        # eff_req = max(20, 50 - 15) = 35 (성욕 할인)
+        # baseline = 40 - 35 = 5
+        # restraint penalty = -30
+        # total = -25 → forced
+        self._setup(affection=40, arousal=200, restraint=100)
+        action = {"affection_req": 50, "effects": {}}
+        assert rc.resolve_action_mode(2, 1, action) == "forced"
+
+    def test_low_restraint_allows_consensual(self):
+        """자제심 낮음 (방종) → 낮은 호감에도 쉽게 consensual"""
+        # 자제심 0 + 일반 호감 50 vs req 30 → +20 그대로 유지
+        self._setup(affection=50, restraint=0)
+        action = {"affection_req": 30, "effects": {}}
+        assert rc.resolve_action_mode(2, 1, action) == "consensual"
+
+
+class TestAudienceFactor:
+    """관객 계수 — 같은 location의 제3자 존재 여부."""
+
+    def test_solo_location_no_audience(self):
+        """같은 location에 플레이어 + 파트너만 → 관객 0"""
+        morld.register_location(0, 0)
+        morld.register_unit(1, name="주인공", location=(0, 0))
+        morld.register_unit(2, location=(0, 0))
+        assert rc.get_audience_factor(2) == 0.0
+
+    def test_third_party_triggers_audience(self):
+        """같은 location에 제3자 → 관객 1.0"""
+        morld.register_location(0, 0)
+        morld.register_unit(1, name="주인공", location=(0, 0))
+        morld.register_unit(2, location=(0, 0))
+        morld.register_unit(3, name="행인", location=(0, 0))
+        assert rc.get_audience_factor(2) == 1.0
+
+    def test_different_location_no_audience(self):
+        """다른 location의 NPC는 관객 아님"""
+        morld.register_location(0, 0)
+        morld.register_location(0, 1)
+        morld.register_unit(1, name="주인공", location=(0, 0))
+        morld.register_unit(2, location=(0, 0))
+        morld.register_unit(3, name="행인", location=(0, 1))
+        assert rc.get_audience_factor(2) == 0.0
+
+
+class TestShameModifier:
+    """수치심 × 관객 계수 — 상황적 억제."""
+
+    def _setup_with_audience(self, affection=50, shame=0, with_audience=False):
+        loc = (0, 0)
+        morld.register_location(*loc)
+        morld.register_unit(1, name="주인공", props={"성별": 1}, location=loc)
+        morld.register_unit(2, props={
+            "관계:주인공:호감": affection,
+            "상태:수치심": shame,
+            "성별": 2,
+        }, location=loc)
+        if with_audience:
+            morld.register_unit(3, name="행인", props={"성별": 1}, location=loc)
+
+    def test_shame_without_audience_no_penalty(self):
+        """관객 없으면 수치심이 아무리 높아도 페널티 0"""
+        self._setup_with_audience(shame=100, with_audience=False)
+        assert rc.get_shame_modifier(2) == 0.0
+
+    def test_shame_with_audience_penalizes(self):
+        """수치심 100 + 관객 → -20점"""
+        self._setup_with_audience(shame=100, with_audience=True)
+        # shame × SHAME_PENALTY_FACTOR × audience = 100 × 0.2 × 1.0 = 20
+        assert rc.get_shame_modifier(2) == -20.0
+
+    def test_shame_with_audience_blocks_consensual(self):
+        """호감 경계값 + 수치심 + 관객 → forced 분기"""
+        # baseline = 50 - 30 = 20
+        # shame penalty = -100 × 0.2 × 1.0 = -20
+        # total = 0 (경계)
+        self._setup_with_audience(affection=50, shame=100, with_audience=True)
+        action = {"affection_req": 30, "effects": {}}
+        score = rc.calculate_availability_score(2, 1, action)
+        assert score == 0  # 경계값
+        # 약간 낮추면 forced
+        morld.set_unit_prop(2, "관계:주인공:호감", 49)
+        assert rc.resolve_action_mode(2, 1, action) == "forced"
+
+    def test_restraint_and_shame_stack(self):
+        """자제심 + 수치심(관객) 양쪽 페널티 누적"""
+        loc = (0, 0)
+        morld.register_location(*loc)
+        morld.register_unit(1, name="주인공", props={"성별": 1}, location=loc)
+        morld.register_unit(2, props={
+            "관계:주인공:호감": 80,
+            "성격:자제심": 50,      # -15점
+            "상태:수치심": 50,      # -10점 (관객 있음)
+            "성별": 2,
+        }, location=loc)
+        morld.register_unit(3, name="행인", location=loc)
+        action = {"affection_req": 30, "effects": {}}
+        score = rc.calculate_availability_score(2, 1, action)
+        # baseline = 80 - 30 = 50
+        # restraint = -50 × 0.3 = -15
+        # shame = -50 × 0.2 × 1.0 = -10
+        # total = 25
+        assert score == 25
+        assert rc.resolve_action_mode(2, 1, action) == "consensual"

@@ -317,6 +317,20 @@ Talent 81 단일 값으로 관리:
   ```
 - 관객계수: location 내 타 NPC 존재 여부 + 관계 친밀도로 계산
 
+**Phase 1 Slice 1 완료** (2026-04-22):
+- ✅ `get_restraint_modifier(partner_id)` — 자제심 × -0.3
+- ✅ `get_audience_factor(partner_id)` — 같은 location 제3자(의식 있는) 존재 시 1.0
+- ✅ `get_shame_modifier(partner_id)` — 수치심 × -0.2 × 관객계수
+- ✅ `calculate_availability_score`에 두 모디파이어 합산 통합
+- ✅ 11 신규 테스트 (TestRestraintAndShame / TestAudienceFactor / TestShameModifier)
+
+**다음 슬라이스 (Phase 1 Slice 2)**:
+- 아키타입 → 자제심 기본값 매핑 (innocent/devoted 고, cheerful/seductive 저)
+- Character.instantiate()에서 기본값 적용
+- 수치심 이벤트 훅 (on_see_nude, on_witness_masturbation)
+- 관객계수 정교화 (관계 친밀도 가중치)
+- UI에 자제심/수치심 표시
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)
