@@ -274,6 +274,33 @@ public partial class MetaActionHandler
 			return;
 		}
 
+		// Focus 시도 시점에 대상 가시성 선검사 — 리스트 렌더 이후 이동했을 수 있음
+		var unitSystem = _world.GetSystem("unitSystem") as SE.UnitSystem;
+		var unit = unitSystem?.FindUnit(unitId);
+		if (unit == null)
+		{
+			GD.PrintErr($"[MetaActionHandler] look_unit: unit {unitId} not found");
+			_textUISystem?.ShowResult("해당 대상을 찾을 수 없습니다.");
+			return;
+		}
+		var unitLook = _playerSystem?.LookUnit(unitId);
+		if (unitLook == null)
+		{
+			var name = unit.Name ?? "대상";
+			string reason;
+			if (!unit.IsObject && unit.TraversalContext.GetProp("상태:이동중") == 1)
+			{
+				reason = $"{name}은(는) 이동 중입니다.";
+			}
+			else
+			{
+				reason = $"{name}은(는) 이곳에 없습니다.";
+			}
+			GD.PrintErr($"[MetaActionHandler] look_unit: unit {unitId} ({name}) not visible from player");
+			_textUISystem?.ShowResult(reason);
+			return;
+		}
+
 		// NPC 주도 이벤트 체크 (first meet, NPC 주도 스킨십 등)
 		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
 		if (scriptSystem != null)

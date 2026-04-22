@@ -1371,12 +1371,32 @@ namespace SE
 		private string RenderUnit(int unitId)
 		{
 			var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+			var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 
 			var unitLook = _playerSystem.LookUnit(unitId);
 			if (unitLook == null)
 			{
-				// 대상 유닛이 현재 위치에 없음 → 자동 pop
-				GD.Print($"[TextUISystem] RenderUnit: Unit {unitId} no longer visible, auto-popping");
+				// 대상 유닛이 현재 위치에 없음 → push와 render 사이에 상태가 바뀐 케이스
+				// 여기 도달 = 포커스 진입 게이트 이후 이벤트 등으로 대상이 이탈 → 추적 가능하도록 loud 로그
+				var _unit = _unitSystem?.FindUnit(unitId);
+				var _name = _unit?.Name ?? "<unknown>";
+				string _reason;
+				if (_unit == null)
+				{
+					_reason = "unit not found";
+				}
+				else if (!_unit.IsObject && _unit.TraversalContext.GetProp("상태:이동중") == 1)
+				{
+					_reason = "unit is in gate transit";
+				}
+				else
+				{
+					var _player = _playerSystem?.FindPlayerUnit();
+					var _ploc = _player?.CurrentLocation;
+					var _uloc = _unit.CurrentLocation;
+					_reason = $"location mismatch (player={_ploc?.RegionId}.{_ploc?.LocalId}, unit={_uloc.RegionId}.{_uloc.LocalId})";
+				}
+				GD.PrintErr($"[TextUISystem] RenderUnit: Unit {unitId} ({_name}) no longer visible — {_reason}. Auto-popping focus.");
 				_stack.Pop();
 				return RenderSituation();
 			}
@@ -1542,10 +1562,31 @@ namespace SE
 			{
 				var unitId = _stack.Current.TargetUnitId ?? 0;
 				var _playerSystem = this._hub.GetSystem("playerSystem") as PlayerSystem;
+				var _unitSystem = this._hub.GetSystem("unitSystem") as UnitSystem;
 				var unitLook = _playerSystem?.LookUnit(unitId);
 				if (unitLook == null)
 				{
-					GD.Print($"[TextUISystem] PopIfInvalid: Unit {unitId} no longer visible, popping focus");
+					// 제너레이터 완료 후 포커스가 무효화된 케이스 — 이벤트 중 NPC 이동 등으로 발생.
+					// 무증상 pop은 디버깅을 어렵게 하므로 원인을 남긴다.
+					var _unit = _unitSystem?.FindUnit(unitId);
+					var _name = _unit?.Name ?? "<unknown>";
+					string _reason;
+					if (_unit == null)
+					{
+						_reason = "unit not found";
+					}
+					else if (!_unit.IsObject && _unit.TraversalContext.GetProp("상태:이동중") == 1)
+					{
+						_reason = "unit is in gate transit";
+					}
+					else
+					{
+						var _player = _playerSystem?.FindPlayerUnit();
+						var _ploc = _player?.CurrentLocation;
+						var _uloc = _unit.CurrentLocation;
+						_reason = $"location mismatch (player={_ploc?.RegionId}.{_ploc?.LocalId}, unit={_uloc.RegionId}.{_uloc.LocalId})";
+					}
+					GD.PrintErr($"[TextUISystem] PopIfInvalid: Unit {unitId} ({_name}) no longer visible — {_reason}. Popping focus.");
 					Pop();
 					return;
 				}
