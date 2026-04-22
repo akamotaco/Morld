@@ -1092,7 +1092,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 return True
             # 탈출 시도 메시지 (실패)
             if result.get("attempted"):
-                msg = get_escape_attempt_message(state["partner_id"])
+                msg = get_escape_attempt_message(
+                    state["partner_id"], result.get("escape_chance"))
                 if msg:
                     existing = state.get("last_reaction") or ""
                     if existing:
@@ -1347,7 +1348,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     if mode_ctx["resistance_meter"] >= 100:
                         state["escaped"] = True
                         return True
-                    esc_msg = get_escape_attempt_message(pid)
+                    esc_msg = get_escape_attempt_message(pid, resist_chance)
                     state["last_reaction"] = f"체위를 변경하려 했으나 저항에 막혔다.\n{esc_msg}"
                     result = advance_time_and_check(state, 2 * MILLIS_PER_MINUTE)
                     if result["interrupted"]:
@@ -1547,7 +1548,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                         resist_chance = escape_info["chance"]
                         if random.random() < resist_chance:
                             state["insertion"]["failed_count"] += 1
-                            msg = get_escape_attempt_message(pid)
+                            msg = get_escape_attempt_message(pid, resist_chance)
                             state["last_reaction"] = "삽입하려 했지만 저항에 막혔다."
                             if msg:
                                 state["last_reaction"] += f"\n{msg}"

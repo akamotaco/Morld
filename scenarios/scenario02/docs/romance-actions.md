@@ -2012,6 +2012,14 @@ meter_delta = max(METER_DELTA_BASE, 반발 × 0.1 + METER_DELTA_BASE)
 - 탈출 성공 → 세션 종료, `상태:강제피해` prop=3 설정, `기억:강제피해횟수` +1
 - 탈출 시 NPC 반응: `forced_break_free:start`
 
+**무력한 저항 묘사** — `escape_chance < FUTILE_CHANCE_THRESHOLD` (5%) 일 때 별도 메시지 풀로 분기:
+```
+일반: "몸을 비틀며 빠져나가려 한다... 하지만 실패했다."
+무력: "힘없이 몸부림을 쳤다." / "힘이 들어가지 않는다."
+```
+복종 누적, 체력 열세, 성욕 과열이 겹쳐 탈출 확률이 극저값으로 떨어지면
+자동으로 무력 묘사 풀이 선택됨 (별도 플래그 불필요 — chance 값 자체에서 파생).
+
 **제거된 개념** (구 시스템, 2026-04-22):
 - `is_futile`(항상실패) 판정 — `physical_req` greyed out(다음 슬라이스)으로 대체 예정
 - `escape_power` / `suppression` — 체격·hp 가중치 통합 지표 제거

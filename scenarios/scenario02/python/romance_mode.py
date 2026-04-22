@@ -391,19 +391,35 @@ def check_resistance(mode_ctx, target_id):
 # 탈출 시도 메시지
 # ============================================
 
-_ESCAPE_ATTEMPT_MSGS = [
+_ESCAPE_ATTEMPT_MSGS_NORMAL = [
     "{name}(이)가 몸을 비틀며 빠져나가려 한다... 하지만 실패했다.",
     "{name}(이)가 팔을 뿌리치려 했으나 잡혔다.",
     "{name}(이)가 버둥거렸지만 꼼짝할 수 없었다.",
     "{name}(이)가 몸을 뒤틀었지만 빠져나가지 못했다.",
 ]
 
+_ESCAPE_ATTEMPT_MSGS_FUTILE = [
+    "{name}(이)가 힘없이 몸부림을 쳤다.",
+    "{name}(이)가 빠져나가려 하지만... 힘이 들어가지 않는다.",
+    "{name}의 손이 힘없이 밀어보지만, 이미 몸에 힘이 빠져 있다.",
+    "{name}(이)가 고개를 돌리려 하지만 몸이 말을 듣지 않는다.",
+    "{name}의 저항이 점점 약해지고 있다...",
+]
 
-def get_escape_attempt_message(target_id):
+# 탈출 확률 임계값: 이 값 미만이면 "무력한 저항" 풀 사용
+FUTILE_CHANCE_THRESHOLD = 0.05
+
+
+def get_escape_attempt_message(target_id, escape_chance=None):
     """탈출 시도 실패 메시지 반환
+
+    Why: 무력한 저항 vs 필사적 저항의 묘사 차이는 공식 플래그가 아니라
+         escape_chance 값 자체에서 파생. 복종/체력열세/성욕이 복합되어
+         탈출 확률이 매우 낮을 때 "힘없이 몸부림" 풀로 분기.
 
     Args:
         target_id: 저항하는 NPC
+        escape_chance: 탈출 확률 (None이면 normal 풀 고정)
 
     Returns:
         str: 색상 태그 포함 메시지
@@ -411,7 +427,9 @@ def get_escape_attempt_message(target_id):
     import random
     info = morld.get_unit_info(target_id)
     name = info.get("name", "상대") if info else "상대"
-    text = random.choice(_ESCAPE_ATTEMPT_MSGS).format(name=name)
+    is_weak = escape_chance is not None and escape_chance < FUTILE_CHANCE_THRESHOLD
+    pool = _ESCAPE_ATTEMPT_MSGS_FUTILE if is_weak else _ESCAPE_ATTEMPT_MSGS_NORMAL
+    text = random.choice(pool).format(name=name)
     return f"[color=red]({text})[/color]"
 
 
