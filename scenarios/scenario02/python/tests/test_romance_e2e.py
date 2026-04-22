@@ -14,6 +14,8 @@ import random as _random
 
 import romance_core as rc
 import romance_mode as rm
+import stimulation as stim
+import gender as gender_mod
 
 morld = sys.modules["morld"]
 
@@ -236,18 +238,30 @@ class TestForcedSessionScenario:
         assert mode == "unavailable"
 
     def test_forced_resistance_meter_accumulation(self):
-        """강제 세션 중 저항 게이지 누적 → 100 도달 시 탈출 플래그"""
+        """강제 세션 중 저항 실패 → meter 누적, 100 초과 시 강제 탈출 플래그"""
         self._setup()
-        # 반발 높은 NPC → 탈출 확률 상승, meter_delta 큼
-        morld.set_unit_prop(2, "관계:주인공:반발", 80)
+        # 탈출 불가 조건: 복종 매우 높음 + 반발 0 → escape_chance 0 (체념)
+        # 매번 실패하므로 meter는 매 호출 누적.
+        morld.set_unit_prop(2, "관계:주인공:복종", 100)
+        morld.set_unit_prop(2, "관계:주인공:반발", 0)
 
         mode_ctx = rm.create_mode_context(rm.MODE_FORCED, 1, 2)
-        # 첫 저항 체크
-        result = rm.check_resistance(mode_ctx, 2)
-        assert result["attempted"] is True
-        assert result["resistance_delta"] > 0
-        # 게이지 누적 확인
-        assert mode_ctx["resistance_meter"] >= result["resistance_delta"] or result["escaped"]
+        first = rm.check_resistance(mode_ctx, 2)
+        assert first["attempted"] is True
+        assert first["escaped"] is False  # 체념 상태 → 탈출 불가
+        assert first["resistance_delta"] > 0
+        delta1 = mode_ctx["resistance_meter"]
+        assert delta1 > 0
+
+        # 반복 호출 시 게이지 누적
+        rm.check_resistance(mode_ctx, 2)
+        assert mode_ctx["resistance_meter"] > delta1
+
+        # meter 100+ 도달 시 강제 탈출 (반복 호출로 유도)
+        for _ in range(20):
+            if rm.check_resistance(mode_ctx, 2).get("escaped"):
+                break
+        assert mode_ctx["resistance_meter"] >= 100
 
     def test_escape_with_high_submission_impossible(self):
         """복종 높은 NPC는 체념 — 탈출 확률 0으로 감쇠"""
@@ -357,3 +371,294 @@ class TestResolveActionModeEndToEnd:
             "physical_req": {"strength_advantage": True},
         }
         assert rc.resolve_action_mode(2, 1, action) == "unavailable"
+
+
+# ============================================
+# 연쇄 절정 (chain climax) — stimulation 모듈
+# ============================================
+
+class TestChainClimaxFlow:
+    """여운(afterglow) 상태에서 재자극 시 연쇄 절정 발동 검증.
+
+    핵심 로직(stimulation.py):
+    - 첫 절정 → afterglow=50, chain_count=0
+    - 여운 중 자극 → CHAIN_AMPLIFIER 1.5x 배율
+    - 여운 중 peaked → 즉시 연쇄 발동 (게이지 체크 건너뜀)
+    - chain_count 누적, climax_total 증가
+    - afterglow 행위당 -10 감쇠, 0 도달 시 chain_count 리셋
+    """
+
+    def test_first_climax_sets_afterglow(self):
+        """첫 절정: afterglow=50 설정, chain_count=0"""
+        state = stim.create_state(male_mode=False)
+        # V 자극 peaked + 게이지 100 → 절정 트리거 조건 동시 충족
+        state["stim"]["V"] = stim.STIM_MAX - 5  # 95
+        state["climax_gauge"] = stim.CLIMAX_GAUGE_MAX  # 100
+        # 자극 5만 추가 → V=100 peaked + gauge 이미 만충 → 절정
+        result = stim.apply(state, "V", 10)
+        assert result is not None, "자극 100 + 게이지 만충 → 절정 트리거"
+        assert result["is_chain"] is False
+        assert result["chain_count"] == 0
+        assert state["afterglow"] == stim.AFTERGLOW_INITIAL  # 50
+        assert state["climax_total"] == 1
+
+    def test_chain_climax_during_afterglow(self):
+        """여운 중 재자극 → 연쇄 절정 (chain_count 1)"""
+        state = stim.create_state(male_mode=False)
+        # 첫 절정 만들기
+        state["stim"]["V"] = stim.STIM_MAX - 5
+        state["climax_gauge"] = stim.CLIMAX_GAUGE_MAX
+        first = stim.apply(state, "V", 10)
+        assert first is not None
+        assert state["afterglow"] > 0
+
+        # 여운 중 다른 부위 자극 → peaked → 연쇄
+        state["stim"]["C"] = stim.STIM_MAX - 5
+        chain = stim.apply(state, "C", 20)
+        assert chain is not None
+        assert chain["is_chain"] is True
+        assert chain["chain_count"] == 1
+        assert state["climax_total"] == 2
+
+    def test_chain_multiplier_on_afterglow_stim(self):
+        """여운 중 자극 입력 시 CHAIN_AMPLIFIER(1.5) 배율 적용"""
+        # calc_gain 직접 호출 — 여운 있을 때 vs 없을 때
+        base = 10
+        gain_normal = stim.calc_gain(base, sensation_level=0, rebellion=0, afterglow=0)
+        gain_chain = stim.calc_gain(base, sensation_level=0, rebellion=0, afterglow=30)
+        # 여운 중 1.5배 (반올림 차이 허용)
+        assert gain_chain >= gain_normal * 1.4
+
+    def test_afterglow_decay_resets_chain_count(self):
+        """여운이 0으로 감쇠하면 chain_count 리셋"""
+        state = stim.create_state(male_mode=False)
+        state["afterglow"] = 20
+        state["chain_count"] = 3
+        # tick 1: afterglow 10
+        stim.tick_afterglow(state)
+        assert state["afterglow"] == 10
+        assert state["chain_count"] == 3  # 아직 유지
+        # tick 2: afterglow 0, chain_count 리셋
+        stim.tick_afterglow(state)
+        assert state["afterglow"] == 0
+        assert state["chain_count"] == 0
+
+    def test_chain_sensation_exp_bonus(self):
+        """chain_count에 따른 감각 경험치 배율 — 0:x1, 1:x1.5, 2:x2, 3+:x2.5"""
+        # base = CLIMAX_SENSATION_GAIN (3) - rebellion//25 = 3 (rebellion 0)
+        assert stim.get_climax_sensation_gain(0, chain_count=0) == 3
+        assert stim.get_climax_sensation_gain(0, chain_count=1) == round(3 * 1.5)  # 5
+        assert stim.get_climax_sensation_gain(0, chain_count=2) == round(3 * 2.0)  # 6
+        # chain 4도 3으로 cap
+        assert stim.get_climax_sensation_gain(0, chain_count=4) == round(3 * 2.5)  # 8
+
+    def test_male_mode_refractory_blocks_chain(self):
+        """남성 모드: 절정 후 불응기 진입 → 자극 상승 ×0.1 → 연쇄 불가"""
+        state = stim.create_state(male_mode=True)
+        # P 자극 peaked + 게이지 만충 → 절정
+        state["stim"]["P"] = stim.STIM_MAX
+        state["climax_gauge"] = stim.CLIMAX_GAUGE_MAX
+        stim.force_climax(state)
+        assert state["refractory"] == stim.REFRACTORY_INITIAL  # 60
+        # 불응기 중 자극 → 0.1배율만
+        gain = stim.calc_gain(100, sensation_level=0, rebellion=0,
+                              afterglow=0, refractory=60)
+        assert gain <= 100 * stim.REFRACTORY_GAIN_FACTOR * 1.1  # 10 + 여유
+        # afterglow는 male에서는 P 절정만일 때 미설정 (non_p_parts 없음)
+        assert state["afterglow"] == 0
+
+
+# ============================================
+# 3 루트: 순애 / 성욕 / 강간
+# ============================================
+
+class TestRoutes:
+    """호감도 기반 3 루트 분기 검증.
+
+    - 순애: 호감 충분 → consensual
+    - 성욕: 낮은 호감 + 높은 arousal/submission → 할인으로 consensual 달성
+    - 강간: 낮은 호감 + 근력 우위 → forced (force_instant 경유)
+    """
+
+    def _setup(self, affection=0, arousal=0, submission=0,
+               player_strength=5, partner_strength=5):
+        morld.register_unit(1, name="주인공", props={"근력": player_strength, "성별": 1})
+        morld.register_unit(2, props={
+            "관계:주인공:호감": affection,
+            "관계:주인공:복종": submission,
+            "상태:성욕": arousal,
+            "근력": partner_strength,
+            "성별": 2,
+        })
+
+    def test_pure_love_route(self):
+        """순애: 고호감(90) → consensual"""
+        self._setup(affection=90)
+        action = {"affection_req": 50, "effects": {"호감": 5}}
+        assert rc.resolve_action_mode(2, 1, action) == "consensual"
+        _apply_action_effects(action, 2, 1, rm.MODE_CONSENSUAL)
+        # 호감 90 + 5 = 95
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 95
+
+    def test_lust_route_arousal_discount(self):
+        """성욕: 낮은 호감(25) + 높은 arousal(200) → 할인으로 consensual 달성"""
+        # req=40, arousal=200
+        # arousal_discount = min(40*0.3, 200*0.3) = min(12, 60) = 12
+        # eff_req = max(20, 40-12) = 28
+        # affection 30 >= 28 → consensual
+        self._setup(affection=30, arousal=200)
+        action = {"affection_req": 40, "effects": {"호감": 2, "성욕": 5}}
+        assert rc.resolve_action_mode(2, 1, action) == "consensual"
+
+    def test_lust_route_fails_if_min_affection_not_met(self):
+        """최소 호감 20 미달 시 아무리 성욕 높아도 forced"""
+        self._setup(affection=15, arousal=500, submission=500)
+        action = {"affection_req": 80, "effects": {"호감": 2}}
+        # eff_req = max(20, 80 - min(40, 15+15)) = max(20, 50) = 50
+        # affection 15 < 50 → forced
+        assert rc.resolve_action_mode(2, 1, action) == "forced"
+
+    def test_submission_route_accumulates_forced(self):
+        """강간 반복 → 복종 누적 → 점차 consensual 근접"""
+        # 저호감 + 높은 복종(100)이면 할인 활용
+        # req=50, submission=100
+        # submission_discount = min(50*0.3, 100*0.3) = min(15, 30) = 15
+        # eff_req = max(20, 50-15) = 35
+        # affection 35 >= 35 → consensual
+        self._setup(affection=35, submission=100)
+        action = {"affection_req": 50, "effects": {"호감": 2}}
+        assert rc.resolve_action_mode(2, 1, action) == "consensual"
+
+    def test_rape_route_forced_override(self):
+        """강간: 저호감 + 근력 우위 → forced 효과 배율 적용"""
+        self._setup(affection=10, player_strength=10, partner_strength=5,
+                    submission=0)
+        morld.set_unit_prop(2, "관계:주인공:반발", 0)
+        action = {"affection_req": 80, "effects": {"호감": 5, "반발": 3, "복종": 2}}
+        # resolve → forced (호감 미달)
+        assert rc.resolve_action_mode(2, 1, action) == "forced"
+        # forced 효과 적용
+        _apply_action_effects(action, 2, 1, rm.MODE_FORCED)
+        # 호감 10 유지 (×0), 반발 0 + 3*2 = 6, 복종 0 + 2*2 = 4
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 10
+        assert morld.get_unit_prop(2, "관계:주인공:반발") == 6
+        assert morld.get_unit_prop(2, "관계:주인공:복종") == 4
+
+    def test_rape_route_blocked_by_strength(self):
+        """강간: 근력 열세 시 forced_only 액션은 unavailable (greyed)"""
+        self._setup(affection=10, player_strength=3, partner_strength=10)
+        from romance_actions import INSTANT_ACTIONS
+        action = INSTANT_ACTIONS["lift_upper"]  # strength_advantage 필요
+        assert rc.resolve_action_mode(2, 1, action) == "unavailable"
+
+
+# ============================================
+# 성별 조합: 남남 / 남녀 / 녀녀 해부학 호환성
+# ============================================
+
+class TestGenderCombos:
+    """성별/해부학 기반 액션 가용성 검증.
+
+    - male: M/B/A/P (페니스)
+    - female: M/B/A/V/C (질/클리토리스)
+    - futanari: 전부
+    - asexual: M만
+
+    is_anatomy_compatible(action, target, actor):
+    - exp_part의 카테고리를 target이 보유해야 함
+    - requires_player_anatomy를 actor가 보유해야 함
+    - requires_both_anatomy를 양쪽 모두 보유해야 함
+    """
+
+    def _make_unit(self, uid, gender_str, orientation="bisexual"):
+        gint = gender_mod.gender_to_int(gender_str)
+        oint = {"heterosexual": 1, "bisexual": 2, "homosexual": 3}[orientation]
+        morld.register_unit(uid, props={"성별": gint, "성적지향": oint})
+
+    def test_mm_pair_anatomy_compat(self):
+        """남-남: 페니스 자극(P) 가능, 질 자극(V) 불가"""
+        self._make_unit(1, "male")  # player
+        self._make_unit(2, "male")  # partner
+
+        # exp_part=음경 (P) → partner 남 (P 보유) → compat
+        penis_action = {"exp_part": "음경", "effects": {}}
+        assert rc.is_anatomy_compatible(penis_action, 2, actor_id=1) is True
+
+        # exp_part=음부 (V) → partner 남 (V 없음) → 불호환
+        vagina_action = {"exp_part": "음부", "effects": {}}
+        assert rc.is_anatomy_compatible(vagina_action, 2, actor_id=1) is False
+
+        # 질삽입 (requires_player_anatomy=P + exp_part=음부) → actor 남 P, target 남 V 없음 → 불호환
+        vaginal_insert = {"exp_part": "음부", "requires_player_anatomy": "P",
+                          "effects": {}}
+        assert rc.is_anatomy_compatible(vaginal_insert, 2, actor_id=1) is False
+
+        # 항문삽입 (requires_player_anatomy=P + exp_part=항문 A) → 양쪽 A 보유 → 호환
+        anal_insert = {"exp_part": "항문", "requires_player_anatomy": "P",
+                       "effects": {}}
+        assert rc.is_anatomy_compatible(anal_insert, 2, actor_id=1) is True
+
+    def test_mf_pair_anatomy_compat(self):
+        """남-녀: 질삽입 가능, 핸드잡(target P) 불가"""
+        self._make_unit(1, "male")
+        self._make_unit(2, "female")
+
+        # 가슴(B) → 모두 보유 → compat
+        breast_action = {"exp_part": "가슴", "effects": {}}
+        assert rc.is_anatomy_compatible(breast_action, 2, actor_id=1) is True
+
+        # 질삽입 → compat
+        vaginal_insert = {"exp_part": "음부", "requires_player_anatomy": "P",
+                          "effects": {}}
+        assert rc.is_anatomy_compatible(vaginal_insert, 2, actor_id=1) is True
+
+        # 핸드잡 (exp_part=음경) → partner=여 (P 없음) → 불호환
+        handjob = {"exp_part": "음경", "effects": {}}
+        assert rc.is_anatomy_compatible(handjob, 2, actor_id=1) is False
+
+    def test_ff_pair_anatomy_compat(self):
+        """녀-녀: 페니스 삽입 불가, tribadism(V-V) 가능"""
+        self._make_unit(1, "female")
+        self._make_unit(2, "female")
+
+        # 질삽입 (requires_player_anatomy=P) → actor=녀 P 없음 → 불호환
+        vaginal_insert = {"exp_part": "음부", "requires_player_anatomy": "P",
+                          "effects": {}}
+        assert rc.is_anatomy_compatible(vaginal_insert, 2, actor_id=1) is False
+
+        # 상호 자위 (requires_both_anatomy=V) → 양쪽 V → 호환
+        tribadism = {"exp_part": "음부", "requires_both_anatomy": "V",
+                     "effects": {}}
+        assert rc.is_anatomy_compatible(tribadism, 2, actor_id=1) is True
+
+        # 클리토리스 자극 → 양쪽 C 보유 → 호환
+        clit_action = {"exp_part": "클리토리스", "effects": {}}
+        assert rc.is_anatomy_compatible(clit_action, 2, actor_id=1) is True
+
+    def test_orientation_multiplier_hetero_mm(self):
+        """이성애자 남 + 남 파트너 → 배율 0.5 (비호환)"""
+        self._make_unit(1, "male", "heterosexual")
+        self._make_unit(2, "male", "heterosexual")
+        mult = gender_mod.get_orientation_multiplier(2, 1)
+        assert mult == 0.5
+
+    def test_orientation_multiplier_homo_mm(self):
+        """동성애자 남 + 남 파트너 → 배율 1.1 (선호 일치)"""
+        self._make_unit(1, "male", "homosexual")
+        self._make_unit(2, "male", "homosexual")
+        mult = gender_mod.get_orientation_multiplier(2, 1)
+        assert abs(mult - 1.1) < 0.001
+
+    def test_orientation_multiplier_bi(self):
+        """양성애자는 항상 1.0"""
+        self._make_unit(1, "male", "bisexual")
+        self._make_unit(2, "female", "bisexual")
+        mult = gender_mod.get_orientation_multiplier(2, 1)
+        assert mult == 1.0
+
+    def test_futanari_has_both_anatomy(self):
+        """후타나리: P와 V 모두 보유"""
+        self._make_unit(1, "futanari")
+        assert gender_mod.has_anatomy(1, "P") is True
+        assert gender_mod.has_anatomy(1, "V") is True
+        assert gender_mod.has_anatomy(1, "C") is True
