@@ -361,9 +361,28 @@ factor = density × visibility_mult × (1 - stealth_chance)
 | cheerful | 25 | 사교적/개방 |
 | seductive | 10 | 방종 |
 
-**다음 슬라이스 (Phase 1 Slice 3+)**:
-- 수치심 이벤트 훅 (on_see_nude, on_witness_masturbation)
-- UI에 자제심/수치심 표시
+**Phase 1 Slice 3 완료** (2026-04-23):
+- ✅ `apply_shame(unit_id, delta)` — 0~100 clamp + prop 반영
+- ✅ `on_romance_discovered(partner)` — 행위 중 발각 (+20, 나체 +10)
+- ✅ `on_stealth_near_miss(partner)` — 은신 스릴 (+3)
+- ✅ `on_masturbation_witnessed(unit)` — 자위 목격 (+25)
+- ✅ `on_nude_in_public(unit)` — 공공 노출 진입 (+5)
+- ✅ npc_initiative.py 발각 경로에 `on_romance_discovered` 훅 추가
+- ✅ romance.py near_miss 경로에 `on_stealth_near_miss` 훅 추가
+- ✅ 10 신규 테스트 (TestShameEventHooks)
+
+**수치심 이벤트 수치 (임시 밸런스)**:
+| 이벤트 | 증가량 | 트리거 시점 |
+|-------|-------|------------|
+| romance_discovered | +20 (+10 if nude) | `advance_time_and_check` 발각 시 |
+| stealth_near_miss | +3 | 은신 roll 성공 시 |
+| masturbation_witnessed | +25 | (훅 정의, 호출 지점 미구현) |
+| nude_in_public | +5 | (훅 정의, 호출 지점 미구현) |
+
+**다음 슬라이스 (Phase 1 Slice 4)**:
+- UI에 자제심/수치심 표시 (스탯 패널 + 호버 힌트)
+- 자위 목격/공공 노출 트리거 지점 실제 연결
+- 시간 기반 수치심 자연 감쇠
 
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**

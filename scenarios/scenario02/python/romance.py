@@ -282,9 +282,13 @@ def advance_time_and_check(state, millis):
                         if reaction:
                             state["stealth_reaction"] = reaction
 
+                # Phase 1: 아슬아슬한 스릴 → 약한 수치심 상승
+                from romance_core import on_stealth_near_miss
+                on_stealth_near_miss(partner_id)
+
                 continue
 
-            # 들킴 - 중단
+            # 들킴 - 중단 (수치심 상승은 세션 종료 후 on_romance_interrupted에서)
             return {"interrupted": True, "interrupter_id": unit_id}
         # TODO: 합류 로직 (Phase 6)
 

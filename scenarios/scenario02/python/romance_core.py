@@ -288,6 +288,64 @@ def get_shame_modifier(partner_id):
     return -shame * SHAME_PENALTY_FACTOR * audience
 
 
+# ============================================
+# 수치심 상태 변동 — 이벤트 훅
+# ============================================
+
+SHAME_MAX = 100
+SHAME_MIN = 0
+
+# 이벤트별 수치심 증가량 (양수)
+SHAME_GAIN_ROMANCE_DISCOVERED = 20  # 행위 중 제3자에게 들킴
+SHAME_GAIN_NUDE_DISCOVERED = 10     # 나체 상태 추가 페널티
+SHAME_GAIN_NEAR_MISS = 3            # 은신 성공 스릴 (들킬 뻔)
+SHAME_GAIN_MASTURBATION_SEEN = 25   # 자위 목격
+SHAME_GAIN_NUDE_IN_PUBLIC = 5       # 공공장소 노출 상태 진입
+
+
+def apply_shame(unit_id, delta, reason=None):
+    """수치심 변동 + SHAME_MIN/MAX clamp.
+
+    Args:
+        unit_id: 대상 NPC
+        delta: 변동량 (+증가 / -감소)
+        reason: 디버그 로그용 문자열 (optional)
+
+    Returns:
+        int: clamp 후 최종 수치심 값
+    """
+    current = morld.get_unit_prop(unit_id, "상태:수치심") or 0
+    new_val = max(SHAME_MIN, min(SHAME_MAX, current + delta))
+    morld.set_unit_prop(unit_id, "상태:수치심", new_val)
+    return new_val
+
+
+def on_romance_discovered(partner_id):
+    """행위 중 제3자에게 들킴 → 수치심 대폭 상승 (나체면 추가)."""
+    exposure = get_exposure_state(partner_id)
+    delta = SHAME_GAIN_ROMANCE_DISCOVERED
+    if exposure.get("upper_exposed") or exposure.get("lower_exposed"):
+        delta += SHAME_GAIN_NUDE_DISCOVERED
+    return apply_shame(partner_id, delta, reason="romance_discovered")
+
+
+def on_stealth_near_miss(partner_id):
+    """은신 성공으로 아슬아슬하게 안 들킴 → 약한 수치심 (스릴)."""
+    return apply_shame(partner_id, SHAME_GAIN_NEAR_MISS, reason="near_miss")
+
+
+def on_masturbation_witnessed(unit_id):
+    """자위 중 목격됨 → 강한 수치심."""
+    return apply_shame(unit_id, SHAME_GAIN_MASTURBATION_SEEN,
+                       reason="masturbation_witnessed")
+
+
+def on_nude_in_public(unit_id):
+    """공공장소(관객 있는 location)에서 노출 상태 진입 → 수치심 증가."""
+    return apply_shame(unit_id, SHAME_GAIN_NUDE_IN_PUBLIC,
+                       reason="nude_in_public")
+
+
 def calculate_availability_score(partner_id, player_id, action_def):
     """액션 가용성 점수 — 베이스라인 + 모디파이어 합산
 

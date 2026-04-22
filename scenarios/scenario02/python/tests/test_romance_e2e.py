@@ -793,6 +793,95 @@ class TestArchetypeRestraintDefaults:
                 f"archetype '{archetype}'에 자제심 기본값 누락"
 
 
+class TestShameEventHooks:
+    """수치심 변동 이벤트 — romance 발각 / near_miss / 자위 목격."""
+
+    def _make_npc(self, shame=0, exposure_upper=0, exposure_lower=0):
+        morld.register_unit(2, props={
+            "상태:수치심": shame,
+            "임시노출:상체": exposure_upper,
+            "임시노출:하체": exposure_lower,
+        })
+
+    def test_apply_shame_clamps_max(self):
+        """수치심 100 이상으로 증가 안 됨"""
+        self._make_npc(shame=90)
+        result = rc.apply_shame(2, 30)
+        assert result == 100
+
+    def test_apply_shame_clamps_min(self):
+        """수치심 0 이하로 감소 안 됨"""
+        self._make_npc(shame=5)
+        result = rc.apply_shame(2, -20)
+        assert result == 0
+
+    def test_apply_shame_positive_delta(self):
+        """수치심 중간 증가"""
+        self._make_npc(shame=30)
+        result = rc.apply_shame(2, 15)
+        assert result == 45
+        assert morld.get_unit_prop(2, "상태:수치심") == 45
+
+    def test_on_romance_discovered_nude_state(self):
+        """나체 상태로 들킴 → +20 (base) +10 (nude) = +30 적용.
+
+        테스트 mock은 equipment 없음 → get_exposure_state가 nude 반환.
+        실제 production에서 의류 장착 시 nude_bonus 없이 +20만 적용됨.
+        """
+        self._make_npc(shame=10)
+        result = rc.on_romance_discovered(2)
+        # mock에선 default nude → 10 + 30 = 40
+        assert result == 40
+
+    def test_on_stealth_near_miss_small_gain(self):
+        """은신 성공 스릴 → +3 (약한 증가)"""
+        self._make_npc(shame=50)
+        result = rc.on_stealth_near_miss(2)
+        assert result == 53
+
+    def test_on_masturbation_witnessed_big_gain(self):
+        """자위 목격 → +25 (큰 증가)"""
+        self._make_npc(shame=20)
+        result = rc.on_masturbation_witnessed(2)
+        assert result == 45
+
+    def test_on_nude_in_public_small_gain(self):
+        """공공장소 노출 진입 → +5"""
+        self._make_npc(shame=0)
+        result = rc.on_nude_in_public(2)
+        assert result == 5
+
+    def test_shame_chain_multiple_events(self):
+        """여러 이벤트 중첩 시 누적 (100 cap까지). mock은 default nude."""
+        self._make_npc(shame=0)
+        rc.on_nude_in_public(2)         # +5 → 5
+        rc.on_stealth_near_miss(2)      # +3 → 8
+        rc.on_masturbation_witnessed(2) # +25 → 33
+        rc.on_romance_discovered(2)     # +30 (nude bonus) → 63
+        assert morld.get_unit_prop(2, "상태:수치심") == 63
+
+    def test_shame_affects_gate_after_event(self):
+        """수치심 상승 이후 관객 상황에서 게이트 점수 감소"""
+        loc = (0, 0)
+        morld.register_location(*loc, is_indoor=True, length=1)
+        morld.register_unit(1, name="주인공", props={"성별": 1}, location=loc)
+        morld.register_unit(2, props={
+            "관계:주인공:호감": 50,
+            "성별": 2,
+        }, location=loc)
+        morld.register_unit(3, name="행인", location=loc)
+
+        action = {"affection_req": 30, "effects": {}}
+        score_before = rc.calculate_availability_score(2, 1, action)
+        assert score_before == 20
+
+        # 발각 이벤트 → 수치심 상승 (mock nude → +30)
+        rc.on_romance_discovered(2)
+        score_after = rc.calculate_availability_score(2, 1, action)
+        # baseline 20 - 수치심(30) × 0.2 × 0.7 = 20 - 4.2 = 15.8
+        assert abs(score_after - 15.8) < 0.1
+
+
 class TestAudienceFactor:
     """관객 계수 — 같은 location의 제3자 존재 여부."""
 

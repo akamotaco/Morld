@@ -648,11 +648,14 @@ def handle_npc_initiative_interruption(state, npc_name):
     morld.modify_prop(npc_id, f"관계:{player_name}:반발", 3)
 
     # 나체 발각 추가 페널티
-
     exposure = get_exposure_state(npc_id)
     if exposure.get("upper_exposed") or exposure.get("lower_exposed"):
         morld.modify_prop(npc_id, f"관계:{player_name}:호감", -2)
         morld.modify_prop(npc_id, f"관계:{player_name}:반발", 5)
+
+    # Phase 1: 수치심 상태 상승 (나체 시 추가) — 이후 게이트 평가에 영향
+    from romance_core import on_romance_discovered as _on_romance_discovered
+    _on_romance_discovered(npc_id)
 
 
 # ============================================
