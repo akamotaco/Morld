@@ -302,9 +302,15 @@ SHAME_GAIN_NEAR_MISS = 3            # 은신 성공 스릴 (들킬 뻔)
 SHAME_GAIN_MASTURBATION_SEEN = 25   # 자위 목격
 SHAME_GAIN_NUDE_IN_PUBLIC = 5       # 공공장소 노출 상태 진입
 
+# 시간 감쇠
+SHAME_DECAY_PER_HOUR = 5            # 1시간당 감소량 (자연 감쇠)
+
+# 수치심 > 0인 유닛 추적 — 감쇠 tick에서 iterate
+_SHAME_REGISTRY = set()
+
 
 def apply_shame(unit_id, delta, reason=None):
-    """수치심 변동 + SHAME_MIN/MAX clamp.
+    """수치심 변동 + SHAME_MIN/MAX clamp + 레지스트리 관리.
 
     Args:
         unit_id: 대상 NPC
@@ -317,7 +323,27 @@ def apply_shame(unit_id, delta, reason=None):
     current = morld.get_unit_prop(unit_id, "상태:수치심") or 0
     new_val = max(SHAME_MIN, min(SHAME_MAX, current + delta))
     morld.set_unit_prop(unit_id, "상태:수치심", new_val)
+    if new_val > 0:
+        _SHAME_REGISTRY.add(unit_id)
+    else:
+        _SHAME_REGISTRY.discard(unit_id)
     return new_val
+
+
+def _decay_shame_tick():
+    """시간 감쇠 — 레지스트리 전체 -SHAME_DECAY_PER_HOUR.
+
+    1시간 간격으로 호출 (subscribe_time_elapsed 핸들러).
+    """
+    for uid in list(_SHAME_REGISTRY):
+        current = morld.get_unit_prop(uid, "상태:수치심") or 0
+        if current <= 0:
+            _SHAME_REGISTRY.discard(uid)
+            continue
+        new_val = max(SHAME_MIN, current - SHAME_DECAY_PER_HOUR)
+        morld.set_unit_prop(uid, "상태:수치심", new_val)
+        if new_val <= 0:
+            _SHAME_REGISTRY.discard(uid)
 
 
 def on_romance_discovered(partner_id):
@@ -1251,3 +1277,21 @@ def extract_preserved(state):
     if "insertion" in state:
         preserved["insertion"] = state["insertion"].copy()
     return preserved
+
+
+# ============================================
+# 수치심 감쇠 이벤트 구독 (모듈 로드 시)
+# ============================================
+
+def _on_time_elapsed_shame(millis):
+    """1시간 간격 수치심 자연 감쇠"""
+    _decay_shame_tick()
+
+
+try:
+    from events import subscribe_time_elapsed as _sub_time_elapsed
+    _MILLIS_PER_HOUR = 3_600_000
+    _sub_time_elapsed(_on_time_elapsed_shame, min_interval=_MILLIS_PER_HOUR)
+except Exception:
+    # 테스트 환경/초기 로딩 순서 등으로 실패 시 무시
+    pass

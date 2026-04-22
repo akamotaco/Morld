@@ -19,6 +19,7 @@ from romance_actions import (
     _THRUST_TOGGLE_IDS, _INSERTION_EXP_MAP,
 )
 from romance_actions import TOGGLE_DURING_DESCRIPTIONS
+import romance_core as rc_mod
 from romance_core import (
     get_character_asset as get_partner_asset,
     get_affection_key,
@@ -222,6 +223,21 @@ def render_romance_ui(state):
     if rebellion > 0:
         stat_line += f"  반발: {rebellion}"
     lines.append(stat_line)
+
+    # Phase 1: 자제심/수치심 (값 > 0일 때만 표시하여 UI 노이즈 최소화)
+    restraint = rc_mod.get_restraint_value(partner_id)
+    shame = partner_props.get("상태:수치심", 0)
+    audience = rc_mod.get_audience_factor(partner_id)
+    if restraint > 0 or shame > 0:
+        inhibit_parts = []
+        if restraint > 0:
+            inhibit_parts.append(f"자제심: {restraint}")
+        if shame > 0:
+            shame_str = f"수치심: {shame}"
+            if audience > 0:
+                shame_str += f" (관객 ×{audience:.1f})"
+            inhibit_parts.append(shame_str)
+        lines.append(style_muted("  ".join(inhibit_parts)))
 
     # 자극 표시 (세션 스코프, 대상 성별 기반)
     import gender as gender_mod

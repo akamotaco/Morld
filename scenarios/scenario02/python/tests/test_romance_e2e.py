@@ -860,6 +860,33 @@ class TestShameEventHooks:
         rc.on_romance_discovered(2)     # +30 (nude bonus) → 63
         assert morld.get_unit_prop(2, "상태:수치심") == 63
 
+    def test_shame_decay_tick_reduces(self):
+        """수치심 감쇠 tick 1회 → -5"""
+        self._make_npc(shame=30)
+        rc.apply_shame(2, 0)  # 레지스트리 등록 트리거 (값 동일)
+        # 직접 등록 (apply_shame(0)은 값 변경 없이 레지스트리 업데이트)
+        rc._SHAME_REGISTRY.add(2)
+        rc._decay_shame_tick()
+        assert morld.get_unit_prop(2, "상태:수치심") == 25
+
+    def test_shame_decay_clamps_at_zero(self):
+        """수치심 5 → tick 1회 → 0, 레지스트리에서 제거"""
+        self._make_npc(shame=3)
+        rc._SHAME_REGISTRY.add(2)
+        rc._decay_shame_tick()
+        assert morld.get_unit_prop(2, "상태:수치심") == 0
+        assert 2 not in rc._SHAME_REGISTRY
+
+    def test_shame_registry_tracks_apply(self):
+        """apply_shame 호출 시 레지스트리에 자동 등록"""
+        self._make_npc(shame=0)
+        rc._SHAME_REGISTRY.discard(2)  # 선제 정리
+        rc.apply_shame(2, 20)
+        assert 2 in rc._SHAME_REGISTRY
+        # 0까지 감소 시 자동 제거
+        rc.apply_shame(2, -100)
+        assert 2 not in rc._SHAME_REGISTRY
+
     def test_shame_affects_gate_after_event(self):
         """수치심 상승 이후 관객 상황에서 게이트 점수 감소"""
         loc = (0, 0)
