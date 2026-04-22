@@ -140,17 +140,16 @@ def get_restraint_modifier(partner_id):
     return -restraint * RESTRAINT_PENALTY_FACTOR
 
 
-def get_audience_factor(partner_id):
-    """관객 계수 — 같은 location의 의식 있는 제3자 존재 여부.
+# 관객계수 세부 상수
+OUTDOOR_VISIBILITY_MULT = 1.2    # 야외: 개방된 시야로 감지 범위 ↑
+INDOOR_VISIBILITY_MULT = 1.0     # 실내: 벽이 시각 차단 (소리만)
 
-    0.0 (단독 상황) ~ 1.0 (관객 있음).
-    플레이어/파트너 자신/기절·수면 NPC는 관객 아님.
 
-    TODO (Phase 1.5): 관객 수에 따른 점진 증가, 친밀도 가중치.
-    """
+def _count_third_parties(partner_id):
+    """같은 location의 의식 있는 제3자 수 (플레이어/파트너/기절·수면 제외)."""
     location = morld.get_unit_location(partner_id)
     if not location:
-        return 0.0
+        return 0
     chars = morld.get_characters_at_location(location[0], location[1]) or []
     player_id = morld.get_player_id()
 
@@ -161,13 +160,61 @@ def get_audience_factor(partner_id):
     except Exception:
         _is_out = lambda _cid: False
 
+    count = 0
     for cid in chars:
         if cid == partner_id or cid == player_id:
             continue
         if _is_out(cid):
             continue
-        return 1.0
-    return 0.0
+        count += 1
+    return count
+
+
+def _global_stealth_chance():
+    """사전 평가용 은신 성공 확률 (세션 내부 state 없이 prop 기반 추정).
+
+    romance_core.calculate_stealth_chance는 session state["hiding"] 기반.
+    이 헬퍼는 세션 외부 — status:stealth prop으로만 판단.
+    """
+    chance = STEALTH_BASE_CHANCE  # 0.3
+    player_id = morld.get_player_id()
+    if morld.get_unit_prop(player_id, "status:stealth") == 1:
+        chance += STEALTH_HIDING_BONUS  # +0.4
+    return min(chance, 0.9)
+
+
+def get_audience_factor(partner_id):
+    """관객 계수 — 효과적 감지 가능성 (0.0 ~ 1.0).
+
+    공식:
+        density = min(1.0, audience_count / location_length)
+        visibility_mult = 1.2(야외) / 1.0(실내)
+        factor = density × visibility_mult × (1 - 은신_성공률)
+
+    의미:
+    - 좁은 공간일수록 밀도↑ (같은 관객 수라도 factor 상승)
+    - 야외 +20% 보정 (탁 트인 시야)
+    - 은신 성공 확률만큼 factor 감소 (은신 중이면 덜 부끄러움)
+
+    플레이어/파트너/기절·수면 NPC는 관객 아님.
+
+    TODO (향후): 관객별 친밀도/관계 가중치, 소음(stance) 영향.
+    """
+    audience = _count_third_parties(partner_id)
+    if audience == 0:
+        return 0.0
+
+    loc = morld.get_unit_location(partner_id)
+    loc_info = morld.get_location_info(loc[0], loc[1]) or {}
+    length = max(1, loc_info.get("length", 1))
+    is_indoor = loc_info.get("is_indoor", True)
+
+    density = min(1.0, audience / length)
+    visibility_mult = INDOOR_VISIBILITY_MULT if is_indoor else OUTDOOR_VISIBILITY_MULT
+    stealth = _global_stealth_chance()
+
+    factor = density * visibility_mult * (1.0 - stealth)
+    return max(0.0, min(1.0, factor))
 
 
 def get_shame_modifier(partner_id):

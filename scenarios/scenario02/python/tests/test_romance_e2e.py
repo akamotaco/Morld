@@ -736,12 +736,51 @@ class TestAudienceFactor:
         assert rc.get_audience_factor(2) == 0.0
 
     def test_third_party_triggers_audience(self):
-        """같은 location에 제3자 → 관객 1.0"""
-        morld.register_location(0, 0)
+        """같은 location에 제3자 → 관객 factor > 0 (은신 기본 30% 차감)"""
+        morld.register_location(0, 0, is_indoor=True, length=1)
         morld.register_unit(1, name="주인공", location=(0, 0))
         morld.register_unit(2, location=(0, 0))
         morld.register_unit(3, name="행인", location=(0, 0))
-        assert rc.get_audience_factor(2) == 1.0
+        # density 1.0 × indoor 1.0 × (1 - 0.3 stealth) = 0.7
+        assert abs(rc.get_audience_factor(2) - 0.7) < 0.001
+
+    def test_audience_scales_with_density(self):
+        """좁은 공간 (length=1) vs 넓은 공간 (length=5) 밀도 차이"""
+        morld.register_location(0, 0, is_indoor=True, length=5)
+        morld.register_unit(1, name="주인공", location=(0, 0))
+        morld.register_unit(2, location=(0, 0))
+        morld.register_unit(3, name="행인", location=(0, 0))
+        # density 1/5 = 0.2 × 1.0 × 0.7 = 0.14
+        assert abs(rc.get_audience_factor(2) - 0.14) < 0.01
+
+    def test_outdoor_increases_factor(self):
+        """야외: visibility_mult 1.2 적용"""
+        morld.register_location(0, 0, is_indoor=False, length=1)
+        morld.register_unit(1, name="주인공", location=(0, 0))
+        morld.register_unit(2, location=(0, 0))
+        morld.register_unit(3, name="행인", location=(0, 0))
+        # density 1.0 × outdoor 1.2 × 0.7 = 0.84
+        assert abs(rc.get_audience_factor(2) - 0.84) < 0.01
+
+    def test_stealth_reduces_factor(self):
+        """플레이어 은신 상태 → factor 감소 (은신 성공률 70%)"""
+        morld.register_location(0, 0, is_indoor=True, length=1)
+        morld.register_unit(1, name="주인공", location=(0, 0),
+                            props={"status:stealth": 1})
+        morld.register_unit(2, location=(0, 0))
+        morld.register_unit(3, name="행인", location=(0, 0))
+        # density 1.0 × indoor 1.0 × (1 - 0.7 stealth) = 0.3
+        assert abs(rc.get_audience_factor(2) - 0.3) < 0.001
+
+    def test_multiple_third_parties_saturate_density(self):
+        """좁은 공간 + 다수 관객 → density cap 1.0"""
+        morld.register_location(0, 0, is_indoor=True, length=1)
+        morld.register_unit(1, name="주인공", location=(0, 0))
+        morld.register_unit(2, location=(0, 0))
+        for i in range(3, 8):  # 5명 행인
+            morld.register_unit(i, name=f"행인{i}", location=(0, 0))
+        # density min(1.0, 5/1) = 1.0, factor = 0.7 (length 1에 cap)
+        assert abs(rc.get_audience_factor(2) - 0.7) < 0.001
 
     def test_different_location_no_audience(self):
         """다른 location의 NPC는 관객 아님"""
@@ -756,9 +795,10 @@ class TestAudienceFactor:
 class TestShameModifier:
     """수치심 × 관객 계수 — 상황적 억제."""
 
-    def _setup_with_audience(self, affection=50, shame=0, with_audience=False):
+    def _setup_with_audience(self, affection=50, shame=0, with_audience=False,
+                              is_indoor=True, length=1):
         loc = (0, 0)
-        morld.register_location(*loc)
+        morld.register_location(*loc, is_indoor=is_indoor, length=length)
         morld.register_unit(1, name="주인공", props={"성별": 1}, location=loc)
         morld.register_unit(2, props={
             "관계:주인공:호감": affection,
@@ -774,41 +814,54 @@ class TestShameModifier:
         assert rc.get_shame_modifier(2) == 0.0
 
     def test_shame_with_audience_penalizes(self):
-        """수치심 100 + 관객 → -20점"""
+        """수치심 100 + 좁은 실내 + 비은신 관객 → -14점 (0.7 factor)"""
         self._setup_with_audience(shame=100, with_audience=True)
-        # shame × SHAME_PENALTY_FACTOR × audience = 100 × 0.2 × 1.0 = 20
-        assert rc.get_shame_modifier(2) == -20.0
+        # shame × 0.2 × factor(0.7) = 100 × 0.2 × 0.7 = 14
+        assert abs(rc.get_shame_modifier(2) - (-14.0)) < 0.01
+
+    def test_shame_in_wide_space_smaller_penalty(self):
+        """넓은 공간 (length 5) → 밀도 감소 → 페널티 감소"""
+        self._setup_with_audience(shame=100, with_audience=True, length=5)
+        # factor = 0.2 (density) × 1.0 × 0.7 = 0.14
+        # penalty = 100 × 0.2 × 0.14 = 2.8
+        assert abs(rc.get_shame_modifier(2) - (-2.8)) < 0.1
+
+    def test_shame_outdoor_stronger_penalty(self):
+        """야외 시야 보너스 → 페널티 1.2배"""
+        self._setup_with_audience(shame=100, with_audience=True, is_indoor=False)
+        # factor = 1.0 × 1.2 × 0.7 = 0.84
+        # penalty = 100 × 0.2 × 0.84 = 16.8
+        assert abs(rc.get_shame_modifier(2) - (-16.8)) < 0.1
 
     def test_shame_with_audience_blocks_consensual(self):
-        """호감 경계값 + 수치심 + 관객 → forced 분기"""
-        # baseline = 50 - 30 = 20
-        # shame penalty = -100 × 0.2 × 1.0 = -20
-        # total = 0 (경계)
-        self._setup_with_audience(affection=50, shame=100, with_audience=True)
+        """호감 경계값 + 수치심 + 관객 → 페널티로 forced 분기"""
+        self._setup_with_audience(affection=45, shame=100, with_audience=True)
         action = {"affection_req": 30, "effects": {}}
-        score = rc.calculate_availability_score(2, 1, action)
-        assert score == 0  # 경계값
-        # 약간 낮추면 forced
-        morld.set_unit_prop(2, "관계:주인공:호감", 49)
+        # baseline = 45 - 30 = 15
+        # shame penalty = -100 × 0.2 × 0.7 = -14
+        # total = 1 (consensual 경계)
+        assert rc.resolve_action_mode(2, 1, action) == "consensual"
+        # 조금 낮추면 forced
+        morld.set_unit_prop(2, "관계:주인공:호감", 43)
         assert rc.resolve_action_mode(2, 1, action) == "forced"
 
     def test_restraint_and_shame_stack(self):
         """자제심 + 수치심(관객) 양쪽 페널티 누적"""
         loc = (0, 0)
-        morld.register_location(*loc)
+        morld.register_location(*loc, is_indoor=True, length=1)
         morld.register_unit(1, name="주인공", props={"성별": 1}, location=loc)
         morld.register_unit(2, props={
             "관계:주인공:호감": 80,
             "성격:자제심": 50,      # -15점
-            "상태:수치심": 50,      # -10점 (관객 있음)
+            "상태:수치심": 50,      # shame × 0.2 × 0.7 = -7
             "성별": 2,
         }, location=loc)
         morld.register_unit(3, name="행인", location=loc)
         action = {"affection_req": 30, "effects": {}}
         score = rc.calculate_availability_score(2, 1, action)
         # baseline = 80 - 30 = 50
-        # restraint = -50 × 0.3 = -15
-        # shame = -50 × 0.2 × 1.0 = -10
-        # total = 25
-        assert score == 25
+        # restraint = -15
+        # shame = -7
+        # total = 28
+        assert abs(score - 28) < 0.1
         assert rc.resolve_action_mode(2, 1, action) == "consensual"

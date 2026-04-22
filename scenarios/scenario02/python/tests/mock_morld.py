@@ -62,6 +62,7 @@ class MockMorld:
         self._locations[key] = {
             "weather": kwargs.get("weather"),
             "is_indoor": kwargs.get("is_indoor", True),
+            "length": kwargs.get("length", 1),
         }
 
     def register_item(self, item_id, name="아이템", equip_props=None):
@@ -302,7 +303,7 @@ class MockMorld:
         key = (region_id, location_id)
         if key in self._locations:
             return dict(self._locations[key])
-        return {"weather": None, "is_indoor": True}
+        return {"weather": None, "is_indoor": True, "length": 1}
 
     def give_item(self, unit_id, item_id, count=1):
         """유닛에 아이템 지급"""
