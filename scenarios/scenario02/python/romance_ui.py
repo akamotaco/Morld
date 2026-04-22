@@ -25,6 +25,7 @@ from romance_core import (
     get_rebellion_key, get_submission_key,
     get_sensation_level,
     is_action_available, is_anatomy_compatible, is_action_blocked_by_state,
+    check_physical_req,
     get_exposure_state,
     get_semen_total, get_internal_semen, get_internal_semen_total,
     is_pull_out_available, is_hold_back_available, is_ejaculate_available,
@@ -364,6 +365,11 @@ def render_romance_ui(state):
             continue
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
+        # physical_req (근력 등) — 물리 전제는 모드 무관 hard gate
+        _ok_phys, _phys_reason = check_physical_req(action, partner_id, player_id)
+        if not _ok_phys:
+            lines.append(f"  {style_muted(action['name'] + ' (' + _phys_reason + ')')}")
+            continue
         # 임신 후기: 삽입 행위 비활성화
         if _intercourse_blocked and action.get("pregnancy_check"):
             _aname = action['name']
@@ -434,6 +440,11 @@ def render_romance_ui(state):
         if action.get("npc_initiative_only"):
             continue  # NPC 주도 전용 행위는 일반 모드에서 숨김
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
+            continue
+        # physical_req (근력 등) — 물리 전제는 모드 무관 hard gate
+        _ok_phys, _phys_reason = check_physical_req(action, partner_id, player_id)
+        if not _ok_phys:
+            lines.append(f"  {style_muted(action['name'] + ' (' + _phys_reason + ')')}")
             continue
         # 삽입 시도: 이미 삽입 중이면 숨김
         if action.get("is_insertion_attempt") and is_inserted:

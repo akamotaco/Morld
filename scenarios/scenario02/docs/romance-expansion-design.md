@@ -289,10 +289,12 @@ Talent 81 단일 값으로 관리:
 - 각인/자제심/탤런트는 이후 Phase에서 모디파이어로 "추가만" 하면 됨
 - 행위 게이트는 점수 ≥ 0 → consensual / < 0 → forced / physical_req 불충족 → unavailable
 
-**다음 슬라이스 (Phase 0.6)**:
-- `physical_req` 스키마 도입 (근력 비교 등 hard gate)
-- UI 3상태 렌더링 (강제 prefix + greyed out)
-- harassment 액션 카탈로그 흡수 → 단일 진입점 `begin_intimate()`
+**Phase 0.6 진행 중**:
+- ✅ `physical_req` 스키마 도입 — action_def의 선택적 필드 (`strength_advantage`, `min_strength`)
+- ✅ `check_physical_req(action, partner, player)` 헬퍼 + `resolve_action_mode` 통합
+- ✅ UI greyed out 렌더링 (근력 부족 시 "(근력 부족)" 접미사)
+- 🔄 UI에서 "강제 {name}" 클릭 가능 옵션 (다음 슬라이스)
+- 🔄 harassment 액션 카탈로그 흡수 → 단일 진입점 `begin_intimate()` (다음 슬라이스)
 
 ### Phase 1: 억제 이중축 도입
 **자제심 × 수치심**

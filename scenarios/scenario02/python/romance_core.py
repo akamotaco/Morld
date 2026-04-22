@@ -138,14 +138,45 @@ def calculate_availability_score(partner_id, player_id, action_def):
     return affection - eff_req
 
 
+def check_physical_req(action_def, partner_id, player_id):
+    """물리 전제 체크 — 충족 시 (True, None), 불충족 시 (False, reason_str)
+
+    action_def["physical_req"] 스키마 (모두 선택적):
+    - strength_advantage: True  → 플레이어 근력 > 파트너 근력 필수 (강제 제압용)
+    - min_strength: int         → 플레이어 근력 최소치
+    (향후 확장: min_hp, requires_standing 등)
+
+    Why: "근력 부족 등 조건이 안맞으면 greyed out". 호감 모디파이어와 달리
+         물리 전제는 hard gate — 수치 합산 아니라 단순 충족/불충족.
+    """
+    req = action_def.get("physical_req")
+    if not req:
+        return True, None
+
+    if req.get("strength_advantage"):
+        from romance_mode import get_strength
+        if get_strength(player_id) <= get_strength(partner_id):
+            return False, "근력 부족"
+
+    min_str = req.get("min_strength")
+    if min_str is not None:
+        from romance_mode import get_strength
+        if get_strength(player_id) < min_str:
+            return False, f"근력 {min_str} 필요"
+
+    return True, None
+
+
 def resolve_action_mode(partner_id, player_id, action_def):
     """액션 모드 해석 — 'consensual' / 'forced' / 'unavailable'
 
-    - physical_req 불충족 → 'unavailable' (TODO: 다음 슬라이스에서 근력 조건 추가)
+    - physical_req 불충족 → 'unavailable' (greyed out)
     - 점수 >= 0 → 'consensual' (합의)
     - 점수 < 0 → 'forced' (호감 미달, 강제 필요)
     """
-    # TODO: physical_req 체크 (근력 비교, 노출, 삽입 등 hard gate)
+    ok, _reason = check_physical_req(action_def, partner_id, player_id)
+    if not ok:
+        return "unavailable"
     score = calculate_availability_score(partner_id, player_id, action_def)
     if score >= 0:
         return "consensual"

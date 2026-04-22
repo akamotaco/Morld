@@ -201,12 +201,14 @@ class TestAvailabilityScore:
 
 
 class TestResolveActionMode:
-    def _setup_partner(self, affection=0, arousal=0, submission=0):
-        morld.register_unit(1, name="주인공")
+    def _setup_partner(self, affection=0, arousal=0, submission=0,
+                       partner_strength=5, player_strength=5):
+        morld.register_unit(1, name="주인공", props={"근력": player_strength})
         morld.register_unit(2, props={
             "관계:주인공:호감": affection,
             "상태:성욕": arousal,
             "관계:주인공:복종": submission,
+            "근력": partner_strength,
         })
 
     def test_consensual_when_affection_met(self):
@@ -220,6 +222,86 @@ class TestResolveActionMode:
         self._setup_partner(affection=10)
         action_def = {"affection_req": 80}
         assert rc.resolve_action_mode(2, 1, action_def) == "forced"
+
+    def test_unavailable_when_strength_advantage_missing(self):
+        """strength_advantage 필요하나 플레이어 근력 <= 파트너 → unavailable"""
+        self._setup_partner(affection=100, player_strength=3, partner_strength=5)
+        action_def = {
+            "affection_req": 0,
+            "physical_req": {"strength_advantage": True},
+        }
+        assert rc.resolve_action_mode(2, 1, action_def) == "unavailable"
+
+    def test_consensual_overrides_when_strength_advantage_met(self):
+        """strength_advantage 충족 + 호감 충족 → consensual"""
+        self._setup_partner(affection=100, player_strength=10, partner_strength=5)
+        action_def = {
+            "affection_req": 50,
+            "physical_req": {"strength_advantage": True},
+        }
+        assert rc.resolve_action_mode(2, 1, action_def) == "consensual"
+
+    def test_unavailable_takes_priority_over_forced(self):
+        """물리 전제 미달 시 unavailable이 forced보다 우선 (hard gate)"""
+        self._setup_partner(affection=10, player_strength=3, partner_strength=5)
+        action_def = {
+            "affection_req": 80,
+            "physical_req": {"strength_advantage": True},
+        }
+        # 호감 미달(forced 후보)이지만 근력도 부족 → unavailable
+        assert rc.resolve_action_mode(2, 1, action_def) == "unavailable"
+
+    def test_min_strength_gate(self):
+        """min_strength 미달 → unavailable"""
+        self._setup_partner(affection=100, player_strength=5)
+        action_def = {
+            "affection_req": 0,
+            "physical_req": {"min_strength": 10},
+        }
+        assert rc.resolve_action_mode(2, 1, action_def) == "unavailable"
+
+
+class TestCheckPhysicalReq:
+    def _setup(self, player_str=5, partner_str=5):
+        morld.register_unit(1, name="주인공", props={"근력": player_str})
+        morld.register_unit(2, props={"근력": partner_str})
+
+    def test_no_req_returns_true(self):
+        """physical_req 없으면 항상 통과"""
+        self._setup()
+        ok, reason = rc.check_physical_req({"name": "test"}, 2, 1)
+        assert ok is True
+        assert reason is None
+
+    def test_strength_advantage_met(self):
+        """플레이어 근력 > 파트너 → 통과"""
+        self._setup(player_str=10, partner_str=5)
+        ok, _ = rc.check_physical_req(
+            {"physical_req": {"strength_advantage": True}}, 2, 1)
+        assert ok is True
+
+    def test_strength_advantage_equal_fails(self):
+        """동일 근력 → 강제 제압 실패 (strict greater)"""
+        self._setup(player_str=5, partner_str=5)
+        ok, reason = rc.check_physical_req(
+            {"physical_req": {"strength_advantage": True}}, 2, 1)
+        assert ok is False
+        assert reason == "근력 부족"
+
+    def test_min_strength_exact(self):
+        """min_strength == player strength → 통과"""
+        self._setup(player_str=10)
+        ok, _ = rc.check_physical_req(
+            {"physical_req": {"min_strength": 10}}, 2, 1)
+        assert ok is True
+
+    def test_min_strength_short(self):
+        """min_strength > player → 실패"""
+        self._setup(player_str=5)
+        ok, reason = rc.check_physical_req(
+            {"physical_req": {"min_strength": 10}}, 2, 1)
+        assert ok is False
+        assert "10" in reason
 
 
 # ============================================
