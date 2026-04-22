@@ -1,7 +1,7 @@
 # test_romance_mode.py — romance_mode.py 순수 함수 + mock 테스트
 """
 4개 동작 모드의 컨텍스트 생성, 효과 배율, bool 함수 검증.
-get_unit_power / calculate_force_chance는 mock 기반.
+get_strength / calculate_force_chance / calculate_escape_chance는 mock 기반.
 """
 import sys
 import romance_mode as rm
@@ -29,6 +29,8 @@ class TestCreateModeContext:
         assert ctx["mode"] == rm.MODE_FORCED
         assert ctx["resistance_meter"] == 0
         assert ctx["break_free_attempts"] == 0
+        # is_futile 개념 제거됨
+        assert "last_is_futile" not in ctx
 
     def test_unconscious_has_wake_check(self):
         ctx = rm.create_mode_context(rm.MODE_UNCONSCIOUS, 1, 2)
@@ -138,107 +140,156 @@ class TestModeBooleans:
 
 
 # ============================================
-# get_unit_power (mock 기반)
+# get_strength (mock 기반)
 # ============================================
 
-class TestUnitPower:
-    def test_default_stats(self):
-        """기본 능력치 — 근력=5, 체격=2, HP=100/100"""
-        morld.register_unit(10, props={
-            "근력": 5, "체격": 2,
-            "생존:체력": 100, "생존:최대체력": 100,
-        })
-        power = rm.get_unit_power(10)
-        # 5 + 2 + (100/100)*3 = 10
-        assert power == 10.0
-
-    def test_low_hp(self):
-        """HP 50/100 → hp_ratio=0.5"""
-        morld.register_unit(10, props={
-            "근력": 5, "체격": 2,
-            "생존:체력": 50, "생존:최대체력": 100,
-        })
-        power = rm.get_unit_power(10)
-        # 5 + 2 + 0.5*3 = 8.5
-        assert power == 8.5
-
-    def test_missing_props_use_defaults(self):
-        """prop 없으면 기본값 사용"""
+class TestGetStrength:
+    def test_default_strength(self):
+        """prop 없으면 기본값 5"""
         morld.register_unit(10, props={})
-        power = rm.get_unit_power(10)
-        # 근력=5, 체격=2, HP=100/100 (기본값)
-        # 5 + 2 + 1.0*3 = 10
-        assert power == 10.0
+        assert rm.get_strength(10) == 5
+
+    def test_explicit_strength(self):
+        """명시된 근력 값 반환"""
+        morld.register_unit(10, props={"근력": 12})
+        assert rm.get_strength(10) == 12
 
 
 # ============================================
-# calculate_force_chance (mock 기반)
+# calculate_force_chance (근력차만, 체격/hp 제거됨)
 # ============================================
 
 class TestForceChance:
-    def test_equal_power(self):
-        """동일 능력치 → 50%"""
-        morld.register_unit(1, props={
-            "근력": 5, "체격": 2,
-            "생존:체력": 100, "생존:최대체력": 100,
-        })
-        morld.register_unit(2, props={
-            "근력": 5, "체격": 2,
-            "생존:체력": 100, "생존:최대체력": 100,
-        })
+    def test_equal_strength(self):
+        """동일 근력 → 50%"""
+        morld.register_unit(1, props={"근력": 5})
+        morld.register_unit(2, props={"근력": 5})
         chance = rm.calculate_force_chance(1, 2)
         assert abs(chance - 0.5) < 0.01
 
     def test_stronger_actor(self):
-        """actor가 강하면 확률 상승"""
-        morld.register_unit(1, props={
-            "근력": 10, "체격": 3,
-            "생존:체력": 100, "생존:최대체력": 100,
-        })
-        morld.register_unit(2, props={
-            "근력": 3, "체격": 1,
-            "생존:체력": 100, "생존:최대체력": 100,
-        })
+        """actor가 강하면 확률 상승 (근력차 1당 +5%)"""
+        morld.register_unit(1, props={"근력": 10})
+        morld.register_unit(2, props={"근력": 3})
         chance = rm.calculate_force_chance(1, 2)
-        assert chance > 0.5
+        # 0.5 + (10-3)*0.05 = 0.85
+        assert abs(chance - 0.85) < 0.01
 
     def test_stealth_bonus(self):
         """은신 상태 +20%"""
-        morld.register_unit(1, props={
-            "근력": 5, "체격": 2,
-            "생존:체력": 100, "생존:최대체력": 100,
-            "status:stealth": 1,
-        })
-        morld.register_unit(2, props={
-            "근력": 5, "체격": 2,
-            "생존:체력": 100, "생존:최대체력": 100,
-        })
+        morld.register_unit(1, props={"근력": 5, "status:stealth": 1})
+        morld.register_unit(2, props={"근력": 5})
         chance = rm.calculate_force_chance(1, 2)
         assert abs(chance - 0.7) < 0.01  # 0.5 + 0.2
 
+    def test_hp_no_longer_affects(self):
+        """체력은 force_chance에 영향 없음 (escape로 역할 분리)"""
+        morld.register_unit(1, props={"근력": 5, "생존:체력": 10})
+        morld.register_unit(2, props={"근력": 5, "생존:체력": 100})
+        chance = rm.calculate_force_chance(1, 2)
+        assert abs(chance - 0.5) < 0.01  # 근력 동일이면 체력 무시
+
     def test_clamp_min(self):
         """아무리 약해도 최소 0.1"""
-        morld.register_unit(1, props={
-            "근력": 1, "체격": 1,
-            "생존:체력": 10, "생존:최대체력": 100,
-        })
-        morld.register_unit(2, props={
-            "근력": 15, "체격": 5,
-            "생존:체력": 100, "생존:최대체력": 100,
-        })
+        morld.register_unit(1, props={"근력": 1})
+        morld.register_unit(2, props={"근력": 15})
         chance = rm.calculate_force_chance(1, 2)
         assert chance >= 0.1
 
     def test_clamp_max(self):
         """아무리 강해도 최대 0.95"""
-        morld.register_unit(1, props={
-            "근력": 20, "체격": 5,
-            "생존:체력": 100, "생존:최대체력": 100,
-            "status:stealth": 1,
-        })
-        morld.register_unit(2, props={
-            "근력": 1, "체격": 1,
-            "생존:체력": 10, "생존:최대체력": 100,
-        })
+        morld.register_unit(1, props={"근력": 20, "status:stealth": 1})
+        morld.register_unit(2, props={"근력": 1})
         chance = rm.calculate_force_chance(1, 2)
         assert chance <= 0.95
+
+
+# ============================================
+# calculate_escape_chance (체력차 + 모디파이어)
+# ============================================
+
+class TestEscapeChance:
+    def test_equal_hp_no_modifiers(self):
+        """체력 동일 + 모디파이어 0 → ESCAPE_BASE (10%)"""
+        morld.register_unit(1, props={"생존:체력": 100})  # actor (player)
+        morld.register_unit(2, props={"생존:체력": 100})  # target
+        info = rm.calculate_escape_chance(2, 1)
+        assert abs(info["chance"] - 0.10) < 0.001
+
+    def test_target_higher_hp(self):
+        """target 체력이 더 높으면 탈출 확률 증가"""
+        morld.register_unit(1, props={"생존:체력": 50})
+        morld.register_unit(2, props={"생존:체력": 100})
+        info = rm.calculate_escape_chance(2, 1)
+        # 0.10 + (100-50)*0.005 = 0.35
+        assert abs(info["chance"] - 0.35) < 0.001
+
+    def test_target_lower_hp(self):
+        """target 체력이 더 낮으면 탈출 확률 감소"""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={"생존:체력": 50})
+        info = rm.calculate_escape_chance(2, 1)
+        # 0.10 + (50-100)*0.005 = -0.15 → clamp to 0
+        assert info["chance"] == 0.0
+
+    def test_rebellion_bonus(self):
+        """반발이 높으면 탈출 확률 상승"""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={
+            "생존:체력": 100,
+            "관계:주인공:반발": 50,
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        # 0.10 + 50*0.005 = 0.35
+        assert abs(info["chance"] - 0.35) < 0.001
+
+    def test_submission_penalty(self):
+        """복종이 높으면 체념으로 탈출 확률 감소"""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={
+            "생존:체력": 100,
+            "관계:주인공:복종": 10,
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        # 0.10 - 10*0.01 = 0.00
+        assert info["chance"] == 0.0
+
+    def test_arousal_penalty(self):
+        """성욕이 높으면 저항 약화"""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={
+            "생존:체력": 100,
+            "상태:성욕": 50,
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        # 0.10 - 50*0.002 = 0.00
+        assert info["chance"] == 0.0
+
+    def test_clamp_max(self):
+        """최대 0.5로 제한"""
+        morld.register_unit(1, props={"생존:체력": 1})
+        morld.register_unit(2, props={
+            "생존:체력": 200,
+            "관계:주인공:반발": 200,
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        assert info["chance"] <= 0.5
+
+    def test_meter_delta_rebellion_accelerates(self):
+        """반발 높으면 저항 게이지 빨리 누적"""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={
+            "생존:체력": 100,
+            "관계:주인공:반발": 100,
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        assert info["meter_delta"] >= rm.METER_DELTA_BASE
+
+    def test_no_is_futile_field(self):
+        """is_futile 개념 제거됨 — 반환 dict에 없어야 함"""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={"생존:체력": 100})
+        info = rm.calculate_escape_chance(2, 1)
+        assert "is_futile" not in info
+        assert "escape_power" not in info
+        assert "suppression" not in info

@@ -169,6 +169,60 @@ class TestIsActionAvailable:
 
 
 # ============================================
+# calculate_availability_score + resolve_action_mode
+# ============================================
+
+class TestAvailabilityScore:
+    def _setup_partner(self, affection=0, arousal=0, submission=0):
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={
+            "관계:주인공:호감": affection,
+            "상태:성욕": arousal,
+            "관계:주인공:복종": submission,
+        })
+
+    def test_score_at_threshold(self):
+        """호감 == eff_req → 점수 0 (합의 가능 경계)"""
+        self._setup_partner(affection=50)
+        action_def = {"affection_req": 50}
+        assert rc.calculate_availability_score(2, 1, action_def) == 0
+
+    def test_score_negative_when_below(self):
+        """호감 < eff_req → 점수 음수 (강제 필요)"""
+        self._setup_partner(affection=30)
+        action_def = {"affection_req": 50}
+        assert rc.calculate_availability_score(2, 1, action_def) < 0
+
+    def test_score_positive_with_surplus(self):
+        """호감 > eff_req → 점수 양수"""
+        self._setup_partner(affection=80)
+        action_def = {"affection_req": 50}
+        assert rc.calculate_availability_score(2, 1, action_def) > 0
+
+
+class TestResolveActionMode:
+    def _setup_partner(self, affection=0, arousal=0, submission=0):
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={
+            "관계:주인공:호감": affection,
+            "상태:성욕": arousal,
+            "관계:주인공:복종": submission,
+        })
+
+    def test_consensual_when_affection_met(self):
+        """호감 충족 → consensual"""
+        self._setup_partner(affection=60)
+        action_def = {"affection_req": 50}
+        assert rc.resolve_action_mode(2, 1, action_def) == "consensual"
+
+    def test_forced_when_below(self):
+        """호감 미달 → forced"""
+        self._setup_partner(affection=10)
+        action_def = {"affection_req": 80}
+        assert rc.resolve_action_mode(2, 1, action_def) == "forced"
+
+
+# ============================================
 # get_conflicting_toggles (순수 함수)
 # ============================================
 

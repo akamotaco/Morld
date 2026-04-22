@@ -363,7 +363,7 @@ def harassment_session(source_id, target_id):
     """성추행 세션 — Generator (비전투)
 
     매 행위마다 대상이 확률적으로 벗어나려 시도. escape_chance는
-    romance_mode.calculate_escape_chance (근력/체격/반발/성욕 기반).
+    romance_mode.calculate_escape_chance (체력차 + 복종/반발/성욕).
     """
     import ui
     import random as _random
@@ -389,7 +389,7 @@ def harassment_session(source_id, target_id):
             last_msg += "\n절정에 달했다!"
 
         # 탈출 판정 (행위 후)
-        escape_info = calculate_escape_chance(target_id)
+        escape_info = calculate_escape_chance(target_id, source_id)
         if escape_info["chance"] > 0 and _random.random() < escape_info["chance"]:
             target_info = morld.get_unit_info(target_id)
             target_name = target_info.get("name", "상대") if target_info else "상대"

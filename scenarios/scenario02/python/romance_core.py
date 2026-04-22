@@ -116,16 +116,48 @@ def get_sensation_level(unit_id, category):
 # 가용 / 호환 판정
 # ============================================
 
+def calculate_availability_score(partner_id, player_id, action_def):
+    """액션 가용성 점수 — 베이스라인 + 모디파이어 합산
+
+    Returns 0 이상 → 합의 가능, 미만 → 강제 필요 (또는 거부).
+
+    현재 모디파이어:
+    - 호감 (베이스라인)
+    - 성욕 할인 (get_effective_affection_req 경유)
+    - 복종 할인 (get_effective_affection_req 경유)
+
+    Why: era TW GET_SUCCESS_RATE 패턴 — 모든 가감 요소를 점수로 통합.
+         이후 성격/각인/자제심 모디파이어가 더해질 여지를 열어둠.
+    """
+    props = morld.get_unit_props(partner_id) or {}
+    affection = props.get(get_affection_key(player_id), 0)
+    arousal = props.get("상태:성욕", 0)
+    submission = props.get(get_submission_key(player_id), 0)
+    eff_req = get_effective_affection_req(
+        action_def.get("affection_req", 0), arousal, submission)
+    return affection - eff_req
+
+
+def resolve_action_mode(partner_id, player_id, action_def):
+    """액션 모드 해석 — 'consensual' / 'forced' / 'unavailable'
+
+    - physical_req 불충족 → 'unavailable' (TODO: 다음 슬라이스에서 근력 조건 추가)
+    - 점수 >= 0 → 'consensual' (합의)
+    - 점수 < 0 → 'forced' (호감 미달, 강제 필요)
+    """
+    # TODO: physical_req 체크 (근력 비교, 노출, 삽입 등 hard gate)
+    score = calculate_availability_score(partner_id, player_id, action_def)
+    if score >= 0:
+        return "consensual"
+    return "forced"
+
+
 def is_action_available(partner_id, player_id, action_def):
-    """액션 해금 여부 (감정 + 육욕 이중 경로)"""
-    affection_key = get_affection_key(player_id)
-    props = morld.get_unit_props(partner_id)
-    affection = props.get(affection_key, 0) if props else 0
-    arousal = props.get("상태:성욕", 0) if props else 0
-    submission_key = get_submission_key(player_id)
-    submission = props.get(submission_key, 0) if props else 0
-    eff_req = get_effective_affection_req(action_def["affection_req"], arousal, submission)
-    return affection >= eff_req
+    """합의 가능성 체크 (기존 shim) — resolve_action_mode == 'consensual'
+
+    기존 호출부 호환용. 점수 >= 0 이면 True (수치적으로 이전 공식과 동등).
+    """
+    return resolve_action_mode(partner_id, player_id, action_def) == "consensual"
 
 
 def is_lust_unlocked(affection, action_def, arousal, submission=0):

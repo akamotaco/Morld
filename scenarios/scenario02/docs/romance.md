@@ -121,8 +121,9 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | NPC→Player 저항 모드 | npc_initiative.py | ✅ 완료 |
 | 강제 진입 은신 기습 보너스 | romance_mode.py | ✅ 완료 |
 | NPC 저항/탈출 (강제 중) | romance_mode.py (check_resistance) | ✅ 완료 |
-| 탈출 확률 개편 (성욕/게이지 감소) | romance_mode.py (calculate_escape_chance) | ✅ 완료 |
-| 항상실패(futile) 판정 | romance_mode.py (escape_power vs suppression) | ✅ 완료 |
+| 탈출 확률 개편 (체력차 + 복종/반발/성욕 모디파이어) | romance_mode.py (calculate_escape_chance) | ✅ 완료 (2026-04-22 재작성) |
+| ~~항상실패(futile) 판정~~ | 제거됨 — `physical_req`(근력 greyed out)로 대체 예정 | 🔄 (다음 슬라이스) |
+| 가용성 점수 합산 모델 (베이스라인 + 모디파이어) | romance_core.py (calculate_availability_score, resolve_action_mode) | ✅ 완료 (2026-04-22) |
 | 탈출 시도 메시지 (실패 시) | romance_mode.py (get_escape_attempt_message) | ✅ 완료 |
 | 탈출 확률 UI 표시 | romance_ui.py (저항 바 + 탈출%) | ✅ 완료 |
 | 신체 반응 묘사 (10 아키타입) | romance_body_reaction.py | ✅ 완료 |

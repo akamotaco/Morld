@@ -1953,62 +1953,69 @@ TOGGLE_DURING_DESCRIPTIONS = {
 
 #### 제압 성공 확률 (`calculate_force_chance()`)
 
+**근력 차이 단일 축**:
 ```python
-actor_power = 근력 + 체격 + (체력/최대체력) × 3
-target_power = 동일 공식
-base = 0.5 + (actor_power - target_power) × 0.05
-# 은신 기습 보너스: status:stealth == 1 → +20%
-chance = clamp(0.1, 0.95, base + stealth_bonus)
+chance = FORCE_BASE + (actor.근력 - target.근력) × FORCE_STRENGTH_FACTOR
+# FORCE_BASE = 0.5, FORCE_STRENGTH_FACTOR = 0.05
+# 은신 기습 보너스: status:stealth == 1 → +0.20
+chance = clamp(chance, 0.1, 0.95)
 ```
 
-NPC 기본 스탯:
+역할 분리: **근력 = 제압**, **체력 = 탈출**. 체격/hp_ratio는 이전 공식에서 사용했으나, 단순화를 위해 제거 (근력 하나로 통합).
 
-| NPC | 근력 | 체격 | 근거 |
-|-----|------|------|------|
-| 세라 | 6 | 3 | 장신, 활동적 |
-| 밀라 | 4 | 2 | 보통 체격, 가사 |
-| 리나 | 3 | 1 | 왜소, 약함 |
-| 유키 | 3 | 1 | 왜소, 약함 |
-| 엘라 | 5 | 3 | 장신, 단련됨 |
+NPC 기본 근력:
+
+| NPC | 근력 | 근거 |
+|-----|------|------|
+| 세라 | 6 | 장신, 활동적 |
+| 엘라 | 5 | 장신, 단련됨 |
+| 밀라 | 4 | 보통 체격, 가사 |
+| 리나 | 3 | 왜소, 약함 |
+| 유키 | 3 | 왜소, 약함 |
 
 #### NPC 저항 (`check_resistance()`)
 
 매 행위 후 `_post_action_mode_check()`에서 호출.
 
-**탈출 확률 공식** (`calculate_escape_chance()`):
+**탈출 확률 공식** (`calculate_escape_chance(target_id, actor_id)`):
 ```python
-base = 0.10 + 근력 × 0.02 + 반발 × 0.003
-penalty = 성욕 × 0.002 + 절정게이지 × 0.002 + min(절정횟수, 3) × 0.03
-chance = clamp(base - penalty, 0, 0.50)
+chance = ESCAPE_BASE
+       + (target.체력 - actor.체력) × ESCAPE_HP_DIFF_FACTOR  # 체력차 — 상대 체력 많을수록 ↑
+       + 반발 × ESCAPE_REBELLION_BONUS                      # 결사저항 ↑
+       - 복종 × ESCAPE_SUBMISSION_PENALTY                   # 체념 ↓
+       - 성욕 × ESCAPE_AROUSAL_PENALTY                      # 흥분 ↓
+chance = clamp(chance, 0, 0.50)
 ```
 
-**항상실패(futile) 판정** — 성적 각성이 육체적 저항력을 압도:
-```python
-escape_power = 근력 × 2 + 체격 × 3 + (체력/최대체력) × 5
-suppression  = 성욕 × 0.2 + 절정게이지 × 0.2 + min(절정횟수, 3) × 5
-is_futile = suppression >= escape_power   # → chance = 0
+상수값:
+```
+ESCAPE_BASE = 0.10                 ESCAPE_SUBMISSION_PENALTY = 0.01
+ESCAPE_HP_DIFF_FACTOR = 0.005      ESCAPE_AROUSAL_PENALTY = 0.002
+ESCAPE_REBELLION_BONUS = 0.005     ESCAPE_MAX = 0.50
 ```
 
-**저항 게이지 축적**:
-- 일반: `max(3, int(근력 × 1.5))` / futile: `max(1, int(근력 × 0.5))`
-- `resistance_meter ≥ 100` → futile 상태에서도 강제 탈출 (안전장치)
+**저항 게이지 축적** (`resistance_meter` 100 도달 시 강제 탈출):
+```python
+meter_delta = max(METER_DELTA_BASE, 반발 × 0.1 + METER_DELTA_BASE)
+# METER_DELTA_BASE = 10
+```
 
-**NPC별 보정표**:
+반발 높을수록 게이지 누적 빨라져 자연스럽게 "결사저항 → 한계 도달" 서사 성립.
 
-| NPC | 근력 | 체격 | escape_power | 성욕=0 확률 | 성욕=80+게이지=50 | futile 진입 기준 |
-|-----|------|------|-------------|-----------|-----------------|----------------|
-| 세라 | 6 | 3 | 26 | 22% | ~0% (futile) | 성욕80+게이지50 |
-| 엘라 | 5 | 3 | 23 | 20% | ~0% (futile) | 성욕80+게이지35 |
-| 밀라 | 4 | 2 | 19 | 18% | ~0% (futile) | 성욕70+게이지25 |
-| 리나 | 3 | 1 | 14 | 16% | ~0% (futile) | 성욕50+게이지20 |
-| 유키 | 3 | 1 | 14 | 16% | ~0% (futile) | 성욕50+게이지20 |
+**설계 원칙** — **베이스라인 + 모디파이어 레이어**:
+- 베이스라인: 체력차 (단순 비교)
+- 모디파이어: 반발 (저항 강화), 복종 (체념), 성욕 (저항 약화)
+- 이후 각인/자제심 도입 시 모디파이어 레이어에 추가만 하면 됨
 
 **체위 변경 시**: 탈출 확률로 저항 판정 → 성공 시 `resistance_meter` 초기화, 실패 시 축적.
 
-**탈출 시도 메시지**: 실패 시 NPC가 저항하는 묘사 (일반/futile 풀 분리).
-
 - 탈출 성공 → 세션 종료, `상태:강제피해` prop=3 설정, `기억:강제피해횟수` +1
 - 탈출 시 NPC 반응: `forced_break_free:start`
+
+**제거된 개념** (구 시스템, 2026-04-22):
+- `is_futile`(항상실패) 판정 — `physical_req` greyed out(다음 슬라이스)으로 대체 예정
+- `escape_power` / `suppression` — 체격·hp 가중치 통합 지표 제거
+- 절정 페널티(`climax_total × -3%`) — 연쇄 절정(자제심/각인과 함께 향후 도입) 설계로 치환
 
 #### 신체 반응 (`romance_body_reaction.py`)
 

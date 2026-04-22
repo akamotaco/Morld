@@ -108,12 +108,8 @@ def render_romance_ui(state):
     if cur_mode == "forced" and mode_ctx:
         resistance = mode_ctx.get("resistance_meter", 0)
         bar = "█" * (resistance // 10) + "░" * (10 - resistance // 10)
-        is_futile = mode_ctx.get("last_is_futile", False)
         escape_chance = mode_ctx.get("last_escape_chance", 0.0)
-        if is_futile:
-            escape_text = style_muted("불가능")
-        else:
-            escape_text = f"{int(escape_chance * 100)}%"
+        escape_text = style_muted("불가능") if escape_chance <= 0 else f"{int(escape_chance * 100)}%"
         lines.append(style_danger(f"저항: {bar} {resistance}/100  탈출: {escape_text}"))
 
         # 신체 반응 묘사

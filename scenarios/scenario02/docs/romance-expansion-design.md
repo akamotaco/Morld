@@ -269,6 +269,31 @@ Talent 81 단일 값으로 관리:
 - 테스트 및 문서 업데이트
 - 예상 영향: 14 참조처 수정
 
+### Phase 0.5: 공식 단순화 + 점수 합산 인프라 ✅ (2026-04-22 완료)
+
+애정행위와 강제 행위 통합을 위한 기반 작업. era TW의 `GET_SUCCESS_RATE` 패턴에서
+차용한 **"베이스라인 + 모디파이어 점수 합산"** 모델을 도입.
+
+**변경**:
+- **제압 공식 단순화**: `calculate_force_chance` — 근력차만 (체격/hp 제거)
+- **탈출 공식 재작성**: `calculate_escape_chance(target, actor)` —
+  체력차 베이스라인 + 복종/반발/성욕 모디파이어
+- **`is_futile`(항상실패) 제거**: 향후 `physical_req`(근력 greyed out)로 치환
+- **절정 페널티 제거**: 향후 연쇄 절정(자제심/각인 연계)으로 치환
+- **점수 함수 추가**: `calculate_availability_score(partner, player, action)`,
+  `resolve_action_mode` → `"consensual" | "forced" | "unavailable"`
+- **`is_action_available`**: shim으로 유지 (resolve_action_mode == "consensual")
+
+**설계 원칙**:
+- 베이스라인(단순 고정 공식) + 모디파이어(성격/상태/각인 가감)의 2레이어
+- 각인/자제심/탤런트는 이후 Phase에서 모디파이어로 "추가만" 하면 됨
+- 행위 게이트는 점수 ≥ 0 → consensual / < 0 → forced / physical_req 불충족 → unavailable
+
+**다음 슬라이스 (Phase 0.6)**:
+- `physical_req` 스키마 도입 (근력 비교 등 hard gate)
+- UI 3상태 렌더링 (강제 prefix + greyed out)
+- harassment 액션 카탈로그 흡수 → 단일 진입점 `begin_intimate()`
+
 ### Phase 1: 억제 이중축 도입
 **자제심 × 수치심**
 - 신규 prop: `성격:자제심` (0-100), `상태:수치심` (0-100)

@@ -218,10 +218,8 @@ def calculate_resistance_gain(player_id, npc_id):
     if arousal >= DES_LABEL_THRESHOLD:
         return 0
 
-    from romance_mode import get_unit_power
-    player_power = get_unit_power(player_id)
-    npc_power = get_unit_power(npc_id)
-    diff = player_power - npc_power
+    from romance_mode import get_strength
+    diff = get_strength(player_id) - get_strength(npc_id)
     gain = RESISTANCE_BASE_GAIN + int(diff * 2)
     return max(5, min(40, gain))
 

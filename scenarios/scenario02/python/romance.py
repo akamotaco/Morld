@@ -1086,16 +1086,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
         # 강제 모드: NPC 저항 체크
         if cur_mode == MODE_FORCED:
-            stim_state = state.get("stim")
-            result = check_resistance(mode_ctx, state["partner_id"],
-                                      stim_state=stim_state)
+            result = check_resistance(mode_ctx, state["partner_id"])
             if result["escaped"]:
                 state["escaped"] = True
                 return True
             # 탈출 시도 메시지 (실패)
             if result.get("attempted"):
-                msg = get_escape_attempt_message(
-                    state["partner_id"], result.get("is_futile", False))
+                msg = get_escape_attempt_message(state["partner_id"])
                 if msg:
                     existing = state.get("last_reaction") or ""
                     if existing:
@@ -1341,20 +1338,16 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             if mode_ctx["mode"] == MODE_FORCED:
                 import random
                 pid = state["partner_id"]
-                escape_info = calculate_escape_chance(pid, state.get("stim"))
+                escape_info = calculate_escape_chance(pid, state["player_id"])
                 resist_chance = escape_info["chance"]
-                # UI용 상태 갱신
                 mode_ctx["last_escape_chance"] = resist_chance
-                mode_ctx["last_is_futile"] = escape_info["is_futile"]
                 if random.random() < resist_chance:
-                    # 실패: 저항 게이지 누적
                     delta = escape_info["meter_delta"]
                     mode_ctx["resistance_meter"] += delta
                     if mode_ctx["resistance_meter"] >= 100:
                         state["escaped"] = True
                         return True
-                    esc_msg = get_escape_attempt_message(
-                        pid, escape_info["is_futile"])
+                    esc_msg = get_escape_attempt_message(pid)
                     state["last_reaction"] = f"체위를 변경하려 했으나 저항에 막혔다.\n{esc_msg}"
                     result = advance_time_and_check(state, 2 * MILLIS_PER_MINUTE)
                     if result["interrupted"]:
@@ -1550,11 +1543,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     # NPC 애원 중이면 저항 스킵 (자동 성공)
                     if not _check_npc_beg_state(state):
                         import random
-                        escape_info = calculate_escape_chance(pid, state.get("stim"))
+                        escape_info = calculate_escape_chance(pid, state["player_id"])
                         resist_chance = escape_info["chance"]
                         if random.random() < resist_chance:
                             state["insertion"]["failed_count"] += 1
-                            msg = get_escape_attempt_message(pid, escape_info["is_futile"])
+                            msg = get_escape_attempt_message(pid)
                             state["last_reaction"] = "삽입하려 했지만 저항에 막혔다."
                             if msg:
                                 state["last_reaction"] += f"\n{msg}"

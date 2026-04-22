@@ -418,7 +418,7 @@ def _find_npc_lover(agent):
     if not settings.is_harassment_enabled():
         return None, None
 
-    from romance_mode import get_unit_power
+    from romance_mode import get_strength
     import survival
 
     for char_id in chars:
@@ -439,8 +439,8 @@ def _find_npc_lover(agent):
             continue
         if morld.get_unit_prop(char_id, "상태:NPC성행위중"):
             continue
-        # 능력 체크: 이니시에이터 > 대상
-        if get_unit_power(agent.unit_id) <= get_unit_power(char_id):
+        # 능력 체크: 이니시에이터 > 대상 (근력 비교로 단순화)
+        if get_strength(agent.unit_id) <= get_strength(char_id):
             continue
         return char_id, "forced"
 
