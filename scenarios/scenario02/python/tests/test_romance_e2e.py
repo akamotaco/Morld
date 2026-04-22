@@ -725,6 +725,74 @@ class TestRestraintAndShame:
         assert rc.resolve_action_mode(2, 1, action) == "consensual"
 
 
+class TestArchetypeRestraintDefaults:
+    """아키타입 → 자제심 기본값 자동 적용.
+
+    명시 `성격:자제심` prop 없어도 아키타입에 따라 값 결정.
+    innocent는 강한 억제, seductive는 방종.
+    """
+
+    def test_no_archetype_no_restraint(self):
+        """아키타입 설정 없음 → 0 (레거시 호환)"""
+        morld.register_unit(1, name="주인공", props={"성별": 1})
+        morld.register_unit(2, props={"성별": 2})
+        assert rc.get_restraint_value(2) == 0
+
+    def test_explicit_prop_overrides_archetype(self):
+        """성격:자제심 prop 명시 → 아키타입 기본값 무시"""
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={
+            "아키타입": "innocent",  # 기본 80
+            "성격:자제심": 10,        # override
+        })
+        assert rc.get_restraint_value(2) == 10
+
+    def test_innocent_archetype_high_restraint(self):
+        """아키타입 prop = 'innocent' → 기본 80"""
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={"아키타입": "innocent"})
+        assert rc.get_restraint_value(2) == 80
+
+    def test_seductive_archetype_low_restraint(self):
+        """아키타입 prop = 'seductive' → 기본 10"""
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={"아키타입": "seductive"})
+        assert rc.get_restraint_value(2) == 10
+
+    def test_personality_prop_maps_to_archetype(self):
+        """성격 prop ('순진') → PERSONALITY_TO_ARCHETYPE → innocent → 80"""
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={"성격": "순진"})
+        # 성격 "순진" → archetype "innocent" → 기본 80
+        assert rc.get_restraint_value(2) == 80
+
+    def test_tsundere_archetype_restrained(self):
+        """츤데레 → 겉 억제 (60)"""
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={"아키타입": "tsundere"})
+        assert rc.get_restraint_value(2) == 60
+
+    def test_modifier_uses_archetype_default(self):
+        """restraint_modifier도 아키타입 기본값 사용"""
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={"아키타입": "innocent"})
+        # 80 × -0.3 = -24
+        assert rc.get_restraint_modifier(2) == -24.0
+
+    def test_unknown_archetype_falls_back_to_50(self):
+        """알 수 없는 아키타입 → 기본 50"""
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={"아키타입": "nonexistent"})
+        assert rc.get_restraint_value(2) == 50
+
+    def test_all_archetypes_have_defaults(self):
+        """모든 표준 아키타입에 기본값 정의되어 있음"""
+        from engine import persona
+        for archetype in persona.ARCHETYPES:
+            assert archetype in rc.ARCHETYPE_RESTRAINT_DEFAULT, \
+                f"archetype '{archetype}'에 자제심 기본값 누락"
+
+
 class TestAudienceFactor:
     """관객 계수 — 같은 location의 제3자 존재 여부."""
 

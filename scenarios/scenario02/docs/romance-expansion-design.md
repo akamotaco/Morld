@@ -340,9 +340,28 @@ factor = density × visibility_mult × (1 - stealth_chance)
 - 야외 + 비은신 관객 1명 → -16.8
 - 좁은 실내 + 은신 관객 1명 → -6
 
-**다음 슬라이스 (Phase 1 Slice 2)**:
-- 아키타입 → 자제심 기본값 매핑 (innocent/devoted 고, cheerful/seductive 저)
-- Character.instantiate()에서 기본값 적용
+**Phase 1 Slice 2 완료** (2026-04-22):
+- ✅ 11 아키타입 × 자제심 기본값 매핑 (`ARCHETYPE_RESTRAINT_DEFAULT`)
+- ✅ `_get_partner_archetype()` — prop / instance / 성격 매핑 fallback 체인
+- ✅ `get_restraint_value()` — 명시 prop 우선, 아키타입 기본값 fallback, 없으면 0
+- ✅ 9 신규 테스트 (TestArchetypeRestraintDefaults)
+
+**자제심 기본값 표**:
+| 아키타입 | 기본값 | 의미 |
+|---------|-------|------|
+| innocent | 80 | 순진, 강한 내면 억제 |
+| timid | 70 | 소심, 꺼림 |
+| cold | 70 | 냉담, 거리감 |
+| proud | 65 | 오만, 자존심 |
+| tsundere | 60 | 겉 억제 |
+| devoted | 55 | 파트너에만 개방 |
+| stoic | 50 | 과묵, 중립 |
+| gentle | 40 | 온화 |
+| fierce | 30 | 욕구 강함 |
+| cheerful | 25 | 사교적/개방 |
+| seductive | 10 | 방종 |
+
+**다음 슬라이스 (Phase 1 Slice 3+)**:
 - 수치심 이벤트 훅 (on_see_nude, on_witness_masturbation)
 - UI에 자제심/수치심 표시
 

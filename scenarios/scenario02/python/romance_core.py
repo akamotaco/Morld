@@ -125,19 +125,78 @@ RESTRAINT_PENALTY_FACTOR = 0.3
 # 수치심 페널티 계수 (수치심 1당 점수 -N, 관객 있을 때만)
 SHAME_PENALTY_FACTOR = 0.2
 
+# 아키타입별 자제심 기본값 — 명시 prop 없을 때 fallback.
+# 범위: 10(방종) ~ 80(순수/절제), 중립은 50 부근.
+ARCHETYPE_RESTRAINT_DEFAULT = {
+    "innocent":  80,  # 순진 — 성적 지식/경험 없음, 강한 내면 억제
+    "timid":     70,  # 소심 — 수줍어 꺼림
+    "cold":      70,  # 냉담 — 거리감/의심
+    "proud":     65,  # 오만 — 자존심 억제
+    "tsundere":  60,  # 츤데레 — 겉 억제 (속은 수용)
+    "devoted":   55,  # 헌신 — 파트너에게만 개방
+    "stoic":     50,  # 과묵 — 중립
+    "gentle":    40,  # 온화 — 보통
+    "fierce":    30,  # 격렬 — 욕구 강함
+    "cheerful":  25,  # 활발 — 사교적/개방적
+    "seductive": 10,  # 유혹 — 방종
+}
+
+
+def _get_partner_archetype(partner_id):
+    """파트너 아키타입 조회 — prop / instance / 성격 매핑 순으로 fallback.
+
+    None 반환 가능 (캐릭터 인스턴스 없는 테스트 등).
+    """
+    # 1. 명시 prop (고정 NPC가 설정)
+    explicit_prop = morld.get_unit_prop(partner_id, "아키타입")
+    if explicit_prop:
+        return explicit_prop
+    # 2. Instance 속성 (Character.archetype 또는 REACTION_PROFILE["archetype"])
+    char = get_character_asset(partner_id)
+    if char:
+        direct = getattr(char, 'archetype', None)
+        if direct:
+            return direct
+        profile = getattr(char, 'REACTION_PROFILE', None)
+        if profile and profile.get("archetype"):
+            return profile["archetype"]
+    # 3. 성격 prop → PERSONALITY_TO_ARCHETYPE (S04 Tier-3 자동 유도)
+    personality = morld.get_unit_prop(partner_id, "성격")
+    if personality:
+        try:
+            from engine import persona
+            return persona.PERSONALITY_TO_ARCHETYPE.get(personality)
+        except Exception:
+            return None
+    return None
+
+
+def get_restraint_value(partner_id):
+    """자제심 수치 — 명시 prop 우선, 없으면 아키타입 기본값, 그것도 없으면 0.
+
+    Why: 명시 `성격:자제심` prop으로 개별 오버라이드 가능.
+         아키타입 기본값은 캐릭터 성격과 일관된 시작 수치 제공.
+         프로덕션 캐릭터(sera/mila/lina 등)는 REACTION_PROFILE을 통해 자동 적용됨.
+    """
+    explicit = morld.get_unit_prop(partner_id, "성격:자제심")
+    if explicit is not None:
+        return explicit
+    archetype = _get_partner_archetype(partner_id)
+    if archetype:
+        return ARCHETYPE_RESTRAINT_DEFAULT.get(archetype, 50)
+    return 0  # 아키타입 미설정 시 페널티 없음 (테스트/레거시 호환)
+
 
 def get_restraint_modifier(partner_id):
     """자제심 → 점수 페널티 (영구 억제, 내면)
 
     자제심 100 → -30점 (호감 요구치 30 상승과 동등).
-    아키타입/성격 기반 기본값 + 훈련으로 변동 예정.
+    아키타입별 기본값 자동 적용 (innocent=80 → -24 / seductive=10 → -3).
 
     Why: era TW의 자제심(自制心) Talent 20 — "성적욕망 억제, 매각 요구 높음".
          morld에선 점수 합산 모델에 모디파이어로 반영.
     """
-    props = morld.get_unit_props(partner_id) or {}
-    restraint = props.get("성격:자제심", 0)
-    return -restraint * RESTRAINT_PENALTY_FACTOR
+    return -get_restraint_value(partner_id) * RESTRAINT_PENALTY_FACTOR
 
 
 # 관객계수 세부 상수
