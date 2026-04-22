@@ -293,7 +293,9 @@ Talent 81 단일 값으로 관리:
 - ✅ `physical_req` 스키마 도입 — action_def의 선택적 필드 (`strength_advantage`, `min_strength`)
 - ✅ `check_physical_req(action, partner, player)` 헬퍼 + `resolve_action_mode` 통합
 - ✅ UI greyed out 렌더링 (근력 부족 시 "(근력 부족)" 접미사)
-- 🔄 UI에서 "강제 {name}" 클릭 가능 옵션 (다음 슬라이스)
+- ✅ consensual 세션에서 "강제 {name}" 적색 클릭 옵션 (호감 미달 시)
+  - 클릭 시 일회성 `force_instant:` / `force_toggle:` 디스패치 → 모드 스왑 + 복원
+  - NPC 저항 체크/반발 누적은 forced 액션마다 발생 (혼합 세션)
 - 🔄 harassment 액션 카탈로그 흡수 → 단일 진입점 `begin_intimate()` (다음 슬라이스)
 
 ### Phase 1: 억제 이중축 도입

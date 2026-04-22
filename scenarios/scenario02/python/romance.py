@@ -1310,6 +1310,30 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         return render_romance_ui(state)
 
     def proc(action):
+        # 일회성 강제 override — consensual 세션에서 "강제 {name}" 클릭 시
+        # 해당 액션만 forced 효과 배율 + NPC 저항 체크. 완료 후 원래 모드 복원.
+        # Why: 세션 전체 모드 전환 없이 액션 단위로 합의/강제 혼합 허용.
+        _forced_override = False
+        if action.startswith("force_instant:"):
+            action = "instant:" + action[len("force_instant:"):]
+            _forced_override = True
+        elif action.startswith("force_toggle:"):
+            action = "toggle:" + action[len("force_toggle:"):]
+            _forced_override = True
+        if _forced_override:
+            _mode_ctx = state["mode_ctx"]
+            state["_saved_mode"] = _mode_ctx["mode"]
+            _mode_ctx["mode"] = MODE_FORCED
+            _mode_ctx.setdefault("resistance_meter", 0)
+            _mode_ctx.setdefault("break_free_attempts", 0)
+            _mode_ctx.setdefault("last_escape_chance", 0.0)
+        try:
+            return _proc_dispatch(action)
+        finally:
+            if _forced_override:
+                state["mode_ctx"]["mode"] = state.pop("_saved_mode", MODE_CONSENSUAL)
+
+    def _proc_dispatch(action):
         if action == "init":
             return render_romance_ui(state)
 

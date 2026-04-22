@@ -25,7 +25,7 @@ from romance_core import (
     get_rebellion_key, get_submission_key,
     get_sensation_level,
     is_action_available, is_anatomy_compatible, is_action_blocked_by_state,
-    check_physical_req,
+    check_physical_req, resolve_action_mode,
     get_exposure_state,
     get_semen_total, get_internal_semen, get_internal_semen_total,
     is_pull_out_available, is_hold_back_available, is_ejaculate_available,
@@ -396,28 +396,26 @@ def render_romance_ui(state):
                 _aname = action['name']
                 lines.append(f"  {style_muted(_aname + ' (배면 체위)')}")
                 continue
-        # 노출 필요 행위: 미노출 시 잠금 표시
+        # 노출 필요 행위: 미노출 시 잠금 표시 (물리 전제 — 모드 무관)
         req_area = action.get("requires_exposure")
         if req_area and not exposure.get(f"{req_area}_exposed") and not is_on:
-            _aname = action['name']
-            if _bypass_affection or is_action_available(partner_id, player_id, action):
-                lines.append(f"  {style_muted(_aname + ' (탈의 필요)')}")
-            else:
-                _areq = action['affection_req']
-                lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
+            lines.append(f"  {style_muted(action['name'] + ' (탈의 필요)')}")
             continue
-        if _bypass_affection or is_action_available(partner_id, player_id, action):
-            prefix = "■" if is_on else "▶"
-            name_text = action['name']
-            # 노출 보너스 힌트
-            bonus_area = action.get("exposure_bonus")
-            if bonus_area and exposure.get(f"{bonus_area}_exposed"):
-                name_text += " " + c('pink', '×1.5')
+        # 3상태 렌더링: consensual / forced / (unavailable은 위 physical_req에서 이미 처리)
+        prefix = "■" if is_on else "▶"
+        name_text = action['name']
+        bonus_area = action.get("exposure_bonus")
+        if bonus_area and exposure.get(f"{bonus_area}_exposed"):
+            name_text += " " + c('pink', '×1.5')
+        if _bypass_affection:
+            # 세션 이미 비합의 (forced/unconscious/frozen) — 모든 액션 normal 렌더링
             lines.append(f"  [url=@proc:toggle:{action_id}]{c('pink', prefix + ' ' + name_text)}[/url]")
         else:
-            _aname = action['name']
-            _areq = action['affection_req']
-            lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
+            mode = resolve_action_mode(partner_id, player_id, action)
+            if mode == "consensual":
+                lines.append(f"  [url=@proc:toggle:{action_id}]{c('pink', prefix + ' ' + name_text)}[/url]")
+            else:  # forced — 호감 미달, 강제 옵션으로 노출
+                lines.append(f"  [url=@proc:force_toggle:{action_id}]{style_danger(prefix + ' 강제 ' + name_text)}[/url]")
     lines.append("")
 
     # 즉시 행위
@@ -536,23 +534,21 @@ def render_romance_ui(state):
             item_id, _ = get_next_loot_item(partner_id, upper=is_upper)
             if item_id is None:
                 continue
-        # 노출 필요 행위: 미노출 시 잠금 표시
+        # 노출 필요 행위: 미노출 시 잠금 표시 (물리 전제 — 모드 무관)
         req_area = action.get("requires_exposure")
         if req_area and not exposure.get(f"{req_area}_exposed"):
-            _aname = action['name']
-            if _bypass_affection or is_action_available(partner_id, player_id, action):
-                lines.append(f"  {style_muted(_aname + ' (탈의 필요)')}")
-            else:
-                _areq = action['affection_req']
-                lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
+            lines.append(f"  {style_muted(action['name'] + ' (탈의 필요)')}")
             continue
-        if _bypass_affection or is_action_available(partner_id, player_id, action):
-            name_text = action['name']
+        # 3상태 렌더링: consensual / forced / (unavailable은 위 physical_req에서 이미 처리)
+        name_text = action['name']
+        if _bypass_affection:
             lines.append(f"  [url=@proc:instant:{action_id}]{c('pink', name_text)}[/url]")
         else:
-            _aname = action['name']
-            _areq = action['affection_req']
-            lines.append(f"  {style_muted(_aname + ' (호감 ' + str(_areq) + ' 필요)')}")
+            mode = resolve_action_mode(partner_id, player_id, action)
+            if mode == "consensual":
+                lines.append(f"  [url=@proc:instant:{action_id}]{c('pink', name_text)}[/url]")
+            else:  # forced — 호감 미달, 강제 옵션으로 노출
+                lines.append(f"  [url=@proc:force_instant:{action_id}]{style_danger('강제 ' + name_text)}[/url]")
     # 질외사정 (삽입 중 + P 자극 ≥ 임계값)
     if is_pull_out_available(state):
         lines.append("")
