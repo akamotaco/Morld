@@ -397,6 +397,70 @@ INSTANT_ACTIONS = {
         "requires_equipped_prop": "성인용품:채찍",
         "intensity": 3,
     },
+    # ── 강제 행위 (구 harassment.py에서 이관) ────────────────────
+    # forced_only=True: forced 세션에서만 노출. physical_req로 근력 우위 요구.
+    # harassment_exec: 효과 계산 대신 harassment.execute_* 헬퍼로 라우팅
+    #   (임시노출/내구도/상태:절정 등 비표준 side-effect)
+    "lift_upper": {
+        "name": "상체 옷 들추기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {}, "exp_part": None, "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "lift", "harassment_part": "upper",
+    },
+    "lift_lower": {
+        "name": "하체 옷 들추기", "time": 3 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {}, "exp_part": None, "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "lift", "harassment_part": "lower",
+    },
+    "tear_upper": {
+        "name": "상체 옷 찢기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {}, "exp_part": None, "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "tear", "harassment_part": "upper",
+    },
+    "tear_lower": {
+        "name": "하체 옷 찢기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 2,
+        "effects": {}, "exp_part": None, "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "tear", "harassment_part": "lower",
+    },
+    "breast_grope": {
+        "name": "가슴 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {}, "exp_part": "가슴", "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "grope", "harassment_part": "upper",
+        "harassment_expose_req": 2, "climax_gain": 8,
+    },
+    "nipple_grope": {
+        "name": "유두 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {}, "exp_part": "유두", "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "grope", "harassment_part": "upper",
+        "harassment_expose_req": 2, "climax_gain": 10,
+    },
+    "butt_grope": {
+        "name": "엉덩이 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {}, "exp_part": "엉덩이", "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "grope", "harassment_part": "lower",
+        "harassment_expose_req": 2, "climax_gain": 6,
+    },
+    "genital_grope": {
+        "name": "음부 만지기", "time": 5 * MILLIS_PER_MINUTE, "stamina": 1,
+        "effects": {}, "exp_part": "음부", "affection_req": 0,
+        "forced_only": True,
+        "physical_req": {"strength_advantage": True},
+        "harassment_exec": "grope", "harassment_part": "lower",
+        "harassment_expose_req": 2, "climax_gain": 12,
+    },
 }
 
 # ============================================

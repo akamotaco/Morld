@@ -289,14 +289,20 @@ Talent 81 단일 값으로 관리:
 - 각인/자제심/탤런트는 이후 Phase에서 모디파이어로 "추가만" 하면 됨
 - 행위 게이트는 점수 ≥ 0 → consensual / < 0 → forced / physical_req 불충족 → unavailable
 
-**Phase 0.6 진행 중**:
+**Phase 0.6 완료** (2026-04-22):
 - ✅ `physical_req` 스키마 도입 — action_def의 선택적 필드 (`strength_advantage`, `min_strength`)
 - ✅ `check_physical_req(action, partner, player)` 헬퍼 + `resolve_action_mode` 통합
 - ✅ UI greyed out 렌더링 (근력 부족 시 "(근력 부족)" 접미사)
 - ✅ consensual 세션에서 "강제 {name}" 적색 클릭 옵션 (호감 미달 시)
   - 클릭 시 일회성 `force_instant:` / `force_toggle:` 디스패치 → 모드 스왑 + 복원
   - NPC 저항 체크/반발 누적은 forced 액션마다 발생 (혼합 세션)
-- 🔄 harassment 액션 카탈로그 흡수 → 단일 진입점 `begin_intimate()` (다음 슬라이스)
+- ✅ harassment 액션 카탈로그 흡수 (slice 3, 2026-04-22)
+  - 8개 액션(lift/tear/grope)이 `INSTANT_ACTIONS`에 `forced_only: True` + `harassment_exec` 태그로 진입
+  - `harassment.execute_lift/tear/grope`는 `action_def` dict 수신 형태로 리팩터 (기존/신규 양쪽 필드 지원)
+  - romance.py 즉시 행위 디스패치가 `harassment_exec`일 때 전용 파이프라인 실행
+  - `base.harass()` → `start_romance(mode=MODE_FORCED)` 단일 진입점으로 통합
+  - `harassment_session` 루프 제거 (dead code). `combat_harass` 호환 유지.
+  - `forced_only` 액션은 consensual 세션 UI에서 숨김
 
 ### Phase 1: 억제 이중축 도입
 **자제심 × 수치심**

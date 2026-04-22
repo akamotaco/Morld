@@ -7,7 +7,6 @@
 import random
 
 import morld
-from ui_style import style_highlight
 
 # ========================================
 # 상수
@@ -134,10 +133,14 @@ def _has_clothing_for_part(target_id, part):
     return _find_outermost_clothing(target_id, part) is not None
 
 
-def execute_lift(source_id, target_id, action_id) -> dict:
-    """옷 들추기 — 임시노출 prop 설정"""
-    action = HARASSMENT_ACTIONS[action_id]
-    part = action["part"]
+def execute_lift(source_id, target_id, action) -> dict:
+    """옷 들추기 — 임시노출 prop 설정
+
+    Args:
+        action: action_def dict (예: HARASSMENT_ACTIONS["lift_upper"])
+                또는 INSTANT_ACTIONS의 harassment 엔트리 — "harassment_part" 키 사용
+    """
+    part = action.get("part") or action.get("harassment_part")
     prop_key = "임시노출:상체" if part == "upper" else "임시노출:하체"
 
     current = morld.get_unit_prop(target_id, prop_key) or 0
@@ -154,10 +157,9 @@ def execute_lift(source_id, target_id, action_id) -> dict:
     return {"success": True, "message": action["name"]}
 
 
-def execute_tear(source_id, target_id, action_id) -> dict:
+def execute_tear(source_id, target_id, action) -> dict:
     """옷 찢기 — 최외곽 의류 내구도 감소"""
-    action = HARASSMENT_ACTIONS[action_id]
-    part = action["part"]
+    part = action.get("part") or action.get("harassment_part")
 
     item_id = _find_outermost_clothing(target_id, part)
     if item_id is None:
@@ -174,15 +176,17 @@ def execute_tear(source_id, target_id, action_id) -> dict:
     return {"success": True, "message": f"{item_name}을(를) 찢었다."}
 
 
-def execute_grope(source_id, target_id, action_id) -> dict:
+def execute_grope(source_id, target_id, action) -> dict:
     """만지기 — 절정 게이지 직접 상승 (모드 무관)"""
-    action = HARASSMENT_ACTIONS[action_id]
-    required = action.get("requires_exposure", 0)
+    # INSTANT_ACTIONS의 harassment 엔트리는 harassment_expose_req(int) 사용
+    # HARASSMENT_ACTIONS는 requires_exposure(int) 사용 — 양쪽 허용
+    required = action.get("harassment_expose_req") or action.get("requires_exposure", 0)
+    part = action.get("part") or action.get("harassment_part")
 
     # 노출 확인
     from assets.base import Character
     exposure = Character._calculate_exposure(target_id)
-    exp_key = "upper" if action["part"] == "upper" else "lower"
+    exp_key = "upper" if part == "upper" else "lower"
     if exposure[exp_key] < required:
         return {"success": False, "message": "노출이 부족하다."}
 
@@ -201,7 +205,7 @@ def execute_action(source_id, target_id, action_id, is_combat=False) -> dict:
 
     # 타입별 실행
     handlers = {"lift": execute_lift, "tear": execute_tear, "grope": execute_grope}
-    result = handlers[action["type"]](source_id, target_id, action_id)
+    result = handlers[action["type"]](source_id, target_id, action)
     if not result.get("success"):
         return result
 
@@ -320,78 +324,6 @@ def clear_temporary_exposure(unit_id):
     morld.clear_prop(unit_id, "임시노출:상체")
     morld.clear_prop(unit_id, "임시노출:하체")
 
-
-# ========================================
-# 세션 UI (비전투)
-# ========================================
-
-def _build_session_ui(target_id, available, last_msg):
-    """성추행 세션 UI 라인 생성"""
-    target_info = morld.get_unit_info(target_id) or {}
-    target_name = target_info.get("name", "대상")
-
-    lines = [f"[b]{target_name}[/b]", ""]
-
-    # 현재 노출 상태
-    upper = morld.get_unit_prop(target_id, "임시노출:상체") or 0
-    lower = morld.get_unit_prop(target_id, "임시노출:하체") or 0
-    exp_labels = {0: "커버", 1: "속옷", 2: "노출"}
-    lines.append(f"상체: {exp_labels.get(upper, '?')}  하체: {exp_labels.get(lower, '?')}")
-
-    # 절정 게이지
-    climax = morld.get_unit_prop(target_id, "상태:절정") or 0
-    if climax > 0:
-        lines.append(f"절정: {climax}%")
-
-    if last_msg:
-        lines.append("")
-        lines.append(style_highlight(last_msg))
-
-    lines.append("")
-
-    # 가용 액션
-    for aid in available:
-        action = HARASSMENT_ACTIONS[aid]
-        lines.append(f"[url=@ret:{aid}]{action['name']}[/url]")
-
-    lines.append("")
-    lines.append("[url=@ret:exit]그만두기[/url]")
-    return lines
-
-
-def harassment_session(source_id, target_id):
-    """성추행 세션 — Generator (비전투)
-
-    매 행위마다 대상이 확률적으로 벗어나려 시도. escape_chance는
-    romance_mode.calculate_escape_chance (체력차 + 복종/반발/성욕).
-    """
-    import ui
-    import random as _random
-    from romance_mode import calculate_escape_chance
-    last_msg = ""
-    while True:
-        available = get_available_actions(source_id, target_id)
-        lines = _build_session_ui(target_id, available, last_msg)
-        choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
-        if choice == "exit" or choice is None:
-            break
-        if choice not in HARASSMENT_ACTIONS:
-            continue
-        result = execute_action(source_id, target_id, choice, is_combat=False)
-        action_name = HARASSMENT_ACTIONS[choice]["name"]
-        last_msg = f"{action_name}: {result.get('message', '실행')}"
-        if result.get("reaction"):
-            last_msg += f"\n\"{result['reaction']}\""
-        if result.get("hostility_triggered"):
-            morld.add_action_log("상대가 적대적으로 변했다!")
-            break
-        if result.get("climax_triggered"):
-            last_msg += "\n절정에 달했다!"
-
-        # 탈출 판정 (행위 후)
-        escape_info = calculate_escape_chance(target_id, source_id)
-        if escape_info["chance"] > 0 and _random.random() < escape_info["chance"]:
-            target_info = morld.get_unit_info(target_id)
-            target_name = target_info.get("name", "상대") if target_info else "상대"
-            morld.add_action_log(f"{target_name}(이)가 몸을 뿌리치고 벗어났다!")
-            break
+# 비전투 성추행 세션 루프는 제거됨 (Phase 0.6 slice 3).
+# base.harass() → start_romance(mode=FORCED)로 romance 세션에 흡수.
+# execute_lift/tear/grope + HARASSMENT_ACTIONS는 combat_harass에서 계속 사용.

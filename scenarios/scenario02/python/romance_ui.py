@@ -437,6 +437,9 @@ def render_romance_ui(state):
             continue  # 특수 표시 영역에서 처리
         if action.get("npc_initiative_only"):
             continue  # NPC 주도 전용 행위는 일반 모드에서 숨김
+        # forced_only 액션(구 harassment): 강제/무의식/시간정지 세션에서만 노출
+        if action.get("forced_only") and cur_mode == "consensual":
+            continue
         if not is_anatomy_compatible(action, partner_id, actor_id=player_id):
             continue
         # physical_req (근력 등) — 물리 전제는 모드 무관 hard gate

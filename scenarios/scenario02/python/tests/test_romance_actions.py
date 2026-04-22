@@ -224,7 +224,10 @@ class TestDescriptions:
                    "loot_upper", "loot_lower",
                    "restrain_partner", "unrestrain_partner",
                    "equip_toy_partner", "remove_toy_partner",
-                   "force_feed", "use_whip"}
+                   "force_feed", "use_whip",
+                   # 강제 행위 (harassment_exec) — harassment 모듈이 묘사/반응 담당
+                   "lift_upper", "lift_lower", "tear_upper", "tear_lower",
+                   "breast_grope", "nipple_grope", "butt_grope", "genital_grope"}
         for action_id in INSTANT_ACTIONS:
             if action_id in special:
                 continue

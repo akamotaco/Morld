@@ -2006,27 +2006,21 @@ class Character(_CharacterBase):
         morld.advance_time_des(3 * 60_000)  # 3분
 
     def harass(self):
-        """비전투 성추행 세션 — HoldState로 NPC 동결"""
-        import harassment
+        """비전투 성추행 세션 — FORCED 모드 romance 세션으로 진입.
+
+        Why: romance/harassment 통합 (Phase 0.6 slice 3). 이전의 harassment.harassment_session
+        루프는 romance 세션의 FORCED 모드로 흡수됨. lift/tear/grope 액션은 INSTANT_ACTIONS
+        카탈로그의 forced_only 엔트리로 존재하며 romance UI에 자연스럽게 나타남.
+        HoldState / 스케줄 동결은 start_romance 내부에서 처리.
+        """
         import settings
-        import think
         if not settings.is_harassment_enabled():
             return
-
+        from romance import start_romance
+        from romance_mode import MODE_FORCED
         player_id = morld.get_player_id()
         partner_id = self.instance_id
-        partner_agent = think.get_agent(partner_id)
-
-        # HoldState push: 모든 FSM 행동 및 생존/스케줄 로직 차단
-        # (GateTransit 중이었으면 자동 취소, 이동중 플래그 해제)
-        if partner_agent:
-            partner_agent.begin_hold()
-
-        try:
-            yield from harassment.harassment_session(player_id, partner_id)
-        finally:
-            if partner_agent:
-                partner_agent.end_hold()
+        yield from start_romance(player_id, partner_id, mode=MODE_FORCED)
 
     def combat_harass(self):
         """전투 중 성추행 — 단일 액션 선택"""

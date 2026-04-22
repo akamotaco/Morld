@@ -1508,6 +1508,48 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             if not action_def:
                 return None
 
+            # 강제 행위 액션 (구 harassment.py에서 이관) — 비표준 side-effect로 분기
+            # 임시노출/내구도/상태:절정 변동은 harassment.execute_* 헬퍼가 담당.
+            # 일반 효과 파이프라인(호감/반발/복종 etc.)은 건너뜀.
+            if action_def.get("harassment_exec"):
+                import harassment as _harassment
+                _handlers = {
+                    "lift": _harassment.execute_lift,
+                    "tear": _harassment.execute_tear,
+                    "grope": _harassment.execute_grope,
+                }
+                _result = _handlers[action_def["harassment_exec"]](
+                    state["player_id"], state["partner_id"], action_def)
+                # 실패 시 UI 복귀
+                if not _result.get("success"):
+                    state["last_reaction"] = _result.get("message", "")
+                    return render_romance_ui(state)
+                # 관계 변동 + 반응 적용 (harassment.execute_action의 후처리 단축 버전)
+                _mode_label = _harassment._get_response_mode(
+                    state["player_id"], state["partner_id"])
+                _harassment._apply_relationship_change(
+                    state["player_id"], state["partner_id"], action_def, _mode_label)
+                _reaction = _harassment._get_reaction_text(
+                    state["partner_id"], action_id, _mode_label)
+                _msg = _result.get("message", action_def["name"])
+                state["last_reaction"] = _msg + (f"\n\"{_reaction}\"" if _reaction else "")
+                # 절정 100 체크
+                _climax = morld.get_unit_prop(state["partner_id"], "상태:절정") or 0
+                if _climax >= 100:
+                    import needs as _needs
+                    _needs._trigger_passive_climax(state["partner_id"])
+                    morld.set_unit_prop(state["partner_id"], "상태:절정", 0)
+                    state["last_reaction"] += "\n절정에 달했다!"
+                # 시간 경과 + 저항 체크
+                result = advance_time_and_check(state, action_def["time"])
+                if result["interrupted"]:
+                    state["interrupted"] = True
+                    state["interrupter_id"] = result["interrupter_id"]
+                    return True
+                if _post_action_mode_check():
+                    return True
+                return render_romance_ui(state)
+
             # 활성 토글 필요 체크 (예: tongue_play → deep_kiss 활성 필요)
             req_toggle = action_def.get("requires_active_toggle")
             if req_toggle and req_toggle not in state["active_toggles"]:
