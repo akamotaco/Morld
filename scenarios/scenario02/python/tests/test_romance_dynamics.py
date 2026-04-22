@@ -1,0 +1,181 @@
+# test_romance_dynamics.py — 라벨/애정/관계 라벨 파생
+import sys
+
+import romance_dynamics as rd
+from romance_core import get_affection_key, get_submission_key, get_rebellion_key
+
+morld = sys.modules["morld"]
+
+
+def _setup_pair():
+    """player=1, target=2 등록."""
+    morld.register_unit(1, name="주인공", gender="male")
+    morld.register_unit(2, name="유키", gender="female")
+
+
+# ============================================
+# 라벨 조회
+# ============================================
+
+class TestAffectionLabel:
+    def test_zero(self):
+        assert rd.get_affection_label(0) == "무관심"
+
+    def test_below_20(self):
+        assert rd.get_affection_label(19) == "무관심"
+
+    def test_20(self):
+        assert rd.get_affection_label(20) == "지인"
+
+    def test_40(self):
+        assert rd.get_affection_label(40) == "친구"
+
+    def test_60(self):
+        assert rd.get_affection_label(60) == "신뢰"
+
+    def test_80(self):
+        assert rd.get_affection_label(80) == "친애"
+
+    def test_max(self):
+        assert rd.get_affection_label(100) == "친애"
+
+    def test_none_handled(self):
+        assert rd.get_affection_label(None) == "무관심"
+
+
+class TestSubmissionLabel:
+    def test_zero(self):
+        assert rd.get_submission_label(0) == "자유"
+
+    def test_30(self):
+        assert rd.get_submission_label(30) == "순응"
+
+    def test_60(self):
+        assert rd.get_submission_label(60) == "충성"
+
+    def test_80(self):
+        assert rd.get_submission_label(80) == "복속"
+
+    def test_100(self):
+        assert rd.get_submission_label(100) == "절대복종"
+
+
+class TestLoveLabel:
+    def test_zero(self):
+        assert rd.get_love_label(0) == "무"
+
+    def test_20(self):
+        assert rd.get_love_label(20) == "호의"
+
+    def test_40(self):
+        assert rd.get_love_label(40) == "애정"
+
+    def test_60(self):
+        assert rd.get_love_label(60) == "사랑"
+
+    def test_80(self):
+        assert rd.get_love_label(80) == "헌신"
+
+
+# ============================================
+# 애정 스탯 modify_love
+# ============================================
+
+class TestModifyLove:
+    def setUp(self):
+        _setup_pair()
+
+    def test_gain_normal(self):
+        delta = rd.modify_love(2, 1, 10)
+        assert delta == 10
+        assert rd.get_love(2, 1) == 10
+
+    def test_gain_blocked_by_submission_at_threshold(self):
+        morld.set_unit_prop(2, get_submission_key(1), rd.LOVE_BLOCK_SUBMISSION)
+        delta = rd.modify_love(2, 1, 10)
+        assert delta == 0
+        assert rd.get_love(2, 1) == 0
+
+    def test_gain_blocked_by_submission_above_threshold(self):
+        morld.set_unit_prop(2, get_submission_key(1), 80)
+        delta = rd.modify_love(2, 1, 20)
+        assert delta == 0
+
+    def test_gain_allowed_below_threshold(self):
+        morld.set_unit_prop(2, get_submission_key(1), rd.LOVE_BLOCK_SUBMISSION - 1)
+        delta = rd.modify_love(2, 1, 10)
+        assert delta == 10
+
+    def test_loss_not_blocked_by_submission(self):
+        # 복종 0일 때 애정 축적
+        rd.modify_love(2, 1, 50)
+        # 복종 끌어올려도 감소는 통과
+        morld.set_unit_prop(2, get_submission_key(1), 80)
+        delta = rd.modify_love(2, 1, -10)
+        assert delta == -10
+        assert rd.get_love(2, 1) == 40
+
+    def test_clamped_to_max(self):
+        morld.set_unit_prop(2, rd.get_love_key(1), 95)
+        delta = rd.modify_love(2, 1, 20)
+        assert delta == 5
+        assert rd.get_love(2, 1) == 100
+
+    def test_clamped_to_min(self):
+        morld.set_unit_prop(2, rd.get_love_key(1), 5)
+        delta = rd.modify_love(2, 1, -20)
+        assert delta == -5
+        assert rd.get_love(2, 1) == 0
+
+
+# ============================================
+# 관계 라벨 파생
+# ============================================
+
+class TestRelationshipLabel:
+    def setUp(self):
+        _setup_pair()
+
+    def _set(self, affection=0, submission=0, love=0, rebellion=0):
+        morld.set_unit_prop(2, get_affection_key(1), affection)
+        morld.set_unit_prop(2, get_submission_key(1), submission)
+        morld.set_unit_prop(2, rd.get_love_key(1), love)
+        morld.set_unit_prop(2, get_rebellion_key(1), rebellion)
+
+    def test_stranger(self):
+        self._set()
+        assert rd.get_relationship_label(2, 1) == "타인"
+
+    def test_acquaintance(self):
+        self._set(affection=25)
+        assert rd.get_relationship_label(2, 1) == "지인"
+
+    def test_friend(self):
+        self._set(affection=50)
+        assert rd.get_relationship_label(2, 1) == "친구"
+
+    def test_lover(self):
+        self._set(affection=70, love=70)
+        assert rd.get_relationship_label(2, 1) == "연인"
+
+    def test_spouse(self):
+        self._set(affection=70, love=85)
+        assert rd.get_relationship_label(2, 1) == "배우자"
+
+    def test_servant_pure_submission(self):
+        self._set(submission=70)
+        assert rd.get_relationship_label(2, 1) == "종복"
+
+    def test_devoted_servant(self):
+        # 복종 높지만 애정도 일정 이상 (함락 후 사랑 각인)
+        self._set(submission=70, love=50)
+        assert rd.get_relationship_label(2, 1) == "헌신적 종자"
+
+    def test_enemy_overrides_affection(self):
+        self._set(affection=70, love=70, rebellion=70)
+        assert rd.get_relationship_label(2, 1) == "적대"
+
+    def test_lover_blocked_by_high_submission(self):
+        # 애정/호감 높지만 복종도 높으면 "연인" 아님 → "헌신적 종자"
+        self._set(affection=70, love=70, submission=70)
+        assert rd.get_relationship_label(2, 1) == "헌신적 종자"

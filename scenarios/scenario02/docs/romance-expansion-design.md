@@ -422,6 +422,59 @@ factor = density × visibility_mult × (1 - stealth_chance)
 - UI 성추행 토글 제거
 - `set_romance_enabled`가 `can:harass`/`can:self_expose` prop도 함께 관리
 
+### Phase 1.5: 애정 티어 + 라벨 alias + 선호 체위 대사 (2026-04-23 완료)
+
+**배경**: 강제-함락 루트 테스트 설계 중 발견된 갭 3건을 묶어 반영.
+
+#### 1.5.1 애정 티어 도입 (era `愛情` 정합)
+- 신규 prop: `관계:{p}:애정` (0~100)
+- 호감과 독립 축 (era 정석): 노예 경로(복종 高)와 연인 경로(애정 高) 스탯으로 분리
+- **게이트**: 복종 ≥ `LOVE_BLOCK_SUBMISSION`(60)이면 `modify_love(positive)` 차단
+  - 음수 delta는 통과 (강제 종료 페널티 등)
+- **강제 종료 페널티**: `apply_forced_end_penalty`가 호감과 함께 애정도 -5~-15 감소
+- 구현: `romance_dynamics.py` (`get_love_key`, `get_love`, `modify_love`)
+
+#### 1.5.2 수치 → 라벨 alias
+수치 기반 시스템을 유지하면서 네이밍 조회 함수 제공.
+
+| 스탯 | 구간 → 라벨 |
+|------|-----------|
+| 호감 | 0~19 무관심 / 20~39 지인 / 40~59 친구 / 60~79 신뢰 / 80+ 친애 |
+| 복종 | 0~29 자유 / 30~59 순응 / 60~79 충성 / 80~99 복속 / 100 절대복종 |
+| 애정 | 0~19 무 / 20~39 호의 / 40~59 애정 / 60~79 사랑 / 80+ 헌신 |
+
+- 구현: `get_affection_label/get_submission_label/get_love_label` (순수 함수)
+
+#### 1.5.3 관계 라벨 파생 (`get_relationship_label`)
+호감/복종/애정/반발 조합 → 관계 라벨. **prop 저장 X**, 매 조회 시 파생.
+era의 관계 라벨 "고정" 방식과 달리 수치가 움직이면 라벨도 자동 변동.
+
+| 조건 | 라벨 |
+|------|------|
+| 반발 ≥ 60 | **적대** |
+| 애정 ≥ 80 + 호감 ≥ 60 | **배우자** |
+| 애정 ≥ 60 + 호감 ≥ 60 + 복종 < 60 | **연인** |
+| 복종 ≥ 60 + 애정 ≥ 40 | **헌신적 종자** (함락 후 사랑 각인) |
+| 복종 ≥ 60 | **종복** |
+| 호감 ≥ 40 | **친구** |
+| 호감 ≥ 20 | **지인** |
+| 그 외 | **타인** |
+
+#### 1.5.4 NPC 선호 체위 요구 대사 훅 (`npc_position_request`)
+선호 체위 시스템은 이미 존재 (`SEXUAL_PREFERENCES.preferred_positions`, `get_preference_mult` 1.2x 배율).
+**누락 보완**: 삽입 중 NPC가 선호 체위를 "요구하는 대사" 트리거.
+
+- 조건: 삽입 중 + 현재 체위 ≠ 선호 + NPC 성욕 ≥ 70 + 쿨다운 5분 + 확률 30%
+- 출력: 대사만 (체위 변경은 플레이어 선택) — NPC 통제력 유지
+- 대사 키: `npc_position_request:{pos_id}` (체위별 특화), fallback `:start`
+- 구현: `romance.py::_check_npc_position_request`, `_try_npc_thrust_after_action` 호출 체인
+- 6개 주요 캐릭터에 선호 체위별 대사 풀 추가 (lina/yuki/ella/sera/mila/faye)
+
+**설계 배경**: NPC 주도 모드는 별도 다이얼로그 시스템이므로 여기선 대사만 추가.
+강제-함락 후 자발성 확장 옵션 중 "NPC 자동 체위 전환"은 복잡도 상 제외.
+
+---
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)

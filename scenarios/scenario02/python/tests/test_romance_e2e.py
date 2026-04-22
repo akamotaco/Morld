@@ -1114,3 +1114,186 @@ class TestShameModifier:
         # total = 28
         assert abs(score - 28) < 0.1
         assert rc.resolve_action_mode(2, 1, action) == "consensual"
+
+
+# ============================================
+# 강제 → 함락 루트 시나리오
+# ============================================
+
+class TestForcedCorruptionRoute:
+    """강제 행위로 복종 누적 → 함락 상태 → 애정 게이트 차단/감소 검증.
+
+    Why: 사용자 시나리오 "강제-함락 루트에서 함락 이후 자발적 반응"의
+    스탯/라벨 동역학 부분을 검증. 대사 훅(npc_thrust_trance, position_request)은
+    이미 구현됨 — 여기서는 수치 동역학 + 라벨 + 페널티에 집중.
+    """
+
+    def _setup(self):
+        morld.register_unit(1, name="주인공",
+                            props={"근력": 10, "생존:체력": 100})
+        morld.register_unit(2, name="유키", props={
+            "근력": 4,
+            "생존:체력": 80,
+            "관계:주인공:호감": 20,
+            "관계:주인공:반발": 0,
+            "관계:주인공:복종": 0,
+            "관계:주인공:애정": 0,
+            "상태:성욕": 10,
+        })
+
+    def test_corruption_blocks_love_gain(self):
+        """복종 ≥ 60이면 애정 상승 차단."""
+        import romance_dynamics as rd
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:복종", 70)
+        delta = rd.modify_love(2, 1, 20)
+        assert delta == 0
+        assert rd.get_love(2, 1) == 0
+
+    def test_corruption_threshold_exact(self):
+        """복종 == LOVE_BLOCK_SUBMISSION(60)에서 차단."""
+        import romance_dynamics as rd
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:복종", 60)
+        assert rd.modify_love(2, 1, 10) == 0
+        morld.set_unit_prop(2, "관계:주인공:복종", 59)
+        assert rd.modify_love(2, 1, 10) == 10
+
+    def test_corruption_allows_love_loss(self):
+        """복종 높아도 애정 감소는 통과 (강제 종료 페널티 등)."""
+        import romance_dynamics as rd
+        self._setup()
+        rd.modify_love(2, 1, 50)  # 복종 0 → 50 획득
+        morld.set_unit_prop(2, "관계:주인공:복종", 80)
+        assert rd.modify_love(2, 1, -10) == -10
+        assert rd.get_love(2, 1) == 40
+
+    def test_forced_end_penalty_applies_love_reduction(self):
+        """강제 종료 페널티가 애정도 함께 감소시킴."""
+        import romance_dynamics as rd
+        self._setup()
+        rd.modify_love(2, 1, 50)  # 복종 0 → 선제 획득
+        mode_ctx = rm.create_mode_context(rm.MODE_FORCED, 1, 2)
+        mode_ctx["action_count"] = 5
+        rm.apply_forced_end_penalty(2, mode_ctx, 1)
+        # 호감 penalty: -5 - 5 = -10 → 20 - 10 = 10
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 10
+        # 애정 penalty: -5 - 5 = -10 → 50 - 10 = 40
+        assert rd.get_love(2, 1) == 40
+        # 반발 penalty: min(20, 10+5) = 15
+        assert morld.get_unit_prop(2, "관계:주인공:반발") == 15
+
+    def test_forced_end_penalty_max_action_count(self):
+        """행위 수 10 이상 → 페널티 -15 (상한)."""
+        import romance_dynamics as rd
+        self._setup()
+        rd.modify_love(2, 1, 50)
+        mode_ctx = rm.create_mode_context(rm.MODE_FORCED, 1, 2)
+        mode_ctx["action_count"] = 50
+        rm.apply_forced_end_penalty(2, mode_ctx, 1)
+        # 호감: max(-15, -5-50) = -15 → 20 - 15 = 5
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 5
+        # 애정: max(-15, -5-50) = -15 → 50 - 15 = 35
+        assert rd.get_love(2, 1) == 35
+
+    def test_relationship_label_progression_corruption(self):
+        """함락 루트에서 라벨 전이: 지인 → 종복 → 헌신적 종자."""
+        import romance_dynamics as rd
+        self._setup()
+        # 초기: 호감 20 → "지인"
+        assert rd.get_relationship_label(2, 1) == "지인"
+
+        # 복종 70 (함락) → "종복"
+        morld.set_unit_prop(2, "관계:주인공:복종", 70)
+        assert rd.get_relationship_label(2, 1) == "종복"
+
+        # 애정 50 (함락 후 사랑 각인) → "헌신적 종자"
+        # 복종 높은 상태에서는 modify_love로 못 올리므로 직접 세팅
+        morld.set_unit_prop(2, "관계:주인공:애정", 50)
+        assert rd.get_relationship_label(2, 1) == "헌신적 종자"
+
+    def test_relationship_label_lover_route_separated(self):
+        """순애 루트는 복종 없이 호감+애정만으로 연인 라벨."""
+        import romance_dynamics as rd
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:호감", 70)
+        rd.modify_love(2, 1, 70)  # 복종 0 → 통과
+        assert rd.get_relationship_label(2, 1) == "연인"
+
+    def test_label_aliases_accessible_via_rd(self):
+        """라벨 alias 함수 호출 일관성."""
+        import romance_dynamics as rd
+        assert rd.get_affection_label(85) == "친애"
+        assert rd.get_submission_label(100) == "절대복종"
+        assert rd.get_love_label(70) == "사랑"
+
+
+# ============================================
+# 선호 체위 요구 대사 — 캐릭터 asset에 대사 풀 존재 검증
+# ============================================
+
+class TestPositionRequestDialoguePool:
+    """각 주요 캐릭터의 SEXUAL_PREFERENCES.preferred_positions에
+    대응하는 npc_position_request:{pos_id} 대사 풀이 존재해야 함."""
+
+    def _character_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    def test_lina_has_position_request_pool(self):
+        cls = self._character_class("lina", "Lina")
+        reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+        assert "npc_position_request:cowgirl" in reactions
+        assert "npc_position_request:standing_face" in reactions
+
+    def test_yuki_has_position_request_pool(self):
+        cls = self._character_class("yuki", "Yuki")
+        reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+        assert "npc_position_request:face_sitting" in reactions
+        assert "npc_position_request:missionary" in reactions
+
+    def test_ella_has_position_request_pool(self):
+        cls = self._character_class("ella", "Ella")
+        reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+        assert "npc_position_request:doggy" in reactions
+        assert "npc_position_request:reverse_cowgirl" in reactions
+
+    def test_sera_has_position_request_pool(self):
+        cls = self._character_class("sera", "Sera")
+        reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+        assert "npc_position_request:standing_face" in reactions
+        assert "npc_position_request:doggy" in reactions
+
+    def test_mila_has_position_request_pool(self):
+        cls = self._character_class("mila", "Mila")
+        reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+        assert "npc_position_request:missionary" in reactions
+        assert "npc_position_request:face_sitting" in reactions
+
+    def test_faye_has_position_request_pool(self):
+        cls = self._character_class("faye", "Faye")
+        reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+        assert "npc_position_request:cowgirl" in reactions
+        assert "npc_position_request:missionary" in reactions
+
+    def test_position_request_keys_match_sexual_preferences(self):
+        """각 캐릭터의 preferred_positions와 대사 키 쌍이 일치."""
+        chars = [
+            ("lina", "Lina"),
+            ("yuki", "Yuki"),
+            ("ella", "Ella"),
+            ("sera", "Sera"),
+            ("mila", "Mila"),
+            ("faye", "Faye"),
+        ]
+        for mod_name, cls_name in chars:
+            cls = self._character_class(mod_name, cls_name)
+            prefs = getattr(cls, "SEXUAL_PREFERENCES", {})
+            preferred = prefs.get("preferred_positions", [])
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for pos in preferred:
+                key = f"npc_position_request:{pos}"
+                assert key in reactions, (
+                    f"{cls_name}: SEXUAL_PREFERENCES.preferred_positions "
+                    f"에 {pos}가 있으나 ROMANCE_REACTIONS에 {key} 누락")

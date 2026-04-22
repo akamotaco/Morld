@@ -71,6 +71,11 @@ from romance_core import (  # noqa: F401 — re-export for external callers
 from survival import EXHAUSTION_HP_THRESHOLD
 ROMANCE_MIN_HEALTH = EXHAUSTION_HP_THRESHOLD  # 탈진 임계치와 통일
 
+# NPC 선호 체위 요구 대사 훅
+POSITION_REQUEST_AROUSAL = 70           # NPC 성욕 임계
+POSITION_REQUEST_COOLDOWN_MS = 5 * MILLIS_PER_MINUTE  # 요구 쿨다운
+POSITION_REQUEST_CHANCE = 0.3           # 매 체크마다 발동 확률
+
 # ============================================
 # 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
 # ============================================
@@ -566,6 +571,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         },
         # NPC 자율 허리흔들기 트랜스
         "npc_thrust_trance": False,
+        # NPC 선호 체위 요구 쿨다운 (세션 elapsed_time 기준)
+        "last_position_request_elapsed": None,
         # 수간(bestiality) 세션 여부
         "is_bestiality": is_bestiality,
     }
@@ -714,8 +721,56 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             return _get_mode_reaction("npc_beg_thrust", "start")
         return None
 
+    def _check_npc_position_request(state):
+        """선호 체위 요구 대사 (대사 전용, 실제 체위 전환은 플레이어 선택).
+
+        조건:
+          - 삽입 중
+          - 현재 체위가 NPC 선호 체위 리스트에 없음
+          - NPC 성욕 ≥ POSITION_REQUEST_AROUSAL
+          - 쿨다운 경과 (POSITION_REQUEST_COOLDOWN_MS)
+          - 확률 게이트 (POSITION_REQUEST_CHANCE)
+
+        Returns: 대사 텍스트 or None.
+        """
+        if not state["insertion"]["active"]:
+            return None
+        prefs = state.get("npc_prefs") or {}
+        preferred = prefs.get("preferred_positions") or []
+        if not preferred:
+            return None
+        current_pos = state.get("position")
+        if current_pos in preferred:
+            return None
+
+        pid = state["partner_id"]
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        if arousal < POSITION_REQUEST_AROUSAL:
+            return None
+
+        last = state.get("last_position_request_elapsed")
+        if last is not None and state["elapsed_time"] - last < POSITION_REQUEST_COOLDOWN_MS:
+            return None
+
+        import random as _random
+        if _random.random() >= POSITION_REQUEST_CHANCE:
+            return None
+
+        target_pos = _random.choice(preferred)
+        state["last_position_request_elapsed"] = state["elapsed_time"]
+
+        # 캐릭터 반응 풀: "npc_position_request:{pos_id}" 우선, fallback "npc_position_request:start"
+        reaction = _get_mode_reaction("npc_position_request", target_pos)
+        if not reaction:
+            reaction = _get_mode_reaction("npc_position_request", "start")
+        if not reaction:
+            pos_name = position.get_name(target_pos)
+            pname = _get_partner_name(state)
+            reaction = f"{pname}(이)가 {pos_name}를 원하는 듯한 몸짓을 보였다..."
+        return reaction
+
     def _try_npc_thrust_after_action(state, action_id):
-        """행위 후 NPC 자율 thrust 체크 (삽입+정지 상태에서).
+        """행위 후 NPC 자율 thrust / 체위 요구 체크 (삽입+정지 상태에서).
         thrust_stop/withdraw 직후에는 호출하지 않음.
         반환된 반응 텍스트가 있으면 last_reaction에 추가.
         """
@@ -729,6 +784,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         if npc_action:
             prev = state.get("last_reaction") or ""
             state["last_reaction"] = (prev + f"\n{npc_action['reaction']}").strip()
+            return  # 트랜스 진입 시 체위 요구 대사는 생략
+        pos_request = _check_npc_position_request(state)
+        if pos_request:
+            prev = state.get("last_reaction") or ""
+            state["last_reaction"] = (prev + f"\n{pos_request}").strip()
 
     # ── NPC Thrust Trance 끝 ──────────────────────────────────
 

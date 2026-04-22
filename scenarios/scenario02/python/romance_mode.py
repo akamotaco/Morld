@@ -565,6 +565,7 @@ def apply_forced_end_penalty(target_id, mode_ctx, actor_id):
 
     - 반발 +10~20 (행위 수 비례)
     - 호감 -5~15 (행위 수 비례)
+    - 애정 -5~15 (행위 수 비례, 복종 게이트 무시하고 감소)
 
     Args:
         target_id: 피해 NPC
@@ -572,6 +573,7 @@ def apply_forced_end_penalty(target_id, mode_ctx, actor_id):
         actor_id: 강제 행위자
     """
     from romance_core import get_affection_key, get_rebellion_key
+    from romance_dynamics import modify_love
 
     action_count = mode_ctx.get("action_count", 0)
     affection_key = get_affection_key(actor_id)
@@ -584,6 +586,10 @@ def apply_forced_end_penalty(target_id, mode_ctx, actor_id):
     # 호감 감소: -5 - 행위 수 (최대 -15)
     affection_penalty = max(-15, -5 - action_count)
     morld.modify_prop(target_id, affection_key, affection_penalty)
+
+    # 애정 감소: -5 - 행위 수 (최대 -15) — 복종 차단 무시 (음수 delta)
+    love_penalty = max(-15, -5 - action_count)
+    modify_love(target_id, actor_id, love_penalty)
 
     # 상태 prop 설정 (후속 이벤트 트리거용) — 3단계 aftermath
     morld.set_unit_prop(target_id, "상태:강제피해", 3)
