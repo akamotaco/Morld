@@ -1886,16 +1886,16 @@ class Character(_CharacterBase):
             actions.append("call:aimed_attack_arms:조준: 팔#")
             actions.append("call:aimed_attack_legs:조준: 다리#")
             actions.append("call:steal:소매치기#")
-            # 전투 중 성추행
+            # 전투 중 성추행 (연애 모드에 통합 — Phase 0.6+)
             import settings
-            if settings.is_harassment_enabled():
+            if settings.is_romance_enabled():
                 actions.append("call:combat_harass:성추행#")
         return actions
 
     def _add_harassment_actions(self, actions):
-        """성추행 모드 ON 시 성추행 액션 추가 (비전투)"""
+        """성추행 액션 추가 (비전투) — 연애 모드에 통합 (Phase 0.6+)"""
         import settings
-        if not settings.is_harassment_enabled():
+        if not settings.is_romance_enabled():
             return actions
         player_id = morld.get_player_id()
         if self.instance_id == player_id:
@@ -2006,27 +2006,34 @@ class Character(_CharacterBase):
         morld.advance_time_des(3 * 60_000)  # 3분
 
     def harass(self):
-        """비전투 성추행 세션 — FORCED 모드 romance 세션으로 진입.
+        """비전투 성추행 세션 — 경량 루프 (삽입 없음).
 
-        Why: romance/harassment 통합 (Phase 0.6 slice 3). 이전의 harassment.harassment_session
-        루프는 romance 세션의 FORCED 모드로 흡수됨. lift/tear/grope 액션은 INSTANT_ACTIONS
-        카탈로그의 forced_only 엔트리로 존재하며 romance UI에 자연스럽게 나타남.
-        HoldState / 스케줄 동결은 start_romance 내부에서 처리.
+        Why: 4단계 대칭 복원 (2026-04-23). 성추행은 lift/tear/grope 의 짧은
+        비합의 루프이며, 풀 강제 행위(삽입/절정)는 force_romance를 사용.
+        Phase 0.6에서 start_romance(FORCED)로 잘못 merge했던 것을 되돌림.
+        HoldState: NPC 스케줄/FSM 동결.
         """
         import settings
-        if not settings.is_harassment_enabled():
+        import think
+        import harassment
+        if not settings.is_romance_enabled():
             return
-        from romance import start_romance
-        from romance_mode import MODE_FORCED
         player_id = morld.get_player_id()
         partner_id = self.instance_id
-        yield from start_romance(player_id, partner_id, mode=MODE_FORCED)
+        partner_agent = think.get_agent(partner_id)
+        if partner_agent:
+            partner_agent.begin_hold()
+        try:
+            yield from harassment.harassment_session(player_id, partner_id)
+        finally:
+            if partner_agent:
+                partner_agent.end_hold()
 
     def combat_harass(self):
         """전투 중 성추행 — 단일 액션 선택"""
         import harassment
         import settings
-        if not settings.is_harassment_enabled():
+        if not settings.is_romance_enabled():
             return
         available = harassment.get_available_actions(morld.get_player_id(), self.instance_id)
         if not available:

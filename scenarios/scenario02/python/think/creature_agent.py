@@ -325,9 +325,9 @@ class CreatureAgent(BaseAgent):
     # ========================================
 
     def _check_harassment_opportunity(self):
-        """무력화된 캐릭터 감지 → 성추행 시도 (harassment ON)"""
+        """무력화된 캐릭터 감지 → 성추행 시도 (연애 모드 ON)"""
         import settings
-        if not settings.is_harassment_enabled():
+        if not settings.is_romance_enabled():
             return False
 
         # 무성 생물 제외

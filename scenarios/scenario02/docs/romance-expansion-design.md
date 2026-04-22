@@ -399,6 +399,29 @@ factor = density × visibility_mult × (1 - stealth_chance)
 - 연쇄 절정 ↔ 탈출 공식 연계 (별도 TODO)
 - 정신 교란 상태 (술/약물/최면) 도입 (별도 TODO)
 
+---
+
+## 9. 4단계 상호작용 대칭 (2026-04-23 정리)
+
+스킨십/애정행위/성추행/강제 행위의 구분을 명확히 하고 대칭 구조로 재편.
+
+| 수준 | 동의 (높은 호감) | 비동의 (낮은 호감) |
+|------|-----------------|-------------------|
+| **단발/경량** | 스킨십 `casual_affection()` | 성추행 `harass()` → `harassment_session` |
+| **풀 세션 (삽입/절정)** | 애정행위 `romance()` → `start_romance(CONSENSUAL)` | 강제 행위 `force_romance()` → `start_romance(FORCED)` |
+
+**Phase 0.6 Slice 3 롤백 (2026-04-23)**:
+- 당시 `harass()` → `start_romance(FORCED)` 로 묶었으나 `force_romance`와 동일해지는 문제
+- 경량 `harassment.harassment_session` 복원 → 짧은 비합의 루프 (lift/tear/grope + 탈출 roll)
+- 풀 강제 세션은 `force_romance`로 분리 유지
+- 성추행 설정 토글 제거 — `is_romance_enabled`로 통합 (`is_harassment_enabled`는 alias)
+
+**설정 통합 (2026-04-23)**:
+- `settings.is_harassment_enabled` → `is_romance_enabled()`의 alias (하위호환)
+- `set_harassment_enabled` 제거
+- UI 성추행 토글 제거
+- `set_romance_enabled`가 `can:harass`/`can:self_expose` prop도 함께 관리
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)

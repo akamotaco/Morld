@@ -793,6 +793,71 @@ class TestArchetypeRestraintDefaults:
                 f"archetype '{archetype}'에 자제심 기본값 누락"
 
 
+class TestHarassmentSessionRestored:
+    """성추행 루프 복원 검증 — 4단계 대칭 (Phase 0.6 롤백, 2026-04-23).
+
+    성추행은 가벼운 비합의 루프 (lift/tear/grope, 삽입 없음).
+    풀 강제 행위는 force_romance/start_romance(FORCED) — 별개.
+    """
+
+    def test_harassment_session_is_generator(self):
+        """harassment_session이 generator로 복원되어 있음"""
+        import harassment
+        assert callable(harassment.harassment_session)
+        # 생성 시 generator 반환
+        morld.register_unit(1, name="주인공")
+        morld.register_unit(2, props={"성별": 2})
+        gen = harassment.harassment_session(1, 2)
+        # generator 객체
+        assert hasattr(gen, "__next__")
+
+    def test_build_session_ui_renders_exposure(self):
+        """_build_session_ui가 노출 상태를 표시"""
+        import harassment
+        morld.register_unit(2, props={
+            "임시노출:상체": 2, "임시노출:하체": 0, "상태:절정": 25,
+        })
+        lines = harassment._build_session_ui(2, [], "")
+        joined = "\n".join(lines)
+        assert "노출" in joined
+        assert "25" in joined
+
+    def test_harassment_actions_catalog_unchanged(self):
+        """HARASSMENT_ACTIONS 카탈로그는 유지 (8개)"""
+        import harassment
+        expected = {
+            "lift_upper", "lift_lower", "tear_upper", "tear_lower",
+            "breast_grope", "nipple_grope", "butt_grope", "genital_grope",
+        }
+        assert set(harassment.HARASSMENT_ACTIONS.keys()) == expected
+
+    def test_instant_actions_forced_only_entries_exist(self):
+        """romance INSTANT_ACTIONS에도 성추행 행위 엔트리 유지 (forced_only).
+
+        풀 강제 세션(force_romance) 내에서는 여전히 접근 가능.
+        """
+        from romance_actions import INSTANT_ACTIONS
+        for aid in ("lift_upper", "tear_upper", "breast_grope"):
+            assert aid in INSTANT_ACTIONS
+            assert INSTANT_ACTIONS[aid].get("forced_only") is True
+
+
+class TestHarassmentEnabledAlias:
+    """settings.is_harassment_enabled가 is_romance_enabled의 alias로 동작 (Phase 0.6+)."""
+
+    def test_harassment_follows_romance_toggle(self):
+        """connect 후 romance가 ON이면 harassment도 ON"""
+        import settings
+        # 플레이어 ID 필요
+        morld.register_unit(1, name="주인공")
+        morld._player_id = 1
+        settings.set_romance_enabled(True)
+        assert settings.is_romance_enabled() is True
+        assert settings.is_harassment_enabled() is True
+        settings.set_romance_enabled(False)
+        assert settings.is_harassment_enabled() is False
+
+
 class TestShameEventHooks:
     """수치심 변동 이벤트 — romance 발각 / near_miss / 자위 목격."""
 

@@ -7,6 +7,7 @@
 import random
 
 import morld
+from ui_style import style_highlight
 
 # ========================================
 # 상수
@@ -324,6 +325,87 @@ def clear_temporary_exposure(unit_id):
     morld.clear_prop(unit_id, "임시노출:상체")
     morld.clear_prop(unit_id, "임시노출:하체")
 
-# 비전투 성추행 세션 루프는 제거됨 (Phase 0.6 slice 3).
-# base.harass() → start_romance(mode=FORCED)로 romance 세션에 흡수.
-# execute_lift/tear/grope + HARASSMENT_ACTIONS는 combat_harass에서 계속 사용.
+
+# ========================================
+# 비전투 세션 UI + 루프 (2026-04-23 복원)
+# ========================================
+#
+# Why: Phase 0.6 slice 3에서 base.harass() 를 start_romance(FORCED)로 묶었으나,
+# 이는 실질적으로 force_romance와 동일해져 "가벼운 성추행 ≠ 풀 강제 행위"의
+# 의미 구분을 지워버렸다. 복원하여 4단계 대칭을 회복:
+#   - 스킨십 (casual_affection) = 단발 합의
+#   - 애정행위 (romance) = 풀 합의 세션
+#   - 성추행 (harassment_session) = 경량 비합의 루프 (삽입 없음, 탈출 roll)
+#   - 강제 행위 (force_romance) = 풀 강제 세션
+
+
+def _build_session_ui(target_id, available, last_msg):
+    """성추행 세션 UI 라인 생성."""
+    target_info = morld.get_unit_info(target_id) or {}
+    target_name = target_info.get("name", "대상")
+
+    lines = [f"[b]{target_name}[/b]", ""]
+
+    # 현재 노출 상태
+    upper = morld.get_unit_prop(target_id, "임시노출:상체") or 0
+    lower = morld.get_unit_prop(target_id, "임시노출:하체") or 0
+    exp_labels = {0: "커버", 1: "속옷", 2: "노출"}
+    lines.append(f"상체: {exp_labels.get(upper, '?')}  하체: {exp_labels.get(lower, '?')}")
+
+    # 절정 게이지
+    climax = morld.get_unit_prop(target_id, "상태:절정") or 0
+    if climax > 0:
+        lines.append(f"절정: {climax}%")
+
+    if last_msg:
+        lines.append("")
+        lines.append(style_highlight(last_msg))
+
+    lines.append("")
+
+    # 가용 액션
+    for aid in available:
+        action = HARASSMENT_ACTIONS[aid]
+        lines.append(f"[url=@ret:{aid}]{action['name']}[/url]")
+
+    lines.append("")
+    lines.append("[url=@ret:exit]그만두기[/url]")
+    return lines
+
+
+def harassment_session(source_id, target_id):
+    """경량 성추행 세션 — Generator (비전투).
+
+    삽입/절정까지 가지 않는 짧은 루프. 매 행위마다 대상이 확률적으로 탈출.
+    풀 강제 세션은 force_romance/start_romance(FORCED)를 사용.
+    """
+    import ui
+    import random as _random
+    from romance_mode import calculate_escape_chance
+    last_msg = ""
+    while True:
+        available = get_available_actions(source_id, target_id)
+        lines = _build_session_ui(target_id, available, last_msg)
+        choice = yield ui.dialog("[!]" + "\n".join(lines) + "[/!]")
+        if choice == "exit" or choice is None:
+            break
+        if choice not in HARASSMENT_ACTIONS:
+            continue
+        result = execute_action(source_id, target_id, choice, is_combat=False)
+        action_name = HARASSMENT_ACTIONS[choice]["name"]
+        last_msg = f"{action_name}: {result.get('message', '실행')}"
+        if result.get("reaction"):
+            last_msg += f"\n\"{result['reaction']}\""
+        if result.get("hostility_triggered"):
+            morld.add_action_log("상대가 적대적으로 변했다!")
+            break
+        if result.get("climax_triggered"):
+            last_msg += "\n절정에 달했다!"
+
+        # 탈출 판정 (행위 후)
+        escape_info = calculate_escape_chance(target_id, source_id)
+        if escape_info["chance"] > 0 and _random.random() < escape_info["chance"]:
+            target_info = morld.get_unit_info(target_id)
+            target_name = target_info.get("name", "상대") if target_info else "상대"
+            morld.add_action_log(f"{target_name}(이)가 몸을 뿌리치고 벗어났다!")
+            break

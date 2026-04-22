@@ -582,7 +582,7 @@ class InterruptMixin:
     def _try_self_exposure(self):
         """높은 성욕 + 호감 + 다른 NPC 있을 때 → 자발적 옷 들추기 (유혹)"""
         import settings
-        if not settings.is_harassment_enabled():
+        if not settings.is_romance_enabled():
             return False
         player_id = morld.get_player_id()
         if player_id is None or player_id < 0:
@@ -636,7 +636,7 @@ class InterruptMixin:
     def _try_harass_player(self):
         """NPC가 자발적으로 플레이어를 성추행 (호감 높을 때)"""
         import settings
-        if not settings.is_harassment_enabled():
+        if not settings.is_romance_enabled():
             return False
         player_id = morld.get_player_id()
         if player_id is None or player_id < 0:

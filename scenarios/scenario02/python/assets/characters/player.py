@@ -247,8 +247,8 @@ class Player(Character):
         """플레이어 자기 노출 — 상체/하체 선택"""
         import morld
         import settings
-        if not settings.is_harassment_enabled():
-            morld.add_action_log("성추행 모드가 꺼져 있다.")
+        if not settings.is_romance_enabled():
+            morld.add_action_log("연애 모드가 꺼져 있다.")
             return
         import ui
         lines = ["[b]어느 쪽을 노출할까?[/b]\n"]

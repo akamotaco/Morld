@@ -25,16 +25,20 @@ def is_romance_enabled() -> bool:
 
 
 def set_romance_enabled(enabled: bool):
-    """연애 모드 설정"""
+    """연애 모드 설정 — 성추행도 포함 (Phase 0.6에서 통합)"""
     global _romance_enabled
     _romance_enabled = enabled
-    # 플레이어 can: prop 연동 (스킨십/강제 행위 표시 제어)
+    # 플레이어 can: prop 연동 (스킨십/강제 행위/성추행/자위 표시 제어)
+    # Why: 성추행은 애정행위의 forced 모드 진입이므로 같은 토글로 관리.
+    #      별도 성추행 토글 제거 (2026-04-23).
     player_id = _get_player_id()
     if player_id >= 0:
         value = 1 if enabled else 0
         morld.set_unit_prop(player_id, "can:romance", value)
         morld.set_unit_prop(player_id, "can:force_romance", value)
         morld.set_unit_prop(player_id, "can:masturbate", value)
+        morld.set_unit_prop(player_id, "can:harass", value)
+        morld.set_unit_prop(player_id, "can:self_expose", value)
 
 
 # ============================================
@@ -59,26 +63,16 @@ def set_bestiality_enabled(enabled: bool):
 
 
 # ============================================
-# 성추행 모드
+# 성추행 모드 (Phase 0.6+에서 연애 모드로 통합)
 # ============================================
 
-_harassment_enabled = False
-
-
 def is_harassment_enabled() -> bool:
-    """성추행 모드 활성화 여부"""
-    return _harassment_enabled
+    """성추행 모드 활성화 여부 (연애 모드와 동일 — Phase 0.6+).
 
-
-def set_harassment_enabled(enabled: bool):
-    """성추행 모드 설정"""
-    global _harassment_enabled
-    _harassment_enabled = enabled
-    player_id = _get_player_id()
-    if player_id >= 0:
-        value = 1 if enabled else 0
-        morld.set_unit_prop(player_id, "can:harass", value)
-        morld.set_unit_prop(player_id, "can:self_expose", value)
+    Why: 성추행은 애정행위의 forced 모드 진입이므로 별도 토글 불필요.
+         하위 호환을 위해 함수는 유지하되 is_romance_enabled()로 위임.
+    """
+    return is_romance_enabled()
 
 
 # ============================================
@@ -211,10 +205,7 @@ def render_settings_ui(confirm_quit: bool = False, show_interval_menu: bool = Fa
     hostile_status = style_danger("ON") if hostile_on else style_muted("OFF")
     lines.append(f"[url=@proc:toggle_hostile]적대 모드[/url]: {hostile_status}")
 
-    # 성추행 모드
-    harass_on = is_harassment_enabled()
-    harass_status = style_danger("ON") if harass_on else style_muted("OFF")
-    lines.append(f"[url=@proc:toggle_harassment]성추행 모드[/url]: {harass_status}")
+    # 성추행은 연애 모드에 통합됨 (Phase 0.6+) — 별도 토글 없음
 
     # 달리기
     player_id = _get_player_id()
@@ -323,12 +314,7 @@ def show_settings_ui():
             morld.add_action_log(f"적대 모드: {status}")
             return _render()
 
-        # 성추행 모드 토글
-        if action == "toggle_harassment":
-            new_state = not is_harassment_enabled()
-            set_harassment_enabled(new_state)
-            morld.add_action_log(f"성추행 모드: {'ON' if new_state else 'OFF'}")
-            return _render()
+        # 성추행 토글은 연애 모드에 통합됨 (Phase 0.6+) — 별도 핸들러 없음
 
         # 달리기 토글
         if action == "toggle_sprint":

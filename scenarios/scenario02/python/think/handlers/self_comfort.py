@@ -413,9 +413,9 @@ def _find_npc_lover(agent):
             continue
         return char_id, "consensual"
 
-    # Pass 2: 강제 (단방향 호감 + power 우위 + 성추행 모드)
+    # Pass 2: 강제 (단방향 호감 + power 우위 + 연애 모드)
     import settings
-    if not settings.is_harassment_enabled():
+    if not settings.is_romance_enabled():
         return None, None
 
     from romance_mode import get_strength
