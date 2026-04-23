@@ -4697,23 +4697,42 @@ class Character(_CharacterBase):
     }
 
     def _on_npc_intimacy_discovered(self, player_id):
-        """NPC-NPC 성행위 조우 다이얼로그 (Generator) — Phase 2.1.
+        """NPC-NPC 성행위 조우 다이얼로그 (Generator) — Phase 2.1 / 2.3.
 
         플레이어가 NPC 성행위 현장에 도착/은신해제로 진입 시 호출.
         선택지:
           [은신 시도]  stealth 재시도 — 성공 시 세션 유지, 실패 시 발각
           [물러난다]   세션 유지 + 플레이어만 조용히 퇴장
           [목격한다]   기존 발각 반응 (세션 중단 + 아키타입 대사)
+
+        Phase 2.3: 현장 NPC가 플레이어의 연인이면 NTR 묘사 + 수치 반응.
         """
         is_forced_victim = bool(morld.get_unit_prop(
             self.instance_id, "상태:NPC강제피해중"))
         name = self.name
 
+        # Phase 2.3: NTR 감지 — 플레이어의 연인 NPC가 다른 NPC와
+        is_ntr = False
+        try:
+            from romance_dynamics import get_relationship_label
+            label = get_relationship_label(self.instance_id, player_id)
+            is_ntr = label in ("연인", "배우자", "헌신적 종자")
+        except Exception:
+            pass
+
         def handler():
             import stealth as stealth_mod
-            header = f"[!]{name}(와)과 또 다른 NPC가 "
-            header += "강제로 얽혀 있는 모습이" if is_forced_victim else "격렬히 얽혀 있는 모습이"
-            header += " 눈앞에 펼쳐져 있다.[/!]"
+            # NTR 케이스 — 배신감/분노 묘사
+            if is_ntr and is_forced_victim:
+                header = (f"[!]{style_danger(f'당신의 연인인 {name}(이)가 강제로 당하고 있다!')}\n"
+                          f"분노가 치솟는다.[/!]")
+            elif is_ntr:
+                header = (f"[!]{style_danger(f'당신의 연인인 {name}(이)가 다른 NPC와 격렬히 얽혀 있다.')}\n"
+                          f"배신감이 엄습한다...[/!]")
+            else:
+                header = f"[!]{name}(와)과 또 다른 NPC가 "
+                header += "강제로 얽혀 있는 모습이" if is_forced_victim else "격렬히 얽혀 있는 모습이"
+                header += " 눈앞에 펼쳐져 있다.[/!]"
 
             lines = [header, ""]
             # 이미 은신 중이 아닐 때만 은신 시도 옵션 (여기 도달 = 비은신 or 발각됨)
@@ -4754,10 +4773,29 @@ class Character(_CharacterBase):
 
         Phase 2.1에서 `_on_npc_intimacy_discovered` 선택 경로 중 "목격" 분기용으로
         분리. 기존 즉시 발각 흐름과 동일.
+
+        Phase 2.3: 합의 정사 + 현장 NPC가 플레이어 연인이면
+        신뢰 훼손 수치 적용 (호감/애정 -5).
         """
         import think
         agent = think.get_agent(self.instance_id)
         partner_id = morld.get_unit_prop(self.instance_id, "성행위:상대")
+
+        # Phase 2.3: NTR 신뢰 훼손 (합의 정사 + 연인 관계인 경우만)
+        is_forced_victim = bool(morld.get_unit_prop(
+            self.instance_id, "상태:NPC강제피해중"))
+        if not is_forced_victim:
+            try:
+                from romance_dynamics import get_relationship_label, modify_love
+                from romance_core import get_affection_key
+                label = get_relationship_label(self.instance_id, player_id)
+                if label in ("연인", "배우자", "헌신적 종자"):
+                    # 들킨 NPC의 플레이어에 대한 호감/애정 감소 (신뢰 훼손)
+                    morld.modify_prop(self.instance_id,
+                                      get_affection_key(player_id), -5)
+                    modify_love(self.instance_id, player_id, -5)
+            except Exception:
+                pass
 
         # 이니시에이터인 경우 → 상태 정리 (강제 종료)
         if agent and agent._memory.get("npc_intimacy_phase") is not None:

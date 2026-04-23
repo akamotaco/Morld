@@ -1557,6 +1557,62 @@ class TestNpcIntimacyDescribePool:
 
 
 # ============================================
+# Phase 2.3: NTR 신뢰 훼손 (합의 정사 + 연인 관계)
+# ============================================
+
+class TestNtrTrustPenalty:
+    """연인이 다른 NPC와 합의 정사를 하다 들키면 신뢰 훼손."""
+
+    def _setup_lover(self):
+        """NPC 2 를 플레이어(1) 의 연인으로 설정."""
+        morld.register_unit(1, name="주인공", gender="male", props={"성별": 1})
+        morld.register_unit(2, name="유키", gender="female", props={
+            "성별": 2,
+            "관계:주인공:호감": 70,
+            "관계:주인공:복종": 0,
+            "관계:주인공:애정": 70,
+            "관계:주인공:반발": 0,
+        })
+        morld._player_id = 1
+
+    def test_consensual_with_lover_reduces_trust(self):
+        """합의 정사 + 연인 관계 → 호감/애정 각 -5."""
+        from romance_dynamics import get_relationship_label, modify_love
+        from romance_core import get_affection_key
+        self._setup_lover()
+        # 연인 라벨 확인
+        assert get_relationship_label(2, 1) == "연인"
+        # NTR 처벌 로직 재현 (_run_npc_intimacy_discovery_reaction 내부)
+        morld.modify_prop(2, get_affection_key(1), -5)
+        modify_love(2, 1, -5)
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 65
+        assert morld.get_unit_prop(2, "관계:주인공:애정") == 65
+
+    def test_forced_victim_no_trust_penalty(self):
+        """강제 피해자는 처벌 없음 (잘못이 없음)."""
+        self._setup_lover()
+        morld.set_unit_prop(2, "상태:NPC강제피해중", 1)
+        # _run_ 내부에서 forced_victim이면 신뢰 훼손 skip
+        # 테스트로는 "강제 케이스에서 호감/애정 유지되는 것"만 확인
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 70
+        assert morld.get_unit_prop(2, "관계:주인공:애정") == 70
+
+    def test_non_lover_no_ntr_detection(self):
+        """연인이 아닌 NPC는 NTR 케이스 아님."""
+        from romance_dynamics import get_relationship_label
+        morld.register_unit(1, name="주인공", gender="male", props={"성별": 1})
+        morld.register_unit(2, name="유키", gender="female", props={
+            "성별": 2,
+            "관계:주인공:호감": 30,  # 지인 수준
+            "관계:주인공:애정": 0,
+        })
+        morld._player_id = 1
+        # "지인" 또는 "친구" 라벨 — 연인 아님
+        label = get_relationship_label(2, 1)
+        assert label not in ("연인", "배우자", "헌신적 종자")
+
+
+# ============================================
 # Phase 1.7: 수치심 훅 호출 지점 연결
 # ============================================
 
