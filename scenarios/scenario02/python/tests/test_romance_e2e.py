@@ -1420,6 +1420,18 @@ class TestAutonomyDialoguePool:
             for key in required_keys:
                 assert key in reactions, f"{cls_name} missing {key}"
 
+    def test_all_have_trance_dialogue(self):
+        """Phase 1.8: 트랜스 상태 대사 (trance/trance_deep) — 모든 주요 캐릭터."""
+        required_keys = [
+            "trance:start",
+            "trance_deep:start",
+        ]
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for key in required_keys:
+                assert key in reactions, f"{cls_name} missing {key}"
+
 
 # ============================================
 # Phase 1.7: 수치심 훅 호출 지점 연결
