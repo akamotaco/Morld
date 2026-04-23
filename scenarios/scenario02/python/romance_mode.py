@@ -320,6 +320,18 @@ def calculate_escape_chance(target_id, actor_id):
               + rebellion * ESCAPE_REBELLION_BONUS
               - submission * ESCAPE_SUBMISSION_PENALTY
               - arousal * ESCAPE_AROUSAL_PENALTY)
+
+    # 트랜스 페널티 (Phase 1.9.1) — 연쇄 절정/여운은 트랜스로 자동 반영
+    # 깊은 트랜스일수록 저항 의지 약화
+    try:
+        from romance_dynamics import is_in_trance, is_in_deep_trance
+        if is_in_deep_trance(target_id):
+            chance -= 0.30
+        elif is_in_trance(target_id):
+            chance -= 0.15
+    except Exception:
+        pass
+
     chance = max(0.0, min(ESCAPE_MAX, chance))
 
     # 저항 게이지 축적 — 반발이 높을수록 빠르게 누적

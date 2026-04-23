@@ -275,6 +275,49 @@ class TestEscapeChance:
         info = rm.calculate_escape_chance(2, 1)
         assert info["chance"] <= 0.5
 
+    def test_trance_entry_penalty(self):
+        """Phase 1.9.1: 트랜스 60~79 → -0.15 페널티."""
+        morld.register_unit(1, props={"생존:체력": 50})
+        morld.register_unit(2, props={
+            "생존:체력": 100,       # +0.25 (체력 우위)
+            "상태:트랜스": 60,       # entry 구간
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        # base 0.10 + 0.25 - 0.15 = 0.20
+        assert abs(info["chance"] - 0.20) < 0.001
+
+    def test_trance_deep_penalty(self):
+        """Phase 1.9.1: 트랜스 80+ → -0.30 페널티."""
+        morld.register_unit(1, props={"생존:체력": 50})
+        morld.register_unit(2, props={
+            "생존:체력": 100,       # +0.25
+            "상태:트랜스": 90,       # deep 구간
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        # base 0.10 + 0.25 - 0.30 = 0.05
+        assert abs(info["chance"] - 0.05) < 0.001
+
+    def test_trance_deep_can_zero_chance(self):
+        """깊은 트랜스 + 체력 동등 → 탈출 0."""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={
+            "생존:체력": 100,
+            "상태:트랜스": 90,
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        # base 0.10 + 0 - 0.30 = -0.20 → clamp 0
+        assert info["chance"] == 0.0
+
+    def test_no_trance_no_penalty(self):
+        """트랜스 prop 없거나 60 미만 → 페널티 없음."""
+        morld.register_unit(1, props={"생존:체력": 100})
+        morld.register_unit(2, props={
+            "생존:체력": 100,
+            "상태:트랜스": 59,
+        })
+        info = rm.calculate_escape_chance(2, 1)
+        assert abs(info["chance"] - 0.10) < 0.001
+
     def test_meter_delta_rebellion_accelerates(self):
         """반발 높으면 저항 게이지 빨리 누적"""
         morld.register_unit(1, props={"생존:체력": 100})
