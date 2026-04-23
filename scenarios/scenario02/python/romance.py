@@ -76,6 +76,10 @@ POSITION_REQUEST_AROUSAL = 70           # NPC 성욕 임계
 POSITION_REQUEST_COOLDOWN_MS = 5 * MILLIS_PER_MINUTE  # 요구 쿨다운
 POSITION_REQUEST_CHANCE = 0.3           # 매 체크마다 발동 확률
 
+# NPC 삽입 요구 대사 훅 (삽입 없는 상태 + 트랜스)
+INSERTION_REQUEST_COOLDOWN_MS = 5 * MILLIS_PER_MINUTE
+INSERTION_REQUEST_CHANCE = 0.25
+
 # NPC 자율 행위 루프 (Phase 1.6 — 봉사/자위 번갈아 수행)
 AUTONOMY_ENTRY_AROUSAL = 80             # 진입 성욕 임계
 AUTONOMY_EXIT_AROUSAL = 60              # 성욕 하락 시 종료 임계
@@ -754,6 +758,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         "npc_thrust_trance": False,
         # NPC 선호 체위 요구 쿨다운 (세션 elapsed_time 기준)
         "last_position_request_elapsed": None,
+        # NPC 삽입 요구 쿨다운
+        "last_insertion_request_elapsed": None,
         # NPC 자율 행위 루프 (Phase 1.6)
         "npc_autonomy": {
             "active": False,
@@ -1129,8 +1135,71 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         return _get_autonomy_reaction(state, next_action, "switch") \
             or _get_autonomy_reaction(state, next_action, "start")
 
+    def _check_npc_insertion_request(state):
+        """삽입 없는 상태에서 NPC가 삽입을 요구하는 대사 (대사만).
+
+        조건:
+        - 삽입 없음
+        - NPC 트랜스 ≥ 60
+        - NPC 해부학 V 또는 A 보유 + 플레이어 P 보유
+        - 플레이어 하체 노출
+        - 쿨다운 5분, 확률 25%
+        """
+        if state["insertion"]["active"]:
+            return None
+        pid = state["partner_id"]
+        player_id = state["player_id"]
+        from romance_dynamics import update_trance_level, is_in_trance
+        update_trance_level(pid)
+        if not is_in_trance(pid):
+            return None
+        import gender
+        if not gender.has_anatomy(player_id, "P"):
+            return None
+        from romance_core import get_exposure_state as _get_exp
+        if not _get_exp(player_id).get("lower_exposed"):
+            return None
+        available = []
+        if gender.has_anatomy(pid, "V"):
+            available.append(("vaginal", "V"))
+        if gender.has_anatomy(pid, "A"):
+            available.append(("anal", "A"))
+        if not available:
+            return None
+        last = state.get("last_insertion_request_elapsed")
+        if last is not None and \
+                state["elapsed_time"] - last < INSERTION_REQUEST_COOLDOWN_MS:
+            return None
+        import random as _random
+        if _random.random() >= INSERTION_REQUEST_CHANCE:
+            return None
+
+        # 선호 부위 가중치 선택
+        prefs = state.get("npc_prefs") or {}
+        preferred = prefs.get("preferred_parts") or []
+        weights = [2.0 if part in preferred else 1.0 for _, part in available]
+        total = sum(weights)
+        r = _random.random() * total
+        acc = 0.0
+        target_orifice = available[-1][0]
+        for (orifice, _), w in zip(available, weights):
+            acc += w
+            if r <= acc:
+                target_orifice = orifice
+                break
+        state["last_insertion_request_elapsed"] = state["elapsed_time"]
+
+        reaction = _get_mode_reaction("npc_insertion_request", target_orifice)
+        if not reaction:
+            reaction = _get_mode_reaction("npc_insertion_request", "start")
+        if not reaction:
+            pname = _get_partner_name(state)
+            label = "질" if target_orifice == "vaginal" else "항문"
+            reaction = f"{pname}(이)가 {label}에 삽입해주기를 원하는 듯한 몸짓을 보였다..."
+        return reaction
+
     def _try_npc_autonomy_after_action(state, action_id):
-        """행위 후 NPC 자율 행위 루프 체크 (삽입 없음 상태).
+        """행위 후 NPC 자율 행위 루프 + 삽입 요구 체크 (삽입 없음 상태).
 
         삽입 중이면 thrust_trance로 이관되므로 여기서는 삽입 여부 선체크.
         반환된 대사는 last_reaction에 추가.
@@ -1157,6 +1226,13 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         if reaction:
             prev = state.get("last_reaction") or ""
             state["last_reaction"] = (prev + f"\n{reaction}").strip()
+
+        # 삽입 요구는 autonomy inactive일 때만 (자발 행동 중엔 생략)
+        if not auto["active"]:
+            insertion_req = _check_npc_insertion_request(state)
+            if insertion_req:
+                prev = state.get("last_reaction") or ""
+                state["last_reaction"] = (prev + f"\n{insertion_req}").strip()
 
     # ── NPC Thrust Trance 끝 ──────────────────────────────────
 

@@ -1408,6 +1408,18 @@ class TestAutonomyDialoguePool:
             for key in required_keys:
                 assert key in reactions, f"{cls_name} missing {key}"
 
+    def test_all_have_insertion_request_pools(self):
+        """Phase 1.6.2: 삽입 요구 대사 (vaginal/anal) 검증."""
+        required_keys = [
+            "npc_insertion_request:vaginal",
+            "npc_insertion_request:anal",
+        ]
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for key in required_keys:
+                assert key in reactions, f"{cls_name} missing {key}"
+
 
 # ============================================
 # Phase 1.6-b: 자위 5종 카탈로그 구조 검증
