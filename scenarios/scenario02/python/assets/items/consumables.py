@@ -68,7 +68,7 @@ class Aphrodisiac(Item):
         return "은밀한 약이다. 복용하면 성욕이 서서히 올라간다."
 
     def use(self):
-        """미약 복용 — 6시간 성욕 증가"""
+        """미약 복용 — 6시간 성욕 증가 + 트랜스:외부 +30 (Phase 1.9.4)."""
         player_id = morld.get_player_id()
 
         remaining = morld.get_unit_prop(player_id, "상태:미약남은시간") or 0
@@ -78,6 +78,7 @@ class Aphrodisiac(Item):
 
         morld.set_unit_prop(player_id, "상태:미약", 1)
         morld.set_unit_prop(player_id, "상태:미약남은시간", 6)
+        morld.modify_prop(player_id, "트랜스:외부", 30)
 
         morld.lost_item(player_id, self.instance_id)
 
@@ -251,3 +252,82 @@ class Antidote(Item):
 
         morld.lost_item(player_id, self.instance_id)
         morld.advance_time_des(5_000)
+
+
+# ========================================
+# 와인 (알코올)
+# ========================================
+
+_WINE_DRUNK_GAIN = 15    # 1잔 = 취기 +15 (약 3시간 지속, -5/h 감쇠)
+
+
+@register_item
+class Wine(Item):
+    """와인 — 마시면 `상태:취기` 상승. 트랜스 진입 쉬워지고 정신 방어 약화.
+
+    Phase 1.9.4: `상태:취기` 독립 축 도입. `compute_trance_level`에서
+    `트랜스:외부`와 함께 external 기여. `_decay_drunk_tick` (1h -5/h).
+    """
+    unique_id = "wine"
+    name = "와인"
+    category = "drink"
+    value = 15
+    actions = ["take@ground", "take@container", "call:drink:마시기@inventory",
+               "call:mix_food:음식에 넣기@inventory"]
+
+    def get_focus_text(self):
+        return "와인 한 병이다. 마시면 취기가 올라 경계심이 무뎌진다."
+
+    def drink(self):
+        """플레이어 본인이 와인 마시기 — 취기 +15."""
+        player_id = morld.get_player_id()
+        current = morld.get_unit_prop(player_id, "상태:취기") or 0
+        morld.set_unit_prop(player_id, "상태:취기",
+                            min(100, current + _WINE_DRUNK_GAIN))
+        morld.lost_item(player_id, self.instance_id)
+        yield ui.dialog([
+            "와인을 마셨다.",
+            "몸이 따뜻해지며 머리가 살짝 몽롱해진다...",
+        ])
+
+    def mix_food(self):
+        """음식에 와인 몰래 넣기 — NPC가 먹으면 취기 가산."""
+        from assets.items import get_instance as get_item_instance
+
+        player_id = morld.get_player_id()
+        inventory = morld.get_unit_inventory(player_id)
+        if not inventory:
+            yield ui.dialog("음식이 없다.")
+            return
+
+        lines = ["와인을 넣을 음식을 선택하세요.\n"]
+        found = False
+        for item_id, _count in inventory.items():
+            item_id_int = int(item_id)
+            if item_id_int == self.instance_id:
+                continue
+            inst = get_item_instance(item_id_int)
+            if inst and hasattr(inst, 'food_satiety') and inst.food_satiety > 0:
+                info = morld.get_item_info(item_id_int)
+                if info:
+                    found = True
+                    lines.append(f"[url=@ret:{item_id_int}]{info.get('name', '음식')}[/url]")
+
+        if not found:
+            yield ui.dialog("와인을 넣을 수 있는 음식이 없다.")
+            return
+
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+        result = yield ui.dialog("\n".join(lines), autofill="off")
+        if not result or result == "cancel":
+            return
+
+        food_id = int(result)
+        food_info = morld.get_item_info(food_id)
+        if not food_info:
+            return
+
+        morld.set_unit_prop(food_id, "상태:취기첨가", 1)
+        morld.lost_item(player_id, self.instance_id)
+        food_name = food_info.get("name", "음식")
+        yield ui.dialog(f"{food_name}에 와인을 몰래 넣었다.")

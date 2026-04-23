@@ -3301,8 +3301,9 @@ class Character(_CharacterBase):
 
         food_eaten = False
         if is_food:
-            # 미약 첨가 여부 확인
+            # 미약/취기 첨가 여부 확인
             has_aphrodisiac = morld.get_unit_prop(item_id, "상태:미약첨가") == 1
+            has_drunk_additive = morld.get_unit_prop(item_id, "상태:취기첨가") == 1
 
             # 섭취 확률: 선호 음식 80%, 일반 음식 50%
             import random
@@ -3314,12 +3315,19 @@ class Character(_CharacterBase):
                 morld.lost_item(partner_id, item_id)  # 소비
                 food_eaten = True
 
-                # 미약 효과 적용
+                # 미약 효과 적용 — Phase 1.9.4: 트랜스:외부 +30 가산 추가
                 if has_aphrodisiac:
                     aph_remaining = morld.get_unit_prop(partner_id, "상태:미약남은시간") or 0
                     if aph_remaining <= 0:
                         morld.set_unit_prop(partner_id, "상태:미약", 1)
                         morld.set_unit_prop(partner_id, "상태:미약남은시간", 6)
+                        morld.modify_prop(partner_id, "트랜스:외부", 30)
+
+                # 취기 첨가 음식 효과 (Phase 1.9.4)
+                if has_drunk_additive:
+                    cur_drunk = morld.get_unit_prop(partner_id, "상태:취기") or 0
+                    morld.set_unit_prop(partner_id, "상태:취기",
+                                        min(100, cur_drunk + 15))
             else:
                 # 나중에 먹겠다며 보관
                 import inventory as inv_module

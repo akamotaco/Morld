@@ -1338,11 +1338,45 @@ def _decay_trance_external_tick():
             pass
 
 
+def _decay_drunk_tick():
+    """1시간 간격 `상태:취기` 자연 감쇠 (알코올 분해).
+
+    Phase 1.9.4: 술은 여운보다 천천히 빠짐 (-5/h vs 여운 -10/h).
+    _SHAME_REGISTRY 재활용.
+    """
+    for uid in list(_SHAME_REGISTRY):
+        try:
+            cur = morld.get_unit_prop(uid, "상태:취기") or 0
+            if cur > 0:
+                morld.set_unit_prop(uid, "상태:취기", max(0, cur - 5))
+        except Exception:
+            pass
+
+
+def _decay_aphrodisiac_tick():
+    """1시간 간격 `상태:미약남은시간` 감쇠 — 0 되면 `상태:미약` 해제.
+
+    Phase 1.9.4: 미약 6시간 지속 tick 연결.
+    """
+    for uid in list(_SHAME_REGISTRY):
+        try:
+            remaining = morld.get_unit_prop(uid, "상태:미약남은시간") or 0
+            if remaining > 0:
+                new_remaining = max(0, remaining - 1)
+                morld.set_unit_prop(uid, "상태:미약남은시간", new_remaining)
+                if new_remaining == 0:
+                    morld.set_unit_prop(uid, "상태:미약", 0)
+        except Exception:
+            pass
+
+
 def _on_time_elapsed_shame(millis):
-    """1시간 간격 수치심 자연 감쇠 + 공공 노출 체크 + 트랜스 외부 감쇠."""
+    """1시간 간격 tick — 수치심/공공노출/트랜스외부/취기/미약 처리."""
     _decay_shame_tick()
     _check_nude_in_public_tick()
     _decay_trance_external_tick()
+    _decay_drunk_tick()
+    _decay_aphrodisiac_tick()
 
 
 try:

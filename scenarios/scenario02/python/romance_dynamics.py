@@ -187,7 +187,9 @@ def compute_trance_level(unit_id):
     gauge = morld.get_unit_prop(unit_id, "상태:절정") or 0
     # 실질 자제심 (복종 침잠 반영, Phase 1.9)
     restraint = get_effective_restraint(unit_id)
+    # 외부 가산 (Phase 1.9.4): 트랜스:외부(절정여운/최면/약물) + 상태:취기(알코올)
     external = morld.get_unit_prop(unit_id, "트랜스:외부") or 0
+    drunk = morld.get_unit_prop(unit_id, "상태:취기") or 0
     # 누적 절정 경험 bonus (era 快楽 근사)
     climax_exp = _sum_climax_experience(unit_id)
     climax_exp_bonus = min(CLIMAX_EXPERIENCE_BONUS_CAP, int(climax_exp * 0.3))
@@ -195,7 +197,7 @@ def compute_trance_level(unit_id):
     # 자제심 방어 (50 초과일 때만 감쇠, 50 이하는 방어 없음)
     defense_factor = max(0.1, 1.0 - max(0, restraint - 50) * 0.02)
     base *= defense_factor
-    value = int(base + external)
+    value = int(base + external + drunk)
     return max(0, min(100, value))
 
 

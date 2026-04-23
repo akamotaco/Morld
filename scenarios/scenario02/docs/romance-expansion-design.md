@@ -928,6 +928,67 @@ def _maybe_append_post_trance_reaction(pid):
 
 ---
 
+### Phase 1.9.4: 정신 교란 아이템 — 알코올 + 미약 통합 (2026-04-24 완료)
+
+**배경**: `트랜스:외부` 축의 실제 원인(아이템/상태)을 연결. 원인별 독립 prop
+설계로 다양한 지속/감쇠/서사 분기 가능.
+
+#### 1.9.4.1 원인별 prop 분리
+
+| 원인 | prop | 지속/감쇠 |
+|-----|------|---------|
+| 알코올 (술) | `상태:취기` (0~100) | 1h -5 (천천히 빠짐) |
+| 미약 | `상태:미약` + `상태:미약남은시간` (6h 타이머) + `트랜스:외부` +30 | `남은시간` -1/h, 0 되면 미약 해제 |
+| 절정 여운 | `트랜스:외부` +20 (Phase 1.9.1) | 1h -10 |
+| 최면/마약 | (후속) | — |
+
+#### 1.9.4.2 `compute_trance_level` 확장
+
+```python
+external = (트랜스:외부) + (상태:취기)   # 합산 external 기여
+value = int(base + external)
+```
+
+취기는 독립 prop으로 보관 → UI 표시 / 술 특화 서사 분기 가능.
+`트랜스:외부`는 여운/미약/최면/약물 공유 축.
+
+#### 1.9.4.3 신규 아이템: `Wine`
+
+- `assets/items/consumables.py::Wine`
+- `call:drink:마시기` → `상태:취기` +15 (1잔)
+- `call:mix_food:음식에 넣기` → 음식에 `상태:취기첨가` 표식 → NPC 섭취 시 +15
+
+#### 1.9.4.4 기존 미약 통합
+
+- `Aphrodisiac.use()` 복용 시 `트랜스:외부` +30 추가 (기존 `상태:미약` 유지)
+- `base.py::eat_food` NPC 경로 동일 (미약 첨가 음식)
+- `_decay_aphrodisiac_tick` 1h tick: `상태:미약남은시간` -1, 0 되면 `상태:미약` 해제
+
+#### 1.9.4.5 감쇠 tick 통합
+
+`_on_time_elapsed_shame` 1h tick에 4개 감쇠 함수 체인:
+- `_decay_shame_tick` — 수치심 자연 감쇠
+- `_decay_trance_external_tick` — 여운/약물 회복
+- `_decay_drunk_tick` — 취기 분해 (술 천천히 빠짐)
+- `_decay_aphrodisiac_tick` — 미약 타이머
+
+모두 `_SHAME_REGISTRY` 재활용 (romance 경험 있는 NPC 범위).
+
+#### 1.9.4.6 테스트 커버리지
+
+신규 5개 dynamics 테스트 (`TestDrunkennessAxis`):
+- 취기만 있어도 트랜스 기여
+- `트랜스:외부` + `상태:취기` 합산
+- 고자제심 NPC도 취기로 진입 가능
+- 100 clamp / 누락 prop 기본값
+
+#### 1.9.4.7 남은 후속
+- 독주 / 마약 / 최면제 — 더 강한 효과 / 다른 감쇠율의 개별 아이템
+- 술 전용 서사 분기 (`drunk:start` 대사 키)
+- 중독/내성 메커니즘
+
+---
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)

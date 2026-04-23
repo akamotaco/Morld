@@ -640,3 +640,57 @@ class TestTranceExitRegistry:
         morld.set_unit_prop(2, "상태:절정", 40)
         rd.update_trance_level(2)
         assert rd.pop_last_trance_exit(2) is None
+
+
+# ============================================
+# 상태:취기 통합 (Phase 1.9.4)
+# ============================================
+
+class TestDrunkennessAxis:
+    def setUp(self):
+        _setup_pair()
+        morld._player_id = 1
+
+    def test_drunk_alone_adds_to_trance(self):
+        """취기만 있어도 트랜스에 기여."""
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 0)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        morld.set_unit_prop(2, "상태:취기", 40)
+        # base=0, factor 1.0, external=0+drunk=40 → trance 40
+        assert rd.compute_trance_level(2) == 40
+
+    def test_drunk_plus_external_sums(self):
+        """트랜스:외부 + 상태:취기 합산."""
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 20)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        morld.set_unit_prop(2, "트랜스:외부", 20)
+        morld.set_unit_prop(2, "상태:취기", 30)
+        # base=10, external 20+30=50 → 60
+        assert rd.compute_trance_level(2) == 60
+
+    def test_drunk_bypasses_restraint(self):
+        """고자제심도 취기로 트랜스 진입 가능."""
+        morld.set_unit_prop(2, "성격:자제심", 100)
+        morld.set_unit_prop(2, "상태:성욕", 20)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        morld.set_unit_prop(2, "상태:취기", 70)
+        # base=10 × 0.1 = 1, +취기 70 → 71 (진입!)
+        assert rd.compute_trance_level(2) >= 60
+
+    def test_drunk_clamped_at_100(self):
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 100)
+        morld.set_unit_prop(2, "상태:절정", 100)
+        morld.set_unit_prop(2, "상태:취기", 100)
+        # 200 초과 → clamp 100
+        assert rd.compute_trance_level(2) == 100
+
+    def test_drunk_missing_defaults_zero(self):
+        """취기 prop 없으면 0 취급, 기존 공식과 동일."""
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 80)
+        morld.set_unit_prop(2, "상태:절정", 40)
+        # base=60, external 0, drunk 0 → 60
+        assert rd.compute_trance_level(2) == 60
