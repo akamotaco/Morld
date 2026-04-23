@@ -883,6 +883,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         # 절정게이지 동기화 후 재계산 (매번 최신값 반영)
         morld.set_unit_prop(pid, "상태:절정", gauge)
         update_trance_level(pid)
+        _maybe_append_post_trance_reaction(pid)
         entry_arousal = config["entry_arousal"]
         entry_gauge = config["entry_gauge"]
         if is_in_trance(pid):
@@ -1035,6 +1036,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         # 트랜스 재계산 후 게이트
         from romance_dynamics import update_trance_level, is_in_trance
         update_trance_level(pid)
+        _maybe_append_post_trance_reaction(pid)
         if not is_in_trance(pid):
             return False
         last_exit = auto.get("last_exit_elapsed")
@@ -1166,6 +1168,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         player_id = state["player_id"]
         from romance_dynamics import update_trance_level, is_in_trance
         update_trance_level(pid)
+        _maybe_append_post_trance_reaction(pid)
         if not is_in_trance(pid):
             return None
         import gender
@@ -1248,6 +1251,21 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             if insertion_req:
                 prev = state.get("last_reaction") or ""
                 state["last_reaction"] = (prev + f"\n{insertion_req}").strip()
+
+    def _maybe_append_post_trance_reaction(pid):
+        """트랜스 이탈 감지된 경우 `post_trance:start` 대사를 last_reaction에 삽입.
+
+        `update_trance_level` 호출 직후에 부르면, pop을 통해 1회성으로 소비됨.
+        Phase 1.9.3 캐릭터 대사 풀과 Phase 1.9.2 이탈 감지가 연결되는 지점.
+        """
+        from romance_dynamics import pop_last_trance_exit
+        exit_info = pop_last_trance_exit(pid)
+        if exit_info is None:
+            return
+        reaction = _get_mode_reaction("post_trance", "start")
+        if reaction:
+            prev = state.get("last_reaction") or ""
+            state["last_reaction"] = (prev + f"\n{reaction}").strip()
 
     # ── NPC Thrust Trance 끝 ──────────────────────────────────
 

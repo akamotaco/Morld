@@ -882,8 +882,49 @@ if prev >= TRANCE_ENTRY and new_value < TRANCE_ENTRY:
 
 #### 1.9.2.4 남은 후속
 
-- 캐릭터별 `post_trance:start` 대사 풀 (6 캐릭터 × 아키타입 톤별)
-- 대사 트리거: session 내 `last_reaction`에 추가 vs 다음 대화 이벤트 지연 반영
+- ~~캐릭터별 `post_trance:start` 대사 풀~~ — **Phase 1.9.3에서 완료**
+- ~~대사 트리거 (session 내 last_reaction 삽입)~~ — **Phase 1.9.3에서 완료**
+
+---
+
+### Phase 1.9.3: post_trance 대사 풀 + 세션 연결 (2026-04-24 완료)
+
+**배경**: Phase 1.9.2 훅이 수치심만 올리고 대사가 화면에 노출되지 않던 상태를 마무리.
+
+#### 1.9.3.1 캐릭터별 대사 풀
+
+6 캐릭터 × `post_trance:start` 키 × 아키타입 톤:
+- lina (cheerful): "...어? 나 방금 뭐 한 거지...?"
+- yuki (timid): "...저... 뭘 하고 있었죠... 창피해요"
+- ella (cold): "...잊어." 차갑게 말하지만 목소리 떨림
+- sera (stoic): "...방심했군."
+- mila (gentle): "...제가 이상했죠...? 죄송해요..."
+- faye (proud): "...젠장. 없던 일이야."
+
+#### 1.9.3.2 세션 연결 (Registry 패턴)
+
+`on_post_trance_return`이 모듈 수준이라 session state 직접 접근 불가.
+**Registry + pop** 패턴으로 엣지 정보 전달:
+
+```python
+_LAST_TRANCE_EXITS = {}  # unit_id -> {prev_peak, shame_gain}
+
+# update_trance_level이 이탈 감지 시:
+_LAST_TRANCE_EXITS[unit_id] = {"prev_peak": prev, "shame_gain": gain}
+
+# session closure에서 소비:
+def _maybe_append_post_trance_reaction(pid):
+    info = pop_last_trance_exit(pid)
+    if info and _get_mode_reaction("post_trance", "start"):
+        state["last_reaction"] += "\n" + reaction
+```
+
+`update_trance_level` 호출 지점 3곳(`_check_npc_thrust_trance`, `_can_enter_autonomy`, `_check_npc_insertion_request`)에서 직후 `_maybe_append_post_trance_reaction(pid)` 호출.
+
+#### 1.9.3.3 테스트 커버리지
+
+- 캐릭터 대사 풀 검증 1개 (e2e)
+- Registry 3개 (dynamics): 이탈 시 저장 / pop 후 비움 / 이탈 없을 때 비어있음
 
 ---
 

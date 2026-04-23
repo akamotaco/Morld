@@ -596,3 +596,47 @@ class TestPostTranceReturn:
         rd.update_trance_level(2)
         after = morld.get_unit_prop(2, "상태:수치심")
         assert after == 10
+
+
+class TestTranceExitRegistry:
+    """Phase 1.9.3: 세션 대사 삽입용 이탈 정보 레지스트리."""
+
+    def setUp(self):
+        _setup_pair()
+        morld._player_id = 1
+        # Registry clear
+        rd._LAST_TRANCE_EXITS.clear()
+
+    def test_registry_populated_on_exit(self):
+        """트랜스 이탈 → registry에 정보 저장."""
+        morld.set_unit_prop(2, "상태:트랜스", 85)
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 30)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        rd.update_trance_level(2)
+        info = rd.pop_last_trance_exit(2)
+        assert info is not None
+        assert info["prev_peak"] == 85
+        assert info["shame_gain"] == 25
+
+    def test_registry_pop_consumes(self):
+        """pop 후 두 번째 pop은 None (1회성)."""
+        morld.set_unit_prop(2, "상태:트랜스", 70)
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 30)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        rd.update_trance_level(2)
+        first = rd.pop_last_trance_exit(2)
+        second = rd.pop_last_trance_exit(2)
+        assert first is not None
+        assert first["shame_gain"] == 15
+        assert second is None
+
+    def test_registry_empty_when_no_exit(self):
+        """이탈 안 하면 registry 비어 있음."""
+        morld.set_unit_prop(2, "상태:트랜스", 30)
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 60)
+        morld.set_unit_prop(2, "상태:절정", 40)
+        rd.update_trance_level(2)
+        assert rd.pop_last_trance_exit(2) is None

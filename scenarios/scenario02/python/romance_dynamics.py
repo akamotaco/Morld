@@ -199,18 +199,36 @@ def compute_trance_level(unit_id):
     return max(0, min(100, value))
 
 
+_LAST_TRANCE_EXITS = {}  # unit_id -> {"prev_peak": int, "shame_gain": int}
+
+
 def update_trance_level(unit_id):
     """트랜스 수치 재계산 + prop 반영. 반환값은 갱신된 수치.
 
     Phase 1.9.2: 트랜스 이탈 감지 — 이전이 TRANCE_ENTRY 이상이고
-    현재 미만이면 `on_post_trance_return` 훅 발동 (회복 후 부끄러움).
+    현재 미만이면 `on_post_trance_return` 훅 발동 + 이탈 정보 기록
+    (세션 대사 삽입용 — `pop_last_trance_exit`로 소비).
     """
     prev = morld.get_unit_prop(unit_id, "상태:트랜스") or 0
     value = compute_trance_level(unit_id)
     morld.set_unit_prop(unit_id, "상태:트랜스", value)
     if prev >= TRANCE_ENTRY and value < TRANCE_ENTRY:
-        on_post_trance_return(unit_id, prev_peak=prev)
+        shame_gain = on_post_trance_return(unit_id, prev_peak=prev)
+        _LAST_TRANCE_EXITS[unit_id] = {
+            "prev_peak": prev,
+            "shame_gain": shame_gain if isinstance(shame_gain, int) else 15,
+        }
     return value
+
+
+def pop_last_trance_exit(unit_id):
+    """최근 트랜스 이탈 정보 조회 + 소비 (1회성).
+
+    세션 루프에서 update_trance_level 호출 직후 pop하여
+    post_trance 대사를 last_reaction에 삽입하는 용도.
+    없으면 None 반환.
+    """
+    return _LAST_TRANCE_EXITS.pop(unit_id, None)
 
 
 def on_post_trance_return(unit_id, prev_peak):
@@ -218,10 +236,13 @@ def on_post_trance_return(unit_id, prev_peak):
 
     깊은 트랜스(80+)에서 이탈이면 +25, 일반 트랜스(60~79) 이탈이면 +15.
     Phase 1 수치심 시스템 (apply_shame)을 재활용.
+
+    Returns: 적용된 수치심 gain (int).
     """
     from romance_core import apply_shame
     gain = 25 if prev_peak >= TRANCE_DEEP else 15
-    return apply_shame(unit_id, gain, reason="post_trance_return")
+    apply_shame(unit_id, gain, reason="post_trance_return")
+    return gain
 
 
 def is_in_trance(unit_id, threshold=TRANCE_ENTRY):
