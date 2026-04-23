@@ -1200,6 +1200,10 @@ def apply_action_effects(state, action_def):
             morld.set_unit_prop(npc_id, climax_count_key,
                                 (morld.get_unit_prop(npc_id, climax_count_key) or 0) + 1)
 
+        # 절정 시 일시 자제심 상실 → 트랜스:외부 +20 (Phase 1.9.1)
+        # 여운 중 의식 흐림. 1h tick으로 자연 회복.
+        morld.modify_prop(npc_id, "트랜스:외부", 20)
+
         # 절정 시 복종 증가 (반발에 의해 억제)
         climax_sub_gain = max(0, 2 - rebellion // 25)
         if climax_sub_gain > 0:

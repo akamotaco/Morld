@@ -1323,10 +1323,26 @@ def _check_nude_in_public_tick():
         pass
 
 
+def _decay_trance_external_tick():
+    """1시간 간격 `트랜스:외부` 자연 감쇠 (절정 여운 회복).
+
+    Phase 1.9.1: 절정 직후 +20 boost가 시간 지나며 -10씩 회복.
+    _SHAME_REGISTRY 재활용 — 수치심 이벤트 겪은 NPC는 보통 트랜스 경험도 있음.
+    """
+    for uid in list(_SHAME_REGISTRY):
+        try:
+            cur = morld.get_unit_prop(uid, "트랜스:외부") or 0
+            if cur > 0:
+                morld.set_unit_prop(uid, "트랜스:외부", max(0, cur - 10))
+        except Exception:
+            pass
+
+
 def _on_time_elapsed_shame(millis):
-    """1시간 간격 수치심 자연 감쇠 + 공공 노출 체크."""
+    """1시간 간격 수치심 자연 감쇠 + 공공 노출 체크 + 트랜스 외부 감쇠."""
     _decay_shame_tick()
     _check_nude_in_public_tick()
+    _decay_trance_external_tick()
 
 
 try:

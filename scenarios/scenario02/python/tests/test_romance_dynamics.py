@@ -440,3 +440,89 @@ class TestTranceInfluencedByCorruption:
         # base = 100 × 1.0 = 100 → trance_deep
         trance = rd.compute_trance_level(2)
         assert trance >= 80, f"expected deep trance, got {trance}"
+
+
+# ============================================
+# 절정 경험 / 일시 자제심 상실 (Phase 1.9.1)
+# ============================================
+
+class TestClimaxExperienceBonus:
+    """누적 절정 경험이 트랜스 base에 소폭 기여 (era 快楽 근사)."""
+
+    def setUp(self):
+        _setup_pair()
+        morld._player_id = 1
+
+    def test_no_experience_no_bonus(self):
+        """절정 경험 0 → bonus 0."""
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 60)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        # base = 30 + 0 = 30, factor 1.0 → 30
+        assert rd.compute_trance_level(2) == 30
+
+    def test_modest_experience_small_bonus(self):
+        """경험 10회 (부위 무관) → bonus 3."""
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 60)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        morld.set_unit_prop(2, "경험:절정:V", 10)
+        # bonus = min(15, 10 × 0.3) = 3
+        # base = 30 + 3 = 33
+        assert rd.compute_trance_level(2) == 33
+
+    def test_experience_bonus_capped(self):
+        """경험 합산 매우 많아도 cap 15."""
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 60)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        morld.set_unit_prop(2, "경험:절정:V", 100)
+        morld.set_unit_prop(2, "경험:절정:C", 100)
+        # sum 200, bonus = min(15, 60) = 15
+        # base = 30 + 15 = 45
+        assert rd.compute_trance_level(2) == 45
+
+    def test_experience_sums_across_parts(self):
+        """여러 부위 합산."""
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 60)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        morld.set_unit_prop(2, "경험:절정:V", 10)
+        morld.set_unit_prop(2, "경험:절정:A", 10)
+        morld.set_unit_prop(2, "경험:절정:C", 10)
+        # sum 30, bonus = min(15, 9) = 9
+        # base = 30 + 9 = 39
+        assert rd.compute_trance_level(2) == 39
+
+
+class TestTemporaryRestraintLossViaExternal:
+    """절정 발동 → 트랜스:외부 +20 (일시 자제심 상실 시뮬레이션)."""
+
+    def setUp(self):
+        _setup_pair()
+        morld._player_id = 1
+
+    def test_external_boosts_trance_even_high_restraint(self):
+        """고자제심 NPC에 외부 가산이 있으면 트랜스 진입 가능."""
+        morld.set_unit_prop(2, "성격:자제심", 90)
+        morld.set_unit_prop(2, "상태:성욕", 80)
+        morld.set_unit_prop(2, "상태:절정", 40)
+        # base = 60 × 0.2 = 12 → 평상 시 진입 불가
+        assert rd.compute_trance_level(2) < 60
+        # 연속 절정 3회분 외부 가산 (60)
+        morld.set_unit_prop(2, "트랜스:외부", 60)
+        # value = 12 + 60 = 72 → 진입
+        assert rd.compute_trance_level(2) >= 60
+
+    def test_external_recovers_after_decay(self):
+        """외부 가산이 감쇠되면 트랜스에서 이탈."""
+        morld.set_unit_prop(2, "성격:자제심", 90)
+        morld.set_unit_prop(2, "상태:성욕", 80)
+        morld.set_unit_prop(2, "상태:절정", 40)
+        morld.set_unit_prop(2, "트랜스:외부", 60)
+        high = rd.compute_trance_level(2)
+        # 자연 감쇠 후 (예: 외부 10으로 감소)
+        morld.set_unit_prop(2, "트랜스:외부", 10)
+        low = rd.compute_trance_level(2)
+        assert low < high
+        assert low < 60  # 미진입 구간으로 복귀

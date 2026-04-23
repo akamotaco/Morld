@@ -1465,6 +1465,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 morld.set_unit_prop(pid, climax_count_key,
                                     (morld.get_unit_prop(pid, climax_count_key) or 0) + 1)
 
+            # 절정 시 일시 자제심 상실 → 트랜스:외부 +20 (Phase 1.9.1)
+            # 여운 중 의식 흐림 표현. 1h tick으로 자연 회복.
+            morld.modify_prop(pid, "트랜스:외부", 20)
+
             # 마일스톤: 첫 절정
             if not morld.get_unit_prop(pid, "기억:첫절정"):
                 morld.set_unit_prop(pid, "기억:첫절정", 1)

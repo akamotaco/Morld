@@ -154,21 +154,31 @@ TRANCE_ENTRY = 60   # 흥분 트랜스 진입 임계 (페르소나 억제 풀림
 TRANCE_DEEP = 80    # 깊은 트랜스 (저항 약화, 자발성 극대)
 
 
+_CLIMAX_PARTS = ("B", "M", "V", "C", "A", "P")
+CLIMAX_EXPERIENCE_BONUS_CAP = 15
+
+
+def _sum_climax_experience(unit_id):
+    """부위별 절정 누적 경험 합산 (`경험:절정:{part}`)."""
+    total = 0
+    for part in _CLIMAX_PARTS:
+        total += morld.get_unit_prop(unit_id, f"경험:절정:{part}") or 0
+    return total
+
+
 def compute_trance_level(unit_id):
-    """성욕 + 절정게이지 × 자제심방어 + 외부 → 트랜스 수치 (0~100).
+    """성욕 + 절정게이지 + 절정경험 × 자제심방어 + 외부 → 트랜스 수치 (0~100).
 
     **비대칭 방어 전용 공식** (자제심 = 정신 공격 내성):
     - 자제심 50 이하: 방어 없음 (factor 1.0)
     - 자제심 50 초과: factor = max(0.1, 1.0 - (자제심 - 50) × 0.02)
-      - 자제심 70 → 0.6 (40% 방어)
-      - 자제심 80 → 0.4 (60% 방어)
-      - 자제심 100 → 0.1 (90% 방어)
 
-    외부 가산(세뇌/약물)은 자제심을 직접 우회 — 즉 강한 외부 자극은
-    고자제심 NPC에게도 트랜스 부여 가능.
+    외부 가산(세뇌/약물 + 절정 여운)은 자제심을 직접 우회.
+    누적 절정 경험은 base에 소폭 기여 (era 快楽 허들 낮추기).
 
     공식:
-      base = (성욕 + 게이지) / 2
+      climax_exp_bonus = min(15, sum(경험:절정:*) × 0.3)
+      base = (성욕 + 게이지) / 2 + climax_exp_bonus
       base × 자제심_방어_factor
       + 트랜스:외부
       → clamp 0~100
@@ -178,7 +188,10 @@ def compute_trance_level(unit_id):
     # 실질 자제심 (복종 침잠 반영, Phase 1.9)
     restraint = get_effective_restraint(unit_id)
     external = morld.get_unit_prop(unit_id, "트랜스:외부") or 0
-    base = (arousal + gauge) / 2.0
+    # 누적 절정 경험 bonus (era 快楽 근사)
+    climax_exp = _sum_climax_experience(unit_id)
+    climax_exp_bonus = min(CLIMAX_EXPERIENCE_BONUS_CAP, int(climax_exp * 0.3))
+    base = (arousal + gauge) / 2.0 + climax_exp_bonus
     # 자제심 방어 (50 초과일 때만 감쇠, 50 이하는 방어 없음)
     defense_factor = max(0.1, 1.0 - max(0, restraint - 50) * 0.02)
     base *= defense_factor
