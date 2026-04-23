@@ -1432,6 +1432,14 @@ class TestAutonomyDialoguePool:
             for key in required_keys:
                 assert key in reactions, f"{cls_name} missing {key}"
 
+    def test_all_have_post_trance_dialogue(self):
+        """Phase 1.9.2: 트랜스 이탈 후 부끄러움 대사 — 모든 주요 캐릭터."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            assert "post_trance:start" in reactions, \
+                f"{cls_name} missing post_trance:start"
+
 
 # ============================================
 # Phase 1.7: 수치심 훅 호출 지점 연결
