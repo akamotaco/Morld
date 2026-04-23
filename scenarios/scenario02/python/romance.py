@@ -857,7 +857,18 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
         gauge = state["stim"]["climax_gauge"]
 
-        if arousal < config["entry_arousal"] or gauge < config["entry_gauge"]:
+        # 트랜스 상태면 임계 -20 (자제심 낮거나 외부 자극으로 흥분 고조 시)
+        from romance_dynamics import update_trance_level, is_in_trance
+        # 절정게이지 동기화 후 재계산 (매번 최신값 반영)
+        morld.set_unit_prop(pid, "상태:절정", gauge)
+        update_trance_level(pid)
+        entry_arousal = config["entry_arousal"]
+        entry_gauge = config["entry_gauge"]
+        if is_in_trance(pid):
+            entry_arousal = max(20, entry_arousal - 20)
+            entry_gauge = max(10, entry_gauge - 10)
+
+        if arousal < entry_arousal or gauge < entry_gauge:
             return None
 
         thrust_id = _select_thrust_intensity(arousal, config)
@@ -988,20 +999,22 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
     _autonomy_pick_action = _autonomy_pick
 
     def _can_enter_autonomy(state):
-        """자율 루프 진입 조건."""
+        """자율 루프 진입 조건 — 트랜스 기반 (복종/호감 게이트 제거).
+
+        페르소나 관점: 성욕+흥분이 충분하고 자제심이 낮으면
+        (= 트랜스 상태) 자연스럽게 자발 행동에 나선다. 함락(복종) 여부는
+        트랜스 수치에 직접 영향을 주지 않지만 추후 세뇌/약물로 가산 가능.
+        """
         auto = state["npc_autonomy"]
         if auto["active"]:
             return False
         if state["insertion"]["active"]:
             return False
         pid = state["partner_id"]
-        player_id = state["player_id"]
-        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
-        if arousal < AUTONOMY_ENTRY_AROUSAL:
-            return False
-        submission = morld.get_unit_prop(pid, get_submission_key(player_id)) or 0
-        affection = morld.get_unit_prop(pid, get_affection_key(player_id)) or 0
-        if submission < AUTONOMY_MIN_SUBMISSION and affection < AUTONOMY_MIN_AFFECTION:
+        # 트랜스 재계산 후 게이트
+        from romance_dynamics import update_trance_level, is_in_trance
+        update_trance_level(pid)
+        if not is_in_trance(pid):
             return False
         last_exit = auto.get("last_exit_elapsed")
         if last_exit is not None and state["elapsed_time"] - last_exit < AUTONOMY_COOLDOWN_MS:

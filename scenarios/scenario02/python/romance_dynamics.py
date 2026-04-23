@@ -113,6 +113,53 @@ def modify_love(target_id, player_id, delta):
 
 
 # ============================================
+# 트랜스 상태 (`상태:트랜스`)
+# ============================================
+# 성욕 + 절정게이지 + 자제심 조합으로 산출 (prop 저장).
+# 외부 요인 (`트랜스:외부`)으로 세뇌/약물/최면/알코올 가산 가능.
+
+TRANCE_ENTRY = 60   # 흥분 트랜스 진입 임계 (페르소나 억제 풀림)
+TRANCE_DEEP = 80    # 깊은 트랜스 (저항 약화, 자발성 극대)
+
+
+def compute_trance_level(unit_id):
+    """성욕 + 절정게이지 × 자제심보정 + 외부 → 트랜스 수치 (0~100).
+
+    base = (성욕 + 절정게이지) / 2
+    base × (1 + (50 - 자제심) × 0.005)   # 자제심 역비례 ±25%
+    + 트랜스:외부 가산 (세뇌/약물 등)
+    → clamp 0~100
+    """
+    arousal = morld.get_unit_prop(unit_id, "상태:성욕") or 0
+    gauge = morld.get_unit_prop(unit_id, "상태:절정") or 0
+    restraint = morld.get_unit_prop(unit_id, "성격:자제심")
+    if restraint is None:
+        restraint = 50
+    external = morld.get_unit_prop(unit_id, "트랜스:외부") or 0
+    base = (arousal + gauge) / 2.0
+    base *= 1.0 + (50 - restraint) * 0.005
+    value = int(base + external)
+    return max(0, min(100, value))
+
+
+def update_trance_level(unit_id):
+    """트랜스 수치 재계산 + prop 반영. 반환값은 갱신된 수치."""
+    value = compute_trance_level(unit_id)
+    morld.set_unit_prop(unit_id, "상태:트랜스", value)
+    return value
+
+
+def is_in_trance(unit_id, threshold=TRANCE_ENTRY):
+    """현재 트랜스 상태 여부 (prop 기반, compute 하지 않음)."""
+    return (morld.get_unit_prop(unit_id, "상태:트랜스") or 0) >= threshold
+
+
+def is_in_deep_trance(unit_id):
+    """깊은 트랜스 여부 (저항 약화/자발성 극대 구간)."""
+    return is_in_trance(unit_id, TRANCE_DEEP)
+
+
+# ============================================
 # 관계 라벨 파생 (저장 X)
 # ============================================
 

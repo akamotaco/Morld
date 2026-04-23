@@ -179,3 +179,80 @@ class TestRelationshipLabel:
         # 애정/호감 높지만 복종도 높으면 "연인" 아님 → "헌신적 종자"
         self._set(affection=70, love=70, submission=70)
         assert rd.get_relationship_label(2, 1) == "헌신적 종자"
+
+
+# ============================================
+# 트랜스 상태 (Phase 1.6.1)
+# ============================================
+
+class TestTranceLevel:
+    def setUp(self):
+        _setup_pair()
+
+    def _set_stats(self, arousal=0, gauge=0, restraint=50, external=0):
+        morld.set_unit_prop(2, "상태:성욕", arousal)
+        morld.set_unit_prop(2, "상태:절정", gauge)
+        morld.set_unit_prop(2, "성격:자제심", restraint)
+        morld.set_unit_prop(2, "트랜스:외부", external)
+
+    def test_compute_zero_at_baseline(self):
+        self._set_stats(arousal=0, gauge=0)
+        assert rd.compute_trance_level(2) == 0
+
+    def test_compute_base_half_of_sum(self):
+        """자제심 50(기본)일 때 base = (성욕 + 게이지) / 2."""
+        self._set_stats(arousal=80, gauge=40, restraint=50)
+        assert rd.compute_trance_level(2) == 60
+
+    def test_compute_restraint_reduces(self):
+        """자제심 높으면 트랜스 감쇠."""
+        self._set_stats(arousal=80, gauge=40, restraint=100)
+        # 60 × (1 + (50-100) × 0.005) = 60 × 0.75 = 45
+        assert rd.compute_trance_level(2) == 45
+
+    def test_compute_low_restraint_boosts(self):
+        """자제심 낮으면 트랜스 증폭."""
+        self._set_stats(arousal=80, gauge=40, restraint=0)
+        # 60 × (1 + 0.25) = 75
+        assert rd.compute_trance_level(2) == 75
+
+    def test_compute_external_adds(self):
+        """외부 가산 (세뇌/약물)은 그대로 더해짐."""
+        self._set_stats(arousal=40, gauge=20, restraint=50, external=30)
+        # base=30 + 30 = 60
+        assert rd.compute_trance_level(2) == 60
+
+    def test_compute_clamped_to_100(self):
+        self._set_stats(arousal=100, gauge=100, restraint=0, external=50)
+        # base=100×1.25=125 +50=175 → clamp 100
+        assert rd.compute_trance_level(2) == 100
+
+    def test_compute_missing_restraint_defaults_50(self):
+        morld.set_unit_prop(2, "상태:성욕", 80)
+        morld.set_unit_prop(2, "상태:절정", 40)
+        # 자제심 prop 없음 → 기본 50
+        assert rd.compute_trance_level(2) == 60
+
+    def test_update_writes_prop(self):
+        self._set_stats(arousal=80, gauge=40, restraint=50)
+        rd.update_trance_level(2)
+        assert morld.get_unit_prop(2, "상태:트랜스") == 60
+
+    def test_is_in_trance_threshold(self):
+        morld.set_unit_prop(2, "상태:트랜스", 59)
+        assert rd.is_in_trance(2) is False
+        morld.set_unit_prop(2, "상태:트랜스", 60)
+        assert rd.is_in_trance(2) is True
+
+    def test_is_in_deep_trance_threshold(self):
+        morld.set_unit_prop(2, "상태:트랜스", 79)
+        assert rd.is_in_deep_trance(2) is False
+        morld.set_unit_prop(2, "상태:트랜스", 80)
+        assert rd.is_in_deep_trance(2) is True
+
+    def test_trance_does_not_save_on_compute(self):
+        """compute_ 는 저장하지 않음 (update_만 저장)."""
+        self._set_stats(arousal=80, gauge=40, restraint=50)
+        rd.compute_trance_level(2)
+        # update 전엔 prop 없음 (mock이 None 반환)
+        assert morld.get_unit_prop(2, "상태:트랜스") is None
