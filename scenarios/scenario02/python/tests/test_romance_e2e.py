@@ -1297,3 +1297,319 @@ class TestPositionRequestDialoguePool:
                 assert key in reactions, (
                     f"{cls_name}: SEXUAL_PREFERENCES.preferred_positions "
                     f"에 {pos}가 있으나 ROMANCE_REACTIONS에 {key} 누락")
+
+
+# ============================================
+# Phase 1.6-a: NPC 자율 행위 루프 (프레임워크 + 봉사 2종 + rest)
+# ============================================
+
+class TestAutonomyFramework:
+    """자율 행위 카탈로그/상수 존재 검증 (로직은 closure 내부라 구조 검증 수준)."""
+
+    def test_catalog_has_service_actions(self):
+        import romance
+        catalog = romance._NPC_AUTONOMY_CATALOG
+        assert "fellatio" in catalog
+        assert catalog["fellatio"]["kind"] == "service"
+        assert "penis_rub" in catalog
+        assert catalog["penis_rub"]["kind"] == "service"
+
+    def test_catalog_has_rest(self):
+        import romance
+        assert "rest" in romance._NPC_AUTONOMY_CATALOG
+        assert romance._NPC_AUTONOMY_CATALOG["rest"]["kind"] == "rest"
+
+    def test_catalog_effects_service(self):
+        """봉사 행위는 NPC 성욕/욕망을 올리는 effects가 있어야 한다."""
+        import romance
+        for aid in ("fellatio", "penis_rub"):
+            entry = romance._NPC_AUTONOMY_CATALOG[aid]
+            effects = entry.get("effects", {})
+            assert effects.get("성욕", 0) > 0, f"{aid} missing 성욕 gain"
+
+    def test_catalog_rest_no_effects(self):
+        import romance
+        assert romance._NPC_AUTONOMY_CATALOG["rest"]["effects"] == {}
+
+    def test_entry_arousal_constant(self):
+        import romance
+        assert romance.AUTONOMY_ENTRY_AROUSAL == 80
+
+    def test_exit_arousal_constant(self):
+        import romance
+        assert romance.AUTONOMY_EXIT_AROUSAL == 60
+
+    def test_corruption_or_love_gate_constants(self):
+        import romance
+        assert romance.AUTONOMY_MIN_SUBMISSION == 60  # 함락 경로
+        assert romance.AUTONOMY_MIN_AFFECTION == 70   # 순애 경로
+
+    def test_duration_bounds(self):
+        import romance
+        assert 1 <= romance.AUTONOMY_MIN_DURATION <= romance.AUTONOMY_MAX_DURATION
+        assert romance.AUTONOMY_MAX_TURNS > romance.AUTONOMY_MAX_DURATION
+
+
+class TestAutonomyDialoguePool:
+    """각 주요 캐릭터의 자율 행위 대사 풀 존재 검증."""
+
+    def _character_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    _CHARACTERS = [
+        ("lina", "Lina"),
+        ("yuki", "Yuki"),
+        ("ella", "Ella"),
+        ("sera", "Sera"),
+        ("mila", "Mila"),
+        ("faye", "Faye"),
+    ]
+
+    def test_all_have_autonomy_start(self):
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            assert "npc_autonomy:start" in reactions, \
+                f"{cls_name} missing npc_autonomy:start"
+
+    def test_all_have_autonomy_switch(self):
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            assert "npc_autonomy:switch" in reactions, \
+                f"{cls_name} missing npc_autonomy:switch"
+
+    def test_all_have_per_action_pools(self):
+        required_keys = [
+            "npc_autonomy_fellatio:start",
+            "npc_autonomy_penis_rub:start",
+            "npc_autonomy_rest:start",
+        ]
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for key in required_keys:
+                assert key in reactions, f"{cls_name} missing {key}"
+
+    def test_all_have_self_stim_pools(self):
+        """Phase 1.6-c: 자위 5종 대사 풀 각 캐릭터 검증."""
+        required_keys = [
+            "npc_autonomy_self_breast:start",
+            "npc_autonomy_self_nipple:start",
+            "npc_autonomy_self_clit:start",
+            "npc_autonomy_self_vaginal:start",
+            "npc_autonomy_self_anal:start",
+        ]
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for key in required_keys:
+                assert key in reactions, f"{cls_name} missing {key}"
+
+
+# ============================================
+# Phase 1.6-b: 자위 5종 카탈로그 구조 검증
+# ============================================
+
+class TestAutonomySelfStimCatalog:
+    """자위 행위 카탈로그의 필수 필드 + 부위 태그 매핑 검증."""
+
+    _REQUIRED_SELF_ACTIONS = [
+        "self_breast", "self_nipple", "self_clit",
+        "self_vaginal", "self_anal",
+    ]
+
+    def test_catalog_has_5_self_actions(self):
+        import romance
+        catalog = romance._NPC_AUTONOMY_CATALOG
+        self_actions = [a for a, e in catalog.items() if e["kind"] == "self"]
+        assert len(self_actions) == 5
+
+    def test_all_5_self_actions_present(self):
+        import romance
+        for aid in self._REQUIRED_SELF_ACTIONS:
+            assert aid in romance._NPC_AUTONOMY_CATALOG
+            assert romance._NPC_AUTONOMY_CATALOG[aid]["kind"] == "self"
+
+    def test_self_actions_required_fields(self):
+        """self 행위는 part/anatomy/access 필드 필수."""
+        import romance
+        for aid, entry in romance._NPC_AUTONOMY_CATALOG.items():
+            if entry["kind"] != "self":
+                continue
+            assert "part" in entry, f"{aid} missing part"
+            assert "anatomy" in entry, f"{aid} missing anatomy"
+            assert "access" in entry, f"{aid} missing access"
+            assert entry["access"] in ("upper", "lower"), \
+                f"{aid} access must be upper/lower"
+
+    def test_self_vaginal_targets_v(self):
+        import romance
+        e = romance._NPC_AUTONOMY_CATALOG["self_vaginal"]
+        assert e["part"] == "V"
+        assert e["anatomy"] == "V"
+        assert e["access"] == "lower"
+
+    def test_self_anal_targets_a(self):
+        import romance
+        e = romance._NPC_AUTONOMY_CATALOG["self_anal"]
+        assert e["part"] == "A"
+        assert e["anatomy"] == "A"
+        assert e["access"] == "lower"
+
+    def test_self_clit_targets_c(self):
+        import romance
+        e = romance._NPC_AUTONOMY_CATALOG["self_clit"]
+        assert e["part"] == "C"
+        assert e["anatomy"] == "C"
+        assert e["access"] == "lower"
+
+    def test_self_breast_and_nipple_target_b(self):
+        """유두는 SENSATION_MAP에서 'B'로 매핑 — 가슴과 동일 부위 태그."""
+        import romance
+        assert romance._NPC_AUTONOMY_CATALOG["self_breast"]["part"] == "B"
+        assert romance._NPC_AUTONOMY_CATALOG["self_nipple"]["part"] == "B"
+        assert romance._NPC_AUTONOMY_CATALOG["self_breast"]["access"] == "upper"
+        assert romance._NPC_AUTONOMY_CATALOG["self_nipple"]["access"] == "upper"
+
+    def test_all_self_actions_have_arousal_gain(self):
+        """자위 행위는 자신의 성욕을 올림."""
+        import romance
+        for aid, entry in romance._NPC_AUTONOMY_CATALOG.items():
+            if entry["kind"] == "self":
+                assert entry["effects"].get("성욕", 0) > 0, \
+                    f"{aid} missing 성욕 gain"
+
+
+# ============================================
+# Phase 1.6-b: 가드/가중치 동작 검증
+# ============================================
+
+class TestAutonomyGuard:
+    """_autonomy_check_guard의 가드 로직 검증 (팔 결박/해부학/노출)."""
+
+    def _setup(self, *, upper_bound=False, vagina=True,
+               position_id="missionary"):
+        # player — male (성별 prop=1)
+        morld.register_unit(1, name="주인공", gender="male", props={"성별": 1})
+        # NPC — female(2) if vagina else male(1)
+        npc_gender_int = 2 if vagina else 1
+        morld.register_unit(2, name="유키",
+                            gender="female" if vagina else "male",
+                            props={"성별": npc_gender_int})
+        if upper_bound:
+            morld.set_unit_prop(2, "결박:상체", 1)
+        # equipment 없음 → get_exposure_state가 모두 노출로 반환
+        state = {
+            "player_id": 1,
+            "partner_id": 2,
+            "position": position_id,
+            "insertion": {"active": False},
+            "elapsed_time": 0,
+            "npc_prefs": {"preferred_parts": []},
+        }
+        return state
+
+    def test_rest_always_available(self):
+        import romance
+        state = self._setup()
+        assert romance._autonomy_check_guard(state, "rest") is True
+
+    def test_service_fellatio_blocked_by_back_facing(self):
+        import romance
+        state = self._setup(position_id="reverse_cowgirl")
+        # reverse_cowgirl의 facing = "back"
+        assert romance._autonomy_check_guard(state, "fellatio") is False
+
+    def test_service_fellatio_ok_on_front_facing(self):
+        import romance
+        state = self._setup(position_id="missionary")
+        # equipment 비활성 → lower_exposed True
+        assert romance._autonomy_check_guard(state, "fellatio") is True
+
+    def test_self_blocked_by_upper_bound(self):
+        """팔 결박 시 모든 self 행위 차단."""
+        import romance
+        state = self._setup(upper_bound=True)
+        for aid in ("self_breast", "self_nipple", "self_clit",
+                    "self_vaginal", "self_anal"):
+            assert romance._autonomy_check_guard(state, aid) is False, \
+                f"{aid} should be blocked by upper restraint"
+
+    def test_self_vaginal_requires_vagina(self):
+        """여성(V 보유) → 가능, 남성 → 불가."""
+        import romance
+        female = self._setup()
+        assert romance._autonomy_check_guard(female, "self_vaginal") is True
+        male = self._setup(vagina=False)
+        assert romance._autonomy_check_guard(male, "self_vaginal") is False
+
+    def test_self_anal_accessible_for_all_genders(self):
+        """항문은 남녀 모두 보유 → self_anal 가능."""
+        import romance
+        female = self._setup()
+        male = self._setup(vagina=False)
+        assert romance._autonomy_check_guard(female, "self_anal") is True
+        assert romance._autonomy_check_guard(male, "self_anal") is True
+
+
+class TestAutonomyWeight:
+    """_autonomy_compute_weight 가중치 공식 검증."""
+
+    def _state(self, arousal=90, preferred_parts=None):
+        morld.register_unit(1, name="주인공", gender="male", props={"성별": 1})
+        morld.register_unit(2, name="유키", gender="female",
+                            props={"상태:성욕": arousal, "성별": 2})
+        return {
+            "player_id": 1,
+            "partner_id": 2,
+            "npc_prefs": {"preferred_parts": preferred_parts or []},
+        }
+
+    def test_service_weight_fixed_1(self):
+        import romance
+        state = self._state()
+        assert romance._autonomy_compute_weight(state, "fellatio") == 1.0
+        assert romance._autonomy_compute_weight(state, "penis_rub") == 1.0
+
+    def test_rest_weight_inversely_proportional_to_arousal(self):
+        import romance
+        high = romance._autonomy_compute_weight(self._state(arousal=100), "rest")
+        mid = romance._autonomy_compute_weight(self._state(arousal=80), "rest")
+        low = romance._autonomy_compute_weight(self._state(arousal=60), "rest")
+        assert high < mid < low
+        assert high == 0.1  # 성욕 100 → floor
+        assert mid == (100 - 80) * 0.02  # 0.4
+        assert abs(low - 0.8) < 1e-9     # 성욕 60 → 0.8
+
+    def test_rest_weight_floor_at_01(self):
+        """성욕 100 이상도 최소 0.1."""
+        import romance
+        state = self._state(arousal=150)
+        assert romance._autonomy_compute_weight(state, "rest") == 0.1
+
+    def test_self_base_weight_without_preference(self):
+        import romance
+        state = self._state(preferred_parts=[])
+        assert romance._autonomy_compute_weight(state, "self_clit") == 1.0
+
+    def test_preferred_part_doubles_weight(self):
+        """preferred_parts에 'C' 있으면 self_clit 가중치 ×2."""
+        import romance
+        state = self._state(preferred_parts=["C"])
+        assert romance._autonomy_compute_weight(state, "self_clit") == 2.0
+
+    def test_preferred_non_matching_does_not_boost(self):
+        import romance
+        # preferred = ["V"], self_anal은 A → boost 없음
+        state = self._state(preferred_parts=["V"])
+        assert romance._autonomy_compute_weight(state, "self_anal") == 1.0
+
+    def test_self_breast_and_nipple_share_part_b(self):
+        """B가 preferred면 self_breast와 self_nipple 모두 ×2."""
+        import romance
+        state = self._state(preferred_parts=["B"])
+        assert romance._autonomy_compute_weight(state, "self_breast") == 2.0
+        assert romance._autonomy_compute_weight(state, "self_nipple") == 2.0

@@ -76,6 +76,187 @@ POSITION_REQUEST_AROUSAL = 70           # NPC 성욕 임계
 POSITION_REQUEST_COOLDOWN_MS = 5 * MILLIS_PER_MINUTE  # 요구 쿨다운
 POSITION_REQUEST_CHANCE = 0.3           # 매 체크마다 발동 확률
 
+# NPC 자율 행위 루프 (Phase 1.6 — 봉사/자위 번갈아 수행)
+AUTONOMY_ENTRY_AROUSAL = 80             # 진입 성욕 임계
+AUTONOMY_EXIT_AROUSAL = 60              # 성욕 하락 시 종료 임계
+AUTONOMY_MIN_AFFECTION = 70             # 순애 경로 진입 호감 임계
+AUTONOMY_MIN_SUBMISSION = 60            # 함락 경로 진입 복종 임계
+AUTONOMY_COOLDOWN_MS = 5 * MILLIS_PER_MINUTE
+AUTONOMY_ENTRY_CHANCE = 0.35            # 조건 충족 시 매 턴 진입 시도 확률
+AUTONOMY_MIN_DURATION = 3               # 한 행위 최소 지속 턴
+AUTONOMY_MAX_DURATION = 5               # 한 행위 최대 지속 턴
+AUTONOMY_MAX_TURNS = 20                 # 세션 누적 최대 턴 (무한 루프 방지)
+
+# 자율 행위 카탈로그 (Phase 1.6 — 봉사 2 + 자위 5 + 휴식)
+# kind: "service" (봉사, 파트너 대상) / "self" (자위, 자기 대상) / "rest" (휴식)
+# self 행위의 part: 가중치 계산용 부위 태그 (B/M/A/V/C)
+# self 행위의 access: "upper" (상체 노출) / "lower" (하체 노출)
+# self 행위의 anatomy: has_anatomy 체크 카테고리
+_NPC_AUTONOMY_CATALOG = {
+    "fellatio": {
+        "kind": "service",
+        "effects": {"성욕": 8, "욕망": 4},
+        "exp_part": "음경",
+        "desc": "입으로 감싸고 있다.",
+    },
+    "penis_rub": {
+        "kind": "service",
+        "effects": {"성욕": 7, "욕망": 4},
+        "exp_part": "음경",
+        "desc": "손으로 문지르고 있다.",
+    },
+    "self_breast": {
+        "kind": "self",
+        "part": "B",
+        "anatomy": "B",
+        "access": "upper",
+        "effects": {"성욕": 5, "욕망": 3},
+        "desc": "자기 가슴을 만지고 있다.",
+    },
+    "self_nipple": {
+        "kind": "self",
+        "part": "B",
+        "anatomy": "B",
+        "access": "upper",
+        "effects": {"성욕": 6, "욕망": 3},
+        "desc": "자기 유두를 자극하고 있다.",
+    },
+    "self_clit": {
+        "kind": "self",
+        "part": "C",
+        "anatomy": "C",
+        "access": "lower",
+        "effects": {"성욕": 7, "욕망": 4},
+        "desc": "스스로 클리토리스를 자극하고 있다.",
+    },
+    "self_vaginal": {
+        "kind": "self",
+        "part": "V",
+        "anatomy": "V",
+        "access": "lower",
+        "effects": {"성욕": 7, "욕망": 4},
+        "desc": "손가락을 자기 질에 삽입하고 있다.",
+    },
+    "self_anal": {
+        "kind": "self",
+        "part": "A",
+        "anatomy": "A",
+        "access": "lower",
+        "effects": {"성욕": 6, "욕망": 3},
+        "desc": "손가락을 자기 항문에 삽입하고 있다.",
+    },
+    "rest": {
+        "kind": "rest",
+        "effects": {},
+        "desc": "숨을 고르고 있다.",
+    },
+}
+
+
+# ============================================
+# 자율 루프 유틸 (모듈 수준 — closure에서 호출 + 테스트 가능)
+# ============================================
+
+def _autonomy_check_guard(state, action_id):
+    """자율 행위 실행 가능 여부.
+
+    service: 플레이어 하체 노출 + (fellatio만) 체위 facing≠back
+    self:    NPC 팔 자유 + 해부학 보유 + 본인 부위 노출
+    rest:    항상 가능
+    """
+    entry = _NPC_AUTONOMY_CATALOG.get(action_id)
+    if not entry:
+        return False
+    kind = entry["kind"]
+    if kind == "rest":
+        return True
+    from romance_core import get_exposure_state as _get_exp
+    if kind == "service":
+        player_exp = _get_exp(state["player_id"])
+        if not player_exp.get("lower_exposed"):
+            return False
+        if action_id == "fellatio":
+            pos_info = position.get_position_info(state.get("position"))
+            if pos_info and pos_info.get("facing") == "back":
+                return False
+        return True
+    if kind == "self":
+        import restraint
+        import gender
+        pid = state["partner_id"]
+        if restraint.is_upper_restrained(pid):
+            return False
+        anatomy = entry.get("anatomy")
+        if anatomy and not gender.has_anatomy(pid, anatomy):
+            return False
+        access = entry.get("access")
+        npc_exp = _get_exp(pid)
+        if access == "upper" and not npc_exp.get("upper_exposed"):
+            return False
+        if access == "lower" and not npc_exp.get("lower_exposed"):
+            return False
+        return True
+    return True
+
+
+def _autonomy_compute_weight(state, action_id):
+    """행위 선택 가중치.
+
+    - rest: 성욕 반비례 (100→0.1, 80→0.4, 60→0.8)
+    - service: 고정 1.0
+    - self: 1.0 × (preferred_parts면 ×2) × (sensation_level≥3이면 ×1.5)
+    """
+    entry = _NPC_AUTONOMY_CATALOG.get(action_id, {})
+    kind = entry.get("kind")
+    if kind == "rest":
+        arousal = morld.get_unit_prop(state["partner_id"], "상태:성욕") or 0
+        return max(0.1, (100 - arousal) * 0.02)
+    if kind == "service":
+        return 1.0
+    if kind == "self":
+        base = 1.0
+        part = entry.get("part")
+        if part:
+            pid = state["partner_id"]
+            prefs = state.get("npc_prefs") or {}
+            preferred = prefs.get("preferred_parts") or []
+            if part in preferred:
+                base *= 2.0
+            try:
+                from romance_core import get_sensation_level as _get_sl
+                if _get_sl(pid, part) >= 3:
+                    base *= 1.5
+            except Exception:
+                pass
+        return base
+    return 1.0
+
+
+def _autonomy_available(state):
+    """가드 통과한 행위 목록."""
+    return [aid for aid in _NPC_AUTONOMY_CATALOG
+            if _autonomy_check_guard(state, aid)]
+
+
+def _autonomy_pick(state, pool, exclude=None):
+    """가중치 기반 랜덤 선택. exclude는 직전 행위 (연속 회피)."""
+    import random as _random
+    candidates = [a for a in pool if a != exclude] or list(pool)
+    if not candidates:
+        return None
+    weights = [_autonomy_compute_weight(state, a) for a in candidates]
+    total = sum(weights)
+    if total <= 0:
+        return None
+    r = _random.random() * total
+    acc = 0.0
+    for aid, w in zip(candidates, weights):
+        acc += w
+        if r <= acc:
+            return aid
+    return candidates[-1]
+
+
 # ============================================
 # 발각 컨텍스트 (on_meet_player에 파트너 정보 전달)
 # ============================================
@@ -573,6 +754,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         "npc_thrust_trance": False,
         # NPC 선호 체위 요구 쿨다운 (세션 elapsed_time 기준)
         "last_position_request_elapsed": None,
+        # NPC 자율 행위 루프 (Phase 1.6)
+        "npc_autonomy": {
+            "active": False,
+            "current_action": None,
+            "duration_remaining": 0,
+            "total_turns": 0,
+            "last_exit_elapsed": None,
+        },
         # 수간(bestiality) 세션 여부
         "is_bestiality": is_bestiality,
     }
@@ -789,6 +978,172 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         if pos_request:
             prev = state.get("last_reaction") or ""
             state["last_reaction"] = (prev + f"\n{pos_request}").strip()
+
+    # ── NPC 자율 행위 루프 (삽입 없음 상태) ────────────────────────
+
+    # closure alias — 모듈 수준 함수를 state 바인딩 없이 위임
+    _autonomy_guard = _autonomy_check_guard
+    _autonomy_available_actions = _autonomy_available
+    _autonomy_weight = _autonomy_compute_weight
+    _autonomy_pick_action = _autonomy_pick
+
+    def _can_enter_autonomy(state):
+        """자율 루프 진입 조건."""
+        auto = state["npc_autonomy"]
+        if auto["active"]:
+            return False
+        if state["insertion"]["active"]:
+            return False
+        pid = state["partner_id"]
+        player_id = state["player_id"]
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        if arousal < AUTONOMY_ENTRY_AROUSAL:
+            return False
+        submission = morld.get_unit_prop(pid, get_submission_key(player_id)) or 0
+        affection = morld.get_unit_prop(pid, get_affection_key(player_id)) or 0
+        if submission < AUTONOMY_MIN_SUBMISSION and affection < AUTONOMY_MIN_AFFECTION:
+            return False
+        last_exit = auto.get("last_exit_elapsed")
+        if last_exit is not None and state["elapsed_time"] - last_exit < AUTONOMY_COOLDOWN_MS:
+            return False
+        return True
+
+    def _should_exit_autonomy(state):
+        """종료 사유 반환 (없으면 None)."""
+        auto = state["npc_autonomy"]
+        if not auto["active"]:
+            return None
+        if state["insertion"]["active"]:
+            return "insertion_started"
+        pid = state["partner_id"]
+        arousal = morld.get_unit_prop(pid, "상태:성욕") or 0
+        if arousal < AUTONOMY_EXIT_AROUSAL:
+            return "arousal_low"
+        if auto["total_turns"] >= AUTONOMY_MAX_TURNS:
+            return "max_turns"
+        return None
+
+    def _exit_autonomy(state, reason):
+        """자율 루프 종료."""
+        auto = state["npc_autonomy"]
+        auto["active"] = False
+        auto["current_action"] = None
+        auto["duration_remaining"] = 0
+        auto["total_turns"] = 0
+        auto["last_exit_elapsed"] = state["elapsed_time"]
+
+    def _apply_autonomy_effects(state, action_id):
+        """자율 행위 효과 적용 (매 턴 지속 효과)."""
+        entry = _NPC_AUTONOMY_CATALOG.get(action_id)
+        if not entry or not entry.get("effects"):
+            return
+        pid = state["partner_id"]
+        player_id = state["player_id"]
+        affection_key = get_affection_key(player_id)
+        for stat, value in entry["effects"].items():
+            if value == 0:
+                continue
+            if stat in ("성욕", "성적절정"):
+                morld.modify_prop(pid, f"상태:{stat}", value)
+            elif stat == "욕망":
+                morld.modify_prop(pid, "상태:성욕", value)
+            else:
+                morld.modify_prop(pid, affection_key.replace(":호감", f":{stat}"), value)
+
+    def _get_autonomy_reaction(state, action_id, timing):
+        """자율 행위 대사 조회. 우선순위: 행위별 → 공통 start."""
+        reaction = _get_mode_reaction(f"npc_autonomy_{action_id}", timing)
+        if not reaction:
+            reaction = _get_mode_reaction("npc_autonomy", timing)
+        return reaction
+
+    def _try_enter_autonomy(state):
+        """진입 시도 — 성공 시 첫 행위 선택 + 대사 반환."""
+        import random as _random
+        if not _can_enter_autonomy(state):
+            return None
+        if _random.random() >= AUTONOMY_ENTRY_CHANCE:
+            return None
+        available = _autonomy_available_actions(state)
+        # rest만 가능하면 진입 안 함 (성욕 있는데 아무것도 못 하면 패스)
+        non_rest = [a for a in available
+                    if _NPC_AUTONOMY_CATALOG[a]["kind"] != "rest"]
+        if not non_rest:
+            return None
+        choice = _autonomy_pick_action(state, non_rest)
+        if not choice:
+            return None
+        auto = state["npc_autonomy"]
+        auto["active"] = True
+        auto["current_action"] = choice
+        auto["duration_remaining"] = _random.randint(
+            AUTONOMY_MIN_DURATION, AUTONOMY_MAX_DURATION)
+        auto["total_turns"] = 0
+        _apply_autonomy_effects(state, choice)
+        reaction = _get_autonomy_reaction(state, choice, "start")
+        if not reaction:
+            entry = _NPC_AUTONOMY_CATALOG[choice]
+            pname = _get_partner_name(state)
+            reaction = f"{pname}(이)가 스스로 {entry.get('desc', '무언가')}"
+        return reaction
+
+    def _tick_autonomy(state):
+        """진행 중 자율 루프 tick. 전환 시 대사 반환."""
+        import random as _random
+        auto = state["npc_autonomy"]
+        if not auto["active"]:
+            return None
+        reason = _should_exit_autonomy(state)
+        if reason:
+            _exit_autonomy(state, reason)
+            return None
+        # 지속 효과
+        _apply_autonomy_effects(state, auto["current_action"])
+        auto["total_turns"] += 1
+        auto["duration_remaining"] -= 1
+        if auto["duration_remaining"] > 0:
+            return None  # 지속 중, 대사 없음
+        # 전환
+        available = _autonomy_available_actions(state)
+        next_action = _autonomy_pick_action(
+            state, available, exclude=auto["current_action"])
+        if not next_action:
+            _exit_autonomy(state, "no_actions")
+            return None
+        auto["current_action"] = next_action
+        auto["duration_remaining"] = _random.randint(
+            AUTONOMY_MIN_DURATION, AUTONOMY_MAX_DURATION)
+        return _get_autonomy_reaction(state, next_action, "switch") \
+            or _get_autonomy_reaction(state, next_action, "start")
+
+    def _try_npc_autonomy_after_action(state, action_id):
+        """행위 후 NPC 자율 행위 루프 체크 (삽입 없음 상태).
+
+        삽입 중이면 thrust_trance로 이관되므로 여기서는 삽입 여부 선체크.
+        반환된 대사는 last_reaction에 추가.
+        """
+        if action_id in ("exit", "thrust_stop", "withdraw"):
+            return
+        if state["insertion"]["active"]:
+            # 삽입이 시작되었으면 autonomy 종료
+            if state["npc_autonomy"]["active"]:
+                _exit_autonomy(state, "insertion_started")
+            return
+        # 플레이어가 수동으로 fellatio/penis_rub을 토글 중이면 NPC가 그 위에 자율 진입하지 않음
+        conflicting = {"fellatio", "penis_rub"}
+        if conflicting & set(state["active_toggles"]):
+            if state["npc_autonomy"]["active"]:
+                _exit_autonomy(state, "player_took_over")
+            return
+
+        auto = state["npc_autonomy"]
+        if auto["active"]:
+            reaction = _tick_autonomy(state)
+        else:
+            reaction = _try_enter_autonomy(state)
+        if reaction:
+            prev = state.get("last_reaction") or ""
+            state["last_reaction"] = (prev + f"\n{reaction}").strip()
 
     # ── NPC Thrust Trance 끝 ──────────────────────────────────
 
@@ -2370,6 +2725,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             # NPC 자율 thrust 체크 (삽입+정지 시 트랜스 진입) + 강도 재평가
             _try_npc_thrust_after_action(state, action_id)
             _tick_npc_thrust_trance(state)
+            # NPC 자율 행위 루프 (삽입 없음 상태 — 봉사/자위/휴식 번갈아)
+            _try_npc_autonomy_after_action(state, action_id)
 
             return render_romance_ui(state)
 
@@ -2510,6 +2867,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             # NPC 자율 thrust 체크 (삽입+정지 시 트랜스 진입) + 강도 재평가
             _try_npc_thrust_after_action(state, action_id)
             _tick_npc_thrust_trance(state)
+            # NPC 자율 행위 루프 (삽입 없음 상태 — 봉사/자위/휴식 번갈아)
+            _try_npc_autonomy_after_action(state, action_id)
 
             return render_romance_ui(state)
 

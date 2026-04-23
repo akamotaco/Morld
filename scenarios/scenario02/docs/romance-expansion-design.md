@@ -475,6 +475,67 @@ era의 관계 라벨 "고정" 방식과 달리 수치가 움직이면 라벨도 
 
 ---
 
+### Phase 1.6: NPC 자율 행위 루프 (2026-04-24 완료)
+
+**배경**: 강제-함락 루트 테스트 중 발견된 "함락 후 자발성" 갭의 일부.
+플레이어 주도 세션의 휴지 중에 NPC가 성욕/애정에 따라 스스로 봉사/자위/휴식을 번갈아 수행.
+
+#### 1.6.1 구조 (`npc_thrust_trance` 일반화)
+
+**state**: `state["npc_autonomy"] = {active, current_action, duration_remaining, total_turns, last_exit_elapsed}`
+
+**턴 루프** (플레이어 행위 직후 `_try_npc_autonomy_after_action`에서 호출):
+- inactive: 진입 조건 체크 → 확률 통과 시 첫 행위 선택 + 대사
+- active: 종료 조건 체크 → 지속 효과 적용 → 잔여 턴 소진 시 다른 행위로 전환
+
+**진입 조건**:
+- 삽입 없음 (삽입 중이면 thrust_trance 쪽)
+- NPC 성욕 ≥ 80
+- 복종 ≥ 60 **OR** 호감 ≥ 70 (함락 또는 순애 적극성)
+- 쿨다운 5분, 확률 35%
+
+**종료 조건**: 삽입 시작 / 성욕 < 60 / 최대 20턴 / 플레이어가 fellatio·penis_rub 수동 토글
+
+#### 1.6.2 행위 카탈로그 (`_NPC_AUTONOMY_CATALOG`)
+
+| kind | action | 부위 태그 | 가드 |
+|------|--------|---------|------|
+| service | `fellatio` | — | 플레이어 하체 노출 + facing≠back |
+| service | `penis_rub` | — | 플레이어 하체 노출 |
+| self | `self_breast` | B | 팔 자유 + NPC 상체 노출 + 해부학 B |
+| self | `self_nipple` | B | 동상 (유두는 SENSATION_MAP에서 B로 매핑) |
+| self | `self_clit` | C | 팔 자유 + NPC 하체 노출 + 해부학 C (여성) |
+| self | `self_vaginal` | V | 팔 자유 + 하체 노출 + 해부학 V |
+| self | `self_anal` | A | 팔 자유 + 하체 노출 + 해부학 A (남녀 모두) |
+| rest | `rest` | — | 없음 |
+
+#### 1.6.3 가중치 공식
+
+- **service**: 고정 1.0
+- **rest**: `max(0.1, (100 - arousal) × 0.02)` — 성욕 높을수록 휴식 확률 감소 (100→0.1, 80→0.4, 60→0.8)
+- **self**: base 1.0 × (`preferred_parts` 포함 시 ×2.0) × (`sensation_level ≥ 3` 시 ×1.5)
+
+#### 1.6.4 대사 풀 (6 캐릭터 × 10 키)
+
+각 캐릭터에 아키타입 톤별:
+- `npc_autonomy:start` / `npc_autonomy:switch` (공통 진입/전환)
+- `npc_autonomy_{action}:start` (행위 8종별 특화 대사)
+
+#### 1.6.5 테스트 커버리지
+
+신규 31개 e2e 테스트:
+- **카탈로그 구조** 9개 (`TestAutonomyFramework`, `TestAutonomySelfStimCatalog`)
+- **대사 풀 존재** 4개 (`TestAutonomyDialoguePool`)
+- **가드 동작** 6개 (`TestAutonomyGuard` — 결박/해부학/facing)
+- **가중치 공식** 7개 (`TestAutonomyWeight` — 선호/성욕/rest 곡선)
+
+**설계 원칙 준수**:
+- NPC 주도 모드(다이얼로그 시스템)와 별개의 **배경 루프** — 플레이어 통제 유지
+- 대사만 출력, 체위 변경/행위 선택은 플레이어 몫 (phase 1.5 position_request와 동일)
+- Phase 1.5 애정 게이트와 직교 (autonomy 진입은 복종 OR 호감 — 함락/순애 양쪽 지원)
+
+---
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)
