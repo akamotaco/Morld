@@ -331,3 +331,197 @@ class Wine(Item):
         morld.lost_item(player_id, self.instance_id)
         food_name = food_info.get("name", "음식")
         yield ui.dialog(f"{food_name}에 와인을 몰래 넣었다.")
+
+
+# ========================================
+# 독주 (강한 알코올)
+# ========================================
+
+_STRONG_LIQUOR_DRUNK_GAIN = 30
+
+
+@register_item
+class StrongLiquor(Item):
+    """독주 — 한 번에 취기가 급격히 오름 (Wine의 2배 효과)."""
+    unique_id = "strong_liquor"
+    name = "독주"
+    category = "drink"
+    value = 30
+    actions = ["take@ground", "take@container", "call:drink:마시기@inventory",
+               "call:mix_food:음식에 넣기@inventory"]
+
+    def get_focus_text(self):
+        return "도수가 높은 독주다. 한 잔에 급하게 취하게 된다."
+
+    def drink(self):
+        player_id = morld.get_player_id()
+        current = morld.get_unit_prop(player_id, "상태:취기") or 0
+        morld.set_unit_prop(player_id, "상태:취기",
+                            min(100, current + _STRONG_LIQUOR_DRUNK_GAIN))
+        morld.lost_item(player_id, self.instance_id)
+        yield ui.dialog([
+            "독주를 단숨에 들이켰다.",
+            "불덩이가 목을 타고 내려가며 머리가 핑 돈다...",
+        ])
+
+    def mix_food(self):
+        from assets.items import get_instance as get_item_instance
+        player_id = morld.get_player_id()
+        inventory = morld.get_unit_inventory(player_id)
+        if not inventory:
+            yield ui.dialog("음식이 없다.")
+            return
+        lines = ["독주를 넣을 음식을 선택하세요.\n"]
+        found = False
+        for item_id, _c in inventory.items():
+            item_id_int = int(item_id)
+            if item_id_int == self.instance_id:
+                continue
+            inst = get_item_instance(item_id_int)
+            if inst and hasattr(inst, 'food_satiety') and inst.food_satiety > 0:
+                info = morld.get_item_info(item_id_int)
+                if info:
+                    found = True
+                    lines.append(f"[url=@ret:{item_id_int}]{info.get('name', '음식')}[/url]")
+        if not found:
+            yield ui.dialog("독주를 넣을 수 있는 음식이 없다.")
+            return
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+        result = yield ui.dialog("\n".join(lines), autofill="off")
+        if not result or result == "cancel":
+            return
+        food_id = int(result)
+        food_info = morld.get_item_info(food_id)
+        if not food_info:
+            return
+        morld.set_unit_prop(food_id, "상태:독주첨가", 1)
+        morld.lost_item(player_id, self.instance_id)
+        yield ui.dialog(f"{food_info.get('name', '음식')}에 독주를 몰래 섞었다.")
+
+
+# ========================================
+# 마약 (강한 정신 교란)
+# ========================================
+
+_NARCOTIC_TRANCE_GAIN = 50
+
+
+@register_item
+class Narcotic(Item):
+    """마약 — 트랜스:외부 +50, 깊은 트랜스 직진. 저항 자동 약화 (Phase 1.9.1 페널티)."""
+    unique_id = "narcotic"
+    name = "마약"
+    category = "medicine"
+    value = 80
+    actions = ["take@ground", "take@container", "call:use:복용@inventory",
+               "call:mix_food:음식에 넣기@inventory"]
+
+    def get_focus_text(self):
+        return "은밀히 유통되는 강력한 약물이다. 복용하면 정신이 극도로 흐려진다."
+
+    def use(self):
+        player_id = morld.get_player_id()
+        morld.modify_prop(player_id, "트랜스:외부", _NARCOTIC_TRANCE_GAIN)
+        morld.lost_item(player_id, self.instance_id)
+        yield ui.dialog([
+            "마약을 복용했다.",
+            "시야가 흐려지며 의식이 멀어져 간다...",
+        ])
+
+    def mix_food(self):
+        from assets.items import get_instance as get_item_instance
+        player_id = morld.get_player_id()
+        inventory = morld.get_unit_inventory(player_id)
+        if not inventory:
+            yield ui.dialog("음식이 없다.")
+            return
+        lines = ["마약을 넣을 음식을 선택하세요.\n"]
+        found = False
+        for item_id, _c in inventory.items():
+            item_id_int = int(item_id)
+            if item_id_int == self.instance_id:
+                continue
+            inst = get_item_instance(item_id_int)
+            if inst and hasattr(inst, 'food_satiety') and inst.food_satiety > 0:
+                info = morld.get_item_info(item_id_int)
+                if info:
+                    found = True
+                    lines.append(f"[url=@ret:{item_id_int}]{info.get('name', '음식')}[/url]")
+        if not found:
+            yield ui.dialog("마약을 넣을 수 있는 음식이 없다.")
+            return
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+        result = yield ui.dialog("\n".join(lines), autofill="off")
+        if not result or result == "cancel":
+            return
+        food_id = int(result)
+        food_info = morld.get_item_info(food_id)
+        if not food_info:
+            return
+        morld.set_unit_prop(food_id, "상태:마약첨가", 1)
+        morld.lost_item(player_id, self.instance_id)
+        yield ui.dialog(f"{food_info.get('name', '음식')}에 마약을 몰래 섞었다.")
+
+
+# ========================================
+# 최면제 (정신 조작)
+# ========================================
+
+_HYPNOTIC_TRANCE_GAIN = 40
+
+
+@register_item
+class Hypnotic(Item):
+    """최면제 — 트랜스:외부 +40, 저항 약화. 마약보다 약하지만 더 은밀."""
+    unique_id = "hypnotic"
+    name = "최면제"
+    category = "medicine"
+    value = 60
+    actions = ["take@ground", "take@container", "call:use:복용@inventory",
+               "call:mix_food:음식에 넣기@inventory"]
+
+    def get_focus_text(self):
+        return "정신을 조작하는 약이다. 복용하면 암시에 취약해진다."
+
+    def use(self):
+        player_id = morld.get_player_id()
+        morld.modify_prop(player_id, "트랜스:외부", _HYPNOTIC_TRANCE_GAIN)
+        morld.lost_item(player_id, self.instance_id)
+        yield ui.dialog([
+            "최면제를 복용했다.",
+            "머리가 무거워지며 생각이 흐릿해진다...",
+        ])
+
+    def mix_food(self):
+        from assets.items import get_instance as get_item_instance
+        player_id = morld.get_player_id()
+        inventory = morld.get_unit_inventory(player_id)
+        if not inventory:
+            yield ui.dialog("음식이 없다.")
+            return
+        lines = ["최면제를 넣을 음식을 선택하세요.\n"]
+        found = False
+        for item_id, _c in inventory.items():
+            item_id_int = int(item_id)
+            if item_id_int == self.instance_id:
+                continue
+            inst = get_item_instance(item_id_int)
+            if inst and hasattr(inst, 'food_satiety') and inst.food_satiety > 0:
+                info = morld.get_item_info(item_id_int)
+                if info:
+                    found = True
+                    lines.append(f"[url=@ret:{item_id_int}]{info.get('name', '음식')}[/url]")
+        if not found:
+            yield ui.dialog("최면제를 넣을 수 있는 음식이 없다.")
+            return
+        lines.append(f"\n[url=@ret:cancel]취소[/url]")
+        result = yield ui.dialog("\n".join(lines), autofill="off")
+        if not result or result == "cancel":
+            return
+        food_id = int(result)
+        food_info = morld.get_item_info(food_id)
+        if not food_info:
+            return
+        morld.set_unit_prop(food_id, "상태:최면제첨가", 1)
+        morld.lost_item(player_id, self.instance_id)
+        yield ui.dialog(f"{food_info.get('name', '음식')}에 최면제를 몰래 섞었다.")

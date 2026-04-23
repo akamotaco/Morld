@@ -1442,6 +1442,50 @@ class TestAutonomyDialoguePool:
 
 
 # ============================================
+# Phase 1.9.5: 정신 교란 아이템 (4종) 카탈로그
+# ============================================
+
+class TestIntoxicantItemsCatalog:
+    """Wine/StrongLiquor/Narcotic/Hypnotic 4종 정의 확인 + 카테고리."""
+
+    def _item(self, cls_name):
+        import importlib
+        mod = importlib.import_module("assets.items.consumables")
+        return getattr(mod, cls_name)
+
+    def test_wine_defined(self):
+        cls = self._item("Wine")
+        assert cls.unique_id == "wine"
+        assert cls.category == "drink"
+
+    def test_strong_liquor_defined(self):
+        cls = self._item("StrongLiquor")
+        assert cls.unique_id == "strong_liquor"
+        assert cls.category == "drink"
+
+    def test_narcotic_defined(self):
+        cls = self._item("Narcotic")
+        assert cls.unique_id == "narcotic"
+        assert cls.category == "medicine"
+
+    def test_hypnotic_defined(self):
+        cls = self._item("Hypnotic")
+        assert cls.unique_id == "hypnotic"
+        assert cls.category == "medicine"
+
+    def test_all_have_drink_or_use_action(self):
+        """모두 복용/마시기 + 음식 첨가 액션 보유."""
+        for cls_name in ("Wine", "StrongLiquor", "Narcotic", "Hypnotic"):
+            cls = self._item(cls_name)
+            actions = getattr(cls, "actions", [])
+            has_drink_or_use = any(
+                ("call:drink" in a or "call:use" in a) for a in actions)
+            has_mix = any("call:mix_food" in a for a in actions)
+            assert has_drink_or_use, f"{cls_name} missing drink/use action"
+            assert has_mix, f"{cls_name} missing mix_food action"
+
+
+# ============================================
 # Phase 1.7: 수치심 훅 호출 지점 연결
 # ============================================
 
