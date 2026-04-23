@@ -844,8 +844,46 @@ effective = max(0, raw - erosion)
 
 #### 1.9.1.5 후속 (미구현)
 
-- 트랜스 이탈 시 `on_post_trance_return` 훅 → 수치심 +N, `post_trance` 대사 키 분기
-- 회복 후 캐릭터별 "방금... 내가 뭘..." 대사 풀
+- ~~트랜스 이탈 시 `on_post_trance_return` 훅~~ — **Phase 1.9.2에서 완료**
+- 회복 후 캐릭터별 "방금... 내가 뭘..." 대사 풀 (캐릭터별 `post_trance:start` 키)
+
+---
+
+### Phase 1.9.2: 회복 후 부끄러움 훅 (2026-04-24 완료)
+
+**배경**: Phase 1.9.1에서 `트랜스:외부` 감쇠로 자연 회복하는 구조를 만들었음.
+이제 이탈 순간 "방금 내가 뭘..." 수치심 발동 훅을 연결.
+
+#### 1.9.2.1 이탈 감지 (`update_trance_level`)
+
+```python
+prev = get_unit_prop(uid, "상태:트랜스") or 0
+new_value = compute_trance_level(uid)
+set_unit_prop(uid, "상태:트랜스", new_value)
+if prev >= TRANCE_ENTRY and new_value < TRANCE_ENTRY:
+    on_post_trance_return(uid, prev_peak=prev)
+```
+
+- 이전 수치가 TRANCE_ENTRY(60) 이상 AND 현재 미만인 프레임에서만 1회 발동
+- 재진입/재이탈해도 각 이탈마다 훅 발동
+
+#### 1.9.2.2 `on_post_trance_return(uid, prev_peak)`
+
+- 깊은 트랜스(80+)에서 이탈 → 수치심 +25
+- 일반 트랜스(60~79) 이탈 → 수치심 +15
+- Phase 1 수치심 시스템 (`apply_shame`) 재활용 — reason="post_trance_return"
+
+#### 1.9.2.3 테스트 커버리지
+
+신규 5개 dynamics 테스트 (`TestPostTranceReturn`):
+- 깊은 트랜스 이탈 → +25
+- 일반 트랜스 이탈 → +15
+- 상승 중/유지 중/애초에 미진입 → 훅 발동 안 함
+
+#### 1.9.2.4 남은 후속
+
+- 캐릭터별 `post_trance:start` 대사 풀 (6 캐릭터 × 아키타입 톤별)
+- 대사 트리거: session 내 `last_reaction`에 추가 vs 다음 대화 이벤트 지연 반영
 
 ---
 

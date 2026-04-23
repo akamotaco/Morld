@@ -526,3 +526,73 @@ class TestTemporaryRestraintLossViaExternal:
         low = rd.compute_trance_level(2)
         assert low < high
         assert low < 60  # 미진입 구간으로 복귀
+
+
+# ============================================
+# 트랜스 이탈 훅 (Phase 1.9.2) — 회복 후 부끄러움
+# ============================================
+
+class TestPostTranceReturn:
+    """트랜스 이탈 감지 → `on_post_trance_return` 수치심 발동."""
+
+    def setUp(self):
+        _setup_pair()
+        morld._player_id = 1
+
+    def test_deep_trance_exit_triggers_shame(self):
+        """깊은 트랜스(80+)에서 이탈 → 수치심 +25."""
+        morld.set_unit_prop(2, "상태:트랜스", 85)
+        morld.set_unit_prop(2, "상태:수치심", 10)
+        # 다음 update에서 저흥분 → 이탈
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 30)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        rd.update_trance_level(2)
+        after = morld.get_unit_prop(2, "상태:수치심")
+        # 수치심 10 + 25 = 35
+        assert after == 35
+
+    def test_entry_trance_exit_triggers_smaller_shame(self):
+        """일반 트랜스(60~79)에서 이탈 → 수치심 +15."""
+        morld.set_unit_prop(2, "상태:트랜스", 65)
+        morld.set_unit_prop(2, "상태:수치심", 10)
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 30)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        rd.update_trance_level(2)
+        after = morld.get_unit_prop(2, "상태:수치심")
+        assert after == 25  # 10 + 15
+
+    def test_no_exit_no_shame(self):
+        """트랜스 상승 중이거나 유지 중이면 훅 발동 안 함."""
+        morld.set_unit_prop(2, "상태:트랜스", 30)
+        morld.set_unit_prop(2, "상태:수치심", 10)
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 60)
+        morld.set_unit_prop(2, "상태:절정", 40)
+        rd.update_trance_level(2)
+        after = morld.get_unit_prop(2, "상태:수치심")
+        assert after == 10  # 변화 없음 (트랜스 <60 → 미진입)
+
+    def test_staying_in_trance_no_hook(self):
+        """트랜스 유지 중(entry 이상 → entry 이상)이면 훅 발동 안 함."""
+        morld.set_unit_prop(2, "상태:트랜스", 75)
+        morld.set_unit_prop(2, "상태:수치심", 10)
+        # 새 계산값도 entry 이상이 되도록
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 100)
+        morld.set_unit_prop(2, "상태:절정", 60)
+        rd.update_trance_level(2)
+        after = morld.get_unit_prop(2, "상태:수치심")
+        assert after == 10  # 훅 발동 안 함
+
+    def test_below_entry_to_below_entry_no_hook(self):
+        """처음부터 트랜스 없음 → 변화 없음 시 훅 발동 안 함."""
+        morld.set_unit_prop(2, "상태:트랜스", 40)
+        morld.set_unit_prop(2, "상태:수치심", 10)
+        morld.set_unit_prop(2, "성격:자제심", 50)
+        morld.set_unit_prop(2, "상태:성욕", 30)
+        morld.set_unit_prop(2, "상태:절정", 0)
+        rd.update_trance_level(2)
+        after = morld.get_unit_prop(2, "상태:수치심")
+        assert after == 10

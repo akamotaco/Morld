@@ -200,10 +200,28 @@ def compute_trance_level(unit_id):
 
 
 def update_trance_level(unit_id):
-    """트랜스 수치 재계산 + prop 반영. 반환값은 갱신된 수치."""
+    """트랜스 수치 재계산 + prop 반영. 반환값은 갱신된 수치.
+
+    Phase 1.9.2: 트랜스 이탈 감지 — 이전이 TRANCE_ENTRY 이상이고
+    현재 미만이면 `on_post_trance_return` 훅 발동 (회복 후 부끄러움).
+    """
+    prev = morld.get_unit_prop(unit_id, "상태:트랜스") or 0
     value = compute_trance_level(unit_id)
     morld.set_unit_prop(unit_id, "상태:트랜스", value)
+    if prev >= TRANCE_ENTRY and value < TRANCE_ENTRY:
+        on_post_trance_return(unit_id, prev_peak=prev)
     return value
+
+
+def on_post_trance_return(unit_id, prev_peak):
+    """트랜스 이탈 시 "방금 내가 뭘..." 수치심 발동.
+
+    깊은 트랜스(80+)에서 이탈이면 +25, 일반 트랜스(60~79) 이탈이면 +15.
+    Phase 1 수치심 시스템 (apply_shame)을 재활용.
+    """
+    from romance_core import apply_shame
+    gain = 25 if prev_peak >= TRANCE_DEEP else 15
+    return apply_shame(unit_id, gain, reason="post_trance_return")
 
 
 def is_in_trance(unit_id, threshold=TRANCE_ENTRY):
