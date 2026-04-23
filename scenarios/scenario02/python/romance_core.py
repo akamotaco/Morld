@@ -1283,9 +1283,39 @@ def extract_preserved(state):
 # 수치심 감쇠 이벤트 구독 (모듈 로드 시)
 # ============================================
 
+def _check_nude_in_public_tick():
+    """1시간 간격 공공 노출 체크.
+
+    플레이어 위치에 있는 NPC 중 노출 상태이고 주변에 타인(플레이어 포함)이
+    있으면 수치심 증가. 전체 NPC 순회는 비용이 크므로 플레이어 주변으로 범위 한정.
+    """
+    try:
+        player_id = morld.get_player_id()
+        if player_id is None:
+            return
+        loc = morld.get_unit_location(player_id)
+        if loc is None:
+            return
+        units = morld.get_characters_at_location(loc[0], loc[1])
+        if not units or len(units) < 2:
+            return  # 관객 없음 (혼자) — 노출 중이어도 공공 노출 아님
+        for uid in units:
+            if uid == player_id:
+                continue
+            try:
+                exp = get_exposure_state(uid)
+            except Exception:
+                continue
+            if exp.get("upper_exposed") or exp.get("lower_exposed"):
+                on_nude_in_public(uid)
+    except Exception:
+        pass
+
+
 def _on_time_elapsed_shame(millis):
-    """1시간 간격 수치심 자연 감쇠"""
+    """1시간 간격 수치심 자연 감쇠 + 공공 노출 체크."""
     _decay_shame_tick()
+    _check_nude_in_public_tick()
 
 
 try:

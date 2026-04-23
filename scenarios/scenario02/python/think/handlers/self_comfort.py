@@ -320,6 +320,12 @@ def _handle_self_comfort(agent):
             # 발각 — 발각자가 연인 NPC인지 확인
             from .social import _is_lover_npc
             is_lover = _is_lover_npc(agent.unit_id, discovered_by)
+            # 수치심 훅 발동 (연인 발각도 약간의 수치심은 부여 — 당사자 관점)
+            try:
+                from romance_core import on_masturbation_witnessed
+                on_masturbation_witnessed(agent.unit_id)
+            except Exception:
+                pass
             if is_lover:
                 # 연인 발각: 성욕 절반 감소 + 정상 쿨다운 (수치심 경감)
                 arousal = morld.get_unit_prop(agent.unit_id, "상태:성욕") or 0

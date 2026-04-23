@@ -1422,6 +1422,63 @@ class TestAutonomyDialoguePool:
 
 
 # ============================================
+# Phase 1.7: 수치심 훅 호출 지점 연결
+# ============================================
+
+class TestNudeInPublicTickHook:
+    """_check_nude_in_public_tick: 플레이어 위치 NPC가 노출 + 관객 시 수치심."""
+
+    def _setup(self, npc_exposed=True, alone=False):
+        morld.register_location(0, 0, is_indoor=True, length=1)
+        morld.register_unit(1, name="주인공", gender="male",
+                            props={"성별": 1}, location=(0, 0))
+        morld._player_id = 1
+        # NPC equipment는 설정 안 함 → 노출이면 모두 벗은 상태
+        if not npc_exposed:
+            # 옷 장착 — mock에선 equipped_items가 직접 관리
+            pass
+        morld.register_unit(2, name="유키", gender="female",
+                            props={"성별": 2, "상태:수치심": 30},
+                            location=(0, 0))
+        if not alone:
+            morld.register_unit(3, name="행인", gender="male",
+                                props={"성별": 1}, location=(0, 0))
+
+    def test_nude_in_public_increases_shame_when_witnessed(self):
+        """노출 NPC + 타인 있음 → 수치심 증가."""
+        self._setup(alone=False)
+        before = morld.get_unit_prop(2, "상태:수치심")
+        rc._check_nude_in_public_tick()
+        after = morld.get_unit_prop(2, "상태:수치심")
+        assert after > before
+
+    def test_nude_no_audience_no_shame(self):
+        """단 2명(플레이어 + NPC)만 있어도 플레이어가 '타인' 역할.
+        즉 nude_in_public은 len(units) >= 2면 발동."""
+        self._setup(alone=True)  # 행인 없음 = 플레이어 + NPC 2명
+        before = morld.get_unit_prop(2, "상태:수치심")
+        rc._check_nude_in_public_tick()
+        after = morld.get_unit_prop(2, "상태:수치심")
+        assert after > before
+
+    def test_nude_single_unit_no_shame(self):
+        """플레이어 없이 NPC만 단독이면 수치심 변화 없음."""
+        morld.register_location(5, 5, is_indoor=True, length=1)
+        morld.register_unit(1, name="주인공", gender="male",
+                            props={"성별": 1}, location=(0, 0))
+        morld._player_id = 1
+        # NPC는 플레이어와 다른 location → 플레이어 위치에 NPC 0명
+        morld.register_unit(2, name="유키", gender="female",
+                            props={"성별": 2, "상태:수치심": 30},
+                            location=(5, 5))
+        before = morld.get_unit_prop(2, "상태:수치심")
+        rc._check_nude_in_public_tick()
+        after = morld.get_unit_prop(2, "상태:수치심")
+        # 플레이어 location에 NPC 없음 → tick 아무 효과 없음
+        assert after == before
+
+
+# ============================================
 # Phase 1.6-b: 자위 5종 카탈로그 구조 검증
 # ============================================
 

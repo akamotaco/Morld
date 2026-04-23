@@ -634,6 +634,39 @@ e2e `test_all_have_insertion_request_pools`: 6 캐릭터 × 2 키 존재 검증.
 
 ---
 
+### Phase 1.7: 수치심 이벤트 훅 호출 지점 연결 (2026-04-24 완료)
+
+Phase 1 Slice 3에서 정의된 훅이 호출 지점 미구현 상태였음. 실제 게임플레이에서
+발동되도록 연결.
+
+#### 1.7.1 `on_masturbation_witnessed` — 자위 발각 시
+
+**위치**: `think/handlers/self_comfort.py::_handle_self_comfort` 의 `finishing` 단계
+- 자위 완료 직전 주변 확인 → 타인 존재 시 훅 발동
+- 연인이든 비연인이든 **당사자 관점에서 수치심은 공통 발생**
+- 후속 성욕 감소(연인 ½, 비연인 0)는 기존 로직 유지
+
+#### 1.7.2 `on_nude_in_public` — 공공장소 노출 시
+
+**위치**: `romance_core.py::_on_time_elapsed_shame` 에 `_check_nude_in_public_tick` 연결
+- 1시간 간격 (기존 shame_decay와 동일 hook)
+- 플레이어 위치의 같은 location에 있는 NPC들 순회
+- 노출 상태(상체 or 하체) + 관객 있음(= 같은 location에 2명 이상) → 훅 발동
+- 범위 한정: 전체 NPC 순회 대신 **플레이어 주변만** 체크 (비용 최소화)
+
+**의도적 제한**:
+- 플레이어 부재 시 (on_meet 트리거가 없는 상태) 공공 노출 감지 없음
+- 전체 맵 NPC의 공공 노출 추적은 Phase 5 (NPC↔NPC 관계 행렬) 작업
+
+#### 1.7.3 테스트
+
+e2e `TestNudeInPublicTickHook` 3개:
+- 노출 + 관객 → 수치심 증가
+- NPC 단독 (플레이어 다른 location) → 수치심 변화 없음
+- 플레이어 + NPC 2명만 있어도 발동 (플레이어가 "관객" 역할)
+
+---
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)
