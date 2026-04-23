@@ -1486,6 +1486,77 @@ class TestIntoxicantItemsCatalog:
 
 
 # ============================================
+# Phase 2.2a: TextSelector.format_result list random support
+# ============================================
+
+class TestTextSelectorListChoice:
+    """Phase 2.2a: format_result가 list면 random.choice로 1줄 선택."""
+
+    def test_string_result_passes_through(self):
+        from assets.base import TextSelector
+        result = TextSelector.format_result("hello {name}", {"name": "world"})
+        assert result == "hello world"
+
+    def test_list_result_picks_one(self):
+        from assets.base import TextSelector
+        pool = ["a {name}", "b {name}", "c {name}"]
+        result = TextSelector.format_result(pool, {"name": "x"})
+        assert result in ("a x", "b x", "c x")
+
+    def test_empty_list_passes_through(self):
+        """빈 리스트는 변환 없이 원본 유지."""
+        from assets.base import TextSelector
+        result = TextSelector.format_result([], {"name": "x"})
+        assert result == []
+
+    def test_dict_result_unchanged(self):
+        """dict 등 다른 타입은 그대로."""
+        from assets.base import TextSelector
+        d = {"nested": True}
+        assert TextSelector.format_result(d, {}) is d
+
+    def test_list_variety_over_many_picks(self):
+        """여러 번 호출하면 여러 결과가 나옴 (randomness 검증)."""
+        from assets.base import TextSelector
+        pool = ["a", "b", "c", "d", "e"]
+        results = set()
+        for _ in range(50):
+            results.add(TextSelector.format_result(pool, {}))
+        # 50번 중에 최소 2개 이상 다른 결과 (확률적으로 거의 확실)
+        assert len(results) >= 2
+
+
+class TestNpcIntimacyDescribePool:
+    """Phase 2.2a: _DESCRIBE_NPC_INTIMACY가 list-of-strings 풀로 확장."""
+
+    def test_forced_victim_pool_has_multiple(self):
+        from assets.base import _DESCRIBE_NPC_INTIMACY
+        forced_rules = [r for r in _DESCRIBE_NPC_INTIMACY
+                        if r[0].get("NPC강제피해중")]
+        assert len(forced_rules) == 1
+        pool = forced_rules[0][1]
+        assert isinstance(pool, list)
+        assert len(pool) >= 5
+
+    def test_consensual_pool_has_multiple(self):
+        from assets.base import _DESCRIBE_NPC_INTIMACY
+        consensual_rules = [r for r in _DESCRIBE_NPC_INTIMACY
+                            if r[0].get("NPC성행위중")
+                            and not r[0].get("NPC강제피해중")]
+        assert len(consensual_rules) == 1
+        pool = consensual_rules[0][1]
+        assert isinstance(pool, list)
+        assert len(pool) >= 5
+
+    def test_pool_entries_all_have_name_placeholder(self):
+        from assets.base import _DESCRIBE_NPC_INTIMACY
+        for _cond, pool in _DESCRIBE_NPC_INTIMACY:
+            assert isinstance(pool, list)
+            for line in pool:
+                assert "{name}" in line, f"Missing {{name}} in: {line}"
+
+
+# ============================================
 # Phase 1.7: 수치심 훅 호출 지점 연결
 # ============================================
 

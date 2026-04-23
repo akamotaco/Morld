@@ -139,15 +139,20 @@ class TextSelector:
     @staticmethod
     def format_result(result, context: dict):
         """
-        result가 문자열이면 context로 포맷팅
+        result가 문자열이면 context로 포맷팅. 리스트면 random.choice 후 포맷.
 
         Args:
-            result: 텍스트 또는 dict
+            result: 문자열 / 문자열 리스트 / dict
             context: 포맷팅용 context (name 등)
 
         Returns:
             포맷팅된 결과
+
+        Phase 2.2a: result가 list면 random.choice로 한 줄 선택 → 풍부한 묘사 풀 지원.
         """
+        if isinstance(result, list) and result:
+            import random as _random
+            result = _random.choice(result)
         if isinstance(result, str):
             try:
                 return result.format(**context)
@@ -1188,8 +1193,28 @@ _DESCRIBE_ASSAULT_VICTIM = [
 ]
 
 _DESCRIBE_NPC_INTIMACY = [
-    ({"NPC강제피해중": True}, "{name}(이)가 누군가에게 억지로 당하고 있다."),
-    ({"NPC성행위중": True}, "{name}(이)가 누군가와 함께 얽혀 있다."),
+    # Phase 2.2a: 풍부한 묘사 풀 (random.choice로 매 describe마다 다른 1줄)
+    ({"NPC강제피해중": True}, [
+        "{name}(이)가 누군가에게 억지로 당하고 있다.",
+        "{name}(의) 고통스러운 신음이 새어 나온다.",
+        "{name}(이)가 저항하며 몸을 비틀고 있다.",
+        "{name}(의) 눈에는 눈물이 고여 있다...",
+        "{name}(이)가 필사적으로 발버둥치지만 벗어나지 못한다.",
+        "{name}(의) 몸이 억지로 얽혀 있다.",
+        "{name}(이)가 이를 악물고 견디고 있다.",
+        "{name}(의) 손이 허공을 움켜쥔다...",
+    ]),
+    ({"NPC성행위중": True}, [
+        "{name}(이)가 누군가와 함께 얽혀 있다.",
+        "{name}(이)가 상대의 몸에 기대어 달아올라 있다.",
+        "{name}(의) 숨결이 뜨겁게 흐트러져 있다.",
+        "{name}(이)가 상대와 격렬히 엉키고 있다.",
+        "{name}(의) 몸이 쾌락에 떨고 있다.",
+        "{name}(이)가 상대를 끌어안고 있다.",
+        "{name}(의) 달콤한 신음이 새어 나온다.",
+        "{name}(이)가 상대의 어깨를 물고 있다...",
+        "{name}(의) 허리가 스스로 움직이고 있다.",
+    ]),
 ]
 
 # ========================================

@@ -1047,7 +1047,42 @@ NPC를 focus/describe하면 묘사 출력. 풍부한 관찰 묘사는 후속.
   직접 전투는 **2차 연쇄**로만 발생
 - **3P 참여** — 플레이어-NPC 연인 관계 시 조건부 노출
 - **NTR 감정 연계** — 연인 NPC가 다른 NPC와 → 질투/배신 감정
-- **풍부한 관찰 묘사** — 은신 성공 후 턴 기반 성행위 진행 묘사
+- ~~풍부한 관찰 묘사~~ — **Phase 2.2a에서 완료**
+
+---
+
+### Phase 2.2a: 풍부한 관찰 묘사 (2026-04-24 완료)
+
+**배경**: Phase 2.1 은신 성공 후 NPC를 focus/describe 시 "{name}(이)가
+누군가와 얽혀 있다" 1줄만 출력. 매번 같은 대사라 단조로움.
+
+#### 2.2a.1 `TextSelector.format_result` 확장
+
+`result`가 **list**이면 `random.choice`로 1줄 선택 후 포맷.
+기존 str 반환 경로는 그대로 — 회귀 없음.
+
+```python
+if isinstance(result, list) and result:
+    result = random.choice(result)
+# 기존 str 포맷 로직 계속
+```
+
+이 확장은 전역적 — 다른 `_DESCRIBE_*` 섹션도 list-of-strings 풀로 확장 가능.
+
+#### 2.2a.2 `_DESCRIBE_NPC_INTIMACY` 풀 확장
+
+| 조건 | 이전 | Phase 2.2a |
+|-----|------|-----------|
+| NPC강제피해중 | 1줄 | 8줄 (신음/저항/눈물/발버둥 등) |
+| NPC성행위중 (합의) | 1줄 | 9줄 (얽힘/뜨거운 숨결/쾌락 떨림 등) |
+
+매 describe 호출마다 랜덤 1줄 선택 → 단조로움 해소.
+
+#### 2.2a.3 테스트 커버리지
+
+신규 8개 e2e:
+- `TestTextSelectorListChoice` 5개: str/list/빈 list/dict/randomness
+- `TestNpcIntimacyDescribePool` 3개: 풀 구조 검증
 
 ---
 
