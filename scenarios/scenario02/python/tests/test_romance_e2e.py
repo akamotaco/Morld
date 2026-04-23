@@ -1530,23 +1530,26 @@ class TestNpcIntimacyDescribePool:
     """Phase 2.2a: _DESCRIBE_NPC_INTIMACY가 list-of-strings 풀로 확장."""
 
     def test_forced_victim_pool_has_multiple(self):
+        """Phase 2.4: 강제 케이스 rule은 beloved_exists 조건별 2개 이상 (풀 확장)."""
         from assets.base import _DESCRIBE_NPC_INTIMACY
         forced_rules = [r for r in _DESCRIBE_NPC_INTIMACY
                         if r[0].get("NPC강제피해중")]
-        assert len(forced_rules) == 1
-        pool = forced_rules[0][1]
-        assert isinstance(pool, list)
-        assert len(pool) >= 5
+        assert len(forced_rules) >= 1
+        # 각 rule의 pool 크기 검증
+        for _cond, pool in forced_rules:
+            assert isinstance(pool, list)
+            assert len(pool) >= 5
 
     def test_consensual_pool_has_multiple(self):
+        """Phase 2.4: 합의 케이스 rule은 beloved_exists 조건별 2개 (풀 확장)."""
         from assets.base import _DESCRIBE_NPC_INTIMACY
         consensual_rules = [r for r in _DESCRIBE_NPC_INTIMACY
                             if r[0].get("NPC성행위중")
                             and not r[0].get("NPC강제피해중")]
-        assert len(consensual_rules) == 1
-        pool = consensual_rules[0][1]
-        assert isinstance(pool, list)
-        assert len(pool) >= 5
+        assert len(consensual_rules) >= 1
+        for _cond, pool in consensual_rules:
+            assert isinstance(pool, list)
+            assert len(pool) >= 5
 
     def test_pool_entries_all_have_name_placeholder(self):
         from assets.base import _DESCRIBE_NPC_INTIMACY
@@ -1610,6 +1613,97 @@ class TestNtrTrustPenalty:
         # "지인" 또는 "친구" 라벨 — 연인 아님
         label = get_relationship_label(2, 1)
         assert label not in ("연인", "배우자", "헌신적 종자")
+
+
+# ============================================
+# Phase 2.4: beloved 이름 부르기 (NTR/NTL 효과)
+# ============================================
+
+class TestBelovedName:
+    """_get_beloved_name: 최고 호감 대상 파생."""
+
+    def test_no_relations_returns_none(self):
+        from assets.base import _get_beloved_name
+        morld.register_unit(2, name="유키", gender="female", props={"성별": 2})
+        assert _get_beloved_name(2) is None
+
+    def test_below_threshold_returns_none(self):
+        """임계(40) 미만이면 None."""
+        from assets.base import _get_beloved_name
+        morld.register_unit(2, name="유키", gender="female", props={
+            "성별": 2,
+            "관계:주인공:호감": 30,
+        })
+        assert _get_beloved_name(2) is None
+
+    def test_threshold_met_returns_name(self):
+        """임계 40 이상이면 이름 반환."""
+        from assets.base import _get_beloved_name
+        morld.register_unit(2, name="유키", gender="female", props={
+            "성별": 2,
+            "관계:주인공:호감": 50,
+        })
+        assert _get_beloved_name(2) == "주인공"
+
+    def test_multiple_relations_picks_highest(self):
+        """여러 관계 중 최고값 대상 반환."""
+        from assets.base import _get_beloved_name
+        morld.register_unit(2, name="유키", gender="female", props={
+            "성별": 2,
+            "관계:주인공:호감": 50,
+            "관계:세라:호감": 80,
+            "관계:엘라:호감": 45,
+        })
+        assert _get_beloved_name(2) == "세라"
+
+    def test_only_affection_props_considered(self):
+        """관계:*:호감 외 prop은 무시."""
+        from assets.base import _get_beloved_name
+        morld.register_unit(2, name="유키", gender="female", props={
+            "성별": 2,
+            "관계:주인공:반발": 100,
+            "관계:주인공:복종": 90,
+        })
+        assert _get_beloved_name(2) is None
+
+    def test_non_numeric_values_skipped(self):
+        """숫자가 아닌 값은 무시 (방어적)."""
+        from assets.base import _get_beloved_name
+        morld.register_unit(2, name="유키", gender="female", props={
+            "성별": 2,
+            "관계:주인공:호감": "invalid",
+            "관계:세라:호감": 50,
+        })
+        assert _get_beloved_name(2) == "세라"
+
+
+class TestMasturbationDescribePool:
+    """Phase 2.4: 자위 중 묘사 + beloved 이름 부르기 풀."""
+
+    def test_masturbation_section_exists(self):
+        from assets.base import _DESCRIBE_MASTURBATION
+        assert len(_DESCRIBE_MASTURBATION) >= 2  # beloved/no-beloved 각 1개 이상
+
+    def test_masturbation_pools_non_empty(self):
+        from assets.base import _DESCRIBE_MASTURBATION
+        for _cond, pool in _DESCRIBE_MASTURBATION:
+            assert isinstance(pool, list)
+            assert len(pool) >= 3
+
+    def test_masturbation_beloved_pool_has_name_calls(self):
+        """beloved_exists 풀에 {beloved} 포함 대사 최소 1개."""
+        from assets.base import _DESCRIBE_MASTURBATION
+        beloved_pools = [p for c, p in _DESCRIBE_MASTURBATION
+                         if c.get("beloved_exists")]
+        assert len(beloved_pools) >= 1
+        pool = beloved_pools[0]
+        has_beloved_line = any("{beloved}" in line for line in pool)
+        assert has_beloved_line
+
+    def test_masturbation_in_describe_order(self):
+        """masturbation 섹션이 기본 순서에 포함."""
+        from assets.base import _DEFAULT_DESCRIBE_ORDER
+        assert "masturbation" in _DEFAULT_DESCRIBE_ORDER
 
 
 # ============================================

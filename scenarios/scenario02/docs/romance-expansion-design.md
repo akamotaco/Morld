@@ -1130,6 +1130,53 @@ B 방향(플레이어 감정 stat, `관계:{a}:질투:{b}` 행렬)은 Phase 5 �
 
 ---
 
+### Phase 2.4: 이름 부르기 (NTR/NTL 효과) (2026-04-24 완료)
+
+**배경**: 트랜스/의식 흐린 상태에서 NPC가 속마음의 이름을 부르는 서사
+연출. NPC↔NPC 정사 목격 시엔 NTR, 자위 목격 시엔 짝사랑 드러남.
+
+#### 2.4.1 `_get_beloved_name(unit_id)` 파생
+
+`관계:*:호감` prop 중 임계(`_BELOVED_AFFECTION_THRESHOLD = 40`) 이상의
+**최고값 대상의 이름** 반환. None이면 사랑하는 이 없음.
+
+명시적 소유 prop 없이 **수치 파생** — era 철학 + morld 기존 `_is_lover_npc`
+패턴과 일관. 관계 변동에 따라 자연히 beloved도 변동.
+
+#### 2.4.2 `_build_context`에 beloved 주입
+
+```python
+context["beloved"] = beloved or ""
+context["beloved_exists"] = beloved is not None
+```
+
+rule 조건에 `{"beloved_exists": True}` 사용 → 조건부 풀 매칭.
+Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + 이름 부르기
+대사 혼합 풀에서 랜덤 선택.
+
+#### 2.4.3 풀 확장
+
+**`_DESCRIBE_NPC_INTIMACY`** (Phase 2.2a 확장):
+- 강제 + beloved → 기존 8줄 + "도와달라 {beloved}" 2줄
+- 합의 + beloved → 기존 9줄 + "{beloved} 중얼거림" 3줄 (NTL 효과)
+
+**`_DESCRIBE_MASTURBATION`** 신규:
+- 일반 4줄 / beloved 있음 6줄 (3줄은 "{beloved}" 이름 부르기)
+- `_DEFAULT_DESCRIBE_ORDER`에 `"masturbation"` 추가
+
+#### 2.4.4 플레이어와 세션 중 (후속)
+
+세션 내 대사 경로(`_get_mode_reaction`)는 `get_romance_reaction` 경유라 이번에
+포함 안 됨. 세션 중 이름 부르기는 후속.
+
+#### 2.4.5 테스트 커버리지
+
+신규 10개 e2e:
+- `TestBelovedName` 6개: 임계/최고값/다중 관계/수치 외 무시
+- `TestMasturbationDescribePool` 4개: 풀/순서/{beloved} 포함 대사
+
+---
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)

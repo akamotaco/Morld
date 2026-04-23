@@ -1192,8 +1192,51 @@ _DESCRIBE_ASSAULT_VICTIM = [
     ({"겁탈피해중": True}, "{name}(이)가 생물에게 덮쳐져 꼼짝 못하고 있다."),
 ]
 
+_BELOVED_AFFECTION_THRESHOLD = 40  # 이 값 이상인 관계 중 최고값을 "사랑하는 이"로 간주
+
+
+def _get_beloved_name(unit_id, props=None):
+    """NPC가 가장 애정을 느끼는 대상의 이름 (Phase 2.4 NTR/NTL).
+
+    `관계:*:호감` prop 중 임계치(40) 이상의 최고값 대상 반환.
+    None이면 사랑하는 이 없음.
+    """
+    if props is None:
+        props = morld.get_unit_props(unit_id) or {}
+    best_name = None
+    best_val = _BELOVED_AFFECTION_THRESHOLD - 1  # 임계 미만부터 시작
+    for key, val in props.items():
+        if not (isinstance(key, str) and key.startswith("관계:") and key.endswith(":호감")):
+            continue
+        try:
+            numeric = float(val)
+        except (TypeError, ValueError):
+            continue
+        if numeric > best_val:
+            best_val = numeric
+            # "관계:{name}:호감" → name
+            parts = key.split(":", 2)
+            if len(parts) >= 3:
+                best_name = parts[1]
+    return best_name
+
+
 _DESCRIBE_NPC_INTIMACY = [
     # Phase 2.2a: 풍부한 묘사 풀 (random.choice로 매 describe마다 다른 1줄)
+    # Phase 2.4: beloved 있으면 이름 부르기 대사가 풀에 추가됨 (NTR/NTL 효과)
+    ({"NPC강제피해중": True, "beloved_exists": True}, [
+        "{name}(이)가 누군가에게 억지로 당하고 있다.",
+        "{name}(의) 고통스러운 신음이 새어 나온다.",
+        "{name}(이)가 저항하며 몸을 비틀고 있다.",
+        "{name}(의) 눈에는 눈물이 고여 있다...",
+        "{name}(이)가 필사적으로 발버둥치지만 벗어나지 못한다.",
+        "{name}(의) 몸이 억지로 얽혀 있다.",
+        "{name}(이)가 이를 악물고 견디고 있다.",
+        "{name}(의) 손이 허공을 움켜쥔다...",
+        # beloved 부르기 (NTR 효과 — 연인에게 도와달라는 외침)
+        "{name}(의) 흐느낌 사이로 '...{beloved}...' 라는 이름이 새어 나왔다.",
+        "{name}(이)가 '...{beloved}...' 라고 누군가의 이름을 부르고 있다.",
+    ]),
     ({"NPC강제피해중": True}, [
         "{name}(이)가 누군가에게 억지로 당하고 있다.",
         "{name}(의) 고통스러운 신음이 새어 나온다.",
@@ -1203,6 +1246,21 @@ _DESCRIBE_NPC_INTIMACY = [
         "{name}(의) 몸이 억지로 얽혀 있다.",
         "{name}(이)가 이를 악물고 견디고 있다.",
         "{name}(의) 손이 허공을 움켜쥔다...",
+    ]),
+    ({"NPC성행위중": True, "beloved_exists": True}, [
+        "{name}(이)가 누군가와 함께 얽혀 있다.",
+        "{name}(이)가 상대의 몸에 기대어 달아올라 있다.",
+        "{name}(의) 숨결이 뜨겁게 흐트러져 있다.",
+        "{name}(이)가 상대와 격렬히 엉키고 있다.",
+        "{name}(의) 몸이 쾌락에 떨고 있다.",
+        "{name}(이)가 상대를 끌어안고 있다.",
+        "{name}(의) 달콤한 신음이 새어 나온다.",
+        "{name}(이)가 상대의 어깨를 물고 있다...",
+        "{name}(의) 허리가 스스로 움직이고 있다.",
+        # beloved 부르기 (NTL 효과 — 마음속으론 다른 사람 생각)
+        "{name}(의) 신음 사이로 '...{beloved}...' 라는 이름이 새어 나왔다.",
+        "{name}(이)가 자기도 모르게 '{beloved}...' 라고 중얼거렸다.",
+        "{name}(의) 입술이 '{beloved}...' 라는 이름을 형태 없이 읊조렸다.",
     ]),
     ({"NPC성행위중": True}, [
         "{name}(이)가 누군가와 함께 얽혀 있다.",
@@ -1214,6 +1272,26 @@ _DESCRIBE_NPC_INTIMACY = [
         "{name}(의) 달콤한 신음이 새어 나온다.",
         "{name}(이)가 상대의 어깨를 물고 있다...",
         "{name}(의) 허리가 스스로 움직이고 있다.",
+    ]),
+]
+
+
+# Phase 2.4: 자위 중 묘사 — beloved 이름 부르기 (짝사랑/그리움 드러남)
+_DESCRIBE_MASTURBATION = [
+    ({"activity": "자위", "beloved_exists": True}, [
+        "{name}(이)가 홀로 자위하고 있다.",
+        "{name}(의) 거친 숨소리가 새어 나온다.",
+        "{name}(이)가 얼굴을 붉히며 스스로를 달래고 있다.",
+        # beloved 부르기 (짝사랑 고백)
+        "{name}(이)가 '...{beloved}...' 라고 속삭이며 스스로를 자극하고 있다.",
+        "{name}(의) 신음에 '{beloved}' 이름이 섞여 있다.",
+        "{name}(이)가 '{beloved}...' 이름을 부르며 절정에 가까워진다.",
+    ]),
+    ({"activity": "자위"}, [
+        "{name}(이)가 홀로 자위하고 있다.",
+        "{name}(의) 거친 숨소리가 새어 나온다.",
+        "{name}(이)가 얼굴을 붉히며 스스로를 달래고 있다.",
+        "{name}(의) 손길이 몸을 더듬고 있다.",
     ]),
 ]
 
@@ -1284,6 +1362,7 @@ _DESCRIBE_IDLE_ARCHETYPE = {
 
 _DEFAULT_DESCRIBE_ORDER = [
     "carrying", "restraint", "assault_victim", "npc_intimacy",
+    "masturbation",  # Phase 2.4: 자위 중 묘사 (beloved 이름 부르기 포함)
     "parasite", "parasite_reaction",
     "climax", "exposure_body", "shame",
     "specials", "traveling",
@@ -1313,6 +1392,7 @@ def build_describe_rules(archetype, *, traveling=None, activities=None,
         "restraint": _DESCRIBE_RESTRAINT,
         "assault_victim": _DESCRIBE_ASSAULT_VICTIM,
         "npc_intimacy": _DESCRIBE_NPC_INTIMACY,
+        "masturbation": _DESCRIBE_MASTURBATION,
         "parasite": _DESCRIBE_PARASITE,
         "parasite_reaction": _DESCRIBE_PARASITE_REACTION.get(archetype, []),
         "climax": _DESCRIBE_CLIMAX.get(archetype, []),
@@ -2653,6 +2733,11 @@ class Character(_CharacterBase):
         context["겁탈피해중"] = bool(morld.get_unit_prop(unit_id, "상태:겁탈피해중"))
         context["NPC성행위중"] = bool(morld.get_unit_prop(unit_id, "상태:NPC성행위중"))
         context["NPC강제피해중"] = bool(morld.get_unit_prop(unit_id, "상태:NPC강제피해중"))
+
+        # Phase 2.4: 마음속 연인 (NTR/NTL 이름 부르기 효과)
+        beloved = _get_beloved_name(unit_id, props)
+        context["beloved"] = beloved or ""
+        context["beloved_exists"] = beloved is not None
 
         # 운반 상태
         import carry as _carry
