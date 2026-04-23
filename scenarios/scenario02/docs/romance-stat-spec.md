@@ -682,6 +682,73 @@ Sera.disposition_override = {
 
 각 Phase 도입 시 기존 NPC는 **마이그레이션** (아키타입 기반 기본값 설정), 신규 생성은 처음부터 프리셋 반영.
 
+### 7.12 Phase 2 전반 착수 체크리스트 (2026-04-24 추가)
+
+성격 7 trait(`성격:담력/태도/응답/자존심/츤데레/정조/명랑`) 도입 시 건드릴 지점.
+
+**코드 수정 지점**:
+1. **아키타입 기본값 dict** (`romance_core.py` 또는 신규 `romance_traits.py`):
+   - `ARCHETYPE_PERSONALITY_DEFAULT` — 10 아키타입 × 7 trait 기본값 (§7.2 내용)
+2. **기본값 조회 헬퍼**:
+   - `get_personality_value(unit_id, key)` — raw prop 우선, 없으면 아키타입 기본값
+   - `get_effective_personality(unit_id, key)` — Phase 1.9 복종 침잠 패턴 유사 (필요 시)
+3. **게이트 공식 통합** (`romance_core.calculate_availability_score`):
+   - §6.8 영향 영역 1 "행위 게이트 보정" 구현
+   - `baseline += 담력×5 + 자존심×8 + 정조×10 + 태도×3`
+4. **스탯 변동 계수** (복종·반발 변동 시):
+   - §6.8 영향 영역 2: 자존심 -1 → 복종 gain ×1.5, 담력 -1 → 반발 gain ×0.7 등
+5. **NPC think 의사결정** (`think/` 핸들러):
+   - 담력 -1 → 위험 활동 회피
+   - 태도 1 → 지시 거부 확률 ↑
+   - 정조 1 → 성적 접근 자동 차단
+6. **묘사 섹션** (`assets/base.py`):
+   - `_DESCRIBE_PERSONALITY_*` 신규 섹션 추가 (명랑 -1 → "표정 어둡다" 등)
+7. **prop 저장**: 기존 Character.instantiate()가 아키타입별 기본값 자동 주입
+8. **테스트**: 기본값 조회 / 게이트 반영 / 변동 계수 / override 우선순위
+
+**마이그레이션 전략**:
+- Phase 1 패턴 재사용 — raw prop 없으면 아키타입 기본값 사용 (`get_restraint_value` 참조)
+- 기존 NPC는 prop 없음 → 기본값 자동 적용
+- 신규 NPC는 instantiate 시 명시 주입
+- S02 6 NPC는 §7.8 프리셋 + §7.9 override를 asset 클래스에 정의
+
+### 7.13 Phase 2 후반 착수 체크리스트
+
+성향 성애 8개(`성별기호/쾌감응답/새드/마조/도착/노출벽/무관심/감정결여`).
+
+**주요 적용 지점**:
+1. **성별기호** — 이미 `gender.get_orientation_*` 존재 (연계 검토 필요)
+2. **쾌감응답** — `stimulation.calc_gain`의 반발 factor와 유사하게 배율
+3. **새드·마조** — 가해/피해 행위 시 쾌락 보정, 복종·반발 계수 조정
+4. **도착·노출벽** — availability_score 모디파이어 (수치심 상쇄)
+5. **무관심·감정결여** — 트랜스 진입 억제 (Phase 1.6.1 트랜스 공식에 factor)
+
+### 7.14 구현 순서 제안
+
+**Slice A (아키타입 기본값 인프라)**:
+- `ARCHETYPE_PERSONALITY_DEFAULT` dict 정의
+- `get_personality_value(unit_id, key)` 헬퍼
+- 관련 테스트
+
+**Slice B (게이트 공식 통합)**:
+- `calculate_availability_score`에 성격 보정 추가
+- 기존 availability 테스트가 성격 0 기본값으로 불변 검증
+
+**Slice C (변동 계수)**:
+- 복종/반발/무드 gain에 성격 factor 적용
+
+**Slice D (NPC 6명 프리셋 주입)**:
+- §7.8/§7.9 override를 lina/yuki/ella/sera/mila/faye asset에 추가
+- 테스트: 각 NPC가 올바른 기본값 반환
+
+**Slice E (묘사 섹션)**:
+- `_DESCRIBE_PERSONALITY_*` 섹션 7 trait 각각 추가
+
+**Slice F (think 분기)**:
+- 핸들러에서 성격 체크 — 담력/태도/정조 분기
+
+각 Slice마다 e2e 통과 후 커밋 — Phase 1.9 슬라이스 패턴과 동일.
+
 ---
 
 ## 8. 묘사 시스템 로드맵
