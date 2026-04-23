@@ -204,17 +204,41 @@ class TestTranceLevel:
         self._set_stats(arousal=80, gauge=40, restraint=50)
         assert rd.compute_trance_level(2) == 60
 
-    def test_compute_restraint_reduces(self):
-        """자제심 높으면 트랜스 감쇠."""
+    def test_compute_high_restraint_strong_defense(self):
+        """자제심 100 → 90% 방어 (factor 0.1)."""
         self._set_stats(arousal=80, gauge=40, restraint=100)
-        # 60 × (1 + (50-100) × 0.005) = 60 × 0.75 = 45
-        assert rd.compute_trance_level(2) == 45
+        # base=60, factor=max(0.1, 1.0 - 50×0.02)=0.1 → 6
+        assert rd.compute_trance_level(2) == 6
 
-    def test_compute_low_restraint_boosts(self):
-        """자제심 낮으면 트랜스 증폭."""
+    def test_compute_restraint_80_partial_defense(self):
+        """자제심 80 → 60% 방어 (factor 0.4)."""
+        self._set_stats(arousal=80, gauge=40, restraint=80)
+        # base=60, factor=1.0 - 30×0.02 = 0.4 → 24
+        assert rd.compute_trance_level(2) == 24
+
+    def test_compute_low_restraint_no_boost(self):
+        """자제심 0 → 방어 없음 (증폭도 없음, 비대칭)."""
         self._set_stats(arousal=80, gauge=40, restraint=0)
-        # 60 × (1 + 0.25) = 75
-        assert rd.compute_trance_level(2) == 75
+        # base=60, factor=1.0 (50 이하는 방어 없음) → 60
+        assert rd.compute_trance_level(2) == 60
+
+    def test_compute_restraint_50_neutral(self):
+        """자제심 50(기본) → 방어 없음."""
+        self._set_stats(arousal=80, gauge=40, restraint=50)
+        # factor=1.0 → base 그대로
+        assert rd.compute_trance_level(2) == 60
+
+    def test_compute_external_bypasses_restraint(self):
+        """외부 가산(세뇌/약물)은 자제심 방어를 우회."""
+        self._set_stats(arousal=80, gauge=40, restraint=100, external=50)
+        # base=60 × 0.1 = 6, external=50 → 56
+        assert rd.compute_trance_level(2) == 56
+
+    def test_compute_external_strong_overwhelms(self):
+        """강한 외부 자극은 고자제심도 트랜스 진입 가능케 함."""
+        self._set_stats(arousal=100, gauge=100, restraint=100, external=60)
+        # base=100 × 0.1 = 10, external=60 → 70 (TRANCE_ENTRY 초과)
+        assert rd.compute_trance_level(2) == 70
 
     def test_compute_external_adds(self):
         """외부 가산 (세뇌/약물)은 그대로 더해짐."""

@@ -123,12 +123,23 @@ TRANCE_DEEP = 80    # 깊은 트랜스 (저항 약화, 자발성 극대)
 
 
 def compute_trance_level(unit_id):
-    """성욕 + 절정게이지 × 자제심보정 + 외부 → 트랜스 수치 (0~100).
+    """성욕 + 절정게이지 × 자제심방어 + 외부 → 트랜스 수치 (0~100).
 
-    base = (성욕 + 절정게이지) / 2
-    base × (1 + (50 - 자제심) × 0.005)   # 자제심 역비례 ±25%
-    + 트랜스:외부 가산 (세뇌/약물 등)
-    → clamp 0~100
+    **비대칭 방어 전용 공식** (자제심 = 정신 공격 내성):
+    - 자제심 50 이하: 방어 없음 (factor 1.0)
+    - 자제심 50 초과: factor = max(0.1, 1.0 - (자제심 - 50) × 0.02)
+      - 자제심 70 → 0.6 (40% 방어)
+      - 자제심 80 → 0.4 (60% 방어)
+      - 자제심 100 → 0.1 (90% 방어)
+
+    외부 가산(세뇌/약물)은 자제심을 직접 우회 — 즉 강한 외부 자극은
+    고자제심 NPC에게도 트랜스 부여 가능.
+
+    공식:
+      base = (성욕 + 게이지) / 2
+      base × 자제심_방어_factor
+      + 트랜스:외부
+      → clamp 0~100
     """
     arousal = morld.get_unit_prop(unit_id, "상태:성욕") or 0
     gauge = morld.get_unit_prop(unit_id, "상태:절정") or 0
@@ -137,7 +148,9 @@ def compute_trance_level(unit_id):
         restraint = 50
     external = morld.get_unit_prop(unit_id, "트랜스:외부") or 0
     base = (arousal + gauge) / 2.0
-    base *= 1.0 + (50 - restraint) * 0.005
+    # 자제심 방어 (50 초과일 때만 감쇠, 50 이하는 방어 없음)
+    defense_factor = max(0.1, 1.0 - max(0, restraint - 50) * 0.02)
+    base *= defense_factor
     value = int(base + external)
     return max(0, min(100, value))
 
