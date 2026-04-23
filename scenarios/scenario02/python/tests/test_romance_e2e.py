@@ -1706,6 +1706,42 @@ class TestMasturbationDescribePool:
         assert "masturbation" in _DEFAULT_DESCRIBE_ORDER
 
 
+class TestTranceDeepBelovedDialog:
+    """Phase 2.4.1: 각 캐릭터 trance_deep 풀에 {beloved} 포함 대사 추가."""
+
+    _CHARACTERS = [
+        ("lina", "Lina"),
+        ("yuki", "Yuki"),
+        ("ella", "Ella"),
+        ("sera", "Sera"),
+        ("mila", "Mila"),
+        ("faye", "Faye"),
+    ]
+
+    def _character_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    def test_all_trance_deep_has_beloved_placeholder(self):
+        """각 캐릭터 trance_deep:start 풀에 {beloved} 포함 대사 최소 1줄."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            rules = reactions.get("trance_deep:start", [])
+            # rules = [(cond, pool), ...]
+            has_beloved = False
+            for _cond, pool in rules:
+                if isinstance(pool, list):
+                    for line in pool:
+                        if "{beloved}" in line:
+                            has_beloved = True
+                            break
+                if has_beloved:
+                    break
+            assert has_beloved, f"{cls_name} trance_deep:start missing {{beloved}} line"
+
+
 # ============================================
 # Phase 1.7: 수치심 훅 호출 지점 연결
 # ============================================

@@ -1667,6 +1667,31 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
         return False
 
+    def _substitute_beloved(reaction, partner_id, trance_level):
+        """{beloved} 치환 (Phase 2.4.1 — 플레이어 세션 중 NTR/NTL 연출).
+
+        NPC의 "마음속 연인"이 플레이어와 다른 NPC면 그 이름을 부름 (NTL 효과).
+        플레이어와 같은 NPC 자신이 sarangha다면 치환 실패로 간주 → fallback.
+
+        Args:
+            reaction: {beloved} 포함된 대사 텍스트
+            partner_id: 파트너 NPC (대사 주체)
+            trance_level: 트랜스 수치 (fallback 풀 선택용)
+
+        Returns:
+            치환된 텍스트 또는 fallback (beloved == 플레이어 or 없음).
+        """
+        from assets.base import _get_beloved_name
+        beloved = _get_beloved_name(partner_id)
+        player_info = morld.get_unit_info(state["player_id"])
+        player_name = player_info.get("name", "주인공") if player_info else "주인공"
+        # beloved가 플레이어 자신이면 NTR/NTL 아님 → fallback
+        if not beloved or beloved == player_name:
+            import random as _random
+            pool = _GENERIC_TRANCE_DEEP if trance_level >= 80 else _GENERIC_TRANCE
+            return _random.choice(pool)
+        return reaction.replace("{beloved}", beloved)
+
     def _get_mode_reaction(action_id, timing="start"):
         """모드별 반응 텍스트 조회.
 
@@ -1675,6 +1700,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         2. 모드 접두어 (forced_ 등)
         3. 기본 반응
         4. 공통 트랜스 fallback 풀 (의성어)
+        5. {beloved} 치환 (Phase 2.4.1) — NTR/NTL 이름 부르기
         """
         mode_ctx = state["mode_ctx"]
         cur_mode = mode_ctx["mode"]
@@ -1702,9 +1728,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 reaction = partner_asset.get_romance_reaction(
                     tk, timing, stim_state=state["stim"])
                 if reaction:
-                    return reaction
+                    break
             # 2. 모드 접두사 (forced_ 등)
-            if reaction_prefix:
+            if not reaction and reaction_prefix:
                 reaction = partner_asset.get_romance_reaction(
                     f"{reaction_prefix}{action_id}", timing, stim_state=state["stim"])
             # 3. 기본 반응
@@ -1715,6 +1741,9 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 import random as _random
                 pool = _GENERIC_TRANCE_DEEP if trance_level >= 80 else _GENERIC_TRANCE
                 reaction = _random.choice(pool)
+            # 5. {beloved} 치환 (Phase 2.4.1 — NTR/NTL 이름 부르기)
+            if reaction and "{beloved}" in reaction:
+                reaction = _substitute_beloved(reaction, pid, trance_level)
             return reaction
 
         # creature (bestiality): 종별 즉시 반응

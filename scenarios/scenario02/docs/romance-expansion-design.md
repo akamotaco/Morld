@@ -1164,10 +1164,22 @@ Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + �
 - 일반 4줄 / beloved 있음 6줄 (3줄은 "{beloved}" 이름 부르기)
 - `_DEFAULT_DESCRIBE_ORDER`에 `"masturbation"` 추가
 
-#### 2.4.4 플레이어와 세션 중 (후속)
+#### 2.4.4 플레이어와 세션 중 — Phase 2.4.1에서 완료
 
-세션 내 대사 경로(`_get_mode_reaction`)는 `get_romance_reaction` 경유라 이번에
-포함 안 됨. 세션 중 이름 부르기는 후속.
+세션 내 대사 경로(`_get_mode_reaction`)에 `{beloved}` 치환 post-process 추가:
+- 캐릭터 asset의 `trance_deep:start` 풀에 `{beloved}` 포함 대사 추가
+- `_substitute_beloved` closure 헬퍼:
+  - `beloved == 플레이어 이름`이면 NTR/NTL 아님 → 공통 fallback 풀로 교체
+  - 그 외면 치환 수행 (NTL 연출)
+  - `beloved` 없으면 fallback
+
+6 캐릭터 × 2줄 beloved 대사 추가 (아키타입 톤별):
+- lina: "...{beloved}...♡ 아...♡"
+- yuki: "...{beloved}... 죄송해요..."
+- ella: "...{beloved}..." 낯선 이름 흘림
+- sera: "...{beloved}..." 거친 숨결
+- mila: "...{beloved}... 좋아요...♡"
+- faye: "...{beloved}...!" 자존심 붕괴
 
 #### 2.4.5 테스트 커버리지
 
