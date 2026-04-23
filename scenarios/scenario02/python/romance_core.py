@@ -568,8 +568,15 @@ def calculate_effects(action_def, partner_id, player_id=None):
                 for stat in base_effects:
                     base_effects[stat] = round(base_effects[stat] * 1.3)
 
-        # 경험치 +1
-        morld.modify_prop(partner_id, exp_key, 1)
+        # 경험치 +1 (트랜스 시 ×1.2 / ×1.5)
+        exp_gain = 1
+        try:
+            from romance_dynamics import compute_trance_multipliers
+            trance_mult = compute_trance_multipliers(partner_id).get("experience", 1.0)
+            exp_gain = max(1, round(exp_gain * trance_mult))
+        except Exception:
+            pass
+        morld.modify_prop(partner_id, exp_key, exp_gain)
 
     # 노출 보너스 (해당 부위 노출 시 ×1.5)
     bonus_area = action_def.get("exposure_bonus")

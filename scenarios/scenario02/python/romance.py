@@ -80,6 +80,21 @@ POSITION_REQUEST_CHANCE = 0.3           # 매 체크마다 발동 확률
 INSERTION_REQUEST_COOLDOWN_MS = 5 * MILLIS_PER_MINUTE
 INSERTION_REQUEST_CHANCE = 0.25
 
+# 트랜스 상태 공통 fallback 대사 풀 (캐릭터 전용 trance 대사 없을 때 사용)
+_GENERIC_TRANCE = [
+    "...하아... 아... 응...",
+    "...헉... 하아...",
+    "...응아... 흐응...",
+    "...아으... 하읏...",
+]
+_GENERIC_TRANCE_DEEP = [
+    "...아우... 으아...",
+    "...히잉... 아앙...",
+    "...우우... 아으...",
+    "...으흐... 헤에...",
+    "...아... 아앙... 우...",
+]
+
 # NPC 자율 행위 루프 (Phase 1.6 — 봉사/자위 번갈아 수행)
 AUTONOMY_ENTRY_AROUSAL = 80             # 진입 성욕 임계
 AUTONOMY_EXIT_AROUSAL = 60              # 성욕 하락 시 종료 임계
@@ -1297,16 +1312,21 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         # 모드별 효과 배율 적용
         cur_mode = state["mode_ctx"]["mode"]
         multipliers = get_effect_multipliers(cur_mode)
+        # 트랜스 배율 (모드 배율과 곱셈 합성) — 의식 흐림 시 관계 약화, 몸 가속
+        from romance_dynamics import compute_trance_multipliers
+        trance_mult = compute_trance_multipliers(pid)
         _STAT_MULT_MAP = {
             "호감": "affection", "욕망": "desire", "반발": "rebellion",
             "복종": "submission", "성욕": "arousal",
         }
 
-        # 효과 적용 (호감/욕망/성욕 prop 변경) — 모드 배율 반영
+        # 효과 적용 (호감/욕망/성욕 prop 변경) — 모드 배율 × 트랜스 배율 반영
         for stat, value in effects.items():
             mult_key = _STAT_MULT_MAP.get(stat)
             if mult_key:
-                value = round(value * multipliers.get(mult_key, 1.0))
+                mode_m = multipliers.get(mult_key, 1.0)
+                trance_m = trance_mult.get(mult_key, 1.0)
+                value = round(value * mode_m * trance_m)
             if value == 0:
                 continue
 
@@ -1365,6 +1385,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             pref_mult = position.get_preference_mult(state["position"], category, state.get("npc_prefs"))
             if pref_mult != 1.0:
                 gain = round(gain * pref_mult)
+            # 트랜스 가속 (절정 게이지 × 1.2 / 1.5)
+            gauge_mult = trance_mult.get("climax_gauge", 1.0)
+            if gauge_mult != 1.0:
+                gain = max(1, round(gain * gauge_mult))
             result = stimulation.apply(stim_state, category, gain)
             if result and not climax_info:
                 climax_info = result
@@ -1378,6 +1402,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     extra_pref = position.get_preference_mult(state["position"], extra_cat, state.get("npc_prefs"))
                     if extra_pref != 1.0:
                         extra_gain = round(extra_gain * extra_pref)
+                    if gauge_mult != 1.0:
+                        extra_gain = max(1, round(extra_gain * gauge_mult))
                     r2 = stimulation.apply(stim_state, extra_cat, extra_gain)
                     if r2 and not climax_info:
                         climax_info = r2
@@ -1620,7 +1646,14 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         return False
 
     def _get_mode_reaction(action_id, timing="start"):
-        """모드별 반응 텍스트 조회"""
+        """모드별 반응 텍스트 조회.
+
+        우선순위:
+        1. 트랜스 접두어 (`trance_deep:` > `trance:`) — 깊은 트랜스일수록 인간어 상실
+        2. 모드 접두어 (forced_ 등)
+        3. 기본 반응
+        4. 공통 트랜스 fallback 풀 (의성어)
+        """
         mode_ctx = state["mode_ctx"]
         cur_mode = mode_ctx["mode"]
         reaction_prefix = get_reaction_prefix(cur_mode)
@@ -1629,16 +1662,37 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
             # 무반응 모드: 나레이션
             return get_silent_narration(cur_mode)
 
+        # 트랜스 상태 확인
+        pid = state["partner_id"]
+        trance_level = morld.get_unit_prop(pid, "상태:트랜스") or 0
+        trance_keys = []
+        if trance_level >= 80:  # TRANCE_DEEP
+            trance_keys.append(f"trance_deep:{action_id}")
+            trance_keys.append(f"trance:{action_id}")
+        elif trance_level >= 60:  # TRANCE_ENTRY
+            trance_keys.append(f"trance:{action_id}")
+
         partner_asset = get_partner_asset(state["partner_id"])
         if partner_asset and hasattr(partner_asset, 'get_romance_reaction'):
             reaction = None
-            # 접두사 있으면 먼저 시도 (forced_ 등)
+            # 1. 트랜스 접두어 우선
+            for tk in trance_keys:
+                reaction = partner_asset.get_romance_reaction(
+                    tk, timing, stim_state=state["stim"])
+                if reaction:
+                    return reaction
+            # 2. 모드 접두사 (forced_ 등)
             if reaction_prefix:
                 reaction = partner_asset.get_romance_reaction(
                     f"{reaction_prefix}{action_id}", timing, stim_state=state["stim"])
-            # fallback: 기본 반응
+            # 3. 기본 반응
             if not reaction:
                 reaction = partner_asset.get_romance_reaction(action_id, timing, stim_state=state["stim"])
+            # 4. 공통 트랜스 fallback (캐릭터 전용 없는 경우)
+            if not reaction and trance_keys:
+                import random as _random
+                pool = _GENERIC_TRANCE_DEEP if trance_level >= 80 else _GENERIC_TRANCE
+                reaction = _random.choice(pool)
             return reaction
 
         # creature (bestiality): 종별 즉시 반응

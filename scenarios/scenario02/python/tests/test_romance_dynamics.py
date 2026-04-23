@@ -256,3 +256,70 @@ class TestTranceLevel:
         rd.compute_trance_level(2)
         # update 전엔 prop 없음 (mock이 None 반환)
         assert morld.get_unit_prop(2, "상태:트랜스") is None
+
+
+# ============================================
+# 트랜스 효과 배율 (Phase 1.8)
+# ============================================
+
+class TestTranceMultipliers:
+    def setUp(self):
+        _setup_pair()
+
+    def test_no_trance_all_ones(self):
+        """트랜스 없음 → 모든 배율 1.0."""
+        morld.set_unit_prop(2, "상태:트랜스", 0)
+        mult = rd.compute_trance_multipliers(2)
+        for k in ("affection", "rebellion", "submission", "arousal",
+                  "desire", "climax_gauge", "experience"):
+            assert mult[k] == 1.0, f"{k} not 1.0"
+
+    def test_trance_entry_reduces_affection(self):
+        """트랜스 60 → 호감/반발 0.6."""
+        morld.set_unit_prop(2, "상태:트랜스", 60)
+        mult = rd.compute_trance_multipliers(2)
+        assert mult["affection"] == 0.6
+        assert mult["rebellion"] == 0.6
+
+    def test_trance_entry_boosts_body(self):
+        """트랜스 60 → 복종/성욕/절정/경험 증폭."""
+        morld.set_unit_prop(2, "상태:트랜스", 60)
+        mult = rd.compute_trance_multipliers(2)
+        assert mult["submission"] == 1.2
+        assert mult["arousal"] == 1.1
+        assert mult["climax_gauge"] == 1.2
+        assert mult["experience"] == 1.2
+
+    def test_trance_deep_extreme_reduction(self):
+        """트랜스 80 → 호감/반발 0.3 (의식 흐림)."""
+        morld.set_unit_prop(2, "상태:트랜스", 80)
+        mult = rd.compute_trance_multipliers(2)
+        assert mult["affection"] == 0.3
+        assert mult["rebellion"] == 0.3
+
+    def test_trance_deep_body_maxed(self):
+        """트랜스 80 → 복종/절정/경험 1.5."""
+        morld.set_unit_prop(2, "상태:트랜스", 80)
+        mult = rd.compute_trance_multipliers(2)
+        assert mult["submission"] == 1.5
+        assert mult["climax_gauge"] == 1.5
+        assert mult["experience"] == 1.5
+
+    def test_entry_threshold_exact(self):
+        """트랜스 59 → 배율 1.0, 60 → 트랜스 구간."""
+        morld.set_unit_prop(2, "상태:트랜스", 59)
+        assert rd.compute_trance_multipliers(2)["submission"] == 1.0
+        morld.set_unit_prop(2, "상태:트랜스", 60)
+        assert rd.compute_trance_multipliers(2)["submission"] == 1.2
+
+    def test_deep_threshold_exact(self):
+        """트랜스 79 → entry 구간, 80 → deep 구간."""
+        morld.set_unit_prop(2, "상태:트랜스", 79)
+        assert rd.compute_trance_multipliers(2)["submission"] == 1.2
+        morld.set_unit_prop(2, "상태:트랜스", 80)
+        assert rd.compute_trance_multipliers(2)["submission"] == 1.5
+
+    def test_missing_prop_defaults_zero(self):
+        """트랜스 prop 없으면 0 취급 → 배율 1.0."""
+        mult = rd.compute_trance_multipliers(2)
+        assert mult["submission"] == 1.0

@@ -159,6 +159,35 @@ def is_in_deep_trance(unit_id):
     return is_in_trance(unit_id, TRANCE_DEEP)
 
 
+# 트랜스 효과 배율 — apply_effects에서 모드 배율과 곱셈 합성.
+# 의미: 의식 흐림 → 관계 기억(호감/반발) 약화, 몸(복종/성욕/절정/경험) 가속.
+_TRANCE_MULT_ENTRY = {
+    "affection": 0.6, "rebellion": 0.6, "submission": 1.2,
+    "arousal": 1.1, "desire": 1.1, "climax_gauge": 1.2, "experience": 1.2,
+}
+_TRANCE_MULT_DEEP = {
+    "affection": 0.3, "rebellion": 0.3, "submission": 1.5,
+    "arousal": 1.3, "desire": 1.3, "climax_gauge": 1.5, "experience": 1.5,
+}
+_TRANCE_MULT_NONE = {
+    "affection": 1.0, "rebellion": 1.0, "submission": 1.0,
+    "arousal": 1.0, "desire": 1.0, "climax_gauge": 1.0, "experience": 1.0,
+}
+
+
+def compute_trance_multipliers(unit_id):
+    """트랜스 수치에 따른 효과 배율 dict.
+
+    Returns 6 key: affection / rebellion / submission / arousal / desire / experience / climax_gauge
+    """
+    level = morld.get_unit_prop(unit_id, "상태:트랜스") or 0
+    if level >= TRANCE_DEEP:
+        return dict(_TRANCE_MULT_DEEP)
+    if level >= TRANCE_ENTRY:
+        return dict(_TRANCE_MULT_ENTRY)
+    return dict(_TRANCE_MULT_NONE)
+
+
 # ============================================
 # 관계 라벨 파생 (저장 X)
 # ============================================
