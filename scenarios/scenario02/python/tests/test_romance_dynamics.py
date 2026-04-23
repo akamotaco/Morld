@@ -347,3 +347,96 @@ class TestTranceMultipliers:
         """트랜스 prop 없으면 0 취급 → 배율 1.0."""
         mult = rd.compute_trance_multipliers(2)
         assert mult["submission"] == 1.0
+
+
+# ============================================
+# 실질 자제심 — 복종 침잠 (Phase 1.9)
+# ============================================
+
+class TestEffectiveRestraint:
+    def setUp(self):
+        _setup_pair()
+        morld._player_id = 1
+
+    def test_no_submission_returns_raw(self):
+        morld.set_unit_prop(2, "성격:자제심", 80)
+        assert rd.get_effective_restraint(2) == 80
+
+    def test_submission_below_threshold_no_erosion(self):
+        """복종 60 미만은 감쇠 없음."""
+        morld.set_unit_prop(2, "성격:자제심", 80)
+        morld.set_unit_prop(2, get_submission_key(1), 50)
+        assert rd.get_effective_restraint(2) == 80
+
+    def test_submission_at_threshold_no_erosion(self):
+        """복종 60 정확히 경계 — 감쇠 0."""
+        morld.set_unit_prop(2, "성격:자제심", 80)
+        morld.set_unit_prop(2, get_submission_key(1), 60)
+        assert rd.get_effective_restraint(2) == 80
+
+    def test_submission_70_small_erosion(self):
+        """복종 70 → -7.5 → 72 (int)."""
+        morld.set_unit_prop(2, "성격:자제심", 80)
+        morld.set_unit_prop(2, get_submission_key(1), 70)
+        # erosion = 10 × 0.75 = 7.5 → int(80 - 7.5) = 72
+        assert rd.get_effective_restraint(2) == 72
+
+    def test_submission_80_partial_erosion(self):
+        """복종 80 → -15 → 65."""
+        morld.set_unit_prop(2, "성격:자제심", 80)
+        morld.set_unit_prop(2, get_submission_key(1), 80)
+        assert rd.get_effective_restraint(2) == 65
+
+    def test_submission_100_max_erosion(self):
+        """복종 100 → -30 → 50."""
+        morld.set_unit_prop(2, "성격:자제심", 80)
+        morld.set_unit_prop(2, get_submission_key(1), 100)
+        assert rd.get_effective_restraint(2) == 50
+
+    def test_floor_at_zero(self):
+        """감쇠가 raw보다 크면 0으로 clamp."""
+        morld.set_unit_prop(2, "성격:자제심", 20)
+        morld.set_unit_prop(2, get_submission_key(1), 100)
+        # erosion 30, raw 20 → -10 → clamp 0
+        assert rd.get_effective_restraint(2) == 0
+
+
+class TestTranceInfluencedByCorruption:
+    """Phase 1.9: 복종 누적이 트랜스 진입을 쉽게 만드는지."""
+
+    def setUp(self):
+        _setup_pair()
+        morld._player_id = 1
+
+    def test_high_restraint_no_submission_defends(self):
+        """고자제심 + 복종 0 → 트랜스 방어."""
+        morld.set_unit_prop(2, "성격:자제심", 90)
+        morld.set_unit_prop(2, "상태:성욕", 100)
+        morld.set_unit_prop(2, "상태:절정", 80)
+        # effective = 90, factor = max(0.1, 1 - 40×0.02) = 0.2
+        # base = 90 × 0.2 = 18
+        trance = rd.compute_trance_level(2)
+        assert trance < 60, f"expected <60, got {trance}"
+
+    def test_corrupted_high_restraint_loses_defense(self):
+        """고자제심이어도 복종 100이면 트랜스 방어 소실."""
+        morld.set_unit_prop(2, "성격:자제심", 90)
+        morld.set_unit_prop(2, get_submission_key(1), 100)
+        morld.set_unit_prop(2, "상태:성욕", 100)
+        morld.set_unit_prop(2, "상태:절정", 80)
+        # erosion 30, effective = 60
+        # factor = max(0.1, 1 - 10×0.02) = 0.8
+        # base = 90 × 0.8 = 72
+        trance = rd.compute_trance_level(2)
+        assert trance >= 60, f"expected >=60 (entry), got {trance}"
+
+    def test_corruption_cascade_to_deep_trance(self):
+        """복종 극한 + 고흥분 → 깊은 트랜스 진입."""
+        morld.set_unit_prop(2, "성격:자제심", 80)
+        morld.set_unit_prop(2, get_submission_key(1), 100)
+        morld.set_unit_prop(2, "상태:성욕", 100)
+        morld.set_unit_prop(2, "상태:절정", 100)
+        # erosion 30, effective = 50 → factor 1.0
+        # base = 100 × 1.0 = 100 → trance_deep
+        trance = rd.compute_trance_level(2)
+        assert trance >= 80, f"expected deep trance, got {trance}"

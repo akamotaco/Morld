@@ -18,6 +18,7 @@ from romance_core import (
     get_rebellion_key,
     get_submission_key,
     _get_relationship_key,
+    get_restraint_value,
 )
 
 
@@ -113,6 +114,37 @@ def modify_love(target_id, player_id, delta):
 
 
 # ============================================
+# 실질 자제심 (복종 침잠 효과 — Phase 1.9)
+# ============================================
+# 복종 누적 시 자제심이 점차 무너짐 (함락 루트 서사 반영).
+# "몸이 먼저 굴복하고 정신이 뒤따른다" — era 조교 메커니즘 정합.
+
+RESTRAINT_EROSION_START = 60   # 복종 60부터 침잠 시작 ("충성" 구간 진입)
+RESTRAINT_EROSION_RATE = 0.75  # 복종 초과분의 75%만큼 자제심 감쇠
+
+
+def get_effective_restraint(unit_id):
+    """복종 누적에 따른 실질 자제심 (함락 침잠 효과).
+
+    raw = 성격:자제심 (아키타입 기본값 fallback 포함)
+    erosion = max(0, 복종 - 60) × 0.75
+    effective = max(0, raw - erosion)
+
+    복종은 플레이어에 대한 복종만 본다 (현재 주요 관계 축).
+    """
+    raw = get_restraint_value(unit_id) or 0
+    submission = 0
+    try:
+        player_id = morld.get_player_id()
+        if player_id is not None:
+            submission = morld.get_unit_prop(unit_id, get_submission_key(player_id)) or 0
+    except Exception:
+        submission = 0
+    erosion = max(0, submission - RESTRAINT_EROSION_START) * RESTRAINT_EROSION_RATE
+    return max(0, int(raw - erosion))
+
+
+# ============================================
 # 트랜스 상태 (`상태:트랜스`)
 # ============================================
 # 성욕 + 절정게이지 + 자제심 조합으로 산출 (prop 저장).
@@ -143,9 +175,8 @@ def compute_trance_level(unit_id):
     """
     arousal = morld.get_unit_prop(unit_id, "상태:성욕") or 0
     gauge = morld.get_unit_prop(unit_id, "상태:절정") or 0
-    restraint = morld.get_unit_prop(unit_id, "성격:자제심")
-    if restraint is None:
-        restraint = 50
+    # 실질 자제심 (복종 침잠 반영, Phase 1.9)
+    restraint = get_effective_restraint(unit_id)
     external = morld.get_unit_prop(unit_id, "트랜스:외부") or 0
     base = (arousal + gauge) / 2.0
     # 자제심 방어 (50 초과일 때만 감쇠, 50 이하는 방어 없음)

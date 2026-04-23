@@ -193,10 +193,14 @@ def get_restraint_modifier(partner_id):
     자제심 100 → -30점 (호감 요구치 30 상승과 동등).
     아키타입별 기본값 자동 적용 (innocent=80 → -24 / seductive=10 → -3).
 
+    **Phase 1.9**: 실질 자제심 사용 — 복종 누적 시 페널티도 감소
+    (함락되면 허들 자연히 낮아짐).
+
     Why: era TW의 자제심(自制心) Talent 20 — "성적욕망 억제, 매각 요구 높음".
          morld에선 점수 합산 모델에 모디파이어로 반영.
     """
-    return -get_restraint_value(partner_id) * RESTRAINT_PENALTY_FACTOR
+    from romance_dynamics import get_effective_restraint
+    return -get_effective_restraint(partner_id) * RESTRAINT_PENALTY_FACTOR
 
 
 # 관객계수 세부 상수
