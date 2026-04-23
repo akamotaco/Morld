@@ -4672,7 +4672,64 @@ class Character(_CharacterBase):
     }
 
     def _on_npc_intimacy_discovered(self, player_id):
-        """NPC-NPC 성행위 발각 반응 (Generator)"""
+        """NPC-NPC 성행위 조우 다이얼로그 (Generator) — Phase 2.1.
+
+        플레이어가 NPC 성행위 현장에 도착/은신해제로 진입 시 호출.
+        선택지:
+          [은신 시도]  stealth 재시도 — 성공 시 세션 유지, 실패 시 발각
+          [물러난다]   세션 유지 + 플레이어만 조용히 퇴장
+          [목격한다]   기존 발각 반응 (세션 중단 + 아키타입 대사)
+        """
+        is_forced_victim = bool(morld.get_unit_prop(
+            self.instance_id, "상태:NPC강제피해중"))
+        name = self.name
+
+        def handler():
+            import stealth as stealth_mod
+            header = f"[!]{name}(와)과 또 다른 NPC가 "
+            header += "강제로 얽혀 있는 모습이" if is_forced_victim else "격렬히 얽혀 있는 모습이"
+            header += " 눈앞에 펼쳐져 있다.[/!]"
+
+            lines = [header, ""]
+            # 이미 은신 중이 아닐 때만 은신 시도 옵션 (여기 도달 = 비은신 or 발각됨)
+            if not stealth_mod.is_player_stealthed():
+                lines.append("[url=@ret:stealth]몰래 숨는다[/url]")
+            lines.append("[url=@ret:retreat]조용히 물러난다[/url]")
+            lines.append("[url=@ret:confront]목격한다[/url]")
+
+            choice = yield ui.dialog("\n".join(lines), autofill="off")
+
+            if choice == "stealth":
+                # 은신 진입 + 즉시 재판정
+                stealth_mod.enter_stealth(player_id)
+                if not stealth_mod.detection_check(self.instance_id):
+                    # 은신 성공 — NPC 세션 유지
+                    mode_label = "강제 행위" if is_forced_victim else "정사"
+                    yield ui.dialog(
+                        f"당신은 조용히 몸을 숨겼다.\n"
+                        f"{name}(는)은 당신을 눈치채지 못하고 {mode_label}를 계속한다...")
+                    return
+                # 은신 실패 → 발각 경로 fallthrough
+                yield ui.dialog(f"{style_danger('숨으려 했지만 들키고 말았다!')}")
+
+            elif choice == "retreat":
+                # 세션 유지, 플레이어 조용히 퇴장
+                yield ui.dialog(
+                    f"당신은 {name}(를)을 방해하지 않고 조용히 물러났다.\n"
+                    f"성행위는 계속된다...")
+                return
+
+            # confront 또는 stealth 실패 → 기존 발각 흐름
+            yield from self._run_npc_intimacy_discovery_reaction(player_id)
+
+        return handler()
+
+    def _run_npc_intimacy_discovery_reaction(self, player_id):
+        """발각 반응 — 세션 정리 + 아키타입별 대사.
+
+        Phase 2.1에서 `_on_npc_intimacy_discovered` 선택 경로 중 "목격" 분기용으로
+        분리. 기존 즉시 발각 흐름과 동일.
+        """
         import think
         agent = think.get_agent(self.instance_id)
         partner_id = morld.get_unit_prop(self.instance_id, "성행위:상대")
@@ -4720,9 +4777,7 @@ class Character(_CharacterBase):
                 f"[{self.name}]\n...!\n{self.name}(이)가 황급히 몸을 가린다.")
         text = text.format(name=self.name)
 
-        def handler():
-            yield ui.dialog(text)
-        return handler()
+        yield ui.dialog(text)
 
     def _run_discovery_reaction(self, player_id, config):
         """발각 반응 실행 (Generator)"""
