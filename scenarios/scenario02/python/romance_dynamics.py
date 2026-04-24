@@ -197,7 +197,13 @@ def compute_trance_level(unit_id):
     # 자제심 방어 (50 초과일 때만 감쇠, 50 이하는 방어 없음)
     defense_factor = max(0.1, 1.0 - max(0, restraint - 50) * 0.02)
     base *= defense_factor
-    value = int(base + external + drunk)
+    # Phase 2 후반 §7.13 point 5 — 무관심/감정결여 억제 (trance 진입 자체 감쇠)
+    from romance_core import get_disposition_value
+    apathy = get_disposition_value(unit_id, "무관심")     # 0/1
+    numb = get_disposition_value(unit_id, "감정결여")   # 0/1
+    trance_damp = 0.5 if (apathy >= 1 or numb >= 1) else 1.0
+    base *= trance_damp
+    value = int(base + (external + drunk) * trance_damp)
     return max(0, min(100, value))
 
 

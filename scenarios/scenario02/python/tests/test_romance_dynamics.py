@@ -281,6 +281,27 @@ class TestTranceLevel:
         # update 전엔 prop 없음 (mock이 None 반환)
         assert morld.get_unit_prop(2, "상태:트랜스") is None
 
+    def test_apathy_halves_trance(self):
+        """Phase 2 Slice K: 무관심 1 → 트랜스 진입 절반 감쇠."""
+        self._set_stats(arousal=80, gauge=40, restraint=50)
+        baseline = rd.compute_trance_level(2)  # 60
+        morld.set_unit_prop(2, "성향:무관심", 1)
+        dampened = rd.compute_trance_level(2)
+        assert dampened == baseline // 2  # 30
+
+    def test_numbness_halves_trance(self):
+        """감정결여 1 → 동일 감쇠."""
+        self._set_stats(arousal=80, gauge=40, restraint=50)
+        morld.set_unit_prop(2, "성향:감정결여", 1)
+        assert rd.compute_trance_level(2) == 30
+
+    def test_apathy_also_dampens_external(self):
+        """무관심 → external 가산도 절반 감쇠."""
+        self._set_stats(arousal=0, gauge=0, restraint=50, external=50)
+        assert rd.compute_trance_level(2) == 50
+        morld.set_unit_prop(2, "성향:무관심", 1)
+        assert rd.compute_trance_level(2) == 25
+
 
 # ============================================
 # 트랜스 효과 배율 (Phase 1.8)
