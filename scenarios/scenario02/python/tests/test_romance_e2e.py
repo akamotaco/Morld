@@ -2422,6 +2422,42 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
+class TestSwitchTakeoverChance:
+    """Slice P3: 공수 전환 지배 기반 조건화."""
+
+    def _setup(self):
+        morld.register_unit(1, name="주인공", props={})
+        morld.register_unit(2, name="세라", props={})
+        morld._player_id = 1
+
+    def test_free_switch_below_30(self):
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 0)
+        assert rc.calculate_switch_takeover_chance(2, 1) == 1.0
+        morld.set_unit_prop(2, "관계:주인공:지배", 30)
+        assert rc.calculate_switch_takeover_chance(2, 1) == 1.0
+
+    def test_blocked_at_70(self):
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 70)
+        assert rc.calculate_switch_takeover_chance(2, 1) == 0.0
+        morld.set_unit_prop(2, "관계:주인공:지배", 90)
+        assert rc.calculate_switch_takeover_chance(2, 1) == 0.0
+
+    def test_linear_middle_range(self):
+        """지배 50 → 0.5 (30~70 범위의 중간)."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 50)
+        assert abs(rc.calculate_switch_takeover_chance(2, 1) - 0.5) < 1e-9
+
+    def test_near_block_tiny_chance(self):
+        """지배 69 → 약 0.025 (2.5%)."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 69)
+        chance = rc.calculate_switch_takeover_chance(2, 1)
+        assert 0.0 < chance < 0.05
+
+
 class TestDominanceSubmissionMutex:
     """Slice P1: 지배/복종 상호 배타 축 (era 주도종속 패턴)."""
 

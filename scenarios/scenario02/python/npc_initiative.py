@@ -2072,8 +2072,29 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 return True
             return render_npc_initiative_ui(state)
 
-        # 공수 전환 (NPC → 플레이어 주도)
+        # 공수 전환 (NPC → 플레이어 주도) — Slice P3: 지배 기반 조건화
         if action == "switch":
+            from romance_core import (
+                calculate_switch_takeover_chance,
+                modify_dominance as _modify_dom,
+            )
+            chance = calculate_switch_takeover_chance(npc_id, player_id)
+            if chance <= 0.0:
+                # 완전 차단 — NPC가 주도권을 놓지 않음
+                state["last_reaction"] = (
+                    "(주도권을 되찾으려 했지만, 당신은 이미 너무 깊이 끌려들어와 있다...)"
+                )
+                # 시도 자체가 지배를 더 강화
+                _modify_dom(npc_id, player_id, 3)
+                return render_npc_initiative_ui(state)
+            if random.random() >= chance:
+                # 확률 실패 — 저항 실패 페널티
+                state["last_reaction"] = (
+                    f"(전환을 시도했지만 NPC가 놓아주지 않는다...)"
+                )
+                _modify_dom(npc_id, player_id, 2)
+                return render_npc_initiative_ui(state)
+            # 성공 — 플레이어 주도로 전환
             state["switch_to"] = "player"
             return True
 

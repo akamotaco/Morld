@@ -145,6 +145,30 @@ def modify_dominance(npc_id, player_id, delta):
     return new_dom
 
 
+SWITCH_BLOCK_DOMINANCE = 70
+SWITCH_FREE_DOMINANCE = 30
+
+
+def calculate_switch_takeover_chance(npc_id, player_id):
+    """NPC 주도 → 플레이어 주도 전환 성공 확률 (0.0~1.0).
+
+    Slice P3: era 주도종속 패턴 기반 게이트.
+      지배 ≥ 70 → 0.0 (차단, NPC가 놓지 않음)
+      지배 ≤ 30 → 1.0 (자유 전환)
+      30 < 지배 < 70 → 선형 감소 (지배 30 → 1.0, 69 → 0.025)
+
+    Why: 지배 누적된 상태에서 플레이어가 주도권을 쉽게 되찾을 수 없도록.
+         역전 경로 (탈출 / 합의 전환 P4)와 구분.
+    """
+    dominance = get_dominance(npc_id, player_id)
+    if dominance >= SWITCH_BLOCK_DOMINANCE:
+        return 0.0
+    if dominance <= SWITCH_FREE_DOMINANCE:
+        return 1.0
+    span = SWITCH_BLOCK_DOMINANCE - SWITCH_FREE_DOMINANCE
+    return max(0.0, 1.0 - (dominance - SWITCH_FREE_DOMINANCE) / span)
+
+
 def modify_submission_mutex(npc_id, player_id, delta):
     """복종 변동 — era 패턴 대칭:
       delta > 0: 먼저 `지배`부터 상쇄, 남은 만큼 `복종` 가산
