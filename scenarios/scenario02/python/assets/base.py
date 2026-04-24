@@ -2803,6 +2803,14 @@ class Character(_CharacterBase):
         context["beloved"] = beloved or ""
         context["beloved_exists"] = beloved is not None
 
+        # Slice P7: NPC가 플레이어 부르는 호칭 (지배/복종 축 기반 연속 구간)
+        player_id = morld.get_player_id()
+        if player_id is not None:
+            from romance_core import get_player_address_form
+            context["호칭"] = get_player_address_form(unit_id, player_id)
+        else:
+            context["호칭"] = player_name
+
         # Phase 2 성격 7 trait — 묘사 rule용 _높음/_낮음 파생 키
         from romance_core import PERSONALITY_TRAITS, get_personality_value
         for _trait in PERSONALITY_TRAITS:

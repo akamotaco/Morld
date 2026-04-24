@@ -2423,6 +2423,57 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
+class TestPlayerAddressForm:
+    """Slice P7: NPC의 플레이어 호칭 — 복종/지배 축 값 구간."""
+
+    def _setup(self, submission=0, dominance=0):
+        morld.register_unit(1, name="주인공", props={})
+        morld.register_unit(2, name="세라", props={
+            "관계:주인공:복종": submission,
+            "관계:주인공:지배": dominance,
+        })
+        morld._player_id = 1
+
+    def test_neutral_default_name(self):
+        self._setup()
+        assert rc.get_player_address_form(2, 1) == "주인공"
+
+    def test_mid_submission_keeps_name(self):
+        """복종 30 — 구간 -40~40 → 이름 유지."""
+        self._setup(submission=30)
+        assert rc.get_player_address_form(2, 1) == "주인공"
+
+    def test_high_submission_honorific(self):
+        """복종 50 — net 50 ≥ 40 → 존칭 '이름님'."""
+        self._setup(submission=50)
+        assert rc.get_player_address_form(2, 1) == "주인공님"
+
+    def test_max_submission_master(self):
+        """복종 80+ → '주인님'."""
+        self._setup(submission=80)
+        assert rc.get_player_address_form(2, 1) == "주인님"
+
+    def test_max_submission_clamp(self):
+        """복종 100 → '주인님'."""
+        self._setup(submission=100)
+        assert rc.get_player_address_form(2, 1) == "주인님"
+
+    def test_mid_dominance_casual(self):
+        """지배 40 — net -40 → '너'."""
+        self._setup(dominance=40)
+        assert rc.get_player_address_form(2, 1) == "너"
+
+    def test_high_dominance_scornful(self):
+        """지배 80+ → '꼬마'."""
+        self._setup(dominance=80)
+        assert rc.get_player_address_form(2, 1) == "꼬마"
+
+    def test_net_cancellation(self):
+        """복종 50 + 지배 50 → net 0 → 이름 (실제로는 두 축 배타지만 방어적 테스트)."""
+        self._setup(submission=50, dominance=50)
+        assert rc.get_player_address_form(2, 1) == "주인공"
+
+
 class TestOwnershipModifierContinuous:
     """Slice P6' 리팩터: 주도권 축 기반 연속 모디파이어 (era boolean 제거)."""
 

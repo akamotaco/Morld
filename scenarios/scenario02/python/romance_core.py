@@ -776,6 +776,39 @@ def get_personality_effect_multipliers(partner_id):
     return {"복종": sub_mult, "반발": reb_mult}
 
 
+def get_player_address_form(npc_id, player_id):
+    """Slice P7: NPC가 플레이어를 호칭하는 형태 반환 (지배/복종 연속 축 기반).
+
+    반환값은 context["호칭"] 으로 주입되어 대사 템플릿 `{호칭}`에 사용.
+    scalar `net = submission - dominance` 단일 축으로 해석:
+
+      net ≥ 80   → "주인님"     (강한 자발 종속, 노예화 수준)
+      net ≥ 40   → "{이름}님"   (존칭, 호감 깊음)
+      -40~40     → "{이름}"     (이름 호칭, 대등)
+      net ≤ -40  → "너"          (하대, 지배 누적)
+      net ≤ -80  → "꼬마"        (경멸·조롱, 강한 지배)
+
+    이름은 player_info에서 조회. 기본 "주인공".
+    연속 값 구간화 — 기존 축 수치 변동이 호칭 전환으로 자연 연결.
+    """
+    sub_key = _get_relationship_key(player_id, "복종")
+    dom_key = _get_relationship_key(player_id, "지배")
+    submission = morld.get_unit_prop(npc_id, sub_key) or 0
+    dominance = morld.get_unit_prop(npc_id, dom_key) or 0
+    net = submission - dominance
+    player_info = morld.get_unit_info(player_id)
+    name = player_info.get("name", "주인공") if player_info else "주인공"
+    if net >= 80:
+        return "주인님"
+    if net >= 40:
+        return f"{name}님"
+    if net <= -80:
+        return "꼬마"
+    if net <= -40:
+        return "너"
+    return name
+
+
 def get_ownership_modifier(partner_id, player_id):
     """Slice P6: 주도권 축 기반 availability 선형 모디파이어.
 
