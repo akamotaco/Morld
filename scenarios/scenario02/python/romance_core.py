@@ -142,6 +142,27 @@ ARCHETYPE_RESTRAINT_DEFAULT = {
 }
 
 
+# 아키타입별 성격 7 trait 기본값 — trinary (-1/0/1).
+# 명시 `성격:{key}` prop 없을 때 fallback. Phase 2 탤런트 (§7.2 spec).
+PERSONALITY_TRAITS = ("담력", "태도", "응답", "자존심", "츤데레", "정조", "명랑")
+
+_DEFAULT_PERSONALITY = {k: 0 for k in PERSONALITY_TRAITS}
+
+ARCHETYPE_PERSONALITY_DEFAULT = {
+    "stoic":     {"담력": 1,  "태도": 0,  "응답": -1, "자존심": 0,  "츤데레": 0, "정조": 0,  "명랑": -1},
+    "cheerful":  {"담력": 0,  "태도": -1, "응답": 0,  "자존심": 0,  "츤데레": 0, "정조": 0,  "명랑": 1},
+    "timid":     {"담력": -1, "태도": -1, "응답": -1, "자존심": -1, "츤데레": 0, "정조": 1,  "명랑": 0},
+    "fierce":    {"담력": 1,  "태도": 1,  "응답": 1,  "자존심": 1,  "츤데레": 0, "정조": 0,  "명랑": 0},
+    "innocent":  {"담력": 0,  "태도": -1, "응답": -1, "자존심": 0,  "츤데레": 0, "정조": 1,  "명랑": 1},
+    "cold":      {"담력": 1,  "태도": 1,  "응답": 1,  "자존심": 1,  "츤데레": 0, "정조": -1, "명랑": -1},
+    "gentle":    {"담력": 0,  "태도": -1, "응답": -1, "자존심": 0,  "츤데레": 0, "정조": 0,  "명랑": 0},
+    "seductive": {"담력": 1,  "태도": 0,  "응답": 0,  "자존심": 0,  "츤데레": 0, "정조": -1, "명랑": 0},
+    "proud":     {"담력": 1,  "태도": 1,  "응답": 1,  "자존심": 1,  "츤데레": 0, "정조": 1,  "명랑": 0},
+    "devoted":   {"담력": 0,  "태도": -1, "응답": -1, "자존심": 0,  "츤데레": 0, "정조": 0,  "명랑": 0},
+    "tsundere":  {"담력": 0,  "태도": 1,  "응답": 0,  "자존심": 1,  "츤데레": 1, "정조": 1,  "명랑": 0},
+}
+
+
 def _get_partner_archetype(partner_id):
     """파트너 아키타입 조회 — prop / instance / 성격 매핑 순으로 fallback.
 
@@ -185,6 +206,27 @@ def get_restraint_value(partner_id):
     if archetype:
         return ARCHETYPE_RESTRAINT_DEFAULT.get(archetype, 50)
     return 0  # 아키타입 미설정 시 페널티 없음 (테스트/레거시 호환)
+
+
+def get_personality_value(unit_id, key):
+    """성격 trait 값 — 명시 `성격:{key}` prop 우선, 없으면 아키타입 기본값, 없으면 0.
+
+    Phase 2 §7.2 spec 구현. trinary (-1/0/1).
+
+    Why: Phase 1 `get_restraint_value` 패턴 재사용 — 신규 네임드 NPC는 명시,
+         레거시/테스트는 아키타입 기본값 자동 적용.
+    """
+    if key not in PERSONALITY_TRAITS:
+        raise ValueError(f"Unknown personality trait: {key!r}. "
+                         f"Expected one of {PERSONALITY_TRAITS}")
+    explicit = morld.get_unit_prop(unit_id, f"성격:{key}")
+    if explicit is not None:
+        return explicit
+    archetype = _get_partner_archetype(unit_id)
+    if archetype:
+        defaults = ARCHETYPE_PERSONALITY_DEFAULT.get(archetype, _DEFAULT_PERSONALITY)
+        return defaults.get(key, 0)
+    return 0
 
 
 def get_restraint_modifier(partner_id):

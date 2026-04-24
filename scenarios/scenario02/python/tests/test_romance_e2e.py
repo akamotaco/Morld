@@ -2009,6 +2009,75 @@ class TestAutonomyWeight:
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
 
+class TestPersonalityTraitHelpers:
+    """Phase 2 Slice A: get_personality_value 아키타입 기본값 + override."""
+
+    def _setup(self, archetype=None, props=None):
+        base_props = dict(props or {})
+        if archetype:
+            base_props["아키타입"] = archetype
+        morld.register_unit(2, props=base_props)
+
+    def test_returns_0_when_no_archetype_no_prop(self):
+        self._setup()
+        assert rc.get_personality_value(2, "담력") == 0
+
+    def test_returns_archetype_default_stoic(self):
+        self._setup(archetype="stoic")
+        # stoic: 담력=1, 응답=-1, 명랑=-1, 나머지 0
+        assert rc.get_personality_value(2, "담력") == 1
+        assert rc.get_personality_value(2, "응답") == -1
+        assert rc.get_personality_value(2, "명랑") == -1
+        assert rc.get_personality_value(2, "자존심") == 0
+
+    def test_returns_archetype_default_tsundere(self):
+        self._setup(archetype="tsundere")
+        # tsundere: 태도=1, 자존심=1, 츤데레=1, 정조=1
+        assert rc.get_personality_value(2, "츤데레") == 1
+        assert rc.get_personality_value(2, "자존심") == 1
+        assert rc.get_personality_value(2, "정조") == 1
+        assert rc.get_personality_value(2, "담력") == 0
+
+    def test_returns_archetype_default_innocent(self):
+        self._setup(archetype="innocent")
+        assert rc.get_personality_value(2, "정조") == 1
+        assert rc.get_personality_value(2, "명랑") == 1
+        assert rc.get_personality_value(2, "태도") == -1
+
+    def test_explicit_prop_overrides_archetype(self):
+        """명시 `성격:담력` prop이 아키타입 기본값보다 우선."""
+        self._setup(archetype="stoic",
+                    props={"성격:담력": -1})
+        assert rc.get_personality_value(2, "담력") == -1
+
+    def test_explicit_0_overrides_archetype_positive(self):
+        """명시 0은 아키타입 양수를 덮어씀 (None 체크 정확성)."""
+        self._setup(archetype="stoic",
+                    props={"성격:담력": 0})
+        assert rc.get_personality_value(2, "담력") == 0
+
+    def test_raises_on_unknown_trait(self):
+        self._setup(archetype="stoic")
+        try:
+            rc.get_personality_value(2, "존재하지않는trait")
+            assert False, "should raise"
+        except ValueError:
+            pass
+
+    def test_all_archetypes_have_all_traits(self):
+        """모든 아키타입이 7 trait 전부 정의."""
+        for arch, defaults in rc.ARCHETYPE_PERSONALITY_DEFAULT.items():
+            for trait in rc.PERSONALITY_TRAITS:
+                assert trait in defaults, f"{arch} missing trait {trait}"
+                assert defaults[trait] in (-1, 0, 1), \
+                    f"{arch}.{trait}={defaults[trait]} not in [-1, 0, 1]"
+
+    def test_unknown_archetype_falls_back_to_zeros(self):
+        self._setup(archetype="nonsense")
+        for trait in rc.PERSONALITY_TRAITS:
+            assert rc.get_personality_value(2, trait) == 0
+
+
 class TestFoodAdditiveEffects:
     """Phase 2.6: 음식 첨가물 일괄 적용 — 3 먹기 경로 공용."""
 
