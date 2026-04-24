@@ -851,14 +851,24 @@ class InterruptMixin:
             return False, None
 
         # 호감/성욕 체크 (desire_threshold → 상태:성욕으로 이관, Phase 0)
+        # Slice P8: 지배/복종 축 기반 임계 완화.
+        #   지배(NPC → player 지배)는 주도권 장악 의지 → 임계 낮춤
+        #   복종(NPC → player 헌신)은 충성심 → 임계 낮춤
+        #   두 축 중 큰 값 활용 (× 0.2 완화, 최대 -20)
         player_name = player_info.get("name", "주인공")
+        from romance_core import get_dominance
+        dom_value = get_dominance(self.unit_id, player_id)
+        sub_value = (props.get(f"관계:{player_name}:복종", 0) if props else 0)
+        seek_relief = int(max(dom_value, sub_value) * 0.2)
         affection = props.get(f"관계:{player_name}:호감", 0) if props else 0
-        if affection < self.INITIATIVE_CONFIG.get("affection_threshold", 60):
+        affection_threshold = self.INITIATIVE_CONFIG.get("affection_threshold", 60)
+        affection_threshold = max(0, affection_threshold - seek_relief)
+        if affection < affection_threshold:
             return False, None
         desire_th = self.INITIATIVE_CONFIG.get("desire_threshold", 0)
         if desire_th > 0:
             arousal = props.get("상태:성욕", 0) if props else 0
-            if arousal < desire_th:
+            if arousal < max(0, desire_th - seek_relief):
                 return False, None
 
         # 같은 region만 (교차 리전 이동 미지원)
