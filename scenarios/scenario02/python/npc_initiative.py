@@ -1576,6 +1576,13 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
                 if result and not ecstasy_reaction:
                     ecstasy_reaction = result
 
+        # NPC 주도 개편 Slice P2: 행위 턴마다 지배 상승
+        # 저항 모드 (NPC 강제) = +2 (강제로 당함), 수용 모드 = +1
+        if state["active_toggles"]:
+            from romance_core import modify_dominance as _modify_dom
+            _dom_gain = 2 if state.get("resistance_mode") else 1
+            _modify_dom(npc_id, player_id, _dom_gain)
+
         afterglow_result = stimulation.tick_afterglow(state["stim"])
 
         # NPC 만족 체크 (절정 후 성욕 감소 → 임계치 미만)
@@ -1660,6 +1667,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             state["escape_result"] = None
 
             if attempt_escape(player_id, npc_id):
+                # 지배 -5 (주도권 역전 소폭)
+                from romance_core import modify_dominance as _modify_dom
+                _modify_dom(npc_id, player_id, -5)
                 state["player_escaped"] = True
                 return True  # 다이얼로그 종료
 
@@ -1712,7 +1722,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             state["resistance_meter"] += gain
 
             if state["resistance_meter"] >= RESISTANCE_MAX:
-                # 탈출 성공
+                # 탈출 성공 — 지배 -10 (주도권 큰 반전)
+                from romance_core import modify_dominance as _modify_dom
+                _modify_dom(npc_id, player_id, -10)
                 state["player_escaped"] = True
                 return True
 
@@ -1728,6 +1740,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if action == "surrender":
             state["resistance_mode"] = False
             state["resistance_meter"] = 0
+            # 지배 +3 (체념·받아들임, 주도권 NPC 쪽으로 확정)
+            from romance_core import modify_dominance as _modify_dom
+            _modify_dom(npc_id, player_id, 3)
             state["last_reaction"] = "(저항을 포기했다...)"
             return render_npc_initiative_ui(state)
 
