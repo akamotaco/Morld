@@ -2221,6 +2221,60 @@ class TestPersonalityGateModifier:
         assert rc.calculate_availability_score(2, 1, action) == 20
 
 
+class TestDispositionMasochismMultiplier:
+    """Phase 2 Slice I: 마조 → 복종 ↑ / 반발 ↓."""
+
+    def _setup(self, props=None):
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        morld.register_unit(2, props=props or {})
+
+    def test_default_no_multiplier(self):
+        self._setup()
+        mult = rc.get_disposition_sm_multipliers(2)
+        assert mult["복종"] == 1.0
+        assert mult["반발"] == 1.0
+
+    def test_max_masochism_raises_submission(self):
+        self._setup(props={"성향:마조": 100})
+        mult = rc.get_disposition_sm_multipliers(2)
+        assert abs(mult["복종"] - 1.5) < 1e-9
+        assert abs(mult["반발"] - 0.5) < 1e-9
+
+    def test_mid_masochism_smooths(self):
+        self._setup(props={"성향:마조": 50})
+        mult = rc.get_disposition_sm_multipliers(2)
+        assert abs(mult["복종"] - 1.25) < 1e-9
+        assert abs(mult["반발"] - 0.75) < 1e-9
+
+    def test_masochism_applied_to_submission_gain(self):
+        """마조 100 + 복종 +10 → ×1.5 = 15."""
+        self._setup(props={"성향:마조": 100})
+        action = {"name": "액션", "effects": {"복종": 10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["복종"] == 15
+
+    def test_masochism_dampens_rebellion_gain(self):
+        self._setup(props={"성향:마조": 100})
+        action = {"name": "액션", "effects": {"반발": 10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["반발"] == 5
+
+    def test_masochism_stacks_with_personality(self):
+        """자존심 -1 (×1.5) + 마조 100 (×1.5) → 복종 +10 → ×2.25 = 22 or 23."""
+        self._setup(props={"성격:자존심": -1, "성향:마조": 100})
+        action = {"name": "액션", "effects": {"복종": 10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        # 1.5 * 1.5 = 2.25, 10 * 2.25 = 22.5 → round = 22 or 23 depending on banker's
+        assert out["복종"] in (22, 23)
+
+    def test_negative_submission_unchanged(self):
+        self._setup(props={"성향:마조": 100})
+        action = {"name": "액션", "effects": {"복종": -10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["복종"] == -10
+
+
 class TestDispositionResponsivenessMultiplier:
     """Phase 2 Slice H: 쾌감응답 → 성욕 gain 배율."""
 

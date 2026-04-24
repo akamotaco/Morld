@@ -585,6 +585,27 @@ def get_disposition_arousal_multiplier(partner_id):
     return 1.0 + responsiveness * 0.3
 
 
+def get_disposition_sm_multipliers(partner_id):
+    """성향 마조 기반 복종/반발 배율 — 피가학 수용 성향.
+
+    Phase 2 §7.13 — 마조 높을수록 강제/가해 행위에서 쾌락 수용 ↑.
+    S02는 NPC가 주로 피해자 포지션이므로 마조를 통합 배율로 적용.
+      마조 0   → 복종 ×1.0, 반발 ×1.0
+      마조 50  → 복종 ×1.25, 반발 ×0.75
+      마조 100 → 복종 ×1.5, 반발 ×0.5
+
+    새드는 NPC가 가해 입장일 때만 유효 (npc_initiative 경로) — 현재 Slice
+    에서는 단순화해 전체 배율에 반영하지 않음 (후속 확장 여지).
+    """
+    masochism = get_disposition_value(partner_id, "마조")
+    # 0~100 선형: factor = 1 + (마조/200)
+    factor = 1.0 + masochism * 0.005
+    return {
+        "복종": factor,
+        "반발": max(0.1, 2.0 - factor),  # 배율 합이 2에 가까움
+    }
+
+
 def get_personality_effect_multipliers(partner_id):
     """성격 trait 기반 복종/반발 gain 배율 (양수 변동에만 적용).
 
@@ -849,10 +870,14 @@ def calculate_effects(action_def, partner_id, player_id=None):
 
     # Phase 2 성격 변동 계수 (양수 복종/반발 gain에만 적용)
     personality_mult = get_personality_effect_multipliers(partner_id)
-    for stat, mult in personality_mult.items():
+    sm_mult = get_disposition_sm_multipliers(partner_id)
+    for stat in ("복종", "반발"):
         val = base_effects.get(stat, 0)
-        if val > 0 and mult != 1.0:
-            base_effects[stat] = round(val * mult)
+        if val <= 0:
+            continue
+        combined = personality_mult.get(stat, 1.0) * sm_mult.get(stat, 1.0)
+        if combined != 1.0:
+            base_effects[stat] = round(val * combined)
 
     # Phase 2 후반 성향 쾌감응답 — 양수 성욕 gain에만 배율
     arousal_mult = get_disposition_arousal_multiplier(partner_id)
