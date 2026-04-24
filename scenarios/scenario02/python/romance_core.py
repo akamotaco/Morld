@@ -76,6 +76,34 @@ def get_submission_key(player_id):
     return _get_relationship_key(player_id, "복종")
 
 
+# ============================================
+# 질투 (Phase 5 감정 스탯 — 최소 인프라)
+# ============================================
+
+JEALOUSY_MAX = 100
+JEALOUSY_MIN = 0
+
+
+def get_jealousy(observer_id, target_name):
+    """`관계:{target_name}:질투` — observer가 target에 대해 갖는 질투 수치.
+
+    target_name은 문자열(name). 0~100 clamp.
+    """
+    value = morld.get_unit_prop(observer_id, f"관계:{target_name}:질투") or 0
+    return value
+
+
+def modify_jealousy(observer_id, target_name, delta):
+    """질투 변동 + clamp. 변동 후 값 반환.
+
+    Why: Phase 5 감정 스탯 — NTR 관찰 시 제3자에 대한 적대/소유욕 수치화.
+    """
+    current = get_jealousy(observer_id, target_name)
+    new_val = max(JEALOUSY_MIN, min(JEALOUSY_MAX, current + delta))
+    morld.set_unit_prop(observer_id, f"관계:{target_name}:질투", new_val)
+    return new_val
+
+
 def get_effective_affection_req(req, arousal=0, submission=0):
     """유효 호감 요구치 (성욕/복종 할인 적용)
 

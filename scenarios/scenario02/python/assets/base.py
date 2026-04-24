@@ -4942,13 +4942,21 @@ class Character(_CharacterBase):
         if not is_forced_victim:
             try:
                 from romance_dynamics import get_relationship_label, modify_love
-                from romance_core import get_affection_key
+                from romance_core import get_affection_key, modify_jealousy
                 label = get_relationship_label(self.instance_id, player_id)
                 if label in ("연인", "배우자", "헌신적 종자"):
                     # 들킨 NPC의 플레이어에 대한 호감/애정 감소 (신뢰 훼손)
                     morld.modify_prop(self.instance_id,
                                       get_affection_key(player_id), -5)
                     modify_love(self.instance_id, player_id, -5)
+                    # Phase 5 Slice N: 플레이어의 제3자(현장 상대)에 대한 질투 +20
+                    other_id = morld.get_unit_prop(self.instance_id, "성행위:상대")
+                    if other_id:
+                        other_info = morld.get_unit_info(other_id)
+                        if other_info:
+                            other_name = other_info.get("name")
+                            if other_name:
+                                modify_jealousy(player_id, other_name, 20)
             except Exception:
                 pass
 

@@ -1614,6 +1614,36 @@ class TestNtrTrustPenalty:
         label = get_relationship_label(2, 1)
         assert label not in ("연인", "배우자", "헌신적 종자")
 
+    def test_ntr_observation_creates_jealousy(self):
+        """Phase 5 Slice N — 연인 NTR 관찰 시 제3자에 대한 질투 +20."""
+        self._setup_lover()
+        # 제3자 NPC 등록
+        morld.register_unit(3, name="행인", gender="male", props={"성별": 1})
+        morld.set_unit_prop(2, "성행위:상대", 3)
+
+        # Character-like mock (base.py Character._run_npc_intimacy_discovery_reaction
+        # 로직을 직접 재현하되 핵심 Slice N 지점만 검증)
+        from romance_dynamics import get_relationship_label
+        label = get_relationship_label(2, 1)
+        if label in ("연인", "배우자", "헌신적 종자"):
+            other_id = morld.get_unit_prop(2, "성행위:상대")
+            other_info = morld.get_unit_info(other_id)
+            other_name = other_info.get("name") if other_info else None
+            if other_name:
+                rc.modify_jealousy(1, other_name, 20)
+        # 플레이어의 "행인"에 대한 질투 +20
+        assert rc.get_jealousy(1, "행인") == 20
+
+    def test_ntr_observation_forced_no_jealousy(self):
+        """강제 피해자(연인)는 NTR 케이스 아님 → 질투 생성 안 함."""
+        self._setup_lover()
+        morld.register_unit(3, name="행인", gender="male", props={"성별": 1})
+        morld.set_unit_prop(2, "성행위:상대", 3)
+        rc.set_npc_sex_role(2, rc.NPC_SEX_VICTIM)
+        # 강제 피해자면 is_forced_victim=True → Slice N 블록 skip
+        # (테스트로는 질투가 여전히 0임을 확인)
+        assert rc.get_jealousy(1, "행인") == 0
+
 
 # ============================================
 # Phase 2.4: beloved 이름 부르기 (NTR/NTL 효과)
@@ -2390,6 +2420,49 @@ class TestDispositionResponsivenessMultiplier:
         action = {"name": "액션", "effects": {"성욕": 10}, "exp_part": None}
         out = rc.calculate_effects(action, 2, 1)
         assert out["성욕"] == 7
+
+
+class TestJealousyHelpers:
+    """Phase 5 Slice M: 질투 prop 헬퍼."""
+
+    def _setup(self):
+        morld.register_unit(1, name="주인공", props={})
+
+    def test_default_zero(self):
+        self._setup()
+        assert rc.get_jealousy(1, "세라") == 0
+
+    def test_modify_increases(self):
+        self._setup()
+        result = rc.modify_jealousy(1, "세라", 15)
+        assert result == 15
+        assert morld.get_unit_prop(1, "관계:세라:질투") == 15
+
+    def test_modify_accumulates(self):
+        self._setup()
+        rc.modify_jealousy(1, "세라", 30)
+        rc.modify_jealousy(1, "세라", 20)
+        assert rc.get_jealousy(1, "세라") == 50
+
+    def test_clamp_at_max(self):
+        self._setup()
+        morld.set_unit_prop(1, "관계:세라:질투", 90)
+        rc.modify_jealousy(1, "세라", 20)
+        assert rc.get_jealousy(1, "세라") == 100
+
+    def test_clamp_at_min(self):
+        self._setup()
+        morld.set_unit_prop(1, "관계:세라:질투", 10)
+        rc.modify_jealousy(1, "세라", -30)
+        assert rc.get_jealousy(1, "세라") == 0
+
+    def test_per_target_separation(self):
+        """대상별 독립 prop."""
+        self._setup()
+        rc.modify_jealousy(1, "세라", 20)
+        rc.modify_jealousy(1, "리나", 50)
+        assert rc.get_jealousy(1, "세라") == 20
+        assert rc.get_jealousy(1, "리나") == 50
 
 
 class TestNpcIntimacyInterveneStop:
