@@ -308,25 +308,45 @@ def compute_trance_multipliers(unit_id):
 # 관계 라벨 파생 (저장 X)
 # ============================================
 
-def get_relationship_label(target_id, player_id):
-    """호감/복종/애정/반발 조합 → 관계 라벨 (파생)."""
-    affection = morld.get_unit_prop(target_id, get_affection_key(player_id)) or 0
-    submission = morld.get_unit_prop(target_id, get_submission_key(player_id)) or 0
-    love = get_love(target_id, player_id)
-    rebellion = morld.get_unit_prop(target_id, get_rebellion_key(player_id)) or 0
+# 관계 라벨 테이블 — 순서대로 첫 매칭 반환.
+# 각 row: (label, conditions dict). conditions의 모든 키가 입력 스탯 dict의
+# 해당 값과 비교해 조건을 만족해야 함. "_max" suffix는 "<" 비교.
+RELATIONSHIP_TIERS = [
+    ("적대",        {"rebellion": 60}),
+    ("배우자",      {"love": 80, "affection": 60}),
+    ("연인",        {"love": 60, "affection": 60, "submission_max": 60}),
+    ("헌신적 종자", {"submission": 60, "love": 40}),
+    ("종복",        {"submission": 60}),
+    ("친구",        {"affection": 40}),
+    ("지인",        {"affection": 20}),
+]
 
-    if rebellion >= 60:
-        return "적대"
-    if love >= 80 and affection >= 60:
-        return "배우자"
-    if love >= 60 and affection >= 60 and submission < 60:
-        return "연인"
-    if submission >= 60 and love >= 40:
-        return "헌신적 종자"
-    if submission >= 60:
-        return "종복"
-    if affection >= 40:
-        return "친구"
-    if affection >= 20:
-        return "지인"
+
+def _label_conditions_met(stats, conditions):
+    for key, threshold in conditions.items():
+        if key.endswith("_max"):
+            base_key = key[:-4]
+            if stats.get(base_key, 0) >= threshold:
+                return False
+        else:
+            if stats.get(key, 0) < threshold:
+                return False
+    return True
+
+
+def get_relationship_label(target_id, player_id):
+    """호감/복종/애정/반발 조합 → 관계 라벨 (파생).
+
+    `RELATIONSHIP_TIERS` 테이블 순회 — 첫 매칭이 정답. 테이블 기반이라
+    조건 추가/조정이 한 곳에서 가능.
+    """
+    stats = {
+        "affection": morld.get_unit_prop(target_id, get_affection_key(player_id)) or 0,
+        "submission": morld.get_unit_prop(target_id, get_submission_key(player_id)) or 0,
+        "love": get_love(target_id, player_id),
+        "rebellion": morld.get_unit_prop(target_id, get_rebellion_key(player_id)) or 0,
+    }
+    for label, conditions in RELATIONSHIP_TIERS:
+        if _label_conditions_met(stats, conditions):
+            return label
     return "타인"
