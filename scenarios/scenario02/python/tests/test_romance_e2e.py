@@ -2009,6 +2009,100 @@ class TestAutonomyWeight:
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
 
+class TestFoodAdditiveEffects:
+    """Phase 2.6: 음식 첨가물 일괄 적용 — 3 먹기 경로 공용."""
+
+    def _setup(self):
+        rc._TIMED_STATUS_REGISTRY.clear()
+        morld.register_unit(1, props={})
+        morld.register_unit(100, props={})  # item
+
+    def test_has_food_additive_false_by_default(self):
+        self._setup()
+        assert rc.has_food_additive(100, "미약") is False
+
+    def test_add_food_additive_sets_flag(self):
+        self._setup()
+        rc.add_food_additive(100, "미약")
+        assert rc.has_food_additive(100, "미약") is True
+
+    def test_apply_aphrodisiac_sets_timer_and_trance(self):
+        self._setup()
+        rc.add_food_additive(100, "미약")
+        rc.apply_food_additive_effects(1, 100)
+        assert rc.is_status_active(1, "미약") is True
+        assert morld.get_unit_prop(1, "트랜스:외부") == 30
+
+    def test_apply_aphrodisiac_skips_when_already_active(self):
+        self._setup()
+        rc.apply_timed_status(1, "미약", duration=3)
+        rc.add_food_additive(100, "미약")
+        rc.apply_food_additive_effects(1, 100)
+        # 기존 타이머 보존 (새로 덮지 않음)
+        assert morld.get_unit_prop(1, "상태:미약남은시간") == 3
+        # 트랜스:외부 가산도 안 됨
+        assert (morld.get_unit_prop(1, "트랜스:외부") or 0) == 0
+
+    def test_drunk_additive_adds_15(self):
+        self._setup()
+        rc.add_food_additive(100, "취기")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "상태:취기") == 15
+
+    def test_strong_liquor_adds_30(self):
+        self._setup()
+        rc.add_food_additive(100, "독주")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "상태:취기") == 30
+
+    def test_drunk_and_strong_stack(self):
+        self._setup()
+        rc.add_food_additive(100, "취기")
+        rc.add_food_additive(100, "독주")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "상태:취기") == 45
+
+    def test_drunk_capped_at_100(self):
+        self._setup()
+        morld.set_unit_prop(1, "상태:취기", 90)
+        rc.add_food_additive(100, "독주")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "상태:취기") == 100
+
+    def test_narcotic_adds_trance_50(self):
+        self._setup()
+        rc.add_food_additive(100, "마약")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "트랜스:외부") == 50
+
+    def test_hypnotic_adds_trance_40(self):
+        self._setup()
+        rc.add_food_additive(100, "최면제")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "트랜스:외부") == 40
+
+    def test_ovulation_inducer_sets_24h(self):
+        self._setup()
+        rc.add_food_additive(100, "배란유도제")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "상태:배란유도남은시간") == 24
+
+    def test_potency_sets_6h(self):
+        self._setup()
+        rc.add_food_additive(100, "정력제")
+        rc.apply_food_additive_effects(1, 100)
+        assert morld.get_unit_prop(1, "상태:정력제남은시간") == 6
+
+    def test_multiple_additives_in_one_meal(self):
+        """한 음식에 여러 첨가물이 묻어 있으면 모두 적용."""
+        self._setup()
+        rc.add_food_additive(100, "미약")
+        rc.add_food_additive(100, "배란유도제")
+        rc.apply_food_additive_effects(1, 100)
+        assert rc.is_status_active(1, "미약") is True
+        assert rc.is_status_active(1, "배란유도") is True
+
+
 class TestNpcSexRoleHelpers:
     """Phase 2.6: NPC 정사 플래그 3개 → 단일 역할 prop 통합."""
 

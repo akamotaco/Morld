@@ -13,23 +13,9 @@ from think.activities.helpers import find_food_in_container as _find_food_in_con
 # ========================================
 
 def _apply_food_drug_effects(unit_id, food_item_id):
-    """음식에 첨가된 약물 효과를 NPC에 적용"""
-    from romance_core import is_status_active, apply_timed_status
-
-    # 미약
-    if (morld.get_unit_prop(food_item_id, "상태:미약첨가") == 1
-            and not is_status_active(unit_id, "미약")):
-        apply_timed_status(unit_id, "미약")
-
-    # 배란유도제
-    if (morld.get_unit_prop(food_item_id, "상태:배란유도제첨가") == 1
-            and not is_status_active(unit_id, "배란유도")):
-        apply_timed_status(unit_id, "배란유도")
-
-    # 정력제
-    if (morld.get_unit_prop(food_item_id, "상태:정력제첨가") == 1
-            and not is_status_active(unit_id, "정력제")):
-        apply_timed_status(unit_id, "정력제")
+    """음식에 첨가된 약물 효과를 NPC에 적용 (romance_core 일괄 경로 위임)."""
+    from romance_core import apply_food_additive_effects
+    apply_food_additive_effects(unit_id, food_item_id)
 
 
 # ========================================

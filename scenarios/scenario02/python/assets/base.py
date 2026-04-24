@@ -3463,13 +3463,6 @@ class Character(_CharacterBase):
 
         food_eaten = False
         if is_food:
-            # 미약/취기/독주/마약/최면제 첨가 여부 확인 (Phase 1.9.4 / 1.9.5)
-            has_aphrodisiac = morld.get_unit_prop(item_id, "상태:미약첨가") == 1
-            has_drunk_additive = morld.get_unit_prop(item_id, "상태:취기첨가") == 1
-            has_strong_liquor = morld.get_unit_prop(item_id, "상태:독주첨가") == 1
-            has_narcotic = morld.get_unit_prop(item_id, "상태:마약첨가") == 1
-            has_hypnotic = morld.get_unit_prop(item_id, "상태:최면제첨가") == 1
-
             # 섭취 확률: 선호 음식 80%, 일반 음식 50%
             import random
             eat_chance = 0.8 if is_favorite_food else 0.5
@@ -3477,32 +3470,11 @@ class Character(_CharacterBase):
                 # NPC가 바로 섭취
                 import survival
                 survival.add_satiety(partner_id, item_instance.food_satiety)
+                # 음식 첨가물 효과 일괄 적용 (미약/취기/독주/마약/최면제/배란유도제/정력제)
+                from romance_core import apply_food_additive_effects
+                apply_food_additive_effects(partner_id, item_id)
                 morld.lost_item(partner_id, item_id)  # 소비
                 food_eaten = True
-
-                # 미약 효과 적용 — Phase 1.9.4: 트랜스:외부 +30 가산 추가
-                if has_aphrodisiac:
-                    from romance_core import is_status_active, apply_timed_status
-                    if not is_status_active(partner_id, "미약"):
-                        apply_timed_status(partner_id, "미약")
-                        morld.modify_prop(partner_id, "트랜스:외부", 30)
-
-                # 취기 계열 첨가 음식 (Phase 1.9.4 / 1.9.5)
-                drunk_gain = 0
-                if has_drunk_additive:
-                    drunk_gain += 15
-                if has_strong_liquor:
-                    drunk_gain += 30
-                if drunk_gain > 0:
-                    cur_drunk = morld.get_unit_prop(partner_id, "상태:취기") or 0
-                    morld.set_unit_prop(partner_id, "상태:취기",
-                                        min(100, cur_drunk + drunk_gain))
-
-                # 마약/최면제 첨가 (Phase 1.9.5)
-                if has_narcotic:
-                    morld.modify_prop(partner_id, "트랜스:외부", 50)
-                if has_hypnotic:
-                    morld.modify_prop(partner_id, "트랜스:외부", 40)
             else:
                 # 나중에 먹겠다며 보관
                 import inventory as inv_module

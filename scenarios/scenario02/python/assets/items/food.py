@@ -47,8 +47,12 @@ class FoodItem(Item):
             yield ui.dialog("배가 불러서 더 먹을 수 없다.")
             return
 
-        # 미약 첨가 여부 확인
-        has_aphrodisiac = morld.get_unit_prop(self.instance_id, "상태:미약첨가") == 1
+        # 미약 첨가 여부 확인 (대사 발동용 — 효과는 apply_food_additive_effects)
+        from romance_core import has_food_additive, is_status_active, apply_food_additive_effects
+        had_aphrodisiac_before = (
+            has_food_additive(self.instance_id, "미약")
+            and not is_status_active(player_id, "미약")
+        )
 
         # 포만감 회복
         survival.add_satiety(player_id, self.food_satiety)
@@ -66,22 +70,10 @@ class FoodItem(Item):
         # 특수 섭취 효과 (서브클래스 오버라이드)
         self.on_eat_effect(player_id)
 
-        from romance_core import is_status_active, apply_timed_status
-
-        # 미약 효과 적용
-        if has_aphrodisiac and not is_status_active(player_id, "미약"):
-            apply_timed_status(player_id, "미약")
+        # 모든 첨가물 효과 일괄 적용 (미약/배란유도제/정력제/취기/독주/마약/최면제)
+        apply_food_additive_effects(player_id, self.instance_id)
+        if had_aphrodisiac_before:
             yield ui.dialog("...뭔가 이상한 맛이 섞여 있던 것 같다.")
-
-        # 배란유도제 첨가 효과
-        if (morld.get_unit_prop(self.instance_id, "상태:배란유도제첨가") == 1
-                and not is_status_active(player_id, "배란유도")):
-            apply_timed_status(player_id, "배란유도")
-
-        # 정력제 첨가 효과
-        if (morld.get_unit_prop(self.instance_id, "상태:정력제첨가") == 1
-                and not is_status_active(player_id, "정력제")):
-            apply_timed_status(player_id, "정력제")
 
         # 시간 경과
         morld.advance_time_des(self.eat_time * 60_000)

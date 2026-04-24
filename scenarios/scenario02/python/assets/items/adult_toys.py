@@ -479,7 +479,7 @@ class OvulationInducer(Item):
 
     def mix_food(self):
         """음식에 배란유도제 넣기"""
-        yield from _mix_drug_into_food(self, "상태:배란유도제첨가", "배란유도제")
+        yield from _mix_drug_into_food(self, "배란유도제", "배란유도제")
 
 
 @register_item
@@ -521,7 +521,7 @@ class StaminaPotion(Item):
 
     def mix_food(self):
         """음식에 정력제 넣기"""
-        yield from _mix_drug_into_food(self, "상태:정력제첨가", "정력제")
+        yield from _mix_drug_into_food(self, "정력제", "정력제")
 
 
 @register_item
@@ -555,11 +555,11 @@ class Lubricant(Item):
 # 공용 헬퍼
 # ========================================
 
-def _mix_drug_into_food(item_instance, prop_key, drug_name):
+def _mix_drug_into_food(item_instance, additive_name, drug_name):
     """
     음식에 약물 넣기 공통 로직
 
-    Aphrodisiac.mix_food() 패턴 재사용.
+    Aphrodisiac.mix_food() 패턴 재사용. additive_name은 romance_core.FOOD_ADDITIVES 키.
     """
     from assets.items import get_instance as get_item_instance
 
@@ -598,7 +598,8 @@ def _mix_drug_into_food(item_instance, prop_key, drug_name):
     if not food_info:
         return
 
-    morld.set_unit_prop(food_id, prop_key, 1)
+    from romance_core import add_food_additive
+    add_food_additive(food_id, additive_name)
     morld.lost_item(player_id, item_instance.instance_id)
 
     food_name = food_info.get("name", "음식")

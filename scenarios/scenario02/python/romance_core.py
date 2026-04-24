@@ -352,6 +352,62 @@ def set_npc_sex_role(unit_id, role):
 def clear_npc_sex_role(unit_id):
     morld.clear_prop(unit_id, NPC_SEX_ROLE_KEY)
 
+
+# 음식 첨가물 — 개별 `상태:{name}첨가` 플래그 대신 중앙 registry 기반 일괄 적용
+# (Phase 2.6). 3 먹기 경로(플레이어/NPC 자율/NPC 선물)에서 공용.
+FOOD_ADDITIVES = ("미약", "취기", "독주", "마약", "최면제", "배란유도제", "정력제")
+
+
+def _food_additive_prop_key(name):
+    return f"상태:{name}첨가"
+
+
+def has_food_additive(item_id, name):
+    """음식 item에 특정 첨가물 유무."""
+    return morld.get_unit_prop(item_id, _food_additive_prop_key(name)) == 1
+
+
+def add_food_additive(item_id, name):
+    """음식 item에 첨가물 마킹."""
+    morld.set_unit_prop(item_id, _food_additive_prop_key(name), 1)
+
+
+def apply_food_additive_effects(eater_id, item_id):
+    """음식 첨가물 효과 일괄 적용 — 활성 미약/배란유도/정력제는 스택 방지.
+
+    각 첨가물 고정 효과:
+      미약     → 상태:미약 6h 타이머 + 트랜스:외부 +30
+      취기     → 상태:취기 +15 (누적, cap 100)
+      독주     → 상태:취기 +30 (누적, cap 100)
+      마약     → 트랜스:외부 +50 (누적)
+      최면제   → 트랜스:외부 +40 (누적)
+      배란유도제 → 상태:배란유도 24h 타이머
+      정력제   → 상태:정력제 6h 타이머
+    """
+    # 미약
+    if has_food_additive(item_id, "미약") and not is_status_active(eater_id, "미약"):
+        apply_timed_status(eater_id, "미약")
+        morld.modify_prop(eater_id, "트랜스:외부", 30)
+    # 취기 누적
+    drunk_gain = 0
+    if has_food_additive(item_id, "취기"):
+        drunk_gain += 15
+    if has_food_additive(item_id, "독주"):
+        drunk_gain += 30
+    if drunk_gain > 0:
+        cur = morld.get_unit_prop(eater_id, "상태:취기") or 0
+        morld.set_unit_prop(eater_id, "상태:취기", min(100, cur + drunk_gain))
+    # 트랜스 누적
+    if has_food_additive(item_id, "마약"):
+        morld.modify_prop(eater_id, "트랜스:외부", 50)
+    if has_food_additive(item_id, "최면제"):
+        morld.modify_prop(eater_id, "트랜스:외부", 40)
+    # 타이머 기반
+    if has_food_additive(item_id, "배란유도제") and not is_status_active(eater_id, "배란유도"):
+        apply_timed_status(eater_id, "배란유도")
+    if has_food_additive(item_id, "정력제") and not is_status_active(eater_id, "정력제"):
+        apply_timed_status(eater_id, "정력제")
+
 # 시간 감쇠
 SHAME_DECAY_PER_HOUR = 5            # 1시간당 감소량 (자연 감쇠)
 

@@ -127,7 +127,8 @@ class Aphrodisiac(Item):
             return
 
         # 음식에 미약 표시 (prop)
-        morld.set_unit_prop(food_id, "상태:미약첨가", 1)
+        from romance_core import add_food_additive
+        add_food_additive(food_id, "미약")
 
         # 미약 소비
         morld.lost_item(player_id, self.instance_id)
@@ -326,7 +327,8 @@ class Wine(Item):
         if not food_info:
             return
 
-        morld.set_unit_prop(food_id, "상태:취기첨가", 1)
+        from romance_core import add_food_additive
+        add_food_additive(food_id, "취기")
         morld.lost_item(player_id, self.instance_id)
         food_name = food_info.get("name", "음식")
         yield ui.dialog(f"{food_name}에 와인을 몰래 넣었다.")
@@ -393,7 +395,8 @@ class StrongLiquor(Item):
         food_info = morld.get_item_info(food_id)
         if not food_info:
             return
-        morld.set_unit_prop(food_id, "상태:독주첨가", 1)
+        from romance_core import add_food_additive
+        add_food_additive(food_id, "독주")
         morld.lost_item(player_id, self.instance_id)
         yield ui.dialog(f"{food_info.get('name', '음식')}에 독주를 몰래 섞었다.")
 
@@ -457,7 +460,8 @@ class Narcotic(Item):
         food_info = morld.get_item_info(food_id)
         if not food_info:
             return
-        morld.set_unit_prop(food_id, "상태:마약첨가", 1)
+        from romance_core import add_food_additive
+        add_food_additive(food_id, "마약")
         morld.lost_item(player_id, self.instance_id)
         yield ui.dialog(f"{food_info.get('name', '음식')}에 마약을 몰래 섞었다.")
 
@@ -521,6 +525,7 @@ class Hypnotic(Item):
         food_info = morld.get_item_info(food_id)
         if not food_info:
             return
-        morld.set_unit_prop(food_id, "상태:최면제첨가", 1)
+        from romance_core import add_food_additive
+        add_food_additive(food_id, "최면제")
         morld.lost_item(player_id, self.instance_id)
         yield ui.dialog(f"{food_info.get('name', '음식')}에 최면제를 몰래 섞었다.")
