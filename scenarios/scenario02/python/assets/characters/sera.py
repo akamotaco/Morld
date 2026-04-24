@@ -66,6 +66,11 @@
 import morld
 import ui
 from assets.base import Character, build_focus_rules, build_describe_rules
+from romance_dynamics import (
+    AFFECTION_GATE_ACQUAINTANCE,
+    AFFECTION_GATE_FRIEND,
+    AFFECTION_GATE_INTIMATE,
+)
 from think import BaseAgent, register_agent_class
 
 _M = 60_000  # millis per minute
@@ -1270,7 +1275,7 @@ class Sera(Character):
         - 호감도 낮을 때 만지면 쫓아냄
         """
         success = False
-        if affection >= 50:
+        if affection >= AFFECTION_GATE_FRIEND:
             yield ui.dialog([
                 "[세라]",
                 "...뭐해."
@@ -1281,7 +1286,7 @@ class Sera(Character):
                     "세라의 침대에 누웠다.",
                     "세라가 별 말 없이 자리를 내줬다."
                 ])
-        elif affection >= 20:
+        elif affection >= AFFECTION_GATE_ACQUAINTANCE:
             yield ui.dialog([
                 "[세라]",
                 "......",
@@ -1313,7 +1318,7 @@ class Sera(Character):
         lines += "[url=@ret:butt]엉덩이 만지기[/url]\n"
         lines += "[url=@ret:kiss]키스하기[/url]\n"
         lines += "[url=@ret:hug]안아주기[/url]\n"
-        if affection >= 50:
+        if affection >= AFFECTION_GATE_FRIEND:
             lines += "[url=@ret:romance]스킨십[/url]\n"
         lines += "[url=@ret:nothing]가만히 있기[/url]"
         choice = yield ui.dialog(lines, autofill="off")
@@ -1326,7 +1331,7 @@ class Sera(Character):
             yield from start_romance(player_id, owner_id)
             return
 
-        if affection >= 50:
+        if affection >= AFFECTION_GATE_FRIEND:
             if choice == "breast":
                 yield ui.dialog([
                     "손을 뻗어 세라의 가슴에 살짝 닿았다.",
@@ -1364,7 +1369,7 @@ class Sera(Character):
                     "세라가 뻣뻣하게 있다가...",
                     "+살짝 몸을 기댔다."
                 ])
-        elif affection >= 20:
+        elif affection >= AFFECTION_GATE_ACQUAINTANCE:
             if choice == "breast":
                 yield ui.dialog([
                     "손을 뻗어 세라의 가슴에 닿으려는 순간—",
@@ -1418,7 +1423,7 @@ class Sera(Character):
     def on_bed_sleeping(self, bed, player_id, slot, affection, owner_id):
         """세라가 자고 있을 때 - 호감도별 묘사 + 행동 선택"""
         success = False
-        if affection >= 50:
+        if affection >= AFFECTION_GATE_FRIEND:
             yield ui.dialog([
                 "세라가 조용히 잠들어 있다.",
                 "편안한 숨소리가 들린다."
@@ -1426,7 +1431,7 @@ class Sera(Character):
             success = morld.sit_on(player_id, bed.instance_id, slot)
             if success:
                 yield ui.dialog(["조심스럽게 옆에 누웠다."])
-        elif affection >= 20:
+        elif affection >= AFFECTION_GATE_ACQUAINTANCE:
             yield ui.dialog([
                 "세라가 잠들어 있다.",
                 "...잠꼬대를 하진 않는다."
@@ -1460,7 +1465,7 @@ class Sera(Character):
             return
 
         if choice == "breast":
-            if affection >= 50:
+            if affection >= AFFECTION_GATE_FRIEND:
                 yield ui.dialog([
                     "손을 뻗어 세라의 가슴에 살짝 닿았다.",
                     "+...부드럽다.",
@@ -1476,7 +1481,7 @@ class Sera(Character):
                     "+...위험하다. 그만두는 게 좋겠다."
                 ])
         elif choice == "butt":
-            if affection >= 50:
+            if affection >= AFFECTION_GATE_FRIEND:
                 yield ui.dialog([
                     "손을 뻗어 세라의 엉덩이에 살짝 닿았다.",
                     "+...탄력이 있다.",
@@ -1492,7 +1497,7 @@ class Sera(Character):
                     "+...심장이 쿵 내려앉았다."
                 ])
         elif choice == "kiss":
-            if affection >= 50:
+            if affection >= AFFECTION_GATE_FRIEND:
                 yield ui.dialog([
                     "세라의 얼굴에 가까이 다가갔다.",
                     "잠든 세라의 입술에 살짝 키스했다.",

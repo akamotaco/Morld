@@ -76,6 +76,11 @@
 import morld
 import ui
 from assets.base import Character, build_focus_rules, build_describe_rules
+from romance_dynamics import (
+    AFFECTION_GATE_ACQUAINTANCE,
+    AFFECTION_GATE_FRIEND,
+    AFFECTION_GATE_INTIMATE,
+)
 from think import BaseAgent, register_agent_class
 
 _M = 60_000  # millis per minute
@@ -1076,7 +1081,7 @@ class Mila(Character):
         - 호감도 50 이상: 허용 + 행동 선택
         - 호감도 50 미만: 강제 퇴출
         """
-        if affection >= 50:
+        if affection >= AFFECTION_GATE_FRIEND:
             yield ui.dialog([
                 "[밀라]",
                 "어머, 피곤해? 잠깐 누워도 돼~"
@@ -1111,7 +1116,7 @@ class Mila(Character):
         lines += "[url=@ret:butt]엉덩이 만지기[/url]\n"
         lines += "[url=@ret:kiss]키스하기[/url]\n"
         lines += "[url=@ret:hug]안아주기[/url]\n"
-        if affection >= 50:
+        if affection >= AFFECTION_GATE_FRIEND:
             lines += "[url=@ret:romance]스킨십[/url]\n"
         lines += "[url=@ret:nothing]가만히 있기[/url]"
         choice = yield ui.dialog(lines, autofill="off")
@@ -1124,7 +1129,7 @@ class Mila(Character):
             yield from start_romance(player_id, owner_id)
             return
 
-        if affection >= 80:
+        if affection >= AFFECTION_GATE_INTIMATE:
             if choice == "breast":
                 yield ui.dialog([
                     "손을 뻗어 밀라의 가슴에 살짝 닿았다.",
@@ -1205,7 +1210,7 @@ class Mila(Character):
     def on_bed_sleeping(self, bed, player_id, slot, affection, owner_id):
         """밀라가 자고 있을 때 - 호감도 무관하게 허용 (자고 있으니 모름)"""
         success = False
-        if affection >= 50:
+        if affection >= AFFECTION_GATE_FRIEND:
             yield ui.dialog([
                 "밀라가 새근새근 잠들어 있다.",
                 "평소의 활기찬 모습과는 다른, 고요한 얼굴."
@@ -1242,7 +1247,7 @@ class Mila(Character):
             return
 
         if choice == "breast":
-            if affection >= 50:
+            if affection >= AFFECTION_GATE_FRIEND:
                 yield ui.dialog([
                     "손을 뻗어 밀라의 가슴에 살짝 닿았다.",
                     "+...풍만하고 부드럽다.",
@@ -1258,7 +1263,7 @@ class Mila(Character):
                     "+...서둘러 손을 뗐다."
                 ])
         elif choice == "butt":
-            if affection >= 50:
+            if affection >= AFFECTION_GATE_FRIEND:
                 yield ui.dialog([
                     "손을 뻗어 밀라의 엉덩이에 살짝 닿았다.",
                     "+...탱글탱글하다.",
@@ -1274,7 +1279,7 @@ class Mila(Character):
                     "+...서둘러 손을 뗐다."
                 ])
         elif choice == "kiss":
-            if affection >= 50:
+            if affection >= AFFECTION_GATE_FRIEND:
                 yield ui.dialog([
                     "밀라의 얼굴에 가까이 다가갔다.",
                     "잠든 밀라의 볼에 살짝 키스했다.",
