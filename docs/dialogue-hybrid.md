@@ -182,17 +182,45 @@ eng.generate(intent="light", state={"affinity": 0.8, "arousal": 0.3},
 
 ### Intent fallback chain
 
-`ACTION_TO_CATEGORY` 매핑 (S02 원본 재사용):
+4단계 계층 폴백 (`engine._generate_intent`):
+
+1. **exact match** — yaml `intents.{intent_name}.templates` 직접
+2. **ACTION_TO_CATEGORY 폴백** — 기본 카테고리로 치환 (예: `hug → light`)
+3. **접두사+카테고리** (Tone prefix) — 접두사 유지하며 카테고리로 치환
+   - `forced_breast_grope` → `forced_medium`
+   - `ecstasy_chain_2` → `ecstasy_penetration` (chain_2 의 base 인 chain 은
+     `ACTION_TO_CATEGORY` 미등록이라 이 단계 skip)
+4. **bare 접두사** — 접두사 trailing `_` 제거한 기본 인텐트
+   - `ecstasy_chain_2` → `ecstasy`
+   - `forced_hug` → (forced 는 카테고리 모르면 여기 먼저)
+
+등록된 톤 접두사 (`_TONE_PREFIXES`): `forced_`, `trance_deep_`, `trance_`, `ecstasy_`.
+
+`ACTION_TO_CATEGORY` 매핑 (S02 원본 77 액션 전수 커버):
 
 ```
+# light
 hug / deep_kiss / kiss / cheek_caress → light
-breast_touch / nipple_stimulation → medium
-clit_rub / fellatio → strong
-vaginal_insert / thrust_gentle → penetration
-thrust_rough → rough
+# medium
+breast_touch / nipple_stimulation / breast_grope → medium
+# strong
+clit_rub / fellatio / penis_caress / swallow_semen → strong
+# penetration
+vaginal_insert / thrust_gentle / tribadism → penetration
+# rough
+thrust_rough / tear_upper / use_whip / force_feed → rough
 ```
 
-`eng.generate("hug", ...)` 호출 시 `hug` intent가 없으면 **자동으로 `light`로 fallback**.
+**호출자 측 자동 위임** (`base.py` Character):
+- `ROMANCE_REACTIONS` 에 명시 rule 없으면서 키가 `_HYBRID_TONE_PREFIXES`
+  (`forced_`, `trance_deep_`, `trance_`, `ecstasy_`) 로 시작하면 `_generate_dialogue`
+  자동 호출 → hybrid 위임
+- `INITIATIVE_REACTIONS` 에 명시 rule 없으면서 timing 이
+  `during_<action>` / `forced_during_<action>` 패턴이면 hybrid `LineGenerator`
+  자동 위임
+
+→ 캐릭터 파일에 77 액션 × 모드별 수작업 rule 작성 없이도 아키타입 풀에서
+톤 유지 대사 생성.
 
 ---
 

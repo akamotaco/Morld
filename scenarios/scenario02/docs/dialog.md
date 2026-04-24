@@ -242,16 +242,23 @@ ROMANCE_REACTIONS = {
 - `start`: 행위 시작 시 (1인칭 대사)
 - `during`: 행위 진행 중 (3인칭 묘사, 토글형 행위만)
 
-**조회 방식 — 2단계 fallback:**
+**조회 방식 — 2단계 + 톤 접두사 자동 위임:**
 ```python
 # 1) ROMANCE_REACTIONS에서 조건 매칭 시도
 key = f"{action_id}:{timing}"  # 예: "hug:start"
 rules = self.ROMANCE_REACTIONS.get(key)
+# → 규칙 매칭 + ({}, "_generate_dialogue") catch-all 로 Hybrid 명시 호출
 
-# 2) 매칭 실패 시 Generator fallback
-#    :start → LineGenerator (1인칭 대사, 아키타입 × 말투 × 톤)
-#    :during → ReactionGenerator (3인칭 묘사, 아키타입 × 톤)
+# 2) 키 자체가 없는 경우:
+#    - action_id 가 톤 접두사로 시작 (_HYBRID_TONE_PREFIXES:
+#      "forced_", "trance_deep_", "trance_", "ecstasy_") → Hybrid 자동 위임
+#    - 그 외 → None (호출자가 처리)
 ```
+
+**톤 접두사 자동 위임** (2026-04-25 추가):
+- `forced_breast_grope:during` 등 rule 없어도 hybrid 가 `forced_medium` →
+  `forced_{cat}` → bare `forced` 순으로 폴백해 톤 유지 대사 생성
+- 캐릭터는 특별 연출이 필요한 액션만 명시적으로 override
 
 **1회성(once) 반응:**
 
@@ -315,6 +322,13 @@ INITIATIVE_REACTIONS = {
     "satisfied": [ ... ],
 }
 ```
+
+**Hybrid 자동 위임** (2026-04-25 추가):
+- `during_<action>` / `forced_during_<action>` 키가 미정의면 아키타입
+  `action_lines` 풀에서 자동 생성. 캐릭터는 특별 연출이 필요한 액션만
+  `INITIATIVE_REACTIONS` 에 명시.
+- `start` / `satisfied` / `escape_fail` 등 특수 키는 hybrid 위임 대상 아님
+  (캐릭터 직접 정의 필수).
 
 ---
 
