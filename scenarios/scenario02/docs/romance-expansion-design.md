@@ -1279,6 +1279,56 @@ Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + �
 
 ---
 
+### Phase 2.6: prop 통합 리팩터링 (2026-04-25 완료)
+
+**배경**: 시간 제한 상태 효과 이중 prop, NPC 정사 3플래그, 음식 첨가물 7플래그 등 누적된 중복/분산 prop을 단일 진입점 API 뒤로 통합.
+
+#### 2.6.1 시간 제한 상태 플래그 파생
+
+**대상**: 미약 / 배란유도 / 정력제 — 각각 `상태:{name}` 플래그 + `상태:{name}남은시간` 타이머 이중 운용.
+
+**변경**:
+- 플래그 prop 제거. 타이머 하나만 유지.
+- `is_status_active(unit_id, name)` = `timer > 0` 파생
+- `apply_timed_status(unit_id, name, duration=None)` — 타이머만 설정, 기본값은 `TIMED_STATUS_DURATIONS` 참조
+- `_TIMED_STATUS_REGISTRY` — 활성 유닛 추적 (기존엔 `_SHAME_REGISTRY` 재활용)
+- `_decay_timed_status_tick` — 3종 타이머 1시간 간격 통합 감쇠
+
+**부수 효과 (버그 수정)**: 정력제/배란유도제는 기존에 decay tick이 없어서 한 번 걸리면 영원히 활성. 이제 일반 감쇠 경로 진입.
+
+#### 2.6.2 NPC 정사 역할 통합
+
+**대상**: 3개 boolean flag
+- `상태:NPC성행위중` — 정사 중 여부 (역할 무관)
+- `상태:NPC강제피해중` — 피해자
+- `상태:NPC강제가해중` — 가해자
+
+**변경**: 단일 문자열 prop `상태:NPC정사`
+- 값: `"합의"` / `"피해"` / `"가해"` / `None`
+- 파생 헬퍼: `is_in_npc_sex`, `is_npc_sex_victim`, `is_npc_sex_aggressor`
+- 세팅 헬퍼: `set_npc_sex_role(uid, role)`, `clear_npc_sex_role(uid)`
+
+**context 키는 유지** (`NPC성행위중`, `NPC강제피해중`) — 대화 rule 파일 변경 불필요, `_build_context`에서 파생 세팅만.
+
+#### 2.6.3 음식 첨가물 효과 일원화
+
+**대상**: 7 플래그 + 3 경로 중복 코드
+- `상태:미약첨가`, `상태:취기첨가`, `상태:독주첨가`, `상태:마약첨가`, `상태:최면제첨가`, `상태:배란유도제첨가`, `상태:정력제첨가`
+- 3 먹기 경로에 분산된 적용 블록 (base.py ~40줄, food.py ~20줄, eat.py ~20줄)
+
+**변경**: Registry + 단일 진입점
+- `FOOD_ADDITIVES = ("미약", "취기", "독주", "마약", "최면제", "배란유도제", "정력제")`
+- `has_food_additive(item_id, name)`, `add_food_additive(item_id, name)` 래퍼
+- `apply_food_additive_effects(eater_id, item_id)` — 한 패스에 7 첨가물 효과 일괄 적용
+
+**부수 효과 (의도된 커버리지 확장)**:
+- 기존 NPC 선물만 적용하던 취기/독주/마약/최면제가 플레이어/NPC 자율 경로에도 일관 적용
+- 기존 플레이어/NPC 자율만 적용하던 배란유도제/정력제가 NPC 선물에도 적용
+
+**총 커밋 3건**: `287c3f6` (시간 제한 파생), `2b6710b` (NPC 정사 통합), `b7b994b` (첨가물 일원화). 신규 30 e2e 테스트. 전체 1423/1423 통과.
+
+---
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)
