@@ -548,3 +548,93 @@ intents:
       pattern: '{name}가 과호흡 끝에 기절한 상태다.'
       state_bias: *id043
     slots: {}
+  forced_light:
+    templates:
+    - id: forced_light_0
+      pattern: '{name}가 새파랗게 질려 몸을 웅크린다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_1
+      pattern: '{name}가 떨고 있다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_2
+      pattern: '{name}가 두려움에 눈을 꼭 감는다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    slots: {}
+  forced_medium:
+    templates:
+    - id: forced_medium_0
+      pattern: '{name}가 울며 몸을 움츠린다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_1
+      pattern: '{name}가 떨리는 목소리로 거부한다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_2
+      pattern: '{name}의 작은 몸이 부들부들 떨고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    slots: {}
+  forced_strong:
+    templates:
+    - id: forced_strong_0
+      pattern: '{name}가 흐느끼며 살려달라고 애원한다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_1
+      pattern: '{name}가 새파래진 얼굴로 떨고 있다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_2
+      pattern: '{name}가 울먹인다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    slots: {}
+  forced_penetration:
+    templates:
+    - id: forced_penetration_0
+      pattern: '{name}가 고통과 공포로 실신할 듯 떨고 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_1
+      pattern: '{name}가 끊임없이 흐느끼며 신음한다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_2
+      pattern: '{name}가 훌쩍인다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    slots: {}
+  forced_rough:
+    templates:
+    - id: forced_rough_0
+      pattern: '{name}가 의식이 멀어지며 힘없이 흐느낀다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_1
+      pattern: '{name}가 울고 있다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_2
+      pattern: '{name}의 작은 몸이 경련하듯 떤다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    slots: {}

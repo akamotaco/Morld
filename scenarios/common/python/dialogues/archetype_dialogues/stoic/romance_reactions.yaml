@@ -463,3 +463,93 @@ intents:
       pattern: '{name}가 살의만 남긴 채 의식이 멀어지고 있다.'
       state_bias: *id039
     slots: {}
+  forced_light:
+    templates:
+    - id: forced_light_0
+      pattern: '{name}가 무표정하게 노려보며 몸을 뻣뻣하게 굳혔다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_1
+      pattern: '{name}가 차갑게 입술을 깨문다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_2
+      pattern: '{name}가 아무 말 없이 저항하고 있다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    slots: {}
+  forced_medium:
+    templates:
+    - id: forced_medium_0
+      pattern: '{name}가 이를 악물고 몸을 비튼다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_1
+      pattern: '{name}가 감정을 지운 채 버티고 있다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_2
+      pattern: '{name}의 눈에 조용한 살의가 어렸다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    slots: {}
+  forced_strong:
+    templates:
+    - id: forced_strong_0
+      pattern: '{name}가 고통을 참으며 숨을 삼킨다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_1
+      pattern: '{name}가 고개를 돌린 채 이를 악문다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_2
+      pattern: '{name}의 몸이 경련하듯 떨린다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    slots: {}
+  forced_penetration:
+    templates:
+    - id: forced_penetration_0
+      pattern: '{name}가 입술을 피가 나도록 깨물며 견디고 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_1
+      pattern: '{name}가 표정을 지운 채 통증을 삼킨다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_2
+      pattern: '{name}가 몸을 뻣뻣하게 굳힌 채 저항한다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    slots: {}
+  forced_rough:
+    templates:
+    - id: forced_rough_0
+      pattern: '{name}가 감정이 모두 꺼진 얼굴로 누워 있다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_1
+      pattern: '{name}가 고통조차 표정에 드러내지 않는다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_2
+      pattern: '{name}의 눈에 짙은 살의만 남아 있다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    slots: {}

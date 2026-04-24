@@ -873,3 +873,93 @@ intents:
       pattern: '{name}가 뱉어내며 강하게 거부하고 있다.'
       state_bias: *id064
     slots: {}
+  forced_light:
+    templates:
+    - id: forced_light_0
+      pattern: '싫어! 하지 마...!'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_1
+      pattern: '뭐하는 거야... 놓아!'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_2
+      pattern: '이런 거 싫다고!'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    slots: {}
+  forced_medium:
+    templates:
+    - id: forced_medium_0
+      pattern: '아앗... 안 돼...!'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_1
+      pattern: '이러지 마...! 제발...'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_2
+      pattern: '왜 이런 짓을...!'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    slots: {}
+  forced_strong:
+    templates:
+    - id: forced_strong_0
+      pattern: '아아...! 하지 마...!'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_1
+      pattern: '제발... 제발 그만...!'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_2
+      pattern: '아... 무서워...'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    slots: {}
+  forced_penetration:
+    templates:
+    - id: forced_penetration_0
+      pattern: '아파...! 빼줘...!'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_1
+      pattern: '아아... 싫어... 싫어...'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_2
+      pattern: '이, 이런 건... 아니야...'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    slots: {}
+  forced_rough:
+    templates:
+    - id: forced_rough_0
+      pattern: '아아악...! 아파...!'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_1
+      pattern: '그, 그만...! 죽을 것 같아...'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_2
+      pattern: '으... 아...'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    slots: {}

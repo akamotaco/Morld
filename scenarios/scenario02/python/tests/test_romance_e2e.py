@@ -2811,6 +2811,53 @@ class TestNpcIntimacyExperience:
         assert morld.get_unit_prop(2, "기억:npc정사횟수") == 2
 
 
+class TestForcedToneCoverage:
+    """Forced_* 접두사 자동 Hybrid 위임 + 아키타입 forced_{category} 커버리지.
+
+    구조:
+    - 캐릭터 ROMANCE_REACTIONS 에 forced_<action>:<timing> 키가 없으면
+      base.get_romance_reaction 가 Hybrid 를 자동 호출
+    - Hybrid 는 forced_<action> → forced_{카테고리} (접두사 유지) 폴백
+    """
+
+    def test_forced_prefix_hybrid_delegation(self):
+        """캐릭터에 forced_hug rule 이 없어도 Hybrid 가 forced_light 로 생성."""
+        from engine.dialogue_hybrid import stateless
+        stateless.clear_cache()
+        r = stateless.generate_reaction(
+            "stoic", "test", "forced_hug", "start",
+            {"affinity": 0.0, "arousal": 0.3})
+        assert r, "forced_hug → forced_light 폴백 실패"
+        # 강제 톤 특징: affection 낮은 음수 bias 템플릿 뽑힘
+        assert len(r) > 0
+
+    def test_forced_category_direct(self):
+        """각 forced_{category} 가 모든 아키타입에 정의되어 있음."""
+        from engine.dialogue_hybrid import stateless
+        stateless.clear_cache()
+        categories = ["forced_light", "forced_medium", "forced_strong",
+                      "forced_penetration", "forced_rough"]
+        archetypes = ["stoic", "cheerful", "cold", "gentle", "timid", "proud"]
+        for arch in archetypes:
+            for cat in categories:
+                r = stateless.generate_reaction(
+                    arch, "test", cat, "start",
+                    {"affinity": 0.0, "arousal": 0.3})
+                assert r, f"{arch}/{cat} 미정의"
+
+    def test_prefix_fallback_per_action(self):
+        """여러 forced_{action} 이 카테고리 접두사 폴백으로 커버됨."""
+        from engine.dialogue_hybrid import stateless
+        stateless.clear_cache()
+        actions = ["forced_hug", "forced_breast_grope", "forced_clit_lick",
+                   "forced_vaginal_insert", "forced_thrust_rough"]
+        for action in actions:
+            r = stateless.generate_reaction(
+                "gentle", "test", action, "start",
+                {"affinity": 0.0, "arousal": 0.3})
+            assert r, f"gentle/{action} 접두사 폴백 실패"
+
+
 class TestMasturbationObservedArousal:
     """자위 목격자 성욕 증가 훅 (시나리오 1/2/3 공통)."""
 

@@ -51,6 +51,11 @@ from engine.asset_base import (
 # 나체 발각 추가 페널티 (on_romance_discovered에서 파트너 노출 시 적용)
 EXPOSURE_DISCOVERY_PENALTY = {"호감": -3, "반발": 5}
 
+# `get_romance_reaction` 에서 ROMANCE_REACTIONS 미정의 시 자동 Hybrid 위임
+# 하는 톤 접두사. 각 액션을 개별 rule 로 명시하지 않아도 아키타입 풀의
+# `forced_{category}` / `trance_{category}` 조합으로 톤 유지.
+_HYBRID_TONE_PREFIXES = ("forced_", "trance_deep_", "trance_")
+
 
 class DialogueCoverageError(LookupError):
     """ROMANCE_REACTIONS 커버리지 누락 — 해당 action:timing 에 대한
@@ -2982,6 +2987,15 @@ class Character(_CharacterBase):
         reactions = getattr(self, 'ROMANCE_REACTIONS', {})
         key = f"{action_id}:{timing}"
         if key not in reactions:
+            # 톤 접두사 자동 hybrid 위임 — forced_*/trance_* 키가 명시 rule 없으면
+            # 아키타입 풀로 자동 폴백. 접두사+카테고리 조합(예: forced_medium)을
+            # hybrid 가 탐색해 톤 유지. 빈 문자열이면 None 으로 반환.
+            if any(action_id.startswith(p) for p in _HYBRID_TONE_PREFIXES):
+                try:
+                    result = self._generate_dialogue(action_id, timing, stim_state)
+                    return result if result else None
+                except DialogueCoverageError:
+                    return None
             # MVP soft-mode: 로그만 찍고 None 반환 (향후 strict-mode 전환 가능)
             print(f"[DialogueCoverage] MISSING {self.name!r} ROMANCE_REACTIONS[{key!r}]")
             return None

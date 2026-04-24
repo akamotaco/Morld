@@ -39,6 +39,10 @@ _SLOT_TEMP = 0.5
 _LINE_CONTEXTS: Tuple[str, ...] = ("romance", "action_lines")
 _REACTION_CONTEXTS: Tuple[str, ...] = ("romance_reactions", "action_reactions")
 
+# 톤 접두사 — `_generate_intent` 가 인텐트 미매칭 시 "접두사+카테고리" 조합을
+# 우선 찾아 톤 유지. 예: `forced_breast_grope` 미정의면 `forced_medium` 시도.
+_TONE_PREFIXES: Tuple[str, ...] = ("forced_", "trance_deep_", "trance_")
+
 # (root_str, character, archetype, contexts) → merged data
 _DATA_CACHE: Dict[Tuple[str, str, str, Tuple[str, ...]], Dict[str, Any]] = {}
 
@@ -140,9 +144,23 @@ def _generate_intent(data: Dict[str, Any], intent: str,
     intents = data.get("intents") or {}
     intent_data = intents.get(intent)
     if not intent_data or not (intent_data.get("templates") or []):
+        # 1. ACTION_TO_CATEGORY 기본 폴백 (예: breast_grope → medium)
         fallback = ACTION_TO_CATEGORY.get(intent)
         if fallback and fallback in intents:
             intent_data = intents[fallback]
+        # 2. 접두사 보존 폴백 (예: forced_breast_grope → forced_medium)
+        # "forced_", "trance_deep_", "trance_" 등 접두사를 인식해 접두사+카테고리
+        # 조합 인텐트를 우선 탐색. 해당 접두사 톤 유지가 목적.
+        if not intent_data or not (intent_data.get("templates") or []):
+            for prefix in _TONE_PREFIXES:
+                if intent.startswith(prefix):
+                    base = intent[len(prefix):]
+                    base_cat = ACTION_TO_CATEGORY.get(base)
+                    if base_cat:
+                        prefixed = f"{prefix}{base_cat}"
+                        if prefixed in intents and intents[prefixed].get("templates"):
+                            intent_data = intents[prefixed]
+                            break
     if not intent_data:
         return ""
     templates = intent_data.get("templates") or []

@@ -601,3 +601,93 @@ intents:
         affinity: -0.8
         arousal: 0.0
     slots: {}
+  forced_light:
+    templates:
+    - id: forced_light_0
+      pattern: '{name}가 분노에 찬 눈으로 노려본다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_1
+      pattern: '{name}가 자존심을 지키려 고개를 높이 든다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    - id: forced_light_2
+      pattern: '{name}가 경멸을 뱉는다.'
+      state_bias:
+        affinity: -0.5
+        arousal: 0.0
+    slots: {}
+  forced_medium:
+    templates:
+    - id: forced_medium_0
+      pattern: '{name}가 분노로 몸을 떨며 저항한다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_1
+      pattern: '{name}가 이를 악물며 굴욕을 삼킨다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    - id: forced_medium_2
+      pattern: '{name}의 눈에 살의가 타오른다.'
+      state_bias:
+        affinity: -0.6
+        arousal: 0.1
+    slots: {}
+  forced_strong:
+    templates:
+    - id: forced_strong_0
+      pattern: '{name}가 자존심이 무너지는 굴욕에 몸을 떤다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_1
+      pattern: '{name}가 고통과 분노로 눈물을 흘린다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    - id: forced_strong_2
+      pattern: '{name}가 이를 악문다.'
+      state_bias:
+        affinity: -0.7
+        arousal: 0.2
+    slots: {}
+  forced_penetration:
+    templates:
+    - id: forced_penetration_0
+      pattern: '{name}가 자존심을 지키려 신음을 참는다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_1
+      pattern: '{name}가 분노와 굴욕으로 입술을 깨문다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    - id: forced_penetration_2
+      pattern: '{name}의 몸이 긍지와 고통 사이에서 떨고 있다.'
+      state_bias:
+        affinity: -0.8
+        arousal: 0.3
+    slots: {}
+  forced_rough:
+    templates:
+    - id: forced_rough_0
+      pattern: '{name}가 긍지가 무너진 채 공허한 눈을 하고 있다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_1
+      pattern: '{name}가 마지막 자존심을 지키려 이를 악문다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    - id: forced_rough_2
+      pattern: '{name}의 긍지가 완전히 꺾였다.'
+      state_bias:
+        affinity: -0.9
+        arousal: 0.1
+    slots: {}
