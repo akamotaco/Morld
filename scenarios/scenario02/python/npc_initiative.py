@@ -109,11 +109,52 @@ NPC_BLOCK_PERSONALITY_BONUS = {
     "devoted": -0.20,    # 헌신: 거의 차단 안함
 }
 
+# NPC 저항 감소 (receptivity) 임계값 — 호감/성욕 기반 block_chance 점진 감소.
+# 범위 [start, max]에서 선형으로 [0, max_reduction]까지 할인.
+NPC_RECEPTIVITY_AFFECTION_START = 50    # 호감 이 값부터 저항 감소 시작
+NPC_RECEPTIVITY_AFFECTION_RANGE = 30    # 이 폭에 걸쳐 선형 감소 (80에서 최대)
+NPC_RECEPTIVITY_AFFECTION_MAX_DISCOUNT = 0.30
+
+NPC_RECEPTIVITY_AROUSAL_START = 50      # 성욕 이 값부터 저항 감소 시작
+NPC_RECEPTIVITY_AROUSAL_RANGE = 50      # 이 폭에 걸쳐 선형 감소 (100에서 최대)
+NPC_RECEPTIVITY_AROUSAL_MAX_DISCOUNT = 0.20
+
+NPC_BLOCK_AFFECTION_FRIENDLY_BONUS = 2  # 호감 START 이상일 때 차단 성공 시 추가 성욕
+
+# NPC 자동 삽입 성욕 게이트
+NPC_AUTO_INSERT_AROUSAL_GATE = 70
+
+# 여운(afterglow) 반응 tier
+NPC_AFTERGLOW_SENSITIVE = 40
+NPC_AFTERGLOW_TREMBLING = 20
+
 # NPC 주도 결박 상수
 NPC_RESTRAIN_COOLDOWN_MS = 86_400_000  # 24시간
 NPC_RESTRAIN_MIN_AROUSAL = 60          # 최소 성욕
 NPC_RESTRAIN_MIN_AFFECTION = 60        # 최소 호감
 NPC_RESTRAIN_MIN_SUBMISSION = 40       # 최소 복종 (호감 미충족 시)
+
+
+def _receptivity_block_discount(affection, arousal):
+    """호감/성욕 기반 NPC 저항(block_chance) 감소량 계산.
+
+    기존 `determine_npc_block_chance` 의 호감/성욕 점진 감소 로직을
+    단일 함수로 추출. 동일 공식으로 등가 보장.
+    """
+    discount = 0.0
+    if affection >= NPC_RECEPTIVITY_AFFECTION_START:
+        discount += (
+            (affection - NPC_RECEPTIVITY_AFFECTION_START)
+            / NPC_RECEPTIVITY_AFFECTION_RANGE
+            * NPC_RECEPTIVITY_AFFECTION_MAX_DISCOUNT
+        )
+    if arousal >= NPC_RECEPTIVITY_AROUSAL_START:
+        discount += (
+            (arousal - NPC_RECEPTIVITY_AROUSAL_START)
+            / NPC_RECEPTIVITY_AROUSAL_RANGE
+            * NPC_RECEPTIVITY_AROUSAL_MAX_DISCOUNT
+        )
+    return discount
 
 
 # ============================================
@@ -266,25 +307,18 @@ def _check_npc_block(player_id, npc_id, action_def, state):
         archetype = profile.get('archetype', 'stoic')
     block_chance += NPC_BLOCK_PERSONALITY_BONUS.get(archetype, 0.0)
 
-    # 4) 호감도 점진적 감소: 50~80 구간에서 최대 -30%
-    if affection >= 50:
-        affection_reduction = (affection - 50) / 30.0 * 0.30
-        block_chance -= affection_reduction
-
-    # 5) 성욕 보정: 50~100 구간에서 최대 -20%
+    # 4-5) 호감/성욕 기반 저항 감소 (공용 헬퍼 — 두 축 통합)
     npc_props = morld.get_unit_props(npc_id)
     arousal = npc_props.get("상태:성욕", 0) if npc_props else 0
-    if arousal >= 50:
-        arousal_reduction = (arousal - 50) / 50.0 * 0.20
-        block_chance -= arousal_reduction
+    block_chance -= _receptivity_block_discount(affection, arousal)
 
     block_chance = max(NPC_BLOCK_MIN_CHANCE, min(NPC_BLOCK_MAX_CHANCE, block_chance))
 
     if random.random() < block_chance:
         # 차단 성공 — NPC 성욕 증가 (플레이어의 시도가 자극)
         arousal_gain = NPC_BLOCK_AROUSAL_GAIN
-        if affection >= 50:
-            arousal_gain += 2  # 호감 높으면 더 자극
+        if affection >= NPC_RECEPTIVITY_AFFECTION_START:
+            arousal_gain += NPC_BLOCK_AFFECTION_FRIENDLY_BONUS
         morld.modify_prop(npc_id, "상태:성욕", arousal_gain)
 
         # 차단 반응 생성
@@ -1442,9 +1476,9 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
         if afterglow <= 0:
             return None
         if npc_asset and hasattr(npc_asset, 'get_romance_reaction'):
-            if afterglow >= 40:
+            if afterglow >= NPC_AFTERGLOW_SENSITIVE:
                 key = "afterglow_sensitive"
-            elif afterglow >= 20:
+            elif afterglow >= NPC_AFTERGLOW_TREMBLING:
                 key = "afterglow_trembling"
             else:
                 key = "afterglow_fading"
@@ -1543,10 +1577,10 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             state["npc_exhausted"] = True
             return
 
-        # NPC 자동 삽입 시도 (미삽입 + 성욕 ≥ 70 + 윤활 충족 + 여운 아님)
+        # NPC 자동 삽입 시도 (미삽입 + 성욕 ≥ gate + 윤활 충족 + 여운 아님)
         if not state["insertion"]["active"] and afterglow <= 0:
             npc_arousal = morld.get_unit_prop(npc_id, "상태:성욕") or 0
-            if npc_arousal >= 70 and state["lubricated"]:
+            if npc_arousal >= NPC_AUTO_INSERT_AROUSAL_GATE and state["lubricated"]:
                 import gender as gender_mod
                 # NPC가 P 보유 → 질/항문 삽입 시도
                 if gender_mod.has_anatomy(npc_id, "P"):
