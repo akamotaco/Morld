@@ -1609,7 +1609,75 @@ desire_threshold   -= seek_relief
 **player.py `masturbate()` 호환성**: `상태:자위중` prop이 발각 중 해제되면
 완료 효과(사정/성욕 감소) skip하도록 중단 판별 추가.
 
-**커밋**: (pending). 신규 3 e2e 테스트 (공통 훅). 전체 1540/1540 통과.
+**커밋**: `9b84d86`. 신규 3 e2e 테스트 (공통 훅). 전체 1540/1540 통과.
+
+### Phase 2.9: 리팩터 6건 — era 잔재 제거 (2026-04-25 완료)
+
+감사 결과 시뮬레이션 구조 ~78% / era식 잔재 ~22%. Tier 1 4건 + Tier 2 2건
+리팩터로 잔재 제거. 각 단계 별도 커밋.
+
+**Tier 1 #1 — 캐릭터 affection 임계값 통합** (`1f58ade`):
+- lina/ella/mila/yuki/sera 5개 파일에 산재한 `affection >= 20/50/80` 44건을
+  `romance_dynamics.AFFECTION_GATE_ACQUAINTANCE/FRIEND/INTIMATE` 단일 소스로
+- 등가 치환, 밸런스 영향 없음
+
+**Tier 1 #3 — `get_relationship_label` 데이터 테이블화** (`160c450`):
+- if-elif 체인 8 임계값을 `RELATIONSHIP_TIERS` 리스트로
+- `_label_conditions_met` 헬퍼 (≥ / _max 처리)
+
+**Tier 1 #4 — NPC receptivity 통합** (`660c16d`):
+- npc_initiative.py 산재 magic number 5곳 → 네임드 상수 + `_receptivity_block_discount` 헬퍼
+- `NPC_RECEPTIVITY_AFFECTION_*`, `NPC_AUTO_INSERT_AROUSAL_GATE`, `NPC_AFTERGLOW_*`
+
+**Tier 1 #2 — 자위 발각 반응 연속 스코어** (`fb2d9c3`):
+- 4단계 if-elif → `(affection + arousal) / 100 + 성격:정조×0.2 shift` 스코어
+- 한 축이 낮아도 다른 축으로 보완 (affection 60 + arousal 80 → initiate)
+- 신규 7 e2e
+
+**Tier 2 #5+#7 — 연속 곡선화** (`49108c7`):
+- `observed_arousal`: 호감 40 step bonus → `base + affection*0.1` 선형
+- `modify_love` 감쇠: 복종 60 cliff → `_love_damp_from_submission` 연속 감쇠
+- 기존 테스트 4건 재작성 (cliff 검증 → damp 검증)
+
+**최종 상태**: 1537 → 1549 테스트 통과 (+12). era 잔재 주요 지점 제거.
+
+### Phase 2.10: 경량 대화 시스템 확장 (2026-04-25 완료)
+
+Hybrid 대화 엔진의 S02 커버리지 감사 + 확장.
+
+**감사 결과**:
+- 6 NPC × 아키타입 (stoic/cheerful/cold/gentle/timid/proud) 매핑 완료
+- 11 아키타입 yaml pool 모두 존재 (각 romance.yaml + romance_reactions.yaml
+  + action_lines.yaml + action_reactions.yaml)
+- `_generate_dialogue` 48 호출 지점 (각 캐릭터 5~11회 catch-all)
+- ACTION_TO_CATEGORY 커버리지 48/77 (38% 미매핑)
+
+**ACTION_TO_CATEGORY 확장** (`21d751f`) — 77/77 커버:
+- grope/탈의/도구/결박/상황 등 29 액션 추가 매핑
+- 후속 개선(아키타입별 yaml 전용 섹션) 주석으로 기록
+
+**forced_* 자동 위임 + 6 아키타입 forced_{category} 콘텐츠** (`356e8ec`):
+- 인프라: `_generate_intent` 접두사 폴백 (`forced_breast_grope → forced_medium`)
+  + `get_romance_reaction` 이 `_HYBRID_TONE_PREFIXES` 키를 자동 hybrid 위임
+- 콘텐츠: 6 아키타입 × 2 파일 × 5 카테고리 (forced_light/medium/strong/penetration/rough)
+  × 3 템플릿 → 1159줄 추가
+- 효과: 강제 모드에서 consensual 대사 나오던 톤 불일치 해결
+- 신규 3 e2e
+
+**bare-prefix 폴백 + ecstasy_ 등록 (future-proofing)** (`242defe`):
+- `_generate_intent` 접두사 폴백 체인에 bare 접두사 fallback 추가
+  (`ecstasy_chain_2 → ecstasy` 기본 인텐트 시도)
+- `_TONE_PREFIXES` / `_HYBRID_TONE_PREFIXES` 에 `ecstasy_` 추가
+- 현재 실제 동작 변화 없음 — 아키타입 yaml 에 ecstasy 인텐트 없고
+  `get_climax_reaction_key._has_key` 가드로 우회
+- 향후 yaml 콘텐츠 추가 시 자동 활성화
+
+**재감사 결과 (처음 오판 정정)**:
+- `hold_back_success/failure` / `afterglow_*`: 6/6 캐릭터 **직접 정의**. 내
+  이전 감사가 grep 패턴 오류로 미정의로 잘못 판단
+- `ecstasy_intercourse/chain` / `first_*`: `_has_key` 가드 / caller fallback 으로
+  **실제로는 generic 텍스트 노출 없음** — 캐릭터 보이스 유지됨
+- 실제 generic fallback 위험은 forced_ 쪽만 해당했고 이번 커밋에서 해결
 
 ### Phase 3: 행위 카테고리 확장
 **현재 스킨쉽 액션 → Train.csv 370종 규모로 분류**
