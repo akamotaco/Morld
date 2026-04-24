@@ -1419,12 +1419,29 @@ Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + �
 - UI: 참가자 선택 및 부위 할당
 
 ### Phase 5: NTR/NTL + 플레이어 대칭 스탯
-**morld 고유 확장 (era 미구현 영역)**
+
+#### 5.M/5.N 최소 인프라 (2026-04-25 완료)
+
+**Slice M — 질투 prop**:
+- `get_jealousy(observer_id, target_name)` / `modify_jealousy(observer_id, target_name, delta)`
+- prop 키: `관계:{target_name}:질투` — observer 유닛에 저장 (0~100 clamp)
+
+**Slice N — NTR 관찰 시 자동 질투**:
+- `_run_npc_intimacy_discovery_reaction`에 B방향 추가
+- 연인 NPC 합의 정사 관찰 시 플레이어의 제3자에 대한 질투 +20
+- 강제 피해자 케이스는 skip (Phase 2.3 로직과 정합)
+
+커밋: `bb798e6`. 신규 8 e2e. 전체 1501/1501 통과.
+
+#### 후속 슬라이스 (대기)
+
+**morld 고유 확장 (era 미구현 영역)**:
 - 질투 탤런트 구현 (Talent 84)
-- `관계:{a}:충성:{b}` / `관계:{a}:질투:{b}` 스탯
+- NPC↔NPC 3자 행렬: `관계:{a}:충성:{b}` / `관계:{a}:질투:{b}`
 - 플레이어 본인 스탯 풀세트:
   - `플레이어:상태:성욕` / `플레이어:상태:수치심` / `플레이어:처녀:{부위}` / `플레이어:경험:{부위}`
   - `플레이어:성격:자제심` / `플레이어:성향:{key}`
+- 질투 → NPC think 적대 분기 / 플레이어 액션 페널티
 - NTR 이벤트: 관찰자 목격 + 증거 시스템 + 발각 판정
 - NTL: 명시적 허용 플래그 + 참여도 스탯
 - 역방향 지배 (NPC가 플레이어를 대상으로 행위)
