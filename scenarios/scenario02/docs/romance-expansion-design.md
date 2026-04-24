@@ -6,6 +6,27 @@
 
 ---
 
+## 범위 공지 (2026-04-25 현재)
+
+현 기획 범위는 다음으로 **축소**됨. 나머지는 TBA:
+
+**필수 (안정화 대상)**:
+- 1:1 성행위/강간 (플레이어↔NPC) — `romance.py` / `romance_core.py`
+- NPC 주도 행위 (Phase 5.P 포함) — `npc_initiative.py`
+- 스킨십/성추행 — `romance_actions.py` / `base.py`
+- NPC↔NPC 1:1 조우 (다이얼로그 + 성적 경험 기록만, 부위 분담 없음) — `think/handlers/self_comfort.py`
+
+**TBA (후속 세션)**:
+- 세부 난교/다인 시스템 (원래 Phase 4 — 부위별 점유, 참가자 배열)
+- era식 주종 라벨 시스템 (현재는 지배/복종 연속 축으로 대체, 영구 소유 라벨은 복원 안 함)
+- 성향 병리·특수 9개 (원래 Phase 3 — 집착/자위중독/즉각함락 등)
+- Phase 2 후반 미적용 항목 (성별기호/새드 NPC 가해 경로)
+- 플레이어 본인 스탯 풀세트 (Phase 5 잔여)
+
+**작업 방침**: 필수 항목만 버그/에러 없이 정리 → 이후 TBA 항목 개별 착수 여부는 별도 결정.
+
+---
+
 ## 설계 원칙: 3축 능력치 (공격/방어/내성)
 
 **캐릭터 능력치는 역할별로 분리 — 중복 기능 금지**:
@@ -1544,6 +1565,24 @@ desire_threshold   -= seek_relief
 - 새드 (NPC가 가해 입장인 npc_initiative 경로 — 현 슬라이스는 NPC 피해 중심)
 
 **커밋**: `761a41c` (G), `547bfd1` (H), `dae1e2d` (I), `2d1c3eb` (J), `79a8ddf` (K), `ed39b5c` (L). 신규 29 e2e 테스트. 전체 1490/1490 통과.
+
+### Phase 2.7: 난교 이벤트 단순화 + NPC-NPC 경험 기록 (2026-04-25 완료)
+
+**배경**: 기획 범위 축소 결정. "필수" 항목(1:1 성행위/강간, NPC 주도, 스킨십/성추행)
+우선 안정화하고 세부 다인 시스템은 TBA. 시나리오 상 NPC↔NPC 조우가
+남아 있으므로 1:1 fallback(이미 Phase 2.2b Option C)은 유지하되,
+이벤트 종료 시 양 참가자 성적 경험만 누적해 후속 로직이 참조 가능하도록 함.
+
+**변경 사항**:
+- `think/handlers/self_comfort.py` — `_record_npc_intimacy_experience(initiator, partner, mode)`
+  - `경험:음부` +3 (양쪽)
+  - `기억:마지막경험:유형` (consensual/forced), `:상대`, `:시각` 기록
+  - `기억:npc정사횟수` +1 (양쪽)
+- `_handle_npc_intimacy` finishing phase 끝에서 호출
+- `romance.py` / `npc_initiative.py` 내 `TODO: 합류 로직 (Phase 6)` 주석을
+  `합류/난교 로직은 TBA (세부 다인 시나리오는 현 범위 밖)`로 정리
+
+**커밋**: (pending). 신규 3 e2e 테스트.
 
 ### Phase 3: 행위 카테고리 확장
 **현재 스킨쉽 액션 → Train.csv 370종 규모로 분류**

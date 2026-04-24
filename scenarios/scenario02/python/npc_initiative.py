@@ -381,7 +381,7 @@ def check_third_party_arrival(state):
 
             # 들킴 - 중단
             return {"interrupted": True, "interrupter_id": unit_id}
-        # TODO: 합류 로직 (Phase 6)
+        # 합류/난교 로직은 TBA (세부 다인 시나리오는 현 범위 밖)
 
     return {"interrupted": False}
 

@@ -2769,6 +2769,48 @@ class TestNpcIntimacyInterveneStop:
         assert rc.get_npc_sex_role(3) is None
 
 
+class TestNpcIntimacyExperience:
+    """NPC↔NPC 1:1 세션 종료 시 성적 경험/기억 기록 (단순화).
+
+    세부 다인 시나리오는 TBA — 이 슬라이스는 '이벤트가 있었다는 사실'만 기록.
+    """
+
+    def _setup(self):
+        morld.register_unit(2, name="세라", props={})
+        morld.register_unit(3, name="행인", props={})
+
+    def test_consensual_records_experience_for_both(self):
+        """합의 종료 — 양쪽 경험:음부 +3 + 마지막경험:유형=consensual."""
+        from think.handlers.self_comfort import _record_npc_intimacy_experience
+        self._setup()
+        _record_npc_intimacy_experience(2, 3, "consensual")
+        assert morld.get_unit_prop(2, "경험:음부") == 3
+        assert morld.get_unit_prop(3, "경험:음부") == 3
+        assert morld.get_unit_prop(2, "기억:마지막경험:유형") == "consensual"
+        assert morld.get_unit_prop(3, "기억:마지막경험:유형") == "consensual"
+        assert morld.get_unit_prop(2, "기억:마지막경험:상대") == 3
+        assert morld.get_unit_prop(3, "기억:마지막경험:상대") == 2
+
+    def test_forced_records_experience_with_forced_type(self):
+        """강제 종료 — 양쪽 경험 누적 + 마지막경험:유형=forced."""
+        from think.handlers.self_comfort import _record_npc_intimacy_experience
+        self._setup()
+        _record_npc_intimacy_experience(2, 3, "forced")
+        assert morld.get_unit_prop(2, "경험:음부") == 3
+        assert morld.get_unit_prop(3, "경험:음부") == 3
+        assert morld.get_unit_prop(2, "기억:마지막경험:유형") == "forced"
+        assert morld.get_unit_prop(3, "기억:마지막경험:유형") == "forced"
+
+    def test_repeat_accumulates(self):
+        """반복 — 경험치 누적, 횟수 카운트."""
+        from think.handlers.self_comfort import _record_npc_intimacy_experience
+        self._setup()
+        _record_npc_intimacy_experience(2, 3, "consensual")
+        _record_npc_intimacy_experience(2, 3, "consensual")
+        assert morld.get_unit_prop(2, "경험:음부") == 6
+        assert morld.get_unit_prop(2, "기억:npc정사횟수") == 2
+
+
 class TestDispositionSexualHelpers:
     """Phase 2 Slice G: get_disposition_value 성향 성애 8개 fallback."""
 

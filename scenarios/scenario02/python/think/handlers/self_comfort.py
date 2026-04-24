@@ -569,6 +569,8 @@ def _handle_npc_intimacy(agent):
                 # 강제: 피해자 페널티
                 _apply_npc_forced_penalty(agent.unit_id, partner_id)
 
+            _record_npc_intimacy_experience(agent.unit_id, partner_id, mode)
+
         _cleanup_npc_intimacy(agent)
         agent._memory["npc_intimacy_cooldown"] = agent.get_time()
         agent._do_instant_action("대기", "brief")
@@ -603,3 +605,26 @@ def _apply_npc_forced_penalty(initiator_id, victim_id):
     # 기존 aftermath 3단계 재사용 → on_meet_player에서 자동 표시
     morld.set_unit_prop(victim_id, "상태:강제피해", 3)
     morld.modify_prop(victim_id, "기억:강제피해횟수", 1)
+
+
+# ========================================
+# NPC-NPC 성적 경험 기록 (단순화)
+# ========================================
+
+_NPC_INTIMACY_EXP_GAIN = 3  # 이벤트 1회 당 부위 경험치
+
+
+def _record_npc_intimacy_experience(initiator_id, partner_id, mode):
+    """NPC↔NPC 1:1 세션 종료 시 양쪽에 성적 경험/마지막경험 기록.
+
+    세부 메커니즘(부위 분담, 체위, 지속시간)은 TBA. 여기서는 이벤트가 있었다는 사실만
+    경험치/기억에 반영 — 후속 로직(aftermath, 대화 분기 등)이 참조 가능하도록.
+    """
+    from romance_core import record_last_experience
+    exp_type = "consensual" if mode == "consensual" else "forced"
+
+    for agent_id, other_id in ((initiator_id, partner_id),
+                               (partner_id, initiator_id)):
+        morld.modify_prop(agent_id, "경험:음부", _NPC_INTIMACY_EXP_GAIN)
+        record_last_experience(agent_id, other_id, exp_type)
+        morld.modify_prop(agent_id, "기억:npc정사횟수", 1)
