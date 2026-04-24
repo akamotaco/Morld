@@ -1142,23 +1142,23 @@ class TestForcedCorruptionRoute:
             "상태:성욕": 10,
         })
 
-    def test_corruption_blocks_love_gain(self):
-        """복종 ≥ 60이면 애정 상승 차단."""
+    def test_corruption_damps_love_gain(self):
+        """복종 70 → damp = (100-70)/40 = 0.75 → delta 20*0.75 = 15."""
         import romance_dynamics as rd
         self._setup()
         morld.set_unit_prop(2, "관계:주인공:복종", 70)
         delta = rd.modify_love(2, 1, 20)
-        assert delta == 0
-        assert rd.get_love(2, 1) == 0
+        assert delta == 15
+        assert rd.get_love(2, 1) == 15
 
-    def test_corruption_threshold_exact(self):
-        """복종 == LOVE_BLOCK_SUBMISSION(60)에서 차단."""
+    def test_corruption_damp_boundary(self):
+        """감쇠 시작 경계 동작 — 복종 60(threshold)은 아직 full, 100은 완전 차단."""
         import romance_dynamics as rd
         self._setup()
         morld.set_unit_prop(2, "관계:주인공:복종", 60)
-        assert rd.modify_love(2, 1, 10) == 0
-        morld.set_unit_prop(2, "관계:주인공:복종", 59)
-        assert rd.modify_love(2, 1, 10) == 10
+        assert rd.modify_love(2, 1, 10) == 10  # damp=1.0
+        morld.set_unit_prop(2, "관계:주인공:복종", 100)
+        assert rd.modify_love(2, 1, 10) == 0   # damp=0.0
 
     def test_corruption_allows_love_loss(self):
         """복종 높아도 애정 감소는 통과 (강제 종료 페널티 등)."""
@@ -2821,10 +2821,19 @@ class TestMasturbationObservedArousal:
         rc.on_masturbation_observed_arousal(1, 2)
         assert morld.get_unit_prop(1, "상태:성욕") == 15
 
-    def test_witness_high_affection_gains_bonus(self):
-        """호감 40+ — 기본 + 보너스 = +25."""
+    def test_witness_high_affection_gains_scaled(self):
+        """호감 50 — 선형 스케일: 15 + 50*0.1 = 20."""
         morld.register_unit(1, name="witness", props={
             "상태:성욕": 0, "관계:세라:호감": 50,
+        })
+        morld.register_unit(2, name="세라", props={})
+        rc.on_masturbation_observed_arousal(1, 2)
+        assert morld.get_unit_prop(1, "상태:성욕") == 20
+
+    def test_witness_max_affection_gains_full(self):
+        """호감 100 — 최대값 25."""
+        morld.register_unit(1, name="witness", props={
+            "상태:성욕": 0, "관계:세라:호감": 100,
         })
         morld.register_unit(2, name="세라", props={})
         rc.on_masturbation_observed_arousal(1, 2)

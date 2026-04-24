@@ -716,15 +716,20 @@ def on_masturbation_witnessed(unit_id):
 # 자위 목격자 성욕 증가 (공통 훅)
 # ============================================
 
-_MASTURBATION_OBSERVER_AROUSAL_BASE = 15
-_MASTURBATION_OBSERVER_AROUSAL_AFFECTION_BONUS = 10  # 호감 ≥ 40 추가
+_MASTURBATION_OBSERVER_AROUSAL_BASE = 15     # 호감 0 기준
+_MASTURBATION_OBSERVER_AROUSAL_MAX = 25      # 호감 100 기준
 
 
 def on_masturbation_observed_arousal(witness_id, masturbator_id):
     """자위 목격자 성욕 증가.
 
-    발각자(witness) 관점 — 자위하는 상대에게 호감이 있으면 성욕 증가폭 증가.
+    발각자(witness) 관점 — 자위하는 상대에 대한 호감에 따라 성욕 증가폭 선형 증가.
     시나리오 1/2/3 공통 진입점. 무감한 관계(호감 < 0)는 아무 효과 없음.
+
+    공식: gain = BASE + affection * (MAX - BASE) / 100
+      호감 0   → BASE (15)
+      호감 50  → BASE + 5 (20)
+      호감 100 → MAX (25)
     """
     target_info = morld.get_unit_info(masturbator_id)
     target_name = target_info.get("name", "") if target_info else ""
@@ -736,9 +741,8 @@ def on_masturbation_observed_arousal(witness_id, masturbator_id):
     if affection < 0:
         return morld.get_unit_prop(witness_id, "상태:성욕") or 0
 
-    gain = _MASTURBATION_OBSERVER_AROUSAL_BASE
-    if affection >= 40:
-        gain += _MASTURBATION_OBSERVER_AROUSAL_AFFECTION_BONUS
+    span = _MASTURBATION_OBSERVER_AROUSAL_MAX - _MASTURBATION_OBSERVER_AROUSAL_BASE
+    gain = _MASTURBATION_OBSERVER_AROUSAL_BASE + int(affection * span / 100)
 
     morld.modify_prop(witness_id, "상태:성욕", gain)
     return morld.get_unit_prop(witness_id, "상태:성욕") or 0

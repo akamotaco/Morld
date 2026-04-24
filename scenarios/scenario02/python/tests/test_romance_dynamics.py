@@ -90,14 +90,22 @@ class TestModifyLove:
         assert delta == 10
         assert rd.get_love(2, 1) == 10
 
-    def test_gain_blocked_by_submission_at_threshold(self):
+    def test_gain_at_threshold_full(self):
+        """복종 = LOVE_BLOCK_SUBMISSION — 감쇠 시작 지점에서는 아직 full (damp=1.0)."""
         morld.set_unit_prop(2, get_submission_key(1), rd.LOVE_BLOCK_SUBMISSION)
         delta = rd.modify_love(2, 1, 10)
-        assert delta == 0
-        assert rd.get_love(2, 1) == 0
+        assert delta == 10
+        assert rd.get_love(2, 1) == 10
 
-    def test_gain_blocked_by_submission_above_threshold(self):
+    def test_gain_damped_above_threshold(self):
+        """복종 80 → damp = (100-80)/40 = 0.5 → delta 20*0.5 = 10."""
         morld.set_unit_prop(2, get_submission_key(1), 80)
+        delta = rd.modify_love(2, 1, 20)
+        assert delta == 10
+
+    def test_gain_fully_blocked_at_max(self):
+        """복종 100 → damp = 0 → delta 0."""
+        morld.set_unit_prop(2, get_submission_key(1), 100)
         delta = rd.modify_love(2, 1, 20)
         assert delta == 0
 

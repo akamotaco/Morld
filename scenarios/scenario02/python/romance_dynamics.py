@@ -108,14 +108,33 @@ def get_love(target_id, player_id):
     return morld.get_unit_prop(target_id, get_love_key(player_id)) or 0
 
 
-def modify_love(target_id, player_id, delta):
-    """애정 변경. 복종 ≥ LOVE_BLOCK_SUBMISSION 이면 positive delta 차단.
+def _love_damp_from_submission(submission):
+    """복종 누적에 따른 애정 상승 감쇠 계수.
 
-    Returns: 실제 적용된 delta (차단/clamp 후).
+    기존: 복종 ≥ 60 일괄 차단 (경계에서 cliff).
+    신규: 복종 60부터 선형 감쇠, 100에서 0 (연속 시뮬레이션).
+    "몸이 먼저 굴복하고 정신이 뒤따른다" — 지배 누적 시 사랑이 점차 얼어붙는다.
+
+    복종 0~60 : damp = 1.0 (영향 없음)
+    복종 60~100: damp = (100 - submission) / (100 - LOVE_BLOCK_SUBMISSION)
+    복종 ≥100  : damp = 0.0
+    """
+    if submission <= LOVE_BLOCK_SUBMISSION:
+        return 1.0
+    span = 100 - LOVE_BLOCK_SUBMISSION
+    return max(0.0, (100 - submission) / span)
+
+
+def modify_love(target_id, player_id, delta):
+    """애정 변경. 복종 누적 시 positive delta 가 점진 감쇠.
+
+    Returns: 실제 적용된 delta (감쇠/clamp 후).
     """
     if delta > 0:
         submission = morld.get_unit_prop(target_id, get_submission_key(player_id)) or 0
-        if submission >= LOVE_BLOCK_SUBMISSION:
+        damp = _love_damp_from_submission(submission)
+        delta = int(delta * damp)
+        if delta <= 0:
             return 0
     current = get_love(target_id, player_id)
     new_value = max(LOVE_MIN, min(LOVE_MAX, current + delta))
