@@ -848,6 +848,20 @@ def get_personality_effect_multipliers(partner_id):
     return {"복종": sub_mult, "반발": reb_mult}
 
 
+def get_ownership_modifier(partner_id, player_id):
+    """Slice P6: 소유 관계 기반 availability 모디파이어.
+
+    - NPC가 player의 노예 → +30 (대부분 행위 자동 허용)
+    - NPC가 player의 주인 → -15 (주인이 아랫사람 행위 거부 성향)
+    - 양쪽 아님 → 0
+    """
+    if is_npc_slave_of(partner_id, player_id):
+        return 30
+    if is_npc_master_of(partner_id, player_id):
+        return -15
+    return 0
+
+
 def get_personality_gate_modifier(partner_id):
     """성격 7 trait 기반 게이트 모디파이어 (availability_score 페널티).
 
@@ -895,6 +909,8 @@ def calculate_availability_score(partner_id, player_id, action_def):
     baseline += get_shame_modifier(partner_id)
     # Phase 2 성격 게이트 (담력/자존심/정조/태도)
     baseline += get_personality_gate_modifier(partner_id)
+    # Slice P6 — 소유 관계 보정 (노예 +30 / 주인 -15)
+    baseline += get_ownership_modifier(partner_id, player_id)
     return baseline
 
 

@@ -2422,6 +2422,40 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
+class TestOwnershipModifier:
+    """Slice P6: 소유 관계 기반 availability 모디파이어."""
+
+    def _setup(self):
+        morld.register_unit(1, name="주인공", props={})
+        morld.register_unit(2, name="세라", props={})
+        morld._player_id = 1
+
+    def test_no_ownership_zero(self):
+        self._setup()
+        assert rc.get_ownership_modifier(2, 1) == 0
+
+    def test_slave_bonus_plus_30(self):
+        """노예 NPC → +30."""
+        self._setup()
+        rc._set_slave_relation(2, 1, 1)
+        assert rc.get_ownership_modifier(2, 1) == 30
+
+    def test_master_penalty_minus_15(self):
+        """주인 NPC → -15."""
+        self._setup()
+        rc._set_master_relation(2, 1, 1)
+        assert rc.get_ownership_modifier(2, 1) == -15
+
+    def test_availability_includes_ownership(self):
+        """calculate_availability_score에 모디파이어 합산."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:호감", 50)
+        rc._set_slave_relation(2, 1, 1)
+        # baseline = 50 - 30 + 30 (노예) = 50
+        action = {"affection_req": 30}
+        assert rc.calculate_availability_score(2, 1, action) == 50
+
+
 class TestOwnershipStateTransition:
     """Slice P5: 지배/복종 100 도달 시 영구 소유 상태 전환 (era 패턴)."""
 
