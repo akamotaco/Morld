@@ -2422,6 +2422,82 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
+class TestOwnershipStateTransition:
+    """Slice P5: 지배/복종 100 도달 시 영구 소유 상태 전환 (era 패턴)."""
+
+    def _setup(self):
+        morld.register_unit(1, name="주인공", props={})
+        morld.register_unit(2, name="세라", props={})
+        morld._player_id = 1
+
+    def test_default_no_ownership(self):
+        self._setup()
+        assert rc.is_npc_slave_of(2, 1) is False
+        assert rc.is_npc_master_of(2, 1) is False
+
+    def test_dominance_100_auto_master(self):
+        """지배 100 도달 → NPC 자동으로 player의 주인."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 95)
+        rc.modify_dominance(2, 1, 10)  # 105 → clamp 100
+        assert rc.get_dominance(2, 1) == 100
+        assert rc.is_npc_master_of(2, 1) is True
+
+    def test_submission_100_marks_enslavable(self):
+        """복종 100 도달 → 상태:노예화가능 플래그 (UI 제안 대기)."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:복종", 95)
+        rc.modify_submission_mutex(2, 1, 10)
+        assert morld.get_unit_prop(2, "관계:주인공:복종") == 100
+        assert morld.get_unit_prop(2, "상태:노예화가능") == 1
+
+    def test_dominance_decay_releases_master(self):
+        """지배 → 0 복귀 + 기존 주인 → 자동 해제."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 100)
+        rc._set_master_relation(2, 1, 1)
+        assert rc.is_npc_master_of(2, 1) is True
+        rc.modify_dominance(2, 1, -100)
+        assert rc.get_dominance(2, 1) == 0
+        assert rc.is_npc_master_of(2, 1) is False
+
+    def test_submission_decay_releases_slave(self):
+        """복종 → 0 복귀 + 기존 노예 → 자동 해제."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:복종", 100)
+        rc._set_slave_relation(2, 1, 1)
+        morld.set_unit_prop(2, "상태:노예화가능", 1)
+        assert rc.is_npc_slave_of(2, 1) is True
+        rc.modify_submission_mutex(2, 1, -100)
+        assert rc.is_npc_slave_of(2, 1) is False
+        # 노예화가능 플래그도 clear
+        assert morld.get_unit_prop(2, "상태:노예화가능") is None
+
+    def test_mutex_master_excludes_slave(self):
+        """주인 설정 시 노예 자동 해제."""
+        self._setup()
+        rc._set_slave_relation(2, 1, 1)
+        rc._set_master_relation(2, 1, 1)
+        assert rc.is_npc_master_of(2, 1) is True
+        assert rc.is_npc_slave_of(2, 1) is False
+
+    def test_mutex_slave_excludes_master(self):
+        self._setup()
+        rc._set_master_relation(2, 1, 1)
+        rc._set_slave_relation(2, 1, 1)
+        assert rc.is_npc_slave_of(2, 1) is True
+        assert rc.is_npc_master_of(2, 1) is False
+
+    def test_dominance_already_master_no_reset(self):
+        """이미 주인인 NPC는 재설정 안 함 (idempotent)."""
+        self._setup()
+        rc._set_master_relation(2, 1, 1)
+        morld.set_unit_prop(2, "관계:주인공:지배", 95)
+        rc.modify_dominance(2, 1, 10)
+        # 여전히 주인
+        assert rc.is_npc_master_of(2, 1) is True
+
+
 class TestConsentSuccessChance:
     """Slice P4: 합의 제안 성공률 공식."""
 

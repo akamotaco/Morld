@@ -136,12 +136,16 @@ def modify_dominance(npc_id, player_id, delta):
             remaining = delta - current_sub
             morld.set_unit_prop(npc_id, sub_key, 0)
             new_dom = min(DOMINANCE_MAX, current_dom + remaining)
+            _check_submission_decay(npc_id, player_id, 0)
         else:
             morld.set_unit_prop(npc_id, sub_key, current_sub - delta)
             new_dom = current_dom
     else:
         new_dom = max(DOMINANCE_MIN, min(DOMINANCE_MAX, current_dom + delta))
     morld.set_unit_prop(npc_id, dom_key, new_dom)
+    # P5 임계 감지 — 지배 100 자동 주인 전환 / 0 자동 해제
+    _check_dominance_threshold(npc_id, player_id, new_dom)
+    _check_dominance_decay(npc_id, player_id, new_dom)
     return new_dom
 
 
@@ -195,6 +199,70 @@ def calculate_consent_success_chance(npc_id, player_id):
     return max(0.0, min(1.0, base))
 
 
+# Slice P5 — 영구 소유 상태 (era `TALENT:ARG:당신의노예` / `TALENT:ARG:주인`)
+# `관계:{player}:노예` on NPC: NPC는 player의 노예 (플레이어가 소유)
+# `관계:{player}:주인` on NPC: NPC는 player의 주인 (NPC가 소유)
+# 배타: 한 NPC는 동시에 주인이면서 노예일 수 없음.
+
+
+def is_npc_slave_of(npc_id, player_id):
+    """NPC가 player의 노예인가."""
+    key = _get_relationship_key(player_id, "노예")
+    return (morld.get_unit_prop(npc_id, key) or 0) == 1
+
+
+def is_npc_master_of(npc_id, player_id):
+    """NPC가 player의 주인인가 (→ player는 NPC의 노예)."""
+    key = _get_relationship_key(player_id, "주인")
+    return (morld.get_unit_prop(npc_id, key) or 0) == 1
+
+
+def _set_slave_relation(npc_id, player_id, value):
+    """`관계:{player}:노예` 설정 — 주인 관계와 배타."""
+    morld.set_unit_prop(npc_id, _get_relationship_key(player_id, "노예"), value)
+    if value:
+        morld.set_unit_prop(npc_id, _get_relationship_key(player_id, "주인"), 0)
+
+
+def _set_master_relation(npc_id, player_id, value):
+    """`관계:{player}:주인` 설정 — 노예 관계와 배타."""
+    morld.set_unit_prop(npc_id, _get_relationship_key(player_id, "주인"), value)
+    if value:
+        morld.set_unit_prop(npc_id, _get_relationship_key(player_id, "노예"), 0)
+
+
+def _check_dominance_threshold(npc_id, player_id, new_dom):
+    """지배 100 도달 → 자동으로 NPC가 player의 주인 (era 비대칭 — 강제 전환).
+
+    기존 주인 상태면 skip.
+    """
+    if new_dom >= 100 and not is_npc_master_of(npc_id, player_id):
+        _set_master_relation(npc_id, player_id, 1)
+
+
+def _check_submission_threshold(npc_id, player_id, new_sub):
+    """복종 100 도달 → NPC를 player의 노예 후보로 표시.
+
+    era에서는 1/3 확률로 UI 제안 — morld는 이벤트 훅에 일임.
+    여기서는 임계 감지만 기록 (`상태:노예화가능` flag), 실제 UI는 on_meet 이벤트.
+    """
+    if new_sub >= 100 and not is_npc_slave_of(npc_id, player_id):
+        morld.set_unit_prop(npc_id, "상태:노예화가능", 1)
+
+
+def _check_dominance_decay(npc_id, player_id, new_dom):
+    """지배 0 복귀 + 기존 주인 상태 → 해제 (era "업신여기게 된")."""
+    if new_dom <= 0 and is_npc_master_of(npc_id, player_id):
+        _set_master_relation(npc_id, player_id, 0)
+
+
+def _check_submission_decay(npc_id, player_id, new_sub):
+    """복종 0 복귀 + 기존 노예 상태 → 해제."""
+    if new_sub <= 0 and is_npc_slave_of(npc_id, player_id):
+        _set_slave_relation(npc_id, player_id, 0)
+        morld.clear_prop(npc_id, "상태:노예화가능")
+
+
 def modify_submission_mutex(npc_id, player_id, delta):
     """복종 변동 — era 패턴 대칭:
       delta > 0: 먼저 `지배`부터 상쇄, 남은 만큼 `복종` 가산
@@ -211,12 +279,16 @@ def modify_submission_mutex(npc_id, player_id, delta):
             remaining = delta - current_dom
             morld.set_unit_prop(npc_id, dom_key, 0)
             new_sub = min(DOMINANCE_MAX, current_sub + remaining)
+            _check_dominance_decay(npc_id, player_id, 0)
         else:
             morld.set_unit_prop(npc_id, dom_key, current_dom - delta)
             new_sub = current_sub
     else:
         new_sub = max(DOMINANCE_MIN, min(DOMINANCE_MAX, current_sub + delta))
     morld.set_unit_prop(npc_id, sub_key, new_sub)
+    # P5 임계 감지 — 복종 100 노예화 후보 표시 / 0 자동 해제
+    _check_submission_threshold(npc_id, player_id, new_sub)
+    _check_submission_decay(npc_id, player_id, new_sub)
     return new_sub
 
 
