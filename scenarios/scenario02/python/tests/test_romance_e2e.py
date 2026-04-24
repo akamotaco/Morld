@@ -2422,6 +2422,72 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
+class TestDominanceSubmissionMutex:
+    """Slice P1: 지배/복종 상호 배타 축 (era 주도종속 패턴)."""
+
+    def _setup(self):
+        morld.register_unit(1, name="주인공", props={})
+        morld.register_unit(2, name="세라", props={})
+        morld._player_id = 1
+
+    def test_default_zero(self):
+        self._setup()
+        assert rc.get_dominance(2, 1) == 0
+
+    def test_modify_dominance_when_no_submission(self):
+        """복종 0 상태 → 지배 직접 가산."""
+        self._setup()
+        rc.modify_dominance(2, 1, 15)
+        assert rc.get_dominance(2, 1) == 15
+
+    def test_dominance_cancels_submission_first(self):
+        """복종 20 상태에서 지배 +30 → 복종 0 + 지배 10."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:복종", 20)
+        rc.modify_dominance(2, 1, 30)
+        assert morld.get_unit_prop(2, "관계:주인공:복종") == 0
+        assert rc.get_dominance(2, 1) == 10
+
+    def test_dominance_partial_cancel_no_gain(self):
+        """복종 50에 지배 +20 → 복종 30, 지배 0 유지."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:복종", 50)
+        rc.modify_dominance(2, 1, 20)
+        assert morld.get_unit_prop(2, "관계:주인공:복종") == 30
+        assert rc.get_dominance(2, 1) == 0
+
+    def test_dominance_clamp_at_max(self):
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 95)
+        rc.modify_dominance(2, 1, 20)
+        assert rc.get_dominance(2, 1) == 100
+
+    def test_dominance_negative_decay(self):
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 40)
+        rc.modify_dominance(2, 1, -15)
+        assert rc.get_dominance(2, 1) == 25
+
+    def test_dominance_clamp_at_min(self):
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 10)
+        rc.modify_dominance(2, 1, -30)
+        assert rc.get_dominance(2, 1) == 0
+
+    def test_submission_mutex_cancels_dominance_first(self):
+        """지배 30에 복종 +50 → 지배 0, 복종 20."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:지배", 30)
+        rc.modify_submission_mutex(2, 1, 50)
+        assert rc.get_dominance(2, 1) == 0
+        assert morld.get_unit_prop(2, "관계:주인공:복종") == 20
+
+    def test_submission_mutex_no_dominance_direct_gain(self):
+        self._setup()
+        rc.modify_submission_mutex(2, 1, 25)
+        assert morld.get_unit_prop(2, "관계:주인공:복종") == 25
+
+
 class TestJealousyHelpers:
     """Phase 5 Slice M: 질투 prop 헬퍼."""
 

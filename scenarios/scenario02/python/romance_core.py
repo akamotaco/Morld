@@ -104,6 +104,72 @@ def modify_jealousy(observer_id, target_name, delta):
     return new_val
 
 
+# ============================================
+# 주도권 축 (NPC 주도 다이얼로그 개편 — Slice P1)
+# ============================================
+# era `주도종속.ERB` 패턴 포팅:
+#   기존 `관계:{player}:복종` on NPC  ≡ era 종속도 (NPC → player 복종)
+#   신규 `관계:{player}:지배` on NPC  ≡ era 주도도 (NPC → player 지배)
+# 두 축은 상호 배타 — 한 축 가산 시 반대 축부터 상쇄.
+DOMINANCE_MAX = 100
+DOMINANCE_MIN = 0
+
+
+def get_dominance(npc_id, player_id):
+    """NPC가 player를 지배하는 정도 (0~100)."""
+    key = _get_relationship_key(player_id, "지배")
+    return morld.get_unit_prop(npc_id, key) or 0
+
+
+def modify_dominance(npc_id, player_id, delta):
+    """지배 변동 — era 패턴:
+      delta > 0: 먼저 `복종`부터 상쇄, 남은 만큼 `지배` 가산
+      delta < 0: 그냥 `지배` 감쇠 (0까지)
+    반환값: 변동 후 `지배` 값.
+    """
+    sub_key = _get_relationship_key(player_id, "복종")
+    dom_key = _get_relationship_key(player_id, "지배")
+    current_sub = morld.get_unit_prop(npc_id, sub_key) or 0
+    current_dom = morld.get_unit_prop(npc_id, dom_key) or 0
+    if delta > 0 and current_sub > 0:
+        if current_sub < delta:
+            remaining = delta - current_sub
+            morld.set_unit_prop(npc_id, sub_key, 0)
+            new_dom = min(DOMINANCE_MAX, current_dom + remaining)
+        else:
+            morld.set_unit_prop(npc_id, sub_key, current_sub - delta)
+            new_dom = current_dom
+    else:
+        new_dom = max(DOMINANCE_MIN, min(DOMINANCE_MAX, current_dom + delta))
+    morld.set_unit_prop(npc_id, dom_key, new_dom)
+    return new_dom
+
+
+def modify_submission_mutex(npc_id, player_id, delta):
+    """복종 변동 — era 패턴 대칭:
+      delta > 0: 먼저 `지배`부터 상쇄, 남은 만큼 `복종` 가산
+      delta < 0: 그냥 `복종` 감쇠
+    기존 `복종` 직접 modify_prop 호출과 공존 — 주도권 의미 있는
+    상호작용에서만 이 함수 사용.
+    """
+    sub_key = _get_relationship_key(player_id, "복종")
+    dom_key = _get_relationship_key(player_id, "지배")
+    current_sub = morld.get_unit_prop(npc_id, sub_key) or 0
+    current_dom = morld.get_unit_prop(npc_id, dom_key) or 0
+    if delta > 0 and current_dom > 0:
+        if current_dom < delta:
+            remaining = delta - current_dom
+            morld.set_unit_prop(npc_id, dom_key, 0)
+            new_sub = min(DOMINANCE_MAX, current_sub + remaining)
+        else:
+            morld.set_unit_prop(npc_id, dom_key, current_dom - delta)
+            new_sub = current_sub
+    else:
+        new_sub = max(DOMINANCE_MIN, min(DOMINANCE_MAX, current_sub + delta))
+    morld.set_unit_prop(npc_id, sub_key, new_sub)
+    return new_sub
+
+
 def get_effective_affection_req(req, arousal=0, submission=0):
     """유효 호감 요구치 (성욕/복종 할인 적용)
 
