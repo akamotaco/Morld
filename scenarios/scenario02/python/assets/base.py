@@ -2762,10 +2762,14 @@ class Character(_CharacterBase):
             context["월경"] = False
             context["배란"] = False
 
-        # 겁탈 피해 중 / NPC 성행위 중
+        # 겁탈 피해 중 / NPC 성행위 중 — 대화 rule 호환 위해 context 키는 유지, 값은 단일 prop에서 파생
         context["겁탈피해중"] = bool(morld.get_unit_prop(unit_id, "상태:겁탈피해중"))
-        context["NPC성행위중"] = bool(morld.get_unit_prop(unit_id, "상태:NPC성행위중"))
-        context["NPC강제피해중"] = bool(morld.get_unit_prop(unit_id, "상태:NPC강제피해중"))
+        from romance_core import (
+            is_in_npc_sex as _is_in_npc_sex,
+            is_npc_sex_victim as _is_npc_sex_victim,
+        )
+        context["NPC성행위중"] = _is_in_npc_sex(unit_id)
+        context["NPC강제피해중"] = _is_npc_sex_victim(unit_id)
 
         # Phase 2.4: 마음속 연인 (NTR/NTL 이름 부르기 효과)
         beloved = _get_beloved_name(unit_id, props)
@@ -4481,7 +4485,8 @@ class Character(_CharacterBase):
                 return None
 
         # NPC-NPC 성행위 발각 체크
-        if morld.get_unit_prop(self.instance_id, "상태:NPC성행위중"):
+        from romance_core import is_in_npc_sex as _is_in_npc_sex
+        if _is_in_npc_sex(self.instance_id):
             return self._on_npc_intimacy_discovered(player_id)
 
         # NPC 자위 발각 체크
@@ -4839,8 +4844,8 @@ class Character(_CharacterBase):
 
         Phase 2.3: 현장 NPC가 플레이어의 연인이면 NTR 묘사 + 수치 반응.
         """
-        is_forced_victim = bool(morld.get_unit_prop(
-            self.instance_id, "상태:NPC강제피해중"))
+        from romance_core import is_npc_sex_victim as _is_npc_sex_victim
+        is_forced_victim = _is_npc_sex_victim(self.instance_id)
         name = self.name
 
         # Phase 2.3: NTR 감지 — 플레이어의 연인 NPC가 다른 NPC와
@@ -4914,8 +4919,8 @@ class Character(_CharacterBase):
         partner_id = morld.get_unit_prop(self.instance_id, "성행위:상대")
 
         # Phase 2.3: NTR 신뢰 훼손 (합의 정사 + 연인 관계인 경우만)
-        is_forced_victim = bool(morld.get_unit_prop(
-            self.instance_id, "상태:NPC강제피해중"))
+        from romance_core import is_npc_sex_victim as _is_npc_sex_victim
+        is_forced_victim = _is_npc_sex_victim(self.instance_id)
         if not is_forced_victim:
             try:
                 from romance_dynamics import get_relationship_label, modify_love
@@ -4949,7 +4954,8 @@ class Character(_CharacterBase):
                 morld.clear_jobs(partner_id)
                 initiator._insert_idle_job("대기", 60_000)
             # 자기 자신 props 정리
-            morld.clear_prop(self.instance_id, "상태:NPC성행위중")
+            from romance_core import clear_npc_sex_role as _clear_npc_sex_role
+            _clear_npc_sex_role(self.instance_id)
             morld.clear_prop(self.instance_id, "성행위:상대")
             morld.clear_jobs(self.instance_id)
             if agent:
@@ -4959,8 +4965,7 @@ class Character(_CharacterBase):
         profile = getattr(self, 'REACTION_PROFILE', None) or {}
         archetype = profile.get("archetype", "stoic")
 
-        is_forced_victim = bool(morld.get_unit_prop(
-            self.instance_id, "상태:NPC강제피해중"))
+        is_forced_victim = _is_npc_sex_victim(self.instance_id)
 
         if is_forced_victim:
             text = self._NPC_FORCED_INTIMACY_DISCOVERY_TEXTS.get(

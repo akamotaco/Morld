@@ -315,6 +315,43 @@ SHAME_GAIN_EXTERNAL_CUMSHOT = {
     "음부": 3,
 }
 
+# NPC↔NPC 정사 상태 — 단일 문자열 prop으로 통합 (Phase 2.6)
+# 값: "합의" / "피해" / "가해" / None. 기존 3개 플래그 교체.
+NPC_SEX_ROLE_KEY = "상태:NPC정사"
+NPC_SEX_CONSENSUAL = "합의"
+NPC_SEX_VICTIM = "피해"
+NPC_SEX_AGGRESSOR = "가해"
+NPC_SEX_ROLES = (NPC_SEX_CONSENSUAL, NPC_SEX_VICTIM, NPC_SEX_AGGRESSOR)
+
+
+def get_npc_sex_role(unit_id):
+    """현재 NPC 정사 역할 반환 — 미정사 시 None."""
+    return morld.get_unit_prop(unit_id, NPC_SEX_ROLE_KEY)
+
+
+def is_in_npc_sex(unit_id):
+    """NPC↔NPC 정사 중 여부 (역할 무관)."""
+    return get_npc_sex_role(unit_id) is not None
+
+
+def is_npc_sex_victim(unit_id):
+    return get_npc_sex_role(unit_id) == NPC_SEX_VICTIM
+
+
+def is_npc_sex_aggressor(unit_id):
+    return get_npc_sex_role(unit_id) == NPC_SEX_AGGRESSOR
+
+
+def set_npc_sex_role(unit_id, role):
+    """NPC 정사 역할 설정. role ∈ {'합의', '피해', '가해'}."""
+    if role not in NPC_SEX_ROLES:
+        raise ValueError(f"Invalid NPC sex role: {role!r}")
+    morld.set_unit_prop(unit_id, NPC_SEX_ROLE_KEY, role)
+
+
+def clear_npc_sex_role(unit_id):
+    morld.clear_prop(unit_id, NPC_SEX_ROLE_KEY)
+
 # 시간 감쇠
 SHAME_DECAY_PER_HOUR = 5            # 1시간당 감소량 (자연 감쇠)
 

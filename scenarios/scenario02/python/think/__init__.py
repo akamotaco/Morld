@@ -731,7 +731,8 @@ class BaseAgent(
             return None
 
         # NPC 성행위 파트너 (이니시에이터가 관리 중) → 건너뛰기
-        if morld.get_unit_prop(self.unit_id, "상태:NPC성행위중"):
+        from romance_core import is_in_npc_sex as _is_in_npc_sex
+        if _is_in_npc_sex(self.unit_id):
             # 이니시에이터가 아닌 파트너는 대기만
             if self._memory.get("npc_intimacy_phase") is None:
                 self._insert_idle_job("대기", 60_000)

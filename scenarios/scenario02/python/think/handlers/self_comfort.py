@@ -4,6 +4,12 @@
 플레이어 탐색: 위치로 이동 → on_meet 자동 트리거
 """
 import morld
+from romance_core import (
+    is_in_npc_sex as _is_in_npc_sex,
+    set_npc_sex_role as _set_npc_sex_role,
+    clear_npc_sex_role as _clear_npc_sex_role,
+    NPC_SEX_CONSENSUAL, NPC_SEX_VICTIM, NPC_SEX_AGGRESSOR,
+)
 
 
 # ========================================
@@ -412,7 +418,7 @@ def _find_npc_lover(agent):
         job_name = info.get("job_name", "")
         if job_name in ("sleep", "fainting", "겁탈 중", "자위", "NPC 성행위"):
             continue
-        if morld.get_unit_prop(char_id, "상태:NPC성행위중"):
+        if _is_in_npc_sex(char_id):
             continue
         arousal = morld.get_unit_prop(char_id, "상태:성욕") or 0
         if arousal < 60:
@@ -443,7 +449,7 @@ def _find_npc_lover(agent):
         job_name = info.get("job_name", "")
         if job_name in ("겁탈 중", "자위", "NPC 성행위"):
             continue
-        if morld.get_unit_prop(char_id, "상태:NPC성행위중"):
+        if _is_in_npc_sex(char_id):
             continue
         # 능력 체크: 이니시에이터 > 대상 (근력 비교로 단순화)
         if get_strength(agent.unit_id) <= get_strength(char_id):
@@ -514,16 +520,15 @@ def _handle_npc_intimacy(agent):
 
         mode = agent._memory.get("npc_intimacy_mode", "consensual")
 
-        # props 설정 (describe 가시성)
-        morld.set_unit_prop(agent.unit_id, "상태:NPC성행위중", 1)
-        morld.set_unit_prop(agent.unit_id, "성행위:상대", partner_id)
-        morld.set_unit_prop(partner_id, "상태:NPC성행위중", 1)
-        morld.set_unit_prop(partner_id, "성행위:상대", agent.unit_id)
-
-        # 강제 모드 추가 props
+        # props 설정 (describe 가시성) — 단일 역할 prop
         if mode == "forced":
-            morld.set_unit_prop(partner_id, "상태:NPC강제피해중", 1)
-            morld.set_unit_prop(agent.unit_id, "상태:NPC강제가해중", 1)
+            _set_npc_sex_role(agent.unit_id, NPC_SEX_AGGRESSOR)
+            _set_npc_sex_role(partner_id, NPC_SEX_VICTIM)
+        else:
+            _set_npc_sex_role(agent.unit_id, NPC_SEX_CONSENSUAL)
+            _set_npc_sex_role(partner_id, NPC_SEX_CONSENSUAL)
+        morld.set_unit_prop(agent.unit_id, "성행위:상대", partner_id)
+        morld.set_unit_prop(partner_id, "성행위:상대", agent.unit_id)
 
         # 파트너 job 삽입 (30분)
         morld.clear_jobs(partner_id)
@@ -573,12 +578,10 @@ def _cleanup_npc_intimacy(agent):
     """NPC-NPC 성행위 상태 정리"""
     partner_id = agent._memory.get("npc_intimacy_partner")
     if partner_id:
-        morld.clear_prop(partner_id, "상태:NPC성행위중")
+        _clear_npc_sex_role(partner_id)
         morld.clear_prop(partner_id, "성행위:상대")
-        morld.clear_prop(partner_id, "상태:NPC강제피해중")
-    morld.clear_prop(agent.unit_id, "상태:NPC성행위중")
+    _clear_npc_sex_role(agent.unit_id)
     morld.clear_prop(agent.unit_id, "성행위:상대")
-    morld.clear_prop(agent.unit_id, "상태:NPC강제가해중")
     agent._memory["npc_intimacy_phase"] = None
     agent._memory["npc_intimacy_partner"] = None
     agent._memory["npc_intimacy_mode"] = None

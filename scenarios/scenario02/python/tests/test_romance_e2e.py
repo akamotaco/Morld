@@ -1594,7 +1594,7 @@ class TestNtrTrustPenalty:
     def test_forced_victim_no_trust_penalty(self):
         """강제 피해자는 처벌 없음 (잘못이 없음)."""
         self._setup_lover()
-        morld.set_unit_prop(2, "상태:NPC강제피해중", 1)
+        rc.set_npc_sex_role(2, rc.NPC_SEX_VICTIM)
         # _run_ 내부에서 forced_victim이면 신뢰 훼손 skip
         # 테스트로는 "강제 케이스에서 호감/애정 유지되는 것"만 확인
         assert morld.get_unit_prop(2, "관계:주인공:호감") == 70
@@ -2008,6 +2008,55 @@ class TestAutonomyWeight:
 # ============================================
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
+
+class TestNpcSexRoleHelpers:
+    """Phase 2.6: NPC 정사 플래그 3개 → 단일 역할 prop 통합."""
+
+    def _setup(self):
+        morld.register_unit(2, props={})
+
+    def test_not_in_sex_by_default(self):
+        self._setup()
+        assert rc.is_in_npc_sex(2) is False
+        assert rc.is_npc_sex_victim(2) is False
+        assert rc.is_npc_sex_aggressor(2) is False
+        assert rc.get_npc_sex_role(2) is None
+
+    def test_set_consensual_role(self):
+        self._setup()
+        rc.set_npc_sex_role(2, rc.NPC_SEX_CONSENSUAL)
+        assert rc.is_in_npc_sex(2) is True
+        assert rc.is_npc_sex_victim(2) is False
+        assert rc.is_npc_sex_aggressor(2) is False
+
+    def test_set_victim_role(self):
+        self._setup()
+        rc.set_npc_sex_role(2, rc.NPC_SEX_VICTIM)
+        assert rc.is_in_npc_sex(2) is True
+        assert rc.is_npc_sex_victim(2) is True
+        assert rc.is_npc_sex_aggressor(2) is False
+
+    def test_set_aggressor_role(self):
+        self._setup()
+        rc.set_npc_sex_role(2, rc.NPC_SEX_AGGRESSOR)
+        assert rc.is_in_npc_sex(2) is True
+        assert rc.is_npc_sex_victim(2) is False
+        assert rc.is_npc_sex_aggressor(2) is True
+
+    def test_clear_role(self):
+        self._setup()
+        rc.set_npc_sex_role(2, rc.NPC_SEX_VICTIM)
+        rc.clear_npc_sex_role(2)
+        assert rc.is_in_npc_sex(2) is False
+
+    def test_invalid_role_raises(self):
+        self._setup()
+        try:
+            rc.set_npc_sex_role(2, "invalid")
+            assert False, "should raise"
+        except ValueError:
+            pass
+
 
 class TestTimedStatusHelpers:
     """Phase 2.6: 시간 제한 상태 효과 플래그 → 타이머 파생 리팩터링."""
