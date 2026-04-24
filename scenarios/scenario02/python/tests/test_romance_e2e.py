@@ -2221,6 +2221,58 @@ class TestPersonalityGateModifier:
         assert rc.calculate_availability_score(2, 1, action) == 20
 
 
+class TestDispositionSexualHelpers:
+    """Phase 2 Slice G: get_disposition_value 성향 성애 8개 fallback."""
+
+    def _setup(self, archetype=None, props=None):
+        base_props = dict(props or {})
+        if archetype:
+            base_props["아키타입"] = archetype
+        morld.register_unit(2, props=base_props)
+
+    def test_returns_0_when_no_archetype(self):
+        self._setup()
+        for trait in rc.DISPOSITION_SEXUAL_TRAITS:
+            assert rc.get_disposition_value(2, trait) == 0
+
+    def test_seductive_high_lust_traits(self):
+        self._setup(archetype="seductive")
+        assert rc.get_disposition_value(2, "도착") == 30
+        assert rc.get_disposition_value(2, "노출벽") == 40
+        assert rc.get_disposition_value(2, "쾌감응답") == 1
+
+    def test_cold_analytical_traits(self):
+        self._setup(archetype="cold")
+        assert rc.get_disposition_value(2, "새드") == 20
+        assert rc.get_disposition_value(2, "도착") == 20
+        assert rc.get_disposition_value(2, "감정결여") == 1
+        assert rc.get_disposition_value(2, "쾌감응답") == -1
+
+    def test_explicit_prop_overrides_archetype(self):
+        self._setup(archetype="seductive",
+                    props={"성향:도착": 50})
+        assert rc.get_disposition_value(2, "도착") == 50
+
+    def test_explicit_zero_overrides_archetype(self):
+        """명시 0은 아키타입 양수를 덮어씀."""
+        self._setup(archetype="seductive",
+                    props={"성향:노출벽": 0})
+        assert rc.get_disposition_value(2, "노출벽") == 0
+
+    def test_raises_on_unknown_trait(self):
+        self._setup()
+        try:
+            rc.get_disposition_value(2, "없는trait")
+            assert False, "should raise"
+        except ValueError:
+            pass
+
+    def test_all_archetypes_cover_all_traits(self):
+        for arch, defaults in rc.ARCHETYPE_DISPOSITION_SEXUAL_DEFAULT.items():
+            for trait in rc.DISPOSITION_SEXUAL_TRAITS:
+                assert trait in defaults, f"{arch} missing {trait}"
+
+
 class TestPersonalityTraitHelpers:
     """Phase 2 Slice A: get_personality_value 아키타입 기본값 + override."""
 

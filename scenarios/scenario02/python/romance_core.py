@@ -208,6 +208,51 @@ def get_restraint_value(partner_id):
     return 0  # 아키타입 미설정 시 페널티 없음 (테스트/레거시 호환)
 
 
+# Phase 2 후반 — 성향 성애 8개 (§6.3 / §7.4 spec).
+# 범위가 trait마다 다르다 (0-100 / -1~3 / -1/0/1 / 0/1) — caller가 적절한 clamp 적용.
+DISPOSITION_SEXUAL_TRAITS = (
+    "성별기호", "쾌감응답", "새드", "마조",
+    "도착", "노출벽", "무관심", "감정결여",
+)
+
+_DEFAULT_DISPOSITION_SEXUAL = {k: 0 for k in DISPOSITION_SEXUAL_TRAITS}
+
+ARCHETYPE_DISPOSITION_SEXUAL_DEFAULT = {
+    "stoic":     {"성별기호": 0, "쾌감응답": 0,  "새드": 0,  "마조": 0,  "도착": 0,  "노출벽": 0,  "무관심": 0, "감정결여": 0},
+    "cheerful":  {"성별기호": 0, "쾌감응답": 1,  "새드": 0,  "마조": 0,  "도착": 10, "노출벽": 10, "무관심": 0, "감정결여": 0},
+    "timid":     {"성별기호": 0, "쾌감응답": 0,  "새드": 0,  "마조": 10, "도착": 0,  "노출벽": 0,  "무관심": 0, "감정결여": 0},
+    "fierce":    {"성별기호": 0, "쾌감응답": 0,  "새드": 10, "마조": 0,  "도착": 10, "노출벽": 0,  "무관심": 0, "감정결여": 0},
+    "innocent":  {"성별기호": 0, "쾌감응답": 0,  "새드": 0,  "마조": 0,  "도착": 0,  "노출벽": 0,  "무관심": 0, "감정결여": 0},
+    "cold":      {"성별기호": 0, "쾌감응답": -1, "새드": 20, "마조": 0,  "도착": 20, "노출벽": 0,  "무관심": 0, "감정결여": 1},
+    "gentle":    {"성별기호": 0, "쾌감응답": 0,  "새드": 0,  "마조": 10, "도착": 0,  "노출벽": 0,  "무관심": 0, "감정결여": 0},
+    "seductive": {"성별기호": 0, "쾌감응답": 1,  "새드": 10, "마조": 10, "도착": 30, "노출벽": 40, "무관심": 0, "감정결여": 0},
+    "proud":     {"성별기호": 0, "쾌감응답": 0,  "새드": 20, "마조": 0,  "도착": 0,  "노출벽": 0,  "무관심": 0, "감정결여": 0},
+    "devoted":   {"성별기호": 0, "쾌감응답": 0,  "새드": 0,  "마조": 20, "도착": 0,  "노출벽": 0,  "무관심": 0, "감정결여": 0},
+    "tsundere":  {"성별기호": 0, "쾌감응답": -1, "새드": 0,  "마조": 10, "도착": 0,  "노출벽": 0,  "무관심": 0, "감정결여": 0},
+}
+
+
+def get_disposition_value(unit_id, key):
+    """성향 성애 trait 값 — 명시 `성향:{key}` prop 우선, 없으면 아키타입 기본값, 0.
+
+    Phase 2 §6.3 / §7.4 spec. 각 trait 범위 상이 — caller가 clamp/해석.
+
+    Why: Phase 1/2 전반 fallback 패턴과 동일. trait별 range는 §6.3 참조.
+    """
+    if key not in DISPOSITION_SEXUAL_TRAITS:
+        raise ValueError(f"Unknown disposition trait: {key!r}. "
+                         f"Expected one of {DISPOSITION_SEXUAL_TRAITS}")
+    explicit = morld.get_unit_prop(unit_id, f"성향:{key}")
+    if explicit is not None:
+        return explicit
+    archetype = _get_partner_archetype(unit_id)
+    if archetype:
+        defaults = ARCHETYPE_DISPOSITION_SEXUAL_DEFAULT.get(
+            archetype, _DEFAULT_DISPOSITION_SEXUAL)
+        return defaults.get(key, 0)
+    return 0
+
+
 def get_personality_value(unit_id, key):
     """성격 trait 값 — 명시 `성격:{key}` prop 우선, 없으면 아키타입 기본값, 없으면 0.
 
