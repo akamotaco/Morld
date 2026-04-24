@@ -1329,12 +1329,24 @@ Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + �
 
 ---
 
-### Phase 2: 성향 탤런트 체계
-**Talent 시스템 이식**
-- 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)
-- 핵심 탤런트: 담력/태도/자존심/츤데레/정조/저항/쾌감응답/도착적/새드/마조/성별기호
-- 아키타입별 기본 탤런트 매핑 (8개 캐릭터 * ~12 탤런트)
-- 각 커맨드/게이트 공식에 탤런트 보정 계수 반영
+### Phase 2 전반: 성격 7 trait (2026-04-25 완료, Slice A-F)
+
+**도입 완료** (§7.2 / §7.14):
+- 성격 7 trait: 담력/태도/응답/자존심/츤데레/정조/명랑 (trinary -1/0/1)
+- `ARCHETYPE_PERSONALITY_DEFAULT` — 11 아키타입 × 7 trait
+- `get_personality_value(unit_id, key)` — raw prop → 아키타입 기본값 → 0 fallback
+- 게이트 공식: `get_personality_gate_modifier` (담력×5 + 자존심×8 + 정조×10 + 태도×3)
+- 변동 계수: `get_personality_effect_multipliers` (자존심 → 복종 gain, 담력 → 반발 gain)
+- 6 NPC 프리셋: Lina (담력 -1, 자존심 -1, 정조 1), Faye (츤데레 1)
+- 묘사: `_FOCUS_PERSONALITY` + context `성격:{trait}_높음/_낮음` 파생 키
+- think 분기: `_check_arousal` 자위 임계치에 정조 보정 (±20)
+
+**커밋**: `941e652` (A), `9e3e0d3` (B), `ad32350` (C), `47ad928` (D), `9f1c1c0` (E), `b6185e4` (F). 신규 38 e2e 테스트. 전체 1461/1461 통과.
+
+### Phase 2 후반: 성향 성애 8개 (대기)
+- 성별기호 / 쾌감응답 / 새드 / 마조 / 도착 / 노출벽 / 무관심 / 감정결여 (0-100)
+- 트랜스 공식 factor 추가, availability 수치심 상쇄, 쾌락 gain 배율 등
+- §7.13 체크리스트 참조
 
 ### Phase 3: 행위 카테고리 확장
 **현재 스킨쉽 액션 → Train.csv 370종 규모로 분류**
