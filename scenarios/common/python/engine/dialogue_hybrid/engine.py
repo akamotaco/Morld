@@ -33,6 +33,19 @@ _SLOT_RE = re.compile(r"\{(\w+)\}")
 
 # S02 와 동일. action 이름 → 상위 category.
 # Hybrid 엔진의 intent fallback (hug 없으면 light 로) 에 사용.
+# 액션 ID → 카테고리 매핑.
+#
+# 캐릭터별 yaml 에 해당 action_id 직접 키가 없을 때 카테고리 단위 풀로 fallback.
+# (light/medium/strong/penetration/rough — 아키타입 yaml 의 공용 pool 참조)
+#
+# 아래 "확장 액션" 블록은 S02 romance_actions.py 의 77 액션 중 기본 매핑에
+# 빠져 있던 29 건을 추가한 것. 강제/도구/탈의 계열 등 기존 카테고리로 흡수.
+#
+# 후속 개선 (2번 방향, 미진행): 아키타입별 yaml 파일에 각 액션 전용 섹션을
+# 추가하면 카테고리 fallback 이 아닌 고유 대사 풀을 쓸 수 있음.
+# 예: stoic/romance.yaml 에 `tear_upper:` 키를 추가해 과묵형 전용 강제탈의
+# 대사 1~5줄 작성. 카테고리 fallback 보다 더 캐릭터답게 들림. 모든
+# 아키타입 × 29 액션 쓰려면 ~150줄 순수 작문 필요 — ROI 대비 후순위.
 ACTION_TO_CATEGORY: Dict[str, str] = {
     # light
     "hug": "light", "deep_kiss": "light", "tongue_play": "light",
@@ -64,6 +77,34 @@ ACTION_TO_CATEGORY: Dict[str, str] = {
     "sync_thrust": "penetration",
     # rough
     "thrust_rough": "rough",
+
+    # ===== 확장 액션 (S02 romance_actions 추가 매핑) =====
+    # grope 계열 — touch/squeeze 근접
+    "breast_grope": "medium", "butt_grope": "medium",
+    "nipple_grope": "medium", "genital_grope": "strong",
+    # 탈의 — 합의/강제 구분 없이 공용 pool 로
+    # (tear_* 는 강제 찢기라 rough, undress/lift/loot 는 일반 탈의)
+    "undress_upper": "light", "undress_lower": "light",
+    "lift_upper": "light", "lift_lower": "light",
+    "loot_upper": "medium", "loot_lower": "medium",
+    "tear_upper": "rough", "tear_lower": "rough",
+    # 도구/결박
+    "equip_toy_partner": "strong", "remove_toy_partner": "strong",
+    "restrain_partner": "rough", "unrestrain_partner": "light",
+    "use_whip": "rough",
+    # 상황/상태 액션
+    "beg": "light",
+    "change_position": "light",
+    "condom_on": "light", "condom_off": "light",
+    "force_feed": "rough",
+    "hold_back": "light",
+    "stay_still": "light",
+    "swallow_semen": "strong",
+    "tribadism": "penetration",
+    # penis — 기존 penis_touch/penis_rub 와 동급
+    "penis_caress": "strong", "penis_stimulation": "strong",
+    # 기타
+    "remove_parasite_partner": "medium",
 }
 
 
