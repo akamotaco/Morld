@@ -511,11 +511,12 @@ class TestRoutes:
         assert rc.resolve_action_mode(2, 1, action) == "consensual"
 
     def test_lust_route_fails_if_min_affection_not_met(self):
-        """최소 호감 20 미달 시 아무리 성욕 높아도 forced"""
-        self._setup(affection=15, arousal=500, submission=500)
+        """최소 호감 미달 + 낮은 복종 → forced (복종 100 노예면 Slice P6'에서
+        ownership +30으로 override되는 별도 경로)."""
+        self._setup(affection=15, arousal=500, submission=0)
         action = {"affection_req": 80, "effects": {"호감": 2}}
-        # eff_req = max(20, 80 - min(40, 15+15)) = max(20, 50) = 50
-        # affection 15 < 50 → forced
+        # eff_req = max(20, 80 - min(40, 24+0)) = max(20, 56) = 56
+        # affection 15 < 56 → forced
         assert rc.resolve_action_mode(2, 1, action) == "forced"
 
     def test_submission_route_accumulates_forced(self):
@@ -2422,114 +2423,50 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
-class TestOwnershipModifier:
-    """Slice P6: 소유 관계 기반 availability 모디파이어."""
+class TestOwnershipModifierContinuous:
+    """Slice P6' 리팩터: 주도권 축 기반 연속 모디파이어 (era boolean 제거)."""
 
     def _setup(self):
         morld.register_unit(1, name="주인공", props={})
         morld.register_unit(2, name="세라", props={})
         morld._player_id = 1
 
-    def test_no_ownership_zero(self):
+    def test_no_axis_zero(self):
         self._setup()
         assert rc.get_ownership_modifier(2, 1) == 0
 
-    def test_slave_bonus_plus_30(self):
-        """노예 NPC → +30."""
-        self._setup()
-        rc._set_slave_relation(2, 1, 1)
-        assert rc.get_ownership_modifier(2, 1) == 30
-
-    def test_master_penalty_minus_15(self):
-        """주인 NPC → -15."""
-        self._setup()
-        rc._set_master_relation(2, 1, 1)
-        assert rc.get_ownership_modifier(2, 1) == -15
-
-    def test_availability_includes_ownership(self):
-        """calculate_availability_score에 모디파이어 합산."""
-        self._setup()
-        morld.set_unit_prop(2, "관계:주인공:호감", 50)
-        rc._set_slave_relation(2, 1, 1)
-        # baseline = 50 - 30 + 30 (노예) = 50
-        action = {"affection_req": 30}
-        assert rc.calculate_availability_score(2, 1, action) == 50
-
-
-class TestOwnershipStateTransition:
-    """Slice P5: 지배/복종 100 도달 시 영구 소유 상태 전환 (era 패턴)."""
-
-    def _setup(self):
-        morld.register_unit(1, name="주인공", props={})
-        morld.register_unit(2, name="세라", props={})
-        morld._player_id = 1
-
-    def test_default_no_ownership(self):
-        self._setup()
-        assert rc.is_npc_slave_of(2, 1) is False
-        assert rc.is_npc_master_of(2, 1) is False
-
-    def test_dominance_100_auto_master(self):
-        """지배 100 도달 → NPC 자동으로 player의 주인."""
-        self._setup()
-        morld.set_unit_prop(2, "관계:주인공:지배", 95)
-        rc.modify_dominance(2, 1, 10)  # 105 → clamp 100
-        assert rc.get_dominance(2, 1) == 100
-        assert rc.is_npc_master_of(2, 1) is True
-
-    def test_submission_100_marks_enslavable(self):
-        """복종 100 도달 → 상태:노예화가능 플래그 (UI 제안 대기)."""
-        self._setup()
-        morld.set_unit_prop(2, "관계:주인공:복종", 95)
-        rc.modify_submission_mutex(2, 1, 10)
-        assert morld.get_unit_prop(2, "관계:주인공:복종") == 100
-        assert morld.get_unit_prop(2, "상태:노예화가능") == 1
-
-    def test_dominance_decay_releases_master(self):
-        """지배 → 0 복귀 + 기존 주인 → 자동 해제."""
-        self._setup()
-        morld.set_unit_prop(2, "관계:주인공:지배", 100)
-        rc._set_master_relation(2, 1, 1)
-        assert rc.is_npc_master_of(2, 1) is True
-        rc.modify_dominance(2, 1, -100)
-        assert rc.get_dominance(2, 1) == 0
-        assert rc.is_npc_master_of(2, 1) is False
-
-    def test_submission_decay_releases_slave(self):
-        """복종 → 0 복귀 + 기존 노예 → 자동 해제."""
+    def test_max_submission_bonus_30(self):
+        """복종 100 → +30 (자발 수용)."""
         self._setup()
         morld.set_unit_prop(2, "관계:주인공:복종", 100)
-        rc._set_slave_relation(2, 1, 1)
-        morld.set_unit_prop(2, "상태:노예화가능", 1)
-        assert rc.is_npc_slave_of(2, 1) is True
-        rc.modify_submission_mutex(2, 1, -100)
-        assert rc.is_npc_slave_of(2, 1) is False
-        # 노예화가능 플래그도 clear
-        assert morld.get_unit_prop(2, "상태:노예화가능") is None
+        assert rc.get_ownership_modifier(2, 1) == 30
 
-    def test_mutex_master_excludes_slave(self):
-        """주인 설정 시 노예 자동 해제."""
+    def test_max_dominance_penalty_minus_15(self):
+        """지배 100 → -15 (주인 권위로 행위 거부)."""
         self._setup()
-        rc._set_slave_relation(2, 1, 1)
-        rc._set_master_relation(2, 1, 1)
-        assert rc.is_npc_master_of(2, 1) is True
-        assert rc.is_npc_slave_of(2, 1) is False
+        morld.set_unit_prop(2, "관계:주인공:지배", 100)
+        assert rc.get_ownership_modifier(2, 1) == -15
 
-    def test_mutex_slave_excludes_master(self):
+    def test_midpoint_submission_linear(self):
+        """복종 50 → +15 (선형 중간값)."""
         self._setup()
-        rc._set_master_relation(2, 1, 1)
-        rc._set_slave_relation(2, 1, 1)
-        assert rc.is_npc_slave_of(2, 1) is True
-        assert rc.is_npc_master_of(2, 1) is False
+        morld.set_unit_prop(2, "관계:주인공:복종", 50)
+        assert rc.get_ownership_modifier(2, 1) == 15
 
-    def test_dominance_already_master_no_reset(self):
-        """이미 주인인 NPC는 재설정 안 함 (idempotent)."""
+    def test_midpoint_dominance_linear(self):
+        """지배 50 → -7.5."""
         self._setup()
-        rc._set_master_relation(2, 1, 1)
-        morld.set_unit_prop(2, "관계:주인공:지배", 95)
-        rc.modify_dominance(2, 1, 10)
-        # 여전히 주인
-        assert rc.is_npc_master_of(2, 1) is True
+        morld.set_unit_prop(2, "관계:주인공:지배", 50)
+        assert abs(rc.get_ownership_modifier(2, 1) - (-7.5)) < 1e-9
+
+    def test_availability_includes_continuous_ownership(self):
+        """calculate_availability_score에 연속 모디파이어 합산 (지배만)."""
+        self._setup()
+        morld.set_unit_prop(2, "관계:주인공:호감", 50)
+        morld.set_unit_prop(2, "관계:주인공:지배", 100)
+        # baseline = 50 - 30 - 15 (지배 100 페널티) = 5
+        action = {"affection_req": 30}
+        assert rc.calculate_availability_score(2, 1, action) == 5
 
 
 class TestConsentSuccessChance:

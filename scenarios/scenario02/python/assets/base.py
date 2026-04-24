@@ -3902,13 +3902,15 @@ class Character(_CharacterBase):
 
         # 성욕 체크 (상태:성욕이 DES_LABEL_THRESHOLD/arousal_threshold 이상)
         from romance_actions import DES_LABEL_THRESHOLD
-        from romance_core import is_npc_master_of
+        from romance_core import get_dominance
         arousal_threshold = self.INITIATIVE_CONFIG.get("arousal_threshold", 70)
         label_threshold = DES_LABEL_THRESHOLD
-        # Slice P6: NPC가 player의 주인이면 임계치 -20 (더 자주 주도)
-        if is_npc_master_of(self.instance_id, player_id):
-            arousal_threshold = max(0, arousal_threshold - 20)
-            label_threshold = max(0, label_threshold - 20)
+        # Slice P6': 지배 값에 비례한 임계치 완화 (지배 100 시 최대 -20).
+        # boolean 전환 없이 지배 축적에 따라 점진적으로 주도 빈도 증가.
+        dominance = get_dominance(self.instance_id, player_id)
+        dom_relief = int(dominance * 0.2)
+        arousal_threshold = max(0, arousal_threshold - dom_relief)
+        label_threshold = max(0, label_threshold - dom_relief)
         arousal = props.get("상태:성욕", 0) if props else 0
         if arousal < max(arousal_threshold, label_threshold):
             return False
