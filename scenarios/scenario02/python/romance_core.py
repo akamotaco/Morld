@@ -1386,30 +1386,64 @@ def _decay_drunk_tick():
             pass
 
 
-def _decay_aphrodisiac_tick():
-    """1시간 간격 `상태:미약남은시간` 감쇠 — 0 되면 `상태:미약` 해제.
+# 시간 제한 상태 효과 — 플래그 대신 `상태:{name}남은시간` 타이머로 파생
+# (기존 `상태:{name}` 플래그는 제거됨, Phase 2.6)
+TIMED_STATUS_DURATIONS = {
+    "미약": 6,
+    "배란유도": 24,
+    "정력제": 6,
+}
 
-    Phase 1.9.4: 미약 6시간 지속 tick 연결.
+# 활성 타이머 유닛 추적 — apply_timed_status에서 등록, decay에서 iterate
+_TIMED_STATUS_REGISTRY = set()
+
+
+def is_status_active(unit_id, name):
+    """시간 제한 상태 효과가 활성 중인지 — 타이머 > 0 파생."""
+    timer = morld.get_unit_prop(unit_id, f"상태:{name}남은시간") or 0
+    return timer > 0
+
+
+def apply_timed_status(unit_id, name, duration=None):
+    """시간 제한 상태 효과 적용. duration 미지정 시 TIMED_STATUS_DURATIONS 기본값 사용.
+
+    타이머만 설정 — 기존 `상태:{name}` 플래그는 더 이상 쓰지 않음.
+    is_status_active(uid, name)로 활성 여부 판정.
     """
-    for uid in list(_SHAME_REGISTRY):
-        try:
-            remaining = morld.get_unit_prop(uid, "상태:미약남은시간") or 0
-            if remaining > 0:
-                new_remaining = max(0, remaining - 1)
-                morld.set_unit_prop(uid, "상태:미약남은시간", new_remaining)
-                if new_remaining == 0:
-                    morld.set_unit_prop(uid, "상태:미약", 0)
-        except Exception:
-            pass
+    if duration is None:
+        duration = TIMED_STATUS_DURATIONS.get(name, 6)
+    morld.set_unit_prop(unit_id, f"상태:{name}남은시간", duration)
+    _TIMED_STATUS_REGISTRY.add(unit_id)
+
+
+def _decay_timed_status_tick():
+    """1시간 간격 모든 타이머 감쇠 — 0 도달 시 clear_prop."""
+    for uid in list(_TIMED_STATUS_REGISTRY):
+        any_active = False
+        for name in TIMED_STATUS_DURATIONS:
+            try:
+                key = f"상태:{name}남은시간"
+                remaining = morld.get_unit_prop(uid, key) or 0
+                if remaining > 0:
+                    new_remaining = max(0, remaining - 1)
+                    if new_remaining == 0:
+                        morld.clear_prop(uid, key)
+                    else:
+                        morld.set_unit_prop(uid, key, new_remaining)
+                        any_active = True
+            except Exception:
+                pass
+        if not any_active:
+            _TIMED_STATUS_REGISTRY.discard(uid)
 
 
 def _on_time_elapsed_shame(millis):
-    """1시간 간격 tick — 수치심/공공노출/트랜스외부/취기/미약 처리."""
+    """1시간 간격 tick — 수치심/공공노출/트랜스외부/취기/약물 타이머 처리."""
     _decay_shame_tick()
     _check_nude_in_public_tick()
     _decay_trance_external_tick()
     _decay_drunk_tick()
-    _decay_aphrodisiac_tick()
+    _decay_timed_status_tick()
 
 
 try:

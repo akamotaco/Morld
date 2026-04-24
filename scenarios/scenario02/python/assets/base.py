@@ -3478,10 +3478,9 @@ class Character(_CharacterBase):
 
                 # 미약 효과 적용 — Phase 1.9.4: 트랜스:외부 +30 가산 추가
                 if has_aphrodisiac:
-                    aph_remaining = morld.get_unit_prop(partner_id, "상태:미약남은시간") or 0
-                    if aph_remaining <= 0:
-                        morld.set_unit_prop(partner_id, "상태:미약", 1)
-                        morld.set_unit_prop(partner_id, "상태:미약남은시간", 6)
+                    from romance_core import is_status_active, apply_timed_status
+                    if not is_status_active(partner_id, "미약"):
+                        apply_timed_status(partner_id, "미약")
                         morld.modify_prop(partner_id, "트랜스:외부", 30)
 
                 # 취기 계열 첨가 음식 (Phase 1.9.4 / 1.9.5)

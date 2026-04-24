@@ -161,7 +161,8 @@ def is_fertile_day(unit_id):
     — 배란기 또는 배란유도 상태 + 미임신. 대사/경고 분기용."""
     if morld.get_unit_prop(unit_id, "상태:임신"):
         return False
-    if (morld.get_unit_prop(unit_id, "상태:배란유도") or 0) == 1:
+    from romance_core import is_status_active
+    if is_status_active(unit_id, "배란유도"):
         return True
     return is_ovulating(unit_id)
 

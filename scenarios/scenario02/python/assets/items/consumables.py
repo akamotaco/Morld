@@ -69,15 +69,14 @@ class Aphrodisiac(Item):
 
     def use(self):
         """미약 복용 — 6시간 성욕 증가 + 트랜스:외부 +30 (Phase 1.9.4)."""
+        from romance_core import is_status_active, apply_timed_status
         player_id = morld.get_player_id()
 
-        remaining = morld.get_unit_prop(player_id, "상태:미약남은시간") or 0
-        if remaining > 0:
+        if is_status_active(player_id, "미약"):
             yield ui.dialog("이미 미약 효과가 남아있다.")
             return
 
-        morld.set_unit_prop(player_id, "상태:미약", 1)
-        morld.set_unit_prop(player_id, "상태:미약남은시간", 6)
+        apply_timed_status(player_id, "미약")
         morld.modify_prop(player_id, "트랜스:외부", 30)
 
         morld.lost_item(player_id, self.instance_id)

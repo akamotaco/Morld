@@ -462,15 +462,14 @@ class OvulationInducer(Item):
 
     def use(self):
         """배란유도제 복용"""
+        from romance_core import is_status_active, apply_timed_status
         player_id = morld.get_player_id()
 
-        remaining = morld.get_unit_prop(player_id, "상태:배란유도남은시간") or 0
-        if remaining > 0:
+        if is_status_active(player_id, "배란유도"):
             yield ui.dialog("이미 배란유도제 효과가 남아있다.")
             return
 
-        morld.set_unit_prop(player_id, "상태:배란유도", 1)
-        morld.set_unit_prop(player_id, "상태:배란유도남은시간", 24)
+        apply_timed_status(player_id, "배란유도")
         morld.lost_item(player_id, self.instance_id)
 
         yield ui.dialog([
@@ -505,15 +504,14 @@ class StaminaPotion(Item):
 
     def use(self):
         """정력제 복용"""
+        from romance_core import is_status_active, apply_timed_status
         player_id = morld.get_player_id()
 
-        remaining = morld.get_unit_prop(player_id, "상태:정력제남은시간") or 0
-        if remaining > 0:
+        if is_status_active(player_id, "정력제"):
             yield ui.dialog("이미 정력제 효과가 남아있다.")
             return
 
-        morld.set_unit_prop(player_id, "상태:정력제", 1)
-        morld.set_unit_prop(player_id, "상태:정력제남은시간", 6)
+        apply_timed_status(player_id, "정력제")
         morld.lost_item(player_id, self.instance_id)
 
         yield ui.dialog([

@@ -66,27 +66,22 @@ class FoodItem(Item):
         # 특수 섭취 효과 (서브클래스 오버라이드)
         self.on_eat_effect(player_id)
 
+        from romance_core import is_status_active, apply_timed_status
+
         # 미약 효과 적용
-        if has_aphrodisiac:
-            remaining = morld.get_unit_prop(player_id, "상태:미약남은시간") or 0
-            if remaining <= 0:
-                morld.set_unit_prop(player_id, "상태:미약", 1)
-                morld.set_unit_prop(player_id, "상태:미약남은시간", 6)
-                yield ui.dialog("...뭔가 이상한 맛이 섞여 있던 것 같다.")
+        if has_aphrodisiac and not is_status_active(player_id, "미약"):
+            apply_timed_status(player_id, "미약")
+            yield ui.dialog("...뭔가 이상한 맛이 섞여 있던 것 같다.")
 
         # 배란유도제 첨가 효과
-        if morld.get_unit_prop(self.instance_id, "상태:배란유도제첨가") == 1:
-            ov_remaining = morld.get_unit_prop(player_id, "상태:배란유도남은시간") or 0
-            if ov_remaining <= 0:
-                morld.set_unit_prop(player_id, "상태:배란유도", 1)
-                morld.set_unit_prop(player_id, "상태:배란유도남은시간", 24)
+        if (morld.get_unit_prop(self.instance_id, "상태:배란유도제첨가") == 1
+                and not is_status_active(player_id, "배란유도")):
+            apply_timed_status(player_id, "배란유도")
 
         # 정력제 첨가 효과
-        if morld.get_unit_prop(self.instance_id, "상태:정력제첨가") == 1:
-            st_remaining = morld.get_unit_prop(player_id, "상태:정력제남은시간") or 0
-            if st_remaining <= 0:
-                morld.set_unit_prop(player_id, "상태:정력제", 1)
-                morld.set_unit_prop(player_id, "상태:정력제남은시간", 6)
+        if (morld.get_unit_prop(self.instance_id, "상태:정력제첨가") == 1
+                and not is_status_active(player_id, "정력제")):
+            apply_timed_status(player_id, "정력제")
 
         # 시간 경과
         morld.advance_time_des(self.eat_time * 60_000)

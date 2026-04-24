@@ -2009,6 +2009,79 @@ class TestAutonomyWeight:
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
 
+class TestTimedStatusHelpers:
+    """Phase 2.6: 시간 제한 상태 효과 플래그 → 타이머 파생 리팩터링."""
+
+    def _setup(self):
+        # iterate registry 초기화
+        rc._TIMED_STATUS_REGISTRY.clear()
+        morld.register_unit(2, props={})
+
+    def test_is_status_active_false_when_no_timer(self):
+        self._setup()
+        assert rc.is_status_active(2, "미약") is False
+
+    def test_is_status_active_false_when_zero(self):
+        self._setup()
+        morld.set_unit_prop(2, "상태:미약남은시간", 0)
+        assert rc.is_status_active(2, "미약") is False
+
+    def test_is_status_active_true_when_positive(self):
+        self._setup()
+        morld.set_unit_prop(2, "상태:미약남은시간", 3)
+        assert rc.is_status_active(2, "미약") is True
+
+    def test_apply_timed_status_default_duration(self):
+        self._setup()
+        rc.apply_timed_status(2, "미약")
+        assert morld.get_unit_prop(2, "상태:미약남은시간") == 6
+
+    def test_apply_timed_status_ovulation_24h(self):
+        self._setup()
+        rc.apply_timed_status(2, "배란유도")
+        assert morld.get_unit_prop(2, "상태:배란유도남은시간") == 24
+
+    def test_apply_timed_status_potency_6h(self):
+        self._setup()
+        rc.apply_timed_status(2, "정력제")
+        assert morld.get_unit_prop(2, "상태:정력제남은시간") == 6
+
+    def test_apply_timed_status_explicit_duration(self):
+        self._setup()
+        rc.apply_timed_status(2, "미약", duration=3)
+        assert morld.get_unit_prop(2, "상태:미약남은시간") == 3
+
+    def test_apply_timed_status_registers(self):
+        self._setup()
+        rc.apply_timed_status(2, "미약")
+        assert 2 in rc._TIMED_STATUS_REGISTRY
+
+    def test_decay_tick_reduces_timer(self):
+        self._setup()
+        rc.apply_timed_status(2, "미약", duration=3)
+        rc._decay_timed_status_tick()
+        assert morld.get_unit_prop(2, "상태:미약남은시간") == 2
+
+    def test_decay_tick_clears_expired(self):
+        self._setup()
+        rc.apply_timed_status(2, "미약", duration=1)
+        rc._decay_timed_status_tick()
+        # 1 → 0 → clear
+        assert morld.get_unit_prop(2, "상태:미약남은시간") is None
+        # 더 이상 활성 아니면 registry 제거
+        assert 2 not in rc._TIMED_STATUS_REGISTRY
+
+    def test_decay_tick_handles_multiple_drugs(self):
+        self._setup()
+        rc.apply_timed_status(2, "미약", duration=2)
+        rc.apply_timed_status(2, "배란유도", duration=5)
+        rc._decay_timed_status_tick()
+        assert morld.get_unit_prop(2, "상태:미약남은시간") == 1
+        assert morld.get_unit_prop(2, "상태:배란유도남은시간") == 4
+        # 둘 다 활성 → registry 유지
+        assert 2 in rc._TIMED_STATUS_REGISTRY
+
+
 class TestFertileDayHelper:
     """pregnancy.is_fertile_day — 배란기 OR 배란유도 AND 미임신."""
 
@@ -2031,13 +2104,14 @@ class TestFertileDayHelper:
         """배란유도 상태 → 주기 무관 fertile."""
         import pregnancy
         morld.register_unit(2, props={"생식:주기일": 3, "생식:주기길이": 28,
-                                        "상태:배란유도": 1})
+                                        "상태:배란유도남은시간": 12})
         assert pregnancy.is_fertile_day(2) is True
 
     def test_pregnant_overrides_induced_ovulation(self):
         """이미 임신 중 → 배란유도 상관없이 False."""
         import pregnancy
-        morld.register_unit(2, props={"상태:임신": 1, "상태:배란유도": 1})
+        morld.register_unit(2, props={"상태:임신": 1,
+                                        "상태:배란유도남은시간": 12})
         assert pregnancy.is_fertile_day(2) is False
 
 

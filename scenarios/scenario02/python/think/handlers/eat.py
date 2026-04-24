@@ -14,26 +14,22 @@ from think.activities.helpers import find_food_in_container as _find_food_in_con
 
 def _apply_food_drug_effects(unit_id, food_item_id):
     """음식에 첨가된 약물 효과를 NPC에 적용"""
+    from romance_core import is_status_active, apply_timed_status
+
     # 미약
-    if morld.get_unit_prop(food_item_id, "상태:미약첨가") == 1:
-        remaining = morld.get_unit_prop(unit_id, "상태:미약남은시간") or 0
-        if remaining <= 0:
-            morld.set_unit_prop(unit_id, "상태:미약", 1)
-            morld.set_unit_prop(unit_id, "상태:미약남은시간", 6)
+    if (morld.get_unit_prop(food_item_id, "상태:미약첨가") == 1
+            and not is_status_active(unit_id, "미약")):
+        apply_timed_status(unit_id, "미약")
 
     # 배란유도제
-    if morld.get_unit_prop(food_item_id, "상태:배란유도제첨가") == 1:
-        remaining = morld.get_unit_prop(unit_id, "상태:배란유도남은시간") or 0
-        if remaining <= 0:
-            morld.set_unit_prop(unit_id, "상태:배란유도", 1)
-            morld.set_unit_prop(unit_id, "상태:배란유도남은시간", 24)
+    if (morld.get_unit_prop(food_item_id, "상태:배란유도제첨가") == 1
+            and not is_status_active(unit_id, "배란유도")):
+        apply_timed_status(unit_id, "배란유도")
 
     # 정력제
-    if morld.get_unit_prop(food_item_id, "상태:정력제첨가") == 1:
-        remaining = morld.get_unit_prop(unit_id, "상태:정력제남은시간") or 0
-        if remaining <= 0:
-            morld.set_unit_prop(unit_id, "상태:정력제", 1)
-            morld.set_unit_prop(unit_id, "상태:정력제남은시간", 6)
+    if (morld.get_unit_prop(food_item_id, "상태:정력제첨가") == 1
+            and not is_status_active(unit_id, "정력제")):
+        apply_timed_status(unit_id, "정력제")
 
 
 # ========================================
