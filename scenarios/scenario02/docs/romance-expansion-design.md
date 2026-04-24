@@ -1322,6 +1322,72 @@ Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + �
 
 ---
 
+### Phase 5.P: NPC 주도 주체성 관리 (2026-04-25 완료, Slice P1-P4)
+
+**배경**: NPC 주도 세션 (`npc_initiative.py`)은 플레이어가 항상 수동 입장이고 주도권 역전/합의 유도 메커니즘이 없었다. era `주도종속.ERB` 패턴을 기반으로 주도권 축을 도입.
+
+#### P1 인프라 — 지배/복종 상호 배타 축
+
+era 패턴 포팅:
+- 기존 `관계:{player}:복종` on NPC ≡ era 종속도 (NPC → player 복종)
+- 신규 `관계:{player}:지배` on NPC ≡ era 주도도 (NPC → player 지배)
+
+두 축은 상호 배타 — 한 축 가산 시 반대 축부터 상쇄.
+
+```python
+get_dominance(npc_id, player_id) → int
+modify_dominance(npc_id, player_id, delta) → int
+  · delta > 0: 복종부터 상쇄, 남은 만큼 지배 가산
+  · delta < 0: 지배 감쇠
+modify_submission_mutex(npc_id, player_id, delta) → int  # 대칭
+```
+
+#### P2 행위 성공 → 지배 상승
+
+npc_initiative.py 행위 실행 지점 연결:
+- 턴당 수용 모드 +1, 저항 모드 +2
+- 빠져나가기 성공 -5, 저항 탈출 -10 (역전)
+- 포기(surrender) +3 (체념)
+
+#### P3 공수 전환 조건화
+
+`calculate_switch_takeover_chance(npc_id, player_id)`:
+- 지배 ≤ 30 → 100% (자유 전환)
+- 지배 ≥ 70 → 차단 (시도 시 지배 +3 페널티)
+- 30 < 지배 < 70 → 선형 확률 (실패 시 +2)
+
+UI: "주도권 빼앗기 (X%)" 성공률 미리 표시.
+
+#### P4 합의로 이끌어내기
+
+`calculate_consent_success_chance(npc_id, player_id)`:
+- 지배 ≥ 70 → 0.0 (차단)
+- 기본: `(호감/100) × (1 - 반발/100)`
+- 호감 ≥ 70 → +0.2 보너스
+
+**proc "suggest_consent"**:
+- 성공: resistance_mode=False, 지배 -10, 복종 +5
+- 실패: 지배 +3
+
+UI: 저항/수용 모드 양쪽에서 "합의 제안 (X%)" 노출.
+
+#### 게임플레이 구조 (3 경로 분리)
+
+| 경로 | 판정 축 | 지배 영향 |
+|---|---|---|
+| 저항/탈출 | 체력·근력 (`resistance_meter`) | 탈출 성공 시 -10 |
+| 합의 제안 | 호감·반발 | 성공 시 -10, 실패 시 +3 |
+| 공수 전환 | 지배 현재값 | 성공 시 전환, 차단 시 +3 |
+
+**커밋**: `1405ba0` (P1), `12552c1` (P2), `68f90de` (P3), `cba2f4d` (P4). 신규 19 e2e 테스트. 전체 1520/1520 통과.
+
+**후속 확장 여지 (P5+)**:
+- 지배 100 도달 → 영구 "주인" 라벨 (강제 전환 — era 비대칭 패턴)
+- 복종 100 도달 → 선택형 "노예" 라벨 (era 1/3 확률 제안)
+- 라벨에 따른 think 분기 (NPC 자발 추종 행위 등)
+
+---
+
 ### Phase 2.6: prop 통합 리팩터링 (2026-04-25 완료)
 
 **배경**: 시간 제한 상태 효과 이중 prop, NPC 정사 3플래그, 음식 첨가물 7플래그 등 누적된 중복/분산 prop을 단일 진입점 API 뒤로 통합.
