@@ -2811,6 +2811,35 @@ class TestNpcIntimacyExperience:
         assert morld.get_unit_prop(2, "기억:npc정사횟수") == 2
 
 
+class TestMasturbationObservedArousal:
+    """자위 목격자 성욕 증가 훅 (시나리오 1/2/3 공통)."""
+
+    def test_witness_neutral_affection_gains_base(self):
+        """호감 0 — 기본 +15만."""
+        morld.register_unit(1, name="witness", props={"상태:성욕": 0})
+        morld.register_unit(2, name="행인", props={})
+        rc.on_masturbation_observed_arousal(1, 2)
+        assert morld.get_unit_prop(1, "상태:성욕") == 15
+
+    def test_witness_high_affection_gains_bonus(self):
+        """호감 40+ — 기본 + 보너스 = +25."""
+        morld.register_unit(1, name="witness", props={
+            "상태:성욕": 0, "관계:세라:호감": 50,
+        })
+        morld.register_unit(2, name="세라", props={})
+        rc.on_masturbation_observed_arousal(1, 2)
+        assert morld.get_unit_prop(1, "상태:성욕") == 25
+
+    def test_witness_negative_affection_no_effect(self):
+        """호감 -1 이하 — 무감 (성욕 변동 없음)."""
+        morld.register_unit(1, name="witness", props={
+            "상태:성욕": 10, "관계:세라:호감": -5,
+        })
+        morld.register_unit(2, name="세라", props={})
+        rc.on_masturbation_observed_arousal(1, 2)
+        assert morld.get_unit_prop(1, "상태:성욕") == 10
+
+
 class TestDispositionSexualHelpers:
     """Phase 2 Slice G: get_disposition_value 성향 성애 8개 fallback."""
 

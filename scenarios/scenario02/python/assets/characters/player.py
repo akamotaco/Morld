@@ -228,10 +228,13 @@ class Player(Character):
         # 4. 15분 경과 (NPC 이동/이벤트 처리)
         morld.advance_time_des(15 * 60_000)
 
-        # 5. 상태 해제
-        morld.clear_prop(self.instance_id, "상태:자위중")
+        # 5. 중단 여부 확인 — NPC 발각 후 선택지 진입 시 상태가 이미 해제됨
+        if not morld.get_unit_prop(self.instance_id, "상태:자위중"):
+            # 발각으로 중단된 경우 완료 효과 skip (발각 핸들러가 이미 처리)
+            return
 
-        # 6. 효과 적용
+        # 6. 상태 해제 + 정상 완료 효과 적용
+        morld.clear_prop(self.instance_id, "상태:자위중")
         can_ejac = semen_mod.can_ejaculate(self.instance_id)
         arousal = morld.get_unit_prop(self.instance_id, "상태:성욕") or 0
 

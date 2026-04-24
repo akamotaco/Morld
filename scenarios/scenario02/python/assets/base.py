@@ -4810,8 +4810,13 @@ class Character(_CharacterBase):
             yield ui.dialog([f"[{self.name}]", text])
 
     def _on_self_comfort_discovered(self, player_id):
-        """자위 발각 처리 (Generator)"""
-        # NPC 상태 리셋
+        """자위 발각 처리 (Generator)
+
+        플레이어 관점 선택지: [성행위 (합의) / 강간 (강제) / 도주]
+        NPC는 이미 성욕 높은 상태 → 합의 경로 수락 확률 상승. 발견한 플레이어도
+        성욕 상승 (on_masturbation_observed_arousal).
+        """
+        # NPC 상태 리셋 (job 정리)
         import think
         agent = think.get_agent(self.instance_id)
         if agent:
@@ -4819,13 +4824,50 @@ class Character(_CharacterBase):
             morld.clear_jobs(self.instance_id)
             agent._insert_idle_job("대기", 60_000)
 
-        config = self.SELF_COMFORT_DISCOVERY_REACTIONS
-        if not config:
-            def handler():
-                yield ui.dialog(f"[{self.name}]\n...!\n{self.name}(이)가 황급히 멈춘다.")
-            return handler()
+        # NPC 수치심 + 플레이어 성욕 공통 훅
+        try:
+            from romance_core import (
+                on_masturbation_witnessed,
+                on_masturbation_observed_arousal,
+            )
+            on_masturbation_witnessed(self.instance_id)
+            on_masturbation_observed_arousal(player_id, self.instance_id)
+        except Exception:
+            pass
 
-        return self._run_discovery_reaction(player_id, config)
+        return self._run_self_comfort_discovery_choice(player_id)
+
+    def _run_self_comfort_discovery_choice(self, player_id):
+        """자위 발각 선택지 (Generator) — 성행위/강간/도주."""
+        name = self.name
+
+        def handler():
+            header = (f"[!]{name}(이)가 자위하는 모습을 들켰다.\n"
+                      f"{name}(은)는 당황해서 얼어붙어 있다.[/!]")
+            lines = [
+                header,
+                "",
+                "[url=@ret:seduce]접근한다 (합의 성행위 시도)[/url]",
+                "[url=@ret:force]강제로 덮친다 (강간)[/url]",
+                "[url=@ret:retreat]조용히 물러난다[/url]",
+            ]
+            choice = yield ui.dialog("\n".join(lines), autofill="off")
+
+            if choice == "seduce":
+                # 합의 성행위 — 기존 romance() 진입점 재사용 (NPC 성욕 높음 → 유리)
+                yield from self.romance()
+                return
+
+            if choice == "force":
+                # 강제 — 기존 force_romance() 진입점 재사용
+                yield from self.force_romance()
+                return
+
+            # retreat (or cancel/unknown) — 조용히 물러남
+            yield ui.dialog(
+                f"당신은 {name}(를)을 방해하지 않고 조용히 물러났다.")
+
+        return handler()
 
     # 아키타입별 NPC-NPC 성행위 발각 대사
     _NPC_INTIMACY_DISCOVERY_TEXTS = {
@@ -5199,7 +5241,12 @@ class Character(_CharacterBase):
         return handler()
 
     def _on_player_masturbation_discovered(self, player_id):
-        """플레이어 자위 목격 반응 — 아키타입 기반 4단계"""
+        """플레이어 자위 목격 반응 — 아키타입 flavor + 플레이어 선택지 3개.
+
+        NPC 발각자 성욕 증가(공통 훅) + 아키타입 기반 반응 대사 표시 →
+        플레이어 선택: [합의 성행위 / 강간 / 도주].
+        `상태:자위중` prop은 선택 시 해제되어 자위 완료 효과가 중복 적용되지 않음.
+        """
         from masturbation_templates import get_witness_reaction
 
         profile = getattr(self, 'REACTION_PROFILE', None) or {}
@@ -5212,7 +5259,7 @@ class Character(_CharacterBase):
         affection = props.get(f"관계:{player_name}:호감", 0)
         arousal = props.get("상태:성욕", 0)
 
-        # 반응 유형 선택 (Phase 0: 욕망 → 상태:성욕 통합)
+        # 반응 유형 (flavor 대사 선택용)
         if affection >= 70 and arousal >= 60:
             reaction_type = "initiate"
         elif affection >= 70 and arousal >= 50:
@@ -5222,21 +5269,46 @@ class Character(_CharacterBase):
         else:
             reaction_type = "disgusted"
 
+        # NPC 발각자 성욕 훅 (공통)
+        try:
+            from romance_core import on_masturbation_observed_arousal
+            on_masturbation_observed_arousal(self.instance_id, player_id)
+        except Exception:
+            pass
+
         def handler():
+            # 1. 아키타입 반응 대사
             text = get_witness_reaction(self.name, archetype, reaction_type)
             yield ui.dialog(text)
 
-            # 관계 효과 (욕망 prop 제거 — 상태:성욕으로 이관)
-            if reaction_type == "initiate":
-                morld.modify_prop(self.instance_id, "상태:성욕", 5)
-                # NPC 주도 성행위 전환
-                from npc_initiative import start_npc_initiative
-                yield from start_npc_initiative(player_id, self.instance_id)
-            elif reaction_type == "intimate":
-                morld.modify_prop(self.instance_id, "상태:성욕", 3)
-            elif reaction_type == "disgusted":
+            # 2. 반응 유형별 부가 효과 (호감 감소 등)
+            if reaction_type == "disgusted":
                 morld.modify_prop(self.instance_id,
-                    f"관계:{player_name}:호감", -5)
+                                  f"관계:{player_name}:호감", -5)
+
+            # 3. 플레이어 선택지 — 합의 / 강제 / 도주
+            lines = [
+                f"[!]{self.name}(이)가 당신의 자위를 목격했다.[/!]",
+                "",
+                "[url=@ret:seduce]접근한다 (합의 성행위 시도)[/url]",
+                "[url=@ret:force]덮친다 (강간)[/url]",
+                "[url=@ret:retreat]자위를 멈추고 떠난다[/url]",
+            ]
+            choice = yield ui.dialog("\n".join(lines), autofill="off")
+
+            # 자위 중단 공통 — 완료 효과 방지
+            morld.clear_prop(player_id, "상태:자위중")
+
+            if choice == "seduce":
+                yield from self.romance()
+                return
+
+            if choice == "force":
+                yield from self.force_romance()
+                return
+
+            # retreat / cancel — 대사만
+            yield ui.dialog(f"당신은 자위를 멈추고 {self.name}의 시야에서 벗어났다.")
 
         return handler()
 

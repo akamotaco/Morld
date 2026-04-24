@@ -328,8 +328,13 @@ def _handle_self_comfort(agent):
             is_lover = _is_lover_npc(agent.unit_id, discovered_by)
             # 수치심 훅 발동 (연인 발각도 약간의 수치심은 부여 — 당사자 관점)
             try:
-                from romance_core import on_masturbation_witnessed
+                from romance_core import (
+                    on_masturbation_witnessed,
+                    on_masturbation_observed_arousal,
+                )
                 on_masturbation_witnessed(agent.unit_id)
+                # 발각자 NPC 성욕 증가 (시나리오 3)
+                on_masturbation_observed_arousal(discovered_by, agent.unit_id)
             except Exception:
                 pass
             if is_lover:

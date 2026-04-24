@@ -712,6 +712,38 @@ def on_masturbation_witnessed(unit_id):
                        reason="masturbation_witnessed")
 
 
+# ============================================
+# 자위 목격자 성욕 증가 (공통 훅)
+# ============================================
+
+_MASTURBATION_OBSERVER_AROUSAL_BASE = 15
+_MASTURBATION_OBSERVER_AROUSAL_AFFECTION_BONUS = 10  # 호감 ≥ 40 추가
+
+
+def on_masturbation_observed_arousal(witness_id, masturbator_id):
+    """자위 목격자 성욕 증가.
+
+    발각자(witness) 관점 — 자위하는 상대에게 호감이 있으면 성욕 증가폭 증가.
+    시나리오 1/2/3 공통 진입점. 무감한 관계(호감 < 0)는 아무 효과 없음.
+    """
+    target_info = morld.get_unit_info(masturbator_id)
+    target_name = target_info.get("name", "") if target_info else ""
+    affection = 0
+    if target_name:
+        affection = morld.get_unit_prop(
+            witness_id, f"관계:{target_name}:호감") or 0
+
+    if affection < 0:
+        return morld.get_unit_prop(witness_id, "상태:성욕") or 0
+
+    gain = _MASTURBATION_OBSERVER_AROUSAL_BASE
+    if affection >= 40:
+        gain += _MASTURBATION_OBSERVER_AROUSAL_AFFECTION_BONUS
+
+    morld.modify_prop(witness_id, "상태:성욕", gain)
+    return morld.get_unit_prop(witness_id, "상태:성욕") or 0
+
+
 def on_nude_in_public(unit_id):
     """공공장소(관객 있는 location)에서 노출 상태 진입 → 수치심 증가."""
     return apply_shame(unit_id, SHAME_GAIN_NUDE_IN_PUBLIC,

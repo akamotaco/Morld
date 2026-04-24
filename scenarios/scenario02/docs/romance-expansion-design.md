@@ -1582,7 +1582,34 @@ desire_threshold   -= seek_relief
 - `romance.py` / `npc_initiative.py` 내 `TODO: 합류 로직 (Phase 6)` 주석을
   `합류/난교 로직은 TBA (세부 다인 시나리오는 현 범위 밖)`로 정리
 
-**커밋**: (pending). 신규 3 e2e 테스트.
+**커밋**: `dcaa661`. 신규 3 e2e 테스트.
+
+### Phase 2.8: 자위 발각 선택지 (2026-04-25 완료)
+
+**배경**: 플레이어/NPC 누가 자위 중이든, 다른 쪽이 들어오면 단순 대사로만 끝나던
+흐름을 '성행위/강간/도주' 선택지로 확장. 발각자 성욕 증가 공통 훅 도입.
+
+**변경 사항**:
+- `romance_core.py` — `on_masturbation_observed_arousal(witness_id, masturbator_id)`
+  - 기본 성욕 +15, 대상 호감 ≥ 40 시 +10 보너스, 호감 < 0 이면 효과 없음
+- **시나리오 1** (NPC 자위 → 플레이어 발견) — `_on_self_comfort_discovered`:
+  - 기존 단순 발각 대사 → `_run_self_comfort_discovery_choice` 선택지 다이얼로그
+  - [접근한다 (합의)] → `self.romance()` / [강제로 덮친다] → `self.force_romance()` / [물러난다]
+  - NPC 수치심 훅 + 플레이어 성욕 훅 동시 발동
+- **시나리오 2** (플레이어 자위 → NPC 발견) — `_on_player_masturbation_discovered`:
+  - 기존 4단계 자동 판정 (initiate/intimate/embarrassed/disgusted) →
+    **아키타입 반응 대사는 유지** + 플레이어 3지선다 추가
+  - [접근한다] / [덮친다] / [자위를 멈추고 떠난다]
+  - 선택 시 `상태:자위중` prop 해제 — `player.masturbate()` 완료 효과 skip
+  - NPC 성욕 훅 (공통)
+- **시나리오 3** (NPC↔NPC 자위 발각) — `_handle_self_comfort` finishing:
+  - 발각자 NPC 성욕 +N 훅 추가 (기존 발각자 무반응 → 공통 훅 호출)
+  - 자율 접근/강제는 범위 과다 → TBA
+
+**player.py `masturbate()` 호환성**: `상태:자위중` prop이 발각 중 해제되면
+완료 효과(사정/성욕 감소) skip하도록 중단 판별 추가.
+
+**커밋**: (pending). 신규 3 e2e 테스트 (공통 훅). 전체 1540/1540 통과.
 
 ### Phase 3: 행위 카테고리 확장
 **현재 스킨쉽 액션 → Train.csv 370종 규모로 분류**
