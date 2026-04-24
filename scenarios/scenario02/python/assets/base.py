@@ -515,6 +515,30 @@ _FOCUS_SHAME = {
     ],
 }
 
+_FOCUS_PERSONALITY = [
+    # 담력 (bold vs timid 손떨림)
+    ({"성격:담력_낮음": True}, "손이 가늘게 떨리고 있다. 소심한 기색이 드러난다."),
+    ({"성격:담력_높음": True}, "긴장한 상황에서도 흔들림 없는 눈빛이다."),
+    # 자존심 (pride vs humility 자세)
+    ({"성격:자존심_높음": True}, "고개를 꼿꼿이 세우고 있다. 자존심이 느껴진다."),
+    ({"성격:자존심_낮음": True}, "어깨를 웅크린 채 시선이 발밑에 머물러 있다."),
+    # 정조 (modest vs loose 경계심)
+    ({"성격:정조_높음": True}, "몸이 살짝 닿을 때마다 예민하게 반응한다."),
+    ({"성격:정조_낮음": True}, "거리감이 희박하다. 접촉에 거리낌이 없어 보인다."),
+    # 명랑 (cheerful vs gloomy)
+    ({"성격:명랑_낮음": True}, "표정이 어둡다. 좀처럼 웃는 일이 없다."),
+    ({"성격:명랑_높음": True}, "자연스럽게 입꼬리가 올라가 있다. 분위기가 환하다."),
+    # 태도 (defiant vs compliant) — 기본 0 외에만 표시
+    ({"성격:태도_높음": True}, "지시를 귀담아 듣지 않는 기색이다."),
+    ({"성격:태도_낮음": True}, "질문에 고분고분하게 대답한다."),
+    # 응답 (responsive vs impassive)
+    ({"성격:응답_높음": True}, "눈 맞춤이 적극적이다. 반응이 빠르다."),
+    ({"성격:응답_낮음": True}, "말에 쉽게 동요하지 않는다. 내면이 잘 읽히지 않는다."),
+    # 츤데레 (네임드 NPC 전용)
+    ({"성격:츤데레_높음": True}, "태도와 속마음이 미묘하게 어긋나는 순간이 엿보인다."),
+]
+
+
 _SEMEN_EXTERNAL_PARTS = ["얼굴", "가슴", "배", "음부", "엉덩이"]
 
 
@@ -721,7 +745,9 @@ _DEFAULT_FOCUS_ORDER = [
     "climax", "exposure_body", "shame",
     "specials", "semen", "internal_semen",
     "idle_flavor",  # flavor가 있으면 activity보다 먼저 매칭
-    "activity", "mood", "desire", "affection", "menstruation", "default",
+    "activity", "mood", "desire", "affection", "menstruation",
+    "personality",  # default 직전 — trait 표식은 기본 서술보다 우선
+    "default",
 ]
 
 # 운반 중 FOCUS 텍스트 (운반자에게 표시)
@@ -757,6 +783,7 @@ def build_focus_rules(archetype, activities, default_text,
         "desire": _FOCUS_DESIRE.get(archetype, []),
         "affection": _FOCUS_AFFECTION.get(archetype, []),
         "menstruation": _FOCUS_MENSTRUATION.get(archetype, []),
+        "personality": _FOCUS_PERSONALITY,
         "default": [({}, default_text)],
     }
     rules = []
@@ -2775,6 +2802,13 @@ class Character(_CharacterBase):
         beloved = _get_beloved_name(unit_id, props)
         context["beloved"] = beloved or ""
         context["beloved_exists"] = beloved is not None
+
+        # Phase 2 성격 7 trait — 묘사 rule용 _높음/_낮음 파생 키
+        from romance_core import PERSONALITY_TRAITS, get_personality_value
+        for _trait in PERSONALITY_TRAITS:
+            _val = get_personality_value(unit_id, _trait)
+            context[f"성격:{_trait}_높음"] = (_val >= 1)
+            context[f"성격:{_trait}_낮음"] = (_val <= -1)
 
         # 운반 상태
         import carry as _carry

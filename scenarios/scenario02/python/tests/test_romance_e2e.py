@@ -2009,6 +2009,47 @@ class TestAutonomyWeight:
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
 
+class TestPersonalityFocusDescription:
+    """Phase 2 Slice E: _FOCUS_PERSONALITY + context 파생 키."""
+
+    def test_focus_personality_list_has_all_traits(self):
+        """8개 라인(7 trait 중 6개 ±, 츤데레 + 1 one-sided) 구성 확인."""
+        from assets.base import _FOCUS_PERSONALITY
+        assert len(_FOCUS_PERSONALITY) >= 10
+
+    def test_bold_low_matches(self):
+        from assets.base import _FOCUS_PERSONALITY, TextSelector
+        ctx = {"성격:담력_낮음": True, "성격:담력_높음": False}
+        result = TextSelector.select(_FOCUS_PERSONALITY, ctx)
+        assert "떨리고" in result
+
+    def test_pride_high_matches(self):
+        from assets.base import _FOCUS_PERSONALITY, TextSelector
+        ctx = {"성격:자존심_높음": True, "성격:자존심_낮음": False}
+        result = TextSelector.select(_FOCUS_PERSONALITY, ctx)
+        assert "꼿꼿이" in result
+
+    def test_cheer_low_matches(self):
+        from assets.base import _FOCUS_PERSONALITY, TextSelector
+        ctx = {"성격:명랑_낮음": True, "성격:명랑_높음": False}
+        result = TextSelector.select(_FOCUS_PERSONALITY, ctx)
+        assert "표정이 어둡다" in result
+
+    def test_neutral_context_no_match(self):
+        """모든 trait 0 → _FOCUS_PERSONALITY에서 매치 안 됨."""
+        from assets.base import _FOCUS_PERSONALITY, TextSelector
+        ctx = {}
+        for trait in rc.PERSONALITY_TRAITS:
+            ctx[f"성격:{trait}_높음"] = False
+            ctx[f"성격:{trait}_낮음"] = False
+        result = TextSelector.select(_FOCUS_PERSONALITY, ctx)
+        assert result is None
+
+    def test_focus_order_has_personality(self):
+        from assets.base import _DEFAULT_FOCUS_ORDER
+        assert "personality" in _DEFAULT_FOCUS_ORDER
+
+
 class TestSix_NPC_PersonalityPreset:
     """Phase 2 Slice D: 6 NPC 성격 프리셋 — §7.8 / §7.9 기반."""
 
