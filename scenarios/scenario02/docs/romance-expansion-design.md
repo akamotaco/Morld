@@ -1379,44 +1379,54 @@ UI: 저항/수용 모드 양쪽에서 "합의 제안 (X%)" 노출.
 | 합의 제안 | 호감·반발 | 성공 시 -10, 실패 시 +3 |
 | 공수 전환 | 지배 현재값 | 성공 시 전환, 차단 시 +3 |
 
-#### P5 영구 소유 상태 전환
+#### P5'/P6' 소유 상태 연속 함수화 (시뮬레이션 일반화, 2026-04-25 리팩터)
 
-era `TALENT:ARG:당신의노예` / `TALENT:ARG:주인` 패턴 포팅.
+초기 P5-P6은 era `TALENT:ARG:당신의노예` / `TALENT:ARG:주인` boolean 라벨을 그대로 포팅 — 100 도달 시 불 켜고 0 복귀 시 끄는 **특수 상태 플래그**. 하지만 morld는 era 서사 엔진이 아니라 **시뮬레이션**이므로 boolean 플래그 대신 **축 값 자체를 스펙트럼 지표**로 사용하는 게 일관적.
 
-**소유 관계 prop** (NPC에 저장):
-- `관계:{player}:노예` = 1 → NPC는 player의 노예
-- `관계:{player}:주인` = 1 → NPC는 player의 주인 (player가 종속)
-- 배타 — 한 관계 설정 시 반대 관계 자동 해제
+**제거된 요소**:
+- `관계:{player}:노예` / `관계:{player}:주인` boolean prop
+- `상태:노예화가능` 플래그 (era 1/3 UI 제안 스펙)
+- `is_npc_slave_of` / `is_npc_master_of` 조회자
+- `_set_slave_relation` / `_set_master_relation` 배타 setter
+- `_check_dominance_threshold` / `_check_submission_threshold` 임계 훅
+- `_check_dominance_decay` / `_check_submission_decay` 0 복귀 훅
+- `modify_dominance` / `modify_submission_mutex` 내부 훅 호출
 
-**임계 자동화** (`modify_dominance` / `modify_submission_mutex` 내장):
-- 지배 100 도달 → NPC 자동 주인 (era 비대칭: **강제 전환, 선택권 X**)
-- 복종 100 도달 → `상태:노예화가능` 플래그 (UI 제안 대기, era 1/3 확률 패턴 위임)
-- 지배 0 복귀 + 주인 → 자동 해제 ("업신여기게 된")
-- 복종 0 복귀 + 노예 → 자동 해제 (+ 노예화가능 플래그 clear)
+**연속 함수 재작성**:
 
-**조회 헬퍼**: `is_npc_slave_of`, `is_npc_master_of`
+```python
+get_ownership_modifier(partner_id, player_id) =
+    submission × 0.3 - dominance × 0.15
+# 복종 100 → +30 (자발 수용), 지배 100 → -15 (주인 권위로 거부)
+# 중간값 부드럽게 (복종 50 → +15 / 지배 50 → -7.5)
+# 입력 0-100 clamp (레거시 견고성)
+```
 
-#### P6 소유 상태 게임플레이 활용
+```python
+# should_initiate_skinship 임계 완화:
+dom_relief = int(dominance × 0.2)
+arousal_threshold -= dom_relief   # 지배 100 → 최대 -20
+label_threshold -= dom_relief
+```
 
-`get_ownership_modifier(partner_id, player_id)` — `calculate_availability_score` 합산:
-- 노예 NPC → +30 (대부분 행위 허용, 호감 요구치 사실상 무효화)
-- 주인 NPC → -15 (주인이 아랫사람 행위 거부 성향)
+**체감 효과** (불연속 → 연속):
+- 지배 30: 주도 빈도 +6%, availability -4.5
+- 지배 50: +10, -7.5
+- 지배 100: +20, -15 (기존 P6 boolean과 동일 값이지만 연속)
+- 복종 상황도 동일한 선형 곡선
 
-`should_initiate_skinship` 완화 (주인 NPC 전용):
-- 성욕 임계치 -20 (더 자주 주도 세션 시작)
-- `DES_LABEL_THRESHOLD`도 -20 적용
+**공식화 이점**:
+- 임계 부근 "체감 차이"가 점진적 (플레이어가 매 수치 변화를 느낌)
+- boolean 프롭 관리 오버헤드 제거 (-177 lines 코드 감소)
+- 레거시 테스트 호환 (양수 clamp)
 
-**체감 효과**:
-- 지배 100 도달 후: 주인 NPC가 빈번히 주도 세션 개시 + 플레이어 임의 액션 저항
-- 복종 100 도달 후: 노예 NPC에게 거의 모든 행위 자동 허용 (사실상 자유 사용)
-
-**커밋**: `1405ba0` (P1), `12552c1` (P2), `68f90de` (P3), `cba2f4d` (P4), `f8d50e4` (P5), `9da8a27` (P6). 신규 31 e2e 테스트. 전체 1532/1532 통과.
+**커밋**: `1405ba0` (P1), `12552c1` (P2), `68f90de` (P3), `cba2f4d` (P4), `f8d50e4` (P5 초기 era 포팅), `9da8a27` (P6 초기), `109b1b2` (P5'/P6' 리팩터). 전체 1526/1526 통과.
 
 **후속 확장 여지 (P7+)**:
-- 복종 100 UI 제안 다이얼로그 (era 0/1/2 3선택지 — 수락/거절/오늘 거절)
-- 주인 상태 → NPC think 제어 (플레이어 우선 복종 명령 체계)
-- 노예 상태 → 플레이어 전용 액션 카탈로그 해금 (체벌/명령 등)
-- 소유 관계에 따른 대사 톤 변경 (호칭/말투)
+- 지배/복종 값 기반 호칭 시스템 (수치 구간별 연속 호칭 변화)
+- 지배 값 기반 think 가중치 (높은 값일수록 NPC 우선순위 결정 영향)
+- 액션 카탈로그 차별화 (지금 이미 availability로 연속 차별화)
+- 대사 톤 연속 스펙트럼
 
 ---
 
