@@ -2092,6 +2092,25 @@ class TestSix_NPC_PersonalityPreset:
         for trait in rc.PERSONALITY_TRAITS:
             assert f"성격:{trait}" not in cls.props
 
+    def test_sera_disposition_override(self):
+        """Sera (stoic + 마조 장인): 마조 30 override."""
+        cls = self._char_class("sera", "Sera")
+        assert cls.props.get("성향:마조") == 30
+
+    def test_others_use_disposition_archetype_default(self):
+        """Sera 외 5 NPC는 아키타입 성향 기본값 사용."""
+        for mod_name, cls_name in [
+            ("lina", "Lina"),
+            ("yuki", "Yuki"),
+            ("ella", "Ella"),
+            ("mila", "Mila"),
+            ("faye", "Faye"),
+        ]:
+            cls = self._char_class(mod_name, cls_name)
+            for trait in rc.DISPOSITION_SEXUAL_TRAITS:
+                assert f"성향:{trait}" not in cls.props, \
+                    f"{cls_name} should use archetype default, not explicit {trait}"
+
 
 class TestPersonalityEffectMultipliers:
     """Phase 2 Slice C: 성격 변동 계수 — 복종/반발 양수 gain 배율."""
