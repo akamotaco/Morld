@@ -169,6 +169,32 @@ def calculate_switch_takeover_chance(npc_id, player_id):
     return max(0.0, 1.0 - (dominance - SWITCH_FREE_DOMINANCE) / span)
 
 
+CONSENT_BLOCK_DOMINANCE = 70
+
+
+def calculate_consent_success_chance(npc_id, player_id):
+    """NPC 주도 세션 중 "합의 제안" 성공 확률 (0.0~1.0).
+
+    Slice P4 — 플레이어가 NPC에게 합의 전환을 요청 (저항 아닌 평화 경로).
+      지배 ≥ 70 → 0.0 (차단, 플레이어는 이미 NPC에게 끌려)
+      기본: (호감/100) × (1 - 반발/100)
+      호감 ≥ 70 → +0.2 보너스
+
+    Why: 단순 저항/탈출과 구분되는 "합의 이끌어내기" 경로.
+         관계 기반, 호감↑ + 반발↓ NPC에 효과적.
+    """
+    dominance = get_dominance(npc_id, player_id)
+    if dominance >= CONSENT_BLOCK_DOMINANCE:
+        return 0.0
+    props = morld.get_unit_props(npc_id) or {}
+    affection = props.get(get_affection_key(player_id), 0)
+    rebellion = props.get(get_rebellion_key(player_id), 0)
+    base = (affection / 100.0) * (1.0 - rebellion / 100.0)
+    if affection >= 70:
+        base += 0.2
+    return max(0.0, min(1.0, base))
+
+
 def modify_submission_mutex(npc_id, player_id, delta):
     """복종 변동 — era 패턴 대칭:
       delta > 0: 먼저 `지배`부터 상쇄, 남은 만큼 `복종` 가산

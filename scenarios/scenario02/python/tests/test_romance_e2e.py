@@ -2422,6 +2422,47 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
+class TestConsentSuccessChance:
+    """Slice P4: 합의 제안 성공률 공식."""
+
+    def _setup(self, affection=50, rebellion=0, dominance=0):
+        morld.register_unit(1, name="주인공", props={})
+        morld.register_unit(2, name="세라", props={
+            "관계:주인공:호감": affection,
+            "관계:주인공:반발": rebellion,
+            "관계:주인공:지배": dominance,
+        })
+        morld._player_id = 1
+
+    def test_blocked_by_high_dominance(self):
+        self._setup(affection=100, rebellion=0, dominance=70)
+        assert rc.calculate_consent_success_chance(2, 1) == 0.0
+
+    def test_base_formula(self):
+        """호감 50 / 반발 0 → 0.5."""
+        self._setup(affection=50, rebellion=0, dominance=0)
+        assert abs(rc.calculate_consent_success_chance(2, 1) - 0.5) < 1e-9
+
+    def test_rebellion_penalty(self):
+        """호감 50 / 반발 50 → 0.5 × 0.5 = 0.25."""
+        self._setup(affection=50, rebellion=50, dominance=0)
+        assert abs(rc.calculate_consent_success_chance(2, 1) - 0.25) < 1e-9
+
+    def test_high_affection_bonus(self):
+        """호감 70 / 반발 0 → 0.7 + 0.2 = 0.9."""
+        self._setup(affection=70, rebellion=0, dominance=0)
+        assert abs(rc.calculate_consent_success_chance(2, 1) - 0.9) < 1e-9
+
+    def test_zero_affection_zero_chance(self):
+        self._setup(affection=0, rebellion=0, dominance=0)
+        assert rc.calculate_consent_success_chance(2, 1) == 0.0
+
+    def test_clamp_at_1_0(self):
+        self._setup(affection=100, rebellion=0, dominance=0)
+        # 1.0 + 0.2 = 1.2 → clamp 1.0
+        assert rc.calculate_consent_success_chance(2, 1) == 1.0
+
+
 class TestSwitchTakeoverChance:
     """Slice P3: 공수 전환 지배 기반 조건화."""
 

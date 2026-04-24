@@ -998,23 +998,43 @@ def render_npc_initiative_ui(state):
 
     # 선택지
     lines.append(ui.divider())
+    # Slice P4: 합의 제안 — 관계 기반 평화 전환 (저항/수용 양쪽에서 노출)
+    from romance_core import (
+        calculate_consent_success_chance,
+        calculate_switch_takeover_chance,
+    )
+    consent_chance = calculate_consent_success_chance(npc_id, player_id)
+
     if resistance_mode:
-        # 저항 모드: 저항/포기만 가능
+        # 저항 모드: 저항/포기 + 합의 제안
         gain = calculate_resistance_gain(player_id, npc_id)
         lines.append(f"[url=@proc:resist]{style_danger('저항하기 (+' + str(gain) + ')')}[/url]")
         lines.append("[url=@proc:surrender]포기하기[/url]")
+        if consent_chance > 0:
+            lines.append(
+                f"[url=@proc:suggest_consent]합의 제안 ({int(consent_chance * 100)}%)[/url]"
+            )
     else:
         lines.append("[url=@proc:escape]빠져나가기 시도[/url]")
         lines.append(f"[url=@proc:resist_start]{style_danger('저항하기')}[/url]")
         lines.append("[url=@proc:accept]받아들이기[/url]")
+        if consent_chance > 0:
+            lines.append(
+                f"[url=@proc:suggest_consent]합의 제안 ({int(consent_chance * 100)}%)[/url]"
+            )
 
         # 결박 해제 시도 (결박 상태일 때)
         if state.get("player_restrained"):
             lines.append(f"[url=@proc:escape_restraint]{style_warning('결박 해제 시도')}[/url]")
 
-        # 공수 전환 버튼 (플레이어 주도로 전환)
+        # 공수 전환 버튼 — Slice P3: 지배 기반 조건
         if affection >= ROMANCE_ENTRY_THRESHOLD:
-            lines.append("[url=@proc:switch]주도권 빼앗기[/url]")
+            switch_chance = calculate_switch_takeover_chance(npc_id, player_id)
+            if switch_chance > 0:
+                label = "주도권 빼앗기"
+                if switch_chance < 1.0:
+                    label += f" ({int(switch_chance * 100)}%)"
+                lines.append(f"[url=@proc:switch]{label}[/url]")
 
     lines.append("")
     lines.append(f"[url=@proc:exit]{style_muted('나가기')}[/url]")
@@ -1744,6 +1764,38 @@ def start_npc_initiative(player_id, npc_id, preserved=None):
             from romance_core import modify_dominance as _modify_dom
             _modify_dom(npc_id, player_id, 3)
             state["last_reaction"] = "(저항을 포기했다...)"
+            return render_npc_initiative_ui(state)
+
+        # Slice P4: 합의 제안 — 관계 기반 평화 전환
+        if action == "suggest_consent":
+            from romance_core import (
+                calculate_consent_success_chance,
+                modify_dominance as _modify_dom,
+                modify_submission_mutex as _modify_sub,
+            )
+            chance = calculate_consent_success_chance(npc_id, player_id)
+            if chance <= 0.0:
+                # 차단 (지배가 너무 높음) — 시도 자체가 부작용
+                _modify_dom(npc_id, player_id, 2)
+                state["last_reaction"] = (
+                    "(합의를 제안해봤지만, NPC는 당신의 말을 듣지 않는다...)"
+                )
+                return render_npc_initiative_ui(state)
+            if random.random() < chance:
+                # 성공 — 합의 분위기 전환
+                state["resistance_mode"] = False
+                state["resistance_meter"] = 0
+                _modify_dom(npc_id, player_id, -10)  # 역전 경로
+                _modify_sub(npc_id, player_id, 5)    # NPC 자발 협력
+                state["last_reaction"] = (
+                    f"(호흡을 맞추기 시작했다. 분위기가 부드러워진다.)"
+                )
+            else:
+                # 실패 — 지배 + 3 페널티
+                _modify_dom(npc_id, player_id, 3)
+                state["last_reaction"] = (
+                    "(제안이 거부됐다. NPC는 아랑곳하지 않는다.)"
+                )
             return render_npc_initiative_ui(state)
 
         # 플레이어 즉시 행위
