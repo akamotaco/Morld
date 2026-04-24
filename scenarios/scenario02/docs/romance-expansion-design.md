@@ -1343,10 +1343,23 @@ Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + �
 
 **커밋**: `941e652` (A), `9e3e0d3` (B), `ad32350` (C), `47ad928` (D), `9f1c1c0` (E), `b6185e4` (F). 신규 38 e2e 테스트. 전체 1461/1461 통과.
 
-### Phase 2 후반: 성향 성애 8개 (대기)
-- 성별기호 / 쾌감응답 / 새드 / 마조 / 도착 / 노출벽 / 무관심 / 감정결여 (0-100)
-- 트랜스 공식 factor 추가, availability 수치심 상쇄, 쾌락 gain 배율 등
-- §7.13 체크리스트 참조
+### Phase 2 후반: 성향 성애 8개 (2026-04-25 완료, Slice G-L)
+
+**도입 완료** (§6.3 / §7.4 / §7.13):
+- 성향 성애 8 trait: 성별기호 / 쾌감응답 / 새드 / 마조 / 도착 / 노출벽 / 무관심 / 감정결여
+- `ARCHETYPE_DISPOSITION_SEXUAL_DEFAULT` — 11 아키타입 × 8 trait
+- `get_disposition_value(unit_id, key)` — fallback 체계 (trait별 range는 caller 해석)
+- 쾌감응답 → `get_disposition_arousal_multiplier` (성욕 gain ×0.7~1.3)
+- 마조 → `get_disposition_sm_multipliers` (복종 ×1.0~1.5, 반발 ×0.5~1.0)
+- 노출벽/도착 → `get_shame_modifier`에 상쇄 항 합성 (최대 100%)
+- 무관심/감정결여 → `compute_trance_level`에 `trance_damp = 0.5`
+- Sera (stoic + 마조 장인): 마조=30 override. 나머지 5 NPC 아키타입 기본값.
+
+**미적용 (후속 확장 여지)**:
+- 성별기호 (`gender.get_orientation_*`와 연계 검토)
+- 새드 (NPC가 가해 입장인 npc_initiative 경로 — 현 슬라이스는 NPC 피해 중심)
+
+**커밋**: `761a41c` (G), `547bfd1` (H), `dae1e2d` (I), `2d1c3eb` (J), `79a8ddf` (K), `ed39b5c` (L). 신규 29 e2e 테스트. 전체 1490/1490 통과.
 
 ### Phase 3: 행위 카테고리 확장
 **현재 스킨쉽 액션 → Train.csv 370종 규모로 분류**
