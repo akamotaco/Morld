@@ -372,11 +372,20 @@ def get_shame_modifier(partner_id):
 
     수치심 100 + 관객 있음 → -20점.
     관객이 없으면 효과 0 (단둘이면 수치심 덜 작용).
+
+    Phase 2 후반: 노출벽/도착 성향이 수치심 페널티를 상쇄한다.
+      relief = (노출벽 + 도착) / 200 (0~1)
+      최종 페널티 × (1 - relief)
     """
     props = morld.get_unit_props(partner_id) or {}
     shame = props.get("상태:수치심", 0)
     audience = get_audience_factor(partner_id)
-    return -shame * SHAME_PENALTY_FACTOR * audience
+    raw_penalty = -shame * SHAME_PENALTY_FACTOR * audience
+    # 노출벽/도착 상쇄 (0~100 각)
+    exhib = get_disposition_value(partner_id, "노출벽")
+    pervert = get_disposition_value(partner_id, "도착")
+    relief = min(1.0, (exhib + pervert) / 200.0)
+    return raw_penalty * (1.0 - relief)
 
 
 # ============================================

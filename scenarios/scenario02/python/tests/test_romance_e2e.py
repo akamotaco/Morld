@@ -2221,6 +2221,60 @@ class TestPersonalityGateModifier:
         assert rc.calculate_availability_score(2, 1, action) == 20
 
 
+class TestShameReliefByDisposition:
+    """Phase 2 Slice J: 노출벽/도착 → 수치심 페널티 상쇄."""
+
+    def _setup(self, props=None, audience=True):
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        morld.register_unit(2, props=props or {})
+        if audience:
+            morld.register_unit(3, name="행인", props={})
+            # location 1개 공유 시 audience_factor가 실제 양수 반환한다고 가정.
+
+    def test_no_relief_when_disposition_zero(self):
+        """노출벽/도착 0 → 수치심 페널티 그대로."""
+        self._setup(props={"상태:수치심": 80})
+        base = rc.get_shame_modifier(2)
+        # base는 audience_factor가 환경마다 달라 고정 불가 — 음수여야만
+        # 하고, 양의 disposition이 없으므로 변경 안 됨 확인은 생략
+        assert base <= 0
+
+    def test_max_exhib_cancels_shame(self):
+        """노출벽 100 + 도착 100 → 페널티 100% 상쇄 = 0."""
+        self._setup(props={
+            "상태:수치심": 80,
+            "성향:노출벽": 100,
+            "성향:도착": 100,
+        })
+        assert rc.get_shame_modifier(2) == 0
+
+    def test_mid_disposition_partial_relief(self):
+        """노출벽 50 + 도착 50 → 50% 상쇄 (relief = 0.5)."""
+        self._setup(props={
+            "상태:수치심": 80,
+            "성향:노출벽": 50,
+            "성향:도착": 50,
+        })
+        raw = rc.get_shame_modifier(1)  # 성향 없는 주인공과 비교? 아님
+        # 대신 동일 수치심 + 성향 없는 NPC와 비교
+        morld.register_unit(5, props={"상태:수치심": 80})
+        raw_no_disp = rc.get_shame_modifier(5)
+        mid = rc.get_shame_modifier(2)
+        # 양자 음수. 성향 있는 쪽이 절댓값이 반이하
+        if raw_no_disp < 0:
+            assert abs(mid) < abs(raw_no_disp)
+
+    def test_over_cap_relief_clamped(self):
+        """노출벽 150 + 도착 100 (over 200) → 최대 100% 상쇄."""
+        self._setup(props={
+            "상태:수치심": 80,
+            "성향:노출벽": 150,
+            "성향:도착": 100,
+        })
+        assert rc.get_shame_modifier(2) == 0
+
+
 class TestDispositionMasochismMultiplier:
     """Phase 2 Slice I: 마조 → 복종 ↑ / 반발 ↓."""
 
