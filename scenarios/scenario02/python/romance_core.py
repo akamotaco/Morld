@@ -528,6 +528,23 @@ def on_external_cumshot(unit_id, target_part):
     return apply_shame(unit_id, gain, reason=f"external_cumshot:{target_part}")
 
 
+def get_personality_effect_multipliers(partner_id):
+    """성격 trait 기반 복종/반발 gain 배율 (양수 변동에만 적용).
+
+    Phase 2 §6.8.2 공식:
+    - 복종 증가: 자존심 -1 → ×1.5 / +1 → ×0.5 / 0 → ×1.0
+    - 반발 증가: 담력 -1 → ×0.7 / +1 → ×1.3 / 0 → ×1.0
+
+    Returns:
+        dict {"복종": float, "반발": float}
+    """
+    pride = get_personality_value(partner_id, "자존심")
+    boldness = get_personality_value(partner_id, "담력")
+    sub_mult = 1.0 + (-pride) * 0.5       # -1 → 1.5, +1 → 0.5
+    reb_mult = 1.0 + boldness * 0.3        # -1 → 0.7, +1 → 1.3
+    return {"복종": sub_mult, "반발": reb_mult}
+
+
 def get_personality_gate_modifier(partner_id):
     """성격 7 trait 기반 게이트 모디파이어 (availability_score 페널티).
 
@@ -772,6 +789,13 @@ def calculate_effects(action_def, partner_id, player_id=None):
         if orientation_mult != 1.0:
             for stat in base_effects:
                 base_effects[stat] = round(base_effects[stat] * orientation_mult)
+
+    # Phase 2 성격 변동 계수 (양수 복종/반발 gain에만 적용)
+    personality_mult = get_personality_effect_multipliers(partner_id)
+    for stat, mult in personality_mult.items():
+        val = base_effects.get(stat, 0)
+        if val > 0 and mult != 1.0:
+            base_effects[stat] = round(val * mult)
 
     return base_effects
 

@@ -2009,6 +2009,71 @@ class TestAutonomyWeight:
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
 
+class TestPersonalityEffectMultipliers:
+    """Phase 2 Slice C: 성격 변동 계수 — 복종/반발 양수 gain 배율."""
+
+    def _setup(self, props=None):
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        morld.register_unit(2, props=props or {})
+
+    def test_default_no_modifier(self):
+        self._setup()
+        mult = rc.get_personality_effect_multipliers(2)
+        assert mult["복종"] == 1.0
+        assert mult["반발"] == 1.0
+
+    def test_high_pride_reduces_submission_gain(self):
+        self._setup(props={"성격:자존심": 1})
+        mult = rc.get_personality_effect_multipliers(2)
+        assert mult["복종"] == 0.5
+
+    def test_low_pride_amplifies_submission_gain(self):
+        self._setup(props={"성격:자존심": -1})
+        mult = rc.get_personality_effect_multipliers(2)
+        assert mult["복종"] == 1.5
+
+    def test_high_boldness_amplifies_rebellion_gain(self):
+        self._setup(props={"성격:담력": 1})
+        mult = rc.get_personality_effect_multipliers(2)
+        assert mult["반발"] == 1.3
+
+    def test_low_boldness_reduces_rebellion_gain(self):
+        self._setup(props={"성격:담력": -1})
+        mult = rc.get_personality_effect_multipliers(2)
+        # -1 × 0.3 = -0.3, 1.0 + (-0.3) = 0.7
+        assert abs(mult["반발"] - 0.7) < 1e-9
+
+    def test_calculate_effects_applies_submission_multiplier(self):
+        """자존심 -1 NPC의 복종 +10 → ×1.5 = 15."""
+        self._setup(props={"성격:자존심": -1})
+        action = {"name": "액션", "effects": {"복종": 10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["복종"] == 15
+
+    def test_calculate_effects_applies_rebellion_multiplier(self):
+        """담력 1 NPC의 반발 +10 → ×1.3 = 13."""
+        self._setup(props={"성격:담력": 1})
+        action = {"name": "액션", "effects": {"반발": 10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["반발"] == 13
+
+    def test_negative_submission_not_amplified(self):
+        """복종 감소는 성격 계수 적용 안 함 (양수 gain 전용)."""
+        self._setup(props={"성격:자존심": -1})
+        action = {"name": "액션", "effects": {"복종": -10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["복종"] == -10
+
+    def test_no_archetype_no_change(self):
+        self._setup()
+        action = {"name": "액션", "effects": {"복종": 10, "반발": 10},
+                  "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["복종"] == 10
+        assert out["반발"] == 10
+
+
 class TestPersonalityGateModifier:
     """Phase 2 Slice B: 성격 4 trait이 availability_score에 반영."""
 
