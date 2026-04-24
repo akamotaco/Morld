@@ -5241,11 +5241,14 @@ class Character(_CharacterBase):
         return handler()
 
     def _on_player_masturbation_discovered(self, player_id):
-        """플레이어 자위 목격 반응 — 아키타입 flavor + 플레이어 선택지 3개.
+        """플레이어 자위 목격 반응 — 연속 스코어 + 아키타입 flavor + 선택지 3개.
 
         NPC 발각자 성욕 증가(공통 훅) + 아키타입 기반 반응 대사 표시 →
         플레이어 선택: [합의 성행위 / 강간 / 도주].
         `상태:자위중` prop은 선택 시 해제되어 자위 완료 효과가 중복 적용되지 않음.
+
+        반응 유형은 `_compute_discovery_reaction_score` 의 연속 스코어에 의해 결정 —
+        호감/성욕/성격:정조 조합. 한 축이 낮아도 다른 축이 보완할 수 있음.
         """
         from masturbation_templates import get_witness_reaction
 
@@ -5255,19 +5258,8 @@ class Character(_CharacterBase):
         player_info = morld.get_unit_info(player_id)
         player_name = player_info.get("name", "주인공") if player_info else "주인공"
 
-        props = morld.get_unit_props(self.instance_id) or {}
-        affection = props.get(f"관계:{player_name}:호감", 0)
-        arousal = props.get("상태:성욕", 0)
-
-        # 반응 유형 (flavor 대사 선택용)
-        if affection >= 70 and arousal >= 60:
-            reaction_type = "initiate"
-        elif affection >= 70 and arousal >= 50:
-            reaction_type = "intimate"
-        elif affection >= 40:
-            reaction_type = "embarrassed"
-        else:
-            reaction_type = "disgusted"
+        # 반응 유형 (flavor 대사 선택용) — 연속 스코어 기반
+        reaction_type = self._compute_discovery_reaction_type(player_name)
 
         # NPC 발각자 성욕 훅 (공통)
         try:
@@ -5311,6 +5303,46 @@ class Character(_CharacterBase):
             yield ui.dialog(f"당신은 자위를 멈추고 {self.name}의 시야에서 벗어났다.")
 
         return handler()
+
+    # 반응 스코어 band 경계 — 기존 4단계 임계값을 연속 스코어에 근사
+    # score = affection/100 + arousal/100 + (personality shift)
+    # - affection 70 + arousal 60 = 1.30 → initiate
+    # - affection 70 + arousal 50 = 1.20 → intimate
+    # - affection 40 + arousal 0  = 0.40 → embarrassed
+    # - else                                 → disgusted
+    _REACTION_BAND_INITIATE = 1.30
+    _REACTION_BAND_INTIMATE = 1.20
+    _REACTION_BAND_EMBARRASSED = 0.40
+
+    def _compute_discovery_reaction_type(self, player_name):
+        """자위 발각 반응 유형을 연속 스코어로 결정.
+
+        기존 4단계 if-elif 체인을 (호감+성욕)/100 + 성격:정조 shift 기반
+        스코어로 전환. 한 축이 낮아도 다른 축으로 보완 가능.
+        정조 ±1 → ∓0.2 score shift (정조 높음 = 보수적 반응).
+
+        Returns: "initiate" / "intimate" / "embarrassed" / "disgusted"
+        """
+        props = morld.get_unit_props(self.instance_id) or {}
+        affection = props.get(f"관계:{player_name}:호감", 0)
+        arousal = props.get("상태:성욕", 0)
+
+        score = (affection + arousal) / 100.0
+
+        try:
+            from romance_core import get_personality_value
+            chastity = get_personality_value(self.instance_id, "정조")
+            score -= chastity * 0.2
+        except Exception:
+            pass
+
+        if score >= self._REACTION_BAND_INITIATE:
+            return "initiate"
+        if score >= self._REACTION_BAND_INTIMATE:
+            return "intimate"
+        if score >= self._REACTION_BAND_EMBARRASSED:
+            return "embarrassed"
+        return "disgusted"
 
     def _on_player_exposure_discovered(self, player_id):
         """플레이어 자발적 노출 발견 → 관계 기반 반응"""

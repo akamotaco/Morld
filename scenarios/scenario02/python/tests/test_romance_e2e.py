@@ -2840,6 +2840,60 @@ class TestMasturbationObservedArousal:
         assert morld.get_unit_prop(1, "상태:성욕") == 10
 
 
+class TestDiscoveryReactionScore:
+    """자위 발각 반응 — 연속 스코어 (Refactor Tier 1 #2).
+
+    기존 4단계 if-elif 체인 → (affection+arousal)/100 + 성격:정조 shift.
+    한 축이 낮아도 다른 축으로 보완 가능.
+    """
+
+    def _make_char(self, affection=0, arousal=0, chastity=None):
+        from assets.base import Character
+        props = {"관계:주인공:호감": affection, "상태:성욕": arousal}
+        if chastity is not None:
+            props["성격:정조"] = chastity
+        morld.register_unit(2, name="세라", props=props)
+        char = Character.__new__(Character)
+        char.instance_id = 2
+        char.name = "세라"
+        return char
+
+    def test_initiate_at_legacy_threshold(self):
+        """호감 70 + 성욕 60 = 1.30 → initiate (기존 경계 보존)."""
+        char = self._make_char(affection=70, arousal=60)
+        assert char._compute_discovery_reaction_type("주인공") == "initiate"
+
+    def test_intimate_band(self):
+        """호감 70 + 성욕 50 = 1.20 → intimate."""
+        char = self._make_char(affection=70, arousal=50)
+        assert char._compute_discovery_reaction_type("주인공") == "intimate"
+
+    def test_embarrassed_band_low_arousal(self):
+        """호감 40 + 성욕 0 = 0.40 → embarrassed."""
+        char = self._make_char(affection=40, arousal=0)
+        assert char._compute_discovery_reaction_type("주인공") == "embarrassed"
+
+    def test_disgusted_below_all_bands(self):
+        """호감 30 + 성욕 0 = 0.30 → disgusted."""
+        char = self._make_char(affection=30, arousal=0)
+        assert char._compute_discovery_reaction_type("주인공") == "disgusted"
+
+    def test_high_arousal_compensates_low_affection(self):
+        """호감 60 + 성욕 80 = 1.40 → initiate (구 로직에선 embarrassed)."""
+        char = self._make_char(affection=60, arousal=80)
+        assert char._compute_discovery_reaction_type("주인공") == "initiate"
+
+    def test_chastity_shifts_down(self):
+        """정조 +1 → score -0.2. 호감 70 + 성욕 60 = 1.30 - 0.2 = 1.10 → embarrassed."""
+        char = self._make_char(affection=70, arousal=60, chastity=1)
+        assert char._compute_discovery_reaction_type("주인공") == "embarrassed"
+
+    def test_loose_chastity_shifts_up(self):
+        """정조 -1 → score +0.2. 호감 50 + 성욕 60 = 1.10 + 0.2 = 1.30 → initiate."""
+        char = self._make_char(affection=50, arousal=60, chastity=-1)
+        assert char._compute_discovery_reaction_type("주인공") == "initiate"
+
+
 class TestDispositionSexualHelpers:
     """Phase 2 Slice G: get_disposition_value 성향 성애 8개 fallback."""
 
