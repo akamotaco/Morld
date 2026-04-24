@@ -53,8 +53,8 @@ EXPOSURE_DISCOVERY_PENALTY = {"호감": -3, "반발": 5}
 
 # `get_romance_reaction` 에서 ROMANCE_REACTIONS 미정의 시 자동 Hybrid 위임
 # 하는 톤 접두사. 각 액션을 개별 rule 로 명시하지 않아도 아키타입 풀의
-# `forced_{category}` / `trance_{category}` 조합으로 톤 유지.
-_HYBRID_TONE_PREFIXES = ("forced_", "trance_deep_", "trance_")
+# `forced_{category}` / `trance_{category}` / `ecstasy_{category}` 조합으로 톤 유지.
+_HYBRID_TONE_PREFIXES = ("forced_", "trance_deep_", "trance_", "ecstasy_")
 
 
 class DialogueCoverageError(LookupError):
