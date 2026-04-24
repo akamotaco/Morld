@@ -4882,6 +4882,8 @@ class Character(_CharacterBase):
             if not stealth_mod.is_player_stealthed():
                 lines.append("[url=@ret:stealth]몰래 숨는다[/url]")
             lines.append("[url=@ret:retreat]조용히 물러난다[/url]")
+            lines.append("[url=@ret:intervene_stop]그만두게 한다[/url]")
+            lines.append("[url=@ret:intervene_join]참여한다[/url]")
             lines.append("[url=@ret:confront]목격한다[/url]")
 
             choice = yield ui.dialog("\n".join(lines), autofill="off")
@@ -4904,6 +4906,16 @@ class Character(_CharacterBase):
                 yield ui.dialog(
                     f"당신은 {name}(를)을 방해하지 않고 조용히 물러났다.\n"
                     f"성행위는 계속된다...")
+                return
+
+            elif choice == "intervene_stop":
+                yield from self._run_npc_intimacy_intervene_stop(
+                    player_id, is_forced_victim)
+                return
+
+            elif choice == "intervene_join":
+                yield from self._run_npc_intimacy_intervene_join(
+                    player_id, is_forced_victim)
                 return
 
             # confront 또는 stealth 실패 → 기존 발각 흐름
@@ -4984,6 +4996,149 @@ class Character(_CharacterBase):
         text = text.format(name=self.name)
 
         yield ui.dialog(text)
+
+    def _run_npc_intimacy_intervene_stop(self, player_id, is_forced_victim):
+        """Phase 2.2b: "그만두게 한다" — 세션 강제 중단 + 수치 변동.
+
+        강제 케이스: 가해 NPC 반발 +20, 피해 NPC 호감 +5 (구원자 감사)
+        합의 케이스: 양쪽 반발 +10, 플레이어 호감 각각 -3 (방해당한 불쾌)
+        """
+        import think
+        from romance_core import (
+            get_affection_key, get_rebellion_key,
+            clear_npc_sex_role as _clear_npc_sex_role,
+        )
+        partner_id = morld.get_unit_prop(self.instance_id, "성행위:상대")
+        name = self.name
+        partner_name = "상대"
+        if partner_id:
+            info = morld.get_unit_info(partner_id)
+            if info:
+                partner_name = info.get("name", "상대")
+
+        # 세션 정리: 이니시에이터 agent 찾아서 _cleanup_npc_intimacy 호출
+        agent = think.get_agent(self.instance_id)
+        partner_agent = think.get_agent(partner_id) if partner_id else None
+        initiator_agent = None
+        if agent and agent._memory.get("npc_intimacy_phase") is not None:
+            initiator_agent = agent
+        elif partner_agent and partner_agent._memory.get("npc_intimacy_phase") is not None:
+            initiator_agent = partner_agent
+
+        if initiator_agent:
+            from think.handlers.self_comfort import _cleanup_npc_intimacy
+            _cleanup_npc_intimacy(initiator_agent)
+            morld.clear_jobs(initiator_agent.unit_id)
+            initiator_agent._insert_idle_job("대기", 60_000)
+            other_id = self.instance_id if initiator_agent.unit_id != self.instance_id else partner_id
+            if other_id:
+                morld.clear_jobs(other_id)
+                other_agent = think.get_agent(other_id)
+                if other_agent:
+                    other_agent._insert_idle_job("대기", 60_000)
+        else:
+            # Agent 없음 (테스트 등) — prop만 직접 정리
+            _clear_npc_sex_role(self.instance_id)
+            morld.clear_prop(self.instance_id, "성행위:상대")
+            if partner_id:
+                _clear_npc_sex_role(partner_id)
+                morld.clear_prop(partner_id, "성행위:상대")
+
+        # 수치 변동
+        if is_forced_victim:
+            # self가 피해자. partner가 가해자.
+            if partner_id:
+                morld.modify_prop(partner_id, get_rebellion_key(player_id), 20)
+            morld.modify_prop(self.instance_id, get_affection_key(player_id), 5)
+            yield ui.dialog(
+                f"당신은 {name}(를)을 구했다.\n"
+                f"{name}(이)가 당신에게 감사의 눈빛을 보낸다.\n"
+                f"{partner_name}의 표정에는 분노가 서려 있다.")
+        else:
+            # 합의 세션 중단 — 양쪽 불쾌
+            morld.modify_prop(self.instance_id, get_rebellion_key(player_id), 10)
+            morld.modify_prop(self.instance_id, get_affection_key(player_id), -3)
+            if partner_id:
+                morld.modify_prop(partner_id, get_rebellion_key(player_id), 10)
+                morld.modify_prop(partner_id, get_affection_key(player_id), -3)
+            yield ui.dialog(
+                f"당신이 훼방을 놓자 {name}(와)과 {partner_name}(이)가 멈춘다.\n"
+                f"두 사람이 못마땅한 시선으로 당신을 바라본다.")
+
+    def _run_npc_intimacy_intervene_join(self, player_id, is_forced_victim):
+        """Phase 2.2b: "참여한다" — 두 NPC 중 한 명 선택, 1:1 세션 전환 (옵션 C 근사).
+
+        Phase 4 난교 시스템 전면 도입 없이 선택지 플롯만 성립.
+        """
+        from romance_core import clear_npc_sex_role as _clear_npc_sex_role
+        partner_id = morld.get_unit_prop(self.instance_id, "성행위:상대")
+        if partner_id is None:
+            # 파트너 소실 — 폴백: 발각 흐름
+            yield from self._run_npc_intimacy_discovery_reaction(player_id)
+            return
+
+        partner_info = morld.get_unit_info(partner_id)
+        partner_name = partner_info.get("name", "상대") if partner_info else "상대"
+
+        # 파트너 택일
+        lines = [
+            f"[!]누구와 함께하겠습니까?[/!]",
+            "",
+            f"[url=@ret:self]{self.name}[/url]",
+            f"[url=@ret:partner]{partner_name}[/url]",
+            f"[url=@ret:cancel]취소[/url]",
+        ]
+        choice = yield ui.dialog("\n".join(lines), autofill="off")
+
+        if choice == "cancel" or not choice:
+            return
+
+        chosen_id = self.instance_id if choice == "self" else partner_id
+        other_id = partner_id if choice == "self" else self.instance_id
+
+        # 세션 강제 종료 (기존 NPC-NPC 정사 정리)
+        import think
+        for unit_id in (self.instance_id, partner_id):
+            agent = think.get_agent(unit_id)
+            if agent and agent._memory.get("npc_intimacy_phase") is not None:
+                from think.handlers.self_comfort import _cleanup_npc_intimacy
+                _cleanup_npc_intimacy(agent)
+                morld.clear_jobs(unit_id)
+                break
+        # 선택되지 않은 NPC는 자리 떠남 처리
+        _clear_npc_sex_role(other_id)
+        morld.clear_prop(other_id, "성행위:상대")
+        other_agent = think.get_agent(other_id)
+        if other_agent:
+            morld.clear_jobs(other_id)
+            other_agent._insert_idle_job("대기", 60_000)
+
+        # 선택된 NPC도 정사 상태 해제 (플레이어와 새 세션 진입)
+        _clear_npc_sex_role(chosen_id)
+        morld.clear_prop(chosen_id, "성행위:상대")
+
+        # 플레이어 ↔ 선택된 NPC 세션 시작
+        from romance import start_romance
+        from romance_mode import MODE_CONSENSUAL, MODE_FORCED
+        # 피해자를 구해서 합의로 전환 / 가해자와는 강제 / 합의 세션 난입은 합의
+        if is_forced_victim and chosen_id == self.instance_id:
+            # self는 피해자 → 구출 후 합의
+            mode = MODE_CONSENSUAL
+            yield ui.dialog(
+                f"당신은 {self.name}(를)을 구하고 품에 안았다.")
+        elif is_forced_victim and chosen_id == partner_id:
+            # 가해자와 합류 → 강제 모드 유지
+            mode = MODE_FORCED
+            yield ui.dialog(
+                f"당신은 가해자 {partner_name} 쪽에 가담한다.")
+        else:
+            # 합의 세션 난입 — 합의 전환
+            mode = MODE_CONSENSUAL
+            chosen_name = self.name if chosen_id == self.instance_id else partner_name
+            yield ui.dialog(
+                f"당신은 {chosen_name}(와)과 함께하기로 했다.")
+
+        yield from start_romance(player_id, chosen_id, mode=mode)
 
     def _run_discovery_reaction(self, player_id, config):
         """발각 반응 실행 (Generator)"""

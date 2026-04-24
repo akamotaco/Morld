@@ -2392,6 +2392,69 @@ class TestDispositionResponsivenessMultiplier:
         assert out["성욕"] == 7
 
 
+class TestNpcIntimacyInterveneStop:
+    """Phase 2.2b: 'intervene_stop' 수치 변동 + 세션 정리."""
+
+    def _setup(self):
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        # self = NPC2 (발견된 NPC), partner = NPC3
+        morld.register_unit(2, name="세라", props={
+            "관계:주인공:호감": 50,
+            "관계:주인공:반발": 0,
+        })
+        morld.register_unit(3, name="행인", props={
+            "관계:주인공:호감": 30,
+            "관계:주인공:반발": 0,
+        })
+        rc.set_npc_sex_role(2, rc.NPC_SEX_CONSENSUAL)
+        rc.set_npc_sex_role(3, rc.NPC_SEX_CONSENSUAL)
+        morld.set_unit_prop(2, "성행위:상대", 3)
+        morld.set_unit_prop(3, "성행위:상대", 2)
+
+    def _self_npc(self):
+        """테스트 대상 NPC 인스턴스 (Character 하위) — 간단한 mock."""
+        from assets.base import Character
+        char = Character.__new__(Character)
+        char.instance_id = 2
+        char.name = "세라"
+        return char
+
+    def test_consensual_intervene_stop_penalizes_both(self):
+        """합의 세션 중단 → 양쪽 반발+10, 호감-3."""
+        self._setup()
+        char = self._self_npc()
+        # generator 소진 (dialog yield 무시)
+        for _ in char._run_npc_intimacy_intervene_stop(1, is_forced_victim=False):
+            pass
+        assert morld.get_unit_prop(2, "관계:주인공:반발") == 10
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 47
+        assert morld.get_unit_prop(3, "관계:주인공:반발") == 10
+        assert morld.get_unit_prop(3, "관계:주인공:호감") == 27
+
+    def test_forced_intervene_stop_rescues_victim(self):
+        """강제 피해자 구출 → 가해자 반발+20, 피해자 호감+5."""
+        self._setup()
+        rc.set_npc_sex_role(2, rc.NPC_SEX_VICTIM)
+        rc.set_npc_sex_role(3, rc.NPC_SEX_AGGRESSOR)
+        char = self._self_npc()
+        for _ in char._run_npc_intimacy_intervene_stop(1, is_forced_victim=True):
+            pass
+        # 피해자 호감 +5
+        assert morld.get_unit_prop(2, "관계:주인공:호감") == 55
+        # 가해자 반발 +20
+        assert morld.get_unit_prop(3, "관계:주인공:반발") == 20
+
+    def test_intervene_stop_clears_npc_sex_role(self):
+        """세션 정리 — 양쪽 상태:NPC정사 제거."""
+        self._setup()
+        char = self._self_npc()
+        for _ in char._run_npc_intimacy_intervene_stop(1, is_forced_victim=False):
+            pass
+        assert rc.get_npc_sex_role(2) is None
+        assert rc.get_npc_sex_role(3) is None
+
+
 class TestDispositionSexualHelpers:
     """Phase 2 Slice G: get_disposition_value 성향 성애 8개 fallback."""
 
