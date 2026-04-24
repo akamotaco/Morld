@@ -535,8 +535,14 @@ class InterruptMixin:
         if last is not None and self.get_time() - last < _SELF_COMFORT_COOLDOWN_MS:
             return False
 
-        # 임계치
+        # 임계치 (성격:정조에 따라 ±20 조정 — Phase 2 Slice F)
         threshold = getattr(self, 'self_comfort_threshold', 80)
+        try:
+            from romance_core import get_personality_value
+            chastity = get_personality_value(self.unit_id, "정조")
+            threshold += chastity * 20  # +1 → 100 (거의 안 함), -1 → 60 (더 자주)
+        except Exception:
+            pass
         arousal = morld.get_unit_prop(self.unit_id, "상태:성욕") or 0
         if arousal < threshold:
             return False
