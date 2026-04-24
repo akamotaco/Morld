@@ -2221,6 +2221,50 @@ class TestPersonalityGateModifier:
         assert rc.calculate_availability_score(2, 1, action) == 20
 
 
+class TestDispositionResponsivenessMultiplier:
+    """Phase 2 Slice H: 쾌감응답 → 성욕 gain 배율."""
+
+    def _setup(self, props=None):
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        morld.register_unit(2, props=props or {})
+
+    def test_default_1_0(self):
+        self._setup()
+        assert rc.get_disposition_arousal_multiplier(2) == 1.0
+
+    def test_positive_responsiveness_amplifies(self):
+        self._setup(props={"성향:쾌감응답": 1})
+        assert abs(rc.get_disposition_arousal_multiplier(2) - 1.3) < 1e-9
+
+    def test_negative_responsiveness_dampens(self):
+        self._setup(props={"성향:쾌감응답": -1})
+        assert abs(rc.get_disposition_arousal_multiplier(2) - 0.7) < 1e-9
+
+    def test_calculate_effects_applies_responsiveness(self):
+        """쾌감응답 1 → 성욕 +10 → ×1.3 = 13."""
+        self._setup(props={"성향:쾌감응답": 1})
+        action = {"name": "액션", "effects": {"성욕": 10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["성욕"] == 13
+
+    def test_calculate_effects_negative_arousal_unchanged(self):
+        """성욕 감소는 배율 적용 안 함 (양수 gain 전용)."""
+        self._setup(props={"성향:쾌감응답": 1})
+        action = {"name": "액션", "effects": {"성욕": -10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["성욕"] == -10
+
+    def test_archetype_cold_dampens_arousal(self):
+        """cold (쾌감응답 -1) → 성욕 +10 → ×0.7 = 7."""
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        morld.register_unit(2, props={"아키타입": "cold"})
+        action = {"name": "액션", "effects": {"성욕": 10}, "exp_part": None}
+        out = rc.calculate_effects(action, 2, 1)
+        assert out["성욕"] == 7
+
+
 class TestDispositionSexualHelpers:
     """Phase 2 Slice G: get_disposition_value 성향 성애 8개 fallback."""
 

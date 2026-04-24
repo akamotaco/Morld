@@ -573,6 +573,18 @@ def on_external_cumshot(unit_id, target_part):
     return apply_shame(unit_id, gain, reason=f"external_cumshot:{target_part}")
 
 
+def get_disposition_arousal_multiplier(partner_id):
+    """성향 성애 기반 성욕 gain 배율.
+
+    Phase 2 §7.13 — 쾌감응답이 반발 factor와 유사하게 배율 적용.
+      쾌감응답 +1 (솔직) → ×1.3
+      쾌감응답  0 (보통) → ×1.0
+      쾌감응답 -1 (부정) → ×0.7
+    """
+    responsiveness = get_disposition_value(partner_id, "쾌감응답")
+    return 1.0 + responsiveness * 0.3
+
+
 def get_personality_effect_multipliers(partner_id):
     """성격 trait 기반 복종/반발 gain 배율 (양수 변동에만 적용).
 
@@ -841,6 +853,13 @@ def calculate_effects(action_def, partner_id, player_id=None):
         val = base_effects.get(stat, 0)
         if val > 0 and mult != 1.0:
             base_effects[stat] = round(val * mult)
+
+    # Phase 2 후반 성향 쾌감응답 — 양수 성욕 gain에만 배율
+    arousal_mult = get_disposition_arousal_multiplier(partner_id)
+    if arousal_mult != 1.0:
+        val = base_effects.get("성욕", 0)
+        if val > 0:
+            base_effects["성욕"] = round(val * arousal_mult)
 
     return base_effects
 
