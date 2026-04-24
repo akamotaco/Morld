@@ -2009,6 +2009,69 @@ class TestAutonomyWeight:
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
 
+class TestPersonalityGateModifier:
+    """Phase 2 Slice B: 성격 4 trait이 availability_score에 반영."""
+
+    def _setup(self, archetype=None, props=None):
+        base_props = dict(props or {})
+        if archetype:
+            base_props["아키타입"] = archetype
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        morld.register_unit(2, props=base_props)
+
+    def test_no_archetype_no_modifier(self):
+        self._setup()
+        assert rc.get_personality_gate_modifier(2) == 0
+
+    def test_positive_traits_lower_score(self):
+        """정조+1/자존심+1 → threshold ↑ → 모디파이어 음수."""
+        self._setup(props={"성격:정조": 1, "성격:자존심": 1})
+        # 정조×10 + 자존심×8 = 18 threshold 상승 → -18 모디파이어
+        assert rc.get_personality_gate_modifier(2) == -18
+
+    def test_negative_traits_raise_score(self):
+        """정조-1 → threshold ↓ → 모디파이어 양수."""
+        self._setup(props={"성격:정조": -1})
+        assert rc.get_personality_gate_modifier(2) == 10
+
+    def test_all_traits_combined(self):
+        """모든 트레이트 +1 → 최대 페널티."""
+        self._setup(props={
+            "성격:담력": 1, "성격:자존심": 1,
+            "성격:정조": 1, "성격:태도": 1,
+        })
+        # 5+8+10+3 = 26 threshold → -26
+        assert rc.get_personality_gate_modifier(2) == -26
+
+    def test_archetype_innocent_raises_barrier(self):
+        """innocent (정조=1, 태도=-1) 아키타입 → 10 - 3 = +7 threshold → -7."""
+        self._setup(archetype="innocent")
+        assert rc.get_personality_gate_modifier(2) == -7
+
+    def test_archetype_seductive_lowers_barrier(self):
+        """seductive (담력=1, 정조=-1) → 5 - 10 = -5 threshold → +5."""
+        self._setup(archetype="seductive")
+        assert rc.get_personality_gate_modifier(2) == 5
+
+    def test_calculate_availability_includes_personality(self):
+        """calculate_availability_score에 성격 모디파이어가 합산."""
+        self._setup(props={
+            "관계:주인공:호감": 50,
+            "성격:정조": 1,  # -10 페널티
+        })
+        action = {"affection_req": 30}
+        # baseline = 50 - 30 = 20, 성격 페널티 -10 → 10
+        assert rc.calculate_availability_score(2, 1, action) == 10
+
+    def test_availability_unchanged_when_all_zero(self):
+        """성격 없음 → Slice B 도입 전 동작 보존."""
+        self._setup(props={"관계:주인공:호감": 50})
+        action = {"affection_req": 30}
+        # baseline = 50 - 30 = 20, 성격 0 → 20
+        assert rc.calculate_availability_score(2, 1, action) == 20
+
+
 class TestPersonalityTraitHelpers:
     """Phase 2 Slice A: get_personality_value 아키타입 기본값 + override."""
 

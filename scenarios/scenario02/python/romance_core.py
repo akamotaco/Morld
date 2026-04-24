@@ -528,6 +528,26 @@ def on_external_cumshot(unit_id, target_part):
     return apply_shame(unit_id, gain, reason=f"external_cumshot:{target_part}")
 
 
+def get_personality_gate_modifier(partner_id):
+    """성격 7 trait 기반 게이트 모디파이어 (availability_score 페널티).
+
+    Phase 2 §6.8.1 / §7.12 point 3 공식:
+      threshold += 담력×5 + 자존심×8 + 정조×10 + 태도×3
+
+    threshold 상승 = availability_score 감소 → 부호 반전하여 음수로 반환.
+
+    Why: 담대/자존심/정조/태도는 수락 장벽. trinary (-1/0/1)이므로
+         최대치 합 = (5+8+10+3) = 26, 최소치 = -26.
+    """
+    boldness = get_personality_value(partner_id, "담력")
+    pride = get_personality_value(partner_id, "자존심")
+    chastity = get_personality_value(partner_id, "정조")
+    attitude = get_personality_value(partner_id, "태도")
+    threshold_delta = (boldness * 5 + pride * 8
+                       + chastity * 10 + attitude * 3)
+    return -threshold_delta
+
+
 def calculate_availability_score(partner_id, player_id, action_def):
     """액션 가용성 점수 — 베이스라인 + 모디파이어 합산
 
@@ -538,6 +558,7 @@ def calculate_availability_score(partner_id, player_id, action_def):
     - 성욕/복종 할인 (get_effective_affection_req 경유)
     - 자제심 페널티 (영구 내면 억제)
     - 수치심 × 관객 페널티 (상황 억제)
+    - 성격 게이트 (담력/자존심/정조/태도)
 
     Why: era TW GET_SUCCESS_RATE 패턴 — 모든 가감 요소를 점수로 통합.
          이후 성격/각인 추가 모디파이어가 더해질 여지를 열어둠.
@@ -552,6 +573,8 @@ def calculate_availability_score(partner_id, player_id, action_def):
     # Phase 1 모디파이어
     baseline += get_restraint_modifier(partner_id)
     baseline += get_shame_modifier(partner_id)
+    # Phase 2 성격 게이트 (담력/자존심/정조/태도)
+    baseline += get_personality_gate_modifier(partner_id)
     return baseline
 
 
