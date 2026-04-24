@@ -1428,6 +1428,39 @@ label_threshold -= dom_relief
 - 액션 카탈로그 차별화 (지금 이미 availability로 연속 차별화)
 - 대사 톤 연속 스펙트럼
 
+#### P7 호칭 시스템 (2026-04-25 완료)
+
+`get_player_address_form(npc_id, player_id)` — 축 값 연속 구간:
+
+```
+net = submission - dominance
+net ≥ 80  → "주인님"       (강한 자발 종속)
+net ≥ 40  → "{이름}님"     (존칭, 호감 깊음)
+-40~40    → "{이름}"       (이름 호칭, 대등)
+net ≤ -40 → "너"            (하대, 지배 누적)
+net ≤ -80 → "꼬마"          (경멸·조롱, 강한 지배)
+```
+
+`context["호칭"]` 자동 주입 — 대사 템플릿 `{호칭}` 치환 가능. 실제 대사 점진 교체는 후속.
+
+**커밋**: `f9c4693`. 신규 8 e2e.
+
+#### P8 think 분기 (2026-04-25 완료)
+
+`_can_seek_player`에 축 값 기반 임계 완화:
+
+```python
+seek_relief = int(max(dominance, submission) × 0.2)
+affection_threshold -= seek_relief  # 최대 -20
+desire_threshold   -= seek_relief
+```
+
+**의미**: 지배 100 또는 복종 100인 NPC는 seek 임계 최대 -20 완화 — 플레이어를 더 자주 찾아감.
+- 지배 NPC: "내 장난감 어디 갔지" 심리
+- 복종 NPC: 주인을 쫓아다니는 충성심
+
+**커밋**: `0032aef`. 기존 회귀 확인만 (integration 경로).
+
 ---
 
 ### Phase 2.6: prop 통합 리팩터링 (2026-04-25 완료)
