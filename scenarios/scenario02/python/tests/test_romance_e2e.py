@@ -2009,6 +2009,49 @@ class TestAutonomyWeight:
 # Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
 # ============================================
 
+class TestSix_NPC_PersonalityPreset:
+    """Phase 2 Slice D: 6 NPC 성격 프리셋 — §7.8 / §7.9 기반."""
+
+    def _char_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    def test_lina_overrides(self):
+        """Lina (cheerful + 겁 많음): 담력 -1, 자존심 -1, 정조 1."""
+        cls = self._char_class("lina", "Lina")
+        assert cls.props.get("성격:담력") == -1
+        assert cls.props.get("성격:자존심") == -1
+        assert cls.props.get("성격:정조") == 1
+
+    def test_faye_tsundere(self):
+        """Faye (proud + 츤데레 뇌격전사): 츤데레 1."""
+        cls = self._char_class("faye", "Faye")
+        assert cls.props.get("성격:츤데레") == 1
+
+    def test_yuki_uses_archetype_default(self):
+        """Yuki (timid): override 없음 — timid 기본값 사용."""
+        cls = self._char_class("yuki", "Yuki")
+        for trait in rc.PERSONALITY_TRAITS:
+            assert f"성격:{trait}" not in cls.props, \
+                f"Yuki should use timid defaults, not explicit {trait}"
+
+    def test_ella_uses_archetype_default(self):
+        cls = self._char_class("ella", "Ella")
+        for trait in rc.PERSONALITY_TRAITS:
+            assert f"성격:{trait}" not in cls.props
+
+    def test_sera_uses_archetype_default(self):
+        cls = self._char_class("sera", "Sera")
+        for trait in rc.PERSONALITY_TRAITS:
+            assert f"성격:{trait}" not in cls.props
+
+    def test_mila_uses_archetype_default(self):
+        cls = self._char_class("mila", "Mila")
+        for trait in rc.PERSONALITY_TRAITS:
+            assert f"성격:{trait}" not in cls.props
+
+
 class TestPersonalityEffectMultipliers:
     """Phase 2 Slice C: 성격 변동 계수 — 복종/반발 양수 gain 배율."""
 
