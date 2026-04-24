@@ -1189,6 +1189,96 @@ Phase 2.2a의 list 랜덤 pick과 조합 — beloved 있으면 일반 대사 + �
 
 ---
 
+### Phase 2.5: 질내/외부 사정 서사 갭 메우기 (2026-04-25 완료)
+
+**배경**: 질내사정 메커니즘은 탄탄하지만 서사/피드백 갭 다수 존재 — 부위별 내부 사정 반응·배란일 경고·외부 사정 수치심·체내 초과 오버플로·raw 삽입 경고. 6 캐릭터 대사 + 상태 기반 focus 묘사 tier 전반 보강.
+
+#### 2.5.A 항문/구강 내부 사정 반응 대사 (Slice A)
+
+**목적**: 기존 `ejaculation_internal_음부:start`와 동일 패턴으로 항문/구강 확장.
+
+- `ejaculation_internal_항문:start` — 반발 30/15, 성욕 80 + 경험:항문 5, 경험:항문 3, fallback
+- `ejaculation_internal_구강:start` — 반발 30/15, 성욕 80 + 경험:구강 5, 경험:구강 3, fallback
+- 6 캐릭터 × 2 부위 × 4~5 rule. `swallow_semen_*`와 분리된 "입 안 쏟아짐" 즉각 반응.
+
+`run_tests.py` 고아 엔트리(`test_alias_removal`) 제거.
+
+#### 2.5.B 배란일 질내사정 경고 (Slice B)
+
+**인프라**:
+- `pregnancy.is_fertile_day(unit_id)` — 배란기 OR `상태:배란유도` AND NOT `상태:임신`
+- `Character._check_reaction_condition`에 `배란` 특수 키 지원 (`피로도_체력` 패턴과 동일, bool 비교)
+
+**대사** (6 캐릭터 `ejaculation_internal_음부:start` 최상단):
+- `{"배란": True, "반발": 15}` — 강제 + 배란 (강한 경고, 임신 확정 뉘앙스)
+- `{"배란": True}` — 그 외 배란 (각오/자각, 캐릭터 톤)
+
+캐릭터별 톤: Lina 당황, Yuki 공포, Ella 분석적, Mila 받아들임, Sera 분노, Faye 체념.
+
+#### 2.5.C 외부 사정 수치심 + 부위별 반응 (Slice C)
+
+**수치심 훅**:
+- `SHAME_GAIN_EXTERNAL_CUMSHOT = {"얼굴": 15, "가슴": 10, "배": 6, "엉덩이": 5, "음부": 3}`
+- `on_external_cumshot(unit_id, target_part)` — `apply_shame` 래퍼, clamp 포함
+- `romance.py` `pull_out_target` 실행 지점 연결 (FROZEN 모드 스킵 — 인지 불가)
+
+**대사** (6 캐릭터 × 4 부위 = 24 키):
+- 부위별: 얼굴(최고 수치) / 가슴(감춤) / 배(중립) / 엉덩이(특이)
+- 각 키 3 rule: 반발 15 혐오 / 성욕 80 수용 / 기본
+
+#### 2.5.D 체내 오버플로 + raw 경고 (Slice D)
+
+**D1 — 체내 초과분 외부 전이**:
+- `_apply_internal_semen`에 overflow 처리 추가:
+  ```python
+  _INTERNAL_TO_EXTERNAL_PART = {"음부": "음부", "항문": "엉덩이", "구강": "얼굴"}
+  overflow = (current + amount) - INTERNAL_SEMEN_MAX
+  if overflow > 0: _apply_semen(target, ext_part, overflow)
+  ```
+- 목욕(`clear_all_semen`) 전까지 외부 오염 영속 → NPC focus에서 `_FOCUS_SEMEN` 묘사 노출.
+
+**D1 — 오버플로 대사**:
+- `state["overflow_part"]` 마커 — 체내 ≥ 80% + 추가 MAX 초과 시 세팅
+- reaction lookup에서 `ejaculation_internal_{부위}_overflow:start` 우선 (fallback 유지)
+- 6 캐릭터 × 3 부위 × 2 rule (반발 15 / 기본) = 36 rule
+
+**D2 — raw 질삽입 경고**:
+- `state["raw_vaginal_warned"]` 플래그, `extract_preserved`에 보존
+- 콘돔 없이 vaginal 첫 성공 시 `raw_vaginal_warning:start` 대사 + 플래그 세팅 (세션 1회)
+- 6 캐릭터 × 2 rule (반발 15 / 기본)
+
+#### 2.5.E 양 기반 focus 묘사 tier (Slice E)
+
+**사용자 원설계 재확인**: `pull_out_target` → `오염물:정액:{부위}` → `_FOCUS_SEMEN` → NPC focus에서 "얼굴에 하얀 것이 묻어 있다" 노출. 세션 종료 후에도 목욕 전까지 유지. **제거되지 않음, 여전히 활성.**
+
+**A 외부 오염 2-tier** (`_FOCUS_SEMEN`):
+- 대량 50+ 우선 — "얼굴이 정액으로 범벅이 되어 있다" 등 5 부위
+- 소량 10+ — 기존 "묻어 있다" 줄 유지
+- First-match 구조 그대로 (대량이 선두)
+
+**B 체내 항문 tier** (`_FOCUS_INTERNAL_SEMEN`):
+- 5 아키타입 × 2 tier (50 / 1) × 항문 = 10 신규 줄
+- 50+: "엉덩이 사이로 정액이 배어 나오고 있다" 아키타입 변형
+- 1+: 미세 자세 변화 ("다리를 모은다" / "몸을 웅크린다")
+
+**C 전신 범벅 additive** (`_compute_bukkake_extra`):
+- 외부 ≥ 50인 부위 카운트
+- 3부위: "여러 곳에 정액이 두껍게 쌓여 있다"
+- 4부위+: "전신이 정액으로 흠뻑 젖어 있다"
+- `get_focus_text` 뒤에 `"\n" + 추가 줄` append — **기존 묘사 대체 X**
+
+#### 2.5.F 테스트 커버리지 (41 신규 e2e)
+
+- Slice A: 생략 (기존 패턴 재사용, 회귀 테스트만)
+- Slice B: `TestFertileDayHelper`, `TestOvulationReactionCondition`, `TestFertileWarningDialoguePool` (11 케이스)
+- Slice C: `TestExternalCumshotShameHook`, `TestExternalCumshotDialoguePool` (10 케이스)
+- Slice D: `TestOverflowDialoguePool`, `TestRawVaginalWarningDialoguePool`, `TestExtractPreservedRawVaginalFlag`, test_romance_core 오버플로 전이 5개 (11 케이스)
+- Slice E: `TestExternalSemenFocusTiers` (7 케이스), `TestAnalInternalFocusTier` (2 케이스)
+
+전체 1393/1393 통과.
+
+---
+
 ### Phase 2: 성향 탤런트 체계
 **Talent 시스템 이식**
 - 신규 네임스페이스: `성향:{key}` (영구 또는 느린 변동)

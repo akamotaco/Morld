@@ -156,6 +156,16 @@ def is_ovulating(unit_id):
     return get_cycle_phase(unit_id) == "배란기"
 
 
+def is_fertile_day(unit_id):
+    """질내사정 임신 리스크가 실질적으로 존재하는 날
+    — 배란기 또는 배란유도 상태 + 미임신. 대사/경고 분기용."""
+    if morld.get_unit_prop(unit_id, "상태:임신"):
+        return False
+    if (morld.get_unit_prop(unit_id, "상태:배란유도") or 0) == 1:
+        return True
+    return is_ovulating(unit_id)
+
+
 # ============================================
 # 수정 판정
 # ============================================

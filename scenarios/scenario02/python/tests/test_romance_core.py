@@ -804,6 +804,52 @@ class TestSemenSystem:
         rc._apply_internal_semen(10, INTERNAL_SEMEN_PARTS[0], INTERNAL_SEMEN_MAX + 50)
         assert morld.get_unit_prop(10, f"체내:정액:{INTERNAL_SEMEN_PARTS[0]}") == INTERNAL_SEMEN_MAX
 
+    def test_internal_overflow_transfers_to_external_vaginal(self):
+        """음부 overflow → 오염물:정액:음부 외부 오염."""
+        from romance_actions import INTERNAL_SEMEN_MAX
+        morld.register_unit(10, props={f"체내:정액:음부": INTERNAL_SEMEN_MAX - 10})
+        rc._apply_internal_semen(10, "음부", 40)
+        # 체내 100 cap
+        assert morld.get_unit_prop(10, "체내:정액:음부") == INTERNAL_SEMEN_MAX
+        # 초과분 30 → 외부 음부
+        assert morld.get_unit_prop(10, "오염물:정액:음부") == 30
+
+    def test_internal_overflow_transfers_to_external_anal(self):
+        """항문 overflow → 오염물:정액:엉덩이."""
+        from romance_actions import INTERNAL_SEMEN_MAX
+        morld.register_unit(10, props={f"체내:정액:항문": 90})
+        rc._apply_internal_semen(10, "항문", 30)
+        assert morld.get_unit_prop(10, "체내:정액:항문") == INTERNAL_SEMEN_MAX
+        assert morld.get_unit_prop(10, "오염물:정액:엉덩이") == 20
+
+    def test_internal_overflow_transfers_to_external_oral(self):
+        """구강 overflow → 오염물:정액:얼굴."""
+        from romance_actions import INTERNAL_SEMEN_MAX
+        morld.register_unit(10, props={f"체내:정액:구강": 80})
+        rc._apply_internal_semen(10, "구강", 50)
+        assert morld.get_unit_prop(10, "체내:정액:구강") == INTERNAL_SEMEN_MAX
+        assert morld.get_unit_prop(10, "오염물:정액:얼굴") == 30
+
+    def test_no_overflow_no_external(self):
+        """정확히 max 도달 — 초과량 없음 → 외부 오염 없음."""
+        from romance_actions import INTERNAL_SEMEN_MAX
+        morld.register_unit(10, props={f"체내:정액:음부": 50})
+        rc._apply_internal_semen(10, "음부", 50)
+        assert morld.get_unit_prop(10, "체내:정액:음부") == INTERNAL_SEMEN_MAX
+        # 외부는 설정 안 됨
+        assert morld.get_unit_prop(10, "오염물:정액:음부") is None
+
+    def test_overflow_stacks_with_existing_external(self):
+        """기존 외부 오염에 누적."""
+        from romance_actions import INTERNAL_SEMEN_MAX
+        morld.register_unit(10, props={
+            f"체내:정액:음부": 95,
+            f"오염물:정액:음부": 20,
+        })
+        rc._apply_internal_semen(10, "음부", 30)
+        # 초과 25 → 외부 20 + 25 = 45
+        assert morld.get_unit_prop(10, "오염물:정액:음부") == 45
+
     def test_clear_all_internal_semen(self):
         """체내 정액 전체 제거"""
         props = {f"체내:정액:{p}": 30 for p in INTERNAL_SEMEN_PARTS}

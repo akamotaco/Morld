@@ -160,6 +160,14 @@ _romance_enabled = False  # 기본 OFF → True로 변경하면 기본 ON
 | 여운 강도별 반응 (sensitive/trembling/fading) | tone_templates/, characters/*.py | ✅ 완료 |
 | 여운 종료 반응 (afterglow_end) | stimulation.py, romance.py, npc_initiative.py | ✅ 완료 |
 | NPC 주도 여운 행동 (자동 일시정지) | npc_initiative.py (_npc_auto_advance) | ✅ 완료 |
+| 항문/구강 내부 사정 반응 (6 캐릭터) | characters/*.py (ejaculation_internal_{항문,구강}:start) | ✅ 완료 (2026-04-25) |
+| 배란일 질내사정 경고 (6 캐릭터) | pregnancy.is_fertile_day, base.py `배란` 특수 키 | ✅ 완료 (2026-04-25) |
+| 외부 사정 수치심 훅 (부위별) | romance_core.py (on_external_cumshot, SHAME_GAIN_EXTERNAL_CUMSHOT) | ✅ 완료 (2026-04-25) |
+| 외부 사정 부위별 반응 (6 캐릭터 × 4 부위) | characters/*.py (pull_out_{부위}:start) | ✅ 완료 (2026-04-25) |
+| 체내 오버플로 → 외부 오염 전이 | romance_core.py (_apply_internal_semen, _INTERNAL_TO_EXTERNAL_PART) | ✅ 완료 (2026-04-25) |
+| 오버플로 대사 (6 캐릭터 × 3 부위) | characters/*.py (ejaculation_internal_{부위}_overflow:start), romance.py | ✅ 완료 (2026-04-25) |
+| raw 질삽입 경고 (6 캐릭터) | romance.py (raw_vaginal_warned), characters/*.py (raw_vaginal_warning:start) | ✅ 완료 (2026-04-25) |
+| Focus 묘사 tier (외부 2-tier / 체내 항문 2-tier / 전신 범벅 additive) | base.py (_FOCUS_SEMEN, _FOCUS_INTERNAL_SEMEN, _compute_bukkake_extra) | ✅ 완료 (2026-04-25) |
 
 ### 지원 캐릭터
 

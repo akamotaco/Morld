@@ -306,6 +306,15 @@ SHAME_GAIN_NEAR_MISS = 3            # 은신 성공 스릴 (들킬 뻔)
 SHAME_GAIN_MASTURBATION_SEEN = 25   # 자위 목격
 SHAME_GAIN_NUDE_IN_PUBLIC = 5       # 공공장소 노출 상태 진입
 
+# 외부 사정 수치심 — 부위별 가시성/치부 노출도 기반
+SHAME_GAIN_EXTERNAL_CUMSHOT = {
+    "얼굴": 15,
+    "가슴": 10,
+    "배": 6,
+    "엉덩이": 5,
+    "음부": 3,
+}
+
 # 시간 감쇠
 SHAME_DECAY_PER_HOUR = 5            # 1시간당 감소량 (자연 감쇠)
 
@@ -374,6 +383,14 @@ def on_nude_in_public(unit_id):
     """공공장소(관객 있는 location)에서 노출 상태 진입 → 수치심 증가."""
     return apply_shame(unit_id, SHAME_GAIN_NUDE_IN_PUBLIC,
                        reason="nude_in_public")
+
+
+def on_external_cumshot(unit_id, target_part):
+    """외부 사정 — 부위별 수치심 변동. SEMEN_PARTS 외는 0."""
+    gain = SHAME_GAIN_EXTERNAL_CUMSHOT.get(target_part, 0)
+    if gain == 0:
+        return morld.get_unit_prop(unit_id, "상태:수치심") or 0
+    return apply_shame(unit_id, gain, reason=f"external_cumshot:{target_part}")
 
 
 def calculate_availability_score(partner_id, player_id, action_def):
@@ -738,11 +755,26 @@ def get_internal_semen_total(unit_id):
     return sum(get_internal_semen(unit_id, p) for p in INTERNAL_SEMEN_PARTS)
 
 
+_INTERNAL_TO_EXTERNAL_PART = {
+    "음부": "음부",     # 질 내 overflow → 질 입구/허벅지 외부 오염
+    "항문": "엉덩이",   # 항문 overflow → 엉덩이 외부 오염
+    "구강": "얼굴",     # 구강 overflow → 턱·뺨 외부 오염
+}
+
+
 def _apply_internal_semen(target_id, part, amount):
-    """체내 정액 적용"""
+    """체내 정액 적용 — overflow 시 초과분을 외부 오염으로 전이."""
     prop = f"체내:정액:{part}"
     current = morld.get_unit_prop(target_id, prop) or 0
-    morld.set_unit_prop(target_id, prop, min(INTERNAL_SEMEN_MAX, current + amount))
+    new_val = current + amount
+    if new_val > INTERNAL_SEMEN_MAX:
+        overflow = new_val - INTERNAL_SEMEN_MAX
+        morld.set_unit_prop(target_id, prop, INTERNAL_SEMEN_MAX)
+        ext_part = _INTERNAL_TO_EXTERNAL_PART.get(part)
+        if ext_part:
+            _apply_semen(target_id, ext_part, overflow)
+    else:
+        morld.set_unit_prop(target_id, prop, new_val)
 
 
 def clear_all_internal_semen(unit_id):
@@ -1282,6 +1314,7 @@ def extract_preserved(state):
         "condom_active": state.get("condom_active", False),
         "condom_punctured": state.get("condom_punctured", False),
         "condom_removed_in_trance": state.get("condom_removed_in_trance", False),
+        "raw_vaginal_warned": state.get("raw_vaginal_warned", False),
     }
     if "mode_ctx" in state:
         preserved["mode_ctx"] = state["mode_ctx"]

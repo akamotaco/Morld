@@ -515,7 +515,30 @@ _FOCUS_SHAME = {
     ],
 }
 
+_SEMEN_EXTERNAL_PARTS = ["얼굴", "가슴", "배", "음부", "엉덩이"]
+
+
+def _compute_bukkake_extra(context: dict) -> str:
+    """전신 오염 부가 묘사 — 외부 오염 3부위 이상 ≥ 50 시 한 줄 추가."""
+    if not context:
+        return ""
+    heavy_parts = [p for p in _SEMEN_EXTERNAL_PARTS
+                   if context.get(f"정액:{p}", 0) >= 50]
+    if len(heavy_parts) >= 4:
+        return "전신이 정액으로 흠뻑 젖어 있다."
+    if len(heavy_parts) >= 3:
+        return "여러 곳에 정액이 두껍게 쌓여 있다."
+    return ""
+
+
 _FOCUS_SEMEN = [
+    # 대량 (50+) — 우선 매칭
+    ({"정액:얼굴": 50}, "얼굴이 정액으로 범벅이 되어 있다."),
+    ({"정액:가슴": 50}, "가슴이 정액으로 흠뻑 젖어 있다."),
+    ({"정액:배": 50}, "배 위에 정액이 웅덩이처럼 고여 있다."),
+    ({"정액:음부": 50}, "음부와 허벅지 안쪽이 정액으로 젖어 있다."),
+    ({"정액:엉덩이": 50}, "엉덩이와 허리 아래가 정액으로 젖어 있다."),
+    # 소량 (10+)
     ({"정액:얼굴": 10}, "얼굴에 하얀 것이 묻어 있다."),
     ({"정액:가슴": 10}, "가슴에 정액이 묻어 있다."),
     ({"정액:배": 10}, "배에 정액이 흘러내려 있다."),
@@ -527,26 +550,36 @@ _FOCUS_INTERNAL_SEMEN = {
     "stoic": [
         ({"체내정액:음부": 50}, "허벅지 안쪽으로 정액이 흘러내리고 있다."),
         ({"체내정액:음부": 1}, "하복부가 약간 부풀어 있다."),
+        ({"체내정액:항문": 50}, "엉덩이 사이로 정액이 배어 나오고 있다."),
+        ({"체내정액:항문": 1}, "자세가 다소 불편해 보인다."),
         ({"체내정액:구강": 1}, "목 주변에 삼킨 흔적이 있다."),
     ],
     "gentle": [
         ({"체내정액:음부": 50}, "다리 사이로 정액이 흘러내리고 있다."),
         ({"체내정액:음부": 1}, "아랫배가 살짝 볼록해 보인다."),
+        ({"체내정액:항문": 50}, "엉덩이 사이로 조용히 정액이 흘러내리고 있다."),
+        ({"체내정액:항문": 1}, "다리를 살짝 모으고 있다."),
         ({"체내정액:구강": 1}, "입 주변에 삼킨 듯한 흔적이 있다."),
     ],
     "cheerful": [
         ({"체내정액:음부": 50}, "허벅지 안쪽이 하얗게 젖어 있다."),
         ({"체내정액:음부": 1}, "아랫배가 약간 볼록하다."),
+        ({"체내정액:항문": 50}, "엉덩이 사이로 정액이 흘러내려 허벅지를 적시고 있다."),
+        ({"체내정액:항문": 1}, "엉덩이를 슬쩍 움직이고 있다."),
         ({"체내정액:구강": 1}, "입 주변을 손으로 닦은 흔적이 있다."),
     ],
     "timid": [
         ({"체내정액:음부": 50}, "다리 사이로 조용히 정액이 흘러내리고 있다."),
         ({"체내정액:음부": 1}, "아랫배가 미세하게 부풀어 있다."),
+        ({"체내정액:항문": 50}, "엉덩이 사이로 정액이 배어 나와 몸을 떨고 있다."),
+        ({"체내정액:항문": 1}, "몸을 웅크리고 있다."),
         ({"체내정액:구강": 1}, "말없이 입을 꾹 다물고 있다."),
     ],
     "cold": [
         ({"체내정액:음부": 50}, "허벅지 안쪽으로 정액이 흘러내리고 있다."),
         ({"체내정액:음부": 1}, "하복부가 미세하게 볼록하다."),
+        ({"체내정액:항문": 50}, "엉덩이 사이로 정액이 배어 나오고 있다."),
+        ({"체내정액:항문": 1}, "자세를 자주 바꾸고 있다."),
         ({"체내정액:구강": 1}, "목 주변에 삼킨 흔적이 있다."),
     ],
 }
@@ -2861,6 +2894,11 @@ class Character(_CharacterBase):
         else:
             text = ""
 
+        # 전신 범벅 부가 묘사 (외부 오염 3부위 이상 대량) — 기존 묘사에 추가
+        bukkake_line = _compute_bukkake_extra(context)
+        if bukkake_line:
+            text = text + "\n" + bukkake_line if text else bukkake_line
+
         # 전투 태세 표시 (적대 유닛만, focus에서는 선두 행)
         is_hostile, is_aggressive = self._get_combat_stance_info()
         if is_hostile and text:
@@ -3130,6 +3168,16 @@ class Character(_CharacterBase):
                 player_hp = morld.get_unit_prop(player_id, "생존:체력") if player_id else 100
                 actual_value = max(0, 100 - (player_hp if player_hp is not None else 100))
                 if actual_value < required_value:
+                    return False
+                continue
+
+            # 배란(임신 리스크) 파생 체크 — required_value == True/1 시 is_fertile_day 일치 요구
+            if key == "배란":
+                import pregnancy as _preg
+                fertile = _preg.is_fertile_day(self.instance_id)
+                if bool(required_value) and not fertile:
+                    return False
+                if not bool(required_value) and fertile:
                     return False
                 continue
 

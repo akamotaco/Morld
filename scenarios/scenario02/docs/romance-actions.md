@@ -1615,6 +1615,77 @@ UI: `참기 (X%)` 버튼으로 현재 성공률 표시.
 
 ---
 
+## 16.5 사정 서사 커버리지 (2026-04-25)
+
+### 내부 사정 반응 (`ejaculation_internal_{부위}:start`)
+
+3 부위 (`음부`/`항문`/`구강`) × 6 캐릭터 전부 커버. 공통 rule 패턴:
+
+| 조건 | 톤 |
+|---|---|
+| `반발 ≥ 30` | 강한 거부/분노 |
+| `반발 ≥ 15` | 소극적 거부 |
+| `성욕 ≥ 80 + 경험:{부위} ≥ 5` | 수용/갈망 |
+| `경험:{부위} ≥ 3` | 담담/익숙 |
+| fallback | `_generate_dialogue` Hybrid 호출 |
+
+**배란일 분기** (음부 전용, 최상단 우선):
+- `{"배란": True, "반발": 15}` — 강제 + 배란일 (임신 확정 뉘앙스)
+- `{"배란": True}` — 그 외 배란 (각오/자각)
+
+`배란` 특수 키는 `_check_reaction_condition`에서 `pregnancy.is_fertile_day` 호출.
+
+### 체내 오버플로 (`ejaculation_internal_{부위}_overflow:start`)
+
+체내 ≥ 80% 상태에서 추가 사정이 `INTERNAL_SEMEN_MAX` 초과 시 발동. 3 부위 × 6 캐릭터. reaction lookup은 일반 키보다 overflow 키 우선 시도.
+
+**상태 효과**: 초과분이 외부 오염(`오염물:정액:{부위}`)으로 전이.
+
+```python
+_INTERNAL_TO_EXTERNAL_PART = {
+    "음부": "음부", "항문": "엉덩이", "구강": "얼굴",
+}
+```
+
+→ 세션 종료 후에도 목욕 전까지 NPC `focus`에서 `_FOCUS_SEMEN` 묘사 노출.
+
+### 외부 사정 (`pull_out_{부위}:start`)
+
+4 부위 (`얼굴`/`가슴`/`배`/`엉덩이`) × 6 캐릭터 × 3 rule (반발 15 / 성욕 80 / 기본).
+
+**수치심 훅** — `on_external_cumshot(unit_id, target_part)`:
+
+| 부위 | 수치심 |
+|---|---|
+| 얼굴 | +15 |
+| 가슴 | +10 |
+| 배 | +6 |
+| 엉덩이 | +5 |
+| 음부 | +3 |
+
+FROZEN 모드는 NPC 인지 불가로 스킵.
+
+### raw 질삽입 경고 (`raw_vaginal_warning:start`)
+
+세션당 1회 — 콘돔 없이 vaginal 첫 성공 직후 자동 발동. `state["raw_vaginal_warned"]` 플래그로 중복 방지 (`extract_preserved` 보존).
+
+### Focus 묘사 tier (`_FOCUS_SEMEN` / `_FOCUS_INTERNAL_SEMEN`)
+
+**외부 오염 2-tier** (`_FOCUS_SEMEN`):
+- 대량 50+ 우선 — "얼굴이 정액으로 범벅이 되어 있다" 등 5 부위
+- 소량 10+ — 기존 "묻어 있다" 줄
+
+**체내 2-tier** (`_FOCUS_INTERNAL_SEMEN`, 5 아키타입):
+- 음부/항문: 50+ ("흘러내린다" / "배어 나온다") / 1+ (미세 자세)
+- 구강: 1+ ("삼킨 흔적")
+
+**전신 범벅 additive** (`_compute_bukkake_extra`):
+- 외부 ≥ 50인 부위 3+ → "여러 곳에 정액이 두껍게 쌓여 있다"
+- 4+ → "전신이 정액으로 흠뻑 젖어 있다"
+- `get_focus_text` 뒤에 **append**, 기존 묘사 대체 X
+
+---
+
 ## 17. 캐릭터별 구현 가이드
 
 ### Character 클래스 속성 (base.py)

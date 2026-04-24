@@ -2003,3 +2003,395 @@ class TestAutonomyWeight:
         state = self._state(preferred_parts=["B"])
         assert romance._autonomy_compute_weight(state, "self_breast") == 2.0
         assert romance._autonomy_compute_weight(state, "self_nipple") == 2.0
+
+
+# ============================================
+# Slice B: 배란일 경고 대사 (질내사정 임신 리스크)
+# ============================================
+
+class TestFertileDayHelper:
+    """pregnancy.is_fertile_day — 배란기 OR 배란유도 AND 미임신."""
+
+    def test_pregnant_is_not_fertile(self):
+        import pregnancy
+        morld.register_unit(2, props={"상태:임신": 1, "생식:주기일": 14})
+        assert pregnancy.is_fertile_day(2) is False
+
+    def test_ovulation_day_is_fertile(self):
+        import pregnancy
+        morld.register_unit(2, props={"생식:주기일": 14, "생식:주기길이": 28})
+        assert pregnancy.is_fertile_day(2) is True
+
+    def test_non_ovulation_is_not_fertile(self):
+        import pregnancy
+        morld.register_unit(2, props={"생식:주기일": 3, "생식:주기길이": 28})
+        assert pregnancy.is_fertile_day(2) is False
+
+    def test_induced_ovulation_is_fertile_even_outside_cycle(self):
+        """배란유도 상태 → 주기 무관 fertile."""
+        import pregnancy
+        morld.register_unit(2, props={"생식:주기일": 3, "생식:주기길이": 28,
+                                        "상태:배란유도": 1})
+        assert pregnancy.is_fertile_day(2) is True
+
+    def test_pregnant_overrides_induced_ovulation(self):
+        """이미 임신 중 → 배란유도 상관없이 False."""
+        import pregnancy
+        morld.register_unit(2, props={"상태:임신": 1, "상태:배란유도": 1})
+        assert pregnancy.is_fertile_day(2) is False
+
+
+class TestOvulationReactionCondition:
+    """_check_reaction_condition의 배란 특수 키."""
+
+    def _make_char(self, instance_id=2):
+        from assets.base import Character
+        char = Character.__new__(Character)
+        char.instance_id = instance_id
+        char.name = "테스트"
+        return char
+
+    def test_ovulation_key_true_matches_fertile_day(self):
+        morld.register_unit(2, props={"생식:주기일": 14, "생식:주기길이": 28})
+        char = self._make_char(2)
+        props = morld.get_unit_props(2) or {}
+        assert char._check_reaction_condition({"배란": True}, props, "플레이어") is True
+
+    def test_ovulation_key_true_fails_when_not_fertile(self):
+        morld.register_unit(2, props={"생식:주기일": 3, "생식:주기길이": 28})
+        char = self._make_char(2)
+        props = morld.get_unit_props(2) or {}
+        assert char._check_reaction_condition({"배란": True}, props, "플레이어") is False
+
+    def test_ovulation_combined_with_other_condition(self):
+        """배란 + 반발 복합 조건: 둘 다 만족해야 True."""
+        morld.register_unit(2, props={
+            "생식:주기일": 14, "생식:주기길이": 28,
+            "관계:플레이어:반발": 20,
+        })
+        char = self._make_char(2)
+        props = morld.get_unit_props(2) or {}
+        # 배란 True + 반발 >= 15 → True
+        assert char._check_reaction_condition({"배란": True, "반발": 15}, props, "플레이어") is True
+        # 반발 >= 30 미달 → False
+        assert char._check_reaction_condition({"배란": True, "반발": 30}, props, "플레이어") is False
+
+    def test_ovulation_false_when_pregnant(self):
+        morld.register_unit(2, props={"상태:임신": 1, "생식:주기일": 14,
+                                        "생식:주기길이": 28})
+        char = self._make_char(2)
+        props = morld.get_unit_props(2) or {}
+        assert char._check_reaction_condition({"배란": True}, props, "플레이어") is False
+
+
+class TestExternalSemenFocusTiers:
+    """_FOCUS_SEMEN 2-tier (대량 50 / 소량 10) + _compute_bukkake_extra 검증."""
+
+    def test_light_tier_matches(self):
+        from assets.base import _FOCUS_SEMEN, TextSelector
+        context = {"정액:얼굴": 20}
+        result = TextSelector.select(_FOCUS_SEMEN, context)
+        assert result == "얼굴에 하얀 것이 묻어 있다."
+
+    def test_heavy_tier_preempts_light(self):
+        """대량 50+ 이면 소량 라인 대신 대량 라인이 먼저 매칭."""
+        from assets.base import _FOCUS_SEMEN, TextSelector
+        context = {"정액:얼굴": 60}
+        result = TextSelector.select(_FOCUS_SEMEN, context)
+        assert "범벅" in result
+
+    def test_heavy_tier_per_part_distinct(self):
+        """각 부위 대량 라인은 서로 다른 문구."""
+        from assets.base import _FOCUS_SEMEN, TextSelector
+        parts = ["얼굴", "가슴", "배", "음부", "엉덩이"]
+        lines = set()
+        for p in parts:
+            ctx = {f"정액:{p}": 60}
+            lines.add(TextSelector.select(_FOCUS_SEMEN, ctx))
+        assert len(lines) == 5
+
+    def test_bukkake_extra_three_parts(self):
+        from assets.base import _compute_bukkake_extra
+        ctx = {f"정액:{p}": 60 for p in ("얼굴", "가슴", "배")}
+        assert "두껍게 쌓여" in _compute_bukkake_extra(ctx)
+
+    def test_bukkake_extra_four_parts_heavier(self):
+        from assets.base import _compute_bukkake_extra
+        ctx = {f"정액:{p}": 60 for p in ("얼굴", "가슴", "배", "음부")}
+        assert "전신" in _compute_bukkake_extra(ctx)
+
+    def test_bukkake_extra_only_two_parts_no_line(self):
+        from assets.base import _compute_bukkake_extra
+        ctx = {f"정액:{p}": 60 for p in ("얼굴", "가슴")}
+        assert _compute_bukkake_extra(ctx) == ""
+
+    def test_bukkake_extra_ignores_light(self):
+        """50 미만은 범벅 카운트에 포함 안 됨."""
+        from assets.base import _compute_bukkake_extra
+        ctx = {f"정액:{p}": 30 for p in ("얼굴", "가슴", "배", "음부")}
+        assert _compute_bukkake_extra(ctx) == ""
+
+
+class TestAnalInternalFocusTier:
+    """_FOCUS_INTERNAL_SEMEN 모든 아키타입에 체내정액:항문 규칙 존재."""
+
+    _ARCHETYPES = ["stoic", "gentle", "cheerful", "timid", "cold"]
+
+    def test_all_archetypes_have_anal_heavy(self):
+        from assets.base import _FOCUS_INTERNAL_SEMEN
+        for arch in self._ARCHETYPES:
+            rules = _FOCUS_INTERNAL_SEMEN[arch]
+            has_heavy = any(
+                isinstance(cond, dict) and cond.get("체내정액:항문", 0) >= 50
+                for cond, _ in rules
+            )
+            assert has_heavy, f"{arch} missing 체내정액:항문 ≥ 50 rule"
+
+    def test_all_archetypes_have_anal_light(self):
+        from assets.base import _FOCUS_INTERNAL_SEMEN
+        for arch in self._ARCHETYPES:
+            rules = _FOCUS_INTERNAL_SEMEN[arch]
+            has_light = any(
+                isinstance(cond, dict) and cond.get("체내정액:항문") == 1
+                for cond, _ in rules
+            )
+            assert has_light, f"{arch} missing 체내정액:항문 ≥ 1 rule"
+
+
+class TestOverflowDialoguePool:
+    """Slice D1: 6 캐릭터 × 3 부위 overflow 대사 존재."""
+
+    _CHARACTERS = [
+        ("lina", "Lina"),
+        ("yuki", "Yuki"),
+        ("ella", "Ella"),
+        ("mila", "Mila"),
+        ("sera", "Sera"),
+        ("faye", "Faye"),
+    ]
+    _PARTS = ["음부", "항문", "구강"]
+
+    def _character_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    def test_all_characters_have_all_overflow_keys(self):
+        """각 캐릭터가 3 부위 overflow 키 모두 보유."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for part in self._PARTS:
+                key = f"ejaculation_internal_{part}_overflow:start"
+                assert key in reactions, f"{cls_name} missing {key}"
+
+    def test_overflow_pools_have_rebellion_branch(self):
+        """각 overflow 풀이 반발 조건 분기 포함."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for part in self._PARTS:
+                key = f"ejaculation_internal_{part}_overflow:start"
+                rules = reactions.get(key, [])
+                has_rebellion = any(
+                    isinstance(r, tuple) and isinstance(r[0], dict) and "반발" in r[0]
+                    for r in rules
+                )
+                assert has_rebellion, f"{cls_name}.{key} missing 반발 rule"
+
+
+class TestRawVaginalWarningDialoguePool:
+    """Slice D2: 6 캐릭터 raw_vaginal_warning:start 대사 존재."""
+
+    _CHARACTERS = [
+        ("lina", "Lina"),
+        ("yuki", "Yuki"),
+        ("ella", "Ella"),
+        ("mila", "Mila"),
+        ("sera", "Sera"),
+        ("faye", "Faye"),
+    ]
+
+    def _character_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    def test_all_characters_have_raw_warning(self):
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            assert "raw_vaginal_warning:start" in reactions, \
+                f"{cls_name} missing raw_vaginal_warning:start"
+
+    def test_raw_warning_has_minimum_rules(self):
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            rules = reactions.get("raw_vaginal_warning:start", [])
+            assert len(rules) >= 2, \
+                f"{cls_name} raw_vaginal_warning:start has only {len(rules)} rules"
+
+
+class TestExtractPreservedRawVaginalFlag:
+    """raw_vaginal_warned 플래그는 공수 전환 시 보존."""
+
+    def test_preserved_includes_raw_warned_true(self):
+        state = {"stim": {}, "stamina": 100, "elapsed_time": 0,
+                 "insertion": {"active": True, "orifice": "vaginal", "who": "p", "failed_count": 0},
+                 "mode_ctx": {"mode": rm.MODE_CONSENSUAL},
+                 "raw_vaginal_warned": True}
+        preserved = rc.extract_preserved(state)
+        assert preserved["raw_vaginal_warned"] is True
+
+    def test_preserved_defaults_raw_warned_false(self):
+        state = {"stim": {}, "stamina": 100, "elapsed_time": 0,
+                 "insertion": {"active": True, "orifice": "vaginal", "who": "p", "failed_count": 0},
+                 "mode_ctx": {"mode": rm.MODE_CONSENSUAL}}
+        preserved = rc.extract_preserved(state)
+        assert preserved["raw_vaginal_warned"] is False
+
+
+class TestExternalCumshotShameHook:
+    """Slice C: on_external_cumshot — 부위별 수치심 가중."""
+
+    def test_face_shot_highest_shame(self):
+        morld.register_unit(2, props={"상태:수치심": 20})
+        result = rc.on_external_cumshot(2, "얼굴")
+        assert result == 20 + rc.SHAME_GAIN_EXTERNAL_CUMSHOT["얼굴"]
+
+    def test_breast_shot_medium_shame(self):
+        morld.register_unit(2, props={"상태:수치심": 20})
+        result = rc.on_external_cumshot(2, "가슴")
+        assert result == 20 + rc.SHAME_GAIN_EXTERNAL_CUMSHOT["가슴"]
+
+    def test_stomach_shot_lower_shame(self):
+        morld.register_unit(2, props={"상태:수치심": 20})
+        result = rc.on_external_cumshot(2, "배")
+        assert result == 20 + rc.SHAME_GAIN_EXTERNAL_CUMSHOT["배"]
+
+    def test_butt_shot_shame(self):
+        morld.register_unit(2, props={"상태:수치심": 20})
+        result = rc.on_external_cumshot(2, "엉덩이")
+        assert result == 20 + rc.SHAME_GAIN_EXTERNAL_CUMSHOT["엉덩이"]
+
+    def test_face_higher_than_butt(self):
+        """얼굴 > 엉덩이 수치심 (가시성 차이)."""
+        assert rc.SHAME_GAIN_EXTERNAL_CUMSHOT["얼굴"] > \
+               rc.SHAME_GAIN_EXTERNAL_CUMSHOT["엉덩이"]
+
+    def test_unknown_part_no_shame(self):
+        """SEMEN_PARTS 외 부위 → 수치심 변화 없음."""
+        morld.register_unit(2, props={"상태:수치심": 20})
+        before = morld.get_unit_prop(2, "상태:수치심")
+        rc.on_external_cumshot(2, "팔")
+        after = morld.get_unit_prop(2, "상태:수치심")
+        assert after == before
+
+    def test_shame_clamped_at_max(self):
+        """이미 최대치면 clamp."""
+        morld.register_unit(2, props={"상태:수치심": rc.SHAME_MAX - 2})
+        result = rc.on_external_cumshot(2, "얼굴")
+        assert result == rc.SHAME_MAX
+
+
+class TestExternalCumshotDialoguePool:
+    """Slice C: 6 캐릭터 × 4 부위 pull_out_{부위}:start 대사 존재."""
+
+    _CHARACTERS = [
+        ("lina", "Lina"),
+        ("yuki", "Yuki"),
+        ("ella", "Ella"),
+        ("mila", "Mila"),
+        ("sera", "Sera"),
+        ("faye", "Faye"),
+    ]
+    _PARTS = ["얼굴", "가슴", "배", "엉덩이"]
+
+    def _character_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    def test_all_characters_have_all_parts(self):
+        """각 캐릭터가 4 부위 pull_out_{부위}:start 키 모두 보유."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for part in self._PARTS:
+                key = f"pull_out_{part}:start"
+                assert key in reactions, f"{cls_name} missing {key}"
+
+    def test_all_pools_have_minimum_rules(self):
+        """각 부위 풀이 최소 2 rule (반발 or 기본) 보유."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for part in self._PARTS:
+                key = f"pull_out_{part}:start"
+                rules = reactions.get(key, [])
+                assert len(rules) >= 2, \
+                    f"{cls_name}.{key} has only {len(rules)} rules"
+
+    def test_all_pools_have_rebellion_branch(self):
+        """각 부위 풀이 반발 조건 분기 1개 이상."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            reactions = getattr(cls, "ROMANCE_REACTIONS", {})
+            for part in self._PARTS:
+                key = f"pull_out_{part}:start"
+                rules = reactions.get(key, [])
+                has_rebellion = any(
+                    isinstance(r, tuple) and isinstance(r[0], dict) and "반발" in r[0]
+                    for r in rules
+                )
+                assert has_rebellion, f"{cls_name}.{key} missing 반발 rule"
+
+
+class TestFertileWarningDialoguePool:
+    """6 캐릭터의 ejaculation_internal_음부:start 풀에 배란일 경고 대사 포함."""
+
+    _CHARACTERS = [
+        ("lina", "Lina"),
+        ("yuki", "Yuki"),
+        ("ella", "Ella"),
+        ("mila", "Mila"),
+        ("sera", "Sera"),
+        ("faye", "Faye"),
+    ]
+
+    def _character_class(self, module_name, class_name):
+        import importlib
+        mod = importlib.import_module(f"assets.characters.{module_name}")
+        return getattr(mod, class_name)
+
+    def test_all_have_fertile_warning_rules(self):
+        """각 캐릭터가 최소 1개 배란 조건 rule 보유."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            rules = getattr(cls, "ROMANCE_REACTIONS", {}).get("ejaculation_internal_음부:start", [])
+            has_fertile_rule = any(
+                isinstance(r, tuple) and isinstance(r[0], dict) and r[0].get("배란") is True
+                for r in rules
+            )
+            assert has_fertile_rule, f"{cls_name} missing 배란 rule in ejaculation_internal_음부:start"
+
+    def test_fertile_warning_placed_before_catchall(self):
+        """배란 rule이 fallback (빈 dict 또는 _generate_dialogue)보다 앞에 위치."""
+        for mod_name, cls_name in self._CHARACTERS:
+            cls = self._character_class(mod_name, cls_name)
+            rules = getattr(cls, "ROMANCE_REACTIONS", {}).get("ejaculation_internal_음부:start", [])
+            fertile_idx = None
+            catchall_idx = None
+            for idx, item in enumerate(rules):
+                if not (isinstance(item, tuple) and isinstance(item[0], dict)):
+                    continue
+                cond = item[0]
+                if cond.get("배란") is True and fertile_idx is None:
+                    fertile_idx = idx
+                if not cond and catchall_idx is None:
+                    catchall_idx = idx
+            assert fertile_idx is not None, f"{cls_name} missing 배란 rule"
+            if catchall_idx is not None:
+                assert fertile_idx < catchall_idx, \
+                    f"{cls_name} 배란 rule at {fertile_idx} should precede catchall at {catchall_idx}"

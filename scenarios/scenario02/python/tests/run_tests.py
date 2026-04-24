@@ -100,7 +100,6 @@ def main():
         "test_romance_core",
         "test_romance_dynamics",
         "test_romance_e2e",
-        "test_alias_removal",
         "test_mob_character",
         "test_think_logic",
         "test_npc_objects",

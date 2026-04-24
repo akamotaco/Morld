@@ -771,6 +771,8 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         },
         # NPC 자율 허리흔들기 트랜스
         "npc_thrust_trance": False,
+        # raw 질삽입 경고 (세션 당 1회 — 콘돔 없이 첫 vaginal 성공 시)
+        "raw_vaginal_warned": False,
         # NPC 선호 체위 요구 쿨다운 (세션 elapsed_time 기준)
         "last_position_request_elapsed": None,
         # NPC 삽입 요구 쿨다운
@@ -827,6 +829,7 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
         if "mode_ctx" in preserved:
             state["mode_ctx"] = preserved["mode_ctx"]
         state["npc_thrust_trance"] = preserved.get("npc_thrust_trance", False)
+        state["raw_vaginal_warned"] = preserved.get("raw_vaginal_warned", False)
 
     # ── NPC Thrust Trance 시스템 ──────────────────────────────
 
@@ -1534,6 +1537,11 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                     if _gm.has_anatomy(pid, "P"):
                         _p_holder = pid
                     _ejac_amt = calculate_ejaculation_amount(_p_holder, state["stamina"], state["max_stamina"])
+                    # overflow 감지: 이미 80% 이상 + 추가량이 max 초과 시
+                    _cur_internal = morld.get_unit_prop(pid, f"체내:정액:{ejac_part}") or 0
+                    from romance_actions import INTERNAL_SEMEN_MAX as _INTERNAL_MAX
+                    if _cur_internal >= _INTERNAL_MAX * 0.8 and (_cur_internal + _ejac_amt) >= _INTERNAL_MAX:
+                        state["overflow_part"] = ejac_part
                     if cur_mode == MODE_FROZEN:
                         defer_semen(state["mode_ctx"], ejac_part, _ejac_amt, internal=True)
                     else:
@@ -1601,8 +1609,18 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 # 내부 사정 반응 + 절정 반응 결합
                 ejac_reaction = None
                 if ejac_part:
-                    ejac_key = f"{reaction_prefix}ejaculation_internal_{ejac_part}"
-                    ejac_reaction = partner_asset.get_romance_reaction(ejac_key, "start", stim_state=state["stim"])
+                    overflow_marker = state.pop("overflow_part", None)
+                    # overflow 우선 시도 — ejaculation_internal_{부위}_overflow
+                    if overflow_marker == ejac_part:
+                        overflow_key = f"{reaction_prefix}ejaculation_internal_{ejac_part}_overflow"
+                        ejac_reaction = partner_asset.get_romance_reaction(
+                            overflow_key, "start", stim_state=state["stim"])
+                        if not ejac_reaction and reaction_prefix:
+                            ejac_reaction = partner_asset.get_romance_reaction(
+                                f"ejaculation_internal_{ejac_part}_overflow", "start", stim_state=state["stim"])
+                    if not ejac_reaction:
+                        ejac_key = f"{reaction_prefix}ejaculation_internal_{ejac_part}"
+                        ejac_reaction = partner_asset.get_romance_reaction(ejac_key, "start", stim_state=state["stim"])
                     if not ejac_reaction and reaction_prefix:
                         ejac_reaction = partner_asset.get_romance_reaction(
                             f"ejaculation_internal_{ejac_part}", "start", stim_state=state["stim"])
@@ -2090,6 +2108,10 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                                                        father_type="unknown")
                         else:
                             pregnancy.check_conception(state["player_id"], pid)
+            # 외부 사정 수치심 훅 (FROZEN은 인지 못하므로 스킵)
+            if cur_mode != MODE_FROZEN:
+                from romance_core import on_external_cumshot
+                on_external_cumshot(pid, target_part)
             # 반응 텍스트 (모드별 분기)
             reaction = None
             if ejac_amount >= 50:
@@ -2266,6 +2288,18 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
                 # 처녀 체크 + 부위별 첫경험 기록
                 _virginity_exp_type = "bestiality" if state.get("is_bestiality") else state.get("mode", "consensual")
                 first_key = check_and_clear_virginity(pid, player_id, action_id, exp_type=_virginity_exp_type)
+
+                # raw 질삽입 경고 (세션 1회) — 콘돔 없이 vaginal 첫 성공 시
+                if (orifice == "vaginal" and not state["condom_active"]
+                        and not state["raw_vaginal_warned"]):
+                    state["raw_vaginal_warned"] = True
+                    warn_reaction = _get_mode_reaction("raw_vaginal_warning", "start")
+                    if warn_reaction:
+                        existing = state.get("last_reaction") or ""
+                        if existing:
+                            state["last_reaction"] = existing + "\n" + warn_reaction
+                        else:
+                            state["last_reaction"] = warn_reaction
 
                 # 이하 일반 즉시형 처리로 fall-through (stamina/effects/time)
 
