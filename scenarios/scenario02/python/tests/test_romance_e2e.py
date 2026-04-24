@@ -2811,6 +2811,58 @@ class TestNpcIntimacyExperience:
         assert morld.get_unit_prop(2, "기억:npc정사횟수") == 2
 
 
+class TestInitiativeReactionHybrid:
+    """get_initiative_reaction hybrid 폴백 — during_<action> 미정의 시 아키타입 풀.
+
+    기존 동작: 캐릭터 INITIATIVE_REACTIONS 에 during_<action> 이 없으면 None
+      → NPC 무음 (액션 설명만).
+    신규 동작: Hybrid 자동 위임 — 아키타입 action_lines 풀에서 대사 생성.
+    """
+
+    def _make_char(self, archetype="stoic"):
+        from assets.base import Character
+        morld.register_unit(1, name="주인공", props={})
+        morld._player_id = 1
+        morld.register_unit(2, name="세라", props={
+            "관계:주인공:호감": 50, "상태:성욕": 50,
+        })
+        char = Character.__new__(Character)
+        char.instance_id = 2
+        char.name = "세라"
+        char.INITIATIVE_REACTIONS = {}
+        char.REACTION_PROFILE = {"name": "세라", "archetype": archetype}
+        return char
+
+    def test_during_action_falls_to_hybrid(self):
+        """INITIATIVE_REACTIONS 미정의 during_<action> → hybrid 아키타입 풀."""
+        char = self._make_char()
+        r = char.get_initiative_reaction("during_breast_caress")
+        assert r, "hybrid 폴백 실패 (during_breast_caress)"
+
+    def test_forced_during_action_uses_forced_prefix(self):
+        """forced_during_<action> → hybrid forced_<action> 접두사 폴백."""
+        char = self._make_char()
+        r = char.get_initiative_reaction("forced_during_breast_grope")
+        assert r, "forced_during hybrid 폴백 실패"
+
+    def test_existing_rule_still_wins(self):
+        """INITIATIVE_REACTIONS 에 rule 있으면 그것 우선 (hybrid 호출 안 함)."""
+        char = self._make_char()
+        char.INITIATIVE_REACTIONS = {
+            "during_hug": [({}, ["직접 정의된 대사"])],
+        }
+        r = char.get_initiative_reaction("during_hug")
+        assert r == "직접 정의된 대사"
+
+    def test_non_during_key_no_hybrid(self):
+        """start/satisfied/escape_fail 등은 hybrid 위임 안 함 → 미정의면 None."""
+        char = self._make_char()
+        char.INITIATIVE_REACTIONS = {}
+        assert char.get_initiative_reaction("start") is None
+        assert char.get_initiative_reaction("satisfied") is None
+        assert char.get_initiative_reaction("escape_fail") is None
+
+
 class TestForcedToneCoverage:
     """Forced_* 접두사 자동 Hybrid 위임 + 아키타입 forced_{category} 커버리지.
 

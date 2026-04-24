@@ -3985,28 +3985,45 @@ class Character(_CharacterBase):
         NPC 주도 중 반응 텍스트 반환
 
         Args:
-            timing: "start", "during_hug", "escape_fail", "satisfied" 등
+            timing: "start", "during_hug", "escape_fail", "satisfied",
+                    "forced_during_hug" 등
 
         Returns:
             반응 텍스트 또는 None
+
+        폴백 체계:
+        1. INITIATIVE_REACTIONS 에 timing 키 존재 → 규칙 매칭
+        2. "during_<action>" / "forced_during_<action>" 패턴이면
+           hybrid 에 action_id 로 generate_line 위임 (아키타입 action_lines 풀)
+           - forced_during_X → hybrid 에 forced_X 전달 (접두사 폴백 동작)
+        3. 그 외 키는 None
         """
-        if not self.INITIATIVE_REACTIONS:
-            return None
+        if self.INITIATIVE_REACTIONS:
+            rules = self.INITIATIVE_REACTIONS.get(timing)
+            if rules:
+                context = {}
+                import random
+                for conditions, texts in rules:
+                    if TextSelector.match(conditions, context):
+                        if isinstance(texts, list):
+                            return random.choice(texts)
+                        return texts
 
-        rules = self.INITIATIVE_REACTIONS.get(timing)
-        if not rules:
-            return None
-
-        # context 구성 (간단히)
-        context = {}
-
-        # 규칙에서 선택
-        import random
-        for conditions, texts in rules:
-            if TextSelector.match(conditions, context):
-                if isinstance(texts, list):
-                    return random.choice(texts)
-                return texts
+        # Hybrid 폴백 — during_<action> / forced_during_<action>
+        if timing.startswith("during_") or timing.startswith("forced_during_"):
+            try:
+                from engine.dialogue_hybrid.s02_adapter import LineGenerator
+                profile = getattr(self, 'REACTION_PROFILE', None)
+                if profile:
+                    if timing.startswith("forced_during_"):
+                        action_id = "forced_" + timing[len("forced_during_"):]
+                    else:
+                        action_id = timing[len("during_"):]
+                    state = self._build_reaction_state(None)
+                    result = LineGenerator(profile).generate(action_id, state)
+                    return result if result else None
+            except Exception:
+                pass
 
         return None
 
