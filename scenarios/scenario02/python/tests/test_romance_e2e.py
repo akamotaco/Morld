@@ -767,12 +767,6 @@ class TestArchetypeRestraintDefaults:
         # 성격 "순진" → archetype "innocent" → 기본 80
         assert rc.get_restraint_value(2) == 80
 
-    def test_tsundere_archetype_restrained(self):
-        """츤데레 → 겉 억제 (60)"""
-        morld.register_unit(1, name="주인공")
-        morld.register_unit(2, props={"아키타입": "tsundere"})
-        assert rc.get_restraint_value(2) == 60
-
     def test_modifier_uses_archetype_default(self):
         """restraint_modifier도 아키타입 기본값 사용"""
         morld.register_unit(1, name="주인공")
@@ -3074,14 +3068,6 @@ class TestPersonalityTraitHelpers:
         assert rc.get_personality_value(2, "응답") == -1
         assert rc.get_personality_value(2, "명랑") == -1
         assert rc.get_personality_value(2, "자존심") == 0
-
-    def test_returns_archetype_default_tsundere(self):
-        self._setup(archetype="tsundere")
-        # tsundere: 태도=1, 자존심=1, 츤데레=1, 정조=1
-        assert rc.get_personality_value(2, "츤데레") == 1
-        assert rc.get_personality_value(2, "자존심") == 1
-        assert rc.get_personality_value(2, "정조") == 1
-        assert rc.get_personality_value(2, "담력") == 0
 
     def test_returns_archetype_default_innocent(self):
         self._setup(archetype="innocent")

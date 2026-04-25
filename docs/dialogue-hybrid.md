@@ -74,7 +74,7 @@ scenarios/common/python/
 
 ```yaml
 character: 시호
-archetype: tsundere          # 아키타입 (archetype_dialogues/{이 값}/ 을 상속)
+archetype: cold              # 아키타입 (archetype_dialogues/{이 값}/ 을 상속)
 era: modern
 sex: F
 
@@ -124,7 +124,7 @@ intents:
         state_bias:                # 이 template이 가장 잘 맞는 상태
           affinity: 0.8
           arousal: 0.3
-        inner_bias: {}              # 옵션 — inner 축 매칭 (tsundere 등 괴리 캐릭터용)
+        inner_bias: {}              # 옵션 — inner 축 매칭 (외면/내면 괴리 캐릭터용)
 
       - id: light_80_30_1
         pattern: "{emph}, 고마워{end}"
@@ -262,10 +262,10 @@ outer_profile:
 
 ### 5.3 새 아키타입 필요 시
 
-예: `tsundere`, `yandere` 같이 10 표준에 없는 아키타입 → 새 폴더 생성:
+예: `yandere`, `tsundere` 같이 10 표준에 없는 아키타입 → 새 폴더 생성:
 
 ```bash
-mkdir scenarios/common/python/dialogues/archetype_dialogues/tsundere
+mkdir scenarios/common/python/dialogues/archetype_dialogues/yandere
 # 각 context yaml을 수동 작성 또는 기존 아키타입에서 파생
 ```
 
@@ -290,11 +290,11 @@ dialogue_overrides:
 
         # (2) 아키타입 template을 캐릭터 고유 변형으로 교체 (id 일치)
         replace_templates:
-          - id: tsundere_hug_default
+          - id: cold_hug_default
             pattern: "...(시호 버전)"
 
         # (3) 특정 아키타입 template을 이 캐릭터에 한해 비활성
-        disable_templates: [ tsundere_hug_generic ]
+        disable_templates: [ cold_hug_generic ]
 
         # (4) 슬롯 풀 확장 (합집합, append)
         add_slots:

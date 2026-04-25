@@ -8,7 +8,7 @@
 
 로딩 모드 (Option C, 아키타입 공유):
   HybridEngine.load(character="시호", context="daily", dialogue_root=...)
-    → characters/시호.yaml (프로필) + archetype_dialogues/tsundere/daily.yaml (공용 대사)
+    → characters/시호.yaml (프로필) + archetype_dialogues/cold/daily.yaml (공용 대사)
     → character의 dialogue_overrides[context] 병합
   또는 단일 yaml: HybridEngine.from_yaml(path)
 

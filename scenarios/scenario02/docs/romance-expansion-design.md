@@ -376,7 +376,7 @@ factor = density × visibility_mult × (1 - stealth_chance)
 - 좁은 실내 + 은신 관객 1명 → -6
 
 **Phase 1 Slice 2 완료** (2026-04-22):
-- ✅ 11 아키타입 × 자제심 기본값 매핑 (`ARCHETYPE_RESTRAINT_DEFAULT`)
+- ✅ 10 아키타입 × 자제심 기본값 매핑 (`ARCHETYPE_RESTRAINT_DEFAULT`)
 - ✅ `_get_partner_archetype()` — prop / instance / 성격 매핑 fallback 체인
 - ✅ `get_restraint_value()` — 명시 prop 우선, 아키타입 기본값 fallback, 없으면 0
 - ✅ 9 신규 테스트 (TestArchetypeRestraintDefaults)
@@ -388,7 +388,6 @@ factor = density × visibility_mult × (1 - stealth_chance)
 | timid | 70 | 소심, 꺼림 |
 | cold | 70 | 냉담, 거리감 |
 | proud | 65 | 오만, 자존심 |
-| tsundere | 60 | 겉 억제 |
 | devoted | 55 | 파트너에만 개방 |
 | stoic | 50 | 과묵, 중립 |
 | gentle | 40 | 온화 |
@@ -1538,7 +1537,7 @@ desire_threshold   -= seek_relief
 
 **도입 완료** (§7.2 / §7.14):
 - 성격 7 trait: 담력/태도/응답/자존심/츤데레/정조/명랑 (trinary -1/0/1)
-- `ARCHETYPE_PERSONALITY_DEFAULT` — 11 아키타입 × 7 trait
+- `ARCHETYPE_PERSONALITY_DEFAULT` — 10 아키타입 × 7 trait
 - `get_personality_value(unit_id, key)` — raw prop → 아키타입 기본값 → 0 fallback
 - 게이트 공식: `get_personality_gate_modifier` (담력×5 + 자존심×8 + 정조×10 + 태도×3)
 - 변동 계수: `get_personality_effect_multipliers` (자존심 → 복종 gain, 담력 → 반발 gain)
@@ -1552,7 +1551,7 @@ desire_threshold   -= seek_relief
 
 **도입 완료** (§6.3 / §7.4 / §7.13):
 - 성향 성애 8 trait: 성별기호 / 쾌감응답 / 새드 / 마조 / 도착 / 노출벽 / 무관심 / 감정결여
-- `ARCHETYPE_DISPOSITION_SEXUAL_DEFAULT` — 11 아키타입 × 8 trait
+- `ARCHETYPE_DISPOSITION_SEXUAL_DEFAULT` — 10 아키타입 × 8 trait
 - `get_disposition_value(unit_id, key)` — fallback 체계 (trait별 range는 caller 해석)
 - 쾌감응답 → `get_disposition_arousal_multiplier` (성욕 gain ×0.7~1.3)
 - 마조 → `get_disposition_sm_multipliers` (복종 ×1.0~1.5, 반발 ×0.5~1.0)
@@ -1647,7 +1646,7 @@ Hybrid 대화 엔진의 S02 커버리지 감사 + 확장.
 
 **감사 결과**:
 - 6 NPC × 아키타입 (stoic/cheerful/cold/gentle/timid/proud) 매핑 완료
-- 11 아키타입 yaml pool 모두 존재 (각 romance.yaml + romance_reactions.yaml
+- 10 아키타입 yaml pool 모두 존재 (각 romance.yaml + romance_reactions.yaml
   + action_lines.yaml + action_reactions.yaml)
 - `_generate_dialogue` 48 호출 지점 (각 캐릭터 5~11회 catch-all)
 - ACTION_TO_CATEGORY 커버리지 48/77 (38% 미매핑)

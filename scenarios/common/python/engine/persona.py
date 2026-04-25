@@ -24,7 +24,6 @@ ARCHETYPES = [
     "seductive",   # (Phase 2 전용)
     "proud",       # (Phase 2 전용)
     "devoted",     # 충직
-    "tsundere",    # 츤데레 — inner_bias 이중 레이어 (표면 거칠음 + 내면 따뜻함)
 ]
 
 DEFAULT_ARCHETYPE = "stoic"
