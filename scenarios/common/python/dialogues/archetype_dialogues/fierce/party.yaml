@@ -51,3 +51,27 @@ intents:
       pattern: '...젠장, 오늘은 안 되겠다.'
     - id: vote_return_1
       pattern: '쪽팔리지만, 후퇴다.'
+  room_pref_battle:
+    templates:
+    - id: room_pref_battle_0
+      pattern: '당연히 싸워야지!'
+    - id: room_pref_battle_1
+      pattern: '그래, 피를 봐야 끝나는 거야.'
+    - id: room_pref_battle_2
+      pattern: '몸이 근질거려. 가자.'
+  room_pref_rest:
+    templates:
+    - id: room_pref_rest_0
+      pattern: '쳇... 쉬는 건 사치지만 어쩔 수 없지.'
+    - id: room_pref_rest_1
+      pattern: '잠깐만 쉬자. 다음엔 봐주지 않아.'
+    - id: room_pref_rest_2
+      pattern: '뭐, 회복도 전략이긴 하지.'
+  room_pref_exit:
+    templates:
+    - id: room_pref_exit_0
+      pattern: '여기까지. 다음에 끝장낸다.'
+    - id: room_pref_exit_1
+      pattern: '쳇, 오늘은 무리야. 빠지자.'
+    - id: room_pref_exit_2
+      pattern: '귀환이라... 마음에 안 들지만.'

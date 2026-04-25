@@ -47,6 +47,9 @@ _SITUATION_TO_HYBRID = {
     "combat_defeat": ("combat", "combat_defeat"),
     "combat_taunt": ("combat", "combat_taunt"),
     "combat_ally_down": ("combat", "combat_ally_down"),
+    "room_pref_battle": ("party", "room_pref_battle"),
+    "room_pref_rest": ("party", "room_pref_rest"),
+    "room_pref_exit": ("party", "room_pref_exit"),
 }
 
 
@@ -85,29 +88,6 @@ _LINES = {
 }
 
 
-# 방 타입별 선호 대사 (아키타입 공통 풀 — 차후 아키타입별 override 가능)
-_ROOM_PREF_LINES = {
-    "room_pref_battle": [
-        "싸우자.",
-        "한판 해보자.",
-        "여긴 전투가 낫겠어.",
-        "피가 끓는군.",
-    ],
-    "room_pref_rest": [
-        "잠시 쉬자.",
-        "피곤해... 쉬어가자.",
-        "몸 상태가 안 좋아.",
-        "회복부터 하자.",
-    ],
-    "room_pref_exit": [
-        "이제 돌아가자.",
-        "충분하다. 마을로.",
-        "오늘은 여기까지.",
-        "귀환이 낫겠어.",
-    ],
-}
-
-
 # 폴백 (아키타입 풀이 없거나 상황 키 없을 때)
 _FALLBACK = {
     "greeting":                ["...",],
@@ -120,9 +100,9 @@ _FALLBACK = {
     "dungeon_ambient":         ["...",],
     "vote_advance":            ["계속 가자.",],
     "vote_return":             ["돌아가자.",],
-    "room_pref_battle":        _ROOM_PREF_LINES["room_pref_battle"],
-    "room_pref_rest":          _ROOM_PREF_LINES["room_pref_rest"],
-    "room_pref_exit":          _ROOM_PREF_LINES["room_pref_exit"],
+    "room_pref_battle":        ["싸우자.", "한판 해보자.", "여긴 전투가 낫겠어."],
+    "room_pref_rest":          ["잠시 쉬자.", "피곤해... 쉬어가자.", "회복부터 하자."],
+    "room_pref_exit":          ["이제 돌아가자.", "충분하다. 마을로.", "오늘은 여기까지."],
 }
 
 

@@ -51,3 +51,27 @@ intents:
       pattern: '다들 지친 것 같아요. 돌아가요.'
     - id: vote_return_1
       pattern: '무리하지 않는 게 좋지 않을까요?'
+  room_pref_battle:
+    templates:
+    - id: room_pref_battle_0
+      pattern: '싸, 싸우는 거예요? 같이 해요!'
+    - id: room_pref_battle_1
+      pattern: '전투요? 지지 않을게요!'
+    - id: room_pref_battle_2
+      pattern: '으, 으음! 힘낼게요!'
+  room_pref_rest:
+    templates:
+    - id: room_pref_rest_0
+      pattern: '헥헥... 잠시 쉬어요...'
+    - id: room_pref_rest_1
+      pattern: '졸려요... 잠깐만요.'
+    - id: room_pref_rest_2
+      pattern: '쉬는 게 좋을 것 같아요!'
+  room_pref_exit:
+    templates:
+    - id: room_pref_exit_0
+      pattern: '이제 집에 가요?'
+    - id: room_pref_exit_1
+      pattern: '돌아가는 게 좋을 것 같아요!'
+    - id: room_pref_exit_2
+      pattern: '오늘은 여기까지... 그쵸?'

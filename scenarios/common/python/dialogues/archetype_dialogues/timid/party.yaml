@@ -51,3 +51,27 @@ intents:
       pattern: '돌, 돌아가요. 위험해요.'
     - id: vote_return_1
       pattern: '여기까지만 해요, 네?'
+  room_pref_battle:
+    templates:
+    - id: room_pref_battle_0
+      pattern: '...싸, 싸우는 게... 낫겠죠...?'
+    - id: room_pref_battle_1
+      pattern: '어... 전투인가요...'
+    - id: room_pref_battle_2
+      pattern: '...피, 피할 수 없다면...'
+  room_pref_rest:
+    templates:
+    - id: room_pref_rest_0
+      pattern: '쉬, 쉬고 싶어요...'
+    - id: room_pref_rest_1
+      pattern: '조, 조금만 쉴까요...'
+    - id: room_pref_rest_2
+      pattern: '...힘들어요... 잠깐만요...'
+  room_pref_exit:
+    templates:
+    - id: room_pref_exit_0
+      pattern: '도, 돌아가요... 무서워요.'
+    - id: room_pref_exit_1
+      pattern: '이, 이제 그만 가요...'
+    - id: room_pref_exit_2
+      pattern: '...집에 가고 싶어요...'
