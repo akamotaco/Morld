@@ -37,19 +37,25 @@ scenarios/common/python/
 ├── dialogues/
 │   ├── characters/
 │   │   ├── 시호.yaml                 # 프로필 + (선택) dialogue_overrides
-│   │   ├── 유카.yaml
-│   │   └── 린.yaml
+│   │   ├── 카엘.yaml / 도현.yaml      # S04 4 고정 NPC (first_meet 시그니처)
+│   │   ├── 레이.yaml / 유이.yaml
+│   │   └── ...
 │   └── archetype_dialogues/
 │       ├── cheerful/
-│       │   ├── romance.yaml          # LINES (1인칭 대사)
-│       │   ├── romance_reactions.yaml # REACTIONS (3인칭 묘사)
-│       │   ├── action_lines.yaml     # ACTION_LINES
-│       │   └── action_reactions.yaml # ACTION_REACTIONS
+│       │   ├── daily.yaml             # greet/thank/complain (S02/S04 일상)
+│       │   ├── party.yaml             # invite_*/dismiss_leave/vote_* (S04)
+│       │   ├── dungeon.yaml           # dungeon_ambient/corrosion_*/floor_descent (S04)
+│       │   ├── combat.yaml            # combat_discover/engage/hit/critical/victory/defeat/taunt/ally_down (S04)
+│       │   ├── romance.yaml           # LINES (1인칭 대사 — S02 성인)
+│       │   ├── romance_reactions.yaml # REACTIONS (3인칭 묘사 — S02 성인)
+│       │   ├── action_lines.yaml      # ACTION_LINES
+│       │   └── action_reactions.yaml  # ACTION_REACTIONS
 │       ├── cold/ ...
 │       └── {8 more archetypes}
 └── engine/dialogue_hybrid/
     ├── __init__.py
     ├── engine.py                     # HybridEngine core
+    ├── stateless.py                  # generate_{daily,party,dungeon,combat}_line / generate_line / generate_reaction
     └── s02_adapter.py                # LineGenerator / ReactionGenerator 호환
 ```
 
@@ -461,7 +467,71 @@ SharpPy 런타임에서는 yaml 파싱 비용만 주의 (데이터를 pre-compil
 
 ---
 
-## 12. 참고
+## 12. S04 통합 (Phase A~D, 2026-04-26)
+
+S04 NPC 발화를 hybrid 묶음 단위로 라우팅. S02 의 romance/action 묶음을 그대로 재사용 + 신규 묶음 추가.
+
+### 묶음 분리 + API
+
+| Context | API | S04 사용처 | 인텐트 |
+|---|---|---|---|
+| `daily` | `generate_daily_line` | get_focus_text (인삿말) | greet / thank / complain |
+| `party` | `generate_party_line` | base.invite_to_party / dismiss / party_vote | invite_accept/decline/switch/loyalty_decline/full / dismiss_leave / vote_advance/return |
+| `dungeon` | `generate_dungeon_line` | erosion._check_thresholds / linear_dungeon.advance_to_next_floor | dungeon_ambient / corrosion_rise / corrosion_critical / floor_descent |
+| `combat` | `generate_combat_line` | encounter.run_encounter | combat_discover/engage/hit/critical/victory/defeat/taunt/ally_down |
+| `romance` / `romance_reactions` | `generate_line` / `generate_reaction` | (Phase 2 성인 모드) | light/medium/strong/penetration/rough + forced_* + tone prefix |
+
+### 라우팅 (S04 [`scenario04/python/npc_dialogue.py`](../scenarios/scenario04/python/npc_dialogue.py))
+
+```python
+_SITUATION_TO_HYBRID = {
+    "greeting": ("daily", "greet"),
+    "first_meet": ("daily", "first_meet"),
+    "invite_accept": ("party", "invite_accept"),
+    # ... 8개 invite_*/dismiss/vote_*
+    "dungeon_ambient": ("dungeon", "dungeon_ambient"),
+    "corrosion_rise": ("dungeon", "corrosion_rise"),
+    "corrosion_critical": ("dungeon", "corrosion_critical"),
+    "floor_descent": ("dungeon", "floor_descent"),
+    "combat_discover": ("combat", "combat_discover"),
+    # ... 8개 combat_*
+}
+
+def get_line(unit_id, situation, **context):
+    archetype = persona.get_archetype(unit_id)
+    hybrid_route = _SITUATION_TO_HYBRID.get(situation)
+    if hybrid_route:
+        ctx_name, intent = hybrid_route
+        line = generate_<ctx_name>_line(archetype, name, intent)
+    if not line:
+        line = _LINES.get(archetype, {}).get(situation) or _FALLBACK.get(situation, ["..."])
+    return line.format(**context)
+```
+
+### Hook 주입 위치
+
+| 트리거 | 파일:함수 | 호출 |
+|---|---|---|
+| 적 조우 | `encounter.run_encounter` | `_npc_combat_voice(allies, log, "combat_discover")` |
+| ally NPC 피격 + alive | (run_encounter 내부) | 25% 임계 통과 → critical, else 20% 확률 → hit |
+| ally NPC 실신 | (사망 체크 직후) | `combat_ally_down` (본인 exclude) |
+| 승리 / 패배 | (전투 종료) | `combat_victory` / `combat_defeat (include_fainted=True)` |
+| 침식 50 / 100 임계 통과 | `erosion._check_thresholds` | `_voice_corrosion(unit_id, "corrosion_rise"/"corrosion_critical")` |
+| 다음 층 진입 | `linear_dungeon.advance_to_next_floor` | `_voice_floor_descent()` (파티 NPC 1명 random) |
+| Focus 첫 만남 | NPC 클래스 `get_focus_text` override | `npc_dialogue.get_line(uid, "first_meet")` + 진척도 prop 마킹 |
+
+### 안정화
+
+3개 hook helper (`_voice_corrosion`, `_voice_floor_descent`, `_npc_combat_voice`) 모두 **broad try/except** 로 감싸 발화 실패가 게임 시스템(전투/층이동/침식) 흐름 막지 않도록 격리. 실패 시 stderr 에 `[dialogue] WARN ...` 출력.
+
+### 4 고정 NPC character.yaml
+
+`카엘 (cheerful) / 도현 (proud) / 레이 (stoic) / 유이 (timid)` —
+`dialogue_overrides.daily` 에 first_meet 인텐트 + greet add_templates 시그니처. archetype prop 명시 오버라이드 (성격 prop 의 PERSONALITY_TO_ARCHETYPE 디폴트와 다른 매핑일 때).
+
+---
+
+## 13. 참고
 
 - 프로토타입 기록: [`tmp/dialogue_multistage/`](../tmp/dialogue_multistage/) (wip 브랜치 `wip/dialogue-hybrid-proto`)
 - S02 원본 데이터: [`scenarios/common/python/engine/tone_templates/`](../scenarios/common/python/engine/tone_templates/)
