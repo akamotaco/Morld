@@ -1,0 +1,15 @@
+# devoted archetype — dungeon context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid dungeon.yaml
+
+archetype: devoted
+context: dungeon
+intents:
+  dungeon_ambient:
+    templates:
+    - id: dungeon_ambient_0
+      pattern: '어느 쪽이든 당신을 따르겠습니다.'
+    - id: dungeon_ambient_1
+      pattern: '제 걱정은 마십시오.'
+    - id: dungeon_ambient_2
+      pattern: '앞서겠습니다.'

@@ -1,0 +1,53 @@
+# fierce archetype — party context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid party.yaml
+
+archetype: fierce
+context: party
+intents:
+  invite_accept:
+    templates:
+    - id: invite_accept_0
+      pattern: '흥, 좋아. 따라가 주지.'
+    - id: invite_accept_1
+      pattern: '재밌겠군. 가자.'
+  invite_decline:
+    templates:
+    - id: invite_decline_0
+      pattern: '내키지 않는다. 꺼져.'
+    - id: invite_decline_1
+      pattern: '웃기지 마. 네 밑으론 안 가.'
+  invite_switch:
+    templates:
+    - id: invite_switch_0
+      pattern: '흥, 이 파티도 한물갔지. 간다.'
+    - id: invite_switch_1
+      pattern: '네 쪽이 더 재밌어 보인다. 좋아.'
+  invite_loyalty_decline:
+    templates:
+    - id: invite_loyalty_decline_0
+      pattern: '웃기지 마. 내가 여길 왜 떠나?'
+    - id: invite_loyalty_decline_1
+      pattern: '네 밑으로 가느니 여기가 낫다.'
+  invite_full:
+    templates:
+    - id: invite_full_0
+      pattern: '이미 똘마니 다 모은 거 아냐?'
+  dismiss_leave:
+    templates:
+    - id: dismiss_leave_0
+      pattern: '흥, 알았다. 어디 잘해봐.'
+    - id: dismiss_leave_1
+      pattern: '그래, 여기까지군. 또 보지 말자.'
+  vote_advance:
+    templates:
+    - id: vote_advance_0
+      pattern: '당연히 간다. 뭘 망설여?'
+    - id: vote_advance_1
+      pattern: '끝까지 밀어붙여!'
+  vote_return:
+    templates:
+    - id: vote_return_0
+      pattern: '...젠장, 오늘은 안 되겠다.'
+    - id: vote_return_1
+      pattern: '쪽팔리지만, 후퇴다.'

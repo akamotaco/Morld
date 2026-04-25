@@ -1,0 +1,289 @@
+# proud archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 톤: 자존심, 원리주의, 격식 있는 대화. 호의도 직접 표현 안 함.
+
+archetype: proud
+context: daily
+intents:
+  greet:
+    templates:
+    - id: formal_short
+      pattern: '{formal_hello}{end}'
+      state_bias:
+        formality: 0.6
+        affinity: 0.3
+    - id: brief_nod
+      pattern: '{nod_word}{end}'
+      state_bias:
+        affinity: 0.2
+    - id: acknowledge_position
+      pattern: '...{position_ack}{end}'
+      state_bias:
+        formality: 0.5
+        affinity: 0.4
+    - id: warm_acknowledge
+      pattern: '...{soft_ack}. 별일 없는가{end}'
+      state_bias:
+        affinity: 0.7
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.4
+    - id: concerned_check
+      pattern: '...{concern_word}, 무사한가{end}'
+      state_bias:
+        affinity: 0.75
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.5
+    - id: dignified_welcome
+      pattern: 잘 왔다. 자리에 앉도록{end}
+      state_bias:
+        affinity: 0.5
+        confidence: 0.6
+    - id: cool_greet
+      pattern: '{cool_word}.'
+      state_bias:
+        affinity: 0.2
+        formality: 0.4
+    - id: distant_check
+      pattern: 무슨 일인가{end}
+      state_bias:
+        affinity: 0.3
+    - id: tired_admit
+      pattern: '{tired_admit_phrase}{end}'
+      state_bias:
+        fatigue: 0.6
+        affinity: 0.5
+      inner_bias:
+        fatigue: 0.6
+        warmth: 0.2
+    - id: subtle_smile
+      pattern: '...{subtle_pleasure}{end}'
+      state_bias:
+        affinity: 0.85
+      inner_bias:
+        affinity: 0.9
+        warmth: 0.5
+        verbosity: -0.2
+    slots:
+      formal_hello:
+      - 인사를 받겠다
+      - 안녕하시오
+      - 평안하신가
+      - 만나서 반갑소
+      nod_word:
+      - 음
+      - 그렇군
+      - 왔는가
+      position_ack:
+      - 자네인가
+      - 자네였나
+      - 그대로군
+      soft_ack:
+      - 또 보는군
+      - 오랜만이군
+      - 잘 지냈는가
+      concern_word:
+      - 마음 쓰였다
+      - 신경 쓰였다
+      - 걱정했다
+      cool_word:
+      - 음
+      - 흠
+      - 그래
+      tired_admit_phrase:
+      - 오늘은 길이 멀었다
+      - 피곤한 하루였군
+      - 자네도 봐야 할 일이 많겠지
+      subtle_pleasure:
+      - 자네라면 환영이다
+      - 자네 얼굴은 반갑군
+      - 자네가 와줘서 다행이다
+      end:
+      - .
+      - ..
+      - '...'
+  thank:
+    templates:
+    - id: formal_thanks
+      pattern: '{formal_grati}{end}'
+      state_bias:
+        formality: 0.6
+        affinity: 0.4
+    - id: dignified
+      pattern: 신세를 졌소{end}
+      state_bias:
+        affinity: 0.5
+        formality: 0.5
+    - id: brief_ack
+      pattern: '{brief_phrase}{end}'
+      state_bias:
+        affinity: 0.3
+    - id: sincere_admit
+      pattern: '...{sincere_intro}, {sincere_grati}{end}'
+      state_bias:
+        affinity: 0.85
+        trust: 0.7
+      inner_bias:
+        affinity: 0.9
+        warmth: 0.5
+        trust: 0.7
+    - id: equal_terms
+      pattern: 이 빚, 잊지 않겠다{end}
+      state_bias:
+        affinity: 0.6
+        formality: 0.5
+    - id: quiet_grateful
+      pattern: '...{quiet_thanks}{end}'
+      state_bias:
+        affinity: 0.7
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.4
+        verbosity: -0.2
+    - id: pride_temper
+      pattern: '...{prideful_intro}. 고맙다{end}'
+      state_bias:
+        affinity: 0.7
+        formality: 0.4
+      inner_bias:
+        affinity: 0.75
+        warmth: 0.3
+    - id: respect_due
+      pattern: 자네의 도움을 인정한다{end}
+      state_bias:
+        affinity: 0.6
+        formality: 0.5
+    - id: subtle_warm
+      pattern: '...{subtle_warm_phrase}{end}'
+      state_bias:
+        affinity: 0.8
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.5
+    - id: minimal
+      pattern: 받아두겠다{end}
+      state_bias:
+        affinity: 0.4
+    slots:
+      formal_grati:
+      - 감사를 표한다
+      - 고맙소
+      - 공로를 인정하지
+      - 노고에 감사한다
+      brief_phrase:
+      - 고맙다
+      - 수고했다
+      - 잘했다
+      sincere_intro:
+      - 이번만은 솔직히
+      - 사실대로 말하면
+      - 진심으로
+      sincere_grati:
+      - 도움이 컸다
+      - 자네 덕분이다
+      - 큰 신세를 졌다
+      quiet_thanks:
+      - 다행이다
+      - 자네가 있어 다행이었다
+      - 잊지 않겠다
+      prideful_intro:
+      - 인정하자면
+      - 굳이 말하자면
+      - 부정하지 않겠다
+      subtle_warm_phrase:
+      - 자네라서 받아들인다
+      - 자네 손이라 의미가 있군
+      - 다른 이였다면 거절했을 것이다
+      end:
+      - .
+      - ..
+      - '...'
+  complain:
+    templates:
+    - id: principled_critique
+      pattern: 이건 옳지 않다{end}
+      state_bias:
+        aggression: 0.5
+        confidence: 0.5
+    - id: standard_violation
+      pattern: '{standard_word}이 어긋난다{end}'
+      state_bias:
+        aggression: 0.4
+        formality: 0.5
+    - id: short_disapprove
+      pattern: 마음에 들지 않는군{end}
+      state_bias:
+        aggression: 0.5
+    - id: tired_admission
+      pattern: '...{tired_word}{end}'
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.5
+      inner_bias:
+        fatigue: 0.7
+        affinity: 0.55
+        warmth: 0.2
+    - id: stern_remark
+      pattern: '{stern_word}이 부족하다{end}'
+      state_bias:
+        aggression: 0.4
+        confidence: 0.5
+    - id: principled_sigh
+      pattern: 하... 이런 식이라면 곤란하다{end}
+      state_bias:
+        fatigue: 0.5
+        aggression: 0.4
+    - id: self_critique
+      pattern: '...{self_blame_word}. 한심하군{end}'
+      state_bias:
+        confidence: -0.3
+        aggression: 0.3
+      inner_bias:
+        affinity: 0.4
+        verbosity: 0.3
+    - id: weighty_pause
+      pattern: '...{weighty_phrase}{end}'
+      state_bias:
+        fatigue: 0.6
+        affinity: 0.5
+      inner_bias:
+        fatigue: 0.6
+        warmth: 0.3
+    - id: cold_rebuke
+      pattern: 두 번은 봐주지 않겠다{end}
+      state_bias:
+        aggression: 0.6
+        hostility: 0.3
+    - id: doubt_voiced
+      pattern: 정말 이대로 괜찮다고 보는가{end}
+      state_bias:
+        confidence: -0.2
+        aggression: 0.3
+    slots:
+      standard_word:
+      - 원칙
+      - 도리
+      - 격식
+      - 정도
+      tired_word:
+      - 오늘은 짐이 무겁다
+      - 어깨가 무거운 날이군
+      - 견디기 힘들다
+      stern_word:
+      - 각오
+      - 신중함
+      - 자제
+      - 책임
+      self_blame_word:
+      - 내 실책이다
+      - 내 판단이 미흡했다
+      - 내 책임이군
+      weighty_phrase:
+      - 많은 생각이 든다
+      - 결단이 필요한 시기다
+      - 생각이 정리되지 않는다
+      end:
+      - .
+      - ..
+      - '...'

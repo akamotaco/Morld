@@ -1,0 +1,53 @@
+# devoted archetype — party context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid party.yaml
+
+archetype: devoted
+context: party
+intents:
+  invite_accept:
+    templates:
+    - id: invite_accept_0
+      pattern: '당신이 원한다면 어디든.'
+    - id: invite_accept_1
+      pattern: '영광입니다. 함께 가겠습니다.'
+  invite_decline:
+    templates:
+    - id: invite_decline_0
+      pattern: '...죄송합니다. 지금은 따를 수 없습니다.'
+    - id: invite_decline_1
+      pattern: '제 자리는 여기입니다. 용서하세요.'
+  invite_switch:
+    templates:
+    - id: invite_switch_0
+      pattern: '...지금 리더를 배신하는 게 되겠지만, 당신이 원한다면.'
+    - id: invite_switch_1
+      pattern: '당신의 뜻이라면 따르겠습니다.'
+  invite_loyalty_decline:
+    templates:
+    - id: invite_loyalty_decline_0
+      pattern: '죄송합니다. 제 충성은 여기 리더에게 있습니다.'
+    - id: invite_loyalty_decline_1
+      pattern: '...지금 섬기는 분을 두고 갈 수는 없습니다.'
+  invite_full:
+    templates:
+    - id: invite_full_0
+      pattern: '이미 동료가 가득하시군요.'
+  dismiss_leave:
+    templates:
+    - id: dismiss_leave_0
+      pattern: '...알겠습니다. 당신의 결정을 존중합니다.'
+    - id: dismiss_leave_1
+      pattern: '그래야 한다면. 무운을 빕니다.'
+  vote_advance:
+    templates:
+    - id: vote_advance_0
+      pattern: '당신이 가신다면 저도 갑니다.'
+    - id: vote_advance_1
+      pattern: '원하시는 대로. 전진이든 뭐든.'
+  vote_return:
+    templates:
+    - id: vote_return_0
+      pattern: '...당신의 안위가 먼저입니다. 돌아가시죠.'
+    - id: vote_return_1
+      pattern: '여기서 멈추시죠. 무리하지 마세요.'

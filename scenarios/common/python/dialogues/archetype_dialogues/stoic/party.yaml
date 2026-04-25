@@ -1,0 +1,53 @@
+# stoic archetype — party context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid party.yaml
+
+archetype: stoic
+context: party
+intents:
+  invite_accept:
+    templates:
+    - id: invite_accept_0
+      pattern: '좋아. 함께 가지.'
+    - id: invite_accept_1
+      pattern: '...알겠다. 그럴 만한 이유가 있겠지.'
+  invite_decline:
+    templates:
+    - id: invite_decline_0
+      pattern: '미안하지만, 그럴 생각 없다.'
+    - id: invite_decline_1
+      pattern: '...아니, 나는 빠지겠다.'
+  invite_switch:
+    templates:
+    - id: invite_switch_0
+      pattern: '...이 파티에 미련은 없다. 간다.'
+    - id: invite_switch_1
+      pattern: '네 제안이 낫군. 여기서 빠지지.'
+  invite_loyalty_decline:
+    templates:
+    - id: invite_loyalty_decline_0
+      pattern: '...지금 리더와의 약속이 있다.'
+    - id: invite_loyalty_decline_1
+      pattern: '이 파티는 떠날 수 없다.'
+  invite_full:
+    templates:
+    - id: invite_full_0
+      pattern: '자리가 없어 보이는군.'
+  dismiss_leave:
+    templates:
+    - id: dismiss_leave_0
+      pattern: '...알겠다. 각자의 길을 가자.'
+    - id: dismiss_leave_1
+      pattern: '여기서 끝인가. 그래, 무운을.'
+  vote_advance:
+    templates:
+    - id: vote_advance_0
+      pattern: '아직 물러설 때가 아니다.'
+    - id: vote_advance_1
+      pattern: '계속 가자. 뒤돌아볼 이유가 없어.'
+  vote_return:
+    templates:
+    - id: vote_return_0
+      pattern: '무리하지 말자. 돌아가는 게 낫다.'
+    - id: vote_return_1
+      pattern: '여기서 멈추는 게 현명해.'

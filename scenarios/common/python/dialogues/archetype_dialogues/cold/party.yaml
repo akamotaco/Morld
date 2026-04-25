@@ -1,0 +1,53 @@
+# cold archetype — party context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid party.yaml
+
+archetype: cold
+context: party
+intents:
+  invite_accept:
+    templates:
+    - id: invite_accept_0
+      pattern: '...이득이 있다면야. 좋다.'
+    - id: invite_accept_1
+      pattern: '흥, 뭐라도 건지겠지. 가지.'
+  invite_decline:
+    templates:
+    - id: invite_decline_0
+      pattern: '내가 왜 네 밑에서? 됐다.'
+    - id: invite_decline_1
+      pattern: '그만한 가치가 없다. 거절한다.'
+  invite_switch:
+    templates:
+    - id: invite_switch_0
+      pattern: '...네가 더 이득이군. 간다.'
+    - id: invite_switch_1
+      pattern: '이 파티는 성과가 시원찮았지. 갈아타자.'
+  invite_loyalty_decline:
+    templates:
+    - id: invite_loyalty_decline_0
+      pattern: '계약이 있다. 어길 수 없어.'
+    - id: invite_loyalty_decline_1
+      pattern: '지금 리더가 쥐여준 게 있거든. 못 떠난다.'
+  invite_full:
+    templates:
+    - id: invite_full_0
+      pattern: '이미 다 찼군. 애쓰지 마.'
+  dismiss_leave:
+    templates:
+    - id: dismiss_leave_0
+      pattern: '그래, 여기까지 쓸 만큼 썼지. 잘 가라.'
+    - id: dismiss_leave_1
+      pattern: '뭐, 예상대로군.'
+  vote_advance:
+    templates:
+    - id: vote_advance_0
+      pattern: '여기서 돌아가면 손해다. 간다.'
+    - id: vote_advance_1
+      pattern: '더 깊이. 전리품이 기다린다.'
+  vote_return:
+    templates:
+    - id: vote_return_0
+      pattern: '이득 없는 위험은 사양한다. 귀환이다.'
+    - id: vote_return_1
+      pattern: '...철수하지. 감이 좋지 않다.'

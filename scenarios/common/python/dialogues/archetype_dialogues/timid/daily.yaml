@@ -1,0 +1,343 @@
+# timid archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 톤: 작은 목소리, 더듬음, 시선 회피, 송구함. 상대를 살피며 조심스럽게.
+
+archetype: timid
+context: daily
+intents:
+  greet:
+    templates:
+    - id: stutter_hello
+      pattern: '{stutter}, 안녕하세요{soft_end}'
+      state_bias:
+        embarrassment: 0.6
+        affinity: 0.4
+    - id: small_voice
+      pattern: '...아, {small_greet}{soft_end}'
+      state_bias:
+        embarrassment: 0.5
+        affinity: 0.4
+    - id: peek_glance
+      pattern: '{peek_word}... 오셨네요{soft_end}'
+      state_bias:
+        embarrassment: 0.5
+        affinity: 0.5
+      inner_bias:
+        affinity: 0.7
+        warmth: 0.4
+    - id: shy_relief
+      pattern: '...{relief_phrase}{soft_end}'
+      state_bias:
+        affinity: 0.7
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.6
+    - id: nervous_check
+      pattern: '{nervous_word}... 화 안 나셨어요?'
+      state_bias:
+        embarrassment: 0.6
+        affinity: 0.5
+      inner_bias:
+        affinity: 0.6
+        warmth: 0.4
+    - id: barely_audible
+      pattern: '...{barely_word}{soft_end}'
+      state_bias:
+        embarrassment: 0.7
+        verbosity: -0.3
+    - id: timid_wait
+      pattern: '...{wait_word}, 와주셨네요{soft_end}'
+      state_bias:
+        affinity: 0.7
+        embarrassment: 0.4
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.6
+        verbosity: 0.4
+    - id: tired_apology
+      pattern: '...{tired_apo}. 미안해요{soft_end}'
+      state_bias:
+        fatigue: 0.6
+        affinity: 0.5
+        embarrassment: 0.5
+      inner_bias:
+        fatigue: 0.6
+        warmth: 0.3
+    - id: bow_quiet
+      pattern: '안녕하세요...{soft_end}'
+      state_bias:
+        formality: 0.5
+        affinity: 0.4
+        embarrassment: 0.5
+    - id: shy_smile
+      pattern: '{shy_smile_word}... 반가워요{soft_end}'
+      state_bias:
+        affinity: 0.75
+        embarrassment: 0.4
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.5
+    slots:
+      stutter:
+      - 아, 어
+      - 어, 어
+      - 그, 그
+      - 음, 음
+      small_greet:
+      - 안녕하세요
+      - 어서 오세요
+      - 오셨네요
+      peek_word:
+      - 어
+      - 아
+      - 음
+      relief_phrase:
+      - 다행이다
+      - 무사하셨네요
+      - 와주셔서 정말 다행이에요
+      nervous_word:
+      - 저, 저
+      - 어, 어
+      - 음, 음
+      barely_word:
+      - 안녕
+      - 어서 오세요
+      - 와주셨군요
+      wait_word:
+      - 한참
+      - 계속
+      - 오랫동안
+      tired_apo:
+      - 오늘은 좀 지쳐서
+      - 많이 피곤해서
+      - 정신이 없어서
+      shy_smile_word:
+      - 헤헤
+      - 음...
+      - 어...
+      soft_end:
+      - .
+      - ..
+      - '...'
+  thank:
+    templates:
+    - id: stutter_thanks
+      pattern: '{stutter_th}, 감사해요{soft_end}'
+      state_bias:
+        embarrassment: 0.7
+        affinity: 0.6
+    - id: barely_thanks
+      pattern: '...{barely_th}{soft_end}'
+      state_bias:
+        affinity: 0.5
+        embarrassment: 0.5
+    - id: deep_apology
+      pattern: '{apo_intro}, 정말 감사합니다{soft_end}'
+      state_bias:
+        formality: 0.5
+        affinity: 0.7
+        embarrassment: 0.4
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.5
+    - id: tearful_thanks
+      pattern: '...{tearful_word}, 고마워요{soft_end}'
+      state_bias:
+        affinity: 0.85
+        embarrassment: 0.4
+      inner_bias:
+        affinity: 0.9
+        warmth: 0.7
+        trust: 0.6
+    - id: undeserving
+      pattern: '저, 저한텐 과분한데요...{soft_end}'
+      state_bias:
+        embarrassment: 0.7
+        affinity: 0.6
+      inner_bias:
+        affinity: 0.7
+        warmth: 0.5
+    - id: small_bow
+      pattern: '...{bow_word}, 감사합니다{soft_end}'
+      state_bias:
+        formality: 0.5
+        affinity: 0.5
+        embarrassment: 0.4
+    - id: shy_clutch
+      pattern: '...정말로요? {clutch_word}{soft_end}'
+      state_bias:
+        affinity: 0.7
+        embarrassment: 0.5
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.5
+    - id: relieved_thanks
+      pattern: '...{relief_th}. 감사해요{soft_end}'
+      state_bias:
+        affinity: 0.75
+        embarrassment: 0.3
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.6
+    - id: tiny_voice
+      pattern: '...고마워요{soft_end}'
+      state_bias:
+        affinity: 0.5
+        verbosity: -0.3
+    - id: hesitant_accept
+      pattern: '{hesitant}... 받아도 되는 건가요{soft_end}'
+      state_bias:
+        embarrassment: 0.6
+        affinity: 0.5
+      inner_bias:
+        affinity: 0.7
+        warmth: 0.4
+    slots:
+      stutter_th:
+      - 가, 감사
+      - 그, 그
+      - 어, 어
+      - 음...
+      barely_th:
+      - 고마워요
+      - 감사해요
+      - 도움 됐어요
+      apo_intro:
+      - 죄송하지만
+      - 송구하지만
+      - 부끄럽지만
+      tearful_word:
+      - 너무
+      - 정말
+      - 진심으로
+      bow_word:
+      - 송구합니다
+      - 죄송합니다
+      - 부끄럽습니다
+      clutch_word:
+      - 너무 감사해요
+      - 잊지 않을게요
+      - 가슴이 따뜻해져요
+      relief_th:
+      - 정말 다행이에요
+      - 마음이 놓였어요
+      - 안심이 됐어요
+      hesitant:
+      - 정말로
+      - 이걸
+      - 저, 저한테
+      soft_end:
+      - .
+      - ..
+      - '...'
+  complain:
+    templates:
+    - id: self_blame
+      pattern: '...{self_blame_phrase}{soft_end}'
+      state_bias:
+        embarrassment: 0.6
+        confidence: -0.4
+        affinity: 0.4
+      inner_bias:
+        affinity: 0.5
+        verbosity: 0.3
+    - id: tiny_apo
+      pattern: '죄송해요... {apo_reason}{soft_end}'
+      state_bias:
+        embarrassment: 0.7
+        affinity: 0.4
+        confidence: -0.3
+    - id: barely_voice
+      pattern: '...{barely_complain}{soft_end}'
+      state_bias:
+        fatigue: 0.6
+        verbosity: -0.3
+    - id: shaky_admit
+      pattern: '{shaky_intro}, 좀 무서워서요...{soft_end}'
+      state_bias:
+        fatigue: 0.5
+        embarrassment: 0.6
+      inner_bias:
+        affinity: 0.4
+        warmth: 0.2
+        verbosity: 0.5
+    - id: hold_back_tear
+      pattern: '...{tear_word}{soft_end}'
+      state_bias:
+        fatigue: 0.6
+        affinity: 0.5
+      inner_bias:
+        affinity: 0.6
+        warmth: 0.3
+        verbosity: -0.2
+    - id: fragile_request
+      pattern: '...{fragile_req}{soft_end}'
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.6
+        embarrassment: 0.4
+      inner_bias:
+        fatigue: 0.7
+        affinity: 0.6
+        warmth: 0.3
+    - id: scared_doubt
+      pattern: '...정말... 괜찮을까요{soft_end}'
+      state_bias:
+        confidence: -0.4
+        embarrassment: 0.5
+        affinity: 0.4
+    - id: weary_sigh
+      pattern: '...후우...{soft_end}'
+      state_bias:
+        fatigue: 0.7
+        verbosity: -0.4
+    - id: fearful_admit
+      pattern: '{fear_word}... 좀 떨려요{soft_end}'
+      state_bias:
+        embarrassment: 0.6
+        confidence: -0.3
+    - id: minor_grumble
+      pattern: '...{grumble_word}{soft_end}'
+      state_bias:
+        fatigue: 0.5
+        affinity: 0.4
+      inner_bias:
+        affinity: 0.5
+        warmth: 0.2
+    slots:
+      self_blame_phrase:
+      - 제가 잘못한 것 같아요
+      - 또 실수했어요
+      - 제 탓이에요
+      apo_reason:
+      - 도움이 못 됐어요
+      - 제가 부족했어요
+      - 잘 못했어요
+      barely_complain:
+      - 좀 힘들어요
+      - 지쳤어요
+      - 무거워요
+      shaky_intro:
+      - 저, 저
+      - 음, 음
+      - 어, 어
+      tear_word:
+      - 눈물이 나려고 해요
+      - 가슴이 답답해요
+      - 견디기 힘들어요
+      fragile_req:
+      - 잠시만 쉬고 싶어요
+      - 조금만 기다려 주세요
+      - 혼자 있고 싶어요
+      fear_word:
+      - 저, 저
+      - 어, 어
+      - 음...
+      grumble_word:
+      - 머리가 어지러워요
+      - 발이 무거워요
+      - 손이 떨려요
+      soft_end:
+      - .
+      - ..
+      - '...'

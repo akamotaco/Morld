@@ -1,0 +1,274 @@
+# stoic archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 톤: 과묵, 짧음, 감정 봉인. 호의 표현은 어색해서 끄덕임/시선/짧은 동의로.
+
+archetype: stoic
+context: daily
+intents:
+  greet:
+    templates:
+    - id: minimal_nod
+      pattern: '{nod_short}{end}'
+      state_bias:
+        affinity: 0.3
+    - id: brief_acknowledge
+      pattern: '{ack_word}{end}'
+      state_bias:
+        affinity: 0.4
+    - id: silent_check
+      pattern: 무슨 일이지{end}
+      state_bias:
+        affinity: 0.3
+    - id: cool_morning
+      pattern: '...왔나{end}'
+      state_bias:
+        affinity: 0.4
+    - id: warm_quiet
+      pattern: '...{warm_quiet_phrase}{end}'
+      state_bias:
+        affinity: 0.7
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.4
+        verbosity: -0.2
+    - id: short_concern
+      pattern: '{concern_short}{end}'
+      state_bias:
+        affinity: 0.6
+      inner_bias:
+        affinity: 0.7
+        warmth: 0.3
+    - id: ellipsis_only
+      pattern: '...'
+      state_bias:
+        verbosity: -0.5
+        affinity: 0.3
+    - id: tired_brief
+      pattern: '...{tired_short}{end}'
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.4
+      inner_bias:
+        fatigue: 0.7
+        warmth: 0.1
+    - id: subtle_relief
+      pattern: '...{relief_phrase}{end}'
+      state_bias:
+        affinity: 0.85
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.4
+    - id: terse_observe
+      pattern: '{observation}{end}'
+      state_bias:
+        confidence: 0.4
+    slots:
+      nod_short:
+      - 음
+      - 어
+      - 그래
+      - 응
+      ack_word:
+      - 왔군
+      - 오셨군
+      - 보이는군
+      warm_quiet_phrase:
+      - 다행이다
+      - 무사한가
+      - 별 일 없었으면 됐다
+      concern_short:
+      - 괜찮나
+      - 어디 다친 곳은 없나
+      - 별 일 없나
+      tired_short:
+      - 오늘은 길었다
+      - 피곤하군
+      - 묵묵히 기다리고 있었다
+      relief_phrase:
+      - 무사해서 다행이다
+      - 돌아왔군
+      - 자네였나
+      observation:
+      - 발걸음 소리가 들렸다
+      - 그림자가 보였다
+      - 기척을 느꼈다
+      end:
+      - .
+      - ..
+      - '...'
+  thank:
+    templates:
+    - id: minimal_thanks
+      pattern: '{minimal_word}{end}'
+      state_bias:
+        affinity: 0.4
+    - id: terse_thanks
+      pattern: '...고맙다{end}'
+      state_bias:
+        affinity: 0.5
+    - id: nod_thanks
+      pattern: '...{nod_thanks_word}{end}'
+      state_bias:
+        affinity: 0.4
+    - id: sincere_brief
+      pattern: '...{sincere_short}{end}'
+      state_bias:
+        affinity: 0.85
+        trust: 0.7
+      inner_bias:
+        affinity: 0.9
+        warmth: 0.5
+        trust: 0.7
+    - id: practical_ack
+      pattern: '{practical_word}{end}'
+      state_bias:
+        affinity: 0.4
+        confidence: 0.4
+    - id: weighty_short
+      pattern: '...{weighty_thanks}{end}'
+      state_bias:
+        affinity: 0.7
+      inner_bias:
+        affinity: 0.8
+        warmth: 0.4
+    - id: indebt_quiet
+      pattern: 빚을 졌다{end}
+      state_bias:
+        affinity: 0.5
+        formality: 0.4
+    - id: bare_ack
+      pattern: 그래{end}
+      state_bias:
+        affinity: 0.3
+    - id: warm_admit
+      pattern: '...{warm_admit_phrase}{end}'
+      state_bias:
+        affinity: 0.8
+      inner_bias:
+        affinity: 0.85
+        warmth: 0.5
+        verbosity: -0.1
+    - id: simple_back
+      pattern: 너에게도 빚이 있다{end}
+      state_bias:
+        affinity: 0.6
+    slots:
+      minimal_word:
+      - 고맙다
+      - 감사
+      - 됐다
+      nod_thanks_word:
+      - 도움 됐다
+      - 잘 받았다
+      - 충분하다
+      sincere_short:
+      - 정말 고맙다
+      - 진심이다
+      - 너 덕분이다
+      practical_word:
+      - 도움이 됐다
+      - 유용했다
+      - 효과적이었다
+      weighty_thanks:
+      - 너에게는 늘 신세를 진다
+      - 잊지 않겠다
+      - 기억하고 있을 것이다
+      warm_admit_phrase:
+      - 너라서 받아들인다
+      - 다른 이였다면 어색했을 것이다
+      - 너의 손길은 따뜻했다
+      end:
+      - .
+      - ..
+      - '...'
+  complain:
+    templates:
+    - id: heavy_silence
+      pattern: '...'
+      state_bias:
+        fatigue: 0.5
+        verbosity: -0.5
+    - id: short_sigh
+      pattern: '하...{end}'
+      state_bias:
+        fatigue: 0.6
+    - id: brief_admit
+      pattern: '{admit_short}{end}'
+      state_bias:
+        fatigue: 0.7
+    - id: terse_burden
+      pattern: '{burden_word}이 있다{end}'
+      state_bias:
+        fatigue: 0.6
+        affinity: 0.4
+    - id: stoic_pain
+      pattern: '...견딜 만하다{end}'
+      state_bias:
+        fatigue: 0.7
+        confidence: 0.4
+      inner_bias:
+        fatigue: 0.7
+        warmth: 0.2
+    - id: minimal_doubt
+      pattern: 의심스럽군{end}
+      state_bias:
+        confidence: -0.3
+    - id: weight_in_silence
+      pattern: '...{weight_phrase}{end}'
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.5
+      inner_bias:
+        fatigue: 0.7
+        warmth: 0.2
+    - id: stoic_hurt
+      pattern: '...{hurt_word}{end}'
+      state_bias:
+        fatigue: 0.6
+        affinity: 0.4
+      inner_bias:
+        fatigue: 0.6
+        warmth: 0.3
+    - id: terse_dismiss
+      pattern: 신경 쓰지 마라{end}
+      state_bias:
+        affinity: 0.3
+        aggression: 0.2
+      inner_bias:
+        affinity: 0.5
+        warmth: 0.2
+        verbosity: -0.2
+    - id: quiet_request
+      pattern: '...{quiet_req}{end}'
+      state_bias:
+        fatigue: 0.7
+        affinity: 0.5
+      inner_bias:
+        fatigue: 0.7
+        affinity: 0.6
+        warmth: 0.3
+    slots:
+      admit_short:
+      - 피곤하다
+      - 무겁다
+      - 한계다
+      burden_word:
+      - 부담
+      - 고민
+      - 짐
+      weight_phrase:
+      - 생각이 많다
+      - 정리되지 않는다
+      - 머리가 무겁다
+      hurt_word:
+      - 좀 베인 것 같다
+      - 약간 다쳤을 뿐이다
+      - 신경 쓸 정도는 아니다
+      quiet_req:
+      - 잠시만 혼자 두어다오
+      - 시간이 필요하다
+      - 휴식이 필요하다
+      end:
+      - .
+      - ..
+      - '...'

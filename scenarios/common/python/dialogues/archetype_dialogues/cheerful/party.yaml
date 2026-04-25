@@ -1,0 +1,53 @@
+# cheerful archetype — party context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid party.yaml
+
+archetype: cheerful
+context: party
+intents:
+  invite_accept:
+    templates:
+    - id: invite_accept_0
+      pattern: '좋아좋아! 같이 가자!'
+    - id: invite_accept_1
+      pattern: '오케이, 내가 빠질 순 없지!'
+  invite_decline:
+    templates:
+    - id: invite_decline_0
+      pattern: '아~ 미안, 지금은 좀 그래.'
+    - id: invite_decline_1
+      pattern: '헤헤, 오늘은 패스할래.'
+  invite_switch:
+    templates:
+    - id: invite_switch_0
+      pattern: '오케이! 지금 파티는 좀 지루했거든.'
+    - id: invite_switch_1
+      pattern: '좋아, 새 출발이야!'
+  invite_loyalty_decline:
+    templates:
+    - id: invite_loyalty_decline_0
+      pattern: '미안~ 지금 파티가 재밌어서.'
+    - id: invite_loyalty_decline_1
+      pattern: '헤헤, 이 사람들이랑 더 놀고 싶어.'
+  invite_full:
+    templates:
+    - id: invite_full_0
+      pattern: '이미 꽉 찬 거 아냐? 자리 없어 보이는데.'
+  dismiss_leave:
+    templates:
+    - id: dismiss_leave_0
+      pattern: '아쉽다~ 또 보자!'
+    - id: dismiss_leave_1
+      pattern: '흐음, 알겠어. 잘 지내!'
+  vote_advance:
+    templates:
+    - id: vote_advance_0
+      pattern: '가자가자! 재밌을 것 같은데!'
+    - id: vote_advance_1
+      pattern: '여기서 물러나면 김새잖아!'
+  vote_return:
+    templates:
+    - id: vote_return_0
+      pattern: '음, 오늘은 여기까지 할까?'
+    - id: vote_return_1
+      pattern: '배고파... 돌아가서 먹자.'

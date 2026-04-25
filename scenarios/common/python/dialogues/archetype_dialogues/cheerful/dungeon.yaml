@@ -1,0 +1,15 @@
+# cheerful archetype — dungeon context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid dungeon.yaml
+
+archetype: cheerful
+context: dungeon
+intents:
+  dungeon_ambient:
+    templates:
+    - id: dungeon_ambient_0
+      pattern: '여기 분위기 죽이네!'
+    - id: dungeon_ambient_1
+      pattern: '흐음~ 뭔가 나올 것 같은데?'
+    - id: dungeon_ambient_2
+      pattern: '다들 너무 심각한 거 아냐?'

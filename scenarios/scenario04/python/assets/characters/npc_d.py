@@ -35,6 +35,14 @@ class NpcD(Character):
         "리더십": 3,            # 파티 풀 통솔 가능
         "D:힘공개": 0,          # 0=숨김, 1=일부공개, 2=완전공개
         "D:진실단계": 0,        # 스토리 진행도
+        # 성격="내성적"은 PERSONALITY_TO_ARCHETYPE 미매핑 → 기본 stoic이지만,
+        # 유이는 외유내강/두려움 톤이라 timid로 명시. D:진실단계 진행 시 gentle 전환은 후속.
+        "아키타입": "timid",
+    }
+
+    REACTION_PROFILE = {
+        "name": "유이",
+        "archetype": "timid",
     }
 
     def get_describe_text(self):

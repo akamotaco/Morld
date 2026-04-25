@@ -27,6 +27,14 @@ class NpcA(Character):
         "성별": "남",
         "정규NPC": "A",
         "소문:관심": 1,  # 던전 소문/정보에 관심
+        # 성격="탐욕"의 PERSONALITY_TO_ARCHETYPE 디폴트는 cold지만,
+        # 카엘은 유쾌/거간꾼 톤이라 cheerful로 명시 오버라이드.
+        "아키타입": "cheerful",
+    }
+
+    REACTION_PROFILE = {
+        "name": "카엘",
+        "archetype": "cheerful",
     }
 
     def get_describe_text(self):

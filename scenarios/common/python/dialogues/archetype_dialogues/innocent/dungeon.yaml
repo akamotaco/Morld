@@ -1,0 +1,15 @@
+# innocent archetype — dungeon context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3 마이그레이트 (2026-04-26): npc_dialogue._LINES → hybrid dungeon.yaml
+
+archetype: innocent
+context: dungeon
+intents:
+  dungeon_ambient:
+    templates:
+    - id: dungeon_ambient_0
+      pattern: '이런 곳에도 꽃이 필까요?'
+    - id: dungeon_ambient_1
+      pattern: '...조금 무서워요.'
+    - id: dungeon_ambient_2
+      pattern: '모두 괜찮으세요?'

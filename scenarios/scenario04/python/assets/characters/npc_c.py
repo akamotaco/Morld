@@ -30,6 +30,14 @@ class NpcC(Character):
         "C:상태": "무기력",     # 무기력 → 회복 → 부활
         "C:신뢰축적": 0,        # 플레이어 케어 누적
         "C:부활임계": 50,       # 이 값 도달 시 전투력 부활
+        # 성격="체념"은 PERSONALITY_TO_ARCHETYPE 미매핑 → 기본 stoic.
+        # 레이는 트라우마로 감정 봉인된 톤 — stoic 일치, 명시로 의도 고정.
+        "아키타입": "stoic",
+    }
+
+    REACTION_PROFILE = {
+        "name": "레이",
+        "archetype": "stoic",
     }
 
     def get_describe_text(self):

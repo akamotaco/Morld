@@ -38,6 +38,9 @@ _SLOT_TEMP = 0.5
 
 _LINE_CONTEXTS: Tuple[str, ...] = ("romance", "action_lines")
 _REACTION_CONTEXTS: Tuple[str, ...] = ("romance_reactions", "action_reactions")
+_DAILY_CONTEXTS: Tuple[str, ...] = ("daily",)
+_PARTY_CONTEXTS: Tuple[str, ...] = ("party",)
+_DUNGEON_CONTEXTS: Tuple[str, ...] = ("dungeon",)
 
 # 톤 접두사 — `_generate_intent` 가 인텐트 미매칭 시 (a) 접두사+카테고리 조합,
 # (b) bare 접두사 순으로 탐색해 톤 유지.
@@ -231,6 +234,52 @@ def generate_reaction(archetype: str, character: str, action_id: str,
     data = _load_merged(root, character, archetype, _REACTION_CONTEXTS)
     rng = rng if rng is not None else _random
     return _generate_intent(data, action_id, state, {"name": character}, rng)
+
+
+def generate_daily_line(archetype: str, character: str, intent: str,
+                        state: Optional[Dict[str, float]] = None,
+                        *, dialogue_root: Optional[Path] = None,
+                        rng=None) -> str:
+    """일상 대화 fallback (DAILY 풀: greet/thank/complain 등).
+
+    archetype: 10종 중 하나
+    character: 캐릭터 이름. characters/{name}.yaml 이 있으면 override 적용
+    intent: greet / thank / complain 등 daily 컨텍스트 인텐트
+    state: outer_profile 매칭에 사용할 상태(affinity/fatigue 등). 없어도 동작
+    """
+    root = Path(dialogue_root) if dialogue_root else _default_root()
+    data = _load_merged(root, character, archetype, _DAILY_CONTEXTS)
+    rng = rng if rng is not None else _random
+    return _generate_intent(data, intent, state, {"name": character}, rng)
+
+
+def generate_party_line(archetype: str, character: str, intent: str,
+                        state: Optional[Dict[str, float]] = None,
+                        *, dialogue_root: Optional[Path] = None,
+                        rng=None) -> str:
+    """파티/모집/투표 대사 (PARTY 풀: invite_*/dismiss_leave/vote_* 등).
+
+    Phase B-3 마이그레이션 (2026-04-26): S04 npc_dialogue._LINES 의 파티 관련 라인을
+    archetype_dialogues/{arch}/party.yaml 로 이관. character.yaml 의 dialogue_overrides 가능.
+    """
+    root = Path(dialogue_root) if dialogue_root else _default_root()
+    data = _load_merged(root, character, archetype, _PARTY_CONTEXTS)
+    rng = rng if rng is not None else _random
+    return _generate_intent(data, intent, state, {"name": character}, rng)
+
+
+def generate_dungeon_line(archetype: str, character: str, intent: str,
+                          state: Optional[Dict[str, float]] = None,
+                          *, dialogue_root: Optional[Path] = None,
+                          rng=None) -> str:
+    """던전 환경 발화 (DUNGEON 풀: dungeon_ambient/floor_*/corrosion_* 등).
+
+    Phase B-3 마이그레이션. floor_*/corrosion_* 인텐트는 후속 페이즈에서 추가.
+    """
+    root = Path(dialogue_root) if dialogue_root else _default_root()
+    data = _load_merged(root, character, archetype, _DUNGEON_CONTEXTS)
+    rng = rng if rng is not None else _random
+    return _generate_intent(data, intent, state, {"name": character}, rng)
 
 
 def clear_cache() -> None:

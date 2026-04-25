@@ -31,6 +31,14 @@ class NpcB(Character):
         "세계의지식": 0,       # 이중 경로 축적
         "B:경계단계": 0,       # 0=무관심, 1=의심, 2=확신, 3=적대
         "B:군대연결": 1,       # 군대 소환 가능 여부
+        # 성격="정의감"은 PERSONALITY_TO_ARCHETYPE 미매핑 → 기본 stoic이지만,
+        # 도현은 자존심/원리주의 톤이라 proud로 명시. 적대 단계에서 fierce 전환은 후속.
+        "아키타입": "proud",
+    }
+
+    REACTION_PROFILE = {
+        "name": "도현",
+        "archetype": "proud",
     }
 
     def get_describe_text(self):
