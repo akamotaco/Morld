@@ -55,7 +55,14 @@ class NpcD(Character):
             return "강대한 힘이 느껴지지만, 그 눈에는 두려움이 담겨 있다."
 
     def get_focus_text(self):
-        return (
-            f"{self.name}. 겉으로는 평범해 보이지만, "
-            "가까이 갈수록 설명할 수 없는 압도감이 느껴진다."
-        )
+        """첫 만남이면 시그니처 인사 (character.yaml first_meet), 이후 일반 흐름."""
+        import morld
+        import npc_dialogue
+
+        player_id = morld.get_player_id()
+        progress_key = f"관계:{self.name}:진척도"
+        if player_id and morld.get_unit_prop(player_id, progress_key, 0) <= 0:
+            morld.set_unit_prop(player_id, progress_key, 1)
+            line = npc_dialogue.get_line(self.instance_id, "first_meet", name=self.name)
+            return f"[{self.name}] \"{line}\""
+        return super().get_focus_text()

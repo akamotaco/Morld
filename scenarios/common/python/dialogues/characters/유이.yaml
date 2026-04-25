@@ -1,0 +1,44 @@
+# 유이 (Yui) — S04 npc_d 거울/진실/특수 존재
+# 베이스 archetype: timid. 시그니처: 외유내강 — 표면 두려움 + 내면 강함/비밀.
+# first_meet: 움츠림 + 시선 회피 + 두려움
+
+character: 유이
+archetype: timid
+era: medieval
+sex: F
+
+outer_profile:
+  formality: 0.2
+  warmth: -0.1
+  aggression: -0.4
+  verbosity: -0.3
+  maturity: 0.0
+
+inner_profile:
+  formality: 0.4
+  warmth: 0.2
+  aggression: 0.0
+  verbosity: 0.3
+  maturity: 0.5
+
+dialogue_overrides:
+  daily:
+    intents:
+      first_meet:
+        templates:
+          - id: yui_intro_huddle
+            pattern: "...아, 저... 유이, 라고... 해요. 죄송해요, 누구신지..."
+          - id: yui_intro_avoid
+            pattern: "(시선을 피하며) ...유이. 그 이상은... 묻지 말아주세요."
+          - id: yui_intro_fear
+            pattern: "...저, 저는... 유이예요. 해치지 말아주세요..."
+      greet:
+        add_templates:
+          - id: yui_greet_meek
+            pattern: "...어, 또 오셨네요... 무, 무서운 일은 없으셨어요?"
+            state_bias: { embarrassment: 0.5, affinity: 0.5 }
+            inner_bias: { affinity: 0.7, warmth: 0.4 }
+          - id: yui_greet_concealed
+            pattern: "...안녕, 하세요. 저는... 괜찮아요."
+            state_bias: { embarrassment: 0.4 }
+            inner_bias: { affinity: 0.6, warmth: 0.3, verbosity: 0.4 }

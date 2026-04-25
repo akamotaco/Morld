@@ -1,0 +1,42 @@
+# 도현 (Dohyun) — S04 npc_b 전직 모험가/정의감/의심
+# 베이스 archetype: proud. 시그니처: 경계/원리/적대 가능성.
+# first_meet: 살핌 + 자기 소개를 미루는 톤
+
+character: 도현
+archetype: proud
+era: medieval
+sex: M
+
+outer_profile:
+  formality: 0.3
+  warmth: -0.2
+  aggression: 0.3
+  verbosity: 0.0
+  maturity: 0.4
+
+inner_profile:
+  formality: 0.4
+  warmth: -0.3
+  aggression: 0.4
+  verbosity: 0.2
+  maturity: 0.5
+
+dialogue_overrides:
+  daily:
+    intents:
+      first_meet:
+        templates:
+          - id: dohyun_intro_assess
+            pattern: "...낯선 얼굴이군. 도현이다. 자네, 이 마을에서 본 적 없는데."
+          - id: dohyun_intro_warning
+            pattern: "도현이라고 한다. ...자네 같은 부류는 처음 봐."
+          - id: dohyun_intro_curt
+            pattern: "도현. 이름은 알겠고, 자네 정체부터 듣자."
+      greet:
+        add_templates:
+          - id: dohyun_greet_watch
+            pattern: "...자네인가. 무슨 일이지."
+            state_bias: { affinity: 0.3 }
+          - id: dohyun_greet_terse
+            pattern: "도현이다. 본론을 말해라."
+            state_bias: { aggression: 0.3 }

@@ -1,0 +1,42 @@
+# 카엘 (Kael) — S04 npc_a 거간꾼/탐욕/유쾌
+# 베이스 archetype: cheerful (유쾌). 시그니처: 탐욕 + 거래 톤.
+# first_meet: 자기소개 + 거래 제안 (1회성)
+
+character: 카엘
+archetype: cheerful
+era: medieval
+sex: M
+
+outer_profile:
+  formality: -0.2
+  warmth: 0.2
+  aggression: -0.2
+  verbosity: 0.5
+
+inner_profile:
+  formality: -0.3
+  warmth: 0.0
+  aggression: 0.1
+  verbosity: 0.7
+
+dialogue_overrides:
+  daily:
+    intents:
+      first_meet:
+        templates:
+          - id: kael_intro_business
+            pattern: "오, 새 얼굴이군. 카엘이라고 해. 거간꾼이지. 정보든 물건이든, 필요한 게 있으면 말해."
+          - id: kael_intro_lucky
+            pattern: "이런 곳에서 만나다니 운이 좋네. 카엘. 거래라면 누구보다 잘 알지."
+          - id: kael_intro_assess
+            pattern: "...흠. 자네, 뭔가 흥미로운 냄새가 나는데. 카엘이야. 친하게 지내보자고."
+      greet:
+        # cheerful daily.greet 풀 위에 카엘 시그니처 추가
+        add_templates:
+          - id: kael_greet_deal
+            pattern: "오, 또 왔어? 좋은 거래라도 가져왔나~"
+            state_bias: { affinity: 0.4, arousal: 0.3 }
+          - id: kael_greet_curious
+            pattern: "마침 자네 생각하고 있었지. 무슨 바람이야?"
+            state_bias: { affinity: 0.6 }
+            inner_bias: { warmth: 0.3 }

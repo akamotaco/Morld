@@ -45,7 +45,14 @@ class NpcB(Character):
         return "노련해 보이는 모험가가 술집에서 주위를 살피고 있다."
 
     def get_focus_text(self):
-        return (
-            f"{self.name}. 단단한 체격에 날카로운 눈빛. "
-            "과거에 무언가를 겪은 사람의 표정이다."
-        )
+        """첫 만남이면 시그니처 인사 (character.yaml first_meet), 이후 일반 흐름."""
+        import morld
+        import npc_dialogue
+
+        player_id = morld.get_player_id()
+        progress_key = f"관계:{self.name}:진척도"
+        if player_id and morld.get_unit_prop(player_id, progress_key, 0) <= 0:
+            morld.set_unit_prop(player_id, progress_key, 1)
+            line = npc_dialogue.get_line(self.instance_id, "first_meet", name=self.name)
+            return f"[{self.name}] \"{line}\""
+        return super().get_focus_text()

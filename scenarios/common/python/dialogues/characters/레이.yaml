@@ -1,0 +1,43 @@
+# 레이 (Rei) — S04 npc_c 던전 체류자/체념/트라우마
+# 베이스 archetype: stoic. 시그니처: 무기력 → 회복 → 부활 단계 (현재는 무기력).
+# first_meet: 응답 최소, 거의 무관심
+
+character: 레이
+archetype: stoic
+era: medieval
+sex: F
+
+outer_profile:
+  formality: 0.0
+  warmth: -0.3
+  aggression: 0.0
+  verbosity: -0.5
+  maturity: 0.3
+
+inner_profile:
+  formality: 0.0
+  warmth: -0.4
+  aggression: 0.0
+  verbosity: -0.6
+  maturity: 0.3
+
+dialogue_overrides:
+  daily:
+    intents:
+      first_meet:
+        templates:
+          - id: rei_intro_apathetic
+            pattern: "...레이."
+          - id: rei_intro_unbothered
+            pattern: "...신경 쓰지 마. 레이라고 한다."
+          - id: rei_intro_void
+            pattern: "...상관 없잖아, 누구든."
+      greet:
+        # stoic daily는 충분히 과묵 — 시그니처는 더 깊은 무관심 추가
+        add_templates:
+          - id: rei_greet_void
+            pattern: "...뭐."
+            state_bias: { affinity: 0.2, fatigue: 0.6 }
+          - id: rei_greet_silent
+            pattern: "...."
+            state_bias: { fatigue: 0.7, verbosity: -0.6 }

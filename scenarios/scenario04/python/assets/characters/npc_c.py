@@ -50,7 +50,14 @@ class NpcC(Character):
             return "날카로운 눈빛의 전사가 무기를 점검하고 있다."
 
     def get_focus_text(self):
-        return (
-            f"{self.name}. 한때 강했던 흔적이 몸 곳곳에 남아 있다. "
-            "하지만 지금은 모든 것을 포기한 눈빛."
-        )
+        """첫 만남이면 시그니처 인사 (character.yaml first_meet), 이후 일반 흐름."""
+        import morld
+        import npc_dialogue
+
+        player_id = morld.get_player_id()
+        progress_key = f"관계:{self.name}:진척도"
+        if player_id and morld.get_unit_prop(player_id, progress_key, 0) <= 0:
+            morld.set_unit_prop(player_id, progress_key, 1)
+            line = npc_dialogue.get_line(self.instance_id, "first_meet", name=self.name)
+            return f"[{self.name}] \"{line}\""
+        return super().get_focus_text()

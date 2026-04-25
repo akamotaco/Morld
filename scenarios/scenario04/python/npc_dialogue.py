@@ -26,6 +26,7 @@ from engine.dialogue_hybrid import stateless as _hybrid
 # - dungeon: 던전 환경 발화 (dungeon_ambient)
 _SITUATION_TO_HYBRID = {
     "greeting": ("daily", "greet"),
+    "first_meet": ("daily", "first_meet"),
     "invite_accept": ("party", "invite_accept"),
     "invite_decline": ("party", "invite_decline"),
     "invite_switch": ("party", "invite_switch"),
