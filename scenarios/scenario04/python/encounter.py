@@ -126,6 +126,10 @@ def run_encounter(allies: list, enemies: list, max_turns: int = 30) -> dict:
                 if action is None:
                     break
 
+                # 피격 대상 사전 HP 캡쳐 (critical 임계 통과 판정용)
+                target_pre = action.get("target")
+                hp_before = target_pre["hp"] if target_pre else 0
+
                 result = _execute_action(combatant, action, allies, enemies)
                 log.append(result["message"])
                 ap_remaining -= action.get("ap_cost", 1)
@@ -140,6 +144,18 @@ def run_encounter(allies: list, enemies: list, max_turns: int = 30) -> dict:
                         if c["unit_id"] > 0 and not c.get("is_player"):
                             _npc_combat_voice(allies, log, "combat_ally_down",
                                               exclude=c["unit_id"])
+
+                # combat_hit / combat_critical: 아군 NPC가 피격 + 여전히 alive
+                if (target_pre and target_pre in allies and target_pre.get("alive")
+                        and not target_pre.get("is_player")
+                        and target_pre["unit_id"] > 0):
+                    crit_threshold = target_pre["max_hp"] * 0.25
+                    if hp_before > crit_threshold and target_pre["hp"] <= crit_threshold:
+                        # HP 25% 임계를 막 통과한 순간 — 1회성
+                        _npc_combat_voice([target_pre], log, "combat_critical")
+                    elif random.random() < 0.20:
+                        # 일반 피격 — 20% 확률 발화 (노이즈 억제)
+                        _npc_combat_voice([target_pre], log, "combat_hit")
 
             # 승패 판정
             allies_alive = any(c["alive"] for c in allies)
