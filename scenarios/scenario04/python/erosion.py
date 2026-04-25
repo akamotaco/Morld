@@ -134,18 +134,19 @@ def _voice_corrosion(unit_id: int, intent: str):
     """침식 임계 통과 시 NPC 대사 출력 (Phase D-1).
 
     hybrid dungeon.yaml 의 corrosion_rise / corrosion_critical 인텐트 사용.
-    플레이어/이름 없는 유닛/빈 라인은 silent.
+    플레이어/이름 없는 유닛/빈 라인은 silent. 예외 발생 시도 silent
+    (침식 임계 처리 흐름이 발화 실패로 끊기면 안 됨).
     """
     try:
         import npc_dialogue
-    except ImportError:
-        return
-    name = morld.get_unit_name(unit_id)
-    if not name:
-        return
-    line = npc_dialogue.get_line(unit_id, intent, name=name)
-    if line and line.strip(". ") not in ("", "..", "...", "...."):
-        morld.add_action_log(f"[{name}] \"{line}\"")
+        name = morld.get_unit_name(unit_id)
+        if not name:
+            return
+        line = npc_dialogue.get_line(unit_id, intent, name=name)
+        if line and line.strip(". ") not in ("", "..", "...", "...."):
+            morld.add_action_log(f"[{name}] \"{line}\"")
+    except Exception as e:
+        print(f"[dialogue] WARN _voice_corrosion failed: {e}")
 
 
 def _resolve_check(unit_id: int):

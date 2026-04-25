@@ -16,6 +16,7 @@ def _npc_combat_voice(allies: list, log: list, intent: str,
     Phase C-2 (2026-04-26): hybrid combat 묶음 라우팅.
     플레이어/제외 대상은 발화하지 않음. 후보 없으면 silent.
     npc_dialogue 미가용 환경(테스트 등)이면 silent.
+    예외 발생 시도 silent (전투 turn 흐름이 발화 실패로 끊기면 안 됨).
 
     Args:
         allies: 아군 combatant 리스트 (encounter.make_combatant 형식)
@@ -26,21 +27,21 @@ def _npc_combat_voice(allies: list, log: list, intent: str,
     """
     try:
         import npc_dialogue
-    except ImportError:
-        return
-    candidates = [
-        a for a in allies
-        if not a.get("is_player")
-        and (a.get("alive", True) or include_fainted)
-        and a["unit_id"] > 0
-        and a["unit_id"] != exclude
-    ]
-    if not candidates:
-        return
-    voicer = random.choice(candidates)
-    line = npc_dialogue.get_line(voicer["unit_id"], intent, name=voicer["name"])
-    if line and line.strip(". ") not in ("", "..", "...", "...."):
-        log.append(f"  [{voicer['name']}] \"{line}\"")
+        candidates = [
+            a for a in allies
+            if not a.get("is_player")
+            and (a.get("alive", True) or include_fainted)
+            and a["unit_id"] > 0
+            and a["unit_id"] != exclude
+        ]
+        if not candidates:
+            return
+        voicer = random.choice(candidates)
+        line = npc_dialogue.get_line(voicer["unit_id"], intent, name=voicer["name"])
+        if line and line.strip(". ") not in ("", "..", "...", "...."):
+            log.append(f"  [{voicer['name']}] \"{line}\"")
+    except Exception as e:
+        print(f"[dialogue] WARN _npc_combat_voice failed: {e}")
 
 # === 전투 참가자 데이터 ===
 

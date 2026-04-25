@@ -708,30 +708,31 @@ def _voice_floor_descent():
     """파티 NPC 1명을 골라 floor_descent 발화 (Phase D-2).
 
     플레이어 제외, 이름 있는 NPC 중 1명 random. silent fallback.
+    예외 발생 시도 silent (층 전환 흐름이 발화 실패로 끊기면 안 됨).
     """
     try:
         import npc_dialogue
         from engine import party_group as _pg
-    except ImportError:
-        return
-    import random as _rand
-    player_id = morld.get_player_id()
-    party = _pg.get_party_of(player_id) if player_id else None
-    if party is None:
-        return
-    candidates = []
-    for uid in party.get_members():
-        if uid == player_id:
-            continue
-        name = morld.get_unit_name(uid)
-        if name:
-            candidates.append((uid, name))
-    if not candidates:
-        return
-    uid, name = _rand.choice(candidates)
-    line = npc_dialogue.get_line(uid, "floor_descent", name=name)
-    if line and line.strip(". ") not in ("", "..", "...", "...."):
-        morld.add_action_log(f"[{name}] \"{line}\"")
+        import random as _rand
+        player_id = morld.get_player_id()
+        party = _pg.get_party_of(player_id) if player_id else None
+        if party is None:
+            return
+        candidates = []
+        for uid in party.get_members():
+            if uid == player_id:
+                continue
+            name = morld.get_unit_name(uid)
+            if name:
+                candidates.append((uid, name))
+        if not candidates:
+            return
+        uid, name = _rand.choice(candidates)
+        line = npc_dialogue.get_line(uid, "floor_descent", name=name)
+        if line and line.strip(". ") not in ("", "..", "...", "...."):
+            morld.add_action_log(f"[{name}] \"{line}\"")
+    except Exception as e:
+        print(f"[dialogue] WARN _voice_floor_descent failed: {e}")
 
 
 def has_next_floor() -> bool:
