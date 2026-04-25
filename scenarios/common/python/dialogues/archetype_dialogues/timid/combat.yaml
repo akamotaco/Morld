@@ -1,0 +1,71 @@
+# timid archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase C 신규 (2026-04-26): S04 NPC 전투 대사
+
+archetype: timid
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '히익! 저, 적이에요...!'
+    - id: combat_discover_1
+      pattern: '어떡해요... 무, 무서워요...'
+    - id: combat_discover_2
+      pattern: '저... 저것... 적이죠?'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '저, 저는 못 해요... 도와주세요...'
+    - id: combat_engage_1
+      pattern: '어떡해요... 가, 가야 하나요?'
+    - id: combat_engage_2
+      pattern: '...무, 무서워요...'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '아얏! 아파요!'
+    - id: combat_hit_1
+      pattern: '히익... 다쳤어요...'
+    - id: combat_hit_2
+      pattern: '어, 어떡해요...'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '어떡해요... 죽을 것 같아요...'
+    - id: combat_critical_1
+      pattern: '...무서워요... 무서워...'
+    - id: combat_critical_2
+      pattern: '히익... 도와주세요...'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '사, 살았어요... 다행이에요...'
+    - id: combat_victory_1
+      pattern: '...끝, 끝났네요...'
+    - id: combat_victory_2
+      pattern: '어... 정말 이긴 거예요?'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...죄, 죄송해요... 도움이 못 됐어요...'
+    - id: combat_defeat_1
+      pattern: '...무서워요... 미안해요...'
+    - id: combat_defeat_2
+      pattern: '히익...'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '저, 저... 어떡하죠...'
+    - id: combat_taunt_1
+      pattern: '...히익...'
+    - id: combat_taunt_2
+      pattern: '...무서워요...'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '안 돼요! 깨, 깨어나세요!'
+    - id: combat_ally_down_1
+      pattern: '어떡해요... 일어나세요...'
+    - id: combat_ally_down_2
+      pattern: '히익... 안 돼...'

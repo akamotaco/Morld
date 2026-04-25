@@ -1,0 +1,71 @@
+# fierce archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase C 신규 (2026-04-26): S04 NPC 전투 대사
+
+archetype: fierce
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '왔구나, 죽으러 왔어!'
+    - id: combat_discover_1
+      pattern: '흥! 한 놈도 살려보내지 않는다!'
+    - id: combat_discover_2
+      pattern: '재밌겠군!'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '전부 부숴주마!'
+    - id: combat_engage_1
+      pattern: '덤벼라!'
+    - id: combat_engage_2
+      pattern: '한 놈도 빠지지 마!'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '이깟 거!'
+    - id: combat_hit_1
+      pattern: '흥! 간지러운데!'
+    - id: combat_hit_2
+      pattern: '더 해봐라!'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '...아직 죽을 수 없어!'
+    - id: combat_critical_1
+      pattern: '이런 곳에서!'
+    - id: combat_critical_2
+      pattern: '...젠장!'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '다 갈아버렸다!'
+    - id: combat_victory_1
+      pattern: '흥! 약해 빠진 것들!'
+    - id: combat_victory_2
+      pattern: '이게 끝이냐?'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...젠장...'
+    - id: combat_defeat_1
+      pattern: '이럴 리가...'
+    - id: combat_defeat_2
+      pattern: '...분하다...'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '겨우 그거냐!'
+    - id: combat_taunt_1
+      pattern: '약해 빠졌군!'
+    - id: combat_taunt_2
+      pattern: '더 보여봐라!'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '야! 일어나! 같이 가자고!'
+    - id: combat_ally_down_1
+      pattern: '정신 차려, 멍청아!'
+    - id: combat_ally_down_2
+      pattern: '안 일어나면 죽인다!'

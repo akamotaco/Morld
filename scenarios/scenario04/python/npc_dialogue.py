@@ -36,6 +36,14 @@ _SITUATION_TO_HYBRID = {
     "vote_advance": ("party", "vote_advance"),
     "vote_return": ("party", "vote_return"),
     "dungeon_ambient": ("dungeon", "dungeon_ambient"),
+    "combat_discover": ("combat", "combat_discover"),
+    "combat_engage": ("combat", "combat_engage"),
+    "combat_hit": ("combat", "combat_hit"),
+    "combat_critical": ("combat", "combat_critical"),
+    "combat_victory": ("combat", "combat_victory"),
+    "combat_defeat": ("combat", "combat_defeat"),
+    "combat_taunt": ("combat", "combat_taunt"),
+    "combat_ally_down": ("combat", "combat_ally_down"),
 }
 
 
@@ -146,6 +154,8 @@ def get_line(unit_id, situation, **context) -> str:
             line = _hybrid.generate_party_line(archetype, char_name, intent, state=None)
         elif ctx_name == "dungeon":
             line = _hybrid.generate_dungeon_line(archetype, char_name, intent, state=None)
+        elif ctx_name == "combat":
+            line = _hybrid.generate_combat_line(archetype, char_name, intent, state=None)
 
     if not line:
         pool = _LINES.get(archetype, {})

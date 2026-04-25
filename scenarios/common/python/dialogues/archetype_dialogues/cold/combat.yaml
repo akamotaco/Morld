@@ -1,0 +1,71 @@
+# cold archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase C 신규 (2026-04-26): S04 NPC 전투 대사
+
+archetype: cold
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '...수가 보이는군.'
+    - id: combat_discover_1
+      pattern: '흥, 사냥감이 왔다.'
+    - id: combat_discover_2
+      pattern: '...귀찮군.'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '쓸 만한지 보자.'
+    - id: combat_engage_1
+      pattern: '정리하지.'
+    - id: combat_engage_2
+      pattern: '단숨에 끝낸다.'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '...젠장.'
+    - id: combat_hit_1
+      pattern: '흥, 이 정도쯤은.'
+    - id: combat_hit_2
+      pattern: '...실수다.'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '이건... 계산이 어긋났군.'
+    - id: combat_critical_1
+      pattern: '...곤란하다.'
+    - id: combat_critical_2
+      pattern: '한 수 두고 와야겠군.'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '예상대로다.'
+    - id: combat_victory_1
+      pattern: '흥, 시간 낭비였군.'
+    - id: combat_victory_2
+      pattern: '전리품이나 챙기지.'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...실수였군.'
+    - id: combat_defeat_1
+      pattern: '이번 거래는 손해다.'
+    - id: combat_defeat_2
+      pattern: '...철수 시기를 놓쳤다.'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '고작 이거냐.'
+    - id: combat_taunt_1
+      pattern: '흥, 시시하군.'
+    - id: combat_taunt_2
+      pattern: '기대했는데.'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '...쳇. 누가 좀 도와봐라.'
+    - id: combat_ally_down_1
+      pattern: '쓸모없는 놈.'
+    - id: combat_ally_down_2
+      pattern: '...귀찮게 됐군.'

@@ -1,0 +1,71 @@
+# stoic archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase C 신규 (2026-04-26): S04 NPC 전투 대사
+
+archetype: stoic
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '...적이군.'
+    - id: combat_discover_1
+      pattern: '...왔나.'
+    - id: combat_discover_2
+      pattern: '...'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '...간다.'
+    - id: combat_engage_1
+      pattern: '...정리하지.'
+    - id: combat_engage_2
+      pattern: '...'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '...'
+    - id: combat_hit_1
+      pattern: '...크윽.'
+    - id: combat_hit_2
+      pattern: '...별거 아니다.'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '...아직.'
+    - id: combat_critical_1
+      pattern: '...견딜 만하다.'
+    - id: combat_critical_2
+      pattern: '...'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '...끝났다.'
+    - id: combat_victory_1
+      pattern: '...정리됐다.'
+    - id: combat_victory_2
+      pattern: '...'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...'
+    - id: combat_defeat_1
+      pattern: '...실패다.'
+    - id: combat_defeat_2
+      pattern: '...면목 없군.'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '...'
+    - id: combat_taunt_1
+      pattern: '...별거 아니다.'
+    - id: combat_taunt_2
+      pattern: '....'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '...버텨.'
+    - id: combat_ally_down_1
+      pattern: '...일어나.'
+    - id: combat_ally_down_2
+      pattern: '...정신 차려.'

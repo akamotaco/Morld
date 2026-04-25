@@ -1,0 +1,71 @@
+# proud archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase C 신규 (2026-04-26): S04 NPC 전투 대사
+
+archetype: proud
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '...격이 맞지 않는군.'
+    - id: combat_discover_1
+      pattern: '흥, 시험할 만한가.'
+    - id: combat_discover_2
+      pattern: '정정당당히 가지.'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '나에게 맡겨라.'
+    - id: combat_engage_1
+      pattern: '정의는 내 편이다.'
+    - id: combat_engage_2
+      pattern: '한 발도 물러서지 않는다.'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '...크윽.'
+    - id: combat_hit_1
+      pattern: '이 정도로는 안 된다.'
+    - id: combat_hit_2
+      pattern: '흥, 별거 아니다.'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '나는 무너지지 않는다...'
+    - id: combat_critical_1
+      pattern: '아직, 끝이 아니다.'
+    - id: combat_critical_2
+      pattern: '...물러설 수 없다.'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '당연한 결과다.'
+    - id: combat_victory_1
+      pattern: '정의가 이긴 것이다.'
+    - id: combat_victory_2
+      pattern: '흥, 예상한 대로.'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...이것이 운명인가.'
+    - id: combat_defeat_1
+      pattern: '내 부족함이군...'
+    - id: combat_defeat_2
+      pattern: '...면목이 없다.'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '그 정도뿐인가.'
+    - id: combat_taunt_1
+      pattern: '수치를 모르는군.'
+    - id: combat_taunt_2
+      pattern: '한심하다.'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '...버텨라! 나도 곁에 있다!'
+    - id: combat_ally_down_1
+      pattern: '물러서지 마! 일어나라!'
+    - id: combat_ally_down_2
+      pattern: '...반드시 지킨다!'

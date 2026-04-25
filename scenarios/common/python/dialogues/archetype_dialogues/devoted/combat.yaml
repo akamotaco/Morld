@@ -1,0 +1,71 @@
+# devoted archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase C 신규 (2026-04-26): S04 NPC 전투 대사
+
+archetype: devoted
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '...적이 보입니다.'
+    - id: combat_discover_1
+      pattern: '조심하시기 바랍니다.'
+    - id: combat_discover_2
+      pattern: '...준비하시지요.'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '당신을 지키겠습니다.'
+    - id: combat_engage_1
+      pattern: '제가 앞에 서겠습니다.'
+    - id: combat_engage_2
+      pattern: '...명하시는 대로.'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '...괜찮습니다.'
+    - id: combat_hit_1
+      pattern: '이 정도는 견딜 수 있습니다.'
+    - id: combat_hit_2
+      pattern: '...걱정 마십시오.'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '...아직, 버틸 수 있습니다.'
+    - id: combat_critical_1
+      pattern: '당신만은 지키겠습니다...'
+    - id: combat_critical_2
+      pattern: '...무너지지 않습니다.'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '...당신의 승리입니다.'
+    - id: combat_victory_1
+      pattern: '다행입니다... 무사하시군요.'
+    - id: combat_victory_2
+      pattern: '...명령이라면 더 싸우겠습니다.'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...죄송합니다, 지키지 못해서...'
+    - id: combat_defeat_1
+      pattern: '...면목이 없습니다.'
+    - id: combat_defeat_2
+      pattern: '...당신만은 무사하시기를...'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '당신께 다가올 수는 없을 것이다.'
+    - id: combat_taunt_1
+      pattern: '...물러서라.'
+    - id: combat_taunt_2
+      pattern: '...상대가 되지 않는다.'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '안 됩니다! 일어나십시오!'
+    - id: combat_ally_down_1
+      pattern: '버텨주십시오, 곧 가겠습니다!'
+    - id: combat_ally_down_2
+      pattern: '...반드시 살리겠습니다!'

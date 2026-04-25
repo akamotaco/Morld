@@ -41,6 +41,7 @@ _REACTION_CONTEXTS: Tuple[str, ...] = ("romance_reactions", "action_reactions")
 _DAILY_CONTEXTS: Tuple[str, ...] = ("daily",)
 _PARTY_CONTEXTS: Tuple[str, ...] = ("party",)
 _DUNGEON_CONTEXTS: Tuple[str, ...] = ("dungeon",)
+_COMBAT_CONTEXTS: Tuple[str, ...] = ("combat",)
 
 # 톤 접두사 — `_generate_intent` 가 인텐트 미매칭 시 (a) 접두사+카테고리 조합,
 # (b) bare 접두사 순으로 탐색해 톤 유지.
@@ -278,6 +279,21 @@ def generate_dungeon_line(archetype: str, character: str, intent: str,
     """
     root = Path(dialogue_root) if dialogue_root else _default_root()
     data = _load_merged(root, character, archetype, _DUNGEON_CONTEXTS)
+    rng = rng if rng is not None else _random
+    return _generate_intent(data, intent, state, {"name": character}, rng)
+
+
+def generate_combat_line(archetype: str, character: str, intent: str,
+                         state: Optional[Dict[str, float]] = None,
+                         *, dialogue_root: Optional[Path] = None,
+                         rng=None) -> str:
+    """전투 발화 (COMBAT 풀: combat_discover/engage/hit/critical/victory/defeat/taunt/ally_down).
+
+    Phase C 신설 (2026-04-26). encounter.py / encounter_handler.py의 전투 라이프사이클
+    훅 포인트에서 호출. character.yaml 의 dialogue_overrides 가능 (시그니처 전투 톤).
+    """
+    root = Path(dialogue_root) if dialogue_root else _default_root()
+    data = _load_merged(root, character, archetype, _COMBAT_CONTEXTS)
     rng = rng if rng is not None else _random
     return _generate_intent(data, intent, state, {"name": character}, rng)
 

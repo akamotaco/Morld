@@ -1,0 +1,71 @@
+# cheerful archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase C 신규 (2026-04-26): S04 NPC 전투 대사
+
+archetype: cheerful
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '오, 손님이 오셨네!'
+    - id: combat_discover_1
+      pattern: '헤헤, 한판 해볼까?'
+    - id: combat_discover_2
+      pattern: '재밌어 보이는데?'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '가자! 신나게 가자!'
+    - id: combat_engage_1
+      pattern: '오케이, 한판 붙자!'
+    - id: combat_engage_2
+      pattern: '내가 먼저 갈게!'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '어? 아얏!'
+    - id: combat_hit_1
+      pattern: '이거 좀 아픈데?'
+    - id: combat_hit_2
+      pattern: '흐음, 만만치 않네!'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '어어... 이거 위험한데...'
+    - id: combat_critical_1
+      pattern: '헤헤, 진짜 위험해...'
+    - id: combat_critical_2
+      pattern: '어, 어떡하지...'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '꺄아~ 이겼다!'
+    - id: combat_victory_1
+      pattern: '역시 우리가 최고지!'
+    - id: combat_victory_2
+      pattern: '헤헤헤, 깔끔!'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '헤헤... 다음에 봐...'
+    - id: combat_defeat_1
+      pattern: '오늘은 안 되네... 아쉽다...'
+    - id: combat_defeat_2
+      pattern: '...힘 빠지네.'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '그게 다야? 더 안 돼?'
+    - id: combat_taunt_1
+      pattern: '흐음, 약하네~'
+    - id: combat_taunt_2
+      pattern: '지루한데?'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '안 돼! 일어나!'
+    - id: combat_ally_down_1
+      pattern: '어떡해, 깨어나!'
+    - id: combat_ally_down_2
+      pattern: '야! 정신 차려!'
