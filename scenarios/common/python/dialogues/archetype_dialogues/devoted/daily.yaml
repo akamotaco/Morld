@@ -1,0 +1,33 @@
+# devoted archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3+ (2026-04-26): _LINES fallback 해소용 greet 인텐트.
+
+archetype: devoted
+context: daily
+intents:
+  greet:
+    templates:
+    - id: formal_call
+      pattern: '부르셨습니까?'
+      state_bias:
+        formality: 0.6
+        affinity: 0.4
+    - id: at_service
+      pattern: '네, 여기 있습니다. 말씀하세요.'
+      state_bias:
+        formality: 0.5
+        affinity: 0.5
+    - id: quiet_offer
+      pattern: '...무엇을 도와드릴까요?'
+      state_bias:
+        affinity: 0.6
+        verbosity: -0.3
+    - id: bow
+      pattern: '명령만 내려주십시오.'
+      state_bias:
+        formality: 0.7
+        affinity: 0.5
+    - id: ready
+      pattern: '...당신을 위해 준비되어 있습니다.'
+      state_bias:
+        affinity: 0.7

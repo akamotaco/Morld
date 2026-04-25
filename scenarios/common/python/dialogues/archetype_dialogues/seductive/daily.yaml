@@ -1,0 +1,34 @@
+# seductive archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3+ (2026-04-26): _LINES fallback 해소용 greet 인텐트.
+
+archetype: seductive
+context: daily
+intents:
+  greet:
+    templates:
+    - id: smile_invite
+      pattern: '어머... 오랜만이네.'
+      state_bias:
+        affinity: 0.5
+        arousal: 0.4
+    - id: tease
+      pattern: '왔구나? 보고 싶었는데.'
+      state_bias:
+        affinity: 0.7
+        arousal: 0.5
+    - id: linger
+      pattern: '...이쪽으로 와.'
+      state_bias:
+        arousal: 0.6
+        affinity: 0.5
+    - id: playful_call
+      pattern: '내가 부르길 기다렸지?'
+      state_bias:
+        confidence: 0.6
+        arousal: 0.5
+    - id: soft_welcome
+      pattern: '후훗... 어서 와.'
+      state_bias:
+        affinity: 0.4
+        arousal: 0.4

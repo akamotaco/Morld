@@ -59,32 +59,9 @@ _SITUATION_TO_HYBRID = {
 # 라인은 "{name}" 등 format 키 지원 — get_line(context=…)로 주입.
 
 _LINES = {
-    # Phase B-2/B-3 마이그레이트 (2026-04-26):
-    # - greeting/thank/complain → archetype_dialogues/{arch}/daily.yaml (cheerful/cold/proud/stoic/timid)
-    # - invite_*/dismiss_leave/vote_* → archetype_dialogues/{arch}/party.yaml (8 archetypes)
-    # - dungeon_ambient → archetype_dialogues/{arch}/dungeon.yaml (8 archetypes)
-    # 잔존: daily.yaml 미생성 archetype의 greeting fallback (fierce/innocent/devoted).
-    "fierce": {
-        "greeting": [
-            "뭐야, 용건 있어?",
-            "말해. 시간 없다.",
-            "뭘 봐.",
-        ],
-    },
-    "innocent": {
-        "greeting": [
-            "안녕하세요! 저에게 볼일이 있으신가요?",
-            "와, 불러주셔서 감사해요!",
-            "네! 무슨 일이세요?",
-        ],
-    },
-    "devoted": {
-        "greeting": [
-            "부르셨습니까?",
-            "네, 여기 있습니다. 말씀하세요.",
-            "...무엇을 도와드릴까요?",
-        ],
-    },
+    # Phase B-2/B-3 마이그레이트 (2026-04-26): 모든 archetype daily/party/dungeon/combat 묶음 hybrid 이관.
+    # 후속(2026-04-26): fierce/innocent/devoted/seductive/gentle daily.yaml 추가 — _LINES 비움.
+    # 신규 archetype 도입 시 hybrid yaml 우선, 부득이한 경우만 여기 추가.
 }
 
 

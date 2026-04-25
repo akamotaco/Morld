@@ -1,0 +1,33 @@
+# innocent archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3+ (2026-04-26): _LINES fallback 해소용 greet 인텐트.
+
+archetype: innocent
+context: daily
+intents:
+  greet:
+    templates:
+    - id: bright_polite
+      pattern: '안녕하세요! 저에게 볼일이 있으신가요?'
+      state_bias:
+        affinity: 0.5
+        arousal: 0.5
+    - id: thankful
+      pattern: '와, 불러주셔서 감사해요!'
+      state_bias:
+        affinity: 0.7
+        arousal: 0.6
+    - id: curious
+      pattern: '네! 무슨 일이세요?'
+      state_bias:
+        affinity: 0.4
+    - id: shy
+      pattern: '아... 안녕하세요...'
+      state_bias:
+        affinity: 0.3
+        arousal: -0.2
+    - id: eager
+      pattern: '저, 저 도와드릴 수 있어요!'
+      state_bias:
+        affinity: 0.6
+        arousal: 0.5

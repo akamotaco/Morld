@@ -1,0 +1,35 @@
+# gentle archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3+ (2026-04-26): _LINES fallback 해소용 greet 인텐트.
+# S02 밀라가 사용 — 후속 thank/complain 확장 가능.
+
+archetype: gentle
+context: daily
+intents:
+  greet:
+    templates:
+    - id: warm_hello
+      pattern: '안녕하세요. 어떻게 지내셨어요?'
+      state_bias:
+        affinity: 0.6
+        warmth: 0.6
+    - id: soft_welcome
+      pattern: '오셨군요. 편히 계세요.'
+      state_bias:
+        warmth: 0.7
+        affinity: 0.5
+    - id: gentle_smile
+      pattern: '...반가워요. 무슨 일이세요?'
+      state_bias:
+        warmth: 0.5
+        affinity: 0.4
+    - id: caring
+      pattern: '괜찮으세요? 안색이 좋지 않아 보여요.'
+      state_bias:
+        warmth: 0.8
+        affinity: 0.6
+    - id: quiet_greet
+      pattern: '...언제든 말씀하세요.'
+      state_bias:
+        warmth: 0.5
+        verbosity: -0.2

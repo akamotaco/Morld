@@ -1,0 +1,32 @@
+# fierce archetype — daily context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# Phase B-3+ (2026-04-26): _LINES fallback 해소용 greet 인텐트.
+# thank/complain은 후속 확장.
+
+archetype: fierce
+context: daily
+intents:
+  greet:
+    templates:
+    - id: blunt_what
+      pattern: '뭐야, 용건 있어?'
+      state_bias:
+        aggression: 0.4
+    - id: short_speak
+      pattern: '말해. 시간 없다.'
+      state_bias:
+        aggression: 0.3
+        affinity: -0.2
+    - id: stare
+      pattern: '뭘 봐.'
+      state_bias:
+        aggression: 0.5
+        affinity: -0.4
+    - id: gruff_hello
+      pattern: '...왔냐.'
+      state_bias:
+        affinity: 0.3
+    - id: ready_combat
+      pattern: '싸울 거면 빨리 말해.'
+      state_bias:
+        aggression: 0.6
