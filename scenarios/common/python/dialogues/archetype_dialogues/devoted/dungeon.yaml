@@ -39,3 +39,11 @@ intents:
       pattern: '...앞장서겠습니다.'
     - id: floor_descent_2
       pattern: '...어디든 함께 가지요.'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim}을(를) 부탁드립니다... 무너지면 안 됩니다.'
+    - id: ally_corrosion_concern_1
+      pattern: '...{victim}, 버티세요. 제가 옆에 있습니다.'
+    - id: ally_corrosion_concern_2
+      pattern: '{victim}이(가) 위태롭습니다... 도와주십시오.'

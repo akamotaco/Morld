@@ -272,15 +272,20 @@ def generate_party_line(archetype: str, character: str, intent: str,
 def generate_dungeon_line(archetype: str, character: str, intent: str,
                           state: Optional[Dict[str, float]] = None,
                           *, dialogue_root: Optional[Path] = None,
-                          rng=None) -> str:
-    """던전 환경 발화 (DUNGEON 풀: dungeon_ambient/floor_*/corrosion_* 등).
+                          rng=None,
+                          extra_context: Optional[Dict[str, Any]] = None) -> str:
+    """던전 환경 발화 (DUNGEON 풀: dungeon_ambient/floor_*/corrosion_*/ally_corrosion_concern).
 
-    Phase B-3 마이그레이션. floor_*/corrosion_* 인텐트는 후속 페이즈에서 추가.
+    extra_context: {name} 외 추가 placeholder. 예: {"victim": "카엘"} for ally_corrosion_concern.
+    Phase D-3 (2026-04-26): ally_corrosion_concern 인텐트 추가.
     """
     root = Path(dialogue_root) if dialogue_root else _default_root()
     data = _load_merged(root, character, archetype, _DUNGEON_CONTEXTS)
     rng = rng if rng is not None else _random
-    return _generate_intent(data, intent, state, {"name": character}, rng)
+    ctx_vars = {"name": character}
+    if extra_context:
+        ctx_vars.update(extra_context)
+    return _generate_intent(data, intent, state, ctx_vars, rng)
 
 
 def generate_combat_line(archetype: str, character: str, intent: str,

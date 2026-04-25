@@ -131,12 +131,15 @@ def get_line(unit_id, situation, **context) -> str:
     if hybrid_route:
         ctx_name, intent = hybrid_route
         char_name = morld.get_unit_name(unit_id) or "anon"
+        # context 중 name 외 placeholder는 dungeon ally_corrosion_concern 등에서 사용
+        extra = {k: v for k, v in context.items() if k != "name"}
         if ctx_name == "daily":
             line = _hybrid.generate_daily_line(archetype, char_name, intent, state=None)
         elif ctx_name == "party":
             line = _hybrid.generate_party_line(archetype, char_name, intent, state=None)
         elif ctx_name == "dungeon":
-            line = _hybrid.generate_dungeon_line(archetype, char_name, intent, state=None)
+            line = _hybrid.generate_dungeon_line(archetype, char_name, intent, state=None,
+                                                  extra_context=extra or None)
         elif ctx_name == "combat":
             line = _hybrid.generate_combat_line(archetype, char_name, intent, state=None)
 

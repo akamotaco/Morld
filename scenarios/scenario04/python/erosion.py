@@ -123,6 +123,7 @@ def _check_thresholds(unit_id: int, old: int, new: int):
     # 100 도달: 판정 (1회만 — 이미 판정받았으면 스킵)
     if old < EROSION_CHECK_THRESHOLD <= new:
         _voice_corrosion(unit_id, "corrosion_critical")
+        _voice_ally_concern(unit_id)
         _resolve_check(unit_id)
 
     # 200 도달: 소멸
@@ -147,6 +148,42 @@ def _voice_corrosion(unit_id: int, intent: str):
             morld.add_action_log(f"[{name}] \"{line}\"")
     except Exception as e:
         print(f"[dialogue] WARN _voice_corrosion failed: {e}")
+
+
+def _voice_ally_concern(victim_id: int):
+    """victim의 침식 critical 시 같은 파티 동료가 우려 발화 (Phase D-3, 2026-04-26).
+
+    hybrid dungeon.yaml 의 ally_corrosion_concern 인텐트 사용.
+    {victim} 플레이스홀더로 victim 이름 주입.
+    동료 후보: victim과 같은 파티 멤버 중 victim/플레이어/이름 없는 유닛 제외, 1명 무작위.
+    파티 미가입/후보 없음/예외 시 silent.
+    """
+    try:
+        import npc_dialogue
+        from engine import party_group
+        victim_name = morld.get_unit_name(victim_id)
+        if not victim_name:
+            return
+        party = party_group.get_party_of(victim_id)
+        if party is None:
+            return
+        player_id = morld.get_player_id()
+        candidates = [
+            m for m in party.members
+            if m != victim_id
+            and m != player_id
+            and morld.get_unit_name(m)
+        ]
+        if not candidates:
+            return
+        voicer_id = random.choice(candidates)
+        voicer_name = morld.get_unit_name(voicer_id)
+        line = npc_dialogue.get_line(voicer_id, "ally_corrosion_concern",
+                                       name=voicer_name, victim=victim_name)
+        if line and line.strip(". ") not in ("", "..", "...", "...."):
+            morld.add_action_log(f"[{voicer_name}] \"{line}\"")
+    except Exception as e:
+        print(f"[dialogue] WARN _voice_ally_concern failed: {e}")
 
 
 def _resolve_check(unit_id: int):

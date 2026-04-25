@@ -39,3 +39,11 @@ intents:
       pattern: '...더 깊은 시험이군. 받아들이지.'
     - id: floor_descent_2
       pattern: '...각오를 새로 한다.'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim}, 자존심을 잃지 마라!'
+    - id: ally_corrosion_concern_1
+      pattern: '...흥, {victim}이(가) 흔들리는군. 정신 차려.'
+    - id: ally_corrosion_concern_2
+      pattern: '{victim}! 무너질 거라면 차라리 내가 베지.'

@@ -39,3 +39,11 @@ intents:
       pattern: '다음 층이군. 전리품이 기대된다.'
     - id: floor_descent_2
       pattern: '...신중하게 가자.'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '...{victim}이(가) 위험하다.'
+    - id: ally_corrosion_concern_1
+      pattern: '{victim}을(를) 묶어둬. 폭주할라.'
+    - id: ally_corrosion_concern_2
+      pattern: '...{victim}, 정신 차려.'

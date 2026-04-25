@@ -39,3 +39,11 @@ intents:
       pattern: '...같이 가는 거죠?'
     - id: floor_descent_2
       pattern: '조, 조심해요!'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim} 언니! 괜찮아요?!'
+    - id: ally_corrosion_concern_1
+      pattern: '어, 어떡해요... {victim}이(가)...'
+    - id: ally_corrosion_concern_2
+      pattern: '{victim}, 정신 차려요!'

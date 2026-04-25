@@ -39,3 +39,11 @@ intents:
       pattern: '히익... 더 깊은 곳이라니...'
     - id: floor_descent_2
       pattern: '...무서워요... 같이 가요...'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim}... 괜, 괜찮아요...?'
+    - id: ally_corrosion_concern_1
+      pattern: '아, 안 돼요... {victim}이(가)...'
+    - id: ally_corrosion_concern_2
+      pattern: '...{victim}... 어떡해요...'

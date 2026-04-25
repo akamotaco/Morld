@@ -39,3 +39,11 @@ intents:
       pattern: '...다음.'
     - id: floor_descent_2
       pattern: '...'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim}, 정신 차려라.'
+    - id: ally_corrosion_concern_1
+      pattern: '...{victim}이(가) 위태롭군.'
+    - id: ally_corrosion_concern_2
+      pattern: '{victim}을(를) 봐줘. 깊어졌다.'

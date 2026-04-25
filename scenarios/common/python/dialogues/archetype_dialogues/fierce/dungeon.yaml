@@ -39,3 +39,11 @@ intents:
       pattern: '이제 본격적인 사냥이군!'
     - id: floor_descent_2
       pattern: '한 놈도 살려두지 마라!'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim}! 정신 똑바로 차려!'
+    - id: ally_corrosion_concern_1
+      pattern: '쳇, {victim} 무너지면 안 돼!'
+    - id: ally_corrosion_concern_2
+      pattern: '{victim}! 버텨!'
