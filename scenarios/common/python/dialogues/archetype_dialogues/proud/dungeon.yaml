@@ -30,3 +30,12 @@ intents:
       pattern: '...이런 곳에서 무너질 수는 없다...'
     - id: corrosion_critical_2
       pattern: '...버텨야 한다, 내 자존심을 위해...'
+
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '...다음 층이군. 정신을 다잡자.'
+    - id: floor_descent_1
+      pattern: '...더 깊은 시험이군. 받아들이지.'
+    - id: floor_descent_2
+      pattern: '...각오를 새로 한다.'

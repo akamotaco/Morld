@@ -30,3 +30,12 @@ intents:
       pattern: '어... 이거 안 좋아... 도와줘...'
     - id: corrosion_critical_2
       pattern: '왜 이래... 머릿속이...'
+
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '오, 다음 층이야! 가자!'
+    - id: floor_descent_1
+      pattern: '와~ 새로운 곳이네!'
+    - id: floor_descent_2
+      pattern: '헤헤, 더 깊이 가보자!'

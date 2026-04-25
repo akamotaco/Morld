@@ -38,6 +38,7 @@ _SITUATION_TO_HYBRID = {
     "dungeon_ambient": ("dungeon", "dungeon_ambient"),
     "corrosion_rise": ("dungeon", "corrosion_rise"),
     "corrosion_critical": ("dungeon", "corrosion_critical"),
+    "floor_descent": ("dungeon", "floor_descent"),
     "combat_discover": ("combat", "combat_discover"),
     "combat_engage": ("combat", "combat_engage"),
     "combat_hit": ("combat", "combat_hit"),

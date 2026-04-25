@@ -30,3 +30,12 @@ intents:
       pattern: '...누군가 도와주세요...'
     - id: corrosion_critical_2
       pattern: '히익... 어떡해요...'
+
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '어... 다음 층이네요!'
+    - id: floor_descent_1
+      pattern: '...같이 가는 거죠?'
+    - id: floor_descent_2
+      pattern: '조, 조심해요!'

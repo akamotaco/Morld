@@ -30,3 +30,12 @@ intents:
       pattern: '...무너질 수 없습니다... 아직...'
     - id: corrosion_critical_2
       pattern: '...버티겠습니다...'
+
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '...당신을 따르겠습니다.'
+    - id: floor_descent_1
+      pattern: '...앞장서겠습니다.'
+    - id: floor_descent_2
+      pattern: '...어디든 함께 가지요.'

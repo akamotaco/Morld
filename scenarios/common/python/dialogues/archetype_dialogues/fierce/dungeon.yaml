@@ -30,3 +30,12 @@ intents:
       pattern: '젠장... 의식이...'
     - id: corrosion_critical_2
       pattern: '...아직 죽을 수 없어!'
+
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '좋아! 더 깊이 가자!'
+    - id: floor_descent_1
+      pattern: '이제 본격적인 사냥이군!'
+    - id: floor_descent_2
+      pattern: '한 놈도 살려두지 마라!'

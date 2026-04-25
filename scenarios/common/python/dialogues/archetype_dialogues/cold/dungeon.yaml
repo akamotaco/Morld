@@ -30,3 +30,12 @@ intents:
       pattern: '...자제력을 잃을 것 같군.'
     - id: corrosion_critical_2
       pattern: '이대로면 무너진다...'
+
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '...더 깊어진다.'
+    - id: floor_descent_1
+      pattern: '다음 층이군. 전리품이 기대된다.'
+    - id: floor_descent_2
+      pattern: '...신중하게 가자.'

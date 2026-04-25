@@ -30,3 +30,12 @@ intents:
       pattern: '...위태롭다.'
     - id: corrosion_critical_2
       pattern: '....'
+
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '...간다.'
+    - id: floor_descent_1
+      pattern: '...다음.'
+    - id: floor_descent_2
+      pattern: '...'
