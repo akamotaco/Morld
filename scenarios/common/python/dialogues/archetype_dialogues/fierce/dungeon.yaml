@@ -13,3 +13,20 @@ intents:
       pattern: '...지루하군.'
     - id: dungeon_ambient_2
       pattern: '한 놈이라도 나와 봐라.'
+
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '젠장, 머릿속이 흐려진다!'
+    - id: corrosion_rise_1
+      pattern: '흥! 이딴 거에 질 거 같으냐!'
+    - id: corrosion_rise_2
+      pattern: '...빌어먹을, 정신 차려라!'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...이놈들 빨리 처리해야 해...'
+    - id: corrosion_critical_1
+      pattern: '젠장... 의식이...'
+    - id: corrosion_critical_2
+      pattern: '...아직 죽을 수 없어!'

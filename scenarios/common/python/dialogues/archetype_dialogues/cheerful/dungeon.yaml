@@ -13,3 +13,20 @@ intents:
       pattern: '흐음~ 뭔가 나올 것 같은데?'
     - id: dungeon_ambient_2
       pattern: '다들 너무 심각한 거 아냐?'
+
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '어... 머리가 좀 어지러워...'
+    - id: corrosion_rise_1
+      pattern: '헤헤... 시야가 흔들려...'
+    - id: corrosion_rise_2
+      pattern: '...뭔가 이상한 기분이 들어...'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '헤헤... 뭐가 뭔지 모르겠어... 무서워...'
+    - id: corrosion_critical_1
+      pattern: '어... 이거 안 좋아... 도와줘...'
+    - id: corrosion_critical_2
+      pattern: '왜 이래... 머릿속이...'

@@ -36,6 +36,8 @@ _SITUATION_TO_HYBRID = {
     "vote_advance": ("party", "vote_advance"),
     "vote_return": ("party", "vote_return"),
     "dungeon_ambient": ("dungeon", "dungeon_ambient"),
+    "corrosion_rise": ("dungeon", "corrosion_rise"),
+    "corrosion_critical": ("dungeon", "corrosion_critical"),
     "combat_discover": ("combat", "combat_discover"),
     "combat_engage": ("combat", "combat_engage"),
     "combat_hit": ("combat", "combat_hit"),

@@ -116,14 +116,36 @@ def _check_thresholds(unit_id: int, old: int, new: int):
         result = quirk.check_erosion_quirk(unit_id, new)
         if result:
             morale.on_affliction(unit_id)
+        if old < 50 <= new:
+            # 첫 50 임계 통과 시 1회성 발화
+            _voice_corrosion(unit_id, "corrosion_rise")
 
     # 100 도달: 판정 (1회만 — 이미 판정받았으면 스킵)
     if old < EROSION_CHECK_THRESHOLD <= new:
+        _voice_corrosion(unit_id, "corrosion_critical")
         _resolve_check(unit_id)
 
     # 200 도달: 소멸
     if new >= EROSION_MAX:
         _handle_erosion_death(unit_id)
+
+
+def _voice_corrosion(unit_id: int, intent: str):
+    """침식 임계 통과 시 NPC 대사 출력 (Phase D-1).
+
+    hybrid dungeon.yaml 의 corrosion_rise / corrosion_critical 인텐트 사용.
+    플레이어/이름 없는 유닛/빈 라인은 silent.
+    """
+    try:
+        import npc_dialogue
+    except ImportError:
+        return
+    name = morld.get_unit_name(unit_id)
+    if not name:
+        return
+    line = npc_dialogue.get_line(unit_id, intent, name=name)
+    if line and line.strip(". ") not in ("", "..", "...", "...."):
+        morld.add_action_log(f"[{name}] \"{line}\"")
 
 
 def _resolve_check(unit_id: int):

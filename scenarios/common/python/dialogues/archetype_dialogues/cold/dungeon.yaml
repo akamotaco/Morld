@@ -13,3 +13,20 @@ intents:
       pattern: '쓸 만한 건 다 챙겨둬.'
     - id: dungeon_ambient_2
       pattern: '흥, 함정이라도 있나.'
+
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '...이건 안 좋군. 정신 차려야겠다.'
+    - id: corrosion_rise_1
+      pattern: '흥, 침식이 차오른다.'
+    - id: corrosion_rise_2
+      pattern: '...집중이 흐트러지는군.'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...침식이 깊다. 위험하다.'
+    - id: corrosion_critical_1
+      pattern: '...자제력을 잃을 것 같군.'
+    - id: corrosion_critical_2
+      pattern: '이대로면 무너진다...'

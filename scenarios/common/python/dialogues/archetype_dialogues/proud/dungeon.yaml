@@ -13,3 +13,20 @@ intents:
       pattern: '이 길, 뭔가 어긋나 있군.'
     - id: dungeon_ambient_2
       pattern: '방심하면 큰일난다.'
+
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '...흔들려선 안 된다.'
+    - id: corrosion_rise_1
+      pattern: '흥, 이 정도쯤이야.'
+    - id: corrosion_rise_2
+      pattern: '...정신을 다잡아야겠다.'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...정신이 흩어진다... 무너지지 않겠다.'
+    - id: corrosion_critical_1
+      pattern: '...이런 곳에서 무너질 수는 없다...'
+    - id: corrosion_critical_2
+      pattern: '...버텨야 한다, 내 자존심을 위해...'

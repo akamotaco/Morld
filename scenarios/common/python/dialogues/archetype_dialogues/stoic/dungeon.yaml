@@ -13,3 +13,20 @@ intents:
       pattern: '발소리에 주의해라.'
     - id: dungeon_ambient_2
       pattern: '이 길, 냄새가 좋지 않군.'
+
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '...흠.'
+    - id: corrosion_rise_1
+      pattern: '...무거워졌군.'
+    - id: corrosion_rise_2
+      pattern: '...불편하다.'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...깊어졌군.'
+    - id: corrosion_critical_1
+      pattern: '...위태롭다.'
+    - id: corrosion_critical_2
+      pattern: '....'

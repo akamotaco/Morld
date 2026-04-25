@@ -13,3 +13,20 @@ intents:
       pattern: '...조금 무서워요.'
     - id: dungeon_ambient_2
       pattern: '모두 괜찮으세요?'
+
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '어... 머리가 이상해요...'
+    - id: corrosion_rise_1
+      pattern: '...무서운 느낌이 들어요...'
+    - id: corrosion_rise_2
+      pattern: '...왜 이러죠?'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...아무것도 모르겠어요...'
+    - id: corrosion_critical_1
+      pattern: '...누군가 도와주세요...'
+    - id: corrosion_critical_2
+      pattern: '히익... 어떡해요...'

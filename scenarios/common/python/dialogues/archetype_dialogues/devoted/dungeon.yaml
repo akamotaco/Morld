@@ -13,3 +13,20 @@ intents:
       pattern: '제 걱정은 마십시오.'
     - id: dungeon_ambient_2
       pattern: '앞서겠습니다.'
+
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '...죄송합니다, 흐트러져서...'
+    - id: corrosion_rise_1
+      pattern: '...마음을 다잡겠습니다.'
+    - id: corrosion_rise_2
+      pattern: '...집중이 어렵습니다...'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...마음을 다잡겠습니다... 당신을 위해...'
+    - id: corrosion_critical_1
+      pattern: '...무너질 수 없습니다... 아직...'
+    - id: corrosion_critical_2
+      pattern: '...버티겠습니다...'
