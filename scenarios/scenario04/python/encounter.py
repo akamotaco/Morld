@@ -8,6 +8,40 @@
 
 import random
 
+
+def _npc_combat_voice(allies: list, log: list, intent: str,
+                       exclude: int = None, include_fainted: bool = False) -> None:
+    """Allies 중 NPC 1명을 골라 combat 인텐트 대사 호출, log에 추가.
+
+    Phase C-2 (2026-04-26): hybrid combat 묶음 라우팅.
+    플레이어/제외 대상은 발화하지 않음. 후보 없으면 silent.
+    npc_dialogue 미가용 환경(테스트 등)이면 silent.
+
+    Args:
+        allies: 아군 combatant 리스트 (encounter.make_combatant 형식)
+        log: 전투 로그 (수정됨)
+        intent: combat_discover / combat_victory / combat_defeat / combat_ally_down 등
+        exclude: 발화 후보에서 제외할 unit_id (예: 막 쓰러진 본인)
+        include_fainted: True면 실신 NPC도 후보에 포함 (combat_defeat 의 "마지막 의식" 발화용).
+    """
+    try:
+        import npc_dialogue
+    except ImportError:
+        return
+    candidates = [
+        a for a in allies
+        if not a.get("is_player")
+        and (a.get("alive", True) or include_fainted)
+        and a["unit_id"] > 0
+        and a["unit_id"] != exclude
+    ]
+    if not candidates:
+        return
+    voicer = random.choice(candidates)
+    line = npc_dialogue.get_line(voicer["unit_id"], intent, name=voicer["name"])
+    if line and line.strip(". ") not in ("", "..", "...", "...."):
+        log.append(f"  [{voicer['name']}] \"{line}\"")
+
 # === 전투 참가자 데이터 ===
 
 def make_combatant(unit_id: int, name: str, stats: dict, skills: list = None,
@@ -71,6 +105,7 @@ def run_encounter(allies: list, enemies: list, max_turns: int = 30) -> dict:
     fled = []
 
     log.append(f"=== 대결 시작: {len(allies)}명 vs {len(enemies)}명 ===")
+    _npc_combat_voice(allies, log, "combat_discover")
 
     for turn in range(1, max_turns + 1):
         log.append(f"\n--- 턴 {turn} ---")
@@ -101,6 +136,10 @@ def run_encounter(allies: list, enemies: list, max_turns: int = 30) -> dict:
                         c["alive"] = False
                         fainted.append(c["unit_id"])
                         log.append(f"  {c['name']} 쓰러졌다!")
+                        # 아군 NPC 쓰러짐 → 다른 NPC가 반응 (본인 제외)
+                        if c["unit_id"] > 0 and not c.get("is_player"):
+                            _npc_combat_voice(allies, log, "combat_ally_down",
+                                              exclude=c["unit_id"])
 
             # 승패 판정
             allies_alive = any(c["alive"] for c in allies)
@@ -108,10 +147,13 @@ def run_encounter(allies: list, enemies: list, max_turns: int = 30) -> dict:
 
             if not enemies_alive:
                 log.append("\n=== 승리! ===")
+                _npc_combat_voice(allies, log, "combat_victory")
                 return _build_result("victory", turn, log, allies, enemies, fainted, fled)
 
             if not allies_alive:
                 log.append("\n=== 패배... ===")
+                # combat_defeat: 실신 NPC도 후보에 포함 (마지막 의식 발화)
+                _npc_combat_voice(allies, log, "combat_defeat", include_fainted=True)
                 return _build_result("defeat", turn, log, allies, enemies, fainted, fled)
 
     log.append("\n=== 무승부 (턴 제한) ===")
