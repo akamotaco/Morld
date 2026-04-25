@@ -1,7 +1,7 @@
 # body_gate.py — 부위 상태 → 능력 차단/페널티 통합 진입점
 #
 # 차단 (binary):
-#   - 결박 (S02 결박:{부위} prop 직접 검사 — 향후 engine/restraint.py 통합 시 import 변경)
+#   - 결박 (engine.restraint — pure 상태 조회)
 #   - 결손 (loss.is_part_lost — 보조구 없을 때만 죽은 부위로 간주)
 # 부상은 차단 안 함 — multiplier 만 노출 (호출부에서 명중률/속도 등에 곱셈).
 #
@@ -12,15 +12,13 @@
 #   - move 시스템: get_mobility_factor 곱셈
 #   - dialogue 발화: can_speak 가드
 
-import morld
-
-from engine import body_state, injury, loss
+from engine import body_state, injury, loss, restraint
 
 
 # === 차단 (binary) ===
 
 def can_use_hands(uid) -> bool:
-    if _restraint_bound_upper(uid):
+    if restraint.is_upper_restrained(uid):
         return False
     if _ability_lost(uid, "hands"):
         return False
@@ -28,7 +26,7 @@ def can_use_hands(uid) -> bool:
 
 
 def can_move(uid) -> bool:
-    if _restraint_bound_lower(uid):
+    if restraint.is_lower_restrained(uid):
         return False
     if _ability_lost(uid, "mobility"):
         return False
@@ -36,7 +34,7 @@ def can_move(uid) -> bool:
 
 
 def can_speak(uid) -> bool:
-    if morld.get_unit_prop(uid, "결박:입"):
+    if restraint.is_gagged(uid):
         return False
     if _ability_lost(uid, "speech"):
         return False
@@ -44,7 +42,7 @@ def can_speak(uid) -> bool:
 
 
 def can_see(uid) -> bool:
-    if morld.get_unit_prop(uid, "결박:눈"):
+    if restraint.is_blindfolded(uid):
         return False
     if _ability_lost(uid, "vision"):
         return False
@@ -123,12 +121,3 @@ def _part_factor(uid, part: str) -> float:
         return 0.0
     sev = injury.get_severity(uid, part)
     return max(0.0, 1.0 - sev / 100)
-
-
-def _restraint_bound_upper(uid) -> bool:
-    """결박:상체. 향후 engine/restraint.py 통합 시 import."""
-    return bool(morld.get_unit_prop(uid, "결박:상체"))
-
-
-def _restraint_bound_lower(uid) -> bool:
-    return bool(morld.get_unit_prop(uid, "결박:하체"))

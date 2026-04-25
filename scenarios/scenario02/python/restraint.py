@@ -1,6 +1,10 @@
-# restraint.py - 결박 시스템 API
+# restraint.py - 결박 시스템 API (S02)
 #
 # 결박 장비(로프, 수갑 등)에 의한 행동 제한 관리.
+#
+# 상태 조회는 engine.restraint 로 승격 (2026-04-26). 본 모듈은 engine 조회 함수를
+# re-export 해서 기존 호출부(`from restraint import is_upper_restrained` 등) 호환.
+# 변경 액션 (장착/해제/저항)은 equipment/combat/survival 의존이라 S02에 잔류.
 #
 # 결박 상태 props:
 #   - "결박:상체": 1  → 팔/손 결박 (장비 해제 불가, 저항 불가, 이동 가능)
@@ -24,53 +28,32 @@ import random
 import morld
 import equipment
 
+from engine.restraint import (
+    is_upper_restrained,
+    is_lower_restrained,
+    is_restrained,
+    is_fully_restrained,
+    is_gagged,
+    is_blindfolded,
+    is_any_restrained,
+    is_self_restrained,
+    get_restraint_strength,
+    can_use_hands,
+    can_escape_romance,
+    get_escape_multiplier,
+)
+
 
 # ========================================
-# 상태 확인 API
+# S02 한정 상태 조회 (deps 있음)
 # ========================================
-
-def is_upper_restrained(unit_id):
-    """상체(팔/손) 결박 여부"""
-    return bool(morld.get_unit_prop(unit_id, "결박:상체"))
-
-
-def is_lower_restrained(unit_id):
-    """하체(다리) 결박 여부"""
-    return bool(morld.get_unit_prop(unit_id, "결박:하체"))
-
-
-def is_restrained(unit_id):
-    """어떤 형태든 결박 여부 (상체 또는 하체)"""
-    return is_upper_restrained(unit_id) or is_lower_restrained(unit_id)
-
-
-def is_fully_restrained(unit_id):
-    """상체+하체 동시 결박 (= 탈출 불가)"""
-    return is_upper_restrained(unit_id) and is_lower_restrained(unit_id)
-
-
-def is_gagged(unit_id):
-    """입 결박 여부"""
-    return bool(morld.get_unit_prop(unit_id, "결박:입"))
-
-
-def is_blindfolded(unit_id):
-    """시각 차단 여부"""
-    return bool(morld.get_unit_prop(unit_id, "결박:눈"))
-
-
-def get_restraint_strength(unit_id):
-    """결박 강도 (해제 난이도)"""
-    return morld.get_unit_prop(unit_id, "결박:강도") or 0
-
-
-def is_any_restrained(unit_id):
-    """상체/하체/입/눈 중 하나라도 결박된 상태인지"""
-    return is_restrained(unit_id) or is_gagged(unit_id) or is_blindfolded(unit_id)
-
 
 def can_move(unit_id):
-    """이동 가능 여부 — 하체 결박 / 마비 / 거미줄 시 불가"""
+    """이동 가능 여부 — 하체 결박 / 마비 / 거미줄 시 불가.
+
+    engine.body_gate.can_move 는 결박+결손만 검사 — paralyze/web 통합 필요한
+    S02 호출부는 본 함수 사용.
+    """
     if is_lower_restrained(unit_id):
         return False
     import combat
@@ -79,25 +62,6 @@ def can_move(unit_id):
     if combat.is_web_bound(unit_id):
         return False
     return True
-
-
-def can_use_hands(unit_id):
-    """손 사용 가능 여부 — 상체 결박 시 불가"""
-    return not is_upper_restrained(unit_id)
-
-
-def can_escape_romance(unit_id):
-    """로맨스 탈출 가능 여부 — 상체+하체 동시 결박 시 불가"""
-    return not is_fully_restrained(unit_id)
-
-
-def get_escape_multiplier(unit_id):
-    """탈출 확률 배율 — 전신 0.0, 부분 0.3, 없음 1.0"""
-    if is_fully_restrained(unit_id):
-        return 0.0
-    if is_upper_restrained(unit_id) or is_lower_restrained(unit_id):
-        return 0.3
-    return 1.0
 
 
 # ========================================
@@ -327,11 +291,6 @@ def self_release(unit_id):
                 morld.clear_prop(unit_id, "결박:자가")
             return True
     return False
-
-
-def is_self_restrained(unit_id):
-    """자가 결박 상태인지 확인"""
-    return bool(morld.get_unit_prop(unit_id, "결박:자가"))
 
 
 # ========================================
