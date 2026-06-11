@@ -3243,6 +3243,19 @@ class TestNpcSexRoleHelpers:
         rc.clear_npc_sex_role(2)
         assert rc.is_in_npc_sex(2) is False
 
+    def test_int_zero_prop_means_not_in_sex(self):
+        """회귀: 실제 C# get_unit_prop은 prop 부재 시 0 반환 (None 아님).
+
+        mock은 None을 반환해 차이가 가려졌었음 — 0이 와도 미정사로
+        판정해야 함 (first meet이 NPC 정사 발각으로 오판되던 버그).
+        """
+        self._setup()
+        morld.set_unit_prop(2, rc.NPC_SEX_ROLE_KEY, 0)
+        assert rc.get_npc_sex_role(2) is None
+        assert rc.is_in_npc_sex(2) is False
+        assert rc.is_npc_sex_victim(2) is False
+        assert rc.is_npc_sex_aggressor(2) is False
+
     def test_invalid_role_raises(self):
         self._setup()
         try:

@@ -562,8 +562,14 @@ NPC_SEX_ROLES = (NPC_SEX_CONSENSUAL, NPC_SEX_VICTIM, NPC_SEX_AGGRESSOR)
 
 
 def get_npc_sex_role(unit_id):
-    """현재 NPC 정사 역할 반환 — 미정사 시 None."""
-    return morld.get_unit_prop(unit_id, NPC_SEX_ROLE_KEY)
+    """현재 NPC 정사 역할 반환 — 미정사 시 None.
+
+    실제 C# get_unit_prop은 prop 부재 시 None이 아닌 0을 반환하므로
+    (script_system_data_api.cs — int prop 기본값 호환), 유효 역할
+    문자열만 통과시키고 나머지는 None으로 정규화한다.
+    """
+    role = morld.get_unit_prop(unit_id, NPC_SEX_ROLE_KEY)
+    return role if role in NPC_SEX_ROLES else None
 
 
 def is_in_npc_sex(unit_id):
