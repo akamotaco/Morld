@@ -46,6 +46,11 @@ DIFFICULTY_PRESETS = {
 
 _expeditions = {}  # {region_id: {"rooms", "corridors", "bridges"}}
 
+
+def reset():
+    """모듈 상태 초기화 (챕터 전환/테스트 간 격리 — pi-world reset 계약)"""
+    _expeditions.clear()
+
 THREAT_CODES = ["P", "R", "B", "W"]
 ROOM_NAMES = {
     "entrance": "입구",

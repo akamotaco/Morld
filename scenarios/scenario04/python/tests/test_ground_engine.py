@@ -62,8 +62,8 @@ class _MockMorld:
     def set_unit_prop(self, uid, key, val):
         self.props.setdefault(uid, {})[key] = val
 
-    def get_unit_prop(self, uid, key):
-        return self.props.setdefault(uid, {}).get(key)
+    def get_unit_prop(self, uid, key):  # 실 계약: 부재 시 0
+        return self.props.setdefault(uid, {}).get(key, 0)
 
     def get_unit_inventory(self, uid):
         return dict(self.inventory.setdefault(uid, {}))

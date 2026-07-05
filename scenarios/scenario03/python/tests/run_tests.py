@@ -12,8 +12,12 @@ import traceback
 # 경로 설정
 _tests_dir = os.path.dirname(os.path.abspath(__file__))
 _python_dir = os.path.dirname(_tests_dir)
+_common_dir = os.path.abspath(os.path.join(_tests_dir, "..", "..", "..", "common", "python"))
 sys.path.insert(0, _tests_dir)
 sys.path.insert(0, _python_dir)
+# common은 scenario 뒤에 추가 (scenario 모듈 우선) — dungeon 등 공통화 모듈 로드용
+if os.path.isdir(_common_dir) and _common_dir not in sys.path:
+    sys.path.append(_common_dir)
 
 # Mock morld 주입 (모든 import morld가 이 mock을 사용)
 from mock_morld import MockMorld

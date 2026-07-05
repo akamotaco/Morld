@@ -102,12 +102,23 @@ def start_expedition(expedition_id):
     if state.status != "preparing":
         return False, f"현재 상태({state.status})에서 출발할 수 없습니다"
 
-    # 맵 생성
-    rooms, connections = mapgen.generate_expedition(
+    # 맵 생성 (BSP 공통화 후 mapgen은 (rooms, corridors, bridges) 3-튜플 +
+    # Room/Corridor 객체 반환 — expedition 내부 dict 표현으로 변환)
+    room_objs, corridors, bridges = mapgen.generate_expedition(
         state.region_id, state.difficulty,
     )
-    state.rooms = rooms
-    state.connections = connections
+    state.rooms = [{
+        "id": r.id,
+        "type": r.room_type,
+        "width": r.w,
+        # threat/loot 배치는 mapgen._populate_rooms 구현 시 채워짐 (현재 스텁)
+        "threat": None,
+        "has_loot": False,
+    } for r in room_objs]
+    state.connections = (
+        [{"from": c.room_a, "to": c.room_b} for c in corridors]
+        + [{"from": b.room_a, "to": b.room_b} for b in bridges]
+    )
 
     # 분대원 입구(room 0)로 배치
     unit_ids = squad_module.get_all_unit_ids(state.squad_id)
@@ -119,7 +130,7 @@ def start_expedition(expedition_id):
     state.explored_rooms.add(0)
 
     print(f"[expedition] Started expedition {expedition_id}: "
-          f"{len(rooms)} rooms generated")
+          f"{len(state.rooms)} rooms generated")
     return True, "탐사를 시작합니다"
 
 

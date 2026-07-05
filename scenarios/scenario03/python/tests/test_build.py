@@ -120,16 +120,13 @@ class TestBuildLocationFrame(_T):
             recipe_id="barracks",
         )
         # Check forward gate: corridor(L1) -> new room(L3)
-        found_forward = False
-        found_return = False
-        for key, gate in morld._gates.items():
-            if key[0] == 0 and key[1] == 1 and gate["conn_location"] == 3:
-                found_forward = True
-                assert gate["x"] == 80
-            if key[0] == 0 and key[1] == 3 and gate["conn_location"] == 1:
-                found_return = True
-        assert found_forward, "Forward gate not found"
-        assert found_return, "Return gate not found"
+        # (mock 내부 _gates 대신 공개 API로 검증 — 공유 mock 저장 구조 비의존)
+        forward = [g for g in morld.get_location_gates(0, 1)
+                   if g["connected_location"] == 3]
+        assert forward, "Forward gate not found"
+        assert forward[0]["x"] == 80
+        assert any(g["connected_location"] == 1
+                   for g in morld.get_location_gates(0, 3)), "Return gate not found"
 
     def test_designate_build(self):
         """designate_build = build_location_frame with builder_id=None"""

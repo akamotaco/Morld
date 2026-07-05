@@ -40,8 +40,8 @@ class _MockMorld:
         self.time_advances = []
 
     def get_player_id(self): return self.player_id
-    def get_unit_prop(self, uid, key):
-        return self.props.setdefault(uid, {}).get(key)
+    def get_unit_prop(self, uid, key):  # 실 계약: 부재 시 0
+        return self.props.setdefault(uid, {}).get(key, 0)
     def set_unit_prop(self, uid, key, val):
         self.props.setdefault(uid, {})[key] = val
     def get_unit_location(self, uid):
