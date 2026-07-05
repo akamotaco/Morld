@@ -4,8 +4,10 @@
 # 플랫폼 시설 건설에 사용된다.
 
 from assets.base import Item
+from assets.registry import register_item
 
 
+@register_item
 class MetalPipe(Item):
     """금속 파이프 — 구조물 골격용"""
     unique_id = "metal_pipe"
@@ -16,6 +18,7 @@ class MetalPipe(Item):
     actions = []
 
 
+@register_item
 class ConcreteBlock(Item):
     """콘크리트 블록 — 벽체/기초용"""
     unique_id = "concrete_block"
@@ -26,6 +29,7 @@ class ConcreteBlock(Item):
     actions = []
 
 
+@register_item
 class Plank(Item):
     """판자 — 바닥/벽면용"""
     unique_id = "plank"
@@ -36,6 +40,7 @@ class Plank(Item):
     actions = []
 
 
+@register_item
 class Wire(Item):
     """전선 — 전기 배선용"""
     unique_id = "wire"

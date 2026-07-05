@@ -41,7 +41,7 @@ class Character(CharacterBase):
             return []
 
         player_id = morld.get_player_id()
-        if player_id is None or uid == player_id:
+        if not player_id or uid == player_id:  # player_id 계약: 부재 시 0
             return []
 
         # 대상 NPC가 플레이어 파티에 속하는가?

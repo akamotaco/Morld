@@ -215,7 +215,14 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
   - 스케줄 스택 승격: set_base_schedule/push/pop/get_current_schedule/
     fill_schedule_jobs_from/_remaining_millis_in_entry/_is_at/STAY_SCHEDULE +
     activity 슬롯 → engine/think_base.py (S02 중복 정의 제거, 상속 전환)
-- [ ] U2 asset 단일화 1차
+- [x] **U2 asset 단일화 1차 — 완료 (2026-07-05)**
+  - S03 assets/base.py: 자체 최소 구현 → engine.asset_base 상속
+    (Rule 셀렉터/talk 골격/Context 빌더 기능 상향, instantiate 시그니처 유지)
+  - S03 assets/registry.py → engine.asset_registry 재수출 shim
+  - S03 자재 4종 @register_item 등록 → get_or_create_item_id 싱글톤 생성이
+    실동작 (기존 자체 구현은 조회 전용이라 항상 None → 자재 투입 불가였음)
+  - S04 base.py 죽은 `player_id is None` 가드 1곳 정리 (U0 후속)
+  - 남은 것(→U4): S02 base.py 6,100줄 분해, S01 이주(동결 — 보류)
 - [ ] U3 파티 단일화
 - [ ] U4 캐릭터 파일 표준 / S02 분해
 - [ ] U5 대화 정책 스위치
