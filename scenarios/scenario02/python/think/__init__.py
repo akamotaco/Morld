@@ -695,3 +695,9 @@ class BaseAgent(
 # Note: 자원 생성은 이벤트 기반(resource_agent.py)으로 처리됨
 # think/__init__.py에서 import하지 않음 (순환 참조 방지)
 # mansion.py에서 register_resource_object()를 직접 호출
+
+# ========================================
+# 캐릭터 AI Agent 자동 등록 (캐릭터 표준 ③ — think/agents/)
+# BaseAgent 정의 이후에 import해야 한다 (각 agent 모듈이 think.BaseAgent 참조).
+# ========================================
+from think import agents as _character_agents  # noqa: F401,E402
