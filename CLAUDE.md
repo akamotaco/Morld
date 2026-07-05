@@ -75,18 +75,27 @@ Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 
 2. **기본값 적용**: 속성이 없으면 최적/최상의 상태로 간주
 3. **점진적 확장**: 기존 시스템을 수정하지 않고 확장 (서브클래스/오버라이드)
 
-```python
-# GOOD: prop이 없으면 기본값 사용
-def get_durability(item_id: int) -> float:
-    durability = morld.get_unit_prop(item_id, "durability")
-    if durability is None:
-        return 1.0  # prop 없는 시나리오도 정상 동작
-    return durability
+### ⚠️ prop 계약: 부재 시 0 (None 아님)
 
-# BAD: prop이 없으면 에러
-durability = morld.get_unit_prop(item_id, "durability")
-durability -= 0.1  # None이면 에러!
+**실제 C# `get_unit_prop`은 prop이 없으면(유닛이 없어도) `None`이 아니라 `0`을 반환합니다**
+(`script_system_data_api.cs`). 문자열 prop이 있으면 str을 반환합니다.
+공유 mock(`scenarios/common/python/testing/mock_morld.py`)도 이 계약을 따릅니다.
+
+```python
+# GOOD: 0/None을 '부재'로 취급 (truthy 판정)
+durability = morld.get_unit_prop(item_id, "내구도")
+if not durability:
+    durability = 100  # prop 미추적 아이템도 정상 동작
+
+# BAD: is None 판정 — 실게임에서는 절대 None이 오지 않아 분기가 죽는다
+if morld.get_unit_prop(item_id, "내구도") is None:  # 항상 False!
+    ...
 ```
+
+- 값 0과 부재는 **구분 불가능** — "명시적 0 오버라이드"가 필요한 설계는 별도 문자열
+  prop이나 마커 prop을 사용할 것 (사례: `상점:초기화`)
+- 1회 초기화 판정은 값 prop이 아닌 **마커 prop**으로
+- 카운터/ID처럼 0이 유효값이 될 수 있는 prop은 1-based 설계 권장 (사례: `생식:주기일`)
 
 참고: [scenario03/docs/compatibility.md](scenarios/scenario03/docs/compatibility.md) (선택적 prop 패턴의 상세 예시)
 
