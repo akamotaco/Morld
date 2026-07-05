@@ -158,3 +158,45 @@ class TestExpeditionData(_T):
         for room in rooms:
             loc = morld.get_location_info(100, room.id)
             assert loc is None, f"Location {room.id} not cleaned up"
+
+
+class TestPopulateRooms(_T):
+    def setUp(self):
+        import mapgen
+        mapgen.reset()
+
+    def test_content_generated(self):
+        import mapgen
+        rooms, _, _ = mapgen.generate_expedition(100, "easy", seed=42)
+        content = mapgen.get_room_content(100)
+        assert set(content.keys()) == {r.id for r in rooms}
+        for entry in content.values():
+            assert "threat" in entry and "loot" in entry
+
+    def test_entrance_always_safe(self):
+        import mapgen
+        for seed in range(10):
+            mapgen.reset()
+            rooms, _, _ = mapgen.generate_expedition(100, "hard", seed=seed)
+            content = mapgen.get_room_content(100)
+            entrance = next(r for r in rooms if r.room_type == "entrance")
+            assert content[entrance.id]["threat"] is None
+            assert content[entrance.id]["loot"] == {}
+
+    def test_objective_has_threat_and_loot(self):
+        import mapgen
+        rooms, _, _ = mapgen.generate_expedition(100, "easy", seed=7)
+        content = mapgen.get_room_content(100)
+        objective = next(r for r in rooms if r.room_type == "objective")
+        assert content[objective.id]["threat"] in mapgen.THREAT_CODES
+        assert content[objective.id]["loot"]
+
+    def test_threat_codes_match_difficulty_pool(self):
+        import mapgen
+        allowed = {c for c, _ in mapgen.THREAT_WEIGHTS["easy"]}
+        for seed in range(10):
+            mapgen.reset()
+            mapgen.generate_expedition(100, "easy", seed=seed)
+            for entry in mapgen.get_room_content(100).values():
+                if entry["threat"]:
+                    assert entry["threat"] in allowed

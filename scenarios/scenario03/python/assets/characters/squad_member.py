@@ -8,6 +8,7 @@ from assets.base import Character
 
 
 # Echo 시리즈 역할별 기본 props
+# 생존:체력 = 30 + vita*5 (규격품 초기치). 인간성은 1-based (0=미추적, 실질 하한 1).
 ROLE_PROPS = {
     "assault": {
         "역할": "돌격",
@@ -30,6 +31,11 @@ ROLE_PROPS = {
         "sapientia": 7,
     },
 }
+
+
+def base_hp_for_vita(vita):
+    """vita 기반 규격 체력"""
+    return 30 + int(vita) * 5
 
 
 class SquadMember(Character):
@@ -63,13 +69,14 @@ class SquadMember(Character):
         ({}, "규격화된 전투복. 시리얼 번호가 가슴에 새겨져 있다."),
     ]
 
-    def configure(self, unique_id, name, role="assault"):
+    def configure(self, unique_id, name, role="assault", humanity=100):
         """인스턴스별 설정 (instantiate 전에 호출)
 
         Args:
             unique_id: 고유 식별자 (예: "echo_01")
             name: 표시 이름 (예: "Echo-01")
             role: 역할 ("assault", "support", "sniper", "medic")
+            humanity: 인간성 초기치 (재보급 개체는 전임자 트라우마 계승으로 감소)
         """
         self.unique_id = unique_id
         self.name = name
@@ -78,6 +85,12 @@ class SquadMember(Character):
         self.props = dict(self.props)  # 클래스 속성 복사
         self.props.update(role_props)
         self.props["세력"] = "플레이어"
+        vita = role_props.get("vita", 5)
+        hp = base_hp_for_vita(vita)
+        self.props["생존:체력"] = hp
+        self.props["생존:체력max"] = hp
+        # 인간성: 0=미추적과 구분하기 위해 하한 1 (prop 계약: 부재=0)
+        self.props["인간성"] = max(1, int(humanity))
 
     def talk(self):
         """분대원과 대화"""

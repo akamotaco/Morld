@@ -97,16 +97,83 @@ class TestCombatDamage(_T):
         rear_dmg = result.damage_taken[units[2]]   # rank 3
         assert front_dmg >= rear_dmg
 
-    def test_hp_preserved_at_1(self):
+    def test_death_at_zero_hp(self):
+        """HP 0 도달 시 deaths에 기록 (결번 후보). HP는 음수로 내려가지 않음."""
         import random
         random.seed(42)
         from combat import resolve_room_combat
         sid, units = self._setup_squad(vita=1, hp=2)
         room = {"id": 1, "type": "room", "threat": "W"}
         result = resolve_room_combat(sid, room)
+        assert len(result.deaths) >= 1
+        for uid in result.deaths:
+            assert morld.get_unit_prop(uid, "생존:체력") == 0
         for uid in units:
-            hp = morld.get_unit_prop(uid, "생존:체력")
-            assert hp >= 1
+            assert morld.get_unit_prop(uid, "생존:체력") >= 0
+
+    def test_absent_hp_initialized_from_vita(self):
+        """prop 계약: 체력 prop 부재(=0)면 vita 기반 규격 체력으로 초기화 후 피해 적용.
+
+        (구버전은 `is None` 판정으로 부재 유닛 HP가 1로 붕괴하는 버그가 있었다)
+        """
+        import random
+        random.seed(1)
+        import squad
+        from combat import resolve_room_combat
+        from assets.characters.squad_member import base_hp_for_vita
+
+        squad.reset()
+        sid = squad.create_squad()
+        uid = morld.create_id("unit")
+        morld.add_unit(uid, "Echo-99", 0, 0, "male")
+        morld.set_unit_prop(uid, "vita", 6)  # 체력 prop 미설정
+        squad.assign_leader(sid, uid)
+
+        room = {"id": 1, "type": "room", "threat": "P"}
+        result = resolve_room_combat(sid, room)
+        hp = morld.get_unit_prop(uid, "생존:체력")
+        expected = base_hp_for_vita(6) - result.damage_taken[uid]
+        assert hp == max(0, expected)
+        assert hp > 1  # 규격 체력(60)에서 소량 피해 — 1로 붕괴하지 않음
+
+
+class TestGrowthAndHumanity(_T):
+    def test_vita_growth_on_victory(self):
+        """승리 시 생존자 vita +1 (상한 10)"""
+        import random
+        random.seed(1)
+        from combat import resolve_room_combat
+        sid, units = self._setup_squad(vita=8, hp=100)
+        room = {"id": 1, "type": "room", "threat": "P"}
+        result = resolve_room_combat(sid, room)
+        assert result.victory is True
+        for uid in units:
+            assert morld.get_unit_prop(uid, "vita") == 9
+            assert result.growth[uid] == 1
+
+    def test_vita_capped_at_10(self):
+        import random
+        random.seed(1)
+        from combat import resolve_room_combat
+        sid, units = self._setup_squad(vita=10, hp=100)
+        room = {"id": 1, "type": "room", "threat": "P"}
+        result = resolve_room_combat(sid, room)
+        assert result.victory is True
+        for uid in units:
+            assert morld.get_unit_prop(uid, "vita") == 10
+        assert result.growth == {}
+
+    def test_humanity_wear(self):
+        """전투 후 인간성 마모 (-2), 미추적(0) 유닛은 건드리지 않음"""
+        import random
+        random.seed(1)
+        from combat import resolve_room_combat
+        sid, units = self._setup_squad(vita=8, hp=100)
+        morld.set_unit_prop(units[0], "인간성", 100)  # units[1,2]는 미추적
+        room = {"id": 1, "type": "room", "threat": "P"}
+        resolve_room_combat(sid, room)
+        assert morld.get_unit_prop(units[0], "인간성") == 98
+        assert morld.get_unit_prop(units[1], "인간성") == 0  # 그대로 미추적
 
 
 class TestAggressionEffect(_T):

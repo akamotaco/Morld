@@ -86,22 +86,92 @@ class CRTConsole(Object):
         "call:view_status:상황 확인",
         "call:designate_build:건축 지정",
         "call:manage_squad:분대 관리",
+        "call:order_depart:탐사 출발",
         "call:order_advance:진군 명령",
         "call:order_retreat:퇴각 명령",
+        "call:view_report:운용 보고서",
     ]
     props = {}
 
     def view_status(self):
         """현재 플랫폼 상황 확인"""
-        # TODO: 실제 상황 데이터 수집 (NPC 수, 건축 진행률 등)
-        lines = [
-            "[b]제3지저관리구역 — 상황 보고[/b]\n",
-            "  거점: 플랫폼",
-            "  지저철: 대기 중",
-            "  에이전트: 배정 대기",
-            "\n[i]CRT 화면이 지직거린다.[/i]",
-        ]
+        import cycle
+
+        lines = ["[b]제3지저관리구역 — 상황 보고[/b]\n"]
+        if cycle.is_active():
+            phase_label = {
+                "ready": "출발 대기",
+                "expedition": "탐사 진행 중",
+                "debrief": "보고 대기",
+            }.get(cycle.get_phase(), cycle.get_phase())
+            lines.append(f"  운행 주기: {cycle.get_cycle_number()}")
+            lines.append(f"  단계: {phase_label}")
+            lines.append(f"  차기 탐사 난이도: {cycle.current_difficulty()}")
+            stock = cycle.get_stockpile()
+            if stock:
+                stock_text = ", ".join(f"{u} x{c}" for u, c in stock.items())
+                lines.append(f"  자재 재고: {stock_text}")
+        else:
+            lines.append("  거점: 플랫폼")
+            lines.append("  지저철: 대기 중")
+            lines.append("  에이전트: 배정 대기")
+        lines.append("\n[i]CRT 화면이 지직거린다.[/i]")
         yield ui.dialog("\n".join(lines))
+
+    def order_depart(self):
+        """탐사 출발 (운영 모드) — 현 주기 난이도로 원정 준비/개시"""
+        import cycle
+        import squad as squad_module
+        import expedition as exp_module
+        import npc_dialogue
+
+        if not cycle.is_active():
+            yield ui.dialog("아직 정규 운영이 개시되지 않았습니다.\n"
+                            "튜토리얼 임무를 먼저 완료하세요.")
+            return
+        if cycle.get_phase() != "ready":
+            yield ui.dialog("지금은 출발할 수 없습니다.\n"
+                            "(탐사 진행 중이거나 보고 대기 상태)")
+            return
+
+        squads = squad_module.get_all_squads()
+        if not squads:
+            yield ui.dialog("편성된 분대가 없습니다.\n분대 관리에서 편성하세요.")
+            return
+        sq = squads[0]
+
+        difficulty = cycle.current_difficulty()
+        state = exp_module.prepare_expedition(sq.squad_id, difficulty)
+        if not state:
+            yield ui.dialog("원정 준비에 실패했습니다.\n분대 상태를 확인하세요.")
+            return
+        success, msg = exp_module.start_expedition(state.expedition_id)
+        if not success:
+            exp_module.complete_expedition(state.expedition_id)
+            yield ui.dialog(f"출발 실패: {msg}")
+            return
+
+        cycle.mark_expedition_started()
+
+        text = (
+            "[b]비서[/b]\n\n"
+            f"운행 주기 {cycle.get_cycle_number()} — 탐사를 개시합니다.\n"
+            f"+탐사 구역: {len(state.rooms)}개 구역 탐지됨 (난이도: {difficulty})\n"
+            "+진군 명령으로 분대를 지휘하세요."
+        )
+        # 출발 한마디 (주변 대사)
+        unit_ids = squad_module.get_all_unit_ids(sq.squad_id)
+        if unit_ids:
+            speaker = unit_ids[cycle.get_cycle_number() % len(unit_ids)]
+            line = npc_dialogue.member_dungeon_line(speaker, "floor_descent")
+            if line:
+                text += "\n\n" + line
+        yield ui.dialog(text)
+
+    def view_report(self):
+        """최근 사후 운용 보고서 열람"""
+        import cycle
+        yield ui.dialog(cycle.build_report_text())
 
     def designate_build(self):
         """건축 지정 (원격)
@@ -370,34 +440,70 @@ class CRTConsole(Object):
             )
 
     def order_retreat(self):
-        """퇴각 명령"""
+        """퇴각 명령 — 운영 모드에서는 주기 마감(보고서) + 보급까지 진행"""
+        import cycle
         import squad as squad_module
         import expedition as exp_module
         from events.first_mission import retreat_expedition
         from events.progression import complete_step, is_step
 
         squads = squad_module.get_all_squads()
-        if not squads:
-            yield ui.dialog("편성된 분대가 없습니다.")
-            return
-
-        sq = squads[0]
-        exp_state = exp_module.get_expedition_by_squad(sq.squad_id)
+        exp_state = None
+        if squads:
+            exp_state = exp_module.get_expedition_by_squad(squads[0].squad_id)
+        if not exp_state:
+            # 전멸 등으로 분대 없이 남은 원정 회수
+            actives = exp_module.get_active_expeditions()
+            exp_state = actives[0] if actives else None
         if not exp_state or exp_state.status != "active":
             yield ui.dialog("진행 중인 탐사가 없습니다.")
             return
 
-        gen = retreat_expedition(sq.squad_id)
+        gen = retreat_expedition(exp_state.squad_id)
         if gen:
             yield from gen
 
         # 완료 처리
-        exp_module.complete_expedition(exp_state.expedition_id)
+        summary = exp_module.complete_expedition(exp_state.expedition_id)
 
-        # Step 12 → 13 → 14 진행
-        if is_step(11) or is_step(12):
-            complete_step(12)
-            complete_step(13)
+        if cycle.is_active():
+            # 주기 마감: 사후 운용 보고서 → 보급 → 다음 주기
+            report = cycle.complete_cycle(summary)
+            yield ui.dialog(cycle.build_report_text(report))
+            supply = cycle.run_supply_phase()
+            if supply:
+                yield from self._supply_dialog(supply)
+        else:
+            # 튜토리얼(데모) 흐름: Step 12 → 13 → 14 진행
+            if is_step(11) or is_step(12):
+                complete_step(12)
+                complete_step(13)
+
+    def _supply_dialog(self, supply):
+        """보급 열차 도착 안내 (정기 배급 + 결번 대체 개체)"""
+        import cycle
+        import npc_dialogue
+
+        lines = [f"[b]보급 — 운행 주기 {supply['cycle']}[/b]\n"]
+        greet = npc_dialogue.secretary_line("greet")
+        if greet:
+            lines.append(f"비서: 「{greet}」\n")
+
+        mat_text = ", ".join(f"{u} x{c}" for u, c in supply["materials"].items())
+        lines.append(f"  정기 배급: {mat_text}")
+
+        for rep in supply["replacements"]:
+            role_label = cycle.ROLE_LABELS.get(rep["role_key"], rep["role_key"])
+            lines.append(
+                f"\n[i]\"잠시 후 1번선 하행선으로, 보급 개체 {rep['name']}"
+                f"이(가) 도착합니다.\"[/i]")
+            lines.append(f"  {rep['name']} ({role_label}) — H.I {rep['humanity']}%")
+            hello = npc_dialogue.member_daily_line(rep["unit_id"], "greet")
+            if hello:
+                lines.append(f"  {hello}")
+
+        lines.append("\n+출발 준비가 완료되면 [탐사 출발]을 지시하세요.")
+        yield ui.dialog("\n".join(lines))
 
     def get_focus_text(self):
         """포커스 묘사"""

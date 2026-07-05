@@ -44,7 +44,7 @@ DIFFICULTY_PRESETS = {
 # 탐사 데이터
 # ========================================
 
-_expeditions = {}  # {region_id: {"rooms", "corridors", "bridges"}}
+_expeditions = {}  # {region_id: {"rooms", "corridors", "bridges", "content"}}
 
 
 def reset():
@@ -52,6 +52,21 @@ def reset():
     _expeditions.clear()
 
 THREAT_CODES = ["P", "R", "B", "W"]
+
+# 난이도별 위협 코드 가중치 (P=해충, R=약탈자, B=야수, W=망령)
+THREAT_WEIGHTS = {
+    "easy":   [("P", 5), ("B", 4), ("R", 1)],
+    "normal": [("P", 3), ("B", 3), ("R", 3), ("W", 1)],
+    "hard":   [("R", 4), ("W", 3), ("B", 2), ("P", 1)],
+}
+
+# 전리품 후보 (materials.py unique_id 기준)
+LOOT_TABLE = [
+    ("metal_pipe", 1, 3),
+    ("concrete_block", 1, 3),
+    ("plank", 2, 4),
+    ("wire", 1, 2),
+]
 ROOM_NAMES = {
     "entrance": "입구",
     "normal": "구역",
@@ -141,14 +156,15 @@ def generate_expedition(region_id, difficulty="easy", seed=None):
         )
         gate_id += 1
 
-    # 5. 콘텐츠 배치
-    _populate_rooms(rooms, cfg)
+    # 5. 콘텐츠 배치 (Room은 __slots__라 속성 추가 불가 — 별도 dict로 관리)
+    content = _populate_rooms(rooms, cfg, difficulty, seed=seed)
 
     # 저장
     _expeditions[region_id] = {
         "rooms": rooms,
         "corridors": corridors,
         "bridges": bridges,
+        "content": content,
     }
 
     print(f"[mapgen] Generated expedition R{region_id}: "
@@ -158,18 +174,44 @@ def generate_expedition(region_id, difficulty="easy", seed=None):
     return rooms, corridors, bridges
 
 
-def _populate_rooms(rooms, cfg):
-    """방에 위협/전리품 배치"""
+def _populate_rooms(rooms, cfg, difficulty="easy", seed=None):
+    """방에 위협/전리품 배치.
+
+    Returns:
+        {room_id: {"threat": code or None, "loot": {unique_id: count}}}
+        - 입구(entrance)는 항상 안전 + 전리품 없음
+        - 목표 지점(objective)은 위협 확정 + 전리품 확정 (탐사 동기 부여)
+    """
+    rng = random.Random(seed) if seed is not None else random
+    weights = THREAT_WEIGHTS.get(difficulty, THREAT_WEIGHTS["easy"])
+    codes = [c for c, w in weights for _ in range(w)]
+
+    content = {}
     for room in rooms:
+        entry = {"threat": None, "loot": {}}
         if room.room_type == "entrance":
+            content[room.id] = entry
             continue
 
-        if random.random() < cfg.enemy_chance:
-            room.room_type = room.room_type  # 유지
-            # TODO: 실제 몬스터 스폰
+        is_objective = room.room_type == "objective"
+        if is_objective or rng.random() < cfg.enemy_chance:
+            entry["threat"] = rng.choice(codes)
 
-        if random.random() < cfg.loot_chance:
-            pass  # TODO: 실제 아이템 배치
+        if is_objective or rng.random() < cfg.loot_chance:
+            uid, lo, hi = LOOT_TABLE[rng.randrange(len(LOOT_TABLE))]
+            entry["loot"][uid] = rng.randint(lo, hi)
+            if is_objective:  # 목표 지점은 2종
+                uid2, lo2, hi2 = LOOT_TABLE[rng.randrange(len(LOOT_TABLE))]
+                entry["loot"][uid2] = entry["loot"].get(uid2, 0) + rng.randint(lo2, hi2)
+
+        content[room.id] = entry
+    return content
+
+
+def get_room_content(region_id):
+    """방별 위협/전리품 dict 조회 ({room_id: {"threat", "loot"}})"""
+    data = _expeditions.get(region_id)
+    return data["content"] if data else {}
 
 
 def cleanup_expedition(region_id):

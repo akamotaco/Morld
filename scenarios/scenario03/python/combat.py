@@ -32,16 +32,19 @@ THREAT_NAMES = {
 
 class CombatResult:
     __slots__ = ("occurred", "victory", "threat_code", "threat_name",
-                 "log", "damage_taken")
+                 "log", "damage_taken", "deaths", "growth")
 
     def __init__(self, occurred=False, victory=False, threat_code=None,
-                 threat_name=None, log=None, damage_taken=None):
+                 threat_name=None, log=None, damage_taken=None,
+                 deaths=None, growth=None):
         self.occurred = occurred
         self.victory = victory
         self.threat_code = threat_code
         self.threat_name = threat_name or ""
         self.log = log or []
         self.damage_taken = damage_taken or {}  # {unit_id: damage}
+        self.deaths = deaths or []              # [unit_id] — HP 0 도달 (결번 처리는 cycle 담당)
+        self.growth = growth or {}              # {unit_id: vita 증가량}
 
 
 # ========================================
@@ -97,6 +100,7 @@ def resolve_room_combat(squad_id, room):
 
     # 피해 배분 (전위가 더 많이 받음)
     damage_taken = {}
+    deaths = []
     if victory:
         log.append("전투 승리!")
         base_damage = max(1, int(threat_power * 0.3 * damage_mod))
@@ -111,13 +115,33 @@ def resolve_room_combat(squad_id, room):
         dmg = max(1, int(base_damage * rank_factor))
         damage_taken[uid] = dmg
 
-        # HP 적용 (최소 1 보존)
+        # HP 적용 — prop 부재 시 0 반환(계약)이므로 truthy 판정으로 초기화
         hp = morld.get_unit_prop(uid, "생존:체력")
-        if hp is not None:
-            new_hp = max(1, hp - dmg)
-            morld.set_unit_prop(uid, "생존:체력", new_hp)
-            if new_hp <= 1:
-                log.append(f"  {_get_name(uid)} 부상 위험!")
+        if not hp:
+            from assets.characters.squad_member import base_hp_for_vita
+            hp = base_hp_for_vita(unit_vitas[uid])
+        new_hp = max(0, hp - dmg)
+        morld.set_unit_prop(uid, "생존:체력", new_hp)
+        if new_hp <= 0:
+            deaths.append(uid)
+            log.append(f"  {_get_name(uid)} 신호 두절 — 결번 처리 대상.")
+        elif new_hp <= 5:
+            log.append(f"  {_get_name(uid)} 중상!")
+
+    # 성장/인간성 (생존자 대상)
+    growth = {}
+    survivors = [uid for uid in unit_ids if uid not in deaths]
+    for uid in survivors:
+        if victory:
+            vita = unit_vitas[uid]
+            if vita < 10:
+                morld.set_unit_prop(uid, "vita", vita + 1)
+                growth[uid] = 1
+        # 인간성 마모: 전투 -2, 동료 결번 목격 -5 (하한 1 — 0은 미추적)
+        humanity = morld.get_unit_prop(uid, "인간성")
+        if humanity:
+            wear = 2 + (5 * len(deaths))
+            morld.set_unit_prop(uid, "인간성", max(1, humanity - wear))
 
     # 위협 제거 (승리 시)
     if victory:
@@ -130,6 +154,8 @@ def resolve_room_combat(squad_id, room):
         threat_name=threat_name,
         log=log,
         damage_taken=damage_taken,
+        deaths=deaths,
+        growth=growth,
     )
     return result
 

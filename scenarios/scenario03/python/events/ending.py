@@ -1,13 +1,14 @@
-# events/ending.py - 엔딩 이벤트 (Step 14)
+# events/ending.py - 튜토리얼 종료 → 정규 운영 개시 (Step 14)
 #
-# 데모 엔딩: 첫 임무 완료 후 비서 종합 보고 + 계속 안내
+# MVP: 데모 14단계는 튜토리얼로 재해석. 첫 임무 완료 후 반복 운영 루프(cycle.py)에
+# 진입한다. 이후 게임은 보급 → 편성 → 탐사 → 귀환 → 보고서 주기를 반복.
 
 import morld
 import ui
 
 
 def handle_ending():
-    """Step 14: 데모 엔딩
+    """Step 14: 튜토리얼 종료 + 정규 운영 개시
 
     트리거: 임무 완료 보고 (Step 13) 후 자동
     """
@@ -28,23 +29,24 @@ def handle_ending():
         f"  에이전트: {max(agent_count, 4)}명 활동 중\n"
         "  탐사: 1회 완료\n"
         "  수집 자재: 확인 완료\n\n"
-        "+이상으로 데모 시퀀스를 종료합니다.",
+        "+시운전 평가: 적합. 정규 운영을 개시합니다.",
     )
+
+    # 정규 운영 개시 — 반복 탐사 루프 진입
+    import cycle
+    cycle.start_operations()
 
     yield ui.dialog(
         "[b]비서[/b]\n\n"
-        "이 구역에는 아직 밝혀지지 않은 것들이 많습니다.\n"
-        "+선로 너머에 무엇이 있는지...\n"
-        "+곧 알게 되실 겁니다.",
+        "지금부터는 정규 운행 주기입니다.\n"
+        "+매 주기: 보급 → 분대 편성 → 탐사 → 귀환 → 보고.\n"
+        "+CRT 콘솔의 [탐사 출발]로 다음 탐사를 지시하세요.",
     )
 
     yield ui.dialog(
         "[i]CRT 화면이 한 번 깜빡인다.\n"
         "녹색 커서가 조용히 점멸하고 있다.[/i]\n\n"
-        "[b]— 데모 종료 —[/b]",
+        "[i]\"안전한 운행은 정확한 관리에서 시작됩니다.\"[/i]",
     )
 
-    # 데모 완료 플래그
-    from events.progression import complete_step
-    # Step 14는 마지막이므로 complete_step은 False 반환 (더 이상 진행 없음)
-    print("[ending] Demo sequence complete.")
+    print("[ending] Tutorial complete - operations started.")

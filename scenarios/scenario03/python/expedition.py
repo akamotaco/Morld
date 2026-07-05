@@ -17,7 +17,8 @@ class ExpeditionState:
 
     __slots__ = ("expedition_id", "squad_id", "region_id", "difficulty",
                  "rooms", "connections", "status",
-                 "explored_rooms", "current_room", "combat_log")
+                 "explored_rooms", "current_room", "combat_log",
+                 "collected_loot", "casualties", "combat_count", "victory_count")
 
     def __init__(self, expedition_id, squad_id, region_id, difficulty):
         self.expedition_id = expedition_id
@@ -30,6 +31,10 @@ class ExpeditionState:
         self.explored_rooms = set()
         self.current_room = None
         self.combat_log = []
+        self.collected_loot = {}    # {unique_id: count}
+        self.casualties = []        # [{"unit_id", "name"}] — 결번 기록
+        self.combat_count = 0
+        self.victory_count = 0
 
 
 # ========================================
@@ -107,13 +112,14 @@ def start_expedition(expedition_id):
     room_objs, corridors, bridges = mapgen.generate_expedition(
         state.region_id, state.difficulty,
     )
+    content = mapgen.get_room_content(state.region_id)
     state.rooms = [{
         "id": r.id,
         "type": r.room_type,
         "width": r.w,
-        # threat/loot 배치는 mapgen._populate_rooms 구현 시 채워짐 (현재 스텁)
-        "threat": None,
-        "has_loot": False,
+        "threat": content.get(r.id, {}).get("threat"),
+        "loot": dict(content.get(r.id, {}).get("loot", {})),
+        "has_loot": bool(content.get(r.id, {}).get("loot")),
     } for r in room_objs]
     state.connections = (
         [{"from": c.room_a, "to": c.room_b} for c in corridors]
@@ -172,6 +178,29 @@ def move_to_room(expedition_id, target_room_id):
     return True, room, "이동 완료"
 
 
+def collect_room_loot(expedition_id, room_id):
+    """방 전리품 수집. 위협이 남아 있으면 수집 불가.
+
+    Returns:
+        {unique_id: count} — 이번에 수집한 양 (없으면 빈 dict)
+    """
+    state = _expeditions.get(expedition_id)
+    if not state or state.status != "active":
+        return {}
+    room = _find_room(state, room_id)
+    if not room or room.get("threat"):
+        return {}
+    loot = room.get("loot") or {}
+    if not loot:
+        return {}
+    for uid, cnt in loot.items():
+        state.collected_loot[uid] = state.collected_loot.get(uid, 0) + cnt
+    collected = dict(loot)
+    room["loot"] = {}
+    room["has_loot"] = False
+    return collected
+
+
 def retreat_expedition(expedition_id):
     """원정 귀환. 분대원을 플랫폼으로 복귀.
 
@@ -215,9 +244,15 @@ def complete_expedition(expedition_id):
 
     summary = {
         "expedition_id": expedition_id,
+        "squad_id": state.squad_id,
+        "difficulty": state.difficulty,
         "rooms_explored": len(state.explored_rooms),
         "rooms_total": len(state.rooms),
         "combat_log": list(state.combat_log),
+        "combat_count": state.combat_count,
+        "victory_count": state.victory_count,
+        "collected_loot": dict(state.collected_loot),
+        "casualties": list(state.casualties),
     }
 
     _squad_expedition.pop(state.squad_id, None)

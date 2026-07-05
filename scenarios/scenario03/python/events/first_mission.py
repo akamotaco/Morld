@@ -84,16 +84,25 @@ def start_expedition(squad_id):
 
 def _expedition_departure_dialog(state):
     """탐사 출발 대화 시퀀스"""
-    yield ui.dialog(
+    import npc_dialogue
+
+    text = (
         "[b]비서[/b]\n\n"
         "분대가 출발합니다.\n"
         f"+탐사 구역: {len(state.rooms)}개 구역 탐지됨\n"
-        "+CRT 콘솔에서 분대를 지휘하세요.",
+        "+CRT 콘솔에서 분대를 지휘하세요."
     )
+    # 출발 한마디 (주변 대사)
+    speaker = _pick_speaker(state.squad_id, len(state.rooms))
+    if speaker is not None:
+        line = npc_dialogue.member_dungeon_line(speaker, "floor_descent")
+        if line:
+            text += "\n\n" + line
+    yield ui.dialog(text)
 
 
 def handle_room_entered(expedition_id, room_id):
-    """방 진입 시 전투/전리품 처리
+    """방 진입 시 전투/결번/전리품 처리
 
     Args:
         expedition_id: 원정 ID
@@ -114,37 +123,104 @@ def handle_room_entered(expedition_id, room_id):
         return None
 
     result = resolve_room_combat(state.squad_id, room)
+    death_records = []
     if result.occurred:
+        state.combat_count += 1
+        if result.victory:
+            state.victory_count += 1
         state.combat_log.extend(result.log)
 
-    return _room_event_dialog(room, result)
+        # 결번 처리 (운영/데모 공통 — cycle이 분대/유닛 정리)
+        if result.deaths:
+            import cycle
+            death_records = cycle.process_casualties(state.squad_id, result.deaths)
+            state.casualties.extend(death_records)
+
+    # 위협이 해소된 방의 전리품 자동 수집
+    collected = exp_module.collect_room_loot(expedition_id, room_id)
+
+    return _room_event_dialog(state, room, result, death_records, collected)
 
 
-def _room_event_dialog(room, combat_result):
-    """방 이벤트 대화"""
+def _survivor_ids(squad_id):
+    import squad as squad_module
+    return squad_module.get_all_unit_ids(squad_id)
+
+
+def _pick_speaker(squad_id, salt=0):
+    """주변 대사 화자 선택 (방 번호 기반 순환 — 특정 대원 독점 방지)"""
+    ids = _survivor_ids(squad_id)
+    if not ids:
+        return None
+    return ids[salt % len(ids)]
+
+
+def _room_event_dialog(state, room, combat_result, death_records, collected):
+    """방 이벤트 대화 — 핵심 정보는 고정 텍스트, 주변 대사는 hybrid 동적 생성"""
+    import npc_dialogue
     from mapgen import ROOM_NAMES
 
     room_name = ROOM_NAMES.get(room["type"], f"구역-{room['id']}")
+    salt = room["id"]
 
     if combat_result.occurred:
-        yield ui.dialog(
-            f"[b]{room_name} 진입[/b]\n\n"
-            + "\n".join(combat_result.log),
-        )
+        lines = [f"[b]{room_name} 진입[/b]\n"]
+        # 교전 개시 외침 (주변 대사)
+        speaker = _pick_speaker(state.squad_id, salt)
+        if speaker is not None:
+            shout = npc_dialogue.member_combat_line(speaker, "combat_engage")
+            if shout:
+                lines.append(shout)
+        lines.extend(combat_result.log)
+        # 승리/패배 소감 (주변 대사)
+        speaker2 = _pick_speaker(state.squad_id, salt + 1)
+        if speaker2 is not None:
+            intent = "combat_victory" if combat_result.victory else "combat_defeat"
+            after = npc_dialogue.member_combat_line(speaker2, intent)
+            if after:
+                lines.append(after)
+        yield ui.dialog("\n".join(lines))
+
+        if death_records:
+            mourn_lines = ["[b]결번 발생[/b]\n"]
+            for rec in death_records:
+                mourn_lines.append(f"  {rec['name']} — 신호 두절. 결번 처리.")
+            speaker3 = _pick_speaker(state.squad_id, salt + 2)
+            if speaker3 is not None:
+                cry = npc_dialogue.member_combat_line(speaker3, "combat_ally_down")
+                if cry:
+                    mourn_lines.append("\n" + cry)
+            yield ui.dialog("\n".join(mourn_lines))
+
         if not combat_result.victory:
             yield ui.dialog(
                 "[b]비서[/b]\n\n"
                 "전투에서 밀렸습니다. 후퇴를 고려하세요.",
             )
     else:
+        lines = [f"[b]{room_name} 진입[/b]\n", "위협 없음. 안전합니다."]
+        # 탐사 중얼거림 (주변 대사)
+        speaker = _pick_speaker(state.squad_id, salt)
+        if speaker is not None:
+            murmur = npc_dialogue.member_dungeon_line(speaker, "dungeon_ambient")
+            if murmur:
+                lines.append("\n" + murmur)
+        yield ui.dialog("\n".join(lines))
+
+    if collected:
+        loot_text = ", ".join(f"{u} x{c}" for u, c in collected.items())
+        yield ui.dialog(f"+{room_name}에서 자재 수집: {loot_text}")
+    elif room.get("has_loot"):
         yield ui.dialog(
-            f"[b]{room_name} 진입[/b]\n\n"
-            "위협 없음. 안전합니다.",
+            f"+{room_name}에 자재가 있지만 위협이 남아 있어 수집할 수 없습니다.",
         )
 
-    if room.get("has_loot"):
+    # 전멸 확인 — 분대가 비었으면 원정 강제 종료 안내
+    if not _survivor_ids(state.squad_id):
         yield ui.dialog(
-            f"+{room_name}에서 자재를 발견했습니다.",
+            "[b]비서[/b]\n\n"
+            "...모든 개체의 신호가 두절되었습니다.\n"
+            "+원정을 종료합니다. 회수 절차를 시작합니다.",
         )
 
 
@@ -163,24 +239,34 @@ def retreat_expedition(squad_id):
 
     explored = len(state.explored_rooms)
     total = len(state.rooms)
-    combat_count = len(state.combat_log)
+    combat_count = state.combat_count
+
+    # 귀환 소감 (주변 대사) — 유닛 이동/맵 정리 전에 생성
+    import npc_dialogue
+    farewell = ""
+    speaker = _pick_speaker(state.squad_id, explored)
+    if speaker is not None:
+        farewell = npc_dialogue.member_party_line(speaker, "vote_return")
 
     success, msg = exp_module.retreat_expedition(state.expedition_id)
     if not success:
         print(f"[first_mission] Retreat failed: {msg}")
         return None
 
-    return _retreat_dialog(explored, total, combat_count)
+    return _retreat_dialog(explored, total, combat_count, farewell)
 
 
-def _retreat_dialog(explored, total, combat_count):
+def _retreat_dialog(explored, total, combat_count, farewell=""):
     """귀환 대화 시퀀스"""
-    yield ui.dialog(
+    text = (
         "[b]비서[/b]\n\n"
         "분대가 귀환합니다.\n"
         f"+탐사 현황: {explored}/{total} 구역 탐색\n"
-        f"+전투 기록: {combat_count}건",
+        f"+전투 기록: {combat_count}건"
     )
+    if farewell:
+        text += "\n\n" + farewell
+    yield ui.dialog(text)
 
 
 def handle_mission_complete():

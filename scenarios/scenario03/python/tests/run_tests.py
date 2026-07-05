@@ -97,6 +97,8 @@ TEST_MODULES = [
     "test_mapgen",
     "test_expedition",
     "test_combat",
+    "test_cycle",
+    "test_npc_dialogue",
     "test_integration",
 ]
 

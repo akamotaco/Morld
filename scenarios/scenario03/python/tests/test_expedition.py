@@ -255,3 +255,68 @@ class TestExpeditionQuery(_T):
         for r in rooms:
             assert "id" in r
             assert "explored" in r
+
+
+class TestRoomContentAndLoot(_T):
+    def setUp(self):
+        import expedition
+        expedition.reset()
+        import mapgen
+        mapgen.reset()
+
+    def _start(self):
+        import expedition
+        sid, *_ = self._setup_squad()
+        state = expedition.prepare_expedition(sid, "easy")
+        expedition.start_expedition(state.expedition_id)
+        return state
+
+    def test_rooms_carry_content(self):
+        """mapgen 배치 결과(threat/loot)가 expedition room dict에 반영"""
+        import mapgen
+        state = self._start()
+        content = mapgen.get_room_content(state.region_id)
+        for room in state.rooms:
+            assert room["threat"] == content[room["id"]]["threat"]
+            assert room["loot"] == content[room["id"]]["loot"]
+            assert room["has_loot"] == bool(content[room["id"]]["loot"])
+
+    def test_collect_loot(self):
+        import expedition
+        state = self._start()
+        # 위협 없는 전리품 방을 임의 구성
+        room = state.rooms[1]
+        room["threat"] = None
+        room["loot"] = {"plank": 3}
+        room["has_loot"] = True
+        got = expedition.collect_room_loot(state.expedition_id, room["id"])
+        assert got == {"plank": 3}
+        assert state.collected_loot == {"plank": 3}
+        assert room["loot"] == {} and room["has_loot"] is False
+        # 재수집은 빈 dict
+        assert expedition.collect_room_loot(state.expedition_id, room["id"]) == {}
+
+    def test_collect_blocked_by_threat(self):
+        import expedition
+        state = self._start()
+        room = state.rooms[1]
+        room["threat"] = "P"
+        room["loot"] = {"wire": 2}
+        got = expedition.collect_room_loot(state.expedition_id, room["id"])
+        assert got == {}
+        assert state.collected_loot == {}
+
+    def test_summary_includes_new_fields(self):
+        import expedition
+        state = self._start()
+        state.collected_loot["plank"] = 2
+        state.casualties.append({"name": "Echo-02", "role_key": "support"})
+        state.combat_count = 3
+        state.victory_count = 2
+        expedition.retreat_expedition(state.expedition_id)
+        summary = expedition.complete_expedition(state.expedition_id)
+        assert summary["collected_loot"] == {"plank": 2}
+        assert summary["casualties"][0]["name"] == "Echo-02"
+        assert summary["combat_count"] == 3
+        assert summary["victory_count"] == 2
+        assert summary["difficulty"] == "easy"

@@ -12,11 +12,11 @@ Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 
 |----------|-----------|------|-------------|
 | scenario01 | 방 탈출 퍼즐 (NPC 없음) | 🧊 동결 (레거시 프로토타입) | `scenarios/scenario01/DESIGN.md` |
 | **scenario02** | **숲속 저택** — 연애 + 생활 시뮬레이션 | ✅ 메인 시나리오 (유지보수 활발) | [scenario02/docs/README.md](scenarios/scenario02/docs/README.md) |
-| scenario03 | Mind The Gap: 하행선 — 지저철 원격지휘 스릴러 | ⏸️ 데모 완료, 휴면 | [scenario03/docs/README.md](scenarios/scenario03/docs/README.md) |
+| scenario03 | Mind The Gap: 하행선 — 지저철 원격지휘 스릴러 | 🚧 MVP 구현됨 (반복 운영 루프 + Hybrid 대화) | [scenario03/docs/README.md](scenarios/scenario03/docs/README.md) |
 | **scenario04** | **마을과 던전** — JRPG 파티 로그라이트 | 🚧 신규 개발 중 (Hybrid 대화 통합) | [scenario04/docs/README.md](scenarios/scenario04/docs/README.md) |
 | common | 공용 Python 엔진(Pi-World) + Hybrid 대화 데이터 | ✅ 모든 시나리오의 기반 | [docs/README.md](docs/README.md) |
 
-**현재 활발한 작업 갈래**: ① scenario02 유지보수/버그픽스, ② Hybrid 대화 엔진(common) + scenario04 통합, ③ 엔진 승격(시나리오 코드 → common/engine).
+**현재 활발한 작업 갈래**: ① scenario02 유지보수/버그픽스, ② Hybrid 대화 엔진(common) + scenario04 통합, ③ 엔진 승격(시나리오 코드 → common/engine), ④ scenario03 MVP 반복 운영 루프 ([mvp.md](scenarios/scenario03/docs/mvp.md)).
 
 ---
 
