@@ -9,3 +9,4 @@
 # @register_agent_class 데코레이터가 agent 레지스트리에 등록된다.
 
 from think.agents import sera_agent  # noqa: F401
+from think.agents import mila_agent  # noqa: F401
