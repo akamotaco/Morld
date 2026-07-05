@@ -14,7 +14,10 @@ import random
 import sys
 import morld
 from engine import party_group as _m
-sys.modules[__name__] = _m
+from engine import party as _facade
+# U3: `import party`는 통합 facade(engine.party)를 가리킨다 —
+# party_group 코어 전체 + stance/rank/Order + request_recruit/request_dismiss.
+sys.modules[__name__] = _facade
 
 
 # 사망 직전 통행인 구출 이벤트 확률 (0.0 ~ 1.0)
@@ -309,4 +312,25 @@ _m.set_callbacks(
     on_dissolved=_on_dissolved,
     leadership_fn=_leadership_fn,
     leadership_priority_fn=_leadership_priority_fn,
+)
+
+
+# ========================================
+# C# 진입점 판정 핸들러 (U3 — recruit 판정 우회 해소)
+# ========================================
+
+def _request_recruit(unit_id):
+    """C# recruit: 액션 → recruit.py 판정 경유 (수락/이적/거절)"""
+    import recruit
+    result = recruit.recruit(unit_id)
+    return result.get("result") in ("recruited", "switched")
+
+
+def _request_dismiss(unit_id):
+    return _m.remove_member(unit_id, reason="이탈")
+
+
+_facade.set_request_handlers(
+    recruit_fn=_request_recruit,
+    dismiss_fn=_request_dismiss,
 )

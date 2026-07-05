@@ -223,7 +223,22 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
     실동작 (기존 자체 구현은 조회 전용이라 항상 None → 자재 투입 불가였음)
   - S04 base.py 죽은 `player_id is None` 가드 1곳 정리 (U0 후속)
   - 남은 것(→U4): S02 base.py 6,100줄 분해, S01 이주(동결 — 보류)
-- [ ] U3 파티 단일화
+- [x] **U3 파티 단일화 1·2단 — 완료 (2026-07-05)** (3단계 중 U3c 잔여)
+  - `engine/party.py` 신설: party_group 코어 재수출 + stance(지휘 자세 5단계,
+    search/stealth는 모드 플래그) + rank(유닛 귀속) + Order(party_squad 풀버전) +
+    request_recruit/request_dismiss (시나리오 판정 핸들러 주입식)
+  - S03 `squad.py` → engine.party shim: 분대가 실제 엔진 Party로 동작
+    (플레이어 무관·다중 분대·리더 없는 편성 중 분대는 shim 메타데이터로 표현).
+    기존 API/시맨틱 유지, 26개 squad 테스트 무수정 통과
+  - S04 `party.py` alias 대상: party_group → **engine.party** (통합 facade),
+    recruit.py 판정을 request_recruit 핸들러로 등록
+  - C# Navigation.cs: `party.add_member/remove_member` 문자열 →
+    `party.request_recruit/request_dismiss` (판정 우회 해소. 구 경로는 S02 계열과
+    시그니처 불일치로 사문화 상태였음 — 어느 시나리오도 recruit:/dismiss: 액션 미생산 확인)
+  - engine/party_squad에도 동일 request_* 인터페이스 추가 (S02 party alias 대응)
+  - **U3c 잔여**: S02 party_squad의 directive/follow/FSM을 engine.party
+    stance/모드로 재배선 + party_squad 코어를 party_group 위로 이전 (최고 리스크 —
+    S02 동행/분대 회귀 스위트 확보 후 별도 사이클로)
 - [ ] U4 캐릭터 파일 표준 / S02 분해
 - [ ] U5 대화 정책 스위치
 - [ ] U6 검증/인수

@@ -682,7 +682,9 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// 파티 영입: recruit:unit_id
-	/// Python party.add_member(unit_id) 호출
+	/// Python party.request_recruit(unit_id) 호출 — 시나리오 판정 핸들러 경유
+	/// (구 party.add_member 직결은 모집 수락 판정을 우회했고,
+	///  S02 계열 party 모듈과는 시그니처도 달라 사문화 상태였음)
 	/// </summary>
 	private void HandleRecruitAction(string[] parts)
 	{
@@ -690,7 +692,7 @@ public partial class MetaActionHandler
 		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
 		if (scriptSystem == null) return;
 
-		scriptSystem.Execute($"import party; party.add_member({unitId})");
+		scriptSystem.Execute($"import party; party.request_recruit({unitId})");
 		// Focus 해제 → 상황 화면으로
 		var focusStack = _world.GetSystem("eventSystem") as SE.EventSystem;
 		_textUISystem?.RequestUpdateDisplay();
@@ -698,6 +700,7 @@ public partial class MetaActionHandler
 
 	/// <summary>
 	/// 파티 이탈: dismiss:unit_id
+	/// Python party.request_dismiss(unit_id) 호출
 	/// </summary>
 	private void HandleDismissAction(string[] parts)
 	{
@@ -705,7 +708,7 @@ public partial class MetaActionHandler
 		var scriptSystem = _world.GetSystem("scriptSystem") as SE.ScriptSystem;
 		if (scriptSystem == null) return;
 
-		scriptSystem.Execute($"import party; party.remove_member({unitId})");
+		scriptSystem.Execute($"import party; party.request_dismiss({unitId})");
 		// Focus 해제
 		_textUISystem?.RequestUpdateDisplay();
 	}

@@ -604,3 +604,34 @@ def _remove_party_phases(unit_id):
 
     agent._fsm_pop_by_type("command")
     agent._fsm_pop_by_type("standby")
+
+
+# ========================================
+# C# 단일 진입점 (U3 — engine.party와 동일 인터페이스)
+# ========================================
+# MetaActionHandler recruit:/dismiss: 액션이 `party.request_recruit(id)` 형식으로
+# 호출한다. S02의 party 모듈은 이 모듈의 alias이므로 여기서 제공.
+
+def request_recruit(unit_id):
+    """플레이어 리더 분대에 영입 (분대 없으면 생성)"""
+    import morld as _morld
+    player_id = _morld.get_player_id()
+    if not player_id:  # player_id 계약: 부재 시 0
+        return False
+    sq = get_squad_by_unit(player_id)
+    if sq is None:
+        sid = create_squad()
+        if not assign_leader(sid, player_id):
+            return False
+        sq = get_squad(sid)
+    if sq.leader_id != player_id:
+        return False
+    return add_member(sq.squad_id, unit_id)
+
+
+def request_dismiss(unit_id):
+    """유닛이 속한 분대에서 제거"""
+    sq = get_squad_by_unit(unit_id)
+    if sq is None:
+        return False
+    return remove_member(sq.squad_id, unit_id)
