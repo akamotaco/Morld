@@ -1,13 +1,23 @@
-# party_squad.py — 분대(Squad) 시스템
+# party_squad.py — 분대(Squad) 시스템 (U3c: engine.party 코어 위로 재배선)
 #
-# Squad/Order 데이터 구조 + 레지스트리 + 생명주기/멤버/지시 API
+# U3c (infra-unification §2-1): 멤버십 저장소를 party_group(engine.party 코어)로
+# 이전 — S02 분대와 S04 파티가 단일 멤버십 레지스트리를 공유한다.
+# 분대 고유 레이어는 유지:
+#   - player_directive 7종 (stance/mode로 엔진 미러링)
+#   - Order + follow 스케줄 전환 + FSM Standby/Command phase
+#   - leader_traits / leader_destination (E3 gate 동기화)
+#   - 플레이어 can: props 갱신
+# 리더 없는 분대/빈 분대는 편성 중 상태 → 분대 메타데이터로 표현
+# (엔진 Party는 항상 리더 보유 — 분대 leader_id는 메타데이터가 정본).
+#
 # - S02: 플레이어 파티 1개 (플레이어 리더)
-# - S03: NPC 분대 × N (NPC 리더)
-# - 구조적으로 동일, 데이터 레이어에서 분대 수 제한 없음
+# - S03: NPC 분대 × N (NPC 리더) — S03는 scenario03/squad.py shim 사용
 #
-# 같은 시나리오에서 party_group과 독립 공존 가능
+# rank/Order 저장소는 engine.party의 유닛 귀속 저장소를 사용.
 
 import morld
+
+from engine import party as _party
 
 MILLIS_PER_DAY = 86_400_000
 
@@ -17,27 +27,51 @@ PARTY_FOLLOW_SCHEDULE = [
      "end": MILLIS_PER_DAY, "activity": "분대행동"}
 ]
 
+# Order는 engine.party 정본 재수출 (party_squad.Order 기존 import 경로 호환)
+Order = _party.Order
+
+
 # ========================================
-# 데이터 클래스
+# 데이터 클래스 (engine Party 위의 뷰 + 분대 메타데이터)
 # ========================================
 
 class Squad:
-    """분대 객체"""
+    """분대 객체 — 멤버십은 engine Party, 분대 고유 상태는 메타데이터"""
 
     MAX_MEMBERS = 3  # 리더 제외 최대 멤버 수
 
     def __init__(self, squad_id):
         self.squad_id = squad_id
+        self.party_id = None                # engine Party (유닛 1명 이상일 때 생성)
         self.leader_id = None               # 리더 unit_id (None = 미지정)
-        self.members = []                   # [unit_id, ...] 리더 제외
         self.player_directive = "auto"      # 7종 지휘 자세
-        self.orders = {}                    # {unit_id: Order}
         self.leader_traits = {}             # assign_leader() 시 생성
         self.leader_destination = None      # 리더 이동 목적지 (E3 gate 동기화)
 
+    def _party_units(self):
+        if self.party_id is None:
+            return []
+        p = _party.get_party(self.party_id)
+        return p.get_members() if p else []
+
+    @property
+    def members(self):
+        """리더 제외 멤버 목록"""
+        return [u for u in self._party_units() if u != self.leader_id]
+
+    @property
+    def orders(self):
+        """{unit_id: Order} — engine 유닛 귀속 저장소의 분대 단면 (읽기용)"""
+        result = {}
+        for uid in self.all_unit_ids():
+            order = _party.get_order(uid)
+            if order is not None:
+                result[uid] = order
+        return result
+
     def all_unit_ids(self):
-        """리더 포함 전체 unit_id 목록"""
-        ids = list(self.members)
+        """리더 포함 전체 unit_id 목록 (리더가 [0])"""
+        ids = self.members
         if self.leader_id is not None:
             ids.insert(0, self.leader_id)
         return ids
@@ -47,58 +81,77 @@ class Squad:
         return len(self.members) >= self.MAX_MEMBERS
 
 
-class Order:
-    """분대장 → 분대원 지시"""
-
-    def __init__(self, order_type, target=None,
-                 priority=0.0, stealth=0.0,
-                 duration_ms=None):
-        self.order_type = order_type    # "주타입" 또는 "주타입:부타입"
-        self.target = target            # {region_id, location_id} 또는 None
-        self.priority = priority        # -1.0 아이템 수집 ↔ +1.0 적 퇴치
-        self.stealth = stealth          # 0.0 노출 ↔ 1.0 은밀
-        self.duration_ms = duration_ms  # 제한 시간 (None=무제한)
-        self.started_at = None          # set_order() 시 자동 기록 (ms)
-        self.completed = False          # 분대원이 목표 달성 시 True
-
-    def main_type(self):
-        return self.order_type.split(":")[0]
-
-    def sub_type(self):
-        parts = self.order_type.split(":")
-        return parts[1] if len(parts) > 1 else "*"
-
-    def is_expired(self, current_time_ms):
-        """기간제 타임아웃 여부"""
-        if self.duration_ms is None or self.started_at is None:
-            return False
-        return (current_time_ms - self.started_at) >= self.duration_ms
-
-    def __repr__(self):
-        parts = [f"Order({self.order_type}, priority={self.priority}, stealth={self.stealth}"]
-        if self.duration_ms is not None:
-            parts.append(f", duration={self.duration_ms}ms")
-        if self.completed:
-            parts.append(", completed")
-        parts.append(")")
-        return f"<{''.join(parts)}>"
-
-
 # ========================================
-# 모듈 레지스트리
+# 모듈 레지스트리 (분대 메타데이터)
 # ========================================
 
 _squads = {}            # {squad_id: Squad}
-_unit_squad = {}        # {unit_id: squad_id} 역참조 (리더+멤버 모두)
 _next_id = 0
 
 
 def reset():
-    """챕터 전환 시 호출"""
+    """챕터 전환 시 호출 (engine.party 코어 포함)"""
     global _next_id
     _squads.clear()
-    _unit_squad.clear()
     _next_id = 0
+    _party.reset()
+
+
+# ========================================
+# 내부: engine Party 멤버십 조작
+# ========================================
+
+def _units_of(squad_id):
+    squad = _squads.get(squad_id)
+    return squad._party_units() if squad else []
+
+
+def _find_squad_of_unit(unit_id):
+    for sid, squad in _squads.items():
+        if unit_id in squad._party_units():
+            return sid
+    return None
+
+
+def _join(target_pid, unit_id):
+    """유닛을 대상 파티로 이동 (솔로/타 파티 모두 처리)"""
+    up = _party.get_party_of(unit_id)
+    if up is None:
+        _party.create_solo_party(unit_id)
+        up = _party.get_party_of(unit_id)
+    if up.party_id == target_pid:
+        return False
+    if up.get_size() == 1:
+        return _party.merge(target_pid, up.party_id)
+    new_p = _party.split(up.party_id, [unit_id])
+    if new_p is None:
+        return _party.merge(target_pid, up.party_id)
+    return _party.merge(target_pid, new_p.party_id)
+
+
+def _leave(squad_id, unit_id):
+    """유닛을 분대 파티에서 분리 (솔로 파티로)"""
+    squad = _squads.get(squad_id)
+    if not squad or squad.party_id is None:
+        return False
+    p = _party.get_party(squad.party_id)
+    if not p or unit_id not in p.get_members():
+        return False
+    if p.get_size() == 1:
+        # 마지막 유닛 — 파티는 유닛의 솔로 파티로 남기고 분대에서 분리
+        squad.party_id = None
+        return True
+    return _party.split(p.party_id, [unit_id]) is not None
+
+
+def _attach_unit(squad, unit_id):
+    """분대에 파티가 없으면 유닛의 (솔로) 파티를 분대 파티로 채택, 있으면 join"""
+    if squad.party_id is None:
+        p = _party.create_solo_party(unit_id)
+        squad.party_id = p.party_id
+        _sync_directive_to_engine(squad)
+        return True
+    return _join(squad.party_id, unit_id)
 
 
 # ========================================
@@ -144,12 +197,14 @@ def assign_leader(squad_id, leader_id):
         return False
 
     # 이미 다른 분대 소속이면 실패
-    if leader_id in _unit_squad:
+    if _find_squad_of_unit(leader_id) is not None:
         return False
 
     old_leader = squad.leader_id
+    if not _attach_unit(squad, leader_id):
+        return False
     squad.leader_id = leader_id
-    _unit_squad[leader_id] = squad_id
+    _party.transfer_leader(squad.party_id, leader_id)
 
     # leader_traits 생성
     from think.party_config import build_leader_traits
@@ -167,10 +222,10 @@ def remove_leader(squad_id):
         return
 
     old_leader = squad.leader_id
-    _unit_squad.pop(old_leader, None)
     squad.leader_id = None
     squad.leader_traits = {}
     squad.leader_destination = None
+    _leave(squad_id, old_leader)
 
     on_leader_changed(squad_id, old_leader, None)
 
@@ -183,24 +238,16 @@ def change_leader(squad_id, new_leader_id):
 
     old_leader = squad.leader_id
 
-    # 새 리더가 멤버였으면 멤버에서 제거
-    if new_leader_id in squad.members:
-        squad.members.remove(new_leader_id)
-        _unit_squad.pop(new_leader_id, None)
-        # orders 제거
-        squad.orders.pop(new_leader_id, None)
+    # 새 리더가 멤버였으면 order 제거, 외부인이면 파티 편입
+    if new_leader_id in squad._party_units():
+        _party.clear_order(new_leader_id)
+    else:
+        if not _attach_unit(squad, new_leader_id):
+            return False
 
-    # 이전 리더를 멤버로 전환
-    if old_leader is not None:
-        _unit_squad.pop(old_leader, None)
-        squad.leader_id = None
-        # 이전 리더를 멤버로 추가
-        squad.members.append(old_leader)
-        _unit_squad[old_leader] = squad_id
-
-    # 새 리더 지정
+    # 새 리더 지정 (이전 리더는 파티에 남아 멤버로 전환됨)
     squad.leader_id = new_leader_id
-    _unit_squad[new_leader_id] = squad_id
+    _party.transfer_leader(squad.party_id, new_leader_id)
 
     # leader_traits 전체 교체
     from think.party_config import build_leader_traits
@@ -238,7 +285,7 @@ def add_member(squad_id, unit_id):
         pass
 
     # 이미 같은 분대 소속 (리더 포함)
-    existing_squad_id = _unit_squad.get(unit_id)
+    existing_squad_id = _find_squad_of_unit(unit_id)
     if existing_squad_id == squad_id:
         return False
 
@@ -251,8 +298,8 @@ def add_member(squad_id, unit_id):
             else:
                 remove_member(existing_squad_id, unit_id)
 
-    squad.members.append(unit_id)
-    _unit_squad[unit_id] = squad_id
+    if not _attach_unit(squad, unit_id):
+        return False
 
     on_member_added(squad_id, unit_id)
     return True
@@ -267,9 +314,9 @@ def remove_member(squad_id, unit_id):
     if unit_id not in squad.members:
         return False
 
-    squad.members.remove(unit_id)
-    _unit_squad.pop(unit_id, None)
-    squad.orders.pop(unit_id, None)
+    if not _leave(squad_id, unit_id):
+        return False
+    _party.clear_order(unit_id)
 
     on_member_removed(squad_id, unit_id)
     return True
@@ -286,7 +333,7 @@ def get_squad(squad_id):
 
 def get_squad_by_unit(unit_id):
     """unit_id로 소속 분대 조회 (리더/멤버 모두)"""
-    squad_id = _unit_squad.get(unit_id)
+    squad_id = _find_squad_of_unit(unit_id)
     if squad_id is not None:
         return _squads.get(squad_id)
     return None
@@ -294,7 +341,7 @@ def get_squad_by_unit(unit_id):
 
 def is_in_squad(unit_id):
     """분대 소속 여부"""
-    return unit_id in _unit_squad
+    return _find_squad_of_unit(unit_id) is not None
 
 
 def is_squad_leader(unit_id):
@@ -306,7 +353,7 @@ def is_squad_leader(unit_id):
 def get_squad_members(squad_id):
     """멤버 목록 (리더 제외)"""
     squad = _squads.get(squad_id)
-    return list(squad.members) if squad else []
+    return squad.members if squad else []
 
 
 def get_all_unit_ids(squad_id):
@@ -329,6 +376,28 @@ VALID_DIRECTIVES = {
     "combat_aggressive", "retreat", "wait",
 }
 
+# directive → engine stance/mode 매핑 (infra-unification §2-1)
+_DIRECTIVE_TO_STANCE = {
+    "auto":              ("hold", set()),
+    "wait":              ("hold", set()),
+    "search":            ("hold", {"search"}),
+    "combat_stealth":    ("combat_normal", {"stealth"}),
+    "combat_normal":     ("combat_normal", set()),
+    "combat_aggressive": ("combat_aggressive", set()),
+    "retreat":           ("retreat", set()),
+}
+
+
+def _sync_directive_to_engine(squad):
+    """directive를 engine stance/mode로 미러링 (파티 존재 시)"""
+    if squad.party_id is None:
+        return
+    stance, modes = _DIRECTIVE_TO_STANCE.get(
+        squad.player_directive, ("hold", set()))
+    _party.set_stance(squad.party_id, stance)
+    for m in _party.VALID_MODES:
+        _party.set_mode(squad.party_id, m, m in modes)
+
 
 def set_directive(squad_id, directive):
     """플레이어 지휘 설정 (7종)"""
@@ -340,6 +409,7 @@ def set_directive(squad_id, directive):
 
     old = squad.player_directive
     squad.player_directive = directive
+    _sync_directive_to_engine(squad)
     on_directive_changed(squad_id, old, directive)
     return True
 
@@ -363,7 +433,7 @@ def set_order(squad_id, unit_id, order):
     if unit_id not in squad.members and unit_id != squad.leader_id:
         return False
 
-    old_order = squad.orders.get(unit_id)
+    old_order = _party.get_order(unit_id)
     old_type = old_order.main_type() if old_order else None
     new_type = order.main_type()
 
@@ -373,13 +443,13 @@ def set_order(squad_id, unit_id, order):
     elif old_type != "follow" and new_type == "follow":
         _start_follow(unit_id)
 
-    # started_at 자동 기록
+    # started_at 자동 기록 (기존 시맨틱: time_info 없으면 None 유지)
     if order.started_at is None:
         time_info = morld.get_time_info()
         if time_info:
             order.started_at = time_info.get("total_millis", 0)
 
-    squad.orders[unit_id] = order
+    _party._unit_order[unit_id] = order  # engine 저장소 직접 기록 (타임스탬프 보존)
     _ensure_party_phases(unit_id)
     return True
 
@@ -389,7 +459,8 @@ def clear_order(squad_id, unit_id):
     squad = _squads.get(squad_id)
     if not squad:
         return False
-    old_order = squad.orders.pop(unit_id, None)
+    old_order = _party.get_order(unit_id)
+    _party.clear_order(unit_id)
     if old_order and old_order.main_type() == "follow":
         _stop_follow(unit_id)
     return True
@@ -400,7 +471,9 @@ def get_order(squad_id, unit_id):
     squad = _squads.get(squad_id)
     if not squad:
         return None
-    return squad.orders.get(unit_id)
+    if unit_id not in squad._party_units():
+        return None
+    return _party.get_order(unit_id)
 
 
 def get_order_for_unit(unit_id):
@@ -408,7 +481,7 @@ def get_order_for_unit(unit_id):
     squad = get_squad_by_unit(unit_id)
     if not squad:
         return None
-    return squad.orders.get(unit_id)
+    return _party.get_order(unit_id)
 
 
 # ========================================
@@ -607,15 +680,14 @@ def _remove_party_phases(unit_id):
 
 
 # ========================================
-# C# 단일 진입점 (U3 — engine.party와 동일 인터페이스)
+# C# 단일 진입점 (engine.party와 동일 인터페이스)
 # ========================================
 # MetaActionHandler recruit:/dismiss: 액션이 `party.request_recruit(id)` 형식으로
 # 호출한다. S02의 party 모듈은 이 모듈의 alias이므로 여기서 제공.
 
 def request_recruit(unit_id):
     """플레이어 리더 분대에 영입 (분대 없으면 생성)"""
-    import morld as _morld
-    player_id = _morld.get_player_id()
+    player_id = morld.get_player_id()
     if not player_id:  # player_id 계약: 부재 시 0
         return False
     sq = get_squad_by_unit(player_id)

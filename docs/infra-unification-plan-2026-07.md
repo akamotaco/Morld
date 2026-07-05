@@ -236,9 +236,15 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
     `party.request_recruit/request_dismiss` (판정 우회 해소. 구 경로는 S02 계열과
     시그니처 불일치로 사문화 상태였음 — 어느 시나리오도 recruit:/dismiss: 액션 미생산 확인)
   - engine/party_squad에도 동일 request_* 인터페이스 추가 (S02 party alias 대응)
-  - **U3c 잔여**: S02 party_squad의 directive/follow/FSM을 engine.party
-    stance/모드로 재배선 + party_squad 코어를 party_group 위로 이전 (최고 리스크 —
-    S02 동행/분대 회귀 스위트 확보 후 별도 사이클로)
+  - [x] **U3c — 완료 (2026-07-05)**: party_squad 멤버십 코어를 engine.party
+    (party_group) 위로 이전. Squad는 엔진 Party 뷰 + 분대 메타데이터
+    (directive/leader_traits/leader_destination). Order 저장소는 engine 유닛 귀속으로
+    통일, directive는 stance/mode로 미러링 (auto·wait→hold, search→hold+search,
+    combat_stealth→combat_normal+stealth). follow/FSM phase/can:props 레이어는
+    원본 그대로 보존. S02 파티 테스트 137개 무수정 통과 (Order.sub_type "*"
+    시맨틱을 엔진 정본에 반영한 1건 외).
+    **결과: S02 분대 · S03 분대 · S04 파티가 단일 멤버십 레지스트리 공유** —
+    "스쿼드 vs 파티를 하나의 시스템으로" 요구 충족.
 - [ ] U4 캐릭터 파일 표준 / S02 분해
 - [ ] U5 대화 정책 스위치
 - [ ] U6 검증/인수

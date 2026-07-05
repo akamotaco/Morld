@@ -139,8 +139,9 @@ class Order:
         return self.order_type.split(":")[0]
 
     def sub_type(self):
+        """부타입 (없으면 "*" — 와일드카드, party_squad 원본 시맨틱)"""
         parts = self.order_type.split(":")
-        return parts[1] if len(parts) > 1 else None
+        return parts[1] if len(parts) > 1 else "*"
 
     def is_expired(self, now_ms):
         if self.duration_ms is None or self.started_at is None:
