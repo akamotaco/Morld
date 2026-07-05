@@ -61,6 +61,22 @@ def roll_range(bounds, rng=None):
     return r.randint(lo, hi)
 
 
+def sample_distinct(pool, count, rng=None, avoid=None):
+    """풀에서 중복 없이 최대 count개 추첨 (avoid에 든 값 제외).
+
+    이름 풀(중복 회피)·기벽 풀(다중 선택) 등에 공용. 가용 후보가 count보다
+    적으면 있는 만큼만 반환한다 (예외 없음).
+    """
+    r = rng or random
+    avoid = set(avoid or ())
+    candidates = [x for x in pool if x not in avoid]
+    if count >= len(candidates):
+        result = list(candidates)
+        r.shuffle(result)
+        return result
+    return r.sample(candidates, count)
+
+
 def roll_identity(spec, role_key, tier_key, rng=None):
     """spec 기반 랜덤 정체성 생성.
 

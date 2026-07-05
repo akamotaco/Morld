@@ -40,6 +40,34 @@ class TestWeightedChoice:
         assert cg.weighted_choice([], cg.make_rng(0)) is None
 
 
+class TestSampleDistinct:
+    def test_distinct_count(self):
+        rng = cg.make_rng(5)
+        picks = cg.sample_distinct(["a", "b", "c", "d"], 2, rng)
+        assert len(picks) == 2
+        assert len(set(picks)) == 2
+
+    def test_avoid_excluded(self):
+        rng = cg.make_rng(5)
+        for _ in range(20):
+            picks = cg.sample_distinct(["a", "b", "c"], 1, rng, avoid={"a", "b"})
+            assert picks == ["c"]
+
+    def test_pool_exhaustion_returns_available(self):
+        rng = cg.make_rng(5)
+        picks = cg.sample_distinct(["a", "b"], 5, rng)
+        assert sorted(picks) == ["a", "b"]  # count 초과 → 있는 만큼
+
+    def test_all_avoided_returns_empty(self):
+        picks = cg.sample_distinct(["a", "b"], 1, cg.make_rng(0), avoid={"a", "b"})
+        assert picks == []
+
+    def test_reproducible(self):
+        a = cg.sample_distinct(list("abcdef"), 3, cg.make_rng(9))
+        b = cg.sample_distinct(list("abcdef"), 3, cg.make_rng(9))
+        assert a == b
+
+
 class TestRollIdentity:
     def test_props_within_bounds(self):
         rng = cg.make_rng(3)

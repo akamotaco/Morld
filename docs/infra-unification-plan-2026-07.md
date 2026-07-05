@@ -152,7 +152,9 @@ engine/party.py (단일 정본)
     ② 대사 yaml (선택): dialogues/characters/{이름}.yaml — hybrid override
     ③ AI 클래스 (선택): think/agents/{이름}_agent.py — @register_agent_class
   ```
-  참조 구현: S03 `SquadMember.configure()`(동적 정체성 주입), S04 `character_randomizer`
+  참조 구현: S03 `SquadMember.configure()`(동적 정체성 주입) + `recruit_pool`
+  (engine.character_gen spec), S04 `character_randomizer`(engine.character_gen
+  프리미티브 — weighted_choice/roll_range/sample_distinct/make_rng)
   (데이터 풀 + 순수 함수). S02 6종은 이 포맷으로 순차 분해.
 
 ### 2-5. 대화 레이어 선택제 (요구 2)

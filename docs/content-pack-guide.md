@@ -183,6 +183,21 @@ npc.configure(uid, name, role, archetype=identity["archetype"],
 # 대화 어댑터: prop 우선, 없으면 역할 고정 매핑 폴백
 ```
 
+### 역할/티어 구조가 아닌 랜덤 (평면 속성)
+
+`roll_identity`의 역할·티어 spec이 안 맞는 평면 캐릭터(성별/성격/클래스/
+기벽/스탯을 독립 추첨)라면 프리미티브를 직접 조합한다 — 참조:
+S04 `character_randomizer`. 엔진이 제공하는 순수 추첨 프리미티브:
+
+- `weighted_choice(pool, rng)` — 균등/가중(`[(값, 가중치)]`) 혼합 추첨
+- `roll_range((lo, hi), rng)` — 폐구간 정수 (스탯 편차)
+- `sample_distinct(pool, count, rng, avoid)` — 중복 없는 다중 추첨
+  (이름 중복 회피·기벽 다중 선택). 풀 고갈 시 있는 만큼 반환
+- `make_rng(seed)` — 전역 random과 격리된 결정적 난수기
+
+모든 프리미티브가 `rng`를 받으므로, 데이터 풀만 시나리오가 소유하면
+결정적 재현(세이브/재실행)이 공짜로 따라온다.
+
 ### 랜덤 → UNIQUE 승격 경로
 
 오래 생존한 랜덤 개체를 고유 캐릭터로 키우고 싶으면 **코드 변경 없이
