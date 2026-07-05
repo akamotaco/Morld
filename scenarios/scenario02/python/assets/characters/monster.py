@@ -366,13 +366,16 @@ class HumanoidCreature(Monster):
 
     actions = ["call:attack:공격#", "call:mate:교미#"]
 
-    ROMANCE_REACTIONS = None
+    # 빈 dict → 명시 rule 없는 forced_/trance_/ecstasy_ 계열 키는
+    # get_romance_reaction 의 톤 접두사 폴백이 아키타입 풀(hybrid)로 위임한다.
+    # (구 코드는 존재하지 않는 build_romance_reactions 를 import — 생성 시점 크래시)
+    ROMANCE_REACTIONS = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.archetype:
-            from assets.base import build_romance_reactions
-            self.ROMANCE_REACTIONS = build_romance_reactions(self.archetype)
+        # hybrid 위임에 필요한 프로필 자동 구성 (서브클래스가 명시하면 존중)
+        if self.archetype and not getattr(self, "REACTION_PROFILE", None):
+            self.REACTION_PROFILE = {"name": self.name, "archetype": self.archetype}
 
 
 class Arachne(HumanoidCreature):

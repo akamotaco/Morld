@@ -11,7 +11,21 @@
 #   ├── ItemBase (아이템)
 #   └── LocationBase (장소)
 
+import random
+
 import morld
+
+
+class DialogueCoverageError(LookupError):
+    """대사 커버리지 누락 — 해당 action:timing 에 대한 rule 이 없거나,
+    있어도 매치되는 rule 이 없고 catch-all 도 없는 경우.
+
+    작가는 명시적으로 아래 중 하나를 추가해야 함:
+        ({}, ["...고정 대사..."])           # default value: 고정 텍스트
+        ({}, "_generate_dialogue")        # default value: Hybrid 호출
+        ({}, "_custom_method_name")       # default value: 커스텀 메서드
+    """
+    pass
 
 
 # ========================================
@@ -59,7 +73,9 @@ class TextSelector:
 
     @staticmethod
     def format_result(result, context):
-        """result가 문자열이면 context로 포맷팅"""
+        """result가 문자열이면 context로 포맷팅. 리스트면 random.choice 후 포맷."""
+        if isinstance(result, list) and result:
+            result = random.choice(result)
         if isinstance(result, str):
             try:
                 return result.format(**context)

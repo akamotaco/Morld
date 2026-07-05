@@ -246,6 +246,16 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
     **결과: S02 분대 · S03 분대 · S04 파티가 단일 멤버십 레지스트리 공유** —
     "스쿼드 vs 파티를 하나의 시스템으로" 요구 충족.
 - [ ] U4 캐릭터 파일 표준 / S02 분해
+  - [x] **U4a — 프레임워크 승격 (2026-07-05)**: 아키타입 공용 묘사 풀
+    (FOCUS/DESCRIBE 테이블 + `build_focus_rules`/`build_describe_rules`, ~1,100줄)
+    → `engine/archetype_describe.py` 신설. `DialogueCoverageError` +
+    `TextSelector.format_result` 리스트 지원 → `engine.asset_base` 승격.
+    S02 `assets/base.py`는 재수출 shim (6,208→4,853줄), 로컬
+    TextSelector/_select_text/Asset/Unit 중복 제거(엔진 상속).
+    부수: monster.py HumanoidCreature가 존재하지 않는 `build_romance_reactions`를
+    import하던 생성 시점 크래시 잠복 버그 해소 (빈 dict + 톤 접두사 hybrid 폴백,
+    REACTION_PROFILE 자동 구성)
+  - [ ] U4b 캐릭터 표준 분해 (sera부터 1명 단위)
 - [ ] U5 대화 정책 스위치
 - [ ] U6 검증/인수
 
