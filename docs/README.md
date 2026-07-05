@@ -18,7 +18,7 @@
 | [engine-think-design.md](engine-think-design.md) | 📙 완료된 설계 기록 | 엔진 레벨 think 시스템(registry+dispatcher) 설계. `engine/think.py`, `engine/think_base.py`로 구현 완료. |
 | [movement-stealth-refactor.md](movement-stealth-refactor.md) | 📙 완료된 설계 기록 | Stealth/Stance/Posture 3축 분리 리팩터 설계. 실행 완료(`engine/stealth.py`의 `get_stealth_visibility()` 등). 일부 함수명은 코드가 문서와 다름(코드 우선). |
 | [restructure-plan-2026-07.md](restructure-plan-2026-07.md) | 📗 진행 중 계획 | 5대 원칙(C# 단일 코어/미들웨어 테스트/서로게이트 심/콘텐츠 분리/SharpPy 정합) 전수 감사 결과 + P0~P5 단계별 정리 계획 |
-| [infra-unification-plan-2026-07.md](infra-unification-plan-2026-07.md) | 📗 진행 중 계획 | **S02/03/04 인프라 통합** — think/asset/party 엔진 정본 채택 완성, 파티·스쿼드 단일화(engine/party 설계), 플레이어 옵션화(부재=0 계약), 캐릭터 파일 표준, 대화 정책 스위치. U0~U6 단계 계획 |
+| [infra-unification-plan-2026-07.md](infra-unification-plan-2026-07.md) | 📙 완료된 설계 기록 | **S02/03/04 인프라 통합 — U0~U6 전 단계 완료 (2026-07-05)**. 파티·스쿼드 단일화(engine/party), 플레이어 옵션화(부재=0 계약), think/asset 정본 채택, 캐릭터 파일 표준(①데이터+②yaml+③AI), 대화 정책 스위치(engine/dialogue_policy), 인수 검증(scenario_mini 콘텐츠 팩 심 구동). 잔여 콘텐츠 작업: S02 폴백 갭 채움([리포트](../scenarios/scenario02/docs/dialogue-fallback-coverage.md)) |
 
 ## 새 문서를 추가할 때
 

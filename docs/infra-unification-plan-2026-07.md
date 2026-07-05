@@ -1,5 +1,9 @@
 # S02/03/04 인프라 통합 계획 (2026-07)
 
+> ✅ **U0~U6 전 단계 완료 (2026-07-05)** — 완료된 설계 기록. 진행 상태 절 참조.
+> 인수 증명: [scenarios/scenario_mini/](../scenarios/scenario_mini/README.md)
+> (콘텐츠 팩만으로 신규 시나리오 심 구동, 8/8 인수 테스트 통과).
+>
 > 목표: **통합 시스템(C# 코어 + Python 인프라) + 콘텐츠 팩** 구조로 전환하여,
 > 콘텐츠 확장만으로 다양한 텍스트 기반 게임을 제작하는 툴로 활용한다.
 > [restructure-plan-2026-07.md](restructure-plan-2026-07.md)의 P1/P5를 구체화·확장하는 계획.
@@ -277,6 +281,17 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
     [scenario02/docs/dialogue-fallback-coverage.md](../scenarios/scenario02/docs/dialogue-fallback-coverage.md).
     갭 채움은 콘텐츠 작업으로 분리 (rule 추가만으로 해소 가능)
   - 사문 shim 제거: S02 romance_line_generator.py / romance_reaction_generator.py
-- [ ] U6 검증/인수
+- [x] **U6 검증/인수 — 완료 (2026-07-05)**
+  - **scenario_mini 신설**: 신규 시나리오를 콘텐츠 팩만으로 구성해 심 구동
+    (엔진 모듈만 사용 — asset_base/archetype_describe/think/think_base/party/
+    dialogue_hybrid/dialogue_policy. 시스템 코드 복사 0줄)
+  - 인수 테스트 8/8 (`scenario_mini/python/tests/test_acceptance.py`):
+    요구 (a) 인프라 전용 구성 · (b) 정책 hybrid 선언(S02 fixed와 대비) ·
+    (c) 캐릭터 표준 ①데이터+③AI 분리 · (d) 파티 모집/스탠스/랭크 +
+    무플레이어 구동(get_player_id()==0에서 파티·think 정상)
+  - S03 "플레이어 추가 가능" 스모크는 U0 오퍼레이터 유닛으로 기실증
+  - 전 스위트 그린: 공용 42 · S02 1561 · S03 188 · S04 67 · mini 8
+  - 잔여(콘텐츠/후속 작업): S02 폴백 갭 채움(커버리지 리포트 기준),
+    Godot 실기 스모크(restructure P4-6), U4c(선택)
 
-완료 시 이 문서를 docs/README.md에서 "완료된 설계 기록"으로 분류 변경할 것.
+**전 단계 완료 — 이 문서는 완료된 설계 기록으로 전환됨 (docs/README.md 분류 변경 완료).**

@@ -14,6 +14,7 @@ Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 
 | **scenario02** | **숲속 저택** — 연애 + 생활 시뮬레이션 | ✅ 메인 시나리오 (유지보수 활발) | [scenario02/docs/README.md](scenarios/scenario02/docs/README.md) |
 | scenario03 | Mind The Gap: 하행선 — 지저철 원격지휘 스릴러 | 🚧 MVP 구현됨 (반복 운영 루프 + Hybrid 대화) | [scenario03/docs/README.md](scenarios/scenario03/docs/README.md) |
 | **scenario04** | **마을과 던전** — JRPG 파티 로그라이트 | 🚧 신규 개발 중 (Hybrid 대화 통합) | [scenario04/docs/README.md](scenarios/scenario04/docs/README.md) |
+| scenario_mini | 인수 검증 픽스처 — "신규 시나리오 = 콘텐츠 팩" 증명 | 🧪 테스트 전용 (엔진 인수 기준, 게임 아님) | [scenario_mini/README.md](scenarios/scenario_mini/README.md) |
 | common | 공용 Python 엔진(Pi-World) + Hybrid 대화 데이터 | ✅ 모든 시나리오의 기반 | [docs/README.md](docs/README.md) |
 
 **현재 활발한 작업 갈래**: ① scenario02 유지보수/버그픽스, ② Hybrid 대화 엔진(common) + scenario04 통합, ③ 엔진 승격(시나리오 코드 → common/engine), ④ scenario03 MVP 반복 운영 루프 ([mvp.md](scenarios/scenario03/docs/mvp.md)).
@@ -63,6 +64,9 @@ Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 
 
 # 공용 엔진 테스트
 & "C:\ProgramData\miniforge3\python.exe" scenarios\common\python\tests\run_tests.py
+
+# 인프라 인수 테스트 (엔진/공용 코드 변경 시 함께 실행 권장)
+& "C:\ProgramData\miniforge3\python.exe" scenarios\scenario_mini\python\tests\test_acceptance.py
 
 # 대화 yaml 수정 후 — 반드시 재컴파일 (SharpPy는 컴파일본만 읽음)
 & "C:\ProgramData\miniforge3\python.exe" scenarios\common\python\dialogues\compile_dialogues.py
