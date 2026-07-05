@@ -210,7 +210,35 @@ def load_and_validate():
 
         all_data[rel] = data
 
+    _check_coverage(all_data, archetypes)
     return all_data, archetypes
+
+
+def _check_coverage(all_data, archetypes):
+    """아키타입 간 커버리지 갭 경고 — 게임에서 해당 아키타입 NPC만 침묵('...')하는
+    증상의 원인을 빌드 타임에 노출한다. (아키타입 전용 intent가 의도라면 무시 가능)"""
+    contexts = sorted({rel.split("/")[2].removesuffix(".yaml")
+                       for rel in all_data if rel.startswith("archetype_dialogues/")})
+    for ctx in contexts:
+        having = {}
+        for arch in archetypes:
+            rel = f"archetype_dialogues/{arch}/{ctx}.yaml"
+            if rel in all_data:
+                having[arch] = set((all_data[rel].get("intents") or {}).keys())
+        if len(having) <= 1:
+            continue
+        union = set().union(*having.values())
+        for arch in archetypes:
+            rel = f"archetype_dialogues/{arch}/{ctx}.yaml"
+            if arch not in having:
+                warn(rel, "(파일)",
+                     f"{ctx} 컨텍스트 파일 없음 — 다른 {len(having)}개 아키타입은 보유. "
+                     f"해당 아키타입 NPC는 {ctx} 발화가 전부 폴백('...')이 됨")
+            else:
+                missing = union - having[arch]
+                if missing:
+                    warn(rel, "intents",
+                         f"다른 아키타입에 있는 intent 누락: {sorted(missing)}")
 
 
 def source_hash(all_data):
