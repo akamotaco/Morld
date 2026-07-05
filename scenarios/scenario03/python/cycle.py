@@ -237,22 +237,31 @@ def _spawn_replacement(role_key):
 
     재활용 테마: 해당 역할의 누적 결번 수만큼 인간성이 깎인 채 도착
     (전임자의 파편화된 트라우마 계승 — design.md 4.3).
+    제조 편차: 아키타입/스탯은 recruit_pool 로트에서 추첨 (티어는 운행
+    주기 연동 — 시제품 로트는 인간성 추가 페널티).
     """
     from assets.characters.squad_member import SquadMember
     from think.agents.squad_agent import SquadMemberAgent
     from think import register_agent
+    import recruit_pool
     import squad as squad_module
 
     serial = _ops["next_serial"]
     _ops["next_serial"] += 1
-    unique_id = f"echo_{serial:02d}"
-    name = f"Echo-{serial:02d}"
+
+    spec = recruit_pool.generate_member(
+        role_key, serial, cycle=_ops["cycle"])
 
     deaths = _ops["role_deaths"].get(role_key, 0)
     humanity = max(30, 100 - 10 * deaths)
+    # 시제품 로트 불안정성 (하한 10 — 0=미추적과 구분, prop 계약)
+    humanity = max(10, humanity + spec["humanity_mod"])
 
     npc = SquadMember()
-    npc.configure(unique_id, name, role_key, humanity=humanity)
+    npc.configure(spec["unique_id"], spec["name"], role_key,
+                  humanity=humanity,
+                  archetype=spec["archetype"],
+                  stat_overrides=spec["stat_overrides"])
     npc_id = morld.create_id("unit")
     npc.instantiate(npc_id, 0, 0)  # 승강장(R0, L0) 도착
 
@@ -268,9 +277,11 @@ def _spawn_replacement(role_key):
         elif not sq.is_full():
             squad_module.add_member(sq.squad_id, npc_id)
 
-    print(f"[cycle] 보급 개체 도착: {name} ({role_key}, 인간성 {humanity})")
-    return {"unit_id": npc_id, "name": name, "role_key": role_key,
-            "humanity": humanity}
+    print(f"[cycle] 보급 개체 도착: {spec['name']} ({role_key}, "
+          f"{spec['tier_label']}, 인간성 {humanity})")
+    return {"unit_id": npc_id, "name": spec["name"], "role_key": role_key,
+            "humanity": humanity, "tier": spec["tier"],
+            "tier_label": spec["tier_label"], "archetype": spec["archetype"]}
 
 
 # ========================================

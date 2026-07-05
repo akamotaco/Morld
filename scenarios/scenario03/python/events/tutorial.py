@@ -37,21 +37,23 @@ def handle_reinforcement():
         "승강장에서 지저철 도착 소리가 울린다.",
     )
 
-    # 에이전트 4명 동적 생성
-    agent_defs = [
-        {"unique_id": "echo_01", "name": "Echo-01", "role": "assault"},
-        {"unique_id": "echo_02", "name": "Echo-02", "role": "support"},
-        {"unique_id": "echo_03", "name": "Echo-03", "role": "sniper"},
-        {"unique_id": "echo_04", "name": "Echo-04", "role": "medic"},
-    ]
-
+    # 에이전트 4명 동적 생성 — 초기 편성도 recruit_pool 제조 편차 적용
+    # (cycle=0 → standard 로트. 시드 = 시리얼 → 재실행해도 같은 개체)
+    import recruit_pool
     from assets.characters.squad_member import SquadMember
     from think.agents.squad_agent import SquadMemberAgent
     from think import register_agent
 
-    for agent_def in agent_defs:
+    initial_roles = ["assault", "support", "sniper", "medic"]
+    agent_defs = []
+    for i, role in enumerate(initial_roles):
+        spec = recruit_pool.generate_member(role, serial=i + 1, cycle=0)
+        agent_defs.append(spec)
+
         npc = SquadMember()
-        npc.configure(agent_def["unique_id"], agent_def["name"], agent_def["role"])
+        npc.configure(spec["unique_id"], spec["name"], role,
+                      archetype=spec["archetype"],
+                      stat_overrides=spec["stat_overrides"])
         npc_id = morld.create_id("unit")
         npc.instantiate(npc_id, 0, 0)  # 승강장(R0, L0)에 배치
 

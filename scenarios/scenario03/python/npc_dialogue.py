@@ -35,7 +35,14 @@ def _clamp(v, lo=-1.0, hi=1.0):
 
 
 def member_archetype(unit_id):
-    """분대원의 역할 prop 기반 아키타입"""
+    """분대원 아키타입 — 개체 prop 우선, 없으면 역할 고정 매핑 폴백.
+
+    "아키타입" prop 은 recruit_pool 제조 편차로 개체마다 다르게 부여된다
+    (문자열 prop, 부재=0 → truthy 판정으로 폴백).
+    """
+    archetype = morld.get_unit_prop(unit_id, "아키타입")
+    if archetype:
+        return archetype
     role = morld.get_unit_prop(unit_id, "역할")
     return ROLE_ARCHETYPES.get(role, DEFAULT_ARCHETYPE)
 

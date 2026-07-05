@@ -98,6 +98,7 @@ TEST_MODULES = [
     "test_expedition",
     "test_combat",
     "test_cycle",
+    "test_recruit_pool",
     "test_npc_dialogue",
     "test_integration",
 ]

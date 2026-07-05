@@ -69,7 +69,8 @@ class SquadMember(Character):
         ({}, "규격화된 전투복. 시리얼 번호가 가슴에 새겨져 있다."),
     ]
 
-    def configure(self, unique_id, name, role="assault", humanity=100):
+    def configure(self, unique_id, name, role="assault", humanity=100,
+                  archetype=None, stat_overrides=None):
         """인스턴스별 설정 (instantiate 전에 호출)
 
         Args:
@@ -77,6 +78,10 @@ class SquadMember(Character):
             name: 표시 이름 (예: "Echo-01")
             role: 역할 ("assault", "support", "sniper", "medic")
             humanity: 인간성 초기치 (재보급 개체는 전임자 트라우마 계승으로 감소)
+            archetype: 개체 아키타입 (recruit_pool 제조 편차 — 미지정 시
+                       역할 고정 매핑 폴백, npc_dialogue.member_archetype 참조)
+            stat_overrides: 스탯 덮어쓰기 dict (예: {"vita": 7}) — 체력은
+                       최종 vita 기준으로 재계산
         """
         self.unique_id = unique_id
         self.name = name
@@ -84,13 +89,19 @@ class SquadMember(Character):
         role_props = ROLE_PROPS.get(role, {})
         self.props = dict(self.props)  # 클래스 속성 복사
         self.props.update(role_props)
+        if stat_overrides:
+            self.props.update(stat_overrides)
         self.props["세력"] = "플레이어"
-        vita = role_props.get("vita", 5)
+        vita = self.props.get("vita", 5)
         hp = base_hp_for_vita(vita)
         self.props["생존:체력"] = hp
         self.props["생존:체력max"] = hp
         # 인간성: 0=미추적과 구분하기 위해 하한 1 (prop 계약: 부재=0)
         self.props["인간성"] = max(1, int(humanity))
+        # 아키타입: 문자열 prop — hybrid 대사 톤의 개체 차이 (부재=0 → 폴백)
+        if archetype:
+            self.archetype = archetype
+            self.props["아키타입"] = archetype
 
     def talk(self):
         """분대원과 대화"""
