@@ -1,0 +1,55 @@
+# gentle archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 2026-07-05: 커버리지 갭 해소 (기존엔 파일 부재 → 전부 '...' 폴백)
+
+archetype: gentle
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '...적이에요. 다들 물러서요.'
+    - id: combat_discover_1
+      pattern: '조심해요. 뭔가 있어요.'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '어쩔 수 없네요... 제가 지킬게요.'
+    - id: combat_engage_1
+      pattern: '싸움은... 짧게 끝내요.'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '윽...! 괜, 괜찮아요.'
+    - id: combat_hit_1
+      pattern: '아파도... 버틸 수 있어요.'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '아...! 죄송해요, 잠시만...'
+    - id: combat_critical_1
+      pattern: '...피가... 하지만, 아직...'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '끝났네요... 다친 분 없나요?'
+    - id: combat_victory_1
+      pattern: '다행이에요. 모두 무사해서.'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...미안해요... 지켜드리지 못해서...'
+    - id: combat_defeat_1
+      pattern: '...여기까지인가요...'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '더는 다가오지 마세요. ...경고했어요.'
+    - id: combat_taunt_1
+      pattern: '당신을 아프게 하고 싶지 않아요.'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '안 돼...! 정신 차려요!'
+    - id: combat_ally_down_1
+      pattern: '지금 갈게요. 조금만 버텨요!'

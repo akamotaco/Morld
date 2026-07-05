@@ -97,6 +97,129 @@ DATA = {
                            'maturity': -0.3}},
     'characters/밀라.yaml':
         {'character': '밀라', 'archetype': 'gentle', 'era': 'modern', 'sex': 'F'},
+    'characters/비서.yaml':
+        {'character': '비서',
+         'archetype': 'cold',
+         'era': 'future',
+         'sex': 'F',
+         'outer_profile': {'formality': 0.7, 'warmth': -0.4, 'aggression': -0.2, 'verbosity': -0.3},
+         'inner_profile': {'formality': 0.5, 'warmth': 0.1, 'verbosity': -0.1},
+         'dialogue_overrides': {'daily': {'intents': {'greet': {'add_templates': [{'id': 'confirm',
+                                                                                   'pattern': '{scan}{end}',
+                                                                                   'state_bias': {'confidence': 0.5}},
+                                                                                  {'id': 'mission_ready',
+                                                                                   'pattern': '{ready_mode} '
+                                                                                              '완료{end}',
+                                                                                   'state_bias': {'confidence': 0.65}},
+                                                                                  {'id': 'low_power',
+                                                                                   'pattern': '{low_status}. '
+                                                                                              '{short_apology}{end}',
+                                                                                   'state_bias': {'fatigue': 0.7,
+                                                                                                  'affinity': 0.5},
+                                                                                   'inner_bias': {'fatigue': 0.7,
+                                                                                                  'warmth': 0.1}},
+                                                                                  {'id': 'scan_alert',
+                                                                                   'pattern': '{alert_word} '
+                                                                                              '감지{end}',
+                                                                                   'state_bias': {'arousal': 0.6,
+                                                                                                  'confidence': 0.5}},
+                                                                                  {'id': 'terse_system',
+                                                                                   'pattern': '{sys_terse}{end}',
+                                                                                   'state_bias': {'affinity': 0.2}}],
+                                                                'add_slots': {'scan': [{'token': '접속 '
+                                                                                                 '확인',
+                                                                                        'feature': {'confidence': 0.6}},
+                                                                                       {'token': '인증 '
+                                                                                                 '완료',
+                                                                                        'feature': {'formality': 0.5}},
+                                                                                       {'token': '연결 '
+                                                                                                 '확인',
+                                                                                        'feature': {'confidence': 0.4}}],
+                                                                              'ready_mode': ['작동 확인',
+                                                                                             '시스템 점검',
+                                                                                             '대기 상태 '
+                                                                                             '해제'],
+                                                                              'low_status': ['절전 모드',
+                                                                                             '저전력 상태',
+                                                                                             '최소 응답만 '
+                                                                                             '가능'],
+                                                                              'short_apology': ['양해 '
+                                                                                                '부탁드립니다',
+                                                                                                '죄송합니다',
+                                                                                                '이해 '
+                                                                                                '부탁드립니다'],
+                                                                              'alert_word': ['대상',
+                                                                                             '접근자',
+                                                                                             '시각 정보'],
+                                                                              'sys_terse': ['확인',
+                                                                                            '접속',
+                                                                                            '인식'],
+                                                                              'end': ['.',
+                                                                                      '..',
+                                                                                      '...']}},
+                                                      'thank': {'add_templates': [{'id': 'log_style',
+                                                                                   'pattern': '{log_phrase} '
+                                                                                              '처리 '
+                                                                                              '완료{end}',
+                                                                                   'state_bias': {'confidence': 0.5}}],
+                                                                'add_slots': {'log_phrase': ['수령',
+                                                                                             '인수',
+                                                                                             '데이터 동기화'],
+                                                                              'end': ['.',
+                                                                                      '..',
+                                                                                      '...']}},
+                                                      'complain': {'add_templates': [{'id': 'load_report',
+                                                                                      'pattern': '{metric} '
+                                                                                                 '임계치 '
+                                                                                                 '근접{end}',
+                                                                                      'state_bias': {'fatigue': 0.7}},
+                                                                                     {'id': 'system_load',
+                                                                                      'pattern': '부하가 '
+                                                                                                 '높습니다{end}',
+                                                                                      'state_bias': {'fatigue': 0.65}},
+                                                                                     {'id': 'uncertain',
+                                                                                      'pattern': '판단 '
+                                                                                                 '보류{end}',
+                                                                                      'state_bias': {'confidence': -0.3}},
+                                                                                     {'id': 'thermal',
+                                                                                      'pattern': '{heat_sym} '
+                                                                                                 '이상 '
+                                                                                                 '감지{end}',
+                                                                                      'state_bias': {'fatigue': 0.65,
+                                                                                                     'arousal': 0.4}},
+                                                                                     {'id': 'sensor_down',
+                                                                                      'pattern': '{sensor} '
+                                                                                                 '반응 '
+                                                                                                 '둔화{end}',
+                                                                                      'state_bias': {'fatigue': 0.7}},
+                                                                                     {'id': 'log_overflow',
+                                                                                      'pattern': '로그가 '
+                                                                                                 '많습니다. '
+                                                                                                 '요약 '
+                                                                                                 '불가{end}',
+                                                                                      'state_bias': {'fatigue': 0.6,
+                                                                                                     'confidence': -0.2}},
+                                                                                     {'id': 'minor_note',
+                                                                                      'pattern': '미세 '
+                                                                                                 '조정 '
+                                                                                                 '필요{end}',
+                                                                                      'state_bias': {'confidence': 0.3}},
+                                                                                     {'id': 'overload_sigh',
+                                                                                      'pattern': '...과부하입니다{end}',
+                                                                                      'state_bias': {'fatigue': 0.5,
+                                                                                                     'affinity': 0.5}}],
+                                                                   'add_slots': {'metric': ['피로도',
+                                                                                            '연산 부하',
+                                                                                            '자원 소모량'],
+                                                                                 'heat_sym': ['발열',
+                                                                                              '냉각 부족',
+                                                                                              '코어 온도'],
+                                                                                 'sensor': ['센서',
+                                                                                            '감각 회로',
+                                                                                            '판별 모듈'],
+                                                                                 'end': ['.',
+                                                                                         '..',
+                                                                                         '...']}}}}}},
     'characters/세라.yaml':
         {'character': '세라', 'archetype': 'stoic', 'era': 'modern', 'sex': 'F'},
     'characters/시호.yaml':

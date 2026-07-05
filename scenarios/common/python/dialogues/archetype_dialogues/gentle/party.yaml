@@ -1,0 +1,71 @@
+# gentle archetype — party context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 2026-07-05: 커버리지 갭 해소 (기존엔 파일 부재 → 전부 '...' 폴백)
+
+archetype: gentle
+context: party
+intents:
+  invite_accept:
+    templates:
+    - id: invite_accept_0
+      pattern: '네, 함께할게요. 잘 부탁드려요.'
+    - id: invite_accept_1
+      pattern: '제가 도움이 될 수 있다면... 기꺼이요.'
+  invite_decline:
+    templates:
+    - id: invite_decline_0
+      pattern: '죄송해요... 지금은 어려울 것 같아요.'
+    - id: invite_decline_1
+      pattern: '마음은 감사하지만, 이번엔 사양할게요.'
+  invite_switch:
+    templates:
+    - id: invite_switch_0
+      pattern: '...그쪽이 더 필요하시다면, 갈게요.'
+    - id: invite_switch_1
+      pattern: '네. 지금 일행에게 신세 많았다고 전해주세요.'
+  invite_loyalty_decline:
+    templates:
+    - id: invite_loyalty_decline_0
+      pattern: '지금 일행에게 받은 은혜가 있어서요. 죄송해요.'
+    - id: invite_loyalty_decline_1
+      pattern: '...저를 믿어준 분들을 두고 갈 순 없어요.'
+  invite_full:
+    templates:
+    - id: invite_full_0
+      pattern: '자리가 다 찬 것 같아요. 다음에 꼭 불러주세요.'
+  dismiss_leave:
+    templates:
+    - id: dismiss_leave_0
+      pattern: '알겠어요. ...몸 조심하세요.'
+    - id: dismiss_leave_1
+      pattern: '함께해서 좋았어요. 언제든 다시 불러주세요.'
+  vote_advance:
+    templates:
+    - id: vote_advance_0
+      pattern: '조심스럽지만... 조금 더 가볼까요.'
+    - id: vote_advance_1
+      pattern: '모두가 괜찮다면, 저도 따를게요.'
+  vote_return:
+    templates:
+    - id: vote_return_0
+      pattern: '오늘은 여기까지 하는 게 좋겠어요. 다들 지쳤잖아요.'
+    - id: vote_return_1
+      pattern: '무리하지 말아요. 돌아가요, 네?'
+  room_pref_battle:
+    templates:
+    - id: room_pref_battle_0
+      pattern: '싸움이라면... 제가 뒤를 받칠게요.'
+    - id: room_pref_battle_1
+      pattern: '다치는 사람이 없었으면 해요.'
+  room_pref_rest:
+    templates:
+    - id: room_pref_rest_0
+      pattern: '잠깐 쉬어가요. 따뜻한 거라도 있으면 좋을 텐데요.'
+    - id: room_pref_rest_1
+      pattern: '다들 지쳐 보여요. 여기서 쉬어요.'
+  room_pref_exit:
+    templates:
+    - id: room_pref_exit_0
+      pattern: '출구가 가까워요. 무사히 나가는 게 우선이에요.'
+    - id: room_pref_exit_1
+      pattern: '오늘은 그만 나가는 게 좋겠어요.'

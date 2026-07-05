@@ -3,8 +3,8 @@
 # 수동 편집 금지 — yaml 수정 후 컴파일러를 재실행하세요.
 # 문서: docs/dialogue-data-pipeline.md
 
-SOURCE_HASH = "669ef170b33f984f2e6d30f23dd1d2dbec9f1f87"
-FILE_COUNT = 87
+SOURCE_HASH = "18e6a623ef5ac21bf7d93118ab96cc4c77e73c3a"
+FILE_COUNT = 94
 
 
 def get(rel):

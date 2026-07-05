@@ -32,3 +32,34 @@ intents:
       state_bias:
         affinity: 0.4
         arousal: 0.4
+  thank:
+    templates:
+    - id: thank_tease
+      pattern: '어머, 고마워. ...보답, 기대해도 좋아.'
+      state_bias:
+        affinity: 0.6
+        arousal: 0.4
+    - id: thank_praise
+      pattern: '후훗, 센스 있네. 마음에 들어.'
+      state_bias:
+        affinity: 0.5
+    - id: thank_caught
+      pattern: '나한테 잘 보이고 싶은 거야? ...성공이야.'
+      state_bias:
+        affinity: 0.7
+        arousal: 0.3
+  complain:
+    templates:
+    - id: complain_bored
+      pattern: '지루해... 재미있는 일 없어?'
+      state_bias:
+        fatigue: 0.4
+    - id: complain_lean
+      pattern: '피곤하네. ...어깨라도 빌려줄래?'
+      state_bias:
+        fatigue: 0.65
+        affinity: 0.5
+    - id: complain_lazy
+      pattern: '이런 날은 아무것도 하기 싫어.'
+      state_bias:
+        fatigue: 0.6

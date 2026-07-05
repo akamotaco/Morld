@@ -1,0 +1,37 @@
+# gentle archetype — dungeon context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 2026-07-05: 커버리지 갭 해소 (기존엔 파일 부재 → 전부 '...' 폴백)
+
+archetype: gentle
+context: dungeon
+intents:
+  dungeon_ambient:
+    templates:
+    - id: dungeon_ambient_0
+      pattern: '...공기가 무겁네요. 서로 곁에 있어요.'
+    - id: dungeon_ambient_1
+      pattern: '이런 곳일수록 서로를 살펴야 해요.'
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '...몸이 조금 이상해요. 하지만 아직 괜찮아요.'
+    - id: corrosion_rise_1
+      pattern: '침식이... 스며드는 느낌이에요.'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...미안해요, 한계인 것 같아요...'
+    - id: corrosion_critical_1
+      pattern: '...정신이... 흐려져요...'
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '내려가요. ...발밑 조심하세요.'
+    - id: floor_descent_1
+      pattern: '서두르지 않아도 돼요. 천천히요.'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim} 씨, 안색이 안 좋아요. 무리하지 말아요.'
+    - id: ally_corrosion_concern_1
+      pattern: '{victim} 씨를 좀 쉬게 해줘요. 부탁이에요.'

@@ -1,0 +1,37 @@
+# seductive archetype — dungeon context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 2026-07-05: 커버리지 갭 해소 (기존엔 파일 부재 → 전부 '...' 폴백)
+
+archetype: seductive
+context: dungeon
+intents:
+  dungeon_ambient:
+    templates:
+    - id: dungeon_ambient_0
+      pattern: '어두운 곳, 싫지 않아. ...후훗.'
+    - id: dungeon_ambient_1
+      pattern: '이런 데선 붙어 있는 게 좋아. 여러 의미로.'
+  corrosion_rise:
+    templates:
+    - id: corrosion_rise_0
+      pattern: '...몸이 이상하게 뜨겁네. 침식인가.'
+    - id: corrosion_rise_1
+      pattern: '어머... 이 느낌, 좋지만은 않네.'
+  corrosion_critical:
+    templates:
+    - id: corrosion_critical_0
+      pattern: '...웃을 여유가... 없어지네...'
+    - id: corrosion_critical_1
+      pattern: '...이대로는, 나답지 않게 되겠어...'
+  floor_descent:
+    templates:
+    - id: floor_descent_0
+      pattern: '내려가자. 에스코트 부탁해도 될까?'
+    - id: floor_descent_1
+      pattern: '다음 층... 뭐가 기다리든 상관없어.'
+  ally_corrosion_concern:
+    templates:
+    - id: ally_corrosion_concern_0
+      pattern: '{victim}, 얼굴이 엉망이야. ...쉬게 해줘.'
+    - id: ally_corrosion_concern_1
+      pattern: '{victim}한테서 이상한 기척이 나. 농담 아니야.'

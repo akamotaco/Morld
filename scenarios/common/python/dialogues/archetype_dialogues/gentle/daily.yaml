@@ -33,3 +33,34 @@ intents:
       state_bias:
         warmth: 0.5
         verbosity: -0.2
+  thank:
+    templates:
+    - id: thank_warm
+      pattern: '감사해요. 마음 써주셔서요.'
+      state_bias:
+        affinity: 0.5
+        warmth: 0.6
+    - id: thank_touched
+      pattern: '...따뜻하네요. 고맙습니다.'
+      state_bias:
+        affinity: 0.7
+        warmth: 0.7
+    - id: thank_shy
+      pattern: '이런 것까지... 감사히 받을게요.'
+      state_bias:
+        affinity: 0.6
+  complain:
+    templates:
+    - id: complain_mild
+      pattern: '괜찮아요... 조금 피곤할 뿐이에요.'
+      state_bias:
+        fatigue: 0.6
+    - id: complain_rest
+      pattern: '...오늘은 조금 쉬고 싶네요.'
+      state_bias:
+        fatigue: 0.7
+    - id: complain_sorry
+      pattern: '무리했나 봐요. 죄송해요.'
+      state_bias:
+        fatigue: 0.65
+        confidence: -0.2

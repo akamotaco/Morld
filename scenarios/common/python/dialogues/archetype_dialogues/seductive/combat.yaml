@@ -1,0 +1,55 @@
+# seductive archetype — combat context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 2026-07-05: 커버리지 갭 해소 (기존엔 파일 부재 → 전부 '...' 폴백)
+
+archetype: seductive
+context: combat
+intents:
+  combat_discover:
+    templates:
+    - id: combat_discover_0
+      pattern: '어머, 손님이네. ...초대한 적 없는데.'
+    - id: combat_discover_1
+      pattern: '적이야. ...춤출 시간이네.'
+  combat_engage:
+    templates:
+    - id: combat_engage_0
+      pattern: '조금 거칠게 굴어볼까... 후훗.'
+    - id: combat_engage_1
+      pattern: '금방 끝내줄게. 지루한 건 싫으니까.'
+  combat_hit:
+    templates:
+    - id: combat_hit_0
+      pattern: '앗... 제법이네, 너.'
+    - id: combat_hit_1
+      pattern: '아파라... 이거, 화나게 하네.'
+  combat_critical:
+    templates:
+    - id: combat_critical_0
+      pattern: '큭... 얼굴은 건드리지 말라니까...!'
+    - id: combat_critical_1
+      pattern: '...이 정도로 물러설 것 같아...?'
+  combat_victory:
+    templates:
+    - id: combat_victory_0
+      pattern: '끝. ...시시하긴.'
+    - id: combat_victory_1
+      pattern: '후훗, 나 좀 멋있었지?'
+  combat_defeat:
+    templates:
+    - id: combat_defeat_0
+      pattern: '...이런 꼴, 보이고 싶지 않았는데...'
+    - id: combat_defeat_1
+      pattern: '...미안. 여기까지인가 봐...'
+  combat_taunt:
+    templates:
+    - id: combat_taunt_0
+      pattern: '그렇게 노려보지 마. 반한 줄 알겠잖아?'
+    - id: combat_taunt_1
+      pattern: '이리 와. 후회하게 해줄게.'
+  combat_ally_down:
+    templates:
+    - id: combat_ally_down_0
+      pattern: '...! 장난이 지나치잖아. 각오해.'
+    - id: combat_ally_down_1
+      pattern: '그 애한테서 떨어져.'

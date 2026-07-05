@@ -1,4 +1,4 @@
-# data_loader.py — 대화 yaml 데이터 로드 (yaml 직독 ↔ 컴파일본 2단 폴백)
+# data_loader.py - 대화 yaml 데이터 로드 (yaml 직독 ↔ 컴파일본 2단 폴백)
 """
 로드 순서:
   1. pyyaml import 가능 (CPython 개발/테스트) → yaml 파일 직독. 항상 최신 소스 반영.
@@ -21,7 +21,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-# 테스트/진단용 스위치 — True면 yaml이 있어도 컴파일본 사용
+# 테스트/진단용 스위치 - True면 yaml이 있어도 컴파일본 사용
 FORCE_COMPILED = False
 
 _yaml_mod = None
@@ -86,20 +86,20 @@ def load_yaml_file(root: Path, rel: str) -> Optional[Dict[str, Any]]:
     dc = _get_compiled()
     if dc is None:
         raise RuntimeError(
-            "[dialogue_data] pyyaml 도 dialogues_compiled 도 없음 — 대화 데이터를 "
+            "[dialogue_data] pyyaml 도 dialogues_compiled 도 없음 - 대화 데이터를 "
             "로드할 수 없습니다. CPython에서 "
             "`python scenarios/common/python/dialogues/compile_dialogues.py` 를 "
             "실행해 컴파일본을 생성하세요. (docs/dialogue-data-pipeline.md)")
 
     if Path(root).resolve() != default_root().resolve():
         raise RuntimeError(
-            f"[dialogue_data] 컴파일본은 기본 dialogues 루트만 커버합니다 — "
+            f"[dialogue_data] 컴파일본은 기본 dialogues 루트만 커버합니다 - "
             f"커스텀 root({root})는 pyyaml 환경에서만 사용 가능.")
 
     data = dc.get(rel)
     if data is None and not rel.startswith("characters/"):
         # 캐릭터 yaml 부재는 정상(아키타입만 사용). 그 외 부재는 재컴파일 누락 의심.
-        print(f"[dialogue_data] WARN compiled 데이터에 없음: {rel} — "
+        print(f"[dialogue_data] WARN compiled 데이터에 없음: {rel} - "
               f"yaml 추가/이동 후 compile_dialogues.py 재실행 필요 여부 확인")
     return data
 

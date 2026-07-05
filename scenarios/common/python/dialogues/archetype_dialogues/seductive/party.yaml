@@ -1,0 +1,71 @@
+# seductive archetype — party context
+# 공용 대사 풀: 같은 archetype 의 모든 캐릭터가 상속
+# 2026-07-05: 커버리지 갭 해소 (기존엔 파일 부재 → 전부 '...' 폴백)
+
+archetype: seductive
+context: party
+intents:
+  invite_accept:
+    templates:
+    - id: invite_accept_0
+      pattern: '후훗, 좋아. 마침 심심하던 참이었어.'
+    - id: invite_accept_1
+      pattern: '당신이 청하는 거라면... 거절할 이유가 없지.'
+  invite_decline:
+    templates:
+    - id: invite_decline_0
+      pattern: '미안. 오늘은 그럴 기분이 아니야.'
+    - id: invite_decline_1
+      pattern: '아쉽지만... 다음 기회에, 응?'
+  invite_switch:
+    templates:
+    - id: invite_switch_0
+      pattern: '어머, 날 빼가려고? ...나쁘지 않네.'
+    - id: invite_switch_1
+      pattern: '좋아. 당신 쪽이 더 재미있어 보이니까.'
+  invite_loyalty_decline:
+    templates:
+    - id: invite_loyalty_decline_0
+      pattern: '지금 일행이 꽤 마음에 들거든. 미안해.'
+    - id: invite_loyalty_decline_1
+      pattern: '나한테도 의리라는 게 있어. ...후훗, 의외야?'
+  invite_full:
+    templates:
+    - id: invite_full_0
+      pattern: '자리가 없네. 아쉬워라.'
+  dismiss_leave:
+    templates:
+    - id: dismiss_leave_0
+      pattern: '어머, 벌써 끝? ...또 불러줘.'
+    - id: dismiss_leave_1
+      pattern: '알았어. 심심해지면 찾아와.'
+  vote_advance:
+    templates:
+    - id: vote_advance_0
+      pattern: '더 가보자. 아직 아쉽잖아?'
+    - id: vote_advance_1
+      pattern: '겁먹은 거야? 난 더 갈 수 있는데.'
+  vote_return:
+    templates:
+    - id: vote_return_0
+      pattern: '오늘은 여기까지. 무리하는 건 매력 없어.'
+    - id: vote_return_1
+      pattern: '돌아가자. ...밤은 기니까.'
+  room_pref_battle:
+    templates:
+    - id: room_pref_battle_0
+      pattern: '싸움? 좋아. 구경만 하긴 심심했어.'
+    - id: room_pref_battle_1
+      pattern: '가끔은 거칠게 가는 것도 나쁘지 않지.'
+  room_pref_rest:
+    templates:
+    - id: room_pref_rest_0
+      pattern: '쉬어가자. ...옆자리 비워둘게.'
+    - id: room_pref_rest_1
+      pattern: '휴식도 즐길 줄 알아야지.'
+  room_pref_exit:
+    templates:
+    - id: room_pref_exit_0
+      pattern: '슬슬 나가자. 여긴 분위기가 별로야.'
+    - id: room_pref_exit_1
+      pattern: '출구 쪽으로. ...에스코트 해줄 거지?'
