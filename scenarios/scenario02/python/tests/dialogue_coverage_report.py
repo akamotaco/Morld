@@ -95,13 +95,36 @@ def _uses_generate_dialogue(rules):
     return False
 
 
+def _has_unconditional_fallback(rules):
+    """fixed 정책에서 catch-all 이 막혀도 대사가 나오는가 —
+    top-level 2D 좌표 rule(항상 nearest 매칭) 또는 빈 dict 텍스트 rule 존재."""
+    if not isinstance(rules, list):
+        return False
+    for item in rules:
+        if not (isinstance(item, tuple) and len(item) == 2):
+            continue
+        key_part, texts = item
+        # top-level 2D/3D 좌표
+        if (isinstance(key_part, tuple) and len(key_part) in (2, 3)
+                and all(isinstance(v, (int, float)) for v in key_part)):
+            return True
+        # 빈 dict 이면서 텍스트(hybrid 델리게이트 아님)
+        if isinstance(key_part, dict) and not key_part and texts != "_generate_dialogue":
+            return True
+    return False
+
+
 def _analyze_character(cls):
     reactions = getattr(cls, "ROMANCE_REACTIONS", None) or {}
     fixed_keys = []
-    hybrid_keys = []
+    hybrid_keys = []      # catch-all 이 최종 기본값 (구조상 hybrid 의존)
+    silent_gaps = []      # 그 중 무조건 fallback 이 없어 fixed 에서 실제 침묵
     for key in sorted(reactions):
-        if _uses_generate_dialogue(reactions[key]):
+        rules = reactions[key]
+        if _uses_generate_dialogue(rules):
             hybrid_keys.append(key)
+            if not _has_unconditional_fallback(rules):
+                silent_gaps.append(key)
         else:
             fixed_keys.append(key)
 
@@ -115,7 +138,7 @@ def _analyze_character(cls):
         a for a in init_actions
         if f"during_{a}" not in init_rules
     )
-    return fixed_keys, hybrid_keys, init_gaps
+    return fixed_keys, hybrid_keys, silent_gaps, init_gaps
 
 
 def main():
@@ -135,10 +158,13 @@ def main():
     w("")
     w("S02 는 대화 정책 **fixed** 를 선언한다 (`python/__init__.py`) — hybrid")
     w("동적 생성 폴백 3경로(톤 접두사 위임 / `_generate_dialogue` catch-all /")
-    w("initiative `during_` 폴백)가 프로덕션에서 차단된다. 아래는 차단으로")
-    w("대사가 생략되는 지점의 전수 목록이다. **갭을 메우려면 해당 키에 고정")
-    w("rule 을 추가하면 된다** (차단 지점은 런타임에 `[DialoguePolicy]` 로그로도")
-    w("키당 1회 출력됨).")
+    w("initiative `during_` 폴백)가 프로덕션에서 차단된다.")
+    w("")
+    w("**침묵 갭**(catch-all 앞에 무조건 매칭 fallback — top-level 2D 좌표나")
+    w("빈 dict 고정 텍스트 — 이 없어 fixed 에서 실제로 대사가 사라지는 키)은")
+    w("모두 고정 대사로 채워졌다. 아래 표의 `hybrid catch-all` 키는 catch-all 이")
+    w("구조상 최종 기본값이지만, 앞선 2D 좌표 rule 이 항상 nearest 매칭되므로")
+    w("fixed 에서도 대사가 나온다 (침묵 아님).")
     w("")
     w("동작 보증: 게이트는 대사만 생략하며 흐름은 유지된다 — romance 호출부는")
     w("None 을 조용히 건너뛰고, 접두사 키는 기본 키의 고정 rule 로, 트랜스는")
@@ -147,27 +173,37 @@ def main():
 
     w("## 1. 캐릭터별 ROMANCE_REACTIONS 정적 분석")
     w("")
-    w("| 캐릭터 | 고정 rule 키 | hybrid catch-all 키 | initiative during_ 갭 |")
-    w("|--------|------------:|--------------------:|----------------------:|")
+    w("| 캐릭터 | 고정 rule 키 | hybrid catch-all 키 | **침묵 갭** | initiative during_ 갭 |")
+    w("|--------|------------:|--------------------:|----------:|----------------------:|")
     details = []
+    total_silent = 0
     for cls in (Sera, Mila, Lina, Yuki, Ella, Faye):
-        fixed_keys, hybrid_keys, init_gaps = _analyze_character(cls)
-        w(f"| {cls.name} | {len(fixed_keys)} | {len(hybrid_keys)} | {len(init_gaps)} |")
-        details.append((cls.name, hybrid_keys, init_gaps))
+        fixed_keys, hybrid_keys, silent_gaps, init_gaps = _analyze_character(cls)
+        total_silent += len(silent_gaps)
+        w(f"| {cls.name} | {len(fixed_keys)} | {len(hybrid_keys)} "
+          f"| {len(silent_gaps)} | {len(init_gaps)} |")
+        details.append((cls.name, hybrid_keys, silent_gaps, init_gaps))
     w("")
-    w("hybrid catch-all 키 = 고정 rule 이 일부 있어도 최종 기본값이")
-    w("`_generate_dialogue` 인 키. fixed 정책에서는 앞선 고정 rule 미매치 시")
-    w("대사가 생략된다.")
+    w(f"**전체 침묵 갭: {total_silent}** "
+      f"(0 = fixed 정책에서 대사가 사라지는 지점 없음).")
+    w("hybrid catch-all 키 = 최종 기본값이 `_generate_dialogue` 인 키. 이 중")
+    w("무조건 fallback(2D 좌표/빈 dict 텍스트)이 없는 것만 침묵 갭으로 집계된다.")
     w("")
 
     w("## 2. hybrid catch-all 키 상세 (캐릭터별)")
     w("")
-    for name, hybrid_keys, init_gaps in details:
+    for name, hybrid_keys, silent_gaps, init_gaps in details:
         w(f"### {name}")
         w("")
+        if silent_gaps:
+            w("- ⚠️ 침묵 갭(고정 rule 필요): "
+              + ", ".join(f"`{k}`" for k in silent_gaps))
         if hybrid_keys:
-            w("- catch-all 의존: " + ", ".join(f"`{k}`" for k in hybrid_keys))
-        else:
+            safe = [k for k in hybrid_keys if k not in silent_gaps]
+            if safe:
+                w("- catch-all 최종값이나 2D fallback 있어 안전: "
+                  + ", ".join(f"`{k}`" for k in safe))
+        if not hybrid_keys:
             w("- catch-all 의존 없음")
         if init_gaps:
             w("- initiative 갭: " + ", ".join(f"`{a}`" for a in init_gaps))
@@ -192,13 +228,18 @@ def main():
     else:
         w("(도달 없음)")
     w("")
-    w("## 4. 갭 채움 가이드")
+    w("## 4. 갭 채움 가이드 (신규 catch-all 키 추가 시)")
     w("")
-    w("1. §3 (테스트 도달) 키부터: 해당 캐릭터 `ROMANCE_REACTIONS[key]` 의")
-    w("   `({}, \"_generate_dialogue\")` 를 고정 텍스트 rule 로 교체하거나 앞에 추가")
+    w("초기 44개 침묵 갭은 각 캐릭터 아키타입 톤의 고정 대사로 채워졌다")
+    w("(hug/ecstasy/사정계/유두계/thrust). 이후 새 catch-all 키를 추가할 때:")
+    w("")
+    w("1. `({}, \"_generate_dialogue\")` catch-all 앞에 무조건 매칭 rule 을 둘 것 —")
+    w("   ① 2D 좌표 rule `((호감, 성욕), [...])` 여러 개 (상태별 톤) 또는")
+    w("   ② 빈 dict 고정 텍스트 `({}, [\"...\", \"...\"])` (상태 중립 기본 대사)")
     w("2. 톤 접두사(forced_/trance_/ecstasy_) 키는 개별 rule 대신 기본 키의")
     w("   고정 rule 이 폴백으로 쓰인다 — 톤 구분이 필요할 때만 접두사 키를 명시")
     w("3. initiative 갭은 `INITIATIVE_REACTIONS[\"during_<action>\"]` 추가")
+    w("4. 이 도구를 재실행해 **침묵 갭 0** 을 확인할 것")
     w("")
 
     with io.open(_docs_out, "w", encoding="utf-8", newline="") as f:
