@@ -102,6 +102,10 @@ ring world + TEXT UI 골격은 이미 엔진의 형태. 이 원칙은 P2(엔진 
 1. `scenario03/build.py` 포크 해소 (engine shim 전환 또는 S03 엔진 편입)
 2. 시나리오 선택 `[Export]` → 런타임 선택 메커니즘
 
+> P1/P5의 인프라 부분은 [infra-unification-plan-2026-07.md](infra-unification-plan-2026-07.md)
+> (U0~U6)로 구체화됨 (2026-07-05). think/asset/party 단일화·플레이어 옵션화·캐릭터 파일
+> 표준은 그쪽 계획을 따른다.
+
 ---
 
 ## 진행 상태
