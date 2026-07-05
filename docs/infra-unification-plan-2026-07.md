@@ -255,7 +255,15 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
     부수: monster.py HumanoidCreature가 존재하지 않는 `build_romance_reactions`를
     import하던 생성 시점 크래시 잠복 버그 해소 (빈 dict + 톤 접두사 hybrid 폴백,
     REACTION_PROFILE 자동 구성)
-  - [ ] U4b 캐릭터 표준 분해 (sera부터 1명 단위)
+  - [x] **U4b — 캐릭터 표준 ③ AI 분리 (2026-07-05)**: S02 6종
+    (sera/mila/lina/yuki/ella/faye)의 Agent 클래스를 캐릭터 파일에서
+    `think/agents/{이름}_agent.py`로 분리 (1명 1커밋). `think/agents/` 패키지가
+    캐릭터 표준 ③의 정본 위치 — `import think` 시점에 자동 등록.
+    faye는 스케줄/거래 헬퍼 동반 이동 + 캐릭터 데이터(TRADE_STOCK 등)
+    lazy import (순환 방지). 캐릭터 파일 합계 ~9,000→~8,200줄, 캐릭터 파일은
+    ①데이터+대사 rule 전용으로 수렴
+  - [ ] U4c (선택) 캐릭터 데이터의 yaml화 / Character 확장부 재사용 슬롯 추가 승격
+    — S02 fixed 정책과 얽혀 U5(대화 정책)와 함께 판단
 - [ ] U5 대화 정책 스위치
 - [ ] U6 검증/인수
 

@@ -103,6 +103,7 @@ agent._do_instant_action("대기", "abort")
 서브클래스에서 `_action_duration_overrides` dict를 정의하면 해당 NPC만 시간이 변경됩니다:
 
 ```python
+# think/agents/sera_agent.py
 class SeraAgent(BaseAgent):
     _action_duration_overrides = {
         "chop": 20 * 60_000,   # 세라는 벌목이 빠름 (20분)

@@ -168,7 +168,7 @@ Tier 3~4의 욕구/생존 인터럽트는 `think/handlers/` 패키지에 모듈�
 ### 2.8 등록 과정
 
 ```python
-# assets/characters/sera.py
+# think/agents/sera_agent.py  (캐릭터 표준 ③ — U4b에서 캐릭터 파일과 분리)
 @register_agent_class("sera")
 class SeraAgent(BaseAgent):
     owner_unique_id = "sera"
@@ -177,9 +177,9 @@ class SeraAgent(BaseAgent):
     SCHEDULE = [...]
 ```
 
-1. `Character` 서브클래스 정의 (Asset 데이터)
-2. `BaseAgent` 서브클래스 정의 (AI 행동)
-3. `@register_agent_class` 데코레이터로 자동 등록
+1. `Character` 서브클래스 정의 (`assets/characters/{이름}.py` — Asset 데이터)
+2. `BaseAgent` 서브클래스 정의 (`think/agents/{이름}_agent.py` — AI 행동)
+3. `@register_agent_class` 데코레이터로 자동 등록 (`think/agents/__init__.py`가 import)
 4. `chapters/chapter_N.py`에서 `instantiate()` 호출 시 Agent 자동 생성
 
 ---
