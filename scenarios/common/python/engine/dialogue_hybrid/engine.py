@@ -26,7 +26,9 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Deque, Dict, List, Optional, Tuple, Union
 
-import yaml
+# yaml 직접 import 금지 — SharpPy 런타임에 pyyaml이 없음.
+# 모든 데이터 로드는 data_loader(yaml ↔ dialogues_compiled 폴백) 경유.
+from engine.dialogue_hybrid import data_loader
 
 _SLOT_RE = re.compile(r"\{(\w+)\}")
 
@@ -218,7 +220,9 @@ class HybridEngine:
         repetition_penalty: logit 감점 (0 = 비활성, 1~2 권장).
         """
         if isinstance(data_or_path, (str, Path)):
-            data = yaml.safe_load(Path(data_or_path).read_text(encoding="utf-8"))
+            # 단일 yaml 직접 로드 — 개발/도구 전용 경로 (SharpPy에서는 dict를 넘길 것)
+            import yaml as _yaml
+            data = _yaml.safe_load(Path(data_or_path).read_text(encoding="utf-8"))
         else:
             data = data_or_path
 
@@ -251,18 +255,19 @@ class HybridEngine:
         캐릭터의 dialogue_overrides[context].intents가 있으면 overlay 적용.
         """
         root = Path(dialogue_root)
-        char_path = root / "characters" / f"{character}.yaml"
-        if not char_path.exists():
-            raise FileNotFoundError(f"character yaml not found: {char_path}")
-        char_data = yaml.safe_load(char_path.read_text(encoding="utf-8"))
+        char_data = data_loader.load_yaml_file(root, f"characters/{character}.yaml")
+        if char_data is None:
+            raise FileNotFoundError(
+                f"character yaml not found: {root}/characters/{character}.yaml")
 
         archetype = char_data.get("archetype", "stoic")
-        arch_path = root / "archetype_dialogues" / archetype / f"{context}.yaml"
-        if not arch_path.exists():
+        arch_data = data_loader.load_yaml_file(
+            root, f"archetype_dialogues/{archetype}/{context}.yaml")
+        if arch_data is None:
             raise FileNotFoundError(
-                f"archetype dialogue not found: {arch_path} "
+                f"archetype dialogue not found: "
+                f"{root}/archetype_dialogues/{archetype}/{context}.yaml "
                 f"(character={character}, archetype={archetype}, context={context})")
-        arch_data = yaml.safe_load(arch_path.read_text(encoding="utf-8"))
 
         base_intents = arch_data.get("intents", {}) or {}
         overrides = ((char_data.get("dialogue_overrides") or {})
@@ -294,18 +299,18 @@ class HybridEngine:
         같은 intent 이름 충돌 시 템플릿/슬롯이 append 방식으로 누적.
         """
         root = Path(dialogue_root)
-        char_path = root / "characters" / f"{character}.yaml"
-        if not char_path.exists():
-            raise FileNotFoundError(f"character yaml not found: {char_path}")
-        char_data = yaml.safe_load(char_path.read_text(encoding="utf-8"))
+        char_data = data_loader.load_yaml_file(root, f"characters/{character}.yaml")
+        if char_data is None:
+            raise FileNotFoundError(
+                f"character yaml not found: {root}/characters/{character}.yaml")
         archetype = char_data.get("archetype", "stoic")
 
         all_intents: Dict[str, Dict] = {}
         for context in contexts:
-            arch_path = root / "archetype_dialogues" / archetype / f"{context}.yaml"
-            if not arch_path.exists():
+            arch_data = data_loader.load_yaml_file(
+                root, f"archetype_dialogues/{archetype}/{context}.yaml")
+            if arch_data is None:
                 continue
-            arch_data = yaml.safe_load(arch_path.read_text(encoding="utf-8"))
             ctx_intents = arch_data.get("intents", {}) or {}
             for intent_name, intent_data in ctx_intents.items():
                 if intent_name in all_intents:

@@ -87,6 +87,7 @@ def main():
 
     test_modules = [
         "test_environment",
+        "test_dialogue_compile",
     ]
 
     if filter_modules:

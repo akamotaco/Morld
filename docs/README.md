@@ -11,6 +11,7 @@
 | 문서 | 분류 | 설명 |
 |------|------|------|
 | [dialogue-hybrid.md](dialogue-hybrid.md) | 📗 살아있는 참조 | Hybrid 대화 엔진 완전 레퍼런스 — 아키타입 공용 풀 + 캐릭터 yaml override, state-bias 매칭, S02 어댑터, S04 통합(Phase A~D). 코드: `scenarios/common/python/engine/dialogue_hybrid/`, 데이터: `scenarios/common/python/dialogues/`. **가장 최신·정확한 문서.** |
+| [dialogue-data-pipeline.md](dialogue-data-pipeline.md) | 📗 살아있는 참조 | **대화 데이터 파이프라인** — yaml 저작 → `compile_dialogues.py` 검증·컴파일 → `dialogues_compiled/`(SharpPy 런타임용). 검증 규칙, 증상→원인→조치 진단 표, 커밋 규약. **yaml 수정 시 반드시 재컴파일.** |
 | [pi-world-engine.md](pi-world-engine.md) | 📗 살아있는 참조 | Python 공통 엔진 레이어(Pi-World Engine) 아키텍처 — 의존성 규칙(Engine → Scenario 금지), 에셋 프레임워크, `reset()` 계약. ⚠️ 모듈 일람은 실제 `engine/`보다 뒤처짐(body_state/fsm/quest/perception 등 신규 모듈 미기재) — 원칙은 유효, 카탈로그는 코드 기준으로 볼 것. |
 | [architecture-v0.3.0.md](architecture-v0.3.0.md) | 📗/📙 혼합 | v0.3.0 아키텍처 — 텍스트(S02/03) + 플랫포머(S04) 통합, 물리 4-시스템 분리. 아키텍처 원칙 부분은 유효하나 하단 "구현 순서" 진행 표는 stale(문서상 미착수인 gravity/movement/collision/resolve 시스템이 실제로는 `scripts/system/`에 구현됨). |
 | [perception-system.md](perception-system.md) | 📙 설계 기록 (부분 구현) | 감각 4채널(청각/시각/직감/후각) 통합 프레임워크 설계. `engine/perception.py`로 착수됨. Phase별 완성도는 코드 확인 필요. |

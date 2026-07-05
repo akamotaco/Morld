@@ -63,7 +63,13 @@ Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 
 
 # 공용 엔진 테스트
 & "C:\ProgramData\miniforge3\python.exe" scenarios\common\python\tests\run_tests.py
+
+# 대화 yaml 수정 후 — 반드시 재컴파일 (SharpPy는 컴파일본만 읽음)
+& "C:\ProgramData\miniforge3\python.exe" scenarios\common\python\dialogues\compile_dialogues.py
 ```
+
+> **대화 데이터 규약**: `dialogues/*.yaml` 수정 → 컴파일 → yaml과 `dialogues_compiled/`를
+> 같은 커밋에. 상세/진단: [docs/dialogue-data-pipeline.md](docs/dialogue-data-pipeline.md)
 
 프로덕션 런타임은 SharpPy(Godot 내장, `util/sharpPy`)이며 CPython 3.12 시맨틱을 따른다.
 테스트는 CPython + 공유 mock(`scenarios/common/python/testing/mock_morld.py`)으로 실행.

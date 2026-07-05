@@ -25,10 +25,11 @@ Public API:
     - Intent fallback: action → category (hug → light 등)
     - Dynamic slot 주입: {name} 등 런타임 치환
 
-향후 (Phase 2-3):
-    - S02 호환 adapter (romance_line_generator.LineGenerator → 내부 호출)
-    - 데이터 본 엔진 dialogues/ 로 이관
-    - SharpPy 런타임 대응 (현재 pyyaml 의존 — JSON 또는 pre-compiled dict 로 변환 예정)
+SharpPy 런타임 대응 (2026-07-05):
+    - pyyaml 톱레벨 의존 제거 — 모든 데이터 로드는 data_loader 경유
+      (pyyaml 있으면 yaml 직독, 없으면 `dialogues_compiled` 빌드 산출물).
+    - yaml 수정 후: `python scenarios/common/python/dialogues/compile_dialogues.py`
+    - 문서: docs/dialogue-data-pipeline.md
 """
 from engine.dialogue_hybrid.engine import (
     HybridEngine,

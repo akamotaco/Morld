@@ -120,7 +120,11 @@ ring world + TEXT UI 골격은 이미 엔진의 형태. 이 원칙은 P2(엔진 
   - 이월: S04 인라인 mock 전면 통합(계약만 일치시킴 — 테스트 본문이 mock 내부에 결합),
     CI에서 SharpPy 런타임으로도 테스트 실행(P4-6)
   - 최종: 엔진 17/17 · S02 1555/1555 · S03 153/153 · S04 67/67
-- [ ] P1 콘텐츠/시스템 분리 (P1-0 포맷 확정됨: yaml + 빌드타임 컴파일)
+- [ ] P1 콘텐츠/시스템 분리
+  - [x] **P1-0 포맷 구현 완료 (2026-07-05)**: yaml 저작 + 빌드타임 컴파일 파이프라인
+    (`dialogues/compile_dialogues.py` → `dialogues_compiled/`, data_loader 2단 폴백).
+    P4-5(pyyaml 런타임 대응)도 이것으로 해소 — SharpPy에서 hybrid가 실제 동작하게 됨
+    (기존엔 톱레벨 import yaml로 모듈 로드 자체 실패). 문서: docs/dialogue-data-pipeline.md
 - [ ] P2 C# 코어 순화
 - [ ] P3 성능 승격
 - [ ] P4 SharpPy upstream

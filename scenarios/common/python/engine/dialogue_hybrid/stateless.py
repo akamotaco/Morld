@@ -20,8 +20,8 @@ import random as _random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import yaml
-
+# yaml 직접 import 금지 — SharpPy 런타임에 pyyaml이 없음. data_loader 경유.
+from engine.dialogue_hybrid import data_loader
 from engine.dialogue_hybrid.engine import (
     ACTION_TO_CATEGORY,
     _SLOT_RE,
@@ -55,7 +55,7 @@ _DATA_CACHE: Dict[Tuple[str, str, str, Tuple[str, ...]], Dict[str, Any]] = {}
 
 def _default_root() -> Path:
     """dialogue_hybrid 패키지 기준 상대 경로의 dialogues 루트."""
-    return Path(__file__).resolve().parent.parent.parent / "dialogues"
+    return data_loader.default_root()
 
 
 def _load_merged(root: Path, character: str, archetype: str,
@@ -65,9 +65,8 @@ def _load_merged(root: Path, character: str, archetype: str,
     if key in _DATA_CACHE:
         return _DATA_CACHE[key]
 
-    char_path = root / "characters" / f"{character}.yaml"
-    if char_path.exists():
-        char_data = yaml.safe_load(char_path.read_text(encoding="utf-8")) or {}
+    char_data = data_loader.load_yaml_file(root, f"characters/{character}.yaml")
+    if char_data is not None:
         effective_archetype = char_data.get("archetype", archetype)
     else:
         char_data = {"character": character, "archetype": archetype}
@@ -75,10 +74,10 @@ def _load_merged(root: Path, character: str, archetype: str,
 
     all_intents: Dict[str, Dict] = {}
     for ctx in contexts:
-        arch_path = root / "archetype_dialogues" / effective_archetype / f"{ctx}.yaml"
-        if not arch_path.exists():
+        arch_data = data_loader.load_yaml_file(
+            root, f"archetype_dialogues/{effective_archetype}/{ctx}.yaml")
+        if arch_data is None:
             continue
-        arch_data = yaml.safe_load(arch_path.read_text(encoding="utf-8")) or {}
         for intent_name, intent_data in (arch_data.get("intents", {}) or {}).items():
             if intent_name in all_intents:
                 all_intents[intent_name].setdefault("templates", []).extend(

@@ -7,6 +7,9 @@
 - 엔진 코드: [`scenarios/common/python/engine/dialogue_hybrid/`](../scenarios/common/python/engine/dialogue_hybrid/)
 - 데이터: [`scenarios/common/python/dialogues/`](../scenarios/common/python/dialogues/)
 
+> ⚠️ **yaml 수정 후 반드시 재컴파일** — SharpPy 런타임은 pyyaml이 없어 빌드 산출물
+> (`dialogues_compiled/`)만 읽는다. 절차·검증·진단: [dialogue-data-pipeline.md](dialogue-data-pipeline.md)
+
 ---
 
 ## 1. 목적과 설계 철학

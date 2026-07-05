@@ -1944,12 +1944,12 @@ intents:
     - id: ecstasy_V_-30_60_80_1
       pattern: '...(분노에 찬 눈으로 자신의 몸을 원망한다)'
       state_bias: *id192
-    - id: ecstasy_V_80_80_0_0
+    - id: ecstasy_V_80_80_0_0b
       pattern: '...안에서...!!'
       state_bias: &id193
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_V_80_80_0_1
+    - id: ecstasy_V_80_80_0_1b
       pattern: '...(이를 악물며) ...깊은 곳이...'
       state_bias: *id193
     - id: ecstasy_V_80_80_0_2
@@ -1997,12 +1997,12 @@ intents:
     - id: ecstasy_M_-30_60_80_1
       pattern: '...(눈에 눈물이 맺힌다) ...더럽군요...!'
       state_bias: *id197
-    - id: ecstasy_M_80_80_0_0
+    - id: ecstasy_M_80_80_0_0b
       pattern: '...으...!!'
       state_bias: &id198
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_M_80_80_0_1
+    - id: ecstasy_M_80_80_0_1b
       pattern: '...(눈이 커진다) ...뜨거워요...'
       state_bias: *id198
     - id: ecstasy_M_80_80_0_2
@@ -2050,12 +2050,12 @@ intents:
     - id: ecstasy_B_-30_60_80_1
       pattern: '...(분하지만 몸이 떨린다)'
       state_bias: *id202
-    - id: ecstasy_B_80_80_0_0
+    - id: ecstasy_B_80_80_0_0b
       pattern: '...가슴에서...!!'
       state_bias: &id203
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_B_80_80_0_1
+    - id: ecstasy_B_80_80_0_1b
       pattern: '...만지지 마세요... 더 이상...'
       state_bias: *id203
     - id: ecstasy_B_80_80_0_2
@@ -2103,12 +2103,12 @@ intents:
     - id: ecstasy_P_-30_60_80_1
       pattern: '...(차가운 눈에 눈물이 맺힌다)'
       state_bias: *id207
-    - id: ecstasy_P_80_80_0_0
+    - id: ecstasy_P_80_80_0_0b
       pattern: '...(무표정을 유지하려 하지만 손이 떨린다)'
       state_bias: &id208
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_P_80_80_0_1
+    - id: ecstasy_P_80_80_0_1b
       pattern: '...이렇게 되는 건가요...'
       state_bias: *id208
     - id: ecstasy_P_80_80_0_2
@@ -2159,12 +2159,12 @@ intents:
     - id: ecstasy_A_-30_60_80_1
       pattern: '...(치욕에 눈물이 흐른다) ...이런 곳에서...!'
       state_bias: *id212
-    - id: ecstasy_A_80_80_0_0
+    - id: ecstasy_A_80_80_0_0b
       pattern: '...거기서... 이런 느낌이...?!'
       state_bias: &id213
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_A_80_80_0_1
+    - id: ecstasy_A_80_80_0_1b
       pattern: '...(위엄이 완전히 무너진다)'
       state_bias: *id213
     - id: ecstasy_A_80_80_0_2
@@ -2212,12 +2212,12 @@ intents:
     - id: ecstasy_F_-30_60_80_1
       pattern: '...(차가운 분노와 수치심이 뒤섞인다)'
       state_bias: *id217
-    - id: ecstasy_F_80_80_0_0
+    - id: ecstasy_F_80_80_0_0b
       pattern: '......!!'
       state_bias: &id218
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_F_80_80_0_1
+    - id: ecstasy_F_80_80_0_1b
       pattern: '...(눈을 감으며) ...뜨거워요...'
       state_bias: *id218
     - id: ecstasy_F_80_80_0_2
@@ -2268,12 +2268,12 @@ intents:
     - id: ecstasy_chain_-30_60_80_1
       pattern: '...(분노하지만 몸이 반응한다) ...그만...!'
       state_bias: *id222
-    - id: ecstasy_chain_80_80_0_0
+    - id: ecstasy_chain_80_80_0_0b
       pattern: '...또...?! ...그만...!!'
       state_bias: &id223
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_chain_80_80_0_1
+    - id: ecstasy_chain_80_80_0_1b
       pattern: '...연속으로... 이런... 안 돼요...'
       state_bias: *id223
     - id: ecstasy_chain_80_80_0_2
@@ -2324,12 +2324,12 @@ intents:
     - id: ecstasy_chain_2_-30_60_80_1
       pattern: '...(자신에게 분노하며 떨고 있다)'
       state_bias: *id227
-    - id: ecstasy_chain_2_80_80_0_0
+    - id: ecstasy_chain_2_80_80_0_0b
       pattern: '...또...다. ...이런 건... 있을 수 없다...'
       state_bias: &id228
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_chain_2_80_80_0_1
+    - id: ecstasy_chain_2_80_80_0_1b
       pattern: '...(위엄 따위는 이미 없다) ...몸이... 말을 안 듣는다...'
       state_bias: *id228
     - id: ecstasy_chain_2_80_80_0_2
@@ -2380,12 +2380,12 @@ intents:
     - id: ecstasy_chain_3_-30_60_80_1
       pattern: '...(저항할 힘조차 남지 않았다) ...으...!!'
       state_bias: *id232
-    - id: ecstasy_chain_3_80_80_0_0
+    - id: ecstasy_chain_3_80_80_0_0b
       pattern: '...(입술을 깨물고 있지만 소리가 새어 나온다)'
       state_bias: &id233
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_chain_3_80_80_0_1
+    - id: ecstasy_chain_3_80_80_0_1b
       pattern: '...더... ...더...!!'
       state_bias: *id233
     - id: ecstasy_chain_3_80_80_0_2
@@ -2436,12 +2436,12 @@ intents:
     - id: ecstasy_intercourse_-30_60_80_1
       pattern: '...(분하지만 몸이 당신을 붙잡는다)'
       state_bias: *id237
-    - id: ecstasy_intercourse_80_80_0_0
+    - id: ecstasy_intercourse_80_80_0_0b
       pattern: '...같이...!!'
       state_bias: &id238
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_intercourse_80_80_0_1
+    - id: ecstasy_intercourse_80_80_0_1b
       pattern: '...(당신을 꽉 잡으며) ...안에서...'
       state_bias: *id238
     - id: ecstasy_intercourse_80_80_0_2
@@ -2492,12 +2492,12 @@ intents:
     - id: ecstasy_-30_60_80_1
       pattern: '...(차가운 눈에 눈물이 맺힌다) ...인정 못 해요...!'
       state_bias: *id242
-    - id: ecstasy_80_80_0_0
+    - id: ecstasy_80_80_0_0b
       pattern: '......!!'
       state_bias: &id243
         affinity: 0.8
         arousal: 0.8
-    - id: ecstasy_80_80_0_1
+    - id: ecstasy_80_80_0_1b
       pattern: '...크... 응...!'
       state_bias: *id243
     - id: ecstasy_80_80_0_2
