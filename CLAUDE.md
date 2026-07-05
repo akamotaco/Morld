@@ -1,142 +1,52 @@
 # Morld 문서 가이드
 
-## 프로젝트 공통 문서
+Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 시나리오를 구동하는 프로젝트입니다.
+
+> **작업 시작 전**: 작업 대상 시나리오의 `docs/README.md`를 먼저 읽으세요. 각 시나리오 docs 폴더에 작업별 문서 인덱스가 있습니다.
+
+---
+
+## 시나리오 한눈에 보기
+
+| 시나리오 | 이름/테마 | 상태 | 문서 인덱스 |
+|----------|-----------|------|-------------|
+| scenario01 | 방 탈출 퍼즐 (NPC 없음) | 🧊 동결 (레거시 프로토타입) | `scenarios/scenario01/DESIGN.md` |
+| **scenario02** | **숲속 저택** — 연애 + 생활 시뮬레이션 | ✅ 메인 시나리오 (유지보수 활발) | [scenario02/docs/README.md](scenarios/scenario02/docs/README.md) |
+| scenario03 | Mind The Gap: 하행선 — 지저철 원격지휘 스릴러 | ⏸️ 데모 완료, 휴면 | [scenario03/docs/README.md](scenarios/scenario03/docs/README.md) |
+| **scenario04** | **마을과 던전** — JRPG 파티 로그라이트 | 🚧 신규 개발 중 (Hybrid 대화 통합) | [scenario04/docs/README.md](scenarios/scenario04/docs/README.md) |
+| common | 공용 Python 엔진(Pi-World) + Hybrid 대화 데이터 | ✅ 모든 시나리오의 기반 | [docs/README.md](docs/README.md) |
+
+**현재 활발한 작업 갈래**: ① scenario02 유지보수/버그픽스, ② Hybrid 대화 엔진(common) + scenario04 통합, ③ 엔진 승격(시나리오 코드 → common/engine).
+
+---
+
+## 프로젝트 공통 문서 (`docs/`)
+
+전체 인덱스와 문서별 최신성 판정: [docs/README.md](docs/README.md)
 
 | 문서 | 설명 |
 |------|------|
-| [architecture-v0.3.0.md](docs/architecture-v0.3.0.md) | v0.3.0 아키텍처 설계 — 텍스트+플랫포머 통합 |
-| [dialogue-hybrid.md](docs/dialogue-hybrid.md) | Hybrid 대화 엔진 — 아키타입 공용 풀 + 캐릭터 override + S02 호환 adapter |
+| [dialogue-hybrid.md](docs/dialogue-hybrid.md) | **Hybrid 대화 엔진** — 아키타입 공용 풀 + 캐릭터 override + S02 어댑터 + S04 통합. 가장 최신·정확 |
+| [pi-world-engine.md](docs/pi-world-engine.md) | Python 공통 엔진 레이어 아키텍처 — 의존성 규칙, 에셋 프레임워크 (원칙 유효, 모듈 목록은 코드 기준) |
+| [architecture-v0.3.0.md](docs/architecture-v0.3.0.md) | v0.3.0 아키텍처 — 텍스트+플랫포머 통합 (진행 표는 stale) |
+
+나머지(perception-system, engine-think-design, movement-stealth-refactor)는 완료된 설계 기록 — 역사적 맥락용.
 
 ---
 
-> **현재 작업 대상: scenario02**
->
-> 이 프로젝트는 여러 시나리오를 지원하지만, 현재 개발 중인 시나리오는 `scenario02`입니다.
-> 모든 문서는 scenario02 기준으로 작성되어 있습니다.
->
-> - 시나리오 경로: `scenarios/scenario02/`
-> - Python 코드: `scenarios/scenario02/python/`
-> - 문서: `scenarios/scenario02/docs/`
+## scenario02 필수 문서 (시스템 이해)
 
----
+공용 시스템의 원산지가 scenario02이므로, 어느 시나리오를 작업하든 이 5개는 기본 배경지식입니다.
 
-## 필수 문서 (시스템 이해)
+| 문서 | 설명 |
+|------|------|
+| [system-core.md](scenarios/scenario02/docs/system-core.md) | ECS 아키텍처, 시스템 구조, 챕터 전환 라이프사이클 |
+| [system-api.md](scenarios/scenario02/docs/system-api.md) | morld Python API, Asset 클래스 |
+| [dialog.md](scenarios/scenario02/docs/dialog.md) | 대화/리액션/묘사 시스템 (Lines, Rules 등) |
+| [system-ui.md](scenarios/scenario02/docs/system-ui.md) | TextUI, 토글, 액션 필터링 |
+| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 욕구, 연애, 온도, 습도, 혼잡도, 텃밭 등 |
 
-| 문서 | 설명 | 줄 수 |
-|------|------|-------|
-| [system-core.md](scenarios/scenario02/docs/system-core.md) | ECS 아키텍처, 시스템 구조, 챕터 전환 라이프사이클 | ~200 |
-| [system-api.md](scenarios/scenario02/docs/system-api.md) | morld Python API, Asset 클래스 | ~150 |
-| [dialog.md](scenarios/scenario02/docs/dialog.md) | 대화/리액션/묘사 시스템 (Lines, Rules 등) | ~250 |
-| [system-ui.md](scenarios/scenario02/docs/system-ui.md) | TextUI, 토글, 액션 필터링 | ~150 |
-| [system-gameplay.md](scenarios/scenario02/docs/system-gameplay.md) | 장비, 생존, 욕구, 연애, 온도, 습도, 혼잡도, 텃밭 등 게임플레이 시스템 | ~850 |
-
----
-
-## 작업별 참고 문서
-
-### 지형/맵 작업
-
-| 작업 | 참고 문서 |
-|------|----------|
-| Region/Location/Gate 구조 | [terrain.md](scenarios/scenario02/docs/terrain.md) |
-| 맵 구성 (저택, 마을, 숲 등) | [map.md](scenarios/scenario02/docs/map.md) |
-| 환경 속성 (온도, 습도, 날씨) | [terrain_property.md](scenarios/scenario02/docs/terrain_property.md) |
-| 조명 시스템 (밝기, 광원) | [lighting.md](scenarios/scenario02/docs/lighting.md) |
-| 던전 시스템 | [dungeon.md](scenarios/scenario02/docs/dungeon.md) |
-| 바닥 오브젝트 | [ground.md](scenarios/scenario02/docs/ground.md) |
-
-### 캐릭터/NPC 작업
-
-| 작업 | 참고 문서 |
-|------|----------|
-| NPC 대화/리액션/묘사 | [dialog.md](scenarios/scenario02/docs/dialog.md) |
-| 애니메이션 연출 (컷씬, 전투) | [system-ui.md#animlog](scenarios/scenario02/docs/system-ui.md#animlog-애니메이션-시퀀스) |
-| 자세/착석 시스템 (앉기, 눕기) | [movement-system.md#4](scenarios/scenario02/docs/movement-system.md#4-자세posture-시스템) |
-| 은신 시스템 (잠입, 발각) | [stealth.md](scenarios/scenario02/docs/stealth.md) |
-| NPC 스케줄/AI/Agent | [schedule.md](scenarios/scenario02/docs/schedule.md) |
-| NPC 생활/욕구/자율행동 | [life.md](scenarios/scenario02/docs/life.md) |
-| 연애 시스템 (인덱스) | [romance.md](scenarios/scenario02/docs/romance.md) |
-| 연애 관계 (라벨/욕망/해금) | [romance-relationship.md](scenarios/scenario02/docs/romance-relationship.md) |
-| 애정 행위 (스킨십/자극/탈의/동작모드) | [romance-actions.md](scenarios/scenario02/docs/romance-actions.md) |
-| 임신과 출산 | [romance-pregnancy.md](scenarios/scenario02/docs/romance-pregnancy.md) |
-| 성인용품/결박/절정 시스템 | [adult-toys.md](scenarios/scenario02/docs/adult-toys.md) |
-| 전투 시스템 | [battle.md](scenarios/scenario02/docs/battle.md) |
-| 전투 구현 명세 | [combat-implementation.md](scenarios/scenario02/docs/combat-implementation.md) |
-| 생물(Creature) 시스템 | [creature.md](scenarios/scenario02/docs/creature.md) |
-| 파티 시스템 (설계+구현 명세) | [party-design-notes.md](scenarios/scenario02/docs/party-design-notes.md) |
-| 파티 시스템 (v1, 대체됨) | [party-implementation.md](scenarios/scenario02/docs/party-implementation.md) |
-| 퀘스트 시스템 | [quest.md](scenarios/scenario02/docs/quest.md) |
-| 캐릭터 만들기 (NPC 정의 가이드) | [make_character.md](scenarios/scenario02/docs/make_character.md) |
-| 활동 만들기 (Activity 핸들러 가이드) | [make_activity.md](scenarios/scenario02/docs/make_activity.md) |
-| 행동 제어 가이드 (BaseAgent/CreatureAgent/FayeAgent) | [behavior-guide.md](scenarios/scenario02/docs/behavior-guide.md) |
-| 차량 시스템 (설계 명세) | [vehicle-system.md](scenarios/scenario02/docs/vehicle-system.md) |
-| 차량 만들기 (Vehicle 제작 가이드) | [make_vehicle.md](scenarios/scenario02/docs/make_vehicle.md) |
-| 시나리오 설계 (세계관, 캐릭터) | [design.md](scenarios/scenario02/docs/design.md) |
-
-### 아이템 작업
-
-| 작업 | 참고 문서 |
-|------|----------|
-| 의류/장비 시스템 | [clothes.md](scenarios/scenario02/docs/clothes.md) |
-| 음식/요리 시스템 | [food.md](scenarios/scenario02/docs/food.md) |
-| 크래프팅 레시피 | [craft.md](scenarios/scenario02/docs/craft.md) |
-| 건축/파괴 시스템 | [build.md](scenarios/scenario02/docs/build.md) |
-
-### 이벤트/시스템 작업
-
-| 작업 | 참고 문서 |
-|------|----------|
-| 이벤트 시스템 (on_meet, on_reach, on_leave) | [event.md](scenarios/scenario02/docs/event.md) |
-| 운반 시스템 (Limbo + 포인터 아이템) | [carry.md](scenarios/scenario02/docs/carry.md) |
-| 시간 정지 (Frozen) 상태 | [frozen.md](scenarios/scenario02/docs/frozen.md) |
-| 시간 흐름 (자동 시간 흐름) | [time-flow.md](scenarios/scenario02/docs/time-flow.md) |
-
----
-
-## 문서 구조
-
-```
-scenarios/scenario02/docs/
-├── system-core.md      # ECS 아키텍처, 프로젝트 구조
-├── system-api.md       # morld Python API
-├── system-ui.md        # TextUI, 액션 필터링
-├── system-gameplay.md  # 장비, 생존, 연애 시스템
-├── movement-system.md  # 이동 시스템, 자세/착석
-├── stealth.md          # 은신 시스템
-├── dialog.md           # 대화/리액션/묘사 시스템
-├── design.md           # 시나리오 설계 (세계관, 캐릭터)
-├── terrain.md          # 지형 시스템
-├── terrain_property.md # 환경 속성
-├── lighting.md         # 조명 시스템
-├── map.md              # 맵 구성
-├── dungeon.md          # 던전 시스템
-├── ground.md           # 바닥 오브젝트
-├── schedule.md         # NPC 스케줄/AI/Agent
-├── life.md             # NPC 생활/욕구/자율행동
-├── battle.md           # 전투 시스템
-├── combat-implementation.md  # 전투 구현 명세
-├── creature.md              # 생물(Creature) 시스템 (세력/스포너/CreatureAgent)
-├── party-implementation.md   # 파티 시스템 구현 명세
-├── romance.md                # 연애 시스템 (인덱스 + 구현 상태)
-├── romance-relationship.md   # 연애 관계 (라벨/욕망/해금/대화/성별)
-├── romance-actions.md        # 애정 행위 (스킨십/자극/탈의/은신/소음/동작모드)
-├── romance-pregnancy.md      # 임신과 출산
-├── adult-toys.md             # 성인용품/결박/절정 시스템
-├── make_character.md         # 캐릭터 만들기 가이드
-├── make_activity.md          # 활동(Activity) 핸들러 만들기 가이드
-├── behavior-guide.md         # 행동 제어 가이드 (BaseAgent/CreatureAgent/FayeAgent)
-├── vehicle-system.md         # 차량 시스템 설계 명세
-├── make_vehicle.md           # 차량 만들기 가이드 (소형/대형)
-├── quest.md            # 퀘스트 시스템
-├── clothes.md          # 의류/장비
-├── food.md             # 음식/요리
-├── craft.md            # 크래프팅
-├── build.md            # 건축/파괴 시스템
-├── carry.md            # 운반 시스템 (Limbo + 포인터 아이템)
-├── event.md            # 이벤트 시스템
-├── frozen.md           # 시간 정지 상태
-└── time-flow.md        # 시간 흐름 시스템
-```
+작업별 상세 문서(지형/캐릭터/연애/아이템/이벤트)는 [scenario02/docs/README.md](scenarios/scenario02/docs/README.md)의 표에서 찾으세요.
 
 ---
 
@@ -144,40 +54,33 @@ scenarios/scenario02/docs/
 
 | 구분 | 경로 |
 |------|------|
-| C# 시스템 | `scripts/system/` |
+| C# 시스템 (ECS) | `scripts/system/` |
 | C# 데이터 구조 | `scripts/morld/` |
 | C# 액션 핸들러 | `scripts/MetaActionHandler/` |
-| Python 시나리오 | `scenarios/scenario02/python/` |
-| Python Asset 클래스 | `scenarios/scenario02/python/assets/` |
-| Python 이벤트 핸들러 | `scenarios/scenario02/python/events/` |
-| Python NPC AI | `scenarios/scenario02/python/think/` |
-| Python 인터럽트 핸들러 | `scenarios/scenario02/python/think/handlers/` (식사/배변/체온/착의/자위/사회/선물) |
-| Python 톤 템플릿 | `scenarios/scenario02/python/tone_templates/` (아키타입별 3D 좌표 대사/묘사) |
-| Python 환경 시스템 | `scenarios/scenario02/python/` (temperature, humidity, congestion, pollution, sound, garden, needs, inventory, ground) |
+| **공용 Python 엔진** | `scenarios/common/python/engine/` (환경/생존/전투/AI/perception/body 시스템 등 ~50 모듈) |
+| **Hybrid 대화 엔진** | `scenarios/common/python/engine/dialogue_hybrid/` |
+| **Hybrid 대화 데이터** | `scenarios/common/python/dialogues/` (archetype_dialogues/ 10종 + characters/ yaml) |
+| scenario02 콘텐츠 | `scenarios/scenario02/python/` (assets/, events/, think/, tone_templates/, tests/) |
+| scenario03 콘텐츠 | `scenarios/scenario03/python/` |
+| scenario04 콘텐츠 | `scenarios/scenario04/python/` (평면 모듈 구성, npc_dialogue.py가 대화 라우팅 허브) |
 
 ---
 
-## 시나리오03 호환성 고려
+## 시나리오 간 호환성 원칙
 
-> **시스템 수정 시 시나리오03 호환성을 고려하세요.**
->
-> 시나리오03 (Mind The Gap)은 시나리오02의 핵심 시스템을 공유합니다.
-> C# 시스템이나 공용 Python 코드를 수정할 때 아래 원칙을 따라주세요.
-
-### 호환성 원칙
+> **공용 코드(C# 시스템, `common/python/engine/`) 수정 시 모든 시나리오 호환성을 고려하세요.**
+> S03/S04는 S02의 핵심 시스템을 확장해서 사용합니다.
 
 1. **선택적 속성**: 새로운 prop은 없어도 동작하도록 설계
 2. **기본값 적용**: 속성이 없으면 최적/최상의 상태로 간주
-3. **점진적 확장**: 기존 시스템을 수정하지 않고 확장
-
-### 예시: 내구도 시스템
+3. **점진적 확장**: 기존 시스템을 수정하지 않고 확장 (서브클래스/오버라이드)
 
 ```python
 # GOOD: prop이 없으면 기본값 사용
 def get_durability(item_id: int) -> float:
     durability = morld.get_unit_prop(item_id, "durability")
     if durability is None:
-        return 1.0  # 시나리오02 아이템도 정상 동작
+        return 1.0  # prop 없는 시나리오도 정상 동작
     return durability
 
 # BAD: prop이 없으면 에러
@@ -185,7 +88,12 @@ durability = morld.get_unit_prop(item_id, "durability")
 durability -= 0.1  # None이면 에러!
 ```
 
-### 참고 문서
+참고: [scenario03/docs/compatibility.md](scenarios/scenario03/docs/compatibility.md) (선택적 prop 패턴의 상세 예시)
 
-- 시나리오03 설계: [scenarios/scenario03/docs/design.md](scenarios/scenario03/docs/design.md)
-- 호환성 상세: [scenarios/scenario03/docs/compatibility.md](scenarios/scenario03/docs/compatibility.md)
+---
+
+## 문서 관리 규칙
+
+- 새 문서는 대상 레이어에 따라 배치: 엔진/공통 → `docs/`, 시나리오 전용 → `scenarios/scenarioNN/docs/`
+- 추가/삭제 시 해당 폴더의 README 인덱스를 함께 갱신
+- 설계 계획 문서가 구현 완료되면 README에서 "완료된 설계 기록"으로 분류 변경 (내용 갱신 대신 표시만)
