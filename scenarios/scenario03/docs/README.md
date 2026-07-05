@@ -113,6 +113,12 @@
   - 차기 시리얼 재보급 (트라우마 계승)
   - Hybrid 대화 통합 (npc_dialogue.py — 비서 + 분대원 주변 대사)
   - 테스트 188개 통과 (15 modules)
+- [x] 랜덤 생성 분대원 (2026-07) — recruit_pool.py
+  - 티어 로트 (운행 주기 연동: 규격품/개량형/시제품) + 제조 편차
+    (아키타입 가중 추첨 · vita/sapientia 편차 · 시제품 인간성 불안정)
+  - 시드 = 주기·시리얼 (재현성), 아키타입은 "아키타입" prop → hybrid 톤 개체차
+  - 기반: engine/character_gen (spec 방식). 제작법: [docs/content-pack-guide.md](../../../docs/content-pack-guide.md) §4
+  - 테스트 199개 통과 (16 modules)
 
 ---
 

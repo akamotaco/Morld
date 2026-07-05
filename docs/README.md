@@ -10,6 +10,7 @@
 
 | 문서 | 분류 | 설명 |
 |------|------|------|
+| [content-pack-guide.md](content-pack-guide.md) | 📗 살아있는 참조 | **콘텐츠 팩 제작 가이드** — 시나리오 최소 골격, 캐릭터 표준(①데이터+②yaml+③AI), 랜덤 생성 NPC vs UNIQUE(승격 경로 포함), 대화 정책/파티/테스트 체크리스트. 실전 예제: scenario_mini + S03 recruit_pool |
 | [dialogue-hybrid.md](dialogue-hybrid.md) | 📗 살아있는 참조 | Hybrid 대화 엔진 완전 레퍼런스 — 아키타입 공용 풀 + 캐릭터 yaml override, state-bias 매칭, S02 어댑터, S04 통합(Phase A~D). 코드: `scenarios/common/python/engine/dialogue_hybrid/`, 데이터: `scenarios/common/python/dialogues/`. **가장 최신·정확한 문서.** |
 | [dialogue-data-pipeline.md](dialogue-data-pipeline.md) | 📗 살아있는 참조 | **대화 데이터 파이프라인** — yaml 저작 → `compile_dialogues.py` 검증·컴파일 → `dialogues_compiled/`(SharpPy 런타임용). 검증 규칙, 증상→원인→조치 진단 표, 커밋 규약. **yaml 수정 시 반드시 재컴파일.** |
 | [pi-world-engine.md](pi-world-engine.md) | 📗 살아있는 참조 | Python 공통 엔진 레이어(Pi-World Engine) 아키텍처 — 의존성 규칙(Engine → Scenario 금지), 에셋 프레임워크, `reset()` 계약. ⚠️ 모듈 일람은 실제 `engine/`보다 뒤처짐(body_state/fsm/quest/perception 등 신규 모듈 미기재) — 원칙은 유효, 카탈로그는 코드 기준으로 볼 것. |

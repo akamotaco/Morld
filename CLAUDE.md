@@ -27,6 +27,7 @@ Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 
 
 | 문서 | 설명 |
 |------|------|
+| [content-pack-guide.md](docs/content-pack-guide.md) | **콘텐츠 팩 제작 가이드** — 새 시나리오/캐릭터(UNIQUE·랜덤 생성) 만드는 법. 예제: scenario_mini, S03 recruit_pool |
 | [dialogue-hybrid.md](docs/dialogue-hybrid.md) | **Hybrid 대화 엔진** — 아키타입 공용 풀 + 캐릭터 override + S02 어댑터 + S04 통합. 가장 최신·정확 |
 | [pi-world-engine.md](docs/pi-world-engine.md) | Python 공통 엔진 레이어 아키텍처 — 의존성 규칙, 에셋 프레임워크 (원칙 유효, 모듈 목록은 코드 기준) |
 | [architecture-v0.3.0.md](docs/architecture-v0.3.0.md) | v0.3.0 아키텍처 — 텍스트+플랫포머 통합 (진행 표는 stale) |
