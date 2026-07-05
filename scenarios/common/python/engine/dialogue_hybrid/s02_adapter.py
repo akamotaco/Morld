@@ -1,9 +1,12 @@
-"""S02 romance_line_generator / romance_reaction_generator 호환 adapter.
+"""S02 스타일 Line/Reaction 생성기 adapter.
 
 Layer 2 fallback 전용. 내부는 stateless 함수 호출 (인스턴스/히스토리 없음).
+(구 S02 romance_line_generator/romance_reaction_generator shim 은 U5에서 제거 —
+ 이 모듈을 직접 import 한다. 시나리오가 대화 정책 fixed 를 선언하면
+ Character 게이트가 이 adapter 도달 전에 차단한다: engine.dialogue_policy)
 
-예 (기존 호출 코드 변경 없음):
-    from romance_line_generator import LineGenerator
+예:
+    from engine.dialogue_hybrid.s02_adapter import LineGenerator
     gen = LineGenerator(profile)
     text = gen.generate(action_id, state)
 

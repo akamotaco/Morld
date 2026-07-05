@@ -34,6 +34,7 @@
 | 작업 | 문서 |
 |------|------|
 | 대화/리액션/묘사 | [dialog.md](dialog.md) |
+| 대화 정책(fixed) hybrid 폴백 갭 | [dialogue-fallback-coverage.md](dialogue-fallback-coverage.md) (도구로 재생성) |
 | 애니메이션 연출 (컷씬, 전투) | [system-ui.md#animlog](system-ui.md#animlog-애니메이션-시퀀스) |
 | 자세/착석 (앉기, 눕기) | [movement-system.md#4](movement-system.md#4-자세posture-시스템) |
 | 은신 (잠입, 발각) | [stealth.md](stealth.md) |

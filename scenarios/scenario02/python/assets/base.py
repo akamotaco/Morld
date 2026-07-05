@@ -222,7 +222,7 @@ class Character(_CharacterBase):
     ROMANCE_SOUND_PROFILE = {"levels": [5, 15, 30], "ecstasy": 50}
 
     # 아키타입 기반 반응 생성 프로필 (서브클래스에서 오버라이드)
-    # romance_line_generator / romance_reaction_generator에서 사용
+    # engine.dialogue_hybrid.s02_adapter (Line/ReactionGenerator)에서 사용
     REACTION_PROFILE: dict = None
 
     # 성적 선호도 (서브클래스에서 오버라이드)

@@ -264,7 +264,19 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
     ①데이터+대사 rule 전용으로 수렴
   - [ ] U4c (선택) 캐릭터 데이터의 yaml화 / Character 확장부 재사용 슬롯 추가 승격
     — S02 fixed 정책과 얽혀 U5(대화 정책)와 함께 판단
-- [ ] U5 대화 정책 스위치
+- [x] **U5 대화 정책 스위치 — 완료 (2026-07-05)**
+  - `engine/dialogue_policy.py`: fixed | fixed+fallback(기본) | hybrid,
+    게이트는 `allows_dynamic()` 하나. reset()은 정책 유지 (시나리오 속성)
+  - S02 Character의 hybrid 폴백 3경로 게이트 (톤 접두사 위임 /
+    `_generate_dialogue` catch-all / initiative during_ 폴백) — fixed 에서
+    대사만 생략, 흐름 유지 (호출측 None-스킵 + 기본 키/공용 트랜스 풀 폴백)
+  - 선언: S02=fixed (요구 b 실증) · S03/S04=hybrid. 테스트 스위트는 기본
+    정책으로 구동 (프레임워크 메커니즘 검증 유지)
+  - 커버리지 리포트: `scenario02/python/tests/dialogue_coverage_report.py`
+    (정적: 캐릭터별 catch-all 48키 / 동적: 스위트 실행 캡처) →
+    [scenario02/docs/dialogue-fallback-coverage.md](../scenarios/scenario02/docs/dialogue-fallback-coverage.md).
+    갭 채움은 콘텐츠 작업으로 분리 (rule 추가만으로 해소 가능)
+  - 사문 shim 제거: S02 romance_line_generator.py / romance_reaction_generator.py
 - [ ] U6 검증/인수
 
 완료 시 이 문서를 docs/README.md에서 "완료된 설계 기록"으로 분류 변경할 것.
