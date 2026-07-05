@@ -50,6 +50,26 @@ Morld는 하나의 엔진(C# ECS + Python 콘텐츠 레이어) 위에서 여러 
 
 ---
 
+## 개발 환경 / 테스트 실행
+
+> **CPython 인터프리터: `C:\ProgramData\miniforge3\python.exe`** (3.12.x)
+> 새로 설치하지 말 것 — 이 머신에는 이미 miniforge가 있다. PATH에는 없으므로 전체 경로로 호출.
+
+```powershell
+# 시나리오 테스트 (S02/S03: run_tests.py, S04: 파일별 직접 실행)
+& "C:\ProgramData\miniforge3\python.exe" scenarios\scenario02\python\tests\run_tests.py
+& "C:\ProgramData\miniforge3\python.exe" scenarios\scenario03\python\tests\run_tests.py
+& "C:\ProgramData\miniforge3\python.exe" scenarios\scenario04\python\tests\test_quest_board.py
+
+# 공용 엔진 테스트
+& "C:\ProgramData\miniforge3\python.exe" scenarios\common\python\tests\run_tests.py
+```
+
+프로덕션 런타임은 SharpPy(Godot 내장, `util/sharpPy`)이며 CPython 3.12 시맨틱을 따른다.
+테스트는 CPython + 공유 mock(`scenarios/common/python/testing/mock_morld.py`)으로 실행.
+
+---
+
 ## 코드 경로 요약
 
 | 구분 | 경로 |
