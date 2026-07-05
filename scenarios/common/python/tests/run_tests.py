@@ -87,6 +87,7 @@ def main():
 
     test_modules = [
         "test_environment",
+        "test_character_gen",
         "test_dialogue_compile",
         "test_dialogue_policy",
         "test_player_contract",
