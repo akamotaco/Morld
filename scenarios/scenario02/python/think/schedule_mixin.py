@@ -106,7 +106,8 @@ class ScheduleResolverMixin:
         if item_uid:
             # prop 기반 기준치 (우선) → 파라미터 fallback
             prop_threshold = morld.get_unit_prop(target["object_id"], f"need:{item_uid}")
-            actual_threshold = prop_threshold if prop_threshold is not None else threshold
+            # 실 API 계약: 부재 시 0 — 0이면 파라미터 threshold로 fallback
+            actual_threshold = prop_threshold if prop_threshold else threshold
             return obj.get_item_count(item_uid) < actual_threshold
         else:
             return obj.get_category_item_count(category) < threshold

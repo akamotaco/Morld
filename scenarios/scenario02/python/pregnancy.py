@@ -77,7 +77,8 @@ def register_character(unit_id):
     _registry.add(unit_id)
 
     # 이미 주기일이 있으면 스킵 (챕터 전환 복원)
-    if morld.get_unit_prop(unit_id, "생식:주기일") is not None:
+    # 실 API 계약: 부재 시 0 — 주기일은 1-based이므로 0=미초기화
+    if morld.get_unit_prop(unit_id, "생식:주기일"):
         return
 
     cycle_len = random.randint(25, 35)
@@ -144,7 +145,7 @@ def is_menstruating(unit_id):
     if morld.get_unit_prop(unit_id, "상태:임신"):
         return False
     cycle_day = morld.get_unit_prop(unit_id, "생식:주기일")
-    if cycle_day is None:
+    if not cycle_day:  # 실 API 계약: 부재 시 0 — 주기일은 1-based, 0=미초기화(월경 아님)
         return False
     return cycle_day <= 5
 

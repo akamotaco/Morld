@@ -3028,11 +3028,12 @@ class TestDispositionSexualHelpers:
                     props={"성향:도착": 50})
         assert rc.get_disposition_value(2, "도착") == 50
 
-    def test_explicit_zero_overrides_archetype(self):
-        """명시 0은 아키타입 양수를 덮어씀."""
+    def test_explicit_zero_falls_back_to_archetype(self):
+        """실 API 계약: 명시 0은 부재와 구분 불가 → 아키타입 기본값 적용."""
         self._setup(archetype="seductive",
                     props={"성향:노출벽": 0})
-        assert rc.get_disposition_value(2, "노출벽") == 0
+        expected = rc.ARCHETYPE_DISPOSITION_SEXUAL_DEFAULT["seductive"]["노출벽"]
+        assert rc.get_disposition_value(2, "노출벽") == expected
 
     def test_raises_on_unknown_trait(self):
         self._setup()
@@ -3081,11 +3082,12 @@ class TestPersonalityTraitHelpers:
                     props={"성격:담력": -1})
         assert rc.get_personality_value(2, "담력") == -1
 
-    def test_explicit_0_overrides_archetype_positive(self):
-        """명시 0은 아키타입 양수를 덮어씀 (None 체크 정확성)."""
+    def test_explicit_0_falls_back_to_archetype(self):
+        """실 API 계약: 명시 0은 부재와 구분 불가 → 아키타입 기본값 적용."""
         self._setup(archetype="stoic",
                     props={"성격:담력": 0})
-        assert rc.get_personality_value(2, "담력") == 0
+        expected = rc.ARCHETYPE_PERSONALITY_DEFAULT["stoic"]["담력"]
+        assert rc.get_personality_value(2, "담력") == expected
 
     def test_raises_on_unknown_trait(self):
         self._setup(archetype="stoic")
@@ -3323,7 +3325,7 @@ class TestTimedStatusHelpers:
         rc.apply_timed_status(2, "미약", duration=1)
         rc._decay_timed_status_tick()
         # 1 → 0 → clear
-        assert morld.get_unit_prop(2, "상태:미약남은시간") is None
+        assert morld.get_unit_prop(2, "상태:미약남은시간") == 0  # 실 계약: 부재 시 0
         # 더 이상 활성 아니면 registry 제거
         assert 2 not in rc._TIMED_STATUS_REGISTRY
 

@@ -136,7 +136,9 @@ def post_restore():
     _replace_ragged_clothes(player_id)
 
     # 시작 소지금 (처음 챕터 1 진입 시에만 100G 지급)
-    if morld.get_unit_prop(player_id, "소지금") is None:
+    # 실 API 계약: 부재 시 0 — is None 판정이면 지급이 영원히 실행되지 않음.
+    # 소지금 0 상태에서 챕터1 초기화가 재실행되면 재지급되나, 신규 진입 한정이라 허용.
+    if not morld.get_unit_prop(player_id, "소지금"):
         morld.set_unit_prop(player_id, "소지금", 100)
         print("[chapter_1] Player given starting gold: 100G")
 

@@ -782,9 +782,9 @@ class TestSemenSystem:
         morld.register_unit(10, props=props)
         rc.clear_all_semen(10)
         for p in SEMEN_PARTS:
-            assert morld.get_unit_prop(10, f"오염물:정액:{p}") is None
+            assert morld.get_unit_prop(10, f"오염물:정액:{p}") == 0  # 실 계약: 부재 시 0
         for p in INTERNAL_SEMEN_PARTS:
-            assert morld.get_unit_prop(10, f"체내:정액:{p}") is None
+            assert morld.get_unit_prop(10, f"체내:정액:{p}") == 0  # 실 계약: 부재 시 0
 
     def test_internal_semen(self):
         """체내 정액 조회"""
@@ -837,7 +837,7 @@ class TestSemenSystem:
         rc._apply_internal_semen(10, "음부", 50)
         assert morld.get_unit_prop(10, "체내:정액:음부") == INTERNAL_SEMEN_MAX
         # 외부는 설정 안 됨
-        assert morld.get_unit_prop(10, "오염물:정액:음부") is None
+        assert morld.get_unit_prop(10, "오염물:정액:음부") == 0  # 실 계약: 부재 시 0
 
     def test_overflow_stacks_with_existing_external(self):
         """기존 외부 오염에 누적."""
@@ -856,7 +856,7 @@ class TestSemenSystem:
         morld.register_unit(10, props=props)
         rc.clear_all_internal_semen(10)
         for p in INTERNAL_SEMEN_PARTS:
-            assert morld.get_unit_prop(10, f"체내:정액:{p}") is None
+            assert morld.get_unit_prop(10, f"체내:정액:{p}") == 0  # 실 계약: 부재 시 0
 
 
 # ============================================

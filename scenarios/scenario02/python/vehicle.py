@@ -582,7 +582,8 @@ def set_control_target(player_id, target_id):
 
 def get_control_target(player_id):
     """현재 조작 대상 (None이면 자기 자신)"""
-    return morld.get_unit_prop(player_id, "control_target")
+    # 실 API 계약: 부재 시 0 — 0은 '조작 대상 없음'으로 정규화
+    return morld.get_unit_prop(player_id, "control_target") or None
 
 
 def clear_control_target(player_id):
@@ -705,8 +706,9 @@ def vehicle_move_to(vehicle_id, dest_region, dest_location, distance):
 
 def is_vehicle(unit_id):
     """차량 Object인지 판정 (vehicle:type prop 존재 여부)"""
+    # 실 API 계약: 부재 시 0 — is not None 판정이면 모든 유닛이 차량으로 오판됨
     vtype = morld.get_unit_prop(unit_id, "vehicle:type")
-    return vtype is not None
+    return bool(vtype)
 
 
 # relocate_object 함수 참조 (테스트에서 주입 가능)

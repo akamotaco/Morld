@@ -49,7 +49,8 @@ def reset():
 def register(unit_id: int):
     """침식 시스템에 캐릭터 등록"""
     _registered.add(unit_id)
-    if morld.get_unit_prop(unit_id, "침식") is None:
+    # 실 API 계약: 부재 시 0 — 멱등 재설정으로 키 생성 보장
+    if not morld.get_unit_prop(unit_id, "침식"):
         morld.set_unit_prop(unit_id, "침식", 0)
 
 

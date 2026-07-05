@@ -120,9 +120,11 @@ def get_unit_relation(unit_id, target_id, region_id=None) -> int:
     result = get_faction_relation(my_faction, target_faction, region_id)
 
     # 개인 세력 override
+    # 실 API 계약: 부재 시 0 — is not None 판정이면 항상 0(중립)으로 덮어써 세력 관계가 무력화됨.
+    # 명시적 '중립(0) 오버라이드'는 표현 불가 — 필요 시 별도 문자열 prop으로 설계할 것.
     if target_faction:
         override = morld.get_unit_prop(unit_id, f"관계:{target_faction}:세력도")
-        if override is not None:
+        if override:
             result = int(override)
 
     # 개인 유닛 override (최우선)
@@ -131,7 +133,7 @@ def get_unit_relation(unit_id, target_id, region_id=None) -> int:
         target_unique = target_info.get("unique_id") or ""
         if target_unique:
             override = morld.get_unit_prop(unit_id, f"관계:{target_unique}:세력도")
-            if override is not None:
+            if override:
                 return int(override)
 
     return result
@@ -479,7 +481,7 @@ def execute_attack(attacker_id: int, target_id: int) -> dict:
         if ammo_type and ammo_type != "arrow":
             weapon_id = get_equipped_weapon(attacker_id)
             durability = morld.get_unit_prop(weapon_id, "내구도") if weapon_id else 100
-            if durability is None:
+            if not durability:  # 실 API 계약: 부재 시 0 — 내구도 미추적 무기는 신품 취급
                 durability = 100
             jam_chance = JAM_BASE_CHANCE + max(0, (50 - durability) // 10)
             if random.randint(1, 100) <= jam_chance:
@@ -1022,7 +1024,7 @@ def _recompute_movement_injury(unit_id):
     slow_speed = morld.get_unit_prop(unit_id, "둔화:속도")
     leg_hours = morld.get_unit_prop(unit_id, "부상:다리") or 0
     sources = []
-    if slow_speed is not None:
+    if slow_speed:  # 실 API 계약: 부재 시 0 — 0을 추가하면 이동속도가 0으로 고정됨
         sources.append(slow_speed)
     if leg_hours > 0:
         sources.append(LEG_INJURY_SPEED)

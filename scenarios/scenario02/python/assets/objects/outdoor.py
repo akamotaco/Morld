@@ -283,13 +283,14 @@ class VendingMachine(Object):
         super().instantiate(instance_id, region_id, location_id)
 
         # 초기 재고 설정 (이미 설정된 경우 유지)
-        for uid, (_, _, max_stock) in self.CATALOG.items():
-            if morld.get_unit_prop(instance_id, f"상점:재고:{uid}") is None:
+        # 실 API 계약: 부재 시 0 — is None 판정이면 초기화가 영원히 실행되지 않아
+        # 재고/리젠이 항상 0. 1회 초기화 여부는 마커 prop으로 판정.
+        if not morld.get_unit_prop(instance_id, "상점:초기화"):
+            for uid, (_, _, max_stock) in self.CATALOG.items():
                 morld.set_unit_prop(instance_id, f"상점:재고:{uid}", max_stock)
-
-        # 리젠 기본값 ON
-        if morld.get_unit_prop(instance_id, "상점:리젠") is None:
+            # 리젠 기본값 ON
             morld.set_unit_prop(instance_id, "상점:리젠", 1)
+            morld.set_unit_prop(instance_id, "상점:초기화", 1)
 
         # resource_agent에 등록
         from think.resource_agent import register_vending_machine

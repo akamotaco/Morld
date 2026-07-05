@@ -791,14 +791,15 @@ def start_romance(player_id, partner_id, preserved=None, mode=MODE_CONSENSUAL,
 
     # 수간 세션: creature 기본 props 초기화
     if is_bestiality and not preserved:
+        # 실 API 계약: 부재 시 0 — is None 판정 불가, 멱등 재설정으로 키 생성 보장
         for prop in ("상태:성욕", "상태:절정"):
-            if morld.get_unit_prop(partner_id, prop) is None:
+            if not morld.get_unit_prop(partner_id, prop):
                 morld.set_unit_prop(partner_id, prop, 0)
         # 관계 props (없으면 0 기본)
         player_name = morld.get_unit_info(player_id).get("name", "?")
         for suffix in ("호감", "욕망", "반발", "복종"):
             key = f"관계:{player_name}:{suffix}"
-            if morld.get_unit_prop(partner_id, key) is None:
+            if not morld.get_unit_prop(partner_id, key):
                 morld.set_unit_prop(partner_id, key, 0)
 
     # 신규 세션: 상시 절정 prop → 세션 게이지 동기화

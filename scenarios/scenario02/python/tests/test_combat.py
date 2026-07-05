@@ -430,7 +430,7 @@ class TestDebuffs(_T):
         make_unit(1)
         combat.apply_bleeding(1)
         combat.cure_bleeding(1)
-        assert mock.get_unit_prop(1, "상태:출혈") is None
+        assert mock.get_unit_prop(1, "상태:출혈") == 0  # 실 계약: 부재 시 0
 
     def test_apply_slow(self):
         make_unit(1)
@@ -491,7 +491,7 @@ class TestPoison(_T):
         make_unit(1)
         combat.apply_poison(1)
         combat.cure_poison(1)
-        assert mock.get_unit_prop(1, "상태:독") is None
+        assert mock.get_unit_prop(1, "상태:독") == 0  # 실 계약: 부재 시 0
 
     def test_poison_tick_damage(self):
         make_unit(1, hp=50)
@@ -508,7 +508,7 @@ class TestPoison(_T):
         think_mod._agents[1] = True
 
         combat._tick_debuffs(1)
-        assert mock.get_unit_prop(1, "상태:독") is None
+        assert mock.get_unit_prop(1, "상태:독") == 0  # 실 계약: 부재 시 0
 
 
 # ========================================
@@ -542,7 +542,7 @@ class TestBodyInjury(_T):
         """몸통 부상 → 무효"""
         make_unit(1)
         combat.apply_body_injury(1, "몸통")
-        assert mock.get_unit_prop(1, "부상:몸통") is None
+        assert mock.get_unit_prop(1, "부상:몸통") == 0  # 실 계약: 부재 시 0
 
     def test_injury_natural_recovery(self):
         """부위 부상 자연 회복 (1시간 → 잔여 -1)"""
@@ -558,7 +558,7 @@ class TestBodyInjury(_T):
         combat.apply_body_injury(1, "머리", duration_hours=1)
 
         combat._tick_debuffs(1)
-        assert mock.get_unit_prop(1, "부상:머리") is None
+        assert mock.get_unit_prop(1, "부상:머리") == 0  # 실 계약: 부재 시 0
 
     def test_slow_and_leg_injury_overlap(self):
         """둔화 + 다리 부상 → 이동:부상 = min(둘)"""
@@ -576,10 +576,10 @@ class TestBodyInjury(_T):
         combat.apply_body_injury(1, "다리")
 
         combat.cure_body_injury(1)
-        assert mock.get_unit_prop(1, "부상:머리") is None
-        assert mock.get_unit_prop(1, "부상:팔") is None
-        assert mock.get_unit_prop(1, "부상:다리") is None
-        assert mock.get_unit_prop(1, "이동:부상") is None
+        assert mock.get_unit_prop(1, "부상:머리") == 0  # 실 계약: 부재 시 0
+        assert mock.get_unit_prop(1, "부상:팔") == 0  # 실 계약: 부재 시 0
+        assert mock.get_unit_prop(1, "부상:다리") == 0  # 실 계약: 부재 시 0
+        assert mock.get_unit_prop(1, "이동:부상") == 0  # 실 계약: 부재 시 0
 
 
 # ========================================

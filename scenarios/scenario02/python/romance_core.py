@@ -342,7 +342,7 @@ def get_restraint_value(partner_id):
          프로덕션 캐릭터(sera/mila/lina 등)는 REACTION_PROFILE을 통해 자동 적용됨.
     """
     explicit = morld.get_unit_prop(partner_id, "성격:자제심")
-    if explicit is not None:
+    if explicit:  # 실 API 계약: 부재 시 0 — 0/None은 '미설정'으로 간주
         return explicit
     archetype = _get_partner_archetype(partner_id)
     if archetype:
@@ -384,7 +384,7 @@ def get_disposition_value(unit_id, key):
         raise ValueError(f"Unknown disposition trait: {key!r}. "
                          f"Expected one of {DISPOSITION_SEXUAL_TRAITS}")
     explicit = morld.get_unit_prop(unit_id, f"성향:{key}")
-    if explicit is not None:
+    if explicit:  # 실 API 계약: 부재 시 0 — 0/None은 '미설정'으로 간주
         return explicit
     archetype = _get_partner_archetype(unit_id)
     if archetype:
@@ -406,7 +406,7 @@ def get_personality_value(unit_id, key):
         raise ValueError(f"Unknown personality trait: {key!r}. "
                          f"Expected one of {PERSONALITY_TRAITS}")
     explicit = morld.get_unit_prop(unit_id, f"성격:{key}")
-    if explicit is not None:
+    if explicit:  # 실 API 계약: 부재 시 0 — 0/None은 '미설정'으로 간주
         return explicit
     archetype = _get_partner_archetype(unit_id)
     if archetype:

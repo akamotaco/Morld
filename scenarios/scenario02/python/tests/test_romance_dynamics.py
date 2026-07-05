@@ -287,7 +287,7 @@ class TestTranceLevel:
         self._set_stats(arousal=80, gauge=40, restraint=50)
         rd.compute_trance_level(2)
         # update 전엔 prop 없음 (mock이 None 반환)
-        assert morld.get_unit_prop(2, "상태:트랜스") is None
+        assert morld.get_unit_prop(2, "상태:트랜스") == 0  # 실 계약: 부재 시 0
 
     def test_apathy_halves_trance(self):
         """Phase 2 Slice K: 무관심 1 → 트랜스 진입 절반 감쇠."""
