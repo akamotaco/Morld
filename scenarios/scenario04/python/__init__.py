@@ -9,6 +9,10 @@
 # morld API 호환 레이어 (누락 API 설치, 반드시 최초 import)
 import morld_compat
 
+# 대화 정책: S04 = hybrid (동적 생성 1차 레이어, infra-unification §2-5)
+from engine import dialogue_policy as _dialogue_policy
+_dialogue_policy.set_policy(_dialogue_policy.POLICY_HYBRID)
+
 # 에셋 로드 (데코레이터 등록 → 반드시 chapters 전에)
 import assets.characters
 import assets.objects

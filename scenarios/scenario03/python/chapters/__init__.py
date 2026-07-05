@@ -8,6 +8,11 @@
 
 import morld
 
+# 대화 정책: S03 = hybrid (동적 생성 1차 레이어, infra-unification §2-5)
+# S03은 python/__init__.py 가 없어 챕터 관리 모듈에서 선언한다.
+from engine import dialogue_policy as _dialogue_policy
+_dialogue_policy.set_policy(_dialogue_policy.POLICY_HYBRID)
+
 # 현재 로드된 챕터
 _current_chapter = None
 

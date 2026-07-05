@@ -74,6 +74,13 @@ EXPOSURE_DISCOVERY_PENALTY = {"호감": -3, "반발": 5}
 # `forced_{category}` / `trance_{category}` / `ecstasy_{category}` 조합으로 톤 유지.
 _HYBRID_TONE_PREFIXES = ("forced_", "trance_deep_", "trance_", "ecstasy_")
 
+# 대화 정책 (U5, §2-5) — fixed 시나리오에서는 위 hybrid 위임 경로가 전부 차단됨.
+# S02 프로덕션 부트스트랩(scenario02/python/__init__.py)이 fixed 를 선언한다.
+from engine import dialogue_policy as _dialogue_policy
+
+# fixed 정책 차단 로그 — (캐릭터, action:timing)당 1회만 출력 (스팸 방지)
+_POLICY_BLOCK_LOGGED = set()
+
 
 class Asset(_EngineAsset):
     """모든 Asset의 베이스 — engine.asset_base.Asset (S02 하위호환 명칭).
@@ -1654,6 +1661,10 @@ class Character(_CharacterBase):
             # 아키타입 풀로 자동 폴백. 접두사+카테고리 조합(예: forced_medium)을
             # hybrid 가 탐색해 톤 유지. 빈 문자열이면 None 으로 반환.
             if any(action_id.startswith(p) for p in _HYBRID_TONE_PREFIXES):
+                # fixed 정책: 톤 접두사 키는 조용히 생략 — 호출측(romance.py
+                # 접두사 체인)이 기본 키의 고정 rule 로 폴백한다 (§2-5)
+                if not _dialogue_policy.allows_dynamic():
+                    return None
                 try:
                     result = self._generate_dialogue(action_id, timing, stim_state)
                     return result if result else None
@@ -1681,6 +1692,14 @@ class Character(_CharacterBase):
                 ],
             }
         """
+        # fixed 정책: hybrid 위임 차단 — 갭은 키당 1회만 로그 (§2-5)
+        if not _dialogue_policy.allows_dynamic():
+            block_key = (self.name, f"{action_id}:{timing}")
+            if block_key not in _POLICY_BLOCK_LOGGED:
+                _POLICY_BLOCK_LOGGED.add(block_key)
+                print(f"[DialoguePolicy] fixed: hybrid 차단 {self.name!r} "
+                      f"{action_id}:{timing} (고정 rule 필요)")
+            return None
         from engine.dialogue_hybrid.s02_adapter import LineGenerator, ReactionGenerator
         profile = getattr(self, 'REACTION_PROFILE', None)
         if not profile:
@@ -2673,7 +2692,10 @@ class Character(_CharacterBase):
                         return texts
 
         # Hybrid 폴백 — during_<action> / forced_during_<action>
+        # (fixed 정책에서는 차단 — INITIATIVE_REACTIONS 고정 rule 만 사용, §2-5)
         if timing.startswith("during_") or timing.startswith("forced_during_"):
+            if not _dialogue_policy.allows_dynamic():
+                return None
             try:
                 from engine.dialogue_hybrid.s02_adapter import LineGenerator
                 profile = getattr(self, 'REACTION_PROFILE', None)

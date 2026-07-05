@@ -8,6 +8,12 @@
 # - chapters/: 챕터별 초기화 모듈
 # - quest/: 퀘스트 시스템
 
+# 대화 정책: S02 = 고정 대사 전용 (infra-unification §2-5)
+# hybrid 폴백(톤 접두사 위임 / _generate_dialogue catch-all / initiative 폴백)을
+# 전면 차단한다. 차단으로 노출되는 갭: docs/dialogue-fallback-coverage.md
+from engine import dialogue_policy as _dialogue_policy
+_dialogue_policy.set_policy(_dialogue_policy.POLICY_FIXED)
+
 import events
 import survival  # 시간 경과 이벤트 구독
 import temperature  # 온도 시스템 (시간 경과 이벤트 구독)

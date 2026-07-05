@@ -95,6 +95,7 @@ def main():
 
     test_modules = [
         "test_stimulation",
+        "test_dialogue_policy_s02",
         "test_romance_actions",
         "test_romance_mode",
         "test_romance_core",
