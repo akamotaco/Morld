@@ -37,7 +37,7 @@ def handle_build(agent, entry):
             agent._activity_phase = "building"
             agent._do_instant_action("건설 준비", "prepare")
         else:
-            agent._move_to(target, "건설현장 이동")
+            agent._move_to_target(target, "건설현장 이동")
 
     elif phase == "building":
         site_id = agent._activity_state.get("site_id")

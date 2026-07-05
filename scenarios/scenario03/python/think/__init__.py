@@ -1,94 +1,51 @@
-# think/__init__.py - NPC AI 시스템 (시나리오03)
+# think/__init__.py - NPC AI 시스템 (시나리오03) — engine 코어 채택 (U1)
+#
+# 레지스트리/디스패처: engine.think (C# 계약: `import think; think.think_all()`)
+# BaseAgent: engine.think_base 상속 (스케줄 스택/FSM/activity 슬롯/job 헬퍼 상속)
+#
+# 과거 이 패키지는 자체 registry + 자체 BaseAgent 최소 구현을 갖고 있었다
+# (엔진 이관에서 누락된 세대). infra-unification-plan §2-3에 따라 정본 채택.
 
-# 레지스트리 함수 export
-from .registry import (
+from engine.think import (  # noqa: F401
     _agents, _agent_classes,
     register_agent, unregister_agent, get_agent, get_all_agents,
     think_all, clear_all, clear_agents,
     register_agent_class, create_agent_for, get_registered_agent_ids,
+    reset,
 )
 
+from engine.think_base import BaseAgent as _EngineBaseAgent
 
-# BaseAgent 최소 구현
-class BaseAgent:
-    STAY_SCHEDULE = [{"name": "대기", "start": 0, "end": 86_400_000, "activity": "대기"}]
-    _action_duration_overrides = {}
 
-    def __init__(self, unit_id):
-        self.unit_id = unit_id
-        self._current_activity = None
-        self._activity_phase = "idle"
-        self._activity_state = {}
-        self._action_taken = False
-        self._fsm_stack = []
-        self._memory = {}
-        self._schedule = None
+class BaseAgent(_EngineBaseAgent):
+    """S03 Agent 기반 클래스 — engine.think_base 확장.
 
-    def set_base_schedule(self, schedule):
-        self._schedule = schedule
+    S03 전용 확장:
+    - _move_to_target: 텔레포트식 이동 (원격 지휘 시나리오의 데모 시맨틱 —
+      engine의 경로 이동 _move_to(region, location)와 별개)
+    - _get_action_duration: 미등록 키 기본 60초 (기존 데모 시맨틱 유지)
+    """
 
-    def think(self):
-        self._action_taken = False
-        self._insert_idle_job("대기", 600_000)
-        self._action_taken = True
+    _action_duration_overrides = {}  # 인스턴스별 오버라이드 (레거시 호환)
 
-    def get_info(self):
-        import morld
-        return morld.get_unit_info(self.unit_id)
-
-    def get_location(self):
-        import morld
-        return morld.get_unit_location(self.unit_id)
-
-    def _insert_idle_job(self, name, duration_millis):
-        if duration_millis <= 0:
-            return
-        import morld
-        morld.insert_job(self.unit_id, {
-            "name": name,
-            "action": "stay",
-            "duration": duration_millis,
-        })
+    ACTION_DURATION = {"brief": 3_000}
 
     def _get_action_duration(self, key):
         if key in self._action_duration_overrides:
             return self._action_duration_overrides[key]
-        # Default durations
-        defaults = {"safety_net": 600_000, "brief": 3_000}
-        return defaults.get(key, 60_000)
+        if key in self.ACTION_DURATION:
+            return self.ACTION_DURATION[key]
+        if key == "safety_net":
+            return self.SAFETY_NET_DURATION
+        return 60_000
 
-    def _do_instant_action(self, job_name, duration_key):
-        duration = self._get_action_duration(duration_key)
-        self._insert_idle_job(job_name, duration)
-        self._action_taken = True
-
-    def _is_at(self, target):
-        """target 위치에 있는지 확인"""
-        import morld
-        loc = morld.get_unit_location(self.unit_id)
-        if not loc:
-            return False
-        return (loc[0] == target.get("region_id")
-                and loc[1] == target.get("location_id"))
-
-    def _move_to(self, target, job_name="이동"):
-        """target 위치로 이동 job 삽입"""
+    def _move_to_target(self, target, job_name="이동"):
+        """target dict({"region_id","location_id"})로 즉시 배치 + 이동 시간 job"""
         import morld
         morld.set_unit_location(
-            self.unit_id,
-            target["region_id"],
-            target["location_id"],
-        )
+            self.unit_id, target["region_id"], target["location_id"])
         self._insert_idle_job(job_name, 60_000)
-        self._action_taken = True
-
-    def _remaining_millis_in_entry(self, entry):
-        """스케줄 엔트리 남은 시간"""
-        import morld
-        current = morld.get_game_time()
-        end = entry.get("end", 0)
-        return max(0, end - current)
 
 
 # 시나리오03 Agent 임포트 (자동 등록)
-from . import agents
+from . import agents  # noqa: E402,F401

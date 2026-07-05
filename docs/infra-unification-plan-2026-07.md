@@ -205,7 +205,16 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
   - C#: equip 액션 플레이어 부재 시 throw → 미노출 (action_system.cs, describe_system.cs)
   - 계약 테스트 신설: common/tests/test_player_contract.py (7개)
   - CLAUDE.md prop 계약 절에 player_id 계약 추가
-- [ ] U1 think 단일화
+- [x] **U1 think 단일화 — 완료 (2026-07-05)**
+  - S03 think/ → engine 정본 채택: registry 자체 사본 삭제(→re-export shim),
+    자체 BaseAgent → engine.think_base 상속 (S03 잔여물: 텔레포트 이동 `_move_to_target`,
+    60초 기본 duration만). 세 시나리오가 동일 think 코어 공유 달성
+  - **잠복 버그 해소**: S02 think/registry.py가 별도 _agents 사본 보유 —
+    party_squad.py:575 / combat_mixin.py:328의 `from think.registry import ...` 조회가
+    항상 빈 사본을 보고 있었음 → engine.think 동일 객체 재수출 shim으로 교체
+  - 스케줄 스택 승격: set_base_schedule/push/pop/get_current_schedule/
+    fill_schedule_jobs_from/_remaining_millis_in_entry/_is_at/STAY_SCHEDULE +
+    activity 슬롯 → engine/think_base.py (S02 중복 정의 제거, 상속 전환)
 - [ ] U2 asset 단일화 1차
 - [ ] U3 파티 단일화
 - [ ] U4 캐릭터 파일 표준 / S02 분해

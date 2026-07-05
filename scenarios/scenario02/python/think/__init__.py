@@ -78,11 +78,7 @@ class BaseAgent(
         STAY_SCHEDULE - 현재 위치에서 대기 (모든 NPC 공통)
     """
 
-    # 공용 스케줄: 현재 위치에서 대기 (24시간, location_id 없음 = 이동 없이 대기)
-    STAY_SCHEDULE = [
-        {"name": "대기", "start": 0, "end": 86_400_000, "activity": "대기"}
-    ]
-
+    # STAY_SCHEDULE / 스케줄 스택 / activity 슬롯: engine.think_base에서 상속 (U1 승격)
     # (보관소는 storage:{category} prop 기반 동적 탐색 — resolve_storage_container)
 
     _action_duration_overrides = {}  # 서브클래스에서 오버라이드 가능
@@ -109,16 +105,9 @@ class BaseAgent(
         return bool(info.get("is_creature", False)) if info else False
 
     def __init__(self, unit_id):
-        self.unit_id = unit_id
-        self.schedule_stack = [None]  # [0]은 기본 스케줄 자리 (서브클래스에서 설정)
-        # Activity 상태 (think에서 단일 행동 계획용)
-        self._current_activity = None   # 현재 수행 중인 activity entry
-        self._activity_target = None    # resolve된 장소 정보
-        self._arrived = False           # 목표 장소 도착 여부
-        self._activity_phase = "idle"   # 활동 내 단계
-        self._activity_state = {}       # 활동별 임시 데이터
-        self._action_taken = False      # think() 내 행동 결정 여부 (경고용)
-        # === FSM 스택 (행동 컨텍스트 관리) ===
+        # engine.think_base: 스케줄 스택 / activity 슬롯 / perception / FSM 초기화
+        super().__init__(unit_id)
+        # === FSM root를 S02 확장 LifeState로 교체 ===
         from think.fsm import LifeState
         self._fsm_stack = [LifeState()]  # root: 생활 (항상 존재, pop 불가)
         # === 지속 기억 (활동 간 유지, 향후 세이브/로드 대상) ===
@@ -164,99 +153,10 @@ class BaseAgent(
 
     # FSM 스택 관리: engine/think_base.py BaseAgent에서 상속
     # (_fsm_push, _fsm_pop, _fsm_top, _fsm_pop_by_type)
-
-    # ========================================
-    # 스케줄 관리
-    # ========================================
-
-    def set_base_schedule(self, schedule):
-        """
-        기본 스케줄 설정 (스택[0]에 저장)
-
-        서브클래스의 __init__에서 호출하여 초기 스케줄을 설정합니다.
-        날짜별 스케줄 전환 시에도 이 메서드를 사용합니다.
-
-        Args:
-            schedule: 스케줄 리스트
-        """
-        self.schedule_stack[0] = schedule
-        morld.clear_jobs(self.unit_id)
-        print(f"[think] set_base_schedule unit={self.unit_id}")
-
-    def get_info(self):
-        """현재 유닛 정보 조회"""
-        return morld.get_unit_info(self.unit_id)
-
-    def get_location(self):
-        """현재 위치 (region_id, location_id) 튜플"""
-        return morld.get_unit_location(self.unit_id)
-
-    def get_time(self):
-        """현재 게임 시간"""
-        return morld.get_game_time()
-
-    def find_path(self, to_region, to_location):
-        """경로 탐색"""
-        loc = self.get_location()
-        if loc is None:
-            return None
-        return morld.find_path(loc[0], loc[1], to_region, to_location, self.unit_id)
-
-    def fill_schedule_jobs_from(self, schedule):
-        """
-        Python에서 전달한 스케줄로 JobList 채우기
-
-        Args:
-            schedule: 스케줄 리스트
-                [{"name": str, "region_id": int, "location_id": int,
-                  "start": int, "end": int, "activity": str}, ...]
-
-        Returns:
-            True 성공, False 실패
-        """
-        result = morld.fill_schedule_jobs_from(self.unit_id, schedule)
-        print(f"[think] fill_schedule unit={self.unit_id}, entries={len(schedule)}, result={result}")
-        return result
-
-    def push_schedule(self, schedule):
-        """
-        스케줄 스택에 push (임시 스케줄로 전환)
-
-        Args:
-            schedule: 사용할 스케줄 (예: BaseAgent.STAY_SCHEDULE)
-
-        사용 예:
-            agent.push_schedule(BaseAgent.STAY_SCHEDULE)
-        """
-        self.schedule_stack.append(schedule)
-        morld.clear_jobs(self.unit_id)
-        print(f"[think] push_schedule unit={self.unit_id}, stack_depth={len(self.schedule_stack)}")
-
-    def pop_schedule(self):
-        """
-        스케줄 스택에서 pop (이전 스케줄로 복원)
-
-        [0]의 기본 스케줄은 보호되어 삭제되지 않습니다.
-
-        Returns:
-            pop된 스케줄 또는 None (기본 스케줄만 남은 경우)
-        """
-        if len(self.schedule_stack) > 1:
-            popped = self.schedule_stack.pop()
-            morld.clear_jobs(self.unit_id)
-            print(f"[think] pop_schedule unit={self.unit_id}, stack_depth={len(self.schedule_stack)}")
-            return popped
-        print(f"[think] pop_schedule unit={self.unit_id}, only base schedule remains")
-        return None
-
-    def get_current_schedule(self):
-        """
-        현재 사용해야 할 스케줄 반환 (스택 최상단)
-
-        Returns:
-            스케줄 리스트 또는 None
-        """
-        return self.schedule_stack[-1]
+    #
+    # 스케줄 관리도 engine/think_base.py에서 상속 (U1 승격):
+    # set_base_schedule / push_schedule / pop_schedule / get_current_schedule /
+    # fill_schedule_jobs_from / get_info / get_location / get_time / find_path
 
     # ========================================
     # 인벤토리 선호 비율 (소프트 가이드)
@@ -539,20 +439,8 @@ class BaseAgent(
 
     # ========================================
     # Job 삽입 헬퍼
+    # (_remaining_millis_in_entry: engine.think_base에서 상속 — U1 승격)
     # ========================================
-
-    def _remaining_millis_in_entry(self, entry):
-        """스케줄 entry 종료까지 남은 밀리초"""
-        millis = self.get_time()
-        end = entry["end"]
-        start = entry["start"]
-        if end < start:  # 자정 넘기기
-            if millis >= start:
-                return (MILLIS_PER_DAY - millis) + end
-            else:
-                return end - millis
-        else:
-            return max(0, end - millis)
 
     def _insert_idle_job(self, name, duration_millis):
         """stay job 삽입 (NPC가 현재 위치에서 대기)
