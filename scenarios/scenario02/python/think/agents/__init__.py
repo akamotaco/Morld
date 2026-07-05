@@ -11,3 +11,4 @@
 from think.agents import sera_agent  # noqa: F401
 from think.agents import mila_agent  # noqa: F401
 from think.agents import lina_agent  # noqa: F401
+from think.agents import yuki_agent  # noqa: F401
