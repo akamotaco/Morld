@@ -16,6 +16,7 @@
 | [perception-system.md](perception-system.md) | 📙 설계 기록 (부분 구현) | 감각 4채널(청각/시각/직감/후각) 통합 프레임워크 설계. `engine/perception.py`로 착수됨. Phase별 완성도는 코드 확인 필요. |
 | [engine-think-design.md](engine-think-design.md) | 📙 완료된 설계 기록 | 엔진 레벨 think 시스템(registry+dispatcher) 설계. `engine/think.py`, `engine/think_base.py`로 구현 완료. |
 | [movement-stealth-refactor.md](movement-stealth-refactor.md) | 📙 완료된 설계 기록 | Stealth/Stance/Posture 3축 분리 리팩터 설계. 실행 완료(`engine/stealth.py`의 `get_stealth_visibility()` 등). 일부 함수명은 코드가 문서와 다름(코드 우선). |
+| [restructure-plan-2026-07.md](restructure-plan-2026-07.md) | 📗 진행 중 계획 | 5대 원칙(C# 단일 코어/미들웨어 테스트/서로게이트 심/콘텐츠 분리/SharpPy 정합) 전수 감사 결과 + P0~P5 단계별 정리 계획 |
 
 ## 새 문서를 추가할 때
 
