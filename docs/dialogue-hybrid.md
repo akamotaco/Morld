@@ -310,19 +310,27 @@ dialogue_overrides:
 
 ### 병합 순서
 1. `archetype_dialogues/{아키타입}/{context}.yaml` 로드 → base
-2. `disable_templates` 적용 (제거)
-3. `replace_templates` 적용 (id 일치 교체)
-4. `add_templates` append
-5. `add_slots` pool 합집합
+2. bare `templates:` 있으면 **전체 교체** (base 무시 — 아래 "고정 대사" 참조)
+3. `disable_templates` 적용 (제거)
+4. `replace_templates` 적용 (id 일치 교체)
+5. `add_templates` append
+6. `add_slots` pool 합집합
 
 ### 권장 패턴
 
 | 상황 | 연산자 |
 |---|---|
+| **핵심 고정 대사** (first_meet 시그니처 등 — 아키타입 풀 배제) | bare `templates` (전체 교체) |
 | 캐릭터 특유 대사 1-2개만 추가 | `add_templates` |
 | 아키타입 표준이 어색함 → 캐릭터 맞춤 | `replace_templates` |
 | 이 캐릭터는 이 표현 절대 안 함 | `disable_templates` |
 | 슬롯 풀 확장 (고유 감탄사 등) | `add_slots` |
+
+> **핵심=고정 / 주변=dynamic 규약**: 서사적으로 반드시 그대로 나가야 하는 대사는
+> bare `templates:`로 선언한다 — 해당 intent가 아키타입 풀에 나중에 추가되더라도
+> 캐릭터 고정 라인만 사용됨을 엔진이 보장한다 (2026-07-05 `_merge_intents` 강화,
+> 회귀 테스트 T7). 주변/일상 대사는 `add_templates`로 아키타입 풀에 얹어
+> state-bias 확률 선택에 맡긴다.
 
 ---
 

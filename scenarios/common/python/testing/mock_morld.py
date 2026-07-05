@@ -156,6 +156,10 @@ class MockMorld:
         result["props"] = dict(u["props"])
         return result
 
+    def get_unit_name(self, unit_id):
+        u = self._units.get(unit_id)
+        return u["info"].get("name") if u else None
+
     def get_unit_location(self, unit_id):
         u = self._units.get(unit_id)
         return u["location"] if u else None

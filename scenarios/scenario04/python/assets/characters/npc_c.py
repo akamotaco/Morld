@@ -56,7 +56,7 @@ class NpcC(Character):
 
         player_id = morld.get_player_id()
         progress_key = f"관계:{self.name}:진척도"
-        if player_id and morld.get_unit_prop(player_id, progress_key, 0) <= 0:
+        if player_id and morld.get_unit_prop(player_id, progress_key) <= 0:
             morld.set_unit_prop(player_id, progress_key, 1)
             line = npc_dialogue.get_line(self.instance_id, "first_meet", name=self.name)
             return f"[{self.name}] \"{line}\""

@@ -176,6 +176,48 @@ check(f"캐시에 1 entry 만 저장 (재호출 캐시 히트 확인)",
 
 print()
 print("=" * 70)
+print("T7. 캐릭터 고정 대사 (핵심=고정 / 주변=dynamic 계약)")
+print("=" * 70)
+
+from engine.dialogue_hybrid.stateless import generate_daily_line
+from engine.dialogue_hybrid.engine import _merge_intents
+
+# 도현 first_meet — 캐릭터 yaml 작가 라인 3종 밖의 출력이 없어야 함 (고정 보장)
+clear_cache()
+_DOHYUN_AUTHORED = {
+    "...낯선 얼굴이군. 도현이다. 자네, 이 마을에서 본 적 없는데.",
+    "도현이라고 한다. ...자네 같은 부류는 처음 봐.",
+    "도현. 이름은 알겠고, 자네 정체부터 듣자.",
+}
+outs = {generate_daily_line("proud", "도현", "first_meet",
+                            dialogue_root=DIALOGUE_ROOT,
+                            rng=random.Random(i))
+        for i in range(30)}
+check("도현 first_meet 30회 전부 작가 라인 안", outs <= _DOHYUN_AUTHORED,
+      f"밖의 출력={outs - _DOHYUN_AUTHORED}")
+
+# greet — add_templates 이므로 아키타입 풀 + 시그니처 혼합 (dynamic)
+greets = {generate_daily_line("proud", "도현", "greet",
+                              {"affinity": 0.3},
+                              dialogue_root=DIALOGUE_ROOT,
+                              rng=random.Random(i))
+          for i in range(40)}
+sig = {g for g in greets if "자네인가" in g or "본론을 말해라" in g}
+check("도현 greet 40회에 시그니처 혼입", len(sig) > 0, f"greets={sorted(greets)[:5]}")
+check("도현 greet 40회에 아키타입 풀 라인도 포함", len(greets - sig) > 0)
+
+# bare `templates:` 는 base intent가 이미 있어도 전체 교체 (조용한 무시 금지)
+merged = _merge_intents(
+    {"first_meet": {"templates": [{"id": "arch_generic", "pattern": "처음 뵙겠습니다."}],
+                    "slots": {}}},
+    {"first_meet": {"templates": [{"id": "char_fixed", "pattern": "나는 고정이다."}]}},
+)
+ids = [t["id"] for t in merged["first_meet"]["templates"]]
+check("bare templates가 기존 intent를 전체 교체", ids == ["char_fixed"], f"ids={ids}")
+
+
+print()
+print("=" * 70)
 print(f"RESULT: {passed} passed / {failed} failed")
 print("=" * 70)
 sys.exit(0 if failed == 0 else 1)

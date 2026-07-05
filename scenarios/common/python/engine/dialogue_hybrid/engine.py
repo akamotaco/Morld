@@ -170,6 +170,14 @@ def _merge_intents(base: Dict[str, Dict], overrides: Dict[str, Dict]) -> Dict[st
         templates = list(intent.get("templates", []) or [])
         slots = dict(intent.get("slots", {}) or {})
 
+        # bare `templates:` = 전체 교체 — 캐릭터 고정 대사(first_meet 시그니처 등)가
+        # 아키타입 풀에 같은 intent가 뒤늦게 추가돼도 조용히 무시되지 않도록 보장.
+        # (연산자 병합이 필요하면 add/replace/disable_templates를 사용할 것)
+        bare = list(ov.get("templates", []) or [])
+        if bare:
+            templates = bare
+            slots = dict(ov.get("slots", {}) or {})
+
         disable = set(ov.get("disable_templates", []) or [])
         if disable:
             templates = [t for t in templates if t.get("id") not in disable]
