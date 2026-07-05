@@ -195,7 +195,16 @@ U0/U1/U2는 독립적이므로 한 사이클에 묶어 진행 가능. U3가 리�
 
 ## 진행 상태
 
-- [ ] U0 플레이어 계약
+- [x] **U0 플레이어 계약 — 완료 (2026-07-05)**
+  - 죽은 `is None` 가드 17곳 truthy 전환 (lighting/fsm_dungeon/ui_base/temperature/
+    survival/stealth/quest_reporter + S04 debug_pipeline)
+  - 공유 mock 실계약화: 기본 player_id 0 + `add_unit(unique_id="player")` 자동 설정
+    (S02 레거시 가정 'unit 1=주인공'은 S02 shim에서만 유지)
+  - S03에 오퍼레이터 플레이어 유닛 배치 (통신실 상주, unique_id="player") —
+    CRT 액션이 표준 Look 파이프라인으로 성립 + "S03에 플레이어 추가 가능" 실증
+  - C#: equip 액션 플레이어 부재 시 throw → 미노출 (action_system.cs, describe_system.cs)
+  - 계약 테스트 신설: common/tests/test_player_contract.py (7개)
+  - CLAUDE.md prop 계약 절에 player_id 계약 추가
 - [ ] U1 think 단일화
 - [ ] U2 asset 단일화 1차
 - [ ] U3 파티 단일화

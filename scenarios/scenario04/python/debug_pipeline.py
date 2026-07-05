@@ -32,7 +32,7 @@ def run(*, dungeon_length: int = 5, max_recruits: int = 2, verbose: bool = True)
             print(msg)
 
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         _p("[debug_pipeline] no player — abort")
         return {"recruits": [], "dungeon_log": log, "outcome": "aborted"}
 

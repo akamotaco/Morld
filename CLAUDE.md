@@ -123,6 +123,13 @@ if morld.get_unit_prop(item_id, "내구도") is None:  # 항상 False!
 - 1회 초기화 판정은 값 prop이 아닌 **마커 prop**으로
 - 카운터/ID처럼 0이 유효값이 될 수 있는 prop은 1-based 설계 권장 (사례: `생식:주기일`)
 
+**`get_player_id`도 같은 계약**: 플레이어 미등록 시 `None`이 아니라 **`0`** 반환
+(유닛 id는 1부터 발급되므로 0=부재가 안전). 가드는 반드시 truthy로:
+`if not player_id: return`. `is None` 판정은 죽은 분기다.
+플레이어 지정은 `add_unit(unique_id="player")`가 유일한 경로 (C#이 PlayerId 자동 설정).
+플레이어 없는 시나리오(S03 오퍼레이터형)도 공용 엔진이 동작해야 한다
+— [docs/infra-unification-plan-2026-07.md](docs/infra-unification-plan-2026-07.md) §2-2.
+
 참고: [scenario03/docs/compatibility.md](scenarios/scenario03/docs/compatibility.md) (선택적 prop 패턴의 상세 예시)
 
 ---

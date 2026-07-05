@@ -79,10 +79,17 @@ def post_restore():
 
 
 def _instantiate_npcs():
-    """NPC 인스턴스화 + Agent 등록"""
+    """플레이어/NPC 인스턴스화 + Agent 등록"""
+    from assets.characters.operator import Operator
     from assets.characters.secretary import Secretary
     from think.agents.secretary_agent import SecretaryAgent
     from think import register_agent
+
+    # 오퍼레이터(플레이어) — 통신실(R0, L2) 상주.
+    # unique_id="player" 등록으로 C# PlayerId 자동 설정 → CRT 액션 노출 성립
+    player = Operator()
+    player_id = morld.create_id("unit")
+    player.instantiate(player_id, 0, 2)
 
     # 비서 — 통신실(R0, L2) 배치
     secretary = Secretary()
@@ -93,7 +100,8 @@ def _instantiate_npcs():
     agent = SecretaryAgent(secretary_id)
     register_agent(secretary_id, agent)
 
-    print(f"[demo] Secretary NPC placed at comm_room (id={secretary_id})")
+    print(f"[demo] Operator(player id={player_id}) + Secretary(id={secretary_id}) "
+          "placed at comm_room")
 
 
 def _instantiate_objects():

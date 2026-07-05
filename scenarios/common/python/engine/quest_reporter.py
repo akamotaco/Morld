@@ -109,7 +109,7 @@ def confirm_quest(quest_id):
         return False
 
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         return False
 
     # on_confirm 훅 실행 (consume_item 등)

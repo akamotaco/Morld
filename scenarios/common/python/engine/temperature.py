@@ -370,7 +370,7 @@ def _update_characters():
     # 플레이어 + 등록된 NPC
     targets = set(_tracked_characters)
     player_id = morld.get_player_id()
-    if player_id is not None:
+    if player_id:
         targets.add(player_id)
 
     if not targets:

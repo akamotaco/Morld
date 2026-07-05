@@ -50,6 +50,9 @@ class ConstructionSite(Object):
             return
 
         player_id = morld.get_player_id()
+        if not player_id:  # player_id 계약: 부재 시 0 — 오퍼레이터 원격 지정만 가능
+            yield ui.dialog(["직접 건설할 수 없다. 에이전트에게 맡기자."])
+            return
         success, new_progress, msg = build.build_location_progress(
             player_id, self.instance_id, recipe.materials
         )

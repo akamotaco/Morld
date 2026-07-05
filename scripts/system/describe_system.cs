@@ -840,12 +840,14 @@ namespace SE
 				foreach (var action in partition.Enabled)
 				{
 					var (url, label) = actionSystem.GetActionUrlAndLabel(action, itemId, targetUnitId, context);
+					if (label == null) continue; // 플레이어 부재 등으로 액션 미노출
 					lines.Add($"  [url={url}]{label}[/url]");
 				}
 				// 비활성화된 액션 (회색)
 				foreach (var action in partition.Disabled)
 				{
 					var (_, label) = actionSystem.GetActionUrlAndLabel(action, itemId, targetUnitId, context);
+					if (label == null) continue;
 					lines.Add($"  {StyleMuted(label)}");
 				}
 			}

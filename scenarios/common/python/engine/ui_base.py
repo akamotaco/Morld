@@ -179,7 +179,7 @@ def get_time_weather_text():
         loc = None
         try:
             player_id = morld.get_player_id()
-            if player_id is not None:
+            if player_id:
                 loc = morld.get_unit_location(player_id)
         except Exception:
             pass
@@ -240,7 +240,7 @@ def get_status_text():
     try:
         import survival
         player_id = morld.get_player_id()
-        if player_id is None:
+        if not player_id:
             return ""
 
         lines = []

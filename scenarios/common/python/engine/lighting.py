@@ -162,7 +162,7 @@ def get_player_portable_light() -> float:
         float: 휴대 광원 밝기 (없으면 0.0)
     """
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         return 0.0
 
     # 장착된 아이템 확인
@@ -204,7 +204,7 @@ def get_location_brightness(region_id: int = None, location_id: int = None) -> f
     # 플레이어 위치 사용
     if region_id is None or location_id is None:
         player_id = morld.get_player_id()
-        if player_id is None:
+        if not player_id:
             return 1.0
 
         player_loc = morld.get_unit_location(player_id)

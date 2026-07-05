@@ -339,7 +339,7 @@ def _enter_player_exhaustion():
     _player_exhausted = True
     _player_exhausted_remaining = float(EXHAUSTION_DURATION_HOURS)
     player_id = morld.get_player_id()
-    if player_id is not None:
+    if player_id:
         morld.set_unit_prop(player_id, "상태:탈진", 1)
         morld.set_unit_prop(player_id, "status:stealth", 0)  # 은신 해제
     print(f"[survival] Player exhausted! ({EXHAUSTION_DURATION_HOURS}h)")
@@ -351,7 +351,7 @@ def _exit_player_exhaustion():
     _player_exhausted = False
     _player_exhausted_remaining = 0.0
     player_id = morld.get_player_id()
-    if player_id is not None:
+    if player_id:
         morld.set_unit_prop(player_id, "상태:탈진", 0)
     print(f"[survival] Player recovered from exhaustion")
 
@@ -681,7 +681,7 @@ def _on_time_elapsed(millis: int):
     EventSystem에서 시간 경과 시 자동 호출됨
     """
     player_id = morld.get_player_id()
-    if player_id is not None:
+    if player_id:
         process_time_elapsed(player_id, millis)
 
     # 등록된 NPC들의 포만감 처리

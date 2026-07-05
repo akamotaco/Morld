@@ -266,7 +266,8 @@ namespace SE
 				var player = playerSystem.FindPlayerUnit();
 				if (player == null)
 				{
-					throw new InvalidOperationException("[ActionSystem] GetActionUrlAndLabel: Player not found for equip action");
+					// 플레이어 없는 시나리오(오퍼레이터 시점 등)에서는 equip 액션 미노출
+					return (null, null);
 				}
 				bool isEquipped = _inventorySystem.IsEquippedOnUnit(player.Id, itemId);
 

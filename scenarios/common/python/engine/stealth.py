@@ -40,7 +40,7 @@ def get_stealth_visibility(unit_id: int = None) -> float:
     """
     if unit_id is None:
         unit_id = morld.get_player_id()
-    if unit_id is None:
+    if not unit_id:  # player_id 계약: 부재 시 0 (None 아님)
         return STEALTH_VISIBILITY_VISIBLE
 
     if is_unit_stealthed(unit_id):
@@ -115,7 +115,7 @@ def get_cover_coefficient_for(unit_id: int) -> float:
 def get_cover_coefficient() -> float:
     """플레이어 엄폐 계수 (get_cover_coefficient_for 래퍼)"""
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         return COVER_COEFFICIENT_NONE
     return get_cover_coefficient_for(player_id)
 
@@ -167,7 +167,7 @@ def check_detection_over_time(elapsed_minutes: int, npc_ids: list = None) -> int
 def is_player_stealthed() -> bool:
     """플레이어가 은신 중인지 확인"""
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         return False
     return morld.get_unit_prop(player_id, "status:stealth") == 1
 
@@ -207,7 +207,7 @@ def exit_unit_stealth(unit_id: int):
 def set_detected(npc_id: int = None) -> str:
     """플레이어 발각 처리: 은신 해제 + 메시지 반환"""
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         return ""
 
     morld.clear_prop(player_id, "status:stealth")
@@ -245,7 +245,7 @@ def resolve_event_with_stealth(npc_id: int, is_forced: bool = False) -> tuple:
 def get_player_perception() -> float:
     """플레이어 감지력 반환"""
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         return 1.0
     perception = morld.get_unit_prop(player_id, "perception:base")
     if perception is None:
@@ -326,7 +326,7 @@ def on_stealth_noise(source_id: int, intensity: float):
 def _on_stealth_check(millis):
     """30분마다 플레이어 위치의 은신 NPC 감지 재판정"""
     player_id = morld.get_player_id()
-    if player_id is None:
+    if not player_id:
         return
     loc = morld.get_unit_location(player_id)
     if loc is None:

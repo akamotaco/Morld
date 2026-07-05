@@ -35,7 +35,9 @@ class MockMorld:
         self._regions = {}
         self._gates = {}
         self._next_id = 1000
-        self._player_id = 1
+        # 실 C# 계약: 플레이어 미등록 시 PlayerId=0 (유닛 id는 1부터 발급 → 0=부재).
+        # add_unit(unique_id="player") 호출 시 자동 설정 (script_system_data_api.cs:1112).
+        self._player_id = 0
         self._time = 0
         self._time_frozen = False
         self._logs = []
@@ -356,6 +358,13 @@ class MockMorld:
             "location": (region_id, location_id),
             "inventory": {},
         }
+        # 실 C# 계약: unique_id=="player" 등록 시 PlayerId 자동 설정
+        if unique_id == "player":
+            self._player_id = unit_id
+
+    def set_player_id(self, unit_id):
+        """테스트 셋업 헬퍼 (morld API 아님) — 플레이어 유닛 지정"""
+        self._player_id = unit_id
 
     def set_unit_props(self, unit_id, props_dict):
         """복수 prop 일괄 설정"""

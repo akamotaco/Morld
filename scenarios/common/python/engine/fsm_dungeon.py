@@ -47,7 +47,7 @@ class DungeonState(FSMState):
     def update(self, agent):
         # 리더(플레이어) 실신 체크
         player_id = morld.get_player_id()
-        if player_id is not None:
+        if player_id:
             fainted = morld.get_unit_prop(player_id, "상태:실신")
             if fainted:
                 my_fainted = morld.get_unit_prop(agent.unit_id, "상태:실신")
