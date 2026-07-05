@@ -80,3 +80,8 @@ def with_particle(word: str, particle_pair: str) -> str:
     if fn is None:
         return word
     return word + fn(word)
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

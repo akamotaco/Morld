@@ -32,3 +32,8 @@ COMMON_LEADER_PROPS = {
     "can:dismiss_from_party": 1,    # 파티 이탈 지시
     "can:dungeon_proceed": 1,       # 던전 노드 진행 결정
 }
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

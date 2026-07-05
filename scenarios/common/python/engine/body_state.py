@@ -70,3 +70,9 @@ def get_aggregation(ability: str) -> str:
 def register_layout(species: str, layout: dict):
     """종족별 layout 등록 — 시나리오 초기화에서 호출."""
     _LAYOUTS[species] = layout
+
+
+def reset():
+    """시나리오 등록 layout 제거, 기본(human)만 유지 — pi-world reset 계약"""
+    for species in [s for s in _LAYOUTS if s != "human"]:
+        del _LAYOUTS[species]

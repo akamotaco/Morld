@@ -83,3 +83,8 @@ def set_archetype(unit_id, archetype):
         print(f"[persona] WARNING: unknown archetype '{archetype}' for unit {unit_id}")
         return
     morld.set_unit_prop(unit_id, "아키타입", archetype)
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

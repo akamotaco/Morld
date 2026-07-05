@@ -76,3 +76,8 @@ def get_escape_multiplier(unit_id) -> float:
     if is_upper_restrained(unit_id) or is_lower_restrained(unit_id):
         return 0.3
     return 1.0
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

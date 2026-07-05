@@ -91,3 +91,8 @@ class DungeonExploreState(FSMState):
 
     def exit(self, agent):
         print("[FSM] " + str(agent.get_name()) + ": DungeonExploreState 해제")
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

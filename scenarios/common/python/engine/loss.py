@@ -67,3 +67,8 @@ def get_prosthetic(uid, part: str):
 def is_part_lost(uid, part: str) -> bool:
     """결손 + 보조구 없음 → 능력적으로 죽은 부위."""
     return has_loss(uid, part) and not has_prosthetic(uid, part)
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

@@ -49,6 +49,16 @@ def _action_consume_item(player_id, action, quest_id):
 register_confirm_action("consume_item", _action_consume_item)
 
 
+def reset():
+    """확인 액션 레지스트리를 기본 상태로 복원 — pi-world reset 계약.
+
+    챕터 전환/테스트 간 시나리오 등록 핸들러 잔존 방지.
+    기본 제공 consume_item은 유지.
+    """
+    _confirm_action_handlers.clear()
+    _confirm_action_handlers["consume_item"] = _action_consume_item
+
+
 # ============================================
 # 조회 + 재평가
 # ============================================

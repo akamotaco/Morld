@@ -257,3 +257,8 @@ def check_penetration_compatibility(actor_id, target_id):
         return {"needs_prep": 0, "pain": False, "stim_mod": 0.85}
     else:  # diff <= -2
         return {"needs_prep": 0, "pain": False, "stim_mod": 0.7}
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

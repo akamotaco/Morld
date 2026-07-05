@@ -110,3 +110,8 @@ def get_injuries(uid) -> list:
         if sev > 0:
             result.append((p, sev, get_kind(uid, p)))
     return result
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

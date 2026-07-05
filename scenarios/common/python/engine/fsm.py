@@ -328,3 +328,8 @@ class GateTransitState(FSMState):
         return ("<GateTransitState(lv=" + str(self.level) + ", stage=" + str(self.stage)
                 + ", " + hop_info + ") -> R" + str(self.target["region_id"])
                 + ":L" + str(self.target["location_id"]) + ">")
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

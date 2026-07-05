@@ -219,3 +219,8 @@ class BaseAgent:
     def get_name(self):
         """유닛 이름"""
         return morld.get_unit_name(self.unit_id) or str(self.unit_id)
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

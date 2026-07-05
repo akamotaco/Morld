@@ -68,7 +68,7 @@ ring world + TEXT UI 골격은 이미 엔진의 형태. 이 원칙은 P2(엔진 
 
 | # | 작업 | 대상 |
 |---|------|------|
-| P1-0 | **데이터 포맷 결정**: yaml 유지 + 빌드타임 json/py-dict 컴파일 vs 처음부터 json (SharpPy pyyaml 문제 회피) | 결정 필요 |
+| P1-0 | ~~데이터 포맷 결정~~ → **확정: yaml 저작 + 빌드타임 json/py-dict 컴파일** (런타임 pyyaml 비의존, 기존 87개 yaml 유지) | ✅ 결정됨 (2026-07-05) |
 | P1-1 | `*_templates.py` 6종 → 아키타입 데이터 파일 이관 (구조 동형, 기계적) | scenario02 |
 | P1-2 | S02 캐릭터 파일 3분할: ① props/스케줄 데이터 ② 대사 → `dialogues/characters/*.yaml` 스텁 채우기 ③ Agent/상점 로직 → `think/agents/` | sera/mila/lina/yuki/ella/faye.py |
 | P1-3 | `story.py` 이름 리터럴 제거 → 캐릭터 prop(`저택멤버`, `목격:관용` 등) 기반 | scenario02 |
@@ -106,11 +106,24 @@ ring world + TEXT UI 골격은 이미 엔진의 형태. 이 원칙은 P2(엔진 
 
 ## 진행 상태
 
-- [ ] P0 테스트 신뢰성
-- [ ] P1 콘텐츠/시스템 분리
+- [x] **P0 테스트 신뢰성 — 완료 (2026-07-05, 커밋 662ad7e/f1efc9c/+)**
+  - 공유 mock 단일본(`common/python/testing/mock_morld.py`) + S02/S03 shim 전환
+  - `get_unit_prop` 실계약(부재=0) 일치 → **잠복 실버그 11건 수정**
+    (월경 오판정·주기 미초기화, 다리부상 이동속도 0 고정, 세력관계 override 무력화,
+    is_vehicle 전유닛 오판, 상점 재고 항상 0, 시작 소지금 미지급 등)
+  - S03 테스트 부활: 109통과/46에러 → **153/153** (dungeon 경로 + expedition 3-튜플 프로덕션 수정)
+  - reset 계약: quest_reporter/body_state 실질 reset + 누락 14개 모듈 보강,
+    엔진 전 모듈 reset 준수를 강제하는 계약 테스트 추가
+  - 엔진 환경 시스템 직접 테스트 신설: `common/python/tests/` (17개)
+  - 발견: `engine/build.py`가 시나리오 `assets` 레이어 import (의존성 규칙 위반)
+    — 톱레벨은 lazy로 임시 해소, 구조적 역전은 P5에서
+  - 이월: S04 인라인 mock 전면 통합(계약만 일치시킴 — 테스트 본문이 mock 내부에 결합),
+    CI에서 SharpPy 런타임으로도 테스트 실행(P4-6)
+  - 최종: 엔진 17/17 · S02 1555/1555 · S03 153/153 · S04 67/67
+- [ ] P1 콘텐츠/시스템 분리 (P1-0 포맷 확정됨: yaml + 빌드타임 컴파일)
 - [ ] P2 C# 코어 순화
 - [ ] P3 성능 승격
 - [ ] P4 SharpPy upstream
-- [ ] P5 시나리오 정합
+- [ ] P5 시나리오 정합 (+ engine/build.py assets 의존 역전 추가)
 
 완료 시 이 문서를 `docs/README.md`에서 "완료된 설계 기록"으로 분류 변경할 것.

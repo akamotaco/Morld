@@ -121,3 +121,8 @@ def _part_factor(uid, part: str) -> float:
         return 0.0
     sev = injury.get_severity(uid, part)
     return max(0.0, 1.0 - sev / 100)
+
+
+def reset():
+    """모듈 상태 초기화 — pi-world reset 계약 (가변 전역 없음, 규약 준수용)"""
+    pass

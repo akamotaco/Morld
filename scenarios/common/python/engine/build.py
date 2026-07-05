@@ -8,7 +8,17 @@
 
 import morld
 import map_coords
-from assets.registry import get_or_create_item_id
+
+
+def get_or_create_item_id(item_uid):
+    """assets.registry 위임 (lazy import).
+
+    Why lazy: 엔진 → 시나리오(assets) 의존은 pi-world 의존성 규칙 위반.
+    톱레벨 import면 시나리오 없는 환경(엔진 단독 테스트)에서 모듈 로드 자체가
+    실패한다. 구조적 해소(주입/레지스트리 역전)는 restructure-plan P5 참조.
+    """
+    from assets.registry import get_or_create_item_id as _impl
+    return _impl(item_uid)
 
 
 # ========================================
